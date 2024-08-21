@@ -215,9 +215,7 @@ elab "intConstructor6Result" : term => return intConstructor6Result
 #testOptimize [ "EqStrConstructor_2" ] "xyz" = "zxyz" ===> False
 
 -- ∀ (x : String), (x = "xyz") ===> ∀ (x : String), (x = "xyz")
--- NOTE: We here provide the internal representation to ensure that "xyz" is properly
--- reduced to `Expr.lit (Literal.strVal "xyz")`
-
+-- NOTE: We here provide the internal representation to ensure that "xyz" is properly reduced to `Expr.lit (Literal.strVal "xyz")`
 def strConstructor3Result : Expr :=
   Lean.Expr.forallE `x
     (Lean.Expr.const `String [])
