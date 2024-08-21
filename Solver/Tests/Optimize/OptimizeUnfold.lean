@@ -31,25 +31,30 @@ def add_n_times (n : Nat) (a : Int) : Int :=
 #testOptimize [ "EqNotUnfolded" ] ∀ (x y : Int), x = y ===> ∀ (x y : Int), y = x
 
 -- boolean equality not unfolded for Int
--- NOTE: reordering applied on commutative operators
 -- NOTE: we explicitly introduce `= true` in the expected result to be deterministic
-#testOptimize [ "BEqIntNotUnfolded" ] ∀ (x y : Int), x == y ===> ∀ (x y : Int), true = (y == x)
+#testOptimize [ "BEqIntNotUnfolded" ] ∀ (x y : Int), x == y ===> ∀ (x y : Int), true = (x == y)
 
 -- boolean equality not unfolded for Nat
--- NOTE: reordering applied on commutative operators
 -- NOTE: we explicitly introduce `= true` in the expected result to be deterministic
-#testOptimize [ "BEqNatNotUnfolded" ] ∀ (x y : Nat), x == y ===> ∀ (x y : Nat), true = (y == x)
+#testOptimize [ "BEqNatNotUnfolded" ] ∀ (x y : Nat), x == y ===> ∀ (x y : Nat), true = (x == y)
 
 -- boolean equality not unfolded for Bool
+-- NOTE: reordering applied on commutative operators
 -- NOTE: we explicitly introduce `= true` in the expected result to be deterministic
-#testOptimize [ "BEqBoolNotUnfolded" ] ∀ (x y : Bool), x == y ===> ∀ (x y : Bool), true = (x == y)
+#testOptimize [ "BEqBoolNotUnfolded" ] ∀ (x y : Bool), x == y ===> ∀ (x y : Bool), true = (y == x)
+
+-- boolean equality not unfolded for String
+-- NOTE: reordering applied on commutative operators
+-- NOTE: we explicitly introduce `= true` in the expected result to be deterministic
+#testOptimize [ "BEqStringNotUnfolded" ] ∀ (x y : String), x == y ===> ∀ (x y : String), true = (x == y)
 
 -- And not unfolded
 -- NOTE: reordering applied on commutative operators
 #testOptimize [ "AndNotUnfolded" ] ∀ (a b : Prop), a ∧ b ===> ∀ (a b : Prop), b ∧ a
 
 -- Or not unfolded
-#testOptimize [ "OrNotUnfolded" ] ∀ (a b : Prop), a ∨ b ===> ∀ (a b : Prop), a ∨ b
+-- NOTE: reordering applied on commutative operators
+#testOptimize [ "OrNotUnfolded" ] ∀ (a b : Prop), a ∨ b ===> ∀ (a b : Prop), b ∨ a
 
 -- Not not unfolded
 #testOptimize [ "NotNotUnfolded" ] ∀ (a : Prop), ¬ a ===> ∀ (a : Prop), ¬ a
@@ -62,7 +67,7 @@ def add_n_times (n : Nat) (a : Int) : Int :=
 -- Ite not unfolded: case 2
 -- Ensuring that reordering also applied on decidable int eq
 #testOptimize [ "ITENotUnfoldedTwo" ] ∀ (a b : Prop) (x y : Int), if x = y then a else b ===>
-                                      ∀ (a b : Prop) (x y : Int), if x = y then a else b
+                                      ∀ (a b : Prop) (x y : Int), if y = x then a else b
 
 -- Ite not unfolded: case 3
 -- NOTE: reordering applied on commutative operators
@@ -78,16 +83,15 @@ def add_n_times (n : Nat) (a : Int) : Int :=
 -- Ite not unfolded: case 5
 -- NOTE: considering explicit DecidableEq constraints on parametric types
 #testOptimize [ "ITENotUnfoldedThree" ] ∀ (a b : Prop) (α : Type) (x y : List α), [DecidableEq α] → if x = y then a else b ===>
-                                        ∀ (a b : Prop) (α : Type) (x y : List α), [DecidableEq α] → if x = y then a else b
+                                        ∀ (a b : Prop) (α : Type) (x y : List α), [DecidableEq α] → if y = x then a else b
 
 -- DITE not unfolded
 #testOptimize [ "ITENotUnfolded" ] ∀ (a b : Prop) (c : Bool), if _h : c then a else b ===>
                                    ∀ (a b : Prop) (c : Bool), if _h : true = c then a else b
 
 -- Exists not unfolded
--- NOTE: reordering applied on commutative operators
 #testOptimize [ "ExistsNotUnfolded" ] ∀ (x : Int), ∃ (y z : Int), y > x ∧ z > y ===>
-                                      ∀ (x : Int), ∃ (y z : Int), z > y ∧ y > x
+                                      ∀ (x : Int), ∃ (y z : Int), y > x ∧ z > y
 
 
 -- UNCOMMENT ONCE WE HAVE INT reduction rules

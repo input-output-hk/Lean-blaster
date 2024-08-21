@@ -71,12 +71,14 @@ def opaqueFuns : NameHashSet :=
   ]
 
 /-- list of types for which the BEq instance is guaranteed to be reflexive, symmetric and transitive.
+TODO: add other basic lean types (e.g., Char, etc)
 -/
 def beqCompatibleTypes : NameHashSet :=
   List.foldr (fun c s => s.insert c) HashSet.empty
   [ ``Nat,
     ``Int,
     ``Bool,
+    ``String
   ]
 
 /-- Return `true` if function name is `BEq.beq` with a sort parameter in `beqCompatibletypes`.
@@ -137,21 +139,6 @@ def isFullyAppliedConst (e : Expr) : MetaM Bool := do
 
 /-- Return `true if e corresponds to a constructor (i.e., constant value). -/
 def isConstructor (e : Expr) : MetaM Bool := isEnumConst e <||> (pure e.isLit) <||> isFullyAppliedConst e
-
-
-/-- If the expression `e` is a constructor (i.e., constant value), then return it's name.
-    Otherwise an error is triggered.
-    This function is to be used only when predicate isConstructor e return `true`.
--/
-def constructorName! (e : Expr) : Name :=
- match e with
- | Expr.const n _ => n
- | Expr.app .. =>
-    Expr.withApp e fun f _ =>
-      match f with
-      | Expr.const n _ => n
-      | _ => panic! "constructorName!: applied constructor expected !!!"
- | _ => panic! "constructorNameconstructor expected !!!"
 
 /-- Return `true` when `e1 = ¬ ne ∧ ne =ₚₜᵣ e2`. Otherwise `false`.
  -/

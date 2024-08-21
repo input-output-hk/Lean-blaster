@@ -16,7 +16,9 @@ def callOptimize (sOpts : Solver.SolverOptions) (stx : Syntax) : TermElabM Expr 
 
 /-! ## Definition of #testOptimize command to write unit test for Solver.optimize
     The #testOptimize usage is as follows:
-     #testOptimize [ "TestName" ] TermToOptimize ==> OptimizedTerm
+     #testOptimize [ "TestName" ] (verbose: num)? TermToOptimize ==> OptimizedTerm
+
+    with optional argument `verbose` to activate debug info
 
     E.g.
      #testOptimize [ "AndSubsumption" ] ∀ (a : Prop), a ∧ a ==> ∀ (a : Prop), a
@@ -24,7 +26,6 @@ def callOptimize (sOpts : Solver.SolverOptions) (stx : Syntax) : TermElabM Expr 
 syntax testName := "[" str "]"
 syntax termReducedTo := term  "===>" term
 syntax (name := testOptimize) "#testOptimize" testName Solver.solveVerbose termReducedTo : command
-
 
 def parseTestName : TSyntax `testName -> CommandElabM String
  | `(testName| [ $s:str ]) => pure s.getString

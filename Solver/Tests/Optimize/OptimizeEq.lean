@@ -96,7 +96,6 @@ opaque c : Nat
 #testOptimize [ "EqConstructor_7" ] [b, a, c] = [a, b] ===> False
 
 -- [b, a, c] = [b, a, c] ===> True
--- NOTE: resolve to `True` via physical equivalence simp rule
 #testOptimize [ "EqConstructor_8" ] [b, a, c] = [b, a, c] ===> True
 
 inductive Color where
@@ -113,7 +112,6 @@ inductive Color where
 #testOptimize [ "EqConstructor_12" ] ∀ (x : Color), x = Color.red ===> ∀ (x : Color), Color.red = x
 
 -- List.nil : List α = List.nil : List α ===> True
--- NOTE: resolve to `True` via physical equivalence simp rule
 #testOptimize [ "EqConstructor_13" ] ∀ (α : Type), (List.nil : List α) = (List.nil : List α) ===> True
 
 -- List.nil = [x, y, z] ===> False
@@ -150,11 +148,21 @@ inductive Color where
 -- 10 = 100 ===> False
 #testOptimize [ "EqNatConstructor_2" ] (10 : Nat) = 100 ===> False
 
--- ∀ (x : Nat), (x = 234) = (x = 234) ===> True
--- TODO: We need to check how we can write test case to validate the internal normalized representation expected to be produced.
--- E.g., 234 must be reduced to `Expr.lit (Literal.natVal 234)`
-#testOptimize [ "EqNatConstructor_3" ] ∀ (x : Nat), (x = 234) = (x = 234) ===> True
+-- ∀ (x : Nat), (x = 234) ===> ∀ (x : Nat), (x = 234)
+-- NOTE: We here provide the internal representation to ensure that 234 is properly reduced to `Expr.lit (Literal.natVal 234)`
+def natConstructor3Result : Expr :=
+  Lean.Expr.forallE `x
+    (Lean.Expr.const `Nat [])
+    (Lean.Expr.app
+      (Lean.Expr.app
+        (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Nat []))
+        (Lean.Expr.lit (Lean.Literal.natVal 234)))
+      (Lean.Expr.bvar 0))
+    (Lean.BinderInfo.default)
 
+elab "natConstructor3Result" : term => return natConstructor3Result
+
+#testOptimize [ "EqNatConstructor_3" ] ∀ (x : Nat), (x = 234) ===> natConstructor3Result
 
 -- 430 : Int = 430 : Int ===> True
 #testOptimize [ "EqIntConstructor_1" ] (430 : Int) = 430 ===> True
@@ -165,15 +173,64 @@ inductive Color where
 -- -53 = -53 ===> True
 #testOptimize [ "EqIntConstructor_3" ] (-53 : Int) = -53 ===> True
 
-
 -- -430 = 430 ===> False
--- UNCOMMENT ONCE simplification rules on Int and Nat are introduced
--- #testOptimize [ "EqIntConstructor_4" ] (-430 : Int) = 430 ===> True
+#testOptimize [ "EqIntConstructor_4" ] (-430 : Int) = 430 ===> False
 
--- ∀ (x : Int), (x = 1234) = (x = 1234) ===> True
--- TODO: We need to check how we can write test case to validate the internal normalized representation expected to be produced.
--- E.g., 234 must be reduced to `Int.ofNat (Expr.lit (Literal.natVal 234))`
-#testOptimize [ "EqIntConstructor_5" ] ∀ (x : Int), (x = 234) = (x = 234) ===> True
+-- ∀ (x : Int), (x = 1234) ===> ∀ (x : Int), (x = 1234)
+-- NOTE: We here provide the internal representation to ensure that 1234 is properly reduced to `Int.ofNat (Expr.lit (Literal.natVal 1234))`
+def intConstructor5Result : Expr :=
+  Lean.Expr.forallE `x
+    (Lean.Expr.const `Int [])
+    (Lean.Expr.app
+      (Lean.Expr.app
+        (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Int []))
+        (Lean.Expr.app (Lean.Expr.const `Int.ofNat []) (Lean.Expr.lit (Lean.Literal.natVal 1234))))
+      (Lean.Expr.bvar 0))
+    (Lean.BinderInfo.default)
+
+elab "intConstructor5Result" : term => return intConstructor5Result
+
+#testOptimize [ "EqIntConstructor_5" ] ∀ (x : Int), (x = 1234) ===> intConstructor5Result
+
+-- ∀ (x : Int), (x = -453) ===> ∀ (x : Int), (x = -453)
+-- NOTE: We here provide the internal representation to ensure that -453 is properly reduced to `Int.negSucc (Expr.lit (Literal.natVal 452))`
+def intConstructor6Result : Expr :=
+  Lean.Expr.forallE `x
+    (Lean.Expr.const `Int [])
+    (Lean.Expr.app
+      (Lean.Expr.app
+        (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Int []))
+        (Lean.Expr.app (Lean.Expr.const `Int.negSucc []) (Lean.Expr.lit (Lean.Literal.natVal 452))))
+      (Lean.Expr.bvar 0))
+    (Lean.BinderInfo.default)
+
+elab "intConstructor6Result" : term => return intConstructor6Result
+
+#testOptimize [ "EqIntConstructor_6" ] ∀ (x : Int), x = -453 ===> intConstructor6Result
+
+-- "xyz" = "xyz" ===> True
+#testOptimize [ "EqStrConstructor_1" ] "xyz" = "xyz" ===> True
+
+-- "xyz" = "zxyz" ===> False
+#testOptimize [ "EqStrConstructor_2" ] "xyz" = "zxyz" ===> False
+
+-- ∀ (x : String), (x = "xyz") ===> ∀ (x : String), (x = "xyz")
+-- NOTE: We here provide the internal representation to ensure that "xyz" is properly
+-- reduced to `Expr.lit (Literal.strVal "xyz")`
+
+def strConstructor3Result : Expr :=
+  Lean.Expr.forallE `x
+    (Lean.Expr.const `String [])
+    (Lean.Expr.app
+      (Lean.Expr.app
+        (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `String []))
+        (Lean.Expr.lit (Lean.Literal.strVal "xyz")))
+      (Lean.Expr.bvar 0))
+    (Lean.BinderInfo.default)
+
+elab "strConstructor3Result" : term => return strConstructor3Result
+
+#testOptimize [ "EqStrConstructor_3" ] ∀ (x : String), x = "xyz" ===> strConstructor3Result
 
 
 -- true = not a ===> false = a
@@ -210,7 +267,8 @@ inductive Color where
 #testOptimize [ "FalseEqUnchanged_2" ] ∀ (a : Bool), a = false ===> ∀ (a : Bool), false = a
 
 -- not a = not b ===> a = b
-#testOptimize [ "NotEqNot_1" ] ∀ (a b : Bool), not a = not b ===> ∀ (a b : Bool), a = b
+-- NOTE: reordering applied on operands
+#testOptimize [ "NotEqNot_1" ] ∀ (a b : Bool), not a = not b ===> ∀ (a b : Bool), b = a
 
 -- not a = not (not b) ===> not a = b
 -- NOTE: reordering applied on operands
@@ -221,12 +279,12 @@ inductive Color where
 #testOptimize [ "NotEqNot_3" ] ∀ (a b : Bool), not a = not (not (not b)) ===> ∀ (a b : Bool), b = a
 
 -- not (not a) = not (not b) ===> a = b
--- NOTE: reordering applied on operands
-#testOptimize [ "NotEqNot_4" ] ∀ (a b : Bool), not (not a) = not (not b) ===> ∀ (a b : Bool), b = a
+#testOptimize [ "NotEqNot_4" ] ∀ (a b : Bool), not (not a) = not (not b) ===> ∀ (a b : Bool), a = b
 
 
 -- not (not (not a)) = not (not (not b)) ===> a = b
-#testOptimize [ "NotEqNot_5" ] ∀ (a b : Bool), not (not (not a)) = not (not (not b)) ===> ∀ (a b : Bool), a = b
+-- NOTE: reordering applied on operands
+#testOptimize [ "NotEqNot_5" ] ∀ (a b : Bool), not (not (not a)) = not (not (not b)) ===> ∀ (a b : Bool), b = a
 
 -- not (not (not a)) = b ===> not a = b
 -- NOTE: reordering applied on operands
@@ -242,20 +300,18 @@ inductive Color where
 
 
 -- (¬ a) = ¬ b ===> a = b
--- NOTE: reordering applied on operands
-#testOptimize [ "NeqEqNeg_1" ] ∀ (a b : Prop), (¬ a) = ¬ b ===> ∀ (a b : Prop), b = a
+#testOptimize [ "NeqEqNeg_1" ] ∀ (a b : Prop), (¬ a) = ¬ b ===> ∀ (a b : Prop), a = b
 
 -- (¬ a) = ¬ (¬ b) ===> (¬ a) = b
 -- NOTE: reordering applied on operands
 #testOptimize [ "NegEqNeg_2" ] ∀ (a b : Prop), (¬ a) = ¬ (¬ b) ===> ∀ (a b : Prop), b = ¬ a
 
 -- (¬ a) = ¬ (¬ (¬ b)) ===> a = b
-#testOptimize [ "NegEqNeg_3" ] ∀ (a b : Prop), (¬ a) = ¬ (¬ (¬ b)) ===> ∀ (a b : Prop), a = b
+-- NOTE: reordering applied on operands
+#testOptimize [ "NegEqNeg_3" ] ∀ (a b : Prop), (¬ a) = ¬ (¬ (¬ b)) ===> ∀ (a b : Prop), b = a
 
 -- (¬ (¬ a)) = ¬ (¬ b) ===> a = b
--- NOTE: reordering applied on operands
-#testOptimize [ "NegEqNeg_4" ] ∀ (a b : Prop), (¬ (¬ a)) = ¬ (¬ b) ===> ∀ (a b : Prop), b = a
-
+#testOptimize [ "NegEqNeg_4" ] ∀ (a b : Prop), (¬ (¬ a)) = ¬ (¬ b) ===> ∀ (a b : Prop), a = b
 
 -- (¬ (¬ (¬ a))) = ¬ (¬ (¬ b)) ===> a = b
 #testOptimize [ "NegEqNeg_5" ] ∀ (a b : Prop), (¬ (¬ (¬ a))) = ¬ (¬ (¬ b)) ===> ∀ (a b : Prop), a = b
