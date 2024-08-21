@@ -40,8 +40,18 @@ partial def optimize (sOpts: SolverOptions) (e : Expr) : MetaM (Expr × Translat
           Solver.optimizeForall x (← visit (b.instantiate1 x))
     | Expr.app .. =>
        Expr.withApp e fun rf ras => do
+        -- apply optimization on params first before reduction
+        let fInfo ← getFunInfoNArgs rf ras.size
+        let mut mas := ras
+        for i in [:ras.size] do
+          if i < fInfo.paramInfo.size then
+            let aInfo := fInfo.paramInfo[i]!
+            if aInfo.isExplicit then
+              mas ← mas.modifyM i visit
+          else
+            mas ← mas.modifyM i visit
         -- try to reduce app if all params are constructors
-        match (← reduceApp rf ras) with
+        match (← reduceApp rf mas) with
         | re@(Expr.app ..) =>
            Expr.withApp re fun f as => do
             if f.isLambda then
@@ -52,17 +62,8 @@ partial def optimize (sOpts: SolverOptions) (e : Expr) : MetaM (Expr × Translat
              match (← getUnfoldFunDef? f as) with
              | some fdef => visit fdef
              | none =>
-               -- applying optimization on opaque functions
-               let fInfo ← getFunInfoNArgs f as.size
-               let mut mas := as
-               for i in [:as.size] do
-                 if i < fInfo.paramInfo.size then
-                   let aInfo := fInfo.paramInfo[i]!
-                   if aInfo.isExplicit then
-                     mas ← mas.modifyM i visit
-                 else
-                   mas ← mas.modifyM i visit
-               optimizeApp f mas
+                -- applying optimization on opaque functions
+                optimizeApp f as
         | re => visit re
     | Expr.lam n t b bi => do
        let t' ← visit t

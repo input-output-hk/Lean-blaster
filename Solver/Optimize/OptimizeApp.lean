@@ -19,11 +19,9 @@ def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) : MetaM Bool := do
       let aInfo := fInfo.paramInfo[i]!
       let e := args[i]!
       if aInfo.isExplicit
-      then if e.isLit
+      then if (← isConstructor e)
            then loop (i+1)
-           else if (← isConstructor e)
-                then loop (i+1)
-                else pure false
+           else pure false
       else loop (i+1)
     else pure true
   loop 0
