@@ -6,8 +6,7 @@ open Lean Elab Command Term Meta
 
 namespace Tests
 /-- Parse a term syntax. -/
-def parseTerm (stx : Syntax) : TermElabM Expr :=
-  elabTermAndSynthesize stx none
+def parseTerm (stx : Syntax) : TermElabM Expr := elabTermAndSynthesize stx none
 
 /-- Parse a term syntax and call optimize. -/
 def callOptimize (sOpts : Solver.SolverOptions) (stx : Syntax) : TermElabM Expr := do

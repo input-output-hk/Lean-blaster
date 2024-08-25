@@ -29,11 +29,11 @@ def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) : MetaM Bool := do
 
 /-- Try to reduce an application when all explicit parameters are constructors.
   The reduced expression is returned only when it's a constructor.
-  Otherwise the initial application expression is return.
+  Otherwise the initial application expression is returned.
   NOTE: whnf will not perform any reduction on ``Eq application.
 -/
 def reduceApp (f : Expr) (args: Array Expr) : MetaM Expr := do
- let appExpr := (mkAppN f args)
+ let appExpr := mkAppN f args
  if (← allExplicitParamsAreCtor f args)
  then
    let re ← whnf appExpr
@@ -58,6 +58,6 @@ def optimizeApp (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
         | none =>
            match (← optimizeIfThenElse f args) with
            | some e => pure e
-           | none => pure (mkAppN f args)
+           | none => mkAppExpr f args
 
 end Solver.Optimize

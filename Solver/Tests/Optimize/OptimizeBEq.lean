@@ -62,14 +62,13 @@ namespace Test.OptimizeBEq
 #testOptimize [ "BEqDiff_1" ] ∀ (a b : Bool), a == b ===> ∀ (a b : Bool), true = (a == b)
 
 -- a == (a && b) ===> a == (a && b)
--- NOTE: reordering applied on operands
 -- NOTE: We explicitly introduced `true =` to be deterministic
-#testOptimize [ "BEqDiff_2" ] ∀ (a b : Bool), a == (a && b) ===> ∀ (a b : Bool), true = (a == (b && a))
+#testOptimize [ "BEqDiff_2" ] ∀ (a b : Bool), a == (a && b) ===> ∀ (a b : Bool), true = (a == (a && b))
 
 -- (a && b) == a ===> (a && b) == a
 -- NOTE: reordering applied on operands
 -- NOTE: We explicitly introduced `true =` to be deterministic
-#testOptimize [ "BEqDiff_3" ] ∀ (a b : Bool), (a && b) == a ===> ∀ (a b : Bool), true = (a == (b && a))
+#testOptimize [ "BEqDiff_3" ] ∀ (a b : Bool), (a && b) == a ===> ∀ (a b : Bool), true = (a == (a && b))
 
 -- List.nil = List.nil ===> True
 -- NOTE: resolve to `true` via reduction rule (see reduceApp)

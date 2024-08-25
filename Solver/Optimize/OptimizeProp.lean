@@ -26,10 +26,10 @@ def optimizeAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  | Expr.const ``True _, _ => pure op2
  | _, _ => do
    if (← (isNotExprOf op1 op2) <||> (isNotExprOf op2 op1))
-   then pure (mkConst ``False)
+   then mkPropFalse
    else if (← exprEq op1 op2)
         then pure op1
-        else pure (mkAppN f opArgs)
+        else mkAppExpr f opArgs
 
 /-- Apply the following simplification/normalization rules on `Or` :
      - False ∨ e ==> e
@@ -51,10 +51,10 @@ def optimizeOr (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  | Expr.const ``True _, _ => pure op1
  | _, _ => do
    if (← (isNotExprOf op1 op2) <||> (isNotExprOf op2 op1))
-   then pure (mkConst ``True)
+   then mkPropTrue
    else if (← exprEq op1 op2)
         then pure op1
-        else pure (mkAppN f opArgs)
+        else mkAppExpr f opArgs
 
 /-- Return `some e` if `c := ¬ e`. Otherwise `none`.
 -/
@@ -66,10 +66,27 @@ def toNotExpr (c : Expr) : Option Expr :=
    | _, _ => none
  else none
 
+/-- Return `some (true = e)` when `ne := false = e` or `some (false = e)` when `ne := true = e`.
+    Otherwise `none`.
+-/
+def notEqSimp (ne : Expr) : TranslateEnvT (Option Expr) := do
+  match (isEqExpr? ne) with
+  | some eq_args =>
+     let eq_ops := eq_args.2
+     match eq_ops[1]! with
+     | Expr.const ``false _ =>
+         some <$> mkAppExpr eq_args.1 (eq_ops.set! 1 (← mkBoolTrue))
+     | Expr.const ``true _ =>
+         some <$> mkAppExpr eq_args.1 (eq_ops.set! 1 (← mkBoolFalse))
+     | _ => return none
+  | none => return none
+
 /-- Apply the following simplification/normalization rules on `Not` :
      - ¬ False ==> True
      - ¬ True ==> False
      - ¬ (¬ e) ==> e
+     - ¬ (false = e) ==> true = e (TODO)
+     - ¬ (true = e) ==> false = e (TODO)
    Assume that f = Expr.const ``Not.
    An error is triggered if args.size ≠ 1.
    TODO: consider additional simplification rules
@@ -77,12 +94,15 @@ def toNotExpr (c : Expr) : Option Expr :=
 def optimizeNot (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size == 1 then
    match args[0]! with
-   | Expr.const ``False _ => pure (mkConst ``True)
-   | Expr.const ``True _ => pure (mkConst ``False)
+   | Expr.const ``False _ => mkPropTrue
+   | Expr.const ``True _ => mkPropFalse
    | e =>
        match (toNotExpr e) with
        | some op => pure op
-       | none => pure (mkAppN f args)
+       | none =>
+          match (← notEqSimp e) with
+          | some r => pure r
+          | none => mkAppExpr f args
  else throwError "optimizeNot: only one argument expected"
 
 /-- Apply simplification and normalization rules on proposition formulae.

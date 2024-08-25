@@ -39,6 +39,7 @@ def opaqueFuns : NameHashSet :=
     -- Int operators
     ``Int.add,
     ``Int.sub,
+    ``Int.neg,
     ``Int.mul,
     -- Division rounding towards zero
     ``Int.div,
@@ -140,7 +141,7 @@ def isFullyAppliedConst (e : Expr) : MetaM Bool := do
 /-- Return `true if e corresponds to a constructor (i.e., constant value). -/
 def isConstructor (e : Expr) : MetaM Bool := isEnumConst e <||> (pure e.isLit) <||> isFullyAppliedConst e
 
-/-- Return `true` when `e1 = ¬ ne ∧ ne =ₚₜᵣ e2`. Otherwise `false`.
+/-- Return `true` when `e1 := ¬ ne ∧ ne =ₚₜᵣ e2`. Otherwise `false`.
  -/
 def isNotExprOf (e1: Expr) (e2 : Expr) : MetaM Bool :=
   Expr.withApp e1 fun f as =>
@@ -148,7 +149,7 @@ def isNotExprOf (e1: Expr) (e2 : Expr) : MetaM Bool :=
     | Expr.const ``Not _, #[op] => exprEq e2 op
     | _, _ => pure false
 
-/-- Return `true` when `e1 = not ne ∧ ne =ₚₜᵣ e2`. Otherwise `false`.
+/-- Return `true` when `e1 := not ne ∧ ne =ₚₜᵣ e2`. Otherwise `false`.
  -/
 def isBoolNotExprOf (e1: Expr) (e2 : Expr) : MetaM Bool :=
   Expr.withApp e1 fun f as =>
@@ -157,18 +158,39 @@ def isBoolNotExprOf (e1: Expr) (e2 : Expr) : MetaM Bool :=
     | _, _ => pure false
 
 
-/-- Determine if `e` is an Eq expression and return it's correponding operands.
+/-- Determine if `e` is an Eq expression and return it's correponding arguments.
    Otherwise return `none`.
 -/
-def isEqExpr? (e: Expr) : Option (Expr × Expr) :=
+def isEqExpr? (e: Expr) : Option (Expr × Array Expr) :=
  match e with
  | Expr.app .. =>
     Expr.withApp e fun f args =>
       match f with
-      | Expr.const ``Eq _ => some (args[1]!, args[2]!)
+      | Expr.const ``Eq _ => some (f, args)
       | _ => none
  | _ => none
 
+/-- Return `true` when one of the following conditions is satisfied:
+    - `e1 := true = c` ∧ `e2 := false = c`; or
+    - `e1 := false = c` ∧ `e2 := true = c`; or
+-/
+def isNegBoolEqOf (e1: Expr) (e2: Expr) : MetaM Bool := do
+ match isEqExpr? e1, isEqExpr? e2 with
+ | some eq1, some eq2 =>
+     let eq1_ops := eq1.2
+     let eq2_ops := eq2.2
+     match eq1_ops[1]!, eq2_ops[1]! with
+     | Expr.const ``true _, Expr.const ``false _ |
+       Expr.const ``false _, Expr.const ``true _ => exprEq eq1_ops[2]! eq2_ops[2]!
+     | _, _ => return false
+ | _, _ => return false
+
+/-- Return `true` if the given expression is of the form `const ``Bool`.
+-/
+def isBoolType (e : Expr) : Bool :=
+  match e with
+  | Expr.const ``Bool _ => true
+  | _ => false
 
 /-- Reorders operands for commutative operator to normalize expression.
    Throws an error if size of args is not equal to two. -/
@@ -191,8 +213,8 @@ def reorderArgs (args : Array Expr) : MetaM (Array Expr) := do
      | false, false =>
         match e1, e2 with
         | Expr.bvar n1, Expr.bvar n2 => pure (swapOnCond (n2 < n1))
-        | Expr.fvar id1, Expr.fvar id2 => pure (swapOnCond (id2.name.hash < id1.name.hash))
-        | Expr.mvar id1, Expr.mvar id2 => pure (swapOnCond (id2.name.hash < id1.name.hash))
+        | Expr.fvar id1, Expr.fvar id2 => pure (swapOnCond (id2.name.lt id1.name))
+        | Expr.mvar id1, Expr.mvar id2 => pure (swapOnCond (id2.name.lt id1.name))
         | Expr.bvar _, _ => pure args
         | _, Expr.bvar _ => pure (args.swap! 0 1)
         | Expr.fvar _, _ => pure args

@@ -26,10 +26,10 @@ def optimizeBoolAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  | Expr.const ``true _, _ => pure op2
  | _, _ => do
    if (← (isBoolNotExprOf op1 op2) <||> (isBoolNotExprOf op2 op1))
-   then pure (mkConst ``false)
+   then mkBoolFalse
    else if (← exprEq op1 op2)
         then pure op1
-        else pure (mkAppN f opArgs)
+        else mkAppExpr f opArgs
 
 /-- Apply the following simplification/normalization rules on `or` :
      - false || e ==> e
@@ -51,10 +51,10 @@ def optimizeBoolOr (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  | Expr.const ``true _, _ => pure op1
  | _, _ => do
    if (← (isBoolNotExprOf op1 op2) <||> (isBoolNotExprOf op2 op1))
-   then pure (mkConst ``true)
+   then mkBoolTrue
    else if (← exprEq op1 op2)
         then pure op1
-        else pure (mkAppN f opArgs)
+        else mkAppExpr f opArgs
 
 /-- Return `some e` if `c := not e`. Otherwise `none`.
 -/
@@ -77,12 +77,12 @@ def toBoolNotExpr (c : Expr) : Option Expr :=
 def optimizeBoolNot (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size == 1 then
    match args[0]! with
-   | Expr.const ``false _ => pure (mkConst ``true)
-   | Expr.const ``true _ => pure (mkConst ``false)
+   | Expr.const ``false _ => mkBoolTrue
+   | Expr.const ``true _ => mkBoolFalse
    | e =>
        match (toBoolNotExpr e) with
        | some op => pure op
-       | none => pure (mkAppN f args)
+       | none => mkAppExpr f args
  else throwError "optimizeBoolNot: only one argument expected"
 
 /-- Apply simplification/normalization rules on Boolean operators.

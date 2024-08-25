@@ -37,7 +37,7 @@ partial def optimize (sOpts: SolverOptions) (e : Expr) : MetaM (Expr × Translat
     | Expr.forallE n t b bi =>
         let t' ← visit t
         withLocalDecl n bi t' fun x => do
-          Solver.optimizeForall x (← visit (b.instantiate1 x))
+          optimizeForall x t' (← visit (b.instantiate1 x))
     | Expr.app .. =>
        Expr.withApp e fun rf ras => do
         -- apply optimization on params first before reduction
@@ -61,14 +61,12 @@ partial def optimize (sOpts: SolverOptions) (e : Expr) : MetaM (Expr × Translat
              -- unfold non-recursive and non-opaque functions
              match (← getUnfoldFunDef? f as) with
              | some fdef => visit fdef
-             | none =>
-                -- applying optimization on opaque functions
-                optimizeApp f as
+             | none => optimizeApp f as -- optimizations on opaque functions
         | re => visit re
     | Expr.lam n t b bi => do
        let t' ← visit t
        withLocalDecl n bi t' fun x => do
-         mkLambdaFVars #[x] (← visit (b.instantiate1 x))
+         mkLambdaExpr x (← visit (b.instantiate1 x))
     | Expr.letE n t v b _ =>
        -- inline let expression
        let t' ← (visit t)
