@@ -85,8 +85,8 @@ def notEqSimp (ne : Expr) : TranslateEnvT (Option Expr) := do
      - ¬ False ==> True
      - ¬ True ==> False
      - ¬ (¬ e) ==> e
-     - ¬ (false = e) ==> true = e (TODO)
-     - ¬ (true = e) ==> false = e (TODO)
+     - ¬ (false = e) ==> true = e
+     - ¬ (true = e) ==> false = e
    Assume that f = Expr.const ``Not.
    An error is triggered if args.size ≠ 1.
    TODO: consider additional simplification rules

@@ -19,25 +19,35 @@ namespace Tests.OptimizeOr
 -- False ∨ False ===> False
 #testOptimize [ "OrFalseFalse" ] False ∨ False ===> False
 
--- e ∨ False ===> e
+-- a ∨ False ===> a
 #testOptimize [ "OrFalseRight" ] ∀ (a : Prop), a ∨ False ===> ∀ (a : Prop), a
 
--- False ∨ e ===> e
+-- False ∨ a ===> a
 #testOptimize [ "OrFalseLeft" ] ∀ (a : Prop), False ∨ a ===> ∀ (a : Prop), a
 
--- e ∨ True ===> True
+-- a ∨ True ===> True
 #testOptimize [ "OrTrueRight" ] ∀ (a : Prop), a ∨ True ===> True
 
--- True ∨ e ===> True
+-- True ∨ a ===> True
 #testOptimize [ "OrTrueLeft" ] ∀ (a : Prop), True ∨ a ===> True
 
--- e ∨ ¬ e ===> True
+-- a ∨ ¬ a ===> True
 #testOptimize [ "OrNegRight" ] ∀ (a : Prop), a ∨ ¬ a ===> True
 
--- ¬ e ∨ e ===> True
+-- ¬ a ∨ a ===> True
 #testOptimize [ "OrNegLeft" ] ∀ (a : Prop), ¬ a ∨ a ===> True
 
--- e ∨ e ===> e
+-- a ∨ a ===> a
 #testOptimize [ "OrSubsumption" ] ∀ (a : Prop), a ∨ a ===> ∀ (a : Prop), a
+
+-- a ∨ b ===> a ∨ b
+#testOptimize [ "OrUnchanged_1" ] ∀ (a b : Prop), a ∨ b ===> ∀ (a b : Prop), a ∨  b
+
+-- ¬ a ∨ b ===> ¬ a ∨ b
+-- NOTE: reordering applied on operands
+#testOptimize [ "OrUnchanged_2" ] ∀ (a b : Prop), (¬ a) ∨ b ===> ∀ (a b : Prop), b ∨ ¬ a
+
+-- a ∨ ¬ b ===> a ∨ ¬ b
+#testOptimize [ "OrUnchanged_3" ] ∀ (a b : Prop), a ∨ ¬ b ===> ∀ (a b : Prop), a ∨ ¬ b
 
 end Tests.OptimizeOr

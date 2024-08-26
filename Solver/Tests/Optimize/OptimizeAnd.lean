@@ -19,25 +19,36 @@ namespace Test.OptimizeAnd
 -- False ∧ False ===> False
 #testOptimize [ "AndFalseFalse" ] False ∧ False ===> False
 
--- e ∧ False ===> False
+-- a ∧ False ===> False
 #testOptimize [ "AndFalseRight" ] ∀ (a : Prop), a ∧ False ===> False
 
--- False ∧ e ===> False
+-- False ∧ a ===> False
 #testOptimize [ "AndFalseLeft" ] ∀ (a : Prop), False ∧ a ===> False
 
--- e ∧ True ===> e
+-- a ∧ True ===> a
 #testOptimize [ "AndTrueRight" ] ∀ (a : Prop), a ∧ True ===> ∀ (a : Prop), a
 
--- True ∧ e ===> e
+-- True ∧ a ===> a
 #testOptimize [ "AndTrueLeft" ] ∀ (a : Prop), True ∧ a ===> ∀ (a : Prop), a
 
--- e ∧ ¬ e ===> False
+-- a ∧ ¬ a ===> False
 #testOptimize [ "AndNegRight" ] ∀ (a : Prop), a ∧ ¬ a ===> False
 
--- ¬ e ∧ e ===> False
+-- ¬ a ∧ a ===> False
 #testOptimize [ "AndNegLeft" ] ∀ (a : Prop), ¬ a ∧ a ===> False
 
--- e ∧ e ===> e
+-- a ∧ a ===> a
 #testOptimize [ "AndSubsumption" ] ∀ (a : Prop), a ∧ a ===> ∀ (a : Prop), a
+
+-- a ∧ b ===> a ∧ b
+#testOptimize [ "AndUnchanged_1"] ∀ (a b : Prop), a ∧ b ===> ∀ (a b : Prop), a ∧ b
+
+-- ¬ a ∧ b ===> ¬ a ∧ b
+-- NOTE: reordering applied on operands
+#testOptimize [ "AndUnchanged_2"] ∀ (a b : Prop), (¬ a) ∧ b ===> ∀ (a b : Prop), b ∧ ¬ a
+
+-- a ∧ ¬ b ===> a ∧ ¬ b
+#testOptimize [ "AndUnchanged_3"] ∀ (a b : Prop), a ∧ ¬ b ===> ∀ (a b : Prop), a ∧ ¬ b
+
 
 end Test.OptimizeAnd

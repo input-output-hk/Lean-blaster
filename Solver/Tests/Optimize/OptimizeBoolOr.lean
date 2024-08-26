@@ -19,25 +19,35 @@ namespace Tests.OptimizeBoolOr
 -- false || false ===> false
 #testOptimize [ "BoolOrFalseFalse" ] false || false ===> false
 
--- e || false ===> e
+-- a || false ===> a
 #testOptimize [ "BoolOrFalseRight" ] ∀ (a : Bool), (a || false) = a ===> True
 
--- false || e ===> false
+-- false || a ===> false
 #testOptimize [ "BoolOrFalseLeft" ] ∀ (a : Bool), (false || a) = a ===> True
 
--- e || true ===> true
+-- a || true ===> true
 #testOptimize [ "BoolOrTrueRight" ] ∀ (a : Bool), (a || true) = true ===> True
 
--- true || e ===> e
+-- true || a ===> e
 #testOptimize [ "BoolOrTrueLeft" ] ∀ (a : Bool), (true || a) = true ===> True
 
--- e || not e ===> true
+-- a || not a ===> true
 #testOptimize [ "BoolOrNegRight" ] ∀ (a : Bool), (a || not a) = true ===> True
 
--- not e || e ===> true
+-- not a || a ===> true
 #testOptimize [ "BoolOrNegLeft" ] ∀ (a : Bool), (not a || a) = true ===> True
 
--- e || e ===> e
+-- a || a ===> a
 #testOptimize [ "BoolOrSubsumption" ] ∀ (a : Bool), (a || a) = a ===> True
+
+-- a || b ===> a || b
+#testOptimize [ "BoolOrUnchanged_1" ] ∀ (a b : Bool), (a || b) ===> ∀ (a b : Bool), true = (a || b)
+
+-- !a || b ===> !a || b
+-- NOTE: reordering applied on operands
+#testOptimize [ "BoolOrUnchanged_2" ] ∀ (a b : Bool), (!a || b) ===> ∀ (a b : Bool), true = (b || !a)
+
+-- a || !b ===> a || !b
+#testOptimize [ "BoolOrUnchanged_3" ] ∀ (a b : Bool), (a || !b) ===> ∀ (a b : Bool), true = (a || !b)
 
 end Tests.OptimizeBoolOr

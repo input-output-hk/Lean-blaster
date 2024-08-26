@@ -89,17 +89,14 @@ namespace Tests.OptimizeNot
 -- ¬ a ===> ¬ a
 #testOptimize [ "NotUnchanged_1" ] ∀ (a : Prop), ¬ a ===> ∀ (a : Prop), ¬ a
 
--- (¬ (¬ (¬ a)) ===> ¬ a
-#testOptimize [ "NotUnchanged_2" ] ∀ (a : Prop), ¬ (¬ (¬ a)) ===> ∀ (a : Prop), ¬ a
-
 -- (¬ (¬ (¬ a)) = ¬ a ===> True
-#testOptimize [ "NotUnchanged_3" ] ∀ (a : Prop), ¬ (¬ (¬ a)) = ¬ a ===> True
+#testOptimize [ "NotUnchanged_2" ] ∀ (a : Prop), ¬ (¬ (¬ a)) = ¬ a ===> True
 
 -- ¬ (a = b) ===> ¬ (a = b)
-#testOptimize [ "NotUnchanged_4" ] ∀ (a b : Prop), ¬ (a = b) ===> ∀ (a b : Prop), ¬ (a = b)
+#testOptimize [ "NotUnchanged_3" ] ∀ (a b : Prop), ¬ (a = b) ===> ∀ (a b : Prop), ¬ (a = b)
 
 -- ¬ ((¬ a) = b) ===> ¬ ((¬ a) = b)
 -- NOTE: reordering applied on commutative operators
-#testOptimize [ "NotUnchanged_5" ] ∀ (a b : Prop), ¬ ((¬ a) = b) ===> ∀ (a b : Prop), ¬ (b = ¬ a)
+#testOptimize [ "NotUnchanged_4" ] ∀ (a b : Prop), ¬ ((¬ a) = b) ===> ∀ (a b : Prop), ¬ (b = ¬ a)
 
 end Tests.OptimizeNot
