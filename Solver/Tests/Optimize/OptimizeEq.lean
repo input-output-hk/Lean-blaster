@@ -58,6 +58,26 @@ namespace Test.OptimizeEq
 -- NOTE: reordering applied on operands
 #testOptimize [ "EqNeq_6" ] ∀ (a b : Prop), (¬ b) = a ===> ∀ (a b : Prop), a = (¬ b)
 
+-- a = !a ===> False
+#testOptimize [ "EqNot_1" ] ∀ (a : Bool), a = !a ===> False
+
+-- !a = a ===> False
+#testOptimize [ "EqNot_2" ] ∀ (a : Bool), (!a) = a ===> False
+
+-- a = (! (! a)) ===> True
+#testOptimize [ "EqNot_3" ] ∀ (a : Bool), a = ! (!a) ===> True
+
+-- a = (! (! (! a))) ===> False
+#testOptimize [ "EqNot_4" ] ∀ (a : Bool), (a = ! (! (! a))) ===> False
+
+-- a = ! b ===> a = ! b
+#testOptimize [ "EqNot_5" ] ∀ (a b : Bool), a = !b ===> ∀ (a b : Bool), a = !b
+
+-- ! b = a ===> ! b = a
+-- NOTE: reordering applied on operands
+#testOptimize [ "EqNot_6" ] ∀ (a b : Bool), (!b) = a ===> ∀ (a b : Bool), a = !b
+
+
 -- a = b ===> a = b
 -- NOTE: reordering applied on operands
 #testOptimize [ "EqDiff_1" ] ∀ (a b : Prop), a = b ===> ∀ (a b : Prop), a = b
@@ -327,11 +347,11 @@ elab "strConstructor3Result" : term => return strConstructor3Result
 #testOptimize [ "NegEqUnchanged_2" ] ∀ (a b : Prop), a = ¬ b ===> ∀ (a b : Prop), a = ¬ b
 
 -- ((∀ (x : Int), x > 10)) = (∀ (x : Int), x > 10) ===> True
-#testOptimize [ "ForallEq_1" ] ((∀ (x : Int), x > 10)) = (∀ (x : Int), x > 10) ===> True
+#testOptimize [ "ForallEq_1" ] (∀ (x : Int), x > 10) = (∀ (x : Int), x > 10) ===> True
 
 -- ((∀ (x : Int), x > 10)) = (∀ (z : Int), z > 10) ===> True
 -- NOTE: beq on Forall ignores quantifier name
-#testOptimize [ "ForallEq_2" ] ((∀ (x : Int), x > 10)) = (∀ (z : Int), z > 10) ===> True
+#testOptimize [ "ForallEq_2" ] (∀ (x : Int), x > 10) = (∀ (z : Int), z > 10) ===> True
 
 -- (∀ (x : Int), fun h => x > 10 = fun h => x > 10) ===> True
 #testOptimize [ "LambdaEq_1" ] (∀ (x : Int), fun _h => x > 10 = fun _h => x > 10) ===> True

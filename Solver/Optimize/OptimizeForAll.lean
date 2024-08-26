@@ -12,12 +12,11 @@ namespace Solver.Optimize
       - ∀ (n : t), False | e → False ==> False
       - False → e ==> True
       - True → e ==> e
-      - ¬ e → e ==> e
-      - e → ¬ e ==> ¬ e
+      - e1 → e2 ===> True (if p1 =ₚₜᵣ p2 ∧ Type(e1) = Prop)
+      - ¬ e → e ==> e (requires classical)
+      - e → ¬ e ==> ¬ e (requires classical)
       - true = c → false = c ==> false = c
       - false = c → true = c ==> true = c
-    TODO: simplifications
-      - e1 → e2 ===> True (if p1 =ₚₜᵣ p2) (need to make distinction with fun sig, e.g., Type(e1) = Prop)
   TODO: consider additional simplification rules
 -/
 def optimizeForall (n : Expr) (t : Expr) (b : Expr) : TranslateEnvT Expr := do
@@ -28,9 +27,9 @@ def optimizeForall (n : Expr) (t : Expr) (b : Expr) : TranslateEnvT Expr := do
      | Expr.const ``False _ => mkPropTrue
      | Expr.const `True _ => pure b
      | _ =>
-       if (← (isNotExprOf t b) <||> (isNotExprOf b t))
-       then pure b
-       else if (← isNegBoolEqOf t b)
+       if (← exprEq t b) && (← inferType t).isProp
+       then mkPropTrue
+       else if (← (isNotExprOf t b) <||> (isNotExprOf b t) <||> (isNegBoolEqOf t b))
             then pure b
             else mkForallExpr n b
 

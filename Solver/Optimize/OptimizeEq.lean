@@ -82,6 +82,8 @@ partial def structEq? (op1 : Expr) (op2: Expr) : MetaM (Option Bool) := do
      - True = e ==> e
      - e = ¬ e ==> False
      - ¬ e = e ==> False
+     - e = not e ==> False
+     - not e = e ==> False
      - e1 = e2 ==> True (if e1 =ₚₜᵣ e2)
      - e1 = e2 ==> False (if structEq? e1 e2 = some false) (NOTE: `some true` case already handled by =ₚₜₜ)
      - true = not e ==> false = e
@@ -109,7 +111,7 @@ partial def optimizeEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
    | Expr.const ``False _, _ => optimizeNot (← mkPropNotOp) #[op2]
    | Expr.const ``True _, _ => pure op2
    | _, _ =>
-     if (← (isNotExprOf op1 op2) <||> (isNotExprOf op2 op1))
+     if (← (isNotExprOf op1 op2) <||> (isNotExprOf op2 op1) <||> (isBoolNotExprOf op1 op2) <||> (isBoolNotExprOf op2 op1))
      then mkPropFalse
      else if (← exprEq op1 op2) then mkPropTrue
      else

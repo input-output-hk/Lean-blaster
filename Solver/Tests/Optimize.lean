@@ -5,6 +5,7 @@ import Solver.Tests.Optimize.OptimizeBoolAnd
 import Solver.Tests.Optimize.OptimizeBoolNot
 import Solver.Tests.Optimize.OptimizeBoolOr
 import Solver.Tests.Optimize.OptimizeEq
+import Solver.Tests.Optimize.OptimizeForAll
 import Solver.Tests.Optimize.OptimizeDITE
 import Solver.Tests.Optimize.OptimizeITE
 import Solver.Tests.Optimize.OptimizeLet
