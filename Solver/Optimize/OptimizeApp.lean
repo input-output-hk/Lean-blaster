@@ -2,6 +2,7 @@ import Lean
 import Solver.Optimize.OptimizeBool
 import Solver.Optimize.OptimizeEq
 import Solver.Optimize.OptimizeITE
+import Solver.Optimize.OptimizeNat
 import Solver.Optimize.OptimizeProp
 import Solver.Translate.Env
 
@@ -28,36 +29,38 @@ def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) : MetaM Bool := do
 
 
 /-- Try to reduce an application when all explicit parameters are constructors.
-  The reduced expression is returned only when it's a constructor.
-  Otherwise the initial application expression is returned.
-  NOTE: whnf will not perform any reduction on ``Eq application.
+    The reduced expression is returned only when it's a constructor.
+    NOTE: `whnf` will not perform any reduction on ``Eq application.
 -/
-def reduceApp (f : Expr) (args: Array Expr) : MetaM Expr := do
+def reduceApp? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
  let appExpr := mkAppN f args
  if (← allExplicitParamsAreCtor f args)
  then
-   let re ← whnf appExpr
-   if (← isConstructor re)
-   then pure re
-   else pure appExpr
- else pure appExpr
+   let re ← whnfExpr appExpr
+   if !(re == appExpr) && (← isConstructor re)
+   then pure (some re)
+   else return none
+ else return none
 
 /-- Perform constant propagation and apply simplifcation and normalization rules on
-an application expression.
-  TODO: consider additional simplification rules
+    an application expression.
+    TODO: consider additional simplification rules
 -/
 def optimizeApp (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
-  match (← optimizeProp f args) with
+  match (← optimizeProp? f args) with
   | some e => pure e
   | none =>
-     match (← optimizeBool f args) with
+     match (← optimizeBool? f args) with
      | some e => pure e
      | none =>
-        match (← optimizeEquality f args) with
+        match (← optimizeEquality? f args) with
         | some e => pure e
         | none =>
-           match (← optimizeIfThenElse f args) with
+           match (← optimizeIfThenElse? f args) with
            | some e => pure e
-           | none => mkAppExpr f args
+           | none =>
+              match (← optimizeNat? f args) with
+              | some e => pure e
+              | none => mkAppExpr f args
 
 end Solver.Optimize

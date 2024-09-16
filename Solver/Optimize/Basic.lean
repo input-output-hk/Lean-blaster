@@ -31,9 +31,7 @@ partial def optimize (sOpts: SolverOptions) (e : Expr) : MetaM (Expr × Translat
     | Expr.fvar v =>
         -- adding free variable not required
         addFVar v >>= (fun _ => return e)
-    | Expr.const n _ =>
-        -- TODO: add only function and inductive types
-        addConstant n >>= (fun _ => return e)
+    | Expr.const n l => normConst n l
     | Expr.forallE n t b bi =>
         let t' ← visit t
         withLocalDecl n bi t' fun x => do
@@ -51,18 +49,20 @@ partial def optimize (sOpts: SolverOptions) (e : Expr) : MetaM (Expr × Translat
           else
             mas ← mas.modifyM i visit
         -- try to reduce app if all params are constructors
-        match (← reduceApp rf mas) with
-        | re@(Expr.app ..) =>
-           Expr.withApp re fun f as => do
-            if f.isLambda then
-              -- perform beta-reduction
-              visit e.headBeta
-            else
+        match (← reduceApp? rf mas) with
+        | some re => visit re
+        | none =>
+           if rf.isLambda then
+             -- perform beta-reduction
+             visit (Expr.beta rf mas)
+           else
              -- unfold non-recursive and non-opaque functions
-             match (← getUnfoldFunDef? f as) with
+             match (← getUnfoldFunDef? rf mas) with
              | some fdef => visit fdef
-             | none => optimizeApp f as -- optimizations on opaque functions
-        | re => visit re
+             | none =>
+                -- normalize and cache opaque and recursive function name
+                let f' ← visit rf
+                optimizeApp f' mas -- optimizations on opaque functions
     | Expr.lam n t b bi => do
        let t' ← visit t
        withLocalDecl n bi t' fun x => do
@@ -76,9 +76,9 @@ partial def optimize (sOpts: SolverOptions) (e : Expr) : MetaM (Expr × Translat
     | Expr.mdata _ me => visit me
     | Expr.sort _ => return e -- sort is used for Type u, Prop, etc
     | Expr.proj .. =>
-          match (← reduceProj? e) with
-          | some re => return re
-          | none => return e
+       match (← reduceProj? e) with
+       | some re => return re
+       | none => return e
     | Expr.lit .. => return e -- number or string literal: do nothing
     | Expr.mvar .. => throwError f!"unexpected meta variable {e}"
     | Expr.bvar .. => throwError f!"unexpected bounded variable {e}"

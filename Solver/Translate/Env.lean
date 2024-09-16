@@ -17,6 +17,8 @@ structure TranslateEnv where
   rewriteCache : HashMap Lean.Expr Lean.Expr
   /-- Cache memoizing the synthesize instance for decidable constraint. -/
   synthDecidableCache : HashMap Lean.Expr Lean.Expr
+  /-- Cache memoizing the whnf result. -/
+  whnfCache : HashMap Lean.Expr Lean.Expr
  deriving Inhabited
 
 abbrev TranslateEnvT := StateRefT TranslateEnv MetaM
@@ -123,10 +125,28 @@ def mkPropOrOp : TranslateEnvT Expr := mkExpr (mkConst ``Or)
 /-- Return `And` operator -/
 def mkPropAndOp : TranslateEnvT Expr := mkExpr (mkConst ``And)
 
+/-- Return `BEq.beq` operator -/
+def mkBeqOp : TranslateEnvT Expr := mkExpr (mkConst ``BEq.beq [levelZero])
+
+/-- Return `Nat` Type -/
+def mkNatType : TranslateEnvT Expr := mkExpr (mkConst ``Nat)
+
+/-- Return `Nat.add` operator -/
+def mkNatAddOp : TranslateEnvT Expr := mkExpr (mkConst ``Nat.add)
+
+/-- Return `Nat.sub` operator -/
+def mkNatSubOp : TranslateEnvT Expr := mkExpr (mkConst ``Nat.sub)
+
 /-- `mkAppExpr f #[a₀, ..., aₙ]` constructs the application `f a₀ ... aₙ` and cache the result.
 -/
 def mkAppExpr (f : Expr) (args: Array Expr) : TranslateEnvT Expr :=
   mkExpr (mkAppN f args)
+
+/-- Return "==" nat operator -/
+def mkNatBeqOp : TranslateEnvT Expr := do
+  let beqNat ← mkAppExpr (← mkBeqOp) #[← mkNatType]
+  mkAppExpr beqNat #[(← mkExpr (mkConst ``instBEqNat))]
+
 
 /-- `mkForallExpr n b` constructs `∀ n, b` and cache result.
 -/
@@ -137,6 +157,20 @@ def mkForallExpr (n : Expr) (b : Expr) : TranslateEnvT Expr := do
 -/
 def mkLambdaExpr (n : Expr) (b : Expr) : TranslateEnvT Expr := do
   mkExpr (← mkLambdaFVars #[n] b)
+
+/-- `mkNatLitExpr n` constructs `Expr.lit (Literal.natVal n)` and cache result.
+-/
+def mkNatLitExpr (n : Nat) : TranslateEnvT Expr :=
+  mkExpr (mkRawNatLit n)
+
+/-- `evalBinNatOp f n1 n2 perform the following:
+      -  let r := f n1 n2
+      - construct nat literal for `r`
+      - cache result and return r
+-/
+def evalBinNatOp (f: Nat -> Nat -> Nat) (n1 n2 : Nat) : TranslateEnvT Expr :=
+  mkNatLitExpr (f n1 n2)
+
 
 /-- `mkDecidableConstraint e` constructs constraint [Decidable e] and cache the result.
 -/
@@ -158,5 +192,21 @@ def synthDecidableInstance (e : Expr) : TranslateEnvT Expr := do
      let d ← synthInstance dCstr
      updateSynthCache dCstr d
      return d
+
+
+/-- Return `b` if `a := b` is already in the weak head cache.
+    Otherwise, the following actions are performed:
+      - execute `b ← whnf a`
+      - update cache with `a := b`
+      - return `b'`
+-/
+def whnfExpr (a : Expr) : TranslateEnvT Expr := do
+  let env ← get
+  match env.whnfCache.find? a with
+  | some b => return b
+  | none => do
+     let b ← whnf a
+     set {env with whnfCache := env.whnfCache.insert a b}
+     return b
 
 end Solver

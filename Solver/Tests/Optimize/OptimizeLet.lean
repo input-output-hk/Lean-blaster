@@ -6,6 +6,8 @@ open Lean Elab Command Term
 
 namespace Tests.OptimizeLet
 
+/-! ## Test objectives to validate inlining of let expressions. -/
+
 -- let x := a ∧ b in x ===> a ∧ b
 #testOptimize [ "LetElim_1" ] ∀ (a b : Prop), let x := a ∧ b; x ===> ∀ (a b : Prop), a ∧ b
 
@@ -23,7 +25,7 @@ namespace Tests.OptimizeLet
 
 -- let x := a ∧ b in
 -- let y := c ∨ b in
---  (y ∧ x) = ((b ∧ a) ∧ (b ∨ c)) ===> True
+-- (y ∧ x) = ((b ∧ a) ∧ (b ∨ c)) ===> True
 #testOptimize [ "LetElim_4" ] ∀ (a b c : Prop), let x := a ∧ b; let y := c ∨ b; (y ∧ x) = ((b ∧ a) ∧ (b ∨ c)) ===> True
 
 -- let x := a = b in
