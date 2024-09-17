@@ -641,4 +641,5 @@ elab "natDivReduce_2" : term => return natDivReduce_2
 
 #testOptimize [ "NatDivReduce_2" ]  (30 + (0 / x)) / ((((((120 * x) / 12) / 10) - x)) + 10) ===> natDivReduce_2
 
+
 end Test.OptimizeNatDiv

@@ -504,7 +504,6 @@ elab "natSubSubRight_2" : term => return natSubSubRight_2
 #testOptimize [ "NatAddSub_1" ] ∀ (x : Nat), (100 + x) - 20 = 80 + x ===> True
 
 -- (100 + x) - 20 ===> 80 + x
-
 def natAddSub_2 : Expr :=
   Lean.Expr.forallE `x
     (Lean.Expr.const `Nat [])
