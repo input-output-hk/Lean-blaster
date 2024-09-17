@@ -1739,9 +1739,9 @@ elab "dIteToPropExprUnchanged_7" : term => return dIteToPropExprUnchanged_7
 -- let p := x + y in
 -- let q := x - y in
 -- ∀ (c : Bool) (x y : Int), (if h : c then p else q) > x ===>
--- ∀ (c : Bool) (x y : Int), x < (if h : true = c then Int.add x y else Int.sub x y)
+-- ∀ (c : Bool) (x y : Int), x < (if h : true = c then Int.add x y else Int.add x (Int.neg y))
 def dIteToPropExprUnchanged_8 : Expr :=
-Lean.Expr.forallE `c
+ Lean.Expr.forallE `c
   (Lean.Expr.const `Bool [])
   (Lean.Expr.forallE `x
     (Lean.Expr.const `Int [])
@@ -1780,7 +1780,9 @@ Lean.Expr.forallE `c
                 (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Bool []))
                 (Lean.Expr.const `Bool.false []))
               (Lean.Expr.bvar 2))
-            (Lean.Expr.app (Lean.Expr.app (Lean.Expr.const `Int.sub []) (Lean.Expr.bvar 2)) (Lean.Expr.bvar 1))
+            (Lean.Expr.app
+              (Lean.Expr.app (Lean.Expr.const `Int.add []) (Lean.Expr.bvar 2))
+              (Lean.Expr.app (Lean.Expr.const `Int.neg []) (Lean.Expr.bvar 1)))
             (Lean.BinderInfo.default))))
       (Lean.BinderInfo.default))
     (Lean.BinderInfo.default))

@@ -1038,12 +1038,12 @@ namespace Test.OptimizeITE
 -- let p := x + y in
 -- let q := x - y in
 -- ∀ (c : Bool) (x y : Int), (if c then p else q) > x ===>
--- ∀ (c : Bool) (x y : Int), x < (if true = c then Int.add x y else Int.sub x y)
+-- ∀ (c : Bool) (x y : Int), x < (if true = c then Int.add x y else Int.add x (Int.neg y))
 #testOptimize [ "IteToPropExprUnchanged_8" ] ∀ (c : Bool) (x y : Int),
                                                let p := x + y; let q := x - y;
                                                (if c then p else q) > x ===>
                                              ∀ (c : Bool) (x y : Int),
-                                               x < (if true = c then Int.add x y else Int.sub x y)
+                                               x < (if true = c then Int.add x y else Int.add x (Int.neg y))
 
 -- ∀ (a b : Bool) (x y : Int), (if (! a || b) then x else y) > x ===>
 -- ∀ (a b : Bool) (x y : Int), x < (if true = (b || ! a) then x else y)

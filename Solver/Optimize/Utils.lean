@@ -37,8 +37,7 @@ def opaqueFuns : NameHashSet :=
     -- existential quantifier
     ``Exists,
     -- Int operators
-    ``Int.add,
-    ``Int.sub,
+    ``Int.add, -- Int.sub is defined as m + (-n)
     ``Int.neg,
     ``Int.mul,
     -- Division rounding towards zero
@@ -52,8 +51,8 @@ def opaqueFuns : NameHashSet :=
     ``Int.emod,
     ``Int.pow,
     -- Relational operators
-    ``LE.le, -- GE.ge a b abbrev for LE.le b a
-    ``LT.lt, -- Gt.gt a b abbrev for LT.lt b a
+    ``LE.le, -- GE.ge a b is abbrev for LE.le b a
+    ``LT.lt, -- Gt.gt a b is abbrev for LT.lt b a
     -- Bool operators
     ``and,
     ``or,
@@ -214,7 +213,7 @@ def isBoolType (e : Expr) : Bool :=
   | Expr.const ``Bool _ => true
   | _ => false
 
-/-- Determine if `e` is a nat literal expression `Expr.lit (Literal.natVal n)`
+/-- Determine if `e` is a `Nat` literal expression `Expr.lit (Literal.natVal n)`
     and return `some n` as result. Otherwise return `none`
     NOTE: This function is to be used only when it is guaranteed that
     `Nat.zero` has been normalized to `Expr.lit (Literal.natVal 0)`.
@@ -340,6 +339,7 @@ def toNatCstOpExpr? (e: Expr) : Option NatCstOpInfo :=
       else none
  | _ => none
 
+
 /-- Apply the following normalization rules on a `Const` expression:
      - mkConst ``Nat.zero _ ===> Expr.lit (Literal.natVal 0)
     TODO: consider additional normalization rules.
@@ -356,6 +356,125 @@ def normConst (n : Name) (l : List Level) : TranslateEnvT Expr := do
       addConstant n
       mkExpr (mkConst n l)
 
+/-- Return `true` when `e1 := -ne ∧ ne =ₚₜᵣ e2`. Otherwise `false`.
+ -/
+def isIntNegExprOf (e1: Expr) (e2 : Expr) : MetaM Bool :=
+  Expr.withApp e1 fun f as =>
+    match f, as with
+    | Expr.const ``Int.neg _, #[op] => exprEq e2 op
+    | _, _ => pure false
+
+/-- Determine if `e` is a `Int` expression corresponding to one of the following:
+     - `Int.ofNat (Expr.lit (Literal.natVal n))`
+     - `Int.negSucc (Expr.lit (Literal.natVal n))`
+    Return either `some (Int.ofNat n)` or `some (Int.negSucc n)` as result.
+    Otherwise return `none`
+    NOTE: This function is to be used only when it is guaranteed that
+    `Nat.zero` has been normalized to `Expr.lit (Literal.natVal 0)`.
+-/
+def isIntValue? (e : Expr) : Option Int :=
+  match e with
+  | Expr.app .. =>
+     Expr.withApp e fun f args =>
+       if args.size == 1 then
+         let op := args[0]!
+         match isNatValue? op with
+         | some n =>
+             match f with
+             | Expr.const ``Int.ofNat _ => Int.ofNat n
+             | Expr.const ``Int.negSucc _ => Int.negSucc n
+             | _ => none
+         | none => none
+       else none
+  | _ => none
+
+/-- Inductive type used to characterize Int binary operators when
+    at least one operand is a constant.
+    This type is exclusively used by function `toIntCstOpExpr?`
+-/
+inductive IntCstOpInfo where
+  /-- Int.add N e info. -/
+  | IntAddExpr (n : Int) (e : Expr) : IntCstOpInfo
+  /-- Int.mul N e info. -/
+  | IntMulExpr (n : Int) (e : Expr) : IntCstOpInfo
+  /-- Int.div N e info. -/
+  | IntDivLeftExpr (n : Int) (e : Expr) : IntCstOpInfo
+  /-- Int.div e N info. -/
+  | IntDivRightExpr (e : Expr) (n : Int) : IntCstOpInfo
+  /-- Int.mod N e info. -/
+  | IntModLeftExpr (n : Int) (e : Expr) : IntCstOpInfo
+  /-- Int.mod e N info. -/
+  | IntModRightExpr (e : Expr) (n : Int) : IntCstOpInfo
+  /-- Int.ediv N e info. -/
+  | IntEDivLeftExpr (n : Int) (e : Expr) : IntCstOpInfo
+  /-- Int.ediv e N info. -/
+  | IntEDivRightExpr (e : Expr) (n : Int) : IntCstOpInfo
+  /-- Int.emod N e info. -/
+  | IntEModLeftExpr (n : Int) (e : Expr) : IntCstOpInfo
+  /-- Int.emod e N info. -/
+  | IntEModRightExpr (e : Expr) (n : Int) : IntCstOpInfo
+  /-- Int.fdiv N e info. -/
+  | IntFDivLeftExpr (n : Int) (e : Expr) : IntCstOpInfo
+  /-- Int.fdiv e N info. -/
+  | IntFDivRightExpr (e : Expr) (n : Int) : IntCstOpInfo
+  /-- Int.fmod N e info. -/
+  | IntFModLeftExpr (n : Int) (e : Expr) : IntCstOpInfo
+  /-- Int.fmod e N info. -/
+  | IntFModRightExpr (e : Expr) (n : Int) : IntCstOpInfo
+  /-- Int.neg (Int.add N e).  -/
+  | IntNegAddExpr (n : Int) (e : Expr) : IntCstOpInfo
+
+
+/-- Return a `IntCstOpInfo` for `e` according to the following rules:
+    - IntAddExpr N n (if e := Int.add N n)
+    - IntMulExpr N n (if e := Int.mul N n)
+    - IntDivLeftExpr N n (if e := Int.div N n)
+    - IntDivLeftExpr n N (if e := Int.div n N)
+    - IntModLeftExpr N n (if e := Int.mod N n)
+    - IntModRightExpr n N (if e := Int.mod n N)
+    - IntEDivLeftExpr N n (if e := Int.ediv N n)
+    - IntEDivLeftExpr n N (if e := Int.ediv n N)
+    - IntEModLeftExpr N n (if e := Int.emod N n)
+    - IntEModRightExpr n N (if e := Int.emod n N)
+    - IntFDivLeftExpr N n (if e := Int.fdiv N n)
+    - IntFDivLeftExpr n N (if e := Int.fdiv n N)
+    - IntFModLeftExpr N n (if e := Int.fmod N n)
+    - IntFModRightExpr n N (if e := Int.fmod n N)
+    - IntNegAddExpr N n (if e := Int.neg (Int.add N n))
+
+    Return `none` when e is not a full applied Int binary operator.
+    Assume that operands have already been reordered for commutative operators.
+-/
+partial def toIntCstOpExpr? (e: Expr) : Option IntCstOpInfo :=
+ match e with
+ | Expr.app .. =>
+    Expr.withApp e fun f args =>
+      if args.size == 1 then
+         match f, (toIntCstOpExpr? args[0]!) with
+          | Expr.const ``Int.neg _, IntCstOpInfo.IntAddExpr n op2 =>
+              some (IntCstOpInfo.IntNegAddExpr n op2)
+          | _, _ => none
+      else if args.size == 2 then
+           let op1 := args[0]!
+           let op2 := args[1]!
+           match f, (isIntValue? op1), (isIntValue? op2) with
+           | Expr.const ``Int.add _, some n, _ => some (IntCstOpInfo.IntAddExpr n op2)
+           | Expr.const ``Int.mul _, some n, _ => some (IntCstOpInfo.IntMulExpr n op2)
+           | Expr.const ``Int.div _, some n, _ => some (IntCstOpInfo.IntDivLeftExpr n op2)
+           | Expr.const ``Int.div _, _, some n => some (IntCstOpInfo.IntDivRightExpr op1 n)
+           | Expr.const ``Int.mod _, some n, _ => some (IntCstOpInfo.IntModLeftExpr n op2)
+           | Expr.const ``Int.mod _, _, some n => some (IntCstOpInfo.IntModRightExpr op1 n)
+           | Expr.const ``Int.ediv _, some n, _ => some (IntCstOpInfo.IntEDivLeftExpr n op2)
+           | Expr.const ``Int.ediv _, _, some n => some (IntCstOpInfo.IntEDivRightExpr op1 n)
+           | Expr.const ``Int.emod _, some n, _ => some (IntCstOpInfo.IntEModLeftExpr n op2)
+           | Expr.const ``Int.emod _, _, some n => some (IntCstOpInfo.IntEModRightExpr op1 n)
+           | Expr.const ``Int.fdiv _, some n, _ => some (IntCstOpInfo.IntFDivLeftExpr n op2)
+           | Expr.const ``Int.fdiv _, _, some n => some (IntCstOpInfo.IntFDivRightExpr op1 n)
+           | Expr.const ``Int.fmod _, some n, _ => some (IntCstOpInfo.IntFModLeftExpr n op2)
+           | Expr.const ``Int.fmod _, _, some n => some (IntCstOpInfo.IntFModRightExpr op1 n)
+           | _, _, _ => none
+      else none
+ | _ => none
 
 /-- Reorders operands `args` for commutative operator to normalize expression, such that:
      - #[``False, _] ===> args
@@ -447,6 +566,17 @@ def reorderNatOp (args: Array Expr) : MetaM (Array Expr) := do
   let e1 := args'[0]!
   let e2 := args'[1]!
   if (isNatSubExpr e1 && isNatAddExpr e2)
+  then pure (args'.swap! 0 1)
+  else pure args'
+
+/-- call `reorderArgs` but consider the following additional rule:
+    - #[Int.neg x, x] ===> #[x, Int.neg x]
+-/
+def reorderIntOp (args: Array Expr) : MetaM (Array Expr) := do
+  let args' ← reorderArgs args
+  let e1 := args'[0]!
+  let e2 := args'[1]!
+  if (← isIntNegExprOf e1 e2)
   then pure (args'.swap! 0 1)
   else pure args'
 

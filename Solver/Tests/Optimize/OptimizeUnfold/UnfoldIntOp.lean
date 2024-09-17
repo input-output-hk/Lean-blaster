@@ -19,11 +19,12 @@ namespace Tests.UnfoldNatOp
 -- ∀ (x y z : Int), x + y > z ===> ∀ (x y z : Int), z < Int.add x y
 #testOptimize ["IntOpNotUnfolded_1"] ∀ (x y z : Int), x + y > z ===> ∀ (x y z : Int), z < Int.add x y
 
--- ∀ (x y z : Int), x - y < z ===> ∀ (x y : Int), Int.sub x y < z
-#testOptimize ["IntOpNotUnfolded_2"] ∀ (x y z : Int), x - y < z ===> ∀ (x y z : Int), Int.sub x y < z
+-- ∀ (x y z : Int), x - y < z ===> ∀ (x y : Int), Int.add x (Int.neg y) < z
+#testOptimize ["IntOpNotUnfolded_2"] ∀ (x y z : Int), x - y < z ===> ∀ (x y z : Int), Int.add x (Int.neg y) < z
 
--- ∀ (x y z : Int), y + (x - z) < z ===> ∀ (x y z : Int), Int.add y (Int.sub x z) < z
-#testOptimize ["IntOpNotUnfolded_3"] ∀ (x y z : Int), y + (x - z) < z ===> ∀ (x y z : Int), Int.add y (Int.sub x z) < z
+-- ∀ (x y z : Int), y + (x - z) < z ===> ∀ (x y z : Int), Int.add y (Int.add x (Int.neg z)) < z
+#testOptimize ["IntOpNotUnfolded_3"] ∀ (x y z : Int), y + (x - z) < z ===>
+                                     ∀ (x y z : Int), Int.add y (Int.add x (Int.neg z)) < z
 
 -- ∀ (x y : Int), -x < y ===> ∀ (x y : Int), Int.neg x < y
 #testOptimize ["IntOpNotUnfolded_4"] ∀ (x y : Int), -x < y ===> ∀ (x y : Int), Int.neg x < y

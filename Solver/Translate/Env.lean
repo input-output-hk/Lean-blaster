@@ -140,6 +140,18 @@ def mkNatSubOp : TranslateEnvT Expr := mkExpr (mkConst ``Nat.sub)
 /-- Return `Nat.mul` operator -/
 def mkNatMulOp : TranslateEnvT Expr := mkExpr (mkConst ``Nat.mul)
 
+/-- Return `Int` Type -/
+def mkIntType : TranslateEnvT Expr := mkExpr (mkConst ``Int)
+
+/-- Return `Int.add` operator -/
+def mkIntAddOp : TranslateEnvT Expr := mkExpr (mkConst ``Nat.add)
+
+/-- Return `Int.mul` operator -/
+def mkIntMulOp : TranslateEnvT Expr := mkExpr (mkConst ``Int.mul)
+
+/-- Return `Int.neg` operator -/
+def mkIntNegOp : TranslateEnvT Expr := mkExpr (mkConst ``Int.neg)
+
 /-- `mkAppExpr f #[a₀, ..., aₙ]` constructs the application `f a₀ ... aₙ` and cache the result.
 -/
 def mkAppExpr (f : Expr) (args: Array Expr) : TranslateEnvT Expr :=
@@ -173,6 +185,22 @@ def mkNatLitExpr (n : Nat) : TranslateEnvT Expr :=
 -/
 def evalBinNatOp (f: Nat -> Nat -> Nat) (n1 n2 : Nat) : TranslateEnvT Expr :=
   mkNatLitExpr (f n1 n2)
+
+/-- `mkIntLitExpr n` constructs and cache an Int literal expression, i.e.,
+     either `Int.ofNat (Expr.lit (Literal.natVal n)` or `Int.negSucc (Expr.lit (Literal.natVal n)`.
+-/
+def mkIntLitExpr (n : Int) : TranslateEnvT Expr := do
+  match n with
+  | Int.ofNat n => mkAppExpr (← mkExpr (mkConst ``Int.ofNat)) #[(← mkNatLitExpr n)]
+  | Int.negSucc n => mkAppExpr (← mkExpr (mkConst ``Int.negSucc)) #[(← mkNatLitExpr n)]
+
+/-- `evalBinIntOp f n1 n2 perform the following:
+      - let r := f n1 n2
+      - construct int literal for `r`
+      - cache result and return r
+-/
+def evalBinIntOp (f: Int -> Int -> Int) (n1 n2 : Int) : TranslateEnvT Expr :=
+  mkIntLitExpr (f n1 n2)
 
 
 /-- `mkDecidableConstraint e` constructs constraint [Decidable e] and cache the result.

@@ -1,6 +1,7 @@
 import Lean
 import Solver.Optimize.OptimizeBool
 import Solver.Optimize.OptimizeEq
+import Solver.Optimize.OptimizeInt
 import Solver.Optimize.OptimizeITE
 import Solver.Optimize.OptimizeNat
 import Solver.Optimize.OptimizeProp
@@ -61,6 +62,10 @@ def optimizeApp (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
            | none =>
               match (← optimizeNat? f args) with
               | some e => pure e
-              | none => mkAppExpr f args
+              | none =>
+                 match (← optimizeInt? f args) with
+                 | some e => pure e
+                 | none => mkAppExpr f args
+
 
 end Solver.Optimize
