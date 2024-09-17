@@ -403,7 +403,6 @@ elab "natSubAddUnchanged_4" : term => return natSubAddUnchanged_4
 
 #testOptimize [ "NatSubAddUnchanged_4" ] ∀ (x y : Nat), 120 - (30 - x) < y ===> natSubAddUnchanged_4
 
-
 /-! Test cases for simplification rule `(N1 - n) - N2 ===> (N1 "-" N2) - n`. -/
 
 -- (20 - x) - 10 = 10 - x ===> True
@@ -505,6 +504,7 @@ elab "natSubSubRight_2" : term => return natSubSubRight_2
 #testOptimize [ "NatAddSub_1" ] ∀ (x : Nat), (100 + x) - 20 = 80 + x ===> True
 
 -- (100 + x) - 20 ===> 80 + x
+
 def natAddSub_2 : Expr :=
   Lean.Expr.forallE `x
     (Lean.Expr.const `Nat [])
@@ -761,7 +761,7 @@ elab "natSubVar_7" : term => return natSubVar_7
 
 
 /-! Test cases to ensure that `reduceApp` is properly called
-    when `Nat.add` operands are reduced to constant values
+    when `Nat.sub` operands are reduced to constant values
     via optimization. -/
 
 opaque x : Nat

@@ -49,6 +49,9 @@ elab "natAddCst_3" : term => return natAddCst_3
 #testOptimize [ "NatAddZero_6" ] ∀ (x y : Nat), x + (10 - 123) ≤ y ===> ∀ (x y : Nat), x ≤ y
 
 
+
+/-! Test cases to ensure that simplification rules `0 + n ===> n` is not wrongly applied. -/
+
 -- 1 + x ===> 1 + x
 def natAddZeroUnchanged_1 : Expr :=
   Lean.Expr.forallE `x
@@ -150,6 +153,94 @@ elab "natAddCstProp_5" : term => return natAddCstProp_5
 
 -- 10 + (20 + ((x + 10) - 7)) = 33 + x ===> True
 #testOptimize [ "NatAddCstProp_10" ] ∀ (x : Nat), 10 + (20 + ((x + 10) - 7)) = 33 + x ===> True
+
+-- 100 + ((180 - (x + 40)) - 150) = 100
+#testOptimize [ "NatAddCstProp_11" ] ∀ (x : Nat), 100 + ((180 - (x + 40)) - 150) = 100 ===> True
+
+
+/-! Test cases to ensure that simplification rule `N1 + (N2 + n) ===> (N1 "+" N2) + n`
+    is not wrongly applied.
+-/
+
+-- 40 + (x + y) ===> 40 + (x + y)
+-- Must remain unchanged
+def natAddCstPropUnchanged_1 : Expr :=
+  Lean.Expr.forallE `x
+    (Lean.Expr.const `Nat [])
+    (Lean.Expr.forallE `y
+     (Lean.Expr.const `Nat [])
+       (Lean.Expr.app
+         (Lean.Expr.app
+           (Lean.Expr.app
+             (Lean.Expr.app (Lean.Expr.const `LT.lt [Lean.Level.zero]) (Lean.Expr.const `Nat []))
+             (Lean.Expr.const `instLTNat []))
+           (Lean.Expr.app
+             (Lean.Expr.app (Lean.Expr.const `Nat.add [])
+               (Lean.Expr.lit (Lean.Literal.natVal 40)))
+             (Lean.Expr.app
+               (Lean.Expr.app (Lean.Expr.const `Nat.add []) (Lean.Expr.bvar 1))
+               (Lean.Expr.bvar 0))))
+         (Lean.Expr.bvar 0))
+     (Lean.BinderInfo.default))
+    (Lean.BinderInfo.default)
+
+elab "natAddCstPropUnchanged_1" : term => return natAddCstPropUnchanged_1
+
+#testOptimize [ "NatAddCstPropUnchanged_1" ] ∀ (x y : Nat), 40 + (x + y) < y ===> natAddCstPropUnchanged_1
+
+
+-- 40 + (x - y) ===> 40 + (x - y)
+-- Must remain unchanged
+def natAddCstPropUnchanged_2 : Expr :=
+  Lean.Expr.forallE `x
+    (Lean.Expr.const `Nat [])
+    (Lean.Expr.forallE `y
+     (Lean.Expr.const `Nat [])
+       (Lean.Expr.app
+         (Lean.Expr.app
+           (Lean.Expr.app
+             (Lean.Expr.app (Lean.Expr.const `LT.lt [Lean.Level.zero]) (Lean.Expr.const `Nat []))
+             (Lean.Expr.const `instLTNat []))
+           (Lean.Expr.app
+             (Lean.Expr.app (Lean.Expr.const `Nat.add [])
+               (Lean.Expr.lit (Lean.Literal.natVal 40)))
+             (Lean.Expr.app
+               (Lean.Expr.app (Lean.Expr.const `Nat.sub []) (Lean.Expr.bvar 1))
+               (Lean.Expr.bvar 0))))
+         (Lean.Expr.bvar 0))
+     (Lean.BinderInfo.default))
+    (Lean.BinderInfo.default)
+
+elab "natAddCstPropUnchanged_2" : term => return natAddCstPropUnchanged_2
+
+#testOptimize [ "NatAddCstPropUnchanged_2" ] ∀ (x y : Nat), 40 + (x - y) < y ===> natAddCstPropUnchanged_2
+
+
+-- 40 + (x * y) ===> 40 + (x * y)
+-- Must remain unchanged
+def natAddCstPropUnchanged_3 : Expr :=
+  Lean.Expr.forallE `x
+    (Lean.Expr.const `Nat [])
+    (Lean.Expr.forallE `y
+     (Lean.Expr.const `Nat [])
+       (Lean.Expr.app
+         (Lean.Expr.app
+           (Lean.Expr.app
+             (Lean.Expr.app (Lean.Expr.const `LT.lt [Lean.Level.zero]) (Lean.Expr.const `Nat []))
+             (Lean.Expr.const `instLTNat []))
+           (Lean.Expr.app
+             (Lean.Expr.app (Lean.Expr.const `Nat.add [])
+               (Lean.Expr.lit (Lean.Literal.natVal 40)))
+             (Lean.Expr.app
+               (Lean.Expr.app (Lean.Expr.const `Nat.mul []) (Lean.Expr.bvar 1))
+               (Lean.Expr.bvar 0))))
+         (Lean.Expr.bvar 0))
+     (Lean.BinderInfo.default))
+    (Lean.BinderInfo.default)
+
+elab "natAddCstPropUnchanged_3" : term => return natAddCstPropUnchanged_3
+
+#testOptimize [ "NatAddCstPropUnchanged_3" ] ∀ (x y : Nat), 40 + (x * y) < y ===> natAddCstPropUnchanged_3
 
 
 /-! Test cases for normalization rule `n1 + n2 ==> n2 + n1 (if n2 <ₒ n1)`. -/

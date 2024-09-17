@@ -137,6 +137,9 @@ def mkNatAddOp : TranslateEnvT Expr := mkExpr (mkConst ``Nat.add)
 /-- Return `Nat.sub` operator -/
 def mkNatSubOp : TranslateEnvT Expr := mkExpr (mkConst ``Nat.sub)
 
+/-- Return `Nat.mul` operator -/
+def mkNatMulOp : TranslateEnvT Expr := mkExpr (mkConst ``Nat.mul)
+
 /-- `mkAppExpr f #[a₀, ..., aₙ]` constructs the application `f a₀ ... aₙ` and cache the result.
 -/
 def mkAppExpr (f : Expr) (args: Array Expr) : TranslateEnvT Expr :=

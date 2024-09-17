@@ -272,6 +272,18 @@ def toNatSubExpr? (e: Expr) : Option (Expr × Array Expr) :=
       | _ => none
  | _ => none
 
+/-- Determine if `e` is a Nat.mul expression and return it's correponding arguments.
+    Otherwise return `none`.
+-/
+def toNatMulExpr? (e: Expr) : Option (Expr × Array Expr) :=
+ match e with
+ | Expr.app .. =>
+    Expr.withApp e fun f args =>
+      match f with
+      | Expr.const ``Nat.mul _ => some (f, args)
+      | _ => none
+ | _ => none
+
 /-- Inductive type used to characterize Nat binary operators when
     at least one operand is a constant.
     This type is exclusively used by function `toNatCstOpExpr?`
