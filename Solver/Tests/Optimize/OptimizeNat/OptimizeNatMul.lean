@@ -380,4 +380,5 @@ elab "natMulReduce_2" : term => return natMulReduce_2
 
 #testOptimize [ "NatMulReduce_2" ] (100 + (((180 - (x * 40)) - 150) - 30)) * ((((20 - y) - 50) * 24) + 1) ===> natMulReduce_2
 
+
 end Test.OptimizeNatMul
