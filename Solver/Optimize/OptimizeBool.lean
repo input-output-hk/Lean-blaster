@@ -77,13 +77,9 @@ def toBoolNotExpr? (c : Expr) : Option Expr :=
 -/
 def optimizeBoolNot (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size == 1 then
-   match args[0]! with
-   | Expr.const ``false _ => mkBoolTrue
-   | Expr.const ``true _ => mkBoolFalse
-   | e =>
-       match (toBoolNotExpr? e) with
-       | some op => pure op
-       | none => mkAppExpr f args
+   match (toBoolNotExpr? args[0]!) with
+   | some op => pure op
+   | none => mkAppExpr f args
  else mkAppExpr f args
 
 /-- Apply simplification/normalization rules on Boolean operators.
