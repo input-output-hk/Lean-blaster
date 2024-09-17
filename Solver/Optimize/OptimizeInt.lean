@@ -87,7 +87,7 @@ def optimizeIntMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  else mkAppExpr f args
 
 
-/-- Normalize `Int.negSucc n` to `-(n + 1)`.
+/-- Normalize `Int.negSucc n` to `-(n + 1)` only when `n` is not a constant value.
     An error is triggered if args.size ≠ 1.
     Assume that f = Expr.const ``Int.negSucc.
     NOTE: `Int.negSucc` on constant values are handled via `reduceApp`.
