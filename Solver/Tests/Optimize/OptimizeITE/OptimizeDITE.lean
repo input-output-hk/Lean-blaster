@@ -325,7 +325,7 @@ elab "diteAbsorptionUnchanged_8" : term => return diteAbsorptionUnchanged_8
 
 -- if h : False then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z ===> ∀ (z y : Int), z < y
 #testOptimize [ "DIteFalseCond_4" ] if _h : False then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z ===>
-                                   ∀ (z y : Int), z < y
+                                    ∀ (z y : Int), z < y
 
 -- ∀ (c : Bool) (a b : Prop), if h : (! c && c) then a else b ===> ∀ (c : Bool) (a b : Prop), b
 -- TODO: remove unused quantifier when COI performed on forall
