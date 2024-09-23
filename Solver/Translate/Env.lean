@@ -144,13 +144,16 @@ def mkNatMulOp : TranslateEnvT Expr := mkExpr (mkConst ``Nat.mul)
 def mkIntType : TranslateEnvT Expr := mkExpr (mkConst ``Int)
 
 /-- Return `Int.add` operator -/
-def mkIntAddOp : TranslateEnvT Expr := mkExpr (mkConst ``Nat.add)
+def mkIntAddOp : TranslateEnvT Expr := mkExpr (mkConst ``Int.add)
 
 /-- Return `Int.mul` operator -/
 def mkIntMulOp : TranslateEnvT Expr := mkExpr (mkConst ``Int.mul)
 
 /-- Return `Int.neg` operator -/
 def mkIntNegOp : TranslateEnvT Expr := mkExpr (mkConst ``Int.neg)
+
+/-- Return `Int.ofNat` constructor -/
+def mkIntOfNat : TranslateEnvT Expr := mkExpr (mkConst ``Int.ofNat)
 
 /-- `mkAppExpr f #[a₀, ..., aₙ]` constructs the application `f a₀ ... aₙ` and cache the result.
 -/

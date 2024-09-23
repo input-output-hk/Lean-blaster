@@ -1,5 +1,6 @@
 import Lean
 import Solver.Optimize.OptimizeEq
+import Solver.Optimize.OptimizeNat
 import Solver.Optimize.Utils
 import Solver.Translate.Env
 
@@ -87,7 +88,7 @@ def optimizeIntMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  else mkAppExpr f args
 
 
-/-- Normalize `Int.negSucc n` to `-(n + 1)` only when `n` is not a constant value.
+/-- Normalize `Int.negSucc n` to `Int.neg (Int.ofNat (Nat.add 1 n))` only when `n` is not a constant value.
     An error is triggered if args.size ≠ 1.
     Assume that f = Expr.const ``Int.negSucc.
     NOTE: `Int.negSucc` on constant values are handled via `reduceApp`.
@@ -98,8 +99,9 @@ def optimizeIntNegSucc (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
    let op := args[0]!
    match (isNatValue? op) with
    | none =>
-       let addExpr ← optimizeIntAdd (← mkIntAddOp) #[← mkIntLitExpr (Int.ofNat 1), args[0]!]
-       optimizeIntNeg (← mkIntNegOp) #[addExpr]
+       let addExpr ← optimizeNatAdd (← mkNatAddOp) #[← mkNatLitExpr 1, args[0]!]
+       let intExpr ← mkAppExpr (← mkIntOfNat) #[addExpr]
+       optimizeIntNeg (← mkIntNegOp) #[intExpr]
    | some _ => mkAppExpr f args
  else throwError "optimizeIntNegSucc: only one argument expected"
 
