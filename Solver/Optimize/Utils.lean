@@ -40,6 +40,7 @@ def opaqueFuns : NameHashSet :=
     ``Int.add, -- Int.sub is defined as m + (-n)
     ``Int.neg,
     ``Int.mul,
+    ``Int.toNat,
     -- Division rounding towards zero
     ``Int.div,
     ``Int.mod,
@@ -211,6 +212,20 @@ def isNegBoolEqOf (e1: Expr) (e2: Expr) : MetaM Bool := do
 def isBoolType (e : Expr) : Bool :=
   match e with
   | Expr.const ``Bool _ => true
+  | _ => false
+
+/-- Return `true` if the given expression is of the form `const ``Nat`.
+-/
+def isNatType (e : Expr) : Bool :=
+  match e with
+  | Expr.const ``Nat _ => true
+  | _ => false
+
+/-- Return `true` if the given expression is of the form `const ``Int`.
+-/
+def isIntType (e : Expr) : Bool :=
+  match e with
+  | Expr.const ``Int _ => true
   | _ => false
 
 /-- Determine if `e` is a `Nat` literal expression `Expr.lit (Literal.natVal n)`
@@ -592,24 +607,30 @@ def reorderIntOp (args: Array Expr) : MetaM (Array Expr) := do
 --      else pure (Expr.beta (← mkLambdaFVars eq_args e) args)
 
 
+/-- Return true if `n` corresponds to a matcher expression name. -/
+def isMatchExpr (n : Name) : MetaM Bool := Option.isSome <$> getMatcherInfo? n
+
+
 /-- Unfold fuction `f` w.r.t. the effective parameters `args` only when:
      - f is not a constructor
      - f is not tagged as an opaque definition
      - f is not a recursive function
+     - f is not an undefined type class function
+     - f is not a match application
 -/
 partial def getUnfoldFunDef? (f: Expr) (args: Array Expr) : MetaM (Option Expr) := do
  match f with
  | Expr.const n l =>
-   if (isOpaqueFun n args) || (← isRecursiveDefinition n)
+   if (isOpaqueFun n args) || (← isRecursiveDefinition n) || (← isMatchExpr n)
    then return none
-   else
-    match (← getConstInfo n) with
-    | ConstantInfo.defnInfo info =>
-        let reduced := Expr.beta info.value args
-        if (← isUndefinedClassFunApp reduced)
-        then pure none
-        else normConstLevel n l reduced
-    | _ => pure none
+   else match (← getConstInfo n) with
+        | cInfo@(ConstantInfo.defnInfo _) =>
+            let auxApp ← instantiateValueLevelParams cInfo l
+            let reduced := Expr.beta auxApp args
+            if (← isUndefinedClassFunApp reduced)
+            then pure none
+            else pure reduced
+        | _ => pure none
  | Expr.proj .. =>
     -- case when f is function defined in a class instance
    match (← reduceProj? f) with
@@ -631,30 +652,5 @@ partial def getUnfoldFunDef? (f: Expr) (args: Array Expr) : MetaM (Option Expr) 
            pure ((← reduceProj? p).isNone && (isClass (← getEnv) c))
         | _ => pure false
      | _ => pure false
-
-   /-- Given `n`, `us` and `be` apply following normalization rules on `be`:
-     - app (const ``Not l1) (app (const ``Eq l2) e1 e2) ===> app (const ``Not l1) (app (const ``Eq us) e1 e2) (if n = ``Ne)
-     - app (const ``not l1) (app (const ``BEq.beq l2) e1 e2) ===> app (const ``not l1) (app (const ``BEq.beq us) e1 e2) (if n = ``bne)
-     - app (const ``LT.lt l) e1 e2 ==> app (const ``Lt.lt us) e1 e2 (if n = ``GT.gt)
-     - app (const ``LE.le l) e1 e2 ==> app (const ``Lt.lt us) e1 e2 (if n = ``GE.ge)
-     Return `be` when the above normalization rules cannot be applied.
-   -/
-   normConstLevel (n : Name) (us : List Level) (be : Expr) : MetaM Expr :=
-    match be with
-    | Expr.app .. =>
-        Expr.withApp be fun f args =>
-         match f, n with
-         | Expr.const ``Not _, ``Ne =>
-            match isEqExpr? args[0]! with
-            | some (eq, eq_ops) => pure (mkApp f (mkAppN (Expr.updateConst! eq us) eq_ops))
-            | none => pure be
-         | Expr.const ``not _, ``bne =>
-            match isBEqExpr? args[0]! with
-            | some (beq, beq_ops) => pure (mkApp f (mkAppN (Expr.updateConst! beq us) beq_ops))
-            | none => pure be
-         | Expr.const ``LT.lt _, ``GT.gt
-         | Expr.const ``LE.le _, ``GE.ge => pure (mkAppN (Expr.updateConst! f us) args)
-         | _, _ => pure be
-    | _ => pure be
 
 end Solver.Optimize

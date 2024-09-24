@@ -5,6 +5,7 @@ import Solver.Logging
 import Solver.Translate.Env
 import Solver.Optimize.OptimizeApp
 import Solver.Optimize.OptimizeForAll
+import Solver.Optimize.OptimizeMatch
 
 open Lean Elab Command Term Meta
 
@@ -23,65 +24,124 @@ namespace Solver.Optimize
 --       ∀ (y₁ : TypeB₁ .. yₙ : Typeₙ), P₂ y₁ ... yₙ) IF {TypeB₁, .., TypeBₙ} ⊄ {TypeA₁, ...,TypeAₙ}
 -- - ∀ (x₁ : TypeA₁) ... (xₙ : TypeAₙ), P₁ → P₂ ===>
 --      ∀ (x₄ : TypeA₄) ... (xₙ : TypeAₙ), P₂ x₄ ... xₙ IF Var(P₂) ∩ Var(P₁) = ∅
-partial def optimize (sOpts: SolverOptions) (e : Expr) : MetaM (Expr × TranslateEnv) :=
-  let rec visit (e : Expr) : TranslateEnvT Expr := do
-    withTranslateEnvCache e fun _ => do
-    logReprExpr sOpts "Optimize:" e
-    match e with
-    | Expr.fvar v =>
-        -- adding free variable not required
-        addFVar v >>= (fun _ => return e)
-    | Expr.const n l => normConst n l
-    | Expr.forallE n t b bi =>
-        let t' ← visit t
-        withLocalDecl n bi t' fun x => do
-          optimizeForall x t' (← visit (b.instantiate1 x))
-    | Expr.app .. =>
-       Expr.withApp e fun rf ras => do
-        -- apply optimization on params first before reduction
-        let fInfo ← getFunInfoNArgs rf ras.size
-        let mut mas := ras
-        for i in [:ras.size] do
-          if i < fInfo.paramInfo.size then
-            let aInfo := fInfo.paramInfo[i]!
-            if aInfo.isExplicit then
+mutual
+  partial def optimizeExpr (sOpts: SolverOptions) (e : Expr) : TranslateEnvT Expr := do
+    let rec visit (e : Expr) : TranslateEnvT Expr := do
+      withTranslateEnvCache e fun _ => do
+      logReprExpr sOpts "Optimize:" e
+      match e with
+      | Expr.fvar v =>
+          -- adding free variable not required
+          addFVar v >>= (fun _ => return e)
+      | Expr.const n l => normConst n l
+      | Expr.forallE n t b bi =>
+          let t' ← visit t
+          withLocalDecl n bi t' fun x => do
+            optimizeForall x t' (← visit (b.instantiate1 x))
+      | Expr.app .. =>
+          Expr.withApp e fun rf ras => do
+          -- apply optimization on params first before reduction
+          let fInfo ← getFunInfoNArgs rf ras.size
+          let mut mas := ras
+          for i in [:ras.size] do
+            if i < fInfo.paramInfo.size then
+              let aInfo := fInfo.paramInfo[i]!
+              if aInfo.isExplicit then
+                mas ← mas.modifyM i visit
+            else
               mas ← mas.modifyM i visit
-          else
-            mas ← mas.modifyM i visit
-        -- try to reduce app if all params are constructors
-        match (← reduceApp? rf mas) with
-        | some re => visit re
-        | none =>
-           if rf.isLambda then
-             -- perform beta-reduction
-             visit (Expr.beta rf mas)
-           else
-             -- unfold non-recursive and non-opaque functions
-             match (← getUnfoldFunDef? rf mas) with
-             | some fdef => visit fdef
-             | none =>
-                -- normalize and cache opaque and recursive function name
-                let f' ← visit rf
-                optimizeApp f' mas -- optimizations on opaque functions
-    | Expr.lam n t b bi => do
-       let t' ← visit t
-       withLocalDecl n bi t' fun x => do
-         mkLambdaExpr x (← visit (b.instantiate1 x))
-    | Expr.letE n t v b _ =>
-       -- inline let expression
-       let t' ← (visit t)
-       let v' ← (visit v)
-       withLetDecl n t' v' fun _ =>
-         visit (b.instantiate1 v')
-    | Expr.mdata _ me => visit me
-    | Expr.sort _ => return e -- sort is used for Type u, Prop, etc
-    | Expr.proj .. =>
-       match (← reduceProj? e) with
-       | some re => return re
-       | none => return e
-    | Expr.lit .. => return e -- number or string literal: do nothing
-    | Expr.mvar .. => throwError f!"unexpected meta variable {e}"
-    | Expr.bvar .. => throwError f!"unexpected bounded variable {e}"
-   visit e |>.run default
+          -- try to reduce app if all params are constructors
+          match (← reduceApp? rf mas) with
+          | some re => visit re
+          | none =>
+            if rf.isLambda then
+              -- perform beta-reduction
+              visit (Expr.beta rf mas)
+            else
+              -- unfold non-recursive and non-opaque functions
+              if let some fdef ← getUnfoldFunDef? rf mas then return (← visit fdef)
+              -- normalize match expression to ite
+              if let some mdef ← matchExprRewriter sOpts rf mas normMatchExpr? then return (← visit mdef)
+              -- normalize and cache opaque and recursive function name
+              let f' ← visit rf
+              optimizeApp f' mas -- optimizations on opaque functions
+      | Expr.lam n t b bi => do
+          let t' ← visit t
+          withLocalDecl n bi t' fun x => do
+            mkLambdaExpr x (← visit (b.instantiate1 x))
+      | Expr.letE n t v b _ =>
+          -- inline let expression
+          let t' ← (visit t)
+          let v' ← (visit v)
+          withLetDecl n t' v' fun _ =>
+            visit (b.instantiate1 v')
+      | Expr.mdata _ me => visit me
+      | Expr.sort _ => return e -- sort is used for Type u, Prop, etc
+      | Expr.proj .. =>
+          match (← reduceProj? e) with
+          | some re => mkExpr re
+          | none => return e
+      | Expr.lit .. => return e -- number or string literal: do nothing
+      | Expr.mvar .. => throwError f!"unexpected meta variable {e}"
+      | Expr.bvar .. => throwError f!"unexpected bounded variable {e}"
+    visit e
+
+  /-- A generic match expression rewriter that given a `match` application expression `f args`
+      apply the `rewriter` function on each match pattern. The `rewriter` function
+      is applied from the last match pattern to the first one.
+      Concretely, given a match expression of the form:
+        match e₁, ..., eₙ with
+        | p₍₁₎₍₁₎, ..., p₍₁₎₍ₙ₎ => t₁
+        ...
+        | p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₙ₎ => tₘ
+
+     `matchExprRewriter` return the following evaluation:
+       rewriter m-1 [e₁, ..., eₙ] [p₍₁₎₍₁₎, ..., p₍₁₎₍ₙ₎] t₁
+         ...
+         (rewriter 1 [e₁, ..., eₙ] [p₍ₘ₋₁₎₍₁₎, ..., p₍ₘ₋₁₎₍ₙ₎] tₘ₋₁
+           (rewriter 0 [e₁, ..., eₙ] [p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₙ₎] tₘ none))
+     where,
+       - the first application is passed the `none` accumulator
+       - the `Nat` argument corresponding to the traversed index, starting with 0.
+     NOTE: The evaluation stops when at least one of the `rewriter` invocation return `none`.
+  -/
+  partial def matchExprRewriter
+    (sOpts: SolverOptions)
+    (f : Expr) (args : Array Expr)
+    (rewriter : Nat → Array Expr → Array Expr → Expr → Option α → TranslateEnvT (Option α))
+    : TranslateEnvT (Option α) := do
+  match f with
+    | Expr.const n dlevel =>
+        let some matcherInfo ← getMatcherInfo? n | return none
+        let cInfo ← getConstInfo n
+        let discrs := args[matcherInfo.getFirstDiscrPos : matcherInfo.getFirstAltPos]
+        let patterns := args[matcherInfo.getFirstAltPos : matcherInfo.arity]
+        let matchFun ← instantiateValueLevelParams cInfo dlevel
+        let auxApp := Expr.beta matchFun args[0:matcherInfo.getFirstAltPos]
+        let auxAppType ← inferType auxApp
+        forallTelescope auxAppType fun xs _t => do
+          let alts := xs[xs.size - patterns.size:]
+          let mut accExpr := (none : Option α)
+          -- traverse in reverse order to handle last pattern first
+          let nbAlts := alts.size
+          for i in [:nbAlts] do
+            let idx := nbAlts - i - 1
+            accExpr ←
+              forallTelescope (← inferType alts[idx]!) fun _xs b => do
+                let mut lhs := b.getAppArgs
+                -- NOTE: lhs has not been normalized as is kept at the type level.
+                -- normalizing lhs
+                for j in [:lhs.size] do
+                  lhs ← lhs.modifyM j (optimizeExpr sOpts)
+                rewriter i discrs lhs patterns[idx]! accExpr
+            unless (accExpr.isSome) do return accExpr -- break if accExpr is still none
+          return accExpr
+    | _ => pure none
+
+end
+
+def optimize (sOpts: SolverOptions) (e : Expr) : MetaM (Expr × TranslateEnv) :=
+  optimizeExpr sOpts e|>.run default
+
 
 end Solver.Optimize

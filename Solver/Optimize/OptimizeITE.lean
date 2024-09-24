@@ -21,7 +21,7 @@ namespace Solver.Optimize
     due to simplification/normalization rules.
 -/
 def updateITEDecidable (args : Array Expr) : TranslateEnvT (Array Expr) := do
-  pure (args.set! 2 (← synthDecidableInstance args[1]!))
+  pure (args.set! 2 (← synthDecidableInstance! args[1]!))
 
 /-- Given `#[s c d t e]` corresponding to the arguments of an `ite` or `dite`, such that:
       - s is the sort parameter

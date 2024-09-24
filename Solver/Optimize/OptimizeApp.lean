@@ -43,29 +43,16 @@ def reduceApp? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
    else return none
  else return none
 
-/-- Perform constant propagation and apply simplifcation and normalization rules on
-    an application expression.
-    TODO: consider additional simplification rules
+/-- Perform constant propagation and apply simplifcation and normalization rules
+    on application expressions.
 -/
 def optimizeApp (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
-  match (← optimizeProp? f args) with
-  | some e => pure e
-  | none =>
-     match (← optimizeBool? f args) with
-     | some e => pure e
-     | none =>
-        match (← optimizeEquality? f args) with
-        | some e => pure e
-        | none =>
-           match (← optimizeIfThenElse? f args) with
-           | some e => pure e
-           | none =>
-              match (← optimizeNat? f args) with
-              | some e => pure e
-              | none =>
-                 match (← optimizeInt? f args) with
-                 | some e => pure e
-                 | none => mkAppExpr f args
-
+  if let some e ← optimizeProp? f args then return e
+  if let some e ← optimizeBool? f args then return e
+  if let some e ← optimizeEquality? f args then return e
+  if let some e ← optimizeIfThenElse? f args then return e
+  if let some e ← optimizeNat? f args then return e
+  if let some e ← optimizeInt? f args then return e
+  mkAppExpr f args
 
 end Solver.Optimize

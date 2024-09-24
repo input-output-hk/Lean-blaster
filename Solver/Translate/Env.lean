@@ -128,6 +128,21 @@ def mkPropAndOp : TranslateEnvT Expr := mkExpr (mkConst ``And)
 /-- Return `BEq.beq` operator -/
 def mkBeqOp : TranslateEnvT Expr := mkExpr (mkConst ``BEq.beq [levelZero])
 
+/-- Return `Eq` operator -/
+def mkEqOp : TranslateEnvT Expr := mkExpr (mkConst ``Eq [levelOne])
+
+/-- Return `ite` operator -/
+def mkIteOp : TranslateEnvT Expr := mkExpr (mkConst ``ite [levelOne])
+
+/-- Return `LE.le` operator -/
+def mkLeOp : TranslateEnvT Expr := mkExpr (mkConst ``LE.le [levelZero])
+
+/-- Return `LT.lt` operator -/
+def mkLtOp : TranslateEnvT Expr := mkExpr (mkConst ``LT.lt [levelZero])
+
+/-- Return `Decidable` const expression -/
+def mkDecidableConst : TranslateEnvT Expr := mkExpr (mkConst ``Decidable)
+
 /-- Return `Nat` Type -/
 def mkNatType : TranslateEnvT Expr := mkExpr (mkConst ``Nat)
 
@@ -155,15 +170,38 @@ def mkIntNegOp : TranslateEnvT Expr := mkExpr (mkConst ``Int.neg)
 /-- Return `Int.ofNat` constructor -/
 def mkIntOfNat : TranslateEnvT Expr := mkExpr (mkConst ``Int.ofNat)
 
+/-- Return `Int.toNat` operator -/
+def mkIntToNatOp : TranslateEnvT Expr := mkExpr (mkConst ``Int.toNat)
+
 /-- `mkAppExpr f #[a₀, ..., aₙ]` constructs the application `f a₀ ... aₙ` and cache the result.
 -/
 def mkAppExpr (f : Expr) (args: Array Expr) : TranslateEnvT Expr :=
   mkExpr (mkAppN f args)
 
-/-- Return "==" nat operator -/
+/-- Return "==" Nat operator -/
 def mkNatBeqOp : TranslateEnvT Expr := do
   let beqNat ← mkAppExpr (← mkBeqOp) #[← mkNatType]
   mkAppExpr beqNat #[(← mkExpr (mkConst ``instBEqNat))]
+
+/-- Return the `≤` Nat operator -/
+def mkNatLeOp : TranslateEnvT Expr := do
+  let leExpr ← mkAppExpr (← mkLeOp) #[← mkNatType]
+  mkAppExpr leExpr #[(← mkExpr (mkConst ``instLENat))]
+
+/-- Return the `<` Nat operator -/
+def mkNatLtOp : TranslateEnvT Expr := do
+  let ltExpr ← mkAppExpr (← mkLtOp) #[← mkNatType]
+  mkAppExpr ltExpr #[(← mkExpr (mkConst ``instLTNat))]
+
+/-- Return the `≤` Int operator -/
+def mkIntLeOp : TranslateEnvT Expr := do
+  let leExpr ← mkAppExpr (← mkLeOp) #[← mkIntType]
+  mkAppExpr leExpr #[(← mkExpr (mkConst ``Int.instLEInt))]
+
+/-- Return the `<` Int operator -/
+def mkIntLtOp : TranslateEnvT Expr := do
+  let ltExpr ← mkAppExpr (← mkLtOp) #[← mkIntType]
+  mkAppExpr ltExpr #[(← mkExpr (mkConst ``Int.instLTInt))]
 
 
 /-- `mkForallExpr n b` constructs `∀ n, b` and cache result.
@@ -194,8 +232,15 @@ def evalBinNatOp (f: Nat -> Nat -> Nat) (n1 n2 : Nat) : TranslateEnvT Expr :=
 -/
 def mkIntLitExpr (n : Int) : TranslateEnvT Expr := do
   match n with
-  | Int.ofNat n => mkAppExpr (← mkExpr (mkConst ``Int.ofNat)) #[(← mkNatLitExpr n)]
+  | Int.ofNat n => mkAppExpr (← mkIntOfNat) #[(← mkNatLitExpr n)]
   | Int.negSucc n => mkAppExpr (← mkExpr (mkConst ``Int.negSucc)) #[(← mkNatLitExpr n)]
+
+/-- `mkNatNegExpr n` constructs and cache the negation of a Nat literal expression, i.e.,
+     Int.negSucc (Expr.lit (Literal.natVal (n - 1))`.
+-/
+def mkNatNegExpr (n : Nat) : TranslateEnvT Expr := do
+  mkAppExpr (← mkExpr (mkConst ``Int.negSucc)) #[(← mkNatLitExpr (n - 1))]
+
 
 /-- `evalBinIntOp f n1 n2 perform the following:
       - let r := f n1 n2
@@ -208,24 +253,32 @@ def evalBinIntOp (f: Int -> Int -> Int) (n1 n2 : Int) : TranslateEnvT Expr :=
 
 /-- `mkDecidableConstraint e` constructs constraint [Decidable e] and cache the result.
 -/
-def mkDecidableConstraint (e : Expr) : TranslateEnvT Expr := do
-  mkExpr (mkAppN (← mkExpr (mkConst ``Decidable)) #[e])
+def mkDecidableConstraint (e : Expr) (cacheDecidableCst := true) : TranslateEnvT Expr := do
+  let decideCstr := mkApp (← mkDecidableConst) e
+  if cacheDecidableCst then mkExpr decideCstr else return decideCstr
+
 
 /-- Return `d` if there is already a synthesize instance for [Decidable e] in the synthesize cache.
     Otherwise, the following actions are performed:
-     - execute d ← synthInstance [Decidable e]
+     - execute `LOption.some d ← trySynthInstance [Decidable e]`
      - add [Decidable e] := d to synthesize cache
      - return d
+    Return `none` when `trySynthInstance` does not return `LOption.some`
 -/
-def synthDecidableInstance (e : Expr) : TranslateEnvT Expr := do
-  let dCstr ← mkDecidableConstraint e
+def trySynthDecidableInstance? (e : Expr) (cacheDecidableCst := true) : TranslateEnvT (Option Expr) := do
+  let dCstr ← mkDecidableConstraint e cacheDecidableCst
   let env ← get
   match env.synthDecidableCache.find? dCstr with
   | some d => return d
   | none => do
-     let d ← synthInstance dCstr
+     let LOption.some d ← trySynthInstance dCstr | return none
      updateSynthCache dCstr d
      return d
+
+/-- Same as `trySynthDecidableInstance` but throws an error when a decidable instance cannot be found. -/
+def synthDecidableInstance! (e : Expr) : TranslateEnvT Expr := do
+  let some d ← trySynthDecidableInstance? e | throwError "synthesize instance for [Decidable {reprStr e}] cannot be found"
+  return d
 
 
 /-- Return `b` if `a := b` is already in the weak head cache.
