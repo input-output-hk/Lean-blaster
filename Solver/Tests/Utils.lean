@@ -40,11 +40,13 @@ def testOptimizeImp : CommandElab := fun stx => do
  let sOpts ← Solver.parseVerbose default ⟨stx[2]⟩
  let (t1, t2) ← parseTermReducedTo ⟨stx[3]⟩
  withoutModifyingEnv $ runTermElabM fun _ => do
-   let actual ← callOptimize sOpts t1
-   let expected ← parseTerm t2
-   if actual == expected
-   then logInfo f!"{name} ✓ Success!"
-   else logError f!"{name} ✗ Failure! : expecting {reprStr expected} \nbut got {reprStr actual}"
-
+   -- create a local declaration name for the test case
+   let m ← getMainModule
+   withDeclName (m ++ name.toName) $ do
+     let actual ← callOptimize sOpts t1
+     let expected ← parseTerm t2
+     if actual == expected
+     then logInfo f!"{name} ✓ Success!"
+     else logError f!"{name} ✗ Failure! : expecting {reprStr expected} \nbut got {reprStr actual}"
 
 end Tests

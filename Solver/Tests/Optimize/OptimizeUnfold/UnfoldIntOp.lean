@@ -53,5 +53,8 @@ namespace Tests.UnfoldNatOp
 -- ∀ (x y : Int) (n : Nat), x ^ n > y ===> ∀ (x y : Int) (n : Nat), y < Int.pow x n
 #testOptimize ["IntOpNotUnfolded_12"] ∀ (x y : Int) (n : Nat), x ^ n > y ===> ∀ (x y : Int) (n : Nat), y < Int.pow x n
 
+-- ∀ (x : Int) (n : Nat), Int.toNat x = n ===> ∀ (x : Int) (n : Nat), n = Int.toNat x
+#testOptimize ["IntOpNotUnfolded_13"] ∀ (x : Int) (n : Nat), Int.toNat x = n ===> ∀ (x : Int) (n : Nat), n = Int.toNat x
+
 
 end Tests.UnfoldNatOp

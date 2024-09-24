@@ -210,7 +210,6 @@ def normMatchExpr? (idx : Nat) (discrs : Array Expr) (lhs : Array Expr) (alt : E
        An error is triggered if the sequence of match patterns and free variables are not consistent.
    -/
    substituteArgs (discrs : Array Expr) (lhs : Array Expr) (patternArgs : Array Expr) : TranslateEnvT (Array Expr) := do
-    logInfo f!"substituteArgs: (lhs: {reprStr lhs}, args: {reprStr patternArgs})"
     if patternArgs.size == 0
     then return patternArgs
     else
@@ -219,30 +218,29 @@ def normMatchExpr? (idx : Nat) (discrs : Array Expr) (lhs : Array Expr) (alt : E
       for i in [:lhs.size] do
         let p := lhs[i]!
         let e := discrs[i]!
-        let fv := args[idx]!
         match p with
         | Expr.fvar .. =>
             -- case: pᵢ = vⱼ ∧ j ≤ m
-            if fv != p then
+            if args[idx]! != p then
               throwError "substituteArgs: Invalid match pattern arguments (lhs: {reprStr lhs}, args: {reprStr args})"
             args := args.set! idx e
             idx := idx + 1
         | (Expr.app (Expr.app (Expr.const ``Nat.add _) n@(Expr.lit (Literal.natVal _))) n_fv@(Expr.fvar _)) =>
             -- case: pᵢ = N + n ∧ Type(vⱼ) = Type(eᵢ) = Nat ∧ j ≤ m
-            if n_fv != fv then
+            if n_fv != args[idx]! then
               throwError "substituteArgs: Invalid match pattern arguments (lhs: {reprStr lhs}, args: {reprStr args})"
             args := args.set! idx (mkApp2 (← mkNatSubOp) e n)
             idx := idx + 1
         | (Expr.app (Expr.const ``Int.ofNat _) (Expr.fvar _)) =>
             -- case: pᵢ = Int.ofNat n ∧ Type(vⱼ) = Nat ∧ j ≤ m
-            if !(isNatType (← inferType fv)) then
+            if !(isNatType (← inferType args[idx]!)) then
               throwError "substituteArgs: Invalid match pattern arguments (lhs: {reprStr lhs}, args: {reprStr args})"
             args := args.set! idx (mkApp (← mkIntToNatOp) e)
             idx := idx + 1
         | (Expr.app (Expr.const ``Int.ofNat _)
              (Expr.app (Expr.app (Expr.const ``Nat.add _) n@(Expr.lit (Literal.natVal _))) n_fv@(Expr.fvar _))) =>
             -- case: pᵢ = Int.ofNat (N + n) ∧ Type(vⱼ) = Nat ∧ j ≤ m
-            if n_fv != fv then
+            if n_fv != args[idx]! then
               throwError "substituteArgs: Invalid match pattern arguments (lhs: {reprStr lhs}, args: {reprStr args})"
             args := args.set! idx (mkApp2 (← mkNatSubOp) (mkApp (← mkIntToNatOp) e) n)
             idx := idx + 1
@@ -250,7 +248,7 @@ def normMatchExpr? (idx : Nat) (discrs : Array Expr) (lhs : Array Expr) (alt : E
            (Expr.app (Expr.const ``Int.ofNat _)
             (Expr.app (Expr.app (Expr.const ``Nat.add _) n@(Expr.lit (Literal.natVal _))) n_fv@(Expr.fvar _)))) =>
             -- case: pᵢ = Int.Neg (Int.ofNat (N + n)) ∧ Type(vⱼ) = Nat ∧ j ≤ m
-            if n_fv != fv then
+            if n_fv != args[idx]! then
               throwError "substituteArgs: Invalid match pattern arguments (lhs: {reprStr lhs}, args: {reprStr args})"
             args := args.set! idx (mkApp2 (← mkNatSubOp) (mkApp (← mkIntToNatOp) (mkApp (← mkIntNegOp) e)) n)
             idx := idx + 1
