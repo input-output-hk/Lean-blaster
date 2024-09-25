@@ -11,7 +11,7 @@ open Lean Elab Command Term Meta
 
 namespace Solver.Optimize
 
--- TODO: update specification
+-- TODO: update formalization with inference rule style notation.
 -- Some translation notes
 -- Some translation rules
 --  - ((∀ x : Type), P₁ x) → (∀ (a b .. n : Type), P₂ a b n) ==> (∀ (a b .. n : Type), P₁ a → P₁ b → P₁ c .. → P₁ n → P₂ a b .. n)
@@ -140,6 +140,13 @@ mutual
 
 end
 
+/-- Optimize an expression using the given solver options.
+    ### Parameters
+      - `sOpts`: The solver options to use for optimization.
+      - `expr`: The expression to be optimized.
+    ### Returns
+      - A tuple containing the optimized expression and the translation environment.
+-/
 def optimize (sOpts: SolverOptions) (e : Expr) : MetaM (Expr × TranslateEnv) :=
   optimizeExpr sOpts e|>.run default
 
