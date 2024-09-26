@@ -15,7 +15,7 @@ namespace Tests.OptimizeLet
 -- let y := c ∨ b in
 -- y ∧ x ===> (c ∨ b) ∧ (a ∧ b)
 -- NOTE: Reordering applied on commutative operators
-#testOptimize [ "LetElim_2" ] ∀ (a b c : Prop), let x := a ∧ b; let y := c ∨ b; y ∧ x ===> ∀ (a b c : Prop), (b ∨ c) ∧ (a ∧ b)
+#testOptimize [ "LetElim_2" ] ∀ (a b c : Prop), let x := a ∧ b; let y := c ∨ b; y ∧ x ===> ∀ (a b c : Prop), (a ∧ b) ∧ (b ∨ c)
 
 -- let x := a ∧ b in
 -- let y := x ∨ c in
@@ -36,11 +36,16 @@ namespace Tests.OptimizeLet
 
 -- let x := fun z => a ∧ z in
 -- x b ∨ x c ===> (a ∧ b) ∨ (a ∧ c)
--- NOTE: Reordering applied on commutative operators
-#testOptimize [ "LetElim_6" ] ∀ (a b c : Prop), let x := fun z => a ∧ z; x b ∨ x c ===> ∀ (a b c : Prop), (a ∧ c) ∨ (a ∧ b)
+#testOptimize [ "LetElim_6" ] ∀ (a b c : Prop), let x := fun z => a ∧ z; x b ∨ x c ===> ∀ (a b c : Prop), (a ∧ b) ∨ (a ∧ c)
 
 -- let x := fun z => a ∧ z in
 -- (x b ∨ x c) = ((a ∧ b) ∨ (a ∧ c)) ===> True
 #testOptimize [ "LetElim_7" ] ∀ (a b c : Prop), let x := fun z => a ∧ z; (x b ∨ x c) = ((a ∧ c) ∨ (a ∧ b)) ===> True
+
+-- let x := a ∧ b in
+-- let y := x ∧ a in
+-- x ∧ y ===> (a ∧ b) ∧ (a ∧ (a ∧ b))
+#testOptimize [ "LetElim_8" ] ∀ (a b : Prop), let x := a ∧ b; let y := x ∧ a; x ∧ y ===>
+                              ∀ (a b : Prop), (a ∧ b) ∧ (a ∧ (a ∧ b))
 
 end Tests.OptimizeLet

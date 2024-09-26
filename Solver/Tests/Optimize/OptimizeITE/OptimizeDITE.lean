@@ -48,10 +48,10 @@ namespace Test.OptimizeDITE
 #testOptimize [ "DIteAbsorption_7" ] ∀ (a b c : Bool), if _h : c then (!(!a)) = !(!(!b)) else a = !b ===>
                                      ∀ (a b _c : Bool), a = !b
 
--- ∀ (c : Bool) (x y : Nat), (if h : c then 30 - (40 - x) else x) < y ===>
+-- ∀ (c : Bool) (x y : Nat), (if h : c then (x + 40) - 40 else x) < y ===>
 -- ∀ (c : Bool) (x y : Nat), x < y
 -- TODO: remove unused quantifier when COI performed on forall
-#testOptimize [ "DIteAbsorption_8" ] ∀ (c : Bool) (x y : Nat), (if _h : c then 30 - (40 - x) else x) < y ===>
+#testOptimize [ "DIteAbsorption_8" ] ∀ (c : Bool) (x y : Nat), (if _h : c then (x + 40) - 40 else x) < y ===>
                                      ∀ (_c : Bool) (x y : Nat), x < y
 
 -- ∀ (c : Bool), if h : c then ∀ (x y : Int), x > y else ∀ (z y : Int), y < z ===>
@@ -105,10 +105,10 @@ namespace Test.OptimizeDITE
 #testOptimize [ "DIteAbsorption_17" ] ∀ (a b c : Bool),
                                         (if _h : c then (!(!a)) = !(!(!b)) else a = !b) = (a = !b) ===> True
 
--- ∀ (c : Bool) (x y : Nat), ((if h : c then 30 - (40 - x) else x) < y) = (x < y) ===> True
+-- ∀ (c : Bool) (x y : Nat), ((if h : c then (x + 40) - 40 else x) < y) = (x < y) ===> True
 -- Test case to validate expression caching after rewriting
 #testOptimize [ "DIteAbsorption_18" ] ∀ (c : Bool) (x y : Nat),
-                                        ((if _h : c then 30 - (40 - x) else x) < y) = (x < y) ===> True
+                                        ((if _h : c then (x + 40) - 40 else x) < y) = (x < y) ===> True
 
 -- ∀ (c : Bool), (if h : c then ∀ (x y : Int), x > y else ∀ (z y : Int), y < z) = ∀ (x y : Int), y < x ===> True
 -- Test case to validate expression caching after rewriting
@@ -137,34 +137,34 @@ namespace Test.OptimizeDITE
                                               ∀ (c : Bool) (a b : Prop), (false = c → b) ∧ (true = c → a)
 
 -- ∀ (c a b : Prop), if h : c then a else b ===>
--- ∀ (c a b : Prop), (¬ c → b) ∧ (c → a)
+-- ∀ (c a b : Prop), (c → a) ∧ (¬ c → b)
 -- TODO: remove unused constraints when COI performed on forall
 #testOptimize [ "DIteAbsorptionUnchanged_2" ] ∀ (c a b : Prop), [Decidable c] → if _h : c then a else b ===>
-                                              ∀ (c a b : Prop), [Decidable c] → (¬ c → b) ∧ (c → a)
+                                              ∀ (c a b : Prop), [Decidable c] → (c → a) ∧ (¬ c → b)
 
 -- ∀ (c : Bool) (a b : Prop), if h : c then a ∧ b else ¬ a ∧ ¬ b ===>
--- ∀ (c : Bool) (a b : Prop), (true = c → a ∧ b) ∧ (false = c → ¬ b ∧ ¬ a)
+-- ∀ (c : Bool) (a b : Prop), (false = c → ¬ a ∧ ¬ b) ∧ (true = c → a ∧ b)
 #testOptimize [ "DIteAbsorptionUnchanged_3" ] ∀ (c : Bool) (a b : Prop), if _h : c then a ∧ b else ¬ a ∧ ¬ b ===>
-                                              ∀ (c : Bool) (a b : Prop), (true = c → a ∧ b) ∧ (false = c → ¬ b ∧ ¬ a)
+                                              ∀ (c : Bool) (a b : Prop), (false = c → ¬ a ∧ ¬ b) ∧ (true = c → a ∧ b)
 
 -- ∀ (c : Bool) (a b : Prop), if h : c then ¬ (¬ a) else b ===>
--- ∀ (c : Bool) (a b : Prop), (true = c → a) ∧ (false = c → b)
+-- ∀ (c : Bool) (a b : Prop), (false = c → b) ∧ (true = c → a)
 #testOptimize [ "DIteAbsorptionUnchanged_4" ] ∀ (c : Bool) (a b : Prop), if _h : c then ¬ (¬ a) else b ===>
-                                              ∀ (c : Bool) (a b : Prop), (true = c → a) ∧ (false = c → b)
+                                              ∀ (c : Bool) (a b : Prop), (false = c → b) ∧ (true = c → a)
 
 -- let x := ¬ a ∧ ¬ b in
 -- let y := (¬ (¬ a)) ∧ b in
 -- ∀ (c : Bool) (a b : Prop), if h : c then x else y ===>
--- ∀ (c : Bool) (a b : Prop), (true = c → ¬ a ∧ ¬ b) ∧ (false = c → a ∧ b)
+-- ∀ (c : Bool) (a b : Prop), (false = c → a ∧ b) ∧ (true = c → ¬ a ∧ ¬ b)
 #testOptimize [ "DIteAbsorptionUnchanged_5" ] ∀ (c : Bool) (a b : Prop), let x := ¬ a ∧ ¬ b;
                                                 let y := (¬ (¬ a)) ∧ b;
                                                 if _h : c then x else y ===>
-                                              ∀ (c : Bool) (a b : Prop), (true = c → ¬ a ∧ ¬ b) ∧ (false = c → a ∧ b)
+                                              ∀ (c : Bool) (a b : Prop), (false = c → a ∧ b) ∧ (true = c → ¬ a ∧ ¬ b)
 
 -- ∀ (a b c : Bool), (if h : c then ! (!a) else b) = true ===>
--- ∀ (a b c : Bool), true = ((b || c) && (a || !c))
+-- ∀ (a b c : Bool), true = ((a || !c) && (b || c))
 #testOptimize [ "DIteAbsorptionUnchanged_6" ] ∀ (a b c : Bool), (if _h : c then !(! a) else b) = true ===>
-                                              ∀ (a b c : Bool), true = ((b || c) && (a || !c))
+                                              ∀ (a b c : Bool), true = ((a || !c) && (b || c))
 
 
 -- ∀ (a b c d : Bool), if h : c then (!(!a)) = !(!(!b)) else b = !d ===>
@@ -172,8 +172,7 @@ namespace Test.OptimizeDITE
 #testOptimize [ "DIteAbsorptionUnchanged_7" ] ∀ (a b c d: Bool), if _h : c then (!(!a)) = !(!(!b)) else b = !d ===>
                                               ∀ (a b c d : Bool), (false = c → b = !d) ∧ (true = c → a = !b)
 
--- TODO
--- ∀ (c : Bool) (x y z : Nat), (if h : c then 30 - (40 - x) else y) < z ===>
+-- ∀ (c : Bool) (x y z : Nat), (if h : c then (x + 40) - 40 else y) < z ===>
 -- ∀ (c : Bool) (x y z : Nat), (if true = c then x else y) < z
 
 def diteAbsorptionUnchanged_8 : Expr :=
@@ -233,11 +232,11 @@ def diteAbsorptionUnchanged_8 : Expr :=
 
 elab "diteAbsorptionUnchanged_8" : term => return diteAbsorptionUnchanged_8
 
-#testOptimize [ "DIteAbsorptionUnchanged_8" ] ∀ (c : Bool) (x y z : Nat), (if _h : c then 30 - (40 - x) else y) < z ===> diteAbsorptionUnchanged_8
+#testOptimize [ "DIteAbsorptionUnchanged_8" ] ∀ (c : Bool) (x y z : Nat), (if _h : c then (x + 40) - 40 else y) < z ===> diteAbsorptionUnchanged_8
 
 -- ∀ (c : Bool), if h : c then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z ===>
 -- ∀ (c : Bool), (false = c → ∀ (z y : Int), z > y) ∧ (true = c → ∀ (x y : Int), y < x)
-#testOptimize [ "DIteAbsorptionUnchanged_9" ] ∀ (c : Bool), if h : c then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z ===>
+#testOptimize [ "DIteAbsorptionUnchanged_9" ] ∀ (c : Bool), if _h : c then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z ===>
                                               ∀ (c : Bool), (false = c → ∀ (z y : Int), z < y) ∧ (true = c → ∀ (x y : Int), y < x)
 
 
@@ -250,31 +249,31 @@ elab "diteAbsorptionUnchanged_8" : term => return diteAbsorptionUnchanged_8
 -- TODO: remove unused quantifier when COI performed on forall
 #testOptimize [ "DIteTrueCond_2" ] ∀ (a b : Bool), if _h : True then !a else b ===> ∀ (a _b : Bool), false = a
 
--- ∀ (x y z : Nat), (if h : True then 30 - (40 - x) else y) < z ===> ∀ (x y z : Nat), x < z
+-- ∀ (x y z : Nat), (if h : True then (x + 40) - 40 else y) < z ===> ∀ (x y z : Nat), x < z
 -- TODO: remove unused quantifier when COI performed on forall
-#testOptimize [ "DIteTrueCond_3" ] ∀ (x y z : Nat), (if _h : True then 30 - (40 - x) else y) < z ===>
-                                  ∀ (x _y z : Nat), x < z
+#testOptimize [ "DIteTrueCond_3" ] ∀ (x y z : Nat), (if _h : True then (x + 40) - 40 else y) < z ===>
+                                   ∀ (x _y z : Nat), x < z
 
 -- if h : True then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z ===> ∀ (x y : Int), y < x
-#testOptimize [ "DIteTrueCond_4" ] if h : True then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z ===>
-                                  ∀ (x y : Int), y < x
+#testOptimize [ "DIteTrueCond_4" ] if _h : True then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z ===>
+                                   ∀ (x y : Int), y < x
 
 -- ∀ (c : Bool) (a b : Prop), if h : (! c || c) then a else b ===> ∀ (_c : Bool) (a _b : Prop), a
 -- TODO: remove unused quantifier when COI performed on forall
 #testOptimize [ "DIteTrueCond_5" ] ∀ (c : Bool) (a b : Prop), if _h : (! c) || c then a else b ===>
-                                  ∀ (_c : Bool) (a _b : Prop), a
+                                   ∀ (_c : Bool) (a _b : Prop), a
 
 -- ∀ (c a b : Prop), if h : (¬ c ∨ c) then a else b ===> ∀ (c a b : Prop), a
 -- TODO: remove unused quantifier when COI performed on forall
 #testOptimize [ "DIteTrueCond_6" ] ∀ (c a b : Prop), [Decidable c] → if _h : (¬ c ∨ c) then a else b ===>
-                                  ∀ (c a _b : Prop), [Decidable c] → a
+                                   ∀ (c a _b : Prop), [Decidable c] → a
 
 -- let x := a || a in
 -- let y := ! a || x in
 -- ∀ (a : Bool) (b c : Prop), if h : y then b else c ===> ∀ (a : Bool) (b c : Prop), b
 -- TODO: remove unused quantifiers when COI performed on forall
 #testOptimize [ "DIteTrueCond_7" ] ∀ (a : Bool) (b c : Prop), let x := a || a; let y := ! a || x; if _h : y then b else c ===>
-                                  ∀ (_a : Bool) (b _c : Prop), b
+                                   ∀ (_a : Bool) (b _c : Prop), b
 
 -- ∀ (a b : Prop), (if h : True then a else b) = a ===> True
 -- Test case to validate expression caching after rewriting
@@ -284,9 +283,9 @@ elab "diteAbsorptionUnchanged_8" : term => return diteAbsorptionUnchanged_8
 -- Test case to validate expression caching after rewriting
 #testOptimize [ "DIteTrueCond_9" ] ∀ (a b : Bool), (if _h : True then !a else b) = !a ===> True
 
--- ∀ (x y z : Nat), ((if h : True then 30 - (40 - x) else y) < z) = x < z ===> True
+-- ∀ (x y z : Nat), ((if h : True then (x + 40) - 40 else y) < z) = x < z ===> True
 -- Test case to validate expression caching after rewriting
-#testOptimize [ "DIteTrueCond_10" ] ∀ (x y z : Nat), ((if _h : True then 30 - (40 - x) else y) < z) = (x < z) ===> True
+#testOptimize [ "DIteTrueCond_10" ] ∀ (x y z : Nat), ((if _h : True then (x + 40) - 40 else y) < z) = (x < z) ===> True
 
 -- (if h : True then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z) = ∀ (x y : Int), y < x ===> True
 -- Test case to validate expression caching after rewriting
@@ -319,9 +318,9 @@ elab "diteAbsorptionUnchanged_8" : term => return diteAbsorptionUnchanged_8
 -- TODO: remove unused quantifier when COI performed on forall
 #testOptimize [ "DIteFalseCond_2" ] ∀ (a b : Bool), if _h : False then !a else b ===> ∀ (_a b : Bool), true = b
 
--- ∀ (x y z : Nat), (if h : False then 30 - (40 - x) else y) < z ===> ∀ (x y z : Nat), y < z
+-- ∀ (x y z : Nat), (if h : False then (x + 40) - 40 else y) < z ===> ∀ (x y z : Nat), y < z
 -- TODO: remove unused quantifier when COI performed on forall
-#testOptimize [ "DIteFalseCond_3" ] ∀ (x y z : Nat), (if _h : False then 30 - (40 - x) else y) < z ===>
+#testOptimize [ "DIteFalseCond_3" ] ∀ (x y z : Nat), (if _h : False then (x + 40) - 40 else y) < z ===>
                                     ∀ (_x y z : Nat), y < z
 
 -- if h : False then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z ===> ∀ (z y : Int), z < y
@@ -353,9 +352,9 @@ elab "diteAbsorptionUnchanged_8" : term => return diteAbsorptionUnchanged_8
 -- Test case to validate expression caching after rewriting
 #testOptimize [ "DIteFalseCond_9" ] ∀ (a b : Bool), (if _h : False then !a else b) = b ===> True
 
--- ∀ (x y z : Nat), ((if h : False then 30 - (40 - x) else y) < z) = (y < z) ===> True
+-- ∀ (x y z : Nat), ((if h : False then (x + 40) - 40 else y) < z) = (y < z) ===> True
 -- Test case to validate expression caching after rewriting
-#testOptimize [ "DIteFalseCond_10" ] ∀ (x y z : Nat), ((if _h : False then 30 - (40 - x) else y) < z) = (y < z) ===> True
+#testOptimize [ "DIteFalseCond_10" ] ∀ (x y z : Nat), ((if _h : False then (x + 40) - 40 else y) < z) = (y < z) ===> True
 
 -- (if h : False then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z) = ∀ (z y : Int), z < y ===> True
 -- Test case to validate expression caching after rewriting
@@ -390,12 +389,12 @@ elab "diteAbsorptionUnchanged_8" : term => return diteAbsorptionUnchanged_8
                                         ∀ (_a b : Bool) (p q : Prop), (false = b → q) ∧ (true = b → p)
 
 -- ∀ (a b c d : Bool), (if h : (b && !b) || a then c else d) = true ===>
--- ∀ (a b c d : Bool), true = ((c || !a) && (a || d))
+-- ∀ (a b c d : Bool), true = ((a || d) && (c || !a))
 -- TODO: remove unused quantifier when COI performed on forall
 #testOptimize [ "DIteCondUnchanged_2" ] ∀ (a b c d : Bool), (if _h : (b && !b) || a then c else d) = true ===>
-                                       ∀ (a _b c d : Bool), true = ((c || !a) && (a || d))
+                                        ∀ (a _b c d : Bool), true = ((a || d) && (c || !a))
 
--- ∀ (a b : Bool) (x y z : Nat), (if h : b && (a || !a) then 30 - (40 - x) else y) < z ===>
+-- ∀ (a b : Bool) (x y z : Nat), (if h : b && (a || !a) then (x + 40) - 40 else y) < z ===>
 -- ∀ (a b : Bool) (x y z : Nat), (if h : true = b then x else y) < z
 -- TODO: remove unused quantifier when COI performed on forall
 def diteCondUnchanged_3 : Expr :=
@@ -459,16 +458,16 @@ Lean.Expr.forallE `a
   (Lean.BinderInfo.default)
 elab "diteCondUnchanged_3" : term => return diteCondUnchanged_3
 
-#testOptimize [ "DIteCondUnchanged_3" ] ∀ (a b : Bool) (x y z : Nat), (if _h : b && (a || !a) then 30 - (40 - x) else y) < z ===>
+#testOptimize [ "DIteCondUnchanged_3" ] ∀ (a b : Bool) (x y z : Nat), (if _h : b && (a || !a) then (x + 40) - 40 else y) < z ===>
                                         diteCondUnchanged_3
 
 -- ∀ (a b : Prop) (p q : Prop), if h : (¬ a ∨ a) ∧ b then p else q ===>
--- ∀ (a b : Prop) (p q : Prop), (¬ b → q) ∧ (b → p)
+-- ∀ (a b : Prop) (p q : Prop), (b → p) ∧ (¬ b → q)
 -- TODO: remove unused quantifier and constraints when COI performed on forall
 #testOptimize [ "DIteCondUnchanged_4" ] ∀ (a b : Prop) (p q : Prop),
                                           [Decidable a] → [Decidable b] → if _h : (¬ a ∨ a) ∧ b then p else q ===>
                                         ∀ (a b : Prop) (p q : Prop),
-                                          [Decidable a] → [Decidable b] → (¬ b → q) ∧ (b → p)
+                                          [Decidable a] → [Decidable b] → (b → p) ∧ (¬ b → q)
 
 -- ∀ (a b : Prop) (c d : Bool), (if h : (b ∧ ¬ b) ∨ a then c else d) = true ===>
 -- ∀ (a b : Prop) (c d : Bool), true = (if h : a then c else d)
@@ -478,11 +477,11 @@ elab "diteCondUnchanged_3" : term => return diteCondUnchanged_3
                                         ∀ (a b : Prop) (c d : Bool),
                                           [Decidable a] → [Decidable b] → true = (if _h : a then c else d)
 
--- ∀ (a b : Prop) (x y z : Nat), (if h : b ∧ (a ∨ ¬ a) then 30 - (40 - x) else y) < z ===>
+-- ∀ (a b : Prop) (x y z : Nat), (if h : b ∧ (a ∨ ¬ a) then (x + 40) - 40 else y) < z ===>
 -- ∀ (a b : Prop) (x y z : Nat), (if h : b then x else y) < z
 -- TODO: remove unused quantifier and constraints when COI performed on forall
 #testOptimize [ "DIteCondUnchanged_6" ] ∀ (a b : Prop) (x y z : Nat),
-                                          [Decidable a] → [Decidable b] → (if _h : b ∧ (a ∨ ¬ a) then 30 - (40 - x) else y) < z ===>
+                                          [Decidable a] → [Decidable b] → (if _h : b ∧ (a ∨ ¬ a) then (x + 40) - 40 else y) < z ===>
                                         ∀ (a b : Prop) (x y z : Nat),
                                           [Decidable a] → [Decidable b] → (if _h : b then x else y) < z
 
@@ -548,13 +547,13 @@ elab "diteCondUnchanged_3" : term => return diteCondUnchanged_3
 -- if h : c then ∀ (z y : Int), y > z else ∀ (x y : Int), x > y ===> True
 -- Test case to validate expression caching after rewriting
 #testOptimize [ "DIteNegCond_11" ] ∀ (c : Prop),[Decidable c] →
-                                   (if _h : ¬ c then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z) =
-                                   (if _h : c then ∀ (z y : Int), y > z else ∀ (x y : Int), x > y) ===> True
+                                     (if _h : ¬ c then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z) =
+                                     (if _h : c then ∀ (z y : Int), y > z else ∀ (x y : Int), x > y) ===> True
 
 -- ∀ (c : Prop) (x y : Int), ((if h : c = False then x else y) > x) = (x < (if h : c then y else x)) ===> True
 -- Test case to validate expression caching after rewriting
 #testOptimize [ "DIteNegCond_12" ] ∀ (c : Prop) (x y : Int), [Decidable c] →
-                                     ((if h : c = False then x else y) > x) = (x < (if _h : c then y else x)) ===> True
+                                     ((if _h : c = False then x else y) > x) = (x < (if _h : c then y else x)) ===> True
 
 -- ∀ (a b : Prop) (x y : Int), ((if h : ¬ ( a = b ) then x else y) > x) = x < (if h : a = b then y else x) ===> True
 -- Test case to validate expression caching after rewriting
@@ -588,10 +587,10 @@ elab "diteCondUnchanged_3" : term => return diteCondUnchanged_3
                                            ∀ (c : Prop) (x y z : Nat), [Decidable c] → (if _h : c then x else y) < z
 
 -- ∀ (c : Prop), if ¬ (¬ c) then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z ===>
--- ∀ (c : Prop), (¬ c → ∀ (z y : Int), z < y) ∧ (c → ∀ (x y : Int), y < x)
+-- ∀ (c : Prop), (c → ∀ (x y : Int), y < x) ∧ (¬ c → ∀ (z y : Int), z < y)
 #testOptimize [ "DIteNegCondUnchanged_4" ] ∀ (c : Prop),
                                              [Decidable c] → if _h : ¬ (¬ c) then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z ===>
-                                           ∀ (c : Prop), [Decidable c] → (¬ c → ∀ (z y : Int), z < y) ∧ (c → ∀ (x y : Int), y < x)
+                                           ∀ (c : Prop), [Decidable c] → (c → ∀ (x y : Int), y < x) ∧ (¬ c → ∀ (z y : Int), z < y)
 
 -- ∀ (c : Prop) (x y : Int), (if h : c = True then x else y) > x ===>
 -- ∀ (c : Prop) (x y : Int), x < (if h : c then x else y)
@@ -618,9 +617,9 @@ elab "diteCondUnchanged_3" : term => return diteCondUnchanged_3
 -/
 
 -- ∀ (c : Bool) (p q : Prop), (if h : c = false then p else q) ===>
--- ∀ (c : Bool) (p q : Prop), (true = c → q) ∧ (false = c → p)
+-- ∀ (c : Bool) (p q : Prop), (false = c → p) ∧ (true = c → q)
 #testOptimize [ "DIteFalseEqCond_1" ] ∀ (c : Bool) (p q : Prop), (if _h : c = false then p else q) ===>
-                                      ∀ (c : Bool) (p q : Prop), (true = c → q) ∧ (false = c → p)
+                                      ∀ (c : Bool) (p q : Prop), (false = c → p) ∧ (true = c → q)
 
 -- ∀ (a b c : Bool), (if h : c = false then a else b) = true ===>
 -- ∀ (a b c : Bool), true = ((a || c) && (b || !c))
@@ -979,9 +978,9 @@ elab "diteFalseEqCondUnchanged_3" : term => return diteFalseEqCondUnchanged_3
                                                ∀ (c : Bool), (false = c → ∀ (z y : Int), z < y) ∧ (true = c → ∀ (x y : Int), y < x)
 
 -- ∀ (a b : Bool) (p q : Prop), (if h : a = b then p else q) ===>
--- ∀ (a b : Bool) (p q : Prop), (((a = b) → p) ∧ (¬ (a = b) → q))
+-- ∀ (a b : Bool) (p q : Prop), ((¬ (a = b) → q) ∧ ((a = b) → p))
 #testOptimize [ "DIteFalseEqCondUnchanged_5" ] ∀ (a b : Bool) (p q : Prop), (if _h : a = b then p else q) ===>
-                                               ∀ (a b : Bool) (p q : Prop), (((a = b) → p) ∧ (¬ (a = b) → q))
+                                               ∀ (a b : Bool) (p q : Prop), ((¬ (a = b) → q) ∧ ((a = b) → p))
 
 -- ∀ (a b c d : Bool), (if h : a = b then c else d) = true ===>
 -- ∀ (a b c d : Bool), true = (if h : a = b then c else d)
@@ -994,9 +993,9 @@ elab "diteFalseEqCondUnchanged_3" : term => return diteFalseEqCondUnchanged_3
                                                ∀ (a b : Bool) (x y : Nat), x < (if _h : a = b then x else y)
 
 -- ∀ (c : Bool), if h : c = true then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z ===>
--- ∀ (c : Bool), (true = c → ∀ (x y : Int), y < x) ∧ (false = c → ∀ (z y : Int), z < y)
+-- ∀ (c : Bool), (false = c → ∀ (z y : Int), z < y) ∧ (true = c → ∀ (x y : Int), y < x)
 #testOptimize [ "DIteFalseEqCondUnchanged_8" ] ∀ (c : Bool), if _h : c = true then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z ===>
-                                               ∀ (c : Bool), (true = c → ∀ (x y : Int), y < x) ∧ (false = c → ∀ (z y : Int), z < y)
+                                               ∀ (c : Bool), (false = c → ∀ (z y : Int), z < y) ∧ (true = c → ∀ (x y : Int), y < x)
 
 
 -- ∀ (c : Bool) (x y : Int), (if h : !(!c) then x else y) > x ===>
@@ -1049,16 +1048,16 @@ Lean.Expr.forallE `c
 elab "diteFalseEqCondUnchanged_9" : term => return diteFalseEqCondUnchanged_9
 
 #testOptimize [ "DIteFalseEqCondUnchanged_9" ] ∀ (c : Bool) (x y : Int), (if _h : !(!c) then x else y) > x ===>
-                                               diteFalseEqCondUnchanged_9
+                                                 diteFalseEqCondUnchanged_9
 
 -- ∀ (c : Bool) (x y : Int), (if h : c == true then x else y) > x ===>
 -- ∀ (c : Bool) (x y : Int), x < (if h : true = c then x else y)
 #testOptimize [ "DIteFalseEqCondUnchanged_10" ] ∀ (c : Bool) (x y : Int), (if _h : c == true then x else y) > x ===>
-                                                diteFalseEqCondUnchanged_9
+                                                  diteFalseEqCondUnchanged_9
 
 -- ∀ (c : Bool) (x y : Int), (if h : !(!(! (! c))) then x else y) > x ===> x < (if h : true = c then x else y)
 #testOptimize [ "DIteFalseEqCondUnchanged_11" ] ∀ (c : Bool) (x y : Int), (if _h : !(! (! (! c))) then x else y) > x ===>
-                                                diteFalseEqCondUnchanged_9
+                                                  diteFalseEqCondUnchanged_9
 
 
 -- ∀ (a b : Bool) (x y : Int), (if h : a = (! b || b ) then x else y) > x ===>
@@ -1117,7 +1116,7 @@ Lean.Expr.forallE `a
 elab "diteFalseEqCondUnchanged_12" : term => return diteFalseEqCondUnchanged_12
 
 #testOptimize [ "DIteFalseEqCondUnchanged_12" ] ∀ (a b : Bool) (x y : Int), (if _h : a = (! b || b) then x else y) > x  ===>
-                                                diteFalseEqCondUnchanged_12
+                                                  diteFalseEqCondUnchanged_12
 
 -- let x := a && a in
 -- let y := a || x in
@@ -1182,9 +1181,9 @@ elab "diteFalseEqCondUnchanged_13" : term => return diteFalseEqCondUnchanged_13
 
 
 -- ∀ (c a b : Bool), (if h : c then a else b) = true ===>
--- ∀ (c a b : Bool), true = ((a || !c) && (c || b))
+-- ∀ (c a b : Bool), true = ((c || b) && (a || !c))
 #testOptimize [ "DIteToBoolExpr_1" ] ∀ (c a b : Bool), (if _h : c then a else b) = true ===>
-                                     ∀ (c a b : Bool), true = ((a || !c) && (c || b))
+                                     ∀ (c a b : Bool), true = ((c || b) && (a || !c))
 
 -- ∀ (a b : Bool), (if h : a then true else b) = true ===> ∀ (a b : Bool), true = (a || b)
 #testOptimize [ "DIteToBoolExpr_2" ] ∀ (a b : Bool), (if _h : a then true else b) = true ===>
@@ -1256,7 +1255,7 @@ elab "diteFalseEqCondUnchanged_13" : term => return diteFalseEqCondUnchanged_13
 
 -- ∀ (a b c d : Bool), (if h : c = d then a else b) = true ===>
 -- ∀ (a b c d : Bool), true = (if h : c = d then a else b)
-#testOptimize [ "DIteToBoolExprUnchanged_1" ] ∀ (a b c d : Bool), (if h : c = d then a else b) = true ===>
+#testOptimize [ "DIteToBoolExprUnchanged_1" ] ∀ (a b c d : Bool), (if _h : c = d then a else b) = true ===>
                                               ∀ (a b c d : Bool), true = (if _h : c = d then a else b)
 
 -- ∀ (c : Prop) (a b : Bool), (if h : c then a else b) = true ===>
@@ -1292,7 +1291,7 @@ elab "diteFalseEqCondUnchanged_13" : term => return diteFalseEqCondUnchanged_13
 -- ∀ (c : Bool) (x y : Nat), (if h : c then x else y) > x ===>
 -- ∀ (c : Bool) (x y : Nat), x < (if h : true = c then x else y)
 #testOptimize [ "DIteToBoolExprUnchanged_8" ] ∀ (c : Bool) (x y : Nat), (if _h : c then x else y) > x ===>
-                                              diteFalseEqCondUnchanged_3
+                                                diteFalseEqCondUnchanged_3
 
 
 
@@ -1314,16 +1313,16 @@ elab "diteFalseEqCondUnchanged_13" : term => return diteFalseEqCondUnchanged_13
 
 
 -- ∀ (c p : Prop), if h : c then False else p ===>
--- ∀ (c p : Prop), (¬ c → p) ∧ (c → False)
+-- ∀ (c p : Prop), (c → False) ∧ (¬ c → p)
 -- TODO: remove unused constraints when COI performed on forall
 #testOptimize [ "DIteToPropExpr_4" ] ∀ (c p : Prop), [Decidable c] → if _h : c then False else p ===>
-                                     ∀ (c p : Prop), [Decidable c] → (¬ c → p) ∧ (c → False)
+                                     ∀ (c p : Prop), [Decidable c] → (c → False) ∧ (¬ c → p)
 
 -- ∀ (c p : Prop), if h : c then p else False ===>
--- ∀ (c p : Prop), (¬ c → False) ∧ (c → p)
+-- ∀ (c p : Prop), (c → p) ∧ (¬ c → False)
 -- TODO: remove unused constraints when COI performed on forall
 #testOptimize [ "DIteToPropExpr_5" ] ∀ (c p : Prop), [Decidable c] → if _h : c then p else False ===>
-                                     ∀ (c p : Prop), [Decidable c] → (¬ c → False) ∧ (c → p)
+                                     ∀ (c p : Prop), [Decidable c] → (c → p) ∧ (¬ c → False)
 
 -- ∀ (c p : Prop), if h : c then c else p ===>
 -- ∀ (c p : Prop), ¬ c → p
@@ -1352,10 +1351,10 @@ elab "diteFalseEqCondUnchanged_13" : term => return diteFalseEqCondUnchanged_13
                                      ∀ (c p : Prop), [Decidable c] → c → p
 
 -- ∀ (c p q : Prop), if h : ¬ c then p else q ===>
--- ∀ (c p q : Prop), (¬ c → p) ∧ (c → q)
+-- ∀ (c p q : Prop), (c → q) ∧ (¬ c → p)
 -- TODO: remove unused constraints when COI performed on forall
 #testOptimize [ "DIteToPropExpr_10" ] ∀ (c p q : Prop), [Decidable c] → if _h : ¬ c then p else q ===>
-                                      ∀ (c p q : Prop), [Decidable c] → (¬ c → p) ∧ (c → q)
+                                      ∀ (c p q : Prop), [Decidable c] → (c → q) ∧ (¬ c → p)
 
 
 -- ∀ (c : Bool) (p q : Prop), if h : c then p else q ===>
@@ -1374,9 +1373,9 @@ elab "diteFalseEqCondUnchanged_13" : term => return diteFalseEqCondUnchanged_13
                                       ∀ (c : Bool) (p : Prop), true = c → p
 
 -- ∀ (c : Bool) (p : Prop), if h : c then False else p ===>
--- ∀ (c : Bool) (p : Prop), (true = c → False) ∧ (false = c → p)
+-- ∀ (c : Bool) (p : Prop), (false = c → p) ∧ (true = c → False)
 #testOptimize [ "DIteToPropExpr_14" ] ∀ (c : Bool) (p : Prop), if _h : c then False else p ===>
-                                      ∀ (c : Bool) (p : Prop), (true = c → False) ∧ (false = c → p)
+                                      ∀ (c : Bool) (p : Prop), (false = c → p) ∧ (true = c → False)
 
 -- ∀ (c : Bool) (p : Prop), if h : c then p else False ===>
 -- ∀ (c : Bool) (p : Prop), (false = c → False) ∧ (true = c → p)
@@ -1389,16 +1388,16 @@ elab "diteFalseEqCondUnchanged_13" : term => return diteFalseEqCondUnchanged_13
                                       ∀ (c : Bool) (p : Prop), false = c → p
 
 -- ∀ (c : Bool) (p : Prop), if h : c then p else c ===>
--- ∀ (c : Bool) (p : Prop), (true = c → p) ∧ (true = c)
+-- ∀ (c : Bool) (p : Prop), (true = c) ∧ (true = c → p)
 -- TODO: may be simplified to (true = c ∧ p)
 #testOptimize [ "DIteToPropExpr_17" ] ∀ (c : Bool) (p : Prop), if _h : c then p else c ===>
-                                      ∀ (c : Bool) (p : Prop), (true = c → p) ∧ (true = c)
+                                      ∀ (c : Bool) (p : Prop), (true = c) ∧ (true = c → p)
 
 -- ∀ (c : Bool) (p : Prop), if h : c then !c else p ===>
--- ∀ (c : Bool) (p : Prop), (false = c → p) ∧ (false = c)
+-- ∀ (c : Bool) (p : Prop), (false = c) ∧ (false = c → p)
 -- TODO: may be simplified to (false = c ∧ p)
 #testOptimize [ "DIteToPropExpr_18" ] ∀ (c : Bool) (p : Prop), if _h : c then !c else p ===>
-                                      ∀ (c : Bool) (p : Prop), (false = c → p) ∧ (false = c)
+                                      ∀ (c : Bool) (p : Prop), (false = c) ∧ (false = c → p)
 
 -- ∀ (c : Bool) (p : Prop), if h : c then p else !c ===>
 -- ∀ (c : Bool) p : Prop), true = c → p
@@ -1548,7 +1547,7 @@ Lean.Expr.forallE `c
 elab "dIteToPropExprUnchanged_1" : term => return dIteToPropExprUnchanged_1
 
 #testOptimize [ "DIteToPropExprUnchanged_1" ] ∀ (c : Prop) (a b : Bool), [Decidable c] → (if _h : c then a else b) = true ===>
-                                              dIteToPropExprUnchanged_1
+                                                dIteToPropExprUnchanged_1
 
 -- ∀ (c : Prop) (x y z : Nat), (if h : c then x else y) < z ===>
 -- ∀ (c : Prop) (x y z : Nat), (if h : c then x else y) < z

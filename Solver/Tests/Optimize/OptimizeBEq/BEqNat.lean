@@ -34,7 +34,7 @@ opaque z : Nat
 #testOptimize [ "BEqNatCst_7" ] List.nil == [x, y, z] ===> false
 
 -- ∀ (x y z : Nat), (List.nil == [x, y, z]) ===> False
-#testOptimize [ "BEqNatCst_8" ] ∀ (x y z : Nat), (List.nil == [x, y, z]) ===> False
+#testOptimize [ "BEqNatCst_8" ] ∀ (x y z : Nat), (List.nil == [x, y, z]) ===> ∀ (_x _y _z : Nat), False
 
 -- Nat.beq (10 : Nat) 10 ===> true
 #testOptimize [ "BEqNatCst_9" ] Nat.beq (10 : Nat) 10 ===> true
@@ -200,7 +200,7 @@ elab "beqNatUnchanged_9" : term => return beqNatUnchanged_9
 -- 100 + ((40 - x) - 50) == 100 ===> true
 #testOptimize [ "BEqNatReduce_2"] (100 + ((40 - x) - 50)) == 100 ===> true
 
--- (((x - 100) - 45) + 125) - x == 125 + ((100 - (125 - y)) - y) ===> true
-#testOptimize [ "BEqNatReduce_3"] (((x - 100) - 45) + 125) - x == 125 + ((100 - (125 - y)) - y) ===> false
+-- (((x + 100) - 45) + 125) - x == 10 + ((100 - y) - 125) ===> true
+#testOptimize [ "BEqNatReduce_3"] (((x + 100) - 45) - 55) - x == 10 + ((100 - y) - 125) ===> false
 
 end Test.BEqNat

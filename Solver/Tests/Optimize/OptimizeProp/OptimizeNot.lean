@@ -46,13 +46,13 @@ namespace Tests.OptimizeNot
 #testOptimize [ "NotTrue_4" ] ¬ (¬ False) ===> False
 
 -- ¬ (¬ a ∨ a) ===> False
-#testOptimize [ "NotTrue_5" ] ∀ (a : Prop), ¬ (¬ a ∨ a) ===> False
+#testOptimize [ "NotTrue_5" ] ∀ (a : Prop), ¬ (¬ a ∨ a) ===> ∀ (_a : Prop), False
 
 -- ¬ (Nat.blt Nat.zero 10) ===> False
 #testOptimize [ "NotTrue_6" ] ¬ (Nat.blt Nat.zero 10) ===> False
 
 -- ¬ ((a ∨ (b ∧ ¬ b)) ∨ ¬ a) ==> False
-#testOptimize [ "NotTrue_7" ] ∀ (a b : Prop), ¬ ((a ∨ (b ∧ ¬ b)) ∨ ¬ a) ===> False
+#testOptimize [ "NotTrue_7" ] ∀ (a b : Prop), ¬ ((a ∨ (b ∧ ¬ b)) ∨ ¬ a) ===> ∀ (_a _b : Prop), False
 
 
 /-! Test cases for simplification rule `¬ (¬ e) ==> e`. -/
@@ -99,7 +99,7 @@ namespace Tests.OptimizeNot
 -- ¬ (a → b) ===> ¬ (a → b)
 #testOptimize [ "NotUnchanged_4" ] ∀ (a b : Prop), ¬ (a → b) ===> ∀ (a b : Prop), ¬ (a → b)
 
--- ¬ (if c then a else b) ===> ¬ ((true = c → a) ∧ (false = c → b))
+-- ¬ (if c then a else b) ===> ¬ ((false = c → b) ∧ (true = c → a))
 #testOptimize [ "NotUnchanged_5" ] ∀ (c : Bool) (a b : Prop), ¬ (if c then a else b) ===>
                                    ∀ (c : Bool) (a b : Prop), ¬ ((false = c → b) ∧ (true = c → a))
 
@@ -189,7 +189,7 @@ namespace Tests.OptimizeNot
 
 
 /-! Test cases to ensure that the following simplification rules are not applied wrongly:
-     - ¬ (false = e) ==> true = e`
+     - `¬ (false = e) ==> true = e`
      - `¬ (true = e) ==> false = e`
 -/
 

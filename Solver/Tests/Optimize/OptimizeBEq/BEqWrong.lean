@@ -39,6 +39,24 @@ instance instBEqColor : BEq Color where
 -- Color.yellow Color.transparent == Color.yellow Color.transparent ===> false
 #testOptimize [ "BEqWrongCst_4" ] Color.yellow Color.transparent == Color.yellow Color.transparent ===> false
 
+-- Color.red Color.transparent == Color.yellow Color.transparent ===> false
+#testOptimize [ "BEqWrongCst_5" ] Color.red Color.transparent == Color.yellow Color.transparent ===> false
+
+-- Color.yellow Color.transparent == Color.blue Color.transparent ===> false
+#testOptimize [ "BEqWrongCst_6" ] Color.yellow Color.transparent == Color.blue Color.transparent ===> false
+
+-- Color.red (Color.blue Color.transparent) == Color.red Color.transparent ===> false
+#testOptimize [ "BEqWrongCst_7" ] Color.red (Color.blue Color.transparent) == Color.red Color.transparent ===> false
+
+-- Color.red (Color.yellow Color.transparent) == Color.red Color.transparent ===> false
+#testOptimize [ "BEqWrongCst_8" ] Color.red (Color.yellow Color.transparent) == Color.red Color.transparent ===> false
+
+-- Color.red (Color.yellow Color.transparent) == Color.red (Color.yellow Color.transparent) ===> false
+#testOptimize [ "BEqWrongCst_9" ] Color.red (Color.yellow Color.transparent) == Color.red (Color.yellow Color.transparent) ===> false
+
+-- Color.red (Color.blue Color.transparent) == Color.red (Color.yellow Color.transparent) ===> false
+#testOptimize [ "BEqWrongCst_10" ] Color.red (Color.blue Color.transparent) == Color.red (Color.yellow Color.transparent) ===> false
+
 
 /-! Test cases to ensure that the following simplification rules must not be applied on
     unknown ``BEq.beq instances that have not been reduced via `reduceApp` rule.`

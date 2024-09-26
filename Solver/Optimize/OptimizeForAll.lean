@@ -9,7 +9,6 @@ namespace Solver.Optimize
     Note that implication `a → b` is internally represented as `forallE _ a b bi`.
     The simplification/normalization rules applied are:
       - ∀ (n : t), True | e → True ==> True
-      - ∀ (n : t), False ==> False
       - False → e ==> True
       - True → e ==> e
       - e1 → e2 ==> True (if e1 =ₚₜᵣ e2 ∧ Type(e1) = Prop)
@@ -25,26 +24,15 @@ def optimizeForall (n : Expr) (t : Expr) (b : Expr) : TranslateEnvT Expr := do
   match b with
   | Expr.const ``True _ => pure b
   | _ =>
-    if (← isFalseForall t b)
-    then pure b
-    else
-      match t with
-      | Expr.const ``False _ => mkPropTrue
-      | Expr.const `True _ => pure b
-      | _ =>
-        if (← (exprEq t b) <&&> (isProp t))
-        then mkPropTrue
-        else if (← (isNotExprOf t b) <||> (isNotExprOf b t) <||> (isNegBoolEqOf t b))
-             then pure b
-             else mkForallExpr n b
-
-  where
-    /-- Return `true` only `b := False` ∧ !isProp t. -/
-    isFalseForall (t : Expr) (b : Expr) : MetaM Bool := do
-     match b with
-     | Expr.const ``False _ => pure !(← isProp t)
-     | _ => pure false
-
+    match t with
+    | Expr.const ``False _ => mkPropTrue
+    | Expr.const `True _ => pure b
+    | _ =>
+      if (← (exprEq t b) <&&> (isProp t))
+      then mkPropTrue
+      else if (← (isNotExprOf t b) <||> (isNotExprOf b t) <||> (isNegBoolEqOf t b))
+           then pure b
+           else mkForallExpr n b
 
 /-- `mkImpliesExpr a b` perform the following:
       - construct expression `a → b`

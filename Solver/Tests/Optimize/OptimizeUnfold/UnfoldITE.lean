@@ -41,9 +41,9 @@ namespace Tests.UnfoldITE
 #testOptimize [ "UnfoldIte_7" ] ∀ (a b c : Bool), (if c then a else b) = true ===>
                                 ∀ (a b c : Bool), true = ((a || !c) && (b || c))
 
--- ∀ (c : Bool) (p q : Prop), if c then p else q ===> ∀ (c : Bool) (p q : Prop), (true = c → p) ∧ (false = c → q)
+-- ∀ (c : Bool) (p q : Prop), if c then p else q ===> ∀ (c : Bool) (p q : Prop), (false = c → q) ∧ (true = c → p)
 #testOptimize [ "UnfoldIte_8" ] ∀ (c : Bool) (p q : Prop), if c then p else q ===>
-                                ∀ (c : Bool) (p q : Prop), (true = c → p) ∧ (false = c → q)
+                                ∀ (c : Bool) (p q : Prop), (false = c → q) ∧ (true = c → p)
 
 
 /-! Test cases to validate when `ite` expressions must not be unfolded -/

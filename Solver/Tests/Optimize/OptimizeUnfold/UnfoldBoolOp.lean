@@ -12,13 +12,13 @@ namespace Tests.UnfoldBoolOp
 /-! Test cases to validate unfolding of `Bool` operators only when reduced to a constant value or via rewriting. -/
 
 -- ∀ (a : Bool), false && a ===> False
-#testOptimize ["UnfoldBoolOp_1"] ∀ (a : Bool), false && a ===> False
+#testOptimize ["UnfoldBoolOp_1"] ∀ (a : Bool), false && a ===> ∀ (_a : Bool), False
 
 -- ∀ (a : Bool), true && a ===> ∀ (a : Bool), true = a
 #testOptimize ["UnfoldBoolOp_2"] ∀ (a : Bool), true && a  ===> ∀ (a : Bool), true = a
 
 -- ∀ (a : Bool), !a && a ===> False
-#testOptimize ["UnfoldBoolOp_3"] ∀ (a : Bool), !a && a ===> False
+#testOptimize ["UnfoldBoolOp_3"] ∀ (a : Bool), !a && a ===> ∀ (_a : Bool), False
 
 -- ∀ (a : Bool), a && a ===> ∀ (a : Bool), true = a
 #testOptimize ["UnfoldBoolOp_4"] ∀ (a : Bool), a && a ===> ∀ (a : Bool), true = a

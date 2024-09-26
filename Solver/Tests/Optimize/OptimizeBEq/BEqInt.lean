@@ -40,7 +40,8 @@ opaque z : Int
 #testOptimize [ "BEqIntCst_9" ] List.nil == [x, y, z] ===> false
 
 -- ∀ (x y z : Int), (List.nil == [x, y, z]) ===> False
-#testOptimize [ "BEqIntCst_10" ] ∀ (x y z : Int), (List.nil == [x, y, z]) ===> False
+#testOptimize [ "BEqIntCst_10" ] ∀ (x y z : Int), (List.nil == [x, y, z]) ===>
+                                 ∀ (_x _y _z : Int), False
 
 
 /-! Test cases for simplification rule `e1 == e2 ==> true (if e1 =ₚₜᵣ e2)`. -/

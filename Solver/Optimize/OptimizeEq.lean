@@ -74,7 +74,7 @@ partial def structEq? (op1 : Expr) (op2: Expr) : MetaM (Option Bool) := do
      - e = ¬ e ==> False
      - e = not e ==> False
      - e1 = e2 ==> True (if e1 =ₚₜᵣ e2)
-     - e1 = e2 ==> False (if structEq? e1 e2 = some false) (NOTE: `some true` case already handled by =ₚₜₜ)
+     - e1 = e2 ==> False (if structEq? e1 e2 = some false) (NOTE: `some true` case already handled by =ₚₜᵣ)
      - true = not e ==> false = e
      - false = not e ==> true = e
      - ¬ e1 = ¬ e2 ==> e1 = e2 (require classical)

@@ -12,7 +12,8 @@ namespace Test.BEqList
 #testOptimize [ "BEqListCst_1" ] ∀ (α : Type), [BEq α] → (List.nil : List α) == List.nil ===> True
 
 -- List.nil == [x, y, z] ===> False (with Type(x) = α)
-#testOptimize [ "BEqListCst_2" ] ∀ (α : Type) (x y z : α), [BEq α] → List.nil == [x, y, z] ===> False
+#testOptimize [ "BEqListCst_2" ] ∀ (α : Type) (x y z : α), [BEq α] → List.nil == [x, y, z] ===>
+                                 ∀ (α : Type) (_x _y _z : α), [BEq α] → False
 
 
 /-! Test cases to ensure that the following simplification rules must not be applied on

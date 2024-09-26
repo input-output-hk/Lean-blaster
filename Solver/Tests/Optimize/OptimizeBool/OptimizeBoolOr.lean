@@ -128,6 +128,7 @@ namespace Tests.OptimizeBoolOr
 /-! Test cases to ensure that simplification rule `e || not e ==> true` is not applied wrongly. -/
 
 -- not a || b ===> not a || b
+-- NOTE: reordering applied on operands
 #testOptimize [ "BoolOrNotUnchanged_1" ] ∀ (a b : Bool), not a || b ===>
                                          ∀ (a b : Bool), true = (b || not a)
 
@@ -145,6 +146,7 @@ namespace Tests.OptimizeBoolOr
                                          ∀ (a b c : Bool), true = (c || !(a || b))
 
 -- (a && b) || !(c && d) ===> (a && b) || !(c && d)
+-- NOTE: reordering applied on operands
 #testOptimize [ "BoolOrNotUnchanged_5" ] ∀ (a b c d : Bool), (a && b) || !(c && d) ===>
                                          ∀ (a b c d : Bool), true = (!(c && d) || (a && b))
 
@@ -152,9 +154,8 @@ namespace Tests.OptimizeBoolOr
 #testOptimize [ "BoolOrNotUnchanged_6" ] ∀ (a : Bool), not a || not a ===> ∀ (a : Bool), false = a
 
 -- !a || !b ==> !a || !b
--- NOTE: reordering applied on operands
 #testOptimize [ "BoolOrNotUnchanged_7" ] ∀ (a b : Bool), (!a || !b) ===>
-                                         ∀ (a b : Bool), true = (!b || !a)
+                                         ∀ (a b : Bool), true = (!a || !b)
 
 /-! Test cases for simplification rule `e1 || e2 ==> e1 (if e1 =ₚₜᵣ e2)`. -/
 
@@ -187,9 +188,8 @@ namespace Tests.OptimizeBoolOr
 #testOptimize [ "BoolOrUnchanged_1" ] ∀ (a b : Bool), (a || b) ===> ∀ (a b : Bool), true = (a || b)
 
 -- (a && c) || (b || d) ===> (a && c) || (b || d)
--- NOTE: reordering applied on operands
 #testOptimize [ "BoolOrUnchanged_2" ] ∀ (a b c d : Bool), (a && c) || (b || d) ===>
-                                      ∀ (a b c d : Bool), true = ((b || d) || (a && c))
+                                      ∀ (a b c d : Bool), true = ((a && c) || (b || d))
 
 
 /-! Test cases for normalization rule `e1 || e2 ==> e2 || e1 (if e2 <ₒ e1)`. -/

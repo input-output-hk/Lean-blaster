@@ -19,9 +19,9 @@ namespace Tests.UnfoldExists
 #testOptimize [ "ExistsNotUnfolded_1" ] ∀ (x : Int), ∃ (y z : Int), y > x ∧ z > y ===>
                                         ∀ (x : Int), ∃ (y z : Int), x < y ∧ y < z
 
--- ∀ (x : Nat), ∃ (y z : Nat), y > x ∧ z > y ===> ∀ (x : Nat), ∃ (y z : Nat), y < z ∧ x < y
+-- ∀ (x : Nat), ∃ (y z : Nat), y > x ∧ z > y ===> ∀ (x : Nat), ∃ (y z : Nat), x < y ∧ y < z
 #testOptimize [ "ExistsNotUnfolded_2" ] ∀ (x : Nat), ∃ (y z : Nat), y > x ∧ z > y ===>
-                                        ∀ (x : Nat), ∃ (y z : Nat), y < z ∧ x < y
+                                        ∀ (x : Nat), ∃ (y z : Nat), x < y ∧ y < z
 
 
 end Tests.UnfoldExists

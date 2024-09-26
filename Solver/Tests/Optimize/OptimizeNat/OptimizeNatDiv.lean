@@ -31,4 +31,7 @@ elab "natDivCst_4" : term => return natDivCst_4
 
 #testOptimize [ "NatDivCst_4" ] (18 : Nat) / 3 ===> natDivCst_4
 
+-- 8 / 3 ===> 2
+#testOptimize [ "NatDivCst_5" ] (8 : Nat) / 3 ===> natDivCst_3
+
 end Test.OptimizeNatDiv

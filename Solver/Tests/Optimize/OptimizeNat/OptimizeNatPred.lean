@@ -7,7 +7,7 @@ namespace Test.OptimizeNatPred
 
 /-! ## Test objectives to validate normalization and simplification rules on ``Nat.pred -/
 
-/-! Test cases for `reduceApp` rule on ``Nat.succ. -/
+/-! Test cases for `reduceApp` rule on ``Nat.pred. -/
 
 -- Nat.pred Nat.zero ===> 0
 def natPredCst_1 : Expr := Lean.Expr.lit (Lean.Literal.natVal 0)
@@ -122,10 +122,10 @@ elab "natPredReduce_1" : term => return natPredReduce_1
 
 #testOptimize [ "NatPredReduce_1" ] Nat.pred (100 + ((180 - (x + 40)) - 150)) ===> natPredReduce_1
 
+-- Nat.pred ((100 + ((180 - (x + 40)) - 150)) + (((20 - y) - 50) + 24)) ===> 123
 def natPredReduce_2 : Expr := Lean.Expr.lit (Lean.Literal.natVal 123)
 elab "natPredReduce_2" : term => return natPredReduce_2
 
--- Nat.pred ((100 + ((180 - (x + 40)) - 150)) + (((20 - y) - 50) + 24)) ===> 123
 #testOptimize [ "NatPredReduce_2" ] Nat.pred ((100 + ((180 - (x + 40)) - 150)) + (((20 - y) - 50) + 24))  ===> natPredReduce_2
 
 end Test.OptimizeNatPred

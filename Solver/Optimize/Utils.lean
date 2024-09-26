@@ -367,9 +367,9 @@ def normConst (n : Name) (l : List Level) : TranslateEnvT Expr := do
      - #[e1, e2] ===> #[e2, e1] (if e2.hash < e1.hash)
      - #[e1, e2] ===> args
 
+    An error is triggered when args.size ≠ 2.
     NOTE: Precedence is applied according to the order in which the rules have been specified.
-
-    Throws an error if size of args is not equal to two. -/
+-/
 def reorderArgs (args : Array Expr) : MetaM (Array Expr) := do
  if args.size == 2 then
    let e1 := args[0]!
@@ -383,12 +383,12 @@ def reorderArgs (args : Array Expr) : MetaM (Array Expr) := do
    | _, Expr.lit _ => pure (args.swap! 0 1)
    | _, _ =>
      match (← isConstructor e1), (← isConstructor e2) with
-     | true, true => pure (swapOnCond (e2.hash < e1.hash))
+     | true, true => pure (swapOnCond (e2.lt e1))
      | false, true => pure (args.swap! 0 1)
      | true, false => pure args
      | false, false =>
         match e1, e2 with
-        | Expr.bvar n1, Expr.bvar n2 => pure (swapOnCond (n2 < n1))
+        | Expr.bvar n1, Expr.bvar n2 => pure (swapOnCond (n2 <= n1))
         | Expr.fvar id1, Expr.fvar id2 => pure (swapOnCond (id2.name.lt id1.name))
         | Expr.mvar id1, Expr.mvar id2 => pure (swapOnCond (id2.name.lt id1.name))
         | Expr.bvar _, _ => pure args
@@ -397,7 +397,7 @@ def reorderArgs (args : Array Expr) : MetaM (Array Expr) := do
         | _, Expr.fvar _ => pure (args.swap! 0 1)
         | Expr.mvar _, _ => pure args
         | _, Expr.mvar _ => pure (args.swap! 0 1)
-        | _, _ => pure (swapOnCond (e2.hash < e1.hash))
+        | _, _ => pure (swapOnCond (e2.lt e1))
  else throwError "reorderArgs: two arguments expected"
 
  where

@@ -9,8 +9,6 @@ namespace Solver.Optimize
 /-- Apply the following simplification/normalization rules on `Nat.add` :
      - 0 + n ==> n
      - N1 + (N2 + n) ==> (N1 "+" N2) + n
-     - N1 + (N2 - n) ==> (N1 "+" N2) - n
-     - N1 + (n - N2) ==> (N1 "-" N2) + n
      - n1 + n2 ==> n2 + n1 (if n2 <ₒ n1)
    Assume that f = Expr.const ``Nat.add.
    Do nothing if operator is partially applied (i.e., args.size < 2)
@@ -26,23 +24,20 @@ partial def optimizeNatAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr :
    | some n1 =>
        match (toNatCstOpExpr? op2) with
        | some (NatCstOpInfo.NatAddExpr n2 e2) => mkAppExpr f #[(← evalBinNatOp Nat.add n1 n2), e2]
-       | some (NatCstOpInfo.NatSubLeftExpr n2 e2) => mkAppExpr (← mkNatSubOp) #[(← evalBinNatOp Nat.add n1 n2), e2]
-       | some (NatCstOpInfo.NatSubRightExpr e2 n2) => optimizeNatAdd f #[(← evalBinNatOp Nat.sub n1 n2), e2]
        | some _ => mkAppExpr f opArgs
        | none => mkAppExpr f opArgs
    | none => mkAppExpr f opArgs
  else mkAppExpr f args
 
+
 /-- Apply the following simplification/normalization rules on `Nat.sub` :
      - n1 - n2 ==> 0 (if n1 =ₚₜᵣ n2)
      - 0 - n ==> 0
      - n - 0 ==> n
-     - N1 - (N2 - n) ==> (N1 "-" N2) + n
-     - N1 - (n - N2) ==> (N1 "+" N2) - n
      - N1 - (N2 + n) ==> (N1 "-" N2) - n
      - (N1 - n) - N2 ==> (N1 "-" N2) - n
      - (n - N1) - N2 ==> n - (N1 "+" N2)
-     - (N1 + n) - N2 ==> (N1 "-" N2) + n
+     - (N1 + n) - N2 ==> (N1 "-" N2) + n (if N1 ≥ N2)
    Assume that f = Expr.const ``Nat.sub.
    Do nothing if operator is partially applied (i.e., args.size < 2)
    NOTE: `Nat.sub` on constant values are handled via `reduceApp`.
@@ -60,8 +55,6 @@ partial def optimizeNatSub (f : Expr) (args : Array Expr) : TranslateEnvT Expr :
      | some 0, _ | _, some 0 => pure op1
      | some n1, _ =>
           match (toNatCstOpExpr? op2) with
-          | some (NatCstOpInfo.NatSubLeftExpr n2 e2) => optimizeNatAdd (← mkNatAddOp) #[(← evalBinNatOp Nat.sub n1 n2), e2]
-          | some (NatCstOpInfo.NatSubRightExpr e2 n2) => mkAppExpr f #[(← evalBinNatOp Nat.add n1 n2), e2]
           | some (NatCstOpInfo.NatAddExpr n2 e2) => optimizeNatSub f #[(← evalBinNatOp Nat.sub n1 n2), e2]
           | some _ => mkAppExpr f args
           | none => mkAppExpr f args
@@ -69,7 +62,10 @@ partial def optimizeNatSub (f : Expr) (args : Array Expr) : TranslateEnvT Expr :
           match (toNatCstOpExpr? op1) with
           | some (NatCstOpInfo.NatSubLeftExpr n1 e1) => optimizeNatSub f #[(← evalBinNatOp Nat.sub n1 n2), e1]
           | some (NatCstOpInfo.NatSubRightExpr e1 n1) => mkAppExpr f #[e1, (← evalBinNatOp Nat.add n1 n2)]
-          | some (NatCstOpInfo.NatAddExpr n1 e1) => optimizeNatAdd (← mkNatAddOp) #[(← evalBinNatOp Nat.sub n1 n2), e1]
+          | some (NatCstOpInfo.NatAddExpr n1 e1) =>
+             if Nat.ble n2 n1
+             then optimizeNatAdd (← mkNatAddOp) #[(← evalBinNatOp Nat.sub n1 n2), e1]
+             else mkAppExpr f args
           | some _ => mkAppExpr f args
           | none => mkAppExpr f args
      | _, _ => mkAppExpr f args
@@ -77,12 +73,6 @@ partial def optimizeNatSub (f : Expr) (args : Array Expr) : TranslateEnvT Expr :
 
 -- /-- TODO: Apply the following advanced constant propagation rules on `Nat.add` and `Nat.sub`:
 --      - (N1 + n1) + (N2 + n2) ==> (N1 "+" N2) + (n1 + n2) (TODO)
---      - (N1 + n1) + (N2 - n2) ==> (N1 "+" N2) + (n1 - n2) (TODO)
---      - (N1 + n1) + (n2 - N2) ==> (N1 "-" N2) + (n1 + n2) (TODO)
---      - (N1 - n1) + (N2 - n2) ==> (N1 "+" N2) - (n1 + n2) (TODO)
---      - (N1 - n1) + (n2 - N2) ==> (N1 "-" N2) + (n2 - n1) (TODO)
---      - (n1 - N1) + (N2 - n2) ==> (N2 "-" N1) + (n1 - n2) (TODO)
---      - (n1 - N1) + (n2 - N2) ==> (n1 + n2) - (N1 "+" N2) (TODO)
 --      - (N1 - n1) - (N2 - n2) ==> (N1 "-" N2) + (n2 - n1) (TODO)
 --      - (N1 - n1) - (n2 - N2) ==> (N1 "+" N2) - (n1 + n2) (TODO)
 --      - (n1 - N1) - (N2 - n2) ==> (n1 + n2) - ("N1 "+" N2) (TODO)

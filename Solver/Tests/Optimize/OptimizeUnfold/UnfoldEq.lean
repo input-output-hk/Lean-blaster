@@ -39,7 +39,7 @@ namespace Tests.UnfoldEq
 #testOptimize [ "UnfoldEq_9" ] ∀ (a : Bool), a = a ===> True
 
 -- ∀ (a : Bool), a ≠ a ===> False
-#testOptimize [ "UnfoldEq_10" ] ∀ (a : Bool), a ≠ a ===> False
+#testOptimize [ "UnfoldEq_10" ] ∀ (a : Bool), a ≠ a ===> ∀ (_a : Bool), False
 
 -- (10 : Int) = 10 ===> True
 #testOptimize [ "UnfoldEq_11" ] (10 : Int) = 10 ===> True
@@ -57,7 +57,7 @@ namespace Tests.UnfoldEq
 #testOptimize [ "UnfoldEq_15" ] ∀ (x : Int), x = x ===> True
 
 -- ∀ (x : Int), x ≠ x ===> False
-#testOptimize [ "UnfoldEq_16" ] ∀ (x : Int), x ≠ x ===> False
+#testOptimize [ "UnfoldEq_16" ] ∀ (x : Int), x ≠ x ===> ∀ (_x : Int), False
 
 -- (10 : Nat) = 10 ===> True
 #testOptimize [ "UnfoldEq_17" ] (10 : Nat) = 10 ===> True
@@ -75,7 +75,7 @@ namespace Tests.UnfoldEq
 #testOptimize [ "UnfoldEq_21" ] ∀ (x : Nat), x = x ===> True
 
 -- ∀ (x : Nat), x ≠ x ===> False
-#testOptimize [ "UnfoldEq_22" ] ∀ (x : Nat), x ≠ x ===> False
+#testOptimize [ "UnfoldEq_22" ] ∀ (x : Nat), x ≠ x ===> ∀ (_x : Nat), False
 
 
 -- (List.nil : List Nat) = List.nil ===> True
@@ -98,16 +98,17 @@ opaque c : Nat
 #testOptimize [ "UnfoldEq_27" ] ∀ (x : List Nat), x = x ===> True
 
 -- ∀ (x : List Nat), x ≠ x ===> False
-#testOptimize [ "UnfoldEq_28" ] ∀ (x : List Nat), x ≠ x ===> False
+#testOptimize [ "UnfoldEq_28" ] ∀ (x : List Nat), x ≠ x ===> ∀ (_x : List Nat), False
 
 -- ∀ (α : Type), (List.nil : List α) = List.nil ===> True
 #testOptimize [ "UnfoldEq_29" ] ∀ (α : Type), (List.nil : List α) = List.nil ===> True
 
 -- ∀ (α : Type), (List.nil : List α) ≠ List.nil ===> False
-#testOptimize [ "UnfoldEq_30" ] ∀ (α : Type), (List.nil : List α) ≠ List.nil ===> False
+#testOptimize [ "UnfoldEq_30" ] ∀ (α : Type), (List.nil : List α) ≠ List.nil ===> ∀ (_α : Type), False
 
 -- ∀ (α : Type) (x y z : α), List.nil = [x, y, z] ===> False
-#testOptimize [ "UnfoldEq_31" ] ∀ (α : Type) (x y z : α), List.nil = [x, y, z] ===> False
+#testOptimize [ "UnfoldEq_31" ] ∀ (α : Type) (x y z : α), List.nil = [x, y, z] ===>
+                                ∀ (α : Type) (_x _y _z : α), False
 
 -- ∀ (α : Type) (x y z : α), List.nil ≠ [x, y, z] ===> True
 #testOptimize [ "UnfoldEq_32" ] ∀ (α : Type) (x y z : α), List.nil ≠ [x, y, z] ===> True
@@ -116,7 +117,8 @@ opaque c : Nat
 #testOptimize [ "UnfoldEq_33" ] ∀ (α : Type) (x : List α), x = x ===> True
 
 -- ∀ (α : Type) (x : List α), x ≠ x ===> False
-#testOptimize [ "UnfoldEq_34" ] ∀ (α : Type) (x : List α), x ≠ x ===> False
+#testOptimize [ "UnfoldEq_34" ] ∀ (α : Type) (x : List α), x ≠ x ===>
+                                ∀ (α : Type) (_x : List α), False
 
 
 /-! Test cases to validate when `Eq must not be unfolded -/

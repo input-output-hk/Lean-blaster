@@ -14,11 +14,17 @@ namespace Test.BEqString
 -- "xyz" == "zxyz" ===> false
 #testOptimize [ "BEqStringCst_2" ] "xyz" == "zxyz" ===> false
 
+-- "xyz" == "xyza" ===> false
+#testOptimize [ "BEqStringCst_3" ] "xyz" == "xyza" ===> false
+
 -- "test" ++ "Optimize" == "testOptimize" ===> true
-#testOptimize [ "BEqStringCst_3" ] "test" ++ "Optimize" == "testOptimize" ===> true
+#testOptimize [ "BEqStringCst_4" ] "test" ++ "Optimize" == "testOptimize" ===> true
 
 -- "testOptimize".take 4 == "test" ===> true
-#testOptimize [ "BEqStringCst_4" ] "testOptimize".take 4 == "test" ===> true
+#testOptimize [ "BEqStringCst_5" ] "testOptimize".take 4 == "test" ===> true
+
+-- "testOptimize".take 0 == "" ===> true
+#testOptimize [ "BEqStringCst_6" ] "testOptimize".take 0 == "" ===> true
 
 /-! Test cases for simplification rule `e1 == e2 ==> true (if e1 =ₚₜᵣ e2)`. -/
 

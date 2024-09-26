@@ -48,10 +48,10 @@ namespace Test.OptimizeITE
 #testOptimize [ "IteAbsorption_7" ] ∀ (a b c : Bool), if c then (!(!a)) = !(!(!b)) else a = !b ===>
                                     ∀ (a b _c : Bool), a = !b
 
--- ∀ (c : Bool) (x y : Nat), (if c then 30 - (40 - x) else x) < y ===>
+-- ∀ (c : Bool) (x y : Nat), (if c then (40 + x) - 40 else x) < y ===>
 -- ∀ (c : Bool) (x y : Nat), x < y
 -- TODO: remove unused quantifier when COI performed on forall
-#testOptimize [ "IteAbsorption_8" ] ∀ (c : Bool) (x y : Nat), (if c then 30 - (40 - x) else x) < y ===>
+#testOptimize [ "IteAbsorption_8" ] ∀ (c : Bool) (x y : Nat), (if c then (40 + x) - 40 else x) < y ===>
                                     ∀ (_c : Bool) (x y : Nat), x < y
 
 -- ∀ (c : Bool), if c then ∀ (x y : Int), x > y else ∀ (z y : Int), y < z ===>
@@ -105,10 +105,10 @@ namespace Test.OptimizeITE
 #testOptimize [ "IteAbsorption_17" ] ∀ (a b c : Bool),
                                        (if c then (!(!a)) = !(!(!b)) else a = !b) = (a = !b) ===> True
 
--- ∀ (c : Bool) (x y : Nat), ((if c then 30 - (40 - x) else x) < y) = (x < y) ===> True
+-- ∀ (c : Bool) (x y : Nat), ((if c then (40 + x) - 40 else x) < y) = (x < y) ===> True
 -- Test case to validate expression caching after rewriting
 #testOptimize [ "IteAbsorption_18" ] ∀ (c : Bool) (x y : Nat),
-                                       ((if c then 30 - (40 - x) else x) < y) = (x < y) ===> True
+                                       ((if c then (40 + x) - 40  else x) < y) = (x < y) ===> True
 
 -- ∀ (c : Bool), (if c then ∀ (x y : Int), x > y else ∀ (z y : Int), y < z) = ∀ (x y : Int), y < x ===> True
 -- Test case to validate expression caching after rewriting
@@ -137,12 +137,12 @@ namespace Test.OptimizeITE
 -- ∀ (c a b : Prop), (¬ c → b) ∧ (c → a)
 -- TODO: remove unused constraints when COI performed on forall
 #testOptimize [ "IteAbsorptionUnchanged_2" ] ∀ (c a b : Prop), [Decidable c] → if c then a else b ===>
-                                             ∀ (c a b : Prop), [Decidable c] → (¬ c → b) ∧ (c → a)
+                                             ∀ (c a b : Prop), [Decidable c] → (c → a) ∧ (¬ c → b)
 
 -- ∀ (c : Bool) (a b : Prop), if c then a ∧ b else ¬ a ∧ ¬ b ===>
--- ∀ (c : Bool) (a b : Prop), (true = c → a ∧ b) ∧ (false = c → ¬ a ∧ ¬ b)
+-- ∀ (c : Bool) (a b : Prop), (false = c → ¬ a ∧ ¬ b) ∧ (true = c → a ∧ b)
 #testOptimize [ "IteAbsorptionUnchanged_3" ] ∀ (c : Bool) (a b : Prop), if c then a ∧ b else ¬ a ∧ ¬ b ===>
-                                             ∀ (c : Bool) (a b : Prop), (true = c → a ∧ b) ∧ (false = c → ¬ a ∧ ¬ b)
+                                             ∀ (c : Bool) (a b : Prop), (false = c → ¬ a ∧ ¬ b) ∧ (true = c → a ∧ b)
 
 -- ∀ (c : Bool) (a b : Prop), if c then ¬ (¬ a) else b ===>
 -- ∀ (c : Bool) (a b : Prop), (false = c → b) ∧ (true = c → a)
@@ -152,11 +152,12 @@ namespace Test.OptimizeITE
 -- let x := ¬ a ∧ ¬ b in
 -- let y := (¬ (¬ a)) ∧ b in
 -- ∀ (c : Bool) (a b : Prop), if c then x else y ===>
--- ∀ (c : Bool) (a b : Prop), (true = c → ¬ b ∧ ¬ a) ∧ (false = c → a ∧ b)
+-- ∀ (c : Bool) (a b : Prop), (false = c → a ∧ b) ∧ (true = c → ¬ a ∧ ¬ b)
 #testOptimize [ "IteAbsorptionUnchanged_5" ] ∀ (c : Bool) (a b : Prop), let x := ¬ a ∧ ¬ b;
                                                let y := (¬ (¬ a)) ∧ b;
                                                if c then x else y ===>
-                                             ∀ (c : Bool) (a b : Prop), (true = c → ¬ b ∧ ¬ a) ∧ (false = c → a ∧ b)
+                                             ∀ (c : Bool) (a b : Prop),
+                                               (false = c → a ∧ b) ∧ (true = c → ¬ a ∧ ¬ b)
 
 -- ∀ (a b c : Bool), (if c then ! (!a) else b) = true ===>
 -- ∀ (a b c : Bool), true = ((a || !c) && (b || c))
@@ -165,19 +166,19 @@ namespace Test.OptimizeITE
 
 
 -- ∀ (a b c d : Bool), if c then (!(!a)) = !(!(!b)) else b = !d ===>
--- ∀ (a b c d : Bool), (true = c → a = !b) ∧ (false = c → b = !d)
+-- ∀ (a b c d : Bool), (false = c → b = !d) ∧ (true = c → a = !b)
 #testOptimize [ "IteAbsorptionUnchanged_7" ] ∀ (a b c d: Bool), if c then (!(!a)) = !(!(!b)) else b = !d ===>
-                                             ∀ (a b c d : Bool), (true = c → a = !b) ∧ (false = c → b = !d)
+                                             ∀ (a b c d : Bool), (false = c → b = !d) ∧ (true = c → a = !b)
 
--- ∀ (c : Bool) (x y z : Nat), (if c then 30 - (40 - x) else y) < z ===>
+-- ∀ (c : Bool) (x y z : Nat), (if c then (40 + x) - 40 else y) < z ===>
 -- ∀ (c : Bool) (x y z : Nat), (if true = c then x else y) < z
-#testOptimize [ "IteAbsorptionUnchanged_8" ] ∀ (c : Bool) (x y z : Nat), (if c then 30 - (40 - x) else y) < z ===>
+#testOptimize [ "IteAbsorptionUnchanged_8" ] ∀ (c : Bool) (x y z : Nat), (if c then (40 + x) - 40 else y) < z ===>
                                              ∀ (c : Bool) (x y z : Nat), (if true = c then x else y) < z
 
 -- ∀ (c : Bool), if c then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z ===>
--- ∀ (c : Bool), (true = c → ∀ (x y : Int), y < x) ∧ (false = c → ∀ (z y : Int), z > y)
+-- ∀ (c : Bool), (false = c → ∀ (z y : Int), z < y) ∧ (true = c → ∀ (x y : Int), y < x)
 #testOptimize [ "IteAbsorptionUnchanged_9" ] ∀ (c : Bool), if c then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z ===>
-                                             ∀ (c : Bool), (true = c → ∀ (x y : Int), y < x) ∧ (false = c → ∀ (z y : Int), z < y)
+                                             ∀ (c : Bool), (false = c → ∀ (z y : Int), z < y) ∧ (true = c → ∀ (x y : Int), y < x)
 
 
 /-! Test cases for simplification rule `if True then e1 else e2 ==> e1`. -/
@@ -190,9 +191,9 @@ namespace Test.OptimizeITE
 -- TODO: remove unused quantifier when COI performed on forall
 #testOptimize [ "IteTrueCond_2" ] ∀ (a b : Bool), if True then !a else b ===> ∀ (a _b : Bool), false = a
 
--- ∀ (x y z : Nat), (if True then 30 - (40 - x) else y) < z ===> ∀ (x y z : Nat), x < z
+-- ∀ (x y z : Nat), (if True then (x + 40) - 40 else y) < z ===> ∀ (x y z : Nat), x < z
 -- TODO: remove unused quantifier when COI performed on forall
-#testOptimize [ "IteTrueCond_3" ] ∀ (x y z : Nat), (if True then 30 - (40 - x) else y) < z ===>
+#testOptimize [ "IteTrueCond_3" ] ∀ (x y z : Nat), (if True then (x + 40) - 40 else y) < z ===>
                                   ∀ (x _y z : Nat), x < z
 
 -- if True then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z ===> ∀ (x y : Int), y < x
@@ -224,9 +225,9 @@ namespace Test.OptimizeITE
 -- Test case to validate expression caching after rewriting
 #testOptimize [ "IteTrueCond_9" ] ∀ (a b : Bool), (if True then !a else b) = !a ===> True
 
--- ∀ (x y z : Nat), ((if True then 30 - (40 - x) else y) < z) = x < z ===> True
+-- ∀ (x y z : Nat), ((if True then (x + 40) - 40 else y) < z) = x < z ===> True
 -- Test case to validate expression caching after rewriting
-#testOptimize [ "IteTrueCond_10" ] ∀ (x y z : Nat), ((if True then 30 - (40 - x) else y) < z) = (x < z) ===> True
+#testOptimize [ "IteTrueCond_10" ] ∀ (x y z : Nat), ((if True then (x + 40) - 40 else y) < z) = (x < z) ===> True
 
 -- (if True then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z) = ∀ (x y : Int), y < x ===> True
 -- Test case to validate expression caching after rewriting
@@ -259,9 +260,9 @@ namespace Test.OptimizeITE
 -- TODO: remove unused quantifier when COI performed on forall
 #testOptimize [ "IteFalseCond_2" ] ∀ (a b : Bool), if False then !a else b ===> ∀ (_a b : Bool), true = b
 
--- ∀ (x y z : Nat), (if False then 30 - (40 - x) else y) < z ===> ∀ (x y z : Nat), y < z
+-- ∀ (x y z : Nat), (if False then (x + 40) - 40 else y) < z ===> ∀ (x y z : Nat), y < z
 -- TODO: remove unused quantifier when COI performed on forall
-#testOptimize [ "IteFalseCond_3" ] ∀ (x y z : Nat), (if False then 30 - (40 - x) else y) < z ===>
+#testOptimize [ "IteFalseCond_3" ] ∀ (x y z : Nat), (if False then (x + 40) - 40 else y) < z ===>
                                    ∀ (_x y z : Nat), y < z
 
 -- if False then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z ===> ∀ (z y : Int), z < y
@@ -293,9 +294,9 @@ namespace Test.OptimizeITE
 -- Test case to validate expression caching after rewriting
 #testOptimize [ "IteFalseCond_9" ] ∀ (a b : Bool), (if False then !a else b) = b ===> True
 
--- ∀ (x y z : Nat), ((if False then 30 - (40 - x) else y) < z) = (y < z) ===> True
+-- ∀ (x y z : Nat), ((if False then (x + 40) - 40 else y) < z) = (y < z) ===> True
 -- Test case to validate expression caching after rewriting
-#testOptimize [ "IteFalseCond_10" ] ∀ (x y z : Nat), ((if False then 30 - (40 - x) else y) < z) = (y < z) ===> True
+#testOptimize [ "IteFalseCond_10" ] ∀ (x y z : Nat), ((if False then (x + 40) - 40 else y) < z) = (y < z) ===> True
 
 -- (if False then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z) = ∀ (z y : Int), z < y ===> True
 -- Test case to validate expression caching after rewriting
@@ -325,30 +326,30 @@ namespace Test.OptimizeITE
  -/
 
 -- ∀ (a b : Bool) (p q : Prop), if (! a || a) && b then p else q ===>
--- ∀ (a b : Bool) (p q : Prop), (true = b → p) ∧ (false = b → q)
+-- ∀ (a b : Bool) (p q : Prop), (false = b → q) ∧ (true = b → p)
 -- TODO: remove unused quantifier when COI performed on forall
 #testOptimize [ "IteCondUnchanged_1" ] ∀ (a b : Bool) (p q : Prop), if (! a || a) && b then p else q ===>
-                                       ∀ (_a b : Bool) (p q : Prop), (true = b → p) ∧ (false = b → q)
+                                       ∀ (_a b : Bool) (p q : Prop), (false = b → q) ∧ (true = b → p)
 
 -- ∀ (a b c d : Bool), (if (b && !b) || a then c else d) = true ===>
--- ∀ (a b c d : Bool), true = ((c || !a) && (a || d))
+-- ∀ (a b c d : Bool), true = ((a || d) && (c || !a))
 -- TODO: remove unused quantifier when COI performed on forall
 #testOptimize [ "IteCondUnchanged_2" ] ∀ (a b c d : Bool), (if (b && !b) || a then c else d) = true ===>
-                                       ∀ (a _b c d : Bool), true = ((c || !a) && (a || d))
+                                       ∀ (a _b c d : Bool), true = ((a || d) && (c || !a))
 
--- ∀ (a b : Bool) (x y z : Nat), (if b && (a || !a) then 30 - (40 - x) else y) < z ===>
+-- ∀ (a b : Bool) (x y z : Nat), (if b && (a || !a) then (x + 40) - 40 else y) < z ===>
 -- ∀ (a b : Bool) (x y z : Nat), (if true = b then x else y) < z
 -- TODO: remove unused quantifier when COI performed on forall
-#testOptimize [ "IteCondUnchanged_3" ] ∀ (a b : Bool) (x y z : Nat), (if b && (a || !a) then 30 - (40 - x) else y) < z ===>
+#testOptimize [ "IteCondUnchanged_3" ] ∀ (a b : Bool) (x y z : Nat), (if b && (a || !a) then (x + 40) - 40 else y) < z ===>
                                        ∀ (_a b : Bool) (x y z : Nat), (if true = b then x else y) < z
 
 -- ∀ (a b : Prop) (p q : Prop), if (¬ a ∨ a) ∧ b then p else q ===>
--- ∀ (a b : Prop) (p q : Prop), (¬ b → q) ∧ (b → p)
+-- ∀ (a b : Prop) (p q : Prop), (b → p) ∧ (¬ b → q)
 -- TODO: remove unused quantifier and constraints when COI performed on forall
 #testOptimize [ "IteCondUnchanged_4" ] ∀ (a b : Prop) (p q : Prop),
                                          [Decidable a] → [Decidable b] → if (¬ a ∨ a) ∧ b then p else q ===>
                                        ∀ (a b : Prop) (p q : Prop),
-                                         [Decidable a] → [Decidable b] → (¬ b → q) ∧ (b → p)
+                                         [Decidable a] → [Decidable b] → (b → p) ∧ (¬ b → q)
 
 -- ∀ (a b : Prop) (c d : Bool), (if (b ∧ ¬ b) ∨ a then c else d) = true ===>
 -- ∀ (a b : Prop) (c d : Bool), true = (if a then c else d)
@@ -358,11 +359,11 @@ namespace Test.OptimizeITE
                                        ∀ (a b : Prop) (c d : Bool),
                                          [Decidable a] → [Decidable b] → true = (if a then c else d)
 
--- ∀ (a b : Prop) (x y z : Nat), (if b ∧ (a ∨ ¬ a) then 30 - (40 - x) else y) < z ===>
+-- ∀ (a b : Prop) (x y z : Nat), (if b ∧ (a ∨ ¬ a) then (x + 40) - 40 else y) < z ===>
 -- ∀ (a b : Prop) (x y z : Nat), (if b then x else y) < z
 -- TODO: remove unused quantifier and constraints when COI performed on forall
 #testOptimize [ "IteCondUnchanged_6" ] ∀ (a b : Prop) (x y z : Nat),
-                                         [Decidable a] → [Decidable b] → (if b ∧ (a ∨ ¬ a) then 30 - (40 - x) else y) < z ===>
+                                         [Decidable a] → [Decidable b] → (if b ∧ (a ∨ ¬ a) then (x + 40) - 40 else y) < z ===>
                                        ∀ (a b : Prop) (x y z : Nat),
                                          [Decidable a] → [Decidable b] → (if b then x else y) < z
 
@@ -371,9 +372,9 @@ namespace Test.OptimizeITE
 /-! Test cases for simplification rule `if c then e1 else e2 ==> if c' then e2 else e1 (if c := ¬ c')`. -/
 
 -- ∀ (a b c : Prop), if ¬ c then a else b ===>
--- ∀ (a b c : Prop), (¬ c → a) ∧ (c → b)
+-- ∀ (a b c : Prop), (c → b) ∧ (¬ c → a)
 #testOptimize [ "IteNegCond_1" ] ∀ (a b c : Prop), [Decidable c] → if ¬ c then a else b ===>
-                                 ∀ (a b c : Prop), [Decidable c] → (¬ c → a) ∧ (c → b)
+                                 ∀ (a b c : Prop), [Decidable c] → (c → b) ∧ (¬ c → a)
 
 -- ∀ (c : Prop) (a b : Bool), (if ¬ c then a else b) = true ===>
 -- ∀ (c : Prop) (a b : Bool), true = (if c then b else a)
@@ -386,9 +387,9 @@ namespace Test.OptimizeITE
                                  ∀ (c : Prop) (x y z : Nat), [Decidable c] → (if c then y else x) < z
 
 -- ∀ (c : Prop), if ¬ c then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z ===>
--- ∀ (c : Prop), (¬ c → ∀ (x y : Int), y < x) ∧ (c → ∀ (z y : Int), z < y)
+-- ∀ (c : Prop), (c → ∀ (z y : Int), z < y) ∧ (¬ c → ∀ (x y : Int), y < x)
 #testOptimize [ "IteNegCond_4" ] ∀ (c : Prop), [Decidable c] → if ¬ c then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z ===>
-                                 ∀ (c : Prop), [Decidable c] → (¬ c → ∀ (x y : Int), y < x) ∧ (c → ∀ (z y : Int), z < y)
+                                 ∀ (c : Prop), [Decidable c] → (c → ∀ (z y : Int), z < y) ∧ (¬ c → ∀ (x y : Int), y < x)
 
 -- ∀ (c : Prop) (x y : Int), (if c = False then x else y) > x ===>
 -- ∀ (c : Prop) (x y : Int), x < (if c then y else x)
@@ -491,14 +492,14 @@ namespace Test.OptimizeITE
 /-! Test cases for simplification rule `if c then e1 else e2 ==> if true = c' then e2 else e1 (if c := false = c')`. -/
 
 -- ∀ (c : Bool) (p q : Prop), (if c = false then p else q) ===>
--- ∀ (c : Bool) (p q : Prop), (true = c → q) ∧ (false = c → p)
+-- ∀ (c : Bool) (p q : Prop), (false = c → p) ∧ (true = c → q)
 #testOptimize [ "IteFalseEqCond_1" ] ∀ (c : Bool) (p q : Prop), (if c = false then p else q) ===>
-                                     ∀ (c : Bool) (p q : Prop), (true = c → q) ∧ (false = c → p)
+                                     ∀ (c : Bool) (p q : Prop), (false = c → p) ∧ (true = c → q)
 
 -- ∀ (a b c : Bool), (if c = false then a else b) = true ===>
--- ∀ (a b c : Bool), true = ((b || !c) && (a || c))
+-- ∀ (a b c : Bool), true = ((a || c) && (b || !c))
 #testOptimize [ "IteFalseEqCond_2" ]  ∀ (a b c : Bool), (if c = false then a else b) = true ===>
-                                      ∀ (a b c : Bool), true = ((b || !c) && (a || c))
+                                      ∀ (a b c : Bool), true = ((a || c) && (b || !c))
 
 -- ∀ (c : Bool) (x y : Nat), (if c = false then x else y) > x ===>
 -- ∀ (c : Bool) (x y : Nat), x < (if true = c then y else x)
@@ -506,9 +507,9 @@ namespace Test.OptimizeITE
                                      ∀ (c : Bool) (x y : Nat), x < (if true = c then y else x)
 
 -- ∀ (c : Bool), if c = false then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z ===>
--- ∀ (c : Bool), (true = c → ∀ (z y : Int), z < y) ∧ (false = c → ∀ (x y : Int), y < x)
+-- ∀ (c : Bool), (false = c → ∀ (x y : Int), y < x) ∧ (true = c → ∀ (z y : Int), z < y)
 #testOptimize [ "IteFalseEqCond_4" ] ∀ (c : Bool), if c = false then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z ===>
-                                     ∀ (c : Bool), (true = c → ∀ (z y : Int), z < y) ∧ (false = c → ∀ (x y : Int), y < x)
+                                     ∀ (c : Bool), (false = c → ∀ (x y : Int), y < x) ∧ (true = c → ∀ (z y : Int), z < y)
 
 
 -- ∀ (c : Bool) (x y : Int), (if !c then x else y) > x ===> ∀ (c : Bool) (x y : Int), x < (if true = c then y else x)
@@ -603,9 +604,9 @@ namespace Test.OptimizeITE
                                               ∀ (c : Bool) (p q : Prop), (false = c → q) ∧ (true = c → p)
 
 -- ∀ (a b c : Bool), (if c = true then a else b) = true ===>
--- ∀ (a b c : Bool), true = ((b || c) && (a || !c))
+-- ∀ (a b c : Bool), true = ((a || !c) && (b || c))
 #testOptimize [ "IteFalseEqCondUnchanged_2" ]  ∀ (a b c : Bool), (if c = true then a else b) = true ===>
-                                               ∀ (a b c : Bool), true = ((b || c) && (a || !c))
+                                               ∀ (a b c : Bool), true = ((a || !c) && (b || c))
 
 -- ∀ (c : Bool) (x y : Nat), (if c = true then x else y) > x ===>
 -- ∀ (c : Bool) (x y : Nat), x < (if true = c then x else y)
@@ -673,9 +674,9 @@ namespace Test.OptimizeITE
 /-! Test cases for simplification rule `if c then e1 else e2 ==> (! c' || e1) && (c' || e2) (if Type(e1) = Bool ∧ c := true = c')`. -/
 
 -- ∀ (c a b : Bool), (if c then a else b) = true ===>
--- ∀ (c a b : Bool), true = ((a || !c) && (c || b))
+-- ∀ (c a b : Bool), true = ((c || b) && (a || !c))
 #testOptimize [ "IteToBoolExpr_1" ] ∀ (c a b : Bool), (if c then a else b) = true ===>
-                                    ∀ (c a b : Bool), true = ((a || !c) && (c || b))
+                                    ∀ (c a b : Bool), true = ((c || b) && (a || !c))
 
 -- ∀ (a b : Bool), (if a then true else b) = true ===> ∀ (a b : Bool), true = (a || b)
 #testOptimize [ "IteToBoolExpr_2" ] ∀ (a b : Bool), (if a then true else b) = true ===>
@@ -685,9 +686,9 @@ namespace Test.OptimizeITE
 #testOptimize [ "IteToBoolExpr_3" ] ∀ (a b : Bool), (if a then b else true) = true ===>
                                     ∀ (a b : Bool), true = (b || !a)
 
--- ∀ (a b : Bool), (if a then false else b) = true ===> ∀ (a b : Bool), true = ((a || b) && !a)
+-- ∀ (a b : Bool), (if a then false else b) = true ===> ∀ (a b : Bool), true = (!a && (a || b))
 #testOptimize [ "IteToBoolExpr_4" ] ∀ (a b : Bool), (if a then false else b) = true ===>
-                                    ∀ (a b : Bool), true = ((a || b) && !a)
+                                    ∀ (a b : Bool), true = (!a && (a || b))
 
 -- ∀ (a b : Bool), (if a then b else false) = true ===> ∀ (a b : Bool), true = (a && (b || !a))
 #testOptimize [ "IteToBoolExpr_5" ] ∀ (a b : Bool), (if a then b else false) = true ===>
@@ -812,7 +813,7 @@ namespace Test.OptimizeITE
 -- ∀ (c p : Prop), (¬ c → False) ∧ (c → p)
 -- TODO: remove unused constraints when COI performed on forall
 #testOptimize [ "IteToPropExpr_5" ] ∀ (c p : Prop), [Decidable c] → if c then p else False ===>
-                                    ∀ (c p : Prop), [Decidable c] → (¬ c → False) ∧ (c → p)
+                                    ∀ (c p : Prop), [Decidable c] → (c → p) ∧ (¬ c → False)
 
 -- ∀ (c p : Prop), if c then c else p ===>
 -- ∀ (c p : Prop), ¬ c → p
@@ -841,16 +842,16 @@ namespace Test.OptimizeITE
                                     ∀ (c p : Prop), [Decidable c] → c → p
 
 -- ∀ (c p q : Prop), if ¬ c then p else q ===>
--- ∀ (c p q : Prop), (¬ c → p) ∧ (c → q)
+-- ∀ (c p q : Prop), (c → q) ∧ (¬ c → p)
 -- TODO: remove unused constraints when COI performed on forall
 #testOptimize [ "IteToPropExpr_10" ] ∀ (c p q : Prop), [Decidable c] → if ¬ c then p else q ===>
-                                     ∀ (c p q : Prop), [Decidable c] → (¬ c → p) ∧ (c → q)
+                                     ∀ (c p q : Prop), [Decidable c] → (c → q) ∧ (¬ c → p)
 
 
 -- ∀ (c : Bool) (p q : Prop), if c then p else q ===>
--- ∀ (c : Bool) (p q : Prop), (true = c → p) ∧ (false = c → q)
+-- ∀ (c : Bool) (p q : Prop), (false = c → q) ∧ (true = c → p)
 #testOptimize [ "IteToPropExpr_11" ] ∀ (c : Bool) (p q : Prop), if c then p else q ===>
-                                     ∀ (c : Bool) (p q : Prop), (true = c → p) ∧ (false = c → q)
+                                     ∀ (c : Bool) (p q : Prop), (false = c → q) ∧ (true = c → p)
 
 -- ∀ (c : Bool) (p : Prop), if c then True else p ===>
 -- ∀ (c p : Prop), false = c → p
@@ -878,16 +879,16 @@ namespace Test.OptimizeITE
                                      ∀ (c : Bool) (p : Prop), false = c → p
 
 -- ∀ (c : Bool) (p : Prop), if c then p else c ===>
--- ∀ (c : Bool) (p : Prop), (true = c → p) ∧ (true = c)
+-- ∀ (c : Bool) (p : Prop), (true = c) ∧ (true = c → p)
 -- TODO: may be simplified to (true = c ∧ p)
 #testOptimize [ "IteToPropExpr_17" ] ∀ (c : Bool) (p : Prop), if c then p else c ===>
-                                     ∀ (c : Bool) (p : Prop), (true = c → p) ∧ (true = c)
+                                     ∀ (c : Bool) (p : Prop), (true = c) ∧ (true = c → p)
 
 -- ∀ (c : Bool) (p : Prop), if c then !c else p ===>
--- ∀ (c : Bool) (p : Prop), (false = c → p) ∧ (false = c)
+-- ∀ (c : Bool) (p : Prop), (false = c) ∧ (false = c → p)
 -- TODO: may be simplified to (false = c ∧ p)
 #testOptimize [ "IteToPropExpr_18" ] ∀ (c : Bool) (p : Prop), if c then !c else p ===>
-                                     ∀ (c : Bool) (p : Prop), (false = c → p) ∧ (false = c)
+                                     ∀ (c : Bool) (p : Prop), (false = c) ∧ (false = c → p)
 
 -- ∀ (c : Bool) (p : Prop), if c then p else !c ===>
 -- ∀ (c : Bool) p : Prop), true = c → p
@@ -898,7 +899,7 @@ namespace Test.OptimizeITE
 -- ∀ (c : Bool) (p q : Prop), (if !c then p else q) ===>
 -- ∀ (c : Bool) (p q : Prop), (false = c → p) ∧ (true = c → q)
 #testOptimize [ "IteToPropExpr_20" ] ∀ (c : Bool) (p q : Prop), if !c then p else q ===>
-                                     ∀ (c : Bool) (p q : Prop), (true = c → q) ∧ (false = c → p)
+                                     ∀ (c : Bool) (p q : Prop), (false = c → p) ∧ (true = c → q)
 
 
 -- ∀ (c p q : Prop), (if c then p else q) = ((c → p) ∧ (¬ c → q)) ===> True

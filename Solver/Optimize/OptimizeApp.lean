@@ -38,7 +38,7 @@ def reduceApp? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
  then
    let re ← whnfExpr appExpr
    if !(re == appExpr) && (← isConstructor re)
-   then pure (some re)
+   then return (some re)
    else return none
  else return none
 

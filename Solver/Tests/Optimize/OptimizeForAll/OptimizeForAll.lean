@@ -63,37 +63,48 @@ namespace Test.OptimizeForAll
 #testOptimize [ "ForallImpTrue_8" ] ∀ (a b c : Prop), a → b → c → True ===> True
 
 
-/-! Test cases for simplification rule `∀ (n : t), False ==> False`. -/
+/-! Test cases to ensure that `∀ (n : t), False` will not be simplified to `False`. -/
 
 -- ∀ (c : Prop), False ===> False
-#testOptimize [ "ForallFalse_1" ] ∀ (_c : Prop), False ===> False
+#testOptimize [ "ForallFalse_1" ] ∀ (_c : Prop), False ===> ∀ (_c : Prop), False
 
 -- ∀ (x : Int), False ===> False
-#testOptimize [ "ForallFalse_2" ] ∀ (_x : Int), False ===> False
+#testOptimize [ "ForallFalse_2" ] ∀ (_x : Int), False ===> ∀ (_x : Int), False
 
 -- ∀ (α : Type) (x : List α), False ===> False
 #testOptimize [ "ForallFalse_3" ] ∀ (α : Type) (_x : List α), True ===> True
 
 -- ∀ (a : Bool), ! a && a ===> False
-#testOptimize [ "ForallFalse_4" ] ∀ (a : Bool), !a && a ===> False
+#testOptimize [ "ForallFalse_4" ] ∀ (a : Bool), !a && a ===> ∀ (_a : Bool), False
 
 -- ∀ (a : Bool), (if a then !a else false) = true ===> False
-#testOptimize [ "ForallFalse_5" ] ∀ (a : Bool), (if a then !a else false) = true ===> False
+#testOptimize [ "ForallFalse_5" ] ∀ (a : Bool), (if a then !a else false) = true ===> ∀ (_a : Bool), False
 
 -- ∀ (a : Bool) (b : Prop), if a then b ∧ ¬ b else False ===> False
-#testOptimize [ "ForallFalse_6" ] ∀ (a : Bool) (b : Prop), if a then (b ∧ ¬ b) else False ===> False
+#testOptimize [ "ForallFalse_6" ] ∀ (a : Bool) (b : Prop), if a then (b ∧ ¬ b) else False ===>
+                                  ∀ (_a : Bool) (_b : Prop), False
 
 -- ∀ (a b : Bool), if a then b && !b else False ===> False
-#testOptimize [ "ForallFalse_7" ] ∀ (a b : Bool), if a then (b && !b) else False ===> False
+#testOptimize [ "ForallFalse_7" ] ∀ (a b : Bool), if a then (b && !b) else False ===>
+                                  ∀ (_a _b : Bool), False
 
 
 -- ∀ (a b c : Prop), (((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬a) ∧ ((b ∧ a) ∧ ¬(a ∧ b))) ===> False
-#testOptimize [ "ForallFalse_8"] ∀ (a b c : Prop), (((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬a) ∧ ((b ∧ a) ∧ ¬(a ∧ b))) ===> False
+#testOptimize [ "ForallFalse_8"] ∀ (a b c : Prop), (((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬a) ∧ ((b ∧ a) ∧ ¬(a ∧ b))) ===>
+                                 ∀ (_a _b _c : Prop), False
 
 -- let x := a || a
 -- let y := a && !x
 -- ∀ (a b : Bool), ((y || !b) && b) ===> False
-#testOptimize [ "ForallFalse_9" ] ∀ (a b : Bool), let x := a || a; let y := a && !x; ((y || !b) && b) ===> False
+#testOptimize [ "ForallFalse_9" ] ∀ (a b : Bool), let x := a || a; let y := a && !x; ((y || !b) && b) ===>
+                                  ∀ (_a _b : Bool), False
+
+--- ∀ (a : Empty), False ===> ∀ (a : Empty), False
+#testOptimize [ "ForallFalse_10" ] ∀ (a : Empty), False ===> ∀ (a : Empty), False
+
+
+--- ∀ (a : Empty), False ===> ∀ (a : Empty), False
+#testOptimize [ "ForallFalse_10" ] ∀ (a : Empty), False ===> ∀ (a : Empty), False
 
 
 
@@ -133,6 +144,19 @@ namespace Test.OptimizeForAll
 
 -- ∀ (a b c : Prop), False → a → b → c ===> True
 #testOptimize [ "ForallFalseImp_10" ] ∀ (a b c : Prop), False → a → b → c ===> True
+
+-- ∀ (h : false), false ===> True
+-- NOTE: This is a syntactic sugar for false = true → false = true
+#testOptimize [ "ForallFalseImp_11" ] ∀ (_h : false), false ===> True
+
+-- ∀ (h : false), true ===> True
+#testOptimize [ "ForallFalseImp_12" ] ∀ (_h : false), true ===> True
+
+-- ∀ (a : Prop) (h : false), a ===> True
+#testOptimize [ "ForallFalseImp_13" ]  ∀ (a : Prop) (_h : false), a ===> True
+
+-- ∀ (a : Bool) (h : false), a ===> True
+#testOptimize [ "ForallFalseImp_14" ]  ∀ (a : Bool) (_h : false), a ===> True
 
 
 
@@ -301,7 +325,6 @@ opaque c : Nat
 
 /-! Test cases to ensure that the following simplification rules are not wrongly applied:
     - `∀ (n : t), True ==> True`
-    - `∀ (n : t), False ==> False`
     - `e → True ==> True`
     - `False → e ==> True`
     - `True → e ==> e`
@@ -331,9 +354,9 @@ opaque c : Nat
 #testOptimize [ "ForallUnchanged_6" ] ∀ (a b : Bool), (if a then b else !a) = true ===>
                                       ∀ (a b : Bool), true = (b || !a)
 
--- ∀ (a b c : Bool), if a then b else !a ===> ∀ (a b c : Bool), true = ((!c || !a) && (b || c))
+-- ∀ (a b c : Bool), if a then b else !a ===> ∀ (a b c : Bool), true = ((b || c) && (!a || !c))
 #testOptimize [ "ForallUnchanged_7" ] ∀ (a b c : Bool), (if c then !a else b) = true ===>
-                                      ∀ (a b c : Bool), true = ((!c || !a) && (b || c))
+                                      ∀ (a b c : Bool), true = ((b || c) && (!a || !c))
 
 
 -- ∀ (a b c : Prop), (a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∨ ((b ∧ a) ∧ ¬(a ∧ b))) ===> True
@@ -367,9 +390,9 @@ opaque c : Nat
                                        ∀ (a b : Bool) (p : Prop), true = (b && !a) → p
 
 -- ∀ (a : Bool) (b p : Prop), (if a then b else False) → p ===>
--- ∀ (a : Bool) (b p : Prop), (true = a → b) ∧ (false = a → False) → p
+-- ∀ (a : Bool) (b p : Prop), (false = a → False) ∧ (true = a → b) → p
 #testOptimize [ "ForallUnchanged_15" ] ∀ (a : Bool) (b p : Prop), (if a then b else False) → p ===>
-                                       ∀ (a : Bool) (b p : Prop), (true = a → b) ∧ (false = a → False) → p
+                                       ∀ (a : Bool) (b p : Prop), (false = a → False) ∧ (true = a → b) → p
 
 -- ∀ (a b c : Bool) (p : Prop), ( (if (!c && c) then a else c) = !b ) → p ===>
 -- ∀ (a b c : Bool) (p : Prop), c = !b → p
@@ -419,10 +442,10 @@ opaque c : Nat
                                        ∀ (f : Prop → Prop) (a b : Prop), a = b → f a = f b
 
 -- ∀ (f : Int → Bool) (x y : Int), x = y → f x = f y ===>
--- ∀ (f : Int → Bool) (x y : Int), x = y → f y = f x
+-- ∀ (f : Int → Bool) (x y : Int), x = y → f x = f y
 -- NOTE: reordering applied on operands
 #testOptimize [ "ForallUnchanged_24" ] ∀ (f : Int → Bool) (x y : Int), x = y → f x = f y ===>
-                                       ∀ (f : Int → Bool) (x y : Int), x = y → f y = f x
+                                       ∀ (f : Int → Bool) (x y : Int), x = y → f x = f y
 
 
 -- (∀ (x y : Int), x > y) → (∀ (y x : Int), x > y) ===>

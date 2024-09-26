@@ -42,6 +42,10 @@ def solveImp : CommandElab := fun stx => do
     let se ← translate sOpts t
     -- TEMPORARY STUBBING
     logReprExpr sOpts "Normalized expr" se
-    logInfo f!"{reprStr (toResult se)}"
+    match (toResult se) with
+    | r@Result.Valid => logInfo f!"{reprStr r}"
+    | r@Result.Falsified => logError f!"{reprStr r}"
+    | r@Result.Undetermined => logWarning f!"{reprStr r}"
+
 end Solver
 

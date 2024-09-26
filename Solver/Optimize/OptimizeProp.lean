@@ -36,7 +36,7 @@ def optimizeAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 /-- Apply the following simplification/normalization rules on `Or` :
      - False ∨ e ==> e
      - True ∨ e ==> True
-     - e ∨ ¬ e ==> True
+     - e ∨ ¬ e ==> True (classical)
      - e1 ∨ e2 ==> e1 (if e1 =ₚₜᵣ e2)
      - e1 ∨ e2 ==> e2 ∨ e1 (if e2 <ₒ e1)
    Assume that f = Expr.const ``Or.

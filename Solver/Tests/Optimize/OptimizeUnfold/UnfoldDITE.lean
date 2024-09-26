@@ -37,13 +37,13 @@ namespace Tests.UnfoldDITE
 #testOptimize [ "UnfoldDIte_6" ] ∀ (x y z : Int), (if _h : False then x else y) < z ===>
                                  ∀ (_x y z : Int), y < z
 
--- ∀ (a b c : Bool), (if h : c then a else b) = true ===> ∀ (a b c : Bool), true = ((b || c) && (a || !c))
+-- ∀ (a b c : Bool), (if h : c then a else b) = true ===> ∀ (a b c : Bool), true = ((a || !c) && (b || c))
 #testOptimize [ "UnfoldDIte_7" ] ∀ (a b c : Bool), (if _h : c then a else b) = true ===>
-                                 ∀ (a b c : Bool), true = ((b || c) && (a || !c) )
+                                 ∀ (a b c : Bool), true = ((a || !c) && (b || c))
 
--- ∀ (c : Bool) (p q : Prop), if h : c then p else q ===> ∀ (c : Bool) (p q : Prop), (true = c → p) ∧ (false = c → q)
+-- ∀ (c : Bool) (p q : Prop), if h : c then p else q ===> ∀ (c : Bool) (p q : Prop), (false = c → q) ∧ (true = c → p)
 #testOptimize [ "UnfoldDIte_8" ] ∀ (c : Bool) (p q : Prop), if _h : c then p else q ===>
-                                 ∀ (c : Bool) (p q : Prop), (true = c → p) ∧ (false = c → q)
+                                 ∀ (c : Bool) (p q : Prop), (false = c → q) ∧ (true = c → p)
 
 
 /-! Test cases to validate when `dite` expressions must not be unfolded -/

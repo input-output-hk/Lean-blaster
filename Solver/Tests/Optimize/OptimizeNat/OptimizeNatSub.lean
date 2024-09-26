@@ -74,12 +74,8 @@ elab "natSubReduceZero_1" : term => return natSubReduceZero_1
 -- x - (x + 0) = 0 ===> True
 #testOptimize [ "NatSubReduceZero_6" ] ∀ (x : Nat), x - (x + 0) = 0 ===> True
 
--- ((x + 100) - 200) - x = 0 ===> True
-#testOptimize [ "NatSubReduceZero_7" ] ∀ (x : Nat), ((x + 100) - 200) - x = 0 ===> True
-
--- x - ((x + 100) - 200) = 0 ===> True
-#testOptimize [ "NatSubReduceZero_8" ] ∀ (x : Nat), x - ((x + 100) - 200) = 0 ===> True
-
+-- x - (x + (100 - (200 + x))) = 0 ===> True
+#testOptimize [ "NatSubReduceZero_7" ] ∀ (x : Nat), x - (x + (100 - (200 + x))) = 0 ===> True
 
 
 /-! Test cases to ensure that simplification rule `n1 - n2 ==> 0 (if n1 =ₚₜᵣ n2)` is not wrongly applied. -/
@@ -95,8 +91,8 @@ elab "natSubReduceZero_1" : term => return natSubReduceZero_1
 #testOptimize [ "NatSubReduceZeroUnchanged_3" ] ∀ (x y z m : Nat), (x - y) - z < m ===>
                                                 ∀ (x y z m : Nat), Nat.sub (Nat.sub x y) z < m
 
--- ((y + 100) - 200) - x ===> Nat.sub y x
-#testOptimize [ "NatSubReduceZeroUnchanged_4" ] ∀ (x y z : Nat), ((y + 100) - 200) - x < z ===>
+-- (y + (100 - (200 + x))) - x ===> Nat.sub y x
+#testOptimize [ "NatSubReduceZeroUnchanged_4" ] ∀ (x y z : Nat), (y + (100 - (200 + x))) - x < z ===>
                                                 ∀ (x y z : Nat), Nat.sub y x < z
 
 
@@ -245,136 +241,13 @@ elab "natSubRightZeroUnchanged_4" : term => return natSubRightZeroUnchanged_4
 #testOptimize [ "NatSubRightZeroUnchanged_4" ] ∀ (x y : Nat), x - (127 - 40) < y ===> natSubRightZeroUnchanged_4
 
 
-/-! Test cases for simplification rule `N1 - (N2 - n) ===> (N1 "-" N2) + n`. -/
-
--- 120 - (50 - x) = 70 + x ===> True
-#testOptimize [ "NatSubCstProp_1" ] ∀ (x : Nat), 120 - (50 - x) = 70 + x ===> True
-
--- 120 - (50 - x) ===> 70 + x
-def natSubCstProp_2 : Expr :=
-  Lean.Expr.forallE `x
-    (Lean.Expr.const `Nat [])
-    (Lean.Expr.forallE `y
-     (Lean.Expr.const `Nat [])
-       (Lean.Expr.app
-         (Lean.Expr.app
-           (Lean.Expr.app
-             (Lean.Expr.app (Lean.Expr.const `LT.lt [Lean.Level.zero]) (Lean.Expr.const `Nat []))
-             (Lean.Expr.const `instLTNat []))
-           (Lean.Expr.app
-             (Lean.Expr.app (Lean.Expr.const `Nat.add []) (Lean.Expr.lit (Lean.Literal.natVal 70)))
-             (Lean.Expr.bvar 1)))
-         (Lean.Expr.bvar 0))
-     (Lean.BinderInfo.default))
-    (Lean.BinderInfo.default)
-
-elab "natSubCstProp_2" : term => return natSubCstProp_2
-
-#testOptimize [ "NatSubCstProp_2" ] ∀ (x y : Nat), 120 - (50 - x) < y ===> natSubCstProp_2
-
--- 120 - (150 - x)) = x ===> True
-#testOptimize [ "NatSubCstProp_3" ] ∀ (x : Nat), 120 - (150 - x) = x ===> True
-
--- 120 - (40 - (30 - x)) = 110 - x ===> True
-#testOptimize [ "NatSubCstProp_4" ] ∀ (x : Nat), 120 - (40 - (30 - x)) = 110 - x ===> True
-
--- 120 - (40 - (x + 30)) = 110 + x ===> True
-#testOptimize [ "NatSubCstProp_5" ] ∀ (x : Nat), 120 - (40 - (x + 30)) = 110 + x ===> True
-
--- 120 - (40 - (50 + x)) = 120 ===> True
-#testOptimize [ "NatSubCstProp_6" ] ∀ (x : Nat), 120 - (40 - (50 + x)) = 120 ===> True
-
--- 420 - (40 - (x - 150)) = 230 + x ===> True
-#testOptimize [ "NatSubCstProp_7" ] ∀ (x : Nat), 420 - (40 - (x - 150)) = 230 + x ===> True
-
--- 120 - (40 - (x - 150)) = x ===> True
-#testOptimize [ "NatSubCstProp_8" ] ∀ (x : Nat), 120 - (40 - (x - 150)) = x ===> True
-
--- 120 - (40 - (10 - (x - 20))) = 110 - x ===> True
-#testOptimize [ "NatSubCstProp_9" ] ∀ (x : Nat), 120 - (40 - (10 - (x - 20))) = 110 - x ===> True
-
--- 120 - (40 - (50 - (20 - x))) = 110 + x ===> True
-#testOptimize [ "NatSubCstProp_10" ] ∀ (x : Nat), 120 - (40 - (50 - (20 - x))) = 110 + x ===> True
-
--- 120 - (40 - (20 + (30 + x))) = 120 ===> True
-#testOptimize [ "NatSubCstProp_11" ] ∀ (x : Nat), 120 - (40 - (20 + (30 + x))) = 120 ===> True
-
--- 420 - (40 - ((x - 50) - 100)) = 230 + x ===> True
-#testOptimize [ "NatSubCstProp_12" ] ∀ (x : Nat), 420 - (40 - ((x - 50) - 100)) = 230 + x ===> True
-
--- 120 - (40 - ((x - 10) - 400)) = x ===> True
-#testOptimize [ "NatSubCstProp_13" ] ∀ (x : Nat), 120 - (40 - ((x - 10) - 400)) = x ===> True
-
-
-/-! Test cases for simplification rule `N1 - (n - N2) ===> (N1 "+" N2) - n`. -/
-
--- 120 - (x - 50) = 170 - x ===> True
-#testOptimize [ "NatSubCstProp_14" ] ∀ (x : Nat), 120 - (x - 50) = 170 - x ===> True
-
--- 120 - (x - 50) ===> 170 - x
-def natSubCstProp_15 : Expr :=
-  Lean.Expr.forallE `x
-    (Lean.Expr.const `Nat [])
-    (Lean.Expr.forallE `y
-     (Lean.Expr.const `Nat [])
-       (Lean.Expr.app
-         (Lean.Expr.app
-           (Lean.Expr.app
-             (Lean.Expr.app (Lean.Expr.const `LT.lt [Lean.Level.zero]) (Lean.Expr.const `Nat []))
-             (Lean.Expr.const `instLTNat []))
-           (Lean.Expr.app
-             (Lean.Expr.app (Lean.Expr.const `Nat.sub []) (Lean.Expr.lit (Lean.Literal.natVal 170)))
-             (Lean.Expr.bvar 1)))
-         (Lean.Expr.bvar 0))
-     (Lean.BinderInfo.default))
-    (Lean.BinderInfo.default)
-
-elab "natSubCstProp_15" : term => return natSubCstProp_15
-
-#testOptimize [ "NatSubCstProp_15" ] ∀ (x y : Nat), 120 - (x - 50) < y ===> natSubCstProp_15
-
--- 120 - ((x - 10) - 50) = 180 - x ===> True
-#testOptimize [ "NatSubCstProp_16" ] ∀ (x : Nat), 120 - ((x - 10) - 50) = 180 - x ===> True
-
--- 120 - ((60 - x) - 50) = 110 + x ===> True
-#testOptimize [ "NatSubCstProp_17" ] ∀ (x : Nat), 120 - ((60 - x) - 50) = 110 + x ===> True
-
--- 120 - ((10 - x) - 50) = 120 ===> True
-#testOptimize [ "NatSubCstProp_18" ] ∀ (x : Nat), 120 - ((10 - x) - 50) = 120 ===> True
-
--- 120 - ((x + 100) - 50) = 70 - x ===> True
-#testOptimize [ "NatSubCstProp_19" ] ∀ (x : Nat), 120 - ((x + 100) - 50) = 70 - x ===> True
-
--- 120 - ((100 + x) - 50) = 70 - x ===> True
-#testOptimize [ "NatSubCstProp_20" ] ∀ (x : Nat), 120 - ((100 + x) - 50) = 70 - x ===> True
-
--- 120 - ((10 + x) - 50) = 120 - x ===> True
-#testOptimize [ "NatSubCstProp_21" ] ∀ (x : Nat), 120 - ((10 + x) - 50) = 120 - x ===> True
-
-
--- 120 - (((x - 3) - 7) - 50) = 180 - x ===> True
-#testOptimize [ "NatSubCstProp_22" ] ∀ (x : Nat), 120 - (((x - 3) - 7) - 50) = 180 - x ===> True
-
--- 120 - ((20 + (40 - x)) - 50) = 110 + x ===> True
-#testOptimize [ "NatSubCstProp_23" ] ∀ (x : Nat), 120 - ((20 + (40 - x)) - 50) = 110 + x ===> True
-
--- 120 - ((50 - (x + 40)) - 50) = 120 ===> True
-#testOptimize [ "NatSubCstProp_24" ] ∀ (x : Nat), 120 - ((10 - (x + 40)) - 50) = 120 ===> True
-
--- 120 - ((200 - (100 - x)) - 50) = 70 - x ===> True
-#testOptimize [ "NatSubCstProp_25" ] ∀ (x : Nat), 120 - ((200 - (100 - x)) - 50) = 70 - x ===> True
-
--- 120 - ((40 - (30 + x)) - 50) = 120 ===> True
-#testOptimize [ "NatSubCstProp_26" ] ∀ (x : Nat), 120 - ((40 - (30 + x)) - 50) = 120 ===> True
-
-
 /-! Test cases for simplification rule `N1 - (N2 + n) ===> (N1 "-" N2) - n`. -/
 
 -- 120 - (40 + x) = 80 - x ===> True
-#testOptimize [ "NatSubCstProp_27" ] ∀ (x : Nat), 120 - (40 + x) = 80 - x ===> True
+#testOptimize [ "NatSubAdd_1" ] ∀ (x : Nat), 120 - (40 + x) = 80 - x ===> True
 
 -- 120 - (40 + x) ===> 80 - x
-def natSubCstProp_28 : Expr :=
+def natSubAdd_2 : Expr :=
   Lean.Expr.forallE `x
     (Lean.Expr.const `Nat [])
     (Lean.Expr.forallE `y
@@ -391,56 +264,48 @@ def natSubCstProp_28 : Expr :=
      (Lean.BinderInfo.default))
     (Lean.BinderInfo.default)
 
-elab "natSubCstProp_28" : term => return natSubCstProp_28
+elab "natSubAdd_2" : term => return natSubAdd_2
 
-#testOptimize [ "NatSubCstProp_28" ] ∀ (x y : Nat), 120 - (40 + x) < y ===> natSubCstProp_28
+#testOptimize [ "NatSubAdd_2" ] ∀ (x y : Nat), 120 - (40 + x) < y ===> natSubAdd_2
 
 -- 120 - (x + 40) = 80 - x ===> True
-#testOptimize [ "NatSubCstProp_29" ] ∀ (x : Nat), 120 - (x + 40) = 80 - x ===> True
+#testOptimize [ "NatSubAdd_3" ] ∀ (x : Nat), 120 - (x + 40) = 80 - x ===> True
 
 -- 120 - (140 + x) = 0 ===> True
-#testOptimize [ "NatSubCstProp_30" ] ∀ (x : Nat), 120 - (140 + x) = 0 ===> True
+#testOptimize [ "NatSubAdd_4" ] ∀ (x : Nat), 120 - (140 + x) = 0 ===> True
 
 -- 120 - (10 + (30 + x)) = 80 - x ===> True
-#testOptimize [ "NatSubCstProp_31" ] ∀ (x : Nat), 120 - (10 + (30 + x)) = 80 - x ===> True
+#testOptimize [ "NatSubAdd_5" ] ∀ (x : Nat), 120 - (10 + (30 + x)) = 80 - x ===> True
 
 -- 120 - (10 + (x + 30)) = 80 - x ===> True
-#testOptimize [ "NatSubCstProp_32" ] ∀ (x : Nat), 120 - (10 + (x + 30)) = 80 - x ===> True
+#testOptimize [ "NatSubAdd_6" ] ∀ (x : Nat), 120 - (10 + (x + 30)) = 80 - x ===> True
 
--- 120 - (10 + (50 - x)) = 60 + x ===> True
-#testOptimize [ "NatSubCstProp_33" ] ∀ (x : Nat), 120 - (10 + (50 - x)) = 60 + x ===> True
+-- 120 - (10 - (50 + x)) = 120 ===> True
+#testOptimize [ "NatSubAdd_7" ] ∀ (x : Nat), 120 - (10 - (50 + x)) = 120 ===> True
 
--- 120 - (10 + (150 - x)) = x ===> True
-#testOptimize [ "NatSubCstProp_34" ] ∀ (x : Nat), 120 - (10 + (150 - x)) = x ===> True
-
--- 120 - (25 + (x - 5)) = 100 - x ===> True
-#testOptimize [ "NatSubCstProp_35" ] ∀ (x : Nat), 120 - (25 + (x - 5)) = 100 - x ===> True
-
--- 120 - (25 + (x - 35)) = 120 - x ===> True
-#testOptimize [ "NatSubCstProp_36" ] ∀ (x : Nat), 120 - (25 + (x - 35)) = 120 - x ===> True
+-- (250 - (150 + x)) - 20 = 80 - x ===> True
+#testOptimize [ "NatSubAdd_8" ] ∀ (x : Nat), (250 - (150 + x)) - 20 = 80 - x ===> True
 
 -- 120 - (10 + (5 + (25 + x))) = 80 - x ===> True
-#testOptimize [ "NatSubCstProp_37" ] ∀ (x : Nat), 120 - (10 + (5 + (25 + x))) = 80 - x ===> True
+#testOptimize [ "NatSubAdd_9" ] ∀ (x : Nat), 120 - (10 + (5 + (25 + x))) = 80 - x ===> True
 
--- 120 - (10 + (150 - (100 + x))) = 60 + x ===> True
-#testOptimize [ "NatSubCstProp_38" ] ∀ (x : Nat), 120 - (10 + (150 - (100 + x))) = 60 + x ===> True
+-- 120 - (10 + (150 - (100 + x))) = 110 - (50 - x) ===> True
+#testOptimize [ "NatSubAdd_10" ] ∀ (x : Nat), 120 - (10 + (150 - (100 + x))) = 110 - (50 - x) ===> True
 
--- 120 - (10 + (50 - (x - 100))) = x ===> True
-#testOptimize [ "NatSubCstProp_39" ] ∀ (x : Nat), 120 - (10 + (50 - (x - 100))) = x ===> True
+-- 120 - (10 + (50 - (x + 100))) = 110 ===> True
+#testOptimize [ "NatSubAdd_11" ] ∀ (x : Nat), 120 - (10 + (50 - (x + 100))) = 110 ===> True
 
--- 120 - (25 + ((x - 3) - 2)) = 100 - x ===> True
-#testOptimize [ "NatSubCstProp_40" ] ∀ (x : Nat), 120 - (25 + ((x - 3) - 2)) = 100 - x ===> True
+-- 120 - (25 + ((x - 3) - 2)) = 95 - (x - 5) ===> True
+#testOptimize [ "NatSubAdd_12" ] ∀ (x : Nat), 120 - (25 + ((x - 3) - 2)) = 95 - (x - 5) ===> True
 
 
-/-! Test cases to ensure that the following simplification rules are not applied wrongly:
-     - `N1 - (N2 - n) ===> (N1 "-" N2) + n`
-     - `N1 - (n - N2) ===> (N1 "+" N2) - n`
-     - `N1 - (N2 + n) ===> (N1 "-" N2) - n`
+/-! Test cases to ensure that simplification rule `N1 - (N2 + n) ===> (N1 "-" N2) - n`
+    is not applied wrongly.
 -/
 
 -- 120 - (x - y) ===> 120 - (x - y)
 -- Must remain unchanged
-def natSubCstProp_41 : Expr :=
+def natSubAddUnchanged_1 : Expr :=
   Lean.Expr.forallE `x
     (Lean.Expr.const `Nat [])
     (Lean.Expr.forallE `y
@@ -459,13 +324,13 @@ def natSubCstProp_41 : Expr :=
      (Lean.BinderInfo.default))
     (Lean.BinderInfo.default)
 
-elab "natSubCstProp_41" : term => return natSubCstProp_41
+elab "natSubAddUnchanged_1" : term => return natSubAddUnchanged_1
 
-#testOptimize [ "NatSubCstProp_41" ] ∀ (x y : Nat), 120 - (x - y) < y ===> natSubCstProp_41
+#testOptimize [ "NatSubAddUnchanged_1" ] ∀ (x y : Nat), 120 - (x - y) < y ===> natSubAddUnchanged_1
 
 -- 120 - (x + y) ===> 120 - (x + y)
 -- Must remain unchanged
-def natSubCstProp_42 : Expr :=
+def natSubAddUnchanged_2 : Expr :=
   Lean.Expr.forallE `x
     (Lean.Expr.const `Nat [])
     (Lean.Expr.forallE `y
@@ -484,13 +349,13 @@ def natSubCstProp_42 : Expr :=
      (Lean.BinderInfo.default))
     (Lean.BinderInfo.default)
 
-elab "natSubCstProp_42" : term => return natSubCstProp_42
+elab "natSubAddUnchanged_2" : term => return natSubAddUnchanged_2
 
-#testOptimize [ "NatSubCstProp_42" ] ∀ (x y : Nat), 120 - (x + y) < y ===> natSubCstProp_42
+#testOptimize [ "NatSubAddUnchanged_2" ] ∀ (x y : Nat), 120 - (x + y) < y ===> natSubAddUnchanged_2
 
 -- 120 - (x * y) ===> 120 - (x * y)
 -- Must remain unchanged
-def natSubCstProp_43 : Expr :=
+def natSubAddUnchanged_3 : Expr :=
   Lean.Expr.forallE `x
     (Lean.Expr.const `Nat [])
     (Lean.Expr.forallE `y
@@ -509,18 +374,43 @@ def natSubCstProp_43 : Expr :=
      (Lean.BinderInfo.default))
     (Lean.BinderInfo.default)
 
-elab "natSubCstProp_43" : term => return natSubCstProp_43
+elab "natSubAddUnchanged_3" : term => return natSubAddUnchanged_3
 
-#testOptimize [ "NatSubCstProp_43" ] ∀ (x y : Nat), 120 - (x * y) < y ===> natSubCstProp_43
+#testOptimize [ "NatSubAddUnchanged_3" ] ∀ (x y : Nat), 120 - (x * y) < y ===> natSubAddUnchanged_3
+
+-- 120 - (30 - x) ===> 120 - (30 - x)
+-- Must remain unchanged
+def natSubAddUnchanged_4 : Expr :=
+  Lean.Expr.forallE `x
+    (Lean.Expr.const `Nat [])
+    (Lean.Expr.forallE `y
+     (Lean.Expr.const `Nat [])
+       (Lean.Expr.app
+         (Lean.Expr.app
+           (Lean.Expr.app
+             (Lean.Expr.app (Lean.Expr.const `LT.lt [Lean.Level.zero]) (Lean.Expr.const `Nat []))
+             (Lean.Expr.const `instLTNat []))
+           (Lean.Expr.app
+             (Lean.Expr.app (Lean.Expr.const `Nat.sub []) (Lean.Expr.lit (Lean.Literal.natVal 120)))
+             (Lean.Expr.app
+               (Lean.Expr.app (Lean.Expr.const `Nat.sub []) (Lean.Expr.lit (Lean.Literal.natVal 30)))
+               (Lean.Expr.bvar 1))))
+         (Lean.Expr.bvar 0))
+     (Lean.BinderInfo.default))
+    (Lean.BinderInfo.default)
+
+elab "natSubAddUnchanged_4" : term => return natSubAddUnchanged_4
+
+#testOptimize [ "NatSubAddUnchanged_4" ] ∀ (x y : Nat), 120 - (30 - x) < y ===> natSubAddUnchanged_4
 
 
 /-! Test cases for simplification rule `(N1 - n) - N2 ===> (N1 "-" N2) - n`. -/
 
 -- (20 - x) - 10 = 10 - x ===> True
-#testOptimize [ "NatSubCstProp_44" ] ∀ (x : Nat), (20 - x) - 10 = 10 - x ===> True
+#testOptimize [ "NatSubSubLeft_1" ] ∀ (x : Nat), (20 - x) - 10 = 10 - x ===> True
 
 -- (20 - x) - 10 ===> 10 - x
-def natSubCstProp_45 : Expr :=
+def natSubSubLeft_2 : Expr :=
   Lean.Expr.forallE `x
     (Lean.Expr.const `Nat [])
     (Lean.Expr.forallE `y
@@ -537,45 +427,39 @@ def natSubCstProp_45 : Expr :=
      (Lean.BinderInfo.default))
     (Lean.BinderInfo.default)
 
-elab "natSubCstProp_45" : term => return natSubCstProp_45
+elab "natSubSubLeft_2" : term => return natSubSubLeft_2
 
-#testOptimize [ "NatSubCstProp_45" ] ∀ (x y : Nat), (20 - x) - 10 < y ===> natSubCstProp_45
+#testOptimize [ "NatSubSubLeft_2" ] ∀ (x y : Nat), (20 - x) - 10 < y ===> natSubSubLeft_2
 
 -- (45 - x) - 125 = 0 ===> True
-#testOptimize [ "NatSubCstProp_46" ] ∀ (x : Nat), (45 - x) - 125 = 0 ===> True
+#testOptimize [ "NatSubSubLeft_3" ] ∀ (x : Nat), (45 - x) - 125 = 0 ===> True
 
--- (20 - (5 - x)) - 10 = 5 + x ===> True
-#testOptimize [ "NatSubCstProp_47" ] ∀ (x : Nat), (20 - (5 - x)) - 10 = 5 + x ===> True
+-- ((20 - x) - 5) - 10 = 5 - x ===> True
+#testOptimize [ "NatSubSubLeft_4" ] ∀ (x : Nat), ((20 - x) - 5) - 10 = 5 - x ===> True
 
--- (20 - (x - 5)) - 10 = 15 - x ===> True
-#testOptimize [ "NatSubCstProp_48" ] ∀ (x : Nat), (20 - (x - 5)) - 10 = 15 - x ===> True
-
--- (20 - (x + 5)) - 10 = 5 - x ===> True
-#testOptimize [ "NatSubCstProp_49" ] ∀ (x : Nat), (20 - (x + 5)) - 10 = 5 - x ===> True
+-- 10 - ((20 - x) - 5) = 10 - (15 - x) ===> True
+#testOptimize [ "NatSubSubLeft_5" ] ∀ (x : Nat), 10 - ((20 - x) - 5) = 10 - (15 - x) ===> True
 
 -- (20 - (3 + x)) - 10 = 7 - x ===> True
-#testOptimize [ "NatSubCstProp_50" ] ∀ (x : Nat), (20 - (3 + x)) - 10 = 7 - x ===> True
+#testOptimize [ "NatSubSubLeft_6" ] ∀ (x : Nat), (20 - (3 + x)) - 10 = 7 - x ===> True
 
--- (20 - (15 - (x + 10))) - 10 = 5 + x ===> True
-#testOptimize [ "NatSubCstProp_51" ] ∀ (x : Nat), (20 - (15 - (x + 10))) - 10 = 5 + x ===> True
+-- 20 - ((15 - (x + 10)) - 2) = 20 - (3 - x) ===> True
+#testOptimize [ "NatSubSubLeft_7" ] ∀ (x : Nat), (20 - ((15 - (x + 10)) - 2)) = 20 - (3 - x) ===> True
 
--- (20 - ((x - 1) - 4)) - 10 = 15 - x ===> True
-#testOptimize [ "NatSubCstProp_52" ] ∀ (x : Nat), (20 - ((x - 1) - 4)) - 10 = 15 - x ===> True
+-- 20 - (((30 - x) - 4) - 10) = 20 - (16 - x) ===> True
+#testOptimize [ "NatSubSubLeft_8" ] ∀ (x : Nat), 20 - (((30 - x) - 4) - 10) = 20 - (16 - x) ===> True
 
--- (20 - ((x + 25) - 20)) - 10 = 5 - x ===> True
-#testOptimize [ "NatSubCstProp_53" ] ∀ (x : Nat), (20 - ((x + 25) - 20)) - 10 = 5 - x ===> True
-
--- (20 - (100 - (150 - x))) - 10 = 10 - x ===> True
-#testOptimize [ "NatSubCstProp_54" ] ∀ (x : Nat), (20 - (100 - (150 - x))) - 10 = 10 - x ===> True
+-- ((200 - (150 + x)) - 20) - 10 = 20 - x ===> True
+#testOptimize [ "NatSubSubLeft_9" ] ∀ (x : Nat), ((200 - (150 + x)) - 20) - 10 = 20 - x ===> True
 
 
 /-! Test cases for simplification rule `(n - N1) - N2 ===> n - (N1 "+" N2)`. -/
 
 -- (x - 20) - 10 = x - 30 ===> True
-#testOptimize [ "NatSubCstProp_55" ] ∀ (x : Nat), (x - 20) - 10 = x - 30 ===> True
+#testOptimize [ "NatSubSubRight_1" ] ∀ (x : Nat), (x - 20) - 10 = x - 30 ===> True
 
 -- (x - 20) - 10 ===> x - 30
-def natSubCstProp_56 : Expr :=
+def natSubSubRight_2 : Expr :=
   Lean.Expr.forallE `x
     (Lean.Expr.const `Nat [])
     (Lean.Expr.forallE `y
@@ -592,60 +476,36 @@ def natSubCstProp_56 : Expr :=
      (Lean.BinderInfo.default))
     (Lean.BinderInfo.default)
 
-elab "natSubCstProp_56" : term => return natSubCstProp_56
+elab "natSubSubRight_2" : term => return natSubSubRight_2
 
-#testOptimize [ "NatSubCstProp_56" ] ∀ (x y : Nat), (x - 20) - 10 < y ===> natSubCstProp_56
+#testOptimize [ "NatSubSubRight_2" ] ∀ (x y : Nat), (x - 20) - 10 < y ===> natSubSubRight_2
 
 -- ((x - 100) - 45) - 125 = x - 270 ===> True
-#testOptimize [ "NatSubCstProp_57" ] ∀ (x : Nat), ((x - 100) - 45) - 125 = x - 270 ===> True
+#testOptimize [ "NatSubSubRight_3" ] ∀ (x : Nat), ((x - 100) - 45) - 125 = x - 270 ===> True
 
 -- ((200 - x) - 45) - 125 = 30 - x ===> True
-#testOptimize [ "NatSubCstProp_58" ] ∀ (x : Nat), ((200 - x) - 45) - 125 = 30 - x ===> True
+#testOptimize [ "NatSubSubRight_4" ] ∀ (x : Nat), ((200 - x) - 45) - 125 = 30 - x ===> True
 
 -- ((100 - x) - 45) - 125 = 0 ===> True
-#testOptimize [ "NatSubCstProp_59" ] ∀ (x : Nat), ((100 - x) - 45) - 125 = 0 ===> True
+#testOptimize [ "NatSubSubRight_5" ] ∀ (x : Nat), ((100 - x) - 45) - 125 = 0 ===> True
 
--- ((275 + x) - 45) - 125 = 105 + x ===> True
-#testOptimize [ "NatSubCstProp_60" ] ∀ (x : Nat), ((275 + x) - 45) - 125 = 105 + x ===> True
-
--- ((30 + x) - 45) - 125 = x - 125 ===> True
-#testOptimize [ "NatSubCstProp_61" ] ∀ (x : Nat), ((30 + x) - 45) - 125 = x - 125 ===> True
-
--- ((x + 220) - 45) - 125 = x + 50 ===> True
-#testOptimize [ "NatSubCstProp_62" ] ∀ (x : Nat), ((x + 220) - 45) - 125 = x + 50 ===> True
-
--- ((x + 120) - 45) - 125 = x ===> True
-#testOptimize [ "NatSubCstProp_63" ] ∀ (x : Nat), ((x + 120) - 45) - 125 = x ===> True
+-- ((x - 200) - 45) - ((125 - x) - 130) = x - 245 ===> True
+#testOptimize [ "NatSubSubRight_6" ] ∀ (x : Nat), ((x - 200) - 45) - ((125 - x) - 130) = x - 245 ===> True
 
 -- (((x - 60) - 40) - 45) - 125 = x - 270 ===> True
-#testOptimize [ "NatSubCstProp_64" ] ∀ (x : Nat), (((x - 60) - 40) - 45) - 125 = x - 270 ===> True
+#testOptimize [ "NatSubSubRight_7" ] ∀ (x : Nat), (((x - 60) - 40) - 45) - 125 = x - 270 ===> True
 
--- ((100 - (x - 100)) - 45) - 125 = 30 - x ===> True
-#testOptimize [ "NatSubCstProp_65" ] ∀ (x : Nat), ((100 - (x - 100)) - 45) - 125 = 30 - x ===> True
-
--- ((100 - (x + 40)) - 45) - 125 = 0 ===> True
-#testOptimize [ "NatSubCstProp_66" ] ∀ (x : Nat), ((100 - (x + 40)) - 45) - 125 = 0 ===> True
-
--- ((375 - (100 - x)) - 45) - 125 = 105 + x ===> True
-#testOptimize [ "NatSubCstProp_67" ] ∀ (x : Nat), ((375 - (100 - x)) - 45) - 125 = 105 + x ===> True
-
--- ((10 + (x + 20)) - 45) - 125 = x - 125 ===> True
-#testOptimize [ "NatSubCstProp_68" ] ∀ (x : Nat), ((10 + (x + 20)) - 45) - 125 = x - 125 ===> True
-
--- (((x + 20) + 200) - 45) - 125 = x + 50 ===> True
-#testOptimize [ "NatSubCstProp_69" ] ∀ (x : Nat), (((x + 20) + 200) - 45) - 125 = x + 50 ===> True
-
--- (((x + 120) - 40) - 45) - 125 = x ===> True
-#testOptimize [ "NatSubCstProp_70" ] ∀ (x : Nat), (((x + 120) - 40) - 45) - 125 = x ===> True
+-- (100 - ((x - 100) - 45)) = 100 - (x - 145) ===> True
+#testOptimize [ "NatSubSubRight_8" ] ∀ (x : Nat), (100 - ((x - 100) - 45)) = 100 - (x - 145) ===> True
 
 
-/-! Test cases for simplification rule `(N1 + n) - N2 ===> (N1 "-" N2) + n`. -/
+/-! Test cases for simplification rule `(N1 + n) - N2 ===> (N1 "-" N2) + n` (if N1 ≥ N2). -/
 
 -- (100 + x) - 20 = 80 + x
-#testOptimize [ "NatSubCstProp_71" ] ∀ (x : Nat), (100 + x) - 20 = 80 + x ===> True
+#testOptimize [ "NatAddSub_1" ] ∀ (x : Nat), (100 + x) - 20 = 80 + x ===> True
 
 -- (100 + x) - 20 ===> 80 + x
-def natSubCstProp_72 : Expr :=
+def natAddSub_2 : Expr :=
   Lean.Expr.forallE `x
     (Lean.Expr.const `Nat [])
     (Lean.Expr.forallE `y
@@ -662,59 +522,37 @@ def natSubCstProp_72 : Expr :=
      (Lean.BinderInfo.default))
     (Lean.BinderInfo.default)
 
-elab "natSubCstProp_72" : term => return natSubCstProp_72
+elab "natAddSub_2" : term => return natAddSub_2
 
-#testOptimize [ "NatSubCstProp_72" ] ∀ (x y : Nat), (100 + x) - 20 < y ===> natSubCstProp_72
+#testOptimize [ "NatAddSub_2" ] ∀ (x y : Nat), (100 + x) - 20 < y ===> natAddSub_2
 
--- (100 + x) - 120 = x ===> True
-#testOptimize [ "NatSubCstProp_73" ] ∀ (x : Nat), (100 + x) - 120 = x ===> True
+-- (120 + x) - 120 = x ===> True
+#testOptimize [ "NatAddSub_3" ] ∀ (x : Nat), (120 + x) - 120 = x ===> True
 
--- (x + 150) - 120 = 30 + x ===> True
-#testOptimize [ "NatSubCstProp_74" ] ∀ (x : Nat), (x + 150) - 120 = 30 + x ===> True
+-- ((200 + x) - 120) - 20 = 60 + x ===> True
+#testOptimize [ "NatAddSub_4" ] ∀ (x : Nat), ((200 + x) - 120) - 20 = 60 + x ===> True
 
 -- (50 + (100 + x)) - 120 = 30 + x ===> True
-#testOptimize [ "NatSubCstProp_75" ] ∀ (x : Nat), (50 + (100 + x)) - 120 = 30 + x ===> True
-
--- (50 + (x + 100)) - 120 = 30 + x ===> True
-#testOptimize [ "NatSubCstProp_76" ] ∀ (x : Nat), (50 + (100 + x)) - 120 = 30 + x ===> True
-
--- (50 + (100 - x)) - 120 = 30 - x ===> True
-#testOptimize [ "NatSubCstProp_77" ] ∀ (x : Nat), (50 + (100 - x)) - 120 = 30 - x ===> True
-
--- (50 + (60 - x)) - 120 = 0 ===> True
-#testOptimize [ "NatSubCstProp_78" ] ∀ (x : Nat), (50 + (60 - x)) - 120 = 0 ===> True
-
--- (150 + (x - 20)) - 120 = 10 + x ===> True
-#testOptimize [ "NatSubCstProp_79" ] ∀ (x : Nat), (150 + (x - 20)) - 120 = 10 + x ===> True
-
--- (70 + (x - 20)) - 120 = x ===> True
-#testOptimize [ "NatSubCstProp_80" ] ∀ (x : Nat), (70 + (x - 20)) - 120 = x ===> True
+#testOptimize [ "NatAddSub_5" ] ∀ (x : Nat), (50 + (100 + x)) - 120 = 30 + x ===> True
 
 -- (50 + (40 + (x + 60))) - 120 = 30 + x ===> True
-#testOptimize [ "NatSubCstProp_81" ] ∀ (x : Nat), (50 + (40 + (x + 60))) - 120 = 30 + x ===> True
+#testOptimize [ "NatAddSub_6" ] ∀ (x : Nat), (50 + (40 + (x + 60))) - 120 = 30 + x ===> True
 
--- (50 + (70 - (x - 30))) - 120 = 30 - x ===> True
-#testOptimize [ "NatSubCstProp_82" ] ∀ (x : Nat), (50 + (70 - (x - 30))) - 120 = 30 - x ===> True
+-- (((230 + x) - 20) - 120) - 40 = 50 + x ===> True
+#testOptimize [ "NatAddSub_7" ] ∀ (x : Nat), (((230 + x) - 20) - 120) - 40 = 50 + x ===> True
 
--- (50 + (80 - (x + 20))) - 120 = 0 ===> True
-#testOptimize [ "NatSubCstProp_83" ] ∀ (x : Nat), (50 + (80 - (x + 20))) - 120 = 0 ===> True
-
--- (150 + ((x - 2) - 18)) - 120 = 10 + x ===> True
-#testOptimize [ "NatSubCstProp_84" ] ∀ (x : Nat), (150 + ((x - 2) - 18)) - 120 = 10 + x ===> True
-
--- (70 + (x + 10) - 30)) - 120 = x ===> True
-#testOptimize [ "NatSubCstProp_85" ] ∀ (x : Nat), (70 + ((x + 10) - 30)) - 120 = x ===> True
-
+-- (((x + 180) - 100) - 20) + 120 = 180 + x ===> True
+#testOptimize [ "NatAddSub_8" ] ∀ (x : Nat), (((x + 180) - 100) - 20) + 120 = 180 + x ===> True
 
 /-! Test cases to ensure that the following simplification rules are not applied wrongly:
      - `(N1 - n) - N2 ===> (N1 "-" N2) - n`
      - `(n - N1) - N2 ===> n - (N1 "+" N2)`
-     - `(N1 + n) - N2 ===> (N1 "-" N2) + n`
+     - `(N1 + n) - N2 ===> (N1 "-" N2) + n` (if N1 ≥ N2)
 -/
 
 -- (x - y) - 120 ===> (x - y) - 120
 -- Must remain unchanged
-def natSubCstProp_86 : Expr :=
+def natSubSubUnchanged_1 : Expr :=
   Lean.Expr.forallE `x
     (Lean.Expr.const `Nat [])
     (Lean.Expr.forallE `y
@@ -734,13 +572,13 @@ def natSubCstProp_86 : Expr :=
      (Lean.BinderInfo.default))
     (Lean.BinderInfo.default)
 
-elab "natSubCstProp_86" : term => return natSubCstProp_86
+elab "natSubSubUnchanged_1" : term => return natSubSubUnchanged_1
 
-#testOptimize [ "NatSubCstProp_86" ] ∀ (x y : Nat), (x - y) - 120 < y ===> natSubCstProp_86
+#testOptimize [ "NatSubSunUnchanged_1" ] ∀ (x y : Nat), (x - y) - 120 < y ===> natSubSubUnchanged_1
 
 -- (x + y) - 120 ===> (x + y) - 120
 -- Must remain unchanged
-def natSubCstProp_87 : Expr :=
+def natSubSubUnchanged_2 : Expr :=
   Lean.Expr.forallE `x
     (Lean.Expr.const `Nat [])
     (Lean.Expr.forallE `y
@@ -760,13 +598,13 @@ def natSubCstProp_87 : Expr :=
      (Lean.BinderInfo.default))
     (Lean.BinderInfo.default)
 
-elab "natSubCstProp_87" : term => return natSubCstProp_87
+elab "natSubSubUnchanged_2" : term => return natSubSubUnchanged_2
 
-#testOptimize [ "NatSubCstProp_87" ] ∀ (x y : Nat), (x + y) - 120 < y ===> natSubCstProp_87
+#testOptimize [ "NatSubSunUnchanged_2" ] ∀ (x y : Nat), (x + y) - 120 < y ===> natSubSubUnchanged_2
 
 -- (x * y) - 120  ===> (x * y) - 120
 -- Must remain unchanged
-def natSubCstProp_88 : Expr :=
+def natSubSubUnchanged_3 : Expr :=
   Lean.Expr.forallE `x
     (Lean.Expr.const `Nat [])
     (Lean.Expr.forallE `y
@@ -786,9 +624,90 @@ def natSubCstProp_88 : Expr :=
      (Lean.BinderInfo.default))
     (Lean.BinderInfo.default)
 
-elab "natSubCstProp_88" : term => return natSubCstProp_88
+elab "natSubSubUnchanged_3" : term => return natSubSubUnchanged_3
 
-#testOptimize [ "NatSubCstProp_88" ] ∀ (x y : Nat), (x * y) - 120 < y ===> natSubCstProp_88
+#testOptimize [ "NatSubSunUnchanged_3" ] ∀ (x y : Nat), (x * y) - 120 < y ===> natSubSubUnchanged_3
+
+-- 100 - (10 - x) ===> 100 - (10 - x)
+-- Must remain unchanged
+def natSubSubUnchanged_4 : Expr :=
+  Lean.Expr.forallE `x
+    (Lean.Expr.const `Nat [])
+    (Lean.Expr.forallE `y
+     (Lean.Expr.const `Nat [])
+       (Lean.Expr.app
+         (Lean.Expr.app
+           (Lean.Expr.app
+             (Lean.Expr.app (Lean.Expr.const `LT.lt [Lean.Level.zero]) (Lean.Expr.const `Nat []))
+             (Lean.Expr.const `instLTNat []))
+           (Lean.Expr.app
+             (Lean.Expr.app (Lean.Expr.const `Nat.sub [])
+               (Lean.Expr.lit (Lean.Literal.natVal 100)))
+               (Lean.Expr.app
+                 (Lean.Expr.app (Lean.Expr.const `Nat.sub []) (Lean.Expr.lit (Lean.Literal.natVal 10)))
+                 (Lean.Expr.bvar 1))))
+         (Lean.Expr.bvar 0))
+     (Lean.BinderInfo.default))
+    (Lean.BinderInfo.default)
+
+elab "natSubSubUnchanged_4" : term => return natSubSubUnchanged_4
+
+#testOptimize [ "NatSubSunUnchanged_4" ] ∀ (x y : Nat), 100 - (10 - x) < y ===> natSubSubUnchanged_4
+
+
+-- (100 + x) - 101 ===> (100 + x) - 101
+-- Must remain unchanged
+def natSubSubUnchanged_5 : Expr :=
+ Lean.Expr.forallE `x
+  (Lean.Expr.const `Nat [])
+  (Lean.Expr.forallE `y
+    (Lean.Expr.const `Nat [])
+    (Lean.Expr.app
+      (Lean.Expr.app
+        (Lean.Expr.app
+          (Lean.Expr.app (Lean.Expr.const `LT.lt [Lean.Level.zero]) (Lean.Expr.const `Nat []))
+          (Lean.Expr.const `instLTNat []))
+        (Lean.Expr.app
+          (Lean.Expr.app
+            (Lean.Expr.const `Nat.sub [])
+            (Lean.Expr.app
+              (Lean.Expr.app (Lean.Expr.const `Nat.add []) (Lean.Expr.lit (Lean.Literal.natVal 100)))
+              (Lean.Expr.bvar 1)))
+          (Lean.Expr.lit (Lean.Literal.natVal 101))))
+      (Lean.Expr.bvar 0))
+    (Lean.BinderInfo.default))
+  (Lean.BinderInfo.default)
+
+elab "natSubSubUnchanged_5" : term => return natSubSubUnchanged_5
+
+#testOptimize [ "NatSubSunUnchanged_5" ] ∀ (x y : Nat), (100 + x) - 101 < y ===> natSubSubUnchanged_5
+
+-- (100 + x) - 180 ===> (100 + x) - 180
+-- Must remain unchanged
+def natSubSubUnchanged_6 : Expr :=
+ Lean.Expr.forallE `x
+  (Lean.Expr.const `Nat [])
+  (Lean.Expr.forallE `y
+    (Lean.Expr.const `Nat [])
+    (Lean.Expr.app
+      (Lean.Expr.app
+        (Lean.Expr.app
+          (Lean.Expr.app (Lean.Expr.const `LT.lt [Lean.Level.zero]) (Lean.Expr.const `Nat []))
+          (Lean.Expr.const `instLTNat []))
+        (Lean.Expr.app
+          (Lean.Expr.app
+            (Lean.Expr.const `Nat.sub [])
+            (Lean.Expr.app
+              (Lean.Expr.app (Lean.Expr.const `Nat.add []) (Lean.Expr.lit (Lean.Literal.natVal 100)))
+              (Lean.Expr.bvar 1)))
+          (Lean.Expr.lit (Lean.Literal.natVal 180))))
+      (Lean.Expr.bvar 0))
+    (Lean.BinderInfo.default))
+  (Lean.BinderInfo.default)
+
+elab "natSubSubUnchanged_6" : term => return natSubSubUnchanged_6
+
+#testOptimize [ "NatSubSunUnchanged_6" ] ∀ (x y : Nat), (100 + x) - 180 < y ===> natSubSubUnchanged_6
 
 
 /-! Test cases to ensure that `Nat.sub` is preserved when expected and is not a commutative operator. -/
