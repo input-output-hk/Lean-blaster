@@ -50,9 +50,9 @@ partial def optimizeIntAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr :
    | some (Int.ofNat 0) => pure op2
    | some n1 =>
        match (toIntCstOpExpr? op2) with
-       | some (IntCstOpInfo.IntAddExpr n2 e2) => mkAppExpr f #[(← evalBinIntOp Int.add n1 n2), e2]
+       | some (IntCstOpInfo.IntAddExpr n2 e2) => optimizeIntAdd f #[(← evalBinIntOp Int.add n1 n2), e2]
        | some (IntCstOpInfo.IntNegAddExpr n2 e2) =>
-          mkAppExpr f #[(← evalBinIntOp Int.sub n1 n2), (← optimizeIntNeg (← mkIntNegOp) #[e2])]
+          optimizeIntAdd f #[(← evalBinIntOp Int.sub n1 n2), (← optimizeIntNeg (← mkIntNegOp) #[e2])]
        | some _ | none => mkAppExpr f opArgs
    | none =>
       if (← isIntNegExprOf op2 op1)

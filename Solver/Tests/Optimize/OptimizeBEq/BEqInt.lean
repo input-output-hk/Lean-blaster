@@ -49,27 +49,32 @@ opaque z : Int
 -- x == x ===> True
 #testOptimize [ "BEqIntReflexive_1" ] ∀ (x : Int), (x == x) ===> True
 
+-- x == (x + 0) ===> True
+#testOptimize [ "BEqIntReflexive_2" ] ∀ (x : Int), x == x + 0 ===> True
 
--- TODO : Uncomment test cases once normalization and simplifications rules on Int are introduced.
--- TODO : Add other reflecxive test cases
+-- (10 + (x + 30)) == ((x + 15) + 25) ===> True
+#testOptimize [ "BEqIntReflexive_3" ] ∀ (x : Int), (10 + (x + 30)) == ((x + 15) + 25) ===> True
 
--- -- x == (x + 0) ===> True
--- #testOptimize [ "BEqIntReflexive_2" ] ∀ (x : Int), x == x + 0 ===> True
+-- (100 + ((50 - x) - 70)) + y == (y + (80 - x)) ===> True
+#testOptimize [ "BEqIntReflexive_4" ] ∀ (x y : Int), (100 + ((50 - x) - 70)) + y == (y + (80 - x)) ===> True
 
--- -- (10 + (x + 30)) == ((x + 15) + 25) ===> True
--- #testOptimize [ "BEqIntReflexive_3" ] ∀ (x : Int), (10 + (x + 30)) == ((x + 15) + 25) ===> True
+-- x + y == (y + x) ===> True
+#testOptimize [ "BEqIntReflexive_5" ] ∀ (x y : Int), (x + y) == (y + x) ===> True
 
--- -- (100 + ((50 - x) - 70)) + y == (y + 100) ===> True
--- #testOptimize [ "BEqIntReflexive_4" ] ∀ (x y : Int), (100 + ((50 - x) - 70)) + y == (y + 100) ===> True
+-- (x + y) + z == z + (y + x) ===> True
+#testOptimize [ "BEqIntReflexive_6" ] ∀ (x y z : Int), (x + y) + z == z + (y + x) ===> True
 
--- -- x + y == (y + x) ===> True
--- #testOptimize [ "BEqIntReflexive_5" ] ∀ (x y : Int), (x + y) == (y + x) ===> True
+-- (x - x) = (x + -x) ===> True
+#testOptimize [ "BEqIntReflexive_7" ] ∀ (x : Int), (x - x) = (x + -x) ===> True
 
--- -- (x + y) + z == z + (y + x) ===> True
--- #testOptimize [ "BEqIntReflexive_6" ] ∀ (x y z : Int), (x + y) + z == z + (y + x) ===> True
+-- (x * 1) - (x + 0) + y = y ===> True
+#testOptimize [ "BEqIntReflexive_8" ] ∀ (x y : Int), (x * 1) - (x + 0) + y = y ===> True
 
--- -- (x - x) = (x + -x) ===> True
--- #testOptimize [ "BEqIntReflexive_7" ] ∀ (x y : Int), (x - x) = (x + -x) ===> True
+-- TODO: uncomment test cases when introducing simplification rules on Int.div and Int.mod
+-- TODO: Add additional test cases to cover all div and mod functions.
+
+-- -- (x / (1 + (y * 0)) + (y % 0) = x + y ===> True
+-- #testOptimize [ "BEqIntReflexive_9" ] ∀ (x y : Int), (x / (1 + (y * 0))) + (y % 0) = x + y ===> True
 
 
 /-! Test cases to ensure that simplification rules `e1 == e2 ==> true (if e1 =ₚₜᵣ e2)` is not applied wrongly. -/
@@ -168,28 +173,32 @@ elab "beqIntUnchanged_10" : term => return beqIntUnchanged_10
 -- ((x * y) == (y + z)) = ((y + z) == (x * y)) ===> True
 #testOptimize [ "BEqIntCommut_5" ] ∀ (x y z : Int), ((x * y) == (y + z)) = ((y + z) == (x * y)) ===> True
 
--- TODO: uncomment when normalization and simplification rules are introduced for Int
--- -- ((x + y) == z) = (z == (y + x)) ===> True
--- #testOptimize [ "BEqIntCommut_6" ] ∀ (x y z : Int), ((x + y) == z) = (z == (y + x)) ===> True
+-- ((x + y) == z) = (z == (y + x)) ===> True
+#testOptimize [ "BEqIntCommut_6" ] ∀ (x y z : Int), ((x + y) == z) = (z == (y + x)) ===> True
 
--- -- ((x * y) == (y + z)) = ((z + y) == (x * y)) ===> True
--- #testOptimize [ "BEqIntCommut_7" ] ∀ (x y z : Int), ((x * y) == (y + z)) = ((z + y) == (x * y)) ===> True
+-- ((x * y) == (y + z)) = ((z + y) == (x * y)) ===> True
+#testOptimize [ "BEqIntCommut_7" ] ∀ (x y z : Int), ((x * y) == (y + z)) = ((z + y) == (x * y)) ===> True
 
 
 /-! Test cases to ensure that `reduceApp` is properly called
     when `BEq.beq` operands are reduced to constant values via optimization. -/
 
--- TODO : uncomment when normalization and simplification rules are introduced for Int
--- TODO: add other reduction test cases
+-- 0 == (0 - x) + x ===> true
+#testOptimize [ "BEqIntReduce_1"] (0 == (0 - x) + x) ===> true
 
--- -- 0 == (0 - x) ===> true
--- #testOptimize [ "BEqIntReduce_1"] (0 == (0 - x)) ===> true
+-- 100 + ((40 - x) - 50) == 100 ===> true
+#testOptimize [ "BEqIntReduce_2"] 100 + (((40 - x) - 40) + x) == 100 ===> true
 
--- -- 100 + ((40 - x) - 50) == 100 ===> true
--- #testOptimize [ "BEqIntReduce_2"] (100 + ((40 - x) - 50)) == 100 ===> true
+-- (((x - 100) - 45) + 145) - x == (125 + (100 - (225 - y))) - y ===> true
+#testOptimize [ "BEqIntReduce_3"] (((x - 100) - 45) + 145) - x == (125 + (100 - (225 - y))) - y ===> true
 
--- -- (((x - 100) - 45) + 125) - x == 125 + ((100 - (125 - y)) - y) ===> true
--- #testOptimize [ "BEqIntReduce_3"] (((x - 100) - 45) + 125) - x == 125 + ((100 - (125 - y)) - y) ===> false
+-- ((((x - 100) - 45) + 145) - x) * y == (125 + (100 - (225 - y))) - y ===> true
+#testOptimize [ "BEqIntReduce_4"] ((((x - 100) - 45) + 145) - x) * y == (125 + (100 - (225 - y))) - y ===> true
+
+-- TODO: uncomment test case when simplifications on Int.div and Int.mod functions are introduced
+-- (y % ((((x - 100) - 45) + 145) - x)) - y == (125 + (100 - (225 - y))) - y ===> true
+-- #testOptimize [ "BEqIntReduce_5"] (y % ((((x - 100) - 45) + 145) - x)) - y == (125 + (100 - (225 - y))) - y ===> true
+
 
 
 end Test.BEqInt
