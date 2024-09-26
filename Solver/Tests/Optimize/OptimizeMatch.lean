@@ -16,9 +16,9 @@ namespace Tests.UnfoldMatch
                                ∀ (a b c : Bool), true = ((a || !c) && (b || c))
 
 -- ∀ (a b c : Bool), cond c a b ===>
--- ∀ (a b c : Bool), (true = c → true = a) ∧ (false = c → true = b)
+-- ∀ (a b c : Bool), (false = c → true = b) ∧ (true = c → true = a)
 #testOptimize ["MatchToITE_2"] ∀ (a b c : Bool), cond c a b ===>
-                               ∀ (a b c : Bool), (true = c → true = a) ∧ (false = c → true = b)
+                               ∀ (a b c : Bool), (false = c → true = b) ∧ (true = c → true = a)
 
 
 def isNilOne (x : List Nat) : Bool :=
@@ -48,13 +48,13 @@ def ite_sign (x : Int) : Int :=
 #testOptimize ["MatchToITE_5"] ∀ (x : Int), Int.sign x = ite_sign x ===> True
 
 def ite_abs (x : Int) : Nat :=
-  if 0 ≤ x then Int.toNat x else Int.toNat (- x)
+  if 0 ≤ x then Int.toNat x else (Int.toNat (- x) - 1) + 1
 
 -- ∀ (x : Int), Int.natAbs x = ite_abs ===> True
 #testOptimize ["MatchToITE_6"] ∀ (x : Int), Int.natAbs x = ite_abs x ===> True
 
 def ite_negNat (x : Nat) : Int :=
-  if 0 = x then 0 else -(Int.ofNat x)
+  if 0 = x then 0 else -(Int.ofNat ((x - 1) + 1))
 
 -- ∀ (x : Nat), Int.negOfNat x = ite_negNat x ===> True
 #testOptimize ["MatchToITE_7"] ∀ (x : Nat), Int.negOfNat x = ite_negNat x ===> True
@@ -247,12 +247,12 @@ def condUnchanged (a : Option Bool) (b : Bool) (c : Bool) : Bool :=
 -- ∀ (a : Option Bool) (b c : Bool),
 -- true = (match a with
 --         | none => false
---         | some d => (c || d) && (b || !d)
+--         | some d => (b || !d) && (c || d)
 #testOptimize ["MatchToITEUnchanged_1"] ∀ (a : Option Bool) ( b c : Bool), condUnchanged a b c ===>
                                         ∀ (a : Option Bool) ( b c : Bool),
                                             true = (match a with
                                                     | none => false
-                                                    | some d => (c || d) && (b || !d))
+                                                    | some d => (b || !d) && (c || d))
 
 def isNilUnchanged (x : List Nat) : Bool :=
   match x with
@@ -317,7 +317,7 @@ def discrListUnchanged (x : List Int) (y : List Nat) : Bool :=
 --           | _, [] => false
 --           | 1 :: _, 1 :: _ => true
 --           | -2 :: xs, 2 :: ys => List.length xs == List.length ys
---           | _ :: xs, _ :: ys => List.length ys == List.length xs
+--           | _ :: xs, _ :: ys => List.length xs == List.length ys
 #testOptimize ["MatchToITEUnchanged_4"] ∀ (x : List Int) (y : List Nat), discrListUnchanged x y ===>
                                         ∀ (x : List Int) (y : List Nat),
                                              true = ( match x, y with
@@ -326,7 +326,7 @@ def discrListUnchanged (x : List Int) (y : List Nat) : Bool :=
                                                       | _, [] => false
                                                       | 1 :: _, 1 :: _ => true
                                                       | -2 :: xs, 2 :: ys => List.length xs == List.length ys
-                                                      | _ :: xs, _ :: ys => List.length ys == List.length xs)
+                                                      | _ :: xs, _ :: ys => List.length xs == List.length ys)
 
 
 def discrAbstractUnchanged (x : List α) (y : Option α) : Bool :=
