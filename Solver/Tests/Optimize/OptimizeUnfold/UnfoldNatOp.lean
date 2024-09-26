@@ -41,7 +41,25 @@ namespace Tests.UnfoldNatOp
 -- ∀ (x : Nat), Nat.beq x x ===> True
 #testOptimize ["UnfoldNatOp_10"] ∀ (x : Nat), Nat.beq x x ===> True
 
--- TODO: add test cases for Nat.mul, Nat.div, Nat.mod, Nat.ble and Nat.blt when simplification rules are added
+-- ∀ (x : Nat), (0 * x) + x < y ===> ∀ (x : Nat), x < y
+#testOptimize ["UnfoldNatOp_11"] ∀ (x y : Nat), (0 * x) + x < y ===> ∀ (x y : Nat), x < y
+
+-- ∀ (x y : Nat), ((1 * x) - x) + x < y ===> ∀ (x y : Nat), x < y
+#testOptimize ["UnfoldNatOp_12"] ∀ (x y : Nat), ((1 * x) - x) + x < y ===> ∀ (x y : Nat), x < y
+
+-- ∀ (x y : Nat), (x / 1) < y ===> ∀ (x y : Nat), x < y
+#testOptimize ["UnfoldNatOp_13"] ∀ (x y : Nat), x / 1 < y ===> ∀ (x y : Nat), x < y
+
+-- ∀ (x y : Nat), (x / 0) + x < y ===> ∀ (x y : Nat), x < y
+#testOptimize ["UnfoldNatOp_14"] ∀ (x y : Nat), (x / 0) + x < y ===> ∀ (x y : Nat), x < y
+
+-- ∀ (x y : Nat), (x % 1) + x < y ===> ∀ (x y : Nat), x < y
+#testOptimize ["UnfoldNatOp_15"] ∀ (x y : Nat), (x % 1) + x < y ===> ∀ (x y : Nat), x < y
+
+-- ∀ (x y : Nat), (x % 0) < y ===> ∀ (x y : Nat), x < y
+#testOptimize ["UnfoldNatOp_16"] ∀ (x y : Nat), (x % 0) < y ===> ∀ (x y : Nat), x < y
+
+-- TODO: add test cases for Nat.ble and Nat.blt when simplification rules are added
 
 
 /-! Test cases to validate when `Nat` operators must not be unfolded -/
