@@ -44,29 +44,29 @@ def swapITEAndUpdateDecidable (args : Array Expr) : TranslateEnvT (Array Expr) :
      - c := true = c'; and
      - Type(t) = Bool
 -/
-def iteToBoolExpr? (c : Expr) (t : Expr) (e : Expr) : TranslateEnvT (Option Expr) := do
-  match isEqExpr? c with
-  | some eq_args =>
-     let op_args := eq_args.2
-     match op_args[1]! with
-     | Expr.const ``true _ =>
-        if isBoolType (← inferType t)
-        then
+def iteToBoolExpr? (iteType: Expr) (c : Expr) (t : Expr) (e : Expr) : TranslateEnvT (Option Expr) := do
+  if (isBoolType iteType)
+  then
+    match isEqExpr? c with
+    | some eq_args =>
+      let op_args := eq_args.2
+      match op_args[1]! with
+      | Expr.const ``true _ =>
           let c' := op_args[2]!
           let orOp ← mkBoolOrOp
           let notExpr ← optimizeBoolNot (← mkBoolNotOp) #[c']
           let leftAnd ← optimizeBoolOr orOp #[notExpr, t]
           let rightAnd ← optimizeBoolOr orOp #[c', e]
           some <$> optimizeBoolAnd (← mkBoolAndOp) #[leftAnd, rightAnd]
-        else return none
-     | _ => return none
-  | none => return none
+      | _ => return none
+    | none => return none
+  else return none
 
 /-- Return the normalization/simplification result for `(c → t) ∧ (¬ c → e)`
     only when Type(t) = Prop.
 -/
-def iteToPropExpr? (c : Expr) (t : Expr) (e : Expr) : TranslateEnvT (Option Expr) := do
-  if (← inferType t).isProp
+def iteToPropExpr? (iteType: Expr) (c : Expr) (t : Expr) (e : Expr) : TranslateEnvT (Option Expr) := do
+  if iteType.isProp
   then
     let leftAnd ← mkImpliesExpr c t
     let notExpr ← optimizeNot (← mkPropNotOp) #[c]
@@ -111,6 +111,7 @@ partial def optimizeITE (f : Expr) (args : Array Expr) : TranslateEnvT Expr := d
    -- args[2] is decidable instance parameter on cond
    -- args[3] is then operand
    -- args[4] is else operand
+   let iteType := args[0]!
    let c := args[1]!
    let t := args[3]!
    let e := args[4]!
@@ -126,10 +127,10 @@ partial def optimizeITE (f : Expr) (args : Array Expr) : TranslateEnvT Expr := d
         match (← isITEBoolSwap? c) with
         | some c' => optimizeITE f (← swapITEAndUpdateDecidable (args.set! 1 c'))
         | none =>
-           match (← iteToBoolExpr? c t e) with
+           match (← iteToBoolExpr? iteType c t e) with
            | some r => pure r
            | none =>
-               match (← iteToPropExpr? c t e) with
+               match (← iteToPropExpr? iteType c t e) with
                | some r => pure r
                | none => mkAppExpr f (← updateITEDecidable args)
  else throwError "optimizeITE: five arguments for ITE"
@@ -172,6 +173,7 @@ partial def optimizeDITE (f : Expr) (args : Array Expr) : TranslateEnvT Expr := 
    -- args[2] is decidable instance parameter on cond
    -- args[3] is then operand
    -- args[4] is else operand
+   let iteType := args[0]!
    let c := args[1]!
    let t := args[3]!
    let e := args[4]!
@@ -189,10 +191,10 @@ partial def optimizeDITE (f : Expr) (args : Array Expr) : TranslateEnvT Expr := 
         match (← isITEBoolSwap? c) with
         | some c' => optimizeDITE f (← swapITEAndUpdateDecidable (args.set! 1 c'))
         | none =>
-           match (← iteToBoolExpr? c thenExpr elseExpr) with
+           match (← iteToBoolExpr? iteType c thenExpr elseExpr) with
            | some r => pure r
            | none =>
-               match (← iteToPropExpr? c thenExpr elseExpr) with
+               match (← iteToPropExpr? iteType c thenExpr elseExpr) with
                | some r => pure r
                | none => mkAppExpr f (← updateITEDecidable args)
  else throwError "optimizeDITE: five arguments for DITE"
