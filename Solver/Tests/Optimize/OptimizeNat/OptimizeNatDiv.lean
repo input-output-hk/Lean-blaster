@@ -40,6 +40,11 @@ elab "natDivCst_5" : term => return natDivCst_5
 -- 8 / 3 ===> 2
 #testOptimize [ "NatDivCst_6" ] (8 : Nat) / 3 ===> natDivCst_4
 
+-- 0 / 0 ===> 0
+-- NOTE: test case showing that n1/n2 ===> 1 (if n1=ₚₜᵣ n2)
+-- cannot be considered.
+#testOptimize [ "NatDivCst_7" ] (0 : Nat) / 0 ===> natDivCst_1
+
 
 /-! Test cases for simplification rule `n / 0 ==> 0`. -/
 
