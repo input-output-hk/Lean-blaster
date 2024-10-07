@@ -69,12 +69,10 @@ mutual
           let t' ← visit t
           withLocalDecl n bi t' fun x => do
             mkLambdaExpr x (← visit (b.instantiate1 x))
-      | Expr.letE n t v b _ =>
+      | Expr.letE _n _t v b _ =>
           -- inline let expression
-          let t' ← (visit t)
           let v' ← (visit v)
-          withLetDecl n t' v' fun _ =>
-            visit (b.instantiate1 v')
+          visit (b.instantiate1 v')
       | Expr.mdata _ me => visit me
       | Expr.sort _ => return e -- sort is used for Type u, Prop, etc
       | Expr.proj .. =>
@@ -115,12 +113,12 @@ mutual
         let some matcherInfo ← getMatcherInfo? n | return none
         let cInfo ← getConstInfo n
         let discrs := args[matcherInfo.getFirstDiscrPos : matcherInfo.getFirstAltPos]
-        let patterns := args[matcherInfo.getFirstAltPos : matcherInfo.arity]
+        let rhs := args[matcherInfo.getFirstAltPos : matcherInfo.arity]
         let matchFun ← instantiateValueLevelParams cInfo dlevel
         let auxApp := Expr.beta matchFun args[0:matcherInfo.getFirstAltPos]
         let auxAppType ← inferType auxApp
         forallTelescope auxAppType fun xs _t => do
-          let alts := xs[xs.size - patterns.size:]
+          let alts := xs[xs.size - rhs.size:]
           let mut accExpr := (none : Option α)
           -- traverse in reverse order to handle last pattern first
           let nbAlts := alts.size
@@ -130,10 +128,12 @@ mutual
               forallTelescope (← inferType alts[idx]!) fun _xs b => do
                 let mut lhs := b.getAppArgs
                 -- NOTE: lhs has not been normalized as is kept at the type level.
+                -- NOTE: optimizing lhs removes annotated named pattern, e.g.,
+                --       ((namedPattern Nat p) (Nat.succ n)) is reduced to (Nat.succ n)
                 -- normalizing lhs
                 for j in [:lhs.size] do
                   lhs ← lhs.modifyM j (optimizeExpr sOpts)
-                rewriter i discrs lhs patterns[idx]! accExpr
+                rewriter i discrs lhs rhs[idx]! accExpr
             unless (accExpr.isSome) do return accExpr -- break if accExpr is still none
           return accExpr
     | _ => pure none

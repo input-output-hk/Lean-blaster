@@ -74,8 +74,8 @@ def iteDiscrNat (x : Nat) (y : Nat) : Nat :=
   else if y = 0 then 1
   else if x = 1 then y + 2
   else if y = 1 then x + 3
-  else if x >= 4 then (x - 4) + y
-  else if x >= 1 ∧ y >= 5 then (y - 5) * (x - 1)
+  else if x ≥ 4 then (x - 4) + y
+  else if x ≥ 1 ∧ y ≥ 5 then (y - 5) * (x - 1)
   else (x - 2) * 6
 
 -- ∀ (x y : Nat), matchDiscrNat x y = iteDiscrNat x y ===> True
@@ -106,16 +106,16 @@ def iteDiscrInt (x : Int) (y : Int) : Nat :=
   else if y = 0 then 1
   else if x = 1 then Int.toNat y + 2
   else if y = 1 then Int.toNat x + 3
-  else if x >= 4 then (Int.toNat x - 4) + Int.toNat y
-  else if y >= 5 then (Int.toNat y - 5) * Int.toNat x
+  else if x ≥ 4 then (Int.toNat x - 4) + Int.toNat y
+  else if y ≥ 5 then (Int.toNat y - 5) * Int.toNat x
   else if x = -1 then 4
   else if y = -1 then 5
   else if x = -3 then 6
   else if y = -2 then 7
-  else if x <= -5 then ((Int.toNat (-x)) - 5) + 1
-  else if y <= -6 then ((Int.toNat (-y)) - 6) + 2
-  else if x >= 2 then (Int.toNat x - 2) * 6
-  else if y <= -3 then (Int.toNat (-y) - 3) * 7
+  else if x ≤ -5 then ((Int.toNat (-x)) - 5) + 1
+  else if y ≤ -6 then ((Int.toNat (-y)) - 6) + 2
+  else if x ≥ 2 then (Int.toNat x - 2) * 6
+  else if y ≤ -3 then (Int.toNat (-y) - 3) * 7
   else (Int.toNat (-x) - 2) * 8
 
 -- ∀ (x y : Int), matchDiscrInt x y = iteDiscrInt x y ===> True
@@ -138,19 +138,19 @@ def matchMultiEq (x : Int) (y : Nat) (z : Option Nat) : Nat :=
 def iteMultiEq (x : Int) (y : Nat) (z : Option Nat) : Nat :=
  if x = 0 ∧ y = 0 then 0
  else if x = 0 ∧ z = some 0 then 1
- else if y >= 1 ∧ z = some 1 then y - 1
+ else if y ≥ 1 ∧ z = some 1 then y - 1
  else if x = 1 ∧ z = none then y + 1
- else if y >= 1 ∧ z = none then (y - 1) + Int.toNat x
+ else if y ≥ 1 ∧ z = none then (y - 1) + Int.toNat x
  else if x = - 1 ∧ z = some 2 then y * 2
- else if (x = 3 ∧ y >= 2) ∧ z = some 3 then (y - 2) * 3
- else if (x <= -3 ∧ y >= 3) ∧ z = some 4 then ((Int.toNat (-x) - 3) + (y - 3)) * 4
- else if (x >= 3 ∧ y >= 2) ∧ z = some 4 then (Int.toNat x - 3) * (y - 2) * 4
- else if x >= 0 ∧ z = some 5 then (Int.toNat x + y) * 5
+ else if (x = 3 ∧ y ≥ 2) ∧ z = some 3 then (y - 2) * 3
+ else if (x ≤ -3 ∧ y ≥ 3) ∧ z = some 4 then ((Int.toNat (-x) - 3) + (y - 3)) * 4
+ else if (x ≥ 3 ∧ y ≥ 2) ∧ z = some 4 then (Int.toNat x - 3) * (y - 2) * 4
+ else if x ≥ 0 ∧ z = some 5 then (Int.toNat x + y) * 5
  else 10
 
 -- ∀ (x : Int) (y : Nat) (z : Option Nat), matchMultiEq x y z = iteMultiEq x y z ===> True
 -- NOTE: we need to check how to order list of ∧ to guarantee structural equivalence, i.e.,
--- `x <= -3 ∧ y >= 3 ∧ z = some 4` is internally represented as `x <= -3 ∧ (y >= 3 ∧ z = some 4)`
+-- `x ≤ -3 ∧ y ≥ 3 ∧ z = some 4` is internally represented as `x ≤ -3 ∧ (y ≥ 3 ∧ z = some 4)`
 -- Hence, we need to explicitly place the parentheses here for the test to be successful.
 #testOptimize ["MatchToITE_10"] ∀ (x : Int) (y : Nat) (z : Option Nat), matchMultiEq x y z = iteMultiEq x y z ===> True
 
@@ -233,6 +233,91 @@ def embeddedIte (x : Option Nat) (y : Option Nat) : Nat :=
 -- ∀ (x y : Option Nat), embeddedMatch x y = embeddedIte x y ===> true
 #testOptimize ["MatchToITE_13"] ∀ (x y : Option Nat), embeddedMatch x y = embeddedIte x y ===> True
 
+
+def namedPatternNat (x : Nat) (y : Nat) : Nat :=
+ match x, y with
+ | Nat.zero, _ => 0
+ | _, Nat.zero => 1
+ | Nat.succ Nat.zero, _ => y + 2
+ | _, Nat.succ Nat.zero => x + 3
+ | r@(Nat.succ q@(Nat.succ p@(Nat.succ (Nat.succ n)))), z => n + p + q + r + z
+ | r@(Nat.succ (Nat.succ n1)), Nat.succ q@(Nat.succ p@(Nat.succ (Nat.succ ((Nat.succ n2))))) => (r + n1) * n2 * p * q
+ | q@(Nat.succ (Nat.succ n)), _ => q * n * 6
+
+def iteNamedPatternNat (x : Nat) (y : Nat) : Nat :=
+  if x = 0 then 0
+  else if y = 0 then 1
+  else if x = 1 then y + 2
+  else if y = 1 then x + 3
+  else if x ≥ 4 then y + (x + (((x - 2) + (x - 4)) + (x - 1)))
+  else if x ≥ 2 ∧ y ≥ 5 then (((x + (x - 2)) * (y - 5)) * (y - 2)) * (y - 1)
+  else (x * (x - 2)) * 6
+
+-- ∀ (x y : Option Nat), namedPatternNat x y = iteNamedPatternNat x y ===> true
+#testOptimize ["MatchToITE_14"] ∀ (x y : Nat), namedPatternNat x y = iteNamedPatternNat x y ===> True
+
+def namedPatternInt (x : Int) (y : Int) : Nat :=
+ match x, y with
+ | Int.ofNat Nat.zero, _ => 0
+ | _, Int.ofNat Nat.zero => 1
+ | Int.ofNat (Nat.succ Nat.zero), _ => Int.toNat y + 2
+ | _, Int.ofNat (Nat.succ Nat.zero) => Int.toNat x + 3
+ | Int.ofNat (Nat.succ (Nat.succ (Nat.succ (Nat.succ n)))), z => n + Int.toNat z
+ | r@(Int.ofNat (Nat.succ (Nat.succ n1))), Int.ofNat (Nat.succ (Nat.succ q@(Nat.succ p@(Nat.succ ((Nat.succ n2)))))) =>
+     ((Int.toNat r) + n1) * n2 * p * q
+ | Int.negSucc Nat.zero, _ => 4
+ | _, Int.negSucc Nat.zero => 5
+ | Int.negSucc p@(Nat.succ q@(Nat.succ Nat.zero)), _ => 6 * p * q
+ | _, Int.negSucc (Nat.succ Nat.zero) => 7
+ | Int.negSucc q@(Nat.succ (Nat.succ p@(Nat.succ (Nat.succ n)))), _ => n + p + q + 1
+ | _, Int.negSucc (Nat.succ q@(Nat.succ p@(Nat.succ r@(Nat.succ ((Nat.succ n)))))) => n + p + q + r + 2
+ | p@(Int.ofNat (Nat.succ (Nat.succ n))), _ => Int.toNat p * n * 6
+ | _, Int.negSucc (Nat.succ (Nat.succ n)) => n * 7
+ | Int.negSucc (Nat.succ n), _ => n * 8
+
+
+def iteNamedPatternInt (x : Int) (y : Int) : Nat :=
+  if x = 0 then 0
+  else if y = 0 then 1
+  else if x = 1 then Int.toNat y + 2
+  else if y = 1 then Int.toNat x + 3
+  else if x ≥ 4 then (Int.toNat x - 4) + Int.toNat y
+  else if x ≥ 2 ∧ y ≥ 5 then ((Int.toNat x) + (Int.toNat x - 2)) * (Int.toNat y - 5) * (Int.toNat y - 3) * (Int.toNat y - 2)
+  else if x = -1 then 4
+  else if y = -1 then 5
+  else if x = -3 then 12 -- 6 * p * q must reduced to 12
+  else if y = -2 then 7
+  else if x ≤ -5 then ((Int.toNat (-x)) - 5) + ((Int.toNat (-x)) - 3) + (Int.toNat (-x) - 1) + 1
+  else if y ≤ -6 then ((Int.toNat (-y)) - 6) + ((Int.toNat (-y)) - 3) + ((Int.toNat (-y)) - 2) + ((Int.toNat (-y)) - 4) + 2
+  else if x ≥ 2 then (Int.toNat x) * (Int.toNat x - 2) * 6
+  else if y ≤ -3 then (Int.toNat (-y) - 3) * 7
+  else (Int.toNat (-x) - 2) * 8
+
+-- ∀ (x y : Int), namedPatternInt x y = iteNamedPatternInt x y ===> True
+#testOptimize ["MatchToITE_15"] ∀ (x y : Int), namedPatternInt x y = iteNamedPatternInt x y ===> True
+
+
+def namedPatternList (x : List Int) (y : List Nat) : Nat :=
+ match x, y with
+ | [], [] => 0
+ | [1], [1] => 1
+ | 1 :: q@([4, 5]), 1 :: p@([2, 3]) => 2 + List.length p + List.length q
+ | q@([-2, -1, 0]), 2 :: p@([1, 0]) => 3 + List.length q - List.length p
+ | _, p@(4 :: q@([5, 6])) => List.length x + List.length p + List.length q
+ | [-4, -6, 3], z => List.length z + 7
+ | s, t => List.length s + List.length t + 8
+
+def iteNamedPatternList (x : List Int) (y : List Nat) : Nat :=
+ if x = [] ∧ y = [] then 0
+ else if x = [1] ∧ y = [1] then 1
+ else if x = [1, 4, 5] ∧ y = [1, 2, 3] then 6
+ else if x = [-2, -1, 0] ∧ y = [2, 1, 0] then 4
+ else if y = [4, 5, 6] then List.length x + 5
+ else if x = [-4, -6, 3] then List.length y + 7
+ else List.length x + List.length y + 8
+
+-- ∀ (x : List Int) (y : List Nat), matchDiscrList x y = iteDiscrList x y ===> True
+#testOptimize ["MatchToITE_16"] ∀ (x : List Int) (y : List Nat), namedPatternList x y = iteNamedPatternList x y ===> True
 
 
 /-! Test cases to validate when match expression must NOT be normalized. -/
@@ -353,6 +438,5 @@ def discrAbstractUnchanged (x : List α) (y : Option α) : Bool :=
                                                      (fun (_ : List α) => false)
                                                      (fun (_ : Option α) => false)
                                                      (fun (_ : List α) (_ : Option α) => true) )
-
 
 end Tests.UnfoldMatch

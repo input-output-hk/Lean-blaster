@@ -14,6 +14,8 @@ namespace Solver.Optimize
       - A String/Nat literal;
       - A constructor/function application; or
       - A free variable.
+    NOTE: This function Assumes that each pᵢ does not have any named pattern,
+    i.e., pᵢ has been optimized first.
 -/
 partial def retrieveAltsArgs (alts : Array Expr) : MetaM (Array Expr) := do
  let rec visit (e : Expr) (args : Array Expr) : MetaM (Array Expr) := do
@@ -45,21 +47,81 @@ partial def retrieveAltsArgs (alts : Array Expr) : MetaM (Array Expr) := do
 
 
 /-- Perform beta reduction on a match alternative `alt` according to the provided arguments `args`.
-    if args.size = 0, `alt` is expected to have only a single Unit argument, i.e.,
-    ```
-     alt = fun (_ : Unit) => e
-    ```
-    In this case `e` is returned as result. Otherwise, an error is triggered.
--/
-def betaReduceAlt (alt : Expr) (args : Array Expr) : MetaM Expr := do
-  if args.size == 0
-  then if alt.getNumHeadLambdas == 1
-       then match alt with
-            | Expr.lam _n (Expr.const ``Unit _) e _bi => return e
-            | _ => throwError "betaReduceAlt: lambda expression expected but got {reprStr alt}"
-       else throwError "betaReduceAlt: only unit argument expected but got {reprStr alt}"
-  else return (Expr.beta alt args)
+    It is expected that `args` will contain only the free variables appearing in each pattern pᵢ
+    and irrespective of named patterns (see `retrieveAltsArgs`).
+    Moreover, given a sequence of match pattern `p₁, ..., pₙ => t`, s.t.
+    each pᵢ contains named patterns of the form:
+      (l₍₁₎₍₁₎ (sp₍₁₎₍₁₎ .. (l₍₁₎₍ₖ₋₁₎ (sp₍₁₎₍ₖ₋₁₎ (l₍₁₎₍ₖ₎ sp₍₁₎₍ₖ₎))))), ...,
+      (l₍ₙ₎₍₁₎ (sp₍ₙ₎₍₁₎ .. (l₍ₙ₎₍ₖ₋₁₎ (sp₍ₙ₎₍ₖ₋₁₎ (l₍ₙ₎₍ₖ₎ sp₍ₙ₎₍ₖ₎))))) => t
+    with
+      - l₍ᵢ₎₍ⱼ₎: correponding to the label of the named sub-pattern.
+      - sp₍ᵢ₎₍ⱼ₎: corresponding to a sub-pattern that may contain free variables `v₍ᵢ₎₍ⱼ₎₍₁₎, ..., v₍ᵢ₎₍ⱼ₎₍ₘ₎`
+      - args.size = n * k * m (i.e., `args` only contains the free variables `v₍₁₎₍₁₎₍₁₎, ..., v₍ₙ₎₍ₖ₎₍ₘ₎`.
+    The corresponding alternative for `t` is expected to be of the following form:
+      l₍₁₎₍₁₎ → v₍₁₎₍₁₎₍₁₎ ... → v₍₁₎₍₁₎₍ₘ₎ → ... → l₍₁₎₍ₖ₎ → v₍₁₎₍ₖ₎₍₁₎ ... → v₍₁₎₍ₖ₎₍ₘ₎ →
+        l₍₁₎₍₁₎ = sp₍₁₎₍₁₎ → l₍₁₎₍₂₎ = sp₍₁₎₍₂₎ → ... → l₍₁₎₍ₖ₎ = sp₍₁₎₍ₖ₎ → ...
 
+      l₍ₙ₎₍₁₎ → v₍ₙ₎₍₁₎₍₁₎ ... → v₍ₙ₎₍₁₎₍ₘ₎ → ... → l₍ₙ₎₍ₖ₎ → v₍ₙ₎₍ₖ₎₍₁₎ ... → v₍ₙ₎₍ₖ₎₍ₘ₎ →
+        l₍ₙ₎₍₁₎ = sp₍ₙ₎₍₁₎ → l₍ₙ₎₍₂₎ = sp₍ₙ₎₍₂₎ → ... → l₍ₙ₎₍ₖ₎ = sp₍ₙ₎₍ₖ₎ → t
+    Hence, when args.size > 0 the following substitution on t is applied in reverse order.
+      t[l₍ₙ₎₍ₖ₎/sp₍ₙ₎₍ₖ₎] ... [ l₍ₙ₎₍₁₎ / sp₍ₙ₎₍₁₎] [v₍ₙ₎₍ₖ₎₍ₘ₎ / args[n*k*m - 1]] ... [v₍ₙ₎₍₁₎₍₁₎ / args[n*k*m - m]] ...
+       [l₍₁₎₍ₖ₎/ sp₍₁₎₍ₖ₎] ... [ l₍₁₎₍₁₎ = sp₍₁₎₍₁₎] [v₍₁₎₍ₖ₎₍ₘ₎ / args[n*k*m - n*k - 1]] ... [v₍₁₎₍₁₎₍₁₎ / args[0]]
+-/
+partial def betaReduceAlt (alt : Expr) (args : Array Expr) : TranslateEnvT Expr :=
+lambdaTelescope alt fun xs rhs => do
+  -- populate namedPatternSet first and replace named pattern hypothesis with expression.
+  let mut mxs := xs
+  let mut namedPatternSet := (.empty : HashSet Expr)
+  for i in [:xs.size] do
+    let t ← inferType xs[i]!
+    if let some (_eq_sort, op1, op2) := t.eq?
+    then match op1, op2 with
+         | p@(Expr.fvar ..), _ | _,  p@(Expr.fvar ..) =>
+              namedPatternSet := namedPatternSet.insert p
+              mxs := mxs.set! i t
+         | _, _ => throwError "betaReduceAlt: Invalid namedPattern hypothesis {reprStr op1} = {reprStr op2}"
+  let mut argsIdx := 0
+  let mut betaRhs := rhs
+  for i in [:xs.size] do
+    let lamArg := mxs[i]!
+    match lamArg.eq? with
+    | some (_eq_sort, op1@(Expr.fvar ..), op2) | some (_eq_sort, op2, op1@(Expr.fvar ..)) =>
+        -- named pattern hypothesis, e.q., l₍ᵢ₎₍ⱼ₎ = sp₍ᵢ₎₍ⱼ₎
+        -- Apply optimization rule `N1 + (n - N2) ===> n - (N2 "-" N1) when Type(n) = Nat`
+        -- NOTE: This rule is generally unsound for Nat, especially when n < N2 or when N2 < N1
+        -- However, it is here sound to apply this optimization as
+        -- we know that n ≥ N2 ∧ N2 ≥ N1 (see normMatchExpr? specification).
+        betaRhs := betaRhs.replaceFVar op1 (← optimizeSubPattern op2)
+    | _ =>
+       -- case when op1 and op2 are not fvar is unreachable at this stage
+       unless (namedPatternSet.contains lamArg || args.size == 0) do
+         let altArg := args[argsIdx]!
+         -- only replace with args when lamArg does not correspond to a namedPattern label.
+         betaRhs := betaRhs.replaceFVar lamArg altArg
+         -- replace all occurrences of lamArg in renaming mxs
+         -- This is necessary to apply specific Nat optimization
+         -- only on named pattern hypothesis, i.e., not in the rhs expression.
+         for j in [i+1:xs.size] do
+           mxs := mxs.modify j (fun a => a.replaceFVar lamArg altArg)
+         argsIdx := argsIdx + 1
+  return betaRhs
+
+  where
+    /-- Try to apply optimization rule `N1 + (n - N2) ===> n - (N2 "-" N1) on `sp` when Type(n) = Nat`.
+        Perform recursion if `sp := Int.ofNat e`.
+        Return `sp` if the optimization cannot be applied.
+    -/
+    optimizeSubPattern (sp : Expr) : TranslateEnvT Expr :=
+       match sp.app2? ``Nat.add with
+       | some (Expr.lit (Literal.natVal n1), x) =>
+          match x.app2? ``Nat.sub with
+          | some (y, Expr.lit (Literal.natVal n2)) =>
+              return (mkApp2 (← mkNatSubOp) y (← evalBinNatOp Nat.sub n2 n1))
+          | _ => return sp
+       | _ =>
+         match sp.app1? ``Int.ofNat with
+         | some e => return mkApp (← mkIntOfNat) (← optimizeSubPattern e)
+         | _ => return sp
 
 /-- Normalize a `match` expression to `if-then-else` only when each match pattern is either
       - an constructor application that does not contain any free variables (e.g., `Nat.zero`, `some Nat.zero`, `List.const 0 (List.nil)`); or

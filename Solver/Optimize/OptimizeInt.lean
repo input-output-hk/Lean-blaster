@@ -7,15 +7,6 @@ import Solver.Translate.Env
 open Lean Meta
 namespace Solver.Optimize
 
-/-- Return `some e` if `n := -e`. Otherwise `none`.
--/
-def toIntNegExpr? (n : Expr) : Option Expr :=
- if n.isApp then
-   Expr.withApp n fun k as =>
-   match k, as with
-   | Expr.const ``Int.neg _, #[op] => some op
-   | _, _ => none
- else none
 
 /-- Apply the following simplification/normalization rules on `Int.neg` :
      - - (- n) ==> n
@@ -26,8 +17,8 @@ def toIntNegExpr? (n : Expr) : Option Expr :=
 -/
 def optimizeIntNeg (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size == 1 then
-   match (toIntNegExpr? args[0]!) with
-   | some op => pure op
+   match (args[0]!.app1? ``Int.neg) with
+   | some e => pure e
    | none => mkAppExpr f args
  else mkAppExpr f args
 
@@ -88,6 +79,30 @@ def optimizeIntMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  else mkAppExpr f args
 
 
+/-- Return `some e` if `n := Int.neg (Int.ofNat e)`. Otherwise return `none`. -/
+def intNegOfNat? (n : Expr) : Option Expr :=
+  match n.app1? ``Int.neg with
+  | some e => e.app1? ``Int.ofNat
+  | none => none
+
+/-- Apply the following simplification rules on `Int.toNat` :
+     - Int.toNat (Int.ofNat e) ===> e
+     - Int.toNat (Int.neg (Int.ofNat e)) ===> 0
+   Assume that f = Expr.const ``Int.toNat.
+   Do nothing if operator is partially applied (i.e., args.size < 1)
+   NOTE: `Int.toNat` on constant values are handled via `reduceApp`.
+-/
+def optimizeIntToNat (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
+ if args.size == 1 then
+   let op := args[0]!
+   match op.app1? ``Int.ofNat with
+   | some e => return e
+   | none =>
+      match intNegOfNat? op with
+      | none => mkAppExpr f args
+      | some .. => mkNatLitExpr 0
+ else mkAppExpr f args
+
 /-- Normalize `Int.negSucc n` to `Int.neg (Int.ofNat (Nat.add 1 n))` only when `n` is not a constant value.
     An error is triggered if args.size ≠ 1.
     Assume that f = Expr.const ``Int.negSucc.
@@ -116,6 +131,7 @@ def optimizeInt? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) :=
     | ``Int.mul => some <$> optimizeIntMul f args
     | ``Int.neg => some <$> optimizeIntNeg f args
     | ``Int.negSucc => some <$> optimizeIntNegSucc f args
+    | ``Int.toNat => some <$> optimizeIntToNat f args
     | _=> pure none
  | _ => pure none
 
