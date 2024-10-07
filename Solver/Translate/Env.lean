@@ -9,10 +9,6 @@ namespace Solver
  translation a lean theorem to SMTLib
 -/
 structure TranslateEnv where
-  /-- Names of type and functions encountered in the lean theorem to be solved. -/
-  constants : NameHashSet := .empty
-  /-- Free variables encountered in the lean theorem to be solved. -/
-  freeVars : FVarIdHashSet := .empty
   /-- Cache memoizing the normalization and rewriting performed on the lean theorem. -/
   rewriteCache : HashMap Lean.Expr Lean.Expr
   /-- Cache memoizing the synthesize instance for decidable constraint. -/
@@ -67,33 +63,6 @@ def withTranslateEnvCache (a : Expr) (f: Unit → TranslateEnvT Expr) : Translat
      let b ← f ()
      updateRewriteCache a b
      return b
-
-
-/-- Add `n` to the constants set maintained by the translation environment. -/
-def addConstant (n : Name) : TranslateEnvT Unit := do
-  let env ← get
-  unless (env.constants.contains n) do
-    set { env with constants := env.constants.insert n }
-
-/-- Delete `n` from the constants set maintained by the translation environment.
--/
-def removeConstant (n : Name) : TranslateEnvT Unit := do
-  let env ← get
-  set { env with constants := env.constants.erase n }
-
-
-/-- Add `v` to the FVar set maintained by translation environment. -/
-def addFVar (v : FVarId) : TranslateEnvT Unit := do
-  let env ← get
-  unless (env.freeVars.contains v) do
-    set { env with freeVars := env.freeVars.insert v }
-
-/-- Remove `n` to the constants name set in the translation environment.
--/
-def removeFVar (v : FVarId) : TranslateEnvT Unit := do
-  let env ← get
-  set { env with freeVars := env.freeVars.erase v }
-
 
 /-- Return `true` boolean constructor -/
 def mkBoolTrue : TranslateEnvT Expr := mkExpr (mkConst ``true)

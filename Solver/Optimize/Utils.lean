@@ -87,7 +87,7 @@ parametric inductive types (e.g., List, Option, etc). Indeed, the provided defin
 may not satisfy refl, symm and trans.
 -/
 def isOpaqueBeq (f : Name) (args : Array Expr) : Bool :=
-  if f == `BEq.beq && args.size == 4
+  if f == `BEq.beq && args.size > 0
   then
     match args[0]! with
     | Expr.const n _ => beqCompatibleTypes.contains n
@@ -97,6 +97,12 @@ def isOpaqueBeq (f : Name) (args : Array Expr) : Bool :=
 /-- Return `true` if function name `f` is tagged as an opaque definition. -/
 def isOpaqueFun (f : Name) (args: Array Expr) : Bool :=
   opaqueFuns.contains f || isOpaqueBeq f args
+
+/-- Same as `isOpaqueFun` expect that `f` is an expression. -/
+def isOpaqueFunExpr (f : Expr) (args: Array Expr) : Bool :=
+  match f with
+  | Expr.const n _ => isOpaqueFun n args
+  | _ => false
 
 /-- Return `true` if c corresponds to a constructor. -/
 def isCtorName (c : Name) : MetaM Bool := do
@@ -137,8 +143,15 @@ def isFullyAppliedConst (e : Expr) : MetaM Bool := do
        | _ => pure false
  | _ => pure false
 
-/-- Return `true` if e corresponds to a constructor (i.e., constant value). -/
+/-- Return `true` if e corresponds to a constructor that may contain free or bounded variables. -/
 def isConstructor (e : Expr) : MetaM Bool := isEnumConst e <||> (pure e.isLit) <||> isFullyAppliedConst e
+
+/-- Return `true` if e contains free / bounded variables. -/
+def hasVars (e : Expr) : Bool := e.hasFVar || e.hasLooseBVars
+
+/-- Return `true` if e corresponds to a constructor applied to only constant values (e.g., no free or bounded variables). -/
+def isConstant (e : Expr) : MetaM Bool :=
+  isConstructor e <&&> (pure !(hasVars e))
 
 /-- Return `true` if e corresponds to an implication, i.e., a → b,
     with Type(a) = Prop and Type(b) = Prop.
@@ -150,6 +163,26 @@ def isImplies (e : Expr) : MetaM Bool :=
      then  isProp t <&&> isProp b
      else return false
  | _ => return true
+
+/-- If the `e` is a sequence of lambda `fun x₁ => fun x₂ => ... fun xₙ => b`,
+    return `b`. Otherwise return `e`.
+-/
+def getLambdaBody (e : Expr) : Expr :=
+ match e with
+ | Expr.lam _ _ b _ => getLambdaBody b
+ | _ => e
+
+
+/-- Return `true` if f corresponds to a class function. -/
+def isClassFun (f : Expr) : MetaM Bool := do
+ match f with
+ | Expr.const n _ =>
+    let ConstantInfo.defnInfo d ← getConstInfo n | return false
+    match (getLambdaBody d.value).getAppFn with
+     | Expr.proj c _ _ => return (isClass (← getEnv) c)
+     | _ => return false
+ | Expr.proj c _ _ => return (isClass (← getEnv) c)
+ | _ => return false
 
 /-- Return `true` when `e1 := ¬ ne ∧ ne =ₚₜᵣ e2`. Otherwise `false`.
  -/
@@ -357,19 +390,11 @@ def toNatCstOpExpr? (e: Expr) : Option NatCstOpInfo :=
 
 /-- Apply the following normalization rules on a `Const` expression:
      - mkConst ``Nat.zero _ ===> Expr.lit (Literal.natVal 0)
-    TODO: consider additional normalization rules.
-    This function also updates the definition dependency graph.
 -/
 def normConst (n : Name) (l : List Level) : TranslateEnvT Expr := do
   match n with
   | ``Nat.zero => mkNatLitExpr 0
-  | _ => updateConstGraph n l
-
-  where
-   -- TODO: add only function and inductive types
-   updateConstGraph (n : Name) (l : List Level) : TranslateEnvT Expr := do
-      addConstant n
-      mkExpr (mkConst n l)
+  | _ => return (mkConst n l)
 
 /-- Return `true` when `e1 := -ne ∧ ne =ₚₜᵣ e2`. Otherwise `false`.
  -/
@@ -498,7 +523,10 @@ partial def toIntCstOpExpr? (e: Expr) : Option IntCstOpInfo :=
      - #[e ``True] ===> #[``True, e]
      - #[Expr.lit _, _] ===> args
      - #[e, Expr.lit l] ===> #[Expr.lit l, e]
-     - #[e1, e2] ===> #[e2, e1] (if isConstructor e1 ∧ isConstructor e2 ∧ e2.hash < e1.hash)
+     - #[e1, e2] ===> #[e2, e1] (if isConstructor e1 ∧ isConstructor e2 ∧ isConstant e1 ∧ isConstant e2 ∧ e2 < e1)
+     - #[e1, e2] ===> #[e2, e1] (if isConstructor e1 ∧ isConstructor e2 ∧ ¬ (isConstant e1) ∧ isConstant e2)
+     - #[e1, e2] ===> args      (if isConstructor e1 ∧ isConstructor e2 ∧ isConstant e1 ∧ ¬ (isConstant e2))
+     - #[e1, e2] ===> #[e2, e1] (if isConstructor e1 ∧ isConstructor e2 ∧ ¬ (isConstant e1) ∧ ¬ (isConstant e2) ∧ e2 < e1)
      - #[e1, e2] ===> #[e2, e1] (if ¬ (isConstructor e1) ∧ isConstructor e2)
      - #[e1, e2] ===> args (if isConstructor e1 ∧ ¬ (isConstructor e2))
      - #[bvar n1, bvar n2] ===> #[bvar n2, bvar n1] (if n2 < n1)
@@ -510,7 +538,7 @@ partial def toIntCstOpExpr? (e: Expr) : Option IntCstOpInfo :=
      - #[e, fvar id] ===> #[fvar id, e]
      - #[mvar _, _] ===> args
      - #[e, mvar id] ===> #[mvar id, e]
-     - #[e1, e2] ===> #[e2, e1] (if e2.hash < e1.hash)
+     - #[e1, e2] ===> #[e2, e1] (if e2 < e1)
      - #[e1, e2] ===> args
 
     An error is triggered when args.size ≠ 2.
@@ -529,7 +557,11 @@ def reorderArgs (args : Array Expr) : MetaM (Array Expr) := do
    | _, Expr.lit _ => pure (args.swap! 0 1)
    | _, _ =>
      match (← isConstructor e1), (← isConstructor e2) with
-     | true, true => pure (swapOnCond (e2.lt e1))
+     | true, true =>
+        match hasVars e1, hasVars e2 with
+        | false, false | true, true => pure (swapOnCond (e2.lt e1))
+        | false, true => pure args
+        | true, false => pure (args.swap! 0 1)
      | false, true => pure (args.swap! 0 1)
      | true, false => pure args
      | false, false =>
@@ -645,12 +677,9 @@ partial def getUnfoldFunDef? (f: Expr) (args: Array Expr) : MetaM (Option Expr) 
        - `Expr.proj c _ _` cannot be reduced.
    -/
    isUndefinedClassFunApp (e : Expr) : MetaM Bool := do
-     match e with
-     | Expr.app .. =>
-        match (Expr.getAppFn e) with
-        | p@(Expr.proj c _ _) =>
-           pure ((← reduceProj? p).isNone && (isClass (← getEnv) c))
-        | _ => pure false
+     match e.getAppFn with
+     | p@(Expr.proj c _ _) =>
+        pure ((← reduceProj? p).isNone && (isClass (← getEnv) c))
      | _ => pure false
 
 end Solver.Optimize

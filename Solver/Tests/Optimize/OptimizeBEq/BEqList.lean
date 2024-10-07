@@ -15,6 +15,12 @@ namespace Test.BEqList
 #testOptimize [ "BEqListCst_2" ] ∀ (α : Type) (x y z : α), [BEq α] → List.nil == [x, y, z] ===>
                                  ∀ (α : Type) (_x _y _z : α), [BEq α] → False
 
+-- [x, y] == [x, y, z] ===> False
+-- NOTE: Reduce to False via `reduceApp` rule, which is also applicable on recursive functions
+-- TODO: remove unused quantifiers when COI performed on forall
+#testOptimize [ "BEqListCst_3" ] ∀ (α : Type) (x y z : α), [BEq α] → [x, y] == [x, y, z] ===>
+                                        ∀ (α : Type) (_x _y _z : α), [BEq α] → False
+
 
 /-! Test cases to ensure that the following simplification rules must not be applied on
     generic ``List instances that have not been reduced via `reduceApp` rule.`
@@ -22,32 +28,58 @@ namespace Test.BEqList
      - `e1 == e2 ==> e2 == e1 (if e2 <ₒ e1)`
 -/
 
--- [x] == [x] ===> true = List.beq [x] [x]
+-- [x] == [x] ===> x == x
+-- NOTE: Reduction via `reduceApp` rule, which is also applicable on recursive functions.
 #testOptimize [ "BEqListUnchanged_1" ] ∀ (α : Type) (x : α), [BEq α] → [x] == [x] ===>
-                                       ∀ (α : Type) (x : α), [BEq α] → true = (List.beq [x] [x])
+                                       ∀ (α : Type) (x : α), [BEq α] → true = (x == x)
 
--- [x] == [y] ===> true = List.beq [x] [y]
+-- [x] == [y] ===> x == y
+-- NOTE: Reduction via `reduceApp` rule, which is also applicable on recursive functions.
 #testOptimize [ "BEqListUnchanged_2" ] ∀ (α : Type) (x y : α), [BEq α] → [x] == [y] ===>
-                                       ∀ (α : Type) (x y : α), [BEq α] → true = (List.beq [x] [y])
+                                       ∀ (α : Type) (x y : α), [BEq α] → true = (x == y)
 
--- [x, y] == [x, y, z] ===> true = List.beq [x, y] [x, y, z] (with Type(x) = α)
--- NOTE: Can result to false with unfolding of recursive function
-#testOptimize [ "BEqListUnchanged_3" ] ∀ (α : Type) (x y z : α), [BEq α] → [x, y] == [x, y, z] ===>
-                                       ∀ (α : Type) (x y z : α), [BEq α] → true = (List.beq [x, y] [x, y, z])
+-- ∀ (α : Type) (x y z : α), [BEq α] → [x, y, z] == [x, y, z] ===>
+-- ∀ (α : Type) (x y z : α), [BEq α] → true = ((!(x == x) || ((!(y == y) || (z == z)) && (y == y))) && (x == x))
+-- NOTE: Reduction via `reduceApp` rule, which is also applicable on recursive functions
+-- NOTE: can be reduced to (x == x) && (y == y) && (z == z) with additional boolean simplification rules
+#testOptimize [ "BEqListUnchanged_3" ] ∀ (α : Type) (x y z : α), [BEq α] → [x, y, z] == [x, y, z] ===>
+                                       ∀ (α : Type) (x y z : α), [BEq α] →
+                                         true = ((!(x == x) || ((!(y == y) || (z == z)) && (y == y))) && (x == x))
 
--- [x, y, z] == [x, y, z] ===> true = List.beq [x, y, z] [x, y, z] (with Type(x) = α)
-#testOptimize [ "BEqListUnchanged_4" ] ∀ (α : Type) (x y z : α), [BEq α] → [x, y, z] == [x, y, z] ===>
-                                       ∀ (α : Type) (x y z : α), [BEq α] → true = (List.beq [x, y, z] [x, y, z])
 
-
--- [y, z, x] == [x, y, z] ===> true = List.beq [y, z, x] [x, y, z] (with Type(x) = α)
-#testOptimize [ "BEqListUnchanged_5" ] ∀ (α : Type) (x y z : α), [BEq α] → [y, z, x] == [x, y, z] ===>
-                                       ∀ (α : Type) (x y z : α), [BEq α] → true = (List.beq [y, z, x] [x, y, z])
+-- ∀ (α : Type) (x y z : α), [BEq α] → [y, z, x] == [x, y, z] ===>
+-- ∀ (α : Type) (x y z : α), [BEq α] → true = ((!(y == x) || ((!(z == y) || (x == z)) && (z == y))) && (y == x))
+-- NOTE: Reduction via `reduceApp` rule, which is also applicable on recursive functions
+-- NOTE: can be reduced to (y == x) && (z == y) && (x == z) with additional boolean simplification rules
+#testOptimize [ "BEqListUnchanged_4" ] ∀ (α : Type) (x y z : α), [BEq α] → [y, z, x] == [x, y, z] ===>
+                                       ∀ (α : Type) (x y z : α), [BEq α] →
+                                         true = ((!(y == x) || ((!(z == y) || (x == z)) && (z == y))) && (y == x))
 
 
 /-! Test cases to ensure that `reduceApp` is properly called
     when `BEq.beq` operands are reduced to constant values via optimization. -/
 
--- TODO: add test cases when normalization and simplification rules are introduced for List.
+variable (α : Type) [BEq α]
+variable (x : α)
+variable (y : α)
+variable (z : α)
+
+-- List.append [x] [y] == [x, y, z] ===> false
+#testOptimize [ "BEqListReduce_1" ] List.append [x] [y] == [x, y, z] ===> false
+
+-- List.append [x] [y] == [z, x, y] ===> false
+#testOptimize [ "BEqListReduce_2" ] List.append [x] [y] == [z, x, y] ===> false
+
+-- List.append [x] [y, z, x] == [y, z, x] ===> false
+#testOptimize [ "BEqListReduce_3" ] List.append [x] [y, z, x] == [y, z, x] ===> false
+
+-- List.drop 2 [y, z, x] == [y, z, x] ===> false
+#testOptimize [ "BEqListReduce_4" ] List.drop 2 [y, z, x] == [y, z, x] ===> false
+
+-- List.take 2 [y, z, x] == [y, z, x] ===> false
+#testOptimize [ "BEqListReduce_5" ] List.take 2 [y, z, x] == [y, z, x] ===> false
+
+
+-- TODO: add other test cases when normalization and simplification rules are introduced for List.
 
 end Test.BEqList

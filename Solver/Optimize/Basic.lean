@@ -30,9 +30,7 @@ mutual
       withTranslateEnvCache e fun _ => do
       logReprExpr sOpts "Optimize:" e
       match e with
-      | Expr.fvar v =>
-          -- adding free variable not required
-          addFVar v >>= (fun _ => return e)
+      | Expr.fvar .. => return e
       | Expr.const n l => normConst n l
       | Expr.forallE n t b bi =>
           let t' ← visit t

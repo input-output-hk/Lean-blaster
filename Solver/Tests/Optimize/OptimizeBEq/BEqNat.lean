@@ -48,6 +48,13 @@ opaque z : Nat
 -- Nat.beq ((20 : Nat) + 40) (60 * 2) ===> false
 #testOptimize [ "BEqNatCst_12" ] Nat.beq ((20 : Nat) + 40) (60 * 2) ===> false
 
+-- [y, x, z] == [x, y] ===> false
+-- NOTE: Reduce to false via `reduceApp` rule, which is also applicable on recursive functions.
+#testOptimize [ "BEqNatCst_13" ] [y, x, z] == [x, y] ===> false
+
+-- [y, x, z] == [y, x, z] ===> true
+-- NOTE: Reduce to false via `reduceApp` rule, which is also applicable on recursive functions.
+#testOptimize [ "BEqNatCst_14" ] [y, x, z] == [y, x, z] ===> true
 
 /-! Test cases for simplification rule `e1 == e2 ==> true (if e1 =ₚₜᵣ e2)`. -/
 
@@ -99,29 +106,28 @@ opaque z : Nat
 -- (y + z) == x ===> x == (y + z)
 #testOptimize [ "BEqNatUnchanged_3" ] ∀ (x y z : Nat), (y + z) == x ===> ∀ (x y z : Nat), true = (x == (Nat.add y z))
 
--- [y, x, z] == [x, y, z] ===> List.beq [y, x, z] [x, y, z]
-#testOptimize [ "BEqNatUnchanged_4" ] [y, x, z] == [x, y, z] ===> List.beq [y, x, z] [x, y, z]
+-- [y, x, z] == [x, y, z] ===> x == y
+-- NOTE: Reduction via `reduceApp` rule, commutative of beq on Nat and absorption rule on &&
+#testOptimize [ "BEqNatUnchanged_4" ] [y, x, z] == [x, y, z] ===> x == y
 
--- [y, x, z] == [x, y] ===> List.beq [y, x, z] [x, y]
--- NOTE: Can result to false with unfolding of recursive function
-#testOptimize [ "BEqNatUnchanged_5" ] [y, x, z] == [x, y] ===> List.beq [y, x, z] [x, y]
 
--- [y, x, z] == [y, x, z] ===> List.beq [y, x, z] [y, x, z]
--- NOTE: Can result to true with unfolding of recursive function
-#testOptimize [ "BEqNatUnchanged_6" ] [y, x, z] == [y, x, z] ===> List.beq [y, x, z] [y, x, z]
+-- ∀ (x y z : Nat), [y, x, z] == [x, y, z] ===> ∀ (x y z : Nat), x == y
+-- NOTE: Reduction via `reduceApp` rule, commutative of beq on Nat and absorption rule on &&
+#testOptimize [ "BEqNatUnchanged_5" ] ∀ (x y z : Nat), [y, x, z] == [x, y, z] ===>
+                                      ∀ (x y z : Nat), true = (x == y)
 
--- ∀ (x y z : Nat), [y, x, z] == [x, y, z] ===> ∀ (x y z : Nat), List.beq [y, x, z] [x, y, z]
-#testOptimize [ "BEqNatUnchanged_7" ] ∀ (x y z : Nat), [y, x, z] == [x, y, z] ===>
-                                      ∀ (x y z : Nat), true = (List.beq [y, x, z] [x, y, z])
 
--- ∀ (x y z : Nat), [x, y, z] == [x, y, z] ===> ∀ (x y z : Nat), true = List.beq [x, y, z] [x, y, z]
--- NOTE: Can result to true with unfolding of recursive function
-#testOptimize [ "BEqNatUnchanged_8" ] ∀ (x y z : Nat), [x, y, z] == [x, y, z] ===>
-                                      ∀ (x y z : Nat), true = (List.beq [x, y, z] [x, y, z])
+-- ∀ (x y z v : Nat), [y, x, z] == [x, y, v] ===>
+-- ∀ (x y z v : Nat), true = ((!(x == y) || ((!(x == y) || (z == v)) && (x == y))) && (x == y))
+-- NOTE: Reduction via `reduceApp` rule, commutative of beq on Int and absorption rule on &&
+-- NOTE: can be reduced to (x == y) && (z == v) with additional boolean simplification rules.
+#testOptimize [ "BEqNatUnchanged_6" ] ∀ (x y z v : Nat), [y, x, z] == [x, y, v] ===>
+                                      ∀ (x y z v : Nat), true = ((!(x == y) || ((!(x == y) || (z == v)) && (x == y))) && (x == y))
+
 
 -- ∀ (x : Nat), (x == 234) ===> ∀ (x : Nat), (x == 234)
 -- NOTE: We here provide the internal representation to ensure that 234 is properly reduced to `Expr.lit (Literal.natVal 234)`.
-def beqNatUnchanged_9 : Expr :=
+def beqNatUnchanged_7 : Expr :=
   Lean.Expr.forallE `x
     (Lean.Expr.const `Nat [])
     (Lean.Expr.app
@@ -137,12 +143,12 @@ def beqNatUnchanged_9 : Expr :=
       (Lean.Expr.bvar 0)))
     (Lean.BinderInfo.default)
 
-elab "beqNatUnchanged_9" : term => return beqNatUnchanged_9
+elab "beqNatUnchanged_7" : term => return beqNatUnchanged_7
 
-#testOptimize [ "BEqNatUnchanged_9" ] ∀ (x : Nat), (x == 234) ===> beqNatUnchanged_9
+#testOptimize [ "BEqNatUnchanged_7" ] ∀ (x : Nat), (x == 234) ===> beqNatUnchanged_7
 
 -- ∀ (x : Nat), (Nat.beq x 234) ===> ∀ (x : Nat), (x == 234)
-#testOptimize [ "BEqNatUnchanged_10" ] ∀ (x : Nat), Nat.beq x 234 ===> beqNatUnchanged_9
+#testOptimize [ "BEqNatUnchanged_8" ] ∀ (x : Nat), Nat.beq x 234 ===> beqNatUnchanged_7
 
 
 /-! Test cases for simplification rule `e1 == e2 ==> e2 == e1 (if e2 <ₒ e1)`. -/

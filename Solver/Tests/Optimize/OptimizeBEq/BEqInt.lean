@@ -43,6 +43,20 @@ opaque z : Int
 #testOptimize [ "BEqIntCst_10" ] ∀ (x y z : Int), (List.nil == [x, y, z]) ===>
                                  ∀ (_x _y _z : Int), False
 
+-- [y, x, z] == [x, y] ===> List.beq [y, x, z] [x, y]
+-- NOTE: Reduce to false via `reduceApp` rule, which is also applicable on recursive functions.
+#testOptimize [ "BEqIntCst_11" ] [y, x, z] == [x, y] ===> false
+
+
+-- [y, x, z] == [y, x, z] ===> true
+-- NOTE: Reduce to true via `reduceApp` rule, which is also applicable on recursive functions.
+#testOptimize [ "BEqIntCst_12" ] [y, x, z] == [y, x, z] ===> true
+
+
+-- ∀ (x y z : Int), [x, y, z] == [x, y, z] ===> True
+-- NOTE: Reduce to True via `reduceApp` rule, which is also applicable on recursive functions.
+#testOptimize [ "BEqIntCst_13" ] ∀ (x y z : Int), [x, y, z] == [x, y, z] ===> True
+
 
 /-! Test cases for simplification rule `e1 == e2 ==> true (if e1 =ₚₜᵣ e2)`. -/
 
@@ -88,28 +102,26 @@ opaque z : Int
 -- (y + z) == x ===> x == (y + z)
 #testOptimize [ "BEqIntUnchanged_3" ] ∀ (x y z : Int), (y + z) == x ===> ∀ (x y z : Int), true = (x == (Int.add y z))
 
--- [y, x, z] == [x, y, z] ===> List.beq [y, x, z] [x, y, z]
-#testOptimize [ "BEqIntUnchanged_4" ] [y, x, z] == [x, y, z] ===> List.beq [y, x, z] [x, y, z]
+-- [y, x, z] == [x, y, z] ===> x == y
+-- NOTE: Reduction via `reduceApp` rule, commutative of beq on Int and absorption rule on &&
+#testOptimize [ "BEqIntUnchanged_4" ] [y, x, z] == [x, y, z] ===> x == y
 
--- [y, x, z] == [x, y] ===> List.beq [y, x, z] [x, y]
--- NOTE: Can result to false with unfolding of recursive function
-#testOptimize [ "BEqIntUnchanged_5" ] [y, x, z] == [x, y] ===> List.beq [y, x, z] [x, y]
+-- ∀ (x y z : Int), [y, x, z] == [x, y, z] ===> ∀ (x y z : Int), true = (x == y)
+-- NOTE: Reduction via `reduceApp` rule, commutative of beq on Int and absorption rule on &&
+-- TODO: remove unused quantifiers when COI performed on forall
+#testOptimize [ "BEqIntUnchanged_5" ] ∀ (x y z : Int), [y, x, z] == [x, y, z] ===>
+                                      ∀ (x y _z : Int), true = (x == y)
 
--- [y, x, z] == [y, x, z] ===> List.beq [y, x, z] [y, x, z]
--- NOTE: Can result to true with unfolding of recursive function
-#testOptimize [ "BEqIntUnchanged_6" ] [y, x, z] == [y, x, z] ===> List.beq [y, x, z] [y, x, z]
-
--- ∀ (x y z : Int), [y, x, z] == [x, y, z] ===> ∀ (x y z : Int), List.beq [y, x, z] [x, y, z]
-#testOptimize [ "BEqIntUnchanged_7" ] ∀ (x y z : Int), [y, x, z] == [x, y, z] ===>
-                                      ∀ (x y z : Int), true = (List.beq [y, x, z] [x, y, z])
-
--- ∀ (x y z : Int), [x, y, z] == [x, y, z] ===> ∀ (x y z : Int), true = List.beq [x, y, z] [x, y, z]
--- NOTE: Can result to true with unfolding of recursive function
-#testOptimize [ "BEqIntUnchanged_8" ] ∀ (x y z : Int), [x, y, z] == [x, y, z] ===> ∀ (x y z : Int), true = (List.beq [x, y, z] [x, y, z])
+-- ∀ (x y z v : Int), [y, x, z] == [x, y, v] ===>
+-- ∀ (x y z v : Int), true = ((!(x == y) || ((!(x == y) || (z == v)) && (x == y))) && (x == y))
+-- NOTE: Reduction via `reduceApp` rule, commutative of beq on Int and absorption rule on &&
+-- NOTE: can be reduced to (x == y) && (z == v) with additional boolean simplification rules.
+#testOptimize [ "BEqIntUnchanged_6" ] ∀ (x y z v : Int), [y, x, z] == [x, y, v] ===>
+                                      ∀ (x y z v : Int), true = ((!(x == y) || ((!(x == y) || (z == v)) && (x == y))) && (x == y))
 
 -- ∀ (x : Int), (x == 1234) ===> ∀ (x : Int), (x == 1234)
 -- NOTE: We here provide the internal representation to ensure that 1234 is properly reduced to `Int.ofNat (Expr.lit (Literal.natVal 1234))`.
-def beqIntUnchanged_9 : Expr :=
+def beqIntUnchanged_7 : Expr :=
   Lean.Expr.forallE `x
     (Lean.Expr.const `Int [])
     (Lean.Expr.app
@@ -127,13 +139,13 @@ def beqIntUnchanged_9 : Expr :=
           (Lean.Expr.bvar 0)))
     (Lean.BinderInfo.default)
 
-elab "beqIntUnchanged_9" : term => return beqIntUnchanged_9
+elab "beqIntUnchanged_7" : term => return beqIntUnchanged_7
 
-#testOptimize [ "BEqIntUnchanged_9" ] ∀ (x : Int), (x == 1234) ===> beqIntUnchanged_9
+#testOptimize [ "BEqIntUnchanged_7" ] ∀ (x : Int), (x == 1234) ===> beqIntUnchanged_7
 
 -- ∀ (x : Int), (x = -453) ===> ∀ (x : Int), (x = -453)
 -- NOTE: We here provide the internal representation to ensure that -453 is properly reduced to `Int.negSucc (Expr.lit (Literal.natVal 452))`.
-def beqIntUnchanged_10 : Expr :=
+def beqIntUnchanged_8 : Expr :=
   Lean.Expr.forallE `x
     (Lean.Expr.const `Int [])
     (Lean.Expr.app
@@ -151,9 +163,9 @@ def beqIntUnchanged_10 : Expr :=
             (Lean.Expr.bvar 0)))
     (Lean.BinderInfo.default)
 
-elab "beqIntUnchanged_10" : term => return beqIntUnchanged_10
+elab "beqIntUnchanged_8" : term => return beqIntUnchanged_8
 
-#testOptimize [ "BEqIntUnchanged_10" ] ∀ (x : Int), x == -453 ===> beqIntUnchanged_10
+#testOptimize [ "BEqIntUnchanged_8" ] ∀ (x : Int), x == -453 ===> beqIntUnchanged_8
 
 
 /-! Test cases for simplification rule `e1 == e2 ==> e2 == e1 (if e2 <ₒ e1)`. -/
