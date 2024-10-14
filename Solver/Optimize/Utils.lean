@@ -111,7 +111,10 @@ def isCtorName (c : Name) : MetaM Bool := do
 /-- Return `true` if e corresponds to a constructor expression. -/
 def isCtorExpr (e : Expr) : MetaM Bool := do
   match e with
-  | Expr.const n _ => pure (← getConstInfo n).isCtor
+  | Expr.const n _ =>
+       if isRecFunInternal n
+       then pure false
+       else pure (← getConstInfo n).isCtor
   | _ => pure false
 
 /-- Return `true` if e corresponds to an enumerator constructor (i.e., constructor without any parameters).
@@ -119,9 +122,11 @@ def isCtorExpr (e : Expr) : MetaM Bool := do
 def isEnumConst (e : Expr) : MetaM Bool := do
  match e with
  | Expr.const n _ =>
-     match (← getConstInfo n) with
-     | ConstantInfo.ctorInfo info => pure (info.numFields == 0 && info.numParams == 0 && !info.type.isProp)
-     | _ => pure false
+     if isRecFunInternal n
+     then pure false
+     else match (← getConstInfo n) with
+           | ConstantInfo.ctorInfo info => pure (info.numFields == 0 && info.numParams == 0 && !info.type.isProp)
+           | _ => pure false
  | _ => pure false
 
 /-- Return `true` if e correponds to a fully applied parametric constructor.
@@ -133,13 +138,15 @@ def isFullyAppliedConst (e : Expr) : MetaM Bool := do
      Expr.withApp e fun f as => do
        match f with
        | Expr.const n _ =>
-          match (← getConstInfo n) with
-          | ConstantInfo.ctorInfo info =>
-             -- should be fully applied
-             -- numFields corresponds to the constructor parameters
-             -- numParams corresponds to the Inductive type parameters
-             pure (as.size == info.numFields + info.numParams && !info.type.isProp)
-          | _ => pure false
+          if isRecFunInternal n
+          then pure false
+          else match (← getConstInfo n) with
+                | ConstantInfo.ctorInfo info =>
+                   -- should be fully applied
+                   -- numFields corresponds to the constructor parameters
+                   -- numParams corresponds to the Inductive type parameters
+                   pure (as.size == info.numFields + info.numParams && !info.type.isProp)
+                | _ => pure false
        | _ => pure false
  | _ => pure false
 
@@ -164,6 +171,7 @@ def isImplies (e : Expr) : MetaM Bool :=
      else return false
  | _ => return true
 
+
 /-- If the `e` is a sequence of lambda `fun x₁ => fun x₂ => ... fun xₙ => b`,
     return `b`. Otherwise return `e`.
 -/
@@ -177,10 +185,13 @@ def getLambdaBody (e : Expr) : Expr :=
 def isClassFun (f : Expr) : MetaM Bool := do
  match f with
  | Expr.const n _ =>
-    let ConstantInfo.defnInfo d ← getConstInfo n | return false
-    match (getLambdaBody d.value).getAppFn with
-     | Expr.proj c _ _ => return (isClass (← getEnv) c)
-     | _ => return false
+    if isRecFunInternal n
+    then return false
+    else
+      let ConstantInfo.defnInfo d ← getConstInfo n | return false
+      match (getLambdaBody d.value).getAppFn with
+      | Expr.proj c _ _ => return (isClass (← getEnv) c)
+      | _ => return false
  | Expr.proj c _ _ => return (isClass (← getEnv) c)
  | _ => return false
 
@@ -627,21 +638,9 @@ def reorderIntOp (args: Array Expr) : MetaM (Array Expr) := do
   then pure (args'.swap! 0 1)
   else pure args'
 
--- TO GET REC DEFINITION
--- IF let some (.defnInfo info) := (← getEnv).find? f then
--- match (← getUnfoldEqnFor? f) with
--- | none => throwError "getUnfoldFunDef?: equation theorem expected for {f}"
--- | some eqnThm =>
---    forallTelescopeReducing ((← getConstInfo eqnThm).type) fun eq_args eqn => do
---      let some (_, _, e) := eqn.eq? | throwError "getUnfoldFunDef: expecting equality got {eqn}"
---      if isRecFun f e
---      then pure none
---      else pure (Expr.beta (← mkLambdaFVars eq_args e) args)
-
 
 /-- Return true if `n` corresponds to a matcher expression name. -/
 def isMatchExpr (n : Name) : MetaM Bool := Option.isSome <$> getMatcherInfo? n
-
 
 /-- Unfold fuction `f` w.r.t. the effective parameters `args` only when:
      - f is not a constructor
@@ -653,7 +652,7 @@ def isMatchExpr (n : Name) : MetaM Bool := Option.isSome <$> getMatcherInfo? n
 partial def getUnfoldFunDef? (f: Expr) (args: Array Expr) : MetaM (Option Expr) := do
  match f with
  | Expr.const n l =>
-   if (isOpaqueFun n args) || (← isRecursiveDefinition n) || (← isMatchExpr n)
+   if (isOpaqueFun n args) || (← isRecursiveFun n) || (← isMatchExpr n)
    then return none
    else match (← getConstInfo n) with
         | cInfo@(ConstantInfo.defnInfo _) =>

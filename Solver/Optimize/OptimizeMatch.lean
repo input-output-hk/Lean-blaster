@@ -318,4 +318,30 @@ def normMatchExpr? (idx : Nat) (discrs : Array Expr) (lhs : Array Expr) (alt : E
       return args
 
 
+/-- Given a `match` application expression of the form
+     `f.match.n [p₁, ..., pₙ, pa₍₁₎₍₁₎ → .. → pa₍₁₎₍ₖ₎ → rhs₁, ..., pa₍ₘ₎₍₁₎ → .. → pa₍ₘ₎₍ₖ₎ → rhsₘ]`,
+    return `g.match.n q₁, ..., qₕ, pa₍₁₎₍₁₎ → .. → pa₍₁₎₍ₖ₎ → rhs₁, ..., pa₍ₘ₎₍₁₎ → .. → pa₍ₘ₎₍ₖ₎ → rhsₘ`
+    if `Type(f.match.n [p₁, ..., pₙ]) := `g.match.n [q₁, ..., qₕ]` exists in match cache.
+    Otherwise, perform the following:
+      - Add `Type(f.match.n [p₁, ..., pₙ]) := `f.match.n [q₁, ..., qₕ]` in match cache
+      - return `f.match.n [p₁, ..., pₙ, pa₍₁₎₍₁₎ → .. → pa₍₁₎₍ₖ₎ → rhs₁, ..., pa₍ₘ₎₍₁₎ → .. → pa₍ₘ₎₍ₖ₎ → rhsₘ]`
+-/
+def structEqMatch? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
+ match f with
+ | Expr.const n _ =>
+    let some matcherInfo ← getMatcherInfo? n | return none
+    -- let cInfo ← getConstInfo n
+    -- let matchFun ← instantiateValueLevelParams cInfo dlevel
+    let auxApp := mkAppN f args[0 : matcherInfo.getFirstDiscrPos]
+    let auxAppType ← inferType auxApp
+    let env ← get
+    match env.matchCache.find? auxAppType with
+    | some gmatch =>
+       let altArgs := args[matcherInfo.getFirstDiscrPos : args.size]
+       some <$> mkAppExpr gmatch altArgs
+    | none =>
+       set {env with matchCache := env.matchCache.insert auxAppType auxApp}
+       some <$> mkAppExpr f args
+ | _ => pure none
+
 end Solver.Optimize

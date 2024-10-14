@@ -320,6 +320,23 @@ def iteNamedPatternList (x : List Int) (y : List Nat) : Nat :=
 #testOptimize ["MatchToITE_16"] ∀ (x : List Int) (y : List Nat), namedPatternList x y = iteNamedPatternList x y ===> True
 
 
+def iteReducedMatchNil (x : List Int) (y : List Nat) : Nat :=
+ if x = [] ∧ y = [] then 0
+ else if y = [4, 5, 6] then List.length x + 5
+ else List.length x + List.length y + 8
+
+-- ∀ (y : List Nat), namedPatternList List.nil y = iteReducedMatchNil List.nil y ===> True
+#testOptimize ["MatchToITE_17"] ∀ (y : List Nat), namedPatternList List.nil y = iteReducedMatchNil List.nil y ===> True
+
+
+def iteReducedMatchCons (x : List Int) (y : List Nat) : Nat :=
+ if y = [4, 5, 6] then List.length x + 5
+ else List.length x + List.length y + 8
+
+-- ∀ (m n : Nat) (y : List Nat), namedPatternList [m, n] y = iteReducedMatchCons [m, n] y ===> True
+#testOptimize ["MatchToITE_18"] ∀ (m n : Nat) (y : List Nat), namedPatternList [m, n] y = iteReducedMatchCons [m, n] y ===> True
+
+
 /-! Test cases to validate when match expression must NOT be normalized. -/
 
 
@@ -438,5 +455,6 @@ def discrAbstractUnchanged (x : List α) (y : Option α) : Bool :=
                                                      (fun (_ : List α) => false)
                                                      (fun (_ : Option α) => false)
                                                      (fun (_ : List α) (_ : Option α) => true) )
+
 
 end Tests.UnfoldMatch

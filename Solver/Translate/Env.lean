@@ -15,6 +15,38 @@ structure TranslateEnv where
   synthDecidableCache : HashMap Lean.Expr Lean.Expr
   /-- Cache memoizing the whnf result. -/
   whnfCache : HashMap Lean.Expr Lean.Expr
+  /-- Cache memoizing type for a match application of the form
+       `f.match.n [p₁, ..., pₙ, pa₍₁₎₍₁₎ → .. → pa₍₁₎₍ₖ₎ → rhs₁, ..., pa₍ₘ₎₍₁₎ → .. → pa₍ₘ₎₍ₖ₎ → rhsₘ]`, s.t.:
+      An entry in this map is expected to be of the form `Type(f.match.n [p₁, ..., pₙ])` := fun.match.n p₁ ... pₙ`
+      where, p₁, ..., pₙ correspond to the arguments instantiating polymorphic params.
+      This is used to determine equivalence between match functions (see function `optimizeMatch`).
+  -/
+  matchCache: HashMap Lean.Expr Lean.Expr
+  /-- Cache memoizing instance of recursive functions.
+      An entry in this map is expected to be of the form `f x₁ ... xₙ := (fᵢₙₛₜ, fdef)`,
+      where:
+        - `x₁ .. xₙ`: correspond to the arguments instantiating the polymorphic parameters of `f` (if any).
+        - fᵢₙₛₜ: correspond to a generated instance name (see function `updateRecFunInst`).
+        - fdef: correspond to the recursive function body.
+  -/
+  recFunInstCache : HashMap Lean.Expr (Lean.Name × Lean.Expr)
+  /-- Cache keeping track of visited recursive function. -/
+  recFunCache: NameHashSet
+  /-- Map to keep the normalized definition for each recursive function,
+      which is also used to determine structural equivalence between functions
+      (see function `storeRecFunDef`).
+  -/
+  recFunMap: HashMap Lean.Expr Lean.Expr
+  /-- Same as recFunMap but is populated only when an opaque recursive function
+      (e.g., `Int.add`, `Int.pow`, etc) definition matches a non-opaque recursive
+      definition. If there is at least one entry in this map, rewriting is
+      performed again until no entry is introduced in replayRecFunMap.
+      (see function `storeRecFunDef`).
+      The rewriting will restart from the old TranslateEnv instance with:
+        - Map recFunMap replaced with replayRecFunMap
+        - Maps rewriteCache, recFunInstCache and replayRecFunMap emptied
+  -/
+  replayRecFunMap: HashMap Lean.Expr Lean.Expr
  deriving Inhabited
 
 abbrev TranslateEnvT := StateRefT TranslateEnv MetaM
@@ -64,6 +96,49 @@ def withTranslateEnvCache (a : Expr) (f: Unit → TranslateEnvT Expr) : Translat
      updateRewriteCache a b
      return b
 
+/-- Add a recursive function name to the visited cache. -/
+def cacheFunName (f : Name) : TranslateEnvT Unit := do
+ let env ← get
+ set {env with recFunCache := env.recFunCache.insert f }
+
+
+/-- Internal genralized rec fun const to be used for in normalized recursive
+    definition kept in `recFunMap`
+-/
+def internalRecFun : Name := `_recFun
+
+
+/-- Return `true` if f corresponds to internal const ``_recFun. -/
+def isRecFunInternal (f : Name) : Bool := f == internalRecFun
+
+/-- Return `true` if f is a const expression corresponding to internal const ``_recFun. -/
+def isRecFunInternalExpr (f : Expr) : Bool :=
+ match f with
+ | Expr.const n _ => isRecFunInternal n
+ | _ => false
+
+
+/-- Return `true` if `f` either corresponds to internal const ``_recFun or
+    is already in the recursive function cache. -/
+def isVisitedRecFun (f : Name) : TranslateEnvT Bool :=
+ return ((isRecFunInternal f) || (← get).recFunCache.contains f)
+
+/-- Return `true` if `f` corresponds to a theorem name. -/
+def isTheorem (f : Name) : MetaM Bool := do
+  match (← getConstInfo f) with
+  | ConstantInfo.thmInfo _ => pure true
+  | _ => pure false
+
+
+/-- Return `true` if `f` is a recursive function or corresponds to internal const ``_recFun. -/
+def isRecursiveFun (f : Name) : MetaM Bool := do
+  if (isRecFunInternal f)
+  then return true
+  else if (← isTheorem f)
+       then return false
+       else isRecursiveDefinition f
+
+#print ConstantInfo
 /-- Return `true` boolean constructor -/
 def mkBoolTrue : TranslateEnvT Expr := mkExpr (mkConst ``true)
 
@@ -264,5 +339,105 @@ def whnfExpr (a : Expr) : TranslateEnvT Expr := do
      let b ← whnf a
      set {env with whnfCache := env.whnfCache.insert a b}
      return b
+
+/-- Given application `f x₁ ... xₙ`, return the arguments of `f` instantiating
+    the polymorphic parameters of `f`.
+    NOTE: It is assumed that all implicit arguments appear first in sequence `x₁ ... xₙ`, i.e.,
+    the search is stopped when the first explicit argument is encountered.
+-/
+def getImplicitArgs (f : Expr) (args : Array Expr) : MetaM (Array Expr) := do
+  let mut iargs := #[]
+  let fInfo ← getFunInfoNArgs f args.size
+  for i in [:args.size] do
+    if i < fInfo.paramInfo.size then
+      let aInfo := fInfo.paramInfo[i]!
+      if aInfo.isExplicit
+      then return iargs
+      else iargs := iargs.push args[i]!
+  return iargs
+
+
+/-- Replace recursive function call `f x₀ ... xₙ` with `_recFun xₖ ... xₙ` in `body` s.t.:
+    - `xₖ ... xₙ`: correspond to the explicit arguments of `f` and are derived according
+      to the provided implicit arguments `iargs`, with `k = iargs.size - 1`.
+   NOTE: that `k = 0` when `iargs.size = 0`.
+   NOTE: replacing `f x₀ ... xₙ` with generic name `_recFun` applied to only explicit arguments
+   facilitates the detection of structurally equivalent recursive functions.
+-/
+def generalizeRecCall (f : Name) (us : List Level) (iargs : Array Expr) (body : Expr) : TranslateEnvT Expr := do
+ let body' ←
+   if iargs.size > 0
+   then
+     let cinfo ← getConstInfo f
+     pure (body.instantiateLevelParams cinfo.levelParams us)
+   else pure body
+ let genRec ← mkExpr (mkConst internalRecFun)
+ return body'.replace (replacePred genRec)
+
+where
+
+  replacePred (recFun : Expr) (e : Expr) : Option Expr := do
+   match e.getAppFn with
+   | Expr.const rn _ =>
+      Expr.withApp e fun _ args => do
+       if rn == f
+       then some (mkAppN recFun args[iargs.size : args.size])
+       else none
+   | _ => none
+
+/-- Given recursive function `f`, implicits arguments `x₀ ... xₖ` (if any) and `fbody` corresponding to `f`'s definition,
+    update the recursive instance cache (i.e., `recFunInstCache`), when there is no entry for `f x₀ ..., xₖ, s.t.:
+      - when k > 0:
+        - let fi := f ++ _Inst_ ++ freshId
+        - add `f x₁ ... xₖ := (fi, fbody)` in cache
+      - when k = 0:
+         - add f := (f, body) in cache
+    An error is triggered if `f` is not a function name expression.
+-/
+def updateRecFunInst (f : Expr) (iargs : Array Expr) (fbody : Expr) : TranslateEnvT Unit := do
+  match f with
+  | Expr.const n _ =>
+     let auxApp := if iargs.size > 0 then mkAppN f iargs else f
+      let env ← get
+      unless (env.recFunInstCache.find? auxApp).isNone do
+       let fi ←
+          if iargs.size > 0
+          then
+            let id ← mkFreshId
+            pure (n ++ `_Inst_ ++ id)
+          else pure n
+       set {env with recFunInstCache := env.recFunInstCache.insert auxApp (fi, fbody)}
+  | _ => throwError "updateRecFunInst: function name expression expected but got {reprStr f}"
+
+/-- Given application `f x₁ ... xₙ`, return `some (fi, fbody)` when:
+     - `f x₁ ... xₖ := (fi, fbody)` is in cache and `x₁ ... xₖ` correspond to the implicit arguments of `f`; or
+     - `f := (f, fbody)` is in cache and there is no implicit arguments in `x₁ ... xₙ`.
+    Otherwise return `none`.
+-/
+def getRecFunInstName? (f : Expr) (args : Array Expr) : TranslateEnvT (Option (Name × Expr)) := do
+  let env ← get
+  let iargs ← getImplicitArgs f args
+  let auxApp  := if iargs.size > 0 then mkAppN f iargs else f
+  return (env.recFunInstCache.find? auxApp)
+
+/-- Return `fₙ` if `body := fₙ` is already in the recursive function map.
+    Otherwise, the following actions are performed:
+      - update recursive function map with `body := f iargs`
+      - update polymorphic instance cache if necessary (see function `updateRecFunInst`)
+      - return `f iargs`.
+    Assumes that the recursive function call on `f` has been replaced with the generic call `_recFun`
+    (see function `generalizeRecCall`).
+    Assumes that `iargs` only contain the implicit arguments for `f` (if any).
+-/
+def storeRecFunDef (f : Expr) (iargs : Array Expr) (body : Expr) : TranslateEnvT Expr := do
+ let env ← get
+  match env.recFunMap.find? body with
+  | some fb => return fb
+  | none =>
+     let auxApp ← mkAppExpr f iargs
+     set {env with recFunMap := env.recFunMap.insert body auxApp}
+     updateRecFunInst f iargs body
+     return auxApp
+
 
 end Solver

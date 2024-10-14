@@ -39,7 +39,9 @@ mutual
       | Expr.app .. =>
           Expr.withApp e fun rf ras => do
           -- apply optimization on params first before reduction
-          let fInfo ← getFunInfoNArgs rf ras.size
+          let fInfo ← if isRecFunInternalExpr rf
+                      then pure { } -- internal generalize rec call only have implicit args (see `generalizeRecCall`)
+                      else getFunInfoNArgs rf ras.size
           let mut mas := ras
           for i in [:ras.size] do
             if i < fInfo.paramInfo.size then
@@ -60,9 +62,8 @@ mutual
               if let some fdef ← getUnfoldFunDef? rf mas then return (← visit fdef)
               -- normalize match expression to ite
               if let some mdef ← matchExprRewriter sOpts rf mas normMatchExpr? then return (← visit mdef)
-              -- normalize and cache opaque and recursive function name
               let f' ← visit rf
-              optimizeApp f' mas -- optimizations on opaque functions
+              normOpaqueAndRecFun sOpts f' mas
       | Expr.lam n t b bi => do
           let t' ← visit t
           withLocalDecl n bi t' fun x => do
@@ -81,6 +82,43 @@ mutual
       | Expr.mvar .. => throwError f!"unexpected meta variable {e}"
       | Expr.bvar .. => throwError f!"unexpected bounded variable {e}"
     visit e
+
+  /-- Given application `f x₁ ... xₙ` perform the following:
+      - when `f` is not an opaque function and corresponds to a recursive definition `fbody` the following actions are performed:
+          - fbody' ← optimizeExpr sOpts fbody
+          - return `fₙ x₁ ... xₙ` IF entry `fbody'[f/_recFun] := fₙ` exists in recursive function map
+          - return `f x₁ ... xₙ`  OTHERWISE, with `fbody'[f/_recFun] := f x₁ ... xₖ` added to the recursive function map
+            and where `x₁ ... xₖ` correspond to the implicit arguments.
+      - when `f` is an opaque function or is not a recursive definition:
+        - apply optimization on opaque functions (see function `optimizeApp`).
+  -/
+  partial def normOpaqueAndRecFun (sOpts: SolverOptions) (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
+   match f with
+   | Expr.const n l =>
+       if (← pure !(isOpaqueFun n args) <&&> isRecursiveFun n)
+       then
+         if (← isVisitedRecFun n)
+         then mkAppExpr f args -- already cached
+         else
+           cacheFunName n -- cache function name
+           -- retrieve implicit arguments
+           let iargs ← getImplicitArgs f args
+           let some eqThm ← getUnfoldEqnFor? n | throwError "normOpaqueAndRecFun: equation theorem expected for {n}"
+           let fn' ←
+             forallTelescopeReducing ((← getConstInfo eqThm).type) fun xs eqn => do
+               let some (_, _, fbody) := eqn.eq? | throwError "normOpaqueAndRecFun: equation expected but got {reprStr eqn}"
+               let auxApp ← mkLambdaFVars xs fbody
+               -- instantiating polymorphic parameters in fun body
+               -- and generalize recursive function call
+               let fdef ← generalizeRecCall n l iargs (Expr.beta auxApp iargs)
+               -- optimize recursive fun definition and store
+               storeRecFunDef f iargs (← optimizeExpr sOpts fdef)
+           -- only considering explicit args when instantiating
+           -- as storeRecFunDef already handled implicit arguments
+           mkAppExpr fn' args[iargs.size : args.size]
+         else optimizeApp f args -- optimizations on opaque functions
+   | _ => mkAppExpr f args
+
 
   /-- A generic match expression rewriter that given a `match` application expression `f args`
       apply the `rewriter` function on each match pattern. The `rewriter` function
@@ -113,7 +151,7 @@ mutual
         let discrs := args[matcherInfo.getFirstDiscrPos : matcherInfo.getFirstAltPos]
         let rhs := args[matcherInfo.getFirstAltPos : matcherInfo.arity]
         let matchFun ← instantiateValueLevelParams cInfo dlevel
-        let auxApp := Expr.beta matchFun args[0:matcherInfo.getFirstAltPos]
+        let auxApp := Expr.beta matchFun args[0 : matcherInfo.getFirstAltPos]
         let auxAppType ← inferType auxApp
         forallTelescope auxAppType fun xs _t => do
           let alts := xs[xs.size - rhs.size:]
@@ -147,6 +185,5 @@ end
 -/
 def optimize (sOpts: SolverOptions) (e : Expr) : MetaM (Expr × TranslateEnv) :=
   optimizeExpr sOpts e|>.run default
-
 
 end Solver.Optimize

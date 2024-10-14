@@ -3,6 +3,7 @@ import Solver.Optimize.OptimizeBool
 import Solver.Optimize.OptimizeEq
 import Solver.Optimize.OptimizeInt
 import Solver.Optimize.OptimizeITE
+import Solver.Optimize.OptimizeMatch
 import Solver.Optimize.OptimizeNat
 import Solver.Optimize.OptimizeProp
 import Solver.Translate.Env
@@ -13,21 +14,25 @@ namespace Solver.Optimize
 
 /-- Determine if all explicit parameters of a function are constructors that
     may also contain free or bounded variables.
+    Note that `false` is return when f corresponds to the internal const ``_recFun.
 -/
 def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) : MetaM Bool := do
-  let stop := args.size
-  let fInfo ← getFunInfoNArgs f stop
-  let rec loop (i : Nat) (atLeastOneExplicit : Bool := false) : MetaM Bool := do
-    if i < stop then
-      let aInfo := fInfo.paramInfo[i]!
-      let e := args[i]!
-      if aInfo.isExplicit
-      then if (← isConstructor e)
-           then loop (i+1) true
-           else pure false
-      else loop (i+1) atLeastOneExplicit
-    else pure atLeastOneExplicit
-  loop 0
+  if isRecFunInternalExpr f
+  then return false
+  else
+    let stop := args.size
+    let fInfo ← getFunInfoNArgs f stop
+    let rec loop (i : Nat) (atLeastOneExplicit : Bool := false) : MetaM Bool := do
+      if i < stop then
+        let e := args[i]!
+        let aInfo := fInfo.paramInfo[i]!
+        if aInfo.isExplicit
+        then if (← isConstructor e)
+             then loop (i+1) true
+             else pure false
+        else loop (i+1) atLeastOneExplicit
+      else pure atLeastOneExplicit
+    loop 0
 
 
 /-- Try to reduce application `f args` when all explicit parameters are constructors.
@@ -35,7 +40,7 @@ def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) : MetaM Bool := do
       - `re` is a constructor that does not contain any variable; or
       - f is not an opaque function or a class function.
     NOTE: The explicit parameters in `args` are reduced to `match` discriminators when `f args` is a `match` application.
-    NOTE: reduceApp will not be applied on a class function. This is so to avoid implicit opaque function reduction.
+    NOTE: `reduceApp` will not be applied on a class function. This is so to avoid implicit opaque function reduction.
     NOTE: `whnf` will not perform any reduction on ``Prop operators (e.g. ``Eq, ``And, ``Or, ``Not, etc).
 -/
 def reduceApp? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
@@ -77,6 +82,7 @@ def optimizeApp (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
   if let some e ← optimizeIfThenElse? f args then return e
   if let some e ← optimizeNat? f args then return e
   if let some e ← optimizeInt? f args then return e
+  if let some e ← structEqMatch? f args then return e
   mkAppExpr f args
 
 end Solver.Optimize

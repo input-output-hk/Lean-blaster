@@ -55,6 +55,16 @@ namespace Test.BEqList
                                        ∀ (α : Type) (x y z : α), [BEq α] →
                                          true = ((!(y == x) || ((!(z == y) || (x == z)) && (z == y))) && (y == x))
 
+-- ∀ (α : Type) (x : List α), [BEq α] → List.nil == x ===>
+-- ∀ (α : Type) (x : List α), [BEq α] → true = (List.beq List.nil x)
+#testOptimize [ "BEqListUnchanged_5" ] ∀ (α : Type) (x : List α), [BEq α] → List.nil == x ===>
+                                       ∀ (α : Type) (x : List α), [BEq α] → true = (List.beq List.nil x)
+
+-- ∀ (α : Type) (x : α) (xs ys : List α), [BEq α] → (x :: xs) == ys ===>
+-- ∀ (α : Type) (x : α) (xs ys : List α), [BEq α] → true = (List.beq (x :: xs) ys)
+#testOptimize [ "BEqListUnchanged_6" ] ∀ (α : Type) (x : α) (xs ys : List α), [BEq α] → (x :: xs) == ys ===>
+                                       ∀ (α : Type) (x : α) (xs ys : List α), [BEq α] → true = (List.beq (x :: xs) ys)
+
 
 /-! Test cases to ensure that `reduceApp` is properly called
     when `BEq.beq` operands are reduced to constant values via optimization. -/

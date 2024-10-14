@@ -9,4 +9,5 @@ import Solver.Tests.Optimize.OptimizeLet
 import Solver.Tests.Optimize.OptimizeMatch
 import Solver.Tests.Optimize.OptimizeNat
 import Solver.Tests.Optimize.OptimizeProp
+import Solver.Tests.Optimize.OptimizeRecFun
 import Solver.Tests.Optimize.OptimizeUnfold
