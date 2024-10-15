@@ -34,7 +34,7 @@ opaque z : Nat
 #testOptimize [ "BEqNatCst_7" ] List.nil == [x, y, z] ===> false
 
 -- ∀ (x y z : Nat), (List.nil == [x, y, z]) ===> False
-#testOptimize [ "BEqNatCst_8" ] ∀ (x y z : Nat), (List.nil == [x, y, z]) ===> ∀ (_x _y _z : Nat), False
+#testOptimize [ "BEqNatCst_8" ] ∀ (x y z : Nat), (List.nil == [x, y, z]) ===> False
 
 -- Nat.beq (10 : Nat) 10 ===> true
 #testOptimize [ "BEqNatCst_9" ] Nat.beq (10 : Nat) 10 ===> true
@@ -111,10 +111,10 @@ opaque z : Nat
 #testOptimize [ "BEqNatUnchanged_4" ] [y, x, z] == [x, y, z] ===> x == y
 
 
--- ∀ (x y z : Nat), [y, x, z] == [x, y, z] ===> ∀ (x y z : Nat), x == y
+-- ∀ (x y z : Nat), [y, x, z] == [x, y, z] ===> ∀ (x y : Nat), x == y
 -- NOTE: Reduction via `reduceApp` rule, commutative of beq on Nat and absorption rule on &&
 #testOptimize [ "BEqNatUnchanged_5" ] ∀ (x y z : Nat), [y, x, z] == [x, y, z] ===>
-                                      ∀ (x y z : Nat), true = (x == y)
+                                      ∀ (x y : Nat), true = (x == y)
 
 
 -- ∀ (x y z v : Nat), [y, x, z] == [x, y, v] ===>

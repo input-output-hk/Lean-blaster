@@ -10,32 +10,26 @@ namespace Tests.UnfoldDITE
 
 /-! Test cases to validate unfolding of `dite` expressions only when reduced via rewriting. -/
 
--- ∀ (c : Bool) (p : Prop), if h : c then p else p ===> ∀ (c : Bool) (p : Prop), p
--- TODO: remove unused quantifiers when COI performed on forall
-#testOptimize [ "UnfoldDIte_1" ] ∀ (c : Bool) (p : Prop), if _h : c then p else p ===> ∀ (_c : Bool) (p : Prop), p
+-- ∀ (c : Bool) (p : Prop), if h : c then p else p ===> ∀ (p : Prop), p
+#testOptimize [ "UnfoldDIte_1" ] ∀ (c : Bool) (p : Prop), if _h : c then p else p ===> ∀ (p : Prop), p
 
--- ∀ (c : Bool) (x y : Int), (if h : c then x else x) < y ===> ∀ (c : Bool) (x y : Int), x < y
--- TODO: remove unused quantifiers when COI performed on forall
+-- ∀ (c : Bool) (x y : Int), (if h : c then x else x) < y ===> ∀ (x y : Int), x < y
 #testOptimize [ "UnfoldDIte_2" ] ∀ (c : Bool) (x y : Int), (if _h : c then x else x) < y ===>
-                                 ∀ (_c : Bool) (x y : Int), x < y
+                                 ∀ (x y : Int), x < y
 
--- ∀ (p q : Prop), if h : True then p else q ===> ∀ (p q : Prop), p
--- TODO: remove unused quantifiers when COI performed on forall
-#testOptimize [ "UnfoldDIte_3" ] ∀ (p q : Prop), if _h : True then p else q ===> ∀ (p _q : Prop), p
+-- ∀ (p q : Prop), if h : True then p else q ===> ∀ (p : Prop), p
+#testOptimize [ "UnfoldDIte_3" ] ∀ (p q : Prop), if _h : True then p else q ===> ∀ (p : Prop), p
 
--- ∀ (x y z : Int), (if h : True then x else y) < z ===> ∀ (x y z : Int), x < z
--- TODO: remove unused quantifiers when COI performed on forall
+-- ∀ (x y z : Int), (if h : True then x else y) < z ===> ∀ (x z : Int), x < z
 #testOptimize [ "UnfoldDIte_4" ] ∀ (x y z : Int), (if _h : True then x else y) < z ===>
-                                 ∀ (x _y z : Int), x < z
+                                 ∀ (x z : Int), x < z
 
--- ∀ (p q : Prop), if h : False then p else q ===> ∀ (p q : Prop), q
--- TODO: remove unused quantifiers when COI performed on forall
-#testOptimize [ "UnfoldDIte_5" ] ∀ (p q : Prop), if _h : False then p else q ===> ∀ (_p q : Prop), q
+-- ∀ (p q : Prop), if h : False then p else q ===> ∀ (q : Prop), q
+#testOptimize [ "UnfoldDIte_5" ] ∀ (p q : Prop), if _h : False then p else q ===> ∀ (q : Prop), q
 
--- ∀ (x y z : Int), (if h : False then x else y) < z ===> ∀ (x y z : Int), y < z
--- TODO: remove unused quantifiers when COI performed on forall
+-- ∀ (x y z : Int), (if h : False then x else y) < z ===> ∀ (y z : Int), y < z
 #testOptimize [ "UnfoldDIte_6" ] ∀ (x y z : Int), (if _h : False then x else y) < z ===>
-                                 ∀ (_x y z : Int), y < z
+                                 ∀ (y z : Int), y < z
 
 -- ∀ (a b c : Bool), (if h : c then a else b) = true ===> ∀ (a b c : Bool), true = ((a || !c) && (b || c))
 #testOptimize [ "UnfoldDIte_7" ] ∀ (a b c : Bool), (if _h : c then a else b) = true ===>

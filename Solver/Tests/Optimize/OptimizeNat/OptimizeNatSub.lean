@@ -41,8 +41,6 @@ elab "natSubCst_3" : term => return natSubCst_3
 
 -- x - x ===> 0
 def natSubReduceZero_1 : Expr :=
-Lean.Expr.forallE `x
-  (Lean.Expr.const `Nat [])
   (Lean.Expr.forallE `y
     (Lean.Expr.const `Nat [])
     (Lean.Expr.app
@@ -53,7 +51,6 @@ Lean.Expr.forallE `x
         (Lean.Expr.lit (Lean.Literal.natVal 0)))
       (Lean.Expr.bvar 0))
     (Lean.BinderInfo.default))
-  (Lean.BinderInfo.default)
 
 elab "natSubReduceZero_1" : term => return natSubReduceZero_1
 

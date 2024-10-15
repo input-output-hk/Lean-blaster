@@ -40,8 +40,7 @@ opaque z : Int
 #testOptimize [ "BEqIntCst_9" ] List.nil == [x, y, z] ===> false
 
 -- ∀ (x y z : Int), (List.nil == [x, y, z]) ===> False
-#testOptimize [ "BEqIntCst_10" ] ∀ (x y z : Int), (List.nil == [x, y, z]) ===>
-                                 ∀ (_x _y _z : Int), False
+#testOptimize [ "BEqIntCst_10" ] ∀ (x y z : Int), (List.nil == [x, y, z]) ===> False
 
 -- [y, x, z] == [x, y] ===> List.beq [y, x, z] [x, y]
 -- NOTE: Reduce to false via `reduceApp` rule, which is also applicable on recursive functions.
@@ -106,11 +105,10 @@ opaque z : Int
 -- NOTE: Reduction via `reduceApp` rule, commutative of beq on Int and absorption rule on &&
 #testOptimize [ "BEqIntUnchanged_4" ] [y, x, z] == [x, y, z] ===> x == y
 
--- ∀ (x y z : Int), [y, x, z] == [x, y, z] ===> ∀ (x y z : Int), true = (x == y)
+-- ∀ (x y z : Int), [y, x, z] == [x, y, z] ===> ∀ (x y : Int), true = (x == y)
 -- NOTE: Reduction via `reduceApp` rule, commutative of beq on Int and absorption rule on &&
--- TODO: remove unused quantifiers when COI performed on forall
 #testOptimize [ "BEqIntUnchanged_5" ] ∀ (x y z : Int), [y, x, z] == [x, y, z] ===>
-                                      ∀ (x y _z : Int), true = (x == y)
+                                      ∀ (x y : Int), true = (x == y)
 
 -- ∀ (x y z v : Int), [y, x, z] == [x, y, v] ===>
 -- ∀ (x y z v : Int), true = ((!(x == y) || ((!(x == y) || (z == v)) && (x == y))) && (x == y))

@@ -50,20 +50,16 @@ elab "natDivCst_5" : term => return natDivCst_5
 
 -- x / 0 ===> 0
 def natDivZero_1 : Expr :=
- Lean.Expr.forallE `x
+(Lean.Expr.forallE `y
   (Lean.Expr.const `Nat [])
-  (Lean.Expr.forallE `y
-    (Lean.Expr.const `Nat [])
+  (Lean.Expr.app
     (Lean.Expr.app
       (Lean.Expr.app
-        (Lean.Expr.app
-          (Lean.Expr.app (Lean.Expr.const `LT.lt [Lean.Level.zero]) (Lean.Expr.const `Nat []))
-          (Lean.Expr.const `instLTNat []))
-        (Lean.Expr.lit (Lean.Literal.natVal 0)))
-      (Lean.Expr.bvar 0))
-    (Lean.BinderInfo.default))
-  (Lean.BinderInfo.default)
-
+        (Lean.Expr.app (Lean.Expr.const `LT.lt [Lean.Level.zero]) (Lean.Expr.const `Nat []))
+        (Lean.Expr.const `instLTNat []))
+      (Lean.Expr.lit (Lean.Literal.natVal 0)))
+    (Lean.Expr.bvar 0))
+  (Lean.BinderInfo.default))
 elab "natDivZero_1" : term => return natDivZero_1
 
 #testOptimize [ "NatDivZero_1" ] ∀ (x y : Nat), x / 0 < y ===> natDivZero_1
@@ -411,19 +407,16 @@ elab "natMulDivCstProp_4" : term => return natMulDivCstProp_4
 
 -- (10 * x) / 0 ===> 0
 def natMulDivCstUnchanged_1 : Expr :=
- Lean.Expr.forallE `x
-  (Lean.Expr.const `Nat [])
-  (Lean.Expr.forallE `y
-    (Lean.Expr.const `Nat [])
-    (Lean.Expr.app
-      (Lean.Expr.app
-        (Lean.Expr.app
-          (Lean.Expr.app (Lean.Expr.const `LT.lt [Lean.Level.zero]) (Lean.Expr.const `Nat []))
-          (Lean.Expr.const `instLTNat []))
-        (Lean.Expr.lit (Lean.Literal.natVal 0)))
-      (Lean.Expr.bvar 0))
-    (Lean.BinderInfo.default))
-  (Lean.BinderInfo.default)
+ (Lean.Expr.forallE `y
+   (Lean.Expr.const `Nat [])
+   (Lean.Expr.app
+     (Lean.Expr.app
+       (Lean.Expr.app
+         (Lean.Expr.app (Lean.Expr.const `LT.lt [Lean.Level.zero]) (Lean.Expr.const `Nat []))
+         (Lean.Expr.const `instLTNat []))
+       (Lean.Expr.lit (Lean.Literal.natVal 0)))
+     (Lean.Expr.bvar 0))
+   (Lean.BinderInfo.default))
 elab "natMulDivCstUnchanged_1" : term => return natMulDivCstUnchanged_1
 
 #testOptimize [ "NatMulDivCstUnchanged_1" ] ∀ (x y : Nat), (10 * x) / 0 < y ===> natMulDivCstUnchanged_1
@@ -535,15 +528,13 @@ elab "natMulDivCstUnchanged_5" : term => return natMulDivCstUnchanged_5
 -/
 
 -- (x * y) / y ===> x
--- TODO: remove unused quantifier when COI performed on forall
-#testOptimize [ "NatMulDivReduce_1" ] ∀ (x y z : Nat), (x * y) / y < z ===> ∀ (x _y z : Nat), x < z
+#testOptimize [ "NatMulDivReduce_1" ] ∀ (x y z : Nat), (x * y) / y < z ===> ∀ (x z : Nat), x < z
 
 -- (x * y) / y = x ===> True
 #testOptimize [ "NatMulDivReduce_2" ] ∀ (x y : Nat), (x * y) / y = x ===> True
 
 -- (y * x) / y ===> x
--- TODO: remove unused quantifier when COI performed on forall
-#testOptimize [ "NatMulDivReduce_3" ] ∀ (y x z : Nat), (y * x) / y < z ===> ∀ (_y x z : Nat), x < z
+#testOptimize [ "NatMulDivReduce_3" ] ∀ (y x z : Nat), (y * x) / y < z ===> ∀ (x z : Nat), x < z
 
 -- (y * x) / y = x ===> True
 #testOptimize [ "NatMulDivReduce_4" ] ∀ (y x : Nat), (y * x) / y = x ===> True

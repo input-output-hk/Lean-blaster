@@ -50,11 +50,10 @@ namespace Tests.OptimizeOr
 #testOptimize [ "OrFalse_13"] ∀ (a b : Prop), (a ∧ False) ∨ (b ∨ ¬ b) ===> True
 
 -- (a ∧ ¬ a) ∨ (b ∧ ¬ b) ===> False
-#testOptimize [ "OrFalse_14"] ∀ (a b : Prop), (a ∧ ¬ a) ∨ (b ∧ ¬ b) ===> ∀ (_a _b : Prop), False
+#testOptimize [ "OrFalse_14"] ∀ (a b : Prop), (a ∧ ¬ a) ∨ (b ∧ ¬ b) ===> False
 
 -- ((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬a) ∨ ((b ∧ a) ∧ ¬(a ∧ b)) ===> False
-#testOptimize [ "OrFalse_15"] ∀ (a b c : Prop), ((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬a) ∨ ((b ∧ a) ∧ ¬(a ∧ b)) ===>
-                              ∀ (_a _b _c : Prop), False
+#testOptimize [ "OrFalse_15"] ∀ (a b c : Prop), ((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬a) ∨ ((b ∧ a) ∧ ¬(a ∧ b)) ===> False
 
 /-! Test cases for simplification rule `True ∨ e ==> True`. -/
 

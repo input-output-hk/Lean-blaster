@@ -29,7 +29,7 @@ def h (a : Nat) (b : Nat) (c : Nat) := c * g a b
 def predNotAnd (a : Bool) (b : Bool) : Bool := ! (a && b)
 def predAnd (a : Bool) (b : Bool) (c : Bool) := a && b && predNotAnd b a && c
 -- predAnd a b c ===> False
-#testOptimize [ "UnfoldNonRecFun_4" ] ∀ (a b c : Bool), predAnd a b c ===> ∀ (_a _b _c : Bool), False
+#testOptimize [ "UnfoldNonRecFun_4" ] ∀ (a b c : Bool), predAnd a b c ===> False
 
 
 def arith (a: Int) (b : Int) : Int := if a > 0 then a + b else a - b

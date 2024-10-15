@@ -41,16 +41,16 @@ namespace Test.OptimizeEq
 #testOptimize [ "EqReflexive_5" ] ∀ (c : Bool) (a b : Prop), (if c then a else b) = if c then a else b ===> True
 
 -- a = ¬ a ===> False
-#testOptimize [ "EqNeq_1" ] ∀ (a : Prop), (a = ¬ a) ===> ∀ (_a : Prop), False
+#testOptimize [ "EqNeq_1" ] ∀ (a : Prop), (a = ¬ a) ===> False
 
 -- ¬ a = a ===> False
-#testOptimize [ "EqNeq_2" ] ∀ (a : Prop), (¬ a = a) ===> ∀ (_a : Prop), False
+#testOptimize [ "EqNeq_2" ] ∀ (a : Prop), (¬ a = a) ===> False
 
 -- a = (¬ (¬ a)) ===> True
 #testOptimize [ "EqNeq_3" ] ∀ (a : Prop), (a = ¬ (¬ a)) ===> True
 
 -- a = (¬ (¬ (¬ a))) ===> False
-#testOptimize [ "EqNeq_4" ] ∀ (a : Prop), (a = ¬ (¬ (¬ a))) ===> ∀ (_a : Prop), False
+#testOptimize [ "EqNeq_4" ] ∀ (a : Prop), (a = ¬ (¬ (¬ a))) ===> False
 
 -- a = ¬ b ===> a = ¬ b
 #testOptimize [ "EqNeq_5" ] ∀ (a b : Prop), a = (¬ b) ===> ∀ (a b : Prop), a = (¬ b)
@@ -60,16 +60,16 @@ namespace Test.OptimizeEq
 #testOptimize [ "EqNeq_6" ] ∀ (a b : Prop), (¬ b) = a ===> ∀ (a b : Prop), a = (¬ b)
 
 -- a = !a ===> False
-#testOptimize [ "EqNot_1" ] ∀ (a : Bool), a = !a ===> ∀ (_a : Bool), False
+#testOptimize [ "EqNot_1" ] ∀ (a : Bool), a = !a ===> False
 
 -- !a = a ===> False
-#testOptimize [ "EqNot_2" ] ∀ (a : Bool), (!a) = a ===> ∀ (_a : Bool), False
+#testOptimize [ "EqNot_2" ] ∀ (a : Bool), (!a) = a ===> False
 
 -- a = (! (! a)) ===> True
 #testOptimize [ "EqNot_3" ] ∀ (a : Bool), a = ! (!a) ===> True
 
 -- a = (! (! (! a))) ===> False
-#testOptimize [ "EqNot_4" ] ∀ (a : Bool), (a = ! (! (! a))) ===> ∀ (_a : Bool), False
+#testOptimize [ "EqNot_4" ] ∀ (a : Bool), (a = ! (! (! a))) ===> False
 
 -- a = ! b ===> a = ! b
 #testOptimize [ "EqNot_5" ] ∀ (a b : Bool), a = !b ===> ∀ (a b : Bool), a = !b
@@ -135,16 +135,13 @@ inductive Color where
 #testOptimize [ "EqConstructor_13" ] ∀ (α : Type), (List.nil : List α) = (List.nil : List α) ===> True
 
 -- List.nil = [x, y, z] ===> False
-#testOptimize [ "EqConstructor_14" ] ∀ (α : Type) (x y z : α), List.nil = [x, y, z] ===>
-                                     ∀ (α : Type) (_x _y _z : α), False
+#testOptimize [ "EqConstructor_14" ] ∀ (α : Type) (x y z : α), List.nil = [x, y, z] ===> False
 
 -- [x, y] = [x, y, z] ===> False
-#testOptimize [ "EqConstructor_15" ] ∀ (α : Type) (x y z : α), [x, y] = [x, y, z] ===>
-                                     ∀ (α : Type) (_x _y _z : α), False
+#testOptimize [ "EqConstructor_15" ] ∀ (α : Type) (x y z : α), [x, y] = [x, y, z] ===> False
 
 -- [z, y] = [x, y, z] ===> False
-#testOptimize [ "EqConstructor_15" ] ∀ (α : Type) (x y z : α), [z, y] = [x, y, z] ===>
-                                     ∀ (α : Type) (_x _y _z : α), False
+#testOptimize [ "EqConstructor_15" ] ∀ (α : Type) (x y z : α), [z, y] = [x, y, z] ===> False
 
 -- [a + b, c] = [a + b, c, b] ===> False
 #testOptimize [ "EqConstructor_16" ] [a + b, c] = [a + b, c, b] ===> False
@@ -156,8 +153,7 @@ inductive Color where
 #testOptimize [ "EqConstructor_17" ] [b + a, c] = [a + c, c] ===> [Nat.add a b, c] = [Nat.add a c, c]
 
 -- [f x, y] = [f x, y, z] ==> False
-#testOptimize [ "EqConstructor_18" ] ∀ (α : Type) (f : α -> α) (x y z : α), [f x, y] = [f x, y, z] ===>
-                                     ∀ (α : Type) (_f : α -> α) (_x _y _z : α), False
+#testOptimize [ "EqConstructor_18" ] ∀ (α : Type) (f : α -> α) (x y z : α), [f x, y] = [f x, y, z] ===> False
 
 -- [f x, z] = [f y, z] ==> [f x, z] = [f y, z]
 -- Must remain unchanged

@@ -46,13 +46,13 @@ namespace Tests.OptimizeNot
 #testOptimize [ "NotTrue_4" ] ¬ (¬ False) ===> False
 
 -- ¬ (¬ a ∨ a) ===> False
-#testOptimize [ "NotTrue_5" ] ∀ (a : Prop), ¬ (¬ a ∨ a) ===> ∀ (_a : Prop), False
+#testOptimize [ "NotTrue_5" ] ∀ (a : Prop), ¬ (¬ a ∨ a) ===> False
 
 -- ¬ (Nat.blt Nat.zero 10) ===> False
 #testOptimize [ "NotTrue_6" ] ¬ (Nat.blt Nat.zero 10) ===> False
 
 -- ¬ ((a ∨ (b ∧ ¬ b)) ∨ ¬ a) ==> False
-#testOptimize [ "NotTrue_7" ] ∀ (a b : Prop), ¬ ((a ∨ (b ∧ ¬ b)) ∨ ¬ a) ===> ∀ (_a _b : Prop), False
+#testOptimize [ "NotTrue_7" ] ∀ (a b : Prop), ¬ ((a ∨ (b ∧ ¬ b)) ∨ ¬ a) ===> False
 
 
 /-! Test cases for simplification rule `¬ (¬ e) ==> e`. -/
@@ -130,8 +130,7 @@ namespace Tests.OptimizeNot
 #testOptimize [ "NotEqFalse_5" ] ∀ (a : Bool), (¬ (a = false)) = a ===> True
 
 -- ¬ (a = (b && ! b)) ===> true = a (with Type(a) = Bool)
--- TODO: remove unused quantifier when COI performed on forall
-#testOptimize [ "NotEqFalse_6" ] ∀ (a b : Bool), ¬ (a = (b && !b)) ===> ∀ (a _b : Bool), true = a
+#testOptimize [ "NotEqFalse_6" ] ∀ (a b : Bool), ¬ (a = (b && !b)) ===> ∀ (a : Bool), true = a
 
 -- ¬ (a = (b && ! b)) = a ===> True (with Type(a) = Bool)
 #testOptimize [ "NotEqFalse_7" ] ∀ (a b : Bool), (¬ (a = (b && !b))) = a ===> True
@@ -168,8 +167,7 @@ namespace Tests.OptimizeNot
 #testOptimize [ "NotEqTrue_5" ] ∀ (a : Bool), (¬ (a = true)) = not a ===> True
 
 -- ¬ (a = (b || ! b)) ===> false = a (with Type(a) = Bool)
--- TODO: remove unused quantifier when COI performed on forall
-#testOptimize [ "NotEqTrue_6" ] ∀ (a b : Bool), ¬ (a = (b || !b)) ===> ∀ (a _b : Bool), false = a
+#testOptimize [ "NotEqTrue_6" ] ∀ (a b : Bool), ¬ (a = (b || !b)) ===> ∀ (a : Bool), false = a
 
 -- ¬ (a = (b || ! b)) = not a ===> True (with Type(a) = Bool)
 #testOptimize [ "NotEqTrue_7" ] ∀ (a b : Bool), (¬ (a = (b || !b))) = not a ===> True

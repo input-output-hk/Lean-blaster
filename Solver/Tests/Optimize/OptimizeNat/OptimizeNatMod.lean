@@ -60,8 +60,6 @@ elab "natModCst_4" : term => return natModCst_4
 
 -- x % 1 ===> 0
 def natModOne_1 : Expr :=
- Lean.Expr.forallE `x
-  (Lean.Expr.const `Nat [])
   (Lean.Expr.forallE `y
     (Lean.Expr.const `Nat [])
     (Lean.Expr.app
@@ -72,7 +70,6 @@ def natModOne_1 : Expr :=
         (Lean.Expr.lit (Lean.Literal.natVal 0)))
       (Lean.Expr.bvar 0))
     (Lean.BinderInfo.default))
-  (Lean.BinderInfo.default)
 
 elab "natModOne_1" : term => return natModOne_1
 
@@ -187,8 +184,6 @@ elab "natCstModUnchanged_1" : term => return natCstModUnchanged_1
 -- (124 * x) % 4 ===> 0
 -- TODO: remove unused quantifier when COI performed on forall
 def natMulModCstProp_1 : Expr :=
- Lean.Expr.forallE `x
-  (Lean.Expr.const `Nat [])
   (Lean.Expr.forallE `y
     (Lean.Expr.const `Nat [])
     (Lean.Expr.app
@@ -199,7 +194,6 @@ def natMulModCstProp_1 : Expr :=
         (Lean.Expr.lit (Lean.Literal.natVal 0)))
       (Lean.Expr.bvar 0))
     (Lean.BinderInfo.default))
-  (Lean.BinderInfo.default)
 elab "natMulModCstProp_1" : term => return natMulModCstProp_1
 
 #testOptimize [ "NatMulModCstProp_1" ] ∀ (x y : Nat), (124 * x) % 4 < y ===> natMulModCstProp_1
@@ -301,8 +295,6 @@ elab "natMulModCstUnchanged_3" : term => return natMulModCstUnchanged_3
 -- x % x ===> 0
 -- TODO: remove unused quantifier when COI performed on forall
 def natModIdentity_1 : Expr :=
- Lean.Expr.forallE `x
-  (Lean.Expr.const `Nat [])
   (Lean.Expr.forallE `y
     (Lean.Expr.const `Nat [])
     (Lean.Expr.app
@@ -313,7 +305,6 @@ def natModIdentity_1 : Expr :=
         (Lean.Expr.lit (Lean.Literal.natVal 0)))
       (Lean.Expr.bvar 0))
     (Lean.BinderInfo.default))
-  (Lean.BinderInfo.default)
 elab "natModIdentity_1" : term => return natModIdentity_1
 
 #testOptimize [ "NatModIdentity_1" ] ∀ (x y : Nat), x % x < y ===> natModIdentity_1
@@ -322,22 +313,16 @@ elab "natModIdentity_1" : term => return natModIdentity_1
 -- (m * n) % (n * m) ===> 0
 -- TODO: remove unused quantifier when COI performed on forall
 def natModIdentity_2 : Expr :=
- Lean.Expr.forallE `m
+(Lean.Expr.forallE `y
   (Lean.Expr.const `Nat [])
-  (Lean.Expr.forallE `n
-    (Lean.Expr.const `Nat [])
-    (Lean.Expr.forallE `y
-      (Lean.Expr.const `Nat [])
+  (Lean.Expr.app
+    (Lean.Expr.app
       (Lean.Expr.app
-        (Lean.Expr.app
-          (Lean.Expr.app
-            (Lean.Expr.app (Lean.Expr.const `LT.lt [Lean.Level.zero]) (Lean.Expr.const `Nat []))
-            (Lean.Expr.const `instLTNat []))
-          (Lean.Expr.lit (Lean.Literal.natVal 0)))
-        (Lean.Expr.bvar 0))
-      (Lean.BinderInfo.default))
-    (Lean.BinderInfo.default))
-  (Lean.BinderInfo.default)
+        (Lean.Expr.app (Lean.Expr.const `LT.lt [Lean.Level.zero]) (Lean.Expr.const `Nat []))
+        (Lean.Expr.const `instLTNat []))
+      (Lean.Expr.lit (Lean.Literal.natVal 0)))
+    (Lean.Expr.bvar 0))
+  (Lean.BinderInfo.default))
 elab "natModIdentity_2" : term => return natModIdentity_2
 
 #testOptimize [ "NatModIdentity_2" ] ∀ (m n y : Nat), (m * n) % (n * m) < y ===> natModIdentity_2
@@ -381,22 +366,16 @@ elab "natModIdentity_2" : term => return natModIdentity_2
 -- (x * y) % y ===> 0
 -- TODO: remove unused quantifier when COI performed on forall
 def natMulModReduce_1 : Expr :=
- Lean.Expr.forallE `x
-  (Lean.Expr.const `Nat [])
-  (Lean.Expr.forallE `y
-    (Lean.Expr.const `Nat [])
-    (Lean.Expr.forallE `z
-      (Lean.Expr.const `Nat [])
-      (Lean.Expr.app
-        (Lean.Expr.app
-          (Lean.Expr.app
-            (Lean.Expr.app (Lean.Expr.const `LT.lt [Lean.Level.zero]) (Lean.Expr.const `Nat []))
-            (Lean.Expr.const `instLTNat []))
-          (Lean.Expr.lit (Lean.Literal.natVal 0)))
-        (Lean.Expr.bvar 0))
-      (Lean.BinderInfo.default))
-    (Lean.BinderInfo.default))
-  (Lean.BinderInfo.default)
+ (Lean.Expr.forallE `z
+   (Lean.Expr.const `Nat [])
+   (Lean.Expr.app
+     (Lean.Expr.app
+       (Lean.Expr.app
+         (Lean.Expr.app (Lean.Expr.const `LT.lt [Lean.Level.zero]) (Lean.Expr.const `Nat []))
+         (Lean.Expr.const `instLTNat []))
+       (Lean.Expr.lit (Lean.Literal.natVal 0)))
+     (Lean.Expr.bvar 0))
+   (Lean.BinderInfo.default))
 elab "natMulModReduce_1" : term => return natMulModReduce_1
 
 #testOptimize [ "NatMulModReduce_1" ] ∀ (x y z : Nat), (x * y) % y < z ===> natMulModReduce_1

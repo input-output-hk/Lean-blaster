@@ -37,21 +37,17 @@ elab "natMulCst_5" : term => return natMulCst_5
 /-! Test cases for simplification rule `0 * n ==> 0`. -/
 
 -- x * 0 ===> 0
--- TODO: remove unused quantifier when COI performed on forall
 def natMulZero_1 : Expr :=
- Lean.Expr.forallE `x
+(Lean.Expr.forallE `y
   (Lean.Expr.const `Nat [])
-  (Lean.Expr.forallE `y
-    (Lean.Expr.const `Nat [])
+  (Lean.Expr.app
     (Lean.Expr.app
       (Lean.Expr.app
-        (Lean.Expr.app
-          (Lean.Expr.app (Lean.Expr.const `LE.le [Lean.Level.zero]) (Lean.Expr.const `Nat []))
-          (Lean.Expr.const `instLENat []))
-        (Lean.Expr.lit (Lean.Literal.natVal 0)))
-      (Lean.Expr.bvar 0))
-    (Lean.BinderInfo.default))
-  (Lean.BinderInfo.default)
+        (Lean.Expr.app (Lean.Expr.const `LE.le [Lean.Level.zero]) (Lean.Expr.const `Nat []))
+        (Lean.Expr.const `instLENat []))
+      (Lean.Expr.lit (Lean.Literal.natVal 0)))
+    (Lean.Expr.bvar 0))
+  (Lean.BinderInfo.default))
 elab "natMulZero_1" : term => return natMulZero_1
 
 #testOptimize [ "NatMulZero_1" ] ∀ (x y : Nat), x * 0 ≤ y ===> natMulZero_1
@@ -98,9 +94,8 @@ elab "natMulZero_1" : term => return natMulZero_1
 #testOptimize [ "NatMulOne_4" ] ∀ (x y : Nat), (10 - 9) * x < y ===> ∀ (x y : Nat), x < y
 
 -- ((((Nat.succ y) - 1) - y) + 1) * x ===> x
--- TODO: remove unused quantifier when COI performed on forall
 #testOptimize [ "NatMulOne_5" ] ∀ (x y z : Nat), ((((Nat.succ y) - 1) - y) + 1) * x < z ===>
-                                ∀ (x _y z : Nat), x < z
+                                ∀ (x z : Nat), x < z
 
 
 

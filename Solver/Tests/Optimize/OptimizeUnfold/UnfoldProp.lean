@@ -12,13 +12,13 @@ namespace Tests.UnfoldProp
 /-! Test cases to validate unfolding of `Prop` operators only when reduced to a constant value or via rewriting. -/
 
 -- ∀ (p : Prop), False ∧ p ===> False
-#testOptimize ["UnfoldProp_1"] ∀ (p : Prop), False ∧ p ===> ∀ (_p : Prop), False
+#testOptimize ["UnfoldProp_1"] ∀ (p : Prop), False ∧ p ===> False
 
 -- ∀ (p : Prop), True ∧ p ===> ∀ (p : Prop), p
 #testOptimize ["UnfoldProp_2"] ∀ (p : Prop), True ∧ p ===> ∀ (p : Prop), p
 
 -- ∀ (p : Prop), ¬ p ∧ p ===> False
-#testOptimize ["UnfoldProp_3"] ∀ (p : Prop), ¬ p ∧ p ===> ∀ (_p : Prop), False
+#testOptimize ["UnfoldProp_3"] ∀ (p : Prop), ¬ p ∧ p ===> False
 
 -- ∀ (p : Prop), p ∧ p ===> ∀ (p : Prop), p
 #testOptimize ["UnfoldProp_4"] ∀ (p : Prop), p ∧ p ===> ∀ (p : Prop), p

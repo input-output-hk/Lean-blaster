@@ -35,31 +35,30 @@ namespace Test.OptimizeBoolAnd
 #testOptimize [ "BoolAndFalse_1" ] ∀ (a : Bool), (a && false) = false ===> True
 
 -- (a && false) ===> False
-#testOptimize [ "BoolAndFalse_2" ] ∀ (a : Bool), a && false ===> ∀ (_a : Bool), False
+#testOptimize [ "BoolAndFalse_2" ] ∀ (a : Bool), a && false ===> False
 
 -- (false && a) = false ===> True
 #testOptimize [ "BoolAndFalse_3" ] ∀ (a : Bool), (false && a) = false ===> True
 
 -- false && a ===> False
-#testOptimize [ "BoolAndFalse_4" ] ∀ (a : Bool), false && a ===> ∀ (_a : Bool), False
+#testOptimize [ "BoolAndFalse_4" ] ∀ (a : Bool), false && a ===> False
 
 -- false && (a || b) ===> False
-#testOptimize [ "BoolAndFalse_5" ] ∀ (a b : Bool), false && (a || b) ===> ∀ (_a _b : Bool), False
+#testOptimize [ "BoolAndFalse_5" ] ∀ (a b : Bool), false && (a || b) ===> False
 
 -- false && (a && b) ===> False
-#testOptimize [ "BoolAndFalse_6" ] ∀ (a b : Bool), false && (a && b) ===> ∀ (_a _b : Bool), False
+#testOptimize [ "BoolAndFalse_6" ] ∀ (a b : Bool), false && (a && b) ===> False
 
 -- a && (false && b) ===> False
-#testOptimize [ "BoolAndFalse_7" ] ∀ (a b : Bool), a && (false && b) ===> ∀ (_a _b : Bool), False
+#testOptimize [ "BoolAndFalse_7" ] ∀ (a b : Bool), a && (false && b) ===> False
 
 -- a && (b && false) ===> False
-#testOptimize [ "BoolAndFalse_8" ] ∀ (a b : Bool), a && (b && false) ===> ∀ (_a _b : Bool), False
+#testOptimize [ "BoolAndFalse_8" ] ∀ (a b : Bool), a && (b && false) ===> False
 
 -- let x := a || a
 -- let y := a && !x
 -- ((y && a) && b) ===> False
-#testOptimize [ "BoolAndFalse_9" ] ∀ (a b : Bool), let x := a || a; let y := a && !x; ((y && a) && b) ===>
-                                   ∀ (_a _b : Bool), False
+#testOptimize [ "BoolAndFalse_9" ] ∀ (a b : Bool), let x := a || a; let y := a && !x; ((y && a) && b) ===> False
 
 
 /-! Test cases for simplification rule `true && e ==> e`. -/
@@ -97,31 +96,31 @@ namespace Test.OptimizeBoolAnd
 #testOptimize [ "BoolAndNot_1" ] ∀ (a : Bool), (a && not a) = false ===> True
 
 -- a && not a ===> False
-#testOptimize [ "BoolAndNot_2" ] ∀ (a : Bool), a && not a ===> ∀ (_a : Bool), False
+#testOptimize [ "BoolAndNot_2" ] ∀ (a : Bool), a && not a ===> False
 
 -- a && !a ===> False
-#testOptimize [ "BoolAndNot_3" ] ∀ (a : Bool), a && !a ===> ∀ (_a : Bool), False
+#testOptimize [ "BoolAndNot_3" ] ∀ (a : Bool), a && !a ===> False
 
 -- (a && b) && !(b && a) ===> False
-#testOptimize [ "BoolAndNot_4" ] ∀ (a b : Bool), (a && b) && !(b && a) ===> ∀ (_a _b : Bool), False
+#testOptimize [ "BoolAndNot_4" ] ∀ (a b : Bool), (a && b) && !(b && a) ===> False
 
 -- (a || b) && !(b || a) ===> False
-#testOptimize [ "BoolAndNot_5" ] ∀ (a b : Bool), (a || b) && !(b || a) ===> ∀ (_a _b : Bool), False
+#testOptimize [ "BoolAndNot_5" ] ∀ (a b : Bool), (a || b) && !(b || a) ===> False
 
 -- (not a && a) = false ===> True
 #testOptimize [ "BoolAndNot_6" ] ∀ (a : Bool), (not a && a) = false ===> True
 
 -- not a && a ===> False
-#testOptimize [ "BoolAndNot_7" ] ∀ (a : Bool), not a && a ===> ∀ (_a : Bool), False
+#testOptimize [ "BoolAndNot_7" ] ∀ (a : Bool), not a && a ===> False
 
 -- ! a && a ===> False
-#testOptimize [ "BoolAndNot_8" ] ∀ (a : Bool), ! a && a ===> ∀ (_a : Bool), False
+#testOptimize [ "BoolAndNot_8" ] ∀ (a : Bool), ! a && a ===> False
 
 -- !(a && b) && (b && a) ===> False
-#testOptimize [ "BoolAndNot_9" ] ∀ (a b : Bool), !(a && b) && (b && a) ===> ∀ (_a _b : Bool), False
+#testOptimize [ "BoolAndNot_9" ] ∀ (a b : Bool), !(a && b) && (b && a) ===> False
 
 -- !(a || b) && (b || a) ===> False
-#testOptimize [ "BoolAndNot_10" ] ∀ (a b : Bool), !(a || b) && (b || a) ===> ∀ (_a _b : Bool), False
+#testOptimize [ "BoolAndNot_10" ] ∀ (a b : Bool), !(a || b) && (b || a) ===> False
 
 
 /-! Test cases to ensure that simplification rule `e && not e ==> false` is not applied wrongly. -/

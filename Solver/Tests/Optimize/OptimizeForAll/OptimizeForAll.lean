@@ -66,45 +66,41 @@ namespace Test.OptimizeForAll
 /-! Test cases to ensure that `∀ (n : t), False` will not be simplified to `False`. -/
 
 -- ∀ (c : Prop), False ===> False
-#testOptimize [ "ForallFalse_1" ] ∀ (_c : Prop), False ===> ∀ (_c : Prop), False
+#testOptimize [ "ForallFalse_1" ] ∀ (_c : Prop), False ===> False
 
 -- ∀ (x : Int), False ===> False
-#testOptimize [ "ForallFalse_2" ] ∀ (_x : Int), False ===> ∀ (_x : Int), False
+#testOptimize [ "ForallFalse_2" ] ∀ (_x : Int), False ===> False
 
 -- ∀ (α : Type) (x : List α), False ===> False
 #testOptimize [ "ForallFalse_3" ] ∀ (α : Type) (_x : List α), True ===> True
 
 -- ∀ (a : Bool), ! a && a ===> False
-#testOptimize [ "ForallFalse_4" ] ∀ (a : Bool), !a && a ===> ∀ (_a : Bool), False
+#testOptimize [ "ForallFalse_4" ] ∀ (a : Bool), !a && a ===> False
 
 -- ∀ (a : Bool), (if a then !a else false) = true ===> False
-#testOptimize [ "ForallFalse_5" ] ∀ (a : Bool), (if a then !a else false) = true ===> ∀ (_a : Bool), False
+#testOptimize [ "ForallFalse_5" ] ∀ (a : Bool), (if a then !a else false) = true ===> False
 
 -- ∀ (a : Bool) (b : Prop), if a then b ∧ ¬ b else False ===> False
-#testOptimize [ "ForallFalse_6" ] ∀ (a : Bool) (b : Prop), if a then (b ∧ ¬ b) else False ===>
-                                  ∀ (_a : Bool) (_b : Prop), False
+#testOptimize [ "ForallFalse_6" ] ∀ (a : Bool) (b : Prop), if a then (b ∧ ¬ b) else False ===> False
 
 -- ∀ (a b : Bool), if a then b && !b else False ===> False
-#testOptimize [ "ForallFalse_7" ] ∀ (a b : Bool), if a then (b && !b) else False ===>
-                                  ∀ (_a _b : Bool), False
+#testOptimize [ "ForallFalse_7" ] ∀ (a b : Bool), if a then (b && !b) else False ===> False
 
 
 -- ∀ (a b c : Prop), (((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬a) ∧ ((b ∧ a) ∧ ¬(a ∧ b))) ===> False
-#testOptimize [ "ForallFalse_8"] ∀ (a b c : Prop), (((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬a) ∧ ((b ∧ a) ∧ ¬(a ∧ b))) ===>
-                                 ∀ (_a _b _c : Prop), False
+#testOptimize [ "ForallFalse_8"] ∀ (a b c : Prop), (((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬a) ∧ ((b ∧ a) ∧ ¬(a ∧ b))) ===> False
 
 -- let x := a || a
 -- let y := a && !x
 -- ∀ (a b : Bool), ((y || !b) && b) ===> False
-#testOptimize [ "ForallFalse_9" ] ∀ (a b : Bool), let x := a || a; let y := a && !x; ((y || !b) && b) ===>
-                                  ∀ (_a _b : Bool), False
+#testOptimize [ "ForallFalse_9" ] ∀ (a b : Bool), let x := a || a; let y := a && !x; ((y || !b) && b) ===> False
 
 --- ∀ (a : Empty), False ===> ∀ (a : Empty), False
-#testOptimize [ "ForallFalse_10" ] ∀ (a : Empty), False ===> ∀ (a : Empty), False
+#testOptimize [ "ForallFalse_10" ] ∀ (_a : Empty), False ===> ∀ (_a : Empty), False
 
 
 --- ∀ (a : Empty), False ===> ∀ (a : Empty), False
-#testOptimize [ "ForallFalse_10" ] ∀ (a : Empty), False ===> ∀ (a : Empty), False
+#testOptimize [ "ForallFalse_10" ] ∀ (_a : Empty), False ===> ∀ (_a : Empty), False
 
 
 
@@ -165,48 +161,40 @@ namespace Test.OptimizeForAll
 -- ∀ (a : Prop), True → a ===> ∀ (a : Prop), a
 #testOptimize [ "ForallTrueImp_1" ] ∀ (a : Prop), True → a ===> ∀ (a : Prop), a
 
--- ∀ (a b : Prop), (¬ (¬ a)) = a → b ===> ∀ (a b : Prop), b
--- TODO: remove unused quantifiers when COI performed on forall
-#testOptimize [ "ForallTrueImp_2" ] ∀ (a b : Prop), (¬ (¬ a)) = a → b ===> ∀ (_a b : Prop), b
+-- ∀ (a b : Prop), (¬ (¬ a)) = a → b ===> ∀ (b : Prop), b
+#testOptimize [ "ForallTrueImp_2" ] ∀ (a b : Prop), (¬ (¬ a)) = a → b ===> ∀ (b : Prop), b
 
--- ∀ (a : Bool) (b : Prop), (!a || a) → b ===> ∀ (a b : Prop), b
--- TODO: remove unused quantifiers when COI performed on forall
+-- ∀ (a : Bool) (b : Prop), (!a || a) → b ===> ∀ (b : Prop), b
 #testOptimize [ "ForallTrueImp_3" ] ∀ (a : Bool) (b : Prop), (!a || a) → b ===>
-                                    ∀ (_a : Bool) (b : Prop), b
+                                    ∀ (b : Prop), b
 
--- ∀ (a : Bool) (b p : Prop), (if a then b ∨ ¬ b else True) → p ===> ∀ (a : Bool) (b p : Prop), p
--- TODO: remove unused quantifiers when COI performed on forall
+-- ∀ (a : Bool) (b p : Prop), (if a then b ∨ ¬ b else True) → p ===> ∀ (p : Prop), p
 #testOptimize [ "ForallTrueImp_4" ] ∀ (a : Bool) (b p : Prop), (if a then (b ∨ ¬ b) else True) → p ===>
-                                    ∀ (_a : Bool) (_b p : Prop), p
+                                    ∀ (p : Prop), p
 
--- (if (!c && c) then a else b) = b → p ===> p
--- TODO: remove unused quantifiers when COI performed on forall
+-- ∀ (a b c : Bool) (p : Prop), (if (!c && c) then a else b) = b → p ===> ∀ (p : Prop), p
 #testOptimize [ "ForallTrueImp_5" ] ∀ (a b c : Bool) (p : Prop), (if (!c && c) then a else b) = b → p ===>
-                                    ∀ (_a _b _c : Bool) (p : Prop), p
+                                    ∀ (p : Prop), p
 
--- ∀ (a b c d : Prop), ((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∨ ¬ a → d ===> ∀ (a b c d : Prop), d
--- TODO: remove unused quantifiers when COI performed on forall
+-- ∀ (a b c d : Prop), ((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∨ ¬ a → d ===> ∀ (d : Prop), d
 #testOptimize [ "ForallTrueImp_6"] ∀ (a b c d : Prop), (a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∨ ¬ a → d ===>
-                                   ∀ (_a _b _c d : Prop), d
+                                   ∀ (d : Prop), d
 
 -- let x := a && a in
 -- let y := ! a && x in
 -- (if y then p else q) ∨ ¬ q → p ===> p
--- TODO: remove unused quantifiers when COI performed on forall
 #testOptimize [ "ForallTrueImp_7" ] ∀ (a : Bool) (p q : Prop),
                                        let x := a && a; let y := ! a && x;
                                        (if y then p else q) ∨ ¬ q → p ===>
-                                    ∀ (_a : Bool) (p _q : Prop), p
+                                    ∀ (p : Prop), p
 
--- ∀ (a b : Prop) (h: (¬ (¬ a)) = a), b ===> ∀ (a b: Prop), b
--- TODO: remove unused quantifiers when COI performed on forall
-#testOptimize [ "ForallTrueImp_8" ] ∀ (a b : Prop) (_h : (¬ (¬ a)) = a), b ===> ∀ (_a b : Prop), b
+-- ∀ (a b : Prop) (h: (¬ (¬ a)) = a), b ===> ∀ (b : Prop), b
+#testOptimize [ "ForallTrueImp_8" ] ∀ (a b : Prop) (_h : (¬ (¬ a)) = a), b ===> ∀ (b : Prop), b
 
 
--- ∀ (a : Bool) (b : Prop), (b ∨ ¬ b) → (!a || a) → b ===> ∀ (a b : Prop), b
--- TODO: remove unused quantifiers when COI performed on forall
+-- ∀ (a : Bool) (b : Prop), (b ∨ ¬ b) → (!a || a) → b ===> ∀ (b : Prop), b
 #testOptimize [ "ForallTrueImp_9" ] ∀ (a : Bool) (b : Prop), (b ∨ ¬ b) → (!a || a) → b ===>
-                                    ∀ (_a : Bool) (b : Prop), b
+                                    ∀ (b : Prop), b
 
 
 /-! Test cases for simplification rule `e1 → e2 ==> True (if p1 =ₚₜᵣ p2 ∧ Type(e1) = Prop)`. -/
@@ -359,10 +347,9 @@ opaque c : Nat
                                       ∀ (a b c : Bool), true = ((b || c) && (!a || !c))
 
 
--- ∀ (a b c : Prop), (a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∨ ((b ∧ a) ∧ ¬(a ∧ b))) ===> True
--- TODO: remove unused quantifier when COI performed on forall
+-- ∀ (a b c : Prop), (a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∨ ((b ∧ a) ∧ ¬(a ∧ b))) ===> ∀ (a : Prop), a
 #testOptimize [ "ForallUnchanged_8"] ∀ (a b c : Prop), (a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∨ ((b ∧ a) ∧ ¬(a ∧ b)) ===>
-                                     ∀ (a _b _c : Prop), a
+                                     ∀ (a : Prop), a
 
 
 -- ∀ (a b : Prop), a → b ===> ∀ (a b : Prop), a → b
@@ -395,10 +382,9 @@ opaque c : Nat
                                        ∀ (a : Bool) (b p : Prop), (false = a → False) ∧ (true = a → b) → p
 
 -- ∀ (a b c : Bool) (p : Prop), ( (if (!c && c) then a else c) = !b ) → p ===>
--- ∀ (a b c : Bool) (p : Prop), c = !b → p
--- TODO: remove unused quantifier when COI performed on forall
+-- ∀ (b c : Bool) (p : Prop), c = !b → p
 #testOptimize [ "ForallUnchanged_16" ] ∀ (a b c : Bool) (p : Prop), ( (if (!c && c) then a else c) = !b ) → p ===>
-                                       ∀ (_a b c : Bool) (p : Prop), c = !b → p
+                                       ∀ (b c : Bool) (p : Prop), c = !b → p
 
 -- ∀ (a b c p : Prop), (a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ (b ∨ c) → p ===>
 -- ∀ (a b c p : Prop), a ∧ (b ∨ c) → p ===>
@@ -407,12 +393,11 @@ opaque c : Nat
 -- let x := a && a in
 -- let y := ! a && x in
 -- ∀ (a : Bool) (p q r : Prop), (if y then p else r) ∧ ¬ q → p ===>
--- ∀ (a : Bool) (p q r : Prop), r ∧ ¬ q → p
--- TODO: remove unused quantifier when COI performed on forall
+-- ∀ (p q r : Prop), r ∧ ¬ q → p
 #testOptimize [ "ForallUnchanged_18" ] ∀ (a : Bool) (p q r : Prop),
                                         let x := a && a; let y := ! a && x;
                                         (if y then p else r) ∧ ¬ q → p ===>
-                                       ∀ (_a : Bool) (p q r : Prop), r ∧ ¬ q → p
+                                       ∀ (p q r : Prop), r ∧ ¬ q → p
 
 -- ∀ (a b : Prop) (h : (¬ (¬ (¬ a))) = b), c ===>
 -- ∀ (a b : Prop) (h : b = (¬ a)), c
@@ -424,16 +409,14 @@ opaque c : Nat
                                        ∀ (a : Prop) (b : Bool), a → true = b
 
 -- ∀ (a b : Prop) (c : Bool), a ∧ b → (if c then !c else c) = true ===>
--- ∀ (a b : Prop) (c : Bool), a ∧ b → False
--- TODO: remove unused quantifier when COI performed on forall
+-- ∀ (a b : Prop), a ∧ b → False
 #testOptimize [ "ForallUnchanged_21" ] ∀ (a b : Prop) (c : Bool), a ∧ b → (if c then !c else c) = true ===>
-                                       ∀ (a b : Prop) (_c : Bool), a ∧ b → False
+                                       ∀ (a b : Prop), a ∧ b → False
 
--- ∀ (a b c : Prop), (a ∨ c) → ((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬a ===>
--- ∀ (a b c : Prop), (a ∨ c) → False
--- TODO: remove unused quantifier when COI performed on forall
-#testOptimize [ "ForallUnchanged_22"] ∀ (a b c : Prop), a ∨ c → ((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬a) ===>
-                                      ∀ (a _b c : Prop), (a ∨ c) → False
+-- ∀ (a b c : Prop), (a ∨ c) → ((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬ a ===>
+-- ∀ (a c : Prop), (a ∨ c) → False
+#testOptimize [ "ForallUnchanged_22"] ∀ (a b c : Prop), a ∨ c → ((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬ a) ===>
+                                      ∀ (a c : Prop), (a ∨ c) → False
 
 
 -- ∀ (f : Prop → Prop) (a b : Prop), a = b → f a = f b ===>
@@ -473,9 +456,8 @@ opaque c : Nat
 -- ∀ (p : Prop), ¬ (¬ (¬ p)) → p ===> ∀ (p : Prop), p
 #testOptimize [ "ForallNegPropImp_5" ] ∀ (p : Prop), ¬ (¬ (¬ p)) → p ===> ∀ (p : Prop), p
 
--- ∀ (a b : Prop), ¬ ((b ∧ ¬ b) ∨ a) → a ===> ∀ (a b : Prop), a
--- TODO: remove unused quantifiers when COI performed on forall
-#testOptimize [ "ForallNegPropImp_6" ] ∀ (a b : Prop), ¬ ((b ∧ ¬ b) ∨ a) → a ===> ∀ (a _b : Prop), a
+-- ∀ (a b : Prop), ¬ ((b ∧ ¬ b) ∨ a) → a ===> ∀ (a : Prop), a
+#testOptimize [ "ForallNegPropImp_6" ] ∀ (a b : Prop), ¬ ((b ∧ ¬ b) ∨ a) → a ===> ∀ (a : Prop), a
 
 -- ¬ ((∀ (x y : Int), x > y)) → (∀ (x y : Int), y < x) ===> ∀ (x y : Int), y < x
 #testOptimize [ "ForallNegPropImp_7" ] ¬ ((∀ (x y : Int), x > y)) → (∀ (x y : Int), y < x) ===> ∀ (x y : Int), y < x
@@ -486,9 +468,8 @@ opaque c : Nat
 -- ∀ (p : Prop) (h : ¬ (¬ (¬ p))), p ===> ∀ (p : Prop), p
 #testOptimize [ "ForallNegPropImp_9" ] ∀ (p : Prop) (_h :  ¬ (¬ (¬ p))), p ===> ∀ (p : Prop), p
 
--- ∀ (a b : Bool) (h : ¬ (a = (b || ! b))), a ===> ∀ (a b : Bool), true = a
--- TODO: remove unused quantifiers when COI performed on forall
-#testOptimize [ "ForallNegPropImp_10" ] ∀ (a b : Bool) (_h : ¬ (a = (b || !b))), a ===> ∀ (a _b : Bool), true = a
+-- ∀ (a b : Bool) (h : ¬ (a = (b || ! b))), a ===> ∀ (a : Bool), true = a
+#testOptimize [ "ForallNegPropImp_10" ] ∀ (a b : Bool) (_h : ¬ (a = (b || !b))), a ===> ∀ (a : Bool), true = a
 
 
 
@@ -514,10 +495,9 @@ opaque c : Nat
 -- ∀ (p q : Prop), ¬ (¬ (¬ p)) → q ===> ∀ (p q : Prop), ¬ p → q
 #testOptimize [ "ForallNegPropImpUnchanged_5" ] ∀ (p q : Prop), ¬ (¬ (¬ p)) → q ===> ∀ (p q : Prop), ¬ p → q
 
--- ∀ (a b c : Prop), ¬ ((b ∧ ¬ b) ∨ a) → c ===> ∀ (a b c : Prop), ¬ a → c
--- TODO: remove unused quantifiers when COI performed on forall
+-- ∀ (a b c : Prop), ¬ ((b ∧ ¬ b) ∨ a) → c ===> ∀ (a c : Prop), ¬ a → c
 #testOptimize [ "ForallNegPropImpUnchanged_6" ] ∀ (a b c : Prop), ¬ ((b ∧ ¬ b) ∨ a) → c ===>
-                                                ∀ (a _b c : Prop), ¬ a → c
+                                                ∀ (a c : Prop), ¬ a → c
 
 -- ¬ ((∀ (x y : Int), x > y)) → (∀ (x y : Int), x < y) ===>
 -- ¬ ((∀ (x y : Int), y < x)) → (∀ (x y : Int), x < y)
@@ -534,10 +514,9 @@ opaque c : Nat
                                                 ∀ (p q : Prop) (_h : ¬ p) , q
 
 -- ∀ (a b c : Bool) (h : ¬ (a = (b || ! b))), c ===>
--- ∀ (a b c : Bool) (h : false = a), true = c
--- TODO: remove unused quantifiers when COI performed on forall
+-- ∀ (a c : Bool) (h : false = a), true = c
 #testOptimize [ "ForallNegPropImpUnchanged_10" ] ∀ (a b c : Bool) (_h : ¬ (a = (b || !b))), c ===>
-                                                 ∀ (a _b c : Bool) (_h : false = a), true = c
+                                                 ∀ (a c : Bool) (_h : false = a), true = c
 
 
 /-! Test cases for simplification rule `e → ¬ e ==> ¬ e`. -/
@@ -559,9 +538,8 @@ opaque c : Nat
 -- ∀ (p : Prop), p → ¬ (¬ (¬ p)) ===> ∀ (p : Prop), ¬ p
 #testOptimize [ "ForallPropImpNeg_5" ] ∀ (p : Prop), p → ¬ (¬ (¬ p)) ===> ∀ (p : Prop), ¬ p
 
--- ∀ (a b : Prop), a → ¬ ((b ∧ ¬ b) ∨ a) ===> ∀ (a b : Prop), ¬ a
--- TODO: remove unused quantifiers when COI performed on forall
-#testOptimize [ "ForallPropImpNeg_6" ] ∀ (a b : Prop), a → ¬ ((b ∧ ¬ b) ∨ a) ===> ∀ (a _b : Prop), ¬ a
+-- ∀ (a b : Prop), a → ¬ ((b ∧ ¬ b) ∨ a) ===> ∀ (a : Prop), ¬ a
+#testOptimize [ "ForallPropImpNeg_6" ] ∀ (a b : Prop), a → ¬ ((b ∧ ¬ b) ∨ a) ===> ∀ (a : Prop), ¬ a
 
 -- (∀ (x y : Int), y < x) → ¬ ((∀ (x y : Int), x > y)) ===> ¬ (∀ (x y : Int), y < x)
 -- TODO: Need to be update when implementing propagation of negation on forall
@@ -574,9 +552,8 @@ opaque c : Nat
 -- ∀ (p : Prop) (h : ¬ (¬ p)), ¬ (¬ (¬ p)) ===> ∀ (p : Prop), ¬ p
 #testOptimize [ "ForallPropImpNeg_9" ] ∀ (p : Prop) (_h :  ¬ (¬ p)), ¬ (¬ (¬ p)) ===> ∀ (p : Prop), ¬ p
 
--- ∀ (a b : Bool) (h : a), ¬ (a = (b || ! b)) ===> ∀ (a b : Bool), ¬ a (i.e., false = a)
--- TODO: remove unused quantifiers when COI performed on forall
-#testOptimize [ "ForallPropImpNeg_10" ] ∀ (a b : Bool) (_h : a), ¬ (a = (b || !b)) ===> ∀ (a _b : Bool), false = a
+-- ∀ (a b : Bool) (h : a), ¬ (a = (b || ! b)) ===> ∀ (a : Bool), ¬ a (i.e., false = a)
+#testOptimize [ "ForallPropImpNeg_10" ] ∀ (a b : Bool) (_h : a), ¬ (a = (b || !b)) ===> ∀ (a : Bool), false = a
 
 
 /-! Test cases to ensure that simplification rule `e → ¬ e ==> ¬ e` is not wrongly applied. -/
@@ -601,10 +578,9 @@ opaque c : Nat
 -- ∀ (p q : Prop), p → ¬ (¬ (¬ q)) ===> ∀ (p q : Prop), p → ¬ q
 #testOptimize [ "ForallPropImpNegUnchanged_5" ] ∀ (p q : Prop), p → ¬ (¬ (¬ q)) ===> ∀ (p q : Prop), p → ¬ q
 
--- ∀ (a b c : Prop), a → ¬ ((b ∧ ¬ b) ∨ c) ===> ∀ (a b c : Prop), a → ¬ c
--- TODO: remove unused quantifiers when COI performed on forall
+-- ∀ (a b c : Prop), a → ¬ ((b ∧ ¬ b) ∨ c) ===> ∀ (a c : Prop), a → ¬ c
 #testOptimize [ "ForallPropImpNegUnchanged_6" ] ∀ (a b c : Prop), a → ¬ ((b ∧ ¬ b) ∨ c) ===>
-                                                ∀ (a _b c : Prop), a → ¬ c
+                                                ∀ (a c : Prop), a → ¬ c
 
 -- (∀ (x y : Int), y < x) → ¬ ((∀ (x y : Int), x < y)) ===>
 -- (∀ (x y : Int), y < x) → ¬ ((∀ (x y : Int), x < y))
@@ -623,10 +599,9 @@ opaque c : Nat
                                                 ∀ (p q : Prop) (_h : p), ¬ q
 
 -- ∀ (a b c : Bool) (h : a), ¬ (c = (b || ! b)) ===>
--- ∀ (a b c : Bool) (h : true = a), false = c
--- TODO: remove unused quantifiers when COI performed on forall
+-- ∀ (a c : Bool) (h : true = a), false = c
 #testOptimize [ "ForallPropImpNegUnchanged_10" ] ∀ (a b c : Bool) (_h : a), ¬ (c = (b || !b)) ===>
-                                                 ∀ (a _b c : Bool) (_h : true = a), false = c
+                                                 ∀ (a c : Bool) (_h : true = a), false = c
 
 
 

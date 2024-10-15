@@ -157,6 +157,13 @@ def isConstructor (e : Expr) : MetaM Bool := isEnumConst e <||> (pure e.isLit) <
 /-- Return `true` if e contains free / bounded variables. -/
 def hasVars (e : Expr) : Bool := e.hasFVar || e.hasLooseBVars
 
+
+/-- Return `true` if `v` occurs at least once in `e`. -/
+def fVarInExpr (v : FVarId) (e : Expr) : Bool :=
+ if e.hasFVar
+ then e.containsFVar v
+ else false
+
 /-- Return `true` if e corresponds to a constructor applied to only constant values (e.g., no free or bounded variables). -/
 def isConstant (e : Expr) : MetaM Bool :=
   isConstructor e <&&> (pure !(hasVars e))
@@ -168,7 +175,7 @@ def isImplies (e : Expr) : MetaM Bool :=
  match e with
  | Expr.forallE _ t b _ =>
      if !b.hasLooseBVars
-     then  isProp t <&&> isProp b
+     then isProp t <&&> isProp b
      else return false
  | _ => return true
 
@@ -195,6 +202,35 @@ def isClassFun (f : Expr) : MetaM Bool := do
       | _ => return false
  | Expr.proj c _ _ => return (isClass (← getEnv) c)
  | _ => return false
+
+
+/-- Return `true` if `c` corresponds to a nullary constructor. -/
+def isNullaryCtor (c : Name) : MetaM Bool := do
+  match (← getConstInfo c) with
+  | ConstantInfo.ctorInfo info =>
+      -- numFields corresponds to the constructor parameters
+      pure (info.numFields == 0 && !info.type.isProp)
+  | _ => pure false
+
+/-- Return `true` if `t` is not a Prop and corresponds to one of the following:
+    - is a sort type; or
+    - is a class constraint; or
+    - is an inductive type for which either at least one nullary constructor or an Inhabited instance exists.
+-/
+def isSortOrInhabited (t : Expr) : TranslateEnvT Bool := do
+ if (← isProp t) then return false
+ match t.getAppFn with
+ | Expr.const n _ =>
+    match (← getConstInfo n) with
+    | ConstantInfo.inductInfo indVal =>
+       if isClass (← getEnv) n then return (← isType t) -- break if class constraint
+       for ctorName in indVal.ctors do
+         if (← isNullaryCtor ctorName) then
+           return true -- inductive type has at least one nullary constructor
+       -- check if InHabited instance exists for t
+       hasInhabitedInstance t
+    | _ => isType t
+ | _ => isType t
 
 /-- Return `true` when `e1 := ¬ ne ∧ ne =ₚₜᵣ e2`. Otherwise `false`.
  -/

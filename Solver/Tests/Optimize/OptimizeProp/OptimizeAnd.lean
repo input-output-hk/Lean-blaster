@@ -22,44 +22,42 @@ namespace Test.OptimizeAnd
 #testOptimize [ "AndFalse_4" ] False ∧ False ===> False
 
 -- a ∧ False ===> False
-#testOptimize [ "AndFalse_5" ] ∀ (a : Prop), a ∧ False ===> ∀ (_a : Prop), False
+#testOptimize [ "AndFalse_5" ] ∀ (a : Prop), a ∧ False ===> False
 
 -- (a ∧ False) = False ===> True
 #testOptimize [ "AndFalse_6" ] ∀ (a : Prop), (a ∧ False) = False ===> True
 
 -- False ∧ a ===> False
-#testOptimize [ "AndFalse_7" ] ∀ (a : Prop), False ∧ a ===> ∀ (_a : Prop), False
+#testOptimize [ "AndFalse_7" ] ∀ (a : Prop), False ∧ a ===> False
 
 -- False ∧ (a ∧ b) ===> False
-#testOptimize [ "AndFalse_8" ] ∀ (a b : Prop), False ∧ (a ∧ b) ===> ∀ (_a _b : Prop), False
+#testOptimize [ "AndFalse_8" ] ∀ (a b : Prop), False ∧ (a ∧ b) ===> False
 
 -- (a ∨ b) ∧ False ===> False
-#testOptimize [ "AndFalse_9" ] ∀ (a b : Prop), (a ∨ b) ∧ False ===> ∀ (_a _b : Prop), False
+#testOptimize [ "AndFalse_9" ] ∀ (a b : Prop), (a ∨ b) ∧ False ===> False
 
 -- (a ∧ False) ∧ b  ===> False
-#testOptimize [ "AndFalse_10" ] ∀ (a b : Prop), (a ∧ False) ∧ b ===> ∀ (_a _b : Prop), False
+#testOptimize [ "AndFalse_10" ] ∀ (a b : Prop), (a ∧ False) ∧ b ===> False
 
 -- (False ∧ a) ∧ b  ===> False
-#testOptimize [ "AndFalse_11" ] ∀ (a b : Prop), (False ∧ a) ∧ b ===> ∀ (_a _b : Prop), False
+#testOptimize [ "AndFalse_11" ] ∀ (a b : Prop), (False ∧ a) ∧ b ===> False
 
 -- (a ∧ False) ∧ (a ∧ b) ===> False
-#testOptimize [ "AndFalse_12" ] ∀ (a b : Prop), (a ∧ False) ∧ (a ∧ b) ===> ∀ (_a _b : Prop), False
+#testOptimize [ "AndFalse_12" ] ∀ (a b : Prop), (a ∧ False) ∧ (a ∧ b) ===> False
 
 -- (a ∧ False) ∨ (b ∨ ¬ b) ===> True
 #testOptimize [ "AndFalse_13"] ∀ (a b : Prop), (a ∧ False) ∨ (b ∨ ¬ b) ===> True
 
 -- (a ∨ ¬ a) ∧ (b ∧ ¬ b) ===> False
-#testOptimize [ "AndFalse_14"] ∀ (a b : Prop), (a ∨ ¬ a) ∧ (b ∧ ¬ b) ===> ∀ (_a _b : Prop), False
+#testOptimize [ "AndFalse_14"] ∀ (a b : Prop), (a ∨ ¬ a) ∧ (b ∧ ¬ b) ===> False
 
 -- ((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬a) ∧ ((b ∧ a) ∧ ¬(a ∧ b)) ===> False
-#testOptimize [ "AndFalse_15"] ∀ (a b c : Prop), ((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬a) ∧ ((b ∧ a) ∧ ¬(a ∧ b)) ===>
-                               ∀ (_a _b _c : Prop), False
+#testOptimize [ "AndFalse_15"] ∀ (a b c : Prop), ((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬a) ∧ ((b ∧ a) ∧ ¬(a ∧ b)) ===> False
 
 -- let x := a ∨ a
 -- let y := a ∧ ¬ x
 -- ((y ∧ a) ∧ b) ===> False
-#testOptimize [ "AndFalse_16" ] ∀ (a b : Prop), let x := a ∨ a; let y := a ∧ ¬ x; ((y ∧ a) ∧ b) ===>
-                                ∀ (_a _b : Prop), False
+#testOptimize [ "AndFalse_16" ] ∀ (a b : Prop), let x := a ∨ a; let y := a ∧ ¬ x; ((y ∧ a) ∧ b) ===> False
 
 
 /-! Test cases for simplification rule `True ∧ e ==> e`. -/
@@ -115,36 +113,34 @@ namespace Test.OptimizeAnd
 /-! Test cases for simplification rule `e ∧ ¬ e ==> False`. -/
 
 -- a ∧ ¬ a ===> False
-#testOptimize [ "AndNeg_1" ] ∀ (a : Prop), a ∧ ¬ a ===> ∀ (_a : Prop), False
+#testOptimize [ "AndNeg_1" ] ∀ (a : Prop), a ∧ ¬ a ===> False
 
 -- (a ∧ ¬ a) = False ===> True
 #testOptimize [ "AndNeg_2" ] ∀ (a : Prop), (a ∧ ¬ a) = False ===> True
 
 -- (a ∧ b) ∧ ¬ (b ∧ a) ===> False
-#testOptimize [ "AndNeg_3" ] ∀ (a b : Prop), (a ∧ b) ∧ ¬ (b ∧ a) ===> ∀ (_a _b : Prop), False
+#testOptimize [ "AndNeg_3" ] ∀ (a b : Prop), (a ∧ b) ∧ ¬ (b ∧ a) ===> False
 
 -- (a ∨ b) ∧ ¬ (b ∨ a) ===> False
-#testOptimize [ "AndNeg_4" ] ∀ (a b : Prop), (a ∨ b) ∧ ¬ (b ∨ a) ===> ∀ (_a _b : Prop), False
+#testOptimize [ "AndNeg_4" ] ∀ (a b : Prop), (a ∨ b) ∧ ¬ (b ∨ a) ===> False
 
 -- ¬ a ∧ a ===> False
-#testOptimize [ "AndNeg_5" ] ∀ (a : Prop), ¬ a ∧ a ===> ∀ (_a : Prop), False
+#testOptimize [ "AndNeg_5" ] ∀ (a : Prop), ¬ a ∧ a ===> False
 
 -- (¬ a ∧ a) = False ===> True
 #testOptimize [ "AndNeg_6" ] ∀ (a : Prop), (¬ a ∧ a) = False ===> True
 
 -- ¬ (a ∧ b) ∧ (b ∧ a) ===> False
-#testOptimize [ "AndNeg_7" ] ∀ (a b : Prop), ¬ (a ∧ b) ∧ (b ∧ a) ===> ∀ (_a _b : Prop), False
+#testOptimize [ "AndNeg_7" ] ∀ (a b : Prop), ¬ (a ∧ b) ∧ (b ∧ a) ===> False
 
 -- ¬ (a ∨ b) ∧ (b ∨ a) ===> True
-#testOptimize [ "AndNeg_8" ] ∀ (a b : Prop), ¬ (a ∨ b) ∧ (b ∨ a) ===> ∀ (_a _b : Prop), False
+#testOptimize [ "AndNeg_8" ] ∀ (a b : Prop), ¬ (a ∨ b) ∧ (b ∨ a) ===> False
 
--- ((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬a) ===> False
-#testOptimize [ "AndNeg_9"] ∀ (a b c : Prop), (a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬a ===>
-                            ∀ (_a _b _c : Prop), False
+-- ((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬ a) ===> False
+#testOptimize [ "AndNeg_9"] ∀ (a b c : Prop), (a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬ a ===> False
 
 -- ((¬ a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ a) ===> False
-#testOptimize [ "AndNeg_10"] ∀ (a b c : Prop), (¬ a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ a ===>
-                             ∀ (_a _b _c : Prop), False
+#testOptimize [ "AndNeg_10"] ∀ (a b c : Prop), (¬ a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ a ===> False
 
 
 /-! Test cases to ensure that simplification rule `e ∧ ¬ e ==> False` is not applied wrongly. -/

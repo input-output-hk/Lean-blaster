@@ -16,6 +16,8 @@ namespace Solver.Optimize
       - e → ¬ e ==> ¬ e (requires classical)
       - true = c → false = c ==> false = c
       - false = c → true = c ==> true = c
+      - ∀ (n : t), e ===> e (if isSortOrInhabited t ∧ Type(e) = Prop ∧ ¬ fVarInExpr n.fvarId! e)
+  Assume that `n` is a free variable expression. An error is triggered if this is not the case.
   TODO: consider additional simplification rules
   TODO: check if we can have a simplification rule for:
     -- (∀ (a b : Type), P a b) → (∀ (b a : Type), P a b) ===> True
@@ -28,11 +30,10 @@ def optimizeForall (n : Expr) (t : Expr) (b : Expr) : TranslateEnvT Expr := do
     | Expr.const ``False _ => mkPropTrue
     | Expr.const `True _ => pure b
     | _ =>
-      if (← (exprEq t b) <&&> (isProp t))
-      then mkPropTrue
-      else if (← (isNotExprOf t b) <||> (isNotExprOf b t) <||> (isNegBoolEqOf t b))
-           then pure b
-           else mkForallExpr n b
+      if (← (exprEq t b) <&&> (isProp t)) then return (← mkPropTrue)
+      if (← (isNotExprOf t b) <||> (isNotExprOf b t) <||> (isNegBoolEqOf t b)) then return b
+      if (← (isSortOrInhabited t) <&&> (isProp b) <&&> (pure !(fVarInExpr n.fvarId! b))) then return b
+      mkForallExpr n b
 
 /-- `mkImpliesExpr a b` perform the following:
       - construct expression `a → b`

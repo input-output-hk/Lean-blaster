@@ -109,46 +109,46 @@ namespace Test.BEqBool
 /-! Test cases for simplification rule `e == not e ==> false`. -/
 
 -- a == not a ===> False
-#testOptimize [ "BEqNot_1" ] ∀ (a : Bool), a == not a ===> ∀ (_a : Bool), False
+#testOptimize [ "BEqNot_1" ] ∀ (a : Bool), a == not a ===> False
 
 -- (a == not a) = false ===> True
 #testOptimize [ "BEqNot_2" ] ∀ (a : Bool), (a == not a) = false ===> True
 
 -- a == !a ===> False
-#testOptimize [ "BEqNot_3" ] ∀ (a : Bool), a == !a ===> ∀ (_a : Bool), False
+#testOptimize [ "BEqNot_3" ] ∀ (a : Bool), a == !a ===> False
 
 -- (a == !a) = false ===> True
 #testOptimize [ "BEqNot_4" ] ∀ (a : Bool), (a == !a) = false ===> True
 
 -- (a || b) == !(b || a) ===> False
-#testOptimize [ "BEqNot_5" ] ∀ (a b : Bool), (a || b) == !(b || a) ===> ∀ (_a _b : Bool), False
+#testOptimize [ "BEqNot_5" ] ∀ (a b : Bool), (a || b) == !(b || a) ===> False
 
 -- (a && b) == !(b && a) ===> False
-#testOptimize [ "BEqNot_6" ] ∀ (a b : Bool), (a && b) == !(b && a) ===> ∀ (_a _b : Bool), False
+#testOptimize [ "BEqNot_6" ] ∀ (a b : Bool), (a && b) == !(b && a) ===> False
 
 -- a == !(! (! a)) ===> False
-#testOptimize [ "BEqNot_7" ] ∀ (a : Bool), a == !(! (! a)) ===> ∀ (_a : Bool), False
+#testOptimize [ "BEqNot_7" ] ∀ (a : Bool), a == !(! (! a)) ===> False
 
 -- not a == a ===> False
-#testOptimize [ "BEqNot_8" ] ∀ (a : Bool), not a == a ===> ∀ (_a : Bool), False
+#testOptimize [ "BEqNot_8" ] ∀ (a : Bool), not a == a ===> False
 
 -- (not a == a) = false ===> True
 #testOptimize [ "BEqNot_9" ] ∀ (a : Bool), (not a == a) = false ===> True
 
 -- !a == a ===> False
-#testOptimize [ "BEqNot_10" ] ∀ (a : Bool), !a == a ===> ∀ (_a : Bool), False
+#testOptimize [ "BEqNot_10" ] ∀ (a : Bool), !a == a ===> False
 
 -- (!a == a) = false ===> True
 #testOptimize [ "BEqNot_11" ] ∀ (a : Bool), (!a == a) = false ===> True
 
 -- !(a || b) == (b || a) ===> False
-#testOptimize [ "BEqNot_12" ] ∀ (a b : Bool), !(a || b) == (b || a) ===> ∀ (_a _b : Bool), False
+#testOptimize [ "BEqNot_12" ] ∀ (a b : Bool), !(a || b) == (b || a) ===> False
 
 -- !(a && b) == (b && a) ===> False
-#testOptimize [ "BEqNot_13" ] ∀ (a b : Bool), !(a && b) == (b && a) ===> ∀ (_a _b : Bool), False
+#testOptimize [ "BEqNot_13" ] ∀ (a b : Bool), !(a && b) == (b && a) ===> False
 
 -- !(!(!a)) == a ===> False
-#testOptimize [ "BEqNot_14" ] ∀ (a : Bool), !(! (! a)) == a ===> ∀ (_a : Bool), False
+#testOptimize [ "BEqNot_14" ] ∀ (a : Bool), !(! (! a)) == a ===> False
 
 
 /-! Test cases to ensure that simplification rule `e == not e ==> false` is not applied wrongly. -/

@@ -11,8 +11,8 @@ namespace Solver
 structure TranslateEnv where
   /-- Cache memoizing the normalization and rewriting performed on the lean theorem. -/
   rewriteCache : HashMap Lean.Expr Lean.Expr
-  /-- Cache memoizing the synthesize instance for decidable constraint. -/
-  synthDecidableCache : HashMap Lean.Expr Lean.Expr
+  /-- Cache memoizing synthesized instances for Decidable/Inhabited constraint. -/
+  synthInstanceCache : HashMap Lean.Expr Lean.Expr
   /-- Cache memoizing the whnf result. -/
   whnfCache : HashMap Lean.Expr Lean.Expr
   /-- Cache memoizing type for a match application of the form
@@ -79,7 +79,7 @@ def updateRewriteCache (a: Expr) (b: Expr) : TranslateEnvT Unit := do
 -/
 def updateSynthCache (a: Expr) (b: Expr) : TranslateEnvT Unit := do
   let env ← get
-  set {env with synthDecidableCache := env.synthDecidableCache.insert a b }
+  set {env with synthInstanceCache := env.synthInstanceCache.insert a b }
 
 /-- Return `a'` if `a := a'` is already in translation cache.
     Otherwise, the following actions are performed:
@@ -155,7 +155,6 @@ def isRecursiveFun (f : Name) : MetaM Bool := do
        then return false
        else isRecursiveDefinition f
 
-#print ConstantInfo
 /-- Return `true` boolean constructor -/
 def mkBoolTrue : TranslateEnvT Expr := mkExpr (mkConst ``true)
 
@@ -203,6 +202,9 @@ def mkLtOp : TranslateEnvT Expr := mkExpr (mkConst ``LT.lt [levelZero])
 
 /-- Return `Decidable` const expression -/
 def mkDecidableConst : TranslateEnvT Expr := mkExpr (mkConst ``Decidable)
+
+/-- Return `Inhabited` const expression -/
+def mkInhabitedConst : TranslateEnvT Expr := mkExpr (mkConst ``Inhabited [levelOne])
 
 /-- Return `Nat` Type -/
 def mkNatType : TranslateEnvT Expr := mkExpr (mkConst ``Nat)
@@ -329,7 +331,7 @@ def mkDecidableConstraint (e : Expr) (cacheDecidableCst := true) : TranslateEnvT
 def trySynthDecidableInstance? (e : Expr) (cacheDecidableCst := true) : TranslateEnvT (Option Expr) := do
   let dCstr ← mkDecidableConstraint e cacheDecidableCst
   let env ← get
-  match env.synthDecidableCache.find? dCstr with
+  match env.synthInstanceCache.find? dCstr with
   | some d => return d
   | none => do
      let LOption.some d ← trySynthInstance dCstr | return none
@@ -340,6 +342,24 @@ def trySynthDecidableInstance? (e : Expr) (cacheDecidableCst := true) : Translat
 def synthDecidableInstance! (e : Expr) : TranslateEnvT Expr := do
   let some d ← trySynthDecidableInstance? e | throwError "synthesize instance for [Decidable {reprStr e}] cannot be found"
   return d
+
+
+/-- Return `true` if there is already a synthesize instance for [Inhabited n] in the synthesize cache.
+    Otherwise, the following actions are performed:
+     - execute `LOption.some d ← trySynthInstance [Inhabited n]`
+     - add [Inhabited n] := d to synthesize cache
+     - return `true`
+    Return `false` when `trySynthInstance` does not return `LOption.some`
+-/
+def hasInhabitedInstance (n : Expr) : TranslateEnvT Bool := do
+  let inhCstr ← mkExpr (mkApp (← mkInhabitedConst) n)
+  let env ← get
+  match env.synthInstanceCache.find? inhCstr with
+  | some _d => return true
+  | none => do
+     let LOption.some d ← trySynthInstance inhCstr | return false
+     updateSynthCache inhCstr d
+     return true
 
 
 /-- Return `b` if `a := b` is already in the weak head cache.

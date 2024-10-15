@@ -32,7 +32,7 @@ namespace Tests.UnfoldBEq
 #testOptimize [ "UnfoldBEq_7" ] ∀ (a : Bool), a == a ===> True
 
 -- ∀ (a : Bool), a != a ===> False
-#testOptimize [ "UnfoldBEq_8" ] ∀ (a : Bool), a != a ===> ∀ (_a : Bool), False
+#testOptimize [ "UnfoldBEq_8" ] ∀ (a : Bool), a != a ===> False
 
 -- (10 : Int) == 10 ===> true
 #testOptimize [ "UnfoldBEq_9" ] (10 : Int) == 10 ===> true
@@ -50,7 +50,7 @@ namespace Tests.UnfoldBEq
 #testOptimize [ "UnfoldBEq_13" ] ∀ (x : Int), x == x ===> True
 
 -- ∀ (x : Int), x != x ===> False
-#testOptimize [ "UnfoldBEq_14" ] ∀ (x : Int), x != x ===> ∀ (_x : Int), False
+#testOptimize [ "UnfoldBEq_14" ] ∀ (x : Int), x != x ===> False
 
 -- (10 : Nat) == 10 ===> true
 #testOptimize [ "UnfoldBEq_15" ] (10 : Nat) == 10 ===> true
@@ -68,7 +68,7 @@ namespace Tests.UnfoldBEq
 #testOptimize [ "UnfoldBEq_19" ] ∀ (x : Nat), x == x ===> True
 
 -- ∀ (x : Nat), x != x ===> False
-#testOptimize [ "UnfoldBEq_20" ] ∀ (x : Nat), x != x ===> ∀ (_x : Nat), False
+#testOptimize [ "UnfoldBEq_20" ] ∀ (x : Nat), x != x ===> False
 
 -- (List.nil : List Nat) == List.nil ===> true
 #testOptimize [ "UnfoldBEq_21" ] (List.nil : List Nat) == List.nil ===> true
@@ -90,12 +90,10 @@ opaque c : Nat
 #testOptimize [ "UnfoldBEq_25" ] ∀ (α : Type), [BEq α] → (List.nil : List α) == List.nil ===> True
 
 -- ∀ (α : Type), [BEq α] → (List.nil : List α) != List.nil ===> False
-#testOptimize [ "UnfoldBEq_26" ] ∀ (α : Type), [BEq α] → (List.nil : List α) != List.nil ===>
-                                 ∀ (α : Type), [BEq α] → False
+#testOptimize [ "UnfoldBEq_26" ] ∀ (α : Type), [BEq α] → (List.nil : List α) != List.nil ===> False
 
 -- ∀ (α : Type) (x y z : α), [BEq α] → List.nil == [x, y, z] ===> False
-#testOptimize [ "UnfoldBEq_27" ] ∀ (α : Type) (x y z : α), [BEq α] → List.nil == [x, y, z] ===>
-                                 ∀ (α : Type) (_x _y _z : α), [BEq α] → False
+#testOptimize [ "UnfoldBEq_27" ] ∀ (α : Type) (x y z : α), [BEq α] → List.nil == [x, y, z] ===> False
 
 -- ∀ (α : Type) (x y z : α), [BEq α] → List.nil != [x, y, z] ===> True
 #testOptimize [ "UnfoldBEq_28" ] ∀ (α : Type) (x y z : α), [BEq α] → List.nil != [x, y, z] ===> True
@@ -116,7 +114,7 @@ opaque c : Nat
 #testOptimize [ "UnfoldBEq_32" ] ∀ (s : String), s == s ===> True
 
 -- ∀ (s : String), s != s ===> False
-#testOptimize [ "UnfoldBEq_33" ] ∀ (s : String), s != s ===> ∀ (_s : String), False
+#testOptimize [ "UnfoldBEq_33" ] ∀ (s : String), s != s ===> False
 
 
 
