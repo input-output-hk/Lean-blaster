@@ -84,25 +84,31 @@ mutual
     visit e
 
   /-- Given application `f x₁ ... xₙ` perform the following:
-      - when `f` is not an opaque function and corresponds to a recursive definition `fbody` the following actions are performed:
+      - when `f` corresponds to a recursive definition `fbody` the following actions are performed:
           - fbody' ← optimizeExpr sOpts fbody
-          - return `fₙ x₁ ... xₙ` IF entry `fbody'[f/_recFun] := fₙ` exists in recursive function map
-          - return `f x₁ ... xₙ`  OTHERWISE, with `fbody'[f/_recFun] := f x₁ ... xₖ` added to the recursive function map
-            and where `x₁ ... xₖ` correspond to the implicit arguments.
-      - when `f` is an opaque function or is not a recursive definition:
-        - apply optimization on opaque functions (see function `optimizeApp`).
+          - return `optimizeApp fₙ x₁ ... xₙ` IF entry `fbody'[f/_recFun] := fₙ` exists in recursive function map and `f` is not an opaque function
+          - return `optimizeApp f x₁ ... xₙ` IF entry `fbody'[f/_recFun] := fₙ` exists in recursive function map and `f` is an opaque function, with:
+               - `fbody'[f/_recFun] : f x₁ ... xₖ` added to the replay recursive function map,
+                  where `x₁ ... xₖ` correspond to the implicit arguments (if any).
+          - return `optimizeApp f x₁ ... xₙ`  OTHERWISE, with:
+              - `fbody'[f/_recFun] := f x₁ ... xₖ` added to the recursive function map,
+                 where `x₁ ... xₖ` correspond to the implicit arguments (if any).
+      - when `f` is not a recursive definition or is already in the recursive visited cache.
+         - return optimizeApp `f x₁ ... xₙ`.
   -/
   partial def normOpaqueAndRecFun (sOpts: SolverOptions) (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
    match f with
    | Expr.const n l =>
-       if (← pure !(isOpaqueFun n args) <&&> isRecursiveFun n)
+       let isOpaque := isOpaqueFun n args
+       if (← isRecursiveFun n)
        then
-         if (← isVisitedRecFun n)
-         then mkAppExpr f args -- already cached
+         -- retrieve implicit arguments
+         let iargs ← getImplicitArgs f args
+         let instApp ← mkAppExpr f iargs
+         if (← isVisitedRecFun instApp)
+         then optimizeApp f args -- already cached
          else
-           cacheFunName n -- cache function name
-           -- retrieve implicit arguments
-           let iargs ← getImplicitArgs f args
+           cacheFunName instApp -- cache function name
            let some eqThm ← getUnfoldEqnFor? n | throwError "normOpaqueAndRecFun: equation theorem expected for {n}"
            let fn' ←
              forallTelescopeReducing ((← getConstInfo eqThm).type) fun xs eqn => do
@@ -112,10 +118,10 @@ mutual
                -- and generalize recursive function call
                let fdef ← generalizeRecCall n l iargs (Expr.beta auxApp iargs)
                -- optimize recursive fun definition and store
-               storeRecFunDef f iargs (← optimizeExpr sOpts fdef)
+               storeRecFunDef instApp (← optimizeExpr sOpts fdef) isOpaque
            -- only considering explicit args when instantiating
            -- as storeRecFunDef already handled implicit arguments
-           mkAppExpr fn' args[iargs.size : args.size]
+           optimizeApp fn' args[iargs.size : args.size] -- optimizations on cached opaque recursive functions
          else optimizeApp f args -- optimizations on opaque functions
    | _ => mkAppExpr f args
 
@@ -182,8 +188,14 @@ end
       - `expr`: The expression to be optimized.
     ### Returns
       - A tuple containing the optimized expression and the translation environment.
+    NOTE: optimization is repeated until no entry is introduced in `replayRecFunMap`.
 -/
-def optimize (sOpts: SolverOptions) (e : Expr) : MetaM (Expr × TranslateEnv) :=
-  optimizeExpr sOpts e|>.run default
+partial def optimize (sOpts: SolverOptions) (e : Expr) : MetaM (Expr × TranslateEnv) := do
+  let rec loop (e : Expr) (env : TranslateEnv) : MetaM (Expr × TranslateEnv) := do
+    let res@(e', env') ← optimizeExpr sOpts e|>.run env
+    if env'.replayRecFunMap.isEmpty
+    then return res
+    else loop e' (restartTranslateEnv env')
+  loop e default
 
 end Solver.Optimize

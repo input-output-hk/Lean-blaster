@@ -68,6 +68,7 @@ def opaqueFuns : NameHashSet :=
     ``Nat.ble,
     ``Nat.blt,
     ``Nat.beq,
+    ``Nat.pow,
   ]
 
 /-- list of types for which the BEq instance is guaranteed to be reflexive, symmetric and transitive.
