@@ -3,8 +3,8 @@ import Solver.Tests.Utils
 
 open Lean Elab Command Term
 
-namespace Test.OptimizeCOI
-/-! ## Test objectives to validate COI reduction on `∀` and `→` -/
+namespace Test.COIForAll
+/-! ## Test objectives to validate COI reduction on `∀` and `→`. -/
 
 /-! Test cases for COI reduction rule:
      - `∀ (n : t), e ===> e (if isSortOrInhabited t ∧ Type(e) = Prop ∧ ¬ fVarInExpr n.fvarId! e)`.
@@ -136,10 +136,10 @@ inductive ColorDegree (α : Type u) where
   | yellow : Color → ColorDegree α
  deriving Repr
 
--- ∀ (α : Type) (a b c : Bool) (x y z : Color α),
+-- ∀ (α : Type) (a b c : Bool) (x y z : ColorDegree α),
 --  let cond := ((!a || ((b || c) && !(c || b))) || a) && (!(b && a) || (a && b));
 --  (if cond then x else y) = z ===>
---  ∀ (α : Type) (x y z : Color α), x = z
+-- ∀ (α : Type) (x y z : ColorDegree α), x = z
 -- Test case: COI reduction rules not applicable when inductive type does not have at least one nullary constructor.
 #testOptimize [ "ForallCOIUnchanged_7" ] ∀ (α : Type) (a b c : Bool) (x y z : ColorDegree α),
                                            let cond := ((!a || ((b || c) && !(c || b))) || a) && (!(b && a) || (a && b));
@@ -150,10 +150,10 @@ inductive NoInstance where
  | first (n : Nat) (h : n < 0) : NoInstance
  | next : NoInstance → NoInstance
 
--- ∀ (α : Type) (a b c : Bool) (x y z : Color α),
+-- ∀ (a b c : Bool) (x y z : NoInstance),
 --  let cond := ((!a || ((b || c) && !(c || b))) || a) && (!(b && a) || (a && b));
 --  (if cond then x else y) = z ===>
---  ∀ (α : Type) (x y z : Color α), x = z
+-- ∀ (x y z : NoInstance), x = z
 -- Test case: COI reduction rules not applicable when inductive type does not have at least one nullary constructor
 -- or an appropriate Inhabited instance.
 #testOptimize [ "ForallCOIUnchanged_8" ] ∀ (a b c : Bool) (x y z : NoInstance),
@@ -164,7 +164,8 @@ inductive NoInstance where
 -- ∀ (x : Empty) (a b c : Bool), !((!a || ((b || c) && !(c || b))) || a) && (!(b && a) || (a && b)) ===>
 -- ∀ (x : Empty), False
 -- Test case: COI reduction rules not applicable on Empty.
-#testOptimize [ "ForallCOIUnchanged_9" ] ∀ (_x : Empty) (a b c : Bool), !((!a || ((b || c) && !(c || b))) || a) && (!(b && a) || (a && b)) ===>
+#testOptimize [ "ForallCOIUnchanged_9" ] ∀ (_x : Empty) (a b c : Bool),
+                                           !((!a || ((b || c) && !(c || b))) || a) && (!(b && a) || (a && b)) ===>
                                          ∀ (_x : Empty), False
 
 
@@ -189,3 +190,5 @@ inductive NoInstance where
                                                 let cond := ((!a || ((b || c) && !(c || b))) || a);
                                                 (if cond then f x else y) = z ===>
                                           ∀ (α : Type) (β : Type) (f : α → β) (x : α) (z : β), z = f x
+
+end Test.COIForAll
