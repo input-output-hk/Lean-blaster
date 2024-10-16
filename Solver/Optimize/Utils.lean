@@ -216,6 +216,7 @@ def isNullaryCtor (c : Name) : MetaM Bool := do
     - is a sort type; or
     - is a class constraint; or
     - is an inductive type for which either at least one nullary constructor or an Inhabited instance exists.
+ TODO: extends check to also consider parametric constructor for which each each parameter type satisfy `isSortOrInhabited`.
 -/
 def isSortOrInhabited (t : Expr) : TranslateEnvT Bool := do
  if (← isProp t) then return false
