@@ -1,6 +1,7 @@
 import Lean
 import Solver.Optimize.OptimizeBool
 import Solver.Optimize.OptimizeEq
+import Solver.Optimize.OptimizeExists
 import Solver.Optimize.OptimizeInt
 import Solver.Optimize.OptimizeITE
 import Solver.Optimize.OptimizeMatch
@@ -83,6 +84,7 @@ def optimizeApp (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
   if let some e ← optimizeNat? f args then return e
   if let some e ← optimizeInt? f args then return e
   if let some e ← structEqMatch? f args then return e
+  if let some e ← optimizeExists? f args then return e
   mkAppExpr f args
 
 end Solver.Optimize
