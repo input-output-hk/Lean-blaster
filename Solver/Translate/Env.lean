@@ -1,4 +1,4 @@
-rimport Lean
+import Lean
 import Solver.Translate.Utils
 
 open Lean Meta
