@@ -23,17 +23,13 @@ namespace Solver.Optimize
     -- (∀ (a b : Type), P a b) → (∀ (b a : Type), P a b) ===> True
 -/
 def optimizeForall (n : Expr) (t : Expr) (b : Expr) : TranslateEnvT Expr := do
-  match b with
-  | Expr.const ``True _ => pure b
-  | _ =>
-    match t with
-    | Expr.const ``False _ => mkPropTrue
-    | Expr.const `True _ => pure b
-    | _ =>
-      if (← (exprEq t b) <&&> (isProp t)) then return (← mkPropTrue)
-      if (← (isNotExprOf t b) <||> (isNotExprOf b t) <||> (isNegBoolEqOf t b)) then return b
-      if (← (isSortOrInhabited t) <&&> (isProp b) <&&> (pure !(fVarInExpr n.fvarId! b))) then return b
-      mkForallExpr n b
+  if let Expr.const ``True _ := b then return b
+  if let Expr.const ``False _ := t then return (← mkPropTrue)
+  if let Expr.const `True _ := t then return b
+  if (← (exprEq t b) <&&> (isProp t)) then return (← mkPropTrue)
+  if (← (isNotExprOf t b) <||> (isNotExprOf b t) <||> (isNegBoolEqOf t b) <||> (isNegBoolEqOf b t)) then return b
+  if (← (isSortOrInhabited t) <&&> (isProp b) <&&> (pure !(fVarInExpr n.fvarId! b))) then return b
+  mkForallExpr n b
 
 /-- `mkImpliesExpr a b` perform the following:
       - construct expression `a → b`

@@ -27,17 +27,17 @@ def isNilOne (x : List Nat) : Bool :=
   | _ => false
 
 -- ∀ (x : List Nat), isNilOne x = true ===>
--- ∀ (x : List Nat), true = (if [] = x then true else false)
+-- ∀ (x : List Nat), [] = x
 #testOptimize ["MatchToITE_3"] ∀ (x : List Nat), isNilOne x = true ===>
-                               ∀ (x : List Nat), true = (if [] = x then true else false)
+                               ∀ (x : List Nat), [] = x
 
 def isNilTwo (x : List Nat) : Bool := if let [] := x then true else false
 -- NOTE: `if let [] := x ...` is a syntactic suger for a match
 
 -- ∀ (x : List Nat), isNilTwo x = true ===>
--- ∀ (x : List Nat), true = (if [] = x then true else false)
+-- ∀ (x : List Nat), [] = x
 #testOptimize ["MatchToITE_4"] ∀ (x : List Nat), isNilTwo x = true ===>
-                               ∀ (x : List Nat), true = (if [] = x then true else false)
+                               ∀ (x : List Nat), [] = x
 
 
 def ite_sign (x : Int) : Int :=

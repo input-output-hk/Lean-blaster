@@ -39,9 +39,7 @@ mutual
       | Expr.app .. =>
           Expr.withApp e fun rf ras => do
           -- apply optimization on params first before reduction
-          let fInfo ← if isRecFunInternalExpr rf
-                      then pure { } -- internal generalize rec call only have implicit args (see `generalizeRecCall`)
-                      else getFunInfoNArgs rf ras.size
+          let fInfo ← getFunInfoNArgs rf ras.size
           let mut mas := ras
           for i in [:ras.size] do
             if i < fInfo.paramInfo.size then
@@ -72,7 +70,11 @@ mutual
           -- inline let expression
           let v' ← (visit v)
           visit (b.instantiate1 v')
-      | Expr.mdata _ me => visit me
+      | Expr.mdata d me =>
+         let me' ← visit me
+         if (isTaggedRecursiveCall e)
+         then mkExpr (Expr.mdata d me')
+         else return me'
       | Expr.sort _ => return e -- sort is used for Type u, Prop, etc
       | Expr.proj .. =>
           match (← reduceProj? e) with
@@ -84,15 +86,18 @@ mutual
     visit e
 
   /-- Given application `f x₁ ... xₙ` perform the following:
-      - when `f` corresponds to a recursive definition `fbody` the following actions are performed:
-          - fbody' ← optimizeExpr sOpts fbody
-          - return `optimizeApp fₙ x₁ ... xₙ` IF entry `fbody'[f/_recFun] := fₙ` exists in recursive function map and `f` is not an opaque function
-          - return `optimizeApp f x₁ ... xₙ` IF entry `fbody'[f/_recFun] := fₙ` exists in recursive function map and `f` is an opaque function, with:
-               - `fbody'[f/_recFun] : f x₁ ... xₖ` added to the replay recursive function map,
-                  where `x₁ ... xₖ` correspond to the implicit arguments (if any).
-          - return `optimizeApp f x₁ ... xₙ`  OTHERWISE, with:
-              - `fbody'[f/_recFun] := f x₁ ... xₖ` added to the recursive function map,
-                 where `x₁ ... xₖ` correspond to the implicit arguments (if any).
+      - when `f` corresponds to a recursive definition `λ p₁ ... pₙ → fbody` the following actions are performed:
+          - When entry `f x₁ ... xₖ := fdef` exists in the instance cache and `fdef := fₙ` is in the recursive function map.
+               - return `optimizeApp fₙ xₖ₊₁ ... xₙ`
+          - when no entry for `f x₁ ... xₖ` exists in the instance cache:
+             - fbody' ← optimizeExpr sOpts `(λ p₁ ... pₙ → fbody[f/_recFun]) x₁ ... xₖ`
+             - entry `f x₁ ... xₖ := fbody` is added to the instance cache
+             - return `optimizeApp fₙ xₖ₊₁ ... xₙ` IF entry `fbody' := fₙ` exists in recursive function map and `f` is not an opaque function
+             - return `optimizeApp f x₁ ... xₙ` IF entry `fbody' := fₙ` exists in recursive function map and `f` is an opaque function, with:
+                  - `fbody' := f x₁ ... xₖ` added to the replay recursive function map,
+             - return `optimizeApp f x₁ ... xₙ`  OTHERWISE, with:
+                   - `fbody' := f x₁ ... xₖ` added to the recursive function map,
+          where `x₁ ... xₖ` correspond to the implicit arguments of `f` (if any).
       - when `f` is not a recursive definition or is already in the recursive visited cache.
          - return optimizeApp `f x₁ ... xₙ`.
   -/
@@ -108,6 +113,7 @@ mutual
          if (← isVisitedRecFun instApp)
          then optimizeApp f args -- already cached
          else
+           if let some r ← hasRecFunInst? instApp isOpaque then return (← optimizeApp r args[iargs.size : args.size])
            cacheFunName instApp -- cache function name
            let some eqThm ← getUnfoldEqnFor? n | throwError "normOpaqueAndRecFun: equation theorem expected for {n}"
            let fn' ←
@@ -115,7 +121,6 @@ mutual
                let some (_, _, fbody) := eqn.eq? | throwError "normOpaqueAndRecFun: equation expected but got {reprStr eqn}"
                let auxApp ← mkLambdaFVars xs fbody
                -- instantiating polymorphic parameters in fun body
-               -- and generalize recursive function call
                let fdef ← generalizeRecCall n l iargs (Expr.beta auxApp iargs)
                -- optimize recursive fun definition and store
                storeRecFunDef instApp (← optimizeExpr sOpts fdef) isOpaque
@@ -195,7 +200,7 @@ partial def optimize (sOpts: SolverOptions) (e : Expr) : MetaM (Expr × Translat
     let res@(e', env') ← optimizeExpr sOpts e|>.run env
     if env'.replayRecFunMap.isEmpty
     then return res
-    else loop e' (restartTranslateEnv env')
+    else loop e' (← restartTranslateEnv env').2
   loop e default
 
 end Solver.Optimize

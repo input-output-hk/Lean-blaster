@@ -31,7 +31,8 @@ namespace Tests.UnfoldITE
 #testOptimize [ "UnfoldIte_6" ] ∀ (x y z : Int), (if False then x else y) < z ===>
                                 ∀ (y z : Int), y < z
 
--- ∀ (a b c : Bool), (if c then a else b) = true ===> ∀ (a b c : Bool), true = ((a || !c) && (b || c))
+-- ∀ (a b c : Bool), (if c then a else b) = true ===>
+-- ∀ (a b c : Bool), true = ((a || !c) && (b || c))
 #testOptimize [ "UnfoldIte_7" ] ∀ (a b c : Bool), (if c then a else b) = true ===>
                                 ∀ (a b c : Bool), true = ((a || !c) && (b || c))
 

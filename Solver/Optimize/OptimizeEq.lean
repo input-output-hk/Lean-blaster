@@ -1,6 +1,6 @@
 import Lean
-import Solver.Optimize.OptimizeBool
-import Solver.Optimize.OptimizeProp
+import Solver.Optimize.OptimizeBoolNot
+import Solver.Optimize.OptimizePropNot
 
 open Lean Meta
 namespace Solver.Optimize
@@ -40,9 +40,8 @@ partial def structEq? (op1 : Expr) (op2: Expr) : MetaM (Option Bool) := do
      | _, _ =>
        -- return `none` for all other cases if physically equality fails
        pure none
- if (← exprEq op1 op2)
- then pure (some true)
- else visit op1 op2
+ if (← exprEq op1 op2) then return (some true)
+ visit op1 op2
 
  where
    /-- update the lattice for application arguments such that:
@@ -67,7 +66,6 @@ partial def structEq? (op1 : Expr) (op2: Expr) : MetaM (Option Bool) := do
     | some false => true
     | _ => false
 
-
 /-- Apply the following simplification/normalization rules on `Eq` :
      - False = e ==> ¬ e
      - True = e ==> e
@@ -80,53 +78,48 @@ partial def structEq? (op1 : Expr) (op2: Expr) : MetaM (Option Bool) := do
      - ¬ e1 = ¬ e2 ==> e1 = e2 (require classical)
      - not e1 = not e2 ==> e1 = e2
      - e1 = e2 ==> e2 = e1 (if e2 <ₒ e1)
+
    Assume that f = Expr.const ``Eq.
    Do nothing if operator is partially applied (i.e., args.size < 3)
-   An error is triggered when:
-    - structEq? e1 e2 = some true
    NOTE: The `reduceApp` rule will not reduce any `Prop` operator (e.g., `Eq`) applied to constructors only.
+
    TODO: consider additional simplification rules
    TODO: seperate rewriting that require classical reasoning from others.
    TODO: add an option to activate/deactivate classical simplification (same for optimizeProp).
 -/
-partial def optimizeEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
- if args.size == 3 then
-   -- args[0] is sort parameter
-   -- args[1] left operand
-   -- args[2] right operand
-   let opArgs ← reorderPropOp #[args[1]!, args[2]!]
-   let op1 := opArgs[0]!
-   let op2 := opArgs[1]!
-   match op1, op2 with
-   | Expr.const ``False _, _ => optimizeNot (← mkPropNotOp) #[op2]
-   | Expr.const ``True _, _ => pure op2
-   | _, _ =>
-     if (← (isNotExprOf op2 op1) <||> (isBoolNotExprOf op2 op1))
-     then mkPropFalse
-     else if (← exprEq op1 op2) then mkPropTrue
-     else
-       match (← structEq? op1 op2) with
-       | some b =>
-          if !b
-          then mkPropFalse
-          else throwError f!"optimizeEq: pointer equality expected for {op1} {op2}" -- should be unreachable if memoization properly done
-       | none =>
-         match (← notNegEqSimp? op1 op2) with
-         | some (e1, e2) => optimizeEq f #[args[0]!, e1, e2]
-         | none => mkAppExpr f #[args[0]!, op1, op2]
- else mkAppExpr f args
+partial def optimizeEq (f : Expr) (args: Array Expr) (cacheResult := true) : TranslateEnvT Expr := do
+ if args.size != 3 then return (← mkAppExpr f args)
+ -- args[0] is sort parameter
+ -- args[1] left operand
+ -- args[2] right operand
+ let opArgs ← reorderPropOp #[args[1]!, args[2]!]
+ let op1 := opArgs[0]!
+ let op2 := opArgs[1]!
+ if let Expr.const ``False _ := op1 then return (← optimizeNot (← mkPropNotOp) #[op2])
+ if let Expr.const ``True _ := op1 then return op2
+ if (← (isNotExprOf op2 op1) <||> (isBoolNotExprOf op2 op1)) then return (← mkPropFalse)
+ if (← exprEq op1 op2) then return (← mkPropTrue)
+ if let some false ← structEq? op1 op2 then return (← mkPropFalse)
+ if let some (e1, e2) ← notNegEqSimp? op1 op2 then return (← optimizeEq f #[args[0]!, e1, e2] cacheResult)
+ mkExpr (mkApp3 f args[0]! op1 op2) cacheResult
 
  where
-   notNegEqSimp? (op1: Expr) (op2: Expr) : TranslateEnvT (Option (Expr × Expr)) := do
-    match op1, toBoolNotExpr? op2, toBoolNotExpr? op1 with
-    | Expr.const ``true _, some e, _ => pure (some (← mkBoolFalse, e))
-    | Expr.const ``false _, some e, _ => pure (some (← mkBoolTrue, e))
-    | _, some e2, some e1 => pure (some (e1, e2))
+   /- Given `op1` and `op2` corresponding to the operands for `Eq,
+      - return `some (false, e)` when `op1 := true ∧ op2 := not e`
+      - return `some (true, e)` when `op1 := false ∧ op2 := not e`
+      - return `some (e1, e2)` when `op1 := not e1 ∧ op2 := not e2`
+      - return `some (e1, e2)` when `op1 := ¬ e1 ∧ op2 := ¬ e2`
+      Otherwise `none`.
+   -/
+   notNegEqSimp? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option (Expr × Expr)) := do
+    match op1, boolNot? op2, boolNot? op1 with
+    | Expr.const ``true _, some e, _ => return some (← mkBoolFalse, e)
+    | Expr.const ``false _, some e, _ => return (some (← mkBoolTrue, e))
+    | _, some e2, some e1 => return (some (e1, e2))
     | _, _, _ =>
-      match toNotExpr? op1, toNotExpr? op2 with
-      | some e1, some e2 => pure (some (e1, e2))
-      | _, _ => pure none
-
+      match propNot? op1, propNot? op2 with
+      | some e1, some e2 => return (some (e1, e2))
+      | _, _ => return none
 
 /-- Apply the following simplification/normalization rules on `BEq.beq` :
      - false == e ==> not e
@@ -153,38 +146,153 @@ partial def optimizeEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
    TODO: consider additional simplification rules
 -/
 partial def optimizeBEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
- if isOpaqueBeq f.constName args
- then
-   if args.size == 4 then
-     -- args[0] is sort parameter
-     -- args[1] decidable instance parameter
-     -- args[2] left operand
-     -- args[3] right operand
-     let opArgs ← reorderBoolOp #[args[2]!, args[3]!]
-     let op1 := opArgs[0]!
-     let op2 := opArgs[1]!
-     match op1, op2 with
-     | Expr.const ``false _, _ => optimizeBoolNot (← mkBoolNotOp) #[op2]
-     | Expr.const ``true _, _ => pure op2
-     | _, _ =>
-       if (← isBoolNotExprOf op2 op1)
-       then mkBoolFalse
-       else if (← exprEq op1 op2) then mkBoolTrue
-       else match toBoolNotExpr? op1, toBoolNotExpr? op2 with
-            | some e1, some e2 => optimizeBEq f #[args[0]!, args[1]!, e1, e2]
-            | _, _ => mkAppExpr f #[args[0]!, args[1]!, op1, op2]
-    else mkAppExpr f args
- else mkAppExpr f args
+ if !(isOpaqueBeq f.constName args) then return (← mkAppExpr f args)
+ if args.size != 4 then return (← mkAppExpr f args)
+ -- args[0] is sort parameter
+ -- args[1] decidable instance parameter
+ -- args[2] left operand
+ -- args[3] right operand
+ let opArgs ← reorderBoolOp #[args[2]!, args[3]!]
+ let op1 := opArgs[0]!
+ let op2 := opArgs[1]!
+ if let Expr.const ``false _ :=  op1 then return (← optimizeBoolNot (← mkBoolNotOp) #[op2])
+ if let Expr.const ``true _ := op1 then return op2
+ if (← isBoolNotExprOf op2 op1) then return (←  mkBoolFalse)
+ if (← exprEq op1 op2) then return (← mkBoolTrue)
+ if let (some e1, some e2) := (boolNot? op1, boolNot? op2) then return (← optimizeBEq f #[args[0]!, args[1]!, e1, e2])
+ mkExpr (mkApp4 f args[0]! args[1]! op1 op2)
 
 
-/-- Apply simplification and normalization rules on `Eq` and \BEq.beq` :
+mutual
+ /- Given `e` of type `Bool`, return `b = e` on which simplifications
+      rules on Eq are applied.
+ -/
+partial def mkEqBool (e : Expr) (b : Bool) : TranslateEnvT Expr := do
+  let boolLit ← if b then mkBoolTrue else mkBoolFalse
+  optimizeDecideEq (← mkEqOp) #[← mkBoolType, boolLit, e]
+
+/- Call `optimizeEq f args` and apply the following `decide` simplification/normalization
+   rules on the resulting `Eq` expression (if any):
+     - true = (a == b) ==> a = b (if isCompatibleBeqType Type(a))
+     - false = (a == b) ==> ¬ (a = b) (if isCompatibleBeqType Type(a))
+     - c = (a == b) | (a == b) = c ==> (true = c) = (a = b) (if isCompatibleBeqType Type(a))
+     - (B1 = a) = (B2 = b) ==> NOP(B1, a) = NOP(B2, b)
+     - true = decide e ==> e
+     - false = decide e ==> ¬ e
+     - decide e1 = decide e2 ==> e1 = e2
+     - decide e1 = e2 | e2 = decide e1 ===> e1 = (true = e2)
+
+   with NOP(B, e) := e  if B
+                  := !e otherwise
+
+   Assume that f = Expr.const ``Eq.
+
+   - TODO: may be we need to reverse the following simplification rules to maximize equivalence
+      - true = (a == b) ==> a = b (if isCompatibleBeqType Type(a))
+      - false = (a == b) ==> ¬ (a = b) (if isCompatibleBeqType Type(a))
+      - c = (a == b) | (a == b) = c ==> (true = c) = (a = b) (if isCompatibleBeqType Type(a))
+        This rule will not more be required if the two above rules are reversed.
+      - The revering is essential to hanlde example like "EqBoolAndEqBoolUnchanged_7"
+
 -/
-def optimizeEquality? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) :=
+partial def optimizeDecideEq (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
+ let e ← optimizeEq f args (cacheResult := false)
+ let some (_, op1, op2) := e.eq? | return e
+ if let some r ← beqToEq? op1 op2 then return r
+ if let some r ← boolEqtoEq? op1 op2 then return r
+ if let some r ← decideBoolEqSimp? op1 op2 then return r
+ if let some r ← decideEqDecide? op1 op2 then return r
+ mkExpr e
+
+ where
+   isBeqCompatibleType? (e : Expr) : Option (Expr × Expr × Expr × Expr) :=
+     match beq? e with
+     | r@(some (beq_sort, _, _, _)) =>
+         if isCompatibleBeqType beq_sort then r else none
+     | _ => none
+
+   mkBeqToEq (beq_sort : Expr) (beq_op1 : Expr) (beq_op2 : Expr) (c : Expr) : TranslateEnvT Expr := do
+      let op1Expr ← optimizeDecideEq f #[← mkBoolType, ← mkBoolTrue, c]
+      let op2Expr ← optimizeDecideEq f #[beq_sort, beq_op1, beq_op2]
+      optimizeDecideEq f #[← mkPropType, op1Expr, op2Expr]
+
+
+   /- Given `op1` and `op2` corresponding to the operands for `Eq,
+      - return `some (a = b)` when `op1 := true ∧ op2 := a == b ∧ `isCompatibleBeqType Type(a)`
+      - return `some ¬ (a = b)` when `op1 := false ∧ op2 := a == b ∧ `isCompatibleBeqType Type(a)`
+      - return `some (true = c) = (a = b)` when `op1 := c ∧ op2 := a == b ∧ `isCompatibleBeqType Type(a)`
+      - return `some (true = c) = (a = b)` when `op1 := a == b ∧ op2 := c ∧ `isCompatibleBeqType Type(a)`
+      Otherwise `none`.
+   -/
+   beqToEq? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
+    match isBoolValue? op1 with
+    | some bv =>
+      match isBeqCompatibleType? op2 with
+      | some (beq_sort, _, beq_op1, beq_op2) =>
+          let eqExpr ← optimizeDecideEq f #[beq_sort, beq_op1, beq_op2]
+          if bv then return some eqExpr -- return when bv = true
+          some <$> mkExpr (mkApp (← mkPropNotOp) eqExpr)
+      | _ => return none
+    | none =>
+       match isBeqCompatibleType? op1, isBeqCompatibleType? op2 with
+         | some (beq_sort, _, beq_op1, beq_op2), _ =>
+            some <$> mkBeqToEq beq_sort beq_op1 beq_op2 op2
+         | _, some (beq_sort, _, beq_op1, beq_op2) =>
+            some <$> mkBeqToEq beq_sort beq_op1 beq_op2 op1
+         | _, _ => return none
+
+   /- Given `op1` and `op2` corresponding to the operands for `Eq,
+      return `some NOP(B1, e1) = NOP(B2, e2)` only when
+      `op1 := B1 = e1 ∧ op2 := B2 = e2`.
+      Otherwise `none`.
+   -/
+   boolEqtoEq? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
+    match op1.eq?, op2.eq? with
+    | some (eq_sort, a_op1, a_op2), some (_, b_op1, b_op2) =>
+       match isBoolValue? a_op1, isBoolValue? b_op1 with
+       | some bv1, some bv2 => do
+          some <$> optimizeDecideEq f #[eq_sort, (← toBoolNotExpr? bv1 a_op2), (← toBoolNotExpr? bv2 b_op2)]
+       | _, _ => return none
+    | _, _ => return none
+
+   /- Given `op1` and `op2` corresponding to the operands for `Eq,
+       - return `some e` when `op1 := true ∧ op2 := decide e`
+       - return `some ¬ e` when `op1 := false ∧ op2 := decide e`
+      Otherwise `none`.
+   -/
+   decideBoolEqSimp? (op1: Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
+    match op1, decide? op2 with
+    | Expr.const ``true _, some (e, _d) => return some e
+    | Expr.const ``false _, some (e, _d) => some <$> optimizeNot (← mkPropNotOp) #[e]
+    | _, _ => return none
+
+   /- Given `op1` and `op2` corresponding to the operands for `Eq,
+       - return `some e1 = e2` when `op1 := decide e1 ∧ op2 = decide e2`
+       - return `some e1 = (true = e2)` when `op1 := decide e1 ∧ op2 := e2`
+       - return `some e1 = (true = e2)` when `op1 := e2 ∧ op2 := decide e1`
+      Otherwise `none`.
+   -/
+   decideEqDecide? (op1: Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
+     match decide? op1, decide? op2 with
+     | some (e1, _), some (e2, _) =>
+         some <$> optimizeDecideEq (← mkEqOp) #[← mkPropType, e1, e2]
+     | some (e1, _), _ =>
+         some <$> optimizeDecideEq (← mkEqOp) #[← mkPropType, e1, ← mkEqBool op2 true]
+     | _, some (e1, _) =>
+         some <$> optimizeDecideEq (← mkEqOp) #[← mkPropType, e1, ← mkEqBool op1 true]
+     | _, _ => return none
+end
+
+/-- Apply simplification and normalization rules on `Eq` and `BEq.beq` :
+-/
+def optimizeEquality? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
  match f with
  | Expr.const n _ =>
      match n with
-      | ``Eq => some <$> optimizeEq f args
+      | ``Eq => some <$> optimizeDecideEq f args
       | ``BEq.beq => some <$> optimizeBEq f args
       | _ => pure none
  | _ => pure none
+
+
 end Solver.Optimize

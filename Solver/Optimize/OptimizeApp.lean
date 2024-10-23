@@ -1,12 +1,9 @@
 import Lean
-import Solver.Optimize.OptimizeBool
-import Solver.Optimize.OptimizeEq
 import Solver.Optimize.OptimizeExists
 import Solver.Optimize.OptimizeInt
 import Solver.Optimize.OptimizeITE
 import Solver.Optimize.OptimizeMatch
 import Solver.Optimize.OptimizeNat
-import Solver.Optimize.OptimizeProp
 import Solver.Translate.Env
 
 open Lean Meta
@@ -18,22 +15,19 @@ namespace Solver.Optimize
     Note that `false` is return when f corresponds to the internal const ``_recFun.
 -/
 def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) : MetaM Bool := do
-  if isRecFunInternalExpr f
-  then return false
-  else
-    let stop := args.size
-    let fInfo ← getFunInfoNArgs f stop
-    let rec loop (i : Nat) (atLeastOneExplicit : Bool := false) : MetaM Bool := do
-      if i < stop then
-        let e := args[i]!
-        let aInfo := fInfo.paramInfo[i]!
-        if aInfo.isExplicit
-        then if (← isConstructor e)
-             then loop (i+1) true
-             else pure false
-        else loop (i+1) atLeastOneExplicit
-      else pure atLeastOneExplicit
-    loop 0
+  let stop := args.size
+  let fInfo ← getFunInfoNArgs f stop
+  let rec loop (i : Nat) (atLeastOneExplicit : Bool := false) : MetaM Bool := do
+    if i < stop then
+      let e := args[i]!
+      let aInfo := fInfo.paramInfo[i]!
+      if aInfo.isExplicit
+      then if (← isConstructor e)
+           then loop (i+1) true
+           else pure false
+      else loop (i+1) atLeastOneExplicit
+    else pure atLeastOneExplicit
+  loop 0
 
 
 /-- Try to reduce application `f args` when all explicit parameters are constructors.
@@ -46,12 +40,10 @@ def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) : MetaM Bool := do
 -/
 def reduceApp? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
  let appExpr := mkAppN f args
- if (← allExplicitParamsAreCtor f (← extractMatchDiscrs f args))
- then
-   let re ← whnfExpr appExpr
-   if (re != appExpr) && (← (isConstant re) <||> (pure !(isOpaqueFunExpr f args || (← isClassFun f))))
-   then return (some re)
-   else return none
+ if !(← allExplicitParamsAreCtor f (← extractMatchDiscrs f args)) then return none
+ let re ← whnfExpr appExpr
+ if (re != appExpr) && (← (isConstant re) <||> (pure !(isOpaqueFunExpr f args || (← isClassFun f))))
+ then return (some re)
  else return none
 
  where
@@ -77,14 +69,17 @@ def reduceApp? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
     on application expressions.
 -/
 def optimizeApp (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
-  if let some e ← optimizeProp? f args then return e
-  if let some e ← optimizeBool? f args then return e
+  if let some e ← optimizePropNot? f args then return e
+  if let some e ← optimizePropBinary? f args then return e
+  if let some e ← optimizeBoolNot? f args then return e
+  if let some e ← optimizeBoolBinary? f args then return e
   if let some e ← optimizeEquality? f args then return e
   if let some e ← optimizeIfThenElse? f args then return e
   if let some e ← optimizeNat? f args then return e
   if let some e ← optimizeInt? f args then return e
   if let some e ← structEqMatch? f args then return e
   if let some e ← optimizeExists? f args then return e
+  if let some e ← optimizeDecide? f args then return e
   mkAppExpr f args
 
 end Solver.Optimize

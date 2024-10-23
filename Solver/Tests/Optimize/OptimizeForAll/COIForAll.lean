@@ -118,10 +118,10 @@ inductive Color where
 #testOptimize [ "ForallCOIUnchanged_4" ] ∀ (a b c : Prop), (a ∧ (b ∨ ¬ c)) ===>
                                          ∀ (a b c : Prop), (a ∧ (b ∨ ¬ c))
 
--- ∀ (a b c : Bool), (a || (b && ! c)) ===> ∀ (a b c : Bool), true = (a || (b && ! c))
+-- ∀ (a b c : Bool), (a || (b && ! c)) ===> ∀ (a b c : Bool), true = (a || (b && !c))
 -- Test case: COI reduction rules not applicable if all quantifiers are still referenced.
 #testOptimize [ "ForallCOIUnchanged_5" ] ∀ (a b c : Bool), (a || (b && ! c)) ===>
-                                         ∀ (a b c : Bool), true = (a || (b && ! c))
+                                         ∀ (a b c : Bool), true = (a || (b && !c))
 
 -- ∀ (w x y z : Nat), (((100 - x) - 120) + x * z) + w < y ===>
 -- ∀ (w x y z : Nat), Nat.add w (Nat.mul x z) < y

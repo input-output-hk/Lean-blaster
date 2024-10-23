@@ -440,11 +440,11 @@ elab "diteCondUnchanged_3" : term => return diteCondUnchanged_3
                                         ∀ (b p q : Prop), (b → p) ∧ (¬ b → q)
 
 -- ∀ (a b : Prop) (c d : Bool), (if h : (b ∧ ¬ b) ∨ a then c else d) = true ===>
--- ∀ (a : Prop) (c d : Bool), true = (if h : a then c else d)
+-- ∀ (a : Prop) (c d : Bool), (a ∨ true = d) ∧ (¬ a ∨ true = c)
 #testOptimize [ "DIteCondUnchanged_5" ] ∀ (a b : Prop) (c d : Bool),
                                              [Decidable a] → [Decidable b] → (if _h : (b ∧ ¬ b) ∨ a then c else d) = true ===>
-                                        ∀ (a : Prop) (c d : Bool),
-                                             [Decidable a] → true = (if _h : a then c else d)
+                                        ∀ (a : Prop) (c d : Bool), (a ∨ true = d) ∧ (¬ a ∨ true = c)
+
 
 -- ∀ (a b : Prop) (x y z : Nat), (if h : b ∧ (a ∨ ¬ a) then (x + 40) - 40 else y) < z ===>
 -- ∀ (b : Prop) (x y z : Nat), (if h : b then x else y) < z
@@ -464,9 +464,9 @@ elab "diteCondUnchanged_3" : term => return diteCondUnchanged_3
                                   ∀ (a b c : Prop), (c → b) ∧ (¬ c → a)
 
 -- ∀ (c : Prop) (a b : Bool), (if h : ¬ c then a else b) = true ===>
--- ∀ (c : Prop) (a b : Bool), true = (if h : c then b else a)
+-- ∀ (c : Prop) (a b : Bool), (c ∨ true = a) ∧ (¬ c ∨ true = b)
 #testOptimize [ "DIteNegCond_2" ] ∀ (c : Prop) (a b : Bool), [Decidable c] → (if _h : ¬ c then a else b) = true ===>
-                                  ∀ (c : Prop) (a b : Bool), [Decidable c] → true = (if _h : c then b else a)
+                                  ∀ (c : Prop) (a b : Bool), (c ∨ true = a) ∧ (¬ c ∨ true = b)
 
 -- ∀ (c : Prop) (x y z : Nat), (if h : ¬ c then x else y) < z ===>
 -- ∀ (c : Prop) (x y z : Nat), (if h : c then y else x) < z
@@ -545,9 +545,9 @@ elab "diteCondUnchanged_3" : term => return diteCondUnchanged_3
                                            ∀ (a b c : Prop), (c → a) ∧ (¬ c → b)
 
 -- ∀ (c : Prop) (a b : Bool), (if h : ¬ (¬ c) then a else b) = true ===>
--- ∀ (c : Prop) (a b : Bool), true = (if h : c then a else b)
+-- ∀ (c : Prop) (a b : Bool), (c ∨ true = b) ∧ (¬ c ∨ true = a)
 #testOptimize [ "DIteNegCondUnchanged_2" ] ∀ (c : Prop) (a b : Bool), [Decidable c] → (if _h : ¬ (¬ c) then a else b) = true ===>
-                                           ∀ (c : Prop) (a b : Bool), [Decidable c] → true = (if _h : c then a else b)
+                                           ∀ (c : Prop) (a b : Bool), (c ∨ true = b) ∧ (¬ c ∨ true = a)
 
 -- ∀ (c : Prop) (x y z : Nat), (if h : ¬ (¬ c) then x else y) < z ===>
 -- ∀ (c : Prop) (x y z : Nat), (if h : c then y else x) < z
@@ -947,9 +947,9 @@ elab "diteFalseEqCondUnchanged_3" : term => return diteFalseEqCondUnchanged_3
                                                ∀ (a b : Bool) (p q : Prop), ((¬ (a = b) → q) ∧ ((a = b) → p))
 
 -- ∀ (a b c d : Bool), (if h : a = b then c else d) = true ===>
--- ∀ (a b c d : Bool), true = (if h : a = b then c else d)
+-- ∀ (a b c d : Bool), (¬ (a = b) ∨ true = c) ∧ (a = b ∨ true = d)
 #testOptimize [ "DIteFalseEqCondUnchanged_6" ]  ∀ (a b c d : Bool), (if _h : a = b then c else d) = true ===>
-                                                ∀ (a b c d : Bool), true = (if _h : a = b then c else d)
+                                                ∀ (a b c d : Bool), (¬ (a = b) ∨ true = c) ∧ (a = b ∨ true = d)
 
 -- ∀ (a b : Bool) (x y : Nat), (if h : a = b then x else y) > x ===>
 -- ∀ (a b : Bool) (x y : Nat), x < (if h : a = b then x else y)
@@ -1135,8 +1135,7 @@ elab "diteFalseEqCondUnchanged_13" : term => return diteFalseEqCondUnchanged_13
 
 
 /-! Test cases for simplification rule
-      ``dite c (fun h : c => e1) (fun h : ¬ c => e2)` ==>
-         (! c' || e1) && (c' || e2) (if Type(e1) = Bool ∧ c := true = c')`.
+     `dite c (fun h : c => e1) (fun h : ¬ c => e2) ==> (! decide c || e1) && (decide c || e2) (if Type(e1) = Bool)`.
 -/
 
 
@@ -1206,51 +1205,51 @@ elab "diteFalseEqCondUnchanged_13" : term => return diteFalseEqCondUnchanged_13
 -- Test case to validate expression caching after rewriting
 #testOptimize [ "DIteToBoolExpr_16" ] ∀ (c a b : Bool), (if _h : !c then a else b) = ((c || a) && (!c || b)) ===> True
 
+-- ∀ (a b c d : Bool), (if h : c = d then a else b) = true ===>
+-- ∀ (a b c d : Bool), true = (¬ (c = d) ∨ true = a) ∧ (c = d ∨ true = b)
+#testOptimize [ "DIteToBoolExpr_17" ] ∀ (a b c d : Bool), (if _h : c = d then a else b) = true ===>
+                                      ∀ (a b c d : Bool), (¬ (c = d) ∨ true = a) ∧ (c = d ∨ true = b)
+
+-- ∀ (c : Prop) (a b : Bool), (if h : c then a else b) = true ===>
+-- ∀ (c : Prop), (c ∨ true = b) ∧ (¬ c ∨ true = a)
+#testOptimize [ "DIteToBoolExpr_18" ] ∀ (c : Prop) (a b : Bool), [Decidable c] → (if _h : c then a else b) = true ===>
+                                      ∀ (c : Prop) (a b : Bool), (c ∨ true = b) ∧ (¬ c ∨ true = a)
+
+-- ∀ (a b c : Bool), (if h : a = c then true else b) = true ===>
+-- ∀ (a b c : Bool), (a = c ∨ true = b)
+#testOptimize [ "DIteToBoolExpr_19" ] ∀ (a b c : Bool), (if _h : a = c then true else b) = true ===>
+                                      ∀ (a b c : Bool), (a = c ∨ true = b)
+
+-- ∀ (a b c : Bool), (if h : a = c then b else true) = true ===>
+-- ∀ (a b c : Bool), ¬ (a = c) ∨ true = b
+#testOptimize [ "DIteToBoolExpr_20" ] ∀ (a b c : Bool), (if _h : a = c then b else true) = true ===>
+                                      ∀ (a b c : Bool), ¬ (a = c) ∨ true = b
+
+-- ∀ (a b c : Bool), (if h : a = c then false else b) = true ===>
+-- ∀ (a b c : Bool), ¬ (a = c) ∧ (a = c ∨ true = b)
+#testOptimize [ "DIteToBoolExpr_21" ] ∀ (a b c : Bool), (if _h : a = c then false else b) = true ===>
+                                      ∀ (a b c : Bool), ¬ (a = c) ∧ (a = c ∨ true = b)
+
+-- ∀ (a b c : Bool), (if h : a = c then b else false) = true ===>
+-- ∀ (a b c : Bool), (¬ (a = c) ∨ true = b) ∧ (a = c)
+#testOptimize [ "DIteToBoolExpr_22" ] ∀ (a b c : Bool), (if _h : a = c then b else false) = true ===>
+                                      ∀ (a b c : Bool), (¬ (a = c) ∨ true = b) ∧ (a = c)
+
+-- ∀ (x y : Int) (a b : Bool), (if h : x < y then a else b) = true ===>
+-- ∀ (x y : Int) (a b: Bool), (¬ x < y ∨ true = a) ∧ (true = b ∨ x < y)
+#testOptimize [ "DIteToBoolExpr_23" ] ∀ (x y : Int) (a b : Bool), (if _h : x < y then a else b) = true ===>
+                                      ∀ (x y : Int) (a b: Bool), (¬ x < y ∨ true = a) ∧ (true = b ∨ x < y)
+
 
 /-! Test cases to ensure that simplification rule
-      ``dite c (fun h : c => e1) (fun h : ¬ c => e2)` ==>
-          (! c' || e1) && (c' || e2) (if Type(e1) = Bool ∧ c := true = c')`
+      `dite c (fun h : c => e1) (fun h : ¬ c => e2) ==> (! decide c || e1) && (decide c || e2) (if Type(e1) = Bool)`
     is not applied wrongly.
 -/
 
--- ∀ (a b c d : Bool), (if h : c = d then a else b) = true ===>
--- ∀ (a b c d : Bool), true = (if h : c = d then a else b)
-#testOptimize [ "DIteToBoolExprUnchanged_1" ] ∀ (a b c d : Bool), (if _h : c = d then a else b) = true ===>
-                                              ∀ (a b c d : Bool), true = (if _h : c = d then a else b)
-
--- ∀ (c : Prop) (a b : Bool), (if h : c then a else b) = true ===>
--- ∀ (c : Prop), true = (if h : c then a else b)
-#testOptimize [ "DIteToBoolExprUnchanged_2" ] ∀ (c : Prop) (a b : Bool), [Decidable c] → (if _h : c then a else b) = true ===>
-                                              ∀ (c : Prop) (a b : Bool), [Decidable c] → true = (if _h : c then a else b)
-
--- ∀ (a b c : Bool), (if h : a = c then true else b) = true ===>
--- ∀ (a b c : Bool), true = (if h : a = c then true else b)
-#testOptimize [ "DIteToBoolExprUnchanged_3" ] ∀ (a b c : Bool), (if _h : a = c then true else b) = true ===>
-                                              ∀ (a b c : Bool), true = (if _h : a = c then true else b)
-
--- ∀ (a b c : Bool), (if h : a = c then b else true) = true ===>
--- ∀ (a b c : Bool), true = (if h : a = c then b else true)
-#testOptimize [ "DIteToBoolExprUnchanged_4" ] ∀ (a b c : Bool), (if _h : a = c then b else true) = true ===>
-                                              ∀ (a b c : Bool), true = (if _h : a = c then b else true)
-
--- ∀ (a b c : Bool), (if h : a = c then false else b) = true ===>
--- ∀ (a b c : Bool), true = (if h : a = c then false else b)
-#testOptimize [ "DIteToBoolExprUnchanged_5" ] ∀ (a b c : Bool), (if _h : a = c then false else b) = true ===>
-                                              ∀ (a b c : Bool), true = (if _h : a = c then false else b)
-
--- ∀ (a b c : Bool), (if h : a = c then b else false) = true ===>
--- ∀ (a b c : Bool), true = (if h : a = c then b else false)
-#testOptimize [ "DIteToBoolExprUnchanged_6" ] ∀ (a b c : Bool), (if _h : a = c then b else false) = true ===>
-                                              ∀ (a b c : Bool), true = (if _h : a = c then b else false)
-
--- ∀ (a b c d : Bool), (if h : ¬ (c = d) then a else b) = true ===>
--- ∀ (a b c d : Bool), true = (if h : (c = d) then b else a)
-#testOptimize [ "DIteToBoolExprUnchanged_7" ] ∀ (a b c d : Bool), (if _h : ¬ (c = d) then a else b) = true ===>
-                                              ∀ (a b c d : Bool), true = (if _h : (c = d) then b else a)
 
 -- ∀ (c : Bool) (x y : Nat), (if h : c then x else y) > x ===>
 -- ∀ (c : Bool) (x y : Nat), x < (if h : true = c then x else y)
-#testOptimize [ "DIteToBoolExprUnchanged_8" ] ∀ (c : Bool) (x y : Nat), (if _h : c then x else y) > x ===>
+#testOptimize [ "DIteToBoolExprUnchanged_1" ] ∀ (c : Bool) (x y : Nat), (if _h : c then x else y) > x ===>
                                                 diteFalseEqCondUnchanged_3
 
 
@@ -1462,52 +1461,15 @@ elab "diteFalseEqCondUnchanged_13" : term => return diteFalseEqCondUnchanged_13
     is not applied wrongly.
  -/
 
--- ∀ (c : Prop) (a b : Bool), (if h : c then a else b) = true ===>
--- ∀ (c : Prop) (a b : Bool), true = (if c then a else b)
-def dIteToPropExprUnchanged_1 : Expr :=
-Lean.Expr.forallE `c
-  (Lean.Expr.sort (Lean.Level.zero))
-  (Lean.Expr.forallE `a
-    (Lean.Expr.const `Bool [])
-    (Lean.Expr.forallE `b
-      (Lean.Expr.const `Bool [])
-      (Lean.Expr.forallE
-        (Lean.Name.mkNum `inst.Solver.Tests.Optimize.OptimizeITE.OptimizeDITE._hyg 13364)
-        (Lean.Expr.app (Lean.Expr.const `Decidable []) (Lean.Expr.bvar 2))
-        (Lean.Expr.app
-          (Lean.Expr.app
-            (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Bool []))
-            (Lean.Expr.const `Bool.true []))
-          (Lean.Expr.app
-            (Lean.Expr.app
-              (Lean.Expr.app
-                (Lean.Expr.app
-                  (Lean.Expr.app (Lean.Expr.const `dite [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Bool []))
-                  (Lean.Expr.bvar 3))
-                (Lean.Expr.bvar 0))
-              (Lean.Expr.lam `_h (Lean.Expr.bvar 3) (Lean.Expr.bvar 3) (Lean.BinderInfo.default)))
-            (Lean.Expr.lam
-              `_h
-              (Lean.Expr.app (Lean.Expr.const `Not []) (Lean.Expr.bvar 3))
-              (Lean.Expr.bvar 2)
-              (Lean.BinderInfo.default))))
-        (Lean.BinderInfo.instImplicit))
-      (Lean.BinderInfo.default))
-    (Lean.BinderInfo.default))
-  (Lean.BinderInfo.default)
-elab "dIteToPropExprUnchanged_1" : term => return dIteToPropExprUnchanged_1
-
-#testOptimize [ "DIteToPropExprUnchanged_1" ] ∀ (c : Prop) (a b : Bool), [Decidable c] → (if _h : c then a else b) = true ===>
-                                                dIteToPropExprUnchanged_1
 
 -- ∀ (c : Prop) (x y z : Nat), (if h : c then x else y) < z ===>
 -- ∀ (c : Prop) (x y z : Nat), (if h : c then x else y) < z
-#testOptimize [ "DIteToPropExprUnchanged_2" ] ∀ (c : Prop) (x y z : Nat), [Decidable c] → (if _h : c then x else y) < z ===>
+#testOptimize [ "DIteToPropExprUnchanged_1" ] ∀ (c : Prop) (x y z : Nat), [Decidable c] → (if _h : c then x else y) < z ===>
                                               ∀ (c : Prop) (x y z : Nat), [Decidable c] → (if _h : c then x else y) < z
 
 -- ∀ (c : Bool) (x y z : Nat), (if h : c then x else y) < z ===>
 -- ∀ (c : Bool) (x y z : Nat), (if h : true = c then x else y) < z
-def dIteToPropExprUnchanged_3 : Expr :=
+def dIteToPropExprUnchanged_2 : Expr :=
 Lean.Expr.forallE `c
   (Lean.Expr.const `Bool [])
   (Lean.Expr.forallE `x
@@ -1561,23 +1523,18 @@ Lean.Expr.forallE `c
       (Lean.BinderInfo.default))
     (Lean.BinderInfo.default))
   (Lean.BinderInfo.default)
-elab "dIteToPropExprUnchanged_3" : term => return dIteToPropExprUnchanged_3
+elab "dIteToPropExprUnchanged_2" : term => return dIteToPropExprUnchanged_2
 
-#testOptimize [ "DIteToPropExprUnchanged_3" ] ∀ (c : Bool) (x y z : Nat), (if _h : c then x else y) < z ===> dIteToPropExprUnchanged_3
-
--- ∀ (c : Prop) (a b : Bool), (if h : ¬ c then a else b) = true ===>
--- ∀ (c : Prop) (a b : Bool), true = (if h : c then b else a)
-#testOptimize [ "DIteToPropExprUnchanged_4" ] ∀ (c : Prop) (a b : Bool), [Decidable c] → (if _h : ¬ c then a else b) = true ===>
-                                              ∀ (c : Prop) (a b : Bool), [Decidable c] → true = (if _h : c then b else a)
+#testOptimize [ "DIteToPropExprUnchanged_2" ] ∀ (c : Bool) (x y z : Nat), (if _h : c then x else y) < z ===> dIteToPropExprUnchanged_2
 
 -- ∀ (c : Prop) (x y z : Nat), (if h : ¬ c then x else y) < z ===>
 -- ∀ (c : Prop) (x y z : Nat), (if h : c then y else x) < z
-#testOptimize [ "DIteToPropExprUnchanged_5" ] ∀ (c : Prop) (x y z : Nat), [Decidable c] → (if _h : ¬ c then x else y) < z ===>
+#testOptimize [ "DIteToPropExprUnchanged_3" ] ∀ (c : Prop) (x y z : Nat), [Decidable c] → (if _h : ¬ c then x else y) < z ===>
                                               ∀ (c : Prop) (x y z : Nat), [Decidable c] → (if _h : c then y else x) < z
 
 -- ∀ (c : Bool) (x y z : Nat), (if h : !c then x else y) < z ===>
 -- ∀ (c : Bool) (x y z : Nat), (if h : true = c then y else x) < z
-def dIteToPropExprUnchanged_6 : Expr :=
+def dIteToPropExprUnchanged_4 : Expr :=
 Lean.Expr.forallE `c
   (Lean.Expr.const `Bool [])
   (Lean.Expr.forallE `x
@@ -1631,14 +1588,14 @@ Lean.Expr.forallE `c
       (Lean.BinderInfo.default))
     (Lean.BinderInfo.default))
   (Lean.BinderInfo.default)
-elab "dIteToPropExprUnchanged_6" : term => return dIteToPropExprUnchanged_6
+elab "dIteToPropExprUnchanged_4" : term => return dIteToPropExprUnchanged_4
 
-#testOptimize [ "DIteToPropExprUnchanged_6" ] ∀ (c : Bool) (x y z : Nat), (if _h : !c then x else y) < z ===> dIteToPropExprUnchanged_6
+#testOptimize [ "DIteToPropExprUnchanged_4" ] ∀ (c : Bool) (x y z : Nat), (if _h : !c then x else y) < z ===> dIteToPropExprUnchanged_4
 
 
 -- ∀ (c : Bool) (x y : Int), (if h : c then -x else x) > y ===>
 -- ∀ (c : Bool) (x y : Int), y < (if h : true = c then Int.neg x else x)
-def dIteToPropExprUnchanged_7 : Expr :=
+def dIteToPropExprUnchanged_5 : Expr :=
  Lean.Expr.forallE `c
   (Lean.Expr.const `Bool [])
   (Lean.Expr.forallE `x
@@ -1683,15 +1640,15 @@ def dIteToPropExprUnchanged_7 : Expr :=
       (Lean.BinderInfo.default))
     (Lean.BinderInfo.default))
   (Lean.BinderInfo.default)
-elab "dIteToPropExprUnchanged_7" : term => return dIteToPropExprUnchanged_7
+elab "dIteToPropExprUnchanged_5" : term => return dIteToPropExprUnchanged_5
 
-#testOptimize [ "DIteToPropExprUnchanged_7" ] ∀ (c : Bool) (x y : Int), (if _h : c then -x else x) > y ===> dIteToPropExprUnchanged_7
+#testOptimize [ "DIteToPropExprUnchanged_5" ] ∀ (c : Bool) (x y : Int), (if _h : c then -x else x) > y ===> dIteToPropExprUnchanged_5
 
 -- let p := x + y in
 -- let q := x - y in
 -- ∀ (c : Bool) (x y : Int), (if h : c then p else q) > x ===>
 -- ∀ (c : Bool) (x y : Int), x < (if h : true = c then Int.add x y else Int.add x (Int.neg y))
-def dIteToPropExprUnchanged_8 : Expr :=
+def dIteToPropExprUnchanged_6 : Expr :=
  Lean.Expr.forallE `c
   (Lean.Expr.const `Bool [])
   (Lean.Expr.forallE `x
@@ -1738,15 +1695,15 @@ def dIteToPropExprUnchanged_8 : Expr :=
       (Lean.BinderInfo.default))
     (Lean.BinderInfo.default))
   (Lean.BinderInfo.default)
-elab "dIteToPropExprUnchanged_8" : term => return dIteToPropExprUnchanged_8
+elab "dIteToPropExprUnchanged_6" : term => return dIteToPropExprUnchanged_6
 
-#testOptimize [ "DIteToPropExprUnchanged_8" ] ∀ (c : Bool) (x y : Int),
+#testOptimize [ "DIteToPropExprUnchanged_6" ] ∀ (c : Bool) (x y : Int),
                                                let p := x + y; let q := x - y;
-                                               (if _h : c then p else q) > x ===> dIteToPropExprUnchanged_8
+                                               (if _h : c then p else q) > x ===> dIteToPropExprUnchanged_6
 
 -- ∀ (a b : Bool) (x y : Int), (if h : (! a || b) then x else y) > x ===>
 -- ∀ (a b : Bool) (x y : Int), x < (if h : true = (b || ! a) then x else y)
-def dIteToPropExprUnchanged_9 : Expr :=
+def dIteToPropExprUnchanged_7 : Expr :=
 Lean.Expr.forallE `a
   (Lean.Expr.const `Bool [])
   (Lean.Expr.forallE `b
@@ -1804,17 +1761,28 @@ Lean.Expr.forallE `a
       (Lean.BinderInfo.default))
     (Lean.BinderInfo.default))
   (Lean.BinderInfo.default)
-elab "dIteToPropExprUnchanged_9" : term => return dIteToPropExprUnchanged_9
+elab "dIteToPropExprUnchanged_7" : term => return dIteToPropExprUnchanged_7
 
-#testOptimize [ "DIteToPropExprUnchanged_9" ] ∀ (a b : Bool) (x y : Int),
-                                                (if _h : (! a) || b then x else y) > x ===> dIteToPropExprUnchanged_9
+#testOptimize [ "DIteToPropExprUnchanged_7" ] ∀ (a b : Bool) (x y : Int),
+                                                (if _h : (! a) || b then x else y) > x ===> dIteToPropExprUnchanged_7
 
 -- ∀ (a b : Prop) (x y : Int), (if h : (¬ a ∨ b) then x else y) > x ===
 -- ∀ (a b : Prop) (x y : Int), x < (if h : ( b ∨ ¬ a ) then x else y)
-#testOptimize [ "DIteToPropExprUnchanged_10" ] ∀ (a b : Prop) (x y : Int), [Decidable a] → [Decidable b] →
+#testOptimize [ "DIteToPropExprUnchanged_8" ] ∀ (a b : Prop) (x y : Int), [Decidable a] → [Decidable b] →
                                                  (if _h : (¬ a ∨ b) then x else y) > x ===>
-                                               ∀ (a b : Prop) (x y : Int), [Decidable a] → [Decidable b] →
-                                                 x < (if _h : (b ∨ ¬ a) then x else y)
+                                              ∀ (a b : Prop) (x y : Int), [Decidable a] → [Decidable b] →
+                                                  x < (if _h : (b ∨ ¬ a) then x else y)
 
+-- ∀ (a : Prop) (c b : Bool), [Decidable a] →
+--  (if c then a else b) = (if h : c then decide a else b) ===>
+-- ∀ (a : Prop) (c b : Bool),
+--  ((a ∨ (false = c)) ∧ (true = (c || b))) =
+--  ((false = c → true = b) ∧ (true = c → a))
+-- NOTE: can be reduced to `True` if we generate OR instead of implication (TO DECIDE)
+#testOptimize [ "DIteToPropExprUnchanged_9" ] ∀ (a : Prop) (c b : Bool), [Decidable a] →
+                                               (if _h : c then a else b) = (if c then decide a else b) ===>
+                                             ∀ (a : Prop) (c b : Bool),
+                                                ((a ∨ (false = c)) ∧ (true = (c || b))) =
+                                                ((false = c → true = b) ∧ (true = c → a))
 
 end Test.OptimizeDITE
