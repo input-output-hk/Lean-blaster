@@ -1,4 +1,4 @@
-import Lean
+rimport Lean
 import Solver.Translate.Utils
 
 open Lean Meta
@@ -100,9 +100,9 @@ def withTranslateEnvCache (a : Expr) (f: Unit → TranslateEnvT Expr) : Translat
 /-- Given a TranlateEnv `old_env` return a new `env` by performing the following actions:
      - `env` is initilaized to empty
      - set `env.recFunMap` to `old.env.replayRecFunMap`
-     - ∀ `fbody := f` ∈ oled_env.replayRecFunMap, add `f := f` in `env.rewriteCache`
+     - ∀ `fbody := f` ∈ old_env.replayRecFunMap, add `f := f` in `env.rewriteCache`
      - ∀ `fbody := f` ∈ old_env.replayRecFunMap, add `f` in `env.recFunCache`
-     - ∀ `fbody := f` ∈ oled_env.replayRecFunMap, add `f := fbody` `env.recFunInstCache`
+     - ∀ `fbody := f` ∈ old_env.replayRecFunMap, add `f := fbody` `env.recFunInstCache`
      - ∀ `fbody := f` ∈ old_env.recFunMap,
          if isOpaqueFunExpr f then
            - add `f := f` in `env.rewriteCache`
