@@ -1,7 +1,7 @@
 import Lean
 open Lean Elab Command
 
-namespace Solver
+namespace Solver.Options
 
 /--
 Type introducing the options passed on to the solver.
@@ -29,7 +29,9 @@ structure SolverOptions where
    TODO: This description will be updated as new functionalities are introduced.
   -/
   verbose : Nat := 0
+  /-- When set to `true`, only perform translation to smt-lib without invoking the backend smt solver. -/
+  onlySmtLib : Bool := false
  deriving Repr, Inhabited
 
-end Solver
+end Solver.Options
 

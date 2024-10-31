@@ -1,5 +1,5 @@
 import Lean
-import Solver.Translate.Env
+import Solver.Optimize.Env
 
 open Lean Meta Declaration
 
@@ -98,7 +98,7 @@ def isNullaryCtor (c : Name) : MetaM Bool := do
     - is a sort type; or
     - is a class constraint; or
     - is an inductive type for which either at least one nullary constructor or an Inhabited instance exists.
- TODO: extends check to also consider parametric constructor for which each each parameter type satisfy `isSortOrInhabited`.
+ TODO: extends check to also consider parametric constructor for which each parameter type satisfy `isSortOrInhabited`.
 -/
 def isSortOrInhabited (t : Expr) : TranslateEnvT Bool := do
  if (← isProp t) then return false
@@ -230,6 +230,14 @@ def isNatValue? (e : Expr) : Option Nat :=
   | Expr.lit (Literal.natVal n) => some n
   | _ => none
 
+/-- Determine if `e` is a `String` literal expression `Expr.lit (Literal.strVal s)`
+    and return `some s` as result. Otherwise return `none`.
+-/
+def isStrValue? (e : Expr) : Option String :=
+  match e with
+  | Expr.lit (Literal.strVal s) => some s
+  | _ => none
+
 /-- Return `true` if `e := Nat.add e1 e2`. Otherwise return `false`.
     Note that `true` is returned only when e is a fully applied `Nat.add expression.
 -/
@@ -292,7 +300,7 @@ def isFunAppOfArity : Expr → Nat → Bool
   then some (e.appFn!.appArg!, e.appArg!)
   else none
 
-/-- Return `some op` is e is a binary operator. Otherwise `none`. -/
+/-- Return `some op` is e is a unary operator. Otherwise `none`. -/
 @[inline] def unaryOp? (e : Expr) : Option Expr :=
   if isFunAppOfArity e 1
   then some (e.appArg!)
@@ -325,15 +333,6 @@ def toNatCstOpExpr? (e: Expr) : Option NatCstOpInfo :=
     | Expr.const ``Nat.mod _, _, some n => some (NatCstOpInfo.NatModRightExpr op1 n)
     | _, _, _ => none
  | _ => none
-
-
-/-- Apply the following normalization rules on a `Const` expression:
-     - mkConst ``Nat.zero _ ===> Expr.lit (Literal.natVal 0)
--/
-def normConst (n : Name) (l : List Level) : TranslateEnvT Expr := do
-  match n with
-  | ``Nat.zero => mkNatLitExpr 0
-  | _ => return (mkConst n l)
 
 /-- Determine if `e` is an Int.neg expression and return it's correponding argument.
     Otherwise return `none`.
@@ -576,17 +575,17 @@ def isMatchExpr (n : Name) : MetaM Bool := Option.isSome <$> getMatcherInfo? n
 
 /- Return the function definition for `f` whenever `f` corresponds to:
    - a lambda expression
-   - a defined function.
+   - a defined function.$ (recursive or not).
    Otherwise `none`.
 -/
-def getFunBody (f : Expr) : MetaM (Option Expr) := do
+partial def getFunBody (f : Expr) : MetaM (Option Expr) := do
   match f with
   | Expr.lam .. => return f
   | Expr.const n l =>
       if (← isRecursiveFun n)
       then
         let some eqThm ← getUnfoldEqnFor? n | throwError "getFunBody: equation theorem expected for {n}"
-        forallTelescopeReducing ((← getConstInfo eqThm).type) fun xs eqn => do
+        forallTelescope ((← getConstInfo eqThm).type) fun xs eqn => do
           let some (_, _, fbody) := eqn.eq? | throwError "getFunBody: equation expected but got {reprStr eqn}"
           let auxApp ← mkLambdaFVars xs fbody
           let cinfo ← getConstInfo n

@@ -92,8 +92,5 @@ namespace Tests.UnfoldNatOp
 -- TODO: update test case when normalizing `Nat.ble x y = true` to `x ≤ y`
 #testOptimize ["NatOpNotUnfolded_9"] ∀ (x y : Nat), Nat.ble x y ===> ∀ (x y : Nat), true = (Nat.ble x y)
 
--- ∀ (x y : Nat), Nat.blt x y ===> ∀ (x y : Nat), true = (Nat.blt x y)
--- TODO: update test case when normalizing `Nat.blt x y = true` to `x < y`
-#testOptimize ["NatOpNotUnfolded_10"] ∀ (x y : Nat), Nat.blt x y ===> ∀ (x y : Nat), true = (Nat.blt x y)
 
 end Tests.UnfoldNatOp

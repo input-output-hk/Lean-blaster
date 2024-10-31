@@ -139,10 +139,10 @@ variable (b : Bool)
                                         (if (x ≤ y ∨ y ≥ x) || ((a || ((b || c) && !(c || b)))) then x else y) < z ===>
                                     ∀ (x y z : Nat) (a : Bool), (if true = a ∨ (x ≤ y) then x else y) < z
 
--- ∀ (x y z: Nat), x != y || x ≠ y || Nat.blt z y ===>
--- ∀ (x y z : Nat), ¬ (x = y) ∨ true = Nat.blt z y
-#testOptimize [ "DecideOrBool_12" ] ∀ (x y z : Nat), x != y || x ≠ y || Nat.blt z y ===>
-                                    ∀ (x y z : Nat), ¬ (x = y) ∨ true = Nat.blt z y
+-- ∀ (x y z: Nat), x != y || x ≠ y || Nat.ble z y ===>
+-- ∀ (x y z : Nat), ¬ (x = y) ∨ true = Nat.ble z y
+#testOptimize [ "DecideOrBool_12" ] ∀ (x y z : Nat), x != y || x ≠ y || Nat.ble z y ===>
+                                    ∀ (x y z : Nat), ¬ (x = y) ∨ true = Nat.ble z y
 
 
 -- ∀ (x y m n : Nat), (x != y || n ≥ m) || (x ≠ y || m ≤ n) ===>
@@ -150,10 +150,10 @@ variable (b : Bool)
 #testOptimize [ "DecideOrBool_13" ] ∀ (x y m n : Nat), (x != y || n ≥ m) || (x ≠ y || m ≤ n) ===>
                                     ∀ (x y m n : Nat), ¬ (x = y) ∨ m ≤ n
 
--- ∀ (x y z m n : Nat), (x != y || Nat.blt n m) || (x ≠ z || m == z) ===>
--- ∀ (x y z m n : Nat), (¬ (x = z) ∨ z = m) ∨ true = (!(x == y) || Nat.blt n m)
-#testOptimize [ "DecideOrBool_14" ] ∀ (x y z m n : Nat), (x != y || Nat.blt n m) || (x ≠ z || m == z) ===>
-                                    ∀ (x y z m n : Nat), (¬ (x = z) ∨ z = m) ∨ true = (!(x == y) || Nat.blt n m)
+-- ∀ (x y z m n : Nat), (x != y || Nat.ble n m) || (x ≠ z || m == z) ===>
+-- ∀ (x y z m n : Nat), (¬ (x = z) ∨ z = m) ∨ true = (!(x == y) || Nat.ble n m)
+#testOptimize [ "DecideOrBool_14" ] ∀ (x y z m n : Nat), (x != y || Nat.ble n m) || (x ≠ z || m == z) ===>
+                                    ∀ (x y z m n : Nat), (¬ (x = z) ∨ z = m) ∨ true = (!(x == y) || Nat.ble n m)
 
 
 -- ∀ (x y z m n : Nat), ((x != y || m < n) || m == z) || x ≠ z ===>

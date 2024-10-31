@@ -1,8 +1,8 @@
 import Lean
-import Solver.Optimize.OptimizeEq
-import Solver.Optimize.OptimizeNat
-import Solver.Optimize.Utils
-import Solver.Translate.Env
+import Solver.Optimize.Rewriting.OptimizeEq
+import Solver.Optimize.Rewriting.OptimizeNat
+import Solver.Optimize.Rewriting.Utils
+import Solver.Optimize.Env
 
 open Lean Meta
 namespace Solver.Optimize

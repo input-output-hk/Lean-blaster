@@ -1,10 +1,10 @@
 import Lean
-import Solver.Optimize.OptimizeDecideBoolBinary
-import Solver.Optimize.OptimizeBoolNot
-import Solver.Optimize.OptimizeForAll
-import Solver.Optimize.OptimizePropNot
-import Solver.Optimize.Utils
-import Solver.Translate.Env
+import Solver.Optimize.Rewriting.OptimizeDecideBoolBinary
+import Solver.Optimize.Rewriting.OptimizeBoolNot
+import Solver.Optimize.Rewriting.OptimizeForAll
+import Solver.Optimize.Rewriting.OptimizePropNot
+import Solver.Optimize.Rewriting.Utils
+import Solver.Optimize.Env
 
 open Lean Meta Elab
 namespace Solver.Optimize

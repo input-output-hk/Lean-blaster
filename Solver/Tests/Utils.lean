@@ -2,14 +2,14 @@ import Lean
 import Solver.Optimize.Basic
 import Solver.Command.Syntax
 
-open Lean Elab Command Term Meta
+open Lean Elab Command Term Meta Solver.Options Solver.Syntax
 
 namespace Tests
 /-- Parse a term syntax. -/
 def parseTerm (stx : Syntax) : TermElabM Expr := elabTermAndSynthesize stx none
 
 /-- Parse a term syntax and call optimize. -/
-def callOptimize (sOpts : Solver.SolverOptions) (stx : Syntax) : TermElabM Expr := do
+def callOptimize (sOpts : SolverOptions) (stx : Syntax) : TermElabM Expr := do
   let optRes ← (Solver.Optimize.optimize sOpts (← parseTerm stx))
   pure optRes.1
 
@@ -24,7 +24,7 @@ def callOptimize (sOpts : Solver.SolverOptions) (stx : Syntax) : TermElabM Expr 
 -/
 syntax testName := "[" str "]"
 syntax termReducedTo := term  "===>" term
-syntax (name := testOptimize) "#testOptimize" testName Solver.solveVerbose termReducedTo : command
+syntax (name := testOptimize) "#testOptimize" testName solveVerbose termReducedTo : command
 
 def parseTestName : TSyntax `testName -> CommandElabM String
  | `(testName| [ $s:str ]) => pure s.getString
@@ -37,7 +37,7 @@ def parseTermReducedTo : TSyntax `termReducedTo -> CommandElabM (Syntax × Synta
 @[command_elab testOptimize]
 def testOptimizeImp : CommandElab := fun stx => do
  let name ← parseTestName ⟨stx[1]⟩
- let sOpts ← Solver.parseVerbose default ⟨stx[2]⟩
+ let sOpts ← parseVerbose default ⟨stx[2]⟩
  let (t1, t2) ← parseTermReducedTo ⟨stx[3]⟩
  withoutModifyingEnv $ runTermElabM fun _ => do
    -- create a local declaration name for the test case

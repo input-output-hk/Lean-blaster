@@ -112,7 +112,6 @@ inductive Color where
                                          ∀ (α : Type) (β : Type) (f : α → β) (x y : α), x = y → f x = f y
 
 
-
 -- ∀ (a b c : Prop), (a ∧ (b ∨ ¬ c)) ===> ∀ (a b c : Prop), (a ∧ (b ∨ ¬ c))
 -- Test case: COI reduction rules not applicable if all quantifiers are still referenced.
 #testOptimize [ "ForallCOIUnchanged_4" ] ∀ (a b c : Prop), (a ∧ (b ∨ ¬ c)) ===>

@@ -5,5 +5,5 @@ import Solver.Command
 import Solver.Logging
 import Solver.Optimize
 import Solver.Tests
-import Solver.Translate
+import Solver.Smt
 
