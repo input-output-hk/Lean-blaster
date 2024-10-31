@@ -1,15 +1,30 @@
 import Lean
 open Lean Meta
 
-/-- Return `true` if `op1` and `op2` are physically equivalent, i.e., points to same memory address.
--/
-@[inline] private unsafe def exprEqUnsafe (op1 : Expr) (op2 : Expr) : MetaM Bool :=
-  pure (ptrEq op1 op2)
+namespace Solver.Optimize
 
-/-- Safe implementation of physically equivalence for Expr.
+/-- list of Lean inductive types that can be translated to their corresponding
+    SMT counterpart or that must not be translated.
+    TODO: consider other Lean inductive types `BitVector, Char`, etc.
 -/
-@[implemented_by exprEqUnsafe]
-def exprEq (op1 : Expr) (op2 : Expr) : MetaM Bool := isDefEqGuarded op1 op2
+def opaqueSort : NameHashSet :=
+  List.foldr (fun c s => s.insert c) HashSet.empty
+  [ ``And,
+    ``Bool,
+    ``Empty, -- need to be handled during SMT translation
+    ``Eq,
+    ``False, -- defined as an inductive type
+    ``Int,
+    ``Nat,
+    ``Or, -- defined as an inductive type
+    ``PEmpty, -- need to be handled during SMT translation
+    ``String,
+    ``True, -- defined as an inductive type
+  ]
+
+/-- Return `true` if sort name `s` is tagged as an opaque sort. -/
+def isOpaqueSort (s : Name) : Bool :=
+  opaqueSort.contains s
 
 /-- list of operators that must not be unfolded, i.e., they will directly be
 translated to their corresponding SMT counterpart.
@@ -62,8 +77,7 @@ def opaqueFuns : NameHashSet :=
     ``Nat.div,
     ``Nat.mod,
     ``Nat.pred,
-    ``Nat.ble,
-    ``Nat.blt,
+    ``Nat.ble, -- Nat.blt is defined with Nat.beq
     ``Nat.beq,
     ``Nat.pow,
   ]
@@ -105,3 +119,5 @@ def isOpaqueFunExpr (f : Expr) (args: Array Expr) : Bool :=
   match f with
   | Expr.const n _ => isOpaqueFun n args
   | _ => false
+
+end Solver.Optimize

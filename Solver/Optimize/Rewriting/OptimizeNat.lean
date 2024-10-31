@@ -1,7 +1,7 @@
 import Lean
-import Solver.Optimize.OptimizeEq
-import Solver.Optimize.Utils
-import Solver.Translate.Env
+import Solver.Optimize.Rewriting.OptimizeEq
+import Solver.Optimize.Rewriting.Utils
+import Solver.Optimize.Env
 
 open Lean Meta
 namespace Solver.Optimize
@@ -271,7 +271,7 @@ def optimizeNatPred (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 /-- Normalize `Nat.beq ops` to `BEq.beq ops`.
 -/
 def optimizeNatBeq (b_args : Array Expr) : TranslateEnvT Expr := do
-  Expr.withApp (← mkNatBeqOp) fun f i_args =>
+  Expr.withApp (← mkNatEqOp) fun f i_args =>
     optimizeBEq f (i_args ++ b_args)
 
 /-- Apply simplification/normalization rules on Nat operators.

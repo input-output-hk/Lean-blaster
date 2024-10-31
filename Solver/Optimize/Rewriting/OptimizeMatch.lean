@@ -1,6 +1,6 @@
 import Lean
-import Solver.Optimize.Utils
-import Solver.Translate.Env
+import Solver.Optimize.Rewriting.Utils
+import Solver.Optimize.Env
 
 open Lean Meta Elab
 namespace Solver.Optimize
@@ -123,52 +123,17 @@ lambdaTelescope alt fun xs rhs => do
          | some e => return mkApp (← mkIntOfNat) (← optimizeSubPattern e)
          | _ => return sp
 
-/-- Normalize a `match` expression to `if-then-else` only when each match pattern is either
-      - an constructor application that does not contain any free variables (e.g., `Nat.zero`, `some Nat.zero`, `List.const 0 (List.nil)`); or
-      - a `Nat` or `Int` expression; or
-      - a free variable `v`
-    Normalization will not take place when no decidable equality instance can be found for each match discriminator.
-    Concretely:
-      match e₁, ..., eₙ with
-      | p₍₁₎₍₁₎, ..., p₍₁₎₍ₙ₎ => t₁
-      ...
-      | p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₙ₎ => tₘ
-     ===>
-       if eq₍₁₎₍₁₎ ∧ ... ∧ eq₍₁₎₍ₙ₎ then t₁[p₍₁₎₍₁₎/e₁] ... [p₍₁₎₍ₙ₎/eₙ]
-       else if eq₍₂₎₍₁₎ ∧ ... ∧ eq₍₂₎₍ₙ₎ then t₂[p₍₂₎₍₁₎/e₁] ... [p₍₂₎₍ₙ₎/eₙ]
-       ...
-       else tₘ[p₍ₘ₎₍₁₎/e₁] ... [p₍ₘ₎₍ₙ₎/eₙ]
-     when:
-       - ∀ i ∈ [1..m], ∀ j ∈ [1..n],
-           ( NoFreeVar(p₍ᵢ₎₍ⱼ₎) ∨ p₍ᵢ₎₍ⱼ₎ = v ∨ Type(eⱼ) ∈ {Nat, Int} ) ∧
-           ∃ [ Decidable (eⱼ = p₍ᵢ₎₍ⱼ₎)] ∈ DecidableInstances
-     with:
-       - ∀ i ∈ [1..m], ∀ j ∈ [1..n],
-          - eqᵢⱼ := eᵢ = p₍ᵢ₎₍ⱼ₎      if (p₍ᵢ₎₍ⱼ₎ ≠ v ∧ Type(eᵢ) ∉ {Nat, Int}) ∨ isIntNatCst(p₍ᵢ₎₍ⱼ₎)
-                := N ≤ eᵢ           if p₍ᵢ₎₍ⱼ₎ = N + n ∧ Type(eᵢ) = Nat
-                := Int.ofNat 0 ≤ eᵢ if p₍ᵢ₎₍ⱼ₎ = Int.ofNat n
-                := Int.ofNat N ≤ eᵢ if p₍ᵢ₎₍ⱼ₎ = Int.ofNat (N + n)
-                := e ≤ -N           if p₍ᵢ₎₍ⱼ₎ = Int.Neg (Int.ofNat (N + n))
-                := True             if p₍ᵢ₎₍ⱼ₎ = v
-                := ⊥                otherwise
-
-          - tᵢ[p₍ᵢ₎₍ⱼ₎/eⱼ] := tᵢ[v / eᵢ]               if p₍ᵢ₎₍ⱼ₎ = v
-                         := tᵢ[n / eᵢ - N]           if p₍ᵢ₎₍ⱼ₎ = N + n ∧ Type(eᵢ) = Nat
-                         := tᵢ[n / Int.toNat eᵢ]     if p₍ᵢ₎₍ⱼ₎ = Int.ofNat n ∧ Type(eᵢ) = Int
-                         := tᵢ[n / Int.toNat eᵢ - N] if p₍ᵢ₎₍ⱼ₎ = Int.ofNat (N + n) ∧ Type(eᵢ) = Int
-                         := tᵢ[n / (Int.toNat (Int.neg eᵢ)) - N] if p₍ᵢ₎₍ⱼ₎ = Int.Neg (Int.ofNat (N + n)) ∧ Type(eᵢ) = Int
-                         := tᵢ                       otherwise
-
-    NOTE: This function corresponds the accumulator `rewriter` function to be used with `matchExprRewriter`, such that:
-     - normMatchExpr 0 [e₁, ..., eₙ] [p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₙ₎] tₘ none := some (tₘ[p₍ₘ₎₍₁₎/e₁] ... [p₍ₘ₎₍ₙ₎/eₙ])
-     - normMatchExpr 1 [e₁, ..., eₙ] [p₍ₘ₋₁₎₍₁₎, ..., p₍ₘ₋₁₎₍ₙ₎] tₘ (some rewrite₀) :=
+/-- Correspond the accumulator `rewriter` function to be used with `matchExprRewriter` when attempting
+    to normalize a `match` expression to `if-then-else` (see `normMatchExpr?`), such that:
+     - normMatchExprAux? 0 [e₁, ..., eₙ] [p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₙ₎] tₘ none := some (tₘ[p₍ₘ₎₍₁₎/e₁] ... [p₍ₘ₎₍ₙ₎/eₙ])
+     - normMatchExprAux? 1 [e₁, ..., eₙ] [p₍ₘ₋₁₎₍₁₎, ..., p₍ₘ₋₁₎₍ₙ₎] tₘ (some rewrite₀) :=
           some (if if eq₍ₘ₋₁₎₍₁₎ ∧ ... ∧ eq₍ₘ₋₁₎₍ₙ₎ then tₘ₋₁[p₍ₘ₋₁₎₍₁₎/e₁] ... [ p₍ₘ₋₁₎₍ₙ₎/eₙ] else rewrite₀)
      ...
-     - normMatchExpr (m-1) [e₁, ..., eₙ] [p₍₁₎₍₁₎, ..., p₍₁₎₍ₙ₎] t₁ (some rewriteₘ₋₂) :=
+     - normMatchExprAux? (m-1) [e₁, ..., eₙ] [p₍₁₎₍₁₎, ..., p₍₁₎₍ₙ₎] t₁ (some rewriteₘ₋₂) :=
          some (if eq₍₁₎₍₁₎ ∧ ... ∧ eq₍₁₎₍ₙ₎ then t₁[p₍₁₎₍₁₎/e₁] ... [p₍₁₎₍ₙ₎/eₙ] else rewriteₘ₋₂)
 
 -/
-def normMatchExpr? (idx : Nat) (discrs : Array Expr) (lhs : Array Expr) (alt : Expr) (acc : Option Expr) : TranslateEnvT (Option Expr) := do
+def normMatchExprAux? (idx : Nat) (discrs : Array Expr) (lhs : Array Expr) (alt : Expr) (acc : Option Expr) : TranslateEnvT (Option Expr) := do
   let patternArgs ← retrieveAltsArgs lhs
   if !(← isItePattern discrs patternArgs lhs) then return none
   let rhs ← betaReduceAlt alt (← substituteArgs discrs lhs patternArgs)
@@ -310,6 +275,101 @@ def normMatchExpr? (idx : Nat) (discrs : Array Expr) (lhs : Array Expr) (alt : E
     return args
 
 
+/-- A generic match expression rewriter that given a `match` application expression `f args`
+    apply the `rewriter` function on each match pattern. The `rewriter` function
+    is applied from the last match pattern to the first one.
+    Concretely, given a match expression of the form:
+      match e₁, ..., eₙ with
+      | p₍₁₎₍₁₎, ..., p₍₁₎₍ₙ₎ => t₁
+      ...
+      | p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₙ₎ => tₘ
+
+   `matchExprRewriter` return the following evaluation:
+     rewriter m-1 [e₁, ..., eₙ] [p₍₁₎₍₁₎, ..., p₍₁₎₍ₙ₎] t₁
+       ...
+       (rewriter 1 [e₁, ..., eₙ] [p₍ₘ₋₁₎₍₁₎, ..., p₍ₘ₋₁₎₍ₙ₎] tₘ₋₁
+         (rewriter 0 [e₁, ..., eₙ] [p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₙ₎] tₘ none))
+   where,
+     - the first application is passed the `none` accumulator
+     - the `Nat` argument corresponding to the traversed index, starting with 0.
+   NOTE: The evaluation stops when at least one of the `rewriter` invocation return `none`.
+-/
+def matchExprRewriter
+    (f : Expr) (args : Array Expr)
+    (optimizer : Expr -> TranslateEnvT Expr)
+    (rewriter : Nat → Array Expr → Array Expr → Expr → Option α → TranslateEnvT (Option α))
+    : TranslateEnvT (Option α) := do
+  match f with
+    | Expr.const n dlevel =>
+        let some matcherInfo ← getMatcherInfo? n | return none
+        let cInfo ← getConstInfo n
+        let discrs := args[matcherInfo.getFirstDiscrPos : matcherInfo.getFirstAltPos]
+        let rhs := args[matcherInfo.getFirstAltPos : matcherInfo.arity]
+        let matchFun ← instantiateValueLevelParams cInfo dlevel
+        let auxApp := Expr.beta matchFun args[0 : matcherInfo.getFirstAltPos]
+        let auxAppType ← inferType auxApp
+        forallTelescope auxAppType fun xs _t => do
+          let alts := xs[xs.size - rhs.size:]
+          let mut accExpr := (none : Option α)
+          -- traverse in reverse order to handle last pattern first
+          let nbAlts := alts.size
+          for i in [:nbAlts] do
+            let idx := nbAlts - i - 1
+            accExpr ←
+              forallTelescope (← inferType alts[idx]!) fun _xs b => do
+                let mut lhs := b.getAppArgs
+                -- NOTE: lhs has not been normalized as is kept at the type level.
+                -- NOTE: optimizing lhs removes annotated named pattern, e.g.,
+                --       ((namedPattern Nat p) (Nat.succ n)) is reduced to (Nat.succ n)
+                -- normalizing lhs
+                for j in [:lhs.size] do
+                  lhs ← lhs.modifyM j optimizer
+                rewriter i discrs lhs rhs[idx]! accExpr
+            unless (accExpr.isSome) do return accExpr -- break if accExpr is still none
+          return accExpr
+    | _ => pure none
+
+
+/-- Normalize a `match` expression to `if-then-else` only when each match pattern is either
+      - an constructor application that does not contain any free variables (e.g., `Nat.zero`, `some Nat.zero`, `List.const 0 (List.nil)`); or
+      - a `Nat` or `Int` expression; or
+      - a free variable `v`
+    Normalization will NOT take place when no decidable equality instance can be found for each match discriminator.
+    Concretely:
+      match e₁, ..., eₙ with
+      | p₍₁₎₍₁₎, ..., p₍₁₎₍ₙ₎ => t₁
+      ...
+      | p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₙ₎ => tₘ
+     ===>
+       if eq₍₁₎₍₁₎ ∧ ... ∧ eq₍₁₎₍ₙ₎ then t₁[p₍₁₎₍₁₎/e₁] ... [p₍₁₎₍ₙ₎/eₙ]
+       else if eq₍₂₎₍₁₎ ∧ ... ∧ eq₍₂₎₍ₙ₎ then t₂[p₍₂₎₍₁₎/e₁] ... [p₍₂₎₍ₙ₎/eₙ]
+       ...
+       else tₘ[p₍ₘ₎₍₁₎/e₁] ... [p₍ₘ₎₍ₙ₎/eₙ]
+     when:
+       - ∀ i ∈ [1..m], ∀ j ∈ [1..n],
+           ( NoFreeVar(p₍ᵢ₎₍ⱼ₎) ∨ p₍ᵢ₎₍ⱼ₎ = v ∨ Type(eⱼ) ∈ {Nat, Int} ) ∧
+           ∃ [ Decidable (eⱼ = p₍ᵢ₎₍ⱼ₎)] ∈ DecidableInstances
+     with:
+       - ∀ i ∈ [1..m], ∀ j ∈ [1..n],
+          - eqᵢⱼ := eᵢ = p₍ᵢ₎₍ⱼ₎      if (p₍ᵢ₎₍ⱼ₎ ≠ v ∧ Type(eᵢ) ∉ {Nat, Int}) ∨ isIntNatCst(p₍ᵢ₎₍ⱼ₎)
+                := N ≤ eᵢ           if p₍ᵢ₎₍ⱼ₎ = N + n ∧ Type(eᵢ) = Nat
+                := Int.ofNat 0 ≤ eᵢ if p₍ᵢ₎₍ⱼ₎ = Int.ofNat n
+                := Int.ofNat N ≤ eᵢ if p₍ᵢ₎₍ⱼ₎ = Int.ofNat (N + n)
+                := e ≤ -N           if p₍ᵢ₎₍ⱼ₎ = Int.Neg (Int.ofNat (N + n))
+                := True             if p₍ᵢ₎₍ⱼ₎ = v
+                := ⊥                otherwise
+
+          - tᵢ[p₍ᵢ₎₍ⱼ₎/eⱼ] := tᵢ[v / eᵢ]               if p₍ᵢ₎₍ⱼ₎ = v
+                         := tᵢ[n / eᵢ - N]           if p₍ᵢ₎₍ⱼ₎ = N + n ∧ Type(eᵢ) = Nat
+                         := tᵢ[n / Int.toNat eᵢ]     if p₍ᵢ₎₍ⱼ₎ = Int.ofNat n ∧ Type(eᵢ) = Int
+                         := tᵢ[n / Int.toNat eᵢ - N] if p₍ᵢ₎₍ⱼ₎ = Int.ofNat (N + n) ∧ Type(eᵢ) = Int
+                         := tᵢ[n / (Int.toNat (Int.neg eᵢ)) - N] if p₍ᵢ₎₍ⱼ₎ = Int.Neg (Int.ofNat (N + n)) ∧ Type(eᵢ) = Int
+                         := tᵢ                       otherwise
+-/
+def normMatchExpr? (f : Expr) (args : Array Expr) (optimizer : Expr -> TranslateEnvT Expr) :=
+  matchExprRewriter f args optimizer normMatchExprAux?
+
+
 /-- Given a `match` application expression of the form
      `f.match.n [p₁, ..., pₙ, d₁, ..., dₖ, pa₍₁₎₍₁₎ → .. → pa₍₁₎₍ₖ₎ → rhs₁, ..., pa₍ₘ₎₍₁₎ → .. → pa₍ₘ₎₍ₖ₎ → rhsₘ]`,
     return `g.match.n q₁, ..., qₕ, d₁, ..., dₖ, pa₍₁₎₍₁₎ → .. → pa₍₁₎₍ₖ₎ → rhs₁, ..., pa₍ₘ₎₍₁₎ → .. → pa₍ₘ₎₍ₖ₎ → rhsₘ`
@@ -329,12 +389,13 @@ def structEqMatch? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) 
     let auxApp := mkAppN f args[0 : matcherInfo.getFirstDiscrPos]
     let auxAppType ← inferType auxApp
     let env ← get
-    match env.matchCache.find? auxAppType with
+    match env.optEnv.matchCache.find? auxAppType with
     | some gmatch =>
        let altArgs := args[matcherInfo.getFirstDiscrPos : args.size]
        some <$> mkAppExpr gmatch altArgs
     | none =>
-       set {env with matchCache := env.matchCache.insert auxAppType auxApp}
+       let optEnv := {env.optEnv with matchCache := env.optEnv.matchCache.insert auxAppType auxApp}
+       set {env with optEnv := optEnv}
        some <$> mkAppExpr f args
  | _ => pure none
 

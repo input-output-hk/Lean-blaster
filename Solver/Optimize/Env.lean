@@ -1,15 +1,55 @@
 import Lean
-import Solver.Translate.Utils
+import Solver.Optimize.Opaque
+import Solver.Smt.Term
 
-open Lean Meta
+open Lean Meta Solver.Smt
 
-namespace Solver
+namespace Solver.Optimize
 
-/--
- Type defining the environment used when optimizing and
- translation a lean theorem to SMTLib
--/
-structure TranslateEnv where
+structure CtorDeclaration where
+  /-- Name of constructor. -/
+  ctorName : Name
+  /-- Number of arguments to the constructor (excluding polymorphic parameters) -/
+  nbFields : Nat
+  /-- Boolean flag set to `true` when at least one of the ctor
+      argument is a proposition.
+  -/
+  hasProp : Bool
+  /-- Indices for the proposition arguments (if any), e.g.,
+       for constructor `first (n : Nat) (h1 : 10 ≤ n) (h2 : n < 100)`, `propIndices := [1, 2]`
+  -/
+  propIndices : List Nat
+  /-- Ctor definition represented as a lambda term,
+      e.g.,
+        constructor `cons (head : α) (tail : List α)` is represented as
+        λ α : Type → λ head : α → λ tail : List α → cons head tail.
+
+      Note that it is also expected constructor arguments must be optimized,
+      especially when they are of type Prop, e.g.
+        - `first (n : Nat) (h : n ≥ 10)` normalized to `first (n : Nat) (h : 10 ≤ n)`
+        - `first (n : Nat) (h : Nat.beq n 10)` normalized to `first (n : Nat) (h : 10 = n)`
+  -/
+  rhs : Expr
+deriving Repr
+
+/-- Type to keep normalized inductive datatypes that are not inductive predicates. -/
+structure IndTypeDeclaration where
+  /-- Name of inductive datatype. -/
+  indName : Name
+  /-- Number of polymorphic parameters declared for the inductive datatype. -/
+  numParams : Nat
+  /-- Boolean flag set to `true` when at least one of the ctors
+      has an proposition as argument.
+  -/
+  hasProp : Bool
+
+  /-- List of constructor declarations -/
+  ctors : List CtorDeclaration
+
+deriving Repr
+
+/-- Type defining the environment used when optimizing a lean theorem. -/
+structure OptimizeEnv where
   /-- Cache memoizing the normalization and rewriting performed on the lean theorem. -/
   rewriteCache : HashMap Lean.Expr Lean.Expr
   /-- Cache memoizing synthesized instances for Decidable/Inhabited constraint. -/
@@ -23,6 +63,7 @@ structure TranslateEnv where
       This is used to determine equivalence between match functions (see function `structEqMatch?`).
   -/
   matchCache: HashMap Lean.Expr Lean.Expr
+
   /-- Cache memoizing instance of recursive functions.
       An entry in this map is expected to be of the form `f x₁ ... xₙ := fdef`,
       where:
@@ -31,7 +72,7 @@ structure TranslateEnv where
   -/
   recFunInstCache : HashMap Lean.Expr Lean.Expr
   /-- Cache keeping track of visited recursive function.
-      Note that we here keep track of each instantiated ploymorphic function.
+      Note that we here keep track of each instantiated polymorphic function.
   -/
   recFunCache: HashSet Lean.Expr
   /-- Map to keep the normalized definition for each recursive function,
@@ -44,52 +85,112 @@ structure TranslateEnv where
       definition. If there is at least one entry in this map, rewriting is
       performed again until no entry is introduced in replayRecFunMap.
       (see function `storeRecFunDef`).
-      The rewriting will restart from a new `TranslateEnv` that has been
-      populated with the old one (see function `restartTranslateEnv`).
+      The rewriting will restart from a new `OptimizeEnv` that has been
+      populated with the old one (see function `restartOptimizeEnv`).
   -/
   replayRecFunMap: HashMap Lean.Expr Lean.Expr
  deriving Inhabited
 
+
+/-- Type defining the environment used when translating to Smt-Lib. -/
+structure SmtEnv where
+  /-- Cache memoizing the translation to Smt-Lib term. -/
+  translateCache : HashMap Lean.Expr SmtTerm
+
+  /-- Smt-Lib commands emitted to the backend solver. -/
+  smtCommands : Array SmtCommand
+
+  /-- Backend solver process. -/
+  smtProc : Option (IO.Process.Child ⟨.piped, .piped, .piped⟩)
+
+  /-- Cache keeping track of recursive instance function that have already
+      been translated.
+      An entry in this map is expected to be of the form `f x₁ ... xₙ := n`,
+      where
+       - `x₁ .. xₙ`: correspond to the arguments instantiating the polymorphic
+          parameters of `f` (if any).
+       - `n` corresponds to a unique name generated for the function instance.
+  -/
+  recFunCache : HashMap Lean.Expr Lean.Name
+
+  /-- Cache keeping track of inductive datatypes i.e., a type name expression
+      or an instantiated polymorphic type) that have already been translated. -/
+  indTypeCache : HashSet Lean.Expr
+
+  /-- Cache keeping track of opaque function that have already been
+      defined (i.e., Nat.sub, Int.ediv, etc) or undefined class function/quantified functions
+      that have already been declared.
+  -/
+  funDeclCache : HashSet Lean.Name
+
+  /-- Cache keeping track of sort that have already been declared. -/
+  sortCache : HashSet Lean.Name
+
+  /-- Cache keeping track of quantified fvars. This is essential
+      to detect globally declared variables. -/
+  quantifiedFVars : HashSet FVarId
+  deriving Inhabited
+
+
+/-- Type defining the environment used when optimizing a lean theorem and translating to Smt-lib. -/
+structure TranslateEnv where
+  /-- Environment used when translating to Smt-ling. -/
+  smtEnv : SmtEnv
+  /-- Environment used when optimization a lean expression. -/
+  optEnv : OptimizeEnv
+deriving Inhabited
+
 abbrev TranslateEnvT := StateRefT TranslateEnv MetaM
 
 
+/-- Return `true` if `op1` and `op2` are physically equivalent, i.e., points to same memory address.
+-/
+@[inline] private unsafe def exprEqUnsafe (op1 : Expr) (op2 : Expr) : MetaM Bool :=
+  pure (ptrEq op1 op2)
+
+/-- Safe implementation of physically equivalence for Expr.
+-/
+@[implemented_by exprEqUnsafe]
+def exprEq (op1 : Expr) (op2 : Expr) : MetaM Bool := isDefEqGuarded op1 op2
+
 /-- Update rewrite cache with `a := b`.
 -/
-def updateRewriteCache (a: Expr) (b: Expr) : TranslateEnvT Unit := do
+def updateRewriteCache (a : Expr) (b : Expr) : TranslateEnvT Unit := do
   let env ← get
-  set {env with rewriteCache := env.rewriteCache.insert a b }
+  let optEnv := {env.optEnv with rewriteCache := env.optEnv.rewriteCache.insert a b}
+  set {env with optEnv := optEnv }
 
 /-- Update synthesize decidable instance cache with `a := b`.
 -/
-def updateSynthCache (a: Expr) (b: Expr) : TranslateEnvT Unit := do
+def updateSynthCache (a : Expr) (b : Expr) : TranslateEnvT Unit := do
   let env ← get
-  set {env with synthInstanceCache := env.synthInstanceCache.insert a b }
+  let optEnv := {env.optEnv with synthInstanceCache := env.optEnv.synthInstanceCache.insert a b}
+  set {env with optEnv := optEnv }
 
-/-- Return `a'` if `a := a'` is already in translation cache.
+/-- Return `a'` if `a := a'` is already in optimization cache.
     Otherwise, the following actions are performed:
       - add `a := a` in cache only when cacheResult is set to true
       - return `a`
 -/
 def mkExpr (a : Expr) (cacheResult := true) : TranslateEnvT Expr := do
-  let env ← get
-  match env.rewriteCache.find? a with
+  match (← get).optEnv.rewriteCache.find? a with
   | some a' => return a'
   | none => do
-     if cacheResult then set { env with rewriteCache := env.rewriteCache.insert a a }
+     if cacheResult then updateRewriteCache a a
      return a
 
-/-- Return `b` if `a := b` is already in the translation cache.
+/-- Return `b` if `a := b` is already in the optimization cache.
     Otherwise, the following actions are performed:
       - execute `b ← f ()`
       - update cache with `a := b`
-      - return `b'`
+      - return `b`
  NOTE: A call to `mkExpr` must be done whenever any new Expr is created during normalization and rewriting.
  This is so to ensure maximum sharing of expression.
  Moreover, this also ensure that we can direcly use pointer equality during simplification
  instead of the costly isDefEq function.
 -/
-def withTranslateEnvCache (a : Expr) (f: Unit → TranslateEnvT Expr) : TranslateEnvT Expr := do
-  let env ← get
+def withOptimizeEnvCache (a : Expr) (f: Unit → TranslateEnvT Expr) : TranslateEnvT Expr := do
+  let env := (← get).optEnv
   match env.rewriteCache.find? a with
   | some b => return b
   | none => do
@@ -97,50 +198,53 @@ def withTranslateEnvCache (a : Expr) (f: Unit → TranslateEnvT Expr) : Translat
      updateRewriteCache a b
      return b
 
-/-- Given a TranlateEnv `old_env` return a new `env` by performing the following actions:
-     - `env` is initilaized to empty
-     - set `env.recFunMap` to `old.env.replayRecFunMap`
-     - ∀ `fbody := f` ∈ old_env.replayRecFunMap, add `f := f` in `env.rewriteCache`
-     - ∀ `fbody := f` ∈ old_env.replayRecFunMap, add `f` in `env.recFunCache`
-     - ∀ `fbody := f` ∈ old_env.replayRecFunMap, add `f := fbody` `env.recFunInstCache`
-     - ∀ `fbody := f` ∈ old_env.recFunMap,
-         if isOpaqueFunExpr f then
-           - add `f := f` in `env.rewriteCache`
-           - add `f` in `env.recFunCache`
-           - add `fbody := f` in `env.recFunMap`
--/
-def restartTranslateEnv (old_env : TranslateEnv) : MetaM (Unit × TranslateEnv) := do
- let visit : TranslateEnvT Unit := do
-   -- set recFunMap to replayRecFunMap before recFunMap update
-   let env ← get
-   set {env with recFunMap := old_env.replayRecFunMap }
-   old_env.replayRecFunMap.forM fun fbody f => do
-      -- update rewrite cache with f to ensure physical equality during rewriting
-      let f' ← mkExpr f
-      let env ← get
-      set {env with recFunCache := env.recFunCache.insert f',
-                    recFunInstCache := env.recFunInstCache.insert f' fbody
-          }
-   old_env.recFunMap.forM fun fbody f => do
-      if isOpaqueFunExpr f.getAppFn f.getAppArgs
-      then
-        -- update rewrite cache with f to ensure physical equality during rewriting
-        let f' ← mkExpr f
-        let env ← get
-        set {env with recFunCache := env.recFunCache.insert f',
-                      recFunMap := env.recFunMap.insert fbody f'
-            }
- visit|>.run default
+-- TO BE DELETED
+-- /-- Given a OptimizeEnv `old_env` return a new `env` by performing the following actions:
+--      - `env` is initilaized to empty
+--      - set `env.recFunMap` to `old.env.replayRecFunMap`
+--      - ∀ `fbody := f` ∈ old_env.replayRecFunMap, add `f := f` in `env.rewriteCache`
+--      - ∀ `fbody := f` ∈ old_env.replayRecFunMap, add `f` in `env.recFunCache`
+--      - ∀ `fbody := f` ∈ old_env.replayRecFunMap, add `f := fbody` `env.recFunInstCache`
+--      - ∀ `fbody := f` ∈ old_env.recFunMap,
+--          if isOpaqueFunExpr f then
+--            - add `f := f` in `env.rewriteCache`
+--            - add `f` in `env.recFunCache`
+--            - add `fbody := f` in `env.recFunMap`
+-- -/
+-- def restartOptimizeEnv (old_env : OptimizeEnv) : MetaM (Unit × OptimizeEnv) := do
+--  let visit : TranslateEnvT Unit := do
+--    -- set recFunMap to replayRecFunMap before recFunMap update
+--    let env ← get
+--    set {env with recFunMap := old_env.replayRecFunMap }
+--    old_env.replayRecFunMap.forM fun fbody f => do
+--       -- update rewrite cache with f to ensure physical equality during rewriting
+--       let f' ← mkExpr f
+--       let env ← get
+--       set {env with recFunCache := env.recFunCache.insert f',
+--                     recFunInstCache := env.recFunInstCache.insert f' fbody
+--           }
+--    old_env.recFunMap.forM fun fbody f => do
+--       if isOpaqueFunExpr f.getAppFn f.getAppArgs
+--       then
+--         -- update rewrite cache with f to ensure physical equality during rewriting
+--         let f' ← mkExpr f
+--         let env ← get
+--         set {env with recFunCache := env.recFunCache.insert f',
+--                       recFunMap := env.recFunMap.insert fbody f'
+--             }
+--  visit|>.run default
 
 /-- Add a recursive function (i.e., function name expression or an instantiated polymorphic function) to the visited cache. -/
 def cacheFunName (f : Expr) : TranslateEnvT Unit := do
  let env ← get
- set {env with recFunCache := env.recFunCache.insert f }
+ let optEnv := {env.optEnv with recFunCache := env.optEnv.recFunCache.insert f}
+ set {env with optEnv := optEnv }
 
 /-- Delete a recursive function (i.e., function name expression or an instantiated polymorphic function) from the visited cache. -/
 def uncacheFunName (f : Expr) : TranslateEnvT Unit := do
  let env ← get
- set {env with recFunCache := env.recFunCache.erase f }
+ let optEnv := {env.optEnv with recFunCache := env.optEnv.recFunCache.erase f}
+ set {env with optEnv := optEnv }
 
 
 /-- Internal genralized rec fun const to be used for in normalized recursive
@@ -172,7 +276,7 @@ def isTaggedRecursiveCall (e : Expr) : Bool :=
 
 /-- Return `true` if `f` is already in the recursive function cache. -/
 def isVisitedRecFun (f : Expr) : TranslateEnvT Bool :=
- return (← get).recFunCache.contains f
+ return (← get).optEnv.recFunCache.contains f
 
 /-- Return `true` if `f` corresponds to a theorem name. -/
 def isTheorem (f : Name) : MetaM Bool := do
@@ -261,6 +365,24 @@ def mkNatSubOp : TranslateEnvT Expr := mkExpr (mkConst ``Nat.sub)
 /-- Return `Nat.mul` operator -/
 def mkNatMulOp : TranslateEnvT Expr := mkExpr (mkConst ``Nat.mul)
 
+/-- Return `Nat.div` operator -/
+def mkNatDivOp : TranslateEnvT Expr := mkExpr (mkConst ``Nat.div)
+
+/-- Return `Nat.mod` operator -/
+def mkNatModOp : TranslateEnvT Expr := mkExpr (mkConst ``Nat.mod)
+
+/-- Return `Nat.pow` operator -/
+def mkNatPowOp : TranslateEnvT Expr := mkExpr (mkConst ``Nat.pow)
+
+/-- Return `Nat.beq` operator -/
+def mkNatBeqOp : TranslateEnvT Expr := mkExpr (mkConst ``Nat.beq)
+
+/-- Return `Nat.ble` operator -/
+def mkNatBleOp : TranslateEnvT Expr := mkExpr (mkConst ``Nat.ble)
+
+/-- Return `Nat.blt` operator -/
+def mkNatBltOp : TranslateEnvT Expr := mkExpr (mkConst ``Nat.blt)
+
 /-- Return `Int` Type -/
 def mkIntType : TranslateEnvT Expr := mkExpr (mkConst ``Int)
 
@@ -269,6 +391,27 @@ def mkIntAddOp : TranslateEnvT Expr := mkExpr (mkConst ``Int.add)
 
 /-- Return `Int.mul` operator -/
 def mkIntMulOp : TranslateEnvT Expr := mkExpr (mkConst ``Int.mul)
+
+/-- Return `Int.pow` operator -/
+def mkIntPowOp : TranslateEnvT Expr := mkExpr (mkConst ``Int.pow)
+
+/-- Return `Int.ediv` operator -/
+def mkIntEDivOp : TranslateEnvT Expr := mkExpr (mkConst ``Int.ediv)
+
+/-- Return `Int.emod` operator -/
+def mkIntEModOp : TranslateEnvT Expr := mkExpr (mkConst ``Int.emod)
+
+/-- Return `Int.fdiv` operator -/
+def mkIntFDivOp : TranslateEnvT Expr := mkExpr (mkConst ``Int.fdiv)
+
+/-- Return `Int.fmod` operator -/
+def mkIntFModOp : TranslateEnvT Expr := mkExpr (mkConst ``Int.fmod)
+
+/-- Return `Int.div` operator -/
+def mkIntDivOp : TranslateEnvT Expr := mkExpr (mkConst ``Int.div)
+
+/-- Return `Int.mod` operator -/
+def mkIntModOp : TranslateEnvT Expr := mkExpr (mkConst ``Int.mod)
 
 /-- Return `Int.neg` operator -/
 def mkIntNegOp : TranslateEnvT Expr := mkExpr (mkConst ``Int.neg)
@@ -285,7 +428,7 @@ def mkAppExpr (f : Expr) (args: Array Expr) : TranslateEnvT Expr :=
   mkExpr (mkAppN f args)
 
 /-- Return "==" Nat operator -/
-def mkNatBeqOp : TranslateEnvT Expr := do
+def mkNatEqOp : TranslateEnvT Expr := do
   let beqNat ← mkExpr (mkApp (← mkBeqOp) (← mkNatType))
   mkExpr (mkApp beqNat (← mkExpr (mkConst ``instBEqNat)))
 
@@ -372,7 +515,7 @@ def mkDecidableConstraint (e : Expr) (cacheDecidableCst := true) : TranslateEnvT
 -/
 def trySynthConstraintInstance? (cstr : Expr) : TranslateEnvT (Option Expr) := do
   let env ← get
-  match env.synthInstanceCache.find? cstr with
+  match env.optEnv.synthInstanceCache.find? cstr with
   | some d => return d
   | none => do
      let LOption.some d ← trySynthInstance cstr | return none
@@ -421,11 +564,12 @@ def mkTypeBeqOp (t : Expr) : TranslateEnvT Expr := do
 -/
 def whnfExpr (a : Expr) : TranslateEnvT Expr := do
   let env ← get
-  match env.whnfCache.find? a with
+  match env.optEnv.whnfCache.find? a with
   | some b => return b
   | none => do
      let b ← whnf a
-     set {env with whnfCache := env.whnfCache.insert a b}
+     let optEnv := {env.optEnv with whnfCache := env.optEnv.whnfCache.insert a b}
+     set {env with optEnv := optEnv}
      return b
 
 /-- Given application `f x₁ ... xₙ`, return the arguments of `f` instantiating
@@ -457,15 +601,9 @@ def isVisitedRecFunAppExpr (e : Expr) : TranslateEnvT Bool := do
       isVisitedRecFun instApp
  | _ => return false
 
-/-- Instantiate the level parameters `us` in `body` when `f` has at least one
-    implicit argument (i.e., iargs.size > 0) and tag the recursive call
-    in `body`.
--/
-def generalizeRecCall (f : Name) (us : List Level) (iargs : Array Expr) (body : Expr) : MetaM Expr := do
- let body' := body.replace replacePred
- if iargs.size == 0 then return body'
- let cinfo ← getConstInfo f
- return (body'.instantiateLevelParams cinfo.levelParams us)
+/-- Tag the recursive call in `body`. -/
+def generalizeRecCall (f : Name) (body : Expr) : Expr :=
+  body.replace replacePred
 
 where
   replacePred (e : Expr) : Option Expr := do
@@ -482,16 +620,16 @@ where
 -/
 def updateRecFunInst (f : Expr) (fbody : Expr) : TranslateEnvT Unit := do
   let env ← get
-  unless (env.recFunInstCache.find? f).isSome do
-     set {env with recFunInstCache := env.recFunInstCache.insert f fbody}
+  let optEnv := { env.optEnv with recFunInstCache := env.optEnv.recFunInstCache.insert f fbody }
+  set {env with optEnv := optEnv}
 
-/-- Given `f` which is either a function name expression or an instantiated polymorphic function,
-    and `fbody` corresponding to `f`'s definition, update the replay recursive functon map (i.e., `replayRecFunMap`),
--/
-def updateReplayRecCache (f : Expr) (fbody : Expr) : TranslateEnvT Unit := do
-  let env ← get
-  unless (env.replayRecFunMap.find? fbody).isSome do
-     set {env with replayRecFunMap := env.replayRecFunMap.insert fbody f}
+-- TO BE DELETED
+-- /-- Given `f` which is either a function name expression or an instantiated polymorphic function,
+--     and `fbody` corresponding to `f`'s definition, update the replay recursive functon map (i.e., `replayRecFunMap`),
+-- -/
+-- def updateReplayRecCache (f : Expr) (fbody : Expr) : TranslateEnvT Unit := do
+--   let env ← get
+--   set {env with replayRecFunMap := env.replayRecFunMap.insert fbody f}
 
 
 /-- Given application `f x₁ ... xₙ`, return `some fbody` when:
@@ -502,7 +640,7 @@ def updateReplayRecCache (f : Expr) (fbody : Expr) : TranslateEnvT Unit := do
 def getRecFunInstBody? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
   let env ← get
   let iargs ← getImplicitArgs f args
-  return (env.recFunInstCache.find? (← mkAppExpr f iargs))
+  return (env.optEnv.recFunInstCache.find? (← mkAppExpr f iargs))
 
 
 /-- Return `fₙ` if `body[f/_recFun x₁ ... xₖ] := fₙ` is already in the recursive function map only when flag `isOpaque` set to `false`.
@@ -523,7 +661,7 @@ def getRecFunInstBody? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Ex
         already handled recursive function.
     Assumes that `f` is either a function name expression or an instantiated polymorphic function.
 -/
-partial def storeRecFunDef (f : Expr) (body : Expr) (isOpaque: Bool) : TranslateEnvT Expr := do
+partial def storeRecFunDef (f : Expr) (body : Expr) (isOpaque : Bool) : TranslateEnvT Expr := do
   -- remove from visiting cache
   uncacheFunName f
   -- NOTE: we need to explicitly retrieve implicit arguments from the annotated recursive call
@@ -533,16 +671,16 @@ partial def storeRecFunDef (f : Expr) (body : Expr) (isOpaque: Bool) : Translate
   -- retrieve implicit arguments
   let i_args ← getImplicitArgs recCall.getAppFn' recCall.mdataExpr!.getAppArgs
   let body' := body.replace (replacePred i_args (← mkExpr (mkConst internalRecFun)))
-  -- update ploymorphic instance cache
+  -- update polymorphic instance cache
   updateRecFunInst f body'
   let env ← get
-  match env.recFunMap.find? body' with
+  match env.optEnv.recFunMap.find? body' with
   | some fb =>
-     if !isOpaque then return fb
-     updateReplayRecCache f body'
-     return f
+     if isOpaque then return f else return fb
+     -- updateReplayRecCache f body' (TO BE DELETED)
   | none =>
-     set {env with recFunMap := env.recFunMap.insert body' f}
+     let optEnv := {env.optEnv with recFunMap := env.optEnv.recFunMap.insert body' f}
+     set {env with optEnv := optEnv}
      return f
 
 where
@@ -565,16 +703,15 @@ where
 -/
 def hasRecFunInst? (instApp : Expr) (isOpaque: Bool) : TranslateEnvT (Option Expr) := do
   let env ← get
-  match env.recFunInstCache.find? instApp with
+  match env.optEnv.recFunInstCache.find? instApp with
   | some fbody =>
      -- retrieve function application from recFunMap
-     match env.recFunMap.find? fbody with
+     match env.optEnv.recFunMap.find? fbody with
      | r@(some fb) =>
         if isOpaque && !(← exprEq instApp fb)
-        then updateReplayRecCache instApp fbody
-             return instApp
+        then return instApp
         else return r
      | none => throwError f!"hasRecFunInst: expecting entry for {reprStr fbody} in recFunMap"
   | none => return none
 
-end Solver
+end Solver.Optimize

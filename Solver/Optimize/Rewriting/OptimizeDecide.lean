@@ -1,5 +1,5 @@
 import Lean
-import Solver.Optimize.Utils
+import Solver.Optimize.Rewriting.Utils
 
 open Lean Meta Elab
 namespace Solver.Optimize

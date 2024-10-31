@@ -1,7 +1,7 @@
 import Lean
-import Solver.Optimize.OptimizeBoolBinary
-import Solver.Optimize.OptimizeEq
-import Solver.Optimize.OptimizePropBinary
+import Solver.Optimize.Rewriting.OptimizeBoolBinary
+import Solver.Optimize.Rewriting.OptimizeEq
+import Solver.Optimize.Rewriting.OptimizePropBinary
 
 open Lean Meta
 namespace Solver.Optimize

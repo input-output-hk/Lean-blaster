@@ -1,14 +1,14 @@
 import Lean
-import Solver.Optimize.OptimizeExists
-import Solver.Optimize.OptimizeInt
-import Solver.Optimize.OptimizeITE
-import Solver.Optimize.OptimizeMatch
-import Solver.Optimize.OptimizeNat
-import Solver.Translate.Env
+import Solver.Optimize.Rewriting.OptimizeExists
+import Solver.Optimize.Rewriting.OptimizeInt
+import Solver.Optimize.Rewriting.OptimizeITE
+import Solver.Optimize.Rewriting.OptimizeMatch
+import Solver.Optimize.Rewriting.OptimizeNat
+import Solver.Optimize.Env
 
 open Lean Meta
-namespace Solver.Optimize
 
+namespace Solver.Optimize
 
 /-- Determine if all explicit parameters of a function are constructors that
     may also contain free or bounded variables.
@@ -81,5 +81,48 @@ def optimizeApp (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
   if let some e ← optimizeExists? f args then return e
   if let some e ← optimizeDecide? f args then return e
   mkAppExpr f args
+
+
+/-- Given application `f x₁ ... xₙ` perform the following:
+    - when `f` corresponds to a recursive definition `λ p₁ ... pₙ → fbody` the following actions are performed:
+        - When entry `f x₁ ... xₖ := fdef` exists in the instance cache and `fdef := fₙ` is in the recursive function map.
+             - return `optimizeApp fₙ xₖ₊₁ ... xₙ`
+        - when no entry for `f x₁ ... xₖ` exists in the instance cache:
+           - fbody' ← optimizer `(λ p₁ ... pₙ → fbody[f/_recFun]) x₁ ... xₖ`
+           - entry `f x₁ ... xₖ := fbody` is added to the instance cache
+           - return `optimizeApp fₙ xₖ₊₁ ... xₙ` IF entry `fbody' := fₙ` exists in recursive function map and `f` is not an opaque function
+           - return `optimizeApp f x₁ ... xₙ` IF entry `fbody' := fₙ` exists in recursive function map and `f` is an opaque function, with:
+                - `fbody' := f x₁ ... xₖ` added to the replay recursive function map,
+           - return `optimizeApp f x₁ ... xₙ`  OTHERWISE, with:
+                 - `fbody' := f x₁ ... xₖ` added to the recursive function map,
+        where `x₁ ... xₖ` correspond to the implicit arguments of `f` (if any).
+    - when `f` is not a recursive definition or is already in the recursive visited cache.
+       - return optimizeApp `f x₁ ... xₙ`.
+-/
+def normOpaqueAndRecFun (f : Expr) (args: Array Expr) (optimizer : Expr -> TranslateEnvT Expr) : TranslateEnvT Expr := do
+ match f with
+ | Expr.const n _ =>
+     let isOpaque := isOpaqueFun n args
+     if (← isRecursiveFun n)
+     then
+       -- retrieve implicit arguments
+       let iargs ← getImplicitArgs f args
+       let instApp ← mkAppExpr f iargs
+       if (← isVisitedRecFun instApp)
+       then optimizeApp f args -- already cached
+       else
+         if let some r ← hasRecFunInst? instApp isOpaque then return (← optimizeApp r args[iargs.size : args.size])
+         cacheFunName instApp -- cache function name
+         let some fbody ← getFunBody f | throwError "normOpaqueAndRecFun: recursive function body expected for {n}"
+         -- instantiating polymorphic parameters in fun body
+         let fdef := generalizeRecCall n (Expr.beta fbody iargs)
+         -- optimize recursive fun definition and store
+         let fn' ← storeRecFunDef instApp (← optimizer fdef) isOpaque
+         -- only considering explicit args when instantiating
+         -- as storeRecFunDef already handled implicit arguments
+         optimizeApp fn' args[iargs.size : args.size] -- optimizations on cached opaque recursive functions
+       else optimizeApp f args -- optimizations on opaque functions
+ | _ => mkAppExpr f args
+
 
 end Solver.Optimize

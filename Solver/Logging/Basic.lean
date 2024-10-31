@@ -1,7 +1,7 @@
 import Lean
 import Solver.Command.Options
 
-open Lean Meta
+open Lean Meta Solver.Options
 
 namespace Solver
 

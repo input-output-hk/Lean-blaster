@@ -1,7 +1,7 @@
 import Lean
-import Solver.Optimize.OptimizeDecide
-import Solver.Optimize.OptimizePropNot
-import Solver.Optimize.Utils
+import Solver.Optimize.Rewriting.OptimizeDecide
+import Solver.Optimize.Rewriting.OptimizePropNot
+import Solver.Optimize.Rewriting.Utils
 
 
 open Lean Meta

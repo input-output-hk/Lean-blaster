@@ -1,6 +1,6 @@
 import Lean
-import Solver.Optimize.Utils
-import Solver.Translate.Env
+import Solver.Optimize.Rewriting.Utils
+import Solver.Optimize.Env
 
 
 open Lean Meta

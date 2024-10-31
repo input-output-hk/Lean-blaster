@@ -1,6 +1,6 @@
 import Lean
-import Solver.Optimize.OptimizeBoolNot
-import Solver.Optimize.OptimizePropNot
+import Solver.Optimize.Rewriting.OptimizeBoolNot
+import Solver.Optimize.Rewriting.OptimizePropNot
 
 open Lean Meta
 namespace Solver.Optimize
