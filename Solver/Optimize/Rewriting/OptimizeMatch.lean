@@ -46,9 +46,9 @@ partial def retrieveAltsArgs (alts : Array Expr) : MetaM (Array Expr) := do
  return args
 
 
-/-- Perform beta reduction on a match alternative `alt` according to the provided arguments `args`.
-    It is expected that `args` will contain only the free variables appearing in each pattern pᵢ
-    and irrespective of named patterns (see `retrieveAltsArgs`).
+/-- Perform beta reduction on a match alternative `alt` according to the provided arguments `args`
+    obtained when substituting the free variables appearing in each pattern pattern pᵢ with the
+    appropriate discriminator expression (see function `substituteArgs`).
     Moreover, given a sequence of match pattern `p₁, ..., pₙ => t`, s.t.
     each pᵢ contains named patterns of the form:
       (l₍₁₎₍₁₎ (sp₍₁₎₍₁₎ .. (l₍₁₎₍ₖ₋₁₎ (sp₍₁₎₍ₖ₋₁₎ (l₍₁₎₍ₖ₎ sp₍₁₎₍ₖ₎))))), ...,
@@ -372,11 +372,14 @@ def normMatchExpr? (f : Expr) (args : Array Expr) (optimizer : Expr -> Translate
 
 /-- Given a `match` application expression of the form
      `f.match.n [p₁, ..., pₙ, d₁, ..., dₖ, pa₍₁₎₍₁₎ → .. → pa₍₁₎₍ₖ₎ → rhs₁, ..., pa₍ₘ₎₍₁₎ → .. → pa₍ₘ₎₍ₖ₎ → rhsₘ]`,
-    return `g.match.n q₁, ..., qₕ, d₁, ..., dₖ, pa₍₁₎₍₁₎ → .. → pa₍₁₎₍ₖ₎ → rhs₁, ..., pa₍ₘ₎₍₁₎ → .. → pa₍ₘ₎₍ₖ₎ → rhsₘ`
-    if `Type(f.match.n [p₁, ..., pₙ]) := g.match.n [q₁, ..., qₕ]` exists in match cache.
-    Otherwise, perform the following:
-      - Add `Type(f.match.n [p₁, ..., pₙ]) := f.match.n [q₁, ..., qₕ]` in match cache
-      - return `f.match.n [p₁, ..., pₙ, d₁, ..., dₖ, pa₍₁₎₍₁₎ → .. → pa₍₁₎₍ₖ₎ → rhs₁, ..., pa₍ₘ₎₍₁₎ → .. → pa₍ₘ₎₍ₖ₎ → rhsₘ]`
+    perform the following actions:
+     - impParams ← getImplicitParameters f #[p₁, ..., pₙ]
+     - appType ← inferType(λ (α₁ : Type₁) → λ (αₘ : Typeₘ) → f p₁, ..., pₙ), with `α₁ : Type₁, ..., αₘ : Typeₘ = impParams.genericArgs`
+     - return `g.match.n α₁ ..., αₘ d₁ ... dₖ pa₍₁₎₍₁₎ → .. → pa₍₁₎₍ₖ₎ → rhs₁ ... pa₍ₘ₎₍₁₎ → .. → pa₍ₘ₎₍ₖ₎ → rhsₘ`
+       only when `appType := λ (α₁ : Type₁) → λ (αₘ : Typeₘ) → g.match.n q₁ ... qₕ` exists in match cache.
+     - Otherwise, perform the following:
+        - Add `appType := λ (α₁ : Type₁) → λ (αₘ : Typeₘ) → f.match.n p₁ ... pₙ` in match cache
+        - return `f.match.n p₁, ..., pₙ d₁ ... dₖ pa₍₁₎₍₁₎ → .. → pa₍₁₎₍ₖ₎ → rhs₁ ... pa₍ₘ₎₍₁₎ → .. → pa₍ₘ₎₍ₖ₎ → rhsₘ`
     Where:
      - p₁, ..., pₙ: correspond to the arguments instantiating polymorphic params.
      - d₁, ..., dₖ: correspond to the match expresson discriminators
@@ -386,13 +389,15 @@ def structEqMatch? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) 
  match f with
  | Expr.const n _ =>
     let some matcherInfo ← getMatcherInfo? n | return none
-    let auxApp := mkAppN f args[0 : matcherInfo.getFirstDiscrPos]
+    let i_args := args[0 : matcherInfo.getFirstDiscrPos]
+    let params ← getImplicitParameters f i_args
+    let auxApp ← mkLambdaFVars params.genericArgs (mkAppN f i_args)
     let auxAppType ← inferType auxApp
     let env ← get
     match env.optEnv.matchCache.find? auxAppType with
     | some gmatch =>
        let altArgs := args[matcherInfo.getFirstDiscrPos : args.size]
-       some <$> mkAppExpr gmatch altArgs
+       some <$> mkAppExpr (gmatch.beta params.genericArgs) altArgs
     | none =>
        let optEnv := {env.optEnv with matchCache := env.optEnv.matchCache.insert auxAppType auxApp}
        set {env with optEnv := optEnv}

@@ -37,6 +37,8 @@ def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) : MetaM Bool := do
     NOTE: The explicit parameters in `args` are reduced to `match` discriminators when `f args` is a `match` application.
     NOTE: `reduceApp` will not be applied on a class function. This is so to avoid implicit opaque function reduction.
     NOTE: `whnf` will not perform any reduction on ``Prop operators (e.g. ``Eq, ``And, ``Or, ``Not, etc).
+    TODO: Need to replace `whnf` with custom constant propagation as some opaque function are implicitly inlined by whnf,
+    which is not what we want.
 -/
 def reduceApp? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
  let appExpr := mkAppN f args
@@ -85,42 +87,44 @@ def optimizeApp (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
 
 /-- Given application `f x₁ ... xₙ` perform the following:
     - when `f` corresponds to a recursive definition `λ p₁ ... pₙ → fbody` the following actions are performed:
-        - When entry `f x₁ ... xₖ := fdef` exists in the instance cache and `fdef := fₙ` is in the recursive function map.
-             - return `optimizeApp fₙ xₖ₊₁ ... xₙ`
-        - when no entry for `f x₁ ... xₖ` exists in the instance cache:
-           - fbody' ← optimizer `(λ p₁ ... pₙ → fbody[f/_recFun]) x₁ ... xₖ`
-           - entry `f x₁ ... xₖ := fbody` is added to the instance cache
-           - return `optimizeApp fₙ xₖ₊₁ ... xₙ` IF entry `fbody' := fₙ` exists in recursive function map and `f` is not an opaque function
-           - return `optimizeApp f x₁ ... xₙ` IF entry `fbody' := fₙ` exists in recursive function map and `f` is an opaque function, with:
-                - `fbody' := f x₁ ... xₖ` added to the replay recursive function map,
-           - return `optimizeApp f x₁ ... xₙ`  OTHERWISE, with:
-                 - `fbody' := f x₁ ... xₖ` added to the recursive function map,
-        where `x₁ ... xₖ` correspond to the implicit arguments of `f` (if any).
+        - impParams ← getImplicitParameters f #[x₁ ... xₙ]
+        - fᵢₙₛ ← getInstApp f impParams
+        - When entry `fᵢₙₛ := fdef` exists in the instance cache and `fdef := fₙ` is in the recursive function map.
+             - return `optimizeApp (Expr.beta fₙ params.genericArgs) xₖ₊₁ ... xₙ`
+        - when no entry for `fᵢₙₛ` exists in the instance cache:
+           - fbody' ← optimizer (← generalizeRecCall f impParams (λ p₁ ... pₙ → fbody))`
+           - call `storeRecFunDef` to update instance cache and check if recursive definition already exists in map, i.e.:
+               fᵢ ← storeRecFunDef fᵢₙₛ fbody'
+           - return `optimizeApp (Expr.beta fᵢ params.genericArgs) xₖ₊₁ ... xₙ`
+       where `k = impParams.implicitArgs.size` (i.e., number of implicit arguments for `f` (if any).
     - when `f` is not a recursive definition or is already in the recursive visited cache.
-       - return optimizeApp `f x₁ ... xₙ`.
+       - return `optimizeApp f x₁ ... xₙ`.
+    Assumes that any entry exists for each opaque recursive function in `recFunMap` before optimization is performed
+    (see function `cacheOpaqueRecFun`).
 -/
 def normOpaqueAndRecFun (f : Expr) (args: Array Expr) (optimizer : Expr -> TranslateEnvT Expr) : TranslateEnvT Expr := do
  match f with
  | Expr.const n _ =>
-     let isOpaque := isOpaqueFun n args
      if (← isRecursiveFun n)
      then
        -- retrieve implicit arguments
-       let iargs ← getImplicitArgs f args
-       let instApp ← mkAppExpr f iargs
+       let params ← getImplicitParameters f args
+       -- get instance application
+       let instApp ← getInstApp f params
        if (← isVisitedRecFun instApp)
        then optimizeApp f args -- already cached
        else
-         if let some r ← hasRecFunInst? instApp isOpaque then return (← optimizeApp r args[iargs.size : args.size])
+         if let some r ← hasRecFunInst? instApp then
+            return (← optimizeApp (r.beta params.genericArgs) args[params.instanceArgs.size : args.size])
          cacheFunName instApp -- cache function name
-         let some fbody ← getFunBody f | throwError "normOpaqueAndRecFun: recursive function body expected for {n}"
+         let some fbody ← getFunBody f | throwError "normOpaqueAndRecFun: recursive function body expected for {reprStr f}"
          -- instantiating polymorphic parameters in fun body
-         let fdef := generalizeRecCall n (Expr.beta fbody iargs)
+         let fdef ← generalizeRecCall f params fbody
          -- optimize recursive fun definition and store
-         let fn' ← storeRecFunDef instApp (← optimizer fdef) isOpaque
+         let fn' ← storeRecFunDef instApp (← optimizer fdef)
          -- only considering explicit args when instantiating
          -- as storeRecFunDef already handled implicit arguments
-         optimizeApp fn' args[iargs.size : args.size] -- optimizations on cached opaque recursive functions
+         optimizeApp (fn'.beta params.genericArgs) args[params.instanceArgs.size : args.size] -- optimizations on cached opaque recursive functions
        else optimizeApp f args -- optimizations on opaque functions
  | _ => mkAppExpr f args
 

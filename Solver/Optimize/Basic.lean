@@ -79,8 +79,8 @@ partial def optimizeExpr (sOpts: SolverOptions) (e : Expr) : TranslateEnvT Expr 
         | some re => mkExpr re
         | none => return e
     | Expr.lit .. => return e -- number or string literal: do nothing
-    | Expr.mvar .. => throwError f!"unexpected meta variable {e}"
-    | Expr.bvar .. => throwError f!"unexpected bounded variable {e}"
+    | Expr.mvar .. => throwError f!"optimizeExpr: unexpected meta variable {e}"
+    | Expr.bvar .. => throwError f!"optimizeExpr: unexpected bound variable {e}"
   visit e
 
 

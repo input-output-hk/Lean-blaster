@@ -5,7 +5,7 @@ namespace Solver.Optimize
 
 /-- list of Lean inductive types that can be translated to their corresponding
     SMT counterpart or that must not be translated.
-    TODO: consider other Lean inductive types `BitVector, Char`, etc.
+    TODO: consider other Lean inductive types, e.g., BitVector, Char, etc.
 -/
 def opaqueSort : NameHashSet :=
   List.foldr (fun c s => s.insert c) HashSet.empty
@@ -34,8 +34,6 @@ def opaqueFuns : NameHashSet :=
   [
     -- structural equality
     ``Eq,
-    -- DecidableEq constraint
-    ``DecidableEq,
     -- decide predicate on proposition
     ``Decidable.decide,
     -- Prop operators
