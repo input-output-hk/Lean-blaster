@@ -85,6 +85,16 @@ def isClassFun (f : Expr) : MetaM Bool := do
  | Expr.proj c _ _ => return (isClass (← getEnv) c)
  | _ => return false
 
+/-- Return `true` if `e` correspond to a class or is an abbrevation to a class definition
+    (e.g., DecidableEq, DecidableRel, etc).
+-/
+def isClassConstraint (n : Name) : MetaM Bool := do
+ if isClass (← getEnv) n then return true
+ let ConstantInfo.defnInfo defnInfo ← getConstInfo n | return false
+ match (Expr.getForallBody (getLambdaBody defnInfo.value)).getAppFn' with
+ | Expr.const c _ => return (isClass (← getEnv) c)
+ | _ => return false
+
 
 /-- Return `true` if `c` corresponds to a nullary constructor. -/
 def isNullaryCtor (c : Name) : MetaM Bool := do
@@ -104,12 +114,11 @@ def isSortOrInhabited (t : Expr) : TranslateEnvT Bool := do
  if (← isProp t) then return false
  match t.getAppFn with
  | Expr.const n _ =>
+    if isClass (← getEnv) n then return true -- break if class constraint
     match (← getConstInfo n) with
     | ConstantInfo.inductInfo indVal =>
-       if isClass (← getEnv) n then return (← isType t) -- break if class constraint
        for ctorName in indVal.ctors do
-         if (← isNullaryCtor ctorName) then
-           return true -- inductive type has at least one nullary constructor
+         if (← isNullaryCtor ctorName) then return true -- inductive type has at least one nullary constructor
        -- check if InHabited instance exists for t
        hasInhabitedInstance t
     | _ => isType t
@@ -575,7 +584,7 @@ def isMatchExpr (n : Name) : MetaM Bool := Option.isSome <$> getMatcherInfo? n
 
 /- Return the function definition for `f` whenever `f` corresponds to:
    - a lambda expression
-   - a defined function.$ (recursive or not).
+   - a defined function (recursive or not).
    Otherwise `none`.
 -/
 partial def getFunBody (f : Expr) : MetaM (Option Expr) := do
@@ -599,13 +608,14 @@ partial def getFunBody (f : Expr) : MetaM (Option Expr) := do
      - f is not a constructor
      - f is not tagged as an opaque definition
      - f is not a recursive function
+     - f is not a class constraint
      - f is not an undefined type class function
      - f is not a match application
 -/
 def getUnfoldFunDef? (f: Expr) (args: Array Expr) : MetaM (Option Expr) := do
  match f with
  | Expr.const n l =>
-    if (isOpaqueFun n args) || (← isRecursiveFun n) || (← isMatchExpr n) then return none
+    if (isOpaqueFun n args) || (← isRecursiveFun n) || (← isMatchExpr n) || (← isClassConstraint n) then return none
     let cInfo@(ConstantInfo.defnInfo _) ← getConstInfo n | return none
     let auxApp ← instantiateValueLevelParams cInfo l
     let reduced := Expr.beta auxApp args

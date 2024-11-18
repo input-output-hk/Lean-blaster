@@ -147,6 +147,62 @@ def eqNat (a : Nat) (b : Nat) : Bool :=
 #testOptimize ["NormRecFun_16"] ∀ (c : Bool) (x y : Nat), if c then Nat.beq x y else eqNat y x ===>
                                 ∀ (x y : Nat), x = y
 
+-- (∀ (α : Type) (xs ys : List α), [BEq α] → (List.beq xs ys)) →
+-- (∀ (β : Type) (xs ys : List β), [BEq β] → (listPolyBeq xs ys))
+-- NOTE: Ensures that equivalence can be detected between polymorphic instances
+#testOptimize ["NormRecFun_17"] (∀ (α : Type) (xs ys : List α), [BEq α] → (List.beq xs ys)) →
+                                (∀ (β : Type) (xs ys : List β), [BEq β] → (listPolyBeq xs ys)) ===> True
+
+
+def isWellFormed
+  [LE α] [LE β] [DecidableRel (@LE.le α _)] [DecidableRel (@LE.le β _)]
+  (xs : List α) (ys : List β) (xThreshold : α) (yThreshold : β) : Bool :=
+ match xs, ys with
+ | [], [] => true
+ | (x :: xs), (y :: ys) =>
+    (x ≤ xThreshold) && (y ≤ yThreshold) && (isWellFormed xs ys xThreshold yThreshold)
+ | _, _ => false
+
+def isWellFormedBetaNat
+  [LE α] [DecidableRel (@LE.le α _)]
+  (xs : List α) (ys : List Nat) (xThreshold : α) (yThreshold : Nat) : Bool :=
+ match xs, ys with
+ | [], [] => true
+ | (x :: xs), (y :: ys) =>
+    (x ≤ xThreshold) && (y ≤ yThreshold) && (isWellFormedBetaNat xs ys xThreshold yThreshold)
+ | _, _ => false
+
+
+-- (∀ (α : Type) (xs : List α) (ys : List Nat) (xThreshold : α) (natThreshold : Nat),
+--  [LE α] → [DecidableRel (@LE.le α _)] → (isWellFormed xs ys xThreshold natThreshold)) →
+-- (∀ (β : Type) (xs : List β) (ys : List Nat) (xThreshold : β) (natThreshold : Nat),
+--  [LE β] → [DecidableRel (@LE.le β _)] → (isWellFormedBetaNat xs ys xThreshold natThreshold)) ===> True
+-- NOTE: Ensures that equivalence can be detected for partially instantiated polymorphic functions
+#testOptimize ["NormRecFun_18"] (∀ (α : Type) (xs : List α) (ys : List Nat) (xThreshold : α) (natThreshold : Nat),
+                                  [LE α] → [DecidableRel (@LE.le α _)] → (isWellFormed xs ys xThreshold natThreshold)) →
+                                (∀ (β : Type) (xs : List β) (ys : List Nat) (xThreshold : β) (natThreshold : Nat),
+                                  [LE β] → [DecidableRel (@LE.le β _)] →
+                                  (isWellFormedBetaNat xs ys xThreshold natThreshold)) ===> True
+
+
+def isWellFormedAlphaNat
+  [LE β] [DecidableRel (@LE.le β _)]
+  (xs : List Nat) (ys : List β) (xThreshold : Nat) (yThreshold : β) : Bool :=
+ match xs, ys with
+ | [], [] => true
+ | (x :: xs), (y :: ys) =>
+    (x ≤ xThreshold) && (y ≤ yThreshold) && (isWellFormedAlphaNat xs ys xThreshold yThreshold)
+ | _, _ => false
+
+-- (∀ (α : Type) (xs ys : List α), [BEq α] → (List.beq xs ys)) →
+-- (∀ (β : Type) (xs ys : List β), [BEq β] → (listPolyBeq xs ys))
+-- NOTE: Ensures that equivalence can be detected for partially instantiated polymorphic functions
+#testOptimize ["NormRecFun_19"] (∀ (α : Type) (xs : List Nat) (ys : List α) (yThreshold : α) (natThreshold : Nat),
+                                  [LE α] → [DecidableRel (@LE.le α _)] → (isWellFormed xs ys natThreshold yThreshold)) →
+                                (∀ (β : Type) (xs : List Nat) (ys : List β) (yThreshold : β) (natThreshold : Nat),
+                                  [LE β] → [DecidableRel (@LE.le β _)] →
+                                  (isWellFormedAlphaNat xs ys natThreshold yThreshold)) ===> True
+
 
 /-! Test cases to validate when match expressions and recursive functions are NOT wrongly
     declared as equivalent.
@@ -240,5 +296,73 @@ def polyMul [Mul α] (x : α) (y : α) : α := x * y
 #testOptimize ["NormRecUnchanged_8"]  ∀ (a b : List Int) (c d : List Nat), (listPolyBeq a b) = (listPolyBeq c d) ===>
                                       ∀ (a b : List Int) (c d : List Nat), (listPolyBeq a b) = (listPolyBeq c d)
 
+
+-- (∀ (xs ys : List Int), (List.beq xs ys)) → (∀ (β : Type) (xs ys : List β), [BEq β] → (listPolyBeq xs ys)) ===>
+-- (∀ (xs ys : List Int), true = (List.beq xs ys)) → (∀ (β : Type) (xs ys : List β), [BEq β] → true = (listPolyBeq xs ys))
+#testOptimize ["NormRecUnchanged_9"] (∀ (xs ys : List Int), (List.beq xs ys)) →
+                                        (∀ (β : Type) (xs ys : List β), [BEq β] → (listPolyBeq xs ys)) ===>
+                                     (∀ (xs ys : List Int), true = (List.beq xs ys)) →
+                                       (∀ (β : Type) (xs ys : List β), [BEq β] → true = (listPolyBeq xs ys))
+
+
+-- (∀ (α : Type) (xs : List α) (ys : List Int) (xThreshold : α) (yThreshold : Int),
+--   [LE α] → [DecidableRel (@LE.le α _)] → (isWellFormed xs ys xThreshold yThreshold)) →
+-- (∀ (β : Type) (xs : List β) (ys : List Nat) (xThreshold : β) (yThreshold : Nat),
+--   [LE β] → [DecidableRel (@LE.le β _)] → (isWellFormedBetaNat xs ys xThreshold yThreshold)) ===>
+-- (∀ (α : Type) (xs : List α) (ys : List Int) (xThreshold : α) (yThreshold : Int),
+--  [LE α] → [DecidableRel (@LE.le α _)] → true = (isWellFormed xs ys xThreshold yThreshold)) →
+-- (∀ (β : Type) (xs : List β) (ys : List Nat) (xThreshold : β) (yThreshold : Nat),
+--  [LE β] → [DecidableRel (@LE.le β _)] → true = (isWellFormedBetaNat xs ys xThreshold yThreshold))
+-- NOTE: test case to ensure that structural equivalence is not performed on
+-- partially instantiated polymorphic function with different types
+#testOptimize ["NormRecUnchanged_10"] (∀ (α : Type) (xs : List α) (ys : List Int) (xThreshold : α) (yThreshold : Int),
+                                        [LE α] → [DecidableRel (@LE.le α _)] → (isWellFormed xs ys xThreshold yThreshold)) →
+                                      (∀ (β : Type) (xs : List β) (ys : List Nat) (xThreshold : β) (yThreshold : Nat),
+                                        [LE β] → [DecidableRel (@LE.le β _)] →
+                                        (isWellFormedBetaNat xs ys xThreshold yThreshold)) ===>
+                                      (∀ (α : Type) (xs : List α) (ys : List Int) (xThreshold : α) (yThreshold : Int),
+                                        [LE α] → [DecidableRel (@LE.le α _)] → true = (isWellFormed xs ys xThreshold yThreshold)) →
+                                      (∀ (β : Type) (xs : List β) (ys : List Nat) (xThreshold : β) (yThreshold : Nat),
+                                        [LE β] → [DecidableRel (@LE.le β _)] →
+                                        true = (isWellFormedBetaNat xs ys xThreshold yThreshold))
+
+-- (∀ (α : Type) (xs : List α) (ys : List Nat) (xThreshold : α) (yThreshold : Nat),
+--  [LE α] → [DecidableRel (@LE.le α _)] → (isWellFormed xs ys xThreshold yThreshold)) →
+-- (∀ (β : Type) (xs : List Nat) (ys : List β) (xThreshold : Nat) (yThreshold : β),
+--  [LE β] → [DecidableRel (@LE.le β _)] →
+--  (isWellFormedAlphaNat xs ys xThreshold yThreshold)) ===>
+-- (∀ (α : Type) (xs : List α) (ys : List Nat) (xThreshold : α) (yThreshold : Nat),
+--  [LE α] → [DecidableRel (@LE.le α _)] → true = (isWellFormed xs ys xThreshold yThreshold)) →
+-- (∀ (β : Type) (xs : List Nat) (ys : List β) (xThreshold : Nat) (yThreshold : β),
+--  [LE β] → [DecidableRel (@LE.le β _)] →
+--  true = (isWellFormedAlphaNat xs ys xThreshold yThreshold))
+-- NOTE: test case to ensure that structural equivalence is not performed on
+-- partially instantiated polymorphic function with different types
+#testOptimize ["NormRecUnchanged_11"] (∀ (α : Type) (xs : List α) (ys : List Nat) (xThreshold : α) (yThreshold : Nat),
+                                        [LE α] → [DecidableRel (@LE.le α _)] → (isWellFormed xs ys xThreshold yThreshold)) →
+                                      (∀ (β : Type) (xs : List Nat) (ys : List β) (xThreshold : Nat) (yThreshold : β),
+                                        [LE β] → [DecidableRel (@LE.le β _)] →
+                                        (isWellFormedAlphaNat xs ys xThreshold yThreshold)) ===>
+                                      (∀ (α : Type) (xs : List α) (ys : List Nat) (xThreshold : α) (yThreshold : Nat),
+                                        [LE α] → [DecidableRel (@LE.le α _)] → true = (isWellFormed xs ys xThreshold yThreshold)) →
+                                      (∀ (β : Type) (xs : List Nat) (ys : List β) (xThreshold : Nat) (yThreshold : β),
+                                        [LE β] → [DecidableRel (@LE.le β _)] →
+                                        true = (isWellFormedAlphaNat xs ys xThreshold yThreshold))
+
+
+-- (∀ (α : Type) (xs ys : List α), [BEq α] → (List.beq xs ys)) →
+-- (∀ (β : Type) (xs ys : List β), [BEq β] → (listPolyBeq xs ys))
+-- NOTE: test case to ensure that structural equivalence is not performed on
+-- partially instantiated polymorphic function with different types
+#testOptimize ["NormRecUnchanged_12"] (∀ (α : Type) (xs : List Int) (ys : List α) (xThreshold : Int) (yThreshold : α),
+                                        [LE α] → [DecidableRel (@LE.le α _)] → (isWellFormed xs ys xThreshold yThreshold)) →
+                                      (∀ (β : Type) (xs : List Nat) (ys : List β) (xThreshold : Nat) (yThreshold : β),
+                                        [LE β] → [DecidableRel (@LE.le β _)] →
+                                        (isWellFormedAlphaNat xs ys xThreshold yThreshold)) ===>
+                                      (∀ (α : Type) (xs : List Int) (ys : List α) (xThreshold : Int) (yThreshold : α),
+                                        [LE α] → [DecidableRel (@LE.le α _)] → true = (isWellFormed xs ys xThreshold yThreshold)) →
+                                      (∀ (β : Type) (xs : List Nat) (ys : List β) (xThreshold : Nat) (yThreshold : β),
+                                        [LE β] → [DecidableRel (@LE.le β _)] →
+                                        true = (isWellFormedAlphaNat xs ys xThreshold yThreshold))
 
 end Tests.RecFun
