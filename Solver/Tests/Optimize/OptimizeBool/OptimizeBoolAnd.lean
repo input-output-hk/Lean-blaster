@@ -209,9 +209,9 @@ namespace Test.OptimizeBoolAnd
 /-! Test cases to ensure that `reduceApp` is properly called
     when `and` operands are reduced to constant values via optimization. -/
 
-opaque a : Bool
-opaque b : Bool
-opaque c : Bool
+variable (a : Bool)
+variable (b : Bool)
+variable (c : Bool)
 
 -- (a && false) && (true || b) ===> false
 #testOptimize [ "BoolAndReduce_1"] (a && false) && (true || b) ===> false

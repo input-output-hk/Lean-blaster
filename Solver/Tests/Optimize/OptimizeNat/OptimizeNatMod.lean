@@ -473,9 +473,9 @@ elab "natModVar_7" : term => return natModVar_7
     when `Nat.mod` operands are reduced to constant values
     via optimization. -/
 
-opaque x : Nat
-opaque y : Nat
-opaque z : Nat
+variable (x : Nat)
+variable (y : Nat)
+variable (z : Nat)
 
 -- (((x * y) % y) - x) % z ===> 0
 def natModReduce_1 : Expr := Lean.Expr.lit (Lean.Literal.natVal 0)

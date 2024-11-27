@@ -84,9 +84,9 @@ namespace Tests.UnfoldEq
 -- (List.nil : List Nat) ≠ List.nil ===> False
 #testOptimize [ "UnfoldEq_24" ] (List.nil : List Nat) ≠ List.nil ===> False
 
-opaque a : Nat
-opaque b : Nat
-opaque c : Nat
+variable (a : Nat)
+variable (b : Nat)
+variable (c : Nat)
 
 -- (List.nil : List Nat) = [a, b, c] ===> False
 #testOptimize [ "UnfoldEq_25" ] (List.nil : List Nat) = [a, b, c] ===> False

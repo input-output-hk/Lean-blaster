@@ -760,8 +760,8 @@ elab "natSubVar_7" : term => return natSubVar_7
     when `Nat.sub` operands are reduced to constant values
     via optimization. -/
 
-opaque x : Nat
-opaque y : Nat
+variable (x : Nat)
+variable (y : Nat)
 
 -- (100 + ((180 - (x + 40)) - 150)) - ((200 - y) - 320) ===> 100
 def natSubReduce_1 : Expr := Lean.Expr.lit (Lean.Literal.natVal 100)

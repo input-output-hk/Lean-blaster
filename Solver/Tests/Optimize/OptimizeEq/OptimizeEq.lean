@@ -101,9 +101,9 @@ namespace Test.OptimizeEq
 -- List.nil = [1, 2, 3, 4] ===> False
 #testOptimize [ "EqConstructor_4" ] List.nil = [1, 2, 3, 4] ===> False
 
-opaque a : Nat
-opaque b : Nat
-opaque c : Nat
+variable (a : Nat)
+variable (b : Nat)
+variable (c : Nat)
 -- List.nil = [a, b, c] ===> False
 #testOptimize [ "EqConstructor_5" ] List.nil = [a, b, c] ===> False
 
@@ -184,151 +184,168 @@ def eqNatConstructor_3 : Expr :=
 
 elab "eqNatConstructor_3" : term => return eqNatConstructor_3
 
--- [50 - a, b] = [10 - a, b] ===> [Nat.sub 50 a, b] = [Nat.sub 10 a, b]
+-- ∀ (n m : Nat), [50 - n, m] = [10 - n, m] ===> ∀ (n m : Nat), [Nat.sub 50 n, m] = [Nat.sub 10 n, m]
 -- Must remain unchanged
--- NOTE: reordering applied on commutative operators (e.g., Eq)
 def eqNatConstructor_4 : Expr :=
- Lean.Expr.app
-  (Lean.Expr.app
-    (Lean.Expr.app
-      (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)])
-      (Lean.Expr.app (Lean.Expr.const `List [Lean.Level.zero]) (Lean.Expr.const `Nat [])))
+Lean.Expr.forallE `n
+  (Lean.Expr.const `Nat [])
+  (Lean.Expr.forallE `m
+    (Lean.Expr.const `Nat [])
     (Lean.Expr.app
       (Lean.Expr.app
-        (Lean.Expr.app (Lean.Expr.const `List.cons [Lean.Level.zero]) (Lean.Expr.const `Nat []))
-          (Lean.Expr.app
-            (Lean.Expr.app (Lean.Expr.const `Nat.sub []) (Lean.Expr.lit (Lean.Literal.natVal 10)))
-            (Lean.Expr.const `Test.OptimizeEq.a [])))
-       (Lean.Expr.app
-         (Lean.Expr.app
-           (Lean.Expr.app (Lean.Expr.const `List.cons [Lean.Level.zero]) (Lean.Expr.const `Nat []))
-           (Lean.Expr.const `Test.OptimizeEq.b []))
-         (Lean.Expr.app (Lean.Expr.const `List.nil [Lean.Level.zero]) (Lean.Expr.const `Nat [])))))
-  (Lean.Expr.app
-    (Lean.Expr.app
-      (Lean.Expr.app (Lean.Expr.const `List.cons [Lean.Level.zero]) (Lean.Expr.const `Nat []))
         (Lean.Expr.app
-          (Lean.Expr.app (Lean.Expr.const `Nat.sub []) (Lean.Expr.lit (Lean.Literal.natVal 50)))
-          (Lean.Expr.const `Test.OptimizeEq.a [])))
-    (Lean.Expr.app
+          (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)])
+          (Lean.Expr.app (Lean.Expr.const `List [Lean.Level.zero]) (Lean.Expr.const `Nat [])))
+        (Lean.Expr.app
+          (Lean.Expr.app
+            (Lean.Expr.app (Lean.Expr.const `List.cons [Lean.Level.zero]) (Lean.Expr.const `Nat []))
+            (Lean.Expr.app
+              (Lean.Expr.app (Lean.Expr.const `Nat.sub []) (Lean.Expr.lit (Lean.Literal.natVal 10)))
+              (Lean.Expr.bvar 1)))
+          (Lean.Expr.app
+            (Lean.Expr.app
+              (Lean.Expr.app (Lean.Expr.const `List.cons [Lean.Level.zero]) (Lean.Expr.const `Nat []))
+              (Lean.Expr.bvar 0))
+            (Lean.Expr.app (Lean.Expr.const `List.nil [Lean.Level.zero]) (Lean.Expr.const `Nat [])))))
       (Lean.Expr.app
-        (Lean.Expr.app (Lean.Expr.const `List.cons [Lean.Level.zero]) (Lean.Expr.const `Nat []))
-        (Lean.Expr.const `Test.OptimizeEq.b []))
-      (Lean.Expr.app (Lean.Expr.const `List.nil [Lean.Level.zero]) (Lean.Expr.const `Nat []))))
-
-
+        (Lean.Expr.app
+          (Lean.Expr.app (Lean.Expr.const `List.cons [Lean.Level.zero]) (Lean.Expr.const `Nat []))
+          (Lean.Expr.app
+            (Lean.Expr.app (Lean.Expr.const `Nat.sub []) (Lean.Expr.lit (Lean.Literal.natVal 50)))
+            (Lean.Expr.bvar 1)))
+        (Lean.Expr.app
+          (Lean.Expr.app
+            (Lean.Expr.app (Lean.Expr.const `List.cons [Lean.Level.zero]) (Lean.Expr.const `Nat []))
+            (Lean.Expr.bvar 0))
+          (Lean.Expr.app (Lean.Expr.const `List.nil [Lean.Level.zero]) (Lean.Expr.const `Nat [])))))
+    (Lean.BinderInfo.default))
+  (Lean.BinderInfo.default)
 elab "eqNatConstructor_4" : term => return eqNatConstructor_4
 
-#testOptimize [ "EqNatConstructor_4" ] [50 - a, b] = [10 - a, b] ===> eqNatConstructor_4
+#testOptimize [ "EqNatConstructor_4" ] ∀ (n m : Nat), [50 - n, m] = [10 - n, m] ===> eqNatConstructor_4
 
--- [a * 50, b] = [10 * a, b] ===> [Nat.mul 50 a, b] = [Nat.mul 10 a, b]
+-- ∀ (n m : Nat), [n * 50, m] = [10 * n, m] ===> ∀ (n m : Nat), [Nat.mul 50 n, m] = [Nat.mul 10 n, m]
 -- Must remain unchanged
--- NOTE: reordering applied on commutative operators (e.g., Eq)
 def eqNatConstructor_5 : Expr :=
- Lean.Expr.app
-  (Lean.Expr.app
-    (Lean.Expr.app
-      (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)])
-      (Lean.Expr.app (Lean.Expr.const `List [Lean.Level.zero]) (Lean.Expr.const `Nat [])))
+Lean.Expr.forallE `n
+  (Lean.Expr.const `Nat [])
+  (Lean.Expr.forallE `m
+    (Lean.Expr.const `Nat [])
     (Lean.Expr.app
       (Lean.Expr.app
-        (Lean.Expr.app (Lean.Expr.const `List.cons [Lean.Level.zero]) (Lean.Expr.const `Nat []))
         (Lean.Expr.app
-          (Lean.Expr.app (Lean.Expr.const `Nat.mul []) (Lean.Expr.lit (Lean.Literal.natVal 10)))
-          (Lean.Expr.const `Test.OptimizeEq.a [])))
+          (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)])
+          (Lean.Expr.app (Lean.Expr.const `List [Lean.Level.zero]) (Lean.Expr.const `Nat [])))
+        (Lean.Expr.app
+          (Lean.Expr.app
+            (Lean.Expr.app (Lean.Expr.const `List.cons [Lean.Level.zero]) (Lean.Expr.const `Nat []))
+            (Lean.Expr.app
+              (Lean.Expr.app (Lean.Expr.const `Nat.mul []) (Lean.Expr.lit (Lean.Literal.natVal 10)))
+              (Lean.Expr.bvar 1)))
+          (Lean.Expr.app
+            (Lean.Expr.app
+              (Lean.Expr.app (Lean.Expr.const `List.cons [Lean.Level.zero]) (Lean.Expr.const `Nat []))
+              (Lean.Expr.bvar 0))
+            (Lean.Expr.app (Lean.Expr.const `List.nil [Lean.Level.zero]) (Lean.Expr.const `Nat [])))))
       (Lean.Expr.app
         (Lean.Expr.app
           (Lean.Expr.app (Lean.Expr.const `List.cons [Lean.Level.zero]) (Lean.Expr.const `Nat []))
-        ( Lean.Expr.const `Test.OptimizeEq.b []))
-        (Lean.Expr.app (Lean.Expr.const `List.nil [Lean.Level.zero]) (Lean.Expr.const `Nat [])))))
-  (Lean.Expr.app
-    (Lean.Expr.app
-      (Lean.Expr.app (Lean.Expr.const `List.cons [Lean.Level.zero]) (Lean.Expr.const `Nat []))
-      (Lean.Expr.app
-        (Lean.Expr.app (Lean.Expr.const `Nat.mul []) (Lean.Expr.lit (Lean.Literal.natVal 50)))
-        (Lean.Expr.const `Test.OptimizeEq.a [])))
-    (Lean.Expr.app
-      (Lean.Expr.app
-        (Lean.Expr.app (Lean.Expr.const `List.cons [Lean.Level.zero]) (Lean.Expr.const `Nat []))
-        (Lean.Expr.const `Test.OptimizeEq.b []))
-      (Lean.Expr.app (Lean.Expr.const `List.nil [Lean.Level.zero]) (Lean.Expr.const `Nat []))))
-
+          (Lean.Expr.app
+            (Lean.Expr.app (Lean.Expr.const `Nat.mul []) (Lean.Expr.lit (Lean.Literal.natVal 50)))
+            (Lean.Expr.bvar 1)))
+        (Lean.Expr.app
+          (Lean.Expr.app
+            (Lean.Expr.app (Lean.Expr.const `List.cons [Lean.Level.zero]) (Lean.Expr.const `Nat []))
+            (Lean.Expr.bvar 0))
+          (Lean.Expr.app (Lean.Expr.const `List.nil [Lean.Level.zero]) (Lean.Expr.const `Nat [])))))
+    (Lean.BinderInfo.default))
+  (Lean.BinderInfo.default)
 elab "eqNatConstructor_5" : term => return eqNatConstructor_5
 
-#testOptimize [ "EqNatConstructor_5" ] [50 * a, b] = [10 * a, b] ===> eqNatConstructor_5
+#testOptimize [ "EqNatConstructor_5" ] ∀ (n m : Nat), [50 * n, m] = [10 * n, m] ===> eqNatConstructor_5
 
--- [a / 50, b] = [a / 10, b] ===> [Nat.div a 50, b] = [Nat.div a 10, b]
+-- ∀ (n m : Nat), [n / 50, m] = [n / 10, m] ===> ∀ (n m : Nat), [Nat.div n 50, m] = [Nat.div n 10, m]
 -- Must remain unchanged
 def eqNatConstructor_6 : Expr :=
- Lean.Expr.app
-  (Lean.Expr.app
-    (Lean.Expr.app
-      (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)])
-      (Lean.Expr.app (Lean.Expr.const `List [Lean.Level.zero]) (Lean.Expr.const `Nat [])))
+ Lean.Expr.forallE `n
+  (Lean.Expr.const `Nat [])
+  (Lean.Expr.forallE `m
+    (Lean.Expr.const `Nat [])
     (Lean.Expr.app
       (Lean.Expr.app
-        (Lean.Expr.app (Lean.Expr.const `List.cons [Lean.Level.zero]) (Lean.Expr.const `Nat []))
         (Lean.Expr.app
-           (Lean.Expr.app (Lean.Expr.const `Nat.div []) (Lean.Expr.const `Test.OptimizeEq.a []))
-           (Lean.Expr.lit (Lean.Literal.natVal 10))))
+          (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)])
+          (Lean.Expr.app (Lean.Expr.const `List [Lean.Level.zero]) (Lean.Expr.const `Nat [])))
+        (Lean.Expr.app
+          (Lean.Expr.app
+            (Lean.Expr.app (Lean.Expr.const `List.cons [Lean.Level.zero]) (Lean.Expr.const `Nat []))
+            (Lean.Expr.app
+              (Lean.Expr.app (Lean.Expr.const `Nat.div []) (Lean.Expr.bvar 1))
+              (Lean.Expr.lit (Lean.Literal.natVal 10))))
+          (Lean.Expr.app
+            (Lean.Expr.app
+              (Lean.Expr.app (Lean.Expr.const `List.cons [Lean.Level.zero]) (Lean.Expr.const `Nat []))
+              (Lean.Expr.bvar 0))
+            (Lean.Expr.app (Lean.Expr.const `List.nil [Lean.Level.zero]) (Lean.Expr.const `Nat [])))))
       (Lean.Expr.app
         (Lean.Expr.app
           (Lean.Expr.app (Lean.Expr.const `List.cons [Lean.Level.zero]) (Lean.Expr.const `Nat []))
-          (Lean.Expr.const `Test.OptimizeEq.b []))
-        (Lean.Expr.app (Lean.Expr.const `List.nil [Lean.Level.zero]) (Lean.Expr.const `Nat [])))))
-  (Lean.Expr.app
-    (Lean.Expr.app
-      (Lean.Expr.app (Lean.Expr.const `List.cons [Lean.Level.zero]) (Lean.Expr.const `Nat []))
-      (Lean.Expr.app
-        (Lean.Expr.app (Lean.Expr.const `Nat.div []) (Lean.Expr.const `Test.OptimizeEq.a []))
-        (Lean.Expr.lit (Lean.Literal.natVal 50))))
-    (Lean.Expr.app
-      (Lean.Expr.app
-        (Lean.Expr.app (Lean.Expr.const `List.cons [Lean.Level.zero]) (Lean.Expr.const `Nat []))
-        (Lean.Expr.const `Test.OptimizeEq.b []))
-      (Lean.Expr.app (Lean.Expr.const `List.nil [Lean.Level.zero]) (Lean.Expr.const `Nat []))))
-
-
+          (Lean.Expr.app
+            (Lean.Expr.app (Lean.Expr.const `Nat.div []) (Lean.Expr.bvar 1))
+            (Lean.Expr.lit (Lean.Literal.natVal 50))))
+        (Lean.Expr.app
+          (Lean.Expr.app
+            (Lean.Expr.app (Lean.Expr.const `List.cons [Lean.Level.zero]) (Lean.Expr.const `Nat []))
+            (Lean.Expr.bvar 0))
+          (Lean.Expr.app (Lean.Expr.const `List.nil [Lean.Level.zero]) (Lean.Expr.const `Nat [])))))
+    (Lean.BinderInfo.default))
+  (Lean.BinderInfo.default)
 elab "eqNatConstructor_6" : term => return eqNatConstructor_6
 
-#testOptimize [ "EqNatConstructor_6" ] [a / 50, b] = [a / 10, b] ===> eqNatConstructor_6
+#testOptimize [ "EqNatConstructor_6" ] ∀ (n m : Nat), [n / 50, m] = [n / 10, m] ===> eqNatConstructor_6
 
--- [a + 50, b] = [a + 10, b] ===> [Nat.add 50 a, b] = [Nat.add 10 a, b]
+-- ∀ (n m : Nat), [n + 50, m] = [n + 10, m] ===> ∀ (n m : Nat), [Nat.add 50 n, m] = [Nat.add 10 n, m]
 -- NOTE: Unlike Nat.sub, Nat.mul and Nat.div, we should be able to state that equality
 -- in this case must result to ``False.
 -- We keep this as is for the time being until more complex simplifications are considered.
 def eqNatConstructor_7 : Expr :=
- Lean.Expr.app
-  (Lean.Expr.app
-    (Lean.Expr.app
-      (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)])
-      (Lean.Expr.app (Lean.Expr.const `List [Lean.Level.zero]) (Lean.Expr.const `Nat [])))
+ Lean.Expr.forallE `n
+  (Lean.Expr.const `Nat [])
+  (Lean.Expr.forallE `m
+    (Lean.Expr.const `Nat [])
     (Lean.Expr.app
       (Lean.Expr.app
-        (Lean.Expr.app (Lean.Expr.const `List.cons [Lean.Level.zero]) (Lean.Expr.const `Nat []))
         (Lean.Expr.app
-          (Lean.Expr.app (Lean.Expr.const `Nat.add []) (Lean.Expr.lit (Lean.Literal.natVal 10)))
-          (Lean.Expr.const `Test.OptimizeEq.a [])))
+          (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)])
+          (Lean.Expr.app (Lean.Expr.const `List [Lean.Level.zero]) (Lean.Expr.const `Nat [])))
+        (Lean.Expr.app
+          (Lean.Expr.app
+            (Lean.Expr.app (Lean.Expr.const `List.cons [Lean.Level.zero]) (Lean.Expr.const `Nat []))
+            (Lean.Expr.app
+              (Lean.Expr.app (Lean.Expr.const `Nat.add []) (Lean.Expr.lit (Lean.Literal.natVal 10)))
+              (Lean.Expr.bvar 1)))
+          (Lean.Expr.app
+            (Lean.Expr.app
+              (Lean.Expr.app (Lean.Expr.const `List.cons [Lean.Level.zero]) (Lean.Expr.const `Nat []))
+              (Lean.Expr.bvar 0))
+            (Lean.Expr.app (Lean.Expr.const `List.nil [Lean.Level.zero]) (Lean.Expr.const `Nat [])))))
       (Lean.Expr.app
         (Lean.Expr.app
           (Lean.Expr.app (Lean.Expr.const `List.cons [Lean.Level.zero]) (Lean.Expr.const `Nat []))
-          (Lean.Expr.const `Test.OptimizeEq.b []))
-        (Lean.Expr.app (Lean.Expr.const `List.nil [Lean.Level.zero]) (Lean.Expr.const `Nat [])))))
- (Lean.Expr.app
-   (Lean.Expr.app
-     (Lean.Expr.app (Lean.Expr.const `List.cons [Lean.Level.zero]) (Lean.Expr.const `Nat []))
-     (Lean.Expr.app
-       (Lean.Expr.app (Lean.Expr.const `Nat.add []) (Lean.Expr.lit (Lean.Literal.natVal 50)))
-       (Lean.Expr.const `Test.OptimizeEq.a [])))
-   (Lean.Expr.app
-     (Lean.Expr.app
-       (Lean.Expr.app (Lean.Expr.const `List.cons [Lean.Level.zero]) (Lean.Expr.const `Nat []))
-       (Lean.Expr.const `Test.OptimizeEq.b []))
-     (Lean.Expr.app (Lean.Expr.const `List.nil [Lean.Level.zero]) (Lean.Expr.const `Nat []))))
+          (Lean.Expr.app
+            (Lean.Expr.app (Lean.Expr.const `Nat.add []) (Lean.Expr.lit (Lean.Literal.natVal 50)))
+            (Lean.Expr.bvar 1)))
+        (Lean.Expr.app
+          (Lean.Expr.app
+            (Lean.Expr.app (Lean.Expr.const `List.cons [Lean.Level.zero]) (Lean.Expr.const `Nat []))
+            (Lean.Expr.bvar 0))
+          (Lean.Expr.app (Lean.Expr.const `List.nil [Lean.Level.zero]) (Lean.Expr.const `Nat [])))))
+    (Lean.BinderInfo.default))
+  (Lean.BinderInfo.default)
 
 elab "eqNatConstructor_7" : term => return eqNatConstructor_7
 
-#testOptimize [ "EqNatConstructor_7" ] [a + 50, b] = [a + 10, b] ===> eqNatConstructor_7
+#testOptimize [ "EqNatConstructor_7" ] ∀ (n m : Nat), [n + 50, m] = [n + 10, m] ===> eqNatConstructor_7
 
 -- 430 : Int = 430 : Int ===> True
 #testOptimize [ "EqIntConstructor_1" ] (430 : Int) = 430 ===> True

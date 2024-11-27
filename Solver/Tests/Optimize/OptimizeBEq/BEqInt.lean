@@ -32,9 +32,9 @@ namespace Test.BEqInt
 -- List.nil == [(1 : Int), 2, 3, 4] ===> false
 #testOptimize [ "BEqIntCst_8" ] List.nil == [(1 : Int), 2, 3, 4] ===> false
 
-opaque x : Int
-opaque y : Int
-opaque z : Int
+variable (x : Int)
+variable (y : Int)
+variable (z : Int)
 
 -- List.nil == [a, b, c] ===> false
 #testOptimize [ "BEqIntCst_9" ] List.nil == [x, y, z] ===> false

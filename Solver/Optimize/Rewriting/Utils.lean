@@ -74,8 +74,16 @@ def getLambdaBody (e : Expr) : Expr :=
  | Expr.lam _ _ b _ => getLambdaBody b
  | _ => e
 
+/-- Return the body in a sequence of forall / lambda.
+-/
+def getForallLambdaBody (e : Expr) : Expr :=
+ match e with
+ | Expr.lam _ _ b _ => getForallLambdaBody b
+ | Expr.forallE _ _ b .. => getForallLambdaBody b
+ | _ => e
 
-/-- Return `true` if f corresponds to a class function. -/
+
+/-- Return `true` if `f` corresponds to a class function. -/
 def isClassFun (f : Expr) : MetaM Bool := do
  match f with
  | Expr.const n _ =>
@@ -85,14 +93,22 @@ def isClassFun (f : Expr) : MetaM Bool := do
  | Expr.proj c _ _ => return (isClass (← getEnv) c)
  | _ => return false
 
-/-- Return `true` if `e` correspond to a class or is an abbrevation to a class definition
+/-- Return `true` if `n` corresponds to a class or is an abbrevation to a class definition
     (e.g., DecidableEq, DecidableRel, etc).
 -/
 def isClassConstraint (n : Name) : MetaM Bool := do
  if isClass (← getEnv) n then return true
  let ConstantInfo.defnInfo defnInfo ← getConstInfo n | return false
- match (Expr.getForallBody (getLambdaBody defnInfo.value)).getAppFn' with
+ match (getForallLambdaBody defnInfo.value).getAppFn' with
  | Expr.const c _ => return (isClass (← getEnv) c)
+ | _ => return false
+
+
+/-- Return `true` if `e` corresponds to a class constraint expression (see function `isClassConstraint`).
+-/
+def isClassConstraintExpr (e : Expr) : MetaM Bool := do
+ match e.getAppFn' with
+ | Expr.const n _ => isClassConstraint n
  | _ => return false
 
 

@@ -233,9 +233,9 @@ namespace Test.OptimizeForAll
 -- ∀ (a b : Prop), ((b ∧ ¬ b) ∨ a) → a ===> True
 #testOptimize [ "ForallExact_10" ] ∀ (a b : Prop), ((b ∧ ¬ b) ∨ a) → a ===> True
 
-opaque a : Nat
-opaque b : Nat
-opaque c : Nat
+variable (a : Nat)
+variable (b : Nat)
+variable (c : Nat)
 
 -- [b + a, c] = [a + c, c] → [Nat.add a c, c] = [Nat.add b a, c] ===> True
 #testOptimize [ "ForallExact_11" ] [b + a, c] = [a + c, c] → [Nat.add a c, c] = [Nat.add b a, c] ===> True

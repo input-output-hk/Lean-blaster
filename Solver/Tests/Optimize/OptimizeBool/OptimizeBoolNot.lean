@@ -77,8 +77,8 @@ namespace Tests.OptimizeBoolNot
 /-! Test cases to ensure that `reduceApp` is properly called
     when `not operand is reduced to a constant value via optimization. -/
 
-opaque a : Bool
-opaque b : Bool
+variable (a : Bool)
+variable (b : Bool)
 
 -- ! (a || !a) ===> false
 #testOptimize [ "BoolNotReduce_1" ] ! (a || !a) ===> false

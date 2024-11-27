@@ -26,9 +26,9 @@ namespace Test.BEqNat
 -- List.nil == [1 : Nat, 2, 3, 4] ===> false
 #testOptimize [ "BEqNatCst_6" ] List.nil == [(1 : Nat), 2, 3, 4] ===> false
 
-opaque x : Nat
-opaque y : Nat
-opaque z : Nat
+variable (x : Nat)
+variable (y : Nat)
+variable (z : Nat)
 
 -- List.nil == [a, b, c] ===> false
 #testOptimize [ "BEqNatCst_7" ] List.nil == [x, y, z] ===> false

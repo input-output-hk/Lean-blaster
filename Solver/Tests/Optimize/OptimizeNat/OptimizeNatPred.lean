@@ -113,8 +113,8 @@ elab "natPredNorm_2" : term => return natPredNorm_2
 /-! Test cases to ensure that `reduceApp` is properly called
     when `Nat.pred` operand is reduced to constant value via optimization. -/
 
-opaque x : Nat
-opaque y : Nat
+variable (x : Nat)
+variable (y : Nat)
 
 -- Nat.pred (100 + ((180 - (x + 40)) - 150)) ===> 99
 def natPredReduce_1 : Expr := Lean.Expr.lit (Lean.Literal.natVal 99)

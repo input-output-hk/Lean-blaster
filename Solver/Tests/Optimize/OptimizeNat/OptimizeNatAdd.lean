@@ -328,8 +328,8 @@ elab "natAddVar_4" : term => return natAddVar_4
     when `Nat.add` operands are reduced to constant values
     via optimization. -/
 
-opaque x : Nat
-opaque y : Nat
+variable (x : Nat)
+variable (y : Nat)
 
 -- (100 + ((180 - (x + 40)) - 150)) + ((200 - y) - 320) ===> 100
 def natAddReduce_1 : Expr := Lean.Expr.lit (Lean.Literal.natVal 100)

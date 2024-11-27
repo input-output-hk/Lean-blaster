@@ -109,8 +109,8 @@ elab "natSuccNorm_3" : term => return natSuccNorm_3
 /-! Test cases to ensure that `reduceApp` is properly called
     when `Nat.succ` operand is reduced to constant value via optimization. -/
 
-opaque x : Nat
-opaque y : Nat
+variable (x : Nat)
+variable (y : Nat)
 
 -- Nat.succ (100 + ((180 - (x + 40)) - 150)) ===> 101
 def natSuccReduce_1 : Expr := Lean.Expr.lit (Lean.Literal.natVal 101)
