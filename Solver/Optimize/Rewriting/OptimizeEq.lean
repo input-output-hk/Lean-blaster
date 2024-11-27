@@ -37,6 +37,8 @@ partial def structEq? (op1 : Expr) (op2: Expr) : MetaM (Option Bool) := do
                 pure lat
               else pure (some false)
           | none => pure none
+     | Expr.app .., Expr.const ..
+     | Expr.const .., Expr.app .. => visit op1.getAppFn' op2.getAppFn'
      | _, _ =>
        -- return `none` for all other cases if physically equality fails
        pure none

@@ -29,7 +29,7 @@ partial def optimizeExpr (sOpts: SolverOptions) (e : Expr) : TranslateEnvT Expr 
     logReprExpr sOpts "Optimize:" e
     match e with
     | Expr.fvar .. => return e
-    | Expr.const n l => normConst n l
+    | Expr.const n l => normConst n l visit
     | Expr.forallE n t b bi =>
         let t' ← visit t
         withLocalDecl n bi t' fun x => do
@@ -76,7 +76,7 @@ partial def optimizeExpr (sOpts: SolverOptions) (e : Expr) : TranslateEnvT Expr 
     | Expr.sort _ => return e -- sort is used for Type u, Prop, etc
     | Expr.proj .. =>
         match (← reduceProj? e) with
-        | some re => mkExpr re
+        | some re => visit re
         | none => return e
     | Expr.lit .. => return e -- number or string literal: do nothing
     | Expr.mvar .. => throwError f!"optimizeExpr: unexpected meta variable {e}"

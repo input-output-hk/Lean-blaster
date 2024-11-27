@@ -353,9 +353,9 @@ namespace Test.BEqBool
 /-! Test cases to ensure that `reduceApp` is properly called
     when `BEq.beq` operands are reduced to constant values via optimization. -/
 
-opaque a : Bool
-opaque b : Bool
-opaque c : Bool
+variable (a : Bool)
+variable (b : Bool)
+variable (c : Bool)
 
 -- false == (a && false) ===> true
 #testOptimize [ "BEqBoolReduce_1"] false == (a && false) ===> true

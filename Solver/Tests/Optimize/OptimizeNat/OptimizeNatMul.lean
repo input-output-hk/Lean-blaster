@@ -363,8 +363,8 @@ elab "natAddVar_4" : term => return natAddVar_4
 /-! Test cases to ensure that `reduceApp` is properly called
     when `Nat.mul` operands are reduced to constant values via optimization. -/
 
-opaque x : Nat
-opaque y : Nat
+variable (x : Nat)
+variable (y : Nat)
 
 -- (100 * (30 - ((180 - (x * 1)) - 150))) * ((320 - (y + 400)) - y) ===> 0
 #testOptimize [ "NatMulReduce_1" ] (100 * (30 - ((180 - (x * 1)) - 150))) * ((320 - (y + 400)) - y) ===> natMulCst_1

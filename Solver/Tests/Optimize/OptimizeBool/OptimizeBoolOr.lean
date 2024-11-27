@@ -211,9 +211,9 @@ namespace Tests.OptimizeBoolOr
 /-! Test cases to ensure that `reduceApp` is properly called
     when `or` operands are reduced to constant values via optimization. -/
 
-opaque a : Bool
-opaque b : Bool
-opaque c : Bool
+variable (a : Bool)
+variable (b : Bool)
+variable (c : Bool)
 
 -- (a && false) || (true || b) ===> true
 #testOptimize [ "BoolOrReduce_1"] (a && false) || (true || b) ===> true
