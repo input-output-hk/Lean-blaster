@@ -24,12 +24,12 @@ namespace Solver.Optimize
 -- - ∀ (x₁ : TypeA₁) ... (xₙ : TypeAₙ), P₁ → P₂ ===>
 --      ∀ (x₄ : TypeA₄) ... (xₙ : TypeAₙ), P₂ x₄ ... xₙ IF Var(P₂) ∩ Var(P₁) = ∅
 partial def optimizeExpr (sOpts: SolverOptions) (e : Expr) : TranslateEnvT Expr := do
-  let rec visit (e : Expr) : TranslateEnvT Expr := do
+  let rec visit (e : Expr) (isFunApp := false) : TranslateEnvT Expr := do
     withOptimizeEnvCache e fun _ => do
     logReprExpr sOpts "Optimize:" e
     match e with
     | Expr.fvar .. => return e
-    | Expr.const n l => normConst n l visit
+    | Expr.const n l => normConst n l isFunApp visit
     | Expr.forallE n t b bi =>
         let t' ← visit t
         withLocalDecl n bi t' fun x => do
@@ -37,29 +37,25 @@ partial def optimizeExpr (sOpts: SolverOptions) (e : Expr) : TranslateEnvT Expr 
     | Expr.app .. =>
         Expr.withApp e fun rf ras => do
         -- apply optimization on params first before reduction
-        let fInfo ← getFunInfoNArgs rf ras.size
         let mut mas := ras
+        -- we need to appy optimization even on the implicit arguments
+        -- to remove mdata annotation and have max expression sharing.
+        let rf' ← visit rf (isFunApp := true)
         for i in [:ras.size] do
-          if i < fInfo.paramInfo.size then
-            let aInfo := fInfo.paramInfo[i]!
-            if aInfo.isExplicit then
-              mas ← mas.modifyM i visit
-          else
-            mas ← mas.modifyM i visit
+           mas ← mas.modifyM i visit
         -- try to reduce app if all params are constructors
-        match (← reduceApp? rf mas) with
+        match (← reduceApp? rf' mas) with
         | some re => visit re
         | none =>
-          if rf.isLambda then
+          if rf'.isLambda then
             -- perform beta-reduction
-            visit (Expr.beta rf mas)
+            visit (Expr.beta rf' mas)
           else
             -- unfold non-recursive and non-opaque functions
-            if let some fdef ← getUnfoldFunDef? rf mas then return (← visit fdef)
+            if let some fdef ← getUnfoldFunDef? rf' mas then return (← visit fdef)
             -- normalize match expression to ite
-            if let some mdef ← normMatchExpr? rf mas visit then return (← visit mdef)
-            let f' ← visit rf
-            normOpaqueAndRecFun f' mas visit
+            if let some mdef ← normMatchExpr? rf' mas visit then return (← visit mdef)
+            normOpaqueAndRecFun rf' mas visit
     | Expr.lam n t b bi => do
         let t' ← visit t
         withLocalDecl n bi t' fun x => do
@@ -89,22 +85,18 @@ partial def optimizeExpr (sOpts: SolverOptions) (e : Expr) : TranslateEnvT Expr 
     NOTE: This function need to be updated each time we are opacifying a new recursive function.
 -/
 def cacheOpaqueRecFun (optimize : Expr → TranslateEnvT Expr) : TranslateEnvT Unit := do
-  let natZero ← mkNatLitExpr 0
-  let intZero ← mkIntLitExpr (Int.ofNat 0)
-  callOptimize (mkApp (← mkNatAddOp) natZero)
-  callOptimize (mkApp (← mkNatSubOp) natZero)
-  callOptimize (mkApp (← mkNatMulOp) natZero)
-  callOptimize (mkApp (← mkNatDivOp) natZero)
-  callOptimize (mkApp (← mkNatModOp) natZero) -- TODO: need to handle Nat.mod case as is not directly recursive.
-  callOptimize (mkApp (← mkNatBleOp) natZero)
-  callOptimize (mkApp (← mkNatBeqOp) natZero)
-  callOptimize (mkApp (← mkNatPowOp) natZero)
-  callOptimize (mkApp (← mkIntPowOp) intZero)
-  callOptimize (mkApp (← mkIntEDivOp) intZero)
-  callOptimize (mkApp (← mkIntEModOp) intZero)
+  callOptimize natAdd
+  callOptimize natSub
+  callOptimize natMul
+  callOptimize natDiv
+  callOptimize natBle
+  callOptimize natBeq
+  callOptimize natPow
+  callOptimize intPow
 
  where
-   callOptimize (e : Expr) : TranslateEnvT Unit := discard $ optimize e
+   callOptimize (e : Expr) : TranslateEnvT Unit := do
+     discard $ optimize e
 
 /-- Optimize an expression using the given solver options.
     ### Parameters

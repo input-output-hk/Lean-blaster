@@ -96,7 +96,7 @@ namespace Test.OptimizeEq
 #testOptimize [ "EqConstructor_2" ] true = true ===> True
 
 -- List.nil = List.nil ===> True
-#testOptimize [ "EqConstructor_3" ] List.nil = List.nil ===> True
+#testOptimize [ "EqConstructor_3" ] ∀ (α : Type), (List.nil : List α) = List.nil ===> True
 
 -- List.nil = [1, 2, 3, 4] ===> False
 #testOptimize [ "EqConstructor_4" ] List.nil = [1, 2, 3, 4] ===> False

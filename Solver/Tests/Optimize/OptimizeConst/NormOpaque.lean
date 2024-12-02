@@ -3,7 +3,7 @@ import Solver.Tests.Utils
 
 open Lean Elab Command Term
 
-namespace Test.NormNatZero
+namespace Test.NormOpaque
 
 /-! ## Test objectives to validate normalization rules on constant declared at top level using the `opaque` keyword -/
 
@@ -213,5 +213,5 @@ variable (t : String)
 -- String.append str t = String.append "testOptimize" t ===> True
 #testOptimize [ "ConstOpaqueUnchanged_9" ] String.append str t = String.append "testOptimize" t ===> True
 
-
+end Test.NormOpaque
 

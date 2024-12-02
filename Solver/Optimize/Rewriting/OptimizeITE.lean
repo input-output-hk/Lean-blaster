@@ -13,7 +13,7 @@ namespace Solver.Optimize
 /-- Given `#[s c d t e]` corresponding to the arguments of an `ite` or `dite`, such that:
       - s is the sort parameter
       - c is the `cond` operand
-      - d is the current decidable instance the ite cond
+      - d is the current decidable instance for the ite cond
       - t is the `then` operand
       - e is the `else` operand
     This function returns `#[s c d' t e] such that `d'` correponds to the synthesize instance
@@ -27,7 +27,7 @@ def updateITEDecidable (args : Array Expr) : TranslateEnvT (Array Expr) := do
 /-- Given `#[s c d t e]` corresponding to the arguments of an `ite` or `dite`, such that:
       - s is the sort parameter
       - c is the `cond` operand
-      - d is the current decidable instance the ite cond
+      - d is the current decidable instance for the ite cond
       - t is the `then` operand
       - e is the `else` operand
     This function returns `#[[s c d' e t]` such that `d'` corresponds to the synthesize instance

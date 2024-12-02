@@ -12,7 +12,7 @@ namespace Solver.Optimize
 
 /-- Determine if all explicit parameters of a function are constructors that
     may also contain free or bounded variables.
-    Note that `false` is return when f corresponds to the internal const ``_recFun.
+    Note that `false` is returned when f corresponds to the internal const ``_recFun.
 -/
 def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) : MetaM Bool := do
   let stop := args.size

@@ -74,43 +74,15 @@ def getLambdaBody (e : Expr) : Expr :=
  | Expr.lam _ _ b _ => getLambdaBody b
  | _ => e
 
-/-- Return the body in a sequence of forall / lambda.
--/
-def getForallLambdaBody (e : Expr) : Expr :=
- match e with
- | Expr.lam _ _ b _ => getForallLambdaBody b
- | Expr.forallE _ _ b .. => getForallLambdaBody b
- | _ => e
-
-
 /-- Return `true` if `f` corresponds to a class function. -/
 def isClassFun (f : Expr) : MetaM Bool := do
  match f with
  | Expr.const n _ =>
     let ConstantInfo.defnInfo d ← getConstInfo n | return false
-    let Expr.proj c _ _ := (getLambdaBody d.value).getAppFn | return false
+    let Expr.proj c _ _ := (getLambdaBody d.value).getAppFn' | return false
     return (isClass (← getEnv) c)
  | Expr.proj c _ _ => return (isClass (← getEnv) c)
  | _ => return false
-
-/-- Return `true` if `n` corresponds to a class or is an abbrevation to a class definition
-    (e.g., DecidableEq, DecidableRel, etc).
--/
-def isClassConstraint (n : Name) : MetaM Bool := do
- if isClass (← getEnv) n then return true
- let ConstantInfo.defnInfo defnInfo ← getConstInfo n | return false
- match (getForallLambdaBody defnInfo.value).getAppFn' with
- | Expr.const c _ => return (isClass (← getEnv) c)
- | _ => return false
-
-
-/-- Return `true` if `e` corresponds to a class constraint expression (see function `isClassConstraint`).
--/
-def isClassConstraintExpr (e : Expr) : MetaM Bool := do
- match e.getAppFn' with
- | Expr.const n _ => isClassConstraint n
- | _ => return false
-
 
 /-- Return `true` if `c` corresponds to a nullary constructor. -/
 def isNullaryCtor (c : Name) : MetaM Bool := do
@@ -128,7 +100,7 @@ def isNullaryCtor (c : Name) : MetaM Bool := do
 -/
 def isSortOrInhabited (t : Expr) : TranslateEnvT Bool := do
  if (← isProp t) then return false
- match t.getAppFn with
+ match t.getAppFn' with
  | Expr.const n _ =>
     if isClass (← getEnv) n then return true -- break if class constraint
     match (← getConstInfo n) with
@@ -602,6 +574,10 @@ def isMatchExpr (n : Name) : MetaM Bool := Option.isSome <$> getMatcherInfo? n
    - a lambda expression
    - a defined function (recursive or not).
    Otherwise `none`.
+   Assumes that `f` cannot be one of the following:
+     - an instance class;
+     - a match function;
+     - a class constraint.
 -/
 partial def getFunBody (f : Expr) : MetaM (Option Expr) := do
   match f with
@@ -618,6 +594,7 @@ partial def getFunBody (f : Expr) : MetaM (Option Expr) := do
       else
         let cInfo@(ConstantInfo.defnInfo _) ← getConstInfo n | return none
         instantiateValueLevelParams cInfo l
+  | Expr.proj .. => reduceProj? f -- case when f is function defined in a class instance
   | _ => return none
 
 /-- Unfold fuction `f` w.r.t. the effective parameters `args` only when:
@@ -629,28 +606,34 @@ partial def getFunBody (f : Expr) : MetaM (Option Expr) := do
      - f is not a match application
 -/
 def getUnfoldFunDef? (f: Expr) (args: Array Expr) : MetaM (Option Expr) := do
- match f with
- | Expr.const n l =>
-    if (isOpaqueFun n args) || (← isRecursiveFun n) || (← isMatchExpr n) || (← isClassConstraint n) then return none
-    let cInfo@(ConstantInfo.defnInfo _) ← getConstInfo n | return none
-    let auxApp ← instantiateValueLevelParams cInfo l
-    let reduced := Expr.beta auxApp args
-    if (← isUndefinedClassFunApp reduced) then return none
-    return reduced
- | Expr.proj .. =>
-     -- case when f is function defined in a class instance
-     let some re ← reduceProj? f | return none
-     return (Expr.beta re args)
- | _ => return none
+ if (← isNotFoldable f) then return none
+ let some fbody ← getFunBody f | return none
+ let reduced := Expr.beta fbody args
+ if (← isUndefinedClassFunApp reduced) then return none
+ return reduced
 
  where
+   /-- Return `true` only when `e := Expr.const n l` and one of the following condition is satisfied:
+        - `n` is not tagged as an opaque definition;
+        - `n` is a class instance;
+        - `n` is not a recursive function;
+        - `n` is not a match expression; or
+        - `n` is not a class constraint.
+        Otherwise `false`.
+   -/
+   isNotFoldable (e : Expr) : MetaM Bool := do
+     match e with
+     | Expr.const n _ =>
+         (pure (isOpaqueFun n args)) <||> (isInstance n) <||> (isRecursiveFun n) <||> (isMatchExpr n) <||> (isClassConstraint n)
+     | _ => return false
+
    /-- Return `true` if `e` corresponds to an undefined type class function application, i.e.,
        - `e := app (Expr.proj c _ _) ...`; and
        - `c` is the name of a type class in the given environment; and
        - `Expr.proj c _ _` cannot be reduced.
    -/
    isUndefinedClassFunApp (e : Expr) : MetaM Bool := do
-     let p@(Expr.proj c _ _) := e.getAppFn | return false
+     let p@(Expr.proj c _ _) := e.getAppFn' | return false
      return ((← reduceProj? p).isNone && (isClass (← getEnv) c))
 
 end Solver.Optimize

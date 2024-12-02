@@ -204,6 +204,51 @@ def isWellFormedAlphaNat
                                   (isWellFormedAlphaNat xs ys natThreshold yThreshold)) ===> True
 
 
+-- (∀ (x : Int) (n : Nat), powerN x n > x) →
+-- (∀ (y : Int) (m : Nat), Int.pow y m > y) ===> True
+#testOptimize ["NormRecFun_20"] (∀ (x : Int) (n : Nat), powerN x n > x) →
+                                (∀ (y : Int) (m : Nat), Int.pow y m > y) ===> True
+
+-- (∀ (x y : Nat), addNat x y ≥ x) → (∀ (n m : Nat), n + m ≥ n) ===> True
+#testOptimize ["NormRecFun_21"] (∀ (x y : Nat), addNat x y ≥ x) → (∀ (n m : Nat), n + m ≥ n) ===> True
+
+
+def subNat (a : Nat) (b : Nat) : Nat :=
+  if b = 0 then a
+  else Nat.pred (subNat a (Nat.pred b))
+
+-- (∀ (x y : Nat), subNat x y ≤ x) → (∀ (n m : Nat), n - m ≤ n) ===> True
+#testOptimize ["NormRecFun_22"] (∀ (x y : Nat), subNat x y ≤ x) → (∀ (n m : Nat), n - m ≤ n) ===> True
+
+-- (∀ (x y : Nat), y > 0 → mulAlias x y ≥ x) → (∀ (n m : Nat), m > 0 → n * m ≥ n) ===> True
+#testOptimize ["NormRecFun_23"] (∀ (x y : Nat), y > 0 → mulAlias x y ≥ x) → (∀ (n m : Nat), m > 0 → n * m ≥ n) ===> True
+
+
+def divNat (x : Nat) (y : Nat) : Nat :=
+  if x ≥ y ∧ y > 0 then
+    addNat (divNat (x - y) y) 1
+  else 0
+
+-- (∀ (x y : Nat), y > 0 → divNat x y ≤ x) → (∀ (n m : Nat), m > 0 → n / m ≤ n) ===> True
+#testOptimize ["NormRecFun_24"] (∀ (x y : Nat), y > 0 → divNat x y ≤ x) → (∀ (n m : Nat), m > 0 → n / m ≤ n) ===> True
+
+-- (∀ (x y : Nat), x = y → eqNat x y) → (∀ (n m : Nat), n = m → n == m) ===> True
+#testOptimize ["NormRecFun_25"] (∀ (x y : Nat), x = y → eqNat x y) → (∀ (n m : Nat), n = m → n == m) ===> True
+
+
+def bleNat (x : Nat) (y : Nat) : Bool :=
+  if x = 0 ∧ y = 0 then true
+  else if x = 0 ∧ y ≥ 1 then true
+  else if x ≥ 1 ∧ y = 0 then false
+  else bleNat (Nat.pred x) (Nat.pred y)
+
+-- (∀ (x y : Nat), x = y → bleNat x y) → (∀ (n m : Nat), n = m → Nat.ble n m) ===> True
+#testOptimize ["NormRecFun_26"] (∀ (x y : Nat), x = y → bleNat x y) → (∀ (n m : Nat), n = m → Nat.ble n m) ===> True
+
+-- (∀ (x y : Nat), powerNat x y ≥ x) → (∀ (n m : Nat), n ^ m ≥ n) ===> True
+#testOptimize ["NormRecFun_27"] (∀ (x y : Nat), powerNat x y ≥ x) → (∀ (n m : Nat), n ^ m ≥ n) ===> True
+
+
 /-! Test cases to validate when match expressions and recursive functions are NOT wrongly
     declared as equivalent.
 -/
@@ -364,5 +409,101 @@ def polyMul [Mul α] (x : α) (y : α) : α := x * y
                                       (∀ (β : Type) (xs : List Nat) (ys : List β) (xThreshold : Nat) (yThreshold : β),
                                         [LE β] → [DecidableRel (@LE.le β _)] →
                                         true = (isWellFormedAlphaNat xs ys xThreshold yThreshold))
+
+class Size (α : Type u) where
+  size : α → Nat
+
+def mapOption [Size α] (x : Option α) : Nat :=
+ match x with
+ | none => 0
+ | some a => Size.size a
+
+def listMapOption [Size α] (xs : List (Option α)) : List Nat :=
+  match xs with
+  | [] => []
+  | a :: as => mapOption a :: listMapOption as
+
+-- ∀ (α : Type) (xs : List (Option α)), [Size α] →
+--  List.map mapOption xs = listMapOption xs ===>
+-- ∀ (α : Type) (xs : List (Option α)), [Size α] →
+--   listMapOption xs =
+--   List.map
+--    (λ (x : Option α) =>
+--      mapOption.match_1
+--      (λ (_ : Option α) => Nat)
+--      x
+--      (λ (_ : Unit) => 0)
+--      (λ (a : α) => Size.size a)
+--   ) xs
+-- NOTE: Test case illustrating that some structural equivalence are still left detected
+-- NOTE: This test case can result to `True` when specializing rec function with fun or constant arguments.
+#testOptimize ["NormRecUnchanged_13"] (norm-nat-in-result: 1)
+                                      ∀ (α : Type) (xs : List (Option α)), [Size α] →
+                                        List.map mapOption xs = listMapOption xs ===>
+                                      ∀ (α : Type) (xs : List (Option α)), [Size α] →
+                                        listMapOption xs =
+                                        List.map
+                                          (λ (x : Option α) =>
+                                             mapOption.match_1
+                                             (λ (_ : Option α) => Nat)
+                                             x
+                                             (λ (_ : Unit) => 0)
+                                             (λ (a : α) => Size.size a)
+                                          ) xs
+
+
+-- (∀ (α : Type) (xs : List (Option α)), [Size α] →
+--    List.foldr Nat.add 0 (List.map mapOption xs) ≥ 0 ) →
+--   (∀ (β : Type) (xs : List (Option β)), [Size β] →
+--     List.foldr Nat.add 0 (listMapOption xs) ≥ 0 ) ===>
+-- (∀ (α : Type) (xs : List (Option α)), [Size α] →
+--    0 ≤ List.foldr Nat.add 0 (List.map
+--     (λ (x : Option α) =>
+--        mapOption.match_1
+--        (λ (_ : Option α) => Nat)
+--        x
+--        (λ (_ : Unit) => 0)
+--        (λ (a : α) => Size.size a)
+--     ) xs) ) →
+--   (∀ (β : Type) (xs : List (Option β)), [Size β] →
+--     0 ≤ List.foldr Nat.add 0 (listMapOption xs) )
+-- NOTE: Test case illustrating that some structural equivalence are still left detected
+-- NOTE: This test case can result to `True` when specializing rec function
+-- with fun or constant arguments. We should also check how to resolve
+-- the polymorphic instance on `listMapOption`.
+#testOptimize ["NormRecUnchanged_14"] (norm-nat-in-result: 1)
+                                      (∀ (α : Type) (xs : List (Option α)), [Size α] →
+                                         List.foldr Nat.add 0 (List.map mapOption xs) ≥ 0 ) →
+                                        (∀ (β : Type) (xs : List (Option β)), [Size β] →
+                                          List.foldr Nat.add 0 (listMapOption xs) ≥ 0 ) ===>
+                                      (∀ (α : Type) (xs : List (Option α)), [Size α] →
+                                         0 ≤ List.foldr Nat.add 0 (List.map
+                                          (λ (x : Option α) =>
+                                             mapOption.match_1
+                                             (λ (_ : Option α) => Nat)
+                                             x
+                                             (λ (_ : Unit) => 0)
+                                             (λ (a : α) => Size.size a)
+                                          ) xs) ) →
+                                        (∀ (β : Type) (xs : List (Option β)), [Size β] →
+                                          0 ≤ List.foldr Nat.add 0 (listMapOption xs) )
+
+def modNat (x : Nat) (y : Nat) : Nat :=
+ if x = 0 then 0
+ else modAux x y
+where
+  modAux (a : Nat) (b : Nat) : Nat :=
+    if a ≥ b ∧ b > 0 then modAux (a - b) b
+    else b
+
+-- (∀ (x y : Nat), y > 0 → modNat x y < y) → (∀ (n m : Nat), m > 0 → n % m < n) ===>
+-- (∀ (x y : Nat), 0 < y → (if 0 = x then 0 else modNat.modAux x y) < y) → (∀ (n m : Nat), 0 < m  → n % m < n)
+-- NOTE: Test case can result to `True` when implementing structural
+-- equivalence with opaque function.
+#testOptimize ["NormRecUnchanged_15"] (norm-nat-in-result: 1)
+                                      (∀ (x y : Nat), y > 0 → modNat x y < y) → (∀ (n m : Nat), m > 0 → n % m < n) ===>
+                                      (∀ (x y : Nat), 0 < y → (if 0 = x then 0 else modNat.modAux x y) < y) →
+                                      (∀ (n m : Nat), 0 < m → Nat.mod n m < n)
+
 
 end Tests.RecFun
