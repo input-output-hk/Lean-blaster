@@ -285,7 +285,7 @@ abbrev mapAlias [Size α] (x : Option α) := mapOption x
 --  List.foldr Nat.add x (List.map mapOption xs) =
 --  List.foldr Nat.add x (List.map mapAlias xs) ===> True
 -- NOTE: Test case to ensure that polymorphic non-recursive functions passed
--- as argument are function applications and therefore cannot trigger normConst rule.
+-- as arguments are function applications and therefore cannot trigger normConst rule.
 #testOptimize [ "ConstPolyFunArg_2" ] ∀ (α : Type) (x : Nat) (xs : List (Option α)), [Size α] →
                                          List.foldr Nat.add x (List.map mapOption xs) =
                                          List.foldr Nat.add x (List.map mapAlias xs) ===> True
@@ -320,5 +320,66 @@ def intMapper [IntClass] (x : Int) : Nat := IntClass.map x
                                           List.foldr Nat.add x (List.map intMapper xs) ≥ x ===>
                                         ∀ (x : Nat) (xs : List Int), [IntClass2] →
                                           x ≤ List.foldr Nat.add x (List.map (λ x => IntClass.map x) xs)
+
+
+/-! Test cases to ensure that constructors passed as arguments are properly handled. -/
+
+#testOptimize [ "ConstClassCtorArg_1" ] ∀ (x : Int) (xs : List Nat),
+                                          List.foldr Int.add x (List.map Int.ofNat xs) ≥ x ===>
+                                        ∀ (x : Int) (xs : List Nat),
+                                          x ≤ List.foldr Int.add x (List.map Int.ofNat xs)
+
+def mapOptionDefault (x : Nat) (y : Option Nat) : Nat :=
+ match y with
+ | none => x
+ | some a => a
+
+#testOptimize [ "ConstClassCtorArg_2" ] ∀ (x : Nat) (xs : List Nat),
+                                          List.map (mapOptionDefault x) (List.map Option.some xs) = xs ===>
+                                        ∀ (x : Nat) (xs : List Nat),
+                                          xs = List.map (λ (y : Option Nat) =>
+                                                           mapOptionDefault.match_1
+                                                           (λ (_ : Option Nat) => Nat)
+                                                           y
+                                                           (λ (_ : Unit) => x)
+                                                           (λ (a : Nat) => a)
+                                                         ) (List.map Option.some xs)
+
+/-! Test cases to ensure that partially applied functions passed as arguments are properly handled. -/
+
+-- ∀ (x : Bool) (xs : List Bool), x = true → List.all xs id → List.all (List.map (and x) xs) id ===>
+-- ∀ (x : Bool) (xs : List Bool),
+--   true = x →
+--   true = List.all xs (λ (a : Bool) => a) →
+--   true = List.all (List.map (and x) xs) (λ (a : Bool) => a)
+#testOptimize [ "ConstPartialFunArg_1" ] ∀ (x : Bool) (xs : List Bool),
+                                           x → List.all xs id → List.all (List.map (and x) xs) id ===>
+                                         ∀ (x : Bool) (xs : List Bool),
+                                           true = x →
+                                           true = List.all xs (λ (a : Bool) => a) →
+                                           true = List.all (List.map (and x) xs) (λ (a : Bool) => a)
+
+-- ∀ (x : Nat) (xs : List Nat),
+--    List.foldr Nat.add 0 (List.map (Nat.add x) xs) ≥ List.length xs * x ===>
+-- ∀ (x : Nat) (xs : List Nat),
+--    Nat.mul x (List.length xs) ≤ List.foldr Nat.add 0 (List.map (Nat.add x) xs)
+#testOptimize [ "ConstPartialFunArg_2" ] (norm-nat-in-result: 1)
+                                         ∀ (x : Nat) (xs : List Nat),
+                                             List.foldr Nat.add 0 (List.map (Nat.add x) xs) ≥ List.length xs * x ===>
+                                         ∀ (x : Nat) (xs : List Nat),
+                                            Nat.mul x (List.length xs) ≤ List.foldr Nat.add 0 (List.map (Nat.add x) xs)
+
+-- ∀ (c a : Bool) (xs : List Bool),
+--     List.all xs id → a → List.all (List.map (ite c a) xs) id ===>
+-- ∀ (c a : Bool) (xs : List Bool),
+--     true = List.all xs (λ (b : Bool) => b) →
+--     true = a →
+--     true = List.all (List.map (ite (true = c) a) xs) (λ (b : Bool) => b)
+#testOptimize [ "ConstPartialFunArg_3" ] ∀ (c a : Bool) (xs : List Bool),
+                                             List.all xs id → a → List.all (List.map (ite c a) xs) id ===>
+                                         ∀ (c a : Bool) (xs : List Bool),
+                                             true = List.all xs (λ (b : Bool) => b) →
+                                             true = a →
+                                             true = List.all (List.map (ite (true = c) a) xs) (λ (b : Bool) => b)
 
 end Test.NormHOF

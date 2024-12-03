@@ -20,8 +20,10 @@ namespace Solver.Optimize
     obtained for `[Decidable c]`.
     This function needs to be called for each ITE as `c` may have been modified
     due to simplification/normalization rules.
+    Do nothing if args.size < 3.
 -/
 def updateITEDecidable (args : Array Expr) : TranslateEnvT (Array Expr) := do
+  if Nat.blt args.size 3 then return args
   pure (args.set! 2 (← synthDecidableInstance! args[1]!))
 
 /-- Given `#[s c d t e]` corresponding to the arguments of an `ite` or `dite`, such that:
@@ -89,7 +91,7 @@ def isITEBoolSwap? (c : Expr) : TranslateEnvT (Option Expr) := do
    TODO: consider additional simplification rules.
 -/
 partial def optimizeITE (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
- if args.size != 5 then throwError "optimizeITE: five arguments for ITE"
+ if args.size != 5 then return (← mkAppExpr f (← updateITEDecidable args))
  -- args[0] is sort parmeter
  -- args[1] is cond operand
  -- args[2] is decidable instance parameter on cond
@@ -137,11 +139,11 @@ def extractDependentITEExpr (e : Expr) : MetaM Expr :=
      - if c then e1 = e2 else e1 = e3 ===> e1 = if c then e2 else e3 (TODO)
 
     Assume that f = Expr.const ``dite
-    An error is triggered if args.size ≠ 5.
+    Do nothing if `dite` is partially applied (i.e., args.size ≠ 5)
     TODO: consider additional simplification rules.
 -/
 partial def optimizeDITE (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
- if args.size != 5 then throwError "optimizeDITE: five arguments for DITE"
+ if args.size != 5 then return (← mkAppExpr f (← updateITEDecidable args))
  -- args[0] is sort parmeter
  -- args[1] is cond operand
  -- args[2] is decidable instance parameter on cond
