@@ -622,10 +622,12 @@ def getUnfoldFunDef? (f: Expr) (args: Array Expr) : MetaM (Option Expr) := do
         Otherwise `false`.
    -/
    isNotFoldable (e : Expr) : MetaM Bool := do
-     match e with
-     | Expr.const n _ =>
-         (pure (isOpaqueFun n args)) <||> (isInstance n) <||> (isRecursiveFun n) <||> (isMatchExpr n) <||> (isClassConstraint n)
-     | _ => return false
+     let Expr.const n _ := e | return false
+       (pure (isOpaqueFun n args))
+       <||> (isInstance n)
+       <||> (isRecursiveFun n)
+       <||> (isMatchExpr n)
+       <||> (isClassConstraint n)
 
    /-- Return `true` if `e` corresponds to an undefined type class function application, i.e.,
        - `e := app (Expr.proj c _ _) ...`; and

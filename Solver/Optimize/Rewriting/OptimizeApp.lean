@@ -41,6 +41,7 @@ def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) : MetaM Bool := do
     which is not what we want.
 -/
 def reduceApp? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
+ if (← (isInstanceExpr f) <||> (isClassConstraintExpr f)) then return none
  let appExpr := mkAppN f args
  if !(← allExplicitParamsAreCtor f (← extractMatchDiscrs f args)) then return none
  let re ← whnfExpr appExpr
@@ -49,6 +50,10 @@ def reduceApp? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
  else return none
 
  where
+   isInstanceExpr (f : Expr) : MetaM Bool := do
+    let Expr.const n _ := f | return false
+    isInstance n
+
    /- Extract match discriminators from `args` only when `f args` corresponds
      to a `match` application expression.
      Concretely given a match expression of the form:
@@ -84,6 +89,32 @@ def optimizeApp (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
   if let some e ← optimizeDecide? f args then return e
   mkAppExpr f args
 
+
+/-- Given application `f x₁ ... xₙ`,
+     - when `isNotfun f`
+         - return none
+     - when `t₁ → ... → tₘ ← inferType f ∧ n < m`:
+        - when ∀ i ∈ [1..n], !isExplicit tᵢ:
+           - return none
+        - otherwise:
+           - return `etaExpand (mkAppN f args)`
+     - otherwise `none`
+-/
+def normPartialFun? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
+ if (← isNotFun f) then return none
+ let fInfo ← getFunInfo f
+ if fInfo.paramInfo.size <= args.size then return none
+ let mut nbImplicits := 0
+ for i in [:fInfo.paramInfo.size] do
+   if !fInfo.paramInfo[i]!.isExplicit then
+      nbImplicits := nbImplicits.add 1
+ if nbImplicits == args.size then return none
+ etaExpand (mkAppN f args)
+
+ where
+   isNotFun (e : Expr) : MetaM Bool := do
+    let Expr.const n _ := e | return true
+    (isInstance n) <||> (isClassConstraint n) <||> (isMatchExpr n)
 
 /-- Given application `f x₁ ... xₙ` perform the following:
     - when `f` corresponds to a recursive definition `λ p₁ ... pₙ → fbody` the following actions are performed:

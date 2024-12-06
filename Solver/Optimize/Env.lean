@@ -88,14 +88,8 @@ structure SmtEnv where
   -/
   funInstCache : HashMap Lean.Expr SmtQualifiedIdent
 
-  /-- Cache keeping track of quantified functions that have already been declared at the smt level.
-      An entry in this map is expected to be of the form `Expr.fvar v := n`,
-      where `n` corresponds to the smt qualified identifier for `v`.
-  -/
-  quantifiedFunCache : HashMap Lean.Expr SmtQualifiedIdent
-
   /-- Cache keeping track of sort that have already been declared. -/
-  sortCache : HashSet FVarId
+  sortCache : HashMap FVarId SmtSymbol
 
   /-- Cache keeping track of quantified fvars. This is essential
       to detect globally declared variables. -/
@@ -548,24 +542,17 @@ def whnfExpr (a : Expr) : TranslateEnvT Expr := do
      set {env with optEnv := optEnv}
      return b
 
-/-- Given application `f x₁ ... xₙ`, return the arguments of `f` instantiating
-    the polymorphic parameters of `f`.
-    NOTE: It is assumed that all implicit arguments appear first in sequence `x₁ ... xₙ`, i.e.,
-    the search is stopped when the first explicit argument is encountered.
+/-- Given a `f : Expr.const n l` a function name expression,
+    return `true` if `f` has at least one implicit argument.
 -/
-def getImplicitArgs (f : Expr) (args : Array Expr) : MetaM (Array Expr) := do
-  let mut iargs := #[]
-  let fInfo ← getFunInfoNArgs f args.size
-  for i in [:args.size] do
-   if i < fInfo.paramInfo.size then
-     let aInfo := fInfo.paramInfo[i]!
-     if aInfo.isExplicit
-     then return iargs
-     else iargs := iargs.push args[i]!
-  return iargs
+def hasImplicitArgs (f : Expr) : MetaM Bool := do
+  let fInfo ← getFunInfo f
+  for i in [:fInfo.paramInfo.size] do
+    if !fInfo.paramInfo[i]!.isExplicit then return true
+  return false
 
-/-- Return the body in a sequence of forall / lambda.
--/
+
+/-- Return the body in a sequence of forall / lambda. -/
 def getForallLambdaBody (e : Expr) : Expr :=
  match e with
  | Expr.lam _ _ b _ => getForallLambdaBody b
@@ -609,13 +596,33 @@ def isInductiveTypeExpr (e : Expr) : MetaM Bool := do
  | Expr.const n l => isInductiveType n l
  | _ => return false
 
+
+/-- Return all fvar expressions in `e`. The return array preserved dependencies between fvars,
+    i.e., child fvars appear first.
+-/
+@[inline] partial def getFVarsInExpr (e : Expr) : MetaM (Array Expr) :=
+ let rec @[specialize] visit (e : Expr) (acc : Array Expr) : MetaM (Array Expr) := do
+  if !e.hasFVar then return acc else
+    match e with
+    | Expr.forallE _ d b _   => visit b (← visit d acc)
+    | Expr.lam _ d b _       => visit d (← visit b acc)
+    | Expr.mdata _ e         => visit e acc
+    | Expr.letE _ t v b _    => visit t (← visit v (← visit b acc))
+    | Expr.app f a           => visit f (← visit a acc)
+    | Expr.proj _ _ e        => visit e acc
+    | Expr.fvar v            => return (← visit (← v.getType) acc).push e
+    | _                      => return acc
+ visit e #[]
+
 /-- Return `true` whenever `e` satisfies one of the following:
     - `e` is a sort type;
     - `e` is a const or variable of sort type;
     - `e` is an application that is not an instance of inductive datatype and
           that has at least one argument of sort type.
+    NOTE: parameter skipInductiveCheck will be removed when specializing rec function.
+    NOTE: The inductive datatype instance check will also be removed.
 -/
-partial def isGenericParam (e : Expr) : MetaM Bool := do
+partial def isGenericParam (e : Expr) (skipInductiveCheck := false) : MetaM Bool := do
  match e with
  | Expr.sort .zero -- prop type
  | Expr.lit ..
@@ -630,9 +637,9 @@ partial def isGenericParam (e : Expr) : MetaM Bool := do
      if isClass (← getEnv) n then return false
      if let ConstantInfo.inductInfo _ ← getConstInfo n then return false
      isGenericParam (← inferType e)
- | Expr.fvar .. => isGenericParam (← inferType e)
+ | Expr.fvar v => isGenericParam (← v.getType)
  | Expr.app f arg =>
-     if !(← isClassConstraintExpr f) && (← isInductiveTypeExpr f) then return false
+     if (!skipInductiveCheck) && !(← isClassConstraintExpr f) && (← isInductiveTypeExpr f) then return false
      isGenericParam arg
  | Expr.bvar _ => throwError "isGenericParam: unexpected bound variable {reprStr e}"
  | Expr.mvar .. => throwError "isGenericParam: unexpected meta variable {reprStr e}"
@@ -655,7 +662,7 @@ structure ImplicitParameters where
 /-- Given application `f x₁ ... xₙ`,
      - return `{instanceArgs := #[], genericArgs := #[]}` only when `∀ i ∈ [1..n], isExplicit xᵢ`.
      - reutrn `{instanceArgs := #[x₁, ..., xₖ], genericArgs := #[]}`
-        only when `∀ i ∈ [1..k], ¬ isGenericParam xᵢ ∧ ¬ isExplicit xᵢ ∧ k < n`
+        only when `∀ i ∈ [1..k], ¬ isGenericParam xᵢ ∧ ¬ isExplicit xᵢ ∧ k ≤ n`
      - return `{instanceArgs := #[x₁, ..., xₖ], genericArgs := #[y₁, ..., yₘ]}`
         only when `∀ i ∈ [1..k], isGenericParam xᵢ ∧ isExplicit xᵢ ∧ k < n`, s.t.:
           - ∀ j ∈ [1..m], ∃ i ∈ [1..k], yⱼ = xᵢ ∧ isGenericParam yᵢ
@@ -667,14 +674,12 @@ def getImplicitParameters (f : Expr) (args : Array Expr) : TranslateEnvT Implici
  let mut instanceArgs := #[]
  let mut genericArgs := #[]
  let fInfo ← getFunInfoNArgs f args.size
- for i in [:args.size] do
-   if i < fInfo.paramInfo.size then
-     let aInfo := fInfo.paramInfo[i]!
-     if !aInfo.isExplicit
-     then
-       instanceArgs := instanceArgs.push args[i]!
-       if (← isGenericParam args[i]!) then
-         genericArgs := genericArgs.push args[i]!
+ for i in [:fInfo.paramInfo.size] do
+   let aInfo := fInfo.paramInfo[i]!
+   if !aInfo.isExplicit then
+     instanceArgs := instanceArgs.push args[i]!
+     if (← isGenericParam args[i]!) then
+       genericArgs := genericArgs.push args[i]!
  return {instanceArgs, genericArgs}
 
 /-- Given application `f x₁ ... xₙ`,
@@ -694,8 +699,8 @@ def getInstApp (f : Expr) (params: ImplicitParameters) : TranslateEnvT Expr := d
  if params.instanceArgs.isEmpty then return f
  let auxApp ← mkAppExpr f params.instanceArgs
  if params.genericArgs.isEmpty then return auxApp
- let e ← mkExpr (← mkLambdaFVars params.genericArgs auxApp)
- return e
+ mkExpr (← mkLambdaFVars params.genericArgs auxApp)
+
 
 /-- Given application `f` a function name expression, `params` the implicit parameters (if any) for `f`
     (i.e., obtained via function `getImplicitParameters`), and `fbody` corresponding the recursive definition for `f`,

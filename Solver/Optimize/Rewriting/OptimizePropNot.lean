@@ -27,12 +27,12 @@ def notEqSimp? (ne : Expr) : TranslateEnvT (Option Expr) := do
      - ¬ (false = e) ==> true = e
      - ¬ (true = e) ==> false = e
    Assume that f = Expr.const ``Not.
-   Do nothing if operator is partially applied (i.e., args.size < 1)
+   An error is triggered if args.size ≠ 1.
    NOTE: The `reduceApp` rule will not reduce `Not` applied to `Prop` constructors.
    TODO: consider additional simplification rules
 -/
 def optimizeNot (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
- if args.size != 1 then return (← mkAppExpr f args)
+ if args.size != 1 then throwError "optimizeNot: only one argument expected"
  let e := args[0]!
  if let Expr.const ``False _ := e then return (← mkPropTrue)
  if let Expr.const ``True _ := e then return (← mkPropFalse)

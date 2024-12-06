@@ -23,13 +23,14 @@ namespace Solver.Optimize
 --       ∀ (y₁ : TypeB₁ .. yₙ : Typeₙ), P₂ y₁ ... yₙ) IF {TypeB₁, .., TypeBₙ} ⊄ {TypeA₁, ...,TypeAₙ}
 -- - ∀ (x₁ : TypeA₁) ... (xₙ : TypeAₙ), P₁ → P₂ ===>
 --      ∀ (x₄ : TypeA₄) ... (xₙ : TypeAₙ), P₂ x₄ ... xₙ IF Var(P₂) ∩ Var(P₁) = ∅
-partial def optimizeExpr (sOpts: SolverOptions) (e : Expr) : TranslateEnvT Expr := do
-  let rec visit (e : Expr) (isFunApp := false) : TranslateEnvT Expr := do
+partial def optimizeExpr (sOpts: SolverOptions) (e : Expr) (isArgApp := false) : TranslateEnvT Expr := do
+  let rec visit (e : Expr) (isArgApp := false) : TranslateEnvT Expr := do
+    if isArgApp && e.isConst then normConst e isArgApp (λ a => visit a isArgApp) else
     withOptimizeEnvCache e fun _ => do
     logReprExpr sOpts "Optimize:" e
     match e with
     | Expr.fvar .. => return e
-    | Expr.const n l => normConst n l isFunApp visit
+    | Expr.const .. => normConst e isArgApp visit
     | Expr.forallE n t b bi =>
         let t' ← visit t
         withLocalDecl n bi t' fun x => do
@@ -40,9 +41,9 @@ partial def optimizeExpr (sOpts: SolverOptions) (e : Expr) : TranslateEnvT Expr 
         let mut mas := ras
         -- we need to appy optimization even on the implicit arguments
         -- to remove mdata annotation and have max expression sharing.
-        let rf' ← visit rf (isFunApp := true)
+        let rf' ← visit rf
         for i in [:ras.size] do
-           mas ← mas.modifyM i visit
+           mas ← mas.modifyM i (λ a => visit a (isArgApp := true))
         -- try to reduce app if all params are constructors
         match (← reduceApp? rf' mas) with
         | some re => visit re
@@ -55,6 +56,7 @@ partial def optimizeExpr (sOpts: SolverOptions) (e : Expr) : TranslateEnvT Expr 
             if let some fdef ← getUnfoldFunDef? rf' mas then return (← visit fdef)
             -- normalize match expression to ite
             if let some mdef ← normMatchExpr? rf' mas visit then return (← visit mdef)
+            if let some pe ← normPartialFun? rf' mas then return (← visit pe)
             normOpaqueAndRecFun rf' mas visit
     | Expr.lam n t b bi => do
         let t' ← visit t
@@ -77,7 +79,7 @@ partial def optimizeExpr (sOpts: SolverOptions) (e : Expr) : TranslateEnvT Expr 
     | Expr.lit .. => return e -- number or string literal: do nothing
     | Expr.mvar .. => throwError f!"optimizeExpr: unexpected meta variable {e}"
     | Expr.bvar .. => throwError f!"optimizeExpr: unexpected bound variable {e}"
-  visit e
+  visit e isArgApp
 
 
 /-- Populate the `recFunInstCache` with opaque recursive function definition.
@@ -108,7 +110,7 @@ def cacheOpaqueRecFun (optimize : Expr → TranslateEnvT Expr) : TranslateEnvT U
 -/
 partial def optimize (sOpts: SolverOptions) (e : Expr) : MetaM (Expr × TranslateEnv) := do
   -- populate recFunInstCache with recursive function definition.
-  let res ← cacheOpaqueRecFun (optimizeExpr sOpts)|>.run default
+  let res ← cacheOpaqueRecFun (λ a => optimizeExpr sOpts a (isArgApp := true))|>.run default
   optimizeExpr sOpts e|>.run res.2
 
 end Solver.Optimize

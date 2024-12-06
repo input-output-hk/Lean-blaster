@@ -3,29 +3,6 @@ open Lean Meta
 
 namespace Solver.Optimize
 
-/-- list of Lean inductive types that can be translated to their corresponding
-    SMT counterpart or that must not be translated.
-    TODO: consider other Lean inductive types, e.g., BitVector, Char, etc.
--/
-def opaqueSort : NameHashSet :=
-  List.foldr (fun c s => s.insert c) HashSet.empty
-  [ ``And,
-    ``Bool,
-    ``Empty, -- need to be handled during SMT translation
-    ``Eq,
-    ``False, -- defined as an inductive type
-    ``Int,
-    ``Nat,
-    ``Or, -- defined as an inductive type
-    ``PEmpty, -- need to be handled during SMT translation
-    ``String,
-    ``True, -- defined as an inductive type
-  ]
-
-/-- Return `true` if sort name `s` is tagged as an opaque sort. -/
-def isOpaqueSort (s : Name) : Bool :=
-  opaqueSort.contains s
-
 /-- list of operators that must not be unfolded, i.e., they will directly be
 translated to their corresponding SMT counterpart.
 -/
