@@ -11,12 +11,12 @@ namespace Solver.Optimize
 /-- Apply the following simplification/normalization rules on `Int.neg` :
      - - (- n) ==> n
    Assume that f = Expr.const ``Int.neg.
-   Do nothing if operator is partially applied (i.e., args.size < 1)
+   An error is triggered if args.size ≠ 1.
    NOTE: `Int.neg` on constant values are handled via `reduceApp`.
    TODO: consider additional simplification rules
 -/
 def optimizeIntNeg (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
- if args.size != 1 then return (← mkAppExpr f args)
+ if args.size != 1 then throwError "optimizeIntNeg: only one argument expected"
  if let some e := intNeg? args[0]! then return e
  mkAppExpr f args
 
@@ -102,11 +102,11 @@ def intNegOfNat? (n : Expr) : Option Expr :=
      - Int.toNat (Int.ofNat e) ===> e
      - Int.toNat (Int.neg (Int.ofNat e)) ===> 0
    Assume that f = Expr.const ``Int.toNat.
-   Do nothing if operator is partially applied (i.e., args.size < 1)
+   An error is triggered if args.size ≠ 1.
    NOTE: `Int.toNat` on constant values are handled via `reduceApp`.
 -/
 def optimizeIntToNat (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
- if args.size != 1 then return (← mkAppExpr f args)
+ if args.size != 1 then throwError "optimizeIntToNat: only one argument expected"
  let op := args[0]!
  if let some e := op.app1? ``Int.ofNat then return e
  if let some .. := intNegOfNat? op then return (← mkNatLitExpr 0)

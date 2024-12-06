@@ -259,14 +259,14 @@ def optimizeNatSucc (args : Array Expr) : TranslateEnvT Expr := do
  optimizeNatAdd (← mkNatAddOp) #[← mkNatLitExpr 1, args[0]!]
 
 /-- Normalize `Nat.pred n` to `n - 1`.
-    Do nothing if operator is partially applied (i.e., args.size < 2)
+    An error is triggered if args.size ≠ 1.
     Assume that f = Expr.const ``Nat.pred.
     NOTE: `Nat.pred` on constant values are handled via `reduceApp`.
 -/
-def optimizeNatPred (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
- if args.size == 1
- then optimizeNatSub (← mkNatSubOp) #[args[0]!, ← mkNatLitExpr 1]
- else mkAppExpr f args
+def optimizeNatPred (args : Array Expr) : TranslateEnvT Expr := do
+ if args.size != 1 then throwError "optimizeNatPred: only one argument expected"
+ optimizeNatSub (← mkNatSubOp) #[args[0]!, ← mkNatLitExpr 1]
+
 
 /-- Normalize `Nat.beq ops` to `BEq.beq ops`.
 -/
@@ -286,7 +286,7 @@ def optimizeNat? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) :=
     | ``Nat.div => some <$> optimizeNatDiv f args
     | ``Nat.mod => some <$> optimizeNatMod f args
     | ``Nat.succ => some <$> optimizeNatSucc args
-    | ``Nat.pred => some <$> optimizeNatPred f args
+    | ``Nat.pred => some <$> optimizeNatPred args
     | ``Nat.beq => some <$> optimizeNatBeq args
     | _=> pure none
  | _ => pure none

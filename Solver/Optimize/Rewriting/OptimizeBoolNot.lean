@@ -11,12 +11,12 @@ namespace Solver.Optimize
      - ! (! e) ==> e
      - !(decide e) ==> decide (¬ p)
    Assume that f = Expr.const ``not.
-   Do nothing if operator is partially applied (i.e., args.size < 1)
+   An error is triggered if args.size ≠ 1.
    NOTE: `not` on constant values are handled via `reduceApp`.
    TODO: consider additional simplification rules
 -/
 def optimizeBoolNot (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
- if args.size != 1 then return (← mkAppExpr f args)
+ if args.size != 1 then throwError "optimizeBoolNot: only one argument expected"
  let op := args[0]!
  if let some e := boolNot? op then return e
  if let some (e, d) := decide? op then
