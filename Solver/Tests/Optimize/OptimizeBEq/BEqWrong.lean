@@ -59,7 +59,7 @@ instance instBEqColor : BEq Color where
 
 
 /-! Test cases to ensure that the following simplification rules must not be applied on
-    unknown ``BEq.beq instances that have not been reduced via `reduceApp` rule.`
+    unknown `BEq.beq` instances.
      - `e1 == e2 ==> true (if e1 =ₚₜᵣ e2)`
      - `e1 == e2 ==> e2 == e1 (if e2 <ₒ e1)`
 -/

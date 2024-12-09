@@ -119,7 +119,9 @@ partial def optimizeITE (f : Expr) (args : Array Expr) : TranslateEnvT Expr := d
 -/
 def extractDependentITEExpr (e : Expr) : MetaM Expr :=
   match e with
-  | Expr.lam _n _t b _bi => pure b
+  | Expr.lam n t b bi =>
+      withLocalDecl n bi t fun x => return b.instantiate1 (← inferType x)
+
   | _ => throwError f!"extractDependentITEExpr: lambda expression expected but got {reprStr e}"
 
 /-- Apply simplification/normalization rules on `dite`.

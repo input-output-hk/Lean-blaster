@@ -28,21 +28,19 @@ elab "constNatZero_4" : term => return constNatZero_4
 -- Nat.succ 0 ===> Expr.lit (Literal.natVal 1)
 #testOptimize [ "ConstNatZero_5" ] Nat.succ 0 ===> constNatZero_4
 
--- x < Nat.zero ===> x < Expr.lit (Literal.natVal 0)
+-- x = Nat.zero ===> x = Expr.lit (Literal.natVal 0)
 def constNatZero_6 : Expr :=
- Lean.Expr.forallE `x
-  (Lean.Expr.const `Nat [])
+Lean.Expr.forallE `x
+ (Lean.Expr.const `Nat [])
   (Lean.Expr.app
     (Lean.Expr.app
-      (Lean.Expr.app
-        (Lean.Expr.app (Lean.Expr.const `LT.lt [Lean.Level.zero]) (Lean.Expr.const `Nat []))
-        (Lean.Expr.const `instLTNat []))
-      (Lean.Expr.bvar 0))
-    (Lean.Expr.lit (Lean.Literal.natVal 0)))
-  (Lean.BinderInfo.default)
+      (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Nat []))
+      (Lean.Expr.lit (Lean.Literal.natVal 0)))
+    (Lean.Expr.bvar 0))
+ (Lean.BinderInfo.default)
 elab "constNatZero_6" : term => return constNatZero_6
 
-#testOptimize [ "ConstNatZero_6" ] ∀ (x : Nat), x < Nat.zero ===> constNatZero_6
+#testOptimize [ "ConstNatZero_6" ] ∀ (x : Nat), x = Nat.zero ===> constNatZero_6
 
 -- [Nat.zero, Nat.zero] ===> [Expr.lit (Literal.natVal 0), Expr.lit (Literal.natVal 0)]
 def constNatZero_7 : Expr :=

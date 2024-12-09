@@ -4,6 +4,7 @@ import Solver.Optimize.Rewriting.OptimizeInt
 import Solver.Optimize.Rewriting.OptimizeITE
 import Solver.Optimize.Rewriting.OptimizeMatch
 import Solver.Optimize.Rewriting.OptimizeNat
+import Solver.Optimize.Rewriting.OptimizeString
 import Solver.Optimize.Env
 
 open Lean Meta
@@ -11,8 +12,7 @@ open Lean Meta
 namespace Solver.Optimize
 
 /-- Determine if all explicit parameters of a function are constructors that
-    may also contain free or bounded variables.
-    Note that `false` is returned when f corresponds to the internal const ``_recFun.
+    may also contain free variables.
 -/
 def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) : MetaM Bool := do
   let stop := args.size
@@ -30,47 +30,57 @@ def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) : MetaM Bool := do
   loop 0
 
 
-/-- Try to reduce application `f args` when all explicit parameters are constructors.
-    The reduced expression `re` is returned only when re != `f args` and one of the following conditions is satisfied:
-      - `re` is a constructor that does not contain any variable; or
-      - f is not an opaque function or a class function.
-    NOTE: The explicit parameters in `args` are reduced to `match` discriminators when `f args` is a `match` application.
-    NOTE: `reduceApp` will not be applied on a class function. This is so to avoid implicit opaque function reduction.
-    NOTE: `whnf` will not perform any reduction on ``Prop operators (e.g. ``Eq, ``And, ``Or, ``Not, etc).
-    TODO: Need to replace `whnf` with custom constant propagation as some opaque function are implicitly inlined by whnf,
-    which is not what we want.
+/-- Given application `f x₁ ... xₙ`, perform the following:
+     - When `f x₁ ... xₙ` is a match expression of the form
+          match e₁, ..., eₙ with
+          | p₍₁₎₍₁₎, ..., p₍₁₎₍ₙ₎ => t₁
+            ...
+          | p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₙ₎ => tₘ
+        - return `whnfExpr (f x₁ ... xₙ)` only when `∀ i ∈ [1..n], isConstructor eᵢ`.
+
+     - When `isRecursiveFun f ∧ ¬ isOpaqueFunExpr f #[x₁ ... xₙ] ∧
+             ∀ i ∈ [1..n], isExplicit x₁ → isConstructor xᵢ ∧ (← getFunBody f).isSome`
+          let some body ← getFunBody f
+         - return `Expr.beta body #[x₁ ... xₙ]`
+     - Otherwise:
+         - return none
 -/
 def reduceApp? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
- if (← (isInstanceExpr f) <||> (isClassConstraintExpr f)) then return none
- let appExpr := mkAppN f args
- if !(← allExplicitParamsAreCtor f (← extractMatchDiscrs f args)) then return none
- let re ← whnfExpr appExpr
- if (re != appExpr) && (← (isConstant re) <||> (pure !(isOpaqueFunExpr f args || (← isClassFun f))))
- then return (some re)
- else return none
+ if (← isOpaqueFunExpr f args) then return none
+ if let some r ← isMatchReduction? f args then return r
+ if let some r ← isFunRecReduction? f args then return r
+ return none
 
  where
-   isInstanceExpr (f : Expr) : MetaM Bool := do
-    let Expr.const n _ := f | return false
-    isInstance n
+   isFunRecReduction? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
+     let Expr.const n _ := f | return none
+     if !(← isRecursiveFun n) then return none
+     if !(← allExplicitParamsAreCtor f args) then return none
+     let some fbody ← getFunBody f
+      | throwError f!"reduceApp?: recursive function body expected for {reprStr f}"
+     return (Expr.beta fbody args)
 
-   /- Extract match discriminators from `args` only when `f args` corresponds
-     to a `match` application expression.
-     Concretely given a match expression of the form:
+   isMatchReduction? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
+     if !(← allMatchDiscrsAreCtor f args) then return none
+     whnfExpr (mkAppN f args)
+
+   /- Return `true` only when `f` corresponds to a match function and all the
+      the match discriminators in `args` are constructors that may also
+      contain free variable.
+      Concretely given a match expression of the form:
         match e₁, ..., eₙ with
         | p₍₁₎₍₁₎, ..., p₍₁₎₍ₙ₎ => t₁
         ...
         | p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₙ₎ => tₘ
-     Extracts e₁, ..., eₙ from `args`.
-     When `f args` does not correspond to a match expression `args` is returned by default.
+      Return `true` when `∀ i ∈ [1..n], isConstructor eᵢ`.
    -/
-   extractMatchDiscrs (f : Expr) (args: Array Expr) : MetaM (Array Expr) := do
-     match f with
-     | Expr.const n _ =>
-         let some matcherInfo ← getMatcherInfo? n | return args
-         let discrs := args[matcherInfo.getFirstDiscrPos : matcherInfo.getFirstAltPos]
-         return discrs
-     | _ => return args
+   allMatchDiscrsAreCtor (f : Expr) (args: Array Expr) : MetaM Bool := do
+     let Expr.const n _ := f | return false
+     let some matcherInfo ← getMatcherInfo? n | return false
+     let discrs := args[matcherInfo.getFirstDiscrPos : matcherInfo.getFirstAltPos]
+     for i in [:discrs.size] do
+       if !(← isConstructor discrs[i]!) then return false
+     return true
 
 /-- Perform constant propagation and apply simplifcation and normalization rules
     on application expressions.
@@ -87,6 +97,8 @@ def optimizeApp (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
   if let some e ← structEqMatch? f args then return e
   if let some e ← optimizeExists? f args then return e
   if let some e ← optimizeDecide? f args then return e
+  if let some e ← optimizeRelational? f args then return e
+  if let some e ← optimizeString? f args then return e
   mkAppExpr f args
 
 
@@ -94,7 +106,7 @@ def optimizeApp (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
      - when `isNotfun f`
          - return none
      - when `t₁ → ... → tₘ ← inferType f ∧ n < m`:
-        - when ∀ i ∈ [1..n], !isExplicit tᵢ:
+        - when ∀ i ∈ [1..n], ¬ isExplicit tᵢ:
            - return none
         - otherwise:
            - return `etaExpand (mkAppN f args)`
@@ -123,7 +135,7 @@ def normPartialFun? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr)
         - When entry `fᵢₙₛ := fdef` exists in the instance cache and `fdef := fₙ` is in the recursive function map.
              - return `optimizeApp (Expr.beta fₙ params.genericArgs) xₖ₊₁ ... xₙ`
         - when no entry for `fᵢₙₛ` exists in the instance cache:
-           - fbody' ← optimizer (← generalizeRecCall f impParams (λ p₁ ... pₙ → fbody))`
+           - fbody' ← optimizerFunBody (← generalizeRecCall f impParams (λ p₁ ... pₙ → fbody))`
            - call `storeRecFunDef` to update instance cache and check if recursive definition already exists in map, i.e.:
                fᵢ ← storeRecFunDef fᵢₙₛ fbody'
            - return `optimizeApp (Expr.beta fᵢ params.genericArgs) xₖ₊₁ ... xₙ`
@@ -134,30 +146,35 @@ def normPartialFun? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr)
     (see function `cacheOpaqueRecFun`).
 -/
 def normOpaqueAndRecFun (f : Expr) (args: Array Expr) (optimizer : Expr -> TranslateEnvT Expr) : TranslateEnvT Expr := do
- match f with
- | Expr.const n _ =>
-     if (← isRecursiveFun n)
-     then
-       -- retrieve implicit arguments
-       let params ← getImplicitParameters f args
-       -- get instance application
-       let instApp ← getInstApp f params
-       if (← isVisitedRecFun instApp)
-       then optimizeApp f args -- already cached
-       else
-         if let some r ← hasRecFunInst? instApp then
-            return (← optimizeApp (r.beta params.genericArgs) args[params.instanceArgs.size : args.size])
-         cacheFunName instApp -- cache function name
-         let some fbody ← getFunBody f | throwError "normOpaqueAndRecFun: recursive function body expected for {reprStr f}"
-         -- instantiating polymorphic parameters in fun body
-         let fdef ← generalizeRecCall f params fbody
-         -- optimize recursive fun definition and store
-         let fn' ← storeRecFunDef instApp (← optimizer fdef)
-         -- only considering explicit args when instantiating
-         -- as storeRecFunDef already handled implicit arguments
-         optimizeApp (fn'.beta params.genericArgs) args[params.instanceArgs.size : args.size] -- optimizations on cached opaque recursive functions
-       else optimizeApp f args -- optimizations on opaque functions
- | _ => mkAppExpr f args
+ let Expr.const n _ := f | return (← mkAppExpr f args)
+ if (← isRecursiveFun n)
+ then
+   -- retrieve implicit arguments
+   let params ← getImplicitParameters f args
+   -- get instance application
+   let instApp ← getInstApp f params
+   if (← isVisitedRecFun instApp)
+   then optimizeApp f args -- already cached
+   else
+     if let some r ← hasRecFunInst? instApp then
+        return (← optimizeApp (r.beta params.genericArgs) args[params.instanceArgs.size : args.size])
+     cacheFunName instApp -- cache function name
+     let some fbody ← getFunBody f
+       | throwError "normOpaqueAndRecFun: recursive function body expected for {reprStr f}"
+     -- instantiating polymorphic parameters in fun body
+     let fdef ← generalizeRecCall f params fbody
+     -- optimize recursive fun definition and store
+     let fn' ← storeRecFunDef instApp (← optimizeFunBody n fdef)
+     -- only considering explicit args when instantiating
+     -- as storeRecFunDef already handled implicit arguments
+     -- NOTE: optimizations on cached opaque recursive functions required
+     optimizeApp (fn'.beta params.genericArgs) args[params.instanceArgs.size : args.size]
+   else optimizeApp f args -- optimizations on opaque functions
 
+ where
+   optimizeFunBody (n : Name) (fbody : Expr) : TranslateEnvT Expr := do
+     if recFunsToNormalize.contains n
+     then withOptimizeRecBody $ optimizer fbody
+     else withRestoreRecBody $ optimizer fbody
 
 end Solver.Optimize

@@ -104,25 +104,26 @@ variable (z : Int)
 -- NOTE: `true = (a == b)` is reduce to `a = b` when `isCompatibleBeqType Type(a)`
 #testOptimize [ "BEqIntUnchanged_3" ] ∀ (x y z : Int), (y + z) == x ===> ∀ (x y z : Int), x = (Int.add y z)
 
--- [y, x, z] == [x, y, z] ===> decide (x = y)
--- NOTE: Reduction via `reduceApp` rule, commutative of beq on Int and absorption rule on &&
-#testOptimize [ "BEqIntUnchanged_4" ] [y, x, z] == [x, y, z] ===> decide (x = y)
+-- [y, x, z] == [x, y, z] ===> x == y
+-- NOTE: Reduction via `reduceApp` rule
+#testOptimize [ "BEqIntUnchanged_4" ] [y, x, z] == [x, y, z] ===> x == y
 
 -- ∀ (x y z : Int), [y, x, z] == [x, y, z] ===> ∀ (x y : Int), x = y
--- NOTE: Reduction via `reduceApp` rule, commutative of beq on Int and absorption rule on &&
+-- NOTE: Reduction via `reduceApp` rule applied on recursive functions
 -- NOTE: `true = (a == b)` is reduce to `a = b` when `isCompatibleBeqType Type(a)`
 #testOptimize [ "BEqIntUnchanged_5" ] ∀ (x y z : Int), [y, x, z] == [x, y, z] ===>
                                       ∀ (x y : Int), x = y
 
 -- ∀ (x y z v : Int), [y, x, z] == [x, y, v] ===>
--- ∀ (x y z v : Int), (¬ (x = y) ∨ ((¬ (x = y) ∨ (z = v)) ∧ (x = y))) ∧ (x = y)
--- NOTE: Reduction via `reduceApp` rule, commutative of beq on Int and absorption rule on &&
+-- ∀ (x y z v : Int), true = (((x == y) && (z == v)) && (x == y))
+-- NOTE: Reduction via `reduceApp` rule applied on recursive functions
 -- NOTE: can be reduced to (x == y) && (z == v) with additional boolean simplification rules.
 #testOptimize [ "BEqIntUnchanged_6" ] ∀ (x y z v : Int), [y, x, z] == [x, y, v] ===>
-                                      ∀ (x y z v : Int), (¬ (x = y) ∨ ((¬ (x = y) ∨ (z = v)) ∧ (x = y))) ∧ (x = y)
+                                      ∀ (x y z v : Int), true = (((x == y) && (z == v)) && (x == y))
 
 -- ∀ (x : Int), (x == 1234) ===> ∀ (x : Int), (x == 1234)
--- NOTE: We here provide the internal representation to ensure that 1234 is properly reduced to `Int.ofNat (Expr.lit (Literal.natVal 1234))`.
+-- NOTE: We here provide the internal representation to ensure that 1234
+-- is properly reduced to `Int.ofNat (Expr.lit (Literal.natVal 1234))`.
 def beqIntUnchanged_7 : Expr :=
  Lean.Expr.forallE `x
   (Lean.Expr.const `Int [])
@@ -138,7 +139,8 @@ elab "beqIntUnchanged_7" : term => return beqIntUnchanged_7
 #testOptimize [ "BEqIntUnchanged_7" ] ∀ (x : Int), (x == 1234) ===> beqIntUnchanged_7
 
 -- ∀ (x : Int), (x = -453) ===> ∀ (x : Int), (x = -453)
--- NOTE: We here provide the internal representation to ensure that -453 is properly reduced to `Int.negSucc (Expr.lit (Literal.natVal 452))`.
+-- NOTE: We here provide the internal representation to ensure that -453 is
+-- properly reduced to `Int.negSucc (Expr.lit (Literal.natVal 452))`.
 def beqIntUnchanged_8 : Expr :=
  Lean.Expr.forallE `x
   (Lean.Expr.const `Int [])
@@ -179,8 +181,9 @@ elab "beqIntUnchanged_8" : term => return beqIntUnchanged_8
 #testOptimize [ "BEqIntCommut_7" ] ∀ (x y z : Int), ((x * y) == (y + z)) = ((z + y) == (x * y)) ===> True
 
 
-/-! Test cases to ensure that `reduceApp` is properly called
-    when `BEq.beq` operands are reduced to constant values via optimization. -/
+/-! Test cases to ensure that constant propagation is properly performed
+    when `BEq.beq` operands are reduced to constant values via optimization.
+-/
 
 -- 0 == (0 - x) + x ===> true
 #testOptimize [ "BEqIntReduce_1"] (0 == (0 - x) + x) ===> true

@@ -19,8 +19,11 @@ namespace Test.NormLTConst
 -- ∀ (α : Type) (x y : α), [LT α] → x > y ===> ∀ (α : Type) (x y : α), [LT α] → y < x
 #testOptimize [ "ConstGT_2" ] ∀ (α : Type) (x y : α), [LT α] → x > y ===> ∀ (α : Type) (x y : α), [LT α] → y < x
 
--- ∀ (α : Type) (x y : List α), [LT α] → x > y ===> ∀ (α : Type) (x y : List α), [LT α] → y < x
-#testOptimize [ "ConstGT_3" ] ∀ (α : Type) (x y : List α), [LT α] → x > y ===> ∀ (α : Type) (x y : List α), [LT α] → y < x
+-- ∀ (α : Type) (x y : List α), [LT α] → x > y ===>
+-- ∀ (α : Type) (x y : List α), [LT α] → List.lt y x
+#testOptimize [ "ConstGT_3" ]
+  ∀ (α : Type) (x y : List α), [LT α] → x > y ===>
+  ∀ (α : Type) (x y : List α), [LT α] → List.lt y x
 
 -- ∀ (x y : Int), (x > y) = (y < x) ===> True
 -- Test case to validate expression caching after rewriting
@@ -46,8 +49,11 @@ namespace Test.NormLTConst
 -- LT remains unchanged
 #testOptimize [ "ConstLT_2" ] ∀ (α : Type) (x y : α), [LT α] → x < y ===> ∀ (α : Type) (x y : α), [LT α] → x < y
 
--- ∀ (α : Type) (x y : List α), [LT α] → x < y ===> ∀ (α : Type) (x y : List α), [LT α] → x < y
+-- ∀ (α : Type) (x y : List α), [LT α] → x < y ===>
+-- ∀ (α : Type) (x y : List α), [LT α] → List.lt x y
 -- LT remains unchanged
-#testOptimize [ "ConstLT_3" ] ∀ (α : Type) (x y : List α), [LT α] → x < y ===> ∀ (α : Type) (x y : List α), [LT α] → x < y
+#testOptimize [ "ConstLT_3" ]
+  ∀ (α : Type) (x y : List α), [LT α] → x < y ===>
+  ∀ (α : Type) (x y : List α), [LT α] → List.lt x y
 
 end Test.NormLTConst

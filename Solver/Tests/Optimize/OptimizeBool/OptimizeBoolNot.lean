@@ -74,8 +74,9 @@ namespace Tests.OptimizeBoolNot
                                        ∀ (c a b : Bool), true = ((c || b) && (!c || !a))
 
 
-/-! Test cases to ensure that `reduceApp` is properly called
-    when `not operand is reduced to a constant value via optimization. -/
+/-! Test cases to ensure that constant propagation is properly performed
+    when `not operand is reduced to a constant value via optimization.
+-/
 
 variable (a : Bool)
 variable (b : Bool)

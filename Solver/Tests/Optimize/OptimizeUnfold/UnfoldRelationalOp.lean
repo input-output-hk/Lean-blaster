@@ -40,11 +40,15 @@ namespace Tests.UnfoldRelationalOp
 -- ∀ (α : Type) (x y : α), [LE α] → x ≥ y ===> ∀ (α : Type) (x y : α), [LE α] → y ≤ x
 #testOptimize [ "RelOpNotUnfolded_8" ]  ∀ (α : Type) (x y : α), [LE α] → x ≥ y ===> ∀ (α : Type) (x y : α), [LE α] → y ≤ x
 
--- ∀ (α : Type) (x y : List α), [LT α] → x ≤ y ===> ∀ (α : Type) (x y : List α), [LT α] → x ≤ y
-#testOptimize [ "RelOpNotUnfolded_9" ] ∀ (α : Type) (x y : List α), [LT α] → x ≤ y ===> ∀ (α : Type) (x y : List α), [LT α] → x ≤ y
+-- ∀ (α : Type) (x y : List α), [LT α] → x ≤ y ===>
+-- ∀ (α : Type) (x y : List α), [LT α] → ¬ List.lt y x
+#testOptimize [ "RelOpNotUnfolded_9" ]
+  ∀ (α : Type) (x y : List α), [LT α] → x ≤ y ===> ∀ (α : Type) (x y : List α), [LT α] → ¬ List.lt y x
 
--- ∀ (α : Type) (x y : List α), [LT α] → x ≥ y ===> ∀ (α : Type) (x y : List α), [LT α] → y ≤ x
-#testOptimize [ "RelOpNotUnfolded_10" ] ∀ (α : Type) (x y : List α), [LT α] → x ≥ y ===> ∀ (α : Type) (x y : List α), [LT α] → y ≤ x
+-- ∀ (α : Type) (x y : List α), [LT α] → x ≥ y ===>
+-- ∀ (α : Type) (x y : List α), [LT α] → ¬ List.lt x y
+#testOptimize [ "RelOpNotUnfolded_10" ]
+  ∀ (α : Type) (x y : List α), [LT α] → x ≥ y ===> ∀ (α : Type) (x y : List α), [LT α] → ¬ List.lt x y
 
 -- ∀ (x y : Int), x < y ===> ∀ (x y : Int), x < y
 #testOptimize ["RelOpNotUnfolded_11"] ∀ (x y : Int), x < y ===> ∀ (x y : Int), x < y
@@ -70,11 +74,15 @@ namespace Tests.UnfoldRelationalOp
 -- ∀ (α : Type) (x y : α), [LT α] → x > y ===> ∀ (α : Type) (x y : α), [LT α] → y < x
 #testOptimize [ "RelOpNotUnfolded_18" ]  ∀ (α : Type) (x y : α), [LT α] → x > y ===> ∀ (α : Type) (x y : α), [LT α] → y < x
 
--- ∀ (α : Type) (x y : List α), [LT α] → x < y ===> ∀ (α : Type) (x y : List α), [LT α] → x < y
-#testOptimize [ "RelOpNotUnfolded_19" ] ∀ (α : Type) (x y : List α), [LT α] → x < y ===> ∀ (α : Type) (x y : List α), [LT α] → x < y
+-- ∀ (α : Type) (x y : List α), [LT α] → x < y ===>
+-- ∀ (α : Type) (x y : List α), [LT α] → List.lt x y
+#testOptimize [ "RelOpNotUnfolded_19" ]
+  ∀ (α : Type) (x y : List α), [LT α] → x < y ===> ∀ (α : Type) (x y : List α), [LT α] → List.lt x y
 
--- ∀ (α : Type) (x y : List α), [LT α] → x > y ===> ∀ (α : Type) (x y : List α), [LT α] → y < x
-#testOptimize [ "RelOpNotUnfolded_20" ] ∀ (α : Type) (x y : List α), [LT α] → x > y ===> ∀ (α : Type) (x y : List α), [LT α] → y < x
+-- ∀ (α : Type) (x y : List α), [LT α] → x > y ===>
+-- ∀ (α : Type) (x y : List α), [LT α] → List.lt y x
+#testOptimize [ "RelOpNotUnfolded_20" ]
+  ∀ (α : Type) (x y : List α), [LT α] → x > y ===> ∀ (α : Type) (x y : List α), [LT α] → List.lt y x
 
 
 end Tests.UnfoldRelationalOp

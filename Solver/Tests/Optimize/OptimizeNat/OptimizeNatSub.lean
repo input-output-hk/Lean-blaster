@@ -756,9 +756,9 @@ elab "natSubVar_7" : term => return natSubVar_7
 #testOptimize [ "NatSubVar_7" ] ∀ (x y z : Nat), (x - 10) - y < z ===> natSubVar_7
 
 
-/-! Test cases to ensure that `reduceApp` is properly called
-    when `Nat.sub` operands are reduced to constant values
-    via optimization. -/
+/-! Test cases to ensure that constant propagation is properly performed
+    when `Nat.sub` operands are reduced to constant values via optimization.
+-/
 
 variable (x : Nat)
 variable (y : Nat)

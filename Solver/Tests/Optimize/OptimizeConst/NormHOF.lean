@@ -461,12 +461,35 @@ def mapOptionDefault (x : Nat) (y : Option Nat) : Nat :=
 #testOptimize [ "ConstNormOpaqueFunArg_4" ]
   ∀ (x : Nat) (xs : List Nat), List.any xs (λ a => a == x) = List.any xs (Nat.beq x) ===> True
 
-def beqWapper (f : Nat → Nat → Bool) (x : Nat) (y : Nat) := f x y
+def boolWapper (f : Nat → Nat → Bool) (x : Nat) (y : Nat) := f x y
 
 -- ∀ (x : Nat) (xs : List Nat), List.any xs (beqWapper Nat.beq x) → List.contains xs x ===>
 -- ∀ (x : Nat) (xs : List Nat), true = List.any xs (λ a => x == a) → true = List.elem x xs
 #testOptimize [ "ConstNormOpaqueFunArg_5" ]
-  ∀ (x : Nat) (xs : List Nat), List.any xs (beqWapper Nat.beq x) → List.contains xs x ===>
+  ∀ (x : Nat) (xs : List Nat), List.any xs (boolWapper Nat.beq x) → List.contains xs x ===>
   ∀ (x : Nat) (xs : List Nat), true = List.any xs (λ a => x == a) → true = List.elem x xs
+
+-- ∀ (x : Int) (xs : List Nat), List.any (λ a => x ≤ a) xs = List.any (Nat.ble x) xs ===> True
+#testOptimize [ "ConstNormOpaqueFunArg_6" ]
+  ∀ (x : Nat) (xs : List Nat), List.any xs (λ a => x ≤ a) = List.any xs (Nat.ble x) ===> True
+
+-- ∀ (x : Nat) (xs : List Nat), List.any xs (beqWapper Nat.ble x) → List.contains xs x ===>
+-- ∀ (x : Nat) (xs : List Nat), true = List.any xs (λ a => x ≤ a) → true = List.elem x xs
+#testOptimize [ "ConstNormOpaqueFunArg_7" ]
+  ∀ (x : Nat) (xs : List Nat), List.any xs (boolWapper Nat.ble x) → List.contains xs x ===>
+  ∀ (x : Nat) (xs : List Nat), true = List.any xs (λ a => x ≤ a) → true = List.elem x xs
+
+-- Nat.le = LE.le ===> True
+#testOptimize [ "ConstNormOpaqueFunArg_8" ] Nat.le = LE.le ===> True
+
+-- Int.le = LE.le ===> True
+#testOptimize [ "ConstNormOpaqueFunArg_9" ] Int.le = LE.le ===> True
+
+-- Nat.lt = (λ x y => (Nat.add 1 x) ≤ y) ===> True
+#testOptimize [ "ConstNormOpaqueFunArg_10" ] Nat.lt = (λ x y => (Nat.add 1 x) ≤ y) ===> True
+
+-- Int.lt = (λ x y => (Int.add 1 x) ≤ y) ===> True
+#testOptimize [ "ConstNormOpaqueFunArg_11" ] Int.lt = (λ x y => (Int.add 1 x) ≤ y) ===> True
+
 
 end Test.NormHOF

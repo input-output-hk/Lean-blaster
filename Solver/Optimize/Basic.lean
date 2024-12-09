@@ -23,41 +23,42 @@ namespace Solver.Optimize
 --       ∀ (y₁ : TypeB₁ .. yₙ : Typeₙ), P₂ y₁ ... yₙ) IF {TypeB₁, .., TypeBₙ} ⊄ {TypeA₁, ...,TypeAₙ}
 -- - ∀ (x₁ : TypeA₁) ... (xₙ : TypeAₙ), P₁ → P₂ ===>
 --      ∀ (x₄ : TypeA₄) ... (xₙ : TypeAₙ), P₂ x₄ ... xₙ IF Var(P₂) ∩ Var(P₁) = ∅
-partial def optimizeExpr (sOpts: SolverOptions) (e : Expr) (isArgApp := false) : TranslateEnvT Expr := do
-  let rec visit (e : Expr) (isArgApp := false) : TranslateEnvT Expr := do
-    if isArgApp && e.isConst then normConst e isArgApp (λ a => visit a isArgApp) else
+partial def optimizeExpr (sOpts: SolverOptions) (e : Expr) : TranslateEnvT Expr := do
+  let rec visit (e : Expr) : TranslateEnvT Expr := do
+   if (← isOptimizeConst) && e.isConst then normConst e visit
+   else
+    -- restore const normalization only when e is not a const.
+    setNormalizeConst (!e.isConst)
     withOptimizeEnvCache e fun _ => do
     logReprExpr sOpts "Optimize:" e
     match e with
     | Expr.fvar .. => return e
-    | Expr.const .. => normConst e isArgApp visit
+    | Expr.const .. => normConst e visit
     | Expr.forallE n t b bi =>
         let t' ← visit t
         withLocalDecl n bi t' fun x => do
           optimizeForall x t' (← visit (b.instantiate1 x))
     | Expr.app .. =>
-        Expr.withApp e fun rf ras => do
-        -- apply optimization on params first before reduction
-        let mut mas := ras
-        -- we need to appy optimization even on the implicit arguments
-        -- to remove mdata annotation and have max expression sharing.
-        let rf' ← visit rf
-        for i in [:ras.size] do
-           mas ← mas.modifyM i (λ a => visit a (isArgApp := true))
-        -- try to reduce app if all params are constructors
-        match (← reduceApp? rf' mas) with
-        | some re => visit re
-        | none =>
-          if rf'.isLambda then
-            -- perform beta-reduction
-            visit (Expr.beta rf' mas)
-          else
+        Expr.withApp e fun f ras => do
+         let f' ← withOptimizeFunApp $ visit f
+         -- apply optimization on params first before reduction
+         -- we need to apply optimization even on the implicit arguments
+         -- to remove mdata annotation and have max expression sharing.
+         let rf := f'.getAppFn'
+         let mut mas := f'.getAppArgs ++ ras
+         for i in [:ras.size] do
+            mas ← mas.modifyM i (λ a => visit a)
+         -- try to reduce app if all params are constructors
+         match (← reduceApp? rf mas) with
+         | some re => visit re
+         | none =>
             -- unfold non-recursive and non-opaque functions
-            if let some fdef ← getUnfoldFunDef? rf' mas then return (← visit fdef)
+            -- NOTE: beta reduction performed by getUnfoldFunDef? when rf is a lambda term
+            if let some fdef ← getUnfoldFunDef? rf mas then return (← visit fdef)
             -- normalize match expression to ite
-            if let some mdef ← normMatchExpr? rf' mas visit then return (← visit mdef)
-            if let some pe ← normPartialFun? rf' mas then return (← visit pe)
-            normOpaqueAndRecFun rf' mas visit
+            if let some mdef ← normMatchExpr? rf mas visit then return (← visit mdef)
+            if let some pe ← normPartialFun? rf mas then return (← visit pe)
+            normOpaqueAndRecFun rf mas visit
     | Expr.lam n t b bi => do
         let t' ← visit t
         withLocalDecl n bi t' fun x => do
@@ -79,7 +80,7 @@ partial def optimizeExpr (sOpts: SolverOptions) (e : Expr) (isArgApp := false) :
     | Expr.lit .. => return e -- number or string literal: do nothing
     | Expr.mvar .. => throwError f!"optimizeExpr: unexpected meta variable {e}"
     | Expr.bvar .. => throwError f!"optimizeExpr: unexpected bound variable {e}"
-  visit e isArgApp
+  visit e
 
 
 /-- Populate the `recFunInstCache` with opaque recursive function definition.
@@ -110,7 +111,7 @@ def cacheOpaqueRecFun (optimize : Expr → TranslateEnvT Expr) : TranslateEnvT U
 -/
 partial def optimize (sOpts: SolverOptions) (e : Expr) : MetaM (Expr × TranslateEnv) := do
   -- populate recFunInstCache with recursive function definition.
-  let res ← cacheOpaqueRecFun (λ a => optimizeExpr sOpts a (isArgApp := true))|>.run default
+  let res ← cacheOpaqueRecFun (λ a => optimizeExpr sOpts a)|>.run default
   optimizeExpr sOpts e|>.run res.2
 
 end Solver.Optimize

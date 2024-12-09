@@ -15,6 +15,22 @@ structure IndTypeDeclaration where
  instSort : SortExpr
 deriving Inhabited
 
+structure OptimizeOptions where
+  /-- Flag to activate const normalization, especially when function
+      are passed as arguments.
+      This flag is set to `false` when optimization a function application,
+      i.e., Given application `f x₁ ... xₙ` optimization on `f` is performed with
+      `normalizeConst` set to `false`.
+  -/
+  normalizeConst : Bool := true
+  /-- Flag to activate function normalization, e.g., `Nat.beq x y` to `BEq.beq Nat instBEqNat x y`.
+      This flag is set to `false` when optimizing the recursive function body
+      of an opaque function f ∈ recFunsToNormalize`
+  -/
+  normalizeFunCall : Bool := true
+
+instance : Inhabited OptimizeOptions where
+  default := {normalizeConst := true, normalizeFunCall := true}
 
 /-- Type defining the environment used when optimizing a lean theorem. -/
 structure OptimizeEnv where
@@ -37,6 +53,7 @@ structure OptimizeEnv where
       where:
         - `x₁ .. xₙ`: correspond to the arguments instantiating the polymorphic parameters of `f` (if any).
         - fdef: correspond to the recursive function body.
+      TODO: UPDATE
   -/
   recFunInstCache : HashMap Lean.Expr Lean.Expr
   /-- Cache keeping track of visited recursive function.
@@ -48,6 +65,9 @@ structure OptimizeEnv where
       (see function `storeRecFunDef`).
   -/
   recFunMap: HashMap Lean.Expr Lean.Expr
+
+  /-- Optimization options (see note on OptimizeOptions) -/
+  options : OptimizeOptions
 
  deriving Inhabited
 
@@ -85,6 +105,7 @@ structure SmtEnv where
           parameters of `f` (if any).
        - `n` corresponds an smt qualified identifier that is expected to be unique
           for each recursive function or undefined class function instances.
+      TODO UPDATE
   -/
   funInstCache : HashMap Lean.Expr SmtQualifiedIdent
 
@@ -100,6 +121,13 @@ structure SmtEnv where
 
   deriving Inhabited
 
+
+/-- list of recursive functions to be normalized (see note in `OptimizeOptions`). -/
+def recFunsToNormalize : NameHashSet :=
+  List.foldr (fun c s => s.insert c) HashSet.empty
+  [ ``Nat.beq,
+    ``Nat.ble
+  ]
 
 /-- Type defining the environment used when optimizing a lean theorem and translating to Smt-lib. -/
 structure TranslateEnv where
@@ -121,6 +149,64 @@ abbrev TranslateEnvT := StateRefT TranslateEnv MetaM
 -/
 @[implemented_by exprEqUnsafe]
 def exprEq (op1 : Expr) (op2 : Expr) : MetaM Bool := isDefEqGuarded op1 op2
+
+/-- set optimize option `normalizeConst` to `b`. -/
+def setNormalizeConst (b : Bool) : TranslateEnvT Unit := do
+  let env ← get
+  let options := env.optEnv.options
+  let optEnv := {env.optEnv with options := {options with normalizeConst := b}}
+  set {env with optEnv := optEnv }
+
+/-- set optimize option `normalizeFunCall` to `b`. -/
+def setNormalizeFunCall (b : Bool) : TranslateEnvT Unit := do
+  let env ← get
+  let options := env.optEnv.options
+  let optEnv := {env.optEnv with options := {options with normalizeFunCall := b}}
+  set {env with optEnv := optEnv }
+
+/-- Perform the following actions:
+     - set normalizeConst to `false`
+     - execute `f`
+     - set normalizeConst to `true`
+-/
+def withOptimizeFunApp (f: TranslateEnvT Expr) : TranslateEnvT Expr := do
+  setNormalizeConst false
+  let e ← f
+  setNormalizeConst true
+  return e
+
+/-- Perform the following actions:
+     - set normalizeFunCall to `false`
+     - execute `f`
+     - set normalizeFunCall to `true`
+-/
+def withOptimizeRecBody (f: TranslateEnvT Expr) : TranslateEnvT Expr := do
+  setNormalizeFunCall false
+  let e ← f
+  setNormalizeFunCall true
+  return e
+
+/-- Perform the following actions:
+     - let b := (← get).optEnv.options.normalizeFunCall
+     - set normalizeFunCall to `true`
+     - execute `f`
+     - set normalizeFunCall to `b`
+-/
+def withRestoreRecBody (f: TranslateEnvT Expr) : TranslateEnvT Expr := do
+  let b := (← get).optEnv.options.normalizeFunCall
+  setNormalizeFunCall true
+  let e ← f
+  setNormalizeFunCall b
+  return e
+
+
+/-- Return `true` if optimize option `normalizeConst` is set to `true`. -/
+def isOptimizeConst : TranslateEnvT Bool :=
+  return (← get).optEnv.options.normalizeConst
+
+/-- Return `true` if optimize option `normalizeFunCall` is set to `true`. -/
+def isOptimizeRecCall : TranslateEnvT Bool :=
+  return (← get).optEnv.options.normalizeFunCall
 
 /-- Update rewrite cache with `a := b`.
 -/
@@ -236,6 +322,12 @@ def mkBoolTrue : TranslateEnvT Expr := mkExpr (mkConst ``true)
 /-- Return `false` boolean constructor and cache result. -/
 def mkBoolFalse : TranslateEnvT Expr := mkExpr (mkConst ``false)
 
+/-- Given `b` a boolean value return the corresponding
+    boolean constructor expression and cache result.
+-/
+def mkBoolLit (b : Bool) : TranslateEnvT Expr :=
+  if b then mkBoolTrue else mkBoolFalse
+
 /-- Return `not` boolean operator and cache result. -/
 def mkBoolNotOp : TranslateEnvT Expr := mkExpr (mkConst ``not)
 
@@ -253,6 +345,12 @@ def mkPropTrue : TranslateEnvT Expr := mkExpr (mkConst ``True)
 
 /-- Return `False` Prop and cache result. -/
 def mkPropFalse : TranslateEnvT Expr := mkExpr (mkConst ``False)
+
+/-- Given `b` a boolean value return the corresponding
+    propositional expression and cache result.
+-/
+def mkPropLit (b : Bool) : TranslateEnvT Expr :=
+  if b then mkPropTrue else mkPropFalse
 
 /-- Return `Not` operator and cache result. -/
 def mkPropNotOp : TranslateEnvT Expr := mkExpr (mkConst ``Not)
@@ -537,7 +635,7 @@ def whnfExpr (a : Expr) : TranslateEnvT Expr := do
   match env.optEnv.whnfCache.find? a with
   | some b => return b
   | none => do
-     let b ← whnf a
+     let b ← withReducible $ whnf a
      let optEnv := {env.optEnv with whnfCache := env.optEnv.whnfCache.insert a b}
      set {env with optEnv := optEnv}
      return b
@@ -659,16 +757,16 @@ structure ImplicitParameters where
   instanceArgs : Array Expr
  deriving Repr
 
-/-- Given application `f x₁ ... xₙ`,
-     - return `{instanceArgs := #[], genericArgs := #[]}` only when `∀ i ∈ [1..n], isExplicit xᵢ`.
-     - reutrn `{instanceArgs := #[x₁, ..., xₖ], genericArgs := #[]}`
-        only when `∀ i ∈ [1..k], ¬ isGenericParam xᵢ ∧ ¬ isExplicit xᵢ ∧ k ≤ n`
-     - return `{instanceArgs := #[x₁, ..., xₖ], genericArgs := #[y₁, ..., yₘ]}`
-        only when `∀ i ∈ [1..k], isGenericParam xᵢ ∧ isExplicit xᵢ ∧ k < n`, s.t.:
-          - ∀ j ∈ [1..m], ∃ i ∈ [1..k], yⱼ = xᵢ ∧ isGenericParam yᵢ
-    NOTE: It is assumed that all implicit arguments appear first in sequence `x₁ ... xₙ`, i.e.,
+/-- Given application `f x₀ ... xₙ`, perform the following:
+     - When `∀ i ∈ [0..n], isExplicit xᵢ`,
+           - return `{instanceArgs := #[], genericArgs := #[]}`
+     - When `∃ i ∈ [0..n], ¬ isExplicit xᵢ`,
+         let A := [x₀ ... xₙ]
+         let instanceArgs := [A[i] | i ∈ [0..n] ∧ ¬ isExplicit A[i]]
+         let genericArgs := [A[i] | i ∈ [0..n]  isGenericParam A[i] ∧ ¬ isExplicit A[i]]
+           - return {instanceArgs, genericArgs}
+    NOTE: It is assumed that all implicit arguments appear first in sequence `x₁ ... xₙ`.
     NOTE: It is also assumed that args does not contain any meta or bounded variables.
-    the search is stopped when the first explicit argument is encountered.
 -/
 def getImplicitParameters (f : Expr) (args : Array Expr) : TranslateEnvT ImplicitParameters := do
  let mut instanceArgs := #[]
@@ -682,18 +780,14 @@ def getImplicitParameters (f : Expr) (args : Array Expr) : TranslateEnvT Implici
        genericArgs := genericArgs.push args[i]!
  return {instanceArgs, genericArgs}
 
-/-- Given application `f x₁ ... xₙ`,
-      - return `f` only when `∀ i ∈ [1..n], isExplicit xᵢ`.
-      - return `f x₁ ... xₖ` only when `∀ i ∈ [1..k], ¬ isGenericParam xᵢ ∧ ¬ isExplicit xᵢ ∧ k < n`
-        (i.e., all implicit arguments are instantiated with concrete types).
-      - return `λ (α₁ : Type₁) → λ (αₘ : Typeₘ) → f y₁ ... yₖ` only when `∀ i ∈ [1..k], isGenericParam xᵢ ∧ isExplicit xᵢ ∧ k < n`
-        (i.e., at least one implicit argument is not instantiated with a concrete type), s.t.:
-         - ∀ i ∈ [1..k], ∀ j ∈ [1..m],
-           - yᵢ := αᵢ if xᵢ = αⱼ
-               := xᵢ otherwise
-    NOTE: It is assumed that all implicit arguments appear first in sequence `x₁ ... xₙ`, i.e.,
-    the search is stopped when the first explicit argument is encountered.
-    NOTE: It is also assumed that args does not contain any meta or bounded variables.
+/-- Given function `f` and its implicit arguments `params`, perform the following:
+      - When params.instanceArgs.size == 0
+          - return `f`
+      - When params.instanceArgs.size > 0 ∧ params.genericArgs.size == 0
+          - return `mkAppExpr f params.instanceArgs`
+      - Otherwise:
+          - return `mkLambdaFVars params.genericArgs (mkAppExpr f params.instanceArgs)`
+    See function `getImplicitParameters`.
 -/
 def getInstApp (f : Expr) (params: ImplicitParameters) : TranslateEnvT Expr := do
  if params.instanceArgs.isEmpty then return f

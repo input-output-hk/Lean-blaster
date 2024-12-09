@@ -66,11 +66,10 @@ def add_n_times (n : Nat) (a : Int) : Int :=
 #testOptimize [ "RecFunNotUnfolded_1"  ] ∀ (x : Nat) (y z : Int), add_n_times x y ≥ z ===>
                                          ∀ (x : Nat) (y z : Int), z ≤ add_n_times x y
 
-
 -- ∀ (x : List Nat) (n : Nat), List.length x > n → List.drop n x ≠ List.nil ===>
 -- ∀ (x : List Nat) (n : Nat), List.length x < List.length (a : x)
-#testOptimize [ "RecFunNotUnfolded_2"  ] ∀ (x : List Nat) (n : Nat), List.length x > n → List.drop n x ≠ List.nil ===>
-                                         ∀ (x : List Nat) (n : Nat), n < List.length x → ¬ (List.nil = List.drop n x)
-
+#testOptimize [ "RecFunNotUnfolded_2"  ]
+  ∀ (x : List Nat) (n : Nat), List.length x > n → List.drop n x ≠ List.nil ===>
+  ∀ (x : List Nat) (n : Nat), n < List.length x → ¬ (List.nil = List.drop n x)
 
 end Tests.UnfoldFun
