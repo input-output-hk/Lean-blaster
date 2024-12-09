@@ -109,13 +109,13 @@ variable (z : Nat)
 -- NOTE: `true = (a == b)` is reduced to `a = b`
 #testOptimize [ "BEqNatUnchanged_3" ] ∀ (x y z : Nat), (y + z) == x ===> ∀ (x y z : Nat), x = (Nat.add y z)
 
--- [y, x, z] == [x, y, z] ===> decide x = y
--- NOTE: Reduction via `reduceApp` rule, commutative of beq on Nat and absorption rule on &&
-#testOptimize [ "BEqNatUnchanged_4" ] [y, x, z] == [x, y, z] ===> decide (x = y)
+-- [y, x, z] == [x, y, z] ===> x == y
+-- NOTE: Reduction via `reduceApp` rule applied on recursive function
+#testOptimize [ "BEqNatUnchanged_4" ] [y, x, z] == [x, y, z] ===> x == y
 
 
 -- ∀ (x y z : Nat), [y, x, z] == [x, y, z] ===> ∀ (x y : Nat), x = y
--- NOTE: Reduction via `reduceApp` rule, commutative of beq on Nat and absorption rule on &&
+-- NOTE: Reduction via `reduceApp` rule applied on recursive function
 -- NOTE: `true = (a == b)` is reduced to `a = b`
 #testOptimize [ "BEqNatUnchanged_5" ] ∀ (x y z : Nat), [y, x, z] == [x, y, z] ===>
                                       ∀ (x y : Nat), x = y
@@ -123,14 +123,15 @@ variable (z : Nat)
 
 -- ∀ (x y z v : Nat), [y, x, z] == [x, y, v] ===>
 -- ∀ (x y z v : Nat), (¬ (x = y) ∨ ((¬ (x = y) ∨ (z = v)) ∧ (x = y))) ∧ (x = y)
--- NOTE: Reduction via `reduceApp` rule, commutative of beq on Int and absorption rule on &&
--- NOTE: can be reduced to (x = y) ∧ (z = v) with additional logical simplification rules.
+-- NOTE: Reduction via `reduceApp` rule applied on recursive function
+-- NOTE: can be reduced to (x == y) && (z == v) with additional logical simplification rules.
 #testOptimize [ "BEqNatUnchanged_6" ] ∀ (x y z v : Nat), [y, x, z] == [x, y, v] ===>
-                                      ∀ (x y z v : Nat), (¬ (x = y) ∨ ((¬ (x = y) ∨ (z = v)) ∧ (x = y))) ∧ (x = y)
+                                      ∀ (x y z v : Nat), true = (((x == y) && (z == v)) && (x == y))
 
 
 -- ∀ (x : Nat), (x == 234) ===> ∀ (x : Nat), (x == 234)
--- NOTE: We here provide the internal representation to ensure that 234 is properly reduced to `Expr.lit (Literal.natVal 234)`.
+-- NOTE: We here provide the internal representation to ensure that 234
+-- is properly reduced to `Expr.lit (Literal.natVal 234)`.
 def beqNatUnchanged_7 : Expr :=
  Lean.Expr.forallE `x
   (Lean.Expr.const `Nat [])
@@ -197,7 +198,7 @@ elab "beqNatUnchanged_7" : term => return beqNatUnchanged_7
 #testOptimize [ "BEqNatCommut_14" ] ∀ (x y z : Nat), ((x * y) == (y + z)) = (Nat.beq (z + y) (x * y)) ===> True
 
 
-/-! Test cases to ensure that `reduceApp` is properly called
+/-! Test cases to ensure that constant propagation is properly performed
     when `BEq.beq` operands are reduced to constant values via optimization. -/
 
 -- 0 == (0 - x) ===> true

@@ -110,7 +110,7 @@ elab "natPredNorm_2" : term => return natPredNorm_2
 #testOptimize [ "NatPredNorm_10" ] ∀ (x : Nat), Nat.pred (Nat.pred (Nat.succ x)) = x - 1 ===> True
 
 
-/-! Test cases to ensure that `reduceApp` is properly called
+/-! TTest cases to ensure that constant propagation is properly performed
     when `Nat.pred` operand is reduced to constant value via optimization. -/
 
 variable (x : Nat)

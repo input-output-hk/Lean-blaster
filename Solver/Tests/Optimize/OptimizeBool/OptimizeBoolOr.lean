@@ -208,8 +208,9 @@ namespace Tests.OptimizeBoolOr
 #testOptimize [ "BoolOrCommut_4" ] ∀ (a b c : Bool), (a || (b || c)) = ((c || b) || a) ===> True
 
 
-/-! Test cases to ensure that `reduceApp` is properly called
-    when `or` operands are reduced to constant values via optimization. -/
+/-! Test cases to ensure that constant propagation is properly performed
+    when `or` operands are reduced to constant values via optimization.
+-/
 
 variable (a : Bool)
 variable (b : Bool)

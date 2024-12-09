@@ -469,9 +469,8 @@ elab "natModVar_7" : term => return natModVar_7
 #testOptimize [ "NatModVar_7" ] ∀ (x y z : Nat), (x % 10) % y < z ===> natModVar_7
 
 
-/-! Test cases to ensure that `reduceApp` is properly called
-    when `Nat.mod` operands are reduced to constant values
-    via optimization. -/
+/-! Test cases to ensure that constant propagation is properly performed
+    when `Nat.mod` operands are reduced to constant values via optimizaton. -/
 
 variable (x : Nat)
 variable (y : Nat)

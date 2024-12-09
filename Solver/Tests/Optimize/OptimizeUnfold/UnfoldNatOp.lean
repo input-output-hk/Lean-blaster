@@ -88,9 +88,8 @@ namespace Tests.UnfoldNatOp
 -- ∀ (x y z : Nat), x % y < z ===> ∀ (x y z : Nat), Nat.mod x y < z
 #testOptimize ["NatOpNotUnfolded_8"] ∀ (x y z : Nat), x % y < z ===> ∀ (x y z : Nat), Nat.mod x y < z
 
--- ∀ (x y : Nat), Nat.ble x y ===> ∀ (x y : Nat), true = (Nat.ble x y)
--- TODO: update test case when normalizing `Nat.ble x y = true` to `x ≤ y`
-#testOptimize ["NatOpNotUnfolded_9"] ∀ (x y : Nat), Nat.ble x y ===> ∀ (x y : Nat), true = (Nat.ble x y)
+-- ∀ (x y : Nat), Nat.ble x y ===> ∀ (x y : Nat), x ≤ y
+#testOptimize ["NatOpNotUnfolded_9"] ∀ (x y : Nat), Nat.ble x y ===> ∀ (x y : Nat), x ≤ y
 
 
 end Tests.UnfoldNatOp

@@ -45,7 +45,7 @@ where
 /-- Apply simplification/normalization rules on `Decidable.decide. -/
 def optimizeDecide? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) :=
   match f with
-  | Expr.const ``Decidable.decide _ => some <$> optimizeDecideCore f args
+  | Expr.const ``Decidable.decide _ => optimizeDecideCore f args
   | _ => pure none
 
 end Solver.Optimize

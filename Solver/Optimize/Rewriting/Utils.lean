@@ -22,19 +22,16 @@ def isEnumConst (e : Expr) : MetaM Bool := do
  let ConstantInfo.ctorInfo info ← getConstInfo n | return false
  return (info.numFields == 0 && info.numParams == 0 && !info.type.isProp)
 
-/-- Return `true` if e correponds to a fully applied parametric constructor.
+/-- Return `true` if e correponds to a nullary constructor or a fully applied parametric constructor.
 -/
 def isFullyAppliedConst (e : Expr) : MetaM Bool := do
- match e with
- | Expr.app .. =>
-     -- parameteric constructor case
-     Expr.withApp e fun f as => do
-       let Expr.const n _ := f | return false
-       let ConstantInfo.ctorInfo info ← getConstInfo n | return false
-       -- should be fully applied
-       -- numFields corresponds to the constructor parameters
-       -- numParams corresponds to the Inductive type parameters
-       return (as.size == info.numFields + info.numParams && !info.type.isProp)
+ match e.getAppFn' with
+ | Expr.const n _ =>
+    let ConstantInfo.ctorInfo info ← getConstInfo n | return false
+    -- should be fully applied
+    -- numFields corresponds to the constructor parameters
+    -- numParams corresponds to the Inductive type parameters
+    return (e.getAppArgs.size == info.numFields + info.numParams && !info.type.isProp)
  | _ => return false
 
 /-- Return `true` if e corresponds to a constructor that may contain free or bounded variables. -/
@@ -234,6 +231,35 @@ def isStrValue? (e : Expr) : Option String :=
   match e with
   | Expr.lit (Literal.strVal s) => some s
   | _ => none
+
+/-- Determine if `e` is a `UInt32` literal expression `UInt32.mk (Fin.mk UInt32.size n isLt)`
+    and return `some n` only when n < UInt32.size.
+    Otherwise return `none`
+-/
+def isUInt32Value? (e : Expr) : Option Nat :=
+  match e.app1? ``UInt32.mk with
+  | some fn =>
+      match fn.app3? ``Fin.mk with
+      | some (Expr.lit (Literal.natVal s), Expr.lit (Literal.natVal n), _) =>
+         if s != UInt32.size || Nat.ble UInt32.size n
+         then none
+         else some n
+      | _ => none
+  | _ => none
+
+
+/-- Determine if `e` is a `Char` literal expression `Char.mk (UInt32.mk (Fin.mk UInt32.size n isLt)`
+    and return `some Char.ofNat n)` only when `Nat.isValidChar n`.
+    Otherwise return `none`
+-/
+def isCharValue? (e : Expr) : Option Char :=
+  match e.app2? ``Char.mk with
+  | some (ui, _) =>
+      match isUInt32Value? ui with
+      | some n => if Nat.isValidChar n then some (Char.ofNat n) else none
+      | _ => none
+  | _ => none
+
 
 /-- Return `true` if `e := Nat.add e1 e2`. Otherwise return `false`.
     Note that `true` is returned only when e is a fully applied `Nat.add expression.
@@ -579,7 +605,7 @@ def isMatchExpr (n : Name) : MetaM Bool := Option.isSome <$> getMatcherInfo? n
      - a match function;
      - a class constraint.
 -/
-partial def getFunBody (f : Expr) : MetaM (Option Expr) := do
+def getFunBody (f : Expr) : MetaM (Option Expr) := do
   match f with
   | Expr.lam .. => return f
   | Expr.const n l =>
@@ -594,7 +620,7 @@ partial def getFunBody (f : Expr) : MetaM (Option Expr) := do
       else
         let cInfo@(ConstantInfo.defnInfo _) ← getConstInfo n | return none
         instantiateValueLevelParams cInfo l
-  | Expr.proj .. => reduceProj? f -- case when f is function defined in a class instance
+  | Expr.proj .. => reduceProj? f  -- case when f is function defined in a class instance
   | _ => return none
 
 /-- Unfold fuction `f` w.r.t. the effective parameters `args` only when:
@@ -623,7 +649,7 @@ def getUnfoldFunDef? (f: Expr) (args: Array Expr) : MetaM (Option Expr) := do
    -/
    isNotFoldable (e : Expr) : MetaM Bool := do
      let Expr.const n _ := e | return false
-       (pure (isOpaqueFun n args))
+       (isOpaqueFun n args)
        <||> (isInstance n)
        <||> (isRecursiveFun n)
        <||> (isMatchExpr n)

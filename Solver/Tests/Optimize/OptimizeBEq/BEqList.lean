@@ -36,21 +36,19 @@ namespace Test.BEqList
                                        ∀ (α : Type) (x y : α), [BEq α] → true = (x == y)
 
 -- ∀ (α : Type) (x y z : α), [BEq α] → [x, y, z] == [x, y, z] ===>
--- ∀ (α : Type) (x y z : α), [BEq α] → true = ((!(x == x) || ((!(y == y) || z == z) && y == y)) && x == x)
+-- ∀ (α : Type) (x y z : α), [BEq α] → true = ((y == y && z == z) && x == x)
 -- NOTE: Reduction via `reduceApp` rule, which is also applicable on recursive functions
--- NOTE: can be reduced to (x == x) && (y == y) && (z == z) with additional boolean simplification rules
 #testOptimize [ "BEqListUnchanged_3" ] ∀ (α : Type) (x y z : α), [BEq α] → [x, y, z] == [x, y, z] ===>
                                        ∀ (α : Type) (x y z : α), [BEq α] →
-                                         true = ((!(x == x) || ((!(y == y) || z == z) && y == y)) && x == x)
+                                         true = ((y == y && z == z) && x == x)
 
 
 -- ∀ (α : Type) (x y z : α), [BEq α] → [y, z, x] == [x, y, z] ===>
--- ∀ (α : Type) (x y z : α), [BEq α] → true = ((!(y == x) || ((!(z == y) || x == z) && z == y)) && (y == x))
+-- ∀ (α : Type) (x y z : α), [BEq α] → true = ((x == z && z == y) && y == x)
 -- NOTE: Reduction via `reduceApp` rule, which is also applicable on recursive functions
--- NOTE: can be reduced to (y == x) && (z == y) ∧ (x == z) with additional boolean simplification rules
 #testOptimize [ "BEqListUnchanged_4" ] ∀ (α : Type) (x y z : α), [BEq α] → [y, z, x] == [x, y, z] ===>
                                        ∀ (α : Type) (x y z : α), [BEq α] →
-                                         true = ((!(y == x) || ((!(z == y) || x == z) && z == y)) && (y == x))
+                                         true = ((x == z && z == y) && y == x)
 
 -- ∀ (α : Type) (x : List α), [BEq α] → List.nil == x ===>
 -- ∀ (α : Type) (x : List α), [BEq α] → true = (List.beq List.nil x)

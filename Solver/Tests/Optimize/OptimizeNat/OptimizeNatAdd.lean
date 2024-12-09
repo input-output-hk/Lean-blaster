@@ -324,9 +324,9 @@ elab "natAddVar_4" : term => return natAddVar_4
 #testOptimize [ "NatAddVar_4" ] ∀ (x y : Nat), x + y < 10 ===> natAddVar_4
 
 
-/-! Test cases to ensure that `reduceApp` is properly called
-    when `Nat.add` operands are reduced to constant values
-    via optimization. -/
+/-! Test cases to ensure that constant propagation is properly performed
+    when `Nat.add` operands are reduced to constant values via optimization.
+-/
 
 variable (x : Nat)
 variable (y : Nat)

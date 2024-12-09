@@ -617,9 +617,9 @@ elab "natDivVar_7" : term => return natDivVar_7
 #testOptimize [ "NatDivVar_7" ] ∀ (x y z : Nat), (x / 10) / y < z ===> natDivVar_7
 
 
-/-! Test cases to ensure that `reduceApp` is properly called
-    when `Nat.div` operands are reduced to constant values
-    via optimization. -/
+/-! Test cases to ensure that constant propagation is properly performed
+    when `Nat.div` operands are reduced to constant values via optimization.
+-/
 
 variable (x : Nat)
 variable (y : Nat)

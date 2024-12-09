@@ -350,7 +350,7 @@ namespace Test.BEqBool
 #testOptimize [ "BEqBoolCommut_4" ] ∀ (a b c : Bool), (a == (b == c)) = ((c == b) == a) ===> True
 
 
-/-! Test cases to ensure that `reduceApp` is properly called
+/-! Test cases to ensure that constant propagation is properly performed
     when `BEq.beq` operands are reduced to constant values via optimization. -/
 
 variable (a : Bool)

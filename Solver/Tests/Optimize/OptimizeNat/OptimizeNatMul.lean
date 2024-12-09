@@ -36,44 +36,30 @@ elab "natMulCst_5" : term => return natMulCst_5
 
 /-! Test cases for simplification rule `0 * n ==> 0`. -/
 
+variable (x : Nat)
 -- x * 0 ===> 0
-def natMulZero_1 : Expr :=
-(Lean.Expr.forallE `y
-  (Lean.Expr.const `Nat [])
-  (Lean.Expr.app
-    (Lean.Expr.app
-      (Lean.Expr.app
-        (Lean.Expr.app (Lean.Expr.const `LE.le [Lean.Level.zero]) (Lean.Expr.const `Nat []))
-        (Lean.Expr.const `instLENat []))
-      (Lean.Expr.lit (Lean.Literal.natVal 0)))
-    (Lean.Expr.bvar 0))
-  (Lean.BinderInfo.default))
-elab "natMulZero_1" : term => return natMulZero_1
-
-#testOptimize [ "NatMulZero_1" ] ∀ (x y : Nat), x * 0 ≤ y ===> natMulZero_1
+#testOptimize [ "NatMulZero_1" ] x * 0 ===> natMulCst_1
 
 -- 0 * x ===> 0
-#testOptimize [ "NatMulZero_2" ] ∀ (x y : Nat), 0 * x ≤ y ===> natMulZero_1
+#testOptimize [ "NatMulZero_2" ] 0 * x ===> natMulCst_1
 
 -- 0 * x = 0 ===> True
 #testOptimize [ "NatMulZero_3" ] ∀ (x : Nat), 0 * x = 0 ===> True
 
 -- x * Nat.zero ===> 0
-#testOptimize [ "NatMulZero_4" ] ∀ (x y : Nat), x * Nat.zero ≤ y ===> natMulZero_1
+#testOptimize [ "NatMulZero_4" ] ∀ (x y : Nat), x * Nat.zero ≤ y ===> True
 
 -- Nat.zero * x ===> 0
-#testOptimize [ "NatMulZero_5" ] ∀ (x y : Nat), Nat.zero * x ≤ y ===> natMulZero_1
+#testOptimize [ "NatMulZero_5" ] ∀ (x y : Nat), Nat.zero * x ≤ y ===> True
 
 -- Nat.zero * x = 0 ===> True
 #testOptimize [ "NatMulZero_6" ] ∀ (x : Nat), Nat.zero * x = 0 ===> True
 
 -- (10 - 10) * x ===> 0
--- TODO: remove unused quantifier when COI performed on forall
-#testOptimize [ "NatMulZero_7" ] ∀ (x y : Nat), (10 - 10) * x ≤ y ===> natMulZero_1
+#testOptimize [ "NatMulZero_7" ] ∀ (x y : Nat), (10 - 10) * x ≤ y ===> True
 
 -- x * (10 - 123) ===> 0
--- TODO: remove unused quantifier when COI performed on forall
-#testOptimize [ "NatMulZero_8" ] ∀ (x y : Nat), x * (10 - 123) ≤ y ===> natMulZero_1
+#testOptimize [ "NatMulZero_8" ] ∀ (x y : Nat), x * (10 - 123) ≤ y ===> True
 
 -- x * (y - y) = 0 ===> True
 #testOptimize [ "NatMulZero_9" ] ∀ (x y : Nat), x * (y - y) = 0 ===> True
@@ -360,8 +346,9 @@ elab "natAddVar_4" : term => return natAddVar_4
 #testOptimize [ "NatMulVar_4" ] ∀ (x y : Nat), x * y < 10 ===> natAddVar_4
 
 
-/-! Test cases to ensure that `reduceApp` is properly called
-    when `Nat.mul` operands are reduced to constant values via optimization. -/
+/-! Test cases to ensure that constant propagation is properly performed
+    when `Nat.mul` operands are reduced to constant values via optimization.
+-/
 
 variable (x : Nat)
 variable (y : Nat)

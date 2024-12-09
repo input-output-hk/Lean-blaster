@@ -206,8 +206,9 @@ namespace Test.OptimizeBoolAnd
 
 
 
-/-! Test cases to ensure that `reduceApp` is properly called
-    when `and` operands are reduced to constant values via optimization. -/
+/-! Test cases to ensure that constant propagation is properly performed
+    when `and` operands are reduced to constant values via optimization.
+-/
 
 variable (a : Bool)
 variable (b : Bool)

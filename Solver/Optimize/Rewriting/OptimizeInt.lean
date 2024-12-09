@@ -9,6 +9,7 @@ namespace Solver.Optimize
 
 
 /-- Apply the following simplification/normalization rules on `Int.neg` :
+     - - (N) ==> "-" N
      - - (- n) ==> n
    Assume that f = Expr.const ``Int.neg.
    An error is triggered if args.size ≠ 1.
@@ -17,12 +18,15 @@ namespace Solver.Optimize
 -/
 def optimizeIntNeg (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 1 then throwError "optimizeIntNeg: only one argument expected"
- if let some e := intNeg? args[0]! then return e
+ let op := args[0]!
+ if let some n1 := isIntValue? op then return (← mkIntLitExpr (Int.neg n1))
+ if let some e := intNeg? op then return e
  mkAppExpr f args
 
 
 /-- Apply the following simplification/normalization rules on `Int.add` :
      - 0 + n ==> n
+     - N1 + N2 ==> N1 "+" N2
      - N1 + (N2 + n) ==> (N1 "+" N2) + n
      - N1 + -(N2 + n) ==> (N1 "-" N2) + -n
      - n1 + (-n2) ==> 0 if (if n1 =ₚₜᵣ n2)
@@ -36,11 +40,14 @@ partial def optimizeIntAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr :
  let opArgs ← reorderIntOp args -- error triggered when args.size ≠ 2
  let op1 := opArgs[0]!
  let op2 := opArgs[1]!
- let nv1 := isIntValue? op1
- if let some (Int.ofNat 0) := nv1 then return op2
- if let some r ← cstAddProp? nv1 op2 then return r
- if (← isIntNegExprOf op2 op1) then return (← mkIntLitExpr (Int.ofNat 0))
- mkExpr (mkApp2 f op1 op2)
+ match isIntValue? op1, isIntValue? op2 with
+ | some (Int.ofNat 0), _ => return op2
+ | some n1, some n2 => evalBinIntOp Int.add n1 n2
+ | nv1, _ =>
+   if let some (Int.ofNat 0) := nv1 then return op2
+   if let some r ← cstAddProp? nv1 op2 then return r
+   if (← isIntNegExprOf op2 op1) then return (← mkIntLitExpr (Int.ofNat 0))
+   mkExpr (mkApp2 f op1 op2)
 
  where
   /- Given `mv1` and `op2`,
@@ -63,6 +70,7 @@ partial def optimizeIntAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr :
      - 0 * n ==> 0
      - 1 * n ==> n
      - -1 * n ==> -n
+     - N1 * N2 ==> N1 "*" N2
      - N1 * (N2 * n) ==> (N1 "*" N2) * n
      - n1 * n2 ==> n2 * n1 (if n2 <ₒ n1)
    Assume that f = Expr.const ``Int.mul.
@@ -74,12 +82,17 @@ def optimizeIntMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let opArgs ← reorderIntOp args -- error triggered when args.size ≠ 2
  let op1 := opArgs[0]!
  let op2 := opArgs[1]!
- let nv1 := isIntValue? op1
- if let some (Int.ofNat 0) := nv1 then return op1
- if let some (Int.ofNat 1) := nv1 then return op2
- if let some (Int.negSucc 0) := nv1 then return (← optimizeIntNeg (← mkIntNegOp) #[op2])
- if let some r ← cstMulProp? nv1 op2 then return r
- mkExpr (mkApp2 f op1 op2)
+ match isIntValue? op1, isIntValue? op2 with
+ | some (Int.ofNat 0), _ => return op1
+ | some (Int.ofNat 1), _ => return op2
+ | some (Int.negSucc 0), _ => return (← optimizeIntNeg (← mkIntNegOp) #[op2])
+ | some n1, some n2 => evalBinIntOp Int.mul n1 n2
+ | nv1, _ =>
+   if let some (Int.ofNat 0) := nv1 then return op1
+   if let some (Int.ofNat 1) := nv1 then return op2
+   if let some (Int.negSucc 0) := nv1 then return (← optimizeIntNeg (← mkIntNegOp) #[op2])
+   if let some r ← cstMulProp? nv1 op2 then return r
+   mkExpr (mkApp2 f op1 op2)
 
  where
    /- Given `mv1` and `op2` return `some ((N1 "*" N2) * n)` when
@@ -99,6 +112,7 @@ def intNegOfNat? (n : Expr) : Option Expr :=
   | none => none
 
 /-- Apply the following simplification rules on `Int.toNat` :
+     - Int.toNat N1 ===> "Int.toNat" N1
      - Int.toNat (Int.ofNat e) ===> e
      - Int.toNat (Int.neg (Int.ofNat e)) ===> 0
    Assume that f = Expr.const ``Int.toNat.
@@ -108,6 +122,7 @@ def intNegOfNat? (n : Expr) : Option Expr :=
 def optimizeIntToNat (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 1 then throwError "optimizeIntToNat: only one argument expected"
  let op := args[0]!
+ if let some n := isIntValue? op then return (← mkNatLitExpr (Int.toNat n))
  if let some e := op.app1? ``Int.ofNat then return e
  if let some .. := intNegOfNat? op then return (← mkNatLitExpr 0)
  mkAppExpr f args
@@ -115,7 +130,6 @@ def optimizeIntToNat (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 /-- Normalize `Int.negSucc n` to `Int.neg (Int.ofNat (Nat.add 1 n))` only when `n` is not a constant value.
     An error is triggered if args.size ≠ 1.
     Assume that f = Expr.const ``Int.negSucc.
-    NOTE: `Int.negSucc` on constant values are handled via `reduceApp`.
 -/
 def optimizeIntNegSucc (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 1 then throwError "optimizeIntNegSucc: only one argument expected"
@@ -125,19 +139,22 @@ def optimizeIntNegSucc (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let intExpr ← mkExpr (mkApp (← mkIntOfNat) addExpr)
  optimizeIntNeg (← mkIntNegOp) #[intExpr]
 
+/-- Normalize `Int.le x y` to `LE.le Int instLEInt x y`. -/
+def optimizeIntLe (b_args : Array Expr) : TranslateEnvT Expr := do
+  Expr.withApp (← mkIntLeOp) fun f i_args =>
+    optimizeLE f (i_args ++ b_args)
 
 /-- Apply simplification/normalization rules on Int operators.
 -/
-def optimizeInt? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) :=
- match f with
- | Expr.const n _ =>
-    match n with
-    | ``Int.add => some <$> optimizeIntAdd f args
-    | ``Int.mul => some <$> optimizeIntMul f args
-    | ``Int.neg => some <$> optimizeIntNeg f args
-    | ``Int.negSucc => some <$> optimizeIntNegSucc f args
-    | ``Int.toNat => some <$> optimizeIntToNat f args
-    | _=> pure none
- | _ => pure none
+def optimizeInt? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
+  let Expr.const n _ := f | return none
+  match n with
+  | ``Int.add => optimizeIntAdd f args
+  | ``Int.mul => optimizeIntMul f args
+  | ``Int.neg => optimizeIntNeg f args
+  | ``Int.negSucc => optimizeIntNegSucc f args
+  | ``Int.toNat => optimizeIntToNat f args
+  | ``Int.le => optimizeIntLe args
+  | _=> pure none
 
 end Solver.Optimize
