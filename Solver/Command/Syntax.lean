@@ -1,7 +1,6 @@
 import Lean
 import Solver.Command.Options
 import Solver.Smt.Translate
-import Solver.Logging
 
 open Lean Elab Command Term Meta Solver.Options
 
@@ -16,7 +15,7 @@ namespace Solver.Syntax
       - `unfold-depth`: specifying the number of unfolding to be performed on recursive functions (default: 100)
       - `timeout`: specifying the timeout (in second) to be used for the backend smt solver (defaut: ∞)
       - `verbose:` activating debug info (default: 0)
-      - `only-smt-lib`: only translating unsolved goals to smt-lib without invoking the backend solver (default: false)
+      - `only-smt-lib`: only translating unsolved goals to smt-lib without invoking the backend solver (default: 0)
 
     E.g.
      #testOptimize [ "AndSubsumption" ] ∀ (a : Prop), a ∧ a ==> ∀ (a : Prop), a
@@ -24,7 +23,7 @@ namespace Solver.Syntax
 syntax solveUnfoldDepth := ("(unfold-depth:" num ")")?
 syntax solveTimeout := ("(timeout:" num ")")?
 syntax solveVerbose := ("(verbose:" num ")")?
-syntax solveSMTLib := ("(only-smt-lib:" char ")")?
+syntax solveSMTLib := ("(only-smt-lib:" num ")")?
 
 -- NOTE: Limited to one term for the time being
 syntax solveTerm := "[" term "]"
@@ -46,10 +45,10 @@ def parseVerbose (sOpts : SolverOptions) : TSyntax `solveVerbose -> CommandElabM
  | _ => throwUnsupportedSyntax
 
 def parseSmtLib (sOpts : SolverOptions) : TSyntax `solveSMTLib -> CommandElabM SolverOptions
- | `(solveSMTLib| (only-smt-lib: $b:char)) => do
-       match b.getChar with
-        | 't' => return { sOpts with onlySmtLib := true }
-        | 'f' => return { sOpts with onlySmtLib := false }
+ | `(solveSMTLib| (only-smt-lib: $n:num)) => do
+       match n.getNat with
+        | 0 => return { sOpts with onlySmtLib := false }
+        | 1 => return { sOpts with onlySmtLib := true }
         | _ => throwUnsupportedSyntax
  | `(solveSMTLib| ) => return sOpts
  | _ => throwUnsupportedSyntax
