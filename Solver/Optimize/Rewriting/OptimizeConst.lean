@@ -30,7 +30,7 @@ namespace Solver.Optimize
       - `n` is a function passed as argument such that `n` has implicit parameters (i.e., polymorphic parameters to be instantiated).
 -/
 def normConst (e : Expr) (optimizer : Expr → TranslateEnvT Expr) : TranslateEnvT Expr := do
-  let Expr.const n l := e | throwError "normConst: name expression expected but got {reprStr e}"
+  let Expr.const n l := e | throwEnvError f!"normConst: name expression expected but got {reprStr e}"
   match n with
   | ``Nat.zero => mkNatLitExpr 0
   | _ =>
@@ -59,9 +59,9 @@ def normConst (e : Expr) (optimizer : Expr → TranslateEnvT Expr) : TranslateEn
      if !(← isOptimizeConst) then return none -- no unfolding on applied function expression
      if let some r ← isToNormOpaqueFun f then return r
      if (← isInductiveType f us) then return none -- also handles class constraint case
-     if (← isMatchExpr f) then throwError "normConst: unexpected match function passed as argument {f}"
+     if (← isMatchExpr f) then throwEnvError f!"normConst: unexpected match function passed as argument {f}"
      if (← hasImplicitArgs e) then
-       throwError "normConst: unexpected implicit arguments for function {f}"
+       throwEnvError f!"normConst: unexpected implicit arguments for function {f}"
      if (← isRecursiveFun f) then return (← normOpaqueAndRecFun e #[] optimizer)
      if (opaqueFuns.contains f) then return none
      -- non recursive function case

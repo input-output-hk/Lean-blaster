@@ -17,6 +17,7 @@ def opaqueFuns : NameHashSet :=
     ``And,
     ``Or,
     ``Not,
+    ``Iff,
     -- ite
     ``ite,
     -- dependent ite
@@ -76,33 +77,5 @@ def isCompatibleRelationalType (e : Expr) : Bool :=
   match e with
   | Expr.const n _ => relationalCompatibleTypes.contains n
   | _ => false
-
-/-- Given `f x₁ ... xₙ`, return `true` only when one of the following conditions is satisfied:
-     - `f := BEq.beq` with sort parameter in `relationalCompatibleTypes`
-     - `f := LT.lt` with sort parameter in `relationalCompatibleTypes`
-     - `f : LE.le` with sort parameter in `relationalCompatibleTypes`
-
-In fact, we can't assume that `BEq.beq`, `LT.lt` and `LE.le` will properly be defined
-for any user-defined types or parametric inductive types (e.g., List, Option, etc).
--/
-def isOpaqueRelational (f : Name) (args : Array Expr) : MetaM Bool := do
-  match f with
-  | `BEq.beq
-  | `LT.lt
-  | `LE.le =>
-      if args.size < 1 then throwError "isOpaqueRelational: implicit arguments"
-      return (isCompatibleRelationalType args[0]!)
-  | _ => return false
-
-
-/-- Return `true` if function name `f` is tagged as an opaque definition. -/
-def isOpaqueFun (f : Name) (args: Array Expr) : MetaM Bool :=
-  return (opaqueFuns.contains f || (← isOpaqueRelational f args))
-
-/-- Same as `isOpaqueFun` expect that `f` is an expression. -/
-def isOpaqueFunExpr (f : Expr) (args: Array Expr) : MetaM Bool :=
-  match f with
-  | Expr.const n _ => isOpaqueFun n args
-  | _ => return false
 
 end Solver.Optimize

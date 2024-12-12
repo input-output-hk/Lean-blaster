@@ -2,97 +2,65 @@ import Lean
 import Solver.Command.Options
 import Solver.Optimize.Basic
 import Solver.Smt.Env
+import Solver.Smt.Term
+import Solver.Smt.Translate.Application
 
 open Lean Elab Command Term Meta Solver.Optimize Solver.Options
 
 namespace Solver.Smt
 
-partial def translateExpr (sOpts : SolverOptions) (e : Expr) : TranslateEnvT Unit := do
+partial def translateExpr (e : Expr) : TranslateEnvT Unit := do
   let rec visit (e : Expr) (topLevel := false) : TranslateEnvT SmtTerm := do
     withTranslateEnvCache e fun _ => do
-    logReprExpr sOpts "Translate:" e
+    logReprExpr "Translate:" e
     if let some n := isIntValue? e then return intLitSmt n
     if let some n := isNatValue? e then return natLitSmt n
     if let some s := isStrValue? e then return strLitSmt s
+    -- TODO: consider other sort once supported (e.g., BitVec, Char, etc)
     match e with
-     | Expr.fvar fv => return (smtVarId s!"{← fv.getUserName}")
-     | Expr.const n _l =>
-        match (← getConstInfo n) with
-        | .inductInfo _ => logInfo f!"inductive info for {n}"
-        | .defnInfo _ => logInfo f!"def info for {n}"
-        | .axiomInfo _ => logInfo f!"axiom info for {n}"
-        | .recInfo _ => logInfo f!"rec info for {n}"
-        | .thmInfo  _ => logInfo f!"thm info for {n}"
-        | .opaqueInfo _ => logInfo f!"opaque info for {n}"
-        | .quotInfo _ => logInfo f!"quotInfo info for {n}"
-        | .ctorInfo _ => logInfo f!"ctorInfo info for {n}"
-        return smtVarId s!"{n}"
+     | Expr.fvar .. => translateFreeVar e optimizeExpr visit
+     | Expr.const .. => throwEnvError f!"unexpected const expression {e}"
      | Expr.forallE .. =>
-         forallTelescope e fun xs b => do
-           logInfo f!"quantifiers: {reprStr xs}"
-           -- let mut qty := #[]
-           for i in [:xs.size] do
-             let t ← inferType xs[i]!
-             logInfo f!"inferType: {reprStr t} {← isProp t}"
-           logInfo f!"forall body: {reprStr b}"
-           return smtVarId ""
-     | Expr.app .. =>
-         Expr.withApp e fun rf ras => do
-          let fInfo ← getFunInfoNArgs rf ras.size
-          let mut mas := #[]
-          for i in [:ras.size] do
-            if i < fInfo.paramInfo.size then
-              let aInfo := fInfo.paramInfo[i]!
-              if aInfo.isExplicit then
-                mas := mas.push (← visit ras[i]!)
-            else
-              mas := mas.push (← visit ras[i]!)
-          logInfo f!"APPEXPR: {reprStr rf}"
-          let n := rf.getAppFn.constName!
-          match (← getConstInfo n) with
-          | .inductInfo _ => logInfo f!"inductive info for {n}"
-          | .defnInfo _ => logInfo f!"def info for {n}"
-          | .axiomInfo _ => logInfo f!"axiom info for {n}"
-          | .recInfo _ => logInfo f!"rec info for {n}"
-          | .thmInfo  _ => logInfo f!"thm info for {n}"
-          | .opaqueInfo _ => logInfo f!"opaque info for {n}"
-          | .quotInfo _ => logInfo f!"quotInfo info for {n}"
-          | .ctorInfo _ => logInfo f!"ctorInfo info for {n}"
-          -- check for partially applied function and create lambda expression
-          -- handle match expression and generate ite
-          -- handle opaque functions
-          -- handle recursive function and use instance name remove implicit args
-          return mkSmtAppN s!"rf.constName!" mas
-     | Expr.lam .. => throwError f!"unexpected lambda expression"
-     | Expr.letE .. => throwError f!"unexpected let expression"
-     | Expr.mdata _d me => visit me
-     | Expr.sort _ => return smtVarId "sort"
-         -- this case must be handled elsewhere in forall, exists or when encountering top level decl
-         -- need to declare new sort if prop return boolSort  -- sort is used for Type u, Prop, etc
-     | Expr.proj .. =>
-         -- need to properly represent structure at smt level and use corresponding selector
-         throwError f!"proj: not supported for now"
-     | Expr.lit .. => throwError f!"unexpected literal expression {e}"
-     | Expr.mvar .. => throwError f!"unexpected meta variable {e}"
-     | Expr.bvar .. => throwError f!"unexpected bounded variable {e}"
+         let qtyEnv := initialQuantifierEnv topLevel
+         let (t, _) ← translateForAll e optimizeExpr visit |>.run qtyEnv
+         return t
+     | Expr.app .. => translateApp e optimizeExpr visit
+     | Expr.lam .. => translateLambda e optimizeExpr visit
+     | Expr.mdata _d me =>
+        match toTaggedCtorSelector? e with
+        | none => visit me
+        | some (Expr.app (Expr.const s _) (Expr.const a _)) =>
+            return mkSimpleSmtAppN (nameToSmtSymbol s) #[smtSimpleVarId (nameToSmtSymbol a)]
+        | some s => throwEnvError f!"unexpected ctor selector expression {reprStr s}"
+     | Expr.proj n idx p =>
+         let ConstantInfo.inductInfo indVal ← getConstInfo n
+           | throwEnvError "translateExpr: induction info expected for {n}"
+         match indVal.ctors with
+          | [c] =>
+             let selectorSym := s!"{c}.{idx+1}"
+             return (mkSimpleSmtAppN selectorSym #[← visit p])
+          | _ => throwEnvError "translateExpr: only one ctor expected for structure for {n}"
+     | Expr.lit .. => throwEnvError f!"unexpected literal expression {e}"
+     | Expr.mvar .. => throwEnvError f!"unexpected meta variable {e}"
+     | Expr.bvar .. => throwEnvError f!"unexpected bounded variable {e}"
+     | Expr.letE .. => throwEnvError f!"unexpected let expression"
+     | Expr.sort _ => throwEnvError f!"unexpected sort type {reprStr e}" --sort type are handled elsewhere
   let st ← visit e (topLevel := true)
   -- assert negation for check sat
   assertTerm (notSmt st)
-  let res ← checkSat
-  match res with
-  | .Valid => logInfo s!"Valid"
-  | .Falsified => getModel
-  | .Undetermined => logInfo s!"Undetermined" -- TODO: spawn lean proof mode
+  logInfo f!"{(← get).smtEnv.smtCommands}"
+  logResult (← checkSat)
+  -- TODO: spawn lean proof mode when result is undetermined
+  discard $ exitSmt
 
 
 def translate (sOpts: SolverOptions) (stx : Syntax) : TermElabM Unit := do
   elabTermAndSynthesize stx none >>= fun e => do
     let (optExpr, env) ← optimize sOpts (← toPropExpr e)
     match (toResult optExpr) with
-    | .Valid => logInfo s!"Valid"
-    | .Falsified => logWarning s!"Falsified"
     | .Undetermined =>
-      discard $ translateExpr sOpts optExpr|>.run (← setSolverProcess sOpts env)
+        discard $ translateExpr optExpr|>.run (← setSolverProcess sOpts env)
+    | res => logResult res
   where
     toPropExpr (e : Expr) : TermElabM Expr := do
     let e_type ← inferType e

@@ -5,8 +5,6 @@ import Solver.Optimize.Env
 open Lean Meta
 namespace Solver.Optimize
 
-
-
 /-- Normalize `String.mk (List.cons c₁ (.. (List.cons cₙ List.nil)))` to `Expr.lit (Literal.strVal s)`
     only when the list of chars are constant values.
     Otherwise return `mkExpr (mkApp f args[0]!)`.
@@ -14,7 +12,7 @@ namespace Solver.Optimize
     An error is triggered when args.size ≠ 1.
 -/
 def normStringValue (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
-  if args.size != 1 then throwError "normStringValue: only one argument expected"
+  if args.size != 1 then throwEnvError "normStringValue: only one argument expected"
   let op := args[0]!
   let some elms ← getListChars? op | return (← mkExpr (mkApp f op))
   mkExpr (mkStrLit (String.mk elms.toList))

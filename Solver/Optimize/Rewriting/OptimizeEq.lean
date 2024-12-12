@@ -6,7 +6,8 @@ open Lean Meta
 namespace Solver.Optimize
 
 
-/-- Return `some true` if op1 and op2 are constructors that are structurally equivalent modulo variable name/function equivalence
+/-- Return `some true` if op1 and op2 are constructors that are structurally equivalent modulo
+    variable name/function equivalence
     Return `some false` if op1 and op2 are constructors that are NOT structurally equivalent.
     Return `none` otherwise.
     Assume that memoization is performed on expressions.
@@ -83,7 +84,6 @@ partial def structEq? (op1 : Expr) (op2: Expr) : MetaM (Option Bool) := do
 
    Assume that f = Expr.const ``Eq.
    Do nothing if operator is partially applied (i.e., args.size < 3)
-   NOTE: The `reduceApp` rule will not reduce any `Prop` operator (e.g., `Eq`) applied to constructors only.
 
    TODO: consider additional simplification rules
    TODO: seperate rewriting that require classical reasoning from others.
@@ -144,8 +144,6 @@ partial def optimizeEq (f : Expr) (args: Array Expr) (cacheResult := true) : Tra
    However, class constraint [BEq α] for which there is no defined instance the unfolding will not be performed
    (see `getUnfoldFunDef?`).
 
-   NOTE: Unlike `Eq there is no need to add an explicity rule for constructor operands as these
-   are implicilty resolved via reduceApp.
    TODO: consider additional simplification rules
 -/
 partial def optimizeBEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
@@ -250,14 +248,14 @@ partial def optimizeDecideEq (f : Expr) (args : Array Expr) : TranslateEnvT Expr
       | some (beq_sort, _, beq_op1, beq_op2) =>
           let eqExpr ← optimizeDecideEq f #[beq_sort, beq_op1, beq_op2]
           if bv then return some eqExpr -- return when bv = true
-          some <$> mkExpr (mkApp (← mkPropNotOp) eqExpr)
+           mkExpr (mkApp (← mkPropNotOp) eqExpr)
       | _ => return none
     | none =>
        match isBeqCompatibleType? op1, isBeqCompatibleType? op2 with
          | some (beq_sort, _, beq_op1, beq_op2), _ =>
-            some <$> mkBeqToEq beq_sort beq_op1 beq_op2 op2
+             mkBeqToEq beq_sort beq_op1 beq_op2 op2
          | _, some (beq_sort, _, beq_op1, beq_op2) =>
-            some <$> mkBeqToEq beq_sort beq_op1 beq_op2 op1
+             mkBeqToEq beq_sort beq_op1 beq_op2 op1
          | _, _ => return none
 
    /- Given `op1` and `op2` corresponding to the operands for `Eq,
@@ -270,7 +268,7 @@ partial def optimizeDecideEq (f : Expr) (args : Array Expr) : TranslateEnvT Expr
     | some (eq_sort, a_op1, a_op2), some (_, b_op1, b_op2) =>
        match isBoolValue? a_op1, isBoolValue? b_op1 with
        | some bv1, some bv2 => do
-          some <$> optimizeDecideEq f #[eq_sort, (← toBoolNotExpr? bv1 a_op2), (← toBoolNotExpr? bv2 b_op2)]
+           optimizeDecideEq f #[eq_sort, (← toBoolNotExpr? bv1 a_op2), (← toBoolNotExpr? bv2 b_op2)]
        | _, _ => return none
     | _, _ => return none
 
@@ -282,7 +280,7 @@ partial def optimizeDecideEq (f : Expr) (args : Array Expr) : TranslateEnvT Expr
    decideBoolEqSimp? (op1: Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
     match op1, decide? op2 with
     | Expr.const ``true _, some (e, _d) => return some e
-    | Expr.const ``false _, some (e, _d) => some <$> optimizeNot (← mkPropNotOp) #[e]
+    | Expr.const ``false _, some (e, _d) => optimizeNot (← mkPropNotOp) #[e]
     | _, _ => return none
 
    /- Given `op1` and `op2` corresponding to the operands for `Eq,
@@ -294,24 +292,22 @@ partial def optimizeDecideEq (f : Expr) (args : Array Expr) : TranslateEnvT Expr
    decideEqDecide? (op1: Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
      match decide? op1, decide? op2 with
      | some (e1, _), some (e2, _) =>
-         some <$> optimizeDecideEq (← mkEqOp) #[← mkPropType, e1, e2]
+          optimizeDecideEq (← mkEqOp) #[← mkPropType, e1, e2]
      | some (e1, _), _ =>
-         some <$> optimizeDecideEq (← mkEqOp) #[← mkPropType, e1, ← mkEqBool op2 true]
+          optimizeDecideEq (← mkEqOp) #[← mkPropType, e1, ← mkEqBool op2 true]
      | _, some (e1, _) =>
-         some <$> optimizeDecideEq (← mkEqOp) #[← mkPropType, e1, ← mkEqBool op1 true]
+          optimizeDecideEq (← mkEqOp) #[← mkPropType, e1, ← mkEqBool op1 true]
      | _, _ => return none
 end
 
 /-- Apply simplification and normalization rules on `Eq` and `BEq.beq` :
 -/
 def optimizeEquality? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
- match f with
- | Expr.const n _ =>
-     match n with
-      | ``Eq => some <$> optimizeDecideEq f args
-      | ``BEq.beq => some <$> optimizeBEq f args
-      | _ => pure none
- | _ => pure none
+  let Expr.const n _ := f | return none
+  match n with
+   | ``Eq => optimizeDecideEq f args
+   | ``BEq.beq => optimizeBEq f args
+   | _ => pure none
 
 
 end Solver.Optimize

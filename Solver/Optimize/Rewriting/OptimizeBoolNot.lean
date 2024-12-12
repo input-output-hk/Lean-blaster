@@ -13,12 +13,11 @@ namespace Solver.Optimize
      - ! (! e) ==> e
      - !(decide e) ==> decide (¬ p)
    Assume that f = Expr.const ``not.
-   An error is triggered if args.size ≠ 1.
-   NOTE: `not` on constant values are handled via `reduceApp`.
+   An error is triggered if args.size ≠ 1 (i.e., only fully applied `not` expected at this stage)
    TODO: consider additional simplification rules
 -/
 def optimizeBoolNot (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
- if args.size != 1 then throwError "optimizeBoolNot: only one argument expected"
+ if args.size != 1 then throwEnvError "optimizeBoolNot: exactly one argument expected"
  let op := args[0]!
  match op with
  | Expr.const ``true _ => mkBoolFalse
@@ -27,14 +26,14 @@ def optimizeBoolNot (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
    if let some e := boolNot? op then return e
    if let some (e, d) := decide? op then
      return (← optimizeDecideCore op.getAppFn #[← optimizeNot (← mkPropNotOp) #[e], d])
-   mkAppExpr f args
+   mkExpr (mkApp f op)
 
 
 /-- Apply simplification/normalization rules on Boolean `not` operator.
 -/
 def optimizeBoolNot? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) :=
  match f with
- | Expr.const ``not _ => some <$> optimizeBoolNot f args
+ | Expr.const ``not _ => optimizeBoolNot f args
  | _ => pure none
 
 end Solver.Optimize

@@ -31,12 +31,12 @@ def propExprToBoolExpr?
            let binExpr ← if isBoolAnd?
                          then optimizeBoolAnd (← mkBoolAndOp) #[e1, e2]
                          else optimizeBoolOr (← mkBoolOrOp) #[e1, e2]
-           some <$> mkEqBool binExpr true
+           mkEqBool binExpr true
          else
            let binExpr ← if isBoolAnd?
                          then optimizeBoolOr (← mkBoolOrOp) #[a_op2, b_op2]
                          else optimizeBoolAnd (← mkBoolAndOp) #[a_op2, b_op2]
-           some <$> mkEqBool binExpr false
+           mkEqBool binExpr false
      | _, _ => return none
   | _, _ => return none
 
@@ -102,12 +102,11 @@ def optimizeBoolPropOr (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 /-- Apply simplification and normalization rules on proposition binary formulae.
 -/
 def optimizePropBinary? (f: Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
-  match f with
-  | Expr.const n _ =>
-     match n with
-     | ``And => some <$> optimizeBoolPropAnd f args
-     | ``Or => some <$> optimizeBoolPropOr f args
-     | _ => pure none
-  | _ => pure none
+  let Expr.const n _ := f | return none
+  match n with
+  | ``And => optimizeBoolPropAnd f args
+  | ``Or => optimizeBoolPropOr f args
+  | `Iff => optimizeIff args
+  | _ => return none
 
 end Solver.Optimize

@@ -507,8 +507,8 @@ partial def toIntCstOpExpr? (e: Expr) : Option IntCstOpInfo := do
     An error is triggered when args.size ≠ 2.
     NOTE: Precedence is applied according to the order in which the rules have been specified.
 -/
-def reorderArgs (args : Array Expr) : MetaM (Array Expr) := do
- if args.size != 2 then throwError "reorderArgs: two arguments expected"
+def reorderArgs (args : Array Expr) : TranslateEnvT (Array Expr) := do
+ if args.size != 2 then throwEnvError "reorderArgs: two arguments expected"
  let e1 := args[0]!
  let e2 := args[1]!
  match e1, e2 with
@@ -550,7 +550,7 @@ def reorderArgs (args : Array Expr) : MetaM (Array Expr) := do
 /-- call `reorderArgs` but consider the following additional rule:
      - #[not e, e] ===> #[e, not e]
 -/
-def reorderBoolOp (args: Array Expr) : MetaM (Array Expr) := do
+def reorderBoolOp (args: Array Expr) : TranslateEnvT (Array Expr) := do
   let args' ← reorderArgs args
   let e1 := args'[0]!
   let e2 := args'[1]!
@@ -561,7 +561,7 @@ def reorderBoolOp (args: Array Expr) : MetaM (Array Expr) := do
      - #[¬ e, e] ===> #[e, ¬ e]
      - #[false = c, true = c] ===> #[true = c, false = c]
 -/
-def reorderPropOp (args: Array Expr) : MetaM (Array Expr) := do
+def reorderPropOp (args: Array Expr) : TranslateEnvT (Array Expr) := do
   let args' ← reorderBoolOp args
   let e1 := args'[0]!
   let e2 := args'[1]!
@@ -572,7 +572,7 @@ def reorderPropOp (args: Array Expr) : MetaM (Array Expr) := do
 /-- call `reorderArgs` but consider the following additional rule:
     - #[(Nat.sub x y), (Nat.add p q)] ===> #[Nat.add p q, Nat.sub x y]
 -/
-def reorderNatOp (args: Array Expr) : MetaM (Array Expr) := do
+def reorderNatOp (args: Array Expr) : TranslateEnvT (Array Expr) := do
   let args' ← reorderArgs args
   let e1 := args'[0]!
   let e2 := args'[1]!
@@ -583,7 +583,7 @@ def reorderNatOp (args: Array Expr) : MetaM (Array Expr) := do
 /-- call `reorderArgs` but consider the following additional rule:
     - #[Int.neg x, x] ===> #[x, Int.neg x]
 -/
-def reorderIntOp (args: Array Expr) : MetaM (Array Expr) := do
+def reorderIntOp (args: Array Expr) : TranslateEnvT (Array Expr) := do
   let args' ← reorderArgs args
   let e1 := args'[0]!
   let e2 := args'[1]!
@@ -605,15 +605,17 @@ def isMatchExpr (n : Name) : MetaM Bool := Option.isSome <$> getMatcherInfo? n
      - a match function;
      - a class constraint.
 -/
-def getFunBody (f : Expr) : MetaM (Option Expr) := do
+def getFunBody (f : Expr) : TranslateEnvT (Option Expr) := do
   match f with
   | Expr.lam .. => return f
   | Expr.const n l =>
       if (← isRecursiveFun n)
       then
-        let some eqThm ← getUnfoldEqnFor? n | throwError "getFunBody: equation theorem expected for {n}"
+        let some eqThm ← getUnfoldEqnFor? n
+          | throwEnvError f!"getFunBody: equation theorem expected for {n}"
         forallTelescope ((← getConstInfo eqThm).type) fun xs eqn => do
-          let some (_, _, fbody) := eqn.eq? | throwError "getFunBody: equation expected but got {reprStr eqn}"
+          let some (_, _, fbody) := eqn.eq?
+            | throwEnvError f!"getFunBody: equation expected but got {reprStr eqn}"
           let auxApp ← mkLambdaFVars xs fbody
           let cinfo ← getConstInfo n
           return auxApp.instantiateLevelParams cinfo.levelParams l
@@ -623,6 +625,15 @@ def getFunBody (f : Expr) : MetaM (Option Expr) := do
   | Expr.proj .. => reduceProj? f  -- case when f is function defined in a class instance
   | _ => return none
 
+/-- Return `true` if `e` corresponds to an undefined type class function application, s.t.:
+      - `e := app (Expr.proj c _ _) ...`; and
+      - `c` is the name of a type class in the given environment; and
+      - `Expr.proj c _ _` cannot be reduced.
+-/
+def isUndefinedClassFunApp (e : Expr) : MetaM Bool := do
+  let p@(Expr.proj c _ _) := e.getAppFn' | return false
+  return ((← reduceProj? p).isNone && (isClass (← getEnv) c))
+
 /-- Unfold fuction `f` w.r.t. the effective parameters `args` only when:
      - f is not a constructor
      - f is not tagged as an opaque definition
@@ -631,7 +642,7 @@ def getFunBody (f : Expr) : MetaM (Option Expr) := do
      - f is not an undefined type class function
      - f is not a match application
 -/
-def getUnfoldFunDef? (f: Expr) (args: Array Expr) : MetaM (Option Expr) := do
+def getUnfoldFunDef? (f: Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
  if (← isNotFoldable f) then return none
  let some fbody ← getFunBody f | return none
  let reduced := Expr.beta fbody args
@@ -647,21 +658,12 @@ def getUnfoldFunDef? (f: Expr) (args: Array Expr) : MetaM (Option Expr) := do
         - `n` is not a class constraint.
         Otherwise `false`.
    -/
-   isNotFoldable (e : Expr) : MetaM Bool := do
+   isNotFoldable (e : Expr) : TranslateEnvT Bool := do
      let Expr.const n _ := e | return false
        (isOpaqueFun n args)
        <||> (isInstance n)
        <||> (isRecursiveFun n)
        <||> (isMatchExpr n)
        <||> (isClassConstraint n)
-
-   /-- Return `true` if `e` corresponds to an undefined type class function application, i.e.,
-       - `e := app (Expr.proj c _ _) ...`; and
-       - `c` is the name of a type class in the given environment; and
-       - `Expr.proj c _ _` cannot be reduced.
-   -/
-   isUndefinedClassFunApp (e : Expr) : MetaM Bool := do
-     let p@(Expr.proj c _ _) := e.getAppFn' | return false
-     return ((← reduceProj? p).isNone && (isClass (← getEnv) c))
 
 end Solver.Optimize

@@ -17,8 +17,8 @@ namespace Solver.Optimize
     NOTE: This function Assumes that each pᵢ does not have any named pattern,
     i.e., pᵢ has been optimized first.
 -/
-partial def retrieveAltsArgs (alts : Array Expr) : MetaM (Array Expr) := do
- let rec visit (e : Expr) (args : Array Expr) : MetaM (Array Expr) := do
+partial def retrieveAltsArgs (alts : Array Expr) : TranslateEnvT (Array Expr) := do
+ let rec visit (e : Expr) (args : Array Expr) : TranslateEnvT (Array Expr) := do
    match e with
    | Expr.const .. | Expr.lit .. => return args
    | Expr.fvar .. => return args.push e
@@ -38,8 +38,8 @@ partial def retrieveAltsArgs (alts : Array Expr) : MetaM (Array Expr) := do
              for i in [:as.size] do
                 margs ← visit as[i]! margs
              return margs
-       | _ => throwError "retrieveAltsArgs: const expression expected but got {reprStr f} !!!"
-   | _ => throwError "retrieveAltsArgs: unexpected expression: {reprStr e} !!!"
+       | _ => throwEnvError f!"retrieveAltsArgs: const expression expected but got {reprStr f} !!!"
+   | _ => throwEnvError f!"retrieveAltsArgs: unexpected expression: {reprStr e} !!!"
  let mut args := #[]
  for i in [:alts.size] do
    args ← visit alts[i]! args
@@ -79,7 +79,7 @@ lambdaTelescope alt fun xs rhs => do
          | p@(Expr.fvar ..), _ | _,  p@(Expr.fvar ..) =>
               namedPatternSet := namedPatternSet.insert p
               mxs := mxs.set! i t
-         | _, _ => throwError "betaReduceAlt: Invalid namedPattern hypothesis {reprStr op1} = {reprStr op2}"
+         | _, _ => throwEnvError f!"betaReduceAlt: Invalid namedPattern hypothesis {reprStr op1} = {reprStr op2}"
   let mut argsIdx := 0
   let mut betaRhs := rhs
   for i in [:xs.size] do
@@ -133,7 +133,9 @@ lambdaTelescope alt fun xs rhs => do
          some (if eq₍₁₎₍₁₎ ∧ ... ∧ eq₍₁₎₍ₙ₎ then t₁[p₍₁₎₍₁₎/e₁] ... [p₍₁₎₍ₙ₎/eₙ] else rewriteₘ₋₂)
 
 -/
-def normMatchExprAux? (idx : Nat) (discrs : Array Expr) (lhs : Array Expr) (alt : Expr) (acc : Option Expr) : TranslateEnvT (Option Expr) := do
+def normMatchExprAux?
+  (idx : Nat) (discrs : Array Expr)
+  (lhs : Array Expr) (alt : Expr) (acc : Option Expr) : TranslateEnvT (Option Expr) := do
   let patternArgs ← retrieveAltsArgs lhs
   if !(← isItePattern discrs patternArgs lhs) then return none
   let rhs ← betaReduceAlt alt (← substituteArgs discrs lhs patternArgs)
@@ -213,7 +215,7 @@ def normMatchExprAux? (idx : Nat) (discrs : Array Expr) (lhs : Array Expr) (alt 
                let leExpr := mkApp2 (← mkIntLeOp) e (← mkNatNegExpr n)
                andEq := mkApp2 andOp andEq leExpr
             | Expr.fvar _ => pure ()  -- case: pᵢ = v
-            |_  => throwError "mkEqAndExpr: unexpected pattern {reprStr p}"
+            |_  => throwEnvError f!"mkEqAndExpr: unexpected pattern {reprStr p}"
      return andEq
 
    /-- Given a sequence of match discriminators `[e₁, ..., eₙ]`, a sequence of match patterns `[p₁, ..., pₙ]`, and
@@ -241,26 +243,26 @@ def normMatchExprAux? (idx : Nat) (discrs : Array Expr) (lhs : Array Expr) (alt 
       | Expr.fvar .. =>
           -- case: pᵢ = vⱼ ∧ j ≤ m
           if args[idx]! != p then
-            throwError "substituteArgs: Invalid match pattern arguments (lhs: {reprStr lhs}, args: {reprStr args})"
+            throwEnvError f!"substituteArgs: Invalid match pattern arguments (lhs: {reprStr lhs}, args: {reprStr args})"
           args := args.set! idx e
           idx := idx + 1
       | (Expr.app (Expr.app (Expr.const ``Nat.add _) n@(Expr.lit (Literal.natVal _))) n_fv@(Expr.fvar _)) =>
           -- case: pᵢ = N + n ∧ Type(vⱼ) = Type(eᵢ) = Nat ∧ j ≤ m
           if n_fv != args[idx]! then
-            throwError "substituteArgs: Invalid match pattern arguments (lhs: {reprStr lhs}, args: {reprStr args})"
+            throwEnvError f!"substituteArgs: Invalid match pattern arguments (lhs: {reprStr lhs}, args: {reprStr args})"
           args := args.set! idx (mkApp2 (← mkNatSubOp) e n)
           idx := idx + 1
       | (Expr.app (Expr.const ``Int.ofNat _) (Expr.fvar _)) =>
           -- case: pᵢ = Int.ofNat n ∧ Type(vⱼ) = Nat ∧ j ≤ m
           if !(isNatType (← inferType args[idx]!)) then
-            throwError "substituteArgs: Invalid match pattern arguments (lhs: {reprStr lhs}, args: {reprStr args})"
+            throwEnvError f!"substituteArgs: Invalid match pattern arguments (lhs: {reprStr lhs}, args: {reprStr args})"
           args := args.set! idx (mkApp (← mkIntToNatOp) e)
           idx := idx + 1
       | (Expr.app (Expr.const ``Int.ofNat _)
            (Expr.app (Expr.app (Expr.const ``Nat.add _) n@(Expr.lit (Literal.natVal _))) n_fv@(Expr.fvar _))) =>
           -- case: pᵢ = Int.ofNat (N + n) ∧ Type(vⱼ) = Nat ∧ j ≤ m
           if n_fv != args[idx]! then
-            throwError "substituteArgs: Invalid match pattern arguments (lhs: {reprStr lhs}, args: {reprStr args})"
+            throwEnvError f!"substituteArgs: Invalid match pattern arguments (lhs: {reprStr lhs}, args: {reprStr args})"
           args := args.set! idx (mkApp2 (← mkNatSubOp) (mkApp (← mkIntToNatOp) e) n)
           idx := idx + 1
       | (Expr.app (Expr.const ``Int.neg _)
@@ -268,7 +270,7 @@ def normMatchExprAux? (idx : Nat) (discrs : Array Expr) (lhs : Array Expr) (alt 
           (Expr.app (Expr.app (Expr.const ``Nat.add _) n@(Expr.lit (Literal.natVal _))) n_fv@(Expr.fvar _)))) =>
           -- case: pᵢ = Int.Neg (Int.ofNat (N + n)) ∧ Type(vⱼ) = Nat ∧ j ≤ m
           if n_fv != args[idx]! then
-            throwError "substituteArgs: Invalid match pattern arguments (lhs: {reprStr lhs}, args: {reprStr args})"
+            throwEnvError f!"substituteArgs: Invalid match pattern arguments (lhs: {reprStr lhs}, args: {reprStr args})"
           args := args.set! idx (mkApp2 (← mkNatSubOp) (mkApp (← mkIntToNatOp) (mkApp (← mkIntNegOp) e)) n)
           idx := idx + 1
       | _ => pure () -- case : NbFreeVars(pᵢ) = 0
@@ -397,11 +399,11 @@ def structEqMatch? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) 
     match env.optEnv.matchCache.find? auxAppType with
     | some gmatch =>
        let altArgs := args[matcherInfo.getFirstDiscrPos : args.size]
-       some <$> mkAppExpr (gmatch.beta params.genericArgs) altArgs
+       mkAppExpr (gmatch.beta params.genericArgs) altArgs
     | none =>
        let optEnv := {env.optEnv with matchCache := env.optEnv.matchCache.insert auxAppType auxApp}
        set {env with optEnv := optEnv}
-       some <$> mkAppExpr f args
+       mkAppExpr f args
  | _ => pure none
 
 end Solver.Optimize

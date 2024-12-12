@@ -2,7 +2,6 @@ import Lean
 import Lean.Util.MonadCache
 import Solver.Command.Options
 import Solver.Logging
-import Solver.Optimize.Env
 import Solver.Optimize.Rewriting.OptimizeApp
 import Solver.Optimize.Rewriting.OptimizeConst
 import Solver.Optimize.Rewriting.OptimizeForAll
@@ -23,14 +22,14 @@ namespace Solver.Optimize
 --       ∀ (y₁ : TypeB₁ .. yₙ : Typeₙ), P₂ y₁ ... yₙ) IF {TypeB₁, .., TypeBₙ} ⊄ {TypeA₁, ...,TypeAₙ}
 -- - ∀ (x₁ : TypeA₁) ... (xₙ : TypeAₙ), P₁ → P₂ ===>
 --      ∀ (x₄ : TypeA₄) ... (xₙ : TypeAₙ), P₂ x₄ ... xₙ IF Var(P₂) ∩ Var(P₁) = ∅
-partial def optimizeExpr (sOpts: SolverOptions) (e : Expr) : TranslateEnvT Expr := do
+partial def optimizeExpr (e : Expr) : TranslateEnvT Expr := do
   let rec visit (e : Expr) : TranslateEnvT Expr := do
    if (← isOptimizeConst) && e.isConst then normConst e visit
    else
     -- restore const normalization only when e is not a const.
     setNormalizeConst (!e.isConst)
     withOptimizeEnvCache e fun _ => do
-    logReprExpr sOpts "Optimize:" e
+    logReprExpr "Optimize:" e
     match e with
     | Expr.fvar .. => return e
     | Expr.const .. => normConst e visit
@@ -78,8 +77,8 @@ partial def optimizeExpr (sOpts: SolverOptions) (e : Expr) : TranslateEnvT Expr 
         | some re => visit re
         | none => return e
     | Expr.lit .. => return e -- number or string literal: do nothing
-    | Expr.mvar .. => throwError f!"optimizeExpr: unexpected meta variable {e}"
-    | Expr.bvar .. => throwError f!"optimizeExpr: unexpected bound variable {e}"
+    | Expr.mvar .. => throwEnvError f!"optimizeExpr: unexpected meta variable {e}"
+    | Expr.bvar .. => throwEnvError f!"optimizeExpr: unexpected bound variable {e}"
   visit e
 
 
@@ -109,9 +108,10 @@ def cacheOpaqueRecFun (optimize : Expr → TranslateEnvT Expr) : TranslateEnvT U
       - A tuple containing the optimized expression and the optimization environment.
     NOTE: optimization is repeated until no entry is introduced in `replayRecFunMap`.
 -/
-partial def optimize (sOpts: SolverOptions) (e : Expr) : MetaM (Expr × TranslateEnv) := do
+def optimize (sOpts: SolverOptions) (e : Expr) : MetaM (Expr × TranslateEnv) := do
+  let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
   -- populate recFunInstCache with recursive function definition.
-  let res ← cacheOpaqueRecFun (λ a => optimizeExpr sOpts a)|>.run default
-  optimizeExpr sOpts e|>.run res.2
+  let res ← cacheOpaqueRecFun (λ a => optimizeExpr a)|>.run env
+  optimizeExpr e|>.run res.2
 
 end Solver.Optimize

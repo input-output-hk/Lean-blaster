@@ -16,6 +16,13 @@ instance : Inhabited SortExpr where
 abbrev SortedVars := Array (SmtSymbol × SortExpr)
 
 
+/-- Smt-Lib V2 qualified identifier. -/
+inductive SmtQualifiedIdent where
+ | SimpleIdent (nm : SmtSymbol)
+ | QualifiedIdent (nm : SmtSymbol) (t : SortExpr)
+
+instance : Inhabited SmtQualifiedIdent where
+  default := .SimpleIdent ""
 
 mutual
 /-- Smt term annotation attributes. -/
@@ -28,11 +35,12 @@ inductive SmtAttribute where
 inductive SmtTerm where
  | NumTerm (v : Nat)
  | DecTerm (v : String)
+ | BoolTerm (b : Bool)
  | BinTerm (v : String)
  | HexTerm (v : String)
  | StrTerm (v : String)
- | SmtIdent (nm : SmtSymbol)
- | AppTerm (nm : SmtSymbol) (args : Array SmtTerm)
+ | SmtIdent (nm : SmtQualifiedIdent)
+ | AppTerm (nm : SmtQualifiedIdent) (args : Array SmtTerm)
  | LetTerm (bs: Array (SmtSymbol × SmtTerm)) (body : SmtTerm)
  | ForallTerm (bs : SortedVars) (body : SmtTerm)
  | ExistsTerm (bs : SortedVars) (body : SmtTerm)
@@ -54,14 +62,25 @@ structure SmtDatatypeDecl where
   params : Option (Array SmtSymbol)
   ctors : Array SmtConstructorDecl
 
+instance : Inhabited SmtDatatypeDecl where
+  default := {params := none, ctors := #[]}
+
+
 structure SmtSortDecl where
   name : SmtSymbol
   arity : Nat
+
+instance : Inhabited SmtSortDecl where
+  default := {name := "", arity := 0}
 
 structure SmtFunDecl where
   name : SmtSymbol
   params : SortedVars
   ret : SortExpr
+
+instance : Inhabited SmtFunDecl where
+  default := {name := "", params := #[], ret := default}
+
 
 /-- Smt-Lib V2 command submitted to backend solver. -/
 inductive SmtCommand where
@@ -100,10 +119,18 @@ instance : ToString SortExpr where
   toString := SortExpr.toString
 
 @[inline] private partial def SortedVars.toString (sv : SortedVars) : String :=
-   Array.foldl (fun acc a => s!"{acc} ( {a.1} {a.2} ) ") "" sv
+   Array.foldl (fun acc a => s!"{acc}({a.1} {a.2})") "" sv
 
 instance : ToString SortedVars where
   toString := SortedVars.toString
+
+@[inline] private def SmtQualifiedIdent.toString (id : SmtQualifiedIdent) : String :=
+  match id with
+  | .SimpleIdent nm => nm
+  | .QualifiedIdent nm t => s!"(as {nm} {t})"
+
+instance : ToString SmtQualifiedIdent where
+  toString := SmtQualifiedIdent.toString
 
 mutual
 @[inline] private partial def SmtAttribute.toString (a : SmtAttribute) : String :=
@@ -118,25 +145,34 @@ mutual
    match e with
    | .NumTerm v => Nat.repr v
    | .DecTerm v => v
+   | .BoolTerm b => if b then "true" else "false"
    | .BinTerm v => v
    | .HexTerm v => v
    | .StrTerm v => v
-   | .SmtIdent nm => nm
+   | .SmtIdent nm => nm.toString
    | .AppTerm m args =>
        let sargs := Array.foldl (fun acc a => s!"{acc} {a.toString}") "" args
-       s!"( {m} {sargs} )\n"
+       let bline := if isIteApp m then "\n" else ""
+       s!"({m}{sargs}){bline}"
    | .LetTerm bs body =>
        let sbs := Array.foldl (fun acc a => s!"{acc} ( {a.1} {a.2.toString} ) ") "" bs
-       s!"( let ({sbs}) {body.toString} )\n"
+       s!"(let ({sbs}) {body.toString})\n"
    | .ForallTerm bs body =>
-       s!"( forall ({bs}) {body.toString} )\n"
+       s!"(forall ({bs})\n {body.toString})\n"
    | .ExistsTerm bs body =>
-       s!"( exists ({bs}) {body.toString} )\n"
+       s!"(exists ({bs})\n {body.toString})\n"
    | .LambdaTerm bs body =>
-       s!"( lambda ({bs}) {body.toString} )\n"
+       s!"(lambda ({bs})\n {body.toString})\n"
    | .AnnotatedTerm t annot =>
        let sannot := Array.foldl (fun acc a => s!"{acc} {a.toString}") "" annot
-       s!"(! {t.toString} {sannot} )\n"
+       s!"(!{t.toString} {sannot})\n"
+
+   where
+     isIteApp (nm : SmtQualifiedIdent) : Bool :=
+      match nm with
+      | .SimpleIdent "ite" => true
+      | _ => false
+
 end
 
 instance : ToString SmtAttribute where
@@ -190,37 +226,37 @@ instance : ToString SmtFunDecl where
 
 @[inline] private def SmtCommand.toString (c : SmtCommand) : String :=
  match c with
- | .assertTerm t => s!"(assert {t})\n"
- | .checkSat => s!"(check-sat)\n"
- | .declareConst nm t => s!"(declare-const {nm} {t})\n"
- | .declareDataType nm decl => s!"(declare-datatype {nm} {decl})\n"
+ | .assertTerm t => s!"(assert {t})"
+ | .checkSat => s!"(check-sat)"
+ | .declareConst nm t => s!"(declare-const {nm} {t})"
+ | .declareDataType nm decl => s!"(declare-datatype {nm} {decl})"
  | .declareMutualDataTypes nm decl =>
     let nmstr := Array.foldl (fun acc d => s!"{acc} {d}") "" nm
     let declstr := Array.foldl (fun acc d => s!"{acc} {d}\n") "" decl
-    s!"(declare-datatypes ( {nmstr} )\n ( {declstr} )\n )\n"
+    s!"(declare-datatypes ({nmstr})\n ({declstr}))"
  | .declareFun nm args rt =>
      let sargs := Array.foldl (fun acc a => s!"{acc} {a}") "" args
-     s!"(declare-fun {nm} ( {sargs} ) {rt} )\n"
+     s!"(declare-fun {nm} ({sargs}) {rt})"
  | .defineFun isRec nm nargs rt body =>
     let defstr := if isRec then "define-fun-rec" else "define-fun"
-    s!"({defstr} {nm} ( {nargs} ) {rt} {body})\n"
+    s!"({defstr} {nm} ({nargs}) {rt} {body})"
  | .defineFunsRec decls bodies =>
-    let sdecls := Array.foldl (fun acc d => s!"{acc} {d}\n") "" decls
-    let sbodies := Array.foldl (fun acc b => s!"{acc} {b}\n") "" bodies
-    s!"(define-funs-rec ( {sdecls} )\n ( {sbodies} )\n )\n"
- | .declareSort nm arity => s!"(declare-sort {nm} {arity} )\n"
+    let sdecls := Array.foldl (fun acc d => s!"{acc}\n{d}") "" decls
+    let sbodies := Array.foldl (fun acc b => s!"{acc}\n{b}") "" bodies
+    s!"(define-funs-rec ({sdecls})\n ({sbodies})\n)"
+ | .declareSort nm arity => s!"(declare-sort {nm} {arity})"
  | .defineSort nm nargs body =>
     let sargs :=
        match nargs with
        | none => ""
        | some args => Array.foldl (fun acc s => s!"{acc} {s}") "" args
-    s!"(define-sort {nm} ( {sargs} ) {body} )\n"
- | .exitSmt => s!"(exit)\n"
- | .getModel => s!"(get-model)\n"
- | .getProof => s!"(get-proof)\n"
- | .evalTerm t => s!"(eval {t})\n"
- | .setLogic l => s!"(set-logic {l})\n"
- | .setOption opt v => s!"(set-option {opt} {v})\n"
+    s!"(define-sort {nm} ({sargs}) {body})"
+ | .exitSmt => s!"(exit)"
+ | .getModel => s!"(get-model)"
+ | .getProof => s!"(get-proof)"
+ | .evalTerm t => s!"(eval {t})"
+ | .setLogic l => s!"(set-logic {l})"
+ | .setOption opt v => s!"(set-option {opt} {v})"
 
  instance : ToString SmtCommand where
    toString := SmtCommand.toString

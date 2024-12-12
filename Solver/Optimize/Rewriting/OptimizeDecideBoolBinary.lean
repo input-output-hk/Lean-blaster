@@ -20,11 +20,11 @@ def decideOpDecide?
   match decide? op1, decide? op2 with
   | some (e1, d), some (e2, _) =>
       -- NOTE: the decidable instance for `decide` is updated in `optimizeDecideCore`
-      some <$> optimizeDecideCore (← mkDecideConst) #[← mkOpExpr #[e1, e2], d]
+      optimizeDecideCore (← mkDecideConst) #[← mkOpExpr #[e1, e2], d]
   | some (e1, d), _ =>
-      some <$> optimizeDecideCore (← mkDecideConst) #[← mkOpExpr #[e1, ← mkEqBool op2 true], d]
+      optimizeDecideCore (← mkDecideConst) #[← mkOpExpr #[e1, ← mkEqBool op2 true], d]
   | _, some (e1, d) =>
-      some <$> optimizeDecideCore (← mkDecideConst) #[← mkOpExpr #[e1, ← mkEqBool op1 true], d]
+      optimizeDecideCore (← mkDecideConst) #[← mkOpExpr #[e1, ← mkEqBool op1 true], d]
   | _, _ => return none
 
 
@@ -67,13 +67,11 @@ def optimizeDecideBoolOr (f : Expr) (args : Array Expr) : TranslateEnvT Expr := 
 
 /-- Apply simplification/normalization rules on Boolean binary operators.
 -/
-def optimizeBoolBinary? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) :=
- match f with
- | Expr.const n _ =>
-    match n with
-    | ``and => some <$> optimizeDecideBoolAnd f args
-    | ``or => some <$> optimizeDecideBoolOr f args
-    | _=> pure none
- | _ => pure none
+def optimizeBoolBinary? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
+ let Expr.const n _ := f | return none
+ match n with
+ | ``and => optimizeDecideBoolAnd f args
+ | ``or => optimizeDecideBoolOr f args
+ | _=> return none
 
 end Solver.Optimize

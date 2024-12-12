@@ -53,7 +53,7 @@ def optimizeLE (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
      - e1 < e2 ==> False (if e1 =ₚₜᵣ e2)
      - e < 0 ==> False (if Type(e) = Nat)
      - C1 < C2 ==> C1 "<" C2
-   The simplifications are only applied when isOpaqqueRelational predicate is satisfied
+   The simplifications are only applied when isOpaqueRelational predicate is satisfied
    Assume that f = Expr.const ``LT.lt.
    Do nothing if operator is partially applied (i.e., args.size < 4)
 -/
@@ -61,7 +61,7 @@ def optimizeLT (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
  if !(← isOpaqueRelational f.constName args) then return (← mkAppExpr f args)
  if args.size != 4 then return (← mkAppExpr f args)
  -- args[0] is sort parameter
- -- args[1] Le instance
+ -- args[1] LT instance
  -- args[2] left operand
  -- args[3] right operand
  let op1 := args[2]!
@@ -91,13 +91,11 @@ def optimizeLT (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
 /-- Apply simplification and normalization rules on `LE.le` and `LT.lt` :
 -/
 def optimizeRelational? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
- match f with
- | Expr.const n _ =>
-     match n with
-      | ``LE.le => some <$> optimizeLE f args
-      | ``LT.lt => some <$> optimizeLT f args
-      | _ => pure none
- | _ => pure none
+ let Expr.const n _ := f | return none
+ match n with
+  | ``LE.le => optimizeLE f args
+  | ``LT.lt => optimizeLT f args
+  | _ => return none
 
 
 end Solver.Optimize

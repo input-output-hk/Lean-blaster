@@ -13,14 +13,15 @@ namespace Solver.Optimize
      - e1 && e2 ==> e1 (if e1 =ₚₜᵣ e2)
      - e1 && e2 ==> e2 && e1 (if e2 <ₒ e1)
    Assume that f = Expr.const ``and.
-   Do nothing if operator is partially applied (i.e., args.size < 2)
+   An error is triggered when args.size ≠ 2 (i.e., only fully applied `and` expected at this stage)
+
    TODO: reordering on list of `&&` must be performed to regroup all `decide e`
    together and all boolean expression together. The reordering must be
    deterministic to produce the same sequence.
    TODO: consider additional simplification rules
 -/
 def optimizeBoolAnd (f : Expr) (args : Array Expr) (cacheResult := true) : TranslateEnvT Expr := do
- if args.size != 2 then return (← mkAppExpr f args)
+ if args.size != 2 then throwEnvError "optimizeBoolAnd: exactly two arguments expected"
  let opArgs ← reorderBoolOp args -- error triggered when args.size ≠ 2
  let op1 := opArgs[0]!
  let op2 := opArgs[1]!
@@ -37,14 +38,15 @@ def optimizeBoolAnd (f : Expr) (args : Array Expr) (cacheResult := true) : Trans
      - e1 || e2 ==> e1 (if e1 =ₚₜᵣ e2)
      - e1 || e2 ==> e2 || e1 (if e2 <ₒ e1)
    Assume that f = Expr.const ``or.
-   Do nothing if operator is partially applied (i.e., args.size < 2)
+   An error is triggered when args.size ≠ 2 (i.e., only fully applied `or` expected at this stage)
+
    TODO: reordering on list of `||` must be performed to regroup all `decide e`
    together and all boolean expression together. The reordering must be
    deterministic to produce the same sequence.
    TODO: consider additional simplification rules
 -/
 def optimizeBoolOr (f : Expr) (args : Array Expr) (cacheResult := true) : TranslateEnvT Expr := do
- if args.size != 2 then return (← mkAppExpr f args)
+ if args.size != 2 then throwEnvError "optimizeBoolOr: exactly two arguments expected"
  let opArgs ← reorderBoolOp args -- error triggered when args.size ≠ 2
  let op1 := opArgs[0]!
  let op2 := opArgs[1]!

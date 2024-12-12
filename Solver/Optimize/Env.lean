@@ -1,8 +1,9 @@
 import Lean
 import Solver.Optimize.Opaque
 import Solver.Smt.Term
+import Solver.Command.Options
 
-open Lean Meta Solver.Smt
+open Lean Meta Solver.Smt Solver.Options
 
 namespace Solver.Optimize
 
@@ -25,12 +26,15 @@ structure OptimizeOptions where
   normalizeConst : Bool := true
   /-- Flag to activate function normalization, e.g., `Nat.beq x y` to `BEq.beq Nat instBEqNat x y`.
       This flag is set to `false` when optimizing the recursive function body
-      of an opaque function f ∈ recFunsToNormalize`
+      of an opaque function f ∈ recFunsToNormalize`.
   -/
   normalizeFunCall : Bool := true
 
+  /-- Options passed to the #solve command. -/
+  solverOptions : SolverOptions
+
 instance : Inhabited OptimizeOptions where
-  default := {normalizeConst := true, normalizeFunCall := true}
+  default := {normalizeConst := true, normalizeFunCall := true, solverOptions := default}
 
 /-- Type defining the environment used when optimizing a lean theorem. -/
 structure OptimizeEnv where
@@ -70,7 +74,6 @@ structure OptimizeEnv where
   options : OptimizeOptions
 
  deriving Inhabited
-
 
 /-- Type defining the environment used when translating to Smt-Lib. -/
 structure SmtEnv where
@@ -112,12 +115,22 @@ structure SmtEnv where
   /-- Cache keeping track of sort that have already been declared. -/
   sortCache : HashMap FVarId SmtSymbol
 
-  /-- Cache keeping track of quantified fvars. This is essential
+  /-- Set keeping track of quantified fvars. This is essential
       to detect globally declared variables. -/
   quantifiedFVars : HashSet FVarId
 
+  /-- Set keeping track of globally declared variables and the ones in
+      the top level forall quantifier.
+      This set is used exclusived when retrieving counterexample after a `sat` result
+      is obtained from the backend smt solver.
+  -/
+  topLevelVars : HashSet SmtSymbol
+
   /-- Flag set when universe @Type has already been declared Smt instance. -/
   typeUniverse : Bool := false
+
+  /-- This flag is set to `true` only when translating recursive function definition. -/
+  inFunRecDefinition : Bool := false
 
   deriving Inhabited
 
@@ -139,6 +152,11 @@ deriving Inhabited
 
 abbrev TranslateEnvT := StateRefT TranslateEnv MetaM
 
+def throwEnvError (msg : MessageData) : TranslateEnvT α := do
+  if let some p := (← get).smtEnv.smtProc then
+    p.kill
+    discard $ p.wait
+  throwError msg
 
 /-- Return `true` if `op1` and `op2` are physically equivalent, i.e., points to same memory address.
 -/
@@ -200,6 +218,24 @@ def withRestoreRecBody (f: TranslateEnvT Expr) : TranslateEnvT Expr := do
   return e
 
 
+/-- set optimize option `inFunRecDefinition` to `b`. -/
+def setInFunRecDefinition (b : Bool) : TranslateEnvT Unit := do
+  let env ← get
+  let smtEnv := {env.smtEnv with inFunRecDefinition := b}
+  set {env with smtEnv := smtEnv }
+
+/-- Perform the following actions:
+     - set inFunRecDefinition to `true`
+     - execute `f`
+     - set inFunRecDefinition to `false`
+-/
+def withTranslateRecBody (f: TranslateEnvT α) : TranslateEnvT α := do
+  setInFunRecDefinition true
+  let t ← f
+  setInFunRecDefinition true
+  return t
+
+
 /-- Return `true` if optimize option `normalizeConst` is set to `true`. -/
 def isOptimizeConst : TranslateEnvT Bool :=
   return (← get).optEnv.options.normalizeConst
@@ -207,6 +243,10 @@ def isOptimizeConst : TranslateEnvT Bool :=
 /-- Return `true` if optimize option `normalizeFunCall` is set to `true`. -/
 def isOptimizeRecCall : TranslateEnvT Bool :=
   return (← get).optEnv.options.normalizeFunCall
+
+/-- Return `true` if optimize option `inFunRecDefinition` is set to `true`. -/
+def isInRecFunDefinition : TranslateEnvT Bool :=
+  return (← get).smtEnv.inFunRecDefinition
 
 /-- Update rewrite cache with `a := b`.
 -/
@@ -300,6 +340,34 @@ def isTaggedRecursiveCall (e : Expr) : Bool :=
 /-- Return `true` if `f` is already in the recursive function cache. -/
 def isVisitedRecFun (f : Expr) : TranslateEnvT Bool :=
  return (← get).optEnv.recFunCache.contains f
+
+/-- Given `f x₁ ... xₙ`, return `true` only when one of the following conditions is satisfied:
+     - `f := BEq.beq` with sort parameter in `relationalCompatibleTypes`
+     - `f := LT.lt` with sort parameter in `relationalCompatibleTypes`
+     - `f : LE.le` with sort parameter in `relationalCompatibleTypes`
+
+In fact, we can't assume that `BEq.beq`, `LT.lt` and `LE.le` will properly be defined
+for any user-defined types or parametric inductive types (e.g., List, Option, etc).
+-/
+def isOpaqueRelational (f : Name) (args : Array Expr) : TranslateEnvT Bool := do
+  match f with
+  | `BEq.beq
+  | `LT.lt
+  | `LE.le =>
+      if args.size < 1 then throwEnvError "isOpaqueRelational: implicit arguments"
+      return (isCompatibleRelationalType args[0]!)
+  | _ => return false
+
+
+/-- Return `true` if function name `f` is tagged as an opaque definition. -/
+def isOpaqueFun (f : Name) (args: Array Expr) : TranslateEnvT Bool :=
+  return (opaqueFuns.contains f || (← isOpaqueRelational f args))
+
+/-- Same as `isOpaqueFun` expect that `f` is an expression. -/
+def isOpaqueFunExpr (f : Expr) (args: Array Expr) : TranslateEnvT Bool :=
+  match f with
+  | Expr.const n _ => isOpaqueFun n args
+  | _ => return false
 
 /-- Return `true` if `f` corresponds to a theorem name. -/
 def isTheorem (f : Name) : MetaM Bool := do
@@ -597,7 +665,8 @@ def trySynthDecidableInstance? (e : Expr) (cacheDecidableCst := true) : Translat
 
 /-- Same as `trySynthDecidableInstance` but throws an error when a decidable instance cannot be found. -/
 def synthDecidableInstance! (e : Expr) : TranslateEnvT Expr := do
-  let some d ← trySynthDecidableInstance? e | throwError "synthesize instance for [Decidable {reprStr e}] cannot be found"
+  let some d ← trySynthDecidableInstance? e
+    | throwEnvError f!"synthesize instance for [Decidable {reprStr e}] cannot be found"
   return d
 
 
@@ -613,7 +682,8 @@ def hasInhabitedInstance (n : Expr) : TranslateEnvT Bool := do
 -/
 def synthBEqInstance! (e : Expr) : TranslateEnvT Expr := do
   let beqCstr ← mkExpr (mkApp (← mkBEqConst) e)
-  let some d ← trySynthConstraintInstance? beqCstr | throwError "synthesize instance for [BEq {reprStr e}] cannot be found"
+  let some d ← trySynthConstraintInstance? beqCstr
+    | throwEnvError f!"synthesize instance for [BEq {reprStr e}] cannot be found"
   return d
 
 /-- Return "==" operator for the given type `t`.
@@ -720,7 +790,7 @@ def isInductiveTypeExpr (e : Expr) : MetaM Bool := do
     NOTE: parameter skipInductiveCheck will be removed when specializing rec function.
     NOTE: The inductive datatype instance check will also be removed.
 -/
-partial def isGenericParam (e : Expr) (skipInductiveCheck := false) : MetaM Bool := do
+partial def isGenericParam (e : Expr) (skipInductiveCheck := false) : TranslateEnvT Bool := do
  match e with
  | Expr.sort .zero -- prop type
  | Expr.lit ..
@@ -739,8 +809,8 @@ partial def isGenericParam (e : Expr) (skipInductiveCheck := false) : MetaM Bool
  | Expr.app f arg =>
      if (!skipInductiveCheck) && !(← isClassConstraintExpr f) && (← isInductiveTypeExpr f) then return false
      isGenericParam arg
- | Expr.bvar _ => throwError "isGenericParam: unexpected bound variable {reprStr e}"
- | Expr.mvar .. => throwError "isGenericParam: unexpected meta variable {reprStr e}"
+ | Expr.bvar _ => throwEnvError f!"isGenericParam: unexpected bound variable {reprStr e}"
+ | Expr.mvar .. => throwEnvError f!"isGenericParam: unexpected meta variable {reprStr e}"
 
 /-- Type to represent the parameters instantiating the implicit arguments for a given function.
     (see function `getImplicitParameters`)
@@ -807,7 +877,7 @@ def getInstApp (f : Expr) (params: ImplicitParameters) : TranslateEnvT Expr := d
     An error is triggered when f is not a name expression.
 -/
 def generalizeRecCall (f : Expr) (params: ImplicitParameters) (fbody : Expr) : TranslateEnvT Expr := do
- let Expr.const n _ := f | throwError "generalizeRecCall: name expression expected but got {reprStr f}"
+ let Expr.const n _ := f | throwEnvError f!"generalizeRecCall: name expression expected but got {reprStr f}"
  let fbody' := fbody.replace (replacePred n)
  if params.instanceArgs.isEmpty then return fbody'
  let betaExpr := Expr.beta fbody' params.instanceArgs
@@ -887,7 +957,7 @@ where
   replaceRecCall (fbody : Expr) : TranslateEnvT Expr := do
     lambdaTelescope fbody fun xs body => do
      let some recCall := body.find? isTaggedRecursiveCall
-       | throwError f!"storeRecFunDef: annotated recursive call expected in {reprStr body}"
+       | throwEnvError f!"storeRecFunDef: annotated recursive call expected in {reprStr body}"
      -- retrieve implicit arguments
      let params ← getImplicitParameters recCall.getAppFn' recCall.mdataExpr!.getAppArgs
      let body' := body.replace (replacePred params (← mkExpr (mkConst internalRecFun)))
@@ -906,7 +976,7 @@ def hasRecFunInst? (instApp : Expr) : TranslateEnvT (Option Expr) := do
   | some fbody =>
      -- retrieve function application from recFunMap
      match env.optEnv.recFunMap.find? fbody with
-     | none => throwError f!"hasRecFunInst: expecting entry for {reprStr fbody} in recFunMap"
+     | none => throwEnvError f!"hasRecFunInst: expecting entry for {reprStr fbody} in recFunMap"
      | res => return res
   | none => return none
 
