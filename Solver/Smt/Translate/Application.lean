@@ -472,19 +472,38 @@ partial def translateRecFun
         let sBody ← termTranslator b
         return { defs with funDecls := defs.funDecls.push funDecl, funBodies := defs.funBodies.push sBody }
 
+    replaceGenericRecFun (f : Name) (us : List Level) (e : Expr) : Option Expr :=
+      match e with
+      | Expr.const n _ =>
+          if n == internalRecFun
+          then some (mkConst f us)
+          else none
+      | _ => none
+
     generateRecFunDefinitions
       (funs : List Name) (us : List Level) (params : ImplicitParameters) : TranslateEnvT Unit := do
       let env ← get
       let mut funDefs := { (default : FunctionDefinitions) with isRec := true }
+      let mut finfos := #[]
+      -- add all rec fun instance to cache first
       for f in funs do
         let auxApp := mkConst f us
         let smtId ← generateFunInst auxApp params
+        finfos := finfos.push (f, auxApp, smtId)
+      for i in [:finfos.size] do
+        let f := finfos[i]!.1
+        let auxApp := finfos[i]!.2.1
+        let smtId := finfos[i]!.2.2
         let instApp ← getInstApp auxApp params
         let some fbody := env.optEnv.recFunInstCache.find? instApp
           | throwEnvError f!"translateRecFun: function body expected for {reprStr instApp}"
         let ConstantInfo.defnInfo dInfo ← getConstInfo f
           | throwEnvError f!"translateRecFun: no defnInfo for {f}"
-        funDefs ← withTranslateRecBody $ updateFunDefinitions auxApp smtId fbody (Expr.getForallBody dInfo.type) funDefs
+        let fbody' := fbody.replace (replaceGenericRecFun f us)
+        -- return type
+        let ret := Expr.getForallBody dInfo.type
+        funDefs ← withTranslateRecBody $ updateFunDefinitions auxApp smtId fbody' ret funDefs
+      defineFunctions funDefs
 
 /-- Return `true` only when `n` corresponds to a function/constructor name
     expected to be eliminated during optimization phase.

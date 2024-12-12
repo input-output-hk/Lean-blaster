@@ -956,8 +956,7 @@ where
 
   replaceRecCall (fbody : Expr) : TranslateEnvT Expr := do
     lambdaTelescope fbody fun xs body => do
-     let some recCall := body.find? isTaggedRecursiveCall
-       | throwEnvError f!"storeRecFunDef: annotated recursive call expected in {reprStr body}"
+     let some recCall := body.find? isTaggedRecursiveCall | return fbody -- mutually recursive call case
      -- retrieve implicit arguments
      let params ← getImplicitParameters recCall.getAppFn' recCall.mdataExpr!.getAppArgs
      let body' := body.replace (replacePred params (← mkExpr (mkConst internalRecFun)))
