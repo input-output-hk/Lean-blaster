@@ -16,6 +16,7 @@ namespace Solver.Syntax
       - `timeout`: specifying the timeout (in second) to be used for the backend smt solver (defaut: ∞)
       - `verbose:` activating debug info (default: 0)
       - `only-smt-lib`: only translating unsolved goals to smt-lib without invoking the backend solver (default: 0)
+      - `dump-smt-lib`: display the smt lib query to stdout (default: 0)
 
     E.g.
      #testOptimize [ "AndSubsumption" ] ∀ (a : Prop), a ∧ a ==> ∀ (a : Prop), a
@@ -24,10 +25,13 @@ syntax solveUnfoldDepth := ("(unfold-depth:" num ")")?
 syntax solveTimeout := ("(timeout:" num ")")?
 syntax solveVerbose := ("(verbose:" num ")")?
 syntax solveSMTLib := ("(only-smt-lib:" num ")")?
+syntax solveDumpSmt := ("(dump-smt-lib:" num ")")?
 
 -- NOTE: Limited to one term for the time being
 syntax solveTerm := "[" term "]"
-syntax (name := solve) "#solve" solveUnfoldDepth solveTimeout solveVerbose solveSMTLib solveTerm : command
+syntax (name := solve) "#solve"
+  solveUnfoldDepth solveTimeout
+  solveVerbose solveSMTLib solveDumpSmt solveTerm : command
 
 def parseUnfoldDepth (sOpts : SolverOptions) : TSyntax `solveUnfoldDepth -> CommandElabM SolverOptions
  | `(solveUnfoldDepth| (unfold-depth: $n:num)) => return { sOpts with unfoldDepth := n.getNat }
@@ -53,14 +57,24 @@ def parseSmtLib (sOpts : SolverOptions) : TSyntax `solveSMTLib -> CommandElabM S
  | `(solveSMTLib| ) => return sOpts
  | _ => throwUnsupportedSyntax
 
+def parseDumpSmt (sOpts : SolverOptions) : TSyntax `solveDumpSmt -> CommandElabM SolverOptions
+ | `(solveDumpSmt| (dump-smt-lib: $n:num)) => do
+       match n.getNat with
+        | 0 => return { sOpts with dumpSmtLib := false }
+        | 1 => return { sOpts with dumpSmtLib := true }
+        | _ => throwUnsupportedSyntax
+ | `(solveDumpSmt| ) => return sOpts
+ | _ => throwUnsupportedSyntax
+
 def parseTerm : TSyntax `Solver.solveTerm -> CommandElabM Syntax
   |`(solveTerm| [ $th ]) => pure th.raw
   | _ => throwUnsupportedSyntax
 
 @[command_elab solve]
 def solveImp : CommandElab := fun stx => do
-  let sOpts ← parseSmtLib (← parseVerbose (← parseTimeout (← parseUnfoldDepth default ⟨stx[1]⟩) ⟨stx[2]⟩) ⟨stx[3]⟩) ⟨stx[4]⟩
-  let tr ← parseTerm ⟨stx[5]⟩
+  let sOpts ← parseVerbose (← parseTimeout (← parseUnfoldDepth default ⟨stx[1]⟩) ⟨stx[2]⟩) ⟨stx[3]⟩
+  let sOpts ← parseDumpSmt (← parseSmtLib sOpts ⟨stx[4]⟩) ⟨stx[5]⟩
+  let tr ← parseTerm ⟨stx[6]⟩
   withoutModifyingEnv $ runTermElabM fun _ =>
     Solver.Smt.translate sOpts tr
 

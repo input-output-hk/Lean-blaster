@@ -135,7 +135,7 @@ partial def trySubmitCommand! (c : SmtCommand) (checkSuccess := true) : Translat
   let out ← p.stdout.getLine
   match out with
   | "success\n" => return ()
-  | err => throwEnvError s!"Unexpected smt error: {err}"
+  | err => throwEnvError s!"Unexpected smt error: {err} for {c}"
 
 /-- Same as trySubmitCommand! but with flag `checkSuccess` set to `false`.
 -/
@@ -196,10 +196,16 @@ def assertTerm (p : SmtTerm) : TranslateEnvT Unit := trySubmitCommand! (.assertT
       - Define predicate `@is{s}` with input type `t` and return type `bool` and body `fdef` when `pbody := some fdef`
 -/
 def definePredQualifier (s : SmtSymbol) (t : SortExpr) (pbody : Option SmtTerm) : TranslateEnvT Unit :=
+ let fsym := createPredSym s
  match pbody with
- | none => declareFun s!"@is{s}" #[t] boolSort
- | some fdef => defineFun s!"@is{s}" #[("@x", t)] boolSort fdef
+ | none => declareFun fsym #[t] boolSort
+ | some fdef => defineFun fsym #[(mkReservedSymbol "@x", t)] boolSort fdef
 
+ where
+   createPredSym (s : SmtSymbol) : SmtSymbol :=
+    match s with
+    | .ReservedSymbol str => .ReservedSymbol s!"@is{str}"
+    | .NormalSymbol str => .NormalSymbol s!"@is{str}"
 
 /-- Perform the following actions:
      - Declare smt universal sort `(declare-sort @@Type 0)`
@@ -207,7 +213,7 @@ def definePredQualifier (s : SmtSymbol) (t : SortExpr) (pbody : Option SmtTerm) 
 -/
 def defineTypeSort : TranslateEnvT Unit := do
   declareSort typeSymbol 0
-  declareFun "@isType" #[typeSort] boolSort
+  declareFun (mkReservedSymbol "@isType") #[typeSort] boolSort
 
 
 /-- Perform the following actions:
@@ -216,7 +222,7 @@ def defineTypeSort : TranslateEnvT Unit := do
 -/
 def defineEmptySort : TranslateEnvT Unit := do
   declareSort emptySymbol 0
-  defineFun "@isEmpty" #[("@x", emptySort)] boolSort falseSmt
+  defineFun (mkReservedSymbol "@isEmpty") #[(mkReservedSymbol "@x", emptySort)] boolSort falseSmt
 
 /-- Perform the following actions:
      - Declare PEmpty sort in Smt Lib
@@ -224,7 +230,7 @@ def defineEmptySort : TranslateEnvT Unit := do
 -/
 def definePEmptySort : TranslateEnvT Unit := do
   declareSort pemptySymbol 0
-  defineFun "@isPEmpty" #[("@x", pemptySort)] boolSort falseSmt
+  defineFun (mkReservedSymbol "@isPEmpty") #[(mkReservedSymbol "@x", pemptySort)] boolSort falseSmt
 
 /-- Perform the following actions:
      - Define Nat sort in Smt Lib, which is an alias to Int Smt Sort
@@ -232,38 +238,42 @@ def definePEmptySort : TranslateEnvT Unit := do
 -/
 def defineNatSort : TranslateEnvT Unit := do
   defineSort natSymbol none intSort
-  let xId := smtSimpleVarId "@x"
-  defineFun "@isNat" #[("@x", natSort)] boolSort (leqSmt (natLitSmt 0) xId)
+  let psym := mkReservedSymbol "@x"
+  let xId := smtSimpleVarId psym
+  defineFun (mkReservedSymbol "@isNat") #[(psym, natSort)] boolSort (leqSmt (natLitSmt 0) xId)
+
+
+private def defineBinFun
+  (fname : SmtSymbol) (top1 : SortExpr) (top2 : SortExpr)
+  (ret : SortExpr) (fdef : SmtTerm → SmtTerm → SmtTerm) :=
+  let xsym := mkReservedSymbol "@x"
+  let ysym := mkReservedSymbol "@y"
+  let xId := smtSimpleVarId xsym
+  let yId := smtSimpleVarId ysym
+  defineFun fname #[(xsym, top1), (ysym, top2)] ret (fdef xId yId)
 
 /-- Define Nat.sub Smt function, i.e.,
      Nat.sub x y := (ite (< x y) 0 (- x y))
 -/
 def defineNatSub : TranslateEnvT Unit := do
-  let xId := smtSimpleVarId "@x"
-  let yId := smtSimpleVarId "@y"
-  let fdef := iteSmt (ltSmt xId yId) (natLitSmt 0) (subSmt xId yId)
-  defineFun natSubSymbol #[("@x", natSort), ("@y", natSort)] natSort fdef
+  let fdef := λ xId yId => iteSmt (ltSmt xId yId) (natLitSmt 0) (subSmt xId yId)
+  defineBinFun natSubSymbol natSort natSort natSort fdef
 
 /-- Define Int.ediv Smt function, i.e.,
       Int.ediv x y := (ite (= 0 y) 0 (div x y))
  -/
 def defineIntEDiv : TranslateEnvT Unit := do
-  let xId := smtSimpleVarId "@x"
-  let yId := smtSimpleVarId "@y"
   let natZero := natLitSmt 0
-  let fdef := iteSmt (eqSmt natZero yId) natZero (divSmt xId yId)
-  defineFun edivSymbol #[("@x", intSort), ("@y", intSort)] intSort fdef
+  let fdef := λ xId yId => iteSmt (eqSmt natZero yId) natZero (divSmt xId yId)
+  defineBinFun edivSymbol intSort intSort intSort fdef
 
 /-- Define Int.emod Smt function, i.e.,
       Int.emod x y := (ite (= 0 y) x (mod x y))
  -/
 def defineIntEMod : TranslateEnvT Unit := do
-  let xId := smtSimpleVarId "@x"
-  let yId := smtSimpleVarId "@y"
   let natZero := natLitSmt 0
-  let fdef := iteSmt (eqSmt natZero yId) xId (modSmt xId yId)
-  defineFun emodSymbol #[("@x", intSort), ("@y", intSort)] intSort fdef
-
+  let fdef := λ xId yId => iteSmt (eqSmt natZero yId) xId (modSmt xId yId)
+  defineBinFun emodSymbol intSort intSort intSort fdef
 
 /-- Define Int.div Smt function, i.e.,
       Int.div x y :=
@@ -271,14 +281,14 @@ def defineIntEMod : TranslateEnvT Unit := do
              (ite (= 0 y) 0 (ite (< x 0) (- t) t)))
 -/
 def defineIntDiv : TranslateEnvT Unit := do
-  let xId := smtSimpleVarId "@x"
-  let yId := smtSimpleVarId "@y"
-  let tId := smtSimpleVarId "@t"
+  let tsym := mkReservedSymbol "@t"
+  let tId := smtSimpleVarId tsym
   let natZero := natLitSmt 0
-  let xLtZero := ltSmt xId natZero
-  let lbody := iteSmt (eqSmt natZero yId) natZero (iteSmt xLtZero (negSmt tId) tId)
-  let fdef := mkLetTerm #[("@t", iteSmt xLtZero (divSmt (negSmt xId) yId) (divSmt xId yId))] lbody
-  defineFun tdivSymbol #[("@x", intSort), ("@y", intSort)] intSort fdef
+  let xLtZero := λ xId => ltSmt xId natZero
+  let lbody := λ xId yId => iteSmt (eqSmt natZero yId) natZero (iteSmt (xLtZero xId) (negSmt tId) tId)
+  let fdef := λ xId yId =>
+    mkLetTerm #[(tsym, iteSmt (xLtZero xId) (divSmt (negSmt xId) yId) (divSmt xId yId))] (lbody xId yId)
+  defineBinFun tdivSymbol intSort intSort intSort fdef
 
 /-- Define Int.mod Smt function, i.e.,
      Int.mod x y :=
@@ -286,28 +296,25 @@ def defineIntDiv : TranslateEnvT Unit := do
             (ite (= 0 y) x (ite (< x 0) (- t) t)))
 -/
 def defineIntMod : TranslateEnvT Unit := do
-  let xId := smtSimpleVarId "@x"
-  let yId := smtSimpleVarId "@y"
-  let tId := smtSimpleVarId "@t"
+  let tsym := mkReservedSymbol "@t"
+  let tId := smtSimpleVarId tsym
   let natZero := natLitSmt 0
-  let xLtZero := ltSmt xId natZero
-  let lbody := iteSmt (eqSmt natZero yId) xId (iteSmt xLtZero (negSmt tId) tId)
-  let fdef := mkLetTerm #[("@t", iteSmt xLtZero (modSmt (negSmt xId) yId) (modSmt xId yId))] lbody
-  defineFun tmodSymbol #[("@x", intSort), ("@y", intSort)] intSort fdef
-
+  let xLtZero := λ xId => ltSmt xId natZero
+  let lbody := λ xId yId => iteSmt (eqSmt natZero yId) xId (iteSmt (xLtZero xId) (negSmt tId) tId)
+  let fdef := λ xId yId =>
+    mkLetTerm #[(tsym, iteSmt (xLtZero xId) (modSmt (negSmt xId) yId) (modSmt xId yId))] (lbody xId yId)
+  defineBinFun tmodSymbol intSort intSort intSort fdef
 
 /-- Define Int.fdiv Smt function, i.e.,
       Int.fdiv x y :=
         (ite (= 0 y) 0 (ite (< y 0) (div (-x) (- y)) (div x y)))
  -/
 def defineIntFDiv : TranslateEnvT Unit := do
-  let xId := smtSimpleVarId "@x"
-  let yId := smtSimpleVarId "@y"
   let natZero := natLitSmt 0
-  let yLtZero := ltSmt yId natZero
-  let innerIte := iteSmt yLtZero (divSmt (negSmt xId) (negSmt yId)) (divSmt xId yId)
-  let fdef := iteSmt (eqSmt natZero yId) natZero innerIte
-  defineFun fdivSymbol #[("@x", intSort), ("@y", intSort)] intSort fdef
+  let yLtZero := λ yId => ltSmt yId natZero
+  let innerIte := λ xId yId => iteSmt (yLtZero yId) (divSmt (negSmt xId) (negSmt yId)) (divSmt xId yId)
+  let fdef := λ xId yId => iteSmt (eqSmt natZero yId) natZero (innerIte xId yId)
+  defineBinFun fdivSymbol intSort intSort intSort fdef
 
 /-- Define Int.fmod Smt function, i.e.,
      Int.fmod x y :=
@@ -315,37 +322,36 @@ def defineIntFDiv : TranslateEnvT Unit := do
             (ite (= 0 y) x (ite (and (< x 0) (< y 0)) (- t) t)))
 -/
 def defineIntFMod : TranslateEnvT Unit := do
-  let xId := smtSimpleVarId "@x"
-  let yId := smtSimpleVarId "@y"
-  let tId := smtSimpleVarId "@t"
+  let tsym := mkReservedSymbol "@t"
+  let tId := smtSimpleVarId tsym
   let natZero := natLitSmt 0
-  let xLtZero := ltSmt xId natZero
-  let yLtZero := ltSmt yId natZero
-  let flipCond := andSmt xLtZero yLtZero
-  let lbody := iteSmt (eqSmt natZero yId) xId (iteSmt flipCond (negSmt tId) tId)
-  let fdef := mkLetTerm #[("@t", iteSmt flipCond (modSmt (negSmt xId) yId) (modSmt xId yId))] lbody
-  defineFun fmodSymbol #[("@x", intSort), ("@y", intSort)] intSort fdef
+  let xLtZero := λ xId => ltSmt xId natZero
+  let yLtZero := λ yId => ltSmt yId natZero
+  let flipCond := λ xId yId => andSmt (xLtZero xId) (yLtZero yId)
+  let lbody := λ xId yId => iteSmt (eqSmt natZero yId) xId (iteSmt (flipCond xId yId) (negSmt tId) tId)
+  let fdef := λ xId yId =>
+    mkLetTerm #[(tsym, iteSmt (flipCond xId yId) (modSmt (negSmt xId) yId) (modSmt xId yId))] (lbody xId yId)
+  defineBinFun fmodSymbol intSort intSort intSort fdef
 
 
 /-- Define Int.pow Smt function, i.e.,
      Int.pow x y := (to_int (^ x y))
 -/
 def defineIntPow : TranslateEnvT Unit := do
-  let xId := smtSimpleVarId "@x"
-  let yId := smtSimpleVarId "@y"
-  let fdef := powSmt xId yId
-  defineFun intPowSymbol #[("@x", intSort), ("@y", natSort)] intSort fdef
+  let fdef := λ xId yId => powSmt xId yId
+  defineBinFun intPowSymbol intSort natSort intSort fdef
 
 
 /-- Define Int.toNat Smt function, i.e.,
      Int.toNat x := (ite (<= 0 x) x else 0)
 -/
 def defineInttoNat : TranslateEnvT Unit := do
-  let xId := smtSimpleVarId "@x"
+  let xsym := mkReservedSymbol "@x"
+  let xId := smtSimpleVarId xsym
   let natZero := natLitSmt 0
   let xGeqZero := leqSmt natZero xId
   let fdef := iteSmt xGeqZero xId natZero
-  defineFun toNatSymbol #[("@x", intSort)] natSort fdef
+  defineFun toNatSymbol #[(xsym, intSort)] natSort fdef
 
 
 /-- Try to retrieve to evaluate term `t` when a `sat` result is obtained and dump result to stdout.

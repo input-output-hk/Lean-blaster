@@ -8,17 +8,25 @@ namespace Solver
 /-- Log the representation of `e` when verbose is set to 3. -/
 def logReprExpr (msg : String) (e : Expr) : TranslateEnvT Unit := do
   let sOpts := (← get).optEnv.options.solverOptions
-  if sOpts.verbose == 3
-  then do
+  if sOpts.verbose == 3 then
     logInfo f!"{msg}: {reprStr e}"
-  else pure ()
+  else return ()
 
 /-- Pretty print and log `e` when verbose is set to 3. -/
 def logPPExpr (msg : String) (e : Expr) : TranslateEnvT Unit := do
   let sOpts := (← get).optEnv.options.solverOptions
-  if sOpts.verbose == 3
-  then do
+  if sOpts.verbose == 3 then
     logInfo f!"{msg}: {← ppExpr e}"
+  else return ()
+
+/-- Dumps to `stdout` the smt commands submitted to the backend solver
+    when option `dumpSmtLib` is set to `true`. -/
+def logSmtQuery : TranslateEnvT Unit := do
+  let sOpts := (← get).optEnv.options.solverOptions
+  if sOpts.dumpSmtLib then
+    logInfo f!"Smt Query:"
+    (← get).smtEnv.smtCommands.forM (λ c => logInfo f!"{c}")
   else pure ()
+
 
 end Solver

@@ -8,28 +8,34 @@ namespace Solver.Smt
 
 /-! ## Lean Inductive types having an Smt counterpart -/
 
+/-! Create a reserve smt symbol for `s` -/
+def mkReservedSymbol (s : String) : SmtSymbol := .ReservedSymbol s
+
+/-! Create a normal smt symbol for `s` -/
+def mkNormalSymbol (s : String) : SmtSymbol := .NormalSymbol s
+
 /-! ## Builtin Smt sort names. -/
 
 /-! Smt Int symbol. -/
-def intSymbol : SmtSymbol := "Int"
+def intSymbol : SmtSymbol := mkReservedSymbol "Int"
 
 /-! Smt Bool symbol. -/
-def boolSymbol : SmtSymbol := "Bool"
+def boolSymbol : SmtSymbol := mkReservedSymbol "Bool"
 
 /-! Smt String symbol. -/
-def stringSymbol : SmtSymbol := "String"
+def stringSymbol : SmtSymbol := mkReservedSymbol "String"
 
 /-! Smt Nat symbol. -/
-def natSymbol : SmtSymbol := "Nat"
+def natSymbol : SmtSymbol := mkReservedSymbol "Nat"
 
 /-! Smt Empty symbol. -/
-def emptySymbol : SmtSymbol := "Empty"
+def emptySymbol : SmtSymbol := mkReservedSymbol "Empty"
 
 /-! Smt PEmpty symbol. -/
-def pemptySymbol : SmtSymbol := "PEmpty"
+def pemptySymbol : SmtSymbol := mkReservedSymbol "PEmpty"
 
 /-! Smt universal type symbol. -/
-def typeSymbol : SmtSymbol := "@@Type"
+def typeSymbol : SmtSymbol := mkReservedSymbol "@@Type"
 
 
 /-! ## Builtin Smt sorts. -/
@@ -45,7 +51,7 @@ def stringSort : SortExpr := .SymbolSort stringSymbol
 
 /-! Smt Array Sort -/
 def arraySort (args: Array SortExpr) : SortExpr :=
-  .ParamSort "Array" args
+  .ParamSort (mkReservedSymbol "Array") args
 
 /-! Smt Nat Sort.
     NOTE: This sort is defined during translation whenever required.
@@ -77,69 +83,69 @@ def typeSort : SortExpr := .SymbolSort typeSymbol
 /-! ## Builtin Smt symbols. -/
 
 /-! equality Smt symbol. -/
-def eqSymbol : SmtSymbol := "="
+def eqSymbol : SmtSymbol := mkReservedSymbol "="
 
 /-! Boolean `not` Smt symbol -/
-def notSymbol : SmtSymbol := "not"
+def notSymbol : SmtSymbol := mkReservedSymbol "not"
 
 /-! Boolean `and` Smt symbol. -/
-def andSymbol : SmtSymbol := "and"
+def andSymbol : SmtSymbol := mkReservedSymbol "and"
 
 /-! Boolean `or` Smt symbol. -/
-def orSymbol : SmtSymbol := "or"
+def orSymbol : SmtSymbol := mkReservedSymbol "or"
 
 /-! Implies Smt symbol. -/
-def impSymbol : SmtSymbol := "=>"
+def impSymbol : SmtSymbol := mkReservedSymbol "=>"
 
 /-! Integer addition Smt symbol. -/
-def addSymbol : SmtSymbol := "+"
+def addSymbol : SmtSymbol := mkReservedSymbol "+"
 
 /-! Integer subtraction Smt symbol. -/
-def subSymbol : SmtSymbol := "-"
+def subSymbol : SmtSymbol := mkReservedSymbol "-"
 
 /-! Integer multiplication Smt symbol. -/
-def mulSymbol : SmtSymbol := "*"
+def mulSymbol : SmtSymbol := mkReservedSymbol "*"
 
 /-! Integer native Smt division symbol. -/
-def divSymbol : SmtSymbol := "div"
+def divSymbol : SmtSymbol := mkReservedSymbol "div"
 
 /-! Integer native Smt modulo symbol. -/
-def modSymbol : SmtSymbol := "mod"
+def modSymbol : SmtSymbol := mkReservedSymbol "mod"
 
 /-! Integer Euclidean division Smt symbol.
     NOTE: This function is defined during translation whenever required.
 -/
-def edivSymbol : SmtSymbol := "Int.ediv"
+def edivSymbol : SmtSymbol := mkReservedSymbol "Int.ediv"
 
 /-! Integer Euclidean modulo Smt symbol.
     NOTE: This function is defined during translation whenever required.
 -/
-def emodSymbol : SmtSymbol := "Int.emod"
+def emodSymbol : SmtSymbol := mkReservedSymbol "Int.emod"
 
 /-! Integer truncate division Smt symbol.
     NOTE: This function is defined during translation whenever required.
 -/
-def tdivSymbol : SmtSymbol := "Int.div"
+def tdivSymbol : SmtSymbol := mkReservedSymbol "Int.div"
 
 /-! Integer truncate modulo Smt symbol.
     NOTE: This function is defined during translation whenever required.
 -/
-def tmodSymbol : SmtSymbol := "Int.mod"
+def tmodSymbol : SmtSymbol := mkReservedSymbol "Int.mod"
 
 /-! Integer floor division Smt symbol.
     NOTE: This function is defined during translation whenever required.
 -/
-def fdivSymbol : SmtSymbol := "Int.fdiv"
+def fdivSymbol : SmtSymbol := mkReservedSymbol "Int.fdiv"
 
 /-! Integer floor modulo Smt symbol.
     NOTE: This function is defined during translation whenever required.
 -/
-def fmodSymbol : SmtSymbol := "Int.fmod"
+def fmodSymbol : SmtSymbol := mkReservedSymbol "Int.fmod"
 
 /-! Integer to Nat Smt symbol.
     NOTE: This function is defined during translation whenever required.
 -/
-def toNatSymbol : SmtSymbol := "Int.toNat"
+def toNatSymbol : SmtSymbol := mkReservedSymbol "Int.toNat"
 
 /-! Integer cast Smt symbol.
     NOTE: Only available in z3.
@@ -148,41 +154,41 @@ def toNatSymbol : SmtSymbol := "Int.toNat"
     Indeed, negative exponentiation can lead to a Real representation,
     which cannot be the case for Lean4 pow for both Int and Nat.
 -/
-def toIntSymbol : SmtSymbol := "to_int"
+def toIntSymbol : SmtSymbol := mkReservedSymbol "to_int"
 
 /-! Native integer power Smt symbol. -/
-def powSymbol : SmtSymbol := "^"
+def powSymbol : SmtSymbol := mkReservedSymbol "^"
 
 /-! Integer power Smt symbol.
     NOTE: This function is defined during translation whenever required.
 -/
-def intPowSymbol : SmtSymbol := "Int.pow"
+def intPowSymbol : SmtSymbol := mkReservedSymbol "Int.pow"
 
 /-! Nat subtraction Smt symbol.
     NOTE: This function is defined during translation whenever required.
 -/
-def natSubSymbol : SmtSymbol := "Nat.sub"
+def natSubSymbol : SmtSymbol := mkReservedSymbol "Nat.sub"
 
 /-! Integer absolute Smt symbol. -/
-def absSymbol : SmtSymbol := "abs"
+def absSymbol : SmtSymbol := mkReservedSymbol "abs"
 
 /-! less than Smt symbol. -/
-def ltSymbol : SmtSymbol := "<"
+def ltSymbol : SmtSymbol := mkReservedSymbol "<"
 
 /-! less than or equal to Smt symbol. -/
-def leqSymbol : SmtSymbol := "<="
+def leqSymbol : SmtSymbol := mkReservedSymbol "<="
 
 /-! if-then-else Smt symbol. -/
-def iteSymbol : SmtSymbol := "ite"
+def iteSymbol : SmtSymbol := mkReservedSymbol "ite"
 
 /-! underscore Smt symbol. -/
-def underSymbol : SmtSymbol := "_"
+def underSymbol : SmtSymbol := mkReservedSymbol "_"
 
 /-! select Smt symbol. -/
-def selectSymbol : SmtSymbol := "select"
+def selectSymbol : SmtSymbol := mkReservedSymbol "select"
 
 /-! as-array Smt symbol. -/
-def asArraySymbol : SmtSymbol := "as-array"
+def asArraySymbol : SmtSymbol := mkReservedSymbol "as-array"
 
 /-! Create an Smt application term with function name `nm` and parameters `args`. -/
 def mkSmtAppN (nm : SmtQualifiedIdent) (args : Array SmtTerm) : SmtTerm := .AppTerm nm args
@@ -355,7 +361,7 @@ def smtQualifiedVarId (nm : SmtSymbol) (t : SortExpr) : SmtTerm :=
     associated to the free variable id.
 -/
 def fvarIdToSmtSymbol (v : FVarId) : MetaM SmtSymbol := do
-  return s!"{← v.getUserName}"
+  return (mkNormalSymbol s!"{← v.getUserName}")
 
 /-! Create an Smt term from a free variable. -/
 def fvarIdToSmtTerm (v : FVarId) : MetaM SmtTerm :=
@@ -384,7 +390,9 @@ def nameTerm (t : SmtTerm) (nm : Option String) : SmtTerm :=
     specific patterns to facilitate e-matching and debugging
     during solving.
 -/
-def mkForallTerm (nmThm : Option String) (vars : SortedVars) (b : SmtTerm) (att : Option (Array SmtAttribute)) : SmtTerm :=
+def mkForallTerm
+  (nmThm : Option String) (vars : SortedVars)
+  (b : SmtTerm) (att : Option (Array SmtAttribute)) : SmtTerm :=
   let bodyTerm := annotateTerm b att
   let forallTerm := .ForallTerm vars bodyTerm
   nameTerm forallTerm nmThm
@@ -394,7 +402,9 @@ def mkForallTerm (nmThm : Option String) (vars : SortedVars) (b : SmtTerm) (att 
     specific patterns to facilitate e-matching and debugging
     during solving.
 -/
-def mkExistsTerm (nmThm : Option String) (vars : SortedVars) (b : SmtTerm) (att : Option (Array SmtAttribute)) : SmtTerm :=
+def mkExistsTerm
+  (nmThm : Option String) (vars : SortedVars)
+  (b : SmtTerm) (att : Option (Array SmtAttribute)) : SmtTerm :=
   let bodyTerm := annotateTerm b att
   let existsTerm := .ExistsTerm vars bodyTerm
   nameTerm existsTerm nmThm

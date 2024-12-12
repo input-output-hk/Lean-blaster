@@ -3,7 +3,27 @@ import Lean
 
 namespace Solver.Smt
 
-abbrev SmtSymbol := String
+/-- Smt-Lib V2 Smt symbol. -/
+inductive SmtSymbol where
+  /-- To be used for reserve word (e.g., operator symbol) -/
+  | ReservedSymbol (str : String)
+  /-- To be used for representing user defined symbol -/
+  | NormalSymbol (str : String)
+
+instance : Inhabited SmtSymbol where
+  default := .NormalSymbol ""
+
+instance : BEq SmtSymbol where
+  beq | .ReservedSymbol s1, .ReservedSymbol s2 => s1 == s2
+      | .NormalSymbol s1, .NormalSymbol s2 => s1 == s2
+      | _, _ => false
+
+private def SmtSymbol.hash : SmtSymbol → UInt64
+  | .ReservedSymbol str => str.hash
+  | .NormalSymbol str => str.hash
+
+instance : Hashable SmtSymbol := ⟨SmtSymbol.hash⟩
+
 
 /-- Smt-Lib V2 sort expression. -/
 inductive SortExpr where
@@ -11,7 +31,7 @@ inductive SortExpr where
  | ParamSort (nm : SmtSymbol) (ps : Array SortExpr)
 
 instance : Inhabited SortExpr where
-  default := .SymbolSort ""
+  default := .SymbolSort default
 
 abbrev SortedVars := Array (SmtSymbol × SortExpr)
 
@@ -22,7 +42,7 @@ inductive SmtQualifiedIdent where
  | QualifiedIdent (nm : SmtSymbol) (t : SortExpr)
 
 instance : Inhabited SmtQualifiedIdent where
-  default := .SimpleIdent ""
+  default := .SimpleIdent default
 
 mutual
 /-- Smt term annotation attributes. -/
@@ -71,7 +91,7 @@ structure SmtSortDecl where
   arity : Nat
 
 instance : Inhabited SmtSortDecl where
-  default := {name := "", arity := 0}
+  default := {name := default, arity := 0}
 
 structure SmtFunDecl where
   name : SmtSymbol
@@ -79,7 +99,7 @@ structure SmtFunDecl where
   ret : SortExpr
 
 instance : Inhabited SmtFunDecl where
-  default := {name := "", params := #[], ret := default}
+  default := {name := default, params := #[], ret := default}
 
 
 /-- Smt-Lib V2 command submitted to backend solver. -/
@@ -98,22 +118,41 @@ inductive SmtCommand where
   | getModel
   | getProof
   | evalTerm (t : SmtTerm)
-  | setLogic (l : SmtSymbol)
+  | setLogic (l : String)
   | setOption (opt : String) (value : Bool)
 
 instance : Inhabited SmtCommand where
   default := .setLogic ""
 
 
+/-! Set of Smt-Lib V2 permitted characters in "simple" smt symbol. -/
+opaque validSimpleChars : String :=
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789~!@$%^&*_-+=<>.?/"
+
 /-! ToString instances for Smt-Lib V2 syntax. -/
+
+@[inline] private def SmtSymbol.toString (s : SmtSymbol) : String :=
+  match s with
+  | ReservedSymbol str => str
+  | NormalSymbol str =>
+      -- NOTE: A "simple" smt symbol is any non-empty sequence of
+      -- characters in `validSimpleChars` that -- does not start with a digit.
+      if str.isEmpty then "||"
+      else
+        let fstChar := str.get 0
+        if (fstChar ≥ '0' && fstChar ≤ '9') || str.any (λ c => !(validSimpleChars.contains c))
+        then s!"|{str}|" -- create quoted smt symbol
+        else str
+
+instance : ToString SmtSymbol where
+  toString := SmtSymbol.toString
 
 @[inline] private partial def SortExpr.toString (e : SortExpr) : String :=
   match e with
-  | .SymbolSort nm => nm
+  | .SymbolSort nm => nm.toString
   | .ParamSort nm ps =>
       let sps := Array.foldl (fun acc a => s!"{acc} {SortExpr.toString a}") "" ps
       s!"({nm} {sps})"
-
 
 instance : ToString SortExpr where
   toString := SortExpr.toString
@@ -126,7 +165,7 @@ instance : ToString SortedVars where
 
 @[inline] private def SmtQualifiedIdent.toString (id : SmtQualifiedIdent) : String :=
   match id with
-  | .SimpleIdent nm => nm
+  | .SimpleIdent nm => nm.toString
   | .QualifiedIdent nm t => s!"(as {nm} {t})"
 
 instance : ToString SmtQualifiedIdent where
@@ -170,7 +209,7 @@ mutual
    where
      isIteApp (nm : SmtQualifiedIdent) : Bool :=
       match nm with
-      | .SimpleIdent "ite" => true
+      | .SimpleIdent (.ReservedSymbol "ite") => true
       | _ => false
 
 end
@@ -182,7 +221,7 @@ instance : ToString SmtTerm where
   toString := SmtTerm.toString
 
 @[inline] private def SmtSelector.toString (s : SmtSelector) : String :=
-  s!"( {s.1} {s.2} )"
+  s!"({s.1} {s.2})"
 
 instance : ToString SmtSelector where
   toString := SmtSelector.toString
@@ -193,33 +232,31 @@ instance : ToString SmtSelector where
     match decl.2 with
     | none => ""
     | some sel => Array.foldl (fun acc a => s!"{acc} {a}") "" sel
-  s!"( {decl.1} {selstr} )\n"
+  s!"({decl.1} {selstr})\n"
 
 instance : ToString SmtConstructorDecl where
   toString := SmtConstructorDecl.toString
 
 
 @[inline] private def SmtDatatypeDecl.toString (d : SmtDatatypeDecl) : String :=
-  let parstr :=
-    match d.params with
-    | none => ""
-    | some args =>
-       let sargs := Array.foldl (fun acc a => s!"{acc} {a}" ) "" args
-       s!"par ( {sargs} )"
   let declstr := Array.foldl (fun acc d => s!"{acc} {d}" ) "" d.ctors
-  s!"( {parstr} ( {declstr} ) )"
+  match d.params with
+  | none => s!"({declstr})"
+  | some args =>
+     let sargs := Array.foldl (fun acc a => s!"{acc} {a}" ) "" args
+     s!"(par ({sargs}) ({declstr}))"
 
 instance : ToString SmtDatatypeDecl where
   toString := SmtDatatypeDecl.toString
 
 @[inline] private def SmtSortDecl.toString (d : SmtSortDecl) : String :=
-  s!"( {d.name} {d.arity} )"
+  s!"({d.name} {d.arity})"
 
 instance : ToString SmtSortDecl where
   toString := SmtSortDecl.toString
 
 @[inline] private def SmtFunDecl.toString (d : SmtFunDecl) : String :=
-  s!"( {d.name} ( {d.params} ) {d.ret} )"
+  s!"({d.name} ({d.params}) {d.ret})"
 
 instance : ToString SmtFunDecl where
   toString := SmtFunDecl.toString
