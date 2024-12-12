@@ -57,7 +57,7 @@ def reduceApp? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
      if !(← isRecursiveFun n) then return none
      if !(← allExplicitParamsAreCtor f args) then return none
      let some fbody ← getFunBody f
-      | throwError f!"reduceApp?: recursive function body expected for {reprStr f}"
+      | throwEnvError f!"reduceApp?: recursive function body expected for {reprStr f}"
      return (Expr.beta fbody args)
 
    isMatchReduction? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
@@ -145,7 +145,9 @@ def normPartialFun? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr)
     Assumes that any entry exists for each opaque recursive function in `recFunMap` before optimization is performed
     (see function `cacheOpaqueRecFun`).
 -/
-def normOpaqueAndRecFun (f : Expr) (args: Array Expr) (optimizer : Expr -> TranslateEnvT Expr) : TranslateEnvT Expr := do
+def normOpaqueAndRecFun
+  (f : Expr) (args: Array Expr)
+  (optimizer : Expr -> TranslateEnvT Expr) : TranslateEnvT Expr := do
  let Expr.const n _ := f | return (← mkAppExpr f args)
  if (← isRecursiveFun n)
  then
@@ -154,13 +156,13 @@ def normOpaqueAndRecFun (f : Expr) (args: Array Expr) (optimizer : Expr -> Trans
    -- get instance application
    let instApp ← getInstApp f params
    if (← isVisitedRecFun instApp)
-   then optimizeApp f args -- already cached
+   then optimizeRecApp f args -- already cached
    else
      if let some r ← hasRecFunInst? instApp then
-        return (← optimizeApp (r.beta params.genericArgs) args[params.instanceArgs.size : args.size])
+        return (← optimizeRecApp (r.beta params.genericArgs) args[params.instanceArgs.size : args.size])
      cacheFunName instApp -- cache function name
      let some fbody ← getFunBody f
-       | throwError "normOpaqueAndRecFun: recursive function body expected for {reprStr f}"
+       | throwEnvError f!"normOpaqueAndRecFun: recursive function body expected for {reprStr f}"
      -- instantiating polymorphic parameters in fun body
      let fdef ← generalizeRecCall f params fbody
      -- optimize recursive fun definition and store
@@ -168,10 +170,14 @@ def normOpaqueAndRecFun (f : Expr) (args: Array Expr) (optimizer : Expr -> Trans
      -- only considering explicit args when instantiating
      -- as storeRecFunDef already handled implicit arguments
      -- NOTE: optimizations on cached opaque recursive functions required
-     optimizeApp (fn'.beta params.genericArgs) args[params.instanceArgs.size : args.size]
+     optimizeRecApp (fn'.beta params.genericArgs) args[params.instanceArgs.size : args.size]
    else optimizeApp f args -- optimizations on opaque functions
 
  where
+   optimizeRecApp (rf : Expr) (rargs : Array Expr) : TranslateEnvT Expr := do
+     if rargs.size == 0 then return rf
+     else optimizeApp rf rargs
+
    optimizeFunBody (n : Name) (fbody : Expr) : TranslateEnvT Expr := do
      if recFunsToNormalize.contains n
      then withOptimizeRecBody $ optimizer fbody

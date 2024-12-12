@@ -22,7 +22,7 @@ def updateDecideInstance (args : Array Expr) : TranslateEnvT (Array Expr) := do
     An error is trigerred if args.size ≠ 2.
 -/
 partial def optimizeDecideCore (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
-  if args.size != 2 then throwError f!"optimizeDecideCore: two arguments expected but got {reprStr args}"
+  if args.size != 2 then throwEnvError f!"optimizeDecideCore: two arguments expected but got {reprStr args}"
   -- args[0] proposition
   -- args[1] decidable instance
   let p := args[0]!

@@ -1,6 +1,5 @@
 import Lean
-import Solver.Optimize.Rewriting.Utils
-import Solver.Optimize.Env
+import Solver.Optimize.Rewriting.OptimizeForAll
 
 open Lean Meta
 namespace Solver.Optimize
@@ -12,12 +11,11 @@ namespace Solver.Optimize
      - e ∧ ¬ e ==> False
      - e1 ∧ e2 ==> e2 ∧ e1 (if e2 <ₒ e1)
    Assume that f = Expr.const ``And.
-   Do nothing if operator is partially applied (i.e., args.size < 2)
-   NOTE: The `reduceApp` rule will not reduce `And` applied to `Prop` constructors.
+   An error is triggered when args.size ≠ 2 (i.e., only fully applied `And` expected at this stage)
    TODO: consider additional simplification rules
 -/
 def optimizeAnd (f : Expr) (args : Array Expr) (cacheResult := true) : TranslateEnvT Expr := do
- if args.size != 2 then return (← mkAppExpr f args)
+ if args.size != 2 then throwEnvError "optimizeAnd: exactly two arguments expected"
  let opArgs ← reorderPropOp args -- error triggered when args.size ≠ 2
  let op1 := opArgs[0]!
  let op2 := opArgs[1]!
@@ -36,12 +34,11 @@ def optimizeAnd (f : Expr) (args : Array Expr) (cacheResult := true) : Translate
      - e ∨ ¬ e ==> True (classical)
      - e1 ∨ e2 ==> e2 ∨ e1 (if e2 <ₒ e1)
    Assume that f = Expr.const ``Or.
-   Do nothing if operator is partially applied (i.e., args.size < 2)
-   NOTE: The `reduceApp` rule will not reduce `Or` applied to `Prop` constructors.
+   An error is triggered when args.size ≠ 2 (i.e., only fully applied `Or` expected at this stage)
    TODO: consider additional simplification rules
 -/
 def optimizeOr (f : Expr) (args : Array Expr) (cacheResult := true) : TranslateEnvT Expr := do
- if args.size != 2 then return (← mkAppExpr f args)
+ if args.size != 2 then throwEnvError "optimizeOr: exactly two arguments expected"
  let opArgs ← reorderPropOp args -- error triggered when args.size ≠ 2
  let op1 := opArgs[0]!
  let op2 := opArgs[1]!
@@ -52,5 +49,15 @@ def optimizeOr (f : Expr) (args : Array Expr) (cacheResult := true) : TranslateE
  -- should not cache at this stage as optimizeAnd is called
  -- by optimizeBoolPropOr
  mkExpr (mkApp2 f op1 op2) cacheResult
+
+
+/-- Normalize `p ↔ p` to `p → q ∧ p → q`
+    An error is triggered when args.size ≠ 2 (i.e., only fully applied `↔` expected at this stage)
+-/
+def optimizeIff (args : Array Expr) : TranslateEnvT Expr := do
+ if args.size != 2 then throwEnvError "optimizeIff: exactly two arguments expected"
+ let op1 := args[0]!
+ let op2 := args[1]!
+ optimizeAnd (← mkPropAndOp) #[← mkImpliesExpr op1 op2, ← mkImpliesExpr op2 op1]
 
 end Solver.Optimize

@@ -12,12 +12,11 @@ namespace Solver.Optimize
      - - (N) ==> "-" N
      - - (- n) ==> n
    Assume that f = Expr.const ``Int.neg.
-   An error is triggered if args.size ≠ 1.
-   NOTE: `Int.neg` on constant values are handled via `reduceApp`.
+   An error is triggered if args.size ≠ 1 (i.e., only fully applied `Int.neg` expected at this stage)
    TODO: consider additional simplification rules
 -/
 def optimizeIntNeg (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
- if args.size != 1 then throwError "optimizeIntNeg: only one argument expected"
+ if args.size != 1 then throwEnvError "optimizeIntNeg: only one argument expected"
  let op := args[0]!
  if let some n1 := isIntValue? op then return (← mkIntLitExpr (Int.neg n1))
  if let some e := intNeg? op then return e
@@ -32,11 +31,11 @@ def optimizeIntNeg (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      - n1 + (-n2) ==> 0 if (if n1 =ₚₜᵣ n2)
      - n1 + n2 ==> n2 + n1 (if n2 <ₒ n1)
    Assume that f = Expr.const ``Int.add.
-   Do nothing if operator is partially applied (i.e., args.size < 2)
-   NOTE: `Int.add` on constant values are handled via `reduceApp`.
+   An error is triggered when args.size ≠ 2 (i.e., only fully applied `Int.add` expected at this stage)
+
 -/
 partial def optimizeIntAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
- if args.size != 2 then return (← mkAppExpr f args)
+ if args.size != 2 then throwEnvError "optimizeIntAdd: exactly two arguments expected"
  let opArgs ← reorderIntOp args -- error triggered when args.size ≠ 2
  let op1 := opArgs[0]!
  let op2 := opArgs[1]!
@@ -74,11 +73,10 @@ partial def optimizeIntAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr :
      - N1 * (N2 * n) ==> (N1 "*" N2) * n
      - n1 * n2 ==> n2 * n1 (if n2 <ₒ n1)
    Assume that f = Expr.const ``Int.mul.
-   Do nothing if operator is partially applied (i.e., args.size < 2)
-   NOTE: `Int.mul` on constant values are handled via `reduceApp`.
+   An error is triggered when args.size ≠ 2 (i.e., only fully applied `Int.mul` expected at this stage)
 -/
 def optimizeIntMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
- if args.size != 2 then return (← mkAppExpr f args)
+ if args.size != 2 then throwEnvError "optimizeIntMul: exactly two arguments expected"
  let opArgs ← reorderIntOp args -- error triggered when args.size ≠ 2
  let op1 := opArgs[0]!
  let op2 := opArgs[1]!
@@ -117,10 +115,9 @@ def intNegOfNat? (n : Expr) : Option Expr :=
      - Int.toNat (Int.neg (Int.ofNat e)) ===> 0
    Assume that f = Expr.const ``Int.toNat.
    An error is triggered if args.size ≠ 1.
-   NOTE: `Int.toNat` on constant values are handled via `reduceApp`.
 -/
 def optimizeIntToNat (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
- if args.size != 1 then throwError "optimizeIntToNat: only one argument expected"
+ if args.size != 1 then throwEnvError "optimizeIntToNat: only one argument expected"
  let op := args[0]!
  if let some n := isIntValue? op then return (← mkNatLitExpr (Int.toNat n))
  if let some e := op.app1? ``Int.ofNat then return e
@@ -132,7 +129,7 @@ def optimizeIntToNat (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
     Assume that f = Expr.const ``Int.negSucc.
 -/
 def optimizeIntNegSucc (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
- if args.size != 1 then throwError "optimizeIntNegSucc: only one argument expected"
+ if args.size != 1 then throwEnvError "optimizeIntNegSucc: only one argument expected"
  let op := args[0]!
  if let some .. := isNatValue? op then return (← mkAppExpr f args)
  let addExpr ← optimizeNatAdd (← mkNatAddOp) #[← mkNatLitExpr 1, args[0]!]
@@ -155,6 +152,6 @@ def optimizeInt? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) :=
   | ``Int.negSucc => optimizeIntNegSucc f args
   | ``Int.toNat => optimizeIntToNat f args
   | ``Int.le => optimizeIntLe args
-  | _=> pure none
+  | _=> return none
 
 end Solver.Optimize

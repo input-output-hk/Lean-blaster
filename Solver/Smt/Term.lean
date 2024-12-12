@@ -6,18 +6,42 @@ open Lean Meta
 
 namespace Solver.Smt
 
-/-! ## Lean Inductive types having an SMT counterpart -/
+/-! ## Lean Inductive types having an Smt counterpart -/
 
-/-! ## Builtin SMT sorts. -/
+/-! ## Builtin Smt sort names. -/
+
+/-! Smt Int symbol. -/
+def intSymbol : SmtSymbol := "Int"
+
+/-! Smt Bool symbol. -/
+def boolSymbol : SmtSymbol := "Bool"
+
+/-! Smt String symbol. -/
+def stringSymbol : SmtSymbol := "String"
+
+/-! Smt Nat symbol. -/
+def natSymbol : SmtSymbol := "Nat"
+
+/-! Smt Empty symbol. -/
+def emptySymbol : SmtSymbol := "Empty"
+
+/-! Smt PEmpty symbol. -/
+def pemptySymbol : SmtSymbol := "PEmpty"
+
+/-! Smt universal type symbol. -/
+def typeSymbol : SmtSymbol := "@@Type"
+
+
+/-! ## Builtin Smt sorts. -/
 
 /-! Smt Int Sort. -/
-def intSort : SortExpr := .SymbolSort "Int"
+def intSort : SortExpr := .SymbolSort intSymbol
 
 /-! Smt Bool Sort. -/
-def boolSort : SortExpr := .SymbolSort "Bool"
+def boolSort : SortExpr := .SymbolSort boolSymbol
 
 /-! Smt String Sort. -/
-def stringSort : SortExpr := .SymbolSort "String"
+def stringSort : SortExpr := .SymbolSort stringSymbol
 
 /-! Smt Array Sort -/
 def arraySort (args: Array SortExpr) : SortExpr :=
@@ -27,263 +51,335 @@ def arraySort (args: Array SortExpr) : SortExpr :=
     NOTE: This sort is defined during translation whenever required.
     (see function `defineNatSort`)
 -/
-def natSort : SortExpr := .SymbolSort "Nat"
+def natSort : SortExpr := .SymbolSort natSymbol
+
+/-! Smt Empty Sort.
+    NOTE: This sort is declared during translation whenever required.
+    (see function `defineEmptySort`)
+-/
+def emptySort : SortExpr := .SymbolSort emptySymbol
+
+/-! Smt PEmpty Sort.
+    NOTE: This sort is declared during translation whenever required.
+    (see function `definePEmptySort`)
+-/
+def pemptySort : SortExpr := .SymbolSort pemptySymbol
+
+/-! Smt @@Type Sort used to denote universal sort
+    NOTE: This sort is declared during translation whenever required.
+    (see function `defineTypeSort`).
+-/
+def typeSort : SortExpr := .SymbolSort typeSymbol
 
 -- TODO: add other sort once supported, e.g., BitVec, Unicode (for char), Seq, etc
 
 
-/-! ## Builtin SMT symbols. -/
+/-! ## Builtin Smt symbols. -/
 
-/-! equality SMT symbol. -/
+/-! equality Smt symbol. -/
 def eqSymbol : SmtSymbol := "="
 
-/-! Boolean `not` SMT symbol -/
+/-! Boolean `not` Smt symbol -/
 def notSymbol : SmtSymbol := "not"
 
-/-! Boolean `and` SMT symbol. -/
+/-! Boolean `and` Smt symbol. -/
 def andSymbol : SmtSymbol := "and"
 
-/-! Boolean `or` SMT symbol. -/
+/-! Boolean `or` Smt symbol. -/
 def orSymbol : SmtSymbol := "or"
 
-/-! Implies SMT symbol. -/
+/-! Implies Smt symbol. -/
 def impSymbol : SmtSymbol := "=>"
 
-/-! Integer addition SMT symbol. -/
+/-! Integer addition Smt symbol. -/
 def addSymbol : SmtSymbol := "+"
 
-/-! Integer subtraction SMT symbol. -/
+/-! Integer subtraction Smt symbol. -/
 def subSymbol : SmtSymbol := "-"
 
-/-! Integer multiplication SMT symbol. -/
+/-! Integer multiplication Smt symbol. -/
 def mulSymbol : SmtSymbol := "*"
 
-/-! Integer native SMT division symbol. -/
+/-! Integer native Smt division symbol. -/
 def divSymbol : SmtSymbol := "div"
 
-/-! Integer native SMT modulo symbol. -/
+/-! Integer native Smt modulo symbol. -/
 def modSymbol : SmtSymbol := "mod"
 
-/-! Integer Euclidean division SMT symbol.
+/-! Integer Euclidean division Smt symbol.
     NOTE: This function is defined during translation whenever required.
 -/
 def edivSymbol : SmtSymbol := "Int.ediv"
 
-/-! Integer Euclidean modulo SMT symbol.
+/-! Integer Euclidean modulo Smt symbol.
     NOTE: This function is defined during translation whenever required.
 -/
 def emodSymbol : SmtSymbol := "Int.emod"
 
-/-! Integer truncate division SMT symbol.
+/-! Integer truncate division Smt symbol.
     NOTE: This function is defined during translation whenever required.
 -/
 def tdivSymbol : SmtSymbol := "Int.div"
 
-/-! Integer truncate modulo SMT symbol.
+/-! Integer truncate modulo Smt symbol.
     NOTE: This function is defined during translation whenever required.
 -/
 def tmodSymbol : SmtSymbol := "Int.mod"
 
-/-! Integer floor division SMT symbol.
+/-! Integer floor division Smt symbol.
     NOTE: This function is defined during translation whenever required.
 -/
 def fdivSymbol : SmtSymbol := "Int.fdiv"
 
-/-! Integer floor modulo SMT symbol.
+/-! Integer floor modulo Smt symbol.
     NOTE: This function is defined during translation whenever required.
 -/
 def fmodSymbol : SmtSymbol := "Int.fmod"
 
-/-! Integer to Nat SMT symbol.
+/-! Integer to Nat Smt symbol.
     NOTE: This function is defined during translation whenever required.
 -/
 def toNatSymbol : SmtSymbol := "Int.toNat"
 
+/-! Integer cast Smt symbol.
+    NOTE: Only available in z3.
+    This cast function is mainly used as a wrapper around power to
+    to only handle positive exponentiation.
+    Indeed, negative exponentiation can lead to a Real representation,
+    which cannot be the case for Lean4 pow for both Int and Nat.
+-/
+def toIntSymbol : SmtSymbol := "to_int"
 
-/-! Nat subtraction SMT symbol.
+/-! Native integer power Smt symbol. -/
+def powSymbol : SmtSymbol := "^"
+
+/-! Integer power Smt symbol.
+    NOTE: This function is defined during translation whenever required.
+-/
+def intPowSymbol : SmtSymbol := "Int.pow"
+
+/-! Nat subtraction Smt symbol.
     NOTE: This function is defined during translation whenever required.
 -/
 def natSubSymbol : SmtSymbol := "Nat.sub"
 
-/-! Integer absolute SMT symbol. -/
+/-! Integer absolute Smt symbol. -/
 def absSymbol : SmtSymbol := "abs"
 
-/-! less than SMT symbol. -/
+/-! less than Smt symbol. -/
 def ltSymbol : SmtSymbol := "<"
 
-/-! less than or equal to SMT symbol. -/
+/-! less than or equal to Smt symbol. -/
 def leqSymbol : SmtSymbol := "<="
 
-/-! if-then-else SMT symbol. -/
+/-! if-then-else Smt symbol. -/
 def iteSymbol : SmtSymbol := "ite"
 
-/-! underscore SMT symbol. -/
+/-! underscore Smt symbol. -/
 def underSymbol : SmtSymbol := "_"
 
-/-! select SMT symbol. -/
+/-! select Smt symbol. -/
 def selectSymbol : SmtSymbol := "select"
 
 /-! as-array Smt symbol. -/
 def asArraySymbol : SmtSymbol := "as-array"
 
-/-! Create an SMT application term with function name `nm` and parameters `args`. -/
-def mkSmtAppN (nm : SmtSymbol) (args : Array SmtTerm) : SmtTerm := .AppTerm nm args
+/-! Create an Smt application term with function name `nm` and parameters `args`. -/
+def mkSmtAppN (nm : SmtQualifiedIdent) (args : Array SmtTerm) : SmtTerm := .AppTerm nm args
 
-/-! ## Builtin SMT functions. -/
+/-! Same as mkSmtAppN but accepts an Smt symbol as function name. -/
+def mkSimpleSmtAppN (nm : SmtSymbol) (args : Array SmtTerm) : SmtTerm :=
+  mkSmtAppN (.SimpleIdent nm) args
 
-/-! Create an Equality SMT application -/
+/-! ## Builtin Smt functions. -/
+
+/-! Create an Equality Smt application -/
 def eqSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
-  mkSmtAppN eqSymbol #[op1, op2]
+  mkSimpleSmtAppN eqSymbol #[op1, op2]
 
-/-! Create an Boolean `not` SMT application -/
+/-! Create an Boolean `not` Smt application -/
 def notSmt (op : SmtTerm) : SmtTerm :=
-  mkSmtAppN notSymbol #[op]
+  mkSimpleSmtAppN notSymbol #[op]
 
-/-! Create an Boolean `and` SMT application -/
+/-! Create an Boolean `and` Smt application -/
 def andSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
-  mkSmtAppN andSymbol #[op1, op2]
+  mkSimpleSmtAppN andSymbol #[op1, op2]
 
-/-! Create an Boolean `or` SMT application -/
+/-! Create an Boolean `or` Smt application -/
 def orSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
-  mkSmtAppN orSymbol #[op1, op2]
+  mkSimpleSmtAppN orSymbol #[op1, op2]
 
-/-! Create an Implies SMT application -/
+/-! Create an Implies Smt application -/
 def impliesSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
-  mkSmtAppN impSymbol #[op1, op2]
+  mkSimpleSmtAppN impSymbol #[op1, op2]
 
-/-! Create an Integer addtion SMT application -/
+/-! Create an Integer addtion Smt application -/
 def addSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
-  mkSmtAppN addSymbol #[op1, op2]
+  mkSimpleSmtAppN addSymbol #[op1, op2]
 
-/-! Create an Integer subtraction SMT application -/
+/-! Create an Integer subtraction Smt application -/
 def subSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
-  mkSmtAppN subSymbol #[op1, op2]
+  mkSimpleSmtAppN subSymbol #[op1, op2]
 
 
-/-! Create an Integer multiplication SMT application -/
+/-! Create an Integer multiplication Smt application -/
 def mulSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
-  mkSmtAppN mulSymbol #[op1, op2]
+  mkSimpleSmtAppN mulSymbol #[op1, op2]
 
-/-! Create an Integer native division SMT application -/
+/-! Create an Integer native division Smt application -/
 def divSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
-  mkSmtAppN divSymbol #[op1, op2]
+  mkSimpleSmtAppN divSymbol #[op1, op2]
 
-/-! Create an Integer native modulo SMT application -/
+/-! Create an Integer native modulo Smt application -/
 def modSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
-  mkSmtAppN modSymbol #[op1, op2]
+  mkSimpleSmtAppN modSymbol #[op1, op2]
 
-/-! Create an Integer negation SMT application -/
+/-! Create an Integer negation Smt application -/
 def negSmt (op : SmtTerm) : SmtTerm :=
-  mkSmtAppN subSymbol #[op]
+  mkSimpleSmtAppN subSymbol #[op]
 
-/-! Create an Integer Euclidean division SMT application. -/
+/-! Create an Integer Euclidean division Smt application. -/
 def edivSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
-  mkSmtAppN edivSymbol #[op1, op2]
+  mkSimpleSmtAppN edivSymbol #[op1, op2]
 
-/-! Create an Integer Euclidean modulo SMT application. -/
+/-! Create an Integer Euclidean modulo Smt application. -/
 def emodSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
-  mkSmtAppN emodSymbol #[op1, op2]
+  mkSimpleSmtAppN emodSymbol #[op1, op2]
 
-/-! Create an Integer truncate division SMT application. -/
+/-! Create an Integer truncate division Smt application. -/
 def tdivSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
-  mkSmtAppN tdivSymbol #[op1, op2]
+  mkSimpleSmtAppN tdivSymbol #[op1, op2]
 
-/-! Create an Integer truncate modulo SMT application. -/
+/-! Create an Integer truncate modulo Smt application. -/
 def tmodSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
-  mkSmtAppN tmodSymbol #[op1, op2]
+  mkSimpleSmtAppN tmodSymbol #[op1, op2]
 
 
-/-! Create an Integer floor division SMT application. -/
+/-! Create an Integer floor division Smt application. -/
 def fdivSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
-  mkSmtAppN fdivSymbol #[op1, op2]
+  mkSimpleSmtAppN fdivSymbol #[op1, op2]
 
-/-! Create an Integer floor modulo SMT application. -/
+/-! Create an Integer floor modulo Smt application. -/
 def fmodSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
-  mkSmtAppN fmodSymbol #[op1, op2]
+  mkSimpleSmtAppN fmodSymbol #[op1, op2]
 
-/-! Create an Integer to Nat SMT conversion. -/
+/-! Create an Integer to Nat Smt conversion. -/
 def toNatSmt (op : SmtTerm) : SmtTerm :=
-  mkSmtAppN toNatSymbol #[op]
+  mkSimpleSmtAppN toNatSymbol #[op]
 
-/-! Create a Nat subtraction SMT application -/
+/-! Create a native Integer power Smt application. -/
+def powSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
+  mkSimpleSmtAppN toIntSymbol #[mkSimpleSmtAppN powSymbol #[op1, op2]]
+
+/-! Create an Integer power Smt application. -/
+def intPowSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
+  mkSimpleSmtAppN intPowSymbol #[op1, op2]
+
+/-! Create a Nat subtraction Smt application -/
 def natSubSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
-  mkSmtAppN natSubSymbol #[op1, op2]
+  mkSimpleSmtAppN natSubSymbol #[op1, op2]
 
-
-/-! Create a Nat division SMT application.
+/-! Create a Nat division Smt application.
     NOTE: This is an alias to Int.ediv at Smt level.
 -/
 def natDivSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
-  mkSmtAppN edivSymbol #[op1, op2]
+  edivSmt op1 op2
 
-/-! Create a Nat modulo SMT application.
+/-! Create a Nat modulo Smt application.
     NOTE: This is an alias to Int.emod at Smt level.
 -/
 def natModSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
-  mkSmtAppN emodSymbol #[op1, op2]
+  emodSmt op2 op1
 
-/-! Create an Integer absolute SMT application. -/
+/-! Create an Nat power Smt application.
+    NOTE: This is an alias to Int.pow at Smt level.
+-/
+def natPowSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
+  intPowSmt op1 op2
+
+/-! Create an Integer absolute Smt application. -/
 def absSmt (op : SmtTerm) : SmtTerm :=
-  mkSmtAppN absSymbol #[op]
+  mkSimpleSmtAppN absSymbol #[op]
 
 
 /-! Create a less than Smt application. -/
 def ltSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
-  mkSmtAppN ltSymbol #[op1, op2]
+  mkSimpleSmtAppN ltSymbol #[op1, op2]
 
 /-! Create a less or equal to Smt application. -/
 def leqSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
-  mkSmtAppN leqSymbol #[op1, op2]
+  mkSimpleSmtAppN leqSymbol #[op1, op2]
 
 
-/-! Create an if-then-else SMT application. -/
+/-! Create an if-then-else Smt application. -/
 def iteSmt (c : SmtTerm) (t : SmtTerm) (e : SmtTerm) : SmtTerm :=
-  mkSmtAppN iteSymbol #[c, t, e]
+  mkSimpleSmtAppN iteSymbol #[c, t, e]
 
-/-! Create an as-array SMT application (i.e., converting a function to an array representation). -/
-def asArraySmt (f : SmtSymbol) : SmtTerm :=
-  mkSmtAppN underSymbol #[.SmtIdent asArraySymbol, .SmtIdent f]
+/-! Create an as-array Smt application (i.e., converting a function to an array representation). -/
+def asArraySmt (f : SmtQualifiedIdent) : SmtTerm :=
+  mkSimpleSmtAppN underSymbol #[.SmtIdent (.SimpleIdent asArraySymbol), .SmtIdent f]
 
-/-! Create a select SMT application (i.e., applying an fun array representation to its arguments). -/
-def selectSmt (f : SmtSymbol) (args : Array SmtTerm) : SmtTerm :=
-  mkSmtAppN selectSymbol (#[.SmtIdent f] ++ args)
+/-! Create a select Smt application (i.e., applying an fun array representation to its arguments). -/
+def selectSmt (f : SmtQualifiedIdent) (args : Array SmtTerm) : SmtTerm :=
+  mkSimpleSmtAppN selectSymbol (#[.SmtIdent f] ++ args)
 
-/-! Convert an Integer literal to an SMT representation. -/
+/-! Return `true` Smt term. -/
+def trueSmt : SmtTerm := .BoolTerm true
+
+/-! Return `false` Smt term. -/
+def falseSmt : SmtTerm := .BoolTerm false
+
+
+/-! Convert an Integer literal to an Smt representation. -/
 def intLitSmt (n : Int) : SmtTerm :=
  match n with
  | Int.ofNat n => .NumTerm n
  | Int.negSucc n => negSmt (.NumTerm (Nat.add n 1))
 
 
-/-! Convert an Nat literal to an SMT representation. -/
+/-! Convert an Nat literal to an Smt representation. -/
 def natLitSmt (n : Nat) : SmtTerm := .NumTerm n
 
-/-! Convert an String literal to an SMT representation. -/
+/-! Convert an String literal to an Smt representation. -/
 def strLitSmt (s : String) : SmtTerm := .StrTerm s!"\"{s}\""
 
-/-! Create an SMT variable identifier. -/
-def smtVarId (nm : SmtSymbol) : SmtTerm := .SmtIdent nm
+/-! Create an Smt variable identifier. -/
+def smtSimpleVarId (nm : SmtSymbol) : SmtTerm := .SmtIdent (.SimpleIdent nm)
 
+/-! Create an Smt qualified variable identifier. -/
+def smtQualifiedVarId (nm : SmtSymbol) (t : SortExpr) : SmtTerm :=
+  .SmtIdent (.QualifiedIdent nm t)
 
-/-! Create an e-matching pattern to be used for a forall or an exists SMT term. -/
+/-- Create an Smt symbol from a free variable id.
+    The Smt symbol will correspond to the user-defined name
+    associated to the free variable id.
+-/
+def fvarIdToSmtSymbol (v : FVarId) : MetaM SmtSymbol := do
+  return s!"{← v.getUserName}"
+
+/-! Create an Smt term from a free variable. -/
+def fvarIdToSmtTerm (v : FVarId) : MetaM SmtTerm :=
+  return smtSimpleVarId (← fvarIdToSmtSymbol v)
+
+/-! Create an e-matching pattern to be used for a forall or an exists Smt term. -/
 def mkPattern (patterns : Array SmtTerm) : SmtAttribute := .Pattern patterns
 
-/-! Create a debug annotation name for a forall/exists SMT term. -/
+/-! Create a debug annotation name for a forall/exists Smt term. -/
 def mkQid (n : String) : SmtAttribute := .Qid n
 
-/-! Annotate an SMT term with an optional list of attributes. -/
+/-! Annotate an Smt term with an optional list of attributes. -/
 def annotateTerm (t : SmtTerm) (opt : Option (Array SmtAttribute)) : SmtTerm :=
   match opt with
   | none => t
   | some atts => .AnnotatedTerm t atts
 
-/-! Associate an optional name `nm` to an SMT term. -/
+/-! Associate an optional name `nm` to an Smt term. -/
 def nameTerm (t : SmtTerm) (nm : Option String) : SmtTerm :=
   match nm with
   | none => t
   | some nmThm => .AnnotatedTerm t #[.Named nmThm]
 
-/-! Create a forall SMT Term, with quantifiers `vars` and body `b`.
+/-! Create a forall Smt Term, with quantifiers `vars` and body `b`.
     An optional theorem name `nmThm` can be provided as well as
     specific patterns to facilitate e-matching and debugging
     during solving.
@@ -293,7 +389,7 @@ def mkForallTerm (nmThm : Option String) (vars : SortedVars) (b : SmtTerm) (att 
   let forallTerm := .ForallTerm vars bodyTerm
   nameTerm forallTerm nmThm
 
-/-! Create an existential SMT Term, with quantifiers `vars` and body `b`.
+/-! Create an existential Smt Term, with quantifiers `vars` and body `b`.
     An optional theorem name `nmThm` can be provided as well as
     specific patterns to facilitate e-matching and debugging
     during solving.
@@ -303,12 +399,48 @@ def mkExistsTerm (nmThm : Option String) (vars : SortedVars) (b : SmtTerm) (att 
   let existsTerm := .ExistsTerm vars bodyTerm
   nameTerm existsTerm nmThm
 
-/-! Create a lambda SMT term with parameters `args` and body `b`. -/
+/-! Create a lambda Smt term with parameters `args` and body `b`. -/
 def mkLambdaTerm (args : SortedVars) (b : SmtTerm) : SmtTerm := .LambdaTerm args b
 
-/-! Create a let SMT term with bindings `binds` and body `b`. -/
+/-! Create a let Smt term with bindings `binds` and body `b`. -/
 def mkLetTerm (binds : Array (SmtSymbol × SmtTerm)) (b : SmtTerm) : SmtTerm :=
   .LetTerm binds b
 
+/-! ## Helper functions. -/
+
+/-! Return `true` when `t := BoolTerm true`.
+    Otherwise `false`.
+-/
+def isTrueSmt (t : SmtTerm) : Bool :=
+  match t with
+  | .BoolTerm b => b
+  | _ => false
+
+/-! Return `true` when `t := AppTerm idt args`.
+    Otherwise `false`.
+-/
+def isAppTerm (t : SmtTerm) : Bool :=
+  match t with
+  | .AppTerm .. => true
+  | _ => false
+
+/-! Determine if `t` is an equality Smt expression and return it's correponding arguments.
+    Otherwise return `none`.
+-/
+def eqSmt? (t : SmtTerm) : Option (SmtTerm × SmtTerm) :=
+ match t with
+ | .AppTerm (.SimpleIdent sym) args =>
+     if sym == eqSymbol
+     then (args[0]!, args[1]!)
+     else none
+ | _ => none
+
+/-! Return `true` when `t` corresponds to ParamSort with name `nm`.
+   Otherwise `false`.
+-/
+def isParamSort (t : SortExpr) (sName : SmtSymbol) : Bool :=
+  match t with
+  | .ParamSort nm _ => nm == sName
+  | .SymbolSort _ => false
 
 end Solver.Smt

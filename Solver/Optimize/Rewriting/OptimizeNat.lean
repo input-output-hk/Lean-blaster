@@ -13,11 +13,10 @@ namespace Solver.Optimize
      - N1 + (N2 + n) ==> (N1 "+" N2) + n
      - n1 + n2 ==> n2 + n1 (if n2 <ₒ n1)
    Assume that f = Expr.const ``Nat.add.
-   Do nothing if operator is partially applied (i.e., args.size < 2)
-   NOTE: `Nat.add` on constant values are handled via `reduceApp`.
+   An error is triggered when args.size ≠ 2 (i.e., only fully applied `Nat.add` expected at this stage)
 -/
 partial def optimizeNatAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
- if args.size != 2 then return (← mkAppExpr f args)
+ if args.size != 2 then throwEnvError "optimizeNatAdd: exactly two arguments expected"
  let opArgs ← reorderNatOp args -- error triggered when args.size ≠ 2
  let op1 := opArgs[0]!
  let op2 := opArgs[1]!
@@ -49,12 +48,11 @@ partial def optimizeNatAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr :
      - (n - N1) - N2 ==> n - (N1 "+" N2)
      - (N1 + n) - N2 ==> (N1 "-" N2) + n (if N1 ≥ N2)
    Assume that f = Expr.const ``Nat.sub.
-   Do nothing if operator is partially applied (i.e., args.size < 2)
-   NOTE: `Nat.sub` on constant values are handled via `reduceApp`.
+   An error is triggered when args.size ≠ 2 (i.e., only fully applied `Nat.sub` expected at this stage)
    TODO: consider additional simplification rules
 -/
 partial def optimizeNatSub (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
- if args.size != 2 then return (← mkAppExpr f args)
+ if args.size != 2 then throwEnvError "optimizeNatSub: exactly two arguments expected"
  let op1 := args[0]!
  let op2 := args[1]!
  if (← exprEq op1 op2) then return (← mkNatLitExpr 0)
@@ -115,11 +113,10 @@ partial def optimizeNatSub (f : Expr) (args : Array Expr) : TranslateEnvT Expr :
      - N1 * (N2 * n) ==> (N1 "*" N2) * n
      - n1 * n2 ==> n2 * n1 (if n2 <ₒ n1)
    Assume that f = Expr.const ``Nat.mul.
-   Do nothing if operator is partially applied (i.e., args.size < 2)
-   NOTE: `Nat.mul` on constant values are handled via `reduceApp`.
+   An error is triggered when args.size ≠ 2 (i.e., only fully applied `Nat.mul` expected at this stage)
 -/
 def optimizeNatMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
- if args.size != 2 then return (← mkAppExpr f args)
+ if args.size != 2 then throwEnvError "optimizeNatMul: exactly two arguments expected"
  let opArgs ← reorderNatOp args -- error triggered when args.size ≠ 2
  let op1 := opArgs[0]!
  let op2 := opArgs[1]!
@@ -168,11 +165,11 @@ def mulDivReduceExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := d
      - (m * n) / m | (n * m) / m ==> n
 
    Assume that f = Expr.const ``Nat.div.
-   Do nothing if operator is partially applied (i.e., args.size < 2)
-   NOTE: `Nat.div` on constant values are handled via `reduceApp`.
+   An error is triggered when args.size ≠ 2 (i.e., only fully applied `Nat.div` expected at this stage)
+
 -/
 partial def optimizeNatDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
- if args.size != 2 then return (← mkAppExpr f args)
+ if args.size != 2 then throwEnvError "optimizeNatDiv: exactly two arguments expected"
  let op1 := args[0]!
  let op2 := args[1]!
  match isNatValue? op1, isNatValue? op2 with
@@ -231,12 +228,11 @@ def modToZeroExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := do
      - n1 % n2 ==> 0 (if n1 =ₚₜᵣ n2)
      - (m * n) % m | (n * m) % m ==> 0
    Assume that f = Expr.const ``Nat.mod.
-   Do nothing if operator is partially applied (i.e., args.size < 2)
-   NOTE: `Nat.mod` on constant values are handled via `reduceApp`.
+   An error is triggered when args.size ≠ 2 (i.e., only fully applied `Nat.mod` expected at this stage)
 -/
 
 def optimizeNatMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
- if args.size != 2 then return (← mkAppExpr f args)
+ if args.size != 2 then throwEnvError "optimizeNatMod: exactly two arguments expected"
  let op1 := args[0]!
  let op2 := args[1]!
  match isNatValue? op1, isNatValue? op2 with
@@ -265,19 +261,16 @@ def optimizeNatMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 
 /-- Normalize `Nat.succ n` to `1 + n`.
     An error is triggered when args.size ≠ 1.
-    NOTE: `Nat.succ` on constant values are handled via `reduceApp`.
 -/
 def optimizeNatSucc (args : Array Expr) : TranslateEnvT Expr := do
- if args.size != 1 then throwError "optimizeNatSucc: only one argument expected"
+ if args.size != 1 then throwEnvError "optimizeNatSucc: only one argument expected"
  optimizeNatAdd (← mkNatAddOp) #[← mkNatLitExpr 1, args[0]!]
 
 /-- Normalize `Nat.pred n` to `n - 1`.
     An error is triggered when args.size ≠ 1.
-    Assume that f = Expr.const ``Nat.pred.
-    NOTE: `Nat.pred` on constant values are handled via `reduceApp`.
 -/
 def optimizeNatPred (args : Array Expr) : TranslateEnvT Expr := do
- if args.size != 1 then throwError "optimizeNatPred: only one argument expected"
+ if args.size != 1 then throwEnvError "optimizeNatPred: only one argument expected"
  optimizeNatSub (← mkNatSubOp) #[args[0]!, ← mkNatLitExpr 1]
 
 
@@ -305,8 +298,7 @@ def optimizeNatble (f : Expr) (b_args : Array Expr) : TranslateEnvT Expr := do
     let leExpr ← optimizeLE f' (i_args ++ b_args)
     optimizeDecideCore (← mkDecideConst) #[leExpr, ← synthDecidableInstance! leExpr]
 
-/-- Apply simplification/normalization rules on Nat operators.
--/
+/-- Apply simplification/normalization rules on Nat operators. -/
 def optimizeNat? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
   let Expr.const n _ := f | return none
   match n with
@@ -318,8 +310,8 @@ def optimizeNat? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) :=
   | ``Nat.succ => optimizeNatSucc args
   | ``Nat.pred => optimizeNatPred args
   | ``Nat.beq => optimizeNatBeq f args
-  | ``Nat.le => optimizeNatLe args
   | ``Nat.ble => optimizeNatble f args
-  | _=> pure none
+  | ``Nat.le => optimizeNatLe args
+  | _=> return none
 
 end Solver.Optimize

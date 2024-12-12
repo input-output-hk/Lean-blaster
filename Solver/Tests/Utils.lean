@@ -92,10 +92,11 @@ partial def normNatLit (e : Expr) : MetaM Expr := do
         for i in [:args.size] do
           margs ← margs.modifyM i visit
         match f with
-        | Expr.const `OfNat.ofNat _ =>
-            let some fdef ← Solver.Optimize.getUnfoldFunDef? f margs
-                | throwError "normNatLit: fun definition expected for OfNat.ofNat"
-            visit fdef
+        | Expr.const n@`OfNat.ofNat l =>
+          let cInfo@(ConstantInfo.defnInfo _) ← getConstInfo n
+            | throwError "normNatLit: defnInfo expected for OfNat.ofNat"
+          let fbody ← instantiateValueLevelParams cInfo l
+          visit (Expr.beta fbody margs)
         | _ => return mkAppN f margs
     | Expr.lam n t b bi =>
         let t' ← visit t

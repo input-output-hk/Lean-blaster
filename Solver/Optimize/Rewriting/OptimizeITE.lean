@@ -52,7 +52,7 @@ def iteToBoolExpr? (iteType: Expr) (decInst : Expr) (c : Expr) (t : Expr) (e : E
   let notExpr ← optimizeBoolNot (← mkBoolNotOp) #[decExpr]
   let leftAnd ← optimizeDecideBoolOr orOp #[notExpr, t]
   let rightAnd ← optimizeDecideBoolOr orOp #[decExpr, e]
-  some <$> optimizeDecideBoolAnd (← mkBoolAndOp) #[leftAnd, rightAnd]
+  optimizeDecideBoolAnd (← mkBoolAndOp) #[leftAnd, rightAnd]
 
 /-- Return the normalization/simplification result for `(c → t) ∧ (¬ c → e)`
     only when Type(t) = Prop.
@@ -62,7 +62,7 @@ def iteToPropExpr? (iteType: Expr) (c : Expr) (t : Expr) (e : Expr) : TranslateE
   let leftAnd ← mkImpliesExpr c t
   let notExpr ← optimizeNot (← mkPropNotOp) #[c]
   let rightAnd ← mkImpliesExpr notExpr e
-  some <$> optimizeBoolPropAnd (← mkPropAndOp) #[leftAnd, rightAnd]
+  optimizeBoolPropAnd (← mkPropAndOp) #[leftAnd, rightAnd]
 
 
 /-- Return `some (true = c')` only when `c := false = c'`.
@@ -72,7 +72,7 @@ def iteToPropExpr? (iteType: Expr) (c : Expr) (t : Expr) (e : Expr) : TranslateE
 def isITEBoolSwap? (c : Expr) : TranslateEnvT (Option Expr) := do
   match c.eq? with
   | some (eq_sort, Expr.const ``false _, op2) =>
-       some <$> mkExpr (mkApp3 c.getAppFn eq_sort (← mkBoolTrue) op2)
+        mkExpr (mkApp3 c.getAppFn eq_sort (← mkBoolTrue) op2)
   | _ => return none
 
 /-- Apply the following simplification/normalization rules on `ite` :
@@ -87,11 +87,11 @@ def isITEBoolSwap? (c : Expr) : TranslateEnvT (Option Expr) := do
      - if c then e1 = e2 else e1 = e3 ===> e1 = if c then e2 else e3 (TODO)
 
    Assume that f = Expr.const ``ite
-   An error is triggered if args.size ≠ 5.
+   An error is triggered when args.size ≠ 5 (i.e., only fully applied `ite` expected at this stage)
    TODO: consider additional simplification rules.
 -/
 partial def optimizeITE (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
- if args.size != 5 then return (← mkAppExpr f (← updateITEDecidable args))
+ if args.size != 5 then throwEnvError "optimizeITE: exactly five arguments expected"
  -- args[0] is sort parmeter
  -- args[1] is cond operand
  -- args[2] is decidable instance parameter on cond
@@ -117,12 +117,12 @@ partial def optimizeITE (f : Expr) (args : Array Expr) : TranslateEnvT Expr := d
      - the provided expression is not a `then` or `else` dependent ite expression,
        i.e., not a lambda expression of the form `fun h : c => e`; or
 -/
-def extractDependentITEExpr (e : Expr) : MetaM Expr :=
+def extractDependentITEExpr (e : Expr) : TranslateEnvT Expr :=
   match e with
   | Expr.lam n t b bi =>
       withLocalDecl n bi t fun x => return b.instantiate1 (← inferType x)
 
-  | _ => throwError f!"extractDependentITEExpr: lambda expression expected but got {reprStr e}"
+  | _ => throwEnvError f!"extractDependentITEExpr: lambda expression expected but got {reprStr e}"
 
 /-- Apply simplification/normalization rules on `dite`.
     Note that dependent ite is written with notation `if h : c then t else e`, which
@@ -141,11 +141,11 @@ def extractDependentITEExpr (e : Expr) : MetaM Expr :=
      - if c then e1 = e2 else e1 = e3 ===> e1 = if c then e2 else e3 (TODO)
 
     Assume that f = Expr.const ``dite
-    Do nothing if `dite` is partially applied (i.e., args.size ≠ 5)
+    An error is triggered when args.size ≠ 5 (i.e., only fully applied `dite` expected at this stage)
     TODO: consider additional simplification rules.
 -/
 partial def optimizeDITE (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
- if args.size != 5 then return (← mkAppExpr f (← updateITEDecidable args))
+ if args.size != 5 then throwEnvError "optimizeDITE: exactly five arguments expected"
  -- args[0] is sort parmeter
  -- args[1] is cond operand
  -- args[2] is decidable instance parameter on cond
@@ -169,13 +169,11 @@ partial def optimizeDITE (f : Expr) (args : Array Expr) : TranslateEnvT Expr := 
 
 
 /-- Apply simplification/normalization rules of if then else expressions. -/
-def optimizeIfThenElse? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) :=
- match f with
-  | Expr.const n _ =>
-     match n with
-     | ``ite => some <$> optimizeITE f args
-     | ``dite => some <$> optimizeDITE f args
-     | _ => pure none
-  | _ => pure none
+def optimizeIfThenElse? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
+  let Expr.const n _ := f | return none
+  match n with
+  | ``ite => optimizeITE f args
+  | ``dite => optimizeDITE f args
+  | _ => return none
 
 end Solver.Optimize

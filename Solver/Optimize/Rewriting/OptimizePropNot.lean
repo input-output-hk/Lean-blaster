@@ -14,9 +14,9 @@ def notEqSimp? (ne : Expr) : TranslateEnvT (Option Expr) := do
   | some (eq_sort, op1, op2) =>
      match op1 with
      | Expr.const ``false _ =>
-         some <$> mkExpr (mkApp3 ne.getAppFn eq_sort (← mkBoolTrue) op2)
+         mkExpr (mkApp3 ne.getAppFn eq_sort (← mkBoolTrue) op2)
      | Expr.const ``true _ =>
-         some <$> mkExpr (mkApp3 ne.getAppFn eq_sort (← mkBoolFalse) op2)
+         mkExpr (mkApp3 ne.getAppFn eq_sort (← mkBoolFalse) op2)
      | _ => return none
   | none => return none
 
@@ -27,12 +27,11 @@ def notEqSimp? (ne : Expr) : TranslateEnvT (Option Expr) := do
      - ¬ (false = e) ==> true = e
      - ¬ (true = e) ==> false = e
    Assume that f = Expr.const ``Not.
-   An error is triggered if args.size ≠ 1.
-   NOTE: The `reduceApp` rule will not reduce `Not` applied to `Prop` constructors.
+   An error is triggered if args.size ≠ 1 (i.e., only fully applied `Not` expected at this stage)
    TODO: consider additional simplification rules
 -/
 def optimizeNot (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
- if args.size != 1 then throwError "optimizeNot: only one argument expected"
+ if args.size != 1 then throwEnvError "optimizeNot: exactly one argument expected"
  let e := args[0]!
  if let Expr.const ``False _ := e then return (← mkPropTrue)
  if let Expr.const ``True _ := e then return (← mkPropFalse)
@@ -44,7 +43,7 @@ def optimizeNot (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 -/
 def optimizePropNot? (f: Expr) (args : Array Expr) : TranslateEnvT (Option Expr) :=
   match f with
-  | Expr.const ``Not _ => some <$> optimizeNot f args
+  | Expr.const ``Not _ => optimizeNot f args
   | _ => pure none
 
 
