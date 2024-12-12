@@ -48,7 +48,8 @@ namespace Solver.Smt
   -- -/
 
 /-- Generate an smt symbol from a given Name. -/
-def nameToSmtSymbol (n : Name) : SmtSymbol := s!"{n}"
+def nameToSmtSymbol (n : Name) : SmtSymbol :=
+  mkNormalSymbol s!"{n}"
 
 /-- Generate a smt symbol for a free variable id corresponding to a sort name (e.g., α : Type) s.t.:
      - return smt symbol `"@" ++ v.getUserName ++ v.name` when `unique` is set to `true`
@@ -56,12 +57,13 @@ def nameToSmtSymbol (n : Name) : SmtSymbol := s!"{n}"
 -/
 def sortNameToSmtSymbol (v : FVarId) (unique := true) : TranslateEnvT SmtSymbol := do
   if unique
-  then return s!"@{← v.getUserName}{v.name}"
-  else return s!"@{← v.getUserName}"
+  then return mkNormalSymbol s!"@{← v.getUserName}{v.name}"
+  else return mkNormalSymbol s!"@{← v.getUserName}"
 
 
 /-- Generate an smt symbol from a given inductive type name. -/
-def indNameToSmtSymbol (indName : Name) : SmtSymbol := s!"@{indName}"
+def indNameToSmtSymbol (indName : Name) : SmtSymbol :=
+  mkNormalSymbol s!"@{indName.toString}"
 
 
 /-- Return `some b` if `e := mkAnnotation `_solver.recursivecall b'`. -/
@@ -86,15 +88,16 @@ def isTaggedCtorSelector (e : Expr) : Bool :=
     The tag is used during translation.
 -/
 def mkCtorSelectorExpr (ctor : Name) (idx : Nat) : (Expr × SmtTerm) :=
-  let selectorSym := s!"{ctor}.{idx}"
-  let appExpr := mkApp (mkConst (Name.mkSimple selectorSym)) (mkConst (Name.mkSimple "@x"))
-  let smtTerm := mkSimpleSmtAppN selectorSym #[smtSimpleVarId "@x"]
+  let sctor := s!"{ctor}.{idx}"
+  let selectorSym := mkNormalSymbol sctor
+  let appExpr := mkApp (mkConst (Name.mkSimple sctor)) (mkConst (Name.mkSimple "@x"))
+  let smtTerm := mkSimpleSmtAppN selectorSym #[smtSimpleVarId (mkReservedSymbol "@x")]
   (mkAnnotation `_solver.ctorSelector appExpr, smtTerm)
 
 /-- Given `ctor` a constructor name, create the smt term `is-ctor x`.
 -/
 def mkCtorTestorTerm (ctor : Name) : SmtTerm :=
-  mkSimpleSmtAppN s!"is-{ctor}" #[smtSimpleVarId "@x"]
+  mkSimpleSmtAppN (mkNormalSymbol s!"is-{ctor}") #[smtSimpleVarId (mkReservedSymbol "@x")]
 
 
 /-- Declare smt universal sort @@Type and its corresponding predicate qualified
@@ -155,7 +158,7 @@ def isVisitedIndName (indName : Name) : TranslateEnvT Bool :=
 -/
 def updateIndInstCacheAux (d : Expr) (n : SmtSymbol) (instSort : SortExpr) : TranslateEnvT IndTypeDeclaration := do
   let env ← get
-  let instName := s!"@is{n}"
+  let instName := mkNormalSymbol s!"@is{n}"
   let decl := {instName, instSort}
   let smtEnv := {env.smtEnv with indTypeInstCache := env.smtEnv.indTypeInstCache.insert d {instName, instSort}}
   set {env with smtEnv := smtEnv}
@@ -285,7 +288,7 @@ def generateIndInstDecl
 def generateFunInstDecl (t : Expr) (st : SortExpr) : TranslateEnvT Unit := do
   unless ((← get).smtEnv.indTypeInstCache.find? t).isSome do
    let v ← mkFreshId
-   let instName := s!"Fun{v}"
+   let instName := mkNormalSymbol s!"Fun{v}"
    let decl ← updateIndInstCacheAux t instName st
    declareFun (decl.instName) #[decl.instSort] boolSort
 
@@ -300,10 +303,10 @@ def generateSortInstDecl (t : Expr) : TranslateEnvT Unit := do
  let Expr.sort u := t | throwEnvError f!"generateSortInstDecl: sort type expected but got {reprStr t}"
  unless ((← get).smtEnv.indTypeInstCache.find? t).isSome do
    match u with
-   | .zero => updateIndInstCache t "Prop" boolSort
+   | .zero => updateIndInstCache t (mkReservedSymbol "Prop") boolSort
    | _ =>
        if !t.isType then throwEnvError f!"generateSortInstDecl: sort type expected but got {reprStr t}"
-       updateIndInstCache t "Type" typeSort
+       updateIndInstCache t (mkReservedSymbol "Type") typeSort
 
 /-- TODO: UPDATE SPEC -/
 def getRecRuleFor (recVal : RecursorVal) (c : Name) : TranslateEnvT RecursorRule :=
@@ -493,10 +496,11 @@ def translateInductiveType
         let arg := xs[i]!
         let selectorIdx := i - firstCtorFieldIdx + 1
         let argType ← inferType arg
+        let selSym := mkNormalSymbol s!"{ctorSym}.{selectorIdx}"
         if (← isProp argType) then
-          selectors := selectors.push (s!"{ctorSym}.{selectorIdx}", boolSort)
+          selectors := selectors.push (selSym, boolSort)
         else
-          selectors := selectors.push (s!"{ctorSym}.{selectorIdx}", ← typeTranslator argType)
+          selectors := selectors.push (selSym, ← typeTranslator argType)
       return (ctorSym, some selectors)
 
   createCtorDecls (recVal : RecursorVal) (ctors : List Name) : TranslateEnvT (Array SmtConstructorDecl) := do
@@ -581,7 +585,7 @@ where
     (decl : IndTypeDeclaration) (args : Array Expr) (inMutualDefinition := false) : FunctionGenEnv Unit := do
    let ConstantInfo.recInfo recVal ← getConstInfo (mkRecName indName)
      | throwEnvError f!"generatePredicates: {mkRecName indName} not a recinfo"
-   let funDecl := {name := decl.instName, params := #[("@x", decl.instSort)], ret := boolSort}
+   let funDecl := {name := decl.instName, params := #[(mkReservedSymbol "@x", decl.instSort)], ret := boolSort}
    let mut funBody := trueSmt
    for c in indVal.ctors do
      funBody ← updatePredicateBody indName us recVal (← getRecRuleFor recVal c) args funBody inMutualDefinition

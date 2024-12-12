@@ -9,7 +9,8 @@ open Lean Meta Solver.Optimize
 namespace Solver.Smt
 
 /-- Generate an smt symbol from a given function  name. -/
-def funNameToSmtSymbol (funName : Name) : SmtSymbol := s!"@{funName}"
+def funNameToSmtSymbol (funName : Name) : SmtSymbol :=
+  mkNormalSymbol s!"@{funName}"
 
 
 /-- list of Lean operators that must have a defined Smt function during translation.
@@ -617,7 +618,8 @@ def translateApp
          if let some r ← translateEq? f n args then return r
          if let some r ← translateRelational? f n args then return r
          if let some r ← translateDITE? f n args then return r
-         if let some r ← translateDecideOrOfNat? n args then return r
+         if let some r ← translateOfNat? n args then return r
+         if let some r ← translateDecide? n args then return r
          if let some r ← translateMatch? f n args then return r
          if let some r ← translateExists? n args then return r
          if let some r ← translateRecFun? f n args then return r
@@ -655,12 +657,19 @@ def translateApp
             createAppN f (← translateOpaqueFun f n) args termTranslator
        | _ => return none
 
-    translateDecideOrOfNat? (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
+    translateOfNat? (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
       match n with
-       | ``Int.ofNat
-       | ``Decidable.decide =>
+       | ``Int.ofNat =>
             if args.size != 1 then
-               throwEnvError f!"translateDecideOrOfNat?: unexpected partial application got {reprStr args}"
+               throwEnvError f!"translateOfNat?: exaclty one argument expected"
+            termTranslator args[0]!
+       | _ => return none
+
+    translateDecide? (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
+      match n with
+       | ``Decidable.decide =>
+            if args.size != 2 then
+               throwEnvError f!"translateDecide?: unexpected partially applied {n} got {reprStr args}"
             termTranslator args[0]!
        | _ => return none
 
@@ -671,7 +680,7 @@ def translateApp
        | ``LT.lt =>
             if (← isOpaqueRelational n args) then
               if args.size == 3 then
-                throwEnvError f!"translateRelational?: unexpected partial application got {reprStr args}"
+                throwEnvError f!"translateRelational?: unexpected partially applied {n} got {reprStr args}"
               if args.size == 2 then return (← termTranslator (← etaExpand e))
               createAppN f (← translateOpaqueFun f n) args termTranslator
             else return none -- undefined fun class case
@@ -679,7 +688,7 @@ def translateApp
 
     translateMatch? (_f : Expr) (n : Name) (_args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
       if !(← isMatchExpr n) then return none
-      throwEnvError "translateMatch? : not yet implemented !!!"
+      throwEnvError "translateMatch?: not yet implemented !!!"
 
     genExistsTerm (lambdaE : Expr) : QuantifierEnvT SmtTerm := do
       lambdaTelescope lambdaE fun xs b => do
@@ -769,4 +778,24 @@ def translateLambda
        svars := svars.push (← fvarIdToSmtSymbol v, st)
    return mkLambdaTerm svars (← termTranslator b)
 
+
+/-- Given `n` a projection name, `idx` a projection and `p` the projection application term,
+    perform the following:
+      - When `n` is not an inductive datatype (i.e., structure definition)
+         - return ⊥
+      - When `n` has more than one ctor `c` (i.e., structure only has one defined ctor with each field as arguments)
+         - return ⊥
+      - Otherwise:
+          - return smt term application `(c.idx+1 p)`
+-/
+def translateProj
+  (n : Name) (idx : Nat) (p : Expr)
+  (termTranslator : Expr → TranslateEnvT SmtTerm) : TranslateEnvT SmtTerm := do
+  let ConstantInfo.inductInfo indVal ← getConstInfo n
+    | throwEnvError "translateProj: induction info expected for {n}"
+  match indVal.ctors with
+  | [c] =>
+      let selectorSym := mkNormalSymbol s!"{c}.{idx+1}"
+      return (mkSimpleSmtAppN selectorSym #[← termTranslator p])
+  | _ => throwEnvError "translateProj: only one ctor expected for structure for {n}"
 end Solver.Smt

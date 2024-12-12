@@ -32,23 +32,17 @@ partial def translateExpr (e : Expr) : TranslateEnvT Unit := do
         | some (Expr.app (Expr.const s _) (Expr.const a _)) =>
             return mkSimpleSmtAppN (nameToSmtSymbol s) #[smtSimpleVarId (nameToSmtSymbol a)]
         | some s => throwEnvError f!"unexpected ctor selector expression {reprStr s}"
-     | Expr.proj n idx p =>
-         let ConstantInfo.inductInfo indVal ← getConstInfo n
-           | throwEnvError "translateExpr: induction info expected for {n}"
-         match indVal.ctors with
-          | [c] =>
-             let selectorSym := s!"{c}.{idx+1}"
-             return (mkSimpleSmtAppN selectorSym #[← visit p])
-          | _ => throwEnvError "translateExpr: only one ctor expected for structure for {n}"
+     | Expr.proj n idx p => translateProj n idx p visit
      | Expr.lit .. => throwEnvError f!"unexpected literal expression {e}"
      | Expr.mvar .. => throwEnvError f!"unexpected meta variable {e}"
      | Expr.bvar .. => throwEnvError f!"unexpected bounded variable {e}"
      | Expr.letE .. => throwEnvError f!"unexpected let expression"
-     | Expr.sort _ => throwEnvError f!"unexpected sort type {reprStr e}" --sort type are handled elsewhere
+     | Expr.sort _ => throwEnvError f!"unexpected sort type {reprStr e}" -- sort type are handled elsewhere
   let st ← visit e (topLevel := true)
   -- assert negation for check sat
   assertTerm (notSmt st)
-  logInfo f!"{(← get).smtEnv.smtCommands}"
+  -- dump smt commands submitted to backend solver when `dumpSmtLib` option is set.
+  logSmtQuery
   logResult (← checkSat)
   -- TODO: spawn lean proof mode when result is undetermined
   discard $ exitSmt

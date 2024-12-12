@@ -31,6 +31,8 @@ structure SolverOptions where
   verbose : Nat := 0
   /-- When set to `true`, only perform translation to smt-lib without invoking the backend smt solver. -/
   onlySmtLib : Bool := false
+  /-- When set to `true`, dump the smt query to stdout. -/
+  dumpSmtLib : Bool := false
  deriving Repr, Inhabited
 
 end Solver.Options
