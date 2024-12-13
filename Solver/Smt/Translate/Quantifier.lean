@@ -882,24 +882,10 @@ def initialQuantifierEnv (topLevel : Bool) : QuantifierEnv :=
      - return smt application (instName v)
     An error is triggered if the predicate qualifier name for `t` does not exists.
 -/
-partial def createPredQualifierApp (smtSym : SmtSymbol) (t : Expr) : TranslateEnvT SmtTerm := do
+def createPredQualifierApp (smtSym : SmtSymbol) (t : Expr) : TranslateEnvT SmtTerm := do
   let some instName ← getPredicateQualifierName (← resolveTypeAbbrev t)
     | throwEnvError f!"createPredQualifierApp: predicate qualifier name expected for {reprStr t}"
   return (mkSimpleSmtAppN instName #[smtSimpleVarId smtSym])
-
-  where
-    /-- Given `t` a type expression, this function resolves type abbreviation by performing the following:
-        - When `t x₀ .. xₙ ∧ t := Expr.const n us ∧ `defnInfo(n) := d α₀ ... αₙ`:
-          - return `resolveTypeAbbrev d x₀ .. xₙ`
-        - Otherwise
-          - return `t`
-    -/
-    resolveTypeAbbrev (t : Expr) : TranslateEnvT Expr := do
-      let Expr.const n us := t.getAppFn | return t
-      let cinfo@(ConstantInfo.defnInfo _) ← getConstInfo n | return t
-      let auxApp ← instantiateValueLevelParams cinfo us
-      resolveTypeAbbrev (Expr.beta auxApp t.getAppArgs)
-
 
 /-- Translate a quantifier `(n : t)` by performing the following actions:
      - Add `n` to the quantified fvars cache.
