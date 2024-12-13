@@ -24,8 +24,8 @@ def logPPExpr (msg : String) (e : Expr) : TranslateEnvT Unit := do
 def logSmtQuery : TranslateEnvT Unit := do
   let sOpts := (← get).optEnv.options.solverOptions
   if sOpts.dumpSmtLib then
-    logInfo f!"Smt Query:"
-    (← get).smtEnv.smtCommands.forM (λ c => logInfo f!"{c}")
+    IO.println f!"Smt Query:"
+    (← get).smtEnv.smtCommands.forM (λ c => IO.println f!"{c}")
   else pure ()
 
 
