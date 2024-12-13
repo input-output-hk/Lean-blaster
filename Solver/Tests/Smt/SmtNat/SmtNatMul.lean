@@ -33,5 +33,20 @@ import Solver.Command.Syntax
 
 #solve [∀ (x y z : Nat), 0 < x → x * y = x * z → y = z]
 
+def isInjective (f : Nat → Nat) : Prop :=
+  ∀ (x y : Nat), f x = f y → x = y
+
+def isSurjective (f : Nat → Nat) : Prop :=
+  ∀ (y : Nat), ∃ (x : Nat), f x = y
+
+def isBijective (f : Nat → Nat) : Prop :=
+  isInjective f ∧ isSurjective f
+
+def square (x : Nat) : Nat := x * x
+
+#solve [isInjective square]
 
 /-! # Test cases to ensure that counterexample are properly detected -/
+
+#solve [isSurjective square]
+#solve [isBijective square]

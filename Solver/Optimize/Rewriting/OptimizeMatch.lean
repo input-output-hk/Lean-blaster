@@ -47,7 +47,7 @@ partial def retrieveAltsArgs (alts : Array Expr) : TranslateEnvT (Array Expr) :=
 
 
 /-- Perform beta reduction on a match alternative `alt` according to the provided arguments `args`
-    obtained when substituting the free variables appearing in each pattern pattern pᵢ with the
+    obtained when substituting the free variables appearing in each pattern pᵢ with the
     appropriate discriminator expression (see function `substituteArgs`).
     Moreover, given a sequence of match pattern `p₁, ..., pₙ => t`, s.t.
     each pᵢ contains named patterns of the form:

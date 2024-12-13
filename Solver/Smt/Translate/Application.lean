@@ -720,7 +720,7 @@ def translateApp
           throwEnvError f!"genExistsTerm: only one predicate qualifier premise expected but got {env.premises}"
         -- set patterns to none for now
         -- TODO: We need to check if e-pattern is necessary for existential
-        return (mkExistsTerm none env.quantifiers (impliesSmt env.premises[0]! ebody) none)
+        return (mkExistsTerm none env.quantifiers (andSmt env.premises[0]! ebody) none)
 
     translateExists? (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
       match n with
@@ -817,4 +817,5 @@ def translateProj
       let selectorSym := mkNormalSymbol s!"{c}.{idx+1}"
       return (mkSimpleSmtAppN selectorSym #[← termTranslator p])
   | _ => throwEnvError "translateProj: only one ctor expected for structure for {n}"
+
 end Solver.Smt
