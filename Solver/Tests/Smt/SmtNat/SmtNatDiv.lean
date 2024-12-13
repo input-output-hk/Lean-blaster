@@ -23,13 +23,33 @@ import Solver.Command.Syntax
 
 #solve [∀ (x : Nat), 0 / x = 0]
 
-#solve [∀ (x y z : Nat), 0 < z → x ≤ y / z ↔ x * z ≤ y]
+#solve [∀ (x y z : Nat), 0 < z → (x ≤ y / z ↔ x * z ≤ y)]
 
 #solve [∀ (x y z : Nat), x / y / z = x / (y * z)]
 
 #solve [∀ (x y : Nat), x / y * y ≤ x]
 
-#solve [∀ (x y z : Nat), 0 < z → x / z < y ↔ x < y * z]
+#solve [∀ (x y z : Nat), 0 < z → (x / z < y ↔ x < y * z)]
+
+#solve [∀ (x z : Nat), (0 < z) → (x + z) / z = (x / z) + 1]
+
+#solve [∀ (x z y : Nat), (0 < y) → (x + y * z) / y = x / y + z]
+
+#solve [∀ (x y z : Nat), z * x ≤ y → y < (z + 1) * x → y / x = z]
+
+#solve [∀ (x y z : Nat), (y*z ≤ x) → (x - y*z) / y = x / y - z]
+
+#solve [∀ (x y z : Nat), x < y*z → (y * z - (x + 1)) / y = z - ((x / y) + 1)]
+
+#solve [∀ (x y: Nat), 0 < y → x * y / y = x]
+
+#solve [∀ (x y z : Nat), x ≤ z * y → x / z ≤ y]
+
+#solve [∀ (x y z : Nat), 0 < x → y = z * x → y / x = z]
+
+#solve [∀ (x y z : Nat), 0 < x → x * y / (x * z) = y / z]
+
+#solve [∀ (x y : Nat), y * (x / y) ≤ x]
 
 
 /-! # Test cases to ensure that counterexample are properly detected -/
