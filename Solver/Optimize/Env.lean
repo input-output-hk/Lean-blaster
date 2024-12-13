@@ -765,6 +765,18 @@ def isInductiveTypeExpr (e : Expr) : MetaM Bool := do
  | _ => return false
 
 
+/-- Given `t` a type expression, this function resolves type abbreviation by performing the following:
+    - When `t x₀ .. xₙ ∧ t := Expr.const n us ∧ `defnInfo(n) := d α₀ ... αₙ`:
+      - return `resolveTypeAbbrev d x₀ .. xₙ`
+    - Otherwise
+      - return `t`
+-/
+partial def resolveTypeAbbrev (t : Expr) : TranslateEnvT Expr := do
+ let Expr.const n us := t.getAppFn | return t
+ let cinfo@(ConstantInfo.defnInfo _) ← getConstInfo n | return t
+ let auxApp ← instantiateValueLevelParams cinfo us
+ resolveTypeAbbrev (Expr.beta auxApp t.getAppArgs)
+
 /-- Return all fvar expressions in `e`. The return array preserved dependencies between fvars,
     i.e., child fvars appear first.
 -/
@@ -801,10 +813,14 @@ partial def isGenericParam (e : Expr) (skipInductiveCheck := false) : TranslateE
  | Expr.sort .. => return true
  | Expr.mdata _ e  => isGenericParam e
  | Expr.const n _ =>
-     if (← isInstance n) then return false
-     if isClass (← getEnv) n then return false
-     if let ConstantInfo.inductInfo _ ← getConstInfo n then return false
-     isGenericParam (← inferType e)
+     -- resolve type abbreviation (if any)
+     let t ← resolveTypeAbbrev e
+     if !(← exprEq t e) then isGenericParam t
+     else
+       if (← isInstance n) then return false
+       if isClass (← getEnv) n then return false
+       if let ConstantInfo.inductInfo _ ← getConstInfo n then return false
+       isGenericParam (← inferType e)
  | Expr.fvar v => isGenericParam (← v.getType)
  | Expr.app f arg =>
      if (!skipInductiveCheck) && !(← isClassConstraintExpr f) && (← isInductiveTypeExpr f) then return false
@@ -901,14 +917,6 @@ def updateRecFunInst (f : Expr) (fbody : Expr) : TranslateEnvT Unit := do
   let env ← get
   let optEnv := { env.optEnv with recFunInstCache := env.optEnv.recFunInstCache.insert f fbody }
   set {env with optEnv := optEnv}
-
-
-/-- Given application `f x₁ ... xₙ`, return `some fbody` when `getInstApp f (← getImplicitParameters f args) := fbody` is in cache.
-    Otherwise return `none`.
--/
-def getRecFunInstBody? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
-  let env ← get
-  return (env.optEnv.recFunInstCache.find? (← getInstApp f (← getImplicitParameters f args)))
 
 
 /-- Return `fₙ` if `body[mkAnnotation `_solver.recursivecall _'/_recFun α₁ ... αₖ x₁ ... xₙ] := fₙ` is already
