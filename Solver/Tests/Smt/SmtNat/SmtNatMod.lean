@@ -33,6 +33,7 @@ import Solver.Command.Syntax
 
 #solve [∀ (x y : Nat), (x + y) % y = x % y]
 
+-- NOTE: may have z3 running forever or crash with ASSERTION VIOLATION
 #solve [∀ (x y z : Nat), (x + y * z) % y = x % y]
 
 #solve [∀ (x y : Nat), (x * y) % x = 0]

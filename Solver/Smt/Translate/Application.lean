@@ -293,7 +293,8 @@ def getOpaqueSmtEquivFun (f : Expr) (s : SmtSymbol) : TranslateEnvT SmtQualified
   | some smtId => return smtId
 
 /-- Given `f` a name expression for which a corresponding smt operator exists and `n`
-    its corresponding name, perform the following actions:
+    its corresponding name, and `args` the effective parameters for `f`,
+    perform the following actions:
      - When `f := stₙ` exists in `funInstCache`
         - return stₙ
      - When no entry for `f` exists in `funInstCache`
@@ -301,7 +302,8 @@ def getOpaqueSmtEquivFun (f : Expr) (s : SmtSymbol) : TranslateEnvT SmtQualified
         - define corresponding smt function only when `hasSmtDefinedOperator f`
         - return `SimpleIdent (smtSymbolFor f)`
 
-    An error is triggered when `n` corresponds to one of the opaque functions:
+    An error is triggered
+      - when `n` corresponds to one of the opaque functions:
         - Exists
         - Decidable.decide
         - Iff
@@ -310,9 +312,10 @@ def getOpaqueSmtEquivFun (f : Expr) (s : SmtSymbol) : TranslateEnvT SmtQualified
         - Nat.ble
         - Nat.pred
         - Nat.le
+      - when `args.size == 0` for `Lt.lt`
 
 -/
-def translateOpaqueFun (f : Expr) (n : Name) : TranslateEnvT SmtQualifiedIdent := do
+def translateOpaqueFun (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT SmtQualifiedIdent := do
   match n with
   | ``Eq
   | ``BEq.beq => getOpaqueSmtEquivFun f eqSymbol
@@ -342,8 +345,15 @@ def translateOpaqueFun (f : Expr) (n : Name) : TranslateEnvT SmtQualifiedIdent :
   | ``Nat.pow => translateIntPow f
   | ``LE.le
   | ``Nat.ble => getOpaqueSmtEquivFun f leqSymbol
-  | ``LT.lt => getOpaqueSmtEquivFun f ltSymbol
+  | ``LT.lt =>
+        if Nat.blt args.size 2 then throwEnvError "translateOpaqueFun: at least two arguments expected for Lt.lt"
+        if isStringType args[0]!
+        then getOpaqueSmtEquivFun f strLtSymbol
+        else getOpaqueSmtEquivFun f ltSymbol
   | ``Nat.sub => translateNatSub f
+  | ``String.append => getOpaqueSmtEquivFun f strAppendSymbol
+  | ``String.length => getOpaqueSmtEquivFun f strLengthSymbol
+  | ``String.replace => getOpaqueSmtEquivFun f strReplaceAllSymbol
   | _ => throwEnvError f!"translateOpaqueFun: unexpected opaque operator {n}"
 
 
@@ -606,7 +616,7 @@ def translateConst
 
     translateOpaque (n : Name) : TranslateEnvT (Option SmtTerm) := do
       if !(opaqueFuns.contains n) then return none
-      let smtSym ← translateOpaqueFun e n
+      let smtSym ← translateOpaqueFun e n #[]
       if (hasSmtDefinedOperator n)
       then return (asArraySmt smtSym)
       else return (← termTranslator (← etaExpand e))
@@ -663,7 +673,7 @@ def translateApp
          match args[1]! with
           | Expr.const ``true _ => termTranslator args[2]!
           | Expr.const ``false _ => termTranslator (mkApp (← mkBoolNotOp) args[2]!)
-          | _ => createAppN f (← translateOpaqueFun f n) args termTranslator
+          | _ => createAppN f (← translateOpaqueFun f n args) args termTranslator
        | _ => return none
 
     translateDITE? (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
@@ -673,7 +683,7 @@ def translateApp
                throwEnvError f!"translateDITE?: unexpected partially applied dite got {reprStr args}"
             let args := args.set! 3 (← Solver.Optimize.extractDependentITEExpr args[3]!)
             let args := args.set! 4 (← Solver.Optimize.extractDependentITEExpr args[4]!)
-            createAppN f (← translateOpaqueFun f n) args termTranslator
+            createAppN f (← translateOpaqueFun f n args) args termTranslator
        | _ => return none
 
     translateOfNat? (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
@@ -701,7 +711,7 @@ def translateApp
               if args.size == 3 then
                 throwEnvError f!"translateRelational?: unexpected partially applied {n} got {reprStr args}"
               if args.size == 2 then return (← termTranslator (← etaExpand e))
-              createAppN f (← translateOpaqueFun f n) args termTranslator
+              createAppN f (← translateOpaqueFun f n args) args termTranslator
             else return none -- undefined fun class case
        | _ => return none
 
@@ -775,7 +785,7 @@ def translateApp
       let fInfo ← getFunInfo f
       if fInfo.paramInfo.size != args.size then
         throwEnvError f!"translateFullyApplied?: fully applied function expected for {reprStr f}"
-      createAppN f (← translateOpaqueFun f n) args termTranslator
+      createAppN f (← translateOpaqueFun f n args) args termTranslator
 
 /-- Given `e := λ (x₀ : t₁) → λ (xₙ : tₙ) => b`, create Smt term `(lambda (B) sb)`, where:
       - A := [x₁, ..., xₙ]

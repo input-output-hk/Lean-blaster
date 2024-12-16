@@ -190,14 +190,36 @@ def selectSymbol : SmtSymbol := mkReservedSymbol "select"
 /-! as-array Smt symbol. -/
 def asArraySymbol : SmtSymbol := mkReservedSymbol "as-array"
 
+/-! less than Smt symbol for String. -/
+def strLtSymbol : SmtSymbol := mkReservedSymbol "str.<"
+
+/-! less than or equal to Smt symbol for String. -/
+def strLeqSymbol : SmtSymbol := mkReservedSymbol "str.<="
+
+/-! append Smt symbol for String. -/
+def strAppendSymbol : SmtSymbol := mkReservedSymbol "str.++"
+
+/-! replace Smt symbol for String.
+    NOTE: Unlike the replace Lean4 function, this function only
+    replaces the first occurrence of `src` by `dst` in `s`.
+    The equivalent function for Lean4 is `str.replace_all`
+-/
+def strReplaceSymbol : SmtSymbol := mkReservedSymbol "str.replace"
+
+/-! replace all Smt symbol for String. -/
+def strReplaceAllSymbol : SmtSymbol := mkReservedSymbol "str.replace_all"
+
+/-! length Smt symbol for String. -/
+def strLengthSymbol : SmtSymbol := mkReservedSymbol "str.length"
+
+/-! ## Builtin Smt functions. -/
+
 /-! Create an Smt application term with function name `nm` and parameters `args`. -/
 def mkSmtAppN (nm : SmtQualifiedIdent) (args : Array SmtTerm) : SmtTerm := .AppTerm nm args
 
 /-! Same as mkSmtAppN but accepts an Smt symbol as function name. -/
 def mkSimpleSmtAppN (nm : SmtSymbol) (args : Array SmtTerm) : SmtTerm :=
   mkSmtAppN (.SimpleIdent nm) args
-
-/-! ## Builtin Smt functions. -/
 
 /-! Create an Equality Smt application -/
 def eqSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
@@ -312,7 +334,7 @@ def absSmt (op : SmtTerm) : SmtTerm :=
 def ltSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
   mkSimpleSmtAppN ltSymbol #[op1, op2]
 
-/-! Create a less or equal to Smt application. -/
+/-! Create a less than or equal to Smt application. -/
 def leqSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
   mkSimpleSmtAppN leqSymbol #[op1, op2]
 
@@ -320,6 +342,31 @@ def leqSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
 /-! Create an if-then-else Smt application. -/
 def iteSmt (c : SmtTerm) (t : SmtTerm) (e : SmtTerm) : SmtTerm :=
   mkSimpleSmtAppN iteSymbol #[c, t, e]
+
+/-! Create a String less than Smt application. -/
+def strLtSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
+  mkSimpleSmtAppN strLtSymbol #[op1, op2]
+
+/-! Create a String less than or equal to Smt application. -/
+def strLeqSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
+  mkSimpleSmtAppN strLeqSymbol #[op1, op2]
+
+/-! Create a String append Smt application. -/
+def strAppendSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
+  mkSimpleSmtAppN strAppendSymbol #[op1, op2]
+
+/-! Create a String replace Smt application. -/
+def strReplaceSmt (s : SmtTerm) (src : SmtTerm) (dst : SmtTerm) : SmtTerm :=
+  mkSimpleSmtAppN strReplaceSymbol #[s, src, dst]
+
+/-! Create a String replace all Smt application. -/
+def strReplaceAllSmt (s : SmtTerm) (src : SmtTerm) (dst : SmtTerm) : SmtTerm :=
+  mkSimpleSmtAppN strReplaceAllSymbol #[s, src, dst]
+
+/-! Create a String length Smt application. -/
+def strLengthSmt (s : SmtTerm) : SmtTerm :=
+  mkSimpleSmtAppN strLengthSymbol #[s]
+
 
 /-! Create an as-array Smt application (i.e., converting a function to an array representation). -/
 def asArraySmt (f : SmtQualifiedIdent) : SmtTerm :=

@@ -54,7 +54,11 @@ def opaqueFuns : NameHashSet :=
     ``Nat.ble, -- Nat.blt is defined with Nat.beq
     ``Nat.beq,
     ``Nat.pow,
-    ``Nat.le -- defining LE.le for Nat, Nat.lt is defined with Nat.le
+    ``Nat.le, -- defining LE.le for Nat, Nat.lt is defined with Nat.le
+    -- String operators
+    ``String.append,
+    ``String.replace,
+    ``String.length
   ]
 
 /-- list of types for which:
