@@ -634,6 +634,26 @@ def isUndefinedClassFunApp (e : Expr) : MetaM Bool := do
   let p@(Expr.proj c _ _) := e.getAppFn' | return false
   return ((← reduceProj? p).isNone && (isClass (← getEnv) c))
 
+/-- Return `true` only when `e := Expr.const n l` and one of the following condition is satisfied:
+     - `n` is not tagged as an opaque definition;
+     - `n` is a class instance;
+     - `n` is an inductive datatype;
+     - `n` is not a recursive function when flag `recFunCheck` is set to `true`;
+     - `n` is not a match expression; or
+     - `n` is not a class constraint.
+     Otherwise `false`.
+-/
+def isNotFoldable (e : Expr) (args : Array Expr) (recFunCheck := true) : TranslateEnvT Bool := do
+  let Expr.const n l := e | return false
+  if recFunCheck && (← isRecursiveFun n) then return true
+  if args.size == 0 && opaqueFuns.contains n then return true
+  if (← (pure (args.size != 0)) <&&> (isOpaqueFun n args)) then return true
+  (isInductiveType n l)
+  <||> (isInstance n)
+  <||>  (isMatchExpr n)
+  <||> (isClassConstraint n)
+
+
 /-- Unfold fuction `f` w.r.t. the effective parameters `args` only when:
      - f is not a constructor
      - f is not tagged as an opaque definition
@@ -643,27 +663,10 @@ def isUndefinedClassFunApp (e : Expr) : MetaM Bool := do
      - f is not a match application
 -/
 def getUnfoldFunDef? (f: Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
- if (← isNotFoldable f) then return none
+ if (← isNotFoldable f args) then return none
  let some fbody ← getFunBody f | return none
  let reduced := Expr.beta fbody args
  if (← isUndefinedClassFunApp reduced) then return none
  return reduced
-
- where
-   /-- Return `true` only when `e := Expr.const n l` and one of the following condition is satisfied:
-        - `n` is not tagged as an opaque definition;
-        - `n` is a class instance;
-        - `n` is not a recursive function;
-        - `n` is not a match expression; or
-        - `n` is not a class constraint.
-        Otherwise `false`.
-   -/
-   isNotFoldable (e : Expr) : TranslateEnvT Bool := do
-     let Expr.const n _ := e | return false
-       (isOpaqueFun n args)
-       <||> (isInstance n)
-       <||> (isRecursiveFun n)
-       <||> (isMatchExpr n)
-       <||> (isClassConstraint n)
 
 end Solver.Optimize
