@@ -166,7 +166,7 @@ def normOpaqueAndRecFun
      -- instantiating polymorphic parameters in fun body
      let fdef ← generalizeRecCall f params fbody
      -- optimize recursive fun definition and store
-     let fn' ← storeRecFunDef instApp (← optimizeFunBody n fdef)
+     let fn' ← storeRecFunDef instApp (← optimizer fdef)
      -- only considering explicit args when instantiating
      -- as storeRecFunDef already handled implicit arguments
      -- NOTE: optimizations on cached opaque recursive functions required
@@ -177,10 +177,5 @@ def normOpaqueAndRecFun
    optimizeRecApp (rf : Expr) (rargs : Array Expr) : TranslateEnvT Expr := do
      if rargs.size == 0 then return rf
      else optimizeApp rf rargs
-
-   optimizeFunBody (n : Name) (fbody : Expr) : TranslateEnvT Expr := do
-     if recFunsToNormalize.contains n
-     then withOptimizeRecBody $ optimizer fbody
-     else withRestoreRecBody $ optimizer fbody
 
 end Solver.Optimize

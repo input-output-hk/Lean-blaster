@@ -49,7 +49,6 @@ elab "natAddCst_3" : term => return natAddCst_3
 #testOptimize [ "NatAddZero_6" ] ∀ (x y : Nat), x + (10 - 123) ≤ y ===> ∀ (x y : Nat), x ≤ y
 
 
-
 /-! Test cases to ensure that simplification rules `0 + n ===> n` is not wrongly applied. -/
 
 -- 1 + x ===> 1 + x

@@ -24,10 +24,6 @@ namespace Solver.Optimize
 --      ∀ (x₄ : TypeA₄) ... (xₙ : TypeAₙ), P₂ x₄ ... xₙ IF Var(P₂) ∩ Var(P₁) = ∅
 partial def optimizeExpr (e : Expr) : TranslateEnvT Expr := do
   let rec visit (e : Expr) : TranslateEnvT Expr := do
-   if (← isOptimizeConst) && e.isConst then normConst e visit
-   else
-    -- restore const normalization only when e is not a const.
-    setNormalizeConst (!e.isConst)
     withOptimizeEnvCache e fun _ => do
     logReprExpr "Optimize:" e
     match e with
@@ -39,14 +35,15 @@ partial def optimizeExpr (e : Expr) : TranslateEnvT Expr := do
           optimizeForall x t' (← visit (b.instantiate1 x))
     | Expr.app .. =>
         Expr.withApp e fun f ras => do
-         let f' ← withOptimizeFunApp $ visit f
+         let f' ← visit f
          -- apply optimization on params first before reduction
          -- we need to apply optimization even on the implicit arguments
          -- to remove mdata annotation and have max expression sharing.
          let rf := f'.getAppFn'
-         let mut mas := f'.getAppArgs ++ ras
-         for i in [:ras.size] do
-            mas ← mas.modifyM i (λ a => visit a)
+         let extraArgs := f'.getAppArgs
+         let mut mas := extraArgs ++ ras
+         for i in [extraArgs.size:mas.size] do
+            mas ← mas.modifyM i visit
          -- try to reduce app if all params are constructors
          match (← reduceApp? rf mas) with
          | some re => visit re
@@ -67,10 +64,9 @@ partial def optimizeExpr (e : Expr) : TranslateEnvT Expr := do
         let v' ← (visit v)
         visit (b.instantiate1 v')
     | Expr.mdata d me =>
-       let me' ← visit me
        if (isTaggedRecursiveCall e)
-       then mkExpr (Expr.mdata d me')
-       else return me'
+       then mkExpr (Expr.mdata d (← withOptimizeRecBody $ visit me))
+       else visit me
     | Expr.sort _ => return e -- sort is used for Type u, Prop, etc
     | Expr.proj .. =>
         match (← reduceProj? e) with
@@ -97,8 +93,8 @@ def cacheOpaqueRecFun (optimize : Expr → TranslateEnvT Expr) : TranslateEnvT U
   callOptimize intPow
 
  where
-   callOptimize (e : Expr) : TranslateEnvT Unit := do
-     discard $ optimize e
+   callOptimize (e : Expr) : TranslateEnvT Unit :=
+     discard $ normOpaqueAndRecFun e #[] optimize
 
 /-- Optimize an expression using the given solver options.
     ### Parameters

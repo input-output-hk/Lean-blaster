@@ -17,13 +17,6 @@ structure IndTypeDeclaration where
 deriving Inhabited
 
 structure OptimizeOptions where
-  /-- Flag to activate const normalization, especially when function
-      are passed as arguments.
-      This flag is set to `false` when optimization a function application,
-      i.e., Given application `f x₁ ... xₙ` optimization on `f` is performed with
-      `normalizeConst` set to `false`.
-  -/
-  normalizeConst : Bool := true
   /-- Flag to activate function normalization, e.g., `Nat.beq x y` to `BEq.beq Nat instBEqNat x y`.
       This flag is set to `false` when optimizing the recursive function body
       of an opaque function f ∈ recFunsToNormalize`.
@@ -34,7 +27,7 @@ structure OptimizeOptions where
   solverOptions : SolverOptions
 
 instance : Inhabited OptimizeOptions where
-  default := {normalizeConst := true, normalizeFunCall := true, solverOptions := default}
+  default := {normalizeFunCall := true, solverOptions := default}
 
 /-- Type defining the environment used when optimizing a lean theorem. -/
 structure OptimizeEnv where
@@ -168,30 +161,12 @@ def throwEnvError (msg : MessageData) : TranslateEnvT α := do
 @[implemented_by exprEqUnsafe]
 def exprEq (op1 : Expr) (op2 : Expr) : MetaM Bool := isDefEqGuarded op1 op2
 
-/-- set optimize option `normalizeConst` to `b`. -/
-def setNormalizeConst (b : Bool) : TranslateEnvT Unit := do
-  let env ← get
-  let options := env.optEnv.options
-  let optEnv := {env.optEnv with options := {options with normalizeConst := b}}
-  set {env with optEnv := optEnv }
-
 /-- set optimize option `normalizeFunCall` to `b`. -/
 def setNormalizeFunCall (b : Bool) : TranslateEnvT Unit := do
   let env ← get
   let options := env.optEnv.options
   let optEnv := {env.optEnv with options := {options with normalizeFunCall := b}}
   set {env with optEnv := optEnv }
-
-/-- Perform the following actions:
-     - set normalizeConst to `false`
-     - execute `f`
-     - set normalizeConst to `true`
--/
-def withOptimizeFunApp (f: TranslateEnvT Expr) : TranslateEnvT Expr := do
-  setNormalizeConst false
-  let e ← f
-  setNormalizeConst true
-  return e
 
 /-- Perform the following actions:
      - set normalizeFunCall to `false`
@@ -235,11 +210,6 @@ def withTranslateRecBody (f: TranslateEnvT α) : TranslateEnvT α := do
   setInFunRecDefinition true
   return t
 
-
-/-- Return `true` if optimize option `normalizeConst` is set to `true`. -/
-def isOptimizeConst : TranslateEnvT Bool :=
-  return (← get).optEnv.options.normalizeConst
-
 /-- Return `true` if optimize option `normalizeFunCall` is set to `true`. -/
 def isOptimizeRecCall : TranslateEnvT Bool :=
   return (← get).optEnv.options.normalizeFunCall
@@ -277,7 +247,7 @@ def mkExpr (a : Expr) (cacheResult := true) : TranslateEnvT Expr := do
 /-- Return `b` if `a := b` is already in the optimization cache.
     Otherwise, the following actions are performed:
       - execute `b ← f ()`
-      - update cache with `a := b`
+      - update cache with `a := b` only when `¬ isNegSucc a ∨ isNegSucc b`
       - return `b`
  NOTE: A call to `mkExpr` must be done whenever any new Expr is created during normalization and rewriting.
  This is so to ensure maximum sharing of expression.
@@ -290,8 +260,15 @@ def withOptimizeEnvCache (a : Expr) (f: Unit → TranslateEnvT Expr) : Translate
   | some b => return b
   | none => do
      let b ← f ()
-     updateRewriteCache a b
+     if !(isNegSucc a) || (isNegSucc b) then
+       updateRewriteCache a b
      return b
+
+  where
+    isNegSucc (e : Expr) : Bool :=
+     match e with
+     | Expr.const ``Int.negSucc _ => true
+     | _ => false
 
 /-- Add a recursive function (i.e., function name expression or an instantiated polymorphic function)
     to the visited recursive function cache.
@@ -354,7 +331,7 @@ def isOpaqueRelational (f : Name) (args : Array Expr) : TranslateEnvT Bool := do
   | `BEq.beq
   | `LT.lt
   | `LE.le =>
-      if args.size < 1 then throwEnvError "isOpaqueRelational: implicit arguments"
+      if args.size < 1 then throwEnvError "isOpaqueRelational: implicit arguments expected"
       return (isCompatibleRelationalType args[0]!)
   | _ => return false
 

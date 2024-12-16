@@ -10,60 +10,65 @@ namespace Solver.Optimize
      - when `n := Nat.zero` return `Expr.lit (Literal.natVal 0)`
      - when `ConstantIno.opaqueInfo opVal ← getConstInfo n` (i.e., n is a constant defined at top level)
         - return `optimizer opVal`
-     - when `n` corresponds to a function passed as argument (i.e., `normalizeConst` set to `true`):
-         - when `n := Int.negSucc ∨ n := Nat.pred ∨ n := Nat.succ ∨ n := Nat.ble`
-            - return `optimizer (← etaExpand e)`
-         - when `n := Int.le`
-            - return `mkIntLeOp`
-         - when `n := Nat.le`
-            - return `mkNatLeOp`
-         - when `n := Nat.beq`
-            - return `(← normOpaqueAndRecFun e #[] optimizer)`
+     - when `n := Int.negSucc ∨ n := Nat.pred ∨ n := Nat.succ`:
+        - return `optimize (← etaExpand e)`
+     - when `n := Int.le`
+        - return `mkIntLeOp`
+     - when `n := Nat.le`
+        - return `mkNatLeOp`
+     - when `n := Nat.beq` ∧ (← isOptimizeRecCall):
+         - return `mkNatEqOp`
+     - when `n := Nat.ble` ∧ (← isOptimizeRecCall):
+        - return `optimize (← etaExpand e)`
+     - when `¬ isNotFoldable e (recFunCheck := false) ∧ ¬ hasImplicitArgs e`:
          - when `isRecursiveFun n` (i.e., a recursive function passed as argument):
             - return `(← normOpaqueAndRecFun e #[] optimizer)`
-         - when `(← getFunBody e).isSome ∧ ¬ isRecursiveFun n ∧ n ∉ opaqueFuns ∧ ¬ isInductiveType n l ∧ ¬ isInstance n ∧ ¬ isCtorName n`:
+         - when `(← getFunBody e).isSome ∧ ¬ isRecursiveFun n`:
             - return `optimizer (← getFunBody e)`
      - otherwise
          - return `mkExpr e`
-    An error is triggered when:
-      - `n` is a match function used as an effective parameter (i.e., `normalizeConst` set to `true`); or
-      - `n` is a function passed as argument such that `n` has implicit parameters (i.e., polymorphic parameters to be instantiated).
 -/
-def normConst (e : Expr) (optimizer : Expr → TranslateEnvT Expr) : TranslateEnvT Expr := do
-  let Expr.const n l := e | throwEnvError f!"normConst: name expression expected but got {reprStr e}"
+partial def normConst (e : Expr) (optimizer : Expr → TranslateEnvT Expr) : TranslateEnvT Expr := do
+  let Expr.const n _ := e | throwEnvError f!"normConst: name expression expected but got {reprStr e}"
   match n with
   | ``Nat.zero => mkNatLitExpr 0
   | _ =>
     if let some e ← isGlobalConstant n then return e
-    if let some r ← isHOF n l then return r
-    mkExpr e
+    if let some e ← isToNormOpaqueFun n then return e
+    if let some r ← isHOF n then return r
+    return e
 
   where
     isGlobalConstant (c : Name) : TranslateEnvT (Option Expr) := do
      let ConstantInfo.opaqueInfo opVal ← getConstInfo c | return none
      optimizer opVal.value
 
+    etaNormOpaqueFun (of : Expr) : TranslateEnvT Expr := do
+      let rec visit (l : Expr) : TranslateEnvT Expr := do
+        match l with
+        | Expr.lam n t b bi =>
+             withLocalDecl n bi (← optimizer t) fun x => do
+               mkLambdaExpr x (← visit (b.instantiate1 x))
+        | r => optimizeApp r.getAppFn' r.getAppArgs
+      visit (← etaExpand of)
+
     isToNormOpaqueFun (n : Name) : TranslateEnvT (Option Expr) := do
       match n with
       | ``Int.negSucc
-      | ``Nat.ble
       | ``Nat.pred
-      | ``Nat.succ => optimizer (← etaExpand e)
+      | ``Nat.succ => etaNormOpaqueFun e
       | ``Int.le => mkIntLeOp
       | ``Nat.le => mkNatLeOp
-      | ``Nat.beq => normOpaqueAndRecFun e #[] optimizer
+      | ``Nat.ble =>
+           if (← isOptimizeRecCall) then etaNormOpaqueFun e else return none
+      | ``Nat.beq =>
+           if (← isOptimizeRecCall) then mkNatEqOp else return none
       | _ => return none
 
-    isHOF (f : Name) (us : List Level) : TranslateEnvT (Option Expr) := do
-     if (← isInstance f) then return none
-     if !(← isOptimizeConst) then return none -- no unfolding on applied function expression
-     if let some r ← isToNormOpaqueFun f then return r
-     if (← isInductiveType f us) then return none -- also handles class constraint case
-     if (← isMatchExpr f) then throwEnvError f!"normConst: unexpected match function passed as argument {f}"
-     if (← hasImplicitArgs e) then
-       throwEnvError f!"normConst: unexpected implicit arguments for function {f}"
+    isHOF (f : Name) : TranslateEnvT (Option Expr) := do
+     if (← isNotFoldable e #[] (recFunCheck := false)) then return none
+     if (← hasImplicitArgs e) then return none
      if (← isRecursiveFun f) then return (← normOpaqueAndRecFun e #[] optimizer)
-     if (opaqueFuns.contains f) then return none
      -- non recursive function case
      let some fbody ← getFunBody e | return none
      optimizer fbody
