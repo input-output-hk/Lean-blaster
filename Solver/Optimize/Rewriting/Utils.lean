@@ -193,25 +193,28 @@ def isNegBoolEqOf (e1: Expr) (e2: Expr) : MetaM Bool := do
       | _, _ => return false
  | _, _ => return false
 
-/-- Return `true` if the given expression is of the form `const ``Bool`.
--/
+/-- Return `true` if the given expression is of the form `const ``Bool`. -/
 def isBoolType (e : Expr) : Bool :=
   match e with
   | Expr.const ``Bool _ => true
   | _ => false
 
-/-- Return `true` if the given expression is of the form `const ``Nat`.
--/
+/-- Return `true` if the given expression is of the form `const ``Nat`. -/
 def isNatType (e : Expr) : Bool :=
   match e with
   | Expr.const ``Nat _ => true
   | _ => false
 
-/-- Return `true` if the given expression is of the form `const ``Int`.
--/
+/-- Return `true` if the given expression is of the form `const ``Int`. -/
 def isIntType (e : Expr) : Bool :=
   match e with
   | Expr.const ``Int _ => true
+  | _ => false
+
+/-- Return `true` if the given expression is of the form `const ``String`. -/
+def isStringType (e : Expr) : Bool :=
+  match e with
+  | Expr.const ``String _ => true
   | _ => false
 
 /-- Determine if `e` is a `Nat` literal expression `Expr.lit (Literal.natVal n)`

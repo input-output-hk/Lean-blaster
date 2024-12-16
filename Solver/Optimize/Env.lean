@@ -576,8 +576,7 @@ def mkForallExpr (n : Expr) (b : Expr) : TranslateEnvT Expr := do
 def mkLambdaExpr (n : Expr) (b : Expr) : TranslateEnvT Expr := do
   mkExpr (← mkLambdaFVars #[n] b)
 
-/-- `mkNatLitExpr n` constructs `Expr.lit (Literal.natVal n)` and cache result.
--/
+/-- `mkNatLitExpr n` constructs `Expr.lit (Literal.natVal n)` and cache result. -/
 def mkNatLitExpr (n : Nat) : TranslateEnvT Expr :=
   mkExpr (mkRawNatLit n)
 
@@ -612,6 +611,9 @@ def mkNatNegExpr (n : Nat) : TranslateEnvT Expr := do
 def evalBinIntOp (f: Int -> Int -> Int) (n1 n2 : Int) : TranslateEnvT Expr :=
   mkIntLitExpr (f n1 n2)
 
+/-- `mkStrLitExpr s` constructs `Expr.lit (Literal.strVal s)` and cache result. -/
+def mkStrLitExpr (s : String) : TranslateEnvT Expr :=
+  mkExpr (mkStrLit s)
 
 /-- `mkDecidableConstraint e` constructs constraint [Decidable e] and cache the result.
 -/

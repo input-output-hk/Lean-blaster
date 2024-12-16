@@ -57,12 +57,15 @@ def reduceApp? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
      if !(← isRecursiveFun n) then return none
      if !(← allExplicitParamsAreCtor f args) then return none
      let some fbody ← getFunBody f
-      | throwEnvError f!"reduceApp?: recursive function body expected for {reprStr f}"
+       | throwEnvError f!"reduceApp?: recursive function body expected for {reprStr f}"
      return (Expr.beta fbody args)
 
    isMatchReduction? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
      if !(← allMatchDiscrsAreCtor f args) then return none
-     whnfExpr (mkAppN f args)
+     let auxApp := mkAppN f args
+     let e ← whnfExpr auxApp
+     if (← exprEq e auxApp) then return none
+     return e
 
    /- Return `true` only when `f` corresponds to a match function and all the
       the match discriminators in `args` are constructors that may also

@@ -31,7 +31,7 @@ def optimizeLE (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
  let op2 := args[3]!
  if (← exprEq op1 op2) then return (← mkPropTrue)
  if (isZeroNat op1) then return (← mkPropTrue)
- if let some r ← cstLEProp op1 op2 then return r
+ if let some r ← cstLEProp? op1 op2 then return r
  mkAppExpr f args
 
  where
@@ -41,7 +41,7 @@ def optimizeLE (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
        NOTE: This function need to be updated each time we are opacifying other Lean inductive types.
        Otheriwse `none`.
    -/
-   cstLEProp (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :=
+   cstLEProp? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :=
     match op1, op2 with
     | Expr.lit (Literal.natVal n1), Expr.lit (Literal.natVal n2) => mkPropLit (Nat.ble n1 n2)
     | _, _ =>
@@ -68,7 +68,7 @@ def optimizeLT (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
  let op2 := args[3]!
  if (← exprEq op1 op2) then return (← mkPropFalse)
  if (isZeroNat op2) then return (← mkPropFalse)
- if let some r ← cstLTProp op1 op2 then return r
+ if let some r ← cstLTProp? op1 op2 then return r
  mkAppExpr f args
 
  where
@@ -79,7 +79,7 @@ def optimizeLT (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
        NOTE: This function need to be updated each time we are opacifying other Lean inductive types.
        Otheriwse `none`.
    -/
-   cstLTProp (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :=
+   cstLTProp? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :=
     match op1, op2 with
     | Expr.lit (Literal.natVal n1), Expr.lit (Literal.natVal n2) => mkPropLit (Nat.blt n1 n2)
     | Expr.lit (Literal.strVal s1), Expr.lit (Literal.strVal s2) => mkPropLit (s1 < s2)
