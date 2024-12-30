@@ -23,11 +23,16 @@ structure OptimizeOptions where
   -/
   normalizeFunCall : Bool := true
 
+  /-- Flag to keep `namedPattern` axiliary application during optimization.
+      This flag is set to `true` only when transforming match to ite during smt translation.
+  -/
+  keepNamedPattern : Bool := False
+
   /-- Options passed to the #solve command. -/
   solverOptions : SolverOptions
 
 instance : Inhabited OptimizeOptions where
-  default := {normalizeFunCall := true, solverOptions := default}
+  default := {normalizeFunCall := true, keepNamedPattern := false, solverOptions := default}
 
 /-- Type defining the environment used when optimizing a lean theorem. -/
 structure OptimizeEnv where
@@ -67,6 +72,22 @@ structure OptimizeEnv where
   options : OptimizeOptions
 
  deriving Inhabited
+
+
+structure TranslateOptions where
+  /-- Flag set when universe @Type has already been declared Smt instance. -/
+  typeUniverse : Bool := false
+
+  /-- This flag is set to `true` only when translating recursive function definition. -/
+  inFunRecDefinition : Bool := false
+
+  /-- Set keeping track of all variables in matched terms, including named patterns.
+      This set is provided only when translating matched terms and match rhs.
+  -/
+  inPatternMatching : HashSet FVarId
+
+instance : Inhabited TranslateOptions where
+  default := {typeUniverse := false, inFunRecDefinition := false, inPatternMatching := .empty}
 
 /-- Type defining the environment used when translating to Smt-Lib. -/
 structure SmtEnv where
@@ -114,16 +135,13 @@ structure SmtEnv where
 
   /-- Set keeping track of globally declared variables and the ones in
       the top level forall quantifier.
-      This set is used exclusived when retrieving counterexample after a `sat` result
+      This set is used exclusively when retrieving counterexample after a `sat` result
       is obtained from the backend smt solver.
   -/
   topLevelVars : HashSet SmtSymbol
 
-  /-- Flag set when universe @Type has already been declared Smt instance. -/
-  typeUniverse : Bool := false
-
-  /-- This flag is set to `true` only when translating recursive function definition. -/
-  inFunRecDefinition : Bool := false
+  /-- Translation options (see note on TranslateOptions) -/
+  options: TranslateOptions
 
   deriving Inhabited
 
@@ -169,9 +187,9 @@ def setNormalizeFunCall (b : Bool) : TranslateEnvT Unit := do
   set {env with optEnv := optEnv }
 
 /-- Perform the following actions:
-     - set normalizeFunCall to `false`
+     - set `normalizeFunCall` to `false`
      - execute `f`
-     - set normalizeFunCall to `true`
+     - set `normalizeFunCall` to `true`
 -/
 def withOptimizeRecBody (f: TranslateEnvT Expr) : TranslateEnvT Expr := do
   setNormalizeFunCall false
@@ -179,35 +197,56 @@ def withOptimizeRecBody (f: TranslateEnvT Expr) : TranslateEnvT Expr := do
   setNormalizeFunCall true
   return e
 
+/-- set optimize option `keepNamedPattern` to `b`. -/
+def setKeepNamedPattern (b : Bool) : TranslateEnvT Unit := do
+  let env ← get
+  let options := env.optEnv.options
+  let optEnv := {env.optEnv with options := {options with keepNamedPattern := b}}
+  set {env with optEnv := optEnv }
+
+
 /-- Perform the following actions:
-     - let b := (← get).optEnv.options.normalizeFunCall
-     - set normalizeFunCall to `true`
+     - set `keepNamedPattern` to `true`
      - execute `f`
-     - set normalizeFunCall to `b`
+     - set `keepNamedPattern` to `false`
 -/
-def withRestoreRecBody (f: TranslateEnvT Expr) : TranslateEnvT Expr := do
-  let b := (← get).optEnv.options.normalizeFunCall
-  setNormalizeFunCall true
+def withKeepNamedPattern (f: TranslateEnvT α) : TranslateEnvT α := do
+  setKeepNamedPattern true
   let e ← f
-  setNormalizeFunCall b
+  setKeepNamedPattern false
   return e
 
 
 /-- set optimize option `inFunRecDefinition` to `b`. -/
 def setInFunRecDefinition (b : Bool) : TranslateEnvT Unit := do
   let env ← get
-  let smtEnv := {env.smtEnv with inFunRecDefinition := b}
-  set {env with smtEnv := smtEnv }
+  set {env with smtEnv.options.inFunRecDefinition := b }
 
 /-- Perform the following actions:
-     - set inFunRecDefinition to `true`
+     - set `inFunRecDefinition` to `true`
      - execute `f`
-     - set inFunRecDefinition to `false`
+     - set `inFunRecDefinition` to `false`
 -/
 def withTranslateRecBody (f: TranslateEnvT α) : TranslateEnvT α := do
   setInFunRecDefinition true
   let t ← f
-  setInFunRecDefinition true
+  setInFunRecDefinition false
+  return t
+
+/-- set optimize option `inPatternMatchin` to `h`. -/
+def setInPatternMatching (h : HashSet FVarId) : TranslateEnvT Unit := do
+  let env ← get
+  set {env with smtEnv.options.inPatternMatching := h }
+
+/-- Perform the following actions:
+     - set `inPatternMatching` to `h`
+     - execute `f`
+     - reset `inPatternMatching`
+-/
+def withTranslatePattern (h : HashSet FVarId) (f: TranslateEnvT α) : TranslateEnvT α := do
+  setInPatternMatching h
+  let t ← f
+  setInPatternMatching .empty
   return t
 
 /-- Return `true` if optimize option `normalizeFunCall` is set to `true`. -/
@@ -216,10 +255,15 @@ def isOptimizeRecCall : TranslateEnvT Bool :=
 
 /-- Return `true` if optimize option `inFunRecDefinition` is set to `true`. -/
 def isInRecFunDefinition : TranslateEnvT Bool :=
-  return (← get).smtEnv.inFunRecDefinition
+  return (← get).smtEnv.options.inFunRecDefinition
 
-/-- Update rewrite cache with `a := b`.
--/
+
+/-- Return `true` if optimize option `keepNamedPattern` is set to `true`. -/
+def isKeepNamedPattern : TranslateEnvT Bool :=
+  return (← get).optEnv.options.keepNamedPattern
+
+
+/-- Update rewrite cache with `a := b`. -/
 def updateRewriteCache (a : Expr) (b : Expr) : TranslateEnvT Unit := do
   let env ← get
   let optEnv := {env.optEnv with rewriteCache := env.optEnv.rewriteCache.insert a b}
@@ -257,18 +301,28 @@ def mkExpr (a : Expr) (cacheResult := true) : TranslateEnvT Expr := do
 def withOptimizeEnvCache (a : Expr) (f: Unit → TranslateEnvT Expr) : TranslateEnvT Expr := do
   let env := (← get).optEnv
   match env.rewriteCache.find? a with
-  | some b => return b
-  | none => do
-     let b ← f ()
-     if !(isNegSucc a) || (isNegSucc b) then
-       updateRewriteCache a b
-     return b
+  | some b =>
+      if isNamedPattern a && !(isNamedPattern b) && (← isKeepNamedPattern)
+      then executeAndUpdate
+      else return b
+  | none => executeAndUpdate
 
   where
     isNegSucc (e : Expr) : Bool :=
      match e with
      | Expr.const ``Int.negSucc _ => true
      | _ => false
+
+    executeAndUpdate : TranslateEnvT Expr := do
+      let b ← f ()
+      if !(isNegSucc a) || (isNegSucc b) then
+        updateRewriteCache a b
+      return b
+
+    isNamedPattern (e : Expr) : Bool :=
+      match e.getAppFn' with
+      | Expr.const ``namedPattern _ => true
+      | _ => false
 
 /-- Add a recursive function (i.e., function name expression or an instantiated polymorphic function)
     to the visited recursive function cache.
@@ -790,94 +844,124 @@ partial def isGenericParam (e : Expr) (skipInductiveCheck := false) : TranslateE
  | Expr.forallE ..
  | Expr.letE .. => return false
  | Expr.sort .. => return true
- | Expr.mdata _ e  => isGenericParam e
+ | Expr.mdata _ e  => isGenericParam e skipInductiveCheck
  | Expr.const n _ =>
      -- resolve type abbreviation (if any)
      let t ← resolveTypeAbbrev e
-     if !(← exprEq t e) then isGenericParam t
+     if !(← exprEq t e) then isGenericParam t skipInductiveCheck
      else
        if (← isInstance n) then return false
        if isClass (← getEnv) n then return false
        if let ConstantInfo.inductInfo _ ← getConstInfo n then return false
-       isGenericParam (← inferType e)
- | Expr.fvar v => isGenericParam (← v.getType)
+       isGenericParam (← inferType e) skipInductiveCheck
+ | Expr.fvar v => isGenericParam (← v.getType) skipInductiveCheck
  | Expr.app f arg =>
      if (!skipInductiveCheck) && !(← isClassConstraintExpr f) && (← isInductiveTypeExpr f) then return false
-     isGenericParam arg
+     isGenericParam arg skipInductiveCheck
  | Expr.bvar _ => throwEnvError f!"isGenericParam: unexpected bound variable {reprStr e}"
  | Expr.mvar .. => throwEnvError f!"isGenericParam: unexpected meta variable {reprStr e}"
 
 /-- Type to represent the parameters instantiating the implicit arguments for a given function.
     (see function `getImplicitParameters`)
 -/
+structure ImplicitInfo where
+  /-- Corresponds to an effective parameter for a given function (implicit or not). -/
+  effectiveArg : Expr
 
-structure ImplicitParameters where
-  /-- Corresponds to parameters that instantiate implicit arguments for a given function but
-      that are still polymorphic, i.e., they satisfy predicate `isGenericParam`.
-  -/
-  genericArgs : Array Expr
-  /-- Corresponds to parameters instantiating all the implicit arguments for a given function.
-      NOTE: `genericArgs` is a subset of `instanceArgs`
-  -/
-  instanceArgs : Array Expr
- deriving Repr
+  /-- Flag set to `true` when the effective parameter instantiates an implicit parameter. -/
+  isInstance : Bool
 
-/-- Given application `f x₀ ... xₙ`, perform the following:
-     - When `∀ i ∈ [0..n], isExplicit xᵢ`,
-           - return `{instanceArgs := #[], genericArgs := #[]}`
-     - When `∃ i ∈ [0..n], ¬ isExplicit xᵢ`,
-         let A := [x₀ ... xₙ]
-         let instanceArgs := [A[i] | i ∈ [0..n] ∧ ¬ isExplicit A[i]]
-         let genericArgs := [A[i] | i ∈ [0..n]  isGenericParam A[i] ∧ ¬ isExplicit A[i]]
-           - return {instanceArgs, genericArgs}
-    NOTE: It is assumed that all implicit arguments appear first in sequence `x₁ ... xₙ`.
+  /-- Flag set to `true` when the effective parameter instantiates an implicit parameter
+      but is still polymorphic, i.e., predicate `isGenericParam` is satisfied.
+  -/
+  isGeneric : Bool
+deriving Repr, Inhabited
+
+abbrev ImplicitParameters := Array ImplicitInfo
+
+/-- Given application `f x₀ ... xₙ`, return the following sequence:
+      let A := [x₀ ... xₙ]
+      let instanceArgs := [ { implicitArg := A[i], isInstance := ¬ isExplicit A[i],
+                              isGeneric := isGenericParam A[i], idxArg := i}
+                            | i ∈ [0..n] ]
+      return instanceArgs
     NOTE: It is also assumed that args does not contain any meta or bounded variables.
 -/
 def getImplicitParameters (f : Expr) (args : Array Expr) : TranslateEnvT ImplicitParameters := do
- let mut instanceArgs := #[]
- let mut genericArgs := #[]
+ let mut instanceParams := (#[] : ImplicitParameters)
  let fInfo ← getFunInfoNArgs f args.size
  for i in [:fInfo.paramInfo.size] do
    let aInfo := fInfo.paramInfo[i]!
    if !aInfo.isExplicit then
-     instanceArgs := instanceArgs.push args[i]!
-     if (← isGenericParam args[i]!) then
-       genericArgs := genericArgs.push args[i]!
- return {instanceArgs, genericArgs}
+     let isGeneric ← isGenericParam args[i]!
+     instanceParams := instanceParams.push {effectiveArg := args[i]!, isInstance := true, isGeneric}
+   else
+     instanceParams := instanceParams.push {effectiveArg := args[i]!, isInstance := false, isGeneric := false}
+ return instanceParams
 
-/-- Given function `f` and its implicit arguments `params`, perform the following:
-      - When params.instanceArgs.size == 0
+
+/-- Given `params` an implicit parameters info return a sequence of arguments satisfying the following:
+     [ params[i].effectiveArgs | i ∈ [0..params.size-1] ∧ (params[i].isGeneric ∨ ¬ params[i].isInstance) ]
+-/
+@[inline] def getEffectiveParams (params : ImplicitParameters) : Array Expr :=
+  Array.filterMap (λ p => if (p.isGeneric || !p.isInstance) then some p.effectiveArg else none) params
+
+
+/-- Given a fun body `λ α₀ → ... λ αₙ → body` and `params` the implicit parameters info
+    for the corresponding function, perform the following actions:
+      - let A := [a₀, ..., aₙ]
+      - let B := [ A[i] | i ∈ [0..n] ∧ (params[i].isGeneric ∨ ¬ params[i].isInstance) ]
+      - let S := [ A[i] | i ∈ [0..n] ∧ ¬ params[i].isGeneric ∧ params[i].isInstance ]
+      - let R := [ params[i] | i ∈ [0..n] ∧ ¬ params[i].isGeneric ∧ params[i].isInstance ]
+      - let B' := B [S[0] / R[0]] ... [S[k]/R[k]] with k = S.size-1
+      - let β₀, .., Bₘ = B'
+      - return `λ B₀ → ... λ Bₘ → body [S[0] / R[0]] ... [S[k]/R[k]]`
+
+    Assume that params.size ≤ n
+-/
+partial def specializeLambda (fbody : Expr) (params : ImplicitParameters) : Expr :=
+  let rec visit (idx : Nat) (stop : Nat) (e : Expr) (k : Expr → Expr) : Expr :=
+    if idx ≥ stop then k e
+    else
+      match e with
+      | Expr.lam n t b bi =>
+           let p := params[idx]!
+           if p.isGeneric || !p.isInstance then
+             visit (idx + 1) stop b fun b' =>
+               k (Expr.lam n t b' bi)
+           else
+             visit (idx + 1) stop (Expr.beta e #[p.effectiveArg]) k
+      | _ => k e
+  visit 0 (params.size) fbody (λ e => e)
+
+/-- Given function `f` and `params` its implicit parameter info (see `getImplicitParameters`),
+    perform the following:
+     let instanceArgs := [ params[i] | i ∈ [0..params.size-1] ∧ params[i].isInstance ]
+      - When instanceArgs.isEmpty
           - return `f`
-      - When params.instanceArgs.size > 0 ∧ params.genericArgs.size == 0
-          - return `mkAppExpr f params.instanceArgs`
       - Otherwise:
-          - return `mkLambdaFVars params.genericArgs (mkAppExpr f params.instanceArgs)`
-    See function `getImplicitParameters`.
+          - return `mkExpr $ specializeLambda (← etaExpand f) params
 -/
 def getInstApp (f : Expr) (params: ImplicitParameters) : TranslateEnvT Expr := do
- if params.instanceArgs.isEmpty then return f
- let auxApp ← mkAppExpr f params.instanceArgs
- if params.genericArgs.isEmpty then return auxApp
- mkExpr (← mkLambdaFVars params.genericArgs auxApp)
+ let instanceArgs := Array.filter (λ p => p.isInstance) params
+ if instanceArgs.isEmpty then return f
+ -- need to eta expand first to handle partially applied polymorphic functions
+ mkExpr $ specializeLambda (← etaExpand f) params
 
-
-/-- Given application `f` a function name expression, `params` the implicit parameters (if any) for `f`
-    (i.e., obtained via function `getImplicitParameters`), and `fbody` corresponding the recursive definition for `f`,
-    perform the following actions:
-      - Annotate the recurisve call in `fbody` with `_solver.recursivecall`
-      - return `fbody` only when `params.instanceArgs.isEmpty`.
-      - return `Expr.beta fbody params.instanceArgs` only when `params.genericArgs.isEmpty`
-      - return `λ (α₁ : Type₁) → λ (αₘ : Typeₘ) → Expr.beta fbody params.instanceArgs`, s.t.:
-          - α₁ : Type₁, ..., αₘ : Typeₘ = params.genericArgs
-    An error is triggered when f is not a name expression.
+/-- Given `f` a function name expression, `params` its implicit parameters info (see `getImplicitParameters`),
+    and `fbody` corresponding the recursive definition for `f`, perform the following actions:
+      - let fbody' be `fbody` in which the recurisve call is annotated with `_solver.recursivecall`
+      - When ∀ i ∈ [0..params.size-1], ¬ params[i].isInstance:
+          - return fbody'
+      - Otherwise:
+          - return specializeLambda fbody' params
+    An error is triggered when `f` is not a name expression.
 -/
-def generalizeRecCall (f : Expr) (params: ImplicitParameters) (fbody : Expr) : TranslateEnvT Expr := do
+partial def generalizeRecCall (f : Expr) (params: ImplicitParameters) (fbody : Expr) : TranslateEnvT Expr := do
  let Expr.const n _ := f | throwEnvError f!"generalizeRecCall: name expression expected but got {reprStr f}"
  let fbody' := fbody.replace (replacePred n)
- if params.instanceArgs.isEmpty then return fbody'
- let betaExpr := Expr.beta fbody' params.instanceArgs
- if params.genericArgs.isEmpty then return betaExpr
- mkLambdaFVars params.genericArgs betaExpr
+ if !(params.any (λ p => p.isInstance)) then return fbody'
+ return (specializeLambda fbody' params)
 
 where
   replacePred (n : Name) (e : Expr) : Option Expr := do
@@ -913,13 +997,13 @@ def updateRecFunInst (f : Expr) (fbody : Expr) : TranslateEnvT Unit := do
         already handled recursive function.
     Assumes that:
       - `f` is either a function name expression or a fully/partially instantiated polymorphic function (see `getInstApp`)
-      - any entry exists for each opaque recursive function in `recFunMap` before optimization is performed
+      - an entry exists for each opaque recursive function in `recFunMap` before optimization is performed
         (see function `cacheOpaqueRecFun`).
 -/
-partial def storeRecFunDef (f : Expr) (body : Expr) : TranslateEnvT Expr := do
+partial def storeRecFunDef (f : Expr) (params : ImplicitParameters) (body : Expr) : TranslateEnvT Expr := do
   -- remove from visiting cache
   uncacheFunName f
-  let body' ← replaceRecCall body
+  let body' := body.replace (replacePred (← mkExpr (mkConst internalRecFun)))
   -- update polymorphic instance cache
   updateRecFunInst f body'
   let env ← get
@@ -931,24 +1015,26 @@ partial def storeRecFunDef (f : Expr) (body : Expr) : TranslateEnvT Expr := do
      return f
 
 where
-  replacePred (params : ImplicitParameters) (recFun : Expr) (e : Expr) : Option Expr := do
+  replacePred (recFun : Expr) (e : Expr) : Option Expr := do
    match toTaggedRecursiveCall? e with
    | some b =>
         let mut margs := b.getAppArgs
         -- replace any occurrence in args first
         for i in [:margs.size] do
-           margs := margs.modify i (.replace (replacePred params recFun))
-        some (mkAppN recFun (params.genericArgs ++ margs[params.instanceArgs.size : margs.size]))
+           margs := margs.modify i (.replace (replacePred recFun))
+        if params.isEmpty then
+          -- case when function does not have any implicit parameters and is passed as argument (HOF)
+          some (mkAppN recFun margs)
+        else
+          let mut effectiveArgs := #[]
+          for i in [:margs.size] do
+             if i < params.size
+             then
+               if params[i]!.isGeneric || !(params[i]!.isInstance)
+               then effectiveArgs := effectiveArgs.push margs[i]!
+             else effectiveArgs := effectiveArgs.push margs[i]! -- case when f is partially applied
+          some (mkAppN recFun effectiveArgs)
    | _ => none
-
-  replaceRecCall (fbody : Expr) : TranslateEnvT Expr := do
-    lambdaTelescope fbody fun xs body => do
-     let some recCall := body.find? isTaggedRecursiveCall | return fbody -- mutually recursive call case
-     -- retrieve implicit arguments
-     let params ← getImplicitParameters recCall.getAppFn' recCall.mdataExpr!.getAppArgs
-     let body' := body.replace (replacePred params (← mkExpr (mkConst internalRecFun)))
-     let e ← mkLambdaFVars xs body'
-     return e
 
 /-- Given `instApp` corresponding either to a function name expression or
     to a fully/partially instantiated polymorphic function (see function `getInstApp`),

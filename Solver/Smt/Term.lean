@@ -22,6 +22,9 @@ def intSymbol : SmtSymbol := mkReservedSymbol "Int"
 /-! Smt Bool symbol. -/
 def boolSymbol : SmtSymbol := mkReservedSymbol "Bool"
 
+/-! Smt Prop symbol. -/
+def propSymbol : SmtSymbol := mkReservedSymbol "Prop"
+
 /-! Smt String symbol. -/
 def stringSymbol : SmtSymbol := mkReservedSymbol "String"
 
@@ -45,6 +48,12 @@ def intSort : SortExpr := .SymbolSort intSymbol
 
 /-! Smt Bool Sort. -/
 def boolSort : SortExpr := .SymbolSort boolSymbol
+
+/-! Smt Prop Sort.
+    NOTE: This sort is defined during translation whenever required.
+    (see function `definePropSort`)
+-/
+def propSort : SortExpr := .SymbolSort propSymbol
 
 /-! Smt String Sort. -/
 def stringSort : SortExpr := .SymbolSort stringSymbol

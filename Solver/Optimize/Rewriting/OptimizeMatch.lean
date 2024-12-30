@@ -49,13 +49,14 @@ partial def retrieveAltsArgs (alts : Array Expr) : TranslateEnvT (Array Expr) :=
 /-- Perform beta reduction on a match alternative `alt` according to the provided arguments `args`
     obtained when substituting the free variables appearing in each pattern pᵢ with the
     appropriate discriminator expression (see function `substituteArgs`).
-    Moreover, given a sequence of match pattern `p₁, ..., pₙ => t`, s.t.
+    Moreover, given a sequence of match pattern `p₁, ..., pₙ => t` such that
     each pᵢ contains named patterns of the form:
       (l₍₁₎₍₁₎ (sp₍₁₎₍₁₎ .. (l₍₁₎₍ₖ₋₁₎ (sp₍₁₎₍ₖ₋₁₎ (l₍₁₎₍ₖ₎ sp₍₁₎₍ₖ₎))))), ...,
       (l₍ₙ₎₍₁₎ (sp₍ₙ₎₍₁₎ .. (l₍ₙ₎₍ₖ₋₁₎ (sp₍ₙ₎₍ₖ₋₁₎ (l₍ₙ₎₍ₖ₎ sp₍ₙ₎₍ₖ₎))))) => t
     with
-      - l₍ᵢ₎₍ⱼ₎: correponding to the label of the named sub-pattern.
-      - sp₍ᵢ₎₍ⱼ₎: corresponding to a sub-pattern that may contain free variables `v₍ᵢ₎₍ⱼ₎₍₁₎, ..., v₍ᵢ₎₍ⱼ₎₍ₘ₎`
+      ∀ i ∈ [1..n], ∀ j ∈ [1..k]
+       - l₍ᵢ₎₍ⱼ₎: correponding to the label of the named sub-pattern.
+       - sp₍ᵢ₎₍ⱼ₎: corresponding to a sub-pattern that may contain free variables `v₍ᵢ₎₍ⱼ₎₍₁₎, ..., v₍ᵢ₎₍ⱼ₎₍ₘ₎`
       - args.size = n * k * m (i.e., `args` only contains the free variables `v₍₁₎₍₁₎₍₁₎, ..., v₍ₙ₎₍ₖ₎₍ₘ₎`.
     The corresponding alternative for `t` is expected to be of the following form:
       l₍₁₎₍₁₎ → v₍₁₎₍₁₎₍₁₎ ... → v₍₁₎₍₁₎₍ₘ₎ → ... → l₍₁₎₍ₖ₎ → v₍₁₎₍ₖ₎₍₁₎ ... → v₍₁₎₍ₖ₎₍ₘ₎ →
@@ -123,7 +124,7 @@ lambdaTelescope alt fun xs rhs => do
          | some e => return mkApp (← mkIntOfNat) (← optimizeSubPattern e)
          | _ => return sp
 
-/-- Correspond the accumulator `rewriter` function to be used with `matchExprRewriter` when attempting
+/-- Is the accumulator `rewriter` function to be used with `matchExprRewriter` when attempting
     to normalize a `match` expression to `if-then-else` (see `normMatchExpr?`), such that:
      - normMatchExprAux? 0 [e₁, ..., eₙ] [p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₙ₎] tₘ none := some (tₘ[p₍ₘ₎₍₁₎/e₁] ... [p₍ₘ₎₍ₙ₎/eₙ])
      - normMatchExprAux? 1 [e₁, ..., eₙ] [p₍ₘ₋₁₎₍₁₎, ..., p₍ₘ₋₁₎₍ₙ₎] tₘ (some rewrite₀) :=
@@ -220,7 +221,7 @@ def normMatchExprAux?
 
    /-- Given a sequence of match discriminators `[e₁, ..., eₙ]`, a sequence of match patterns `[p₁, ..., pₙ]`, and
        a sequence of free variables `[v₁, ..., vₘ]` obtained from function `retrieveAltsArgs`, apply the following
-       substituion: on [v₁, ..., vₘ] only when m > 0:
+       substituion on [v₁, ..., vₘ] only when m > 0:
           ∀ i ∈ [1..n],
            let j := NbFeeVars(p₁) + ... + NbFeeVars(pᵢ)
           - [vⱼ / eⱼ]                           if pᵢ = vⱼ ∧ j ≤ m
@@ -296,6 +297,7 @@ def normMatchExprAux?
      - the `Nat` argument corresponding to the traversed index, starting with 0.
    NOTE: The evaluation stops when at least one of the `rewriter` invocation return `none`.
 -/
+@[specialize]
 def matchExprRewriter
     (f : Expr) (args : Array Expr)
     (optimizer : Expr -> TranslateEnvT Expr)
@@ -321,8 +323,8 @@ def matchExprRewriter
               forallTelescope (← inferType alts[idx]!) fun _xs b => do
                 let mut lhs := b.getAppArgs
                 -- NOTE: lhs has not been normalized as is kept at the type level.
-                -- NOTE: optimizing lhs removes annotated named pattern, e.g.,
-                --       ((namedPattern Nat p) (Nat.succ n)) is reduced to (Nat.succ n)
+                -- NOTE: optimizing lhs removes annotated named pattern, only
+                -- when keepNamedPattern is set to `false`.
                 -- normalizing lhs
                 for j in [:lhs.size] do
                   lhs ← lhs.modifyM j optimizer
@@ -330,7 +332,6 @@ def matchExprRewriter
             unless (accExpr.isSome) do return accExpr -- break if accExpr is still none
           return accExpr
     | _ => pure none
-
 
 /-- Normalize a `match` expression to `if-then-else` only when each match pattern is either
       - an constructor application that does not contain any free variables (e.g., `Nat.zero`, `some Nat.zero`, `List.const 0 (List.nil)`); or
@@ -375,8 +376,9 @@ def normMatchExpr? (f : Expr) (args : Array Expr) (optimizer : Expr -> Translate
 /-- Given a `match` application expression of the form
      `f.match.n [p₁, ..., pₙ, d₁, ..., dₖ, pa₍₁₎₍₁₎ → .. → pa₍₁₎₍ₖ₎ → rhs₁, ..., pa₍ₘ₎₍₁₎ → .. → pa₍ₘ₎₍ₖ₎ → rhsₘ]`,
     perform the following actions:
-     - impParams ← getImplicitParameters f #[p₁, ..., pₙ]
-     - appType ← inferType(λ (α₁ : Type₁) → λ (αₘ : Typeₘ) → f p₁, ..., pₙ), with `α₁ : Type₁, ..., αₘ : Typeₘ = impParams.genericArgs`
+     - params ← getImplicitParameters f #[p₁, ..., pₙ]
+     - genericArgs := [params[i].effectiveArg | i ∈ [0..params.size-1] ∧ p.isGeneric]
+     - appType ← inferType(λ (α₁ : Type₁) → λ (αₘ : Typeₘ) → f p₁, ..., pₙ), with `α₁ : Type₁, ..., αₘ : Typeₘ = genericArgs`
      - return `g.match.n α₁ ..., αₘ d₁ ... dₖ pa₍₁₎₍₁₎ → .. → pa₍₁₎₍ₖ₎ → rhs₁ ... pa₍ₘ₎₍₁₎ → .. → pa₍ₘ₎₍ₖ₎ → rhsₘ`
        only when `appType := λ (α₁ : Type₁) → λ (αₘ : Typeₘ) → g.match.n q₁ ... qₕ` exists in match cache.
      - Otherwise, perform the following:
@@ -393,13 +395,14 @@ def structEqMatch? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) 
     let some matcherInfo ← getMatcherInfo? n | return none
     let i_args := args[0 : matcherInfo.getFirstDiscrPos]
     let params ← getImplicitParameters f i_args
-    let auxApp ← mkLambdaFVars params.genericArgs (mkAppN f i_args)
+    let genericArgs := Array.filterMap (λ p => if p.isGeneric then some p.effectiveArg else none) params
+    let auxApp ← mkLambdaFVars genericArgs (mkAppN f i_args)
     let auxAppType ← inferType auxApp
     let env ← get
     match env.optEnv.matchCache.find? auxAppType with
     | some gmatch =>
        let altArgs := args[matcherInfo.getFirstDiscrPos : args.size]
-       mkAppExpr (gmatch.beta params.genericArgs) altArgs
+       mkAppExpr (gmatch.beta genericArgs) altArgs
     | none =>
        let optEnv := {env.optEnv with matchCache := env.optEnv.matchCache.insert auxAppType auxApp}
        set {env with optEnv := optEnv}

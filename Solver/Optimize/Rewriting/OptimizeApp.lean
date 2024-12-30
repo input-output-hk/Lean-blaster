@@ -132,21 +132,20 @@ def normPartialFun? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr)
     (isInstance n) <||> (isClassConstraint n) <||> (isMatchExpr n)
 
 /-- Given application `f x₁ ... xₙ` perform the following:
-    - when `f` corresponds to a recursive definition `λ p₁ ... pₙ → fbody` the following actions are performed:
-        - impParams ← getImplicitParameters f #[x₁ ... xₙ]
-        - fᵢₙₛ ← getInstApp f impParams
+    - when `f` corresponds to a recursive definition `λ p₁ ... pₙ → body` the following actions are performed:
+        - params ← getImplicitParameters f #[x₁ ... xₙ]
+        - fᵢₙₛ ← getInstApp f params
         - When entry `fᵢₙₛ := fdef` exists in the instance cache and `fdef := fₙ` is in the recursive function map.
-             - return `optimizeApp (Expr.beta fₙ params.genericArgs) xₖ₊₁ ... xₙ`
+             - return `optimizeRecApp fₙ params`
         - when no entry for `fᵢₙₛ` exists in the instance cache:
-           - fbody' ← optimizerFunBody (← generalizeRecCall f impParams (λ p₁ ... pₙ → fbody))`
+           - fbody' ← optimizer (← generalizeRecCall f params (λ p₁ ... pₙ → body))`
            - call `storeRecFunDef` to update instance cache and check if recursive definition already exists in map, i.e.:
                fᵢ ← storeRecFunDef fᵢₙₛ fbody'
-           - return `optimizeApp (Expr.beta fᵢ params.genericArgs) xₖ₊₁ ... xₙ`
-       where `k = impParams.implicitArgs.size` (i.e., number of implicit arguments for `f` (if any).
+           - return `optimizeRecApp fᵢ params`
     - when `f` is not a recursive definition or is already in the recursive visited cache.
        - return `optimizeApp f x₁ ... xₙ`.
-    Assumes that any entry exists for each opaque recursive function in `recFunMap` before optimization is performed
-    (see function `cacheOpaqueRecFun`).
+    Assumes that an entry exists for each opaque recursive function in `recFunMap` before
+    optimization is performed (see function `cacheOpaqueRecFun`).
 -/
 def normOpaqueAndRecFun
   (f : Expr) (args: Array Expr)
@@ -159,26 +158,58 @@ def normOpaqueAndRecFun
    -- get instance application
    let instApp ← getInstApp f params
    if (← isVisitedRecFun instApp)
-   then optimizeRecApp f args -- already cached
+   then optimizeRecApp f params -- already cached
    else
      if let some r ← hasRecFunInst? instApp then
-        return (← optimizeRecApp (r.beta params.genericArgs) args[params.instanceArgs.size : args.size])
+        return (← optimizeRecApp r params)
      cacheFunName instApp -- cache function name
      let some fbody ← getFunBody f
        | throwEnvError f!"normOpaqueAndRecFun: recursive function body expected for {reprStr f}"
      -- instantiating polymorphic parameters in fun body
      let fdef ← generalizeRecCall f params fbody
      -- optimize recursive fun definition and store
-     let fn' ← storeRecFunDef instApp (← optimizer fdef)
+     let fn' ← storeRecFunDef instApp params (← optimizer fdef)
      -- only considering explicit args when instantiating
      -- as storeRecFunDef already handled implicit arguments
      -- NOTE: optimizations on cached opaque recursive functions required
-     optimizeRecApp (fn'.beta params.genericArgs) args[params.instanceArgs.size : args.size]
+     optimizeRecApp fn' params
    else optimizeApp f args -- optimizations on opaque functions
 
  where
-   optimizeRecApp (rf : Expr) (rargs : Array Expr) : TranslateEnvT Expr := do
-     if rargs.size == 0 then return rf
-     else optimizeApp rf rargs
+   /-- Given `rf` a function application instance (see function `getInstApp`) and `params` its
+       implicit parameter inffo (see function `getImplicitParameters`), perform the following:
+         let instanceArgs := [ params[i] | ∀ i ∈ [0..params.size-1] ∧ params[i].isInstance ]
+        - When params.isEmpty :
+          - return rf
+        - When instanceArgs.isEmpty ∨ f =ₚₜᵣ rf (i.e., non ploymorphic function or rec call in fun body)
+            - return `optimizeApp rf args`
+        - When rf.isConst (i.e., polymorphic function equivalent to a non-polymorphic one)
+            - return `optimizeApp rf [params[i] | ∀ i ∈ [0..params.size-1] ∧ ¬ params[i].instance]`
+        - Otherwise:
+            let auxApp := Expr.beta rf (getEffectiveParams params)
+            - When `auxApp := λ α₀ → ... → λ αₖ → fₑ x₀ ... xₙ` (i.e., partially applied polymorphic function)
+                - return `optimizeApp fₑ x₀ ...xₙ₋ₖ`
+            - When `auxApp := fₑ x₀ ... xₙ` (default case)
+                - return `optimizeApp fₑ x₀ ...xₙ`
+   -/
+   optimizeRecApp (rf : Expr) (params : ImplicitParameters) : TranslateEnvT Expr := do
+     if params.isEmpty then return rf
+     let instanceArgs := Array.filter (λ p => p.isInstance) params
+     if (instanceArgs.isEmpty || (← exprEq f rf)) then
+       -- case for non polymorphic function or recursive call in fun body
+         optimizeApp rf args
+     else if rf.isConst then
+         -- case when a polymorphic function is equivalent to a non-polymorphic one
+         let eargs := Array.filterMap (λ p => if !p.isInstance then some p.effectiveArg else none) params
+         optimizeApp rf eargs
+     else
+       let eargs := getEffectiveParams params
+       let auxApp := rf.beta eargs
+       if auxApp.isLambda then
+         -- case for partially applied functions, i.e., some explicit arguments not provided
+         let appCall := getLambdaBody auxApp
+         let largs := appCall.getAppArgs
+         optimizeApp appCall.getAppFn' largs[0:largs.size-auxApp.getNumHeadLambdas]
+       else optimizeApp auxApp.getAppFn' auxApp.getAppArgs
 
 end Solver.Optimize

@@ -19,7 +19,7 @@ partial def translateExpr (e : Expr) : TranslateEnvT Unit := do
     -- TODO: consider other sort once supported (e.g., BitVec, Char, etc)
     match e with
      | Expr.fvar .. => translateFreeVar e optimizeExpr visit
-     | Expr.const .. => throwEnvError f!"unexpected const expression {e}"
+     | Expr.const .. => translateConst e optimizeExpr visit
      | Expr.forallE .. =>
          let qtyEnv := initialQuantifierEnv topLevel
          let (t, _) ← translateForAll e optimizeExpr visit |>.run qtyEnv
@@ -29,8 +29,8 @@ partial def translateExpr (e : Expr) : TranslateEnvT Unit := do
      | Expr.mdata _d me =>
         match toTaggedCtorSelector? e with
         | none => visit me
-        | some (Expr.app (Expr.const s _) (Expr.const a _)) =>
-            return mkSimpleSmtAppN (nameToSmtSymbol s) #[smtSimpleVarId (nameToSmtSymbol a)]
+        | some (Expr.app (Expr.const s _) _) =>
+            return mkSimpleSmtAppN (nameToSmtSymbol s) #[smtSimpleVarId (mkReservedSymbol "@x")]
         | some s => throwEnvError f!"unexpected ctor selector expression {reprStr s}"
      | Expr.proj n idx p => translateProj n idx p visit
      | Expr.lit .. => throwEnvError f!"unexpected literal expression {e}"

@@ -642,6 +642,7 @@ def isUndefinedClassFunApp (e : Expr) : MetaM Bool := do
      - `n` is a class instance;
      - `n` is an inductive datatype;
      - `n` is not a recursive function when flag `recFunCheck` is set to `true`;
+     - `n := namedPattern` and flag keepNamedPattern is set to `true`;
      - `n` is not a match expression; or
      - `n` is not a class constraint.
      Otherwise `false`.
@@ -651,6 +652,7 @@ def isNotFoldable (e : Expr) (args : Array Expr) (recFunCheck := true) : Transla
   if recFunCheck && (← isRecursiveFun n) then return true
   if args.size == 0 && opaqueFuns.contains n then return true
   if (← (pure (args.size != 0)) <&&> (isOpaqueFun n args)) then return true
+  if n == ``namedPattern && (← isKeepNamedPattern) then return true
   (isInductiveType n l)
   <||> (isInstance n)
   <||>  (isMatchExpr n)
