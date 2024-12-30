@@ -1,6 +1,7 @@
 import Lean
 import Solver.Optimize.Rewriting.OptimizeITE
 import Solver.Smt.Env
+import Solver.Smt.Translate.Match
 import Solver.Smt.Translate.Quantifier
 
 
@@ -100,6 +101,7 @@ def updateFunInstCache (f : Expr) (n : SmtSymbol) : TranslateEnvT SmtQualifiedId
 /-- Perform the following actions:
      - Return `SimpleIdent "Nat.sub"` when entry `n := SimpleIdent "Nat.sub"` exists in `funInstCache`
      - Otherwise:
+        - define Nat sort (if necessary)
         - define Nat.sub Smt function (i.e., see `defineNatSub`)
         - add entry `n := SimpleIdent "Nat.sub"` to `funInstCache`
         - return `SimpleIdent "Nat.sub"`
@@ -108,10 +110,10 @@ def updateFunInstCache (f : Expr) (n : SmtSymbol) : TranslateEnvT SmtQualifiedId
 def translateNatSub (n : Expr) : TranslateEnvT SmtQualifiedIdent := do
  match (← get).smtEnv.funInstCache.find? n with
  | none =>
+    discard $ translateNatType (← mkNatType)
     defineNatSub
     updateFunInstCache n natSubSymbol
  | some smtId => return smtId
-
 
 /-- Perform the following actions:
      - Return `SimpleIdent "Int.ediv"` when entry `f := SimpleIdent "Int.ediv"` exists in `funInstCache`
@@ -269,6 +271,7 @@ def translateIntPow (f : Expr) : TranslateEnvT SmtQualifiedIdent := do
 /-- Perform the following actions:
      - Return `SimpleIdent "Int.toNat"` when entry `n := SimpleIdent "Int.toNat"` exists in `funInstCache`
      - Otherwise:
+        - define Nat sort (if necessary)
         - define Int.toNat Smt function (i.e., see `defineInttoNat`)
         - add entry `n := SimpleIdent "Int.toNat"` to `funInstCache`
         - return `SimpleIdent "Int.toNat"`
@@ -277,6 +280,7 @@ def translateIntPow (f : Expr) : TranslateEnvT SmtQualifiedIdent := do
 def translateInttoNat (n : Expr) : TranslateEnvT SmtQualifiedIdent := do
  match (← get).smtEnv.funInstCache.find? n with
  | none =>
+    discard $ translateNatType (← mkNatType)
     defineInttoNat
     updateFunInstCache n toNatSymbol
  | some smtId => return smtId
@@ -402,12 +406,13 @@ def translateFunLambdaParamType
   translateType optimizer termTranslator t (optionsForFunLambdaParam (← isInRecFunDefinition))
 
 /-- Given `f := Expr.const n _` corresponding to a function name and
-    `params` its implicit arguments, perform the following actions:
-      - When params.instanceArgs.size = 0:
+    `params` its implicit parameter infos, perform the following actions:
+      let instanceArgs := Array.filter (λ p => p.isInstance) params
+       - When instanceArgs.isEmpty:
           - instName := funNameToSmtSymbol n
           - add entry `f := SimpleIdent instName` to `funInstCache`
           - return `SimpleIdent instName`
-      - When params.instanceArgs.size > 0:
+      - When ¬ instanceArgs.isEmpty:
           - instName := funNameToSmtSymbol (n ++ (← mkFreshId))
           - instApp ← getInstApp f params
           - add entry `instApp := SimpleIdent instName` to `funInstCache`
@@ -416,8 +421,9 @@ def translateFunLambdaParamType
 -/
 def generateFunInst (f : Expr) (params : ImplicitParameters) : TranslateEnvT SmtQualifiedIdent := do
    let Expr.const n _ := f | throwEnvError f!"generateFunInst: name expression expected but got {reprStr f}"
+   let instanceArgs := Array.filter (λ p => p.isInstance) params
    -- get instance application
-   if params.instanceArgs.isEmpty
+   if instanceArgs.isEmpty
    then
      let instName := funNameToSmtSymbol n
      updateFunInstCache f instName
@@ -463,12 +469,12 @@ partial def translateRecFun
 
   where
     updateFunDefinitions
-      (f : Expr) (id : SmtQualifiedIdent) (fbody : Expr)
+      (id : SmtQualifiedIdent) (fbody : Expr)
       (rt : Expr) (defs : FunctionDefinitions) : TranslateEnvT FunctionDefinitions := do
       let .SimpleIdent s := id
         | throwEnvError f!"updateFunDefinition: SimpleIdent expected but got {id}"
       let ret ← translateFunLambdaParamType rt optimizer termTranslator
-      let fInfo ← getFunInfo f
+      let fInfo ← getFunInfo fbody
       lambdaTelescope fbody fun xs b => do
         let mut params := (#[] : SortedVars)
         for i in [:xs.size] do
@@ -482,12 +488,22 @@ partial def translateRecFun
         let sBody ← termTranslator b
         return { defs with funDecls := defs.funDecls.push funDecl, funBodies := defs.funBodies.push sBody }
 
-    replaceGenericRecFun (f : Name) (us : List Level) (e : Expr) : Option Expr :=
+    replaceGenericRecFun (f : Expr) (params : ImplicitParameters) (e : Expr) : Option Expr :=
       match e with
-      | Expr.const n _ =>
-          if n == internalRecFun
-          then some (mkConst f us)
-          else none
+      | Expr.app .. =>
+          Expr.withApp e fun x xargs => do
+            match x with
+            | Expr.const n _ =>
+                if n == internalRecFun then
+                  let mut pargs := #[]
+                  for i in [:params.size] do
+                    if !(params[i]!.isInstance) then
+                      pargs := pargs.push xargs[i]!
+                    else
+                      pargs := pargs.push params[i]!.effectiveArg
+                  some (mkAppN f pargs)
+                else none
+            | _ => none
       | _ => none
 
     generateRecFunDefinitions
@@ -509,10 +525,10 @@ partial def translateRecFun
           | throwEnvError f!"translateRecFun: function body expected for {reprStr instApp}"
         let ConstantInfo.defnInfo dInfo ← getConstInfo f
           | throwEnvError f!"translateRecFun: no defnInfo for {f}"
-        let fbody' := fbody.replace (replaceGenericRecFun f us)
+        let fbody' := fbody.replace (replaceGenericRecFun auxApp params)
         -- return type
         let ret := Expr.getForallBody dInfo.type
-        funDefs ← withTranslateRecBody $ updateFunDefinitions auxApp smtId fbody' ret funDefs
+        funDefs ← withTranslateRecBody $ updateFunDefinitions smtId fbody' ret funDefs
       defineFunctions funDefs
 
 /-- Return `true` only when `n` corresponds to a function/constructor name
@@ -649,11 +665,12 @@ def translateApp
          if let some r ← translateDITE? f n args then return r
          if let some r ← translateOfNat? n args then return r
          if let some r ← translateDecide? n args then return r
-         if let some r ← translateMatch? f n args then return r
+         if let some r ← translateMatch? f args optimizer termTranslator then return r
          if let some r ← translateExists? n args then return r
          if let some r ← translateRecFun? f n args then return r
          if let some r ← translateAppliedCtor? f n args then return r
          if let some r ← translateUndeclaredFun? f n args then return r
+         if let some r ← translateInductivePredicate? f n args then return r
          throwEnvError f!"translateApp: unexpected application {reprStr e}"
 
     | Expr.fvar _ => -- case for HOF
@@ -715,10 +732,6 @@ def translateApp
             else return none -- undefined fun class case
        | _ => return none
 
-    translateMatch? (_f : Expr) (n : Name) (_args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
-      if !(← isMatchExpr n) then return none
-      throwEnvError "translateMatch?: not yet implemented !!!"
-
     genExistsTerm (lambdaE : Expr) : QuantifierEnvT SmtTerm := do
       lambdaTelescope lambdaE fun xs b => do
         for i in [:xs.size] do
@@ -748,8 +761,11 @@ def translateApp
 
     translateAppliedCtor? (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
       let ConstantInfo.ctorInfo info ← getConstInfo n | return none
-      let st ← translateType optimizer termTranslator info.type
-      createAppN f (.QualifiedIdent (nameToSmtSymbol n) st) args termTranslator
+      if args.size < info.numParams + info.numFields
+      then termTranslator (← etaExpand e) -- partially applied ctor case
+      else
+        let st ← translateType optimizer termTranslator (← inferType e)
+        createAppN f (.QualifiedIdent (nameToSmtSymbol n) st) args termTranslator
 
     translateUndeclaredFun? (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
       if (← isOpaqueFun n args) then return none
@@ -765,7 +781,7 @@ def translateApp
            | throwEnvError f!"translateUndeclaredFun?: SimpleIdent expected but got {smtId}"
          let ConstantInfo.defnInfo dInfo ← getConstInfo n
            | throwEnvError f!"translateUndeclaredFun?: no defnInfo for {n}"
-         let fInfo ← getFunInfo e
+         let fInfo ← getFunInfo f
          withTranslateRecBody $ forallTelescope dInfo.type fun xs b => do
             let mut pargs := (#[] : Array SortExpr)
             for i in [:xs.size] do
@@ -786,6 +802,11 @@ def translateApp
       if fInfo.paramInfo.size != args.size then
         throwEnvError f!"translateFullyApplied?: fully applied function expected for {reprStr f}"
       createAppN f (← translateOpaqueFun f n args) args termTranslator
+
+    translateInductivePredicate? (_f : Expr) (n : Name) (_args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
+      if (← isInductivePredicate n) then
+        throwEnvError "translateApp: Inductive predicate not yet supported"
+      return none
 
 /-- Given `e := λ (x₀ : t₁) → λ (xₙ : tₙ) => b`, create Smt term `(lambda (B) sb)`, where:
       - A := [x₁, ..., xₙ]
@@ -824,7 +845,7 @@ def translateProj
     | throwEnvError "translateProj: induction info expected for {n}"
   match indVal.ctors with
   | [c] =>
-      let selectorSym := mkNormalSymbol s!"{c}.{idx+1}"
+      let selectorSym := mkCtorSelectorSymbol c (idx+1)
       return (mkSimpleSmtAppN selectorSym #[← termTranslator p])
   | _ => throwEnvError "translateProj: only one ctor expected for structure for {n}"
 

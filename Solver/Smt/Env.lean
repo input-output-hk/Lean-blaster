@@ -218,7 +218,7 @@ def defineTypeSort : TranslateEnvT Unit := do
 
 /-- Perform the following actions:
      - Declare Empty sort in Smt Lib
-     - Define function `IsEmpty (@x : Empty) := false` to qualify quantifiers on Empty
+     - Define function `@isEmpty (@x : Empty) := false` to qualify quantifiers on Empty
 -/
 def defineEmptySort : TranslateEnvT Unit := do
   declareSort emptySymbol 0
@@ -226,15 +226,24 @@ def defineEmptySort : TranslateEnvT Unit := do
 
 /-- Perform the following actions:
      - Declare PEmpty sort in Smt Lib
-     - Define function `IsPEmpty (@x : PEmpty) := false` to qualify quantifiers on PEmpty
+     - Define function `@isPEmpty (@x : PEmpty) := false` to qualify quantifiers on PEmpty
 -/
 def definePEmptySort : TranslateEnvT Unit := do
   declareSort pemptySymbol 0
   defineFun (mkReservedSymbol "@isPEmpty") #[(mkReservedSymbol "@x", pemptySort)] boolSort falseSmt
 
+
+/-- Perform the following actions:
+     - Define Prop sort in Smt Lib, which is an alias to Bool Smt Sort
+     - Declare smt function `(declare-fun @isProp ((Prop)) Bool)`
+-/
+def definePropSort : TranslateEnvT Unit := do
+  defineSort propSymbol none boolSort
+  declareFun (mkReservedSymbol "@isProp") #[propSort] boolSort
+
 /-- Perform the following actions:
      - Define Nat sort in Smt Lib, which is an alias to Int Smt Sort
-     - Define function `IsNat (@x : Nat) := (<= 0 @x)` to qualify quantifiers on Nat
+     - Define function `@isNat (@x : Nat) := (<= 0 @x)` to qualify quantifiers on Nat
 -/
 def defineNatSort : TranslateEnvT Unit := do
   defineSort natSymbol none intSort
