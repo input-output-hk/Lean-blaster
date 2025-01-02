@@ -5,7 +5,9 @@ import Solver.Tests.Utils
 
 namespace Tests.SmtMatch
 
-/-! ## Test objectives to validate "match" to smt ite translation -/
+/-! ## Test objectives to validate "match/recursor" to smt ite translation -/
+
+/-! Test cases to validate match to smt ite translation -/
 
 def namedPatternInt (x : Int) (y : Option Int) : Nat :=
  match x, y with
@@ -118,5 +120,224 @@ def isNil (x : List Nat) : Bool :=
 
 #solve [∀ (xs : List Nat), isNil xs → List.length xs = 0]
 
+
+/-! Test cases to validate casesOn recursor application to smt ite translation -/
+
+structure POSIXTime where
+    time : Nat
+deriving BEq
+
+structure VerificationKeyHash where
+    hash : Nat
+deriving BEq
+
+-- NOTE deriving BEq uses recursor to derive the == instance
+inductive Purpose
+ | Minting
+ | Spending
+ | Rewarding
+deriving BEq
+
+structure ValidityRange where
+    upper_bound : Nat
+    lower_bound : Nat
+deriving BEq
+
+structure Tx (α : Type) where
+    values : Option α
+    signatories : Option VerificationKeyHash
+    validity_range : ValidityRange
+deriving BEq
+
+structure ScriptContext where
+    purpose : Purpose
+    transaction : Tx Nat
+deriving BEq
+
+#solve [∀ (x y : POSIXTime), x == y → y == x]
+
+#solve [∀ (x y : Purpose), x == y → y == x]
+
+#solve [∀ (x y : ValidityRange), x == y → y == x]
+
+#solve [∀ (x y : Tx Nat), x == y → y == x]
+
+#solve [∀ (x y : ScriptContext), x == y → y == x]
+
+#solve [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Spending → y.purpose != Purpose.Minting]
+
+#solve [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Spending → y.purpose != Purpose.Rewarding]
+
+#solve [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Minting → y.purpose != Purpose.Spending]
+
+#solve [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Minting → y.purpose != Purpose.Rewarding]
+
+#solve [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Rewarding → y.purpose != Purpose.Spending]
+
+#solve [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Rewarding → y.purpose != Purpose.Minting]
+
+#solve [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Spending → y.purpose == Purpose.Spending]
+
+#solve [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Minting → y.purpose == Purpose.Minting]
+
+#solve [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Rewarding → y.purpose == Purpose.Rewarding]
+
+
+inductive Color where
+  | transparent : Color
+  | red : Color → Color
+  | blue : Color → Color
+  | yellow : Color → Color
+ deriving BEq
+
+def isRed (c : Color) : Bool :=
+ match c with
+ | Color.red _ => true
+ | _ => false
+
+def isBlue (c : Color) : Bool :=
+ match c with
+ | Color.red _ => true
+ | _ => false
+
+def isYellow (c : Color) : Bool :=
+ match c with
+ | Color.yellow _ => true
+ | _ => false
+
+#solve [∀ (x y : Color), x == y → x == Color.transparent → y == Color.transparent ]
+
+#solve [∀ (x y z : Color), x == y → x == Color.transparent → y != Color.red z ]
+
+#solve [∀ (x y z : Color), x == y → x == Color.transparent → y != Color.blue z ]
+
+#solve [∀ (x y z : Color), x == y → x == Color.transparent → y != Color.yellow z ]
+
+#solve [∀ (x y z : Color), x == y → x == Color.red z → y != Color.transparent ]
+
+#solve [∀ (x y z : Color), x == y → x == Color.red z → y != Color.blue z ]
+
+#solve [∀ (x y z : Color), x == y → x == Color.red z → y != Color.yellow z ]
+
+#solve [∀ (x y z : Color), x == y → x == Color.blue z → y != Color.transparent ]
+
+#solve [∀ (x y z : Color), x == y → x == Color.blue z → y != Color.red z ]
+
+#solve [∀ (x y z : Color), x == y → x == Color.blue z → y != Color.yellow z ]
+
+#solve [∀ (x y z : Color), x == y → x == Color.yellow z → y != Color.transparent ]
+
+#solve [∀ (x y z : Color), x == y → x == Color.yellow z → y != Color.red z ]
+
+#solve [∀ (x y z : Color), x == y → x == Color.yellow z → y != Color.blue z ]
+
+#solve [∀ (x y : Color), x == y → isRed x → isRed y]
+
+#solve [∀ (x y : Color), x == y → isBlue x → isBlue y]
+
+#solve [∀ (x y : Color), x == y → isYellow x → isYellow y]
+
+
+/-! # Test cases to ensure that counterexample are properly detected -/
+
+
+#solve (gen-cex: 0) (falsified-result: 1) [∀ (x : Int) (y : Option Int), y.isNone → namedPatternInt x y ≠ 1]
+
+#solve (gen-cex: 0) (falsified-result: 1) [∀ (x : Int) (y : Option Int), x = 0 → ¬ y.isNone → namedPatternInt x y ≠ 2]
+
+#solve (gen-cex: 0) (falsified-result: 1) [∀ (x : Int) (y : Option Int), x ≠ 0 → y = some 0 → namedPatternInt x y ≠ 3]
+
+#solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x t : Int) (y : Option Int), x ≠ 1 ∨ y.isNone ∨ (y = some t ∧ t = 0) → namedPatternInt x y = Int.toNat t + 2]
+
+#solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x t : Int) (y : Option Int), x = 1 ∨ x = 0 ∨ y.isNone ∨ (y = some t ∧ t ≠ 1) → namedPatternInt x y = Int.toNat x + 3]
+
+#solve (gen-cex: 0) (falsified-result: 1) [∀ (xs : List Nat), ¬ isNil xs → List.length xs = 0]
+
+#solve (gen-cex: 0) (falsified-result: 1) [∀ (x y : POSIXTime), x == y → y ≠ x]
+
+#solve (gen-cex: 0) (falsified-result: 1) [∀ (x y : Purpose), x == y → y ≠ x]
+
+#solve (gen-cex: 0) (falsified-result: 1) [∀ (x y : ValidityRange), x == y → y ≠ x]
+
+#solve (gen-cex: 0) (falsified-result: 1) [∀ (x y : Tx Nat), x == y → y ≠ x]
+
+#solve (gen-cex: 0) (falsified-result: 1) [∀ (x y : ScriptContext), x == y → y ≠ x]
+
+#solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Spending → y.purpose == Purpose.Minting]
+
+#solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Spending → y.purpose == Purpose.Rewarding]
+
+#solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Minting → y.purpose == Purpose.Spending]
+
+#solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Minting → y.purpose == Purpose.Rewarding]
+
+#solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Rewarding → y.purpose == Purpose.Spending]
+
+#solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Rewarding → y.purpose == Purpose.Minting]
+
+#solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Spending → y.purpose != Purpose.Spending]
+
+#solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Minting → y.purpose != Purpose.Minting]
+
+#solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Rewarding → y.purpose != Purpose.Rewarding]
+
+#solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x y : Color), x == y → x == Color.transparent → y != Color.transparent ]
+
+#solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x y z : Color), x == y → x == Color.transparent → y == Color.red z ]
+
+#solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x y z : Color), x == y → x == Color.transparent → y == Color.blue z ]
+
+#solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x y z : Color), x == y → x == Color.transparent → y == Color.yellow z ]
+
+#solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x y z : Color), x == y → x == Color.red z → y == Color.transparent ]
+
+#solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x y z : Color), x == y → x == Color.red z → y == Color.blue z ]
+
+#solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x y z : Color), x == y → x == Color.red z → y == Color.yellow z ]
+
+#solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x y z : Color), x == y → x == Color.blue z → y == Color.transparent ]
+
+#solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x y z : Color), x == y → x == Color.blue z → y == Color.red z ]
+
+#solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x y z : Color), x == y → x == Color.blue z → y == Color.yellow z ]
+
+#solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x y z : Color), x == y → x == Color.yellow z → y == Color.transparent ]
+
+#solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x y z : Color), x == y → x == Color.yellow z → y == Color.red z ]
+
+#solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x y z : Color), x == y → x == Color.yellow z → y == Color.blue z ]
+
+#solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x y : Color), x == y → isRed x → ¬ isRed y]
+
+#solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x y : Color), x == y → isBlue x → ¬ isBlue y]
+
+#solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x y : Color), x == y → isYellow x → ¬ isYellow y]
 
 end Tests.SmtMatch

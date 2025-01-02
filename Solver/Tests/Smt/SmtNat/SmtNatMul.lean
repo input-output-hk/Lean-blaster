@@ -1,4 +1,3 @@
-import Lean
 import Solver.Command.Syntax
 
 namespace Tests.SmtNatMul
