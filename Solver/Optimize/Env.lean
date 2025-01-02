@@ -239,14 +239,16 @@ def setInPatternMatching (h : HashSet FVarId) : TranslateEnvT Unit := do
   set {env with smtEnv.options.inPatternMatching := h }
 
 /-- Perform the following actions:
-     - set `inPatternMatching` to `h`
+     - let s := (← get).smtEnv.options.inPatternMatching
+     - set `inPatternMatching` to `s ∪ h`
      - execute `f`
-     - reset `inPatternMatching`
+     - set `inPatternMatching` to s
 -/
 def withTranslatePattern (h : HashSet FVarId) (f: TranslateEnvT α) : TranslateEnvT α := do
-  setInPatternMatching h
+  let s := (← get).smtEnv.options.inPatternMatching
+  setInPatternMatching (s.merge h)
   let t ← f
-  setInPatternMatching .empty
+  setInPatternMatching s
   return t
 
 /-- Return `true` if optimize option `normalizeFunCall` is set to `true`. -/
