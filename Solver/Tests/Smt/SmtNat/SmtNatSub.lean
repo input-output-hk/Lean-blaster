@@ -1,6 +1,9 @@
 import Lean
 import Solver.Command.Syntax
 
+
+namespace Tests.SmtNatSub
+
 /-! ## Test objectives to validate `Nat.sub` semantics with backend solver -/
 
 /-! # Test cases to validate `Nat.sub` semantics with backend solver -/
@@ -63,3 +66,17 @@ import Solver.Command.Syntax
 
 
 /-! # Test cases to ensure that counterexample are properly detected -/
+
+#solve (gen-cex: 0) (falsified-result: 1) [∀ (x y : Nat), x - y < x]
+
+#solve (gen-cex: 0) (falsified-result: 1) [∀ (x y : Nat), x - y < y]
+
+#solve (gen-cex: 0) (falsified-result: 1) [∀ (x y : Nat), x - y > x]
+
+#solve (gen-cex: 0) (falsified-result: 1) [∀ (x y : Nat), x - y > y]
+
+#solve (gen-cex: 0) (falsified-result: 1) [∀ (x y : Nat), x - y ≠ 0]
+
+#solve (gen-cex: 0) (falsified-result: 1) [∀ (x y : Nat), x < y → x - y ≠ 0]
+
+end Tests.SmtNatSub

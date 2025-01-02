@@ -1,6 +1,9 @@
 import Lean
 import Solver.Command.Syntax
 
+
+namespace Tests.SmtNatPow
+
 /-! ## Test objectives to validate `Nat.pow` semantics with backend solver -/
 
 /-! # Test cases to validate `Nat.pow` semantics with backend solver -/
@@ -21,3 +24,5 @@ import Solver.Command.Syntax
 
 
 /-! # Test cases to ensure that counterexample are properly detected -/
+
+end Tests.SmtNatPow

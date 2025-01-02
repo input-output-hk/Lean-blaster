@@ -1,6 +1,8 @@
 import Lean
 import Solver.Command.Syntax
 
+namespace Tests.SmtNatMod
+
 /-! ## Test objectives to validate `Nat.mod` semantics with backend solver -/
 
 /-! # Test cases to validate `Nat.mod` semantics with backend solver -/
@@ -42,3 +44,20 @@ import Solver.Command.Syntax
 
 
 /-! # Test cases to ensure that counterexample are properly detected -/
+
+
+#solve (gen-cex: 0) (falsified-result: 1) [∀ (x y : Nat), y = 0 → x % y ≠ x]
+
+#solve (gen-cex: 0) (falsified-result: 1) [∀ (x y : Nat), y = 1 → x % y ≠ 0]
+
+#solve (gen-cex: 0) (falsified-result: 1) [∀ (x y : Nat), x % y ≥ y]
+
+#solve (gen-cex: 0) (falsified-result: 1) [∀ (x y : Nat), x ≥ y → x % y ≠ (x - y) % y]
+
+#solve (gen-cex: 0) (falsified-result: 1) [∀ (x y : Nat), x % y > x]
+
+#solve (gen-cex: 0) (falsified-result: 1) [∀ (x y : Nat), x % y + y * (x / y) ≠ x]
+
+#solve (gen-cex: 0) (falsified-result: 1) [∀ (x y : Nat), (x + y) % y ≠ x % y]
+
+end Tests.SmtNatMod

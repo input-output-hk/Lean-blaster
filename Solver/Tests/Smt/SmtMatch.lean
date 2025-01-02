@@ -3,6 +3,8 @@ import Solver.Command.Syntax
 import Solver.Tests.Utils
 
 
+namespace Tests.SmtMatch
+
 /-! ## Test objectives to validate "match" to smt ite translation -/
 
 def namedPatternInt (x : Int) (y : Option Int) : Nat :=
@@ -116,3 +118,5 @@ def isNil (x : List Nat) : Bool :=
 
 #solve [∀ (xs : List Nat), isNil xs → List.length xs = 0]
 
+
+end Tests.SmtMatch
