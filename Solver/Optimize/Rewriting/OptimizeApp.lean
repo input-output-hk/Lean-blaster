@@ -77,10 +77,9 @@ def reduceApp? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
         | p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₙ₎ => tₘ
       Return `true` when `∀ i ∈ [1..n], isConstructor eᵢ`.
    -/
-   allMatchDiscrsAreCtor (f : Expr) (nargs: Array Expr) : TranslateEnvT Bool := do
+   allMatchDiscrsAreCtor (f : Expr) (args: Array Expr) : TranslateEnvT Bool := do
      let Expr.const n l := f | return false
      let some matcherInfo ← getMatcherRecInfo? n l | return false
-     let args ← normRecursorArgs n nargs
      let discrs := args[matcherInfo.getFirstDiscrPos : matcherInfo.getFirstAltPos]
      for i in [:discrs.size] do
        if !(← isConstructor discrs[i]!) then return false

@@ -299,7 +299,7 @@ def normMatchExprAux?
 -/
 @[specialize]
 def matchExprRewriter
-    (f : Expr) (nargs : Array Expr)
+    (f : Expr) (args : Array Expr)
     (optimizer : Expr -> TranslateEnvT Expr)
     (rewriter : Nat → Array Expr → Array Expr → Expr → Option α → TranslateEnvT (Option α))
     : TranslateEnvT (Option α) := do
@@ -307,34 +307,38 @@ def matchExprRewriter
     | Expr.const n dlevel =>
         let some matcherInfo ← getMatcherRecInfo? n dlevel | return none
         let cInfo ← getConstInfo n
-        let args ← normRecursorArgs n nargs
         let discrs := args[matcherInfo.getFirstDiscrPos : matcherInfo.getFirstAltPos]
         let rhs := args[matcherInfo.getFirstAltPos : matcherInfo.arity]
-        let matchFun ← if cInfo.hasValue
-                       then instantiateValueLevelParams cInfo dlevel
-                       else pure f
+        let matchFun ← instantiateValueLevelParams cInfo dlevel
         let auxApp := Expr.beta matchFun args[0 : matcherInfo.getFirstAltPos]
-        let auxAppType ← inferType auxApp
-        forallTelescope auxAppType fun xs _t => do
-          let alts := xs[xs.size - rhs.size:]
-          let mut accExpr := (none : Option α)
-          -- traverse in reverse order to handle last pattern first
-          let nbAlts := alts.size
-          for i in [:nbAlts] do
-            let idx := nbAlts - i - 1
-            accExpr ←
-              forallTelescope (← inferType alts[idx]!) fun _xs b => do
-                let mut lhs := b.getAppArgs
-                -- NOTE: lhs has not been normalized as is kept at the type level.
-                -- NOTE: optimizing lhs removes annotated named pattern, only
-                -- when keepNamedPattern is set to `false`.
-                -- normalizing lhs
-                for j in [:lhs.size] do
-                  lhs ← lhs.modifyM j optimizer
-                rewriter i discrs lhs rhs[idx]! accExpr
-            unless (accExpr.isSome) do return accExpr -- break if accExpr is still none
-          return accExpr
+        if (isCasesOnRecursor (← getEnv) n) then
+          lambdaTelescope auxApp fun xs _t => do
+            commonMatchRewriter discrs xs[xs.size - rhs.size:] rhs
+        else
+          forallTelescope (← inferType auxApp) fun xs _t => do
+            commonMatchRewriter discrs xs[xs.size - rhs.size:] rhs
     | _ => pure none
+
+  where
+    commonMatchRewriter
+      (discrs : Array Expr) (alts : Array Expr) (rhs : Array Expr) : TranslateEnvT (Option α) := do
+      let mut accExpr := (none : Option α)
+      -- traverse in reverse order to handle last pattern first
+      let nbAlts := alts.size
+      for i in [:nbAlts] do
+        let idx := nbAlts - i - 1
+        accExpr ←
+          forallTelescope (← inferType alts[idx]!) fun _xs b => do
+            let mut lhs := b.getAppArgs
+            -- NOTE: lhs has not been normalized as is kept at the type level.
+            -- NOTE: optimizing lhs removes annotated named pattern, only
+            -- when keepNamedPattern is set to `false`.
+            -- normalizing lhs
+            for j in [:lhs.size] do
+              lhs ← lhs.modifyM j optimizer
+            rewriter i discrs lhs rhs[idx]! accExpr
+        unless (accExpr.isSome) do return accExpr -- break if accExpr is still none
+      return accExpr
 
 /-- Normalize a `match` expression to `if-then-else` only when each match pattern is either
       - an constructor application that does not contain any free variables (e.g., `Nat.zero`, `some Nat.zero`, `List.const 0 (List.nil)`); or
