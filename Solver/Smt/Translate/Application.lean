@@ -470,10 +470,9 @@ partial def translateRecFun
   where
     updateFunDefinitions
       (id : SmtQualifiedIdent) (fbody : Expr)
-      (rt : Expr) (defs : FunctionDefinitions) : TranslateEnvT FunctionDefinitions := do
+      (defs : FunctionDefinitions) : TranslateEnvT FunctionDefinitions := do
       let .SimpleIdent s := id
         | throwEnvError f!"updateFunDefinition: SimpleIdent expected but got {id}"
-      let ret ← translateFunLambdaParamType rt optimizer termTranslator
       let fInfo ← getFunInfo fbody
       lambdaTelescope fbody fun xs b => do
         let mut params := (#[] : SortedVars)
@@ -484,6 +483,7 @@ partial def translateRecFun
           if fInfo.paramInfo[i]!.isExplicit then
             let st ← translateFunLambdaParamType (← v.getType) optimizer termTranslator
             params := params.push (← fvarIdToSmtSymbol v, st)
+        let ret ← translateFunLambdaParamType (← inferType b) optimizer termTranslator
         let funDecl := {name := s, params, ret}
         let sBody ← termTranslator b
         return { defs with funDecls := defs.funDecls.push funDecl, funBodies := defs.funBodies.push sBody }
@@ -496,9 +496,11 @@ partial def translateRecFun
             | Expr.const n _ =>
                 if n == internalRecFun then
                   let mut pargs := #[]
+                  let mut idxArg := 0
                   for i in [:params.size] do
                     if !(params[i]!.isInstance) then
-                      pargs := pargs.push xargs[i]!
+                      pargs := pargs.push xargs[idxArg]!
+                      idxArg := idxArg + 1
                     else
                       pargs := pargs.push params[i]!.effectiveArg
                   some (mkAppN f pargs)
@@ -515,20 +517,15 @@ partial def translateRecFun
       for f in funs do
         let auxApp := mkConst f us
         let smtId ← generateFunInst auxApp params
-        finfos := finfos.push (f, auxApp, smtId)
+        finfos := finfos.push (auxApp, smtId)
       for i in [:finfos.size] do
-        let f := finfos[i]!.1
-        let auxApp := finfos[i]!.2.1
-        let smtId := finfos[i]!.2.2
+        let auxApp := finfos[i]!.1
+        let smtId := finfos[i]!.2
         let instApp ← getInstApp auxApp params
         let some fbody := env.optEnv.recFunInstCache.find? instApp
           | throwEnvError f!"translateRecFun: function body expected for {reprStr instApp}"
-        let ConstantInfo.defnInfo dInfo ← getConstInfo f
-          | throwEnvError f!"translateRecFun: no defnInfo for {f}"
         let fbody' := fbody.replace (replaceGenericRecFun auxApp params)
-        -- return type
-        let ret := Expr.getForallBody dInfo.type
-        funDefs ← withTranslateRecBody $ updateFunDefinitions smtId fbody' ret funDefs
+        funDefs ← withTranslateRecBody $ updateFunDefinitions smtId fbody' funDefs
       defineFunctions funDefs
 
 /-- Return `true` only when `n` corresponds to a function/constructor name
@@ -765,7 +762,11 @@ def translateApp
       then termTranslator (← etaExpand e) -- partially applied ctor case
       else
         let st ← translateType optimizer termTranslator (← inferType e)
-        createAppN f (.QualifiedIdent (nameToSmtSymbol n) st) args termTranslator
+        if info.numFields == 0 then
+          -- nullary polymorphic constructor case
+           return (smtQualifiedVarId (nameToSmtSymbol n) st)
+        else
+          createAppN f (.QualifiedIdent (nameToSmtSymbol n) st) args termTranslator
 
     translateUndeclaredFun? (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
       if (← isOpaqueFun n args) then return none
