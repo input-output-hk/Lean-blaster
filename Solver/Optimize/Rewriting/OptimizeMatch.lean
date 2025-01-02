@@ -299,17 +299,20 @@ def normMatchExprAux?
 -/
 @[specialize]
 def matchExprRewriter
-    (f : Expr) (args : Array Expr)
+    (f : Expr) (nargs : Array Expr)
     (optimizer : Expr -> TranslateEnvT Expr)
     (rewriter : Nat → Array Expr → Array Expr → Expr → Option α → TranslateEnvT (Option α))
     : TranslateEnvT (Option α) := do
   match f with
     | Expr.const n dlevel =>
-        let some matcherInfo ← getMatcherInfo? n | return none
+        let some matcherInfo ← getMatcherRecInfo? n dlevel | return none
         let cInfo ← getConstInfo n
+        let args ← normRecursorArgs n nargs
         let discrs := args[matcherInfo.getFirstDiscrPos : matcherInfo.getFirstAltPos]
         let rhs := args[matcherInfo.getFirstAltPos : matcherInfo.arity]
-        let matchFun ← instantiateValueLevelParams cInfo dlevel
+        let matchFun ← if cInfo.hasValue
+                       then instantiateValueLevelParams cInfo dlevel
+                       else pure f
         let auxApp := Expr.beta matchFun args[0 : matcherInfo.getFirstAltPos]
         let auxAppType ← inferType auxApp
         forallTelescope auxAppType fun xs _t => do

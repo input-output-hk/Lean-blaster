@@ -43,7 +43,7 @@ partial def translateExpr (e : Expr) : TranslateEnvT Unit := do
   assertTerm (notSmt st)
   -- dump smt commands submitted to backend solver when `dumpSmtLib` option is set.
   logSmtQuery
-  logResult (← checkSat)
+  logResult (← checkSat) (← get).optEnv.options.solverOptions
   -- TODO: spawn lean proof mode when result is undetermined
   discard $ exitSmt
 
@@ -54,7 +54,10 @@ def translate (sOpts: SolverOptions) (stx : Syntax) : TermElabM Unit := do
     match (toResult optExpr) with
     | .Undetermined =>
         discard $ translateExpr optExpr|>.run (← setSolverProcess sOpts env)
-    | res => logResult res
+    | res =>
+       if sOpts.falsifiedResult && !isFalsifiedResult res
+       then throwError (falsifiedError res)
+       else logResult res sOpts
   where
     toPropExpr (e : Expr) : TermElabM Expr := do
     let e_type ← inferType e

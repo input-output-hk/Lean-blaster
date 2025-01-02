@@ -20,11 +20,24 @@ def toResult (e : Expr) : Result :=
  | Expr.const ``False _  => Result.Falsified []
  | _ => Result.Undetermined
 
-def logResult (r : Result) : MetaM Unit := do
+
+def isFalsifiedResult (r : Result) : Bool :=
+  match r with
+  | .Falsified _ => true
+  | _ => false
+
+def falsifiedError (r : Result) : String :=
+  s!"Falsified result expected but got {reprStr r}"
+
+def logResult (r : Result) (sOpts : SolverOptions) : MetaM Unit := do
   match r with
   | .Valid => logInfo s!"Valid"
   | .Falsified cex =>
-      logWarning "Falsified"
+      if sOpts.falsifiedResult then
+        logInfo s!"Expected Falisified"
+      else
+        logWarning "Falsified"
+      if !sOpts.generateCex then return ()
       IO.println "Counterexample:"
       if !cex.isEmpty then
         List.forM cex logValue
@@ -376,15 +389,18 @@ def evalTerm (t : SmtTerm) : TranslateEnvT String := do
   getOutputEval p.stdout
 
 /-- Try to retrieve the model when a `sat` result is obtained and dump result to stdout.
+    Do nothing when:
+      - No solver instance is defined
+      - Option solverOptions.generateCex is set to `false`
     TODO: We need to define the Smt-lib syntax and term elabtorator to parse produced model
     and generate the corresponding Lean representation.
     This will also be helpful when writing the test cases to validate the Smt-Lib translation.
-    Do nothing if the Smt process is not defined.
 -/
 def getModel : TranslateEnvT (List String) := do
   let env ← get
   let some p := env.smtEnv.smtProc | return []
   let topVars := env.smtEnv.topLevelVars
+  if !env.optEnv.options.solverOptions.generateCex then return []
   if topVars.isEmpty
   then
     submitCommand (.getModel)
@@ -406,11 +422,15 @@ def checkSat : TranslateEnvT Result := do
   let some p := env.smtEnv.smtProc | return .Undetermined
   submitCommand (.checkSat)
   let satResult ← p.stdout.getLine -- only one line expected for checkSat result
-  match satResult with
-   | "sat\n"     => return .Falsified (← getModel)
-   | "unsat\n"   => return .Valid
-   | "unknown\n" => return .Undetermined
-   | err => throwEnvError s!"checkSat: Unexpected check-sat result: {err}"
+  let res ←
+    match satResult with
+      | "sat\n"     => pure (.Falsified (← getModel))
+      | "unsat\n"   => pure .Valid
+      | "unknown\n" => pure .Undetermined
+      | err => throwEnvError s!"checkSat: Unexpected check-sat result: {err}"
+  if env.optEnv.options.solverOptions.falsifiedResult && !isFalsifiedResult res
+  then throwEnvError (falsifiedError res)
+  else return res
 
 
 /-- Try to retrieve the proof artifact when a `unsat` result is obtained and dump result to stdout.

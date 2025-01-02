@@ -595,8 +595,47 @@ def reorderIntOp (args: Array Expr) : TranslateEnvT (Array Expr) := do
   else pure args'
 
 
-/-- Return true if `n` corresponds to a matcher expression name. -/
-def isMatchExpr (n : Name) : MetaM Bool := Option.isSome <$> getMatcherInfo? n
+/-- Return `true` if n is a recursor expression name, i.e., `n := ind.rec` and `ind`
+    corresponds to the name of an inductive datatype.
+-/
+def isRecRecursor (n : Name) : MetaM Bool := do
+  match (← getConstInfo n) with
+  | ConstantInfo.recInfo _ => return true
+  | _ => return false
+
+/-- Same as the default `getMatcherInfo` in the Lean library but also handles recursor application. -/
+def getMatcherRecInfo? (n : Name) (l : List Level) : MetaM (Option MatcherInfo) := do
+ if let some r ← getMatcherInfo? n then return r
+ if !(← isRecRecursor n) then return none
+ let indName := n.getPrefix
+ let ConstantInfo.inductInfo info ← getConstInfo indName | return none
+ let mut altNumParams := #[]
+ for ctor in info.ctors do
+   let ConstantInfo.ctorInfo ctorInfo ← getConstInfo ctor | unreachable!
+   altNumParams := altNumParams.push ctorInfo.numFields
+ return some { numParams := info.numParams,
+               numDiscrs := info.numIndices + 1,
+               altNumParams,
+               uElimPos? := if info.levelParams.length == l.length then none else some 0
+               discrInfos := Array.mkArray (info.numIndices + 1) {}
+             }
+
+/-- When `n` corresponds to a recursor exxpression name (see `isRecRecursor` function),
+    normalize `args` to coincide to a match expression application.
+-/
+def normRecursorArgs (n : Name) (args : Array Expr) : TranslateEnvT (Array Expr) := do
+ if !(← isRecRecursor n) then return args
+ let ConstantInfo.recInfo recVal ← getConstInfo n |
+   throwEnvError f!"normRecursorArgs: recInfo expected for {n} !!!"
+ let firstMinorIdx := recVal.numParams + recVal.numMotives
+ let firstDiscrIdx := firstMinorIdx + recVal.numMinors
+ let numDiscrs := recVal.numIndices + 1
+ return args[:firstMinorIdx] ++
+        args[firstDiscrIdx : firstDiscrIdx+numDiscrs] ++
+        args[firstMinorIdx : firstDiscrIdx]
+
+/-- Return `true` if `n` corresponds to a matcher expression name or a recursor application. -/
+def isMatchExpr (n : Name) : MetaM Bool := Option.isSome <$> getMatcherInfo? n <||> isRecRecursor n
 
 
 /- Return the function definition for `f` whenever `f` corresponds to:

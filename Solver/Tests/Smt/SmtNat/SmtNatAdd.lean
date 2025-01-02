@@ -1,6 +1,8 @@
 import Lean
 import Solver.Command.Syntax
 
+namespace Tests.SmtNatAdd
+
 /-! ## Test objectives to validate `Nat.add` semantics with the backend solver -/
 
 /-! # Test cases to validate `Nat` domain -/
@@ -50,3 +52,15 @@ import Solver.Command.Syntax
 
 
 /-! # Test cases to ensure that counterexample are properly detected -/
+
+#solve (gen-cex: 0) (falsified-result: 1) [∀ (x y : Nat), x + y < x]
+
+#solve (gen-cex: 0) (falsified-result: 1) [∀ (x y : Nat), x + y < y]
+
+#solve (gen-cex: 0) (falsified-result: 1) [∀ (x y : Nat), x + y != y]
+
+#solve (gen-cex: 0) (falsified-result: 1) [∀ (x y : Nat), x + y != x]
+
+#solve (gen-cex: 0) (falsified-result: 1) [∀ (x y : Nat), x + y ≠ y + x]
+
+end Tests.SmtNatAdd
