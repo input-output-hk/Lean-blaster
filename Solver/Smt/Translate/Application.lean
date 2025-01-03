@@ -240,7 +240,7 @@ def translateIntFMod (n : Expr) : TranslateEnvT SmtQualifiedIdent := do
 /-- Perform the following actions:
      - Return `SimpleIdent "Int.pow"` when entry `f := SimpleIdent "Int.pow"` exists in `funInstCache`
      - Otherwise:
-        - define Nat sort (if necessary)
+        - define Nat.sub function (if necessary)
         - define Int.pow Smt function (i.e., see `defineIntPow`)
         - add entry `f := SimpleIdent "Int.pow"` to `funInstCache`
         - add entry `f' := SimpleIdent "Int.pow"` to `funInstCache` with:
@@ -252,7 +252,7 @@ def translateIntFMod (n : Expr) : TranslateEnvT SmtQualifiedIdent := do
 def translateIntPow (f : Expr) : TranslateEnvT SmtQualifiedIdent := do
  match (← get).smtEnv.funInstCache.find? f with
  | none =>
-    discard $ translateNatType (← mkNatType)
+    discard $ translateNatSub (mkConst ``Nat.sub)
     defineIntPow
     let smtId ← updateFunInstCache f intPowSymbol
     updateFunInstCacheBase (← toPowAlias f) smtId

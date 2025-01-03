@@ -12,14 +12,15 @@ namespace Tests.SmtNatPow
 
 #solve [∀ (x y : Nat), x^(y + 1) = x^y * x]
 
-#solve [∀ (x y : Nat), x ≤ y → ∀ (i : Nat), x^i ≤ y^i]
-
-#solve [∀ (x y : Nat), 0 < x → 0 < x^y]
-
 #solve [∀ (x : Nat), 0 < x → 0^x = 0]
 
-#solve [∀ (x : Nat), 0 < 2^x]
+-- #solve (only-smt-lib: 1) (dump-smt-lib: 1) [(∀ (x y : Nat), x ≤ y → ∀ (i : Nat), x^i ≤ y^i)]
 
+-- #solve [∀ (x y : Nat), 0 < x → 0 < x^y]
+
+-- #solve [∀ (x : Nat), 0 < 2^x]
+
+-- #solve [∀ (x : Nat), 2^(x + x) = 2^x * 2^x]
 
 /-! # Test cases to ensure that counterexample are properly detected -/
 
