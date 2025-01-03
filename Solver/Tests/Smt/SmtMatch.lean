@@ -184,11 +184,14 @@ deriving BEq
 
 
 inductive Color where
-  | transparent : Color
   | red : Color → Color
+  | transparent : Color
   | blue : Color → Color
   | yellow : Color → Color
- deriving BEq
+  | black : Color
+  | green : Color → Color
+  | white : Color
+  deriving BEq
 
 def isRed (c : Color) : Bool :=
  match c with
@@ -205,6 +208,11 @@ def isYellow (c : Color) : Bool :=
  | Color.yellow _ => true
  | _ => false
 
+def isGreen (c : Color) : Bool :=
+ match c with
+ | Color.green _ => true
+ | _ => false
+
 #solve [∀ (x y : Color), x == y → x == Color.transparent → y == Color.transparent ]
 
 #solve [∀ (x y z : Color), x == y → x == Color.transparent → y != Color.red z ]
@@ -213,11 +221,23 @@ def isYellow (c : Color) : Bool :=
 
 #solve [∀ (x y z : Color), x == y → x == Color.transparent → y != Color.yellow z ]
 
+#solve [∀ (x y z : Color), x == y → x == Color.transparent → y != Color.green z ]
+
+#solve [∀ (x y : Color), x == y → x == Color.transparent → y != Color.black ]
+
+#solve [∀ (x y : Color), x == y → x == Color.transparent → y != Color.white ]
+
 #solve [∀ (x y z : Color), x == y → x == Color.red z → y != Color.transparent ]
 
 #solve [∀ (x y z : Color), x == y → x == Color.red z → y != Color.blue z ]
 
 #solve [∀ (x y z : Color), x == y → x == Color.red z → y != Color.yellow z ]
+
+#solve [∀ (x y z : Color), x == y → x == Color.red z → y != Color.green z ]
+
+#solve [∀ (x y z : Color), x == y → x == Color.red z → y != Color.black ]
+
+#solve [∀ (x y z : Color), x == y → x == Color.red z → y != Color.white ]
 
 #solve [∀ (x y z : Color), x == y → x == Color.blue z → y != Color.transparent ]
 
@@ -225,17 +245,60 @@ def isYellow (c : Color) : Bool :=
 
 #solve [∀ (x y z : Color), x == y → x == Color.blue z → y != Color.yellow z ]
 
+#solve [∀ (x y z : Color), x == y → x == Color.blue z → y != Color.green z ]
+
+#solve [∀ (x y z : Color), x == y → x == Color.blue z → y != Color.black ]
+
+#solve [∀ (x y z : Color), x == y → x == Color.blue z → y != Color.white ]
+
 #solve [∀ (x y z : Color), x == y → x == Color.yellow z → y != Color.transparent ]
 
 #solve [∀ (x y z : Color), x == y → x == Color.yellow z → y != Color.red z ]
 
 #solve [∀ (x y z : Color), x == y → x == Color.yellow z → y != Color.blue z ]
 
+#solve [∀ (x y z : Color), x == y → x == Color.yellow z → y != Color.green z ]
+
+#solve [∀ (x y z : Color), x == y → x == Color.yellow z → y != Color.black ]
+
+#solve [∀ (x y z : Color), x == y → x == Color.yellow z → y != Color.white ]
+
+
+#solve [∀ (x y : Color), x == y → x == Color.white → y == Color.white ]
+
+#solve [∀ (x y z : Color), x == y → x == Color.white → y != Color.red z ]
+
+#solve [∀ (x y z : Color), x == y → x == Color.white → y != Color.blue z ]
+
+#solve [∀ (x y z : Color), x == y → x == Color.white → y != Color.yellow z ]
+
+#solve [∀ (x y z : Color), x == y → x == Color.white → y != Color.green z ]
+
+#solve [∀ (x y : Color), x == y → x == Color.white → y != Color.black ]
+
+#solve [∀ (x y : Color), x == y → x == Color.white → y != Color.transparent ]
+
+#solve [∀ (x y : Color), x == y → x == Color.black → y == Color.black ]
+
+#solve [∀ (x y z : Color), x == y → x == Color.black → y != Color.red z ]
+
+#solve [∀ (x y z : Color), x == y → x == Color.black → y != Color.blue z ]
+
+#solve [∀ (x y z : Color), x == y → x == Color.black → y != Color.yellow z ]
+
+#solve [∀ (x y z : Color), x == y → x == Color.black → y != Color.green z ]
+
+#solve [∀ (x y : Color), x == y → x == Color.black → y != Color.white ]
+
+#solve [∀ (x y : Color), x == y → x == Color.black → y != Color.transparent ]
+
 #solve [∀ (x y : Color), x == y → isRed x → isRed y]
 
 #solve [∀ (x y : Color), x == y → isBlue x → isBlue y]
 
 #solve [∀ (x y : Color), x == y → isYellow x → isYellow y]
+
+#solve [∀ (x y : Color), x == y → isGreen x → isGreen y]
 
 
 /-! # Test cases to ensure that counterexample are properly detected -/
@@ -308,6 +371,12 @@ def isYellow (c : Color) : Bool :=
   [∀ (x y z : Color), x == y → x == Color.red z → y == Color.transparent ]
 
 #solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x y z : Color), x == y → x == Color.red z → y == Color.black ]
+
+#solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x y z : Color), x == y → x == Color.red z → y == Color.white ]
+
+#solve (gen-cex: 0) (falsified-result: 1)
   [∀ (x y z : Color), x == y → x == Color.red z → y == Color.blue z ]
 
 #solve (gen-cex: 0) (falsified-result: 1)
@@ -317,6 +386,12 @@ def isYellow (c : Color) : Bool :=
   [∀ (x y z : Color), x == y → x == Color.blue z → y == Color.transparent ]
 
 #solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x y z : Color), x == y → x == Color.blue z → y == Color.black ]
+
+#solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x y z : Color), x == y → x == Color.blue z → y == Color.white ]
+
+#solve (gen-cex: 0) (falsified-result: 1)
   [∀ (x y z : Color), x == y → x == Color.blue z → y == Color.red z ]
 
 #solve (gen-cex: 0) (falsified-result: 1)
@@ -324,6 +399,12 @@ def isYellow (c : Color) : Bool :=
 
 #solve (gen-cex: 0) (falsified-result: 1)
   [∀ (x y z : Color), x == y → x == Color.yellow z → y == Color.transparent ]
+
+#solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x y z : Color), x == y → x == Color.yellow z → y == Color.black ]
+
+#solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x y z : Color), x == y → x == Color.yellow z → y == Color.white ]
 
 #solve (gen-cex: 0) (falsified-result: 1)
   [∀ (x y z : Color), x == y → x == Color.yellow z → y == Color.red z ]
@@ -339,5 +420,14 @@ def isYellow (c : Color) : Bool :=
 
 #solve (gen-cex: 0) (falsified-result: 1)
   [∀ (x y : Color), x == y → isYellow x → ¬ isYellow y]
+
+#solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x y : Color), x == y → x != Color.black ]
+
+#solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x y : Color), x == y → x != Color.white ]
+
+#solve (gen-cex: 0) (falsified-result: 1)
+  [∀ (x y : Color), x == y → x != Color.transparent ]
 
 end Tests.SmtMatch

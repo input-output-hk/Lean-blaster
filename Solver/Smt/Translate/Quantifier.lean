@@ -660,7 +660,7 @@ where
     if sub.1 == e then some sub.2 else none -- TODO: check if we can use pointer equality
 
   addCtorIteCase (recRule : RecursorRule) (propList : List SmtTerm) (funBody : SmtTerm) : FunctionGenEnv SmtTerm := do
-    if recRule.nfields == 0 && isTrueSmt funBody then return funBody
+    if recRule.nfields == 0 then return funBody -- nullary constructor case
     match propList with
     | [] => throwEnvError "addCtorIteCase: at least one element expected in propList"
     | firstTerm :: nextTerms =>
