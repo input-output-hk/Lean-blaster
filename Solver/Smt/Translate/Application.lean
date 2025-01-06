@@ -116,14 +116,14 @@ def translateNatSub (n : Expr) : TranslateEnvT SmtQualifiedIdent := do
  | some smtId => return smtId
 
 /-- Perform the following actions:
-     - Return `SimpleIdent "Int.ediv"` when entry `f := SimpleIdent "Int.ediv"` exists in `funInstCache`
+     - Return `SimpleIdent "@Int.ediv"` when entry `f := SimpleIdent "@Int.ediv"` exists in `funInstCache`
      - Otherwise:
-        - define Int.ediv Smt function (i.e., see `defineIntEDiv`)
-        - add entry `f := SimpleIdent "Int.ediv"` to `funInstCache`
-        - add entry `f' := SimpleIdent "Int.ediv"` to `funInstCache` with:
+        - define @Int.ediv Smt function (i.e., see `defineIntEDiv`)
+        - add entry `f := SimpleIdent "@Int.ediv"` to `funInstCache`
+        - add entry `f' := SimpleIdent "@Int.ediv"` to `funInstCache` with:
               - f' := Expr.const `Nat.div _  if `f := Expr.const ``Int.ediv _`
-              - f' := Expr.const `Int.ediv _ otherwise
-        - return `SimpleIdent "Int.ediv"`
+              - f' := Expr.const `@Int.ediv _ otherwise
+        - return `SimpleIdent "@Int.ediv"`
   Assume that `f := Expr.const ``Int.ediv []` or `f := Expr.const ``Nat.div []`.
 -/
 def translateIntEDiv (f : Expr) : TranslateEnvT SmtQualifiedIdent := do
@@ -145,14 +145,14 @@ def translateIntEDiv (f : Expr) : TranslateEnvT SmtQualifiedIdent := do
 
 
 /-- Perform the following actions:
-     - Return `SimpleIdent "Int.emod"` when entry `f := SimpleIdent "Int.emod"` exists in `funInstCache`
+     - Return `SimpleIdent "@Int.emod"` when entry `f := SimpleIdent "@Int.emod"` exists in `funInstCache`
      - Otherwise:
-        - define Int.emod Smt function (i.e., see `defineIntEMod`)
-        - add entry `f := SimpleIdent "Int.emod"` to `funInstCache`
-        - add entry `f' := SimpleIdent "Int.emod"` to `funInstCache` with:
+        - define @Int.emod Smt function (i.e., see `defineIntEMod`)
+        - add entry `f := SimpleIdent "@Int.emod"` to `funInstCache`
+        - add entry `f' := SimpleIdent "@Int.emod"` to `funInstCache` with:
               - f' := Expr.const `Nat.mod _  if `f := Expr.const ``Int.emod _`
-              - f' := Expr.const `Int.emod _ otherwise
-        - return `SimpleIdent "Int.emod"`
+              - f' := Expr.const `@Int.emod _ otherwise
+        - return `SimpleIdent "@Int.emod"`
   Assume that `f := Expr.const ``Int.emod []` or f := `Expr.const ``Nat.mod []`
 -/
 def translateIntEMod (f : Expr) : TranslateEnvT SmtQualifiedIdent := do
@@ -174,11 +174,11 @@ def translateIntEMod (f : Expr) : TranslateEnvT SmtQualifiedIdent := do
 
 
 /-- Perform the following actions:
-     - Return `SimpleIdent "Int.div"` when entry `n := SimpleIdent "Int.div"` exists in `funInstCache`
+     - Return `SimpleIdent "@Int.div"` when entry `n := SimpleIdent "@Int.div"` exists in `funInstCache`
      - Otherwise:
-        - define Int.div Smt function (i.e., see `defineIntDiv`)
-        - add entry `n := SimpleIdent "Int.div"` to `funInstCache`
-        - return `SimpleIdent "Int.div"`
+        - define @Int.div Smt function (i.e., see `defineIntDiv`)
+        - add entry `n := SimpleIdent "@Int.div"` to `funInstCache`
+        - return `SimpleIdent "@Int.div"`
   Assume that `n := Expr.const ``Int.div []`.
 -/
 def translateIntDiv (n : Expr) : TranslateEnvT SmtQualifiedIdent := do
@@ -190,11 +190,11 @@ def translateIntDiv (n : Expr) : TranslateEnvT SmtQualifiedIdent := do
 
 
 /-- Perform the following actions:
-     - Return `SimpleIdent "Int.mod"` when entry `n := SimpleIdent "Int.mod"` exists in `funInstCache`
+     - Return `SimpleIdent "@Int.mod"` when entry `n := SimpleIdent "@Int.mod"` exists in `funInstCache`
      - Otherwise:
-        - define Int.mod Smt function (i.e., see `defineIntMod`)
-        - add entry `n := SimpleIdent "Int.mod"` to `funInstCache`
-        - return `SimpleIdent "Int.mod"`
+        - define @Int.mod Smt function (i.e., see `defineIntMod`)
+        - add entry `n := SimpleIdent "@Int.mod"` to `funInstCache`
+        - return `SimpleIdent "@Int.mod"`
   Assume that `n := Expr.const ``Int.mod []`.
 -/
 def translateIntMod (n : Expr) : TranslateEnvT SmtQualifiedIdent := do
@@ -206,11 +206,11 @@ def translateIntMod (n : Expr) : TranslateEnvT SmtQualifiedIdent := do
 
 
 /-- Perform the following actions:
-     - Return `SimpleIdent "Int.fdiv"` when entry `n := SimpleIdent "Int.fdiv"` exists in `funInstCache`
+     - Return `SimpleIdent "@Int.fdiv"` when entry `n := SimpleIdent "@Int.fdiv"` exists in `funInstCache`
      - Otherwise:
-        - define Int.fdiv Smt function (i.e., see `defineIntFDiv`)
-        - add entry `n := SimpleIdent "Int.fdiv"` to `funInstCache`
-        - return `SimpleIdent "Int.fdiv"`
+        - define @Int.fdiv Smt function (i.e., see `defineIntFDiv`)
+        - add entry `n := SimpleIdent "@Int.fdiv"` to `funInstCache`
+        - return `SimpleIdent "@Int.fdiv"`
   Assume that `n := Expr.const ``Int.fdiv []`.
 -/
 def translateIntFDiv (n : Expr) : TranslateEnvT SmtQualifiedIdent := do
@@ -222,11 +222,11 @@ def translateIntFDiv (n : Expr) : TranslateEnvT SmtQualifiedIdent := do
 
 
 /-- Perform the following actions:
-     - Return `SimpleIdent "Int.fmod"` when entry `n := SimpleIdent "Int.fmod"` exists in `funInstCache`
+     - Return `SimpleIdent "@Int.fmod"` when entry `n := SimpleIdent "@Int.fmod"` exists in `funInstCache`
      - Otherwise:
-        - define Int.fmod Smt function (i.e., see `defineIntFMod`)
-        - add entry `n := SimpleIdent "Int.fmod"` to `funInstCache`
-        - return `SimpleIdent "Int.fmod"`
+        - define @Int.fmod Smt function (i.e., see `defineIntFMod`)
+        - add entry `n := SimpleIdent "@Int.fmod"` to `funInstCache`
+        - return `SimpleIdent "@Int.fmod"`
   Assume that `n := Expr.const ``Int.fmod []`.
 -/
 def translateIntFMod (n : Expr) : TranslateEnvT SmtQualifiedIdent := do
@@ -238,16 +238,13 @@ def translateIntFMod (n : Expr) : TranslateEnvT SmtQualifiedIdent := do
 
 
 /-- Perform the following actions:
-     - Return `SimpleIdent "Int.pow"` when entry `f := SimpleIdent "Int.pow"` exists in `funInstCache`
+     - Return `SimpleIdent "@Int.pow"` when entry `f := SimpleIdent "@Int.pow"` exists in `funInstCache`
      - Otherwise:
         - define Nat.sub function (if necessary)
-        - define Int.pow Smt function (i.e., see `defineIntPow`)
-        - add entry `f := SimpleIdent "Int.pow"` to `funInstCache`
-        - add entry `f' := SimpleIdent "Int.pow"` to `funInstCache` with:
-              - f' := Expr.const `Nat.pow _  if `f := Expr.const ``Int.pow _`
-              - f' := Expr.const `Int.pow _ otherwise
-        - return `SimpleIdent "Int.pow"`
-  Assume that `f := Expr.const ``Int.pow []` or f := `Expr.const ``Nat.pow []`
+        - define @Int.pow Smt function (i.e., see `defineIntPow`)
+        - add entry `f := SimpleIdent "@Int.pow"` to `funInstCache`
+        - return `SimpleIdent "@Int.pow"`
+  Assume that `f := Expr.const ``Int.pow []`
 -/
 def translateIntPow (f : Expr) : TranslateEnvT SmtQualifiedIdent := do
  match (← get).smtEnv.funInstCache.find? f with
@@ -255,26 +252,35 @@ def translateIntPow (f : Expr) : TranslateEnvT SmtQualifiedIdent := do
     discard $ translateNatSub (mkConst ``Nat.sub)
     defineIntPow
     let smtId ← updateFunInstCache f intPowSymbol
-    updateFunInstCacheBase (← toPowAlias f) smtId
     return smtId
  | some smtId => return smtId
 
- where
-   toPowAlias (f : Expr) : TranslateEnvT Expr := do
-     let Expr.const n _ := f | throwEnvError f!"toPowAlias: name expression expected but got {reprStr f}"
-     match n with
-     | ``Int.pow => mkNatPowOp
-     | ``Nat.pow => mkIntPowOp
-     | _ => throwEnvError f!"toPowAlias: unexpected mod operator {n}"
+/-- Perform the following actions:
+     - Return `SimpleIdent "@Nat.pow"` when entry `f := SimpleIdent "@Nat.pow"` exists in `funInstCache`
+     - Otherwise:
+        - define Nat.sub function (if necessary)
+        - define @Nat.pow Smt function (i.e., see `defineNatPow`)
+        - add entry `f := SimpleIdent "@Nat.pow"` to `funInstCache`
+        - return `SimpleIdent "@Nat.pow"`
+  Assume that `f := `Expr.const ``Nat.pow []`
+-/
+def translateNatPow (f : Expr) : TranslateEnvT SmtQualifiedIdent := do
+ match (← get).smtEnv.funInstCache.find? f with
+ | none =>
+    discard $ translateNatSub (mkConst ``Nat.sub)
+    defineNatPow
+    let smtId ← updateFunInstCache f natPowSymbol
+    return smtId
+ | some smtId => return smtId
 
 
 /-- Perform the following actions:
-     - Return `SimpleIdent "Int.toNat"` when entry `n := SimpleIdent "Int.toNat"` exists in `funInstCache`
+     - Return `SimpleIdent "@Int.toNat"` when entry `n := SimpleIdent "@Int.toNat"` exists in `funInstCache`
      - Otherwise:
         - define Nat sort (if necessary)
-        - define Int.toNat Smt function (i.e., see `defineInttoNat`)
-        - add entry `n := SimpleIdent "Int.toNat"` to `funInstCache`
-        - return `SimpleIdent "Int.toNat"`
+        - define @Int.toNat Smt function (i.e., see `defineInttoNat`)
+        - add entry `n := SimpleIdent "@Int.toNat"` to `funInstCache`
+        - return `SimpleIdent "@Int.toNat"`
   Assume that `n := Expr.const ``Int.toNat []`.
 -/
 def translateInttoNat (n : Expr) : TranslateEnvT SmtQualifiedIdent := do
@@ -345,8 +351,8 @@ def translateOpaqueFun (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT
   | ``Nat.div => translateIntEDiv f
   | ``Int.emod
   | ``Nat.mod => translateIntEMod f
-  | ``Int.pow
-  | ``Nat.pow => translateIntPow f
+  | ``Int.pow => translateIntPow f
+  | ``Nat.pow => translateNatPow f
   | ``LE.le
   | ``Nat.ble => getOpaqueSmtEquivFun f leqSymbol
   | ``LT.lt =>

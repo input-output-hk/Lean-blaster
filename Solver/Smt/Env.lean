@@ -275,14 +275,14 @@ private def defineBinFun
   defineFun fname #[(xsym, top1), (ysym, top2)] ret (fdef xId yId) isRec
 
 /-- Define Nat.sub Smt function, i.e.,
-     Nat.sub x y := (ite (< x y) 0 (- x y))
+     @Nat.sub x y := (ite (< x y) 0 (- x y))
 -/
 def defineNatSub : TranslateEnvT Unit := do
   let fdef := λ xId yId => iteSmt (ltSmt xId yId) (natLitSmt 0) (subSmt xId yId)
   defineBinFun natSubSymbol natSort natSort natSort fdef
 
 /-- Define Int.ediv Smt function, i.e.,
-      Int.ediv x y := (ite (= 0 y) 0 (div x y))
+      @Int.ediv x y := (ite (= 0 y) 0 (div x y))
  -/
 def defineIntEDiv : TranslateEnvT Unit := do
   let natZero := natLitSmt 0
@@ -290,7 +290,7 @@ def defineIntEDiv : TranslateEnvT Unit := do
   defineBinFun edivSymbol intSort intSort intSort fdef
 
 /-- Define Int.emod Smt function, i.e.,
-      Int.emod x y := (ite (= 0 y) x (mod x y))
+      @Int.emod x y := (ite (= 0 y) x (mod x y))
  -/
 def defineIntEMod : TranslateEnvT Unit := do
   let natZero := natLitSmt 0
@@ -298,7 +298,7 @@ def defineIntEMod : TranslateEnvT Unit := do
   defineBinFun emodSymbol intSort intSort intSort fdef
 
 /-- Define Int.div Smt function, i.e.,
-      Int.div x y :=
+      @Int.div x y :=
         (let (t (ite (< x 0) (div (- x) y) (div x y)))
              (ite (= 0 y) 0 (ite (< x 0) (- t) t)))
 -/
@@ -313,7 +313,7 @@ def defineIntDiv : TranslateEnvT Unit := do
   defineBinFun tdivSymbol intSort intSort intSort fdef
 
 /-- Define Int.mod Smt function, i.e.,
-     Int.mod x y :=
+     @Int.mod x y :=
        (let (t (ite (< x 0) (mod (- x) y) (mod x y)))
             (ite (= 0 y) x (ite (< x 0) (- t) t)))
 -/
@@ -328,7 +328,7 @@ def defineIntMod : TranslateEnvT Unit := do
   defineBinFun tmodSymbol intSort intSort intSort fdef
 
 /-- Define Int.fdiv Smt function, i.e.,
-      Int.fdiv x y :=
+      @Int.fdiv x y :=
         (ite (= 0 y) 0 (ite (< y 0) (div (-x) (- y)) (div x y)))
  -/
 def defineIntFDiv : TranslateEnvT Unit := do
@@ -339,7 +339,7 @@ def defineIntFDiv : TranslateEnvT Unit := do
   defineBinFun fdivSymbol intSort intSort intSort fdef
 
 /-- Define Int.fmod Smt function, i.e.,
-     Int.fmod x y :=
+     @Int.fmod x y :=
        (let (t (ite (and (< x 0) (< y 0)) (mod (- x) y) (mod x y)))
             (ite (= 0 y) x (ite (and (< x 0) (< y 0)) (- t) t)))
 -/
@@ -357,14 +357,24 @@ def defineIntFMod : TranslateEnvT Unit := do
 
 
 /-- Define Int.pow Smt function as follows:
-    (define-fun-rec Int.pow ((@x Int)(@y Nat)) Int
-      (ite (= 0 @y) 1 (* @x (Int.pow @x (Nat.sub @y 1)))))
+    (define-fun-rec @Int.pow ((@x Int)(@y Nat)) Int
+      (ite (= 0 @y) 1 (* @x (@Int.pow @x (@Nat.sub @y 1)))))
 -/
 def defineIntPow : TranslateEnvT Unit := do
   let natOne := natLitSmt 1
   let yEqZero := λ yId => eqSmt (natLitSmt 0) yId
   let fdef := λ xId yId => iteSmt (yEqZero yId) natOne (mulSmt xId (intPowSmt xId (natSubSmt yId natOne)))
   defineBinFun intPowSymbol intSort natSort intSort fdef (isRec := true)
+
+/-- Define Nat.pow Smt function as follows:
+    (define-fun-rec @Nat.pow ((@x Nat)(@y Nat)) Nat
+      (ite (= 0 @y) 1 (* @x (@Nat.pow @x (@Nat.sub @y 1)))))
+-/
+def defineNatPow : TranslateEnvT Unit := do
+  let natOne := natLitSmt 1
+  let yEqZero := λ yId => eqSmt (natLitSmt 0) yId
+  let fdef := λ xId yId => iteSmt (yEqZero yId) natOne (mulSmt xId (natPowSmt xId (natSubSmt yId natOne)))
+  defineBinFun natPowSymbol natSort natSort natSort fdef (isRec := true)
 
 
 /-- Define Int.toNat Smt function, i.e.,
