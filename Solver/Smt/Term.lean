@@ -124,37 +124,37 @@ def modSymbol : SmtSymbol := mkReservedSymbol "mod"
 /-! Integer Euclidean division Smt symbol.
     NOTE: This function is defined during translation whenever required.
 -/
-def edivSymbol : SmtSymbol := mkReservedSymbol "Int.ediv"
+def edivSymbol : SmtSymbol := mkReservedSymbol "@Int.ediv"
 
 /-! Integer Euclidean modulo Smt symbol.
     NOTE: This function is defined during translation whenever required.
 -/
-def emodSymbol : SmtSymbol := mkReservedSymbol "Int.emod"
+def emodSymbol : SmtSymbol := mkReservedSymbol "@Int.emod"
 
 /-! Integer truncate division Smt symbol.
     NOTE: This function is defined during translation whenever required.
 -/
-def tdivSymbol : SmtSymbol := mkReservedSymbol "Int.div"
+def tdivSymbol : SmtSymbol := mkReservedSymbol "@Int.div"
 
 /-! Integer truncate modulo Smt symbol.
     NOTE: This function is defined during translation whenever required.
 -/
-def tmodSymbol : SmtSymbol := mkReservedSymbol "Int.mod"
+def tmodSymbol : SmtSymbol := mkReservedSymbol "@Int.mod"
 
 /-! Integer floor division Smt symbol.
     NOTE: This function is defined during translation whenever required.
 -/
-def fdivSymbol : SmtSymbol := mkReservedSymbol "Int.fdiv"
+def fdivSymbol : SmtSymbol := mkReservedSymbol "@Int.fdiv"
 
 /-! Integer floor modulo Smt symbol.
     NOTE: This function is defined during translation whenever required.
 -/
-def fmodSymbol : SmtSymbol := mkReservedSymbol "Int.fmod"
+def fmodSymbol : SmtSymbol := mkReservedSymbol "@Int.fmod"
 
 /-! Integer to Nat Smt symbol.
     NOTE: This function is defined during translation whenever required.
 -/
-def toNatSymbol : SmtSymbol := mkReservedSymbol "Int.toNat"
+def toNatSymbol : SmtSymbol := mkReservedSymbol "@Int.toNat"
 
 /-! Integer cast Smt symbol.
     NOTE: Only available in z3.
@@ -171,12 +171,17 @@ def powSymbol : SmtSymbol := mkReservedSymbol "^"
 /-! Integer power Smt symbol.
     NOTE: This function is defined during translation whenever required.
 -/
-def intPowSymbol : SmtSymbol := mkReservedSymbol "Int.pow"
+def intPowSymbol : SmtSymbol := mkReservedSymbol "@Int.pow"
+
+/-! Nat power Smt symbol.
+    NOTE: This function is defined during translation whenever required.
+-/
+def natPowSymbol : SmtSymbol := mkReservedSymbol "@Nat.pow"
 
 /-! Nat subtraction Smt symbol.
     NOTE: This function is defined during translation whenever required.
 -/
-def natSubSymbol : SmtSymbol := mkReservedSymbol "Nat.sub"
+def natSubSymbol : SmtSymbol := mkReservedSymbol "@Nat.sub"
 
 /-! Integer absolute Smt symbol. -/
 def absSymbol : SmtSymbol := mkReservedSymbol "abs"
@@ -328,11 +333,9 @@ def natDivSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
 def natModSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
   emodSmt op2 op1
 
-/-! Create an Nat power Smt application.
-    NOTE: This is an alias to Int.pow at Smt level.
--/
+/-! Create an Nat power Smt application. -/
 def natPowSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
-  intPowSmt op1 op2
+  mkSimpleSmtAppN natPowSymbol #[op1, op2]
 
 /-! Create an Integer absolute Smt application. -/
 def absSmt (op : SmtTerm) : SmtTerm :=
