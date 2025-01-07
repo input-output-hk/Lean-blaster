@@ -25,6 +25,7 @@ namespace Solver.Optimize
 partial def optimizeExpr (e : Expr) : TranslateEnvT Expr := do
   let rec visit (e : Expr) : TranslateEnvT Expr := do
     withOptimizeEnvCache e fun _ => do
+    trace[Optimize.expr] f!"optimizing {reprStr e}"
     logReprExpr "Optimize:" e
     match e with
     | Expr.fvar .. => return e
@@ -46,14 +47,22 @@ partial def optimizeExpr (e : Expr) : TranslateEnvT Expr := do
             mas ← mas.modifyM i visit
          -- try to reduce app if all params are constructors
          match (← reduceApp? rf mas) with
-         | some re => visit re
+         | some re =>
+             trace[Optimize.expr] f!"application reduction {reprStr rf} {reprStr mas} => {re}"
+             visit re
          | none =>
             -- unfold non-recursive and non-opaque functions
             -- NOTE: beta reduction performed by getUnfoldFunDef? when rf is a lambda term
-            if let some fdef ← getUnfoldFunDef? rf mas then return (← visit fdef)
+            if let some fdef ← getUnfoldFunDef? rf mas then
+               trace[Optimize.expr] f!"unfolding function definition {reprStr rf} {reprStr mas} => {reprStr fdef}"
+               return (← visit fdef)
             -- normalize match expression to ite
-            if let some mdef ← normMatchExpr? rf mas visit then return (← visit mdef)
-            if let some pe ← normPartialFun? rf mas then return (← visit pe)
+            if let some mdef ← normMatchExpr? rf mas visit then
+               trace[Optimize.expr] f!"normalizing match to ite {reprStr rf} {reprStr mas} => {reprStr mdef}"
+               return (← visit mdef)
+            if let some pe ← normPartialFun? rf mas then
+               trace[Optimize.expr] f!"normalizing partial function {reprStr rf} {reprStr mas} => {reprStr pe}"
+               return (← visit pe)
             normOpaqueAndRecFun rf mas visit
     | Expr.lam n t b bi => do
         let t' ← visit t
@@ -109,5 +118,9 @@ def optimize (sOpts: SolverOptions) (e : Expr) : MetaM (Expr × TranslateEnv) :=
   -- populate recFunInstCache with recursive function definition.
   let res ← cacheOpaqueRecFun (λ a => optimizeExpr a)|>.run env
   optimizeExpr e|>.run res.2
+
+
+initialize
+  registerTraceClass `Optimize.expr
 
 end Solver.Optimize
