@@ -787,6 +787,7 @@ partial def isInductiveType (f : Name) (us : List Level) : MetaM Bool := do
  match (← getConstInfo f) with
  | ConstantInfo.inductInfo _ => return true
  | dInfo@(ConstantInfo.defnInfo _) =>
+      if dInfo.type.isProp then return false
       -- check for type abbreviation
       let Expr.const n l := (← instantiateValueLevelParams dInfo us).getAppFn | return false
       isInductiveType n l
