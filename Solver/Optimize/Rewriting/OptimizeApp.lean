@@ -89,21 +89,47 @@ def reduceApp? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
     on application expressions.
 -/
 def optimizeApp (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
-  if let some e ← optimizePropNot? f args then return e
-  if let some e ← optimizePropBinary? f args then return e
-  if let some e ← optimizeBoolNot? f args then return e
-  if let some e ← optimizeBoolBinary? f args then return e
-  if let some e ← optimizeEquality? f args then return e
-  if let some e ← optimizeIfThenElse? f args then return e
-  if let some e ← optimizeNat? f args then return e
-  if let some e ← optimizeInt? f args then return e
-  if let some e ← structEqMatch? f args then return e
-  if let some e ← optimizeExists? f args then return e
-  if let some e ← optimizeDecide? f args then return e
-  if let some e ← optimizeRelational? f args then return e
-  if let some e ← optimizeString? f args then return e
+  if let some e ← optimizePropNot? f args then
+    trace[Optimize.app] f!"PropNot: {reprStr (mkAppN f args)} ==> {e}"
+    return e
+  if let some e ← optimizePropBinary? f args then
+    trace[Optimize.app] f!"PropBinary: {reprStr (mkAppN f args)} ==> {e}"
+    return e
+  if let some e ← optimizeBoolNot? f args then
+    trace[Optimize.app] f!"BoolNot: {reprStr (mkAppN f args)} ==> {e}"
+    return e
+  if let some e ← optimizeBoolBinary? f args then
+    trace[Optimize.app] f!"BoolBinary: {reprStr (mkAppN f args)} ==> {e}"
+    return e
+  if let some e ← optimizeEquality? f args then
+    trace[Optimize.app] f!"Equality: {reprStr (mkAppN f args)} ==> {e}"
+    return e
+  if let some e ← optimizeIfThenElse? f args then
+    trace[Optimize.app] f!"IfThenElse: {reprStr (mkAppN f args)} ==> {e}"
+    return e
+  if let some e ← optimizeNat? f args then
+    trace[Optimize.app] f!"Nat: {reprStr (mkAppN f args)} ==> {e}"
+    return e
+  if let some e ← optimizeInt? f args then
+    trace[Optimize.app] f!"Int: {reprStr (mkAppN f args)} ==> {e}"
+    return e
+  if let some e ← structEqMatch? f args then
+    trace[Optimize.app] f!"EqMatch: {reprStr (mkAppN f args)} ==> {e}"
+    return e
+  if let some e ← optimizeExists? f args then
+    trace[Optimize.app] f!"Exists: {reprStr (mkAppN f args)} ==> {e}"
+    return e
+  if let some e ← optimizeDecide? f args then
+    trace[Optimize.app] f!"Decide: {reprStr (mkAppN f args)} ==> {e}"
+    return e
+  if let some e ← optimizeRelational? f args then
+    trace[Optimize.app] f!"Relational: {reprStr (mkAppN f args)} ==> {e}"
+    return e
+  if let some e ← optimizeString? f args then
+    trace[Optimize.app] f!"String: {reprStr (mkAppN f args)} ==> {e}"
+    return e
+  trace[Optimize.app] f!"Unchanged: {reprStr (mkAppN f args)}"
   mkAppExpr f args
-
 
 /-- Given application `f x₁ ... xₙ`,
      - when `isNotfun f`
@@ -153,22 +179,28 @@ def normOpaqueAndRecFun
  let Expr.const n _ := f | return (← mkAppExpr f args)
  if (← isRecursiveFun n)
  then
+   trace[Optimize.recFun] f!"normalizing rec function {n}"
    -- retrieve implicit arguments
    let params ← getImplicitParameters f args
+   trace[Optimize.recFun] f!"implicit arguments for {n} ==> {reprStr params}"
    -- get instance application
    let instApp ← getInstApp f params
-   if (← isVisitedRecFun instApp)
-   then optimizeRecApp f params -- already cached
+   if (← isVisitedRecFun instApp) then
+     trace[Optimize.recFun] f!"rec function instance {instApp} is in visiting cache"
+     optimizeRecApp f params -- already cached
    else
      if let some r ← hasRecFunInst? instApp then
+        trace[Optimize.recFun] f!"rec function instance {instApp} is already equivalent to {reprStr r}"
         return (← optimizeRecApp r params)
      cacheFunName instApp -- cache function name
      let some fbody ← getFunBody f
        | throwEnvError f!"normOpaqueAndRecFun: recursive function body expected for {reprStr f}"
      -- instantiating polymorphic parameters in fun body
      let fdef ← generalizeRecCall f params fbody
+     trace[Optimize.recFun] f!"generalizing rec body for {n} got {reprStr fdef}"
      -- optimize recursive fun definition and store
      let fn' ← storeRecFunDef instApp params (← optimizer fdef)
+     trace[Optimize.recFun] f!"rec function instance {instApp} is equivalent to {reprStr fn'}"
      -- only considering explicit args when instantiating
      -- as storeRecFunDef already handled implicit arguments
      -- NOTE: optimizations on cached opaque recursive functions required
@@ -197,10 +229,12 @@ def normOpaqueAndRecFun
      let instanceArgs := Array.filter (λ p => p.isInstance) params
      if (instanceArgs.isEmpty || (← exprEq f rf)) then
        -- case for non polymorphic function or recursive call in fun body
-         optimizeApp rf args
+       trace[Optimize.recFun.app] f!"non polymorphic/recurisve call case {reprStr rf} {reprStr args}"
+       optimizeApp rf args
      else if rf.isConst then
          -- case when a polymorphic function is equivalent to a non-polymorphic one
          let eargs := Array.filterMap (λ p => if !p.isInstance then some p.effectiveArg else none) params
+         trace[Optimize.recFun.app] f!"non-polymorphic equivalent case {reprStr rf} {reprStr eargs}"
          optimizeApp rf eargs
      else
        let eargs := getEffectiveParams params
@@ -209,7 +243,15 @@ def normOpaqueAndRecFun
          -- case for partially applied functions, i.e., some explicit arguments not provided
          let appCall := getLambdaBody auxApp
          let largs := appCall.getAppArgs
+         trace[Optimize.recFun.app] f!"partially applied case {reprStr appCall.getAppFn'} {reprStr largs[0:largs.size-auxApp.getNumHeadLambdas]}"
          optimizeApp appCall.getAppFn' largs[0:largs.size-auxApp.getNumHeadLambdas]
-       else optimizeApp auxApp.getAppFn' auxApp.getAppArgs
+       else
+         trace[Optimize.recFun.app] f!"polymorphic equivalent case {reprStr auxApp.getAppFn'} {reprStr auxApp.getAppArgs}"
+         optimizeApp auxApp.getAppFn' auxApp.getAppArgs
+
+initialize
+  registerTraceClass `Optimize.recFun
+  registerTraceClass `Optimize.recFun.app
+  registerTraceClass `Optimize.app
 
 end Solver.Optimize

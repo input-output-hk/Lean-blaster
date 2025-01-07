@@ -34,13 +34,18 @@ partial def normConst (e : Expr) (optimizer : Expr → TranslateEnvT Expr) : Tra
   | ``Nat.zero => mkNatLitExpr 0
   | _ =>
     if let some e ← isGlobalConstant n then return e
-    if let some e ← isToNormOpaqueFun n then return e
-    if let some r ← isHOF n then return r
+    if let some e ← isToNormOpaqueFun n then
+      trace[Optimize.const] f!"normalizing opaque function {n} => {reprStr e}"
+      return e
+    if let some r ← isHOF n then
+      trace[Optimize.const] f!"normalizing HOF {n} => {reprStr r}"
+      return r
     return e
 
   where
     isGlobalConstant (c : Name) : TranslateEnvT (Option Expr) := do
      let ConstantInfo.opaqueInfo opVal ← getConstInfo c | return none
+     trace[Optimize.const] "normalizing global constant {c} => {reprStr opVal.value}"
      optimizer opVal.value
 
     etaNormOpaqueFun (of : Expr) : TranslateEnvT Expr := do
@@ -72,5 +77,8 @@ partial def normConst (e : Expr) (optimizer : Expr → TranslateEnvT Expr) : Tra
      -- non recursive function case
      let some fbody ← getFunBody e | return none
      optimizer fbody
+
+initialize
+  registerTraceClass `Optimize.const
 
 end Solver.Optimize
