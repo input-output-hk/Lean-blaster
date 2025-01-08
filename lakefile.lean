@@ -7,3 +7,4 @@ package «Solver» where
 lean_lib «Solver» where
   -- add library configuration options here
 
+require PlutusTx from "../PlutusTx"
