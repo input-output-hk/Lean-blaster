@@ -48,20 +48,20 @@ partial def optimizeExpr (e : Expr) : TranslateEnvT Expr := do
          -- try to reduce app if all params are constructors
          match (← reduceApp? rf mas) with
          | some re =>
-             trace[Optimize.expr] f!"application reduction {reprStr rf} {reprStr mas} => {re}"
+             trace[Optimize.reduceApp] f!"application reduction {reprStr rf} {reprStr mas} => {re}"
              visit re
          | none =>
             -- unfold non-recursive and non-opaque functions
             -- NOTE: beta reduction performed by getUnfoldFunDef? when rf is a lambda term
             if let some fdef ← getUnfoldFunDef? rf mas then
-               trace[Optimize.expr] f!"unfolding function definition {reprStr rf} {reprStr mas} => {reprStr fdef}"
+               trace[Optimize.unfoldDef] f!"unfolding function definition {reprStr rf} {reprStr mas} => {reprStr fdef}"
                return (← visit fdef)
             -- normalize match expression to ite
             if let some mdef ← normMatchExpr? rf mas visit then
-               trace[Optimize.expr] f!"normalizing match to ite {reprStr rf} {reprStr mas} => {reprStr mdef}"
+               trace[Optimize.normMatch] f!"normalizing match to ite {reprStr rf} {reprStr mas} => {reprStr mdef}"
                return (← visit mdef)
             if let some pe ← normPartialFun? rf mas then
-               trace[Optimize.expr] f!"normalizing partial function {reprStr rf} {reprStr mas} => {reprStr pe}"
+               trace[Optimize.normPartial] f!"normalizing partial function {reprStr rf} {reprStr mas} => {reprStr pe}"
                return (← visit pe)
             normOpaqueAndRecFun rf mas visit
     | Expr.lam n t b bi => do
@@ -122,5 +122,9 @@ def optimize (sOpts: SolverOptions) (e : Expr) : MetaM (Expr × TranslateEnv) :=
 
 initialize
   registerTraceClass `Optimize.expr
+  registerTraceClass `Optimize.reduceApp
+  registerTraceClass `Optimize.unfoldDef
+  registerTraceClass `Optimize.normMatch
+  registerTraceClass `Optimize.normPartial
 
 end Solver.Optimize

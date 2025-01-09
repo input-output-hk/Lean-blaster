@@ -142,9 +142,9 @@ def iteMultiEq (x : Int) (y : Nat) (z : Option Nat) : Nat :=
  else if x = 1 ∧ z = none then y + 1
  else if y ≥ 1 ∧ z = none then (y - 1) + Int.toNat x
  else if x = - 1 ∧ z = some 2 then y * 2
- else if (x = 3 ∧ y ≥ 2) ∧ z = some 3 then (y - 2) * 3
- else if (x ≤ -3 ∧ y ≥ 3) ∧ z = some 4 then ((Int.toNat (-x) - 3) + (y - 3)) * 4
- else if (x ≥ 3 ∧ y ≥ 2) ∧ z = some 4 then (Int.toNat x - 3) * (y - 2) * 4
+ else if x = 3 ∧ (y ≥ 2 ∧ z = some 3) then (y - 2) * 3
+ else if x ≤ -3 ∧ (y ≥ 3 ∧ z = some 4) then ((Int.toNat (-x) - 3) + (y - 3)) * 4
+ else if x ≥ 3 ∧ (y ≥ 2 ∧ z = some 4) then (Int.toNat x - 3) * (y - 2) * 4
  else if x ≥ 0 ∧ z = some 5 then (Int.toNat x + y) * 5
  else 10
 
@@ -236,10 +236,10 @@ def embeddedIte (x : Option Nat) (y : Option Nat) : Nat :=
 
 def namedPatternNat (x : Nat) (y : Nat) : Nat :=
  match x, y with
- | Nat.zero, _ => 0
- | _, Nat.zero => 1
- | Nat.succ Nat.zero, _ => y + 2
- | _, Nat.succ Nat.zero => x + 3
+ | Nat.zero, _ => x
+ | _, Nat.zero => y + 1
+ | Nat.succ Nat.zero, _ => y + x
+ | _, Nat.succ Nat.zero => x + y
  | r@(Nat.succ q@(Nat.succ p@(Nat.succ (Nat.succ n)))), z => n + p + q + r + z
  | r@(Nat.succ (Nat.succ n1)), Nat.succ q@(Nat.succ p@(Nat.succ (Nat.succ ((Nat.succ n2))))) => (r + n1) * n2 * p * q
  | q@(Nat.succ (Nat.succ n)), _ => q * n * 6
@@ -247,8 +247,8 @@ def namedPatternNat (x : Nat) (y : Nat) : Nat :=
 def iteNamedPatternNat (x : Nat) (y : Nat) : Nat :=
   if x = 0 then 0
   else if y = 0 then 1
-  else if x = 1 then y + 2
-  else if y = 1 then x + 3
+  else if x = 1 then y + 1
+  else if y = 1 then x + 1
   else if x ≥ 4 then y + (x + (((x - 2) + (x - 4)) + (x - 1)))
   else if x ≥ 2 ∧ y ≥ 5 then (((x + (x - 2)) * (y - 5)) * (y - 2)) * (y - 1)
   else (x * (x - 2)) * 6
@@ -258,17 +258,17 @@ def iteNamedPatternNat (x : Nat) (y : Nat) : Nat :=
 
 def namedPatternInt (x : Int) (y : Int) : Nat :=
  match x, y with
- | Int.ofNat Nat.zero, _ => 0
- | _, Int.ofNat Nat.zero => 1
- | Int.ofNat (Nat.succ Nat.zero), _ => Int.toNat y + 2
+ | Int.ofNat p@Nat.zero, _ => p
+ | _, Int.ofNat p@Nat.zero => p + 1
+ | Int.ofNat p@(Nat.succ Nat.zero), _ => Int.toNat y + (p + Int.toNat x)
  | _, Int.ofNat (Nat.succ Nat.zero) => Int.toNat x + 3
  | Int.ofNat (Nat.succ (Nat.succ (Nat.succ (Nat.succ n)))), z => n + Int.toNat z
  | r@(Int.ofNat (Nat.succ (Nat.succ n1))), Int.ofNat (Nat.succ (Nat.succ q@(Nat.succ p@(Nat.succ ((Nat.succ n2)))))) =>
      ((Int.toNat r) + n1) * n2 * p * q
  | Int.negSucc Nat.zero, _ => 4
  | _, Int.negSucc Nat.zero => 5
- | Int.negSucc p@(Nat.succ q@(Nat.succ Nat.zero)), _ => 6 * p * q
- | _, Int.negSucc (Nat.succ Nat.zero) => 7
+ | Int.negSucc p@(Nat.succ q@(Nat.succ Nat.zero)), _ => 6 * p * q * Int.toNat (Int.neg x)
+ | _, q@(Int.negSucc p@(Nat.succ Nat.zero)) => 7 * p * Int.toNat (Int.neg q)
  | Int.negSucc q@(Nat.succ (Nat.succ p@(Nat.succ (Nat.succ n)))), _ => n + p + q + 1
  | _, Int.negSucc (Nat.succ q@(Nat.succ p@(Nat.succ r@(Nat.succ ((Nat.succ n)))))) => n + p + q + r + 2
  | p@(Int.ofNat (Nat.succ (Nat.succ n))), _ => Int.toNat p * n * 6
@@ -285,8 +285,8 @@ def iteNamedPatternInt (x : Int) (y : Int) : Nat :=
   else if x ≥ 2 ∧ y ≥ 5 then ((Int.toNat x) + (Int.toNat x - 2)) * (Int.toNat y - 5) * (Int.toNat y - 3) * (Int.toNat y - 2)
   else if x = -1 then 4
   else if y = -1 then 5
-  else if x = -3 then 12 -- 6 * p * q must reduced to 12
-  else if y = -2 then 7
+  else if x = -3 then 36 -- 6 * p * q * Int.toNat (Int.neg x) must reduced to 36
+  else if y = -2 then 14 -- 7 * p * Int.toNat (Int.neg q) must reduced to 14
   else if x ≤ -5 then ((Int.toNat (-x)) - 5) + ((Int.toNat (-x)) - 3) + (Int.toNat (-x) - 1) + 1
   else if y ≤ -6 then ((Int.toNat (-y)) - 6) + ((Int.toNat (-y)) - 3) + ((Int.toNat (-y)) - 2) + ((Int.toNat (-y)) - 4) + 2
   else if x ≥ 2 then (Int.toNat x) * (Int.toNat x - 2) * 6
@@ -304,7 +304,7 @@ def namedPatternList (x : List Int) (y : List Nat) : Nat :=
  | 1 :: q@([4, 5]), 1 :: p@([2, 3]) => 2 + List.length p + List.length q
  | q@([-2, -1, 0]), 2 :: p@([1, 0]) => 3 + List.length q - List.length p
  | _, p@(4 :: q@([5, 6])) => List.length x + List.length p + List.length q
- | [-4, -6, 3], z => List.length z + 7
+ | [-4, -6, 3], z => List.length z + List.length x
  | s, t => List.length s + List.length t + 8
 
 def iteNamedPatternList (x : List Int) (y : List Nat) : Nat :=
@@ -313,7 +313,7 @@ def iteNamedPatternList (x : List Int) (y : List Nat) : Nat :=
  else if x = [1, 4, 5] ∧ y = [1, 2, 3] then 6
  else if x = [-2, -1, 0] ∧ y = [2, 1, 0] then 4
  else if y = [4, 5, 6] then List.length x + 5
- else if x = [-4, -6, 3] then List.length y + 7
+ else if x = [-4, -6, 3] then List.length y + 3
  else List.length x + List.length y + 8
 
 -- ∀ (x : List Int) (y : List Nat), matchDiscrList x y = iteDiscrList x y ===> True
