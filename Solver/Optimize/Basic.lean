@@ -48,7 +48,7 @@ partial def optimizeExpr (e : Expr) : TranslateEnvT Expr := do
          -- try to reduce app if all params are constructors
          match (← reduceApp? rf mas) with
          | some re =>
-             trace[Optimize.reduceApp] f!"application reduction {reprStr rf} {reprStr mas} => {re}"
+             trace[Optimize.reduceApp] f!"application reduction {reprStr rf} {reprStr mas} => {reprStr re}"
              visit re
          | none =>
             -- unfold non-recursive and non-opaque functions
