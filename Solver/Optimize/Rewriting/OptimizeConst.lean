@@ -33,19 +33,21 @@ partial def normConst (e : Expr) (optimizer : Expr → TranslateEnvT Expr) : Tra
   match n with
   | ``Nat.zero => mkNatLitExpr 0
   | _ =>
+    if (← isPartialDef n) then throwEnvError f!"normConst: partial function not supported {n} !!!"
+    if (← isUnsafeDef n) then throwEnvError f!"normConst: unsafe definition not supported {n} !!!"
     if let some e ← isGlobalConstant n then return e
     if let some e ← isToNormOpaqueFun n then
-      trace[Optimize.const] f!"normalizing opaque function {n} => {reprStr e}"
+      trace[Optimize.const.opaque] f!"normalizing opaque function {n} => {reprStr e}"
       return e
     if let some r ← isHOF n then
-      trace[Optimize.const] f!"normalizing HOF {n} => {reprStr r}"
+      trace[Optimize.const.hof] f!"normalizing HOF {n} => {reprStr r}"
       return r
     return e
 
   where
     isGlobalConstant (c : Name) : TranslateEnvT (Option Expr) := do
      let ConstantInfo.opaqueInfo opVal ← getConstInfo c | return none
-     trace[Optimize.const] "normalizing global constant {c} => {reprStr opVal.value}"
+     trace[Optimize.const.global] "normalizing global constant {c} => {reprStr opVal.value}"
      optimizer opVal.value
 
     etaNormOpaqueFun (of : Expr) : TranslateEnvT Expr := do
@@ -79,6 +81,8 @@ partial def normConst (e : Expr) (optimizer : Expr → TranslateEnvT Expr) : Tra
      optimizer fbody
 
 initialize
-  registerTraceClass `Optimize.const
+  registerTraceClass `Optimize.const.global
+  registerTraceClass `Optimize.const.opaque
+  registerTraceClass `Optimize.const.hof
 
 end Solver.Optimize
