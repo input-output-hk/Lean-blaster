@@ -47,13 +47,13 @@ def listNatBeq (xs : List Nat) (ys : List Nat) : Bool :=
 
 -- ∀ (xs ys : List Nat), (List.beq xs ys) = listNatBeq xs ys ===> True
 -- NOTE: Equivalence detection between polymorphic and non-polymorphic function
--- NOTE: Also validates structrual equivalence on match expresssions.
+-- NOTE: Also validates structural equivalence on match expresssions.
 #testOptimize [ "NormRecFun_5" ] ∀ (xs ys : List Nat), (List.beq xs ys) = listNatBeq xs ys ===> True
 
 
 -- ∀ (xs ys : List Nat), listNatBeq xs ys = (xs == ys) ===> True
 -- NOTE: Equivalence detection between polymorphic and non-polymorphic function.
--- NOTE: Also validates structrual equivalence on match expresssions.
+-- NOTE: Also validates structural equivalence on match expresssions.
 #testOptimize [ "NormRecFun_6" ] ∀ (xs ys : List Nat), listNatBeq xs ys = (xs == ys) ===> True
 
 
@@ -293,7 +293,7 @@ def listNatBeqInverse (xs : List Nat) (ys : List Nat) : Bool :=
 
 -- ∀ (xs ys : List Nat), xs == ys = listNatRevertBeq xs ys ===>
 -- ∀ (xs ys : List Nat), listNatBeqInverse xs ys = List.beq xs ys
--- NOTE: Test cases to ensure that structrual equivalence no match are not wrongly applied
+-- NOTE: Test cases to ensure that structural equivalence no match are not wrongly applied
 #testOptimize [ "NormRecUnchanged_3" ]
   ∀ (xs ys : List Nat), (xs == ys) = listNatBeqInverse xs ys ===>
   ∀ (xs ys : List Nat), listNatBeqInverse xs ys = List.beq xs ys
@@ -308,7 +308,7 @@ def listPolyBeqInverse [BEq α] (xs : List α) (ys : List α) : Bool :=
 
 -- ∀ (α : Type) (xs ys : List α), [BEq α] → listPolyBeq xs ys = (xs == ys) ===>
 -- ∀ (α : Type) (xs ys : List α), [BEq α] → List.beq xs ys = listPolyBeqInverse xs ys
--- NOTE: Test cases to ensure that structrual equivalence no match are not wrongly applied
+-- NOTE: Test cases to ensure that structural equivalence no match are not wrongly applied
 #testOptimize [ "NormRecUnchanged_4" ]
   ∀ (α : Type) (xs ys : List α), [BEq α] → listPolyBeqInverse xs ys = (xs == ys) ===>
   ∀ (α : Type) (xs ys : List α), [BEq α] → List.beq xs ys = listPolyBeqInverse xs ys
@@ -316,7 +316,7 @@ def listPolyBeqInverse [BEq α] (xs : List α) (ys : List α) : Bool :=
 
 -- ∀ (xs ys : List Nat), listPolyBeq xs ys = listPolyBeqInverse xs ys ===>
 -- ∀ (xs ys : List Nat), listPolyBeq xs ys = listPolyBeqInverse xs ys
--- NOTE: Test cases to ensure that structrual equivalence no match are not wrongly applied
+-- NOTE: Test cases to ensure that structural equivalence no match are not wrongly applied
 #testOptimize [ "NormRecUnchanged_5" ]
   ∀ (xs ys : List Nat), listPolyBeq xs ys = listPolyBeqInverse xs ys ===>
   ∀ (xs ys : List Nat), listPolyBeq xs ys = listPolyBeqInverse xs ys
