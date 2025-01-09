@@ -14,114 +14,6 @@ structure MatchResult where
   /-- Ite term generated when translating each match pattern -/
   iteTerm : Option SmtTerm
 
-structure AltsArgsResult where
-  /-- Sequence of named pattern and free variables appearing in each match pattern.
-      The order of appearance for named pattern and free variables are preserved.
-  -/
-  patternFreeVars : Array Expr
-  /-- Sequence of named pattern equation appearing in each match pattern.
-      The order of appearance is preserved. This sequence is appended to patternFreeVars
-      is reset once a pattern match for a specific match descriminator has been considered.
-  -/
-  namedPatternEqs : Array Expr
-deriving Inhabited
-
-abbrev AltsArgsEnv := StateRefT AltsArgsResult TranslateEnvT
-
-/-- Adds `fv` to `patternFreeVars` -/
-def updatePatternVars (fv : Expr) : AltsArgsEnv Unit := do
- let env ← get
- set {env with patternFreeVars := env.patternFreeVars.push fv}
-
-
-/-- Adds `peq` to `namedPatternEq` -/
-def updatePatternEqs (peq : Expr) : AltsArgsEnv Unit := do
- let env ← get
- set {env with namedPatternEqs := env.namedPatternEqs.push peq}
-
-/-- Performs the following actions:
-      - Append patternFreeVars with namedPatternEqs
-      - Reset namedPatternEqs (i.e., set to empty Array)
--/
-def flushPatternEqs : AltsArgsEnv Unit := do
-  let env ← get
-  set {env with patternFreeVars := env.patternFreeVars ++ env.namedPatternEqs,
-                namedPatternEqs := .empty }
-
-/-- Given a sequence of match pattern `p₁, ..., pₙ` such that each pᵢ may contain named patterns of the form:
-      (namedPattern t₍₁₎₍₁₎ l₍₁₎₍₁₎ (.. (namedPattern t₍₁₎₍ₖ₋₁₎ l₍₁₎₍ₖ₋₁₎ (namedPattern t₍₁₎₍ₖ₎ l₍₁₎₍ₖ₎ e₍₁₎₍ₖ₎ h₍₁₎₍ₖ₎) h₍₁₎₍ₖ₋₁₎) h₍₁₎₍₂₎) h₍₁₎₍₁₎), ...,
-      (namedPattern t₍ₙ₎₍₁₎ l₍ₙ₎₍₁₎ (.. (namedPattern t₍ₙ₎₍ₖ₋₁₎ l₍ₙ₎₍ₖ₋₁₎ (namedPattern t₍ₙ₎₍ₖ₎ l₍ₙ₎₍ₖ₎ e₍ₙ₎₍ₖ₎ h₍ₙ₎₍ₖ₎) h₍ₙ₎₍ₖ₋₁₎) h₍ₙ₎₍₂₎) h₍ₙ₎₍₁₎)
-    with
-     ∀ i ∈ [1..n], ∀ j ∈ [1..k]
-      - t₍ᵢ₎₍ⱼ₎: corresponding to sort type of the named pattern.
-      - l₍ᵢ₎₍ⱼ₎: corresponding to the label of the named pattern.
-      - e₍ᵢ₎₍ⱼ₎: corresponding to the expression of the named pattern that may contain free variables `v₍ᵢ₎₍ⱼ₎₍₁₎, ..., v₍ᵢ₎₍ⱼ₎₍ₘ₎`.
-      - h₍ᵢ₎₍ⱼ₎: corresponding to the equality equation of the named pattern.
-    return the following sequence of free variables
-      #[l₍₁₎₍₁₎, v₍₁₎₍₁₎₍₁₎, ..., v₍₁₎₍₁₎₍ₘ₎, l₍₁₎₍₂₎, v₍₁₎₍₂₎₍₁₎, ..., v₍₁₎₍₂₎₍ₘ₎, ...,
-        l₍₁₎₍ₖ₎, v₍₁₎₍ₖ₎₍₁₎, ..., v₍₁₎₍ₖ₎₍ₘ₎, h₍₁₎₍₁₎, ..., h₍₁₎₍ₖ₎, ...,
-        l₍ₙ₎₍₁₎, v₍ₙ₎₍₁₎₍₁₎, ..., v₍ₙ₎₍₁₎₍ₘ₎, l₍ₙ₎₍₂₎, v₍ₙ₎₍₂₎₍₁₎, ..., v₍ₙ₎₍₂₎₍ₘ₎, ...,
-        l₍ₙ₎₍ₖ₎, v₍ₙ₎₍ₖ₎₍₁₎, ..., v₍ₙ₎₍ₖ₎₍ₘ₎, h₍ₙ₎₍₁₎, ..., h₍ₙ₎₍ₖ₎]
-
-    Trigger an error if at least one `pᵢ` does not correspond to:
-      - A nullary constructor;
-      - A String/Nat literal;
-      - A constructor/function application; or
-      - A named pattern; or
-      - A free variable.
--/
-partial def retrieveAltsArgs (lhs : Array Expr) : TranslateEnvT (Array Expr) := do
- let rec visit (e : Expr) : AltsArgsEnv Unit := do
-   match e with
-   | Expr.const .. | Expr.lit .. => return ()
-   | Expr.fvar .. => updatePatternVars e
-   | Expr.app .. =>
-      Expr.withApp e fun f as => do
-       match f with
-       | Expr.const n _ =>
-          match (← getConstInfo n) with
-          | ConstantInfo.ctorInfo info =>
-              -- constructor application
-              let ctorArgs := as[info.numParams:as.size]
-              for i in [:ctorArgs.size] do visit ctorArgs[i]!
-          | _ =>
-             if n == ``namedPattern then
-               -- add named pattern label to pattern vars list
-               updatePatternVars as[1]!
-               -- add named pattern equation to equation list
-               updatePatternEqs as[3]!
-               visit as[2]!
-             else
-               for i in [:as.size] do visit as[i]!
-       | _ => throwEnvError f!"retrieveAltsArgs: const expression expected but got {reprStr f}"
-   | _ => throwEnvError f!"retrieveAltsArgs: unexpected pattern expression: {reprStr e}"
- let loop : AltsArgsEnv Unit :=
-   for i in [:lhs.size] do
-     visit lhs[i]!
-     flushPatternEqs
- let (_, res) ← loop|>.run default
- return res.patternFreeVars
-
-
-/-- Return `true` is p is a nat, integer or string literal expression. -/
-private def isCstLiteral (p : Expr) : Bool :=
-  (isNatValue? p).isSome || (isIntValue? p).isSome || (isStrValue? p).isSome
-
-/-- Return `some (C, #[xₖ, ..., xₙ])` when p := `C x₁ ... xₙ` such that:
-     - C is a ctor name.
-     - x₁ ... xₖ₋₁ correspond to the polymorphic parameters of the corresponding inductive datatype.
--/
-private def isCtorPattern (p : Expr) : TranslateEnvT (Option (Name × Array Expr)) := do
- match p.getAppFn' with
- | Expr.const n _ =>
-     match (← getConstInfo n) with
-     | ConstantInfo.ctorInfo info =>
-         let args := p.getAppArgs
-         return (n, args[info.numParams:args.size].toArray)
-     | _ => return none
- | _ => return none
-
-
 mutual
 /-- Generate the necessary let expressions when translating a `match` to an smt if-then-else, such that:
     given `se` a match discriminator that has already been translated to an smt term,
@@ -166,10 +58,6 @@ private partial def mkLet
   | Expr.fvar fv =>
       -- case: p = fv with sfv = fvarIdtoSmtSymbol fv
       k (mkLetTerm #[(← fvarIdToSmtSymbol fv, se)] rhs)
-
-  | Expr.const _ _ =>
-      -- case: p = C (i.e., nullary constructor)
-      k rhs
 
   | Expr.app (Expr.app (Expr.app (Expr.app (Expr.const ``namedPattern _) _t) (Expr.fvar fv)) e) _h =>
       -- case: p := namedPattern t n e h` with sn = fvarIdtoSmtSymbol n
@@ -228,7 +116,7 @@ private partial def mkLet
      let some (n, args) ← isCtorPattern p
        | throwEnvError f!"mkLet: unexpected pattern expression: {reprStr p}"
      if args.size == 0 then
-       -- case: p = C (i.e., nullary constructor for polymorphic type, e.g., Option.none)
+       -- case: p = C (i.e., nullary constructor)
        k rhs
      else
        -- case: p' = C x₁ ... xₖ
@@ -245,30 +133,10 @@ private partial def mkLetCtors
       fun rhs' => mkLetCtors c (idx - 1) args se rhs' k
 end
 
-
-/-- Remove all namedPattern expression in `p` and apply optimization whenever necessary. -/
-partial def removeNamedPatternExpr (p : Expr) : TranslateEnvT Expr :=
- match p with
- | Expr.const .. | Expr.lit .. | Expr.fvar .. => return p
- | Expr.app .. =>
-      Expr.withApp p fun f as => do
-        match f with
-        | Expr.const n _ =>
-           if n == ``namedPattern then
-             removeNamedPatternExpr as[2]!
-           else
-             let mut margs := as
-             for i in [:as.size] do
-               margs ← margs.modifyM i removeNamedPatternExpr
-             optimizeExpr (mkAppN f margs)
-        | _ => throwEnvError f!"removeNamedPatternExpr: const expression expected but got {reprStr f}"
- | _ => throwEnvError f!"removeNamedPatternExpr: unexpected pattern expression: {reprStr p}"
-
-
 /-- Generate the necessary ite condition expressions when translating a `match` to an smt if-then-else, such that:
     given `se` a match discriminator that has already been translated to an smt term, `pp` its
     corresponding match expression, `mkCond se pp` is defined as follows:
-     let p' ← removeNamedPatternExpr pp;
+     let p' ← removeNamedPatternExpr optimizeExpr pp;
       := ( = se sp )    if isIntNatStrCst(p') with sp := termTranslator p'
       := (<= N se )     if p' = N + n ∧ Type(N) = Nat
       := (<= 0 se )     if p' = Int.ofNat n
@@ -283,7 +151,7 @@ partial def removeNamedPatternExpr (p : Expr) : TranslateEnvT Expr :=
 private partial def mkCond
   (se : SmtTerm) (pp : Expr) (andTerms : Array SmtTerm)
   (termTranslator : Expr → TranslateEnvT SmtTerm) : TranslateEnvT (Array SmtTerm) := do
-  let p' ← removeNamedPatternExpr pp
+  let p' ← removeNamedPatternExpr optimizeExpr pp
   if isCstLiteral p' then
     -- case: isIntNatStrCst(p')
     return (andTerms.push (eqSmt (← termTranslator p') se))
@@ -325,9 +193,9 @@ def translateMatchAux?
   (termTranslator : Expr → TranslateEnvT SmtTerm)
   (idx : Nat) (discrs : Array Expr) (lhs : Array Expr)
   (alt : Expr) (acc : Option MatchResult) : TranslateEnvT (Option MatchResult) := do
-  let altArgs ← retrieveAltsArgs lhs
-  let rhs := betaReduceRhs alt altArgs
-  let hvars ← altArgs.foldlM insertFVars .empty
+  let altArgsRes ← retrieveAltsArgs lhs
+  let rhs := betaReduceRhs alt altArgsRes.altArgs
+  let hvars ← altArgsRes.altArgs.foldlM insertFVars .empty
   if idx == 0 then -- last pattern translated first
     -- translate all discriminators and keep in MatchResult
     let mut discrTerms := #[]
@@ -341,11 +209,6 @@ def translateMatchAux?
     withTranslatePattern hvars $ mkIte lhs rhs mres
 
   where
-    betaReduceRhs (alt : Expr) (altArgs : Array Expr) : Expr :=
-     if altArgs.size == 0 -- case when there is no free variables in match pattern
-     then getLambdaBody alt
-     else Expr.beta alt altArgs
-
     insertFVars (h : HashSet FVarId) (v : Expr) : TranslateEnvT (HashSet FVarId) := do
       match v with
       | Expr.fvar fv =>
@@ -404,9 +267,6 @@ def translateMatchAux?
            := True           if p' = fv
            := ⊥              otherwise
 
-       - getPattern(p) := e      if p := `namedPattern` t n e h`
-                       := p      otherwise
-
        - mkRhs [se₁ ... seₙ] [p₁ ... pₙ] t :
            let st := termTranslator t
            := (mkLet se₁ p₁ ( ... (mkLet seₙ₋₁ pₙ₋₁ (mkLet seₙ pₙ st))))
@@ -448,7 +308,7 @@ def translateMatchAux?
 def translateMatch?
   (f : Expr) (args : Array Expr) (optimizer : Expr → TranslateEnvT Expr)
   (termTranslator : Expr → TranslateEnvT SmtTerm) : TranslateEnvT (Option SmtTerm) := do
-  let res ← withKeepNamedPattern $ matchExprRewriter f args optimizer (translateMatchAux? termTranslator)
+  let res ← matchExprRewriter f args optimizer (translateMatchAux? termTranslator)
   match res with
   | some r => return r.iteTerm
   | _ => return none

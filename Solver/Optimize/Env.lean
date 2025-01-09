@@ -23,16 +23,11 @@ structure OptimizeOptions where
   -/
   normalizeFunCall : Bool := true
 
-  /-- Flag to keep `namedPattern` axiliary application during optimization.
-      This flag is set to `true` only when transforming match to ite during smt translation.
-  -/
-  keepNamedPattern : Bool := False
-
   /-- Options passed to the #solve command. -/
   solverOptions : SolverOptions
 
 instance : Inhabited OptimizeOptions where
-  default := {normalizeFunCall := true, keepNamedPattern := false, solverOptions := default}
+  default := {normalizeFunCall := true, solverOptions := default}
 
 /-- Type defining the environment used when optimizing a lean theorem. -/
 structure OptimizeEnv where
@@ -197,26 +192,6 @@ def withOptimizeRecBody (f: TranslateEnvT Expr) : TranslateEnvT Expr := do
   setNormalizeFunCall true
   return e
 
-/-- set optimize option `keepNamedPattern` to `b`. -/
-def setKeepNamedPattern (b : Bool) : TranslateEnvT Unit := do
-  let env ← get
-  let options := env.optEnv.options
-  let optEnv := {env.optEnv with options := {options with keepNamedPattern := b}}
-  set {env with optEnv := optEnv }
-
-
-/-- Perform the following actions:
-     - set `keepNamedPattern` to `true`
-     - execute `f`
-     - set `keepNamedPattern` to `false`
--/
-def withKeepNamedPattern (f: TranslateEnvT α) : TranslateEnvT α := do
-  setKeepNamedPattern true
-  let e ← f
-  setKeepNamedPattern false
-  return e
-
-
 /-- set optimize option `inFunRecDefinition` to `b`. -/
 def setInFunRecDefinition (b : Bool) : TranslateEnvT Unit := do
   let env ← get
@@ -260,11 +235,6 @@ def isInRecFunDefinition : TranslateEnvT Bool :=
   return (← get).smtEnv.options.inFunRecDefinition
 
 
-/-- Return `true` if optimize option `keepNamedPattern` is set to `true`. -/
-def isKeepNamedPattern : TranslateEnvT Bool :=
-  return (← get).optEnv.options.keepNamedPattern
-
-
 /-- Update rewrite cache with `a := b`. -/
 def updateRewriteCache (a : Expr) (b : Expr) : TranslateEnvT Unit := do
   let env ← get
@@ -303,28 +273,18 @@ def mkExpr (a : Expr) (cacheResult := true) : TranslateEnvT Expr := do
 def withOptimizeEnvCache (a : Expr) (f: Unit → TranslateEnvT Expr) : TranslateEnvT Expr := do
   let env := (← get).optEnv
   match env.rewriteCache.find? a with
-  | some b =>
-      if isNamedPattern a && !(isNamedPattern b) && (← isKeepNamedPattern)
-      then executeAndUpdate
-      else return b
-  | none => executeAndUpdate
+  | some b => return b
+  | none =>
+      let b ← f ()
+      if !(isNegSucc a) || (isNegSucc b) then
+        updateRewriteCache a b
+      return b
 
   where
     isNegSucc (e : Expr) : Bool :=
      match e with
      | Expr.const ``Int.negSucc _ => true
      | _ => false
-
-    executeAndUpdate : TranslateEnvT Expr := do
-      let b ← f ()
-      if !(isNegSucc a) || (isNegSucc b) then
-        updateRewriteCache a b
-      return b
-
-    isNamedPattern (e : Expr) : Bool :=
-      match e.getAppFn' with
-      | Expr.const ``namedPattern _ => true
-      | _ => false
 
 /-- Add a recursive function (i.e., function name expression or an instantiated polymorphic function)
     to the visited recursive function cache.
