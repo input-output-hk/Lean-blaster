@@ -15,6 +15,16 @@ def isCtorExpr (e : Expr) : MetaM Bool := do
  let Expr.const n _ := e | return false
  return (← getConstInfo n).isCtor
 
+/-- Return `true` if `n` is a function tagged with the `partial` keyword. -/
+def isPartialDef (n : Name) : MetaM Bool := do
+  if (← isRecursiveFun n) then return false
+  return ((← getEnv).find? (Compiler.mkUnsafeRecName n)).isSome
+
+/-- Return `true` if `n` corresponds to an unsafe definition
+    (e.g, partial recursive function, partial inductive predicate, etc). -/
+def isUnsafeDef (n : Name) : MetaM Bool := do
+ return (← getConstInfo n).isUnsafe
+
 /-- Return `true` if e corresponds to an enumerator constructor (i.e., constructor without any parameters).
 -/
 def isEnumConst (e : Expr) : MetaM Bool := do
