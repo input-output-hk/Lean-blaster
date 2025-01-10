@@ -706,19 +706,21 @@ where
           let propTerm ← termTranslator (substituteList.foldr (fun a acc => acc.replace (substitutePred a)) optExpr)
           predTermList := (andSmt (eqSmt selTerms.2 propTerm) selTerms.2) :: predTermList
         else
-          match (← getPredicateQualifierName argType) with
+          -- resolve type abbreviation first
+          let argType' ← resolveTypeAbbrev argType
+          match (← getPredicateQualifierName argType') with
           | some instName => predTermList := mkSimpleSmtAppN instName #[selTerms.2] :: predTermList
           | none =>
               -- instantiated polymorphic inductive datatype expected
-              let t := argType.getAppFn
-              let t_args := argType.getAppArgs
-              if inMutualDefinition || hasMutualDataType recVal argType then -- mututal datatype case
+              let t := argType'.getAppFn
+              let t_args := argType'.getAppArgs
+              if inMutualDefinition || hasMutualDataType recVal argType' then -- mututal datatype case
                 let (indVal, (indName', (l, decl))) ← declareIndInst t t_args
                 generatePredicates indName' l indVal decl t_args (inMutualDefinition := true)
               else -- other inductive datatype
                 defineInstPredicateQualifier typeTranslator termTranslator optimizer t t_args
-              let some instName ← getPredicateQualifierName argType
-                  | throwEnvError f!"updatePredicateBody: predicate qualifier name expected for {reprStr argType}"
+              let some instName ← getPredicateQualifierName argType'
+                  | throwEnvError f!"updatePredicateBody: predicate qualifier name expected for {reprStr argType'}"
               predTermList := mkSimpleSmtAppN instName #[selTerms.2] :: predTermList
       addCtorIteCase recRule predTermList funBody
 
