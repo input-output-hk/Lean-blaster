@@ -700,13 +700,15 @@ def normMatchExpr? (f : Expr) (args : Array Expr) (optimizer : Expr -> Translate
 -/
 def structEqMatch? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
  match f with
- | Expr.const n _ =>
+ | Expr.const n dlevel =>
     let some matcherInfo ← getMatcherInfo? n | return none
     let i_args := args[0 : matcherInfo.getFirstDiscrPos]
     let params ← getImplicitParameters f i_args
     let genericArgs := Array.filterMap (λ p => if p.isGeneric then some p.effectiveArg else none) params
     let auxApp ← mkLambdaFVars genericArgs (mkAppN f i_args)
-    let auxAppType ← inferType auxApp
+    let cInfo ← getConstInfo n
+    let matchFun ← instantiateValueLevelParams cInfo dlevel
+    let auxAppType ← mkLambdaFVars genericArgs (Expr.beta matchFun i_args)
     let env ← get
     match env.optEnv.matchCache.find? auxAppType with
     | some gmatch =>

@@ -15,9 +15,11 @@ def callOptimize (sOpts : SolverOptions) (stx : Syntax) : TermElabM Expr := do
 
 /-! ## Definition of #testOptimize command to write unit test for Solver.optimize
     The #testOptimize usage is as follows:
-     #testOptimize [ "TestName" ] (verbose: num)? TermToOptimize ==> OptimizedTerm
+     #testOptimize [ "TestName" ] (verbose: num)? (norm-nat-in-result: num)? TermToOptimize ==> OptimizedTerm
 
-    with optional argument `verbose` to activate debug info
+    with options:
+     - verbose to activate debug info
+     - norm-nat-in-result to only normalized nat literal in expected result.
 
     E.g.
      #testOptimize [ "AndSubsumption" ] ∀ (a : Prop), a ∧ a ==> ∀ (a : Prop), a
