@@ -90,43 +90,43 @@ def reduceApp? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
 -/
 def optimizeApp (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
   if let some e ← optimizePropNot? f args then
-    trace[Optimize.app] f!"PropNot: {reprStr (mkAppN f args)} ==> {e}"
+    trace[Optimize.propNot] f!"PropNot: {reprStr (mkAppN f args)} ==> {reprStr e}"
     return e
   if let some e ← optimizePropBinary? f args then
-    trace[Optimize.app] f!"PropBinary: {reprStr (mkAppN f args)} ==> {e}"
+    trace[Optimize.propBinary] f!"PropBinary: {reprStr (mkAppN f args)} ==> {reprStr e}"
     return e
   if let some e ← optimizeBoolNot? f args then
-    trace[Optimize.app] f!"BoolNot: {reprStr (mkAppN f args)} ==> {e}"
+    trace[Optimize.boolNot] f!"BoolNot: {reprStr (mkAppN f args)} ==> {reprStr e}"
     return e
   if let some e ← optimizeBoolBinary? f args then
-    trace[Optimize.app] f!"BoolBinary: {reprStr (mkAppN f args)} ==> {e}"
+    trace[Optimize.boolBinary] f!"BoolBinary: {reprStr (mkAppN f args)} ==> {reprStr e}"
     return e
   if let some e ← optimizeEquality? f args then
-    trace[Optimize.app] f!"Equality: {reprStr (mkAppN f args)} ==> {e}"
+    trace[Optimize.equality] f!"Equality: {reprStr (mkAppN f args)} ==> {reprStr e}"
     return e
   if let some e ← optimizeIfThenElse? f args then
-    trace[Optimize.app] f!"IfThenElse: {reprStr (mkAppN f args)} ==> {e}"
+    trace[Optimize.ite] f!"IfThenElse: {reprStr (mkAppN f args)} ==> {reprStr e}"
     return e
   if let some e ← optimizeNat? f args then
-    trace[Optimize.app] f!"Nat: {reprStr (mkAppN f args)} ==> {e}"
+    trace[Optimize.nat] f!"Nat: {reprStr (mkAppN f args)} ==> {reprStr e}"
     return e
   if let some e ← optimizeInt? f args then
-    trace[Optimize.app] f!"Int: {reprStr (mkAppN f args)} ==> {e}"
+    trace[Optimize.int] f!"Int: {reprStr (mkAppN f args)} ==> {reprStr e}"
     return e
   if let some e ← structEqMatch? f args then
-    trace[Optimize.app] f!"EqMatch: {reprStr (mkAppN f args)} ==> {e}"
+    trace[Optimize.eqMatch] f!"EqMatch: {reprStr (mkAppN f args)} ==> {reprStr e}"
     return e
   if let some e ← optimizeExists? f args then
-    trace[Optimize.app] f!"Exists: {reprStr (mkAppN f args)} ==> {e}"
+    trace[Optimize.exists] f!"Exists: {reprStr (mkAppN f args)} ==> {reprStr e}"
     return e
   if let some e ← optimizeDecide? f args then
-    trace[Optimize.app] f!"Decide: {reprStr (mkAppN f args)} ==> {e}"
+    trace[Optimize.decide] f!"Decide: {reprStr (mkAppN f args)} ==> {reprStr e}"
     return e
   if let some e ← optimizeRelational? f args then
-    trace[Optimize.app] f!"Relational: {reprStr (mkAppN f args)} ==> {e}"
+    trace[Optimize.relational] f!"Relational: {reprStr (mkAppN f args)} ==> {reprStr e}"
     return e
   if let some e ← optimizeString? f args then
-    trace[Optimize.app] f!"String: {reprStr (mkAppN f args)} ==> {e}"
+    trace[Optimize.string] f!"String: {reprStr (mkAppN f args)} ==> {reprStr e}"
     return e
   trace[Optimize.app] f!"Unchanged: {reprStr (mkAppN f args)}"
   mkAppExpr f args
@@ -253,5 +253,18 @@ initialize
   registerTraceClass `Optimize.recFun
   registerTraceClass `Optimize.recFun.app
   registerTraceClass `Optimize.app
+  registerTraceClass `Optimize.propNot
+  registerTraceClass `Optimize.propBinary
+  registerTraceClass `Optimize.boolNot
+  registerTraceClass `Optimize.boolBinary
+  registerTraceClass `Optimize.equality
+  registerTraceClass `Optimize.ite
+  registerTraceClass `Optimize.nat
+  registerTraceClass `Optimize.int
+  registerTraceClass `Optimize.eqMatch
+  registerTraceClass `Optimize.exists
+  registerTraceClass `Optimize.decide
+  registerTraceClass `Optimize.relational
+  registerTraceClass `Optimize.string
 
 end Solver.Optimize
