@@ -1,11 +1,5 @@
 {"version": 7,
  "packagesDir": ".lake/packages",
- "packages":
- [{"type": "path",
-   "name": "PlutusTx",
-   "manifestFile": "lake-manifest.json",
-   "inherited": false,
-   "dir": "./../PlutusTx",
-   "configFile": "lakefile.lean"}],
+ "packages": [],
  "name": "Solver",
  "lakeDir": ".lake"}
