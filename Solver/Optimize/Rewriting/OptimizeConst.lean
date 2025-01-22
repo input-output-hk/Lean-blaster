@@ -42,7 +42,8 @@ partial def normConst (e : Expr) (optimizer : Expr → TranslateEnvT Expr) : Tra
     if let some r ← isHOF n then
       trace[Optimize.const.hof] f!"normalizing HOF {n} => {reprStr r}"
       return r
-    return e
+    -- catch if no normalization performed
+    mkExpr e
 
   where
     isGlobalConstant (c : Name) : TranslateEnvT (Option Expr) := do
@@ -75,9 +76,12 @@ partial def normConst (e : Expr) (optimizer : Expr → TranslateEnvT Expr) : Tra
     isHOF (f : Name) : TranslateEnvT (Option Expr) := do
      if (← isNotFoldable e #[] (recFunCheck := false)) then return none
      if (← hasImplicitArgs e) then return none
-     if (← isRecursiveFun f) then return (← normOpaqueAndRecFun e #[] optimizer)
+     if (← isRecursiveFun f) then
+        -- catch fun expression after adding recursive definition in map
+        return (← mkExpr (← normOpaqueAndRecFun e #[] optimizer))
      -- non recursive function case
      let some fbody ← getFunBody e | return none
+     if (← isInFunApp) then return fbody
      optimizer fbody
 
 initialize
