@@ -36,7 +36,9 @@ partial def optimizeExpr (e : Expr) : TranslateEnvT Expr := do
           optimizeForall x t' (← visit (b.instantiate1 x))
     | Expr.app .. =>
         Expr.withApp e fun f ras => do
-         let f' ← visit f
+         -- calling normConst explicitly for `const` case to avoid
+         -- catching when no optimization is performed on foldable body function.
+         let f' ← if f.isConst then withInFunApp $ normConst f visit else visit f
          -- apply optimization on params first before reduction
          -- we need to apply optimization even on the implicit arguments
          -- to remove mdata annotation and have max expression sharing.

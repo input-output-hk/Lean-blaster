@@ -44,7 +44,9 @@ partial def structEq? (op1 : Expr) (op2: Expr) : MetaM (Option Bool) := do
        -- return `none` for all other cases if physically equality fails
        pure none
  if (← exprEq op1 op2) then return (some true)
- visit op1 op2
+ let r ← visit op1 op2
+ trace[Optimize.structEq] f!"structEq? {reprStr op1} =? {reprStr op2} ===> {reprStr r}"
+ return r
 
  where
    /-- update the lattice for application arguments such that:
@@ -309,5 +311,8 @@ def optimizeEquality? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr
    | ``BEq.beq => optimizeBEq f args
    | _ => pure none
 
+
+initialize
+  registerTraceClass `Optimize.structEq
 
 end Solver.Optimize

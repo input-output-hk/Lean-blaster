@@ -23,11 +23,16 @@ structure OptimizeOptions where
   -/
   normalizeFunCall : Bool := true
 
+  /-- Flag set to `true` only when optimizing function name `f` in expression `f x₁ ... xₙ`.
+      This is to avoid applying optimization twice on the body of non-recursive functions.
+  -/
+  inFunApp : Bool := false
+
   /-- Options passed to the #solve command. -/
   solverOptions : SolverOptions
 
 instance : Inhabited OptimizeOptions where
-  default := {normalizeFunCall := true, solverOptions := default}
+  default := {normalizeFunCall := true, inFunApp := false, solverOptions := default}
 
 /-- Type defining the environment used when optimizing a lean theorem. -/
 structure OptimizeEnv where
@@ -192,6 +197,24 @@ def withOptimizeRecBody (f: TranslateEnvT Expr) : TranslateEnvT Expr := do
   setNormalizeFunCall true
   return e
 
+/-- set optimize option `inFunApp` to `b`. -/
+def setInFunApp (b : Bool) : TranslateEnvT Unit := do
+  let env ← get
+  let options := env.optEnv.options
+  let optEnv := {env.optEnv with options := {options with inFunApp := b}}
+  set {env with optEnv := optEnv }
+
+/-- Perform the following actions:
+     - set `inFunApp` to `true`
+     - execute `f`
+     - set `inFunApp` to `false`
+-/
+def withInFunApp (f: TranslateEnvT Expr) : TranslateEnvT Expr := do
+  setInFunApp true
+  let e ← f
+  setInFunApp false
+  return e
+
 /-- set optimize option `inFunRecDefinition` to `b`. -/
 def setInFunRecDefinition (b : Bool) : TranslateEnvT Unit := do
   let env ← get
@@ -230,6 +253,10 @@ def withTranslatePattern (h : HashSet FVarId) (f: TranslateEnvT α) : TranslateE
 def isOptimizeRecCall : TranslateEnvT Bool :=
   return (← get).optEnv.options.normalizeFunCall
 
+/-- Return `true` if optimize option `inFunApp` is set to `true`. -/
+def isInFunApp : TranslateEnvT Bool :=
+  return (← get).optEnv.options.inFunApp
+
 /-- Return `true` if optimize option `inFunRecDefinition` is set to `true`. -/
 def isInRecFunDefinition : TranslateEnvT Bool :=
   return (← get).smtEnv.options.inFunRecDefinition
@@ -263,7 +290,7 @@ def mkExpr (a : Expr) (cacheResult := true) : TranslateEnvT Expr := do
 /-- Return `b` if `a := b` is already in the optimization cache.
     Otherwise, the following actions are performed:
       - execute `b ← f ()`
-      - update cache with `a := b` only when `¬ isNegSucc a ∨ isNegSucc b`
+      - update cache with `a := b`
       - return `b`
  NOTE: A call to `mkExpr` must be done whenever any new Expr is created during normalization and rewriting.
  This is so to ensure maximum sharing of expression.
@@ -276,15 +303,8 @@ def withOptimizeEnvCache (a : Expr) (f: Unit → TranslateEnvT Expr) : Translate
   | some b => return b
   | none =>
       let b ← f ()
-      if !(isNegSucc a) || (isNegSucc b) then
-        updateRewriteCache a b
+      updateRewriteCache a b
       return b
-
-  where
-    isNegSucc (e : Expr) : Bool :=
-     match e with
-     | Expr.const ``Int.negSucc _ => true
-     | _ => false
 
 /-- Add a recursive function (i.e., function name expression or an instantiated polymorphic function)
     to the visited recursive function cache.
