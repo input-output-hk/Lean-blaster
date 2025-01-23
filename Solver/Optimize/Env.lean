@@ -1021,7 +1021,7 @@ where
 
 /-- Given `instApp` corresponding either to a function name expression or
     to a fully/partially instantiated polymorphic function (see function `getInstApp`),
-    determine if `instApp` has already a mapping in `recFunInstCache`. If so then retrieve the correponding
+    determine if `instApp` has already a mapping in `recFunInstCache`. If so then retrieve the corresponding
     function application in `recFunMap`. Otherwise return `none`.
     An error is triggered if no corresponding entry can be found in `recFunMap`.
 -/

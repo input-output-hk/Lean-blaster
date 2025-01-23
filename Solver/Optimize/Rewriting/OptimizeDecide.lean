@@ -8,7 +8,8 @@ namespace Solver.Optimize
       - p is a proposition
       - d the current decidable instance
     Return `#[p d']` such that `d'` correponds to the synthesize instance obtained for `[Decidable p]`.
-    This function needs to be called for each `Decidable.decide` as `p` may have been
+
+    NOTE: This function needs to be called for each `Decidable.decide` as `p` may have been
     modified due to simplification/normalization rules.
 -/
 def updateDecideInstance (args : Array Expr) : TranslateEnvT (Array Expr) := do

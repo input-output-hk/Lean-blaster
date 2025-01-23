@@ -32,7 +32,7 @@ def isEnumConst (e : Expr) : MetaM Bool := do
  let ConstantInfo.ctorInfo info ← getConstInfo n | return false
  return (info.numFields == 0 && info.numParams == 0 && !info.type.isProp)
 
-/-- Return `true` if e correponds to a nullary constructor or a fully applied parametric constructor.
+/-- Return `true` if e corresponds to a nullary constructor or a fully applied parametric constructor.
 -/
 def isFullyAppliedConst (e : Expr) : MetaM Bool := do
  match e.getAppFn' with
@@ -120,17 +120,17 @@ def isSortOrInhabited (t : Expr) : TranslateEnvT Bool := do
  | _ => isType t
 
 
-/-- Determine if `e` is a boolean `not expression and return it's correponding argument.
+/-- Determine if `e` is a boolean `not expression and return it's corresponding argument.
     Otherwise return `none`.
 -/
 @[inline] def boolNot? (e: Expr) : Option Expr := e.app1? ``not
 
-/-- Determine if `e` is a boolean `and expression and return it's correponding argument.
+/-- Determine if `e` is a boolean `and expression and return it's corresponding argument.
     Otherwise return `none`.
 -/
 @[inline] def boolAnd? (e: Expr) : Option (Expr × Expr) := e.app2? ``and
 
-/-- Determine if `e` is a boolean `or expression and return it's correponding argument.
+/-- Determine if `e` is a boolean `or expression and return it's corresponding argument.
     Otherwise return `none`.
 -/
 @[inline] def boolOr? (e: Expr) : Option (Expr × Expr) := e.app2? ``or
@@ -144,23 +144,23 @@ def isBoolValue? (e : Expr) : Option Bool :=
  | Expr.const ``false _ => some false
  | _ => none
 
-/-- Determine if `e` is an boolean `==` expression and return it's correponding arguments.
+/-- Determine if `e` is an boolean `==` expression and return it's corresponding arguments.
     Otherwise return `none`.
 -/
 @[inline] def beq? (e : Expr) : Option (Expr × Expr × Expr × Expr) := e.app4? ``BEq.beq
 
 
-/-- Determine if `e` is an `Not expression and return it's correponding argument.
+/-- Determine if `e` is an `Not expression and return it's corresponding argument.
     Otherwise return `none`.
 -/
 @[inline] def propNot? (e : Expr) : Option Expr := e.not?
 
-/-- Determine if `e` is an `And expression and return it's correponding arguments.
+/-- Determine if `e` is an `And expression and return it's corresponding arguments.
     Otherwise return `none`.
 -/
 @[inline] def propAnd? (e : Expr) : Option (Expr × Expr) := e.and?
 
-/-- Determine if `e` is an `Or expression and return it's correponding arguments.
+/-- Determine if `e` is an `Or expression and return it's corresponding arguments.
     Otherwise return `none`.
 -/
 @[inline] def propOr? (e : Expr) : Option (Expr × Expr) := e.app2? ``Or
@@ -177,7 +177,7 @@ def isNotExprOf (e1: Expr) (e2 : Expr) : MetaM Bool := do
   let some op := propNot? e1 | return false
   exprEq e2 op
 
-/-- Determine if `e` is an `implies` expression and return it's correponding arguments.
+/-- Determine if `e` is an `implies` expression and return it's corresponding arguments.
     Otherwise return `none`.
 -/
 def propImplies? (e : Expr) : MetaM (Option (Expr × Expr)) := do
@@ -285,17 +285,17 @@ def isNatAddExpr (e : Expr) : Bool := e.isAppOfArity ``Nat.add 2
 def isNatSubExpr (e: Expr) : Bool := e.isAppOfArity ``Nat.sub 2
 
 
-/-- Determine if `e` is a `Nat.mul expression and return it's correponding arguments.
+/-- Determine if `e` is a `Nat.mul expression and return it's corresponding arguments.
     Otherwise return `none`.
 -/
 @[inline] def natMul? (e: Expr) : Option (Expr × Expr) := e.app2? ``Nat.mul
 
-/-- Determine if `e` is a `Nat.add expression and return it's correponding arguments.
+/-- Determine if `e` is a `Nat.add expression and return it's corresponding arguments.
     Otherwise return `none`.
 -/
 @[inline] def natAdd? (e: Expr) : Option (Expr × Expr) := e.app2? ``Nat.add
 
-/-- Determine if `e` is a `Nat.sub expression and return it's correponding arguments.
+/-- Determine if `e` is a `Nat.sub expression and return it's corresponding arguments.
     Otherwise return `none`.
 -/
 @[inline] def natSub? (e: Expr) : Option (Expr × Expr) := e.app2? ``Nat.sub
@@ -370,12 +370,12 @@ def toNatCstOpExpr? (e: Expr) : Option NatCstOpInfo :=
     | _, _, _ => none
  | _ => none
 
-/-- Determine if `e` is an Int.neg expression and return it's correponding argument.
+/-- Determine if `e` is an Int.neg expression and return it's corresponding argument.
     Otherwise return `none`.
 -/
 @[inline] def intNeg? (e : Expr) : Option Expr := e.app1? ``Int.neg
 
-/-- Determine if `e` is an Decidable.decide expression and return it's correponding arguments.
+/-- Determine if `e` is an Decidable.decide expression and return it's corresponding arguments.
     Otherwise return `none`.
 -/
 @[inline] def decide? (e : Expr) : Option (Expr × Expr) := e.app2? ``Decidable.decide
@@ -394,12 +394,12 @@ def toNatCstOpExpr? (e: Expr) : Option NatCstOpInfo :=
   else
     none
 
-/-- Determine if `e` is an `ite` expression and return it's correponding arguments.
+/-- Determine if `e` is an `ite` expression and return it's corresponding arguments.
     Otherwise return `none`.
 -/
 @[inline] def ite? (e : Expr) : Option (Expr × Expr × Expr × Expr × Expr) := app5? e ``ite
 
-/-- Determine if `e` is an `dite` expression and return it's correponding arguments.
+/-- Determine if `e` is an `dite` expression and return it's corresponding arguments.
     Otherwise return `none`.
 -/
 @[inline] def dite? (e : Expr) : Option (Expr × Expr × Expr × Expr × Expr) := app5? e ``dite
