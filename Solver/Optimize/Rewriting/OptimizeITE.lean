@@ -14,15 +14,18 @@ namespace Solver.Optimize
       - d is the current decidable instance for the ite cond
       - t is the `then` operand
       - e is the `else` operand
+
     This function returns `#[s c d' t e] such that `d'` correponds to the synthesize instance
     obtained for `[Decidable c]`.
-    This function needs to be called for each ITE as `c` may have been modified
+
+    NOTE: This function needs to be called for each ITE as `c` may have been modified
     due to simplification/normalization rules.
+
     Do nothing if args.size < 3.
 -/
 def updateITEDecidable (args : Array Expr) : TranslateEnvT (Array Expr) := do
   if Nat.blt args.size 3 then return args
-  pure (args.set! 2 (← synthDecidableInstance! args[1]!))
+  pure (args.set! 2 (← synthDecidableInstance!  args[1]!))
 
 /-- Given `#[s c d t e]` corresponding to the arguments of an `ite` or `dite`, such that:
       - s is the sort parameter

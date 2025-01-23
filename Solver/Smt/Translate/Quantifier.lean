@@ -775,7 +775,7 @@ def translateNonOpaqueType
 
 
 /-- Given `n` a name expression for which a corresponding smt sort exists (e.g., Bool, Int, String),
-    `s` its corresponding Smt symbol and `t` its correponding Smt sort,
+    `s` its corresponding Smt symbol and `t` its corresponding Smt sort,
     perform the following actions:
      - When entry `n := s` exists in `indTypeInstCache` return #[t]
      - Otherwise:

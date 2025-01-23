@@ -493,7 +493,7 @@ def isAppTerm (t : SmtTerm) : Bool :=
   | .AppTerm .. => true
   | _ => false
 
-/-! Determine if `t` is an equality Smt expression and return it's correponding arguments.
+/-! Determine if `t` is an equality Smt expression and return it's corresponding arguments.
     Otherwise return `none`.
 -/
 def eqSmt? (t : SmtTerm) : Option (SmtTerm × SmtTerm) :=
