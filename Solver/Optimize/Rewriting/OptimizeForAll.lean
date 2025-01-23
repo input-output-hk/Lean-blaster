@@ -1,6 +1,5 @@
 import Lean
-import Solver.Optimize.Rewriting.Utils
-import Solver.Optimize.Env
+import Solver.Optimize.Rewriting.OptimizePropNot
 
 open Lean Meta Elab
 namespace Solver.Optimize
@@ -11,6 +10,7 @@ namespace Solver.Optimize
       - ∀ (n : t), True | e → True ==> True
       - False → e ==> True
       - True → e ==> e
+      - e → False ==> ¬ e
       - e1 → e2 ==> True (if e1 =ₚₜᵣ e2 ∧ Type(e1) = Prop)
       - ¬ e → e ==> e (requires classical)
       - e → ¬ e ==> ¬ e (requires classical)
@@ -26,10 +26,24 @@ def optimizeForall (n : Expr) (t : Expr) (b : Expr) : TranslateEnvT Expr := do
   if let Expr.const ``True _ := b then return b
   if let Expr.const ``False _ := t then return (← mkPropTrue)
   if let Expr.const `True _ := t then return b
+  if let some r ← isNotDef? t b then return r
   if (← (exprEq t b) <&&> (isProp t)) then return (← mkPropTrue)
   if (← (isNotExprOf t b) <||> (isNotExprOf b t) <||> (isNegBoolEqOf t b) <||> (isNegBoolEqOf b t)) then return b
   if (← (isSortOrInhabited t) <&&> (isProp b) <&&> (pure !(fVarInExpr n.fvarId! b))) then return b
   mkForallExpr n b
+
+  where
+    /-- Given `a → b`, apply the following formalization rule:
+         - When `b := False ∧ Type(a) = Prop`
+            - return `some `¬ a`
+         - Otherwise
+            - return `none`
+    -/
+    isNotDef? (a : Expr) (b : Expr) : TranslateEnvT (Option Expr) := do
+      if !(← isProp a) then return none
+      match b with
+      | Expr.const ``False _ => optimizeNot (← mkPropNotOp) #[a]
+      | _ => return none
 
 /-- `mkImpliesExpr a b` perform the following:
       - construct expression `a → b`

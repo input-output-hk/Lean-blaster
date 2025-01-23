@@ -1,6 +1,9 @@
 import Lean
 import Solver.Optimize.Rewriting.OptimizeBoolNot
+import Solver.Optimize.Rewriting.OptimizeForAll
+import Solver.Optimize.Rewriting.OptimizePropBinary
 import Solver.Optimize.Rewriting.OptimizePropNot
+
 
 open Lean Meta
 namespace Solver.Optimize
@@ -195,6 +198,10 @@ partial def mkEqBool (e : Expr) (b : Bool) : TranslateEnvT Expr := do
      - true = (a == b) ==> a = b (if isCompatibleRelationalType Type(a))
      - false = (a == b) ==> ¬ (a = b) (if isCompatibleRelationalType Type(a))
      - c = (a == b) | (a == b) = c ==> (true = c) = (a = b) (if isCompatibleRelationalType Type(a))
+     - true = if c then e1 else e2 ==> (c → true = e1) ∧ (¬ c → true = e2)
+     - false = if c then e1 else e2 ==> (c → false = e1) ∧ (¬ c → false = e2)
+     - true = dite c (fun h : c => e1) (fun h : ¬ c => e2) ==> (c → true = e1) ∧ (¬ c → true = e2)
+     - false = dite c (fun h : c => e1) (fun h : ¬ c => e2) ==> (c → false = e1) ∧ (¬ c → false = e2)
      - (B1 = a) = (B2 = b) ==> NOP(B1, a) = NOP(B2, b)
      - true = decide e ==> e
      - false = decide e ==> ¬ e
@@ -219,6 +226,8 @@ partial def optimizeDecideEq (f : Expr) (args : Array Expr) : TranslateEnvT Expr
  let some (_, op1, op2) := e.eq? | return e
  if let some r ← beqToEq? op1 op2 then return r
  if let some r ← boolEqtoEq? op1 op2 then return r
+ if let some r ← boolEqIte? op1 op2 then return r
+ if let some r ← boolEqDite? op1 op2 then return r
  if let some r ← decideBoolEqSimp? op1 op2 then return r
  if let some r ← decideEqDecide? op1 op2 then return r
  mkExpr e
@@ -300,6 +309,55 @@ partial def optimizeDecideEq (f : Expr) (args : Array Expr) : TranslateEnvT Expr
      | _, some (e1, _) =>
           optimizeDecideEq (← mkEqOp) #[← mkPropType, e1, ← mkEqBool op1 true]
      | _, _ => return none
+
+   /--  Given `op1` and `op2` corresponding to the operands for `Eq,
+        perform the following normalization rules:
+         - When `op1 := true ∧ op2 := dite c (fun h : c => e1) (fun h : ¬ c => e2)`
+             - return `(c → true = e1) ∧ (¬ c → true = e2)`
+         - When `op1 := false ∧ op2 := dite c (fun h : c => e1) (fun h : ¬ c => e2)`
+             - return `(c → false = e1) ∧ (¬ c → false = e2)`
+         - Otherwise:
+             - return `none`
+   -/
+   boolEqIte? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
+     match isBoolValue? op1, ite? op2 with
+       | some bv, some (_ite_sort, e_cond, _e_dec, e_then, e_else) =>
+         let leftAnd ← mkImpliesExpr e_cond (← mkEqBool e_then bv)
+         let notExpr ← optimizeNot (← mkPropNotOp) #[e_cond]
+         let rightAnd ← mkImpliesExpr notExpr (← mkEqBool e_else bv)
+         optimizeAnd (← mkPropAndOp) #[leftAnd, rightAnd]
+       | _, _ => return none
+
+   /-- Given `ite := fun h : c => e` and boolean literal `bv` return `c → true = e`.
+       An error is triggered when the provided expression is not a `then` or `else`
+       term for a `dite` expression.
+       Assume that the sort for the `dite` is `Bool`.
+   -/
+   toImpliesExpr (ite : Expr) (bv : Bool) : TranslateEnvT Expr :=
+    match ite with
+     | Expr.lam n t b bi =>
+         withLocalDecl n bi t fun x => do
+            optimizeForall x t (← mkEqBool (b.instantiate1 x) bv)
+     | _ => throwEnvError f!"boolEqDite? : lambda expression expected but got {reprStr ite}"
+
+   /--  Given `op1` and `op2` corresponding to the operands for `Eq,
+        perform the following normalization rules:
+         - When `op1 := true ∧ op2 := if c then e1 else e2`
+             - return `(c → true = e1) ∧ (¬ c → true = e2)`
+         - When `op1 := false ∧ op2 := if c then e1 else e2`
+             - return `(c → false = e1) ∧ (¬ c → false = e2)`
+         - Otherwise:
+             - return `none`
+   -/
+   boolEqDite? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
+     match isBoolValue? op1, dite? op2 with
+       | some bv, some (_ite_sort, _e_cond, _e_dec, e_then, e_else) =>
+         let leftAnd ← toImpliesExpr e_then bv
+         let rightAnd ← toImpliesExpr e_else bv
+         optimizeAnd (← mkPropAndOp) #[leftAnd, rightAnd]
+       | _, _ => return none
+
+
 end
 
 /-- Apply simplification and normalization rules on `Eq` and `BEq.beq` :

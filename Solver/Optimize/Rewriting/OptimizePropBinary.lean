@@ -9,6 +9,7 @@ namespace Solver.Optimize
      - True ∧ e ==> e
      - e1 ∧ e2 ==> e1 (if e1 =ₚₜᵣ e2)
      - e ∧ ¬ e ==> False
+     - true = e ∧ false = e ==> False
      - e1 ∧ e2 ==> e2 ∧ e1 (if e2 <ₒ e1)
    Assume that f = Expr.const ``And.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `And` expected at this stage)
@@ -23,6 +24,7 @@ def optimizeAnd (f : Expr) (args : Array Expr) (cacheResult := true) : Translate
  if let Expr.const ``True _ := op1 then return op2
  if (← exprEq op1 op2) then return op1
  if (← isNotExprOf op2 op1) then return (← mkPropFalse)
+ if (← isNegBoolEqOf op2 op1) then return (← mkPropFalse)
  mkExpr (mkApp2 f op1 op2) cacheResult
 
 
@@ -32,6 +34,7 @@ def optimizeAnd (f : Expr) (args : Array Expr) (cacheResult := true) : Translate
      - True ∨ e ==> True
      - e1 ∨ e2 ==> e1 (if e1 =ₚₜᵣ e2)
      - e ∨ ¬ e ==> True (classical)
+     - true = e ∨ false = e ==> True
      - e1 ∨ e2 ==> e2 ∨ e1 (if e2 <ₒ e1)
    Assume that f = Expr.const ``Or.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Or` expected at this stage)
@@ -46,6 +49,7 @@ def optimizeOr (f : Expr) (args : Array Expr) (cacheResult := true) : TranslateE
  if let Expr.const ``True _ := op1 then return op1
  if (← exprEq op1 op2) then return op1
  if (← isNotExprOf op2 op1) then return (← mkPropTrue)
+ if (← isNegBoolEqOf op2 op1) then return (← mkPropTrue)
  -- should not cache at this stage as optimizeAnd is called
  -- by optimizeBoolPropOr
  mkExpr (mkApp2 f op1 op2) cacheResult
