@@ -55,6 +55,7 @@ def translate (sOpts: SolverOptions) (stx : Syntax) : TermElabM Unit := do
     let (optExpr, env) ← optimize sOpts (← toPropExpr e)
     match (toResult optExpr) with
     | .Undetermined =>
+        trace[Translate.optExpr] f!"optimized expression: {reprStr optExpr}"
         discard $ translateExpr optExpr|>.run (← setSolverProcess sOpts env)
     | res =>
        if sOpts.falsifiedResult && !isFalsifiedResult res
@@ -71,5 +72,6 @@ def translate (sOpts: SolverOptions) (stx : Syntax) : TermElabM Unit := do
 initialize
    registerTraceClass `Translate.expr
    registerTraceClass `Translate.forAll
+   registerTraceClass `Translate.optExpr
 
 namespace Solver.Smt

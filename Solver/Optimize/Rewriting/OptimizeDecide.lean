@@ -13,7 +13,7 @@ namespace Solver.Optimize
     modified due to simplification/normalization rules.
 -/
 def updateDecideInstance (args : Array Expr) : TranslateEnvT (Array Expr) := do
-  pure (args.set! 1 (← synthDecidableInstance! args[0]!))
+  pure (args.set! 1 (← synthDecidableWithNotFound! args[0]!))
 
 /-- Apply the following simplification/normalization rules on `Decidable.decide`:
       - decide False ==> false

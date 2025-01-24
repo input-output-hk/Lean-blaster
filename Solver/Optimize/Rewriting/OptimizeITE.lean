@@ -25,7 +25,7 @@ namespace Solver.Optimize
 -/
 def updateITEDecidable (args : Array Expr) : TranslateEnvT (Array Expr) := do
   if Nat.blt args.size 3 then return args
-  pure (args.set! 2 (← synthDecidableInstance!  args[1]!))
+  pure (args.set! 2 (← synthDecidableWithNotFound! args[1]!))
 
 /-- Given `#[s c d t e]` corresponding to the arguments of an `ite` or `dite`, such that:
       - s is the sort parameter
@@ -136,8 +136,8 @@ def extractDependentITEExpr (e : Expr) (instantiate := true) : TranslateEnvT Exp
   match e with
   | Expr.lam n t b bi => do
       if !instantiate then return b
-      withLocalDecl n bi t fun _x =>
-        return b.instantiate1 t
+      withLocalDecl n bi t fun x =>
+        return b.instantiate1 x
 
   | _ => throwEnvError f!"extractDependentITEExpr: lambda expression expected but got {reprStr e}"
 

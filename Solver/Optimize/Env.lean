@@ -659,29 +659,52 @@ def mkDecidableConstraint (e : Expr) (cacheDecidableCst := true) : TranslateEnvT
 
 /-- Return `d` if there is already a synthesize instance for `cstr` in the synthesize cache.
     Otherwise, the following actions are performed:
-     - execute `LOption.some d ← trySynthInstance cstr`
-     - add cstr := d to synthesize cache
-     - return d
-    Return `none` when `trySynthInstance` does not return `LOption.some`
+     - When `LOption.some d ← trySynthInstance cstr`
+         - add cstr := d to synthesize cache
+         - return d
+    - When `trySynthInstance` does not return `LOption.some`:
+         - When cacheNotFound is set to true
+           - add cstr := cstr to synthesize cache
+           - return d
+         - Otherwise
+             - return `none`
 -/
-def trySynthConstraintInstance? (cstr : Expr) : TranslateEnvT (Option Expr) := do
+def trySynthConstraintInstance? (cstr : Expr) (cacheNotFound := false) : TranslateEnvT (Option Expr) := do
   let env ← get
   match env.optEnv.synthInstanceCache.find? cstr with
   | some d => return d
   | none => do
-     let LOption.some d ← trySynthInstance cstr | return none
-     updateSynthCache cstr d
-     return d
+     match (← trySynthInstance cstr) with
+     | LOption.some d =>
+         updateSynthCache cstr d
+         return d
+     | _ =>
+       unless !cacheNotFound do
+         updateSynthCache cstr cstr
+         return cstr
+       return none
+
 
 /-- Try to find an instance for `[Decidable e]`. -/
-def trySynthDecidableInstance? (e : Expr) (cacheDecidableCst := true) : TranslateEnvT (Option Expr) := do
+def trySynthDecidableInstance? (e : Expr) (cacheDecidableCst := true) (cacheNotFound := false) : TranslateEnvT (Option Expr) := do
   let dCstr ← mkDecidableConstraint e cacheDecidableCst
-  trySynthConstraintInstance? dCstr
+  trySynthConstraintInstance? dCstr cacheNotFound
 
 /-- Same as `trySynthDecidableInstance` but throws an error when a decidable instance cannot be found. -/
 def synthDecidableInstance! (e : Expr) : TranslateEnvT Expr := do
   let some d ← trySynthDecidableInstance? e
     | throwEnvError f!"synthesize instance for [Decidable {reprStr e}] cannot be found"
+  return d
+
+/-- Same as `trySynthDecidableInstance` but cache and return the queried decidable
+    constraint when no decidable instance cannot be found.
+    In fact, after definitions have been unfolded, it can sometimes be the case
+    that Lean can't infer the proper Decidable instance. In this case, we return the queried decidable
+    instance.
+-/
+def synthDecidableWithNotFound! (e : Expr) : TranslateEnvT Expr := do
+  let some d ← trySynthDecidableInstance? e (cacheNotFound := true)
+    | throwEnvError f!"synthDecidableWithNotFound!: unreachable !!!"
   return d
 
 
