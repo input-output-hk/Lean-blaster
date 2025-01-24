@@ -8,11 +8,41 @@ open Lean Meta Solver.Smt Solver.Options
 namespace Solver.Optimize
 
 
-/-- Type to cache inductive datatype instances that have already been translated.
-    TODO: UPDATE
+/-- Type to cache inductive datatype instances and quantified functions
+    that have already been translated.
 -/
 structure IndTypeDeclaration where
- instName : SmtSymbol -- name for instance predicate qualifier
+ /-- Unique name generated for datatype instance/quantified functions.
+       - E.g., Given datatype instances `List T1` and `List T2`,
+         names `List_<id1>` and `List_<id2>` will respectively be generated,
+
+       - E.g., Given two quantified functions f1 : Int → Bool and f2 : Nat -> Bool,
+         names `Fun_<id1>` and `Fun_<id2>` will respectively be generated.
+     where `<idX>` is a Nat literal.
+
+     This unique name is mainly used when generating the corresponding
+     smt predicate qualifier for the datatype instance/quantified functions,
+     that is required to specify the expected domain values for quantified variables.
+
+     NOTE: Two (or more) polymorphic instances for an inductive datatype will generate
+     the same name (see function `getIndInst` in `Translate.Qualifier`).
+      - E.g., `List α` and `List β` will both have the same predicate qualifier name.
+
+     NOTE: Two (or more) polymorphic quantified function will generate the same
+     name (see function `getFunInstDecl` in `Translate.Qualifier`).
+      - E.g., `f1 : α → Nat` and `f2 : β → Nat` will both have the same
+        predicate qualifier name.
+
+     NOTE: Polymorphic instances are detected transitively,
+      - E.g., `List (Option α)` and `List (Option β)`
+        will both generate the same predicate qualifier name.
+      - E.g., `f1 : Term (List α) → Nat` and `f2 : Term (List β) → Nat`
+        will both generate the same predicate qualifier name.
+ -/
+ instName : SmtSymbol
+ /-- Corresponding Smt instantiated sort for the inductive datatype instance,
+     E.g., `(List Int)` for instance List Int.
+ -/
  instSort : SortExpr
 deriving Inhabited
 
@@ -103,14 +133,25 @@ structure SmtEnv where
   /-- Cache keeping track of visited inductive datatype during translation. -/
   indTypeVisited : HashSet Lean.Name
 
-  /-- Map to keep instances of inductive datatypes that has already been
-      translated.
-      An entry in this map is expected to be of the form `d x₁ ... xₙ := n`,
-      where:
-        - `x₁ .. xₙ`: correspond to the arguments instantiating the polymorphic
-          parameters of `d` (if any).
-        - `n` corresponds to a unique name generated for the inductive instance.
-      TODO: UPDATE
+  /-- Map to keep inductive datatype instances and quantified functions
+      that has already been translated.
+      An entry in this map may correspond to one of the following:
+       - Given `d` the name of an inductive data type and `x₀ ... xₙ` its corresponding arguments (if any):
+           - When `∀ i ∈ [0..n], ¬ isGenericParam xᵢ`,
+              `d x₁ ... xₙ := {instName := n, instSort := (sd sx₀ .. sxₙ)}` ∈ indTypeInstCache
+           - when `∃ i ∈ [0..n], isGenericParam xᵢ`,
+              `λ b₀ → .. → bₘ → t x₀ ... xₙ` := {instName := n, instSort := (sd sx₀ .. sxₙ)}` ∈ indTypeInstCache
+             with
+               - `b₀ .. bₘ` corresponding to the polymorphic arguments (see `getIndInst`).
+
+       - Given `f : α₀ → α₁ ... → αₙ` a quantified function:
+           - When `∀ i ∈ [0..n], ¬ isGenericParam αᵢ`,
+              `α₀ → α₁ ... → αₙ := {instName := n, instSort := (Array sα₀ sα₁ ... sαₙ)}` ∈ indTypeInstCache
+           - When `∃ i ∈ [0..n], isGenericParam αᵢ`,
+              `λ b₀ → .. → bₘ → α₀ → ... → α` := {instName := n, instSort := (Array sα₀ ... sαₙ)} ∈ indTypeInstCache
+             with
+               - `b₀ .. bₘ` corresponding to the polymorphic arguments (see `getFunInstDecl`).
+     See note on `IndTypeDeclaration`.
   -/
   indTypeInstCache : HashMap Lean.Expr IndTypeDeclaration
 
@@ -804,17 +845,20 @@ def isInductiveTypeExpr (e : Expr) : MetaM Bool := do
  | _ => return false
 
 
-/-- Given `t` a type expression, this function resolves type abbreviation by performing the following:
+/-- Given `t x₀ .. xₙ` a type expression, this function resolves type
+    abbreviation by performing the following:
     - When `t x₀ .. xₙ ∧ t := Expr.const n us ∧ `defnInfo(n) := d α₀ ... αₙ`:
-      - return `resolveTypeAbbrev d x₀ .. xₙ`
+      - return `resolveTypeAbbrev $ d (resolveTypeAbbrev x₀) ... (resolveTypeAbbrev xₙ)`
     - Otherwise
-      - return `t`
+      - return `t (resolveTypeAbbrev x₀) ... (resolveTypeAbbrev xₙ)`
 -/
 partial def resolveTypeAbbrev (t : Expr) : TranslateEnvT Expr := do
- let Expr.const n us := t.getAppFn | return t
- let cinfo@(ConstantInfo.defnInfo _) ← getConstInfo n | return t
+ let f@(Expr.const n us) := t.getAppFn | return t
+ let args' ← Array.mapM resolveTypeAbbrev t.getAppArgs
+ let cinfo@(ConstantInfo.defnInfo _) ← getConstInfo n
+   | return mkAppN f args'
  let auxApp ← instantiateValueLevelParams cinfo us
- resolveTypeAbbrev (Expr.beta auxApp t.getAppArgs)
+ resolveTypeAbbrev (Expr.beta auxApp args')
 
 /-- Return all fvar expressions in `e`. The return array preserved dependencies between fvars,
     i.e., child fvars appear first.
