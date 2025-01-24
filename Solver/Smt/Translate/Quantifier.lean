@@ -6,6 +6,19 @@ open Lean Meta Solver.Optimize
 
 namespace Solver.Smt
 
+/-- Removes an occurrence of type abbreviation in type expression `t` -/
+partial def removeTypeAbbrev (te : Expr) : TranslateEnvT Expr := do
+  let rec visit (te : Expr) (k : Expr → TranslateEnvT Expr) : TranslateEnvT Expr := do
+    match te.getAppFn with
+    | Expr.const _ _ => k (← resolveTypeAbbrev te)
+    | e@(Expr.forallE _ t b bi) =>
+         visit t
+          (fun t' =>
+             visit b
+               (fun b' => k (Expr.updateForall! e bi t' b'))
+          )
+    | _ => k te
+  visit te (fun e => pure e)
 
   -- /-- Map keeping track of visited inductive datatype during translation.
   --     An entry in this map is expected to be of the form `d := some pbody`,
@@ -536,7 +549,10 @@ def translateInductiveType
           if !(← isClassConstraintExpr argType) then -- ignore class constraints
             let Expr.fvar v := arg
               | throwEnvError f!"translateInductiveType: FVarExpr expected but got {reprStr arg}"
-            if argType.isType then
+            -- resolve type abbreviation (useful when handling instance parameters)
+            -- TODO: IMP need to apply optimizer on argument to instance parameters
+            let argType' ← removeTypeAbbrev argType
+            if argType'.isType then
               polyParams := polyParams.push (← sortNameToSmtSymbol v false)
             else throwEnvError f!"Inductive datatype with instance parameters not supported: {reprStr indVal.name}"
         return polyParams
@@ -556,7 +572,9 @@ def translateInductiveType
         if (← isProp argType) then
           selectors := selectors.push (selSym, boolSort)
         else
-          selectors := selectors.push (selSym, ← typeTranslator argType)
+          -- resolve type abbreviation
+          let argType' ← removeTypeAbbrev argType
+          selectors := selectors.push (selSym, ← typeTranslator argType')
       return (ctorSym, some selectors)
 
   createCtorDecls (recVal : RecursorVal) (ctors : List Name) : TranslateEnvT (Array SmtConstructorDecl) := do
@@ -865,7 +883,7 @@ def translateOpaqueType (e : Expr) : TranslateEnvT (Option SortExpr) := do
  | _ => throwEnvError f!"translateOpaqueType: name expression expected but got {reprStr e}"
 
 /-- TODO UPDATE SPEC -/
-partial def translateType
+partial def translateTypeAux
   (optimizer : Expr → TranslateEnvT Expr)
   (termTranslator : Expr → TranslateEnvT SmtTerm)
   (t : Expr) (topts := (default : TypeOptions)) :
@@ -875,10 +893,10 @@ partial def translateType
    | Expr.const n l =>
       -- check for abbrev definition first
       let args := t.getAppArgs
-      if let some r ← isTypeAbbrev n l args then return (← translateType optimizer termTranslator r topts)
+      if let some r ← isTypeAbbrev n l args then return (← translateTypeAux optimizer termTranslator r topts)
       if let some r ← translateOpaqueType e then return r
       translateNonOpaqueType e args
-        (λ a b => translateType optimizer termTranslator a b)
+        (λ a b => translateTypeAux optimizer termTranslator a b)
         termTranslator optimizer topts
 
    | Expr.fvar v =>
@@ -929,9 +947,17 @@ partial def translateType
    translateArrowType (e : Expr) (opts : TypeOptions) (arrowArgs : Array SortExpr) : TranslateEnvT SortExpr := do
      match e with
      | Expr.forallE _ t b _ =>
-         translateArrowType b opts (arrowArgs.push (← translateType optimizer termTranslator t opts))
-     | _ => return arraySort (arrowArgs.push (← translateType optimizer termTranslator e opts))
+         translateArrowType b opts (arrowArgs.push (← translateTypeAux optimizer termTranslator t opts))
+     | _ => return arraySort (arrowArgs.push (← translateTypeAux optimizer termTranslator e opts))
 
+/-- TODO UPDATE SPEC -/
+def translateType
+  (optimizer : Expr → TranslateEnvT Expr)
+  (termTranslator : Expr → TranslateEnvT SmtTerm)
+  (t : Expr) (topts := (default : TypeOptions)) :
+  TranslateEnvT SortExpr := do
+  -- resolve type abbreviation first
+  translateTypeAux optimizer termTranslator (← removeTypeAbbrev t) topts
 
 
 structure QuantifierEnv where
@@ -953,9 +979,10 @@ def initialQuantifierEnv (topLevel : Bool) : QuantifierEnv :=
      - retrieve predicate qualifier name `instName` for `t`
      - return smt application (instName v)
     An error is triggered if the predicate qualifier name for `t` does not exists.
+    Assume that there is no type abbreviation in `t`, i.e., call to `removeTypeAbbrev` has been applied.
 -/
 def createPredQualifierApp (smtSym : SmtSymbol) (t : Expr) : TranslateEnvT SmtTerm := do
-  let some instName ← getPredicateQualifierName (← resolveTypeAbbrev t)
+  let some instName ← getPredicateQualifierName t
     | throwEnvError f!"createPredQualifierApp: predicate qualifier name expected for {reprStr t}"
   return (mkSimpleSmtAppN instName #[smtSimpleVarId smtSym])
 
@@ -990,9 +1017,10 @@ def translateQuantifier
    generateSortInstDecl t
    discard $ defineSortAndCache v
  else
-   let smtType ← translateType optimizer termTranslator t
+   let t' ← removeTypeAbbrev t
+   let smtType ← translateTypeAux optimizer termTranslator t'
    let smtSym ← fvarIdToSmtSymbol v
-   updatePredicateQualifiers t smtSym -- update predicate qualifiers list
+   updatePredicateQualifiers t' smtSym -- update predicate qualifiers list
    if !(← get).topLevel
    then updateQuantifiers smtSym smtType -- add quantifier to list
    else declareConst smtSym smtType -- declare quantifier at top level
@@ -1092,10 +1120,11 @@ def translateFreeVar
    updateQuantifiedFVarsCache v true
    let t ← v.getType
    if t.isType then throwEnvError f!"translateFreeVar: sort type not expected but got {reprStr t}"
-   let smtType ← translateType optimizer termTranslator t
+   let t' ← removeTypeAbbrev t
+   let smtType ← translateTypeAux optimizer termTranslator t'
    let smtSym ← fvarIdToSmtSymbol v
    declareConst smtSym smtType -- declare free variable at top level
-   let pTerm ← createPredQualifierApp smtSym t
+   let pTerm ← createPredQualifierApp smtSym t'
    assertTerm pTerm
    return (smtSimpleVarId smtSym)
 
