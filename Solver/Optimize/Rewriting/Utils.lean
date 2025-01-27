@@ -17,7 +17,7 @@ def isCtorExpr (e : Expr) : MetaM Bool := do
 
 /-- Return `true` if `n` is a function tagged with the `partial` keyword. -/
 def isPartialDef (n : Name) : MetaM Bool := do
-  if (← isRecursiveFun n) then return false
+  if (← isRecursiveFun n <||> isInstance n) then return false
   return ((← getEnv).find? (Compiler.mkUnsafeRecName n)).isSome
 
 /-- Return `true` if `n` corresponds to an unsafe definition
@@ -689,20 +689,22 @@ def isUndefinedClassFunApp (e : Expr) : MetaM Bool := do
   return ((← reduceProj? p).isNone && (isClass (← getEnv) c))
 
 /-- Return `true` only when `e := Expr.const n l` and one of the following condition is satisfied:
-     - `n` is not tagged as an opaque definition;
+     - `n` is not tagged as an opaque definition when flag `opaqueCheck` is set to true;
+     - `n` is not a recursive function when flag `recFunCheck` is set to `true`;
      - `n` is a class instance;
      - `n` is an inductive datatype;
-     - `n` is not a recursive function when flag `recFunCheck` is set to `true`;
      - `n := namedPattern`;
      - `n` is not a match expression; or
      - `n` is not a class constraint.
      Otherwise `false`.
 -/
-def isNotFoldable (e : Expr) (args : Array Expr) (recFunCheck := true) : TranslateEnvT Bool := do
+def isNotFoldable
+  (e : Expr) (args : Array Expr) (opaqueCheck := true) (recFunCheck := true) : TranslateEnvT Bool := do
   let Expr.const n l := e | return false
   if recFunCheck && (← isRecursiveFun n) then return true
-  if args.size == 0 && opaqueFuns.contains n then return true
-  if (← (pure (args.size != 0)) <&&> (isOpaqueFun n args)) then return true
+  unless !opaqueCheck do
+    if args.size == 0 && opaqueFuns.contains n then return true
+    if (← (pure (args.size != 0)) <&&> (isOpaqueFun n args)) then return true
   if n == ``namedPattern then return true
   (isInductiveType n l)
   <||> (isInstance n)

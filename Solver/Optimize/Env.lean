@@ -432,7 +432,7 @@ def isTheorem (f : Name) : MetaM Bool := do
 
 /-- Return `true` if `f` corresponds to a recursive function. -/
 def isRecursiveFun (f : Name) : MetaM Bool := do
-  if (← isTheorem f) then return false
+  if (← (isTheorem f) <||> (isInstance f)) then return false
   isRecursiveDefinition f
 
 /-- Return `Bool` type and cache result. -/

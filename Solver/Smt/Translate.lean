@@ -54,13 +54,13 @@ def translate (sOpts: SolverOptions) (stx : Syntax) : TermElabM Unit := do
   elabTermAndSynthesize stx none >>= fun e => do
     let (optExpr, env) ← optimize sOpts (← toPropExpr e)
     match (toResult optExpr) with
-    | .Undetermined =>
-        trace[Translate.optExpr] f!"optimized expression: {reprStr optExpr}"
-        discard $ translateExpr optExpr|>.run (← setSolverProcess sOpts env)
-    | res =>
-       if sOpts.falsifiedResult && !isFalsifiedResult res
-       then throwError (falsifiedError res)
-       else logResult res sOpts
+    | res@(.Undetermined) =>
+        if sOpts.onlyOptimize
+        then logResult res sOpts
+        else
+          trace[Translate.optExpr] f!"optimized expression: {reprStr optExpr}"
+          discard $ translateExpr optExpr|>.run (← setSolverProcess sOpts env)
+    | res => logResult res sOpts
   where
     toPropExpr (e : Expr) : TermElabM Expr := do
     let e_type ← inferType e
