@@ -11,7 +11,7 @@ inductive Result where
   | Valid  : Result
   | Falsified (cex : List String) : Result
   | Undetermined : Result
-deriving Repr, DecidableEq
+deriving Repr
 
 
 def toResult (e : Expr) : Result :=
@@ -31,17 +31,21 @@ def falsifiedError (r : Result) : String :=
 
 def logResult (r : Result) (sOpts : SolverOptions) : MetaM Unit := do
   match r with
-  | .Valid => logInfo s!"Valid"
+  | .Valid => if isExpectedValid sOpts.solveResult
+              then logInfo "Valid"
+              else logError "Unexpected Valid"
   | .Falsified cex =>
-      if sOpts.falsifiedResult then
-        logInfo s!"Expected Falisified"
-      else
-        logWarning "Falsified"
+      if isExpectedFalsified sOpts.solveResult
+      then logInfo "Falsified"
+      else logError "Falsified"
       if !sOpts.generateCex then return ()
       IO.println "Counterexample:"
       if !cex.isEmpty then
         List.forM cex logValue
-  | .Undetermined => logWarning s!"Undetermined"
+  | .Undetermined =>
+        if isExpectedUndetermined sOpts.solveResult
+        then logInfo "Undetermined"
+        else logError "Undetermined"
 
   where
     logValue (s : String) : MetaM Unit := IO.print s!" - {s}"
@@ -441,9 +445,7 @@ def checkSat : TranslateEnvT Result := do
       | "unsat\n"   => pure .Valid
       | "unknown\n" => pure .Undetermined
       | err => throwEnvError s!"checkSat: Unexpected check-sat result: {err}"
-  if env.optEnv.options.solverOptions.falsifiedResult && !isFalsifiedResult res
-  then throwEnvError (falsifiedError res)
-  else return res
+  return res
 
 
 /-- Try to retrieve the proof artifact when a `unsat` result is obtained and dump result to stdout.

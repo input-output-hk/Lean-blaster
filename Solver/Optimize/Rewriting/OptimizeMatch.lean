@@ -565,6 +565,7 @@ def matchExprRewriter
   match f with
     | Expr.const n dlevel =>
         let some matcherInfo ← getMatcherRecInfo? n dlevel | return none
+        trace[Optimize.normMatch.expr] f!"attempting normalization on {reprStr f} {reprStr args}"
         let cInfo ← getConstInfo n
         let discrs := args[matcherInfo.getFirstDiscrPos : matcherInfo.getFirstAltPos]
         let rhs := args[matcherInfo.getFirstAltPos : matcherInfo.arity]
@@ -589,10 +590,12 @@ def matchExprRewriter
         accExpr ←
           forallTelescope (← inferType alts[idx]!) fun _xs b => do
             let mut lhs := b.getAppArgs
+            trace[Optimize.normMatch.pattern] f!"match patterns to optimize {reprStr lhs}"
             -- NOTE: lhs has not been normalized as is kept at the type level.
             -- normalizing lhs
             for j in [:lhs.size] do
               lhs ← lhs.modifyM j optimizer
+            trace[Optimize.normMatch.optPattern] f!"optimized match patterns {reprStr lhs}"
             rewriter i discrs lhs rhs[idx]! accExpr
         unless (accExpr.isSome) do return accExpr -- break if accExpr is still none
       return accExpr
@@ -719,5 +722,10 @@ def structEqMatch? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) 
        set {env with optEnv := optEnv}
        mkAppExpr f args
  | _ => pure none
+
+initialize
+  registerTraceClass `Optimize.normMatch.expr
+  registerTraceClass `Optimize.normMatch.optPattern
+  registerTraceClass `Optimize.normMatch.pattern
 
 end Solver.Optimize
