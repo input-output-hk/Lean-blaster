@@ -77,8 +77,9 @@ partial def normConst (e : Expr) (optimizer : Expr → TranslateEnvT Expr) : Tra
      if (← isNotFoldable e #[] (recFunCheck := false)) then return none
      if (← hasImplicitArgs e) then return none
      if (← isRecursiveFun f) then
-        -- catch fun expression after adding recursive definition in map
-        return (← mkExpr (← normOpaqueAndRecFun e #[] optimizer))
+       if (← isInFunApp) then return none
+       -- catch fun expression after adding recursive definition in map
+       return (← mkExpr (← normOpaqueAndRecFun e #[] optimizer))
      -- non recursive function case
      let some fbody ← getFunBody e | return none
      if (← isInFunApp) then return fbody

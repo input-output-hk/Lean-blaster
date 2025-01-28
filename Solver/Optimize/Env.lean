@@ -784,7 +784,7 @@ def whnfExpr (a : Expr) : TranslateEnvT Expr := do
   match env.optEnv.whnfCache.find? a with
   | some b => return b
   | none => do
-     let b ← withReducible $ whnf a
+     let b ← whnfR a
      let optEnv := {env.optEnv with whnfCache := env.optEnv.whnfCache.insert a b}
      set {env with optEnv := optEnv}
      return b

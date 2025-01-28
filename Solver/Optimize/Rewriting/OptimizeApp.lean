@@ -31,13 +31,6 @@ def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) : MetaM Bool := do
 
 
 /-- Given application `f x₁ ... xₙ`, perform the following:
-     - When `f x₁ ... xₙ` is a match expression of the form
-          match e₁, ..., eₙ with
-          | p₍₁₎₍₁₎, ..., p₍₁₎₍ₙ₎ => t₁
-            ...
-          | p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₙ₎ => tₘ
-        - return `whnfExpr (f x₁ ... xₙ)` only when `∀ i ∈ [1..n], isConstructor eᵢ`.
-
      - When `isRecursiveFun f ∧ ¬ isOpaqueFunExpr f #[x₁ ... xₙ] ∧
              ∀ i ∈ [1..n], isExplicit x₁ → isConstructor xᵢ ∧ (← getFunBody f).isSome`
           let some body ← getFunBody f
@@ -47,7 +40,6 @@ def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) : MetaM Bool := do
 -/
 def reduceApp? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
  if (← isOpaqueFunExpr f args) then return none
- if let some r ← isMatchReduction? f args then return r
  if let some r ← isFunRecReduction? f args then return r
  return none
 
@@ -60,16 +52,79 @@ def reduceApp? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
        | throwEnvError f!"reduceApp?: recursive function body expected for {reprStr f}"
      return (Expr.beta fbody args)
 
-   isMatchReduction? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
-     if !(← allMatchDiscrsAreCtor f args) then return none
-     let auxApp := mkAppN f args
+/--  Given application `f x₀ ... xₙ`, perform the following:
+     - When `f x₀ ... xₙ` is a match expression of the form
+          match e₀, ..., eₙ with
+          | p₍₀₎₍₁₎, ..., p₍₀₎₍ₙ₎ => t₀
+            ...
+          | p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₙ₎ => tₘ
+        - return `whnfExpr (f x₀ ... xₙ)` only when `∃ i ∈ [0..n], isConstructor (optimizer eᵢ)`.
+
+     - When `f := ite`
+          - When n = 5 ∧ optimizer x₁ = True ∨ optimizer x₁ = False
+              - return `optimizeITE f x₀ ... xₙ`
+          - When n != 5
+              - return ⊥
+
+     - When `f := dite`
+          - When n = 5 ∧ optimizer x₁ = True ∨ optimizer x₁ = False
+              - return `optimizeDITE f x₀ ... xₙ`
+          - When n != 5
+              - return ⊥
+
+     - Otherwise:
+         - return none
+
+-/
+def reduceChoice?
+  (f : Expr) (args : Array Expr)
+  (optimizer : Expr -> TranslateEnvT Expr) : TranslateEnvT (Option Expr) := do
+  let Expr.const n l := f | return none
+  if let some r ← isMatchReduction? n l args then return r
+  if let some r ← isITEReduction? n args then return r
+  if let some r ← isDITEReduction? n args then return r
+  return none
+
+  where
+   isPropConstant? : Expr -> Bool
+     | Expr.const ``True _
+     | Expr.const ``False _ => true
+     | _ => false
+
+   isITEReduction? (n : Name) (args : Array Expr) : TranslateEnvT (Option Expr) := do
+     match n with
+     | ``ite =>
+         if args.size != 5 then throwEnvError "isITEReduction?: exactly five arguments expected"
+         let args ← args.modifyM 1 optimizer
+         if isPropConstant? (args[1]!) then return (← optimizeITE f args)
+         return none
+     | _ => return none
+
+   isDITEReduction? (n : Name) (args : Array Expr) : TranslateEnvT (Option Expr) := do
+     match n with
+     | ``dite =>
+         if args.size != 5 then throwEnvError "isDITEReduction?: exactly five arguments expected"
+         let args ← args.modifyM 1 optimizer
+         if isPropConstant? (args[1]!) then return (← optimizeDITE f args)
+         return none
+     | _ => return none
+
+   isMatchReduction? (n : Name) (l : List Level) (args : Array Expr) : TranslateEnvT (Option Expr) := do
+     let some matcherInfo ← getMatcherRecInfo? n l | return none
+     let mut margs := args
+     for i in [:args.size] do
+       if i ≥ matcherInfo.getFirstDiscrPos && i < matcherInfo.getFirstAltPos
+       then margs ← margs.modifyM i optimizer
+     let discrs := margs[matcherInfo.getFirstDiscrPos : matcherInfo.getFirstAltPos]
+     -- NOTE: whnf simplifies match only when all the discriminators are constructors
+     if !(← allMatchDiscrsAreCtor discrs) then return none
+     let auxApp := mkAppN f margs
      let e ← whnfExpr auxApp
      if (← exprEq e auxApp) then return none
      return e
 
-   /- Return `true` only when `f` corresponds to a match function and all the
-      the match discriminators in `args` are constructors that may also
-      contain free variable.
+   /- Return `true` only when at least one of the match discriminators is a constructor
+      that may also contain free variables.
       Concretely given a match expression of the form:
         match e₁, ..., eₙ with
         | p₍₁₎₍₁₎, ..., p₍₁₎₍ₙ₎ => t₁
@@ -77,10 +132,7 @@ def reduceApp? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
         | p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₙ₎ => tₘ
       Return `true` when `∀ i ∈ [1..n], isConstructor eᵢ`.
    -/
-   allMatchDiscrsAreCtor (f : Expr) (args: Array Expr) : TranslateEnvT Bool := do
-     let Expr.const n l := f | return false
-     let some matcherInfo ← getMatcherRecInfo? n l | return false
-     let discrs := args[matcherInfo.getFirstDiscrPos : matcherInfo.getFirstAltPos]
+   allMatchDiscrsAreCtor (discrs : Subarray Expr) : TranslateEnvT Bool := do
      for i in [:discrs.size] do
        if !(← isConstructor discrs[i]!) then return false
      return true
@@ -225,13 +277,12 @@ def normOpaqueAndRecFun
    -/
    optimizeRecApp (rf : Expr) (params : ImplicitParameters) : TranslateEnvT Expr := do
      if params.isEmpty then return rf
-     let instanceArgs := Array.filter (λ p => p.isInstance) params
-     if (instanceArgs.isEmpty || (← exprEq f rf)) then
-       -- case for non polymorphic function or recursive call in fun body
-       trace[Optimize.recFun.app] f!"non polymorphic/recurisve call case {reprStr rf} {reprStr args}"
+     if (← exprEq f rf) then
+       -- case for when same recurisve call
+       trace[Optimize.recFun.app] f!"same recursive call case {reprStr rf} {reprStr args}"
        optimizeApp rf args
      else if rf.isConst then
-         -- case when a polymorphic function is equivalent to a non-polymorphic one
+         -- case when a polymorphic/non-polymorphic function is equivalent to another non-polymorphic one
          let eargs := Array.filterMap (λ p => if !p.isInstance then some p.effectiveArg else none) params
          trace[Optimize.recFun.app] f!"non-polymorphic equivalent case {reprStr rf} {reprStr eargs}"
          optimizeApp rf eargs
