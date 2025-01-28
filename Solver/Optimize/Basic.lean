@@ -39,33 +39,43 @@ partial def optimizeExpr (e : Expr) : TranslateEnvT Expr := do
          -- calling normConst explicitly for `const` case to avoid
          -- catching when no optimization is performed on foldable body function.
          let f' ← if f.isConst then withInFunApp $ normConst f visit else visit f
-         -- apply optimization on params first before reduction
-         -- we need to apply optimization even on the implicit arguments
-         -- to remove mdata annotation and have max expression sharing.
          let rf := f'.getAppFn'
          let extraArgs := f'.getAppArgs
          let mut mas := extraArgs ++ ras
+         let fInfo ← getFunInfoNArgs rf mas.size
+         -- apply optimization only on implicit parameters to remove mdata annotation
+         -- we don't consider explicit parameters at this stage to avoid performing
+         -- optimization on unreachable arguments
          for i in [extraArgs.size:mas.size] do
+           if !fInfo.paramInfo[i]!.isExplicit then
+             mas ← mas.modifyM i visit
+         -- normalizing partially apply function before choice reduction
+         if let some pe ← normPartialFun? rf mas then
+            trace[Optimize.normPartial] f!"normalizing partial function {reprStr rf} {reprStr mas} => {reprStr pe}"
+            return (← visit pe)
+         -- applying choice reduction to avoid optimizing unreachable arguments in match and ite
+         if let some re ← reduceChoice? rf mas visit then
+            trace[Optimize.reduceChoice] f!"choice reduction {reprStr rf} {reprStr mas} => {reprStr re}"
+            return (← visit re)
+         -- apply optimization on remaining explicit parameters before reduction
+         for i in [extraArgs.size:mas.size] do
+           if fInfo.paramInfo[i]!.isExplicit then
             mas ← mas.modifyM i visit
          -- try to reduce app if all params are constructors
-         match (← reduceApp? rf mas) with
-         | some re =>
-             trace[Optimize.reduceApp] f!"application reduction {reprStr rf} {reprStr mas} => {reprStr re}"
-             visit re
-         | none =>
-            -- unfold non-recursive and non-opaque functions
-            -- NOTE: beta reduction performed by getUnfoldFunDef? when rf is a lambda term
-            if let some fdef ← getUnfoldFunDef? rf mas then
-               trace[Optimize.unfoldDef] f!"unfolding function definition {reprStr rf} {reprStr mas} => {reprStr fdef}"
-               return (← visit fdef)
-            -- normalize match expression to ite
-            if let some mdef ← normMatchExpr? rf mas visit then
-               trace[Optimize.normMatch] f!"normalizing match to ite {reprStr rf} {reprStr mas} => {reprStr mdef}"
-               return (← visit mdef)
-            if let some pe ← normPartialFun? rf mas then
-               trace[Optimize.normPartial] f!"normalizing partial function {reprStr rf} {reprStr mas} => {reprStr pe}"
-               return (← visit pe)
-            normOpaqueAndRecFun rf mas visit
+         if let some re ← reduceApp? rf mas then
+           trace[Optimize.reduceApp] f!"application reduction {reprStr rf} {reprStr mas} => {reprStr re}"
+           return (← visit re)
+         -- unfold non-recursive and non-opaque functions
+         -- NOTE: beta reduction performed by getUnfoldFunDef? when rf is a lambda term
+         -- NOTE: we can only unfold once all parameters have been optimized.
+         if let some fdef ← getUnfoldFunDef? rf mas then
+            trace[Optimize.unfoldDef] f!"unfolding function definition {reprStr rf} {reprStr mas} => {reprStr fdef}"
+            return (← visit fdef)
+         -- normalize match expression to ite
+         if let some mdef ← normMatchExpr? rf mas visit then
+            trace[Optimize.normMatch] f!"normalizing match to ite {reprStr rf} {reprStr mas} => {reprStr mdef}"
+            return (← visit mdef)
+         normOpaqueAndRecFun rf mas visit
     | Expr.lam n t b bi => do
         let t' ← visit t
         withLocalDecl n bi t' fun x => do
@@ -124,6 +134,7 @@ def optimize (sOpts: SolverOptions) (e : Expr) : MetaM (Expr × TranslateEnv) :=
 
 initialize
   registerTraceClass `Optimize.expr
+  registerTraceClass `Optimize.reduceChoice
   registerTraceClass `Optimize.reduceApp
   registerTraceClass `Optimize.unfoldDef
   registerTraceClass `Optimize.normMatch

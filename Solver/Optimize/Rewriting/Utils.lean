@@ -725,6 +725,11 @@ def getUnfoldFunDef? (f: Expr) (args: Array Expr) : TranslateEnvT (Option Expr) 
  let some fbody ← getFunBody f | return none
  let reduced := Expr.beta fbody args
  if (← isUndefinedClassFunApp reduced) then return none
- return reduced
+ -- check if reduced application is an instance class function
+ let f' := reduced.getAppFn'
+ if Expr.isProj f' then
+   let some fbody' ← getFunBody f' | return reduced -- structure projection case
+   return Expr.beta fbody' reduced.getAppArgs
+ else return reduced
 
 end Solver.Optimize
