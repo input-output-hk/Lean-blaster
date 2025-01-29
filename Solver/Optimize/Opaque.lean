@@ -62,7 +62,6 @@ def opaqueFuns : NameHashSet :=
   ]
 
 /-- list of types for which:
-     - BEq instance is guaranteed to be reflexive, symmetric and transitive.
      - LT instance is guaranteed to be irrelexive, anti-symmetric and transitive.
      - LE instance is guaranteed to be reflexive, symmetric and transitive.
 TODO: add other basic lean types (e.g., Char, etc)

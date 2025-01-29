@@ -68,8 +68,8 @@ instance : Inhabited OptimizeOptions where
 structure OptimizeEnv where
   /-- Cache memoizing the normalization and rewriting performed on the lean theorem. -/
   rewriteCache : HashMap Lean.Expr Lean.Expr
-  /-- Cache memoizing synthesized instances for Decidable/Inhabited constraint. -/
-  synthInstanceCache : HashMap Lean.Expr Lean.Expr
+  /-- Cache memoizing synthesized instances for Decidable/Inhabited/LawfulBEq constraint. -/
+  synthInstanceCache : HashMap Lean.Expr (Option Lean.Expr)
   /-- Cache memoizing the whnf result. -/
   whnfCache : HashMap Lean.Expr Lean.Expr
   /-- Cache memoizing type for a match application of the form
@@ -311,7 +311,7 @@ def updateRewriteCache (a : Expr) (b : Expr) : TranslateEnvT Unit := do
 
 /-- Update synthesize decidable instance cache with `a := b`.
 -/
-def updateSynthCache (a : Expr) (b : Expr) : TranslateEnvT Unit := do
+def updateSynthCache (a : Expr) (b : Option Expr) : TranslateEnvT Unit := do
   let env ← get
   let optEnv := {env.optEnv with synthInstanceCache := env.optEnv.synthInstanceCache.insert a b}
   set {env with optEnv := optEnv }
@@ -395,33 +395,6 @@ def isTaggedRecursiveCall (e : Expr) : Bool :=
 def isVisitedRecFun (f : Expr) : TranslateEnvT Bool :=
  return (← get).optEnv.recFunCache.contains f
 
-/-- Given `f x₁ ... xₙ`, return `true` only when one of the following conditions is satisfied:
-     - `f := BEq.beq` with sort parameter in `relationalCompatibleTypes`
-     - `f := LT.lt` with sort parameter in `relationalCompatibleTypes`
-     - `f : LE.le` with sort parameter in `relationalCompatibleTypes`
-
-In fact, we can't assume that `BEq.beq`, `LT.lt` and `LE.le` will properly be defined
-for any user-defined types or parametric inductive types (e.g., List, Option, etc).
--/
-def isOpaqueRelational (f : Name) (args : Array Expr) : TranslateEnvT Bool := do
-  match f with
-  | `BEq.beq
-  | `LT.lt
-  | `LE.le =>
-      if args.size < 1 then throwEnvError "isOpaqueRelational: implicit arguments expected"
-      return (isCompatibleRelationalType args[0]!)
-  | _ => return false
-
-
-/-- Return `true` if function name `f` is tagged as an opaque definition. -/
-def isOpaqueFun (f : Name) (args: Array Expr) : TranslateEnvT Bool :=
-  return (opaqueFuns.contains f || (← isOpaqueRelational f args))
-
-/-- Same as `isOpaqueFun` expect that `f` is an expression. -/
-def isOpaqueFunExpr (f : Expr) (args: Array Expr) : TranslateEnvT Bool :=
-  match f with
-  | Expr.const n _ => isOpaqueFun n args
-  | _ => return false
 
 /-- Return `true` if `f` corresponds to a theorem name. -/
 def isTheorem (f : Name) : MetaM Bool := do
@@ -429,11 +402,6 @@ def isTheorem (f : Name) : MetaM Bool := do
   | ConstantInfo.thmInfo _ => pure true
   | _ => pure false
 
-
-/-- Return `true` if `f` corresponds to a recursive function. -/
-def isRecursiveFun (f : Name) : MetaM Bool := do
-  if (← (isTheorem f) <||> (isInstance f)) then return false
-  isRecursiveDefinition f
 
 /-- Return `Bool` type and cache result. -/
 def mkBoolType : TranslateEnvT Expr := mkExpr (mkConst ``Bool)
@@ -509,6 +477,9 @@ def mkInhabitedConst : TranslateEnvT Expr := mkExpr (mkConst ``Inhabited [levelO
 
 /-- Return `BEq` const expression and cache result. -/
 def mkBEqConst : TranslateEnvT Expr := mkExpr (mkConst ``BEq [levelZero])
+
+/-- Return `LawfulBEq` const expression and cache result. -/
+def mkLawfulBEqConst : TranslateEnvT Expr := mkExpr (mkConst ``LawfulBEq [levelZero])
 
 /-- Return `Nat` Type and cache result. -/
 def mkNatType : TranslateEnvT Expr := mkExpr (mkConst ``Nat)
@@ -717,13 +688,15 @@ def trySynthConstraintInstance? (cstr : Expr) (cacheNotFound := false) : Transla
   | none => do
      match (← trySynthInstance cstr) with
      | LOption.some d =>
-         updateSynthCache cstr d
+         updateSynthCache cstr (some d)
          return d
      | _ =>
-       unless !cacheNotFound do
-         updateSynthCache cstr cstr
+       if cacheNotFound then
+         updateSynthCache cstr (some cstr)
          return cstr
-       return none
+       else
+         updateSynthCache cstr none
+         return none
 
 
 /-- Try to find an instance for `[Decidable e]`. -/
@@ -756,21 +729,47 @@ def hasInhabitedInstance (n : Expr) : TranslateEnvT Bool := do
   return true
 
 
-/-- Try to find an instance for `[BEq e]`.
-    An error is triggered if no instance cannot be found.
--/
-def synthBEqInstance! (e : Expr) : TranslateEnvT Expr := do
-  let beqCstr ← mkExpr (mkApp (← mkBEqConst) e)
-  let some d ← trySynthConstraintInstance? beqCstr
-    | throwEnvError f!"synthesize instance for [BEq {reprStr e}] cannot be found"
-  return d
+/-- Return `true` only when an instance for `[LawfulBEq t beqInst]` can be found. -/
+def hasLawfulBEqInstance (t : Expr) (beqInst : Expr) : TranslateEnvT Bool := do
+  let lawfulCstr ← mkExpr (mkApp2 (← mkLawfulBEqConst) t beqInst)
+  let some _d ← trySynthConstraintInstance? lawfulCstr | return false
+  return true
 
-/-- Return "==" operator for the given type `t`.
-    An error is triggered when no BEq instance can be found for `t`.
+/-- Given `f x₁ ... xₙ`, return `true` only when one of the following conditions is satisfied:
+     - `f := BEq.beq` with sort parameter that has a `LawfulBEq` instance
+     - `f := LT.lt` with sort parameter in `relationalCompatibleTypes`
+     - `f : LE.le` with sort parameter in `relationalCompatibleTypes`
+
+In fact, we can't assume that `BEq.beq`, `LT.lt` and `LE.le` will properly be defined
+for any user-defined types or parametric inductive types (e.g., List, Option, etc).
 -/
-def mkTypeBeqOp (t : Expr) : TranslateEnvT Expr := do
-  let beqType ← mkExpr (mkApp (← mkBeqOp) t)
-  mkExpr (mkApp beqType (← synthBEqInstance! t))
+def isOpaqueRelational (f : Name) (args : Array Expr) : TranslateEnvT Bool := do
+  match f with
+  | `BEq.beq =>
+      if args.size < 2 then throwEnvError "isOpaqueRelational: implicit arguments expected"
+      hasLawfulBEqInstance args[0]! args[1]!
+  | `LT.lt
+  | `LE.le =>
+      if args.size < 2 then throwEnvError "isOpaqueRelational: implicit arguments expected"
+      return (isCompatibleRelationalType args[0]!)
+  | _ => return false
+
+
+/-- Return `true` if function name `f` is tagged as an opaque definition. -/
+def isOpaqueFun (f : Name) (args: Array Expr) : TranslateEnvT Bool :=
+  return (opaqueFuns.contains f || (← isOpaqueRelational f args))
+
+/-- Same as `isOpaqueFun` expect that `f` is an expression. -/
+def isOpaqueFunExpr (f : Expr) (args: Array Expr) : TranslateEnvT Bool :=
+  match f with
+  | Expr.const n _ => isOpaqueFun n args
+  | _ => return false
+
+
+/-- Return `true` if when `f` corresponds to a recursive function. -/
+def isRecursiveFun (f : Name) : MetaM Bool := do
+  if (← (isTheorem f) <||> (isInstance f)) then return false
+  isRecursiveDefinition f
 
 
 /-- Return `b` if `a := b` is already in the weak head cache.
