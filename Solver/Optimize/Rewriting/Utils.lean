@@ -7,8 +7,7 @@ namespace Solver.Optimize
 
 
 /-- Return `true` if c corresponds to a constructor. -/
-def isCtorName (c : Name) : MetaM Bool := do
-  pure (← getConstInfo c).isCtor
+def isCtorName (c : Name) : MetaM Bool := do  pure (← getConstInfo c).isCtor
 
 /-- Return `true` if e corresponds to a constructor expression. -/
 def isCtorExpr (e : Expr) : MetaM Bool := do
@@ -676,7 +675,7 @@ def getFunBody (f : Expr) : TranslateEnvT (Option Expr) := do
       else
         let cInfo@(ConstantInfo.defnInfo _) ← getConstInfo n | return none
         instantiateValueLevelParams cInfo l
-  | Expr.proj .. => reduceProj? f  -- case when f is function defined in a class instance
+  | Expr.proj .. => reduceProj? f  -- case when f is a function defined in a class instance
   | _ => return none
 
 /-- Return `true` if `e` corresponds to an undefined type class function application, s.t.:
