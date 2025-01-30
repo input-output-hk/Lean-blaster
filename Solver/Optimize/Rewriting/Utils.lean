@@ -736,9 +736,9 @@ def getUnfoldFunDef? (f: Expr) (args: Array Expr) : TranslateEnvT (Option Expr) 
 /-- Unfold an opaque relation function up to its base definition
     Assume that `f` corresponds to an opaque relation function on first call.
 -/
-partial def unfoldOpaqueFunDef (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
-  let some fbody ← getFunBody f |
-    throwEnvError f!"unfoldOpaqueFunDef: function body expected for {reprStr f}"
+partial def unfoldOpaqueFunDef (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
+  let some fbody ← getFunBody f
+   | return none -- case when class function is still undefined but has the expected constraints (e.g., LawfulBEq)
   let reduced := Expr.beta fbody args
   let f' := reduced.getAppFn'
   let args' := reduced.getAppArgs
@@ -764,7 +764,8 @@ def isOpaqueRecFun (f : Expr) (args : Array Expr) : TranslateEnvT Bool := do
   if args.size ≥ 2 then
    -- check for recursive definition for opaque relational function
    if (← (pure $ !(isCompatibleRelationalType args[0]!)) <&&> isOpaqueRelational n args) then
-     let Expr.const n' _  := (getLambdaBody (← unfoldOpaqueFunDef f args)).getAppFn' | return false
+     let some auxDef ← unfoldOpaqueFunDef f args | return false
+     let Expr.const n' _  := (getLambdaBody auxDef).getAppFn' | return false
      return (← isRecursiveFun n')
   return false
 

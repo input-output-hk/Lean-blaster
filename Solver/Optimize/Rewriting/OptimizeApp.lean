@@ -33,11 +33,13 @@ def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) : MetaM Bool := do
 /-- Given application `f x₁ ... xₙ`, perform the following:
      - When `isOpaqueRecFun f #[x₁ ... xₙ]
              ∀ i ∈ [1..n], isExplicit x₁ → isConstructor xᵢ
-          let auxFun ← unfoldOpaqueFunDef f #[x₁ ... xₙ]
-          - When some body ← getFunBody auxFun.getAppFn'
-             - return `Expr.beta body auxFun.getAppArgs`
+          - When some auxFun ← unfoldOpaqueFunDef f #[x₁ ... xₙ]
+             - When some body ← getFunBody auxFun.getAppFn'
+                - return `Expr.beta body auxFun.getAppArgs`
+             - Otherwise:
+                - return ⊥
           - Otherwise:
-             - return ⊥
+              - return none
      - When `isRecursiveFun f ∧ ¬ isOpaqueFunExpr f #[x₁ ... xₙ] ∧
              ∀ i ∈ [1..n], isExplicit x₁ → isConstructor xᵢ
          - When some body ← getFunBody f:
@@ -57,7 +59,7 @@ def reduceApp? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
  where
    isOpaqueRecReduction? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
      if !(← isOpaqueRecFun f args) then return none
-     let auxFun ← unfoldOpaqueFunDef f args
+     let some auxFun ← unfoldOpaqueFunDef f args | return none
      let some fbody ← getFunBody auxFun.getAppFn'
        | throwEnvError f!"reduceApp?: recursive function body expected for {reprStr f}"
      return (Expr.beta fbody auxFun.getAppArgs)
@@ -305,7 +307,8 @@ def normOpaqueAndRecFun
    -/
    resolveOpaque (f : Expr) (args : Array Expr) (isOpaqueRec : Bool) : TranslateEnvT (Expr × Array Expr) := do
      if isOpaqueRec then
-       let auxApp ← unfoldOpaqueFunDef f args
+       let some auxApp ← unfoldOpaqueFunDef f args
+         | throwEnvError f!"resolveOpaque: unfolded definition expected for {reprStr f}"
        if auxApp.isLambda then
          -- partially applied function
          let appCall := getLambdaBody auxApp
