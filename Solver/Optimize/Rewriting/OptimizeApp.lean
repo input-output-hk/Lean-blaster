@@ -31,23 +31,40 @@ def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) : MetaM Bool := do
 
 
 /-- Given application `f x₁ ... xₙ`, perform the following:
+     - When `isOpaqueRecFun f #[x₁ ... xₙ]
+             ∀ i ∈ [1..n], isExplicit x₁ → isConstructor xᵢ
+          let auxFun ← unfoldOpaqueFunDef f #[x₁ ... xₙ]
+          - When some body ← getFunBody auxFun.getAppFn'
+             - return `Expr.beta body auxFun.getAppArgs`
+          - Otherwise:
+             - return ⊥
      - When `isRecursiveFun f ∧ ¬ isOpaqueFunExpr f #[x₁ ... xₙ] ∧
-             ∀ i ∈ [1..n], isExplicit x₁ → isConstructor xᵢ ∧ (← getFunBody f).isSome`
-          let some body ← getFunBody f
-         - return `Expr.beta body #[x₁ ... xₙ]`
+             ∀ i ∈ [1..n], isExplicit x₁ → isConstructor xᵢ
+         - When some body ← getFunBody f:
+             - return `Expr.beta body #[x₁ ... xₙ]`
+         - Otherwise:
+             - return ⊥
      - Otherwise:
          - return none
 -/
 def reduceApp? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
+ if !(← allExplicitParamsAreCtor f args) then return none
+ if let some r ← isOpaqueRecReduction? f args then return r
  if (← isOpaqueFunExpr f args) then return none
  if let some r ← isFunRecReduction? f args then return r
  return none
 
  where
+   isOpaqueRecReduction? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
+     if !(← isOpaqueRecFun f args) then return none
+     let auxFun ← unfoldOpaqueFunDef f args
+     let some fbody ← getFunBody auxFun.getAppFn'
+       | throwEnvError f!"reduceApp?: recursive function body expected for {reprStr f}"
+     return (Expr.beta fbody auxFun.getAppArgs)
+
    isFunRecReduction? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
      let Expr.const n _ := f | return none
      if !(← isRecursiveFun n) then return none
-     if !(← allExplicitParamsAreCtor f args) then return none
      let some fbody ← getFunBody f
        | throwEnvError f!"reduceApp?: recursive function body expected for {reprStr f}"
      return (Expr.beta fbody args)
