@@ -890,12 +890,9 @@ partial def translateTypeAux
   TranslateEnvT SortExpr := do
    let e := t.getAppFn
    match e with
-   | Expr.const n l =>
-      -- check for abbrev definition first
-      let args := t.getAppArgs
-      if let some r ← isTypeAbbrev n l args then return (← translateTypeAux optimizer termTranslator r topts)
+   | Expr.const .. =>
       if let some r ← translateOpaqueType e then return r
-      translateNonOpaqueType e args
+      translateNonOpaqueType e t.getAppArgs
         (λ a b => translateTypeAux optimizer termTranslator a b)
         termTranslator optimizer topts
 
@@ -934,16 +931,6 @@ partial def translateTypeAux
    | _ => throwEnvError f!"translateType: type expression expected but got {reprStr e}"
 
  where
-   /-- Return `some (d x₁ ... xₙ)` when `t x₁ ... xₙ := d x₁ ... xₙ` (i.e., a type abbreviation)
-       Return `none` when:
-         - t is not a name expression
-         - The definition for `t` is unknown
-   -/
-  isTypeAbbrev (n : Name) (us : List Level) (args : Array Expr) : TranslateEnvT (Option Expr) := do
-    let cinfo@(ConstantInfo.defnInfo _) ← getConstInfo n | return none
-    let auxApp ← instantiateValueLevelParams cinfo us
-    return some (Expr.beta auxApp args)
-
    translateArrowType (e : Expr) (opts : TypeOptions) (arrowArgs : Array SortExpr) : TranslateEnvT SortExpr := do
      match e with
      | Expr.forallE _ t b _ =>
