@@ -754,15 +754,16 @@ partial def unfoldOpaqueFunDef (f : Expr) (args : Array Expr) : TranslateEnvT Ex
       | Expr.proj .. => return true
       | _ => return false
 
-/-- Return `true` when `f` is an opaque relation function
-    that is tagged as a well-founded recursive definition.
-    Assumes that `f` is fully applied, i.e., `normPartialFun?` has been applied.
+/-- Return `true` when the following conditions are satisfied:
+      - `f` is an opaque relation function
+      - `f` has a sort parameter not in `relationalCompatibleTypes`
+      - `f` is an alias to a well-founded recursive definition.
 -/
 def isOpaqueRecFun (f : Expr) (args : Array Expr) : TranslateEnvT Bool := do
   let Expr.const n _ := f | return false
   if args.size ≥ 2 then
    -- check for recursive definition for opaque relational function
-   if (← isOpaqueRelational n args) then
+   if (← (pure $ !(isCompatibleRelationalType args[0]!)) <&&> isOpaqueRelational n args) then
      let Expr.const n' _  := (getLambdaBody (← unfoldOpaqueFunDef f args)).getAppFn' | return false
      return (← isRecursiveFun n')
   return false
