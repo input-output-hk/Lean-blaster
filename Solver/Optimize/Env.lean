@@ -347,16 +347,16 @@ def withOptimizeEnvCache (a : Expr) (f: Unit → TranslateEnvT Expr) : Translate
       updateRewriteCache a b
       return b
 
-/-- Add a recursive function (i.e., function name expression or an instantiated polymorphic function)
-    to the visited recursive function cache.
+/-- Add an instance recursive application (see function `getInstApp`) to
+    the visited recursive function cache.
 -/
 def cacheFunName (f : Expr) : TranslateEnvT Unit := do
  let env ← get
  let optEnv := {env.optEnv with recFunCache := env.optEnv.recFunCache.insert f}
  set {env with optEnv := optEnv }
 
-/-- Remove a recursive function (i.e., function name expression or an instantiated polymorphic function)
-    from the visited recursive function cache.
+/-- Remove an instance recursive application (see function `getInstApp`) from
+    the visited recursive function cache.
 -/
 def uncacheFunName (f : Expr) : TranslateEnvT Unit := do
  let env ← get
@@ -364,11 +364,10 @@ def uncacheFunName (f : Expr) : TranslateEnvT Unit := do
  set {env with optEnv := optEnv }
 
 
-/-- Internal genralized rec fun const to be used for in normalized recursive
+/-- Internal generalized rec fun const to be used for in normalized recursive
     definition kept in `recFunMap`.
 -/
 def internalRecFun : Name := `_recFun
-
 
 /-- Tag expression as recursive call. This metadata is used when
     replacing a recursive call function with `internalRecfun`.
@@ -765,8 +764,9 @@ def isOpaqueFunExpr (f : Expr) (args: Array Expr) : TranslateEnvT Bool :=
   | Expr.const n _ => isOpaqueFun n args
   | _ => return false
 
-
-/-- Return `true` if when `f` corresponds to a recursive function. -/
+/-- Return `true` if when `f` is neither a theorem nor a class instance and
+    is tagged as a well-founded recursive definition.
+-/
 def isRecursiveFun (f : Name) : MetaM Bool := do
   if (← (isTheorem f) <||> (isInstance f)) then return false
   isRecursiveDefinition f
@@ -797,7 +797,6 @@ def hasImplicitArgs (f : Expr) : MetaM Bool := do
     if !fInfo.paramInfo[i]!.isExplicit then return true
   return false
 
-
 /-- Return the body in a sequence of forall / lambda. -/
 def getForallLambdaBody (e : Expr) : Expr :=
  match e with
@@ -816,7 +815,8 @@ def isClassConstraint (n : Name) : MetaM Bool := do
  | _ => return false
 
 
-/-- Return `true` if `e` corresponds to a class constraint expression (see function `isClassConstraint`).
+/-- Return `true` if `e` corresponds to a class constraint expression
+    (see function `isClassConstraint`).
 -/
 def isClassConstraintExpr (e : Expr) : MetaM Bool := do
  match e.getAppFn' with
@@ -842,7 +842,6 @@ def isInductiveTypeExpr (e : Expr) : MetaM Bool := do
  match e.getAppFn' with
  | Expr.const n l => isInductiveType n l
  | _ => return false
-
 
 /-- Given `t x₀ .. xₙ` a type expression, this function resolves type
     abbreviation by performing the following:
@@ -958,13 +957,12 @@ def getImplicitParameters (f : Expr) (args : Array Expr) : TranslateEnvT Implici
 
 /-- Given a fun body `λ α₀ → ... λ αₙ → body` and `params` the implicit parameters info
     for the corresponding function, perform the following actions:
-      - let A := [a₀, ..., aₙ]
+      - let A := [α₀, ..., αₙ]
       - let B := [ A[i] | i ∈ [0..n] ∧ (params[i].isGeneric ∨ ¬ params[i].isInstance) ]
       - let S := [ A[i] | i ∈ [0..n] ∧ ¬ params[i].isGeneric ∧ params[i].isInstance ]
       - let R := [ params[i] | i ∈ [0..n] ∧ ¬ params[i].isGeneric ∧ params[i].isInstance ]
-      - let B' := B [S[0] / R[0]] ... [S[k]/R[k]] with k = S.size-1
-      - let β₀, .., Bₘ = B'
-      - return `λ B₀ → ... λ Bₘ → body [S[0] / R[0]] ... [S[k]/R[k]]`
+      - let β₀, .., βₘ = B
+      - return `λ β₀ → ... λ βₘ → body [S[0]/R[0]] ... [S[k]/R[k]]` with k = S.size-1
 
     Assume that params.size ≤ n
 -/
@@ -1050,8 +1048,6 @@ def updateRecFunInst (f : Expr) (fbody : Expr) : TranslateEnvT Unit := do
         (see function `cacheOpaqueRecFun`).
 -/
 partial def storeRecFunDef (f : Expr) (params : ImplicitParameters) (body : Expr) : TranslateEnvT Expr := do
-  -- remove from visiting cache
-  uncacheFunName f
   let body' := body.replace (replacePred (← mkExpr (mkConst internalRecFun)))
   -- update polymorphic instance cache
   updateRecFunInst f body'

@@ -698,7 +698,8 @@ def isUndefinedClassFunApp (e : Expr) : MetaM Bool := do
      Otherwise `false`.
 -/
 def isNotFoldable
-  (e : Expr) (args : Array Expr) (opaqueCheck := true) (recFunCheck := true) : TranslateEnvT Bool := do
+  (e : Expr) (args : Array Expr)
+  (opaqueCheck := true) (recFunCheck := true) : TranslateEnvT Bool := do
   let Expr.const n l := e | return false
   if recFunCheck && (← isRecursiveFun n) then return true
   unless !opaqueCheck do
@@ -730,5 +731,40 @@ def getUnfoldFunDef? (f: Expr) (args: Array Expr) : TranslateEnvT (Option Expr) 
    let some fbody' ← getFunBody f' | return reduced -- structure projection case
    return Expr.beta fbody' reduced.getAppArgs
  else return reduced
+
+
+/-- Unfold an opaque relation function up to its base definition
+    Assume that `f` corresponds to an opaque relation function on first call.
+-/
+partial def unfoldOpaqueFunDef (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
+  let some fbody ← getFunBody f |
+    throwEnvError f!"unfoldOpaqueFunDef: function body expected for {reprStr f}"
+  let reduced := Expr.beta fbody args
+  let f' := reduced.getAppFn'
+  let args' := reduced.getAppArgs
+  if (← isFoldable f' args')
+  then unfoldOpaqueFunDef f' args'
+  else return reduced
+
+  where
+    isFoldable (f : Expr) (args : Array Expr) : TranslateEnvT Bool := do
+      match f with
+      | Expr.const .. => return !(← isNotFoldable f args)
+      | Expr.lam ..
+      | Expr.proj .. => return true
+      | _ => return false
+
+/-- Return `true` when `f` is an opaque relation function
+    that is tagged as a well-founded recursive definition.
+    Assumes that `f` is fully applied, i.e., `normPartialFun?` has been applied.
+-/
+def isOpaqueRecFun (f : Expr) (args : Array Expr) : TranslateEnvT Bool := do
+  let Expr.const n _ := f | return false
+  if args.size ≥ 2 then
+   -- check for recursive definition for opaque relational function
+   if (← isOpaqueRelational n args) then
+     let Expr.const n' _  := (getLambdaBody (← unfoldOpaqueFunDef f args)).getAppFn' | return false
+     return (← isRecursiveFun n')
+  return false
 
 end Solver.Optimize
