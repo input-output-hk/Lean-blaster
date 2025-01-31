@@ -32,23 +32,23 @@ def falsifiedError (r : Result) : String :=
 def logResult (r : Result) (sOpts : SolverOptions) : MetaM Unit := do
   match r with
   | .Valid => if isExpectedValid sOpts.solveResult
-              then logInfo "Valid"
-              else logError "Unexpected Valid"
+              then logInfo "✅ Valid"
+              else logError "❌ Unexpected Valid"
   | .Falsified cex =>
       if isExpectedFalsified sOpts.solveResult
-      then logInfo "Falsified"
-      else logError "Falsified"
-      if !sOpts.generateCex then return ()
-      IO.println "Counterexample:"
-      if !cex.isEmpty then
-        List.forM cex logValue
+      then dumpCex logInfo "✅ Expected Falsified" cex
+      else dumpCex logError "❌ Falsified" cex
   | .Undetermined =>
         if isExpectedUndetermined sOpts.solveResult
-        then logInfo "Undetermined"
-        else logError "Undetermined"
+        then logInfo "✅ Expected Undetermined"
+        else logWarning "⚡ Undetermined"
 
   where
-    logValue (s : String) : MetaM Unit := IO.print s!" - {s}"
+    dumpCex (f : MessageData -> MetaM Unit) (failure : String) (cex : List String) : MetaM Unit :=
+      if sOpts.generateCex then
+         let cexStr := List.foldl (λ acc s => s!"{acc} - {s}\n") "" cex
+         f s!"{failure}\nCounterexample:\n{cexStr}"
+      else f failure
 
 /-- Spawn a z3 process w.r.t. the provided solver options. -/
 def createSolverProcess (sOpts : SolverOptions) : IO (IO.Process.Child ⟨.piped, .piped, .piped⟩) := do
