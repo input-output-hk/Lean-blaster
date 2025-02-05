@@ -141,8 +141,13 @@ partial def removeNamedPatternExpr (optimizer : Expr -> TranslateEnvT Expr) (p :
              removeNamedPatternExpr optimizer as[2]!
            else
              let mut margs := as
+             let fInfo ← getFunInfoNArgs f as.size
              for i in [:as.size] do
-               margs ← margs.modifyM i (removeNamedPatternExpr optimizer)
+               if i < fInfo.paramInfo.size then
+                if fInfo.paramInfo[i]!.isExplicit then
+                  margs ← margs.modifyM i (removeNamedPatternExpr optimizer)
+               else
+                  margs ← margs.modifyM i (removeNamedPatternExpr optimizer)
              optimizer (mkAppN f margs)
         | _ => throwEnvError f!"removeNamedPatternExpr: const expression expected but got {reprStr f}"
  | _ => throwEnvError f!"removeNamedPatternExpr: unexpected pattern expression: {reprStr p}"
@@ -572,10 +577,10 @@ def matchExprRewriter
         let matchFun ← instantiateValueLevelParams cInfo dlevel
         let auxApp := Expr.beta matchFun args[0 : matcherInfo.getFirstAltPos]
         if (isCasesOnRecursor (← getEnv) n) then
-          lambdaTelescope auxApp fun xs _t => do
+          lambdaTelescope auxApp fun xs _t =>
             commonMatchRewriter discrs xs[xs.size - rhs.size:] rhs
         else
-          forallTelescope (← inferType auxApp) fun xs _t => do
+          forallTelescope (← inferType auxApp) fun xs _t =>
             commonMatchRewriter discrs xs[xs.size - rhs.size:] rhs
     | _ => pure none
 
