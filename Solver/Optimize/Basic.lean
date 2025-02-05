@@ -12,16 +12,6 @@ open Lean Elab Command Term Meta Solver.Options
 namespace Solver.Optimize
 
 -- TODO: update formalization with inference rule style notation.
---  - ((∀ x : Type), P₁ x) → (∀ (a b .. n : Type), P₂ a b n) ==> (∀ (a b ... n : Type), P₁ a → P₁ b → P₁ c .. → P₁ n → P₂ a b .. n)
---  - ¬ ((∀ x : Type), P x) ==> ∃ (x : Type), ¬ P x
---  - ¬ ((∃ x : Type), P x) ==> ∀ (x : Type), ¬ P x
--- Need to consider ArrowT as introducing assumptions s.t.
---  - ∀ (x y : Type) x = y → f x = f y ==> ∀ (x y : Type) f x = f x => True
--- The COI computation must handle the following cases as well:
---  - (∀ (x₁ : TypeA₁) ... (xₙ : TypeAₙ), P₁ x₁ ... xₙ) → (∀ (y₁ : TypeB₁ .. yₙ : TypeBₙ), P₂ y₁ ... yₙ) ===>
---       ∀ (y₁ : TypeB₁ .. yₙ : Typeₙ), P₂ y₁ ... yₙ) IF {TypeB₁, .., TypeBₙ} ⊄ {TypeA₁, ...,TypeAₙ}
--- - ∀ (x₁ : TypeA₁) ... (xₙ : TypeAₙ), P₁ → P₂ ===>
---      ∀ (x₄ : TypeA₄) ... (xₙ : TypeAₙ), P₂ x₄ ... xₙ IF Var(P₂) ∩ Var(P₁) = ∅
 partial def optimizeExpr (e : Expr) : TranslateEnvT Expr := do
   let rec visit (e : Expr) : TranslateEnvT Expr := do
     withOptimizeEnvCache e fun _ => do
@@ -47,20 +37,26 @@ partial def optimizeExpr (e : Expr) : TranslateEnvT Expr := do
          -- we don't consider explicit parameters at this stage to avoid performing
          -- optimization on unreachable arguments
          for i in [extraArgs.size:mas.size] do
-           if !fInfo.paramInfo[i]!.isExplicit then
-             mas ← mas.modifyM i visit
+           if i < fInfo.paramInfo.size then -- handle case when HOF is passed as argument
+             if !fInfo.paramInfo[i]!.isExplicit then
+               mas ← mas.modifyM i visit
          -- normalizing partially apply function before choice reduction
          if let some pe ← normPartialFun? rf mas then
             trace[Optimize.normPartial] f!"normalizing partial function {reprStr rf} {reprStr mas} => {reprStr pe}"
             return (← visit pe)
          -- applying choice reduction to avoid optimizing unreachable arguments in match and ite
-         if let some re ← reduceChoice? rf mas visit then
-            trace[Optimize.reduceChoice] f!"choice reduction {reprStr rf} {reprStr mas} => {reprStr re}"
+         if let some re ← reduceITEChoice? rf mas visit then
+            trace[Optimize.reduceChoice] f!"choice ite reduction {reprStr rf} {reprStr mas} => {reprStr re}"
+            return re
+         if let some re ← reduceMatchChoice? rf mas visit then
+            trace[Optimize.reduceChoice] f!"choice match reduction {reprStr rf} {reprStr mas} => {reprStr re}"
             return (← visit re)
          -- apply optimization on remaining explicit parameters before reduction
          for i in [extraArgs.size:mas.size] do
-           if fInfo.paramInfo[i]!.isExplicit then
-            mas ← mas.modifyM i visit
+           if i < fInfo.paramInfo.size then
+             if fInfo.paramInfo[i]!.isExplicit then
+               mas ← mas.modifyM i visit
+           else mas ← mas.modifyM i visit
          -- try to reduce app if all params are constructors
          if let some re ← reduceApp? rf mas then
            trace[Optimize.reduceApp] f!"application reduction {reprStr rf} {reprStr mas} => {reprStr re}"
