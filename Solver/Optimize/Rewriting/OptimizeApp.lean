@@ -11,8 +11,10 @@ open Lean Meta
 
 namespace Solver.Optimize
 
-/-- Determine if all explicit parameters of a function are constructors that
-    may also contain free variables.
+/-- Gievn `f x₁ ... xₙ` return `true` when the following conditions are satisfied:
+     -  ∃ i ∈ [1..n], isExplicit xᵢ ∧
+     -  ∀ i ∈ [1..n], isExplicit xᵢ → isConstructor xᵢ ∨ isProp (← inferType xₓ) ∨ isFunType (← inferType xᵢ)
+    NOTE: that constructors may contain free variables.
 -/
 def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) : MetaM Bool := do
   let stop := args.size
@@ -20,9 +22,10 @@ def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) : MetaM Bool := do
   let rec loop (i : Nat) (atLeastOneExplicit : Bool := false) : MetaM Bool := do
     if i < stop then
       let e := args[i]!
+      let t ← inferType e
       let aInfo := fInfo.paramInfo[i]!
       if aInfo.isExplicit
-      then if (← isConstructor e)
+      then if (← isConstructor e <||> isProp t <||> isFunType t)
            then loop (i+1) true
            else pure false
       else loop (i+1) atLeastOneExplicit
@@ -31,8 +34,7 @@ def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) : MetaM Bool := do
 
 
 /-- Given application `f x₁ ... xₙ`, perform the following:
-     - When `isOpaqueRecFun f #[x₁ ... xₙ]
-             ∀ i ∈ [1..n], isExplicit x₁ → isConstructor xᵢ
+     - When `isOpaqueRecFun f #[x₁ ... xₙ] ∧ allExplicitParamsAreCtor f #[x₁ ... xₙ]
           - When some auxFun ← unfoldOpaqueFunDef f #[x₁ ... xₙ]
              - When some body ← getFunBody auxFun.getAppFn'
                 - return `Expr.beta body auxFun.getAppArgs`
@@ -40,8 +42,7 @@ def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) : MetaM Bool := do
                 - return ⊥
           - Otherwise:
               - return none
-     - When `isRecursiveFun f ∧ ¬ isOpaqueFunExpr f #[x₁ ... xₙ] ∧
-             ∀ i ∈ [1..n], isExplicit x₁ → isConstructor xᵢ
+     - When `isRecursiveFun f ∧ ¬ isOpaqueFunExpr f #[x₁ ... xₙ] ∧ allExplicitParamsAreCtor f #[x₁ ... xₙ]
          - When some body ← getFunBody f:
              - return `Expr.beta body #[x₁ ... xₙ]`
          - Otherwise:
@@ -50,7 +51,6 @@ def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) : MetaM Bool := do
          - return none
 -/
 def reduceApp? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
- if !(← allExplicitParamsAreCtor f args) then return none
  if let some r ← isOpaqueRecReduction? f args then return r
  if (← isOpaqueFunExpr f args) then return none
  if let some r ← isFunRecReduction? f args then return r
@@ -59,6 +59,7 @@ def reduceApp? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
  where
    isOpaqueRecReduction? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
      if !(← isOpaqueRecFun f args) then return none
+     if !(← allExplicitParamsAreCtor f args) then return none
      let some auxFun ← unfoldOpaqueFunDef f args | return none
      let some fbody ← getFunBody auxFun.getAppFn'
        | throwEnvError f!"reduceApp?: recursive function body expected for {reprStr f}"
@@ -67,18 +68,12 @@ def reduceApp? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
    isFunRecReduction? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
      let Expr.const n _ := f | return none
      if !(← isRecursiveFun n) then return none
+     if !(← allExplicitParamsAreCtor f args) then return none
      let some fbody ← getFunBody f
        | throwEnvError f!"reduceApp?: recursive function body expected for {reprStr f}"
      return (Expr.beta fbody args)
 
 /--  Given application `f x₀ ... xₙ`, perform the following:
-     - When `f x₀ ... xₙ` is a match expression of the form
-          match e₀, ..., eₙ with
-          | p₍₀₎₍₁₎, ..., p₍₀₎₍ₙ₎ => t₀
-            ...
-          | p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₙ₎ => tₘ
-        - return `whnfExpr (f x₀ ... xₙ)` only when `∃ i ∈ [0..n], isConstructor (optimizer eᵢ)`.
-
      - When `f := ite`
           - When n = 5 ∧ optimizer x₁ = True ∨ optimizer x₁ = False
               - return `optimizeITE f x₀ ... xₙ`
@@ -95,28 +90,28 @@ def reduceApp? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
          - return none
 
 -/
-def reduceChoice?
+def reduceITEChoice?
   (f : Expr) (args : Array Expr)
   (optimizer : Expr -> TranslateEnvT Expr) : TranslateEnvT (Option Expr) := do
-  let Expr.const n l := f | return none
-  if let some r ← isMatchReduction? n l args then return r
+  let Expr.const n _ := f | return none
   if let some r ← isITEReduction? n args then return r
   if let some r ← isDITEReduction? n args then return r
   return none
 
   where
-   isPropConstant? : Expr -> Bool
-     | Expr.const ``True _
-     | Expr.const ``False _ => true
-     | _ => false
-
    isITEReduction? (n : Name) (args : Array Expr) : TranslateEnvT (Option Expr) := do
      match n with
      | ``ite =>
          if args.size != 5 then throwEnvError "isITEReduction?: exactly five arguments expected"
          let args ← args.modifyM 1 optimizer
-         if isPropConstant? (args[1]!) then return (← optimizeITE f args)
-         return none
+         match args[1]! with
+         | Expr.const ``True _ =>
+             -- normalize then clause
+             return (← optimizer args[3]!)
+         | Expr.const ``False _ =>
+             -- normalize else clause
+             return (← optimizer args[4]!)
+         | _ => return none
      | _ => return none
 
    isDITEReduction? (n : Name) (args : Array Expr) : TranslateEnvT (Option Expr) := do
@@ -124,10 +119,37 @@ def reduceChoice?
      | ``dite =>
          if args.size != 5 then throwEnvError "isDITEReduction?: exactly five arguments expected"
          let args ← args.modifyM 1 optimizer
-         if isPropConstant? (args[1]!) then return (← optimizeDITE f args)
-         return none
+         match args[1]! with
+         | Expr.const ``True _ =>
+             -- normalize then clause
+             return (← extractDependentITEExpr (← optimizer args[3]!))
+         | Expr.const ``False _ =>
+             -- normalize else clause
+             return (← extractDependentITEExpr (← optimizer args[4]!))
+         | _ => return none
      | _ => return none
 
+
+/--  Given application `f x₀ ... xₙ`, perform the following:
+     - When `f x₀ ... xₙ` is a match expression of the form
+          match e₀, ..., eₙ with
+          | p₍₀₎₍₁₎, ..., p₍₀₎₍ₙ₎ => t₀
+            ...
+          | p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₙ₎ => tₘ
+        - return `whnfExpr (f x₀ ... xₙ)` only when `∀ i ∈ [1..n], isConstructor (optimizer eᵢ)`.
+
+     - Otherwise:
+         - return none
+
+-/
+def reduceMatchChoice?
+  (f : Expr) (args : Array Expr)
+  (optimizer : Expr -> TranslateEnvT Expr) : TranslateEnvT (Option Expr) := do
+  let Expr.const n l := f | return none
+  if let some r ← isMatchReduction? n l args then return r
+  return none
+
+  where
    isMatchReduction? (n : Name) (l : List Level) (args : Array Expr) : TranslateEnvT (Option Expr) := do
      let some matcherInfo ← getMatcherRecInfo? n l | return none
      let mut margs := args
