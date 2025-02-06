@@ -8,8 +8,8 @@ namespace Solver.Optimize
     Note that implication `a → b` is internally represented as `forallE _ a b bi`.
     The simplification/normalization rules applied are:
       - ∀ (n : t), True | e → True ==> True
-      - False → e ==> True
-      - True → e ==> e
+      - False → e ==> True (if Type(e) = Prop)
+      - True → e ==> e (if Type(e) = Prop)
       - e → False ==> ¬ e
       - e1 → e2 ==> True (if e1 =ₚₜᵣ e2 ∧ Type(e1) = Prop)
       - ¬ e → e ==> e (requires classical)
@@ -24,8 +24,7 @@ namespace Solver.Optimize
 -/
 def optimizeForall (n : Expr) (t : Expr) (b : Expr) : TranslateEnvT Expr := do
   if let Expr.const ``True _ := b then return b
-  if let Expr.const ``False _ := t then return (← mkPropTrue)
-  if let Expr.const `True _ := t then return b
+  if let some r ← isCstImplies? t b then return r
   if let some r ← isNotDef? t b then return r
   if (← (exprEq t b) <&&> (isProp t)) then return (← mkPropTrue)
   if (← (isNotExprOf t b) <||> (isNotExprOf b t) <||> (isNegBoolEqOf t b) <||> (isNegBoolEqOf b t)) then return b
@@ -33,9 +32,24 @@ def optimizeForall (n : Expr) (t : Expr) (b : Expr) : TranslateEnvT Expr := do
   mkForallExpr n b
 
   where
-    /-- Given `a → b`, apply the following formalization rule:
+    /-- Given `a → b`, apply the simplification rules:
+          - When `a := True ∧ Type(b) = Prop`:
+             - return `some b`
+          - When `a := False ∧ Type(b) = Prop`:
+              - return `True`
+          - Otherwise
+              - return `none`
+    -/
+    isCstImplies? (a : Expr) (b : Expr) : TranslateEnvT (Option Expr) := do
+      if !(← isProp b) then return none
+      match a with
+      | Expr.const ``True _ => return b
+      | Expr.const ``False _ => return (← mkPropTrue)
+      | _ => return none
+
+    /-- Given `a → b`, apply the following normalization rule:
          - When `b := False ∧ Type(a) = Prop`
-            - return `some `¬ a`
+            - return `some ¬ a`
          - Otherwise
             - return `none`
     -/
