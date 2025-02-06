@@ -123,23 +123,22 @@ partial def optimizeITE (f : Expr) (args : Array Expr) : TranslateEnvT Expr := d
  mkAppExpr f (← updateITEDecidable args)
 
 
-/-- Given an expression of the form `fun h : c => e` perform the following:
-      - When `instantiate` is set to `true`
-           - return `e[h/c]`
-      - Otherwise
-           - return `e`
-   An error is triggered when the provided expression is not a `then` or `else`
-   dependent ite expression, i.e., not a lambda expression of
-   the form `fun h : c => e`; or
+/-- Given `e` a `dite` then/else expression perform the following:
+      - When `e := fun h : c => b`:
+         - return `b`
+      - When `Type(e) := h : c → b`:
+         - return `e`
+      - Otherwise:
+         - return ⊥
 -/
-def extractDependentITEExpr (e : Expr) (instantiate := true) : TranslateEnvT Expr :=
+def extractDependentITEExpr (e : Expr) : TranslateEnvT Expr := do
   match e with
-  | Expr.lam n t b bi => do
-      if !instantiate then return b
-      withLocalDecl n bi t fun x =>
-        return b.instantiate1 x
+  | Expr.lam _n _t b _bi => return b
+  | _ =>
+    if (← inferType e).isForall
+    then return e -- case when then/else clause is a quantified function (see theorem `dite_true`).
+    else throwEnvError f!"extractDependentITEExpr: lambda/function expression expected but got {reprStr e}"
 
-  | _ => throwEnvError f!"extractDependentITEExpr: lambda expression expected but got {reprStr e}"
 
 /-- Apply simplification/normalization rules on `dite`.
     Note that dependent ite is written with notation `if h : c then t else e`, which
@@ -168,11 +167,11 @@ partial def optimizeDITE (f : Expr) (args : Array Expr) : TranslateEnvT Expr := 
  let c := args[1]!
  let t := args[3]!
  let e := args[4]!
- let thenExpr ← extractDependentITEExpr t (instantiate := false)
- let elseExpr ← extractDependentITEExpr e (instantiate := false)
- if (← exprEq thenExpr elseExpr) then return (← extractDependentITEExpr t)
- if let Expr.const ``True _ := c then return (← extractDependentITEExpr t)
- if let Expr.const ``False _ := c then return (← extractDependentITEExpr e)
+ let thenExpr ← extractDependentITEExpr t
+ let elseExpr ← extractDependentITEExpr e
+ if (← exprEq thenExpr elseExpr) then return t.beta #[← mkOfDecideEqProof c true]
+ if let Expr.const ``True _ := c then return t.beta #[← mkTrueIntro]
+ if let Expr.const ``False _ := c then return e.beta #[← mkNotFalse]
  if let Expr.app (Expr.const ``Not _) ne := c then return (← optimizeDITE f (← swapITEAndUpdateDecidable (args.set! 1 ne)))
  if let some c' ← isITEBoolSwap? c then return (← optimizeDITE f (← swapITEAndUpdateDecidable (args.set! 1 c')))
  if let some r ← diteToPropExpr? iteType t e then return r

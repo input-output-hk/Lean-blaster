@@ -99,19 +99,18 @@ def reduceITEChoice?
   return none
 
   where
+   isPropConstant : Expr → Bool
+    | Expr.const ``True _
+    | Expr.const ``False _ => true
+    | _ => false
+
    isITEReduction? (n : Name) (args : Array Expr) : TranslateEnvT (Option Expr) := do
      match n with
      | ``ite =>
          if args.size != 5 then throwEnvError "isITEReduction?: exactly five arguments expected"
          let args ← args.modifyM 1 optimizer
-         match args[1]! with
-         | Expr.const ``True _ =>
-             -- normalize then clause
-             return (← optimizer args[3]!)
-         | Expr.const ``False _ =>
-             -- normalize else clause
-             return (← optimizer args[4]!)
-         | _ => return none
+         if isPropConstant args[1]! then return (← optimizeITE f args)
+         return none
      | _ => return none
 
    isDITEReduction? (n : Name) (args : Array Expr) : TranslateEnvT (Option Expr) := do
@@ -119,14 +118,8 @@ def reduceITEChoice?
      | ``dite =>
          if args.size != 5 then throwEnvError "isDITEReduction?: exactly five arguments expected"
          let args ← args.modifyM 1 optimizer
-         match args[1]! with
-         | Expr.const ``True _ =>
-             -- normalize then clause
-             return (← extractDependentITEExpr (← optimizer args[3]!))
-         | Expr.const ``False _ =>
-             -- normalize else clause
-             return (← extractDependentITEExpr (← optimizer args[4]!))
-         | _ => return none
+         if isPropConstant args[1]! then return (← optimizeDITE f args)
+         return none
      | _ => return none
 
 

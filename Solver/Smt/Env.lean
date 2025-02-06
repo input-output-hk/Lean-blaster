@@ -46,7 +46,7 @@ def logResult (r : Result) (sOpts : SolverOptions) : MetaM Unit := do
   where
     dumpCex (f : MessageData -> MetaM Unit) (failure : String) (cex : List String) : MetaM Unit :=
       if sOpts.generateCex then
-         let cexStr := List.foldl (λ acc s => s!"{acc} - {s}\n") "" cex
+         let cexStr := List.foldl (λ acc s => s!"{acc} - {s}") "" cex
          f s!"{failure}\nCounterexample:\n{cexStr}"
       else f failure
 
