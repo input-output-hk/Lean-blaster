@@ -129,7 +129,7 @@ def optimizeStrReplace (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
     | _, _, _  => return none
 
 
-/-- Apply simplification/normalization rules on String operators. -/
+/-- Apply simplification/normalization rules on `String` operators. -/
 def optimizeString? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
  let Expr.const n _ := f | return none
  match n with
@@ -138,10 +138,5 @@ def optimizeString? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr)
  | ``String.length => optimizeStrLength f args
  | ``String.replace => optimizeStrReplace f args
  | _ => return none
-
--- SMT equivalence
--- String.replace s src dsc ====> str.replace_all s src dsc
--- String.append ====> str.++
--- String.length ===> str.len
 
 end Solver.Optimize

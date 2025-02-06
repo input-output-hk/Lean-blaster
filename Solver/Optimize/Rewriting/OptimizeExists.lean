@@ -8,7 +8,7 @@ namespace Solver.Optimize
 /-- Apply the following COI reduction rule on `Exists`.
      - ∃ (n : t), e ===> e (if isSortOrInhabited t ∧ ¬ e.hasLooseBVar e 0).
     Note that `∃ (n : t), e` is internally represented as `app (app Exists t) (lam n t e _)`.
-    Assmes that f = Expr.const ``Exists
+    Assmes that f := Expr.const ``Exists
     An error is trigerred if args.size ≠ 2.
 -/
 def coiExists (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
@@ -20,7 +20,7 @@ def coiExists (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
   | _ => throwEnvError f!"coiExists: lambda expression expected but got {reprStr args[1]!}"
 
 
-/-- Apply simplification/normalization rules on `Exists. -/
+/-- Apply simplification/normalization rules on `Exists`. -/
 def optimizeExists? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) :=
   match f with
   | Expr.const ``Exists _ => some <$> coiExists f args

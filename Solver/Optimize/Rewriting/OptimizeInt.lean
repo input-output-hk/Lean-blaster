@@ -141,7 +141,7 @@ def optimizeIntLe (b_args : Array Expr) : TranslateEnvT Expr := do
   Expr.withApp (← mkIntLeOp) fun f i_args =>
     optimizeLE f (i_args ++ b_args)
 
-/-- Apply simplification/normalization rules on Int operators.
+/-- Apply simplification/normalization rules on `Int` operators.
 -/
 def optimizeInt? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
   let Expr.const n _ := f | return none

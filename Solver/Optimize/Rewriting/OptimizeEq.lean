@@ -111,7 +111,7 @@ partial def optimizeEq (f : Expr) (args: Array Expr) (cacheResult := true) : Tra
  mkExpr (mkApp3 f args[0]! op1 op2) cacheResult
 
  where
-   /- Given `op1` and `op2` corresponding to the operands for `Eq,
+   /- Given `op1` and `op2` corresponding to the operands for `Eq`,
       - return `some (false, e)` when `op1 := true ∧ op2 := not e`
       - return `some (true, e)` when `op1 := false ∧ op2 := not e`
       - return `some (e1, e2)` when `op1 := not e1 ∧ op2 := not e2`
@@ -196,7 +196,7 @@ partial def mkEqBool (e : Expr) (b : Bool) : TranslateEnvT Expr := do
    with NOP(B, e) := e  if B
                   := !e otherwise
 
-   Assume that f = Expr.const ``Eq.
+   Assume that f := Expr.const ``Eq.
 
    - TODO: may be we need to reverse the following simplification rules to maximize equivalence
       - true = (a == b) ==> a = b (if hasLawFulBEqInstance Type(a))
@@ -230,7 +230,7 @@ partial def optimizeDecideEq (f : Expr) (args : Array Expr) : TranslateEnvT Expr
       optimizeDecideEq f #[← mkPropType, op1Expr, op2Expr]
 
 
-   /- Given `op1` and `op2` corresponding to the operands for `Eq,
+   /- Given `op1` and `op2` corresponding to the operands for `Eq`,
       - return `some (a = b)` when `op1 := true ∧ op2 := a == b ∧ `hasLawFulBEqInstance Type(a)`
       - return `some ¬ (a = b)` when `op1 := false ∧ op2 := a == b ∧ `hasLawFulBEqInstance Type(a)`
       - return `some (true = c) = (a = b)` when `op1 := c ∧ op2 := a == b ∧ `hasLawFulBEqInstance Type(a)`
@@ -254,7 +254,7 @@ partial def optimizeDecideEq (f : Expr) (args : Array Expr) : TranslateEnvT Expr
              mkBeqToEq beq_sort beq_op1 beq_op2 op1
          | _, _ => return none
 
-   /- Given `op1` and `op2` corresponding to the operands for `Eq,
+   /- Given `op1` and `op2` corresponding to the operands for `Eq`,
       return `some NOP(B1, e1) = NOP(B2, e2)` only when
       `op1 := B1 = e1 ∧ op2 := B2 = e2`.
       Otherwise `none`.
@@ -268,7 +268,7 @@ partial def optimizeDecideEq (f : Expr) (args : Array Expr) : TranslateEnvT Expr
        | _, _ => return none
     | _, _ => return none
 
-   /- Given `op1` and `op2` corresponding to the operands for `Eq,
+   /- Given `op1` and `op2` corresponding to the operands for `Eq`,
        - return `some e` when `op1 := true ∧ op2 := decide e`
        - return `some ¬ e` when `op1 := false ∧ op2 := decide e`
       Otherwise `none`.
@@ -279,7 +279,7 @@ partial def optimizeDecideEq (f : Expr) (args : Array Expr) : TranslateEnvT Expr
     | Expr.const ``false _, some (e, _d) => optimizeNot (← mkPropNotOp) #[e]
     | _, _ => return none
 
-   /- Given `op1` and `op2` corresponding to the operands for `Eq,
+   /- Given `op1` and `op2` corresponding to the operands for `Eq`,
        - return `some e1 = e2` when `op1 := decide e1 ∧ op2 = decide e2`
        - return `some e1 = (true = e2)` when `op1 := decide e1 ∧ op2 := e2`
        - return `some e1 = (true = e2)` when `op1 := e2 ∧ op2 := decide e1`
@@ -295,7 +295,7 @@ partial def optimizeDecideEq (f : Expr) (args : Array Expr) : TranslateEnvT Expr
           optimizeDecideEq (← mkEqOp) #[← mkPropType, e1, ← mkEqBool op1 true]
      | _, _ => return none
 
-   /--  Given `op1` and `op2` corresponding to the operands for `Eq,
+   /--  Given `op1` and `op2` corresponding to the operands for `Eq`,
         perform the following normalization rules:
          - When `op1 := true ∧ op2 := dite c (fun h : c => e1) (fun h : ¬ c => e2)`
              - return `(c → true = e1) ∧ (¬ c → true = e2)`
@@ -325,7 +325,7 @@ partial def optimizeDecideEq (f : Expr) (args : Array Expr) : TranslateEnvT Expr
             optimizeForall x t (← mkEqBool (b.instantiate1 x) bv)
      | _ => throwEnvError f!"boolEqDite? : lambda expression expected but got {reprStr ite}"
 
-   /--  Given `op1` and `op2` corresponding to the operands for `Eq,
+   /--  Given `op1` and `op2` corresponding to the operands for `Eq`,
         perform the following normalization rules:
          - When `op1 := true ∧ op2 := if c then e1 else e2`
              - return `(c → true = e1) ∧ (¬ c → true = e2)`

@@ -119,17 +119,17 @@ def isSortOrInhabited (t : Expr) : TranslateEnvT Bool := do
  | _ => isType t
 
 
-/-- Determine if `e` is a boolean `not expression and return it's corresponding argument.
+/-- Determine if `e` is a boolean `not` expression and return it's corresponding argument.
     Otherwise return `none`.
 -/
 @[inline] def boolNot? (e: Expr) : Option Expr := e.app1? ``not
 
-/-- Determine if `e` is a boolean `and expression and return it's corresponding argument.
+/-- Determine if `e` is a boolean `and` expression and return it's corresponding argument.
     Otherwise return `none`.
 -/
 @[inline] def boolAnd? (e: Expr) : Option (Expr × Expr) := e.app2? ``and
 
-/-- Determine if `e` is a boolean `or expression and return it's corresponding argument.
+/-- Determine if `e` is a boolean `or` expression and return it's corresponding argument.
     Otherwise return `none`.
 -/
 @[inline] def boolOr? (e: Expr) : Option (Expr × Expr) := e.app2? ``or
@@ -149,17 +149,17 @@ def isBoolValue? (e : Expr) : Option Bool :=
 @[inline] def beq? (e : Expr) : Option (Expr × Expr × Expr × Expr) := e.app4? ``BEq.beq
 
 
-/-- Determine if `e` is an `Not expression and return it's corresponding argument.
+/-- Determine if `e` is an `Not` expression and return it's corresponding argument.
     Otherwise return `none`.
 -/
 @[inline] def propNot? (e : Expr) : Option Expr := e.not?
 
-/-- Determine if `e` is an `And expression and return it's corresponding arguments.
+/-- Determine if `e` is an `And` expression and return it's corresponding arguments.
     Otherwise return `none`.
 -/
 @[inline] def propAnd? (e : Expr) : Option (Expr × Expr) := e.and?
 
-/-- Determine if `e` is an `Or expression and return it's corresponding arguments.
+/-- Determine if `e` is an `Or` expression and return it's corresponding arguments.
     Otherwise return `none`.
 -/
 @[inline] def propOr? (e : Expr) : Option (Expr × Expr) := e.app2? ``Or
@@ -295,17 +295,17 @@ def isNatAddExpr (e : Expr) : Bool := e.isAppOfArity ``Nat.add 2
 def isNatSubExpr (e: Expr) : Bool := e.isAppOfArity ``Nat.sub 2
 
 
-/-- Determine if `e` is a `Nat.mul expression and return it's corresponding arguments.
+/-- Determine if `e` is a `Nat.mul` expression and return it's corresponding arguments.
     Otherwise return `none`.
 -/
 @[inline] def natMul? (e: Expr) : Option (Expr × Expr) := e.app2? ``Nat.mul
 
-/-- Determine if `e` is a `Nat.add expression and return it's corresponding arguments.
+/-- Determine if `e` is a `Nat.add` expression and return it's corresponding arguments.
     Otherwise return `none`.
 -/
 @[inline] def natAdd? (e: Expr) : Option (Expr × Expr) := e.app2? ``Nat.add
 
-/-- Determine if `e` is a `Nat.sub expression and return it's corresponding arguments.
+/-- Determine if `e` is a `Nat.sub` expression and return it's corresponding arguments.
     Otherwise return `none`.
 -/
 @[inline] def natSub? (e: Expr) : Option (Expr × Expr) := e.app2? ``Nat.sub
@@ -340,7 +340,7 @@ def isFunAppOfArity : Expr → Nat → Bool
   | Expr.app f _, a+1 => isFunAppOfArity f a
   | _, _   => false
 
-/-- Return `some (op1, op2)` is e is a binary operator. Otherwise `none`. -/
+/-- Return `some (op1, op2)` when `e` is a binary operator. Otherwise `none`. -/
 @[inline] def binOp? (e : Expr) : Option (Expr × Expr) :=
   if isFunAppOfArity e 2
   then some (e.appFn!.appArg!, e.appArg!)
@@ -362,7 +362,7 @@ def isFunAppOfArity : Expr → Nat → Bool
     - NatModLeftExpr N n (if e := Nat.mod N n)
     - NatModRightExpr n N (if e := Nat.mod n N)
 
-    Return `none` when e is not a full applied Nat binary operator.
+    Return `none` when `e` is not a full applied Nat binary operator.
     Assume that operands have already been reordered for commutative operators.
 -/
 def toNatCstOpExpr? (e: Expr) : Option NatCstOpInfo :=
@@ -385,7 +385,7 @@ def toNatCstOpExpr? (e: Expr) : Option NatCstOpInfo :=
 -/
 @[inline] def intNeg? (e : Expr) : Option Expr := e.app1? ``Int.neg
 
-/-- Determine if `e` is an Decidable.decide expression and return it's corresponding arguments.
+/-- Determine if `e` is a `Decidable.decide` expression and return it's corresponding arguments.
     Otherwise return `none`.
 -/
 @[inline] def decide? (e : Expr) : Option (Expr × Expr) := e.app2? ``Decidable.decide
