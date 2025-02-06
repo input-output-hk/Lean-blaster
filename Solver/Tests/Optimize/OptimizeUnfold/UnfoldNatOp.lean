@@ -77,7 +77,7 @@ namespace Tests.UnfoldNatOp
 #testOptimize ["NatOpNotUnfolded_4"]  ∀ (x y z : Nat), Nat.pred ((x + y) + 1) < z ===> ∀ (x y z : Nat), Nat.add x y < z
 
 -- ∀ (x y : Nat), Nat.beq x y ===> ∀ (x y : Nat), true = (x == y)
-#testOptimize ["NatOpNotUnfolded_5"] ∀ (x y : Nat), Nat.beq x y ===> ∀ (x y : Nat), true = (x == y)
+#testOptimize ["NatOpNotUnfolded_5"] ∀ (x y : Nat), Nat.beq x y ===> ∀ (x y : Nat), x = y
 
 -- ∀ (x y z : Nat), x * y > z ===> ∀ (x y z : Nat), z < Nat.mul x y
 #testOptimize ["NatOpNotUnfolded_6"] ∀ (x y z : Nat), x * y > z ===> ∀ (x y z : Nat), z < Nat.mul x y

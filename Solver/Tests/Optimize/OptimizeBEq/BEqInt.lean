@@ -92,50 +92,46 @@ opaque z : Int
 
 /-! Test cases to ensure that simplification rules `e1 == e2 ==> true (if e1 =ₚₜᵣ e2)` is not applied wrongly. -/
 
--- x == y ===> x == y
-#testOptimize [ "BEqIntUnchanged_1" ] ∀ (x y : Int), x == y ===> ∀ (x y : Int), true = (x == y)
+-- x == y ===> x = y
+-- NOTE: `true = (a == b)` is reduce to `a = b` when `isCompatibleBeqType Type(a)`
+#testOptimize [ "BEqIntUnchanged_1" ] ∀ (x y : Int), x == y ===> ∀ (x y : Int), x = y
 
--- x == (y + z) ===> x == (y + z)
-#testOptimize [ "BEqIntUnchanged_2" ] ∀ (x y z : Int), x == (y + z) ===> ∀ (x y z : Int), true = (x == (Int.add y z))
+-- x == (y + z) ===> x = (y + z)
+-- NOTE: `true = (a == b)` is reduce to `a = b` when `isCompatibleBeqType Type(a)`
+#testOptimize [ "BEqIntUnchanged_2" ] ∀ (x y z : Int), x == (y + z) ===> ∀ (x y z : Int), x = (Int.add y z)
 
--- (y + z) == x ===> x == (y + z)
-#testOptimize [ "BEqIntUnchanged_3" ] ∀ (x y z : Int), (y + z) == x ===> ∀ (x y z : Int), true = (x == (Int.add y z))
+-- (y + z) == x ===> x = (y + z)
+-- NOTE: `true = (a == b)` is reduce to `a = b` when `isCompatibleBeqType Type(a)`
+#testOptimize [ "BEqIntUnchanged_3" ] ∀ (x y z : Int), (y + z) == x ===> ∀ (x y z : Int), x = (Int.add y z)
 
--- [y, x, z] == [x, y, z] ===> x == y
+-- [y, x, z] == [x, y, z] ===> decide (x = y)
 -- NOTE: Reduction via `reduceApp` rule, commutative of beq on Int and absorption rule on &&
-#testOptimize [ "BEqIntUnchanged_4" ] [y, x, z] == [x, y, z] ===> x == y
+#testOptimize [ "BEqIntUnchanged_4" ] [y, x, z] == [x, y, z] ===> decide (x = y)
 
--- ∀ (x y z : Int), [y, x, z] == [x, y, z] ===> ∀ (x y : Int), true = (x == y)
+-- ∀ (x y z : Int), [y, x, z] == [x, y, z] ===> ∀ (x y : Int), x = y
 -- NOTE: Reduction via `reduceApp` rule, commutative of beq on Int and absorption rule on &&
+-- NOTE: `true = (a == b)` is reduce to `a = b` when `isCompatibleBeqType Type(a)`
 #testOptimize [ "BEqIntUnchanged_5" ] ∀ (x y z : Int), [y, x, z] == [x, y, z] ===>
-                                      ∀ (x y : Int), true = (x == y)
+                                      ∀ (x y : Int), x = y
 
 -- ∀ (x y z v : Int), [y, x, z] == [x, y, v] ===>
--- ∀ (x y z v : Int), true = ((!(x == y) || ((!(x == y) || (z == v)) && (x == y))) && (x == y))
+-- ∀ (x y z v : Int), (¬ (x = y) ∨ ((¬ (x = y) ∨ (z = v)) ∧ (x = y))) ∧ (x = y)
 -- NOTE: Reduction via `reduceApp` rule, commutative of beq on Int and absorption rule on &&
 -- NOTE: can be reduced to (x == y) && (z == v) with additional boolean simplification rules.
 #testOptimize [ "BEqIntUnchanged_6" ] ∀ (x y z v : Int), [y, x, z] == [x, y, v] ===>
-                                      ∀ (x y z v : Int), true = ((!(x == y) || ((!(x == y) || (z == v)) && (x == y))) && (x == y))
+                                      ∀ (x y z v : Int), (¬ (x = y) ∨ ((¬ (x = y) ∨ (z = v)) ∧ (x = y))) ∧ (x = y)
 
 -- ∀ (x : Int), (x == 1234) ===> ∀ (x : Int), (x == 1234)
 -- NOTE: We here provide the internal representation to ensure that 1234 is properly reduced to `Int.ofNat (Expr.lit (Literal.natVal 1234))`.
 def beqIntUnchanged_7 : Expr :=
-  Lean.Expr.forallE `x
-    (Lean.Expr.const `Int [])
+ Lean.Expr.forallE `x
+  (Lean.Expr.const `Int [])
+  (Lean.Expr.app
     (Lean.Expr.app
-      (Lean.Expr.app
-        (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Bool []))
-        (Lean.Expr.const `Bool.true []))
-      (Lean.Expr.app
-        (Lean.Expr.app
-          (Lean.Expr.app
-            (Lean.Expr.app (Lean.Expr.const `BEq.beq [Lean.Level.zero]) (Lean.Expr.const `Int []))
-              (Lean.Expr.app
-                (Lean.Expr.app (Lean.Expr.const `instBEqOfDecidableEq [Lean.Level.zero]) (Lean.Expr.const `Int []))
-                (Lean.Expr.const `Int.instDecidableEq [])))
-          (Lean.Expr.app (Lean.Expr.const `Int.ofNat []) (Lean.Expr.lit (Lean.Literal.natVal 1234))))
-          (Lean.Expr.bvar 0)))
-    (Lean.BinderInfo.default)
+      (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Int []))
+      (Lean.Expr.app (Lean.Expr.const `Int.ofNat []) (Lean.Expr.lit (Lean.Literal.natVal 1234))))
+    (Lean.Expr.bvar 0))
+  (Lean.BinderInfo.default)
 
 elab "beqIntUnchanged_7" : term => return beqIntUnchanged_7
 
@@ -144,22 +140,14 @@ elab "beqIntUnchanged_7" : term => return beqIntUnchanged_7
 -- ∀ (x : Int), (x = -453) ===> ∀ (x : Int), (x = -453)
 -- NOTE: We here provide the internal representation to ensure that -453 is properly reduced to `Int.negSucc (Expr.lit (Literal.natVal 452))`.
 def beqIntUnchanged_8 : Expr :=
-  Lean.Expr.forallE `x
-    (Lean.Expr.const `Int [])
+ Lean.Expr.forallE `x
+  (Lean.Expr.const `Int [])
+  (Lean.Expr.app
     (Lean.Expr.app
-      (Lean.Expr.app
-        (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Bool []))
-        (Lean.Expr.const `Bool.true []))
-      (Lean.Expr.app
-        (Lean.Expr.app
-          (Lean.Expr.app
-            (Lean.Expr.app (Lean.Expr.const `BEq.beq [Lean.Level.zero]) (Lean.Expr.const `Int []))
-              (Lean.Expr.app
-                (Lean.Expr.app (Lean.Expr.const `instBEqOfDecidableEq [Lean.Level.zero]) (Lean.Expr.const `Int []))
-                (Lean.Expr.const `Int.instDecidableEq [])))
-            (Lean.Expr.app (Lean.Expr.const `Int.negSucc []) (Lean.Expr.lit (Lean.Literal.natVal 452))))
-            (Lean.Expr.bvar 0)))
-    (Lean.BinderInfo.default)
+      (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Int []))
+      (Lean.Expr.app (Lean.Expr.const `Int.negSucc []) (Lean.Expr.lit (Lean.Literal.natVal 452))))
+    (Lean.Expr.bvar 0))
+  (Lean.BinderInfo.default)
 
 elab "beqIntUnchanged_8" : term => return beqIntUnchanged_8
 
@@ -175,7 +163,8 @@ elab "beqIntUnchanged_8" : term => return beqIntUnchanged_8
 #testOptimize [ "BEqIntCommut_2" ] ∀ (x y : Int), (x == y) = (y == x) ===> True
 
 -- y == x ===> x == y (when `x` declared first)
-#testOptimize [ "BEqIntCommut_3" ] ∀ (x y : Int), (y == x) ===> ∀ (x y : Int), true = (x == y)
+-- NOTE: `true = (a == b)` is reduce to `a = b` when `isCompatibleBeqType Type(a)`
+#testOptimize [ "BEqIntCommut_3" ] ∀ (x y : Int), (y == x) ===> ∀ (x y : Int), x = y
 
 -- ((x + y) == z) = (z == (x + y)) ===> True
 #testOptimize [ "BEqIntCommut_4" ] ∀ (x y z : Int), ((x + y) == z) = (z == (x + y)) ===> True

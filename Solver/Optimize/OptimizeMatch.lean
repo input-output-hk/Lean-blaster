@@ -112,9 +112,9 @@ lambdaTelescope alt fun xs rhs => do
         Return `sp` if the optimization cannot be applied.
     -/
     optimizeSubPattern (sp : Expr) : TranslateEnvT Expr :=
-       match sp.app2? ``Nat.add with
+       match natAdd? sp with
        | some (Expr.lit (Literal.natVal n1), x) =>
-          match x.app2? ``Nat.sub with
+          match natSub? x with
           | some (y, Expr.lit (Literal.natVal n2)) =>
               return (mkApp2 (← mkNatSubOp) y (← evalBinNatOp Nat.sub n2 n1))
           | _ => return sp
@@ -170,19 +170,15 @@ lambdaTelescope alt fun xs rhs => do
 -/
 def normMatchExpr? (idx : Nat) (discrs : Array Expr) (lhs : Array Expr) (alt : Expr) (acc : Option Expr) : TranslateEnvT (Option Expr) := do
   let patternArgs ← retrieveAltsArgs lhs
-  if (← isItePattern discrs patternArgs lhs)
-  then
-    let rhs ← betaReduceAlt alt (← substituteArgs discrs lhs patternArgs)
-    if idx == 0 -- last pattern
-    then return (some rhs) -- last pattern
-    else
-      let some elseExpr := acc | return acc
-      let condExpr ← mkEqAndExpr discrs lhs
-      -- we don't want to cache the decidable constraint as condExpr is not optimized at this stage
-      -- return none if decidable instance cannot be synthesized.
-      let some decideExpr ← trySynthDecidableInstance? condExpr (cacheDecidableCst := false) | return none
-      return (mkApp5 (← mkIteOp) (← inferType rhs) condExpr decideExpr rhs elseExpr)
-  else return none
+  if !(← isItePattern discrs patternArgs lhs) then return none
+  let rhs ← betaReduceAlt alt (← substituteArgs discrs lhs patternArgs)
+  if idx == 0 then return (some rhs) -- last pattern
+  let some elseExpr := acc | return acc
+  let condExpr ← mkEqAndExpr discrs lhs
+  -- we don't want to cache the decidable constraint as condExpr is not optimized at this stage
+  -- return none if decidable instance cannot be synthesized.
+  let some decideExpr ← trySynthDecidableInstance? condExpr (cacheDecidableCst := false) | return none
+  return (mkApp5 (← mkIteOp) (← inferType rhs) condExpr decideExpr rhs elseExpr)
 
  where
 
@@ -192,20 +188,18 @@ def normMatchExpr? (idx : Nat) (discrs : Array Expr) (lhs : Array Expr) (alt : E
        generating the ite expression.
    -/
    isItePattern (discrs : Array Expr) (patternArgs : Array Expr) (lhs : Array Expr) : TranslateEnvT Bool := do
-     if patternArgs.size == 0
-     then return true
-     else
-       let mut fvarCnt := 0
-       for i in [:lhs.size] do
-        let p := lhs[i]!
-        let e := discrs[i]!
-        let eType ← inferType e
-        if (← (pure p.isFVar) <||>
-              (pure ((isNatValue? p).isNone && isNatType eType)) <||>
-              (pure ((isIntValue? p).isNone && isIntType eType))
-           )
-        then fvarCnt := fvarCnt + 1
-       return (patternArgs.size == fvarCnt)
+     if patternArgs.size == 0 then return true
+     let mut fvarCnt := 0
+     for i in [:lhs.size] do
+      let p := lhs[i]!
+      let e := discrs[i]!
+      let eType ← inferType e
+      if (← (pure p.isFVar) <||>
+            (pure ((isNatValue? p).isNone && isNatType eType)) <||>
+            (pure ((isIntValue? p).isNone && isIntType eType))
+         )
+      then fvarCnt := fvarCnt + 1
+     return (patternArgs.size == fvarCnt)
 
    /-- Given a sequence of match discriminators `[e₁, ..., eₙ]` and a sequence of match patterns `[p₁, ..., pₙ]`,
        return conjunction `True ∧ eq₁ ∧ ... ∧ eqₙ`, such that:
@@ -272,66 +266,66 @@ def normMatchExpr? (idx : Nat) (discrs : Array Expr) (lhs : Array Expr) (alt : E
        An error is triggered if the sequence of match patterns and free variables are not consistent.
    -/
    substituteArgs (discrs : Array Expr) (lhs : Array Expr) (patternArgs : Array Expr) : TranslateEnvT (Array Expr) := do
-    if patternArgs.size == 0
-    then return patternArgs
-    else
-      let mut idx := 0
-      let mut args := patternArgs
-      for i in [:lhs.size] do
-        let p := lhs[i]!
-        let e := discrs[i]!
-        match p with
-        | Expr.fvar .. =>
-            -- case: pᵢ = vⱼ ∧ j ≤ m
-            if args[idx]! != p then
-              throwError "substituteArgs: Invalid match pattern arguments (lhs: {reprStr lhs}, args: {reprStr args})"
-            args := args.set! idx e
-            idx := idx + 1
-        | (Expr.app (Expr.app (Expr.const ``Nat.add _) n@(Expr.lit (Literal.natVal _))) n_fv@(Expr.fvar _)) =>
-            -- case: pᵢ = N + n ∧ Type(vⱼ) = Type(eᵢ) = Nat ∧ j ≤ m
-            if n_fv != args[idx]! then
-              throwError "substituteArgs: Invalid match pattern arguments (lhs: {reprStr lhs}, args: {reprStr args})"
-            args := args.set! idx (mkApp2 (← mkNatSubOp) e n)
-            idx := idx + 1
-        | (Expr.app (Expr.const ``Int.ofNat _) (Expr.fvar _)) =>
-            -- case: pᵢ = Int.ofNat n ∧ Type(vⱼ) = Nat ∧ j ≤ m
-            if !(isNatType (← inferType args[idx]!)) then
-              throwError "substituteArgs: Invalid match pattern arguments (lhs: {reprStr lhs}, args: {reprStr args})"
-            args := args.set! idx (mkApp (← mkIntToNatOp) e)
-            idx := idx + 1
-        | (Expr.app (Expr.const ``Int.ofNat _)
-             (Expr.app (Expr.app (Expr.const ``Nat.add _) n@(Expr.lit (Literal.natVal _))) n_fv@(Expr.fvar _))) =>
-            -- case: pᵢ = Int.ofNat (N + n) ∧ Type(vⱼ) = Nat ∧ j ≤ m
-            if n_fv != args[idx]! then
-              throwError "substituteArgs: Invalid match pattern arguments (lhs: {reprStr lhs}, args: {reprStr args})"
-            args := args.set! idx (mkApp2 (← mkNatSubOp) (mkApp (← mkIntToNatOp) e) n)
-            idx := idx + 1
-        | (Expr.app (Expr.const ``Int.neg _)
-           (Expr.app (Expr.const ``Int.ofNat _)
-            (Expr.app (Expr.app (Expr.const ``Nat.add _) n@(Expr.lit (Literal.natVal _))) n_fv@(Expr.fvar _)))) =>
-            -- case: pᵢ = Int.Neg (Int.ofNat (N + n)) ∧ Type(vⱼ) = Nat ∧ j ≤ m
-            if n_fv != args[idx]! then
-              throwError "substituteArgs: Invalid match pattern arguments (lhs: {reprStr lhs}, args: {reprStr args})"
-            args := args.set! idx (mkApp2 (← mkNatSubOp) (mkApp (← mkIntToNatOp) (mkApp (← mkIntNegOp) e)) n)
-            idx := idx + 1
-        | _ => pure () -- case : NbFreeVars(pᵢ) = 0
-      return args
+    if patternArgs.size == 0 then return patternArgs
+    let mut idx := 0
+    let mut args := patternArgs
+    for i in [:lhs.size] do
+      let p := lhs[i]!
+      let e := discrs[i]!
+      match p with
+      | Expr.fvar .. =>
+          -- case: pᵢ = vⱼ ∧ j ≤ m
+          if args[idx]! != p then
+            throwError "substituteArgs: Invalid match pattern arguments (lhs: {reprStr lhs}, args: {reprStr args})"
+          args := args.set! idx e
+          idx := idx + 1
+      | (Expr.app (Expr.app (Expr.const ``Nat.add _) n@(Expr.lit (Literal.natVal _))) n_fv@(Expr.fvar _)) =>
+          -- case: pᵢ = N + n ∧ Type(vⱼ) = Type(eᵢ) = Nat ∧ j ≤ m
+          if n_fv != args[idx]! then
+            throwError "substituteArgs: Invalid match pattern arguments (lhs: {reprStr lhs}, args: {reprStr args})"
+          args := args.set! idx (mkApp2 (← mkNatSubOp) e n)
+          idx := idx + 1
+      | (Expr.app (Expr.const ``Int.ofNat _) (Expr.fvar _)) =>
+          -- case: pᵢ = Int.ofNat n ∧ Type(vⱼ) = Nat ∧ j ≤ m
+          if !(isNatType (← inferType args[idx]!)) then
+            throwError "substituteArgs: Invalid match pattern arguments (lhs: {reprStr lhs}, args: {reprStr args})"
+          args := args.set! idx (mkApp (← mkIntToNatOp) e)
+          idx := idx + 1
+      | (Expr.app (Expr.const ``Int.ofNat _)
+           (Expr.app (Expr.app (Expr.const ``Nat.add _) n@(Expr.lit (Literal.natVal _))) n_fv@(Expr.fvar _))) =>
+          -- case: pᵢ = Int.ofNat (N + n) ∧ Type(vⱼ) = Nat ∧ j ≤ m
+          if n_fv != args[idx]! then
+            throwError "substituteArgs: Invalid match pattern arguments (lhs: {reprStr lhs}, args: {reprStr args})"
+          args := args.set! idx (mkApp2 (← mkNatSubOp) (mkApp (← mkIntToNatOp) e) n)
+          idx := idx + 1
+      | (Expr.app (Expr.const ``Int.neg _)
+         (Expr.app (Expr.const ``Int.ofNat _)
+          (Expr.app (Expr.app (Expr.const ``Nat.add _) n@(Expr.lit (Literal.natVal _))) n_fv@(Expr.fvar _)))) =>
+          -- case: pᵢ = Int.Neg (Int.ofNat (N + n)) ∧ Type(vⱼ) = Nat ∧ j ≤ m
+          if n_fv != args[idx]! then
+            throwError "substituteArgs: Invalid match pattern arguments (lhs: {reprStr lhs}, args: {reprStr args})"
+          args := args.set! idx (mkApp2 (← mkNatSubOp) (mkApp (← mkIntToNatOp) (mkApp (← mkIntNegOp) e)) n)
+          idx := idx + 1
+      | _ => pure () -- case : NbFreeVars(pᵢ) = 0
+    return args
 
 
 /-- Given a `match` application expression of the form
-     `f.match.n [p₁, ..., pₙ, pa₍₁₎₍₁₎ → .. → pa₍₁₎₍ₖ₎ → rhs₁, ..., pa₍ₘ₎₍₁₎ → .. → pa₍ₘ₎₍ₖ₎ → rhsₘ]`,
-    return `g.match.n q₁, ..., qₕ, pa₍₁₎₍₁₎ → .. → pa₍₁₎₍ₖ₎ → rhs₁, ..., pa₍ₘ₎₍₁₎ → .. → pa₍ₘ₎₍ₖ₎ → rhsₘ`
-    if `Type(f.match.n [p₁, ..., pₙ]) := `g.match.n [q₁, ..., qₕ]` exists in match cache.
+     `f.match.n [p₁, ..., pₙ, d₁, ..., dₖ, pa₍₁₎₍₁₎ → .. → pa₍₁₎₍ₖ₎ → rhs₁, ..., pa₍ₘ₎₍₁₎ → .. → pa₍ₘ₎₍ₖ₎ → rhsₘ]`,
+    return `g.match.n q₁, ..., qₕ, d₁, ..., dₖ, pa₍₁₎₍₁₎ → .. → pa₍₁₎₍ₖ₎ → rhs₁, ..., pa₍ₘ₎₍₁₎ → .. → pa₍ₘ₎₍ₖ₎ → rhsₘ`
+    if `Type(f.match.n [p₁, ..., pₙ]) := g.match.n [q₁, ..., qₕ]` exists in match cache.
     Otherwise, perform the following:
-      - Add `Type(f.match.n [p₁, ..., pₙ]) := `f.match.n [q₁, ..., qₕ]` in match cache
-      - return `f.match.n [p₁, ..., pₙ, pa₍₁₎₍₁₎ → .. → pa₍₁₎₍ₖ₎ → rhs₁, ..., pa₍ₘ₎₍₁₎ → .. → pa₍ₘ₎₍ₖ₎ → rhsₘ]`
+      - Add `Type(f.match.n [p₁, ..., pₙ]) := f.match.n [q₁, ..., qₕ]` in match cache
+      - return `f.match.n [p₁, ..., pₙ, d₁, ..., dₖ, pa₍₁₎₍₁₎ → .. → pa₍₁₎₍ₖ₎ → rhs₁, ..., pa₍ₘ₎₍₁₎ → .. → pa₍ₘ₎₍ₖ₎ → rhsₘ]`
+    Where:
+     - p₁, ..., pₙ: correspond to the arguments instantiating polymorphic params.
+     - d₁, ..., dₖ: correspond to the match expresson discriminators
+     - pa₍₁₎₍₁₎ → .. → pa₍₁₎₍ₖ₎ → rhs₁, ..., pa₍ₘ₎₍₁₎ → .. → pa₍ₘ₎₍ₖ₎ → rhsₘ: correspond to the rhs for each pattern matching.
 -/
 def structEqMatch? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
  match f with
  | Expr.const n _ =>
     let some matcherInfo ← getMatcherInfo? n | return none
-    -- let cInfo ← getConstInfo n
-    -- let matchFun ← instantiateValueLevelParams cInfo dlevel
     let auxApp := mkAppN f args[0 : matcherInfo.getFirstDiscrPos]
     let auxAppType ← inferType auxApp
     let env ← get

@@ -110,6 +110,44 @@ def powerNat (a : Nat) (n : Nat) : Nat :=
 #testOptimize ["NormRecFun_12"] ∀ (x y : Nat), x ^ y = powerNat x y ===> True
 
 
+-- ∀ (x y : Nat), powerNat y x + Nat.pow x y = Nat.pow y x + powerNat x y ===> True
+-- NOTE: Equivalence detection between nested opaque function (i.e., here 3 nested level)
+-- NOTE: Also ensures that structural equivalence is properly performed when
+-- a recursive function is referenced more than once (i.e., proper use of instance cache)
+#testOptimize ["NormRecFun_13"] ∀ (x y : Nat), powerNat y x + Nat.pow x y = Nat.pow y x + powerNat x y ===> True
+
+-- ∀ (x y : Nat), if x < y then powerNat y x else powerNat x y < Nat.pow x y ===>
+-- ∀ (x y : Nat), if x < y then Nat.pow y x else Nat.pow x y < Nat.pow x y
+-- NOTE: Equivalence detection between nested opaque function (i.e., here 3 nested level)
+-- NOTE: Also ensures that structural equivalence is properly performed when
+-- a recursive function is referenced more than once (i.e., proper use of instance cache)
+#testOptimize ["NormRecFun_14"] ∀ (x y : Nat), (if x < y then powerNat y x else powerNat x y) < Nat.pow x y ===>
+                                ∀ (x y : Nat), (if x < y then Nat.pow y x else Nat.pow x y) < Nat.pow x y
+
+def eqNat (a : Nat) (b : Nat) : Bool :=
+  match a, b with
+  | Nat.zero, Nat.zero   => true
+  | Nat.zero, Nat.succ _ => false
+  | Nat.succ _, Nat.zero   => false
+  | Nat.succ n, Nat.succ m => eqNat n m
+
+-- ∀ (x y : Nat), Nat.beq x y = eqNat x y ===> True
+-- NOTE: Equivalence detection with opaque function
+-- NOTE: Also verify effect of normalization performed on Nat.beq in recursive definition,
+-- i.e., `Nat.beq x y ===> x == y`
+#testOptimize ["NormRecFun_15"] ∀ (x y : Nat), Nat.beq x y = eqNat x y ===> True
+
+
+-- ∀ (c : Bool) (x y : Nat), if c then Nat.beq x y else eqNat y x ===>
+-- ∀ (x y : Nat), x = y
+-- NOTE: Equivalence detection with opaque function
+-- NOTE: Also verify effect of normalization performed on Nat.beq in recursive definition,
+-- i.e., `Nat.beq x y ===> x == y`
+-- NOTE: `true = (x == y) ===> x = y`
+#testOptimize ["NormRecFun_16"] ∀ (c : Bool) (x y : Nat), if c then Nat.beq x y else eqNat y x ===>
+                                ∀ (x y : Nat), x = y
+
+
 /-! Test cases to validate when match expressions and recursive functions are NOT wrongly
     declared as equivalent.
 -/

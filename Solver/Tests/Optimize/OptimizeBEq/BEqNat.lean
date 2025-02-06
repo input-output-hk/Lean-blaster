@@ -97,51 +97,49 @@ opaque z : Nat
 
 /-! Test cases to ensure that simplification rules `e1 == e2 ==> true (if e1 =ₚₜᵣ e2)` is not applied wrongly. -/
 
--- x == y ===> x == y
-#testOptimize [ "BEqNatUnchanged_1" ] ∀ (x y : Nat), x == y ===> ∀ (x y : Nat), true = (x == y)
+-- x == y ===> x = y
+-- NOTE: `true = (a == b)` is reduced to `a = b`
+#testOptimize [ "BEqNatUnchanged_1" ] ∀ (x y : Nat), x == y ===> ∀ (x y : Nat), x = y
 
--- x == (y + z) ===> x == (y + z)
-#testOptimize [ "BEqNatUnchanged_2" ] ∀ (x y z : Nat), x == (y + z) ===> ∀ (x y z : Nat), true = (x == (Nat.add y z))
+-- x == (y + z) ===> x = (Nat.add y z)
+-- NOTE: `true = (a == b)` is reduced to `a = b`
+#testOptimize [ "BEqNatUnchanged_2" ] ∀ (x y z : Nat), x == (y + z) ===> ∀ (x y z : Nat), x = (Nat.add y z)
 
--- (y + z) == x ===> x == (y + z)
-#testOptimize [ "BEqNatUnchanged_3" ] ∀ (x y z : Nat), (y + z) == x ===> ∀ (x y z : Nat), true = (x == (Nat.add y z))
+-- (y + z) == x ===> x = (Nat.add y z)
+-- NOTE: `true = (a == b)` is reduced to `a = b`
+#testOptimize [ "BEqNatUnchanged_3" ] ∀ (x y z : Nat), (y + z) == x ===> ∀ (x y z : Nat), x = (Nat.add y z)
 
--- [y, x, z] == [x, y, z] ===> x == y
+-- [y, x, z] == [x, y, z] ===> decide x = y
 -- NOTE: Reduction via `reduceApp` rule, commutative of beq on Nat and absorption rule on &&
-#testOptimize [ "BEqNatUnchanged_4" ] [y, x, z] == [x, y, z] ===> x == y
+#testOptimize [ "BEqNatUnchanged_4" ] [y, x, z] == [x, y, z] ===> decide (x = y)
 
 
--- ∀ (x y z : Nat), [y, x, z] == [x, y, z] ===> ∀ (x y : Nat), x == y
+-- ∀ (x y z : Nat), [y, x, z] == [x, y, z] ===> ∀ (x y : Nat), x = y
 -- NOTE: Reduction via `reduceApp` rule, commutative of beq on Nat and absorption rule on &&
+-- NOTE: `true = (a == b)` is reduced to `a = b`
 #testOptimize [ "BEqNatUnchanged_5" ] ∀ (x y z : Nat), [y, x, z] == [x, y, z] ===>
-                                      ∀ (x y : Nat), true = (x == y)
+                                      ∀ (x y : Nat), x = y
 
 
 -- ∀ (x y z v : Nat), [y, x, z] == [x, y, v] ===>
--- ∀ (x y z v : Nat), true = ((!(x == y) || ((!(x == y) || (z == v)) && (x == y))) && (x == y))
+-- ∀ (x y z v : Nat), (¬ (x = y) ∨ ((¬ (x = y) ∨ (z = v)) ∧ (x = y))) ∧ (x = y)
 -- NOTE: Reduction via `reduceApp` rule, commutative of beq on Int and absorption rule on &&
--- NOTE: can be reduced to (x == y) && (z == v) with additional boolean simplification rules.
+-- NOTE: can be reduced to (x = y) ∧ (z = v) with additional logical simplification rules.
 #testOptimize [ "BEqNatUnchanged_6" ] ∀ (x y z v : Nat), [y, x, z] == [x, y, v] ===>
-                                      ∀ (x y z v : Nat), true = ((!(x == y) || ((!(x == y) || (z == v)) && (x == y))) && (x == y))
+                                      ∀ (x y z v : Nat), (¬ (x = y) ∨ ((¬ (x = y) ∨ (z = v)) ∧ (x = y))) ∧ (x = y)
 
 
 -- ∀ (x : Nat), (x == 234) ===> ∀ (x : Nat), (x == 234)
 -- NOTE: We here provide the internal representation to ensure that 234 is properly reduced to `Expr.lit (Literal.natVal 234)`.
 def beqNatUnchanged_7 : Expr :=
-  Lean.Expr.forallE `x
-    (Lean.Expr.const `Nat [])
+ Lean.Expr.forallE `x
+  (Lean.Expr.const `Nat [])
+  (Lean.Expr.app
     (Lean.Expr.app
-      (Lean.Expr.app
-        (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Bool []))
-        (Lean.Expr.const `Bool.true []))
-      (Lean.Expr.app
-        (Lean.Expr.app
-          (Lean.Expr.app
-            (Lean.Expr.app (Lean.Expr.const `BEq.beq [Lean.Level.zero]) (Lean.Expr.const `Nat []))
-            (Lean.Expr.const `instBEqNat []))
-          (Lean.Expr.lit (Lean.Literal.natVal 234)))
-      (Lean.Expr.bvar 0)))
-    (Lean.BinderInfo.default)
+      (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Nat []))
+      (Lean.Expr.lit (Lean.Literal.natVal 234)))
+    (Lean.Expr.bvar 0))
+  (Lean.BinderInfo.default)
 
 elab "beqNatUnchanged_7" : term => return beqNatUnchanged_7
 
@@ -160,8 +158,9 @@ elab "beqNatUnchanged_7" : term => return beqNatUnchanged_7
 -- x == y = y == x ===> True
 #testOptimize [ "BEqNatCommut_2" ] ∀ (x y : Nat), (x == y) = (y == x) ===> True
 
--- y == x ===> x == y (when `x` declared first)
-#testOptimize [ "BEqNatCommut_3" ] ∀ (x y : Nat), (y == x) ===> ∀ (x y : Nat), true = (x == y)
+-- y == x ===> x = y (when `x` declared first)
+-- NOTE: `true = (a == b)` is reduced to `a = b`
+#testOptimize [ "BEqNatCommut_3" ] ∀ (x y : Nat), (y == x) ===> ∀ (x y : Nat), x = y
 
 -- ((x + y) == z) = (z == (x + y)) ===> True
 #testOptimize [ "BEqNatCommut_4" ] ∀ (x y z : Nat), ((x + y) == z) = (z == (x + y)) ===> True
@@ -181,8 +180,9 @@ elab "beqNatUnchanged_7" : term => return beqNatUnchanged_7
 -- x == y = Nat.beq y x ===> True
 #testOptimize [ "BEqNatCommut_9" ] ∀ (x y : Nat), (x == y) = (Nat.beq y x) ===> True
 
--- Nat.beq y x ===> x == y (when `x` declared first)
-#testOptimize [ "BEqNatCommut_10" ] ∀ (x y : Nat), (Nat.beq y x) ===> ∀ (x y : Nat), true = (x == y)
+-- Nat.beq y x ===> x = y (when `x` declared first)
+-- NOTE: `true = (a == b)` is reduced to `a = b`
+#testOptimize [ "BEqNatCommut_10" ] ∀ (x y : Nat), (Nat.beq y x) ===> ∀ (x y : Nat), x = y
 
 -- (Nat.beq (x + y) z) = (z == (x + y)) ===> True
 #testOptimize [ "BEqNatCommut_11" ] ∀ (x y z : Nat), (Nat.beq (x + y) z) = (z == (x + y)) ===> True

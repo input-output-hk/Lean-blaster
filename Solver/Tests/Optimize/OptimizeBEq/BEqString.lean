@@ -45,28 +45,22 @@ namespace Test.BEqString
 
 -- TODO: add other test cases when opacifying String functions for SMT lib transation
 
--- s == t ===> s == t
-#testOptimize [ "BEqStringUnchanged_1" ] ∀ (s t : String), s == t ===> ∀ (s t : String), true = (s == t)
+-- s == t ===> s = t
+-- NOTE `true = (s == t)` is normalized to `s = t`.
+#testOptimize [ "BEqStringUnchanged_1" ] ∀ (s t : String), s == t ===> ∀ (s t : String), s = t
 
--- ∀ (x : String), (x == "xyz") ===> ∀ (x : String), (x == "xyz")
--- NOTE: We here provide the internal representation to ensure that "xyz" is properly reduced to `Expr.lit (Literal.strVal "xyz")`.
+-- ∀ (x : String), (x == "xyz") ===> ∀ (x : String), x = "xyz"
+-- NOTE `true = (s == t)` is normalized to `s = t`.
 def beqStringUnchanged_2 : Expr :=
-  Lean.Expr.forallE `x
-    (Lean.Expr.const `String [])
+ Lean.Expr.forallE
+  `x
+  (Lean.Expr.const `String [])
+  (Lean.Expr.app
     (Lean.Expr.app
-      (Lean.Expr.app
-        (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Bool []))
-        (Lean.Expr.const `Bool.true []))
-      (Lean.Expr.app
-        (Lean.Expr.app
-          (Lean.Expr.app
-            (Lean.Expr.app (Lean.Expr.const `BEq.beq [Lean.Level.zero]) (Lean.Expr.const `String []))
-              (Lean.Expr.app
-                (Lean.Expr.app (Lean.Expr.const `instBEqOfDecidableEq [Lean.Level.zero]) (Lean.Expr.const `String []))
-                (Lean.Expr.const `instDecidableEqString [])))
-          (Lean.Expr.lit (Lean.Literal.strVal "xyz")))
-          (Lean.Expr.bvar 0)))
-    (Lean.BinderInfo.default)
+      (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `String []))
+      (Lean.Expr.lit (Lean.Literal.strVal "xyz")))
+    (Lean.Expr.bvar 0))
+  (Lean.BinderInfo.default)
 
 elab "beqStringUnchanged_2" : term => return beqStringUnchanged_2
 
@@ -82,7 +76,8 @@ elab "beqStringUnchanged_2" : term => return beqStringUnchanged_2
 #testOptimize [ "BEqStringCommut_2" ] ∀ (s t : String), (s == t) = (t == s) ===> True
 
 -- t == s ===> s == t (when `s` declared first)
-#testOptimize [ "BEqStringCommut_3" ] ∀ (s t : String), (t == s) ===> ∀ (s t : String), true = (s == t)
+-- NOTE `true = (s == t)` is normalized to `s = t`.
+#testOptimize [ "BEqStringCommut_3" ] ∀ (s t : String), (t == s) ===> ∀ (s t : String), s = t
 
 -- (s ++ t) == v = (v == (s ++ t)) ===> True
 #testOptimize [ "BEqStringCommut_4" ] ∀ (s t v : String), ((s ++ t) == v) = (v == (s ++ t)) ===> True
