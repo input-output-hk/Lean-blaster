@@ -58,7 +58,7 @@ def translate (sOpts: SolverOptions) (stx : Syntax) : TermElabM Unit := do
         if sOpts.onlyOptimize
         then logResult res sOpts
         else
-          trace[Translate.optExpr] f!"optimized expression: {reprStr optExpr}"
+          trace[Translate.optExpr] f!"optimized expression: {← ppExpr optExpr}"
           discard $ translateExpr optExpr|>.run (← setSolverProcess sOpts env)
     | res => logResult res sOpts
   where

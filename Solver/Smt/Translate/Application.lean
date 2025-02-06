@@ -8,6 +8,7 @@ import Solver.Smt.Translate.Quantifier
 open Lean Meta Solver.Optimize
 
 namespace Solver.Smt
+open Solver.Optimize (extractDependentITEExpr)
 
 /-- Generate an smt symbol from a given function  name. -/
 def funNameToSmtSymbol (funName : Name) : SmtSymbol :=
@@ -616,10 +617,10 @@ def translateConst
     if let some r ← translateCtor n then return r
     if (← hasImplicitArgs e) then
       throwEnvError f!"translateConst: unexpected implicit arguments for function {reprStr e}"
-    if let some r ← translateOpaque n then return r
-    if (← isRecursiveFun n)
-    then translateRecFun e #[] optimizer termTranslator
-    else throwEnvError f!"translateConst: only opaque and recursive functions expected but got {reprStr e}"
+    if let some r ← translateOpaque? n then return r
+    if let some r ← translateRecFun? n then return r
+    if let some r ← translateTheorem? n then return r
+    throwEnvError f!"translateConst: only opaque/recursive functions and theorems expected but got {reprStr e}"
 
 
   where
@@ -633,12 +634,25 @@ def translateConst
         return (smtQualifiedVarId (nameToSmtSymbol c) st)
       else termTranslator (← etaExpand e) -- parameterized constructor case
 
-    translateOpaque (n : Name) : TranslateEnvT (Option SmtTerm) := do
+    translateOpaque? (n : Name) : TranslateEnvT (Option SmtTerm) := do
       if !(opaqueFuns.contains n) then return none
       let smtSym ← translateOpaqueFun e n #[]
       if (hasSmtDefinedOperator n)
       then return (asArraySmt smtSym)
-      else return (← termTranslator (← etaExpand e))
+      else termTranslator (← etaExpand e)
+
+    translateRecFun? (n : Name) : TranslateEnvT (Option SmtTerm) := do
+      if !(← isRecursiveFun n) then return none
+      translateRecFun e #[] optimizer termTranslator
+
+    translateTheorem? (n : Name) : TranslateEnvT (Option SmtTerm) := do
+      if !(← isTheorem n) then return none
+      let ConstantInfo.thmInfo info ← getConstInfo n | return none
+      if (← hasSorryTheorem e) then
+        throwEnvError f!"translateConst: Theorem {n} has `sorry` demonstration"
+      if info.type.isForall then
+        throwEnvError f!"translateConst: Fully applied theorem expected but got {reprStr info.type}"
+      termTranslator (← optimizer info.type)
 
     isForbiddenUnappliedConst (n : Name) : Bool :=
       match n with
@@ -673,6 +687,7 @@ def translateApp
          if let some r ← translateRecFun? f n args then return r
          if let some r ← translateAppliedCtor? f n args then return r
          if let some r ← translateUndeclaredFun? f n args then return r
+         if let some r ← translateTheorem n args then return r
          if let some r ← translateInductivePredicate? f n args then return r
          throwEnvError f!"translateApp: unexpected application {reprStr e}"
 
@@ -701,8 +716,8 @@ def translateApp
        | ``dite =>
             if args.size != 5 then
                throwEnvError f!"translateDITE?: unexpected partially applied dite got {reprStr args}"
-            let args := args.set! 3 (← Solver.Optimize.extractDependentITEExpr args[3]!)
-            let args := args.set! 4 (← Solver.Optimize.extractDependentITEExpr args[4]!)
+            let args := args.set! 3 (args[3]!.beta #[← mkOfDecideEqProof args[1]! true])
+            let args := args.set! 4 (args[4]!.beta #[← mkOfDecideEqProof args[1]! false])
             createAppN f (← translateOpaqueFun f n args) args termTranslator
        | _ => return none
 
@@ -810,10 +825,17 @@ def translateApp
         throwEnvError f!"translateFullyApplied?: fully applied function expected for {reprStr f}"
       createAppN f (← translateOpaqueFun f n args) args termTranslator
 
-    translateInductivePredicate? (_f : Expr) (n : Name) (_args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
+    translateInductivePredicate? (f : Expr) (n : Name) (_args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
       if (← isInductivePredicate n) then
-        throwEnvError "translateApp: Inductive predicate not yet supported"
+        throwEnvError f!"translateApp: Inductive predicate not yet supported: {reprStr f}"
       return none
+
+    translateTheorem (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
+      if !(← isTheorem n) then return none
+      let ConstantInfo.thmInfo info ← getConstInfo n | return none
+      if (← hasSorryTheorem e) then
+        throwEnvError f!"translateApp: Theorem {n} has `sorry` demonstration"
+      termTranslator (← optimizer (← betaForAll info.type args))
 
 /-- Given `e := λ (x₀ : t₁) → λ (xₙ : tₙ) => b`, create Smt term `(lambda (B) sb)`, where:
       - A := [x₁, ..., xₙ]

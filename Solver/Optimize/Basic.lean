@@ -15,7 +15,7 @@ namespace Solver.Optimize
 partial def optimizeExpr (e : Expr) : TranslateEnvT Expr := do
   let rec visit (e : Expr) : TranslateEnvT Expr := do
     withOptimizeEnvCache e fun _ => do
-    trace[Optimize.expr] f!"optimizing {reprStr e}"
+    trace[Optimize.expr] f!"optimizing {← ppExpr e}"
     logReprExpr "Optimize:" e
     match e with
     | Expr.fvar .. => return e
@@ -47,7 +47,7 @@ partial def optimizeExpr (e : Expr) : TranslateEnvT Expr := do
          -- applying choice reduction to avoid optimizing unreachable arguments in match and ite
          if let some re ← reduceITEChoice? rf mas visit then
             trace[Optimize.reduceChoice] f!"choice ite reduction {reprStr rf} {reprStr mas} => {reprStr re}"
-            return re
+            return (← visit re)
          if let some re ← reduceMatchChoice? rf mas visit then
             trace[Optimize.reduceChoice] f!"choice match reduction {reprStr rf} {reprStr mas} => {reprStr re}"
             return (← visit re)

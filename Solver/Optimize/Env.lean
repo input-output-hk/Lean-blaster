@@ -344,6 +344,7 @@ def withOptimizeEnvCache (a : Expr) (f: Unit → TranslateEnvT Expr) : Translate
   | some b => return b
   | none =>
       let b ← f ()
+      trace[Optimize.cacheExpr] f!"optimizing {← ppExpr a} to {← ppExpr b}"
       updateRewriteCache a b
       return b
 
@@ -479,6 +480,21 @@ def mkBEqConst : TranslateEnvT Expr := mkExpr (mkConst ``BEq [levelZero])
 
 /-- Return `LawfulBEq` const expression and cache result. -/
 def mkLawfulBEqConst : TranslateEnvT Expr := mkExpr (mkConst ``LawfulBEq [levelZero])
+
+/-- Return `True.intro` const expression and cache result. -/
+def mkTrueIntro : TranslateEnvT Expr := mkExpr (mkConst ``True.intro)
+
+/-- Return `not_false` const expression and cache result. -/
+def mkNotFalse : TranslateEnvT Expr := mkExpr (mkConst ``not_false)
+
+/-- Return `of_decide_eq_true` const expression and cache result. -/
+def mkOfDecideEqTrue : TranslateEnvT Expr := mkExpr (mkConst ``of_decide_eq_true)
+
+/-- Return `of_decide_eq_false` const expression and cache result. -/
+def mkOfDecideEqFalse : TranslateEnvT Expr := mkExpr (mkConst ``of_decide_eq_false)
+
+/-- Return `Eq.refl` const expression and cache result. -/
+def mkEqRefl : TranslateEnvT Expr := mkExpr (mkConst ``Eq.refl [levelOne])
 
 /-- Return `Nat` Type and cache result. -/
 def mkNatType : TranslateEnvT Expr := mkExpr (mkConst ``Nat)
@@ -649,7 +665,6 @@ def mkIntLitExpr (n : Int) : TranslateEnvT Expr := do
 def mkNatNegExpr (n : Nat) : TranslateEnvT Expr := do
   mkExpr (mkApp (← mkExpr (mkConst ``Int.negSucc)) (← mkNatLitExpr (n - 1)))
 
-
 /-- `evalBinIntOp f n1 n2 perform the following:
       - let r := f n1 n2
       - construct int literal for `r`
@@ -685,18 +700,25 @@ def trySynthConstraintInstance? (cstr : Expr) (cacheNotFound := false) : Transla
   match env.optEnv.synthInstanceCache.find? cstr with
   | some d => return d
   | none => do
-     match (← trySynthInstance cstr) with
-     | LOption.some d =>
-         updateSynthCache cstr (some d)
-         return d
-     | _ =>
-       if cacheNotFound then
-         updateSynthCache cstr (some cstr)
-         return cstr
-       else
-         updateSynthCache cstr none
-         return none
+    try
+      match (← trySynthInstance cstr) with
+      | LOption.some d =>
+          updateSynthCache cstr (some d)
+          return d
+      | _ =>
+        cacheAndReturn cstr
+    catch _ =>
+      -- catch typeCheck error due to unfolding
+      cacheAndReturn cstr
 
+  where
+    cacheAndReturn (cstr : Expr) : TranslateEnvT (Option Expr) := do
+      if cacheNotFound then
+        updateSynthCache cstr (some cstr)
+        return cstr
+      else
+        updateSynthCache cstr none
+        return none
 
 /-- Try to find an instance for `[Decidable e]`. -/
 def trySynthDecidableInstance? (e : Expr) (cacheDecidableCst := true) (cacheNotFound := false) : TranslateEnvT (Option Expr) := do
@@ -719,6 +741,21 @@ def synthDecidableWithNotFound! (e : Expr) : TranslateEnvT Expr := do
   let some d ← trySynthDecidableInstance? e (cacheNotFound := true)
     | throwEnvError f!"synthDecidableWithNotFound!: unreachable !!!"
   return d
+
+
+/-- Given an expression `c` and a boolean value `b`, perform the following:
+     let d ← synthDecidableWithNotFound! c
+      - When b is `true`:
+         - return `of_decide_eq_true c d (Eq.refl true)`
+      - Otherwise:
+         - return `of_decide_eq_false c d (Eq.refl true)`
+-/
+def mkOfDecideEqProof (c : Expr) (b : Bool) : TranslateEnvT Expr := do
+ let eqReflInst ← mkExpr (mkApp2 (← mkEqRefl) (← mkBoolType) (← mkBoolLit b))
+ let d ← synthDecidableWithNotFound! c
+ if b
+ then mkExpr (mkApp3 (← mkOfDecideEqTrue) c d eqReflInst)
+ else mkExpr (mkApp3 (← mkOfDecideEqFalse) c d eqReflInst)
 
 
 /-- Return `true` only when an instance for `[Inhabited n]` can be found. -/
@@ -972,12 +1009,12 @@ partial def specializeLambda (fbody : Expr) (params : ImplicitParameters) : Expr
     else
       match e with
       | Expr.lam n t b bi =>
-           let p := params[idx]!
-           if p.isGeneric || !p.isInstance then
-             visit (idx + 1) stop b fun b' =>
-               k (Expr.lam n t b' bi)
-           else
-             visit (idx + 1) stop (Expr.beta e #[p.effectiveArg]) k
+         let p := params[idx]!
+         if p.isGeneric || !p.isInstance then
+           visit (idx + 1) stop b fun b' =>
+             k (Expr.lam n t b' bi)
+         else
+           visit (idx + 1) stop (Expr.beta e #[p.effectiveArg]) k
       | _ => k e
   visit 0 (params.size) fbody (λ e => e)
 
@@ -1096,5 +1133,9 @@ def hasRecFunInst? (instApp : Expr) : TranslateEnvT (Option Expr) := do
      | none => throwEnvError f!"hasRecFunInst: expecting entry for {reprStr fbody} in recFunMap"
      | res => return res
   | none => return none
+
+
+initialize
+  registerTraceClass `Optimize.cacheExpr
 
 end Solver.Optimize

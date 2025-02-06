@@ -226,6 +226,17 @@ def isStringType (e : Expr) : Bool :=
   | Expr.const ``String _ => true
   | _ => false
 
+/-- Return `true` if the given type expression `t` (e.g., obtained via `inferType`)
+    satisfy the following:
+      - ¬ isProp t
+      - `t :=  α₁ → ... → αₙ`
+-/
+def isFunType (t : Expr) : MetaM Bool := do
+  if (← isProp t) then return false
+  match t with
+  | Expr.forallE .. => return true
+  | _ => return false
+
 /-- Determine if `e` is a `Nat` literal expression `Expr.lit (Literal.natVal n)`
     and return `some n` as result. Otherwise return `none`
     NOTE: This function is to be used only when it is guaranteed that
@@ -768,5 +779,29 @@ def isOpaqueRecFun (f : Expr) (args : Array Expr) : TranslateEnvT Bool := do
      let Expr.const n' _  := (getLambdaBody auxDef).getAppFn' | return false
      return (← isRecursiveFun n')
   return false
+
+/-- Given `e` of the form `forall (a₁ : A₁) ... (aₙ : Aₙ), B[a₁, ..., aₙ]`
+    and `p₁ : A₁, ... pₘ : Aₙ`, return `B[p₁, ..., pₘ]`.
+    An error is triggered when n ≠ m.
+-/
+partial def betaForAll (e : Expr) (args : Array Expr) : TranslateEnvT Expr := do
+  let rec visit (i : Nat) (size : Nat) (e : Expr) : TranslateEnvT Expr := do
+    if i < size then
+       match e with
+       | Expr.forallE _ _ b _ => visit (i + 1) size (b.instantiate1 args[i]!)
+       | _ => throwEnvError "betaForAll: too many arguments !!!"
+    else return e
+  visit 0 args.size e
+
+/-- Return `true` if e contains at least one theorem with sorry demonstration. -/
+partial def hasSorryTheorem (e : Expr) : MetaM Bool :=
+  return (← Expr.findM? (m := MetaM) findSorry e).isSome
+
+ where
+  findSorry (e : Expr) : MetaM Bool := do
+    let Expr.const n _ := e | return false
+    if n == ``sorryAx then return true
+    let ConstantInfo.thmInfo info ← getConstInfo n | return false
+    hasSorryTheorem (info.value)
 
 end Solver.Optimize
