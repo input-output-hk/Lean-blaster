@@ -154,23 +154,29 @@ instance instBEqColor : BEq Color where
 
 /-! Test cases to validate when `BEq.beq must not be unfolded -/
 
--- ∀ (a b : Bool), a == b ===> ∀ (a b : Bool), true = (a == b)
-#testOptimize [ "BEqNotUnfolded_1" ] ∀ (a b : Bool), a == b ===> ∀ (a b : Bool), true = (a == b)
+-- ∀ (a b : Bool), a == b ===> ∀ (a b : Bool), a = b
+-- NOTE: `true = (a == b)` is reduced to `a = b`
+#testOptimize [ "BEqNotUnfolded_1" ] ∀ (a b : Bool), a == b ===> ∀ (a b : Bool), a = b
 
--- ∀ (a b : Bool), a != b ===> ∀ (a b : Bool), false = (a == b)
-#testOptimize [ "BEqNotUnfolded_2" ] ∀ (a b : Bool), a != b ===> ∀ (a b : Bool), false = (a == b)
+-- ∀ (a b : Bool), a != b ===> ∀ (a b : Bool), ¬ (a = b)
+-- NOTE: `false = (a == b)` is reduced to `¬ (a = b)`
+#testOptimize [ "BEqNotUnfolded_2" ] ∀ (a b : Bool), a != b ===> ∀ (a b : Bool), ¬ a = b
 
--- ∀ (x y : Int), x == y ===> ∀ (x y : Int), true = (x == y)
-#testOptimize [ "BEqNotUnfolded_3" ] ∀ (x y : Int), x == y ===> ∀ (x y : Int), true = (x == y)
+-- ∀ (x y : Int), x == y ===> ∀ (x y : Int), x = y
+-- NOTE: `true = (a == b)` is reduced to `a = b`
+#testOptimize [ "BEqNotUnfolded_3" ] ∀ (x y : Int), x == y ===> ∀ (x y : Int), x = y
 
--- ∀ (x y : Int), x != y ===> ∀ (a : Bool), false = (x == y)
-#testOptimize [ "BEqNotUnfolded_4" ] ∀ (x y : Int), x != y ===> ∀ (x y : Int), false = (x == y)
+-- ∀ (x y : Int), x != y ===> ∀ (a : Bool), ¬ (x = y)
+-- NOTE: `false = (a == b)` is reduced to `¬ (a = b)`
+#testOptimize [ "BEqNotUnfolded_4" ] ∀ (x y : Int), x != y ===> ∀ (x y : Int), ¬ (x = y)
 
--- ∀ (x y : Nat), x == y ===> ∀ (x y : Nat), true = (x == y)
-#testOptimize [ "BEqNotUnfolded_5" ] ∀ (x y : Nat), x == y ===> ∀ (x y : Nat), true = (x == y)
+-- ∀ (x y : Nat), x == y ===> ∀ (x y : Nat), x = y
+-- NOTE: `true = (a == b)` is reduced to `a = b`
+#testOptimize [ "BEqNotUnfolded_5" ] ∀ (x y : Nat), x == y ===> ∀ (x y : Nat), x = y
 
--- ∀ (x y : Nat), x != y ===> ∀ (a : Bool), false = (x == y)
-#testOptimize [ "BEqNotUnfolded_6" ] ∀ (x y : Nat), x != y ===> ∀ (x y : Nat), false = (x == y)
+-- ∀ (x y : Nat), x != y ===> ∀ (a : Bool), ¬ (x = y)
+-- NOTE: `false = (a == b)` is reduced to `¬ (a = b)`
+#testOptimize [ "BEqNotUnfolded_6" ] ∀ (x y : Nat), x != y ===> ∀ (x y : Nat), ¬ (x = y)
 
 -- ∀ (α : Type) (x y : α), [BEq α] → x == y ===> ∀ (α : Type) (x y : α), [BEq α] → true = (x == y)
 -- NOTE : type class constraint case
@@ -182,11 +188,13 @@ instance instBEqColor : BEq Color where
 #testOptimize [ "BEqNotUnfolded_8" ] ∀ (α : Type) (x y : α), [BEq α] → x != y ===>
                                      ∀ (α : Type) (x y : α), [BEq α] → false = (x == y)
 
--- ∀ (s t : String), s == t ===> ∀ (s t : String), true = (s == t)
-#testOptimize [ "BEqNotUnfolded_9" ] ∀ (s t : String), s == t ===> ∀ (s t : String), true = (s == t)
+-- ∀ (s t : String), s == t ===> ∀ (s t : String), s = t
+-- NOTE: `true = (a == b)` is reduced to `a = b`
+#testOptimize [ "BEqNotUnfolded_9" ] ∀ (s t : String), s == t ===> ∀ (s t : String), s = t
 
--- ∀ (s t : String), s != t ===> ∀ (s t : String), false = (s == t)
-#testOptimize [ "BEqNotUnfolded_10" ] ∀ (s t : String), s != t ===> ∀ (s t : String), false = (s == t)
+-- ∀ (s t : String), s != t ===> ∀ (s t : String), ¬ (s = t)
+-- NOTE: `false = (a == b)` is reduced to `¬ (a = b)`
+#testOptimize [ "BEqNotUnfolded_10" ] ∀ (s t : String), s != t ===> ∀ (s t : String), ¬ (s = t)
 
 
 end Tests.UnfoldBEq

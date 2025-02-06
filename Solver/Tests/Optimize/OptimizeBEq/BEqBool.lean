@@ -153,36 +153,41 @@ namespace Test.BEqBool
 
 /-! Test cases to ensure that simplification rule `e == not e ==> false` is not applied wrongly. -/
 
--- a == not b ===> a == not b
+-- a == not b ===> a = not b
+-- NOTE: `true = (a == b)` is reduced to `a = b`
 #testOptimize [ "BEqNotUnchanged_1" ] ∀ (a b : Bool), (a == not b) ===>
-                                      ∀ (a b : Bool), true = (a == not b)
+                                      ∀ (a b : Bool), (a = not b)
 
--- not b == a ===> a == not b
+-- not b == a ===> a = not b
 -- NOTE: reordering applied on operands
+-- NOTE: `true = (a == b)` is reduced to `a = b`
 #testOptimize [ "BEqNotUnchanged_2" ] ∀ (a b : Bool), (not b == a) ===>
-                                      ∀ (a b : Bool), true = (a == not b)
+                                      ∀ (a b : Bool), (a = not b)
 
--- a == !b ===> a == !b
+-- a == !b ===> a = !b
+-- NOTE: `true = (a == b)` is reduced to `a = b`
 #testOptimize [ "BEqNotUnchanged_3" ] ∀ (a b : Bool), (a == !b) ===>
-                                      ∀ (a b : Bool), true = (a == !b)
+                                      ∀ (a b : Bool), a = !b
 
--- !a == b ===> !a == b
+-- !a == b ===> !a = b
 -- NOTE: reordering applied on operands
+-- NOTE: `true = (a == b)` is reduced to `a = b`
 #testOptimize [ "BEqNotUnchanged_4" ] ∀ (a b : Bool), ((!a) == b) ===>
-                                      ∀ (a b : Bool), true = (b == !a)
+                                      ∀ (a b : Bool), b = !a
 
 -- a == (! (! a)) ===> True
 #testOptimize [ "BEqNotUnchanged_5" ] ∀ (a : Bool), (a == !(!a)) ===> True
 
 
--- a == !(b && c) ===> a == !(b && c)
+-- a == !(b && c) ===> a = !(b && c)
+-- NOTE: `true = (a == b)` is reduced to `a = b`
 #testOptimize [ "BEqNotUnchanged_6" ] ∀ (a b c : Bool), (a == !(b && c)) ===>
-                                      ∀ (a b c : Bool), true = (a == !(b && c))
+                                      ∀ (a b c : Bool), a = !(b && c)
 
-
--- (a && b) == !(c && d) ===> !(c && d) == (a && b)
+-- (a && b) == !(c && d) ===> (!(c && d)) = (a && b)
+-- NOTE: `true = (a == b)` is reduced to `a = b`
 #testOptimize [ "BEqNotUnchanged_7" ] ∀ (a b c d : Bool), (a && b) == !(c && d) ===>
-                                      ∀ (a b c d : Bool), true = ((!(c && d)) == (a && b))
+                                      ∀ (a b c d : Bool), (!(c && d)) = (a && b)
 
 
 /-! Test cases for simplification rule `e1 == e2 ==> true (if e1 =ₚₜᵣ e2)`. -/
@@ -215,105 +220,115 @@ namespace Test.BEqBool
      - `e1 == e2 ==> true (if e1 =ₚₜᵣ e2)`
 -/
 
--- a == b ===> a == b (with Type(a) = Type(b) = Bool)
-#testOptimize [ "BEqBoolUnchanged_1" ] ∀ (a b : Bool), a == b ===> ∀ (a b : Bool), true = (a == b)
+-- a == b ===> a = b (with Type(a) = Type(b) = Bool)
+-- NOTE: `true = (a == b)` is reduced to `a = b`
+#testOptimize [ "BEqBoolUnchanged_1" ] ∀ (a b : Bool), a == b ===> ∀ (a b : Bool), a = b
 
--- c == (a && b) ===> c == (a && b)
+-- c == (a && b) ===> c = (a && b)
+-- NOTE: `true = (a == b)` is reduced to `a = b`
 #testOptimize [ "BEqBoolUnchanged_2" ] ∀ (a b c : Bool), c == (a && b) ===>
-∀ (a b c : Bool), true = (c == (a && b))
+                                       ∀ (a b c : Bool), c = (a && b)
 
--- (a && b) == c ===> (a && b) == c
--- NOTE: reordering applied on operands
+-- (a && b) == c ===> c = (a && b)
+-- NOTE: `true = (a == b)` is reduced to `a = b`
 #testOptimize [ "BEqBoolUnchanged_3" ] ∀ (a b c : Bool), (a && b) == c ===>
-                                   ∀ (a b c : Bool), true = (c == (a && b))
+                                       ∀ (a b c : Bool), c = (a && b)
 
--- (a || b) == (c && ( b || !b)) ===> (a || b) == c
--- NOTE: reordering applied on operands
+-- (a || b) == (c && ( b || !b)) ===> c = (a || b)
+-- NOTE: `true = (a == b)` is reduced to `a = b`
 #testOptimize [ "BEqBoolUnchanged_4" ] ∀ (a b c : Bool), (a || b) == (c && (b || !b)) ===>
-                                   ∀ (a b c : Bool), true = (c == (a || b))
+                                       ∀ (a b c : Bool), c = (a || b)
 
 
 /-! Test cases for simplification rule `not e1 == not e2 ==> e1 == e2`. -/
 
--- not a == not b ===> a == b
-#testOptimize [ "NotBEqNot_1" ] ∀ (a b : Bool), not a == not b ===> ∀ (a b : Bool), true = (a == b)
+-- not a == not b ===> a = b
+-- NOTE: `true = (a == b)` is reduced to `a = b`
+#testOptimize [ "NotBEqNot_1" ] ∀ (a b : Bool), not a == not b ===> ∀ (a b : Bool), a = b
 
--- not a == not (not b) ===> not a == b
--- NOTE: reordering applied on operands
-#testOptimize [ "NotBEqNot_2" ] ∀ (a b : Bool), not a == not (not b) ===> ∀ (a b : Bool), true = (b == not a)
+-- not a == not (not b) ===> b = not a
+-- NOTE: `true = (a == b)` is reduced to `a = b`
+#testOptimize [ "NotBEqNot_2" ] ∀ (a b : Bool), not a == not (not b) ===> ∀ (a b : Bool), b = not a
 
--- not a == not (not (not b)) ===> a == b
-#testOptimize [ "NotBEqNot_3" ] ∀ (a b : Bool), not a == not (not (not b)) ===> ∀ (a b : Bool), true = (a == b)
+-- not a == not (not (not b)) ===> a = b
+-- NOTE: `true = (a == b)` is reduced to `a = b`
+#testOptimize [ "NotBEqNot_3" ] ∀ (a b : Bool), not a == not (not (not b)) ===> ∀ (a b : Bool), a = b
 
--- not (not a) == not (not b) ===> a == b
-#testOptimize [ "NotBEqNot_4" ] ∀ (a b : Bool), not (not a) == not (not b) ===> ∀ (a b : Bool), true = (a == b)
+-- not (not a) == not (not b) ===> a = b
+-- NOTE: `true = (a == b)` is reduced to `a = b`
+#testOptimize [ "NotBEqNot_4" ] ∀ (a b : Bool), not (not a) == not (not b) ===> ∀ (a b : Bool), a = b
 
--- not (not (not a)) == not (not (not b)) ===> a == b
-#testOptimize [ "NotBEqNot_5" ] ∀ (a b : Bool), not (not (not a)) == not (not (not b)) ===> ∀ (a b : Bool), true = (a == b)
+-- not (not (not a)) == not (not (not b)) ===> a = b
+-- NOTE: `true = (a == b)` is reduced to `a = b`
+#testOptimize [ "NotBEqNot_5" ] ∀ (a b : Bool), not (not (not a)) == not (not (not b)) ===>
+                                ∀ (a b : Bool), a = b
 
--- not (not (not a)) = b ===> not a = b
--- NOTE: reordering applied on operands
-#testOptimize [ "NotBEqNot_6" ] ∀ (a b : Bool), not (not (not a)) == b ===> ∀ (a b : Bool), true = (b == not a)
+-- not (not (not a)) = b ===> b = not a
+-- NOTE: `true = (a == b)` is reduced to `a = b`
+#testOptimize [ "NotBEqNot_6" ] ∀ (a b : Bool), not (not (not a)) == b ===> ∀ (a b : Bool), b = not a
 
--- !a == !b ===> a == b
-#testOptimize [ "NotBEqNot_7" ] ∀ (a b : Bool), (!a) == !b ===> ∀ (a b : Bool), true = (a == b)
+-- !a == !b ===> a = b
+-- NOTE: `true = (a == b)` is reduced to `a = b`
+#testOptimize [ "NotBEqNot_7" ] ∀ (a b : Bool), (!a) == !b ===> ∀ (a b : Bool), a = b
 
--- !a == !(!b) ===> !a == b
--- NOTE: reordering applied on operands
-#testOptimize [ "NotBEqNot_8" ] ∀ (a b : Bool), (!a) == !(!b) ===> ∀ (a b : Bool), true = (b == !a)
+-- !a == !(!b) ===> b = !a
+-- NOTE: `true = (a == b)` is reduced to `a = b`
+#testOptimize [ "NotBEqNot_8" ] ∀ (a b : Bool), (!a) == !(!b) ===> ∀ (a b : Bool), b = !a
 
--- !a == !(!(!b)) ===> a == b
-#testOptimize [ "NotBEqNot_9" ] ∀ (a b : Bool), (!a) == !(!(!b)) ===> ∀ (a b : Bool), true = (a == b)
+-- !a == !(!(!b)) ===> a = b
+-- NOTE: `true = (a == b)` is reduced to `a = b`
+#testOptimize [ "NotBEqNot_9" ] ∀ (a b : Bool), (!a) == !(!(!b)) ===> ∀ (a b : Bool), a = b
 
--- !(a && b) == !(c && d) ===> (a && b) == (c && d)
--- NOTE: reordering applied on operands
+-- !(a && b) == !(c && d) ===> (a && b) = (c && d)
+-- NOTE: `true = (a == b)` is reduced to `a = b`
 #testOptimize [ "NotBEqNot_10" ] ∀ (a b c d : Bool), (!(a && b)) == !(c && d) ===>
-                                 ∀ (a b c d : Bool), true = ((a && b) == (c && d))
+                                 ∀ (a b c d : Bool), (a && b) = (c && d)
 
--- !(a || b) == ! c ===> (a || b) == c
--- NOTE: reordering applied on operands
+-- !(a || b) == ! c ===> c = (a || b)
+-- NOTE: `true = (a == b)` is reduced to `a = b`
 #testOptimize [ "NotBEqNot_11" ] ∀ (a b c : Bool), (!(a || b)) == !c ===>
-                                 ∀ (a b c : Bool), true = (c == (a || b))
+                                 ∀ (a b c : Bool), c = (a || b)
 
 -- !(a || b) == ! c = (c == (b || a)) ===> True
--- NOTE: reordering applied on operands
 #testOptimize [ "NotBEqNot_12" ] ∀ (a b c : Bool), ((!(a || b)) == !c) = (c == (b || a)) ===> True
 
 -- (!(d || c) == !(b || a)) = ((a || b) == (c || d)) ===> True
--- NOTE: reordering applied on operands
 #testOptimize [ "NotBEqNot_13" ] ∀ (a b c d : Bool), ((!(d || c)) == !(b || a)) = ((a || b) == (c || d)) ===> True
 
 
 /-! Test cases to ensure that simplification rule `not e1 == not e2 ==> e1 == e2` is not applied wrongly. -/
 
--- not a == b ===> not a == b
--- NOTE: reordering applied on operands
+-- not a == b ===> b = not a
+-- NOTE: `true = (a == b)` is reduced to `a = b`
 #testOptimize [ "NotBEqNotUnchanged_1" ] ∀ (a b : Bool), not a == b ===>
-                                         ∀ (a b : Bool), true = (b == not a)
+                                         ∀ (a b : Bool), b = not a
 
 -- (not ((not a)) == b ===> a = b
+-- NOTE: `true = (a == b)` is reduced to `a = b`
 #testOptimize [ "NotBEqNotUnchanged_2" ] ∀ (a b : Bool), (not (not a)) == b ===>
-                                         ∀ (a b : Bool), true = (a == b)
+                                         ∀ (a b : Bool), a = b
 
 
--- (not ((not ((not a))) == b ===> not a = b
--- NOTE: reordering applied on operands
+-- (not ((not ((not a))) == b ===> b = not a
+-- NOTE: `true = (a == b)` is reduced to `a = b`
 #testOptimize [ "NotBEqNotUnchanged_3" ] ∀ (a b : Bool), (not (not (not a))) == b ===>
-                                         ∀ (a b : Bool), true = (b == not a)
+                                         ∀ (a b : Bool), b = not a
 
--- b == not a ===> b == not a
+-- b == not a ===> b = not a
+-- NOTE: `true = (a == b)` is reduced to `a = b`
 #testOptimize [ "NotBEqNotUnchanged_4" ] ∀ (a b : Bool), b == not a ===>
-                                         ∀ (a b : Bool), true = (b == not a)
+                                         ∀ (a b : Bool), b = not a
 
--- b == (not ((not a)) ===> b = a
--- NOTE: reordering applied on operands
+-- b == (not ((not a)) ===> a = b
+-- NOTE: `true = (a == b)` is reduced to `a = b`
 #testOptimize [ "NotBEqNotUnchanged_5" ] ∀ (a b : Bool), b == (not (not a)) ===>
-                                         ∀ (a b : Bool), true = (a == b)
+                                         ∀ (a b : Bool), a = b
 
 
--- b == (not ((not ((not a))) ===> b == not a
+-- b == (not ((not ((not a))) ===> b = not a
+-- NOTE: `true = (a == b)` is reduced to `a = b`
 #testOptimize [ "NotBEqNotUnchanged_6" ] ∀ (a b : Bool), b == (not (not (not a))) ===>
-                                         ∀ (a b : Bool), true = (b == not a)
+                                         ∀ (a b : Bool), b = not a
 
 
 /-! Test cases for simplification rule `e1 == e2 ==> e2 == e1 (if e2 <ₒ e1)`. -/
@@ -326,9 +341,10 @@ namespace Test.BEqBool
 #testOptimize [ "BEqBoolCommut_2" ] ∀ (a b : Bool), (a == b) = (b == a) ===> True
 
 
--- b == a ===> a == b (with Type(a) = Bool and when `a` declared first)
+-- b == a ===> a = b (with Type(a) = Bool and when `a` declared first)
+-- NOTE: `true = (a == b)` is reduced to `a = b`
 #testOptimize [ "BEqBoolCommut_3" ] ∀ (a b : Bool), (b == a) ===>
-                                   ∀ (a b : Bool), true = (a == b)
+                                    ∀ (a b : Bool), a = b
 
 -- a == (b == c) = ((c == b) == a) ===> True (with Type(a) = Bool)
 #testOptimize [ "BEqBoolCommut_4" ] ∀ (a b c : Bool), (a == (b == c)) = ((c == b) == a) ===> True

@@ -15,18 +15,24 @@ namespace Solver.Optimize
    NOTE: `Nat.add` on constant values are handled via `reduceApp`.
 -/
 partial def optimizeNatAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
- if args.size == 2 then
-   let opArgs ← reorderNatOp args -- error triggered when args.size ≠ 2
-   let op1 := opArgs[0]!
-   let op2 := opArgs[1]!
-   match (isNatValue? op1) with
-   | some 0 => pure op2
-   | some n1 =>
-       match (toNatCstOpExpr? op2) with
-       | some (NatCstOpInfo.NatAddExpr n2 e2) => mkAppExpr f #[(← evalBinNatOp Nat.add n1 n2), e2]
-       | some _ | none => mkAppExpr f opArgs
-   | none => mkAppExpr f opArgs
- else mkAppExpr f args
+ if args.size != 2 then return (← mkAppExpr f args)
+ let opArgs ← reorderNatOp args -- error triggered when args.size ≠ 2
+ let op1 := opArgs[0]!
+ let op2 := opArgs[1]!
+ let nv1 := isNatValue? op1
+ if let some 0 := nv1 then return op2
+ if let some r ← cstAddProp? nv1 op2 then return r
+ mkExpr (mkApp2 f op1 op2)
+
+ where
+   /- Given `mv1` and `op2`, return `some ((N1 "+" N2) + n)` when
+      `mv1 := some N1 ∧ op2 := N2 + n`.
+      Otherwise `none`
+   -/
+   cstAddProp? (mv1 : Option Nat) (op2 : Expr) : TranslateEnvT (Option Expr) := do
+    match mv1, toNatCstOpExpr? op2 with
+    | some n1, (NatCstOpInfo.NatAddExpr n2 e2) => some <$> mkExpr (mkApp2 f (← evalBinNatOp Nat.add n1 n2) e2)
+    | _, _ => return none
 
 
 /-- Apply the following simplification/normalization rules on `Nat.sub` :
@@ -43,30 +49,48 @@ partial def optimizeNatAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr :
    TODO: consider additional simplification rules
 -/
 partial def optimizeNatSub (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
- if args.size == 2
- then
-   let op1 := args[0]!
-   let op2 := args[1]!
-   if (← exprEq op1 op2)
-   then mkNatLitExpr 0
-   else
-     match (isNatValue? op1), (isNatValue? op2) with
-     | some 0, _ | _, some 0 => pure op1
-     | some n1, _ =>
-          match (toNatCstOpExpr? op2) with
-          | some (NatCstOpInfo.NatAddExpr n2 e2) => optimizeNatSub f #[(← evalBinNatOp Nat.sub n1 n2), e2]
-          | some _ | none => mkAppExpr f args
-     | _, some n2 =>
-          match (toNatCstOpExpr? op1) with
-          | some (NatCstOpInfo.NatSubLeftExpr n1 e1) => optimizeNatSub f #[(← evalBinNatOp Nat.sub n1 n2), e1]
-          | some (NatCstOpInfo.NatSubRightExpr e1 n1) => mkAppExpr f #[e1, (← evalBinNatOp Nat.add n1 n2)]
+ if args.size != 2 then return (← mkAppExpr f args)
+ let op1 := args[0]!
+ let op2 := args[1]!
+ if (← exprEq op1 op2) then return (← mkNatLitExpr 0)
+ let nv1 := isNatValue? op1
+ let nv2 := isNatValue? op2
+ if let some 0 := nv1 then return op1
+ if let some 0 := nv2 then return op1
+ if let some r ← cstSubPropRight? nv1 op2 then return r
+ if let some r ← cstSubPropLeft? op1 nv2 then return r
+ mkExpr (mkApp2 f op1 op2)
+
+ where
+   /- Given `mv1` and `op2` return `some ((N1 "-" N2) - n)` when
+      `mv1 := some N1 ∧ op2 := (N2 + n)`. Otherwise `none`.
+   -/
+   cstSubPropRight? (mv1 : Option Nat) (op2 : Expr) : TranslateEnvT (Option Expr) := do
+    match mv1, toNatCstOpExpr? op2 with
+    | some n1, NatCstOpInfo.NatAddExpr n2 e2 =>
+        some <$> optimizeNatSub f #[(← evalBinNatOp Nat.sub n1 n2), e2]
+    | _, _ => return none
+
+   /- Given `op1` and `mv2`,
+       - return `some ((N1 "-" N2) - n)` when `op1 := (N1 - n) ∧ mv2 := some N2`
+       - return `some (n - (N1 "+" N2))` when `op1 := (n - N1) ∧ mv2 := some N2`
+       - return `some ((N1 "-" N2) + n)` when `op1 := N1 + n ∧ mv2 := some N2 ∧ N1 ≥ N2`
+      Otherwise `none`
+   -/
+   cstSubPropLeft? (op1 : Expr) (mv2 : Option Nat) : TranslateEnvT (Option Expr) := do
+     match mv2 with
+     | some n2 =>
+          match toNatCstOpExpr? op1 with
+          | some (NatCstOpInfo.NatSubLeftExpr n1 e1) =>
+              some <$> optimizeNatSub f #[(← evalBinNatOp Nat.sub n1 n2), e1]
+          | some (NatCstOpInfo.NatSubRightExpr e1 n1) =>
+              some <$> mkExpr (mkApp2 f e1 (← evalBinNatOp Nat.add n1 n2))
           | some (NatCstOpInfo.NatAddExpr n1 e1) =>
-             if Nat.ble n2 n1
-             then optimizeNatAdd (← mkNatAddOp) #[(← evalBinNatOp Nat.sub n1 n2), e1]
-             else mkAppExpr f args
-          | some _ | none => mkAppExpr f args
-     | _, _ => mkAppExpr f args
-  else mkAppExpr f args
+              if Nat.ble n2 n1 then
+                some <$> optimizeNatAdd (← mkNatAddOp) #[(← evalBinNatOp Nat.sub n1 n2), e1]
+              else return none
+          | _ => return none
+     | _ => return none
 
 -- /-- TODO: Apply the following advanced constant propagation rules on `Nat.add` and `Nat.sub`:
 --      - (N1 + n1) + (N2 + n2) ==> (N1 "+" N2) + (n1 + n2) (TODO)
@@ -88,19 +112,26 @@ partial def optimizeNatSub (f : Expr) (args : Array Expr) : TranslateEnvT Expr :
    NOTE: `Nat.mul` on constant values are handled via `reduceApp`.
 -/
 def optimizeNatMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
- if args.size == 2 then
-   let opArgs ← reorderNatOp args -- error triggered when args.size ≠ 2
-   let op1 := opArgs[0]!
-   let op2 := opArgs[1]!
-   match (isNatValue? op1) with
-   | some 0 => return op1
-   | some 1 => return op2
-   | some n1 =>
-       match (toNatCstOpExpr? op2) with
-       | some (NatCstOpInfo.NatMulExpr n2 e2) => mkAppExpr f #[(← evalBinNatOp Nat.mul n1 n2), e2]
-       | some _ | none => mkAppExpr f opArgs
-   | none => mkAppExpr f opArgs
- else mkAppExpr f args
+ if args.size != 2 then return (← mkAppExpr f args)
+ let opArgs ← reorderNatOp args -- error triggered when args.size ≠ 2
+ let op1 := opArgs[0]!
+ let op2 := opArgs[1]!
+ let nv1 := isNatValue? op1
+ if let some 0 := nv1 then return op1
+ if let some 1 := nv1 then return op2
+ if let some r ← cstMulProp? nv1 op2 then return r
+ mkExpr (mkApp2 f op1 op2)
+
+ where
+   /- Given `mv1` and `op2`, return `some ((N1 "*" N2) * n)`
+      when `mv1 := some N1 ∧ op2 := (N2 * n)`
+      Otherwise `none`.
+   -/
+   cstMulProp? (mv1 : Option Nat) (op2 : Expr) : TranslateEnvT (Option Expr) := do
+     match mv1, toNatCstOpExpr? op2 with
+     | some n1, some (NatCstOpInfo.NatMulExpr n2 e2) =>
+         some <$> mkExpr (mkApp2 f (← evalBinNatOp Nat.mul n1 n2) e2)
+     | _, _ => return none
 
 
 /-- Given `e1` and `e2` corresponding to the operands for `Nat.div` (i.e., `e1 / e2`),
@@ -110,15 +141,11 @@ def optimizeNatMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
     Otherwise, return none.
 -/
 def mulDivReduceExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := do
-  match toNatMulExpr? e1 with
-  | some (_, mul_ops) =>
-      let op1 := mul_ops[0]!
-      let op2 := mul_ops[1]!
-      if (← exprEq op1 e2)
-      then return some op2
-      else if (← exprEq op2 e2)
-           then return some op1
-           else return none
+  match natMul? e1 with
+  | some (op1, op2) =>
+     if (← exprEq op1 e2) then return some op2
+     if (← exprEq op2 e2) then return some op1
+     return none
   | none => return none
 
 
@@ -126,7 +153,7 @@ def mulDivReduceExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := d
      - n / 0 ==> 0
      - n / 1 ==> n
      - 0 / n ==> 0
-     - (n / N1) / N2 ==> n / (N1 "*" N2) (if N1 > 0 ∧ N2 > 0)
+     - (n / N1) / N2 ==> n / (N1 "*" N2)
      - (N1 * n) / N2 ===> ((N1 "/" Nat.gcd N1 N2) * n) / (N2 "/" Nat.gcd N1 N2) (if N2 > 0)
      - (m * n) / m | (n * m) / m ==> n
 
@@ -135,30 +162,39 @@ def mulDivReduceExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := d
    NOTE: `Nat.div` on constant values are handled via `reduceApp`.
 -/
 partial def optimizeNatDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
- if args.size == 2 then
-   let op1 := args[0]!
-   let op2 := args[1]!
-   match (isNatValue? op1), (isNatValue? op2) with
-   | _, some 0 => return op2
-   | _, some 1 | some 0, _ => return op1
-   | _, some n2 =>
-       match (toNatCstOpExpr? op1) with
-       | some (NatCstOpInfo.NatDivRightExpr e1 n1) => mkAppExpr f #[e1, (← evalBinNatOp Nat.mul n1 n2)]
-       | some (NatCstOpInfo.NatMulExpr n1 e1) =>
-           let gcd := if n1 < n2 then Nat.gcd n1 n2 else Nat.gcd n2 n1
-           if gcd != 1
-           then
+ if args.size != 2 then return (← mkAppExpr f args)
+ let op1 := args[0]!
+ let op2 := args[1]!
+ let nv1 := isNatValue? op1
+ let nv2 := isNatValue? op2
+ if let some 0 := nv2 then return op2
+ if let some 1 := nv2 then return op1
+ if let some 0 := nv1 then return op1
+ if let some r ← cstDivProp? op1 nv2 then return r
+ if let some r ← mulDivReduceExpr? op1 op2 then return r
+ mkExpr (mkApp2 f op1 op2)
+
+ where
+   /- Given `op1` and `mv2`,
+        - return `some (n / (N1 "*" N2))` when `op1 := (n / N1) ∧ mv2 := some N2`
+        - return `some (((N1 "/" Nat.gcd N1 N2) * n) / (N2 "/" Nat.gcd N1 N2))`
+          when `op1 := (N1 * n) ∧ mv2 := some N2`
+      Otherwise `none`.
+      Assumes that N2 > 0
+   -/
+   cstDivProp? (op1 : Expr) (mv2 : Option Nat) : TranslateEnvT (Option Expr) := do
+     match mv2 with
+     | some n2 =>
+         match toNatCstOpExpr? op1 with
+         | some (NatCstOpInfo.NatDivRightExpr e1 n1) =>
+             some <$> mkExpr (mkApp2 f e1 (← evalBinNatOp Nat.mul n1 n2))
+         | some (NatCstOpInfo.NatMulExpr n1 e1) =>
+             let gcd := if n1 < n2 then Nat.gcd n1 n2 else Nat.gcd n2 n1
+             if gcd = 1 then return none
              let mulExpr ← optimizeNatMul (← mkNatMulOp) #[(← evalBinNatOp Nat.div n1 gcd), e1]
-             optimizeNatDiv f #[mulExpr, (← evalBinNatOp Nat.div n2 gcd)]
-           else mkAppExpr f args
-       | some _ | none => mkAppExpr f args
-   |_, _ =>
-       match (← mulDivReduceExpr? op1 op2) with
-       | some r => pure r
-       | none => mkAppExpr f args
- else mkAppExpr f args
-
-
+             some <$> optimizeNatDiv f #[mulExpr, (← evalBinNatOp Nat.div n2 gcd)]
+         | _ => return none
+     | _ => return none
 
 /-- Given `e1` and `e2` corresponding to the operands for `Nat.mod` (i.e., `e1 % e2`),
     return `some 0` only when one of the following conditions is satisfied:
@@ -168,17 +204,12 @@ partial def optimizeNatDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr :
     Otherwise, return none.
 -/
 def modToZeroExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := do
-  if (← exprEq e1 e2)
-  then some <$> (mkNatLitExpr 0)
-  else
-    match toNatMulExpr? e1 with
-    | some (_, mul_ops) =>
-        let op1 := mul_ops[0]!
-        let op2 := mul_ops[1]!
-        if (← exprEq op1 e2 <||> exprEq op2 e2)
-        then some <$> (mkNatLitExpr 0)
-        else return none
-    | none => return none
+  if (← exprEq e1 e2) then return (some (← mkNatLitExpr 0))
+  match natMul? e1 with
+  | some (op1, op2) =>
+     if (← exprEq op1 e2 <||> exprEq op2 e2) then return (← mkNatLitExpr 0)
+     return none
+  | none => return none
 
 /-- Apply the following simplification/normalization rules on `Nat.mod` :
      - n % 0 ==> n
@@ -193,34 +224,39 @@ def modToZeroExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := do
 -/
 
 def optimizeNatMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
- if args.size == 2 then
-   let op1 := args[0]!
-   let op2 := args[1]!
-   match (isNatValue? op1), (isNatValue? op2) with
-   | _, some 0 => return op1
-   | _, some 1 | some 0, _ => mkNatLitExpr 0
-   | _, some n2 =>
-       match (toNatCstOpExpr? op1) with
-       | some (NatCstOpInfo.NatMulExpr n1 _e1) =>
-          if Nat.mod n1 n2 == 0
-          then mkNatLitExpr 0
-          else mkAppExpr f args
-       | some _ | none => mkAppExpr f args
-   |_, _ =>
-     match (← modToZeroExpr? op1 op2) with
-     | some r => pure r
-     | _ => mkAppExpr f args
- else mkAppExpr f args
+ if args.size != 2 then return (← mkAppExpr f args)
+ let op1 := args[0]!
+ let op2 := args[1]!
+ let nv1 := isNatValue? op1
+ let nv2 := isNatValue? op2
+ if let some 0 := nv2 then return op1
+ if let some 1 := nv2 then return (← mkNatLitExpr 0)
+ if let some 0 := nv1 then return (← mkNatLitExpr 0)
+ if let some r ← cstModProp? op1 nv2 then return r
+ if let some r ← modToZeroExpr? op1 op2 then return r
+ mkExpr (mkApp2 f op1 op2)
 
+ where
+   /- Given `op1` and `mv2`, return `some 0`
+      when `op1 := N1 * n ∧ mv2 := N2 ∧ N1 % N2 = 0`
+      Otherwise `none`.
+      Assumes that N2 > 0
+   -/
+   cstModProp? (op1 : Expr) (mv2 : Option Nat) : TranslateEnvT (Option Expr) := do
+    match toNatCstOpExpr? op1, mv2 with
+    | some (NatCstOpInfo.NatMulExpr n1 _e1), some n2 =>
+        if Nat.mod n1 n2 == 0
+        then some <$> mkNatLitExpr 0
+        else return none
+    | _, _ => return none
 
 /-- Normalize `Nat.succ n` to `1 + n`.
     An error is triggered if args.size ≠ 1.
     NOTE: `Nat.succ` on constant values are handled via `reduceApp`.
 -/
 def optimizeNatSucc (args : Array Expr) : TranslateEnvT Expr := do
- if args.size == 1
- then optimizeNatAdd (← mkNatAddOp) #[← mkNatLitExpr 1, args[0]!]
- else throwError "optimizeNatSucc: only one argument expected"
+ if args.size != 1 then throwError "optimizeNatSucc: only one argument expected"
+ optimizeNatAdd (← mkNatAddOp) #[← mkNatLitExpr 1, args[0]!]
 
 /-- Normalize `Nat.pred n` to `n - 1`.
     Do nothing if operator is partially applied (i.e., args.size < 2)

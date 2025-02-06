@@ -62,13 +62,14 @@ namespace Tests.OptimizeBoolNot
 -- ! (! (! a)) ===> ! a (i.e., false = a)
 #testOptimize [ "BoolNotUnchanged_2" ] ∀ (a : Bool), ! (! (!a)) ===> ∀ (a : Bool), false = a
 
--- ! (a == b) ===> ! (a == b) (i.e., false = (a == b))
-#testOptimize [ "BoolNotUnchanged_3" ] ∀ (a b : Bool), ! (a == b) ===> ∀ (a b : Bool), false = (a == b)
+-- ! (a == b) ===> ¬ (a = b)
+-- NOTE: `false = (a == b)` is reduced to `¬ (a = b)`
+#testOptimize [ "BoolNotUnchanged_3" ] ∀ (a b : Bool), ! (a == b) ===> ∀ (a b : Bool), ¬ (a = b)
 
--- ! (a && b) ===> ! (a && b) (i.e., false = (a && b))
+-- ! (a && b) ===> false = (a && b)
 #testOptimize [ "BoolNotUnchanged_4" ] ∀ (a b : Bool), ! (a && b) ===> ∀ (a b : Bool), false = (a && b)
 
--- if c then !a else b ===> (!c || !a) && (c || b)
+-- if c then !a else b ===> true = ((c || b) && (!c || !a))
 #testOptimize [ "BoolNotUnchanged_5" ] ∀ (c a b : Bool), true = (if c then !a else b) ===>
                                        ∀ (c a b : Bool), true = ((c || b) && (!c || !a))
 
