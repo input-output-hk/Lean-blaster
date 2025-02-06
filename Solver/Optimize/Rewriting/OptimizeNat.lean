@@ -298,7 +298,7 @@ def optimizeNatble (f : Expr) (b_args : Array Expr) : TranslateEnvT Expr := do
     let leExpr ← optimizeLE f' (i_args ++ b_args)
     optimizeDecideCore (← mkDecideConst) #[leExpr, ← synthDecidableInstance! leExpr]
 
-/-- Apply simplification/normalization rules on Nat operators. -/
+/-- Apply simplification/normalization rules on `Nat` operators. -/
 def optimizeNat? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
   let Expr.const n _ := f | return none
   match n with
