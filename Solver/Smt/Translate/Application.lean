@@ -507,9 +507,9 @@ partial def translateRecFun
                   for i in [:params.size] do
                     if !(params[i]!.isInstance) then
                       pargs := pargs.push xargs[idxArg]!
-                      idxArg := idxArg + 1
                     else
                       pargs := pargs.push params[i]!.effectiveArg
+                    idxArg := idxArg + 1
                   some (mkAppN f pargs)
                 else none
             | _ => none
