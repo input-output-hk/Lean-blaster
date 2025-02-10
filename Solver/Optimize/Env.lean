@@ -344,7 +344,7 @@ def withOptimizeEnvCache (a : Expr) (f: Unit → TranslateEnvT Expr) : Translate
   | some b => return b
   | none =>
       let b ← f ()
-      trace[Optimize.cacheExpr] f!"optimizing {← ppExpr a} to {← ppExpr b}"
+      trace[Optimize.cacheExpr] f!"optimizing {← ppExpr a} ===> {← ppExpr b}"
       updateRewriteCache a b
       return b
 

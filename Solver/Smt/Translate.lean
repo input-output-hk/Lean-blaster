@@ -49,7 +49,6 @@ partial def translateExpr (e : Expr) : TranslateEnvT Unit := do
   -- TODO: spawn lean proof mode when result is undetermined
   discard $ exitSmt
 
-
 def translate (sOpts: SolverOptions) (stx : Syntax) : TermElabM Unit := do
   elabTermAndSynthesize stx none >>= fun e => do
     let (optExpr, env) ← optimize sOpts (← toPropExpr e)
@@ -62,12 +61,17 @@ def translate (sOpts: SolverOptions) (stx : Syntax) : TermElabM Unit := do
           discard $ translateExpr optExpr|>.run (← setSolverProcess sOpts env)
     | res => logResult res sOpts
   where
+    isTheoremExpr (e : Expr) : TermElabM (Option Expr) := do
+      let Expr.const n _ := e.getAppFn' | return none
+      let ConstantInfo.thmInfo info ← getConstInfo n | return none
+      return info.type
+
     toPropExpr (e : Expr) : TermElabM Expr := do
-    let e_type ← inferType e
-    let forall_type ← inferType e_type
-    if Expr.isProp e_type then return e
-    if Expr.isProp forall_type then return e_type -- case when parsed term is a theorem name
-    throwError f!"translate: Term of type Prop expected !!!"
+      if let some r ← isTheoremExpr e then return r
+      if !(← isTypeCorrect e) || (Expr.hasSorry e) then
+         throwError f!"translate: {← ppExpr e} is not well-formed"
+      if (← isProp e) then return e
+         throwError f!"translate: {← ppExpr e} is not a proposition !!!"
 
 initialize
    registerTraceClass `Translate.expr
