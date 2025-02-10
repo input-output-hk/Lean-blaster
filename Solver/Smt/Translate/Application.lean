@@ -505,11 +505,13 @@ partial def translateRecFun
                   let mut pargs := #[]
                   let mut idxArg := 0
                   for i in [:params.size] do
-                    if !(params[i]!.isInstance) then
+                    let p := params[i]!
+                    if !(p.isInstance) then
                       pargs := pargs.push xargs[idxArg]!
                     else
                       pargs := pargs.push params[i]!.effectiveArg
-                    idxArg := idxArg + 1
+                    if p.isGeneric || !p.isInstance then
+                      idxArg := idxArg + 1
                   some (mkAppN f pargs)
                 else none
             | _ => none
