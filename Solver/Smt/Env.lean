@@ -443,7 +443,8 @@ def checkSat : TranslateEnvT Result := do
     match satResult with
       | "sat\n"     => pure (.Falsified (← getModel))
       | "unsat\n"   => pure .Valid
-      | "unknown\n" => pure .Undetermined
+      | "unknown\n"
+      | "timeout\n" => pure .Undetermined
       | err => throwEnvError s!"checkSat: Unexpected check-sat result: {err}"
   return res
 
