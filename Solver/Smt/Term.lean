@@ -224,7 +224,7 @@ def strReplaceSymbol : SmtSymbol := mkReservedSymbol "str.replace"
 def strReplaceAllSymbol : SmtSymbol := mkReservedSymbol "str.replace_all"
 
 /-! length Smt symbol for String. -/
-def strLengthSymbol : SmtSymbol := mkReservedSymbol "str.length"
+def strLengthSymbol : SmtSymbol := mkReservedSymbol "str.len"
 
 /-! ## Builtin Smt functions. -/
 

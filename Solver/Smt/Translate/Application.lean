@@ -55,7 +55,10 @@ def fullyAppliedConst : NameHashSet :=
     ``Nat.mul,
     ``Nat.div,
     ``Nat.mod,
-    ``Nat.pow
+    ``Nat.pow,
+    ``String.append,
+    ``String.length,
+    ``String.replace
   ]
 
 /-- Return `true` if `n` must have a defined Smt function during translation. -/
