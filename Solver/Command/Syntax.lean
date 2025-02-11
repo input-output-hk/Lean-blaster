@@ -48,7 +48,7 @@ def parseUnfoldDepth (sOpts : SolverOptions) : TSyntax `solveUnfoldDepth -> Comm
  | _ => throwUnsupportedSyntax
 
 def parseTimeout (sOpts : SolverOptions) : TSyntax `solveTimeout -> CommandElabM SolverOptions
- | `(solveTimeout| (timeout: $n:num)) => return { sOpts with timeout := n.getNat }
+ | `(solveTimeout| (timeout: $n:num)) => return { sOpts with timeout := some n.getNat }
  | `(solveTimeout| ) => return sOpts
  | _ => throwUnsupportedSyntax
 
