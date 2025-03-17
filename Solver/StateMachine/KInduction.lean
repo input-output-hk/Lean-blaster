@@ -153,10 +153,7 @@ partial def kIndStrategy (smInst : Expr) : TranslateEnvT Unit := do
      else return some res
 
 
-syntax (name := kind) "#kind"
-  solveUnfoldDepth solveTimeout
-  solveVerbose solveSMTLib solveOptimize solveDumpSmt solveMaxDepth solveGenCex
-  solveResult solveTerm : command
+syntax (name := kind) "#kind" (solveOption)* solveTerm : command
 
 def kIndCommand (sOpts: SolverOptions) (stx : Syntax) : TermElabM Unit := do
   elabTermAndSynthesize stx none >>= fun e => do

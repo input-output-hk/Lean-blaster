@@ -96,10 +96,7 @@ partial def bmcStrategy (smInst : Expr) : TranslateEnvT Unit := do
         return res
      | res => return res
 
-syntax (name := bmc) "#bmc"
-  solveUnfoldDepth solveTimeout
-  solveVerbose solveSMTLib solveOptimize solveDumpSmt solveMaxDepth solveGenCex
-  solveResult solveTerm : command
+syntax (name := bmc) "#bmc" (solveOption)* solveTerm : command
 
 def bmcCommand (sOpts: SolverOptions) (stx : Syntax) : TermElabM Unit := do
   elabTermAndSynthesize stx none >>= fun e => do
