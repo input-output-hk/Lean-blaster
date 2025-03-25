@@ -67,18 +67,18 @@ instance : Inhabited OptimizeOptions where
 /-- Type defining the environment used when optimizing a lean theorem. -/
 structure OptimizeEnv where
   /-- Cache memoizing the normalization and rewriting performed on the lean theorem. -/
-  rewriteCache : HashMap Lean.Expr Lean.Expr
+  rewriteCache : Std.HashMap Lean.Expr Lean.Expr
   /-- Cache memoizing synthesized instances for Decidable/Inhabited/LawfulBEq constraint. -/
-  synthInstanceCache : HashMap Lean.Expr (Option Lean.Expr)
+  synthInstanceCache : Std.HashMap Lean.Expr (Option Lean.Expr)
   /-- Cache memoizing the whnf result. -/
-  whnfCache : HashMap Lean.Expr Lean.Expr
+  whnfCache : Std.HashMap Lean.Expr Lean.Expr
   /-- Cache memoizing type for a match application of the form
        `f.match.n [p₁, ..., pₙ, d₁, ..., dₖ,, pa₍₁₎₍₁₎ → .. → pa₍₁₎₍ₖ₎ → rhs₁, ..., pa₍ₘ₎₍₁₎ → .. → pa₍ₘ₎₍ₖ₎ → rhsₘ]`, s.t.:
       An entry in this map is expected to be of the form `Type(f.match.n [p₁, ..., pₙ])` := fun.match.n p₁ ... pₙ`
       where, `p₁, ..., pₙ` correspond to the arguments instantiating polymorphic params.
       This is used to determine equivalence between match functions (see function `structEqMatch?`).
   -/
-  matchCache: HashMap Lean.Expr Lean.Expr
+  matchCache: Std.HashMap Lean.Expr Lean.Expr
 
   /-- Cache memoizing instances of recursive functions.
       An entry in this map is expected to be of the form `f x₁ ... xₙ := fdef`,
@@ -87,16 +87,16 @@ structure OptimizeEnv where
         - fdef: correspond to the recursive function body.
       TODO: UPDATE
   -/
-  recFunInstCache : HashMap Lean.Expr Lean.Expr
+  recFunInstCache : Std.HashMap Lean.Expr Lean.Expr
   /-- Cache keeping track of visited recursive function.
       Note that we here keep track of each instantiated polymorphic function.
   -/
-  recFunCache: HashSet Lean.Expr
+  recFunCache: Std.HashSet Lean.Expr
   /-- Map to keep the normalized definition for each recursive function,
       which is also used to determine structural equivalence between functions
       (see function `storeRecFunDef`).
   -/
-  recFunMap: HashMap Lean.Expr Lean.Expr
+  recFunMap: Std.HashMap Lean.Expr Lean.Expr
 
   /-- Optimization options (see note on OptimizeOptions) -/
   options : OptimizeOptions
@@ -114,7 +114,7 @@ structure TranslateOptions where
   /-- Set keeping track of all variables in matched terms, including named patterns.
       This set is provided only when translating matched terms and match rhs.
   -/
-  inPatternMatching : HashSet FVarId
+  inPatternMatching : Std.HashSet FVarId
 
 instance : Inhabited TranslateOptions where
   default := {typeUniverse := false, inFunRecDefinition := false, inPatternMatching := .empty}
@@ -122,7 +122,7 @@ instance : Inhabited TranslateOptions where
 /-- Type defining the environment used when translating to Smt-Lib. -/
 structure SmtEnv where
   /-- Cache memoizing the translation to Smt-Lib term. -/
-  translateCache : HashMap Lean.Expr SmtTerm
+  translateCache : Std.HashMap Lean.Expr SmtTerm
 
   /-- Smt-Lib commands emitted to the backend solver. -/
   smtCommands : Array SmtCommand
@@ -131,7 +131,7 @@ structure SmtEnv where
   smtProc : Option (IO.Process.Child ⟨.piped, .piped, .piped⟩)
 
   /-- Cache keeping track of visited inductive datatype during translation. -/
-  indTypeVisited : HashSet Lean.Name
+  indTypeVisited : Std.HashSet Lean.Name
 
   /-- Map to keep inductive datatype instances and quantified functions
       that has already been translated.
@@ -153,7 +153,7 @@ structure SmtEnv where
                - `b₀ .. bₘ` corresponding to the polymorphic arguments (see `getFunInstDecl`).
      See note on `IndTypeDeclaration`.
   -/
-  indTypeInstCache : HashMap Lean.Expr IndTypeDeclaration
+  indTypeInstCache : Std.HashMap Lean.Expr IndTypeDeclaration
 
   /-- Cache keeping track of opaque functions, recursive function instances as well as undefined class functions
       that have already been translated.
@@ -165,21 +165,21 @@ structure SmtEnv where
           for each recursive function or undefined class function instances.
       TODO UPDATE
   -/
-  funInstCache : HashMap Lean.Expr SmtQualifiedIdent
+  funInstCache : Std.HashMap Lean.Expr SmtQualifiedIdent
 
   /-- Cache keeping track of sort that have already been declared. -/
-  sortCache : HashMap FVarId SmtSymbol
+  sortCache : Std.HashMap FVarId SmtSymbol
 
   /-- Set keeping track of quantified fvars. This is essential
       to detect globally declared variables. -/
-  quantifiedFVars : HashSet FVarId
+  quantifiedFVars : Std.HashSet FVarId
 
   /-- Set keeping track of globally declared variables and the ones in
       the top level forall quantifier.
       This set is used exclusively when retrieving counterexample after a `sat` result
       is obtained from the backend smt solver.
   -/
-  topLevelVars : HashSet SmtSymbol
+  topLevelVars : Std.HashSet SmtSymbol
 
   /-- Translation options (see note on TranslateOptions) -/
   options: TranslateOptions
@@ -189,7 +189,7 @@ structure SmtEnv where
 
 /-- list of recursive functions to be normalized (see note in `OptimizeOptions`). -/
 def recFunsToNormalize : NameHashSet :=
-  List.foldr (fun c s => s.insert c) HashSet.empty
+  List.foldr (fun c s => s.insert c) Std.HashSet.empty
   [ ``Nat.beq,
     ``Nat.ble
   ]
@@ -273,7 +273,7 @@ def withTranslateRecBody (f: TranslateEnvT α) : TranslateEnvT α := do
   return t
 
 /-- set optimize option `inPatternMatchin` to `h`. -/
-def setInPatternMatching (h : HashSet FVarId) : TranslateEnvT Unit := do
+def setInPatternMatching (h : Std.HashSet FVarId) : TranslateEnvT Unit := do
   let env ← get
   set {env with smtEnv.options.inPatternMatching := h }
 
@@ -283,9 +283,9 @@ def setInPatternMatching (h : HashSet FVarId) : TranslateEnvT Unit := do
      - execute `f`
      - set `inPatternMatching` to s
 -/
-def withTranslatePattern (h : HashSet FVarId) (f: TranslateEnvT α) : TranslateEnvT α := do
+def withTranslatePattern (h : Std.HashSet FVarId) (f: TranslateEnvT α) : TranslateEnvT α := do
   let s := (← get).smtEnv.options.inPatternMatching
-  setInPatternMatching (s.merge h)
+  setInPatternMatching (s.union h)
   let t ← f
   setInPatternMatching s
   return t
@@ -322,7 +322,7 @@ def updateSynthCache (a : Expr) (b : Option Expr) : TranslateEnvT Unit := do
       - return `a`
 -/
 def mkExpr (a : Expr) (cacheResult := true) : TranslateEnvT Expr := do
-  match (← get).optEnv.rewriteCache.find? a with
+  match (← get).optEnv.rewriteCache.get? a with
   | some a' => return a'
   | none => do
      if cacheResult then updateRewriteCache a a
@@ -340,7 +340,7 @@ def mkExpr (a : Expr) (cacheResult := true) : TranslateEnvT Expr := do
 -/
 def withOptimizeEnvCache (a : Expr) (f: Unit → TranslateEnvT Expr) : TranslateEnvT Expr := do
   let env := (← get).optEnv
-  match env.rewriteCache.find? a with
+  match env.rewriteCache.get? a with
   | some b => return b
   | none =>
       let b ← f ()
@@ -481,6 +481,12 @@ def mkBEqConst : TranslateEnvT Expr := mkExpr (mkConst ``BEq [levelZero])
 /-- Return `LawfulBEq` const expression and cache result. -/
 def mkLawfulBEqConst : TranslateEnvT Expr := mkExpr (mkConst ``LawfulBEq [levelZero])
 
+/-- Return `instBEqOfDecidableEq` const expression and cache result. -/
+def mkInstBEqOfDecidableEq : TranslateEnvT Expr := mkExpr (mkConst ``instBEqOfDecidableEq [levelZero])
+
+/-- Return `instDecidableEqNat` const expression and cache result. -/
+def mkInstDecidableEqNat : TranslateEnvT Expr := mkExpr (mkConst ``instDecidableEqNat)
+
 /-- Return `True.intro` const expression and cache result. -/
 def mkTrueIntro : TranslateEnvT Expr := mkExpr (mkConst ``True.intro)
 
@@ -583,11 +589,11 @@ def mkIntFDivOp : TranslateEnvT Expr := mkExpr (mkConst ``Int.fdiv)
 /-- Return `Int.fmod` operator and cache result. -/
 def mkIntFModOp : TranslateEnvT Expr := mkExpr (mkConst ``Int.fmod)
 
-/-- Return `Int.div` operator and cache result. -/
-def mkIntDivOp : TranslateEnvT Expr := mkExpr (mkConst ``Int.div)
+/-- Return `Int.tdiv` operator and cache result. -/
+def mkIntTDivOp : TranslateEnvT Expr := mkExpr (mkConst ``Int.tdiv)
 
-/-- Return `Int.mod` operator and cache result. -/
-def mkIntModOp : TranslateEnvT Expr := mkExpr (mkConst ``Int.mod)
+/-- Return `Int.tmod` operator and cache result. -/
+def mkIntTModOp : TranslateEnvT Expr := mkExpr (mkConst ``Int.tmod)
 
 /-- Return `Int.neg` operator and cache result. -/
 def mkIntNegOp : TranslateEnvT Expr := mkExpr (mkConst ``Int.neg)
@@ -605,8 +611,8 @@ def mkAppExpr (f : Expr) (args: Array Expr) : TranslateEnvT Expr :=
 
 /-- Return "==" Nat operator and cache result. -/
 def mkNatEqOp : TranslateEnvT Expr := do
-  let beqNat ← mkExpr (mkApp (← mkBeqOp) (← mkNatType))
-  mkExpr (mkApp beqNat (← mkExpr (mkConst ``instBEqNat)))
+  let decEq ← mkExpr (mkAppN (← mkInstBEqOfDecidableEq) #[← mkNatType, ← mkInstDecidableEqNat])
+  mkExpr (mkAppN (← mkBeqOp) #[← mkNatType, decEq])
 
 /-- Return the `≤` Nat operator and cache result. -/
 def mkNatLeOp : TranslateEnvT Expr := do
@@ -697,11 +703,11 @@ def mkDecidableConstraint (e : Expr) (cacheDecidableCst := true) : TranslateEnvT
 -/
 def trySynthConstraintInstance? (cstr : Expr) (cacheNotFound := false) : TranslateEnvT (Option Expr) := do
   let env ← get
-  match env.optEnv.synthInstanceCache.find? cstr with
+  match env.optEnv.synthInstanceCache.get? cstr with
   | some d => return d
   | none => do
     try
-      match (← trySynthInstance cstr) with
+      match (← withConfig (λ c => {c with iota := false}) $ trySynthInstance cstr) with
       | LOption.some d =>
           updateSynthCache cstr (some d)
           return d
@@ -817,7 +823,7 @@ def isRecursiveFun (f : Name) : MetaM Bool := do
 -/
 def whnfExpr (a : Expr) : TranslateEnvT Expr := do
   let env ← get
-  match env.optEnv.whnfCache.find? a with
+  match env.optEnv.whnfCache.get? a with
   | some b => return b
   | none => do
      let b ← whnfR a
@@ -1089,7 +1095,7 @@ partial def storeRecFunDef (f : Expr) (params : ImplicitParameters) (body : Expr
   -- update polymorphic instance cache
   updateRecFunInst f body'
   let env ← get
-  match env.optEnv.recFunMap.find? body' with
+  match env.optEnv.recFunMap.get? body' with
   | some fb => return fb
   | none =>
      let optEnv := {env.optEnv with recFunMap := env.optEnv.recFunMap.insert body' f}
@@ -1126,10 +1132,10 @@ where
 -/
 def hasRecFunInst? (instApp : Expr) : TranslateEnvT (Option Expr) := do
   let env ← get
-  match env.optEnv.recFunInstCache.find? instApp with
+  match env.optEnv.recFunInstCache.get? instApp with
   | some fbody =>
      -- retrieve function application from recFunMap
-     match env.optEnv.recFunMap.find? fbody with
+     match env.optEnv.recFunMap.get? fbody with
      | none => throwEnvError f!"hasRecFunInst: expecting entry for {reprStr fbody} in recFunMap"
      | res => return res
   | none => return none

@@ -39,7 +39,7 @@ theorem bool_eq_nat_beq_iff_eq_eq : ∀ (x y : Nat) (c : Bool), c = (x == y) ↔
   . rw [h1]
     have h2 : true = (x == y) ↔ (x == y) = true := eq_comm
     rw [h2]
-    apply Nat.beq_eq
+    apply Nat.beq_eq_true_eq
   . cases c <;> simp at * <;> assumption
 
 
