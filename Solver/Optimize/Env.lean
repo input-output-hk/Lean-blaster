@@ -85,7 +85,7 @@ structure OptimizeEnv where
       where:
         - `x₁ .. xₙ`: correspond to the arguments instantiating the polymorphic parameters of `f` (if any).
         - fdef: correspond to the recursive function body.
-      TODO: UPDATE
+      TODO: UPDATE SPEC
   -/
   recFunInstCache : HashMap Lean.Expr Lean.Expr
   /-- Cache keeping track of visited recursive function.
@@ -163,7 +163,7 @@ structure SmtEnv where
           parameters of `f` (if any).
        - `n` corresponds an smt qualified identifier that is expected to be unique
           for each recursive function or undefined class function instances.
-      TODO UPDATE
+      TODO: UPDATE SPEC
   -/
   funInstCache : HashMap Lean.Expr SmtQualifiedIdent
 

@@ -587,7 +587,7 @@ def translateInductiveType
 
 /-- Return `decl.instName` when `t := decl` exists in `indTypeInstCache`.
     Otherwise `none`.
-    TODO : UPDATE
+    TODO: UPDATE
 -/
 def getPredicateQualifierName (t : Expr) : TranslateEnvT (Option SmtSymbol) := do
   let t' ← getType t
@@ -882,7 +882,7 @@ def translateOpaqueType (e : Expr) : TranslateEnvT (Option SortExpr) := do
     | _ => return none
  | _ => throwEnvError f!"translateOpaqueType: name expression expected but got {reprStr e}"
 
-/-- TODO UPDATE SPEC -/
+/-- TODO: UPDATE SPEC -/
 partial def translateTypeAux
   (optimizer : Expr → TranslateEnvT Expr)
   (termTranslator : Expr → TranslateEnvT SmtTerm)
@@ -937,7 +937,7 @@ partial def translateTypeAux
          translateArrowType b opts (arrowArgs.push (← translateTypeAux optimizer termTranslator t opts))
      | _ => return arraySort (arrowArgs.push (← translateTypeAux optimizer termTranslator e opts))
 
-/-- TODO UPDATE SPEC -/
+/-- TODO: UPDATE SPEC -/
 def translateType
   (optimizer : Expr → TranslateEnvT Expr)
   (termTranslator : Expr → TranslateEnvT SmtTerm)

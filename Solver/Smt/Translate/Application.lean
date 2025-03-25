@@ -86,19 +86,19 @@ def isInductivePredicate (indName : Name) : MetaM Bool := do
   return isArrowPropType indVal.type
 
 
-/-- Given `f x₁ ... xₙ` a function instance and `n` a unique smt identifier for `f x₁ ... xₙ`,
-    add entry `f x₁ ... xₙ := n` to `funInstCache`.
+/-- Given `f x₁ ... xₙ` a function instance and `sid` a unique smt identifier for `f x₁ ... xₙ`,
+    add entry `f x₁ ... xₙ := sid` to `funInstCache`.
 -/
-def updateFunInstCacheBase (f : Expr) (n : SmtQualifiedIdent) : TranslateEnvT Unit := do
+def updateFunInstCacheBase (f : Expr) (sid : SmtQualifiedIdent) : TranslateEnvT Unit := do
   let env ← get
-  let smtEnv := {env.smtEnv with funInstCache := env.smtEnv.funInstCache.insert f n}
+  let smtEnv := {env.smtEnv with funInstCache := env.smtEnv.funInstCache.insert f sid}
   set {env with smtEnv := smtEnv}
 
 /-- Same as `updateFunInstCacheBase` but accepts an SmtSymbol as argument and returns
-    the SmtQualifiedIden instance added to `funInstCache`.
+    the SmtQualifiedIdent instance added to `funInstCache`.
 -/
-def updateFunInstCache (f : Expr) (n : SmtSymbol) : TranslateEnvT SmtQualifiedIdent := do
-  let smtId := .SimpleIdent n
+def updateFunInstCache (f : Expr) (sid : SmtSymbol) : TranslateEnvT SmtQualifiedIdent := do
+  let smtId := .SimpleIdent sid
   updateFunInstCacheBase f smtId
   return smtId
 
