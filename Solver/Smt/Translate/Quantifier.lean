@@ -152,7 +152,7 @@ def updateSortCache (v : FVarId) (s : SmtSymbol) : TranslateEnvT Unit := do
 -/
 def defineSortAndCache (v : FVarId) : TranslateEnvT SmtSymbol := do
   let env ← get
-  match env.smtEnv.sortCache.find? v with
+  match env.smtEnv.sortCache.get? v with
   | none =>
       declareTypeSort
       let s ← sortNameToSmtSymbol v
@@ -254,14 +254,14 @@ def generateInstType
 -/
 def retrieveGenericArgs (args : Array Expr) : TranslateEnvT (Array Expr) := do
   let mut genericArgs := #[]
-  let mut knownGenParams := (.empty : HashSet Expr)
+  let mut knownGenParams := (.empty : Std.HashSet Expr)
   for i in [:args.size] do
     if (← isGenericParam args[i]! (skipInductiveCheck := true)) then
       (genericArgs, knownGenParams) ← updateGenericArgs args[i]! genericArgs knownGenParams
   return genericArgs
 
 where
-   updateGenericArgs (e : Expr) (gargs : Array Expr) (pset : HashSet Expr) : MetaM (Array Expr × HashSet Expr) := do
+   updateGenericArgs (e : Expr) (gargs : Array Expr) (pset : Std.HashSet Expr) : MetaM (Array Expr × Std.HashSet Expr) := do
      let fvars ← getFVarsInExpr e
      let mut mgargs := gargs
      let mut mpset := pset
@@ -347,7 +347,7 @@ def getFunInstDecl (t : Expr) : TranslateEnvT Expr := do
 -/
 def generateFunInstDecl (t : Expr) (st : SortExpr) : TranslateEnvT Unit := do
   let funInst ← getFunInstDecl t
-  unless ((← get).smtEnv.indTypeInstCache.find? funInst).isSome do
+  unless ((← get).smtEnv.indTypeInstCache.get? funInst).isSome do
    let v ← mkFreshId
    let instName := mkNormalSymbol s!"Fun{v}"
    let decl ← updateIndInstCacheAux funInst instName st
@@ -368,7 +368,7 @@ def generateFunInstDecl (t : Expr) (st : SortExpr) : TranslateEnvT Unit := do
 -/
 def generateSortInstDecl (t : Expr) : TranslateEnvT Unit := do
  let Expr.sort u := t | throwEnvError f!"generateSortInstDecl: sort type expected but got {reprStr t}"
- unless ((← get).smtEnv.indTypeInstCache.find? t).isSome do
+ unless ((← get).smtEnv.indTypeInstCache.get? t).isSome do
    match u with
    | .zero =>
         updateIndInstCache t (mkReservedSymbol "Prop") propSort
@@ -592,7 +592,7 @@ def translateInductiveType
 def getPredicateQualifierName (t : Expr) : TranslateEnvT (Option SmtSymbol) := do
   let t' ← getType t
   let typeInst ← getInst t'
-  match (← get).smtEnv.indTypeInstCache.find? typeInst with
+  match (← get).smtEnv.indTypeInstCache.get? typeInst with
   | some decl => return decl.instName
   | none => return none
 
@@ -632,7 +632,7 @@ partial def defineInstPredicateQualifier
     (t : Expr) (args : Array Expr) : TranslateEnvT Unit := do
  -- get inst application
  let instApp ← getIndInst t args
- unless ((← get).smtEnv.indTypeInstCache.find? instApp).isSome do
+ unless ((← get).smtEnv.indTypeInstCache.get? instApp).isSome do
   let (indVal, (indName, (us, decl))) ← declareIndInst t args
   if (← isEnumeration indVal) then
     declareFun decl.instName #[decl.instSort] boolSort
@@ -771,7 +771,7 @@ def translateNonOpaqueType
    translateInstType (indName : Name) : TranslateEnvT SortExpr := do
      let env ← get
      let instApp ← genInstApp
-     match env.smtEnv.indTypeInstCache.find? instApp with
+     match env.smtEnv.indTypeInstCache.get? instApp with
      | some decl => return decl.instSort
      | none =>
        let typeTrans := λ e => typeTranslator e topts
@@ -787,7 +787,7 @@ def translateNonOpaqueType
           -- NOTE: definInstPredicateQualifier will update instance cache
           -- with a polymorphic instance when the instantiated datatype
           -- is still polymorphic.
-          unless ((← get).smtEnv.indTypeInstCache.find? instApp).isSome do
+          unless ((← get).smtEnv.indTypeInstCache.get? instApp).isSome do
             updateIndInstCache instApp (nameToSmtSymbol indName) smtType
        return smtType
 
@@ -802,7 +802,7 @@ def translateNonOpaqueType
         - return #[t]
 -/
 def translateSmtEquivType (n : Expr) (s : SmtSymbol) (t : SortExpr) : TranslateEnvT SortExpr := do
- match (← get).smtEnv.indTypeInstCache.find? n with
+ match (← get).smtEnv.indTypeInstCache.get? n with
  | none =>
     updateIndInstCache n s t
     definePredQualifier s t none
@@ -821,7 +821,7 @@ def translateSmtEquivType (n : Expr) (s : SmtSymbol) (t : SortExpr) : TranslateE
 
 -/
 def translateNatType (n : Expr) : TranslateEnvT SortExpr := do
- match (← get).smtEnv.indTypeInstCache.find? n with
+ match (← get).smtEnv.indTypeInstCache.get? n with
  | none =>
     updateIndInstCache n natSymbol natSort
     defineNatSort
@@ -839,7 +839,7 @@ def translateNatType (n : Expr) : TranslateEnvT SortExpr := do
   Assume that `n := Expr.const ``Empty []`.
 -/
 def translateEmptyType (n : Expr) : TranslateEnvT SortExpr := do
- match (← get).smtEnv.indTypeInstCache.find? n with
+ match (← get).smtEnv.indTypeInstCache.get? n with
  | none =>
     updateIndInstCache n emptySymbol emptySort
     defineEmptySort
@@ -857,7 +857,7 @@ def translateEmptyType (n : Expr) : TranslateEnvT SortExpr := do
   Assume that `n := Expr.const ``PEmpty [..]`.
 -/
 def translatePEmptyType (n : Expr) : TranslateEnvT SortExpr := do
- match (← get).smtEnv.indTypeInstCache.find? n with
+ match (← get).smtEnv.indTypeInstCache.get? n with
  | none =>
     updateIndInstCache n pemptySymbol pemptySort
     definePEmptySort

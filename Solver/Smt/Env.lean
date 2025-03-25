@@ -81,7 +81,7 @@ def updateTranslateCache (a : Expr) (b : SmtTerm) : TranslateEnvT Unit := do
 -/
 def withTranslateEnvCache (a : Expr) (f : Unit → TranslateEnvT SmtTerm) : TranslateEnvT SmtTerm := do
   let env ← get
-  match env.smtEnv.translateCache.find? a with
+  match env.smtEnv.translateCache.get? a with
   | some b => return b
   | none => do
      let b ← f ()
@@ -301,12 +301,12 @@ def defineIntEMod : TranslateEnvT Unit := do
   let fdef := λ xId yId => iteSmt (eqSmt natZero yId) xId (modSmt xId yId)
   defineBinFun emodSymbol intSort intSort intSort fdef
 
-/-- Define Int.div Smt function, i.e.,
-      @Int.div x y :=
+/-- Define Int.tdiv Smt function, i.e.,
+      @Int.tdiv x y :=
         (let (t (ite (< x 0) (div (- x) y) (div x y)))
              (ite (= 0 y) 0 (ite (< x 0) (- t) t)))
 -/
-def defineIntDiv : TranslateEnvT Unit := do
+def defineIntTDiv : TranslateEnvT Unit := do
   let tsym := mkReservedSymbol "@t"
   let tId := smtSimpleVarId tsym
   let natZero := natLitSmt 0
@@ -316,12 +316,12 @@ def defineIntDiv : TranslateEnvT Unit := do
     mkLetTerm #[(tsym, iteSmt (xLtZero xId) (divSmt (negSmt xId) yId) (divSmt xId yId))] (lbody xId yId)
   defineBinFun tdivSymbol intSort intSort intSort fdef
 
-/-- Define Int.mod Smt function, i.e.,
-     @Int.mod x y :=
+/-- Define Int.tmod Smt function, i.e.,
+     @Int.tmod x y :=
        (let (t (ite (< x 0) (mod (- x) y) (mod x y)))
             (ite (= 0 y) x (ite (< x 0) (- t) t)))
 -/
-def defineIntMod : TranslateEnvT Unit := do
+def defineIntTMod : TranslateEnvT Unit := do
   let tsym := mkReservedSymbol "@t"
   let tId := smtSimpleVarId tsym
   let natZero := natLitSmt 0

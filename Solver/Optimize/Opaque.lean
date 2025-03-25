@@ -7,7 +7,7 @@ namespace Solver.Optimize
 translated to their corresponding SMT counterpart.
 -/
 def opaqueFuns : NameHashSet :=
-  List.foldr (fun c s => s.insert c) HashSet.empty
+  List.foldr (fun c s => s.insert c) Std.HashSet.empty
   [
     -- structural equality
     ``Eq,
@@ -30,8 +30,8 @@ def opaqueFuns : NameHashSet :=
     ``Int.mul,
     ``Int.toNat,
     -- Division rounding towards zero
-    ``Int.div,
-    ``Int.mod,
+    ``Int.tdiv,
+    ``Int.tmod,
     -- Division rounding towards negative infinity
     ``Int.fdiv,
     ``Int.fmod,
@@ -67,7 +67,7 @@ def opaqueFuns : NameHashSet :=
 TODO: add other basic lean types (e.g., Char, etc)
 -/
 def relationalCompatibleTypes : NameHashSet :=
-  List.foldr (fun c s => s.insert c) HashSet.empty
+  List.foldr (fun c s => s.insert c) Std.HashSet.empty
   [ ``Nat,
     ``Int,
     ``Bool,
