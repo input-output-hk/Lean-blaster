@@ -9,6 +9,7 @@ open Lean Elab Command Term Meta Solver.Optimize Solver.Options
 
 namespace Solver.Smt
 
+/-- Translate an optimized Lean4 `Expr` to an SMT term, and invoke the solver. --/
 partial def translateExpr (e : Expr) : TranslateEnvT Unit := do
   let rec visit (e : Expr) (topLevel := false) : TranslateEnvT SmtTerm := do
     withTranslateEnvCache e fun _ => do

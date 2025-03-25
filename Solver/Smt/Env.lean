@@ -41,7 +41,7 @@ def logResult (r : Result) (sOpts : SolverOptions) : MetaM Unit := do
   | .Undetermined =>
         if isExpectedUndetermined sOpts.solveResult
         then logInfo "✅ Expected Undetermined"
-        else logWarning "⚡ Undetermined"
+        else logWarning "⚠️ Undetermined"
 
   where
     dumpCex (f : MessageData -> MetaM Unit) (failure : String) (cex : List String) : MetaM Unit :=
@@ -52,6 +52,9 @@ def logResult (r : Result) (sOpts : SolverOptions) : MetaM Unit := do
 
 /-- Spawn a z3 process w.r.t. the provided solver options. -/
 def createSolverProcess (sOpts : SolverOptions) : IO (IO.Process.Child ⟨.piped, .piped, .piped⟩) := do
+ let out ← checkZ3Version
+ unless out.exitCode == 0 do
+   throw <| IO.userError <| "❌ Z3 Solver not found. Please install at least version 4.13.4"
  IO.Process.spawn {
    stdin := .piped
    stdout := .piped
@@ -60,6 +63,12 @@ def createSolverProcess (sOpts : SolverOptions) : IO (IO.Process.Child ⟨.piped
    args := #["-in","-smt2"] ++ timeOutOptions
  }
  where
+   checkZ3Version : IO IO.Process.Output :=
+     IO.Process.output {
+      cmd := "z3"
+      args := #["-version"]
+     }
+
    timeOutOptions : Array String :=
      match sOpts.timeout with
       | none => #[]
@@ -394,7 +403,7 @@ def defineInttoNat : TranslateEnvT Unit := do
 
 
 /-- Try to retrieve to evaluate term `t` when a `sat` result is obtained and dump result to stdout.
-    TODO: We need to define the Smt-lib syntax and term elabtorator to parse produced value
+    TODO: We need to define the Smt-lib syntax and term elaborator to parse produced value
     and generate the corresponding Lean representation.
     This will also be helpful when writing the test cases to validate the Smt-Lib translation.
     Do nothing if the Smt process is not defined.
@@ -409,7 +418,7 @@ def evalTerm (t : SmtTerm) : TranslateEnvT String := do
     Do nothing when:
       - No solver instance is defined
       - Option solverOptions.generateCex is set to `false`
-    TODO: We need to define the Smt-lib syntax and term elabtorator to parse produced model
+    TODO: We need to define the Smt-lib syntax and term elaborator to parse produced model
     and generate the corresponding Lean representation.
     This will also be helpful when writing the test cases to validate the Smt-Lib translation.
 -/
@@ -450,7 +459,7 @@ def checkSat : TranslateEnvT Result := do
 
 
 /-- Try to retrieve the proof artifact when a `unsat` result is obtained and dump result to stdout.
-    TODO: We need to define the Smt-lib syntax and term elabtorator to parse and reconstruct
+    TODO: We need to define the Smt-lib syntax and term elaborator to parse and reconstruct
     the proof in Lean.
     This will also be helpful when writing the test cases to validate the Smt-Lib translation.
     Do nothing if the Smt process is not defined.
