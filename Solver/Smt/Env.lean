@@ -13,13 +13,11 @@ inductive Result where
   | Undetermined : Result
 deriving Repr
 
-
 def toResult (e : Expr) : Result :=
  match e with
  | Expr.const ``True _  => Result.Valid
  | Expr.const ``False _  => Result.Falsified []
  | _ => Result.Undetermined
-
 
 def isFalsifiedResult (r : Result) : Bool :=
   match r with
@@ -50,29 +48,84 @@ def logResult (r : Result) (sOpts : SolverOptions) : MetaM Unit := do
          f s!"{failure}\nCounterexample:\n{cexStr}"
       else f failure
 
+/-- Parse the version returned by z3-/
+private def parseZ3Version? (out : String) : Option (Nat × Nat × Nat) := do
+  -- let lines := out.trim.splitOn "\n"
+  -- let firstLine := lines.get! 0
+  let tokens := out.split (· = ' ')
+  let verToken? := tokens.find? (fun tk => tk.contains '.')
+  let some verToken := verToken? | none
+  let parts := verToken.splitOn "."
+  if parts.length < 3 then none
+  else
+    let some maj := String.toNat? parts[0]! | none
+    let some min := String.toNat? parts[1]! | none
+    let some pat := String.toNat? parts[2]! | none
+    some (maj, min, pat)
+
+/-- Minimal version of z3 we support -/
+private def minZ3Version : (Nat × Nat × Nat) := (4, 13, 4)
+
+/-- Check if the version of z3 is at least the minimal one we support -/
+private def isZ3VersionOk? (maj min patch : Nat) : Bool :=
+  let (reqMaj, reqMin, reqPatch) := minZ3Version
+  if maj > reqMaj then true
+  else if maj < reqMaj then false
+  else
+    if min > reqMin then true
+    else if min < reqMin then false
+    else
+      patch >= reqPatch
+
+/-- Tries to find if z3 is natively present in PATH, if not checks wsl z3 -/
+private def findZ3CmdAndVersion : IO (String × String) := do
+  let (reqMaj, reqMin, reqPatch) := minZ3Version
+  let candidates := #["z3", "wsl z3"]
+  -- We'll store a short log message for each candidate attempt
+  let mut attemptLogs := #[]
+  for candidate in candidates do
+    try
+      let out ← IO.Process.output { cmd := candidate, args := #["-version"] }
+      if out.exitCode == 0 then
+        match parseZ3Version? out.stdout with
+        | some (maj, min, patch) =>
+          if isZ3VersionOk? maj min patch then
+            -- Found a good candidate => Return immediately
+            return (candidate, out.stdout)
+          else
+            attemptLogs := attemptLogs.push
+              s!"Candidate '{candidate}': version too old (found {maj}.{min}.{patch})"
+        | none =>
+          attemptLogs := attemptLogs.push
+            s!"Candidate '{candidate}': could not parse version from output:\n{out.stdout}"
+      else
+        attemptLogs := attemptLogs.push
+          s!"Candidate '{candidate}': exit code {out.exitCode}"
+    catch e =>
+      -- “No such file or directory” or other IO error
+      attemptLogs := attemptLogs.push
+        s!"Candidate '{candidate}': IO error => {e}"
+
+  -- If we get here, no candidate succeeded
+  let attemptsReport := String.join (attemptLogs.toList.map (fun x => x ++ "\n"))
+  throw <| IO.userError s!"❌ Could not find a working Z3 ≥ {reqMaj}.{reqMin}.{reqPatch}.\n\nTried:\n{attemptsReport}"
+
+
 /-- Spawn a z3 process w.r.t. the provided solver options. -/
 def createSolverProcess (sOpts : SolverOptions) : IO (IO.Process.Child ⟨.piped, .piped, .piped⟩) := do
- let out ← checkZ3Version
- unless out.exitCode == 0 do
-   throw <| IO.userError <| "❌ Z3 Solver not found. Please install at least version 4.13.4"
- IO.Process.spawn {
-   stdin := .piped
-   stdout := .piped
-   stderr := .piped
-   cmd := "z3"
-   args := #["-in","-smt2"] ++ timeOutOptions
- }
- where
-   checkZ3Version : IO IO.Process.Output :=
-     IO.Process.output {
-      cmd := "z3"
-      args := #["-version"]
-     }
-
-   timeOutOptions : Array String :=
-     match sOpts.timeout with
-      | none => #[]
-      | some n => #[s!"-T:{n}"]
+  let (z3Cmd, _) ← findZ3CmdAndVersion  -- ensures version is OK
+  IO.Process.spawn {
+    stdin  := .piped
+    stdout := .piped
+    stderr := .piped
+    cmd    := z3Cmd
+    args   := #["-in", "-smt2"] ++ timeOutOptions sOpts
+  }
+where
+  timeOutOptions (sOpts : SolverOptions) : Array String :=
+    match sOpts.timeout with
+    | none   => #[]
+    | some n => #[s!"-T:{n}"]
 
 /-- Update translation cache with `a := b`.
 -/
