@@ -18,11 +18,11 @@ def funNameToSmtSymbol (funName : Name) : SmtSymbol :=
 /-- list of Lean operators that must have a defined Smt function during translation.
 -/
 def definedSmtOperators : NameHashSet :=
-  List.foldr (fun c s => s.insert c) HashSet.empty
+  List.foldr (fun c s => s.insert c) Std.HashSet.empty
   [ ``Int.ediv,
     ``Int.emod,
-    ``Int.div,
-    ``Int.mod,
+    ``Int.tdiv,
+    ``Int.tmod,
     ``Int.fdiv,
     ``Int.fmod,
     ``Int.toNat,
@@ -31,7 +31,7 @@ def definedSmtOperators : NameHashSet :=
 
 /-- list of Lean operators expected to be fully applied at translation phase. -/
 def fullyAppliedConst : NameHashSet :=
-  List.foldr (fun c s => s.insert c) HashSet.empty
+  List.foldr (fun c s => s.insert c) Std.HashSet.empty
   [ ``And,
     ``Or,
     ``Not,
@@ -40,8 +40,8 @@ def fullyAppliedConst : NameHashSet :=
     ``Int.neg,
     ``Int.mul,
     ``Int.toNat,
-    ``Int.div,
-    ``Int.mod,
+    ``Int.tdiv,
+    ``Int.tmod,
     ``Int.fdiv,
     ``Int.fmod,
     ``Int.ediv,
@@ -112,7 +112,7 @@ def updateFunInstCache (f : Expr) (sid : SmtSymbol) : TranslateEnvT SmtQualified
   Assume that `n := Expr.const ``Nat.sub []`.
 -/
 def translateNatSub (n : Expr) : TranslateEnvT SmtQualifiedIdent := do
- match (← get).smtEnv.funInstCache.find? n with
+ match (← get).smtEnv.funInstCache.get? n with
  | none =>
     discard $ translateNatType (← mkNatType)
     defineNatSub
@@ -131,7 +131,7 @@ def translateNatSub (n : Expr) : TranslateEnvT SmtQualifiedIdent := do
   Assume that `f := Expr.const ``Int.ediv []` or `f := Expr.const ``Nat.div []`.
 -/
 def translateIntEDiv (f : Expr) : TranslateEnvT SmtQualifiedIdent := do
- match (← get).smtEnv.funInstCache.find? f with
+ match (← get).smtEnv.funInstCache.get? f with
  | none =>
     defineIntEDiv
     let smtId ← updateFunInstCache f edivSymbol
@@ -160,7 +160,7 @@ def translateIntEDiv (f : Expr) : TranslateEnvT SmtQualifiedIdent := do
   Assume that `f := Expr.const ``Int.emod []` or f := `Expr.const ``Nat.mod []`
 -/
 def translateIntEMod (f : Expr) : TranslateEnvT SmtQualifiedIdent := do
- match (← get).smtEnv.funInstCache.find? f with
+ match (← get).smtEnv.funInstCache.get? f with
  | none =>
     defineIntEMod
     let smtId ← updateFunInstCache f emodSymbol
@@ -178,33 +178,33 @@ def translateIntEMod (f : Expr) : TranslateEnvT SmtQualifiedIdent := do
 
 
 /-- Perform the following actions:
-     - Return `SimpleIdent "@Int.div"` when entry `n := SimpleIdent "@Int.div"` exists in `funInstCache`
+     - Return `SimpleIdent "@Int.tdiv"` when entry `n := SimpleIdent "@Int.tdiv"` exists in `funInstCache`
      - Otherwise:
-        - define @Int.div Smt function (i.e., see `defineIntDiv`)
-        - add entry `n := SimpleIdent "@Int.div"` to `funInstCache`
-        - return `SimpleIdent "@Int.div"`
-  Assume that `n := Expr.const ``Int.div []`.
+        - define @Int.tdiv Smt function (i.e., see `defineIntTDiv`)
+        - add entry `n := SimpleIdent "@Int.tdiv"` to `funInstCache`
+        - return `SimpleIdent "@Int.tdiv"`
+  Assume that `n := Expr.const ``Int.tdiv []`.
 -/
-def translateIntDiv (n : Expr) : TranslateEnvT SmtQualifiedIdent := do
- match (← get).smtEnv.funInstCache.find? n with
+def translateIntTDiv (n : Expr) : TranslateEnvT SmtQualifiedIdent := do
+ match (← get).smtEnv.funInstCache.get? n with
  | none =>
-    defineIntDiv
+    defineIntTDiv
     updateFunInstCache n tdivSymbol
  | some smtId => return smtId
 
 
 /-- Perform the following actions:
-     - Return `SimpleIdent "@Int.mod"` when entry `n := SimpleIdent "@Int.mod"` exists in `funInstCache`
+     - Return `SimpleIdent "@Int.tmod"` when entry `n := SimpleIdent "@Int.tmod"` exists in `funInstCache`
      - Otherwise:
-        - define @Int.mod Smt function (i.e., see `defineIntMod`)
-        - add entry `n := SimpleIdent "@Int.mod"` to `funInstCache`
-        - return `SimpleIdent "@Int.mod"`
-  Assume that `n := Expr.const ``Int.mod []`.
+        - define @Int.tmod Smt function (i.e., see `defineIntTMod`)
+        - add entry `n := SimpleIdent "@Int.tmod"` to `funInstCache`
+        - return `SimpleIdent "@Int.tmod"`
+  Assume that `n := Expr.const ``Int.tmod []`.
 -/
-def translateIntMod (n : Expr) : TranslateEnvT SmtQualifiedIdent := do
- match (← get).smtEnv.funInstCache.find? n with
+def translateIntTMod (n : Expr) : TranslateEnvT SmtQualifiedIdent := do
+ match (← get).smtEnv.funInstCache.get? n with
  | none =>
-    defineIntMod
+    defineIntTMod
     updateFunInstCache n tmodSymbol
  | some smtId => return smtId
 
@@ -218,7 +218,7 @@ def translateIntMod (n : Expr) : TranslateEnvT SmtQualifiedIdent := do
   Assume that `n := Expr.const ``Int.fdiv []`.
 -/
 def translateIntFDiv (n : Expr) : TranslateEnvT SmtQualifiedIdent := do
- match (← get).smtEnv.funInstCache.find? n with
+ match (← get).smtEnv.funInstCache.get? n with
  | none =>
     defineIntFDiv
     updateFunInstCache n fdivSymbol
@@ -234,7 +234,7 @@ def translateIntFDiv (n : Expr) : TranslateEnvT SmtQualifiedIdent := do
   Assume that `n := Expr.const ``Int.fmod []`.
 -/
 def translateIntFMod (n : Expr) : TranslateEnvT SmtQualifiedIdent := do
- match (← get).smtEnv.funInstCache.find? n with
+ match (← get).smtEnv.funInstCache.get? n with
  | none =>
     defineIntFMod
     updateFunInstCache n fmodSymbol
@@ -251,7 +251,7 @@ def translateIntFMod (n : Expr) : TranslateEnvT SmtQualifiedIdent := do
   Assume that `f := Expr.const ``Int.pow []`
 -/
 def translateIntPow (f : Expr) : TranslateEnvT SmtQualifiedIdent := do
- match (← get).smtEnv.funInstCache.find? f with
+ match (← get).smtEnv.funInstCache.get? f with
  | none =>
     discard $ translateNatSub (mkConst ``Nat.sub)
     defineIntPow
@@ -269,7 +269,7 @@ def translateIntPow (f : Expr) : TranslateEnvT SmtQualifiedIdent := do
   Assume that `f := `Expr.const ``Nat.pow []`
 -/
 def translateNatPow (f : Expr) : TranslateEnvT SmtQualifiedIdent := do
- match (← get).smtEnv.funInstCache.find? f with
+ match (← get).smtEnv.funInstCache.get? f with
  | none =>
     discard $ translateNatSub (mkConst ``Nat.sub)
     defineNatPow
@@ -288,7 +288,7 @@ def translateNatPow (f : Expr) : TranslateEnvT SmtQualifiedIdent := do
   Assume that `n := Expr.const ``Int.toNat []`.
 -/
 def translateInttoNat (n : Expr) : TranslateEnvT SmtQualifiedIdent := do
- match (← get).smtEnv.funInstCache.find? n with
+ match (← get).smtEnv.funInstCache.get? n with
  | none =>
     discard $ translateNatType (← mkNatType)
     defineInttoNat
@@ -302,7 +302,7 @@ def translateInttoNat (n : Expr) : TranslateEnvT SmtQualifiedIdent := do
      - return `SimpleIdent s`
 -/
 def getOpaqueSmtEquivFun (f : Expr) (s : SmtSymbol) : TranslateEnvT SmtQualifiedIdent := do
-  match (← get).smtEnv.funInstCache.find? f with
+  match (← get).smtEnv.funInstCache.get? f with
   | none => updateFunInstCache f s
   | some smtId => return smtId
 
@@ -347,8 +347,8 @@ def translateOpaqueFun (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT
   | ``Int.mul
   | ``Nat.mul => getOpaqueSmtEquivFun f mulSymbol
   | ``Int.toNat => translateInttoNat f
-  | ``Int.div => translateIntDiv f
-  | ``Int.mod => translateIntMod f
+  | ``Int.tdiv => translateIntTDiv f
+  | ``Int.tmod => translateIntTMod f
   | ``Int.fdiv => translateIntFDiv f
   | ``Int.fmod => translateIntFMod f
   | ``Int.ediv
@@ -465,14 +465,14 @@ partial def translateRecFun
   -- get instance application
   let params ← getImplicitParameters f args
   let instApp ← getInstApp f params
-  match (← get).smtEnv.funInstCache.find? instApp with
+  match (← get).smtEnv.funInstCache.get? instApp with
   | none =>
       let Expr.const n l := f
         | throwEnvError f!"translateRecFun: name expression expected but got {reprStr f}"
       let ConstantInfo.defnInfo dInfo ← getConstInfo n
         | throwEnvError f!"translateRecFun: no defnInfo for {n}"
       generateRecFunDefinitions dInfo.all l params
-      let some smtId := (← get).smtEnv.funInstCache.find? instApp
+      let some smtId := (← get).smtEnv.funInstCache.get? instApp
         | throwEnvError f!"translateRecFun: instance function name expected for {reprStr instApp}"
       createAppN f smtId args termTranslator
   | some smtId => createAppN f smtId args termTranslator
@@ -534,7 +534,7 @@ partial def translateRecFun
         let auxApp := finfos[i]!.1
         let smtId := finfos[i]!.2
         let instApp ← getInstApp auxApp params
-        let some fbody := env.optEnv.recFunInstCache.find? instApp
+        let some fbody := env.optEnv.recFunInstCache.get? instApp
           | throwEnvError f!"translateRecFun: function body expected for {reprStr instApp}"
         let fbody' := fbody.replace (replaceGenericRecFun auxApp params)
         funDefs ← withTranslateRecBody $ updateFunDefinitions smtId fbody' funDefs
@@ -653,8 +653,8 @@ def translateConst
     translateTheorem? (n : Name) : TranslateEnvT (Option SmtTerm) := do
       if !(← isTheorem n) then return none
       let ConstantInfo.thmInfo info ← getConstInfo n | return none
-      if (← hasSorryTheorem e) then
-        throwEnvError f!"translateConst: Theorem {n} has `sorry` demonstration"
+      -- check if e has sorry theorem and trigger error if this is the case
+      hasSorryTheorem e "translateConst: Theorem {n} has `sorry` demonstration"
       if info.type.isForall then
         throwEnvError f!"translateConst: Fully applied theorem expected but got {reprStr info.type}"
       termTranslator (← optimizer info.type)
@@ -801,7 +801,7 @@ def translateApp
       -- get instance application
       let params ← getImplicitParameters f args
       let instApp ← getInstApp f params
-      match (← get).smtEnv.funInstCache.find? instApp with
+      match (← get).smtEnv.funInstCache.get? instApp with
       | none =>
          let smtId ← generateFunInst f params
          let .SimpleIdent s := smtId
@@ -838,8 +838,8 @@ def translateApp
     translateTheorem (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
       if !(← isTheorem n) then return none
       let ConstantInfo.thmInfo info ← getConstInfo n | return none
-      if (← hasSorryTheorem e) then
-        throwEnvError f!"translateApp: Theorem {n} has `sorry` demonstration"
+      -- check if e has sorry demonstration and trigger error if this is the case
+      hasSorryTheorem e "translateApp: Theorem {n} has `sorry` demonstration"
       termTranslator (← optimizer (← betaForAll info.type args))
 
 /-- Given `e := λ (x₀ : t₁) → λ (xₙ : tₙ) => b`, create Smt term `(lambda (B) sb)`, where:

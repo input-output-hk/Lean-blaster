@@ -209,7 +209,7 @@ def translateMatchAux?
     withTranslatePattern hvars $ mkIte lhs rhs mres
 
   where
-    insertFVars (h : HashSet FVarId) (v : Expr) : TranslateEnvT (HashSet FVarId) := do
+    insertFVars (h : Std.HashSet FVarId) (v : Expr) : TranslateEnvT (Std.HashSet FVarId) := do
       match v with
       | Expr.fvar fv =>
           match (← fv.getType).getAppFn' with

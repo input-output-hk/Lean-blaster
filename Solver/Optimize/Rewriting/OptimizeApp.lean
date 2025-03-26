@@ -150,12 +150,12 @@ def reduceMatchChoice?
        if i ≥ matcherInfo.getFirstDiscrPos && i < matcherInfo.getFirstAltPos
        then margs ← margs.modifyM i optimizer
      let discrs := margs[matcherInfo.getFirstDiscrPos : matcherInfo.getFirstAltPos]
-     -- NOTE: whnf simplifies match only when all the discriminators are constructors
+     -- NOTE: reduceMatcher? simplifies match only when all the discriminators are constructors
      if !(← allMatchDiscrsAreCtor discrs) then return none
      let auxApp := mkAppN f margs
-     let e ← whnfExpr auxApp
-     if (← exprEq e auxApp) then return none
-     return e
+     match (← withReducible $ reduceMatcher? auxApp) with
+     | .reduced e => return e
+     | _ => return none
 
    /- Return `true` only when at least one of the match discriminators is a constructor
       that may also contain free variables.

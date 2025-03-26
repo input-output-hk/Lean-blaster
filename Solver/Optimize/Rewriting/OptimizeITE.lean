@@ -40,7 +40,7 @@ def swapITEAndUpdateDecidable (args : Array Expr) : TranslateEnvT (Array Expr) :
   -- synthesize decidable instance for cond operand and check if instance is in cache
   let args ← updateITEDecidable args
   -- swap then and else expression
-  pure (args.swap! 3 4)
+  pure (args.swapIfInBounds 3 4)
 
 
 /-- Given `c`, `t` and `e` corresponding respectively to the `cond`, `then` and `else` terms

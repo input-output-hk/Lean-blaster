@@ -134,12 +134,12 @@ def emodSymbol : SmtSymbol := mkReservedSymbol "@Int.emod"
 /-! Integer truncate division Smt symbol.
     NOTE: This function is defined during translation whenever required.
 -/
-def tdivSymbol : SmtSymbol := mkReservedSymbol "@Int.div"
+def tdivSymbol : SmtSymbol := mkReservedSymbol "@Int.tdiv"
 
 /-! Integer truncate modulo Smt symbol.
     NOTE: This function is defined during translation whenever required.
 -/
-def tmodSymbol : SmtSymbol := mkReservedSymbol "@Int.mod"
+def tmodSymbol : SmtSymbol := mkReservedSymbol "@Int.tmod"
 
 /-! Integer floor division Smt symbol.
     NOTE: This function is defined during translation whenever required.
