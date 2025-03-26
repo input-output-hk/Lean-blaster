@@ -6,6 +6,9 @@ open Lean Meta Solver.Optimize Solver.Options
 
 namespace Solver.Smt
 
+/-- Minimal version of z3 we support -/
+private def minZ3Version : (Nat × Nat × Nat) := (4, 13, 4)
+
 /-- Result of an Smt query. -/
 inductive Result where
   | Valid  : Result
@@ -48,35 +51,6 @@ def logResult (r : Result) (sOpts : SolverOptions) : MetaM Unit := do
          f s!"{failure}\nCounterexample:\n{cexStr}"
       else f failure
 
-/-- Parse the version returned by z3-/
-private def parseZ3Version? (out : String) : Option (Nat × Nat × Nat) := do
-  -- let lines := out.trim.splitOn "\n"
-  -- let firstLine := lines.get! 0
-  let tokens := out.split (· = ' ')
-  let verToken? := tokens.find? (fun tk => tk.contains '.')
-  let some verToken := verToken? | none
-  let parts := verToken.splitOn "."
-  if parts.length < 3 then none
-  else
-    let some maj := String.toNat? parts[0]! | none
-    let some min := String.toNat? parts[1]! | none
-    let some pat := String.toNat? parts[2]! | none
-    some (maj, min, pat)
-
-/-- Minimal version of z3 we support -/
-private def minZ3Version : (Nat × Nat × Nat) := (4, 13, 4)
-
-/-- Check if the version of z3 is at least the minimal one we support -/
-private def isZ3VersionOk? (maj min patch : Nat) : Bool :=
-  let (reqMaj, reqMin, reqPatch) := minZ3Version
-  if maj > reqMaj then true
-  else if maj < reqMaj then false
-  else
-    if min > reqMin then true
-    else if min < reqMin then false
-    else
-      patch >= reqPatch
-
 /-- Tries to find if z3 is natively present in PATH, if not checks wsl z3 -/
 private def findZ3CmdAndVersion : IO (String × String) := do
   let (reqMaj, reqMin, reqPatch) := minZ3Version
@@ -87,17 +61,8 @@ private def findZ3CmdAndVersion : IO (String × String) := do
     try
       let out ← IO.Process.output { cmd := candidate, args := #["-version"] }
       if out.exitCode == 0 then
-        match parseZ3Version? out.stdout with
-        | some (maj, min, patch) =>
-          if isZ3VersionOk? maj min patch then
-            -- Found a good candidate => Return immediately
-            return (candidate, out.stdout)
-          else
-            attemptLogs := attemptLogs.push
-              s!"Candidate '{candidate}': version too old (found {maj}.{min}.{patch})"
-        | none =>
-          attemptLogs := attemptLogs.push
-            s!"Candidate '{candidate}': could not parse version from output:\n{out.stdout}"
+        -- Found a good candidate => Return immediately
+        return (candidate, out.stdout)
       else
         attemptLogs := attemptLogs.push
           s!"Candidate '{candidate}': exit code {out.exitCode}"
