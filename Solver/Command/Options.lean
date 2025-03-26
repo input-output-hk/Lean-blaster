@@ -1,18 +1,36 @@
 import Lean
 open Lean Elab Command
 
-namespace Solver
+namespace Solver.Options
 
-/--
-Type introducing the options passed on to the solver.
-TODO: add specific option to dump smt query
--/
+/-- Expected solve result -/
+inductive ExpectedResult where
+  | ExpectedValid
+  | ExpectedFalsified
+  | ExpectedUndetermined
+deriving Repr, DecidableEq
+
+def isExpectedValid : ExpectedResult -> Bool
+| .ExpectedValid => true
+| _ => false
+
+def isExpectedFalsified : ExpectedResult -> Bool
+| .ExpectedFalsified => true
+| _ => false
+
+def isExpectedUndetermined : ExpectedResult -> Bool
+| .ExpectedUndetermined => true
+| _ => false
+
+/-- Type introducing the options passed on to the solver. -/
 structure SolverOptions where
   /-- The number of unfolding steps to be considered when
       unfolding a recursive function. It is set to 100 by default. -/
   unfoldDepth : Nat := 100
+
   /-- The solving timeout in seconds. It is set to 'none' by default (i.e., unlimited). -/
   timeout : Option Nat := none
+
   /-- The verbosity level. It is set to zero by default (i.e., no verbosity).
         - Verbosity Level 0
            - Description: Default verbosity level that only displays the solve result.
@@ -29,7 +47,26 @@ structure SolverOptions where
    TODO: This description will be updated as new functionalities are introduced.
   -/
   verbose : Nat := 0
- deriving Repr, Inhabited
 
-end Solver
+  /-- When set to `true`, only perform translation to smt-lib without invoking the backend smt solver. -/
+  onlySmtLib : Bool := false
+
+  /-- When set to `true`, only perform optimization on the lean specification and do not translate to smt-lib. -/
+  onlyOptimize : Bool := false
+
+  /-- When set to `true`, dump the smt query to stdout. -/
+  dumpSmtLib : Bool := false
+
+  /-- When set to `true`, generate the counterexample produced for a falsified theorem when
+  the backend SMT solver is invoked. -/
+  generateCex : Bool := true
+
+  /-- When set to `true`, trigger an error if the #solve command does not return a Falisifed status. -/
+  solveResult : ExpectedResult := .ExpectedValid
+ deriving Repr
+
+instance : Inhabited SolverOptions where
+  default := {}
+
+end Solver.Options
 
