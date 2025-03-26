@@ -718,7 +718,7 @@ def structEqMatch? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) 
     let matchFun ← instantiateValueLevelParams cInfo dlevel
     let auxAppType ← mkLambdaFVars genericArgs (Expr.beta matchFun i_args)
     let env ← get
-    match env.optEnv.matchCache.find? auxAppType with
+    match env.optEnv.matchCache.get? auxAppType with
     | some gmatch =>
        let altArgs := args[matcherInfo.getFirstDiscrPos : args.size]
        mkAppExpr (gmatch.beta genericArgs) altArgs

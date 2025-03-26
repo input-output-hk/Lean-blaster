@@ -261,13 +261,16 @@ def isStrValue? (e : Expr) : Option String :=
 -/
 def isUInt32Value? (e : Expr) : Option Nat :=
   match e.app1? ``UInt32.mk with
-  | some fn =>
-      match fn.app3? ``Fin.mk with
-      | some (Expr.lit (Literal.natVal s), Expr.lit (Literal.natVal n), _) =>
-         if s != UInt32.size || Nat.ble UInt32.size n
-         then none
-         else some n
-      | _ => none
+  | some fn1 =>
+     match fn1.app2? ``BitVec.ofFin with
+     | some (_, fn2) =>
+        match fn2.app3? ``Fin.mk with
+        | some (Expr.lit (Literal.natVal s), Expr.lit (Literal.natVal n), _) =>
+          if s != UInt32.size || Nat.ble UInt32.size n
+          then none
+          else some n
+        | _ => none
+     | _ => none
   | _ => none
 
 
@@ -294,6 +297,10 @@ def isNatAddExpr (e : Expr) : Bool := e.isAppOfArity ``Nat.add 2
 -/
 def isNatSubExpr (e: Expr) : Bool := e.isAppOfArity ``Nat.sub 2
 
+/-- Return `true` if `e := Nat.pow e1 e2`. Otherwise return `false`.
+    Note that `true` is returned only when e is a fully applied `Nat.pow expression.
+-/
+def isNatPowExpr (e : Expr) : Bool := e.isAppOfArity ``Nat.pow 2
 
 /-- Determine if `e` is a `Nat.mul` expression and return it's corresponding arguments.
     Otherwise return `none`.
@@ -310,6 +317,10 @@ def isNatSubExpr (e: Expr) : Bool := e.isAppOfArity ``Nat.sub 2
 -/
 @[inline] def natSub? (e: Expr) : Option (Expr × Expr) := e.app2? ``Nat.sub
 
+/-- Determine if `e` is a `Nat.pow` expression and return it's corresponding arguments.
+    Otherwise return `none`.
+-/
+@[inline] def natPow? (e: Expr) : Option (Expr × Expr) := e.app2? ``Nat.pow
 
 /-- Inductive type used to characterize Nat binary operators when
     at least one operand is a constant.
@@ -449,14 +460,14 @@ inductive IntCstOpInfo where
   | IntAddExpr (n : Int) (e : Expr) : IntCstOpInfo
   /-- Int.mul N e info. -/
   | IntMulExpr (n : Int) (e : Expr) : IntCstOpInfo
-  /-- Int.div N e info. -/
-  | IntDivLeftExpr (n : Int) (e : Expr) : IntCstOpInfo
-  /-- Int.div e N info. -/
-  | IntDivRightExpr (e : Expr) (n : Int) : IntCstOpInfo
-  /-- Int.mod N e info. -/
-  | IntModLeftExpr (n : Int) (e : Expr) : IntCstOpInfo
-  /-- Int.mod e N info. -/
-  | IntModRightExpr (e : Expr) (n : Int) : IntCstOpInfo
+  /-- Int.tdiv N e info. -/
+  | IntTDivLeftExpr (n : Int) (e : Expr) : IntCstOpInfo
+  /-- Int.tdiv e N info. -/
+  | IntTDivRightExpr (e : Expr) (n : Int) : IntCstOpInfo
+  /-- Int.tmod N e info. -/
+  | IntTModLeftExpr (n : Int) (e : Expr) : IntCstOpInfo
+  /-- Int.tmod e N info. -/
+  | IntTModRightExpr (e : Expr) (n : Int) : IntCstOpInfo
   /-- Int.ediv N e info. -/
   | IntEDivLeftExpr (n : Int) (e : Expr) : IntCstOpInfo
   /-- Int.ediv e N info. -/
@@ -480,10 +491,10 @@ inductive IntCstOpInfo where
 /-- Return a `IntCstOpInfo` for `e` according to the following rules:
     - IntAddExpr N n (if e := Int.add N n)
     - IntMulExpr N n (if e := Int.mul N n)
-    - IntDivLeftExpr N n (if e := Int.div N n)
-    - IntDivLeftExpr n N (if e := Int.div n N)
-    - IntModLeftExpr N n (if e := Int.mod N n)
-    - IntModRightExpr n N (if e := Int.mod n N)
+    - IntTDivLeftExpr N n (if e := Int.tdiv N n)
+    - IntTDivLeftExpr n N (if e := Int.tdiv n N)
+    - IntTModLeftExpr N n (if e := Int.tmod N n)
+    - IntTModRightExpr n N (if e := Int.tmod n N)
     - IntEDivLeftExpr N n (if e := Int.ediv N n)
     - IntEDivLeftExpr n N (if e := Int.ediv n N)
     - IntEModLeftExpr N n (if e := Int.emod N n)
@@ -509,10 +520,10 @@ partial def toIntCstOpExpr? (e: Expr) : Option IntCstOpInfo := do
        match e.getAppFn, (isIntValue? op1), (isIntValue? op2) with
        | Expr.const ``Int.add _, some n, _ => some (IntCstOpInfo.IntAddExpr n op2)
        | Expr.const ``Int.mul _, some n, _ => some (IntCstOpInfo.IntMulExpr n op2)
-       | Expr.const ``Int.div _, some n, _ => some (IntCstOpInfo.IntDivLeftExpr n op2)
-       | Expr.const ``Int.div _, _, some n => some (IntCstOpInfo.IntDivRightExpr op1 n)
-       | Expr.const ``Int.mod _, some n, _ => some (IntCstOpInfo.IntModLeftExpr n op2)
-       | Expr.const ``Int.mod _, _, some n => some (IntCstOpInfo.IntModRightExpr op1 n)
+       | Expr.const ``Int.tdiv _, some n, _ => some (IntCstOpInfo.IntTDivLeftExpr n op2)
+       | Expr.const ``Int.tdiv _, _, some n => some (IntCstOpInfo.IntTDivRightExpr op1 n)
+       | Expr.const ``Int.tmod _, some n, _ => some (IntCstOpInfo.IntTModLeftExpr n op2)
+       | Expr.const ``Int.tmod _, _, some n => some (IntCstOpInfo.IntTModRightExpr op1 n)
        | Expr.const ``Int.ediv _, some n, _ => some (IntCstOpInfo.IntEDivLeftExpr n op2)
        | Expr.const ``Int.ediv _, _, some n => some (IntCstOpInfo.IntEDivRightExpr op1 n)
        | Expr.const ``Int.emod _, some n, _ => some (IntCstOpInfo.IntEModLeftExpr n op2)
@@ -559,19 +570,19 @@ def reorderArgs (args : Array Expr) : TranslateEnvT (Array Expr) := do
  let e2 := args[1]!
  match e1, e2 with
  | Expr.const ``False _, _ => pure args
- | _, Expr.const ``False _ => pure (args.swap! 0 1)
+ | _, Expr.const ``False _ => pure (args.swapIfInBounds 0 1)
  | Expr.const ``True _, _ => pure args
- | _, Expr.const ``True _ => pure (args.swap! 0 1)
+ | _, Expr.const ``True _ => pure (args.swapIfInBounds 0 1)
  | Expr.lit _, _ => pure args
- | _, Expr.lit _ => pure (args.swap! 0 1)
+ | _, Expr.lit _ => pure (args.swapIfInBounds 0 1)
  | _, _ =>
    match (← isConstructor e1), (← isConstructor e2) with
    | true, true =>
       match hasVars e1, hasVars e2 with
       | false, false | true, true => pure (swapOnCond (e2.lt e1))
       | false, true => pure args
-      | true, false => pure (args.swap! 0 1)
-   | false, true => pure (args.swap! 0 1)
+      | true, false => pure (args.swapIfInBounds 0 1)
+   | false, true => pure (args.swapIfInBounds 0 1)
    | true, false => pure args
    | false, false =>
       match e1, e2 with
@@ -579,18 +590,18 @@ def reorderArgs (args : Array Expr) : TranslateEnvT (Array Expr) := do
       | Expr.fvar id1, Expr.fvar id2 => pure (swapOnCond (id2.name.lt id1.name))
       | Expr.mvar id1, Expr.mvar id2 => pure (swapOnCond (id2.name.lt id1.name))
       | Expr.bvar _, _ => pure args
-      | _, Expr.bvar _ => pure (args.swap! 0 1)
+      | _, Expr.bvar _ => pure (args.swapIfInBounds 0 1)
       | Expr.fvar _, _ => pure args
-      | _, Expr.fvar _ => pure (args.swap! 0 1)
+      | _, Expr.fvar _ => pure (args.swapIfInBounds 0 1)
       | Expr.mvar _, _ => pure args
-      | _, Expr.mvar _ => pure (args.swap! 0 1)
+      | _, Expr.mvar _ => pure (args.swapIfInBounds 0 1)
       | _, _ =>
-         if (isTaggedRecursiveCall e1) && !(isTaggedRecursiveCall e2) then return (args.swap! 0 1)
+         if (isTaggedRecursiveCall e1) && !(isTaggedRecursiveCall e2) then return (args.swapIfInBounds 0 1)
          pure (swapOnCond (e2.lt e1))
 
  where
    swapOnCond (cond : Bool) : Array Expr :=
-    if cond then args.swap! 0 1 else args
+    if cond then args.swapIfInBounds 0 1 else args
 
 
 /-- call `reorderArgs` but consider the following additional rule:
@@ -600,7 +611,7 @@ def reorderBoolOp (args: Array Expr) : TranslateEnvT (Array Expr) := do
   let args' ← reorderArgs args
   let e1 := args'[0]!
   let e2 := args'[1]!
-  if (← isBoolNotExprOf e1 e2) then return (args'.swap! 0 1)
+  if (← isBoolNotExprOf e1 e2) then return (args'.swapIfInBounds 0 1)
   return args'
 
 /-- call `reorderBoolOp` but consider the following additional rule:
@@ -611,20 +622,22 @@ def reorderPropOp (args: Array Expr) : TranslateEnvT (Array Expr) := do
   let args' ← reorderBoolOp args
   let e1 := args'[0]!
   let e2 := args'[1]!
-  if (← isNotExprOf e1 e2) then return ((args'.swap! 0 1))
-  if (← isNegBoolEqOf e1 e2) then return ((args'.swap! 0 1))
+  if (← isNotExprOf e1 e2) then return ((args'.swapIfInBounds 0 1))
+  if (← isNegBoolEqOf e1 e2) then return ((args'.swapIfInBounds 0 1))
   return args'
 
 /-- call `reorderArgs` but consider the following additional rule:
     - #[(Nat.sub x y), (Nat.add p q)] ===> #[Nat.add p q, Nat.sub x y]
+    - #[(Nat.pow x y), e] ===> #[e, Nat.pow x y] if ¬ (isNatPowExpr e)
 -/
 def reorderNatOp (args: Array Expr) : TranslateEnvT (Array Expr) := do
   let args' ← reorderArgs args
   let e1 := args'[0]!
   let e2 := args'[1]!
-  if (isNatSubExpr e1 && isNatAddExpr e2)
-  then pure (args'.swap! 0 1)
-  else pure args'
+  if (isNatSubExpr e1 && isNatAddExpr e2) then return (args'.swapIfInBounds 0 1)
+  if (isNatPowExpr e1 && !isNatPowExpr e2) then return (args'.swapIfInBounds 0 1)
+  return args'
+
 
 /-- call `reorderArgs` but consider the following additional rule:
     - #[Int.neg x, x] ===> #[x, Int.neg x]
@@ -634,7 +647,7 @@ def reorderIntOp (args: Array Expr) : TranslateEnvT (Array Expr) := do
   let e1 := args'[0]!
   let e2 := args'[1]!
   if (← isIntNegExprOf e1 e2)
-  then pure (args'.swap! 0 1)
+  then pure (args'.swapIfInBounds 0 1)
   else pure args'
 
 
@@ -793,15 +806,15 @@ partial def betaForAll (e : Expr) (args : Array Expr) : TranslateEnvT Expr := do
     else return e
   visit 0 args.size e
 
-/-- Return `true` if e contains at least one theorem with sorry demonstration. -/
-partial def hasSorryTheorem (e : Expr) : MetaM Bool :=
-  return (← Expr.findM? (m := MetaM) findSorry e).isSome
+/-- Trigger an error if e contains at least one theorem with sorry demonstration. -/
+partial def hasSorryTheorem (e : Expr) (msg : MessageData) : TranslateEnvT Unit :=
+  Expr.forEach e findSorry
 
  where
-  findSorry (e : Expr) : MetaM Bool := do
-    let Expr.const n _ := e | return false
-    if n == ``sorryAx then return true
-    let ConstantInfo.thmInfo info ← getConstInfo n | return false
-    hasSorryTheorem (info.value)
+  findSorry (e : Expr) : TranslateEnvT Unit := do
+    let Expr.const n _ := e | return ()
+    if n == ``sorryAx then throwEnvError msg
+    let ConstantInfo.thmInfo info ← getConstInfo n | return ()
+    hasSorryTheorem (info.value) msg
 
 end Solver.Optimize

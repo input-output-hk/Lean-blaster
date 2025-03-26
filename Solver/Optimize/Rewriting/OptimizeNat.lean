@@ -105,6 +105,21 @@ partial def optimizeNatSub (f : Expr) (args : Array Expr) : TranslateEnvT Expr :
 --    NOTE: `(x - y) + (p + q)` is normalized as `(p + q) + (x - y)` via `reorderArgs`
 -- -/
 
+/-- Apply the following simplification/normalization rules on `Nat.pow` :
+     - n ^ 0 ==> 1
+     - N1 ^ N2 ==> N1 "^" N2
+   Assume that f = Expr.const ``Nat.pow.
+   An error is triggered when args.size ≠ 2 (i.e., only fully applied `Nat.pow` expected at this stage)
+
+-/
+partial def optimizeNatPow (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
+ if args.size != 2 then throwEnvError "optimizeNatPow: exactly two arguments expected"
+ let op1 := args[0]!
+ let op2 := args[1]!
+ match isNatValue? op1, isNatValue? op2 with
+ | _, some 0 => return (← mkNatLitExpr 1)
+ | some n1, some n2 => evalBinNatOp Nat.pow n1 n2
+ | _, _ => mkExpr (mkApp2 f op1 op2)
 
 /-- Apply the following simplification/normalization rules on `Nat.mul` :
      - 0 * n ==> 0
@@ -112,6 +127,7 @@ partial def optimizeNatSub (f : Expr) (args : Array Expr) : TranslateEnvT Expr :
      - N1 + N2 ==> N1 "*" N2
      - N1 * (N2 * n) ==> (N1 "*" N2) * n
      - n1 * n2 ==> n2 * n1 (if n2 <ₒ n1)
+     - n * n^m ===> n ^ (m + 1)
    Assume that f = Expr.const ``Nat.mul.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Nat.mul` expected at this stage)
 -/
@@ -126,6 +142,7 @@ def optimizeNatMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  | some n1, some n2 => evalBinNatOp Nat.mul n1 n2
  | nv1, _ =>
    if let some r ← cstMulProp? nv1 op2 then return r
+   if let some r ← mulPowReduceExpr? op1 op2 then return r
    mkExpr (mkApp2 f op1 op2)
 
  where
@@ -139,6 +156,17 @@ def optimizeNatMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
          some <$> mkExpr (mkApp2 f (← evalBinNatOp Nat.mul n1 n2) e2)
      | _, _ => return none
 
+   /-- Given `e1` and `e2` corresponding to the operands for `Nat.mul`,
+       return some e1^(m + 1) only when `e2 := e1 ^ m`
+   -/
+   mulPowReduceExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := do
+    match natPow? e2 with
+    | some (op1, op2) =>
+       if (← exprEq e1 op1) then
+         let addExpr ← optimizeNatAdd (← mkNatAddOp) #[← mkNatLitExpr 1, op2]
+         return (← mkExpr (mkApp2 (← mkNatPowOp) e1 addExpr))
+       return none
+    | none => return none
 
 /-- Given `e1` and `e2` corresponding to the operands for `Nat.div` (i.e., `e1 / e2`),
     return `some n` only when one of the following conditions is satisfied:
@@ -312,6 +340,7 @@ def optimizeNat? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) :=
   | ``Nat.beq => optimizeNatBeq f args
   | ``Nat.ble => optimizeNatble f args
   | ``Nat.le => optimizeNatLe args
+  | ``Nat.pow => optimizeNatPow f args
   | _=> return none
 
 end Solver.Optimize
