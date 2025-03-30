@@ -51,7 +51,7 @@ end
               | p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₙ₎ => tₘ
         ∧ ∀ i ∈ [1..m], isCstMatchProp t₁ )
 -/
-partial def isCstMatchProp (p : Expr) : TranslateEnvT Bool :=
+def isCstMatchProp (p : Expr) : TranslateEnvT Bool :=
   isCstMatchPropAux p (λ x => return x)
 
 /-- Given `f x₁ ... xₙ` return `true` when the following conditions are satisfied:
@@ -172,14 +172,14 @@ def reduceMatchChoice?
              match₁ g₍ₘ₎₍₁₎, ..., g₍ₘ₎₍ₙ₎ with ...`
 
 -/
-def constMatchPropagation? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
-  let Expr.const n l := f | return none
+def constMatchPropagation? (cm : Expr) (cargs : Array Expr) : TranslateEnvT (Option Expr) := do
+  let Expr.const n l := cm | return none
   let some mInfo ← getMatcherRecInfo? n l | return none
-  let discrs := args[mInfo.getFirstDiscrPos : mInfo.getFirstAltPos]
+  let discrs := cargs[mInfo.getFirstDiscrPos : mInfo.getFirstAltPos]
   if !(← allDiscrsAreCstMatch discrs) then return none
-  if let some r ← iteCstProp? f args mInfo then return r
-  if let some r ← diteCstProp? f args mInfo then return r
-  if let some r ← matchCstProp? f args mInfo then return r
+  if let some r ← iteCstProp? cm cargs mInfo then return r
+  if let some r ← diteCstProp? cm cargs mInfo then return r
+  if let some r ← matchCstProp? cm cargs mInfo then return r
   return none
 
   where
