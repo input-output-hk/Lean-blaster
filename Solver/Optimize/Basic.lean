@@ -2,6 +2,7 @@ import Lean
 import Lean.Util.MonadCache
 import Solver.Command.Options
 import Solver.Logging
+import Solver.Optimize.Rewriting.NormalizeMatch
 import Solver.Optimize.Rewriting.OptimizeApp
 import Solver.Optimize.Rewriting.OptimizeConst
 import Solver.Optimize.Rewriting.OptimizeForAll
@@ -61,6 +62,10 @@ partial def optimizeExpr (e : Expr) : TranslateEnvT Expr := do
          if let some re ← reduceApp? rf mas then
            trace[Optimize.reduceApp] f!"application reduction {reprStr rf} {reprStr mas} => {reprStr re}"
            return (← visit re)
+         -- applying match constant propagation
+         if let some re ← constMatchPropagation? rf mas then
+            trace[Optimize.reduceApp] f!"match constant propagation {reprStr rf} {reprStr mas} => {reprStr re}"
+            return (← visit re)
          -- unfold non-recursive and non-opaque functions
          -- NOTE: beta reduction performed by getUnfoldFunDef? when rf is a lambda term
          -- NOTE: we can only unfold once all parameters have been optimized.
@@ -129,11 +134,12 @@ def optimize (sOpts: SolverOptions) (e : Expr) : MetaM (Expr × TranslateEnv) :=
 
 
 initialize
+  registerTraceClass `Optimize.cstPropagationMatch
   registerTraceClass `Optimize.expr
+  registerTraceClass `Optimize.normMatch
+  registerTraceClass `Optimize.normPartial
   registerTraceClass `Optimize.reduceChoice
   registerTraceClass `Optimize.reduceApp
   registerTraceClass `Optimize.unfoldDef
-  registerTraceClass `Optimize.normMatch
-  registerTraceClass `Optimize.normPartial
 
 end Solver.Optimize
