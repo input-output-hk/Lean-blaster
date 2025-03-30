@@ -11,28 +11,6 @@ open Lean Meta
 
 namespace Solver.Optimize
 
-/-- Gievn `f x₁ ... xₙ` return `true` when the following conditions are satisfied:
-     -  ∃ i ∈ [1..n], isExplicit xᵢ ∧
-     -  ∀ i ∈ [1..n], isExplicit xᵢ → isConstructor xᵢ ∨ isProp (← inferType xₓ) ∨ isFunType (← inferType xᵢ)
-    NOTE: that constructors may contain free variables.
--/
-def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) : MetaM Bool := do
-  let stop := args.size
-  let fInfo ← getFunInfoNArgs f stop
-  let rec loop (i : Nat) (atLeastOneExplicit : Bool := false) : MetaM Bool := do
-    if i < stop then
-      let e := args[i]!
-      let t ← inferType e
-      let aInfo := fInfo.paramInfo[i]!
-      if aInfo.isExplicit
-      then if (← isConstructor e <||> isProp t <||> isFunType t)
-           then loop (i+1) true
-           else pure false
-      else loop (i+1) atLeastOneExplicit
-    else pure atLeastOneExplicit
-  loop 0
-
-
 /-- Given application `f x₁ ... xₙ`, perform the following:
      - When `isOpaqueRecFun f #[x₁ ... xₙ] ∧ allExplicitParamsAreCtor f #[x₁ ... xₙ]
           - When some auxFun ← unfoldOpaqueFunDef f #[x₁ ... xₙ]
@@ -122,54 +100,6 @@ def reduceITEChoice?
          return none
      | _ => return none
 
-
-/--  Given application `f x₀ ... xₙ`, perform the following:
-     - When `f x₀ ... xₙ` is a match expression of the form
-          match e₀, ..., eₙ with
-          | p₍₀₎₍₁₎, ..., p₍₀₎₍ₙ₎ => t₀
-            ...
-          | p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₙ₎ => tₘ
-        - return `whnfExpr (f x₀ ... xₙ)` only when `∀ i ∈ [1..n], isConstructor (optimizer eᵢ)`.
-
-     - Otherwise:
-         - return none
-
--/
-def reduceMatchChoice?
-  (f : Expr) (args : Array Expr)
-  (optimizer : Expr -> TranslateEnvT Expr) : TranslateEnvT (Option Expr) := do
-  let Expr.const n l := f | return none
-  if let some r ← isMatchReduction? n l args then return r
-  return none
-
-  where
-   isMatchReduction? (n : Name) (l : List Level) (args : Array Expr) : TranslateEnvT (Option Expr) := do
-     let some matcherInfo ← getMatcherRecInfo? n l | return none
-     let mut margs := args
-     for i in [:args.size] do
-       if i ≥ matcherInfo.getFirstDiscrPos && i < matcherInfo.getFirstAltPos
-       then margs ← margs.modifyM i optimizer
-     let discrs := margs[matcherInfo.getFirstDiscrPos : matcherInfo.getFirstAltPos]
-     -- NOTE: reduceMatcher? simplifies match only when all the discriminators are constructors
-     if !(← allMatchDiscrsAreCtor discrs) then return none
-     let auxApp := mkAppN f margs
-     match (← withReducible $ reduceMatcher? auxApp) with
-     | .reduced e => return e
-     | _ => return none
-
-   /- Return `true` only when at least one of the match discriminators is a constructor
-      that may also contain free variables.
-      Concretely given a match expression of the form:
-        match e₁, ..., eₙ with
-        | p₍₁₎₍₁₎, ..., p₍₁₎₍ₙ₎ => t₁
-        ...
-        | p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₙ₎ => tₘ
-      Return `true` when `∀ i ∈ [1..n], isConstructor eᵢ`.
-   -/
-   allMatchDiscrsAreCtor (discrs : Subarray Expr) : TranslateEnvT Bool := do
-     for i in [:discrs.size] do
-       if !(← isConstructor discrs[i]!) then return false
-     return true
 
 /-- Perform constant propagation and apply simplifcation and normalization rules
     on application expressions.
@@ -294,7 +224,7 @@ def normOpaqueAndRecFun
      let fn' ← storeRecFunDef subsInst params optDef
      trace[Optimize.recFun] f!"rec function instance {subsInst} is equivalent to {reprStr fn'}"
      optimizeRecApp fn' params
-   else optimizeApp uf uargs -- optimizations on opaque functions
+   else optimizeApp uf uargs  -- optimizations on opaque functions
 
  where
 
@@ -328,7 +258,7 @@ def normOpaqueAndRecFun
          -- partially applied function
          let appCall := getLambdaBody auxApp
          let largs := appCall.getAppArgs
-         return (appCall.getAppFn', largs[0:largs.size-auxApp.getNumHeadLambdas])
+         return (appCall.getAppFn', largs.take (largs.size-auxApp.getNumHeadLambdas))
        else
          return (auxApp.getAppFn', auxApp.getAppArgs)
      else return (f, args)
@@ -368,7 +298,7 @@ def normOpaqueAndRecFun
          let appCall := getLambdaBody auxApp
          let largs := appCall.getAppArgs
          trace[Optimize.recFun.app] f!"partially applied case {reprStr appCall.getAppFn'} {reprStr largs[0:largs.size-auxApp.getNumHeadLambdas]}"
-         optimizeApp appCall.getAppFn' largs[0:largs.size-auxApp.getNumHeadLambdas]
+         optimizeApp appCall.getAppFn' (largs.take (largs.size-auxApp.getNumHeadLambdas))
        else
          trace[Optimize.recFun.app] f!"polymorphic equivalent case {reprStr auxApp.getAppFn'} {reprStr auxApp.getAppArgs}"
          optimizeApp auxApp.getAppFn' auxApp.getAppArgs

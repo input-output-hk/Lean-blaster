@@ -509,7 +509,6 @@ def setPrintSuccess (b : Bool) : TranslateEnvT Unit :=
 
 /-- Set the default Smt options, i.e.:
      - (set-option :print-success true)
-     - (set-logic ALL)
      - (set-option :produce-models true)
      - (set-option :produce-proofs true)
      - (set-option :smt-pull-nested-quantifiers true)
@@ -517,7 +516,6 @@ def setPrintSuccess (b : Bool) : TranslateEnvT Unit :=
 -/
 def setDefaultSmtOptions : TranslateEnvT Unit := do
  setPrintSuccess true
- setLogicAll
  setProduceModels true
  setProduceProofs true
  setPullNestedQuantifiers true

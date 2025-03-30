@@ -425,6 +425,12 @@ def toNatCstOpExpr? (e: Expr) : Option NatCstOpInfo :=
 -/
 @[inline] def dite? (e : Expr) : Option (Expr × Expr × Expr × Expr × Expr) := app5? e ``dite
 
+/-- Return `true` only when `e := if c then e1 else e2`. Otherwise `false`. -/
+def isIte (e : Expr) : Bool := e.isAppOfArity ``ite 5
+
+/-- Return `true` only when `e := dite c (h : c => e1) (h : ¬ c => e2)`. Otherwise `false`. -/
+def isDite (e : Expr) : Bool := e.isAppOfArity ``dite 5
+
 /-- Return `true` when `e1 := -ne ∧ ne =ₚₜᵣ e2`. Otherwise `false`.
  -/
 def isIntNegExprOf (e1: Expr) (e2 : Expr) : MetaM Bool := do

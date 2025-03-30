@@ -460,6 +460,9 @@ def mkEqOp : TranslateEnvT Expr := mkExpr (mkConst ``Eq [levelOne])
 /-- Return `ite` operator and cache result. -/
 def mkIteOp : TranslateEnvT Expr := mkExpr (mkConst ``ite [levelOne])
 
+/-- Return `dite` operator and cache result. -/
+def mkDIteOp : TranslateEnvT Expr := mkExpr (mkConst ``dite [levelOne])
+
 /-- Return `LE.le` operator and cache result. -/
 def mkLeOp : TranslateEnvT Expr := mkExpr (mkConst ``LE.le [levelZero])
 

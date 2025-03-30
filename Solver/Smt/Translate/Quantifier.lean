@@ -763,14 +763,9 @@ def translateNonOpaqueType
   | _ => throwEnvError f!"translateNonOpaqueType: name expression expected but got {reprStr t}"
 
  where
-   genInstApp : TranslateEnvT Expr := do
-     if topts.genericParamFun
-     then getIndInst t args
-     else return mkAppN t args
-
    translateInstType (indName : Name) : TranslateEnvT SortExpr := do
      let env ← get
-     let instApp ← genInstApp
+     let instApp ← getIndInst t args
      match env.smtEnv.indTypeInstCache.get? instApp with
      | some decl => return decl.instSort
      | none =>
@@ -782,13 +777,6 @@ def translateNonOpaqueType
           -- reset indTypeDefinition flag and set genericParamFun to `true`
           defineInstPredicateQualifier (λ e => typeTranslator e optionsForPredicateQualifier)
             termTranslator optimizer t args
-          -- check if the fully applied instance has already been cached
-          -- in defineInstPredicateQualifier. If not update instance cache.
-          -- NOTE: definInstPredicateQualifier will update instance cache
-          -- with a polymorphic instance when the instantiated datatype
-          -- is still polymorphic.
-          unless ((← get).smtEnv.indTypeInstCache.get? instApp).isSome do
-            updateIndInstCache instApp (nameToSmtSymbol indName) smtType
        return smtType
 
 
