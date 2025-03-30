@@ -224,7 +224,7 @@ def normOpaqueAndRecFun
      let fn' ← storeRecFunDef subsInst params optDef
      trace[Optimize.recFun] f!"rec function instance {subsInst} is equivalent to {reprStr fn'}"
      optimizeRecApp fn' params
-   else optimizeApp uf uargs  -- optimizations on opaque functions
+   else optimizeApp uf uargs -- optimizations on opaque functions
 
  where
 
