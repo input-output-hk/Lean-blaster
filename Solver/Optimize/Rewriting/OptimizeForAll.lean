@@ -18,9 +18,6 @@ namespace Solver.Optimize
       - false = c → true = c ==> true = c
       - ∀ (n : t), e ===> e (if isSortOrInhabited t ∧ Type(e) = Prop ∧ ¬ fVarInExpr n.fvarId! e)
   Assume that `n` is a free variable expression. An error is triggered if this is not the case.
-  TODO: consider additional simplification rules
-  TODO: check if we can have a simplification rule for:
-    -- (∀ (a b : Type), P a b) → (∀ (b a : Type), P a b) ===> True
 -/
 def optimizeForall (n : Expr) (t : Expr) (b : Expr) : TranslateEnvT Expr := do
   if let Expr.const ``True _ := b then return b
