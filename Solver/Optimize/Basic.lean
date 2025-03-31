@@ -5,6 +5,7 @@ import Solver.Logging
 import Solver.Optimize.Rewriting.NormalizeMatch
 import Solver.Optimize.Rewriting.OptimizeApp
 import Solver.Optimize.Rewriting.OptimizeConst
+import Solver.Optimize.Rewriting.OptimizeCtor
 import Solver.Optimize.Rewriting.OptimizeForAll
 
 open Lean Elab Command Term Meta Solver.Options
@@ -73,8 +74,13 @@ partial def optimizeExpr (e : Expr) : TranslateEnvT Expr := do
             return (← visit mdef)
          -- applying match constant propagation
          if let some re ← constMatchPropagation? rf mas then
-            trace[Optimize.cstPropagationMatch]
+            trace[Optimize.matchConstPropagation]
               f!"match constant propagation {reprStr rf} {reprStr mas} => {reprStr re}"
+            return (← visit re)
+         -- applying ctor constant propagation
+         if let some re ← constCtorPropagation? rf mas then
+            trace[Optimize.ctorConstPropagation]
+              f!"ctor constant propagation {reprStr rf} {reprStr mas} => {reprStr re}"
             return (← visit re)
          normOpaqueAndRecFun rf mas visit
     | Expr.lam n t b bi => do
@@ -134,8 +140,9 @@ def optimize (sOpts: SolverOptions) (e : Expr) : MetaM (Expr × TranslateEnv) :=
 
 
 initialize
-  registerTraceClass `Optimize.cstPropagationMatch
+  registerTraceClass `Optimize.ctorConstPropagation
   registerTraceClass `Optimize.expr
+  registerTraceClass `Optimize.matchConstPropagation
   registerTraceClass `Optimize.normMatch
   registerTraceClass `Optimize.normPartial
   registerTraceClass `Optimize.reduceChoice

@@ -98,7 +98,8 @@ def isITEBoolSwap? (c : Expr) : TranslateEnvT (Option Expr) := do
      - if c then e1 else e2 ==> if c' then e2 else e1 (if c := ¬ c')
      - if c then e1 else e2 ==> if true = c' then e2 else e1 (if c := false = c')
      - if c then e1 else e2 ==> (c → e1) ∧ (¬ c → e2) (if Type(e1) = Prop)
-
+     - if c then (if c then e1 else e2) else e3 ==> if c then e1 else e3
+     - if c then e1 else (if c then e2 else e3) ==> if c then e1 else e3
    Assume that f = Expr.const ``ite
    An error is triggered when args.size ≠ 5 (i.e., only fully applied `ite` expected at this stage)
    TODO: consider additional simplification rules.
@@ -120,8 +121,20 @@ partial def optimizeITE (f : Expr) (args : Array Expr) : TranslateEnvT Expr := d
  if let Expr.app (Expr.const ``Not _) ne := c then return (← optimizeITE f (← swapITEAndUpdateDecidable (args.set! 1 ne)))
  if let some c' ← (isITEBoolSwap? c) then return (← optimizeITE f (← swapITEAndUpdateDecidable (args.set! 1 c')))
  if let some r ← iteToPropExpr? iteType c t e then return r
+ if let some r ← iteThenReduce? c t then return (← optimizeITE f (args.set! 3 r))
+ if let some r ← iteElseReduce? c e then return (← optimizeITE f (args.set! 4 r))
  mkAppExpr f (← updateITEDecidable args)
 
+ where
+   /-- Return `some e1` when `t := if c then e1 else e2`. Otherwise none. --/
+   iteThenReduce? (c : Expr) (t : Expr) : TranslateEnvT (Option Expr) := do
+    let some (_psort, c', _pdecide, e1, _e2) := ite? t | return none
+    if (← exprEq c c') then return some e1 else return none
+
+   /-- Return `some e2` when `e := if c then e1 else e2`. Otherwise none. --/
+   iteElseReduce? (c : Expr) (e : Expr) : TranslateEnvT (Option Expr) := do
+    let some (_psort, c', _pdecide, _e1, e2) := ite? e | return none
+    if (← exprEq c c') then return some e2 else return none
 
 /-- Given `e` a `dite` then/else expression perform the following:
       - When `e := fun h : c => b`:
@@ -152,6 +165,18 @@ def extractDependentITEExpr (e : Expr) : TranslateEnvT Expr := do
      - `dite c (fun h : c => e1) (fun h : ¬ c => e2)` ==> `dite true = c' (fun h : true = c' => e2) (fun h : false = c' => e1)` (if c := false = c')
      - `dite c (fun h : c => e1) (fun h : ¬ c => e2)` ==> (c → e1) ∧ (¬ c → e2) (if Type(e1) = Prop)
 
+     - `dite c then (fun h : c => if c then e1 else e2) (fun h : ¬ c => e3)` ==>
+          dite c then (fun h : c => e1) (fun h : ¬ c => e3)`
+
+     - `dite c then (fun h : c => dite c (fun h : c => e1) (fun h : ¬ c => e2)) (fun h : ¬ c => e3)` ==>
+          dite c then (fun h : c => e1) (fun h : ¬ c => e3)`
+
+     - `dite c then (fun h : c => e1) (fun h : ¬ c => if c then e2 else e3)` ==>
+          dite c then (fun h : c => e1) (fun h : ¬ c => e3)`
+
+     - `dite c then (fun h : c => e1) (fun h : ¬ c => dite c (fun h : => e2) (fun h : ¬ c => e3))` ==>
+          dite c then (fun h : c => e1) else (fun h : ¬ c => e3)`
+
     Assume that f = Expr.const ``dite
     An error is triggered when args.size ≠ 5 (i.e., only fully applied `dite` expected at this stage)
     TODO: consider additional simplification rules.
@@ -175,7 +200,43 @@ partial def optimizeDITE (f : Expr) (args : Array Expr) : TranslateEnvT Expr := 
  if let Expr.app (Expr.const ``Not _) ne := c then return (← optimizeDITE f (← swapITEAndUpdateDecidable (args.set! 1 ne)))
  if let some c' ← isITEBoolSwap? c then return (← optimizeDITE f (← swapITEAndUpdateDecidable (args.set! 1 c')))
  if let some r ← diteToPropExpr? iteType t e then return r
+ if let some r ← diteThenReduce? c t then return (← optimizeDITE f (args.set! 3 r))
+ if let some r ← diteElseReduce? c e then return (← optimizeDITE f (args.set! 4 r))
  mkAppExpr f (← updateITEDecidable args)
+
+
+ where
+   /-- Given `c` and `t` the cond and then expresssion for a `dite` return:
+       `some (fun h : c => e1)` when one of the following conditions is satisfied:
+         - `t := (fun h : c => if c then e1 else e2)` ∨
+         - `t := (fun h : c => (fun h : c => dite c (fun h : c => e1) (fun h : ¬ c => e2)))`
+   -/
+   diteThenReduce? (c : Expr) (t : Expr) : TranslateEnvT (Option Expr) := do
+     match t with
+     | Expr.lam n t b bi =>
+         match ite? b with
+         | some (_psort, c', _pdecide, e1, _e2) =>
+            if (← exprEq c c') then return Expr.lam n t e1 bi else return none
+         | none =>
+            let some (_psort, c', _pdecide, e1, _e2) := dite? b | return none
+            if (← exprEq c c') then return e1 else return none
+     | _ => return none
+
+   /-- Given `c` and `e` the cond and else expresssion for a `dite` return:
+       `some (fun h : ¬ c => e2)` when one of the following conditions is satisfied:
+         - `e := (fun h : ¬ c => if c then e1 else e2)` ∨
+         - `e := (fun h : ¬ c => (fun h : c => dite c (fun h : c => e1) (fun h : ¬ c => e2)))`
+   -/
+   diteElseReduce? (c : Expr) (e : Expr) : TranslateEnvT (Option Expr) := do
+     match e with
+     | Expr.lam n t b bi =>
+         match ite? b with
+         | some (_psort, c', _pdecide, _e1, e2) =>
+            if (← exprEq c c') then return Expr.lam n t e2 bi else return none
+         | none =>
+            let some (_psort, c', _pdecide, _e1, e2) := dite? b | return none
+            if (← exprEq c c') then return e2 else return none
+     | _ => return none
 
 
 /-- Apply simplification/normalization rules of if then else expressions. -/
