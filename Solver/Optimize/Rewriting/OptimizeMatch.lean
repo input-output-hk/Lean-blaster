@@ -109,10 +109,12 @@ def reduceMatch? (m : Expr) : TranslateEnvT (Option Expr) := do
       let .reduced e ← withReducible (reduceMatcher? m) | return none
       return e
 
-/-- call reduceMatch? on `m` and return result when successful. Otherwise return `m`.
-    Assume that `m` is a match expression.
+/-- call reduceMatch? on `m` only when `m` corresponds to a match expression.
+    Otherwise return `m`.
 -/
 def tryMatchReduction? (m : Expr) : TranslateEnvT Expr := do
+   let Expr.const n _ := m.getAppFn' | return m
+   if !(← isMatchExpr n) then return m
    match (← reduceMatch? m) with
    | some re => return re
    | none => return m
@@ -179,14 +181,14 @@ def constMatchPropagation?
           -- i.e., match expression returns a function. Hence, extra arguments are now applied to ite.
           let margs := args.take mInfo.arity
           let extra_args := args.extract mInfo.arity args.size
-          let e1' ← tryMatchReduction? (mkAppN f (margs.set! i e1))
-          let e2' ← tryMatchReduction? (mkAppN f (margs.set! i e2))
+          let e1' ← tryMatchReduction? (← mkExpr (mkAppN f (margs.set! i e1)) (cacheResult := false))
+          let e2' ← tryMatchReduction? (← mkExpr (mkAppN f (margs.set! i e2)) (cacheResult := false))
           -- NOTE: we also need to set the sort type for the pulled ite to meet
           -- the return type of the embedded match
           let retType ← inferType (mkAppN f margs)
-          let iteExpr := mkApp5 (← mkIteOp) retType pcond pdecide e1' e2'
+          let iteExpr ← mkExpr (mkApp5 (← mkIteOp) retType pcond pdecide e1' e2') (cacheResult := false)
           if !extra_args.isEmpty
-          then return mkAppN iteExpr extra_args
+          then return ← mkExpr (mkAppN iteExpr extra_args) (cacheResult := false)
           else return iteExpr
       return none
 
@@ -194,7 +196,7 @@ def constMatchPropagation?
       -- NOTE: here we can telescope as condition `allDiscrsAreCstMatch` guarantees
       -- that rhs can't be a function (i.e., only constant or ite or a match)
       lambdaTelescope ite_e fun params body => do
-        let body' ← tryMatchReduction? (mkAppN f (args.set! idxDiscr body))
+        let body' ← tryMatchReduction? (← mkExpr (mkAppN f (args.set! idxDiscr body)) (cacheResult := false))
         mkLambdaFVars params body'
 
     /-- Implements dite over match rule -/
@@ -210,9 +212,9 @@ def constMatchPropagation?
           -- NOTE: we also need to set the sort type for the pulled dite to meet
           -- the return type of the embedded match
           let retType ← inferType (mkAppN f margs)
-          let diteExpr := mkApp5 (← mkDIteOp) retType pcond pdecide e1' e2'
+          let diteExpr ← mkExpr (mkApp5 (← mkDIteOp) retType pcond pdecide e1' e2') (cacheResult := false)
           if !extra_args.isEmpty
-          then return mkAppN diteExpr extra_args
+          then return (← mkExpr (mkAppN diteExpr extra_args) (cacheResult := false))
           return diteExpr
       return none
 
@@ -220,7 +222,7 @@ def constMatchPropagation?
       -- NOTE: here we can telescope as condition `allDiscrsAreCstMatch` guarantees
       -- that rhs can't be a function (i.e., only constant or ite or a match)
       lambdaTelescope rhs fun params body => do
-        let body' ← tryMatchReduction? (mkAppN f (args.set! idx body))
+        let body' ← tryMatchReduction? (← mkExpr (mkAppN f (args.set! idx body)) (cacheResult := false))
         mkLambdaFVars params body'
 
     updateReturnType (pType : Expr) (eType : Expr) : TranslateEnvT Expr := do
@@ -242,9 +244,9 @@ def constMatchPropagation?
             -- to meet the return type of the embedded match.
             let retType ← inferType (mkAppN f margs)
             pargs' := pargs'.set! idxPType (← updateReturnType pargs[idxPType]! retType)
-          let pMatchExpr := mkAppN pm pargs'
+          let pMatchExpr ← mkExpr (mkAppN pm pargs') (cacheResult := false)
           if !extra_args.isEmpty
-          then return mkAppN pMatchExpr extra_args
+          then return (← mkExpr (mkAppN pMatchExpr extra_args) (cacheResult := false))
           return pMatchExpr
       return none
 

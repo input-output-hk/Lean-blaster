@@ -62,7 +62,7 @@ def constCtorPropagation? (cf : Expr) (cargs : Array Expr) : TranslateEnvT (Opti
           -- NOTE: we also need to set the sort type for the pulled ite to meet
           -- the ctor type
           let retType ← inferType (mkAppN f args)
-          return mkApp5 (← mkIteOp) retType pcond pdecide e1' e2'
+          return ← mkExpr (mkApp5 (← mkIteOp) retType pcond pdecide e1' e2') (cacheResult := false)
       return none
 
     pushCtorInDIteExpr (f : Expr) (args : Array Expr) (idxField : Nat) (ite_e : Expr) : TranslateEnvT Expr := do
@@ -83,7 +83,7 @@ def constCtorPropagation? (cf : Expr) (cargs : Array Expr) : TranslateEnvT (Opti
           -- NOTE: we also need to set the sort type for the pulled dite to meet
           -- the return type of the embedded match
           let retType ← inferType (mkAppN f args)
-          return mkApp5 (← mkDIteOp) retType pcond pdecide e1' e2'
+          return ← mkExpr (mkApp5 (← mkDIteOp) retType pcond pdecide e1' e2') (cacheResult := false)
       return none
 
     updateRhsWithCtor (f : Expr) (args : Array Expr) (idxField : Nat) (rhs : Expr) : TranslateEnvT Expr := do
@@ -111,7 +111,7 @@ def constCtorPropagation? (cf : Expr) (cargs : Array Expr) : TranslateEnvT (Opti
             -- to meet the return type of the embedded match.
             let retType ← inferType (mkAppN f args)
             pargs' := pargs'.set! idxPType (← updateReturnType pargs[idxPType]! retType)
-          return mkAppN pm pargs'
+          return ← mkExpr (mkAppN pm pargs') (cacheResult := false)
       return none
 
 end Solver.Optimize
