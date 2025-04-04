@@ -148,7 +148,6 @@ def isBoolValue? (e : Expr) : Option Bool :=
 -/
 @[inline] def beq? (e : Expr) : Option (Expr × Expr × Expr × Expr) := e.app4? ``BEq.beq
 
-
 /-- Determine if `e` is an `Not` expression and return its corresponding argument.
     Otherwise return `none`.
 -/
@@ -163,6 +162,14 @@ def isBoolValue? (e : Expr) : Option Bool :=
     Otherwise return `none`.
 -/
 @[inline] def propOr? (e : Expr) : Option (Expr × Expr) := e.app2? ``Or
+
+@[inline] def implies? (e : Expr) : MetaM (Option (Expr × Expr)) := do
+ match e with
+ | Expr.forallE _ t b _ =>
+     if !b.hasLooseBVars && (← isProp t)
+     then return some (t, b)
+     else return none
+ | _ => return none
 
 /-- Return `! e` when `b = false`. Otherwise return `e`.
 -/
@@ -799,7 +806,7 @@ def isOpaqueRecFun (f : Expr) (args : Array Expr) : TranslateEnvT Bool := do
      return (← isRecursiveFun n')
   return false
 
-/-- Given `e` of the form `forall (a₁ : A₁) ... (aₙ : Aₙ), B[a₁, ..., aₙ]`
+/-- Given `e` of the form `∀ (a₁ : A₁) ... (aₙ : Aₙ), B[a₁, ..., aₙ]`
     and `p₁ : A₁, ... pₘ : Aₙ`, return `B[p₁, ..., pₘ]`.
     An error is triggered when n ≠ m.
 -/

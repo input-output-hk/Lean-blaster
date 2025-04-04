@@ -85,14 +85,29 @@ def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) : TranslateEnvT Bool 
     else pure atLeastOneExplicit
   loop 0
 
-/-- call reduceMatcher? on `m` and return result only when match expression has been reduced.
-    Otherwise none.
+/-- Return `b` if `m := b` is already in the weak head cache.
+    Otherwise, perform the following actions
+      - When .reduced e ← reduceMatcher? m
+          - update cache with `m := some e`
+          - return `some e`
+      - Otherwise
+          - update cache with `m := none`
+          - return `none`
     Assume that `m` is a match expression.
 -/
 def reduceMatch? (m : Expr) : TranslateEnvT (Option Expr) := do
-   match (← withReducible $ reduceMatcher? m) with
-   | .reduced e => return e
-   | _ => return none
+   let env ← get
+   match env.optEnv.whnfCache.get? m with
+   | some b => return b
+   | none =>
+       let res ← tryReduction? m
+       let optEnv := {env.optEnv with whnfCache := env.optEnv.whnfCache.insert m res}
+       set {env with optEnv := optEnv}
+       return res
+   where
+     tryReduction? (m : Expr) : TranslateEnvT (Option Expr) := do
+      let .reduced e ← withReducible (reduceMatcher? m) | return none
+      return e
 
 /-- call reduceMatch? on `m` and return result when successful. Otherwise return `m`.
     Assume that `m` is a match expression.
@@ -102,35 +117,6 @@ def tryMatchReduction? (m : Expr) : TranslateEnvT Expr := do
    | some re => return re
    | none => return m
 
-/--  Given application `f x₀ ... xₙ`, perform the following:
-     - When `f x₀ ... xₙ` is a match expression of the form
-          match e₀, ..., eₙ with
-          | p₍₀₎₍₁₎, ..., p₍₀₎₍ₙ₎ => t₀
-            ...
-          | p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₙ₎ => tₘ
-        - return `reduceMatch (f x₀ ... xₙ)` only when `∀ i ∈ [0..n], isConstructor (← optimizer eᵢ)`.
-
-     - Otherwise:
-         - return none
-
--/
-def reduceMatchChoice?
-  (f : Expr) (args : Array Expr)
-  (optimizer : Expr -> TranslateEnvT Expr) : TranslateEnvT (Option Expr) := do
-  let Expr.const n l := f | return none
-  if let some r ← isMatchReduction? n l args then return r
-  return none
-
-  where
-   isMatchReduction? (n : Name) (l : List Level) (args : Array Expr) : TranslateEnvT (Option Expr) := do
-     let some matcherInfo ← getMatcherRecInfo? n l | return none
-     let mut margs := args
-     for i in [matcherInfo.getFirstDiscrPos : matcherInfo.getFirstAltPos] do
-       margs ← margs.modifyM i optimizer
-       if !(← isConstructor margs[i]!) then return none
-     -- NOTE: reduceMatcher? simplifies match only when all the discriminators are constructors
-     let auxApp := mkAppN f margs
-     reduceMatch? auxApp
 
 /-- Apply the following constant propagation rules on match expressions, such that:
     Given  match₁ e₁, ..., eₙ with
@@ -172,14 +158,12 @@ def reduceMatchChoice?
              match₁ g₍ₘ₎₍₁₎, ..., g₍ₘ₎₍ₙ₎ with ...`
 
 -/
-def constMatchPropagation? (cm : Expr) (cargs : Array Expr) : TranslateEnvT (Option Expr) := do
-  let Expr.const n l := cm | return none
-  let some mInfo ← getMatcherRecInfo? n l | return none
+def constMatchPropagation?
+  (cm : Expr) (cargs : Array Expr) (mInfo : MatcherInfo) : TranslateEnvT (Option Expr) := do
   if !(← allDiscrsAreCstMatch cargs mInfo) then return none
   if let some r ← iteCstProp? cm cargs mInfo then return r
   if let some r ← diteCstProp? cm cargs mInfo then return r
-  if let some r ← matchCstProp? cm cargs mInfo then return r
-  return none
+  matchCstProp? cm cargs mInfo
 
   where
     allDiscrsAreCstMatch (args : Array Expr) (mInfo : MatcherInfo) : TranslateEnvT Bool := do
@@ -263,6 +247,34 @@ def constMatchPropagation? (cm : Expr) (cargs : Array Expr) : TranslateEnvT (Opt
           then return mkAppN pMatchExpr extra_args
           return pMatchExpr
       return none
+
+
+/--  Given application `f x₀ ... xₙ`, perform the following:
+     - When `f x₀ ... xₙ` is a match expression
+          match e₀, ..., eₙ with
+          | p₍₀₎₍₁₎, ..., p₍₀₎₍ₙ₎ => t₀
+            ...
+          | p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₙ₎ => tₘ
+       perform the following actions:
+        - e'₀, ..., e'ₙ := [optimizer eᵢ | ∀ i ∈ [0..n]]
+        - When some re ← reduceMatch? `match e'₀, ..., e'ₙ with ...`
+            - return `some re`
+        - Otherwise:
+            - constMatchPropagation? `match e'₀, ..., e'ₙ with ...`
+     - Otherwise:
+         - return none
+
+-/
+def reduceMatchChoice?
+  (f : Expr) (args : Array Expr)
+  (optimizer : Expr -> TranslateEnvT Expr) : TranslateEnvT (Option Expr) := do
+  let Expr.const n l := f | return none
+  let some mInfo ← getMatcherRecInfo? n l | return none
+  let mut margs := args
+  for i in [mInfo.getFirstDiscrPos : mInfo.getFirstAltPos] do
+     margs ← margs.modifyM i optimizer
+  if let some r ← reduceMatch? (mkAppN f margs) then return r
+  constMatchPropagation? f margs mInfo
 
 
 /-- Given a `match` application expression of the form

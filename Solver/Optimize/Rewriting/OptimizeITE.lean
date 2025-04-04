@@ -15,7 +15,7 @@ namespace Solver.Optimize
       - t is the `then` operand
       - e is the `else` operand
 
-    This function returns `#[s c d' t e] such that `d'` correponds to the synthesize instance
+    This function returns `#[s c d' t e] such that `d'` corresponds to the synthesize instance
     obtained for `[Decidable c]`.
 
     NOTE: This function needs to be called for each ITE as `c` may have been modified

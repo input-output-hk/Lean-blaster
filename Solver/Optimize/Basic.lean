@@ -45,12 +45,15 @@ partial def optimizeExpr (e : Expr) : TranslateEnvT Expr := do
          if let some pe ← normPartialFun? rf mas then
             trace[Optimize.normPartial] f!"normalizing partial function {reprStr rf} {reprStr mas} => {reprStr pe}"
             return (← visit pe)
-         -- applying choice reduction to avoid optimizing unreachable arguments in match and ite
+         -- applying choice reduction to avoid optimizing unreachable arguments in ite
          if let some re ← reduceITEChoice? rf mas visit then
             trace[Optimize.reduceChoice] f!"choice ite reduction {reprStr rf} {reprStr mas} => {reprStr re}"
             return (← visit re)
+         -- applying choice reduction and match constant propagation to
+         -- avoid optimizing unreachable arguments in match
          if let some re ← reduceMatchChoice? rf mas visit then
-            trace[Optimize.reduceChoice] f!"choice match reduction {reprStr rf} {reprStr mas} => {reprStr re}"
+            trace[Optimize.matchConstPropagation]
+              f!"match constant propagation {reprStr rf} {reprStr mas} => {reprStr re}"
             return (← visit re)
          -- apply optimization on remaining explicit parameters before reduction
          for i in [extraArgs.size:mas.size] do
@@ -72,11 +75,6 @@ partial def optimizeExpr (e : Expr) : TranslateEnvT Expr := do
          if let some mdef ← normMatchExpr? rf mas visit then
             trace[Optimize.normMatch] f!"normalizing match to ite {reprStr rf} {reprStr mas} => {reprStr mdef}"
             return (← visit mdef)
-         -- applying match constant propagation
-         if let some re ← constMatchPropagation? rf mas then
-            trace[Optimize.matchConstPropagation]
-              f!"match constant propagation {reprStr rf} {reprStr mas} => {reprStr re}"
-            return (← visit re)
          -- applying ctor constant propagation
          if let some re ← constCtorPropagation? rf mas then
             trace[Optimize.ctorConstPropagation]
