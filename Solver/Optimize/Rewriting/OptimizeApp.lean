@@ -55,14 +55,14 @@ def reduceApp? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
      - When `f := ite`
           - When n = 5 ∧ optimizer x₁ = True ∨ optimizer x₁ = False
               - return `optimizeITE f x₀ ... xₙ`
-          - When n != 5
-              - return ⊥
+          - When n < 5
+              - return none
 
      - When `f := dite`
           - When n = 5 ∧ optimizer x₁ = True ∨ optimizer x₁ = False
               - return `optimizeDITE f x₀ ... xₙ`
-          - When n != 5
-              - return ⊥
+          - When n < 5
+              - return none
 
      - Otherwise:
          - return none
@@ -85,7 +85,7 @@ def reduceITEChoice?
    isITEReduction? (n : Name) (args : Array Expr) : TranslateEnvT (Option Expr) := do
      match n with
      | ``ite =>
-         if args.size != 5 then throwEnvError "isITEReduction?: exactly five arguments expected"
+         if args.size < 5 then return none
          let args ← args.modifyM 1 optimizer
          if isPropConstant args[1]! then return (← optimizeITE f args)
          return none
@@ -94,7 +94,7 @@ def reduceITEChoice?
    isDITEReduction? (n : Name) (args : Array Expr) : TranslateEnvT (Option Expr) := do
      match n with
      | ``dite =>
-         if args.size != 5 then throwEnvError "isDITEReduction?: exactly five arguments expected"
+         if args.size < 5 then return none
          let args ← args.modifyM 1 optimizer
          if isPropConstant args[1]! then return (← optimizeDITE f args)
          return none
@@ -148,6 +148,8 @@ def optimizeApp (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
   mkAppExpr f args
 
 /-- Given application `f x₁ ... xₙ`,
+     - When `isFunITE f` (i.e., f is an ite or dite that return a function)
+         - return none
      - when `isNotfun f`
          - return none
      - when `t₁ → ... → tₘ ← inferType f ∧ n < m`:
@@ -158,6 +160,7 @@ def optimizeApp (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
      - otherwise `none`
 -/
 def normPartialFun? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
+ if isFunITE f then return none
  if (← isNotFun f) then return none
  let fInfo ← getFunInfo f
  if fInfo.paramInfo.size <= args.size then return none
@@ -169,6 +172,12 @@ def normPartialFun? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr)
  etaExpand (mkAppN f args)
 
  where
+   isFunITE (e : Expr) : Bool :=
+     match e with
+     | Expr.const ``ite _
+     | Expr.const ``dite _ => args.size > 5
+     | _ => false
+
    isNotFun (e : Expr) : TranslateEnvT Bool :=
     isNotFoldable e #[] (opaqueCheck := false) (recFunCheck := false)
 
