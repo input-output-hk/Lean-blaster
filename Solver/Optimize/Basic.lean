@@ -122,6 +122,16 @@ def cacheOpaqueRecFun (optimize : Expr → TranslateEnvT Expr) : TranslateEnvT U
    callOptimize (e : Expr) : TranslateEnvT Unit :=
      discard $ normOpaqueAndRecFun e #[] optimize
 
+/-- Perform the following actions:
+      - populate the recFunInstCache with default recursive function definitions.
+      - optimize expression `e`
+-/
+def Optimize.main (e : Expr) : TranslateEnvT Expr := do
+  -- populate recFunInstCache with recursive function definition.
+  cacheOpaqueRecFun (λ a => optimizeExpr a)
+  optimizeExpr e
+
+
 /-- Optimize an expression using the given solver options.
     ### Parameters
       - `sOpts`: The solver options to use for optimization.
@@ -130,12 +140,9 @@ def cacheOpaqueRecFun (optimize : Expr → TranslateEnvT Expr) : TranslateEnvT U
       - A tuple containing the optimized expression and the optimization environment.
     NOTE: optimization is repeated until no entry is introduced in `replayRecFunMap`.
 -/
-def optimize (sOpts: SolverOptions) (e : Expr) : MetaM (Expr × TranslateEnv) := do
+def command (sOpts: SolverOptions) (e : Expr) : MetaM (Expr × TranslateEnv) := do
   let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
-  -- populate recFunInstCache with recursive function definition.
-  let res ← cacheOpaqueRecFun (λ a => optimizeExpr a)|>.run env
-  optimizeExpr e|>.run res.2
-
+  Optimize.main e|>.run env
 
 initialize
   registerTraceClass `Optimize.ctorConstPropagation

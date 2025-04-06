@@ -46,33 +46,41 @@ partial def translateExpr (e : Expr) : TranslateEnvT Unit := do
   assertTerm (notSmt st)
   -- dump smt commands submitted to backend solver when `dumpSmtLib` option is set.
   logSmtQuery
-  logResult (← checkSat) (← get).optEnv.options.solverOptions
+  logResult (← checkSat)
   -- TODO: spawn lean proof mode when result is undetermined
   discard $ exitSmt
 
-def translate (sOpts: SolverOptions) (stx : Syntax) : TermElabM Unit := do
-  elabTermAndSynthesize stx none >>= fun e => do
-    let (optExpr, env) ← optimize sOpts (← toPropExpr e)
+
+def Translate.main (e : Expr) : TranslateEnvT Unit := do
+    let optExpr ← Optimize.main (← toPropExpr e)
     match (toResult optExpr) with
     | res@(.Undetermined) =>
-        if sOpts.onlyOptimize
-        then logResult res sOpts
+        if (← get).optEnv.options.solverOptions.onlyOptimize
+        then logResult res
         else
           trace[Translate.optExpr] f!"optimized expression: {← ppExpr optExpr}"
-          discard $ translateExpr optExpr|>.run (← setSolverProcess sOpts env)
-    | res => logResult res sOpts
+          -- set backend solver
+          setSolverProcess
+          translateExpr optExpr
+    | res => logResult res
+
   where
-    isTheoremExpr (e : Expr) : TermElabM (Option Expr) := do
+    isTheoremExpr (e : Expr) : TranslateEnvT (Option Expr) := do
       let Expr.const n _ := e.getAppFn' | return none
       let ConstantInfo.thmInfo info ← getConstInfo n | return none
       return info.type
 
-    toPropExpr (e : Expr) : TermElabM Expr := do
+    toPropExpr (e : Expr) : TranslateEnvT Expr := do
       if let some r ← isTheoremExpr e then return r
       if !(← isTypeCorrect e) || (Expr.hasSorry e) then
-         throwError f!"translate: {← ppExpr e} is not well-formed"
+         throwEnvError f!"translate: {← ppExpr e} is not well-formed"
       if (← isProp e) then return e
-         throwError f!"translate: {← ppExpr e} is not a proposition !!!"
+         throwEnvError f!"translate: {← ppExpr e} is not a proposition !!!"
+
+def command (sOpts: SolverOptions) (stx : Syntax) : TermElabM Unit := do
+  elabTermAndSynthesize stx none >>= fun e => do
+    let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
+    discard $ Translate.main e|>.run env
 
 initialize
    registerTraceClass `Translate.expr
