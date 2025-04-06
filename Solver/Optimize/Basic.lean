@@ -41,10 +41,6 @@ partial def optimizeExpr (e : Expr) : TranslateEnvT Expr := do
            if i < fInfo.paramInfo.size then -- handle case when HOF is passed as argument
              if !fInfo.paramInfo[i]!.isExplicit then
                mas ← mas.modifyM i visit
-         -- normalizing partially apply function before choice reduction
-         if let some pe ← normPartialFun? rf mas then
-            trace[Optimize.normPartial] f!"normalizing partial function {reprStr rf} {reprStr mas} => {reprStr pe}"
-            return (← visit pe)
          -- applying choice reduction to avoid optimizing unreachable arguments in ite
          if let some re ← reduceITEChoice? rf mas visit then
             trace[Optimize.reduceChoice] f!"choice ite reduction {reprStr rf} {reprStr mas} => {reprStr re}"
@@ -71,6 +67,10 @@ partial def optimizeExpr (e : Expr) : TranslateEnvT Expr := do
          if let some fdef ← getUnfoldFunDef? rf mas then
             trace[Optimize.unfoldDef] f!"unfolding function definition {reprStr rf} {reprStr mas} => {reprStr fdef}"
             return (← visit fdef)
+         -- normalizing partially apply function after unfolding non-opaque functions
+         if let some pe ← normPartialFun? rf mas then
+            trace[Optimize.normPartial] f!"normalizing partial function {reprStr rf} {reprStr mas} => {reprStr pe}"
+            return (← visit pe)
          -- normalize match expression to ite
          if let some mdef ← normMatchExpr? rf mas visit then
             trace[Optimize.normMatch] f!"normalizing match to ite {reprStr rf} {reprStr mas} => {reprStr mdef}"

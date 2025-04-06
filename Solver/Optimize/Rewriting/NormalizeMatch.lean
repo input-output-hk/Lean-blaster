@@ -67,7 +67,7 @@ structure AltArgsResult where
   /-- Sequence of named pattern labels, named pattern equations and free variables
       appearing in each match pattern.
       The order of appearance for named pattern and free variables are preserved.
-      (see function `retrieveAltsAgrs`).
+      (see function `retrieveAltsArgs`).
   -/
   altArgs : Array Expr
 
@@ -569,13 +569,13 @@ def matchExprRewriter
     : TranslateEnvT (Option α) := do
   match f with
     | Expr.const n dlevel =>
-        let some matcherInfo ← getMatcherRecInfo? n dlevel | return none
+        let some mInfo ← getMatcherRecInfo? n dlevel | return none
         trace[Optimize.normMatch.expr] f!"attempting normalization on {reprStr f} {reprStr args}"
         let cInfo ← getConstInfo n
-        let discrs := args[matcherInfo.getFirstDiscrPos : matcherInfo.getFirstAltPos]
-        let rhs := args[matcherInfo.getFirstAltPos : matcherInfo.arity]
+        let discrs := args.extract mInfo.getFirstDiscrPos mInfo.getFirstAltPos
+        let rhs := args.extract mInfo.getFirstAltPos mInfo.arity
         let matchFun ← instantiateValueLevelParams cInfo dlevel
-        let auxApp := Expr.beta matchFun args[0 : matcherInfo.getFirstAltPos]
+        let auxApp := Expr.beta matchFun (args.take mInfo.getFirstAltPos)
         if (isCasesOnRecursor (← getEnv) n) then
           lambdaTelescope auxApp fun xs _t =>
             commonMatchRewriter discrs xs[xs.size - rhs.size:] rhs
