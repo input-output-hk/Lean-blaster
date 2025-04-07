@@ -7,7 +7,7 @@ open Lean Meta Solver.Optimize Solver.Options
 namespace Solver.Smt
 
 /-- Minimal version of z3 we support -/
-private def minZ3Version : (Nat × Nat × Nat) := (4, 13, 4)
+private def minZ3Version : String := "4.13.4"
 
 /-- Result of an Smt query. -/
 inductive Result where
@@ -52,8 +52,8 @@ def logResult (r : Result) (sOpts : SolverOptions) : MetaM Unit := do
       else f failure
 
 /-- Tries to find if z3 is natively present in PATH, if not checks wsl z3 -/
-private def findZ3CmdAndVersion : IO (String × String) := do
-  let (reqMaj, reqMin, reqPatch) := minZ3Version
+private def findZ3CmdAndVersion : IO (String) := do
+  let minVer:= minZ3Version
   let candidates := #["z3", "wsl z3"]
   -- We'll store a short log message for each candidate attempt
   let mut attemptLogs := #[]
@@ -62,7 +62,7 @@ private def findZ3CmdAndVersion : IO (String × String) := do
       let out ← IO.Process.output { cmd := candidate, args := #["-version"] }
       if out.exitCode == 0 then
         -- Found a good candidate => Return immediately
-        return (candidate, out.stdout)
+        return (candidate)
       else
         attemptLogs := attemptLogs.push
           s!"Candidate '{candidate}': exit code {out.exitCode}"
@@ -73,12 +73,12 @@ private def findZ3CmdAndVersion : IO (String × String) := do
 
   -- If we get here, no candidate succeeded
   let attemptsReport := String.join (attemptLogs.toList.map (fun x => x ++ "\n"))
-  throw <| IO.userError s!"❌ Could not find a working Z3 ≥ {reqMaj}.{reqMin}.{reqPatch}.\n\nTried:\n{attemptsReport}"
+  throw <| IO.userError s!"❌ Could not find a working Z3 ≥ {minVer}.\n\nTried:\n{attemptsReport}"
 
 
 /-- Spawn a z3 process w.r.t. the provided solver options. -/
 def createSolverProcess (sOpts : SolverOptions) : IO (IO.Process.Child ⟨.piped, .piped, .piped⟩) := do
-  let (z3Cmd, _) ← findZ3CmdAndVersion  -- ensures version is OK
+  let z3Cmd ← findZ3CmdAndVersion  -- ensures version is OK
   IO.Process.spawn {
     stdin  := .piped
     stdout := .piped
