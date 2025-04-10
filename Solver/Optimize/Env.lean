@@ -361,6 +361,12 @@ def withOptimizeEnvCache (a : Expr) (f: Unit → TranslateEnvT Expr) : Translate
       updateRewriteCache a b
       return b
 
+/-- Remove an expression from the rewriting cache.
+-/
+def uncacheExpr (e : Expr) : TranslateEnvT Unit := do
+ let env ← get
+ set {env with optEnv.rewriteCache := env.optEnv.rewriteCache.erase e }
+
 /-- Add an instance recursive application (see function `getInstApp`) to
     the visited recursive function cache.
 -/

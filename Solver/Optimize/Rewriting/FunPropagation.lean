@@ -5,7 +5,8 @@ import Solver.Optimize.Rewriting.OptimizeMatch
 open Lean Meta Elab
 namespace Solver.Optimize
 
-/-- Apply the following propagation rules only one fully applied constructor `C e₁ ... eₙ`:
+/-- Apply the following propagation rules on any function application only `f e₁ ... eₙ`
+    only when f := Expr.const n _ ∧ n ≠ ite ∧ n ≠ dite ∧ ¬ isMatchExpr n :
 
     - When ∃ i ∈ [1..n],
             `eᵢ := if c then d₁ else d₂` ∧
@@ -37,15 +38,21 @@ namespace Solver.Optimize
           | p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₚ₎ => C g₍ₘ₎₍₁₎, ..., g₍ₘ₎₍ₙ₎`
 
 -/
-def constCtorPropagation? (cf : Expr) (cargs : Array Expr) : TranslateEnvT (Option Expr) := do
-  let Expr.const n _ := cf | return none
-  let ConstantInfo.ctorInfo cInfo ← getConstInfo n | return none
-  if cargs.size < cInfo.numParams + cInfo.numFields then return none
-  for i in [cInfo.numParams : cInfo.numParams + cInfo.numFields] do
-    if let some r ← iteCstProp? cf cargs i then return r
-    if let some r ← diteCstProp? cf cargs i then return r
-    if let some r ← matchCstProp? cf cargs i then return r
-  return none
+def funPropagation? (ne : Expr) : TranslateEnvT (Option Expr) := do
+  Expr.withApp ne fun cf cargs => do
+    let Expr.const n _ := cf | return none
+    if n == ``ite || n == ``dite || (← isMatchExpr n) then return none
+    for i in [0 : cargs.size] do
+      if let some r ← iteCstProp? cf cargs i then
+        uncacheExpr ne
+        return r
+      if let some r ← diteCstProp? cf cargs i then
+        uncacheExpr ne
+        return r
+      if let some r ← matchCstProp? cf cargs i then
+        uncacheExpr ne
+        return r
+    return none
 
   where
     /-- Implements ite over ctor rule -/
@@ -53,7 +60,7 @@ def constCtorPropagation? (cf : Expr) (cargs : Array Expr) : TranslateEnvT (Opti
      if let some (_psort, pcond, pdecide, e1, e2) := ite? args[idxArgs]! then
        let e1' ← mkExpr (mkAppN f (args.set! idxArgs e1)) (cacheResult := false)
        let e2' ← mkExpr (mkAppN f (args.set! idxArgs e2)) (cacheResult := false)
-       -- NOTE: we also need to set the sort type for the pulled ite to meet the ctor type
+       -- NOTE: we also need to set the sort type for the pulled ite to meet the function's return type
        let retType ← inferType (mkAppN f args)
        return ← mkExpr (mkApp5 (← mkIteOp) retType pcond pdecide e1' e2') (cacheResult := false)
      return none
@@ -72,12 +79,12 @@ def constCtorPropagation? (cf : Expr) (cargs : Array Expr) : TranslateEnvT (Opti
        if !(e1.isLambda && e2.isLambda) then return none
        let e1' ← pushCtorInDIteExpr f args idxArgs e1
        let e2' ← pushCtorInDIteExpr f args idxArgs e2
-       -- NOTE: we also need to set the sort type for the pulled dite to meet the ctor type
+       -- NOTE: we also need to set the sort type for the pulled dite to meet the function's return type
        let retType ← inferType (mkAppN f args)
        return ← mkExpr (mkApp5 (← mkDIteOp) retType pcond pdecide e1' e2') (cacheResult := false)
      return none
 
-    updateRhsWithCtor
+    updateRhsWithFun
       (f : Expr) (args : Array Expr) (idxField : Nat)
       (lhs : Array Expr) (rhs : Expr) : TranslateEnvT Expr := do
         let altArgsRes ← retrieveAltsArgs lhs
@@ -105,8 +112,8 @@ def constCtorPropagation? (cf : Expr) (cargs : Array Expr) : TranslateEnvT (Opti
            for k in [argInfo.mInfo.getFirstAltPos : argInfo.mInfo.arity] do
              let altIdx := k - argInfo.mInfo.getFirstAltPos
              let lhs ← forallTelescope (← inferType alts[altIdx]!) fun _ b => pure b.getAppArgs
-             pargs' := pargs'.set! k (← updateRhsWithCtor f args idxArgs lhs argInfo.args[k]!)
-             -- NOTE: we also need to set the return type for pulled over match to meet the ctor type
+             pargs' := pargs'.set! k (← updateRhsWithFun f args idxArgs lhs argInfo.args[k]!)
+             -- NOTE: we also need to set the return type for pulled over match to meet the function's return type
              let retType ← inferType (mkAppN f args)
              pargs' := pargs'.set! idxPType (← updateReturnType argInfo.args[idxPType]! retType)
            mkExpr (mkAppN argInfo.nameExpr pargs') (cacheResult := false)
