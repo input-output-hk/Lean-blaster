@@ -81,7 +81,7 @@ def isCstMatchProp (p : Expr) : TranslateEnvT Bool :=
 
 /-- Given `f x₁ ... xₙ` return `true` when the following conditions are satisfied:
      -  ∃ i ∈ [1..n], isExplicit xᵢ ∧
-     -  ∀ i ∈ [1..n], isExplicit xᵢ → isCstMatchProp xᵢ ∨ isProp (← inferType xₓ) ∨ isFunType (← inferType xᵢ)
+     -  ∀ i ∈ [1..n], isExplicit xᵢ → isConstructor xᵢ ∨ isProp (← inferType xₓ) ∨ isFunType (← inferType xᵢ)
     NOTE: constructors may contain free variables.
 -/
 def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) : TranslateEnvT Bool := do
@@ -94,7 +94,7 @@ def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) : TranslateEnvT Bool 
       let aInfo := fInfo.paramInfo[i]!
       if aInfo.isExplicit
       then
-        if (← isCstMatchProp e <||> isProp t <||> isFunType t)
+        if (← isConstructor e <||> isProp t <||> isFunType t)
         then loop (i+1) true
         else pure false
       else loop (i+1) atLeastOneExplicit
