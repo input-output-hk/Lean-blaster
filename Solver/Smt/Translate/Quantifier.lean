@@ -202,7 +202,10 @@ def updateQuantifiedFVarsCache (v : FVarId) (topLevel : Bool) : TranslateEnvT Un
   let env ← get
   let s ← fvarIdToSmtSymbol v
   let t ← v.getType
-  let topVars := if topLevel && !t.isType then env.smtEnv.topLevelVars.insert s else env.smtEnv.topLevelVars
+  let uname ← v.getUserName
+  let topVars := if topLevel && !t.isType
+                 then env.smtEnv.topLevelVars.insert s uname
+                 else env.smtEnv.topLevelVars
   set {env with
            smtEnv.quantifiedFVars := env.smtEnv.quantifiedFVars.insert v,
            smtEnv.topLevelVars := topVars
