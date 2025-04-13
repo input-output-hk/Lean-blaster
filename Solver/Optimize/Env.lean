@@ -174,12 +174,12 @@ structure SmtEnv where
       to detect globally declared variables. -/
   quantifiedFVars : Std.HashSet FVarId
 
-  /-- Set keeping track of globally declared variables and the ones in
+  /-- Hash Map keeping track of globally declared variables and the ones in
       the top level forall quantifier.
       This set is used exclusively when retrieving counterexample after a `sat` result
       is obtained from the backend smt solver.
   -/
-  topLevelVars : Std.HashSet SmtSymbol
+  topLevelVars : Std.HashMap SmtSymbol Lean.Name
 
   /-- Translation options (see note on TranslateOptions) -/
   options: TranslateOptions

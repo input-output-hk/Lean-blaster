@@ -416,11 +416,11 @@ def smtQualifiedVarId (nm : SmtSymbol) (t : SortExpr) : SmtTerm :=
   .SmtIdent (.QualifiedIdent nm t)
 
 /-- Create an Smt symbol from a free variable id.
-    The Smt symbol will correspond to the user-defined name
-    associated to the free variable id.
+    The Smt symbol will correspond to the user-defined name suffixed with the unique id
+    for the associated to the free variable id.
 -/
 def fvarIdToSmtSymbol (v : FVarId) : MetaM SmtSymbol := do
-  return (mkNormalSymbol s!"{← v.getUserName}")
+  return (mkNormalSymbol s!"{← v.getUserName}{v.name}")
 
 /-! Create an Smt term from a free variable. -/
 def fvarIdToSmtTerm (v : FVarId) : MetaM SmtTerm :=
