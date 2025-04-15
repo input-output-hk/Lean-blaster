@@ -84,7 +84,7 @@ def isCstMatchProp (p : Expr) : TranslateEnvT Bool :=
      -  ∀ i ∈ [1..n], isExplicit xᵢ → isConstructor xᵢ ∨ isProp (← inferType xₓ) ∨ isFunType (← inferType xᵢ)
     NOTE: constructors may contain free variables.
 -/
-def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) : TranslateEnvT Bool := do
+def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) (funPropagation := false) : TranslateEnvT Bool := do
   let stop := args.size
   let fInfo ← getFunInfoNArgs f stop
   let rec loop (i : Nat) (atLeastOneExplicit : Bool := false) : TranslateEnvT Bool := do
@@ -94,7 +94,8 @@ def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) : TranslateEnvT Bool 
       let aInfo := fInfo.paramInfo[i]!
       if aInfo.isExplicit
       then
-        if (← isConstructor e <||> isProp t <||> isFunType t)
+        let cstProp ← if funPropagation then isCstMatchProp e else isConstructor e
+        if (← pure cstProp <||> isProp t <||> isFunType t)
         then loop (i+1) true
         else pure false
       else loop (i+1) atLeastOneExplicit

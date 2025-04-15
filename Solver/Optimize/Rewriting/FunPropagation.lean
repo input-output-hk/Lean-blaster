@@ -6,7 +6,8 @@ open Lean Meta Elab
 namespace Solver.Optimize
 
 /-- Apply the following propagation rules on any function application only `f e₁ ... eₙ`
-    only when f := Expr.const n _ ∧ n ≠ ite ∧ n ≠ dite ∧ ¬ isMatchExpr n :
+    only when f := Expr.const n _ ∧ n ≠ ite ∧ n ≠ dite ∧ ¬ isMatchExpr n ∧
+              allExplicitParamsAreCtor f e₁ ... eₙ (funPropagation := true):
 
     - When ∃ i ∈ [1..n],
             `eᵢ := if c then d₁ else d₂` ∧
@@ -42,6 +43,7 @@ def funPropagation? (ne : Expr) : TranslateEnvT (Option Expr) := do
   Expr.withApp ne fun cf cargs => do
     let Expr.const n _ := cf | return none
     if n == ``ite || n == ``dite || (← isMatchExpr n) then return none
+    if !(← allExplicitParamsAreCtor cf cargs (funPropagation := true)) then return none
     for i in [0 : cargs.size] do
       if let some r ← iteCstProp? cf cargs i then
         uncacheExpr ne
