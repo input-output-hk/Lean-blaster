@@ -71,6 +71,11 @@ partial def optimizeExpr (e : Expr) : TranslateEnvT Expr := do
          if let some pe ← normPartialFun? rf mas then
             trace[Optimize.normPartial] f!"normalizing partial function {reprStr rf} {reprStr mas} => {reprStr pe}"
             return (← visit pe)
+         -- normalizing ite/match function application
+         if let some re ← normChoiceApplication? rf mas then
+            trace[Optimize.normChoiceApp]
+              f!"normalizing choice application {reprStr rf} {reprStr mas} => {reprStr re}"
+            return (← visit re)
          -- normalize match expression to ite
          if let some mdef ← normMatchExpr? rf mas visit then
             trace[Optimize.normMatch] f!"normalizing match to ite {reprStr rf} {reprStr mas} => {reprStr mdef}"
