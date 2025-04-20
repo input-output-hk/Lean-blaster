@@ -129,7 +129,7 @@ def reduceMatch? (m : Expr) : TranslateEnvT (Option Expr) := do
 /-- call reduceMatch? on `m` only when `m` corresponds to a match expression.
     Otherwise return `m`.
 -/
-def tryMatchReduction? (m : Expr) : TranslateEnvT Expr := do
+private def tryMatchReduction (m : Expr) : TranslateEnvT Expr := do
    let Expr.const n _ := m.getAppFn' | return m
    if !(← isMatchExpr n) then return m
    match (← reduceMatch? m) with
@@ -199,8 +199,8 @@ def constMatchPropagation?
         -- i.e., match expression returns a function. Hence, extra arguments are now applied to ite.
         let margs := args.take mInfo.arity
         let extra_args := args.extract mInfo.arity args.size
-        let e1' ← tryMatchReduction? (← mkExpr (mkAppN f (margs.set! idxArg e1)) (cacheResult := false))
-        let e2' ← tryMatchReduction? (← mkExpr (mkAppN f (margs.set! idxArg e2)) (cacheResult := false))
+        let e1' ← tryMatchReduction (← mkExpr (mkAppN f (margs.set! idxArg e1)) (cacheResult := false))
+        let e2' ← tryMatchReduction (← mkExpr (mkAppN f (margs.set! idxArg e2)) (cacheResult := false))
         -- NOTE: we also need to set the sort type for the pulled ite to meet
         -- the return type of the embedded match
         let retType ← inferType (mkAppN f margs)
@@ -215,7 +215,7 @@ def constMatchPropagation?
       -- that rhs can't be a function (i.e., only constant or ite or a match)
       -- Anyway, we can't pattern match on a function
       lambdaTelescope ite_e fun params body => do
-        let body' ← tryMatchReduction? (← mkExpr (mkAppN f (args.set! idxDiscr body)) (cacheResult := false))
+        let body' ← tryMatchReduction (← mkExpr (mkAppN f (args.set! idxDiscr body)) (cacheResult := false))
         mkLambdaFVars params body'
 
     /-- Implements dite over match rule -/
@@ -241,7 +241,7 @@ def constMatchPropagation?
       -- that rhs can't be a function (i.e., only constant or ite or a match)
       -- Anyway, we can't pattern match on a function
       lambdaTelescope rhs fun params body => do
-        let body' ← tryMatchReduction? (← mkExpr (mkAppN f (args.set! idx body)) (cacheResult := false))
+        let body' ← tryMatchReduction (← mkExpr (mkAppN f (args.set! idx body)) (cacheResult := false))
         mkLambdaFVars params body'
 
     updateReturnType (pType : Expr) (eType : Expr) : TranslateEnvT Expr := do

@@ -152,7 +152,6 @@ def extractDependentITEExpr (e : Expr) : TranslateEnvT Expr := do
     then return e -- case when then/else clause is a quantified function (see theorem `dite_true`).
     else throwEnvError f!"extractDependentITEExpr: lambda/function expression expected but got {reprStr e}"
 
-
 /-- Apply simplification/normalization rules on `dite`.
     Note that dependent ite is written with notation `if h : c then t else e`, which
     is the syntactic sugar for `dite c (fun h : c => t) (fun h : ¬ c => e)`.
