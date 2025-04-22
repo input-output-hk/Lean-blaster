@@ -123,7 +123,7 @@ def reduceMatch? (m : Expr) : TranslateEnvT (Option Expr) := do
        return res
    where
      tryReduction? (m : Expr) : TranslateEnvT (Option Expr) := do
-      let .reduced e ← withReducible (reduceMatcher? m) | return none
+      let .reduced e ← reduceMatcher? m | return none
       return e
 
 /-- Given `pType := λ α₁ → .. → λ αₙ → t` returns `λ α₁ → .. → λ αₙ → eType`
