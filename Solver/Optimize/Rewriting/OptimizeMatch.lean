@@ -126,16 +126,13 @@ def reduceMatch? (m : Expr) : TranslateEnvT (Option Expr) := do
       let .reduced e ← withReducible (reduceMatcher? m) | return none
       return e
 
-/-- call reduceMatch? on `m` only when `m` corresponds to a match expression.
-    Otherwise return `m`.
+/-- Given `pType := λ α₁ → .. → λ αₙ → t` returns `λ α₁ → .. → λ αₙ → eType`
+    This function is expected to be used only when updating a match return type
 -/
-private def tryMatchReduction (m : Expr) : TranslateEnvT Expr := do
-   let Expr.const n _ := m.getAppFn' | return m
-   if !(← isMatchExpr n) then return m
-   match (← reduceMatch? m) with
-   | some re => return re
-   | none => return m
+def updateMatchReturnType (pType : Expr) (eType : Expr) : TranslateEnvT Expr := do
+  lambdaTelescope pType fun params _body => mkLambdaFVars params eType
 
+mutual
 
 /-- Apply the following constant propagation rules on match expressions, such that:
     Given  match₁ e₁, ..., eₙ with
@@ -177,14 +174,11 @@ private def tryMatchReduction (m : Expr) : TranslateEnvT Expr := do
              match₁ g₍ₘ₎₍₁₎, ..., g₍ₘ₎₍ₙ₎ with ...`
 
 -/
-def constMatchPropagation?
-  (cm : Expr) (cargs : Array Expr) (mInfo : MatcherInfo) : TranslateEnvT (Option Expr) := do
-  if !(← allDiscrsAreCstMatch cargs mInfo) then return none
-  for i in [mInfo.getFirstDiscrPos : mInfo.getFirstAltPos] do
-    if let some r ← iteCstProp? cm cargs i mInfo then return r
-    if let some r ← diteCstProp? cm cargs i mInfo then return r
-    if let some r ← matchCstProp? cm cargs i mInfo then return r
-  return none
+private partial def constMatchPropagation?
+  (cm : Expr) (cargs : Array Expr) (mInfo : MatcherInfo)
+  (k : Option Expr → TranslateEnvT (Option Expr)) : TranslateEnvT (Option Expr) := do
+  if !(← allDiscrsAreCstMatch cargs mInfo) then k none
+  else constMatchArgsPropagation? cm cargs mInfo mInfo.getFirstDiscrPos k
 
   where
     allDiscrsAreCstMatch (args : Array Expr) (mInfo : MatcherInfo) : TranslateEnvT Bool := do
@@ -192,82 +186,154 @@ def constMatchPropagation?
         if !(← isCstMatchProp args[i]!) then return false
       return true
 
-    /-- Implements ite over match rule -/
-    iteCstProp? (f : Expr) (args : Array Expr) (idxArg : Nat) (mInfo : MatcherInfo) : TranslateEnvT (Option Expr) := do
-     if let some (_psort, pcond, pdecide, e1, e2) := ite? args[idxArg]! then
-        -- NOTE: we also need to cater for function as return type,
-        -- i.e., match expression returns a function. Hence, extra arguments are now applied to ite.
-        let margs := args.take mInfo.arity
-        let extra_args := args.extract mInfo.arity args.size
-        let e1' ← tryMatchReduction (← mkExpr (mkAppN f (margs.set! idxArg e1)) (cacheResult := false))
-        let e2' ← tryMatchReduction (← mkExpr (mkAppN f (margs.set! idxArg e2)) (cacheResult := false))
-        -- NOTE: we also need to set the sort type for the pulled ite to meet
-        -- the return type of the embedded match
-        let retType ← inferType (mkAppN f margs)
-        let iteExpr ← mkExpr (mkApp5 (← mkIteOp) retType pcond pdecide e1' e2') (cacheResult := false)
-        if !extra_args.isEmpty
-        then return ← mkExpr (mkAppN iteExpr extra_args) (cacheResult := false)
-        else return iteExpr
-      return none
+private partial def constMatchArgsPropagation?
+  (cm : Expr) (cargs : Array Expr) (mInfo : MatcherInfo) (idx : Nat)
+  (k : Option Expr → TranslateEnvT (Option Expr)) : TranslateEnvT (Option Expr) := do
+  if idx ≥ mInfo.getFirstAltPos then k none
+  else
+   iteCstProp? cm cargs idx mInfo fun ite_r =>
+     match ite_r with
+     | some _ => k ite_r
+     | none =>
+        diteCstProp? cm cargs idx mInfo fun dite_r =>
+          match dite_r with
+          | some _ => k dite_r
+          | none =>
+             matchCstProp? cm cargs idx mInfo fun match_r =>
+              match match_r with
+              | some _ => k match_r
+              | none => constMatchArgsPropagation? cm cargs mInfo (idx + 1) k
 
-    pushMatchInDIteExpr (f : Expr) (args : Array Expr) (idxDiscr : Nat) (ite_e : Expr) : TranslateEnvT Expr := do
-      -- NOTE: here we can telescope as condition `allDiscrsAreCstMatch` guarantees
-      -- that rhs can't be a function (i.e., only constant or ite or a match)
-      -- Anyway, we can't pattern match on a function
-      lambdaTelescope ite_e fun params body => do
-        let body' ← tryMatchReduction (← mkExpr (mkAppN f (args.set! idxDiscr body)) (cacheResult := false))
-        mkLambdaFVars params body'
+/-- Implements ite over match rule -/
+ private partial def iteCstProp?
+  (f : Expr) (args : Array Expr) (idxArg : Nat) (mInfo : MatcherInfo)
+  (k : Option Expr → TranslateEnvT (Option Expr)) : TranslateEnvT (Option Expr) := do
+  if let some (_psort, pcond, pdecide, e1, e2) := ite? args[idxArg]! then
+    -- NOTE: we also need to cater for function as return type,
+    -- i.e., match expression returns a function. Hence, extra arguments are now applied to ite.
+    let margs := args.take mInfo.arity
+    let extra_args := args.extract mInfo.arity args.size
+    tryMatchReduction (mkAppN f (margs.set! idxArg e1)) mInfo fun e1_r =>
+      match e1_r with
+      | none => throwEnvError "iteCstProp?: unreachable case 1 !!!"
+      | some e1' => do
+         tryMatchReduction (mkAppN f (margs.set! idxArg e2)) mInfo fun e2_r =>
+           match e2_r with
+           | none => throwEnvError "iteCstProp?: unreachable case 2 !!!"
+           | some e2' => do
+              -- NOTE: we also need to set the sort type for the pulled ite to meet
+              -- the return type of the embedded match
+             let retType ← inferType (mkAppN f margs)
+             let iteExpr := mkApp5 (← mkIteOp) retType pcond pdecide e1' e2'
+             if !extra_args.isEmpty
+             then k (some (mkAppN iteExpr extra_args))
+             else k (some iteExpr)
+  else k none
 
-    /-- Implements dite over match rule -/
-    diteCstProp? (f : Expr) (args : Array Expr) (idxArg : Nat) (mInfo : MatcherInfo) : TranslateEnvT (Option Expr) := do
-      if let some (_psort, pcond, pdecide, e1, e2) := dite? args[idxArg]! then
-        -- NOTE: we also need to cater for function as return type,
-        -- i.e., match expression returns a function. Hence, extra arguments are now applied to dite.
-        let margs := args.take mInfo.arity
-        let extra_args := args.extract mInfo.arity args.size
-        let e1' ← pushMatchInDIteExpr f margs idxArg e1
-        let e2' ← pushMatchInDIteExpr f margs idxArg e2
-        -- NOTE: we also need to set the sort type for the pulled dite to meet
-        -- the return type of the embedded match
-        let retType ← inferType (mkAppN f margs)
-        let diteExpr ← mkExpr (mkApp5 (← mkDIteOp) retType pcond pdecide e1' e2') (cacheResult := false)
-        if !extra_args.isEmpty
-        then return (← mkExpr (mkAppN diteExpr extra_args) (cacheResult := false))
-        return diteExpr
-      return none
 
-    updateRhsWithMatch (f : Expr) (args : Array Expr) (idx : Nat) (rhs : Expr) : TranslateEnvT Expr := do
-      -- NOTE: here we can telescope as condition `allDiscrsAreCstMatch` guarantees
-      -- that rhs can't be a function (i.e., only constant or ite or a match)
-      -- Anyway, we can't pattern match on a function
-      lambdaTelescope rhs fun params body => do
-        let body' ← tryMatchReduction (← mkExpr (mkAppN f (args.set! idx body)) (cacheResult := false))
-        mkLambdaFVars params body'
+/-- Implements dite over match rule -/
+ private partial def diteCstProp?
+  (f : Expr) (args : Array Expr) (idxArg : Nat) (mInfo : MatcherInfo)
+  (k : Option Expr → TranslateEnvT (Option Expr)) : TranslateEnvT (Option Expr) := do
+  if let some (_psort, pcond, pdecide, e1, e2) := dite? args[idxArg]! then
+    -- NOTE: we also need to cater for function as return type,
+    -- i.e., match expression returns a function. Hence, extra arguments are now applied to dite.
+    let margs := args.take mInfo.arity
+    let extra_args := args.extract mInfo.arity args.size
+    pushMatchInDIteExpr f margs idxArg e1 mInfo fun e1_r =>
+      match e1_r with
+      | none => throwEnvError "diteCstProp?: unreacchable case 1 !!!"
+      | some e1' => do
+         pushMatchInDIteExpr f margs idxArg e2 mInfo fun e2_r =>
+           match e2_r with
+           | none => throwEnvError "diteCstProp?: unreacchable case 2 !!!"
+           | some e2' => do
+              -- NOTE: we also need to set the sort type for the pulled dite to meet
+              -- the return type of the embedded match
+              let retType ← inferType (mkAppN f margs)
+              let diteExpr := mkApp5 (← mkDIteOp) retType pcond pdecide e1' e2'
+              if !extra_args.isEmpty
+              then k (some (mkAppN diteExpr extra_args))
+              else k (some diteExpr)
+  else k none
 
-    updateReturnType (pType : Expr) (eType : Expr) : TranslateEnvT Expr := do
-      lambdaTelescope pType fun params _body => mkLambdaFVars params eType
+ private partial def pushMatchInDIteExpr
+  (f : Expr) (args : Array Expr) (idxDiscr : Nat) (ite_e : Expr)
+  (mInfo : MatcherInfo) (k : Option Expr → TranslateEnvT (Option Expr)) : TranslateEnvT (Option Expr) := do
+  -- NOTE: here we can telescope as condition `allDiscrsAreCstMatch` guarantees
+  -- that rhs can't be a function (i.e., only constant or ite or a match)
+  -- Anyway, we can't pattern match on a function
+  lambdaTelescope ite_e fun params body => do
+    tryMatchReduction (mkAppN f (args.set! idxDiscr body)) mInfo fun body_r => do
+      match body_r with
+      | none => throwEnvError "pushMatchInDIteExpr: unreachable case !!!"
+      | some body' =>
+          k (some (← mkLambdaFVars params body'))
 
-    /-- Implements match over match rule -/
-    matchCstProp? (f : Expr) (args : Array Expr) (idxArg : Nat) (mInfo : MatcherInfo) : TranslateEnvT (Option Expr) := do
-     if let some argInfo ← isMatchArg? args[idxArg]! then
-        -- NOTE: we also need to cater for function as return type,
-        -- i.e., match expression returns a function. Hence, extra arguments are now applied to pulled match.
-        let margs := args.take mInfo.arity
-        let extra_args := args.extract mInfo.arity args.size
-        let mut pargs' := argInfo.args
-        let idxPType := argInfo.mInfo.getFirstDiscrPos - 1
-        for k in [argInfo.mInfo.getFirstAltPos : argInfo.mInfo.arity] do
-          pargs' := pargs'.set! k (← updateRhsWithMatch f margs idxArg argInfo.args[k]!)
-          -- NOTE: we also need to set the return type for pulled over match
-          -- to meet the return type of the embedded match.
-          let retType ← inferType (mkAppN f margs)
-          pargs' := pargs'.set! idxPType (← updateReturnType argInfo.args[idxPType]! retType)
-        let pMatchExpr ← mkExpr (mkAppN argInfo.nameExpr pargs') (cacheResult := false)
-        if !extra_args.isEmpty
-        then return (← mkExpr (mkAppN pMatchExpr extra_args) (cacheResult := false))
-        return pMatchExpr
-      return none
 
+ private partial def updateRhsWithMatch
+  (f : Expr) (args : Array Expr) (idx : Nat) (rhs : Expr)
+  (mInfo : MatcherInfo) (k : Option Expr → TranslateEnvT (Option Expr)) : TranslateEnvT (Option Expr) := do
+  -- NOTE: here we can telescope as condition `allDiscrsAreCstMatch` guarantees
+  -- that rhs can't be a function (i.e., only constant or ite or a match)
+  -- Anyway, we can't pattern match on a function
+  lambdaTelescope rhs fun params body => do
+    tryMatchReduction (mkAppN f (args.set! idx body)) mInfo fun body_r => do
+      match body_r with
+      | none => throwEnvError "updateRhsWithMatch: unreachable case !!!"
+      | some body' =>
+         k (some (← mkLambdaFVars params body'))
+
+
+/-- Implements match over match rule -/
+ private partial def matchCstProp?
+  (f : Expr) (args : Array Expr) (idxArg : Nat) (mInfo : MatcherInfo)
+  (k : Option Expr → TranslateEnvT (Option Expr)) : TranslateEnvT (Option Expr) := do
+  if let some argInfo ← isMatchArg? args[idxArg]! then
+     -- NOTE: we also need to cater for function as return type,
+     -- i.e., match expression returns a function. Hence, extra arguments are now applied to pulled match.
+     let margs := args.take mInfo.arity
+     let extra_args := args.extract mInfo.arity args.size
+     matchCstPropAux f margs extra_args idxArg mInfo argInfo argInfo.args argInfo.mInfo.getFirstAltPos k
+  else k none
+
+private partial def matchCstPropAux
+  (f : Expr) (margs : Array Expr) (extra_args : Array Expr) (idxArg : Nat) (mInfo : MatcherInfo)
+  (argInfo : MatchInfo) (pargs : Array Expr) (idx : Nat)
+  (k : Option Expr → TranslateEnvT (Option Expr)) : TranslateEnvT (Option Expr) := do
+  if idx ≥ argInfo.mInfo.arity then
+    -- NOTE: we also need to set the return type for pulled over match
+    -- to meet the return type of the embedded match.
+    let idxType := argInfo.mInfo.getFirstDiscrPos - 1
+    let retType ← inferType (mkAppN f margs)
+    let pargs' := pargs.set! idxType (← updateMatchReturnType argInfo.args[idxType]! retType)
+    let pMatchExpr := mkAppN argInfo.nameExpr pargs'
+    if !extra_args.isEmpty
+    then k (some (mkAppN pMatchExpr extra_args))
+    else k (some pMatchExpr)
+  else
+    updateRhsWithMatch f margs idxArg argInfo.args[idx]! mInfo fun rhs_r =>
+      match rhs_r with
+      | none => throwEnvError "matchCstPropAux: unreachable case !!!"
+      | some rhs' =>
+          matchCstPropAux f margs extra_args idxArg mInfo argInfo (pargs.set! idx rhs') (idx + 1) k
+
+/-- try to successively call reduceMatch? and constMatchPropagation? on `m`.
+    Assumes that `m` is a match expression.
+-/
+private partial def tryMatchReduction
+  (m : Expr) (mInfo : MatcherInfo)
+  (k : Option Expr → TranslateEnvT (Option Expr)) : TranslateEnvT (Option Expr) := do
+  match (← reduceMatch? m) with
+   | none =>
+     Expr.withApp m fun f args =>
+       constMatchPropagation? f args mInfo fun m_r =>
+         match m_r with
+         | none => throwEnvError "tryMatchReduction: unreachable case !!!"
+         | re => k re
+   | re => k re
+
+end
 
 /--  Given application `f x₀ ... xₙ`, perform the following:
      - When `f x₀ ... xₙ` is a match expression
@@ -294,7 +360,7 @@ def reduceMatchChoice?
   for i in [mInfo.getFirstDiscrPos : mInfo.getFirstAltPos] do
      margs ← margs.modifyM i optimizer
   if let some r ← reduceMatch? (mkAppN f margs) then return r
-  constMatchPropagation? f margs mInfo
+  constMatchPropagation? f margs mInfo (λ x => return x)
 
 
 /-- Given a `match` application expression of the form
