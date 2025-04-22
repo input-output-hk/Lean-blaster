@@ -155,6 +155,7 @@ initialize
   registerTraceClass `Optimize.expr
   registerTraceClass `Optimize.funPropagation
   registerTraceClass `Optimize.matchConstPropagation
+  registerTraceClass `Optimize.normChoiceApp
   registerTraceClass `Optimize.normMatch
   registerTraceClass `Optimize.normPartial
   registerTraceClass `Optimize.reduceChoice
