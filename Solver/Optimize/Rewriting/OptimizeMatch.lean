@@ -102,8 +102,13 @@ def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) (funPropagation := fa
     else pure atLeastOneExplicit
   loop 0
 
-/-- Return `b` if `m := b` is already in the weak head cache.
-    Otherwise, perform the following actions
+/-- Given `m := f x₁ ... xₙ` with `f` corresponding to a match function
+    and `mInfo` the corresponding matcher info, perform the following:
+     - When `¬ allMatchDiscrsAreCtor x₁ ... xₙ minfo`:
+          - return none
+     - When `m := b` is already in the weak head cache
+         - return `b`
+     - Otherwise:
       - When .reduced e ← reduceMatcher? m
           - update cache with `m := some e`
           - return `some e`
@@ -112,8 +117,10 @@ def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) (funPropagation := fa
           - return `none`
     Assume that `m` is a match expression.
 -/
-def reduceMatch? (m : Expr) : TranslateEnvT (Option Expr) := do
+def reduceMatch? (f : Expr) (args : Array Expr) (mInfo : MatcherInfo) : TranslateEnvT (Option Expr) := do
+   if !(← allMatchDiscrsAreCtor args) then return none
    let env ← get
+   let m := mkAppN f args
    match env.optEnv.whnfCache.get? m with
    | some b => return b
    | none =>
@@ -122,7 +129,14 @@ def reduceMatch? (m : Expr) : TranslateEnvT (Option Expr) := do
        set {env with optEnv := optEnv}
        return res
    where
-     tryReduction? (m : Expr) : TranslateEnvT (Option Expr) := do
+
+    allMatchDiscrsAreCtor (args : Array Expr) : TranslateEnvT Bool := do
+      for i in [mInfo.getFirstDiscrPos : mInfo.getFirstAltPos] do
+        if !(← isConstructor args[i]!) then return false
+      return true
+
+    tryReduction? (m : Expr) : TranslateEnvT (Option Expr) := do
+      -- NOTE: reduceMatcher? simplifies match only when all the discriminators are constructors
       let .reduced e ← reduceMatcher? m | return none
       return e
 
@@ -323,15 +337,15 @@ private partial def matchCstPropAux
 -/
 private partial def tryMatchReduction
   (m : Expr) (mInfo : MatcherInfo)
-  (k : Option Expr → TranslateEnvT (Option Expr)) : TranslateEnvT (Option Expr) := do
-  match (← reduceMatch? m) with
-   | none =>
-     Expr.withApp m fun f args =>
-       constMatchPropagation? f args mInfo fun m_r =>
-         match m_r with
-         | none => throwEnvError "tryMatchReduction: unreachable case !!!"
-         | re => k re
-   | re => k re
+  (k : Option Expr → TranslateEnvT (Option Expr)) : TranslateEnvT (Option Expr) :=
+  Expr.withApp m fun f args => do
+    match (← reduceMatch? f args mInfo) with
+    | none =>
+        constMatchPropagation? f args mInfo fun m_r =>
+          match m_r with
+          | none => throwEnvError "tryMatchReduction: unreachable case !!!"
+          | re => k re
+    | re => k re
 
 end
 
@@ -359,7 +373,7 @@ def reduceMatchChoice?
   let mut margs := args
   for i in [mInfo.getFirstDiscrPos : mInfo.getFirstAltPos] do
      margs ← margs.modifyM i optimizer
-  if let some r ← reduceMatch? (mkAppN f margs) then return r
+  if let some r ← reduceMatch? f margs mInfo then return r
   constMatchPropagation? f margs mInfo (λ x => return x)
 
 

@@ -101,7 +101,17 @@ structure OptimizeEnv where
   /-- Optimization options (see note on OptimizeOptions) -/
   options : OptimizeOptions
 
- deriving Inhabited
+instance : Inhabited OptimizeEnv where
+  default :=
+   { rewriteCache := Std.HashMap.empty (capacity := 13),
+     synthInstanceCache := Std.HashMap.empty (capacity := 8893),
+     whnfCache := Std.HashMap.empty (capacity := 8893),
+     matchCache := Std.HashMap.empty (capacity := 8893),
+     recFunInstCache := Std.HashMap.empty (capacity := 8893),
+     recFunCache := Std.HashSet.empty (capacity := 8893),
+     recFunMap := Std.HashMap.empty (capacity := 8893),
+     options := default
+   }
 
 
 structure TranslateOptions where
@@ -117,7 +127,7 @@ structure TranslateOptions where
   inPatternMatching : Std.HashSet FVarId
 
 instance : Inhabited TranslateOptions where
-  default := {typeUniverse := false, inFunRecDefinition := false, inPatternMatching := .empty}
+  default := {typeUniverse := false, inFunRecDefinition := false, inPatternMatching := .empty (capacity := 123)}
 
 /-- Type defining the environment used when translating to Smt-Lib. -/
 structure SmtEnv where
@@ -184,7 +194,19 @@ structure SmtEnv where
   /-- Translation options (see note on TranslateOptions) -/
   options: TranslateOptions
 
-  deriving Inhabited
+instance : Inhabited SmtEnv where
+  default :=
+   { translateCache := Std.HashMap.empty (capacity := 13),
+     smtCommands := Array.mkEmpty 1023,
+     smtProc := default,
+     indTypeVisited := Std.HashSet.empty (capacity := 123),
+     indTypeInstCache := Std.HashMap.empty (capacity := 123 * 3),
+     funInstCache := Std.HashMap.empty (capacity := 123),
+     sortCache := Std.HashMap.empty (capacity := 123),
+     quantifiedFVars := Std.HashSet.empty (capacity := 123),
+     topLevelVars := Std.HashMap.empty (capacity := 123),
+     options := default
+   }
 
 
 /-- list of recursive functions to be normalized (see note in `OptimizeOptions`). -/
