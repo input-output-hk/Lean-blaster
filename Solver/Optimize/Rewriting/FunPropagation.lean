@@ -396,18 +396,18 @@ private partial def matchCstPropAux
 /-- try to successively call reduceApp? and getUnfoldFunDef? before calling funPropagationAux?. -/
 private partial def tryAppReduction
   (e : Expr) (k : Option Expr → TranslateEnvT (Option Expr)) : TranslateEnvT (Option Expr) := do
-  Expr.withApp e fun f args => do
-    match (← reduceApp? f args) with
-    | none =>
-       match (← getUnfoldFunDef? f args) with
-       | none =>
-          let optExpr ← optimizeApp f args
-          funPropagationAux? optExpr fun f_r =>
-           match f_r with
-           | none => k (some optExpr)
-           | some _ => k f_r
-       | re => k re
-    | re => k re
+  let (f, args) := getAppFnWithArgs e
+  match (← reduceApp? f args) with
+  | none =>
+     match (← getUnfoldFunDef? f args) with
+     | none =>
+        let optExpr ← optimizeApp f args
+        funPropagationAux? optExpr fun f_r =>
+         match f_r with
+         | none => k (some optExpr)
+         | some _ => k f_r
+     | re => k re
+  | re => k re
 
 end
 
