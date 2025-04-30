@@ -90,9 +90,7 @@ def isInductivePredicate (indName : Name) : MetaM Bool := do
     add entry `f x₁ ... xₙ := sid` to `funInstCache`.
 -/
 def updateFunInstCacheBase (f : Expr) (sid : SmtQualifiedIdent) : TranslateEnvT Unit := do
-  let env ← get
-  let smtEnv := {env.smtEnv with funInstCache := env.smtEnv.funInstCache.insert f sid}
-  set {env with smtEnv := smtEnv}
+  modify (fun env => { env with smtEnv.funInstCache := env.smtEnv.funInstCache.insert f sid})
 
 /-- Same as `updateFunInstCacheBase` but accepts an SmtSymbol as argument and returns
     the SmtQualifiedIdent instance added to `funInstCache`.

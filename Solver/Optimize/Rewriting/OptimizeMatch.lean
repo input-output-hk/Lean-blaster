@@ -21,41 +21,44 @@ structure MatchInfo where
     Otherwise return `none`.
 -/
 def isMatchArg? (e : Expr) : TranslateEnvT (Option MatchInfo) := do
- Expr.withApp e fun pm args => do
-   let Expr.const n l := pm | return none
-   let some mInfo ← getMatcherRecInfo? n l | return none
-   let cInfo ← getConstInfo n
-   let matchFun ← instantiateValueLevelParams cInfo l
-   let instApp := Expr.beta matchFun (args.take mInfo.getFirstAltPos)
-   return some { name := n, nameExpr := pm, args, instApp, mInfo}
+ let (pm, args) := getAppFnWithArgs e
+ let Expr.const n l := pm | return none
+ let some mInfo ← getMatcherRecInfo? n l | return none
+ let cInfo ← getConstInfo n
+ let matchFun ← instantiateValueLevelParams cInfo l
+ let instApp := Expr.beta matchFun (args.take mInfo.getFirstAltPos)
+ return some { name := n, nameExpr := pm, args, instApp, mInfo}
 
 mutual
 
 private partial def isCstMatchPropAux (p : Expr) (k : Bool → TranslateEnvT Bool) : TranslateEnvT Bool := do
- if (← isConstructor p) then return (← k true)
- match ite? p with
-   | some (_sort, _cond, _decide, e1, e2) =>
-       isCstMatchPropAux e1 fun _b =>
-         -- NOTE: No need to check for b as if it's false the continuation function is not called
-         isCstMatchPropAux e2 k
-   | none =>
-     match dite? p with
+ if (← isConstructor p) then k true
+ else
+   match ite? p with
      | some (_sort, _cond, _decide, e1, e2) =>
-         isCstMatchPropAux (← extractDependentITEExpr e1) fun _b => do
-           -- NOTE: No need to check for b as if it's false the continuation function is not called
-           isCstMatchPropAux (← extractDependentITEExpr e2) k
+          isCstMatchPropAux e1 fun _b =>
+            -- NOTE: No need to check for b as if it's false the continuation function is not called
+            isCstMatchPropAux e2 k
      | none =>
-        Expr.withApp p fun f args => do
-          let Expr.const n l := f | return false
-          let some matcherInfo ← getMatcherRecInfo? n l | return false
-          let rhs := args[matcherInfo.getFirstAltPos : matcherInfo.arity]
-          -- NOTE: we also need to cater for function as return type,
-          -- i.e., match expression returns a function.
-          if args.size > matcherInfo.arity then return false
-          else isCstDiscrsProp rhs (rhs.size - 1) k
+         match dite? p with
+         | some (_sort, _cond, _decide, e1, e2) =>
+              isCstMatchPropAux (← extractDependentITEExpr e1) fun _b => do
+                -- NOTE: No need to check for b as if it's false the continuation function is not called
+                isCstMatchPropAux (← extractDependentITEExpr e2) k
+         | none =>
+             let (f, args) := getAppFnWithArgs p
+             if let Expr.const n l := f then
+               if let some matcherInfo ← getMatcherRecInfo? n l then
+                 let rhs := args[matcherInfo.getFirstAltPos : matcherInfo.arity]
+                 -- NOTE: we also need to cater for function as return type,
+                 -- i.e., match expression returns a function.
+                 if args.size > matcherInfo.arity then return false
+                 else isCstDiscrsProp rhs (rhs.size - 1) k
+               else return false
+             else return false
 
 private partial def isCstDiscrsProp
-  (rhs : Subarray Expr) (idx : Nat) (k : Bool → TranslateEnvT Bool) : TranslateEnvT Bool := do
+  (rhs : Subarray Expr) (idx : Nat) (k : Bool → TranslateEnvT Bool) : TranslateEnvT Bool :=
   if idx == 0 then
     -- NOTE: here we can use getLambdaBody as `isCstDiscrsProp` is called only
     -- when match expression does not return a function as result.
@@ -119,14 +122,12 @@ def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) (funPropagation := fa
 -/
 def reduceMatch? (f : Expr) (args : Array Expr) (mInfo : MatcherInfo) : TranslateEnvT (Option Expr) := do
    if !(← allMatchDiscrsAreCtor args) then return none
-   let env ← get
    let m := mkAppN f args
-   match env.optEnv.whnfCache.get? m with
+   match (← get).optEnv.whnfCache.get? m with
    | some b => return b
    | none =>
-       let res ← tryReduction? m
-       let optEnv := {env.optEnv with whnfCache := env.optEnv.whnfCache.insert m res}
-       set {env with optEnv := optEnv}
+       let res ← tryReduction? f args
+       modify (fun env => { env with optEnv.whnfCache := env.optEnv.whnfCache.insert m res})
        return res
    where
 
@@ -135,10 +136,31 @@ def reduceMatch? (f : Expr) (args : Array Expr) (mInfo : MatcherInfo) : Translat
         if !(← isConstructor args[i]!) then return false
       return true
 
-    tryReduction? (m : Expr) : TranslateEnvT (Option Expr) := do
-      -- NOTE: reduceMatcher? simplifies match only when all the discriminators are constructors
-      let .reduced e ← reduceMatcher? m | return none
-      return e
+    commonMatchReduction?
+      (auxApp : Expr) (args : Array Expr) (hs : Array Expr) : TranslateEnvT (Option Expr) := do
+        let auxApp ← whnf (mkAppN auxApp hs)
+        let auxAppFn := auxApp.getAppFn
+        let mut idx := mInfo.getFirstAltPos
+        for h in hs do
+          if auxAppFn == h then
+            let result := mkAppN args[idx]! auxApp.getAppArgs
+            let result := mkAppN result (args.extract (mInfo.getFirstAltPos + mInfo.numAlts) args.size)
+            return result.headBeta
+          idx := idx + 1
+        return none
+
+    tryReduction? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
+      -- NOTE: simplifies match only when all the discriminators are constructors
+      let Expr.const n dlevel := f | return none
+      let cInfo ← getConstInfo n
+      let matchFun ← instantiateValueLevelParams cInfo dlevel
+      let auxApp := mkAppN matchFun (args.take mInfo.getFirstAltPos)
+      if (isCasesOnRecursor (← getEnv) n) then
+        lambdaBoundedTelescope auxApp mInfo.numAlts fun hs _t =>
+          commonMatchReduction? auxApp args hs
+      else
+        forallBoundedTelescope (← inferType auxApp) mInfo.numAlts fun hs _t =>
+          commonMatchReduction? auxApp args hs
 
 /-- Given `pType := λ α₁ → .. → λ αₙ → t` returns `λ α₁ → .. → λ αₙ → eType`
     This function is expected to be used only when updating a match return type
@@ -403,14 +425,12 @@ def structEqMatch? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) 
  let cInfo ← getConstInfo n
  let matchFun ← instantiateValueLevelParams cInfo dlevel
  let auxAppType ← mkLambdaFVars genericArgs (Expr.beta matchFun i_args)
- let env ← get
- match env.optEnv.matchCache.get? auxAppType with
+ match (← get).optEnv.matchCache.get? auxAppType with
  | some gmatch =>
     let altArgs := args.extract mInfo.getFirstDiscrPos args.size
     mkAppExpr (gmatch.beta genericArgs) altArgs
  | none =>
-    let optEnv := {env.optEnv with matchCache := env.optEnv.matchCache.insert auxAppType auxApp}
-    set {env with optEnv := optEnv}
+    modify (fun env => { env with optEnv.matchCache := env.optEnv.matchCache.insert auxAppType auxApp })
     mkAppExpr f args
 
 end Solver.Optimize
