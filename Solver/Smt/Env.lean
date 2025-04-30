@@ -78,9 +78,7 @@ def createSolverProcess (sOpts : SolverOptions) : IO (IO.Process.Child ⟨.piped
 /-- Update translation cache with `a := b`.
 -/
 def updateTranslateCache (a : Expr) (b : SmtTerm) : TranslateEnvT Unit := do
-  let env ← get
-  let smtEnv := {env.smtEnv with translateCache := env.smtEnv.translateCache.insert a b}
-  set {env with smtEnv := smtEnv}
+  modify (fun env => { env with smtEnv.translateCache := env.smtEnv.translateCache.insert a b})
 
 
 /-- Return `b` if `a := b` is already in the translation cache.
@@ -152,10 +150,8 @@ partial def getOutputEval (h : IO.FS.Handle) : IO String := do
     are NOT expected to produce any output.
 -/
 partial def trySubmitCommand! (c : SmtCommand) (checkSuccess := true) : TranslateEnvT Unit := do
-  let env ← get
-  let smtEnv := { env.smtEnv with smtCommands := env.smtEnv.smtCommands.push c }
-  set {env with smtEnv := smtEnv }
-  let some p := env.smtEnv.smtProc | return ()
+  modify (fun env => { env with smtEnv.smtCommands := env.smtEnv.smtCommands.push c })
+  let some p := (← get).smtEnv.smtProc | return ()
   p.stdin.putStrLn s!"{c}"
   p.stdin.flush
   if !checkSuccess then return ()
