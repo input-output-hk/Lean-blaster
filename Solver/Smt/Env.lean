@@ -53,7 +53,6 @@ def logResult (r : Result) (sOpts : SolverOptions) : MetaM Unit := do
 
 /-- Tries to find if z3 is natively present in PATH, if not checks wsl z3 -/
 private def findZ3CmdAndVersion : IO (String) := do
-  let minVer:= minZ3Version
   let candidates := #["z3", "wsl z3"]
   -- We'll store a short log message for each candidate attempt
   let mut attemptLogs := #[]
@@ -73,7 +72,7 @@ private def findZ3CmdAndVersion : IO (String) := do
 
   -- If we get here, no candidate succeeded
   let attemptsReport := String.join (attemptLogs.toList.map (fun x => x ++ "\n"))
-  throw <| IO.userError s!"❌ Could not find a working Z3 ≥ {minVer}.\n\nTried:\n{attemptsReport}"
+  throw <| IO.userError s!"❌ Could not find a working Z3 ≥ {minZ3Version}.\n\nTried:\n{attemptsReport}"
 
 
 /-- Spawn a z3 process w.r.t. the provided solver options. -/
