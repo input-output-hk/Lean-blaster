@@ -167,20 +167,45 @@ def optimizeNatMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
        return none
     | none => return none
 
+/-- Return `true` only when one of the following conditions is satisfied:
+      - 0 < e := hypsInContext; or
+      - ¬ (0 = e) := _ ∈ hypsInContext
+-/
+def nonZeroNatDenumInHyps (e : Expr) : TranslateEnvT Bool := do
+ let hyps := (← get).optEnv.hypsInContext
+ let zero_nat ← mkNatLitExpr 0
+ let zero_lt ← mkNatLtExpr zero_nat e
+ if hyps.contains zero_lt then return true
+ let zero_eq ← mkNatEqExpr zero_nat e
+ return hyps.contains (← mkExpr (mkApp (← mkPropNotOp) zero_eq))
+
 /-- Given `e1` and `e2` corresponding to the operands for `Nat.div` (i.e., `e1 / e2`),
     return `some n` only when one of the following conditions is satisfied:
-     - `e1 := m * n` ∧ e2 = m; or
-     - `e1 := n * m` ∧ e2 = m;
+     - `e1 := m * n` ∧ e2 = m ∧ (0 < m := _ ∈ hypsInContext ∨ ¬ (0 = m) := _ ∈ hypsInContext); or
+     - `e1 := n * m` ∧ e2 = m ∧ (0 < m := _ ∈ hypsInContext ∨ ¬ (0 = m) := _ ∈ hypsInContext);
     Otherwise, return none.
 -/
-def mulDivReduceExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := do
+def mulNatDivReduceExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := do
   match natMul? e1 with
   | some (op1, op2) =>
-     if (← exprEq op1 e2) then return some op2
-     if (← exprEq op2 e2) then return some op1
+     unless !(← exprEq op1 e2) do
+       if (← nonZeroNatDenumInHyps e2) then return some op2
+     unless !(← exprEq op2 e2) do
+       if (← nonZeroNatDenumInHyps e2) then return some op1
      return none
   | none => return none
 
+/-- Given `e1` and `e2` corresponding to the operands for `Nat.div` (i.e., `e1 / e2`),
+    return `some 1` only when the following conditions are satisfied:
+      - e1 =ₚₜᵣ e2 ∧
+      - 0 < e1 := _ ∈ hypsInContext ∨ ¬ (0 = e1) := _ ∈ hypsInContext
+    Otherwise, return none.
+-/
+def natDivSelfReduce? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := do
+  if !(← exprEq e1 e2) then return none
+  if (← nonZeroNatDenumInHyps e1)
+  then return ← mkNatLitExpr 1
+  else return none
 
 /-- Apply the following simplification/normalization rules on `Nat.div` :
      - n / 0 ==> 0
@@ -188,8 +213,9 @@ def mulDivReduceExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := d
      - 0 / n ==> 0
      - N1 / N2 ==> N1 "/" N2
      - (n / N1) / N2 ==> n / (N1 "*" N2)
-     - (N1 * n) / N2 ===> ((N1 "/" Nat.gcd N1 N2) * n) / (N2 "/" Nat.gcd N1 N2) (if N2 > 0)
-     - (m * n) / m | (n * m) / m ==> n
+     - (N1 * n) / N2 ===> ((N1 "/" Nat.gcd N1 N2) * n) / (N2 "/" Nat.gcd N1 N2) (if N2 > 0 ∧ Nat.gcd N1 N2 ≠ 1)
+     - n / n ==> 1 (if 0 < n := _ ∈ hypsInContext ∨ ¬ (0 = n) := _ ∈ hypsInContext)
+     - (m * n) / m | (n * m) / m ==> n (if 0 < m := _ ∈ hypsInContext ∨ ¬ (0 = m) := _ ∈ hypsInContext)
 
    Assume that f = Expr.const ``Nat.div.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Nat.div` expected at this stage)
@@ -206,10 +232,12 @@ partial def optimizeNatDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr :
  | some n1, some n2 => evalBinNatOp Nat.div n1 n2
  | _, nv2 =>
    if let some r ← cstDivProp? op1 nv2 then return r
-   if let some r ← mulDivReduceExpr? op1 op2 then return r
+   if let some r ← natDivSelfReduce? op1 op2 then return r
+   if let some r ← mulNatDivReduceExpr? op1 op2 then return r
    mkExpr (mkApp2 f op1 op2)
 
  where
+
    /- Given `op1` and `mv2`,
         - return `some (n / (N1 "*" N2))` when `op1 := (n / N1) ∧ mv2 := some N2`
         - return `some (((N1 "/" Nat.gcd N1 N2) * n) / (N2 "/" Nat.gcd N1 N2))`
@@ -225,7 +253,7 @@ partial def optimizeNatDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr :
              some <$> mkExpr (mkApp2 f e1 (← evalBinNatOp Nat.mul n1 n2))
          | some (NatCstOpInfo.NatMulExpr n1 e1) =>
              let gcd := if n1 < n2 then Nat.gcd n1 n2 else Nat.gcd n2 n1
-             if gcd = 1 then return none
+             if gcd == 1 then return none
              let mulExpr ← optimizeNatMul (← mkNatMulOp) #[(← evalBinNatOp Nat.div n1 gcd), e1]
              some <$> optimizeNatDiv f #[mulExpr, (← evalBinNatOp Nat.div n2 gcd)]
          | _ => return none
@@ -238,7 +266,7 @@ partial def optimizeNatDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr :
      - `e1 := n * m` ∧ e2 = m;
     Otherwise, return none.
 -/
-def modToZeroExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := do
+def natModToZeroExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := do
   if (← exprEq e1 e2) then return (some (← mkNatLitExpr 0))
   match natMul? e1 with
   | some (op1, op2) =>
@@ -251,7 +279,7 @@ def modToZeroExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := do
      - n % 1 ==> 0
      - 0 % n ==> 0
      - N1 % N2 ==> N1 "%" N2
-     - (N1 * n) % N2 ==> 0 (if N1 % N2 = 0 ∧ N2 > 0)
+     - (N1 * n) % N2 ==> 0 (if N1 % N2 = 0)
      - n1 % n2 ==> 0 (if n1 =ₚₜᵣ n2)
      - (m * n) % m | (n * m) % m ==> 0
    Assume that f = Expr.const ``Nat.mod.
@@ -269,7 +297,7 @@ def optimizeNatMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  | some n1, some n2 => evalBinNatOp Nat.mod n1 n2
  | _, nv2 =>
    if let some r ← cstModProp? op1 nv2 then return r
-   if let some r ← modToZeroExpr? op1 op2 then return r
+   if let some r ← natModToZeroExpr? op1 op2 then return r
    mkExpr (mkApp2 f op1 op2)
 
  where
