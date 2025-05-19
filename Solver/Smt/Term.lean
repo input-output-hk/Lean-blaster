@@ -415,17 +415,6 @@ def smtSimpleVarId (nm : SmtSymbol) : SmtTerm := .SmtIdent (.SimpleIdent nm)
 def smtQualifiedVarId (nm : SmtSymbol) (t : SortExpr) : SmtTerm :=
   .SmtIdent (.QualifiedIdent nm t)
 
-/-- Create an Smt symbol from a free variable id.
-    The Smt symbol will correspond to the user-defined name suffixed with the unique id
-    for the associated to the free variable id.
--/
-def fvarIdToSmtSymbol (v : FVarId) : MetaM SmtSymbol := do
-  return (mkNormalSymbol s!"{← v.getUserName}{v.name}")
-
-/-! Create an Smt term from a free variable. -/
-def fvarIdToSmtTerm (v : FVarId) : MetaM SmtTerm :=
-  return smtSimpleVarId (← fvarIdToSmtSymbol v)
-
 /-! Create an e-matching pattern to be used for a forall or an exists Smt term. -/
 def mkPattern (patterns : Array SmtTerm) : SmtAttribute := .Pattern patterns
 

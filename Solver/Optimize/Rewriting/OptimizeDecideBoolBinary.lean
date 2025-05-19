@@ -22,9 +22,9 @@ def decideOpDecide?
       -- NOTE: the decidable instance for `decide` is updated in `optimizeDecideCore`
       optimizeDecideCore (← mkDecideConst) #[← mkOpExpr #[e1, e2], d]
   | some (e1, d), _ =>
-      optimizeDecideCore (← mkDecideConst) #[← mkOpExpr #[e1, ← mkEqBool op2 true], d]
+      optimizeDecideCore (← mkDecideConst) #[← mkOpExpr #[e1, ← optimizeEqBool op2 true], d]
   | _, some (e1, d) =>
-      optimizeDecideCore (← mkDecideConst) #[← mkOpExpr #[e1, ← mkEqBool op1 true], d]
+      optimizeDecideCore (← mkDecideConst) #[← mkOpExpr #[e1, ← optimizeEqBool op1 true], d]
   | _, _ => return none
 
 

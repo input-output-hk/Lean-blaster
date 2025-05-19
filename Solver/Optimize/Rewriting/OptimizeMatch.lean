@@ -129,6 +129,7 @@ def reduceMatch? (f : Expr) (args : Array Expr) (mInfo : MatcherInfo) : Translat
        let res ← tryReduction? f args
        modify (fun env => { env with optEnv.whnfCache := env.optEnv.whnfCache.insert m res})
        return res
+
    where
 
     allMatchDiscrsAreCtor (args : Array Expr) : TranslateEnvT Bool := do
@@ -165,7 +166,7 @@ def reduceMatch? (f : Expr) (args : Array Expr) (mInfo : MatcherInfo) : Translat
 /-- Given `pType := λ α₁ → .. → λ αₙ → t` returns `λ α₁ → .. → λ αₙ → eType`
     This function is expected to be used only when updating a match return type
 -/
-def updateMatchReturnType (pType : Expr) (eType : Expr) : TranslateEnvT Expr := do
+def updateMatchReturnType (eType : Expr) (pType : Expr) : TranslateEnvT Expr := do
   lambdaTelescope pType fun params _body => mkLambdaFVars params eType
 
 mutual
@@ -297,7 +298,8 @@ private partial def constMatchArgsPropagation?
   (f : Expr) (args : Array Expr) (idxDiscr : Nat) (ite_e : Expr)
   (mInfo : MatcherInfo) (k : Option Expr → TranslateEnvT (Option Expr)) : TranslateEnvT (Option Expr) := do
   -- NOTE: here we can telescope as condition `allDiscrsAreCstMatch` guarantees
-  -- that rhs can't be a function (i.e., only constant or ite or a match)
+  -- that then/else expression can't be a function or even quantified function
+  -- (i.e., only constant or ite or a match)
   -- Anyway, we can't pattern match on a function
   lambdaTelescope ite_e fun params body => do
     tryMatchReduction (mkAppN f (args.set! idxDiscr body)) mInfo fun body_r => do
@@ -342,8 +344,8 @@ private partial def matchCstPropAux
     -- to meet the return type of the embedded match.
     let idxType := argInfo.mInfo.getFirstDiscrPos - 1
     let retType ← inferType (mkAppN f margs)
-    let pargs' := pargs.set! idxType (← updateMatchReturnType argInfo.args[idxType]! retType)
-    let pMatchExpr := mkAppN argInfo.nameExpr pargs'
+    let pargs ← pargs.modifyM idxType (updateMatchReturnType retType)
+    let pMatchExpr := mkAppN argInfo.nameExpr pargs
     if !extra_args.isEmpty
     then k (some (mkAppN pMatchExpr extra_args))
     else k (some pMatchExpr)
@@ -359,15 +361,15 @@ private partial def matchCstPropAux
 -/
 private partial def tryMatchReduction
   (m : Expr) (mInfo : MatcherInfo)
-  (k : Option Expr → TranslateEnvT (Option Expr)) : TranslateEnvT (Option Expr) :=
-  Expr.withApp m fun f args => do
-    match (← reduceMatch? f args mInfo) with
-    | none =>
-        constMatchPropagation? f args mInfo fun m_r =>
-          match m_r with
-          | none => throwEnvError "tryMatchReduction: unreachable case !!!"
-          | re => k re
-    | re => k re
+  (k : Option Expr → TranslateEnvT (Option Expr)) : TranslateEnvT (Option Expr) := do
+  let (f, args) := getAppFnWithArgs m
+  match (← reduceMatch? f args mInfo) with
+  | none =>
+      constMatchPropagation? f args mInfo fun m_r =>
+        match m_r with
+        | none => k m
+        | re => k re
+  | re => k re
 
 end
 

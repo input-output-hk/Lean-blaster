@@ -142,10 +142,29 @@ def isBoolValue? (e : Expr) : Option Bool :=
  | Expr.const ``false _ => some false
  | _ => none
 
+/-- Return `true` only when `e` is a `Bool` literal`.
+    Otherwise `false`
+-/
+def isBoolCtor (e : Expr) : Bool :=
+ match e with
+ | Expr.const ``true _
+ | Expr.const ``false _ => true
+ | _ => false
+
 /-- Determine if `e` is an boolean `==` expression and return its corresponding arguments.
     Otherwise return `none`.
 -/
 @[inline] def beq? (e : Expr) : Option (Expr × Expr × Expr × Expr) := e.app4? ``BEq.beq
+
+/-- Determine if `e` is an `LE.le` expression and return its corresponding arguments.
+    Otherwise return `none`.
+-/
+@[inline] def le? (e : Expr) : Option (Expr × Expr × Expr × Expr) := e.app4? ``LE.le
+
+/-- Determine if `e` is an `LT.lt` expression and return its corresponding arguments.
+    Otherwise return `none`.
+-/
+@[inline] def lt? (e : Expr) : Option (Expr × Expr × Expr × Expr) := e.app4? ``LT.lt
 
 /-- Determine if `e` is an `Not` expression and return its corresponding argument.
     Otherwise return `none`.
@@ -162,16 +181,8 @@ def isBoolValue? (e : Expr) : Option Bool :=
 -/
 @[inline] def propOr? (e : Expr) : Option (Expr × Expr) := e.app2? ``Or
 
-@[inline] def implies? (e : Expr) : MetaM (Option (Expr × Expr)) := do
- match e with
- | Expr.forallE _ t b _ =>
-     if !b.hasLooseBVars && (← isProp t)
-     then return some (t, b)
-     else return none
- | _ => return none
 
-/-- Return `! e` when `b = false`. Otherwise return `e`.
--/
+/-- Return `! e` when `b = false`. Otherwise return `e`. -/
 def toBoolNotExpr? (b : Bool) (e : Expr) : TranslateEnvT Expr := do
   if b then return e
   mkExpr (mkApp (← mkBoolNotOp) e)
@@ -207,6 +218,7 @@ def isNegBoolEqOf (e1: Expr) (e2: Expr) : MetaM Bool := do
       | Expr.const ``false _, Expr.const ``true _ => exprEq e1_op2 e2_op2
       | _, _ => return false
  | _, _ => return false
+
 
 /-- Return `true` if the given expression is of the form `const ``Bool`. -/
 def isBoolType (e : Expr) : Bool :=
@@ -402,6 +414,21 @@ def toNatCstOpExpr? (e: Expr) : Option NatCstOpInfo :=
 -/
 @[inline] def intNeg? (e : Expr) : Option Expr := e.app1? ``Int.neg
 
+/-- Determine if `e` is a `Int.add` expression and return its corresponding arguments.
+    Otherwise return `none`.
+-/
+@[inline] def intAdd? (e: Expr) : Option (Expr × Expr) := e.app2? ``Int.add
+
+/-- Determine if `e` is a `Int.mul` expression and return its corresponding arguments.
+    Otherwise return `none`.
+-/
+@[inline] def intMul? (e: Expr) : Option (Expr × Expr) := e.app2? ``Int.mul
+
+/-- Determine if `e` is a `Int.tdiv` expression and return its corresponding arguments.
+    Otherwise return `none`.
+-/
+@[inline] def intTDiv? (e: Expr) : Option (Expr × Expr) := e.app2? ``Int.tdiv
+
 /-- Determine if `e` is a `Decidable.decide` expression and return its corresponding arguments.
     Otherwise return `none`.
 -/
@@ -431,10 +458,30 @@ def toNatCstOpExpr? (e: Expr) : Option NatCstOpInfo :=
 -/
 @[inline] def dite? (e : Expr) : Option (Expr × Expr × Expr × Expr × Expr) := app5? e ``dite
 
-/-- Return `true` only when `e := if c then e1 else e2`. Otherwise `false`. -/
+/-- Return `true` only when `e := Expr.const ``ite _`
+    Otherwise `false`.
+-/
+def isIteConst (e : Expr) : Bool :=
+  match e with
+  | Expr.const ``ite _ => true
+  | _ => false
+
+/-- Return `true` only when `e := Expr.const ``dite _`
+    Otherwise `false`.
+-/
+def isDiteConst (e : Expr) : Bool :=
+  match e with
+  | Expr.const ``dite _ => true
+  | _ => false
+
+/-- Return `true` only when `e := if c then e1 else e2`.
+    Otherwise `false`.
+-/
 def isIte (e : Expr) : Bool := e.isAppOfArity ``ite 5
 
-/-- Return `true` only when `e := dite c (h : c => e1) (h : ¬ c => e2)`. Otherwise `false`. -/
+/-- Return `true` only when `e := dite c (h : c => e1) (h : ¬ c => e2)`.
+    Otherwise `false`.
+-/
 def isDite (e : Expr) : Bool := e.isAppOfArity ``dite 5
 
 /-- Return `true` when `e1 := -ne ∧ ne =ₚₜᵣ e2`. Otherwise `false`.
@@ -629,6 +676,7 @@ def reorderBoolOp (args: Array Expr) : TranslateEnvT (Array Expr) := do
 /-- call `reorderBoolOp` but consider the following additional rule:
      - #[¬ e, e] ===> #[e, ¬ e]
      - #[false = c, true = c] ===> #[true = c, false = c]
+     - #[e1 -> e2, e1] ===> #[e1, e1 -> e2]
 -/
 def reorderPropOp (args: Array Expr) : TranslateEnvT (Array Expr) := do
   let args' ← reorderBoolOp args
@@ -636,6 +684,7 @@ def reorderPropOp (args: Array Expr) : TranslateEnvT (Array Expr) := do
   let e2 := args'[1]!
   if (← isNotExprOf e1 e2) then return ((args'.swapIfInBounds 0 1))
   if (← isNegBoolEqOf e1 e2) then return ((args'.swapIfInBounds 0 1))
+  if e1.isForall && !e2.isForall then return ((args'.swapIfInBounds 0 1))
   return args'
 
 /-- call `reorderArgs` but consider the following additional rule:

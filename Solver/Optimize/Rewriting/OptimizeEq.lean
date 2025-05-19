@@ -104,7 +104,7 @@ partial def optimizeEq (f : Expr) (args: Array Expr) (cacheResult := true) : Tra
  let op2 := opArgs[1]!
  if let Expr.const ``False _ := op1 then return (← optimizeNot (← mkPropNotOp) #[op2])
  if let Expr.const ``True _ := op1 then return op2
- if (← (isNotExprOf op2 op1) <||> (isBoolNotExprOf op2 op1)) then return (← mkPropFalse)
+ if (← (isNotOptimizeExprOf op2 op1) <||> (isBoolNotExprOf op2 op1)) then return (← mkPropFalse)
  if (← exprEq op1 op2) then return (← mkPropTrue)
  if let some false ← structEq? op1 op2 then return (← mkPropFalse)
  if let some (e1, e2) ← notNegEqSimp? op1 op2 then return (← optimizeEq f #[args[0]!, e1, e2] cacheResult)
@@ -175,7 +175,7 @@ mutual
  /- Given `e` of type `Bool`, return `b = e` on which simplifications
       rules on Eq are applied.
  -/
-partial def mkEqBool (e : Expr) (b : Bool) : TranslateEnvT Expr := do
+partial def optimizeEqBool (e : Expr) (b : Bool) : TranslateEnvT Expr := do
   optimizeDecideEq (← mkEqOp) #[← mkBoolType, ← mkBoolLit b, e]
 
 /- Call `optimizeEq f args` and apply the following `decide` simplification/normalization
@@ -284,9 +284,9 @@ partial def optimizeDecideEq (f : Expr) (args : Array Expr) : TranslateEnvT Expr
      | some (e1, _), some (e2, _) =>
           optimizeDecideEq (← mkEqOp) #[← mkPropType, e1, e2]
      | some (e1, _), _ =>
-          optimizeDecideEq (← mkEqOp) #[← mkPropType, e1, ← mkEqBool op2 true]
+          optimizeDecideEq (← mkEqOp) #[← mkPropType, e1, ← optimizeEqBool op2 true]
      | _, some (e1, _) =>
-          optimizeDecideEq (← mkEqOp) #[← mkPropType, e1, ← mkEqBool op1 true]
+          optimizeDecideEq (← mkEqOp) #[← mkPropType, e1, ← optimizeEqBool op1 true]
      | _, _ => return none
 
 

@@ -19,31 +19,31 @@ mutual
     given `se` a match discriminator that has already been translated to an smt term,
     `p` its corresponding match expression and `rhs` the match right-hand side expression,
     `mkLet se p rhs` is defined as follows:
-     := (let ((sfv se)) t)     if p = fv with sfv = fvarIdtoSmtSymbol fv
-     := t                      if p = C (i.e., nullary constructor)
-     := t                      if isIntNatStrCst(p)
+     := (let ((sfv se)) rhs)     if p = fv with sfv = fvarIdToSmtSymbol fv
+     := rhs                      if p = C (i.e., nullary constructor)
+     := rhs                      if isIntNatStrCst(p)
 
-     := (let ((sn se)) (mkLet sn' e t))
-            if p = namedPattern t n e h` with sn = fvarIdtoSmtSymbol n ∧ sn' = smtSimpleVarId sn
+     := (let ((sn se)) (mkLet sn' e rhs))
+            if p = namedPattern t n e h` with sn = fvarIdToSmtSymbol n ∧ sn' = smtSimpleVarId sn
 
-     := (let ((sn (- se N))) t)  if p = N + n ∧ Type(N) = Nat with sn = fvarIdtoSmtSymbol n
+     := (let ((sn (- se N))) rhs)  if p = N + n ∧ Type(N) = Nat with sn = fvarIdToSmtSymbol n
 
-     := (let ((sn (- se N))) (mkLet sn' e t))
-             if p = N + (namedPattern t n e h) ∧ Type(N) = Nat with sn = fvarIdtoSmtSymbol n ∧ sn' = smtSimpleVarId sn
-     := (let ((sn se)) t)       if p = Int.ofNat n with sn = fvarIdtoSmtSymbol n
+     := (let ((sn (- se N))) (mkLet sn' e rhs))
+             if p = N + (namedPattern t n e h) ∧ Type(N) = Nat with sn = fvarIdToSmtSymbol n ∧ sn' = smtSimpleVarId sn
+     := (let ((sn se)) rhs)       if p = Int.ofNat n with sn = fvarIdToSmtSymbol n
 
-     := (let ((sn se)) (mkLet sn' e t))
-             if p = Int.ofNat (namedPattern t n e t) with sn = fvarIdtoSmtSymbol n ∧ sn' = smtSimpleVarId sn
+     := (let ((sn se)) (mkLet sn' e rhs))
+             if p = Int.ofNat (namedPattern t n e h) with sn = fvarIdToSmtSymbol n ∧ sn' = smtSimpleVarId sn
 
-     := (let ((sn (- se N))) t)  if p = Int.ofNat (N + n) with sn = fvarIdtoSmtSymbol n
+     := (let ((sn (- se N))) rhs)  if p = Int.ofNat (N + n) with sn = fvarIdToSmtSymbol n
 
-     := (let ((sn (- se N))) (mkLet sn' e t))
-             if p = Int.ofNat (N + namedPattern t n e h) with sn = fvarIdtoSmtSymbol n ∧ sn' = smtSimpleVarId sn
+     := (let ((sn (- se N))) (mkLet sn' e rhs))
+             if p = Int.ofNat (N + namedPattern t n e h) with sn = fvarIdToSmtSymbol n ∧ sn' = smtSimpleVarId sn
 
-     := (let ((sn (- (+ se N)))) t) if p' = Int.Neg (Int.ofNat (N + n)) with sn = fvarIdtoSmtSymbol n
+     := (let ((sn (- (+ se N)))) rhs) if p' = Int.Neg (Int.ofNat (N + n)) with sn = fvarIdToSmtSymbol n
 
-     := (let ((sn (- (+ se N)))) (mkLet sn' e t))
-             if p' = Int.Neg (Int.ofNat (N + namedPattern t n e h)) with sn = fvarIdtoSmtSymbol n ∧ sn' = smtSimpleVarId sn
+     := (let ((sn (- (+ se N)))) (mkLet sn' e rhs))
+             if p' = Int.Neg (Int.ofNat (N + namedPattern t n e h)) with sn = fvarIdToSmtSymbol n ∧ sn' = smtSimpleVarId sn
 
      := (mkLet (C.1 se) x₁ {.. (mkLet (C.k-1 se) xₖ₋₁ (mkLet (C.k se) xₙ t)))) if p' = C x₁ ... xₖ
 
@@ -56,12 +56,11 @@ private partial def mkLet
   if isCstLiteral p then return (← k rhs) -- case: isIntNatStrCst(p)
   match p with
   | Expr.fvar fv =>
-      -- case: p = fv with sfv = fvarIdtoSmtSymbol fv
+      -- case: p = fv with sfv = fvarIdToSmtSymbol fv
       k (mkLetTerm #[(← fvarIdToSmtSymbol fv, se)] rhs)
 
   | Expr.app (Expr.app (Expr.app (Expr.app (Expr.const ``namedPattern _) _t) (Expr.fvar fv)) e) _h =>
-      -- case: p := namedPattern t n e h` with sn = fvarIdtoSmtSymbol n
-      -- case: p = Int.ofNat (namedPattern t n e t) with sn = fvarIdtoSmtSymbol n
+      -- case: p := namedPattern t n e h` with sn = fvarIdToSmtSymbol n
       let sn ← fvarIdToSmtSymbol fv
       mkLet (smtSimpleVarId sn) e rhs
         fun rhs'=> k (mkLetTerm #[(sn, se)] rhs')
@@ -71,13 +70,13 @@ private partial def mkLet
       (Expr.app (Expr.app (Expr.const ``Nat.add _) (Expr.lit (Literal.natVal n))) a) =>
       match a with
       | Expr.fvar fv =>
-          -- case: p = N + n ∧ Type(N) = Nat with sn = fvarIdtoSmtSymbol n; or
-          -- case: p = Int.ofNat (N + n) with sn = fvarIdtoSmtSymbol n
+          -- case: p = N + n ∧ Type(N) = Nat with sn = fvarIdToSmtSymbol n; or
+          -- case: p = Int.ofNat (N + n) with sn = fvarIdToSmtSymbol n
           k (mkLetTerm #[(← fvarIdToSmtSymbol fv, (subSmt se (natLitSmt n)))] rhs)
 
       | Expr.app (Expr.app (Expr.app (Expr.app (Expr.const ``namedPattern _) _t) (Expr.fvar fv)) e) _h =>
-          -- case: if p = N + (namedPattern t n e h) ∧ Type(N) = Nat with sn = fvarIdtoSmtSymbol n
-          -- case: if p = Int.ofNat (N + namedPattern t n e h) with sn = fvarIdtoSmtSymbol n
+          -- case: if p = N + (namedPattern t n e h) ∧ Type(N) = Nat with sn = fvarIdToSmtSymbol n
+          -- case: if p = Int.ofNat (N + namedPattern t n e h) with sn = fvarIdToSmtSymbol n
           let sn ← fvarIdToSmtSymbol fv
           mkLet (smtSimpleVarId sn) e rhs
             fun rhs' => k (mkLetTerm #[(sn, (subSmt se (natLitSmt n)))] rhs')
@@ -87,11 +86,11 @@ private partial def mkLet
   | Expr.app (Expr.const ``Int.ofNat _) a =>
        match a with
        | Expr.fvar fv =>
-            -- case:  p = Int.ofNat n with sn = fvarIdtoSmtSymbol n
+            -- case:  p = Int.ofNat n with sn = fvarIdToSmtSymbol n
             k (mkLetTerm #[(← fvarIdToSmtSymbol fv, se)] rhs)
 
        | Expr.app (Expr.app (Expr.app (Expr.app (Expr.const ``namedPattern _) _t) (Expr.fvar fv)) e) _h =>
-            -- case: p = Int.ofNat (namedPattern t n e t) with sn = fvarIdtoSmtSymbol n
+            -- case: p = Int.ofNat (namedPattern t n e h) with sn = fvarIdToSmtSymbol n
             let sn ← fvarIdToSmtSymbol fv
             mkLet (smtSimpleVarId sn) e rhs
               fun rhs'=> k (mkLetTerm #[(sn, se)] rhs')
@@ -103,10 +102,10 @@ private partial def mkLet
         (Expr.app (Expr.app (Expr.const ``Nat.add _) (Expr.lit (Literal.natVal n))) a)) =>
       match a with
       | Expr.fvar fv =>
-           -- case: p' = Int.Neg (Int.ofNat (N + n)) with sn = fvarIdtoSmtSymbol n
+           -- case: p' = Int.Neg (Int.ofNat (N + n)) with sn = fvarIdToSmtSymbol n
            k (mkLetTerm #[(← fvarIdToSmtSymbol fv, negSmt (addSmt se (natLitSmt n)))] rhs)
       | Expr.app (Expr.app (Expr.app (Expr.app (Expr.const ``namedPattern _) _t) (Expr.fvar fv)) e) _h =>
-           -- case: p' = Int.Neg (Int.ofNat (N + namedPattern t n e h)) with sn = fvarIdtoSmtSymbol n
+           -- case: p' = Int.Neg (Int.ofNat (N + namedPattern t n e h)) with sn = fvarIdToSmtSymbol n
            let sn ← fvarIdToSmtSymbol fv
            mkLet (smtSimpleVarId sn) e rhs
              fun rhs' => k (mkLetTerm #[(sn, negSmt (addSmt se (natLitSmt n)))] rhs')
@@ -272,31 +271,31 @@ def translateMatchAux?
            := (mkLet se₁ p₁ ( ... (mkLet seₙ₋₁ pₙ₋₁ (mkLet seₙ pₙ st))))
 
        - mkLet se p t :
-           := (let ((sfv se)) t)     if p = fv with sfv = fvarIdtoSmtSymbol fv
+           := (let ((sfv se)) t)     if p = fv with sfv = fvarIdToSmtSymbol fv
            := t                      if p = C (i.e., nullary constructor)
            := t                      if isIntNatStrCst(p)
 
            := (let ((sn se)) (mkLet sn' e t))
-                  if p = namedPattern t n e h` with sn = fvarIdtoSmtSymbol n ∧ sn' = smtSimpleVarId sn
+                  if p = namedPattern t n e h` with sn = fvarIdToSmtSymbol n ∧ sn' = smtSimpleVarId sn
 
-           := (let ((sn (- se N))) t)  if p = N + n ∧ Type(N) = Nat with sn = fvarIdtoSmtSymbol n
+           := (let ((sn (- se N))) t)  if p = N + n ∧ Type(N) = Nat with sn = fvarIdToSmtSymbol n
 
            := (let ((sn (- se N))) (mkLet sn' e t))
-                   if p = N + (namedPattern t n e h) ∧ Type(N) = Nat with sn = fvarIdtoSmtSymbol n ∧ sn' = smtSimpleVarId sn
-           := (let ((sn se)) t)       if p = Int.ofNat n with sn = fvarIdtoSmtSymbol n
+                   if p = N + (namedPattern t n e h) ∧ Type(N) = Nat with sn = fvarIdToSmtSymbol n ∧ sn' = smtSimpleVarId sn
+           := (let ((sn se)) t)       if p = Int.ofNat n with sn = fvarIdToSmtSymbol n
 
            := (let ((sn se)) (mkLet sn' e t))
-                   if p = Int.ofNat (namedPattern t n e t) with sn = fvarIdtoSmtSymbol n ∧ sn' = smtSimpleVarId sn
+                   if p = Int.ofNat (namedPattern t n e t) with sn = fvarIdToSmtSymbol n ∧ sn' = smtSimpleVarId sn
 
-           := (let ((sn (- se N))) t)  if p = Int.ofNat (N + n) with sn = fvarIdtoSmtSymbol n
+           := (let ((sn (- se N))) t)  if p = Int.ofNat (N + n) with sn = fvarIdToSmtSymbol n
 
            := (let ((sn (- se N))) (mkLet sn' e t))
-                   if p = Int.ofNat (N + namedPattern t n e h) with sn = fvarIdtoSmtSymbol n ∧ sn' = smtSimpleVarId sn
+                   if p = Int.ofNat (N + namedPattern t n e h) with sn = fvarIdToSmtSymbol n ∧ sn' = smtSimpleVarId sn
 
-           := (let ((sn (- (+ se N)))) t) if p' = Int.Neg (Int.ofNat (N + n)) with sn = fvarIdtoSmtSymbol n
+           := (let ((sn (- (+ se N)))) t) if p' = Int.Neg (Int.ofNat (N + n)) with sn = fvarIdToSmtSymbol n
 
            := (let ((sn (- (+ se N)))) (mkLet sn' e t))
-                   if p' = Int.Neg (Int.ofNat (N + namedPattern t n e h)) with sn = fvarIdtoSmtSymbol n ∧ sn' = smtSimpleVarId sn
+                   if p' = Int.Neg (Int.ofNat (N + namedPattern t n e h)) with sn = fvarIdToSmtSymbol n ∧ sn' = smtSimpleVarId sn
 
            := (mkLet (C.1 se) x₁ (.. (mkLet (C.k-1 se) xₖ₋₁ (mkLet (C.k se) xₙ t)))) if p' = C x₁ ... xₖ
 

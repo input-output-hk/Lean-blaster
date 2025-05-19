@@ -80,7 +80,7 @@ private partial def mkAppInDIteExpr
       -- Need to create a lambda term embedding the following application
       -- `fun h : ite_cond => ite_e h extra_args`.
       withLocalDecl (← Term.mkFreshBinderName) BinderInfo.default ite_cond fun x => do
-        let auxApp := mkAppN (mkApp ite_e x) extra_args
+        let auxApp := mkAppN (ite_e.beta #[x]) extra_args
         tryNormChoiceApp auxApp fun body_r => do
           match body_r with
           | none => throwEnvError "mkAppInDIteExpr: unreachable case 2 !!!"
@@ -169,24 +169,31 @@ private partial def normMatchAppAux
 /-- try to successively call reduceApp? and getUnfoldFunDef? before calling normChoiceApplicationAux?. -/
 private partial def tryNormChoiceApp
   (e : Expr) (k : Option Expr → TranslateEnvT (Option Expr)) : TranslateEnvT (Option Expr) := do
-  Expr.withApp e fun f args => do
-    match (← reduceApp? f args) with
-    | none =>
-       match (← getUnfoldFunDef? f args) with
-       | none =>
-          normChoiceApplicationAux? f args fun f_r =>
-           match f_r with
-           | none => k e
-           | some _ => k f_r
-       | re => k re
-    | re => k re
+  let (f, args) := getAppFnWithArgs e
+  match (← reduceApp? f args) with
+  | none =>
+     match (← getUnfoldFunDef? f args) with
+     | none =>
+        normChoiceApplicationAux? f args fun f_r =>
+         match f_r with
+         | none => k e
+         | some _ => k f_r
+     | re => k re
+  | re => k re
+
 end
 
 /-- See normChoiceApplicationAux? -/
 def normChoiceApplication? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) :=
   normChoiceApplicationAux? f args (λ x => return x)
 
-mutual
+
+/-- Return result of reduceApp? when successful. Otherwise return `mkAppN f args`. -/
+def tryAppReduction (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
+  match (← reduceApp? f args) with
+  | none => return (mkAppN f args)
+  | some re => return re
+
 /-- Apply the following propagation rules on any function application `fn e₁ ... eₙ`
     only when fn := Expr.const n _ ∧ n ≠ ite ∧ n ≠ dite ∧ ¬ isMatchExpr n ∧
               propagate fn e₁ ... eₙ
@@ -226,194 +233,118 @@ mutual
         allExplicitParamsAreCtor fn e₁ ... eₙ (funPropagation := true) ∨
         (fn = `Eq` ∧ n = 3 ∧ (isBoolValue? e₂).isSome )
 -/
-private partial def funPropagationAux?
-  (ne : Expr) (k : Option Expr → TranslateEnvT (Option Expr)) : TranslateEnvT (Option Expr) := do
-  Expr.withApp ne fun cf cargs => do
-    match cf with
-    | Expr.const n _ =>
-        if n == ``ite || n == ``dite || (← isMatchExpr n)
-        then k none
-        else if !(← propagate cf n cargs)
-             then k none
-             else funArgsPropagation? ne cf cargs 0 cargs.size k
-    | _ => k none
+def funPropagation? (cf : Expr) (cargs : Array Expr) : TranslateEnvT (Option Expr) := do
+  match cf with
+  | Expr.const n _ =>
+      if n == ``ite || n == ``dite || (← isMatchExpr n) then return none
+      if !(← propagate cf n cargs) then return none
+      for i in [:cargs.size] do
+        if let some re ← iteCstProp? cf cargs i then return re
+        if let some re ← diteCstProp? cf cargs i then return re
+        if let some re ← matchCstProp? cf cargs i then return re
+      return none
+  | _ => return none
 
   where
+    isAppReduceTrue (n : Name) (args : Array Expr) : TranslateEnvT Bool := do
+      match n with
+      | ``Eq => if args.size == 3
+                then exprEq args[1]! args[2]!
+                else return false
+      | ``BEq
+      | ``LE.le
+      | ``LT.lt =>
+             if args.size == 4 && (← isOpaqueRelational n args)
+             then exprEq args[2]! args[3]!
+             else return false
+      | _ => return false
+
     propagate (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT Bool := do
+      if (← isAppReduceTrue n args) then return false
       if (← isCtorName n) then return true
       if (← allExplicitParamsAreCtor f args (funPropagation := true)) then return true
       match n with
       | ``Eq =>
         if args.size != 3 then return false
-        match args[1]! with
-        | Expr.const ``true _
-        | Expr.const ``false _ => return true
-        | _ => return false
+        else return (isBoolCtor args[1]! || isBoolCtor args[2]!)
       | _ => return false
 
-private partial def funArgsPropagation?
-  (ne : Expr) (cf : Expr) (cargs : Array Expr) (idx : Nat) (stop : Nat)
-  (k : Option Expr → TranslateEnvT (Option Expr)) : TranslateEnvT (Option Expr) := do
-  if idx ≥ stop then k none
-  else
-   iteCstProp? cf cargs idx fun ite_r =>
-    match ite_r with
-    | some _ => do
-        uncacheExpr ne
-        k ite_r
-    | none =>
-       diteCstProp? cf cargs idx fun dite_r =>
-         match dite_r with
-         | some _ => do
-             uncacheExpr ne
-             k dite_r
-         | none =>
-            matchCstProp? cf cargs idx fun match_r =>
-              match match_r with
-              | some _ => do
-                  uncacheExpr ne
-                  k match_r
-              | none => funArgsPropagation? ne cf cargs (idx + 1) stop k
+    /-- Implements ite over ctor rule -/
+    iteCstProp? (f : Expr) (args : Array Expr) (idxArg : Nat) : TranslateEnvT (Option Expr) := do
+      -- NOTE: can't be an applied ite function (e.g., applied to more than 5 arguments)
+      if let some (_psort, pcond, pdecide, e1, e2) := ite? args[idxArg]! then
+        let retType ← inferType (mkAppN f args)
+        let e1' ← tryAppReduction f (args.set! idxArg e1)
+        let e2' ← tryAppReduction f (args.set! idxArg e2)
+        -- NOTE: we also need to set the sort type for the pulled ite to meet the function's return type
+        return (mkApp5 (← mkIteOp) retType pcond pdecide e1' e2')
+      else return none
 
-/-- Implements ite over ctor rule -/
-private partial def iteCstProp?
-  (f : Expr) (args : Array Expr) (idxArg : Nat)
-  (k : Option Expr → TranslateEnvT (Option Expr)) : TranslateEnvT (Option Expr) := do
-  -- NOTE: can't be an applied ite function (e.g., applied to more than 5 arguments)
-  if let some (_psort, pcond, pdecide, e1, e2) := ite? args[idxArg]! then
-    tryAppReduction (mkAppN f (args.set! idxArg e1)) fun e1_r =>
-     match e1_r with
-     | none => throwEnvError "iteCstProp? unreachable case 1 !!!"
-     | some e1' => do
-        tryAppReduction (mkAppN f (args.set! idxArg e2)) fun e2_r =>
-          match e2_r with
-          | none => throwEnvError "iteCstProp? unreachable case 2 !!!"
-          | some e2' => do
-             -- NOTE: we also need to set the sort type for the pulled ite to meet the function's return type
-             let retType ← inferType (mkAppN f args)
-             k (some (mkApp5 (← mkIteOp) retType pcond pdecide e1' e2'))
-  else k none
+    pushFunInDIteExpr
+      (f : Expr) (args : Array Expr) (idxField : Nat)
+      (ite_cond : Expr) (ite_e : Expr) : TranslateEnvT Expr := do
+      match ite_e with
+      | Expr.lam n t body bi =>
+           withLocalDecl n bi t fun x => do
+            let body' ← tryAppReduction f (args.set! idxField (body.instantiate1 x))
+            mkLambdaFVars #[x] body'
+      | _ =>
+         -- case when then/else clause is a quantified function
+         if !(← inferType ite_e).isForall then
+           throwEnvError f!"pushCtorInDIteExpr: lambda/function expression expected but got {reprStr ite_e}"
+         else
+           -- Need to create a lambda term embedding the following application
+           -- `fun h : ite_cond => f x₁ ... xₙ`
+           -- with x₁ ... xₙ = [ gᵢ | i ∈ [0 .. args.size-1] ∧
+           --                        (idxField ≠ i → gᵢ = args[i]) ∧ (idxField = i → ite_e h)]
+           withLocalDecl (← Term.mkFreshBinderName) BinderInfo.default ite_cond fun x => do
+             let body ← tryAppReduction f (args.set! idxField (ite_e.beta #[x]))
+             mkLambdaFVars #[x] body
 
-private partial def pushFunInDIteExpr
-  (f : Expr) (args : Array Expr) (idxField : Nat) (ite_cond : Expr) (ite_e : Expr)
-  (k : Option Expr → TranslateEnvT (Option Expr)) : TranslateEnvT (Option Expr) := do
-  match ite_e with
-  | Expr.lam n t body bi =>
-      withLocalDecl n bi t fun x => do
-        let auxApp := mkAppN f (args.set! idxField (body.instantiate1 x))
-        tryAppReduction auxApp fun body_r => do
-          match body_r with
-          | none => throwEnvError "pushFunInDIteExpr: unreachable case 1 !!!"
-          | some body' =>
-              k (some (← mkLambdaFVars #[x] body'))
-  | _ =>
-    -- case when then/else caluse is a quantified function
-    if !(← inferType ite_e).isForall then
-      throwEnvError f!"pushCtorInDIteExpr: lambda/function expression expected but got {reprStr ite_e}"
-    else
-      -- Need to create a lambda term embedding the following application
-      -- `fun h : ite_cond => f x₁ ... xₙ`
-      -- with x₁ ... xₙ = [ gᵢ | i ∈ [0 .. args.size  - 1] ∧
-      --                        (idxField ≠ i → gᵢ = args[i]) ∧ (idxField = i → ite_e h)]
-      withLocalDecl (← Term.mkFreshBinderName) BinderInfo.default ite_cond fun x => do
-        let auxApp := mkAppN f (args.set! idxField (mkApp ite_e x))
-        tryAppReduction auxApp fun body_r => do
-          match body_r with
-          | none => throwEnvError "pushFunInDIteExpr: unreachable case 2 !!!"
-          | some body =>
-             k (some (← mkLambdaFVars #[x] body))
+    /-- Implements dite over ctor rule -/
+    diteCstProp? (f : Expr) (args : Array Expr) (idxArg : Nat) : TranslateEnvT (Option Expr) := do
+      -- NOTE: can't be an applied dite function (e.g., applied to more than 5 arguments)
+      if let some (_psort, pcond, pdecide, e1, e2) := dite? args[idxArg]! then
+        let retType ← inferType (mkAppN f args)
+        let e1' ← pushFunInDIteExpr f args idxArg pcond e1
+        let e2' ← pushFunInDIteExpr f args idxArg (← optimizeNot (← mkPropNotOp) #[pcond]) e2
+        -- NOTE: we also need to set the sort type for the pulled dite to meet the function's return type
+        return (mkApp5 (← mkDIteOp) retType pcond pdecide e1' e2')
+      else return none
 
-/-- Implements dite over ctor rule -/
-private partial def diteCstProp?
-  (f : Expr) (args : Array Expr) (idxArg : Nat)
-  (k : Option Expr → TranslateEnvT (Option Expr)) : TranslateEnvT (Option Expr) := do
-  -- NOTE: can't be an applied dite function (e.g., applied to more than 5 arguments)
-  if let some (_psort, pcond, pdecide, e1, e2) := dite? args[idxArg]! then
-    pushFunInDIteExpr f args idxArg pcond e1 fun e1_r => do
-     match e1_r with
-     | none => throwEnvError "diteCstProp?: unreachable case 1 !!!"
-     | some e1' =>
-        pushFunInDIteExpr f args idxArg (← optimizeNot (← mkPropNotOp) #[pcond]) e2 fun e2_r => do
-          match e2_r with
-          | none => throwEnvError "diteCstProp?: unreachable case 2 !!!"
-          | some e2' =>
-             -- NOTE: we also need to set the sort type for the pulled dite to meet the function's return type
-             let retType ← inferType (mkAppN f args)
-             k (some (mkApp5 (← mkDIteOp) retType pcond pdecide e1' e2'))
-  else k none
+    updateRhsWithFun
+      (f : Expr) (args : Array Expr) (idxField : Nat) (lhs : Array Expr)
+      (rhs : Expr) : TranslateEnvT Expr := do
+        let altArgsRes ← retrieveAltsArgs lhs
+        let nbParams := altArgsRes.altArgs.size
+        lambdaBoundedTelescope rhs (max 1 nbParams) fun params body => do
+          let body' ← tryAppReduction f (args.set! idxField body)
+          mkLambdaFVars params body'
 
-private partial def updateRhsWithFun
-  (f : Expr) (args : Array Expr) (idxField : Nat) (lhs : Array Expr) (rhs : Expr)
-  (k : Option Expr → TranslateEnvT (Option Expr)) : TranslateEnvT (Option Expr) := do
-  let altArgsRes ← retrieveAltsArgs lhs
-  let nbParams := altArgsRes.altArgs.size
-  lambdaBoundedTelescope rhs (max 1 nbParams) fun params body => do
-    let auxApp := mkAppN f (args.set! idxField body)
-    tryAppReduction auxApp fun body_r => do
-      match body_r with
-      | none => throwEnvError "updateRhsWithFun: unreachable case !!!"
-      | some body' =>
-          k (some (← mkLambdaFVars params body'))
-
-/-- Implements match over ctor rule -/
-private partial def matchCstProp?
-  (f : Expr) (args : Array Expr) (idxArg : Nat)
-  (k : Option Expr → TranslateEnvT (Option Expr)) : TranslateEnvT (Option Expr) := do
-  if let some argInfo ← isMatchArg? args[idxArg]! then
-    -- NOTE: can't be an applied match (e.g., applied to more argInfo.mInfo.arity arguments)
-    if argInfo.args.size > argInfo.mInfo.arity then k none
-    else
-      withMatchAlts argInfo $ fun alts => do
-        matchCstPropAux f args idxArg argInfo alts argInfo.args argInfo.mInfo.getFirstAltPos k
-  else k none
-
-  where
-    withMatchAlts
-      (mInfo : MatchInfo) (f : Array Expr → TranslateEnvT (Option Expr)) : TranslateEnvT (Option Expr) := do
+    withMatchAlts (mInfo : MatchInfo) (f : Array Expr → TranslateEnvT Expr) : TranslateEnvT Expr := do
       if (isCasesOnRecursor (← getEnv) mInfo.name)
       then lambdaTelescope mInfo.instApp fun xs _t => f xs
       else forallTelescope (← inferType mInfo.instApp) fun xs _t => f xs
 
-private partial def matchCstPropAux
-  (f : Expr) (args : Array Expr) (idxArg : Nat)
-  (argInfo : MatchInfo) (alts : Array Expr) (pargs : Array Expr) (idx : Nat)
-  (k : Option Expr → TranslateEnvT (Option Expr)) : TranslateEnvT (Option Expr) := do
-  if idx ≥ argInfo.mInfo.arity then
-    -- NOTE: we also need to set the return type for pulled over match to meet the function's return type
-    let idxType := argInfo.mInfo.getFirstDiscrPos - 1
-    let retType ← inferType (mkAppN f args)
-    let pargs' := pargs.set! idxType (← updateMatchReturnType argInfo.args[idxType]! retType)
-    k (some (mkAppN argInfo.nameExpr pargs'))
-  else
-    let altIdx := idx - argInfo.mInfo.getFirstAltPos
-    let lhs ← forallTelescope (← inferType alts[altIdx]!) fun _ b => pure b.getAppArgs
-    updateRhsWithFun f args idxArg lhs argInfo.args[idx]! fun rhs_r =>
-      match rhs_r with
-      | none => throwEnvError "matchCstPropAux: unreachable case !!!"
-      | some rhs' =>
-         matchCstPropAux f args idxArg argInfo alts (pargs.set! idx rhs') (idx + 1) k
-
-/-- try to successively call reduceApp? and getUnfoldFunDef? before calling funPropagationAux?. -/
-private partial def tryAppReduction
-  (e : Expr) (k : Option Expr → TranslateEnvT (Option Expr)) : TranslateEnvT (Option Expr) := do
-  let (f, args) := getAppFnWithArgs e
-  match (← reduceApp? f args) with
-  | none =>
-     match (← getUnfoldFunDef? f args) with
-     | none =>
-        let optExpr ← optimizeApp f args
-        funPropagationAux? optExpr fun f_r =>
-         match f_r with
-         | none => k (some optExpr)
-         | some _ => k f_r
-     | re => k re
-  | re => k re
-
-end
-
-/-- See funPropagationAux? -/
-def funPropagation? (ne : Expr) : TranslateEnvT (Option Expr) :=
-  funPropagationAux? ne (λ x => return x)
-
+    /-- Implements match over ctor rule -/
+    matchCstProp? (f : Expr) (args : Array Expr) (idxArg : Nat) : TranslateEnvT (Option Expr) := do
+      if let some argInfo ← isMatchArg? args[idxArg]!
+      then
+        -- NOTE: can't be an applied match (e.g., applied to more argInfo.mInfo.arity arguments)
+        if argInfo.args.size > argInfo.mInfo.arity
+        then return none
+        else
+          let idxType := argInfo.mInfo.getFirstDiscrPos - 1
+          let retType ← inferType (mkAppN f args)
+          withMatchAlts argInfo $ fun alts => do
+            let mut pargs := argInfo.args
+            for i in [argInfo.mInfo.getFirstAltPos : argInfo.mInfo.arity] do
+              let altIdx := i - argInfo.mInfo.getFirstAltPos
+              let lhs ← forallTelescope (← inferType alts[altIdx]!) fun _ b => pure b.getAppArgs
+              pargs ← pargs.modifyM i (updateRhsWithFun f args idxArg lhs)
+            -- NOTE: we also need to set the return type for pulled over match to meet the function's return type
+            pargs ← pargs.modifyM idxType (updateMatchReturnType retType)
+            return (mkAppN argInfo.nameExpr pargs)
+      else return none
 
 end Solver.Optimize

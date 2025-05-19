@@ -13,23 +13,24 @@ open Lean Elab Command Term Meta Solver.Options
 namespace Solver.Optimize
 
 -- TODO: update formalization with inference rule style notation.
-partial def optimizeExpr (e : Expr) : TranslateEnvT Expr := do
+partial def optimizeExpr (ve : Expr) : TranslateEnvT Expr := do
   let rec visit (e : Expr) : TranslateEnvT Expr := do
     withOptimizeEnvCache e fun _ => do
     trace[Optimize.expr] f!"optimizing {← ppExpr e}"
     logReprExpr "Optimize:" e
     match e with
-    | Expr.fvar .. => return e
+    | Expr.fvar .. => mkExpr e
     | Expr.const .. => normConst e visit
     | Expr.forallE n t b bi =>
         let t' ← visit t
         withLocalDecl n bi t' fun x => do
-          optimizeForall x t' (← visit (b.instantiate1 x))
+          let hyps ← addHypotheses t' (some x)
+          optimizeForall x t' hyps.2 (← withHypothesis hyps $ visit (b.instantiate1 x))
     | Expr.app .. =>
         let (f, ras) := getAppFnWithArgs e
         -- calling normConst explicitly for `const` case to avoid
-        -- catching when no optimization is performed on foldable body function.
-        let f' ← if f.isConst then withInFunApp $ normConst f visit else visit f
+        -- catching when no optimization is performed on opaque functions.
+        let f' ← if f.isConst then withInFunApp $ do normConst f visit else visit f
         let rf := f'.getAppFn'
         let extraArgs := f'.getAppArgs
         let mut mas := extraArgs ++ ras
@@ -55,7 +56,7 @@ partial def optimizeExpr (e : Expr) : TranslateEnvT Expr := do
         for i in [extraArgs.size:mas.size] do
           if i < fInfo.paramInfo.size then
             if fInfo.paramInfo[i]!.isExplicit then
-              mas ← mas.modifyM i visit
+              mas ← optimizeExplicitArgs rf mas i visit
           else mas ← mas.modifyM i visit
         -- try to reduce app if all params are constructors
         if let some re ← reduceApp? rf mas then
@@ -80,17 +81,13 @@ partial def optimizeExpr (e : Expr) : TranslateEnvT Expr := do
         if let some mdef ← normMatchExpr? rf mas visit then
            trace[Optimize.normMatch] f!"normalizing match to ite {reprStr rf} {reprStr mas} => {reprStr mdef}"
            return (← visit mdef)
-        let ne ← normOpaqueAndRecFun rf mas visit
         -- applying fun propagation over ite and match
-        if let some re ← funPropagation? ne then
+        if let some re ← funPropagation? rf mas then
            trace[Optimize.funPropagation]
-             f!"ctor constant propagation {reprStr rf} {reprStr mas} => {reprStr re}"
+             f!"fun propagation {reprStr rf} {reprStr mas} => {reprStr re}"
            return (← visit re)
-        return ne
-    | Expr.lam n t b bi => do
-        let t' ← visit t
-        withLocalDecl n bi t' fun x => do
-          mkLambdaExpr x (← visit (b.instantiate1 x))
+        normOpaqueAndRecFun rf mas visit
+    | Expr.lam n t b bi => optimizeLambda n t b bi visit
     | Expr.letE _n _t v b _ =>
         -- inline let expression
         let v' ← (visit v)
@@ -99,15 +96,53 @@ partial def optimizeExpr (e : Expr) : TranslateEnvT Expr := do
        if (isTaggedRecursiveCall e)
        then mkExpr (Expr.mdata d (← withOptimizeRecBody $ visit me))
        else visit me
-    | Expr.sort _ => return e -- sort is used for Type u, Prop, etc
+    | Expr.sort _ => mkExpr e -- sort is used for Type u, Prop, etc
     | Expr.proj .. =>
         match (← reduceProj? e) with
         | some re => visit re
-        | none => return e
-    | Expr.lit .. => return e -- number or string literal: do nothing
+        | none => mkExpr e
+    | Expr.lit .. => mkExpr e -- number or string literal: do nothing
     | Expr.mvar .. => throwEnvError f!"optimizeExpr: unexpected meta variable {e}"
     | Expr.bvar .. => throwEnvError f!"optimizeExpr: unexpected bound variable {e}"
-  visit e
+  visit ve
+
+  where
+
+    @[always_inline, inline]
+    optimizeLambda
+      (n : Name) (t : Expr) (b : Expr) (bi : BinderInfo)
+      (optimizer : Expr → TranslateEnvT Expr) (inDite := false) : TranslateEnvT Expr := do
+        let t' ← optimizer t
+        withLocalDecl n bi t' fun x => do
+          if inDite
+          then
+            let hyps ← addHypotheses t' (some x)
+            withHypothesis hyps $ do mkLambdaExpr x (← optimizer (b.instantiate1 x))
+          else mkLambdaExpr x (← optimizer (b.instantiate1 x))
+
+    @[always_inline, inline]
+    optimizeDiteArg (optimizer : Expr → TranslateEnvT Expr) (e : Expr) : TranslateEnvT Expr := do
+      match e with
+      | Expr.lam n t b bi => optimizeLambda n t b bi optimizer (inDite := true)
+      | _ => optimizer e
+
+    @[always_inline, inline]
+    optimizeExplicitArgs
+      (rf : Expr) (mas : Array Expr) (idx : Nat)
+      (optimizer : Expr → TranslateEnvT Expr) : TranslateEnvT (Array Expr) := do
+      if isIteConst rf then
+       if idx == 3 then
+         let hyps ← addHypotheses mas[1]! none
+         withHypothesis hyps $ mas.modifyM idx optimizer
+       else if idx == 4 then
+         let notExpr ← optimizeNot (← mkPropNotOp) #[mas[1]!]
+         let hyps ← addHypotheses notExpr none
+         withHypothesis hyps $ mas.modifyM idx optimizer
+       else mas.modifyM idx optimizer
+      else if isDiteConst rf then
+        if idx == 3 || idx == 4 then mas.modifyM idx (optimizeDiteArg optimizer)
+        else mas.modifyM idx optimizer
+      else mas.modifyM idx optimizer
 
 
 /-- Populate the `recFunInstCache` with opaque recursive function definition.

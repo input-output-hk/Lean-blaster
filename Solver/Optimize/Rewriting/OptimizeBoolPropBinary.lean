@@ -31,12 +31,12 @@ def propExprToBoolExpr?
            let binExpr ← if isBoolAnd?
                          then optimizeBoolAnd (← mkBoolAndOp) #[e1, e2]
                          else optimizeBoolOr (← mkBoolOrOp) #[e1, e2]
-           mkEqBool binExpr true
+           optimizeEqBool binExpr true
          else
            let binExpr ← if isBoolAnd?
                          then optimizeBoolOr (← mkBoolOrOp) #[a_op2, b_op2]
                          else optimizeBoolAnd (← mkBoolAndOp) #[a_op2, b_op2]
-           mkEqBool binExpr false
+           optimizeEqBool binExpr false
      | _, _ => return none
   | _, _ => return none
 

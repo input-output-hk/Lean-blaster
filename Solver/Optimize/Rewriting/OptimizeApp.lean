@@ -145,7 +145,10 @@ def optimizeApp (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
     trace[Optimize.string] f!"String: {reprStr (mkAppN f args)} ==> {reprStr e}"
     return e
   trace[Optimize.app] f!"Unchanged: {reprStr (mkAppN f args)}"
-  mkAppExpr f args
+  let appExpr := mkAppN f args
+  if (← isResolvableType appExpr)
+  then mkExpr (← resolveTypeAbbrev appExpr)
+  else mkExpr appExpr
 
 /-- Given application `f x₁ ... xₙ`,
      - When `isFunITE f` (i.e., f is an ite or dite that return a function)

@@ -60,26 +60,34 @@ def iteToPropExpr? (iteType: Expr) (c : Expr) (t : Expr) (e : Expr) : TranslateE
 /-- Given `thn` and `els` corresponding respectively to the `then` and `else` terms
     of a `dite` expression, perform the following normalization rules:
       - When `Type(t) = Prop ∧ t := fun h : c => e1 ∧ e := fun h : ¬ c => e2`
-          - return `(c → e1) ∧ (¬ c → e2)`
+          - return `(h : c → e1) ∧ (h : ¬ c → e2)`
+      - When `Type(t) = Prop ∧ t := c → Prop ∧ e := ¬ c → Prop`
+          - return `(h : c → t h) ∧ (h : ¬ c → e h)`
       - When `Type(t) ≠ Prop:
           - return `none`
       - Otherwise
            - return ⊥
 -/
-def diteToPropExpr? (iteType: Expr) (thn : Expr) (els : Expr) : TranslateEnvT (Option Expr) := do
+def diteToPropExpr? (iteType: Expr) (cond : Expr) (thn : Expr) (els : Expr) : TranslateEnvT (Option Expr) := do
   if !iteType.isProp then return none
-  let leftAnd ← toImpliesExpr thn
-  let rightAnd ← toImpliesExpr els
+  let leftAnd ← toImpliesExpr thn cond
+  let rightAnd ← toImpliesExpr els (← optimizeNot (← mkPropNotOp) #[cond])
   optimizeBoolPropAnd (← mkPropAndOp) #[leftAnd, rightAnd]
 
   where
-    toImpliesExpr (ite : Expr) : TranslateEnvT Expr :=
+    toImpliesExpr (ite : Expr) (c : Expr) : TranslateEnvT Expr := do
      match ite with
      | Expr.lam n t b bi =>
          withLocalDecl n bi t fun x => do
-            optimizeForall x t (b.instantiate1 x)
-     | _ => throwEnvError f!"iteToPropExpr? : lambda expression expected but got {reprStr ite}"
-
+            optimizeForall x t (← addHypotheses t (some x)).2 (b.instantiate1 x)
+     | _ =>
+         if !(← inferType ite).isForall then
+            throwEnvError f!"diteToPropExpr? : lambda/function expression expected but got {reprStr ite}"
+         else
+           -- Need to create a lambda term embedding the following application
+           -- `fun x : cond => ite x`
+           withLocalDecl (← Term.mkFreshBinderName) BinderInfo.default c fun x => do
+             optimizeForall x c (← addHypotheses c (some x)).2 (ite.beta #[x])
 
 /-- Return `some (true = c')` only when `c := false = c'`.
     This function also checks if `true = c'` is already in cache.
@@ -98,8 +106,8 @@ def isITEBoolSwap? (c : Expr) : TranslateEnvT (Option Expr) := do
      - if c then e1 else e2 ==> if c' then e2 else e1 (if c := ¬ c')
      - if c then e1 else e2 ==> if true = c' then e2 else e1 (if c := false = c')
      - if c then e1 else e2 ==> (c → e1) ∧ (¬ c → e2) (if Type(e1) = Prop)
-     - if c then (if c then e1 else e2) else e3 ==> if c then e1 else e3
-     - if c then e1 else (if c then e2 else e3) ==> if c then e1 else e3
+     - if c then e1 else e2 ===> e1 (if c := _ ∈ hypsInContext)
+     - if c then e1 else e2 ===> e2 (if ∃ e := _ ∈ hypsInContext ∧ e = ¬ c)
    Assume that f = Expr.const ``ite
    An error is triggered when args.size ≠ 5 (i.e., only fully applied `ite` expected at this stage)
    TODO: consider additional simplification rules.
@@ -121,20 +129,26 @@ partial def optimizeITE (f : Expr) (args : Array Expr) : TranslateEnvT Expr := d
  if let Expr.app (Expr.const ``Not _) ne := c then return (← optimizeITE f (← swapITEAndUpdateDecidable (args.set! 1 ne)))
  if let some c' ← (isITEBoolSwap? c) then return (← optimizeITE f (← swapITEAndUpdateDecidable (args.set! 1 c')))
  if let some r ← iteToPropExpr? iteType c t e then return r
- if let some r ← iteThenReduce? c t then return (← optimizeITE f (args.set! 3 r))
- if let some r ← iteElseReduce? c e then return (← optimizeITE f (args.set! 4 r))
+ if let some r ← iteReduce? c t e then return r
  mkAppExpr f (← updateITEDecidable args)
 
  where
-   /-- Return `some e1` when `t := if c then e1 else e2`. Otherwise none. --/
-   iteThenReduce? (c : Expr) (t : Expr) : TranslateEnvT (Option Expr) := do
-    let some (_psort, c', _pdecide, e1, _e2) := ite? t | return none
-    if (← exprEq c c') then return some e1 else return none
+   /-- Given `c`, `t` and `e`, the condition, then and else expression for an ite expression,
+       perform the following:
+        - When `c := _ ∈ hypsInContext`
+            - return `some t`
+        - When `∃ e := _ ∈ hypsInContext ∧ e = ¬ c`
+            - return `some e`
+        - Otherwise
+            - return `none`
+   -/
+   iteReduce? (c : Expr) (t : Expr) (e : Expr) : TranslateEnvT (Option Expr) := do
+     let hyps := (← get).optEnv.hypsInContext
+     if (← inHypMap c hyps).isSome then return t
+     if (← notInHypMap c hyps)
+     then return e
+     else return none
 
-   /-- Return `some e2` when `e := if c then e1 else e2`. Otherwise none. --/
-   iteElseReduce? (c : Expr) (e : Expr) : TranslateEnvT (Option Expr) := do
-    let some (_psort, c', _pdecide, _e1, e2) := ite? e | return none
-    if (← exprEq c c') then return some e2 else return none
 
 /-- Given `e` a `dite` then/else expression perform the following:
       - When `e := fun h : c => b`:
@@ -163,18 +177,10 @@ def extractDependentITEExpr (e : Expr) : TranslateEnvT Expr := do
      - `dite c (fun h : c => e1) (fun h : ¬ c => e2)` ==> `dite c' (fun h : c' => e2) (fun h : ¬ c' => e1)` (if c = ¬ c')
      - `dite c (fun h : c => e1) (fun h : ¬ c => e2)` ==> `dite true = c' (fun h : true = c' => e2) (fun h : false = c' => e1)` (if c := false = c')
      - `dite c (fun h : c => e1) (fun h : ¬ c => e2)` ==> (c → e1) ∧ (¬ c → e2) (if Type(e1) = Prop)
-
-     - `dite c then (fun h : c => if c then e1 else e2) (fun h : ¬ c => e3)` ==>
-          dite c then (fun h : c => e1) (fun h : ¬ c => e3)`
-
-     - `dite c then (fun h : c => dite c (fun h : c => e1) (fun h : ¬ c => e2)) (fun h : ¬ c => e3)` ==>
-          dite c then (fun h : c => e1) (fun h : ¬ c => e3)`
-
-     - `dite c then (fun h : c => e1) (fun h : ¬ c => if c then e2 else e3)` ==>
-          dite c then (fun h : c => e1) (fun h : ¬ c => e3)`
-
-     - `dite c then (fun h : c => e1) (fun h : ¬ c => dite c (fun h : => e2) (fun h : ¬ c => e3))` ==>
-          dite c then (fun h : c => e1) else (fun h : ¬ c => e3)`
+     - `dite c (fun h : c => e1) (fun h : ¬ c => e2)` ==> e1 (if c := _ ∈ hypsInContext ∧ ¬ e1.hasLooseBVars)
+     - `dite c (fun h : c => e1) (fun h : ¬ c => e2)` ==> e2 (if ∃ e := _ ∈ hypsInContext ∧ ¬ e2.hasLooseBVars ∧ e = ¬ c )
+     - `dite c (fun h : c => e1) (fun h : ¬ c => e2)` ==> e1[h/h'] (if c := some h' ∈ hypsInContext ∧ e1.hasLooseBVars)
+     - `dite c (fun h : c => e1) (fun h : ¬ c => e2)` ==> e1[h/h'] (if ∃ e := some h' ∈ hypsInContext ∧ e2.hasLooseBVars ∧ e = ¬ c)
 
     Assume that f = Expr.const ``dite
     An error is triggered when args.size ≠ 5 (i.e., only fully applied `dite` expected at this stage)
@@ -198,44 +204,40 @@ partial def optimizeDITE (f : Expr) (args : Array Expr) : TranslateEnvT Expr := 
  if let Expr.const ``False _ := c then return e.beta #[← mkNotFalse]
  if let Expr.app (Expr.const ``Not _) ne := c then return (← optimizeDITE f (← swapITEAndUpdateDecidable (args.set! 1 ne)))
  if let some c' ← isITEBoolSwap? c then return (← optimizeDITE f (← swapITEAndUpdateDecidable (args.set! 1 c')))
- if let some r ← diteToPropExpr? iteType t e then return r
- if let some r ← diteThenReduce? c t then return (← optimizeDITE f (args.set! 3 r))
- if let some r ← diteElseReduce? c e then return (← optimizeDITE f (args.set! 4 r))
+ if let some r ← diteToPropExpr? iteType c t e then return r
+ if let some r ← diteReduce? c t then return r
+ if let some r ← diteReduce? (← optimizeNot (← mkPropNotOp) #[c]) e then return r
  mkAppExpr f (← updateITEDecidable args)
 
-
  where
-   /-- Given `c` and `t` the cond and then expresssion for a `dite` return:
-       `some (fun h : c => e1)` when one of the following conditions is satisfied:
-         - `t := (fun h : c => if c then e1 else e2)` ∨
-         - `t := (fun h : c => (fun h : c => dite c (fun h : c => e1) (fun h : ¬ c => e2)))`
-   -/
-   diteThenReduce? (c : Expr) (t : Expr) : TranslateEnvT (Option Expr) := do
-     match t with
-     | Expr.lam n t b bi =>
-         match ite? b with
-         | some (_psort, c', _pdecide, e1, _e2) =>
-            if (← exprEq c c') then return Expr.lam n t e1 bi else return none
-         | none =>
-            let some (_psort, c', _pdecide, e1, _e2) := dite? b | return none
-            if (← exprEq c c') then return e1 else return none
-     | _ => return none
 
-   /-- Given `c` and `e` the cond and else expresssion for a `dite` return:
-       `some (fun h : ¬ c => e2)` when one of the following conditions is satisfied:
-         - `e := (fun h : ¬ c => if c then e1 else e2)` ∨
-         - `e := (fun h : ¬ c => (fun h : c => dite c (fun h : c => e1) (fun h : ¬ c => e2)))`
+   /-- Given `cond` and `t` the condition and then/else expression for a dite expression,
+       perform the following:
+        - When `t := fun h : c => e ∧ c := _ ∈ hypsInContext ∧ ¬ e.hasLooseBVars`
+            - return `some e`
+        - When `t := fun h : c => e ∧ c := some h' ∈ hypsInContext ∧ e.hasLooseBVars`
+            - return `some e[h/h']`
+        - When `t := c → α ∧ c := some h ∈ hypsInContext`
+            - return `some t h`
+        - Otherwise
+            - return `none`
    -/
-   diteElseReduce? (c : Expr) (e : Expr) : TranslateEnvT (Option Expr) := do
-     match e with
-     | Expr.lam n t b bi =>
-         match ite? b with
-         | some (_psort, c', _pdecide, _e1, e2) =>
-            if (← exprEq c c') then return Expr.lam n t e2 bi else return none
-         | none =>
-            let some (_psort, c', _pdecide, _e1, e2) := dite? b | return none
-            if (← exprEq c c') then return e2 else return none
-     | _ => return none
+   diteReduce? (cond : Expr) (t : Expr) : TranslateEnvT (Option Expr) := do
+     let hyps := (← get).optEnv.hypsInContext
+     match t with
+     | Expr.lam _h c b _bi =>
+         match hyps.get? c with
+         | none => return none
+         | some m =>
+            if !b.hasLooseBVars then return b
+            if let some h' := m then return (t.beta #[h'])
+            return none
+     | _ =>
+        if !(← inferType t).isForall then
+            throwEnvError f!"diteReduce?: lambda/function expression expected but got {reprStr t}"
+        match hyps.get? cond with
+        | some (some h') => return (t.beta #[h'])
+        | _ => return none
 
 
 /-- Apply simplification/normalization rules of if then else expressions. -/

@@ -53,12 +53,12 @@ partial def translateExpr (e : Expr) : TranslateEnvT Unit := do
 
 def Translate.main (e : Expr) : TranslateEnvT Unit := do
     let optExpr ← Optimize.main (← toPropExpr e)
+    trace[Translate.optExpr] f!"optimized expression: {← ppExpr optExpr}"
     match (toResult optExpr) with
     | res@(.Undetermined) =>
         if (← get).optEnv.options.solverOptions.onlyOptimize
         then logResult res
         else
-          trace[Translate.optExpr] f!"optimized expression: {← ppExpr optExpr}"
           -- set backend solver
           setSolverProcess
           translateExpr optExpr

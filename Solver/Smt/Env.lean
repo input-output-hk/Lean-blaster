@@ -213,6 +213,23 @@ def defineSort (nm : SmtSymbol) (args : Option (Array SmtSymbol)) (b : SortExpr)
 /-- Assert a proposition `p`. -/
 def assertTerm (p : SmtTerm) : TranslateEnvT Unit := trySubmitCommand! (.assertTerm p)
 
+/-- Create an Smt symbol from a free variable id.
+    The Smt symbol will correspond to the user-defined name suffixed with the unique id
+    for the associated to the free variable id.
+-/
+def fvarIdToSmtSymbol (v : FVarId) : TranslateEnvT SmtSymbol := do
+  -- return (mkNormalSymbol s!"{← v.getUserName}{v.name}")
+  let env ← get
+  match env.smtEnv.fvarsCache.get? v with
+  | some idx => return (mkNormalSymbol s!"${idx}")
+  | none =>
+     let idx := env.smtEnv.fvarsCache.size
+     modify (fun env => { env with smtEnv.fvarsCache := env.smtEnv.fvarsCache.insert v idx } )
+     return (mkNormalSymbol s!"${idx}")
+
+/-! Create an Smt term from a free variable. -/
+def fvarIdToSmtTerm (v : FVarId) : TranslateEnvT SmtTerm :=
+  return smtSimpleVarId (← fvarIdToSmtSymbol v)
 
 /-- Perform the following actions:
       - Declare predicate `@is{s}` with input type `t` and return type `bool` when `pbody := none`
