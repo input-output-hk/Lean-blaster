@@ -307,7 +307,7 @@ def optimizeNatPred (args : Array Expr) : TranslateEnvT Expr := do
 -/
 def optimizeNatBeq (f : Expr) (b_args : Array Expr) : TranslateEnvT Expr := do
   if !(← isOptimizeRecCall) then return (← mkAppExpr f b_args)
-  Expr.withApp (← mkNatEqOp) fun f' i_args =>
+  Expr.withApp (← mkNatBEqOp) fun f' i_args =>
     optimizeBEq f' (i_args ++ b_args)
 
 /-- Normalize `Nat.le x y` to `LE.le Nat instLENat x y`. -/

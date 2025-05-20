@@ -213,12 +213,14 @@ def defineSort (nm : SmtSymbol) (args : Option (Array SmtSymbol)) (b : SortExpr)
 /-- Assert a proposition `p`. -/
 def assertTerm (p : SmtTerm) : TranslateEnvT Unit := trySubmitCommand! (.assertTerm p)
 
-/-- Create an Smt symbol from a free variable id.
-    The Smt symbol will correspond to the user-defined name suffixed with the unique id
-    for the associated to the free variable id.
+/-- Create an Smt symbol from a free variable `v`.
+    If `v` already exists in the free variables cache return the same smt symbol.
+    Otherwise:
+      - Increment the free variable index
+      - Insert `v` in cache
+      - return the smt symbol corresponding to the new index
 -/
 def fvarIdToSmtSymbol (v : FVarId) : TranslateEnvT SmtSymbol := do
-  -- return (mkNormalSymbol s!"{← v.getUserName}{v.name}")
   let env ← get
   match env.smtEnv.fvarsCache.get? v with
   | some idx => return (mkNormalSymbol s!"${idx}")
