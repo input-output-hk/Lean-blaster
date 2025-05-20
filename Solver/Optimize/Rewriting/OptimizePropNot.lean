@@ -1,10 +1,14 @@
 import Lean
-import Solver.Optimize.Rewriting.OptimizeRelational
 import Solver.Optimize.Rewriting.Utils
 
 open Lean Meta
 namespace Solver.Optimize
 
+/-- Return `true` when `e` corresponds to the zero nat literal. -/
+def isZeroNat (e : Expr) : Bool :=
+  match isNatValue? e with
+  | some 0 => true
+  | _ => false
 
 /-- Return `some (true = e)` when `ne := false = e` or `some (false = e)` when `ne := true = e`.
     Otherwise `none`.
@@ -21,34 +25,16 @@ def notEqSimp? (ne : Expr) : TranslateEnvT (Option Expr) := do
   | none => return none
 
 /-- Given `ne` the operand for `Not`, try to apply the following normalization rules:
-    - When `ne := a ≤ b` ∧ Type(a) ∈ [Nat, Int]:
-       - return `some (b < a)`
-    - Otherwise:
-       - return `none`
--/
-def notLENumNorm? (ne : Expr) : TranslateEnvT (Option Expr) := do
-  let some (t, _i, e1, e2) := le? ne | return none
-  match t with
-  | Expr.const ``Int _ => mkIntLtExpr e2 e1
-  | Expr.const ``Nat _ => mkNatLtExpr e2 e1
-  | _ => return none
-
-/-- Given `ne` the operand for `Not`, try to apply the following normalization rules:
-    - When `ne := a < b` ∧ Type(a) ∈ [Nat, Int]:
-       - return `some (b ≤ a)`
+    - When `ne := 0 < e` ∧ Type(a) = Nat:
+       - return `some (0 = e)`
     - Otherwise:
        - return `none`
 -/
 def notLTNumNorm? (ne : Expr) : TranslateEnvT (Option Expr) := do
-  let some (t, _i, e1, e2) := lt? ne | return none
-  match t with
-  | Expr.const ``Int _ =>
-      let (f, args) := getAppFnWithArgs (← mkIntLeOp)
-      optimizeLE f ((args.push e2).push e1)
-  | Expr.const ``Nat _ =>
-      let (f, args) := getAppFnWithArgs (← mkNatLeOp)
-      optimizeLE f ((args.push e2).push e1)
-  | _ => return none
+  let some (_t, _i, e1, e2) := lt? ne | return none
+  if isZeroNat e1
+  then mkNatEqExpr e1 e2
+  else return none
 
 /-- Apply the following simplification/normalization rules on `Not` :
      - ¬ False ==> True
@@ -56,8 +42,7 @@ def notLTNumNorm? (ne : Expr) : TranslateEnvT (Option Expr) := do
      - ¬ (¬ e) ==> e (classical)
      - ¬ (false = e) ==> true = e
      - ¬ (true = e) ==> false = e
-     - ¬ (a ≤ b) ==> b < a (if Type(a) ∈ [Nat, Int])
-     - ¬ (a < b) ==> b ≤ a (if Type(a) ∈ [Nat, Int])
+     - ¬ (0 < e) ==> (0 = e) (if Type(e) = Nat)
    Assume that f = Expr.const ``Not.
    An error is triggered if args.size ≠ 1 (i.e., only fully applied `Not` expected at this stage)
    TODO: consider additional simplification rules
@@ -69,7 +54,6 @@ def optimizeNot (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if let Expr.const ``True _ := e then return (← mkPropFalse)
  if let some op := propNot? e then return op
  if let some r ← notEqSimp? e then return r
- if let some r ← notLENumNorm? e then return r
  if let some r ← notLTNumNorm? e then return r
  mkExpr (mkApp f e)
 
@@ -79,13 +63,6 @@ def optimizePropNot? (f: Expr) (args : Array Expr) : TranslateEnvT (Option Expr)
   | Expr.const ``Not _ => optimizeNot f args
   | _ => pure none
 
-/-- Return `true` when `e1 := ¬ ne ∧ ne =ₚₜᵣ e2`. Otherwise `false`.
--/
-def isNotOptimizeExprOf (e1: Expr) (e2 : Expr) : TranslateEnvT Bool := do
-  match propNot? e1 with
-  | none => exprEq (← optimizeNot (← mkPropNotOp) #[e1]) e2
-  | some op => exprEq e2 op
-
 /-- Given `e` and hypothesis map `h` returns `true` when one of the following conditions
     is satisfied:
       - ¬ e := fv ∈ h;
@@ -93,8 +70,7 @@ def isNotOptimizeExprOf (e1: Expr) (e2 : Expr) : TranslateEnvT Bool := do
       - e := a < b ∧ Type(a) ∈ [Int, Nat] ∧ (a = b := fv ∈ h ∨ b < a := fv ∈ h)
 
     Note that:
-     - ¬ (a ≤ b) is normalized to `b < a` when `Type(a) ∈ [Int, Nat]`
-     - ¬ (a < b) is normalized to `b ≤ a` when `Type(a) ∈ [Int, Nat]`
+     - a ≤ b is normalized to `¬ (b < a)` when `Type(a) ∈ [Int, Nat]`
 -/
 def notInHypMap (e : Expr) (h : HypothesisMap) : TranslateEnvT Bool := do
   let not_e ← optimizeNot (← mkPropNotOp) #[e]

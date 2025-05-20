@@ -50,7 +50,7 @@ partial def optimizeAnd (f : Expr) (args : Array Expr) (cacheResult := true) : T
  if let Expr.const ``False _  := op1 then return op1
  if let Expr.const ``True _ := op1 then return op2
  if (← exprEq op1 op2) then return op1
- if (← isNotOptimizeExprOf op2 op1) then return (← mkPropFalse)
+ if (← isNotExprOf op2 op1) then return (← mkPropFalse)
  if (← isNegBoolEqOf op2 op1) then return (← mkPropFalse)
  if let some r ← andImpliesReduce? op1 op2 then return r
  if let some r ← andPropReduction? op1 op2 then return r
@@ -135,7 +135,7 @@ def optimizeOr (f : Expr) (args : Array Expr) (cacheResult := true) : TranslateE
  if let Expr.const ``False _ := op1 then return op2
  if let Expr.const ``True _ := op1 then return op1
  if (← exprEq op1 op2) then return op1
- if (← isNotOptimizeExprOf op2 op1) then return (← mkPropTrue)
+ if (← isNotExprOf op2 op1) then return (← mkPropTrue)
  if (← isNegBoolEqOf op2 op1) then return (← mkPropTrue)
  if let some r ← orImpliesReduce? op1 op2 then return r
  if let some r ← orPropReduction? op1 op2 then return r

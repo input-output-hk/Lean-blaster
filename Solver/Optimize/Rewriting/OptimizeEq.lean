@@ -104,7 +104,7 @@ partial def optimizeEq (f : Expr) (args: Array Expr) (cacheResult := true) : Tra
  let op2 := opArgs[1]!
  if let Expr.const ``False _ := op1 then return (← optimizeNot (← mkPropNotOp) #[op2])
  if let Expr.const ``True _ := op1 then return op2
- if (← (isNotOptimizeExprOf op2 op1) <||> (isBoolNotExprOf op2 op1)) then return (← mkPropFalse)
+ if (← (isNotExprOf op2 op1) <||> (isBoolNotExprOf op2 op1)) then return (← mkPropFalse)
  if (← exprEq op1 op2) then return (← mkPropTrue)
  if let some false ← structEq? op1 op2 then return (← mkPropFalse)
  if let some (e1, e2) ← notNegEqSimp? op1 op2 then return (← optimizeEq f #[args[0]!, e1, e2] cacheResult)

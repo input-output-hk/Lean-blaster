@@ -624,8 +624,14 @@ def mkDIteOp : TranslateEnvT Expr := mkExpr (mkConst ``dite [levelOne])
 /-- Return `LE.le` operator and cache result. -/
 def mkLeOp : TranslateEnvT Expr := mkExpr (mkConst ``LE.le [levelZero])
 
+/-- Return `LE` const expression and cache result. -/
+def mkLEConst : TranslateEnvT Expr := mkExpr (mkConst ``LE [levelZero])
+
 /-- Return `LT.lt` operator and cache result. -/
 def mkLtOp : TranslateEnvT Expr := mkExpr (mkConst ``LT.lt [levelZero])
+
+/-- Return `LT` const expression and cache result. -/
+def mkLTConst : TranslateEnvT Expr := mkExpr (mkConst ``LT [levelZero])
 
 /-- Return `Decidable` const expression and cache result. -/
 def mkDecidableConst : TranslateEnvT Expr := mkExpr (mkConst ``Decidable)
