@@ -31,7 +31,7 @@ namespace Solver.Optimize
      - e1 ∧ e2 ==> e1 (if e1 =ₚₜᵣ e2)
      - e ∧ ¬ e ==> False
      - true = e ∧ false = e ==> False
-     - e1 ∧ (e1 → e2) ==> e1 ∧ e2
+     - e1 ∧ (e1 → e2) ==> e1 ∧ e2 (if ¬ e2.hasLooseBVars)
      - e1 ∧ (e2 → e1) ==> e1
      - e1 ∧ e2 ==> e2 (if e1 := _ ∈ hypsInContext)
      - e1 ∧ e2 ==> e1 (if e2 := _ ∈ hypsInContext)
@@ -58,7 +58,7 @@ partial def optimizeAnd (f : Expr) (args : Array Expr) (cacheResult := true) : T
 
  where
    /-- Given `a` and `b` the operands for `And`, apply the simplification rules:
-       - When `b := a → c`
+       - When `b := a → c ∧ ¬ c.hasLooseBVars`
           - return `some a ∧ c`
        - When `b := c → a`
           - return `some a`
@@ -68,7 +68,7 @@ partial def optimizeAnd (f : Expr) (args : Array Expr) (cacheResult := true) : T
    andImpliesReduce? (a : Expr) (b : Expr) : TranslateEnvT (Option Expr) := do
      match b with
      | Expr.forallE _ t c _ =>
-         if (← exprEq t a) then return (← optimizeAnd f #[a, c])
+         if (← exprEq t a) && !(c.hasLooseBVars) then return (← optimizeAnd f #[a, c])
          if (← exprEq c a) then return a
          return none
      | _ => return none
