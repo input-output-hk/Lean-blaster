@@ -274,29 +274,29 @@ partial def diteToIte? (s : Expr) (c : Expr) (decInst : Expr) (t : Expr) (e : Ex
     is the syntactic sugar for `dite c (fun h : c => t) (fun h : ¬ c => e)`.
 
     The simplifcation/normalization rules applied are:
-     - `dite c (fun h : c => e1) (fun h : ¬ c => e2)` ==> e1 (if e1 =ₚₜᵣ e2)
-     - `dite True (fun h : True => e1) (fun h : False => e2)` ==> e1
-     - `dite False (fun h : True => e1) (fun h : False => e2)` ==> e2
-     - `dite c (fun h : c => e1) (fun h : ¬ c => e2)` ==> `dite c' (fun h : c' => e2) (fun h : ¬ c' => e1)` (if c = ¬ c')
-     - `dite c (fun h : c => e1) (fun h : ¬ c => e2)` ==> `dite true = c' (fun h : true = c' => e2) (fun h : false = c' => e1)` (if c := false = c')
-     - `dite c (fun h : c => e1) (fun h : ¬ c => e2)` ==> (c → e1) ∧ (¬ c → e2) (if Type(e1) = Prop)
-     - `dite c (fun h : c => e1) (fun h : ¬ c => e2)` ==> e1 (if c := _ ∈ hypsInContext ∧ ¬ e1.hasLooseBVars)
-     - `dite c (fun h : c => e1) (fun h : ¬ c => e2)` ==> e2 (if ∃ e := _ ∈ hypsInContext ∧ ¬ e2.hasLooseBVars ∧ e = ¬ c )
-     - `dite c (fun h : c => e1) (fun h : ¬ c => e2)` ==> e1[h/h'] (if c := some h' ∈ hypsInContext ∧ e1.hasLooseBVars)
-     - `dite c (fun h : c => e1) (fun h : ¬ c => e2)` ==> e1[h/h'] (if ∃ e := some h' ∈ hypsInContext ∧ e2.hasLooseBVars ∧ e = ¬ c)
-     - `dite c (fun h : c => e1) (fun h : ¬ c => e2)` ==> if c then e1 else e2 (if ¬ e1.hasLooseBVars ∧ ¬ e2.hasLooseBVars)
+     - dite c (fun h : c => e1) (fun h : ¬ c => e2) ==> e1 (if e1 =ₚₜᵣ e2)
+     - dite True (fun h : True => e1) (fun h : False => e2) ==> e1
+     - dite False (fun h : True => e1) (fun h : False => e2) ==> e2
+     - dite c (fun h : c => e1) (fun h : ¬ c => e2) ==> dite c' (fun h : c' => e2) (fun h : ¬ c' => e1) (if c = ¬ c')
+     - dite c (fun h : c => e1) (fun h : ¬ c => e2) ==> dite true = c' (fun h : true = c' => e2) (fun h : false = c' => e1) (if c := false = c')
+     - dite c (fun h : c => e1) (fun h : ¬ c => e2) ==> (c → e1) ∧ (¬ c → e2) (if Type(e1) = Prop)
+     - dite c (fun h : c => e1) (fun h : ¬ c => e2) ==> e1 (if c := _ ∈ hypsInContext ∧ ¬ e1.hasLooseBVars)
+     - dite c (fun h : c => e1) (fun h : ¬ c => e2) ==> e2 (if ∃ e := _ ∈ hypsInContext ∧ ¬ e2.hasLooseBVars ∧ e = ¬ c )
+     - dite c (fun h : c => e1) (fun h : ¬ c => e2) ==> e1[h/h'] (if c := some h' ∈ hypsInContext ∧ e1.hasLooseBVars)
+     - dite c (fun h : c => e1) (fun h : ¬ c => e2) ==> e1[h/h'] (if ∃ e := some h' ∈ hypsInContext ∧ e2.hasLooseBVars ∧ e = ¬ c)
+     - dite c (fun h : c => e1) (fun h : ¬ c => e2) ==> if c then e1 else e2 (if ¬ e1.hasLooseBVars ∧ ¬ e2.hasLooseBVars)
 
-     - `dite a (fun h : a => if c then e1 else e2) (fun h : ¬ a => if c then e1 else e3) ==>
+     - dite a (fun h : a => if c then e1 else e2) (fun h : ¬ a => if c then e1 else e3) ==>
           if c then e1 else (dite a (fun h : a => e2) (fun h : ¬ a => e3) (if ¬ e1.hasLooseBVars)
 
-     - `dite a (fun h : a => if c then e1 else e2) (fun h : ¬ a => if c then e3 else e2) ==>
+     - dite a (fun h : a => if c then e1 else e2) (fun h : ¬ a => if c then e3 else e2) ==>
           if c then (dite a (fun h : a => e1) (fun h : ¬ a => e3) else e2 (if ¬ e1.hasLooseBVars)
 
-     - `dite a (fun h : a => dite c (fun h : c => e1) (fun h : ¬ c => e2)
+     - dite a (fun h : a => dite c (fun h : c => e1) (fun h : ¬ c => e2)
                (fun h : ¬ a => dite c (fun h : c => e1) (fun h : ¬ c => e3) ==>
           dite c (fun h : c => e1) (fun h : ¬ c => dite a (fun h : a => e2) (fun h : ¬ a => e3))
 
-     - `dite a (fun h : a => dite c (fun h : c => e1) (fun h : ¬ c => e2))
+     - dite a (fun h : a => dite c (fun h : c => e1) (fun h : ¬ c => e2))
                (fun h : ¬ a => dite c (fun h : c => e3) (fun h : ¬ c => e2)) ==>
           dite c (fun h : c => dite a (fun h : a => e1) (fun h : ¬ a => e3)) (fun h : ¬ c => e2)
 
