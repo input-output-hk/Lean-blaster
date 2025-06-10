@@ -81,7 +81,6 @@ def notInHypMap (e : Expr) (h : HypothesisMap) : TranslateEnvT Bool := do
  where
    /-- Return `true` when the following condition is satisfied:
          - e := a = b ∧ Type(a) ∈ [Int, Nat] ∧ (a < b := fv ∈ h ∨ b < a := fv ∈ h)
-       Otherwise `none`
    -/
    notEqInHyp (e : Expr) : TranslateEnvT Bool := do
     let some (sort, op1, op2) := e.eq? | return false
@@ -115,19 +114,48 @@ def notInHypMap (e : Expr) (h : HypothesisMap) : TranslateEnvT Bool := do
     is satisfied:
       - e := fv ∈ h;
       - e := ¬ (a = b) ∧ Type(a) ∈ [Int, Nat] ∧ (a < b := fv ∈ h ∨ b < a := fv ∈ h)
+      - e := ¬ (a < b) ∧ Type(a) ∈ [Int, Nat] ∧ (b = a := fv ∈ h ∨ b < a := fv ∈ h)
 -/
 @[always_inline, inline]
 def inHypMap (e : Expr) (h : HypothesisMap) : TranslateEnvT (Option (Option Expr)) := do
   if let some m := h.get? e then return some m
-  let some ne := propNot? e | return none
-  let some (sort, op1, op2) := ne.eq? | return none
-  match sort with
-  | Expr.const ``Nat _ =>
+  if let some m ← notEqInHyp? e then return some m
+  notLtInHyp? e
+
+  where
+   /-- Return `some fv` when the following condition is satisfied:
+         - e := ¬ (a = b) ∧ Type(a) ∈ [Int, Nat] ∧ (a < b := fv ∈ h ∨ b < a := fv ∈ h)
+       Otherwise `none`.
+   -/
+   @[always_inline, inline]
+   notEqInHyp? (e : Expr) : TranslateEnvT (Option (Option Expr)) := do
+    let some ne := propNot? e | return none
+    let some (sort, op1, op2) := ne.eq? | return none
+    match sort with
+    | Expr.const ``Nat _ =>
       if let some m := h.get? (← mkNatLtExpr op1 op2) then return some m
       return h.get? (← mkNatLtExpr op2 op1)
-  | Expr.const ``Int _ =>
+    | Expr.const ``Int _ =>
       if let some m := h.get? (← mkIntLtExpr op1 op2) then return some m
       return h.get? (← mkIntLtExpr op2 op1)
-  | _ => return none
+    | _ => return none
+
+   /-- Return `some fv` when the following condition is satisfied:
+         - e := ¬ (a < b) ∧ Type(a) ∈ [Int, Nat] ∧ (b = a := fv ∈ h ∨ b < a := fv ∈ h)
+       Otherwise `none`
+   -/
+   notLtInHyp? (e : Expr) : TranslateEnvT (Option (Option Expr)) := do
+     let some ne := propNot? e | return none
+     let some (sort, _inst, op1, op2) := lt? ne | return none
+     match sort with
+     | Expr.const ``Nat _ =>
+          let args ← reorderPropOp #[op1, op2]
+          if let some m := h.get? (← mkNatEqExpr args[0]! args[1]! ) then return some m
+          return h.get? (← mkNatLtExpr op2 op1)
+     | Expr.const ``Int _ =>
+          let args ← reorderPropOp #[op1, op2]
+          if let some m := h.get? (← mkIntEqExpr args[0]! args[1]! ) then return some m
+          return h.get? (← mkIntLtExpr op2 op1)
+     | _ => return none
 
 end Solver.Optimize

@@ -8,6 +8,32 @@ import Solver.Optimize.Rewriting.OptimizePropNot
 open Lean Meta
 namespace Solver.Optimize
 
+/-- Return `true` only when one of the following conditions is satisfied:
+      - 0 < e := _ ∈ hypsInContext; or
+      - ¬ (0 = e) := _ ∈ hypsInContext
+-/
+def nonZeroNatInHyps (e : Expr) : TranslateEnvT Bool := do
+ let hyps := (← get).optEnv.hypsInContext
+ let zero_nat ← mkNatLitExpr 0
+ let zero_lt ← mkNatLtExpr zero_nat e
+ if hyps.contains zero_lt then return true
+ let zero_eq ← mkNatEqExpr zero_nat e
+ return hyps.contains (← mkExpr (mkApp (← mkPropNotOp) zero_eq))
+
+/-- Return `true` only when one of the following conditions is satisfied:
+      - 0 < e := _ ∈ hypsInContext; or
+      - e < 0 := _ ∈ hypsInContext; or
+      - ¬ (0 = e) := _ ∈ hypsInContext
+-/
+def nonZeroIntInHyps (e : Expr) : TranslateEnvT Bool := do
+ let hyps := (← get).optEnv.hypsInContext
+ let zero_int ← mkIntLitExpr (Int.ofNat 0)
+ let zero_lt ← mkIntLtExpr zero_int e
+ if hyps.contains zero_lt then return true
+ let lt_zero ← mkIntLtExpr e zero_int
+ if hyps.contains lt_zero then return true
+ let zero_eq ← mkIntEqExpr zero_int e
+ return hyps.contains (← mkExpr (mkApp (← mkPropNotOp) zero_eq))
 
 /-- Return `some true` if op1 and op2 are constructors that are structurally equivalent modulo
     variable name/function equivalence
@@ -48,7 +74,7 @@ partial def structEq? (op1 : Expr) (op2: Expr) : MetaM (Option Bool) := do
        pure none
  if (← exprEq op1 op2) then return (some true)
  let r ← visit op1 op2
- trace[Optimize.structEq] f!"structEq? {reprStr op1} =? {reprStr op2} ===> {reprStr r}"
+ trace[Optimize.structEq] "structEq? {reprStr op1} =? {reprStr op2} ===> {reprStr r}"
  return r
 
  where
@@ -74,6 +100,124 @@ partial def structEq? (op1 : Expr) (op2: Expr) : MetaM (Option Bool) := do
     | some false => true
     | _ => false
 
+/- Given `op1` and `op2` corresponding to the operands for `Eq`,
+    - When `op1 := 0` ∧ `op2 := -x ∧ Type(x) = Int`:
+       - return `some 0 = x`
+    - Otherwise `none`.
+-/
+def zeroEqNegReduce? (op1 : Expr) (op2 : Expr) (eqType : Expr) : TranslateEnvT (Option Expr) := do
+  match isIntValue? op1, intNeg? op2 with
+  | some 0, some e =>
+       mkExpr (mkApp3 (← mkEqOp) eqType op1 e)
+  | _, _ => return none
+
+/- Given `op1` and `op2` corresponding to the operands for `Eq`,
+    - When `op1 := 0` ∧ `op2 := x * y` ∧ Type(x) = Nat ∧ nonZeroNatInHyps x ∧ nonZeroNatInHyps y:
+       - return `some False`
+    - Otherwise `none`.
+-/
+def natZeroEqMulReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
+  match isNatValue? op1, natMul? op2 with
+  | some 0, some (e1, e2) =>
+       if (← nonZeroNatInHyps e1 <&&> nonZeroNatInHyps e2)
+       then mkPropFalse
+       else return none
+  | _, _ => return none
+
+/- Given `op1` and `op2` corresponding to the operands for `Eq`,
+    - When `op1 := 0` ∧ `op2 := x * y` ∧ Type(x) = Int ∧ nonZeroIntInHyps x ∧ nonZeroIntInHyps y:
+       - return `some False`
+    - Otherwise `none`.
+-/
+def intZeroEqMulReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
+  match isIntValue? op1, intMul? op2 with
+  | some 0, some (e1, e2) =>
+       if (← nonZeroIntInHyps e1 <&&> nonZeroIntInHyps e2)
+       then mkPropFalse
+       else return none
+  | _, _ => return none
+
+/- Given `op1` and `op2` corresponding to the operands for `Eq` and `Type(op1) = Nat`,
+    - When (op1 := x + y ∧ op2 := x + z) ∨
+           (op1 := y + x ∧ op2 := x + z) ∨
+           (op1 := x + y ∧ op2 := z + x) ∨
+           (op1 := y + x ∧ op2 := z + x)
+        - return `some (y, z)`
+    - Otherwise
+        - return `none`
+-/
+def natAddEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option (Expr × Expr)) := do
+  match natAdd? op1, natAdd? op2 with
+  | some (e1, e2), some (e3, e4) =>
+     if ← exprEq e1 e3 then return (e2, e4)
+     if ← exprEq e1 e4 then return (e2, e3)
+     if ← exprEq e2 e3 then return (e1, e4)
+     if ← exprEq e2 e4 then return (e1, e3)
+     return none
+  | _, _ => return none
+
+/- Given `op1` and `op2` corresponding to the operands for `Eq` and `Type(op1) = Int`,
+    - When (op1 := x + y ∧ op2 := x + z) ∨
+           (op1 := y + x ∧ op2 := x + z) ∨
+           (op1 := x + y ∧ op2 := z + x) ∨
+           (op1 := y + x ∧ op2 := z + x)
+        - return `some (y, z)`
+    - Otherwise
+        - return `none`
+-/
+def intAddEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option (Expr × Expr)) := do
+  match intAdd? op1, intAdd? op2 with
+  | some (e1, e2), some (e3, e4) =>
+     if ← exprEq e1 e3 then return (e2, e4)
+     if ← exprEq e1 e4 then return (e2, e3)
+     if ← exprEq e2 e3 then return (e1, e4)
+     if ← exprEq e2 e4 then return (e1, e3)
+     return none
+  | _, _ => return none
+
+
+/- Given `op1` and `op2` corresponding to the operands for `Eq` and `Type(op1) = Nat`,
+    - When ( (op1 := x * y ∧ op2 := x * z) ∨
+             (op1 := y * x ∧ op2 := x * z) ∨
+             (op1 := x * y ∧ op2 := z * x) ∨
+             (op1 := y * x ∧ op2 := z * x) )
+           ∧ nonZeroNatInHyps x
+        - return `some (y, z)`
+    - Otherwise
+        - return `none`
+-/
+def natMulEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option (Expr × Expr)) := do
+  match natAdd? op1, natAdd? op2 with
+  | some (e1, e2), some (e3, e4) =>
+     if ← exprEq e1 e3 <&&> nonZeroNatInHyps e1 then return (e2, e4)
+     if ← exprEq e1 e4 <&&> nonZeroNatInHyps e1 then return (e2, e3)
+     if ← exprEq e2 e3 <&&> nonZeroNatInHyps e1 then return (e1, e4)
+     if ← exprEq e2 e4 <&&> nonZeroNatInHyps e1 then return (e1, e3)
+     return none
+  | _, _ => return none
+
+
+/- Given `op1` and `op2` corresponding to the operands for `Eq` and `Type(op1) = Int`,
+    - When ( (op1 := x * y ∧ op2 := x * z) ∨
+             (op1 := y * x ∧ op2 := x * z) ∨
+             (op1 := x * y ∧ op2 := z * x) ∨
+             (op1 := y * x ∧ op2 := z * x) )
+           ∧ nonZeroIntInHyps x
+        - return `some (y, z)`
+    - Otherwise
+        - return `none`
+-/
+def intMulEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option (Expr × Expr)) := do
+  match intAdd? op1, intAdd? op2 with
+  | some (e1, e2), some (e3, e4) =>
+     if ← exprEq e1 e3 <&&> nonZeroIntInHyps e1 then return (e2, e4)
+     if ← exprEq e1 e4 <&&> nonZeroIntInHyps e1 then return (e2, e3)
+     if ← exprEq e2 e3 <&&> nonZeroIntInHyps e1 then return (e1, e4)
+     if ← exprEq e2 e4 <&&> nonZeroIntInHyps e1 then return (e1, e3)
+     return none
+  | _, _ => return none
+
+
 /-- Apply the following simplification/normalization rules on `Eq` :
      - False = e ==> ¬ e
      - True = e ==> e
@@ -85,8 +229,15 @@ partial def structEq? (op1 : Expr) (op2: Expr) : MetaM (Option Bool) := do
      - false = not e ==> true = e
      - ¬ e1 = ¬ e2 ==> e1 = e2 (require classical)
      - not e1 = not e2 ==> e1 = e2
+     - 0 = (-e) ==> 0 = e (if Type(e) = Int)
+     - -e1 = -e2 ==> e1 = e2 (if Type(e1) = Int)
+     - 0 = x * y ==> False (if Type(x) ∈ [Nat, Int] ∧ nonZeroInHyps x ∧ nonZeroInHyps y)
      - e1 = e2 ==> e2 = e1 (if e2 <ₒ e1)
-
+     - x + y = x + z | y + x = x + z | x + y = z + x | y + x = z + x ==> y = z (if Type(x) ∈ [Nat, Int]]
+     - x * y = x * z | y * x = x * z | x * y = z * x | y * x = z * x ==> y = z (if Type(x) ∈ [Nat, Int] ∧ nonZeroInHyps x]
+     with:
+       nonZeroInHyps x := nonZeroNatInHyps x If Type(x) = Nat
+                       := nonZeroIntInHyps x Otherwise
    Assume that f = Expr.const ``Eq.
    Do nothing if operator is partially applied (i.e., args.size < 3)
 
@@ -100,6 +251,7 @@ partial def optimizeEq (f : Expr) (args: Array Expr) (cacheResult := true) : Tra
  -- args[1] left operand
  -- args[2] right operand
  let opArgs ← reorderPropOp #[args[1]!, args[2]!]
+ let eqType := args[0]!
  let op1 := opArgs[0]!
  let op2 := opArgs[1]!
  if let Expr.const ``False _ := op1 then return (← optimizeNot (← mkPropNotOp) #[op2])
@@ -107,10 +259,28 @@ partial def optimizeEq (f : Expr) (args: Array Expr) (cacheResult := true) : Tra
  if (← (isNotExprOf op2 op1) <||> (isBoolNotExprOf op2 op1)) then return (← mkPropFalse)
  if (← exprEq op1 op2) then return (← mkPropTrue)
  if let some false ← structEq? op1 op2 then return (← mkPropFalse)
- if let some (e1, e2) ← notNegEqSimp? op1 op2 then return (← optimizeEq f #[args[0]!, e1, e2] cacheResult)
- mkExpr (mkApp3 f args[0]! op1 op2) cacheResult
+ if let some (e1, e2) ← notNegEqSimp? op1 op2 then return (← optimizeEq f #[eqType, e1, e2] cacheResult)
+ if let some r ← zeroEqNegReduce? op1 op2 eqType then return r
+ if let some (e1, e2) ← intNegEqReduce? op1 op2 then return (← optimizeEq f #[eqType, e1, e2] cacheResult)
+ if let some r ← natZeroEqMulReduce? op1 op2 then return r
+ if let some r ← intZeroEqMulReduce? op1 op2 then return r
+ if let some (e1, e2) ← natAddEqReduce? op1 op2 then return (← optimizeEq f #[eqType, e1, e2] cacheResult)
+ if let some (e1, e2) ← intAddEqReduce? op1 op2 then return (← optimizeEq f #[eqType, e1, e2] cacheResult)
+ if let some (e1, e2) ← natMulEqReduce? op1 op2 then return (← optimizeEq f #[eqType, e1, e2] cacheResult)
+ if let some (e1, e2) ← intMulEqReduce? op1 op2 then return (← optimizeEq f #[eqType, e1, e2] cacheResult)
+ mkExpr (mkApp3 f eqType op1 op2) cacheResult
 
  where
+   /- Given `op1` and `op2` corresponding to the operands for `Eq`,
+       - When `op1 := -x` ∧ `op2 := -y ∧ Type(x) = Int`:
+          - return `some (x, y)`
+       - Otherwise `none`.
+   -/
+   intNegEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option (Expr × Expr)) := do
+     match intNeg? op1, intNeg? op2 with
+     | some e1, some e2 => return (some (e1, e2))
+     | _, _ => return none
+
    /- Given `op1` and `op2` corresponding to the operands for `Eq`,
       - return `some (false, e)` when `op1 := true ∧ op2 := not e`
       - return `some (true, e)` when `op1 := false ∧ op2 := not e`

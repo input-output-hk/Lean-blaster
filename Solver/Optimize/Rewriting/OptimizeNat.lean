@@ -167,18 +167,6 @@ def optimizeNatMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
        return none
     | none => return none
 
-/-- Return `true` only when one of the following conditions is satisfied:
-      - 0 < e := hypsInContext; or
-      - ¬ (0 = e) := _ ∈ hypsInContext
--/
-def nonZeroNatDenumInHyps (e : Expr) : TranslateEnvT Bool := do
- let hyps := (← get).optEnv.hypsInContext
- let zero_nat ← mkNatLitExpr 0
- let zero_lt ← mkNatLtExpr zero_nat e
- if hyps.contains zero_lt then return true
- let zero_eq ← mkNatEqExpr zero_nat e
- return hyps.contains (← mkExpr (mkApp (← mkPropNotOp) zero_eq))
-
 /-- Given `e1` and `e2` corresponding to the operands for `Nat.div` (i.e., `e1 / e2`),
     return `some n` only when one of the following conditions is satisfied:
      - `e1 := m * n` ∧ e2 = m ∧ (0 < m := _ ∈ hypsInContext ∨ ¬ (0 = m) := _ ∈ hypsInContext); or
@@ -189,9 +177,9 @@ def mulNatDivReduceExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) :
   match natMul? e1 with
   | some (op1, op2) =>
      unless !(← exprEq op1 e2) do
-       if (← nonZeroNatDenumInHyps e2) then return some op2
+       if (← nonZeroNatInHyps e2) then return some op2
      unless !(← exprEq op2 e2) do
-       if (← nonZeroNatDenumInHyps e2) then return some op1
+       if (← nonZeroNatInHyps e2) then return some op1
      return none
   | none => return none
 
@@ -203,7 +191,7 @@ def mulNatDivReduceExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) :
 -/
 def natDivSelfReduce? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := do
   if !(← exprEq e1 e2) then return none
-  if (← nonZeroNatDenumInHyps e1)
+  if (← nonZeroNatInHyps e1)
   then return ← mkNatLitExpr 1
   else return none
 

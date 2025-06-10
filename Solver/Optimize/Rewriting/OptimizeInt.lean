@@ -102,21 +102,6 @@ def optimizeIntMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
        some <$> mkExpr (mkApp2 f (← evalBinIntOp Int.mul n1 n2) e2)
     | _, _ => return none
 
-/-- Return `true` only when one of the following conditions is satisfied:
-      - 0 < e := hypsInContext;
-      - e < 0 := hypsInContext;
-      - ¬ (0 = e) := _ ∈ hypsInContext
--/
-def nonZeroIntDenumInHyps (e : Expr) : TranslateEnvT Bool := do
- let hyps := (← get).optEnv.hypsInContext
- let zero_int ← mkIntLitExpr (Int.ofNat 0)
- let zero_lt ← mkIntLtExpr zero_int e
- if hyps.contains zero_lt then return true
- let lt_zero ← mkIntLtExpr e zero_int
- if hyps.contains lt_zero then return true
- let zero_eq ← mkIntEqExpr zero_int e
- return hyps.contains (← mkExpr (mkApp (← mkPropNotOp) zero_eq))
-
 /-- Given `e1` and `e2` corresponding to the operands for `Int.ediv`, `Int.tdiv` and `Int.fdiv`,
     return `some 1` only when the following conditions are satisfied:
       - e1 =ₚₜᵣ e2 ∧
@@ -125,7 +110,7 @@ def nonZeroIntDenumInHyps (e : Expr) : TranslateEnvT Bool := do
 -/
 def intDivSelfReduce? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := do
   if !(← exprEq e1 e2) then return none
-  if (← nonZeroIntDenumInHyps e1)
+  if (← nonZeroIntInHyps e1)
   then return ← mkIntLitExpr (Int.ofNat 1)
   else return none
 
@@ -139,9 +124,9 @@ def mulIntDivReduceExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) :
   match intMul? e1 with
   | some (op1, op2) =>
      unless !(← exprEq op1 e2) do
-       if (← nonZeroIntDenumInHyps e2) then return some op2
+       if (← nonZeroIntInHyps e2) then return some op2
      unless !(← exprEq op2 e2) do
-       if (← nonZeroIntDenumInHyps e2) then return some op1
+       if (← nonZeroIntInHyps e2) then return some op1
      return none
   | none => return none
 
