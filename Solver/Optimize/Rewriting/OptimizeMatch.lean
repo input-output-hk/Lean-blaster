@@ -1,4 +1,5 @@
 import Lean
+import Solver.Optimize.Rewriting.NormalizeMatch
 import Solver.Optimize.Rewriting.OptimizeITE
 
 open Lean Meta Elab
@@ -16,6 +17,12 @@ structure MatchInfo where
   /-- MatcherInfo for match -/
   mInfo : MatcherInfo
 
+
+def withMatchAlts (mInfo : MatchInfo) (f : Array Expr → TranslateEnvT α) : TranslateEnvT α := do
+ if (isCasesOnRecursor (← getEnv) mInfo.name)
+ then lambdaTelescope mInfo.instApp fun xs _t => f xs
+ else forallTelescope (← inferType mInfo.instApp) fun xs _t => f xs
+
 /-- Determine if `e` is an `match` expression and return its corresponding arguments, its instantiation
     and MatcherInfo.
     Otherwise return `none`.
@@ -29,45 +36,36 @@ def isMatchArg? (e : Expr) : TranslateEnvT (Option MatchInfo) := do
  let instApp := Expr.beta matchFun (args.take mInfo.getFirstAltPos)
  return some { name := n, nameExpr := pm, args, instApp, mInfo}
 
-mutual
-
-private partial def isCstMatchPropAux (p : Expr) (k : Bool → TranslateEnvT Bool) : TranslateEnvT Bool := do
- if (← isConstructor p) then k true
- else
-   match ite? p with
-     | some (_sort, _cond, _decide, e1, e2) =>
-          isCstMatchPropAux e1 fun _b =>
-            -- NOTE: No need to check for b as if it's false the continuation function is not called
-            isCstMatchPropAux e2 k
+private partial def isCstMatchPropAux (stack : List Expr) : TranslateEnvT Bool := do
+  match stack with
+  | [] => return true
+  | p :: xs =>
+    if (← isConstructor p) then isCstMatchPropAux xs
+    else
+     match ite? p with
+     | some (_sort, _cond, _decide, e1, e2) => isCstMatchPropAux (e1 :: e2 :: xs)
      | none =>
          match dite? p with
          | some (_sort, _cond, _decide, e1, e2) =>
-              isCstMatchPropAux (← extractDependentITEExpr e1) fun _b => do
-                -- NOTE: No need to check for b as if it's false the continuation function is not called
-                isCstMatchPropAux (← extractDependentITEExpr e2) k
+              isCstMatchPropAux ((← extractDependentITEExpr e1) :: (← extractDependentITEExpr e2) :: xs)
          | none =>
              let (f, args) := getAppFnWithArgs p
              if let Expr.const n l := f then
-               if let some matcherInfo ← getMatcherRecInfo? n l then
-                 let rhs := args[matcherInfo.getFirstAltPos : matcherInfo.arity]
+               if let some mInfo ← getMatcherRecInfo? n l then
                  -- NOTE: we also need to cater for function as return type,
                  -- i.e., match expression returns a function.
-                 if args.size > matcherInfo.arity then return false
-                 else isCstDiscrsProp rhs (rhs.size - 1) k
+                 if args.size > mInfo.arity then return false
+                 else isCstMatchPropAux (updateStackWithMatchRhs mInfo args xs mInfo.getFirstAltPos)
                else return false
              else return false
 
-private partial def isCstDiscrsProp
-  (rhs : Subarray Expr) (idx : Nat) (k : Bool → TranslateEnvT Bool) : TranslateEnvT Bool :=
-  if idx == 0 then
-    -- NOTE: here we can use getLambdaBody as `isCstDiscrsProp` is called only
-    -- when match expression does not return a function as result.
-    isCstMatchPropAux (getLambdaBody rhs[idx]!) k
-  else
-    isCstMatchPropAux (getLambdaBody rhs[idx]!) fun _b =>
-     -- NOTE: No need to check for b as if it's false the continuation function is not called
-       isCstDiscrsProp rhs (idx - 1) k
-end
+  where
+    updateStackWithMatchRhs
+      (mInfo : MatcherInfo) (args : Array Expr)
+      (stack : List Expr) (idx : Nat) : List Expr :=
+      if idx >= mInfo.arity then stack
+      else updateStackWithMatchRhs mInfo args (getLambdaBody args[idx]! :: stack) (idx + 1)
+
 
 /--  Return `true` only when
       isConstructor p ∨
@@ -79,8 +77,8 @@ end
               | p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₙ₎ => tₘ
         ∧ ∀ i ∈ [1..m], isCstMatchProp t₁ )
 -/
-def isCstMatchProp (p : Expr) : TranslateEnvT Bool :=
-  isCstMatchPropAux p (λ x => return x)
+@[always_inline, inline]
+  def isCstMatchProp (p : Expr) : TranslateEnvT Bool := isCstMatchPropAux [p]
 
 /-- Given `f x₁ ... xₙ` return `true` when the following conditions are satisfied:
      -  ∃ i ∈ [1..n], isExplicit xᵢ ∧
@@ -172,7 +170,7 @@ def updateMatchReturnType (eType : Expr) (pType : Expr) : TranslateEnvT Expr := 
 mutual
 
 /-- Apply the following constant propagation rules on match expressions, such that:
-    Given  match₁ e₁, ..., eₙ with
+    Given match₁ e₁, ..., eₙ with
            | p₍₁₎₍₁₎, ..., p₍₁₎₍ₙ₎ => t₁
            ...
            | p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₙ₎ => tₘ
@@ -367,7 +365,7 @@ private partial def tryMatchReduction
   | none =>
       constMatchPropagation? f args mInfo fun m_r =>
         match m_r with
-        | none => k m
+        | none => k (some m)
         | re => k re
   | re => k re
 

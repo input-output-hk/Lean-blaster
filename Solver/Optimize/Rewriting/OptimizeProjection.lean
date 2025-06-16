@@ -1,5 +1,5 @@
 import Lean
-import Solver.Optimize.Rewriting.FunPropagation
+import Solver.Optimize.Rewriting.OptimizeMatch
 
 open Lean Meta Elab
 

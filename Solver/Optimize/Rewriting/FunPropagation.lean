@@ -126,26 +126,17 @@ private partial def mkAppInRhs
 private partial def normMatchApp?
   (f : Expr) (args : Array Expr)
   (k : Option Expr → TranslateEnvT (Option Expr)) : TranslateEnvT (Option Expr) := do
-  if let Expr.const n l := f then
-    if let some mInfo ← getMatcherRecInfo? n l then
-      let cInfo ← getConstInfo n
-      let matchFun ← instantiateValueLevelParams cInfo l
-      let instApp := Expr.beta matchFun (args.take mInfo.getFirstAltPos)
-      if args.size ≤ mInfo.arity then k none
-      else
-        let extra_args := args.extract mInfo.arity args.size
-        withMatchAlts n instApp $ fun alts => do
-          normMatchAppAux f args extra_args mInfo alts (args.take mInfo.arity) mInfo.getFirstAltPos k
-    else k none
+  if let some argInfo ← isMatchArg? (mkAppN f args)
+  then
+   if args.size ≤ argInfo.mInfo.arity then k none
+   else
+     let extra_args := args.extract argInfo.mInfo.arity args.size
+     withMatchAlts argInfo $ fun alts => do
+       normMatchAppAux
+         f args extra_args argInfo.mInfo alts
+         (args.take argInfo.mInfo.arity) argInfo.mInfo.getFirstAltPos k
   else k none
 
-  where
-    withMatchAlts
-      (n : Name) (instApp : Expr)
-      (f : Array Expr → TranslateEnvT (Option Expr)) : TranslateEnvT (Option Expr) := do
-        if (isCasesOnRecursor (← getEnv) n)
-        then lambdaTelescope instApp fun xs _t => f xs
-        else forallTelescope (← inferType instApp) fun xs _t => f xs
 
 private partial def normMatchAppAux
   (f : Expr) (args : Array Expr) (extra_args : Array Expr) (mInfo : MatcherInfo)
@@ -320,11 +311,6 @@ def funPropagation? (cf : Expr) (cargs : Array Expr) : TranslateEnvT (Option Exp
         lambdaBoundedTelescope rhs (max 1 nbParams) fun params body => do
           let body' ← tryAppReduction f (args.set! idxField body)
           mkLambdaFVars params body'
-
-    withMatchAlts (mInfo : MatchInfo) (f : Array Expr → TranslateEnvT Expr) : TranslateEnvT Expr := do
-      if (isCasesOnRecursor (← getEnv) mInfo.name)
-      then lambdaTelescope mInfo.instApp fun xs _t => f xs
-      else forallTelescope (← inferType mInfo.instApp) fun xs _t => f xs
 
     /-- Implements match over ctor rule -/
     matchCstProp? (f : Expr) (args : Array Expr) (idxArg : Nat) : TranslateEnvT (Option Expr) := do
