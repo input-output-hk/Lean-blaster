@@ -7,6 +7,8 @@ import Solver.Optimize.Rewriting.NormalizeMatch
 import Solver.Optimize.Rewriting.OptimizeApp
 import Solver.Optimize.Rewriting.OptimizeConst
 import Solver.Optimize.Rewriting.OptimizeForAll
+import Solver.Optimize.Rewriting.OptimizeProjection
+
 
 open Lean Elab Command Term Meta Solver.Options
 
@@ -16,8 +18,7 @@ namespace Solver.Optimize
 partial def optimizeExpr (ve : Expr) : TranslateEnvT Expr := do
   let rec visit (e : Expr) : TranslateEnvT Expr := do
     withOptimizeEnvCache e fun _ => do
-    trace[Optimize.expr] f!"optimizing {← ppExpr e}"
-    logReprExpr "Optimize:" e
+    trace[Optimize.expr] "optimizing {← ppExpr e}"
     match e with
     | Expr.fvar .. => mkExpr e
     | Expr.const .. => normConst e visit
@@ -44,13 +45,13 @@ partial def optimizeExpr (ve : Expr) : TranslateEnvT Expr := do
               mas ← mas.modifyM i visit
         -- applying choice reduction to avoid optimizing unreachable arguments in ite
         if let some re ← reduceITEChoice? rf mas visit then
-           trace[Optimize.reduceChoice] f!"choice ite reduction {reprStr rf} {reprStr mas} => {reprStr re}"
+           trace[Optimize.reduceChoice] "choice ite reduction {reprStr rf} {reprStr mas} => {reprStr re}"
            return (← visit re)
         -- applying choice reduction and match constant propagation to
         -- avoid optimizing unreachable arguments in match
         if let some re ← reduceMatchChoice? rf mas visit then
            trace[Optimize.matchConstPropagation]
-             f!"match constant propagation {reprStr rf} {reprStr mas} => {reprStr re}"
+             "match constant propagation {reprStr rf} {reprStr mas} => {reprStr re}"
            return (← visit re)
         -- apply optimization on remaining explicit parameters before reduction
         for i in [extraArgs.size:mas.size] do
@@ -60,31 +61,31 @@ partial def optimizeExpr (ve : Expr) : TranslateEnvT Expr := do
           else mas ← mas.modifyM i visit
         -- try to reduce app if all params are constructors
         if let some re ← reduceApp? rf mas then
-          trace[Optimize.reduceApp] f!"application reduction {reprStr rf} {reprStr mas} => {reprStr re}"
+          trace[Optimize.reduceApp] "application reduction {reprStr rf} {reprStr mas} => {reprStr re}"
           return (← visit re)
         -- unfold non-recursive and non-opaque functions
         -- NOTE: beta reduction performed by getUnfoldFunDef? when rf is a lambda term
         -- NOTE: we can only unfold once all parameters have been optimized.
         if let some fdef ← getUnfoldFunDef? rf mas then
-           trace[Optimize.unfoldDef] f!"unfolding function definition {reprStr rf} {reprStr mas} => {reprStr fdef}"
+           trace[Optimize.unfoldDef] "unfolding function definition {reprStr rf} {reprStr mas} => {reprStr fdef}"
            return (← visit fdef)
         -- normalizing partially apply function after unfolding non-opaque functions
         if let some pe ← normPartialFun? rf mas then
-           trace[Optimize.normPartial] f!"normalizing partial function {reprStr rf} {reprStr mas} => {reprStr pe}"
+           trace[Optimize.normPartial] "normalizing partial function {reprStr rf} {reprStr mas} => {reprStr pe}"
            return (← visit pe)
         -- normalizing ite/match function application
         if let some re ← normChoiceApplication? rf mas then
            trace[Optimize.normChoiceApp]
-             f!"normalizing choice application {reprStr rf} {reprStr mas} => {reprStr re}"
+             "normalizing choice application {reprStr rf} {reprStr mas} => {reprStr re}"
            return (← visit re)
         -- normalize match expression to ite
         if let some mdef ← normMatchExpr? rf mas visit then
-           trace[Optimize.normMatch] f!"normalizing match to ite {reprStr rf} {reprStr mas} => {reprStr mdef}"
+           trace[Optimize.normMatch] "normalizing match to ite {reprStr rf} {reprStr mas} => {reprStr mdef}"
            return (← visit mdef)
         -- applying fun propagation over ite and match
         if let some re ← funPropagation? rf mas then
            trace[Optimize.funPropagation]
-             f!"fun propagation {reprStr rf} {reprStr mas} => {reprStr re}"
+             "fun propagation {reprStr rf} {reprStr mas} => {reprStr re}"
            return (← visit re)
         normOpaqueAndRecFun rf mas visit
     | Expr.lam n t b bi => optimizeLambda n t b bi visit
@@ -98,9 +99,11 @@ partial def optimizeExpr (ve : Expr) : TranslateEnvT Expr := do
        else visit me
     | Expr.sort _ => mkExpr e -- sort is used for Type u, Prop, etc
     | Expr.proj .. =>
-        match (← reduceProj? e) with
-        | some re => visit re
-        | none => mkExpr e
+        if let some re ← optimizeProjection? e then
+          trace[Optimize.normProjection]
+             "normalizing projection {reprStr e} => {reprStr re}"
+          return (← visit re)
+        mkExpr e
     | Expr.lit .. => mkExpr e -- number or string literal: do nothing
     | Expr.mvar .. => throwEnvError f!"optimizeExpr: unexpected meta variable {e}"
     | Expr.bvar .. => throwEnvError f!"optimizeExpr: unexpected bound variable {e}"
@@ -193,6 +196,7 @@ initialize
   registerTraceClass `Optimize.normChoiceApp
   registerTraceClass `Optimize.normMatch
   registerTraceClass `Optimize.normPartial
+  registerTraceClass `Optimize.normProjection
   registerTraceClass `Optimize.reduceChoice
   registerTraceClass `Optimize.reduceApp
   registerTraceClass `Optimize.unfoldDef
