@@ -61,7 +61,7 @@ structure SolverOptions where
   the backend SMT solver is invoked. -/
   generateCex : Bool := true
 
-  /-- When set to `true`, trigger an error if the #solve command does not return a Falisifed status. -/
+  /-- When set to `true`, trigger an error if the #solve command does not return a Falsified status. -/
   solveResult : ExpectedResult := .ExpectedValid
  deriving Repr
 
