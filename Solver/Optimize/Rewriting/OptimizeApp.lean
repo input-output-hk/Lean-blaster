@@ -101,50 +101,53 @@ def reduceITEChoice?
      | _ => return none
 
 
-/-- Perform constant propagation and apply simplifcation and normalization rules
+/-- Perform constant propagation and apply simplification and normalization rules
     on application expressions.
 -/
 def optimizeApp (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
   if let some e ← optimizePropNot? f args then
-    trace[Optimize.propNot] f!"PropNot: {reprStr (mkAppN f args)} ==> {reprStr e}"
+    trace[Optimize.propNot] "PropNot: {reprStr (mkAppN f args)} ==> {reprStr e}"
     return e
   if let some e ← optimizePropBinary? f args then
-    trace[Optimize.propBinary] f!"PropBinary: {reprStr (mkAppN f args)} ==> {reprStr e}"
+    trace[Optimize.propBinary] "PropBinary: {reprStr (mkAppN f args)} ==> {reprStr e}"
     return e
   if let some e ← optimizeBoolNot? f args then
-    trace[Optimize.boolNot] f!"BoolNot: {reprStr (mkAppN f args)} ==> {reprStr e}"
+    trace[Optimize.boolNot] "BoolNot: {reprStr (mkAppN f args)} ==> {reprStr e}"
     return e
   if let some e ← optimizeBoolBinary? f args then
-    trace[Optimize.boolBinary] f!"BoolBinary: {reprStr (mkAppN f args)} ==> {reprStr e}"
+    trace[Optimize.boolBinary] "BoolBinary: {reprStr (mkAppN f args)} ==> {reprStr e}"
     return e
   if let some e ← optimizeEquality? f args then
-    trace[Optimize.equality] f!"Equality: {reprStr (mkAppN f args)} ==> {reprStr e}"
+    trace[Optimize.equality] "Equality: {reprStr (mkAppN f args)} ==> {reprStr e}"
     return e
   if let some e ← optimizeIfThenElse? f args then
-    trace[Optimize.ite] f!"IfThenElse: {reprStr (mkAppN f args)} ==> {reprStr e}"
+    trace[Optimize.ite] "IfThenElse: {reprStr (mkAppN f args)} ==> {reprStr e}"
     return e
   if let some e ← optimizeNat? f args then
-    trace[Optimize.nat] f!"Nat: {reprStr (mkAppN f args)} ==> {reprStr e}"
+    trace[Optimize.nat] "Nat: {reprStr (mkAppN f args)} ==> {reprStr e}"
     return e
   if let some e ← optimizeInt? f args then
-    trace[Optimize.int] f!"Int: {reprStr (mkAppN f args)} ==> {reprStr e}"
+    trace[Optimize.int] "Int: {reprStr (mkAppN f args)} ==> {reprStr e}"
+    return e
+  if let some e ← elimMatch? f args then
+    trace[Optimize.elimMatch] "ElimMatch: {reprStr (mkAppN f args)} ==> {reprStr e}"
     return e
   if let some e ← structEqMatch? f args then
-    trace[Optimize.eqMatch] f!"EqMatch: {reprStr (mkAppN f args)} ==> {reprStr e}"
+    trace[Optimize.eqMatch] "EqMatch: {reprStr (mkAppN f args)} ==> {reprStr e}"
     return e
   if let some e ← optimizeExists? f args then
-    trace[Optimize.exists] f!"Exists: {reprStr (mkAppN f args)} ==> {reprStr e}"
+    trace[Optimize.exists] "Exists: {reprStr (mkAppN f args)} ==> {reprStr e}"
     return e
   if let some e ← optimizeDecide? f args then
-    trace[Optimize.decide] f!"Decide: {reprStr (mkAppN f args)} ==> {reprStr e}"
+    trace[Optimize.decide] "Decide: {reprStr (mkAppN f args)} ==> {reprStr e}"
     return e
   if let some e ← optimizeRelational? f args then
-    trace[Optimize.relational] f!"Relational: {reprStr (mkAppN f args)} ==> {reprStr e}"
+    trace[Optimize.relational] "Relational: {reprStr (mkAppN f args)} ==> {reprStr e}"
     return e
   if let some e ← optimizeString? f args then
-    trace[Optimize.string] f!"String: {reprStr (mkAppN f args)} ==> {reprStr e}"
+    trace[Optimize.string] "String: {reprStr (mkAppN f args)} ==> {reprStr e}"
     return e
-  trace[Optimize.app] f!"Unchanged: {reprStr (mkAppN f args)}"
+  trace[Optimize.app] "Unchanged: {reprStr (mkAppN f args)}"
   let appExpr := mkAppN f args
   if (← isResolvableType appExpr)
   then mkExpr (← resolveTypeAbbrev appExpr)
@@ -208,34 +211,34 @@ def normOpaqueAndRecFun
  let isOpaqueRec ← isOpaqueRecFun uf uargs
  if (← isRecursiveFun n) || isOpaqueRec
  then
-   trace[Optimize.recFun] f!"normalizing rec function {n}"
+   trace[Optimize.recFun] "normalizing rec function {n}"
    let (f, args) ← resolveOpaque uf uargs isOpaqueRec
-   trace[Optimize.recFun] f!"resolved opaque instance {reprStr f} {reprStr args}"
+   trace[Optimize.recFun] "resolved opaque instance {reprStr f} {reprStr args}"
    -- retrieve implicit arguments
    let params ← getImplicitParameters f args
-   trace[Optimize.recFun] f!"implicit arguments for {n} ==> {reprStr params}"
+   trace[Optimize.recFun] "implicit arguments for {n} ==> {reprStr params}"
    -- get instance application
    let instApp ← getInstApp f params
    if (← isVisitedRecFun instApp) then
-     trace[Optimize.recFun] f!"rec function instance {instApp} is in visiting cache"
+     trace[Optimize.recFun] "rec function instance {instApp} is in visiting cache"
      optimizeRecApp f params -- already cached
    else
      if let some r ← hasRecFunInst? instApp then
-        trace[Optimize.recFun] f!"rec function instance {instApp} is already equivalent to {reprStr r}"
+        trace[Optimize.recFun] "rec function instance {instApp} is already equivalent to {reprStr r}"
         return (← optimizeRecApp r params)
      cacheFunName instApp -- cache function name
      let some fbody ← getFunBody f
-       | throwEnvError f!"normOpaqueAndRecFun: recursive function body expected for {reprStr f}"
+       | throwEnvError "normOpaqueAndRecFun: recursive function body expected for {reprStr f}"
      -- instantiating polymorphic parameters in fun body
      let fdef ← generalizeRecCall f params fbody
-     trace[Optimize.recFun] f!"generalizing rec body for {n} got {reprStr fdef}"
+     trace[Optimize.recFun] "generalizing rec body for {n} got {reprStr fdef}"
      -- optimize recursive fun definition and store
      let optDef ← optimizer fdef
      -- remove from visiting cache
      uncacheFunName instApp
      let subsInst ← opaqueInstApp uf uargs isOpaqueRec instApp
      let fn' ← storeRecFunDef subsInst params optDef
-     trace[Optimize.recFun] f!"rec function instance {subsInst} is equivalent to {reprStr fn'}"
+     trace[Optimize.recFun] "rec function instance {subsInst} is equivalent to {reprStr fn'}"
      optimizeRecApp fn' params
    else optimizeApp uf uargs -- optimizations on opaque functions
 
@@ -266,7 +269,7 @@ def normOpaqueAndRecFun
    resolveOpaque (f : Expr) (args : Array Expr) (isOpaqueRec : Bool) : TranslateEnvT (Expr × Array Expr) := do
      if isOpaqueRec then
        let some auxApp ← unfoldOpaqueFunDef f args
-         | throwEnvError f!"resolveOpaque: unfolded definition expected for {reprStr f}"
+         | throwEnvError "resolveOpaque: unfolded definition expected for {reprStr f}"
        if auxApp.isLambda then
          -- partially applied function
          let appCall := getLambdaBody auxApp
@@ -296,12 +299,12 @@ def normOpaqueAndRecFun
      if params.isEmpty then return rf
      if (← exprEq uf rf) then
        -- case for when same recurisve call
-       trace[Optimize.recFun.app] f!"same recursive call case {reprStr rf} {reprStr uargs}"
+       trace[Optimize.recFun.app] "same recursive call case {reprStr rf} {reprStr uargs}"
        optimizeApp rf uargs
      else if rf.isConst then
          -- case when a polymorphic/non-polymorphic function is equivalent to another non-polymorphic one
          let eargs := Array.filterMap (λ p => if !p.isInstance then some p.effectiveArg else none) params
-         trace[Optimize.recFun.app] f!"non-polymorphic equivalent case {reprStr rf} {reprStr eargs}"
+         trace[Optimize.recFun.app] "non-polymorphic equivalent case {reprStr rf} {reprStr eargs}"
          optimizeApp rf eargs
      else
        let eargs := getEffectiveParams params
@@ -310,10 +313,10 @@ def normOpaqueAndRecFun
          -- case for partially applied functions, i.e., some explicit arguments not provided
          let appCall := getLambdaBody auxApp
          let largs := appCall.getAppArgs
-         trace[Optimize.recFun.app] f!"partially applied case {reprStr appCall.getAppFn'} {reprStr largs[0:largs.size-auxApp.getNumHeadLambdas]}"
+         trace[Optimize.recFun.app] "partially applied case {reprStr appCall.getAppFn'} {reprStr largs[0:largs.size-auxApp.getNumHeadLambdas]}"
          optimizeApp appCall.getAppFn' (largs.take (largs.size-auxApp.getNumHeadLambdas))
        else
-         trace[Optimize.recFun.app] f!"polymorphic equivalent case {reprStr auxApp.getAppFn'} {reprStr auxApp.getAppArgs}"
+         trace[Optimize.recFun.app] "polymorphic equivalent case {reprStr auxApp.getAppFn'} {reprStr auxApp.getAppArgs}"
          optimizeApp auxApp.getAppFn' auxApp.getAppArgs
 
 initialize
@@ -329,6 +332,7 @@ initialize
   registerTraceClass `Optimize.nat
   registerTraceClass `Optimize.int
   registerTraceClass `Optimize.eqMatch
+  registerTraceClass `Optimize.elimMatch
   registerTraceClass `Optimize.exists
   registerTraceClass `Optimize.decide
   registerTraceClass `Optimize.relational

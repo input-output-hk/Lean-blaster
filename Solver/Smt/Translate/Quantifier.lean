@@ -540,7 +540,7 @@ def translateInductiveType
 
   genIndParams (indVal : InductiveVal) : TranslateEnvT (Option (Array SmtSymbol)) := do
    let params ←
-     forallTelescope indVal.type fun xs _ => do
+     Optimize.forallTelescope indVal.type fun xs _ => do
         let mut polyParams := #[]
         for i in [: xs.size] do
           let arg := xs[i]!
@@ -560,7 +560,7 @@ def translateInductiveType
   createCtorDeclaration (recVal : RecursorVal) (recRule : RecursorRule) : TranslateEnvT SmtConstructorDecl := do
     let ctorSym := nameToSmtSymbol recRule.ctor
     let firstCtorFieldIdx := recVal.numParams + recVal.numMotives + recVal.numMinors
-    forallTelescope (← inferType recRule.rhs) fun xs _ => do
+    Optimize.forallTelescope (← inferType recRule.rhs) fun xs _ => do
       if recRule.nfields == 0 then return (ctorSym, none) -- nullary constructor
       let mut selectors := #[]
       for i in [firstCtorFieldIdx : xs.size] do
@@ -704,7 +704,7 @@ where
     let firstCtorFieldIdx := recVal.numMotives + recVal.numMinors
     -- NOTE: recVal.numParams is ignored here when determining firstCtorFieldIdx
     -- as we are instantiating the datatype parameters
-    forallTelescope (← inferType auxApp) fun xs _ => do
+    Optimize.forallTelescope (← inferType auxApp) fun xs _ => do
       -- list to replace each ctor field with appropriate selector name
       let mut substituteList := []
       -- list of prop terms generated for each proposition argument (if any) of the current ctor
@@ -1011,7 +1011,7 @@ def translateQuantifier
 def translateForAll
   (e : Expr) (optimizer : Expr → TranslateEnvT Expr)
   (termTranslator : Expr → TranslateEnvT SmtTerm) : QuantifierEnvT SmtTerm := do
- forallTelescope e fun xs b => do
+ Optimize.forallTelescope e fun xs b => do
    for i in [:xs.size] do
      let t ← inferType xs[i]!
      if (← isProp t) then

@@ -6,6 +6,30 @@ open Lean Meta Elab
 namespace Solver.Optimize
 
 
+structure MatchInfo where
+  /-- Name of match -/
+  name : Name
+  /-- Name expression of match -/
+  nameExpr : Expr
+  /-- Match arguments -/
+  args : Array Expr
+  /-- match instantiation -/
+  instApp : Expr
+  /-- MatcherInfo for match -/
+  mInfo : MatcherInfo
+
+/-- Determine if `e` is an `match` expression and return a MatchInfo instance.
+    Otherwise return `none`.
+-/
+def isMatcher? (e : Expr) : TranslateEnvT (Option MatchInfo) := do
+ let (pm, args) := getAppFnWithArgs e
+ let Expr.const n l := pm | return none
+ let some mInfo ← getMatcherRecInfo? n l | return none
+ let cInfo ← getConstInfo n
+ let matchFun ← instantiateValueLevelParams cInfo l
+ let instApp := Expr.beta matchFun (args.take mInfo.getFirstAltPos)
+ return some { name := n, nameExpr := pm, args, instApp, mInfo}
+
 /-- Return `true` is p is a nat, integer or string literal expression. -/
 def isCstLiteral (p : Expr) : Bool :=
   (isNatValue? p).isSome || (isIntValue? p).isSome || (isStrValue? p).isSome
@@ -158,7 +182,7 @@ partial def removeNamedPatternExpr (optimizer : Expr -> TranslateEnvT Expr) (p :
 -/
 def withModifyFVarValue (fv : FVarId) (v : Expr) (k : TranslateEnvT α) : TranslateEnvT α := do
  let lctx := (← getLCtx).modifyLocalDecl fv declModifier
- withLCtx lctx (← getLocalInstances) k
+ withLCtx' lctx k
 
  where
    declModifier (d : LocalDecl) : LocalDecl :=
@@ -540,7 +564,7 @@ def normMatchExprAux?
      return (mkApp5 (← mkIteOp) (← inferType rhs) condTerm decideExpr thenExpr elseExpr)
 
 
-/-- A generic match expression rewriter that given a `match` application expression `f args`
+/-- A generic match expression rewriter that given a `MatchInfo` instance representing a match application,
     apply the `rewriter` function on each match pattern. The `rewriter` function
     is applied from the last match pattern to the first one.
     Concretely, given a match expression of the form:
@@ -559,28 +583,20 @@ def normMatchExprAux?
      - the `Nat` argument corresponding to the traversed index, starting with 0.
    NOTE: The evaluation stops when at least one of the `rewriter` invocation return `none`.
 -/
-@[specialize]
+-- @[specialize]
 def matchExprRewriter
-    (f : Expr) (args : Array Expr)
+    (mInfo : MatchInfo)
     (optimizer : Expr -> TranslateEnvT Expr)
-    (rewriter : Nat → Array Expr → Array Expr → Expr → Option α → TranslateEnvT (Option α))
-    : TranslateEnvT (Option α) := do
-  match f with
-    | Expr.const n dlevel =>
-        let some mInfo ← getMatcherRecInfo? n dlevel | return none
-        trace[Optimize.normMatch.expr] f!"attempting normalization on {reprStr f} {reprStr args}"
-        let cInfo ← getConstInfo n
-        let discrs := args.extract mInfo.getFirstDiscrPos mInfo.getFirstAltPos
-        let rhs := args.extract mInfo.getFirstAltPos mInfo.arity
-        let matchFun ← instantiateValueLevelParams cInfo dlevel
-        let auxApp := Expr.beta matchFun (args.take mInfo.getFirstAltPos)
-        if (isCasesOnRecursor (← getEnv) n) then
-          lambdaTelescope auxApp fun xs _t =>
-            commonMatchRewriter discrs xs[xs.size - rhs.size:] rhs
-        else
-          forallTelescope (← inferType auxApp) fun xs _t =>
-            commonMatchRewriter discrs xs[xs.size - rhs.size:] rhs
-    | _ => pure none
+    (rewriter : Nat → Array Expr → Array Expr → Expr → Option α → TranslateEnvT (Option α)) :
+    TranslateEnvT (Option α) := do
+    let discrs := mInfo.args.extract mInfo.mInfo.getFirstDiscrPos mInfo.mInfo.getFirstAltPos
+    let rhs := mInfo.args.extract mInfo.mInfo.getFirstAltPos mInfo.mInfo.arity
+    if (isCasesOnRecursor (← getEnv) mInfo.name) then
+      lambdaTelescope mInfo.instApp fun xs _t =>
+        commonMatchRewriter discrs xs[xs.size - rhs.size:] rhs
+    else
+      forallTelescope (← inferType mInfo.instApp) fun xs _t =>
+        commonMatchRewriter discrs xs[xs.size - rhs.size:] rhs
 
   where
     commonMatchRewriter
@@ -593,12 +609,12 @@ def matchExprRewriter
         accExpr ←
           forallTelescope (← inferType alts[idx]!) fun _xs b => do
             let mut lhs := b.getAppArgs
-            trace[Optimize.normMatch.pattern] f!"match patterns to optimize {reprStr lhs}"
+            trace[Optimize.normMatch.pattern] "match patterns to optimize {reprStr lhs}"
             -- NOTE: lhs has not been normalized as is kept at the type level.
             -- normalizing lhs
             for j in [:lhs.size] do
               lhs ← lhs.modifyM j optimizer
-            trace[Optimize.normMatch.optPattern] f!"optimized match patterns {reprStr lhs}"
+            trace[Optimize.normMatch.optPattern] "optimized match patterns {reprStr lhs}"
             rewriter i discrs lhs rhs[idx]! accExpr
         unless (accExpr.isSome) do return accExpr -- break if accExpr is still none
       return accExpr
@@ -684,11 +700,24 @@ def matchExprRewriter
            := (mkCstLet x₁ (.. (mkCstLet xₖ₋₁ (mkCstLet xₙ t)))) if e = C x₁ ... xₖ
            := ⊥  otherwise
 -/
-def normMatchExpr? (f : Expr) (args : Array Expr) (optimizer : Expr -> TranslateEnvT Expr) :=
-  matchExprRewriter f args optimizer (normMatchExprAux? optimizer)
+def normMatchExpr?
+  (f : Expr) (args : Array Expr)
+  (optimizer : Expr -> TranslateEnvT Expr) : TranslateEnvT (Option Expr) := do
+  let some mInfo ← isMatcher? (mkAppN f args) | return none
+  if !(← hasDecidableEq mInfo) then return none
+  matchExprRewriter mInfo optimizer (normMatchExprAux? optimizer)
+
+  where
+    /-- Determines if all discriminators has a DecidableEq instance -/
+    hasDecidableEq (mInfo : MatchInfo) : TranslateEnvT Bool := do
+     let eqOpExpr ← mkEqOp
+     for i in mInfo.mInfo.getDiscrRange do
+       let eqExpr := mkApp3 eqOpExpr (← inferType mInfo.args[i]!) mInfo.args[i]! mInfo.args[i]!
+       if (← trySynthDecidableInstance? eqExpr).isNone then
+         return false
+     return true
 
 initialize
-  registerTraceClass `Optimize.normMatch.expr
   registerTraceClass `Optimize.normMatch.optPattern
   registerTraceClass `Optimize.normMatch.pattern
 

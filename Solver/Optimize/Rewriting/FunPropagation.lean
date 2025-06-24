@@ -126,7 +126,7 @@ private partial def mkAppInRhs
 private partial def normMatchApp?
   (f : Expr) (args : Array Expr)
   (k : Option Expr → TranslateEnvT (Option Expr)) : TranslateEnvT (Option Expr) := do
-  if let some argInfo ← isMatchArg? (mkAppN f args)
+  if let some argInfo ← isMatcher? (mkAppN f args)
   then
    if args.size ≤ argInfo.mInfo.arity then k none
    else
@@ -314,7 +314,7 @@ def funPropagation? (cf : Expr) (cargs : Array Expr) : TranslateEnvT (Option Exp
 
     /-- Implements match over ctor rule -/
     matchCstProp? (f : Expr) (args : Array Expr) (idxArg : Nat) : TranslateEnvT (Option Expr) := do
-      if let some argInfo ← isMatchArg? args[idxArg]!
+      if let some argInfo ← isMatcher? args[idxArg]!
       then
         -- NOTE: can't be an applied match (e.g., applied to more argInfo.mInfo.arity arguments)
         if argInfo.args.size > argInfo.mInfo.arity

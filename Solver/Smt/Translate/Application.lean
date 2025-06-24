@@ -1,5 +1,6 @@
 import Lean
 import Solver.Optimize.Rewriting.OptimizeITE
+import Solver.Optimize.Telescope
 import Solver.Smt.Env
 import Solver.Smt.Translate.Match
 import Solver.Smt.Translate.Quantifier
@@ -482,7 +483,7 @@ partial def translateRecFun
       let .SimpleIdent s := id
         | throwEnvError f!"updateFunDefinition: SimpleIdent expected but got {id}"
       let fInfo ← getFunInfo fbody
-      lambdaTelescope fbody fun xs b => do
+      Optimize.lambdaTelescope fbody fun xs b => do
         let mut params := (#[] : SortedVars)
         for i in [:xs.size] do
           let Expr.fvar v := xs[i]!
@@ -754,7 +755,7 @@ def translateApp
        | _ => return none
 
     genExistsTerm (lambdaE : Expr) : QuantifierEnvT SmtTerm := do
-      lambdaTelescope lambdaE fun xs b => do
+      Optimize.lambdaTelescope lambdaE fun xs b => do
         for i in [:xs.size] do
           let t ← inferType xs[i]!
           translateQuantifier xs[i]! t optimizer termTranslator
@@ -807,7 +808,7 @@ def translateApp
          let ConstantInfo.defnInfo dInfo ← getConstInfo n
            | throwEnvError f!"translateUndeclaredFun?: no defnInfo for {n}"
          let fInfo ← getFunInfo f
-         withTranslateRecBody $ forallTelescope dInfo.type fun xs b => do
+         withTranslateRecBody $ Optimize.forallTelescope dInfo.type fun xs b => do
             let mut pargs := (#[] : Array SortExpr)
             for i in [:xs.size] do
               let Expr.fvar v := xs[i]!
@@ -849,7 +850,7 @@ def translateLambda
   (e : Expr) (optimizer : Expr → TranslateEnvT Expr)
   (termTranslator : Expr → TranslateEnvT SmtTerm) : TranslateEnvT SmtTerm := do
  let fInfo ← getFunInfo e
- lambdaTelescope e fun xs b => do
+ Optimize.lambdaTelescope e fun xs b => do
    let mut svars := (#[] : SortedVars)
    for i in [:xs.size] do
      let Expr.fvar v := xs[i]!

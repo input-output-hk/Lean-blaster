@@ -68,7 +68,7 @@ def optimizeProjection? (e : Expr) : TranslateEnvT (Option Expr) := do
         mkLambdaFVars params (mkProj typeName idx body)
 
     matchProj? (typeName : Name) (idx : Nat) (struct : Expr) : TranslateEnvT (Option Expr) := do
-      let some argInfo ← isMatchArg? struct | return none
+      let some argInfo ← isMatcher? struct | return none
       let idxType := argInfo.mInfo.getFirstDiscrPos - 1
       let retType ← inferType e
       withMatchAlts argInfo $ fun alts => do

@@ -1,5 +1,5 @@
 import Lean
-import Solver.Optimize.Env
+import Solver.Optimize.Telescope
 
 open Lean Meta Declaration
 

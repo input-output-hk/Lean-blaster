@@ -26,7 +26,7 @@ partial def optimizeExpr (ve : Expr) : TranslateEnvT Expr := do
         let t' ← visit t
         withLocalDecl n bi t' fun x => do
           let hyps ← addHypotheses t' (some x)
-          optimizeForall x t' hyps.2 (← withHypothesis hyps $ visit (b.instantiate1 x))
+          optimizeForall x t' hyps.2 (← withHypothesis hyps $ do visit (b.instantiate1 x))
     | Expr.app .. =>
         let (f, ras) := getAppFnWithArgs e
         -- calling normConst explicitly for `const` case to avoid
@@ -136,15 +136,19 @@ partial def optimizeExpr (ve : Expr) : TranslateEnvT Expr := do
       if isIteConst rf then
        if idx == 3 then
          let hyps ← addHypotheses mas[1]! none
-         withHypothesis hyps $ mas.modifyM idx optimizer
+         withHypothesis hyps $ do mas.modifyM idx optimizer
        else if idx == 4 then
          let notExpr ← optimizeNot (← mkPropNotOp) #[mas[1]!]
          let hyps ← addHypotheses notExpr none
-         withHypothesis hyps $ mas.modifyM idx optimizer
+         withHypothesis hyps $ do mas.modifyM idx optimizer
        else mas.modifyM idx optimizer
       else if isDiteConst rf then
         if idx == 3 || idx == 4 then mas.modifyM idx (optimizeDiteArg optimizer)
         else mas.modifyM idx optimizer
+      else if let some argInfo ← isMatcher? (mkAppN rf mas) then
+         if idx >= argInfo.mInfo.getFirstAltPos && idx < argInfo.mInfo.arity then
+           mas.modifyM idx (optimizeMatchAlt argInfo mas optimizer idx)
+         else mas.modifyM idx optimizer
       else mas.modifyM idx optimizer
 
 
