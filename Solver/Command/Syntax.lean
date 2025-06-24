@@ -34,17 +34,23 @@ syntax solveOptimize := ("(only-optimize:" num ")")?
 syntax solveDumpSmt := ("(dump-smt-lib:" num ")")?
 syntax solveGenCex := ("(gen-cex:" num ")")?
 syntax solveResult := ("(solve-result:" num ")")?
+syntax solveMaxDepth := ("(max-depth:" num ")")?
 
 -- NOTE: Limited to one term for the time being
 syntax solveTerm := "[" term "]"
 syntax (name := solve) "#solve"
   solveUnfoldDepth solveTimeout
-  solveVerbose solveSMTLib solveOptimize solveDumpSmt solveGenCex
+  solveVerbose solveSMTLib solveOptimize solveDumpSmt solveMaxDepth solveGenCex
   solveResult solveTerm : command
 
 def parseUnfoldDepth (sOpts : SolverOptions) : TSyntax `solveUnfoldDepth -> CommandElabM SolverOptions
  | `(solveUnfoldDepth| (unfold-depth: $n:num)) => return { sOpts with unfoldDepth := n.getNat }
  | `(solveUnfoldDepth| ) => return sOpts
+ | _ => throwUnsupportedSyntax
+
+def parseMaxDepth (sOpts : SolverOptions) : TSyntax `solveMaxDepth -> CommandElabM SolverOptions
+ | `(solveMaxDepth| (max-depth: $n:num)) => return { sOpts with maxDepth := n.getNat }
+ | `(solveMaxDepth| ) => return sOpts
  | _ => throwUnsupportedSyntax
 
 def parseTimeout (sOpts : SolverOptions) : TSyntax `solveTimeout -> CommandElabM SolverOptions
@@ -111,8 +117,8 @@ def parseTerm : TSyntax `Solver.solveTerm -> CommandElabM Syntax
 def solveImp : CommandElab := fun stx => do
   let sOpts ← parseVerbose (← parseTimeout (← parseUnfoldDepth default ⟨stx[1]⟩) ⟨stx[2]⟩) ⟨stx[3]⟩
   let sOpts ← parseDumpSmt (← parseOptimize (← parseSmtLib sOpts ⟨stx[4]⟩) ⟨stx[5]⟩) ⟨stx[6]⟩
-  let sOpts ← parseSolveResult (← parseGenCex sOpts ⟨stx[7]⟩) ⟨stx[8]⟩
-  let tr ← parseTerm ⟨stx[9]⟩
+  let sOpts ← parseSolveResult (← parseGenCex (← parseMaxDepth sOpts ⟨stx[7]⟩) ⟨stx[8]⟩) ⟨stx[9]⟩
+  let tr ← parseTerm ⟨stx[10]⟩
   withoutModifyingEnv $ runTermElabM fun _ =>
     Solver.Smt.command sOpts tr
 

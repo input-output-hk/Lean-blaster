@@ -10,10 +10,10 @@ open Lean Elab Command Term Meta Solver.Optimize Solver.Options
 namespace Solver.Smt
 
 /-- Translate an optimized Lean4 `Expr` to an SMT term, and invoke the solver. --/
-partial def translateExpr (e : Expr) : TranslateEnvT Unit := do
+partial def translateExpr (e : Expr) : TranslateEnvT SmtTerm := do
   let rec visit (e : Expr) (topLevel := false) : TranslateEnvT SmtTerm := do
     withTranslateEnvCache e fun _ => do
-    trace[Translate.expr] f!"translating {reprStr e}"
+    trace[Translate.expr] "translating {reprStr e}"
     logReprExpr "Translate:" e
     if let some n := isIntValue? e then return intLitSmt n
     if let some n := isNatValue? e then return natLitSmt n
@@ -25,7 +25,7 @@ partial def translateExpr (e : Expr) : TranslateEnvT Unit := do
      | Expr.forallE .. =>
          let qtyEnv := initialQuantifierEnv topLevel
          let (t, _) ← translateForAll e optimizeExpr visit |>.run qtyEnv
-         trace[Translate.forAll] f!"translate forall {reprStr e} ==> {t}"
+         trace[Translate.forAll] "translate forall {reprStr e} ==> {t}"
          return t
      | Expr.app .. => translateApp e optimizeExpr visit
      | Expr.lam .. => translateLambda e optimizeExpr visit
@@ -41,19 +41,11 @@ partial def translateExpr (e : Expr) : TranslateEnvT Unit := do
      | Expr.bvar .. => throwEnvError f!"translateExpr: unexpected bounded variable {reprStr e}"
      | Expr.letE .. => throwEnvError f!"translateExpr: unexpected let expression {reprStr e}"
      | Expr.sort _ => throwEnvError f!"translateExpr: unexpected sort type {reprStr e}" -- sort type are handled elsewhere
-  let st ← visit e (topLevel := true)
-  -- assert negation for check sat
-  assertTerm (notSmt st)
-  -- dump smt commands submitted to backend solver when `dumpSmtLib` option is set.
-  logSmtQuery
-  logResult (← checkSat)
-  -- TODO: spawn lean proof mode when result is undetermined
-  discard $ exitSmt
-
+  visit e (topLevel := true)
 
 def Translate.main (e : Expr) : TranslateEnvT Unit := do
-    let optExpr ← Optimize.main (← toPropExpr e)
-    trace[Translate.optExpr] f!"optimized expression: {← ppExpr optExpr}"
+    let optExpr ← profileTask "Optimization" $ Optimize.main (← toPropExpr e)
+    trace[Translate.optExpr] "optimized expression: {← ppExpr optExpr}"
     match (toResult optExpr) with
     | res@(.Undetermined) =>
         if (← get).optEnv.options.solverOptions.onlyOptimize
@@ -61,7 +53,16 @@ def Translate.main (e : Expr) : TranslateEnvT Unit := do
         else
           -- set backend solver
           setSolverProcess
-          translateExpr optExpr
+          let st ← profileTask "Translation" $ translateExpr optExpr
+          -- assert negation for check sat
+          profileTask "Submitting Smt Query" $ assertTerm (notSmt st)
+          -- dump smt commands submitted to backend solver when `dumpSmtLib` option is set.
+          logSmtQuery
+          let res ← profileTask "Solve" checkSat
+          discard $ exitSmt
+          -- TODO: spawn lean proof mode when result is undetermined
+          logResult res
+
     | res => logResult res
 
   where

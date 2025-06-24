@@ -1,6 +1,7 @@
 import Lean
 import Solver.Command.Options
 import Solver.Optimize.Env
+import Solver.Smt.EmitCommand
 
 open Lean Meta Solver.Optimize Solver.Options
 
@@ -20,6 +21,11 @@ def toResult (e : Expr) : Result :=
  | Expr.const ``False _  => Result.Falsified []
  | _ => Result.Undetermined
 
+
+def isValidResult (r : Result) : Bool :=
+  match r with
+  | .Valid => true
+  | _ => false
 
 def isFalsifiedResult (r : Result) : Bool :=
   match r with
@@ -141,21 +147,30 @@ partial def getOutputEval (h : IO.FS.Handle) : IO String := do
       let line ← h.getLine
       getIndValue (acc ++ line) (tallyParenthesis line tally)
 
+/-- Push smt command `c` in the translation environment only when sOpts.dumpSmtLib is set -/
+def storeCommand (c : SmtCommand) : TranslateEnvT Unit := do
+  if (← get).optEnv.options.solverOptions.dumpSmtLib then
+    modify (fun env => { env with smtEnv.smtCommands := env.smtEnv.smtCommands.push c })
+  else pure ()
 
-/-- Push smt command `c` in the translation environment and forward it
-    to the backend solver if the corresponding process has been created.
+/-- Return `true` when the smtProc has been initialized -/
+def isSmtProcSet : TranslateEnvT Bool :=
+  return (← get).smtEnv.smtProc.isSome
+
+/-- Push smt command `c` in the translation environment only when sOpts.dumpSmtLib is set.
+    The command is piped to the backend solver if the corresponding process has been created.
     An error is triggered when the `checkSuccess` flag is set and
     not `success` output is produced.
     NOTE: The `checkSuccess` is to be set only for Smt command that
     are NOT expected to produce any output.
 -/
 partial def trySubmitCommand! (c : SmtCommand) (checkSuccess := true) : TranslateEnvT Unit := do
-  modify (fun env => { env with smtEnv.smtCommands := env.smtEnv.smtCommands.push c })
-  let some p := (← get).smtEnv.smtProc | return ()
-  p.stdin.putStrLn s!"{c}"
-  p.stdin.flush
+  storeCommand c
+  if !(← isSmtProcSet) then return ()
+  c.emit
+  let h ← getProcStdOut
   if !checkSuccess then return ()
-  let out ← p.stdout.getLine
+  let out ← h.getLine
   match out with
   | "success\n" => return ()
   | err => throwEnvError s!"Unexpected smt error: {err} for {c}"
@@ -328,32 +343,28 @@ def defineIntEMod : TranslateEnvT Unit := do
 
 /-- Define Int.tdiv Smt function, i.e.,
       @Int.tdiv x y :=
-        (let (t (ite (< x 0) (div (- x) y) (div x y)))
-             (ite (= 0 y) 0 (ite (< x 0) (- t) t)))
+         (ite (= 0 y) 0 (ite (< x 0) (- (div (- x) y)) (div x y)))
 -/
 def defineIntTDiv : TranslateEnvT Unit := do
-  let tsym := mkReservedSymbol "@t"
-  let tId := smtSimpleVarId tsym
   let natZero := natLitSmt 0
-  let xLtZero := λ xId => ltSmt xId natZero
-  let lbody := λ xId yId => iteSmt (eqSmt natZero yId) natZero (iteSmt (xLtZero xId) (negSmt tId) tId)
   let fdef := λ xId yId =>
-    mkLetTerm #[(tsym, iteSmt (xLtZero xId) (divSmt (negSmt xId) yId) (divSmt xId yId))] (lbody xId yId)
+      iteSmt
+        (eqSmt natZero yId) natZero
+        (iteSmt (ltSmt xId natZero)
+          (negSmt (divSmt (negSmt xId) yId)) (divSmt xId yId))
   defineBinFun tdivSymbol intSort intSort intSort fdef
 
 /-- Define Int.tmod Smt function, i.e.,
      @Int.tmod x y :=
-       (let (t (ite (< x 0) (mod (- x) y) (mod x y)))
-            (ite (= 0 y) x (ite (< x 0) (- t) t)))
+       (ite (= 0 y) x (ite (< x 0) (- (mod (- x) y)) (mod x y)))
 -/
 def defineIntTMod : TranslateEnvT Unit := do
-  let tsym := mkReservedSymbol "@t"
-  let tId := smtSimpleVarId tsym
   let natZero := natLitSmt 0
-  let xLtZero := λ xId => ltSmt xId natZero
-  let lbody := λ xId yId => iteSmt (eqSmt natZero yId) xId (iteSmt (xLtZero xId) (negSmt tId) tId)
   let fdef := λ xId yId =>
-    mkLetTerm #[(tsym, iteSmt (xLtZero xId) (modSmt (negSmt xId) yId) (modSmt xId yId))] (lbody xId yId)
+      iteSmt
+        (eqSmt natZero yId) xId
+        (iteSmt (ltSmt xId natZero)
+          (negSmt (modSmt (negSmt xId) yId)) (modSmt xId yId))
   defineBinFun tmodSymbol intSort intSort intSort fdef
 
 /-- Define Int.fdiv Smt function, i.e.,
@@ -362,26 +373,23 @@ def defineIntTMod : TranslateEnvT Unit := do
  -/
 def defineIntFDiv : TranslateEnvT Unit := do
   let natZero := natLitSmt 0
-  let yLtZero := λ yId => ltSmt yId natZero
-  let innerIte := λ xId yId => iteSmt (yLtZero yId) (divSmt (negSmt xId) (negSmt yId)) (divSmt xId yId)
+  let innerIte := λ xId yId =>
+      iteSmt (ltSmt yId natZero) (divSmt (negSmt xId) (negSmt yId)) (divSmt xId yId)
   let fdef := λ xId yId => iteSmt (eqSmt natZero yId) natZero (innerIte xId yId)
   defineBinFun fdivSymbol intSort intSort intSort fdef
 
 /-- Define Int.fmod Smt function, i.e.,
      @Int.fmod x y :=
-       (let (t (ite (and (< x 0) (< y 0)) (mod (- x) y) (mod x y)))
-            (ite (= 0 y) x (ite (and (< x 0) (< y 0)) (- t) t)))
+       (ite (= 0 y) x (ite (and (< x 0) (< y 0)) (- (mod (- x) y)) (mod x y))))
 -/
 def defineIntFMod : TranslateEnvT Unit := do
-  let tsym := mkReservedSymbol "@t"
-  let tId := smtSimpleVarId tsym
   let natZero := natLitSmt 0
   let xLtZero := λ xId => ltSmt xId natZero
   let yLtZero := λ yId => ltSmt yId natZero
   let flipCond := λ xId yId => andSmt (xLtZero xId) (yLtZero yId)
-  let lbody := λ xId yId => iteSmt (eqSmt natZero yId) xId (iteSmt (flipCond xId yId) (negSmt tId) tId)
   let fdef := λ xId yId =>
-    mkLetTerm #[(tsym, iteSmt (flipCond xId yId) (modSmt (negSmt xId) yId) (modSmt xId yId))] (lbody xId yId)
+      iteSmt (eqSmt natZero yId) xId
+      (iteSmt (flipCond xId yId) (negSmt (modSmt (negSmt xId) yId)) (modSmt xId yId))
   defineBinFun fmodSymbol intSort intSort intSort fdef
 
 
@@ -455,6 +463,19 @@ def getModel : TranslateEnvT (List String) := do
     getVarValue (v : SmtSymbol × Name) : TranslateEnvT String := do
       return s!"{v.2}: {← evalTerm (smtSimpleVarId v.1)}"
 
+/-- Retrieve sat result from `h`.
+    An error is triggered when an unexpected check-sat result is obtained.
+    Function can be called only after a check-sat
+-/
+def getSatResult (h : IO.FS.Handle) : TranslateEnvT Result := do
+  let satResult ← h.getLine -- only one line expected for checkSat result
+  match satResult with
+  | "sat\n"     => pure (.Falsified (← getModel))
+  | "unsat\n"   => pure .Valid
+  | "unknown\n"
+  | "timeout\n" => pure .Undetermined
+  | err => throwEnvError s!"checkSat: Unexpected check-sat result: {err}"
+
 /-- Check satisfiability of current Smt query and return the result.
     An error is triggered when an unexpected check-sat result is obtained.
     Return `Undetermined` when the Smt process is not defined.
@@ -463,15 +484,18 @@ def checkSat : TranslateEnvT Result := do
   let env ← get
   let some p := env.smtEnv.smtProc | return .Undetermined
   submitCommand (.checkSat)
-  let satResult ← p.stdout.getLine -- only one line expected for checkSat result
-  let res ←
-    match satResult with
-      | "sat\n"     => pure (.Falsified (← getModel))
-      | "unsat\n"   => pure .Valid
-      | "unknown\n"
-      | "timeout\n" => pure .Undetermined
-      | err => throwEnvError s!"checkSat: Unexpected check-sat result: {err}"
-  return res
+  getSatResult p.stdout
+
+/-- Check satisfiability of current Smt query by assuming the provided terms
+    and return the result.
+    An error is triggered when an unexpected check-sat result is obtained.
+    Return `Undetermined` when the Smt process is not defined.
+-/
+def checkSatAssuming (args : Array SmtTerm) : TranslateEnvT Result := do
+  let env ← get
+  let some p := env.smtEnv.smtProc | return .Undetermined
+  submitCommand (.checkSatAssuming args)
+  getSatResult p.stdout
 
 
 /-- Try to retrieve the proof artifact when a `unsat` result is obtained and dump result to stdout.
