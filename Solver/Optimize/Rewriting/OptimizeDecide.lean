@@ -7,7 +7,7 @@ namespace Solver.Optimize
 /-- Given `#[p d]` corresponding to the arguments of `Decidable.decide`, such that:
       - p is a proposition
       - d the current decidable instance
-    Return `#[p d']` such that `d'` correponds to the synthesize instance obtained for `[Decidable p]`.
+    Return `#[p d']` such that `d'` corresponds to the synthesize instance obtained for `[Decidable p]`.
 
     NOTE: This function needs to be called for each `Decidable.decide` as `p` may have been
     modified due to simplification/normalization rules.

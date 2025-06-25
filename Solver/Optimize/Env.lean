@@ -71,7 +71,7 @@ structure OptimizeEnv where
   /-- Cache memoizing synthesized instances for Decidable/Inhabited/LawfulBEq constraint. -/
   synthInstanceCache : Std.HashMap Lean.Expr (Option Lean.Expr)
   /-- Cache memoizing the whnf result. -/
-  whnfCache : Std.HashMap Lean.Expr Lean.Expr
+  whnfCache : Std.HashMap Lean.Expr (Option Lean.Expr)
   /-- Cache memoizing type for a match application of the form
        `f.match.n [p₁, ..., pₙ, d₁, ..., dₖ,, pa₍₁₎₍₁₎ → .. → pa₍₁₎₍ₖ₎ → rhs₁, ..., pa₍ₘ₎₍₁₎ → .. → pa₍ₘ₎₍ₖ₎ → rhsₘ]`, s.t.:
       An entry in this map is expected to be of the form `Type(f.match.n [p₁, ..., pₙ])` := fun.match.n p₁ ... pₙ`
@@ -316,6 +316,20 @@ def updateSynthCache (a : Expr) (b : Option Expr) : TranslateEnvT Unit := do
   let optEnv := {env.optEnv with synthInstanceCache := env.optEnv.synthInstanceCache.insert a b}
   set {env with optEnv := optEnv }
 
+/-- Return `b` if `a := b` is already in the synthesize cache
+    Otherwise, the following actions are performed:
+      - execute `b ← f ()`
+      - update cache with `a := b`
+      - return `b`
+-/
+def withSynthInstanceCache (a : Expr) (f: Unit → TranslateEnvT (Option Expr)) : TranslateEnvT (Option Expr) := do
+  match (← get).optEnv.synthInstanceCache.get? a with
+  | some b => return b
+  | none =>
+      let b ← f ()
+      updateSynthCache a b
+      return b
+
 /-- Return `a'` if `a := a'` is already in optimization cache.
     Otherwise, the following actions are performed:
       - add `a := a` in cache only when cacheResult is set to true
@@ -339,8 +353,7 @@ def mkExpr (a : Expr) (cacheResult := true) : TranslateEnvT Expr := do
  instead of the costly isDefEq function.
 -/
 def withOptimizeEnvCache (a : Expr) (f: Unit → TranslateEnvT Expr) : TranslateEnvT Expr := do
-  let env := (← get).optEnv
-  match env.rewriteCache.get? a with
+  match (← get).optEnv.rewriteCache.get? a with
   | some b => return b
   | none =>
       let b ← f ()
@@ -459,6 +472,9 @@ def mkEqOp : TranslateEnvT Expr := mkExpr (mkConst ``Eq [levelOne])
 
 /-- Return `ite` operator and cache result. -/
 def mkIteOp : TranslateEnvT Expr := mkExpr (mkConst ``ite [levelOne])
+
+/-- Return `dite` operator and cache result. -/
+def mkDIteOp : TranslateEnvT Expr := mkExpr (mkConst ``dite [levelOne])
 
 /-- Return `LE.le` operator and cache result. -/
 def mkLeOp : TranslateEnvT Expr := mkExpr (mkConst ``LE.le [levelZero])
@@ -692,44 +708,26 @@ def mkDecidableConstraint (e : Expr) (cacheDecidableCst := true) : TranslateEnvT
 /-- Return `d` if there is already a synthesize instance for `cstr` in the synthesize cache.
     Otherwise, the following actions are performed:
      - When `LOption.some d ← trySynthInstance cstr`
-         - add cstr := d to synthesize cache
-         - return d
+         - add `cstr := some d` to synthesize cache
+         - return `some d`
     - When `trySynthInstance` does not return `LOption.some`:
-         - When cacheNotFound is set to true
-           - add cstr := cstr to synthesize cache
-           - return d
-         - Otherwise
-             - return `none`
+         - add `cstr := none` to synthesize cache
+         - return `none`
 -/
-def trySynthConstraintInstance? (cstr : Expr) (cacheNotFound := false) : TranslateEnvT (Option Expr) := do
-  let env ← get
-  match env.optEnv.synthInstanceCache.get? cstr with
-  | some d => return d
-  | none => do
+def trySynthConstraintInstance? (cstr : Expr) : TranslateEnvT (Option Expr) := do
+  withSynthInstanceCache cstr $ fun _ =>
     try
-      match (← withConfig (λ c => {c with iota := false}) $ trySynthInstance cstr) with
-      | LOption.some d =>
-          updateSynthCache cstr (some d)
-          return d
-      | _ =>
-        cacheAndReturn cstr
+      match (← withConfig (λ c => {c with iota := false, proj := .no}) $ trySynthInstance cstr) with
+      | LOption.some d => return (some d)
+      | _ => return none
     catch _ =>
       -- catch typeCheck error due to unfolding
-      cacheAndReturn cstr
-
-  where
-    cacheAndReturn (cstr : Expr) : TranslateEnvT (Option Expr) := do
-      if cacheNotFound then
-        updateSynthCache cstr (some cstr)
-        return cstr
-      else
-        updateSynthCache cstr none
-        return none
+      return none
 
 /-- Try to find an instance for `[Decidable e]`. -/
-def trySynthDecidableInstance? (e : Expr) (cacheDecidableCst := true) (cacheNotFound := false) : TranslateEnvT (Option Expr) := do
+def trySynthDecidableInstance? (e : Expr) (cacheDecidableCst := true) : TranslateEnvT (Option Expr) := do
   let dCstr ← mkDecidableConstraint e cacheDecidableCst
-  trySynthConstraintInstance? dCstr cacheNotFound
+  trySynthConstraintInstance? dCstr
 
 /-- Same as `trySynthDecidableInstance` but throws an error when a decidable instance cannot be found. -/
 def synthDecidableInstance! (e : Expr) : TranslateEnvT Expr := do
@@ -744,9 +742,27 @@ def synthDecidableInstance! (e : Expr) : TranslateEnvT Expr := do
     instance.
 -/
 def synthDecidableWithNotFound! (e : Expr) : TranslateEnvT Expr := do
-  let some d ← trySynthDecidableInstance? e (cacheNotFound := true)
-    | throwEnvError f!"synthDecidableWithNotFound!: unreachable !!!"
-  return d
+  match (← trySynthDecidableInstance? e) with
+  | none =>
+      let cstr ← mkDecidableConstraint e
+      updateSynthCache cstr cstr
+      return cstr
+  | some d => return d
+
+/-- Return `true` only when an instance for `[Inhabited n]` can be found.
+    Assume that `n` is a name expression for an inductive datatype.
+-/
+def hasInhabitedInstance (n : Expr) : TranslateEnvT Bool := do
+  let inhCstr ← mkExpr (mkApp (← mkInhabitedConst) n)
+  let some _d ← trySynthConstraintInstance? inhCstr | return false
+  return true
+
+
+/-- Return `true` only when an instance for `[LawfulBEq t beqInst]` can be found. -/
+def hasLawfulBEqInstance (t : Expr) (beqInst : Expr) : TranslateEnvT Bool := do
+  let lawfulCstr ← mkExpr (mkApp2 (← mkLawfulBEqConst) t beqInst)
+  let some _d ← trySynthConstraintInstance? lawfulCstr | return false
+  return true
 
 
 /-- Given an expression `c` and a boolean value `b`, perform the following:
@@ -762,20 +778,6 @@ def mkOfDecideEqProof (c : Expr) (b : Bool) : TranslateEnvT Expr := do
  if b
  then mkExpr (mkApp3 (← mkOfDecideEqTrue) c d eqReflInst)
  else mkExpr (mkApp3 (← mkOfDecideEqFalse) c d eqReflInst)
-
-
-/-- Return `true` only when an instance for `[Inhabited n]` can be found. -/
-def hasInhabitedInstance (n : Expr) : TranslateEnvT Bool := do
-  let inhCstr ← mkExpr (mkApp (← mkInhabitedConst) n)
-  let some _d ← trySynthConstraintInstance? inhCstr | return false
-  return true
-
-
-/-- Return `true` only when an instance for `[LawfulBEq t beqInst]` can be found. -/
-def hasLawfulBEqInstance (t : Expr) (beqInst : Expr) : TranslateEnvT Bool := do
-  let lawfulCstr ← mkExpr (mkApp2 (← mkLawfulBEqConst) t beqInst)
-  let some _d ← trySynthConstraintInstance? lawfulCstr | return false
-  return true
 
 /-- Given `f x₁ ... xₙ`, return `true` only when one of the following conditions is satisfied:
      - `f := BEq.beq` with sort parameter that has a `LawfulBEq` instance
@@ -814,23 +816,6 @@ def isRecursiveFun (f : Name) : MetaM Bool := do
   if (← (isTheorem f) <||> (isInstance f)) then return false
   isRecursiveDefinition f
 
-
-/-- Return `b` if `a := b` is already in the weak head cache.
-    Otherwise, the following actions are performed:
-      - execute `b ← whnf a`
-      - update cache with `a := b`
-      - return `b'`
--/
-def whnfExpr (a : Expr) : TranslateEnvT Expr := do
-  let env ← get
-  match env.optEnv.whnfCache.get? a with
-  | some b => return b
-  | none => do
-     let b ← whnfR a
-     let optEnv := {env.optEnv with whnfCache := env.optEnv.whnfCache.insert a b}
-     set {env with optEnv := optEnv}
-     return b
-
 /-- Given a `f : Expr.const n l` a function name expression,
     return `true` if `f` has at least one implicit argument.
 -/
@@ -847,14 +832,14 @@ def getForallLambdaBody (e : Expr) : Expr :=
  | Expr.forallE _ _ b .. => getForallLambdaBody b
  | _ => e
 
-/-- Return `true` if `n` corresponds to a class or is an abbrevation to a class definition
-    (e.g., DecidableEq, DecidableRel, etc).
+/-- Return `true` if `n` corresponds to a class or is transitively an abbrevation
+    to a class definition (e.g., DecidableEq, DecidableLT, DecidableRel, etc).
 -/
-def isClassConstraint (n : Name) : MetaM Bool := do
+partial def isClassConstraint (n : Name) : MetaM Bool := do
  if isClass (← getEnv) n then return true
  let ConstantInfo.defnInfo defnInfo ← getConstInfo n | return false
  match (getForallLambdaBody defnInfo.value).getAppFn' with
- | Expr.const c _ => return (isClass (← getEnv) c)
+ | Expr.const c _ => isClassConstraint c
  | _ => return false
 
 

@@ -119,17 +119,17 @@ def isSortOrInhabited (t : Expr) : TranslateEnvT Bool := do
  | _ => isType t
 
 
-/-- Determine if `e` is a boolean `not` expression and return it's corresponding argument.
+/-- Determine if `e` is a boolean `not` expression and return its corresponding argument.
     Otherwise return `none`.
 -/
 @[inline] def boolNot? (e: Expr) : Option Expr := e.app1? ``not
 
-/-- Determine if `e` is a boolean `and` expression and return it's corresponding argument.
+/-- Determine if `e` is a boolean `and` expression and return its corresponding argument.
     Otherwise return `none`.
 -/
 @[inline] def boolAnd? (e: Expr) : Option (Expr × Expr) := e.app2? ``and
 
-/-- Determine if `e` is a boolean `or` expression and return it's corresponding argument.
+/-- Determine if `e` is a boolean `or` expression and return its corresponding argument.
     Otherwise return `none`.
 -/
 @[inline] def boolOr? (e: Expr) : Option (Expr × Expr) := e.app2? ``or
@@ -143,26 +143,33 @@ def isBoolValue? (e : Expr) : Option Bool :=
  | Expr.const ``false _ => some false
  | _ => none
 
-/-- Determine if `e` is an boolean `==` expression and return it's corresponding arguments.
+/-- Determine if `e` is an boolean `==` expression and return its corresponding arguments.
     Otherwise return `none`.
 -/
 @[inline] def beq? (e : Expr) : Option (Expr × Expr × Expr × Expr) := e.app4? ``BEq.beq
 
-
-/-- Determine if `e` is an `Not` expression and return it's corresponding argument.
+/-- Determine if `e` is an `Not` expression and return its corresponding argument.
     Otherwise return `none`.
 -/
 @[inline] def propNot? (e : Expr) : Option Expr := e.not?
 
-/-- Determine if `e` is an `And` expression and return it's corresponding arguments.
+/-- Determine if `e` is an `And` expression and return its corresponding arguments.
     Otherwise return `none`.
 -/
 @[inline] def propAnd? (e : Expr) : Option (Expr × Expr) := e.and?
 
-/-- Determine if `e` is an `Or` expression and return it's corresponding arguments.
+/-- Determine if `e` is an `Or` expression and return its corresponding arguments.
     Otherwise return `none`.
 -/
 @[inline] def propOr? (e : Expr) : Option (Expr × Expr) := e.app2? ``Or
+
+@[inline] def implies? (e : Expr) : MetaM (Option (Expr × Expr)) := do
+ match e with
+ | Expr.forallE _ t b _ =>
+     if !b.hasLooseBVars && (← isProp t)
+     then return some (t, b)
+     else return none
+ | _ => return none
 
 /-- Return `! e` when `b = false`. Otherwise return `e`.
 -/
@@ -176,7 +183,7 @@ def isNotExprOf (e1: Expr) (e2 : Expr) : MetaM Bool := do
   let some op := propNot? e1 | return false
   exprEq e2 op
 
-/-- Determine if `e` is an `implies` expression and return it's corresponding arguments.
+/-- Determine if `e` is an `implies` expression and return its corresponding arguments.
     Otherwise return `none`.
 -/
 def propImplies? (e : Expr) : MetaM (Option (Expr × Expr)) := do
@@ -302,22 +309,22 @@ def isNatSubExpr (e: Expr) : Bool := e.isAppOfArity ``Nat.sub 2
 -/
 def isNatPowExpr (e : Expr) : Bool := e.isAppOfArity ``Nat.pow 2
 
-/-- Determine if `e` is a `Nat.mul` expression and return it's corresponding arguments.
+/-- Determine if `e` is a `Nat.mul` expression and return its corresponding arguments.
     Otherwise return `none`.
 -/
 @[inline] def natMul? (e: Expr) : Option (Expr × Expr) := e.app2? ``Nat.mul
 
-/-- Determine if `e` is a `Nat.add` expression and return it's corresponding arguments.
+/-- Determine if `e` is a `Nat.add` expression and return its corresponding arguments.
     Otherwise return `none`.
 -/
 @[inline] def natAdd? (e: Expr) : Option (Expr × Expr) := e.app2? ``Nat.add
 
-/-- Determine if `e` is a `Nat.sub` expression and return it's corresponding arguments.
+/-- Determine if `e` is a `Nat.sub` expression and return its corresponding arguments.
     Otherwise return `none`.
 -/
 @[inline] def natSub? (e: Expr) : Option (Expr × Expr) := e.app2? ``Nat.sub
 
-/-- Determine if `e` is a `Nat.pow` expression and return it's corresponding arguments.
+/-- Determine if `e` is a `Nat.pow` expression and return its corresponding arguments.
     Otherwise return `none`.
 -/
 @[inline] def natPow? (e: Expr) : Option (Expr × Expr) := e.app2? ``Nat.pow
@@ -391,12 +398,12 @@ def toNatCstOpExpr? (e: Expr) : Option NatCstOpInfo :=
     | _, _, _ => none
  | _ => none
 
-/-- Determine if `e` is an Int.neg expression and return it's corresponding argument.
+/-- Determine if `e` is an Int.neg expression and return its corresponding argument.
     Otherwise return `none`.
 -/
 @[inline] def intNeg? (e : Expr) : Option Expr := e.app1? ``Int.neg
 
-/-- Determine if `e` is a `Decidable.decide` expression and return it's corresponding arguments.
+/-- Determine if `e` is a `Decidable.decide` expression and return its corresponding arguments.
     Otherwise return `none`.
 -/
 @[inline] def decide? (e : Expr) : Option (Expr × Expr) := e.app2? ``Decidable.decide
@@ -415,15 +422,21 @@ def toNatCstOpExpr? (e: Expr) : Option NatCstOpInfo :=
   else
     none
 
-/-- Determine if `e` is an `ite` expression and return it's corresponding arguments.
+/-- Determine if `e` is an `ite` expression and return its corresponding arguments.
     Otherwise return `none`.
 -/
 @[inline] def ite? (e : Expr) : Option (Expr × Expr × Expr × Expr × Expr) := app5? e ``ite
 
-/-- Determine if `e` is an `dite` expression and return it's corresponding arguments.
+/-- Determine if `e` is an `dite` expression and return its corresponding arguments.
     Otherwise return `none`.
 -/
 @[inline] def dite? (e : Expr) : Option (Expr × Expr × Expr × Expr × Expr) := app5? e ``dite
+
+/-- Return `true` only when `e := if c then e1 else e2`. Otherwise `false`. -/
+def isIte (e : Expr) : Bool := e.isAppOfArity ``ite 5
+
+/-- Return `true` only when `e := dite c (h : c => e1) (h : ¬ c => e2)`. Otherwise `false`. -/
+def isDite (e : Expr) : Bool := e.isAppOfArity ``dite 5
 
 /-- Return `true` when `e1 := -ne ∧ ne =ₚₜᵣ e2`. Otherwise `false`.
  -/
@@ -793,7 +806,7 @@ def isOpaqueRecFun (f : Expr) (args : Array Expr) : TranslateEnvT Bool := do
      return (← isRecursiveFun n')
   return false
 
-/-- Given `e` of the form `forall (a₁ : A₁) ... (aₙ : Aₙ), B[a₁, ..., aₙ]`
+/-- Given `e` of the form `∀ (a₁ : A₁) ... (aₙ : Aₙ), B[a₁, ..., aₙ]`
     and `p₁ : A₁, ... pₘ : Aₙ`, return `B[p₁, ..., pₘ]`.
     An error is triggered when n ≠ m.
 -/

@@ -49,7 +49,6 @@ partial def optimizeNatAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr :
      - (N1 + n) - N2 ==> (N1 "-" N2) + n (if N1 ≥ N2)
    Assume that f = Expr.const ``Nat.sub.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Nat.sub` expected at this stage)
-   TODO: consider additional simplification rules
 -/
 partial def optimizeNatSub (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeNatSub: exactly two arguments expected"
