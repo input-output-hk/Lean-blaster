@@ -40,6 +40,7 @@ structure StateMachineEnv where
   inputType : Expr
   stateType : Expr
   smName : Name
+  initFlag : Option SmtTerm -- init flag only used for k-induction
 deriving Inhabited
 
 abbrev StateMachineEnvT := StateRefT StateMachineEnv TranslateEnvT
@@ -83,38 +84,66 @@ def logDepthProgress : TranslateEnvT Unit := do
     IO.println f!"BMC at Depth {← getCurrentDepth}"
     (← IO.getStdout).flush
 
+def defineSmtInitFlag : TranslateEnvT SmtTerm := do
+  let dflag := mkReservedSymbol s!"_InitFlag"
+  declareConst dflag boolSort
+  return (smtSimpleVarId dflag)
+
+def defineInvAtDepth (inv : SmtTerm) : TranslateEnvT SmtTerm := do
+  let invId := mkReservedSymbol s!"_inv@{← getCurrentDepth}"
+  defineFun invId #[] boolSort inv
+  return (smtSimpleVarId invId)
+
 def defineSmtDepthFlag : TranslateEnvT SmtTerm := do
   let dflag := mkReservedSymbol s!"_DepthFlag.{← getCurrentDepth}"
   declareConst dflag boolSort
   return (smtSimpleVarId dflag)
 
 def logNotInductiveAtDepth : TranslateEnvT Unit := do
-  logInfo f!"⚠️ Failed to establish induction up to Depth {← getMaxDepth}"
+  logWarningAt (← blankRef) f!"⚠️ Failed to establish induction up to Depth {← getMaxDepth}"
   -- dump smt commands submitted to backend solver when `dumpSmtLib` option is set.
   logSmtQuery
   discard $ exitSmt
 
 def logNoCexAtDepth : TranslateEnvT Unit := do
-  logInfo f!"✅ No counterexample up to Depth {← getMaxDepth}"
-  -- dump smt commands submitted to backend solver when `dumpSmtLib` option is set.
-  logSmtQuery
+  logInfoAt (← blankRef) f!"✅ No counterexample up to Depth {← getMaxDepth}"
+  discard $ exitSmt
+
+def logUndeterminedAtDepth : TranslateEnvT Unit := do
+  logWarningAt (← blankRef) f!"⚠️ Undetermined at Depth {← getCurrentDepth}"
   discard $ exitSmt
 
 def logCexAtDepth (r : Result) : TranslateEnvT Unit := do
-  IO.println f!"Counterexample detected at Depth {← getCurrentDepth}"
-  (← IO.getStdout).flush
-  -- dump smt commands submitted to backend solver when `dumpSmtLib` option is set.
-  logSmtQuery
   discard $ exitSmt
+  logResult r (cexLabel := s!"Counterexample detected at Depth {← getCurrentDepth}")
+  (← IO.getStdout).flush
+
+def logCtiAtDepth (r : Result) : TranslateEnvT Unit := do
   logResult r
+    (isCTI := true)
+    (indLabel := s!"⚠️ Induction failed at Depth {← getCurrentDepth }")
+    (cexLabel := s!"Counterexample to Induction")
   (← IO.getStdout).flush
 
 def logContradictionAtDepth : TranslateEnvT Unit := do
   -- dump smt commands submitted to backend solver when `dumpSmtiLb` option is set.
   logSmtQuery
   discard $ exitSmt
-  logError f!"❌ Contradictory context at Depth {← getCurrentDepth}"
+  logErrorAt (← blankRef) f!"❌ Contradictory context at Depth {← getCurrentDepth}"
 
+
+/-- Determine if `smInst` corresponds to a `StateMachine` instance
+    and return a `StateMachineEnv` instance as result.
+    Trigger an error when `smInst` is not a `StateMachine` instance.
+-/
+def getSMTypes (smInst : Expr) : TranslateEnvT StateMachineEnv := do
+  let Expr.const n _ := smInst | throwEnvError "StateMachine instance name expression expected !!!"
+  let ConstantInfo.defnInfo info ← getConstInfo n
+    | throwEnvError "StateMachine instance definition expected !!!"
+  Expr.withApp info.value fun f args => do
+   let Expr.const `Solver.StateMachine.StateMachine.mk _ := f
+     | throwEnvError "StateMachine instance expected !!!"
+   return {inputType := args[0]!, stateType := args[1]!, smName := n, initFlag := none}
 
 /-- Given `smInst` an instance of `StateMachine`, `iVar` input at step k and `state` at step k,
      - assert `assumptions iVar state`
@@ -144,7 +173,7 @@ def assertAssumptions (smInst : Expr) (iVar : Expr) (state : Expr) : StateMachin
     let res ←
       profileTask
         s!"Checking contradiction at Depth {currDepth}"
-        checkSat
+        (checkContradiction (← get).initFlag)
         (verboseLevel := 2)
     if isValidResult res then
       logContradictionAtDepth
@@ -154,5 +183,11 @@ def assertAssumptions (smInst : Expr) (iVar : Expr) (state : Expr) : StateMachin
  | .Falsified .. =>
      logContradictionAtDepth
      return true
+
+ where
+   checkContradiction (initFlag : Option SmtTerm) : TranslateEnvT Result := do
+     match initFlag with
+     | none => checkSat
+     | some iflag => checkSatAssuming #[iflag]
 
 end Solver.StateMachine

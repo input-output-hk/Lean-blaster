@@ -37,11 +37,12 @@ partial def bmcStrategy (smInst : Expr) : TranslateEnvT Unit := do
           pure () -- contradictory context
         else
           let res ← analysisAtDepth i nextState
-          if isFalsifiedResult res then
-            logCexAtDepth res
-          else
-            incDepth
-            visit (some nextState)
+          match res with
+          | .Falsified _ => logCexAtDepth res
+          | .Undetermined => logUndeterminedAtDepth
+          | _ =>
+              incDepth
+              visit (some nextState)
   let smEnv ← getSMTypes smInst
   -- set backend solver
   setSolverProcess
@@ -58,15 +59,6 @@ partial def bmcStrategy (smInst : Expr) : TranslateEnvT Unit := do
         | some state =>
             Optimize.optimizeExpr (mkApp5 (← mkNext) env.inputType env.stateType smInst iVar state)
       ) (verboseLevel := 2)
-
-    getSMTypes (smInst : Expr) : TranslateEnvT StateMachineEnv := do
-      let Expr.const n _ := smInst | throwEnvError "StateMachine instance name expression expected !!!"
-      let ConstantInfo.defnInfo info ← getConstInfo n
-        | throwEnvError "StateMachine instance definition expected !!!"
-      Expr.withApp info.value fun f args => do
-       let Expr.const `Solver.StateMachine.StateMachine.mk _ := f
-         | throwEnvError "StateMachine instance expected !!!"
-       return {inputType := args[0]!, stateType := args[1]!, smName := n}
 
     analysisAtDepth (iVar : Expr) (state : Expr) : StateMachineEnvT Result := do
      let env ← get
@@ -93,7 +85,7 @@ partial def bmcStrategy (smInst : Expr) : TranslateEnvT Unit := do
           s!"Submitting Smt Query at Depth {currDepth}"
           (assertTerm (impliesSmt dflag (notSmt st)))
           (verboseLevel := 2)
-         -- dump smt commands submitted to backend solver when `dumpSmtLib` option is set.
+        -- dump smt commands only when `dumpSmtLib` option is set.
         logSmtQuery
         let res ←
           profileTask s!"Checking invariants at Depth {currDepth}"
@@ -115,12 +107,6 @@ def bmcCommand (sOpts: SolverOptions) (stx : Syntax) : TermElabM Unit := do
     discard $ bmcStrategy e|>.run env
 
 @[command_elab bmc]
-def bmcImp : CommandElab := fun stx => do
-  let sOpts ← parseVerbose (← parseTimeout (← parseUnfoldDepth default ⟨stx[1]⟩) ⟨stx[2]⟩) ⟨stx[3]⟩
-  let sOpts ← parseDumpSmt (← parseOptimize (← parseSmtLib sOpts ⟨stx[4]⟩) ⟨stx[5]⟩) ⟨stx[6]⟩
-  let sOpts ← parseSolveResult (← parseGenCex (← parseMaxDepth sOpts ⟨stx[7]⟩) ⟨stx[8]⟩) ⟨stx[9]⟩
-  let tr ← parseTerm ⟨stx[10]⟩
-  withoutModifyingEnv $ runTermElabM fun _ =>
-    bmcCommand sOpts tr
+def bmcImp : CommandElab := commandInvoker bmcCommand
 
 end Solver.StateMachine

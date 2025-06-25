@@ -113,14 +113,16 @@ def parseTerm : TSyntax `Solver.solveTerm -> CommandElabM Syntax
   |`(solveTerm| [ $th ]) => pure th.raw
   | _ => throwUnsupportedSyntax
 
-@[command_elab solve]
-def solveImp : CommandElab := fun stx => do
+def commandInvoker (f : SolverOptions → Syntax → TermElabM Unit) : CommandElab := fun stx => do
   let sOpts ← parseVerbose (← parseTimeout (← parseUnfoldDepth default ⟨stx[1]⟩) ⟨stx[2]⟩) ⟨stx[3]⟩
   let sOpts ← parseDumpSmt (← parseOptimize (← parseSmtLib sOpts ⟨stx[4]⟩) ⟨stx[5]⟩) ⟨stx[6]⟩
   let sOpts ← parseSolveResult (← parseGenCex (← parseMaxDepth sOpts ⟨stx[7]⟩) ⟨stx[8]⟩) ⟨stx[9]⟩
   let tr ← parseTerm ⟨stx[10]⟩
-  withoutModifyingEnv $ runTermElabM fun _ =>
-    Solver.Smt.command sOpts tr
+  withoutModifyingEnv $ runTermElabM fun _ => f sOpts tr
+
+@[command_elab solve]
+def solveImp : CommandElab := commandInvoker Solver.Smt.command
+
 
 end Solver.Syntax
 

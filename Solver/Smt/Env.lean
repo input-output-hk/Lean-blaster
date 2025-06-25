@@ -35,26 +35,38 @@ def isFalsifiedResult (r : Result) : Bool :=
 def falsifiedError (r : Result) : String :=
   s!"Falsified result expected but got {reprStr r}"
 
-def logResult (r : Result) : TranslateEnvT Unit := do
+
+def blankRef : TranslateEnvT Syntax := do
+  let pos ← getRefPos
+  return Syntax.atom (SourceInfo.original "".toSubstring pos "  ".toSubstring pos) ""
+
+def logResult (r : Result) (isCTI := false) (indLabel := "") (cexLabel := "Counterexample") : TranslateEnvT Unit := do
   let sOpts := (← get).optEnv.options.solverOptions
+  let ref ← blankRef
   match r with
-  | .Valid => if isExpectedValid sOpts.solveResult
-              then logInfo "✅ Valid"
-              else logError "❌ Unexpected Valid"
+  | .Valid =>
+      if isExpectedValid sOpts.solveResult
+      then logInfoAt ref "✅ Valid"
+      else logErrorAt ref "❌ Unexpected Valid"
   | .Falsified cex =>
-      if isExpectedFalsified sOpts.solveResult
-      then dumpCex logInfo "✅ Expected Falsified" cex
-      else dumpCex logError "❌ Falsified" cex
+      if isCTI
+      then dumpCex (logInfoAt ref) indLabel cex
+      else if isExpectedFalsified sOpts.solveResult
+           then dumpCex (logInfoAt ref) "✅ Expected Falsified" cex
+           else dumpCex (logErrorAt ref) "❌ Falsified" cex
   | .Undetermined =>
-        if isExpectedUndetermined sOpts.solveResult
-        then logInfo "✅ Expected Undetermined"
-        else logWarning "⚠️ Undetermined"
+      if isExpectedUndetermined sOpts.solveResult
+      then logInfoAt ref "✅ Expected Undetermined"
+      else logWarningAt ref "⚠️ Undetermined"
 
   where
     dumpCex (f : MessageData -> MetaM Unit) (failure : String) (cex : List String) : TranslateEnvT Unit := do
       if (← get).optEnv.options.solverOptions.generateCex then
-         let cexStr := List.foldl (λ acc s => s!"{acc} - {s}") "" cex
-         f s!"{failure}\nCounterexample:\n{cexStr}"
+         f failure
+         f s!"{cexLabel}:"
+         cex.forM (λ s => f s!" - {s.dropRight 1}")
+         -- let cexStr := List.foldl (λ acc s => s!"{acc} - {s}") "" cex
+         -- f s!"{failure}\n{cexLabel}:\n{cexStr}"
       else f failure
 
 /-- Spawn a z3 process w.r.t. the provided solver options. -/
