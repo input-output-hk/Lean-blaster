@@ -180,9 +180,9 @@ partial def mkEqBool (e : Expr) (b : Bool) : TranslateEnvT Expr := do
 
 /- Call `optimizeEq f args` and apply the following `decide` simplification/normalization
    rules on the resulting `Eq` expression (if any):
-     - true = (a == b) ==> a = b (if hasLawFulBEqInstance Type(a))
-     - false = (a == b) ==> ¬ (a = b) (if hasLawFulBEqInstance Type(a))
-     - c = (a == b) | (a == b) = c ==> (true = c) = (a = b) (if hasLawFulBEqInstance Type(a))
+     - true = (a == b) ==> a = b (if hasLawFulBEqInstance (a == b))
+     - false = (a == b) ==> ¬ (a = b) (if hasLawFulBEqInstance (a == b))
+     - c = (a == b) | (a == b) = c ==> (true = c) = (a = b) (if hasLawFulBEqInstance (a == b))
      - true = if c then e1 else e2 ==> (c → true = e1) ∧ (¬ c → true = e2)
      - false = if c then e1 else e2 ==> (c → false = e1) ∧ (¬ c → false = e2)
      - true = dite c (fun h : c => e1) (fun h : ¬ c => e2) ==> (c → true = e1) ∧ (¬ c → true = e2)
@@ -199,9 +199,9 @@ partial def mkEqBool (e : Expr) (b : Bool) : TranslateEnvT Expr := do
    Assume that f := Expr.const ``Eq.
 
    - TODO: may be we need to reverse the following simplification rules to maximize equivalence
-      - true = (a == b) ==> a = b (if hasLawFulBEqInstance Type(a))
-      - false = (a == b) ==> ¬ (a = b) (if hasLawFulBEqInstance Type(a))
-      - c = (a == b) | (a == b) = c ==> (true = c) = (a = b) (if hasLawFulBEqInstance Type(a))
+      - true = (a == b) ==> a = b (if hasLawFulBEqInstance (a == b))
+      - false = (a == b) ==> ¬ (a = b) (if hasLawFulBEqInstance (a == b))
+      - c = (a == b) | (a == b) = c ==> (true = c) = (a = b) (if hasLawFulBEqInstance (a == b))
         This rule will not more be required if the two above rules are reversed.
       - The revering is essential to hanlde example like "EqBoolAndEqBoolUnchanged_7"
 
@@ -231,10 +231,10 @@ partial def optimizeDecideEq (f : Expr) (args : Array Expr) : TranslateEnvT Expr
 
 
    /- Given `op1` and `op2` corresponding to the operands for `Eq`,
-      - return `some (a = b)` when `op1 := true ∧ op2 := a == b ∧ `hasLawFulBEqInstance Type(a)`
-      - return `some ¬ (a = b)` when `op1 := false ∧ op2 := a == b ∧ `hasLawFulBEqInstance Type(a)`
-      - return `some (true = c) = (a = b)` when `op1 := c ∧ op2 := a == b ∧ `hasLawFulBEqInstance Type(a)`
-      - return `some (true = c) = (a = b)` when `op1 := a == b ∧ op2 := c ∧ `hasLawFulBEqInstance Type(a)`
+      - return `some (a = b)` when `op1 := true ∧ op2 := a == b ∧ `hasLawFulBEqInstance (a == b)`
+      - return `some ¬ (a = b)` when `op1 := false ∧ op2 := a == b ∧ `hasLawFulBEqInstance (a == b)`
+      - return `some (true = c) = (a = b)` when `op1 := c ∧ op2 := a == b ∧ `hasLawFulBEqInstance (a == b)`
+      - return `some (true = c) = (a = b)` when `op1 := a == b ∧ op2 := c ∧ `hasLawFulBEqInstance (a == b)`
       Otherwise `none`.
    -/
    beqToEq? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do

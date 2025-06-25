@@ -114,7 +114,7 @@ def solveImp : CommandElab := fun stx => do
   let sOpts ← parseSolveResult (← parseGenCex sOpts ⟨stx[7]⟩) ⟨stx[8]⟩
   let tr ← parseTerm ⟨stx[9]⟩
   withoutModifyingEnv $ runTermElabM fun _ =>
-    Solver.Smt.translate sOpts tr
+    Solver.Smt.command sOpts tr
 
 end Solver.Syntax
 

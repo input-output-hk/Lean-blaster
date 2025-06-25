@@ -30,7 +30,8 @@ def isFalsifiedResult (r : Result) : Bool :=
 def falsifiedError (r : Result) : String :=
   s!"Falsified result expected but got {reprStr r}"
 
-def logResult (r : Result) (sOpts : SolverOptions) : MetaM Unit := do
+def logResult (r : Result) : TranslateEnvT Unit := do
+  let sOpts := (← get).optEnv.options.solverOptions
   match r with
   | .Valid => if isExpectedValid sOpts.solveResult
               then logInfo "✅ Valid"
@@ -45,8 +46,8 @@ def logResult (r : Result) (sOpts : SolverOptions) : MetaM Unit := do
         else logWarning "⚠️ Undetermined"
 
   where
-    dumpCex (f : MessageData -> MetaM Unit) (failure : String) (cex : List String) : MetaM Unit :=
-      if sOpts.generateCex then
+    dumpCex (f : MessageData -> MetaM Unit) (failure : String) (cex : List String) : TranslateEnvT Unit := do
+      if (← get).optEnv.options.solverOptions.generateCex then
          let cexStr := List.foldl (λ acc s => s!"{acc} - {s}") "" cex
          f s!"{failure}\nCounterexample:\n{cexStr}"
       else f failure
@@ -526,7 +527,6 @@ def setPrintSuccess (b : Bool) : TranslateEnvT Unit :=
 
 /-- Set the default Smt options, i.e.:
      - (set-option :print-success true)
-     - (set-logic ALL)
      - (set-option :produce-models true)
      - (set-option :produce-proofs true)
      - (set-option :smt-pull-nested-quantifiers true)
@@ -534,7 +534,6 @@ def setPrintSuccess (b : Bool) : TranslateEnvT Unit :=
 -/
 def setDefaultSmtOptions : TranslateEnvT Unit := do
  setPrintSuccess true
- setLogicAll
  setProduceModels true
  setProduceProofs true
  setPullNestedQuantifiers true
@@ -548,13 +547,13 @@ def setDefaultSmtOptions : TranslateEnvT Unit := do
      - when option `only-smt-lib` is set to `true`:
        - only add the solver options to the list of smt commands.
 -/
-def setSolverProcess (sOpts : SolverOptions) (env: TranslateEnv) : MetaM TranslateEnv := do
-  let env' ←
-    if !sOpts.onlySmtLib
-    then
-      let proc ← createSolverProcess sOpts
-      let smtEnv := {env.smtEnv with smtProc := proc}
-      pure {env with smtEnv := smtEnv}
-    else pure env
-  return (← setDefaultSmtOptions|>.run env').2
+def setSolverProcess : TranslateEnvT Unit := do
+  let env ← get
+  let sOpts := env.optEnv.options.solverOptions
+  unless sOpts.onlySmtLib do
+    let proc ← createSolverProcess sOpts
+    set { env with smtEnv.smtProc := proc }
+  setDefaultSmtOptions
+
+
 end Solver.Smt

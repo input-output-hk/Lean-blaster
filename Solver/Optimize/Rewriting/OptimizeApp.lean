@@ -11,28 +11,6 @@ open Lean Meta
 
 namespace Solver.Optimize
 
-/-- Gievn `f x₁ ... xₙ` return `true` when the following conditions are satisfied:
-     -  ∃ i ∈ [1..n], isExplicit xᵢ ∧
-     -  ∀ i ∈ [1..n], isExplicit xᵢ → isConstructor xᵢ ∨ isProp (← inferType xₓ) ∨ isFunType (← inferType xᵢ)
-    NOTE: that constructors may contain free variables.
--/
-def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) : MetaM Bool := do
-  let stop := args.size
-  let fInfo ← getFunInfoNArgs f stop
-  let rec loop (i : Nat) (atLeastOneExplicit : Bool := false) : MetaM Bool := do
-    if i < stop then
-      let e := args[i]!
-      let t ← inferType e
-      let aInfo := fInfo.paramInfo[i]!
-      if aInfo.isExplicit
-      then if (← isConstructor e <||> isProp t <||> isFunType t)
-           then loop (i+1) true
-           else pure false
-      else loop (i+1) atLeastOneExplicit
-    else pure atLeastOneExplicit
-  loop 0
-
-
 /-- Given application `f x₁ ... xₙ`, perform the following:
      - When `isOpaqueRecFun f #[x₁ ... xₙ] ∧ allExplicitParamsAreCtor f #[x₁ ... xₙ]
           - When some auxFun ← unfoldOpaqueFunDef f #[x₁ ... xₙ]
@@ -77,14 +55,14 @@ def reduceApp? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
      - When `f := ite`
           - When n = 5 ∧ optimizer x₁ = True ∨ optimizer x₁ = False
               - return `optimizeITE f x₀ ... xₙ`
-          - When n != 5
-              - return ⊥
+          - When n < 5
+              - return none
 
      - When `f := dite`
           - When n = 5 ∧ optimizer x₁ = True ∨ optimizer x₁ = False
               - return `optimizeDITE f x₀ ... xₙ`
-          - When n != 5
-              - return ⊥
+          - When n < 5
+              - return none
 
      - Otherwise:
          - return none
@@ -107,7 +85,7 @@ def reduceITEChoice?
    isITEReduction? (n : Name) (args : Array Expr) : TranslateEnvT (Option Expr) := do
      match n with
      | ``ite =>
-         if args.size != 5 then throwEnvError "isITEReduction?: exactly five arguments expected"
+         if args.size < 5 then return none
          let args ← args.modifyM 1 optimizer
          if isPropConstant args[1]! then return (← optimizeITE f args)
          return none
@@ -116,60 +94,12 @@ def reduceITEChoice?
    isDITEReduction? (n : Name) (args : Array Expr) : TranslateEnvT (Option Expr) := do
      match n with
      | ``dite =>
-         if args.size != 5 then throwEnvError "isDITEReduction?: exactly five arguments expected"
+         if args.size < 5 then return none
          let args ← args.modifyM 1 optimizer
          if isPropConstant args[1]! then return (← optimizeDITE f args)
          return none
      | _ => return none
 
-
-/--  Given application `f x₀ ... xₙ`, perform the following:
-     - When `f x₀ ... xₙ` is a match expression of the form
-          match e₀, ..., eₙ with
-          | p₍₀₎₍₁₎, ..., p₍₀₎₍ₙ₎ => t₀
-            ...
-          | p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₙ₎ => tₘ
-        - return `whnfExpr (f x₀ ... xₙ)` only when `∀ i ∈ [1..n], isConstructor (optimizer eᵢ)`.
-
-     - Otherwise:
-         - return none
-
--/
-def reduceMatchChoice?
-  (f : Expr) (args : Array Expr)
-  (optimizer : Expr -> TranslateEnvT Expr) : TranslateEnvT (Option Expr) := do
-  let Expr.const n l := f | return none
-  if let some r ← isMatchReduction? n l args then return r
-  return none
-
-  where
-   isMatchReduction? (n : Name) (l : List Level) (args : Array Expr) : TranslateEnvT (Option Expr) := do
-     let some matcherInfo ← getMatcherRecInfo? n l | return none
-     let mut margs := args
-     for i in [:args.size] do
-       if i ≥ matcherInfo.getFirstDiscrPos && i < matcherInfo.getFirstAltPos
-       then margs ← margs.modifyM i optimizer
-     let discrs := margs[matcherInfo.getFirstDiscrPos : matcherInfo.getFirstAltPos]
-     -- NOTE: reduceMatcher? simplifies match only when all the discriminators are constructors
-     if !(← allMatchDiscrsAreCtor discrs) then return none
-     let auxApp := mkAppN f margs
-     match (← withReducible $ reduceMatcher? auxApp) with
-     | .reduced e => return e
-     | _ => return none
-
-   /- Return `true` only when at least one of the match discriminators is a constructor
-      that may also contain free variables.
-      Concretely given a match expression of the form:
-        match e₁, ..., eₙ with
-        | p₍₁₎₍₁₎, ..., p₍₁₎₍ₙ₎ => t₁
-        ...
-        | p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₙ₎ => tₘ
-      Return `true` when `∀ i ∈ [1..n], isConstructor eᵢ`.
-   -/
-   allMatchDiscrsAreCtor (discrs : Subarray Expr) : TranslateEnvT Bool := do
-     for i in [:discrs.size] do
-       if !(← isConstructor discrs[i]!) then return false
-     return true
 
 /-- Perform constant propagation and apply simplifcation and normalization rules
     on application expressions.
@@ -218,6 +148,8 @@ def optimizeApp (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
   mkAppExpr f args
 
 /-- Given application `f x₁ ... xₙ`,
+     - When `isFunITE f` (i.e., f is an ite or dite that return a function)
+         - return none
      - when `isNotfun f`
          - return none
      - when `t₁ → ... → tₘ ← inferType f ∧ n < m`:
@@ -228,6 +160,7 @@ def optimizeApp (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
      - otherwise `none`
 -/
 def normPartialFun? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
+ if isFunITE f then return none
  if (← isNotFun f) then return none
  let fInfo ← getFunInfo f
  if fInfo.paramInfo.size <= args.size then return none
@@ -239,6 +172,12 @@ def normPartialFun? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr)
  etaExpand (mkAppN f args)
 
  where
+   isFunITE (e : Expr) : Bool :=
+     match e with
+     | Expr.const ``ite _
+     | Expr.const ``dite _ => args.size > 5
+     | _ => false
+
    isNotFun (e : Expr) : TranslateEnvT Bool :=
     isNotFoldable e #[] (opaqueCheck := false) (recFunCheck := false)
 
@@ -328,7 +267,7 @@ def normOpaqueAndRecFun
          -- partially applied function
          let appCall := getLambdaBody auxApp
          let largs := appCall.getAppArgs
-         return (appCall.getAppFn', largs[0:largs.size-auxApp.getNumHeadLambdas])
+         return (appCall.getAppFn', largs.take (largs.size-auxApp.getNumHeadLambdas))
        else
          return (auxApp.getAppFn', auxApp.getAppArgs)
      else return (f, args)
@@ -368,7 +307,7 @@ def normOpaqueAndRecFun
          let appCall := getLambdaBody auxApp
          let largs := appCall.getAppArgs
          trace[Optimize.recFun.app] f!"partially applied case {reprStr appCall.getAppFn'} {reprStr largs[0:largs.size-auxApp.getNumHeadLambdas]}"
-         optimizeApp appCall.getAppFn' largs[0:largs.size-auxApp.getNumHeadLambdas]
+         optimizeApp appCall.getAppFn' (largs.take (largs.size-auxApp.getNumHeadLambdas))
        else
          trace[Optimize.recFun.app] f!"polymorphic equivalent case {reprStr auxApp.getAppFn'} {reprStr auxApp.getAppArgs}"
          optimizeApp auxApp.getAppFn' auxApp.getAppArgs

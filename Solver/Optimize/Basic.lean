@@ -2,10 +2,11 @@ import Lean
 import Lean.Util.MonadCache
 import Solver.Command.Options
 import Solver.Logging
+import Solver.Optimize.Rewriting.NormalizeMatch
 import Solver.Optimize.Rewriting.OptimizeApp
 import Solver.Optimize.Rewriting.OptimizeConst
+import Solver.Optimize.Rewriting.OptimizeCtor
 import Solver.Optimize.Rewriting.OptimizeForAll
-import Solver.Optimize.Rewriting.OptimizeMatch
 
 open Lean Elab Command Term Meta Solver.Options
 
@@ -40,16 +41,15 @@ partial def optimizeExpr (e : Expr) : TranslateEnvT Expr := do
            if i < fInfo.paramInfo.size then -- handle case when HOF is passed as argument
              if !fInfo.paramInfo[i]!.isExplicit then
                mas ← mas.modifyM i visit
-         -- normalizing partially apply function before choice reduction
-         if let some pe ← normPartialFun? rf mas then
-            trace[Optimize.normPartial] f!"normalizing partial function {reprStr rf} {reprStr mas} => {reprStr pe}"
-            return (← visit pe)
-         -- applying choice reduction to avoid optimizing unreachable arguments in match and ite
+         -- applying choice reduction to avoid optimizing unreachable arguments in ite
          if let some re ← reduceITEChoice? rf mas visit then
             trace[Optimize.reduceChoice] f!"choice ite reduction {reprStr rf} {reprStr mas} => {reprStr re}"
             return (← visit re)
+         -- applying choice reduction and match constant propagation to
+         -- avoid optimizing unreachable arguments in match
          if let some re ← reduceMatchChoice? rf mas visit then
-            trace[Optimize.reduceChoice] f!"choice match reduction {reprStr rf} {reprStr mas} => {reprStr re}"
+            trace[Optimize.matchConstPropagation]
+              f!"match constant propagation {reprStr rf} {reprStr mas} => {reprStr re}"
             return (← visit re)
          -- apply optimization on remaining explicit parameters before reduction
          for i in [extraArgs.size:mas.size] do
@@ -67,10 +67,19 @@ partial def optimizeExpr (e : Expr) : TranslateEnvT Expr := do
          if let some fdef ← getUnfoldFunDef? rf mas then
             trace[Optimize.unfoldDef] f!"unfolding function definition {reprStr rf} {reprStr mas} => {reprStr fdef}"
             return (← visit fdef)
+         -- normalizing partially apply function after unfolding non-opaque functions
+         if let some pe ← normPartialFun? rf mas then
+            trace[Optimize.normPartial] f!"normalizing partial function {reprStr rf} {reprStr mas} => {reprStr pe}"
+            return (← visit pe)
          -- normalize match expression to ite
          if let some mdef ← normMatchExpr? rf mas visit then
             trace[Optimize.normMatch] f!"normalizing match to ite {reprStr rf} {reprStr mas} => {reprStr mdef}"
             return (← visit mdef)
+         -- applying ctor constant propagation
+         if let some re ← constCtorPropagation? rf mas then
+            trace[Optimize.ctorConstPropagation]
+              f!"ctor constant propagation {reprStr rf} {reprStr mas} => {reprStr re}"
+            return (← visit re)
          normOpaqueAndRecFun rf mas visit
     | Expr.lam n t b bi => do
         let t' ← visit t
@@ -113,6 +122,16 @@ def cacheOpaqueRecFun (optimize : Expr → TranslateEnvT Expr) : TranslateEnvT U
    callOptimize (e : Expr) : TranslateEnvT Unit :=
      discard $ normOpaqueAndRecFun e #[] optimize
 
+/-- Perform the following actions:
+      - populate the recFunInstCache with default recursive function definitions.
+      - optimize expression `e`
+-/
+def Optimize.main (e : Expr) : TranslateEnvT Expr := do
+  -- populate recFunInstCache with recursive function definition.
+  cacheOpaqueRecFun (λ a => optimizeExpr a)
+  optimizeExpr e
+
+
 /-- Optimize an expression using the given solver options.
     ### Parameters
       - `sOpts`: The solver options to use for optimization.
@@ -121,19 +140,18 @@ def cacheOpaqueRecFun (optimize : Expr → TranslateEnvT Expr) : TranslateEnvT U
       - A tuple containing the optimized expression and the optimization environment.
     NOTE: optimization is repeated until no entry is introduced in `replayRecFunMap`.
 -/
-def optimize (sOpts: SolverOptions) (e : Expr) : MetaM (Expr × TranslateEnv) := do
+def command (sOpts: SolverOptions) (e : Expr) : MetaM (Expr × TranslateEnv) := do
   let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
-  -- populate recFunInstCache with recursive function definition.
-  let res ← cacheOpaqueRecFun (λ a => optimizeExpr a)|>.run env
-  optimizeExpr e|>.run res.2
-
+  Optimize.main e|>.run env
 
 initialize
+  registerTraceClass `Optimize.ctorConstPropagation
   registerTraceClass `Optimize.expr
+  registerTraceClass `Optimize.matchConstPropagation
+  registerTraceClass `Optimize.normMatch
+  registerTraceClass `Optimize.normPartial
   registerTraceClass `Optimize.reduceChoice
   registerTraceClass `Optimize.reduceApp
   registerTraceClass `Optimize.unfoldDef
-  registerTraceClass `Optimize.normMatch
-  registerTraceClass `Optimize.normPartial
 
 end Solver.Optimize
