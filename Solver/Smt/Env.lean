@@ -328,32 +328,27 @@ def defineIntEMod : TranslateEnvT Unit := do
 
 /-- Define Int.tdiv Smt function, i.e.,
       @Int.tdiv x y :=
-        (let (t (ite (< x 0) (div (- x) y) (div x y)))
-             (ite (= 0 y) 0 (ite (< x 0) (- t) t)))
+         (ite (= 0 y) 0 (ite (< x 0) (- (div (- x) y)) (div x y)))
 -/
 def defineIntTDiv : TranslateEnvT Unit := do
-  let tsym := mkReservedSymbol "@t"
-  let tId := smtSimpleVarId tsym
   let natZero := natLitSmt 0
-  let xLtZero := λ xId => ltSmt xId natZero
-  let lbody := λ xId yId => iteSmt (eqSmt natZero yId) natZero (iteSmt (xLtZero xId) (negSmt tId) tId)
   let fdef := λ xId yId =>
-    mkLetTerm #[(tsym, iteSmt (xLtZero xId) (divSmt (negSmt xId) yId) (divSmt xId yId))] (lbody xId yId)
+      iteSmt
+        (eqSmt natZero yId) natZero
+        (iteSmt (ltSmt xId natZero)
+          (negSmt (divSmt (negSmt xId) yId)) (divSmt xId yId))
   defineBinFun tdivSymbol intSort intSort intSort fdef
 
 /-- Define Int.tmod Smt function, i.e.,
      @Int.tmod x y :=
-       (let (t (ite (< x 0) (mod (- x) y) (mod x y)))
-            (ite (= 0 y) x (ite (< x 0) (- t) t)))
+       (ite (= 0 y) x (ite (< x 0) (- (mod (- x) y)) (mod x y)))
 -/
 def defineIntTMod : TranslateEnvT Unit := do
-  let tsym := mkReservedSymbol "@t"
-  let tId := smtSimpleVarId tsym
   let natZero := natLitSmt 0
-  let xLtZero := λ xId => ltSmt xId natZero
-  let lbody := λ xId yId => iteSmt (eqSmt natZero yId) xId (iteSmt (xLtZero xId) (negSmt tId) tId)
   let fdef := λ xId yId =>
-    mkLetTerm #[(tsym, iteSmt (xLtZero xId) (modSmt (negSmt xId) yId) (modSmt xId yId))] (lbody xId yId)
+      iteSmt (eqSmt natZero yId) xId
+        (iteSmt (ltSmt xId natZero)
+          (negSmt (modSmt (negSmt xId) yId)) (modSmt xId yId))
   defineBinFun tmodSymbol intSort intSort intSort fdef
 
 /-- Define Int.fdiv Smt function, i.e.,
@@ -369,19 +364,16 @@ def defineIntFDiv : TranslateEnvT Unit := do
 
 /-- Define Int.fmod Smt function, i.e.,
      @Int.fmod x y :=
-       (let (t (ite (and (< x 0) (< y 0)) (mod (- x) y) (mod x y)))
-            (ite (= 0 y) x (ite (and (< x 0) (< y 0)) (- t) t)))
+       (ite (= 0 y) x (ite (and (< x 0) (< y 0)) (- (mod (- x) y)) (mod x y))))
 -/
 def defineIntFMod : TranslateEnvT Unit := do
-  let tsym := mkReservedSymbol "@t"
-  let tId := smtSimpleVarId tsym
   let natZero := natLitSmt 0
   let xLtZero := λ xId => ltSmt xId natZero
   let yLtZero := λ yId => ltSmt yId natZero
   let flipCond := λ xId yId => andSmt (xLtZero xId) (yLtZero yId)
-  let lbody := λ xId yId => iteSmt (eqSmt natZero yId) xId (iteSmt (flipCond xId yId) (negSmt tId) tId)
   let fdef := λ xId yId =>
-    mkLetTerm #[(tsym, iteSmt (flipCond xId yId) (modSmt (negSmt xId) yId) (modSmt xId yId))] (lbody xId yId)
+      iteSmt (eqSmt natZero yId) xId
+      (iteSmt (flipCond xId yId) (negSmt (modSmt (negSmt xId) yId)) (modSmt xId yId))
   defineBinFun fmodSymbol intSort intSort intSort fdef
 
 
