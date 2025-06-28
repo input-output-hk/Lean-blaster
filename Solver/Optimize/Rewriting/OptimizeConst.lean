@@ -53,7 +53,7 @@ partial def normConst (e : Expr) (optimizer : Expr → TranslateEnvT Expr) : Tra
 
   where
     isGlobalConstant (c : Name) : TranslateEnvT (Option Expr) := do
-      let ConstantInfo.opaqueInfo opVal ← getConstInfo c | return none
+      let ConstantInfo.opaqueInfo opVal ← getConstEnvInfo c | return none
       trace[Optimize.const.global] "normalizing global constant {c} => {reprStr opVal.value}"
       optimizer opVal.value
 

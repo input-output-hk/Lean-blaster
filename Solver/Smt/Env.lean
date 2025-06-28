@@ -65,8 +65,6 @@ def logResult (r : Result) (isCTI := false) (indLabel := "") (cexLabel := "Count
          f failure
          f s!"{cexLabel}:"
          cex.forM (λ s => f s!" - {s.dropRight 1}")
-         -- let cexStr := List.foldl (λ acc s => s!"{acc} - {s}") "" cex
-         -- f s!"{failure}\n{cexLabel}:\n{cexStr}"
       else f failure
 
 /-- Spawn a z3 process w.r.t. the provided solver options. -/

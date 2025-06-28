@@ -129,7 +129,7 @@ def reduceMatch? (f : Expr) (args : Array Expr) (mInfo : MatcherInfo) : Translat
     tryReduction? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
       -- NOTE: simplifies match only when all the discriminators are constructors
       let Expr.const n dlevel := f | return none
-      let cInfo ← getConstInfo n
+      let cInfo ← getConstEnvInfo n
       let matchFun ← instantiateValueLevelParams cInfo dlevel
       let auxApp := mkAppN matchFun (args.take mInfo.getFirstAltPos)
       if (isCasesOnRecursor (← getEnv) n) then
@@ -416,7 +416,7 @@ private def addPatternInContext
   (h : MatchContextMap) (discr : Expr)
   (pattern : Expr) (altArgs : Option (Array Expr)) : MatchContextMap :=
   match h.get? discr with
-  | none => h.insert discr (Std.HashMap.empty.insert pattern (mkMatchEntry altArgs))
+  | none => h.insert discr (Std.HashMap.emptyWithCapacity.insert pattern (mkMatchEntry altArgs))
   | some pMap => h.insert discr (pMap.insert pattern (mkMatchEntry altArgs))
 
  where
@@ -646,12 +646,13 @@ where
 -/
 def structEqMatch? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
  let Expr.const n dlevel := f | return none
- let some mInfo ← getMatcherInfo? n | return none
+ if isCasesOnRecursor (← getEnv) n then return none
+ let some mInfo ← getMatcherRecInfo? n dlevel | return none
  let i_args := args.take mInfo.getFirstDiscrPos
  let params ← getImplicitParameters f i_args
  let genericArgs := Array.filterMap (λ p => if p.isGeneric then some p.effectiveArg else none) params
  let auxApp ← mkLambdaFVars genericArgs (mkAppN f i_args)
- let cInfo ← getConstInfo n
+ let cInfo ← getConstEnvInfo n
  let matchFun ← instantiateValueLevelParams cInfo dlevel
  let auxAppType ← mkLambdaFVars genericArgs (Expr.beta matchFun i_args)
  match (← get).optEnv.matchCache.get? auxAppType with

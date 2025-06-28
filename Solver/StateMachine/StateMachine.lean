@@ -138,7 +138,7 @@ def logContradictionAtDepth : TranslateEnvT Unit := do
 -/
 def getSMTypes (smInst : Expr) : TranslateEnvT StateMachineEnv := do
   let Expr.const n _ := smInst | throwEnvError "StateMachine instance name expression expected !!!"
-  let ConstantInfo.defnInfo info ← getConstInfo n
+  let ConstantInfo.defnInfo info ← getConstEnvInfo n
     | throwEnvError "StateMachine instance definition expected !!!"
   Expr.withApp info.value fun f args => do
    let Expr.const `Solver.StateMachine.StateMachine.mk _ := f

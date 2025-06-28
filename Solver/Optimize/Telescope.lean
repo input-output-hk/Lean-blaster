@@ -5,30 +5,28 @@ open Lean Meta
 
 namespace Solver.Optimize
 
+@[inline] def map2TranslateEnvT [MonadControlT TranslateEnvT m] [Monad m] (f : forall {α}, (β → γ → TranslateEnvT α) → TranslateEnvT α) {α} (k : β → γ → m α) : m α :=
+  controlAt TranslateEnvT fun runInBase => f fun b c => runInBase <| k b c
+
+variable [MonadControlT TranslateEnvT n] [Monad n]
+
 /-- Return `some className` if `n` corresponds to a class or is transitively an abbrevation
     to a class definition (e.g., DecidableEq, DecidableLT, DecidableRel, etc).
 -/
-partial def isClassConstraint? (n : Name) : MetaM (Option Name) := do
- if isClass (← getEnv) n then pure n
- else
-   match (← getConstInfo n) with
-   | ConstantInfo.defnInfo defnInfo =>
-       match (getForallLambdaBody defnInfo.value).getAppFn' with
-       | Expr.const c _ => isClassConstraint? c
-       | _ => pure none
-   | _ => pure none
-
+@[always_inline, inline]
+def isClassConstraint? (n : Name) : TranslateEnvT (Option Name) := do
+  if (← isClassConstraint n)
+  then return n
+  else return none
 
 /-- Return `true` if `e` corresponds to a class constraint expression
     (see function `isClassConstraint`).
 -/
 @[always_inline, inline]
-def isClassConstraintExpr? (e : Expr) : MetaM (Option Name) := do
+def isClassConstraintExpr? (e : Expr) : TranslateEnvT (Option Name) := do
  match e.getAppFn' with
  | Expr.const n _ => isClassConstraint? n
  | _ => return none
-
-variable [MonadControlT MetaM n] [Monad n]
 
 private def fvarsSizeLtMaxFVars (fvars : Array Expr) (maxFVars? : Option Nat) : Bool :=
   match maxFVars? with
@@ -37,7 +35,7 @@ private def fvarsSizeLtMaxFVars (fvars : Array Expr) (maxFVars? : Option Nat) : 
 
 @[always_inline, inline]
 private def updateLocalInstance
-  (fvar fvarType : Expr) (lctx : LocalContext) (localInsts : LocalInstances) : MetaM LocalInstances := do
+  (fvar fvarType : Expr) (lctx : LocalContext) (localInsts : LocalInstances) : TranslateEnvT LocalInstances := do
   if let some c ← isClassConstraintExpr? fvarType
   then
     match lctx.find? fvar.fvarId! with
@@ -53,7 +51,7 @@ structure TelescopeEnv where
   localInsts : LocalInstances
   fvars : Array Expr
 
-abbrev TelescopeEnvT := StateRefT TelescopeEnv MetaM
+abbrev TelescopeEnvT := StateRefT TelescopeEnv TranslateEnvT
 
 private def mkDecl (fvar : Expr) (userName : Name) (type : Expr) (bi : BinderInfo := BinderInfo.default) (kind : LocalDeclKind := .default) : TelescopeEnvT Unit := do
   let optClass ← isClassConstraintExpr? type
@@ -77,7 +75,7 @@ private def mkDecl (fvar : Expr) (userName : Name) (type : Expr) (bi : BinderInf
 private partial def forallTelescopeAuxAux
     (maxFVars? : Option Nat)
     (type : Expr)
-    (k : Array Expr → Expr → MetaM α) : MetaM α := do
+    (k : Array Expr → Expr → TranslateEnvT α) : TranslateEnvT α := do
   let rec process (type : Expr) : TelescopeEnvT Expr := do
     match type with
     | .forallE n t b bi =>
@@ -93,7 +91,7 @@ private partial def forallTelescopeAuxAux
     k env.fvars body
 
 private partial def forallTelescopeAux
-  (type : Expr) (maxFVars? : Option Nat) (k : Array Expr → Expr → MetaM α) : MetaM α := do
+  (type : Expr) (maxFVars? : Option Nat) (k : Array Expr → Expr → TranslateEnvT α) : TranslateEnvT α := do
   match maxFVars? with
   | some 0 => k #[] type
   | _ =>
@@ -109,7 +107,7 @@ private partial def forallTelescopeAux
 -/
 @[always_inline, inline]
 def forallTelescope (type : Expr) (k : Array Expr → Expr → n α) : n α :=
-  map2MetaM (fun k => forallTelescopeAux type none k) k
+  map2TranslateEnvT (fun k => forallTelescopeAux type none k) k
 
 /--
   Similar to `forallTelescope`, stops constructing the telescope when
@@ -117,10 +115,10 @@ def forallTelescope (type : Expr) (k : Array Expr → Expr → n α) : n α :=
 -/
 @[always_inline, inline]
 def forallBoundedTelescope (type : Expr) (maxFVars : Nat) (k : Array Expr → Expr → n α) : n α :=
-  map2MetaM (fun k => forallTelescopeAux type (some maxFVars) k) k
+  map2TranslateEnvT (fun k => forallTelescopeAux type (some maxFVars) k) k
 
 private partial def lambdaTelescopeImp
-  (e : Expr) (maxFVars? : Option Nat) (k : Array Expr → Expr → MetaM α) : MetaM α := do
+  (e : Expr) (maxFVars? : Option Nat) (k : Array Expr → Expr → TranslateEnvT α) : TranslateEnvT α := do
   let (body, env) ← process e |>.run {lctx := ← getLCtx, localInsts := ← getLocalInstances, fvars := #[]}
   withLCtx env.lctx env.localInsts do
     k env.fvars body
@@ -143,7 +141,7 @@ where
 -/
 @[always_inline, inline]
 def lambdaTelescope (e : Expr) (k : Array Expr → Expr → n α) : n α :=
-  map2MetaM (fun k => lambdaTelescopeImp e none k) k
+  map2TranslateEnvT (fun k => lambdaTelescopeImp e none k) k
 
 
 /--
@@ -154,6 +152,6 @@ def lambdaTelescope (e : Expr) (k : Array Expr → Expr → n α) : n α :=
 -/
 @[always_inline, inline]
 def lambdaBoundedTelescope (e : Expr) (maxFVars : Nat) (k : Array Expr → Expr → n α) : n α :=
-  map2MetaM (fun k => lambdaTelescopeImp e (some maxFVars) k) k
+  map2TranslateEnvT (fun k => lambdaTelescopeImp e (some maxFVars) k) k
 
 end Solver.Optimize

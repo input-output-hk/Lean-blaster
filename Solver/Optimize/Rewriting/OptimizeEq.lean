@@ -41,8 +41,8 @@ def nonZeroIntInHyps (e : Expr) : TranslateEnvT Bool := do
     Return `none` otherwise.
     Assume that memoization is performed on expressions.
 -/
-partial def structEq? (op1 : Expr) (op2: Expr) : MetaM (Option Bool) := do
- let rec visit (op1 : Expr) (op2 : Expr) : MetaM (Option Bool) := do
+partial def structEq? (op1 : Expr) (op2: Expr) : TranslateEnvT (Option Bool) := do
+ let rec visit (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Bool) := do
    match op1, op2 with
     | Expr.lit _, Expr.lit _ => pure (some (← exprEq op1 op2))
     | Expr.const n1 _, Expr.const n2 _ =>
