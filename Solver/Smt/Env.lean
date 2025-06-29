@@ -371,8 +371,7 @@ def defineIntTDiv : TranslateEnvT Unit := do
 def defineIntTMod : TranslateEnvT Unit := do
   let natZero := natLitSmt 0
   let fdef := λ xId yId =>
-      iteSmt
-        (eqSmt natZero yId) xId
+      iteSmt (eqSmt natZero yId) xId
         (iteSmt (ltSmt xId natZero)
           (negSmt (modSmt (negSmt xId) yId)) (modSmt xId yId))
   defineBinFun tmodSymbol intSort intSort intSort fdef

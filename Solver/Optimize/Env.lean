@@ -1233,8 +1233,8 @@ def isClassConstraintExpr (e : Expr) : TranslateEnvT Bool := do
 /-- Return `true` if `f` corresponds to an inductive type or is an
     abbrevation to an inductive type.
 -/
-private partial def isInductiveTypeAux (f : Name) (us : List Level) : TranslateEnvT Bool := do
- match (← getConstEnvInfo f) with
+partial def isInductiveTypeAux (f : Name) (us : List Level) : MetaM Bool := do
+ match (← getConstInfo f) with
  | ConstantInfo.inductInfo _ => return true
  | dInfo@(ConstantInfo.defnInfo _) =>
     if dInfo.type.isProp
