@@ -253,7 +253,7 @@ def generateInstType
 -/
 def retrieveGenericArgs (args : Array Expr) : TranslateEnvT (Array Expr) := do
   let mut genericArgs := #[]
-  let mut knownGenParams := (.empty : Std.HashSet Expr)
+  let mut knownGenParams := (.emptyWithCapacity : Std.HashSet Expr)
   for i in [:args.size] do
     if (← isGenericParam args[i]! (skipInductiveCheck := true)) then
       (genericArgs, knownGenParams) ← updateGenericArgs args[i]! genericArgs knownGenParams
@@ -519,10 +519,10 @@ def translateInductiveType
   let mut sortDecls := (#[] : Array SmtSortDecl)
   let mut dataTypeDecls := (#[] : Array SmtDatatypeDecl)
   for indName in indValStart.all do
-    let ConstantInfo.inductInfo indVal ← getConstInfo indName
+    let ConstantInfo.inductInfo indVal ← getConstEnvInfo indName
       | throwEnvError f!"translateInductiveType: no InductInfo found for {indName}"
     -- recVal to get the list of RecusorRule for all ctors
-    let ConstantInfo.recInfo recVal ← getConstInfo (mkRecName indName)
+    let ConstantInfo.recInfo recVal ← getConstEnvInfo (mkRecName indName)
       | throwEnvError f!"translateInductiveType: {mkRecName indName} not a recinfo"
     let params ← genIndParams indVal
     let ctors ← createCtorDecls recVal indVal.ctors
@@ -643,7 +643,7 @@ where
   isEnumeration (indVal : InductiveVal) : TranslateEnvT Bool := do
     match indVal.all with
     | [n] =>
-      let ConstantInfo.recInfo recVal ← getConstInfo (mkRecName n)
+      let ConstantInfo.recInfo recVal ← getConstEnvInfo (mkRecName n)
         | throwEnvError f!"isEnumeration: {mkRecName n} not a recinfo"
       for c in indVal.ctors do
         if (← getRecRuleFor recVal c).nfields != 0 then return false
@@ -655,14 +655,14 @@ where
      let decl ← generateIndInstDecl t args typeTranslator
      let Expr.const indName l := t
        | throwEnvError f!"declareIndInst: name expression expected but got {reprStr t}"
-     let ConstantInfo.inductInfo indVal ← getConstInfo indName
+     let ConstantInfo.inductInfo indVal ← getConstEnvInfo indName
        | throwEnvError f!"declareIndInst: inductive info expected for {indName}"
      return (indVal, indName, l, decl)
 
   generatePredicates
     (indName : Name) (us : List Level) (indVal : InductiveVal)
     (decl : IndTypeDeclaration) (args : Array Expr) (inMutualDefinition := false) : FunctionGenEnv Unit := do
-   let ConstantInfo.recInfo recVal ← getConstInfo (mkRecName indName)
+   let ConstantInfo.recInfo recVal ← getConstEnvInfo (mkRecName indName)
      | throwEnvError f!"generatePredicates: {mkRecName indName} not a recinfo"
    let funDecl := {name := decl.instName, params := #[(mkReservedSymbol "@x", decl.instSort)], ret := boolSort}
    let mut funBody := trueSmt
@@ -699,7 +699,7 @@ where
     (indName : Name) (us : List Level)
     (recVal : RecursorVal) (recRule : RecursorRule)
     (args : Array Expr) (funBody : SmtTerm) (inMutualDefinition : Bool) : FunctionGenEnv SmtTerm := do
-    let cinfo ← getConstInfo indName
+    let cinfo ← getConstEnvInfo indName
     let auxApp := (mkAppN recRule.rhs args).instantiateLevelParams cinfo.levelParams us
     let firstCtorFieldIdx := recVal.numMotives + recVal.numMinors
     -- NOTE: recVal.numParams is ignored here when determining firstCtorFieldIdx
@@ -752,7 +752,7 @@ def translateNonOpaqueType
   match t with
   | Expr.const n _ =>
       if (← isVisitedIndName n) then return (← translateInstType n)
-      let ConstantInfo.inductInfo indVal ← getConstInfo n
+      let ConstantInfo.inductInfo indVal ← getConstEnvInfo n
         | throwEnvError f!"translateNonOpaqueType: inductive info expected for {n}"
       -- we should not define sort for polymorphic inductive parameters,
       -- we should set genericParamFun to `false` and inTypeDefinition to `true`

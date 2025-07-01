@@ -160,7 +160,6 @@ def cacheOpaqueRecFun (optimize : Expr → TranslateEnvT Expr) : TranslateEnvT U
   callOptimize natAdd
   callOptimize natSub
   callOptimize natMul
-  callOptimize natDiv
   callOptimize natBle
   callOptimize natBeq
   callOptimize natPow

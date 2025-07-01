@@ -1,6 +1,7 @@
 import Lean
 import Solver.Command.Options
 import Solver.Optimize.Env
+import Solver.Smt.EmitCommand
 
 open Lean Meta Solver.Optimize Solver.Options
 
@@ -21,6 +22,11 @@ def toResult (e : Expr) : Result :=
  | _ => Result.Undetermined
 
 
+def isValidResult (r : Result) : Bool :=
+  match r with
+  | .Valid => true
+  | _ => false
+
 def isFalsifiedResult (r : Result) : Bool :=
   match r with
   | .Falsified _ => true
@@ -29,26 +35,36 @@ def isFalsifiedResult (r : Result) : Bool :=
 def falsifiedError (r : Result) : String :=
   s!"Falsified result expected but got {reprStr r}"
 
-def logResult (r : Result) : TranslateEnvT Unit := do
+
+def blankRef : TranslateEnvT Syntax := do
+  let pos ← getRefPos
+  return Syntax.atom (SourceInfo.original "".toSubstring pos "  ".toSubstring pos) ""
+
+def logResult (r : Result) (isCTI := false) (indLabel := "") (cexLabel := "Counterexample") : TranslateEnvT Unit := do
   let sOpts := (← get).optEnv.options.solverOptions
+  let ref ← blankRef
   match r with
-  | .Valid => if isExpectedValid sOpts.solveResult
-              then logInfo "✅ Valid"
-              else logError "❌ Unexpected Valid"
+  | .Valid =>
+      if isExpectedValid sOpts.solveResult
+      then logInfoAt ref "✅ Valid"
+      else logErrorAt ref "❌ Unexpected Valid"
   | .Falsified cex =>
-      if isExpectedFalsified sOpts.solveResult
-      then dumpCex logInfo "✅ Expected Falsified" cex
-      else dumpCex logError "❌ Falsified" cex
+      if isCTI
+      then dumpCex (logInfoAt ref) indLabel cex
+      else if isExpectedFalsified sOpts.solveResult
+           then dumpCex (logInfoAt ref) "✅ Expected Falsified" cex
+           else dumpCex (logErrorAt ref) "❌ Falsified" cex
   | .Undetermined =>
-        if isExpectedUndetermined sOpts.solveResult
-        then logInfo "✅ Expected Undetermined"
-        else logWarning "⚠️ Undetermined"
+      if isExpectedUndetermined sOpts.solveResult
+      then logInfoAt ref "✅ Expected Undetermined"
+      else logWarningAt ref "⚠️ Undetermined"
 
   where
     dumpCex (f : MessageData -> MetaM Unit) (failure : String) (cex : List String) : TranslateEnvT Unit := do
       if (← get).optEnv.options.solverOptions.generateCex then
-         let cexStr := List.foldl (λ acc s => s!"{acc} - {s}") "" cex
-         f s!"{failure}\nCounterexample:\n{cexStr}"
+         f failure
+         f s!"{cexLabel}:"
+         cex.forM (λ s => f s!" - {s.dropRight 1}")
       else f failure
 
 /-- Spawn a z3 process w.r.t. the provided solver options. -/
@@ -141,21 +157,30 @@ partial def getOutputEval (h : IO.FS.Handle) : IO String := do
       let line ← h.getLine
       getIndValue (acc ++ line) (tallyParenthesis line tally)
 
+/-- Push smt command `c` in the translation environment only when sOpts.dumpSmtLib is set -/
+def storeCommand (c : SmtCommand) : TranslateEnvT Unit := do
+  if (← get).optEnv.options.solverOptions.dumpSmtLib then
+    modify (fun env => { env with smtEnv.smtCommands := env.smtEnv.smtCommands.push c })
+  else pure ()
 
-/-- Push smt command `c` in the translation environment and forward it
-    to the backend solver if the corresponding process has been created.
+/-- Return `true` when the smtProc has been initialized -/
+def isSmtProcSet : TranslateEnvT Bool :=
+  return (← get).smtEnv.smtProc.isSome
+
+/-- Push smt command `c` in the translation environment only when sOpts.dumpSmtLib is set.
+    The command is piped to the backend solver if the corresponding process has been created.
     An error is triggered when the `checkSuccess` flag is set and
     not `success` output is produced.
     NOTE: The `checkSuccess` is to be set only for Smt command that
     are NOT expected to produce any output.
 -/
 partial def trySubmitCommand! (c : SmtCommand) (checkSuccess := true) : TranslateEnvT Unit := do
-  modify (fun env => { env with smtEnv.smtCommands := env.smtEnv.smtCommands.push c })
-  let some p := (← get).smtEnv.smtProc | return ()
-  p.stdin.putStrLn s!"{c}"
-  p.stdin.flush
+  storeCommand c
+  if !(← isSmtProcSet) then return ()
+  c.emit
+  let h ← getProcStdOut
   if !checkSuccess then return ()
-  let out ← p.stdout.getLine
+  let out ← h.getLine
   match out with
   | "success\n" => return ()
   | err => throwEnvError s!"Unexpected smt error: {err} for {c}"
@@ -357,8 +382,8 @@ def defineIntTMod : TranslateEnvT Unit := do
  -/
 def defineIntFDiv : TranslateEnvT Unit := do
   let natZero := natLitSmt 0
-  let yLtZero := λ yId => ltSmt yId natZero
-  let innerIte := λ xId yId => iteSmt (yLtZero yId) (divSmt (negSmt xId) (negSmt yId)) (divSmt xId yId)
+  let innerIte := λ xId yId =>
+      iteSmt (ltSmt yId natZero) (divSmt (negSmt xId) (negSmt yId)) (divSmt xId yId)
   let fdef := λ xId yId => iteSmt (eqSmt natZero yId) natZero (innerIte xId yId)
   defineBinFun fdivSymbol intSort intSort intSort fdef
 
@@ -447,6 +472,19 @@ def getModel : TranslateEnvT (List String) := do
     getVarValue (v : SmtSymbol × Name) : TranslateEnvT String := do
       return s!"{v.2}: {← evalTerm (smtSimpleVarId v.1)}"
 
+/-- Retrieve sat result from `h`.
+    An error is triggered when an unexpected check-sat result is obtained.
+    Function can be called only after a check-sat
+-/
+def getSatResult (h : IO.FS.Handle) : TranslateEnvT Result := do
+  let satResult ← h.getLine -- only one line expected for checkSat result
+  match satResult with
+  | "sat\n"     => pure (.Falsified (← getModel))
+  | "unsat\n"   => pure .Valid
+  | "unknown\n"
+  | "timeout\n" => pure .Undetermined
+  | err => throwEnvError s!"checkSat: Unexpected check-sat result: {err}"
+
 /-- Check satisfiability of current Smt query and return the result.
     An error is triggered when an unexpected check-sat result is obtained.
     Return `Undetermined` when the Smt process is not defined.
@@ -455,15 +493,18 @@ def checkSat : TranslateEnvT Result := do
   let env ← get
   let some p := env.smtEnv.smtProc | return .Undetermined
   submitCommand (.checkSat)
-  let satResult ← p.stdout.getLine -- only one line expected for checkSat result
-  let res ←
-    match satResult with
-      | "sat\n"     => pure (.Falsified (← getModel))
-      | "unsat\n"   => pure .Valid
-      | "unknown\n"
-      | "timeout\n" => pure .Undetermined
-      | err => throwEnvError s!"checkSat: Unexpected check-sat result: {err}"
-  return res
+  getSatResult p.stdout
+
+/-- Check satisfiability of current Smt query by assuming the provided terms
+    and return the result.
+    An error is triggered when an unexpected check-sat result is obtained.
+    Return `Undetermined` when the Smt process is not defined.
+-/
+def checkSatAssuming (args : Array SmtTerm) : TranslateEnvT Result := do
+  let env ← get
+  let some p := env.smtEnv.smtProc | return .Undetermined
+  submitCommand (.checkSatAssuming args)
+  getSatResult p.stdout
 
 
 /-- Try to retrieve the proof artifact when a `unsat` result is obtained and dump result to stdout.

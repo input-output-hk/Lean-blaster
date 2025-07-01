@@ -186,7 +186,7 @@ def tryAppReduction (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
   | some re => return re
 
 /-- Apply the following propagation rules on any function application `fn e₁ ... eₙ`
-    only when fn := Expr.const n _ ∧ n ≠ ite ∧ n ≠ dite ∧ ¬ isMatchExpr n ∧
+    only when fn := Expr.const n l ∧ n ≠ ite ∧ n ≠ dite ∧ ¬ isMatchExpr n l ∧
               propagate fn e₁ ... eₙ
 
     - When ∃ i ∈ [1..n],
@@ -226,8 +226,8 @@ def tryAppReduction (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 -/
 def funPropagation? (cf : Expr) (cargs : Array Expr) : TranslateEnvT (Option Expr) := do
   match cf with
-  | Expr.const n _ =>
-      if n == ``ite || n == ``dite || (← isMatchExpr n) then return none
+  | Expr.const n l =>
+      if n == ``ite || n == ``dite || (← isMatchExpr n l) then return none
       if !(← propagate cf n cargs) then return none
       for i in [:cargs.size] do
         if let some re ← iteCstProp? cf cargs i then return re

@@ -21,11 +21,12 @@ structure MatchInfo where
 /-- Determine if `e` is an `match` expression and return a MatchInfo instance.
     Otherwise return `none`.
 -/
+@[always_inline, inline]
 def isMatcher? (e : Expr) : TranslateEnvT (Option MatchInfo) := do
  let (pm, args) := getAppFnWithArgs e
  let Expr.const n l := pm | return none
  let some mInfo ← getMatcherRecInfo? n l | return none
- let cInfo ← getConstInfo n
+ let cInfo ← getConstEnvInfo n
  let matchFun ← instantiateValueLevelParams cInfo l
  let instApp := Expr.beta matchFun (args.take mInfo.getFirstAltPos)
  return some { name := n, nameExpr := pm, args, instApp, mInfo}
@@ -128,7 +129,7 @@ partial def retrieveAltsArgs (lhs : Array Expr) : TranslateEnvT AltArgsResult :=
       Expr.withApp e fun f as => do
        match f with
        | Expr.const n _ =>
-          match (← getConstInfo n) with
+          match (← getConstEnvInfo n) with
           | ConstantInfo.ctorInfo info =>
               -- constructor application
               let ctorArgs := as[info.numParams:as.size]
@@ -199,7 +200,7 @@ def withModifyFVarValue (fv : FVarId) (v : Expr) (k : TranslateEnvT α) : Transl
 def isCtorPattern (p : Expr) : TranslateEnvT (Option (Name × Array Expr)) := do
  match p.getAppFn' with
  | Expr.const n _ =>
-     match (← getConstInfo n) with
+     match (← getConstEnvInfo n) with
      | ConstantInfo.ctorInfo info =>
          let args := p.getAppArgs
          return (n, args[info.numParams:args.size].toArray)
@@ -453,7 +454,7 @@ private partial def mkLet
        mkLetCtors optimizer n (args.size - 1) args t k
 
   where
-    isCtorMatch (e : Expr) : MetaM Bool := isCtorExpr e.getAppFn'
+    isCtorMatch (e : Expr) := isCtorExpr e.getAppFn'
 
 /-- Generate the necessary ite condition expressions when normalizing a `match` to ite, such that:
     given `e` a match discriminator and `pp` its corresponding match expression
