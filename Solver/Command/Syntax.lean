@@ -26,103 +26,112 @@ namespace Solver.Syntax
     E.g.
      #solve [∀ x y : Nat, x + y > x]
 -/
-syntax solveUnfoldDepth := ("(unfold-depth:" num ")")?
-syntax solveTimeout := ("(timeout:" num ")")?
-syntax solveVerbose := ("(verbose:" num ")")?
-syntax solveSMTLib := ("(only-smt-lib:" num ")")?
-syntax solveOptimize := ("(only-optimize:" num ")")?
-syntax solveDumpSmt := ("(dump-smt-lib:" num ")")?
-syntax solveGenCex := ("(gen-cex:" num ")")?
-syntax solveResult := ("(solve-result:" num ")")?
-syntax solveMaxDepth := ("(max-depth:" num ")")?
+
+declare_syntax_cat solveOption
+syntax "(unfold-depth:" num ")" : solveOption
+syntax "(timeout:" num ")" : solveOption
+syntax "(verbose:" num ")" : solveOption
+syntax "(only-smt-lib:" num ")" : solveOption
+syntax "(only-optimize:" num ")" : solveOption
+syntax "(dump-smt-lib:" num ")" : solveOption
+syntax "(gen-cex:" num ")" : solveOption
+syntax "(solve-result:" num ")" : solveOption
+syntax "(max-depth:" num ")" : solveOption
 
 -- NOTE: Limited to one term for the time being
 syntax solveTerm := "[" term "]"
-syntax (name := solve) "#solve"
-  solveUnfoldDepth solveTimeout
-  solveVerbose solveSMTLib solveOptimize solveDumpSmt solveMaxDepth solveGenCex
-  solveResult solveTerm : command
+syntax (name := solve) "#solve" (solveOption)* solveTerm : command
 
-def parseUnfoldDepth (sOpts : SolverOptions) : TSyntax `solveUnfoldDepth -> CommandElabM SolverOptions
- | `(solveUnfoldDepth| (unfold-depth: $n:num)) => return { sOpts with unfoldDepth := n.getNat }
- | `(solveUnfoldDepth| ) => return sOpts
- | _ => throwUnsupportedSyntax
+/-! ### Individual Parsing Functions -/
+def parseUnfoldDepth (sOpts : SolverOptions) : TSyntax `solveOption → CommandElabM SolverOptions
+  | `(solveOption| (unfold-depth: $n:num)) => return { sOpts with unfoldDepth := n.getNat }
+  | _ => return sOpts
 
-def parseMaxDepth (sOpts : SolverOptions) : TSyntax `solveMaxDepth -> CommandElabM SolverOptions
- | `(solveMaxDepth| (max-depth: $n:num)) => return { sOpts with maxDepth := n.getNat }
- | `(solveMaxDepth| ) => return sOpts
- | _ => throwUnsupportedSyntax
+def parseMaxDepth (sOpts : SolverOptions) : TSyntax `solveOption → CommandElabM SolverOptions
+ | `(solveOption| (max-depth: $n:num)) => return { sOpts with maxDepth := n.getNat }
+ | _ => return sOpts
 
-def parseTimeout (sOpts : SolverOptions) : TSyntax `solveTimeout -> CommandElabM SolverOptions
- | `(solveTimeout| (timeout: $n:num)) => return { sOpts with timeout := some n.getNat }
- | `(solveTimeout| ) => return sOpts
- | _ => throwUnsupportedSyntax
 
-def parseVerbose (sOpts : SolverOptions) : TSyntax `solveVerbose -> CommandElabM SolverOptions
- | `(solveVerbose| (verbose: $n:num)) => return { sOpts with verbose := n.getNat }
- | `(solveVerbose| ) => return sOpts
- | _ => throwUnsupportedSyntax
+def parseTimeout (sOpts : SolverOptions) : TSyntax `solveOption → CommandElabM SolverOptions
+  | `(solveOption| (timeout: $n:num)) => return { sOpts with timeout := some n.getNat }
+  | _ => return sOpts
 
-def parseSmtLib (sOpts : SolverOptions) : TSyntax `solveSMTLib -> CommandElabM SolverOptions
- | `(solveSMTLib| (only-smt-lib: $n:num)) => do
-       match n.getNat with
-        | 0 => return { sOpts with onlySmtLib := false }
-        | 1 => return { sOpts with onlySmtLib := true }
-        | _ => throwUnsupportedSyntax
- | `(solveSMTLib| ) => return sOpts
- | _ => throwUnsupportedSyntax
+def parseVerbose (sOpts : SolverOptions) : TSyntax `solveOption → CommandElabM SolverOptions
+  | `(solveOption| (verbose: $n:num)) => return { sOpts with verbose := n.getNat }
+  | _ => return sOpts
 
-def parseOptimize (sOpts : SolverOptions) : TSyntax `solveOptimize -> CommandElabM SolverOptions
- | `(solveOptimize| (only-optimize: $n:num)) => do
-       match n.getNat with
-        | 0 => return { sOpts with onlyOptimize := false }
-        | 1 => return { sOpts with onlyOptimize := true }
-        | _ => throwUnsupportedSyntax
- | `(solveOptimize| ) => return sOpts
- | _ => throwUnsupportedSyntax
+def parseSmtLib (sOpts : SolverOptions) : TSyntax `solveOption → CommandElabM SolverOptions
+  | `(solveOption| (only-smt-lib: $n:num)) =>
+      match n.getNat with
+      | 0 => return { sOpts with onlySmtLib := false }
+      | 1 => return { sOpts with onlySmtLib := true }
+      | _ => throwUnsupportedSyntax
+  | _ => return sOpts
 
-def parseDumpSmt (sOpts : SolverOptions) : TSyntax `solveDumpSmt -> CommandElabM SolverOptions
- | `(solveDumpSmt| (dump-smt-lib: $n:num)) => do
-       match n.getNat with
-        | 0 => return { sOpts with dumpSmtLib := false }
-        | 1 => return { sOpts with dumpSmtLib := true }
-        | _ => throwUnsupportedSyntax
- | `(solveDumpSmt| ) => return sOpts
- | _ => throwUnsupportedSyntax
+def parseOptimize (sOpts : SolverOptions) : TSyntax `solveOption → CommandElabM SolverOptions
+  | `(solveOption| (only-optimize: $n:num)) =>
+      match n.getNat with
+      | 0 => return { sOpts with onlyOptimize := false }
+      | 1 => return { sOpts with onlyOptimize := true }
+      | _ => throwUnsupportedSyntax
+  | _ => return sOpts
 
-def parseGenCex (sOpts : SolverOptions) : TSyntax `solveGenCex -> CommandElabM SolverOptions
- | `(solveGenCex| (gen-cex: $n:num)) => do
-       match n.getNat with
-        | 0 => return { sOpts with generateCex := false }
-        | 1 => return { sOpts with generateCex := true }
-        | _ => throwUnsupportedSyntax
- | `(solveGenCex| ) => return sOpts
- | _ => throwUnsupportedSyntax
+def parseDumpSmt (sOpts : SolverOptions) : TSyntax `solveOption → CommandElabM SolverOptions
+  | `(solveOption| (dump-smt-lib: $n:num)) =>
+      match n.getNat with
+      | 0 => return { sOpts with dumpSmtLib := false }
+      | 1 => return { sOpts with dumpSmtLib := true }
+      | _ => throwUnsupportedSyntax
+  | _ => return sOpts
 
-def parseSolveResult (sOpts : SolverOptions) : TSyntax `solveResult -> CommandElabM SolverOptions
- | `(solveResult| (solve-result: $n:num)) => do
-       match n.getNat with
-        | 0 => return { sOpts with solveResult := .ExpectedValid }
-        | 1 => return { sOpts with solveResult := .ExpectedFalsified }
-        | 2 => return { sOpts with solveResult := .ExpectedUndetermined }
-        | _ => throwUnsupportedSyntax
- | `(solveResult| ) => return sOpts
- | _ => throwUnsupportedSyntax
+def parseGenCex (sOpts : SolverOptions) : TSyntax `solveOption → CommandElabM SolverOptions
+  | `(solveOption| (gen-cex: $n:num)) =>
+      match n.getNat with
+      | 0 => return { sOpts with generateCex := false }
+      | 1 => return { sOpts with generateCex := true }
+      | _ => throwUnsupportedSyntax
+  | _ => return sOpts
+
+def parseSolveResult (sOpts : SolverOptions) : TSyntax `solveOption → CommandElabM SolverOptions
+  | `(solveOption| (solve-result: $n:num)) =>
+      match n.getNat with
+      | 0 => return { sOpts with solveResult := .ExpectedValid }
+      | 1 => return { sOpts with solveResult := .ExpectedFalsified }
+      | 2 => return { sOpts with solveResult := .ExpectedUndetermined }
+      | _ => throwUnsupportedSyntax
+  | _ => return sOpts
+
+/-! ### Generic Parser for All Options -/
+def parseSolveOption (sOpts : SolverOptions) (opt : TSyntax `solveOption) : CommandElabM SolverOptions := do
+  let sOpts ← parseUnfoldDepth sOpts opt
+  let sOpts ← parseTimeout sOpts opt
+  let sOpts ← parseVerbose sOpts opt
+  let sOpts ← parseSmtLib sOpts opt
+  let sOpts ← parseOptimize sOpts opt
+  let sOpts ← parseDumpSmt sOpts opt
+  let sOpts ← parseGenCex sOpts opt
+  let sOpts ← parseSolveResult sOpts opt
+  let sOpts ← parseMaxDepth sOpts opt
+  return sOpts
+
+/-! ### Process Multiple Options -/
+def parseSolveOptions (opts : Array Syntax) (sOpts : SolverOptions) : CommandElabM SolverOptions :=
+  opts.foldlM (init := sOpts) fun acc opt => do
+    let opt' : TSyntax `solveOption := ⟨opt⟩  -- Explicit cast
+    parseSolveOption acc opt'
 
 def parseTerm : TSyntax `Solver.solveTerm -> CommandElabM Syntax
   |`(solveTerm| [ $th ]) => pure th.raw
   | _ => throwUnsupportedSyntax
 
 def commandInvoker (f : SolverOptions → Syntax → TermElabM Unit) : CommandElab := fun stx => do
-  let sOpts ← parseVerbose (← parseTimeout (← parseUnfoldDepth default ⟨stx[1]⟩) ⟨stx[2]⟩) ⟨stx[3]⟩
-  let sOpts ← parseDumpSmt (← parseOptimize (← parseSmtLib sOpts ⟨stx[4]⟩) ⟨stx[5]⟩) ⟨stx[6]⟩
-  let sOpts ← parseSolveResult (← parseGenCex (← parseMaxDepth sOpts ⟨stx[7]⟩) ⟨stx[8]⟩) ⟨stx[9]⟩
-  let tr ← parseTerm ⟨stx[10]⟩
+  let opts := stx[1].getArgs
+  let sOpts ← parseSolveOptions opts default  -- Process all options dynamically
+  let tr ← parseTerm ⟨stx[2]⟩
   withoutModifyingEnv $ runTermElabM fun _ => f sOpts tr
 
+/-! ### Implementation of solve command -/
 @[command_elab solve]
 def solveImp : CommandElab := commandInvoker Solver.Smt.command
 
-
 end Solver.Syntax
-

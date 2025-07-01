@@ -114,11 +114,11 @@ partial def SmtTerm.emit (e : SmtTerm) : TranslateEnvT Unit := do
        h.putStr "(let ("
        Array.forM
          (λ a => do
-            h.putStr " ( "
+            h.putStr "("
             a.1.emit
             h.putStr " "
             a.2.emit
-            h.putStr " ) "
+            h.putStr ")"
          ) bs
        h.putStr ") "
        body.emit

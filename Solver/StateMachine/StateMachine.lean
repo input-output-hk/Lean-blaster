@@ -173,7 +173,7 @@ def assertAssumptions (smInst : Expr) (iVar : Expr) (state : Expr) : StateMachin
     let res ←
       profileTask
         s!"Checking contradiction at Depth {currDepth}"
-        (checkContradiction (← get).initFlag)
+        (checkContradiction env.initFlag)
         (verboseLevel := 2)
     if isValidResult res then
       logContradictionAtDepth

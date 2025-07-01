@@ -84,7 +84,7 @@ partial def kIndStrategy (smInst : Expr) : TranslateEnvT Unit := do
                 (verboseLevel := 2)
              -- generate init flag
              let iflag ← defineSmtInitFlag
-             -- assert initilization constraint `initFlag → s₀ = initState`
+             -- assert initialization constraint `initFlag → s₀ = initState`
              profileTask s!"Submitting initialization constraint"
                (assertTerm (impliesSmt iflag initSt))
                (verboseLevel := 2)
@@ -132,7 +132,7 @@ partial def kIndStrategy (smInst : Expr) : TranslateEnvT Unit := do
      assertTerm (impliesSmt dflag (notSmt inv))
       -- dump smt commands only when `dumpSmtLib` option is set.
      logSmtQuery
-     let some iflag := env.initFlag | throwEnvError "kIndStrategy: initilization flag expected !!!"
+     let some iflag := env.initFlag | throwEnvError "kIndStrategy: initialization flag expected !!!"
      let res ←
        profileTask s!"Checking Base Case at Depth {currDepth}"
        (checkSatAssuming #[iflag, dflag])
@@ -153,10 +153,7 @@ partial def kIndStrategy (smInst : Expr) : TranslateEnvT Unit := do
      else return some res
 
 
-syntax (name := kind) "#kind"
-  solveUnfoldDepth solveTimeout
-  solveVerbose solveSMTLib solveOptimize solveDumpSmt solveMaxDepth solveGenCex
-  solveResult solveTerm : command
+syntax (name := kind) "#kind" (solveOption)* solveTerm : command
 
 def kIndCommand (sOpts: SolverOptions) (stx : Syntax) : TermElabM Unit := do
   elabTermAndSynthesize stx none >>= fun e => do

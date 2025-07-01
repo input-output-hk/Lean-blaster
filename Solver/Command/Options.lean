@@ -65,8 +65,8 @@ structure SolverOptions where
   solveResult : ExpectedResult := .ExpectedValid
 
   /-- Maximum analysis depth to be considered when performing BMC and K-Induction.
-      It is set to 100 by default. -/
-  maxDepth : Nat := 100
+      It is set to 10 by default. -/
+  maxDepth : Nat := 10
  deriving Repr
 
 instance : Inhabited SolverOptions where
