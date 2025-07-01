@@ -59,9 +59,9 @@ def Translate.main (e : Expr) : TranslateEnvT Unit := do
           -- dump smt commands submitted to backend solver when `dumpSmtLib` option is set.
           logSmtQuery
           let res ← profileTask "Solve" checkSat
+          logResult res
           discard $ exitSmt
           -- TODO: spawn lean proof mode when result is undetermined
-          logResult res
 
     | res => logResult res
 
