@@ -229,7 +229,7 @@ def createSortExpr (args : Array SortExpr) : TranslateEnvT SortExpr := do
     the inductive datatype, perform the following actions:
      - When k > 0:
          let A := [x₀, ..., xₖ]
-         let B := [typeTranslator A[i] | i ∈ [0..k] ∧ ¬ isClassConstraintExpr (← inferType A[i])]
+         let B := [typeTranslator A[i] | i ∈ [0..k] ∧ ¬ isClassConstraintExpr (← inferTypeEnv A[i])]
           - return `ParamSort (indNameToSmtSymbol n) B`
      - When k = 0:
         - return `SymbolSort indNameToSmtSymbol n)`
@@ -241,7 +241,7 @@ def generateInstType
  if args.size == 0 then return .SymbolSort indSym
  let mut iargs := #[]
  for i in [:args.size] do
-   if !(← isClassConstraintExpr (← inferType args[i]!)) then -- ignore class constraints
+   if !(← isClassConstraintExpr (← inferTypeEnv args[i]!)) then -- ignore class constraints
      iargs := iargs.push (← typeTranslator args[i]!)
  return (.ParamSort indSym iargs)
 
@@ -544,7 +544,7 @@ def translateInductiveType
         let mut polyParams := #[]
         for i in [: xs.size] do
           let arg := xs[i]!
-          let argType ← inferType arg
+          let argType ← inferTypeEnv arg
           if !(← isClassConstraintExpr argType) then -- ignore class constraints
             let Expr.fvar v := arg
               | throwEnvError f!"translateInductiveType: FVarExpr expected but got {reprStr arg}"
@@ -560,13 +560,13 @@ def translateInductiveType
   createCtorDeclaration (recVal : RecursorVal) (recRule : RecursorRule) : TranslateEnvT SmtConstructorDecl := do
     let ctorSym := nameToSmtSymbol recRule.ctor
     let firstCtorFieldIdx := recVal.numParams + recVal.numMotives + recVal.numMinors
-    Optimize.forallTelescope (← inferType recRule.rhs) fun xs _ => do
+    Optimize.forallTelescope (← inferTypeEnv recRule.rhs) fun xs _ => do
       if recRule.nfields == 0 then return (ctorSym, none) -- nullary constructor
       let mut selectors := #[]
       for i in [firstCtorFieldIdx : xs.size] do
         let arg := xs[i]!
         let selectorIdx := i - firstCtorFieldIdx + 1
-        let argType ← inferType arg
+        let argType ← inferTypeEnv arg
         let selSym := mkNormalSymbol s!"{ctorSym}.{selectorIdx}"
         if (← isProp argType) then
           selectors := selectors.push (selSym, boolSort)
@@ -704,7 +704,7 @@ where
     let firstCtorFieldIdx := recVal.numMotives + recVal.numMinors
     -- NOTE: recVal.numParams is ignored here when determining firstCtorFieldIdx
     -- as we are instantiating the datatype parameters
-    Optimize.forallTelescope (← inferType auxApp) fun xs _ => do
+    Optimize.forallTelescope (← inferTypeEnv auxApp) fun xs _ => do
       -- list to replace each ctor field with appropriate selector name
       let mut substituteList := []
       -- list of prop terms generated for each proposition argument (if any) of the current ctor
@@ -715,7 +715,7 @@ where
         let selectorIdx := i - firstCtorFieldIdx + 1
         let selTerms := mkCtorSelectorExpr recRule.ctor selectorIdx
         substituteList := (arg, selTerms.1) :: substituteList
-        let argType ← inferType arg
+        let argType ← inferTypeEnv arg
         if (← isProp argType) then
           let optExpr ← optimizer argType
           -- apply substitue list on optExpr before translation
@@ -1013,7 +1013,7 @@ def translateForAll
   (termTranslator : Expr → TranslateEnvT SmtTerm) : QuantifierEnvT SmtTerm := do
  Optimize.forallTelescope e fun xs b => do
    for i in [:xs.size] do
-     let t ← inferType xs[i]!
+     let t ← inferTypeEnv xs[i]!
      if (← isProp t) then
        updatePremises (← termTranslator t)
      -- need to filter out class constraints

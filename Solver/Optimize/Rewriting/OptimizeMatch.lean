@@ -6,13 +6,6 @@ import Solver.Optimize.Telescope
 open Lean Meta Elab
 namespace Solver.Optimize
 
-
-@[always_inline, inline]
-def withMatchAlts (mInfo : MatchInfo) (f : Array Expr → TranslateEnvT α) : TranslateEnvT α := do
- if (isCasesOnRecursor (← getEnv) mInfo.name)
- then lambdaTelescope mInfo.instApp fun xs _t => f xs
- else forallTelescope (← inferType mInfo.instApp) fun xs _t => f xs
-
 private partial def isCstMatchPropAux (stack : List Expr) : TranslateEnvT Bool := do
   match stack with
   | [] => return true
@@ -59,7 +52,7 @@ private partial def isCstMatchPropAux (stack : List Expr) : TranslateEnvT Bool :
 
 /-- Given `f x₁ ... xₙ` return `true` when the following conditions are satisfied:
      -  ∃ i ∈ [1..n], isExplicit xᵢ ∧
-     -  ∀ i ∈ [1..n], isExplicit xᵢ → isConstructor xᵢ ∨ isProp (← inferType xₓ) ∨ isFunType (← inferType xᵢ)
+     -  ∀ i ∈ [1..n], isExplicit xᵢ → isConstructor xᵢ ∨ isProp (← inferTypeEnv xₓ) ∨ isFunType (← inferTypeEnv xᵢ)
     NOTE: constructors may contain free variables.
 -/
 def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) (funPropagation := false) : TranslateEnvT Bool := do
@@ -68,7 +61,7 @@ def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) (funPropagation := fa
   let rec loop (i : Nat) (atLeastOneExplicit : Bool := false) : TranslateEnvT Bool := do
     if i < stop then
       let e := args[i]!
-      let t ← inferType e
+      let t ← inferTypeEnv e
       let aInfo := fInfo.paramInfo[i]!
       if aInfo.isExplicit
       then
@@ -136,7 +129,7 @@ def reduceMatch? (f : Expr) (args : Array Expr) (mInfo : MatcherInfo) : Translat
         lambdaBoundedTelescope auxApp mInfo.numAlts fun hs _t =>
           commonMatchReduction? auxApp args hs
       else
-        forallBoundedTelescope (← inferType auxApp) mInfo.numAlts fun hs _t =>
+        forallBoundedTelescope (← inferTypeEnv auxApp) mInfo.numAlts fun hs _t =>
           commonMatchReduction? auxApp args hs
 
 /-- Given `pType := λ α₁ → .. → λ αₙ → t` returns `λ α₁ → .. → λ αₙ → eType`
@@ -194,7 +187,7 @@ private partial def constMatchPropagationAux? (stack : List ConstMatchStack) : T
          let extra_args := cargs.extract mInfo.arity cargs.size
          -- NOTE: we also need to set the sort type for the pulled ite to meet
          -- the return type of the embedded match
-         let retType ← inferType (mkAppN cm margs)
+         let retType ← inferTypeEnv (mkAppN cm margs)
          let e1' := mkAppN cm (margs.set! idx e1)
          let e2' := mkAppN cm (margs.set! idx e2)
          constMatchPropagationAux? ( .CMatchIteThen retType pcond pdecide mInfo extra_args e1' e2' :: xs)
@@ -205,7 +198,7 @@ private partial def constMatchPropagationAux? (stack : List ConstMatchStack) : T
          let extra_args := cargs.extract mInfo.arity cargs.size
          -- NOTE: we also need to set the sort type for the pulled dite to meet
          -- the return type of the embedded match
-         let retType ← inferType (mkAppN cm margs)
+         let retType ← inferTypeEnv (mkAppN cm margs)
          let e1' ← mkLambdaStackContext cm margs idx e1
          let e2' ← mkLambdaStackContext cm margs idx e2
          constMatchPropagationAux? ( .CMatchDIteThen retType pcond pdecide mInfo extra_args e1' e2' :: xs)
@@ -266,7 +259,7 @@ private partial def constMatchPropagationAux? (stack : List ConstMatchStack) : T
           -- NOTE: we also need to set the return type for pulled over match
           -- to meet the return type of the embedded match.
           let idxType := argInfo.mInfo.getFirstDiscrPos - 1
-          let retType ← inferType (mkAppN cm margs)
+          let retType ← inferTypeEnv (mkAppN cm margs)
           let pargs ← pargs.modifyM idxType (updateMatchReturnType retType)
           let pMatchExpr := mkAppN argInfo.nameExpr pargs
           let res := if extra_args.isEmpty then pMatchExpr else mkAppN pMatchExpr extra_args
@@ -452,7 +445,7 @@ partial def optimizeMatchAlt
   let currIdx := altIdx - mInfo.mInfo.getFirstAltPos
   let h ← addNotEqPatternToContext (← get).optEnv.matchInContext 0 currIdx
   withMatchAlts mInfo $ fun alts => do
-    forallTelescope (← inferType alts[currIdx]!) fun xs b => do
+    forallTelescope (← inferTypeEnv alts[currIdx]!) fun xs b => do
       let lhs := b.getAppArgs
       lambdaBoundedTelescope (← optimizeLambdaTypes rhs) (max 1 (← retrieveAltsArgs lhs).altArgs.size) fun params body => do
         let mut mcontext := h
@@ -485,7 +478,7 @@ partial def optimizeMatchAlt
        return h
      else
        let h' ← withMatchAlts mInfo $ fun alts => do
-         forallTelescope (← inferType alts[idx]!) fun xs b => do
+         forallTelescope (← inferTypeEnv alts[idx]!) fun xs b => do
            let lhs := b.getAppArgs
            let mut mcontext := h
            if ← onlyOnePattern lhs then
@@ -561,7 +554,7 @@ where
   allPatternsInHyp
     (mInfo : MatchInfo) (args : Array Expr)
     (alt : Expr) (h : MatchContextMap) : TranslateEnvT (Bool × Array Expr) := do
-    forallTelescope (← inferType alt) fun xs b => do
+    forallTelescope (← inferTypeEnv alt) fun xs b => do
       let lhs := b.getAppArgs
       let mut patternArgs := #[]
       for j in [mInfo.mInfo.getFirstDiscrPos : mInfo.mInfo.getFirstAltPos] do
@@ -594,7 +587,7 @@ where
   @[always_inline, inline]
   allFVarsPatterns (alt : Expr) : TranslateEnvT Bool := do
     -- NOTE: we avoid performing forallTelescope at this stage
-    let lhs := (← inferType alt).getForallBody.getAppArgs
+    let lhs := (← inferTypeEnv alt).getForallBody.getAppArgs
     for i in [:lhs.size] do
       if !lhs[i]!.isBVar then
         return false
@@ -604,7 +597,7 @@ where
   existsNotEqPattern
     (mInfo : MatchInfo) (args : Array Expr)
     (alt : Expr) (h : MatchContextMap) : TranslateEnvT Bool := do
-    forallTelescope (← inferType alt) fun xs b => do
+    forallTelescope (← inferTypeEnv alt) fun xs b => do
       let lhs := b.getAppArgs
       for j in [mInfo.mInfo.getFirstDiscrPos : mInfo.mInfo.getFirstAltPos] do
         let idxLhs := j - mInfo.mInfo.getFirstDiscrPos
@@ -633,7 +626,7 @@ where
     perform the following actions:
      - params ← getImplicitParameters f #[p₁, ..., pₙ]
      - genericArgs := [params[i].effectiveArg | i ∈ [0..params.size-1] ∧ p.isGeneric]
-     - appType ← inferType(λ (α₁ : Type₁) → λ (αₘ : Typeₘ) → f p₁, ..., pₙ), with `α₁ : Type₁, ..., αₘ : Typeₘ = genericArgs`
+     - appType := λ (α₁ : Type₁) → λ (αₘ : Typeₘ) → f p₁, ..., pₙ, with `α₁ : Type₁, ..., αₘ : Typeₘ = genericArgs`
      - return `g.match.n α₁ ..., αₘ d₁ ... dₖ pa₍₁₎₍₁₎ → .. → pa₍₁₎₍ₖ₎ → rhs₁ ... pa₍ₘ₎₍₁₎ → .. → pa₍ₘ₎₍ₖ₎ → rhsₘ`
        only when `appType := λ (α₁ : Type₁) → λ (αₘ : Typeₘ) → g.match.n q₁ ... qₕ` exists in match cache.
      - Otherwise, perform the following:

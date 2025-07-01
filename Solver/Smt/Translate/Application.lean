@@ -492,7 +492,7 @@ partial def translateRecFun
           if fInfo.paramInfo[i]!.isExplicit then
             let st ← translateFunLambdaParamType (← v.getType) optimizer termTranslator
             params := params.push (← fvarIdToSmtSymbol v, st)
-        let ret ← translateFunLambdaParamType (← inferType b) optimizer termTranslator
+        let ret ← translateFunLambdaParamType (← inferTypeEnv b) optimizer termTranslator
         let funDecl := {name := s, params, ret}
         let sBody ← termTranslator b
         return { defs with funDecls := defs.funDecls.push funDecl, funBodies := defs.funBodies.push sBody }
@@ -757,7 +757,7 @@ def translateApp
     genExistsTerm (lambdaE : Expr) : QuantifierEnvT SmtTerm := do
       Optimize.lambdaTelescope lambdaE fun xs b => do
         for i in [:xs.size] do
-          let t ← inferType xs[i]!
+          let t ← inferTypeEnv xs[i]!
           translateQuantifier xs[i]! t optimizer termTranslator
         let ebody ← termTranslator b
         let env ← get
@@ -786,7 +786,7 @@ def translateApp
       if args.size < info.numParams + info.numFields
       then termTranslator (← etaExpand e) -- partially applied ctor case
       else
-        let st ← translateType optimizer termTranslator (← inferType e)
+        let st ← translateType optimizer termTranslator (← inferTypeEnv e)
         if info.numFields == 0 then
           -- nullary polymorphic constructor case
            return (smtQualifiedVarId (nameToSmtSymbol n) st)

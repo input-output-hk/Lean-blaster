@@ -81,7 +81,7 @@ def diteToPropExpr? (iteType: Expr) (cond : Expr) (thn : Expr) (els : Expr) : Tr
          withLocalDecl n bi t fun x => do
             optimizeForall x t (← addHypotheses t (some x)).2 (b.instantiate1 x)
      | _ =>
-         if !(← inferType ite).isForall then
+         if !(← inferTypeEnv ite).isForall then
             throwEnvError f!"diteToPropExpr? : lambda/function expression expected but got {reprStr ite}"
          else
            -- Need to create a lambda term embedding the following application
@@ -111,7 +111,7 @@ def extractDependentITEExpr (e : Expr) : TranslateEnvT Expr := do
   match e with
   | Expr.lam _n _t b _bi => return b
   | _ =>
-    if (← inferType e).isForall
+    if (← inferTypeEnv e).isForall
     then return e -- case when then/else clause is a quantified function (see theorem `dite_true`).
     else throwEnvError f!"extractDependentITEExpr: lambda/function expression expected but got {reprStr e}"
 
@@ -421,7 +421,7 @@ partial def optimizeDITE (f : Expr) (args : Array Expr) : TranslateEnvT Expr := 
             if let some h' := m then return (t.beta #[h'])
             return none
      | _ =>
-        if !(← inferType t).isForall then
+        if !(← inferTypeEnv t).isForall then
             throwEnvError f!"diteReduce?: lambda/function expression expected but got {reprStr t}"
         match hyps.get? cond with
         | some (some h') => return (t.beta #[h'])
