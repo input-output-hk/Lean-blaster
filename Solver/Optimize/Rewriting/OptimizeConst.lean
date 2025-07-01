@@ -33,12 +33,12 @@ namespace Solver.Optimize
             - return `mkExpr e`
 -/
 partial def normConst (e : Expr) (optimizer : Expr → TranslateEnvT Expr) : TranslateEnvT Expr := do
-  let Expr.const n _ := e | throwEnvError "normConst: name expression expected but got {reprStr e}"
+  let Expr.const n _ := e | throwEnvError f!"normConst: name expression expected but got {reprStr e}"
   match n with
   | ``Nat.zero => mkNatLitExpr 0
   | _ =>
-    if (← isPartialDef n) then throwEnvError "normConst: partial function not supported {n} !!!"
-    if (← isUnsafeDef n) then throwEnvError "normConst: unsafe definition not supported {n} !!!"
+    if (← isPartialDef n) then throwEnvError f!"normConst: partial function not supported {n} !!!"
+    if (← isUnsafeDef n) then throwEnvError f!"normConst: unsafe definition not supported {n} !!!"
     if let some e ← isGlobalConstant n then return e
     if let some e ← isToNormOpaqueFun n then
       trace[Optimize.const.opaque] "normalizing opaque function {n} => {reprStr e}"
