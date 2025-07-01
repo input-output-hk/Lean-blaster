@@ -101,6 +101,9 @@ structure MemoizeEnv where
   /-- Cache memoizing the getConstInfo result -/
   getConstInfoCache : Std.HashMap Lean.Name ConstantInfo
 
+  /-- Cache memoizing the inferType result -/
+  inferTypeCache : Std.HashMap Lean.Expr Lean.Expr
+
 instance : Inhabited MemoizeEnv where
   default :=
   { isRecFunCache := Std.HashMap.emptyWithCapacity,
@@ -108,8 +111,9 @@ instance : Inhabited MemoizeEnv where
     isClassCache := Std.HashMap.emptyWithCapacity,
     isInductiveCache := Std.HashMap.emptyWithCapacity,
     isResolvableCache := Std.HashMap.emptyWithCapacity,
-    getMatcherCache := Std.HashMap.emptyWithCapacity
-    getConstInfoCache := Std.HashMap.emptyWithCapacity
+    getMatcherCache := Std.HashMap.emptyWithCapacity,
+    getConstInfoCache := Std.HashMap.emptyWithCapacity,
+    inferTypeCache := Std.HashMap.emptyWithCapacity
   }
 
 /-- Type defining the environment used when optimizing a lean theorem. -/
@@ -1221,6 +1225,17 @@ def getMatcherRecInfo? (n : Name) (l : List Level) : TranslateEnvT (Option Match
                                env.optEnv.memCache.getMatcherCache.insert n m })
      return m
 
+/-- Same as the default inferType in the Lean codebase but caches the result. -/
+def inferTypeEnv (e : Expr) : TranslateEnvT Expr := do
+  match (← get).optEnv.memCache.inferTypeCache.get? e with
+  | some t => return t
+  | none =>
+     let t ← inferType e
+     modify (fun env => { env with
+                               optEnv.memCache.inferTypeCache :=
+                               env.optEnv.memCache.inferTypeCache.insert e t})
+     return t
+
 /-- Return `true` if `e` corresponds to a class constraint expression
     (see function `isClassConstraint`).
 -/
@@ -1374,7 +1389,7 @@ partial def isGenericParam (e : Expr) (skipInductiveCheck := false) : TranslateE
        if (← isInstanceClass n) then return false
        if (← isClassConstraint n) then return false
        if let ConstantInfo.inductInfo _ ← getConstEnvInfo n then return false
-       isGenericParam (← inferType e) skipInductiveCheck
+       isGenericParam (← inferTypeEnv e) skipInductiveCheck
  | Expr.fvar v => isGenericParam (← v.getType) skipInductiveCheck
  | Expr.app f arg =>
      if (!skipInductiveCheck) && !(← isClassConstraintExpr f) && (← isInductiveTypeExpr f) then return false

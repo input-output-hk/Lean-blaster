@@ -31,6 +31,12 @@ def isMatcher? (e : Expr) : TranslateEnvT (Option MatchInfo) := do
  let instApp := Expr.beta matchFun (args.take mInfo.getFirstAltPos)
  return some { name := n, nameExpr := pm, args, instApp, mInfo}
 
+@[always_inline, inline]
+def withMatchAlts (mInfo : MatchInfo) (f : Array Expr → TranslateEnvT α) : TranslateEnvT α := do
+ if (isCasesOnRecursor (← getEnv) mInfo.name)
+ then lambdaBoundedTelescope mInfo.instApp mInfo.mInfo.numAlts fun xs _t => f xs
+ else forallBoundedTelescope (← inferTypeEnv mInfo.instApp) mInfo.mInfo.numAlts fun xs _t => f xs
+
 /-- Return `true` is p is a nat, integer or string literal expression. -/
 def isCstLiteral (p : Expr) : Bool :=
   (isNatValue? p).isSome || (isIntValue? p).isSome || (isStrValue? p).isSome
@@ -305,7 +311,7 @@ private partial def mkLet
   (e : Expr) (p : Expr) (ot : Expr)
   (k : Expr → TranslateEnvT Expr) : TranslateEnvT Expr := do
   let p' ← removeNamedPatternExpr optimizer p
-  let eType ← inferType e
+  let eType ← inferTypeEnv e
   let t := if isCstLiteral p' || (!(isNatType eType || isIntType eType) && (← isCtorMatch p'))
            then ot.replace (λ a => if a == e then some p' else none)
            else ot
@@ -469,7 +475,7 @@ private partial def mkLet
        := ⊥                otherwise
 -/
 private def mkCond (e : Expr) (p : Expr) (andTerms : Array Expr) : TranslateEnvT (Array Expr) := do
-  let eType ← inferType e
+  let eType ← inferTypeEnv e
   if !(p.isFVar || (isNatType eType) || (isIntType eType)) || (isCstLiteral p) then
     -- case: (p ≠ v ∧ Type(eᵢ) ∉ {Nat, Int}) ∨ isIntNatStrCst(p)
     return andTerms.push (mkApp3 (← mkEqOp) eType p e)
@@ -532,7 +538,7 @@ def normMatchExprAux?
      for i in [:plhs.size] do
       let p := plhs[i]!
       let e := discrs[i]!
-      let eType ← inferType e
+      let eType ← inferTypeEnv e
       if (p.isFVar || (!(isCstLiteral p) && (isNatType eType || isIntType eType)))
       then fvarCnt := fvarCnt + 1
      -- filter out named pattern equations and named pattern labels
@@ -562,7 +568,7 @@ def normMatchExprAux?
      -- we don't want to cache the decidable constraint as condExpr is not optimized at this stage
      -- return none if decidable instance cannot be synthesized.
      let some decideExpr ← trySynthDecidableInstance? condTerm (cacheDecidableCst := false) | return none
-     return (mkApp5 (← mkIteOp) (← inferType rhs) condTerm decideExpr thenExpr elseExpr)
+     return (mkApp5 (← mkIteOp) (← inferTypeEnv rhs) condTerm decideExpr thenExpr elseExpr)
 
 
 /-- A generic match expression rewriter that given a `MatchInfo` instance representing a match application,
@@ -592,12 +598,7 @@ def matchExprRewriter
     TranslateEnvT (Option α) := do
     let discrs := mInfo.args.extract mInfo.mInfo.getFirstDiscrPos mInfo.mInfo.getFirstAltPos
     let rhs := mInfo.args.extract mInfo.mInfo.getFirstAltPos mInfo.mInfo.arity
-    if (isCasesOnRecursor (← getEnv) mInfo.name) then
-      lambdaTelescope mInfo.instApp fun xs _t =>
-        commonMatchRewriter discrs xs[xs.size - rhs.size:] rhs
-    else
-      forallTelescope (← inferType mInfo.instApp) fun xs _t =>
-        commonMatchRewriter discrs xs[xs.size - rhs.size:] rhs
+    withMatchAlts mInfo fun alts => commonMatchRewriter discrs alts rhs
 
   where
     commonMatchRewriter
@@ -608,7 +609,7 @@ def matchExprRewriter
       for i in [:nbAlts] do
         let idx := nbAlts - i - 1
         accExpr ←
-          forallTelescope (← inferType alts[idx]!) fun _xs b => do
+          forallTelescope (← inferTypeEnv alts[idx]!) fun _xs b => do
             let mut lhs := b.getAppArgs
             trace[Optimize.normMatch.pattern] "match patterns to optimize {reprStr lhs}"
             -- NOTE: lhs has not been normalized as is kept at the type level.
@@ -713,7 +714,7 @@ def normMatchExpr?
     hasDecidableEq (mInfo : MatchInfo) : TranslateEnvT Bool := do
      let eqOpExpr ← mkEqOp
      for i in mInfo.mInfo.getDiscrRange do
-       let eqExpr := mkApp3 eqOpExpr (← inferType mInfo.args[i]!) mInfo.args[i]! mInfo.args[i]!
+       let eqExpr := mkApp3 eqOpExpr (← inferTypeEnv mInfo.args[i]!) mInfo.args[i]! mInfo.args[i]!
        if (← trySynthDecidableInstance? eqExpr).isNone then
          return false
      return true

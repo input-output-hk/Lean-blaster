@@ -56,7 +56,7 @@ private partial def normIteApp?
                   let ite_args := ite_args.set! 3 e1
                   let ite_args := ite_args.set! 4 e2
                   -- Update ite sort type
-                  let ite_args := ite_args.set! 0 (← inferType e1)
+                  let ite_args := ite_args.set! 0 (← inferTypeEnv e1)
                   k (some (mkAppN f ite_args))
   else k none
 
@@ -74,7 +74,7 @@ private partial def mkAppInDIteExpr
              k (some (← mkLambdaFVars #[x] body'))
   | _ =>
     -- case when then/else caluse is a quantified function
-    if !(← inferType ite_e).isForall then
+    if !(← inferTypeEnv ite_e).isForall then
       throwEnvError f!"mkAppNInDIteExpr: lambda/function expression expected but got {reprStr ite_e}"
     else
       -- Need to create a lambda term embedding the following application
@@ -106,7 +106,7 @@ private partial def normDIteApp?
                   let dite_args := dite_args.set! 3 e1
                   let dite_args := dite_args.set! 4 e2
                   -- update dite sort type
-                  let dite_args := dite_args.set! 0 (← inferType (mkAppN f args))
+                  let dite_args := dite_args.set! 0 (← inferTypeEnv (mkAppN f args))
                   k (some (mkAppN f dite_args))
   else k none
 
@@ -145,12 +145,12 @@ private partial def normMatchAppAux
   if idx ≥ mInfo.arity then
     -- update match return type
     let idxType := mInfo.getFirstDiscrPos - 1
-    let retType ← inferType (mkAppN f args)
+    let retType ← inferTypeEnv (mkAppN f args)
     let margs' := margs.set! idxType (← updateMatchReturnType args[idxType]! retType)
     k (some (mkAppN f margs'))
   else
     let altIdx := idx - mInfo.getFirstAltPos
-    let lhs ← forallTelescope (← inferType alts[altIdx]!) fun _ b => pure b.getAppArgs
+    let lhs ← forallTelescope (← inferTypeEnv alts[altIdx]!) fun _ b => pure b.getAppArgs
     mkAppInRhs extra_args lhs args[idx]! fun rhs_r =>
       match rhs_r with
       | none => throwEnvError "normMatchAppAux: unreachable case !!!"
@@ -264,7 +264,7 @@ def funPropagation? (cf : Expr) (cargs : Array Expr) : TranslateEnvT (Option Exp
     iteCstProp? (f : Expr) (args : Array Expr) (idxArg : Nat) : TranslateEnvT (Option Expr) := do
       -- NOTE: can't be an applied ite function (e.g., applied to more than 5 arguments)
       if let some (_psort, pcond, pdecide, e1, e2) := ite? args[idxArg]! then
-        let retType ← inferType (mkAppN f args)
+        let retType ← inferTypeEnv (mkAppN f args)
         let e1' ← tryAppReduction f (args.set! idxArg e1)
         let e2' ← tryAppReduction f (args.set! idxArg e2)
         -- NOTE: we also need to set the sort type for the pulled ite to meet the function's return type
@@ -281,7 +281,7 @@ def funPropagation? (cf : Expr) (cargs : Array Expr) : TranslateEnvT (Option Exp
             mkLambdaFVars #[x] body'
       | _ =>
          -- case when then/else clause is a quantified function
-         if !(← inferType ite_e).isForall then
+         if !(← inferTypeEnv ite_e).isForall then
            throwEnvError f!"pushCtorInDIteExpr: lambda/function expression expected but got {reprStr ite_e}"
          else
            -- Need to create a lambda term embedding the following application
@@ -296,7 +296,7 @@ def funPropagation? (cf : Expr) (cargs : Array Expr) : TranslateEnvT (Option Exp
     diteCstProp? (f : Expr) (args : Array Expr) (idxArg : Nat) : TranslateEnvT (Option Expr) := do
       -- NOTE: can't be an applied dite function (e.g., applied to more than 5 arguments)
       if let some (_psort, pcond, pdecide, e1, e2) := dite? args[idxArg]! then
-        let retType ← inferType (mkAppN f args)
+        let retType ← inferTypeEnv (mkAppN f args)
         let e1' ← pushFunInDIteExpr f args idxArg pcond e1
         let e2' ← pushFunInDIteExpr f args idxArg (← optimizeNot (← mkPropNotOp) #[pcond]) e2
         -- NOTE: we also need to set the sort type for the pulled dite to meet the function's return type
@@ -321,12 +321,12 @@ def funPropagation? (cf : Expr) (cargs : Array Expr) : TranslateEnvT (Option Exp
         then return none
         else
           let idxType := argInfo.mInfo.getFirstDiscrPos - 1
-          let retType ← inferType (mkAppN f args)
+          let retType ← inferTypeEnv (mkAppN f args)
           withMatchAlts argInfo $ fun alts => do
             let mut pargs := argInfo.args
             for i in [argInfo.mInfo.getFirstAltPos : argInfo.mInfo.arity] do
               let altIdx := i - argInfo.mInfo.getFirstAltPos
-              let lhs ← forallTelescope (← inferType alts[altIdx]!) fun _ b => pure b.getAppArgs
+              let lhs ← forallTelescope (← inferTypeEnv alts[altIdx]!) fun _ b => pure b.getAppArgs
               pargs ← pargs.modifyM i (updateRhsWithFun f args idxArg lhs)
             -- NOTE: we also need to set the return type for pulled over match to meet the function's return type
             pargs ← pargs.modifyM idxType (updateMatchReturnType retType)

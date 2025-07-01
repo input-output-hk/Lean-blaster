@@ -36,7 +36,7 @@ def optimizeProjection? (e : Expr) : TranslateEnvT (Option Expr) := do
   where
     iteProj? (typeName : Name) (idx : Nat) (struct : Expr) : TranslateEnvT (Option Expr) := do
       let some (_psort, pcond, pdecide, e1, e2) := ite? struct | return none
-      let retType ← inferType e
+      let retType ← inferTypeEnv e
       return mkApp5 (← mkIteOp) retType pcond pdecide (mkProj typeName idx e1) (mkProj typeName idx e2)
 
     updateDIteExprWithProj (typeName : Name) (idx : Nat) (ite_cond : Expr) (ite_e : Expr) : TranslateEnvT Expr := do
@@ -46,7 +46,7 @@ def optimizeProjection? (e : Expr) : TranslateEnvT (Option Expr) := do
             mkLambdaFVars #[x] (mkProj typeName idx (body.instantiate1 x))
       | _ =>
          -- case when then/else clause is a quantified function
-         if !(← inferType ite_e).isForall then
+         if !(← inferTypeEnv ite_e).isForall then
            throwEnvError f!"pushCtorInDIteExpr: lambda/function expression expected but got {reprStr ite_e}"
          else
            -- Need to create a lambda term embedding the following application
@@ -56,7 +56,7 @@ def optimizeProjection? (e : Expr) : TranslateEnvT (Option Expr) := do
 
     diteProj? (typeName : Name) (idx : Nat) (struct : Expr) : TranslateEnvT (Option Expr) := do
       let some (_psort, pcond, pdecide, e1, e2) := dite? struct | return none
-      let retType ← inferType e
+      let retType ← inferTypeEnv e
       let e1' ← updateDIteExprWithProj typeName idx pcond e1
       let e2' ← updateDIteExprWithProj typeName idx (← optimizeNot (← mkPropNotOp) #[pcond]) e2
       return mkApp5 (← mkDIteOp) retType pcond pdecide e1' e2'
@@ -70,12 +70,12 @@ def optimizeProjection? (e : Expr) : TranslateEnvT (Option Expr) := do
     matchProj? (typeName : Name) (idx : Nat) (struct : Expr) : TranslateEnvT (Option Expr) := do
       let some argInfo ← isMatcher? struct | return none
       let idxType := argInfo.mInfo.getFirstDiscrPos - 1
-      let retType ← inferType e
+      let retType ← inferTypeEnv e
       withMatchAlts argInfo $ fun alts => do
         let mut pargs := argInfo.args
         for i in [argInfo.mInfo.getFirstAltPos : argInfo.mInfo.arity] do
           let altIdx := i - argInfo.mInfo.getFirstAltPos
-          let lhs ← forallTelescope (← inferType alts[altIdx]!) fun _ b => pure b.getAppArgs
+          let lhs ← forallTelescope (← inferTypeEnv alts[altIdx]!) fun _ b => pure b.getAppArgs
           pargs ← pargs.modifyM i (updateRhsWithProj typeName idx lhs)
         -- update ret type for pulled over match
         pargs ← pargs.modifyM idxType (updateMatchReturnType retType)
