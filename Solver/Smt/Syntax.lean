@@ -203,7 +203,7 @@ mutual
        let bline := if isIteApp m then "\n" else ""
        s!"({m}{sargs}){bline}"
    | .LetTerm bs body =>
-       let sbs := Array.foldl (fun acc a => s!"{acc} ( {a.1} {a.2.toString} ) ") "" bs
+       let sbs := Array.foldl (fun acc a => s!"{acc}({a.1} {a.2.toString})") "" bs
        s!"(let ({sbs}) {body.toString})\n"
    | .ForallTerm bs body =>
        s!"(forall ({bs})\n {body.toString})\n"
