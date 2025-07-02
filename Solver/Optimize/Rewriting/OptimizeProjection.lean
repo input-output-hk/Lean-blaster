@@ -47,7 +47,7 @@ def optimizeProjection? (e : Expr) : TranslateEnvT (Option Expr) := do
       | _ =>
          -- case when then/else clause is a quantified function
          if !(← inferTypeEnv ite_e).isForall then
-           throwEnvError f!"pushCtorInDIteExpr: lambda/function expression expected but got {reprStr ite_e}"
+           throwEnvError f!"updateDIteExprWithProj: lambda/function expression expected but got {reprStr ite_e}"
          else
            -- Need to create a lambda term embedding the following application
            -- `fun h : ite_cond => (ite_e h).i`
