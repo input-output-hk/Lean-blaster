@@ -556,28 +556,28 @@ def setLogicAll : TranslateEnvT Unit :=
 
 /-- Set Smt `produce-proofs` option to `b`. -/
 def setProduceProofs (b : Bool) : TranslateEnvT Unit :=
-  trySubmitCommand! (.setOption ":produce-proofs" b)
+  trySubmitCommand! (.setOption ":produce-proofs" (toString b))
 
 /-- Set Smt `produce-models` option to `b`. -/
 def setProduceModels (b : Bool) : TranslateEnvT Unit :=
-  trySubmitCommand! (.setOption ":produce-models" b)
+  trySubmitCommand! (.setOption ":produce-models" (toString b))
 
 /-- Set Smt `smt-mbqi` option to `b`. -/
 def setMbqi (b : Bool) : TranslateEnvT Unit :=
-  trySubmitCommand! (.setOption ":smt.mbqi" b)
+  trySubmitCommand! (.setOption ":smt.mbqi" (toString b))
 
 /-- Set Smt `smt-pull-nested-quantifiers` option to `b`. -/
 def setPullNestedQuantifiers (b : Bool) : TranslateEnvT Unit :=
-  trySubmitCommand! (.setOption ":smt.pull-nested-quantifiers" b)
+  trySubmitCommand! (.setOption ":smt.pull-nested-quantifiers" (toString b))
 
 /-- Set Smt `print-success` option to `b`. -/
 def setPrintSuccess (b : Bool) : TranslateEnvT Unit :=
-  trySubmitCommand! (.setOption ":print-success" b)
+  trySubmitCommand! (.setOption ":print-success" (toString b))
 
 /-- Set Smt `random-seed` option to `n` or none. -/
 def setRandomSeed (n : Option Nat) : TranslateEnvT Unit := do
   match n with
-  | some n => trySubmitCommand! (.setNatOption ":smt.random-seed" (toString n))
+  | some n => trySubmitCommand! (.setOption ":smt.random-seed" (toString n))
   | none => pure ()
 
 /-- Set the default Smt options, i.e.:
@@ -594,9 +594,7 @@ def setDefaultSmtOptions (sOpts : SolverOptions) : TranslateEnvT Unit := do
  setProduceProofs true
  setPullNestedQuantifiers true
  setMbqi true
- match sOpts.randomSeed with
-  | some n => setRandomSeed (some n)
-  | none => setRandomSeed none
+ setRandomSeed sOpts.randomSeed
 
 
 /-- Perform the following actions:

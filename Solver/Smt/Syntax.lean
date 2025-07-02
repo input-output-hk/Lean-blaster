@@ -128,8 +128,7 @@ inductive SmtCommand where
   | getProof
   | evalTerm (t : SmtTerm)
   | setLogic (l : String)
-  | setOption (opt : String) (value : Bool)
-  | setNatOption (opt : String) (value : String)
+  | setOption (opt : String) (value : String)
 
 instance : Inhabited SmtCommand where
   default := .setLogic ""
@@ -299,7 +298,6 @@ instance : ToString SmtFunDecl where
  | .evalTerm t => s!"(eval {t})"
  | .setLogic l => s!"(set-logic {l})"
  | .setOption opt v => s!"(set-option {opt} {v})"
- | .setNatOption opt v => s!"(set-option {opt} {v})"
 
 instance : ToString SmtCommand where
   toString := SmtCommand.toString
