@@ -26,67 +26,67 @@ partial def optimizeExpr (e : Expr) : TranslateEnvT Expr := do
         withLocalDecl n bi t' fun x => do
           optimizeForall x t' (← visit (b.instantiate1 x))
     | Expr.app .. =>
-        Expr.withApp e fun f ras => do
-         -- calling normConst explicitly for `const` case to avoid
-         -- catching when no optimization is performed on foldable body function.
-         let f' ← if f.isConst then withInFunApp $ normConst f visit else visit f
-         let rf := f'.getAppFn'
-         let extraArgs := f'.getAppArgs
-         let mut mas := extraArgs ++ ras
-         let fInfo ← getFunInfoNArgs rf mas.size
-         -- apply optimization only on implicit parameters to remove mdata annotation
-         -- we don't consider explicit parameters at this stage to avoid performing
-         -- optimization on unreachable arguments
-         for i in [extraArgs.size:mas.size] do
-           if i < fInfo.paramInfo.size then -- handle case when HOF is passed as argument
-             if !fInfo.paramInfo[i]!.isExplicit then
-               mas ← mas.modifyM i visit
-         -- applying choice reduction to avoid optimizing unreachable arguments in ite
-         if let some re ← reduceITEChoice? rf mas visit then
-            trace[Optimize.reduceChoice] f!"choice ite reduction {reprStr rf} {reprStr mas} => {reprStr re}"
-            return (← visit re)
-         -- applying choice reduction and match constant propagation to
-         -- avoid optimizing unreachable arguments in match
-         if let some re ← reduceMatchChoice? rf mas visit then
-            trace[Optimize.matchConstPropagation]
-              f!"match constant propagation {reprStr rf} {reprStr mas} => {reprStr re}"
-            return (← visit re)
-         -- apply optimization on remaining explicit parameters before reduction
-         for i in [extraArgs.size:mas.size] do
-           if i < fInfo.paramInfo.size then
-             if fInfo.paramInfo[i]!.isExplicit then
-               mas ← mas.modifyM i visit
-           else mas ← mas.modifyM i visit
-         -- try to reduce app if all params are constructors
-         if let some re ← reduceApp? rf mas then
-           trace[Optimize.reduceApp] f!"application reduction {reprStr rf} {reprStr mas} => {reprStr re}"
+        let (f, ras) := getAppFnWithArgs e
+        -- calling normConst explicitly for `const` case to avoid
+        -- catching when no optimization is performed on foldable body function.
+        let f' ← if f.isConst then withInFunApp $ normConst f visit else visit f
+        let rf := f'.getAppFn'
+        let extraArgs := f'.getAppArgs
+        let mut mas := extraArgs ++ ras
+        let fInfo ← getFunInfoNArgs rf mas.size
+        -- apply optimization only on implicit parameters to remove mdata annotation
+        -- we don't consider explicit parameters at this stage to avoid performing
+        -- optimization on unreachable arguments
+        for i in [extraArgs.size:mas.size] do
+          if i < fInfo.paramInfo.size then -- handle case when HOF is passed as argument
+            if !fInfo.paramInfo[i]!.isExplicit then
+              mas ← mas.modifyM i visit
+        -- applying choice reduction to avoid optimizing unreachable arguments in ite
+        if let some re ← reduceITEChoice? rf mas visit then
+           trace[Optimize.reduceChoice] f!"choice ite reduction {reprStr rf} {reprStr mas} => {reprStr re}"
            return (← visit re)
-         -- unfold non-recursive and non-opaque functions
-         -- NOTE: beta reduction performed by getUnfoldFunDef? when rf is a lambda term
-         -- NOTE: we can only unfold once all parameters have been optimized.
-         if let some fdef ← getUnfoldFunDef? rf mas then
-            trace[Optimize.unfoldDef] f!"unfolding function definition {reprStr rf} {reprStr mas} => {reprStr fdef}"
-            return (← visit fdef)
-         -- normalizing partially apply function after unfolding non-opaque functions
-         if let some pe ← normPartialFun? rf mas then
-            trace[Optimize.normPartial] f!"normalizing partial function {reprStr rf} {reprStr mas} => {reprStr pe}"
-            return (← visit pe)
-         -- normalizing ite/match function application
-         if let some re ← normChoiceApplication? rf mas then
-            trace[Optimize.normChoiceApp]
-              f!"normalizing choice application {reprStr rf} {reprStr mas} => {reprStr re}"
-            return (← visit re)
-         -- normalize match expression to ite
-         if let some mdef ← normMatchExpr? rf mas visit then
-            trace[Optimize.normMatch] f!"normalizing match to ite {reprStr rf} {reprStr mas} => {reprStr mdef}"
-            return (← visit mdef)
-         let ne ← normOpaqueAndRecFun rf mas visit
-         -- applying fun propagation over ite and match
-         if let some re ← funPropagation? ne then
-            trace[Optimize.funPropagation]
-              f!"ctor constant propagation {reprStr rf} {reprStr mas} => {reprStr re}"
-            return (← visit re)
-         return ne
+        -- applying choice reduction and match constant propagation to
+        -- avoid optimizing unreachable arguments in match
+        if let some re ← reduceMatchChoice? rf mas visit then
+           trace[Optimize.matchConstPropagation]
+             f!"match constant propagation {reprStr rf} {reprStr mas} => {reprStr re}"
+           return (← visit re)
+        -- apply optimization on remaining explicit parameters before reduction
+        for i in [extraArgs.size:mas.size] do
+          if i < fInfo.paramInfo.size then
+            if fInfo.paramInfo[i]!.isExplicit then
+              mas ← mas.modifyM i visit
+          else mas ← mas.modifyM i visit
+        -- try to reduce app if all params are constructors
+        if let some re ← reduceApp? rf mas then
+          trace[Optimize.reduceApp] f!"application reduction {reprStr rf} {reprStr mas} => {reprStr re}"
+          return (← visit re)
+        -- unfold non-recursive and non-opaque functions
+        -- NOTE: beta reduction performed by getUnfoldFunDef? when rf is a lambda term
+        -- NOTE: we can only unfold once all parameters have been optimized.
+        if let some fdef ← getUnfoldFunDef? rf mas then
+           trace[Optimize.unfoldDef] f!"unfolding function definition {reprStr rf} {reprStr mas} => {reprStr fdef}"
+           return (← visit fdef)
+        -- normalizing partially apply function after unfolding non-opaque functions
+        if let some pe ← normPartialFun? rf mas then
+           trace[Optimize.normPartial] f!"normalizing partial function {reprStr rf} {reprStr mas} => {reprStr pe}"
+           return (← visit pe)
+        -- normalizing ite/match function application
+        if let some re ← normChoiceApplication? rf mas then
+           trace[Optimize.normChoiceApp]
+             f!"normalizing choice application {reprStr rf} {reprStr mas} => {reprStr re}"
+           return (← visit re)
+        -- normalize match expression to ite
+        if let some mdef ← normMatchExpr? rf mas visit then
+           trace[Optimize.normMatch] f!"normalizing match to ite {reprStr rf} {reprStr mas} => {reprStr mdef}"
+           return (← visit mdef)
+        let ne ← normOpaqueAndRecFun rf mas visit
+        -- applying fun propagation over ite and match
+        if let some re ← funPropagation? ne then
+           trace[Optimize.funPropagation]
+             f!"ctor constant propagation {reprStr rf} {reprStr mas} => {reprStr re}"
+           return (← visit re)
+        return ne
     | Expr.lam n t b bi => do
         let t' ← visit t
         withLocalDecl n bi t' fun x => do

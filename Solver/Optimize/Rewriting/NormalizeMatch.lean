@@ -42,14 +42,12 @@ abbrev AltArgsEnv := StateRefT AltArgsCache TranslateEnvT
 
 /-- Adds `fv` to `patternFreeVars` -/
 def updatePatternVars (fv : Expr) : AltArgsEnv Unit := do
- let env ← get
- set {env with patternFreeVars := env.patternFreeVars.push fv}
+  modify (fun env => { env with patternFreeVars := env.patternFreeVars.push fv})
 
 
 /-- Adds `peq` to `namedPatternEq` -/
 def updatePatternEqs (peq : Expr) : AltArgsEnv Unit := do
- let env ← get
- set {env with namedPatternEqs := env.namedPatternEqs.push peq}
+  modify (fun env => {env with namedPatternEqs := env.namedPatternEqs.push peq})
 
 /-- Performs the following actions:
       - Append patternFreeVars with namedPatternEqs
@@ -57,11 +55,11 @@ def updatePatternEqs (peq : Expr) : AltArgsEnv Unit := do
       - Reset namedPatternEqs (i.e., set to empty Array)
 -/
 def flushPatternEqs : AltArgsEnv Unit := do
-  let env ← get
-  set {env with patternFreeVars := env.patternFreeVars ++ env.namedPatternEqs,
-                namedPatternEqs := .empty,
-                nbNamedPatterns := env.nbNamedPatterns + env.namedPatternEqs.size
-      }
+  modify (fun env =>
+           {env with patternFreeVars := env.patternFreeVars ++ env.namedPatternEqs,
+                     namedPatternEqs := .empty,
+                     nbNamedPatterns := env.nbNamedPatterns + env.namedPatternEqs.size
+           })
 
 structure AltArgsResult where
   /-- Sequence of named pattern labels, named pattern equations and free variables
