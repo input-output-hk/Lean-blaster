@@ -2,10 +2,10 @@ import Lean
 import Lean.Util.MonadCache
 import Solver.Command.Options
 import Solver.Logging
+import Solver.Optimize.Rewriting.FunPropagation
 import Solver.Optimize.Rewriting.NormalizeMatch
 import Solver.Optimize.Rewriting.OptimizeApp
 import Solver.Optimize.Rewriting.OptimizeConst
-import Solver.Optimize.Rewriting.OptimizeCtor
 import Solver.Optimize.Rewriting.OptimizeForAll
 
 open Lean Elab Command Term Meta Solver.Options
@@ -71,16 +71,22 @@ partial def optimizeExpr (e : Expr) : TranslateEnvT Expr := do
          if let some pe ← normPartialFun? rf mas then
             trace[Optimize.normPartial] f!"normalizing partial function {reprStr rf} {reprStr mas} => {reprStr pe}"
             return (← visit pe)
+         -- normalizing ite/match function application
+         if let some re ← normChoiceApplication? rf mas then
+            trace[Optimize.normChoiceApp]
+              f!"normalizing choice application {reprStr rf} {reprStr mas} => {reprStr re}"
+            return (← visit re)
          -- normalize match expression to ite
          if let some mdef ← normMatchExpr? rf mas visit then
             trace[Optimize.normMatch] f!"normalizing match to ite {reprStr rf} {reprStr mas} => {reprStr mdef}"
             return (← visit mdef)
-         -- applying ctor constant propagation
-         if let some re ← constCtorPropagation? rf mas then
-            trace[Optimize.ctorConstPropagation]
+         let ne ← normOpaqueAndRecFun rf mas visit
+         -- applying fun propagation over ite and match
+         if let some re ← funPropagation? ne then
+            trace[Optimize.funPropagation]
               f!"ctor constant propagation {reprStr rf} {reprStr mas} => {reprStr re}"
             return (← visit re)
-         normOpaqueAndRecFun rf mas visit
+         return ne
     | Expr.lam n t b bi => do
         let t' ← visit t
         withLocalDecl n bi t' fun x => do
@@ -144,10 +150,12 @@ def command (sOpts: SolverOptions) (e : Expr) : MetaM (Expr × TranslateEnv) := 
   let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
   Optimize.main e|>.run env
 
+
 initialize
-  registerTraceClass `Optimize.ctorConstPropagation
   registerTraceClass `Optimize.expr
+  registerTraceClass `Optimize.funPropagation
   registerTraceClass `Optimize.matchConstPropagation
+  registerTraceClass `Optimize.normChoiceApp
   registerTraceClass `Optimize.normMatch
   registerTraceClass `Optimize.normPartial
   registerTraceClass `Optimize.reduceChoice

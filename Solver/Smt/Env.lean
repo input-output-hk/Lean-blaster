@@ -454,8 +454,8 @@ def getModel : TranslateEnvT (List String) := do
     List.mapM getVarValue topVars.toList
 
   where
-    getVarValue (v : SmtSymbol) : TranslateEnvT String := do
-      return s!"{v}: {← evalTerm (smtSimpleVarId v)}"
+    getVarValue (v : SmtSymbol × Name) : TranslateEnvT String := do
+      return s!"{v.2}: {← evalTerm (smtSimpleVarId v.1)}"
 
 /-- Check satisfiability of current Smt query and return the result.
     An error is triggered when an unexpected check-sat result is obtained.
