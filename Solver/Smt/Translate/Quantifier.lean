@@ -990,10 +990,10 @@ def translateQuantifier
    generateSortInstDecl t
    discard $ defineSortAndCache v
  else
-   let t' ← removeTypeAbbrev t
-   let smtType ← translateTypeAux optimizer termTranslator t'
+   -- No more required to resolve type at this stage.
+   let smtType ← translateTypeAux optimizer termTranslator t
    let smtSym ← fvarIdToSmtSymbol v
-   updatePredicateQualifiers t' smtSym -- update predicate qualifiers list
+   updatePredicateQualifiers t smtSym -- update predicate qualifiers list
    if !(← get).topLevel
    then updateQuantifiers smtSym smtType -- add quantifier to list
    else declareConst smtSym smtType -- declare quantifier at top level

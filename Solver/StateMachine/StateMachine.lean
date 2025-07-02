@@ -100,7 +100,12 @@ def defineSmtDepthFlag : TranslateEnvT SmtTerm := do
   return (smtSimpleVarId dflag)
 
 def logNotInductiveAtDepth : TranslateEnvT Unit := do
-  logWarningAt (← blankRef) f!"⚠️ Failed to establish induction up to Depth {← getMaxDepth}"
+  let sOpts := (← get).optEnv.options.solverOptions
+  let msg := s!"Failed to establish induction up to Depth {← getMaxDepth}"
+  if isExpectedUndetermined sOpts.solveResult then
+    logInfoAt (← blankRef) s!"✅ Expected {msg}"
+  else
+    logWarningAt (← blankRef) s!"⚠️ {msg}"
   -- dump smt commands submitted to backend solver when `dumpSmtLib` option is set.
   logSmtQuery
   discard $ exitSmt
@@ -119,11 +124,13 @@ def logCexAtDepth (r : Result) : TranslateEnvT Unit := do
   (← IO.getStdout).flush
 
 def logCtiAtDepth (r : Result) : TranslateEnvT Unit := do
-  logResult r
-    (isCTI := true)
-    (indLabel := s!"⚠️ Induction failed at Depth {← getCurrentDepth }")
-    (cexLabel := s!"Counterexample to Induction")
-  (← IO.getStdout).flush
+  let sOpts := (← get).optEnv.options.solverOptions
+  unless !sOpts.generateCex do
+    logResult r
+      (isCTI := true)
+      (indLabel := s!"⚠️ Induction failed at Depth {← getCurrentDepth}")
+      (cexLabel := s!"Counterexample to Induction")
+    (← IO.getStdout).flush
 
 def logContradictionAtDepth : TranslateEnvT Unit := do
   -- dump smt commands submitted to backend solver when `dumpSmtiLb` option is set.
