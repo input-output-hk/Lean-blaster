@@ -20,7 +20,7 @@ namespace Solver.Syntax
       - `only-smt-lib`: only translating unsolved goals to smt-lib without invoking the backend solver (default: 0)
       - `only-optimize`: only perform optimization on lean specification and do not translate to smt-lib (default: 0)
       - `dump-smt-lib`: display the smt lib query to stdout (default: 0)
-      - `random-seed`: seed for the random number generator (default: 0)
+      - `random-seed`: seed for the random number generator (default: none)
       - `gen-cex`: generate counterexample for falsified theorems (default: 1)
       - `solve-result`: specify the expected result from the #solve command, i.e.,
                         0 for 'Valid', 1 for 'Falsified' and 2 for 'Undetermined'. (default: 0)
