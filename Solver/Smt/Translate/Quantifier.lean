@@ -133,15 +133,11 @@ def mkGenericCtorTestorTerm (ctor : Name) : SmtTerm :=
 def declareTypeSort : TranslateEnvT Unit := do
  unless ((← get).smtEnv.options.typeUniverse) do
   defineTypeSort
-  let env ← get
-  set { env with smtEnv.options.typeUniverse := true }
+  modify (fun env => { env with smtEnv.options.typeUniverse := true })
 
 /-- Update sort cache with `v`. -/
 def updateSortCache (v : FVarId) (s : SmtSymbol) : TranslateEnvT Unit := do
-  let env ← get
-  let smtEnv := {env.smtEnv with sortCache := env.smtEnv.sortCache.insert v s}
-  set {env with smtEnv := smtEnv}
-
+  modify (fun env => { env with smtEnv.sortCache := env.smtEnv.sortCache.insert v s})
 
 /-- Return `vstrₙ` when entry `v := vstrₙ` exists in `sortCache`,
     otherwise, perform the following:
@@ -163,9 +159,7 @@ def defineSortAndCache (v : FVarId) : TranslateEnvT SmtSymbol := do
 
 /-- Add an inductive datatype name to the visited inductive datatype cache. -/
 def cacheIndName (indName : Name) : TranslateEnvT Unit := do
-  let env ← get
-  let smtEnv := {env.smtEnv with indTypeVisited := env.smtEnv.indTypeVisited.insert indName}
-  set {env with smtEnv := smtEnv}
+  modify (fun env => { env with smtEnv.indTypeVisited := env.smtEnv.indTypeVisited.insert indName})
 
 
 /-- Return `true` when `indName` is already in the visited inductive
@@ -182,11 +176,9 @@ def isVisitedIndName (indName : Name) : TranslateEnvT Bool :=
       - return {instName := "@is{n}", instSort}
 -/
 def updateIndInstCacheAux (d : Expr) (n : SmtSymbol) (instSort : SortExpr) : TranslateEnvT IndTypeDeclaration := do
-  let env ← get
   let instName := mkNormalSymbol s!"@is{n}"
   let decl := {instName, instSort}
-  let smtEnv := {env.smtEnv with indTypeInstCache := env.smtEnv.indTypeInstCache.insert d {instName, instSort}}
-  set {env with smtEnv := smtEnv}
+  modify (fun env => {env with smtEnv.indTypeInstCache := env.smtEnv.indTypeInstCache.insert d {instName, instSort}})
   return decl
 
 /-- Same as `updateIndInstCacheAux` but return value is discarded. -/
@@ -199,17 +191,21 @@ def updateIndInstCache (d : Expr) (n : SmtSymbol) (instSort : SortExpr) : Transl
       - add `v` to `topLevelVars` only when topLevel is set to `true` and `¬ isType (← getType v)`.
 -/
 def updateQuantifiedFVarsCache (v : FVarId) (topLevel : Bool) : TranslateEnvT Unit := do
-  let env ← get
   let s ← fvarIdToSmtSymbol v
   let t ← v.getType
   let uname ← v.getUserName
-  let topVars := if topLevel && !t.isType
-                 then env.smtEnv.topLevelVars.insert s uname
-                 else env.smtEnv.topLevelVars
-  set {env with
-           smtEnv.quantifiedFVars := env.smtEnv.quantifiedFVars.insert v,
-           smtEnv.topLevelVars := topVars
-      }
+  modify
+    (fun env =>
+      let updatedVars := env.smtEnv.quantifiedFVars.insert v
+      if topLevel && !t.isType
+      then
+        { env with
+              smtEnv.quantifiedFVars := updatedVars,
+              smtEnv.topLevelVars := env.smtEnv.topLevelVars.insert s uname
+        }
+      else
+        { env with smtEnv.quantifiedFVars := updatedVars }
+    )
 
 /-- Return `true` if `v` is in the quantified fvars cache. -/
 def isInQuantifiedFVarsCache (v : FVarId) : TranslateEnvT Bool := do
@@ -645,7 +641,7 @@ partial def defineInstPredicateQualifier
 
 where
   isEnumeration (indVal : InductiveVal) : TranslateEnvT Bool := do
-   match indVal.all with
+    match indVal.all with
     | [n] =>
       let ConstantInfo.recInfo recVal ← getConstInfo (mkRecName n)
         | throwEnvError f!"isEnumeration: {mkRecName n} not a recinfo"
@@ -654,8 +650,8 @@ where
       return true
     | _ => return false
 
-  declareIndInst (t : Expr) (args : Array Expr) :
-    TranslateEnvT (InductiveVal × Name × List Level × IndTypeDeclaration) := do
+  declareIndInst
+    (t : Expr) (args : Array Expr) : TranslateEnvT (InductiveVal × Name × List Level × IndTypeDeclaration) := do
      let decl ← generateIndInstDecl t args typeTranslator
      let Expr.const indName l := t
        | throwEnvError f!"declareIndInst: name expression expected but got {reprStr t}"
@@ -672,10 +668,9 @@ where
    let mut funBody := trueSmt
    for c in indVal.ctors do
      funBody ← updatePredicateBody indName us recVal (← getRecRuleFor recVal c) args funBody inMutualDefinition
-   let env ← get
-   let funDecls := env.funDecls.push funDecl
-   let funBodies := env.funBodies.push funBody
-   set { env with funDecls := funDecls, funBodies := funBodies, isRec := indVal.isRec }
+   modify (fun env => { env with funDecls := env.funDecls.push funDecl,
+                                 funBodies := env.funBodies.push funBody,
+                                 isRec := indVal.isRec })
 
   substitutePred (sub : Expr × Expr) (e : Expr) : Option Expr :=
     if sub.1 == e then some sub.2 else none -- TODO: check if we can use pointer equality
@@ -1005,13 +1000,11 @@ def translateQuantifier
 
  where
    updatePredicateQualifiers (t : Expr) (smtSym : SmtSymbol) : QuantifierEnvT Unit := do
-     let env ← get
      let pTerm ← createPredQualifierApp smtSym t
-     set { env with premises := env.premises.push pTerm }
+     modify (fun env => { env with premises := env.premises.push pTerm})
 
    updateQuantifiers (smtSym : SmtSymbol) (smtType: SortExpr) : QuantifierEnvT Unit := do
-    let env ← get
-    set {env with quantifiers := env.quantifiers.push (smtSym, smtType)}
+    modify (fun env => { env with quantifiers := env.quantifiers.push (smtSym, smtType)})
 
 
 /-- TODO: UPDATE SPEC -/
@@ -1068,8 +1061,7 @@ def translateForAll
     return mkForallTerm none env.quantifiers forallTerm (← genPattern fbody)
 
    updatePremises (p : SmtTerm) : QuantifierEnvT Unit := do
-    let env ← get
-    set {env with premises := env.premises.push p}
+    modify (fun env => { env with premises := env.premises.push p})
 
 
 /-- Translate free variable expression `f := Expr.fvar v` to an Smt term such that:

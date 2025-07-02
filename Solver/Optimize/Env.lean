@@ -103,7 +103,7 @@ structure OptimizeEnv where
 
 instance : Inhabited OptimizeEnv where
   default :=
-   { rewriteCache := Std.HashMap.empty (capacity := 13),
+   { rewriteCache := Std.HashMap.empty (capacity := 8893),
      synthInstanceCache := Std.HashMap.empty (capacity := 8893),
      whnfCache := Std.HashMap.empty (capacity := 8893),
      matchCache := Std.HashMap.empty (capacity := 8893),
@@ -112,7 +112,6 @@ instance : Inhabited OptimizeEnv where
      recFunMap := Std.HashMap.empty (capacity := 8893),
      options := default
    }
-
 
 structure TranslateOptions where
   /-- Flag set when universe @Type has already been declared Smt instance. -/
@@ -196,11 +195,11 @@ structure SmtEnv where
 
 instance : Inhabited SmtEnv where
   default :=
-   { translateCache := Std.HashMap.empty (capacity := 13),
+   { translateCache := Std.HashMap.empty (capacity := 8893),
      smtCommands := Array.mkEmpty 1023,
      smtProc := default,
      indTypeVisited := Std.HashSet.empty (capacity := 123),
-     indTypeInstCache := Std.HashMap.empty (capacity := 123 * 3),
+     indTypeInstCache := Std.HashMap.empty (capacity := 123),
      funInstCache := Std.HashMap.empty (capacity := 123),
      sortCache := Std.HashMap.empty (capacity := 123),
      quantifiedFVars := Std.HashSet.empty (capacity := 123),
@@ -222,7 +221,12 @@ structure TranslateEnv where
   smtEnv : SmtEnv
   /-- Environment used when optimization a lean expression. -/
   optEnv : OptimizeEnv
-deriving Inhabited
+
+instance : Inhabited TranslateEnv where
+  default :=
+    { smtEnv := default,
+      optEnv := default
+    }
 
 abbrev TranslateEnvT := StateRefT TranslateEnv MetaM
 
@@ -231,6 +235,16 @@ def throwEnvError (msg : MessageData) : TranslateEnvT α := do
     p.kill
     discard $ p.wait
   throwError msg
+
+def getAppFnWithArgsAux : Expr → Array Expr → Nat → (Expr × Array Expr)
+  | Expr.app f a, as, i => getAppFnWithArgsAux f (as.set! i a) (i-1)
+  | f,       as, _ => (f, as)
+
+/-- Return a function and its arguments -/
+@[inline] def getAppFnWithArgs (e : Expr) : (Expr × Array Expr) :=
+  let dummy := mkSort levelZero
+  let nargs := e.getAppNumArgs
+  getAppFnWithArgsAux e (mkArray nargs dummy) (nargs-1)
 
 /-- Return `true` if `op1` and `op2` are physically equivalent, i.e., points to same memory address.
 -/
@@ -244,10 +258,7 @@ def exprEq (op1 : Expr) (op2 : Expr) : MetaM Bool := isDefEqGuarded op1 op2
 
 /-- set optimize option `normalizeFunCall` to `b`. -/
 def setNormalizeFunCall (b : Bool) : TranslateEnvT Unit := do
-  let env ← get
-  let options := env.optEnv.options
-  let optEnv := {env.optEnv with options := {options with normalizeFunCall := b}}
-  set {env with optEnv := optEnv }
+  modify (fun env => { env with optEnv.options.normalizeFunCall := b })
 
 /-- Perform the following actions:
      - set `normalizeFunCall` to `false`
@@ -262,10 +273,7 @@ def withOptimizeRecBody (f: TranslateEnvT Expr) : TranslateEnvT Expr := do
 
 /-- set optimize option `inFunApp` to `b`. -/
 def setInFunApp (b : Bool) : TranslateEnvT Unit := do
-  let env ← get
-  let options := env.optEnv.options
-  let optEnv := {env.optEnv with options := {options with inFunApp := b}}
-  set {env with optEnv := optEnv }
+  modify (fun env => { env with optEnv.options.inFunApp := b })
 
 /-- Perform the following actions:
      - set `inFunApp` to `true`
@@ -280,8 +288,7 @@ def withInFunApp (f: TranslateEnvT Expr) : TranslateEnvT Expr := do
 
 /-- set optimize option `inFunRecDefinition` to `b`. -/
 def setInFunRecDefinition (b : Bool) : TranslateEnvT Unit := do
-  let env ← get
-  set {env with smtEnv.options.inFunRecDefinition := b }
+  modify (fun env => { env with smtEnv.options.inFunRecDefinition := b })
 
 /-- Perform the following actions:
      - set `inFunRecDefinition` to `true`
@@ -296,8 +303,7 @@ def withTranslateRecBody (f: TranslateEnvT α) : TranslateEnvT α := do
 
 /-- set optimize option `inPatternMatchin` to `h`. -/
 def setInPatternMatching (h : Std.HashSet FVarId) : TranslateEnvT Unit := do
-  let env ← get
-  set {env with smtEnv.options.inPatternMatching := h }
+  modify (fun env => {env with smtEnv.options.inPatternMatching := h })
 
 /-- Perform the following actions:
      - let s := (← get).smtEnv.options.inPatternMatching
@@ -327,16 +333,12 @@ def isInRecFunDefinition : TranslateEnvT Bool :=
 
 /-- Update rewrite cache with `a := b`. -/
 def updateRewriteCache (a : Expr) (b : Expr) : TranslateEnvT Unit := do
-  let env ← get
-  let optEnv := {env.optEnv with rewriteCache := env.optEnv.rewriteCache.insert a b}
-  set {env with optEnv := optEnv }
+  modify (fun env => {env with optEnv.rewriteCache := env.optEnv.rewriteCache.insert a b })
 
 /-- Update synthesize decidable instance cache with `a := b`.
 -/
 def updateSynthCache (a : Expr) (b : Option Expr) : TranslateEnvT Unit := do
-  let env ← get
-  let optEnv := {env.optEnv with synthInstanceCache := env.optEnv.synthInstanceCache.insert a b}
-  set {env with optEnv := optEnv }
+  modify (fun env => {env with optEnv.synthInstanceCache := env.optEnv.synthInstanceCache.insert a b})
 
 /-- Return `b` if `a := b` is already in the synthesize cache
     Otherwise, the following actions are performed:
@@ -386,24 +388,19 @@ def withOptimizeEnvCache (a : Expr) (f: Unit → TranslateEnvT Expr) : Translate
 /-- Remove an expression from the rewriting cache.
 -/
 def uncacheExpr (e : Expr) : TranslateEnvT Unit := do
- let env ← get
- set {env with optEnv.rewriteCache := env.optEnv.rewriteCache.erase e }
+ modify (fun env => { env with optEnv.rewriteCache := env.optEnv.rewriteCache.erase e})
 
 /-- Add an instance recursive application (see function `getInstApp`) to
     the visited recursive function cache.
 -/
 def cacheFunName (f : Expr) : TranslateEnvT Unit := do
- let env ← get
- let optEnv := {env.optEnv with recFunCache := env.optEnv.recFunCache.insert f}
- set {env with optEnv := optEnv }
+ modify (fun env => {env with optEnv.recFunCache := env.optEnv.recFunCache.insert f})
 
 /-- Remove an instance recursive application (see function `getInstApp`) from
     the visited recursive function cache.
 -/
 def uncacheFunName (f : Expr) : TranslateEnvT Unit := do
- let env ← get
- let optEnv := {env.optEnv with recFunCache := env.optEnv.recFunCache.erase f}
- set {env with optEnv := optEnv }
+ modify (fun env => { env with optEnv.recFunCache := env.optEnv.recFunCache.erase f})
 
 
 /-- Internal generalized rec fun const to be used for in normalized recursive
@@ -865,10 +862,13 @@ def getForallLambdaBody (e : Expr) : Expr :=
 -/
 partial def isClassConstraint (n : Name) : MetaM Bool := do
  if isClass (← getEnv) n then return true
- let ConstantInfo.defnInfo defnInfo ← getConstInfo n | return false
- match (getForallLambdaBody defnInfo.value).getAppFn' with
- | Expr.const c _ => isClassConstraint c
- | _ => return false
+ else
+   match (← getConstInfo n) with
+   | ConstantInfo.defnInfo defnInfo =>
+       match (getForallLambdaBody defnInfo.value).getAppFn' with
+       | Expr.const c _ => isClassConstraint c
+       | _ => return false
+   | _ => return false
 
 
 /-- Return `true` if `e` corresponds to a class constraint expression
@@ -886,10 +886,13 @@ partial def isInductiveType (f : Name) (us : List Level) : MetaM Bool := do
  match (← getConstInfo f) with
  | ConstantInfo.inductInfo _ => return true
  | dInfo@(ConstantInfo.defnInfo _) =>
-      if dInfo.type.isProp then return false
+    if dInfo.type.isProp
+    then return false
+    else
       -- check for type abbreviation
-      let Expr.const n l := (← instantiateValueLevelParams dInfo us).getAppFn | return false
-      isInductiveType n l
+      if let Expr.const n l := (← instantiateValueLevelParams dInfo us).getAppFn
+      then isInductiveType n l
+      else return false
  | _ => return false
 
 /-- Return `true` if `e` corresponds to an inductive type or is an abbreviation to an inductive type.
@@ -899,20 +902,48 @@ def isInductiveTypeExpr (e : Expr) : MetaM Bool := do
  | Expr.const n l => isInductiveType n l
  | _ => return false
 
+inductive ResolveTypeStack where
+ | InitExpr (t : Expr) : ResolveTypeStack
+ | ArgsExpr (f : Expr) (args : Array Expr) (idx : Nat) (stop : Nat) : ResolveTypeStack
+
 /-- Given `t x₀ .. xₙ` a type expression, this function resolves type
     abbreviation by performing the following:
-    - When `t x₀ .. xₙ ∧ t := Expr.const n us ∧ `defnInfo(n) := d α₀ ... αₙ`:
-      - return `resolveTypeAbbrev $ d (resolveTypeAbbrev x₀) ... (resolveTypeAbbrev xₙ)`
+    - When `t := Expr.const n us ∧ `defnInfo(n) := d α₀ ... αₙ`:
+       - return `resolveTypeAbbrev $ d (resolveTypeAbbrev x₀) ... (resolveTypeAbbrev xₙ)`
     - Otherwise
-      - return `t (resolveTypeAbbrev x₀) ... (resolveTypeAbbrev xₙ)`
+       - return `t (resolveTypeAbbrev x₀) ... (resolveTypeAbbrev xₙ)`
 -/
-partial def resolveTypeAbbrev (t : Expr) : TranslateEnvT Expr := do
- let f@(Expr.const n us) := t.getAppFn | return t
- let args' ← Array.mapM resolveTypeAbbrev t.getAppArgs
- let cinfo@(ConstantInfo.defnInfo _) ← getConstInfo n
-   | return mkAppN f args'
- let auxApp ← instantiateValueLevelParams cinfo us
- resolveTypeAbbrev (Expr.beta auxApp args')
+private partial def resolveTypeAbbrevAux (s : List ResolveTypeStack) : TranslateEnvT Expr := do
+  match s with
+  | .InitExpr t :: xs =>
+      let (f, args) := getAppFnWithArgs t
+      match f with
+      | Expr.const n us =>
+         match (← getConstInfo n) with
+         | cinfo@(ConstantInfo.defnInfo _) =>
+            let auxApp ← instantiateValueLevelParams cinfo us
+            resolveTypeAbbrevAux ( .InitExpr (Expr.beta auxApp args) :: xs)
+         | _ => resolveTypeAbbrevAux ( .ArgsExpr f args 0 args.size :: xs)
+      | _ =>
+         match xs with
+         | [] => return t
+         | .ArgsExpr f args idx stop :: xs =>
+              resolveTypeAbbrevAux ( .ArgsExpr f (args.set! idx t) (idx + 1) stop :: xs )
+         | _ => throwEnvError "resolveTypeAbbrevAux: unreachable case !!!"
+  | .ArgsExpr f args idx stop :: xs =>
+       if idx ≥ stop then
+         let t' := mkAppN f args
+         match xs with
+         | [] => return t'
+         | .ArgsExpr f' args' idx' stop' :: ys' =>
+               resolveTypeAbbrevAux ( .ArgsExpr f' (args'.set! idx' t') (idx' + 1) stop' :: ys' )
+         | _ => throwEnvError "resolveTypeAbbrevAux: unreachable case !!!"
+       else resolveTypeAbbrevAux (.InitExpr args[idx]! :: s)
+  | _ => throwEnvError "resolveTypeAbbrevAux: unreachable case !!!"
+
+
+@[inline, always_inline] def resolveTypeAbbrev (t : Expr) : TranslateEnvT Expr :=
+  resolveTypeAbbrevAux [.InitExpr t]
 
 /-- Return all fvar expressions in `e`. The return array preserved dependencies between fvars,
     i.e., child fvars appear first.
@@ -1080,9 +1111,7 @@ where
     and `fbody` corresponding to `f`'s definition, update the recursive instance cache (i.e., `recFunInstCache`),
 -/
 def updateRecFunInst (f : Expr) (fbody : Expr) : TranslateEnvT Unit := do
-  let env ← get
-  let optEnv := { env.optEnv with recFunInstCache := env.optEnv.recFunInstCache.insert f fbody }
-  set {env with optEnv := optEnv}
+  modify (fun env => { env with optEnv.recFunInstCache := env.optEnv.recFunInstCache.insert f fbody })
 
 
 /-- Return `fₙ` if `body[mkAnnotation `_solver.recursivecall _'/_recFun α₁ ... αₖ x₁ ... xₙ] := fₙ` is already
@@ -1111,8 +1140,7 @@ partial def storeRecFunDef (f : Expr) (params : ImplicitParameters) (body : Expr
   match env.optEnv.recFunMap.get? body' with
   | some fb => return fb
   | none =>
-     let optEnv := {env.optEnv with recFunMap := env.optEnv.recFunMap.insert body' f}
-     set {env with optEnv := optEnv}
+     modify (fun env => { env with optEnv.recFunMap := env.optEnv.recFunMap.insert body' f})
      return f
 
 where

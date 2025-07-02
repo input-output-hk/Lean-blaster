@@ -5,16 +5,6 @@ open Lean Meta Declaration
 
 namespace Solver.Optimize
 
-def getAppFnWithArgsAux : Expr → Array Expr → Nat → (Expr × Array Expr)
-  | Expr.app f a, as, i => getAppFnWithArgsAux f (as.set! i a) (i-1)
-  | f,       as, _ => (f, as)
-
-/-- Return a function and its arguments -/
-@[inline] def getAppFnWithArgs (e : Expr) : (Expr × Array Expr) :=
-  let dummy := mkSort levelZero
-  let nargs := e.getAppNumArgs
-  getAppFnWithArgsAux e (mkArray nargs dummy) (nargs-1)
-
 /-- Return `true` if c corresponds to a constructor. -/
 def isCtorName (c : Name) : MetaM Bool := do  pure (← getConstInfo c).isCtor
 
