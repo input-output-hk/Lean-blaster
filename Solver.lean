@@ -5,4 +5,4 @@ import Solver.Command
 import Solver.Logging
 import Solver.Optimize
 import Solver.Smt
-
+import Solver.StateMachine

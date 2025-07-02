@@ -41,10 +41,10 @@ partial def normConst (e : Expr) (optimizer : Expr → TranslateEnvT Expr) : Tra
     if (← isUnsafeDef n) then throwEnvError f!"normConst: unsafe definition not supported {n} !!!"
     if let some e ← isGlobalConstant n then return e
     if let some e ← isToNormOpaqueFun n then
-      trace[Optimize.const.opaque] f!"normalizing opaque function {n} => {reprStr e}"
+      trace[Optimize.const.opaque] "normalizing opaque function {n} => {reprStr e}"
       return e
     if let some r ← isHOF n then
-      trace[Optimize.const.hof] f!"normalizing HOF {n} => {reprStr r}"
+      trace[Optimize.const.hof] "normalizing HOF {n} => {reprStr r}"
       return r
     -- catch if no normalization performed
     if !(← isInFunApp) && (← isResolvableType e)
@@ -53,7 +53,7 @@ partial def normConst (e : Expr) (optimizer : Expr → TranslateEnvT Expr) : Tra
 
   where
     isGlobalConstant (c : Name) : TranslateEnvT (Option Expr) := do
-      let ConstantInfo.opaqueInfo opVal ← getConstInfo c | return none
+      let ConstantInfo.opaqueInfo opVal ← getConstEnvInfo c | return none
       trace[Optimize.const.global] "normalizing global constant {c} => {reprStr opVal.value}"
       optimizer opVal.value
 

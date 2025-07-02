@@ -1,41 +1,43 @@
 import Lean
-import Solver.Optimize.Env
+import Solver.Optimize.Telescope
 
 open Lean Meta Declaration
 
 namespace Solver.Optimize
 
 /-- Return `true` if c corresponds to a constructor. -/
-def isCtorName (c : Name) : MetaM Bool := do  pure (← getConstInfo c).isCtor
+@[always_inline, inline]
+def isCtorName (c : Name) : TranslateEnvT Bool := do  pure (← getConstEnvInfo c).isCtor
 
 /-- Return `true` if e corresponds to a constructor expression. -/
-def isCtorExpr (e : Expr) : MetaM Bool := do
+@[always_inline, inline]
+def isCtorExpr (e : Expr) : TranslateEnvT Bool := do
  let Expr.const n _ := e | return false
- return (← getConstInfo n).isCtor
+ return (← getConstEnvInfo n).isCtor
 
 /-- Return `true` if `n` is a function tagged with the `partial` keyword. -/
-def isPartialDef (n : Name) : MetaM Bool := do
-  if (← isRecursiveFun n <||> isInstance n) then return false
+def isPartialDef (n : Name) : TranslateEnvT Bool := do
+  if (← isRecursiveFun n <||> isInstanceClass n) then return false
   return ((← getEnv).find? (Compiler.mkUnsafeRecName n)).isSome
 
 /-- Return `true` if `n` corresponds to an unsafe definition
     (e.g, partial recursive function, partial inductive predicate, etc). -/
-def isUnsafeDef (n : Name) : MetaM Bool := do
- return (← getConstInfo n).isUnsafe
+def isUnsafeDef (n : Name) : TranslateEnvT Bool := do
+ return (← getConstEnvInfo n).isUnsafe
 
 /-- Return `true` if e corresponds to an enumerator constructor (i.e., constructor without any parameters).
 -/
-def isEnumConst (e : Expr) : MetaM Bool := do
+def isEnumConst (e : Expr) : TranslateEnvT Bool := do
  let Expr.const n _ := e | return false
- let ConstantInfo.ctorInfo info ← getConstInfo n | return false
+ let ConstantInfo.ctorInfo info ← getConstEnvInfo n | return false
  return (info.numFields == 0 && info.numParams == 0 && !info.type.isProp)
 
 /-- Return `true` if e corresponds to a nullary constructor or a fully applied parametric constructor.
 -/
-def isFullyAppliedConst (e : Expr) : MetaM Bool := do
+def isFullyAppliedConst (e : Expr) : TranslateEnvT Bool := do
  match e.getAppFn' with
  | Expr.const n _ =>
-    let ConstantInfo.ctorInfo info ← getConstInfo n | return false
+    let ConstantInfo.ctorInfo info ← getConstEnvInfo n | return false
     -- should be fully applied
     -- numFields corresponds to the constructor parameters
     -- numParams corresponds to the Inductive type parameters
@@ -43,7 +45,9 @@ def isFullyAppliedConst (e : Expr) : MetaM Bool := do
  | _ => return false
 
 /-- Return `true` if e corresponds to a constructor that may contain free or bounded variables. -/
-def isConstructor (e : Expr) : MetaM Bool := isEnumConst e <||> (pure e.isLit) <||> isFullyAppliedConst e
+@[always_inline, inline]
+def isConstructor (e : Expr) : TranslateEnvT Bool :=
+  isEnumConst e <||> (pure e.isLit) <||> isFullyAppliedConst e
 
 /-- Return `true` if e contains free / bounded variables. -/
 def hasVars (e : Expr) : Bool := e.hasFVar || e.hasLooseBVars
@@ -56,7 +60,8 @@ def fVarInExpr (v : FVarId) (e : Expr) : Bool :=
  else false
 
 /-- Return `true` if e corresponds to a constructor applied to only constant values (e.g., no free or bounded variables). -/
-def isConstant (e : Expr) : MetaM Bool :=
+@[always_inline, inline]
+def isConstant (e : Expr) : TranslateEnvT Bool :=
   isConstructor e <&&> (pure !(hasVars e))
 
 /-- Return `true` if e corresponds to an implication, i.e., a → b,
@@ -79,19 +84,10 @@ def getLambdaBody (e : Expr) : Expr :=
  | Expr.lam _ _ b _ => getLambdaBody b
  | _ => e
 
-/-- Return `true` if `f` corresponds to a class function. -/
-def isClassFun (f : Expr) : MetaM Bool := do
- match f with
- | Expr.const n _ =>
-    let ConstantInfo.defnInfo d ← getConstInfo n | return false
-    let Expr.proj c _ _ := (getLambdaBody d.value).getAppFn' | return false
-    return (isClass (← getEnv) c)
- | Expr.proj c _ _ => return (isClass (← getEnv) c)
- | _ => return false
 
 /-- Return `true` if `c` corresponds to a nullary constructor. -/
-def isNullaryCtor (c : Name) : MetaM Bool := do
-  match (← getConstInfo c) with
+def isNullaryCtor (c : Name) : TranslateEnvT Bool := do
+  match (← getConstEnvInfo c) with
   | ConstantInfo.ctorInfo info =>
       -- numFields corresponds to the constructor parameters
       pure (info.numFields == 0 && !info.type.isProp)
@@ -107,8 +103,8 @@ def isSortOrInhabited (t : Expr) : TranslateEnvT Bool := do
  if (← isProp t) then return false
  match t.getAppFn' with
  | Expr.const n _ =>
-    if isClass (← getEnv) n then return true -- break if class constraint
-    match (← getConstInfo n) with
+    if (← isClassConstraint n) then return true -- break if class constraint
+    match (← getConstEnvInfo n) with
     | ConstantInfo.inductInfo indVal =>
        for ctorName in indVal.ctors do
          if (← isNullaryCtor ctorName) then return true -- inductive type has at least one nullary constructor
@@ -278,7 +274,7 @@ def isStrValue? (e : Expr) : Option String :=
     Otherwise return `none`
 -/
 def isUInt32Value? (e : Expr) : Option Nat :=
-  match e.app1? ``UInt32.mk with
+  match e.app1? ``UInt32.ofBitVec with
   | some fn1 =>
      match fn1.app2? ``BitVec.ofFin with
      | some (_, fn2) =>
@@ -712,26 +708,9 @@ def reorderIntOp (args: Array Expr) : TranslateEnvT (Array Expr) := do
   else pure args'
 
 
-/-- Same as the default `getMatcherInfo` in the Lean library but also handles casesOn recursor application. -/
-def getMatcherRecInfo? (n : Name) (l : List Level) : MetaM (Option MatcherInfo) := do
- if let some r ← getMatcherInfo? n then return r
- if !(isCasesOnRecursor (← getEnv) n) then return none
- let indName := n.getPrefix
- let ConstantInfo.inductInfo info ← getConstInfo indName | return none
- let mut altNumParams := #[]
- for ctor in info.ctors do
-   let ConstantInfo.ctorInfo ctorInfo ← getConstInfo ctor | unreachable!
-   altNumParams := altNumParams.push ctorInfo.numFields
- return some { numParams := info.numParams,
-               numDiscrs := info.numIndices + 1,
-               altNumParams,
-               uElimPos? := if info.levelParams.length == l.length then none else some 0
-               discrInfos := Array.mkArray (info.numIndices + 1) {}
-             }
-
 /-- Return `true` if `n` corresponds to a matcher expression name or a casesOn recursor application. -/
-def isMatchExpr (n : Name) : MetaM Bool := do
-  Option.isSome <$> getMatcherInfo? n <||> (pure $ isCasesOnRecursor (← getEnv) n)
+def isMatchExpr (n : Name) (l : List Level) : TranslateEnvT Bool := do
+  Option.isSome <$> getMatcherRecInfo? n l
 
 
 /- Return the function definition for `f` whenever `f` corresponds to:
@@ -751,14 +730,14 @@ def getFunBody (f : Expr) : TranslateEnvT (Option Expr) := do
       then
         let some eqThm ← getUnfoldEqnFor? n
           | throwEnvError f!"getFunBody: equation theorem expected for {n}"
-        forallTelescope ((← getConstInfo eqThm).type) fun xs eqn => do
+        forallTelescope ((← getConstEnvInfo eqThm).type) fun xs eqn => do
           let some (_, _, fbody) := eqn.eq?
             | throwEnvError f!"getFunBody: equation expected but got {reprStr eqn}"
           let auxApp ← mkLambdaFVars xs fbody
-          let cinfo ← getConstInfo n
+          let cinfo ← getConstEnvInfo n
           return auxApp.instantiateLevelParams cinfo.levelParams l
       else
-        let cInfo@(ConstantInfo.defnInfo _) ← getConstInfo n | return none
+        let cInfo@(ConstantInfo.defnInfo _) ← getConstEnvInfo n | return none
         instantiateValueLevelParams cInfo l
   | Expr.proj .. => reduceProj? f  -- case when f is a function defined in a class instance
   | _ => return none
@@ -768,9 +747,9 @@ def getFunBody (f : Expr) : TranslateEnvT (Option Expr) := do
       - `c` is the name of a type class in the given environment; and
       - `Expr.proj c _ _` cannot be reduced.
 -/
-def isUndefinedClassFunApp (e : Expr) : MetaM Bool := do
+def isUndefinedClassFunApp (e : Expr) : TranslateEnvT Bool := do
   let p@(Expr.proj c _ _) := e.getAppFn' | return false
-  return ((← reduceProj? p).isNone && (isClass (← getEnv) c))
+  return ((← reduceProj? p).isNone && (← isClassConstraint c))
 
 /-- Return `true` only when `e := Expr.const n l` and one of the following condition is satisfied:
      - `n` is not tagged as an opaque definition when flag `opaqueCheck` is set to true;
@@ -792,8 +771,8 @@ def isNotFoldable
     if (← (pure (args.size != 0)) <&&> (isOpaqueFun n args)) then return true
   if n == ``namedPattern then return true
   (isInductiveType n l)
-  <||> (isInstance n)
-  <||>  (isMatchExpr n)
+  <||> (isInstanceClass n)
+  <||>  (isMatchExpr n l)
   <||> (isClassConstraint n)
 
 
@@ -875,7 +854,7 @@ partial def hasSorryTheorem (e : Expr) (msg : MessageData) : TranslateEnvT Unit 
   findSorry (e : Expr) : TranslateEnvT Unit := do
     let Expr.const n _ := e | return ()
     if n == ``sorryAx then throwEnvError msg
-    let ConstantInfo.thmInfo info ← getConstInfo n | return ()
+    let ConstantInfo.thmInfo info ← getConstEnvInfo n | return ()
     hasSorryTheorem (info.value) msg
 
 end Solver.Optimize

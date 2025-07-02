@@ -229,7 +229,7 @@ def createSortExpr (args : Array SortExpr) : TranslateEnvT SortExpr := do
     the inductive datatype, perform the following actions:
      - When k > 0:
          let A := [x₀, ..., xₖ]
-         let B := [typeTranslator A[i] | i ∈ [0..k] ∧ ¬ isClassConstraintExpr (← inferType A[i])]
+         let B := [typeTranslator A[i] | i ∈ [0..k] ∧ ¬ isClassConstraintExpr (← inferTypeEnv A[i])]
           - return `ParamSort (indNameToSmtSymbol n) B`
      - When k = 0:
         - return `SymbolSort indNameToSmtSymbol n)`
@@ -241,7 +241,7 @@ def generateInstType
  if args.size == 0 then return .SymbolSort indSym
  let mut iargs := #[]
  for i in [:args.size] do
-   if !(← isClassConstraintExpr (← inferType args[i]!)) then -- ignore class constraints
+   if !(← isClassConstraintExpr (← inferTypeEnv args[i]!)) then -- ignore class constraints
      iargs := iargs.push (← typeTranslator args[i]!)
  return (.ParamSort indSym iargs)
 
@@ -253,7 +253,7 @@ def generateInstType
 -/
 def retrieveGenericArgs (args : Array Expr) : TranslateEnvT (Array Expr) := do
   let mut genericArgs := #[]
-  let mut knownGenParams := (.empty : Std.HashSet Expr)
+  let mut knownGenParams := (.emptyWithCapacity : Std.HashSet Expr)
   for i in [:args.size] do
     if (← isGenericParam args[i]! (skipInductiveCheck := true)) then
       (genericArgs, knownGenParams) ← updateGenericArgs args[i]! genericArgs knownGenParams
@@ -519,10 +519,10 @@ def translateInductiveType
   let mut sortDecls := (#[] : Array SmtSortDecl)
   let mut dataTypeDecls := (#[] : Array SmtDatatypeDecl)
   for indName in indValStart.all do
-    let ConstantInfo.inductInfo indVal ← getConstInfo indName
+    let ConstantInfo.inductInfo indVal ← getConstEnvInfo indName
       | throwEnvError f!"translateInductiveType: no InductInfo found for {indName}"
     -- recVal to get the list of RecusorRule for all ctors
-    let ConstantInfo.recInfo recVal ← getConstInfo (mkRecName indName)
+    let ConstantInfo.recInfo recVal ← getConstEnvInfo (mkRecName indName)
       | throwEnvError f!"translateInductiveType: {mkRecName indName} not a recinfo"
     let params ← genIndParams indVal
     let ctors ← createCtorDecls recVal indVal.ctors
@@ -540,11 +540,11 @@ def translateInductiveType
 
   genIndParams (indVal : InductiveVal) : TranslateEnvT (Option (Array SmtSymbol)) := do
    let params ←
-     forallTelescope indVal.type fun xs _ => do
+     Optimize.forallTelescope indVal.type fun xs _ => do
         let mut polyParams := #[]
         for i in [: xs.size] do
           let arg := xs[i]!
-          let argType ← inferType arg
+          let argType ← inferTypeEnv arg
           if !(← isClassConstraintExpr argType) then -- ignore class constraints
             let Expr.fvar v := arg
               | throwEnvError f!"translateInductiveType: FVarExpr expected but got {reprStr arg}"
@@ -560,13 +560,13 @@ def translateInductiveType
   createCtorDeclaration (recVal : RecursorVal) (recRule : RecursorRule) : TranslateEnvT SmtConstructorDecl := do
     let ctorSym := nameToSmtSymbol recRule.ctor
     let firstCtorFieldIdx := recVal.numParams + recVal.numMotives + recVal.numMinors
-    forallTelescope (← inferType recRule.rhs) fun xs _ => do
+    Optimize.forallTelescope (← inferTypeEnv recRule.rhs) fun xs _ => do
       if recRule.nfields == 0 then return (ctorSym, none) -- nullary constructor
       let mut selectors := #[]
       for i in [firstCtorFieldIdx : xs.size] do
         let arg := xs[i]!
         let selectorIdx := i - firstCtorFieldIdx + 1
-        let argType ← inferType arg
+        let argType ← inferTypeEnv arg
         let selSym := mkNormalSymbol s!"{ctorSym}.{selectorIdx}"
         if (← isProp argType) then
           selectors := selectors.push (selSym, boolSort)
@@ -643,7 +643,7 @@ where
   isEnumeration (indVal : InductiveVal) : TranslateEnvT Bool := do
     match indVal.all with
     | [n] =>
-      let ConstantInfo.recInfo recVal ← getConstInfo (mkRecName n)
+      let ConstantInfo.recInfo recVal ← getConstEnvInfo (mkRecName n)
         | throwEnvError f!"isEnumeration: {mkRecName n} not a recinfo"
       for c in indVal.ctors do
         if (← getRecRuleFor recVal c).nfields != 0 then return false
@@ -655,14 +655,14 @@ where
      let decl ← generateIndInstDecl t args typeTranslator
      let Expr.const indName l := t
        | throwEnvError f!"declareIndInst: name expression expected but got {reprStr t}"
-     let ConstantInfo.inductInfo indVal ← getConstInfo indName
+     let ConstantInfo.inductInfo indVal ← getConstEnvInfo indName
        | throwEnvError f!"declareIndInst: inductive info expected for {indName}"
      return (indVal, indName, l, decl)
 
   generatePredicates
     (indName : Name) (us : List Level) (indVal : InductiveVal)
     (decl : IndTypeDeclaration) (args : Array Expr) (inMutualDefinition := false) : FunctionGenEnv Unit := do
-   let ConstantInfo.recInfo recVal ← getConstInfo (mkRecName indName)
+   let ConstantInfo.recInfo recVal ← getConstEnvInfo (mkRecName indName)
      | throwEnvError f!"generatePredicates: {mkRecName indName} not a recinfo"
    let funDecl := {name := decl.instName, params := #[(mkReservedSymbol "@x", decl.instSort)], ret := boolSort}
    let mut funBody := trueSmt
@@ -699,12 +699,12 @@ where
     (indName : Name) (us : List Level)
     (recVal : RecursorVal) (recRule : RecursorRule)
     (args : Array Expr) (funBody : SmtTerm) (inMutualDefinition : Bool) : FunctionGenEnv SmtTerm := do
-    let cinfo ← getConstInfo indName
+    let cinfo ← getConstEnvInfo indName
     let auxApp := (mkAppN recRule.rhs args).instantiateLevelParams cinfo.levelParams us
     let firstCtorFieldIdx := recVal.numMotives + recVal.numMinors
     -- NOTE: recVal.numParams is ignored here when determining firstCtorFieldIdx
     -- as we are instantiating the datatype parameters
-    forallTelescope (← inferType auxApp) fun xs _ => do
+    Optimize.forallTelescope (← inferTypeEnv auxApp) fun xs _ => do
       -- list to replace each ctor field with appropriate selector name
       let mut substituteList := []
       -- list of prop terms generated for each proposition argument (if any) of the current ctor
@@ -715,7 +715,7 @@ where
         let selectorIdx := i - firstCtorFieldIdx + 1
         let selTerms := mkCtorSelectorExpr recRule.ctor selectorIdx
         substituteList := (arg, selTerms.1) :: substituteList
-        let argType ← inferType arg
+        let argType ← inferTypeEnv arg
         if (← isProp argType) then
           let optExpr ← optimizer argType
           -- apply substitue list on optExpr before translation
@@ -752,7 +752,7 @@ def translateNonOpaqueType
   match t with
   | Expr.const n _ =>
       if (← isVisitedIndName n) then return (← translateInstType n)
-      let ConstantInfo.inductInfo indVal ← getConstInfo n
+      let ConstantInfo.inductInfo indVal ← getConstEnvInfo n
         | throwEnvError f!"translateNonOpaqueType: inductive info expected for {n}"
       -- we should not define sort for polymorphic inductive parameters,
       -- we should set genericParamFun to `false` and inTypeDefinition to `true`
@@ -1011,9 +1011,9 @@ def translateQuantifier
 def translateForAll
   (e : Expr) (optimizer : Expr → TranslateEnvT Expr)
   (termTranslator : Expr → TranslateEnvT SmtTerm) : QuantifierEnvT SmtTerm := do
- forallTelescope e fun xs b => do
+ Optimize.forallTelescope e fun xs b => do
    for i in [:xs.size] do
-     let t ← inferType xs[i]!
+     let t ← inferTypeEnv xs[i]!
      if (← isProp t) then
        updatePremises (← termTranslator t)
      -- need to filter out class constraints

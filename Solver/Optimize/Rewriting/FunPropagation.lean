@@ -56,7 +56,7 @@ private partial def normIteApp?
                   let ite_args := ite_args.set! 3 e1
                   let ite_args := ite_args.set! 4 e2
                   -- Update ite sort type
-                  let ite_args := ite_args.set! 0 (← inferType e1)
+                  let ite_args := ite_args.set! 0 (← inferTypeEnv e1)
                   k (some (mkAppN f ite_args))
   else k none
 
@@ -74,7 +74,7 @@ private partial def mkAppInDIteExpr
              k (some (← mkLambdaFVars #[x] body'))
   | _ =>
     -- case when then/else caluse is a quantified function
-    if !(← inferType ite_e).isForall then
+    if !(← inferTypeEnv ite_e).isForall then
       throwEnvError f!"mkAppNInDIteExpr: lambda/function expression expected but got {reprStr ite_e}"
     else
       -- Need to create a lambda term embedding the following application
@@ -106,7 +106,7 @@ private partial def normDIteApp?
                   let dite_args := dite_args.set! 3 e1
                   let dite_args := dite_args.set! 4 e2
                   -- update dite sort type
-                  let dite_args := dite_args.set! 0 (← inferType (mkAppN f args))
+                  let dite_args := dite_args.set! 0 (← inferTypeEnv (mkAppN f args))
                   k (some (mkAppN f dite_args))
   else k none
 
@@ -126,26 +126,17 @@ private partial def mkAppInRhs
 private partial def normMatchApp?
   (f : Expr) (args : Array Expr)
   (k : Option Expr → TranslateEnvT (Option Expr)) : TranslateEnvT (Option Expr) := do
-  if let Expr.const n l := f then
-    if let some mInfo ← getMatcherRecInfo? n l then
-      let cInfo ← getConstInfo n
-      let matchFun ← instantiateValueLevelParams cInfo l
-      let instApp := Expr.beta matchFun (args.take mInfo.getFirstAltPos)
-      if args.size ≤ mInfo.arity then k none
-      else
-        let extra_args := args.extract mInfo.arity args.size
-        withMatchAlts n instApp $ fun alts => do
-          normMatchAppAux f args extra_args mInfo alts (args.take mInfo.arity) mInfo.getFirstAltPos k
-    else k none
+  if let some argInfo ← isMatcher? (mkAppN f args)
+  then
+   if args.size ≤ argInfo.mInfo.arity then k none
+   else
+     let extra_args := args.extract argInfo.mInfo.arity args.size
+     withMatchAlts argInfo $ fun alts => do
+       normMatchAppAux
+         f args extra_args argInfo.mInfo alts
+         (args.take argInfo.mInfo.arity) argInfo.mInfo.getFirstAltPos k
   else k none
 
-  where
-    withMatchAlts
-      (n : Name) (instApp : Expr)
-      (f : Array Expr → TranslateEnvT (Option Expr)) : TranslateEnvT (Option Expr) := do
-        if (isCasesOnRecursor (← getEnv) n)
-        then lambdaTelescope instApp fun xs _t => f xs
-        else forallTelescope (← inferType instApp) fun xs _t => f xs
 
 private partial def normMatchAppAux
   (f : Expr) (args : Array Expr) (extra_args : Array Expr) (mInfo : MatcherInfo)
@@ -154,12 +145,12 @@ private partial def normMatchAppAux
   if idx ≥ mInfo.arity then
     -- update match return type
     let idxType := mInfo.getFirstDiscrPos - 1
-    let retType ← inferType (mkAppN f args)
+    let retType ← inferTypeEnv (mkAppN f args)
     let margs' := margs.set! idxType (← updateMatchReturnType args[idxType]! retType)
     k (some (mkAppN f margs'))
   else
     let altIdx := idx - mInfo.getFirstAltPos
-    let lhs ← forallTelescope (← inferType alts[altIdx]!) fun _ b => pure b.getAppArgs
+    let lhs ← forallTelescope (← inferTypeEnv alts[altIdx]!) fun _ b => pure b.getAppArgs
     mkAppInRhs extra_args lhs args[idx]! fun rhs_r =>
       match rhs_r with
       | none => throwEnvError "normMatchAppAux: unreachable case !!!"
@@ -195,7 +186,7 @@ def tryAppReduction (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
   | some re => return re
 
 /-- Apply the following propagation rules on any function application `fn e₁ ... eₙ`
-    only when fn := Expr.const n _ ∧ n ≠ ite ∧ n ≠ dite ∧ ¬ isMatchExpr n ∧
+    only when fn := Expr.const n l ∧ n ≠ ite ∧ n ≠ dite ∧ ¬ isMatchExpr n l ∧
               propagate fn e₁ ... eₙ
 
     - When ∃ i ∈ [1..n],
@@ -235,8 +226,8 @@ def tryAppReduction (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 -/
 def funPropagation? (cf : Expr) (cargs : Array Expr) : TranslateEnvT (Option Expr) := do
   match cf with
-  | Expr.const n _ =>
-      if n == ``ite || n == ``dite || (← isMatchExpr n) then return none
+  | Expr.const n l =>
+      if n == ``ite || n == ``dite || (← isMatchExpr n l) then return none
       if !(← propagate cf n cargs) then return none
       for i in [:cargs.size] do
         if let some re ← iteCstProp? cf cargs i then return re
@@ -273,7 +264,7 @@ def funPropagation? (cf : Expr) (cargs : Array Expr) : TranslateEnvT (Option Exp
     iteCstProp? (f : Expr) (args : Array Expr) (idxArg : Nat) : TranslateEnvT (Option Expr) := do
       -- NOTE: can't be an applied ite function (e.g., applied to more than 5 arguments)
       if let some (_psort, pcond, pdecide, e1, e2) := ite? args[idxArg]! then
-        let retType ← inferType (mkAppN f args)
+        let retType ← inferTypeEnv (mkAppN f args)
         let e1' ← tryAppReduction f (args.set! idxArg e1)
         let e2' ← tryAppReduction f (args.set! idxArg e2)
         -- NOTE: we also need to set the sort type for the pulled ite to meet the function's return type
@@ -290,7 +281,7 @@ def funPropagation? (cf : Expr) (cargs : Array Expr) : TranslateEnvT (Option Exp
             mkLambdaFVars #[x] body'
       | _ =>
          -- case when then/else clause is a quantified function
-         if !(← inferType ite_e).isForall then
+         if !(← inferTypeEnv ite_e).isForall then
            throwEnvError f!"pushCtorInDIteExpr: lambda/function expression expected but got {reprStr ite_e}"
          else
            -- Need to create a lambda term embedding the following application
@@ -305,7 +296,7 @@ def funPropagation? (cf : Expr) (cargs : Array Expr) : TranslateEnvT (Option Exp
     diteCstProp? (f : Expr) (args : Array Expr) (idxArg : Nat) : TranslateEnvT (Option Expr) := do
       -- NOTE: can't be an applied dite function (e.g., applied to more than 5 arguments)
       if let some (_psort, pcond, pdecide, e1, e2) := dite? args[idxArg]! then
-        let retType ← inferType (mkAppN f args)
+        let retType ← inferTypeEnv (mkAppN f args)
         let e1' ← pushFunInDIteExpr f args idxArg pcond e1
         let e2' ← pushFunInDIteExpr f args idxArg (← optimizeNot (← mkPropNotOp) #[pcond]) e2
         -- NOTE: we also need to set the sort type for the pulled dite to meet the function's return type
@@ -321,26 +312,21 @@ def funPropagation? (cf : Expr) (cargs : Array Expr) : TranslateEnvT (Option Exp
           let body' ← tryAppReduction f (args.set! idxField body)
           mkLambdaFVars params body'
 
-    withMatchAlts (mInfo : MatchInfo) (f : Array Expr → TranslateEnvT Expr) : TranslateEnvT Expr := do
-      if (isCasesOnRecursor (← getEnv) mInfo.name)
-      then lambdaTelescope mInfo.instApp fun xs _t => f xs
-      else forallTelescope (← inferType mInfo.instApp) fun xs _t => f xs
-
     /-- Implements match over ctor rule -/
     matchCstProp? (f : Expr) (args : Array Expr) (idxArg : Nat) : TranslateEnvT (Option Expr) := do
-      if let some argInfo ← isMatchArg? args[idxArg]!
+      if let some argInfo ← isMatcher? args[idxArg]!
       then
         -- NOTE: can't be an applied match (e.g., applied to more argInfo.mInfo.arity arguments)
         if argInfo.args.size > argInfo.mInfo.arity
         then return none
         else
           let idxType := argInfo.mInfo.getFirstDiscrPos - 1
-          let retType ← inferType (mkAppN f args)
+          let retType ← inferTypeEnv (mkAppN f args)
           withMatchAlts argInfo $ fun alts => do
             let mut pargs := argInfo.args
             for i in [argInfo.mInfo.getFirstAltPos : argInfo.mInfo.arity] do
               let altIdx := i - argInfo.mInfo.getFirstAltPos
-              let lhs ← forallTelescope (← inferType alts[altIdx]!) fun _ b => pure b.getAppArgs
+              let lhs ← forallTelescope (← inferTypeEnv alts[altIdx]!) fun _ b => pure b.getAppArgs
               pargs ← pargs.modifyM i (updateRhsWithFun f args idxArg lhs)
             -- NOTE: we also need to set the return type for pulled over match to meet the function's return type
             pargs ← pargs.modifyM idxType (updateMatchReturnType retType)

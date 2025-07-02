@@ -1,5 +1,6 @@
 import Lean
 import Solver.Optimize.Rewriting.OptimizeITE
+import Solver.Optimize.Telescope
 import Solver.Smt.Env
 import Solver.Smt.Translate.Match
 import Solver.Smt.Translate.Quantifier
@@ -18,7 +19,7 @@ def funNameToSmtSymbol (funName : Name) : SmtSymbol :=
 /-- list of Lean operators that must have a defined Smt function during translation.
 -/
 def definedSmtOperators : NameHashSet :=
-  List.foldr (fun c s => s.insert c) Std.HashSet.empty
+  List.foldr (fun c s => s.insert c) Std.HashSet.emptyWithCapacity
   [ ``Int.ediv,
     ``Int.emod,
     ``Int.tdiv,
@@ -31,7 +32,7 @@ def definedSmtOperators : NameHashSet :=
 
 /-- list of Lean operators expected to be fully applied at translation phase. -/
 def fullyAppliedConst : NameHashSet :=
-  List.foldr (fun c s => s.insert c) Std.HashSet.empty
+  List.foldr (fun c s => s.insert c) Std.HashSet.emptyWithCapacity
   [ ``And,
     ``Or,
     ``Not,
@@ -81,8 +82,8 @@ def isArrowPropType (e : Expr) : Bool :=
 
 
 /-- Return `true` when `indName` corresponds to an inductive predicate. -/
-def isInductivePredicate (indName : Name) : MetaM Bool := do
-  let ConstantInfo.inductInfo indVal ← getConstInfo indName | return false
+def isInductivePredicate (indName : Name) : TranslateEnvT Bool := do
+  let ConstantInfo.inductInfo indVal ← getConstEnvInfo indName | return false
   return isArrowPropType indVal.type
 
 
@@ -467,7 +468,7 @@ partial def translateRecFun
   | none =>
       let Expr.const n l := f
         | throwEnvError f!"translateRecFun: name expression expected but got {reprStr f}"
-      let ConstantInfo.defnInfo dInfo ← getConstInfo n
+      let ConstantInfo.defnInfo dInfo ← getConstEnvInfo n
         | throwEnvError f!"translateRecFun: no defnInfo for {n}"
       generateRecFunDefinitions dInfo.all l params
       let some smtId := (← get).smtEnv.funInstCache.get? instApp
@@ -482,7 +483,7 @@ partial def translateRecFun
       let .SimpleIdent s := id
         | throwEnvError f!"updateFunDefinition: SimpleIdent expected but got {id}"
       let fInfo ← getFunInfo fbody
-      lambdaTelescope fbody fun xs b => do
+      Optimize.lambdaTelescope fbody fun xs b => do
         let mut params := (#[] : SortedVars)
         for i in [:xs.size] do
           let Expr.fvar v := xs[i]!
@@ -491,7 +492,7 @@ partial def translateRecFun
           if fInfo.paramInfo[i]!.isExplicit then
             let st ← translateFunLambdaParamType (← v.getType) optimizer termTranslator
             params := params.push (← fvarIdToSmtSymbol v, st)
-        let ret ← translateFunLambdaParamType (← inferType b) optimizer termTranslator
+        let ret ← translateFunLambdaParamType (← inferTypeEnv b) optimizer termTranslator
         let funDecl := {name := s, params, ret}
         let sBody ← termTranslator b
         return { defs with funDecls := defs.funDecls.push funDecl, funBodies := defs.funBodies.push sBody }
@@ -575,7 +576,7 @@ def isForbiddenConstExpr (e : Expr) : Bool :=
          - return ⊥
      - when `isForbiddenUnappliedConst n`
          - return ⊥
-     - when `isMatchExpr n`
+     - when `isMatchExpr n l`
          - return ⊥
      - when `n` is a constructor with implicit arguments
          - return ⊥
@@ -603,7 +604,7 @@ def isForbiddenConstExpr (e : Expr) : Bool :=
 def translateConst
   (e : Expr) (optimizer : Expr → TranslateEnvT Expr)
   (termTranslator : Expr → TranslateEnvT SmtTerm) : TranslateEnvT SmtTerm := do
-  let Expr.const n _ := e | throwEnvError f!"translateConst: name expression expected but got {reprStr e}"
+  let Expr.const n l := e | throwEnvError f!"translateConst: name expression expected but got {reprStr e}"
   match n with
   | ``false
   | ``False => return falseSmt
@@ -615,7 +616,7 @@ def translateConst
       throwEnvError f!"translateConst: unexpected inductive datatype {reprStr e}"
     if isForbiddenUnappliedConst n then
       throwEnvError f!"translateConst: unexpected name expression {reprStr e}"
-    if (← isMatchExpr n) then
+    if (← isMatchExpr n l) then
       throwEnvError f!"translateConst: unexpected match function passed as argument {n}"
     if let some r ← translateCtor n then return r
     if (← hasImplicitArgs e) then
@@ -628,7 +629,7 @@ def translateConst
 
   where
     translateCtor (c : Name) : TranslateEnvT (Option SmtTerm) := do
-      let ConstantInfo.ctorInfo info ← getConstInfo c | return none
+      let ConstantInfo.ctorInfo info ← getConstEnvInfo c | return none
       if info.numParams != 0 then
         throwEnvError f!"translateConst: unexpected implicit arguments for ctor {c}"
       if info.numFields == 0 then
@@ -650,7 +651,7 @@ def translateConst
 
     translateTheorem? (n : Name) : TranslateEnvT (Option SmtTerm) := do
       if !(← isTheorem n) then return none
-      let ConstantInfo.thmInfo info ← getConstInfo n | return none
+      let ConstantInfo.thmInfo info ← getConstEnvInfo n | return none
       -- check if e has sorry theorem and trigger error if this is the case
       hasSorryTheorem e "translateConst: Theorem {n} has `sorry` demonstration"
       if info.type.isForall then
@@ -754,9 +755,9 @@ def translateApp
        | _ => return none
 
     genExistsTerm (lambdaE : Expr) : QuantifierEnvT SmtTerm := do
-      lambdaTelescope lambdaE fun xs b => do
+      Optimize.lambdaTelescope lambdaE fun xs b => do
         for i in [:xs.size] do
-          let t ← inferType xs[i]!
+          let t ← inferTypeEnv xs[i]!
           translateQuantifier xs[i]! t optimizer termTranslator
         let ebody ← termTranslator b
         let env ← get
@@ -781,11 +782,11 @@ def translateApp
       translateRecFun f args optimizer termTranslator
 
     translateAppliedCtor? (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
-      let ConstantInfo.ctorInfo info ← getConstInfo n | return none
+      let ConstantInfo.ctorInfo info ← getConstEnvInfo n | return none
       if args.size < info.numParams + info.numFields
       then termTranslator (← etaExpand e) -- partially applied ctor case
       else
-        let st ← translateType optimizer termTranslator (← inferType e)
+        let st ← translateType optimizer termTranslator (← inferTypeEnv e)
         if info.numFields == 0 then
           -- nullary polymorphic constructor case
            return (smtQualifiedVarId (nameToSmtSymbol n) st)
@@ -804,10 +805,10 @@ def translateApp
          let smtId ← generateFunInst f params
          let .SimpleIdent s := smtId
            | throwEnvError f!"translateUndeclaredFun?: SimpleIdent expected but got {smtId}"
-         let ConstantInfo.defnInfo dInfo ← getConstInfo n
+         let ConstantInfo.defnInfo dInfo ← getConstEnvInfo n
            | throwEnvError f!"translateUndeclaredFun?: no defnInfo for {n}"
          let fInfo ← getFunInfo f
-         withTranslateRecBody $ forallTelescope dInfo.type fun xs b => do
+         withTranslateRecBody $ Optimize.forallTelescope dInfo.type fun xs b => do
             let mut pargs := (#[] : Array SortExpr)
             for i in [:xs.size] do
               let Expr.fvar v := xs[i]!
@@ -835,7 +836,7 @@ def translateApp
 
     translateTheorem (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
       if !(← isTheorem n) then return none
-      let ConstantInfo.thmInfo info ← getConstInfo n | return none
+      let ConstantInfo.thmInfo info ← getConstEnvInfo n | return none
       -- check if e has sorry demonstration and trigger error if this is the case
       hasSorryTheorem e "translateApp: Theorem {n} has `sorry` demonstration"
       termTranslator (← optimizer (← betaForAll info.type args))
@@ -849,7 +850,7 @@ def translateLambda
   (e : Expr) (optimizer : Expr → TranslateEnvT Expr)
   (termTranslator : Expr → TranslateEnvT SmtTerm) : TranslateEnvT SmtTerm := do
  let fInfo ← getFunInfo e
- lambdaTelescope e fun xs b => do
+ Optimize.lambdaTelescope e fun xs b => do
    let mut svars := (#[] : SortedVars)
    for i in [:xs.size] do
      let Expr.fvar v := xs[i]!
@@ -873,7 +874,7 @@ def translateLambda
 def translateProj
   (n : Name) (idx : Nat) (p : Expr)
   (termTranslator : Expr → TranslateEnvT SmtTerm) : TranslateEnvT SmtTerm := do
-  let ConstantInfo.inductInfo indVal ← getConstInfo n
+  let ConstantInfo.inductInfo indVal ← getConstEnvInfo n
     | throwEnvError "translateProj: induction info expected for {n}"
   match indVal.ctors with
   | [c] =>

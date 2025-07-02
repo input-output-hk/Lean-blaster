@@ -194,7 +194,7 @@ def translateMatchAux?
   (alt : Expr) (acc : Option MatchResult) : TranslateEnvT (Option MatchResult) := do
   let altArgsRes ← retrieveAltsArgs lhs
   let rhs := betaReduceRhs alt altArgsRes.altArgs
-  let hvars ← altArgsRes.altArgs.foldlM insertFVars .empty
+  let hvars ← altArgsRes.altArgs.foldlM insertFVars .emptyWithCapacity
   if idx == 0 then -- last pattern translated first
     -- translate all discriminators and keep in MatchResult
     let mut discrTerms := #[]
@@ -307,9 +307,8 @@ def translateMatchAux?
 def translateMatch?
   (f : Expr) (args : Array Expr) (optimizer : Expr → TranslateEnvT Expr)
   (termTranslator : Expr → TranslateEnvT SmtTerm) : TranslateEnvT (Option SmtTerm) := do
-  let res ← matchExprRewriter f args optimizer (translateMatchAux? termTranslator)
-  match res with
-  | some r => return r.iteTerm
-  | _ => return none
+  let some mInfo ← isMatcher? (mkAppN f args) | return none
+  let some r ← matchExprRewriter mInfo optimizer (translateMatchAux? termTranslator) | return none
+  return r.iteTerm
 
 end Solver.Smt
