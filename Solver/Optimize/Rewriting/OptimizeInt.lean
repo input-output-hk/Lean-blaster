@@ -120,7 +120,7 @@ def nonZeroIntDenumInHyps (e : Expr) : TranslateEnvT Bool := do
 /-- Given `e1` and `e2` corresponding to the operands for `Int.ediv`, `Int.tdiv` and `Int.fdiv`,
     return `some 1` only when the following conditions are satisfied:
       - e1 =ₚₜᵣ e2 ∧
-      - 0 < e1 := _ ∈ hypsInContext ∨ e < 0 := _ ∈ hypsInContext ∨ ¬ (0 = e1) := _ ∈ hypsInContext
+      - 0 < e1 := _ ∈ hypsInContext ∨ e1 < 0 := _ ∈ hypsInContext ∨ ¬ (0 = e1) := _ ∈ hypsInContext
     Otherwise, return none.
 -/
 def intDivSelfReduce? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := do
@@ -171,7 +171,7 @@ def optimizeIntDivCommon (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr)
 /- Given `op1` and `op2` corresponding to the operands for `Int.ediv`, `Int.tdiv` and `Int.fdiv`,
    and `f_div` the corresponding divisor operator,
      - return `some (((f_div N1 (Int.gcd N1 N2)) * n), (f_div N2 (Int.gcd N1 N2)))`
-       when `op1 := (N1 * n) ∧ op2 := N2 ∧ Int.gcd N1 N2
+       when `op1 := (N1 * n) ∧ op2 := N2 ∧ Int.gcd N1 N2 ≠ 1
    Otherwise `none`.
    Assumes that N2 ≠ 0
 -/
@@ -365,7 +365,7 @@ partial def optimizeIntFDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr 
      - (N1 * n) % N2 ==> 0 (if N1 % N2 = 0)
      - n1 % n2 ==> 0 (if n1 =ₚₜᵣ n2)
      - (m * n) % m | (n * m) % m ==> 0
-   Assume that f = Expr.const ``Int.tmod.
+   Assume that f = Expr.const ``Int.fmod.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Int.fmod` expected at this stage)
 -/
 
