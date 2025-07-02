@@ -634,7 +634,7 @@ def translateConst
         throwEnvError f!"translateConst: unexpected implicit arguments for ctor {c}"
       if info.numFields == 0 then
         -- nullary constructor case
-        let st ← translateType optimizer termTranslator info.type
+        let st ← translateType optimizer termTranslator (← inferTypeEnv e)
         return (smtQualifiedVarId (nameToSmtSymbol c) st)
       else termTranslator (← etaExpand e) -- parameterized constructor case
 
