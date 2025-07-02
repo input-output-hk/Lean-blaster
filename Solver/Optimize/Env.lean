@@ -101,7 +101,17 @@ structure OptimizeEnv where
   /-- Optimization options (see note on OptimizeOptions) -/
   options : OptimizeOptions
 
- deriving Inhabited
+instance : Inhabited OptimizeEnv where
+  default :=
+   { rewriteCache := Std.HashMap.empty (capacity := 13),
+     synthInstanceCache := Std.HashMap.empty (capacity := 8893),
+     whnfCache := Std.HashMap.empty (capacity := 8893),
+     matchCache := Std.HashMap.empty (capacity := 8893),
+     recFunInstCache := Std.HashMap.empty (capacity := 8893),
+     recFunCache := Std.HashSet.empty (capacity := 8893),
+     recFunMap := Std.HashMap.empty (capacity := 8893),
+     options := default
+   }
 
 
 structure TranslateOptions where
@@ -117,7 +127,7 @@ structure TranslateOptions where
   inPatternMatching : Std.HashSet FVarId
 
 instance : Inhabited TranslateOptions where
-  default := {typeUniverse := false, inFunRecDefinition := false, inPatternMatching := .empty}
+  default := {typeUniverse := false, inFunRecDefinition := false, inPatternMatching := .empty (capacity := 123)}
 
 /-- Type defining the environment used when translating to Smt-Lib. -/
 structure SmtEnv where
@@ -174,17 +184,29 @@ structure SmtEnv where
       to detect globally declared variables. -/
   quantifiedFVars : Std.HashSet FVarId
 
-  /-- Set keeping track of globally declared variables and the ones in
+  /-- Hash Map keeping track of globally declared variables and the ones in
       the top level forall quantifier.
       This set is used exclusively when retrieving counterexample after a `sat` result
       is obtained from the backend smt solver.
   -/
-  topLevelVars : Std.HashSet SmtSymbol
+  topLevelVars : Std.HashMap SmtSymbol Lean.Name
 
   /-- Translation options (see note on TranslateOptions) -/
   options: TranslateOptions
 
-  deriving Inhabited
+instance : Inhabited SmtEnv where
+  default :=
+   { translateCache := Std.HashMap.empty (capacity := 13),
+     smtCommands := Array.mkEmpty 1023,
+     smtProc := default,
+     indTypeVisited := Std.HashSet.empty (capacity := 123),
+     indTypeInstCache := Std.HashMap.empty (capacity := 123 * 3),
+     funInstCache := Std.HashMap.empty (capacity := 123),
+     sortCache := Std.HashMap.empty (capacity := 123),
+     quantifiedFVars := Std.HashSet.empty (capacity := 123),
+     topLevelVars := Std.HashMap.empty (capacity := 123),
+     options := default
+   }
 
 
 /-- list of recursive functions to be normalized (see note in `OptimizeOptions`). -/
@@ -360,6 +382,12 @@ def withOptimizeEnvCache (a : Expr) (f: Unit → TranslateEnvT Expr) : Translate
       trace[Optimize.cacheExpr] f!"optimizing {← ppExpr a} ===> {← ppExpr b}"
       updateRewriteCache a b
       return b
+
+/-- Remove an expression from the rewriting cache.
+-/
+def uncacheExpr (e : Expr) : TranslateEnvT Unit := do
+ let env ← get
+ set {env with optEnv.rewriteCache := env.optEnv.rewriteCache.erase e }
 
 /-- Add an instance recursive application (see function `getInstApp`) to
     the visited recursive function cache.
