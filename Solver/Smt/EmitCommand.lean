@@ -348,5 +348,11 @@ def SmtCommand.emit (c : SmtCommand) : TranslateEnvT Unit := do
           h.putStr " "
           h.putStr s!"{v}"
           h.putStr ")\n"
+     | .setNatOption opt v =>
+          h.putStr "(set-option "
+          h.putStr opt
+          h.putStr " "
+          h.putStr v
+          h.putStr ")\n"
 
 end Solver.Smt

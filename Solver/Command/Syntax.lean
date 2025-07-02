@@ -20,6 +20,7 @@ namespace Solver.Syntax
       - `only-smt-lib`: only translating unsolved goals to smt-lib without invoking the backend solver (default: 0)
       - `only-optimize`: only perform optimization on lean specification and do not translate to smt-lib (default: 0)
       - `dump-smt-lib`: display the smt lib query to stdout (default: 0)
+      - `random-seed`: seed for the random number generator (default: 0)
       - `gen-cex`: generate counterexample for falsified theorems (default: 1)
       - `solve-result`: specify the expected result from the #solve command, i.e.,
                         0 for 'Valid', 1 for 'Falsified' and 2 for 'Undetermined'. (default: 0)
@@ -37,6 +38,7 @@ syntax "(dump-smt-lib:" num ")" : solveOption
 syntax "(gen-cex:" num ")" : solveOption
 syntax "(solve-result:" num ")" : solveOption
 syntax "(max-depth:" num ")" : solveOption
+syntax "(random-seed:" num ")" : solveOption
 
 -- NOTE: Limited to one term for the time being
 syntax solveTerm := "[" term "]"
@@ -92,6 +94,13 @@ def parseGenCex (sOpts : SolverOptions) : TSyntax `solveOption → CommandElabM 
       | _ => throwUnsupportedSyntax
   | _ => return sOpts
 
+def parseRandomSeed (sOpts : SolverOptions) : TSyntax `solveOption → CommandElabM SolverOptions
+  | `(solveOption| (random-seed: $n:num)) =>
+      match n.getNat with
+      | 0 => return { sOpts with randomSeed := none }
+      | n => return { sOpts with randomSeed := some n }
+  | _ => return sOpts
+
 def parseSolveResult (sOpts : SolverOptions) : TSyntax `solveOption → CommandElabM SolverOptions
   | `(solveOption| (solve-result: $n:num)) =>
       match n.getNat with
@@ -112,6 +121,7 @@ def parseSolveOption (sOpts : SolverOptions) (opt : TSyntax `solveOption) : Comm
   let sOpts ← parseGenCex sOpts opt
   let sOpts ← parseSolveResult sOpts opt
   let sOpts ← parseMaxDepth sOpts opt
+  let sOpts ← parseRandomSeed sOpts opt
   return sOpts
 
 /-! ### Process Multiple Options -/

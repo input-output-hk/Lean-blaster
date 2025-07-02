@@ -574,19 +574,29 @@ def setPullNestedQuantifiers (b : Bool) : TranslateEnvT Unit :=
 def setPrintSuccess (b : Bool) : TranslateEnvT Unit :=
   trySubmitCommand! (.setOption ":print-success" b)
 
+/-- Set Smt `random-seed` option to `n` or none. -/
+def setRandomSeed (n : Option Nat) : TranslateEnvT Unit := do
+  match n with
+  | some n => trySubmitCommand! (.setNatOption ":smt.random-seed" (toString n))
+  | none => pure ()
+
 /-- Set the default Smt options, i.e.:
      - (set-option :print-success true)
      - (set-option :produce-models true)
      - (set-option :produce-proofs true)
      - (set-option :smt-pull-nested-quantifiers true)
      - (set-option :smt-mbqi true)
+     - (set-option :smt.random-seed n) when `n` is provided in solver options
 -/
-def setDefaultSmtOptions : TranslateEnvT Unit := do
+def setDefaultSmtOptions (sOpts : SolverOptions) : TranslateEnvT Unit := do
  setPrintSuccess true
  setProduceModels true
  setProduceProofs true
  setPullNestedQuantifiers true
  setMbqi true
+ match sOpts.randomSeed with
+  | some n => setRandomSeed (some n)
+  | none => setRandomSeed none
 
 
 /-- Perform the following actions:
@@ -602,7 +612,7 @@ def setSolverProcess : TranslateEnvT Unit := do
   unless sOpts.onlySmtLib do
     let proc ← createSolverProcess sOpts
     set { env with smtEnv.smtProc := proc }
-  setDefaultSmtOptions
+  setDefaultSmtOptions sOpts
 
 
 end Solver.Smt
