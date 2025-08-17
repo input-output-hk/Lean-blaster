@@ -361,7 +361,7 @@ def translateOpaqueFun (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT
   | ``LT.lt =>
         if Nat.blt args.size 2 then throwEnvError "translateOpaqueFun: at least two arguments expected for Lt.lt"
         if isStringType args[0]!
-        then getOpaqueSmtEquivFun f strLtSymbol
+        then return .SimpleIdent strLtSymbol
         else getOpaqueSmtEquivFun f ltSymbol
   | ``Nat.sub => translateNatSub f
   | ``String.append => getOpaqueSmtEquivFun f strAppendSymbol
