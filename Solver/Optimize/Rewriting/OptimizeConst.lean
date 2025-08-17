@@ -10,7 +10,7 @@ namespace Solver.Optimize
      - When `n := Nat.zero` return `Expr.lit (Literal.natVal 0)`
      - When `ConstantIno.opaqueInfo opVal ← getConstInfo n` (i.e., n is a constant defined at top level)
         - return `optimizer opVal`
-     - When !(← isInFunApp) (i.e., const expression is not a function application but is a HOF passed as argument)
+     - When ¬ (← isInFunApp) (i.e., const expression is not a function application but is a HOF passed as argument)
         - When `n := Int.negSucc ∨ n := Nat.pred ∨ n := Nat.succ`:
            - return `optimize (← etaExpand e)`
         - When `n := Int.le`
@@ -21,13 +21,13 @@ namespace Solver.Optimize
            - return `mkNatEqOp`
         - When `n := Nat.ble` ∧ (← isOptimizeRecCall):
            - return `optimize (← etaExpand e)`
-        - When `¬ isNotFoldable e (recFunCheck := false) ∧ ¬ hasImplicitArgs e`:
+        - When `¬ hasImplicitArgs e`:
            - When `isRecursiveFun n` (i.e., a recursive function passed as argument):
               - return `(← normOpaqueAndRecFun e #[] optimizer)`
-           - When `(← getFunBody e).isSome ∧ ¬ isRecursiveFun n`:
+           - When `(← getFunBody e).isSome ∧ ¬ isRecursiveFun n ∧ ¬ isNotFoldable e`:
               - return `optimizer (← getFunBody e)`
      - Otherwise:
-         - When !(← isInFunApp) ∧ isType e:
+         - When ¬ (← isInFunApp) ∧ isType e:
              return `mkExpr (← resolveTypeAbbrev e)`
          - Otherwise
             - return `mkExpr e`
@@ -93,11 +93,11 @@ partial def normConst (e : Expr) (optimizer : Expr → TranslateEnvT Expr) : Tra
 
     isHOF (f : Name) : TranslateEnvT (Option Expr) := do
       if (← isInFunApp) then return none
-      if (← isNotFoldable e #[] (recFunCheck := false)) then return none
       if (← hasImplicitArgs e) then return none
       if (← isRecursiveFun f) then
         -- catch fun expression after adding recursive definition in map
         return (← mkExpr (← normOpaqueAndRecFun e #[] optimizer))
+      if (← isNotFoldable e #[]) then return none
       -- non recursive function case
       let some fbody ← getFunBody e | return none
       optimizer fbody

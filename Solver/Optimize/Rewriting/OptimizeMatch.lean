@@ -52,26 +52,35 @@ private partial def isCstMatchPropAux (stack : List Expr) : TranslateEnvT Bool :
 
 /-- Given `f x₁ ... xₙ` return `true` when the following conditions are satisfied:
      -  ∃ i ∈ [1..n], isExplicit xᵢ ∧
-     -  ∀ i ∈ [1..n], isExplicit xᵢ → isConstructor xᵢ ∨ isProp (← inferTypeEnv xₓ) ∨ isFunType (← inferTypeEnv xᵢ)
+     -  ∀ i ∈ [1..n], isExplicit xᵢ → isCstProp xᵢ ∨ isPropFunType f xₓ
+     with
+       - isCstProp e := isCstMatchProp e IF funpropagaton
+         isCstProp e := isConstructor e  Otherwise
+       - isPropFunType e := isProp e.Type ∨ isFunType e.Type
     NOTE: constructors may contain free variables.
 -/
 def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) (funPropagation := false) : TranslateEnvT Bool := do
   let stop := args.size
   let fInfo ← getFunInfoNArgs f stop
-  let rec loop (i : Nat) (atLeastOneExplicit : Bool := false) : TranslateEnvT Bool := do
+  let rec loop (i : Nat) (atLeastOneExplicitCstr : Bool := false) : TranslateEnvT Bool := do
     if i < stop then
       let e := args[i]!
-      let t ← inferTypeEnv e
       let aInfo := fInfo.paramInfo[i]!
       if aInfo.isExplicit
       then
         let cstProp ← if funPropagation then isCstMatchProp e else isConstructor e
-        if (← pure cstProp <||> isProp t <||> isFunType t)
-        then loop (i+1) true
+        if (← pure cstProp <||> isPropFunType e)
+        then loop (i+1) (atLeastOneExplicitCstr || cstProp)
         else pure false
-      else loop (i+1) atLeastOneExplicit
-    else pure atLeastOneExplicit
+      else loop (i+1) atLeastOneExplicitCstr
+    else pure atLeastOneExplicitCstr
   loop 0
+
+  where
+    @[always_inline, inline]
+    isPropFunType (e : Expr) : TranslateEnvT Bool := do
+     let t ← inferTypeEnv e
+     isProp t <||> isFunType t
 
 /-- Given `m := f x₁ ... xₙ` with `f` corresponding to a match function
     and `mInfo` the corresponding matcher info, perform the following:

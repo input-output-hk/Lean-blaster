@@ -709,8 +709,11 @@ def reorderIntOp (args: Array Expr) : TranslateEnvT (Array Expr) := do
 
 
 /-- Return `true` if `n` corresponds to a matcher expression name or a casesOn recursor application. -/
-def isMatchExpr (n : Name) (l : List Level) : TranslateEnvT Bool := do
-  Option.isSome <$> getMatcherRecInfo? n l
+def isMatchExpr (e : Expr) : TranslateEnvT Bool := do
+  match e with
+  | Expr.const n l =>
+     Option.isSome <$> getMatcherRecInfo? n l
+  | _ => return false
 
 
 /- Return the function definition for `f` whenever `f` corresponds to:
@@ -751,6 +754,24 @@ def isUndefinedClassFunApp (e : Expr) : TranslateEnvT Bool := do
   let p@(Expr.proj c _ _) := e.getAppFn' | return false
   return ((← reduceProj? p).isNone && (← isClassConstraint c))
 
+
+/-- Return `true` only when `e := Expr.const n l` and one of the following condition is satisfied:
+     - `n := namedPattern`; or
+     - `n` is a class instance; or
+     - `n` is a match expression; or
+     - `n` is a class constraint; or
+     - `n` is an inductive datatype ∧ n ∉ opaqueFuns;
+-/
+def isNotFun (e : Expr) : TranslateEnvT Bool := do
+ let Expr.const n l := e | return false
+ if n == ``namedPattern then return true
+ if (← isInstanceClass n) then return true
+ if (← isMatchExpr e) then return true
+ if (← isClassConstraint n) then return true
+ if opaqueFuns.contains n then return false -- consider Eq/And/Or case
+ isInductiveType n l
+
+
 /-- Return `true` only when `e := Expr.const n l` and one of the following condition is satisfied:
      - `n` is not tagged as an opaque definition when flag `opaqueCheck` is set to true;
      - `n` is not a recursive function when flag `recFunCheck` is set to `true`;
@@ -759,21 +780,14 @@ def isUndefinedClassFunApp (e : Expr) : TranslateEnvT Bool := do
      - `n := namedPattern`;
      - `n` is not a match expression; or
      - `n` is not a class constraint.
-     Otherwise `false`.
 -/
 def isNotFoldable
-  (e : Expr) (args : Array Expr)
-  (opaqueCheck := true) (recFunCheck := true) : TranslateEnvT Bool := do
-  let Expr.const n l := e | return false
-  if recFunCheck && (← isRecursiveFun n) then return true
-  unless !opaqueCheck do
-    if args.size == 0 && opaqueFuns.contains n then return true
-    if (← (pure (args.size != 0)) <&&> (isOpaqueFun n args)) then return true
-  if n == ``namedPattern then return true
-  (isInductiveType n l)
-  <||> (isInstanceClass n)
-  <||>  (isMatchExpr n l)
-  <||> (isClassConstraint n)
+  (e : Expr) (args : Array Expr) : TranslateEnvT Bool := do
+  let Expr.const n _ := e | return false
+  if (← isRecursiveFun n) then return true
+  if args.size == 0 && opaqueFuns.contains n then return true
+  if (← (pure (args.size != 0)) <&&> (isOpaqueFun n args)) then return true
+  isNotFun e
 
 
 /-- Unfold fuction `f` w.r.t. the effective parameters `args` only when:

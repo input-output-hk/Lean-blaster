@@ -184,10 +184,6 @@ def normPartialFun? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr)
      | Expr.const ``dite _ => args.size > 5
      | _ => false
 
-   isNotFun (e : Expr) : TranslateEnvT Bool :=
-    isNotFoldable e #[] (opaqueCheck := false) (recFunCheck := false)
-
-
 /-- Given application `f x₁ ... xₙ` perform the following:
     - when `f` corresponds to a recursive definition `λ p₁ ... pₙ → body` the following actions are performed:
         - params ← getImplicitParameters f #[x₁ ... xₙ]

@@ -146,8 +146,8 @@ private partial def normMatchAppAux
     -- update match return type
     let idxType := mInfo.getFirstDiscrPos - 1
     let retType ← inferTypeEnv (mkAppN f args)
-    let margs' := margs.set! idxType (← updateMatchReturnType args[idxType]! retType)
-    k (some (mkAppN f margs'))
+    let margs ← margs.modifyM idxType (updateMatchReturnType retType)
+    k (some (mkAppN f margs))
   else
     let altIdx := idx - mInfo.getFirstAltPos
     let lhs ← forallTelescope (← inferTypeEnv alts[altIdx]!) fun _ b => pure b.getAppArgs
@@ -186,7 +186,7 @@ def tryAppReduction (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
   | some re => return re
 
 /-- Apply the following propagation rules on any function application `fn e₁ ... eₙ`
-    only when fn := Expr.const n l ∧ n ≠ ite ∧ n ≠ dite ∧ ¬ isMatchExpr n l ∧
+    only when fn := Expr.const n l ∧ n ≠ ite ∧ n ≠ dite ∧ ¬ isNotFun fn ∧
               propagate fn e₁ ... eₙ
 
     - When ∃ i ∈ [1..n],
@@ -226,8 +226,8 @@ def tryAppReduction (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 -/
 def funPropagation? (cf : Expr) (cargs : Array Expr) : TranslateEnvT (Option Expr) := do
   match cf with
-  | Expr.const n l =>
-      if n == ``ite || n == ``dite || (← isMatchExpr n l) then return none
+  | Expr.const n _ =>
+      if n == ``ite || n == ``dite || (← isNotFun cf) then return none
       if !(← propagate cf n cargs) then return none
       for i in [:cargs.size] do
         if let some re ← iteCstProp? cf cargs i then return re

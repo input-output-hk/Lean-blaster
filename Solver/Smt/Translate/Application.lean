@@ -576,7 +576,7 @@ def isForbiddenConstExpr (e : Expr) : Bool :=
          - return ⊥
      - when `isForbiddenUnappliedConst n`
          - return ⊥
-     - when `isMatchExpr n l`
+     - when `isMatchExpr e`
          - return ⊥
      - when `n` is a constructor with implicit arguments
          - return ⊥
@@ -604,7 +604,7 @@ def isForbiddenConstExpr (e : Expr) : Bool :=
 def translateConst
   (e : Expr) (optimizer : Expr → TranslateEnvT Expr)
   (termTranslator : Expr → TranslateEnvT SmtTerm) : TranslateEnvT SmtTerm := do
-  let Expr.const n l := e | throwEnvError f!"translateConst: name expression expected but got {reprStr e}"
+  let Expr.const n _ := e | throwEnvError f!"translateConst: name expression expected but got {reprStr e}"
   match n with
   | ``false
   | ``False => return falseSmt
@@ -616,7 +616,7 @@ def translateConst
       throwEnvError f!"translateConst: unexpected inductive datatype {reprStr e}"
     if isForbiddenUnappliedConst n then
       throwEnvError f!"translateConst: unexpected name expression {reprStr e}"
-    if (← isMatchExpr n l) then
+    if (← isMatchExpr e) then
       throwEnvError f!"translateConst: unexpected match function passed as argument {n}"
     if let some r ← translateCtor n then return r
     if (← hasImplicitArgs e) then
