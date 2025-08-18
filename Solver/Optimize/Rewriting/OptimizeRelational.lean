@@ -11,7 +11,7 @@ def isOneNat (e : Expr) : Bool :=
   | some 1 => true
   | _ => false
 
-/-- Given `op1` and `op2` corresponding to the operands for `LE.le` or `LT.lt`:
+/-- Given `op1` and `op2` corresponding to the operands for `LT.lt`:
       - return `some False` when `op1 := N + e ∧ op2 := e ∧ N > 0 ∧ Type(N) = Int`
       - return `some True` when `op1 := N + e ∧ op2 := e ∧ N < 0 ∧ Type(N) = Int`
     Otherwise `none`.
@@ -25,7 +25,7 @@ def intRelLeftReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :=
  then return ← mkPropFalse
  else return ← mkPropTrue
 
-/-- Given `op1` and `op2` corresponding to the operands for `LE.le` or `LT.lt`:
+/-- Given `op1` and `op2` corresponding to the operands for `LT.lt`:
       - return `some True` when `op1 := e ∧ op2 := N + e ∧ N > 0 ∧ Type(N) = Int`
       - return `some False` when `op1 := e ∧ op2 := N + e ∧ N < 0 ∧ Type(N) = Int`
     Otherwise `none`.
@@ -39,7 +39,7 @@ def intRelRightReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :
  then return ← mkPropTrue
  else return ← mkPropFalse
 
-/-- Given `op1` and `op2` corresponding to the operands for `LE.le` or `LT.lt`:
+/-- Given `op1` and `op2` corresponding to the operands for `LT.lt`:
       - return `some False` when `op1 := N + e ∧ op2 := e ∧ N > 0 ∧ Type(N) = Nat`
     Otherwise `none`.
 -/
@@ -51,7 +51,7 @@ def natRelLeftReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :=
  then return ← mkPropFalse
  else return none
 
-/-- Given `op1` and `op2` corresponding to the operands for `LE.le` or `LT.lt`:
+/-- Given `op1` and `op2` corresponding to the operands for `LT.lt`:
       - return `some True` when `op1 := e ∧ op2 := N + e ∧ N > 0 ∧ Type(N) = Nat`
     Otherwise `none`.
 -/
@@ -80,7 +80,7 @@ def cstLTProp? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :=
    | _, _ => return none
 
 /-- Given `op1` and `op2` corresponding to the operands for `LT.lt`:
-      - return `some ¬ (b < op1)` when `op2 := 1 + b ∧ Type(a) = Int`
+      - return `some ¬ (b < op1)` when `op2 := 1 + b ∧ Type(op1) = Int`
     Otherwise `none`.
 -/
 def intLtNorm? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
@@ -190,6 +190,8 @@ partial def optimizeLT (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
  if let some r ← addNatRightLtReduce? op1 op2 then return r
  if let some r ← addIntLeftLtReduce? op1 op2 then return r
  if let some r ← addIntRightLtReduce? op1 op2 then return r
+ if let some r ← addNatBothReduce? op1 op2 then return r
+ if let some r ← addIntBothReduce? op1 op2 then return r
  if let some r ← intLtNorm? op1 op2 then return r
  if let some r ← natLtNorm? op1 op2 then return r
  mkAppExpr f args
@@ -249,8 +251,14 @@ partial def optimizeLE (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
    let ltExpr ← optimizeLT (← mkLtOp) #[le_type, (← findLtInstance le_type), op2, op1]
    optimizeNot (← mkPropNotOp) #[ltExpr]
  else if args.size == 2 then
+   -- we need to return a lambda term here, i.e.,
+   -- ∀ e1 e2 => ¬ (e2 < e1)
    let le_type := args[0]!
-   mkExpr (mkApp2 (← mkLtOp) le_type (← findLtInstance le_type))
+   withLocalDecl `x BinderInfo.default le_type fun x => do
+     withLocalDecl `y BinderInfo.default le_type fun y => do
+       let ltExpr ← mkExpr (mkApp4 (← mkLtOp) le_type (← findLtInstance le_type) y x)
+       let notExpr ← mkExpr (mkApp (← mkPropNotOp) ltExpr)
+       mkExpr (← mkLambdaFVars #[x, y] notExpr)
  else throwEnvError f!"optimizeLE: at least 2 arguments expected but got {reprStr args}"
 
  where
