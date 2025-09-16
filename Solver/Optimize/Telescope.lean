@@ -154,4 +154,198 @@ def lambdaTelescope (e : Expr) (k : Array Expr → Expr → n α) : n α :=
 def lambdaBoundedTelescope (e : Expr) (maxFVars : Nat) (k : Array Expr → Expr → n α) : n α :=
   map2TranslateEnvT (fun k => lambdaTelescopeImp e (some maxFVars) k) k
 
+/--
+  Eta expand the given expression.
+  Example:
+  ```
+  etaExpand (mkConst ``Nat.add)
+  ```
+  produces `fun x y => Nat.add x y`
+-/
+def etaExpand (e : Expr) : TranslateEnvT Expr := do
+  forallTelescope (← inferTypeEnv e) fun xs _ => mkLambdaFVars xs (mkAppN e xs)
+
+/-- Given a sequence of nested foralls `(a₁ : α₁) → ... → (aₙ : αₙ) → _`, perform the following:
+      - When maxTypes? := some k:
+         return `#[α₁ ... αₖ]`
+      - Otherwise:
+         return `#[α₁ ... αₙ]`
+      NOTE: Dependent types are instantiated (whenever necessary).
+-/
+private partial def getForallBinderTypesImp (e : Expr) (maxTypes? : Option Nat) : Array Expr := loop e #[]
+  where
+    loop (e : Expr) (types : Array Expr) : Array Expr :=
+      match e with
+      | .forallE _ t b _ =>
+           if fvarsSizeLtMaxFVars types maxTypes?
+           then loop (b.instantiate1 t) (types.push t)
+           else types
+      | _ => types
+
+/-- Given a sequence of nested foralls `(a₁ : α₁) → ... → (aₙ : αₙ) → _`, perform the following:
+     - let k = maxTypes
+     - return `#[α₁ ... αₖ]`
+    NOTE: Dependent types are instantiated (whenever necessary).
+-/
+@[always_inline, inline]
+def getForallBoundedBinderTypes (e : Expr) (maxTypes : Nat) : Array Expr :=
+  getForallBinderTypesImp e (some maxTypes)
+
+/-- Given a sequence of nested foralls `(a₁ : α₁) → ... → (aₙ : αₙ) → _`, return `#[α₁ ... αₙ]`.
+    NOTE: Dependent types are instantiated (whenever necessary).
+-/
+@[always_inline, inline]
+def getForallBinderTypes (e : Expr) : Array Expr :=
+  getForallBinderTypesImp e none
+
+/-- Given a sequence of nested lambdas `(a₁ : α₁) → ... → (aₙ : αₙ) → _`, perform the following:
+      - When maxTypes? := some k:
+          return `#[α₁ ... αₖ]`
+      - Otherwise:
+          return `#[α₁ ... αₙ]`
+     Note: Dependent types are instantiated (whenever necessary).
+-/
+private partial def getLambdaBinderTypesImp (e : Expr) (maxTypes? : Option Nat) : Array Expr := loop e #[]
+  where
+    loop (e : Expr) (types : Array Expr) : Array Expr :=
+      match e with
+      | .lam _ t b _ =>
+           if fvarsSizeLtMaxFVars types maxTypes?
+           then loop (b.instantiate1 t) (types.push t)
+           else types
+      | _ => types
+
+/-- Given a sequence of nested lambdas `(a₁ : α₁) → ... → (aₙ : αₙ) → _`, perform the following:
+     - let k = maxTypes
+     - return `#[α₁ ... αₖ]`
+     Note: Dependent types are instantiated (whenever necessary).
+-/
+@[always_inline, inline]
+def getLambdaBoundedBinderTypes (e : Expr) (maxTypes : Nat) : Array Expr :=
+  getLambdaBinderTypesImp e (some maxTypes)
+
+/-- Given a sequence of nested lambdas `(a₁ : α₁) → ... → (aₙ : αₙ) → _`, return `#[α₁ ... αₙ]`.
+    Note: Dependent types are instantiated (whenever necessary).
+-/
+@[always_inline, inline]
+def getLambdaBinderTypes (e : Expr) : Array Expr :=
+  getLambdaBinderTypesImp e none
+
+
+@[always_inline, inline]
+def ParamInfo.isExplicit (p : ParamInfo) : Bool := p.binderInfo.isExplicit
+
+/-- Return `pInfo` when `f := pInfo ∈ getFunEnvInfoCache`. Otherwise, performing the following
+     - Let v₁ : t₁ → .. → vₙ : tₙ := inferTypeEnv f
+     - Let p := #[ { binderInfo := declᵢ.binderInfo, isProp := ← isProp declᵢ.type, isFun := isFunAux declᵢ.type } |
+                   ∀ i ∈ [1..n-1], declᵢ ← getFVarLocalDecl vᵢ ]
+     - Let pInfo := { paramsInfo := p, type := v₁ : t₁ → .. → vₙ : tₙ }
+     - add f := pInfo to `getFunEnvInfoCache`
+     - return pInfo
+-/
+def getFunEnvInfo (f : Expr) : TranslateEnvT FunEnvInfo := do
+  match (← get).optEnv.memCache.getFunEnvInfoCache.get? f with
+  | some p => return p
+  | none =>
+       let t ← inferTypeEnv f
+       forallTelescope t fun fvars _ => do
+         let mut paramsInfo := #[]
+         for h : i in [:fvars.size] do
+           let decl ← getFVarLocalDecl fvars[i]
+           let isProp ← isPropEnv decl.type
+           paramsInfo := paramsInfo.push { binderInfo := decl.binderInfo, isProp }
+         let fInfo := { paramsInfo, type := t }
+         modify (fun env => { env with optEnv.memCache.getFunEnvInfoCache :=
+                                       env.optEnv.memCache.getFunEnvInfoCache.insert f fInfo })
+         return fInfo
+
+/-- Given `t := ∀ α₀ → ∀ α₂ → ... → αₙ` corresponding to function type and `x₁ ... xₘ` the
+    function's applied arguments, determine the instantiated fun type by properly
+    instantiating the implicit arguments.
+
+    TODO: change function to pure tail rec call using stack-based approach
+-/
+partial def inferFunType (t : Expr) (args : Array Expr) : Expr :=
+  let rec visit (idx : Nat) (e : Expr) : Expr :=
+    if idx ≥ args.size then e
+    else
+     match e with
+     | Expr.forallE n t b bi =>
+         if !bi.isExplicit
+         then Expr.forallE n args[idx]! (visit (idx + 1) (b.instantiate1 args[idx]!)) bi
+         else Expr.forallE n t (visit (idx + 1) b) bi
+     | _ => e
+  visit 0 t
+
+/-- Given `t := ∀ α₀ → ∀ α₂ → ... → αₙ` corresponding to function type and `x₁ ... xₘ` the
+    function's applied arguments, determine the application type by properly
+    instantiating the implicit arguments.
+-/
+partial def inferAppType (t : Expr) (args : Array Expr) : Expr :=
+  let rec visit (idx : Nat) (t : Expr) : Expr :=
+    if idx ≥ args.size then t
+    else
+     match t with
+     | Expr.forallE _n _t b bi =>
+         if !bi.isExplicit
+         then visit (idx + 1) (b.instantiate1 args[idx]!)
+         else visit (idx + 1) b
+     | _ => t
+  visit 0 t
+
+/-- Given a `f : Expr.const n l` a function name expression,
+    return `true` if `f` has at least one implicit argument.
+-/
+def hasImplicitArgs (f : Expr) : TranslateEnvT Bool := do
+  let fInfo ← getFunEnvInfo f
+  for h : i in [:fInfo.paramsInfo.size] do
+    if !fInfo.paramsInfo[i].isExplicit then return true
+  return false
+
+/-- Given application `f x₀ ... xₙ`, return the following sequence:
+      let A := [x₀ ... xₙ]
+      let instanceArgs := [ { implicitArg := A[i], isInstance := ¬ isExplicit A[i],
+                              isGeneric := isGenericParam A[i], idxArg := i}
+                            | i ∈ [0..n] ]
+      return instanceArgs
+    NOTE: It is also assumed that args does not contain any meta or bounded variables.
+-/
+def getImplicitParameters (f : Expr) (args : Array Expr) : TranslateEnvT ImplicitParameters := do
+ let mut instanceParams := (#[] : ImplicitParameters)
+ let pInfo ← getFunEnvInfo f
+ let nbSize := if args.size < pInfo.paramsInfo.size then args.size else pInfo.paramsInfo.size
+ for i in [:nbSize] do
+   let p := args[i]!
+   if !pInfo.paramsInfo[i]!.isExplicit then
+     let isGeneric ← isGenericParam p
+     instanceParams := instanceParams.push {effectiveArg := p, isInstance := true, isGeneric}
+   else
+     instanceParams := instanceParams.push {effectiveArg := p, isInstance := false, isGeneric := false}
+ return instanceParams
+
+
+/-- Given function `f` and `params` its implicit parameter info (see `getImplicitParameters`),
+    perform the following:
+     let instanceArgs := [ params[i] | i ∈ [0..params.size-1] ∧ params[i].isInstance ]
+     let genFVars ← retrieveGenericFVars params
+      - When instanceArgs.isEmpty
+          - return `f`
+      - Otherwise:
+          - When instanceArgs.size == params.size (i.e., only implicit arguments provided)
+             - return `mkLambdaFVars genFVars f`
+          - Otherwise:
+             - return `mkLambdaFVars genFVars (specializeLambda (← etaExpand f) params)`
+-/
+def getInstApp (f : Expr) (params: ImplicitParameters) : TranslateEnvT Expr := do
+ let instanceArgs := Array.filter (λ p => p.isInstance) params
+ if instanceArgs.isEmpty then return f
+ else
+  let genFVars ← retrieveGenericFVars params
+  if instanceArgs.size == params.size then
+    -- only implicit arguments provided
+    mkLambdaFVars genFVars f
+  else
+    mkLambdaFVars genFVars (specializeLambda (← etaExpand f) params) (usedOnly := true)
+
+
 end Solver.Optimize

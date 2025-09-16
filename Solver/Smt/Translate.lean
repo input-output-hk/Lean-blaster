@@ -20,27 +20,27 @@ partial def translateExpr (e : Expr) : TranslateEnvT SmtTerm := do
     if let some s := isStrValue? e then return strLitSmt s
     -- TODO: consider other sort once supported (e.g., BitVec, Char, etc)
     match e with
-     | Expr.fvar .. => translateFreeVar e optimizeExpr visit
-     | Expr.const .. => translateConst e optimizeExpr visit
+     | Expr.fvar .. => translateFreeVar e visit
+     | Expr.const .. => translateConst e visit
      | Expr.forallE .. =>
          let qtyEnv := initialQuantifierEnv topLevel
-         let (t, _) ← translateForAll e optimizeExpr visit |>.run qtyEnv
+         let (t, _) ← translateForAll e visit |>.run qtyEnv
          trace[Translate.forAll] "translate forall {reprStr e} ==> {t}"
          return t
-     | Expr.app .. => translateApp e optimizeExpr visit
-     | Expr.lam .. => translateLambda e optimizeExpr visit
+     | Expr.app .. => translateApp e visit
+     | Expr.lam .. => translateLambda e visit
      | Expr.mdata _d me =>
         match toTaggedCtorSelector? e with
         | none => visit me
         | some (Expr.app (Expr.const s _) _) =>
             return mkSimpleSmtAppN (nameToSmtSymbol s) #[smtSimpleVarId (mkReservedSymbol "@x")]
-        | some s => throwEnvError f!"translateExpr: unexpected ctor selector expression {reprStr s}"
+        | some s => throwEnvError "translateExpr: unexpected ctor selector expression {reprStr s}"
      | Expr.proj n idx p => translateProj n idx p visit
-     | Expr.lit .. => throwEnvError f!"translateExpr: unexpected literal expression {reprStr e}"
-     | Expr.mvar .. => throwEnvError f!"translateExpr: unexpected meta variable {reprStr e}"
-     | Expr.bvar .. => throwEnvError f!"translateExpr: unexpected bounded variable {reprStr e}"
-     | Expr.letE .. => throwEnvError f!"translateExpr: unexpected let expression {reprStr e}"
-     | Expr.sort _ => throwEnvError f!"translateExpr: unexpected sort type {reprStr e}" -- sort type are handled elsewhere
+     | Expr.lit .. => throwEnvError "translateExpr: unexpected literal expression {reprStr e}"
+     | Expr.mvar .. => throwEnvError "translateExpr: unexpected meta variable {reprStr e}"
+     | Expr.bvar .. => throwEnvError "translateExpr: unexpected bounded variable {reprStr e}"
+     | Expr.letE .. => throwEnvError "translateExpr: unexpected let expression {reprStr e}"
+     | Expr.sort _ => throwEnvError "translateExpr: unexpected sort type {reprStr e}" -- sort type are handled elsewhere
   visit e (topLevel := true)
 
 def Translate.main (e : Expr) : TranslateEnvT Unit := do
@@ -74,9 +74,9 @@ def Translate.main (e : Expr) : TranslateEnvT Unit := do
     toPropExpr (e : Expr) : TranslateEnvT Expr := do
       if let some r ← isTheoremExpr e then return r
       if !(← isTypeCorrect e) || (Expr.hasSorry e) then
-         throwEnvError f!"translate: {← ppExpr e} is not well-formed"
-      if (← isProp e) then return e
-         throwEnvError f!"translate: {← ppExpr e} is not a proposition !!!"
+         throwEnvError "translate: {← ppExpr e} is not well-formed"
+      if (← isPropEnv e) then return e
+         throwEnvError "translate: {← ppExpr e} is not a proposition !!!"
 
 def command (sOpts: SolverOptions) (stx : Syntax) : TermElabM Unit := do
   elabTermAndSynthesize stx none >>= fun e => do
@@ -88,4 +88,4 @@ initialize
    registerTraceClass `Translate.forAll
    registerTraceClass `Translate.optExpr
 
-namespace Solver.Smt
+end Solver.Smt

@@ -1,11 +1,15 @@
 import Lean
+import Solver.Optimize.Rewriting.FunPropagation
+import Solver.Optimize.Rewriting.OptimizeBoolNot
+import Solver.Optimize.Rewriting.OptimizeBoolPropBinary
+import Solver.Optimize.Rewriting.OptimizeDecide
+import Solver.Optimize.Rewriting.OptimizeDecideBoolBinary
 import Solver.Optimize.Rewriting.OptimizeExists
 import Solver.Optimize.Rewriting.OptimizeInt
 import Solver.Optimize.Rewriting.OptimizeITE
-import Solver.Optimize.Rewriting.OptimizeMatch
 import Solver.Optimize.Rewriting.OptimizeNat
 import Solver.Optimize.Rewriting.OptimizeString
-import Solver.Optimize.Env
+import Solver.Optimize.OptimizeStack
 
 open Lean Meta
 
@@ -28,7 +32,7 @@ namespace Solver.Optimize
      - Otherwise:
          - return none
 -/
-def reduceApp? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
+def reduceApp? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := withLocalContext $ do
  if let some r ← isOpaqueRecReduction? f args then return r
  if (← isOpaqueFunExpr f args) then return none
  if let some r ← isFunRecReduction? f args then return r
@@ -40,7 +44,7 @@ def reduceApp? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
      if !(← allExplicitParamsAreCtor f args) then return none
      let some auxFun ← unfoldOpaqueFunDef f args | return none
      let some fbody ← getFunBody auxFun.getAppFn'
-       | throwEnvError f!"reduceApp?: recursive function body expected for {reprStr f}"
+       | throwEnvError "reduceApp?: recursive function body expected for {reprStr f}"
      return (Expr.beta fbody auxFun.getAppArgs)
 
    isFunRecReduction? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
@@ -48,7 +52,7 @@ def reduceApp? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
      if !(← isRecursiveFun n) then return none
      if !(← allExplicitParamsAreCtor f args) then return none
      let some fbody ← getFunBody f
-       | throwEnvError f!"reduceApp?: recursive function body expected for {reprStr f}"
+       | throwEnvError "reduceApp?: recursive function body expected for {reprStr f}"
      return (Expr.beta fbody args)
 
 /--  Given application `f x₀ ... xₙ`, perform the following:
@@ -69,89 +73,111 @@ def reduceApp? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
 
 -/
 def reduceITEChoice?
-  (f : Expr) (args : Array Expr)
-  (optimizer : Expr -> TranslateEnvT Expr) : TranslateEnvT (Option Expr) := do
-  let Expr.const n _ := f | return none
-  if let some r ← isITEReduction? n args then return r
-  if let some r ← isDITEReduction? n args then return r
-  return none
+  (s : OptimizeStack) (xs : List OptimizeStack) : TranslateEnvT (Option OptimizeContinuity) := withLocalContext $ do
+  match s with
+  | .InitIteChoiceExpr f args pInfo startArgIdx =>
+       if let some r ← isITEReduction? f args pInfo startArgIdx then return r
+       if let some r ← isDITEReduction? f args pInfo startArgIdx then return r
+       return none
+
+  | .IteChoiceReturn f args _pInfo _startArgIdx =>
+       if args.size < 5 then return none
+       else if isPropConstant args[1]! then
+           let e ← optimizeITE f args
+           -- trace[Optimize.reduceChoice] "choice ite reduction {reprStr f} {reprStr args} => {reprStr e}"
+           return some $ Sum.inl (.InitOptimizeExpr e :: xs)
+       else return none
+
+  | .DiteChoiceReturn f args _pInfo _startArgIdx =>
+      if args.size < 5 then return none
+      else if isPropConstant args[1]! then
+          let e ← optimizeDITE f args
+          -- trace[Optimize.reduceChoice] "choice dite reduction {reprStr f} {reprStr args} => {reprStr e}"
+          return some $ Sum.inl (.InitOptimizeExpr e :: xs)
+      else return none
+
+  | _ => throwEnvError "reduceITEChoice?: unexpected continuity {reprStr s} !!!"
 
   where
+   @[always_inline, inline]
    isPropConstant : Expr → Bool
     | Expr.const ``True _
     | Expr.const ``False _ => true
     | _ => false
 
-   isITEReduction? (n : Name) (args : Array Expr) : TranslateEnvT (Option Expr) := do
-     match n with
-     | ``ite =>
-         if args.size < 5 then return none
-         let args ← args.modifyM 1 optimizer
-         if isPropConstant args[1]! then return (← optimizeITE f args)
-         return none
+   @[always_inline, inline]
+   isITEReduction?
+     (f : Expr) (args : Array Expr)
+     (pInfo : FunEnvInfo) (startArgIdx : Nat) : TranslateEnvT (Option OptimizeContinuity) := do
+     match f with
+     | Expr.const ``ite _ =>
+         return some $ Sum.inl (.InitOptimizeExpr args[1]! :: .IteChoiceWaitForCond f args pInfo startArgIdx :: xs)
      | _ => return none
 
-   isDITEReduction? (n : Name) (args : Array Expr) : TranslateEnvT (Option Expr) := do
-     match n with
-     | ``dite =>
-         if args.size < 5 then return none
-         let args ← args.modifyM 1 optimizer
-         if isPropConstant args[1]! then return (← optimizeDITE f args)
-         return none
+   @[always_inline, inline]
+   isDITEReduction?
+     (f : Expr) (args : Array Expr)
+     (pInfo : FunEnvInfo) (startArgIdx : Nat) : TranslateEnvT (Option OptimizeContinuity) := do
+     match f with
+     | Expr.const ``dite _ =>
+         return some $ Sum.inl (.InitOptimizeExpr args[1]! :: .DiteChoiceWaitForCond f args pInfo startArgIdx :: xs)
      | _ => return none
 
 
 /-- Perform constant propagation and apply simplification and normalization rules
     on application expressions.
 -/
-def optimizeApp (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
-  if let some e ← optimizePropNot? f args then
-    trace[Optimize.propNot] "PropNot: {reprStr (mkAppN f args)} ==> {reprStr e}"
-    return e
-  if let some e ← optimizePropBinary? f args then
-    trace[Optimize.propBinary] "PropBinary: {reprStr (mkAppN f args)} ==> {reprStr e}"
-    return e
-  if let some e ← optimizeBoolNot? f args then
-    trace[Optimize.boolNot] "BoolNot: {reprStr (mkAppN f args)} ==> {reprStr e}"
-    return e
-  if let some e ← optimizeBoolBinary? f args then
-    trace[Optimize.boolBinary] "BoolBinary: {reprStr (mkAppN f args)} ==> {reprStr e}"
-    return e
-  if let some e ← optimizeEquality? f args then
-    trace[Optimize.equality] "Equality: {reprStr (mkAppN f args)} ==> {reprStr e}"
-    return e
-  if let some e ← optimizeIfThenElse? f args then
-    trace[Optimize.ite] "IfThenElse: {reprStr (mkAppN f args)} ==> {reprStr e}"
-    return e
-  if let some e ← optimizeNat? f args then
-    trace[Optimize.nat] "Nat: {reprStr (mkAppN f args)} ==> {reprStr e}"
-    return e
-  if let some e ← optimizeInt? f args then
-    trace[Optimize.int] "Int: {reprStr (mkAppN f args)} ==> {reprStr e}"
-    return e
-  if let some e ← elimMatch? f args then
-    trace[Optimize.elimMatch] "ElimMatch: {reprStr (mkAppN f args)} ==> {reprStr e}"
-    return e
-  if let some e ← structEqMatch? f args then
-    trace[Optimize.eqMatch] "EqMatch: {reprStr (mkAppN f args)} ==> {reprStr e}"
-    return e
-  if let some e ← optimizeExists? f args then
-    trace[Optimize.exists] "Exists: {reprStr (mkAppN f args)} ==> {reprStr e}"
-    return e
-  if let some e ← optimizeDecide? f args then
-    trace[Optimize.decide] "Decide: {reprStr (mkAppN f args)} ==> {reprStr e}"
-    return e
-  if let some e ← optimizeRelational? f args then
-    trace[Optimize.relational] "Relational: {reprStr (mkAppN f args)} ==> {reprStr e}"
-    return e
-  if let some e ← optimizeString? f args then
-    trace[Optimize.string] "String: {reprStr (mkAppN f args)} ==> {reprStr e}"
-    return e
-  trace[Optimize.app] "Unchanged: {reprStr (mkAppN f args)}"
+def optimizeAppAux (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
+  if let some e ← optimizePropNot? f args then return e
+  if let some e ← optimizePropBinary? f args then return e
+  if let some e ← optimizeBoolNot? f args then return e
+  if let some e ← optimizeBoolBinary? f args then return e
+  if let some e ← optimizeEquality? f args then return e
+  if let some e ← optimizeIfThenElse? f args then return e
+  if let some e ← optimizeNat? f args then return e
+  if let some e ← optimizeInt? f args then return e
+  if let some e ← optimizeExists? f args then return e
+  if let some e ← optimizeDecide? f args then return e
+  if let some e ← optimizeRelational? f args then return e
+  if let some e ← optimizeString? f args then return e
   let appExpr := mkAppN f args
-  if (← isResolvableType appExpr)
-  then mkExpr (← resolveTypeAbbrev appExpr)
-  else mkExpr appExpr
+  if (← isResolvableType appExpr) then return (← resolveTypeAbbrev appExpr)
+  return appExpr
+
+/-- Perform the following:
+     - apply normalization and simplification rrules on the given application expression
+     - When restart flag is set:
+        - add optimized application on continuation stack
+     - Otherwise:
+         - try tp apply function propagation over ite and match:
+            - When propagation rules are triggered:
+                - add result on continuation stack
+            - Otherwise:
+                - cache normalized application
+                - proceed with stack continuity
+
+    NOTE: skipPropCheck is set to `true` only when it is known beforehand that `f`
+    is a recursive function for which `allExplicitParamsAreCtor f args (funPropagation := true)`
+    returns `true`.
+-/
+def optimizeApp
+  (f : Expr) (args: Array Expr)
+  (stack : List OptimizeStack) (skipPropCheck := false) : TranslateEnvT OptimizeContinuity := do
+  let e ← optimizeAppAux f args
+  if ← isRestart then
+    resetRestart
+    return Sum.inl (.InitOptimizeExpr e :: stack)
+  else
+    match (← isFunPropagation? e) with
+    | some r => return Sum.inl (.InitOptimizeExpr r :: stack)
+    | none => stackContinuity stack (← mkExpr e) -- cache expression and proceed with continuity
+
+  where
+    isFunPropagation? (e : Expr) : TranslateEnvT (Option Expr) :=
+      if e.isApp then
+        let (f', args') := getAppFnWithArgs e
+        funPropagation? f' args' skipPropCheck
+      else return none
 
 /-- Given application `f x₁ ... xₙ`,
      - When `isFunITE f` (i.e., f is an ite or dite that return a function)
@@ -165,14 +191,14 @@ def optimizeApp (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
            - return `etaExpand (mkAppN f args)`
      - otherwise `none`
 -/
-def normPartialFun? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
+def normPartialFun? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := withLocalContext $ do
  if isFunITE f then return none
  if (← isNotFun f) then return none
- let fInfo ← getFunInfo f
- if fInfo.paramInfo.size <= args.size then return none
+ let pInfo ← getFunEnvInfo f
+ if pInfo.paramsInfo.size <= args.size then return none
  let mut nbImplicits := 0
- for i in [:fInfo.paramInfo.size] do
-   if !fInfo.paramInfo[i]!.isExplicit then
+ for h : i in [:pInfo.paramsInfo.size] do
+   if !pInfo.paramsInfo[i].isExplicit then
       nbImplicits := nbImplicits.add 1
  if nbImplicits == args.size then return none
  etaExpand (mkAppN f args)
@@ -200,43 +226,54 @@ def normPartialFun? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr)
     Assumes that an entry exists for each opaque recursive function in `recFunMap` before
     optimization is performed (see function `cacheOpaqueRecFun`).
 -/
-def normOpaqueAndRecFun
-  (uf : Expr) (uargs: Array Expr)
-  (optimizer : Expr -> TranslateEnvT Expr) : TranslateEnvT Expr := do
- let Expr.const n _ := uf | return (← mkAppExpr uf uargs)
- let isOpaqueRec ← isOpaqueRecFun uf uargs
- if (← isRecursiveFun n) || isOpaqueRec
- then
-   trace[Optimize.recFun] "normalizing rec function {n}"
-   let (f, args) ← resolveOpaque uf uargs isOpaqueRec
-   trace[Optimize.recFun] "resolved opaque instance {reprStr f} {reprStr args}"
-   -- retrieve implicit arguments
-   let params ← getImplicitParameters f args
-   trace[Optimize.recFun] "implicit arguments for {n} ==> {reprStr params}"
-   -- get instance application
-   let instApp ← getInstApp f params
-   if (← isVisitedRecFun instApp) then
-     trace[Optimize.recFun] "rec function instance {instApp} is in visiting cache"
-     optimizeRecApp f params -- already cached
-   else
-     if let some r ← hasRecFunInst? instApp then
-        trace[Optimize.recFun] "rec function instance {instApp} is already equivalent to {reprStr r}"
-        return (← optimizeRecApp r params)
-     cacheFunName instApp -- cache function name
-     let some fbody ← getFunBody f
-       | throwEnvError "normOpaqueAndRecFun: recursive function body expected for {reprStr f}"
-     -- instantiating polymorphic parameters in fun body
-     let fdef ← generalizeRecCall f params fbody
-     trace[Optimize.recFun] "generalizing rec body for {n} got {reprStr fdef}"
-     -- optimize recursive fun definition and store
-     let optDef ← optimizer fdef
-     -- remove from visiting cache
-     uncacheFunName instApp
-     let subsInst ← opaqueInstApp uf uargs isOpaqueRec instApp
-     let fn' ← storeRecFunDef subsInst params optDef
-     trace[Optimize.recFun] "rec function instance {subsInst} is equivalent to {reprStr fn'}"
-     optimizeRecApp fn' params
- else optimizeApp uf uargs -- optimizations on opaque functions
+def normOpaqueAndRecFun (s : OptimizeStack) (xs : List OptimizeStack) :
+  TranslateEnvT OptimizeContinuity := withLocalContext $ do
+  match s with
+  | .InitOpaqueRecExpr uf uargs =>
+      let Expr.const n _ := uf | return (← stackContinuity xs (← mkAppExpr uf uargs))
+      let isOpaqueRec ← isOpaqueRecFun uf uargs
+      if (← isRecursiveFun n) || isOpaqueRec
+      then
+        if (← allExplicitParamsAreCtor uf uargs (funPropagation := true)) then
+          -- call fun propagation to avoid optimizing rec body
+          -- if rec function is and opaqueRec call app optimization first
+          -- before calling fun propagation
+          optimizeApp uf uargs xs (skipPropCheck := true)
+        else
+          -- trace[Optimize.recFun] "normalizing rec function {n}"
+          let (f, args) ← resolveOpaque uf uargs isOpaqueRec
+          -- trace[Optimize.recFun] "resolved opaque instance {reprStr f} {reprStr args}"
+          -- retrieve implicit arguments
+          let params ← getImplicitParameters f args
+          -- trace[Optimize.recFun] "implicit arguments for {n} ==> {reprStr params}"
+          -- get instance application
+          let instApp ← getInstApp f params
+          if (← isVisitedRecFun instApp) then
+            -- trace[Optimize.recFun] "rec function instance {instApp} is in visiting cache"
+            optimizeRecApp uf f uargs params xs -- already cached
+          else if let some r ← hasRecFunInst? instApp then
+            -- trace[Optimize.recFun] "rec function instance {instApp} is already equivalent to {reprStr r}"
+            optimizeRecApp uf r uargs params xs
+          else
+            cacheFunName instApp -- cache function name
+            let some fbody ← getFunBody f
+              | throwEnvError "normOpaqueAndRecFun: recursive function body expected for {reprStr f}"
+            -- instantiating polymorphic parameters in fun body
+            let fdef ← generalizeRecCall f params fbody
+            -- trace[Optimize.recFun] "generalizing rec body for {n} got {reprStr fdef}"
+            let subsInst ← opaqueInstApp uf uargs isOpaqueRec instApp
+            -- optimize recursive fun definition and store
+            return Sum.inl (.InitOptimizeExpr fdef :: .RecFunDefWaitForStorage uargs instApp subsInst params :: xs)
+      else optimizeApp uf uargs xs -- optimizations on opaque functions
+
+  | .RecFunDefStorage uargs instApp subsInst params optDef =>
+        uncacheFunName instApp
+        -- trace[Optimize.recFun] "optimized rec body for {reprStr subsInst} got {reprStr optDef}"
+        let fn' ← storeRecFunDef subsInst params optDef
+        -- trace[Optimize.recFun] "rec function instance {reprStr subsInst} is equivalent to {reprStr fn'}"
+        optimizeRecApp subsInst fn' uargs params xs
+
+  | _ => throwEnvError "normOpaqueAndRecFun: unexpected continuity {reprStr s} !!!"
 
  where
 
@@ -291,47 +328,40 @@ def normOpaqueAndRecFun
              - When `auxApp := fₑ x₀ ... xₙ` (default case)
                  - return `optimizeApp fₑ x₀ ...xₙ`
    -/
-   optimizeRecApp (rf : Expr) (params : ImplicitParameters) : TranslateEnvT Expr := do
-     if params.isEmpty then return rf
+   optimizeRecApp
+     (uf rf : Expr) (uargs : Array Expr)
+     (params : ImplicitParameters) (xs : List OptimizeStack) : TranslateEnvT OptimizeContinuity := do
+     if params.isEmpty then return ← stackContinuity xs (← mkExpr rf) -- catch fun expression
      if (← exprEq uf rf) then
-       -- case for when same recurisve call
-       trace[Optimize.recFun.app] "same recursive call case {reprStr rf} {reprStr uargs}"
-       optimizeApp rf uargs
+       -- case for when same recursive call
+       -- trace[Optimize.recFun.app] "same recursive call case {reprStr rf} {reprStr uargs}"
+       if rf.isConst then
+         optimizeApp rf uargs xs
+       else -- polyomrphic case: we need to remove the generic parameters
+         let auxApp := rf.beta (← getEffectiveParams params)
+         let (f, args) := getAppFnWithArgs auxApp
+         optimizeApp f args xs
      else if rf.isConst then
          -- case when a polymorphic/non-polymorphic function is equivalent to another non-polymorphic one
          let eargs := Array.filterMap (λ p => if !p.isInstance then some p.effectiveArg else none) params
-         trace[Optimize.recFun.app] "non-polymorphic equivalent case {reprStr rf} {reprStr eargs}"
-         optimizeApp rf eargs
+         -- trace[Optimize.recFun.app] "non-polymorphic equivalent case {reprStr rf} {reprStr eargs}"
+         optimizeApp rf eargs xs
      else
-       let eargs := getEffectiveParams params
-       let auxApp := rf.beta eargs
+       let auxApp := rf.beta (← getEffectiveParams params)
        if auxApp.isLambda then
          -- case for partially applied functions, i.e., some explicit arguments not provided
          let appCall := getLambdaBody auxApp
-         let largs := appCall.getAppArgs
-         trace[Optimize.recFun.app] "partially applied case {reprStr appCall.getAppFn'} {reprStr largs[0:largs.size-auxApp.getNumHeadLambdas]}"
-         optimizeApp appCall.getAppFn' (largs.take (largs.size-auxApp.getNumHeadLambdas))
+         let (f, largs) := getAppFnWithArgs appCall
+         -- trace[Optimize.recFun.app] "partially applied case {reprStr appCall.getAppFn'} {reprStr largs[0:largs.size-auxApp.getNumHeadLambdas]}"
+         optimizeApp f (largs.take (largs.size-auxApp.getNumHeadLambdas)) xs
        else
-         trace[Optimize.recFun.app] "polymorphic equivalent case {reprStr auxApp.getAppFn'} {reprStr auxApp.getAppArgs}"
-         optimizeApp auxApp.getAppFn' auxApp.getAppArgs
+         -- trace[Optimize.recFun.app] "polymorphic equivalent case {reprStr auxApp.getAppFn'} {reprStr auxApp.getAppArgs}"
+         let (f, args) := getAppFnWithArgs auxApp
+         optimizeApp f args xs
 
 initialize
   registerTraceClass `Optimize.recFun
   registerTraceClass `Optimize.recFun.app
-  registerTraceClass `Optimize.app
-  registerTraceClass `Optimize.propNot
-  registerTraceClass `Optimize.propBinary
-  registerTraceClass `Optimize.boolNot
-  registerTraceClass `Optimize.boolBinary
-  registerTraceClass `Optimize.equality
-  registerTraceClass `Optimize.ite
-  registerTraceClass `Optimize.nat
-  registerTraceClass `Optimize.int
-  registerTraceClass `Optimize.eqMatch
-  registerTraceClass `Optimize.elimMatch
-  registerTraceClass `Optimize.exists
-  registerTraceClass `Optimize.decide
-  registerTraceClass `Optimize.relational
-  registerTraceClass `Optimize.string
+
 
 end Solver.Optimize

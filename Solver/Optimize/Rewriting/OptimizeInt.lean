@@ -20,7 +20,7 @@ def optimizeIntNeg (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let op := args[0]!
  if let some n1 := isIntValue? op then return (← mkIntLitExpr (Int.neg n1))
  if let some e := intNeg? op then return e
- mkAppExpr f args
+ return (mkApp f op)
 
 
 /-- Apply the following simplification/normalization rules on `Int.add` :
@@ -34,7 +34,7 @@ def optimizeIntNeg (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Int.add` expected at this stage)
 
 -/
-partial def optimizeIntAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
+def optimizeIntAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeIntAdd: exactly two arguments expected"
  let opArgs ← reorderIntOp args -- error triggered when args.size ≠ 2
  let op1 := opArgs[0]!
@@ -43,10 +43,9 @@ partial def optimizeIntAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr :
  | some (Int.ofNat 0), _ => return op2
  | some n1, some n2 => evalBinIntOp Int.add n1 n2
  | nv1, _ =>
-   if let some (Int.ofNat 0) := nv1 then return op2
    if let some r ← cstAddProp? nv1 op2 then return r
    if (← isIntNegExprOf op2 op1) then return (← mkIntLitExpr (Int.ofNat 0))
-   mkExpr (mkApp2 f op1 op2)
+   return (mkApp2 f op1 op2)
 
  where
   /- Given `mv1` and `op2`,
@@ -59,9 +58,11 @@ partial def optimizeIntAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr :
   | some n1 =>
      match (toIntCstOpExpr? op2) with
      | some (IntCstOpInfo.IntAddExpr n2 e2) =>
-         some <$> optimizeIntAdd f #[(← evalBinIntOp Int.add n1 n2), e2]
+         setRestart
+         return mkApp2 f (← evalBinIntOp Int.add n1 n2) e2
      | some (IntCstOpInfo.IntNegAddExpr n2 e2) =>
-         some <$> optimizeIntAdd f #[(← evalBinIntOp Int.sub n1 n2), (← optimizeIntNeg (← mkIntNegOp) #[e2])]
+         setRestart
+         return mkApp2 f (← evalBinIntOp Int.sub n1 n2) (mkApp (← mkIntNegOp) e2)
      | _ => return none
   | none => return none
 
@@ -83,14 +84,13 @@ def optimizeIntMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  match isIntValue? op1, isIntValue? op2 with
  | some (Int.ofNat 0), _ => return op1
  | some (Int.ofNat 1), _ => return op2
- | some (Int.negSucc 0), _ => return (← optimizeIntNeg (← mkIntNegOp) #[op2])
+ | some (Int.negSucc 0), _ =>
+      setRestart
+      return mkApp (← mkIntNegOp) op2
  | some n1, some n2 => evalBinIntOp Int.mul n1 n2
  | nv1, _ =>
-   if let some (Int.ofNat 0) := nv1 then return op1
-   if let some (Int.ofNat 1) := nv1 then return op2
-   if let some (Int.negSucc 0) := nv1 then return (← optimizeIntNeg (← mkIntNegOp) #[op2])
    if let some r ← cstMulProp? nv1 op2 then return r
-   mkExpr (mkApp2 f op1 op2)
+   return (mkApp2 f op1 op2)
 
  where
    /- Given `mv1` and `op2` return `some ((N1 "*" N2) * n)` when
@@ -99,13 +99,15 @@ def optimizeIntMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
    cstMulProp? (mv1 : Option Int) (op2 : Expr) : TranslateEnvT (Option Expr) := do
     match mv1, toIntCstOpExpr? op2 with
     | some n1, some (IntCstOpInfo.IntMulExpr n2 e2) =>
-       some <$> mkExpr (mkApp2 f (← evalBinIntOp Int.mul n1 n2) e2)
+       return (mkApp2 f (← evalBinIntOp Int.mul n1 n2) e2)
     | _, _ => return none
 
 /-- Given `e1` and `e2` corresponding to the operands for `Int.ediv`, `Int.tdiv` and `Int.fdiv`,
     return `some 1` only when the following conditions are satisfied:
       - e1 =ₚₜᵣ e2 ∧
-      - 0 < e1 := _ ∈ hypsInContext ∨ e1 < 0 := _ ∈ hypsInContext ∨ ¬ (0 = e1) := _ ∈ hypsInContext
+      - 0 < e1 := _ ∈ hypothesisContext.hypothesisMap ∨
+        e1 < 0 := _ ∈ hypothesisContext.hypothesisMap ∨
+        ¬ (0 = e1) := _ ∈ hypothesisContext.hypothesisMap
     Otherwise, return none.
 -/
 def intDivSelfReduce? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := do
@@ -116,8 +118,14 @@ def intDivSelfReduce? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := d
 
 /-- Given `e1` and `e2` corresponding to the operands for `Int.ediv`, `Int.tdiv` and `Int.fdiv`,
     return `some n` only when one of the following conditions is satisfied:
-     - `e1 := m * n` ∧ e2 = m ∧ (0 < m := _ ∈ hypsInContext ∨ m < 0 := _ ∈ hypsInContext ∨ ¬ (0 = m) := _ ∈ hypsInContext); or
-     - `e1 := n * m` ∧ e2 = m ∧ (0 < m := _ ∈ hypsInContext ∨ m < 0 := _ ∈ hypsInContext ∨ ¬ (0 = m) := _ ∈ hypsInContext);
+     - `e1 := m * n` ∧ e2 = m ∧
+       ( 0 < m := _ ∈ hypothesisContext.hypothesisMap ∨
+         m < 0 := _ ∈ hypothesisContext.hypothesisMap ∨
+         ¬ (0 = m) := _ ∈ hypothesisContext.hypothesisMap ); or
+     - `e1 := n * m` ∧ e2 = m ∧
+        ( 0 < m := _ ∈ hypothesisContext.hypothesisMap ∨
+          m < 0 := _ ∈ hypothesisContext.hypothesisMap ∨
+          ¬ (0 = m) := _ ∈ hypothesisContext.hypothesisMap );
     Otherwise, return none.
 -/
 def mulIntDivReduceExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := do
@@ -138,9 +146,13 @@ def mulIntDivReduceExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) :
      - 0 / n ==> 0
      - N1 / N2 ==> N1 "/" N2
      - n / n ==> 1
-         (if 0 < n := _ ∈ hypsInContext ∨ ¬ (0 = n) := _ ∈ hypsInContext ∨ n < 0 := _ ∈ hypsInContext )
+         (if 0 < n := _ ∈ hypothesisContext.hypothesisMap ∨
+             ¬ (0 = n) := _ ∈ hypothesisContext.hypothesisMap ∨
+             n < 0 := _ ∈ hypothesisContext.hypothesisMap )
      - (m * n) / m | (n * m) / m ==> n
-          (if  0 < m := _ ∈ hypsInContext ∨ ¬ (0 = m) := _ ∈ hypsInContext ∨ m < 0 := _ ∈ hypsInContext)
+          (if  0 < m := _ ∈ hypothesisContext.hypothesisMap ∨
+               ¬ (0 = m) := _ ∈ hypothesisContext.hypothesisMap ∨
+               m < 0 := _ ∈ hypothesisContext.hypothesisMap)
 -/
 def optimizeIntDivCommon (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
  match isIntValue? op1, isIntValue? op2 with
@@ -167,7 +179,8 @@ def cstCommonDivProp?
  | some n1, some n2 =>
     let gcd := Int.gcd n1 n2
     if gcd == 1 then return none
-    let mulExpr ← optimizeIntMul (← mkIntMulOp) #[(← evalBinIntOp f_div n1 gcd), e1]
+    setRestart
+    let mulExpr := mkApp2 (← mkIntMulOp) (← evalBinIntOp f_div n1 gcd) e1
     return (mulExpr, (← evalBinIntOp f_div n2 gcd))
  | _, _ => return none
 
@@ -178,21 +191,24 @@ def cstCommonDivProp?
      - 0 / n ==> 0
      - N1 / N2 ==> N1 "/ₑ" N2
      - n / n ==> 1
-         (if 0 < n := _ ∈ hypsInContext ∨ ¬ (0 = n) := _ ∈ hypsInContext ∨ n < 0 := _ ∈ hypsInContext )
+         (if 0 < n := _ ∈ hypothesisContext.hypothesisMap ∨
+             ¬ (0 = n) := _ ∈ hypothesisContext.hypothesisMap ∨
+             n < 0 := _ ∈ hypothesisContext.hypothesisMap )
      - (m * n) / m | (n * m) / m ==> n
-         (if  0 < m := _ ∈ hypsInContext ∨ ¬ (0 = m) := _ ∈ hypsInContext ∨ m < 0 := _ ∈ hypsInContext)
+         (if  0 < m := _ ∈ hypothesisContext.hypothesisMap ∨
+              ¬ (0 = m) := _ ∈ hypothesisContext.hypothesisMap ∨
+              m < 0 := _ ∈ hypothesisContext.hypothesisMap)
      - (N1 * n) / N2 ===> ((N1 "/" Int.gcd N1 N2) * n) / (N2 "/ₑ" Int.gcd N1 N2) (if N2 ≠ 0 ∧ Int.gcd N1 N2 ≠ 1)
    Assume that f = Expr.const ``Int.ediv.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Int.ediv` expected at this stage)
 -/
-partial def optimizeIntEDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
+def optimizeIntEDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeIntEDiv: exactly two arguments expected"
  let op1 := args[0]!
  let op2 := args[1]!
  if let some r ← optimizeIntDivCommon op1 op2 then return r
- else if let some (op1', op2') ← cstCommonDivProp? op1 op2 Int.ediv
-      then optimizeIntEDiv f #[op1', op2']
- else mkExpr (mkApp2 f op1 op2)
+ if let some (op1', op2') ← cstCommonDivProp? op1 op2 Int.ediv then return mkApp2 f op1' op2'
+ return (mkApp2 f op1 op2)
 
 /-- Given `e1` and `e2` corresponding to the operands for `Int.emod`, `Int.fmod` and `Int.tmod`,
     return `some 0` only when one of the following conditions is satisfied:
@@ -263,7 +279,7 @@ def optimizeIntEMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let op1 := args[0]!
  let op2 := args[1]!
  if let some r ← optimizeIntModCommon op1 op2 then return r
- mkExpr (mkApp2 f op1 op2)
+ return (mkApp2 f op1 op2)
 
 /-- Apply the following simplification/normalization rules on `Int.tdiv`:
      - n / 0 ==> 0
@@ -271,23 +287,26 @@ def optimizeIntEMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      - 0 / n ==> 0
      - N1 / N2 ==> N1 "/" N2
      - n / n ==> 1
-         (if 0 < n := _ ∈ hypsInContext ∨ ¬ (0 = n) := _ ∈ hypsInContext ∨ n < 0 := _ ∈ hypsInContext )
+         (if 0 < n := _ ∈ hypothesisContext.hypothesisMap ∨
+             ¬ (0 = n) := _ ∈ hypothesisContext.hypothesisMap ∨
+             n < 0 := _ ∈ hypothesisContext.hypothesisMap )
      - (m * n) / m | (n * m) / m ==> n
-         (if  0 < m := _ ∈ hypsInContext ∨ ¬ (0 = m) := _ ∈ hypsInContext ∨ m < 0 := _ ∈ hypsInContext)
+         (if  0 < m := _ ∈ hypothesisContext.hypothesisMap ∨
+              ¬ (0 = m) := _ ∈ hypothesisContext.hypothesisMap ∨
+              m < 0 := _ ∈ hypothesisContext.hypothesisMap)
      - (n / N1) / N2 ==> n / (N1 "*" N2) (only valid for Int.tdiv)
      - (N1 * n) / N2 ===> ((N1 "/" Int.gcd N1 N2) * n) / (N2 "/" Int.gcd N1 N2) (if N2 ≠ 0 ∧ Int.gcd N1 N2 ≠ 1)
    Assume that f = Expr.const ``Int.tdiv.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Int.tdiv` expected at this stage)
 -/
-partial def optimizeIntTDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
+def optimizeIntTDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeIntTDiv: exactly two arguments expected"
  let op1 := args[0]!
  let op2 := args[1]!
  if let some r ← optimizeIntDivCommon op1 op2 then return r
- else if let some r ← cstTDivProp? op1 op2 then return r
- else if let some (op1', op2') ← cstCommonDivProp? op1 op2 Int.tdiv
-      then optimizeIntTDiv f #[op1', op2']
- else mkExpr (mkApp2 f op1 op2)
+ if let some r ← cstTDivProp? op1 op2 then return r
+ if let some (op1', op2') ← cstCommonDivProp? op1 op2 Int.tdiv then return mkApp2 f op1' op2'
+ else return (mkApp2 f op1 op2)
 
  where
    /- Given `op1` and `op2` corresponding to the operands for Int.tdiv,
@@ -298,7 +317,7 @@ partial def optimizeIntTDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr 
    cstTDivProp? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
      let some (e1, n) := intTDiv? op1 | return none
      match isIntValue? n, isIntValue? op2 with
-     | some n1, some n2 => mkExpr (mkApp2 f e1 (← evalBinIntOp Int.mul n1 n2))
+     | some n1, some n2 => return (mkApp2 f e1 (← evalBinIntOp Int.mul n1 n2))
      | _, _ => return none
 
 /-- Apply the following simplification/normalization rules on `Int.tmod` :
@@ -318,7 +337,7 @@ def optimizeIntTMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let op1 := args[0]!
  let op2 := args[1]!
  if let some r ← optimizeIntModCommon op1 op2 then return r
- mkExpr (mkApp2 f op1 op2)
+ return (mkApp2 f op1 op2)
 
 /-- Apply the following simplification/normalization rules on `Int.fdiv`:
      - n / 0 ==> 0
@@ -326,21 +345,24 @@ def optimizeIntTMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      - 0 / n ==> 0
      - N1 / N2 ==> N1 "/" N2
      - n / n ==> 1
-         (if 0 < n := _ ∈ hypsInContext ∨ ¬ (0 = n) := _ ∈ hypsInContext ∨ n < 0 := _ ∈ hypsInContext )
+         (if 0 < n := _ ∈ hypothesisContext.hypothesisMap ∨
+             ¬ (0 = n) := _ ∈ hypothesisContext.hypothesisMap ∨
+             n < 0 := _ ∈ hypothesisContext.hypothesisMap )
      - (m * n) / m | (n * m) / m ==> n
-         (if  0 < m := _ ∈ hypsInContext ∨ ¬ (0 = m) := _ ∈ hypsInContext ∨ m < 0 := _ ∈ hypsInContext)
+         (if  0 < m := _ ∈ hypothesisContext.hypothesisMap ∨
+              ¬ (0 = m) := _ ∈ hypothesisContext.hypothesisMap ∨
+              m < 0 := _ ∈ hypothesisContext.hypothesisMap)
      - (N1 * n) / N2 ===> ((N1 "/" Int.gcd N1 N2) * n) / (N2 "/" Int.gcd N1 N2) (if N2 ≠ 0 ∧ Int.gcd N1 N2 ≠ 1)
    Assume that f = Expr.const ``Int.fdiv.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Int.fdiv` expected at this stage)
 -/
-partial def optimizeIntFDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
+def optimizeIntFDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeIntFDiv: exactly two arguments expected"
  let op1 := args[0]!
  let op2 := args[1]!
  if let some r ← optimizeIntDivCommon op1 op2 then return r
- else if let some (op1', op2') ← cstCommonDivProp? op1 op2 Int.fdiv
-      then optimizeIntFDiv f #[op1', op2']
- else mkExpr (mkApp2 f op1 op2)
+ if let some (op1', op2') ← cstCommonDivProp? op1 op2 Int.fdiv then return mkApp2 f op1' op2'
+ return (mkApp2 f op1 op2)
 
 /-- Apply the following simplification/normalization rules on `Int.fmod` :
      - n % 0 ==> n
@@ -359,7 +381,7 @@ def optimizeIntFMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let op1 := args[0]!
  let op2 := args[1]!
  if let some r ← optimizeIntModCommon op1 op2 then return r
- mkExpr (mkApp2 f op1 op2)
+ return (mkApp2 f op1 op2)
 
 
 /-- Return `some e` if `n := Int.neg (Int.ofNat e)`. Otherwise return `none`. -/
@@ -381,7 +403,7 @@ def optimizeIntToNat (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if let some n := isIntValue? op then return (← mkNatLitExpr (Int.toNat n))
  if let some e := op.app1? ``Int.ofNat then return e
  if let some .. := intNegOfNat? op then return (← mkNatLitExpr 0)
- mkAppExpr f args
+ return (mkApp f op)
 
 /-- Normalize `Int.negSucc n` to `Int.neg (Int.ofNat (Nat.add 1 n))` only when `n` is not a constant value.
     An error is triggered if args.size ≠ 1.
@@ -390,15 +412,16 @@ def optimizeIntToNat (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 def optimizeIntNegSucc (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 1 then throwEnvError "optimizeIntNegSucc: only one argument expected"
  let op := args[0]!
- if (isNatValue? op).isSome then return (← mkAppExpr f args)
- let addExpr ← optimizeNatAdd (← mkNatAddOp) #[← mkNatLitExpr 1, args[0]!]
- let intExpr ← mkExpr (mkApp (← mkIntOfNat) addExpr)
- optimizeIntNeg (← mkIntNegOp) #[intExpr]
+ if isNatValue op then return (mkApp f op)
+ setRestart
+ let addExpr := mkApp2 (← mkNatAddOp) (← mkNatLitExpr 1) args[0]!
+ let intExpr := mkApp (← mkIntOfNat) addExpr
+ return mkApp (← mkIntNegOp) intExpr
 
 /-- Normalize `Int.le x y` to `LE.le Int instLEInt x y`. -/
 def optimizeIntLe (b_args : Array Expr) : TranslateEnvT Expr := do
-  Expr.withApp (← mkIntLeOp) fun f i_args =>
-    optimizeLE f (i_args ++ b_args)
+  setRestart
+  return mkAppN (← mkIntLeOp) b_args
 
 /-- Apply simplification/normalization rules on `Int` operators.
 -/

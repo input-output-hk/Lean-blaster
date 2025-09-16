@@ -8,7 +8,7 @@ open Lean Meta Solver.Optimize Solver.Options
 namespace Solver.Smt
 
 /-- Minimal version of z3 we support -/
-private def minZ3Version : String := "4.13.4"
+private def minZ3Version : String := "4.15.2"
 
 /-- Result of an Smt query. -/
 inductive Result where
@@ -276,65 +276,76 @@ def fvarIdToSmtSymbol (v : FVarId) : TranslateEnvT SmtSymbol := do
 def fvarIdToSmtTerm (v : FVarId) : TranslateEnvT SmtTerm :=
   return smtSimpleVarId (← fvarIdToSmtSymbol v)
 
-/-- Perform the following actions:
-      - Declare predicate `@is{s}` with input type `t` and return type `bool` when `pbody := none`
-      - Define predicate `@is{s}` with input type `t` and return type `bool` and body `fdef` when `pbody := some fdef`
+/-- Given `s` and smt symbol `t` and smt sort and optional `assertFlag` boolean value, perform the following:
+     - declare smt predicate `(declare-fun s ((t)) Bool)`
+     - When `assertFlag = some b`:
+        - assert smt formula `(assert (forall ((@x t)) (= b (s @x))))`
+   Assume that `s` is defined as `@is{xxx}`
 -/
-def definePredQualifier (s : SmtSymbol) (t : SortExpr) (pbody : Option SmtTerm) : TranslateEnvT Unit :=
- let fsym := createPredSym s
- match pbody with
- | none => declareFun fsym #[t] boolSort
- | some fdef => defineFun fsym #[(mkReservedSymbol "@x", t)] boolSort fdef
+def definePredQualifier (s : SmtSymbol) (t : SortExpr) (assertFlag : Option Bool) : TranslateEnvT Unit := do
+ declareFun s #[t] boolSort
+ match assertFlag with
+ | some b =>
+   let xsym := mkReservedSymbol "@x"
+   let xId := smtSimpleVarId xsym
+   let boolSmt := if b then trueSmt else falseSmt
+   let appSmt := mkSimpleSmtAppN s #[xId]
+   let forallBody := eqSmt boolSmt appSmt
+   let patterns := some #[mkPattern #[appSmt]]
+   assertTerm (mkForallTerm none #[(xsym, t)] forallBody patterns)
+ | none => return ()
 
- where
-   createPredSym (s : SmtSymbol) : SmtSymbol :=
-    match s with
-    | .ReservedSymbol str => .ReservedSymbol s!"@is{str}"
-    | .NormalSymbol str => .NormalSymbol s!"@is{str}"
 
 /-- Perform the following actions:
      - Declare smt universal sort `(declare-sort @@Type 0)`
-     - Declare smt function `(declare-fun @isType ((@@Type)) Bool)`
+     - Declare smt predicate `(declare-fun @isType ((@@Type)) Bool)` with `true` assertion
+    Assume `isTypeSym := @isType`
 -/
-def defineTypeSort : TranslateEnvT Unit := do
+def defineTypeSort (isTypeSym : SmtSymbol) : TranslateEnvT Unit := do
   declareSort typeSymbol 0
-  declareFun (mkReservedSymbol "@isType") #[typeSort] boolSort
+  definePredQualifier isTypeSym typeSort (some true)
 
 
 /-- Perform the following actions:
      - Declare Empty sort in Smt Lib
-     - Define function `@isEmpty (@x : Empty) := false` to qualify quantifiers on Empty
+     - Declare smt predicate `(declare-fun @isEmpty ((Empty)) Bool)` with `false` assertion
+    Assume `isEmptySym := @isEmpty`
 -/
-def defineEmptySort : TranslateEnvT Unit := do
+def defineEmptySort (isEmptySym : SmtSymbol) : TranslateEnvT Unit := do
   declareSort emptySymbol 0
-  defineFun (mkReservedSymbol "@isEmpty") #[(mkReservedSymbol "@x", emptySort)] boolSort falseSmt
+  definePredQualifier isEmptySym emptySort (some false)
 
 /-- Perform the following actions:
      - Declare PEmpty sort in Smt Lib
-     - Define function `@isPEmpty (@x : PEmpty) := false` to qualify quantifiers on PEmpty
+     - Declare smt predicate `(declare-fun @isPEmpty ((PEmpty)) Bool)` with `false` assertion
+    Assume `isPEmptySym := @isPEmpty`
 -/
-def definePEmptySort : TranslateEnvT Unit := do
+def definePEmptySort (isPEmptySym : SmtSymbol) : TranslateEnvT Unit := do
   declareSort pemptySymbol 0
-  defineFun (mkReservedSymbol "@isPEmpty") #[(mkReservedSymbol "@x", pemptySort)] boolSort falseSmt
+  definePredQualifier isPEmptySym pemptySort (some false)
 
 
 /-- Perform the following actions:
      - Define Prop sort in Smt Lib, which is an alias to Bool Smt Sort
-     - Declare smt function `(declare-fun @isProp ((Prop)) Bool)`
+     - Declare smt predicate `(declare-fun @isProp ((Prop)) Bool)` with `true` assertion
+    Assume `isPropSym := @isProp`
 -/
-def definePropSort : TranslateEnvT Unit := do
+def definePropSort (isPropSym : SmtSymbol) : TranslateEnvT Unit := do
   defineSort propSymbol none boolSort
-  declareFun (mkReservedSymbol "@isProp") #[propSort] boolSort
+  definePredQualifier isPropSym propSort (some true)
 
 /-- Perform the following actions:
      - Define Nat sort in Smt Lib, which is an alias to Int Smt Sort
-     - Define function `@isNat (@x : Nat) := (<= 0 @x)` to qualify quantifiers on Nat
+     - Define smt predicate `(define-fun @isNat ((@x Nat)) Bool (<= 0 @x))`
+       to qualify quantifiers on Nat
+    Assume `isNatSym := @isNat`
 -/
-def defineNatSort : TranslateEnvT Unit := do
+def defineNatSort (isNatSym : SmtSymbol) : TranslateEnvT Unit := do
   defineSort natSymbol none intSort
   let psym := mkReservedSymbol "@x"
   let xId := smtSimpleVarId psym
-  defineFun (mkReservedSymbol "@isNat") #[(psym, natSort)] boolSort (leqSmt (natLitSmt 0) xId)
+  let zeroSym := natLitSmt 0
+  defineFun isNatSym #[(psym, natSort)] boolSort (leqSmt zeroSym xId)
 
 
 private def defineBinFun
@@ -371,37 +382,38 @@ def defineIntEMod : TranslateEnvT Unit := do
 
 /-- Define Int.tdiv Smt function, i.e.,
       @Int.tdiv x y :=
-         (ite (= 0 y) 0 (ite (< x 0) (- (div (- x) y)) (div x y)))
+         (ite (= 0 y) 0 (ite (<= 0 x) (div x y) (- (div (- x) y))))
 -/
 def defineIntTDiv : TranslateEnvT Unit := do
   let natZero := natLitSmt 0
   let fdef := λ xId yId =>
       iteSmt
         (eqSmt natZero yId) natZero
-        (iteSmt (ltSmt xId natZero)
-          (negSmt (divSmt (negSmt xId) yId)) (divSmt xId yId))
+        (iteSmt (leqSmt natZero xId)
+          (divSmt xId yId) (negSmt (divSmt (negSmt xId) yId)))
   defineBinFun tdivSymbol intSort intSort intSort fdef
 
 /-- Define Int.tmod Smt function, i.e.,
      @Int.tmod x y :=
-       (ite (= 0 y) x (ite (< x 0) (- (mod (- x) y)) (mod x y)))
+       (ite (= 0 y) x (ite (<= 0 x) (mod x y) (- (mod (- x) y))))
 -/
 def defineIntTMod : TranslateEnvT Unit := do
   let natZero := natLitSmt 0
   let fdef := λ xId yId =>
       iteSmt (eqSmt natZero yId) xId
-        (iteSmt (ltSmt xId natZero)
-          (negSmt (modSmt (negSmt xId) yId)) (modSmt xId yId))
+        (iteSmt (leqSmt natZero xId)
+          (modSmt xId yId) (negSmt (modSmt (negSmt xId) yId)))
   defineBinFun tmodSymbol intSort intSort intSort fdef
 
 /-- Define Int.fdiv Smt function, i.e.,
       @Int.fdiv x y :=
-        (ite (= 0 y) 0 (ite (< y 0) (div (-x) (- y)) (div x y)))
+        (ite (= 0 y) 0 (ite (<= 0 y) (div x y) (div (-x) (- y))))
  -/
 def defineIntFDiv : TranslateEnvT Unit := do
   let natZero := natLitSmt 0
   let innerIte := λ xId yId =>
-      iteSmt (ltSmt yId natZero) (divSmt (negSmt xId) (negSmt yId)) (divSmt xId yId)
+      iteSmt (leqSmt natZero yId)
+        (divSmt xId yId) (divSmt (negSmt xId) (negSmt yId))
   let fdef := λ xId yId => iteSmt (eqSmt natZero yId) natZero (innerIte xId yId)
   defineBinFun fdivSymbol intSort intSort intSort fdef
 
@@ -484,9 +496,16 @@ def getModel : TranslateEnvT (List String) := do
     let s ← getOutputModel p.stdout
     return [s]
   else
-    List.mapM getVarValue topVars.toList
+    -- Note: List is append when adding top level variables
+    -- We therefore need to traverse the list in reverse order to
+    -- properly display cex in the right order
+    let cexArray ← Array.foldlM (λ acc vars => genCexAtStep acc vars) #[] topVars
+    return cexArray.toList
 
   where
+    genCexAtStep (cex : Array String) (vars : List (SmtSymbol × Name)) : TranslateEnvT (Array String) := do
+      List.foldrM (λ v acc => return acc.push (← getVarValue v)) cex vars
+
     getVarValue (v : SmtSymbol × Name) : TranslateEnvT String := do
       return s!"{v.2}: {← evalTerm (smtSimpleVarId v.1)}"
 
@@ -562,11 +581,11 @@ def setProduceProofs (b : Bool) : TranslateEnvT Unit :=
 def setProduceModels (b : Bool) : TranslateEnvT Unit :=
   trySubmitCommand! (.setOption ":produce-models" (toString b))
 
-/-- Set Smt `smt-mbqi` option to `b`. -/
+/-- Set Smt `smt.mbqi` option to `b`. -/
 def setMbqi (b : Bool) : TranslateEnvT Unit :=
   trySubmitCommand! (.setOption ":smt.mbqi" (toString b))
 
-/-- Set Smt `smt-pull-nested-quantifiers` option to `b`. -/
+/-- Set Smt `smt.pull-nested-quantifiers` option to `b`. -/
 def setPullNestedQuantifiers (b : Bool) : TranslateEnvT Unit :=
   trySubmitCommand! (.setOption ":smt.pull-nested-quantifiers" (toString b))
 
@@ -574,11 +593,32 @@ def setPullNestedQuantifiers (b : Bool) : TranslateEnvT Unit :=
 def setPrintSuccess (b : Bool) : TranslateEnvT Unit :=
   trySubmitCommand! (.setOption ":print-success" (toString b))
 
-/-- Set Smt `random-seed` option to `n` or none. -/
+/-- Set Smt `smt.random-seed` option to `n` or none. -/
 def setRandomSeed (n : Option Nat) : TranslateEnvT Unit := do
   match n with
   | some n => trySubmitCommand! (.setOption ":smt.random-seed" (toString n))
   | none => pure ()
+
+/-- Set Smt `auto_config` option to `b`. -/
+def setAutoConfig (b : Bool) : TranslateEnvT Unit :=
+  trySubmitCommand! (.setOption ":auto_config" (toString b))
+
+/-- Set Smt `smt.case_split` to `n`, with n ∈ [0..6]. -/
+def setCaseSplit (n : Nat) : TranslateEnvT Unit :=
+  trySubmitCommand! (.setOption ":smt.case_split" (toString n))
+
+/-- Set Smt `smt.qi.eager_threshold` to `n`. -/
+def setQiEagerThreshold (n : Nat) : TranslateEnvT Unit :=
+  trySubmitCommand! (.setOption ":smt.qi.eager_threshold" (toString n))
+
+
+/-- Set Smt `smt.delay_units` to `b`. -/
+def setDelayUnits (b : Bool) : TranslateEnvT Unit :=
+  trySubmitCommand! (.setOption ":smt.delay_units" (toString b))
+
+/-- Set Smt `smt.macro_finder` option to `b`. -/
+def setMacroFinder (b : Bool) : TranslateEnvT Unit :=
+  trySubmitCommand! (.setOption ":smt.macro_finder" (toString b))
 
 /-- Set the default Smt options, i.e.:
      - (set-option :print-success true)
@@ -586,7 +626,9 @@ def setRandomSeed (n : Option Nat) : TranslateEnvT Unit := do
      - (set-option :produce-proofs true)
      - (set-option :smt-pull-nested-quantifiers true)
      - (set-option :smt-mbqi true)
+     - (set-option :auto_config false)
      - (set-option :smt.random-seed n) when `n` is provided in solver options
+     - (set-option :smt.macro_finder true)
 -/
 def setDefaultSmtOptions (sOpts : SolverOptions) : TranslateEnvT Unit := do
  setPrintSuccess true
@@ -594,8 +636,9 @@ def setDefaultSmtOptions (sOpts : SolverOptions) : TranslateEnvT Unit := do
  setProduceProofs true
  setPullNestedQuantifiers true
  setMbqi true
+ setAutoConfig false
  setRandomSeed sOpts.randomSeed
-
+ setMacroFinder true
 
 /-- Perform the following actions:
      - when option `only-smt-lib` is set to `false`:

@@ -86,7 +86,8 @@ def cstLTProp? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :=
 def intLtNorm? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
  let some (e1, e2) := intAdd? op2 | return none
  let some 1 := isIntValue? e1 | return none
- mkExpr (mkApp (← mkPropNotOp) (← mkIntLtExpr e2 op1))
+ setRestart
+ return mkApp (← mkPropNotOp) (← mkIntLtExpr e2 op1)
 
 
 /-- Given `op1` and `op2` corresponding to the operands for `LT.lt`:
@@ -96,7 +97,8 @@ def intLtNorm? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
 def natLtNorm? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
  let some (e1, e2) := natAdd? op2 | return none
  let some 1 := isNatValue? e1 | return none
- mkExpr (mkApp (← mkPropNotOp) (← mkNatLtExpr e2 op1))
+ setRestart
+ return (mkApp (← mkPropNotOp) (← mkNatLtExpr e2 op1))
 
 
 /-- Given `op1` and `op2` corresponding to the operands for `LT.lt` such that,
@@ -109,8 +111,10 @@ def addNatLeftLtReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) 
  let some (e1, e2) := natAdd? op1 | return none
  let some n2 := isNatValue? op2 | return none
  let some n1 := isNatValue? e1 | return none
- if n2 ≤ n1 then return ← mkPropFalse
- else return ← mkNatLtExpr e2 (← evalBinNatOp Nat.sub n2 n1)
+ if n2 ≤ n1 then mkPropFalse
+ else
+   setRestart -- restart necessary to cache new expression
+   mkNatLtExpr e2 (← evalBinNatOp Nat.sub n2 n1)
 
 /-- Given `op1` and `op2` corresponding to the operands for `LT.lt` such that,
      `op1 := N1`, `op2 := N2 + a` and Type(a) = Nat`:
@@ -122,8 +126,10 @@ def addNatRightLtReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr)
  let some (e1, e2) := natAdd? op2 | return none
  let some n1 := isNatValue? op1 | return none
  let some n2 := isNatValue? e1 | return none
- if n1 < n2 then return ← mkPropTrue
- else return ← mkNatLtExpr (← evalBinNatOp Nat.sub n1 n2) e2
+ if n1 < n2 then mkPropTrue
+ else
+   setRestart -- restart necessary to cache new expression
+   mkNatLtExpr (← evalBinNatOp Nat.sub n1 n2) e2
 
 
 /-- Given `op1` and `op2` corresponding to the operands for `LT.lt` such that,
@@ -135,6 +141,7 @@ def addIntLeftLtReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) 
  let some (e1, e2) := intAdd? op1 | return none
  let some n2 := isIntValue? op2 | return none
  let some n1 := isIntValue? e1 | return none
+ setRestart -- restart necessary to cache new expression
  mkIntLtExpr e2 (← evalBinIntOp Int.sub n2 n1)
 
 /-- Given `op1` and `op2` corresponding to the operands for `LT.lt` such that,
@@ -146,6 +153,7 @@ def addIntRightLtReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr)
  let some (e1, e2) := intAdd? op2 | return none
  let some n1 := isIntValue? op1 | return none
  let some n2 := isIntValue? e1 | return none
+ setRestart -- restart necessary to cache new expression
  mkIntLtExpr (← evalBinIntOp Int.sub n1 n2) e2
 
 /-- Apply the following simplification/normalization rules on `LT.lt` :
@@ -169,9 +177,9 @@ def addIntRightLtReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr)
    Assume that f = Expr.const ``LT.lt.
    Do nothing if operator is partially applied (i.e., args.size < 4)
 -/
-partial def optimizeLT (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
- if !(← isOpaqueRelational f.constName args) then return (← mkAppExpr f args)
- if args.size != 4 then return (← mkAppExpr f args)
+def optimizeLT (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
+ if !(← isOpaqueRelational f.constName args) then return (mkAppN f args)
+ if args.size != 4 then return (mkAppN f args)
  -- args[0] is sort parameter
  -- args[1] LT instance
  -- args[2] left operand
@@ -194,7 +202,7 @@ partial def optimizeLT (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
  if let some r ← addIntBothReduce? op1 op2 then return r
  if let some r ← intLtNorm? op1 op2 then return r
  if let some r ← natLtNorm? op1 op2 then return r
- mkAppExpr f args
+ return mkAppN f args
 
  where
    /-- Given `op1` and `op2` corresponding to the operands for `LT.lt` such that,
@@ -207,12 +215,13 @@ partial def optimizeLT (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
      let some (e3, e4) := natAdd? op2 | return none
      let some n1 := isNatValue? e1 | return none
      let some n2 := isNatValue? e3 | return none
+     setRestart
      let minValue := min n1 n2
      let leftValue := n1 - minValue
      let rightValue := n2 - minValue
-     let op1' ← if leftValue = 0 then pure e2 else mkExpr (mkApp2 (← mkNatAddOp) (← mkNatLitExpr leftValue) e2)
-     let op2' ← if rightValue = 0 then pure e4 else mkExpr (mkApp2 (← mkNatAddOp) (← mkNatLitExpr rightValue) e4)
-     optimizeLT f #[args[0]!, args[1]!, op1', op2']
+     let op1' := mkApp2 (← mkNatAddOp) (← mkNatLitExpr leftValue) e2
+     let op2' := mkApp2 (← mkNatAddOp) (← mkNatLitExpr rightValue) e4
+     return mkApp4 f args[0]! args[1]! op1' op2'
 
    /-- Given `op1` and `op2` corresponding to the operands for `LT.lt` such that,
      `op1 := N1 + a`, `op2 := N2 + b` and Type(a) = Int`:
@@ -224,22 +233,23 @@ partial def optimizeLT (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
      let some (e3, e4) := intAdd? op2 | return none
      let some n1 := isIntValue? e1 | return none
      let some n2 := isIntValue? e3 | return none
+     setRestart
      let minValue := min n1 n2
      let leftValue := n1 - minValue
      let rightValue := n2 - minValue
-     let op1' ← if leftValue = 0 then pure e2 else mkExpr (mkApp2 (← mkIntAddOp) (← mkIntLitExpr leftValue) e2)
-     let op2' ← if rightValue = 0 then pure e4 else mkExpr (mkApp2 (← mkIntAddOp) (← mkIntLitExpr rightValue) e4)
-     optimizeLT f #[args[0]!, args[1]!, op1', op2']
+     let op1' := mkApp2 (← mkIntAddOp) (← mkIntLitExpr leftValue) e2
+     let op2' := mkApp2 (← mkIntAddOp) (← mkIntLitExpr rightValue) e4
+     return mkApp4 f args[0]! args[1]! op1' op2'
 
 
 /-- Apply the following snormalization rule on `LE.le` :
-     - e1 ≤ e2 ==> ¬ (e2 < e2)
+     - e1 ≤ e2 ==> ¬ (e2 < e1)
 
    This normalization rule is applied only when isOpaqueRelational predicate is satisfied
    Assume that f = Expr.const ``LE.le.
 -/
-partial def optimizeLE (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
- if !(← isOpaqueRelational f.constName args) then return (← mkAppExpr f args)
+def optimizeLE (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
+ if !(← isOpaqueRelational f.constName args) then return (mkAppN f args)
  if args.size == 4 then
    -- args[0] is sort parameter
    -- args[1] Le instance
@@ -248,23 +258,27 @@ partial def optimizeLE (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
    let le_type := args[0]!
    let op1 := args[2]!
    let op2 := args[3]!
-   let ltExpr ← optimizeLT (← mkLtOp) #[le_type, (← findLtInstance le_type), op2, op1]
-   optimizeNot (← mkPropNotOp) #[ltExpr]
+   setRestart
+   mkNotLtExpr le_type op2 op1
  else if args.size == 2 then
+   setRestart
    -- we need to return a lambda term here, i.e.,
-   -- ∀ e1 e2 => ¬ (e2 < e1)
+   -- λ e1 e2 => ¬ (e2 < e1)
    let le_type := args[0]!
    withLocalDecl `x BinderInfo.default le_type fun x => do
      withLocalDecl `y BinderInfo.default le_type fun y => do
-       let ltExpr ← mkExpr (mkApp4 (← mkLtOp) le_type (← findLtInstance le_type) y x)
-       let notExpr ← mkExpr (mkApp (← mkPropNotOp) ltExpr)
-       mkExpr (← mkLambdaFVars #[x, y] notExpr)
- else throwEnvError f!"optimizeLE: at least 2 arguments expected but got {reprStr args}"
+       mkLambdaFVars #[x, y] (← mkNotLtExpr le_type y x)
+ else throwEnvError "optimizeLE: at least 2 arguments expected but got {reprStr args}"
 
  where
+   mkNotLtExpr (t : Expr) (op1 : Expr) (op2 : Expr) : TranslateEnvT Expr := do
+     let ltInst ← findLtInstance t
+     let ltExpr := mkApp4 (← mkLtOp) t ltInst op1 op2
+     return mkApp (← mkPropNotOp) ltExpr
+
    findLtInstance (t : Expr) : TranslateEnvT Expr := do
      let some ltInst ← trySynthConstraintInstance? (mkApp (← mkLTConst) t)
-       | throwEnvError f!"optimizeLE: synthesize instance for [LT {reprStr t} cannot be found"
+       | throwEnvError "optimizeLE: synthesize instance for [LT {reprStr t} cannot be found"
      return ltInst
 
 /-- Apply simplification and normalization rules on `LE.le` and `LT.lt` :

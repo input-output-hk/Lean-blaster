@@ -94,7 +94,7 @@ partial def kIndStrategy (smInst : Expr) : TranslateEnvT Unit := do
       | some state =>
           let state' ←
             profileTask s!"Optimizing state at Depth {← getCurrentDepth}"
-              (Optimize.optimizeExpr (mkApp5 (← mkNext) env.inputType env.stateType smInst iVar state))
+              (Optimize.optimizeExpr' (mkApp5 (← mkNext) env.inputType env.stateType smInst iVar state))
               (verboseLevel := 2)
           f state'
 

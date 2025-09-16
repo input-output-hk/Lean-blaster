@@ -57,7 +57,7 @@ partial def bmcStrategy (smInst : Expr) : TranslateEnvT Unit := do
         | none => -- depth 0
             Optimize.main (mkApp4 (← mkInit) env.inputType env.stateType smInst iVar)
         | some state =>
-            Optimize.optimizeExpr (mkApp5 (← mkNext) env.inputType env.stateType smInst iVar state)
+            Optimize.optimizeExpr' (mkApp5 (← mkNext) env.inputType env.stateType smInst iVar state)
       ) (verboseLevel := 2)
 
     analysisAtDepth (iVar : Expr) (state : Expr) : StateMachineEnvT Result := do

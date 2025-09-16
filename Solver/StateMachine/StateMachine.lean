@@ -73,9 +73,6 @@ def maxDepthReached : TranslateEnvT Bool := do
 def getMaxDepth : TranslateEnvT Nat := do
   return (← get).optEnv.options.solverOptions.maxDepth
 
-def getCurrentDepth : TranslateEnvT Nat := do
-  return (← get).optEnv.options.mcDepth
-
 def nameAtDepth (smName : Name) (suffix : String) : TranslateEnvT Name := do
   pure $ Name.mkStr1 (s!"{smName}.{suffix}@{← getCurrentDepth}")
 

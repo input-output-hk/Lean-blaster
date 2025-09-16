@@ -14,6 +14,12 @@ structure MatchResult where
   /-- Ite term generated when translating each match pattern -/
   iteTerm : Option SmtTerm
 
+@[always_inline, inline]
+def removeAndOptNamedPatternExpr (p : Expr) : TranslateEnvT Expr := do
+ -- set start local context
+  updateLocalContext (← mkLocalContext)
+  withLocalContext $ do removeNamedPatternExpr p
+
 mutual
 /-- Generate the necessary let expressions when translating a `match` to an smt if-then-else, such that:
     given `se` a match discriminator that has already been translated to an smt term,
@@ -81,7 +87,7 @@ private partial def mkLet
           mkLet (smtSimpleVarId sn) e rhs
             fun rhs' => k (mkLetTerm #[(sn, (subSmt se (natLitSmt n)))] rhs')
 
-      | _ => throwEnvError f!"mkLet: unexpected pattern expression: {reprStr p}"
+      | _ => throwEnvError "mkLet: unexpected pattern expression: {reprStr p}"
 
   | Expr.app (Expr.const ``Int.ofNat _) a =>
        match a with
@@ -95,7 +101,7 @@ private partial def mkLet
             mkLet (smtSimpleVarId sn) e rhs
               fun rhs'=> k (mkLetTerm #[(sn, se)] rhs')
 
-       | _ => throwEnvError f!"mkLet: unexpected pattern expression: {reprStr p}"
+       | _ => throwEnvError "mkLet: unexpected pattern expression: {reprStr p}"
 
   | Expr.app (Expr.const ``Int.neg _)
       (Expr.app (Expr.const ``Int.ofNat _)
@@ -109,11 +115,11 @@ private partial def mkLet
            let sn ← fvarIdToSmtSymbol fv
            mkLet (smtSimpleVarId sn) e rhs
              fun rhs' => k (mkLetTerm #[(sn, negSmt (addSmt se (natLitSmt n)))] rhs')
-      | _ => throwEnvError f!"mkLet: unexpected pattern expression: {reprStr p}"
+      | _ => throwEnvError "mkLet: unexpected pattern expression: {reprStr p}"
 
   | _ =>
      let some (n, args) ← isCtorPattern p
-       | throwEnvError f!"mkLet: unexpected pattern expression: {reprStr p}"
+       | throwEnvError "mkLet: unexpected pattern expression: {reprStr p}"
      if args.size == 0 then
        -- case: p = C (i.e., nullary constructor)
        k rhs
@@ -135,8 +141,8 @@ end
 /-- Generate the necessary ite condition expressions when translating a `match` to an smt if-then-else, such that:
     given `se` a match discriminator that has already been translated to an smt term, `pp` its
     corresponding match expression, `mkCond se pp` is defined as follows:
-     let p' ← removeNamedPatternExpr optimizeExpr pp;
-      := ( = se sp )    if isIntNatStrCst(p') with sp := termTranslator p'
+     let p' ← removeAndOptNamedPatternExpr pp;
+      := ( = se sp )    if isIntNatStrCst p' ∨ isBoolCtor p' with sp := termTranslator p'
       := (<= N se )     if p' = N + n ∧ Type(N) = Nat
       := (<= 0 se )     if p' = Int.ofNat n
       := (<= N se )     if p' = Int.ofNat (N + n)
@@ -150,16 +156,16 @@ end
 private partial def mkCond
   (se : SmtTerm) (pp : Expr) (andTerms : Array SmtTerm)
   (termTranslator : Expr → TranslateEnvT SmtTerm) : TranslateEnvT (Array SmtTerm) := do
-  let p' ← removeNamedPatternExpr optimizeExpr pp
-  if isCstLiteral p' then
-    -- case: isIntNatStrCst(p')
+  let p' ← removeAndOptNamedPatternExpr pp
+  if isCstLiteral p' || isBoolCtor p' then
+    -- case: isIntNatStrCst p' ∨ isBoolCtor p'
     return (andTerms.push (eqSmt (← termTranslator p') se))
   match p' with
   | Expr.fvar _ => return andTerms -- case: p' = fv
   | Expr.const c _ =>
       -- case: if p' = C (i.e., nullary constructor)
       if !(← isCtorName c) then
-        throwEnvError f!"mkCond: nullary ctor expected but got {reprStr p'}"
+        throwEnvError "mkCond: nullary ctor expected but got {reprStr p'}"
       return (andTerms.push (mkCtorTestorTerm c se))
   | Expr.app (Expr.app (Expr.const ``Nat.add _) (Expr.lit (Literal.natVal n))) (Expr.fvar _fv)
   | Expr.app (Expr.const ``Int.ofNat _)
@@ -177,7 +183,7 @@ private partial def mkCond
       return (andTerms.push (leqSmt se (negSmt (natLitSmt n))))
   | _ =>
      let some (n, args) ← isCtorPattern p'
-       | throwEnvError f!"mkCond: unexpected pattern expression: {reprStr p'}"
+       | throwEnvError "mkCond: unexpected pattern expression: {reprStr p'}"
      -- case: p' = C x₁ ... xₖ
      let mut mand := andTerms.push (mkCtorTestorTerm n se)
      for i in [:args.size] do
@@ -191,7 +197,7 @@ private partial def mkCond
 def translateMatchAux?
   (termTranslator : Expr → TranslateEnvT SmtTerm)
   (idx : Nat) (discrs : Array Expr) (lhs : Array Expr)
-  (alt : Expr) (acc : Option MatchResult) : TranslateEnvT (Option MatchResult) := do
+  (alt : Expr) (_matchType : Expr) (acc : Option MatchResult) : TranslateEnvT (Option MatchResult) := do
   let altArgsRes ← retrieveAltsArgs lhs
   let rhs := betaReduceRhs alt altArgsRes.altArgs
   let hvars ← altArgsRes.altArgs.foldlM insertFVars .emptyWithCapacity
@@ -254,7 +260,7 @@ def translateMatchAux?
      with:
        - ∀ i ∈ [1..n], seᵢ := termTranslator e
        - mkCond se p :
-          let p' ← removeNamedPatternExpr p;
+          let p' ← removeAndOptNamedPatternExpr p;
            := ( = se sp )    if isIntNatStrCst(p') with sp := termTranslator p'
            := (<= N se )     if p' = N + n ∧ Type(N) = Nat
            := (<= 0 se )     if p' = Int.ofNat n
@@ -305,10 +311,10 @@ def translateMatchAux?
     at least one eᵢ is a constant/ctor.
 -/
 def translateMatch?
-  (f : Expr) (args : Array Expr) (optimizer : Expr → TranslateEnvT Expr)
+  (f : Expr) (args : Array Expr)
   (termTranslator : Expr → TranslateEnvT SmtTerm) : TranslateEnvT (Option SmtTerm) := do
-  let some mInfo ← isMatcher? (mkAppN f args) | return none
-  let some r ← matchExprRewriter mInfo optimizer (translateMatchAux? termTranslator) | return none
+  let some mInfo ← isMatcher? f | return none
+  let some r ← matchExprRewriter mInfo args (translateMatchAux? termTranslator) | return none
   return r.iteTerm
 
 end Solver.Smt

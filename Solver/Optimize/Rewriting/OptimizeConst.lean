@@ -1,5 +1,4 @@
 import Lean
-import Solver.Optimize.Env
 import Solver.Optimize.Rewriting.OptimizeApp
 
 open Lean Meta
@@ -32,40 +31,33 @@ namespace Solver.Optimize
          - Otherwise
             - return `mkExpr e`
 -/
-partial def normConst (e : Expr) (optimizer : Expr → TranslateEnvT Expr) : TranslateEnvT Expr := do
-  let Expr.const n _ := e | throwEnvError f!"normConst: name expression expected but got {reprStr e}"
-  match n with
-  | ``Nat.zero => mkNatLitExpr 0
-  | _ =>
-    if (← isPartialDef n) then throwEnvError f!"normConst: partial function not supported {n} !!!"
-    if (← isUnsafeDef n) then throwEnvError f!"normConst: unsafe definition not supported {n} !!!"
-    if let some e ← isGlobalConstant n then return e
-    if let some e ← isToNormOpaqueFun n then
-      trace[Optimize.const.opaque] "normalizing opaque function {n} => {reprStr e}"
-      return e
-    if let some r ← isHOF n then
-      trace[Optimize.const.hof] "normalizing HOF {n} => {reprStr r}"
-      return r
-    -- catch if no normalization performed
-    if !(← isInFunApp) && (← isResolvableType e)
-    then mkExpr (← resolveTypeAbbrev e)
-    else mkExpr e
+def normConst (e : Expr) ( stack : List OptimizeStack) : TranslateEnvT OptimizeContinuity := do
+  match e with
+  | Expr.const n _ =>
+       withLocalContext $ do
+         match n with
+         | ``Nat.zero => stackContinuity stack (← mkNatLitExpr 0)
+         | _ =>
+           if (← isPartialDef n) then throwEnvError "normConst: partial function not supported {n} !!!"
+           if (← isUnsafeDef n) then throwEnvError "normConst: unsafe definition not supported {n} !!!"
+           if let some e ← isGlobalConstant n then return Sum.inl e
+           if let some e ← isToNormOpaqueFun n then return e
+           if let some r ← isHOF n then return r
+           -- catch if no normalization performed
+           if !(← isInFunApp) && (← isResolvableType e) then
+              stackContinuity stack (← mkExpr (← resolveTypeAbbrev e))
+           else stackContinuity stack (← mkExpr e)
+
+  | _ => throwEnvError "normConst: name expression expected but got {reprStr e}"
 
   where
-    isGlobalConstant (c : Name) : TranslateEnvT (Option Expr) := do
-      let ConstantInfo.opaqueInfo opVal ← getConstEnvInfo c | return none
-      trace[Optimize.const.global] "normalizing global constant {c} => {reprStr opVal.value}"
-      optimizer opVal.value
+    @[always_inline, inline]
+    isGlobalConstant (c : Name) : TranslateEnvT (Option (List OptimizeStack)) := do
+      if let ConstantInfo.opaqueInfo opVal ← getConstEnvInfo c then
+        return (.InitOptimizeExpr opVal.value :: stack)
+      else return none
 
-    etaNormOpaqueFun (of : Expr) : TranslateEnvT Expr := do
-      let rec visit (l : Expr) : TranslateEnvT Expr := do
-        match l with
-        | Expr.lam n t b bi =>
-             withLocalDecl n bi (← optimizer t) fun x => do
-               mkLambdaExpr x (← visit (b.instantiate1 x))
-        | r => optimizeApp r.getAppFn' r.getAppArgs
-      visit (← etaExpand of)
-
+    @[always_inline, inline]
     isNormOpaqueFun (n : Name) : Bool :=
       match n with
       | ``Int.negSucc
@@ -77,34 +69,35 @@ partial def normConst (e : Expr) (optimizer : Expr → TranslateEnvT Expr) : Tra
       | ``Nat.beq => true
       | _ => false
 
-    isToNormOpaqueFun (n : Name) : TranslateEnvT (Option Expr) := do
-      if (← isInFunApp) && isNormOpaqueFun n then return e -- to avoid catching
-      match n with
-      | ``Int.negSucc
-      | ``Nat.pred
-      | ``Nat.succ => etaNormOpaqueFun e
-      | ``Int.le => mkIntLeOp
-      | ``Nat.le => mkNatLeOp
-      | ``Nat.ble =>
-           if (← isOptimizeRecCall) then etaNormOpaqueFun e else return none
-      | ``Nat.beq =>
-           if (← isOptimizeRecCall) then mkNatBEqOp else return none
-      | _ => return none
+    @[always_inline, inline]
+    isToNormOpaqueFun (n : Name) : TranslateEnvT (Option OptimizeContinuity) := do
+      if (← isInFunApp) && isNormOpaqueFun n then return ← stackContinuity stack e -- to avoid catching
+      else match n with
+           | ``Int.negSucc
+           | ``Nat.pred
+           | ``Nat.succ => return (some $ Sum.inl (.InitOptimizeExpr (← etaExpand e) :: stack))
+           | ``Int.le => stackContinuity stack (← mkIntLeOp)
+           | ``Nat.le => stackContinuity stack (← mkNatLeOp)
+           | ``Nat.ble =>
+                if (← isOptimizeRecCall)
+                then return (some $ Sum.inl (.InitOptimizeExpr (← etaExpand e) :: stack))
+                else return none
+           | ``Nat.beq =>
+                if (← isOptimizeRecCall)
+                then stackContinuity stack (← mkNatBEqOp)
+                else return none
+           | _ => return none
 
-    isHOF (f : Name) : TranslateEnvT (Option Expr) := do
+    @[always_inline, inline]
+    isHOF (f : Name) : TranslateEnvT (Option OptimizeContinuity) := do
       if (← isInFunApp) then return none
       if (← hasImplicitArgs e) then return none
       if (← isRecursiveFun f) then
-        -- catch fun expression after adding recursive definition in map
-        return (← mkExpr (← normOpaqueAndRecFun e #[] optimizer))
+         return (some $ Sum.inl $ .InitOpaqueRecExpr e #[] :: stack)
       if (← isNotFoldable e #[]) then return none
       -- non recursive function case
-      let some fbody ← getFunBody e | return none
-      optimizer fbody
-
-initialize
-  registerTraceClass `Optimize.const.global
-  registerTraceClass `Optimize.const.opaque
-  registerTraceClass `Optimize.const.hof
+      if let some fbody ← getFunBody e then
+        return (some $ Sum.inl $ .InitOptimizeExpr fbody :: stack)
+      else return none
 
 end Solver.Optimize

@@ -25,9 +25,10 @@ namespace Solver.Optimize
 def optimizeProjection? (e : Expr) : TranslateEnvT (Option Expr) := do
   let Expr.proj n idx s := e |
     throwEnvError "optimizeProjection: projection expression expected but got {reprStr e}"
-  match (← reduceProj? e) with
-  | some re => return re
-  | none =>
+  withLocalContext $ do
+    match (← reduceProj? e) with
+    | some re => return re
+    | none =>
       if let some re ← iteProj? n idx s then return re
       if let some re ← diteProj? n idx s then return re
       if let some re ← matchProj? n idx s then return re
@@ -46,8 +47,8 @@ def optimizeProjection? (e : Expr) : TranslateEnvT (Option Expr) := do
             mkLambdaFVars #[x] (mkProj typeName idx (body.instantiate1 x))
       | _ =>
          -- case when then/else clause is a quantified function
-         if !(← inferTypeEnv ite_e).isForall then
-           throwEnvError f!"updateDIteExprWithProj: lambda/function expression expected but got {reprStr ite_e}"
+         if !(← isQuantifiedFun ite_e) then
+           throwEnvError "updateDIteExprWithProj: lambda/function expression expected but got {reprStr ite_e}"
          else
            -- Need to create a lambda term embedding the following application
            -- `fun h : ite_cond => (ite_e h).i`
@@ -58,7 +59,7 @@ def optimizeProjection? (e : Expr) : TranslateEnvT (Option Expr) := do
       let some (_psort, pcond, pdecide, e1, e2) := dite? struct | return none
       let retType ← inferTypeEnv e
       let e1' ← updateDIteExprWithProj typeName idx pcond e1
-      let e2' ← updateDIteExprWithProj typeName idx (← optimizeNot (← mkPropNotOp) #[pcond]) e2
+      let e2' ← updateDIteExprWithProj typeName idx (mkApp (← mkPropNotOp) pcond) e2
       return mkApp5 (← mkDIteOp) retType pcond pdecide e1' e2'
 
     updateRhsWithProj (typeName : Name) (idx : Nat) (lhs : Array Expr) (rhs : Expr) : TranslateEnvT Expr := do
@@ -68,17 +69,18 @@ def optimizeProjection? (e : Expr) : TranslateEnvT (Option Expr) := do
         mkLambdaFVars params (mkProj typeName idx body)
 
     matchProj? (typeName : Name) (idx : Nat) (struct : Expr) : TranslateEnvT (Option Expr) := do
-      let some argInfo ← isMatcher? struct | return none
-      let idxType := argInfo.mInfo.getFirstDiscrPos - 1
+      let (f, args) := getAppFnWithArgs struct
+      let some argInfo ← isMatcher? f | return none
+      let idxType := argInfo.getFirstDiscrPos - 1
       let retType ← inferTypeEnv e
-      withMatchAlts argInfo $ fun alts => do
-        let mut pargs := argInfo.args
-        for i in [argInfo.mInfo.getFirstAltPos : argInfo.mInfo.arity] do
-          let altIdx := i - argInfo.mInfo.getFirstAltPos
-          let lhs ← forallTelescope (← inferTypeEnv alts[altIdx]!) fun _ b => pure b.getAppArgs
-          pargs ← pargs.modifyM i (updateRhsWithProj typeName idx lhs)
-        -- update ret type for pulled over match
-        pargs ← pargs.modifyM idxType (updateMatchReturnType retType)
-        return (mkAppN argInfo.nameExpr pargs)
+      let alts := getMatchAlts args argInfo
+      let mut pargs := args
+      for i in [argInfo.getFirstAltPos : argInfo.arity] do
+        let altIdx := i - argInfo.getFirstAltPos
+        let lhs ← forallTelescope alts[altIdx]! fun _ b => pure b.getAppArgs
+        pargs ← pargs.modifyM i (updateRhsWithProj typeName idx lhs)
+      -- update ret type for pulled over match
+      pargs ← pargs.modifyM idxType (updateMatchReturnType retType)
+      return (mkAppN argInfo.nameExpr pargs)
 
 end Solver.Optimize

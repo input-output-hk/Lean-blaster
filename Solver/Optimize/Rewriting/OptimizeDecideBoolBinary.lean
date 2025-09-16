@@ -1,7 +1,5 @@
 import Lean
-import Solver.Optimize.Rewriting.OptimizeBoolPropBinary
-import Solver.Optimize.Rewriting.OptimizeDecide
-import Solver.Optimize.Rewriting.OptimizeEq
+import Solver.Optimize.Rewriting.OptimizeBoolBinary
 
 
 open Lean Meta
@@ -16,15 +14,18 @@ namespace Solver.Optimize
 -/
 def decideOpDecide?
   (op1 : Expr) (op2 : Expr)
-  (mkOpExpr : Array Expr → TranslateEnvT Expr) : TranslateEnvT (Option Expr) := do
+  (mkOpExpr : Expr → Expr → Expr) : TranslateEnvT (Option Expr) := do
   match decide? op1, decide? op2 with
   | some (e1, d), some (e2, _) =>
       -- NOTE: the decidable instance for `decide` is updated in `optimizeDecideCore`
-      optimizeDecideCore (← mkDecideConst) #[← mkOpExpr #[e1, e2], d]
+      setRestart
+      return mkApp2 (← mkDecideConst) (mkOpExpr e1 e2) d
   | some (e1, d), _ =>
-      optimizeDecideCore (← mkDecideConst) #[← mkOpExpr #[e1, ← optimizeEqBool op2 true], d]
+      setRestart
+      return mkApp2 (← mkDecideConst) (mkOpExpr e1 (mkApp3 (← mkEqOp) (← mkBoolType) (← mkBoolTrue) op2)) d
   | _, some (e1, d) =>
-      optimizeDecideCore (← mkDecideConst) #[← mkOpExpr #[e1, ← optimizeEqBool op1 true], d]
+      setRestart
+      return mkApp2 (← mkDecideConst) (mkOpExpr e1 (mkApp3 (← mkEqOp) (← mkBoolType) (← mkBoolTrue) op1)) d
   | _, _ => return none
 
 
@@ -40,10 +41,10 @@ def decideOpDecide?
    deterministic to produce the same sequence.
 -/
 def optimizeDecideBoolAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
- let e ← optimizeBoolAnd f args (cacheResult := false)
+ let e ← optimizeBoolAnd f args
  let some (op1, op2) := boolAnd? e | return e
- if let some r ← decideOpDecide? op1 op2 (optimizeBoolPropAnd (← mkPropAndOp)) then return r
- mkExpr e
+ if let some r ← decideOpDecide? op1 op2 (mkApp2 (← mkPropAndOp)) then return r
+ return e
 
 /-- Call `optimizeBoolOr f args` and apply the following `decide` simplification/normalization
     rules on the resulting `or` expression (if any):
@@ -59,10 +60,10 @@ def optimizeDecideBoolAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr :=
    TODO: consider additional simplification rules
 -/
 def optimizeDecideBoolOr (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
- let e ← optimizeBoolOr f args (cacheResult := false)
+ let e ← optimizeBoolOr f args
  let some (op1, op2) := boolOr? e | return e
- if let some r ← decideOpDecide? op1 op2 (optimizeBoolPropOr (← mkPropOrOp)) then return r
- mkExpr e
+ if let some r ← decideOpDecide? op1 op2 (mkApp2 (← mkPropOrOp)) then return r
+ return e
 
 
 /-- Apply simplification/normalization rules on Boolean binary operators.

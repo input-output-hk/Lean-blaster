@@ -85,14 +85,14 @@ partial def SmtAttribute.emit (a : SmtAttribute) : TranslateEnvT Unit := do
   match a with
   | .Named n =>
         h.putStr ":named "
-        h.putStr n
+        n.emit
   | .Pattern p =>
         h.putStr ":pattern ("
         ArraySmtTerm.emit p
         h.putStr ")"
   | .Qid n =>
          h.putStr ":qid "
-         h.putStr n
+         n.emit
 
 partial def SmtTerm.emit (e : SmtTerm) : TranslateEnvT Unit := do
    let h ← getProcStdIn

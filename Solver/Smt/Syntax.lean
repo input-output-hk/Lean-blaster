@@ -52,9 +52,9 @@ def isIteApp (nm : SmtQualifiedIdent) : Bool :=
 mutual
 /-- Smt term annotation attributes. -/
 inductive SmtAttribute where
-  | Named (n : String)
+  | Named (n : SmtSymbol)
   | Pattern (p : Array SmtTerm)
-  | Qid (n : String)
+  | Qid (n : SmtSymbol)
 
 /-- Smt-Lib V2 term. -/
 inductive SmtTerm where
@@ -75,7 +75,7 @@ inductive SmtTerm where
 end
 
 instance : Inhabited SmtAttribute where
-  default := .Qid ""
+  default := .Qid default
 
 instance : Inhabited SmtTerm where
   default := .NumTerm 0
