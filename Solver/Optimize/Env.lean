@@ -721,7 +721,7 @@ def isGlobalContext : TranslateEnvT Bool := do
 -/
 @[always_inline, inline]
 def updateOptimizeEnvCache (a : Expr) (b : Expr) (isGlobal : Bool) : TranslateEnvT Unit := do
-  trace[Optimize.cacheExpr] "cacheExpr {← ppExpr a} ===> {← ppExpr b}"
+  -- trace[Optimize.cacheExpr] "cacheExpr {← ppExpr a} ===> {← ppExpr b}"
   if isGlobal
   then updateGlobalRewriteCache a b
   else updateLocalRewriteCache a b

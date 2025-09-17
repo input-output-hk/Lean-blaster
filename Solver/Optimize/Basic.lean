@@ -11,14 +11,14 @@ open Lean Elab Command Term Meta Solver.Options
 
 namespace Solver.Optimize
 
-
+set_option trace.compiler.ir.result true in
 -- TODO: update formalization with inference rule style notation.
 partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr := do
   match stack with
   | .InitOptimizeExpr e :: xs =>
       match (← isInOptimizeEnvCache e xs) with
       | Sum.inl i_stack =>
-          trace[Optimize.expr] "optimizing {← ppExpr e}"
+          -- trace[Optimize.expr] "optimizing {← ppExpr e}"
           match e with
           | Expr.fvar .. -- free variables
           | Expr.sort _ -- sort is used for Type u, Prop, etc

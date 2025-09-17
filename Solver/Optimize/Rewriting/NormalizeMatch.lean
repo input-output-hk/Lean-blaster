@@ -605,7 +605,7 @@ def matchExprRewriter
         accExpr ←
           forallTelescope alts[idx]! fun _xs b => do
             let mut lhs := b.getAppArgs
-            trace[Optimize.normMatch.pattern] "match patterns to optimize {reprStr lhs}"
+            -- trace[Optimize.normMatch.pattern] "match patterns to optimize {reprStr lhs}"
             -- NOTE: lhs is now implicitly normalized when computing MatchInfo
             rewriter i discrs lhs rhs[idx]! matchType accExpr
         unless (accExpr.isSome) do return accExpr -- break if accExpr is still none
