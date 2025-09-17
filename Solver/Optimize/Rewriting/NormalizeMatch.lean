@@ -692,7 +692,7 @@ def matchExprRewriter
            := (mkCstLet x₁ (.. (mkCstLet xₖ₋₁ (mkCstLet xₙ t)))) if e = C x₁ ... xₖ
            := ⊥  otherwise
 -/
-def normMatchExpr?
+def normMatchExprBase?
   (args : Array Expr) (mInfo : MatchInfo) : TranslateEnvT (Option Expr) := do
   if !(← hasDecidableEq mInfo) then return none
   matchExprRewriter mInfo args normMatchExprAux?
@@ -710,6 +710,15 @@ def normMatchExpr?
        if (← trySynthDecidableInstance? eqExpr).isNone then
          return false
      return true
+
+def normMatchExpr? (args : Array Expr) (mInfo : MatchInfo) : TranslateEnvT (Option Expr) := do
+  match (← get).optEnv.memCache.isMatchToIte.get? mInfo.name with
+  | some b => if b then normMatchExprBase? args mInfo else return none
+  | none =>
+      let r ← normMatchExprBase? args mInfo
+      modify (fun env => {env with optEnv.memCache.isMatchToIte :=
+                              env.optEnv.memCache.isMatchToIte.insert mInfo.name r.isSome})
+      return r
 
 initialize
   registerTraceClass `Optimize.normMatch.pattern

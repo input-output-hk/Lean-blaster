@@ -172,6 +172,9 @@ structure MemoizeEnv where
   /-- Cache memoizing isProp result -/
   isPropCache : Std.HashMap Lean.Expr Bool
 
+  /-- Cache memoizing match to ite normalization -/
+  isMatchToIte : Std.HashMap Lean.Name Bool
+
 instance : Inhabited MemoizeEnv where
   default :=
   { isRecFunCache := Std.HashMap.emptyWithCapacity,
@@ -187,7 +190,8 @@ instance : Inhabited MemoizeEnv where
     getFunEnvInfoCache := Std.HashMap.emptyWithCapacity,
     isCstMatchPropCache := Std.HashMap.emptyWithCapacity,
     getFunBodyCache := Std.HashMap.emptyWithCapacity,
-    isPropCache := Std.HashMap.emptyWithCapacity
+    isPropCache := Std.HashMap.emptyWithCapacity,
+    isMatchToIte := Std.HashMap.emptyWithCapacity
   }
 
 structure LocalDeclContext where
