@@ -405,10 +405,12 @@ def optimizeIntToNat (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if let some .. := intNegOfNat? op then return (← mkNatLitExpr 0)
  return (mkApp f op)
 
-/-- Normalize `Int.negSucc n` to `Int.neg (Int.ofNat (Nat.add 1 n))` only when `n` is not a constant value.
+/-- Normalize `Int.negSucc n` to `Int.neg (Int.ofNat (1 + n))` only when `n` is not a constant value.
     An error is triggered if args.size ≠ 1.
     Assume that f = Expr.const ``Int.negSucc.
--/
+    NOTE: This rule is still required here to avoid normalizationg Int.negSucc when `n`
+    is a constant value.
+--/
 def optimizeIntNegSucc (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 1 then throwEnvError "optimizeIntNegSucc: only one argument expected"
  let op := args[0]!
@@ -417,11 +419,6 @@ def optimizeIntNegSucc (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let addExpr := mkApp2 (← mkNatAddOp) (← mkNatLitExpr 1) args[0]!
  let intExpr := mkApp (← mkIntOfNat) addExpr
  return mkApp (← mkIntNegOp) intExpr
-
-/-- Normalize `Int.le x y` to `LE.le Int instLEInt x y`. -/
-def optimizeIntLe (b_args : Array Expr) : TranslateEnvT Expr := do
-  setRestart
-  return mkAppN (← mkIntLeOp) b_args
 
 /-- Apply simplification/normalization rules on `Int` operators.
 -/
@@ -433,7 +430,6 @@ def optimizeInt? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) :=
   | ``Int.neg => optimizeIntNeg f args
   | ``Int.negSucc => optimizeIntNegSucc f args
   | ``Int.toNat => optimizeIntToNat f args
-  | ``Int.le => optimizeIntLe args
   | ``Int.ediv => optimizeIntEDiv f args
   | ``Int.emod => optimizeIntEMod f args
   | ``Int.tdiv => optimizeIntTDiv f args

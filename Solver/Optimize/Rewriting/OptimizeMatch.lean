@@ -136,15 +136,9 @@ def reduceMatch? (f : Expr) (args : Array Expr) (mInfo : MatchInfo) : TranslateE
 
     tryReduction? (args : Array Expr) : TranslateEnvT (Option Expr) := do
       -- NOTE: simplifies match only when all the discriminators are constructors
-      let auxApp := betaLambda mInfo.instApp (args.take mInfo.getFirstAltPos)
+      let auxApp := Expr.beta mInfo.instApp (args.take mInfo.getFirstAltPos)
       lambdaBoundedTelescope auxApp mInfo.numAlts fun hs _t =>
          commonMatchReduction? auxApp args hs
-
-/-- Given `pType := λ α₁ → .. → λ αₙ → t` returns `λ α₁ → .. → λ αₙ → eType`
-    This function is expected to be used only when updating a match return type
--/
-def updateMatchReturnType (eType : Expr) (pType : Expr) : TranslateEnvT Expr := do
-  lambdaTelescope pType fun params _body => mkLambdaFVars params eType
 
 /-- Apply the following constant propagation rules on match expressions, such that:
     Given match₁ e₁, ..., eₙ with

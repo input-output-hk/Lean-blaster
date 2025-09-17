@@ -6,7 +6,6 @@ import Solver.Optimize.Rewriting.FunPropagation
 import Solver.Optimize.Rewriting.OptimizeApp
 import Solver.Optimize.Rewriting.OptimizeConst
 import Solver.Optimize.Rewriting.OptimizeForAll
-import Solver.Optimize.Rewriting.OptimizeProjection
 
 open Lean Elab Command Term Meta Solver.Options
 
@@ -38,14 +37,15 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
 
           | Expr.app .. =>
              let (f, ras) := getAppFnWithArgs e
-             -- calling normConst explicitly for `const` case to avoid
-             -- catching when no optimization is performed on opaque functions.
-             let i_stack' := .AppWaitForConst ras :: i_stack
-             if f.isConst then
-               match (← withInFunApp $ do normConst f i_stack') with
-               | Sum.inl stack' => optimizeExprAux stack'
-               | _ => throwEnvError "optimizeExprAux: continuity expected for fun const!!!"
-             else optimizeExprAux (.InitOptimizeExpr f :: i_stack')
+             -- check if f is a lambda term
+             if f.isLambda then
+               -- perform beta reduction and apply optimization
+               optimizeExprAux (.InitOptimizeExpr (Expr.beta f ras) :: i_stack)
+             else
+               -- set inFunApp flag before optimizing `f`
+               setInFunApp true
+               let i_stack' := .AppWaitForConst ras :: i_stack
+               optimizeExprAux (.InitOptimizeExpr f :: i_stack')
 
           | Expr.lam n t b bi => optimizeExprAux (optimizeLambda n t b bi i_stack)
 
@@ -57,14 +57,9 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
                 optimizeExprAux (.InitOptimizeExpr me :: .MDataRecCallWaitForExpr d :: i_stack)
               else optimizeExprAux (.InitOptimizeExpr me :: i_stack)
 
-          | Expr.proj .. =>
-              if let some re ← optimizeProjection? e then
-                -- trace[Optimize.normProjection] "normalizing projection {reprStr e} => {reprStr re}"
-                optimizeExprAux (.InitOptimizeExpr re :: i_stack)
-              else
-                match (← stackContinuity i_stack (← mkExpr e)) with
-                | Sum.inr e' => return e'
-                | Sum.inl stack' => optimizeExprAux stack'
+          | Expr.proj n idx s =>
+              let i_stack' := .ProjWaitForExpr n idx :: i_stack
+              optimizeExprAux (.InitOptimizeExpr s :: i_stack')
 
           | Expr.mvar .. => throwEnvError "optimizeExpr: unexpected meta variable {e}"
           | Expr.bvar .. => throwEnvError "optimizeExpr: unexpected bound variable {e}"
@@ -330,7 +325,6 @@ initialize
   registerTraceClass `Optimize.funPropagation
   registerTraceClass `Optimize.normChoiceApp
   registerTraceClass `Optimize.normPartial
-  registerTraceClass `Optimize.normProjection
   registerTraceClass `Optimize.reduceApp
   registerTraceClass `Optimize.unfoldDef
 

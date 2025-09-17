@@ -1,6 +1,7 @@
 import Lean
 import Solver.Optimize.Env
 import Solver.Optimize.Rewriting.OptimizeForAll
+import Solver.Optimize.Rewriting.OptimizeProjection
 import Solver.Optimize.Telescope
 
 open Lean Meta
@@ -79,6 +80,7 @@ inductive OptimizeStack where
  | MatchAltWaitForExpr (params : Array Expr)
  | LetWaitForValue (body : Expr)
  | MDataRecCallWaitForExpr (data : MData)
+ | ProjWaitForExpr (n : Name) (idx : Nat)
  deriving Repr
 
 abbrev OptimizeContinuity := Sum (List OptimizeStack) Expr
@@ -118,12 +120,12 @@ def mkLocalDeclStackContext (newCtx : LocalDeclContext) : TranslateEnvT LocalDec
 def resetLocalDeclContext (oldCtx : LocalDeclContext) : TranslateEnvT Unit :=
   updateLocalContext oldCtx
 
-def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) : TranslateEnvT OptimizeContinuity := do
+def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := false) : TranslateEnvT OptimizeContinuity := do
   match stack with
   | [] => return Sum.inr optExpr
 
   | .InitOptimizeReturn e isGlobal :: xs =>
-       updateOptimizeEnvCache e optExpr isGlobal
+       if !skipCache then updateOptimizeEnvCache e optExpr isGlobal
        match xs with
        | [] => return Sum.inr optExpr
        | _ => return Sum.inl (.InitNextOptimize optExpr :: xs)
@@ -159,12 +161,19 @@ def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) : TranslateEnv
 
   | .AppWaitForConst args :: xs =>
        -- optExpr corresponds to optimized fun app
-       -- continuity with optimizing match generic instance
-       let (rf, extraArgs) := getAppFnWithArgs optExpr
-       let args := extraArgs ++ args
-       let pInfo ← withLocalContext $ do getFunEnvInfo rf
-       -- apply optimization on match generic instance (if necessary)
-       return Sum.inl (.InitOptimizeMatchInfo rf args extraArgs.size pInfo :: xs)
+       -- reset inFunApp flag
+       setInFunApp false
+       -- check if optExpr is a lambda
+       if optExpr.isLambda then
+         -- perform beta reduction and apply optimization
+         return Sum.inl (.InitOptimizeExpr (Expr.beta optExpr args) :: xs)
+       else
+         -- continuity with optimizing match generic instance
+         let (rf, extraArgs) := getAppFnWithArgs optExpr
+         let args := extraArgs ++ args
+         let pInfo ← withLocalContext $ do getFunEnvInfo rf
+         -- apply optimization on match generic instance (if necessary)
+         return Sum.inl (.InitOptimizeMatchInfo rf args extraArgs.size pInfo :: xs)
 
   | .OptimizeMatchInfoWaitForInst f args startArgIdx pInfo mInfo :: xs =>
        -- optExpr corresponds to optimized match generic instance
@@ -274,6 +283,15 @@ def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) : TranslateEnv
        setNormalizeFunCall true
        return Sum.inl (.InitNextOptimize (← mkExpr (Expr.mdata d optExpr)) :: xs)
 
+  | .ProjWaitForExpr n idx :: xs =>
+      -- optExpr corresponds to optimized projection structure
+      if let some re ← optimizeProjection? (mkProj n idx optExpr) then
+         return Sum.inl (.InitOptimizeExpr re :: xs)
+      else
+        -- continuity with optimizing next expression
+        return Sum.inl (.InitNextOptimize (← mkExpr $ mkProj n idx optExpr) :: xs)
+
+
   | _ => throwEnvError "stackContinuity: unexpected optimize stack continuity {reprStr stack} !!!"
 
 @[always_inline, inline]
@@ -285,9 +303,8 @@ def mkOptimizeContinuity (e : Expr) (stack : List OptimizeStack) : TranslateEnvT
 
 @[always_inline, inline]
 def isInOptimizeEnvCache (a : Expr) (stack : List OptimizeStack) : TranslateEnvT (Sum (List OptimizeStack) OptimizeContinuity) := do
-  -- TODO: Always consider global context when `a` does not contain any FVar.
-  -- let isGlobal := !a.hasFVar || (← isGlobalContext)
-  let isGlobal ← isGlobalContext
+  -- NOTE: Always consider global context when `a` does not contain any FVar.
+  let isGlobal := !a.hasFVar || (← isGlobalContext)
   match (← isInOptimizeCache? a isGlobal) with
   | some b => Sum.inr <$> stackContinuity stack b
   | none => return Sum.inl (.InitOptimizeReturn a isGlobal :: stack)

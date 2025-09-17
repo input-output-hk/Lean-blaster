@@ -420,8 +420,9 @@ def isCasesOnRec (e : Expr) : TranslateEnvT Bool := do
 
 /-- Return `true` if `e` corresponds to a match or casesOn function. -/
 def isMatchExpr (e : Expr) : TranslateEnvT Bool := do
-  Option.isSome <$> isMatcher? e
-
+  match e with
+  | Expr.const n l => Option.isSome <$> getMatcherRecInfo? n l
+  | _ => return false
 
 /- Return the function definition for `f` whenever `f` corresponds to:
    - a lambda expression
@@ -617,5 +618,11 @@ partial def hasSorryTheorem (e : Expr) (msg : MessageData) : TranslateEnvT Unit 
         else if let ConstantInfo.thmInfo info ← getConstEnvInfo n then hasSorryTheorem (info.value) msg
         else return ()
     | _ => return ()
+
+/-- Given `pType := λ α₁ → .. → λ αₙ → t` returns `λ α₁ → .. → λ αₙ → eType`
+    This function is expected to be used only when updating a match return type
+-/
+def updateMatchReturnType (eType : Expr) (pType : Expr) : TranslateEnvT Expr := do
+  lambdaTelescope pType fun params _body => mkLambdaFVars params eType
 
 end Solver.Optimize

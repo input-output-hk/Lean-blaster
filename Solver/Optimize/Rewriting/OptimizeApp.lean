@@ -236,7 +236,7 @@ def normOpaqueAndRecFun (s : OptimizeStack) (xs : List OptimizeStack) :
       then
         if (← allExplicitParamsAreCtor uf uargs (funPropagation := true)) then
           -- call fun propagation to avoid optimizing rec body
-          -- if rec function is and opaqueRec call app optimization first
+          -- if rec function is an opaqueRec call app optimization first
           -- before calling fun propagation
           optimizeApp uf uargs xs (skipPropCheck := true)
         else
@@ -312,6 +312,12 @@ def normOpaqueAndRecFun (s : OptimizeStack) (xs : List OptimizeStack) :
          return (auxApp.getAppFn', auxApp.getAppArgs)
      else return (f, args)
 
+   normRecOpaque (f : Expr) : Bool :=
+     match f with
+     | Expr.const ``Nat.beq _
+     | Expr.const ``Nat.ble _ => true
+     | _ => false
+
    /-- Given `rf` a function application instance (see function `getInstApp`) and `params` its
        implicit parameter inffo (see function `getImplicitParameters`), perform the following:
          let instanceArgs := [ params[i] | ∀ i ∈ [0..params.size-1] ∧ params[i].isInstance ]
@@ -331,7 +337,8 @@ def normOpaqueAndRecFun (s : OptimizeStack) (xs : List OptimizeStack) :
    optimizeRecApp
      (uf rf : Expr) (uargs : Array Expr)
      (params : ImplicitParameters) (xs : List OptimizeStack) : TranslateEnvT OptimizeContinuity := do
-     if params.isEmpty then return ← stackContinuity xs (← mkExpr rf) -- catch fun expression
+     if params.isEmpty then
+       return ← stackContinuity xs (← mkExpr rf (cacheResult := !(normRecOpaque rf))) -- catch fun expression
      if (← exprEq uf rf) then
        -- case for when same recursive call
        -- trace[Optimize.recFun.app] "same recursive call case {reprStr rf} {reprStr uargs}"

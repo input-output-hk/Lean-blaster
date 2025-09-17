@@ -507,18 +507,6 @@ def setNormalizeFunCall (b : Bool) : TranslateEnvT Unit := do
 def setInFunApp (b : Bool) : TranslateEnvT Unit := do
   modify (fun env => { env with optEnv.options.inFunApp := b })
 
-/-- Perform the following actions:
-     - set `inFunApp` to `true`
-     - execute `f`
-     - set `inFunApp` to `false`
--/
-@[always_inline, inline]
-def withInFunApp (f: TranslateEnvT α) : TranslateEnvT α := do
-  setInFunApp true
-  let e ← f
-  setInFunApp false
-  return e
-
 @[always_inline, inline]
 def updateHypothesis (h : HypothesisContext) (localCache : RewriteCacheMap) : TranslateEnvT Unit := do
   modify (fun env => { env with optEnv.hypothesisContext := h, optEnv.localRewriteCache := localCache})
@@ -954,14 +942,8 @@ def mkNatPowOp : TranslateEnvT Expr := mkExpr natPow
 /-- Return `Nat.beq` operator -/
 def natBeq : Expr := mkConst ``Nat.beq
 
-/-- Create a `Nat.beq` operator expression and cache result. -/
-def mkNatBeqOp : TranslateEnvT Expr := mkExpr natBeq
-
 /-- Return `Nat.ble` operator -/
 def natBle : Expr := mkConst ``Nat.ble
-
-/-- Create a `Nat.ble` operator expression and cache result. -/
-def mkNatBleOp : TranslateEnvT Expr := mkExpr natBle
 
 /-- Return `Nat.blt` operator and cache result. -/
 def mkNatBltOp : TranslateEnvT Expr := mkExpr (mkConst ``Nat.blt)
@@ -1034,6 +1016,12 @@ def mkNatLtOp : TranslateEnvT Expr := do
   let ltExpr ← mkExpr (mkApp (← mkLtOp) (← mkNatType))
   mkExpr (mkApp ltExpr (← mkExpr (mkConst ``instLTNat)))
 
+/-- Return the `Nat.decLe` operator and cache result. -/
+def mkNatDecLeOp : TranslateEnvT Expr := mkExpr (mkConst ``Nat.decLe)
+
+/-- Return the `Nat.decLt` operator and cache result. -/
+def mkNatDecLtOp : TranslateEnvT Expr := mkExpr (mkConst ``Nat.decLt)
+
 /-- Return the `≤` Int operator and cache result. -/
 def mkIntLeOp : TranslateEnvT Expr := do
   let leExpr ← mkExpr (mkApp (← mkLeOp) (← mkIntType))
@@ -1085,7 +1073,7 @@ def evalBinNatOp (f: Nat -> Nat -> Nat) (n1 n2 : Nat) : TranslateEnvT Expr :=
 def mkIntLitExpr (n : Int) : TranslateEnvT Expr := do
   match n with
   | Int.ofNat n => mkExpr (mkApp (← mkIntOfNat) (← mkNatLitExpr n))
-  | Int.negSucc n => mkExpr (mkApp (← mkExpr (mkConst ``Int.negSucc)) (← mkNatLitExpr n))
+  | Int.negSucc n => mkExpr (mkApp (mkConst ``Int.negSucc) (← mkNatLitExpr n))
 
 /-- Return Int `a = b` and don't cache result. -/
 def mkIntEqExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do

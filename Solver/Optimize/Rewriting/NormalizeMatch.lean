@@ -9,7 +9,7 @@ namespace Solver.Optimize
 
 @[always_inline, inline]
 def getMatchAlts (args : Array Expr) (mInfo : MatchInfo) : Array Expr :=
- let auxApp := betaLambda mInfo.instApp (args.take mInfo.getFirstAltPos)
+ let auxApp := Expr.beta mInfo.instApp (args.take mInfo.getFirstAltPos)
  getLambdaBoundedBinderTypes auxApp mInfo.numAlts
 
 /-- Return `true` is p is a nat, integer or string literal expression. -/
@@ -26,7 +26,7 @@ def isCstLiteral (p : Expr) : Bool :=
 def betaReduceRhs (alt : Expr) (altArgs : Array Expr) : Expr :=
   if altArgs.size == 0 -- case when there is no free variables in match pattern
   then getLambdaBody alt
-  else betaLambda alt altArgs
+  else Expr.beta alt altArgs
 
 structure AltArgsCache where
   /-- Sequence of named pattern and free variables appearing in each match pattern.

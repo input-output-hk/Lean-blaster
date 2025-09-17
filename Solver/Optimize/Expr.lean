@@ -436,17 +436,6 @@ partial def betaForAll (e : Expr) (args : Array Expr) : Expr :=
     else e
   visit 0 e
 
-/-- Given `e` of the form `λ (a₁ : A₁) ... (aₙ : Aₙ) => B[a₁, ..., aₙ]`
-    and `p₁ : A₁, ... pₘ : Aₙ`, return `B[p₁, ..., pₘ]`.
--/
-partial def betaLambda (e : Expr) (args : Array Expr) : Expr :=
-  let rec visit (i : Nat) (e : Expr) : Expr :=
-    if h : i < args.size then
-       match e with
-       | Expr.lam _ _ b _ => visit (i + 1) (b.instantiate1 args[i])
-       | _ => e
-    else e
-  visit 0 e
 
 /-- Return `true` only when e is a FVar of type `∀ α₀ → ... → αₙ`. -/
 def isQuantifiedFun (e : Expr) : MetaM Bool :=

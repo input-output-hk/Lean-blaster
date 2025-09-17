@@ -313,46 +313,27 @@ def optimizeNatMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
         else return none
     | _, _ => return none
 
-/-- Normalize `Nat.succ n` to `1 + n`.
-    An error is triggered when args.size ≠ 1.
--/
-def optimizeNatSucc (args : Array Expr) : TranslateEnvT Expr := do
- if args.size != 1 then throwEnvError "optimizeNatSucc: only one argument expected"
- setRestart
- return mkApp2 (← mkNatAddOp) (← mkNatLitExpr 1) args[0]!
-
-/-- Normalize `Nat.pred n` to `n - 1`.
-    An error is triggered when args.size ≠ 1.
--/
-def optimizeNatPred (args : Array Expr) : TranslateEnvT Expr := do
- if args.size != 1 then throwEnvError "optimizeNatPred: only one argument expected"
- setRestart
- return mkApp2 (← mkNatSubOp) args[0]!  (← mkNatLitExpr 1)
-
-
-/-- Normalize `Nat.beq x y` to `BEq.beq Nat instBEqNat x y`.
-    only when option normalizeFunCall is set to `true`.
+/-- Normalize `Nat.beq x y` to `x == y` only when option normalizeFunCall is set to `true`.
     Assume that f = Expr.const ``Nat.beq
--/
+    NOTE: This normalization rule is still required here mainly
+    to properly handle the case where another rec function is equivalent to `Nat.beq`
+--/
 def optimizeNatBeq (f : Expr) (b_args : Array Expr) : TranslateEnvT Expr := do
   if !(← isOptimizeRecCall) then return mkAppN f b_args
   setRestart
   return mkAppN (← mkNatBEqOp) b_args
 
-/-- Normalize `Nat.le x y` to `LE.le Nat instLENat x y`. -/
-def optimizeNatLe (b_args : Array Expr) : TranslateEnvT Expr := do
-  setRestart
-  return mkAppN (← mkNatLeOp) b_args
-
-/-- Normalize `Nat.ble x y` to `Decidable.decide (LE.le Nat instLENat x y)` only
-    when option normalizeFunCall is set to `true`.
+/-- Normalize `Nat.ble x y` to `decide (x ≤ y)` only when option normalizeFunCall is set to `true`.
     Assume that f = Expr.const ``Nat.ble
+    NOTE: This normalization rule is still required here mainly
+    to properly handle the case where another rec function is equivalent to `Nat.beq`
 -/
 def optimizeNatble (f : Expr) (b_args : Array Expr) : TranslateEnvT Expr := do
   if !(← isOptimizeRecCall) then return mkAppN f b_args
   setRestart
   let leExpr := mkAppN (← mkNatLeOp) b_args
-  return mkApp2 (← mkDecideConst) leExpr (← synthDecidableInstance! leExpr)
+  let decLeExpr := mkAppN (← mkNatDecLeOp) b_args
+  return mkApp2 (← mkDecideConst) leExpr decLeExpr
 
 /-- Apply simplification/normalization rules on `Nat` operators. -/
 def optimizeNat? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
@@ -363,11 +344,8 @@ def optimizeNat? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) :=
   | ``Nat.mul => optimizeNatMul f args
   | ``Nat.div => optimizeNatDiv f args
   | ``Nat.mod => optimizeNatMod f args
-  | ``Nat.succ => optimizeNatSucc args
-  | ``Nat.pred => optimizeNatPred args
   | ``Nat.beq => optimizeNatBeq f args
   | ``Nat.ble => optimizeNatble f args
-  | ``Nat.le => optimizeNatLe args
   | ``Nat.pow => optimizeNatPow f args
   | _=> return none
 
