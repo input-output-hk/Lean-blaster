@@ -468,17 +468,6 @@ def isFunType (t : Expr) : TranslateEnvT Bool := do
        | _ => return false
 
 
-/-- Determine if `e` is an `implies` expression and return its corresponding arguments.
-    Otherwise return `none`.
--/
-def propImplies? (e : Expr) : TranslateEnvT (Option (Expr × Expr)) := do
- match e with
- | Expr.forallE _ t b _ =>
-     if b.hasLooseBVars then return none
-     if (← isPropEnv b) then return some (t, b)
-     else return none
- | _ => return none
-
 /-- Same as getFunBodyAux? but cache result -/
 @[always_inline, inline]
 def getFunBody (f : Expr) : TranslateEnvT (Option Expr) := do
