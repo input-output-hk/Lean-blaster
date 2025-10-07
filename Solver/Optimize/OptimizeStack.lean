@@ -33,9 +33,6 @@ instance : Repr LocalDeclContext where
 instance : Repr LocalContext where
   reprPrec _ _ := "<LocalContext>"
 
-instance : Repr NameGenerator where
-  reprPrec _ _ := "<NameGenerator>"
-
 inductive OptimizeStack where
  | InitOptimizeExpr (e : Expr)
  | InitOptimizeReturn (e : Expr) (isGlobal : Bool)
