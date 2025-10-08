@@ -486,7 +486,7 @@ def createPredQualifierApp (smtSym : SmtSymbol) (t : Expr) : TranslateEnvT SmtTe
          - add entry `t := {@is{instName}, st, applyInstName := some @apply{n}}` to `indTypeInstCache`
          - declare smt predicate `(declare-fun @is{instName} ((instSort)) Bool)`
          - declare apply function `(declare-fun @apply{n} (st sα₁ ... sαₙ₋₁) sαₙ)`
-         - assert the following propositions to specify congruence and codomain values constraints:
+         - assert the following propositions to specify congruence, extensionality and codomain values constraints:
             - `(assert (forall ((@f (ArrowTN sα₁ sα₂ sαₙ))(@x₁ sα₁) ... (@xₙ₋₁ sαₙ₋₁) (@y₁ sα₁) ... (@yₙ₋₁ sαₙ₋₁))
                (! (=> (= @x₁ @y₁)
                   (=> (= @x₂ @y₂)
@@ -502,6 +502,12 @@ def createPredQualifierApp (smtSym : SmtSymbol) (t : Expr) : TranslateEnvT SmtTe
                (! (=> (= @f @g) (= (@apply{n} @f @x₁ ... @xₙ₋₁) (@apply{n} @g @x₁ ... @xₙ₋₁)))
                   :pattern ((@apply{n} @f @x₁ ... @xₙ₋₁) (@apply{n} @g @x₁ ... @xₙ₋₁) (= @f @g))
                   :qid @apply{n}_congr_fun)))`
+
+            - `(assert (forall ((@f (ArrowTN sα₁ sα₂ sαₙ)) (@g (ArrowTN sα₁ sα₂ sαₙ))
+                                (@x₁ sα₁) ... (@xₙ₋₁ sαₙ₋₁))
+               (! (=> (= (@apply{n} @f @x₁ ... @xₙ₋₁) (@apply{n} @g @x₁ ... @xₙ₋₁)) (= @f @g))
+                  :pattern (= (@apply{n} @f @x₁ ... @xₙ₋₁) (@apply{n} @g @x₁ ... @xₙ₋₁)))
+                  :qid @apply{n}_ext_fun)))`
 
             - `(assert (forall ((@f (ArrowTN sα₁ sα₂ ... αₙ)))
                 (! (= (forall ((@x₁ sα₁) ... (@xₙ₋₁ sαₙ₋₁)) (@isTypeₙ (@apply{n} @f @x₁ ... @xₙ₋₁)))
@@ -568,8 +574,13 @@ def generateFunInstDeclAux (t : Expr) (st : SortExpr) : TranslateEnvT IndTypeDec
      let quantifiers_fun := (co_quantifiers.push (fsym, st)).push (gsym, st)
      let eqFun := eqSmt fId gId
      let fun_patterns := #[eqFun, f_applyTerm1, g_applyTerm]
-     let forallCArgBody := impliesSmt eqFun (eqSmt f_applyTerm1 g_applyTerm)
+     let eqAppFun := eqSmt f_applyTerm1 g_applyTerm
+     let forallCArgBody := impliesSmt eqFun eqAppFun
      assertTerm (mkForallTerm none quantifiers_fun forallCArgBody (some #[mkPattern fun_patterns, mkQid qidName]))
+     -- extensionality
+     let qidName := appendSymbol applyName "ext_fun"
+     let forallExtBody := impliesSmt eqAppFun eqFun
+     assertTerm (mkForallTerm none quantifiers_fun forallExtBody (some #[mkPattern #[eqAppFun], mkQid qidName]))
      -- congruence on args
      let qidName := appendSymbol applyName "congr_args"
      assertTerm (mkForallTerm none arg_quantifiers forallCFunBody (some #[mkPattern arg_patterns, mkQid qidName]))
