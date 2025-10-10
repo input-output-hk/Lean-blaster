@@ -1,1 +1,1 @@
-# Lean-clever - SMT-based automated reasoning for Lean 4
+# Lean-blaster - SMT-based automated reasoning for Lean 4
