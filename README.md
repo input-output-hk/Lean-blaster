@@ -1,1 +1,1 @@
-# Clever Lean - SMT-based automated reasoning for Lean 4
+# Lean-celver - SMT-based automated reasoning for Lean 4
