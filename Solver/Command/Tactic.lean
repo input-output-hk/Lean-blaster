@@ -8,7 +8,7 @@ open Solver.Optimize
 open Solver.Smt
 namespace Solver.Tactic
 
-declare_syntax_cat solveOption
+declare_syntax_cat solveOptionT
 syntax solveUnfoldDepth := ("(unfold-depth:" num ")")?
 syntax solveMaxDepth := ("(max-depth:" num ")")?
 syntax solveTimeout := ("(timeout:" num ")")?
@@ -27,25 +27,25 @@ syntax (name := lean_blasterTactic) "lean_blaster"
 
 
 /-! ### Individual Parsing Functions -/
-def parseUnfoldDepth (sOpts : SolverOptions) : TSyntax `solveOption -> TacticM SolverOptions
+def parseUnfoldDepth (sOpts : SolverOptions) : TSyntax `solveOptionT -> TacticM SolverOptions
  | `(solveUnfoldDepth| (unfold-depth: $n:num)) => return { sOpts with unfoldDepth := n.getNat }
  | `(solveUnfoldDepth| ) => return sOpts
  | _ => throwUnsupportedSyntax
 
-def parseMaxDepth (sOpts : SolverOptions) : TSyntax `solveOption -> TacticM SolverOptions
+def parseMaxDepth (sOpts : SolverOptions) : TSyntax `solveOptionT -> TacticM SolverOptions
   | `(solveMaxDepth| (max-depth: $n:num)) => return { sOpts with maxDepth := n.getNat }
   | _ => return sOpts
 
 
-def parseTimeout (sOpts : SolverOptions) : TSyntax `solveOption -> TacticM SolverOptions
+def parseTimeout (sOpts : SolverOptions) : TSyntax `solveOptionT -> TacticM SolverOptions
   | `(solveTimeout| (timeout: $n:num)) => return { sOpts with timeout := some n.getNat }
   | _ => return sOpts
 
-def parseVerbose (sOpts : SolverOptions) : TSyntax `solveOption -> TacticM SolverOptions
+def parseVerbose (sOpts : SolverOptions) : TSyntax `solveOptionT -> TacticM SolverOptions
   | `(solveVerbose| (verbose: $n:num)) => return { sOpts with verbose := n.getNat }
   | _ => return sOpts
 
-def parseSmtLib (sOpts : SolverOptions) : TSyntax `solveOption -> TacticM SolverOptions
+def parseSmtLib (sOpts : SolverOptions) : TSyntax `solveOptionT -> TacticM SolverOptions
   | `(solveSMTLib| (only-smt-lib: $n:num)) =>
       match n.getNat with
       | 0 => return { sOpts with onlySmtLib := false }
@@ -53,7 +53,7 @@ def parseSmtLib (sOpts : SolverOptions) : TSyntax `solveOption -> TacticM Solver
       | _ => throwUnsupportedSyntax
   | _ => return sOpts
 
-def parseOptimize (sOpts : SolverOptions) : TSyntax `solveOption -> TacticM SolverOptions
+def parseOptimize (sOpts : SolverOptions) : TSyntax `solveOptionT -> TacticM SolverOptions
   | `(solveOptimize| (only-optimize: $n:num)) =>
       match n.getNat with
       | 0 => return { sOpts with onlyOptimize := false }
@@ -61,7 +61,7 @@ def parseOptimize (sOpts : SolverOptions) : TSyntax `solveOption -> TacticM Solv
       | _ => throwUnsupportedSyntax
   | _ => return sOpts
 
-def parseDumpSmt (sOpts : SolverOptions) : TSyntax `solveOption -> TacticM SolverOptions
+def parseDumpSmt (sOpts : SolverOptions) : TSyntax `solveOptionT -> TacticM SolverOptions
   | `(solveDumpSmt| (dump-smt-lib: $n:num)) =>
       match n.getNat with
       | 0 => return { sOpts with dumpSmtLib := false }
@@ -69,7 +69,7 @@ def parseDumpSmt (sOpts : SolverOptions) : TSyntax `solveOption -> TacticM Solve
       | _ => throwUnsupportedSyntax
   | _ => return sOpts
 
-def parseGenCex (sOpts : SolverOptions) : TSyntax `solveOption -> TacticM SolverOptions
+def parseGenCex (sOpts : SolverOptions) : TSyntax `solveOptionT -> TacticM SolverOptions
   | `(solveGenCex| (gen-cex: $n:num)) =>
       match n.getNat with
       | 0 => return { sOpts with generateCex := false }
@@ -77,14 +77,14 @@ def parseGenCex (sOpts : SolverOptions) : TSyntax `solveOption -> TacticM Solver
       | _ => throwUnsupportedSyntax
   | _ => return sOpts
 
-def parseRandomSeed (sOpts : SolverOptions) : TSyntax `solveOption -> TacticM SolverOptions
+def parseRandomSeed (sOpts : SolverOptions) : TSyntax `solveOptionT -> TacticM SolverOptions
   | `(solveRandomSeed| (random-seed: $n:num)) =>
       match n.getNat with
       | 0 => return { sOpts with randomSeed := none }
       | n => return { sOpts with randomSeed := some n }
   | _ => return sOpts
 
-def parseSolveResult (sOpts : SolverOptions) : TSyntax `solveOption -> TacticM SolverOptions
+def parseSolveResult (sOpts : SolverOptions) : TSyntax `solveOptionT -> TacticM SolverOptions
   | `(solveResult| (solve-result: $n:num)) =>
       match n.getNat with
       | 0 => return { sOpts with solveResult := .ExpectedValid }
@@ -94,7 +94,7 @@ def parseSolveResult (sOpts : SolverOptions) : TSyntax `solveOption -> TacticM S
   | _ => return sOpts
 
 /-! ### Generic Parser for All Options -/
-def parseSolveOption (sOpts : SolverOptions) (opt : TSyntax `solveOption) : TacticM SolverOptions := do
+def parseSolveOption (sOpts : SolverOptions) (opt : TSyntax `solveOptionT) : TacticM SolverOptions := do
   let sOpts ← parseUnfoldDepth sOpts opt
   let sOpts ← parseTimeout sOpts opt
   let sOpts ← parseVerbose sOpts opt
