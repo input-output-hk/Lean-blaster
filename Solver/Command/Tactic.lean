@@ -6,7 +6,7 @@ import Solver.Optimize
 open Lean Elab Tactic Meta Solver.Options
 open Solver.Optimize
 open Solver.Smt
-namespace Solver.Syntax
+namespace Solver.Tactic
 
 declare_syntax_cat solveOption
 syntax solveUnfoldDepth := ("(unfold-depth:" num ")")?
@@ -165,4 +165,4 @@ def lean_blasterTacticImp : Tactic := fun stx => withMainContext do
   | .Undetermined =>
       throwTacticEx `lean_blaster goal "SMT solver could not determine validity"
 
-end Solver.Syntax
+end Solver.Tactic
