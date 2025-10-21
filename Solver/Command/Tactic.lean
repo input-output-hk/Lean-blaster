@@ -2,90 +2,88 @@ import Lean
 import Solver.Command.Options
 import Solver.Smt.Translate
 import Solver.Optimize
+import Solver.Logging.Basic
 
-open Lean Elab Tactic Meta Solver.Options
-open Solver.Optimize
-open Solver.Smt
+open Lean Elab Tactic Meta
+open Solver.Optimize Solver.Smt Solver.Options
 namespace Solver.Tactic
 
 declare_syntax_cat solveOptionT
-syntax solveUnfoldDepth := ("(unfold-depth:" num ")")?
-syntax solveMaxDepth := ("(max-depth:" num ")")?
-syntax solveTimeout := ("(timeout:" num ")")?
-syntax solveVerbose := ("(verbose:" num ")")?
-syntax solveSMTLib := ("(only-smt-lib:" num ")")?
-syntax solveOptimize := ("(only-optimize:" num ")")?
-syntax solveDumpSmt := ("(dump-smt-lib:" num ")")?
-syntax solveGenCex := ("(gen-cex:" num ")")?
-syntax solveRandomSeed := ("(random-seed:" num ")")?
-syntax solveResult := ("(solve-result:" num ")")?
+syntax "(unfold-depth:" num ")" : solveOptionT
+syntax "(max-depth:" num ")" : solveOptionT
+syntax "(timeout:" num ")" : solveOptionT
+syntax "(verbose:" num ")" : solveOptionT
+syntax "(only-smt-lib:" num ")" : solveOptionT
+syntax "(only-optimize:" num ")" : solveOptionT
+syntax "(dump-smt-lib:" num ")" : solveOptionT
+syntax "(gen-cex:" num ")" : solveOptionT
+syntax "(random-seed:" num ")" : solveOptionT
+syntax "(solve-result:" num ")" : solveOptionT
 
-syntax (name := lean_blasterTactic) "lean_blaster"
-  solveUnfoldDepth solveMaxDepth solveTimeout solveRandomSeed
-  solveVerbose solveSMTLib solveOptimize solveDumpSmt solveGenCex
-  solveResult : tactic
+syntax (name := blastTactic) "blast_smt" (solveOptionT)* : tactic
 
+/-! ### Helper Functions -/
+def formatSmtQuery (cmds : Array SmtCommand) : String :=
+  String.intercalate "\n" (cmds.map toString).toList
 
 /-! ### Individual Parsing Functions -/
-def parseUnfoldDepth (sOpts : SolverOptions) : TSyntax `solveOptionT -> TacticM SolverOptions
- | `(solveUnfoldDepth| (unfold-depth: $n:num)) => return { sOpts with unfoldDepth := n.getNat }
- | `(solveUnfoldDepth| ) => return sOpts
- | _ => throwUnsupportedSyntax
-
-def parseMaxDepth (sOpts : SolverOptions) : TSyntax `solveOptionT -> TacticM SolverOptions
-  | `(solveMaxDepth| (max-depth: $n:num)) => return { sOpts with maxDepth := n.getNat }
+def parseUnfoldDepth (sOpts : SolverOptions) : TSyntax `solveOptionT → TacticM SolverOptions
+  | `(solveOptionT| (unfold-depth: $n:num)) => return { sOpts with unfoldDepth := n.getNat }
   | _ => return sOpts
 
-
-def parseTimeout (sOpts : SolverOptions) : TSyntax `solveOptionT -> TacticM SolverOptions
-  | `(solveTimeout| (timeout: $n:num)) => return { sOpts with timeout := some n.getNat }
+def parseMaxDepth (sOpts : SolverOptions) : TSyntax `solveOptionT → TacticM SolverOptions
+  | `(solveOptionT| (max-depth: $n:num)) => return { sOpts with maxDepth := n.getNat }
   | _ => return sOpts
 
-def parseVerbose (sOpts : SolverOptions) : TSyntax `solveOptionT -> TacticM SolverOptions
-  | `(solveVerbose| (verbose: $n:num)) => return { sOpts with verbose := n.getNat }
+def parseTimeout (sOpts : SolverOptions) : TSyntax `solveOptionT → TacticM SolverOptions
+  | `(solveOptionT| (timeout: $n:num)) => return { sOpts with timeout := some n.getNat }
   | _ => return sOpts
 
-def parseSmtLib (sOpts : SolverOptions) : TSyntax `solveOptionT -> TacticM SolverOptions
-  | `(solveSMTLib| (only-smt-lib: $n:num)) =>
+def parseVerbose (sOpts : SolverOptions) : TSyntax `solveOptionT → TacticM SolverOptions
+  | `(solveOptionT| (verbose: $n:num)) => return { sOpts with verbose := n.getNat }
+  | _ => return sOpts
+
+def parseSmtLib (sOpts : SolverOptions) : TSyntax `solveOptionT → TacticM SolverOptions
+  | `(solveOptionT| (only-smt-lib: $n:num)) =>
       match n.getNat with
       | 0 => return { sOpts with onlySmtLib := false }
       | 1 => return { sOpts with onlySmtLib := true }
       | _ => throwUnsupportedSyntax
   | _ => return sOpts
 
-def parseOptimize (sOpts : SolverOptions) : TSyntax `solveOptionT -> TacticM SolverOptions
-  | `(solveOptimize| (only-optimize: $n:num)) =>
+def parseOptimize (sOpts : SolverOptions) : TSyntax `solveOptionT → TacticM SolverOptions
+  | `(solveOptionT| (only-optimize: $n:num)) =>
       match n.getNat with
       | 0 => return { sOpts with onlyOptimize := false }
       | 1 => return { sOpts with onlyOptimize := true }
       | _ => throwUnsupportedSyntax
   | _ => return sOpts
 
-def parseDumpSmt (sOpts : SolverOptions) : TSyntax `solveOptionT -> TacticM SolverOptions
-  | `(solveDumpSmt| (dump-smt-lib: $n:num)) =>
+def parseDumpSmt (sOpts : SolverOptions) : TSyntax `solveOptionT → TacticM SolverOptions
+  | `(solveOptionT| (dump-smt-lib: $n:num)) =>
       match n.getNat with
       | 0 => return { sOpts with dumpSmtLib := false }
       | 1 => return { sOpts with dumpSmtLib := true }
       | _ => throwUnsupportedSyntax
   | _ => return sOpts
 
-def parseGenCex (sOpts : SolverOptions) : TSyntax `solveOptionT -> TacticM SolverOptions
-  | `(solveGenCex| (gen-cex: $n:num)) =>
+def parseGenCex (sOpts : SolverOptions) : TSyntax `solveOptionT → TacticM SolverOptions
+  | `(solveOptionT| (gen-cex: $n:num)) =>
       match n.getNat with
       | 0 => return { sOpts with generateCex := false }
       | 1 => return { sOpts with generateCex := true }
       | _ => throwUnsupportedSyntax
   | _ => return sOpts
 
-def parseRandomSeed (sOpts : SolverOptions) : TSyntax `solveOptionT -> TacticM SolverOptions
-  | `(solveRandomSeed| (random-seed: $n:num)) =>
+def parseRandomSeed (sOpts : SolverOptions) : TSyntax `solveOptionT → TacticM SolverOptions
+  | `(solveOptionT| (random-seed: $n:num)) =>
       match n.getNat with
       | 0 => return { sOpts with randomSeed := none }
       | n => return { sOpts with randomSeed := some n }
   | _ => return sOpts
 
-def parseSolveResult (sOpts : SolverOptions) : TSyntax `solveOptionT -> TacticM SolverOptions
-  | `(solveResult| (solve-result: $n:num)) =>
+def parseSolveResult (sOpts : SolverOptions) : TSyntax `solveOptionT → TacticM SolverOptions
+  | `(solveOptionT| (solve-result: $n:num)) =>
       match n.getNat with
       | 0 => return { sOpts with solveResult := .ExpectedValid }
       | 1 => return { sOpts with solveResult := .ExpectedFalsified }
@@ -107,21 +105,27 @@ def parseSolveOption (sOpts : SolverOptions) (opt : TSyntax `solveOptionT) : Tac
   let sOpts ← parseRandomSeed sOpts opt
   return sOpts
 
+/-! ### Process Multiple Options -/
+def parseSolveOptions (opts : Array Syntax) (sOpts : SolverOptions) : TacticM SolverOptions :=
+  opts.foldlM (init := sOpts) fun acc opt => do
+    let opt' : TSyntax `solveOptionT := ⟨opt⟩  -- Explicit cast
+    parseSolveOption acc opt'
+
 /-! ### Main Translation Function with Result Handling -/
-def translateMainWithResult (e : Expr) : TranslateEnvT Result := do
+def translateMainWithResult (e : Expr) : TranslateEnvT (Result × Expr)  := do
     let optExpr ← Optimize.main (← toPropExpr e)
     match (toResult optExpr) with
     | res@(.Undetermined) =>
         if (← get).optEnv.options.solverOptions.onlyOptimize
-        then return res
+        then return (res, optExpr)
         else
           setSolverProcess
           let st ← translateExpr optExpr
           assertTerm (notSmt st)
           let res ← checkSat
           discard $ exitSmt
-          return res
-    | res => return res
+          return (res, optExpr)
+    | res => return (res, optExpr)
   where
     isTheoremExpr (e : Expr) : TranslateEnvT (Option Expr) := do
       let Expr.const n _ := e.getAppFn' | return none
@@ -135,34 +139,39 @@ def translateMainWithResult (e : Expr) : TranslateEnvT Result := do
       if (← isPropEnv e) then return e
          throwEnvError "translate: {← ppExpr e} is not a proposition!"
 
-@[tactic lean_blasterTactic]
-def lean_blasterTacticImp : Tactic := fun stx => withMainContext do
-  -- Parse options
-  let sOpts ← parseVerbose (← parseTimeout (← parseUnfoldDepth default ⟨stx[1]⟩) ⟨stx[2]⟩) ⟨stx[3]⟩
-  let sOpts ← parseDumpSmt (← parseOptimize (← parseSmtLib sOpts ⟨stx[4]⟩) ⟨stx[5]⟩) ⟨stx[6]⟩
-  let sOpts ← parseSolveResult (← parseGenCex sOpts ⟨stx[7]⟩) ⟨stx[8]⟩
+@[tactic blastTactic]
+def blastTacticImp : Tactic := fun stx => withMainContext do
+  -- Parse options in any order
+  let opts := stx[1].getArgs
+  let sOpts ← parseSolveOptions opts default
 
   -- Get the current goal
   let goal ← getMainGoal
   let goalType ← goal.getType
 
   let env : TranslateEnv := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
-  let (result, _) ← translateMainWithResult goalType |>.run env
+  let ((result, optExpr), finalEnv) ← translateMainWithResult goalType |>.run env
+
+  if sOpts.dumpSmtLib then
+    let smtLibQuery := finalEnv.smtEnv.smtCommands
+    let smtLibStr := formatSmtQuery smtLibQuery
+    logInfo m!"SMT-Lib Query:\n{smtLibStr}"
+
+  discard $ (logResult result).run finalEnv
 
   match result with
   | .Valid =>
       -- TODO: replace with proper proof reconstruction
-      let sorryProof ← mkSorry goalType (synthetic := false)
+      -- Label sorry for goal splitting?
+      let sorryProof ← Lean.Meta.mkLabeledSorry goalType (synthetic := false) (unique := true)
       goal.assign sorryProof
       replaceMainGoal []
   | .Falsified cex =>
-      let cexMsg := if cex.isEmpty then
-        "SMT solver found counterexample (no details available)"
-      else
-        let cexLines := String.intercalate "\n" (cex.map (fun s => s!"  • {s}"))
-        s!"SMT solver found counterexample:\n{cexLines}"
-      throwTacticEx `lean_blaster goal cexMsg
+    throwTacticEx `blast goal "Goal was falsified (see counterexample above)"
   | .Undetermined =>
-      throwTacticEx `lean_blaster goal "SMT solver could not determine validity"
+      -- Replace the goal with the optimized expression
+      let newGoal ← goal.replaceTargetEq optExpr (← mkEqRefl goalType)
+      replaceMainGoal [newGoal]
+
 
 end Solver.Tactic

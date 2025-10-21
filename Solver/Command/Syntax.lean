@@ -127,7 +127,7 @@ def parseSolveOption (sOpts : SolverOptions) (opt : TSyntax `solveOption) : Comm
 /-! ### Process Multiple Options -/
 def parseSolveOptions (opts : Array Syntax) (sOpts : SolverOptions) : CommandElabM SolverOptions :=
   opts.foldlM (init := sOpts) fun acc opt => do
-    let opt' : TSyntax `solveOption := ⟨opt⟩  -- Explicit cast
+    let opt' : TSyntax `solveOption := ⟨opt⟩
     parseSolveOption acc opt'
 
 def parseTerm : TSyntax `Solver.solveTerm -> CommandElabM Syntax
