@@ -20,6 +20,23 @@ syntax "(gen-cex:" num ")" : solveOptionT
 syntax "(random-seed:" num ")" : solveOptionT
 syntax "(solve-result:" num ")" : solveOptionT
 
+
+/--
+`blast` is an SMT-based tactic that automatically proves goals using Z3.
+
+Options:
+      - `timeout`: specifying the timeout (in second) to be used for the backend smt solver (defaut: ∞)
+      - `verbose:` activating debug info (default: 0)
+      - `only-smt-lib`: only translating unsolved goals to smt-lib without invoking the backend solver (default: 0)
+      - `only-optimize`: only perform optimization on lean specification and do not translate to smt-lib (default: 0)
+      - `dump-smt-lib`: display the smt lib query to stdout (default: 0)
+      - `gen-cex`: generate counterexample for falsified theorems (default: 1)
+      - `unfold-depth`: specifying the number of unfolding to be performed on recursive functions (default: 100)
+      - `random-seed`: seed for the random number generator (default: none)
+      - `solve-result`: specify the expected result from the #solve command, i.e.,
+                        0 for 'Valid', 1 for 'Falsified' and 2 for 'Undetermined'. (default: 0)
+Example: `blast (timeout: 10) (verbose: 1)`
+-/
 syntax (name := blastTactic) "blast_smt" (solveOptionT)* : tactic
 
 /-! ### Helper Functions -/
@@ -29,10 +46,6 @@ def formatSmtQuery (cmds : Array SmtCommand) : String :=
 /-! ### Individual Parsing Functions -/
 def parseUnfoldDepth (sOpts : SolverOptions) : TSyntax `solveOptionT → TacticM SolverOptions
   | `(solveOptionT| (unfold-depth: $n:num)) => return { sOpts with unfoldDepth := n.getNat }
-  | _ => return sOpts
-
-def parseMaxDepth (sOpts : SolverOptions) : TSyntax `solveOptionT → TacticM SolverOptions
-  | `(solveOptionT| (max-depth: $n:num)) => return { sOpts with maxDepth := n.getNat }
   | _ => return sOpts
 
 def parseTimeout (sOpts : SolverOptions) : TSyntax `solveOptionT → TacticM SolverOptions
@@ -101,7 +114,6 @@ def parseSolveOption (sOpts : SolverOptions) (opt : TSyntax `solveOptionT) : Tac
   let sOpts ← parseDumpSmt sOpts opt
   let sOpts ← parseGenCex sOpts opt
   let sOpts ← parseSolveResult sOpts opt
-  let sOpts ← parseMaxDepth sOpts opt
   let sOpts ← parseRandomSeed sOpts opt
   return sOpts
 
