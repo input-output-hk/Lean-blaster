@@ -120,7 +120,7 @@ def parseSolveOption (sOpts : SolverOptions) (opt : TSyntax `solveOptionT) : Tac
 /-! ### Process Multiple Options -/
 def parseSolveOptions (opts : Array Syntax) (sOpts : SolverOptions) : TacticM SolverOptions :=
   opts.foldlM (init := sOpts) fun acc opt => do
-    let opt' : TSyntax `solveOptionT := ⟨opt⟩  -- Explicit cast
+    let opt' : TSyntax `solveOptionT := ⟨opt⟩
     parseSolveOption acc opt'
 
 /-! ### Main Translation Function with Result Handling -/
@@ -159,10 +159,25 @@ def blastTacticImp : Tactic := fun stx => withMainContext do
 
   -- Get the current goal
   let goal ← getMainGoal
-  let goalType ← goal.getType
+
+  -- Build the full goal including hypotheses as implications
+  let fullGoal ← goal.withContext do
+    let goalType ← goal.getType
+    -- Get all hypotheses from the local context
+    let lctx ← getLCtx
+    let mut hyps := #[]
+
+    for decl in lctx do
+      if decl.isImplementationDetail then continue
+      let declType ← instantiateMVars decl.type
+      if ← isProp declType then
+        hyps := hyps.push decl.toExpr
+
+    -- Build: h1 → h2 → ... → hn → goal
+    mkForallFVars hyps goalType
 
   let env : TranslateEnv := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
-  let ((result, optExpr), finalEnv) ← translateMainWithResult goalType |>.run env
+  let ((result, optExpr), finalEnv) ← translateMainWithResult fullGoal |>.run env
 
   if sOpts.dumpSmtLib then
     let smtLibQuery := finalEnv.smtEnv.smtCommands
@@ -175,6 +190,7 @@ def blastTacticImp : Tactic := fun stx => withMainContext do
   | .Valid =>
       -- TODO: replace with proper proof reconstruction
       -- Label sorry for goal splitting?
+      let goalType ← goal.getType
       let sorryProof ← Lean.Meta.mkLabeledSorry goalType (synthetic := false) (unique := true)
       goal.assign sorryProof
       replaceMainGoal []
@@ -182,8 +198,8 @@ def blastTacticImp : Tactic := fun stx => withMainContext do
     throwTacticEx `blast goal "Goal was falsified (see counterexample above)"
   | .Undetermined =>
       -- Replace the goal with the optimized expression
+      let goalType ← goal.getType
       let newGoal ← goal.replaceTargetEq optExpr (← mkEqRefl goalType)
       replaceMainGoal [newGoal]
-
 
 end Solver.Tactic
