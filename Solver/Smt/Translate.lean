@@ -43,13 +43,14 @@ partial def translateExpr (e : Expr) : TranslateEnvT SmtTerm := do
      | Expr.sort _ => throwEnvError "translateExpr: unexpected sort type {reprStr e}" -- sort type are handled elsewhere
   visit e (topLevel := true)
 
-def Translate.main (e : Expr) : TranslateEnvT Unit := do
+def Translate.main (e : Expr) (logUndetermined := true) : TranslateEnvT (Result × Expr) := do
     let optExpr ← profileTask "Optimization" $ Optimize.main (← toPropExpr e)
     trace[Translate.optExpr] "optimized expression: {← ppExpr optExpr}"
     match (toResult optExpr) with
     | res@(.Undetermined) =>
-        if (← get).optEnv.options.solverOptions.onlyOptimize
-        then logResult res
+        if (← get).optEnv.options.solverOptions.onlyOptimize then
+          if logUndetermined then logResult res
+          return (res, optExpr)
         else
           -- set backend solver
           setSolverProcess
@@ -61,9 +62,10 @@ def Translate.main (e : Expr) : TranslateEnvT Unit := do
           let res ← profileTask "Solve" checkSat
           logResult res
           discard $ exitSmt
-          -- TODO: spawn lean proof mode when result is undetermined
-
-    | res => logResult res
+          return (res, optExpr)
+    | res =>
+       logResult res
+       return (res, optExpr)
 
   where
     isTheoremExpr (e : Expr) : TranslateEnvT (Option Expr) := do
