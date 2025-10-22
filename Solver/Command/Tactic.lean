@@ -13,16 +13,16 @@ namespace Solver.Tactic
 `blaster` is an SMT-based tactic that automatically proves goals using Z3.
 
 Options:
-      - `timeout`: specifying the timeout (in second) to be used for the backend smt solver (defaut: ∞)
-      - `verbose:` activating debug info (default: 0)
-      - `only-smt-lib`: only translating unsolved goals to smt-lib without invoking the backend solver (default: 0)
-      - `only-optimize`: only perform optimization on lean specification and do not translate to smt-lib (default: 0)
-      - `dump-smt-lib`: display the smt lib query to stdout (default: 0)
-      - `gen-cex`: generate counterexample for falsified theorems (default: 1)
-      - `unfold-depth`: specifying the number of unfolding to be performed on recursive functions (default: 100)
-      - `random-seed`: seed for the random number generator (default: none)
-      - `solve-result`: specify the expected result from the blaster tactic, i.e.,
-                        0 for 'Valid', 1 for 'Falsified' and 2 for 'Undetermined'. (default: 0)
+  - `timeout`: specifying the timeout (in second) to be used for the backend smt solver (defaut: ∞)
+  - `verbose:` activating debug info (default: 0)
+  - `only-smt-lib`: only translating unsolved goals to smt-lib without invoking the backend solver (default: 0)
+  - `only-optimize`: only perform optimization on lean specification and do not translate to smt-lib (default: 0)
+  - `dump-smt-lib`: display the smt lib query to stdout (default: 0)
+  - `gen-cex`: generate counterexample for falsified theorems (default: 1)
+  - `unfold-depth`: specifying the number of unfolding to be performed on recursive functions (default: 100)
+  - `random-seed`: seed for the random number generator (default: none)
+  - `solve-result`: specify the expected result from the blaster tactic, i.e.,
+                    0 for 'Valid', 1 for 'Falsified' and 2 for 'Undetermined'. (default: 0)
 Example: `blaster (timeout: 10) (verbose: 1)`
 -/
 syntax (name := blasterTactic) "blaster" (solveOption)* : tactic
