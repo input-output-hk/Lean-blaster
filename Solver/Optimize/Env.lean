@@ -452,6 +452,15 @@ instance : Inhabited TranslateEnv where
 
 abbrev TranslateEnvT := StateRefT TranslateEnv MetaM
 
+def getMCtx' : MetaM MetavarContext := do
+  return (← get).mctx
+
+def modifyMCtx' (f : MetavarContext → MetavarContext) : MetaM Unit := modifyMCtx f
+
+instance : MonadMCtx TranslateEnvT where
+  getMCtx := getMCtx'
+  modifyMCtx f := modifyMCtx' f
+
 protected def throwEnvError (msg : MessageData) : TranslateEnvT α := do
   if let some p := (← get).smtEnv.smtProc then
     p.kill

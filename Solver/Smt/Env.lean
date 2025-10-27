@@ -34,6 +34,11 @@ def isFalsifiedResult (r : Result) : Bool :=
   | .Falsified _ => true
   | _ => false
 
+def isUndeterminedResult (r : Result) : Bool :=
+  match r with
+  | .Undetermined => true
+  | _ => false
+
 def falsifiedError (r : Result) : String :=
   s!"Falsified result expected but got {reprStr r}"
 

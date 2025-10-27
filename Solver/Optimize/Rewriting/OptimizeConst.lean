@@ -38,7 +38,7 @@ namespace Solver.Optimize
          - Otherwise
              - return `mkExpr e`
 -/
-def normConst (e : Expr) ( stack : List OptimizeStack) : TranslateEnvT OptimizeContinuity := do
+def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeContinuity := do
   match e with
   | Expr.const n _ =>
        withLocalContext $ do

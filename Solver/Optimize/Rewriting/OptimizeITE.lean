@@ -134,11 +134,11 @@ def isITESwap? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := d
      - if c then e1 else e2 ==> e1 (if e1 =ₚₜᵣ e2)
      - if True then e1 else e2 ==> e1
      - if False then e1 else e2 ==> e2
+     - if c then e1 else e2 ==> e1 (if c := _ ∈ hypothesisContext.hypothesisMap)
+     - if c then e1 else e2 ==> e2 (if ∃ e := _ ∈ hypothesisContext.hypothesisMap ∧ e = ¬ c)
      - if c then e1 else e2 ==> (c → e1) ∧ (¬ c → e2) (if Type(e1) = Prop)
      - if c then e1 else e2 ==> if c' then e2 else e1 (if c := ¬ c')
      - if c then e1 else e2 ==> if true = c' then e2 else e1 (if c := false = c')
-     - if c then e1 else e2 ==> e1 (if c := _ ∈ hypothesisContext.hypothesisMap)
-     - if c then e1 else e2 ==> e2 (if ∃ e := _ ∈ hypothesisContext.hypothesisMap ∧ e = ¬ c)
      - if a then (if c1 then e1 else e2) else (if c2 then e1 else e2) ==>
           if (a ∧ c1) ∨ (¬ a ∧ c2) then e1 else e2
 
@@ -177,9 +177,9 @@ def optimizeITE (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if (← exprEq t e) then return t
  if let Expr.const ``True _ := c then return t
  if let Expr.const ``False _ := c then return e
+ if let some r ← iteReduce? c t e then return r
  if let some r ← iteToPropExpr? iteType c t e then return r
  if let some r ← isITESwap? f args then return r
- if let some r ← iteReduce? c t e then return r
  if let some r ← iteIteFactorize? c t e then return r
  if let some r ← iteDiteFactorize? c t e then return r
  return mkAppN f (← updateITEDecidable args)
@@ -297,13 +297,13 @@ def diteToIte? (s : Expr) (c : Expr) (decInst : Expr) (t : Expr) (e : Expr) : Tr
      - dite c (fun h : c => e1) (fun h : ¬ c => e2) ==> e1 (if e1 =ₚₜᵣ e2)
      - dite True (fun h : True => e1) (fun h : False => e2) ==> e1
      - dite False (fun h : True => e1) (fun h : False => e2) ==> e2
-     - dite c (fun h : c => e1) (fun h : ¬ c => e2) ==> (c → e1) ∧ (¬ c → e2) (if Type(e1) = Prop)
-     - dite c (fun h : c => e1) (fun h : ¬ c => e2) ==> dite c' (fun h : c' => e2) (fun h : ¬ c' => e1) (if c = ¬ c')
-     - dite c (fun h : c => e1) (fun h : ¬ c => e2) ==> dite true = c' (fun h : true = c' => e2) (fun h : false = c' => e1) (if c := false = c')
      - dite c (fun h : c => e1) (fun h : ¬ c => e2) ==> e1 (if c := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ e1.hasLooseBVars)
      - dite c (fun h : c => e1) (fun h : ¬ c => e2) ==> e2 (if ∃ e := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ e2.hasLooseBVars ∧ e = ¬ c )
      - dite c (fun h : c => e1) (fun h : ¬ c => e2) ==> e1[h/h'] (if c := some h' ∈ hypothesisContext.hypothesisMap ∧ e1.hasLooseBVars)
      - dite c (fun h : c => e1) (fun h : ¬ c => e2) ==> e1[h/h'] (if ∃ e := some h' ∈ hypothesisContext.hypothesisMap ∧ e2.hasLooseBVars ∧ e = ¬ c)
+     - dite c (fun h : c => e1) (fun h : ¬ c => e2) ==> (c → e1) ∧ (¬ c → e2) (if Type(e1) = Prop)
+     - dite c (fun h : c => e1) (fun h : ¬ c => e2) ==> dite c' (fun h : c' => e2) (fun h : ¬ c' => e1) (if c = ¬ c')
+     - dite c (fun h : c => e1) (fun h : ¬ c => e2) ==> dite true = c' (fun h : true = c' => e2) (fun h : false = c' => e1) (if c := false = c')
      - dite c (fun h : c => e1) (fun h : ¬ c => e2) ==> if c then e1 else e2 (if ¬ e1.hasLooseBVars ∧ ¬ e2.hasLooseBVars)
 
      - dite a (fun h : a => if c then e1 else e2) (fun h : ¬ a => if c then e1 else e3) ==>
@@ -340,10 +340,10 @@ def optimizeDITE (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if (← exprEq thenExpr elseExpr) then return t.beta #[← mkOfDecideEqProof c true]
  if let Expr.const ``True _ := c then return t.beta #[← mkTrueIntro]
  if let Expr.const ``False _ := c then return e.beta #[← mkNotFalse]
- if let some r ← diteToPropExpr? iteType c t e then return r
- if let some r ← isITESwap? f args then return r
  if let some r ← diteReduce? c t then return r
  if let some r ← diteReduce? (← optimizeNot (← mkPropNotOp) #[c] (cacheResult := false)) e then return r
+ if let some r ← diteToPropExpr? iteType c t e then return r
+ if let some r ← isITESwap? f args then return r
  if let some r ← diteToIte? iteType c args[2]! t e then return r
  if let some r ← diteIteFactorize? c t e then return r
  if let some r ← diteDiteFactorize? c t e then return r

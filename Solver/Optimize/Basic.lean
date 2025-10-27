@@ -19,7 +19,11 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
       | Sum.inl i_stack =>
           -- trace[Optimize.expr] "optimizing {← ppExpr e}"
           match e with
-          | Expr.fvar .. -- free variables
+          | Expr.fvar _ =>
+              match (← normFVar e i_stack) with
+              | Sum.inr e' => return e'
+              | Sum.inl stack' => optimizeExprAux stack'
+
           | Expr.sort _ -- sort is used for Type u, Prop, etc
           | Expr.lit .. => -- number or string literal
               match (← stackContinuity i_stack (← mkExpr e)) with
@@ -190,6 +194,20 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
   | _ => throwEnvError "optimizeExprAux: unexpected optimize stack continuity {reprStr stack} !!!"
 
   where
+
+    /-- Given `e := Expr.fVar fv` perform the following:
+         - When `some v := fv.getValue?`
+             `return `Sum.inl (.InitOptimizeExpr v :: stack)`
+         - Otherwise:
+              `return `stackContinuity stack (← mkExpr e)`
+    -/
+    @[always_inline, inline]
+    normFVar (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeContinuity :=
+      withLocalContext $ do
+        match ← e.fvarId!.getValue? with
+        | none => stackContinuity stack (← mkExpr e)
+        | some v =>
+            return Sum.inl (.InitOptimizeExpr (← instantiateMVars v) :: stack)
 
     /-- Given a function `f := Expr const n l` perform the following:
          - When `n := mInfo ∈ isMatcherCache` (i.e., match info already optimized)

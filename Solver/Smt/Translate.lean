@@ -60,7 +60,7 @@ def Translate.main (e : Expr) (logUndetermined := true) : TranslateEnvT (Result 
           -- dump smt commands submitted to backend solver when `dumpSmtLib` option is set.
           logSmtQuery
           let res ← profileTask "Solve" checkSat
-          logResult res
+          if !isUndeterminedResult res || logUndetermined then logResult res
           discard $ exitSmt
           return (res, optExpr)
     | res =>

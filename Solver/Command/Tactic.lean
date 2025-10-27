@@ -27,50 +27,44 @@ Example: `blaster (timeout: 10) (verbose: 1)`
 -/
 syntax (name := blasterTactic) "blaster" (solveOption)* : tactic
 
-/-! ### Helper Functions -/
 
 @[tactic blasterTactic]
-def blasterTacticImp : Tactic := fun stx => withMainContext do
-  -- Parse options in any order
-  let opts := stx[1].getArgs
-  let sOpts ← parseSolveOptions opts default
+def blasterTacticImp : Tactic := fun stx =>
+  withMainContext $ do
+   -- Parse options in any order
+   let opts := stx[1].getArgs
+   let sOpts ← parseSolveOptions opts default
+   let goal ← revertHypotheses (← getMainGoal)
+   let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
+   let ((result, optExpr), _) ←
+     withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0 }) $ do
+       IO.setNumHeartbeats 0
+       Translate.main (← goal.getType) (logUndetermined := false) |>.run env
+   match result with
+   | .Valid => goal.admit -- TODO: replace with proof reconstruction
+   | .Falsified cex => throwTacticEx `blaster goal "Goal was falsified (see counterexample above)"
+   | .Undetermined =>
+        -- Replace the goal with the optimized expression
+        let newGoal ← goal.replaceTargetDefEq optExpr
+        replaceMainGoal [newGoal]
 
-  -- Get the current goal
-  let goal ← getMainGoal
+  where
+    @[always_inline, inline]
+    revertHypotheses (goal : MVarId) : TacticM MVarId :=
+      goal.withContext $ do
+        -- Get all hypotheses from the local context
+        let lctx ← getLCtx
+        let mut hyps := #[]
+        for decl in lctx do
+          if decl.isImplementationDetail then continue
+          let declType ← instantiateMVars decl.type
+          if ← isProp declType then
+            hyps := hyps.push decl.fvarId
+        -- revert hyp from context
+        hyps.foldrM
+          (fun h g => do
+             let (_, g) ← g.revert #[h]
+             return g) goal
 
-  -- Build the full goal including hypotheses as implications
-  let fullGoal ← goal.withContext do
-    let goalType ← goal.getType
-    -- Get all hypotheses from the local context
-    let lctx ← getLCtx
-    let mut hyps := #[]
-    for decl in lctx do
-      if decl.isImplementationDetail then continue
-      let declType ← instantiateMVars decl.type
-      if ← isProp declType then
-        hyps := hyps.push decl.toExpr
-    -- Build: h1 → h2 → ... → hn → goal
-    mkForallFVars hyps goalType
-
-  let env : TranslateEnv := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
-  let ((result, optExpr), _) ← Translate.main fullGoal (logUndetermined := false) |>.run env
-
-  match result with
-  | .Valid =>
-      -- TODO: replace with proper proof reconstruction
-      -- Label sorry for goal splitting?
-      let goalType ← goal.getType
-      let sorryProof ← Lean.Meta.mkLabeledSorry goalType (synthetic := false) (unique := true)
-      goal.assign sorryProof
-      replaceMainGoal []
-
-  | .Falsified cex =>
-        throwTacticEx `blaster goal "Goal was falsified (see counterexample above)"
-
-  | .Undetermined =>
-      -- Replace the goal with the optimized expression
-      let goalType ← goal.getType
-      let newGoal ← goal.replaceTargetEq optExpr (← mkEqRefl goalType)
-      replaceMainGoal [newGoal]
 
 end Solver.Tactic
