@@ -589,6 +589,12 @@ def isForbiddenConstExpr (e : Expr) : Bool :=
   | Expr.const n _ => isForbiddenConst n
   | _ => false
 
+@[always_inline, inline]
+def updateAxiomMap (n : Name) : TranslateEnvT SmtSymbol := do
+  let s := nameToSmtSymbol n
+  modify (fun env => { env with smtEnv.options.axiomMap := env.smtEnv.options.axiomMap.insert n s })
+  return s
+
 /-- Given `e := Expr.const n l`,
      - when `n := false`
         - return `BoolTerm false`
@@ -647,6 +653,7 @@ def translateConst
       throwEnvError "translateConst: unexpected implicit arguments for function {reprStr e}"
     if let some r ← translateDefineFun? n then return r
     if let some r ← translateTheorem? n then return r
+    if let some r ← translateAxiom? n then return r
     throwEnvError "translateConst: only opaque/recursive functions and theorems expected but got {reprStr e}"
 
 
@@ -674,6 +681,22 @@ def translateConst
       if info.type.isForall then
         throwEnvError "translateConst: Fully applied theorem expected but got {reprStr info.type}"
       termTranslator (← optimizeExpr' info.type)
+
+    translateAxiom? (n : Name) : TranslateEnvT (Option SmtTerm) := do
+       let ConstantInfo.axiomInfo info ← getConstEnvInfo n | return none
+       if ← isPropEnv info.type then
+         throwEnvError "translateConst: Unexpecte Axiom of type Prop {n}"
+       match (← get).smtEnv.options.axiomMap.get? n with
+       | some s => return (smtSimpleVarId s)
+       | none =>
+           let smtSym ← updateAxiomMap n
+           let t' ← removeTypeAbbrev info.type
+           let smtType ← translateTypeAux termTranslator t'
+           -- declare free variable at top level
+           declareConst smtSym smtType
+           let pTerm ← createPredQualifierApp smtSym t'
+           assertTerm pTerm
+           return (smtSimpleVarId smtSym)
 
     isForbiddenUnappliedConst (n : Name) : Bool :=
       match n with

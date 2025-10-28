@@ -317,11 +317,17 @@ structure TranslateOptions where
   -/
   inPatternMatching : Std.HashSet FVarId
 
+  /-- Map keeping track of axioms not of type Prop, encountered during translation.
+      This set is used mainly to avoid multiple global declaration in the Smt instance.
+  -/
+  axiomMap : Std.HashMap Name SmtSymbol
+
 instance : Inhabited TranslateOptions where
   default := {typeUniverse := false,
               inFunRecDefinition := false,
               arrowTypeArities := .emptyWithCapacity,
-              inPatternMatching := .emptyWithCapacity
+              inPatternMatching := .emptyWithCapacity,
+              axiomMap := .emptyWithCapacity
              }
 
 abbrev TopLevelVars := Array (List (SmtSymbol × Lean.Name))
@@ -1726,6 +1732,23 @@ def hasRecFunInst? (instApp : Expr) : TranslateEnvT (Option Expr) := do
      | res => return res
   | none => return none
 
+
+/-- Returns all axioms only defined in current module. -/
+def findLocalAxioms : TranslateEnvT (List Expr) := do
+ let env ← getEnv
+ (Environment.constants env).toList.filterMapM
+    (λ c : Name × ConstantInfo => do
+      if !Environment.isImportedConst env c.1
+      then
+        match c.2 with
+        | .axiomInfo info =>
+            if ← isTheorem c.1 then return none
+            if ← isPropEnv (info.type) then
+              return some info.type
+            else return none
+        | _ => return none
+      else return none
+    )
 
 initialize
   registerTraceClass `Optimize.cacheExpr

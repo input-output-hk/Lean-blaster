@@ -80,7 +80,7 @@ partial def kIndStrategy (smInst : Expr) : TranslateEnvT Unit := do
                  (verboseLevel := 2)
              let initSt ←
                 profileTask s!"Translate initialization constraint"
-                (translateExpr initEq)
+                (translateExpr initEq (topLevel := false))
                 (verboseLevel := 2)
              -- generate init flag
              let iflag ← defineSmtInitFlag
@@ -118,7 +118,7 @@ partial def kIndStrategy (smInst : Expr) : TranslateEnvT Unit := do
      let st ←
        profileTask
        s!"Translating invariants at Depth {currDepth}"
-       (translateExpr invExpr)
+       (translateExpr invExpr (topLevel := false))
        (verboseLevel := 2)
      -- generate depth flag
      let dflag ← defineSmtDepthFlag

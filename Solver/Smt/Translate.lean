@@ -10,7 +10,7 @@ open Lean Elab Command Term Meta Solver.Optimize Solver.Options
 namespace Solver.Smt
 
 /-- Translate an optimized Lean4 `Expr` to an SMT term, and invoke the solver. --/
-partial def translateExpr (e : Expr) : TranslateEnvT SmtTerm := do
+partial def translateExpr (e : Expr) (topLevel := true) : TranslateEnvT SmtTerm := do
   let rec visit (e : Expr) (topLevel := false) : TranslateEnvT SmtTerm := do
     withTranslateEnvCache e fun _ => do
     trace[Translate.expr] "translating {reprStr e}"
@@ -41,10 +41,11 @@ partial def translateExpr (e : Expr) : TranslateEnvT SmtTerm := do
      | Expr.bvar .. => throwEnvError "translateExpr: unexpected bounded variable {reprStr e}"
      | Expr.letE .. => throwEnvError "translateExpr: unexpected let expression {reprStr e}"
      | Expr.sort _ => throwEnvError "translateExpr: unexpected sort type {reprStr e}" -- sort type are handled elsewhere
-  visit e (topLevel := true)
+  visit e topLevel
 
 def Translate.main (e : Expr) (logUndetermined := true) : TranslateEnvT (Result × Expr) := do
-    let optExpr ← profileTask "Optimization" $ Optimize.main (← toPropExpr e)
+    let e' ← addAxioms (← toPropExpr e) (← findLocalAxioms)
+    let optExpr ← profileTask "Optimization" $ Optimize.main e'
     trace[Translate.optExpr] "optimized expression: {← ppExpr optExpr}"
     match (toResult optExpr) with
     | res@(.Undetermined) =>
@@ -79,6 +80,12 @@ def Translate.main (e : Expr) (logUndetermined := true) : TranslateEnvT (Result 
          throwEnvError "translate: {← ppExpr e} is not well-formed"
       if (← isPropEnv e) then return e
          throwEnvError "translate: {← ppExpr e} is not a proposition !!!"
+
+    addAxioms (e : Expr) (axioms : List Expr) : TranslateEnvT Expr := do
+      match axioms with
+      | [] => return e
+      | a :: tl =>
+         addAxioms (mkForall (← Term.mkFreshBinderName) BinderInfo.default a e) tl
 
 def command (sOpts: SolverOptions) (stx : Syntax) : TermElabM Unit := do
   elabTermAndSynthesize stx none >>= fun e => do
