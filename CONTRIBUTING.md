@@ -68,7 +68,7 @@ staging (integration)
 feature/your-feature (development)
 ```
 
-1. Create your feature branch from `main`: `git checkout -b feature/my-feature main`
+1. Create your feature branch from `staging`: `git checkout -b feature/my-feature staging`
 2. Make your changes and commit them
 3. Push your branch to your fork
 4. Open a PR targeting `staging` 
