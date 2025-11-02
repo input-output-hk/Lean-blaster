@@ -151,7 +151,7 @@ To run the full check:
 make check_all
 ```
 
-This wil run the build, tests, and ensure that all files were considered by the build system.
+This will run the build, tests, and ensure that all files were considered by the build system.
 
 ## Pull Request Process
 
