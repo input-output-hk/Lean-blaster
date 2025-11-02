@@ -97,7 +97,11 @@ We follow the standard Lean4 style conventions supported by the VSCode extension
 
 ### Documentation
 
-- Add doc comments (`/--` ... `-/`) for all public functions
+- Add doc comments for all public functions, e.g.:
+
+  ```lean
+  /-- This function adds two numbers. -/
+  def add (a b : Nat) : Nat := a + b
 - Include examples in doc comments where helpful
 - Update README.md if adding user-facing features
 
