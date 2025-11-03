@@ -1,0 +1,115 @@
+name: ci-linux
+
+on:
+  pull_request:
+  push:
+    branches: [ staging, main ]
+
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  LEAN_VERSION: "4.24.0"
+  Z3_VERSION: "4.15.4"
+  GLIBC_Z3: "2.39"
+
+jobs:
+  build:
+    runs-on:
+      labels: ubuntu-latest
+
+    steps:
+      - name: Setup Lean
+        run: |
+          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
+          echo "/home/runner/.elan/bin" >> $GITHUB_PATH
+          chmod +x /home/runner/.elan/bin/*
+
+      - name: Fix Elan version
+        run: |
+          elan toolchain install ${{ env.LEAN_VERSION }}
+          elan default ${{ env.LEAN_VERSION }}
+
+      - name: Install Z3
+        run: |
+          cd /home/runner/
+          wget -q https://github.com/Z3Prover/z3/releases/download/z3-${{ env.Z3_VERSION }}/z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}.zip
+          unzip -q z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}.zip
+          chmod +x z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}.zip
+          echo "/home/runner/z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}/bin" >> $GITHUB_PATH
+
+      - name: Tools version
+        run: |
+          elan --version
+          lake --version
+          lean --version
+          z3 --version
+
+      - name: Cache Z3
+        uses: actions/cache@v3
+        id: z3-cache
+        with:
+          path: /home/runner/z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}/bin
+          key: z3-${{ env.Z3_VERSION }}
+          restore-keys: z3-
+
+      - name: Cache .elan
+        uses: actions/cache@v3
+        id: elan-cache
+        with:
+          path: /home/runner/.elan/bin
+          key: elan-${{ env.LEAN_VERSION }}
+          restore-keys: elan-
+
+
+  check-packages:
+    needs: build
+    runs-on: ubuntu-latest-16-cores
+    strategy:
+      matrix:
+        pkg:
+          - { cmd: solver, name : Solver }
+          # - { cmd: tests, name : Tests }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore Lean
+        uses: actions/cache@v3
+        with:
+          path: /home/runner/.elan/bin
+          key: elan-${{ env.LEAN_VERSION }}
+          restore-keys: elan-
+
+      - name: Restore Z3
+        uses: actions/cache@v3
+        with:
+          path: /home/runner/z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}/bin
+          key: z3-${{ env.Z3_VERSION }}
+          restore-keys: z3-
+
+      - name: Add Lean to PATH
+        run: |
+         echo "/home/runner/.elan/bin" >> $GITHUB_PATH
+         echo "/home/runner/z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}/bin" >> $GITHUB_PATH
+
+      - name: Configure Lean toolchain
+        run: elan default ${{ env.LEAN_VERSION }}
+
+      - name: Tools version
+        run: |
+          elan --version
+          lake --version
+          lean --version
+          z3 --version
+
+      - name: Build and Validate ${{ matrix.pkg.name }} Project
+        run: make check_${{ matrix.pkg.cmd }}
+
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.pkg.cmd }}-build
+          path: ./${{ matrix.pkg.name }}/build.log
