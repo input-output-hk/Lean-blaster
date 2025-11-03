@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+
+exec_found=0
+if [[ $# -eq 2 ]]
+then
+  LEAN_FOLDER=$1
+  PROJECT_NAME=$2
+  cd $LEAN_FOLDER
+  LEAN_FILES=`find . -name '*.lean' | grep -v lakefile.lean`
+  EXEC_FILES=`cat lakefile.lean | grep root | sed 's/root := .//g'`
+  # clean lean project
+  lake clean $PROJECT_NAME
+  # build lean project with log
+  lake build $PROJECT_NAME 2>&1 | tee build.log
+  if [[ $? -ne 0 ]]
+  then
+    cat build.log
+    exit 1
+  fi
+  for i in $LEAN_FILES
+  do
+   LEAN_MODULE=`echo $i | sed 's/\.\///g' | sed 's/\//./g' | sed 's/.lean//g'`
+   RES=`cat build.log | grep -o "Built $LEAN_MODULE"`
+   for j in $EXEC_FILES
+    do
+     if [[ $LEAN_MODULE = $j ]]
+     then
+      let "exec_found=1"
+     fi
+    done
+   if [[ $RES = "" ]] && [ "$exec_found" -eq 0 ]
+   then
+     echo "Lean module $LEAN_MODULE NOT compiled !!!"
+     exit 1
+   fi
+   let "exec_found=0"
+  done
+  # rm build log
+  rm -rf build.log
+else
+cat <<EOF
+ usage: check_lean_project_compilation.sh <LEAN PROJECT FOLDER> <PROJECT NAME>
+EOF
+fi
