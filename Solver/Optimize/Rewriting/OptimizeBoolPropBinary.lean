@@ -1,6 +1,4 @@
 import Lean
-import Solver.Optimize.Rewriting.OptimizeBoolBinary
-import Solver.Optimize.Rewriting.OptimizeEq
 import Solver.Optimize.Rewriting.OptimizePropBinary
 
 open Lean Meta
@@ -20,23 +18,22 @@ namespace Solver.Optimize
 -/
 def propExprToBoolExpr?
   (op1 : Expr) (op2 : Expr) (isBoolAnd? := true) : TranslateEnvT (Option Expr) := do
-  match op1.eq?, op2.eq? with
+  match eq? op1, eq? op2 with
   | some (_, a_op1, a_op2), some (_, b_op1, b_op2) =>
      match isBoolValue? a_op1, isBoolValue? b_op1 with
      | some bv1, some bv2 =>
+         setRestart
          if bv1 || bv2
          then
-           let e1 ← toBoolNotExpr? bv1 a_op2
-           let e2 ← toBoolNotExpr? bv2 b_op2
-           let binExpr ← if isBoolAnd?
-                         then optimizeBoolAnd (← mkBoolAndOp) #[e1, e2]
-                         else optimizeBoolOr (← mkBoolOrOp) #[e1, e2]
-           mkEqBool binExpr true
+           let e1 ← toBoolNotExpr bv1 a_op2
+           let e2 ← toBoolNotExpr bv2 b_op2
+           let boolOp ← if isBoolAnd? then mkBoolAndOp else mkBoolOrOp
+           let binExpr := mkApp2 boolOp e1 e2
+           return mkApp3 (← mkEqOp) (← mkBoolType) (← mkBoolTrue) binExpr
          else
-           let binExpr ← if isBoolAnd?
-                         then optimizeBoolOr (← mkBoolOrOp) #[a_op2, b_op2]
-                         else optimizeBoolAnd (← mkBoolAndOp) #[a_op2, b_op2]
-           mkEqBool binExpr false
+           let boolOp ← if isBoolAnd? then mkBoolOrOp else mkBoolAndOp
+           let binExpr := mkApp2 boolOp a_op2 b_op2
+           return mkApp3 (← mkEqOp) (← mkBoolType) (← mkBoolFalse) binExpr
      | _, _ => return none
   | _, _ => return none
 
@@ -64,10 +61,10 @@ def propExprToBoolExpr?
 
 -/
 def optimizeBoolPropAnd (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
- let e ← optimizeAnd f args (cacheResult := false)
+ let e ← optimizeAnd f args
  let some (op1, op2) := propAnd? e | return e
  if let some r ← propExprToBoolExpr? op1 op2 then return r
- mkExpr e
+ return e
 
 
 /-- Call `optimizeOr f args` and apply the following simplification/normalization
@@ -93,14 +90,13 @@ def optimizeBoolPropAnd (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
    deterministic to produce the same sequence.
 -/
 def optimizeBoolPropOr (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
- let e ← optimizeOr f args (cacheResult := false)
+ let e ← optimizeOr f args
  let some (op1, op2) := propOr? e | return e
  if let some r ← propExprToBoolExpr? op1 op2 (isBoolAnd? := false) then return r
- mkExpr e
+ return e
 
 
-/-- Apply simplification and normalization rules on proposition binary formulae.
--/
+/-- Apply simplification and normalization rules on proposition binary formulae. -/
 def optimizePropBinary? (f: Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
   let Expr.const n _ := f | return none
   match n with

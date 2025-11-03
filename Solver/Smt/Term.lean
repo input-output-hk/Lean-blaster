@@ -58,9 +58,14 @@ def propSort : SortExpr := .SymbolSort propSymbol
 /-! Smt String Sort. -/
 def stringSort : SortExpr := .SymbolSort stringSymbol
 
+/-! Smt Param Sort instance. -/
+@[always_inline, inline]
+def paramSort (s : SmtSymbol) (args : Array SortExpr) : SortExpr :=
+  .ParamSort s args
+
 /-! Smt Array Sort -/
 def arraySort (args: Array SortExpr) : SortExpr :=
-  .ParamSort (mkReservedSymbol "Array") args
+  paramSort (mkReservedSymbol "Array") args
 
 /-! Smt Nat Sort.
     NOTE: This sort is defined during translation whenever required.
@@ -385,8 +390,8 @@ def asArraySmt (f : SmtQualifiedIdent) : SmtTerm :=
   mkSimpleSmtAppN underSymbol #[.SmtIdent (.SimpleIdent asArraySymbol), .SmtIdent f]
 
 /-! Create a select Smt application (i.e., applying an fun array representation to its arguments). -/
-def selectSmt (f : SmtQualifiedIdent) (args : Array SmtTerm) : SmtTerm :=
-  mkSimpleSmtAppN selectSymbol (#[.SmtIdent f] ++ args)
+def selectSmt (f : SmtTerm) (args : Array SmtTerm) : SmtTerm :=
+  mkSimpleSmtAppN selectSymbol (#[f] ++ args)
 
 /-! Return `true` Smt term. -/
 def trueSmt : SmtTerm := .BoolTerm true
@@ -415,22 +420,11 @@ def smtSimpleVarId (nm : SmtSymbol) : SmtTerm := .SmtIdent (.SimpleIdent nm)
 def smtQualifiedVarId (nm : SmtSymbol) (t : SortExpr) : SmtTerm :=
   .SmtIdent (.QualifiedIdent nm t)
 
-/-- Create an Smt symbol from a free variable id.
-    The Smt symbol will correspond to the user-defined name suffixed with the unique id
-    for the associated to the free variable id.
--/
-def fvarIdToSmtSymbol (v : FVarId) : MetaM SmtSymbol := do
-  return (mkNormalSymbol s!"{← v.getUserName}{v.name}")
-
-/-! Create an Smt term from a free variable. -/
-def fvarIdToSmtTerm (v : FVarId) : MetaM SmtTerm :=
-  return smtSimpleVarId (← fvarIdToSmtSymbol v)
-
 /-! Create an e-matching pattern to be used for a forall or an exists Smt term. -/
 def mkPattern (patterns : Array SmtTerm) : SmtAttribute := .Pattern patterns
 
 /-! Create a debug annotation name for a forall/exists Smt term. -/
-def mkQid (n : String) : SmtAttribute := .Qid n
+def mkQid (s : SmtSymbol) : SmtAttribute := .Qid s
 
 /-! Annotate an Smt term with an optional list of attributes. -/
 def annotateTerm (t : SmtTerm) (opt : Option (Array SmtAttribute)) : SmtTerm :=
@@ -442,7 +436,7 @@ def annotateTerm (t : SmtTerm) (opt : Option (Array SmtAttribute)) : SmtTerm :=
 def nameTerm (t : SmtTerm) (nm : Option String) : SmtTerm :=
   match nm with
   | none => t
-  | some nmThm => .AnnotatedTerm t #[.Named nmThm]
+  | some nmThm => .AnnotatedTerm t #[.Named (mkNormalSymbol nmThm)]
 
 /-! Create a forall Smt Term, with quantifiers `vars` and body `b`.
     An optional theorem name `nmThm` can be provided as well as
@@ -476,6 +470,14 @@ def mkLetTerm (binds : Array (SmtSymbol × SmtTerm)) (b : SmtTerm) : SmtTerm :=
   .LetTerm binds b
 
 /-! ## Helper functions. -/
+
+
+/-! Append smt symbol `nm` with "_{s}". -/
+def appendSymbol (nm : SmtSymbol) (s : String) : SmtSymbol :=
+  match nm with
+   | .ReservedSymbol str => mkReservedSymbol s!"{str}_{s}"
+   | .NormalSymbol str => mkNormalSymbol s!"{str}_{s}"
+
 
 /-! Return `true` when `t := BoolTerm true`.
     Otherwise `false`.

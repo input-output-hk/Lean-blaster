@@ -13,15 +13,15 @@ def isNullString (e : Expr) : Bool :=
 
 /-- Normalize `String.mk (List.cons c₁ (.. (List.cons cₙ List.nil)))` to `Expr.lit (Literal.strVal s)`
     only when the list of chars are constant values.
-    Otherwise return `mkExpr (mkApp f args[0]!)`.
+    Otherwise return `(mkApp f args[0]!)`.
     Assume that `f := Expr.const ``String.mk.
     An error is triggered when args.size ≠ 1.
 -/
 def normStringValue (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
   if args.size != 1 then throwEnvError "normStringValue: only one argument expected"
   let op := args[0]!
-  let some elms ← getListChars? op | return (← mkExpr (mkApp f op))
-  mkExpr (mkStrLit (String.mk elms.toList))
+  let some elms ← getListChars? op | return (mkApp f op)
+  return (mkStrLit (String.mk elms.toList))
 
   where
     getListChars? (e : Expr) : MetaM (Option (Array Char)) := do
@@ -52,7 +52,7 @@ def optimizeStrAppend (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
  let op2 := args[1]!
  if let some r ← cstStrAppend? op1 op2 then return r
  if let some r ← appendNull? op1 op2 then return r
- mkExpr (mkApp2 f op1 op2)
+ return (mkApp2 f op1 op2)
 
  where
    /-- Given `op1` and `op2` corresponding to the operands for `String.append`
@@ -83,7 +83,7 @@ def optimizeStrLength (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
  if args.size != 1 then throwEnvError "optimizeStrLength: exactly one arguments expected"
  let op := args[0]!
  if let some r ← cstStrLength? op then return r
- mkExpr (mkApp f op)
+ return (mkApp f op)
 
  where
    /-- Given `op` corresponding to the operand for `String.length`
@@ -113,7 +113,7 @@ def optimizeStrReplace (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
  if (← exprEq op2 op3) then return op1
  if let some r ← cstStrReplace? op1 op2 op3 then return r
  if isNullString op1 then return op1
- mkExpr (mkApp3 f op1 op2 op3)
+ return (mkApp3 f op1 op2 op3)
 
  where
 
