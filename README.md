@@ -80,7 +80,7 @@ or
 
 For example,
 ```lean
-theorem addCommute : \forall (a b : Nat), a + b = b + a := by sorry
+theorem addCommute : ∀ (a b : Nat), a + b = b + a := by sorry
 #solve (only-optimize: 1) (solve-result: 0) [addCommute]
 -- or
 #solve (only-optimize: 1) (solve-result: 0) [\forall (a b : Nat), a + b = b + a]
@@ -93,7 +93,7 @@ You can call the solver through the `blaster` tactic. The syntax is:
 
 For example,
 ```lean
-theorem addCommute : \forall (a b : Nat), a + b = b + a := by
+theorem addCommute : ∀ (a b : Nat), a + b = b + a := by
   blaster (only-optimize: 1)
 ```
 
