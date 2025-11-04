@@ -83,7 +83,7 @@ For example,
 theorem addCommute : ∀ (a b : Nat), a + b = b + a := by sorry
 #solve (only-optimize: 1) (solve-result: 0) [addCommute]
 -- or
-#solve (only-optimize: 1) (solve-result: 0) [\forall (a b : Nat), a + b = b + a]
+#solve (only-optimize: 1) (solve-result: 0) [∀ (a b : Nat), a + b = b + a]
 ```
 
 #### Tactic
