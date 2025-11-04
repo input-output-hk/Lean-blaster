@@ -15,6 +15,7 @@ Blaster provides an SMT backend for Z3 proofs. Blaster works by first aggressive
     - [Prerequisites](#prerequisites)
     - [Installing Lean4](#installing-lean4)
     - [Installing Z3](#installing-z3)
+  - [How to use?] (#how-to-use)
   - [Features](#features)
   - [Benchmarks](#benchmarks)
   - [Contributing](#contributing)
@@ -46,6 +47,62 @@ We do our best to stay updated with the latest release of Z3. However, regressio
 > **Note:** Blaster should work with later releases, though no guarantees are made.
 
 Please follow the official installation guidelines from the [Z3 GitHub repository](https://github.com/Z3Prover/z3).
+
+## How to use?
+
+In order to use Blaster, your project needs to depend on `lean-blaster`. 
+
+### Using lakefile.toml
+TODO
+### Using lakefile.lean
+TODO
+
+### Solver options
+  - `unfold-depth`: specifying the number of unfolding to be performed on recursive functions (default: 100)
+  - `timeout`: specifying the timeout (in second) to be used for the backend smt solver (defaut: ∞)
+  - `verbose:` activating debug info (default: 0)
+  - `only-smt-lib`: only translating unsolved goals to smt-lib without invoking the backend solver (default: 0)
+  - `only-optimize`: only perform optimization on lean specification and do not translate to smt-lib (default: 0)
+  - `dump-smt-lib`: display the smt lib query to stdout (default: 0)
+  - `random-seed`: seed for the random number generator (default: none)
+  - `gen-cex`: generate counterexample for falsified theorems (default: 1)
+  - `solve-result`: specify the expected result from the #solve command, i.e.,
+                    0 for 'Valid', 1 for 'Falsified' and 2 for 'Undetermined'. (default: 0)
+
+### Call to the solver
+
+#### Command
+
+You can call the solver through the `#solve` command. The syntax is:
+`#solve (option1: n) (option2: n) [theoremName]`
+or
+`#solve (option1: n) (option2: n) [theoremBody]`
+
+For example,
+```lean
+theorem addCommute : \forall (a b : Nat), a + b = b + a := by sorry
+#solve (only-optimize: 1) (solve-result: 0) [addCommute]
+-- or
+#solve (only-optimize: 1) (solve-result: 0) [\forall (a b : Nat), a + b = b + a]
+```
+
+#### Tactic
+
+You can call the solver through the `blaster` tactic. The syntax is:
+`by blaster (option1: n) (option2: n)`
+
+For example,
+```lean
+theorem addCommute : \forall (a b : Nat), a + b = b + a := by
+  blaster (only-optimize: 1)
+```
+
+> [!NOTE]
+> The tool does not perform proof reconstruction right now.
+> If the solver returns `Valid`, the tactic returns an `admit`.
+> If the solver returns `Falsified`, the tactif fails.
+> If the solver returns `Undetermined`, the tactic returns the current goal to be solved.
+
 
 ## Features
 
