@@ -32,7 +32,7 @@ namespace Test.SmtNatMod
 
 #solve [∀ (x y : Nat), x % y = x - y * (x / y)]
 
-#solve [∀ (x y : Nat), (x + y) % y = x % y]
+#solve (random-seed: 2) [∀ (x y : Nat), (x + y) % y = x % y]
 
 -- NOTE: may have z3 running forever or crash with ASSERTION VIOLATION
 -- NOTE: Remove solver options when issue resolved

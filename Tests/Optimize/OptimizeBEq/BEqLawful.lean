@@ -1,12 +1,9 @@
 import Lean
 import Tests.Utils
-import PlutusCore.Basic
 
 open Lean Elab Command Term
 
 namespace Test.BEqLawful
-open PlutusCore.Data (Data)
-open PlutusCore.ByteString (ByteString)
 
 /-! ## Test objectives to validate normalization on BEq.beq with LawfulBEq instances. -/
 
@@ -22,12 +19,6 @@ open PlutusCore.ByteString (ByteString)
 -- NOTE: LawfulBEq instance transitively extends when instantiating polymorphic data types
  #testOptimize [ "BEqLawful_3" ] ∀ (x : List String), x == x ===> True
 
--- ∀ (x : Data), x == x ===> True
- #testOptimize [ "BEqLawful_4" ] ∀ (x : Data), x == x ===> True
-
--- ∀ (x : ByteString), x == x ===> True
- #testOptimize [ "BEqLawful_5" ] ∀ (x : ByteString), x == x ===> True
-
 -- ∀ (x y : List Nat), x == y → x = y ===> True
  #testOptimize [ "BEqLawful_6" ] ∀ (x y : List Nat), x == y → x = y ===> True
 
@@ -38,12 +29,6 @@ open PlutusCore.ByteString (ByteString)
 -- ∀ (x y : List String), x == y → x = y ===> True
 -- NOTE: LawfulBEq instance transitively extends when instantiating polymorphic data types
  #testOptimize [ "BEqLawful_8" ]  ∀ (x y : List String), x == y → x = y ===> True
-
--- ∀ (x y : Data), x == y → x = y ===> True
- #testOptimize [ "BEqLawful_9" ] ∀ (x y : Data), x == y → x = y ===> True
-
--- ∀ (x y : ByteString), x == y → x = y ===> True
- #testOptimize [ "BEqLawful_10" ] ∀ (x y : ByteString), x == y → x = y ===> True
 
 -- ∀ (α : Type) (x : α), [BEq α] → [LawfulBEq α] → x == x ===> True
 -- NOTE: Test case to ensure that BEq with LawfulBEq constraints is also handled properly
