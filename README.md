@@ -15,7 +15,7 @@ Blaster provides an SMT backend for Z3 proofs. Blaster works by first aggressive
     - [Prerequisites](#prerequisites)
     - [Installing Lean4](#installing-lean4)
     - [Installing Z3](#installing-z3)
-  - [How to use?] (#how-to-use)
+  - [How to use?](#how-to-use)
   - [Features](#features)
   - [Benchmarks](#benchmarks)
   - [Contributing](#contributing)
@@ -103,10 +103,29 @@ theorem addCommute : ∀ (a b : Nat), a + b = b + a := by
 > If the solver returns `Falsified`, the tactif fails.
 > If the solver returns `Undetermined`, the tactic returns the current goal to be solved.
 
-
 ## Features
 
 > **Coming soon:** Detailed feature list
+
+## Examples
+
+Examples are provided in the `Tests` folder.
+
+### Issues
+
+The `Tests/Issues` folder contains examples that were, at some point, not properly handled by our tool. 
+
+### Optimize
+
+The `Tests/Optimize` folder contains examples of just the optimization step of the tool.
+
+### Validator examples
+
+The `Tests/Smt/Benchmarks/ValidatorsExamples` contains simplified examples of Cardano validators. It contains two examples `HelloWorld` and `Vesting`.
+
+### State Machine
+
+The `Tests/StateMachine` folder contains example on how to use the state machine formalization. 
 
 ## Benchmarks
 
