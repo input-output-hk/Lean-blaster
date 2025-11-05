@@ -184,7 +184,7 @@ Blaster has been benchmarked against a variety of well-known benchmarks to evalu
 
 ## General description of Blaster
 
-Blaster uses a three-step process to automatically reason about Lean theorem. 
+Blaster uses a three-step process to automatically reason about Lean theorems. 
 
 ### First step: optimization and normalization
 
