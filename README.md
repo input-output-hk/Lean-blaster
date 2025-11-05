@@ -227,7 +227,7 @@ These are just a few examples of the many optimization rules that Blaster applie
 
 #### Control Flow and Pattern Matching
 
-Blaster also includes a set of rules for simplifying control flow expressions like `if-then-else` (ITE), `dependent if-then-else` (DITE) and `match` expressions. These rules, found in `Solver/Optimize/Rewriting/OptimizeITE.lean`, `Solver/Optimize/Rewriting/OptimizeITE.lean` and `Solver/Optimize/Rewriting/OptimizeMatch.lean`, are designed to reduce the complexity of the expression by eliminating redundant branches and propagating constants.
+Blaster also includes a set of rules for simplifying control flow expressions like `if-then-else` (ITE), `dependent if-then-else` (DITE) and `match` expressions. These rules, found in `Solver/Optimize/Rewriting/OptimizeITE.lean`, `Solver/Optimize/Rewriting/OptimizeDITE.lean` and `Solver/Optimize/Rewriting/OptimizeMatch.lean`, are designed to reduce the complexity of the expression by eliminating redundant branches and propagating constants.
 
 - **ITE/DITE Simplification**: `if-then-else` expressions are simplified in several ways:
   - If the condition is a constant (`true` or `false`), the expression is replaced with the corresponding branch.
