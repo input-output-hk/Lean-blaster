@@ -1,6 +1,5 @@
 import Lean
 
-
 namespace Solver.Smt
 
 /-- Smt-Lib V2 Smt symbol. -/
@@ -19,8 +18,8 @@ instance : BEq SmtSymbol where
       | _, _ => false
 
 private def SmtSymbol.hash : SmtSymbol → UInt64
-  | .ReservedSymbol str => str.hash
-  | .NormalSymbol str => str.hash
+  | .ReservedSymbol str => mixHash 11 str.hash
+  | .NormalSymbol str => mixHash 13 str.hash
 
 instance : Hashable SmtSymbol := ⟨SmtSymbol.hash⟩
 
@@ -44,12 +43,18 @@ inductive SmtQualifiedIdent where
 instance : Inhabited SmtQualifiedIdent where
   default := .SimpleIdent default
 
+/-- Return `true` if smt qualified ident correspond to smt `ite` symbol -/
+def isIteApp (nm : SmtQualifiedIdent) : Bool :=
+ match nm with
+ | .SimpleIdent (.ReservedSymbol "ite") => true
+ | _ => false
+
 mutual
 /-- Smt term annotation attributes. -/
 inductive SmtAttribute where
-  | Named (n : String)
+  | Named (n : SmtSymbol)
   | Pattern (p : Array SmtTerm)
-  | Qid (n : String)
+  | Qid (n : SmtSymbol)
 
 /-- Smt-Lib V2 term. -/
 inductive SmtTerm where
@@ -70,13 +75,15 @@ inductive SmtTerm where
 end
 
 instance : Inhabited SmtAttribute where
-  default := .Qid ""
+  default := .Qid default
 
 instance : Inhabited SmtTerm where
   default := .NumTerm 0
 
+
 abbrev SmtSelector := SmtSymbol × SortExpr
 abbrev SmtConstructorDecl := SmtSymbol × Option (Array SmtSelector)
+
 
 structure SmtDatatypeDecl where
   params : Option (Array SmtSymbol)
@@ -93,6 +100,7 @@ structure SmtSortDecl where
 instance : Inhabited SmtSortDecl where
   default := {name := default, arity := 0}
 
+
 structure SmtFunDecl where
   name : SmtSymbol
   params : SortedVars
@@ -106,6 +114,7 @@ instance : Inhabited SmtFunDecl where
 inductive SmtCommand where
   | assertTerm (t : SmtTerm)
   | checkSat
+  | checkSatAssuming (args : Array SmtTerm)
   | declareConst (nm : SmtSymbol) (t : SortExpr)
   | declareDataType (nm : SmtSymbol) (decl: SmtDatatypeDecl)
   | declareMutualDataTypes (nms : Array SmtSortDecl) (decls : Array SmtDatatypeDecl)
@@ -119,7 +128,7 @@ inductive SmtCommand where
   | getProof
   | evalTerm (t : SmtTerm)
   | setLogic (l : String)
-  | setOption (opt : String) (value : Bool)
+  | setOption (opt : String) (value : String)
 
 instance : Inhabited SmtCommand where
   default := .setLogic ""
@@ -131,7 +140,7 @@ opaque validSimpleChars : String :=
 
 /-! ToString instances for Smt-Lib V2 syntax. -/
 
-@[inline] private def SmtSymbol.toString (s : SmtSymbol) : String :=
+@[inline] def SmtSymbol.toString (s : SmtSymbol) : String :=
   match s with
   | ReservedSymbol str => str
   | NormalSymbol str =>
@@ -157,7 +166,7 @@ instance : ToString SmtSymbol where
 instance : ToString SortExpr where
   toString := SortExpr.toString
 
-@[inline] private partial def SortedVars.toString (sv : SortedVars) : String :=
+@[inline] private def SortedVars.toString (sv : SortedVars) : String :=
    Array.foldl (fun acc a => s!"{acc}({a.1} {a.2})") "" sv
 
 instance : ToString SortedVars where
@@ -194,7 +203,7 @@ mutual
        let bline := if isIteApp m then "\n" else ""
        s!"({m}{sargs}){bline}"
    | .LetTerm bs body =>
-       let sbs := Array.foldl (fun acc a => s!"{acc} ( {a.1} {a.2.toString} ) ") "" bs
+       let sbs := Array.foldl (fun acc a => s!"{acc}({a.1} {a.2.toString})") "" bs
        s!"(let ({sbs}) {body.toString})\n"
    | .ForallTerm bs body =>
        s!"(forall ({bs})\n {body.toString})\n"
@@ -205,13 +214,6 @@ mutual
    | .AnnotatedTerm t annot =>
        let sannot := Array.foldl (fun acc a => s!"{acc} {a.toString}") "" annot
        s!"(!{t.toString} {sannot})\n"
-
-   where
-     isIteApp (nm : SmtQualifiedIdent) : Bool :=
-      match nm with
-      | .SimpleIdent (.ReservedSymbol "ite") => true
-      | _ => false
-
 end
 
 instance : ToString SmtAttribute where
@@ -225,7 +227,6 @@ instance : ToString SmtTerm where
 
 instance : ToString SmtSelector where
   toString := SmtSelector.toString
-
 
 @[inline] private def SmtConstructorDecl.toString (decl : SmtConstructorDecl) : String :=
   let selstr :=
@@ -265,6 +266,9 @@ instance : ToString SmtFunDecl where
  match c with
  | .assertTerm t => s!"(assert {t})"
  | .checkSat => s!"(check-sat)"
+ | .checkSatAssuming args =>
+      let sargs := Array.foldl (fun acc a => s!"{acc} {a}") "" args
+      s!"(check-sat-assuming ({sargs}))"
  | .declareConst nm t => s!"(declare-const {nm} {t})"
  | .declareDataType nm decl => s!"(declare-datatype {nm} {decl})"
  | .declareMutualDataTypes nm decl =>
@@ -295,7 +299,8 @@ instance : ToString SmtFunDecl where
  | .setLogic l => s!"(set-logic {l})"
  | .setOption opt v => s!"(set-option {opt} {v})"
 
- instance : ToString SmtCommand where
-   toString := SmtCommand.toString
+instance : ToString SmtCommand where
+  toString := SmtCommand.toString
+
 
 end Solver.Smt
