@@ -72,9 +72,20 @@ Please follow the official installation guidelines from the [Z3 GitHub repositor
 In order to use Blaster, your project needs to depend on `lean-blaster`. 
 
 ### Using lakefile.toml
-TODO
+In you use `lakefile.toml`, simply add a dependency to this repository:
+```toml
+[[require]]
+name = "Solver"
+git = "https://github.com/input-output-hk/Lean-blaster"
+rev = "main"
+```
+
 ### Using lakefile.lean
-TODO
+If you use `lakefile.lean`, simply add a dependency to this repository:
+```lean4
+require «Solver» from git
+  "https://github.com/input-output-hk/Lean-blaster" @ "main"
+```
 
 ### Solver options
   - `unfold-depth`: specifying the number of unfolding to be performed on recursive functions (default: 100)
