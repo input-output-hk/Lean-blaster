@@ -71,7 +71,7 @@ Please follow the official installation guidelines from the [Z3 GitHub repositor
 In order to use Blaster, your project needs to depend on `lean-blaster`. 
 
 ### Using lakefile.toml
-In you use `lakefile.toml`, simply add a dependency to this repository:
+If you use `lakefile.toml` then, simply add a dependency to this repository:
 ```toml
 [[require]]
 name = "Solver"
