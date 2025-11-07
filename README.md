@@ -265,7 +265,7 @@ This is handled in `Solver/Smt/Translate.lean`. This process involves several ke
 
 ### Final step: SMT Solver Interaction
 
-After translating the expression, Blaster interacts with an external SMT solver, Z3, to verify the translated SMT-LIB formula. The tool asserts the negation of the expression and checks for satisfiability. The results are interpreted as follows:
+Once an expression has been translated, Blaster interacts with an external SMT solver (i.e.,  Z3) to verify the SMT-LIB formula. This is done by asserting  the negation of the formula to determine its satisfiability. The results are interpreted as follows:
 
 - **unsat**: The original expression is valid.
 - **sat**: The original expression is falsified, and a counterexample may be generated.
