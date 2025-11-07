@@ -198,7 +198,7 @@ Blaster uses a three-step process to automatically reason about Lean theorems.
 
 ### First step: optimization and normalization
 
-Before translation to SMT-LIB, blaster optimizes the Lean expression in `Solver/Optimize/Basic.lean`. This step simplifies the expression and prepares it for SMT translation by applying various transformations and rewriting rules, which can significantly improve the SMT solver's performance.
+Before translation to SMT-LIB, blaster optimizes the Lean expression (see `Solver/Optimize/Basic.lean`). This step simplifies the expression and prepares it for SMT translation by applying various transformations and rewriting rules, which can significantly improve the SMT solver's performance.
 These rules are applied recursively to the expression tree and are designed to reduce the complexity of the SMT query.
 
 The core optimization logic is orchestrated in `Solver/Optimize/Basic.lean`, which applies a variety of strategies, including:
