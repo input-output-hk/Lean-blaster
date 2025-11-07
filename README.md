@@ -255,7 +255,7 @@ Function propagation is another key optimization strategy, detailed in `Solver/O
 
 ### Second-step: SMT Translation
 
-Using the whole set of optimization rules, it happens that the theorem being proved will reduce to `True`. This concludes the proof, and the theorem is `Valid`. In some instances, it will happen that it is reduced to `False` and the theorem is therefore `Falsified`. Most of the time, the theorem expression will not have been reduced to either and the solver will then translate the remaining Lean expression into the SMT-LIB format.
+Using the whole set of optimization rules, it may happen that a theorem can be reduced to `True`.  This concludes the proof and the theorem is considered as `Valid`. For some other cases, a theorem may also be reduced to `False` and will therefore be declared as `Falsified`. Most of the time, a proof might not be concluded at the optimization phase. In this case, the optimized Lean expression is translated into an SMT-LIB format and submitted to the backend solver.
 This is handled in `Solver/Smt/Translate.lean`. This process involves several key steps:
 
 1. **Expression Traversal**: The tool recursively traverses the Lean expression tree.
