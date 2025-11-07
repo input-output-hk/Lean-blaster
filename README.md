@@ -80,7 +80,7 @@ rev = "main"
 ```
 
 ### Using lakefile.lean
-If you use `lakefile.lean`, simply add a dependency to this repository:
+If you use `lakefile.lean` then, simply add a dependency to this repository:
 ```lean4
 require «Solver» from git
   "https://github.com/input-output-hk/Lean-blaster" @ "main"
