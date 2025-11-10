@@ -506,6 +506,17 @@ def eqSmt? (t : SmtTerm) : Option (SmtTerm × SmtTerm) :=
      else none
  | _ => none
 
+/-! Determine if `t` is a not Smt expression and return its corresponding argument.
+    Otherwise return `none`.
+-/
+def notSmt? (t : SmtTerm) : Option SmtTerm :=
+ match t with
+ | .AppTerm (.SimpleIdent sym) args =>
+     if sym == notSymbol
+     then args[0]!
+     else none
+ | _ => none
+
 /-! Return `true` when `t` corresponds to ParamSort with name `nm`.
    Otherwise `false`.
 -/

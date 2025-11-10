@@ -24,7 +24,13 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
               | Sum.inr e' => return e'
               | Sum.inl stack' => optimizeExprAux stack'
 
-          | Expr.sort _ -- sort is used for Type u, Prop, etc
+          | Expr.sort l =>
+              -- sort is used for Type u, Prop, etc
+              let s' ← mkExpr (Expr.sort (normLevel l))
+              match (← stackContinuity i_stack s') with
+              | Sum.inr e' => return e'
+              | Sum.inl stack' => optimizeExprAux stack'
+
           | Expr.lit .. => -- number or string literal
               match (← stackContinuity i_stack (← mkExpr e)) with
               | Sum.inr e' => return e'

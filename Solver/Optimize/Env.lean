@@ -51,6 +51,9 @@ structure IndTypeDeclaration where
 
 deriving Inhabited
 
+instance : Repr IndTypeDeclaration where
+  reprPrec _ _ := "<IndTypeDeclaration>"
+
 structure OptimizeOptions where
   /-- Flag to activate function normalization, e.g., `Nat.beq x y` to `BEq.beq Nat instBEqNat x y`.
       This flag is set to `false` when optimizing the recursive function body.
@@ -309,9 +312,6 @@ structure TranslateOptions where
   -/
   arrowTypeArities : Std.HashMap Nat SmtSymbol
 
-  /-- This flag is set to `true` only when translating recursive function definition. -/
-  inFunRecDefinition : Bool := false
-
   /-- Set keeping track of all variables in matched terms, including named patterns.
       This set is provided only when translating matched terms and match rhs.
   -/
@@ -324,7 +324,6 @@ structure TranslateOptions where
 
 instance : Inhabited TranslateOptions where
   default := {typeUniverse := false,
-              inFunRecDefinition := false,
               arrowTypeArities := .emptyWithCapacity,
               inPatternMatching := .emptyWithCapacity,
               axiomMap := .emptyWithCapacity
@@ -627,22 +626,6 @@ def isPropEnv (e : Expr) : TranslateEnvT Bool := do
         | none => visit xs h
 
 
-/-- set optimize option `inFunRecDefinition` to `b`. -/
-def setInFunRecDefinition (b : Bool) : TranslateEnvT Unit := do
-  modify (fun env => { env with smtEnv.options.inFunRecDefinition := b })
-
-/-- Perform the following actions:
-     - set `inFunRecDefinition` to `true`
-     - execute `f`
-     - set `inFunRecDefinition` to `false`
--/
-@[always_inline, inline]
-def withTranslateRecBody (f: TranslateEnvT α) : TranslateEnvT α := do
-  setInFunRecDefinition true
-  let t ← f
-  setInFunRecDefinition false
-  return t
-
 /-- set optimize option `inPatternMatchin` to `h`. -/
 def setInPatternMatching (h : Std.HashSet FVarId) : TranslateEnvT Unit := do
   modify (fun env => {env with smtEnv.options.inPatternMatching := h })
@@ -668,10 +651,6 @@ def isOptimizeRecCall : TranslateEnvT Bool :=
 /-- Return `true` if optimize option `inFunApp` is set to `true`. -/
 def isInFunApp : TranslateEnvT Bool :=
   return (← get).optEnv.options.inFunApp
-
-/-- Return `true` if optimize option `inFunRecDefinition` is set to `true`. -/
-def isInRecFunDefinition : TranslateEnvT Bool :=
-  return (← get).smtEnv.options.inFunRecDefinition
 
 @[always_inline, inline]
 def findGlobalCache (a : Expr) : TranslateEnvT (Option Expr) := do
