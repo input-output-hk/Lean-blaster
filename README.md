@@ -146,8 +146,10 @@ Blaster has been benchmarked against a variety of well-known benchmarks to evalu
 <details>
 <summary><b>Lean Set Theory Game</b></summary>
 
-- **Repository:** [Add link here]
-- **Results:** [Add results here]
+- **Repository:** [STG4](https://github.com/djvelleman/STG4)
+- **Results:** 51/52
+- **Notes:**
+  - Failed on the `singleton` theorem from FamCombo
 
 </details>
 
