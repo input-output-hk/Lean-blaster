@@ -133,21 +133,21 @@ Blaster has been benchmarked against a variety of well-known benchmarks to evalu
 
 <details>
 <summary><b>Lean Natural Number Game</b></summary>
-
-- **Repository:** [Add link here]
-- **Results:** [Add results here]
-
-</details>
-
-<details>
-<summary><b>Lean Set Theory Game</b></summary>
-
+  
 - **Repository:** [NNG4](https://github.com/leanprover-community/NNG4)
 - **Results:** 103/117
 - **Notes:**
   - Failed on the examples that are not considered theorems by Lean
   - Failed on most of the Power examples
   - It includes Fermat's Last Theorem so 100% is unlikely to happen
+
+</details>
+
+<details>
+<summary><b>Lean Set Theory Game</b></summary>
+
+- **Repository:** [Add link here]
+- **Results:** [Add results here]
 
 </details>
 
