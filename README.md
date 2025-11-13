@@ -87,7 +87,6 @@ require «Solver» from git
 ```
 
 ### Solver options
-  - `unfold-depth`: specifying the number of unfolding to be performed on recursive functions (default: 100)
   - `timeout`: specifying the timeout (in second) to be used for the backend smt solver (defaut: ∞)
   - `verbose:` activating debug info (default: 0)
   - `only-smt-lib`: only translating unsolved goals to smt-lib without invoking the backend solver (default: 0)
