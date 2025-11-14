@@ -70,7 +70,7 @@ jobs:
       matrix:
         pkg:
           - { cmd: solver, name : Solver }
-          # - { cmd: tests, name : Tests }
+          - { cmd: tests, name : Tests }
 
     steps:
       - uses: actions/checkout@v4
