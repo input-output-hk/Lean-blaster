@@ -30,7 +30,7 @@ build_tests:
 
 .PHONY: clean_tests
 clean_tests:
-	lake clean Tests
+	lake clean
 
 .PHONY: check_tests
 check_tests: clean_tests

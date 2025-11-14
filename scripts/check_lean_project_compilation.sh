@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 
 exec_found=0
-if [[ $# -eq 2 ]]
+if [[ $# -eq 1 ]]
 then
-  PROJECT_NAME=$2
+  PROJECT_NAME=$1
   LEAN_FILES=`find . -name '*.lean' | grep -v lakefile.lean`
   EXEC_FILES=`cat lakefile.lean | grep root | sed 's/root := .//g'`
   # clean lean project
-  lake clean $PROJECT_NAME
+  lake clean
   # build lean project with log
+  echo "Building Lean project $PROJECT_NAME ..."  
   lake build $PROJECT_NAME 2>&1 | tee build.log
   if [[ $? -ne 0 ]]
   then
