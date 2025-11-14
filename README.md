@@ -400,6 +400,7 @@ The `Tests/StateMachine` folder contains example on how to use the state machine
 ## Benchmarks
 
 Blaster has been benchmarked against a variety of well-known benchmarks to evaluate its performance and correctness.
+The evaluation can be found on this public repository: [Blaster-benchmarking](https://github.com/input-output-hk/Blaster-benchmarking)
 
 <details>
 <summary><b>Lean Natural Number Game</b></summary>
