@@ -51,6 +51,9 @@ structure IndTypeDeclaration where
 
 deriving Inhabited
 
+instance : Repr IndTypeDeclaration where
+  reprPrec _ _ := "<IndTypeDeclaration>"
+
 structure OptimizeOptions where
   /-- Flag to activate function normalization, e.g., `Nat.beq x y` to `BEq.beq Nat instBEqNat x y`.
       This flag is set to `false` when optimizing the recursive function body.
@@ -309,19 +312,21 @@ structure TranslateOptions where
   -/
   arrowTypeArities : Std.HashMap Nat SmtSymbol
 
-  /-- This flag is set to `true` only when translating recursive function definition. -/
-  inFunRecDefinition : Bool := false
-
   /-- Set keeping track of all variables in matched terms, including named patterns.
       This set is provided only when translating matched terms and match rhs.
   -/
   inPatternMatching : Std.HashSet FVarId
 
+  /-- Map keeping track of axioms not of type Prop, encountered during translation.
+      This set is used mainly to avoid multiple global declaration in the Smt instance.
+  -/
+  axiomMap : Std.HashMap Name SmtSymbol
+
 instance : Inhabited TranslateOptions where
   default := {typeUniverse := false,
-              inFunRecDefinition := false,
               arrowTypeArities := .emptyWithCapacity,
-              inPatternMatching := .emptyWithCapacity
+              inPatternMatching := .emptyWithCapacity,
+              axiomMap := .emptyWithCapacity
              }
 
 abbrev TopLevelVars := Array (List (SmtSymbol × Lean.Name))
@@ -451,6 +456,15 @@ instance : Inhabited TranslateEnv where
     }
 
 abbrev TranslateEnvT := StateRefT TranslateEnv MetaM
+
+def getMCtx' : MetaM MetavarContext := do
+  return (← get).mctx
+
+def modifyMCtx' (f : MetavarContext → MetavarContext) : MetaM Unit := modifyMCtx f
+
+instance : MonadMCtx TranslateEnvT where
+  getMCtx := getMCtx'
+  modifyMCtx f := modifyMCtx' f
 
 protected def throwEnvError (msg : MessageData) : TranslateEnvT α := do
   if let some p := (← get).smtEnv.smtProc then
@@ -612,22 +626,6 @@ def isPropEnv (e : Expr) : TranslateEnvT Bool := do
         | none => visit xs h
 
 
-/-- set optimize option `inFunRecDefinition` to `b`. -/
-def setInFunRecDefinition (b : Bool) : TranslateEnvT Unit := do
-  modify (fun env => { env with smtEnv.options.inFunRecDefinition := b })
-
-/-- Perform the following actions:
-     - set `inFunRecDefinition` to `true`
-     - execute `f`
-     - set `inFunRecDefinition` to `false`
--/
-@[always_inline, inline]
-def withTranslateRecBody (f: TranslateEnvT α) : TranslateEnvT α := do
-  setInFunRecDefinition true
-  let t ← f
-  setInFunRecDefinition false
-  return t
-
 /-- set optimize option `inPatternMatchin` to `h`. -/
 def setInPatternMatching (h : Std.HashSet FVarId) : TranslateEnvT Unit := do
   modify (fun env => {env with smtEnv.options.inPatternMatching := h })
@@ -653,10 +651,6 @@ def isOptimizeRecCall : TranslateEnvT Bool :=
 /-- Return `true` if optimize option `inFunApp` is set to `true`. -/
 def isInFunApp : TranslateEnvT Bool :=
   return (← get).optEnv.options.inFunApp
-
-/-- Return `true` if optimize option `inFunRecDefinition` is set to `true`. -/
-def isInRecFunDefinition : TranslateEnvT Bool :=
-  return (← get).smtEnv.options.inFunRecDefinition
 
 @[always_inline, inline]
 def findGlobalCache (a : Expr) : TranslateEnvT (Option Expr) := do
@@ -1717,6 +1711,23 @@ def hasRecFunInst? (instApp : Expr) : TranslateEnvT (Option Expr) := do
      | res => return res
   | none => return none
 
+
+/-- Returns all axioms only defined in current module. -/
+def findLocalAxioms : TranslateEnvT (List Expr) := do
+ let env ← getEnv
+ (Environment.constants env).toList.filterMapM
+    (λ c : Name × ConstantInfo => do
+      if !Environment.isImportedConst env c.1
+      then
+        match c.2 with
+        | .axiomInfo info =>
+            if ← isTheorem c.1 then return none
+            if ← isPropEnv (info.type) then
+              return some info.type
+            else return none
+        | _ => return none
+      else return none
+    )
 
 initialize
   registerTraceClass `Optimize.cacheExpr

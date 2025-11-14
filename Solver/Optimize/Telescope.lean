@@ -237,7 +237,7 @@ def ParamInfo.isExplicit (p : ParamInfo) : Bool := p.binderInfo.isExplicit
 
 /-- Return `pInfo` when `f := pInfo ∈ getFunEnvInfoCache`. Otherwise, performing the following
      - Let v₁ : t₁ → .. → vₙ : tₙ := inferTypeEnv f
-     - Let p := #[ { binderInfo := declᵢ.binderInfo, isProp := ← isProp declᵢ.type, isFun := isFunAux declᵢ.type } |
+     - Let p := #[ { binderInfo := declᵢ.binderInfo, isProp := ← isProp declᵢ.type } |
                    ∀ i ∈ [1..n-1], declᵢ ← getFVarLocalDecl vᵢ ]
      - Let pInfo := { paramsInfo := p, type := v₁ : t₁ → .. → vₙ : tₙ }
      - add f := pInfo to `getFunEnvInfoCache`

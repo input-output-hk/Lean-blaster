@@ -10,7 +10,7 @@ open Lean Elab Command Term Meta Solver.Optimize Solver.Options
 namespace Solver.Smt
 
 /-- Translate an optimized Lean4 `Expr` to an SMT term, and invoke the solver. --/
-partial def translateExpr (e : Expr) : TranslateEnvT SmtTerm := do
+partial def translateExpr (e : Expr) (topLevel := true) : TranslateEnvT SmtTerm := do
   let rec visit (e : Expr) (topLevel := false) : TranslateEnvT SmtTerm := do
     withTranslateEnvCache e fun _ => do
     trace[Translate.expr] "translating {reprStr e}"
@@ -41,15 +41,17 @@ partial def translateExpr (e : Expr) : TranslateEnvT SmtTerm := do
      | Expr.bvar .. => throwEnvError "translateExpr: unexpected bounded variable {reprStr e}"
      | Expr.letE .. => throwEnvError "translateExpr: unexpected let expression {reprStr e}"
      | Expr.sort _ => throwEnvError "translateExpr: unexpected sort type {reprStr e}" -- sort type are handled elsewhere
-  visit e (topLevel := true)
+  visit e topLevel
 
-def Translate.main (e : Expr) : TranslateEnvT Unit := do
-    let optExpr ← profileTask "Optimization" $ Optimize.main (← toPropExpr e)
+def Translate.main (e : Expr) (logUndetermined := true) : TranslateEnvT (Result × Expr) := do
+    let e' ← addAxioms (← toPropExpr e) (← findLocalAxioms)
+    let optExpr ← profileTask "Optimization" $ Optimize.main e'
     trace[Translate.optExpr] "optimized expression: {← ppExpr optExpr}"
     match (toResult optExpr) with
     | res@(.Undetermined) =>
-        if (← get).optEnv.options.solverOptions.onlyOptimize
-        then logResult res
+        if (← get).optEnv.options.solverOptions.onlyOptimize then
+          if logUndetermined then logResult res
+          return (res, optExpr)
         else
           -- set backend solver
           setSolverProcess
@@ -59,11 +61,12 @@ def Translate.main (e : Expr) : TranslateEnvT Unit := do
           -- dump smt commands submitted to backend solver when `dumpSmtLib` option is set.
           logSmtQuery
           let res ← profileTask "Solve" checkSat
-          logResult res
+          if !isUndeterminedResult res || logUndetermined then logResult res
           discard $ exitSmt
-          -- TODO: spawn lean proof mode when result is undetermined
-
-    | res => logResult res
+          return (res, optExpr)
+    | res =>
+       logResult res
+       return (res, optExpr)
 
   where
     isTheoremExpr (e : Expr) : TranslateEnvT (Option Expr) := do
@@ -77,6 +80,12 @@ def Translate.main (e : Expr) : TranslateEnvT Unit := do
          throwEnvError "translate: {← ppExpr e} is not well-formed"
       if (← isPropEnv e) then return e
          throwEnvError "translate: {← ppExpr e} is not a proposition !!!"
+
+    addAxioms (e : Expr) (axioms : List Expr) : TranslateEnvT Expr := do
+      match axioms with
+      | [] => return e
+      | a :: tl =>
+         addAxioms (mkForall (← Term.mkFreshBinderName) BinderInfo.default a e) tl
 
 def command (sOpts: SolverOptions) (stx : Syntax) : TermElabM Unit := do
   elabTermAndSynthesize stx none >>= fun e => do

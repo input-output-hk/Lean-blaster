@@ -157,6 +157,7 @@ def getSMTypes (smInst : Expr) : TranslateEnvT StateMachineEnv := do
 def assertAssumptions (smInst : Expr) (iVar : Expr) (state : Expr) : StateMachineEnvT Bool := do
  let env ← get
  let currDepth ← getCurrentDepth
+ translateAxioms currDepth
  let assumeExpr := mkApp5 (← mkAssumptions) env.inputType env.stateType smInst iVar state
  let optExpr ←
    profileTask
@@ -169,7 +170,7 @@ def assertAssumptions (smInst : Expr) (iVar : Expr) (state : Expr) : StateMachin
     let st ←
       profileTask
         s!"Translating assumptions at Depth {currDepth}"
-        (translateExpr optExpr)
+        (translateExpr optExpr (topLevel := false))
         (verboseLevel := 2)
     -- assert assumption
     assertTerm st
@@ -189,6 +190,19 @@ def assertAssumptions (smInst : Expr) (iVar : Expr) (state : Expr) : StateMachin
      return true
 
  where
+   /-- Translate local axioms only when current depth is zero -/
+   translateAxioms (currDepth) : TranslateEnvT Unit := do
+     unless (currDepth != 0) do
+      let axioms ← findLocalAxioms
+      if !axioms.isEmpty then
+        profileTask
+          s!"Translating axioms at Depth {currDepth}"
+          ( axioms.forM
+            (fun e => do
+              let st ← translateExpr (← Optimize.optimizeExpr e) (topLevel := false)
+              assertTerm st
+            ) )
+
    checkContradiction (initFlag : Option SmtTerm) : TranslateEnvT Result := do
      match initFlag with
      | none => checkSat

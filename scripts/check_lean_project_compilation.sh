@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
 
 exec_found=0
-if [[ $# -eq 2 ]]
+if [[ $# -eq 1 ]]
 then
-  LEAN_FOLDER=$1
-  PROJECT_NAME=$2
-  cd $LEAN_FOLDER
-  LEAN_FILES=`find . -name '*.lean' | grep -v lakefile.lean`
+  PROJECT_NAME=$1
+  LEAN_FILES=`find $PROJECT_NAME -name '*.lean' 2>/dev/null`
   EXEC_FILES=`cat lakefile.lean | grep root | sed 's/root := .//g'`
   # clean lean project
-  lake clean $PROJECT_NAME
+  lake clean
   # build lean project with log
+  echo "Building Lean project $PROJECT_NAME ..."  
   lake build $PROJECT_NAME 2>&1 | tee build.log
   if [[ $? -ne 0 ]]
   then
@@ -39,6 +38,6 @@ then
   rm -rf build.log
 else
 cat <<EOF
- usage: check_lean_project_compilation.sh <LEAN PROJECT FOLDER> <PROJECT NAME>
+ usage: check_lean_project_compilation.sh <PROJECT NAME>
 EOF
 fi

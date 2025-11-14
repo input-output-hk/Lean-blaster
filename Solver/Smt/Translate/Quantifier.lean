@@ -599,7 +599,7 @@ def generateFunInstDecl (t : Expr) (st : SortExpr) : TranslateEnvT Unit :=
         - define smt sort `(define-sort Prop () Bool)`
         - declare smt function `(declare-fun @isProp ((Prop)) Bool)` with `true` assertion
 
-     - When `t.isType`
+     - When `isType t`
          - add entry `t := {@isType, typeSort} to `indTypeInstCache`
          - Define smt univseral sort @@Type when flag `typeUniverse is not set
            (see function `declareTypeSort`)
@@ -1144,7 +1144,7 @@ partial def translateTypeAux
        let st ← translateArrowType t topts
        if !topts.inTypeDefinition then
          -- NOTE: predicate qualifier and congruence constraints not generated when translating
-         -- fun is defined in an inductive predicate
+         -- fun defined in an inductive predicate
          -- NOTE: use of smt universal type @@Type in predicate qualifier signature,
          -- especially when polymorphic types still remain.
          withInstantiatedImplicitArgs t fun t' => do generateFunInstDecl t' st
@@ -1202,9 +1202,9 @@ def initialQuantifierEnv (topLevel : Bool) : QuantifierEnv :=
 
 /-- Translate a quantifier `(n : t)` by performing the following actions:
      - Add `n` to the quantified fvars cache.
-     - When t.isType, e.g., (α : Type)
+     - When isType t, e.g., (α : Type or α : Sort u)
        - Call `declareSortAndCache n` to declare an Smt sort and return quantified array `qts` unchanged
-     - When ¬ (t.isType):
+     - When ¬ isType t:
         - translate n to an Smt symbol `s`
         - translate t to a Smt type `st`
         - When toplevel flag is set:
@@ -1265,25 +1265,25 @@ def translateForAll
    isPatternApp (t : SmtTerm) : Bool :=
      match t with
      | .AppTerm (.SimpleIdent sym) _ =>
-         -- we are not considering relational and ite in pattern
-         sym != leqSymbol && sym != ltSymbol && sym != iteSymbol
+         -- we are not considering ite in pattern
+         sym != iteSymbol
      | _ => false
 
    getPattern (t : SmtTerm) : QuantifierEnvT (Option SmtTerm) := do
-     if let some (op1, op2) := eqSmt? t
-     then match isPatternApp op1, isPatternApp op2 with
-          | true, true -- left operand considered for pattern
-          | true, false => return (some op1)
-          | false, true => return (some op2)
-          | false, false => return none
-     if isPatternApp t then return some t else return none
+     match notSmt? t with
+     | none => if isPatternApp t then return some t else return none
+     | res@(some r) => if isPatternApp r then return res else return none
 
    genPattern (fbody : SmtTerm) : QuantifierEnvT (Option (Array SmtAttribute)) := do
     let env ← get
-    let mut patterns := env.premises -- we are considering all premises for e-pattern
     if env.topLevel then return none -- no pattern if toplevel flag set
-    if let some p ← getPattern fbody
-    then patterns := patterns.push p
+    let mut patterns := #[]
+    for p in env.premises do
+      -- we are considering all premises for e-pattern
+      if let some p' ← getPattern p then
+        patterns := patterns.push p'
+    if let some p ← getPattern fbody then
+      patterns := patterns.push p
     if patterns.isEmpty
     then return none
     else return some (#[mkPattern patterns])
@@ -1307,11 +1307,12 @@ def translateForAll
     - When `v ∈ (← get).smtEnv.quantifiedFVars`:
        - return `fvarIdToSmtTerm v
     - When `v ∉ (← get).smtEnv.quantifiedFVars`:
-       -  add `v` to the quantified fvars cache
-       - smtType ← translateType optimize termTranslator (← v.getType)
+       - add `v` to the quantified fvars cache
+       - Let t' ← removeTypeAbbrev (← v.getType)
+       - smtType ← translateType optimize termTranslator t'
        - smtSym ← fvarIdToSmtSymbol v
        - declare smt symbol at top level, i.e., `(declare-const smtSym smtType)`
-       - pTerm ← createPredQualifierApp smtSym (← v.getType)
+       - pTerm ← createPredQualifierApp smtSym t'
        - assert pTerm at smt level, i.e., `(assert pTerm)`
        - return `smtSimpleVarId smtSym`
     An error is triggered when

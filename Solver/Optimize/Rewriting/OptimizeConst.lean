@@ -5,6 +5,22 @@ open Lean Meta Elab
 
 namespace Solver.Optimize
 
+/-- Perform the following normalization on `l`
+    - When `l := .param .. ∨ l := .mvar ..`
+       - return `.succ .zero`
+    - When `l := .succ l'`
+        - return .succ (normLevel l')
+    - Otherwise
+        - return `l`
+-/
+@[always_inline, inline]
+partial def normLevel (l : Level) : Level :=
+ match l with
+ | .param ..
+ | .mvar .. => .succ .zero
+ | .succ l' => .succ (normLevel l')
+ | _ => l
+
 /-- Given `e := Expr.const n l, apply the following normalization rule:
      - When `n := Nat.zero` return `Expr.lit (Literal.natVal 0)`
      - When `ConstantIno.opaqueInfo opVal ← getConstInfo n` (i.e., n is a constant defined at top level)
@@ -38,25 +54,33 @@ namespace Solver.Optimize
          - Otherwise
              - return `mkExpr e`
 -/
-def normConst (e : Expr) ( stack : List OptimizeStack) : TranslateEnvT OptimizeContinuity := do
+def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeContinuity := do
   match e with
-  | Expr.const n _ =>
+  | Expr.const n l =>
        withLocalContext $ do
          match n with
          | ``Nat.zero => stackContinuity stack (← mkNatLitExpr 0)
          | _ =>
            if (← isPartialDef n) then throwEnvError "normConst: partial function not supported {n} !!!"
            if (← isUnsafeDef n) then throwEnvError "normConst: unsafe definition not supported {n} !!!"
-           if let some e ← isGlobalConstant n then return Sum.inl e
-           if let some e ← isToNormOpaqueFun n then return e
-           if let some r ← isHOF n then return r
-           if (← isResolvableType e)
-           then stackContinuity stack (← mkExpr (← resolveTypeAbbrev e))
-           else stackContinuity stack (← mkExpr e)
+           if let some r ← isGlobalConstant n then return Sum.inl r
+           if let some r ← isToNormOpaqueFun n then return r
+           let e' := normConstLevel n l
+           if let some r ← isHOF n e' then return r
+           if (← isResolvableType e')
+           then stackContinuity stack (← mkExpr (← resolveTypeAbbrev e'))
+           else stackContinuity stack (← mkExpr e')
 
   | _ => throwEnvError "normConst: name expression expected but got {reprStr e}"
 
   where
+    /-- Normalizing level in Expr.const due to normalization perform on sort (see normSort in Basic) -/
+    @[always_inline, inline]
+    normConstLevel (n : Name) (xs : List Level) : Expr :=
+     match xs with
+     | [l] => Expr.const n [normLevel l]
+     | _ => Expr.const n xs
+
     @[always_inline, inline]
     isGlobalConstant (c : Name) : TranslateEnvT (Option (List OptimizeStack)) := do
       if let ConstantInfo.opaqueInfo opVal ← getConstEnvInfo c then
@@ -119,7 +143,7 @@ def normConst (e : Expr) ( stack : List OptimizeStack) : TranslateEnvT OptimizeC
      | _ => return none
 
     @[always_inline, inline]
-    isHOF (f : Name) : TranslateEnvT (Option OptimizeContinuity) := do
+    isHOF (f : Name) (e : Expr) : TranslateEnvT (Option OptimizeContinuity) := do
       if (← isInFunApp) then
         if (← hasImplicitArgs e) then return none
         if (← isNotFoldable e #[]) then return none

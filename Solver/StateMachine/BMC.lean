@@ -76,7 +76,7 @@ partial def bmcStrategy (smInst : Expr) : TranslateEnvT Unit := do
         let st ←
           profileTask
           s!"Translating invariants at Depth {currDepth}"
-          (translateExpr optExpr)
+          (translateExpr optExpr (topLevel := false))
           (verboseLevel := 2)
         -- generate depth flag
         let dflag ← defineSmtDepthFlag

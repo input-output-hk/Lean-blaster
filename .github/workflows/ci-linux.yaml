@@ -65,12 +65,12 @@ jobs:
 
   check-packages:
     needs: build
-    runs-on: ubuntu-latest-16-cores
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         pkg:
           - { cmd: solver, name : Solver }
-          # - { cmd: tests, name : Tests }
+          - { cmd: tests, name : Tests }
 
     steps:
       - uses: actions/checkout@v4

@@ -564,7 +564,7 @@ partial def translateRecFun
         let fbody' := fbody.replace (replaceGenericRecFun auxApp params)
         -- apply polymorphic instances on body
         let genFVars ← retrieveGenericFVars params
-        funDefs ← withTranslateRecBody $ updateFunDefinitions smtId (Expr.beta fbody' genFVars) funDefs
+        funDefs ← updateFunDefinitions smtId (Expr.beta fbody' genFVars) funDefs
       defineFunctions funDefs
 
 /-- Return `true` only when `n` corresponds to a function/constructor name
@@ -589,35 +589,99 @@ def isForbiddenConstExpr (e : Expr) : Bool :=
   | Expr.const n _ => isForbiddenConst n
   | _ => false
 
+@[always_inline, inline]
+def updateAxiomMap (n : Name) : TranslateEnvT SmtSymbol := do
+  let s := nameToSmtSymbol n
+  modify (fun env => { env with smtEnv.options.axiomMap := env.smtEnv.options.axiomMap.insert n s })
+  return s
+
+/-- Given `t := ∀ α₀ → ∀ α₁ ... → αₙ`, infer the instanitated type w.r.t. `params` such that:
+     - let S := [ αᵢ | i ∈ [0..n] ∧ ¬ params[i].isInstance ]
+     - let R := [ params[i].effectiveArg | i ∈ [0..n] ∧ ¬ params[i].isInstance ]
+     - let k := S.size-1
+     - let [α'₀, ..., α'ₚ] := [ αᵢ [S[0]/R[0]] ... [S[k]/R[k]] | i ∈ [0..n] ∧ params[i].isInstance ]
+     - return `∀ α'₀ → ∀ α'₁ ... → α'ₚ`
+    TODO: change function to pure tail rec call using stack-based approach
+-/
+partial def inferUndeclFunType (t : Expr) (params : ImplicitParameters) : Expr :=
+  let rec visit (idx : Nat) (t : Expr) : Expr :=
+    if idx ≥ params.size then t
+    else
+      match t with
+      | Expr.forallE n t b bi =>
+           let p := params[idx]!
+           if p.isInstance
+           then visit (idx + 1) (b.instantiate1 p.effectiveArg)
+           else Expr.forallE n t (visit (idx + 1) b) bi
+      | _ => t
+  visit 0 t
+
+/-- Given `f` corresponding to either an undeclared class function or an axiom function,
+    `params` its corresponding implicit/explicit parameters and `s` its corresponding smt symbol,
+     perform the following:
+       - Let `∀ α₀ → ∀ α₁ ... → αₙ` := inferUndecFunType (← getFunEnvInfo f).type params
+       - declare smt function `declare-fun s ((st₀) .. (stₙ₋₁)) stₙ)`
+     where ∀ i ∈ [0..n], αᵢ translates to Smt type stᵢ
+-/
+def generateUndeclaredFun
+  (f : Expr) (s : SmtSymbol) (params : ImplicitParameters)
+  (termTranslator : Expr → TranslateEnvT SmtTerm) : TranslateEnvT Unit := do
+  let pInfo ← getFunEnvInfo f
+  -- infer fun type and removing implicit arguments (i.e., even class constraints)
+  let funType := inferUndeclFunType pInfo.type params
+  Optimize.forallTelescope funType fun fvars retType => do
+    let mut pargs := (#[] : Array SortExpr)
+    for h : i in [:fvars.size] do
+      let decl ← getFVarLocalDecl fvars[i]
+      let st ← translateFunLambdaParamType decl.type termTranslator
+      pargs := pargs.push st
+    let ret ← translateFunLambdaParamType retType termTranslator
+    declareFun s pargs ret
+
 /-- Given `e := Expr.const n l`,
-     - when `n := false`
+     - When `n := false`
         - return `BoolTerm false`
-     - when `n := False`
+     - When `n := False`
         - return `BoolTerm false`
-     - when `n := true`
+     - When `n := true`
         - return `BoolTerm true`
-     - when `n := True`
+     - When `n := True`
          - return `BoolTerm true`
-     - when `n := Int.ofNat`
+     - When `n := Int.ofNat`
          - return `termTranslator (← etaExpand e)`
-     - when `isInductiveTypeExpr e`
+     - When `isInductiveTypeExpr e`
          - return ⊥
-     - when `isForbiddenUnappliedConst n`
+     - When `isForbiddenUnappliedConst n`
          - return ⊥
-     - when `isMatchExpr e`
+     - When `isMatchExpr e`
          - return ⊥
-     - when `n` is a constructor with implicit arguments
+     - When `n` is a constructor with implicit arguments
          - return ⊥
-     - when `n` is a nullary constructor
-        - return `SmtIdent (.QualifiedIdent n (translateType termTranslator Type(n)))`
+     - When `n` is a nullary constructor
+         - return `SmtIdent (.QualifiedIdent n (translateType termTranslator Type(n)))`
      - When `n` is a parameterized constructor
-        - return `termTranslator (← etaExpand e)`
-     - when `hasImplicitArgs e`
+         - return `termTranslator (← etaExpand e)`
+     - When `hasImplicitArgs e`
          - return ⊥
-     - when `n` ∈ opaqueFuns ∨ isRecursiveFun `n`
-        - return `termTranslator (← etaExpand e)`
-     - when `isTheorem n` ∧ `¬ hasSorryTheorem e` ∧ ¬ Type(e).isForAll
-        - return termTranslator (← optimizeExpr' Type(e))
+     - When `n` ∈ opaqueFuns ∨ isRecursiveFun `n`
+         - return `termTranslator (← etaExpand e)`
+     - When `isTheorem n` ∧ `¬ hasSorryTheorem e` ∧ ¬ Type(e).isForAll
+         - return termTranslator (← optimizeExpr' Type(e))
+     - When `isAxiom n`
+         - When n := s ∈ axiomMap:
+             - return `smtSimpleVarId s`
+         - Otherwise:
+             - When `isFunType Type(e)`
+                 - return `termTranslator (← etaExpand e)`
+             - Otherwise:
+                 - Let s = nameToSmtSymbol n
+                 - add `n := s` to axiomMap
+                 - Let t' ← removeTypeAbbrev Type(e)
+                 - Let st ← translateTypeAux termTranslator t'
+                 - declare smt symbol `(declare-const s st)`
+                 - Let pterm ← createPredQualifierApp s t'
+                 - assert term `(assert pterm)`
+                 - return `smtSimpleVarId s`
      - Otherwise
          - return ⊥
     An error is triggered when `e` is not a name expression.
@@ -647,6 +711,7 @@ def translateConst
       throwEnvError "translateConst: unexpected implicit arguments for function {reprStr e}"
     if let some r ← translateDefineFun? n then return r
     if let some r ← translateTheorem? n then return r
+    if let some r ← translateAxiom? n then return r
     throwEnvError "translateConst: only opaque/recursive functions and theorems expected but got {reprStr e}"
 
 
@@ -675,6 +740,25 @@ def translateConst
         throwEnvError "translateConst: Fully applied theorem expected but got {reprStr info.type}"
       termTranslator (← optimizeExpr' info.type)
 
+    translateAxiom? (n : Name) : TranslateEnvT (Option SmtTerm) := do
+       let ConstantInfo.axiomInfo info ← getConstEnvInfo n | return none
+       if ← isPropEnv info.type then
+         throwEnvError "translateConst: Unexpected Axiom of type Prop {n}"
+       match (← get).smtEnv.options.axiomMap.get? n with
+       | some s => return (smtSimpleVarId s)
+       | none =>
+           if ← isFunType info.type then
+             termTranslator (← Optimize.etaExpand e)
+           else
+             let smtSym ← updateAxiomMap n
+             let t' ← removeTypeAbbrev info.type
+             let smtType ← translateTypeAux termTranslator t'
+             -- declare free variable at top level
+             declareConst smtSym smtType
+             let pTerm ← createPredQualifierApp smtSym t'
+             assertTerm pTerm
+             return (smtSimpleVarId smtSym)
+
     isForbiddenUnappliedConst (n : Name) : Bool :=
       match n with
       | ``Exists
@@ -684,34 +768,9 @@ def translateConst
       | _ => isForbiddenConst n
 
 
-/-- Given `t := ∀ α₀ → ∀ α₁ ... → αₙ`, infer the instanitated type w.r.t. `params` such that:
-     - let [α'₀, ..., αₚ] := [ αᵢ | i ∈ [0..n] ∧ params[i].isInstance ]
-     - let S := [ αᵢ | i ∈ [0..n] ∧ ¬ params[i].isInstance ]
-     - let R := [ params[i].effectiveArg | i ∈ [0..n] ∧ ¬ params[i].isInstance ]
-     - let k := S.size-1
-     - let [α'₀, ..., αₚ] := [ αᵢ [S[0]/R[0]] ... [S[k]/R[k]] | i ∈ [0..n] ∧ params[i].isInstance ]
-     - return `∀ α'₀ → α' ... → αₚ`
-    TODO: change function to pure tail rec call using stack-based approach
--/
-partial def inferUndeclFunType (t : Expr) (params : ImplicitParameters) : Expr :=
-  let rec visit (idx : Nat) (t : Expr) : Expr :=
-    if idx ≥ params.size then t
-    else
-      match t with
-      | Expr.forallE n t b bi =>
-           let p := params[idx]!
-           if p.isInstance
-           then visit (idx + 1) (b.instantiate1 p.effectiveArg)
-           else Expr.forallE n t (visit (idx + 1) b) bi
-      | _ => t
-  visit 0 t
 
 /-- Translate Application
     TODO: UPDATE
-    - Need to handle match expression
-
---  -- handle match expression and generate ite
-
 -/
 def translateApp
   (e : Expr) (termTranslator : Expr → TranslateEnvT SmtTerm) : TranslateEnvT SmtTerm := do
@@ -729,7 +788,7 @@ def translateApp
          if let some r ← translateExists? n args then return r
          if let some r ← translateRecFun? f n args then return r
          if let some r ← translateAppliedCtor? f n args then return r
-         if let some r ← translateUndeclaredFun? f n args then return r
+         if let some r ← translateAxiomOrUndeclFun? f n args then return r
          if let some r ← translateTheorem n args then return r
          if let some r ← translateInductivePredicate? f n args then return r
          throwEnvError "translateApp: unexpected application {reprStr e}"
@@ -854,10 +913,14 @@ def translateApp
       mkLambdaFVars genericArgs instAux (usedOnly := true)
 
 
-    translateUndeclaredFun? (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
+    isAxiomOrUndeclFun (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT Bool := do
+      match ← getFunBody f with
+      | none => return (← getConstEnvInfo n).isAxiom
+      | some fbody => isUndefinedClassFunApp (Expr.beta fbody args)
+
+    translateAxiomOrUndeclFun? (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
       if (← isOpaqueFun n args) then return none
-      let some fbody ← getFunBody f | return none
-      if !(← isUndefinedClassFunApp (Expr.beta fbody args)) then return none
+      if !(← isAxiomOrUndeclFun f n args) then return none
       let pInfo ← getFunEnvInfo f
       if pInfo.paramsInfo.size > args.size then
         return ← termTranslator (← Optimize.etaExpand e) -- partially applied function
@@ -869,18 +932,8 @@ def translateApp
          let smtId ← generateFunInst f params
          let .SimpleIdent s := smtId
            | throwEnvError "translateUndeclaredFun?: SimpleIdent expected but got {smtId}"
-         let pInfo ← getFunEnvInfo f
-         -- infer fun type and removing implicit arguments (i.e., even class constraints)
-         let funType := inferUndeclFunType pInfo.type params
-         withTranslateRecBody $ Optimize.forallTelescope funType fun fvars retType => do
-            let mut pargs := (#[] : Array SortExpr)
-            for h : i in [:fvars.size] do
-              let decl ← getFVarLocalDecl fvars[i]
-              let st ← translateFunLambdaParamType decl.type termTranslator
-              pargs := pargs.push st
-            let ret ← translateFunLambdaParamType retType termTranslator
-            declareFun s pargs ret
-            createAppN f (Sum.inl smtId) args termTranslator
+         generateUndeclaredFun f s params termTranslator
+         createAppN f (Sum.inl smtId) args termTranslator
       | some smtId =>
           createAppN f (Sum.inl smtId) args termTranslator
 
