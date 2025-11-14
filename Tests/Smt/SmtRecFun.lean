@@ -1,9 +1,10 @@
 import Lean
-import Solver.Command.Syntax
+import Solver.Command.Tactic
 
 namespace Test.SmtRecFun
 
 /-! ## Test objectives to validate recursive functions Smt lib translation -/
+
 
 #solve [ ∀ (x : Nat) (xs : List Nat), List.length xs + 1 = List.length (x :: xs) ]
 
@@ -11,6 +12,14 @@ namespace Test.SmtRecFun
 
 #solve [ ∀ (s1 s2 : String), String.length s1 + String.length s2 = String.length (String.append s1 s2) ]
 
+-- NOTE: remove induction when supporting implicit induction
+set_option warn.sorry false in
+theorem length_append {as bs : List α} : (as ++ bs).length = as.length + bs.length := by
+ induction as <;> simp <;> blaster
+
+set_option warn.sorry false in
+theorem length_set {as : List α} {i : Nat} {a : α} : (as.set i a).length = as.length := by
+  induction as generalizing i <;> blaster
 
 /-! ## Test objectives to validate mutually recursive functions Smt lib translation -/
 
@@ -28,6 +37,32 @@ end
 
 -- NOTE: remove solver options when induction schema supported
 #solve (timeout: 5) (solve-result: 2) [ ∀ (n : Nat), isEven (n+2) → isEven n ]
+
+mutual
+inductive A
+  | self : A → A
+  | other : B → A
+  | empty
+inductive B
+  | self : B → B
+  | other : A → B
+  | empty
+end
+
+mutual
+def A.sizeA : A → Nat
+  | .self a => a.sizeA + 1
+  | .other b => b.sizeB + 1
+  | .empty => 0
+
+def B.sizeB : B → Nat
+  | .self b => b.sizeB + 1
+  | .other a => a.sizeA + 1
+  | .empty => 0
+end
+
+set_option warn.sorry false in
+theorem A_self_size (a : A) : (A.self a).sizeA = a.sizeA + 1 := by blaster
 
 
 /-! # Test cases to ensure that counterexample are properly detected -/

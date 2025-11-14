@@ -12,4 +12,4 @@ lean_lib «Solver» where
   moreLeancArgs := #["-O3"]
 
 lean_lib «Tests» where
-  moreLeanArgs := #["--threads=4", "-DmaxHeartbeats=500000"]
+  moreLeanArgs := #["--threads=4"]
