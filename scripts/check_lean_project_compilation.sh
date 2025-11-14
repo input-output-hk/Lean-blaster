@@ -4,7 +4,7 @@ exec_found=0
 if [[ $# -eq 1 ]]
 then
   PROJECT_NAME=$1
-  LEAN_FILES=`find . -name '*.lean' | grep -v lakefile.lean`
+  LEAN_FILES=`find $PROJECT_NAME -name '*.lean' 2>/dev/null`
   EXEC_FILES=`cat lakefile.lean | grep root | sed 's/root := .//g'`
   # clean lean project
   lake clean
