@@ -103,9 +103,8 @@ require «Solver» from git
 
 You can call the solver by invoking the `#solve` command on a theorem name or on a propositional expression.
 The syntax is as follows:
-`#solve (option1: n) (option2: n) [theoremName]`
-or
-`#solve (option1: n) (option2: n) [theoremBody]`
+ - `#solve (option1: n) (option2: n) [theoremName]`; or
+ - `#solve (option1: n) (option2: n) [theoremBody]`
 
 For example,
 ```lean
@@ -120,8 +119,7 @@ theorem addCommute : ∀ (a b : Nat), a + b = b + a := by sorry
 #### Tactic
 
 The solver can also be invoked via the `blaster` tactic. This tactic can be combined with other Lean4 tactics when trying to prove a theorem.
-The syntax is as follows:
-`by blaster (option1: n) (option2: n)`
+The syntax is as follows: `by blaster (option1: n) (option2: n)`.
 
 For example,
 ```lean
@@ -134,10 +132,10 @@ theorem length_set {as : List α} {i : Nat} {a : α} : (as.set i a).length = as.
 
 > [!NOTE]
 > The tool does not perform proof reconstruction right now.
-> When the solver declares a goal as `Valid`, the tactic currently concludes the proof with an `admit`.
-> When the solver declares a goal as `Falsified`, the tactic fails and a counterexample is provided as witness.
+> - When the solver declares a goal as `Valid`, the tactic currently concludes the proof with an `admit`.
+> - When the solver declares a goal as `Falsified`, the tactic fails and a counterexample is provided as witness.
 > No counterexample is provided when a goal is reduced to `False` at the optimization phase.
-> When the solver returns `Undetermined` (i.e., the back-end solver was not able to prove/refute the goal),
+> - When the solver returns `Undetermined` (i.e., the back-end solver was not able to prove/refute the goal),
 > the tactic returns the current goal to be solved.
 
 ## Features
@@ -237,7 +235,9 @@ instance [BEq a] [BEq b] : BEq (Either a b) where
 ```
 ##### Higher-Order Functions
 ```lean
-#solve [ ∀ (x : Nat) (xs : List Nat), !(List.isEmpty xs) → List.head! (List.map (Nat.add x) xs) ≥ x ]
+#solve [ ∀ (x : Nat) (xs : List Nat), !(List.isEmpty xs) →
+         List.head! (List.map (Nat.add x) xs) ≥ x
+       ]
 ```
 #### Counterexample Generation for Recursive Data Types/Functions
 ```lean
@@ -334,7 +334,7 @@ KInd at Depth 1
 
 ### Currently Unsupported
 #### Indexed Inductive Data Types
-Indexed inductive data types are not yet supported because they lack a native representation in SMT-LIB.
+Indexed inductive data types are not yet supported because they lack a native representation at SMT-LIB level.
 We expect to add support soon via a suitable encoding that faithfully preserves the Lean4 semantics.
 For example,
 ```lean
@@ -376,7 +376,6 @@ Our plan is to support automatic goal decomposition so that smaller SMT queries 
 generated instead of one monolithic query. This will highlight the harder subgoals
 and make them simpler for users to examine manually.
 
-> **Coming soon:** Detailed feature list
 
 ## Examples
 
