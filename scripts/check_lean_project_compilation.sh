@@ -3,9 +3,7 @@
 exec_found=0
 if [[ $# -eq 2 ]]
 then
-  LEAN_FOLDER=$1
   PROJECT_NAME=$2
-  cd $LEAN_FOLDER
   LEAN_FILES=`find . -name '*.lean' | grep -v lakefile.lean`
   EXEC_FILES=`cat lakefile.lean | grep root | sed 's/root := .//g'`
   # clean lean project
@@ -39,6 +37,6 @@ then
   rm -rf build.log
 else
 cat <<EOF
- usage: check_lean_project_compilation.sh <LEAN PROJECT FOLDER> <PROJECT NAME>
+ usage: check_lean_project_compilation.sh <PROJECT NAME>
 EOF
 fi

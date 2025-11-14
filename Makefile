@@ -21,7 +21,7 @@ clean_solver:
 
 .PHONY: check_solver
 check_solver: clean_solver
-	./scripts/check_lean_project_compilation.sh Solver Solver
+	./scripts/check_lean_project_compilation.sh Solver
 
 TESTS_FOLDER := Tests
 .PHONY: build_tests
@@ -34,7 +34,7 @@ clean_tests:
 
 .PHONY: check_tests
 check_tests: clean_tests
-	./scripts/check_lean_project_compilation.sh Tests Tests
+	./scripts/check_lean_project_compilation.sh Tests
 # Aggregate commands
 # To maintain when you add new components
 .PHONY: build_all
