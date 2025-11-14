@@ -26,23 +26,21 @@ check_solver: clean_solver
 TESTS_FOLDER := Tests
 .PHONY: build_tests
 build_tests:
-	cd $(TESTS_FOLDER); lake build Tests
+	lake build Tests
 
 .PHONY: clean_tests
 clean_tests:
-	cd $(TESTS_FOLDER); lake clean
+	lake clean Tests
 
 .PHONY: check_tests
 check_tests: clean_tests
-	./check_lean_project_compilation.sh Tests Tests
-
+	./scripts/check_lean_project_compilation.sh Tests Tests
 # Aggregate commands
 # To maintain when you add new components
 .PHONY: build_all
-build_all: build build_tests
-
+build_all: build_solver build_tests
 .PHONY: clean_all
-clean_all: clean clean_tests
+clean_all: clean_solver clean_tests
 
 .PHONY: check_all
-check_all: check check_tests
+check_all: check_solver check_tests
