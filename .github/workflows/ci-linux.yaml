@@ -17,7 +17,7 @@ env:
 jobs:
   build:
     runs-on:
-      labels: ubuntu-latest
+      labels: ubuntu-latest-16-cores
 
     steps:
       - name: Setup Lean
@@ -47,7 +47,9 @@ jobs:
           z3 --version
 
       - name: Build and Validate Solver
-        run: make check_solver
+        run: |
+          ls -l
+          make check_solver
 
       - name: Upload Solver build log
         if: failure()
@@ -57,7 +59,7 @@ jobs:
           path: ./Solver/build.log
 
       - name: Execute and Validate Tests
-        run: make check_tests
+        run: ./scripts/check_lean_project_compilation.sh Tests
 
       - name: Upload Tests log
         if: failure()
