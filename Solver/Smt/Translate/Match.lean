@@ -217,7 +217,7 @@ def translateMatchAux?
     insertFVars (h : Std.HashSet FVarId) (v : Expr) : TranslateEnvT (Std.HashSet FVarId) := do
       match v with
       | Expr.fvar fv =>
-          match (← fv.getType).getAppFn' with
+          match (← inferTypeEnv v).getAppFn' with
           | Expr.const ``Eq _ => return h
           | _ => return h.insert fv
       | _ => return h

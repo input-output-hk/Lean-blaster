@@ -77,9 +77,7 @@ def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeCo
     /-- Normalizing level in Expr.const due to normalization perform on sort (see normSort in Basic) -/
     @[always_inline, inline]
     normConstLevel (n : Name) (xs : List Level) : Expr :=
-     match xs with
-     | [l] => Expr.const n [normLevel l]
-     | _ => Expr.const n xs
+      Expr.const n (xs.map normLevel)
 
     @[always_inline, inline]
     isGlobalConstant (c : Name) : TranslateEnvT (Option (List OptimizeStack)) := do

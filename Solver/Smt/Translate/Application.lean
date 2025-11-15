@@ -506,8 +506,6 @@ partial def translateRecFun
     updateFunDefinitions
       (id : SmtQualifiedIdent) (fbody : Expr)
       (defs : FunctionDefinitions) : TranslateEnvT FunctionDefinitions := do
-      let .SimpleIdent s := id
-        | throwEnvError "updateFunDefinition: SimpleIdent expected but got {id}"
       let pInfo ← getFunEnvInfo fbody
       Optimize.lambdaTelescope fbody fun fvars b => do
         let mut params := (#[] : SortedVars)
@@ -519,7 +517,7 @@ partial def translateRecFun
             let st ← translateFunLambdaParamType decl.type termTranslator
             params := params.push (← fvarIdToSmtSymbol fv.fvarId!, st)
         let ret ← translateFunLambdaParamType (← inferTypeEnv b) termTranslator
-        let funDecl := {name := s, params, ret}
+        let funDecl := {name := getSymbol id, params, ret}
         let sBody ← termTranslator b
         return { defs with funDecls := defs.funDecls.push funDecl, funBodies := defs.funBodies.push sBody }
 

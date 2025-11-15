@@ -66,6 +66,7 @@ theorem only_accept_if_signatory_and_time_elapsed :
                 . exact sc_signatories
                 . exact Nat.le_trans lock_lb lb_time
 
+set_option warn.sorry false in
 theorem only_accept_if_signatory_and_time_elapsed_bugged :
         ∀ (datum: VestingDatum) (redeemer: VestingRedeemer) (c : ScriptContext) (time: POSIXTime),
 

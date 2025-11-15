@@ -525,4 +525,10 @@ def isParamSort (t : SortExpr) (sName : SmtSymbol) : Bool :=
   | .ParamSort nm _ => nm == sName
   | .SymbolSort _ => false
 
+/-! Return the smt symbol associated to the given Smt qualified identifier.
+-/
+def getSymbol : SmtQualifiedIdent → SmtSymbol
+ | .SimpleIdent nm => nm
+ | .QualifiedIdent nm _ => nm
+
 end Solver.Smt

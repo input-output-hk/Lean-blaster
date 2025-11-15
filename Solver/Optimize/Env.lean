@@ -1357,10 +1357,11 @@ def inferTypeEnv (e : Expr) : TranslateEnvT Expr := do
   | some t => return t
   | none =>
      let t ← inferType e
+     let t' ← if t.hasMVar then instantiateMVars t else pure t
      modify (fun env => { env with
                                optEnv.memCache.inferTypeCache :=
-                               env.optEnv.memCache.inferTypeCache.insert e t})
-     return t
+                               env.optEnv.memCache.inferTypeCache.insert e t'})
+     return t'
 
 /-- Return `true` if `e` corresponds to a class constraint expression
     (see function `isClassConstraint`).
@@ -1476,8 +1477,8 @@ private partial def resolveTypeAbbrevAux (s : List ResolveTypeStack) : Translate
     i.e., child fvars appear first.
     TODO: change function to pure tail rec call using stack-based approach
 -/
-@[inline] partial def getFVarsInExpr (e : Expr) : MetaM (Array Expr) :=
- let rec @[specialize] visit (e : Expr) (acc : Array Expr) : MetaM (Array Expr) := do
+@[inline] partial def getFVarsInExpr (e : Expr) : TranslateEnvT (Array Expr) :=
+ let rec @[specialize] visit (e : Expr) (acc : Array Expr) : TranslateEnvT (Array Expr) := do
   if !e.hasFVar then return acc else
     match e with
     | Expr.forallE _ d b _   => visit b (← visit d acc)
@@ -1486,7 +1487,7 @@ private partial def resolveTypeAbbrevAux (s : List ResolveTypeStack) : Translate
     | Expr.letE _ t v b _    => visit t (← visit v (← visit b acc))
     | Expr.app f a           => visit a (← visit f acc) -- considering arguments in proper order
     | Expr.proj _ _ e        => visit e acc
-    | Expr.fvar v            => return (← visit (← v.getType) acc).push e
+    | Expr.fvar _            => return (← visit (← inferTypeEnv e) acc).push e
     | _                      => return acc
  visit e #[]
 
@@ -1514,7 +1515,7 @@ partial def isGenericParam (e : Expr) : TranslateEnvT Bool := do
        else if (← isClassConstraint n) then return false
        else if let ConstantInfo.inductInfo _ ← getConstEnvInfo n then return false
        else isGenericParam (← inferTypeEnv e)
- | Expr.fvar v => isGenericParam (← v.getType)
+ | Expr.fvar _ => isGenericParam (← inferTypeEnv e)
  | Expr.app _ arg => isGenericParam arg
  | Expr.bvar _ => throwEnvError "isGenericParam: unexpected bound variable {reprStr e}"
  | Expr.mvar .. => throwEnvError "isGenericParam: unexpected meta variable {reprStr e}"
@@ -1541,7 +1542,7 @@ abbrev ImplicitParameters := Array ImplicitInfo
 /-- Helper function for `retrieveGenericFVars` and `retrieveGenericArgs` --/
 def updateGenericArgs
   (e : Expr) (gargs : Array Expr)
-  (pset : Std.HashSet Expr) : MetaM (Array Expr × Std.HashSet Expr) := do
+  (pset : Std.HashSet Expr) : TranslateEnvT (Array Expr × Std.HashSet Expr) := do
  let fvars ← getFVarsInExpr e
  let mut gargs := gargs
  let mut pset := pset

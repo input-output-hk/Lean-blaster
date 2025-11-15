@@ -493,8 +493,8 @@ def isIntNatPatternExpr (e : Expr) : TranslateEnvT Bool := do
  | Expr.const ``Int.neg _
  | Expr.lit (Literal.natVal _)
  | Expr.const ``Nat.add _ => return true
- | Expr.fvar fv => do
-       let t ← fv.getType
+ | fv@(Expr.fvar _) => do
+       let t ← inferTypeEnv fv
        return (isNatType t || isIntType t)
  | _ => return false
 

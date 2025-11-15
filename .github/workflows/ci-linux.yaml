@@ -1,5 +1,8 @@
 name: ci-linux
 
+permissions:
+  contents: read
+
 on:
   pull_request:
   push:
@@ -16,8 +19,7 @@ env:
 
 jobs:
   build:
-    runs-on:
-      labels: ubuntu-latest
+    runs-on: ubuntu-latest
 
     steps:
       - name: Setup Lean
@@ -46,70 +48,25 @@ jobs:
           lean --version
           z3 --version
 
-      - name: Cache Z3
-        uses: actions/cache@v3
-        id: z3-cache
-        with:
-          path: /home/runner/z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}/bin
-          key: z3-${{ env.Z3_VERSION }}
-          restore-keys: z3-
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Cache .elan
-        uses: actions/cache@v3
-        id: elan-cache
-        with:
-          path: /home/runner/.elan/bin
-          key: elan-${{ env.LEAN_VERSION }}
-          restore-keys: elan-
+      - name: Build and Validate Solver
+        run: make check_solver
 
-
-  check-packages:
-    needs: build
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        pkg:
-          - { cmd: solver, name : Solver }
-          - { cmd: tests, name : Tests }
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Restore Lean
-        uses: actions/cache@v3
-        with:
-          path: /home/runner/.elan/bin
-          key: elan-${{ env.LEAN_VERSION }}
-          restore-keys: elan-
-
-      - name: Restore Z3
-        uses: actions/cache@v3
-        with:
-          path: /home/runner/z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}/bin
-          key: z3-${{ env.Z3_VERSION }}
-          restore-keys: z3-
-
-      - name: Add Lean to PATH
-        run: |
-         echo "/home/runner/.elan/bin" >> $GITHUB_PATH
-         echo "/home/runner/z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}/bin" >> $GITHUB_PATH
-
-      - name: Configure Lean toolchain
-        run: elan default ${{ env.LEAN_VERSION }}
-
-      - name: Tools version
-        run: |
-          elan --version
-          lake --version
-          lean --version
-          z3 --version
-
-      - name: Build and Validate ${{ matrix.pkg.name }} Project
-        run: make check_${{ matrix.pkg.cmd }}
-
-      - name: Upload build log
+      - name: Upload Solver build log
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.pkg.cmd }}-build
-          path: ./${{ matrix.pkg.name }}/build.log
+          name: solver-build
+          path: ./Solver/build.log
+
+      - name: Execute and Validate Tests
+        run: ./scripts/check_lean_project_compilation.sh Tests
+
+      - name: Upload Tests log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tests-build
+          path: ./Tests/build.log

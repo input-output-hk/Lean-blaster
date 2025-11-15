@@ -625,6 +625,10 @@ def setDelayUnits (b : Bool) : TranslateEnvT Unit :=
 def setMacroFinder (b : Bool) : TranslateEnvT Unit :=
   trySubmitCommand! (.setOption ":smt.macro_finder" (toString b))
 
+/-- Set Smt `smt.relevancy` option to `i`. -/
+def setRelevancy (n : Nat) : TranslateEnvT Unit :=
+  trySubmitCommand! (.setOption ":smt.relevancy" (toString n))
+
 /-- Set the default Smt options, i.e.:
      - (set-option :print-success true)
      - (set-option :produce-models true)

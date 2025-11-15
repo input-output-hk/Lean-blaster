@@ -38,7 +38,7 @@ partial def translateExpr (e : Expr) (topLevel := true) : TranslateEnvT SmtTerm 
      | Expr.proj n idx p => translateProj n idx p visit
      | Expr.lit .. => throwEnvError "translateExpr: unexpected literal expression {reprStr e}"
      | Expr.mvar .. => throwEnvError "translateExpr: unexpected meta variable {reprStr e}"
-     | Expr.bvar .. => throwEnvError "translateExpr: unexpected bounded variable {reprStr e}"
+     | Expr.bvar .. => throwEnvError "translateExpr: unexpected bound variable {reprStr e}"
      | Expr.letE .. => throwEnvError "translateExpr: unexpected let expression {reprStr e}"
      | Expr.sort _ => throwEnvError "translateExpr: unexpected sort type {reprStr e}" -- sort type are handled elsewhere
   visit e topLevel
@@ -88,9 +88,10 @@ def Translate.main (e : Expr) (logUndetermined := true) : TranslateEnvT (Result 
          addAxioms (mkForall (← Term.mkFreshBinderName) BinderInfo.default a e) tl
 
 def command (sOpts: SolverOptions) (stx : Syntax) : TermElabM Unit := do
-  elabTermAndSynthesize stx none >>= fun e => do
-    let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
-    discard $ Translate.main e|>.run env
+  withRef stx do
+    instantiateMVars (← withSynthesize (postpone := .partial) <| elabTerm stx none) >>= fun e => do
+      let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
+      discard $ Translate.main e|>.run env
 
 initialize
    registerTraceClass `Translate.expr
