@@ -9,7 +9,7 @@ then
   # clean lean project
   lake clean
   # build lean project with log
-  echo "Building Lean project $PROJECT_NAME ..."  
+  echo "Building Lean project $PROJECT_NAME ..."
   lake build $PROJECT_NAME 2>&1 | tee build.log
   if [[ $? -ne 0 ]]
   then

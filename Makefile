@@ -35,6 +35,7 @@ clean_tests:
 .PHONY: check_tests
 check_tests: clean_tests
 	./scripts/check_lean_project_compilation.sh Tests
+
 # Aggregate commands
 # To maintain when you add new components
 .PHONY: build_all
