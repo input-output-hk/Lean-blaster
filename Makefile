@@ -17,16 +17,15 @@ build_solver:
 
 .PHONY: clean_solver
 clean_solver:
-	lake clean
+	lake clean Solver
 
 .PHONY: check_solver
 check_solver: clean_solver
 	./scripts/check_lean_project_compilation.sh Solver
 
-TESTS_FOLDER := Tests
 .PHONY: build_tests
 build_tests:
-	lake build Tests
+	lake test
 
 .PHONY: clean_tests
 clean_tests:
