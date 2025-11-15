@@ -48,7 +48,7 @@ jobs:
 
       - name: Build and Validate Solver
         run: |
-          ls -l
+          pwd
           make check_solver
 
       - name: Upload Solver build log
