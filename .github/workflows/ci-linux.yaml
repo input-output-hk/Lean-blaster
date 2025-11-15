@@ -46,10 +46,11 @@ jobs:
           lean --version
           z3 --version
 
+      - name: checkout repository
+        uses: actions/checkout@v4
+
       - name: Build and Validate Solver
-        run: |
-          pwd
-          make check_solver
+        run: make check_solver
 
       - name: Upload Solver build log
         if: failure()
