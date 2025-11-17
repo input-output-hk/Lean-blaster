@@ -85,7 +85,7 @@ jobs:
                 repo: context.repo.repo,
                 issue_number: issue.number,
                 body: `✅ Nightly build is now passing! Consider closing this issue after reviewing the fix.
-                
-                **Workflow Run:** ${context.payload.repository.html_url}/actions/runs/${context.runId}`
+
+**Workflow Run:** ${context.payload.repository.html_url}/actions/runs/${context.runId}`
               });
             }
