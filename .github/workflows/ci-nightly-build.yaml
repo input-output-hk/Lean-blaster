@@ -51,6 +51,13 @@ jobs:
         run: |
           lake update
           lake build Solver
+
+      - name: Build Tests
+        id: build-tests
+        continue-on-error: true
+        timeout-minutes: 30
+        run: |
+          lake build Tests
           
       - name: Check build status
         run: |
