@@ -34,7 +34,7 @@ namespace Test.SmtNatMod
 
 #solve [∀ (x y : Nat), (x + y) % y = x % y]
 
-#solve (random-seed: 2) (timeout: 10) [∀ (x y z : Nat), (x + y * z) % y = x % y]
+#solve (random-seed: 2) [∀ (x y z : Nat), (x + y * z) % y = x % y]
 
 #solve [∀ (x y : Nat), (x * y) % x = 0]
 
