@@ -11,7 +11,7 @@ concurrency:
 
 env:
   LEAN_VERSION: "4.24.0"
-  Z3_VERSION: "4.15.4"
+  Z3_VERSION: "4.15.2"
   GLIBC_Z3: "2.39"
 
 jobs:
