@@ -58,12 +58,12 @@ jobs:
                 title: '⚠️ Nightly Lean 4 Build Failure',
                 labels: ['nightly-build-failure', 'maintenance'],
                 body: `The nightly build against Lean 4 nightly has failed.
-                
-                **Workflow Run:** ${context.payload.repository.html_url}/actions/runs/${context.runId}
-                
-                This may indicate upcoming breaking changes in Lean 4 that require attention.
-                
-                Please investigate and plan for necessary updates.`
+
+**Workflow Run:** ${context.payload.repository.html_url}/actions/runs/${context.runId}
+
+This may indicate upcoming breaking changes in Lean 4 that require attention.
+
+Please investigate and plan for necessary updates.`
               });
             }
       
