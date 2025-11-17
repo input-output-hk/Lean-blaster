@@ -13,7 +13,6 @@ permissions:
 jobs:
   test-nightly-lean:
     runs-on: ubuntu-latest
-    continue-on-error: true # Don't fail the workflow if build fails
     
     steps:
       - name: Checkout repository
