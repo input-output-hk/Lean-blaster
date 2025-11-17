@@ -41,10 +41,10 @@ jobs:
       
       - name: Check build status
         run: |
-          if [ "${{ steps.build.outcome }}" == "failure" ]; then
-            echo "BUILD_STATUS=❌ Failed" >> $GITHUB_ENV
-          else
+          if [ "${{ steps.build.outcome }}" == "success" ]; then
             echo "BUILD_STATUS=✅ Passed" >> $GITHUB_ENV
+          else
+            echo "BUILD_STATUS=❌ Failed" >> $GITHUB_ENV
           fi
       
       - name: Create Issue on Failure
