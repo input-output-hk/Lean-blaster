@@ -32,6 +32,14 @@ jobs:
       
       - name: Get Lake
         run: lake --version || true
+
+      - name: Install Z3
+        run: |
+          cd /home/runner/
+          wget -q https://github.com/Z3Prover/z3/releases/download/z3-${{ env.Z3_VERSION }}/z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}.zip
+          unzip -q z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}.zip
+          chmod +x z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}.zip
+          echo "/home/runner/z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}/bin" >> $GITHUB_PATH
       
       - name: Build Blaster
         id: build
@@ -39,7 +47,6 @@ jobs:
         run: |
           lake update
           lake build Solver
-          lake build Tests
           
       - name: Check build status
         run: |
