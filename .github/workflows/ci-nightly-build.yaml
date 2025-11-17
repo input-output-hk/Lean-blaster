@@ -6,6 +6,10 @@ on:
     - cron: '0 2 * * *'
   workflow_dispatch: # Allow manual triggering
 
+env:
+  Z3_VERSION: "4.15.4"
+  GLIBC_Z3: "2.39"
+
 jobs:
   test-nightly-lean:
     runs-on: ubuntu-latest
