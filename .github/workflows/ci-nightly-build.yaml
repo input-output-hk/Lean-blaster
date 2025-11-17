@@ -6,39 +6,50 @@ on:
     - cron: '0 2 * * *'
   workflow_dispatch: # Allow manual triggering
 
-permissions:
-  contents: read
-  issues: write
-
 jobs:
   test-nightly-lean:
     runs-on: ubuntu-latest
-
+    continue-on-error: true # Don't fail the workflow if build fails
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
+      
       - name: Install elan
         run: |
           curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
           echo "$HOME/.elan/bin" >> $GITHUB_PATH
-
+      
+      - name: Remove lean-toolchain file
+        run: |
+          rm -f lean-toolchain
+      
       - name: Override to nightly Lean
         run: |
           elan toolchain install leanprover/lean4:nightly
-          elan default leanprover/lean4:nightly
+          elan override set leanprover/lean4:nightly
           lean --version
-
+      
       - name: Get Lake
         run: lake --version || true
-
+      
       - name: Build Blaster
         id: build
         continue-on-error: true
         run: |
           lake update
           lake build
-
+          lake build solver
+          lake build tests
+      
+      - name: Check build status
+        run: |
+          if [ "${{ steps.build.outcome }}" == "failure" ]; then
+            echo "BUILD_STATUS=❌ Failed" >> $GITHUB_ENV
+          else
+            echo "BUILD_STATUS=✅ Passed" >> $GITHUB_ENV
+          fi
+      
       - name: Create Issue on Failure
         if: steps.build.outcome == 'failure'
         uses: actions/github-script@v7
@@ -50,7 +61,7 @@ jobs:
               labels: ['nightly-build-failure'],
               state: 'open'
             });
-
+            
             if (issues.data.length === 0) {
               await github.rest.issues.create({
                 owner: context.repo.owner,
@@ -58,15 +69,15 @@ jobs:
                 title: '⚠️ Nightly Lean 4 Build Failure',
                 labels: ['nightly-build-failure', 'maintenance'],
                 body: `The nightly build against Lean 4 nightly has failed.
-
+                
                 **Workflow Run:** ${context.payload.repository.html_url}/actions/runs/${context.runId}
-
+                
                 This may indicate upcoming breaking changes in Lean 4 that require attention.
-
+                
                 Please investigate and plan for necessary updates.`
               });
             }
-
+      
       - name: Comment on existing issue if build passes
         if: steps.build.outcome == 'success'
         uses: actions/github-script@v7
@@ -78,14 +89,14 @@ jobs:
               labels: ['nightly-build-failure'],
               state: 'open'
             });
-
+            
             for (const issue of issues.data) {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issue.number,
                 body: `✅ Nightly build is now passing! Consider closing this issue after reviewing the fix.
-
+                
                 **Workflow Run:** ${context.payload.repository.html_url}/actions/runs/${context.runId}`
               });
             }
