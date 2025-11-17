@@ -38,10 +38,9 @@ jobs:
         continue-on-error: true
         run: |
           lake update
-          lake build
-          lake build solver
-          lake build tests
-      
+          lake build Solver
+          lake build Tests
+          
       - name: Check build status
         run: |
           if [ "${{ steps.build.outcome }}" == "failure" ]; then
