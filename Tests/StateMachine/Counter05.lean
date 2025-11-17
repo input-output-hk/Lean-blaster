@@ -28,9 +28,9 @@ error: Counterexample detected at Depth 3:
 ---
 error:  - «Test.Counter05.counter.input@3»: Test.Counter05.Request.Idle
 ---
-error:  - «Test.Counter05.counter.input@2»: Test.Counter05.Request.Idle
----
 error:  - «Test.Counter05.counter.input@1»: Test.Counter05.Request.Idle
+---
+error:  - «Test.Counter05.counter.input@2»: Test.Counter05.Request.Idle
 -/
 #guard_msgs in
 #bmc (max-depth: 6) [counter]

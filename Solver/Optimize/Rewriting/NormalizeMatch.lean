@@ -523,8 +523,6 @@ def normMatchExprAux?
 
    /-- Return `true` only when the "match" normalization condition is satisfied, i.e,:
         - ∀ i ∈ [1..m], ∀ j ∈ [1..n], ( NoFreeVar(p₍ᵢ₎₍ⱼ₎) ∨ p₍ᵢ₎₍ⱼ₎ = v ∨ isIntNatStrCst(p₍ᵢ₎₍ⱼ₎) ∨ Type(eⱼ) ∈ {Nat, Int} )
-       NOTE: condition `∃ [ Decidable (eⱼ = p₍ᵢ₎₍ⱼ₎)] ∈ DecidableInstances` is enforced when
-       generating the ite expression.
    -/
    isItePattern (discrs : Array Expr) (argsResult : AltArgsResult) (plhs : Array Expr) : TranslateEnvT Bool := do
      if argsResult.altArgs.size == 0 then return true
@@ -559,10 +557,11 @@ def normMatchExprAux?
      for i in [1:nbCond] do
        let idx := nbCond - i - 1
        condTerm := mkApp2 andOp andTerms[idx]! condTerm
-     -- we don't want to cache the decidable constraint as condExpr is not optimized at this stage
-     -- return none if decidable instance cannot be synthesized.
-     let some decideExpr ← trySynthDecidableInstance? condTerm (cacheDecidableCst := false) | return none
-     return (mkApp5 (← mkIteOp) (getLambdaBody matchType) condTerm decideExpr thenExpr elseExpr)
+     let hName ← Term.mkFreshBinderName
+     let lam1 := mkLambda hName BinderInfo.default condTerm thenExpr
+     let notCond := mkApp (← mkPropNotOp) condTerm
+     let lam2 := mkLambda hName BinderInfo.default notCond elseExpr
+     return (mkApp4 (← mkSolverDIteOp) (getLambdaBody matchType) condTerm lam1 lam2)
 
 
 /-- A generic match expression rewriter that given a `MatchInfo` instance representing a match application,
@@ -585,7 +584,7 @@ def normMatchExprAux?
      - the `Nat` argument corresponding to the traversed index, starting with 0.
    NOTE: The evaluation stops when at least one of the `rewriter` invocation return `none`.
 -/
--- @[specialize]
+@[specialize]
 def matchExprRewriter
     (mInfo : MatchInfo) (args : Array Expr)
     (rewriter : Nat → Array Expr → Array Expr → Expr → Expr → Option α → TranslateEnvT (Option α)) :
@@ -617,21 +616,20 @@ def matchExprRewriter
       - a `Nat`, `Int` or `String` literal; or
       - a `Nat` or `Int` expression; or
       - a free variable `v`
-    Normalization will NOT take place when no decidable equality instance can be found for each match discriminator.
+
     Concretely:
       match e₁, ..., eₙ with
       | p₍₁₎₍₁₎, ..., p₍₁₎₍ₙ₎ => t₁
       ...
       | p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₙ₎ => tₘ
      ===>
-       if (mkCond e₁ p₍₁₎₍₁₎) ∧ ... ∧ (mkCond eₙ p₍₁₎₍ₙ₎) then (mkRhs [e₁ ... eₙ] [p₍₁₎₍₁₎ ... p₍₁₎₍ₙ₎] t₁)
-       else if (mkCond e₁ p₍₂₎₍₁₎) ∧ ... ∧ (mkCond eₙ p₍₂₎₍ₙ₎) then (mkRhs [e₁ ... eₙ] [p₍₂₎₍₁₎ ... p₍₂₎₍ₙ₎] t₂)
+       sif h1 : (mkCond e₁ p₍₁₎₍₁₎) ∧ ... ∧ (mkCond eₙ p₍₁₎₍ₙ₎) then (mkRhs [e₁ ... eₙ] [p₍₁₎₍₁₎ ... p₍₁₎₍ₙ₎] t₁)
+       else sif h2 : (mkCond e₁ p₍₂₎₍₁₎) ∧ ... ∧ (mkCond eₙ p₍₂₎₍ₙ₎) then (mkRhs [e₁ ... eₙ] [p₍₂₎₍₁₎ ... p₍₂₎₍ₙ₎] t₂)
        ...
        else (mkRhs [e₁ ... eₙ] [p₍ₘ₎₍₁₎ ... p₍ₘ₎₍ₙ₎] tₘ)
      when:
        - ∀ i ∈ [1..m], ∀ j ∈ [1..n],
-           ( NoFreeVar(p₍ᵢ₎₍ⱼ₎) ∨ p₍ᵢ₎₍ⱼ₎ = v ∨ isIntNatStrCst(p₍ᵢ₎₍ⱼ₎) ∨ Type(eⱼ) ∈ {Nat, Int} ) ∧
-           ∃ [ Decidable (eⱼ = p₍ᵢ₎₍ⱼ₎)] ∈ DecidableInstances
+           ( NoFreeVar(p₍ᵢ₎₍ⱼ₎) ∨ p₍ᵢ₎₍ⱼ₎ = v ∨ isIntNatStrCst(p₍ᵢ₎₍ⱼ₎) ∨ Type(eⱼ) ∈ {Nat, Int} )
      with:
        - mkCond e p :
           let p' ← removeNamedPatternExpr p;
@@ -692,30 +690,12 @@ def matchExprRewriter
            := (mkCstLet x₁ (.. (mkCstLet xₖ₋₁ (mkCstLet xₙ t)))) if e = C x₁ ... xₖ
            := ⊥  otherwise
 -/
-def normMatchExprBase?
-  (args : Array Expr) (mInfo : MatchInfo) : TranslateEnvT (Option Expr) := do
-  if !(← hasDecidableEq mInfo) then return none
-  matchExprRewriter mInfo args normMatchExprAux?
-
-  where
-    /-- Determines if all discriminators has a DecidableEq instance.
-        NOTE: To be removed once decidable instance removed from ite/dite
-    -/
-    hasDecidableEq (mInfo : MatchInfo) : TranslateEnvT Bool := do
-     let eqOpExpr ← mkEqOp
-     let discrsType := getLambdaBinderTypes args[mInfo.getFirstDiscrPos - 1]!
-     for i in mInfo.getDiscrRange do
-       let idx := i - mInfo.getFirstDiscrPos
-       let eqExpr := mkApp3 eqOpExpr discrsType[idx]! args[i]! args[i]!
-       if (← trySynthDecidableInstance? eqExpr).isNone then
-         return false
-     return true
-
 def normMatchExpr? (args : Array Expr) (mInfo : MatchInfo) : TranslateEnvT (Option Expr) := do
   match (← get).optEnv.memCache.isMatchToIte.get? mInfo.name with
-  | some b => if b then normMatchExprBase? args mInfo else return none
+  | some b => if b then matchExprRewriter mInfo args normMatchExprAux?
+                   else return none
   | none =>
-      let r ← normMatchExprBase? args mInfo
+      let r ← matchExprRewriter mInfo args normMatchExprAux?
       modify (fun env => {env with optEnv.memCache.isMatchToIte :=
                               env.optEnv.memCache.isMatchToIte.insert mInfo.name r.isSome})
       return r

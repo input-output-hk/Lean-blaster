@@ -385,6 +385,7 @@ def defineIntEMod : TranslateEnvT Unit := do
   let fdef := λ xId yId => iteSmt (eqSmt natZero yId) xId (modSmt xId yId)
   defineBinFun emodSymbol intSort intSort intSort fdef
 
+
 /-- Define Int.tdiv Smt function, i.e.,
       @Int.tdiv x y :=
          (ite (= 0 y) 0 (ite (<= 0 x) (div x y) (- (div (- x) y))))
@@ -412,28 +413,24 @@ def defineIntTMod : TranslateEnvT Unit := do
 
 /-- Define Int.fdiv Smt function, i.e.,
       @Int.fdiv x y :=
-        (ite (= 0 y) 0 (ite (<= 0 y) (div x y) (div (-x) (- y))))
+        (ite (= 0 y) 0 (ite (< y 0) (div (-x) (- y)) (div x y)))
  -/
 def defineIntFDiv : TranslateEnvT Unit := do
   let natZero := natLitSmt 0
   let innerIte := λ xId yId =>
-      iteSmt (leqSmt natZero yId)
-        (divSmt xId yId) (divSmt (negSmt xId) (negSmt yId))
+      iteSmt (ltSmt yId natZero) (divSmt (negSmt xId) (negSmt yId)) (divSmt xId yId)
   let fdef := λ xId yId => iteSmt (eqSmt natZero yId) natZero (innerIte xId yId)
   defineBinFun fdivSymbol intSort intSort intSort fdef
 
 /-- Define Int.fmod Smt function, i.e.,
      @Int.fmod x y :=
-       (ite (= 0 y) x (ite (and (< x 0) (< y 0)) (- (mod (- x) y)) (mod x y))))
+       (ite (= 0 y) x (ite (< y 0) (- (mod (- x) y)) (mod x y)))
 -/
 def defineIntFMod : TranslateEnvT Unit := do
   let natZero := natLitSmt 0
-  let xLtZero := λ xId => ltSmt xId natZero
-  let yLtZero := λ yId => ltSmt yId natZero
-  let flipCond := λ xId yId => andSmt (xLtZero xId) (yLtZero yId)
   let fdef := λ xId yId =>
       iteSmt (eqSmt natZero yId) xId
-      (iteSmt (flipCond xId yId) (negSmt (modSmt (negSmt xId) yId)) (modSmt xId yId))
+      (iteSmt (ltSmt yId natZero) (negSmt (modSmt (negSmt xId) yId)) (modSmt xId yId))
   defineBinFun fmodSymbol intSort intSort intSort fdef
 
 

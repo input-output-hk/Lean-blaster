@@ -9,7 +9,6 @@ import Solver.Smt.Translate.Quantifier
 open Lean Meta Solver.Optimize
 
 namespace Solver.Smt
-open Solver.Optimize (extractDependentITEExpr)
 
 /-- Generate an smt symbol from a given function  name. -/
 def funNameToSmtSymbol (funName : Name) : SmtSymbol :=
@@ -22,7 +21,6 @@ def fullyAppliedConst : NameHashSet :=
   [ ``And,
     ``Or,
     ``Not,
-    ``ite,
     ``Int.add,
     ``Int.neg,
     ``Int.mul,
@@ -294,7 +292,7 @@ def getOpaqueSmtEquivFun (f : Expr) (s : SmtSymbol) : TranslateEnvT SmtQualified
     An error is triggered
       - when `n` corresponds to one of the opaque functions:
         - Exists
-        - Decidable.decide
+        - Solver.decide'
         - Iff
         - Int.le
         - Nat.beq
@@ -314,8 +312,7 @@ def translateOpaqueFun (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT
   | ``or => getOpaqueSmtEquivFun f orSymbol
   | ``Not
   | ``not => getOpaqueSmtEquivFun f notSymbol
-  | ``ite
-  | ``dite => getOpaqueSmtEquivFun f iteSymbol
+  | ``Solver.dite' => getOpaqueSmtEquivFun f iteSymbol
   | ``Int.add
   | ``Nat.add => getOpaqueSmtEquivFun f addSymbol
   | ``Int.neg => getOpaqueSmtEquivFun f subSymbol
@@ -570,6 +567,9 @@ partial def translateRecFun
 -/
 def isForbiddenConst (n : Name) : Bool :=
   match n with
+  | ``Decidable.decide
+  | ``ite
+  | ``dite
   | `Iff
   | ``Int.negSucc
   | ``Int.le
@@ -760,9 +760,8 @@ def translateConst
     isForbiddenUnappliedConst (n : Name) : Bool :=
       match n with
       | ``Exists
-      | ``Decidable.decide
-      | ``ite
-      | ``dite => true
+      | ``Solver.decide'
+      | ``Solver.dite'
       | _ => isForbiddenConst n
 
 
@@ -825,11 +824,11 @@ def translateApp
 
     translateDITE? (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
       match n with
-       | ``dite =>
-            if args.size != 5 then
-               throwEnvError "translateDITE?: unexpected partially applied dite got {reprStr args}"
-            let args := args.set! 3 (args[3]!.beta #[← mkOfDecideEqProof args[1]! true])
-            let args := args.set! 4 (args[4]!.beta #[← mkOfDecideEqProof args[1]! false])
+       | ``Solver.dite' =>
+            if args.size != 4 then
+               throwEnvError "translateDITE?: unexpected partially applied dite' got {reprStr args}"
+            let args := args.set! 2 (args[2]!.beta #[← mkOfDecideEqProof args[1]! true])
+            let args := args.set! 3 (args[3]!.beta #[← mkOfDecideEqProof args[1]! false])
             createAppN f (← Sum.inl <$> translateOpaqueFun f n args) args termTranslator
        | _ => return none
 
@@ -843,8 +842,8 @@ def translateApp
 
     translateDecide? (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
       match n with
-       | ``Decidable.decide =>
-            if args.size != 2 then
+       | ``Solver.decide' =>
+            if args.size != 1 then
                throwEnvError "translateDecide?: unexpected partially applied {n} got {reprStr args}"
             termTranslator args[0]!
        | _ => return none
@@ -1001,7 +1000,7 @@ def translateLambda
    let rt ← translateFunLambdaParamType bodyType termTranslator
    let v ← mkFreshId
    let lambdaName := mkReservedSymbol s!"@lambda{v}"
-   let lamType ← mkForallFVars fvars bodyType
+   let lamType ← Optimize.mkForallFVars' fvars bodyType
    let arrowT ← declareArrowTypeSort (fvars.size + 1)
    let funArrowType := paramSort arrowT ((Array.map (λ s => s.2) svars).push rt)
    -- generate apply function with corresponding congruence assertions (or retriving if already declared).

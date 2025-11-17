@@ -9,99 +9,115 @@ namespace Tests.ConstCtorProp
 
 /-! Test cases to validate when ite over constructor propagation must be applied. -/
 
--- ∀ (c : Bool) (xs : List (Option Int)) (x : Int), (if c then some x else none) :: [] = xs ===>
--- ∀ (c : Bool) (xs : List (Option Int)) (x : Int), xs = (if true = c then some x :: [] else none :: [])
+-- ∀ (c : Prop) (xs : List (Option Int)) (x : Int), [Decidable c] →
+--   (if c then some x else none) :: [] = xs ===>
+-- ∀ (c : Prop) (xs : List (Option Int)) (x : Int),
+--     xs = Solver.dite' c (fun _ => some x :: []) (fun _ => none :: [])
 #testOptimize [ "IteOverCtor_1" ]
-  ∀ (c : Bool) (xs : List (Option Int)) (x : Int), (if c then some x else none) :: [] = xs ===>
-  ∀ (c : Bool) (xs : List (Option Int)) (x : Int), xs = (if true = c then some x :: [] else none :: [])
+  ∀ (c : Prop) (xs : List (Option Int)) (x : Int), [Decidable c] →
+    (if c then some x else none) :: [] = xs ===>
+  ∀ (c : Prop) (xs : List (Option Int)) (x : Int),
+      xs = Solver.dite' c (fun _ => some x :: []) (fun _ => none :: [])
 
--- ∀ (b c : Bool) (xs : List (Option Int)) (x : Int),
---  (if c then (if b then some x else none) else none) :: [] = xs ===>
--- ∀ (b c : Bool) (xs : List (Option Int)) (x : Int),
---   xs = (if true = c then (if true = b then some x :: [] else none :: []) else none :: [] = xs
+-- ∀ (b c : Prop) (xs : List (Option Int)) (x : Int), [Decidable b] → [Decidable c] →
+--   (if c then (if b then some x else none) else none) :: [] = xs ===>
+-- ∀ (b c : Prop) (xs : List (Option Int)) (x : Int),
+--   xs = Solver.dite' c
+--        (fun _ => Solver.dite' b (fun _ => some x :: []) (fun _ => none :: []))
+--        (fun _ => none :: [])
 #testOptimize [ "IteOverCtor_2" ]
-  ∀ (b c : Bool) (xs : List (Option Int)) (x : Int),
+  ∀ (b c : Prop) (xs : List (Option Int)) (x : Int), [Decidable b] → [Decidable c] →
     (if c then (if b then some x else none) else none) :: [] = xs ===>
-  ∀ (b c : Bool) (xs : List (Option Int)) (x : Int),
-    xs = (if true = c then (if true = b then some x :: [] else none :: []) else none :: [])
+  ∀ (b c : Prop) (xs : List (Option Int)) (x : Int),
+    xs = Solver.dite' c
+         (fun _ => Solver.dite' b (fun _ => some x :: []) (fun _ => none :: []))
+         (fun _ => none :: [])
 
--- ∀ (b c : Bool) (xs : List (Option Int)) (x : Int),
+-- ∀ (b c : Prop) (xs : List (Option Int)) (x : Int), [Decidable b] → [Decidable c] →
 --   (if c then some x else (if b then some x else none)) :: [] = xs ===>
--- ∀ (b c : Bool) (xs : List (Option Int)) (x : Int),
---   xs = (if true = c then some x :: [] else (if true = b then some x :: [] else none :: []))
+-- ∀ (b c : Prop) (xs : List (Option Int)) (x : Int),
+--   xs = Solver.dite' c
+--        (fun _ => some x :: [])
+--        (fun _ => Solver.dite' b (fun _ => some x :: []) (fun _ => none :: []))
 #testOptimize [ "IteOverCtor_3" ]
-  ∀ (b c : Bool) (xs : List (Option Int)) (x : Int),
+  ∀ (b c : Prop) (xs : List (Option Int)) (x : Int), [Decidable b] → [Decidable c] →
     (if c then some x else (if b then some x else none)) :: [] = xs ===>
-  ∀ (b c : Bool) (xs : List (Option Int)) (x : Int),
-    xs = (if true = c then some x :: [] else (if true = b then some x :: [] else none :: []))
+  ∀ (b c : Prop) (xs : List (Option Int)) (x : Int),
+    xs = Solver.dite' c
+         (fun _ => some x :: [])
+         (fun _ => Solver.dite' b (fun _ => some x :: []) (fun _ => none :: []))
 
-
--- ∀ (b c d : Bool) (xs : List (Option Int)) (x y : Int),
--- let op1 :=
---   if c
---   then if d then some x else some y
---   else if b then some x else none;
---  op1 :: [] = xs ===>
--- ∀ (b c d : Bool) (xs : List (Option Int)) (x y : Int),
---  xs =
---  if true = c
---  then (if true = d then some x :: [] else some y :: [])
---  else (if true = b then some x :: [] else none :: [])
+-- ∀ (b c d : Prop) (xs : List (Option Int)) (x y : Int),
+--   [Decidable b] → [Decidable c] → [Decidable d] →
+--   let op1 :=
+--     if c
+--     then if d then some x else some y
+--     else if b then some x else none;
+--   op1 :: [] = xs ===>
+-- ∀ (b c d : Prop) (xs : List (Option Int)) (x y : Int),
+--   xs =
+--   Solver.dite' c
+--   (fun _ => Solver.dite' d (fun _ => some x :: []) (fun _ => some y :: []))
+--   (fun _ => Solver.dite' b (fun _ => some x :: []) (fun _ => none :: []))
 #testOptimize [ "IteOverCtor_4" ]
-∀ (b c d : Bool) (xs : List (Option Int)) (x y : Int),
+∀ (b c d : Prop) (xs : List (Option Int)) (x y : Int),
+  [Decidable b] → [Decidable c] → [Decidable d] →
   let op1 :=
     if c
     then if d then some x else some y
     else if b then some x else none;
   op1 :: [] = xs ===>
-∀ (b c d : Bool) (xs : List (Option Int)) (x y : Int),
+∀ (b c d : Prop) (xs : List (Option Int)) (x y : Int),
   xs =
-  if true = c
-  then (if true = d then some x :: [] else some y :: [])
-  else (if true = b then some x :: [] else none :: [])
+  Solver.dite' c
+  (fun _ => Solver.dite' d (fun _ => some x :: []) (fun _ => some y :: []))
+  (fun _ => Solver.dite' b (fun _ => some x :: []) (fun _ => none :: []))
 
 
--- ∀ (b c d : Bool) (xs : List (Option Int)) (x y : Int),
--- let op1 :=
---   if c
---   then if d then some x else some y
---   else if b then some x else none;
--- let op2 :=
---    if b then [] else some y :: []
---  op1 :: op2 = xs ===>
--- ∀ (b c d : Bool) (xs : List (Option Int)) (x y : Int),
---  xs =
---  if true = c
---  then if true = d
---       then if b then some x :: [] else some x :: some y :: []
---       else if b then some y :: [] else some y :: some y :: []
---  else if true = b
---       then some x :: [] else some y :: []
+-- ∀ (b c d : Prop) (xs : List (Option Int)) (x y : Int),
+--   [Decidable b] → [Decidable c] → [Decidable d] →
+--   let op1 :=
+--     if c then if d then some x else some y
+--     else if b then some x else none;
+--   let op2 := if b then [] else some y :: []
+--   (op1 :: op2) = xs ===>
+-- ∀ (b c d : Prop) (xs : List (Option Int)) (x y : Int),
+--  xs = Solver.dite' c
+--       (fun _ =>
+--          Solver.dite' d
+--          (fun _ => Solver.dite' b (fun _ => some x :: []) (fun _ =>  some x :: some y :: []))
+--          (fun _ => Solver.dite' b (fun _ => some y :: []) (fun _ => some y :: some y :: [])))
+--       (fun _ => Solver.dite' b (fun _ => some x :: []) (fun _ => none :: some y :: []))
 #testOptimize [ "IteOverCtor_5" ]
-∀ (b c d : Bool) (xs : List (Option Int)) (x y : Int),
+∀ (b c d : Prop) (xs : List (Option Int)) (x y : Int),
+  [Decidable b] → [Decidable c] → [Decidable d] →
   let op1 :=
     if c then if d then some x else some y
     else if b then some x else none;
   let op2 := if b then [] else some y :: []
   (op1 :: op2) = xs ===>
-∀ (b c d : Bool) (xs : List (Option Int)) (x y : Int),
- xs = if true = c
-      then if true = d
-           then if true = b then some x :: [] else some x :: some y :: []
-           else if true = b then some y :: [] else some y :: some y :: []
-      else if true = b
-           then some x :: [] else none :: some y :: []
+∀ (b c d : Prop) (xs : List (Option Int)) (x y : Int),
+ xs = Solver.dite' c
+      (fun _ =>
+         Solver.dite' d
+         (fun _ => Solver.dite' b (fun _ => some x :: []) (fun _ =>  some x :: some y :: []))
+         (fun _ => Solver.dite' b (fun _ => some y :: []) (fun _ => some y :: some y :: [])))
+      (fun _ => Solver.dite' b (fun _ => some x :: []) (fun _ => none :: some y :: []))
 
--- ∀ (c : Bool) (xs : List (Int → Option Int)) (x : Int),
+-- ∀ (c : Prop) (xs : List (Int → Option Int)) (x : Int), [Decidable c] →
 --   (if c then λ n => some (x + n) else λ n => some (x - n)) :: [] = xs ===>
--- ∀ (c : Bool) (xs : List (Int → Option Int)) (x : Int),
---   xs = if true = c then (λ n => some (Int.add x n)) :: [] else (λ n => some (Int.add x (Int.neg n))) :: []
+-- ∀ (c : Prop) (xs : List (Int → Option Int)) (x : Int),
+--   xs = Solver.dite' c
+--        (fun _ => (λ n => some (Int.add x n)) :: [])
+--        (fun _ => (λ n => some (Int.add x (Int.neg n))) :: [])
 -- NOTE: Test cases to ensure that ite returning function are properly handled
 #testOptimize [ "IteOverCtor_6" ]
-  ∀ (c : Bool) (xs : List (Int → Option Int)) (x : Int),
+  ∀ (c : Prop) (xs : List (Int → Option Int)) (x : Int), [Decidable c] →
     (if c then λ n => some (x + n) else λ n => some (x - n)) :: [] = xs ===>
-  ∀ (c : Bool) (xs : List (Int → Option Int)) (x : Int),
-    xs = if true = c then (λ n => some (Int.add x n)) :: [] else (λ n => some (Int.add x (Int.neg n))) :: []
+  ∀ (c : Prop) (xs : List (Int → Option Int)) (x : Int),
+    xs = Solver.dite' c
+         (fun _ => (λ n => some (Int.add x n)) :: [])
+         (fun _ => (λ n => some (Int.add x (Int.neg n))) :: [])
 
 
 -- ∀ (c : Bool) (xs : List (Option Int)) (x : Option Int),
@@ -110,86 +126,101 @@ namespace Tests.ConstCtorProp
 --   xs = if true = c then x :: [] else none :: []
 -- NOTE: Test cases to ensure that even non constant ite are propagated
 #testOptimize [ "IteOverCtor_7" ]
-  ∀ (c : Bool) (xs : List (Option Int)) (x : Option Int),
+  ∀ (c : Prop) (xs : List (Option Int)) (x : Option Int), [Decidable c] →
     (if c then x else none) :: [] = xs ===>
-  ∀ (c : Bool) (xs : List (Option Int)) (x : Option Int),
-    xs = if true = c then x :: [] else none :: []
+  ∀ (c : Prop) (xs : List (Option Int)) (x : Option Int),
+    xs = Solver.dite' c (fun _ => x :: []) (fun _ => none :: [])
 
--- ∀ (b c : Bool) (xs : List (Option Int)) (x : Option Int),
---  (if c then (if b then x else none) else none) :: [] = xs ===>
--- ∀ (b c : Bool) (xs : List (Option Int)) (x : Option Int),
---  xs = if true = c then (if true = b then x :: [] else none :: [] ) else none :: []
+-- ∀ (b c : Prop) (xs : List (Option Int)) (x : Option Int),
+--   [Decidable b] → [Decidable c] →
+--   (if c then (if b then x else none) else none) :: [] = xs ===>
+-- ∀ (b c : Prop) (xs : List (Option Int)) (x : Option Int),
+--   xs = Solver.dite' c
+--        (fun _ => (Solver.dite' b (fun _ => x :: []) (fun _ => none :: [])))
+--        (fun _ => none :: [])
 -- NOTE: Test cases to ensure that even non constant ite are also propagated
 #testOptimize [ "IteOverCtor_8" ]
-  ∀ (b c : Bool) (xs : List (Option Int)) (x : Option Int),
+  ∀ (b c : Prop) (xs : List (Option Int)) (x : Option Int),
+    [Decidable b] → [Decidable c] →
     (if c then (if b then x else none) else none) :: [] = xs ===>
-  ∀ (b c : Bool) (xs : List (Option Int)) (x : Option Int),
-    xs = if true = c then (if true = b then x :: [] else none :: [] ) else none :: []
+  ∀ (b c : Prop) (xs : List (Option Int)) (x : Option Int),
+    xs = Solver.dite' c
+         (fun _ => (Solver.dite' b (fun _ => x :: []) (fun _ => none :: [])))
+         (fun _ => none :: [])
 
--- ∀ (b c : Bool) (xs : List (Option Int)) (x : Int) (p : Option Int),
---   (if c then some x else (if b then p else none)) :: [] = xs ===>
--- ∀ (b c : Bool) (xs : List (Option Int)) (x : Int) (p : Option Int),
---  xs = if true = c then some x :: [] else if true = b then p :: [] else none :: []
+-- ∀ (b c : Prop) (xs : List (Option Int)) (x : Int) (p : Option Int),
+--   [Decidable b] → [Decidable c] →
+--     (if c then some x else (if b then p else none)) :: [] = xs ===>
+-- ∀ (b c : Prop) (xs : List (Option Int)) (x : Int) (p : Option Int),
+--   xs = Solver.dite' c
+--        (fun _ => some x :: [])
+--        (fun _ => Solver.dite' b (fun _ => p :: []) (fun _ => none :: []))
 -- NOTE: Test cases to ensure that even non constant ite are propagated
 #testOptimize [ "IteOverCtor_9" ]
-  ∀ (b c : Bool) (xs : List (Option Int)) (x : Int) (p : Option Int),
-    (if c then some x else (if b then p else none)) :: [] = xs ===>
-  ∀ (b c : Bool) (xs : List (Option Int)) (x : Int) (p : Option Int),
-    xs = if true = c then some x :: [] else if true = b then p :: [] else none :: []
+  ∀ (b c : Prop) (xs : List (Option Int)) (x : Int) (p : Option Int),
+    [Decidable b] → [Decidable c] →
+      (if c then some x else (if b then p else none)) :: [] = xs ===>
+  ∀ (b c : Prop) (xs : List (Option Int)) (x : Int) (p : Option Int),
+    xs = Solver.dite' c
+         (fun _ => some x :: [])
+         (fun _ => Solver.dite' b (fun _ => p :: []) (fun _ => none :: []))
 
-
--- ∀ (b c d : Bool) (xs : List (Option Int)) (x : Int) (p : Option Int),
--- let op1 :=
---   if c
---   then if d then some x else p
---   else if b then some x else none;
---  op1 :: [] = xs ===>
--- ∀ (b c d : Bool) (xs : List (Option Int)) (x : Int) (p : Option Int),
---   xs = if true = c
---        then if true = d then some x :: [] else p :: []
---        else if true = b then some x :: [] else none :: []
+-- ∀ (b c d : Prop) (xs : List (Option Int)) (x : Int) (p : Option Int),
+--   [Decidable b] → [Decidable c] → [Decidable d] →
+--   let op1 :=
+--     if c
+--     then if d then some x else p
+--     else if b then some x else none;
+--   op1 :: [] = xs ===>
+-- ∀ (b c d : Prop) (xs : List (Option Int)) (x : Int) (p : Option Int),
+--    xs = Solver.dite' c
+--         (fun _ => Solver.dite' d (fun _ => some x :: []) (fun _ => p :: []))
+--         (fun _ => Solver.dite' b (fun _ => some x :: []) (fun _ => none :: []))
 -- NOTE: Test cases to ensure that even non constant ite are propagated
 #testOptimize [ "IteOverCtor_10" ]
-∀ (b c d : Bool) (xs : List (Option Int)) (x : Int) (p : Option Int),
+∀ (b c d : Prop) (xs : List (Option Int)) (x : Int) (p : Option Int),
+  [Decidable b] → [Decidable c] → [Decidable d] →
   let op1 :=
     if c
     then if d then some x else p
     else if b then some x else none;
   op1 :: [] = xs ===>
-∀ (b c d : Bool) (xs : List (Option Int)) (x : Int) (p : Option Int),
-   xs = if true = c
-        then if true = d then some x :: [] else p :: []
-        else if true = b then some x :: [] else none :: []
+∀ (b c d : Prop) (xs : List (Option Int)) (x : Int) (p : Option Int),
+   xs = Solver.dite' c
+        (fun _ => Solver.dite' d (fun _ => some x :: []) (fun _ => p :: []))
+        (fun _ => Solver.dite' b (fun _ => some x :: []) (fun _ => none :: []))
 
 
--- ∀ (b c d : Bool) (xs : List (Option Int)) (x : Int) (p : Option Int),
--- let op1 :=
---   if c
---   then if d then some x else p
---   else if b then some x else none;
--- let op2 :=
---    if b then [] else p :: []
---  op1 :: op2 = xs ===>
--- ∀ (b c d : Bool) (xs : List (Option Int)) (x : Int) (p : Option Int),
---   xs = if true = c
---        then if true = d
---             then if true = b then some x :: [] else some x :: p :: []
---             else if true = b then p :: [] else p :: p :: []
---        else if true = b then some x :: [] else none :: p :: []
+-- ∀ (b c d : Prop) (xs : List (Option Int)) (x : Int) (p : Option Int),
+--   [Decidable b] → [Decidable c] → [Decidable d] →
+--   let op1 :=
+--     if c then if d then some x else p
+--     else if b then some x else none;
+--   let op2 := if b then [] else p :: []
+--   (op1 :: op2) = xs ===>
+-- ∀ (b c d : Prop) (xs : List (Option Int)) (x : Int) (p : Option Int),
+--   xs = Solver.dite' c
+--        (fun _ =>
+--          Solver.dite' d
+--          (fun _ => Solver.dite' b (fun _ => some x :: []) (fun _ => some x :: p :: []))
+--          (fun _ => Solver.dite' b (fun _ => p :: []) (fun _ => p :: p :: [])))
+--        (fun _ => Solver.dite' b (fun _ => some x :: []) (fun _ => none :: p :: []))
 -- NOTE: Test cases to ensure that even non constant ite are propagated
 #testOptimize [ "IteOverCtor_11" ]
-∀ (b c d : Bool) (xs : List (Option Int)) (x : Int) (p : Option Int),
+∀ (b c d : Prop) (xs : List (Option Int)) (x : Int) (p : Option Int),
+  [Decidable b] → [Decidable c] → [Decidable d] →
   let op1 :=
     if c then if d then some x else p
     else if b then some x else none;
   let op2 := if b then [] else p :: []
   (op1 :: op2) = xs ===>
-∀ (b c d : Bool) (xs : List (Option Int)) (x : Int) (p : Option Int),
-  xs = if true = c
-       then if true = d
-            then if true = b then some x :: [] else some x :: p :: []
-            else if true = b then p :: [] else p :: p :: []
-       else if true = b then some x :: [] else none :: p :: []
+∀ (b c d : Prop) (xs : List (Option Int)) (x : Int) (p : Option Int),
+  xs = Solver.dite' c
+       (fun _ =>
+         Solver.dite' d
+         (fun _ => Solver.dite' b (fun _ => some x :: []) (fun _ => some x :: p :: []))
+         (fun _ => Solver.dite' b (fun _ => p :: []) (fun _ => p :: p :: [])))
+       (fun _ => Solver.dite' b (fun _ => some x :: []) (fun _ => none :: p :: []))
 
 -- ∀ (c : Bool) (x y z : Int),
 --   some ((if c then λ n => x + n else λ n => x - n) z) = some y ===>
@@ -212,22 +243,23 @@ namespace Tests.ConstCtorProp
 
 -- ∀ (c : Prop) (xs : List (Option Int)) (x : Int) (t : c → Int → Option Int), [Decidable c] →
 --   (if h : c then t h x else none) :: [] = xs ===>
--- ∀ (c : Prop) (xs : List (Option Int)) (x : Int) (t : c → Int → Option Int), [Decidable c] →
---   xs = (if h : c then t h x :: [] else none :: [])
+-- ∀ (c : Prop) (xs : List (Option Int)) (x : Int) (t : c → Int → Option Int),
+--   xs = Solver.dite' c (fun h : c => t h x :: []) (fun _ => none :: [])
 #testOptimize [ "DIteOverCtor_1" ]
   ∀ (c : Prop) (xs : List (Option Int)) (x : Int) (t : c → Int → Option Int), [Decidable c] →
     (if h : c then t h x else none) :: [] = xs ===>
-  ∀ (c : Prop) (xs : List (Option Int)) (x : Int) (t : c → Int → Option Int), [Decidable c] →
-    xs = (if h : c then t h x :: [] else none :: [])
+  ∀ (c : Prop) (xs : List (Option Int)) (x : Int) (t : c → Int → Option Int),
+    xs = Solver.dite' c (fun h : c => t h x :: []) (fun _ => none :: [])
 
 -- ∀ (b c : Prop) (xs : List (Option Int)) (x : Int)
---    (t : b → Int → Option Int) (f : ¬ c → Option Int → Option Int),
---    [Decidable b] → [Decidable c] →
---      (if h1 : c then (if h2 : b then t h2 x else none) else f h1 none) :: [] = xs ===>
---  ∀ (b c : Prop) (xs : List (Option Int)) (x : Int)
---    (t : b → Int → Option Int) (f : ¬ c → Option Int → Option Int),
---    [Decidable b] → [Decidable c] →
---      xs = (if h1 : c then (if h2 : b then t h2 x :: [] else none :: []) else f h1 none :: [])
+--   (t : b → Int → Option Int) (f : ¬ c → Option Int → Option Int),
+--   [Decidable b] → [Decidable c] →
+--     (if h1 : c then (if h2 : b then t h2 x else none) else f h1 none) :: [] = xs ===>
+-- ∀ (b c : Prop) (xs : List (Option Int)) (x : Int)
+--   (t : b → Int → Option Int) (f : ¬ c → Option Int → Option Int),
+--     xs = Solver.dite' c
+--          (fun _ => Solver.dite' b (fun h2 : _ => t h2 x :: []) (fun _ => none :: []))
+--          (fun h1 : _ => f h1 none :: [])
 #testOptimize [ "DIteOverCtor_2" ]
  ∀ (b c : Prop) (xs : List (Option Int)) (x : Int)
    (t : b → Int → Option Int) (f : ¬ c → Option Int → Option Int),
@@ -235,23 +267,27 @@ namespace Tests.ConstCtorProp
      (if h1 : c then (if h2 : b then t h2 x else none) else f h1 none) :: [] = xs ===>
  ∀ (b c : Prop) (xs : List (Option Int)) (x : Int)
    (t : b → Int → Option Int) (f : ¬ c → Option Int → Option Int),
-   [Decidable b] → [Decidable c] →
-     xs = (if h1 : c then (if h2 : b then t h2 x :: [] else none :: []) else f h1 none :: [])
+     xs = Solver.dite' c
+          (fun _ => Solver.dite' b (fun h2 : _ => t h2 x :: []) (fun _ => none :: []))
+          (fun h1 : _ => f h1 none :: [])
 
 -- ∀ (b c : Prop) (xs : List (Option Int)) (x : Int)
 --   (t : c → Int → Option Int) (f : b → Int → Option Int), [Decidable b] → [Decidable c] →
 --     (if h1 : c then t h1 x else (if h2 : b then f h2 x else none)) :: [] = xs ===>
 -- ∀ (b c : Prop) (xs : List (Option Int)) (x : Int)
---   (t : c → Int → Option Int) (f : b → Int → Option Int), [Decidable b] → [Decidable c] →
---     xs = (if h1 : c then t h1 x :: [] else (if h2 : b then f h2 x :: [] else none :: []))
+--   (t : c → Int → Option Int) (f : b → Int → Option Int),
+--     xs = Solver.dite' c
+--          (fun h1 : _ => t h1 x :: [])
+--          (fun _ => Solver.dite' b (fun h2 : _ => f h2 x :: []) (fun _ => none :: []))
 #testOptimize [ "DIteOverCtor_3" ]
   ∀ (b c : Prop) (xs : List (Option Int)) (x : Int)
     (t : c → Int → Option Int) (f : b → Int → Option Int), [Decidable b] → [Decidable c] →
       (if h1 : c then t h1 x else (if h2 : b then f h2 x else none)) :: [] = xs ===>
   ∀ (b c : Prop) (xs : List (Option Int)) (x : Int)
-    (t : c → Int → Option Int) (f : b → Int → Option Int), [Decidable b] → [Decidable c] →
-      xs = (if h1 : c then t h1 x :: [] else (if h2 : b then f h2 x :: [] else none :: []))
-
+    (t : c → Int → Option Int) (f : b → Int → Option Int),
+      xs = Solver.dite' c
+           (fun h1 : _ => t h1 x :: [])
+           (fun _ => Solver.dite' b (fun h2 : _ => f h2 x :: []) (fun _ => none :: []))
 
 -- ∀ (b c d : Prop) (xs : List (Option Int)) (x y : Int)
 --    (t : c → Int → Option Int) (f : ¬ d → Int → Option Int)
@@ -263,11 +299,11 @@ namespace Tests.ConstCtorProp
 --   op1 :: [] = xs ===>
 -- ∀ (b c d : Prop) (xs : List (Option Int)) (x y : Int)
 --    (t : c → Int → Option Int) (f : ¬ d → Int → Option Int)
---    (g : b → Int → Option Int), [Decidable b] → [Decidable c] → [Decidable d] →
+--    (g : b → Int → Option Int),
 --   xs =
---   if h1 : c
---   then (if h2 : d then t h1 x :: [] else f h2 y :: [])
---   else (if h3 : b then g h3 x :: [] else none :: [])
+--   Solver.dite' c
+--   (fun h1 : _ => Solver.dite' d (fun _ => t h1 x :: []) (fun h2 : _ => f h2 y :: []))
+--   (fun _ => Solver.dite' b (fun h3 : _ => g h3 x :: []) (fun _ => none :: []))
 #testOptimize [ "DIteOverCtor_4" ]
 ∀ (b c d : Prop) (xs : List (Option Int)) (x y : Int)
    (t : c → Int → Option Int) (f : ¬ d → Int → Option Int)
@@ -279,12 +315,11 @@ namespace Tests.ConstCtorProp
   op1 :: [] = xs ===>
 ∀ (b c d : Prop) (xs : List (Option Int)) (x y : Int)
    (t : c → Int → Option Int) (f : ¬ d → Int → Option Int)
-   (g : b → Int → Option Int), [Decidable b] → [Decidable c] → [Decidable d] →
+   (g : b → Int → Option Int),
   xs =
-  if h1 : c
-  then (if h2 : d then t h1 x :: [] else f h2 y :: [])
-  else (if h3 : b then g h3 x :: [] else none :: [])
-
+  Solver.dite' c
+  (fun h1 : _ => Solver.dite' d (fun _ => t h1 x :: []) (fun h2 : _ => f h2 y :: []))
+  (fun _ => Solver.dite' b (fun h3 : _ => g h3 x :: []) (fun _ => none :: []))
 
 -- ∀ (b c d : Prop) (xs : List (Option Int)) (x y : Int)
 --   (t : c → Int → Option Int) (f : ¬ d → Int → Option Int)
@@ -296,13 +331,16 @@ namespace Tests.ConstCtorProp
 --   (op1 :: op2) = xs ===>
 -- ∀ (b c d : Prop) (xs : List (Option Int)) (x y : Int)
 --   (t : c → Int → Option Int) (f : ¬ d → Int → Option Int)
---   (g : b → Int → Option Int), [Decidable b] → [Decidable c] → [Decidable d] →
---  xs = if h1 : c
---       then if h2 : d
---            then if h4 : b then t h1 x :: g h4 y :: [] else t h1 x :: []
---            else if h4 : b then f h2 y :: g h4 y :: [] else f h2 y :: []
---       else if h3 : b
---            then g h3 x :: g h3 y :: [] else none :: []
+--   (g : b → Int → Option Int),
+--  xs = Solver.dite' c
+--       (fun h1 : _ =>
+--         Solver.dite' d
+--         (fun _ =>
+--           Solver.dite' b (fun h4 : _ => t h1 x :: g h4 y :: []) (fun _ => t h1 x :: []))
+--         (fun h2 : _ =>
+--           Solver.dite' b (fun h4 : _ => f h2 y :: g h4 y :: []) (fun _ => f h2 y :: [])))
+--       (fun _ =>
+--         Solver.dite' b (fun h3 : _ => g h3 x :: g h3 y :: []) (fun _ => none :: []))
 #testOptimize [ "DIteOverCtor_5" ]
 ∀ (b c d : Prop) (xs : List (Option Int)) (x y : Int)
   (t : c → Int → Option Int) (f : ¬ d → Int → Option Int)
@@ -314,70 +352,84 @@ namespace Tests.ConstCtorProp
   (op1 :: op2) = xs ===>
 ∀ (b c d : Prop) (xs : List (Option Int)) (x y : Int)
   (t : c → Int → Option Int) (f : ¬ d → Int → Option Int)
-  (g : b → Int → Option Int), [Decidable b] → [Decidable c] → [Decidable d] →
- xs = if h1 : c
-      then if h2 : d
-           then if h4 : b then t h1 x :: g h4 y :: [] else t h1 x :: []
-           else if h4 : b then f h2 y :: g h4 y :: [] else f h2 y :: []
-      else if h3 : b
-           then g h3 x :: g h3 y :: [] else none :: []
+  (g : b → Int → Option Int),
+ xs = Solver.dite' c
+      (fun h1 : _ =>
+        Solver.dite' d
+        (fun _ =>
+          Solver.dite' b (fun h4 : _ => t h1 x :: g h4 y :: []) (fun _ => t h1 x :: []))
+        (fun h2 : _ =>
+          Solver.dite' b (fun h4 : _ => f h2 y :: g h4 y :: []) (fun _ => f h2 y :: [])))
+      (fun _ =>
+        Solver.dite' b (fun h3 : _ => g h3 x :: g h3 y :: []) (fun _ => none :: []))
 
 -- ∀ (c : Prop) (xs : List (Int → Option Int)) (x : Int)
 --   (t : c → Int → Option Int) (e : ¬ c → Int → Option Int), [Decidable c] →
 --     (if h : c then λ n => t h (x + n) else λ n => e h (x - n)) :: [] = xs ===>
 -- ∀ (c : Prop) (xs : List (Int → Option Int)) (x : Int)
---   (t : c → Int → Option Int) (e : ¬ c → Int → Option Int), [Decidable c] →
---   xs = if h : c then (λ n => t h (Int.add x n)) :: [] else (λ n => e h (Int.add x (Int.neg n))) :: []
+--   (t : c → Int → Option Int) (e : ¬ c → Int → Option Int),
+--   xs = Solver.dite' c
+--        (fun h : _ => (λ n => t h (Int.add x n)) :: [])
+--        (fun h : _ => (λ n => e h (Int.add x (Int.neg n))) :: [])
 -- NOTE: Test cases to ensure that dite returning function are properly handled
 #testOptimize [ "DIteOverCtor_6" ]
   ∀ (c : Prop) (xs : List (Int → Option Int)) (x : Int)
     (t : c → Int → Option Int) (e : ¬ c → Int → Option Int), [Decidable c] →
       (if h : c then λ n => t h (x + n) else λ n => e h (x - n)) :: [] = xs ===>
   ∀ (c : Prop) (xs : List (Int → Option Int)) (x : Int)
-    (t : c → Int → Option Int) (e : ¬ c → Int → Option Int), [Decidable c] →
-    xs = if h : c then (λ n => t h (Int.add x n)) :: [] else (λ n => e h (Int.add x (Int.neg n))) :: []
-
+    (t : c → Int → Option Int) (e : ¬ c → Int → Option Int),
+    xs = Solver.dite' c
+         (fun h : _ => (λ n => t h (Int.add x n)) :: [])
+         (fun h : _ => (λ n => e h (Int.add x (Int.neg n))) :: [])
 
 -- ∀ (c : Prop) (xs : List (Option Int)) (x : Int) (t : c → Int → Option Int), [Decidable c] →
 --    (if h : c then t h x else none) :: [] = xs ===>
--- ∀ (c : Prop) (xs : List (Option Int)) (x : Int) (t : c → Int → Option Int), [Decidable c] →
---    xs = if h : c then t h x :: [] else none :: []
+-- ∀ (c : Prop) (xs : List (Option Int)) (x : Int) (t : c → Int → Option Int),
+--    xs = Solver.dite' c (fun h : _ => t h x :: []) (fun _ => none :: [])
 -- NOTE: Test cases to ensure that even non constant ite are propagated
 #testOptimize [ "DIteOverCtor_7" ]
   ∀ (c : Prop) (xs : List (Option Int)) (x : Int) (t : c → Int → Option Int), [Decidable c] →
      (if h : c then t h x else none) :: [] = xs ===>
-  ∀ (c : Prop) (xs : List (Option Int)) (x : Int) (t : c → Int → Option Int), [Decidable c] →
-     xs = if h : c then t h x :: [] else none :: []
+  ∀ (c : Prop) (xs : List (Option Int)) (x : Int) (t : c → Int → Option Int),
+     xs = Solver.dite' c (fun h : _ => t h x :: []) (fun _ => none :: [])
 
- -- ∀ (b c : Prop) (xs : List (Option Int)) (x : Int)
- --    (t : b → Int → Int) (f : ¬ c → Int → Option Int), [Decidable b] → [Decidable c] →
- --      (if h1 : c then (if h2 : b then some (t h2 x) else none) else f h1 x) :: [] = xs ===>
- -- ∀ (b c : Prop) (xs : List (Option Int)) (x : Int)
- --    (t : b → Int → Int) (f : ¬ c → Int → Option Int), [Decidable b] → [Decidable c] →
- --      xs = if h1 : c then (if h2 : b then some (t h2 x) :: [] else none :: []) else f h1 x :: []
+-- ∀ (b c : Prop) (xs : List (Option Int)) (x : Int)
+--   (t : b → Int → Int) (f : ¬ c → Int → Option Int), [Decidable b] → [Decidable c] →
+--     (if h1 : c then (if h2 : b then some (t h2 x) else none) else f h1 x) :: [] = xs ===>
+-- ∀ (b c : Prop) (xs : List (Option Int)) (x : Int)
+--   (t : b → Int → Int) (f : ¬ c → Int → Option Int),
+--     xs = Solver.dite' c
+--          (fun _ => Solver.dite' b (fun h2 : _ => some (t h2 x) :: []) (fun _ => none :: []))
+--          (fun h1 : _ => f h1 x :: [])
 -- NOTE: Test cases to ensure that even non constant ite are propagated
 #testOptimize [ "DIteOverCtor_8" ]
   ∀ (b c : Prop) (xs : List (Option Int)) (x : Int)
     (t : b → Int → Int) (f : ¬ c → Int → Option Int), [Decidable b] → [Decidable c] →
       (if h1 : c then (if h2 : b then some (t h2 x) else none) else f h1 x) :: [] = xs ===>
   ∀ (b c : Prop) (xs : List (Option Int)) (x : Int)
-    (t : b → Int → Int) (f : ¬ c → Int → Option Int), [Decidable b] → [Decidable c] →
-      xs = if h1 : c then (if h2 : b then some (t h2 x) :: [] else none :: []) else f h1 x :: []
+    (t : b → Int → Int) (f : ¬ c → Int → Option Int),
+      xs = Solver.dite' c
+           (fun _ => Solver.dite' b (fun h2 : _ => some (t h2 x) :: []) (fun _ => none :: []))
+           (fun h1 : _ => f h1 x :: [])
 
 -- ∀ (b c : Prop) (xs : List (Option Int)) (x : Int) (p : Int)
 --   (t : c → Int → Option Int) (f : b → Int → Option Int), [Decidable b] → [Decidable c] →
 --     (if h1 : c then t h1 x else (if h2 : b then f h2 p else none)) :: [] = xs ===>
 -- ∀ (b c : Prop) (xs : List (Option Int)) (x : Int) (p : Int)
---   (t : c → Int → Option Int) (f : b → Int → Option Int), [Decidable b] → [Decidable c] →
---    xs = if h1 : c then t h1 x :: [] else if h2 : b then f h2 p :: [] else none :: []
+--   (t : c → Int → Option Int) (f : b → Int → Option Int),
+--    xs = Solver.dite' c
+--         (fun h1 : _ => t h1 x :: [])
+--         (fun _ => Solver.dite' b (fun h2 : _ => f h2 p :: []) (fun _ => none :: []))
 -- NOTE: Test cases to ensure that even non constant ite are propagated
 #testOptimize [ "DIteOverCtor_9" ]
   ∀ (b c : Prop) (xs : List (Option Int)) (x : Int) (p : Int)
     (t : c → Int → Option Int) (f : b → Int → Option Int), [Decidable b] → [Decidable c] →
       (if h1 : c then t h1 x else (if h2 : b then f h2 p else none)) :: [] = xs ===>
   ∀ (b c : Prop) (xs : List (Option Int)) (x : Int) (p : Int)
-    (t : c → Int → Option Int) (f : b → Int → Option Int), [Decidable b] → [Decidable c] →
-     xs = if h1 : c then t h1 x :: [] else if h2 : b then f h2 p :: [] else none :: []
+    (t : c → Int → Option Int) (f : b → Int → Option Int),
+     xs = Solver.dite' c
+          (fun h1 : _ => t h1 x :: [])
+          (fun _ => Solver.dite' b (fun h2 : _ => f h2 p :: []) (fun _ => none :: []))
 
 -- ∀ (b c d : Prop) (xs : List (Option Int)) (x : Int) (p : Int)
 --   (t : d → Int → Int) (f : b → Int → Int) (g : c → Int → Option Int),
@@ -389,10 +441,9 @@ namespace Tests.ConstCtorProp
 --   op1 :: [] = xs ===>
 -- ∀ (b c d : Prop) (xs : List (Option Int)) (x : Int) (p : Int)
 --   (t : d → Int → Int) (f : b → Int → Int) (g : c → Int → Option Int),
---   [Decidable b] → [Decidable c] → [Decidable d] →
---    xs = if h1 : c
---         then if h2 : d then some (t h2 x) :: [] else (g h1 p) :: []
---         else if h3 : b then some (f h3 x) :: [] else none :: []
+--    xs = Solver.dite' c
+--         (fun h1 : _ => Solver.dite' d (fun h2 : _ => some (t h2 x) :: []) (fun _ => (g h1 p) :: []))
+--         (fun _ => Solver.dite' b (fun h3 : _ => some (f h3 x) :: []) (fun _ => none :: []))
 -- NOTE: Test cases to ensure that even non constant ite are propagated
 #testOptimize [ "DIteOverCtor_10" ]
 ∀ (b c d : Prop) (xs : List (Option Int)) (x : Int) (p : Int)
@@ -405,10 +456,9 @@ namespace Tests.ConstCtorProp
   op1 :: [] = xs ===>
 ∀ (b c d : Prop) (xs : List (Option Int)) (x : Int) (p : Int)
   (t : d → Int → Int) (f : b → Int → Int) (g : c → Int → Option Int),
-  [Decidable b] → [Decidable c] → [Decidable d] →
-   xs = if h1 : c
-        then if h2 : d then some (t h2 x) :: [] else (g h1 p) :: []
-        else if h3 : b then some (f h3 x) :: [] else none :: []
+   xs = Solver.dite' c
+        (fun h1 : _ => Solver.dite' d (fun h2 : _ => some (t h2 x) :: []) (fun _ => (g h1 p) :: []))
+        (fun _ => Solver.dite' b (fun h3 : _ => some (f h3 x) :: []) (fun _ => none :: []))
 
 -- ∀ (b c d : Prop) (xs : List (Option Int)) (x : Int) (p : Int)
 --   (t : d → Int → Int) (f : c → Int → Option Int) (g : b → Int → Int)
@@ -420,12 +470,20 @@ namespace Tests.ConstCtorProp
 --   (op1 :: op2) = xs ===>
 -- ∀ (b c d : Prop) (xs : List (Option Int)) (x : Int) (p : Int)
 --   (t : d → Int → Int) (f : c → Int → Option Int) (g : b → Int → Int)
---   (j : ¬ b → Int → Option Int), [Decidable b] → [Decidable c] → [Decidable d] →
---   xs = if h1 : c
---        then if h2 : d
---             then if h4 : b then some (t h2 x) :: [] else some (t h2 x) :: (j h4 p) :: []
---             else if h4 : b then f h1 p :: [] else f h1 p :: j h4 p :: []
---        else if h3 : b then some (g h3 x) :: [] else none :: (j h3 p) :: []
+--   (j : ¬ b → Int → Option Int),
+--   xs = Solver.dite' c
+--        (fun h1 : _ =>
+--          Solver.dite' d
+--          (fun h2 : _ =>
+--            Solver.dite' b
+--            (fun _ => some (t h2 x) :: [])
+--            (fun h4 : _ => some (t h2 x) :: (j h4 p) :: []))
+--          (fun _ =>
+--            Solver.dite' b (fun _ => f h1 p :: []) (fun h4 : _ => f h1 p :: j h4 p :: [])))
+--        (fun _ =>
+--          Solver.dite' b
+--          (fun h3 : _ => some (g h3 x) :: [])
+--          (fun h3 : _ => none :: (j h3 p) :: []))
 #testOptimize [ "DIteOverCtor_11" ]
 ∀ (b c d : Prop) (xs : List (Option Int)) (x : Int) (p : Int)
   (t : d → Int → Int) (f : c → Int → Option Int) (g : b → Int → Int)
@@ -437,12 +495,20 @@ namespace Tests.ConstCtorProp
   (op1 :: op2) = xs ===>
 ∀ (b c d : Prop) (xs : List (Option Int)) (x : Int) (p : Int)
   (t : d → Int → Int) (f : c → Int → Option Int) (g : b → Int → Int)
-  (j : ¬ b → Int → Option Int), [Decidable b] → [Decidable c] → [Decidable d] →
-  xs = if h1 : c
-       then if h2 : d
-            then if h4 : b then some (t h2 x) :: [] else some (t h2 x) :: (j h4 p) :: []
-            else if h4 : b then f h1 p :: [] else f h1 p :: j h4 p :: []
-       else if h3 : b then some (g h3 x) :: [] else none :: (j h3 p) :: []
+  (j : ¬ b → Int → Option Int),
+  xs = Solver.dite' c
+       (fun h1 : _ =>
+         Solver.dite' d
+         (fun h2 : _ =>
+           Solver.dite' b
+           (fun _ => some (t h2 x) :: [])
+           (fun h4 : _ => some (t h2 x) :: (j h4 p) :: []))
+         (fun _ =>
+           Solver.dite' b (fun _ => f h1 p :: []) (fun h4 : _ => f h1 p :: j h4 p :: [])))
+       (fun _ =>
+         Solver.dite' b
+         (fun h3 : _ => some (g h3 x) :: [])
+         (fun h3 : _ => none :: (j h3 p) :: []))
 
 -- ∀ (c : Bool) (x y z : Int) (t : true = c → Int → Int) (f : ¬ true = c → Int → Int),
 --   some ((if h : true = c then λ n => t h (x + n) else λ n => f h (x - n)) z) = some y ===>
@@ -462,25 +528,25 @@ namespace Tests.ConstCtorProp
 
 -- ∀ (c : Prop) (r : Option Bool) (t : c → Bool) (e : ¬ c → Bool), [Decidable c] →
 --   r = some (dite c t e) ===>
--- ∀ (c : Prop) (r : Option Bool) (t : c → Bool) (e : ¬ c → Bool), [Decidable c] →
---   r = if h : c then some (t h) else some (e h)
+-- ∀ (c : Prop) (r : Option Bool) (t : c → Bool) (e : ¬ c → Bool),
+--   r = Solver.dite' c (fun h : _ => some (t h)) (fun h : _ => some (e h))
 -- NOTE: Test cases to ensure that quantified functions passed to dite are properly handled.
 #testOptimize [ "DIteOverCtor_14" ]
   ∀ (c : Prop) (r : Option Bool) (t : c → Bool) (e : ¬ c → Bool), [Decidable c] →
     r = some (dite c t e) ===>
-  ∀ (c : Prop) (r : Option Bool) (t : c → Bool) (e : ¬ c → Bool), [Decidable c] →
-    r = if h : c then some (t h) else some (e h)
+  ∀ (c : Prop) (r : Option Bool) (t : c → Bool) (e : ¬ c → Bool),
+    r = Solver.dite' c (fun h : _ => some (t h)) (fun h : _ => some (e h))
 
 -- ∀ (c : Prop) (r : Option (Int → Bool)) (t : c → Int → Bool) (e : ¬ c → Int → Bool),
 --   [Decidable c] → r = some (dite c t e) ===>
 -- ∀ (c : Prop) (r : Option (Int → Bool)) (t : c → Int → Bool) (e : ¬ c → Int → Bool),
---   [Decidable c] → r = if h : c then some (λ x => t h x) else some (λ x => e h x)
+--   r = Solver.dite' c (fun h : _ => some (λ x => t h x)) (fun h : _ => some (λ x => e h x))
 -- NOTE: Test cases to ensure that quantified functions passed to dite are properly handled.
 #testOptimize [ "DIteOverCtor_15" ]
   ∀ (c : Prop) (r : Option (Int → Bool)) (t : c → Int → Bool) (e : ¬ c → Int → Bool),
     [Decidable c] → r = some (dite c t e) ===>
   ∀ (c : Prop) (r : Option (Int → Bool)) (t : c → Int → Bool) (e : ¬ c → Int → Bool),
-    [Decidable c] → r = if h : c then some (λ x => t h x) else some (λ x => e h x)
+    r = Solver.dite' c (fun h : _ => some (λ x => t h x)) (fun h : _ => some (λ x => e h x))
 
 /-! Test cases to validate when match over constructor constant propagation must be applied. -/
 
@@ -501,19 +567,19 @@ def toColorOne (x : Option Nat) : Color :=
 -- ∀ (n : Option Nat) (xs : List Color), toColorOne n :: [] = xs ===>
 -- ∀ (n : Option Nat) (xs : List Color),
 --      xs = ( toColorOne.match_1 (fun (_ : Option Nat) => List Color) n
---             (fun (_ : PUnit) => .black :: [])
---             (fun (_ : PUnit) => .transparent :: [])
---             (fun (_ : PUnit) => .red .transparent :: [])
---             (fun (_ : PUnit) => .blue .black :: [])
+--             (fun (_ : Unit) => .black :: [])
+--             (fun (_ : Unit) => .transparent :: [])
+--             (fun (_ : Unit) => .red .transparent :: [])
+--             (fun (_ : Unit) => .blue .black :: [])
 --             (fun (_ : Nat) => .blue .transparent :: []) )
 #testOptimize [ "MatchOverCtor_1" ]
   ∀ (n : Option Nat) (xs : List Color), toColorOne n :: [] = xs ===>
   ∀ (n : Option Nat) (xs : List Color),
        xs = ( toColorOne.match_1 (fun (_ : Option Nat) => List Color) n
-              (fun (_ : PUnit) => .black :: [])
-              (fun (_ : PUnit) => .transparent :: [])
-              (fun (_ : PUnit) => .red .transparent :: [])
-              (fun (_ : PUnit) => .blue .black :: [])
+              (fun (_ : Unit) => .black :: [])
+              (fun (_ : Unit) => .transparent :: [])
+              (fun (_ : Unit) => .red .transparent :: [])
+              (fun (_ : Unit) => .blue .black :: [])
               (fun (_ : Nat) => .blue .transparent :: []) )
 
 def toColorTwo (x : Option α) : Color :=
@@ -524,14 +590,14 @@ def toColorTwo (x : Option α) : Color :=
 -- ∀ (α : Type) (n : Option α) (xs : List Color), toColorTwo n :: [] = xs ===>
 -- ∀ (α : Type) (n : Option α) (xs : List Color),
 --    xs = ( toColorTwo.match_1 (fun (_ : Option α) => List Color) n
---           (fun (_ : PUnit) => .black :: [])
+--           (fun (_ : Unit) => .black :: [])
 --           (fun (_ : α) => .blue .transparent :: []) )
 -- NOTE: Test case to ensure that generic type are also properly handled
 #testOptimize [ "MatchOverCtor_2" ]
   ∀ (α : Type) (n : Option α) (xs : List Color), toColorTwo n :: [] = xs ===>
   ∀ (α : Type) (n : Option α) (xs : List Color),
     xs = ( toColorTwo.match_1 (fun (_ : Option α) => List Color) n
-           (fun (_ : PUnit) => .black :: [])
+           (fun (_ : Unit) => .black :: [])
            (fun (_ : α) => .blue .transparent :: []) )
 
 def toColorThree (x : Option Nat) : Color :=
@@ -547,14 +613,17 @@ def toColorThree (x : Option Nat) : Color :=
 -- ∀ (n : Option Nat) (xs : List Color), toColorThree n :: [] = xs ===>
 -- ∀ (n : Option Nat) (xs : List Color),
 --   xs = ( toColorOne.match_1 (fun (_ : Option Nat) => List Color) n
---          (fun (_ : PUnit) => .black :: [])
---          (fun (_ : PUnit) => .transparent :: [])
---          (fun (_ : PUnit) => .red .transparent :: [])
---          (fun (_ : PUnit) => .blue .black :: [])
+--          (fun (_ : Unit) => .black :: [])
+--          (fun (_ : Unit) => .transparent :: [])
+--          (fun (_ : Unit) => .red .transparent :: [])
+--          (fun (_ : Unit) => .blue .black :: [])
 --          (fun (a : Nat) =>
---            if a < 10 then .blue .transparent :: []
---            else if a < 100 then .red .black :: []
---            else .red .transparent :: [] ) )
+--            Solver.dite' (a < 10)
+--              (fun _ => .blue .transparent :: [])
+--              (fun _ =>
+--                Solver.dite' (a < 100)
+--                (fun _ => .red .black :: [])
+--                (fun _ => .red .transparent :: []))) )
 -- NOTE: Lean4 already applied structural equivalence between toColorFour.match_1 and toColorOne.match_1
 -- NOTE: Test cases to ensure that simplification rule can transitively detect
 -- that all path reduce to constant values
@@ -562,14 +631,17 @@ def toColorThree (x : Option Nat) : Color :=
   ∀ (n : Option Nat) (xs : List Color), toColorThree n :: [] = xs ===>
   ∀ (n : Option Nat) (xs : List Color),
     xs = ( toColorOne.match_1 (fun (_ : Option Nat) => List Color) n
-           (fun (_ : PUnit) => .black :: [])
-           (fun (_ : PUnit) => .transparent :: [])
-           (fun (_ : PUnit) => .red .transparent :: [])
-           (fun (_ : PUnit) => .blue .black :: [])
+           (fun (_ : Unit) => .black :: [])
+           (fun (_ : Unit) => .transparent :: [])
+           (fun (_ : Unit) => .red .transparent :: [])
+           (fun (_ : Unit) => .blue .black :: [])
            (fun (a : Nat) =>
-             if a < 10 then .blue .transparent :: []
-             else if a < 100 then .red .black :: []
-             else .red .transparent :: [] ) )
+             Solver.dite' (a < 10)
+               (fun _ => .blue .transparent :: [])
+               (fun _ =>
+                 Solver.dite' (a < 100)
+                 (fun _ => .red .black :: [])
+                 (fun _ => .red .transparent :: []))) )
 
 def beqColor : Color → Color → Bool
 | .red x, .red y
@@ -588,10 +660,12 @@ def beqColorDegree : Color → Color → (Nat → Bool)
 -- ∀ (x y : Color) (xs : List (Nat → Bool)), beqColorDegree x y :: [] = xs ===>
 -- ∀ (x y : Color) (xs : List (Nat → Bool)),
 --  xs = ( beqColor.match_1 (fun (_ : Color) (_ : Color) => List (Nat → Bool)) x y
---         (fun ( c1 : Color) (c2 : Color) => (λ n => if 0 = n then true else beqColor c1 c2) :: [])
---         (fun ( c1 : Color) (c2 : Color) => (λ n => if 0 = n then true else beqColor c1 c2) :: [])
---         (fun (_ : PUnit) => (λ _n => true) :: [])
---         (fun (_ : PUnit) => (λ _n => true) :: [])
+--         (fun (c1 : Color) (c2 : Color) =>
+--           (λ n => Solver.dite' (0 = n) (fun _ => true) (fun _ => beqColor c1 c2)) :: [])
+--         (fun ( c1 : Color) (c2 : Color) =>
+--           (λ n => Solver.dite' (0 = n) (fun _ => true) (fun _ => beqColor c1 c2)) :: [])
+--         (fun (_ : Unit) => (λ _n => true) :: [])
+--         (fun (_ : Unit) => (λ _n => true) :: [])
 --         (fun (_ : Color) (_ : Color ) => (λ _n => false) :: []) )
 -- NOTE: Test cases to ensure that match returning function are properly handled
 -- NOTE: Lean4 already applied structural equivalence between beqColorDegree.match_1 and beqColor.match_1
@@ -599,29 +673,41 @@ def beqColorDegree : Color → Color → (Nat → Bool)
   ∀ (x y : Color) (xs : List (Nat → Bool)), beqColorDegree x y :: [] = xs ===>
   ∀ (x y : Color) (xs : List (Nat → Bool)),
    xs = ( beqColor.match_1 (fun (_ : Color) (_ : Color) => List (Nat → Bool)) x y
-          (fun ( c1 : Color) (c2 : Color) => (λ n => if 0 = n then true else beqColor c1 c2) :: [])
-          (fun ( c1 : Color) (c2 : Color) => (λ n => if 0 = n then true else beqColor c1 c2) :: [])
-          (fun (_ : PUnit) => (λ _n => true) :: [])
-          (fun (_ : PUnit) => (λ _n => true) :: [])
+          (fun (c1 : Color) (c2 : Color) =>
+            (λ n => Solver.dite' (0 = n) (fun _ => true) (fun _ => beqColor c1 c2)) :: [])
+          (fun ( c1 : Color) (c2 : Color) =>
+            (λ n => Solver.dite' (0 = n) (fun _ => true) (fun _ => beqColor c1 c2)) :: [])
+          (fun (_ : Unit) => (λ _n => true) :: [])
+          (fun (_ : Unit) => (λ _n => true) :: [])
           (fun (_ : Color) (_ : Color ) => (λ _n => false) :: []) )
 
--- ∀ (α : Type) (n : Option α) (xs : List Color), toColorTwo n :: [] = xs ===>
--- ∀ (α : Type) (n : Option α) (xs : List Color),
---    xs = ( toColorTwo.match_1 (fun (_ : Option α) => List Color) n
---           (fun (_ : PUnit) => .black :: [])
---           (fun (_ : α) => .blue .transparent :: []) )
+-- ∀ (α : Type) (n : Option α) (xs : List Color) (c : Prop), [Decidable c] →
+--   let op := if c then [] else .transparent :: [];
+--   toColorTwo n :: op = xs ===>
+-- ∀ (α : Type) (n : Option α) (xs : List Color) (c : Prop),
+--   xs = Solver.dite' c
+--       (fun _ =>
+--          toColorTwo.match_1 (fun (_ : Option α) => List Color) n
+--          (fun (_ : Unit) => [.black])
+--          (fun (_ : α) => [.blue .transparent] ) )
+--       (fun _ =>
+--          toColorTwo.match_1 (fun (_ : Option α) => List Color) n
+--          (fun (_ : Unit) => [.black, .transparent])
+--          (fun (_ : α) => [.blue .transparent, .transparent]) )
 -- NOTE: Test case to ensure that generic type are also properly handled
 #testOptimize [ "MatchOverCtor_5" ] (norm-result: 1)
-  ∀ (α : Type) (n : Option α) (xs : List Color) (c : Bool),
+  ∀ (α : Type) (n : Option α) (xs : List Color) (c : Prop), [Decidable c] →
     let op := if c then [] else .transparent :: [];
     toColorTwo n :: op = xs ===>
-  ∀ (α : Type) (n : Option α) (xs : List Color) (c : Bool),
-    xs = ( toColorTwo.match_1 (fun (_ : Option α) => List Color) n
-           (fun (_ : PUnit) =>
-             if true = c then .black :: [] else .black :: .transparent :: [])
-           (fun (_ : α) =>
-             if true = c
-             then .blue .transparent :: []
-             else .blue .transparent :: .transparent :: []) )
+  ∀ (α : Type) (n : Option α) (xs : List Color) (c : Prop),
+    xs =  Solver.dite' c
+          (fun _ =>
+             toColorTwo.match_1 (fun (_ : Option α) => List Color) n
+             (fun (_ : Unit) => [.black])
+             (fun (_ : α) => [.blue .transparent] ) )
+          (fun _ =>
+             toColorTwo.match_1 (fun (_ : Option α) => List Color) n
+             (fun (_ : Unit) => [.black, .transparent])
+             (fun (_ : α) => [.blue .transparent, .transparent]) )
 
 end Tests.ConstCtorProp

@@ -36,15 +36,16 @@ def optimizeIntNeg (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 -/
 def optimizeIntAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeIntAdd: exactly two arguments expected"
- let opArgs ← reorderIntOp args -- error triggered when args.size ≠ 2
- let op1 := opArgs[0]!
- let op2 := opArgs[1]!
+ let op1 := args[0]!
+ let op2 := args[1]!
+ -- let op1 := opArgs[0]!
+ -- let op2 := opArgs[1]!
  match isIntValue? op1, isIntValue? op2 with
  | some (Int.ofNat 0), _ => return op2
  | some n1, some n2 => evalBinIntOp Int.add n1 n2
  | nv1, _ =>
    if let some r ← cstAddProp? nv1 op2 then return r
-   if (← isIntNegExprOf op2 op1) then return (← mkIntLitExpr (Int.ofNat 0))
+   if isIntNegExprOf op2 op1 then return (← mkIntLitExpr (Int.ofNat 0))
    return (mkApp2 f op1 op2)
 
  where
@@ -53,6 +54,7 @@ def optimizeIntAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
       - return `some ((N1 "-" N2) + -n)` when `mv1 := some N1 ∧ op2 := -(N2 + n)`
      Otherwise `none`
   -/
+ @[always_inline, inline]
  cstAddProp? (mv1 : Option Int) (op2 : Expr) : TranslateEnvT (Option Expr) := do
   match mv1 with
   | some n1 =>
@@ -78,9 +80,8 @@ def optimizeIntAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 -/
 def optimizeIntMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeIntMul: exactly two arguments expected"
- let opArgs ← reorderIntOp args -- error triggered when args.size ≠ 2
- let op1 := opArgs[0]!
- let op2 := opArgs[1]!
+ let op1 := args[0]!
+ let op2 := args[1]!
  match isIntValue? op1, isIntValue? op2 with
  | some (Int.ofNat 0), _ => return op1
  | some (Int.ofNat 1), _ => return op2
@@ -96,6 +97,7 @@ def optimizeIntMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
    /- Given `mv1` and `op2` return `some ((N1 "*" N2) * n)` when
       `mv1 := some N1 ∧ op2 := (N2 * n)`. Otherwise `none`
    -/
+   @[always_inline, inline]
    cstMulProp? (mv1 : Option Int) (op2 : Expr) : TranslateEnvT (Option Expr) := do
     match mv1, toIntCstOpExpr? op2 with
     | some n1, some (IntCstOpInfo.IntMulExpr n2 e2) =>
@@ -110,8 +112,9 @@ def optimizeIntMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
         ¬ (0 = e1) := _ ∈ hypothesisContext.hypothesisMap
     Otherwise, return none.
 -/
+@[always_inline, inline]
 def intDivSelfReduce? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := do
-  if !(← exprEq e1 e2) then return none
+  if !(exprEq e1 e2) then return none
   if (← nonZeroIntInHyps e1)
   then return ← mkIntLitExpr (Int.ofNat 1)
   else return none
@@ -128,13 +131,12 @@ def intDivSelfReduce? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := d
           ¬ (0 = m) := _ ∈ hypothesisContext.hypothesisMap );
     Otherwise, return none.
 -/
+@[always_inline, inline]
 def mulIntDivReduceExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := do
   match intMul? e1 with
   | some (op1, op2) =>
-     unless !(← exprEq op1 e2) do
-       if (← nonZeroIntInHyps e2) then return some op2
-     unless !(← exprEq op2 e2) do
-       if (← nonZeroIntInHyps e2) then return some op1
+     if exprEq op1 e2 then if (← nonZeroIntInHyps e2) then return some op2
+     if exprEq op2 e2 then if (← nonZeroIntInHyps e2) then return some op1
      return none
   | none => return none
 
@@ -154,6 +156,7 @@ def mulIntDivReduceExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) :
                ¬ (0 = m) := _ ∈ hypothesisContext.hypothesisMap ∨
                m < 0 := _ ∈ hypothesisContext.hypothesisMap)
 -/
+@[always_inline, inline]
 def optimizeIntDivCommon (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
  match isIntValue? op1, isIntValue? op2 with
  | _, some (Int.ofNat 0) => return op2
@@ -172,6 +175,7 @@ def optimizeIntDivCommon (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr)
    Otherwise `none`.
    Assumes that N2 ≠ 0
 -/
+@[always_inline, inline]
 def cstCommonDivProp?
   (op1 : Expr) (op2 : Expr) (f_div : Int -> Int -> Int) : TranslateEnvT (Option (Expr × Expr)) := do
  let some (n, e1) := intMul? op1 | return none
@@ -217,11 +221,12 @@ def optimizeIntEDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      - `e1 := n * m` ∧ e2 = m;
     Otherwise, return none.
 -/
+@[always_inline, inline]
 def intModToZeroExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := do
-  if (← exprEq e1 e2) then return (some (← mkIntLitExpr (Int.ofNat 0)))
+  if exprEq e1 e2 then return (some (← mkIntLitExpr (Int.ofNat 0)))
   match intMul? e1 with
   | some (op1, op2) =>
-     if (← exprEq op1 e2 <||> exprEq op2 e2) then return (← mkIntLitExpr (Int.ofNat 0))
+     if exprEq op1 e2 || exprEq op2 e2 then return (← mkIntLitExpr (Int.ofNat 0))
      return none
   | none => return none
 
@@ -235,7 +240,7 @@ def intModToZeroExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := d
      - n1 % n2 ==> 0 (if n1 =ₚₜᵣ n2)
      - (m * n) % m | (n * m) % m ==> 0
 -/
-
+@[always_inline, inline]
 def optimizeIntModCommon (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
  match isIntValue? op1, isIntValue? op2 with
  | _, some (Int.ofNat 0) => return op1
@@ -253,6 +258,7 @@ def optimizeIntModCommon (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr)
       Otherwise `none`.
       Assumes that N2 > 0
    -/
+   @[always_inline, inline]
    cstModProp? (op1 : Expr) (mv2 : Option Int) : TranslateEnvT (Option Expr) := do
    let some (n, _e1) := intMul? op1 | return none
     match isIntValue? n, mv2 with
@@ -314,6 +320,7 @@ def optimizeIntTDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
       Otherwise `none`.
       Assumes that N2 ≠ 0
    -/
+   @[always_inline, inline]
    cstTDivProp? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
      let some (e1, n) := intTDiv? op1 | return none
      match isIntValue? n, isIntValue? op2 with
@@ -385,6 +392,7 @@ def optimizeIntFMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 
 
 /-- Return `some e` if `n := Int.neg (Int.ofNat e)`. Otherwise return `none`. -/
+@[always_inline, inline]
 def intNegOfNat? (n : Expr) : Option Expr :=
   match intNeg? n with
   | some e => e.app1? ``Int.ofNat
@@ -422,6 +430,7 @@ def optimizeIntNegSucc (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 
 /-- Apply simplification/normalization rules on `Int` operators.
 -/
+@[always_inline, inline]
 def optimizeInt? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
   let Expr.const n _ := f | return none
   match n with

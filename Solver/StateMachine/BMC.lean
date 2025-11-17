@@ -29,8 +29,8 @@ partial def bmcStrategy (smInst : Expr) : TranslateEnvT Unit := do
       logNoCexAtDepth
     else
       let env ← get
-      withLocalDecl (← nameAtDepth env.smName "input") BinderInfo.default env.inputType fun i => do
-        logDepthProgress
+      withLocalDecl' (← nameAtDepth env.smName "input") BinderInfo.default env.inputType fun i => do
+        logDepthProgress "BMC"
         let nextState ← optimizeState i prevState
         -- assert assumptions and check contradiction at step k
         if (← assertAssumptions smInst i nextState) then
@@ -98,10 +98,11 @@ partial def bmcStrategy (smInst : Expr) : TranslateEnvT Unit := do
 
 syntax (name := bmc) "#bmc" (solveOption)* solveTerm : command
 
-def bmcCommand (sOpts: SolverOptions) (stx : Syntax) : TermElabM Unit := do
-  elabTermAndSynthesize stx none >>= fun e => do
-    let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
-    discard $ bmcStrategy e|>.run env
+def bmcCommand (sOpts: SolverOptions) (stx : Syntax) : TermElabM Unit :=
+  withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0 }) $ do
+    elabTermAndSynthesize stx none >>= fun e => do
+      let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
+      discard $ bmcStrategy e|>.run env
 
 @[command_elab bmc]
 def bmcImp : CommandElab := commandInvoker bmcCommand

@@ -6,8 +6,8 @@ open Lean Meta
 namespace Solver.Optimize
 
 /-- Return `true` only when one of the following conditions is satisfied:
-      - 0 < e := _ ∈ ∈ hypothesisContext.hypothesisMap; or
-      - ¬ (0 = e) := _ ∈ ∈ hypothesisContext.hypothesisMap
+      - 0 < e := _ ∈ hypothesisContext.hypothesisMap; or
+      - ¬ (0 = e) := _ ∈ hypothesisContext.hypothesisMap
 -/
 def nonZeroNatInHyps (e : Expr) : TranslateEnvT Bool := do
  let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
@@ -18,9 +18,9 @@ def nonZeroNatInHyps (e : Expr) : TranslateEnvT Bool := do
  return hyps.contains (mkApp (← mkPropNotOp) zero_eq)
 
 /-- Return `true` only when one of the following conditions is satisfied:
-      - 0 < e := _ ∈ ∈ hypothesisContext.hypothesisMap; or
-      - e < 0 := _ ∈ ∈ hypothesisContext.hypothesisMap; or
-      - ¬ (0 = e) := _ ∈ ∈ hypothesisContext.hypothesisMap
+      - 0 < e := _ ∈ hypothesisContext.hypothesisMap; or
+      - e < 0 := _ ∈ hypothesisContext.hypothesisMap; or
+      - ¬ (0 = e) := _ ∈ hypothesisContext.hypothesisMap
 -/
 def nonZeroIntInHyps (e : Expr) : TranslateEnvT Bool := do
  let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
@@ -41,11 +41,11 @@ def nonZeroIntInHyps (e : Expr) : TranslateEnvT Bool := do
 partial def structEq? (op1 : Expr) (op2: Expr) : TranslateEnvT (Option Bool) := do
  let rec visit (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Bool) := do
    match op1, op2 with
-    | Expr.lit _, Expr.lit _ => pure (some (← exprEq op1 op2))
+    | Expr.lit _, Expr.lit _ => return exprEq op1 op2
     | Expr.const n1 _, Expr.const n2 _ =>
        if (← (isCtorName n1) <&&> (isCtorName n2))
-       then pure (some (← exprEq op1 op2))
-       else pure none -- function case not structurally equivalent
+       then return exprEq op1 op2
+       else return none -- function case not structurally equivalent
     | Expr.app .., Expr.app .. =>
         Expr.withApp op1 fun f1 as1 =>
          Expr.withApp op2 fun f2 as2 => do
@@ -61,15 +61,15 @@ partial def structEq? (op1 : Expr) (op2: Expr) : TranslateEnvT (Option Bool) := 
                 for h : i in [:as1.size] do
                   lat := updateLattice lat (← structEq? as1[i] as2[i]!)
                   unless (!isTop lat) do return lat -- break if false
-                pure lat
-              else pure (some false)
-          | none => pure none
+                return lat
+              else return false
+          | none => return none
      | Expr.app .., Expr.const ..
      | Expr.const .., Expr.app .. => visit op1.getAppFn' op2.getAppFn'
      | _, _ =>
        -- return `none` for all other cases if physically equality fails
        pure none
- if (← exprEq op1 op2) then return (some true)
+ if exprEq op1 op2 then return true
  visit op1 op2
 
  where
@@ -145,10 +145,10 @@ def intZeroEqMulReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) 
 def natAddEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option (Expr × Expr)) := do
   match natAdd? op1, natAdd? op2 with
   | some (e1, e2), some (e3, e4) =>
-     if ← exprEq e1 e3 then setRestart return (e2, e4)
-     if ← exprEq e1 e4 then setRestart return (e2, e3)
-     if ← exprEq e2 e3 then setRestart return (e1, e4)
-     if ← exprEq e2 e4 then setRestart return (e1, e3)
+     if exprEq e1 e3 then setRestart return (e2, e4)
+     if exprEq e1 e4 then setRestart return (e2, e3)
+     if exprEq e2 e3 then setRestart return (e1, e4)
+     if exprEq e2 e4 then setRestart return (e1, e3)
      return none
   | _, _ => return none
 
@@ -164,10 +164,10 @@ def natAddEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option (Expr × E
 def intAddEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option (Expr × Expr)) := do
   match intAdd? op1, intAdd? op2 with
   | some (e1, e2), some (e3, e4) =>
-     if ← exprEq e1 e3 then setRestart return (e2, e4)
-     if ← exprEq e1 e4 then setRestart return (e2, e3)
-     if ← exprEq e2 e3 then setRestart return (e1, e4)
-     if ← exprEq e2 e4 then setRestart return (e1, e3)
+     if exprEq e1 e3 then setRestart return (e2, e4)
+     if exprEq e1 e4 then setRestart return (e2, e3)
+     if exprEq e2 e3 then setRestart return (e1, e4)
+     if exprEq e2 e4 then setRestart return (e1, e3)
      return none
   | _, _ => return none
 
@@ -185,10 +185,10 @@ def intAddEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option (Expr × E
 def natMulEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option (Expr × Expr)) := do
   match natAdd? op1, natAdd? op2 with
   | some (e1, e2), some (e3, e4) =>
-     if ← exprEq e1 e3 <&&> nonZeroNatInHyps e1 then setRestart return (e2, e4)
-     if ← exprEq e1 e4 <&&> nonZeroNatInHyps e1 then setRestart return (e2, e3)
-     if ← exprEq e2 e3 <&&> nonZeroNatInHyps e1 then setRestart return (e1, e4)
-     if ← exprEq e2 e4 <&&> nonZeroNatInHyps e1 then setRestart return (e1, e3)
+     if exprEq e1 e3 then if ← nonZeroNatInHyps e1 then setRestart return (e2, e4)
+     if exprEq e1 e4 then if ← nonZeroNatInHyps e1 then setRestart return (e2, e3)
+     if exprEq e2 e3 then if ← nonZeroNatInHyps e1 then setRestart return (e1, e4)
+     if exprEq e2 e4 then if ← nonZeroNatInHyps e1 then setRestart return (e1, e3)
      return none
   | _, _ => return none
 
@@ -206,10 +206,10 @@ def natMulEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option (Expr × E
 def intMulEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option (Expr × Expr)) := do
   match intAdd? op1, intAdd? op2 with
   | some (e1, e2), some (e3, e4) =>
-     if ← exprEq e1 e3 <&&> nonZeroIntInHyps e1 then setRestart return (e2, e4)
-     if ← exprEq e1 e4 <&&> nonZeroIntInHyps e1 then setRestart return (e2, e3)
-     if ← exprEq e2 e3 <&&> nonZeroIntInHyps e1 then setRestart return (e1, e4)
-     if ← exprEq e2 e4 <&&> nonZeroIntInHyps e1 then setRestart return (e1, e3)
+     if exprEq e1 e3 then if ← nonZeroIntInHyps e1 then setRestart return (e2, e4)
+     if exprEq e1 e4 then if ← nonZeroIntInHyps e1 then setRestart return (e2, e3)
+     if exprEq e2 e3 then if ← nonZeroIntInHyps e1 then setRestart return (e1, e4)
+     if exprEq e2 e4 then if ← nonZeroIntInHyps e1 then setRestart return (e1, e3)
      return none
   | _, _ => return none
 
@@ -246,16 +246,15 @@ def optimizeEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
  -- args[0] is sort parameter
  -- args[1] left operand
  -- args[2] right operand
- let opArgs ← reorderEq #[args[1]!, args[2]!]
+ let op1 := args[1]!
+ let op2 := args[2]!
  let eqType := args[0]!
- let op1 := opArgs[0]!
- let op2 := opArgs[1]!
  if let Expr.const ``False _ := op1 then
     setRestart
     return mkApp (← mkPropNotOp) op2
  if let Expr.const ``True _ := op1 then return op2
- if (← (isNotExprOf op2 op1) <||> (isBoolNotExprOf op2 op1)) then return ← mkPropFalse
- if (← exprEq op1 op2) then return ← mkPropTrue
+ if isNotExprOf op2 op1 || isBoolNotExprOf op2 op1 then return ← mkPropFalse
+ if exprEq op1 op2 then return ← mkPropTrue
  if let some false ← structEq? op1 op2 then return ← mkPropFalse
  if let some (e1, e2) ← notNegEqSimp? op1 op2 then return mkApp3 f eqType e1 e2
  if let some r ← zeroEqNegReduce? op1 op2 eqType then return r
@@ -337,15 +336,14 @@ def optimizeBEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
  -- args[1] decidable instance parameter
  -- args[2] left operand
  -- args[3] right operand
- let opArgs ← reorderBoolOp #[args[2]!, args[3]!]
- let op1 := opArgs[0]!
- let op2 := opArgs[1]!
+ let op1 := args[2]!
+ let op2 := args[3]!
  if let Expr.const ``false _ :=  op1 then
    setRestart
    return mkApp (← mkBoolNotOp) op2
  if let Expr.const ``true _ := op1 then return op2
- if (← isBoolNotExprOf op2 op1) then return (←  mkBoolFalse)
- if (← exprEq op1 op2) then return (← mkBoolTrue)
+ if isBoolNotExprOf op2 op1 then return (←  mkBoolFalse)
+ if exprEq op1 op2 then return (← mkBoolTrue)
  if let some false ← structEq? op1 op2 then return (← mkBoolFalse)
  if let some r ← boolNotEqReduce? op1 op2 then return r
  return (mkApp4 f args[0]! args[1]! op1 op2)
@@ -362,16 +360,16 @@ def optimizeBEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
           return mkApp4 f args[0]! args[1]! e1 e2
      | _, _ => return none
 
-/- Call `optimizeEq f args` and apply the following `decide` simplification/normalization
+/- Call `optimizeEq f args` and apply the following `decide'` simplification/normalization
    rules on the resulting `Eq` expression (if any):
      - true = (a == b) ==> a = b (if hasLawFulBEqInstance (a == b))
      - false = (a == b) ==> ¬ (a = b) (if hasLawFulBEqInstance (a == b))
      - c = (a == b) | (a == b) = c ==> (true = c) = (a = b) (if hasLawFulBEqInstance (a == b))
      - (B1 = a) = (B2 = b) ==> NOP(B1, a) = NOP(B2, b)
-     - true = decide e ==> e
-     - false = decide e ==> ¬ e
-     - decide e1 = decide e2 ==> e1 = e2
-     - decide e1 = e2 | e2 = decide e1 ===> e1 = (true = e2)
+     - true = decide' e ==> e
+     - false = decide' e ==> ¬ e
+     - decide' e1 = decide' e2 ==> e1 = e2
+     - decide' e1 = e2 | e2 = decide' e1 ===> e1 = (true = e2)
 
    with NOP(B, e) := e  if B
                   := !e otherwise
@@ -456,9 +454,9 @@ def optimizeDecideEq (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
       Otherwise `none`.
    -/
    decideBoolEqSimp? (op1: Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
-    match op1, decide? op2 with
-    | Expr.const ``true _, some (e, _d) => return some e -- no need to restart
-    | Expr.const ``false _, some (e, _d) =>
+    match op1, decide'? op2 with
+    | Expr.const ``true _, some e => return some e -- no need to restart
+    | Expr.const ``false _, some e =>
          setRestart
          return mkApp (← mkPropNotOp) e
     | _, _ => return none
@@ -470,14 +468,14 @@ def optimizeDecideEq (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
       Otherwise `none`.
    -/
    decideEqDecide? (op1: Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
-     match decide? op1, decide? op2 with
-     | some (e1, _), some (e2, _) =>
+     match decide'? op1, decide'? op2 with
+     | some e1, some e2 =>
           setRestart
           return mkApp3 f (← mkPropType) e1 e2
-     | some (e1, _), _ =>
+     | some e1, _ =>
           setRestart
           return mkApp3 f (← mkPropType) e1 (mkApp3 f (← mkBoolType) (← mkBoolTrue) op2)
-     | _, some (e1, _) =>
+     | _, some e1 =>
           setRestart
           return mkApp3 f (← mkPropType) e1 (mkApp3 f (← mkBoolType) (← mkBoolTrue) op1)
      | _, _ => return none

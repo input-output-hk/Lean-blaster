@@ -7,7 +7,7 @@ namespace Solver.Optimize
 
 /-- Given,
      - `t := λ β₁ => ... => βₘ => ∀ α₁ → ∀ α₂ → ... → αₙ` corresponding to a match expression
-        returing functions as rhs; and
+        returning functions as rhs; and
      - `nbArgs ∈ [0..n]` corresponding to the number of extra arguments applied to the match expression; and
      - α'₁, ..., α'ₘ := [ αᵢ | i ∈ [nbArgs, n] ]
     Return:
@@ -19,13 +19,9 @@ def getAppliedMatchType (t : Expr) (nbArgs : Nat) : Expr :=
 
 
 /-- Given application `f x₁ ... xₙ`, apply the following normalization rules:
-     - When `f := if c then t₁ else t₂`
+     - When `f := Solver.dite' c (fun h : c => t₁) (fun h : ¬ c => t₂)`
        Return
-         if c then t₁ x₁ ... xₙ else t₂ x₁ ... xₙ
-
-     - When `f := dite c (fun h : c => t₁) (fun h : ¬ c => t₂)`
-       Return
-         dite c (fun h : c => t₁ x₁ ... xₙ) (fun h : ¬ c => t₂ x₁ ... xₙ)
+         Solver.dite' c (fun h : c => t₁ x₁ ... xₙ) (fun h : ¬ c => t₂ x₁ ... xₙ)
 
      - When `f := match₁ e₁, ..., eₙ with
                   | p₍₁₎₍₁₎, ..., p₍₁₎₍ₙ₎ => t₁
@@ -39,63 +35,42 @@ def getAppliedMatchType (t : Expr) (nbArgs : Nat) : Expr :=
 -/
 def normChoiceApplication?
   (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := withLocalContext $ do
-    if let some r ← normIteApp? f args then return r
     if let some r ← normDIteApp? f args then return r
     normMatchApp? f args
 
   where
-    normIteApp? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
-      let Expr.const ``ite _ := f | return none
-      if args.size ≤ 5 then return none
-      let extra_args := args.extract 5 args.size
-      let e1 := mkAppN args[3]! extra_args
-      let e2 := mkAppN args[4]! extra_args
-      let ite_args := args.take 5
-      let ite_args := ite_args.set! 3 e1
-      let ite_args := ite_args.set! 4 e2
-      -- Update ite sort type
-      -- NOTE: We expect that the ite sort is of form ∀ α₀ → ... → αₙ to avoid type inference,
-      -- which is costly.
-      let ite_args := ite_args.set! 0 (args[0]!.getForallBodyMaxDepth (args.size - 5))
-      return mkAppN f ite_args
-
     mkAppInDIteExpr (extra_args : Array Expr) (ite_cond : Expr) (ite_e : Expr) : TranslateEnvT Expr := do
       match ite_e with
-      | Expr.lam n t body bi =>
-           withLocalDecl n bi t fun x => do
-             let auxApp := mkAppN (body.instantiate1 x) extra_args
-             mkLambdaFVars #[x] auxApp
+      | Expr.lam n t body bi => return Expr.lam n t (mkAppN body extra_args) bi
       | _ =>
          -- case when then/else caluse is a quantified function
          if !(← isQuantifiedFun ite_e) then
             throwEnvError "mkAppNInDIteExpr: lambda/quantified function expected but got {reprStr ite_e}"
          -- Need to create a lambda term embedding the following application
          -- `fun h : ite_cond => ite_e h extra_args`.
-         withLocalDecl (← Term.mkFreshBinderName) BinderInfo.default ite_cond fun x => do
+         withLocalDecl' (← Term.mkFreshBinderName) BinderInfo.default ite_cond fun x => do
            let auxApp := mkAppN (ite_e.beta #[x]) extra_args
            mkLambdaFVars #[x] auxApp
 
     normDIteApp? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
-      let Expr.const ``dite _ := f | return none
-      if args.size ≤ 5 then return none
-      let extra_args := args.extract 5 args.size
-      let e1 ← mkAppInDIteExpr extra_args args[1]! args[3]!
-      let e2 ← mkAppInDIteExpr extra_args (mkApp (← mkPropNotOp) args[1]!) args[4]!
-      let dite_args := args.take 5
-      let dite_args := dite_args.set! 3 e1
-      let dite_args := dite_args.set! 4 e2
+      let Expr.const ``Solver.dite' _ := f | return none
+      if args.size ≤ 4 then return none
+      let extra_args := args.extract 4 args.size
+      let e1 ← mkAppInDIteExpr extra_args args[1]! args[2]!
+      let e2 ← mkAppInDIteExpr extra_args (mkApp (← mkPropNotOp) args[1]!) args[3]!
+      let dite_args := args.take 4
+      let dite_args := dite_args.set! 2 e1
+      let dite_args := dite_args.set! 3 e2
       -- update dite sort type
       -- NOTE: We expect that the ite sort is of form ∀ α₀ → ... → αₙ to avoid type inference,
       -- which is costly.
-      let dite_args := dite_args.set! 0 (args[0]!.getForallBodyMaxDepth (args.size - 5))
+      let dite_args := dite_args.set! 0 (args[0]!.getForallBodyMaxDepth (args.size - 4))
       return (mkAppN f dite_args)
 
     mkAppInRhs (extra_args : Array Expr) (lhs : Array Expr) (rhs : Expr) : TranslateEnvT Expr := do
       let altArgsRes ← retrieveAltsArgs lhs
       let nbParams := altArgsRes.altArgs.size
-      lambdaBoundedTelescope rhs (max 1 nbParams) fun params body => do
-        let auxApp := mkAppN body extra_args
-        mkLambdaFVars params auxApp
+      applyOnLambdaBoundedBody rhs (max 1 nbParams) (fun body => return mkAppN body extra_args)
 
     normMatchApp? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
       let some argInfo ← isMatcher? f | return none
@@ -116,23 +91,15 @@ def normChoiceApplication?
       return mkAppN f margs
 
 /-- Apply the following propagation rules on any function application `fn e₁ ... eₙ`
-    only when fn := Expr.const n l ∧ n ≠ ite ∧ n ≠ dite ∧ ¬ isNotFun fn ∧ propagate fn e₁ ... eₙ
+    only when fn := Expr.const n l ∧ n ≠ Solver.dite' ∧ ¬ isNotFun fn ∧ propagate fn e₁ ... eₙ
 
     - When ∃ i ∈ [1..n],
-            `eᵢ := if c then d₁ else d₂` ∧
+            `eᵢ := Solver.dite' c (fun h : c => d₁) (fun h : ¬ c => d₂)` ∧
              ∀ j ∈ [1..n],
                 (i ≠ j → gⱼ = eⱼ) ∧ (i = j → gⱼ = d₁) ∧
                 (i ≠ j → hⱼ = eⱼ) ∧ (i = j → hⱼ = d₂)
       Return
-         `if c then fn g₁ ... gₙ else fn h₁ ... hₙ`
-
-    - When ∃ i ∈ [1..n],
-            `eᵢ := dite c (fun h : c => d₁) (fun h : ¬ c => d₂)` ∧
-             ∀ j ∈ [1..n],
-                (i ≠ j → gⱼ = eⱼ) ∧ (i = j → gⱼ = d₁) ∧
-                (i ≠ j → hⱼ = eⱼ) ∧ (i = j → hⱼ = d₂)
-      Return
-         `dite c then (fun h : c => fn g₁ ... gₙ) (fun h : ¬ c => fn h₁ ... hₙ)`
+         `Solver.dite' c then (fun h : c => fn g₁ ... gₙ) (fun h : ¬ c => fn h₁ ... hₙ)`
 
     - When ∃ i ∈ [1..n],
              eᵢ := match₂ f₁, ..., fₚ with
@@ -155,25 +122,28 @@ def normChoiceApplication?
     NOTE: skipPropCheck is set to `true` only when it is known beforehand that `cf`
     is a recursive function for which `allExplicitParamsAreCtor cf cargs (funPropagation := true)`
     returns `true`.
+    NOTE: reorderArgs is set to `true` only when funPropagation? is called before optimizeApp.
 -/
-def funPropagation? (cf : Expr) (cargs : Array Expr) (skipPropCheck := false) : TranslateEnvT (Option Expr) := do
+def funPropagation? (cf : Expr) (cargs : Array Expr) (skipPropCheck := false) (reorderArgs := false) : TranslateEnvT (Option Expr) :=
+ withLocalContext $ do
   match cf with
   | Expr.const n _ =>
-      if skipPropCheck then loop 0
+      if skipPropCheck then loop 0 cargs
       else
-        if n == ``ite || n == ``dite || (← isNotFun cf) then return none
+        if n == ``Solver.dite' || (← isNotFun cf) then return none
         if !(← propagate cf n cargs) then return none
-        loop 0
+        if reorderArgs
+        then loop 0 (← reorderOperands cf cargs)
+        else loop 0 cargs
   | _ => return none
 
   where
 
-    loop (idx : Nat) : TranslateEnvT (Option Expr) := do
-      if idx ≥ cargs.size then return none
-      else if let some re ← iteCstProp? cf cargs idx then return re
-      else if let some re ← diteCstProp? cf cargs idx then return re
-      else if let some re ← matchCstProp? cf cargs idx then return re
-      else loop (idx + 1)
+    loop (idx : Nat) (args : Array Expr) : TranslateEnvT (Option Expr) := do
+      if idx ≥ args.size then return none
+      else if let some re ← diteCstProp? cf args idx then return re
+      else if let some re ← matchCstProp? cf args idx then return re
+      else loop (idx + 1) args
 
     propagate (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT Bool := do
       if (← isCtorName n) then return true
@@ -183,28 +153,11 @@ def funPropagation? (cf : Expr) (cargs : Array Expr) (skipPropCheck := false) : 
                 return isBoolCtor args[1]!
       | _ => return false
 
-    /-- Implements ite over ctor rule -/
-    iteCstProp? (f : Expr) (args : Array Expr) (idxArg : Nat) : TranslateEnvT (Option Expr) := do
-      -- NOTE: can't be an applied ite function (e.g., applied to more than 5 arguments)
-      if let some (_psort, pcond, pdecide, e1, e2) := ite? args[idxArg]! then
-        let pInfo ← getFunEnvInfo f
-        -- NOTE: We here prefer to instantiate the generic type kept in FunEnvInfo instead
-        -- of calling inferTypeEnv as the latter is costly.
-        -- NOTE: FunEnvInfo has already been added in the cache at this stage.
-        let retType := inferAppType pInfo.type args
-        let e1' := mkAppN f (args.set! idxArg e1)
-        let e2' := mkAppN f (args.set! idxArg e2)
-        -- NOTE: we also need to set the sort type for the pulled ite to meet the function's return type
-        return (mkApp5 (← mkIteOp) retType pcond pdecide e1' e2')
-      else return none
-
     pushFunInDIteExpr
       (f : Expr) (args : Array Expr) (idxField : Nat)
       (ite_cond : Expr) (ite_e : Expr) : TranslateEnvT Expr := do
       match ite_e with
-      | Expr.lam n t body bi =>
-           withLocalDecl n bi t fun x => do
-            mkLambdaFVars #[x] (mkAppN f (args.set! idxField (body.instantiate1 x)))
+      | Expr.lam n t body bi => return Expr.lam n t (mkAppN f (args.set! idxField body)) bi
       | _ =>
          -- case when then/else clause is a quantified function
          if !(← isQuantifiedFun ite_e) then
@@ -214,13 +167,13 @@ def funPropagation? (cf : Expr) (cargs : Array Expr) (skipPropCheck := false) : 
            -- `fun h : ite_cond => f x₁ ... xₙ`
            -- with x₁ ... xₙ = [ gᵢ | i ∈ [0 .. args.size-1] ∧
            --                        (idxField ≠ i → gᵢ = args[i]) ∧ (idxField = i → ite_e h)]
-           withLocalDecl (← Term.mkFreshBinderName) BinderInfo.default ite_cond fun x => do
+           withLocalDecl' (← Term.mkFreshBinderName) BinderInfo.default ite_cond fun x => do
              mkLambdaFVars #[x] (mkAppN f (args.set! idxField (ite_e.beta #[x])))
 
     /-- Implements dite over ctor rule -/
     diteCstProp? (f : Expr) (args : Array Expr) (idxArg : Nat) : TranslateEnvT (Option Expr) := do
-      -- NOTE: can't be an applied dite function (e.g., applied to more than 5 arguments)
-      if let some (_psort, pcond, pdecide, e1, e2) := dite? args[idxArg]! then
+      -- NOTE: can't be an applied dite' function (e.g., applied to more than 4 arguments)
+      if let some (_psort, pcond, e1, e2) := dite'? args[idxArg]! then
         let pInfo ← getFunEnvInfo f
         -- NOTE: We here prefer to instantiate the generic type kept in FunEnvInfo instead
         -- of calling inferTypeEnv as the latter is costly.
@@ -228,8 +181,8 @@ def funPropagation? (cf : Expr) (cargs : Array Expr) (skipPropCheck := false) : 
         let retType := inferAppType pInfo.type args
         let e1' ← pushFunInDIteExpr f args idxArg pcond e1
         let e2' ← pushFunInDIteExpr f args idxArg (mkApp (← mkPropNotOp) pcond) e2
-        -- NOTE: we also need to set the sort type for the pulled dite to meet the function's return type
-        return (mkApp5 (← mkDIteOp) retType pcond pdecide e1' e2')
+        -- NOTE: we also need to set the sort type for the pulled dite' to meet the function's return type
+        return (mkApp4 (← mkSolverDIteOp) retType pcond e1' e2')
       else return none
 
     updateRhsWithFun
@@ -237,8 +190,7 @@ def funPropagation? (cf : Expr) (cargs : Array Expr) (skipPropCheck := false) : 
       (rhs : Expr) : TranslateEnvT Expr := do
         let altArgsRes ← retrieveAltsArgs lhs
         let nbParams := altArgsRes.altArgs.size
-        lambdaBoundedTelescope rhs (max 1 nbParams) fun params body => do
-          mkLambdaFVars params (mkAppN f (args.set! idxField body))
+        applyOnLambdaBoundedBody rhs (max 1 nbParams) (fun body => return mkAppN f (args.set! idxField body))
 
     /-- Implements match over ctor rule -/
     matchCstProp? (f : Expr) (args : Array Expr) (idxArg : Nat) : TranslateEnvT (Option Expr) := do

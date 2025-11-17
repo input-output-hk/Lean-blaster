@@ -26,19 +26,19 @@ namespace Test.NominalDecide
 #testOptimize [ "DecideFalse_5" ] ∀ (a : Prop), [Decidable a] → (a ∧ False) = false ===> True
 
 -- ∀ (a b : Prop), [Decidable a] → [Decidable b] → ((a ∧ False) ∧ b) = false ===> True
-#testOptimize [ "DecideFalse_6" ] ∀ (a b : Prop),
-                                    [Decidable a] → [Decidable b] → ((a ∧ False) ∧ b) = false ===> True
+#testOptimize [ "DecideFalse_6" ]
+  ∀ (a b : Prop), [Decidable a] → [Decidable b] → ((a ∧ False) ∧ b) = false ===> True
 
 -- ∀ (a b : Prop), [Decidable a] → [Decidable b] → ((a ∨ ¬ a) ∧ (b ∧ ¬ b)) = false ===> True
-#testOptimize [ "DecideFalse_7" ] ∀ (a b : Prop),
-                                   [Decidable a] → [Decidable b] → ((a ∨ ¬ a) ∧ (b ∧ ¬ b)) = false ===> True
+#testOptimize [ "DecideFalse_7" ]
+  ∀ (a b : Prop), [Decidable a] → [Decidable b] → ((a ∨ ¬ a) ∧ (b ∧ ¬ b)) = false ===> True
 
 -- ∀ (a b : Prop),
 --  [Decidable a] → [Decidable b] → [Decidable c] →
 --  (((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬a) ∧ ((b ∧ a) ∧ ¬(a ∧ b))) = false ===> True
-#testOptimize [ "DecideFalse_8" ] ∀ (a b c : Prop),
-                                  [Decidable a] → [Decidable b] → [Decidable c] →
-                                  (((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬a) ∧ ((b ∧ a) ∧ ¬(a ∧ b))) = false ===> True
+#testOptimize [ "DecideFalse_8" ]
+  ∀ (a b c : Prop), [Decidable a] → [Decidable b] → [Decidable c] →
+      (((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬a) ∧ ((b ∧ a) ∧ ¬(a ∧ b))) = false ===> True
 
 -- ∀ (a : Bool), (a = !a) = false ===> True
 #testOptimize [ "DecideFalse_9" ] ∀ (a : Bool), (a = !a) = false ===> True
@@ -274,11 +274,11 @@ variable (q : Bool)
 #testOptimize [ "DecideUnchanged_9" ]  ∀ (x y z : Int) (xs : List Int), ([x, y, z] = xs) = true ===>
                                        ∀ (x y z : Int) (xs : List Int), [x, y, z] = xs
 
--- decide (q = !(!(!(!p)))) ===> decide (q = !p)
-#testOptimize [ "DecideUnchanged_10" ] decide (q = (!(!(!p)))) ===> decide (q = !p)
+-- decide (q = !(!(!(!p)))) ===> Solver.decide' (q = !p)
+#testOptimize [ "DecideUnchanged_10" ] decide (q = (!(!(!p)))) ===> Solver.decide' (q = !p)
 
--- decide (q = !(!(!(!p)))) ===> decide (p = q)
-#testOptimize [ "DecideUnchanged_11" ] decide (q = !(!(!(!p)))) ===> decide (p = q)
+-- decide (q = !(!(!(!p)))) ===> Solver.decide' (p = q)
+#testOptimize [ "DecideUnchanged_11" ] decide (q = !(!(!(!p)))) ===> Solver.decide' (p = q)
 
 
 end Test.NominalDecide

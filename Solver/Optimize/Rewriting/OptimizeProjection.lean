@@ -5,13 +5,11 @@ open Lean Meta Elab
 
 namespace Solver.Optimize
 /-- Given a projection `a.i` apply the following normalization rules:
-     - When reduceProj? a.i := some re
+     - When projectCore? a i := some re
          - return `some re`
      - Otherwise
-         - When `a := if c then e1 else e2`
-             - return `some if c then e1.i else e2.i`
-         - When `a := dite c (fun h : c => t₁) (fun h : ¬ c => t₂)`
-             - return `some dite c (fun h : c => t₁.i ) (fun h : ¬ c => t₂.i)`
+         - When `a := Solver.dite' c (fun h : c => t₁) (fun h : ¬ c => t₂)`
+             - return `some Solver.dite' c (fun h : c => t₁.i ) (fun h : ¬ c => t₂.i)`
          - when `a := match₁ e₁, ..., eₙ with
                   | p₍₁₎₍₁₎, ..., p₍₁₎₍ₙ₎ => t₁
                   ...
@@ -22,29 +20,19 @@ namespace Solver.Optimize
                        ...
                        | p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₙ₎ => tₘ.i`
 -/
-def optimizeProjection? (e : Expr) : TranslateEnvT (Option Expr) := do
-  let Expr.proj n idx s := e |
-    throwEnvError "optimizeProjection: projection expression expected but got {reprStr e}"
+def optimizeProjection? (n : Name) (idx : Nat) (s : Expr) : TranslateEnvT (Option Expr) := do
   withLocalContext $ do
-    match (← reduceProj? e) with
+    match (← projectCore? s idx) with
     | some re => return re
     | none =>
-      if let some re ← iteProj? n idx s then return re
       if let some re ← diteProj? n idx s then return re
       if let some re ← matchProj? n idx s then return re
       return none
 
   where
-    iteProj? (typeName : Name) (idx : Nat) (struct : Expr) : TranslateEnvT (Option Expr) := do
-      let some (_psort, pcond, pdecide, e1, e2) := ite? struct | return none
-      let retType ← inferTypeEnv e
-      return mkApp5 (← mkIteOp) retType pcond pdecide (mkProj typeName idx e1) (mkProj typeName idx e2)
-
     updateDIteExprWithProj (typeName : Name) (idx : Nat) (ite_cond : Expr) (ite_e : Expr) : TranslateEnvT Expr := do
       match ite_e with
-      | Expr.lam n t body bi =>
-           withLocalDecl n bi t fun x => do
-            mkLambdaFVars #[x] (mkProj typeName idx (body.instantiate1 x))
+      | Expr.lam n t body bi => return Expr.lam n t (mkProj typeName idx body) bi
       | _ =>
          -- case when then/else clause is a quantified function
          if !(← isQuantifiedFun ite_e) then
@@ -52,27 +40,26 @@ def optimizeProjection? (e : Expr) : TranslateEnvT (Option Expr) := do
          else
            -- Need to create a lambda term embedding the following application
            -- `fun h : ite_cond => (ite_e h).i`
-           withLocalDecl (← Term.mkFreshBinderName) BinderInfo.default ite_cond fun x => do
+           withLocalDecl' (← Term.mkFreshBinderName) BinderInfo.default ite_cond fun x => do
              mkLambdaFVars #[x] (mkProj typeName idx (ite_e.beta #[x]))
 
     diteProj? (typeName : Name) (idx : Nat) (struct : Expr) : TranslateEnvT (Option Expr) := do
-      let some (_psort, pcond, pdecide, e1, e2) := dite? struct | return none
-      let retType ← inferTypeEnv e
+      let some (_psort, pcond, e1, e2) := dite'? struct | return none
+      let retType ← inferTypeEnv (mkProj n idx s)
       let e1' ← updateDIteExprWithProj typeName idx pcond e1
       let e2' ← updateDIteExprWithProj typeName idx (mkApp (← mkPropNotOp) pcond) e2
-      return mkApp5 (← mkDIteOp) retType pcond pdecide e1' e2'
+      return mkApp4 (← mkSolverDIteOp) retType pcond e1' e2'
 
     updateRhsWithProj (typeName : Name) (idx : Nat) (lhs : Array Expr) (rhs : Expr) : TranslateEnvT Expr := do
       let altArgsRes ← retrieveAltsArgs lhs
       let nbParams := altArgsRes.altArgs.size
-      lambdaBoundedTelescope rhs (max 1 nbParams) fun params body => do
-        mkLambdaFVars params (mkProj typeName idx body)
+      applyOnLambdaBoundedBody rhs (max 1 nbParams) (fun body => return  mkProj typeName idx body)
 
     matchProj? (typeName : Name) (idx : Nat) (struct : Expr) : TranslateEnvT (Option Expr) := do
       let (f, args) := getAppFnWithArgs struct
       let some argInfo ← isMatcher? f | return none
       let idxType := argInfo.getFirstDiscrPos - 1
-      let retType ← inferTypeEnv e
+      let retType ← inferTypeEnv (mkProj n idx s)
       let alts := getMatchAlts args argInfo
       let mut pargs := args
       for i in [argInfo.getFirstAltPos : argInfo.arity] do

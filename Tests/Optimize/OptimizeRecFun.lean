@@ -118,13 +118,21 @@ def powerNat (a : Nat) (n : Nat) : Nat :=
   ∀ (x y : Nat), powerNat y x + Nat.pow x y = Nat.pow y x + powerNat x y ===> True
 
 -- ∀ (x y : Nat), if x < y then powerNat y x else powerNat x y < Nat.pow x y ===>
--- ∀ (x y : Nat), if x < y then Nat.pow y x else Nat.pow x y < Nat.pow x y
+-- ∀ (x y : Nat),
+--  (Solver.dite'
+--    (x < y)
+--    (fun _h : x < y => Nat.pow y x)
+--    (fun _h : ¬ (x < y) => Nat.pow x y)) < Nat.pow x y
 -- NOTE: Equivalence detection between nested opaque function (i.e., here 3 nested level)
 -- NOTE: Also ensures that structural equivalence is properly performed when
 -- a recursive function is referenced more than once (i.e., proper use of instance cache)
 #testOptimize [ "NormRecFun_14" ]
   ∀ (x y : Nat), (if x < y then powerNat y x else powerNat x y) < Nat.pow x y ===>
-  ∀ (x y : Nat), (if x < y then Nat.pow y x else Nat.pow x y) < Nat.pow x y
+  ∀ (x y : Nat),
+    (Solver.dite'
+      (x < y)
+      (fun _h : x < y => Nat.pow y x)
+      (fun _h : ¬ (x < y) => Nat.pow x y)) < Nat.pow x y
 
 def eqNat (a : Nat) (b : Nat) : Bool :=
   match a, b with
@@ -266,36 +274,43 @@ def bleNat (x : Nat) (y : Nat) : Bool :=
 --   (if x == y then List.length x else List.length y) < w →
 --   (if listPolyBeq y x then List.length y else List.length x) < w ===>
 -- ∀ (w : Nat) (x y : List Nat),
---   (if x = y then List.length x else List.length y) < w →
---   (if x = y then List.length y else List.length x) < w
+--  Solver.dite' (x = y) (fun _h : x = y => List.length x) (fun _h : ¬ (x = y) => List.length y) < w →
+--  Solver.dite' (x = y) (fun _h : x = y => List.length y) (fun _h : ¬ (x = y) => List.length x) < w
 #testOptimize [ "NormRecFun_26" ]
   ∀ (w : Nat) (x y : List Nat),
     (if x == y then List.length x else List.length y) < w →
     (if listPolyBeq y x then List.length y else List.length x) < w ===>
   ∀ (w : Nat) (x y : List Nat),
-    (if x = y then List.length x else List.length y) < w →
-    (if x = y then List.length y else List.length x) < w
+    Solver.dite' (x = y) (fun _h : x = y => List.length x) (fun _h : ¬ (x = y) => List.length y) < w →
+    Solver.dite' (x = y) (fun _h : x = y => List.length y) (fun _h : ¬ (x = y) => List.length x) < w
 
--- ∀ (w : Nat) (x y : List Nat),
---   (if listPolyBeq y x then List.length x else List.length y) < w →
---   (if x == y then List.length y else List.length x) < w ===>
--- ∀ (w : Nat) (x y : List Nat),
---   (if listPolyBeq y x then List.length x else List.length y) < w →
---   (if listPolyBeq x y then List.length y else List.length x) < w
+-- ∀ (w : Nat) (c : Bool) (x y : List Nat),
+--   (if c = listPolyBeq y x then List.length x else List.length y) < w →
+--   (if c = (x == y) then List.length y else List.length x) < w ===>
+-- ∀ (w : Nat) (c : Bool) (x y : List Nat),
+--   Solver.dite'
+--     (c = listPolyBeq y x)
+--     (fun _h : c = listPolyBeq y x => List.length x)
+--     (fun _h : ¬ c = listPolyBeq y x => List.length y) < w →
+--   Solver.dite'
+--     (c = listPolyBeq x y)
+--     (fun _h : c = listPolyBeq x y => List.length y)
+--     (fun _h : ¬ c = listPolyBeq x y => List.length x) < w
 -- NOTE: It currenlty not possible to replace listPolyBeq with BEq.beq
 -- especially when listPolyBEq is encountered first during optimization
--- This test case could be reduced to
--- ∀ (w : Nat) (x y : List Nat),
---   (if x = y then List.length x else List.length y) < w →
---   (if x = y then List.length y else List.length x) < w
--- with some additional improvements.
 #testOptimize [ "NormRecRun_27" ]
-  ∀ (w : Nat) (x y : List Nat),
-    (if listPolyBeq y x then List.length x else List.length y) < w →
-    (if x == y then List.length y else List.length x) < w ===>
-  ∀ (w : Nat) (x y : List Nat),
-    (if true = listPolyBeq y x then List.length x else List.length y) < w →
-    (if true = listPolyBeq x y then List.length y else List.length x) < w
+  ∀ (w : Nat) (c : Bool) (x y : List Nat),
+    (if c = listPolyBeq y x then List.length x else List.length y) < w →
+    (if c = (x == y) then List.length y else List.length x) < w ===>
+  ∀ (w : Nat) (c : Bool) (x y : List Nat),
+    Solver.dite'
+      (c = listPolyBeq y x)
+      (fun _h : c = listPolyBeq y x => List.length x)
+      (fun _h : ¬ c = listPolyBeq y x => List.length y) < w →
+    Solver.dite'
+      (c = listPolyBeq x y)
+      (fun _h : c = listPolyBeq x y => List.length y)
+      (fun _h : ¬ c = listPolyBeq x y => List.length x) < w
 
 
 inductive Either (α : Type u) (β : Type v) where
@@ -535,7 +550,7 @@ def listMapOption [Size α] (xs : List (Option α)) : List Nat :=
 --      mapOption.match_1
 --      (λ (_ : Option α) => Nat)
 --      x
---      (λ (_ : PUnit) => 0)
+--      (λ (_ : Unit) => 0)
 --      (λ (a : α) => Size.size a)
 --   ) xs
 -- NOTE: Test case illustrating that some structural equivalence are still left detected
@@ -549,7 +564,7 @@ def listMapOption [Size α] (xs : List (Option α)) : List Nat :=
        mapOption.match_1
        (λ (_ : Option α) => Nat)
        x
-       (λ (_ : PUnit) => 0)
+       (λ (_ : Unit) => 0)
        (λ (a : α) => Size.size a)
     ) xs
 
@@ -564,7 +579,7 @@ def listMapOption [Size α] (xs : List (Option α)) : List Nat :=
 --        mapOption.match_1
 --        (λ (_ : Option α) => Nat)
 --        x
---        (λ (_ : PUnit) => 0)
+--        (λ (_ : Unit) => 0)
 --        (λ (a : α) => Size.size a)
 --     ) xs) ) →
 --   (∀ (β : Type) (xs : List (Option β)), [Size β] →
@@ -582,7 +597,7 @@ def listMapOption [Size α] (xs : List (Option α)) : List Nat :=
        mapOption.match_1
        (λ (_ : Option α) => Nat)
        x
-       (λ (_ : PUnit) => 0)
+       (λ (_ : Unit) => 0)
        (λ (a : α) => Size.size a)
     ) xs) ) →
   (∀ (β : Type) (xs : List (Option β)), [Size β] → 0 < List.foldr Nat.add 1 (listMapOption xs) )
@@ -596,12 +611,13 @@ where
     else b
 
 -- (∀ (x y : Nat), y > 0 → modNat x y < y) → (∀ (n m : Nat), m > 0 → n % m < n) ===>
--- (∀ (x y : Nat), 0 < y → (if 0 = x then 0 else modNat.modAux x y) < y) → (∀ (n m : Nat), 0 < m  → n % m < n)
+-- (∀ (x y : Nat), 0 < y → Solver.dite' (0 = x) (fun _h : 0 = x => 0) (fun _h : ¬ 0 = x => modNat.modAux x y) < y) →
+--   (∀ (n m : Nat), 0 < m → Nat.mod n m < n)
 -- NOTE: Test case can result to `True` when implementing structural
 -- equivalence with opaque function.
 #testOptimize [ "NormRecUnchanged_15" ] (norm-result: 1)
   (∀ (x y : Nat), y > 0 → modNat x y < y) → (∀ (n m : Nat), m > 0 → n % m < n) ===>
-  (∀ (x y : Nat), 0 < y → (if 0 = x then 0 else modNat.modAux x y) < y) →
+  (∀ (x y : Nat), 0 < y → Solver.dite' (0 = x) (fun _h : 0 = x => 0) (fun _h : ¬ 0 = x => modNat.modAux x y) < y) →
     (∀ (n m : Nat), 0 < m → Nat.mod n m < n)
 
 

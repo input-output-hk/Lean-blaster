@@ -45,7 +45,7 @@ def reduceApp? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := wi
      let some auxFun ← unfoldOpaqueFunDef f args | return none
      let some fbody ← getFunBody auxFun.getAppFn'
        | throwEnvError "reduceApp?: recursive function body expected for {reprStr f}"
-     return (Expr.beta fbody auxFun.getAppArgs)
+     return (betaLambda fbody auxFun.getAppArgs)
 
    isFunRecReduction? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
      let Expr.const n _ := f | return none
@@ -53,87 +53,18 @@ def reduceApp? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := wi
      if !(← allExplicitParamsAreCtor f args) then return none
      let some fbody ← getFunBody f
        | throwEnvError "reduceApp?: recursive function body expected for {reprStr f}"
-     return (Expr.beta fbody args)
-
-/--  Given application `f x₀ ... xₙ`, perform the following:
-     - When `f := ite`
-          - When n = 5 ∧ optimizer x₁ = True ∨ optimizer x₁ = False
-              - return `optimizeITE f x₀ ... xₙ`
-          - When n < 5
-              - return none
-
-     - When `f := dite`
-          - When n = 5 ∧ optimizer x₁ = True ∨ optimizer x₁ = False
-              - return `optimizeDITE f x₀ ... xₙ`
-          - When n < 5
-              - return none
-
-     - Otherwise:
-         - return none
-
--/
-def reduceITEChoice?
-  (s : OptimizeStack) (xs : List OptimizeStack) : TranslateEnvT (Option OptimizeContinuity) := withLocalContext $ do
-  match s with
-  | .InitIteChoiceExpr f args pInfo startArgIdx =>
-       if let some r ← isITEReduction? f args pInfo startArgIdx then return r
-       if let some r ← isDITEReduction? f args pInfo startArgIdx then return r
-       return none
-
-  | .IteChoiceReturn f args _pInfo _startArgIdx =>
-       if args.size < 5 then return none
-       else if isPropConstant args[1]! then
-           let e ← optimizeITE f args
-           -- trace[Optimize.reduceChoice] "choice ite reduction {reprStr f} {reprStr args} => {reprStr e}"
-           return some $ Sum.inl (.InitOptimizeExpr e :: xs)
-       else return none
-
-  | .DiteChoiceReturn f args _pInfo _startArgIdx =>
-      if args.size < 5 then return none
-      else if isPropConstant args[1]! then
-          let e ← optimizeDITE f args
-          -- trace[Optimize.reduceChoice] "choice dite reduction {reprStr f} {reprStr args} => {reprStr e}"
-          return some $ Sum.inl (.InitOptimizeExpr e :: xs)
-      else return none
-
-  | _ => throwEnvError "reduceITEChoice?: unexpected continuity {reprStr s} !!!"
-
-  where
-   @[always_inline, inline]
-   isPropConstant : Expr → Bool
-    | Expr.const ``True _
-    | Expr.const ``False _ => true
-    | _ => false
-
-   @[always_inline, inline]
-   isITEReduction?
-     (f : Expr) (args : Array Expr)
-     (pInfo : FunEnvInfo) (startArgIdx : Nat) : TranslateEnvT (Option OptimizeContinuity) := do
-     match f with
-     | Expr.const ``ite _ =>
-         return some $ Sum.inl (.InitOptimizeExpr args[1]! :: .IteChoiceWaitForCond f args pInfo startArgIdx :: xs)
-     | _ => return none
-
-   @[always_inline, inline]
-   isDITEReduction?
-     (f : Expr) (args : Array Expr)
-     (pInfo : FunEnvInfo) (startArgIdx : Nat) : TranslateEnvT (Option OptimizeContinuity) := do
-     match f with
-     | Expr.const ``dite _ =>
-         return some $ Sum.inl (.InitOptimizeExpr args[1]! :: .DiteChoiceWaitForCond f args pInfo startArgIdx :: xs)
-     | _ => return none
-
+     return (betaLambda fbody args)
 
 /-- Perform constant propagation and apply simplification and normalization rules
     on application expressions.
 -/
 def optimizeAppAux (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
+  let args ← reorderOperands f args
   if let some e ← optimizePropNot? f args then return e
   if let some e ← optimizePropBinary? f args then return e
   if let some e ← optimizeBoolNot? f args then return e
   if let some e ← optimizeBoolBinary? f args then return e
   if let some e ← optimizeEquality? f args then return e
-  if let some e ← optimizeIfThenElse? f args then return e
   if let some e ← optimizeNat? f args then return e
   if let some e ← optimizeInt? f args then return e
   if let some e ← optimizeExists? f args then return e
@@ -173,6 +104,7 @@ def optimizeApp
     | none => stackContinuity stack (← mkExpr e) -- cache expression and proceed with continuity
 
   where
+    @[always_inline, inline]
     isFunPropagation? (e : Expr) : TranslateEnvT (Option Expr) :=
       if e.isApp then
         let (f', args') := getAppFnWithArgs e
@@ -180,7 +112,7 @@ def optimizeApp
       else return none
 
 /-- Given application `f x₁ ... xₙ`,
-     - When `isFunITE f` (i.e., f is an ite or dite that return a function)
+     - When `isFunITE f` (i.e., f is a Solver.dite' that return a function)
          - return none
      - when `isNotfun f`
          - return none
@@ -196,18 +128,14 @@ def normPartialFun? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr)
  if (← isNotFun f) then return none
  let pInfo ← getFunEnvInfo f
  if pInfo.paramsInfo.size <= args.size then return none
- let mut nbImplicits := 0
- for h : i in [:pInfo.paramsInfo.size] do
-   if !pInfo.paramsInfo[i].isExplicit then
-      nbImplicits := nbImplicits.add 1
+ let nbImplicits := pInfo.paramsInfo.foldl (fun acc p => if !p.isExplicit then acc + 1 else acc) 0
  if nbImplicits == args.size then return none
  etaExpand (mkAppN f args)
 
  where
    isFunITE (e : Expr) : Bool :=
      match e with
-     | Expr.const ``ite _
-     | Expr.const ``dite _ => args.size > 5
+     | Expr.const ``Solver.dite' _ => args.size > 4
      | _ => false
 
 /-- Given application `f x₁ ... xₙ` perform the following:
@@ -339,7 +267,7 @@ def normOpaqueAndRecFun (s : OptimizeStack) (xs : List OptimizeStack) :
      (params : ImplicitParameters) (xs : List OptimizeStack) : TranslateEnvT OptimizeContinuity := do
      if params.isEmpty then
        return ← stackContinuity xs (← mkExpr rf (cacheResult := !(normRecOpaque rf))) -- catch fun expression
-     if (← exprEq uf rf) then
+     if exprEq uf rf then
        -- case for when same recursive call
        -- trace[Optimize.recFun.app] "same recursive call case {reprStr rf} {reprStr uargs}"
        if rf.isConst then

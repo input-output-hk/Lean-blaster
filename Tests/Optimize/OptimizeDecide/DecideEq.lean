@@ -372,6 +372,65 @@ inductive Color where
      (¬ x < y → (¬ x < z → true = d) ∧ (x < z → (false = c → true = b) ∧ (true = c → true = a))) ∧
      (x < y → true = a)
 
+-- ∀ (c : Prop) (a b : Bool), [Decidable c] → (if c then a else b) = ((!c || a) && (c || b)) ===>
+-- ∀ (c : Prop) (a b : Bool),
+--   ((c ∨ true = b) ∧ (¬ c ∨ true  = a)) = ((c → true = a) ∧ (¬ c → true = b))
+-- NOTE: can be simplified to True with additional simplification rules
+#testOptimize [ "TrueEqIte_28" ]
+  ∀ (c : Prop) (a b : Bool), [Decidable c] → (if c then a else b) = ((!c || a) && (c || b)) ===>
+  ∀ (c : Prop) (a b : Bool),
+    ((c ∨ true = b) ∧ (¬ c ∨ true = a)) = ((c → true = a) ∧ (¬ c → true = b))
+
+-- ∀ (a : Prop) (b : Bool), [Decidable a] → (if a then true else b) = (b || a) ===>
+-- ∀ (a : Prop) (b : Bool), (a ∨ true = b) = (¬ a → true = b)
+-- NOTE: can be simplified to True with additional simplification rules
+#testOptimize [ "TrueEqIte_29" ]
+  ∀ (a : Prop) (b : Bool), [Decidable a] → (if a then true else b) = (b || a) ===>
+  ∀ (a : Prop) (b : Bool), (a ∨ true = b) = (¬ a → true = b)
+
+-- ∀ (a : Prop) (b : Bool), [Decidable a] → (if a then b else true) = (!a || b) ===>
+-- ∀ (a : Prop) (b : Bool), (¬ a ∨ true = b) = (a → true = b)
+-- NOTE: can be simplified to True with additional simplification rules
+#testOptimize [ "TrueEqIte_30" ]
+  ∀ (a : Prop) (b : Bool), [Decidable a] → (if a then b else true) = (!a || b) ===>
+  ∀ (a : Prop) (b : Bool), (¬ a ∨ true = b) = (a → true = b)
+
+-- ∀ (a : Prop) (b : Bool), [Decidable a] → (if a then false else b) = (!a && (a || b)) ===>
+-- ∀ (a : Prop) (b : Bool), (¬ a ∧ (a ∨ true = b)) = (¬ a ∧ true = b)
+-- NOTE: can be simplified to True with additional simplification rules
+#testOptimize [ "TrueEqIte_31" ]
+  ∀ (a : Prop) (b : Bool), [Decidable a] → (if a then false else b) = (!a && (a || b)) ===>
+  ∀ (a : Prop) (b : Bool), (¬ a ∧ (a ∨ true = b)) = (¬ a ∧ true = b)
+
+-- ∀ (a : Prop) (b : Bool), [Decidable a] → (if a then b else false) = ((!a || b) && a) ===>
+-- ∀ (a : Prop) (b : Bool), (a ∧ (¬ a ∨ true = b)) = (a ∧ true = b)
+-- NOTE: can be simplified to True with additional simplification rules
+#testOptimize [ "TrueEqIte_32" ]
+  ∀ (a : Prop) (b : Bool), [Decidable a] → (if a then b else false) = ((!a || b) && a) ===>
+  ∀ (a : Prop) (b : Bool), (a ∧ (¬ a ∨ true = b)) = (a ∧ true = b)
+
+-- ∀ (a : Prop) (b : Bool), [Decidable a] → (if a then a else b) = (a || b) ===>
+-- ∀ (a : Prop) (b : Bool), (a ∨ true = b) = (¬ a → true = b)
+-- NOTE: can be simplified to True with additional simplification rules
+#testOptimize [ "TrueEqIte_33" ]
+  ∀ (a : Prop) (b : Bool), [Decidable a] → (if a then a else b) = (a || b) ===>
+  ∀ (a : Prop) (b : Bool), (a ∨ true = b) = (¬ a → true = b)
+
+-- ∀ (a : Prop) (b : Bool), [Decidable a] → (if a then b else a) = ((!a || b) && a) ===>
+-- ∀ (a : Prop) (b : Bool), (a ∧ (¬ a ∨ true = b)) = (a ∧ true = b)
+-- NOTE: can be simplified to True with additional simplification rules
+#testOptimize [ "TrueEqIte_34" ]
+  ∀ (a : Prop) (b : Bool), [Decidable a] → (if a then b else a) = ((!a || b) && a) ===>
+  ∀ (a : Prop) (b : Bool), (a ∧ (¬ a ∨ true = b)) = (a ∧ true = b)
+
+-- ∀ (c : Prop) (a b : Bool), [Decidable c] → (if !c then a else b) = ((c || a) && (!c || b)) ===>
+-- ∀ (c : Prop) (a b : Bool),
+--   ((c ∨ true = a) ∧ (¬ c ∨ true = b)) = ((c → true = b) ∧ (¬ c → true = a))
+-- NOTE: can be simplified to True with additional simplification rules
+#testOptimize [ "TrueEqIte_35" ]
+  ∀ (c : Prop) (a b : Bool), [Decidable c] → (if !c then a else b) = ((c || a) && (!c || b)) ===>
+  ∀ (c : Prop) (a b : Bool),
+    ((c ∨ true = a) ∧ (¬ c ∨ true = b)) = ((c → true = b) ∧ (¬ c → true = a))
 
 /-! Test cases for simplification rule
      `false = if c then e1 else e2 ==> (c → false = e1) ∧ (¬ c → false = e2)`.
@@ -554,74 +613,31 @@ inductive Color where
     are not wrongly applied.
 -/
 
--- ∀ (c a b d : Bool), d = (if c then a else b) ===>
--- ∀ (c a b d : Bool), d = if true = c then a else b
+-- ∀ (c : Prop) (a b d : Bool), [Decidable c] → d = if c then a else b ===>
+-- ∀ (c : Prop) (a b d : Bool), d = Solver.dite' c (fun _ => a) (fun _ => b)
 #testOptimize [ "BoolEqIteUnchanged_1" ]
-  ∀ (c a b d : Bool), d = if c then a else b ===>
-  ∀ (c a b d : Bool), d = if true = c then a else b
+  ∀ (c : Prop) (a b d : Bool), [Decidable c] → d = if c then a else b ===>
+  ∀ (c : Prop) (a b d : Bool), d = Solver.dite' c (fun _ => a) (fun _ => b)
 
--- ∀ (c a b d : Bool), (if c then a else b) = d ===>
--- ∀ (c a b d : Bool), d = if true = c then a else b
--- ∀ (c a b d : Bool), if true = c then a else b = d
+-- ∀ (c : Prop) (a b d : Bool), [Decidable c] → (if c then a else b) = d ===>
+-- ∀ (c : Prop) (a b d : Bool), d = Solver.dite' c (fun _ => a) (fun _ => b)
 #testOptimize [ "BoolEqIteUnchanged_2" ]
-  ∀ (c a b d : Bool), (if c then a else b) = d ===>
-  ∀ (c a b d : Bool), d = if true = c then a else b
+  ∀ (c : Prop) (a b d : Bool), [Decidable c] → (if c then a else b) = d ===>
+  ∀ (c : Prop) (a b d : Bool), d = Solver.dite' c (fun _ => a) (fun _ => b)
 
--- ∀ (c a b : Bool), (if c then a else b) = = ((!c || a) && (c || b)) ===>
--- ∀ (c a b : Bool), ((c || b) && (a || !c)) = if true = c then a else b
--- NOTE: can be simplified to True with additional simplification rules
+-- ∀ (c : Prop) (a b : Bool), [Decidable c] → (if c then a else b) = (a && b) ===>
+-- ∀ (c : Prop) (a b : Bool),
+--   (a && b) = Solver.dite' c (fun _ => a) (fun _ => b)
 #testOptimize [ "BoolEqIteUnchanged_3" ]
-  ∀ (c a b : Bool), (if c then a else b) = ((!c || a) && (c || b)) ===>
-  ∀ (c a b : Bool), ((c || b) && (a || !c)) = if true = c then a else b
+  ∀ (c : Prop) (a b : Bool), [Decidable c] → (if c then a else b) = (a && b) ===>
+  ∀ (c : Prop) (a b : Bool),
+    (a && b) = Solver.dite' c (fun _ => a) (fun _ => b)
 
--- ∀ (a b : Bool), (if a then true else b) = (b || a) ===>
--- ∀ (a b : Bool), (a || b) = (if true = a then true else b)
--- NOTE: can be simplified to True with additional simplification rules
+-- ∀ (a : Prop) (b c : Bool), [Decidable a] → (if a then true else b) = (b || c) ===>
+-- ∀ (a : Prop) (b c : Bool), (b || c) = Solver.dite' a (fun _ => true) (fun _ => b)
 #testOptimize [ "BoolEqIteUnchanged_4" ]
-  ∀ (a b : Bool), (if a then true else b) = (b || a) ===>
-  ∀ (a b : Bool), (a || b) = (if true = a then true else b)
-
--- ∀ (a b : Bool), (if a then b else true) = (!a || b) ===> True
--- NOTE: can be simplified to True with additional simplification rules
-#testOptimize [ "BoolEqIteUnchanged_5" ]
-  ∀ (a b : Bool), (if a then b else true) = (!a || b) ===>
-  ∀ (a b : Bool), (b || !a) = (if true = a then b else true)
-
--- ∀ (a b : Bool), (if a then false else b) = (!a && (a || b)) ===>
--- ∀ (a b : Bool), (!a && (a || b)) = if true = a then false else b
--- NOTE: can be simplified to True with additional simplification rules
-#testOptimize [ "BoolEqIteUnchanged_6" ]
-  ∀ (a b : Bool), (if a then false else b) = (!a && (a || b)) ===>
-  ∀ (a b : Bool), (!a && (a || b)) = if true = a then false else b
-
--- ∀ (a b : Bool), (if a then b else false) = ((!a || b) && a) ===>
--- ∀ (a b : Bool), (a && (b || !a)) = if true = a then b else false
--- NOTE: can be simplified to True with additional simplification rules
-#testOptimize [ "BoolEqIteUnchanged_7" ]
-  ∀ (a b : Bool), (if a then b else false) = ((!a || b) && a) ===>
-  ∀ (a b : Bool), (a && (b || !a)) = if true = a then b else false
-
--- ∀ (a b : Bool), (if a then a else b) = (a || b) ===>
--- ∀ (a b : Bool), (a || b) = (if true = a then a else b)
--- NOTE: can be simplified to True with additional simplification rules
-#testOptimize [ "BoolEqIteUnchanged_8" ]
-  ∀ (a b : Bool), (if a then a else b) = (a || b) ===>
-  ∀ (a b : Bool), (a || b) = (if true = a then a else b)
-
--- ∀ (a b : Bool), (if a then b else a) = ((!a || b) && a) ===>
--- ∀ (a b : Bool), (a && (b || !a)) = if true = a then b else a
--- NOTE: can be simplified to True with additional simplification rules
-#testOptimize [ "BoolEqIteUnchanged_9" ]
-  ∀ (a b : Bool), (if a then b else a) = ((!a || b) && a) ===>
-  ∀ (a b : Bool), (a && (b || !a)) = if true = a then b else a
-
--- ∀ (c a b : Bool), (if !c then a else b) = ((c || a) && (!c || b)) ===>
--- ∀ (c a b : Bool), ((c || a) && (b || !c)) = if true = c then b else a
--- NOTE: can be simplified to True with additional simplification rules
-#testOptimize [ "BoolEqIteUnchanged_10" ]
-  ∀ (c a b : Bool), (if !c then a else b) = ((c || a) && (!c || b)) ===>
-  ∀ (c a b : Bool), ((c || a) && (b || !c)) = if true = c then b else a
-
+  ∀ (a : Prop) (b c : Bool), [Decidable a] → (if a then true else b) = (b || c) ===>
+  ∀ (a : Prop) (b c : Bool), (b || c) = Solver.dite' a (fun _ => true) (fun _ => b)
 
 /-! Test cases for simplification rule
      `true = dite c (fun h : c => e1) (fun h : ¬ c => e2) ==> (c → true = e1) ∧ (¬ c → true = e2)`.
@@ -1197,10 +1213,9 @@ Lean.Expr.forallE `c
               (Lean.Expr.bvar 1))
             (Lean.Expr.app
               (Lean.Expr.app
-                (Lean.Expr.app
                   (Lean.Expr.app
                     (Lean.Expr.app
-                      (Lean.Expr.const `dite [Lean.Level.succ (Lean.Level.zero)])
+                      (Lean.Expr.const `Solver.dite' [Lean.Level.succ (Lean.Level.zero)])
                       (Lean.Expr.const `Bool []))
                     (Lean.Expr.app
                       (Lean.Expr.app
@@ -1209,9 +1224,6 @@ Lean.Expr.forallE `c
                           (Lean.Expr.const `Bool []))
                         (Lean.Expr.const `Bool.true []))
                       (Lean.Expr.bvar 4)))
-                  (Lean.Expr.app
-                    (Lean.Expr.app (Lean.Expr.const `instDecidableEqBool []) (Lean.Expr.const `Bool.true []))
-                    (Lean.Expr.bvar 4)))
                 (Lean.Expr.lam `h
                   (Lean.Expr.app
                     (Lean.Expr.app
@@ -1238,14 +1250,16 @@ Lean.Expr.forallE `c
 elab "boolEqDIteUnchanged_1" : term => return boolEqDIteUnchanged_1
 
 -- ∀ (c a b d : Bool) (f : c → Bool → Bool), d = (if h : c then f h a else b) ===>
--- ∀ (c a b d : Bool) (f : true = c → Bool → Bool), d = if h : true = c then f h a else b
+-- ∀ (c a b d : Bool) (f : true = c → Bool → Bool),
+--   d = Solver.dite' (true = c) (fun h : true = c => f h a) (fun _ => b)
 #testOptimize [ "BoolEqDIteUnchanged_1" ]
   ∀ (c a b d : Bool) (f : c → Bool → Bool),
     d = if h : c then f h a else b ===> boolEqDIteUnchanged_1
 
 
 -- ∀ (c a b d : Bool) (f : c → Bool → Bool), (if h : c then a else b) = d ===>
--- ∀ (c a b d : Bool) (f : true = c → Bool → Bool), d = if h : true = c then f h a else b
+-- ∀ (c a b d : Bool) (f : true = c → Bool → Bool),
+--   d = Solver.dite' (true = c) (fun h : true = c => f h a) (fun _ => b)
 #testOptimize [ "BoolEqDIteUnchanged_2" ]
   ∀ (c a b d : Bool) (f : c → Bool → Bool),
     (if h : c then f h a else b) = d ===> boolEqDIteUnchanged_1
@@ -1445,10 +1459,10 @@ variable (z : Int)
 
 -- ∀ (x y z : Int) (a b c : Bool),
 --  (if (x ≤ y) && ((a || ((b || c) && !(c || b)))) then x else y) < z ===>
--- ∀ (x y z : Int) (a : Bool), (if ¬ y < x ∧ true = a then x else y) < z
+-- ∀ (x y z : Int) (a : Bool), Solver.dite' (¬ y < x ∧ true = a) (fun _ => x) (fun _ => y) < z
 #testOptimize [ "DecideEqTrue_15"]
   ∀ (x y z : Int) (a b c : Bool), (if (x ≤ y) && ((a || ((b || c) && !(c || b)))) then x else y) < z ===>
-  ∀ (x y z : Int) (a : Bool), (if ¬ y < x ∧ true = a then x else y) < z
+  ∀ (x y z : Int) (a : Bool), Solver.dite' (¬ y < x ∧ true = a) (fun _ => x) (fun _ => y) < z
 
 -- ∀ (x y z : Int) (a b c : Bool),
 --  ((if (x ≤ y) && ((a || ((b || c) && !(c || b)))) then x else y) < z) =
@@ -1730,9 +1744,10 @@ variable (z : Int)
 
 
 -- ∀ (x y z : Int) (b c : Bool), (if ((x < y) && c) == b then x else y) < z ===>
--- ∀ (x y z : Int) (b c : Bool), (if (true = c ∧ (x < y)) = (true = b) then x else y) < z
-#testOptimize [ "DecideEqBool_18" ] ∀ (x y z : Int) (b c : Bool), (if ((x < y) && c) == b then x else y) < z ===>
-                                    ∀ (x y z : Int) (b c : Bool), (if (true = c ∧ (x < y)) = (true = b) then x else y) < z
+-- ∀ (x y z : Int) (b c : Bool), Solver.dite' ((true = c ∧ (x < y)) = (true = b)) (fun _ => x) (fun _ => y) < z
+#testOptimize [ "DecideEqBool_18" ]
+  ∀ (x y z : Int) (b c : Bool), (if ((x < y) && c) == b then x else y) < z ===>
+  ∀ (x y z : Int) (b c : Bool), Solver.dite' ((true = c ∧ (x < y)) = (true = b)) (fun _ => x) (fun _ => y) < z
 
 -- ∀ (x y : Int) (b c : Bool),
 --  (if ((x < y) ∧ c) = b then x else y) = (if ((x < y) && c) == b then x else y) ===> True

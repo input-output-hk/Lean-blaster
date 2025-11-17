@@ -255,9 +255,10 @@ namespace Test.OptimizeDITE
   ∀ (a b c d : Bool) (f : false = c → Bool → Bool),
     (∀ (h : false = c), (!d) = f h b) ∧ (true = c → a = !b)
 
--- ∀ (c : Bool) (x y z : Nat), (if h : c then (x + 40) - 40 else y) < z ===>
--- ∀ (c : Bool) (x y z : Nat), (if true = c then x else y) < z
-
+-- ∀ (c : Bool) (x y z : Nat) (f : ¬ c → Nat → Nat),
+--  (if h : c then (x + 40) - 40 else f h y) < z ===>
+-- ∀ (c : Bool) (x y z : Nat) (f : ¬ c → Nat → Nat),
+--  Solver.dite' (true = c) (fun _ => x) (fun h : _ => f h y) < z
 def diteAbsorptionUnchanged_8 : Expr :=
 Lean.Expr.forallE `c
   (Lean.Expr.const `Bool [])
@@ -285,11 +286,10 @@ Lean.Expr.forallE `c
                 (Lean.Expr.app (Lean.Expr.const `LT.lt [Lean.Level.zero]) (Lean.Expr.const `Nat []))
                 (Lean.Expr.const `instLTNat []))
               (Lean.Expr.app
-                (Lean.Expr.app
                   (Lean.Expr.app
                     (Lean.Expr.app
                       (Lean.Expr.app
-                        (Lean.Expr.const `dite [Lean.Level.succ (Lean.Level.zero)])
+                        (Lean.Expr.const `Solver.dite' [Lean.Level.succ (Lean.Level.zero)])
                         (Lean.Expr.const `Nat []))
                       (Lean.Expr.app
                         (Lean.Expr.app
@@ -298,9 +298,6 @@ Lean.Expr.forallE `c
                             (Lean.Expr.const `Bool []))
                           (Lean.Expr.const `Bool.true []))
                         (Lean.Expr.bvar 4)))
-                    (Lean.Expr.app
-                      (Lean.Expr.app (Lean.Expr.const `instDecidableEqBool []) (Lean.Expr.const `Bool.true []))
-                      (Lean.Expr.bvar 4)))
                   (Lean.Expr.lam `h
                     (Lean.Expr.app
                       (Lean.Expr.app
@@ -595,8 +592,10 @@ elab "diteAbsorptionUnchanged_8" : term => return diteAbsorptionUnchanged_8
   ∀ (a c d : Bool) (f : true = a → Bool → Bool),
     (false = a → true = d) ∧ (∀ (h : true = a), true = f h c)
 
--- ∀ (a b : Bool) (x y z : Nat), (if h : b && (a || !a) then (x + 40) - 40 else y) < z ===>
--- ∀ (b : Bool) (x y z : Nat), (if h : true = b then x else y) < z
+-- ∀ (a b : Bool) (x y z : Nat) (f : b && (a || !a) → Nat → Nat),
+--   (if h : b && (a || !a) then (f h x + 40) - 40 else y) < z ===>
+-- ∀ (b : Bool) (x y z : Nat) (f : true = b → Nat → Nat),
+--   Solver.dite' (true = b) (fun h : _ => f h x) (fun _ => y) < z
 def diteCondUnchanged_3 : Expr :=
 Lean.Expr.forallE `b
   (Lean.Expr.const `Bool [])
@@ -624,11 +623,10 @@ Lean.Expr.forallE `b
                 (Lean.Expr.app (Lean.Expr.const `LT.lt [Lean.Level.zero]) (Lean.Expr.const `Nat []))
                 (Lean.Expr.const `instLTNat []))
               (Lean.Expr.app
-                (Lean.Expr.app
                   (Lean.Expr.app
                     (Lean.Expr.app
                       (Lean.Expr.app
-                        (Lean.Expr.const `dite [Lean.Level.succ (Lean.Level.zero)])
+                        (Lean.Expr.const `Solver.dite' [Lean.Level.succ (Lean.Level.zero)])
                         (Lean.Expr.const `Nat []))
                       (Lean.Expr.app
                         (Lean.Expr.app
@@ -637,9 +635,6 @@ Lean.Expr.forallE `b
                             (Lean.Expr.const `Bool []))
                           (Lean.Expr.const `Bool.true []))
                         (Lean.Expr.bvar 4)))
-                    (Lean.Expr.app
-                      (Lean.Expr.app (Lean.Expr.const `instDecidableEqBool []) (Lean.Expr.const `Bool.true []))
-                      (Lean.Expr.bvar 4)))
                   (Lean.Expr.lam
                     `h
                     (Lean.Expr.app
@@ -694,13 +689,13 @@ elab "diteCondUnchanged_3" : term => return diteCondUnchanged_3
 
 -- ∀ (a b : Prop) (x y z : Nat) (f : b ∧ (a ∨ ¬ a) → Nat → Nat),
 --   [Decidable a] → [Decidable b] → (if h : b ∧ (a ∨ ¬ a) then (f h x + 40) - 40 else y) < z ===>
--- ∀ (b : Prop) (x y z : Nat) (f : b → Nat → Nat), [Decidable b] →
---   (if h : b then f h x else y) < z
+-- ∀ (b : Prop) (x y z : Nat) (f : b → Nat → Nat),
+--   Solver.dite' b (fun h : _ => f h x) (fun _ => y) < z
 #testOptimize [ "DIteCondUnchanged_6" ]
   ∀ (a b : Prop) (x y z : Nat) (f : b ∧ (a ∨ ¬ a) → Nat → Nat),
     [Decidable a] → [Decidable b] → (if h : b ∧ (a ∨ ¬ a) then (f h x + 40) - 40 else y) < z ===>
-  ∀ (b : Prop) (x y z : Nat) (f : b → Nat → Nat), [Decidable b] →
-    (if h : b then f h x else y) < z
+  ∀ (b : Prop) (x y z : Nat) (f : b → Nat → Nat),
+    Solver.dite' b (fun h : _ => f h x) (fun _ => y) < z
 
 
 /-! Test cases for simplification rule:
@@ -728,13 +723,13 @@ elab "diteCondUnchanged_3" : term => return diteCondUnchanged_3
 
 -- ∀ (c : Prop) (x y z : Nat) (f : ¬ c → Nat → Nat), [Decidable c] →
 --   (if h : ¬ c then f h x else y) < z ===>
--- ∀ (c : Prop) (x y z : Nat) (f : ¬ c → Nat → Nat), [Decidable c] →
---   (if h : c then y else f h x) < z
+-- ∀ (c : Prop) (x y z : Nat) (f : ¬ c → Nat → Nat),
+--   Solver.dite' c (fun _ => y) (fun h : _ => f h x) < z
 #testOptimize [ "DIteNegCond_3" ]
   ∀ (c : Prop) (x y z : Nat) (f : ¬ c → Nat → Nat), [Decidable c] →
     (if h : ¬ c then f h x else y) < z ===>
-  ∀ (c : Prop) (x y z : Nat) (f : ¬ c → Nat → Nat), [Decidable c] →
-    (if h : c then y else f h x) < z
+  ∀ (c : Prop) (x y z : Nat) (f : ¬ c → Nat → Nat),
+    Solver.dite' c (fun _ => y) (fun h : _ => f h x) < z
 
 -- ∀ (c : Prop) (f : ¬ c → Int → Int), [Decidable c] →
 --   if h : ¬ c then ∀ (x y : Int), f h x > y else ∀ (z y : Int), y > z ===>
@@ -748,33 +743,33 @@ elab "diteCondUnchanged_3" : term => return diteCondUnchanged_3
 
 -- ∀ (c : Prop) (x y : Int) (f : c = False → Int → Int), [Decidable c] →
 --   (if h : c = False then f h x else y) > x ===>
--- ∀ (c : Prop) (x y : Int) (f : ¬ c → Int → Int), [Decidable c] →
---   x < (if h : c then y else f h x)
+-- ∀ (c : Prop) (x y : Int) (f : ¬ c → Int → Int),
+--   x < Solver.dite' c (fun _ => y) (fun h : _ => f h x)
 #testOptimize [ "DIteNegCond_5" ]
   ∀ (c : Prop) (x y : Int) (f : c = False → Int → Int), [Decidable c] →
     (if h : c = False then f h x else y) > x ===>
-  ∀ (c : Prop) (x y : Int) (f : ¬ c → Int → Int), [Decidable c] →
-    x < (if h : c then y else f h x)
+  ∀ (c : Prop) (x y : Int) (f : ¬ c → Int → Int),
+    x < Solver.dite' c (fun _ => y) (fun h : _ => f h x)
 
 -- ∀ (a b : Prop) (x y : Int) (f : ¬ (a = b) → Int → Int), [Decidable a] → [Decidable b] →
 --   (if h : ¬ (a = b) then f h x else y) > x ===>
--- ∀ (a b : Prop) (x y : Int) (f : ¬ (a = b) → Int → Int), [Decidable a] → [Decidable b] →
---   x < (if h : a = b then y else f h x)
+-- ∀ (a b : Prop) (x y : Int) (f : ¬ (a = b) → Int → Int),
+--   x < Solver.dite' (a = b) (fun _ => y) (fun h : _ => f h x)
 #testOptimize [ "DIteNegCond_6" ]
   ∀ (a b : Prop) (x y : Int) (f : ¬ (a = b) → Int → Int), [Decidable a] → [Decidable b] →
     (if h : ¬ (a = b) then f h x else y) > x ===>
-  ∀ (a b : Prop) (x y : Int) (f : ¬ (a = b) → Int → Int), [Decidable a] → [Decidable b] →
-    x < (if h : a = b then y else f h x)
+  ∀ (a b : Prop) (x y : Int) (f : ¬ (a = b) → Int → Int),
+    x < Solver.dite' (a = b) (fun _ => y) (fun h : _ => f h x)
 
 -- ∀ (c : Prop) (x y z : Nat) (f : ¬ (¬ (¬ c)) → Nat → Nat), [Decidable c] →
 --   (if h : ¬ (¬ (¬ c)) then f h x else y) < z ===>
--- ∀ (c : Prop) (x y z : Nat) (f : ¬ c → Nat → Nat), [Decidable c] →
---   (if h : c then y else f h x) < z
+-- ∀ (c : Prop) (x y z : Nat) (f : ¬ c → Nat → Nat),
+--   Solver.dite' c (fun _ => y) (fun h : _ => f h x) < z
 #testOptimize [ "DIteNegCond_7" ]
   ∀ (c : Prop) (x y z : Nat) (f : ¬ (¬ (¬ c)) → Nat → Nat), [Decidable c] →
     (if h : ¬ (¬ (¬ c)) then f h x else y) < z ===>
-  ∀ (c : Prop) (x y z : Nat) (f : ¬ c → Nat → Nat), [Decidable c] →
-    (if h : c then y else f h x) < z
+  ∀ (c : Prop) (x y z : Nat) (f : ¬ c → Nat → Nat),
+    Solver.dite' c (fun _ => y) (fun h : _ => f h x) < z
 
 -- ∀ (a b c : Prop) (f : ¬ c → Prop → Prop), [Decidable c] →
 --   (if h : ¬ c then f h a else b) = if h : c then b else f h a ===> True
@@ -860,13 +855,13 @@ elab "diteCondUnchanged_3" : term => return diteCondUnchanged_3
 
 -- ∀ (c : Prop) (x y z : Nat) (f : ¬ (¬ c) → Nat → Nat), [Decidable c] →
 --   (if h : ¬ (¬ c) then f h x else y) < z ===>
--- ∀ (c : Prop) (x y z : Nat) (f : c → Nat → Nat), [Decidable c] →
---   (if h : c then f h x else y) < z
+-- ∀ (c : Prop) (x y z : Nat) (f : c → Nat → Nat),
+--   Solver.dite' c (fun h : _ => f h x) (fun _ => y) < z
 #testOptimize [ "DIteNegCondUnchanged_3" ]
   ∀ (c : Prop) (x y z : Nat) (f : ¬ (¬ c) → Nat → Nat), [Decidable c] →
     (if h : ¬ (¬ c) then f h x else y) < z ===>
-  ∀ (c : Prop) (x y z : Nat) (f : c → Nat → Nat), [Decidable c] →
-    (if h : c then f h x else y) < z
+  ∀ (c : Prop) (x y z : Nat) (f : c → Nat → Nat),
+    Solver.dite' c (fun h : _ => f h x) (fun _ => y) < z
 
 -- ∀ (c : Prop) (f : ¬ (¬ c) → Int → Int), [Decidable c] →
 --   if h : ¬ (¬ c) then ∀ (x y : Int), f h x > y else ∀ (z y : Int), y > z ===>
@@ -880,37 +875,35 @@ elab "diteCondUnchanged_3" : term => return diteCondUnchanged_3
 
 -- ∀ (c : Prop) (x y : Int) (f : c = True → Int → Int), [Decidable c] →
 --   (if h : c = True then f h x else y) > x ===>
--- ∀ (c : Prop) (x y : Int) (f : c → Int → Int), [Decidable c] →
---   x < (if h : c then f h x else y)
+-- ∀ (c : Prop) (x y : Int) (f : c → Int → Int),
+--   x < Solver.dite' c (fun h : _ => f h x) (fun _ => y)
 #testOptimize [ "DIteNegCondUnchanged_5" ]
   ∀ (c : Prop) (x y : Int) (f : c = True → Int → Int), [Decidable c] →
     (if h : c = True then f h x else y) > x ===>
-  ∀ (c : Prop) (x y : Int) (f : c → Int → Int), [Decidable c] →
-    x < (if h : c then f h x else y)
+  ∀ (c : Prop) (x y : Int) (f : c → Int → Int),
+    x < Solver.dite' c (fun h : _ => f h x) (fun _ => y)
 
 -- ∀ (a b : Prop) (x y : Int) (f : ¬ (¬ (a = b)) → Int → Int),
 --   [Decidable a] → [Decidable b] →
 --   (if h : ¬ (¬ (a = b)) then f h x else y) > x ===>
 -- ∀ (a b : Prop) (x y : Int) (f : a = b → Int → Int),
---   [Decidable a] → [Decidable b] →
---   x < (if h : a = b then f h x else y)
+--   x < Solver.dite' (a = b) (fun h : _ => f h x) (fun _ => y)
 #testOptimize [ "DIteNegCondUnchanged_6" ]
   ∀ (a b : Prop) (x y : Int) (f : ¬ (¬ (a = b)) → Int → Int),
     [Decidable a] → [Decidable b] →
     (if h : ¬ (¬ (a = b)) then f h x else y) > x ===>
   ∀ (a b : Prop) (x y : Int) (f : a = b → Int → Int),
-    [Decidable a] → [Decidable b] →
-    x < (if h : a = b then f h x else y)
+    x < Solver.dite' (a = b) (fun h : _ => f h x) (fun _ => y)
 
 -- ∀ (c : Prop) (x y z : Nat) (f : ¬ (¬ (¬ (¬ c))) → Nat → Nat), [Decidable c] →
 --   (if h : ¬ (¬ (¬ (¬ c))) then f h x else y) < z ===>
--- ∀ (c : Prop) (x y z : Nat) (f : c → Nat → Nat), [Decidable c] →
---   (if h : c then f h x else y) < z
+-- ∀ (c : Prop) (x y z : Nat) (f : c → Nat → Nat),
+--   Solver.dite' c (fun h : _ => f h x) (fun _ => y) < z
 #testOptimize [ "DIteNegCondUnchanged_7" ]
   ∀ (c : Prop) (x y z : Nat) (f : ¬ (¬ (¬ (¬ c))) → Nat → Nat), [Decidable c] →
     (if h : ¬ (¬ (¬ (¬ c))) then f h x else y) < z ===>
-  ∀ (c : Prop) (x y z : Nat) (f : c → Nat → Nat), [Decidable c] →
-    (if h : c then f h x else y) < z
+  ∀ (c : Prop) (x y z : Nat) (f : c → Nat → Nat),
+    Solver.dite' c (fun h : _ => f h x) (fun _ => y) < z
 
 
 /-! Test cases for simplification rule
@@ -938,8 +931,10 @@ elab "diteCondUnchanged_3" : term => return diteCondUnchanged_3
   ∀ (a b c : Bool) (f : false = c → Bool → Bool),
     (∀ (h : false = c), true = f h a) ∧ (true = c → true = b)
 
--- ∀ (c : Bool) (x y : Nat), (if h : c = false then x else y) > x ===>
--- ∀ (c : Bool) (x y : Nat), x < (if h : true = c then y else x)
+--  ∀ (c : Bool) (x y : Nat) (f : c = false → Nat → Nat),
+--   (if h : c = false then f h x else y) > x ===>
+--  ∀ (c : Bool) (x y : Nat) (f : c = false → Nat → Nat),
+--    Solver.dite' (true = c) (fun _ => y) (fun h : _ => f h x) > x
 def diteFalseEqCond_3 : Expr :=
 Lean.Expr.forallE `c
   (Lean.Expr.const `Bool [])
@@ -968,17 +963,13 @@ Lean.Expr.forallE `c
           (Lean.Expr.app
             (Lean.Expr.app
               (Lean.Expr.app
+                (Lean.Expr.app (Lean.Expr.const `Solver.dite' [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Nat []))
                 (Lean.Expr.app
-                  (Lean.Expr.app (Lean.Expr.const `dite [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Nat []))
                   (Lean.Expr.app
                     (Lean.Expr.app
-                      (Lean.Expr.app
-                        (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)])
-                        (Lean.Expr.const `Bool []))
-                      (Lean.Expr.const `Bool.true []))
-                    (Lean.Expr.bvar 3)))
-                (Lean.Expr.app
-                  (Lean.Expr.app (Lean.Expr.const `instDecidableEqBool []) (Lean.Expr.const `Bool.true []))
+                      (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)])
+                      (Lean.Expr.const `Bool []))
+                    (Lean.Expr.const `Bool.true []))
                   (Lean.Expr.bvar 3)))
               (Lean.Expr.lam `h
                 (Lean.Expr.app
@@ -1044,8 +1035,7 @@ Lean.Expr.forallE `c
           (Lean.Expr.app
             (Lean.Expr.app
               (Lean.Expr.app
-                (Lean.Expr.app
-                  (Lean.Expr.app (Lean.Expr.const `dite [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Int []))
+                  (Lean.Expr.app (Lean.Expr.const `Solver.dite' [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Int []))
                   (Lean.Expr.app
                     (Lean.Expr.app
                       (Lean.Expr.app
@@ -1053,9 +1043,6 @@ Lean.Expr.forallE `c
                         (Lean.Expr.const `Bool []))
                       (Lean.Expr.const `Bool.true []))
                     (Lean.Expr.bvar 3)))
-                (Lean.Expr.app
-                  (Lean.Expr.app (Lean.Expr.const `instDecidableEqBool []) (Lean.Expr.const `Bool.true []))
-                  (Lean.Expr.bvar 3)))
               (Lean.Expr.lam `h
                 (Lean.Expr.app
                   (Lean.Expr.app
@@ -1079,7 +1066,8 @@ Lean.Expr.forallE `c
 elab "diteFalseEqCond_5" : term => return diteFalseEqCond_5
 
 -- ∀ (c : Bool) (x y : Int) (f : !c → Int → Int), (if h : !c then f h x else y) > x ===>
--- ∀ (c : Bool) (x y : Int), x < (if h : true = c then y else f h x)
+-- ∀ (c : Bool) (x y : Int) (f : false = c → Int → Int),
+--  x < Solver.dite' (true = c) (fun _ => y) (fun h : _ => f h x)
 #testOptimize [ "DIteFalseEqCond_5" ]
   ∀ (c : Bool) (x y : Int) (f : !c → Int → Int), (if h : !c then f h x else y) > x ===> diteFalseEqCond_5
 
@@ -1127,8 +1115,7 @@ Lean.Expr.forallE `a
           (Lean.Expr.app
             (Lean.Expr.app
               (Lean.Expr.app
-                (Lean.Expr.app
-                  (Lean.Expr.app (Lean.Expr.const `dite [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Int []))
+                  (Lean.Expr.app (Lean.Expr.const `Solver.dite' [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Int []))
                   (Lean.Expr.app
                     (Lean.Expr.app
                       (Lean.Expr.app
@@ -1136,9 +1123,6 @@ Lean.Expr.forallE `a
                         (Lean.Expr.const `Bool []))
                       (Lean.Expr.const `Bool.true []))
                     (Lean.Expr.bvar 3)))
-                (Lean.Expr.app
-                  (Lean.Expr.app (Lean.Expr.const `instDecidableEqBool []) (Lean.Expr.const `Bool.true []))
-                  (Lean.Expr.bvar 3)))
               (Lean.Expr.lam `h
                 (Lean.Expr.app
                   (Lean.Expr.app
@@ -1164,7 +1148,7 @@ elab "diteFalseEqCond_8" : term => return diteFalseEqCond_8
 -- ∀ (a b : Bool) (x y : Int) (f : a = (! b && b) → Int → Int),
 --  (if h : a = (! b && b) then f h x else y) > x ===>
 -- ∀ (a b : Bool) (x y : Int) (f : false = a → Int → Int),
--- ∀ (a : Bool) (x y : Int), x < (if h : true = a then y else f h x)
+-- ∀ (a : Bool) (x y : Int), x < Solver.dite' (true = a) (fun _ => y) (fun h : _ => f h x)
 #testOptimize [ "DIteFalseEqCond_8" ]
   ∀ (a b : Bool) (x y : Int) (f : a = (! b && b) → Int → Int),
     (if h : a = (! b && b) then f h x else y) > x ===> diteFalseEqCond_8
@@ -1197,8 +1181,7 @@ Lean.Expr.forallE `a
           (Lean.Expr.app
             (Lean.Expr.app
               (Lean.Expr.app
-                (Lean.Expr.app
-                  (Lean.Expr.app (Lean.Expr.const `dite [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Int []))
+                  (Lean.Expr.app (Lean.Expr.const `Solver.dite' [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Int []))
                   (Lean.Expr.app
                     (Lean.Expr.app
                       (Lean.Expr.app
@@ -1206,9 +1189,6 @@ Lean.Expr.forallE `a
                         (Lean.Expr.const `Bool []))
                       (Lean.Expr.const `Bool.true []))
                     (Lean.Expr.bvar 3)))
-                (Lean.Expr.app
-                  (Lean.Expr.app (Lean.Expr.const `instDecidableEqBool []) (Lean.Expr.const `Bool.true []))
-                  (Lean.Expr.bvar 3)))
               (Lean.Expr.lam `h
                 (Lean.Expr.app
                   (Lean.Expr.app
@@ -1236,7 +1216,7 @@ elab "diteFalseEqCond_9" : term => return diteFalseEqCond_9
 --   ∀ (f : y → Int → Int),
 --     (if h : y then f h m else n) > m ===>
 -- ∀ (a : Bool) (m n : Int) (f : false = a → Int → Int),
---   m < if h : true = a then n else f h m
+--   m < Solver.dite' (true = a) (fun _ => n) (fun h : _ => f h m)
 #testOptimize [ "DIteFalseEqCond_9" ]
   ∀ (a : Bool) (m n : Int),
     let x := a || a; let y := ! a || ! x;
@@ -1372,9 +1352,8 @@ Lean.Expr.forallE `c
             (Lean.Expr.bvar 2))
           (Lean.Expr.app
             (Lean.Expr.app
-              (Lean.Expr.app
                 (Lean.Expr.app
-                  (Lean.Expr.app (Lean.Expr.const `dite [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Nat []))
+                  (Lean.Expr.app (Lean.Expr.const `Solver.dite' [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Nat []))
                   (Lean.Expr.app
                     (Lean.Expr.app
                       (Lean.Expr.app
@@ -1382,9 +1361,6 @@ Lean.Expr.forallE `c
                         (Lean.Expr.const `Bool []))
                       (Lean.Expr.const `Bool.true []))
                     (Lean.Expr.bvar 3)))
-                (Lean.Expr.app
-                  (Lean.Expr.app (Lean.Expr.const `instDecidableEqBool []) (Lean.Expr.const `Bool.true []))
-                  (Lean.Expr.bvar 3)))
               (Lean.Expr.lam `h
                 (Lean.Expr.app
                   (Lean.Expr.app
@@ -1407,8 +1383,10 @@ Lean.Expr.forallE `c
   (Lean.BinderInfo.default)
 elab "diteFalseEqCondUnchanged_3" : term => return diteFalseEqCondUnchanged_3
 
--- ∀ (c : Bool) (x y : Nat) (f : c = true → Nat → Nat), (if h : c = true then f h x else y) > x ===>
--- ∀ (c : Bool) (x y : Nat) (f : true = c → Nat → Nat), x < if h : true = c then f h x else y
+-- ∀ (c : Bool) (x y : Nat) (f : c = true → Nat → Nat),
+--  (if h : c = true then f h x else y) > x ===>
+-- ∀ (c : Bool) (x y : Nat) (f : true = c → Nat → Nat),
+--  x < Solver.dite' (true = c) (fun h : _ => f h x) (fun _ => y)
 #testOptimize [ "DIteFalseEqCondUnchanged_3" ]
   ∀ (c : Bool) (x y : Nat) (f : c = true → Nat → Nat),
     (if h : c = true then f h x else y) > x ===> diteFalseEqCondUnchanged_3
@@ -1446,12 +1424,12 @@ elab "diteFalseEqCondUnchanged_3" : term => return diteFalseEqCondUnchanged_3
 -- ∀ (a b : Bool) (x y : Nat) (f : a = b → Nat → Nat),
 --   (if h : a = b then f h x else y) > x ===>
 -- ∀ (a b : Bool) (x y : Nat) (f : a = b → Nat → Nat),
---   x < (if h : a = b then f h x else y)
+--   x < Solver.dite' (a = b) (fun h : _ => f h x) (fun _ => y)
 #testOptimize [ "DIteFalseEqCondUnchanged_7" ]
   ∀ (a b : Bool) (x y : Nat) (f : a = b → Nat → Nat),
     (if h : a = b then f h x else y) > x ===>
   ∀ (a b : Bool) (x y : Nat) (f : a = b → Nat → Nat),
-    x < (if h : a = b then f h x else y)
+    x < Solver.dite' (a = b) (fun h : _ => f h x) (fun _ => y)
 
 -- ∀ (c : Bool) (f : c = true → Int → Int),
 --   if h : c = true then ∀ (x y : Int), f h x > y else ∀ (z y : Int), y > z ===>
@@ -1490,9 +1468,8 @@ Lean.Expr.forallE `c
             (Lean.Expr.bvar 2))
           (Lean.Expr.app
             (Lean.Expr.app
-              (Lean.Expr.app
                 (Lean.Expr.app
-                  (Lean.Expr.app (Lean.Expr.const `dite [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Int []))
+                  (Lean.Expr.app (Lean.Expr.const `Solver.dite' [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Int []))
                   (Lean.Expr.app
                     (Lean.Expr.app
                       (Lean.Expr.app
@@ -1500,9 +1477,6 @@ Lean.Expr.forallE `c
                         (Lean.Expr.const `Bool []))
                       (Lean.Expr.const `Bool.true []))
                     (Lean.Expr.bvar 3)))
-                (Lean.Expr.app
-                  (Lean.Expr.app (Lean.Expr.const `instDecidableEqBool []) (Lean.Expr.const `Bool.true []))
-                  (Lean.Expr.bvar 3)))
               (Lean.Expr.lam `h
                 (Lean.Expr.app
                   (Lean.Expr.app
@@ -1526,13 +1500,15 @@ Lean.Expr.forallE `c
 elab "diteFalseEqCondUnchanged_9" : term => return diteFalseEqCondUnchanged_9
 
 -- ∀ (c : Bool) (x y : Int) (f : !(!c) → Int → Int), (if h : !(!c) then f h x else y) > x ===>
--- ∀ (c : Bool) (x y : Int) (f : true = c → Int → Int), x < if h : true = c then f h x else y
+-- ∀ (c : Bool) (x y : Int) (f : true = c → Int → Int),
+--  x < Solver.dite' (true = c) (fun h : _ => f h x) (fun _ => y)
 #testOptimize [ "DIteFalseEqCondUnchanged_9" ]
   ∀ (c : Bool) (x y : Int) (f : !(!c) → Int → Int),
     (if h : !(!c) then f h x else y) > x ===> diteFalseEqCondUnchanged_9
 
 -- ∀ (c : Bool) (x y : Int) (f : c == true → Int → Int), (if h : c == true then f h x else y) > x ===>
--- ∀ (c : Bool) (x y : Int) (f : true = c → Int → Int), x < if h : true = c then f h x else y
+-- ∀ (c : Bool) (x y : Int) (f : true = c → Int → Int),
+--   x < Solver.dite' (true = c) (fun h : _ => f h x) (fun _ => y)
 #testOptimize [ "DIteFalseEqCondUnchanged_10" ]
   ∀ (c : Bool) (x y : Int) (f : c == true → Int → Int),
     (if h : c == true then f h x else y) > x ===> diteFalseEqCondUnchanged_9
@@ -1540,7 +1516,7 @@ elab "diteFalseEqCondUnchanged_9" : term => return diteFalseEqCondUnchanged_9
 -- ∀ (c : Bool) (x y : Int) (f : !(!(! (! c))) → Int → Int),
 --  (if h : !(!(! (! c))) then f h x else y) > x ===>
 -- ∀ (c : Bool) (x y : Int) (f : true = c → Int → Int),
---  x < if h : true = c then f h x else y
+--   x < Solver.dite' (true = c) (fun h : _ => f h x) (fun _ => y)
 #testOptimize [ "DIteFalseEqCondUnchanged_11" ]
   ∀ (c : Bool) (x y : Int) (f : !(!(! (! c))) → Int → Int),
     (if h : !(! (! (! c))) then f h x else y) > x ===> diteFalseEqCondUnchanged_9
@@ -1572,9 +1548,8 @@ Lean.Expr.forallE `a
             (Lean.Expr.bvar 2))
           (Lean.Expr.app
             (Lean.Expr.app
-              (Lean.Expr.app
                 (Lean.Expr.app
-                  (Lean.Expr.app (Lean.Expr.const `dite [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Int []))
+                  (Lean.Expr.app (Lean.Expr.const `Solver.dite' [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Int []))
                   (Lean.Expr.app
                     (Lean.Expr.app
                       (Lean.Expr.app
@@ -1582,9 +1557,6 @@ Lean.Expr.forallE `a
                         (Lean.Expr.const `Bool []))
                       (Lean.Expr.const `Bool.true []))
                     (Lean.Expr.bvar 3)))
-                (Lean.Expr.app
-                  (Lean.Expr.app (Lean.Expr.const `instDecidableEqBool []) (Lean.Expr.const `Bool.true []))
-                  (Lean.Expr.bvar 3)))
               (Lean.Expr.lam `h
                 (Lean.Expr.app
                   (Lean.Expr.app
@@ -1609,7 +1581,8 @@ elab "diteFalseEqCondUnchanged_12" : term => return diteFalseEqCondUnchanged_12
 
 -- ∀ (a b : Bool) (x y : Int) (f : a = (! b || b) → Int → Int),
 --  (if h : a = (! b || b) then f h x else y) > x ===>
--- ∀ (a : Bool) (x y : Int) (f : true = a → Int → Int), x < if h : true = a then f h x else y
+-- ∀ (a : Bool) (x y : Int) (f : true = a → Int → Int),
+--  x < Solver.dite' (true = a) (fun h : _ => f h x) (fun _ => y)
 #testOptimize [ "DIteFalseEqCondUnchanged_12" ]
   ∀ (a b : Bool) (x y : Int) (f : a = (! b || b) → Int → Int),
     (if h : a = (! b || b) then f h x else y) > x ===> diteFalseEqCondUnchanged_12
@@ -1642,8 +1615,7 @@ Lean.Expr.forallE `a
           (Lean.Expr.app
             (Lean.Expr.app
               (Lean.Expr.app
-                (Lean.Expr.app
-                  (Lean.Expr.app (Lean.Expr.const `dite [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Int []))
+                  (Lean.Expr.app (Lean.Expr.const `Solver.dite' [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Int []))
                   (Lean.Expr.app
                     (Lean.Expr.app
                       (Lean.Expr.app
@@ -1651,9 +1623,6 @@ Lean.Expr.forallE `a
                         (Lean.Expr.const `Bool []))
                       (Lean.Expr.const `Bool.true []))
                     (Lean.Expr.bvar 3)))
-                (Lean.Expr.app
-                  (Lean.Expr.app (Lean.Expr.const `instDecidableEqBool []) (Lean.Expr.const `Bool.true []))
-                  (Lean.Expr.bvar 3)))
               (Lean.Expr.lam `h
                 (Lean.Expr.app
                   (Lean.Expr.app
@@ -1681,7 +1650,7 @@ elab "diteFalseEqCondUnchanged_13" : term => return diteFalseEqCondUnchanged_13
 --   ∀ (f : y → Int → Int),
 --     (if h : y then f h m else n) > m ===>
 -- ∀ (a : Bool) (m n : Int) (f : true = a → Int → Int),
---  m < if h : true = a then f h m else n
+--  m < Solver.dite' (true = a) (fun h : _ => f h m) (fun _ => n)
 #testOptimize [ "DIteFalseEqCondUnchanged_13" ]
   ∀ (a : Bool) (m n : Int),
     let x := a && a; let y := a || x;
@@ -2017,16 +1986,15 @@ elab "diteFalseEqCondUnchanged_13" : term => return diteFalseEqCondUnchanged_13
     is not applied wrongly.
  -/
 
-
 -- ∀ (c : Prop) (x y z : Nat) (f : c → Nat → Nat), [Decidable c] →
 --   (if h : c then f h x else y) < z ===>
--- ∀ (c : Prop) (x y z : Nat) (f : c → Nat → Nat), [Decidable c] →
---   (if h : c then f h x else y) < z
+-- ∀ (c : Prop) (x y z : Nat) (f : c → Nat → Nat),
+--   Solver.dite' c (fun h : _ => f h x) (fun _ => y) < z
 #testOptimize [ "DIteToPropExprUnchanged_1" ]
   ∀ (c : Prop) (x y z : Nat) (f : c → Nat → Nat), [Decidable c] →
     (if h : c then f h x else y) < z ===>
-  ∀ (c : Prop) (x y z : Nat) (f : c → Nat → Nat), [Decidable c] →
-    (if h : c then f h x else y) < z
+  ∀ (c : Prop) (x y z : Nat) (f : c → Nat → Nat),
+    Solver.dite' c (fun h : _ => f h x) (fun _ => y) < z
 
 
 def dIteToPropExprUnchanged_2 : Expr :=
@@ -2058,9 +2026,8 @@ Lean.Expr.forallE `c
               (Lean.Expr.app
                 (Lean.Expr.app
                   (Lean.Expr.app
-                    (Lean.Expr.app
                       (Lean.Expr.app
-                        (Lean.Expr.const `dite [Lean.Level.succ (Lean.Level.zero)])
+                        (Lean.Expr.const `Solver.dite' [Lean.Level.succ (Lean.Level.zero)])
                         (Lean.Expr.const `Nat []))
                       (Lean.Expr.app
                         (Lean.Expr.app
@@ -2069,9 +2036,6 @@ Lean.Expr.forallE `c
                             (Lean.Expr.const `Bool []))
                           (Lean.Expr.const `Bool.true []))
                         (Lean.Expr.bvar 4)))
-                    (Lean.Expr.app
-                      (Lean.Expr.app (Lean.Expr.const `instDecidableEqBool []) (Lean.Expr.const `Bool.true []))
-                      (Lean.Expr.bvar 4)))
                   (Lean.Expr.lam `h
                     (Lean.Expr.app
                       (Lean.Expr.app
@@ -2103,20 +2067,20 @@ elab "dIteToPropExprUnchanged_2" : term => return dIteToPropExprUnchanged_2
 -- ∀ (c : Bool) (x y z : Nat) (f : c → Nat → Nat),
 --   (if h : c then f h x else y) < z ===>
 -- ∀ (c : Bool) (x y z : Nat) (f : true = c → Nat → Nat),
---  (if h : true = c then f h x else y) < z
+--  Solver.dite' (true = c) (fun h : _ => f h x) (fun _ => y) < z
 #testOptimize [ "DIteToPropExprUnchanged_2" ]
   ∀ (c : Bool) (x y z : Nat) (f : c → Nat → Nat),
    (if h : c then f h x else y) < z ===> dIteToPropExprUnchanged_2
 
 -- ∀ (c : Prop) (x y z : Nat) (f : ¬ c → Nat → Nat), [Decidable c] →
 --   (if h : ¬ c then f h x else y) < z ===>
--- ∀ (c : Prop) (x y z : Nat) (f : ¬ c → Nat → Nat), [Decidable c] →
---   (if h : c then y else f h x) < z
+-- ∀ (c : Prop) (x y z : Nat) (f : ¬ c → Nat → Nat),
+--   Solver.dite' c (fun _ => y) (fun h : _ => f h x) < z
 #testOptimize [ "DIteToPropExprUnchanged_3" ]
   ∀ (c : Prop) (x y z : Nat) (f : ¬ c → Nat → Nat), [Decidable c] →
     (if h : ¬ c then f h x else y) < z ===>
-  ∀ (c : Prop) (x y z : Nat) (f : ¬ c → Nat → Nat), [Decidable c] →
-    (if h : c then y else f h x) < z
+  ∀ (c : Prop) (x y z : Nat) (f : ¬ c → Nat → Nat),
+    Solver.dite' c (fun _ => y) (fun h : _ => f h x) < z
 
 def dIteToPropExprUnchanged_4 : Expr :=
 Lean.Expr.forallE `c
@@ -2147,9 +2111,8 @@ Lean.Expr.forallE `c
               (Lean.Expr.app
                 (Lean.Expr.app
                   (Lean.Expr.app
-                    (Lean.Expr.app
                       (Lean.Expr.app
-                        (Lean.Expr.const `dite [Lean.Level.succ (Lean.Level.zero)])
+                        (Lean.Expr.const `Solver.dite' [Lean.Level.succ (Lean.Level.zero)])
                         (Lean.Expr.const `Nat []))
                       (Lean.Expr.app
                         (Lean.Expr.app
@@ -2158,9 +2121,6 @@ Lean.Expr.forallE `c
                             (Lean.Expr.const `Bool []))
                           (Lean.Expr.const `Bool.true []))
                         (Lean.Expr.bvar 4)))
-                    (Lean.Expr.app
-                      (Lean.Expr.app (Lean.Expr.const `instDecidableEqBool []) (Lean.Expr.const `Bool.true []))
-                      (Lean.Expr.bvar 4)))
                   (Lean.Expr.lam `h
                     (Lean.Expr.app
                       (Lean.Expr.app
@@ -2192,7 +2152,7 @@ elab "dIteToPropExprUnchanged_4" : term => return dIteToPropExprUnchanged_4
 -- ∀ (c : Bool) (x y z : Nat) (f : !c → Nat → Nat),
 --   (if h : !c then f h x else y) < z
 --  ∀ (c : Bool) (x y z : Nat) (f : false = c → Nat → Nat),
---   (if h : true = c then y else f h x) < z
+--   Solver.dite' (true = c) (fun _ => y) (fun h : _ => f h x) < z
 #testOptimize [ "DIteToPropExprUnchanged_4" ]
   ∀ (c : Bool) (x y z : Nat) (f : !c → Nat → Nat),
     (if h : !c then f h x else y) < z ===> dIteToPropExprUnchanged_4
@@ -2224,9 +2184,8 @@ Lean.Expr.forallE `c
             (Lean.Expr.bvar 1))
           (Lean.Expr.app
             (Lean.Expr.app
-              (Lean.Expr.app
                 (Lean.Expr.app
-                  (Lean.Expr.app (Lean.Expr.const `dite [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Int []))
+                  (Lean.Expr.app (Lean.Expr.const `Solver.dite' [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Int []))
                   (Lean.Expr.app
                     (Lean.Expr.app
                       (Lean.Expr.app
@@ -2234,9 +2193,6 @@ Lean.Expr.forallE `c
                         (Lean.Expr.const `Bool []))
                       (Lean.Expr.const `Bool.true []))
                     (Lean.Expr.bvar 3)))
-                (Lean.Expr.app
-                  (Lean.Expr.app (Lean.Expr.const `instDecidableEqBool []) (Lean.Expr.const `Bool.true []))
-                  (Lean.Expr.bvar 3)))
               (Lean.Expr.lam `h
                 (Lean.Expr.app
                   (Lean.Expr.app
@@ -2262,7 +2218,7 @@ elab "dIteToPropExprUnchanged_5" : term => return dIteToPropExprUnchanged_5
 --  ∀ (c : Bool) (x y : Int) (f : ¬ c → Int → Int),
 --   (if h : c then -x else f h x) > y ===>
 -- ∀ (c : Bool) (x y : Int) (f : false = c → Int → Int),
---   y < if h : true = c then x.neg else f h x
+--   y < Solver.dite' (true = c) (fun _ => x.neg) (fun h : _ => f h x)
 #testOptimize [ "DIteToPropExprUnchanged_5" ]
   ∀ (c : Bool) (x y : Int) (f : ¬ c → Int → Int),
     (if h : c then -x else f h x) > y ===> dIteToPropExprUnchanged_5
@@ -2294,9 +2250,8 @@ Lean.Expr.forallE `c
             (Lean.Expr.bvar 2))
           (Lean.Expr.app
             (Lean.Expr.app
-              (Lean.Expr.app
                 (Lean.Expr.app
-                  (Lean.Expr.app (Lean.Expr.const `dite [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Int []))
+                  (Lean.Expr.app (Lean.Expr.const `Solver.dite' [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Int []))
                   (Lean.Expr.app
                     (Lean.Expr.app
                       (Lean.Expr.app
@@ -2304,9 +2259,6 @@ Lean.Expr.forallE `c
                         (Lean.Expr.const `Bool []))
                       (Lean.Expr.const `Bool.true []))
                     (Lean.Expr.bvar 3)))
-                (Lean.Expr.app
-                  (Lean.Expr.app (Lean.Expr.const `instDecidableEqBool []) (Lean.Expr.const `Bool.true []))
-                  (Lean.Expr.bvar 3)))
               (Lean.Expr.lam `h
                 (Lean.Expr.app
                   (Lean.Expr.app
@@ -2337,7 +2289,7 @@ elab "dIteToPropExprUnchanged_6" : term => return dIteToPropExprUnchanged_6
 --    let p := x + y; let q := x - y;
 --    (if h : c then f h p else q) > x ===>
 -- ∀ (c : Bool) (x y : Int) (f : true = c → Int → Int),
---    x < if h : true = c then f h (x.add y) else x.add y.neg
+--    x < Solver.dite' (true = c) (fun h : _ => f h (x.add y)) (fun _ => x.add y.neg)
 #testOptimize [ "DIteToPropExprUnchanged_6" ]
   ∀ (c : Bool) (x y : Int) (f : c → Int → Int),
      let p := x + y; let q := x - y;
@@ -2375,9 +2327,8 @@ Lean.Expr.forallE `a
             (Lean.Expr.app
               (Lean.Expr.app
                 (Lean.Expr.app
-                  (Lean.Expr.app
                     (Lean.Expr.app
-                      (Lean.Expr.const `dite [Lean.Level.succ (Lean.Level.zero)])
+                      (Lean.Expr.const `Solver.dite' [Lean.Level.succ (Lean.Level.zero)])
                       (Lean.Expr.const `Int []))
                     (Lean.Expr.app
                       (Lean.Expr.app
@@ -2388,11 +2339,6 @@ Lean.Expr.forallE `a
                       (Lean.Expr.app
                         (Lean.Expr.app (Lean.Expr.const `Bool.or []) (Lean.Expr.bvar 3))
                         (Lean.Expr.app (Lean.Expr.const `Bool.not []) (Lean.Expr.bvar 4)))))
-                  (Lean.Expr.app
-                    (Lean.Expr.app (Lean.Expr.const `instDecidableEqBool []) (Lean.Expr.const `Bool.true []))
-                    (Lean.Expr.app
-                      (Lean.Expr.app (Lean.Expr.const `Bool.or []) (Lean.Expr.bvar 3))
-                      (Lean.Expr.app (Lean.Expr.const `Bool.not []) (Lean.Expr.bvar 4)))))
                 (Lean.Expr.lam `h
                   (Lean.Expr.app
                     (Lean.Expr.app
@@ -2425,20 +2371,20 @@ elab "dIteToPropExprUnchanged_7" : term => return dIteToPropExprUnchanged_7
 -- ∀ (a b : Bool) (x y : Int) (f : (! a) || b → Int → Int),
 --  (if h : (! a) || b then f h x else y) > x ===>
 -- ∀ (a b : Bool) (x y : Int) (f : true = (b || !a) → Int → Int),
---   x < if h : true = (b || !a) then f h x else y
+--   x < Solver.dite' (true = (b || !a)) (fun h : _ => f h x) (fun _ => y)
 #testOptimize [ "DIteToPropExprUnchanged_7" ]
   ∀ (a b : Bool) (x y : Int) (f : (! a) || b → Int → Int),
      (if h : (! a) || b then f h x else y) > x ===> dIteToPropExprUnchanged_7
 
 -- ∀ (a b : Prop) (x y : Int) (f : ¬ a ∨ b → Int → Int), [Decidable a] → [Decidable b] →
 --   (if h : ¬ a ∨ b then f h x else y) > x ===>
--- ∀ (a b : Prop) (x y : Int) (f : b ∨ ¬ a → Int → Int), [Decidable a] → [Decidable b] →
---   x < (if h : b ∨ ¬ a then f h x else y)
+-- ∀ (a b : Prop) (x y : Int) (f : b ∨ ¬ a → Int → Int),
+--   x < Solver.dite' (b ∨ ¬ a) (fun h : _=> f h x) (fun _ => y)
 #testOptimize [ "DIteToPropExprUnchanged_8" ]
   ∀ (a b : Prop) (x y : Int) (f : ¬ a ∨ b → Int → Int), [Decidable a] → [Decidable b] →
     (if h : ¬ a ∨ b then f h x else y) > x ===>
-  ∀ (a b : Prop) (x y : Int) (f : b ∨ ¬ a → Int → Int), [Decidable a] → [Decidable b] →
-    x < (if h : b ∨ ¬ a then f h x else y)
+  ∀ (a b : Prop) (x y : Int) (f : b ∨ ¬ a → Int → Int),
+    x < Solver.dite' (b ∨ ¬ a) (fun h : _=> f h x) (fun _ => y)
 
 -- ∀ (a : Prop) (c b : Bool) (f : c → Prop → Prop), [Decidable a] →
 --  (if h : c then f h a else b) = (if h : c then f h a else b) ===> True
@@ -2449,7 +2395,7 @@ elab "dIteToPropExprUnchanged_7" : term => return dIteToPropExprUnchanged_7
 -- ∀ (c : Bool) (x y : Nat) (f : c → Nat → Nat),
 --   (if h : c then f h x else y) > x ===>
 -- ∀ (c : Bool) (x y : Nat) (f : true = c → Nat → Nat),
---  x < if h : true = c then f h x else y
+--  x < Solver.dite' (true = c) (fun h : _ => f h x) (fun _ => y)
 #testOptimize [ "DIteToBoolExprUnchanged_10" ]
   ∀ (c : Bool) (x y : Nat) (f : c → Nat → Nat),
     (if h : c then f h x else y) > x ===> diteFalseEqCondUnchanged_3

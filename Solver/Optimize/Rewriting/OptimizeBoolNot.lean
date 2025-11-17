@@ -5,22 +5,22 @@ open Lean Meta
 namespace Solver.Optimize
 
 /-- Given op the operand for `not`,
-     - When op := decide e
-        - return `some decide (¬ e)`
+     - When op := decide' e
+        - return `some decide' (¬ e)`
     - Otherwise:
         - return `none`
 -/
 @[always_inline, inline]
 def notDecideProp? (op : Expr) : TranslateEnvT (Option Expr) := do
- let some (e, d) := decide? op | return none
+ let some e := decide'? op | return none
  setRestart
- return mkApp2 op.getAppFn (mkApp (← mkPropNotOp) e) d
+ return mkApp op.getAppFn (mkApp (← mkPropNotOp) e)
 
 /-- Apply the following simplification/normalization rules on `not` :
      - ! true ==> false
      - ! false ==> true
      - ! (! e) ==> e
-     - !(decide e) ==> decide (¬ e)
+     - !(decide' e) ==> decide' (¬ e)
    Assume that f = Expr.const ``not.
    An error is triggered if args.size ≠ 1 (i.e., only fully applied `not` expected at this stage)
    TODO: consider additional simplification rules

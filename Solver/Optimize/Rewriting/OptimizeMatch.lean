@@ -13,19 +13,16 @@ private partial def isCstMatchPropAux (stack : List Expr) : TranslateEnvT Bool :
   | p :: xs =>
     if (← isConstructor p) then isCstMatchPropAux xs
     else
-     match ite? p with
-     | some (_sort, _cond, _decide, e1, e2) => isCstMatchPropAux (e1 :: e2 :: xs)
+     match dite'? p with
+     | some (_sort, _cond, e1, e2) =>
+          isCstMatchPropAux ((← extractDependentITEExpr e1) :: (← extractDependentITEExpr e2) :: xs)
      | none =>
-         match dite? p with
-         | some (_sort, _cond, _decide, e1, e2) =>
-              isCstMatchPropAux ((← extractDependentITEExpr e1) :: (← extractDependentITEExpr e2) :: xs)
-         | none =>
-             let (f, args) := getAppFnWithArgs p
-             let some mInfo ← isMatcher? f | return false
-             -- NOTE: we also need to cater for function as return type,
-             -- i.e., match expression returns a function.
-             if args.size > mInfo.arity then return false
-             isCstMatchPropAux (updateStackWithMatchRhs mInfo args xs mInfo.getFirstAltPos)
+         let (f, args) := getAppFnWithArgs p
+         let some mInfo ← isMatcher? f | return false
+         -- NOTE: we also need to cater for function as return type,
+         -- i.e., match expression returns a function.
+         if args.size > mInfo.arity then return false
+         isCstMatchPropAux (updateStackWithMatchRhs mInfo args xs mInfo.getFirstAltPos)
 
   where
     updateStackWithMatchRhs
@@ -34,10 +31,10 @@ private partial def isCstMatchPropAux (stack : List Expr) : TranslateEnvT Bool :
       if idx >= mInfo.arity then stack
       else updateStackWithMatchRhs mInfo args (getLambdaBody args[idx]! :: stack) (idx + 1)
 
+
 /--  Return `true` only when
       isConstructor p ∨g
-      ( p := if c then e₁ else e₂ ∧ isCstMatchProp e₁ ∧ isCstMatchProp e₂ ) ∨
-      ( p := dite c (fun h : c => e₁) (fun h : ¬ c => e₂) ∧ isCstMatchProp e₁ ∧ isCstMatchProp e₂ ) ∨
+      ( p := Solver.dite' c (fun h : c => e₁) (fun h : ¬ c => e₂) ∧ isCstMatchProp e₁ ∧ isCstMatchProp e₂ ) ∨
       ( p := match e₁, ..., eₙ with
               | p₍₁₎₍₁₎, ..., p₍₁₎₍ₙ₎ => t₁
               ...
@@ -60,33 +57,50 @@ private partial def isCstMatchPropAux (stack : List Expr) : TranslateEnvT Bool :
      with
        - isCstProp e := isCstMatchProp e IF funpropagaton
          isCstProp e := isConstructor e  Otherwise
-       - isPropFunType e := isProp e.Type ∨ isFunType e.Type
+       - isPropFunType e := isProp e.Type ∨ isFunType' e.Type
     NOTE: constructors may contain free variables.
 -/
-def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) (funPropagation := false) : TranslateEnvT Bool := do
+@[always_inline, inline]
+partial def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) (funPropagation := false) : TranslateEnvT Bool := do
   let pInfo ← getFunEnvInfo f
-  let argsType := getForallBinderTypes (inferFunType pInfo.type args)
-  let rec loop (i : Nat) (stop : Nat) (atLeastOneExplicitCstr : Bool := false) : TranslateEnvT Bool := do
+  let rec loop
+    (i : Nat) (stop : Nat) (pInfoSize : Nat)
+    (atLeastOneExplicitCstr : Bool := false) : TranslateEnvT Bool := do
     if i < stop then
       let e := args[i]!
       let p := pInfo.paramsInfo[i]!
-      if i < pInfo.paramsInfo.size then
+      if i < pInfoSize then
         if p.isExplicit
         then
           let cstProp ← if funPropagation then isCstMatchProp e else isConstructor e
-          if (← pure cstProp <||> isPropFunType p argsType[i]!)
-          then loop (i+1) stop (atLeastOneExplicitCstr || cstProp)
+          if (← pure cstProp <||> isPropFunType p e)
+          then loop (i+1) stop pInfoSize (atLeastOneExplicitCstr || cstProp)
           else return false
-        else loop (i+1) stop atLeastOneExplicitCstr
+        else loop (i+1) stop pInfoSize atLeastOneExplicitCstr
       else return atLeastOneExplicitCstr
     else return atLeastOneExplicitCstr
-  loop 0 args.size
+  loop 0 args.size pInfo.paramsInfo.size
 
   where
     @[always_inline, inline]
-    isPropFunType (p : ParamInfo) (t : Expr) : TranslateEnvT Bool := do
+    isFunExpr (e : Expr) : TranslateEnvT Bool := do
+      match e with
+      | Expr.lam .. => return true
+      | Expr.fvar fv => return isFunType' (← fv.getType)
+      | Expr.const n _ =>
+           let cInfo ← getConstEnvInfo n
+           return isFunType' cInfo.type
+      | Expr.app .. =>
+          let (f', args') := getAppFnWithArgs e
+          let fInfo ← getFunEnvInfo f'
+          return isFunType' (inferAppType fInfo.type args')
+      | Expr.proj .. => return isFunType' (← inferTypeEnv e)
+      | _ => return false
+
+    @[always_inline, inline]
+    isPropFunType (p : ParamInfo) (e : Expr) : TranslateEnvT Bool := do
      if p.isProp then return true
-     else isFunType t
+     isFunExpr e
 
 /-- Given `m := f x₁ ... xₙ` with `f` corresponding to a match function
     and `mInfo` the corresponding matcher info, perform the following:
@@ -130,13 +144,13 @@ def reduceMatch? (f : Expr) (args : Array Expr) (mInfo : MatchInfo) : TranslateE
           if auxAppFn == h then
             let result := mkAppN args[idx]! auxApp.getAppArgs
             let result := mkAppN result (args.extract (mInfo.getFirstAltPos + mInfo.numAlts) args.size)
-            return result.headBeta
+            return headBeta' result
           idx := idx + 1
         return none
 
     tryReduction? (args : Array Expr) : TranslateEnvT (Option Expr) := do
       -- NOTE: simplifies match only when all the discriminators are constructors
-      let auxApp := Expr.beta mInfo.instApp (args.take mInfo.getFirstAltPos)
+      let auxApp := betaLambda mInfo.instApp (args.take mInfo.getFirstAltPos)
       lambdaBoundedTelescope auxApp mInfo.numAlts fun hs _t =>
          commonMatchReduction? auxApp args hs
 
@@ -148,19 +162,11 @@ def reduceMatch? (f : Expr) (args : Array Expr) (mInfo : MatchInfo) : TranslateE
 
     - When ∀ i ∈ [1..n], isCstMatchProp eᵢ ∧
              ∃ j ∈ [1..n],
-               `eⱼ := if c then d₁ else d₂` ∧
+               `eⱼ := Solver.dite' c (fun h : c => d₁) (fun h : ¬ c => d₂)` ∧
                 (i ≠ j → gᵢ = eᵢ) ∧ (i = j → gᵢ = d₁) ∧
                 (i ≠ j → hᵢ = eᵢ) ∧ (i = j → hᵢ = d₂)
       Return
-         `if c then match₁ g₁, ..., gₙ with ... else match₁ h₁, ..., hₙ with ...`
-
-    - When ∀ i ∈ [1..n], isCstMatchProp eᵢ ∧
-             ∃ j ∈ [1..n],
-               `eⱼ := dite c (fun h : c => d₁) (fun h : ¬ c => d₂)` ∧
-                (i ≠ j → gᵢ = eᵢ) ∧ (i = j → gᵢ = d₁) ∧
-                (i ≠ j → hᵢ = eᵢ) ∧ (i = j → hᵢ = d₂)
-      Return
-         `dite c (fun h : c => match₁ g₁, ..., gₙ with ...) (fun h : ¬ c => match₁ h₁, ..., hₙ with ...)`
+         `Solver.dite' c (fun h : c => match₁ g₁, ..., gₙ with ...) (fun h : ¬ c => match₁ h₁, ..., hₙ with ...)`
 
     - When ∀ i ∈ [1..n], isCstMatchProp eᵢ ∧
              ∃ j ∈ [1..n],
@@ -189,7 +195,6 @@ def constMatchPropagation?
   where
     loop (idx : Nat) (stop : Nat) : TranslateEnvT (Option Expr) := do
       if idx ≥ stop then return none
-      else if let some r ← isIteArg idx then return r
       else if let some r ← isDiteArg idx then return r
       else if let some r ← isMatchArg idx then return r
       else loop (idx + 1) stop
@@ -200,36 +205,28 @@ def constMatchPropagation?
       else allDiscrsAreCstMatch (idx + 1) stop
 
 
-    @[always_inline, inline]
-    isIteArg (idx : Nat) : TranslateEnvT (Option Expr) := do
-      if let some (_psort, pcond, pdecide, e1, e2) := ite? cargs[idx]! then
-        -- NOTE: we also need to cater for function as return type,
-        -- i.e., match expression returns a function. Hence, extra arguments are now applied to ite.
-        let margs := cargs.take mInfo.arity
-        let extra_args := cargs.extract mInfo.arity cargs.size
-        -- NOTE: we also need to set the sort type for the pulled ite to meet
-        -- the return type of the embedded match
-        let retType := getLambdaBody margs[mInfo.getFirstDiscrPos - 1]!
-        let e1_args := margs.set! idx e1
-        let e1' := Option.getD (← reduceMatch? cm e1_args mInfo) (mkAppN cm e1_args)
-        let e2_args := margs.set! idx e2
-        let e2' := Option.getD (← reduceMatch? cm e2_args mInfo) (mkAppN cm e2_args)
-        let iteExpr := mkApp5 (← mkIteOp) retType pcond pdecide e1' e2'
-        if extra_args.isEmpty
-        then return iteExpr
-        else return mkAppN iteExpr extra_args
-      else return none
-
     pushMatchInLambda (f : Expr) (args : Array Expr) (idxDiscr : Nat) (e : Expr) : TranslateEnvT Expr := do
-       lambdaTelescope e fun xs b => do
-         -- we can safely telescope as allDiscrsAreCstMatch guarantees dite and match are not functions
-         let args := args.set! idxDiscr b
+       -- NOTE: we can safely telescope as allDiscrsAreCstMatch guarantees match/ite are not functions
+       lambdaTelescope e fun fvars body => do
+         let args := args.set! idxDiscr body
          let body' := Option.getD (← reduceMatch? f args mInfo) (mkAppN f args)
-         mkLambdaFVars xs body'
+         mkLambdaFVars' fvars body'
+
+    pushMatchInDIteExpr (f : Expr) (args : Array Expr) (idxDiscr : Nat) (e : Expr) : TranslateEnvT Expr := do
+      match e with
+      | Expr.lam n t body bi =>
+           if body.hasLooseBVars then
+             pushMatchInLambda f args idxDiscr e
+           else
+             let args := args.set! idxDiscr body
+             let body' := Option.getD (← reduceMatch? f args mInfo) (mkAppN f args)
+             return Expr.lam n t body' bi
+
+      | _ => throwEnvError "pushMatchInDIteExpr: lambda term expected !!!"
 
     @[always_inline, inline]
     isDiteArg (idx : Nat) : TranslateEnvT (Option Expr) := do
-      if let some (_psort, pcond, pdecide, e1, e2) := dite? cargs[idx]! then
+      if let some (_psort, pcond, e1, e2) := dite'? cargs[idx]! then
         -- NOTE: we also need to cater for function as return type,
         -- i.e., match expression returns a function. Hence, extra arguments are now applied to dite.
         let margs := cargs.take mInfo.arity
@@ -237,9 +234,9 @@ def constMatchPropagation?
         -- NOTE: we also need to set the sort type for the pulled dite to meet
         -- the return type of the embedded match
         let retType := getLambdaBody margs[mInfo.getFirstDiscrPos - 1]!
-        let e1' ← pushMatchInLambda cm margs idx e1
-        let e2' ← pushMatchInLambda cm margs idx e2
-        let diteExpr := mkApp5 (← mkDIteOp) retType pcond pdecide e1' e2'
+        let e1' ← pushMatchInDIteExpr cm margs idx e1
+        let e2' ← pushMatchInDIteExpr cm margs idx e2
+        let diteExpr := mkApp4 (← mkSolverDIteOp) retType pcond e1' e2'
         if extra_args.isEmpty
         then return diteExpr
         else return mkAppN diteExpr extra_args
@@ -267,45 +264,15 @@ def constMatchPropagation?
         else return mkAppN pMatchExpr extra_args
       else return none
 
-/--  Given application `f x₀ ... xₙ`, perform the following:
-     - When `f x₀ ... xₙ` is a match expression
-          match e₀, ..., eₙ with
-          | p₍₀₎₍₁₎, ..., p₍₀₎₍ₙ₎ => t₀
-            ...
-          | p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₙ₎ => tₘ
 
-       perform the following actions:
-        - e'₀, ..., e'ₙ := [optimizer eᵢ | ∀ i ∈ [0..n]]
-        - When some re ← reduceMatch? `match e'₀, ..., e'ₙ with ...`
-            - return `some re`
-        - Otherwise:
-            - constMatchPropagation? `match e'₀, ..., e'ₙ with ...`
-     - Otherwise:
-         - return none
-
--/
-def reduceMatchChoice?
-  (s : OptimizeStack) (xs : List OptimizeStack) : TranslateEnvT (Option OptimizeContinuity) := do
-  match s with
-  | .InitMatchChoiceExpr f args fInfo startArgIdx =>
-       if let some mInfo ← isMatcher? f then
-         let startIdx := mInfo.getFirstDiscrPos
-         return some $ Sum.inl (.MatchChoiceOptimizeDiscrs f args fInfo startArgIdx startIdx mInfo :: xs)
-       else return none
-
-  | .MatchChoiceReduce f args _fInfo _startArgIdx mInfo =>
-       if let some r ← withLocalContext $ do reduceMatch? f args mInfo then
-         -- trace[Optimize.matchConstPropagation] "match constant propagation {reprStr f} {reprStr args} => {reprStr r}"
-         return some $ Sum.inl (.InitOptimizeExpr r :: xs)
-       else
-         match (← constMatchPropagation? f args mInfo) with
-         | some e =>
-            -- trace[Optimize.matchConstPropagation] "match constant propagation {reprStr f} {reprStr args} => {reprStr e}"
-            return some $ Sum.inl (.InitOptimizeExpr e :: xs)
-         | none => return none
-
-  | _ => throwEnvError "reducMatchChoice?: unexpected continuity {reprStr s} !!!"
-
+/-- Given a match expression try reduceMatch? first and afterwards try constMatchpropagation?. -/
+@[always_inline, inline]
+def matchReduction? (f : Expr) (args : Array Expr) (mInfo : MatchInfo) : TranslateEnvT (Option Expr) :=
+  withLocalContext $ do
+    -- try match reduction first
+    if let some r ← reduceMatch? f args mInfo then return r
+    -- try to apply match constant propagation rules
+    constMatchPropagation? f args mInfo
 
 @[always_inline, inline]
 private def addPatternInContext
@@ -345,47 +312,32 @@ def isFVarPattern (e : Expr) : Bool :=
 -/
 @[always_inline, inline]
 def optimizeMatchAlt
-  (s : OptimizeStack) (stack : List OptimizeStack) : TranslateEnvT OptimizeContinuity := do
- match s with
- | .InitOptimizeMatchAlt args minfo altIdx rhs =>
-      -- optimizing lambda params for rhs first
-      match rhs with
-      | Expr.lam n t b bi =>
-           let typeOpt := .InitOptimizeExpr t
-           let lamWait := .MatchRhsLambdaWaitForType n bi b
-           return Sum.inl (typeOpt :: lamWait :: .MatchAltWaitForParamsRhs args minfo altIdx :: stack)
-      | _ => return Sum.inl (.MatchAltOptimize args minfo altIdx rhs :: stack)
-
- | .MatchAltOptimize args mInfo altIdx rhs =>
-     let currIdx := altIdx - mInfo.getFirstAltPos
-     withLocalContext $ do
-       let alts := getMatchAlts args mInfo
-       let h ← addNotEqPatternToContext args mInfo alts (← get).optEnv.matchInContext 0 currIdx
-       forallTelescope alts[currIdx]! fun xs b => do
-       let lhs := b.getAppArgs
-       lambdaBoundedTelescope rhs (max 1 (← retrieveAltsArgs lhs).altArgs.size) fun params body => do
-         let mut mcontext := h
-         let mut idxParams := 0
-         let mut body := body
-         for j in mInfo.getDiscrRange do
-           let idxLhs := j - mInfo.getFirstDiscrPos
-           let pattern := lhs[idxLhs]!
-           let nextIdx := idxParams + (← retrieveAltsArgs #[pattern]).altArgs.size
-           if !isFVarPattern pattern then
-             -- add EqPattern in match context only when it's a constructor
-             let patternExpr ← mkForallFVars xs (usedOnly := true) pattern
-             mcontext := addPatternInContext mcontext args[j]! patternExpr (some $ params.extract idxParams nextIdx)
-           if pattern.isFVar then
-             -- pattern should only be an fvar (i.e., not even a named pattern alias of an fvar
-             body := Expr.replaceFVar body params[idxParams]! args[j]!
-           idxParams := nextIdx
-         let matchCtx ← mkMatchStackContext mcontext
-         let lctx ← mkLocalDeclStackContext (← mkLocalContext)
-         let bodyOpt := .InitOptimizeExpr body
-         let altWait := .MatchAltWaitForExpr params :: .LocalDeclWaitForExpr lctx :: stack
-         return Sum.inl (bodyOpt :: .MatchContextWaitForExpr matchCtx :: altWait)
-
- | _ => throwEnvError "reducMatchChoice?: unexpected continuity {reprStr s} !!!"
+  (args : Array Expr) (mInfo : MatchInfo) (altIdx : Nat) (rhs : Expr)
+  (stack : List OptimizeStack) : TranslateEnvT (List OptimizeStack) := withLocalContext $ do
+ let currIdx := altIdx - mInfo.getFirstAltPos
+ let alts := getMatchAlts args mInfo
+ let h ← addNotEqPatternToContext args mInfo alts (← getMatchContext) 0 currIdx
+ forallTelescope alts[currIdx]! fun xs b => do
+ let lhs := b.getAppArgs
+ lambdaBoundedTelescope rhs (max 1 (← retrieveAltsArgs lhs).altArgs.size) fun params body => do
+   let mut mcontext := h
+   let mut idxParams := 0
+   let mut body := body
+   for j in mInfo.getDiscrRange do
+     let idxLhs := j - mInfo.getFirstDiscrPos
+     let pattern := lhs[idxLhs]!
+     let nextIdx := idxParams + (← retrieveAltsArgs #[pattern]).altArgs.size
+     if !isFVarPattern pattern then
+       -- add EqPattern in match context only when it's a constructor
+       let patternExpr ← mkForallFVars xs (usedOnly := true) pattern
+       mcontext := addPatternInContext mcontext args[j]! patternExpr (some $ params.extract idxParams nextIdx)
+     if pattern.isFVar then
+       -- pattern should only be an fvar (i.e., not even a named pattern alias of an fvar
+       body := Expr.replaceFVar body params[idxParams]! args[j]!
+     idxParams := nextIdx
+   let matchCtx ← mkMatchStackContext mcontext
+   let lctx ← mkLocalDeclStackContext (← mkLocalContext)
+   return .InitOptimizeExpr body :: .MatchAltWaitForExpr params lctx matchCtx :: stack
 
 
   where
@@ -460,7 +412,7 @@ where
     if firstRhs.hasLooseBVars then return none
     for i in [mInfo.getFirstAltPos + 1 : mInfo.arity] do
       -- NOTE: No need to check for looseBVars as we are expecting equality
-      if !(← exprEq (getLambdaBody args[i]!) firstRhs) then return none
+      if !(exprEq (getLambdaBody args[i]!) firstRhs) then return none
     return firstRhs
 
   @[always_inline, inline]
@@ -495,7 +447,7 @@ where
         setRestart
         if altArgs.isEmpty
         then return getLambdaBody args[i]! -- case when there is no free variables in pattern.
-        else return args[i]!.beta altArgs
+        else return betaLambda args[i]! altArgs
     return none
 
   @[always_inline, inline]
@@ -533,7 +485,7 @@ where
            return none
        let discrs := args.extract mInfo.getFirstDiscrPos mInfo.getFirstAltPos
        setRestart
-       return args[mInfo.arity - 1]!.beta discrs
+       return betaLambda args[mInfo.arity - 1]! discrs
      else return none
 
 
@@ -563,12 +515,12 @@ def structEqMatch
     let i_args := args.take mInfo.getFirstDiscrPos
     let params ← getImplicitParameters f i_args
     let genFVars ← retrieveGenericFVars params
-    let auxAppType ← genericMatchType genFVars (Expr.beta mInfo.instApp i_args)
+    let auxAppType ← genericMatchType genFVars (betaLambda mInfo.instApp i_args)
     -- trace[Optimize.structEqMatch] "application type for {reprStr f} got {reprStr auxAppType}"
     match (← get).optEnv.matchCache.get? auxAppType with
     | some gmatch =>
         let altArgs := args.extract (mInfo.getFirstDiscrPos - 1) args.size
-        let (f', extraArgs)  := getAppFnWithArgs (gmatch.beta genFVars)
+        let (f', extraArgs)  := getAppFnWithArgs (betaLambda gmatch genFVars)
         -- trace[Optimize.structEqMatch] "equivalence detected {reprStr f} ==> {reprStr f'}"
         return (f', extraArgs ++ altArgs)
     | none =>
@@ -581,7 +533,7 @@ def structEqMatch
   where
     genericMatchType (genFVars : Array Expr) (e : Expr) : TranslateEnvT Expr := do
       lambdaTelescope e fun fvars _ => do
-        mkForallFVars (genFVars ++ fvars) (← mkPropType)
+        mkForallFVars' (genFVars ++ fvars) (← mkPropType)
 
 /-- Apply simplification and normalization rules on match expressions.
     Assumes that `f x₁ ... xₙ` is a match application
@@ -605,7 +557,6 @@ def optimizeMatch
 
 
 initialize
-  registerTraceClass `Optimize.matchConstPropagation
   registerTraceClass `Optimize.structEqMatch
   registerTraceClass `Optimize.normMatch
 

@@ -82,7 +82,7 @@ inductive MatchEntry where
   | NotEqPattern
  deriving Repr
 
-abbrev HypothesisMap := Std.HashMap Lean.Expr (Option Lean.Expr)
+abbrev HypothesisMap := Std.HashMap Lean.Expr Lean.Expr
 abbrev RewriteCacheMap := Std.HashMap Lean.Expr Lean.Expr
 abbrev MatchEntryMap := Std.HashMap Lean.Expr MatchEntry -- with key corresponding to a match pattern
 abbrev MatchContextMap := Std.HashMap Lean.Expr MatchEntryMap  -- with key corresponding to a match discriminator
@@ -92,12 +92,12 @@ abbrev EqualityMap := Std.HashMap Lean.Expr Lean.Expr -- with key corresponding 
 structure HypothesisContext where
   /-- Map keeping track of hypotheses introduced by implications/ite.
       Given an implication of the form `h : a → b`, the following entries are introduced in this map:
-       - `a := some h` ∈ hypothesisMap
-       - When `a := e₁ ∧ ... ∧ eₙ`
-          - ∀ i ∈ [1..n], e₁ := none ∈ hypothesisMap
+       - `a := h` ∈ hypothesisMap
+       - When `a := e₁ ∧ e₂`
+          - e₁ := Solver.and_left e₁ e₂ h ∈ hypothesisMap
+          - e₂ := Solver.and_right e₁ e₂ h ∈ hypothesisMap
       The Map is populated only when Type(a) = Prop.
       The updated Map is considered only when optimizing `b`, which may also be an implication.
-      Keeping FVar expression `h` is necessary, especially when `h` is referenced in `b`.
       (see `addHypotheses` function and `optimizeForall` rule).
   -/
  hypothesisMap : HypothesisMap
@@ -178,6 +178,12 @@ structure MemoizeEnv where
   /-- Cache memoizing match to ite normalization -/
   isMatchToIte : Std.HashMap Lean.Name Bool
 
+  /-- Cache memoizing isNotFun result -/
+  isNotFunCache : Std.HashMap Lean.Expr Bool
+
+  /-- Cache memoizing isType result. -/
+  isTypeCache : Std.HashMap Lean.Expr Bool
+
 instance : Inhabited MemoizeEnv where
   default :=
   { isRecFunCache := Std.HashMap.emptyWithCapacity,
@@ -194,7 +200,9 @@ instance : Inhabited MemoizeEnv where
     isCstMatchPropCache := Std.HashMap.emptyWithCapacity,
     getFunBodyCache := Std.HashMap.emptyWithCapacity,
     isPropCache := Std.HashMap.emptyWithCapacity,
-    isMatchToIte := Std.HashMap.emptyWithCapacity
+    isMatchToIte := Std.HashMap.emptyWithCapacity,
+    isNotFunCache := Std.HashMap.emptyWithCapacity,
+    isTypeCache := Std.HashMap.emptyWithCapacity,
   }
 
 structure LocalDeclContext where
@@ -217,7 +225,7 @@ structure OptimizeEnv where
   -/
   localRewriteCache : RewriteCacheMap
 
-  /-- Cache memoizing synthesized instances for Decidable/Inhabited/LawfulBEq constraint. -/
+  /-- Cache memoizing synthesized instances for Inhabited/LawfulBEq constraint. -/
   synthInstanceCache : Std.HashMap Lean.Expr (Option Lean.Expr)
 
   /-- Cache memoizing the whnf result. -/
@@ -485,35 +493,28 @@ def getAppFnWithArgsAux : Expr → Array Expr → Nat → (Expr × Array Expr)
   | f,       as, _ => (f, as)
 
 /-- Return a function and its arguments -/
-@[inline] def getAppFnWithArgs (e : Expr) : (Expr × Array Expr) :=
+@[always_inline, inline] def getAppFnWithArgs (e : Expr) : (Expr × Array Expr) :=
   let dummy := mkSort levelZero
   let nargs := e.getAppNumArgs
   getAppFnWithArgsAux e (Array.replicate nargs dummy) (nargs-1)
 
-
-/-- Return `true` if `op1` and `op2` are physically equivalent, i.e., points to same memory address.
--/
-@[inline] private unsafe def exprEqUnsafe (op1 : Expr) (op2 : Expr) : MetaM Bool :=
-  return (ptrEq op1 op2)
-
-/-- Safe implementation of physically equivalence for Expr.
--/
-@[implemented_by exprEqUnsafe]
-def exprEq (op1 : Expr) (op2 : Expr) : MetaM Bool := isDefEqGuarded op1 op2
-
 /-- Return the current analysis Step -/
+@[always_inline, inline]
 def getCurrentDepth : TranslateEnvT Nat := do
   return (← get).optEnv.options.mcDepth
 
 /-- set restart flag to `true`. -/
+@[always_inline, inline]
 def setRestart : TranslateEnvT Unit := do
   modify (fun env => { env with optEnv.restart := true })
 
 /-- reset restart flag to `false`. -/
+@[always_inline, inline]
 def resetRestart : TranslateEnvT Unit := do
   modify (fun env => { env with optEnv.restart := false })
 
 /-- Return the restart flag. -/
+@[always_inline, inline]
 def isRestart : TranslateEnvT Bool := do
   return (← get).optEnv.restart
 
@@ -528,6 +529,10 @@ def setInFunApp (b : Bool) : TranslateEnvT Unit := do
 @[always_inline, inline]
 def updateHypothesis (h : HypothesisContext) (localCache : RewriteCacheMap) : TranslateEnvT Unit := do
   modify (fun env => { env with optEnv.hypothesisContext := h, optEnv.localRewriteCache := localCache})
+
+@[always_inline, inline]
+def getMatchContext : TranslateEnvT MatchContextMap := do
+  return (← get).optEnv.matchInContext
 
 @[always_inline, inline]
 def updateMatchContext (h : MatchContextMap) (localCache : RewriteCacheMap) : TranslateEnvT Unit := do
@@ -579,52 +584,6 @@ def isPropEnv (e : Expr) : TranslateEnvT Bool := do
                                optEnv.memCache.isPropCache :=
                                env.optEnv.memCache.isPropCache.insert e b })
       return b
-
-/-- Perform the following actions:
-     Let h := (← get).optEnv.options.hypothesisContext
-     Let hMap := h.hypothesisMap
-      - When Type(e) = Prop:
-         - let hMap' := hMap ∪ [ e := fvar | ¬ ∃ e := some v ∈ h ] ∪
-                               [ e₁ := none | i ∈ [1..n], e := e₁ ∧ ... ∧ eₙ ]
-         - return (hMap' ≠ hMap, {hypothesisMap := hMap', equalityMap := default})
-     Otherwise:
-       - return (false, h)
-    Note: flag isNotPropBody is set only when a forall body is not of type Prop.
--/
-@[inline] partial def addHypotheses
-  (e : Expr) (fvar : Option Expr) (isNotPropBody := false) : TranslateEnvT (Bool × HypothesisContext) := do
-  let hyps := (← get).optEnv.hypothesisContext
-  if (← isPropEnv e) && !isNotPropBody then
-    visit [e] (← updateHypContext (false, hyps) e fvar)
-  else return (false, hyps)
-
-  where
-    updateHypMap
-      (h : Bool × HypothesisMap) (e : Expr)
-      (fvar : Option Expr) : Bool × HypothesisMap :=
-        match h.2.get? e with
-        | none => (true, h.2.insert e fvar)
-        | some none =>
-            if fvar.isNone
-            then h
-            else (true, h.2.insert e fvar)
-        | some (some _) => h
-
-    updateHypContext
-      (h : Bool × HypothesisContext) (e : Expr)
-      (fvar : Option Expr) : TranslateEnvT (Bool × HypothesisContext) := do
-      let (b, hyps) := updateHypMap (h.1, h.2.1) e fvar
-      return (b, {h with hypothesisMap := hyps, equalityMap := default})
-
-    visit (es : List Expr) (h : Bool × HypothesisContext) : TranslateEnvT (Bool × HypothesisContext) := do
-      match es with
-      | [] => return h
-      | e :: xs =>
-        match (e.and?) with
-        | some (a, b) =>
-             visit (a :: b :: xs) ((← updateHypContext (← updateHypContext h a none) b none))
-        | none => visit xs h
-
 
 /-- set optimize option `inPatternMatchin` to `h`. -/
 def setInPatternMatching (h : Std.HashSet FVarId) : TranslateEnvT Unit := do
@@ -757,6 +716,7 @@ def internalRecFun : Name := `_recFun
 /-- Tag expression as recursive call. This metadata is used when
     replacing a recursive call function with `internalRecfun`.
 -/
+@[always_inline, inline]
 def tagAsRecursiveCall (e : Expr) : Expr :=
  mkAnnotation `_solver.recursivecall e
 
@@ -847,6 +807,9 @@ def mkIteOp : TranslateEnvT Expr := mkExpr (mkConst ``ite [levelOne])
 /-- Return `dite` operator and cache result. -/
 def mkDIteOp : TranslateEnvT Expr := mkExpr (mkConst ``dite [levelOne])
 
+/-- Return `Solver.dite'` operator and cache result. -/
+def mkSolverDIteOp : TranslateEnvT Expr := mkExpr (mkConst ``Solver.dite' [levelOne])
+
 /-- Return `LE.le` operator and cache result. -/
 def mkLeOp : TranslateEnvT Expr := mkExpr (mkConst ``LE.le [levelZero])
 
@@ -867,6 +830,9 @@ def mkDecidableEqConst : TranslateEnvT Expr := mkExpr (mkConst ``DecidableEq)
 
 /-- Return `decide` const expression and cache result. -/
 def mkDecideConst : TranslateEnvT Expr := mkExpr (mkConst ``Decidable.decide)
+
+/-- Return `Solver.decide'` const expression and cache result. -/
+def mkSolverDecideConst : TranslateEnvT Expr := mkExpr (mkConst ``Solver.decide')
 
 /-- Return `Inhabited` const expression and cache result. -/
 def mkInhabitedConst : TranslateEnvT Expr := mkExpr (mkConst ``Inhabited [levelOne])
@@ -1030,16 +996,39 @@ def mkIntLtOp : TranslateEnvT Expr := do
   let ltExpr ← mkExpr (mkApp (← mkLtOp) (← mkIntType))
   mkExpr (mkApp ltExpr (← mkExpr (mkConst ``Int.instLTInt)))
 
+def mkForallFVar (n : Expr) (b : Expr) : MetaM Expr := do
+  let fv := n.fvarId!
+  if fVarInExpr fv b then
+    mkForallFVars #[n] b
+  else
+    let decl ← fv.getDecl
+    return mkForall decl.userName decl.binderInfo decl.type b
 
-/-- `mkForallExpr n b` constructs `∀ n, b` and cache result.
--/
+@[always_inline, inline]
+def mkForallFVars' (fvars : Array Expr) (b : Expr) : MetaM Expr :=
+  fvars.foldrM (λ v acc => mkForallFVar v acc) b
+
+/-- `mkForallExpr n b` constructs `∀ n, b` and cache result. -/
+@[always_inline, inline]
 def mkForallExpr (n : Expr) (b : Expr) : TranslateEnvT Expr := do
-  mkExpr (← mkForallFVars #[n] b)
+  mkExpr (← mkForallFVar n b)
 
-/-- `mkLambdaExpr n b` constructs `fun n => b` and cache result.
--/
+def mkLambdaFVar (n : Expr) (b : Expr) : MetaM Expr := do
+  let fv := n.fvarId!
+  if fVarInExpr fv b then
+    mkLambdaFVars #[n] b
+  else
+    let decl ← fv.getDecl
+    return mkLambda decl.userName decl.binderInfo decl.type b
+
+@[always_inline, inline]
+def mkLambdaFVars' (fvars : Array Expr) (b : Expr) : MetaM Expr :=
+  fvars.foldrM (λ v acc => mkLambdaFVar v acc) b
+
+/-- `mkLambdaExpr n b` constructs `fun n => b` and cache result. -/
+@[always_inline, inline]
 def mkLambdaExpr (n : Expr) (b : Expr) : TranslateEnvT Expr := do
-  mkExpr (← mkLambdaFVars #[n] b)
+  mkExpr (← mkLambdaFVar n b)
 
 /-- `mkNatLitExpr n` constructs `Expr.lit (Literal.natVal n)` and cache result. -/
 def mkNatLitExpr (n : Nat) : TranslateEnvT Expr :=
@@ -1100,6 +1089,7 @@ def mkEqBool (e : Expr) (b : Bool) : TranslateEnvT Expr := do
       - construct int literal for `r`
       - cache result and return r
 -/
+@[always_inline, inline]
 def evalBinIntOp (f: Int -> Int -> Int) (n1 n2 : Int) : TranslateEnvT Expr :=
   mkIntLitExpr (f n1 n2)
 
@@ -1107,8 +1097,9 @@ def evalBinIntOp (f: Int -> Int -> Int) (n1 n2 : Int) : TranslateEnvT Expr :=
 def mkStrLitExpr (s : String) : TranslateEnvT Expr :=
   mkExpr (mkStrLit s)
 
-/-- `mkDecidableConstraint e` constructs constraint [Decidable e] and cache the result.
--/
+
+
+/-- `mkDecidableConstraint e` constructs constraint [Decidable e] and cache the result. -/
 def mkDecidableConstraint (e : Expr) (cacheDecidableCst := true) : TranslateEnvT Expr := do
   let decideCstr := mkApp (← mkDecidableConst) e
   if cacheDecidableCst then mkExpr decideCstr else return decideCstr
@@ -1326,6 +1317,12 @@ def getMatcherRecInfo? (n : Name) (l : List Level) : TranslateEnvT (Option Match
                               env.optEnv.memCache.getMatcherCache.insert n m })
      return m
 
+/-- Add `n := mInfo` to isMatcherCache -/
+@[always_inline, inline]
+def updateIsMatcherCache (n : Name) (mInfo : MatchInfo) : TranslateEnvT Unit := do
+ modify (fun env => { env with optEnv.memCache.isMatcherCache :=
+                               env.optEnv.memCache.isMatcherCache.insert n mInfo })
+
 /-- Return `some mInfo` when `f := Expr.const n l` ∧ n := mInfo ∈ isMatcherCache.
     Otherwise `none`.
 -/
@@ -1413,6 +1410,18 @@ inductive ResolveTypeStack where
  | InitExpr (t : Expr) : ResolveTypeStack
  | ArgsExpr (f : Expr) (args : Array Expr) (idx : Nat) (stop : Nat) : ResolveTypeStack
 
+/-- Same as the default `isType` but cache result. -/
+def isTypeEnv (e : Expr) : TranslateEnvT Bool := do
+  match (← get).optEnv.memCache.isTypeCache.get? e with
+  | some b => return b
+  | none =>
+      let b ← isType e
+      modify (fun env => { env with
+                               optEnv.memCache.isTypeCache :=
+                               env.optEnv.memCache.isTypeCache.insert e b })
+      return b
+
+
 /-- Return `true` is `t` is a potential resolvable type -/
 private def isResolvableTypeAux (t : Expr) : TranslateEnvT Bool := do
   if (← isPropEnv t) then return false
@@ -1420,8 +1429,8 @@ private def isResolvableTypeAux (t : Expr) : TranslateEnvT Bool := do
        | Expr.const n _ =>
             if (← isClassConstraint n) then return false
             else if (← getConstEnvInfo n).isInductive then return false
-            else isType t
-       | _ => isType t
+            else isTypeEnv t
+       | _ => isTypeEnv t
 
 /-- Return `true` is `t` is a potential resolvable type -/
 def isResolvableType (t : Expr) : TranslateEnvT Bool := do
@@ -1509,7 +1518,7 @@ partial def isGenericParam (e : Expr) : TranslateEnvT Bool := do
  | Expr.const n _ =>
      -- resolve type abbreviation (if any)
      let t ← resolveTypeAbbrev e
-     if !(← exprEq t e) then isGenericParam t
+     if !(exprEq t e) then isGenericParam t
      else
        if (← isInstanceClass n) then return false
        else if (← isClassConstraint n) then return false

@@ -17,9 +17,8 @@ namespace Solver.Optimize
 -/
 def optimizeNatAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeNatAdd: exactly two arguments expected"
- let opArgs ← reorderNatOp args -- error triggered when args.size ≠ 2
- let op1 := opArgs[0]!
- let op2 := opArgs[1]!
+ let op1 := args[0]!
+ let op2 := args[1]!
  match isNatValue? op1, isNatValue? op2 with
  | some 0, _ =>  return op2
  | some n1, some n2 => evalBinNatOp Nat.add n1 n2
@@ -54,7 +53,7 @@ def optimizeNatSub (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeNatSub: exactly two arguments expected"
  let op1 := args[0]!
  let op2 := args[1]!
- if (← exprEq op1 op2) then return (← mkNatLitExpr 0)
+ if exprEq op1 op2 then return (← mkNatLitExpr 0)
  match isNatValue? op1, isNatValue? op2 with
  | some 0, _
  | _, some 0 => return op1
@@ -136,9 +135,8 @@ def optimizeNatPow (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 -/
 def optimizeNatMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeNatMul: exactly two arguments expected"
- let opArgs ← reorderNatOp args -- error triggered when args.size ≠ 2
- let op1 := opArgs[0]!
- let op2 := opArgs[1]!
+ let op1 := args[0]!
+ let op2 := args[1]!
  match isNatValue? op1, isNatValue? op2 with
  | some 0, _ => return op1
  | some 1, _ => return op2
@@ -165,7 +163,7 @@ def optimizeNatMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
    mulPowReduceExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := do
     match natPow? e2 with
     | some (op1, op2) =>
-       if (← exprEq e1 op1) then
+       if exprEq e1 op1 then
          setRestart
          let addExpr := mkApp2 (← mkNatAddOp) (← mkNatLitExpr 1) op2
          return mkApp2 (← mkNatPowOp) e1 addExpr
@@ -183,10 +181,8 @@ def optimizeNatMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 def mulNatDivReduceExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := do
   match natMul? e1 with
   | some (op1, op2) =>
-     unless !(← exprEq op1 e2) do
-       if (← nonZeroNatInHyps e2) then return some op2
-     unless !(← exprEq op2 e2) do
-       if (← nonZeroNatInHyps e2) then return some op1
+     if exprEq op1 e2 then if (← nonZeroNatInHyps e2) then return some op2
+     if exprEq op2 e2 then if (← nonZeroNatInHyps e2) then return some op1
      return none
   | none => return none
 
@@ -197,7 +193,7 @@ def mulNatDivReduceExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) :
     Otherwise, return none.
 -/
 def natDivSelfReduce? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := do
-  if !(← exprEq e1 e2) then return none
+  if !(exprEq e1 e2) then return none
   if (← nonZeroNatInHyps e1)
   then return ← mkNatLitExpr 1
   else return none
@@ -266,10 +262,10 @@ def optimizeNatDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
     Otherwise, return none.
 -/
 def natModToZeroExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := do
-  if (← exprEq e1 e2) then return (some (← mkNatLitExpr 0))
+  if exprEq e1 e2 then return (some (← mkNatLitExpr 0))
   match natMul? e1 with
   | some (op1, op2) =>
-     if (← exprEq op1 e2 <||> exprEq op2 e2) then return (← mkNatLitExpr 0)
+     if exprEq op1 e2 || exprEq op2 e2 then return (← mkNatLitExpr 0)
      return none
   | none => return none
 
@@ -323,7 +319,7 @@ def optimizeNatBeq (f : Expr) (b_args : Array Expr) : TranslateEnvT Expr := do
   setRestart
   return mkAppN (← mkNatBEqOp) b_args
 
-/-- Normalize `Nat.ble x y` to `decide (x ≤ y)` only when option normalizeFunCall is set to `true`.
+/-- Normalize `Nat.ble x y` to `decide' (x ≤ y)` only when option normalizeFunCall is set to `true`.
     Assume that f = Expr.const ``Nat.ble
     NOTE: This normalization rule is still required here mainly
     to properly handle the case where another rec function is equivalent to `Nat.beq`
@@ -332,10 +328,10 @@ def optimizeNatble (f : Expr) (b_args : Array Expr) : TranslateEnvT Expr := do
   if !(← isOptimizeRecCall) then return mkAppN f b_args
   setRestart
   let leExpr := mkAppN (← mkNatLeOp) b_args
-  let decLeExpr := mkAppN (← mkNatDecLeOp) b_args
-  return mkApp2 (← mkDecideConst) leExpr decLeExpr
+  return mkApp (← mkSolverDecideConst) leExpr
 
 /-- Apply simplification/normalization rules on `Nat` operators. -/
+@[always_inline, inline]
 def optimizeNat? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
   let Expr.const n _ := f | return none
   match n with
