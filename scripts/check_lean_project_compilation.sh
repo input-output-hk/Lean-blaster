@@ -6,10 +6,8 @@ then
   PROJECT_NAME=$1
   LEAN_FILES=`find $PROJECT_NAME -name '*.lean' 2>/dev/null`
   EXEC_FILES=`cat lakefile.lean | grep root | sed 's/root := .//g'`
-  # clean lean project
-  lake clean
   # build lean project with log
-  echo "Building Lean project $PROJECT_NAME ..."  
+  echo "Building Lean project $PROJECT_NAME ..."
   lake build $PROJECT_NAME 2>&1 | tee build.log
   if [[ $? -ne 0 ]]
   then

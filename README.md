@@ -127,7 +127,7 @@ theorem addCommute : ∀ (a b : Nat), a + b = b + a := by
   blaster (only-optimize: 1)
 -- or
 theorem length_set {as : List α} {i : Nat} {a : α} : (as.set i a).length = as.length := by
-  induction as generalizing i <;> unfold List.set <;> blaster
+  induction as generalizing i <;> blaster
 ```
 
 > [!NOTE]

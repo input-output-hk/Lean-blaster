@@ -34,37 +34,56 @@ def blasterTacticImp : Tactic := fun stx =>
    -- Parse options in any order
    let opts := stx[1].getArgs
    let sOpts ← parseSolveOptions opts default
-   let goal ← revertHypotheses (← getMainGoal)
+   let (goal, nbQuantifiers) ← revertHypotheses (← getMainGoal)
    let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
    let ((result, optExpr), _) ←
      withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0 }) $ do
        IO.setNumHeartbeats 0
-       Translate.main (← goal.getType) (logUndetermined := false) |>.run env
+       Translate.main (← goal.getType >>= instantiateMVars') (logUndetermined := false) |>.run env
    match result with
    | .Valid => goal.admit -- TODO: replace with proof reconstruction
    | .Falsified cex => throwTacticEx `blaster goal "Goal was falsified (see counterexample above)"
    | .Undetermined =>
         -- Replace the goal with the optimized expression
         let newGoal ← goal.replaceTargetDefEq optExpr
-        replaceMainGoal [newGoal]
+        -- reintroduce reverted quantifiers
+        let currQuantifiers ← getFirstNbQuantifiers optExpr
+        let (_, newGoal') ← newGoal.introNP (max currQuantifiers nbQuantifiers)
+        replaceMainGoal [newGoal']
 
   where
+    getFirstNbQuantifiers (e : Expr) : MetaM Nat := do
+      forallTelescope e fun fvars _ => do
+        let mut nb := 0
+        for v in fvars do
+          if !(← isProp (← v.fvarId!.getType)) then
+            nb := nb + 1
+        return nb
+
     @[always_inline, inline]
-    revertHypotheses (goal : MVarId) : TacticM MVarId :=
+    instantiateMVars' (e : Expr) : TacticM Expr :=
+     if e.hasMVar then instantiateMVars e else return e
+
+    @[always_inline, inline]
+    revertHypotheses (goal : MVarId) : TacticM (MVarId × Nat) :=
       goal.withContext $ do
         -- Get all hypotheses from the local context
         let lctx ← getLCtx
         let mut hyps := #[]
+        let mut nbQuantifiers := 0
         for decl in lctx do
           if decl.isImplementationDetail then continue
-          let declType ← instantiateMVars decl.type
-          if ← isProp declType then
-            hyps := hyps.push decl.fvarId
+          let declType ← instantiateMVars' decl.type
+          if !(← isProp declType) then
+            nbQuantifiers := nbQuantifiers + 1
+          hyps := hyps.push decl.fvarId
         -- revert hyp from context
-        hyps.foldrM
+        let goal' ←
+          hyps.foldrM
           (fun h g => do
              let (_, g) ← g.revert #[h]
              return g) goal
+        return (goal', nbQuantifiers)
 
 
 end Solver.Tactic
