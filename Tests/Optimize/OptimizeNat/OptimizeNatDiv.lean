@@ -634,7 +634,8 @@ variable (z : Nat)
 
 -- (((x * y) / y) - x) / z ===> 0
 #testOptimize [ "NatDivReduce_1" ] (norm-result: 1)
-  if 0 < y then (((x * y) / y) - x) / z else z ===> if 0 < y then 0 else z
+  ∀ (_h : 0 < y), (((x * y) / y) - x) / z < z ===>
+  ∀ (_h : 0 < y), 0 < z
 
 -- (30 + (0 / x)) / ((((((120 * x) / 12) / 10) - x)) + 10) ===> 3
 def natDivReduce_2 : Expr := Lean.Expr.lit (Lean.Literal.natVal 3)

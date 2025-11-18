@@ -339,7 +339,7 @@ def removeClassConstraintsInFunType (t : Expr) : TranslateEnvT Expr :=
       let decl ← getFVarLocalDecl fvars[i]
       if !(← isClassConstraintExpr decl.type) then
         xs := xs.push fvars[i]
-    mkForallFVars xs body
+    Optimize.mkForallFVars' xs body
 
 /-- Given `t := Expr.const n _` corresponding to an inductive datatype name and
     `args` the parameters instantiating the inductive datatype (if any),
@@ -400,7 +400,7 @@ def generateIndInstDecl
 -/
 def getFunInstDeclAux (t : Expr) : TranslateEnvT Expr := do
   let genericArgs ← retrieveGenericArgs (retrieveArrowTypes t)
-  mkLambdaFVars genericArgs t
+  mkLambdaFVars' genericArgs t
 
 /-- Same as `getFunInstDeclAux` but calls `removeClassConstraintsInFunType on `t` first. -/
 def getFunInstDecl (t : Expr) : TranslateEnvT Expr := do
@@ -422,7 +422,7 @@ def withInstantiatedImplicitArgs (t : Expr) (k : Expr → TranslateEnvT α) : Tr
      -- Need to consider case when fun type has implicit sort type arguments (see `Issue15.thm4`)
      if decl.binderInfo.isExplicit then
        explicitArgs := explicitArgs.push v
-   let t' ← mkForallFVars explicitArgs body -- keeping implicit arguments instantiated
+   let t' ← Optimize.mkForallFVars' explicitArgs body -- keeping implicit arguments instantiated
    k t'
 
 /-- Return `decl.instName` when `t := decl` exists in `indTypeInstCache`.

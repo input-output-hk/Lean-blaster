@@ -76,9 +76,9 @@ def getMaxDepth : TranslateEnvT Nat := do
 def nameAtDepth (smName : Name) (suffix : String) : TranslateEnvT Name := do
   pure $ Name.mkStr1 (s!"{smName}.{suffix}@{← getCurrentDepth}")
 
-def logDepthProgress : TranslateEnvT Unit := do
+def logDepthProgress (header : String) : TranslateEnvT Unit := do
   if (← get).optEnv.options.solverOptions.verbose > 0 then
-    IO.println f!"BMC at Depth {← getCurrentDepth}"
+    IO.println f!"{header} at Depth {← getCurrentDepth}"
     (← IO.getStdout).flush
 
 def defineSmtInitFlag : TranslateEnvT SmtTerm := do
@@ -141,12 +141,13 @@ def logContradictionAtDepth : TranslateEnvT Unit := do
     Trigger an error when `smInst` is not a `StateMachine` instance.
 -/
 def getSMTypes (smInst : Expr) : TranslateEnvT StateMachineEnv := do
-  let Expr.const n _ := smInst | throwEnvError "StateMachine instance name expression expected !!!"
+  let Expr.const n _ := smInst.getAppFn' | throwEnvError "StateMachine instance name expression expected !!!"
   let ConstantInfo.defnInfo info ← getConstEnvInfo n
     | throwEnvError "StateMachine instance definition expected !!!"
-  Expr.withApp info.value fun f args => do
+  let inst := if info.value.isLambda then betaLambda info.value smInst.getAppArgs else info.value
+  Expr.withApp inst fun f args => do
    let Expr.const `Solver.StateMachine.StateMachine.mk _ := f
-     | throwEnvError "StateMachine instance expected !!!"
+     | throwEnvError "StateMachine instance expected but got {reprStr f} !!!"
    return {inputType := args[0]!, stateType := args[1]!, smName := n, initFlag := none}
 
 /-- Given `smInst` an instance of `StateMachine`, `iVar` input at step k and `state` at step k,

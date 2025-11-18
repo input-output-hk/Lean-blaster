@@ -7,32 +7,31 @@ namespace Solver.Optimize
 
 
 /-- Given `op1` and `op2` corresponding to the operands for a Boolean binary operator:
-    - return `some (decide (mkOpExpr #[e1, e2]))` when `op1 := decide e1 ∧ op2 := decide e2`
-    - return `some (decide (mkOpExpr #[e1, true = e2]))` when `op1 := decide e1 ∧ op2 := e2`
-    - return `some (decide (mkOpExpr #[e1, true = e2]))` when `op1 := e2 ∧ op2 := decide e1`
+    - return `some (decide' (mkOpExpr #[e1, e2]))` when `op1 := decide' e1 ∧ op2 := decide' e2`
+    - return `some (decide' (mkOpExpr #[e1, true = e2]))` when `op1 := decide' e1 ∧ op2 := e2`
+    - return `some (decide' (mkOpExpr #[e1, true = e2]))` when `op1 := e2 ∧ op2 := decide' e1`
     Otherwise `none`.
 -/
 def decideOpDecide?
   (op1 : Expr) (op2 : Expr)
   (mkOpExpr : Expr → Expr → Expr) : TranslateEnvT (Option Expr) := do
-  match decide? op1, decide? op2 with
-  | some (e1, d), some (e2, _) =>
-      -- NOTE: the decidable instance for `decide` is updated in `optimizeDecideCore`
+  match decide'? op1, decide'? op2 with
+  | some e1, some e2 =>
       setRestart
-      return mkApp2 (← mkDecideConst) (mkOpExpr e1 e2) d
-  | some (e1, d), _ =>
+      return mkApp (← mkSolverDecideConst) (mkOpExpr e1 e2)
+  | some e1, _ =>
       setRestart
-      return mkApp2 (← mkDecideConst) (mkOpExpr e1 (mkApp3 (← mkEqOp) (← mkBoolType) (← mkBoolTrue) op2)) d
-  | _, some (e1, d) =>
+      return mkApp (← mkSolverDecideConst) (mkOpExpr e1 (mkApp3 (← mkEqOp) (← mkBoolType) (← mkBoolTrue) op2))
+  | _, some e1 =>
       setRestart
-      return mkApp2 (← mkDecideConst) (mkOpExpr e1 (mkApp3 (← mkEqOp) (← mkBoolType) (← mkBoolTrue) op1)) d
+      return mkApp (← mkSolverDecideConst) (mkOpExpr e1 (mkApp3 (← mkEqOp) (← mkBoolType) (← mkBoolTrue) op1))
   | _, _ => return none
 
 
 /-- Call `optimizeBoolAnd f args` and apply the following `decide` simplification/normalization
     rules on the resulting `and` expression (if any):
-     - decide e1 && decide e2 ===> decide (e1 ∧ e2)
-     - decide e1 && e2 | e2 && decide e1 ===> decide (e1 ∧ true = e2)
+     - decide' e1 && decide' e2 ==> decide' (e1 ∧ e2)
+     - decide' e1 && e2 | e2 && decide' e1 ==> decide' (e1 ∧ true = e2)
 
    Assume that f = Expr.const ``and.
 
@@ -48,13 +47,13 @@ def optimizeDecideBoolAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr :=
 
 /-- Call `optimizeBoolOr f args` and apply the following `decide` simplification/normalization
     rules on the resulting `or` expression (if any):
-     - decide e1 || decide e2 ===> decide (e1 ∨ e2)
-     - decide e1 || e2 | e2 || decide e1 ===> decide (e1 ∨ true = e2)
+     - decide' e1 || decide' e2 ==> decide' (e1 ∨ e2)
+     - decide' e1 || e2 | e2 || decide' e1 ==> decide' (e1 ∨ true = e2)
 
    Assume that f = Expr.const ``or.
 
    Do nothing if operator is partially applied (i.e., args.size < 2)
-   TODO: reordering on list of `||` must be performed to regroup all `decide e`
+   TODO: reordering on list of `||` must be performed to regroup all `decide' e`
    together and all boolean expression together. The reordering must be
    deterministic to produce the same sequence.
    TODO: consider additional simplification rules

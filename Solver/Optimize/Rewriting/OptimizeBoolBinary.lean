@@ -46,13 +46,12 @@ namespace Solver.Optimize
 -/
 def optimizeBoolAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeBoolAnd: exactly two arguments expected"
- let opArgs ← reorderBoolOp args -- error triggered when args.size ≠ 2
- let op1 := opArgs[0]!
- let op2 := opArgs[1]!
+ let op1 := args[0]!
+ let op2 := args[1]!
  if let Expr.const ``false _ := op1 then return op1
  if let Expr.const ``true _ := op1 then return op2
- if (← exprEq op1 op2) then return op1
- if (← isBoolNotExprOf op2 op1) then return (← mkBoolFalse)
+ if exprEq op1 op2 then return op1
+ if isBoolNotExprOf op2 op1 then return (← mkBoolFalse)
  if let some r ← andBoolReduction? op1 op2 then return r
  -- no caching at this level as optimizeBoolAnd is called by optimizeDecideBoolAnd
  return mkApp2 f op1 op2
@@ -97,13 +96,12 @@ def optimizeBoolAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 -/
 def optimizeBoolOr (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeBoolOr: exactly two arguments expected"
- let opArgs ← reorderBoolOp args -- error triggered when args.size ≠ 2
- let op1 := opArgs[0]!
- let op2 := opArgs[1]!
+ let op1 := args[0]!
+ let op2 := args[1]!
  if let Expr.const ``false _ := op1 then return op2
  if let Expr.const ``true _ := op1 then return op1
- if (← exprEq op1 op2) then return op1
- if (← isBoolNotExprOf op2 op1) then return (← mkBoolTrue)
+ if exprEq op1 op2 then return op1
+ if isBoolNotExprOf op2 op1 then return (← mkBoolTrue)
  if let some r ← orBoolReduction? op1 op2 then return r
  -- no caching at this level as optimizeBoolAnd is called by optimizeDecideBoolOr
  return mkApp2 f op1 op2

@@ -25,3 +25,4 @@ import Tests.Issues.Issue24
 import Tests.Issues.Issue25
 import Tests.Issues.Issue26
 import Tests.Issues.Issue27
+import Tests.Issues.Issue28

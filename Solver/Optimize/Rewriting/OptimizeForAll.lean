@@ -1,5 +1,5 @@
 import Lean
-import Solver.Optimize.Rewriting.OptimizePropNot
+import Solver.Optimize.Hypotheses
 
 open Lean Meta Elab
 namespace Solver.Optimize
@@ -55,11 +55,11 @@ def isCstImplies? (h : Expr) (a : Expr) (b : Expr) : TranslateEnvT (Option Expr)
  -/
  def impliesToNeg? (a : Expr) (b : Expr) (h : HypothesisMap) : TranslateEnvT (Option Expr) := do
   let notOp ← mkPropNotOp
-  if (← notInHypMap b h) then
+  if (← notInHypMap b h).isSome then
     setRestart
     return mkApp notOp a
   let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
-  if (← notInHypMap b hyps) then
+  if (← notInHypMap b hyps).isSome then
     setRestart
     return mkApp notOp a
   return none
@@ -79,18 +79,23 @@ def isCstImplies? (h : Expr) (a : Expr) (b : Expr) : TranslateEnvT (Option Expr)
   let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
   if (← inHypMap b hyps).isSome then return ← mkPropTrue
   if !(← isPropEnv b) then return none
-  if (← notInHypMap a hyps) then return ← mkPropTrue
+  if (← notInHypMap a hyps).isSome then return ← mkPropTrue
   return none
 
+
+/-- Given `h : a → b` returns `true` only when the following condition is satisfied:
+     - ∃ h : a → b := _ ∈ hypothesisContext.hypothesisMap,
+-/
+def impliesInHyp (h : Expr) (b : Expr) : TranslateEnvT Bool := do
+  let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
+  return hyps.contains (← mkForallFVar h b)
+
 /-- Given `h : a → b`, apply the simplification rules:
-    - When a := m ∈ hypothesisContext.hypothesisMap ∧ Type(b) = Prop
+    - When a := p ∈ hypothesisContext.hypothesisMap ∧ Type(b) = Prop
        - When ¬ fVarInExpr h.fvarId! b
           - return `some b`
        - When fVarInExpr h.fvarId! b
-           - When m := some h'
-              - return `some b[h/h']
-           - Otherwise
-              - return `none`
+          - return `some b[h/p]
     - Otherwise:
        - return `none`
 -/
@@ -99,12 +104,10 @@ def hypReduction? (h : Expr) (a : Expr) (b : Expr) : TranslateEnvT (Option Expr)
  let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
  match (← inHypMap a hyps) with
  | none => return none
- | some m =>
+ | some p =>
     if !fVarInExpr h.fvarId! b
     then return b
-    else match m with
-         | some h' => return (← mkExpr $ Expr.replaceFVar b h h')
-         | none => return none
+    else return (← mkExpr $ Expr.replaceFVar b h p)
 
 /-- Apply the following simplification/normalized rules on `forallE`.
     Note that implication `a → b` is internally represented as `forallE _ a b bi`.
@@ -116,13 +119,14 @@ def hypReduction? (h : Expr) (a : Expr) (b : Expr) : TranslateEnvT (Option Expr)
             TODO: replace True.intro with proper proof
       - e → False ==> ¬ e
       - e1 → e2 ==> True (if e1 =ₚₜᵣ e2 ∧ Type(e1) = Prop)
+      - e1 → e2 ==> True (if ∃ e1 → e2 := _ ∈ hypothesisContext.hypothesisMap)
       - e1 → e2 ==> ¬ e1 (if ∃ e := _ ∈ h, e = ¬ e2)
       - e1 → e2 ==> ¬ e1 (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = ¬ e2)
-      - e1 → e2 ==> True (if ∃ e := _ ∈ h, e = e2)
-      - e1 → e2 ==> True (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = e2)
+      - e1 → e2 ==> True (if e2 := _ ∈ h)
+      - e1 → e2 ==> True (if e2 := _ ∈ hypothesisContext.hypothesisMap)
       - e1 → e2 ==> True (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = ¬ e1 ∧ Type(e2) = Prop)
       - h : e1 → e2 ==> e2 (if e1 := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ fVarInExpr h.fvarId! e2 ∧ Type(e2) = Prop)
-      - h : e1 → e2 ==> e2[h/h'] (if e1 := some h' ∈ hypothesisContext.hypothesisMap ∧ fVarInExpr h.fvarId! e2 ∧ Type(e2) = Prop )
+      - h : e1 → e2 ==> e2[h/h'] (if e1 := h' ∈ hypothesisContext.hypothesisMap ∧ fVarInExpr h.fvarId! e2 ∧ Type(e2) = Prop )
       - ∀ (n : t), e ===> e (if isSortOrInhabited t ∧ Type(e) = Prop ∧ ¬ fVarInExpr n.fvarId! e)
   Assume that `n` is a free variable expression. An error is triggered if this is not the case.
   Assume that `h` corresponds to the hypothesis map updated with hypotheses in `t`.
@@ -131,11 +135,12 @@ def optimizeForall (n : Expr) (t : Expr) (h : HypothesisMap) (b : Expr) : Transl
   if let Expr.const ``True _ := b then return b
   if let some r ← isCstImplies? n t b then return r
   if let some r ← isNotDef? t b then return r
-  if (← (exprEq t b) <&&> (isPropEnv t)) then return (← mkPropTrue)
+  if exprEq t b then if ← isPropEnv t then return (← mkPropTrue)
+  if (← impliesInHyp n b) then return (← mkPropTrue)
   if let some r ← impliesToNeg? t b h then return r
   if let some r ← impliesToTrue? t b h then return r
   if let some r ← hypReduction? n t b then return r
   if (← (isSortOrInhabited t) <&&> (isPropEnv b) <&&> (pure !fVarInExpr n.fvarId! b)) then return b
-  mkForallExpr n b
+  mkForallFVar n b
 
 end Solver.Optimize

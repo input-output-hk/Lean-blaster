@@ -110,7 +110,7 @@ def optimizeStrReplace (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
  let op1 := args[0]!
  let op2 := args[1]!
  let op3 := args[3]!
- if (← exprEq op2 op3) then return op1
+ if exprEq op2 op3 then return op1
  if let some r ← cstStrReplace? op1 op2 op3 then return r
  if isNullString op1 then return op1
  return (mkApp3 f op1 op2 op3)

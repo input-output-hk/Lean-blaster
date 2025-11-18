@@ -9,27 +9,27 @@ namespace Tests.StructEqMatch
 
 /-! Test cases to validate when structural equivalence must be applied. -/
 
-def discrAbstract (x : List α) (y : Option α) : Bool :=
+def discrAbstractOne (x : List α) (y : Option α) : Bool :=
   match x, y with
   | [], none => true
   | _, none => false
   | [], _ => false
   | _, _ => true
 
-def discrAbstractInt (x : List α) (y : Option α) : Int :=
+def discrAbstractIntOne (x : List α) (y : Option α) : Int :=
   match x, y with
   | [], none => 1
   | _, none => 0
   | [], _ => 0
   | _, _ => 1
 
- -- ∀ (α : Type) (x : List α) (y : Option α), discrAbstract x y → discrAbstractInt x y = 1 ===> True
+ -- ∀ (α : Type) (x : List α) (y : Option α), discrAbstractOne x y → discrAbstractInt x y = 1 ===> True
  -- Test case to ensure that structural equivalence on match expression
  -- can be performed across instances, e.g. using the same match function
  -- with different instantiations.
  -- NOTE: Test case reduce to True due to match over fun propagation rule
 #testOptimize ["MatchStructEq_1"]
-  ∀ (α : Type) (x : List α) (y : Option α), discrAbstract x y → discrAbstractInt x y = 1 ===> True
+  ∀ (α : Type) (x : List α) (y : Option α), discrAbstractOne x y → discrAbstractIntOne x y = 1 ===> True
 
 inductive Color where
   | red : Color → Color
@@ -40,24 +40,13 @@ inductive Color where
   | green : Color → Color
   | white : Color
 
--- ∀ (x : List Color) (y : Option Color), discrAbstract x y → discrAbstractInt x y = 1 ===> True
--- ∀ (x : List Color) (y : Option Color),
---   true = ( discrAbstract.match_1 (fun (_ : List Color) (_ : Option Color) => Bool) x y
---            (fun (_ : PUnit) => true)
---            (fun (_ : List Color) => false)
---            (fun (_ : Option Color) => false)
---            (fun (_ : List Color) (_ : Option Color) => true) ) →
---   1 = ( discrAbstract.match_1 (fun (_ : List Color) (_ : Option Color) => Int) x y
---         (fun (_ : PUnit) => 1)
---         (fun (_ : List Color) => 0)
---         (fun (_ : Option Color) => 0)
---         (fun (_ : List Color) (_ : Option Color) => 1) )
+-- ∀ (x : List Color) (y : Option Color), discrAbstractOne x y → discrAbstractInt x y = 1 ===> True
 -- Test case to ensure that structural equivalence on match expression
 -- can be performed across instances, e.g. using the same match function
 -- with different instantiations.
 -- NOTE: Test case reduced to True due to match over fun propagation rule
 #testOptimize ["MatchStructEq_2"]
-  ∀ (x : List Color) (y : Option Color), discrAbstract x y → discrAbstractInt x y = 1 ===> True
+  ∀ (x : List Color) (y : Option Color), discrAbstractOne x y → discrAbstractIntOne x y = 1 ===> True
 
 
 -- ∀ (x : List Color) (y : Option Color)
@@ -65,20 +54,13 @@ inductive Color where
 --   List.length x = List.length v →
 --   (y = Option.none) = (w = Option.none) →
 --   discrAbstract x y → discrAbstractInt v w = 1 ===>
--- ∀ (x : List Color) (y : Option Color)
---   (v : List Purpose) (w : Option Purpose),
+-- ∀ (x : List Color) (y : Option Color) (v : List Purpose) (w : Option Purpose),
 --   List.length x = List.length v →
 --   (Option.none = y) = (Option.none = w) →
--- ( discrAbstract.match_1 (fun (_ : List Color) (_ : Option Color) => Prop) x y
---   (fun (_ : PUnit) => True)
---   (fun (_ : List Color) => False)
---   (fun (_ : Option Color) => False)
---   (fun (_ : List Color) (_ : Option Color) => True) ) →
--- ( discrAbstract.match_1 (fun (_ : List Purpose) (_ : Option Purpose) => Prop) v w
---   (fun (_ : PUnit) => True)
---   (fun (_ : List Purpose) => False)
---   (fun (_ : Option Purpose) => False)
---   (fun (_ : List Purpose) (_ : Option Purpose) => True) )
+--   (¬ ([] = x ∧ Option.none = y) → ¬ [] = x ∧ ¬ Option.none = y) →
+--     ¬ ([] = v ∧ Option.none = w) → ¬ [] = v ∧ ¬ Option.none = w
+-- NOTE: match is now normalized to ite since we are no more constrained
+-- with the decidable instance for Eq.
 -- Test cases to ensure that structural equivalence on match expression
 -- can be performed across instances, e.g. using the same match function
 -- with different instantiations.
@@ -88,25 +70,68 @@ inductive Purpose
  | Rewarding
 deriving BEq
 
-#testOptimize ["MatchStructEq_3"] (norm-result: 1)
+#testOptimize ["MatchStructEq_3"]
   ∀ (x : List Color) (y : Option Color)
     (v : List Purpose) (w : Option Purpose),
     List.length x = List.length v →
     (y = Option.none) = (w = Option.none) →
-    discrAbstract x y → discrAbstractInt v w = 1 ===>
+    discrAbstractOne x y → discrAbstractIntOne v w = 1 ===>
+  ∀ (x : List Color) (y : Option Color) (v : List Purpose) (w : Option Purpose),
+    List.length x = List.length v →
+    (Option.none = y) = (Option.none = w) →
+    (¬ ([] = x ∧ Option.none = y) → ¬ [] = x ∧ ¬ Option.none = y) →
+      ¬ ([] = v ∧ Option.none = w) → ¬ [] = v ∧ ¬ Option.none = w
+
+
+def discrAbstractTwo (x : List α) (y : Option α) : Bool :=
+  match x, y with
+  | [], some _ => true
+  | _, none => false
+  | _, _ => true
+
+def discrAbstractIntTwo (x : List α) (y : Option α) : Int :=
+  match x, y with
+  | [], some _ => 1
+  | _, none => 0
+  | _, _ => 1
+
+-- ∀ (x : List Color) (y : Option Color)
+--   (v : List Purpose) (w : Option Purpose),
+--   List.length x = List.length v →
+--   (y = Option.none) = (w = Option.none) →
+--   discrAbstractTwo x y → discrAbstractIntTwo v w = 1 ===>
+-- ∀ (x : List Color) (y : Option Color)
+--   (v : List Purpose) (w : Option Purpose),
+--   List.length x = List.length v →
+--   (Option.none = y) = (Option.none = w) →
+--   ( discrAbstractTwo.match_1 (fun (_ : List Color) (_ : Option Color) => Prop) x y
+--     (fun (_ : Color) => True)
+--     (fun (_ : List Color) => False)
+--     (fun (_ : List Color) (_ : Option Color) => True) ) →
+--   ( discrAbstractTwo.match_1 (fun (_ : List Purpose) (_ : Option Purpose) => Prop) v w
+--     (fun (_ : Purpose) => True)
+--     (fun (_ : List Purpose) => False)
+--     (fun (_ : List Purpose) (_ : Option Purpose) => True) )
+-- Test cases to ensure that structural equivalence on match expression
+-- can be performed across instances, e.g. using the same match function
+-- with different instantiations.
+#testOptimize ["MatchStructEq_4"] (norm-result: 1)
+  ∀ (x : List Color) (y : Option Color)
+    (v : List Purpose) (w : Option Purpose),
+    List.length x = List.length v →
+    (y = Option.none) = (w = Option.none) →
+    discrAbstractTwo x y → discrAbstractIntTwo v w = 1 ===>
   ∀ (x : List Color) (y : Option Color)
     (v : List Purpose) (w : Option Purpose),
     List.length x = List.length v →
     (Option.none = y) = (Option.none = w) →
-    ( discrAbstract.match_1 (fun (_ : List Color) (_ : Option Color) => Prop) x y
-      (fun (_ : PUnit) => True)
+    ( discrAbstractTwo.match_1 (fun (_ : List Color) (_ : Option Color) => Prop) x y
+      (fun (_ : Color) => True)
       (fun (_ : List Color) => False)
-      (fun (_ : Option Color) => False)
       (fun (_ : List Color) (_ : Option Color) => True) ) →
-    ( discrAbstract.match_1 (fun (_ : List Purpose) (_ : Option Purpose) => Prop) v w
-      (fun (_ : PUnit) => True)
+    ( discrAbstractTwo.match_1 (fun (_ : List Purpose) (_ : Option Purpose) => Prop) v w
+      (fun (_ : Purpose) => True)
       (fun (_ : List Purpose) => False)
-      (fun (_ : Option Purpose) => False)
       (fun (_ : List Purpose) (_ : Option Purpose) => True) )
 
 
@@ -161,51 +186,56 @@ instance : DecidableEq BuiltinArg := BuiltinArg.decEq
         (BuiltinArg.ArgQ = l → BuiltinArg.ArgV = l) )
 
 
-def discrAbstractInversed (x : List α) (y : Option α) : Bool :=
+def discrAbstractInversedOne (x : List α) (y : Option α) : Bool :=
   match x, y with
   | [], none => true
   | [], _ => false
   | _, none => false
   | _, _ => true
 
+-- ∀ (α : Type) (x : List α) (y : Option α), discrAbstract x y ≠ discrAbstractInversed x y ===> False
+-- NOTE: match is now normalized to ite since we are no more constrained with the decidable instance for Eq
+-- Test case to ensure that we are not wrongly performing structural equivalence on match
+#testOptimize [ "MatchStructEqUnchanged_2" ]
+  ∀ (α : Type) (x : List α) (y : Option α), discrAbstractOne x y ≠ discrAbstractInversedOne x y ===> False
 
--- ∀ (α : Type) (x : List α) (y : Option α), discrAbstract x y ≠ discrAbstractInversed x y ===>
+
+def discrAbstractInversedTwo (x : List α) (y : Option α) : Bool :=
+  match x, y with
+  | _ , none => false
+  | [], some _ => true
+  | _, _ => true
+
+-- ∀ (α : Type) (x : List α) (y : Option α), discrAbstractTwo x y ≠ discrAbstractInversedTwo x y ===>
 -- ∀ (α : Type) (x : List α) (y : Option α),
---   ¬ ( discrAbstract.match_1 (fun (_ : List α) (_ : Option α) => Prop) x y
---        (fun (_ : PUnit) => True)
+--   ¬  ( discrAbstractInversedTwo.match_1 (fun (_ : List α) (_ : Option α) => Prop) x y
 --        (fun (_ : List α) =>
---          ( discrAbstractInversed.match_1 (fun (_ : List α) (_ : Option α) => Prop) x y
---            (fun (_ : PUnit) => False)
---            (fun (_ : Option α) => True)
+--          ( discrAbstractTwo.match_1 (fun (_ : List α) (_ : Option α) => Prop) x y
+--            (fun (_ : α) => False)
 --            (fun (_ : List α) => True)
---            (fun (_ : List α) (_ : Option α) => False) ) )
---        (fun (_ : Option α) =>
---          ( discrAbstractInversed.match_1 (fun (_ : List α) (_ : Option α) => Prop) x y
---            (fun (_ : PUnit) => False)
---            (fun (_ : Option α) => True)
---            (fun (_ : List α) => True)
---            (fun (_ : List α) (_ : Option α) => False) ) )
---        (fun (_ : List α) (_ : Option α) => True))
+--            (fun (_ : List α) (_ : Option α) => False)))
+--        (fun (_ : α) => True)
+--        (fun (_ : List α) (_ : Option α) =>
+--          ( discrAbstractTwo.match_1 (fun (_ : List α) (_ : Option α) => Prop) x y
+--            (fun (_ : α) => True)
+--            (fun (_ : List α) => False)
+--            (fun (_ : List α) (_ : Option α) => True))))
 -- Test case to ensure that we are not wrongly performing structural equivalence on match
 -- NOTE: some match cases reduce to True due to elimMatch optimization rules.
-#testOptimize [ "MatchStructEqUnchanged_2" ]
-  ∀ (α : Type) (x : List α) (y : Option α), discrAbstract x y ≠ discrAbstractInversed x y ===>
+#testOptimize [ "MatchStructEqUnchanged_3" ]
+  ∀ (α : Type) (x : List α) (y : Option α), discrAbstractTwo x y ≠ discrAbstractInversedTwo x y ===>
   ∀ (α : Type) (x : List α) (y : Option α),
-    ¬ ( discrAbstract.match_1 (fun (_ : List α) (_ : Option α) => Prop) x y
-         (fun (_ : PUnit) => True)
+    ¬  ( discrAbstractInversedTwo.match_1 (fun (_ : List α) (_ : Option α) => Prop) x y
          (fun (_ : List α) =>
-           ( discrAbstractInversed.match_1 (fun (_ : List α) (_ : Option α) => Prop) x y
-             (fun (_ : PUnit) => False)
-             (fun (_ : Option α) => True)
+           ( discrAbstractTwo.match_1 (fun (_ : List α) (_ : Option α) => Prop) x y
+             (fun (_ : α) => False)
              (fun (_ : List α) => True)
-             (fun (_ : List α) (_ : Option α) => False) ) )
-         (fun (_ : Option α) =>
-           ( discrAbstractInversed.match_1 (fun (_ : List α) (_ : Option α) => Prop) x y
-             (fun (_ : PUnit) => False)
-             (fun (_ : Option α) => True)
-             (fun (_ : List α) => True)
-             (fun (_ : List α) (_ : Option α) => False) ) )
-         (fun (_ : List α) (_ : Option α) => True))
-
+             (fun (_ : List α) (_ : Option α) => False)))
+         (fun (_ : α) => True)
+         (fun (_ : List α) (_ : Option α) =>
+           ( discrAbstractTwo.match_1 (fun (_ : List α) (_ : Option α) => Prop) x y
+             (fun (_ : α) => True)
+             (fun (_ : List α) => False)
+             (fun (_ : List α) (_ : Option α) => True))))
 
 end Tests.StructEqMatch

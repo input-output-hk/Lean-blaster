@@ -23,28 +23,49 @@ partial def normLevel (l : Level) : Level :=
 
 /-- Given `e := Expr.const n l, apply the following normalization rule:
      - When `n := Nat.zero` return `Expr.lit (Literal.natVal 0)`
+
      - When `ConstantIno.opaqueInfo opVal ← getConstInfo n` (i.e., n is a constant defined at top level)
         - return `optimizer opVal`
+
      - When `n := Nat.pred`
          - return `λ n => n - 1`
+
      - When `n := Nat.succ`
          - return `λ n => 1 + n`
+
      - When `n := Nat.le`
          - return `mkNatLeOp`
+
      - When `n := Nat.ble` ∧ (← isOptimizeRecCall):
-         - return `λ x y => decide (x ≤ y)`
+         - return `λ x y => decide' (x ≤ y)`
+
      - When `n := Nat.beq` ∧ (← isOptimizeRecCall):
          - return `λ x y => x == y`
+
      - When `n := Int.negSucc ∧ ¬ (← isInFunApp)`
          - return `λ n => Int.neg (Int.ofNat (1 + n))`
+
      - When `n := Int.le`
          - return `mkIntLeOp`
+
+     - When `n := ite`
+         - return `λ (α : Sort u) (p : Prop) [h : Decidable p] (t e : α) =>
+                     Solver.dite' α p (fun _ => t) (fun _ => e)`
+
+     - When `n := dite`
+         - return `λ (α : Sort u) (p : Prop) [h : Decidable p] (t : p → α) (e : ¬ p → α) =>
+                     Solver.dite' α p t e`
+
+     - When `n := Decidable.decide`
+         - return `λ (p : Prop) [h : Decidable p] => Solver.decide' p`
+
      - When `¬ (← isInFunApp):
          - When `¬ hasImplicitArgs e`:
              - When `isRecursiveFun n` (i.e., a recursive function passed as argument):
                  - return `(← normOpaqueAndRecFun e #[] optimizer)`
              - When `(← getFunBody e).isSome ∧ ¬ isRecursiveFun n ∧ ¬ isNotFoldable e`:
                  - return `optimizer (← getFunBody e)`
+
      - When `(← isInFunApp) ∧ ¬ isNotFoldable e ∧ ¬ hasImplicitArgs e ∧ (← getFunBody e).isSome`:
           - return `← getFunBody e`
 
@@ -89,10 +110,13 @@ def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeCo
          - Nat.pred ==> λ n => n - 1
          - Nat.succ ==> λ n => 1 + n
          - Nat.le ==> ≤
-         - Nat.ble ==> λ x y => decide (x ≤ y) (if isOptimizeRecCall)
+         - Nat.ble ==> λ x y => Solver.decide' (x ≤ y) (if isOptimizeRecCall)
          - Nat.beq ==> λ x y => x == y (if isOptimizeRecCall)
          - Int.negSucc ==> λ n => Int.neg (Int.ofNat (1 + n)) (if ¬ isInFunApp)
          - Int.le ==> ≤
+         - ite ==> λ (α : Sort u) (p : Prop) [h : Decidable p] (t e : α) => Solver.dite' α p (fun _ => t) (fun _ => e)
+         - dite ==> λ (α : Sort u) (p : Prop) [h : Decidable p] (t : p → α) (e : ¬ p → α) => Solver.dite' α p t e
+         - Decidable.decide ==> λ (p : Prop) [h : Decidable p] => Solver.decide' p
     -/
     @[always_inline, inline]
     isToNormOpaqueFun (n : Name) : TranslateEnvT (Option OptimizeContinuity) := do
@@ -112,8 +136,7 @@ def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeCo
      | ``Nat.ble =>
            if (← isOptimizeRecCall) then
              let leExpr ← mkExpr $ mkApp2 (← mkNatLeOp) (mkBVar 1) (mkBVar 0)
-             let decLeExpr ← mkExpr $ mkApp2 (← mkNatDecLeOp) (mkBVar 1) (mkBVar 0)
-             let body ← mkExpr $ mkApp2 (← mkDecideConst) leExpr decLeExpr
+             let body ← mkExpr $ mkApp (← mkSolverDecideConst) leExpr
              let lam1 ← mkExpr $ mkLambda (← Term.mkFreshBinderName) BinderInfo.default (← mkNatType) body
              let lam2 := mkLambda (← Term.mkFreshBinderName) BinderInfo.default (← mkNatType) lam1
              stackContinuity stack (← mkExpr lam2)
@@ -137,6 +160,28 @@ def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeCo
              else stackContinuity stack (skipCache := true) e -- don't catch
 
      | ``Int.le => stackContinuity stack (← mkIntLeOp)
+
+     | ``ite =>
+          let hName ← Term.mkFreshBinderName
+          forallTelescope (← inferTypeEnv e) fun xs _ => do
+            let thenExpr ← mkExpr $ mkLambda hName BinderInfo.default xs[1]! xs[3]!
+            let notCond ← mkExpr $ mkApp (← mkPropNotOp) xs[1]!
+            let elseExpr ← mkExpr $ mkLambda hName BinderInfo.default notCond xs[4]!
+            let appExpr ← mkExpr $ mkApp4 (← mkSolverDIteOp) xs[0]! xs[1]! thenExpr elseExpr
+            let lam ← mkLambdaFVars xs appExpr
+            stackContinuity stack (← mkExpr lam)
+
+     | ``dite =>
+         forallTelescope (← inferTypeEnv e) fun xs _ => do
+           let appExpr ← mkExpr $ mkApp4 (← mkSolverDIteOp) xs[0]! xs[1]! xs[3]! xs[4]!
+           let lam ← mkLambdaFVars xs appExpr
+           stackContinuity stack (← mkExpr lam)
+
+     | ``Decidable.decide =>
+          forallTelescope (← inferTypeEnv e) fun xs _ => do
+            let appExpr ← mkExpr $ mkApp (← mkSolverDecideConst) xs[0]!
+            let lam ← mkLambdaFVars xs appExpr
+            stackContinuity stack (← mkExpr lam)
 
      | _ => return none
 

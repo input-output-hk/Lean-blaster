@@ -20,8 +20,8 @@ namespace Solver.Optimize
   let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
   if (← inHypMap a hyps).isSome then return b
   if (← inHypMap b hyps).isSome then return a
-  if (← notInHypMap a hyps) then return (← mkPropFalse)
-  if (← notInHypMap b hyps) then return (← mkPropFalse)
+  if (← notInHypMap a hyps).isSome then return (← mkPropFalse)
+  if (← notInHypMap b hyps).isSome then return (← mkPropFalse)
   return none
 
 
@@ -33,6 +33,7 @@ namespace Solver.Optimize
      - true = e ∧ false = e ==> False
      - e1 ∧ (e1 → e2) ==> e1 ∧ e2 (if ¬ e2.hasLooseBVars)
      - e1 ∧ (e2 → e1) ==> e1
+     - (e1 → e2) ∧ (¬ e1 → e2) ==> e2
      - e1 ∧ e2 ==> e2 (if e1 := _ ∈ hypothesisContext.hypothesisMap)
      - e1 ∧ e2 ==> e1 (if e2 := _ ∈ hypothesisContext.hypothesisMap)
      - e1 ∧ e2 ==> False (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = ¬ e1)
@@ -44,14 +45,13 @@ namespace Solver.Optimize
 -/
 def optimizeAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeAnd: exactly two arguments expected"
- let opArgs ← reorderPropOp args -- error triggered when args.size ≠ 2
- let op1 := opArgs[0]!
- let op2 := opArgs[1]!
+ let op1 := args[0]!
+ let op2 := args[1]!
  if let Expr.const ``False _  := op1 then return op1
  if let Expr.const ``True _ := op1 then return op2
- if (← exprEq op1 op2) then return op1
- if (← isNotExprOf op2 op1) then return ← mkPropFalse
- if (← isNegBoolEqOf op2 op1) then return ← mkPropFalse
+ if exprEq op1 op2 then return op1
+ if isNotExprOf op2 op1 then return ← mkPropFalse
+ if isNegBoolEqOf op2 op1 then return ← mkPropFalse
  if let some r ← andImpliesReduce? op1 op2 then return r
  if let some r ← andPropReduction? op1 op2 then return r
  -- no caching at this level as optimizeAnd is called by optimizeBoolPropAnd
@@ -63,17 +63,25 @@ def optimizeAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
           - return `some a ∧ c`
        - When `b := c → a`
           - return `some a`
+       - When `a := c → d ∧ b := ¬ c → d`
+          - return `some d`
        - Otherwise:
          - return `none`
    -/
    andImpliesReduce? (a : Expr) (b : Expr) : TranslateEnvT (Option Expr) := do
      match b with
-     | Expr.forallE _ t c _ =>
-         if (← exprEq t a) && !(c.hasLooseBVars) then
+     | Expr.forallE _ t1 c1 _ =>
+         if exprEq t1 a && !(c1.hasLooseBVars) then
            setRestart
-           return mkApp2 f a c
-         if (← exprEq c a) then return a -- no need to restart here
-         return none
+           return mkApp2 f a c1
+         if exprEq c1 a then return a -- no need to restart here
+         match a with
+         | Expr.forallE _ t2 c2 _ =>
+            if !(exprEq c1 c2) then return none
+            let not_t2 ← optimizeNot (← mkPropNotOp) (cacheResult := false) #[t2]
+            if t1 == not_t2 then return c1 -- no need to restart here
+            else return none
+         | _ => return none
      | _ => return none
 
  /-- Given `a` and `b` the operands for `Or`, apply the simplification rules:
@@ -92,8 +100,8 @@ def optimizeAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
   let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
   if (← inHypMap a hyps).isSome then return (← mkPropTrue)
   if (← inHypMap b hyps).isSome then return (← mkPropTrue)
-  if (← notInHypMap a hyps) then return b
-  if (← notInHypMap b hyps) then return a
+  if (← notInHypMap a hyps).isSome then return b
+  if (← notInHypMap b hyps).isSome then return a
   return none
 
 
@@ -108,8 +116,8 @@ def optimizeAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 def orImpliesReduce? (a : Expr) (b : Expr) : TranslateEnvT (Option Expr) := do
   match b with
   | Expr.forallE _ t c _ =>
-      if (← exprEq t a) then return (← mkPropTrue)
-      if (← exprEq c a) then return b
+      if exprEq t a then return (← mkPropTrue)
+      if exprEq c a then return b
       return none
   | _ => return none
 
@@ -132,14 +140,13 @@ def orImpliesReduce? (a : Expr) (b : Expr) : TranslateEnvT (Option Expr) := do
 -/
 def optimizeOr (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeOr: exactly two arguments expected"
- let opArgs ← reorderPropOp args -- error triggered when args.size ≠ 2
- let op1 := opArgs[0]!
- let op2 := opArgs[1]!
+ let op1 := args[0]!
+ let op2 := args[1]!
  if let Expr.const ``False _ := op1 then return op2
  if let Expr.const ``True _ := op1 then return op1
- if (← exprEq op1 op2) then return op1
- if (← isNotExprOf op2 op1) then return (← mkPropTrue)
- if (← isNegBoolEqOf op2 op1) then return (← mkPropTrue)
+ if exprEq op1 op2 then return op1
+ if isNotExprOf op2 op1 then return (← mkPropTrue)
+ if isNegBoolEqOf op2 op1 then return (← mkPropTrue)
  if let some r ← orImpliesReduce? op1 op2 then return r
  if let some r ← orPropReduction? op1 op2 then return r
  -- no caching at this level as optimizeOr is called by optimizeBoolPropOr

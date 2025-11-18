@@ -60,8 +60,6 @@ info:  - «Test.Counter06.counterStateMachine.state@0»: (Test.Counter06.Counter
   Test.Counter06.Request.Tr
   3)
 ---
-info:  - «Test.Counter06.counterStateMachine.input@1»: Test.Counter06.Request.Tr
----
 info: ⚠️ Induction failed at Depth 2
 ---
 info: Counterexample to Induction:
@@ -96,7 +94,7 @@ info:  - «Test.Counter06.counterStateMachine.input@1»: Test.Counter06.Request.
 ---
 info:  - «Test.Counter06.counterStateMachine.input@2»: Test.Counter06.Request.Tr
 ---
-info:  - «Test.Counter06.counterStateMachine.input@3»: Test.Counter06.Request.Fa
+info:  - «Test.Counter06.counterStateMachine.input@3»: Test.Counter06.Request.Tr
 ---
 warning: ⚠️ Failed to establish induction up to Depth 3
 -/

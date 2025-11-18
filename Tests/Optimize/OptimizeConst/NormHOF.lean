@@ -288,7 +288,7 @@ def mapOption [Size α] (x : Option α) : Nat :=
 --            mapOption.match_1
 --            (λ (_ : Option α) => Nat)
 --            x
---            (λ (_ : PUnit) => 0)
+--            (λ (_ : Unit) => 0)
 --            (λ (a : α) => Size.size a)
 --          ) xs ) ) < x
 -- NOTE: Test case to ensure that polymorphic non-recursive functions passed
@@ -301,7 +301,7 @@ def mapOption [Size α] (x : Option α) : Nat :=
                                                 mapOption.match_1
                                                 (λ (_ : Option α) => Nat)
                                                 x
-                                                (λ (_ : PUnit) => 0)
+                                                (λ (_ : Unit) => 0)
                                                 (λ (a : α) => Size.size a)
                                             ) xs ) ) < x
 
@@ -394,7 +394,7 @@ def mapOptionDefault (x : Nat) (y : Option Nat) : Nat :=
 --                       mapOptionDefault.match_1
 --                       (λ (_ : Option Nat) => Nat)
 --                       y
---                      (λ (_ : PUnit) => x)
+--                      (λ (_ : Unit) => x)
 --                      (λ (a : Nat) => a)
 --                   ) (List.map Option.some xs)
 #testOptimize [ "ConstClassCtorArg_3" ]
@@ -403,7 +403,7 @@ def mapOptionDefault (x : Nat) (y : Option Nat) : Nat :=
                                                 mapOptionDefault.match_1
                                                  (λ (_ : Option Nat) => Nat)
                                                  y
-                                                 (λ (_ : PUnit) => x)
+                                                 (λ (_ : Unit) => x)
                                                  (λ (a : Nat) => a)
                                              ) (List.map Option.some xs)
 
@@ -429,25 +429,27 @@ def mapOptionDefault (x : Nat) (y : Option Nat) : Nat :=
     ∀ (x : Nat) (xs : List Nat), List.foldr Nat.add 0 (List.map (Nat.add x) xs) ≥ List.length xs * x ===>
     ∀ (x : Nat) (xs : List Nat), ¬ List.foldr Nat.add 0 (List.map (λ y => Nat.add x y) xs) < Nat.mul x (List.length xs)
 
--- ∀ (c a : Bool) (xs : List Bool), List.all xs id → a → List.all (List.map (ite c a) xs) id ===>
--- ∀ (c a : Bool) (xs : List Bool),
+-- ∀ (c : Prop) (a : Bool) (xs : List Bool), [Decidable c] →
+--   List.all xs id → a → List.all (List.map (ite c a) xs) id ===>
+-- ∀ (c : Prop) (a : Bool) (xs : List Bool),
 --   true = List.all xs (λ b => b) → true = a →
---   true = List.all (List.map (λ b => if true = c then a else b) xs) (λ b => b)
+--   true = List.all (List.map (λ b => Solver.dite' c (fun _ => a) (fun _ => b)) xs) (λ b => b)
 #testOptimize [ "ConstPartialFunArg_3" ]
-  ∀ (c a : Bool) (xs : List Bool), List.all xs id → a → List.all (List.map (ite c a) xs) id ===>
-  ∀ (c a : Bool) (xs : List Bool),
+  ∀ (c : Prop) (a : Bool) (xs : List Bool), [Decidable c] →
+    List.all xs id → a → List.all (List.map (ite c a) xs) id ===>
+  ∀ (c : Prop) (a : Bool) (xs : List Bool),
     true = List.all xs (λ b => b) → true = a →
-    true = List.all (List.map (λ b => if true = c then a else b) xs) (λ b => b)
+    true = List.all (List.map (λ b => Solver.dite' c (fun _ => a) (fun _ => b)) xs) (λ b => b)
 
 -- ∀ (x : Nat) (xs : List Nat),
---   List.any xs (λ a => a = x) → ∃ (p : Prop), p ∈ (List.map (Eq x) xs) ∧ p ===>
+--   List.any xs (λ a => a == x) → ∃ (p : Prop), p ∈ (List.map (Eq x) xs) ∧ p ===>
 -- ∀ (x : Nat) (xs : List Nat),
---   true = List.any xs (λ a => x = a) → ∃ (p : Prop), p ∧ List.Mem p (List.map (λ a => Eq x a) xs)
+--   true = List.any xs (λ a => x == a) → ∃ (p : Prop), p ∧ List.Mem p (List.map (λ a => Eq x a) xs)
 #testOptimize [ "ConstPartialFunArg_4" ]
     ∀ (x : Nat) (xs : List Nat),
-      List.any xs (λ a => a = x) → ∃ (p : Prop), p ∈ (List.map (Eq x) xs) ∧ p ===>
+      List.any xs (λ a => a == x) → ∃ (p : Prop), p ∈ (List.map (Eq x) xs) ∧ p ===>
     ∀ (x : Nat) (xs : List Nat),
-      true = List.any xs (λ a => x = a) → ∃ (p : Prop), p ∧ List.Mem p (List.map (λ a => Eq x a) xs)
+      true = List.any xs (λ a => x == a) → ∃ (p : Prop), p ∧ List.Mem p (List.map (λ a => Eq x a) xs)
 
 /-! Test cases to ensure that opaque functions passed as arguments are properly normalized. -/
 
@@ -485,10 +487,10 @@ def boolWapper (f : Nat → Nat → Bool) (x : Nat) (y : Nat) := f x y
   ∀ (x : Nat) (xs : List Nat), List.any xs (λ a => x ≤ a) = List.any xs (Nat.ble x) ===> True
 
 -- ∀ (x : Nat) (xs : List Nat), List.any xs (beqWapper Nat.ble x) → List.contains xs x ===>
--- ∀ (x : Nat) (xs : List Nat), true = List.any xs (λ a => ¬ a < x) → true = List.elem x xs
+-- ∀ (x : Nat) (xs : List Nat), true = List.any xs (λ a => Solver.decide' ¬ a < x) → true = List.elem x xs
 #testOptimize [ "ConstNormOpaqueFunArg_7" ]
   ∀ (x : Nat) (xs : List Nat), List.any xs (boolWapper Nat.ble x) → List.contains xs x ===>
-  ∀ (x : Nat) (xs : List Nat), true = List.any xs (λ a => ¬ a < x) → true = List.elem x xs
+  ∀ (x : Nat) (xs : List Nat), true = List.any xs (λ a => Solver.decide' ¬ a < x) → true = List.elem x xs
 
 -- Nat.le = LE.le ===> True
 #testOptimize [ "ConstNormOpaqueFunArg_8" ] Nat.le = LE.le ===> True

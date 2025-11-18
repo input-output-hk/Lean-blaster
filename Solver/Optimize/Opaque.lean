@@ -1,4 +1,6 @@
 import Lean
+import Solver.Optimize.Decidable
+
 open Lean Meta
 
 namespace Solver.Optimize
@@ -11,17 +13,17 @@ def opaqueFuns : NameHashSet :=
   [
     -- structural equality
     ``Eq,
-    -- decide predicate on proposition
+    -- decide predicate on proposition (normalized to Solver.decide')
     ``Decidable.decide,
     -- Prop operators
     ``And,
     ``Or,
     ``Not,
     ``Iff,
-    -- ite
-    ``ite,
+    -- if then else
+    ``ite, -- normalized to Solver.dite'
     -- dependent ite
-    ``dite,
+    ``dite, -- normalized to Solver.dite'
     -- existential quantifier
     ``Exists,
     -- Int operators
@@ -55,6 +57,9 @@ def opaqueFuns : NameHashSet :=
     ``Nat.beq,
     ``Nat.pow,
     ``Nat.le, -- defining LE.le for Nat, Nat.lt is defined with Nat.le
+    ``Solver.decide', -- decide predicate that ignores decidable instance
+    ``Solver.dite', -- dependent ite that ignores decidable instance
+    -- Note: ite is normalized to Solver.dite'
     -- String operators
     ``String.append,
     ``String.replace,

@@ -36,8 +36,8 @@ partial def kIndStrategy (smInst : Expr) : TranslateEnvT Unit := do
       logNotInductiveAtDepth
     else
       let env ← get
-      withLocalDecl (← nameAtDepth env.smName "input") BinderInfo.default env.inputType fun i => do
-        logDepthProgress
+      withLocalDecl' (← nameAtDepth env.smName "input") BinderInfo.default env.inputType fun i => do
+        logDepthProgress "KInd"
         withDeclState i prevState fun nextState => do
           -- assert assumptions and check contradiction at step k
           if (← assertAssumptions smInst i nextState) then
@@ -72,7 +72,7 @@ partial def kIndStrategy (smInst : Expr) : TranslateEnvT Unit := do
       let env ← get
       match pState with
       | none => -- depth 0
-           withLocalDecl (← nameAtDepth env.smName "state") BinderInfo.default env.stateType fun s => do
+           withLocalDecl' (← nameAtDepth env.smName "state") BinderInfo.default env.stateType fun s => do
              let initState := mkApp4 (← mkInit) env.inputType env.stateType smInst iVar
              let initEq ←
                profileTask s!"Optimizing state at Depth {← getCurrentDepth}"
@@ -155,10 +155,11 @@ partial def kIndStrategy (smInst : Expr) : TranslateEnvT Unit := do
 
 syntax (name := kind) "#kind" (solveOption)* solveTerm : command
 
-def kIndCommand (sOpts: SolverOptions) (stx : Syntax) : TermElabM Unit := do
-  elabTermAndSynthesize stx none >>= fun e => do
-    let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
-    discard $ kIndStrategy e|>.run env
+def kIndCommand (sOpts: SolverOptions) (stx : Syntax) : TermElabM Unit :=
+ withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0 }) $ do
+   elabTermAndSynthesize stx none >>= fun e => do
+     let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
+     discard $ kIndStrategy e|>.run env
 
 @[command_elab kind]
 def kIndImp : CommandElab := commandInvoker kIndCommand

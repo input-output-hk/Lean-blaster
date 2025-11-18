@@ -349,13 +349,13 @@ def condUnchanged (a : Option Bool) (b : Bool) (c : Bool) : Bool :=
 -- ∀ (a : Option Bool) (b c : Bool), condUnchanged a b c ===>
 -- ∀ (a : Option Bool) (b c : Bool),
 --  condUnchanged.match_1 (fun (_ : Option Bool) => Prop) a
---  (fun (_ : PUnit) => False)
+--  (fun (_ : Unit) => False)
 --  (fun (d : Bool) => (false = d → true = c) ∧ (true = d → true = b))
 #testOptimize ["MatchToITEUnchanged_1"]
   ∀ (a : Option Bool) ( b c : Bool), condUnchanged a b c ===>
   ∀ (a : Option Bool) ( b c : Bool),
     condUnchanged.match_1 (fun (_ : Option Bool) => Prop) a
-    (fun (_ : PUnit) => False)
+    (fun (_ : Unit) => False)
     (fun (d : Bool) => (false = d → true = c) ∧ (true = d → true = b))
 
 def isNilUnchanged (x : List Nat) : Bool :=
@@ -367,13 +367,13 @@ def isNilUnchanged (x : List Nat) : Bool :=
 -- ∀ (x : List Nat),
 --  isNilUnchanged.match_1 (fun (_ : List Nat) => Prop) x
 --  (fun (_ : Nat) (_ : List Nat) => False)
---  (fun (_ : PUnit) => True)
+--  (fun (_ : Unit) => True)
 #testOptimize ["MatchToITEUnchanged_2"]
   ∀ (x : List Nat), isNilUnchanged x ===>
   ∀ (x : List Nat),
     isNilUnchanged.match_1 (fun (_ : List Nat) => Prop) x
     (fun (_ : Nat) (_ : List Nat) => False)
-    (fun (_ : PUnit) => True)
+    (fun (_ : Unit) => True)
 
 
 def multiEqUnchanged (x : Int) (y : Nat) (z : Option Nat) : Nat :=
@@ -419,7 +419,7 @@ def discrListUnchanged (x : List Int) (y : List Nat) : Bool :=
 -- ∀ (x : List Int) (y : List Nat), discrListUnchanged x y ===>
 -- ∀ (x : List Int) (y : List Nat),
 --  Tests.MatchToITE.discrListUnchanged.match_1 (fun (_ : List Int) (_ : List Nat) => Prop) x y
---  (fun (_ : PUnit) => True)
+--  (fun (_ : Unit) => True)
 --  (fun (_ : List Nat) => False)
 --  (fun (_ : List Int) => False)
 --  (fun (_ : List Int) (_ : List Nat) => True)
@@ -429,7 +429,7 @@ def discrListUnchanged (x : List Int) (y : List Nat) : Bool :=
   ∀ (x : List Int) (y : List Nat), discrListUnchanged x y ===>
   ∀ (x : List Int) (y : List Nat),
      Tests.MatchToITE.discrListUnchanged.match_1 (fun (_ : List Int) (_ : List Nat) => Prop) x y
-     (fun (_ : PUnit) => True)
+     (fun (_ : Unit) => True)
      (fun (_ : List Nat) => False)
      (fun (_ : List Int) => False)
      (fun (_ : List Int) (_ : List Nat) => True)
@@ -438,27 +438,23 @@ def discrListUnchanged (x : List Int) (y : List Nat) : Bool :=
 
 def discrAbstract (x : List α) (y : Option α) : Bool :=
   match x, y with
-  | [], none => true
+  | [], some _ => true
   | _, none => false
-  | [], _ => false
   | _, _ => true
 
--- ∀ (α : Type) (x : List α) (y : Option α), (discrAbstractUnchanged x y) ===>
--- ∀ (α : Type) (x : List α) (y : Option α)
---  ( discrAbstract.match_1 (fun (_ : List α) (_ : Option α) => Prop) x y
---    (fun (_ : PUnit) => True)
---    (fun (_ : List α) => False)
---    (fun (_ : Option α) => False)
---    (fun (_ : List α) (_ : Option α) => True) )
--- Test case to check that match expression is not normalized when DecidableEq instance cannot be synthesized.
--- We here used auxiliary function `discrAbstractUnchanged.match_1` created by Lean to check the result.
+
+-- ∀ (α : Type) (x : List α) (y : Option α), (discrAbstract x y) ===>
+-- ∀ (α : Type) (x : List α) (y : Option α),
+--   ( discrAbstract.match_1 (fun (_ : List α) (_ : Option α) => Prop) x y
+--     (fun (_ : α) => True)
+--     (fun (_ : List α) => False)
+--     (fun (_ : List α) (_ : Option α) => True) )
 #testOptimize ["MatchToITEUnchanged_5"]
   ∀ (α : Type) (x : List α) (y : Option α), (discrAbstract x y) ===>
   ∀ (α : Type) (x : List α) (y : Option α),
     ( discrAbstract.match_1 (fun (_ : List α) (_ : Option α) => Prop) x y
-      (fun (_ : PUnit) => True)
+      (fun (_ : α) => True)
       (fun (_ : List α) => False)
-      (fun (_ : Option α) => False)
       (fun (_ : List α) (_ : Option α) => True) )
 
 end Tests.MatchToITE

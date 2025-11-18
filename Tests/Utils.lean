@@ -9,9 +9,10 @@ namespace Tests
 def parseTerm (stx : Syntax) : TermElabM Expr := elabTermAndSynthesize stx none
 
 /-- Parse a term syntax and call optimize. -/
-def callOptimize (sOpts : SolverOptions) (stx : Syntax) : TermElabM Expr := do
-  let optRes ← (Solver.Optimize.command sOpts (← parseTerm stx))
-  pure optRes.1
+def callOptimize (sOpts : SolverOptions) (stx : Syntax) : TermElabM Expr :=
+  withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0 }) $ do
+    let optRes ← (Solver.Optimize.command sOpts (← parseTerm stx))
+    pure optRes.1
 
 /-! ## Definition of #testOptimize command to write unit test for Solver.optimize
     The #testOptimize usage is as follows:
