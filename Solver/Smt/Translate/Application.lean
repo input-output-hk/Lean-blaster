@@ -619,6 +619,11 @@ partial def inferUndeclFunType (t : Expr) (params : ImplicitParameters) : Expr :
      perform the following:
        - Let `∀ α₀ → ∀ α₁ ... → αₙ` := inferUndecFunType (← getFunEnvInfo f).type params
        - declare smt function `declare-fun s ((st₀) .. (stₙ₋₁)) stₙ)`
+       - assert the following proposition to constraint the codomain value:
+          - `(assert (forall ((@x₀ st₀) ... (@xₙ₋₁ stₙ₋₁))
+              (! (@isTypeₙ (s @x₁ ... @xₙ₋₁))
+                 :pattern ((s @x₁ ... @xₙ₋₁))) :qid s_cstr)`
+
      where ∀ i ∈ [0..n], αᵢ translates to Smt type stᵢ
 -/
 def generateUndeclaredFun
@@ -628,16 +633,29 @@ def generateUndeclaredFun
   -- infer fun type and removing implicit arguments (i.e., even class constraints)
   let funType := inferUndeclFunType pInfo.type params
   Optimize.forallTelescope funType fun fvars retType => do
+    let xsyms := Array.ofFn (λ f : Fin fvars.size => mkReservedSymbol s!"@x{f.val}")
     let mut pargs := (#[] : Array SortExpr)
+    let mut co_quantifiers := (#[] : SortedVars)
     for h : i in [:fvars.size] do
       let decl ← getFVarLocalDecl fvars[i]
       let st ← translateFunLambdaParamType decl.type termTranslator
       pargs := pargs.push st
+      co_quantifiers := co_quantifiers.push (xsyms[i]!, st)
     let ret ← translateFunLambdaParamType retType termTranslator
     declareFun s pargs ret
+    -- assert codomain constraint
+    if fvars.size > 0 then
+      let xIds := Array.map (λ v => smtSimpleVarId v) xsyms
+      let f_applyTerm := mkSimpleSmtAppN s xIds
+      let forallBody ← createPredQualifierAppAux f_applyTerm retType
+      let qidName := mkQid $ appendSymbol s "cstr"
+      let pattern := some #[mkPattern #[f_applyTerm], qidName]
+      assertTerm (mkForallTerm none co_quantifiers forallBody pattern)
+    else
+      assertTerm (← createPredQualifierAppAux (smtSimpleVarId s) retType)
 
 /-- Given `e := Expr.const n l`,
-     - When `n := false`
+     - When `n :1= false`
         - return `BoolTerm false`
      - When `n := False`
         - return `BoolTerm false`
@@ -962,10 +980,9 @@ def translateApp
      - let FunArrowType := ArrowTN st₁ ... stₘ rt
      - let decl ← generateFunInstDeclAux (← inferTypeEnv e) FunArrowType
      - let some @apply{k} := decl.applyInstName
+     - let sb := termTranslator b
      - When V = ∅
         - declare smt function `(declare-const @lambda{n} FunArrowType)`
-
-        - let sb := termTranslator b
         - assert the following proposition to properly constrain @lambda{n}:
           `(assert (forall ((x₁ st₁) ... (xₘ stₘ))
              (! (= (@apply{k} @lambda{n} x₁ ... xₘ) sb)
@@ -975,14 +992,17 @@ def translateApp
      - When V ≠ ∅
         - let (y₁, yt₁) ... (yₖ, ytₖ) := [(V[i], translateFunLambdaParamType V[i].type termTranslator) | i ∈ [0..V.size-1]]
         - let GlobalArrowType := ArrowTN yt₁ ... ytₖ FunArrowType
+        - let [v₁, ..., vₖ] = V
+        - let globalType ← ∀ v₁ → ... ∀ vₖ → outParam (← inferTypeEnv e)
+        - let globalDecl ← generateFunInstDeclAux globalType GlobalArrowType
+        - let some @apply{n} := globalDecl.applyInstName
         - declare smt function `(declare-const @global_lambda{n} GlobalArrowType)`
-        - declare global apply function `(declare-fun @global_apply{n} (GlobalArrowType yt₁ ... ytₖ) FunArrowType)`
-        - assert the following proposition to properly constrain @lambda{n} and @global_lambda{n}!
+        - assert the following proposition to properly constrain @global_lambda{n}!
            - `(assert (forall ((y₁, yt₁) ... (yₖ, ytₖ) (x₁, st₁) ... (xₘ, stₘ))
-               (! (= (@apply{k} (@global_apply{n} @global_lambda{n} y₁ ... yₖ) x₁ ... xₘ) sb)
-                  :pattern ((@apply{k} (@global_apply{n} @global_lambda{n} y₁ ... yₖ) x₁ ... xₘ))
+               (! (= (@apply{k} (@apply{n} @global_lambda{n} y₁ ... yₖ) x₁ ... xₘ) sb)
+                  :pattern ((@apply{k} (@apply{n} @global_lambda{n} y₁ ... yₖ) x₁ ... xₘ))
                   :qid @global_lambda{n}_def_cstr)))`
-       - return `(@global_apply{n} @global_lambda{n} y₁ ... yₖ)`
+       - return `(@apply{n} @global_lambda{n} y₁ ... yₖ)`
 -/
 def translateLambda
   (e : Expr) (termTranslator : Expr → TranslateEnvT SmtTerm) : TranslateEnvT SmtTerm := do
@@ -1005,7 +1025,8 @@ def translateLambda
    let funArrowType := paramSort arrowT ((Array.map (λ s => s.2) svars).push rt)
    -- generate apply function with corresponding congruence assertions (or retriving if already declared).
    let decl ← generateFunInstDeclAux lamType funArrowType
-   let some applyName := decl.applyInstName | throwEnvError "translateLambda: @apply instance function expected !!!"
+   let some applyName := decl.applyInstName
+       | throwEnvError "translateLambda: @apply instance function expected !!!"
    let lvars ← retrieveLocalFVars (getLambdaBody e)
    let sb ← termTranslator b
    if lvars.isEmpty then
@@ -1028,14 +1049,17 @@ def translateLambda
      gvars := gvars.push (← fvarIdToSmtSymbol fv.fvarId!, st)
     let arrowT ← declareArrowTypeSort (lvars.size + 1)
     let globalArrowType := paramSort arrowT ((Array.map (λ s => s.2) gvars).push funArrowType)
+    -- wrapping lamType within `outParam` to properly generate function instance
+    let globalType ← Optimize.mkForallFVars' lvars (mkApp (mkConst ``outParam) lamType)
+    -- generate apply function with corresponding congruence assertions for global lambda
+    let globalDecl ← generateFunInstDeclAux globalType globalArrowType
     -- declare global lambda function `(declare-const @global_lambda{n} GlobalArrowType)`
     let globalName := mkReservedSymbol s!"@global_lambda{v}"
     let globalId := smtSimpleVarId globalName
     declareConst globalName globalArrowType
-    -- declare global apply function `(declare-fun @global_apply{n} (GlobalArrowType yt₁ ... ytₖ) FunArrowType)`
-    let globalApplyName := mkReservedSymbol s!"@global_apply{v}"
-    let declArgs := Array.foldl (λ acc s => acc.push s.2) #[globalArrowType] gvars
-    declareFun globalApplyName declArgs funArrowType
+    -- asserting global lambda definition
+    let some globalApplyName := globalDecl.applyInstName
+        | throwEnvError "translateLambda: @apply instance function expected !!!"
     let gArgs := Array.foldl (λ acc s => acc.push (smtSimpleVarId s.1)) #[globalId] gvars
     let globalAppTerm  := mkSimpleSmtAppN globalApplyName gArgs
     let applyArgs := Array.foldl (λ acc s => acc.push (smtSimpleVarId s.1)) #[globalAppTerm] svars
