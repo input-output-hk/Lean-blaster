@@ -538,7 +538,11 @@ def generateFunInstDeclAux (t : Expr) (st : SortExpr) : TranslateEnvT IndTypeDec
        return decl
 
   where
-    generateApplyFunAndAssertions (t : Expr) (instName : SmtSymbol) (applyName : SmtSymbol): TranslateEnvT Unit := do
+    removeOutParam : Expr → Expr
+     | Expr.app (Expr.const ``outParam _) e => e
+     | e => e
+
+    generateApplyFunAndAssertions (t : Expr) (instName : SmtSymbol) (applyName : SmtSymbol) : TranslateEnvT Unit := do
      let funTypes := retrieveArrowTypes t
      let .ParamSort _ smtTypes := st | throwEnvError "defineFunAssertions: ParamSort expected but got {st}"
      let nbTypes := funTypes.size - 1
@@ -568,7 +572,8 @@ def generateFunInstDeclAux (t : Expr) (st : SortExpr) : TranslateEnvT IndTypeDec
        co_quantifiers := co_quantifiers.push (xsyms[i]!, smtTypes[i]!)
        arg_quantifiers := (arg_quantifiers.push (xsyms[i]!, smtTypes[i]!)).push (ysyms[i]!, smtTypes[i]!)
      -- isFun constraint
-     let coDomainCstr ← createPredQualifierAppAux f_applyTerm1 funTypes[nbTypes]!
+     -- Need to remove outParam on return type (if necessary) (see, translateLambda)
+     let coDomainCstr ← createPredQualifierAppAux f_applyTerm1 (removeOutParam funTypes[nbTypes]!)
      let forallCoDomain := mkForallTerm none co_quantifiers coDomainCstr none
      let f_funPredApp := mkSimpleSmtAppN instName #[fId]
      let forallFunBody := eqSmt forallCoDomain f_funPredApp
