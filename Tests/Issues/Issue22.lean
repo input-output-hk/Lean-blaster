@@ -25,8 +25,8 @@ theorem x_add_y_gt_x : x + y > x := by blaster
 theorem x_add_y_gt_y : x + y > y := by blaster
 #solve [x_add_y_gt_y]
 
--- theorem x_add_y_gt_2x : x + y > 2 * x := by blaster
--- #solve [x_add_y_gt_2x]
+theorem x_add_y_gt_2x : x + y > 2 * x := by blaster
+#solve [x_add_y_gt_2x]
 
 
 end Tests.Issue22

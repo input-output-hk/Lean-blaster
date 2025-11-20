@@ -256,17 +256,14 @@ class IntClass where
 opaque fo : Int → Int
 
 -- ∀ (x : Int) (xs : List Int),
---    List.foldr (λ a acc => Int.add (fo a) acc) x xs =
---    List.foldr Int.add x (List.map fo xs) ===>
+--      List.foldr (λ a acc => Int.add (fo a) acc) x xs = List.foldr Int.add x (List.map fo xs) ===>
 -- ∀ (x : Int) (xs : List Int),
---   List.foldr Int.add x (List.map (λ _a => 0) xs) =
---   List.foldr (λ _a acc => acc) x xs
--- NOTE: Test case for opaque function (reduced to a constant value)
-#testOptimize [ "ConstUndeclaredFunArg_5" ] (norm-result: 1)
+--    List.foldr Int.add x (List.map fo xs) = List.foldr (λ a acc => Int.add acc (fo a)) x xs
+#testOptimize [ "ConstUndeclaredFunArg_5" ]
   ∀ (x : Int) (xs : List Int),
        List.foldr (λ a acc => Int.add (fo a) acc) x xs = List.foldr Int.add x (List.map fo xs) ===>
   ∀ (x : Int) (xs : List Int),
-      List.foldr Int.add x (List.map (λ _a => 0) xs) = List.foldr (λ _a acc => acc) x xs
+     List.foldr Int.add x (List.map fo xs) = List.foldr (λ a acc => Int.add acc (fo a)) x xs
 
 
 /-! Test cases to ensure that polymorphic function (recursive or not) cannot trigger the normConst rule. -/
