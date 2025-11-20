@@ -109,19 +109,83 @@ def optimizeNatSub (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 
 /-- Apply the following simplification/normalization rules on `Nat.pow` :
      - n ^ 0 ==> 1
+     - n ^ 1 ==> n
+     - 0 ^ n ==> 0 (if ¬ (0 = n) := _ ∈ hypothesisContext.hypothesisMap)
+     - 0 ^ n ==> 1 (if n = 0 := _ ∈ hypothesisContext.hypothesisMap)
+     - 1 ^ n ==> 1
      - N1 ^ N2 ==> N1 "^" N2
+     - (n ^ N1) ^ N2 ==> n ^ (N1 * N2)
+     - (N1 ^ m1) * (n ^ m2) ==> n ^ (m1 + m2)
    Assume that f = Expr.const ``Nat.pow.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Nat.pow` expected at this stage)
-
 -/
 def optimizeNatPow (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeNatPow: exactly two arguments expected"
  let op1 := args[0]!
  let op2 := args[1]!
  match isNatValue? op1, isNatValue? op2 with
+  -- n ^ 0 ==> 1
  | _, some 0 => return (← mkNatLitExpr 1)
+  -- n ^ 1 ==> n
+ | _, some 1 => return op1
+ | some 0, some n2 =>
+    -- 0 ^ 0 ==> 1
+     if n2 = 0 then return (← mkNatLitExpr 1)
+     -- 0 ^ N2 ==> 0 (N2 ≠ 0 from first match case)
+     else return (← mkNatLitExpr 0)
+  -- 1 ^ N2 ==> 1
+ | some 1, _ => return (← mkNatLitExpr 1)
+ -- N1 ^ N2 ==> N1 "^" N2
  | some n1, some n2 => evalBinNatOp Nat.pow n1 n2
- | _, _ => return (mkApp2 f op1 op2)
+ | _, _ =>
+   if let some r ← powOfPowerReduceExpr? op1 op2 then return r
+   if let some r ← sameBaseReduceExpr? op1 op2 then return r
+   if let some r ← zeroPowerReduceExpr? op1 op2 then return r
+   if let some r ← onePowerReduceExpr? op1 op2 then return r
+   return (mkApp2 f op1 op2)
+
+ where
+   /-- Given `e1` and `e2` corresponding to the operands for `Nat.pow`,
+       return `some e1'^(m1*m2)` only when `e1 := e1' ^ m1` and `e2 := m2`
+   -/
+   powOfPowerReduceExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := do
+    match natPow? e1 with
+    | some (base, exp) =>
+       setRestart
+       let mulExpr := mkApp2 (← mkNatMulOp) exp e2
+       return mkApp2 (← mkNatPowOp) base mulExpr
+    | none => return none
+
+   /-- Given `e1` and `e2` corresponding to the first and second operands respectively,
+       return some e1^(m1+m2) only if `e1 := base ^ m1` and `e2 := base ^ m2`
+   -/
+   sameBaseReduceExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := do
+    match natPow? e1, natPow? e2 with
+    | some (base1, exp1), some (base2, exp2) =>
+       if exprEq base1 base2 then
+         setRestart
+         let addExpr := mkApp2 (← mkNatAddOp) exp1 exp2
+         return mkApp2 (← mkNatPowOp) base1 addExpr
+       return none
+    | _, _ => return none
+
+   /-- Given `e1` (base) and `e2` (exponent), return `some 0` when `e1 := 0` and `e2 ≠ 0`.
+       This handles the rule `0 ^ n ==> 0` for non-constant exponents (when n ≠ 0).
+   -/
+   zeroPowerReduceExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := do
+    match isNatValue? e1 with
+    | some 0 =>
+        if (← nonZeroNatInHyps e2) then return (← mkNatLitExpr 0)
+        else return none
+    | _ => return none
+
+   /-- Given `e1` (base) and `e2` (exponent), return `some 1` when `e1 := 1`.
+       This handles the rule `1 ^ n ==> 1` for non-constant exponents.
+   -/
+   onePowerReduceExpr? (e1 : Expr) (_e2 : Expr) : TranslateEnvT (Option Expr) := do
+    match isNatValue? e1 with
+    | some 1 => return (← mkNatLitExpr 1)
+    | _ => return none
 
 /-- Apply the following simplification/normalization rules on `Nat.mul` :
      - 0 * n ==> 0

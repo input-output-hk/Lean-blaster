@@ -17,6 +17,13 @@ def nonZeroNatInHyps (e : Expr) : TranslateEnvT Bool := do
  let zero_eq ← mkNatEqExpr zero_nat e
  return hyps.contains (mkApp (← mkPropNotOp) zero_eq)
 
+/-- Return `true` if 0 = e in the hypothesis map.
+-/
+def zeroEqNatInHyps (e : Expr) : TranslateEnvT Bool := do
+ let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
+ let zero_nat ← mkNatLitExpr 0
+ let zero_eq ← mkNatEqExpr zero_nat e
+ return hyps.contains zero_eq
 /-- Return `true` only when one of the following conditions is satisfied:
       - 0 < e := _ ∈ hypothesisContext.hypothesisMap; or
       - e < 0 := _ ∈ hypothesisContext.hypothesisMap; or
