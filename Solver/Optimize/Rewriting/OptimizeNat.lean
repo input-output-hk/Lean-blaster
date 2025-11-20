@@ -115,7 +115,7 @@ def optimizeNatSub (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      - 1 ^ n ==> 1
      - N1 ^ N2 ==> N1 "^" N2
      - (n ^ N1) ^ N2 ==> n ^ (N1 * N2)
-     - (N1 ^ m1) * (n ^ m2) ==> n ^ (m1 + m2)
+     - (N1 ^ m1) * (N1 ^ m2) ==> n ^ (m1 + m2)
    Assume that f = Expr.const ``Nat.pow.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Nat.pow` expected at this stage)
 -/
@@ -139,8 +139,8 @@ def optimizeNatPow (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  | some n1, some n2 => evalBinNatOp Nat.pow n1 n2
  | _, _ =>
    if let some r ← powOfPowerReduceExpr? op1 op2 then return r
-   if let some r ← sameBaseReduceExpr? op1 op2 then return r
    if let some r ← zeroPowerReduceExpr? op1 op2 then return r
+   if let some r ← sameBaseReduceExpr? op1 op2 then return r
    if let some r ← onePowerReduceExpr? op1 op2 then return r
    return (mkApp2 f op1 op2)
 
@@ -171,11 +171,14 @@ def optimizeNatPow (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 
    /-- Given `e1` (base) and `e2` (exponent), return `some 0` when `e1 := 0` and `e2 ≠ 0`.
        This handles the rule `0 ^ n ==> 0` for non-constant exponents (when n ≠ 0).
+       Also return `some 1` when `e1 := 0` and `e2 = 0` in hypotheses.
+       This handles the rule `0 ^ n ==> 1` for non-constant exponents (when n = 0).
    -/
    zeroPowerReduceExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := do
     match isNatValue? e1 with
     | some 0 =>
-        if (← nonZeroNatInHyps e2) then return (← mkNatLitExpr 0)
+        if (← zeroEqNatInHyps e2) then return (← mkNatLitExpr 1)
+        else if (← nonZeroNatInHyps e2) then return (← mkNatLitExpr 0)
         else return none
     | _ => return none
 
@@ -207,6 +210,7 @@ def optimizeNatMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  | some n1, some n2 => evalBinNatOp Nat.mul n1 n2
  | nv1, _ =>
    if let some r ← cstMulProp? nv1 op2 then return r
+   if let some r ← samePowBaseReduceExpr? op1 op2 then return r
    if let some r ← mulPowReduceExpr? op1 op2 then return r
    return (mkApp2 f op1 op2)
 
@@ -233,6 +237,20 @@ def optimizeNatMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
          return mkApp2 (← mkNatPowOp) e1 addExpr
        return none
     | none => return none
+
+   /-- Given `e1` and `e2` corresponding to the operands for `Nat.mul`,
+       return some base^(m + n) only when `e1 := base ^ m` and `e2 := base ^ n`
+       where base is the same in both expressions.
+   -/
+   samePowBaseReduceExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := do
+    match natPow? e1, natPow? e2 with
+    | some (base1, exp1), some (base2, exp2) =>
+       if exprEq base1 base2 then
+         setRestart
+         let addExpr := mkApp2 (← mkNatAddOp) exp1 exp2
+         return mkApp2 (← mkNatPowOp) base1 addExpr
+       return none
+    | _, _ => return none
 
 /-- Given `e1` and `e2` corresponding to the operands for `Nat.div` (i.e., `e1 / e2`),
     return `some n` only when one of the following conditions is satisfied:

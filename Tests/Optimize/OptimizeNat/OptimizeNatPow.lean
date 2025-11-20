@@ -223,12 +223,14 @@ elab "natPowUnchanged_2" : term => return natPowUnchanged_2
 variable (x : Nat)
 variable (y : Nat)
 
+variable (a : Nat)
+variable (m n : Nat)
 -- (x ^ 2) ^ (y - y) = x ^ 0 = 1 ===> True
 #testOptimize [ "NatPowReduce_1" ] (x ^ 2) ^ (y - y) = 1 ===> True
 
 -- (x ^ 2) ^ (y - y) = x ^ 0 ===> True
 #testOptimize [ "NatPowReduce_2" ] (x ^ 2) ^ (y - y) = x ^ 0 ===> True
 
-
 theorem one_pow_any (m : Nat) : (1 : Nat) ^ m = 1 := by blaster
+#testOptimize ["Issue1"] a ^ (m + n) = a ^ m * a ^ n ===> True
 end Test.OptimizeNatPow
