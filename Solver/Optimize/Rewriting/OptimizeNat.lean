@@ -196,6 +196,7 @@ def optimizeNatPow (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      - N1 + N2 ==> N1 "*" N2
      - N1 * (N2 * n) ==> (N1 "*" N2) * n
      - n1 * n2 ==> n2 * n1 (if n2 <ₒ n1)
+     - (a ^ n) * (b ^ n) ==> (a * b) ^ n
      - n * n^m ===> n ^ (m + 1)
    Assume that f = Expr.const ``Nat.mul.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Nat.mul` expected at this stage)
@@ -211,6 +212,7 @@ def optimizeNatMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  | nv1, _ =>
    if let some r ← cstMulProp? nv1 op2 then return r
    if let some r ← samePowBaseReduceExpr? op1 op2 then return r
+   if let some r ← samePowExpReduceExpr? op1 op2 then return r
    if let some r ← mulPowReduceExpr? op1 op2 then return r
    return (mkApp2 f op1 op2)
 
@@ -249,6 +251,20 @@ def optimizeNatMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
          setRestart
          let addExpr := mkApp2 (← mkNatAddOp) exp1 exp2
          return mkApp2 (← mkNatPowOp) base1 addExpr
+       return none
+    | _, _ => return none
+
+   /-- Given `e1` and `e2` corresponding to the operands for `Nat.mul`,
+       return some (base1 * base2)^n only when `e1 := base1 ^ n` and `e2 := base2 ^ n`
+       where the exponent is the same in both expressions.
+   -/
+   samePowExpReduceExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := do
+    match natPow? e1, natPow? e2 with
+    | some (base1, exp1), some (base2, exp2) =>
+       if exprEq exp1 exp2 then
+         setRestart
+         let mulExpr := mkApp2 (← mkNatMulOp) base1 base2
+         return mkApp2 (← mkNatPowOp) mulExpr exp1
        return none
     | _, _ => return none
 
