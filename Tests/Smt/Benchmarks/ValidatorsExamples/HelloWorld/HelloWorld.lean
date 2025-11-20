@@ -11,6 +11,7 @@ def HelloWorldValidator : HelloWorldDatum -> HelloWorldRedeemer -> ScriptContext
     fun _datum redeemer _sc =>
         "Hello World!" == redeemer.redeemerMessage
 
+set_option warn.sorry false in
 theorem spec01_HelloWorld :
   ∀ (datum: HelloWorldDatum) (redeemer: HelloWorldRedeemer), (_c : ScriptContext) →
      HelloWorldValidator datum redeemer _c = true →

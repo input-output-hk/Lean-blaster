@@ -325,7 +325,7 @@ structure TranslateOptions where
   -/
   inPatternMatching : Std.HashSet FVarId
 
-  /-- Map keeping track of axioms not of type Prop, encountered during translation.
+  /-- Map keeping track of axioms not of type Prop or opaque variables, encountered during translation.
       This set is used mainly to avoid multiple global declaration in the Smt instance.
   -/
   axiomMap : Std.HashMap Name SmtSymbol
