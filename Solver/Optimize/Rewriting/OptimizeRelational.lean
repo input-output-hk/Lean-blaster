@@ -45,7 +45,7 @@ def intRelRightReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :
 -/
 def natRelLeftReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
  let some (e1, e2) := natAdd? op1 | return none
- let Expr.lit (Literal.natVal n) := e1 | return none
+ let some n := isNatValue? e1 | return none
  if !(exprEq e2 op2) then return none
  if n > 0
  then return ← mkPropFalse
@@ -57,7 +57,7 @@ def natRelLeftReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :=
 -/
 def natRelRightReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
  let some (e1, e2) := natAdd? op2 | return none
- let Expr.lit (Literal.natVal n) := e1 | return none
+ let some n := isNatValue? e1 | return none
  if !(exprEq e2 op1) then return none
  if n > 0
  then return ← mkPropTrue

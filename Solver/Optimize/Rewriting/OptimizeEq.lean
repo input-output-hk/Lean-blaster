@@ -213,6 +213,94 @@ def intMulEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option (Expr × E
      return none
   | _, _ => return none
 
+/-- Given `op1` and `op2` corresponding to the operands for `Eq`:
+      - return `some False` when `op1 := N + e ∧ op2 := e ∧ N ≠ 0 ∧ Type(N) = Int`
+    Otherwise `none`.
+-/
+def intEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
+ let some (e1, e2) := intAdd? op1 | return none
+ let some n := isIntValue? e1 | return none
+ if n == 0 then return none
+ if !(exprEq e2 op2) then return none
+ return ← mkPropFalse
+
+/-- Given `op1` and `op2` corresponding to the operands for `Eq`:
+      - return `some False` when `op1 := N + e ∧ op2 := e ∧ N ≠ 0 ∧ Type(N) = Nat`
+    Otherwise `none`.
+-/
+def natEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
+ let some (e1, e2) := natAdd? op1 | return none
+ let some n := isNatValue? e1 | return none
+ if n == 0 then return none
+ if !(exprEq e2 op2) then return none
+ return ← mkPropFalse
+
+/-- Given `op1` and `op2` corresponding to the operands for `Eq`:
+      - return `some False` when `op1 := N1 ∧ op2 := N2 + a ∧ N1 < N2 ∧ Type(a) = Nat`:
+      - return `some N1 "-" N2 = a` when `op1 := N1 ∧ op2 := N2 + a ∧ N1 ≥ N2 ∧ Type(a) = Nat`:
+      - return `some N1 "-" min(N1, N2) + a = N2 "-" min(N1, N2) + b`
+               when `op1 := N1 + a ∧ op2 := N2 + b ∧ Type(a) = Nat`:
+   Otherwise `none`.
+-/
+def addNatEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
+ let some (e1, e2) := natAdd? op2 | return none
+ let some n2 := isNatValue? e1 | return none
+ match isNatValue? op1 with
+ | some n1 =>
+     if n1 < n2 then return ← mkPropFalse
+     setRestart -- restart necessary
+     mkNatEqExpr (← evalBinNatOp Nat.sub n1 n2) e2
+ | _ =>
+   let some (p1, p2) := natAdd? op1 | return none
+   let some n1 := isNatValue? p1 | return none
+   setRestart
+   let minValue := min n1 n2
+   let leftValue := n1 - minValue
+   let rightValue := n2 - minValue
+   let op1' := mkApp2 (← mkNatAddOp) (← mkNatLitExpr leftValue) p2
+   let op2' := mkApp2 (← mkNatAddOp) (← mkNatLitExpr rightValue) e2
+   mkNatEqExpr op1' op2'
+
+
+/-- Given `op1` and `op2` corresponding to the operands for `Eq`:
+      - return `some N1 "-" N2 = a` when `op1 := N1 ∧ op2 := N2 + a ∧ Type(a) = Int`:
+      - return `some N1 "-" min(N1, N2) + a = N2 "-" min(N1, N2) + b`
+               when `op1 := N1 + a ∧ op2 := N2 + b ∧ Type(a) = Int`:
+    Otherwise `none`.
+-/
+def addIntEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
+ let some (e1, e2) := intAdd? op2 | return none
+ let some n2 := isIntValue? e1 | return none
+ match isIntValue? op1 with
+ | some n1 =>
+     setRestart -- restart necessary
+     mkIntEqExpr (← evalBinIntOp Int.sub n1 n2) e2
+ | _ =>
+   let some (p1, p2) := intAdd? op1 | return none
+   let some n1 := isIntValue? p1 | return none
+   setRestart
+   let minValue := min n1 n2
+   let leftValue := n1 - minValue
+   let rightValue := n2 - minValue
+   let op1' := mkApp2 (← mkIntAddOp) (← mkIntLitExpr leftValue) p2
+   let op2' := mkApp2 (← mkIntAddOp) (← mkIntLitExpr rightValue) e2
+   mkIntEqExpr op1' op2'
+
+/-- Apply the following simplification/normalization rules on `Eq` :
+     - N + e = e | e = N + e ==> False (if Type(e) ∈ [Nat, Int])
+     - N2 = N1 + a ==> False (if Type(a) = Nat) ∧ N2 < N1)
+     - N2 = N1 + a ==> N2 "-" N1 = a (if Type(a) = Nat) if N2 ≥ N1) (restart)
+     - N2 = N1 + a ===> N2 "-" N1 = a (if Type(a) = Int) (restart)
+     - N1 + a = N2 + b ==> N1 "-" min(N1, N2) + a = N2 "-" min(N1, N2) + b (if Type(a) ∈ [Nat, Int])
+-/
+def arithEq? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
+  if let some r ← intEqReduce? op1 op2 then return r
+  if let some r ← intEqReduce? op2 op1 then return r
+  if let some r ← natEqReduce? op1 op2 then return r
+  if let some r ← natEqReduce? op2 op1 then return r
+  if let some r ← addNatEqReduce? op1 op2 then return r
+  if let some r ← addIntEqReduce? op1 op2 then return r
+  return none
 
 /-- Apply the following simplification/normalization rules on `Eq` :
      - False = e ==> ¬ e
@@ -228,9 +316,10 @@ def intMulEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option (Expr × E
      - 0 = (-e) ==> 0 = e (if Type(e) = Int)
      - -e1 = -e2 ==> e1 = e2 (if Type(e1) = Int)
      - 0 = x * y ==> False (if Type(x) ∈ [Nat, Int] ∧ nonZeroInHyps x ∧ nonZeroInHyps y)
-     - e1 = e2 ==> e2 = e1 (if e2 <ₒ e1)
+     - e1 = e2 ==> r (if some r ← arithEq? e1 e2)
      - x + y = x + z | y + x = x + z | x + y = z + x | y + x = z + x ==> y = z (if Type(x) ∈ [Nat, Int]]
      - x * y = x * z | y * x = x * z | x * y = z * x | y * x = z * x ==> y = z (if Type(x) ∈ [Nat, Int] ∧ nonZeroInHyps x]
+     - e1 = e2 ==> e2 = e1 (if e2 <ₒ e1)
      with:
        nonZeroInHyps x := nonZeroNatInHyps x If Type(x) = Nat
                        := nonZeroIntInHyps x Otherwise
@@ -261,6 +350,7 @@ def optimizeEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
  if let some (e1, e2) ← intNegEqReduce? op1 op2 then return mkApp3 f eqType e1 e2
  if let some r ← natZeroEqMulReduce? op1 op2 then return r
  if let some r ← intZeroEqMulReduce? op1 op2 then return r
+ if let some r ← arithEq? op1 op2 then return r
  if let some (e1, e2) ← natAddEqReduce? op1 op2 then return mkApp3 f eqType e1 e2
  if let some (e1, e2) ← intAddEqReduce? op1 op2 then return mkApp3 f eqType e1 e2
  if let some (e1, e2) ← natMulEqReduce? op1 op2 then return mkApp3 f eqType e1 e2
