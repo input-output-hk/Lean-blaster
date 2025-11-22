@@ -88,10 +88,11 @@ def Translate.main (e : Expr) (logUndetermined := true) : TranslateEnvT (Result 
          addAxioms (mkForall (← Term.mkFreshBinderName) BinderInfo.default a e) tl
 
 def command (sOpts: SolverOptions) (stx : Syntax) : TermElabM Unit := do
-  withRef stx do
-    instantiateMVars (← withSynthesize (postpone := .partial) <| elabTerm stx none) >>= fun e => do
-      let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
-      discard $ Translate.main e|>.run env
+  withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0, maxRecDepth := 0 }) $ do
+   withRef stx do
+     instantiateMVars (← withSynthesize (postpone := .partial) <| elabTerm stx none) >>= fun e => do
+       let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
+       discard $ Translate.main e|>.run env
 
 initialize
    registerTraceClass `Translate.expr
