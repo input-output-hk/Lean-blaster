@@ -612,11 +612,9 @@ It doesn’t have its own embedded Z3. So:
 
 **If the shell you run `lake` from sees `/usr/local/bin/z3` (4.15.2), then Lean will also use 4.15.2.**
 
-Just to be sure, you can run a simple test in the `Solver` package of this
-repository:
+Just to be sure, you can run the simple test we provide in this repository, as follows:
 
 ```bash
-cd Solver
 lake build z3check
 lake exe z3check
 ```
@@ -629,7 +627,6 @@ Z3 version 4.15.2 - 64 bit
 ```
 
 ---
-
 
 ## Contributing
 
