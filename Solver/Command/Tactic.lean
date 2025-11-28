@@ -39,7 +39,12 @@ def blasterTacticImp : Tactic := fun stx =>
    let ((result, optExpr), _) ←
      withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0 }) $ do
        IO.setNumHeartbeats 0
-       Translate.main (← goal.getType >>= instantiateMVars') (logUndetermined := false) |>.run env
+       try
+         Translate.main (← goal.getType >>= instantiateMVars') (logUndetermined := false) |>.run env
+       catch e =>
+         -- Ensure z3 process is killed on error or interruption
+         discard $ killSolverProcess.run env
+         throw e
    match result with
    | .Valid => goal.admit -- TODO: replace with proof reconstruction
    | .Falsified cex => throwTacticEx `blaster goal "Goal was falsified (see counterexample above)"

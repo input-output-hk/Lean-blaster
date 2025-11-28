@@ -53,17 +53,22 @@ def Translate.main (e : Expr) (logUndetermined := true) : TranslateEnvT (Result 
           if logUndetermined then logResult res
           return (res, optExpr)
         else
-          -- set backend solver
-          setSolverProcess
-          let st ← profileTask "Translation" $ translateExpr optExpr
-          -- assert negation for check sat
-          profileTask "Submitting Smt Query" $ assertTerm (notSmt st)
-          -- dump smt commands submitted to backend solver when `dumpSmtLib` option is set.
-          logSmtQuery
-          let res ← profileTask "Solve" checkSat
-          if !isUndeterminedResult res || logUndetermined then logResult res
-          discard $ exitSmt
-          return (res, optExpr)
+          -- set backend solver and ensure it's killed on error/interruption
+          try
+            setSolverProcess
+            let st ← profileTask "Translation" $ translateExpr optExpr
+            -- assert negation for check sat
+            profileTask "Submitting Smt Query" $ assertTerm (notSmt st)
+            -- dump smt commands submitted to backend solver when `dumpSmtLib` option is set.
+            logSmtQuery
+            let res ← profileTask "Solve" checkSat
+            if !isUndeterminedResult res || logUndetermined then logResult res
+            discard $ exitSmt
+            return (res, optExpr)
+          catch e =>
+            -- Kill the solver process on any error or interruption
+            killSolverProcess
+            throw e
     | res =>
        logResult res
        return (res, optExpr)
@@ -92,7 +97,12 @@ def command (sOpts: SolverOptions) (stx : Syntax) : TermElabM Unit := do
    withRef stx do
      instantiateMVars (← withSynthesize (postpone := .partial) <| elabTerm stx none) >>= fun e => do
        let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
-       discard $ Translate.main e|>.run env
+       try
+         discard $ Translate.main e|>.run env
+       catch e =>
+         -- Ensure cleanup happens even if the command is interrupted
+         discard $ killSolverProcess.run env
+         throw e
 
 initialize
    registerTraceClass `Translate.expr

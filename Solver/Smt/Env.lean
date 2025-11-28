@@ -570,6 +570,21 @@ def exitSmt : TranslateEnvT UInt32 := do
  let (_, p) ← p.takeStdin
  p.wait
 
+/-- Kill the Smt process immediately without waiting for graceful shutdown.
+    Use this for cleanup when elaboration is canceled or interrupted.
+    Do nothing if Smt process is not defined.
+    Silently ignores errors if the process is already terminated.
+-/
+def killSolverProcess : TranslateEnvT Unit := do
+  let env ← get
+  if let some p := env.smtEnv.smtProc then
+    try
+      p.kill
+    catch _ =>
+      -- Process might already be terminated, ignore the error
+      pure ()
+    modify fun env => { env with smtEnv.smtProc := none }
+
 
 /-- Set the Smt logic to `ALL`. -/
 def setLogicAll : TranslateEnvT Unit :=
