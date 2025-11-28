@@ -5,6 +5,24 @@ import Solver.Optimize.Env
 open Lean Meta
 namespace Solver.Optimize
 
+/-- List of opaque commutative functions that must not be simplified by function equality rules.
+    These functions have special arithmetic properties that would be lost by naive simplification.
+-/
+def opaqueCommutativeFuns : NameHashSet :=
+  List.foldr (fun c s => s.insert c) Std.HashSet.emptyWithCapacity
+  [
+    ``Int.add,
+    ``Int.mul,
+    ``Nat.add,
+    ``Nat.mul
+  ]
+
+/-- Return `true` if the given function name is an opaque commutative function that
+    should not be simplified by function equality rules.
+-/
+def isOpaqueCommutativeFun (n : Name) : Bool :=
+  opaqueCommutativeFuns.contains n
+
 /-- Return `true` only when one of the following conditions is satisfied:
       - 0 < e := _ ∈ hypothesisContext.hypothesisMap; or
       - ¬ (0 = e) := _ ∈ hypothesisContext.hypothesisMap
@@ -286,6 +304,140 @@ def addIntEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := d
    let op2' := mkApp2 (← mkIntAddOp) (← mkIntLitExpr rightValue) e2
    mkIntEqExpr op1' op2'
 
+/-- Given `op1` and `op2` corresponding to the operands for `Eq`:
+    Apply constructor equality simplification rules:
+      - C1 = C2 ==> False (when C1 and C2 are different constructors)
+      - C1 x0 ... xn = C2 y0 ... yn ==> False (when C1 and C2 are different constructors)
+      - C x0 ... xn = C y0 ... yn ==> x0 = y0 ∧ ... ∧ xn = yn (with recursive call)
+    Return `none` if no rule applies.
+-/
+partial def ctorEqReduce? (op1 : Expr) (op2 : Expr) (eqType : Expr) : TranslateEnvT (Option Expr) := do
+  -- Check if both operands are constructors
+  let f1 := op1.getAppFn'
+  let f2 := op2.getAppFn'
+
+  match f1, f2 with
+  | Expr.const n1 _, Expr.const n2 _ =>
+      -- Check if both are constructors
+      if !(← isCtorName n1) || !(← isCtorName n2) then return none
+
+      -- Different constructors => False
+      if n1 != n2 then
+        setRestart
+        return ← mkPropFalse
+
+      -- Same constructor: C x0 ... xn = C y0 ... yn => x0 = y0 ∧ ... ∧ xn = yn
+      let args1 := op1.getAppArgs
+      let args2 := op2.getAppArgs
+
+      -- If no arguments, they're equal (already handled by exprEq check in optimizeEq)
+      if args1.size == 0 then return none
+
+      -- Different number of arguments should not happen for well-typed terms, but handle it
+      if args1.size != args2.size then return none
+
+      -- Build conjunction of equalities
+      setRestart
+      buildConjunction args1 args2 eqType 0
+
+  | _, _ => return none
+
+where
+  /-- Build a conjunction of equalities: x0 = y0 ∧ ... ∧ xn = yn
+      Recursively applies ctorEqReduce? on each pair.
+  -/
+  buildConjunction (args1 args2 : Array Expr) (eqType : Expr) (idx : Nat) : TranslateEnvT (Option Expr) := do
+    if idx >= args1.size then return none
+
+    let arg1 := args1[idx]!
+    let arg2 := args2[idx]!
+
+    -- Infer the type of the arguments
+    let argType ← inferTypeEnv arg1
+
+    -- Try to apply ctorEqReduce? recursively
+    let eqExpr ←
+      match ← ctorEqReduce? arg1 arg2 argType with
+      | some reduced => pure reduced
+      | none => pure <| mkApp3 (← mkEqOp) argType arg1 arg2
+
+    -- If this is the last argument, return just the equality
+    if idx + 1 >= args1.size then
+      return some eqExpr
+
+    -- Otherwise, build the conjunction with remaining arguments
+    let restExpr ← buildConjunction args1 args2 eqType (idx + 1)
+    match restExpr with
+    | some rest => return some <| mkApp2 (← mkPropAndOp) eqExpr rest
+    | none => return some eqExpr
+
+/-- Given `op1` and `op2` corresponding to the operands for `Eq`:
+    Apply function equality simplification rule:
+      - f x0 ... xn = f y0 ... yn ==> x0 = y0 ∧ ... ∧ xn = yn (with recursive call)
+    This rule is NOT applied when:
+      - f is an opaque commutative function (Int.add, Int.mul, Nat.add, Nat.mul)
+      - The expressions are not applications of the same function
+    Return `none` if no rule applies.
+-/
+partial def funEqReduce? (op1 : Expr) (op2 : Expr) (eqType : Expr) : TranslateEnvT (Option Expr) := do
+  let f1 := op1.getAppFn'
+  let f2 := op2.getAppFn'
+
+  -- Check if both are applications of the same function
+  if !exprEq f1 f2 then return none
+
+  match f1 with
+  | Expr.const n _ =>
+      -- Skip if it's an opaque commutative function
+      if isOpaqueCommutativeFun n then return none
+
+      -- Skip if it's a constructor (handled by ctorEqReduce?)
+      if (← isCtorName n) then return none
+
+      let args1 := op1.getAppArgs
+      let args2 := op2.getAppArgs
+
+      -- If no arguments, they're equal (already handled by exprEq check in optimizeEq)
+      if args1.size == 0 then return none
+
+      -- Different number of arguments => can't simplify
+      if args1.size != args2.size then return none
+
+      -- Build conjunction of equalities
+      setRestart
+      buildConjunction args1 args2 eqType 0
+
+  | _ => return none
+
+where
+  /-- Build a conjunction of equalities: x0 = y0 ∧ ... ∧ xn = yn
+      Recursively applies funEqReduce? on each pair.
+  -/
+  buildConjunction (args1 args2 : Array Expr) (eqType : Expr) (idx : Nat) : TranslateEnvT (Option Expr) := do
+    if idx >= args1.size then return none
+
+    let arg1 := args1[idx]!
+    let arg2 := args2[idx]!
+
+    -- Infer the type of the arguments
+    let argType ← inferTypeEnv arg1
+
+    -- Try to apply funEqReduce? recursively
+    let eqExpr ←
+      match ← funEqReduce? arg1 arg2 argType with
+      | some reduced => pure reduced
+      | none => pure <| mkApp3 (← mkEqOp) argType arg1 arg2
+
+    -- If this is the last argument, return just the equality
+    if idx + 1 >= args1.size then
+      return some eqExpr
+
+    -- Otherwise, build the conjunction with remaining arguments
+    let restExpr ← buildConjunction args1 args2 eqType (idx + 1)
+    match restExpr with
+    | some rest => return some <| mkApp2 (← mkPropAndOp) eqExpr rest
+    | none => return some eqExpr
+
 /-- Apply the following simplification/normalization rules on `Eq` :
      - N + e = e | e = N + e ==> False (if Type(e) ∈ [Nat, Int])
      - N2 = N1 + a ==> False (if Type(a) = Nat) ∧ N2 < N1)
@@ -345,6 +497,10 @@ def optimizeEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
  if isNotExprOf op2 op1 || isBoolNotExprOf op2 op1 then return ← mkPropFalse
  if exprEq op1 op2 then return ← mkPropTrue
  if let some false ← structEq? op1 op2 then return ← mkPropFalse
+ -- Apply constructor equality simplification rules
+ if let some r ← ctorEqReduce? op1 op2 eqType then return r
+ -- Apply function equality simplification rules
+ if let some r ← funEqReduce? op1 op2 eqType then return r
  if let some (e1, e2) ← notNegEqSimp? op1 op2 then return mkApp3 f eqType e1 e2
  if let some r ← zeroEqNegReduce? op1 op2 eqType then return r
  if let some (e1, e2) ← intNegEqReduce? op1 op2 then return mkApp3 f eqType e1 e2
