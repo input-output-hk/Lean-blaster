@@ -36,8 +36,10 @@ Blaster provides an SMT backend for Z3 proofs. Blaster works by first aggressive
     - [Function propagation](#function-propagation)
   - [Second-step: SMT Translation](#second-step-smt-translation)
   - [Final step: SMT Solver Interaction](#final-step-smt-solver-interaction)
+- [Installing the Z3 Solver](#installing-the-z3-solver)
 - [Contributing](#contributing)
   - [Ways to Contribute](#ways-to-contribute)
+
 
 ## Installation
 
@@ -64,7 +66,10 @@ We do our best to stay updated with the latest release of Z3. However, regressio
 
 > **Note:** Blaster should work with later releases, though no guarantees are made.
 
-Please follow the official installation guidelines from the [Z3 GitHub repository](https://github.com/Z3Prover/z3).
+The section on [Installing the Z3 Solver](#installing-the-z3-solver)
+below explains how to get the right version of Z3 installed and check that
+Lean is using that version.  If you need more help, please see the official
+installation guidelines from the [Z3 GitHub repository](https://github.com/Z3Prover/z3).
 
 ## How to use?
 
@@ -518,6 +523,110 @@ Once an expression has been translated, Blaster interacts with an external SMT s
 - **unsat**: The original expression is valid.
 - **sat**: The original expression is falsified, and a counterexample may be generated.
 - **unknown**: The solver could not determine the validity of the expression.
+
+---
+
+## Installing the Z3 Solver
+
+Blaster requires Z3 version 4.15.2.  To install that, you need to
+
+1. **Check out** the 4.15.2 tagged branch of the Z3 repo;
+2. **Install** Z3 in a location that doesn't conflict with possible existing versions
+   on your machine (e.g., in `/usr/bin/z3`)
+3. **Ensure** Lean 4 is using the right version of Z3.
+
+Below are instructions for accomplishing these objectives.  (They are aimed at
+.deb-based Linux, but the same or similar steps should work on other platforms.)
+
+### 1. Build and install Z3 v4.15.2 from source
+
+Z3 releases are tagged on GitHub; the tag you want is `z3-4.15.2`.
+
+**1.1 Install build dependencies**
+
+```bash
+sudo apt update
+sudo apt install -y build-essential python3 git
+```
+
+**1.2 Clone the 4.15.2 tag**
+
+Do **not** clone the `master` branch; it will give you a newer version (e.g., 4.15.4) that we do not yet fully support. Instead:
+
+```bash
+# Shallow clone just the 4.15.2 tag, into a directory named z3-4.15.2
+git clone --branch z3-4.15.2 --depth 1 https://github.com/Z3Prover/z3.git z3-4.15.2
+cd z3-4.15.2
+
+# Sanity check: this should print something like "z3-4.15.2"
+git describe --tags
+```
+
+**1.3 Configure build with a safe prefix**
+
+By default, `mk_make.py` uses a prefix like `/usr`, which can clash with files installed by
+package managers (e.g., `apt`).  The Z3 README documentation recommends using
+`--prefix` to choose a custom install directory, typically `/usr/local`, as follows:
+
+```bash
+python3 scripts/mk_make.py --prefix=/usr/local
+cd build
+make -j"$(nproc)"
+sudo make install
+```
+
+This installs
+
++  `z3` to `/usr/local/bin/z3`
++  libraries to `/usr/local/lib`
++  header files to `/usr/local/include`
+
+### 2. Make sure **4.15.2** comes first in your `PATH`
+
+Check which `z3` you’re actually picking up:
+
+```bash
+which z3
+z3 --version
+```
+
+Ideally you will see
+`/usr/local/bin/z3` and `Z3 version 4.15.2 - 64 bit`.
+
+If `which z3` shows something else, e.g., `/usr/bin/z3`, then `/usr/local/bin` isn’t ahead
+of `/usr/bin` in your `PATH`; fix this by either removing the version of `z3` that's
+in `/usr/bin` (use `sudo apt remove z3` if you installed the old version of Z3 with
+`apt`) or by adding the following to your shell config file (`~/.bashrc`, `~/.zshrc`, etc.):
+
+```bash
+export PATH=/usr/local/bin:$PATH
+```
+
+Then reload your shell and re-run `which z3`.
+
+### 3. Make sure Lean 4 uses the right Z3
+
+Lean just calls `z3` as an external process (via `IO.Process` or tactics that use Z3).
+
+It doesn’t have its own embedded Z3. So:
+
+**If the shell you run `lake` from sees `/usr/local/bin/z3` (4.15.2), then Lean will also use 4.15.2.**
+
+Just to be sure, you can run the simple test we provide in this repository, as follows:
+
+```bash
+lake build z3check
+lake exe z3check
+```
+
+If Z3 is installed correctly, you should see the following output:
+
+```
+Successfully ran z3:
+Z3 version 4.15.2 - 64 bit
+```
+
+---
 
 ## Contributing
 

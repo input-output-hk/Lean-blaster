@@ -14,3 +14,6 @@ lean_lib «Solver» where
 lean_lib «Tests» where
   moreLeanArgs := #["--threads=4"]
 
+lean_exe z3check where
+  -- add executable configuration options here
+  root := `Z3Check
