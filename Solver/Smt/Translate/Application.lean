@@ -655,7 +655,7 @@ def generateUndeclaredFun
       assertTerm (← createPredQualifierAppAux (smtSimpleVarId s) retType)
 
 /-- Given `e := Expr.const n l`,
-     - When `n :1= false`
+     - When `n := false`
         - return `BoolTerm false`
      - When `n := False`
         - return `BoolTerm false`
