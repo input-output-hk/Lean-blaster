@@ -892,13 +892,13 @@ def translateApp
           let fv := fvars[i]
           let decl ← getFVarLocalDecl fv
           translateQuantifier fv decl.type termTranslator
-        let ebody ← termTranslator b
         let env ← get
-        if env.premises.size != 1 then
-          throwEnvError "genExistsTerm: only one predicate qualifier premise expected but got {env.premises}"
-        -- set patterns to none for now
-        -- TODO: We need to check if e-pattern is necessary for existential
-        return (mkExistsTerm none env.quantifiers (andSmt env.premises[0]! ebody) none)
+        let mut ebody ← termTranslator b
+        let nbPremises := env.premises.size
+        for i in [:nbPremises] do
+          let idx := nbPremises - i - 1
+          ebody := andSmt env.premises[idx]! ebody
+        return (mkExistsTerm none env.quantifiers ebody none)
 
     translateExists? (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
       match n with
@@ -1089,7 +1089,7 @@ def translateLambda
      for h : i in [:fvars.size] do
        let p := fvars[i]
        let decl ← getFVarLocalDecl p
-       if !(← isTopLevelFVar p.fvarId!) && !decl.type.isType && !(← isClassConstraintExpr decl.type) then
+       if !(← isTopLevelFVar p.fvarId!) && !(isTypeUniverse decl.type) && !(← isClassConstraintExpr decl.type) then
          lvars := lvars.push p
      return lvars
 

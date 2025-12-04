@@ -101,11 +101,14 @@ instance [BEq a] [BEq b] : BEq (Either a b) where
       | Either.Right b1, Either.Right b2 => b1 == b2
       | _, _ => false
 
-#blaster
-  [ (∀ (α : Type) (a b : α), [BEq α] → a == b → a = b) →
-      (∀ (α : Type) (β : Type) (x y : Either α β), [BEq α] → [BEq β] → x == y → x = y)
-  ]
 
+theorem Either.eq_of_beq (h : ∀ (α : Type) (a b : α), [BEq α] → a == b → a = b) :
+        (∀ (α : Type) (β : Type) (x y : Either α β), [BEq α] → [BEq β] → x == y → x = y) := by
+        intro α β x y h2 h3
+        simp [BEq.beq]
+        split <;> simp <;> apply h
+
+#blaster [Either.eq_of_beq]
 
 /-! # Test cases to ensure that counterexample are properly detected -/
 

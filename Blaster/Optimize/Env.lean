@@ -312,9 +312,6 @@ instance : Inhabited OptimizeEnv where
 
 
 structure TranslateOptions where
-  /-- Flag set when universe @@Type has already been declared in Smt instance. -/
-  typeUniverse : Bool := false
-
   /-- Cache keeping track of ArrowTN already declared in Smt instance,
       with `N` corresponding to the function arity.
   -/
@@ -331,8 +328,7 @@ structure TranslateOptions where
   axiomMap : Std.HashMap Name SmtSymbol
 
 instance : Inhabited TranslateOptions where
-  default := {typeUniverse := false,
-              arrowTypeArities := .emptyWithCapacity,
+  default := {arrowTypeArities := .emptyWithCapacity,
               inPatternMatching := .emptyWithCapacity,
               axiomMap := .emptyWithCapacity
              }
@@ -371,6 +367,11 @@ structure SmtEnv where
               `λ b₀ → .. → bₘ → α₀ → ... → α` := {instName := n, instSort := (Array sα₀ ... sαₙ)} ∈ indTypeInstCache
              with
                - `b₀ .. bₘ` corresponding to the polymorphic arguments (see `getFunInstDecl`).
+       - Given a type universe t such that t.isProp:
+            t := {instName := @isProp, instSort := Prop} ∈ indTypeInstCache
+       - Given a type universe t such that ¬ t.isProp:
+            t := {instName := @is{n}, instSort := n} ∈ indTypeInstCache
+           with n corresponding to a unique smt symbol name.
      See note on `IndTypeDeclaration`.
   -/
   indTypeInstCache : Std.HashMap Lean.Expr IndTypeDeclaration
@@ -387,8 +388,8 @@ structure SmtEnv where
   -/
   funInstCache : Std.HashMap Lean.Expr SmtQualifiedIdent
 
-  /-- Cache keeping track of sort that have already been declared. -/
-  sortCache : Std.HashMap FVarId SmtSymbol
+  /-- Cache keeping track of type parameters (i.e., α : Type u) that have already been declared. -/
+  typeParamCache : Std.HashMap FVarId SmtSymbol
 
   /-- Hash keeping track of all translated fvars. (see function fvarIdToSmtSymbol)  -/
   fvarsCache : Std.HashMap FVarId Nat
@@ -441,7 +442,7 @@ instance : Inhabited SmtEnv where
      indTypeVisited := Std.HashSet.emptyWithCapacity,
      indTypeInstCache := Std.HashMap.emptyWithCapacity,
      funInstCache := Std.HashMap.emptyWithCapacity,
-     sortCache := Std.HashMap.emptyWithCapacity,
+     typeParamCache := Std.HashMap.emptyWithCapacity,
      fvarsCache := Std.HashMap.emptyWithCapacity,
      quantifiedFVars := Std.HashMap.emptyWithCapacity,
      topLevelVars := Array.mkEmpty 3,
