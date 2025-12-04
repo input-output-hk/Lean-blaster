@@ -197,31 +197,10 @@ def getValuePolyTwo
 -- ∀ (x : Nat) (g : True → Nat → Nat), 0 < g not_false x
 -- NOTE: Test case to validate that the extra arguments are considered properly when
 -- condition is reduced to True/False.
-def normChoiceAddDite_10 : Lean.Expr :=
-Lean.Expr.forallE `x
-  (Lean.Expr.const `Nat [])
-  (Lean.Expr.forallE `g
-    (Lean.Expr.forallE `h1
-      (Lean.Expr.const `True [])
-      (Lean.Expr.forallE `h2
-        (Lean.Expr.const `Nat [])
-        (Lean.Expr.const `Nat [])
-        (Lean.BinderInfo.default))
-      (Lean.BinderInfo.default))
-    (Lean.Expr.app
-      (Lean.Expr.app
-        (Lean.Expr.app
-          (Lean.Expr.app (Lean.Expr.const `LT.lt [Lean.Level.zero]) (Lean.Expr.const `Nat []))
-          (Lean.Expr.const `instLTNat []))
-        (Lean.Expr.lit (Lean.Literal.natVal 0)))
-      (Lean.Expr.app (Lean.Expr.app (Lean.Expr.bvar 0) (Lean.Expr.const `not_false [])) (Lean.Expr.bvar 1)))
-    (Lean.BinderInfo.default))
-  (Lean.BinderInfo.default)
-elab "normChoiceAddDite_10" : term => return normChoiceAddDite_10
-
-#testOptimize [ "NormChoiceAppDite_10" ]
+#testOptimize [ "NormChoiceAppDite_10" ] (norm-result: 1)
   ∀ (x : Nat) (f : False → Nat → Nat) (g : ¬ False → Nat → Nat),
-    (if h : False then f h else g h) x > 0 ===> normChoiceAddDite_10
+    (if h : False then f h else g h) x > 0 ===>
+  ∀ (x : Nat) (g : True → Nat → Nat), 0 < g True.intro x
 
 /-! Test cases to validate when normalization of function application on match. -/
 
@@ -247,39 +226,41 @@ def toNat (x : Color) : Nat → Nat :=
 
 -- ∀ (c : Color) (factor : Nat), factor > 0 → toNat c factor > factor ===>
 -- ∀ (c : Color) (factor : Nat), 0 < factor  →
---   factor < toWeight.match_1 (fun ( _ : Color) => Nat) c
---            (fun (x : Color) =>
---               toWeight.match_1 (fun ( _ : Color) => Nat) x
---               (fun (_ : Color) => Nat.mul 10 factor)
---               (fun (_ : Unit) => 1)
---               (fun (_ : Color) => Nat.mul 12 factor)
---               (fun (_ : Unit) => 0))
---            (fun (_ : Unit) => Nat.mul 5 factor)
---            (fun (x : Color) =>
---               toWeight.match_1 (fun ( _ : Color) => Nat) x
---               (fun (_ : Color) => Nat.mul 10 factor)
---               (fun (_ : Unit) => 1)
---               (fun (_ : Color) => Nat.mul 12 factor)
---               (fun (_ : Unit) => 0))
---            (fun (_ : Unit) => Nat.add 1 factor)
+-- factor <
+--   ( match c with
+--     | .red x =>
+--         match x with
+--         | .red _ => Nat.mul 10 factor
+--         | .transparent => 1
+--         | .blue _ => Nat.mul 12 factor
+--         | .black => 0
+--     | .transparent => Nat.mul 5 factor
+--     | .blue x =>
+--          match x with
+--          | .red _ => Nat.mul 10 factor
+--          | .transparent => 1
+--          | .blue _ => Nat.mul 12 factor
+--          | .black => 0
+--     | .black => Nat.add 1 factor )
 #testOptimize [ "NormChoiceAppMatch_1" ] (norm-result: 1)
   ∀ (c : Color) (factor : Nat), factor > 0 → toNat c factor > factor ===>
   ∀ (c : Color) (factor : Nat), 0 < factor  →
-    factor < toWeight.match_1 (fun ( _ : Color) => Nat) c
-             (fun (x : Color) =>
-                toWeight.match_1 (fun ( _ : Color) => Nat) x
-                (fun (_ : Color) => Nat.mul 10 factor)
-                (fun (_ : Unit) => 1)
-                (fun (_ : Color) => Nat.mul 12 factor)
-                (fun (_ : Unit) => 0))
-             (fun (_ : Unit) => Nat.mul 5 factor)
-             (fun (x : Color) =>
-                toWeight.match_1 (fun ( _ : Color) => Nat) x
-                (fun (_ : Color) => Nat.mul 10 factor)
-                (fun (_ : Unit) => 1)
-                (fun (_ : Color) => Nat.mul 12 factor)
-                (fun (_ : Unit) => 0))
-             (fun (_ : Unit) => Nat.add 1 factor)
+    factor <
+      ( match c with
+        | .red x =>
+            match x with
+            | .red _ => Nat.mul 10 factor
+            | .transparent => 1
+            | .blue _ => Nat.mul 12 factor
+            | .black => 0
+        | .transparent => Nat.mul 5 factor
+        | .blue x =>
+             match x with
+             | .red _ => Nat.mul 10 factor
+             | .transparent => 1
+             | .blue _ => Nat.mul 12 factor
+             | .black => 0
+        | .black => Nat.add 1 factor )
 
 def listToNatOne (x : List α) : Nat → Nat :=
  match x with

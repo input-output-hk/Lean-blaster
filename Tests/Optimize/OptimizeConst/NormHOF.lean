@@ -517,4 +517,8 @@ def boolWapper (f : Nat → Nat → Bool) (x : Nat) (y : Nat) := f x y
 #testOptimize [ "ConstNormOpaqueFunArg_15" ]
   ∀ (x : List Nat) (xs : List (List Nat)), List.any xs (. == x) = List.any xs (List.beq x) ===> True
 
+-- ∀ (c : Bool), (if c then Nat.le else LE.le) = LE.le ===> True
+#testOptimize [ "ConstNormOpaqueFunArg_16" ]
+  ∀ (c : Bool), (if c then Nat.le else LE.le) = LE.le ===> True
+
 end Test.NormHOF

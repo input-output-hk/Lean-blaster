@@ -262,10 +262,10 @@ namespace Test.SmtEqArith
 #blaster (only-optimize: 1) [∀ (x y : Int), 0 < x → 0 < y → 0 < x + y]
 #blaster (only-optimize: 1) [∀ (x y : Int), 0 < x → 0 < x + x → 0 ≤ x + x]
 #blaster (only-optimize: 1) [∀ (x y : Int), 0 < x → 0 < y → 0 ≤ x + x]
-#blaster (gen-cex: 1) (solve-result: 1) [∀ (x y : Int), 0 < x → ¬ 0 > x + y]
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : Int), 0 < x → ¬ 0 > x + y]
 #blaster (only-optimize: 1) [∀ (x y : Int), 0 < x → 0 < y → ¬ 0 > x + y]
-#blaster (gen-cex: 1) (solve-result: 1) [∀ (x y : Int), 0 < x → y < 0 → 0 ≤ x + y]
-#blaster (gen-cex: 1) (solve-result: 1) [∀ (x y : Int) (p : Prop), 0 < x → p → 0 ≤ x + y]
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : Int), 0 < x → y < 0 → 0 ≤ x + y]
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : Int) (p : Prop), 0 < x → p → 0 ≤ x + y]
 #blaster (only-optimize: 1) [∀ (x y : Int), 0 < x → 0 < y → ¬ 0 > x + y]
 #blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : Int), 0 ≤ y → 0 ≤ x → x + y > 0]
 
@@ -323,5 +323,55 @@ namespace Test.SmtEqArith
 #blaster (only-optimize: 1) [∀ (x y z : Int), x > 0 → z > 0 → 0 < x + z]
 #blaster (gen-cex: 0) (solve-result: 1) [∀ (x y z : Int), x > 0 → z > 0 → 0 < x + y]
 #blaster (only-optimize: 1) [∀ (x y z : Int), x > 0 → z ≥ 0 → 0 < x + z]
+
+#blaster (only-optimize: 1) [∀ (x y : Int), Int.neg x = Int.neg y ↔ x = y]
+#blaster (only-optimize: 1) [∀ (x y : Nat), Int.ofNat x = Int.ofNat y ↔ x = y]
+
+
+
+#blaster (only-optimize: 1) [∀ (x y : Int), x > 0 → y > 0 → 0 ≠ x * y]
+#blaster (only-optimize: 1) [∀ (x y : Int), 0 < x → y > 0 → 0 ≠ x * y]
+#blaster (only-optimize: 1) [∀ (x y : Int), x > 0 → 0 < y → 0 ≠ x * y]
+#blaster (only-optimize: 1) [∀ (x y : Int), 0 < x → 0 < y → 0 ≠ x * y]
+
+#blaster (only-optimize: 1) [∀ (x y : Int), x ≠ 0 → y > 0 → 0 ≠ x * y]
+#blaster (only-optimize: 1) [∀ (x y : Int), 0 < x → y ≠ 0 → 0 ≠ x * y]
+#blaster (only-optimize: 1) [∀ (x y : Int), x > 0 → 0 ≠ y → 0 ≠ x * y]
+#blaster (only-optimize: 1) [∀ (x y : Int), 0 ≠ x → 0 < y → 0 ≠ x * y]
+
+#blaster (only-optimize: 1) [∀ (x y : Int), x < 0 → y > 0 → 0 ≠ x * y]
+#blaster (only-optimize: 1) [∀ (x y : Int), 0 < x → y < 0 → 0 ≠ x * y]
+#blaster (only-optimize: 1) [∀ (x y : Int), x < 0 → y ≠ 0 → 0 ≠ x * y]
+#blaster (only-optimize: 1) [∀ (x y : Int), 0 ≠ x → y < 0 → 0 ≠ x * y]
+
+#blaster (only-optimize: 1) [∀ (x y : Int), if 0 < x ∧ 0 < y then 0 ≠ x * y else true]
+#blaster (only-optimize: 1) [∀ (x y : Int), if 0 ≠ x ∧ 0 < y then 0 ≠ x * y else true]
+#blaster (only-optimize: 1) [∀ (x y : Int), if 0 < x ∧ 0 ≠ y then 0 ≠ x * y else true]
+#blaster (only-optimize: 1) [∀ (x y : Int), if x < 0 ∧ y < 0 then 0 ≠ x * y else true]
+#blaster (only-optimize: 1) [∀ (x y : Int), if x < 0 ∧ y ≠ 0 then 0 ≠ x * y else true]
+#blaster (only-optimize: 1) [∀ (x y : Int) (p : Prop), p → if 0 < x ∧ 0 < y then 0 ≠ x * y else p]
+#blaster (only-optimize: 1) [∀ (x y : Int) (p : Prop), p →
+  if 0 < y
+    then if 0 < x then 0 ≠ x * y else p
+    else p
+]
+
+#blaster (only-optimize: 1) [∀ (x y : Int) (p : Prop), p →
+  match decide (0 < y ∧ 0 < x) with
+  | true => 0 ≠ x * y
+  | _    => p
+]
+
+#blaster (only-optimize: 1) [∀ (x y : Int) (p : Prop), p →
+  match decide (0 < y), decide (0 < x) with
+  | true, true => 0 ≠ x * y
+  | _   , _    => p
+]
+
+#blaster (only-optimize: 1) [∀ (x y : Int) (p : Prop), p →
+  match decide (0 < y), decide (x ≤ 0) with
+  | true, false => 0 ≠ x * y
+  | _   , _     => p
+]
 
 end Test.SmtEqArith

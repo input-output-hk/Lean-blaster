@@ -29,7 +29,7 @@ partial def translateExpr (e : Expr) (topLevel := true) : TranslateEnvT SmtTerm 
      | Expr.const .. => translateConst e visit
      | Expr.forallE .. =>
          let qtyEnv := initialQuantifierEnv topLevel
-         let (t, _) ← translateForAll e visit |>.run qtyEnv
+         let t ← translateForAll e visit |>.run' qtyEnv
          trace[Translate.forAll] "translate forall {reprStr e} ==> {t}"
          return t
      | Expr.app .. => translateApp e visit
@@ -49,48 +49,51 @@ partial def translateExpr (e : Expr) (topLevel := true) : TranslateEnvT SmtTerm 
   visit e topLevel
 
 def Translate.main (e : Expr) (logUndetermined := true) : TranslateEnvT (Result × Expr) := do
-    let e' ← addAxioms (← toPropExpr e) (← findLocalAxioms)
-    let optExpr ← profileTask "Optimization" $ Optimize.main e'
-    trace[Translate.optExpr] "optimized expression: {← ppExpr optExpr}"
-    match (toResult optExpr) with
-    | res@(.Undetermined) =>
-        if (← get).optEnv.options.solverOptions.onlyOptimize then
-          if logUndetermined then logResult res
-          return (res, optExpr)
-        else
-          -- set backend solver
-          setBlasterProcess
-          let st ← profileTask "Translation" $ translateExpr optExpr
-          -- assert negation for check sat
-          profileTask "Submitting Smt Query" $ assertTerm (notSmt st)
-          -- dump smt commands submitted to backend solver when `dumpSmtLib` option is set.
-          logSmtQuery
-          let res ← profileTask "Solve" checkSat
-          if !isUndeterminedResult res || logUndetermined then logResult res
-          discard $ exitSmt
-          return (res, optExpr)
-    | res =>
-       logResult res
-       return (res, optExpr)
+  -- set start local context
+  updateLocalContext (← mkLocalContext)
+  let e ← addAxioms (← toPropExpr e) (← findLocalAxioms)
+  let optExpr ← profileTask "Optimization" $ Optimize.mainAux e (applyHashCons := false)
+  trace[Translate.optExpr] "optimized expression: {← ppExpr optExpr}"
+  match (toResult optExpr) with
+  | res@(.Undetermined) =>
+      if (← get).optEnv.options.solverOptions.onlyOptimize then
+        if logUndetermined then logResult res
+        return (res, optExpr)
+      else
+        -- set backend solver
+        setBlasterProcess
+        let st ← profileTask "Translation" $ translateExpr optExpr
+        -- assert negation for check sat
+        profileTask "Submitting Smt Query" $ assertTerm (notSmt st)
+        -- dump smt commands submitted to backend solver when `dumpSmtLib` option is set.
+        logSmtQuery
+        let res ← profileTask "Solve" checkSat
+        if !isUndeterminedResult res || logUndetermined then logResult res
+        discard $ exitSmt
+        return (res, optExpr)
+  | res =>
+     logResult res
+     return (res, optExpr)
 
   where
     isTheoremExpr (e : Expr) : TranslateEnvT (Option Expr) := do
       let Expr.const n _ := e.getAppFn' | return none
-      let ConstantInfo.thmInfo info ← getConstInfo n | return none
-      return info.type
+      let ConstantInfo.thmInfo info ← getConstEnvInfo n | return none
+      hashcons info.type
 
     toPropExpr (e : Expr) : TranslateEnvT Expr := do
       if let some r ← isTheoremExpr e then return r
       if !(← isTypeCorrect e) || (Expr.hasSorry e) then
          throwEnvError "translate: {← ppExpr e} is not well-formed"
-      if (← isPropEnv e) then return e
+      let e' ← hashcons e
+      if (← isPropEnv e') then return e'
          throwEnvError "translate: {← ppExpr e} is not a proposition !!!"
 
     addAxioms (e : Expr) (axioms : List Expr) : TranslateEnvT Expr := do
       match axioms with
       | [] => return e
       | a :: tl =>
-         addAxioms (mkForall (← Term.mkFreshBinderName) BinderInfo.default a e) tl
+         addAxioms (← mkForallExpr (← Term.mkFreshBinderName) BinderInfo.default (← hashcons a) e) tl
 
 def command (sOpts: BlasterOptions) (stx : Syntax) : TermElabM Unit := do
    withRef stx do

@@ -19,11 +19,10 @@ namespace Blaster.Optimize
         - return `none`
  -/
  def andBoolReduction? (a : Expr) (b : Expr) : TranslateEnvT (Option Expr) := do
-  let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
-  if hyps.contains (← mkEqBool a true) then return b
-  if hyps.contains (← mkEqBool b true) then return a
-  if hyps.contains (← mkEqBool a false) then return (← mkBoolFalse)
-  if hyps.contains (← mkEqBool b false) then return (← mkBoolFalse)
+  if (← hypMapContains (← mkEqBool a true)) then return b
+  if (← hypMapContains (← mkEqBool b true)) then return a
+  if (← hypMapContains (← mkEqBool a false)) then return (← mkBoolFalse)
+  if (← hypMapContains (← mkEqBool b false)) then return (← mkBoolFalse)
   return none
 
 /-- Apply the following simplification/normalization rules on `and` :
@@ -54,7 +53,7 @@ def optimizeBoolAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if isBoolNotExprOf op2 op1 then return (← mkBoolFalse)
  if let some r ← andBoolReduction? op1 op2 then return r
  -- no caching at this level as optimizeBoolAnd is called by optimizeDecideBoolAnd
- return mkApp2 f op1 op2
+ mkApp2Expr f op1 op2
 
  /-- Given `a` and `b` the operands for `or`, apply the simplification rules:
      - When true = a := _ ∈ hypothesisContext.hypothesisMap,
@@ -69,11 +68,10 @@ def optimizeBoolAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
         - return `none`
  -/
  def orBoolReduction? (a : Expr) (b : Expr) : TranslateEnvT (Option Expr) := do
-  let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
-  if hyps.contains (← mkEqBool a true) then return (← mkBoolTrue)
-  if hyps.contains (← mkEqBool b true) then return (← mkBoolTrue)
-  if hyps.contains (← mkEqBool a false) then return b
-  if hyps.contains (← mkEqBool b false) then return a
+  if (← hypMapContains (← mkEqBool a true)) then return (← mkBoolTrue)
+  if (← hypMapContains (← mkEqBool b true)) then return (← mkBoolTrue)
+  if (← hypMapContains (← mkEqBool a false)) then return b
+  if (← hypMapContains (← mkEqBool b false)) then return a
   return none
 
 /-- Apply the following simplification/normalization rules on `or` :
@@ -104,6 +102,6 @@ def optimizeBoolOr (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if isBoolNotExprOf op2 op1 then return (← mkBoolTrue)
  if let some r ← orBoolReduction? op1 op2 then return r
  -- no caching at this level as optimizeBoolAnd is called by optimizeDecideBoolOr
- return mkApp2 f op1 op2
+ mkApp2Expr f op1 op2
 
 end Blaster.Optimize
