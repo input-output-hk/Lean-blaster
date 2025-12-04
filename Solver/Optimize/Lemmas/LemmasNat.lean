@@ -55,6 +55,10 @@ protected theorem nat_not_zero_eq_of_zero_lt {a : Nat} (h : 0 < a) : ¬ 0 = a :=
 
 protected theorem nat_zero_lt_of_not_zero_eq {a : Nat} (h : ¬ 0 = a) : 0 < a := by grind
 
+protected theorem sub_min_nat_of_eq (N1 N2 a b : Nat) (h : N1 + a = N2 + b) :
+    N1 - Nat.min N1 N2 + a = N2 - Nat.min N1 N2 + b := by
+    by_cases h : N1 ≤ N2 <;> simp [Nat.min_def, h] <;> omega
+
 /-- Return `Solver.nat_not_lt_of_lt` const expression and cache result. -/
 def mkNat_not_lt_of_lt : TranslateEnvT Expr := mkExpr (mkConst ``Solver.nat_not_lt_of_lt)
 
@@ -75,5 +79,8 @@ def mkNat_not_zero_eq_of_zero_lt : TranslateEnvT Expr := mkExpr (mkConst ``Solve
 
 /-- Return `Solver.nat_zero_lt_of_not_zero_eq` const expression and cache result. -/
 def mkNat_zero_lt_of_not_zero_eq : TranslateEnvT Expr := mkExpr (mkConst ``Solver.nat_zero_lt_of_not_zero_eq)
+
+/-- Return `Solver.sub_min_nat_of_eq` const expression and cache result. -/
+def mkNat_sub_min_nat_of_eq : TranslateEnvT Expr := mkExpr (mkConst ``Solver.sub_min_nat_of_eq)
 
 end Solver

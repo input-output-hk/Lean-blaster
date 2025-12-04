@@ -614,7 +614,7 @@ partial def inferUndeclFunType (t : Expr) (params : ImplicitParameters) : Expr :
       | _ => t
   visit 0 t
 
-/-- Given `f` corresponding to either an undeclared class function or an axiom function,
+/-- Given `f` corresponding to either an undeclared class function, an axiom function or an opaque function
     `params` its corresponding implicit/explicit parameters and `s` its corresponding smt symbol,
      perform the following:
        - Let `∀ α₀ → ∀ α₁ ... → αₙ` := inferUndecFunType (← getFunEnvInfo f).type params
@@ -683,7 +683,7 @@ def generateUndeclaredFun
          - return `termTranslator (← etaExpand e)`
      - When `isTheorem n` ∧ `¬ hasSorryTheorem e` ∧ ¬ Type(e).isForAll
          - return termTranslator (← optimizeExpr' Type(e))
-     - When `isAxiom n`
+     - When `isAxiom n ∨ some ConstantInfo.opaqueInfo _ ← getConstEnvInfo n`
          - When n := s ∈ axiomMap:
              - return `smtSimpleVarId s`
          - Otherwise:
@@ -727,7 +727,7 @@ def translateConst
       throwEnvError "translateConst: unexpected implicit arguments for function {reprStr e}"
     if let some r ← translateDefineFun? n then return r
     if let some r ← translateTheorem? n then return r
-    if let some r ← translateAxiom? n then return r
+    if let some r ← translateAxiomOrOpaque? n then return r
     throwEnvError "translateConst: only opaque/recursive functions and theorems expected but got {reprStr e}"
 
 
@@ -756,18 +756,25 @@ def translateConst
         throwEnvError "translateConst: Fully applied theorem expected but got {reprStr info.type}"
       termTranslator (← optimizeExpr' info.type)
 
-    translateAxiom? (n : Name) : TranslateEnvT (Option SmtTerm) := do
-       let ConstantInfo.axiomInfo info ← getConstEnvInfo n | return none
-       if ← isPropEnv info.type then
-         throwEnvError "translateConst: Unexpected Axiom of type Prop {n}"
+    getAxiomOpaqueType (n : Name) : TranslateEnvT (Option Expr) := do
+       match ← getConstEnvInfo n with
+       | ConstantInfo.axiomInfo info =>
+            if ← isPropEnv info.type then
+              throwEnvError "translateConst: Unexpected Axiom of type Prop {n}"
+            return info.type
+       | ConstantInfo.opaqueInfo info => return info.type
+       | _ => return none
+
+    translateAxiomOrOpaque? (n : Name) : TranslateEnvT (Option SmtTerm) := do
+       let some t ← getAxiomOpaqueType n | return none
        match (← get).smtEnv.options.axiomMap.get? n with
        | some s => return (smtSimpleVarId s)
        | none =>
-           if ← isFunType info.type then
+           if ← isFunType t then
              termTranslator (← Optimize.etaExpand e)
            else
              let smtSym ← updateAxiomMap n
-             let t' ← removeTypeAbbrev info.type
+             let t' ← removeTypeAbbrev t
              let smtType ← translateTypeAux termTranslator t'
              -- declare free variable at top level
              declareConst smtSym smtType
@@ -928,14 +935,19 @@ def translateApp
       mkLambdaFVars genericArgs instAux (usedOnly := true)
 
 
-    isAxiomOrUndeclFun (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT Bool := do
+    isOpaqueAxiomOrUndeclFun (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT Bool := do
       match ← getFunBody f with
-      | none => return (← getConstEnvInfo n).isAxiom
+      | none =>
+         match (← getConstEnvInfo n) with
+         | ConstantInfo.axiomInfo _
+         | ConstantInfo.opaqueInfo _ => return true
+         | _ => return false
+
       | some fbody => isUndefinedClassFunApp (Expr.beta fbody args)
 
     translateAxiomOrUndeclFun? (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
       if (← isOpaqueFun n args) then return none
-      if !(← isAxiomOrUndeclFun f n args) then return none
+      if !(← isOpaqueAxiomOrUndeclFun f n args) then return none
       let pInfo ← getFunEnvInfo f
       if pInfo.paramsInfo.size > args.size then
         return ← termTranslator (← Optimize.etaExpand e) -- partially applied function
