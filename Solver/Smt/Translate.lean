@@ -93,11 +93,11 @@ def command (sOpts: SolverOptions) (stx : Syntax) : TermElabM Unit := do
   -- This only happens when the #solve command is invoked on some complex term.
   -- NOTE: maxHeartbeats is set to 0 to avoid all Lean4 codebase functions that depends on whnf
   -- to trigger the maxHeartbeats reached error. Indeed, Lean4 badly handles the number of heat beats.
-  -- Heart beats are only incremented but never decremented. It should be decremented then
+  -- Heart beats are only incremented but never decremented. It should be decremented when
   -- memory allocation is freed.
-  -- The direct use of whnf is soon be removed at the preprocessing phase.
+  -- The direct use of whnf will soon be removed at the preprocessing phase.
   -- However, since we rely on functions like isProp, inferType and withLocalDecl, setting maxHearbeats
-  -- to zero will still be required.
+  -- to zero will still be required. Unless, we have a new implementation for these functions.
   withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0, maxRecDepth := 0 }) $ do
    withRef stx do
      instantiateMVars (← withSynthesize (postpone := .partial) <| elabTerm stx none) >>= fun e => do
