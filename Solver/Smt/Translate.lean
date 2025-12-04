@@ -88,6 +88,16 @@ def Translate.main (e : Expr) (logUndetermined := true) : TranslateEnvT (Result 
          addAxioms (mkForall (← Term.mkFreshBinderName) BinderInfo.default a e) tl
 
 def command (sOpts: SolverOptions) (stx : Syntax) : TermElabM Unit := do
+  -- NOTE: We need to set maxRecDepth to 0 as the term elaborator function is triggering
+  -- "maximum recursion depth has been reached".
+  -- This only happens when the #solve command is invoked on some complex term.
+  -- NOTE: maxHeartbeats is set to 0 to avoid all Lean4 codebase functions that depends on whnf
+  -- to trigger the maxHeartbeats reached error. Indeed, Lean4 badly handles the number of heat beats.
+  -- Heart beats are only incremented but never decremented. It should be decremented then
+  -- memory allocation is freed.
+  -- The direct use of whnf is soon be removed at the preprocessing phase.
+  -- However, since we rely on functions like isProp, inferType and withLocalDecl, setting maxHearbeats
+  -- to zero will still be required.
   withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0, maxRecDepth := 0 }) $ do
    withRef stx do
      instantiateMVars (← withSynthesize (postpone := .partial) <| elabTerm stx none) >>= fun e => do
