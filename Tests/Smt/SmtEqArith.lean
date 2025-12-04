@@ -57,5 +57,43 @@ namespace Test.SmtEqArith
 #solve (only-optimize: 1) [∀ (x y : Int), 100 + x = 20 + y → 80 + x = y]
 #solve (only-optimize: 1) [∀ (x y : Int), 100 + x = 100 + y → x = y]
 
+#solve (only-optimize: 1) [∀ (x y : Nat), 0 ≠ y → ¬ (x + y = x)]
+#solve (only-optimize: 1) [∀ (x y : Nat), 0 < y → ¬ (x + y = x)]
+
+#solve (only-optimize: 1) [∀ (x y : Nat), 0 ≠ y → ¬ (x + y = x)]
+#solve (only-optimize: 1) [∀ (x y : Nat), 0 < y → ¬ (x + y = x)]
+#solve (only-optimize: 1) [∀ (y x : Nat), 0 ≠ y → ¬ (y + x = x)]
+#solve (only-optimize: 1) [∀ (y x : Nat), 0 < y → ¬ (y + x = x)]
+#solve (only-optimize: 1) [∀ (x y : Nat), 0 ≠ y → ¬ (x = x + y)]
+#solve (only-optimize: 1) [∀ (x y : Nat), 0 < y → ¬ (x = x + y)]
+#solve (only-optimize: 1) [∀ (y x : Nat), 0 ≠ y → ¬ (x = y + x)]
+#solve (only-optimize: 1) [∀ (y x : Nat), 0 < y → ¬ (x = y + x)]
+
+#solve (gen-cex: 0) (solve-result: 1) [∀ (x y : Nat), ¬ (x + y = x)]
+#solve (gen-cex: 0) (solve-result: 1) [∀ (x y : Nat), ¬ (y < 0) → ¬ (x + y = x)]
+#solve (gen-cex: 0) (solve-result: 1) [∀ (x y : Nat), y = 0 → ¬ (x + y = x)]
+#solve (gen-cex: 0) (solve-result: 1) [∀ (x y : Nat), y ≥ 0 → ¬ (x + y = x)]
+
+#solve (only-optimize: 1) [∀ (x y : Int), 0 ≠ y → ¬ (x + y = x)]
+#solve (only-optimize: 1) [∀ (x y : Int), 0 < y → ¬ (x + y = x)]
+#solve (only-optimize: 1) [∀ (x y : Int), 0 > y → ¬ (x + y = x)]
+#solve (only-optimize: 1) [∀ (y x : Int), 0 ≠ y → ¬ (x + y = x)]
+#solve (only-optimize: 1) [∀ (y x : Int), 0 < y → ¬ (x + y = x)]
+#solve (only-optimize: 1) [∀ (y x : Int), 0 > y → ¬ (x + y = x)]
+
+#solve (only-optimize: 1) [∀ (x y : Int), 0 ≠ y → ¬ (x = x + y)]
+#solve (only-optimize: 1) [∀ (x y : Int), 0 < y → ¬ (x = x + y)]
+#solve (only-optimize: 1) [∀ (x y : Int), 0 > y → ¬ (x = x + y)]
+#solve (only-optimize: 1) [∀ (y x : Int), 0 ≠ y → ¬ (x = x + y)]
+#solve (only-optimize: 1) [∀ (y x : Int), 0 < y → ¬ (x = x + y)]
+#solve (only-optimize: 1) [∀ (y x : Int), 0 > y → ¬ (x = x + y)]
+
+
+#solve (gen-cex: 0) (solve-result: 1) [∀ (x y : Int), ¬ (x + y = x)]
+#solve (gen-cex: 0) (solve-result: 1) [∀ (x y : Int), ¬ (y < 0) → ¬ (x + y = x)]
+#solve (gen-cex: 0) (solve-result: 1) [∀ (x y : Int), y = 0 → ¬ (x + y = x)]
+#solve (gen-cex: 0) (solve-result: 1) [∀ (x y : Int), y ≥ 0 → ¬ (x + y = x)]
+#solve (gen-cex: 0) (solve-result: 1) [∀ (x y : Int), y ≤ 0 → ¬ (x + y = x)]
+
 
 end Test.SmtEqArith

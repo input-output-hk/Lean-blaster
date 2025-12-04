@@ -1,36 +1,8 @@
 import Lean
-import Solver.Optimize.Rewriting.Utils
-import Solver.Optimize.Env
+import Solver.Optimize.Hypotheses
 
 open Lean Meta
 namespace Solver.Optimize
-
-/-- Return `true` only when one of the following conditions is satisfied:
-      - 0 < e := _ ∈ hypothesisContext.hypothesisMap; or
-      - ¬ (0 = e) := _ ∈ hypothesisContext.hypothesisMap
--/
-def nonZeroNatInHyps (e : Expr) : TranslateEnvT Bool := do
- let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
- let zero_nat ← mkNatLitExpr 0
- let zero_lt ← mkNatLtExpr zero_nat e
- if hyps.contains zero_lt then return true
- let zero_eq ← mkNatEqExpr zero_nat e
- return hyps.contains (mkApp (← mkPropNotOp) zero_eq)
-
-/-- Return `true` only when one of the following conditions is satisfied:
-      - 0 < e := _ ∈ hypothesisContext.hypothesisMap; or
-      - e < 0 := _ ∈ hypothesisContext.hypothesisMap; or
-      - ¬ (0 = e) := _ ∈ hypothesisContext.hypothesisMap
--/
-def nonZeroIntInHyps (e : Expr) : TranslateEnvT Bool := do
- let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
- let zero_int ← mkIntLitExpr (Int.ofNat 0)
- let zero_lt ← mkIntLtExpr zero_int e
- if hyps.contains zero_lt then return true
- let lt_zero ← mkIntLtExpr e zero_int
- if hyps.contains lt_zero then return true
- let zero_eq ← mkIntEqExpr zero_int e
- return hyps.contains (mkApp (← mkPropNotOp) zero_eq)
 
 /-- Return `some true` if op1 and op2 are constructors that are structurally equivalent modulo
     variable name/function equivalence
@@ -215,25 +187,39 @@ def intMulEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option (Expr × E
 
 /-- Given `op1` and `op2` corresponding to the operands for `Eq`:
       - return `some False` when `op1 := N + e ∧ op2 := e ∧ N ≠ 0 ∧ Type(N) = Int`
+      - return `some False` when `op1 := a + b ∧ op2 := a ∧ Type(a) = Int ∧ nonZeroIntInHyps b`
+      - return `some False` when `op1 := b + a ∧ op2 := a ∧ Type(a) = Int ∧ nonZeroIntInHyps b`
     Otherwise `none`.
 -/
 def intEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
  let some (e1, e2) := intAdd? op1 | return none
- let some n := isIntValue? e1 | return none
- if n == 0 then return none
- if !(exprEq e2 op2) then return none
- return ← mkPropFalse
+ match isIntValue? e1 with
+ | some n =>
+     if n == 0 then return none
+     if !(exprEq e2 op2) then return none
+     return ← mkPropFalse
+ | none =>
+     if exprEq e1 op2 then if ← nonZeroIntInHyps e2 then return ← mkPropFalse
+     if exprEq e2 op2 then if ← nonZeroIntInHyps e1 then return ← mkPropFalse
+     return none
 
 /-- Given `op1` and `op2` corresponding to the operands for `Eq`:
       - return `some False` when `op1 := N + e ∧ op2 := e ∧ N ≠ 0 ∧ Type(N) = Nat`
+      - return `some False` when `op1 := a + b ∧ op2 := a ∧ Type(a) = Nat ∧ nonZeroNatInHyps b`
+      - return `some False` when `op1 := b + a ∧ op2 := a ∧ Type(a) = Nat ∧ nonZeroNatInHyps b`
     Otherwise `none`.
 -/
 def natEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
  let some (e1, e2) := natAdd? op1 | return none
- let some n := isNatValue? e1 | return none
- if n == 0 then return none
- if !(exprEq e2 op2) then return none
- return ← mkPropFalse
+ match isNatValue? e1 with
+ | some n =>
+     if n == 0 then return none
+     if !(exprEq e2 op2) then return none
+     return ← mkPropFalse
+ | none =>
+     if exprEq e1 op2 then if ← nonZeroNatInHyps e2 then return ← mkPropFalse
+     if exprEq e2 op2 then if ← nonZeroNatInHyps e1 then return ← mkPropFalse
+     return none
 
 /-- Given `op1` and `op2` corresponding to the operands for `Eq`:
       - return `some False` when `op1 := N1 ∧ op2 := N2 + a ∧ N1 < N2 ∧ Type(a) = Nat`:
@@ -288,10 +274,14 @@ def addIntEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := d
 
 /-- Apply the following simplification/normalization rules on `Eq` :
      - N + e = e | e = N + e ==> False (if Type(e) ∈ [Nat, Int])
+     - a + b = a | a = a + b | b + a = a | a = b + a ==> False (if Type(a) ∈ [Nat, Int] ∧ nonZeroInHyps b)
      - N2 = N1 + a ==> False (if Type(a) = Nat) ∧ N2 < N1)
      - N2 = N1 + a ==> N2 "-" N1 = a (if Type(a) = Nat) if N2 ≥ N1) (restart)
      - N2 = N1 + a ===> N2 "-" N1 = a (if Type(a) = Int) (restart)
      - N1 + a = N2 + b ==> N1 "-" min(N1, N2) + a = N2 "-" min(N1, N2) + b (if Type(a) ∈ [Nat, Int])
+     with:
+       nonZeroInHyps x := nonZeroNatInHyps x If Type(x) = Nat
+                       := nonZeroIntInHyps x Otherwise
 -/
 def arithEq? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
   if let some r ← intEqReduce? op1 op2 then return r
