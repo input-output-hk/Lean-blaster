@@ -33,6 +33,10 @@ protected theorem zero_lt_neg_of_lt_zero {a : Int} (h : a < 0) : 0 < -a := by si
 
 protected theorem lt_zero_of_zero_lt_neg {a : Int} (h : 0 < -a) : a < 0 := by simp at *; assumption
 
+protected theorem sub_min_int_of_eq (N1 N2 a b : Int) (h : N1 + a = N2 + b) :
+    N1 - min N1 N2 + a = N2 - min N1 N2 + b := by
+    by_cases h : N1 ≤ N2 <;> simp [Int.min_def, h] <;> omega
+
 /-- Return `Solver.int_not_lt_of_lt` const expression and cache result. -/
 def mkInt_not_lt_of_lt : TranslateEnvT Expr := mkExpr (mkConst ``Solver.int_not_lt_of_lt)
 
@@ -59,6 +63,9 @@ def mkInt_zero_lt_neg_of_lt_zero : TranslateEnvT Expr := mkExpr (mkConst ``Solve
 
 /-- Return `Solver.lt_zero_of_zero_lt_neg` const expression and cache result. -/
 def mkInt_lt_zero_of_zero_lt_neg : TranslateEnvT Expr := mkExpr (mkConst ``Solver.lt_zero_of_zero_lt_neg)
+
+/-- Return `Solver.sub_min_int_of_eq` const expression and cache result. -/
+def mkInt_sub_min_int_of_eq : TranslateEnvT Expr := mkExpr (mkConst ``Solver.sub_min_int_of_eq)
 
 
 end Solver
