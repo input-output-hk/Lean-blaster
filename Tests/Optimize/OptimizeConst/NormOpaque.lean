@@ -5,35 +5,25 @@ open Lean Elab Command Term
 
 namespace Test.NormOpaque
 
-/-! ## Test objectives to validate normalization rules on constant declared at top level using the `opaque` keyword -/
+/-! ## Test objectives to validate `opaque` variables shall not be replaced with their default value -/
 
 
-/-! Test cases to ensure that opaque variables are replaced with their expected values -/
+/-! Test cases to ensure that opaque variables shall not be replaced with their default value -/
 
 opaque x : Nat
--- x = 0 ===> True
--- NOTE: Test cases to validate that opaque with no assignment is reduced to default value
-#testOptimize [ "ConstOpaque_1" ] x = 0 ===> True
+-- x = 0 ===> 0 = x
+#testOptimize [ "ConstOpaque_1" ] (norm-result: 1) x = 0 ===> 0 = x
 
--- x ===> 0
--- NOTE: Test cases to validate that opaque with no assignment is reduced to default value
-def constOpaque_2 : Expr := Lean.Expr.lit (Lean.Literal.natVal 0)
-elab "constOpaque_2" : term => return constOpaque_2
+-- x ===> x
+#testOptimize [ "ConstOpaque_2" ] x ===> x
 
-#testOptimize [ "ConstOpaque_2" ] x ===> constOpaque_2
+opaque y : Int := 10
 
-opaque y : Int
--- y = 0 ===> True
--- NOTE: Test cases to validate that opaque with no assignment is reduced to default value
-#testOptimize [ "ConstOpaque_3" ] y = 0 ===> True
+-- y = 10 ===> 10 = y
+#testOptimize [ "ConstOpaque_3" ] (norm-result: 1) y = 10  ===> 10 = y
 
--- y ===> 0
--- NOTE: Test cases to validate that opaque with no assignment is reduced to default value
-def constOpaque_4 : Expr :=
-  Lean.Expr.app (Lean.Expr.const `Int.ofNat []) (Lean.Expr.lit (Lean.Literal.natVal 0))
-elab "constOpaque_4" : term => return constOpaque_4
-
-#testOptimize [ "ConstOpaque_4" ] y ===> constOpaque_4
+-- x ===> x
+#testOptimize [ "ConstOpaque_4" ] y ===> y
 
 inductive Color where
   | transparent : Color
@@ -44,139 +34,115 @@ inductive Color where
 
 opaque c : Color
 
--- c = Color.transparent ===> True
--- NOTE: Test cases to validate that opaque with no assignment is reduced to default value
-#testOptimize [ "ConstOpaque_5" ] c = Color.transparent ===> True
+-- c = Color.transparent ===> Color.transparent = c
+#testOptimize [ "ConstOpaque_5" ] c = Color.transparent ===> Color.transparent = c
 
--- c ===> Color.transparent
--- NOTE: Test cases to validate that opaque with no assignment is reduced to default value
-#testOptimize [ "ConstOpaque_6" ] c ===> Color.transparent
+-- c ===> c
+#testOptimize [ "ConstOpaque_6" ] c ===> c
 
 opaque l : List Nat
 
--- l = [] ===> True
--- NOTE: Test cases to validate that opaque with no assignment is reduced to default value
-#testOptimize [ "ConstOpaque_7" ] l = [] ===> True
+-- l = [] ===> [] = l
+#testOptimize [ "ConstOpaque_7" ] l = [] ===> [] = l
 
--- l ===> []
--- NOTE: Test cases to validate that opaque with no assignment is reduced to default value
-#testOptimize [ "ConstOpaque_8" ] l ===> ([] : List Nat)
+-- l ===> l
+#testOptimize [ "ConstOpaque_8" ] l ===> l
 
 
--- l = List.nil ===> True
--- NOTE: Test cases to validate that opaque with no assignment is reduced to default value
-#testOptimize [ "ConstOpaque_9" ] l = List.nil ===> True
+-- l = List.nil ===> List.nil = l
+#testOptimize [ "ConstOpaque_9" ] l = List.nil ===> List.nil = l
 
--- l ===> List.nil
--- NOTE: Test cases to validate that opaque with no assignment is reduced to default value
-#testOptimize [ "ConstOpaque_10" ] l ===> (List.nil : List Nat)
+opaque l' : List Nat := [10]
+-- l' ===> l'
+#testOptimize [ "ConstOpaque_10" ] l' ===> l'
 
 opaque s : String
--- s = "" ===> True
--- NOTE: Test cases to validate that opaque with no assignment is reduced to default value
-#testOptimize [ "ConstOpaque_11" ] s = "" ===> True
+#testOptimize [ "ConstOpaque_11" ] s = "" ===> "" = s
 
--- s ===> ""
--- NOTE: Test cases to validate that opaque with no assignment is reduced to default value
-#testOptimize [ "ConstOpaque_12" ] s ===> ""
-
+-- s ===> s
+#testOptimize [ "ConstOpaque_12" ] s ===> s
 
 opaque n : Nat := 100
--- n = 100 ===> True
--- NOTE: Test cases to validate assigned opaque
-#testOptimize [ "ConstOpaque_13" ] n = 100 ===> True
+-- n = 100 ===> 100 = n
+#testOptimize [ "ConstOpaque_13" ] (norm-result: 1) n = 100 ===> 100 = n
 
--- n ===> 100
--- NOTE: Test cases to validate assigned opaque
-def constOpaque_14 : Expr := Lean.Expr.lit (Lean.Literal.natVal 100)
-elab "constOpaque_14" : term => return constOpaque_14
-
-#testOptimize [ "ConstOpaque_14" ] n ===> constOpaque_14
+-- n ===> n
+#testOptimize [ "ConstOpaque_14" ] n ===> n
 
 opaque m : Int := -45
--- m = -45 ===> True
--- NOTE: Test cases to validate assigned opaque
-#testOptimize [ "ConstOpaque_15" ] y = 0 ===> True
+-- m = -45 ===> -45 = m
+def constOpaque_15 : Expr :=
+Lean.Expr.app
+  (Lean.Expr.app
+    (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Int []))
+    (Lean.Expr.app (Lean.Expr.const `Int.negSucc []) (Lean.Expr.lit (Lean.Literal.natVal 44))))
+  (Lean.Expr.const `Test.NormOpaque.m [])
+elab "constOpaque_15" : term => return constOpaque_15
 
--- m ===> -45
--- NOTE: Test cases to validate assigned opaque
-def constOpaque_16 : Expr :=
-  Lean.Expr.app (Lean.Expr.const `Int.negSucc []) (Lean.Expr.lit (Lean.Literal.natVal 44))
-elab "constOpaque_16" : term => return constOpaque_16
+#testOptimize [ "ConstOpaque_15" ] (norm-result: 1) m = (-45) ===> constOpaque_15
 
-#testOptimize [ "ConstOpaque_16" ] m ===> constOpaque_16
+-- m ===> m
+#testOptimize [ "ConstOpaque_16" ] m ===> m
 
 opaque red : Color := Color.red Color.transparent
 
--- red = Color.red Color.transparent ===> True
--- NOTE: Test cases to validate assigned opaque
-#testOptimize [ "ConstOpaque_17" ] red = Color.red Color.transparent ===> True
+-- red = Color.red Color.transparent ===> Color.red Color.transparent = red
+#testOptimize [ "ConstOpaque_17" ] red = Color.red Color.transparent ===> Color.red Color.transparent = red
 
--- red ===> Color.red Color.transparent
--- NOTE: Test cases to validate assigned opaque
-#testOptimize [ "ConstOpaque_18" ] red ===> Color.red Color.transparent
+-- red ===> red
+#testOptimize [ "ConstOpaque_18" ] red ===> red
 
 opaque xs : List Nat := [1, 2, 3]
 
 -- xs = [1, 2, 3] ===> True
 -- NOTE: Test cases to validate assigned opaque
-#testOptimize [ "ConstOpaque_19" ] xs = [1, 2, 3] ===> True
+#testOptimize [ "ConstOpaque_19" ] (norm-result: 1) xs = [1, 2, 3] ===> [1, 2, 3] = xs
 
--- xs ===> [1, 2, 3]
--- NOTE: Test cases to validate assigned opaque
-def constOpaque_20 : Expr :=
- Lean.Expr.app
-  (Lean.Expr.app
-    (Lean.Expr.app (Lean.Expr.const `List.cons [Lean.Level.zero]) (Lean.Expr.const `Nat []))
-    (Lean.Expr.lit (Lean.Literal.natVal 1)))
-  (Lean.Expr.app
-    (Lean.Expr.app
-      (Lean.Expr.app (Lean.Expr.const `List.cons [Lean.Level.zero]) (Lean.Expr.const `Nat []))
-      (Lean.Expr.lit (Lean.Literal.natVal 2)))
-    (Lean.Expr.app
-      (Lean.Expr.app
-        (Lean.Expr.app (Lean.Expr.const `List.cons [Lean.Level.zero]) (Lean.Expr.const `Nat []))
-        (Lean.Expr.lit (Lean.Literal.natVal 3)))
-      (Lean.Expr.app (Lean.Expr.const `List.nil [Lean.Level.zero]) (Lean.Expr.const `Nat []))))
-elab "constOpaque_20" : term => return constOpaque_20
-
-#testOptimize [ "ConstOpaque_20" ] xs ===> constOpaque_20
+-- xs ===> xs
+#testOptimize [ "ConstOpaque_20" ] xs ===> xs
 
 opaque str : String := "testOptimize"
--- str = "testOptimize" ===> True
--- NOTE: Test cases to validate assigned opaque
-#testOptimize [ "ConstOpaque_21" ] str = "testOptimize" ===> True
+-- str = "testOptimize" ===> "testOptimize" = str
+#testOptimize [ "ConstOpaque_21" ] str = "testOptimize" ===> "testOptimize" = str
 
--- str ===> "testOptimize"
--- NOTE: Test cases to validate assigned opaque
-#testOptimize [ "ConstOpaque_22" ] str ===> "testOptimize"
+-- str ===> str
+#testOptimize [ "ConstOpaque_22" ] str ===> str
 
--- x + n = 100 ===> True
-#testOptimize [ "ConstOpaque_23" ] x + n = 100 ===> True
+-- x + n = 100 ===> 100 = Nat.add n x
+#testOptimize [ "ConstOpaque_23" ] (norm-result: 1) x + n = 100 ===> 100 = Nat.add n x
 
--- x + n ===> 100
-#testOptimize [ "ConstOpaque_24" ] x + n ===> constOpaque_14
+-- x + n ===> Nat.add n x
+#testOptimize [ "ConstOpaque_24" ] x + n ===> Nat.add n x
 
--- y + m = -45 ===> True
-#testOptimize [ "ConstOpaque_25" ] y + m = -45 ===> True
+-- y + m = -45 ===> -45 = m + y
+def constOpaque_25 : Expr :=
+Lean.Expr.app
+  (Lean.Expr.app
+    (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Int []))
+    (Lean.Expr.app (Lean.Expr.const `Int.negSucc []) (Lean.Expr.lit (Lean.Literal.natVal 44))))
+  (Lean.Expr.app
+    (Lean.Expr.app (Lean.Expr.const `Int.add []) (Lean.Expr.const `Test.NormOpaque.m []))
+    (Lean.Expr.const `Test.NormOpaque.y []))
+elab "constOpaque_25" : term => return constOpaque_25
+#testOptimize [ "ConstOpaque_25" ] y + m = -45 ===> constOpaque_25
 
--- y + m ===> -45
-#testOptimize [ "ConstOpaque_24" ] y + m ===> constOpaque_16
+-- y + m ===> Int.add m y
+#testOptimize [ "ConstOpaque_24" ] y + m ===> Int.add m y
 
--- red = c ===> False
-#testOptimize [ "ConstOpaque_25" ] red = c ===> False
+-- red = c ===> c = red
+#testOptimize [ "ConstOpaque_25" ] red = c ===> c = red
 
--- l = xs ===> False
-#testOptimize [ "ConstOpaque_26" ] l = xs ===> False
+-- l = xs ===> l = xs
+#testOptimize [ "ConstOpaque_26" ] l = xs ===> l = xs
 
--- List.length xs = 3 ===> True
-#testOptimize [ "ConstOpaque_27" ] List.length xs = 3 ===> True
+-- List.length xs = 3 ===> 3 = List.length xs
+#testOptimize [ "ConstOpaque_27" ] (norm-result: 1) List.length xs = 3 ===> 3 = List.length xs
 
--- s = str ===> False
-#testOptimize [ "ConstOpaque_28" ] s = str ===> False
+-- s = str ===> s = str
+#testOptimize [ "ConstOpaque_28" ] s = str ===> s = str
 
--- String.length str = 12 ===> True
-#testOptimize [ "ConstOpaque_29" ] String.length str = 12 ===> True
+-- String.length str = 12 ===> 12 = String.length str
+#testOptimize [ "ConstOpaque_29" ] (norm-result: 1) String.length str = 12 ===> 12 = String.length str
 
 
 /-! Test cases to ensure that non-opaque variables are properly handled as free variables. -/
@@ -201,17 +167,27 @@ variable (t : String)
 -- t ===> t
 #testOptimize [ "ConstOpaqueUnchanged_5" ] t ===> t
 
--- z + n = 100 + z ===> True
-#testOptimize [ "ConstOpaqueUnchanged_6" ] z + n = 100 + z ===> True
+-- z + n = 100 + z ===> 100 = n
+#testOptimize [ "ConstOpaqueUnchanged_6" ] (norm-result: 1) z + n = 100 + z ===> 100 = n
 
--- p + m = -45 + p ===> True
-#testOptimize [ "ConstOpaqueUnchanged_7" ] p + m = -45 + p ===> True
+-- p + m = -45 + p ===> -45 = m
+def constOpaqueUnchanged_7 : Expr :=
+ Lean.Expr.app
+  (Lean.Expr.app
+    (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Int []))
+    (Lean.Expr.app (Lean.Expr.const `Int.negSucc []) (Lean.Expr.lit (Lean.Literal.natVal 44))))
+  (Lean.Expr.const `Test.NormOpaque.m [])
+elab "constOpaqueUnchanged_7" : term => return constOpaqueUnchanged_7
+#testOptimize [ "ConstOpaqueUnchanged_7" ] p + m = -45 + p ===> constOpaqueUnchanged_7
 
--- List.length ys + List.length xs = 3 + List.length ys ===> True
-#testOptimize [ "ConstOpaqueUnchanged_8" ] List.length ys + List.length xs = 3 + List.length ys ===> True
+-- List.length ys + List.length xs = 3 + List.length ys ===> 3 = List.length xs
+#testOptimize [ "ConstOpaqueUnchanged_8" ] (norm-result: 1)
+  List.length ys + List.length xs = 3 + List.length ys ===> 3 = List.length xs
 
--- String.append str t = String.append "testOptimize" t ===> True
-#testOptimize [ "ConstOpaqueUnchanged_9" ] String.append str t = String.append "testOptimize" t ===> True
+-- String.append str t = String.append "testOptimize" t ===> String.append str t = String.append "testOptimize" t
+#testOptimize [ "ConstOpaqueUnchanged_9" ]
+  String.append str t = String.append "testOptimize" t ===>
+  String.append str t = String.append "testOptimize" t
 
 end Test.NormOpaque
 

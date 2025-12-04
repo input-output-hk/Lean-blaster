@@ -24,9 +24,6 @@ partial def normLevel (l : Level) : Level :=
 /-- Given `e := Expr.const n l, apply the following normalization rule:
      - When `n := Nat.zero` return `Expr.lit (Literal.natVal 0)`
 
-     - When `ConstantIno.opaqueInfo opVal ← getConstInfo n` (i.e., n is a constant defined at top level)
-        - return `optimizer opVal`
-
      - When `n := Nat.pred`
          - return `λ n => n - 1`
 
@@ -84,7 +81,6 @@ def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeCo
          | _ =>
            if (← isPartialDef n) then throwEnvError "normConst: partial function not supported {n} !!!"
            if (← isUnsafeDef n) then throwEnvError "normConst: unsafe definition not supported {n} !!!"
-           if let some r ← isGlobalConstant n then return Sum.inl r
            if let some r ← isToNormOpaqueFun n then return r
            let e' := normConstLevel n l
            if let some r ← isHOF n e' then return r
@@ -99,12 +95,6 @@ def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeCo
     @[always_inline, inline]
     normConstLevel (n : Name) (xs : List Level) : Expr :=
       Expr.const n (xs.map normLevel)
-
-    @[always_inline, inline]
-    isGlobalConstant (c : Name) : TranslateEnvT (Option (List OptimizeStack)) := do
-      if let ConstantInfo.opaqueInfo opVal ← getConstEnvInfo c then
-        return (.InitOptimizeExpr opVal.value :: stack)
-      else return none
 
     /-- Apply the following normalization rules on opaque functions:
          - Nat.pred ==> λ n => n - 1

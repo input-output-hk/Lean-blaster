@@ -1,6 +1,5 @@
 import Lean
-import Solver.Optimize.Rewriting.Utils
-import Solver.Optimize.Rewriting.OptimizePropNot
+import Solver.Optimize.Hypotheses
 
 open Lean Meta
 namespace Solver.Optimize
@@ -14,54 +13,88 @@ def isOneNat (e : Expr) : Bool :=
 /-- Given `op1` and `op2` corresponding to the operands for `LT.lt`:
       - return `some False` when `op1 := N + e ∧ op2 := e ∧ N > 0 ∧ Type(N) = Int`
       - return `some True` when `op1 := N + e ∧ op2 := e ∧ N < 0 ∧ Type(N) = Int`
+      - return `some False` when `op1 := a + b ∧ op2 := a ∧ Type(N) = Int ∧ geqZeroIntInHyps b`
+      - return `some False` when `op1 := b + a ∧ op2 := a ∧ Type(N) = Int ∧ geqZeroIntInHyps b`
+      - return `some True` when `op1 := a + b ∧ op2 := a ∧ Type(N) = Int ∧ ltZeroIntInHyps b`
+      - return `some True` when `op1 := b + a ∧ op2 := a ∧ Type(N) = Int ∧ ltZeroIntInHyps b`
     Otherwise `none`.
 -/
 def intRelLeftReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
  let some (e1, e2) := intAdd? op1 | return none
- let some n := isIntValue? e1 | return none
- if n == 0 then return none
- if !(exprEq e2 op2) then return none
- if n > 0
- then return ← mkPropFalse
- else return ← mkPropTrue
+ match isIntValue? e1 with
+ | some n =>
+    if !(exprEq e2 op2) then return none
+    if n > 0
+    then return ← mkPropFalse
+    else return ← mkPropTrue
+ | none =>
+     if exprEq e1 op2 then
+       if ← geqZeroIntInHyps e2 then return ← mkPropFalse
+       if ← ltZeroIntInHyps e2 then return ← mkPropTrue
+     if exprEq e2 op2 then
+       if ← geqZeroIntInHyps e1 then return ← mkPropFalse
+       if ← ltZeroIntInHyps e1 then return ← mkPropTrue
+     return none
 
 /-- Given `op1` and `op2` corresponding to the operands for `LT.lt`:
       - return `some True` when `op1 := e ∧ op2 := N + e ∧ N > 0 ∧ Type(N) = Int`
       - return `some False` when `op1 := e ∧ op2 := N + e ∧ N < 0 ∧ Type(N) = Int`
+      - return `some False` when `op1 := a ∧ op2 := a + b ∧ Type(a) = Int ∧ leqZeroIntInHyps b`
+      - return `some False` when `op1 := a ∧ op2 := b + a ∧ Type(a) = Int ∧ leqZeroIntInHyps b`
+      - return `some True` when `op1 := a ∧ op2 := a + b ∧ Type(a) = Int ∧ gtZeroIntInHyps b`
+      - return `some True` when `op1 := a ∧ op2 := b + a ∧ Type(a) = Int ∧ gtZeroIntInHyps b`
     Otherwise `none`.
 -/
 def intRelRightReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
  let some (e1, e2) := intAdd? op2 | return none
- let some n := isIntValue? e1 | return none
- if n == 0 then return none
- if !(exprEq e2 op1) then return none
- if n > 0
- then return ← mkPropTrue
- else return ← mkPropFalse
+ match (isIntValue? e1) with
+ | some n =>
+      if !(exprEq e2 op1) then return none
+      if n > 0
+      then return ← mkPropTrue
+      else return ← mkPropFalse
+ | none =>
+      if exprEq e1 op1 then
+        if ← leqZeroIntInHyps e2 then return ← mkPropFalse
+        if ← gtZeroIntInHyps e2 then return ← mkPropTrue
+      if exprEq e2 op1 then
+        if ← leqZeroIntInHyps e1 then return ← mkPropFalse
+        if ← gtZeroIntInHyps e1 then return ← mkPropTrue
+      return none
 
 /-- Given `op1` and `op2` corresponding to the operands for `LT.lt`:
-      - return `some False` when `op1 := N + e ∧ op2 := e ∧ N > 0 ∧ Type(N) = Nat`
+      - return `some False` when `op1 := a + b ∧ op2 := a ∧ Type(a) = Nat`
+      - return `some False` when `op1 := b + a ∧ op2 := a ∧ Type(a) = Nat`
     Otherwise `none`.
 -/
 def natRelLeftReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
  let some (e1, e2) := natAdd? op1 | return none
- let Expr.lit (Literal.natVal n) := e1 | return none
- if !(exprEq e2 op2) then return none
- if n > 0
- then return ← mkPropFalse
- else return none
+ if (exprEq e1 op2) then return ← mkPropFalse
+ if (exprEq e2 op2) then return ← mkPropFalse
+ return none
 
 /-- Given `op1` and `op2` corresponding to the operands for `LT.lt`:
       - return `some True` when `op1 := e ∧ op2 := N + e ∧ N > 0 ∧ Type(N) = Nat`
+      - return `some False` when `op1 := a ∧ op2 := a + b ∧ Type(a) = Nat ∧ eqZeroNatInHyps b`
+      - return `some False` when `op1 := a ∧ op2 := b + a ∧ Type(a) = Nat ∧ eqZeroNatInHyps b`
+      - return `some True` when `op1 := a ∧ op2 := a + b ∧ Type(a) = Nat ∧ gtZeroNatInHyps b`
+      - return `some True` when `op1 := a ∧ op2 := b + a ∧ Type(a) = Nat ∧ gtZeroNatInHyps b`
     Otherwise `none`.
 -/
 def natRelRightReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
  let some (e1, e2) := natAdd? op2 | return none
- let Expr.lit (Literal.natVal n) := e1 | return none
- if !(exprEq e2 op1) then return none
- if n > 0
- then return ← mkPropTrue
- else return none
+ match isNatValue? e1 with
+ | some n =>
+      if (exprEq e2 op1) then if n > 0 then return ← mkPropTrue
+      return none
+ | none =>
+      if (exprEq e1 op1) then
+        if ← eqZeroNatInHyps e2 then return ← mkPropFalse
+        if ← gtZeroNatInHyps e2 then return ← mkPropTrue
+      if (exprEq e2 op1) then
+        if ← eqZeroNatInHyps e1 then return ← mkPropFalse
+        if ← gtZeroNatInHyps e1 then return ← mkPropTrue
+      return none
 
 /-- Given `op1` and `op2` corresponding to the operands for `LT.lt`:
       - return `some (N1 "<" N2)` when `op1 := N1 ∧ op2 := N2 ∧ Type(op1) = Nat`
@@ -188,12 +221,19 @@ def predCstLTInHyp (op1 : Expr) (op2 : Expr) : TranslateEnvT Bool := do
      - e < 0 ==> False (if Type(e) = Nat)
      - 0 < -e ==> e < 0 (if Type(e) = Int)
      - N1 < N2 ==> N1 "<" N2
-     - N < e ==> False (if ¬ (N - 1 < e) _ ∈ hypothesisContext.hypothesisMap ∧ Type(e) ∈ [Nat, Int])
+     - N < e ==> False (if ¬ (N - 1 < e) := _ ∈ hypothesisContext.hypothesisMap ∧ Type(e) ∈ [Nat, Int])
      - e < 1 ==> 0 = e (if Type(e) = Nat)
-     - N + e < e ==> False (if N > 0 ∧ Type(e) ∈ [Nat, Int])
+     - a + b < a | b + a < a ==> False (if Type(a) = Nat)
+     - N + e < e ==> False (if N > 0 ∧ Type(e) = Int)
      - N + e < e ==> True (if N < 0 ∧ Type(e) = Int)
+     - a + b < a | b + a < a ==> False (if Type(a) = Int ∧ geqZeroIntInHyps b)
+     - a + b < a | b + a < a ==> True (if Type(a) = Int ∧ ltZeroIntInHyps b)
      - e < N + e ==> True (if N > 0 ∧ Type(N) ∈ [Nat, Int])
      - e < N + e ==> False (if N < 0 ∧ Type(N) = Int)
+     - a < a + b | a < b + a ==> False (if Type(a) = Nat ∧ eqZeroNatInHyps b)
+     - a < a + b | a < b + a ==> True (if Type(a) = Nat ∧ gtZeroNatInHyps b)
+     - a < a + b | a < b + a ==> False (if Type(a) = Int ∧ leqZeroIntInHyps b)
+     - a < a + b | a < b + a ==> True (if Type(a) = Int ∧ gtZeroIntInHyps b)
      - N1 + a < N2 ==> False (if Type(a) = Nat ∧ N2 ≤ N1)
      - N1 + a < N2 ==> a < N2 "-" N1 (if Type(a) = Nat ∧ N2 > N1)
      - N1 + a < N2 ==> a < N2 "-" N1 (if Type(a) = Int)
