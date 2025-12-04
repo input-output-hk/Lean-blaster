@@ -110,5 +110,22 @@ namespace Test.SmtLtArith
 #blaster (gen-cex: 0) (solve-result: 1) [∀ (x y z : Int), 0 < z → x < x + y]
 #blaster (gen-cex: 0) (solve-result: 1) [∀ (x y z : Int), 0 < z → x < z + y]
 
+#blaster (only-optimize: 1) [∀ (x y : Int), Int.neg x < Int.neg y ↔ y < x]
+#blaster (only-optimize: 1) [∀ (x y : Nat), Int.ofNat x < Int.ofNat y ↔ x < y]
+
+#blaster (only-optimize: 1) [∀ (x y : Nat), 0 < y → 0 < x + y]
+#blaster (only-optimize: 1) [∀ (x y : Nat), 0 < x → 0 < x + y]
+#blaster (only-optimize: 1) [∀ (x y : Nat) (p : Prop), p → if 0 < y then 0 < x + y else p]
+#blaster (only-optimize: 1) [∀ (x y : Nat) (p : Prop), p → if 0 < x then 0 < x + y else p]
+#blaster (only-optimize: 1) [∀ (x y : Nat) (p : Prop), p → if 0 = x then p else 0 < x + y]
+#blaster (only-optimize: 1) [∀ (x y : Nat) (p : Prop), p → if 0 = y then p else 0 < x + y]
+#blaster (only-optimize: 1) [∀ (x y z : Nat) (p : Prop), p → if 0 < z then if 0 < y then 0 < x + y else p else p]
+#blaster (only-optimize: 1) [∀ (x y z : Nat) (p : Prop), p → if 0 < z then if 0 < x then 0 < x + y else p else p]
+#blaster (only-optimize: 1) [∀ (x y z : Nat) (p : Prop), p → if 0 = x then p else if 0 < z then 0 < x + y else p]
+#blaster (only-optimize: 1) [∀ (x y z : Nat) (p : Prop), p → if 0 = y then p else if 0 < z then 0 < x + y else p]
+
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (x y z : Nat), 0 < z → 0 < x + y]
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (x y z : Nat) (p : Prop), p → if 0 < z then 0 < x + y else p]
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (x y z : Nat) (p : Prop), p → if 0 = z then p else 0 < x + y]
 
 end Test.SmtLtArith

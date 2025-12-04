@@ -3,61 +3,48 @@ import Blaster.Optimize.Rewriting.OptimizeITE
 import Blaster.Optimize.Rewriting.OptimizeProjection
 import Blaster.Optimize.Telescope
 
-open Lean Meta
+open Lean Meta Elab Blaster.Data.HashMap
 
 namespace Blaster.Optimize
 
-structure HypsStackContext where
-  newHCtx : UpdatedHypContext -- new hypothesis context
-  oldHCtx : Option HypothesisContext -- old hypothesis context
-  oldCache : Option RewriteCacheMap -- old local rewriting cache
+abbrev HypsStackContext := Option CtxScope -- context scope to close on exit
 
-structure MatchStackContext where
-  oldMatchCtx : MatchContextMap -- old match context
-  oldCache : RewriteCacheMap -- old local rewriting cache
-
-structure LocalDeclStackContext where
-  newCtx : LocalDeclContext -- new local decl context
-  oldCtx : LocalDeclContext -- old local decl context
-
-instance : Repr HypsStackContext where
-  reprPrec _ _ := "<HypsStackContext>"
-
-instance : Repr MatchStackContext where
-  reprPrec _ _ := "<MatchStackContext>"
-
-instance : Repr LocalDeclContext where
-  reprPrec _ _ := "<LocalDeclContext>"
-
-instance : Repr LocalContext where
-  reprPrec _ _ := "<LocalContext>"
+instance : Repr (Option MVarIdDecls) where
+  reprPrec _ _ := "<MVarIdDecls>"
 
 inductive OptimizeStack where
- | InitOptimizeExpr (e : Expr)
- | InitOptimizeReturn (e : Expr) (isGlobal : Bool)
+ | InitOptimizeExpr (e : Expr) (mvarDecls : Option MVarIdDecls := none)
+ | InitOptimizeReturn (e : Expr) (isGlobal : Bool) (mvarDecls : Option MVarIdDecls)
  | InitOpaqueRecExpr (f : Expr) (args : Array Expr)
  | RecFunDefWaitForStorage (args : Array Expr) (instApp : Expr)
-                           (subsInts : Expr) (params : ImplicitParameters)
+                           (subsInts : Expr) (params : ImplicitParameters) (startCtxId : CtxId)
  | RecFunDefStorage (args : Array Expr) (instApp : Expr)
                     (subsInts : Expr) (params : ImplicitParameters) (optBody : Expr)
+                    (startCtxId : CtxId)
  | ForallWaitForType (n : Name) (bi : BinderInfo) (body : Expr)
- | ForallWaitForBody (x : Expr) (t : Expr) (hctx : HypsStackContext) (lctx : LocalDeclContext)
+ | ForallWaitForBody (x : Expr) (t : Expr) (hctx : HypsStackContext) (isProp : Bool)
  | AppWaitForConst (args : Array Expr)
  | OptimizeMatchInfoWaitForInst (f : Expr) (args : Array Expr)
                                 (startArgIdx : Nat) (pInfo : FunEnvInfo) (mInfo : MatcherRecInfo)
  | AppOptimizeImplicitArgs (f : Expr) (args : Array Expr) (idx : Nat)
-                           (startArgIdx : Nat) (stopIdx : Nat) (pInfo : FunEnvInfo)
+                           (startArgIdx : Nat) (stopIdx : Nat)
+                           (pInfo : FunEnvInfo) (prevInApp : Bool)
  | AppOptimizeExplicitArgs (f : Expr) (args : Array Expr) (idx : Nat)
-                           (stopIdx : Nat) (pInfo : FunEnvInfo) (mInfo : Option MatchInfo)
- | DiteChoiceWaitForCond (f : Expr) (args : Array Expr) (pInfo : FunEnvInfo) (startArgIdx : Nat)
+                           (stopIdx : Nat) (pInfo : FunEnvInfo)
+                           (mInfo : Option MatchInfo) (prevInApp : Bool)
+ | InitNonFunOptimizeArgs (f : Expr) (args : Array Expr) (idx : Nat) (stopIdx : Nat)
+ | NonFunOptimizeArgs (f : Expr) (args : Array Expr) (idx : Nat) (stopIdx : Nat) (prevInCtor : Bool)
+ | DiteChoiceWaitForCond (f : Expr) (args : Array Expr) (pInfo : FunEnvInfo) (prevInApp : Bool)
  | MatchChoiceOptimizeDiscrs (f : Expr) (args : Array Expr) (pInfo : FunEnvInfo)
-                             (startArgIdx : Nat) (idx : Nat) (mInfo : MatchInfo)
- | LambdaWaitForType (n : Name) (bi : BinderInfo) (body : Expr) (inDite : Bool)
- | LambdaWaitForBody (x : Expr) (lctx : LocalDeclContext) (hctx : Option HypsStackContext)
+                             (idx : Nat) (mInfo : MatchInfo) (prevInApp : Bool)
+ | LambdaWaitForType (n : Name) (bi : BinderInfo) (body : Expr)
+ | LambdaWaitForBody (x : Expr) (hctx : HypsStackContext) (inDite : Bool) (startCtxId : CtxId)
  | MatchRhsLambdaWaitForType (n : Name) (bi : BinderInfo) (body : Expr)
  | MatchRhsLambdaNext (e : Expr)
- | MatchRhsLambdaWaitForBody (x : Expr) (lctx : LocalDeclContext)
- | MatchAltWaitForExpr (params : Array Expr) (lctx : LocalDeclContext) (mctx : MatchStackContext)
+ | MatchRhsLambdaWaitForBody (x : Expr)
+ | MatchLhsSkipForallType (e : Expr)
+ | MatchLhsForallWaitForBody (e : Expr)
+ | MatchAltWaitForExpr (params : Array Expr) (hctx : HypsStackContext) (idx : USize) (mInfo : MatchInfo)
  | LetWaitForValue (body : Expr)
  | MDataRecCallWaitForExpr (data : MData)
  | ProjWaitForExpr (n : Name) (idx : Nat)
@@ -65,80 +52,92 @@ inductive OptimizeStack where
 
 abbrev OptimizeContinuity := Sum (List OptimizeStack) Expr
 
-@[always_inline, inline]
-def mkHypStackContext (h : UpdatedHypContext) : TranslateEnvT HypsStackContext := do
-  let ⟨_, ⟨_, localRewriteCache, _, _, _, _, _, _, hypothesisContext, _, _, _, _, _⟩⟩ ← get
-  if h.1 then
-    updateHypothesis h.2 Std.HashMap.emptyWithCapacity
-    return {newHCtx := h, oldHCtx := some hypothesisContext, oldCache := some localRewriteCache}
-  else return {newHCtx := h, oldHCtx := none, oldCache := none}
 
 @[always_inline, inline]
-def resetHypContext (h : HypsStackContext) : TranslateEnvT Unit := do
-  match h.oldHCtx, h.oldCache with
-  | some hyps, some cache => updateHypothesis hyps cache
-  | none, none => pure ()
-  | _, _ => throwEnvError "resetHypContext: invalid HypsStackContext !!!"
+def resetContext (h : HypsStackContext) : TranslateEnvT Unit := do
+  match h with
+  | some scope => endCtx scope
+  | none => return ()
+
 
 @[always_inline, inline]
-def mkMatchStackContext (h : MatchContextMap) : TranslateEnvT MatchStackContext := do
-  let ⟨_, ⟨_, localRewriteCache, _, _, _, _, _, _, _, matchInContext, _, _, _, _⟩⟩ ← get
-  updateMatchContext h Std.HashMap.emptyWithCapacity
-  return {oldMatchCtx := matchInContext, oldCache := localRewriteCache}
+def resetChoiceContext (h : HypsStackContext) (fvars : Array Expr) (lam : Expr) (idx : USize) : TranslateEnvT Unit := do
+  match h with
+  | some scope =>
+       updateContextReuseCache lam idx ⟨scope, fvars⟩
+       modifyOptEnv
+         fun ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, ⟨s1, s2, s3, s4, _, s6, active, s7⟩, o12, o13, o14⟩ =>
+             ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, ⟨s1, s2, s3, s4, scope.parent, s6, active.erase scope.current, s7⟩, o12, o13, o14⟩
+  | none => return ()
 
-@[always_inline, inline]
-def resetMatchContext (h : MatchStackContext) : TranslateEnvT Unit :=
-  updateMatchContext h.oldMatchCtx h.oldCache
+def restoreMVarDecls (optDecls : Option MVarIdDecls) : TranslateEnvT Unit :=
+  match optDecls with
+  | none => pure ()
+  | some mdecls =>
+      let rec updateAssignments
+        (idx : Nat) (stop : Nat) (mdecls : MVarIdDecls)
+        (mAssignments : MVarAssignments) : MVarAssignments :=
+        if idx ≥ stop then mAssignments
+        else
+          let d := mdecls[idx]!
+          let mAssignments := mAssignments.insert d.mvar d.value
+          updateAssignments (idx + 1) stop mdecls mAssignments
+      modifyOptEnv
+        fun ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, mAssignments⟩ =>
+          let mAssignments := updateAssignments 0 mdecls.size mdecls mAssignments
+          ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, mAssignments⟩
 
-@[always_inline, inline]
-def mkLocalDeclStackContext (newCtx : LocalDeclContext) : TranslateEnvT LocalDeclContext := do
-  let oldCtx := (← get).optEnv.ctx
-  updateLocalContext newCtx
-  return oldCtx
-
-@[always_inline, inline]
-def resetLocalDeclContext (oldCtx : LocalDeclContext) : TranslateEnvT Unit :=
-  updateLocalContext oldCtx
+def isInEqualityMap (e : Expr) (isGlobal : Bool) : TranslateEnvT Expr := do
+  if isGlobal then return e
+  else
+    match (← eqMapFind? e) with
+    | none => return e
+    | some b => return b
 
 def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := false) : TranslateEnvT OptimizeContinuity := do
   match stack with
   | [] => return Sum.inr optExpr
 
-  | .InitOptimizeReturn e isGlobal :: xs =>
-       if !skipCache then updateOptimizeEnvCache e optExpr isGlobal
+  | .InitOptimizeReturn e isGlobal mvarDecls :: xs =>
+       let optExpr ← isInEqualityMap optExpr isGlobal
+       if !skipCache then
+         updateOptimizeEnvCache optExpr optExpr isGlobal
+         if !e.hasMVar && !exprEq e optExpr then updateOptimizeEnvCache e optExpr isGlobal
+       restoreMVarDecls mvarDecls
        match xs with
        | [] => return Sum.inr optExpr
        | _ => stackContinuity xs optExpr
 
-  | .RecFunDefWaitForStorage args instApp subsInst params :: xs =>
+  | .RecFunDefWaitForStorage args instApp subsInst params startCtxId :: xs =>
        -- optExpr corresponds to optimized rec fun body
        -- continuity with normOpaqueAndRecFun
-       return Sum.inl (.RecFunDefStorage args instApp subsInst params optExpr :: xs)
+       return Sum.inl (.RecFunDefStorage args instApp subsInst params optExpr startCtxId :: xs)
 
   | .ForallWaitForType n bi body :: xs =>
        -- optExpr corresponds to optimized forall binder type
-       -- continuity with optimizing forall body
-       withLocalContext $ do
-         withLocalDecl' n bi optExpr fun x => do
-           let body' := instantiate1' body x
-           let isNotPropBody := !(← isPropEnv body')
-           let hyps ← addHypotheses optExpr x isNotPropBody
-           let hctx ← mkHypStackContext hyps
-           let lctx ← mkLocalDeclStackContext (← mkLocalContext)
-           return Sum.inl ( .InitOptimizeExpr body' :: .ForallWaitForBody x optExpr hctx lctx :: xs)
+       -- check forall reduction to avoid optimizing body
+       let isProp ← isPropEnv (← mkForallExpr n bi optExpr body)
+       if let some r ← forallReduction? optExpr body isProp then
+         match r with
+         | Expr.const ``True _ => stackContinuity xs r
+         | _ => return Sum.inl ( .InitOptimizeExpr r :: xs)
+       else
+         -- continuity with optimizing forall body
+          withLocalDecl' n bi optExpr fun x => do
+            let body' ← instantiateShared1 body x
+            let mscope ← addHypotheses optExpr x (isPropBody := isProp)
+            return Sum.inl ( .InitOptimizeExpr body' :: .ForallWaitForBody x optExpr mscope isProp :: xs)
 
-  | .ForallWaitForBody x t hctx lctx :: xs =>
+  | .ForallWaitForBody x t hctx isProp :: xs =>
        -- optExpr corresponds to optimized forall body
-       -- continiuity with applying forall normalization rules
-       resetHypContext hctx
-       let e ← withLocalContext $ do
-                 optimizeForall x t hctx.newHCtx.2.1 optExpr
-       resetLocalDeclContext lctx
+       -- continuity with applying forall normalization rules.
+       let e ← optimizeForall x t optExpr hctx isProp
+       resetContext hctx
        if ← isRestart then
          resetRestart
          return Sum.inl (.InitOptimizeExpr e :: xs)
        else -- continuity with optimizing next expression
-         stackContinuity xs (← mkExpr e)
+         stackContinuity xs e
 
   | .AppWaitForConst args :: xs =>
        -- optExpr corresponds to optimized fun app
@@ -147,26 +146,34 @@ def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := 
        -- check if optExpr is a lambda
        if optExpr.isLambda then
          -- perform beta reduction and apply optimization
-         return Sum.inl (.InitOptimizeExpr (betaLambda optExpr args) :: xs)
+         let betaRes ← betaLambdaEnv optExpr (← resolveMVarsArgs #[] args)
+         return Sum.inl (.InitOptimizeExpr betaRes.betaReduced betaRes.prevMVarIdDecls :: xs)
        else
          let (rf, extraArgs) := getAppFnWithArgs optExpr
-         let args := extraArgs ++ args
-         let pInfo ← withLocalContext $ do getFunEnvInfo rf
-         -- apply optimization on match generic instance (if necessary)
-         match (← hasUnOptMatchInfo? rf) with
-         | none =>
-            -- continuity with optimization on implicit arguments
-            return Sum.inl (.AppOptimizeImplicitArgs rf args extraArgs.size extraArgs.size args.size pInfo :: xs)
-         | some (mInfo, instApp) =>
-            -- continuity with optimizing match generic instance
-            -- NOTE: instApp is expected to be a lambda term
-            -- NOTE: we here only want to optimize the lambda params type, which mainly
-            -- correspond to the match lhs.
-            match instApp with
-            | Expr.lam n t b bi =>
-                let mWait := .OptimizeMatchInfoWaitForInst rf args extraArgs.size pInfo mInfo :: xs
-                return Sum.inl (.InitOptimizeExpr t :: .MatchRhsLambdaWaitForType n bi b :: mWait)
-            | _ => throwEnvError "stackContinuity: lambda expected for match instance but got {reprStr instApp}"
+         let args ← resolveMVarsArgs extraArgs args
+         let is_match ← isMatchExpr rf
+         if (← isNotFun rf <&&> pure !is_match) then
+            return Sum.inl (.InitNonFunOptimizeArgs rf args extraArgs.size args.size :: xs)
+         else
+           let pInfo ← getFunEnvInfo rf
+           -- apply optimization on match generic instance (if necessary)
+           match (← hasUnOptMatchInfo? rf) with
+           | none =>
+              -- continuity with optimization on implicit arguments
+              let prevInApp ← isAppArg
+              if !(isBlasterDiteConst rf) then setIsAppArg true
+              return Sum.inl (.AppOptimizeImplicitArgs rf args extraArgs.size extraArgs.size args.size pInfo prevInApp :: xs)
+           | some (mInfo, instApp) =>
+              -- continuity with optimizing match generic instance
+              -- NOTE: instApp is expected to be a lambda term
+              -- NOTE: we here only want to optimize the lambda params type, which mainly
+              -- correspond to the match lhs.
+              match instApp with
+              | Expr.lam n t b bi =>
+                    let mWait := .OptimizeMatchInfoWaitForInst rf args extraArgs.size pInfo mInfo :: xs
+                    -- NOTE: we only optimize the lhs forall body and not the types.
+                    return Sum.inl (.MatchLhsSkipForallType t :: .MatchRhsLambdaWaitForType n bi b :: mWait)
+              | _ => throwEnvError "stackContinuity: lambda expected for match instance but got {reprStr instApp}"
 
 
   | .OptimizeMatchInfoWaitForInst f args startArgIdx pInfo mInfo :: xs =>
@@ -174,99 +181,105 @@ def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := 
        -- update cache isMatcherCache
        if let Expr.const n _ := f then
          let argInfo := ({ name := n, nameExpr := f, instApp := optExpr, recInfo := mInfo } : MatchInfo)
-         modify (fun env => { env with optEnv.memCache.isMatcherCache :=
-                                       env.optEnv.memCache.isMatcherCache.insert n argInfo })
+         updateIsMatcherCache n argInfo
          -- apply optimization only on implicit parameters to remove mdata annotation
          -- we don't consider explicit parameters at this stage to avoid performing
          -- optimization on unreachable arguments
-         return Sum.inl (.AppOptimizeImplicitArgs f args startArgIdx startArgIdx args.size pInfo :: xs)
+         let prevInApp ← isAppArg
+         return Sum.inl (.AppOptimizeImplicitArgs f args startArgIdx startArgIdx args.size pInfo prevInApp :: xs)
        else throwEnvError "stackContinuity: name expression for match application but got {reprStr f} !!!"
 
+  | .NonFunOptimizeArgs f args idx stopIdx prevInCtor :: xs =>
+       -- optExpr corresponds to the optimized non-fun argument referenced by idx.
+       -- continuity with optimizing the next implicit argument.
+       return Sum.inl (.NonFunOptimizeArgs f (args.set! idx optExpr) (idx + 1) stopIdx prevInCtor :: xs)
 
-  | .AppOptimizeImplicitArgs f args idx startArgIdx stopIdx pInfo :: xs =>
+  | .AppOptimizeImplicitArgs f args idx startArgIdx stopIdx pInfo prevInApp :: xs =>
        -- optExpr corresponds to the optimized implicit argument referenced by idx.
        -- continuity with optimizing the next implicit argument.
-       return Sum.inl (.AppOptimizeImplicitArgs f (args.set! idx optExpr) (idx + 1) startArgIdx stopIdx pInfo :: xs)
+       return Sum.inl (.AppOptimizeImplicitArgs f (args.set! idx optExpr) (idx + 1) startArgIdx stopIdx pInfo prevInApp :: xs)
 
-  | .AppOptimizeExplicitArgs f args idx stopIdx pInfo mInfo :: xs =>
+  | .AppOptimizeExplicitArgs f args idx stopIdx pInfo mInfo prevInApp :: xs =>
        -- optExpr corresponds to the optimized explicit argument referenced by idx.
        -- continuity with optimizing the next explicit argument.
-       return Sum.inl (.AppOptimizeExplicitArgs f (args.set! idx optExpr) (idx + 1) stopIdx pInfo mInfo :: xs)
+       return Sum.inl (.AppOptimizeExplicitArgs f (args.set! idx optExpr) (idx + 1) stopIdx pInfo mInfo prevInApp :: xs)
 
-  | .DiteChoiceWaitForCond f args pInfo startArgIdx :: xs =>
+  | .DiteChoiceWaitForCond f args pInfo prevInApp :: xs =>
        -- optExpr corresponds to the optimized Blaster.dite' conditional, i.e., referenced by index 1.
        -- When some r ← optimizeDiteChoice f (args.set! 1 optExpr)
        --  - continuity with optimizing `r`
        -- Otherwise
        --  - continuity with optimizing remaining explicit parameters before reduction
-       -- NOTE: keep matchInfo to avoid unnecessary query and to avoid optimizing discriminators again
+       -- set isAppArg to keep context for eventual constant match.
+       setIsAppArg true
        if let some r ← optimizeDITEChoice f (args.set! 1 optExpr) then
            return Sum.inl (.InitOptimizeExpr r :: xs)
        else
-          -- NOTE: keep matchInfo to avoid unnecessary query and to avoid optimizing discriminators again
-          return Sum.inl (.AppOptimizeExplicitArgs f (args.set! 1 optExpr) startArgIdx args.size pInfo none :: xs)
+          return Sum.inl (.AppOptimizeExplicitArgs f (args.set! 1 optExpr) 2 args.size pInfo none prevInApp :: xs)
 
-  | .MatchChoiceOptimizeDiscrs f args pInfo startArgIdx idx mInfo :: xs =>
+  | .MatchChoiceOptimizeDiscrs f args pInfo idx mInfo prevInApp :: xs =>
        -- optExpr corresponds to the optimized match discriminator referenced by idx.
        -- continuity with optimizing the next discriminator
-       return Sum.inl (.MatchChoiceOptimizeDiscrs f (args.set! idx optExpr) pInfo startArgIdx (idx + 1) mInfo :: xs)
+       return Sum.inl (.MatchChoiceOptimizeDiscrs f (args.set! idx optExpr) pInfo (idx + 1) mInfo prevInApp :: xs)
 
-  | .LambdaWaitForType n bi body inDite :: xs =>
+  | .LambdaWaitForType n bi body :: xs =>
        -- optExpr corresponds to optimized lambda type
-       withLocalContext $ do
-         withLocalDecl' n bi optExpr fun x => do
-           let bodyOpt := .InitOptimizeExpr (instantiate1' body x)
-           let lctx ← mkLocalDeclStackContext (← mkLocalContext)
-           if inDite then
-             let hyps ← addHypotheses optExpr x
-             let hypsCtx ← mkHypStackContext hyps
-             return Sum.inl (bodyOpt :: .LambdaWaitForBody x lctx (some hypsCtx) :: xs)
-           else return Sum.inl (bodyOpt :: .LambdaWaitForBody x lctx none :: xs)
+       withLocalDecl' n bi optExpr fun x => do
+         let bodyOpt := .InitOptimizeExpr (← instantiateShared1 body x)
+         -- NOTE: keeping track of next ctxId to clean-up rewrite cache
+         let nextCtxId := (← get).optEnv.options.nextCtxId
+         return Sum.inl (bodyOpt :: .LambdaWaitForBody x none false nextCtxId :: xs)
 
-  | .LambdaWaitForBody x lctx hctx :: xs =>
+  | .LambdaWaitForBody x hctx inDite startCtxId :: xs =>
        -- optExpr corresponds to optimized lambda body
        -- continuity with optimizing next expression
-       if let some h := hctx then resetHypContext h
-       let e ← withLocalContext $ do mkLambdaExpr x optExpr
-       resetLocalDeclContext lctx
-       stackContinuity xs e
+       let e ← mkLambdaFVarExpr x optExpr
+       if inDite then
+         if ← isCstIteMatch optExpr then updateCtorMatchPropCache e
+         resetChoiceContext hctx #[x] e 0
+         stackContinuity xs e
+       else
+         -- clean-up rewrite cache
+         freeRewriteCacheRange startCtxId (← get).optEnv.options.nextCtxId
+         stackContinuity xs e
 
   | .MatchRhsLambdaWaitForType n bi body :: xs =>
         -- optExpr corresponds to optimized lambda type
         -- continuity with optimizing body
-        withLocalContext $ do
-          withLocalDecl' n bi optExpr fun x => do
-            let bodyOpt := .MatchRhsLambdaNext (instantiate1' body x)
-            let lctx ← mkLocalDeclStackContext (← mkLocalContext)
-            return Sum.inl (bodyOpt :: .MatchRhsLambdaWaitForBody x lctx :: xs)
+        withLocalDecl' n bi optExpr fun x => do
+          let bodyOpt := .MatchRhsLambdaNext (← instantiateShared1 body x)
+          return Sum.inl (bodyOpt :: .MatchRhsLambdaWaitForBody x :: xs)
 
-  | .MatchRhsLambdaWaitForBody x lctx :: xs =>
+  | .MatchRhsLambdaWaitForBody x :: xs =>
         -- optExpr corresponds to optimized lambda body
         -- continuity with optimizing next expression
-        -- NOTE: We can't catch optimize result here as match
-        -- rhs has not been optimized yet.
-        let e ← withLocalContext $ do mkLambdaFVar x optExpr
-        resetLocalDeclContext lctx
+        let e ← mkLambdaFVarExpr x optExpr
         stackContinuity xs e
 
-  | .MatchAltWaitForExpr params lctx mctx :: xs =>
+  | .MatchAltWaitForExpr params hctx idx mInfo :: xs =>
        -- optExpr corresponds to the optimized match rhs
        -- continuity with optimizing next expression
-       let e ← withLocalContext $ do mkExpr (← mkLambdaFVars' params optExpr)
-       resetMatchContext mctx
-       resetLocalDeclContext lctx
+       let e ← mkLambdaFVarsExpr params optExpr
+       if ← isCstIteMatch optExpr then updateCtorMatchPropCache e
+       resetChoiceContext hctx params mInfo.nameExpr idx
+       stackContinuity xs e
+
+  | .MatchLhsForallWaitForBody x :: xs =>
+       -- optExpr corresponds to the optimized lhs forall body
+       -- continuity with optimizing next expression
+       let e ← mkForallFVarExpr x optExpr
        stackContinuity xs e
 
   | .LetWaitForValue body :: xs =>
        -- optExpr corresponds to the optimized let value
        -- continuity with optimizing body
-       return Sum.inl (.InitOptimizeExpr (body.instantiate1 optExpr) :: xs)
+       return Sum.inl (.InitOptimizeExpr (← instantiateShared1 body optExpr) :: xs)
 
   | .MDataRecCallWaitForExpr d :: xs =>
        -- optExpr corresponds to the annotated rec call that is optimized when `normalizeFunCall` is set to false
        -- continuity with optimizing next expression
        setNormalizeFunCall true
-       stackContinuity xs (← mkExpr (Expr.mdata d optExpr))
+       stackContinuity xs (← mkMDataExpr d optExpr)
 
   | .ProjWaitForExpr n idx :: xs =>
       -- optExpr corresponds to optimized projection structure
@@ -274,7 +287,7 @@ def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := 
          return Sum.inl (.InitOptimizeExpr re :: xs)
       else
         -- continuity with optimizing next expression
-        stackContinuity xs (← mkExpr $ mkProj n idx optExpr)
+        stackContinuity xs (← mkProjExpr n idx optExpr)
 
   | _ => throwEnvError "stackContinuity: unexpected optimize stack continuity {reprStr stack} !!!"
 
@@ -292,33 +305,69 @@ def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := 
       else if let Expr.const n l := f then
         if let some mInfo ← getMatcherRecInfo? n l then
           let cInfo ← getConstEnvInfo n
-          let matchFun ← instantiateValueLevelParams cInfo l
+          let matchFun ← hashcons (← instantiateValueLevelParams cInfo l)
           return some (mInfo, matchFun)
         else return none
       else return none
+
+    @[always_inline, inline]
+    resolveMVarsArgs (extra_args : Array Expr) (args : Array Expr) : TranslateEnvT (Array Expr) := do
+      let mAssignments := (← get).optEnv.mAssignments
+      let rec visit (idx : Nat) (stop : Nat) (args : Array Expr) : Array Expr :=
+         if idx ≥ stop then args
+         else
+           let e := args[idx]!
+           match e with
+           | Expr.mvar _ => visit (idx + 1) stop (args.set! idx (getEnvMVarValue' e mAssignments))
+           | _ => visit (idx + 1) stop args
+      let rec visit'
+          (idx : Nat) (offset : Nat) (stop : Nat)
+          (extra_args : Array Expr) (args : Array Expr) (pargs : Array Expr) : Array Expr :=
+         if idx ≥ stop then pargs
+         else
+           let p := if idx < offset then extra_args[idx]! else args[idx - offset]!
+           match p with
+           | Expr.mvar _ => visit' (idx + 1) offset stop extra_args args (pargs.push (getEnvMVarValue' p mAssignments))
+           | _ => visit' (idx + 1) offset stop extra_args args (pargs.push p)
+      let extra_size := extra_args.size
+      if mAssignments.size == 0 then
+        -- no mvar assignments: resolution is the identity, only concatenation remains
+        if extra_size == 0 then return args
+        else return extra_args ++ args
+      else if extra_size == 0 then
+        return visit 0 args.size args
+      else
+        let stop := extra_size + args.size
+        return visit' 0 extra_size stop extra_args args (Array.emptyWithCapacity stop)
+
 
 @[always_inline, inline]
 def mkOptimizeContinuity (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeContinuity := do
   if ← isRestart then
     resetRestart
     return Sum.inl (.InitOptimizeExpr e :: stack)
-  else stackContinuity stack (← mkExpr e)
+  else stackContinuity stack e
 
 /-- Apply simplification/normalization rules on Blaster.dite' expressions.
     Assume that f = Expr.const ``Blaster.dite'.
 -/
 @[always_inline, inline]
-def optimizeIfThenElse? (f : Expr) (args : Array Expr) (stack : List OptimizeStack) :
-  TranslateEnvT OptimizeContinuity := withLocalContext $ do
+def optimizeIfThenElse? (f : Expr) (args : Array Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeContinuity := do
    mkOptimizeContinuity (← optimizeDITE f args) stack
 
 @[always_inline, inline]
-def isInOptimizeEnvCache (a : Expr) (stack : List OptimizeStack) : TranslateEnvT (Sum (List OptimizeStack) OptimizeContinuity) := do
-  -- NOTE: Always consider global context when `a` does not contain any FVar.
-  let isGlobal := !a.hasFVar || (← isGlobalContext)
-  match (← isInOptimizeCache? a isGlobal) with
-  | some b => Sum.inr <$> stackContinuity stack b
-  | none => return Sum.inl (.InitOptimizeReturn a isGlobal :: stack)
+def isInOptimizeEnvCache (a : Expr) (stack : List OptimizeStack) (mvarDecls : Option MVarIdDecls) : TranslateEnvT (Sum (List OptimizeStack) OptimizeContinuity) := do
+  let env ← get
+  -- NOTE: Always consider global context when `a` does not contain any FVar/MVar
+  let isGlobal := !(hasVar a) || isGlobalContext env
+  let useCache := !a.hasMVar
+  if useCache then
+    let cached := ← isInOptimizeCache? a isGlobal env
+    if !exprEq cached instCacheMiss then Sum.inr <$> stackContinuity stack cached
+    else return Sum.inl (.InitOptimizeReturn a isGlobal mvarDecls :: stack)
+  else return Sum.inl (.InitOptimizeReturn a isGlobal mvarDecls :: stack)
 
+  where
+    hasVar (e : Expr) : Bool := e.hasFVar || e.hasMVar
 
 end Blaster.Optimize

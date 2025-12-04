@@ -9,7 +9,7 @@ namespace Blaster.Optimize
 
 /-- Apply the following simplification/normalization rules on `Nat.add` :
      - 0 + n ==> n
-     - N1 + N2 ===> N1 "+" N2
+     - N1 + N2 ==> N1 "+" N2
      - N1 + (N2 + n) ==> (N1 "+" N2) + n
      - n1 + n2 ==> n2 + n1 (if n2 <ₒ n1)
    Assume that f = Expr.const ``Nat.add.
@@ -24,7 +24,7 @@ def optimizeNatAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  | some n1, some n2 => evalBinNatOp Nat.add n1 n2
  | nv1,  _ =>
     if let some r ← cstAddProp? nv1 op2 then return r
-    return (mkApp2 f op1 op2)
+    mkApp2Expr f op1 op2
 
  where
    /- Given `mv1` and `op2`, return `some ((N1 "+" N2) + n)` when
@@ -33,7 +33,7 @@ def optimizeNatAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
    -/
    cstAddProp? (mv1 : Option Nat) (op2 : Expr) : TranslateEnvT (Option Expr) := do
     match mv1, toNatCstOpExpr? op2 with
-    | some n1, (NatCstOpInfo.NatAddExpr n2 e2) => return (mkApp2 f (← evalBinNatOp Nat.add n1 n2) e2)
+    | some n1, (NatCstOpInfo.NatAddExpr n2 e2) => mkApp2Expr f (← evalBinNatOp Nat.add n1 n2) e2
     | _, _ => return none
 
 
@@ -61,7 +61,7 @@ def optimizeNatSub (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  | nv1, nv2 =>
    if let some r ← cstSubPropRight? nv1 op2 then return r
    if let some r ← cstSubPropLeft? op1 nv2 then return r
-   return (mkApp2 f op1 op2)
+   mkApp2Expr f op1 op2
 
  where
    /- Given `mv1` and `op2` return `some ((N1 "-" N2) - n)` when
@@ -71,7 +71,7 @@ def optimizeNatSub (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
     match mv1, toNatCstOpExpr? op2 with
     | some n1, NatCstOpInfo.NatAddExpr n2 e2 =>
         setRestart
-        return mkApp2 f (← evalBinNatOp Nat.sub n1 n2) e2
+        mkApp2Expr f (← evalBinNatOp Nat.sub n1 n2) e2
     | _, _ => return none
 
    /- Given `op1` and `mv2`,
@@ -86,14 +86,14 @@ def optimizeNatSub (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
           match toNatCstOpExpr? op1 with
           | some (NatCstOpInfo.NatSubLeftExpr n1 e1) =>
               setRestart
-              return mkApp2 f (← evalBinNatOp Nat.sub n1 n2) e1
+              mkApp2Expr f (← evalBinNatOp Nat.sub n1 n2) e1
           | some (NatCstOpInfo.NatSubRightExpr e1 n1) =>
               -- no need to restart here
-              return (mkApp2 f e1 (← evalBinNatOp Nat.add n1 n2))
+              mkApp2Expr f e1 (← evalBinNatOp Nat.add n1 n2)
           | some (NatCstOpInfo.NatAddExpr n1 e1) =>
               if Nat.ble n2 n1 then
                 setRestart
-                return mkApp2 (← mkNatAddOp) (← evalBinNatOp Nat.sub n1 n2) e1
+                mkApp2Expr (← mkNatAddOp) (← evalBinNatOp Nat.sub n1 n2) e1
               else return none
           | _ => return none
      | _ => return none
@@ -121,7 +121,7 @@ def optimizeNatPow (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  match isNatValue? op1, isNatValue? op2 with
  | _, some 0 => return (← mkNatLitExpr 1)
  | some n1, some n2 => evalBinNatOp Nat.pow n1 n2
- | _, _ => return (mkApp2 f op1 op2)
+ | _, _ => mkApp2Expr f op1 op2
 
 /-- Apply the following simplification/normalization rules on `Nat.mul` :
      - 0 * n ==> 0
@@ -144,7 +144,7 @@ def optimizeNatMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  | nv1, _ =>
    if let some r ← cstMulProp? nv1 op2 then return r
    if let some r ← mulPowReduceExpr? op1 op2 then return r
-   return (mkApp2 f op1 op2)
+   mkApp2Expr f op1 op2
 
  where
    /- Given `mv1` and `op2`, return `some ((N1 "*" N2) * n)`
@@ -154,7 +154,7 @@ def optimizeNatMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
    cstMulProp? (mv1 : Option Nat) (op2 : Expr) : TranslateEnvT (Option Expr) := do
      match mv1, toNatCstOpExpr? op2 with
      | some n1, some (NatCstOpInfo.NatMulExpr n2 e2) =>
-         return (mkApp2 f (← evalBinNatOp Nat.mul n1 n2) e2)
+         mkApp2Expr f (← evalBinNatOp Nat.mul n1 n2) e2
      | _, _ => return none
 
    /-- Given `e1` and `e2` corresponding to the operands for `Nat.mul`,
@@ -165,9 +165,9 @@ def optimizeNatMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
     | some (op1, op2) =>
        if exprEq e1 op1 then
          setRestart
-         let addExpr := mkApp2 (← mkNatAddOp) (← mkNatLitExpr 1) op2
-         return mkApp2 (← mkNatPowOp) e1 addExpr
-       return none
+         let addExpr ← mkApp2Expr (← mkNatAddOp) (← mkNatLitExpr 1) op2
+         mkApp2Expr (← mkNatPowOp) e1 addExpr
+       else return none
     | none => return none
 
 /-- Given `e1` and `e2` corresponding to the operands for `Nat.div` (i.e., `e1 / e2`),
@@ -227,7 +227,7 @@ def optimizeNatDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
    if let some r ← cstDivProp? op1 nv2 then return r
    if let some r ← natDivSelfReduce? op1 op2 then return r
    if let some r ← mulNatDivReduceExpr? op1 op2 then return r
-   return (mkApp2 f op1 op2)
+   mkApp2Expr f op1 op2
 
  where
 
@@ -244,13 +244,13 @@ def optimizeNatDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
          match toNatCstOpExpr? op1 with
          | some (NatCstOpInfo.NatDivRightExpr e1 n1) =>
              -- no need to restart here
-             return (mkApp2 f e1 (← evalBinNatOp Nat.mul n1 n2))
+             mkApp2Expr f e1 (← evalBinNatOp Nat.mul n1 n2)
          | some (NatCstOpInfo.NatMulExpr n1 e1) =>
              let gcd := if n1 < n2 then Nat.gcd n1 n2 else Nat.gcd n2 n1
              if gcd == 1 then return none
              setRestart
-             let mulExpr := mkApp2 (← mkNatMulOp) (← evalBinNatOp Nat.div n1 gcd) e1
-             return mkApp2 f mulExpr (← evalBinNatOp Nat.div n2 gcd)
+             let mulExpr ← mkApp2Expr (← mkNatMulOp) (← evalBinNatOp Nat.div n1 gcd) e1
+             mkApp2Expr f mulExpr (← evalBinNatOp Nat.div n2 gcd)
          | _ => return none
      | _ => return none
 
@@ -293,7 +293,7 @@ def optimizeNatMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  | _, nv2 =>
    if let some r ← cstModProp? op1 nv2 then return r
    if let some r ← natModToZeroExpr? op1 op2 then return r
-   return (mkApp2 f op1 op2)
+   mkApp2Expr f op1 op2
 
  where
    /- Given `op1` and `mv2`, return `some 0`
@@ -315,20 +315,24 @@ def optimizeNatMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
     to properly handle the case where another rec function is equivalent to `Nat.beq`
 --/
 def optimizeNatBeq (f : Expr) (b_args : Array Expr) : TranslateEnvT Expr := do
-  if !(← isOptimizeRecCall) then return mkAppN f b_args
-  setRestart
-  return mkAppN (← mkNatBEqOp) b_args
+  if ← isOptimizeRecCall then
+    setRestart
+    mkAppNExpr (← mkNatBEqOp) b_args
+  else mkAppNExpr f b_args
 
-/-- Normalize `Nat.ble x y` to `decide' (x ≤ y)` only when option normalizeFunCall is set to `true`.
+
+/-- Normalize `Nat.ble x y` to `decide' (¬ y < x)` only when option normalizeFunCall is set to `true`.
     Assume that f = Expr.const ``Nat.ble
     NOTE: This normalization rule is still required here mainly
     to properly handle the case where another rec function is equivalent to `Nat.beq`
 -/
 def optimizeNatble (f : Expr) (b_args : Array Expr) : TranslateEnvT Expr := do
-  if !(← isOptimizeRecCall) then return mkAppN f b_args
-  setRestart
-  let leExpr := mkAppN (← mkNatLeOp) b_args
-  return mkApp (← mkBlasterDecideConst) leExpr
+  if ← isOptimizeRecCall then
+    setRestart
+    let leExpr ← mkAppExpr (← mkPropNotOp) (← mkApp2Expr (← mkNatLtOp) b_args[1]! b_args[0]!)
+    mkAppExpr (← mkBlasterDecideConst) leExpr
+  else mkAppNExpr f b_args
+
 
 /-- Apply simplification/normalization rules on `Nat` operators. -/
 @[always_inline, inline]

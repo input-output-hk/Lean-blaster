@@ -4,7 +4,7 @@ import Blaster.Smt.Env
 import Blaster.Smt.Translate.Quantifier
 
 
-open Lean Meta Blaster.Optimize
+open Lean Meta Blaster.Optimize Blaster.Data.HashSet
 
 namespace Blaster.Smt
 
@@ -13,12 +13,6 @@ structure MatchResult where
   discrTerms : Array SmtTerm
   /-- Ite term generated when translating each match pattern -/
   iteTerm : Option SmtTerm
-
-@[always_inline, inline]
-def removeAndOptNamedPatternExpr (p : Expr) : TranslateEnvT Expr := do
- -- set start local context
-  updateLocalContext (← mkLocalContext)
-  withLocalContext $ do removeNamedPatternExpr p
 
 mutual
 /-- Generate the necessary let expressions when translating a `match` to an smt if-then-else, such that:
@@ -156,7 +150,7 @@ end
 private partial def mkCond
   (se : SmtTerm) (pp : Expr) (andTerms : Array SmtTerm)
   (termTranslator : Expr → TranslateEnvT SmtTerm) : TranslateEnvT (Array SmtTerm) := do
-  let p' ← removeAndOptNamedPatternExpr pp
+  let p' ← removeNamedPatternExpr pp
   if isCstLiteral p' || isBoolCtor p' then
     -- case: isIntNatStrCst p' ∨ isBoolCtor p'
     return (andTerms.push (eqSmt (← termTranslator p') se))
@@ -197,10 +191,10 @@ private partial def mkCond
 def translateMatchAux?
   (termTranslator : Expr → TranslateEnvT SmtTerm)
   (idx : Nat) (discrs : Array Expr) (lhs : Array Expr)
-  (alt : Expr) (_matchType : Expr) (acc : Option MatchResult) : TranslateEnvT (Option MatchResult) := do
-  let altArgsRes ← retrieveAltsArgs lhs
-  let rhs := betaReduceRhs alt altArgsRes.altArgs
-  let hvars ← altArgsRes.altArgs.foldlM insertFVars .emptyWithCapacity
+  (rhs : Expr) (params : Array Expr)
+  (_matchType : Expr) (acc : Option MatchResult) : TranslateEnvT (Option MatchResult) := do
+  let rhs ← betaLambdaShared rhs params
+  let hvars ← params.foldlM insertFVars .emptyWithCapacity
   if idx == 0 then -- last pattern translated first
     -- translate all discriminators and keep in MatchResult
     let mut discrTerms := #[]
@@ -214,7 +208,7 @@ def translateMatchAux?
     withTranslatePattern hvars $ mkIte lhs rhs mres
 
   where
-    insertFVars (h : Std.HashSet FVarId) (v : Expr) : TranslateEnvT (Std.HashSet FVarId) := do
+    insertFVars (h : HashSet FVarId) (v : Expr) : TranslateEnvT (HashSet FVarId) := do
       match v with
       | Expr.fvar fv =>
           match (← inferTypeEnv v).getAppFn' with

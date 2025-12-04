@@ -5,19 +5,6 @@ import Blaster.Optimize.Rewriting.OptimizeMatch
 open Lean Meta Elab
 namespace Blaster.Optimize
 
-/-- Given,
-     - `t := λ β₁ => ... => βₘ => ∀ α₁ → ∀ α₂ → ... → αₙ` corresponding to a match expression
-        returning functions as rhs; and
-     - `nbArgs ∈ [0..n]` corresponding to the number of extra arguments applied to the match expression; and
-     - α'₁, ..., α'ₘ := [ αᵢ | i ∈ [nbArgs, n] ]
-    Return:
-      - ∀ α'₁ → ∀ α'₂ → ... → α'ₘ
-    Note that the returned type will correspond to αₙ when nbArgs = n.
--/
-def getAppliedMatchType (t : Expr) (nbArgs : Nat) : Expr :=
-  (getLambdaBody t).getForallBodyMaxDepth nbArgs
-
-
 /-- Given application `f x₁ ... xₙ`, apply the following normalization rules:
      - When `f := Blaster.dite' c (fun h : c => t₁) (fun h : ¬ c => t₂)`
        Return
@@ -34,30 +21,28 @@ def getAppliedMatchType (t : Expr) (nbArgs : Nat) : Expr :=
          | p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₙ₎ => tₘ x₁ ... xₙ
 -/
 def normChoiceApplication?
-  (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := withLocalContext $ do
+  (f : Expr) (args : Array Expr) (prevInApp : Bool) : TranslateEnvT (Option OptimizeStack) := do
     if let some r ← normDIteApp? f args then return r
     normMatchApp? f args
 
   where
-    mkAppInDIteExpr (extra_args : Array Expr) (ite_cond : Expr) (ite_e : Expr) : TranslateEnvT Expr := do
+    mkAppInDIteExpr (args : Array Expr) (ite_cond : Expr) (ite_e : Expr) : TranslateEnvT Expr := do
       match ite_e with
-      | Expr.lam n t body bi => return Expr.lam n t (mkAppN body extra_args) bi
+      | Expr.lam n t body bi => mkLambdaExpr n bi t (← mkAppRangeExpr body 4 args.size args)
       | _ =>
          -- case when then/else caluse is a quantified function
          if !(← isQuantifiedFun ite_e) then
             throwEnvError "mkAppNInDIteExpr: lambda/quantified function expected but got {reprStr ite_e}"
          -- Need to create a lambda term embedding the following application
          -- `fun h : ite_cond => ite_e h extra_args`.
-         withLocalDecl' (← Term.mkFreshBinderName) BinderInfo.default ite_cond fun x => do
-           let auxApp := mkAppN (ite_e.beta #[x]) extra_args
-           mkLambdaFVars #[x] auxApp
+         let auxApp ← mkAppRangeExpr (← mkAppExpr ite_e (← mkBVarExpr 0)) 4 args.size args
+         mkLambdaExpr (← Term.mkFreshBinderName) BinderInfo.default ite_cond auxApp
 
-    normDIteApp? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
+    normDIteApp? (f : Expr) (args : Array Expr) : TranslateEnvT (Option OptimizeStack) := do
       let Expr.const ``Blaster.dite' _ := f | return none
       if args.size ≤ 4 then return none
-      let extra_args := args.extract 4 args.size
-      let e1 ← mkAppInDIteExpr extra_args args[1]! args[2]!
-      let e2 ← mkAppInDIteExpr extra_args (mkApp (← mkPropNotOp) args[1]!) args[3]!
+      let e1 ← mkAppInDIteExpr args args[1]! args[2]!
+      let e2 ← mkAppInDIteExpr args (← mkAppExpr (← mkPropNotOp) args[1]!) args[3]!
       let dite_args := args.take 4
       let dite_args := dite_args.set! 2 e1
       let dite_args := dite_args.set! 3 e2
@@ -65,33 +50,29 @@ def normChoiceApplication?
       -- NOTE: We expect that the ite sort is of form ∀ α₀ → ... → αₙ to avoid type inference,
       -- which is costly.
       let dite_args := dite_args.set! 0 (args[0]!.getForallBodyMaxDepth (args.size - 4))
-      return (mkAppN f dite_args)
+      return some (.AppOptimizeImplicitArgs f dite_args 4 0 4 (← getFunEnvInfo f) prevInApp)
 
-    mkAppInRhs (extra_args : Array Expr) (lhs : Array Expr) (rhs : Expr) : TranslateEnvT Expr := do
-      let altArgsRes ← retrieveAltsArgs lhs
-      let nbParams := altArgsRes.altArgs.size
-      applyOnLambdaBoundedBody rhs (max 1 nbParams) (fun body => return mkAppN body extra_args)
+    mkAppInRhs (args : Array Expr) (beginIdx endIdx : Nat) (nbParams : Nat) (rhs : Expr) : TranslateEnvT Expr := do
+      applyOnLambdaBoundedBody rhs nbParams (fun body => mkAppRangeExpr body beginIdx endIdx args)
 
-    normMatchApp? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
+    normMatchApp? (f : Expr) (args : Array Expr) : TranslateEnvT (Option OptimizeStack) := do
       let some argInfo ← isMatcher? f | return none
       if args.size ≤ argInfo.arity then return none
-      let extra_args := args.extract argInfo.arity args.size
       let idxType := argInfo.getFirstDiscrPos - 1
       -- NOTE: We expect that the match sort is of form λ β₁ => ... => βₘ => ∀ α₁ → ... → αₙ to
       -- avoid type inference, which is costly.
       let retType := getAppliedMatchType args[idxType]! (args.size - argInfo.arity)
-      let alts := getMatchAlts args argInfo
+      let alts ← getMatchAlts args argInfo
       let mut margs := args.take argInfo.arity
       for i in [argInfo.getFirstAltPos : argInfo.arity] do
         let altIdx := i - argInfo.getFirstAltPos
-        let lhs ← forallTelescope alts[altIdx]! fun _ b => pure b.getAppArgs
-        margs ← margs.modifyM i (mkAppInRhs extra_args lhs)
+        margs ← margs.modifyM i (mkAppInRhs args argInfo.arity args.size alts[altIdx]!.getNumHeadForalls)
       -- update match return type
       margs ← margs.modifyM idxType (updateMatchReturnType retType)
-      return mkAppN f margs
+      return some (.AppOptimizeImplicitArgs f margs argInfo.arity 0 argInfo.arity (← getFunEnvInfo f) prevInApp)
 
 /-- Apply the following propagation rules on any function application `fn e₁ ... eₙ`
-    only when fn := Expr.const n l ∧ n ≠ Blaster.dite' ∧ ¬ isNotFun fn ∧ propagate fn e₁ ... eₙ
+    only when fn := Expr.const n l ∧ n ≠ Blaster.dite' ∧ propagate fn e₁ ... eₙ
 
     - When ∃ i ∈ [1..n],
             `eᵢ := Blaster.dite' c (fun h : c => d₁) (fun h : ¬ c => d₂)` ∧
@@ -119,45 +100,66 @@ def normChoiceApplication?
         isCtorExpr fn ∨
         allExplicitParamsAreCtor fn e₁ ... eₙ (funPropagation := true) ∨
         (fn = `Eq` ∧ n = 3 ∧ (isBoolValue? e₂).isSome )
+
     NOTE: skipPropCheck is set to `true` only when it is known beforehand that `cf`
     is a recursive function for which `allExplicitParamsAreCtor cf cargs (funPropagation := true)`
     returns `true`.
+
     NOTE: reorderArgs is set to `true` only when funPropagation? is called before optimizeApp.
+
+    Assume that `fn` is a function (i.e., does not satisfy predicate isNotFun) or `fn` is a Ctor.
 -/
-def funPropagation? (cf : Expr) (cargs : Array Expr) (skipPropCheck := false) (reorderArgs := false) : TranslateEnvT (Option Expr) :=
- withLocalContext $ do
+def funPropagation?
+  (cf : Expr) (cargs : Array Expr) (prevInApp : Bool) (skipPropCheck := false)
+  (reorderArgs := false) (resolveArgs := false) : TranslateEnvT (Option OptimizeStack) := do
   match cf with
   | Expr.const n _ =>
-      if skipPropCheck then loop 0 cargs
+      if skipPropCheck then loop 0 cargs.size cargs
       else
-        if n == ``Blaster.dite' || (← isNotFun cf) then return none
+        if n == ``Blaster.dite' then return none
         if !(← propagate cf n cargs) then return none
         if reorderArgs
-        then loop 0 (← reorderOperands cf cargs)
-        else loop 0 cargs
+        then loop 0 cargs.size (← reorderOperands cf cargs)
+        else loop 0 cargs.size cargs
   | _ => return none
 
   where
+    @[always_inline, inline]
+    hasMatchITEArgs (args : Array Expr) : TranslateEnvT Bool := do
+      let matchCache := (← get).optEnv.memCache.isMatcherCache
+      let rec go (idx : Nat) (stop : Nat) : Bool :=
+        if idx ≥ stop then false
+        else match args[idx]! with
+             | .app (.app (.app (.app (Expr.const ``Blaster.dite' _) _) _) _) _ => true
+             | .app f (.lam ..) => -- hack to only consider match
+                  match f.getAppFn with
+                  | Expr.const n _ => if matchCache.contains n then true else go (idx + 1) stop
+                  | _ => go (idx + 1) stop
+             | _ => go (idx + 1) stop
+      return go 0 args.size
 
-    loop (idx : Nat) (args : Array Expr) : TranslateEnvT (Option Expr) := do
-      if idx ≥ args.size then return none
+    loop (idx : Nat) (stop : Nat) (args : Array Expr) : TranslateEnvT (Option OptimizeStack) := do
+      if idx ≥ stop then return none
       else if let some re ← diteCstProp? cf args idx then return re
       else if let some re ← matchCstProp? cf args idx then return re
-      else loop (idx + 1) args
+      else loop (idx + 1) stop args
 
+    @[always_inline, inline]
     propagate (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT Bool := do
-      if (← isCtorName n) then return true
-      if (← allExplicitParamsAreCtor f args (funPropagation := true)) then return true
-      match n with
-      | ``Eq => if args.size != 3 then return false
-                return isBoolCtor args[1]!
-      | _ => return false
+      if !(← hasMatchITEArgs args) then return false
+      else if (← isCtorName n) then return true
+      else if (← allExplicitParamsAreCtor f args (funPropagation := true)) then return true
+      else
+        match n with
+        | ``Eq => if args.size != 3 then return false
+                  else return isBoolCtor args[1]!
+        | _ => return false
 
     pushFunInDIteExpr
       (f : Expr) (args : Array Expr) (idxField : Nat)
       (ite_cond : Expr) (ite_e : Expr) : TranslateEnvT Expr := do
       match ite_e with
-      | Expr.lam n t body bi => return Expr.lam n t (mkAppN f (args.set! idxField body)) bi
+      | Expr.lam n t body bi => mkLambdaExpr n bi t (← mkAppNExprWithSetAt f args idxField body)
       | _ =>
          -- case when then/else clause is a quantified function
          if !(← isQuantifiedFun ite_e) then
@@ -167,51 +169,69 @@ def funPropagation? (cf : Expr) (cargs : Array Expr) (skipPropCheck := false) (r
            -- `fun h : ite_cond => f x₁ ... xₙ`
            -- with x₁ ... xₙ = [ gᵢ | i ∈ [0 .. args.size-1] ∧
            --                        (idxField ≠ i → gᵢ = args[i]) ∧ (idxField = i → ite_e h)]
-           withLocalDecl' (← Term.mkFreshBinderName) BinderInfo.default ite_cond fun x => do
-             mkLambdaFVars #[x] (mkAppN f (args.set! idxField (ite_e.beta #[x])))
+           let auxApp ← mkAppNExprWithSetAt f args idxField (← mkAppExpr ite_e (← mkBVarExpr 0))
+           mkLambdaExpr (← Term.mkFreshBinderName) BinderInfo.default ite_cond auxApp
 
     /-- Implements dite over ctor rule -/
-    diteCstProp? (f : Expr) (args : Array Expr) (idxArg : Nat) : TranslateEnvT (Option Expr) := do
+    @[always_inline, inline]
+    diteCstProp? (f : Expr) (args : Array Expr) (idxArg : Nat) : TranslateEnvT (Option OptimizeStack) := do
       -- NOTE: can't be an applied dite' function (e.g., applied to more than 4 arguments)
       if let some (_psort, pcond, e1, e2) := dite'? args[idxArg]! then
         let pInfo ← getFunEnvInfo f
         -- NOTE: We here prefer to instantiate the generic type kept in FunEnvInfo instead
         -- of calling inferTypeEnv as the latter is costly.
         -- NOTE: FunEnvInfo has already been added in the cache at this stage.
-        let retType := inferAppType pInfo.type args
+        let retType ← inferAppType pInfo.type args
         let e1' ← pushFunInDIteExpr f args idxArg pcond e1
-        let e2' ← pushFunInDIteExpr f args idxArg (mkApp (← mkPropNotOp) pcond) e2
+        let e2' ← pushFunInDIteExpr f args idxArg (← mkAppExpr (← mkPropNotOp) pcond) e2
+        -- NOTE: we need to propagate the reuse context to the new then and else expressions
+        propagateReuseContext e1 e1' 0
+        propagateReuseContext e2 e2' 0
         -- NOTE: we also need to set the sort type for the pulled dite' to meet the function's return type
-        return (mkApp4 (← mkBlasterDIteOp) retType pcond e1' e2')
+        let dite_args := #[retType, pcond, e1', e2']
+        let dite_op ← mkBlasterDIteOp
+        let fInfo ← getFunEnvInfo dite_op
+        setIsAppArg prevInApp
+        if resolveArgs then
+          return some (.AppOptimizeImplicitArgs dite_op dite_args 0 0 4 fInfo prevInApp)
+        else return some (.AppOptimizeExplicitArgs dite_op dite_args 2 4 fInfo none prevInApp)
       else return none
 
     updateRhsWithFun
-      (f : Expr) (args : Array Expr) (idxField : Nat) (lhs : Array Expr)
+      (f : Expr) (args : Array Expr) (idxField : Nat) (nbParams : Nat)
       (rhs : Expr) : TranslateEnvT Expr := do
-        let altArgsRes ← retrieveAltsArgs lhs
-        let nbParams := altArgsRes.altArgs.size
-        applyOnLambdaBoundedBody rhs (max 1 nbParams) (fun body => return mkAppN f (args.set! idxField body))
+        applyOnLambdaBoundedBody rhs nbParams (fun body => mkAppNExprWithSetAt f args idxField body)
 
     /-- Implements match over ctor rule -/
-    matchCstProp? (f : Expr) (args : Array Expr) (idxArg : Nat) : TranslateEnvT (Option Expr) := do
-      let (pf, pargs) := getAppFnWithArgs args[idxArg]!
-      let some argInfo ← isMatcher? pf | return none
-      -- NOTE: can't be an applied match (e.g., applied to more argInfo.mInfo.arity arguments)
-      if pargs.size > argInfo.arity then return none
-      let idxType := argInfo.getFirstDiscrPos - 1
-      let pInfo ← getFunEnvInfo f
-      -- NOTE: We here prefer to instantiate the generic type kept in FunEnvInfo instead
-      -- of calling inferTypeEnv as the latter is costly.
-      -- NOTE: FunEnvInfo has already been added in the cache at this stage.
-      let retType := inferAppType pInfo.type args
-      let alts := getMatchAlts pargs argInfo
-      let mut pargs := pargs
-      for i in [argInfo.getFirstAltPos : argInfo.arity] do
-        let altIdx := i - argInfo.getFirstAltPos
-        let lhs ← forallTelescope alts[altIdx]! fun _ b => pure b.getAppArgs
-        pargs ← pargs.modifyM i (updateRhsWithFun f args idxArg lhs)
-      -- NOTE: we also need to set the return type for pulled over match to meet the function's return type
-      pargs ← pargs.modifyM idxType (updateMatchReturnType retType)
-      return (mkAppN argInfo.nameExpr pargs)
+    @[always_inline, inline]
+    matchCstProp? (f : Expr) (args : Array Expr) (idxArg : Nat) : TranslateEnvT (Option OptimizeStack) := do
+      if let some argInfo ← isMatcher? args[idxArg]!.getAppFn then
+        -- NOTE: can't be an applied match (e.g., applied to more argInfo.mInfo.arity arguments)
+        let pargs := args[idxArg]!.getAppArgs
+        if pargs.size > argInfo.arity then return none
+        else
+          let idxType := argInfo.getFirstDiscrPos - 1
+          let pInfo ← getFunEnvInfo f
+          -- NOTE: We here prefer to instantiate the generic type kept in FunEnvInfo instead
+          -- of calling inferTypeEnv as the latter is costly.
+          -- NOTE: FunEnvInfo has already been added in the cache at this stage.
+          let retType ← inferAppType pInfo.type args
+          let alts ← getMatchAlts pargs argInfo
+          -- NOTE: we also need to set the return type for pulled over match to meet the function's return type
+          let mut pargs ← pargs.modifyM idxType (updateMatchReturnType retType)
+          for i in [argInfo.getFirstAltPos : argInfo.arity] do
+            let altIdx := i - argInfo.getFirstAltPos
+            -- NOTE: No need to propagate the reuse context as match name has not changed
+            pargs ← pargs.modifyM i (updateRhsWithFun f args idxArg alts[altIdx]!.getNumHeadForalls)
+          let fInfo ← getFunEnvInfo argInfo.nameExpr
+          setIsAppArg prevInApp
+          if resolveArgs then
+            return some (.AppOptimizeImplicitArgs argInfo.nameExpr pargs 0 0 argInfo.arity fInfo prevInApp)
+          else
+            return some (.AppOptimizeExplicitArgs
+                          argInfo.nameExpr pargs
+                          argInfo.getFirstAltPos
+                          argInfo.arity fInfo argInfo prevInApp)
+      else return none
 
 end Blaster.Optimize
