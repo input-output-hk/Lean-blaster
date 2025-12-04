@@ -25,9 +25,11 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
               | Sum.inr e' => return e'
               | Sum.inl stack' => optimizeExprAux stack'
 
+          | Expr.mvar .. => optimizeExprAux (← normMVar e i_stack)
+
           | Expr.sort l =>
               -- sort is used for Type u, Prop, etc
-              let s' ← mkExpr (Expr.sort (normLevel l))
+              let s' ← mkExpr (Expr.sort (← normLevel l))
               match (← stackContinuity i_stack s') with
               | Sum.inr e' => return e'
               | Sum.inl stack' => optimizeExprAux stack'
@@ -71,7 +73,6 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
               let i_stack' := .ProjWaitForExpr n idx :: i_stack
               optimizeExprAux (.InitOptimizeExpr s :: i_stack')
 
-          | Expr.mvar .. => throwEnvError "optimizeExpr: unexpected meta variable {e}"
           | Expr.bvar .. => throwEnvError "optimizeExpr: unexpected bound variable {e}"
 
       | Sum.inr (Sum.inr e') => return e'
@@ -174,17 +175,28 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
 
     /-- Given `e := Expr.fVar fv` perform the following:
          - When `some v := fv.getValue?`
-             `return `Sum.inl (.InitOptimizeExpr v :: stack)`
+             - return `Sum.inl (.InitOptimizeExpr v :: stack)`
          - Otherwise:
-              `return `stackContinuity stack (← mkExpr e)`
+             - return `stackContinuity stack (← mkExpr e)`
     -/
     @[always_inline, inline]
     normFVar (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeContinuity :=
       withLocalContext $ do
         match ← e.fvarId!.getValue? with
         | none => stackContinuity stack (← mkExpr e)
-        | some v =>
-            return Sum.inl (.InitOptimizeExpr (← instantiateMVars v) :: stack)
+        | some v => return Sum.inl (.InitOptimizeExpr v :: stack)
+
+    /-- Given `e := Expr.mvar m` perform the following:
+         - When `some v := getExprMVarAssignment? m
+             - return `Sum.inl (.InitOptimizeExpr v :: stack)`
+         - Otherwise:
+             - return ⊥
+    -/
+    @[always_inline, inline]
+    normMVar (e : Expr) (stack : List OptimizeStack) : TranslateEnvT (List OptimizeStack) := do
+      let some v ← getExprMVarAssignment? e.mvarId!
+            | throwEnvError "normMVar: assignment expected for meta variable {e} !!!"
+      return .InitOptimizeExpr v :: stack
 
     /-- Given a function `f := Expr const n l` perform the following:
          - When `n := mInfo ∈ isMatcherCache` (i.e., match info already optimized)

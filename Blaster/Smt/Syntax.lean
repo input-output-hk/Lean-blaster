@@ -32,8 +32,33 @@ inductive SortExpr where
 instance : Inhabited SortExpr where
   default := .SymbolSort default
 
-abbrev SortedVars := Array (SmtSymbol × SortExpr)
+mutual
+  private partial def SortExpr.beq (x y : SortExpr) : Bool :=
+    match x, y with
+    | .SymbolSort s1, .SymbolSort s2 => s1 == s2
+    | .ParamSort s1 ps1, .ParamSort s2 ps2 =>
+         if s1 == s2 && ps1.size == ps2.size
+         then beqArraySortExpr 0 ps1 ps2
+         else false
+    | _, _ => false
 
+  private partial def beqArraySortExpr (idx : Nat) (ps1 : Array SortExpr) (ps2 : Array SortExpr) : Bool :=
+    if idx ≥ ps1.size then true
+    else if SortExpr.beq ps1[idx]! ps2[idx]!
+         then beqArraySortExpr (idx + 1) ps1 ps2
+         else false
+end
+
+instance : BEq SortExpr where
+  beq := SortExpr.beq
+
+private def SortExpr.hash : SortExpr → UInt64
+  | .SymbolSort s => mixHash 17 s.hash
+  | .ParamSort s ps => mixHash 19 (Array.foldl (λ acc se => mixHash acc se.hash) s.hash ps)
+
+instance : Hashable SortExpr := ⟨SortExpr.hash⟩
+
+abbrev SortedVars := Array (SmtSymbol × SortExpr)
 
 /-- Smt-Lib V2 qualified identifier. -/
 inductive SmtQualifiedIdent where

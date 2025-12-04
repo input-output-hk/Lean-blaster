@@ -12,9 +12,10 @@ namespace Tests.Issue15
 --          (Lean.Expr.mdata
 --            { entries := [(`_solver.ctorSelector, Lean.DataValue.ofBool true)] }
 --              (Lean.Expr.app (Lean.Expr.const (Lean.Name.mkNum `Tests.Issue15.FunCongruence.mk 1) [])
---                (Lean.Expr.const `x []))) (Lean.Expr.fvar (Lean.Name.mkNum `_uniq 858))
--- Diagnosis: We need to properly handle function in ctor argument and applied in ctor proposition (see thm2)
+--                (Lean.Expr.const `x []))) (Lean.Expr.fvar (Lean.Name.mkNum `_uniq -- Diagnosis: We need to properly handle function in ctor argument and applied in ctor proposition (see thm2)
 
+
+set_option warn.sorry false
 
 structure Input where
   x : Nat
@@ -49,16 +50,19 @@ theorem thm3 : ∀ (α : Type) (f : FunRelTwo α) (x y : α) [LT α], x < y → 
 
 #blaster [thm3]
 
-/-- Considering implicit arguments in ctor proposition without explicit polymorhic param -/
+/-- Considering implicit arguments in ctor proposition without explicit polymorphic param -/
 structure FunRelThree where
   f [LT α] : α → α
   inv : ∀ (x y : α), [LT α] → x < y → f x < f y
 
 theorem thm4 : ∀ (f : FunRelThree) (x y : α) [LT α], x < y → f.f x < f.f y := by
-  intros f x y h1 h2
+  intros f x y h
   apply f.inv
-  assumption
 
-#blaster [thm4]
+ #blaster [thm4]
+
+/-- Same as thm4 but with non-polymorphic instantiations to force use of concrete LT definition -/
+theorem thm5 : ∀ (f : FunRelThree) (x y : Nat), f.f x ≤ f.f y → f.f y ≤ f.f x → f.f y = f.f x := by blaster
+
 
 end Tests.Issue15

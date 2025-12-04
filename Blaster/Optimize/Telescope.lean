@@ -295,25 +295,6 @@ def getFunEnvInfo (f : Expr) : TranslateEnvT FunEnvInfo := do
                                        env.optEnv.memCache.getFunEnvInfoCache.insert f fInfo })
          return fInfo
 
-
-/-- Given `t := ∀ α₀ → ∀ α₂ → ... → αₙ` corresponding to function type and `x₁ ... xₘ` the
-    function's applied arguments, determine the instantiated fun type by properly
-    instantiating the implicit arguments.
-
-    TODO: change function to pure tail rec call using stack-based approach
--/
-partial def inferFunType (t : Expr) (args : Array Expr) : Expr :=
-  let rec visit (idx : Nat) (stop : Nat) (e : Expr) : Expr :=
-    if idx == stop then e
-    else
-     match e with
-     | Expr.forallE n t b bi =>
-         if !bi.isExplicit
-         then Expr.forallE n args[idx]! (visit (idx + 1) stop (instantiate1' b args[idx]!)) bi
-         else Expr.forallE n t (visit (idx + 1) stop b) bi
-     | _ => e
-  visit 0 args.size t
-
 /-- Given `t := ∀ α₀ → ∀ α₂ → ... → αₙ` corresponding to function type and `x₁ ... xₘ` the
     function's applied arguments, determine the application type by properly
     instantiating the implicit arguments.

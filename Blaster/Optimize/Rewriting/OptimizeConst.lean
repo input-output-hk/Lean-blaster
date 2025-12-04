@@ -6,20 +6,30 @@ open Lean Meta Elab
 namespace Blaster.Optimize
 
 /-- Perform the following normalization on `l`
-    - When `l := .param .. ∨ l := .mvar ..`
-       - return `.succ .zero`
+    - When `l := .mvar m`
+       - When `some l := getLevelMVarAssignmentExp (← getMCtx) m`
+          - return l
+       - Otherwise
+          - return ⊥
     - When `l := .succ l'`
-        - return .succ (normLevel l')
+        - return .succ (← normLevel l')
+    - When `l := .max l1 l2`
+        - return .max (← normLevel l1) (← normLevel l2)
+    - When `l := .imax l1 l2`
+        - return .imax (← normLevel l1) (← normLevel l2)
     - Otherwise
         - return `l`
 -/
-@[always_inline, inline]
-partial def normLevel (l : Level) : Level :=
+partial def normLevel (l : Level) : TranslateEnvT Level := do
  match l with
- | .param ..
- | .mvar .. => .succ .zero
- | .succ l' => .succ (normLevel l')
- | _ => l
+ | .mvar m =>
+      let some l := getLevelMVarAssignmentExp (← getMCtx) m
+        | throwEnvError "normLevel: level assignment expected for meta variables {reprStr m}"
+      normLevel l
+ | .succ l' => return .succ (← normLevel l')
+ | .max l1 l2 => return .max (← normLevel l1) (← normLevel l2)
+ | .imax l1 l2 => return .imax (← normLevel l1) (← normLevel l2)
+ | _ => return l -- case for .param and .zero
 
 /-- Given `e := Expr.const n l, apply the following normalization rule:
      - When `n := Nat.zero` return `Expr.lit (Literal.natVal 0)`
@@ -82,7 +92,7 @@ def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeCo
            if (← isPartialDef n) then throwEnvError "normConst: partial function not supported {n} !!!"
            if (← isUnsafeDef n) then throwEnvError "normConst: unsafe definition not supported {n} !!!"
            if let some r ← isToNormOpaqueFun n then return r
-           let e' := normConstLevel n l
+           let e' ← normConstLevel n l
            if let some r ← isHOF n e' then return r
            if (← isResolvableType e')
            then stackContinuity stack (← mkExpr (← resolveTypeAbbrev e'))
@@ -93,8 +103,8 @@ def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeCo
   where
     /-- Normalizing level in Expr.const due to normalization perform on sort (see normSort in Basic) -/
     @[always_inline, inline]
-    normConstLevel (n : Name) (xs : List Level) : Expr :=
-      Expr.const n (xs.map normLevel)
+    normConstLevel (n : Name) (xs : List Level) : TranslateEnvT Expr := do
+      return Expr.const n (← xs.mapM normLevel)
 
     /-- Apply the following normalization rules on opaque functions:
          - Nat.pred ==> λ n => n - 1

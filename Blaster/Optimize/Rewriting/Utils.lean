@@ -52,12 +52,13 @@ def isNullaryCtor (c : Name) : TranslateEnvT Bool := do
   | _ => pure false
 
 /-- Return `true` if `t` is not a Prop and corresponds to one of the following:
-    - is a sort type; or
+    - is a sort type only when `existQuantifier` flag is not set.
+    - is prop type when `existQuantifier` flag is set.
     - is a class constraint; or
     - is an inductive type for which either at least one nullary constructor or an Inhabited instance exists.
  TODO: extends check to also consider parametric constructor for which each parameter type satisfy `isSortOrInhabited`.
 -/
-def isSortOrInhabited (t : Expr) : TranslateEnvT Bool := do
+def isSortOrInhabited (t : Expr) (existsQuantifier := false) : TranslateEnvT Bool := do
  if (← isPropEnv t) then return false
  else
    match t.getAppFn' with
@@ -70,9 +71,13 @@ def isSortOrInhabited (t : Expr) : TranslateEnvT Bool := do
                   if (← isNullaryCtor ctorName) then return true
                 -- check if InHabited instance exists for t
                 hasInhabitedInstance t
-            | _ => isTypeEnv t
-   | _ => isTypeEnv t
+            | _ => isSortType t
+   | _ => isSortType t
 
+ where
+   isSortType (t : Expr) : TranslateEnvT Bool :=
+     if existsQuantifier then return t.isProp
+     else isTypeEnv t
 
 /-- Return `! e` when `b = false`. Otherwise return `e`. -/
 def toBoolNotExpr (b : Bool) (e : Expr) : TranslateEnvT Expr := do
