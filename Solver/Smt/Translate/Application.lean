@@ -1089,7 +1089,7 @@ def translateLambda
      for h : i in [:fvars.size] do
        let p := fvars[i]
        let decl ← getFVarLocalDecl p
-       if !(← isTopLevelFVar p.fvarId!) && !decl.type.isType && !(← isClassConstraintExpr decl.type) then
+       if !(← isTopLevelFVar p.fvarId!) && !(isTypeUniverse decl.type) && !(← isClassConstraintExpr decl.type) then
          lvars := lvars.push p
      return lvars
 

@@ -6,6 +6,8 @@ namespace Tests.Issue27
 
 -- Issue:  (kernel) application type mismatch ...
 -- Diagnosis: Before calling blaster we also need to revert quantifiers so as to properly normalize their types.
+--            Note that is is now no more necessary as we are implicitly instantiating any
+--            universe level meta variables.
 
 set_option warn.sorry false
 -- NOTE: remove induction when supporting implicit induction

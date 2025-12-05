@@ -28,4 +28,5 @@ import Tests.Issues.Issue27
 import Tests.Issues.Issue28
 import Tests.Issues.Issue29
 import Tests.Issues.Issue30
+import Tests.Issues.Issue31
 
