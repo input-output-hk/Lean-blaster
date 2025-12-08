@@ -112,14 +112,14 @@ namespace Tests.ConstFunProp
 -- ∀ (c : Prop) (xs : List Int) (w x y : Int), [Decidable c] →
 --   List.length (if c then x :: xs else [w, x, y]) > 0 ===>
 -- ∀ (c : Prop) (xs : List Int),
---   0 < Solver.dite' c (fun _ => Nat.add 1 (List.length xs)) (fun _ => 3)
+--   0 < Blaster.dite' c (fun _ => Nat.add 1 (List.length xs)) (fun _ => 3)
 -- NOTE: Can be reduced to true with additional simplification rules on
 -- relational operators and ite propagation rules.
 #testOptimize [ "IteOverFun_7" ] (norm-result: 1)
   ∀ (c : Prop) (xs : List Int) (w x y : Int), [Decidable c] →
     List.length (if c then x :: xs else [w, x, y]) > 0 ===>
   ∀ (c : Prop) (xs : List Int),
-    0 < Solver.dite' c (fun _ => Nat.add 1 (List.length xs)) (fun _ => 3)
+    0 < Blaster.dite' c (fun _ => Nat.add 1 (List.length xs)) (fun _ => 3)
 
 -- ∀ (a b c : Bool), true = if c then a else b ===>
 -- ∀ (a b c : Bool), (false = c → true = b) ∧ (true = c → true = a)
@@ -170,43 +170,43 @@ namespace Tests.ConstFunProp
 -- ∀ (c : Prop) (x : Option Int) (y : Int), [Decidable c] →
 --   (if c then x else none) = some y ===>
 -- ∀ (c : Prop) (x : Option Int) (y : Int),
---   some y = Solver.dite' c (fun _ => x) (fun _ => none)
+--   some y = Blaster.dite' c (fun _ => x) (fun _ => none)
 -- NOTE: Test cases to ensure that non constant ite cannot be propagated
 #testOptimize [ "IteOverFunUnchanged_1" ]
   ∀ (c : Prop) (x : Option Int) (y : Int), [Decidable c] →
     (if c then x else none) = some y ===>
   ∀ (c : Prop) (x : Option Int) (y : Int),
-    some y = Solver.dite' c (fun _ => x) (fun _ => none)
+    some y = Blaster.dite' c (fun _ => x) (fun _ => none)
 
 -- ∀ (b c : Prop) (x : Option Int) (y z : Int), [Decidable b] → [Decidable c] →
 --   (if c then (if b then x else none) else some y) = some z ===>
 -- ∀ (b c : Prop) (x : Option Int) (y z : Int),
---   some z = Solver.dite' c
---            (fun _ => Solver.dite' b (fun _ => x) (fun _ => none))
+--   some z = Blaster.dite' c
+--            (fun _ => Blaster.dite' b (fun _ => x) (fun _ => none))
 --            (fun _ => some y)
 -- NOTE: Test cases to ensure that non constant ite cannot be propagated
 #testOptimize [ "IteOverFunUnchanged_2" ]
   ∀ (b c : Prop) (x : Option Int) (y z : Int), [Decidable b] → [Decidable c] →
     (if c then (if b then x else none) else some y) = some z ===>
   ∀ (b c : Prop) (x : Option Int) (y z : Int),
-    some z = Solver.dite' c
-             (fun _ => Solver.dite' b (fun _ => x) (fun _ => none))
+    some z = Blaster.dite' c
+             (fun _ => Blaster.dite' b (fun _ => x) (fun _ => none))
              (fun _ => some y)
 
 -- ∀ (b c : Prop) (x : Int) (y z : Option Int), [Decidable b] → [Decidable c] →
 --    (if c then some x else (if b then y else none)) = z ===>
 -- ∀ (b c : Prop) (x : Int) (y z : Option Int),
---    z = Solver.dite' c
+--    z = Blaster.dite' c
 --        (fun _ => some x)
---        (fun _ => Solver.dite' b (fun _ => y) (fun _ => none))
+--        (fun _ => Blaster.dite' b (fun _ => y) (fun _ => none))
 -- NOTE: Test cases to ensure that non constant ite cannot be propagated
 #testOptimize [ "IteOverFunUnchanged_3" ]
   ∀ (b c : Prop) (x : Int) (y z : Option Int), [Decidable b] → [Decidable c] →
      (if c then some x else (if b then y else none)) = z ===>
   ∀ (b c : Prop) (x : Int) (y z : Option Int),
-     z = Solver.dite' c
+     z = Blaster.dite' c
          (fun _ => some x)
-         (fun _ => Solver.dite' b (fun _ => y) (fun _ => none))
+         (fun _ => Blaster.dite' b (fun _ => y) (fun _ => none))
 
 -- ∀ (b c d : Prop) (x y : Int) (z : Option Int),
 --   [Decidable b] → [Decidable c] → [Decidable d] →
@@ -216,9 +216,9 @@ namespace Tests.ConstFunProp
 --     else if b then some x else none;
 --   op1 = z ===>
 -- ∀ (b c d : Prop) (x y : Int) (z : Option Int),
---    z = Solver.dite' c
---        (fun _ => Solver.dite' d (fun _ => some x) (fun _ => some y))
---        (fun _ => Solver.dite' b (fun _ => some x) (fun _ => none))
+--    z = Blaster.dite' c
+--        (fun _ => Blaster.dite' d (fun _ => some x) (fun _ => some y))
+--        (fun _ => Blaster.dite' b (fun _ => some x) (fun _ => none))
 -- NOTE: Test cases to ensure that ite cannot be propagated when at
 -- least one function's argument is not a constant.
 #testOptimize [ "IteOverFunUnchanged_4" ]
@@ -230,25 +230,25 @@ namespace Tests.ConstFunProp
     else if b then some x else none;
   op1 = z ===>
 ∀ (b c d : Prop) (x y : Int) (z : Option Int),
-   z = Solver.dite' c
-       (fun _ => Solver.dite' d (fun _ => some x) (fun _ => some y))
-       (fun _ => Solver.dite' b (fun _ => some x) (fun _ => none))
+   z = Blaster.dite' c
+       (fun _ => Blaster.dite' d (fun _ => some x) (fun _ => some y))
+       (fun _ => Blaster.dite' b (fun _ => some x) (fun _ => none))
 
 -- ∀ (c : Prop) (xs : List Int) (w x : Int), [Decidable c] →
 --   List.length (if c then [w, x] else xs) > 0 ===>
 -- ∀ (c : Prop) (xs : List Int) (w x : Int),
---   0 < List.length (Solver.dite' c (fun _ => [w, x]) (fun _ => xs))
+--   0 < List.length (Blaster.dite' c (fun _ => [w, x]) (fun _ => xs))
 #testOptimize [ "IteOverFunUnchanged_5" ] (norm-result: 1)
   ∀ (c : Prop) (xs : List Int) (w x : Int), [Decidable c] →
     List.length (if c then [w, x] else xs) > 0 ===>
   ∀ (c : Prop) (xs : List Int) (w x : Int),
-    0 < List.length (Solver.dite' c (fun _ => [w, x]) (fun _ => xs))
+    0 < List.length (Blaster.dite' c (fun _ => [w, x]) (fun _ => xs))
 
 -- ∀ (a b x : Bool) (c : Prop), [Decidable c] → x = if c then a else b ===>
--- ∀ (a b x : Bool) (c : Prop), x = Solver.dite' c (fun _ => a) (fun _ => b)
+-- ∀ (a b x : Bool) (c : Prop), x = Blaster.dite' c (fun _ => a) (fun _ => b)
 #testOptimize [ "IteOverFunUnchanged_6" ]
   ∀ (a b x : Bool) (c : Prop), [Decidable c] → x = if c then a else b ===>
-  ∀ (a b x : Bool) (c : Prop), x = Solver.dite' c (fun _ => a) (fun _ => b)
+  ∀ (a b x : Bool) (c : Prop), x = Blaster.dite' c (fun _ => a) (fun _ => b)
 
 
 /-! Test cases to validate when dite over function propagation must be applied. -/
@@ -388,14 +388,14 @@ namespace Tests.ConstFunProp
 -- ∀ (c : Prop) (xs : List Int) (w x y : Int) (f : ¬ c → Int → Int), [Decidable c] →
 --   List.length (if h : c then x :: xs else [w, x, f h y]) > 0 ===>
 -- ∀ (c : Prop) (xs : List Int),
---   0 < Solver.dite' c (fun _ => Nat.add 1 (List.length xs)) (fun _ => 3)
+--   0 < Blaster.dite' c (fun _ => Nat.add 1 (List.length xs)) (fun _ => 3)
 -- NOTE: Can be reduced to true with additional simplification rules on
 -- relational operators and ite propagation rules.
 #testOptimize [ "DIteOverFun_7" ] (norm-result: 1)
   ∀ (c : Prop) (xs : List Int) (w x y : Int) (f : ¬ c → Int → Int), [Decidable c] →
     List.length (if h : c then x :: xs else [w, x, f h y]) > 0 ===>
   ∀ (c : Prop) (xs : List Int),
-    0 < Solver.dite' c (fun _ => Nat.add 1 (List.length xs)) (fun _ => 3)
+    0 < Blaster.dite' c (fun _ => Nat.add 1 (List.length xs)) (fun _ => 3)
 
 -- ∀ (a b c : Bool) (f : c → Bool → Bool), true = if h : c then f h a else b ===>
 -- ∀ (a b c : Bool) (f : true = c → Bool → Bool),
@@ -503,21 +503,21 @@ namespace Tests.ConstFunProp
 -- ∀ (c : Prop) (x : Option Int) (y : Int) (f : c → Option Int → Option Int), [Decidable c] →
 --    (if h : c then f h x else none) = some y ===>
 -- ∀ (c : Prop) (x : Option Int) (y : Int) (f : c → Option Int → Option Int),
---   some y = Solver.dite' c (fun h : _ => f h x) (fun _ => none)
+--   some y = Blaster.dite' c (fun h : _ => f h x) (fun _ => none)
 -- NOTE: Test cases to ensure that non constant dite cannot be propagated
 #testOptimize [ "DIteOverFunUnchanged_1" ]
   ∀ (c : Prop) (x : Option Int) (y : Int) (f : c → Option Int → Option Int), [Decidable c] →
      (if h : c then f h x else none) = some y ===>
   ∀ (c : Prop) (x : Option Int) (y : Int) (f : c → Option Int → Option Int),
-    some y = Solver.dite' c (fun h : _ => f h x) (fun _ => none)
+    some y = Blaster.dite' c (fun h : _ => f h x) (fun _ => none)
 
 -- ∀ (b c : Prop) (x : Option Int) (y z : Int)
 --   (f : ¬ c → Int → Int) (g : b → Option Int → Option Int), [Decidable b] → [Decidable c] →
 --   (if h1 : c then (if h2 : b then (g h2 x) else none) else some (f h1 y)) = some z ===>
 -- ∀ (b c : Prop) (x : Option Int) (y z : Int)
 --   (f : ¬ c → Int → Int) (g : b → Option Int → Option Int),
---   some z = Solver.dite' c
---            (fun _ => Solver.dite' b (fun h2 : _ => g h2 x) (fun _ => none))
+--   some z = Blaster.dite' c
+--            (fun _ => Blaster.dite' b (fun h2 : _ => g h2 x) (fun _ => none))
 --            (fun h1 : _ => some (f h1 y))
 -- NOTE: Test cases to ensure that non constant dite cannot be propagated
 #testOptimize [ "DIteOverFunUnchanged_2" ]
@@ -526,8 +526,8 @@ namespace Tests.ConstFunProp
     (if h1 : c then (if h2 : b then (g h2 x) else none) else some (f h1 y)) = some z ===>
   ∀ (b c : Prop) (x : Option Int) (y z : Int)
     (f : ¬ c → Int → Int) (g : b → Option Int → Option Int),
-    some z = Solver.dite' c
-             (fun _ => Solver.dite' b (fun h2 : _ => g h2 x) (fun _ => none))
+    some z = Blaster.dite' c
+             (fun _ => Blaster.dite' b (fun h2 : _ => g h2 x) (fun _ => none))
              (fun h1 : _ => some (f h1 y))
 
 -- ∀ (b c : Prop) (x : Int) (y z : Option Int)
@@ -535,9 +535,9 @@ namespace Tests.ConstFunProp
 --    (if h1 : c then some (f h1 x) else (if h2 : b then (g h2 y) else none)) = z ===>
 -- ∀ (b c : Prop) (x : Int) (y z : Option Int)
 --   (f : c → Int → Int) (g : b → Option Int → Option Int),
---    z = Solver.dite' c
+--    z = Blaster.dite' c
 --        (fun h1 : _ => some (f h1 x))
---        (fun _ => Solver.dite' b (fun h2 : _ => g h2 y) (fun _ => none))
+--        (fun _ => Blaster.dite' b (fun h2 : _ => g h2 y) (fun _ => none))
 -- NOTE: Test cases to ensure that non constant dite cannot be propagated
 #testOptimize [ "DIteOverFunUnchanged_3" ]
   ∀ (b c : Prop) (x : Int) (y z : Option Int)
@@ -545,9 +545,9 @@ namespace Tests.ConstFunProp
      (if h1 : c then some (f h1 x) else (if h2 : b then (g h2 y) else none)) = z ===>
   ∀ (b c : Prop) (x : Int) (y z : Option Int)
     (f : c → Int → Int) (g : b → Option Int → Option Int),
-     z = Solver.dite' c
+     z = Blaster.dite' c
          (fun h1 : _ => some (f h1 x))
-         (fun _ => Solver.dite' b (fun h2 : _ => g h2 y) (fun _ => none))
+         (fun _ => Blaster.dite' b (fun h2 : _ => g h2 y) (fun _ => none))
 
 -- ∀ (b c d : Prop) (x y : Int) (z : Option Int)
 --   (f : c → Int → Int) (g : d → Int → Int) (t : b → Int → Int),
@@ -559,9 +559,9 @@ namespace Tests.ConstFunProp
 --   op1 = z ===>
 -- ∀ (b c d : Prop) (x y : Int) (z : Option Int)
 --   (f : c → Int → Int) (g : d → Int → Int) (t : b → Int → Int),
---    z = Solver.dite' c
---        (fun h1 : _ => Solver.dite' d (fun h2 : _ => some (g h2 x)) (fun _ => some (f h1 y)))
---        (fun _ => Solver.dite' b (fun h3 : _ => some (t h3 x)) (fun _ => none))
+--    z = Blaster.dite' c
+--        (fun h1 : _ => Blaster.dite' d (fun h2 : _ => some (g h2 x)) (fun _ => some (f h1 y)))
+--        (fun _ => Blaster.dite' b (fun h3 : _ => some (t h3 x)) (fun _ => none))
 -- NOTE: Test cases to ensure that dite cannot be propagated when at
 -- least one function's argument is not a constant.
 #testOptimize [ "DIteOverFunUnchanged_4" ]
@@ -575,29 +575,29 @@ namespace Tests.ConstFunProp
   op1 = z ===>
 ∀ (b c d : Prop) (x y : Int) (z : Option Int)
   (f : c → Int → Int) (g : d → Int → Int) (t : b → Int → Int),
-   z = Solver.dite' c
-       (fun h1 : _ => Solver.dite' d (fun h2 : _ => some (g h2 x)) (fun _ => some (f h1 y)))
-       (fun _ => Solver.dite' b (fun h3 : _ => some (t h3 x)) (fun _ => none))
+   z = Blaster.dite' c
+       (fun h1 : _ => Blaster.dite' d (fun h2 : _ => some (g h2 x)) (fun _ => some (f h1 y)))
+       (fun _ => Blaster.dite' b (fun h3 : _ => some (t h3 x)) (fun _ => none))
 
 -- ∀ (c : Prop) (xs : List Int) (w x : Int) (f : c → Int → Int), [Decidable c] →
 --   List.length (if h : c then [w, (f h x)] else xs) > 0 ===>
 -- ∀ (c : Prop) (xs : List Int) (w x : Int) (f : c → Int → Int),
---   0 < List.length (Solver.dite' c (fun h : _ => [w, (f h x)]) (fun _ => xs))
+--   0 < List.length (Blaster.dite' c (fun h : _ => [w, (f h x)]) (fun _ => xs))
 #testOptimize [ "DIteOverFunUnchanged_5" ] (norm-result: 1)
   ∀ (c : Prop) (xs : List Int) (w x : Int) (f : c → Int → Int), [Decidable c] →
     List.length (if h : c then [w, (f h x)] else xs) > 0 ===>
   ∀ (c : Prop) (xs : List Int) (w x : Int) (f : c → Int → Int),
-    0 < List.length (Solver.dite' c (fun h : _ => [w, (f h x)]) (fun _ => xs))
+    0 < List.length (Blaster.dite' c (fun h : _ => [w, (f h x)]) (fun _ => xs))
 
 -- ∀ (c : Prop) (a b x : Bool) (f : c → Bool → Bool),
 --   [Decidable c] → x = if h : c then f h a else b ===>
 -- ∀ (c : Prop) (a b x : Bool) (f : c → Bool → Bool),
---   x = Solver.dite' c (fun h : _ => f h a) (fun _ => b)
+--   x = Blaster.dite' c (fun h : _ => f h a) (fun _ => b)
 #testOptimize [ "DIteOverFunUnchanged_6" ]
   ∀ (c : Prop) (a b x : Bool) (f : c → Bool → Bool),
     [Decidable c] → x = if h : c then f h a else b ===>
   ∀ (c : Prop) (a b x : Bool) (f : c → Bool → Bool),
-    x = Solver.dite' c (fun h : _ => f h a) (fun _ => b)
+    x = Blaster.dite' c (fun h : _ => f h a) (fun _ => b)
 
 /-! Test cases to validate when match over constructor constant propagation must be applied. -/
 

@@ -14,8 +14,8 @@ variable (x : Int)
 variable (y : Int)
 variable (z : Int)
 
--- x ≤ y || z ≥ y ===> Solver.decide' (¬ y < x ∨ ¬ z < y)
-#testOptimize [ "DecideOrDecide_1" ]  x ≤ y || z ≥ y ===> Solver.decide' (¬ y < x ∨ ¬ z < y)
+-- x ≤ y || z ≥ y ===> Blaster.decide' (¬ y < x ∨ ¬ z < y)
+#testOptimize [ "DecideOrDecide_1" ]  x ≤ y || z ≥ y ===> Blaster.decide' (¬ y < x ∨ ¬ z < y)
 
 -- (x ≤ y || z ≥ y) = decide (x ≤ y ∨ y ≤ z) ===> True
 #testOptimize [ "DecideOrDecide_2" ] (x ≤ y || z ≥ y) = decide (x ≤ y ∨ y ≤ z) ===> True
@@ -106,14 +106,14 @@ variable (w : Int)
 
 variable (b : Bool)
 
--- x ≤ y || b ===> Solver.decide' (¬ y < x ∨ true = b)
-#testOptimize [ "DecideOrBool_1" ] x ≤ y || b ===> Solver.decide' (¬ y < x ∨ true = b)
+-- x ≤ y || b ===> Blaster.decide' (¬ y < x ∨ true = b)
+#testOptimize [ "DecideOrBool_1" ] x ≤ y || b ===> Blaster.decide' (¬ y < x ∨ true = b)
 
--- b || x ≤ y ===> Solver.decide' (¬ y < x ∨ true = b)
-#testOptimize [ "DecideOrBool_2" ] b || x ≤ y ===> Solver.decide' (¬ y < x ∨ true = b)
+-- b || x ≤ y ===> Blaster.decide' (¬ y < x ∨ true = b)
+#testOptimize [ "DecideOrBool_2" ] b || x ≤ y ===> Blaster.decide' (¬ y < x ∨ true = b)
 
--- !b || x ≤ y ===> Solver.decide' (¬ y < x ∨ false = b)
-#testOptimize [ "DecideOrBool_3" ] !b || x ≤ y ===> Solver.decide' (¬ y < x ∨ false = b)
+-- !b || x ≤ y ===> Blaster.decide' (¬ y < x ∨ false = b)
+#testOptimize [ "DecideOrBool_3" ] !b || x ≤ y ===> Blaster.decide' (¬ y < x ∨ false = b)
 
 -- ∀ (x y m n : Nat), x < y || (m == n) ===> ∀ (x y m n : Nat), m = n ∨ x < y
 #testOptimize [ "DecideOrBool_4" ] ∀ (x y m n : Nat), x < y || (m == n) ===>
@@ -146,14 +146,14 @@ variable (b : Bool)
 -- ∀ (x y z : Nat) (a b c : Bool),
 --     (if (x ≤ y ∨ y ≥ x) || ((a || ((b || c) && !(c || b)))) then x else y) < z ===>
 -- ∀ (x y z : Nat) (a : Bool),
---     Solver.dite' ((¬ y < x) ∨ true = a)
+--     Blaster.dite' ((¬ y < x) ∨ true = a)
 --      (fun _ :  (¬ y < x) ∨ true = a => x)
 --      (fun _ : ¬ ((¬ y < x) ∨ true = a) => y) < z
 #testOptimize [ "DecideOrBool_11" ]
   ∀ (x y z : Nat) (a b c : Bool),
       (if (x ≤ y ∨ y ≥ x) || ((a || ((b || c) && !(c || b)))) then x else y) < z ===>
   ∀ (x y z : Nat) (a : Bool),
-      Solver.dite' ((¬ y < x) ∨ true = a)
+      Blaster.dite' ((¬ y < x) ∨ true = a)
        (fun _ :  (¬ y < x) ∨ true = a => x)
        (fun _ : ¬ ((¬ y < x) ∨ true = a) => y) < z
 

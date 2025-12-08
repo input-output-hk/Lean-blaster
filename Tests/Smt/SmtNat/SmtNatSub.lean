@@ -1,4 +1,4 @@
-import Solver.Command.Syntax
+import Blaster
 
 namespace Test.SmtNatSub
 
@@ -6,75 +6,75 @@ namespace Test.SmtNatSub
 
 /-! # Test cases to validate `Nat.sub` semantics with backend solver -/
 
-#solve [∀ (x : Nat), 0 - x = 0]
+#blaster [∀ (x : Nat), 0 - x = 0]
 
-#solve [∀ (x y : Nat), x - (x + y) = 0]
+#blaster [∀ (x y : Nat), x - (x + y) = 0]
 
-#solve [∀ (x y : Nat), x ≤ y → x - y = 0]
+#blaster [∀ (x y : Nat), x ≤ y → x - y = 0]
 
-#solve [∀ (x y : Nat), x > y → x - y > 0]
+#blaster [∀ (x y : Nat), x > y → x - y > 0]
 
-#solve [∀ (x y : Nat), (x + y) - x = y]
+#blaster [∀ (x y : Nat), (x + y) - x = y]
 
-#solve [∀ (x y : Nat), (x + y) - y = x]
+#blaster [∀ (x y : Nat), (x + y) - y = x]
 
-#solve [∀ (x y : Nat), x - y ≤ Nat.succ x - y]
+#blaster [∀ (x y : Nat), x - y ≤ Nat.succ x - y]
 
-#solve [∀ (x y : Nat), y < x → 0 < x - y]
+#blaster [∀ (x y : Nat), y < x → 0 < x - y]
 
-#solve [∀ (x y : Nat), y < x → x - (y + 1) < x - y]
+#blaster [∀ (x y : Nat), y < x → x - (y + 1) < x - y]
 
-#solve [∀ (x y : Nat), x < y → y - x ≠ 0]
+#blaster [∀ (x y : Nat), x < y → y - x ≠ 0]
 
-#solve [∀ (x y : Nat), x ≤ y → x + (y - x) = y]
+#blaster [∀ (x y : Nat), x ≤ y → x + (y - x) = y]
 
-#solve [∀ (x y : Nat), 0 < x → 0 < y → x - 1 = y - 1 → x = y]
+#blaster [∀ (x y : Nat), 0 < x → 0 < y → x - 1 = y - 1 → x = y]
 
-#solve [∀ (x y : Nat), x ≤ y → y - x + x = y]
+#blaster [∀ (x y : Nat), x ≤ y → y - x + x = y]
 
-#solve [∀ (x y z : Nat), (x + z) - (y + z) = x - y]
+#blaster [∀ (x y z : Nat), (x + z) - (y + z) = x - y]
 
-#solve [∀ (x y z : Nat), (z + x) - (z + y) = x - y]
+#blaster [∀ (x y z : Nat), (z + x) - (z + y) = x - y]
 
-#solve [∀ (x y z : Nat), z ≤ y → x + y - z = x + (y - z)]
+#blaster [∀ (x y z : Nat), z ≤ y → x + y - z = x + (y - z)]
 
-#solve [∀ (x y z : Nat), y ≤ x → x - y = z → x = z + y]
+#blaster [∀ (x y z : Nat), y ≤ x → x - y = z → x = z + y]
 
-#solve [∀ (x y z : Nat), x = z + y → x - y = z]
+#blaster [∀ (x y z : Nat), x = z + y → x - y = z]
 
-#solve [∀ (x y z : Nat), x - y ≤ z → x ≤ z + y]
+#blaster [∀ (x y z : Nat), x - y ≤ z → x ≤ z + y]
 
-#solve [∀ (x y z : Nat), z < y → z < x → y - x < y - z]
+#blaster [∀ (x y z : Nat), z < y → z < x → y - x < y - z]
 
-#solve [∀ (x y : Nat), x ≤ y → Nat.succ y - x = Nat.succ (y - x)]
+#blaster [∀ (x y : Nat), x ≤ y → Nat.succ y - x = Nat.succ (y - x)]
 
-#solve [∀ (x y z : Nat), x - y - z = x - (y + z)]
+#blaster [∀ (x y z : Nat), x - y - z = x - (y + z)]
 
-#solve [∀ (f : Nat → Prop) (x y : Nat), (∀ (k : Nat), y ≤ x → x = y + k → f k) → (x < y → f 0) → f (x - y)]
+#blaster [∀ (f : Nat → Prop) (x y : Nat), (∀ (k : Nat), y ≤ x → x = y + k → f k) → (x < y → f 0) → f (x - y)]
 
-#solve [∀ (x y : Nat), 0 < x → 0 < y → Nat.pred x = Nat.pred y → x = y]
+#blaster [∀ (x y : Nat), 0 < x → 0 < y → Nat.pred x = Nat.pred y → x = y]
 
-#solve [∀ (x : Nat), x ≠ 0 → Nat.pred x ≠ x]
+#blaster [∀ (x : Nat), x ≠ 0 → Nat.pred x ≠ x]
 
-#solve [∀ (x : Nat), 0 < x → Nat.pred x < x]
+#blaster [∀ (x : Nat), 0 < x → Nat.pred x < x]
 
-#solve [∀ (x y : Nat), x ≠ 0 → x < y → Nat.pred x < Nat.pred y]
+#blaster [∀ (x y : Nat), x ≠ 0 → x < y → Nat.pred x < Nat.pred y]
 
-#solve [∀ (x y : Nat), Nat.pred x ≤ y ↔ x ≤ Nat.succ y]
+#blaster [∀ (x y : Nat), Nat.pred x ≤ y ↔ x ≤ Nat.succ y]
 
 
 /-! # Test cases to ensure that counterexample are properly detected -/
 
-#solve (gen-cex: 0) (solve-result: 1) [∀ (x y : Nat), x - y < x]
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : Nat), x - y < x]
 
-#solve (gen-cex: 0) (solve-result: 1) [∀ (x y : Nat), x - y < y]
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : Nat), x - y < y]
 
-#solve (gen-cex: 0) (solve-result: 1) [∀ (x y : Nat), x - y > x]
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : Nat), x - y > x]
 
-#solve (gen-cex: 0) (solve-result: 1) [∀ (x y : Nat), x - y > y]
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : Nat), x - y > y]
 
-#solve (gen-cex: 0) (solve-result: 1) [∀ (x y : Nat), x - y ≠ 0]
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : Nat), x - y ≠ 0]
 
-#solve (gen-cex: 0) (solve-result: 1) [∀ (x y : Nat), x < y → x - y ≠ 0]
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : Nat), x < y → x - y ≠ 0]
 
 end Test.SmtNatSub

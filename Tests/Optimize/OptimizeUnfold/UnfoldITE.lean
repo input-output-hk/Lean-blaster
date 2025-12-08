@@ -43,61 +43,61 @@ namespace Tests.UnfoldITE
 /-! Test cases to validate when `ite` expressions must not be unfolded -/
 
 -- ∀ (c : Bool) (x y z : Int), (if c then x else y) < z ===>
--- ∀ (b c : Bool) (x y z : Int), (Solver.dite' (b = c) (fun _h : b = c => x) (fun _h : ¬ b = c => y)) < z
+-- ∀ (b c : Bool) (x y z : Int), (Blaster.dite' (b = c) (fun _h : b = c => x) (fun _h : ¬ b = c => y)) < z
 #testOptimize [ "IteNotUnfolded_1" ]
   ∀ (b c : Bool) (x y z : Int), (if b = c then x else y) < z ===>
-  ∀ (b c : Bool) (x y z : Int), (Solver.dite' (b = c) (fun _h : b = c => x) (fun _h : ¬ b = c => y)) < z
+  ∀ (b c : Bool) (x y z : Int), (Blaster.dite' (b = c) (fun _h : b = c => x) (fun _h : ¬ b = c => y)) < z
 
 
 -- ∀ (x y : Int), (if x = y then x else y) = y ===>
--- ∀ (x y : Int), y = Solver.dite' (x = y) (fun _h : x = y => x) (fun _h : ¬ x = y => y)
+-- ∀ (x y : Int), y = Blaster.dite' (x = y) (fun _h : x = y => x) (fun _h : ¬ x = y => y)
 #testOptimize [ "IteNotUnfolded_2" ]
   ∀ (x y : Int), (if x = y then x else y) = y ===>
-  ∀ (x y : Int), y = Solver.dite' (x = y) (fun _h : x = y => x) (fun _h : ¬ x = y => y)
+  ∀ (x y : Int), y = Blaster.dite' (x = y) (fun _h : x = y => x) (fun _h : ¬ x = y => y)
 
 -- ∀ (a b : Bool) (x y : Int), (if a = b then x else y) > x ===>
--- ∀ (a b : Bool) (x y : Int), x < Solver.dite' (a = b) (fun _h : a = b => x) (fun _h : ¬ a = b => y)
+-- ∀ (a b : Bool) (x y : Int), x < Blaster.dite' (a = b) (fun _h : a = b => x) (fun _h : ¬ a = b => y)
 #testOptimize [ "IteNotUnfolded_3" ]
   ∀ (a b : Bool) (x y : Int), (if a = b then x else y) > x ===>
-  ∀ (a b : Bool) (x y : Int), x < Solver.dite' (a = b) (fun _h : a = b => x) (fun _h : ¬ a = b => y)
+  ∀ (a b : Bool) (x y : Int), x < Blaster.dite' (a = b) (fun _h : a = b => x) (fun _h : ¬ a = b => y)
 
 -- ∀ (x y : Int) (c : Prop), [Decidable c] → (if c then x else y) > x ===>
--- ∀ (x y : Int) (c : Prop), x < Solver.dite' c (fun _h : c => x) (fun _h : ¬ c => y)
+-- ∀ (x y : Int) (c : Prop), x < Blaster.dite' c (fun _h : c => x) (fun _h : ¬ c => y)
 #testOptimize [ "IteNotUnfolded_4" ]
   ∀ (x y : Int) (c : Prop), [Decidable c] → (if c then x else y) > x ===>
-  ∀ (x y : Int) (c : Prop), x < Solver.dite' c (fun _h : c => x) (fun _h : ¬ c => y)
+  ∀ (x y : Int) (c : Prop), x < Blaster.dite' c (fun _h : c => x) (fun _h : ¬ c => y)
 
 
 -- ∀ (α : Type) (x y : List α), [DecidableEq α] → (if x = y then x else y) = y ===>
--- ∀ (α : Type) (x y : List α), y = Solver.dite' (x = y) (fun _h : x = y => x) (fun _h : ¬ x = y => y)
+-- ∀ (α : Type) (x y : List α), y = Blaster.dite' (x = y) (fun _h : x = y => x) (fun _h : ¬ x = y => y)
 #testOptimize [ "IteNotUnfolded_5" ]
   ∀ (α : Type) (x y : List α), [DecidableEq α] → (if x = y then x else y) = y ===>
-  ∀ (α : Type) (x y : List α), y = Solver.dite' (x = y) (fun _h : x = y => x) (fun _h : ¬ x = y => y)
+  ∀ (α : Type) (x y : List α), y = Blaster.dite' (x = y) (fun _h : x = y => x) (fun _h : ¬ x = y => y)
 
 -- ∀ (p q r : Prop) (x y : Int), [Decidable p] → [Decidable q] → [Decidable r] →
 --     (if p ∧ (q ∨ ¬ q) ∧ r then x else y) < x ===>
 -- ∀ (p r : Prop) (x y : Int),
---   Solver.dite' (p ∧ r) (fun _h : p ∧ r => x) (fun _h : ¬ (p ∧ r) => y) < x
+--   Blaster.dite' (p ∧ r) (fun _h : p ∧ r => x) (fun _h : ¬ (p ∧ r) => y) < x
 #testOptimize [ "IteNotUnfolded_6" ]
   ∀ (p q r : Prop) (x y : Int), [Decidable p] → [Decidable q] → [Decidable r] →
       (if p ∧ (q ∨ ¬ q) ∧ r then x else y) < x ===>
   ∀ (p r : Prop) (x y : Int),
-    Solver.dite' (p ∧ r) (fun _h : p ∧ r => x) (fun _h : ¬ (p ∧ r) => y) < x
+    Blaster.dite' (p ∧ r) (fun _h : p ∧ r => x) (fun _h : ¬ (p ∧ r) => y) < x
 
 -- ∀ (p q r : Prop) (x y : Int), [Decidable p] → [Decidable q] → [Decidable r] →
 --     (if p ∧ (q → r) ∧ r then x else y) < x ===>
 -- ∀ (p r : Prop) (x y : Int),
---   Solver.dite' (p ∧ r) (fun _h : p ∧ r => x) (fun _h : ¬ (p ∧ r) => y) < x
+--   Blaster.dite' (p ∧ r) (fun _h : p ∧ r => x) (fun _h : ¬ (p ∧ r) => y) < x
 #testOptimize [ "IteNotUnfolded_7" ]
   ∀ (p q r : Prop) (x y : Int), [Decidable p] → [Decidable q] → [Decidable r] →
       (if p ∧ (q → r) ∧ r then x else y) < x ===>
   ∀ (p r : Prop) (x y : Int),
-      Solver.dite' (p ∧ r) (fun _h : p ∧ r => x) (fun _h : ¬ (p ∧ r) => y) < x
+      Blaster.dite' (p ∧ r) (fun _h : p ∧ r => x) (fun _h : ¬ (p ∧ r) => y) < x
 
 -- ∀ (p r : Prop) (x y : Int), [Decidable p] → [Decidable (∃ (q : Prop), q )] → [Decidable r] →
 --     (if p ∧ (∃ (q : Prop), q ) ∧ r then x else y) < x ===>
 -- ∀ (p r : Prop) (x y : Int),
---  Solver.dite'
+--  Blaster.dite'
 --    (p ∧ r ∧ ∃ (q : Prop), q)
 --    (fun _h : p ∧ r ∧ ∃ (q : Prop), q => x )
 --    (fun _h : ¬ (p ∧ r ∧ ∃ (q : Prop), q) => y) < x
@@ -105,38 +105,38 @@ namespace Tests.UnfoldITE
   ∀ (p r : Prop) (x y : Int), [Decidable p] → [Decidable (∃ (q : Prop), q )] → [Decidable r] →
       (if p ∧ (∃ (q : Prop), q ) ∧ r then x else y) < x ===>
   ∀ (p r : Prop) (x y : Int),
-       Solver.dite'
+       Blaster.dite'
          (p ∧ r ∧ ∃ (q : Prop), q)
          (fun _h : p ∧ r ∧ ∃ (q : Prop), q => x )
          (fun _h : ¬ (p ∧ r ∧ ∃ (q : Prop), q) => y) < x
 
 -- ∀ (α : Type) (x y : List α), [LT α] → [DecidableLT (List α)] → (if x < y then x else y) = y ===>
 -- ∀ (α : Type) (x y : List α), [LT α] →
---   y = Solver.dite'
+--   y = Blaster.dite'
 --        (List.Lex (λ a b => LT.lt a b) x y)
 --        (fun _h : (List.Lex (λ a b => LT.lt a b) x y) => x)
 --        (fun _h : ¬ (List.Lex (λ a b => LT.lt a b) x y) => y)
 #testOptimize [ "IteNotUnfolded_9" ]
  ∀ (α : Type) (x y : List α), [LT α] → [DecidableLT (List α)] → (if x < y then x else y) = y ===>
  ∀ (α : Type) (x y : List α), [LT α] →
-   y = Solver.dite'
+   y = Blaster.dite'
         (List.Lex (λ a b => LT.lt a b) x y)
         (fun _h : (List.Lex (λ a b => LT.lt a b) x y) => x)
         (fun _h : ¬ (List.Lex (λ a b => LT.lt a b) x y) => y)
 
 -- ∀ (α : Type) (x y : α), [LT α] → [DecidableLT α] → (if x < y then x else y) = y ===>
 -- ∀ (α : Type) (x y : α), [LT α] →
---   y = Solver.dite' (x < y) (fun _h : x < y => x) (fun _h : ¬ (x < y) => y)
+--   y = Blaster.dite' (x < y) (fun _h : x < y => x) (fun _h : ¬ (x < y) => y)
 #testOptimize [ "IteNotUnfolded_10" ]
  ∀ (α : Type) (x y : α), [LT α] → [DecidableLT α] → (if x < y then x else y) = y ===>
  ∀ (α : Type) (x y : α), [LT α] →
-   y = Solver.dite' (x < y) (fun _h : x < y => x) (fun _h : ¬ (x < y) => y)
+   y = Blaster.dite' (x < y) (fun _h : x < y => x) (fun _h : ¬ (x < y) => y)
 
 
 -- ∀ (α : Type) (x y : List α), [LT α] → [DecidableLT (List α)] → (if x < y then x else y) ≤ y ===>
 -- ∀ (α : Type) (x y : List α), [LT α] →
 --   ¬ List.Lex (λ a b => LT.lt a b) y
---     (Solver.dite'
+--     (Blaster.dite'
 --       (List.Lex (λ a b => LT.lt a b) x y)
 --       (fun _h : List.Lex (λ a b => LT.lt a b) x y => x)
 --       (fun _h : ¬ (List.Lex (λ a b => LT.lt a b) x y) => y))
@@ -144,7 +144,7 @@ namespace Tests.UnfoldITE
  ∀ (α : Type) (x y : List α), [LT α] → [DecidableLT (List α)] → (if x < y then x else y) ≤ y ===>
  ∀ (α : Type) (x y : List α), [LT α] →
    ¬ List.Lex (λ a b => LT.lt a b) y
-     (Solver.dite'
+     (Blaster.dite'
        (List.Lex (λ a b => LT.lt a b) x y)
        (fun _h : List.Lex (λ a b => LT.lt a b) x y => x)
        (fun _h : ¬ (List.Lex (λ a b => LT.lt a b) x y) => y))

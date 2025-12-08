@@ -614,30 +614,30 @@ inductive Color where
 -/
 
 -- ∀ (c : Prop) (a b d : Bool), [Decidable c] → d = if c then a else b ===>
--- ∀ (c : Prop) (a b d : Bool), d = Solver.dite' c (fun _ => a) (fun _ => b)
+-- ∀ (c : Prop) (a b d : Bool), d = Blaster.dite' c (fun _ => a) (fun _ => b)
 #testOptimize [ "BoolEqIteUnchanged_1" ]
   ∀ (c : Prop) (a b d : Bool), [Decidable c] → d = if c then a else b ===>
-  ∀ (c : Prop) (a b d : Bool), d = Solver.dite' c (fun _ => a) (fun _ => b)
+  ∀ (c : Prop) (a b d : Bool), d = Blaster.dite' c (fun _ => a) (fun _ => b)
 
 -- ∀ (c : Prop) (a b d : Bool), [Decidable c] → (if c then a else b) = d ===>
--- ∀ (c : Prop) (a b d : Bool), d = Solver.dite' c (fun _ => a) (fun _ => b)
+-- ∀ (c : Prop) (a b d : Bool), d = Blaster.dite' c (fun _ => a) (fun _ => b)
 #testOptimize [ "BoolEqIteUnchanged_2" ]
   ∀ (c : Prop) (a b d : Bool), [Decidable c] → (if c then a else b) = d ===>
-  ∀ (c : Prop) (a b d : Bool), d = Solver.dite' c (fun _ => a) (fun _ => b)
+  ∀ (c : Prop) (a b d : Bool), d = Blaster.dite' c (fun _ => a) (fun _ => b)
 
 -- ∀ (c : Prop) (a b : Bool), [Decidable c] → (if c then a else b) = (a && b) ===>
 -- ∀ (c : Prop) (a b : Bool),
---   (a && b) = Solver.dite' c (fun _ => a) (fun _ => b)
+--   (a && b) = Blaster.dite' c (fun _ => a) (fun _ => b)
 #testOptimize [ "BoolEqIteUnchanged_3" ]
   ∀ (c : Prop) (a b : Bool), [Decidable c] → (if c then a else b) = (a && b) ===>
   ∀ (c : Prop) (a b : Bool),
-    (a && b) = Solver.dite' c (fun _ => a) (fun _ => b)
+    (a && b) = Blaster.dite' c (fun _ => a) (fun _ => b)
 
 -- ∀ (a : Prop) (b c : Bool), [Decidable a] → (if a then true else b) = (b || c) ===>
--- ∀ (a : Prop) (b c : Bool), (b || c) = Solver.dite' a (fun _ => true) (fun _ => b)
+-- ∀ (a : Prop) (b c : Bool), (b || c) = Blaster.dite' a (fun _ => true) (fun _ => b)
 #testOptimize [ "BoolEqIteUnchanged_4" ]
   ∀ (a : Prop) (b c : Bool), [Decidable a] → (if a then true else b) = (b || c) ===>
-  ∀ (a : Prop) (b c : Bool), (b || c) = Solver.dite' a (fun _ => true) (fun _ => b)
+  ∀ (a : Prop) (b c : Bool), (b || c) = Blaster.dite' a (fun _ => true) (fun _ => b)
 
 /-! Test cases for simplification rule
      `true = dite c (fun h : c => e1) (fun h : ¬ c => e2) ==> (c → true = e1) ∧ (¬ c → true = e2)`.
@@ -1215,7 +1215,7 @@ Lean.Expr.forallE `c
               (Lean.Expr.app
                   (Lean.Expr.app
                     (Lean.Expr.app
-                      (Lean.Expr.const `Solver.dite' [Lean.Level.succ (Lean.Level.zero)])
+                      (Lean.Expr.const `Blaster.dite' [Lean.Level.succ (Lean.Level.zero)])
                       (Lean.Expr.const `Bool []))
                     (Lean.Expr.app
                       (Lean.Expr.app
@@ -1251,7 +1251,7 @@ elab "boolEqDIteUnchanged_1" : term => return boolEqDIteUnchanged_1
 
 -- ∀ (c a b d : Bool) (f : c → Bool → Bool), d = (if h : c then f h a else b) ===>
 -- ∀ (c a b d : Bool) (f : true = c → Bool → Bool),
---   d = Solver.dite' (true = c) (fun h : true = c => f h a) (fun _ => b)
+--   d = Blaster.dite' (true = c) (fun h : true = c => f h a) (fun _ => b)
 #testOptimize [ "BoolEqDIteUnchanged_1" ]
   ∀ (c a b d : Bool) (f : c → Bool → Bool),
     d = if h : c then f h a else b ===> boolEqDIteUnchanged_1
@@ -1259,7 +1259,7 @@ elab "boolEqDIteUnchanged_1" : term => return boolEqDIteUnchanged_1
 
 -- ∀ (c a b d : Bool) (f : c → Bool → Bool), (if h : c then a else b) = d ===>
 -- ∀ (c a b d : Bool) (f : true = c → Bool → Bool),
---   d = Solver.dite' (true = c) (fun h : true = c => f h a) (fun _ => b)
+--   d = Blaster.dite' (true = c) (fun h : true = c => f h a) (fun _ => b)
 #testOptimize [ "BoolEqDIteUnchanged_2" ]
   ∀ (c a b d : Bool) (f : c → Bool → Bool),
     (if h : c then f h a else b) = d ===> boolEqDIteUnchanged_1
@@ -1459,10 +1459,10 @@ variable (z : Int)
 
 -- ∀ (x y z : Int) (a b c : Bool),
 --  (if (x ≤ y) && ((a || ((b || c) && !(c || b)))) then x else y) < z ===>
--- ∀ (x y z : Int) (a : Bool), Solver.dite' (¬ y < x ∧ true = a) (fun _ => x) (fun _ => y) < z
+-- ∀ (x y z : Int) (a : Bool), Blaster.dite' (¬ y < x ∧ true = a) (fun _ => x) (fun _ => y) < z
 #testOptimize [ "DecideEqTrue_15"]
   ∀ (x y z : Int) (a b c : Bool), (if (x ≤ y) && ((a || ((b || c) && !(c || b)))) then x else y) < z ===>
-  ∀ (x y z : Int) (a : Bool), Solver.dite' (¬ y < x ∧ true = a) (fun _ => x) (fun _ => y) < z
+  ∀ (x y z : Int) (a : Bool), Blaster.dite' (¬ y < x ∧ true = a) (fun _ => x) (fun _ => y) < z
 
 -- ∀ (x y z : Int) (a b c : Bool),
 --  ((if (x ≤ y) && ((a || ((b || c) && !(c || b)))) then x else y) < z) =
@@ -1744,10 +1744,10 @@ variable (z : Int)
 
 
 -- ∀ (x y z : Int) (b c : Bool), (if ((x < y) && c) == b then x else y) < z ===>
--- ∀ (x y z : Int) (b c : Bool), Solver.dite' ((true = c ∧ (x < y)) = (true = b)) (fun _ => x) (fun _ => y) < z
+-- ∀ (x y z : Int) (b c : Bool), Blaster.dite' ((true = c ∧ (x < y)) = (true = b)) (fun _ => x) (fun _ => y) < z
 #testOptimize [ "DecideEqBool_18" ]
   ∀ (x y z : Int) (b c : Bool), (if ((x < y) && c) == b then x else y) < z ===>
-  ∀ (x y z : Int) (b c : Bool), Solver.dite' ((true = c ∧ (x < y)) = (true = b)) (fun _ => x) (fun _ => y) < z
+  ∀ (x y z : Int) (b c : Bool), Blaster.dite' ((true = c ∧ (x < y)) = (true = b)) (fun _ => x) (fun _ => y) < z
 
 -- ∀ (x y : Int) (b c : Bool),
 --  (if ((x < y) ∧ c) = b then x else y) = (if ((x < y) && c) == b then x else y) ===> True

@@ -430,13 +430,13 @@ def mapOptionDefault (x : Nat) (y : Option Nat) : Nat :=
 --   List.all xs id → a → List.all (List.map (ite c a) xs) id ===>
 -- ∀ (c : Prop) (a : Bool) (xs : List Bool),
 --   true = List.all xs (λ b => b) → true = a →
---   true = List.all (List.map (λ b => Solver.dite' c (fun _ => a) (fun _ => b)) xs) (λ b => b)
+--   true = List.all (List.map (λ b => Blaster.dite' c (fun _ => a) (fun _ => b)) xs) (λ b => b)
 #testOptimize [ "ConstPartialFunArg_3" ]
   ∀ (c : Prop) (a : Bool) (xs : List Bool), [Decidable c] →
     List.all xs id → a → List.all (List.map (ite c a) xs) id ===>
   ∀ (c : Prop) (a : Bool) (xs : List Bool),
     true = List.all xs (λ b => b) → true = a →
-    true = List.all (List.map (λ b => Solver.dite' c (fun _ => a) (fun _ => b)) xs) (λ b => b)
+    true = List.all (List.map (λ b => Blaster.dite' c (fun _ => a) (fun _ => b)) xs) (λ b => b)
 
 -- ∀ (x : Nat) (xs : List Nat),
 --   List.any xs (λ a => a == x) → ∃ (p : Prop), p ∈ (List.map (Eq x) xs) ∧ p ===>
@@ -484,10 +484,10 @@ def boolWapper (f : Nat → Nat → Bool) (x : Nat) (y : Nat) := f x y
   ∀ (x : Nat) (xs : List Nat), List.any xs (λ a => x ≤ a) = List.any xs (Nat.ble x) ===> True
 
 -- ∀ (x : Nat) (xs : List Nat), List.any xs (beqWapper Nat.ble x) → List.contains xs x ===>
--- ∀ (x : Nat) (xs : List Nat), true = List.any xs (λ a => Solver.decide' ¬ a < x) → true = List.elem x xs
+-- ∀ (x : Nat) (xs : List Nat), true = List.any xs (λ a => Blaster.decide' ¬ a < x) → true = List.elem x xs
 #testOptimize [ "ConstNormOpaqueFunArg_7" ]
   ∀ (x : Nat) (xs : List Nat), List.any xs (boolWapper Nat.ble x) → List.contains xs x ===>
-  ∀ (x : Nat) (xs : List Nat), true = List.any xs (λ a => Solver.decide' ¬ a < x) → true = List.elem x xs
+  ∀ (x : Nat) (xs : List Nat), true = List.any xs (λ a => Blaster.decide' ¬ a < x) → true = List.elem x xs
 
 -- Nat.le = LE.le ===> True
 #testOptimize [ "ConstNormOpaqueFunArg_8" ] Nat.le = LE.le ===> True

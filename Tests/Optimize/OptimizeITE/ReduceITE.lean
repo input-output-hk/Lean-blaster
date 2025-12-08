@@ -15,19 +15,19 @@ namespace Test.ReduceITE
 
 -- ∀ (b c : Bool) (x y z : Int), (if b = c then (if b = c then x else y) else z) < x ===>
 -- ∀ (b c : Bool) (x z : Int),
---    Solver.dite' (b = c) (fun _ : b = c => x) (fun _ : ¬ (b = c) => z) < x
+--    Blaster.dite' (b = c) (fun _ : b = c => x) (fun _ : ¬ (b = c) => z) < x
 #testOptimize [ "ReduceThenITE_1" ]
   ∀ (b c : Bool) (x y z : Int), (if b = c then (if b = c then x else y) else z) < x ===>
   ∀ (b c : Bool) (x z : Int),
-     Solver.dite' (b = c) (fun _ : b = c => x) (fun _ : ¬ (b = c) => z) < x
+     Blaster.dite' (b = c) (fun _ : b = c => x) (fun _ : ¬ (b = c) => z) < x
 
 -- ∀ (c : Prop) (x y z : Int), [Decidable c] →
 --   (if c then (if c then (if c then x else z) else y) else z) < x ===>
--- ∀ (c : Prop) (x z : Int), Solver.dite' c (fun _ : c => x) (fun _ : ¬ c => z) < x
+-- ∀ (c : Prop) (x z : Int), Blaster.dite' c (fun _ : c => x) (fun _ : ¬ c => z) < x
 #testOptimize [ "ReduceThenITE_2" ]
   ∀ (c : Prop) (x y z : Int), [Decidable c] →
     (if c then (if c then (if c then x else z) else y) else z) < x ===>
-  ∀ (c : Prop) (x z : Int), Solver.dite' c (fun _ : c => x) (fun _ : ¬ c => z) < x
+  ∀ (c : Prop) (x z : Int), Blaster.dite' c (fun _ : c => x) (fun _ : ¬ c => z) < x
 
 -- ∀ (c : Bool) (x y z : Int),
 -- (if c then (if c then x else y) else z) = (if true = c then x else z) ===> True
@@ -53,34 +53,34 @@ namespace Test.ReduceITE
 -- ∀ (c d : Prop) (x y z : Int), [Decidable c] → [Decidable d] →
 --   (if c then (if d then x else y) else z) < x ===>
 -- ∀ (c d : Prop) (x y z : Int),
---   Solver.dite' c
---     (fun _ : c => Solver.dite' d (fun _ : d => x) (fun _ : ¬ d => y))
+--   Blaster.dite' c
+--     (fun _ : c => Blaster.dite' d (fun _ : d => x) (fun _ : ¬ d => y))
 --     (fun _ : ¬ c => z) < x
 #testOptimize [ "ReduceThenITEUnchanged_1" ]
   ∀ (c d : Prop) (x y z : Int), [Decidable c] → [Decidable d] →
     (if c then (if d then x else y) else z) < x ===>
   ∀ (c d : Prop) (x y z : Int),
-    Solver.dite' c
-      (fun _ : c => Solver.dite' d (fun _ : d => x) (fun _ : ¬ d => y))
+    Blaster.dite' c
+      (fun _ : c => Blaster.dite' d (fun _ : d => x) (fun _ : ¬ d => y))
       (fun _ : ¬ c => z) < x
 
 -- ∀ (c d e : Prop) (x y z : Int), [Decidable c] → [Decidable d] → [Decidable e] →
 --   (if c then (if d then (if e then x else z) else y) else z) < x ===>
 -- ∀ (c d e : Prop) (x y z : Int),
---   Solver.dite' c
+--   Blaster.dite' c
 --     (fun _ : c =>
---       Solver.dite' d
---         (fun _ : d => Solver.dite' e (fun _ : e => x) (fun _ : ¬ e => z))
+--       Blaster.dite' d
+--         (fun _ : d => Blaster.dite' e (fun _ : e => x) (fun _ : ¬ e => z))
 --         (fun _ : ¬ d => y))
 --     (fun _ : ¬ c => z) < x
 #testOptimize [ "ReduceThenITEUnchanged_2" ]
   ∀ (c d e : Prop) (x y z : Int), [Decidable c] → [Decidable d] → [Decidable e] →
     (if c then (if d then (if e then x else z) else y) else z) < x ===>
   ∀ (c d e : Prop) (x y z : Int),
-    Solver.dite' c
+    Blaster.dite' c
       (fun _ : c =>
-        Solver.dite' d
-          (fun _ : d => Solver.dite' e (fun _ : e => x) (fun _ : ¬ e => z))
+        Blaster.dite' d
+          (fun _ : d => Blaster.dite' e (fun _ : e => x) (fun _ : ¬ e => z))
           (fun _ : ¬ d => y))
       (fun _ : ¬ c => z) < x
 
@@ -92,22 +92,22 @@ namespace Test.ReduceITE
 -/
 
 -- ∀ (c : Prop) (x y z : Int), [Decidable c] → (if c then x else (if c then y else z)) < x ===>
--- ∀ (c : Prop) (x z : Int), Solver.dite' c (fun _ : c => x) (fun _ : ¬ c => z) < x
+-- ∀ (c : Prop) (x z : Int), Blaster.dite' c (fun _ : c => x) (fun _ : ¬ c => z) < x
 #testOptimize [ "ReduceElseITE_1" ]
   ∀ (c : Prop) (x y z : Int), [Decidable c] → (if c then x else (if c then y else z)) < x ===>
-  ∀ (c : Prop) (x z : Int), Solver.dite' c (fun _ : c => x) (fun _ : ¬ c => z) < x
+  ∀ (c : Prop) (x z : Int), Blaster.dite' c (fun _ : c => x) (fun _ : ¬ c => z) < x
 
 -- ∀ (c : Prop) (x y z : Int), [Decidable  c] → (if c then x else (if c then (if c then x else z) else y)) < x ===>
--- ∀ (c : Prop) (x y : Int), Solver.dite' c (fun _ : c => x ) (fun _ : ¬ c => y) < x
+-- ∀ (c : Prop) (x y : Int), Blaster.dite' c (fun _ : c => x ) (fun _ : ¬ c => y) < x
 #testOptimize [ "ReduceElseITE_2" ]
   ∀ (c : Prop) (x y z : Int), [Decidable  c] → (if c then x else (if c then (if c then x else z) else y)) < x ===>
-  ∀ (c : Prop) (x y : Int), Solver.dite' c (fun _ : c => x ) (fun _ : ¬ c => y) < x
+  ∀ (c : Prop) (x y : Int), Blaster.dite' c (fun _ : c => x ) (fun _ : ¬ c => y) < x
 
 -- ∀ (c : Prop) (x y z : Int), [Decidable c] → (if c then x else (if c then y else (if c then x else z))) < x ===>
--- ∀ (c : Prop) (x z : Int), Solver.dite' c (fun _ : c => x) (fun _ : ¬ c => z) < x
+-- ∀ (c : Prop) (x z : Int), Blaster.dite' c (fun _ : c => x) (fun _ : ¬ c => z) < x
 #testOptimize [ "ReduceElseITE_3" ]
   ∀ (c : Prop) (x y z : Int), [Decidable c] → (if c then x else (if c then y else (if c then x else z))) < x ===>
-  ∀ (c : Prop) (x z : Int), Solver.dite' c (fun _ : c => x) (fun _ : ¬ c => z) < x
+  ∀ (c : Prop) (x z : Int), Blaster.dite' c (fun _ : c => x) (fun _ : ¬ c => z) < x
 
 -- ∀ (c : Bool) (x y z : Int),
 -- (if c then x else (if c then y else z)) = (if true = c then x else z) ===> True
@@ -140,55 +140,55 @@ namespace Test.ReduceITE
 
 -- ∀ (c d : Prop) (x y z : Int), [Decidable c] → [Decidable d] → (if c then x else (if d then y else z)) < x ===>
 -- ∀ (c d : Prop) (x y z : Int),
---      Solver.dite' c
+--      Blaster.dite' c
 --        (fun _ : c => x)
---        (fun _ : ¬ c => Solver.dite' d (fun _ : d => y) (fun _ : ¬ d => z)) < x
+--        (fun _ : ¬ c => Blaster.dite' d (fun _ : d => y) (fun _ : ¬ d => z)) < x
 #testOptimize [ "ReduceElseITEUnchanged_1" ]
   ∀ (c d : Prop) (x y z : Int), [Decidable c] → [Decidable d] →
     (if c then x else (if d then y else z)) < x ===>
   ∀ (c d : Prop) (x y z : Int),
-       Solver.dite' c
+       Blaster.dite' c
          (fun _ : c => x)
-         (fun _ : ¬ c => Solver.dite' d (fun _ : d => y) (fun _ : ¬ d => z)) < x
+         (fun _ : ¬ c => Blaster.dite' d (fun _ : d => y) (fun _ : ¬ d => z)) < x
 
 -- ∀ (c d e : Prop) (x y z : Int), [Decidable c] → [Decidable d] → [Decidable e] →
 --     (if c then x else (if d then (if e then x else z) else y)) < x ===>
 -- ∀ (c d e : Prop) (x y z : Int),
---    Solver.dite' c
+--    Blaster.dite' c
 --      (fun _ : c => x)
 --      (fun _ : ¬ c =>
---        Solver.dite' d
---        (fun _ : d => Solver.dite' e (fun _ : e => x) (fun _ : ¬ e => z))
+--        Blaster.dite' d
+--        (fun _ : d => Blaster.dite' e (fun _ : e => x) (fun _ : ¬ e => z))
 --        (fun _ : ¬ d => y)) < x
 #testOptimize [ "ReduceElseITEUnchanged_2" ]
   ∀ (c d e : Prop) (x y z : Int), [Decidable c] → [Decidable d] → [Decidable e] →
       (if c then x else (if d then (if e then x else z) else y)) < x ===>
   ∀ (c d e : Prop) (x y z : Int),
-     Solver.dite' c
+     Blaster.dite' c
        (fun _ : c => x)
        (fun _ : ¬ c =>
-         Solver.dite' d
-         (fun _ : d => Solver.dite' e (fun _ : e => x) (fun _ : ¬ e => z))
+         Blaster.dite' d
+         (fun _ : d => Blaster.dite' e (fun _ : e => x) (fun _ : ¬ e => z))
          (fun _ : ¬ d => y)) < x
 
 -- ∀ (c d e : Prop) (x y z : Int), [Decidable c] → [Decidable d] → [Decidable e] →
 --     (if c then x else (if d then y else (if e then x else z))) < x ===>
 -- ∀ (c d e : Prop) (x y z : Int),
---   Solver.dite' c
+--   Blaster.dite' c
 --     (fun _ : c => x)
 --     (fun _ : ¬ c =>
---        Solver.dite' d
+--        Blaster.dite' d
 --          (fun _ : d => y)
---          (fun _ : ¬ d => Solver.dite' e (fun _ : e => x) (fun _ : ¬ e => z))) < x
+--          (fun _ : ¬ d => Blaster.dite' e (fun _ : e => x) (fun _ : ¬ e => z))) < x
 #testOptimize [ "ReduceElseITEUnchanged_3" ]
   ∀ (c d e : Prop) (x y z : Int), [Decidable c] → [Decidable d] → [Decidable e] →
       (if c then x else (if d then y else (if e then x else z))) < x ===>
   ∀ (c d e : Prop) (x y z : Int),
-    Solver.dite' c
+    Blaster.dite' c
       (fun _ : c => x)
       (fun _ : ¬ c =>
-         Solver.dite' d
+         Blaster.dite' d
            (fun _ : d => y)
-           (fun _ : ¬ d => Solver.dite' e (fun _ : e => x) (fun _ : ¬ e => z))) < x
+           (fun _ : ¬ d => Blaster.dite' e (fun _ : e => x) (fun _ : ¬ e => z))) < x
 
 end Test.ReduceITE

@@ -1,4 +1,4 @@
-import Solver.Command.Syntax
+import Blaster
 import Tests.Utils
 import Tests.Smt.Benchmarks.ValidatorsExamples.PlutusLedgerAPI.VDummy
 import Tests.Smt.Benchmarks.ValidatorsExamples.HelloWorld.Types
@@ -17,6 +17,6 @@ theorem spec01_HelloWorld :
      HelloWorldValidator datum redeemer _c = true →
      "Hello World!" == redeemer.redeemerMessage := by sorry
 
-#solve [spec01_HelloWorld]
+#blaster [spec01_HelloWorld]
 
 end Tests.ValidatorsExamples.HelloWorld
