@@ -51,15 +51,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build and Validate Solver
-        run: make check_solver
+      - name: Build and Validate Blaster
+        run: make check_blaster
 
-      - name: Upload Solver build log
+      - name: Upload Blaster build log
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: solver-build
-          path: ./Solver/build.log
+          name: blaster-build
+          path: ./Blaster/build.log
 
       - name: Execute and Validate Tests
         run: ./scripts/check_lean_project_compilation.sh Tests

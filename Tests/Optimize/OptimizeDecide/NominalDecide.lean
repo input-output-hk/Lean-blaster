@@ -274,11 +274,11 @@ variable (q : Bool)
 #testOptimize [ "DecideUnchanged_9" ]  ∀ (x y z : Int) (xs : List Int), ([x, y, z] = xs) = true ===>
                                        ∀ (x y z : Int) (xs : List Int), [x, y, z] = xs
 
--- decide (q = !(!(!(!p)))) ===> Solver.decide' (q = !p)
-#testOptimize [ "DecideUnchanged_10" ] decide (q = (!(!(!p)))) ===> Solver.decide' (q = !p)
+-- decide (q = !(!(!(!p)))) ===> Blaster.decide' (q = !p)
+#testOptimize [ "DecideUnchanged_10" ] decide (q = (!(!(!p)))) ===> Blaster.decide' (q = !p)
 
--- decide (q = !(!(!(!p)))) ===> Solver.decide' (p = q)
-#testOptimize [ "DecideUnchanged_11" ] decide (q = !(!(!(!p)))) ===> Solver.decide' (p = q)
+-- decide (q = !(!(!(!p)))) ===> Blaster.decide' (p = q)
+#testOptimize [ "DecideUnchanged_11" ] decide (q = !(!(!(!p)))) ===> Blaster.decide' (p = q)
 
 
 end Test.NominalDecide

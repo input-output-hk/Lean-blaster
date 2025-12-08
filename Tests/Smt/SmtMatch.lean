@@ -1,5 +1,5 @@
 import Lean
-import Solver.Command.Syntax
+import Blaster
 
 namespace Test.SmtMatch
 
@@ -29,22 +29,22 @@ def namedPatternInt (x : Int) (y : Option Int) : Nat :=
  | Int.negSucc (Nat.succ n), _ => n + 8
 
 
-#solve [∀ (x : Int) (y : Option Int), y.isNone → namedPatternInt x y = 1]
+#blaster [∀ (x : Int) (y : Option Int), y.isNone → namedPatternInt x y = 1]
 
-#solve [∀ (x : Int) (y : Option Int), x = 0 → ¬ y.isNone → namedPatternInt x y = 2]
+#blaster [∀ (x : Int) (y : Option Int), x = 0 → ¬ y.isNone → namedPatternInt x y = 2]
 
-#solve [∀ (x : Int) (y : Option Int), x ≠ 0 → y = some 0 → namedPatternInt x y = 3]
+#blaster [∀ (x : Int) (y : Option Int), x ≠ 0 → y = some 0 → namedPatternInt x y = 3]
 
-#solve [∀ (x t : Int) (y : Option Int),
+#blaster [∀ (x t : Int) (y : Option Int),
           x = 1 → y = some t → t ≠ 0 → namedPatternInt x y = Int.toNat t + 2]
 
-#solve [∀ (x t : Int) (y : Option Int),
+#blaster [∀ (x t : Int) (y : Option Int),
           x ≠ 1 → x ≠ 0 → y = some t → t = 1 → namedPatternInt x y = Int.toNat x + 3]
 
-#solve [∀ (x t : Int) (y : Option Int),
+#blaster [∀ (x t : Int) (y : Option Int),
         x ≥ 4 → y = some t → t > 1 → namedPatternInt x y = Int.toNat x - 4 + Int.toNat t]
 
-#solve [∀ (x t : Int) (y : Option Int),
+#blaster [∀ (x t : Int) (y : Option Int),
           x ≥ 2 → x < 4 → y = some t → t ≥ 5 →
            let r := Int.toNat x;
            let n1 := Int.toNat x - 2;
@@ -53,29 +53,29 @@ def namedPatternInt (x : Int) (y : Option Int) : Nat :=
            let q := n2 + 3;
             namedPatternInt x y = (r + n1 + n2) * p * q * (Int.toNat t)]
 
-#solve [∀ (x t : Int) (y : Option Int),
+#blaster [∀ (x t : Int) (y : Option Int),
           x = -1 → y = some t → t > 1 → namedPatternInt x y = 4]
 
-#solve [∀ (x t : Int) (y : Option Int),
+#blaster [∀ (x t : Int) (y : Option Int),
           (x < -1 ∨ x = 3) → y = some t → t = -1 → namedPatternInt x y = 5]
 
-#solve [∀ (x t : Int) (y : Option Int),
+#blaster [∀ (x t : Int) (y : Option Int),
           x = -3 → y = some t → (t > 1 ∨ t < -1) →
           let p := Int.toNat (Int.neg x) - 1;
           let q := p - 1;
           namedPatternInt x y = 6 + p + q]
 
-#solve [∀ (x t : Int) (y : Option Int),
+#blaster [∀ (x t : Int) (y : Option Int),
           (x = -2 ∨ x < -3 ∨ x = 3) → y = some t → t = -2 → namedPatternInt x y = 7]
 
-#solve [∀ (x t : Int) (y : Option Int),
+#blaster [∀ (x t : Int) (y : Option Int),
           x ≤ -5 → y = some t → t < -2 →
           let n := Int.neg x - 5;
           let p := n + 2
           let q := n + 4
           namedPatternInt x y = n + p + q + 1]
 
-#solve [∀ (x t : Int) (y : Option Int),
+#blaster [∀ (x t : Int) (y : Option Int),
           x < -1 → (x = -2 ∨ x = -4) → y = some t → t ≤ -6 →
           let n := Int.neg t - 6;
           let r := n + 2;
@@ -84,7 +84,7 @@ def namedPatternInt (x : Int) (y : Option Int) : Nat :=
           namedPatternInt x y = n + p + q + r + 2]
 
 
-#solve [∀ (x t : Int) (y : Option Int),
+#blaster [∀ (x t : Int) (y : Option Int),
           x ≥ 2 →
           x < 4 →
           y = some t →
@@ -94,7 +94,7 @@ def namedPatternInt (x : Int) (y : Option Int) : Nat :=
           namedPatternInt x y = (p + n) * 6]
 
 
-#solve [∀ (x t : Int) (y : Option Int),
+#blaster [∀ (x t : Int) (y : Option Int),
           y = some t →
           (x = -2 ∨ x = -4) →
           t > -6 →
@@ -102,7 +102,7 @@ def namedPatternInt (x : Int) (y : Option Int) : Nat :=
           let n := Int.neg t - 3
           namedPatternInt x y = n + 7]
 
-#solve [∀ (x t : Int) (y : Option Int),
+#blaster [∀ (x t : Int) (y : Option Int),
           y = some t →
           (x = -2 ∨ x = -4) →
           t > -3 →
@@ -116,7 +116,7 @@ def isNil (x : List Nat) : Bool :=
   | _head :: _tail => false
   | [] => true
 
-#solve [∀ (xs : List Nat), isNil xs → List.length xs = 0]
+#blaster [∀ (xs : List Nat), isNil xs → List.length xs = 0]
 
 
 /-! Test cases to validate casesOn recursor application to smt ite translation -/
@@ -152,33 +152,33 @@ structure ScriptContext where
     transaction : Tx Nat
 deriving BEq
 
-#solve [∀ (x y : POSIXTime), x == y → y == x]
+#blaster [∀ (x y : POSIXTime), x == y → y == x]
 
-#solve [∀ (x y : Purpose), x == y → y == x]
+#blaster [∀ (x y : Purpose), x == y → y == x]
 
-#solve [∀ (x y : ValidityRange), x == y → y == x]
+#blaster [∀ (x y : ValidityRange), x == y → y == x]
 
-#solve [∀ (x y : Tx Nat), x == y → y == x]
+#blaster [∀ (x y : Tx Nat), x == y → y == x]
 
-#solve [∀ (x y : ScriptContext), x == y → y == x]
+#blaster [∀ (x y : ScriptContext), x == y → y == x]
 
-#solve [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Spending → y.purpose != Purpose.Minting]
+#blaster [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Spending → y.purpose != Purpose.Minting]
 
-#solve [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Spending → y.purpose != Purpose.Rewarding]
+#blaster [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Spending → y.purpose != Purpose.Rewarding]
 
-#solve [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Minting → y.purpose != Purpose.Spending]
+#blaster [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Minting → y.purpose != Purpose.Spending]
 
-#solve [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Minting → y.purpose != Purpose.Rewarding]
+#blaster [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Minting → y.purpose != Purpose.Rewarding]
 
-#solve [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Rewarding → y.purpose != Purpose.Spending]
+#blaster [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Rewarding → y.purpose != Purpose.Spending]
 
-#solve [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Rewarding → y.purpose != Purpose.Minting]
+#blaster [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Rewarding → y.purpose != Purpose.Minting]
 
-#solve [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Spending → y.purpose == Purpose.Spending]
+#blaster [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Spending → y.purpose == Purpose.Spending]
 
-#solve [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Minting → y.purpose == Purpose.Minting]
+#blaster [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Minting → y.purpose == Purpose.Minting]
 
-#solve [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Rewarding → y.purpose == Purpose.Rewarding]
+#blaster [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Rewarding → y.purpose == Purpose.Rewarding]
 
 
 inductive Color where
@@ -211,227 +211,227 @@ def isGreen (c : Color) : Bool :=
  | Color.green _ => true
  | _ => false
 
-#solve [∀ (x y : Color), x == y → x == Color.transparent → y == Color.transparent ]
+#blaster [∀ (x y : Color), x == y → x == Color.transparent → y == Color.transparent ]
 
-#solve [∀ (x y z : Color), x == y → x == Color.transparent → y != Color.red z ]
+#blaster [∀ (x y z : Color), x == y → x == Color.transparent → y != Color.red z ]
 
-#solve [∀ (x y z : Color), x == y → x == Color.transparent → y != Color.blue z ]
+#blaster [∀ (x y z : Color), x == y → x == Color.transparent → y != Color.blue z ]
 
-#solve [∀ (x y z : Color), x == y → x == Color.transparent → y != Color.yellow z ]
+#blaster [∀ (x y z : Color), x == y → x == Color.transparent → y != Color.yellow z ]
 
-#solve [∀ (x y z : Color), x == y → x == Color.transparent → y != Color.green z ]
+#blaster [∀ (x y z : Color), x == y → x == Color.transparent → y != Color.green z ]
 
-#solve [∀ (x y : Color), x == y → x == Color.transparent → y != Color.black ]
+#blaster [∀ (x y : Color), x == y → x == Color.transparent → y != Color.black ]
 
-#solve [∀ (x y : Color), x == y → x == Color.transparent → y != Color.white ]
+#blaster [∀ (x y : Color), x == y → x == Color.transparent → y != Color.white ]
 
-#solve [∀ (x y z : Color), x == y → x == Color.red z → y != Color.transparent ]
+#blaster [∀ (x y z : Color), x == y → x == Color.red z → y != Color.transparent ]
 
-#solve [∀ (x y z : Color), x == y → x == Color.red z → y != Color.blue z ]
+#blaster [∀ (x y z : Color), x == y → x == Color.red z → y != Color.blue z ]
 
-#solve [∀ (x y z : Color), x == y → x == Color.red z → y != Color.yellow z ]
+#blaster [∀ (x y z : Color), x == y → x == Color.red z → y != Color.yellow z ]
 
-#solve [∀ (x y z : Color), x == y → x == Color.red z → y != Color.green z ]
+#blaster [∀ (x y z : Color), x == y → x == Color.red z → y != Color.green z ]
 
-#solve [∀ (x y z : Color), x == y → x == Color.red z → y != Color.black ]
+#blaster [∀ (x y z : Color), x == y → x == Color.red z → y != Color.black ]
 
-#solve [∀ (x y z : Color), x == y → x == Color.red z → y != Color.white ]
+#blaster [∀ (x y z : Color), x == y → x == Color.red z → y != Color.white ]
 
-#solve [∀ (x y z : Color), x == y → x == Color.blue z → y != Color.transparent ]
+#blaster [∀ (x y z : Color), x == y → x == Color.blue z → y != Color.transparent ]
 
-#solve [∀ (x y z : Color), x == y → x == Color.blue z → y != Color.red z ]
+#blaster [∀ (x y z : Color), x == y → x == Color.blue z → y != Color.red z ]
 
-#solve [∀ (x y z : Color), x == y → x == Color.blue z → y != Color.yellow z ]
+#blaster [∀ (x y z : Color), x == y → x == Color.blue z → y != Color.yellow z ]
 
-#solve [∀ (x y z : Color), x == y → x == Color.blue z → y != Color.green z ]
+#blaster [∀ (x y z : Color), x == y → x == Color.blue z → y != Color.green z ]
 
-#solve [∀ (x y z : Color), x == y → x == Color.blue z → y != Color.black ]
+#blaster [∀ (x y z : Color), x == y → x == Color.blue z → y != Color.black ]
 
-#solve [∀ (x y z : Color), x == y → x == Color.blue z → y != Color.white ]
+#blaster [∀ (x y z : Color), x == y → x == Color.blue z → y != Color.white ]
 
-#solve [∀ (x y z : Color), x == y → x == Color.yellow z → y != Color.transparent ]
+#blaster [∀ (x y z : Color), x == y → x == Color.yellow z → y != Color.transparent ]
 
-#solve [∀ (x y z : Color), x == y → x == Color.yellow z → y != Color.red z ]
+#blaster [∀ (x y z : Color), x == y → x == Color.yellow z → y != Color.red z ]
 
-#solve [∀ (x y z : Color), x == y → x == Color.yellow z → y != Color.blue z ]
+#blaster [∀ (x y z : Color), x == y → x == Color.yellow z → y != Color.blue z ]
 
-#solve [∀ (x y z : Color), x == y → x == Color.yellow z → y != Color.green z ]
+#blaster [∀ (x y z : Color), x == y → x == Color.yellow z → y != Color.green z ]
 
-#solve [∀ (x y z : Color), x == y → x == Color.yellow z → y != Color.black ]
+#blaster [∀ (x y z : Color), x == y → x == Color.yellow z → y != Color.black ]
 
-#solve [∀ (x y z : Color), x == y → x == Color.yellow z → y != Color.white ]
+#blaster [∀ (x y z : Color), x == y → x == Color.yellow z → y != Color.white ]
 
 
-#solve [∀ (x y : Color), x == y → x == Color.white → y == Color.white ]
+#blaster [∀ (x y : Color), x == y → x == Color.white → y == Color.white ]
 
-#solve [∀ (x y z : Color), x == y → x == Color.white → y != Color.red z ]
+#blaster [∀ (x y z : Color), x == y → x == Color.white → y != Color.red z ]
 
-#solve [∀ (x y z : Color), x == y → x == Color.white → y != Color.blue z ]
+#blaster [∀ (x y z : Color), x == y → x == Color.white → y != Color.blue z ]
 
-#solve [∀ (x y z : Color), x == y → x == Color.white → y != Color.yellow z ]
+#blaster [∀ (x y z : Color), x == y → x == Color.white → y != Color.yellow z ]
 
-#solve [∀ (x y z : Color), x == y → x == Color.white → y != Color.green z ]
+#blaster [∀ (x y z : Color), x == y → x == Color.white → y != Color.green z ]
 
-#solve [∀ (x y : Color), x == y → x == Color.white → y != Color.black ]
+#blaster [∀ (x y : Color), x == y → x == Color.white → y != Color.black ]
 
-#solve [∀ (x y : Color), x == y → x == Color.white → y != Color.transparent ]
+#blaster [∀ (x y : Color), x == y → x == Color.white → y != Color.transparent ]
 
-#solve [∀ (x y : Color), x == y → x == Color.black → y == Color.black ]
+#blaster [∀ (x y : Color), x == y → x == Color.black → y == Color.black ]
 
-#solve [∀ (x y z : Color), x == y → x == Color.black → y != Color.red z ]
+#blaster [∀ (x y z : Color), x == y → x == Color.black → y != Color.red z ]
 
-#solve [∀ (x y z : Color), x == y → x == Color.black → y != Color.blue z ]
+#blaster [∀ (x y z : Color), x == y → x == Color.black → y != Color.blue z ]
 
-#solve [∀ (x y z : Color), x == y → x == Color.black → y != Color.yellow z ]
+#blaster [∀ (x y z : Color), x == y → x == Color.black → y != Color.yellow z ]
 
-#solve [∀ (x y z : Color), x == y → x == Color.black → y != Color.green z ]
+#blaster [∀ (x y z : Color), x == y → x == Color.black → y != Color.green z ]
 
-#solve [∀ (x y : Color), x == y → x == Color.black → y != Color.white ]
+#blaster [∀ (x y : Color), x == y → x == Color.black → y != Color.white ]
 
-#solve [∀ (x y : Color), x == y → x == Color.black → y != Color.transparent ]
+#blaster [∀ (x y : Color), x == y → x == Color.black → y != Color.transparent ]
 
-#solve [∀ (x y : Color), x == y → isRed x → isRed y]
+#blaster [∀ (x y : Color), x == y → isRed x → isRed y]
 
-#solve [∀ (x y : Color), x == y → isBlue x → isBlue y]
+#blaster [∀ (x y : Color), x == y → isBlue x → isBlue y]
 
-#solve [∀ (x y : Color), x == y → isYellow x → isYellow y]
+#blaster [∀ (x y : Color), x == y → isYellow x → isYellow y]
 
-#solve [∀ (x y : Color), x == y → isGreen x → isGreen y]
+#blaster [∀ (x y : Color), x == y → isGreen x → isGreen y]
 
 
 /-! # Test cases to ensure that counterexample are properly detected -/
 
 
-#solve (gen-cex: 0) (solve-result: 1) [∀ (x : Int) (y : Option Int), y.isNone → namedPatternInt x y ≠ 1]
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (x : Int) (y : Option Int), y.isNone → namedPatternInt x y ≠ 1]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [ ∀ (x : Int) (y : Option Int), x = 0 → ¬ y.isNone → namedPatternInt x y ≠ 2 ]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [ ∀ (x : Int) (y : Option Int), x ≠ 0 → y = some 0 → namedPatternInt x y ≠ 3 ]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [ ∀ (x t : Int) (y : Option Int),
     x ≠ 1 ∨ y.isNone ∨ (y = some t ∧ t = 0) → namedPatternInt x y = Int.toNat t + 2
   ]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [ ∀ (x t : Int) (y : Option Int),
     x = 1 ∨ x = 0 ∨ y.isNone ∨ (y = some t ∧ t ≠ 1) → namedPatternInt x y = Int.toNat x + 3
   ]
 
-#solve (gen-cex: 0) (solve-result: 1) [∀ (xs : List Nat), ¬ isNil xs → List.length xs = 0]
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (xs : List Nat), ¬ isNil xs → List.length xs = 0]
 
-#solve (gen-cex: 0) (solve-result: 1) [∀ (x y : POSIXTime), x == y → y ≠ x]
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : POSIXTime), x == y → y ≠ x]
 
-#solve (gen-cex: 0) (solve-result: 1) [∀ (x y : Purpose), x == y → y ≠ x]
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : Purpose), x == y → y ≠ x]
 
-#solve (gen-cex: 0) (solve-result: 1) [∀ (x y : ValidityRange), x == y → y ≠ x]
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : ValidityRange), x == y → y ≠ x]
 
-#solve (gen-cex: 0) (solve-result: 1) [∀ (x y : Tx Nat), x == y → y ≠ x]
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : Tx Nat), x == y → y ≠ x]
 
-#solve (gen-cex: 0) (solve-result: 1) [∀ (x y : ScriptContext), x == y → y ≠ x]
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : ScriptContext), x == y → y ≠ x]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Spending → y.purpose == Purpose.Minting]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Spending → y.purpose == Purpose.Rewarding]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Minting → y.purpose == Purpose.Spending]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Minting → y.purpose == Purpose.Rewarding]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Rewarding → y.purpose == Purpose.Spending]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Rewarding → y.purpose == Purpose.Minting]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Spending → y.purpose != Purpose.Spending]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Minting → y.purpose != Purpose.Minting]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Rewarding → y.purpose != Purpose.Rewarding]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y : Color), x == y → x == Color.transparent → y != Color.transparent ]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y z : Color), x == y → x == Color.transparent → y == Color.red z ]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y z : Color), x == y → x == Color.transparent → y == Color.blue z ]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y z : Color), x == y → x == Color.transparent → y == Color.yellow z ]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y z : Color), x == y → x == Color.red z → y == Color.transparent ]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y z : Color), x == y → x == Color.red z → y == Color.black ]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y z : Color), x == y → x == Color.red z → y == Color.white ]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y z : Color), x == y → x == Color.red z → y == Color.blue z ]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y z : Color), x == y → x == Color.red z → y == Color.yellow z ]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y z : Color), x == y → x == Color.blue z → y == Color.transparent ]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y z : Color), x == y → x == Color.blue z → y == Color.black ]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y z : Color), x == y → x == Color.blue z → y == Color.white ]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y z : Color), x == y → x == Color.blue z → y == Color.red z ]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y z : Color), x == y → x == Color.blue z → y == Color.yellow z ]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y z : Color), x == y → x == Color.yellow z → y == Color.transparent ]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y z : Color), x == y → x == Color.yellow z → y == Color.black ]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y z : Color), x == y → x == Color.yellow z → y == Color.white ]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y z : Color), x == y → x == Color.yellow z → y == Color.red z ]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y z : Color), x == y → x == Color.yellow z → y == Color.blue z ]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y : Color), x == y → isRed x → ¬ isRed y]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y : Color), x == y → isBlue x → ¬ isBlue y]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y : Color), x == y → isYellow x → ¬ isYellow y]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y : Color), x == y → x != Color.black ]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y : Color), x == y → x != Color.white ]
 
-#solve (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y : Color), x == y → x != Color.transparent ]
 
 end Test.SmtMatch

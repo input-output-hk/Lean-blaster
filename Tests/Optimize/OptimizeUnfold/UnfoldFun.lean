@@ -112,23 +112,23 @@ def findPositive (xs : List Int) (d : β) (r : β) : β :=
 
 -- ∀ (a b c : Int),
 --   findPositive [a, b, c] Int.add Int.mul =
---   Solver.dite' (0 < a)
+--   Blaster.dite' (0 < a)
 --     (fun _ => Int.mul)
 --     (fun _ =>
---       Solver.dite' (0 < b)
+--       Blaster.dite' (0 < b)
 --        (fun _ => Int.mul)
---        (fun _ => Solver.dite' (0 < c) (fun _ => Int.mul) (fun _ => Int.add))) ===> True
+--        (fun _ => Blaster.dite' (0 < c) (fun _ => Int.mul) (fun _ => Int.add))) ===> True
 -- Test case to validate that unfolding properly considers fun params
 -- Test case: when function type argument is only known at instantiation.
 #testOptimize [ "UnfoldRecFun_12" ] (norm-result: 1)
   ∀ (a b c : Int),
     findPositive [a, b, c] Int.add Int.mul =
-    Solver.dite' (0 < a)
+    Blaster.dite' (0 < a)
       (fun _ => Int.mul)
       (fun _ =>
-        Solver.dite' (0 < b)
+        Blaster.dite' (0 < b)
          (fun _ => Int.mul)
-         (fun _ => Solver.dite' (0 < c) (fun _ => Int.mul) (fun _ => Int.add))) ===> True
+         (fun _ => Blaster.dite' (0 < c) (fun _ => Int.mul) (fun _ => Int.add))) ===> True
 
 -- ∀ (a b c : Nat) (f : Nat → Nat), List.map f [a, b, c] = [f a, f b, f c] ===> True
 -- Test case to validate that unfolding properly considers fun params

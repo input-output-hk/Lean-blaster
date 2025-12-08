@@ -1,4 +1,4 @@
-import Solver.Command.Syntax
+import Blaster
 import Tests.Smt.Benchmarks.ValidatorsExamples.PlutusLedgerAPI.VDummy
 import Tests.Smt.Benchmarks.ValidatorsExamples.Vesting.Types
 
@@ -111,12 +111,12 @@ theorem if_accepted_then_purpose_spend :
                 intros _ _ _ _ h1 _ _
                 exact h1
 
-#solve [if_accepted_then_purpose_spend]
+#blaster [if_accepted_then_purpose_spend]
 
-#solve [reject_other_purposes]
+#blaster [reject_other_purposes]
 
-#solve [only_accept_if_signatory_and_time_elapsed]
+#blaster [only_accept_if_signatory_and_time_elapsed]
 
-#solve (gen-cex: 0) (solve-result: 1) [only_accept_if_signatory_and_time_elapsed_bugged]
+#blaster (gen-cex: 0) (solve-result: 1) [only_accept_if_signatory_and_time_elapsed_bugged]
 
 end Tests.ValidatorsExamples.Vesting

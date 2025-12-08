@@ -66,41 +66,41 @@ namespace Tests.UnfoldDITE
 
 -- ∀ (x y : Int) (t : x = y → Int) (e : ¬ x = y → Int), (if h : x = y then t h else e h) = y ===>
 -- ∀ (x y : Int) (t : x = y → Int) (e : ¬ x = y → Int),
---   y = Solver.dite' (x = y) (fun h : x = y => t h) (fun h : ¬ x = y => e h)
+--   y = Blaster.dite' (x = y) (fun h : x = y => t h) (fun h : ¬ x = y => e h)
 #testOptimize [ "DIteNotUnfolded_1" ]
   ∀ (x y : Int) (t : x = y → Int) (e : ¬ x = y → Int), (if h : x = y then t h else e h) = y ===>
   ∀ (x y : Int) (t : x = y → Int) (e : ¬ x = y → Int),
-    y = Solver.dite' (x = y) (fun h : x = y => t h) (fun h : ¬ x = y => e h)
+    y = Blaster.dite' (x = y) (fun h : x = y => t h) (fun h : ¬ x = y => e h)
 
 -- ∀ (a b : Bool) (x y : Int) (t : a = b → Int → Int) (e : ¬ a = b → Int → Int),
 --   (if h : a = b then t h x else e h y) > x ===>
 -- ∀ (a b : Bool) (x y : Int) (t : a = b → Int → Int) (e : ¬ a = b → Int → Int),
---   x < Solver.dite' (a = b) (fun h : a = b => t h x) (fun h : ¬ a = b => e h y)
+--   x < Blaster.dite' (a = b) (fun h : a = b => t h x) (fun h : ¬ a = b => e h y)
 #testOptimize [ "DIteNotUnfolded_2" ]
   ∀ (a b : Bool) (x y : Int) (t : a = b → Int → Int) (e : ¬ a = b → Int → Int),
       (if h : a = b then t h x else e h y) > x ===>
   ∀ (a b : Bool) (x y : Int) (t : a = b → Int → Int) (e : ¬ a = b → Int → Int),
-       x < Solver.dite' (a = b) (fun h : a = b => t h x) (fun h : ¬ a = b => e h y)
+       x < Blaster.dite' (a = b) (fun h : a = b => t h x) (fun h : ¬ a = b => e h y)
 
 -- ∀ (x y : Int) (c : Prop) (t : c → Int → Int) (e : ¬ c → Int → Int),
 --   [Decidable c] → (if h : c then t h x else e h y) > x ===>
 -- ∀ (x y : Int) (c : Prop) (t : c → Int → Int) (e : ¬ c → Int → Int),
---   x < Solver.dite' c (fun h : c => t h x) (fun h : ¬ c => e h y)
+--   x < Blaster.dite' c (fun h : c => t h x) (fun h : ¬ c => e h y)
 #testOptimize [ "DIteNotUnfolded_3" ]
   ∀ (x y : Int) (c : Prop) (t : c → Int → Int) (e : ¬ c → Int → Int),
     [Decidable c] → (if h : c then t h x else e h y) > x ===>
   ∀ (x y : Int) (c : Prop) (t : c → Int → Int) (e : ¬ c → Int → Int),
-     x < Solver.dite' c (fun h : c => t h x) (fun h : ¬ c => e h y)
+     x < Blaster.dite' c (fun h : c => t h x) (fun h : ¬ c => e h y)
 
 -- ∀ (α : Type) (x y : List α) (t : x = y → List α → List α) (e : ¬ x = y → List α → List α),
 --   [DecidableEq α] → (if h : x = y then t h x else e h y) = y ===>
 -- ∀ (α : Type) (x y : List α) (t : x = y → List α → List α) (e : ¬ x = y → List α → List α),
---   y = Solver.dite' (x = y) (fun h : x = y => t h x) (fun h : ¬ x = y => e h y)
+--   y = Blaster.dite' (x = y) (fun h : x = y => t h x) (fun h : ¬ x = y => e h y)
 #testOptimize [ "DIteNotUnfolded_4" ]
   ∀ (α : Type) (x y : List α) (t : x = y → List α → List α) (e : ¬ x = y → List α → List α),
     [DecidableEq α] → (if h : x = y then t h x else e h y) = y ===>
   ∀ (α : Type) (x y : List α) (t : x = y → List α → List α) (e : ¬ x = y → List α → List α),
-    y = Solver.dite' (x = y) (fun h : x = y => t h x) (fun h : ¬ x = y => e h y)
+    y = Blaster.dite' (x = y) (fun h : x = y => t h x) (fun h : ¬ x = y => e h y)
 
 
 end Tests.UnfoldDITE

@@ -13,44 +13,44 @@ namespace Test.NormChoiceApp
 
 -- ∀ (c : Prop) (x y : Nat), [Decidable c] → x > y → (if c then Nat.add x else Nat.sub x) y > 0 ===>
 -- ∀ (c : Prop) (x y : Nat), y < x →
---   0 < Solver.dite' c (fun _ : c =>  Nat.add x y) (fun _ : ¬ c => Nat.sub x y)
+--   0 < Blaster.dite' c (fun _ : c =>  Nat.add x y) (fun _ : ¬ c => Nat.sub x y)
 #testOptimize [ "NormChoiceAppIte_1" ] (norm-result: 1)
   ∀ (c : Prop) (x y : Nat), [Decidable c] → x > y → (if c then Nat.add x else Nat.sub x) y > 0 ===>
   ∀ (c : Prop) (x y : Nat), y < x →
-    0 < Solver.dite' c (fun _ => Nat.add x y) (fun _ => Nat.sub x y)
+    0 < Blaster.dite' c (fun _ => Nat.add x y) (fun _ => Nat.sub x y)
 
 
 -- ∀ (α : Type) (c : Prop) (x y : α) (f : α → α → Nat) (g : α → α → Nat), [Decidable c] →
 --   (if c then f x else g x) y > 0 ===>
 -- ∀ (α : Type) (c : Prop) (x y : α) (f : α → α → Nat) (g : α → α → Nat),
---   0 < Solver.dite' c (fun _ : c => f x y) (fun _ : ¬ c => g x y)
+--   0 < Blaster.dite' c (fun _ : c => f x y) (fun _ : ¬ c => g x y)
 #testOptimize [ "NormChoiceAppIte_2" ] (norm-result: 1)
   ∀ (α : Type) (c : Prop) (x y : α) (f : α → α → Nat) (g : α → α → Nat), [Decidable c] →
     (if c then f x else g x) y > 0 ===>
   ∀ (α : Type) (c : Prop) (x y : α) (f : α → α → Nat) (g : α → α → Nat),
-    0 < Solver.dite' c (fun _ => f x y) (fun _ => g x y)
+    0 < Blaster.dite' c (fun _ => f x y) (fun _ => g x y)
 
 
 -- ∀ (α : Type) (c : Prop) (w x y z : α) (f : α → α → α → α → Nat) (g : α → α → α → α → Nat),
 --   [Decidable c] → (if c then f w else g w) x y z > 0 ===>
 -- ∀ (α : Type) (c : Prop) (w x y z : α) (f : α → α → α → α → Nat) (g : α → α → α → α → Nat),
---   0 < Solver.dite' c (fun _ : c => f w x y z) (fun _ : ¬ c => g w x y z)
+--   0 < Blaster.dite' c (fun _ : c => f w x y z) (fun _ : ¬ c => g w x y z)
 #testOptimize [ "NormChoiceAppIte_3" ] (norm-result: 1)
   ∀ (α : Type) (c : Prop) (w x y z : α) (f : α → α → α → α → Nat) (g : α → α → α → α → Nat),
     [Decidable c] → (if c then f w else g w) x y z > 0 ===>
   ∀ (α : Type) (c : Prop) (w x y z : α) (f : α → α → α → α → Nat) (g : α → α → α → α → Nat),
-    0 < Solver.dite' c (fun _ => f w x y z) (fun _ => g w x y z)
+    0 < Blaster.dite' c (fun _ => f w x y z) (fun _ => g w x y z)
 
 -- ∀ (α : Type) (c : Prop) (w y z : α) (f : α → α → α → α → Nat) (g : α → α → α → α → Nat) (h : α → Nat),
 --   [Decidable c] → (if c then f w else g w) y z = h ===>
 -- ∀ (α : Type) (c : Prop) (w y z : α) (f : α → α → α → α → Nat) (g : α → α → α → α → Nat) (h : α → Nat),
---   h = Solver.dite' c (fun _ : c => λ k => f w y z k) (fun _ : ¬ c => λ k => g w y z k)
+--   h = Blaster.dite' c (fun _ : c => λ k => f w y z k) (fun _ : ¬ c => λ k => g w y z k)
 -- NOTE: Test case to validate partially applied function
 #testOptimize [ "NormChoiceAppIte_4" ]
   ∀ (α : Type) (c : Prop) (w y z : α) (f : α → α → α → α → Nat) (g : α → α → α → α → Nat) (h : α → Nat),
     [Decidable c] → (if c then f w else g w) y z = h ===>
   ∀ (α : Type) (c : Prop) (w y z : α) (f : α → α → α → α → Nat) (g : α → α → α → α → Nat) (h : α → Nat),
-    h = Solver.dite' c (fun _ => λ k => f w y z k) (fun _ => λ k => g w y z k)
+    h = Blaster.dite' c (fun _ => λ k => f w y z k) (fun _ => λ k => g w y z k)
 
 
 def getValue (xs : Array Nat) (i : USize) (h : i.toNat < xs.size) (y : Nat) : Nat :=
@@ -136,42 +136,42 @@ def getValuePolyTwo
 -- ∀ (c : Prop) (x : Nat) (f : c → Nat → Nat) (g : ¬ c → Nat → Nat), [Decidable c] →
 --   (if h : c then f h else g h) x > 0 ===>
 -- ∀ (c : Prop) (x : Nat) (f : c → Nat → Nat) (g : ¬ c → Nat → Nat),
---   0 < Solver.dite' c (fun h : c => f h x) (fun h : ¬ c => g h x)
+--   0 < Blaster.dite' c (fun h : c => f h x) (fun h : ¬ c => g h x)
 -- NOTE: Test case to validate quantified function in dite.
 #testOptimize [ "NormChoiceAppDite_5" ] (norm-result: 1)
   ∀ (c : Prop) (x : Nat) (f : c → Nat → Nat) (g : ¬ c → Nat → Nat), [Decidable c] →
     (if h : c then f h else g h) x > 0 ===>
   ∀ (c : Prop) (x : Nat) (f : c → Nat → Nat) (g : ¬ c → Nat → Nat),
-    0 < Solver.dite' c (fun h : c => f h x) (fun h : ¬ c => g h x)
+    0 < Blaster.dite' c (fun h : c => f h x) (fun h : ¬ c => g h x)
 
 -- ∀ (c : Prop) (x : Nat) (f : c → Nat → Nat → Nat) (g : ¬ c → Nat → Nat), [Decidable c] →
 --   (if h : c then f h x else g h) x > 0 ===>
 -- ∀ (c : Prop) (x : Nat) (f : c → Nat → Nat → Nat) (g : ¬ c → Nat → Nat),
---   0 < Solver.dite' c (fun h : c => f h x x) (fun h : ¬ c => g h x)
+--   0 < Blaster.dite' c (fun h : c => f h x x) (fun h : ¬ c => g h x)
 -- NOTE: Test case to validate quantified function in dite.
 #testOptimize [ "NormChoiceAppDite_6" ] (norm-result: 1)
   ∀ (c : Prop) (x : Nat) (f : c → Nat → Nat → Nat) (g : ¬ c → Nat → Nat), [Decidable c] →
     (if h : c then f h x else g h) x > 0 ===>
   ∀ (c : Prop) (x : Nat) (f : c → Nat → Nat → Nat) (g : ¬ c → Nat → Nat),
-    0 < Solver.dite' c (fun h : c => f h x x) (fun h : ¬ c => g h x)
+    0 < Blaster.dite' c (fun h : c => f h x x) (fun h : ¬ c => g h x)
 
 -- ∀ (α : Type) (c : Prop) (x : Nat) (w : α) (f : c → α → Nat → Nat) (g : ¬ c → α → Nat → Nat), [Decidable c] →
 --   (if h : c then f h else g h) w x > 0 ===>
 -- ∀ (α : Type) (c : Prop) (x : Nat) (w : α) (f : c → α → Nat → Nat) (g : ¬ c → α → Nat → Nat),
---   0 < Solver.dite' c (fun h : c => f h w x) (fun h : ¬ c => g h w x)
+--   0 < Blaster.dite' c (fun h : c => f h w x) (fun h : ¬ c => g h w x)
 -- NOTE: Test case to validate quantified function in dite.
 #testOptimize [ "NormChoiceAppDite_7" ] (norm-result: 1)
   ∀ (α : Type) (c : Prop) (x : Nat) (w : α) (f : c → α → Nat → Nat) (g : ¬ c → α → Nat → Nat), [Decidable c] →
     (if h : c then f h else g h) w x > 0 ===>
   ∀ (α : Type) (c : Prop) (x : Nat) (w : α) (f : c → α → Nat → Nat) (g : ¬ c → α → Nat → Nat),
-    0 < Solver.dite' c (fun h : c => f h w x) (fun h : ¬ c => g h w x)
+    0 < Blaster.dite' c (fun h : c => f h w x) (fun h : ¬ c => g h w x)
 
 -- ∀ (α : Type) (c : Prop) (w : α) (f : c → α → Nat → Nat)
 --   (g : ¬ c → α → Nat → Nat) (h : Nat → Nat), [Decidable c] →
 --   (if h : c then f h else g h) w = h ===>
 -- ∀ (α : Type) (c : Prop) (w : α) (f : c → α → Nat → Nat)
 --   (g : ¬ c → α → Nat → Nat) (h : Nat → Nat),
---   h = Solver.dite' c (fun h : c => λ x => f h w x) (fun h : ¬ c => λ x => g h w x)
+--   h = Blaster.dite' c (fun h : c => λ x => f h w x) (fun h : ¬ c => λ x => g h w x)
 -- NOTE: Test case to validate quantified function in dite.
 -- NOTE: Test case to validate partially applied function
 #testOptimize [ "NormChoiceAppDite_8" ] (norm-result: 1)
@@ -180,7 +180,7 @@ def getValuePolyTwo
     (if h : c then f h else g h) w = h ===>
   ∀ (α : Type) (c : Prop) (w : α) (f : c → α → Nat → Nat)
     (g : ¬ c → α → Nat → Nat) (h : Nat → Nat),
-    h = Solver.dite' c (fun h : c => λ x => f h w x) (fun h : ¬ c => λ x => g h w x)
+    h = Blaster.dite' c (fun h : c => λ x => f h w x) (fun h : ¬ c => λ x => g h w x)
 
 -- ∀ (x : Nat) (f : True → Nat → Nat) (g : ¬ True → Nat → Nat),
 --   (if h : True then f h else g h) x > 0 ===>
@@ -392,12 +392,12 @@ def listMap (x : List α) (a : β) (b : β) : Nat → Nat → β :=
        b = listToNatOne.match_1 (fun (_ : List α) => β) xs
            (fun (_ : Unit) => b) -- simplified due to hypothesis simp rule as we have y < x in hyp
            (fun (_ : α) =>
-             Solver.dite' (Nat.mul 2 x < y) (fun _ => a) (fun _ => b))
+             Blaster.dite' (Nat.mul 2 x < y) (fun _ => a) (fun _ => b))
            (fun (_ : α) (_ : α) =>
-             Solver.dite' (Nat.mul 3 x < y) (fun _ => a) (fun _ => b))
+             Blaster.dite' (Nat.mul 3 x < y) (fun _ => a) (fun _ => b))
            (fun (_ : α) (_ : α) (_ : α) =>
-             Solver.dite' (Nat.mul 4 x < y) (fun _ => a) (fun _ => b))
+             Blaster.dite' (Nat.mul 4 x < y) (fun _ => a) (fun _ => b))
            (fun (_ : List α) =>
-             Solver.dite' (Nat.mul x x < y) (fun _ => a) (fun _ => b))
+             Blaster.dite' (Nat.mul x x < y) (fun _ => a) (fun _ => b))
 
 end Test.NormChoiceApp

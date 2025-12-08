@@ -1,20 +1,20 @@
 import Lean
-import Solver.Optimize.Basic
-import Solver.Command.Syntax
+import Blaster.Optimize.Basic
+import Blaster
 
-open Lean Elab Command Term Meta Solver.Options Solver.Syntax
+open Lean Elab Command Term Meta Blaster.Options Blaster.Syntax
 
 namespace Tests
 /-- Parse a term syntax. -/
 def parseTerm (stx : Syntax) : TermElabM Expr := elabTermAndSynthesize stx none
 
 /-- Parse a term syntax and call optimize. -/
-def callOptimize (sOpts : SolverOptions) (stx : Syntax) : TermElabM Expr :=
+def callOptimize (sOpts : BlasterOptions) (stx : Syntax) : TermElabM Expr :=
   withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0 }) $ do
-    let optRes ← (Solver.Optimize.command sOpts (← parseTerm stx))
+    let optRes ← (Blaster.Optimize.command sOpts (← parseTerm stx))
     pure optRes.1
 
-/-! ## Definition of #testOptimize command to write unit test for Solver.optimize
+/-! ## Definition of #testOptimize command to write unit test for Blaster.optimize
     The #testOptimize usage is as follows:
      #testOptimize [ "TestName" ] (verbose: num)? (norm-result: num)? TermToOptimize ==> OptimizedTerm
 

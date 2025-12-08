@@ -1,12 +1,12 @@
 import Lake
 open Lake DSL
 
-package «Solver» where
+package «Blaster» where
   precompileModules := true
   moreLeancArgs := #["-O3"]
 
 @[default_target]
-lean_lib «Solver» where
+lean_lib «Blaster» where
   precompileModules := true
   moreLeancArgs := #["-O3"]
 

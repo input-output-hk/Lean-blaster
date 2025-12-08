@@ -90,7 +90,7 @@ def beqColor : Color → Color → Prop
 --      beqColor (if c then Color.red x else y) (Color.blue x) ===>
 -- ∀ (c : Prop) (x y : Color),
 --  beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
---  (Solver.dite' c (fun _ : c => Color.red x) (fun _ : ¬ c => y)) (Color.blue x)
+--  (Blaster.dite' c (fun _ : c => Color.red x) (fun _ : ¬ c => y)) (Color.blue x)
 --  (fun (x : Color) (y : Color) => x = y)
 --  (fun (x : Color) (y : Color) => x = y)
 --  (fun (_ : Unit) => True)
@@ -101,7 +101,7 @@ def beqColor : Color → Color → Prop
        beqColor (if c then Color.red x else y) (Color.blue x) ===>
   ∀ (c : Prop) (x y : Color),
     beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
-    (Solver.dite' c (fun _ : c => Color.red x) (fun _ : ¬ c => y)) (Color.blue x)
+    (Blaster.dite' c (fun _ : c => Color.red x) (fun _ : ¬ c => y)) (Color.blue x)
     (fun (x : Color) (y : Color) => x = y)
     (fun (x : Color) (y : Color) => x = y)
     (fun (_ : Unit) => True)
@@ -112,8 +112,8 @@ def beqColor : Color → Color → Prop
 --   beqColor (if c then (if b then Color.red x else y) else Color.blue x) (Color.blue x) ===>
 -- ∀ (b c : Prop) (x y : Color),
 --   beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
---    (Solver.dite' c
---       (fun _ : c => Solver.dite' b (fun _ : b => Color.red x) (fun _ : ¬ b => y))
+--    (Blaster.dite' c
+--       (fun _ : c => Blaster.dite' b (fun _ : b => Color.red x) (fun _ : ¬ b => y))
 --       (fun _ : ¬ c => Color.blue x))
 --   (Color.blue x)
 --   (fun (x : Color) (y : Color) => x = y)
@@ -126,8 +126,8 @@ def beqColor : Color → Color → Prop
     beqColor (if c then (if b then Color.red x else y) else Color.blue x) (Color.blue x) ===>
   ∀ (b c : Prop) (x y : Color),
     beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
-     (Solver.dite' c
-        (fun _ : c => Solver.dite' b (fun _ : b => Color.red x) (fun _ : ¬ b => y))
+     (Blaster.dite' c
+        (fun _ : c => Blaster.dite' b (fun _ : b => Color.red x) (fun _ : ¬ b => y))
         (fun _ : ¬ c => Color.blue x))
     (Color.blue x)
     (fun (x : Color) (y : Color) => x = y)
@@ -140,9 +140,9 @@ def beqColor : Color → Color → Prop
 --   beqColor (if c then Color.blue x else (if b then Color.red x else y)) (Color.blue x) ===>
 -- ∀ (b c : Prop) (x y : Color),
 --   beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
---   (Solver.dite' c
+--   (Blaster.dite' c
 --     (fun _ : c => Color.blue x)
---     (fun _ : ¬ c => Solver.dite' b (fun _ : b => Color.red x) (fun _ : ¬ b => y)))
+--     (fun _ : ¬ c => Blaster.dite' b (fun _ : b => Color.red x) (fun _ : ¬ b => y)))
 --   (Color.blue x)
 --   (fun (x : Color) (y : Color) => x = y)
 --   (fun (x : Color) (y : Color) => x = y)
@@ -154,9 +154,9 @@ def beqColor : Color → Color → Prop
     beqColor (if c then Color.blue x else (if b then Color.red x else y)) (Color.blue x) ===>
   ∀ (b c : Prop) (x y : Color),
     beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
-    (Solver.dite' c
+    (Blaster.dite' c
       (fun _ : c => Color.blue x)
-      (fun _ : ¬ c => Solver.dite' b (fun _ : b => Color.red x) (fun _ : ¬ b => y)))
+      (fun _ : ¬ c => Blaster.dite' b (fun _ : b => Color.red x) (fun _ : ¬ b => y)))
     (Color.blue x)
     (fun (x : Color) (y : Color) => x = y)
     (fun (x : Color) (y : Color) => x = y)
@@ -173,11 +173,11 @@ def beqColor : Color → Color → Prop
 --   beqColor op1 (Color.blue x) ===>
 -- ∀ (b c d : Prop) (x y : Color),
 --   beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
---   (Solver.dite' c
+--   (Blaster.dite' c
 --     (fun _ : c =>
---       Solver.dite' d (fun _ : d => Color.transparent) (fun _ : ¬ d => Color.blue x))
+--       Blaster.dite' d (fun _ : d => Color.transparent) (fun _ : ¬ d => Color.blue x))
 --     (fun _ : ¬ c =>
---       Solver.dite' b (fun _ : b => Color.red x) (fun _ : ¬ b => y)))
+--       Blaster.dite' b (fun _ : b => Color.red x) (fun _ : ¬ b => y)))
 --    (Color.blue x)
 --   (fun (x : Color) (y : Color) => x = y)
 --   (fun (x : Color) (y : Color) => x = y)
@@ -193,11 +193,11 @@ def beqColor : Color → Color → Prop
     beqColor op1 (Color.blue x) ===>
   ∀ (b c d : Prop) (x y : Color),
     beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
-    (Solver.dite' c
+    (Blaster.dite' c
       (fun _ : c =>
-        Solver.dite' d (fun _ : d => Color.transparent) (fun _ : ¬ d => Color.blue x))
+        Blaster.dite' d (fun _ : d => Color.transparent) (fun _ : ¬ d => Color.blue x))
       (fun _ : ¬ c =>
-        Solver.dite' b (fun _ : b => Color.red x) (fun _ : ¬ b => y)))
+        Blaster.dite' b (fun _ : b => Color.red x) (fun _ : ¬ b => y)))
      (Color.blue x)
     (fun (x : Color) (y : Color) => x = y)
     (fun (x : Color) (y : Color) => x = y)
@@ -214,10 +214,10 @@ def beqColor : Color → Color → Prop
 --   beqColor op1 op2 ===>
 -- ∀ (b c d : Prop) (x y : Color),
 --   beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
---    (Solver.dite' c
---      (fun _ : c => Solver.dite' d (fun _ : d => Color.transparent) (fun _ : ¬ d => Color.blue x))
---      (fun _ : ¬ c => Solver.dite' b (fun _ : b => Color.red x) (fun _ : ¬ b => Color.black)))
---    (Solver.dite' b (fun _ : b => Color.blue x) (fun _ : ¬ b => y))
+--    (Blaster.dite' c
+--      (fun _ : c => Blaster.dite' d (fun _ : d => Color.transparent) (fun _ : ¬ d => Color.blue x))
+--      (fun _ : ¬ c => Blaster.dite' b (fun _ : b => Color.red x) (fun _ : ¬ b => Color.black)))
+--    (Blaster.dite' b (fun _ : b => Color.blue x) (fun _ : ¬ b => y))
 --   (fun (x : Color) (y : Color) => x = y)
 --   (fun (x : Color) (y : Color) => x = y)
 --   (fun (_ : Unit) => True)
@@ -233,10 +233,10 @@ def beqColor : Color → Color → Prop
     beqColor op1 op2 ===>
   ∀ (b c d : Prop) (x y : Color),
     beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
-     (Solver.dite' c
-       (fun _ : c => Solver.dite' d (fun _ : d => Color.transparent) (fun _ : ¬ d => Color.blue x))
-       (fun _ : ¬ c => Solver.dite' b (fun _ : b => Color.red x) (fun _ : ¬ b => Color.black)))
-     (Solver.dite' b (fun _ : b => Color.blue x) (fun _ : ¬ b => y))
+     (Blaster.dite' c
+       (fun _ : c => Blaster.dite' d (fun _ : d => Color.transparent) (fun _ : ¬ d => Color.blue x))
+       (fun _ : ¬ c => Blaster.dite' b (fun _ : b => Color.red x) (fun _ : ¬ b => Color.black)))
+     (Blaster.dite' b (fun _ : b => Color.blue x) (fun _ : ¬ b => y))
     (fun (x : Color) (y : Color) => x = y)
     (fun (x : Color) (y : Color) => x = y)
     (fun (_ : Unit) => True)
@@ -340,7 +340,7 @@ def beqColor : Color → Color → Prop
 --   beqColor (if h : c then Color.red (f h x) else y) (Color.blue x) ===>
 -- ∀ (c : Prop) (x y : Color) (f : c → Color → Color),
 --    beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
---    (Solver.dite' c (fun h : c => Color.red (f h x)) (fun _ : ¬ c => y))
+--    (Blaster.dite' c (fun h : c => Color.red (f h x)) (fun _ : ¬ c => y))
 --    (Color.blue x)
 --    (fun (x : Color) (y : Color) => x = y)
 --    (fun (x : Color) (y : Color) => x = y)
@@ -352,7 +352,7 @@ def beqColor : Color → Color → Prop
     beqColor (if h : c then Color.red (f h x) else y) (Color.blue x) ===>
   ∀ (c : Prop) (x y : Color) (f : c → Color → Color),
      beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
-     (Solver.dite' c (fun h : c => Color.red (f h x)) (fun _ : ¬ c => y))
+     (Blaster.dite' c (fun h : c => Color.red (f h x)) (fun _ : ¬ c => y))
      (Color.blue x)
      (fun (x : Color) (y : Color) => x = y)
      (fun (x : Color) (y : Color) => x = y)
@@ -367,8 +367,8 @@ def beqColor : Color → Color → Prop
 --               else Color.blue (f h1 x)) (Color.blue x) ===>
 -- ∀ (b c : Prop) (x y : Color) (f : ¬ c → Color → Color) (g : b → Color → Color),
 --     beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
---     (Solver.dite' c
---       (fun _ : c => Solver.dite' b (fun h2 : b => Color.red (g h2 x)) (fun _ : ¬ b => y))
+--     (Blaster.dite' c
+--       (fun _ : c => Blaster.dite' b (fun h2 : b => Color.red (g h2 x)) (fun _ : ¬ b => y))
 --       (fun h1 : ¬ c => Color.blue (f h1 x)))
 --     (Color.blue x)
 --    (fun (x : Color) (y : Color) => x = y)
@@ -384,8 +384,8 @@ def beqColor : Color → Color → Prop
                 else Color.blue (f h1 x)) (Color.blue x) ===>
   ∀ (b c : Prop) (x y : Color) (f : ¬ c → Color → Color) (g : b → Color → Color),
       beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
-      (Solver.dite' c
-        (fun _ : c => Solver.dite' b (fun h2 : b => Color.red (g h2 x)) (fun _ : ¬ b => y))
+      (Blaster.dite' c
+        (fun _ : c => Blaster.dite' b (fun h2 : b => Color.red (g h2 x)) (fun _ : ¬ b => y))
         (fun h1 : ¬ c => Color.blue (f h1 x)))
       (Color.blue x)
      (fun (x : Color) (y : Color) => x = y)
@@ -401,9 +401,9 @@ def beqColor : Color → Color → Prop
 --               else (if h2 : b then Color.red (g h2 x) else y)) (Color.blue x) ===>
 -- ∀ (b c : Prop) (x y : Color) (f : c → Color → Color) (g : b → Color → Color),
 --     beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
---     (Solver.dite' c
+--     (Blaster.dite' c
 --       (fun h1 : c => Color.blue (f h1 x))
---       (fun _ : ¬ c => Solver.dite' b (fun h2 : b => Color.red (g h2 x)) (fun _ : ¬ b => y)))
+--       (fun _ : ¬ c => Blaster.dite' b (fun h2 : b => Color.red (g h2 x)) (fun _ : ¬ b => y)))
 --     (Color.blue x)
 --    (fun (x : Color) (y : Color) => x = y)
 --    (fun (x : Color) (y : Color) => x = y)
@@ -418,9 +418,9 @@ def beqColor : Color → Color → Prop
                 else (if h2 : b then Color.red (g h2 x) else y)) (Color.blue x) ===>
   ∀ (b c : Prop) (x y : Color) (f : c → Color → Color) (g : b → Color → Color),
       beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
-      (Solver.dite' c
+      (Blaster.dite' c
         (fun h1 : c => Color.blue (f h1 x))
-        (fun _ : ¬ c => Solver.dite' b (fun h2 : b => Color.red (g h2 x)) (fun _ : ¬ b => y)))
+        (fun _ : ¬ c => Blaster.dite' b (fun h2 : b => Color.red (g h2 x)) (fun _ : ¬ b => y)))
       (Color.blue x)
      (fun (x : Color) (y : Color) => x = y)
      (fun (x : Color) (y : Color) => x = y)
@@ -440,13 +440,13 @@ def beqColor : Color → Color → Prop
 -- ∀ (b c d : Prop) (x y : Color)
 --   (f : ¬ c → Color → Color) (g : ¬ d → Color → Color) (t : b → Color → Color),
 --     beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
---     (Solver.dite' c
+--     (Blaster.dite' c
 --       (fun _ : c =>
---          Solver.dite' d
+--          Blaster.dite' d
 --           (fun _ : d => Color.transparent)
 --           (fun h2 : ¬ d => Color.blue (g h2 x)))
 --       (fun h1 : ¬ c =>
---          Solver.dite' b
+--          Blaster.dite' b
 --            (fun h3 : b => Color.red (t h3 x))
 --            (fun _ : ¬ b => (f h1 y))))
 --     (Color.blue x)
@@ -467,13 +467,13 @@ def beqColor : Color → Color → Prop
   ∀ (b c d : Prop) (x y : Color)
     (f : ¬ c → Color → Color) (g : ¬ d → Color → Color) (t : b → Color → Color),
       beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
-      (Solver.dite' c
+      (Blaster.dite' c
         (fun _ : c =>
-           Solver.dite' d
+           Blaster.dite' d
             (fun _ : d => Color.transparent)
             (fun h2 : ¬ d => Color.blue (g h2 x)))
         (fun h1 : ¬ c =>
-           Solver.dite' b
+           Blaster.dite' b
              (fun h3 : b => Color.red (t h3 x))
              (fun _ : ¬ b => (f h1 y))))
       (Color.blue x)
@@ -496,16 +496,16 @@ def beqColor : Color → Color → Prop
 -- ∀ (b c d : Prop) (x y : Color)
 --   (f : ¬ c → Color → Color) (g : ¬ d → Color → Color) (t : b → Color → Color),
 --     beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
---     (Solver.dite' c
+--     (Blaster.dite' c
 --      (fun _ : c =>
---        Solver.dite' d
+--        Blaster.dite' d
 --          (fun _ : d => Color.transparent)
 --          (fun h2 : ¬ d => Color.blue (g h2 x)))
 --      (fun h1 : ¬ c =>
---        Solver.dite' b
+--        Blaster.dite' b
 --          (fun h3 : b => Color.red (t h3 x))
 --          (fun _ : ¬ b => (f h1 y))))
---     (Solver.dite' b (fun h4 : b => Color.blue (t h4 x)) (fun _ : ¬ b => y))
+--     (Blaster.dite' b (fun h4 : b => Color.blue (t h4 x)) (fun _ : ¬ b => y))
 --    (fun (x : Color) (y : Color) => x = y)
 --    (fun (x : Color) (y : Color) => x = y)
 --    (fun (_ : Unit) => True)
@@ -524,16 +524,16 @@ def beqColor : Color → Color → Prop
   ∀ (b c d : Prop) (x y : Color)
     (f : ¬ c → Color → Color) (g : ¬ d → Color → Color) (t : b → Color → Color),
       beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
-      (Solver.dite' c
+      (Blaster.dite' c
        (fun _ : c =>
-         Solver.dite' d
+         Blaster.dite' d
            (fun _ : d => Color.transparent)
            (fun h2 : ¬ d => Color.blue (g h2 x)))
        (fun h1 : ¬ c =>
-         Solver.dite' b
+         Blaster.dite' b
            (fun h3 : b => Color.red (t h3 x))
            (fun _ : ¬ b => (f h1 y))))
-      (Solver.dite' b (fun h4 : b => Color.blue (t h4 x)) (fun _ : ¬ b => y))
+      (Blaster.dite' b (fun h4 : b => Color.blue (t h4 x)) (fun _ : ¬ b => y))
      (fun (x : Color) (y : Color) => x = y)
      (fun (x : Color) (y : Color) => x = y)
      (fun (_ : Unit) => True)
@@ -813,10 +813,10 @@ def beqColorDegree : Color → Color → (Nat → Prop)
 --     (fun (_ : Unit) => .red .transparent)
 --     (fun (_ : Unit) => .blue .black)
 --     (fun (a : Nat) =>
---       Solver.dite' (a < 10)
+--       Blaster.dite' (a < 10)
 --        (fun _ : a < 10 => .blue .transparent)
 --        (fun  _ : ¬ a < 10 =>
---          Solver.dite' (a < 100)
+--          Blaster.dite' (a < 100)
 --            (fun _ :  a < 100 => .red .black)
 --            (fun _ : ¬ a < 100 => .red .transparent ) ))) x
 --   (fun (x : Color) (y : Color) => x = y)
@@ -836,10 +836,10 @@ def beqColorDegree : Color → Color → (Nat → Prop)
       (fun (_ : Unit) => .red .transparent)
       (fun (_ : Unit) => .blue .black)
       (fun (a : Nat) =>
-        Solver.dite' (a < 10)
+        Blaster.dite' (a < 10)
          (fun _ : a < 10 => .blue .transparent)
          (fun  _ : ¬ a < 10 =>
-           Solver.dite' (a < 100)
+           Blaster.dite' (a < 100)
              (fun _ :  a < 100 => .red .black)
              (fun _ : ¬ a < 100 => .red .transparent ) ))) x
     (fun (x : Color) (y : Color) => x = y)

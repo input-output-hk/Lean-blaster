@@ -98,13 +98,13 @@ inductive Color where
 --   let cond := ((!a || ((b || c) && !(c || b))) || a);
 --   (if cond then if x < y then [x, y] else [y, x] else ys) = xs ===>
 -- ∀ (α : Type) (x y : α) (xs : List α), [LT α] →
---   xs = Solver.dite' (x < y) (fun _ : x < y => [x, y]) (fun _ : ¬ (x < y) => [y, x])
+--   xs = Blaster.dite' (x < y) (fun _ : x < y => [x, y]) (fun _ : ¬ (x < y) => [y, x])
 #testOptimize [ "ForallCOI_11" ]
   ∀ (α : Type) (a b c : Bool) (x y : α) (xs ys : List α), [LT α] → [Decidable (x < y)] →
     let cond := ((!a || ((b || c) && !(c || b))) || a);
     (if cond then if x < y then [x, y] else [y, x] else ys) = xs ===>
   ∀ (α : Type) (x y : α) (xs : List α), [LT α] →
-    xs = Solver.dite' (x < y) (fun _ : x < y => [x, y]) (fun _ : ¬ (x < y) => [y, x])
+    xs = Blaster.dite' (x < y) (fun _ : x < y => [x, y]) (fun _ : ¬ (x < y) => [y, x])
 
 
 /-! Test cases to ensure when the following COI reduction rule must not be applied:

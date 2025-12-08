@@ -1,6 +1,6 @@
-import Solver.StateMachine
+import Blaster.StateMachine
 
-open Solver.StateMachine
+open Blaster.StateMachine
 
 namespace Test.Counter01
 

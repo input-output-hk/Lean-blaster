@@ -119,7 +119,7 @@ def powerNat (a : Nat) (n : Nat) : Nat :=
 
 -- ∀ (x y : Nat), if x < y then powerNat y x else powerNat x y < Nat.pow x y ===>
 -- ∀ (x y : Nat),
---  (Solver.dite'
+--  (Blaster.dite'
 --    (x < y)
 --    (fun _h : x < y => Nat.pow y x)
 --    (fun _h : ¬ (x < y) => Nat.pow x y)) < Nat.pow x y
@@ -129,7 +129,7 @@ def powerNat (a : Nat) (n : Nat) : Nat :=
 #testOptimize [ "NormRecFun_14" ]
   ∀ (x y : Nat), (if x < y then powerNat y x else powerNat x y) < Nat.pow x y ===>
   ∀ (x y : Nat),
-    (Solver.dite'
+    (Blaster.dite'
       (x < y)
       (fun _h : x < y => Nat.pow y x)
       (fun _h : ¬ (x < y) => Nat.pow x y)) < Nat.pow x y
@@ -274,25 +274,25 @@ def bleNat (x : Nat) (y : Nat) : Bool :=
 --   (if x == y then List.length x else List.length y) < w →
 --   (if listPolyBeq y x then List.length y else List.length x) < w ===>
 -- ∀ (w : Nat) (x y : List Nat),
---  Solver.dite' (x = y) (fun _h : x = y => List.length x) (fun _h : ¬ (x = y) => List.length y) < w →
---  Solver.dite' (x = y) (fun _h : x = y => List.length y) (fun _h : ¬ (x = y) => List.length x) < w
+--  Blaster.dite' (x = y) (fun _h : x = y => List.length x) (fun _h : ¬ (x = y) => List.length y) < w →
+--  Blaster.dite' (x = y) (fun _h : x = y => List.length y) (fun _h : ¬ (x = y) => List.length x) < w
 #testOptimize [ "NormRecFun_26" ]
   ∀ (w : Nat) (x y : List Nat),
     (if x == y then List.length x else List.length y) < w →
     (if listPolyBeq y x then List.length y else List.length x) < w ===>
   ∀ (w : Nat) (x y : List Nat),
-    Solver.dite' (x = y) (fun _h : x = y => List.length x) (fun _h : ¬ (x = y) => List.length y) < w →
-    Solver.dite' (x = y) (fun _h : x = y => List.length y) (fun _h : ¬ (x = y) => List.length x) < w
+    Blaster.dite' (x = y) (fun _h : x = y => List.length x) (fun _h : ¬ (x = y) => List.length y) < w →
+    Blaster.dite' (x = y) (fun _h : x = y => List.length y) (fun _h : ¬ (x = y) => List.length x) < w
 
 -- ∀ (w : Nat) (c : Bool) (x y : List Nat),
 --   (if c = listPolyBeq y x then List.length x else List.length y) < w →
 --   (if c = (x == y) then List.length y else List.length x) < w ===>
 -- ∀ (w : Nat) (c : Bool) (x y : List Nat),
---   Solver.dite'
+--   Blaster.dite'
 --     (c = listPolyBeq y x)
 --     (fun _h : c = listPolyBeq y x => List.length x)
 --     (fun _h : ¬ c = listPolyBeq y x => List.length y) < w →
---   Solver.dite'
+--   Blaster.dite'
 --     (c = listPolyBeq x y)
 --     (fun _h : c = listPolyBeq x y => List.length y)
 --     (fun _h : ¬ c = listPolyBeq x y => List.length x) < w
@@ -303,11 +303,11 @@ def bleNat (x : Nat) (y : Nat) : Bool :=
     (if c = listPolyBeq y x then List.length x else List.length y) < w →
     (if c = (x == y) then List.length y else List.length x) < w ===>
   ∀ (w : Nat) (c : Bool) (x y : List Nat),
-    Solver.dite'
+    Blaster.dite'
       (c = listPolyBeq y x)
       (fun _h : c = listPolyBeq y x => List.length x)
       (fun _h : ¬ c = listPolyBeq y x => List.length y) < w →
-    Solver.dite'
+    Blaster.dite'
       (c = listPolyBeq x y)
       (fun _h : c = listPolyBeq x y => List.length y)
       (fun _h : ¬ c = listPolyBeq x y => List.length x) < w
@@ -611,13 +611,13 @@ where
     else b
 
 -- (∀ (x y : Nat), y > 0 → modNat x y < y) → (∀ (n m : Nat), m > 0 → n % m < n) ===>
--- (∀ (x y : Nat), 0 < y → Solver.dite' (0 = x) (fun _h : 0 = x => 0) (fun _h : ¬ 0 = x => modNat.modAux x y) < y) →
+-- (∀ (x y : Nat), 0 < y → Blaster.dite' (0 = x) (fun _h : 0 = x => 0) (fun _h : ¬ 0 = x => modNat.modAux x y) < y) →
 --   (∀ (n m : Nat), 0 < m → Nat.mod n m < n)
 -- NOTE: Test case can result to `True` when implementing structural
 -- equivalence with opaque function.
 #testOptimize [ "NormRecUnchanged_15" ] (norm-result: 1)
   (∀ (x y : Nat), y > 0 → modNat x y < y) → (∀ (n m : Nat), m > 0 → n % m < n) ===>
-  (∀ (x y : Nat), 0 < y → Solver.dite' (0 = x) (fun _h : 0 = x => 0) (fun _h : ¬ 0 = x => modNat.modAux x y) < y) →
+  (∀ (x y : Nat), 0 < y → Blaster.dite' (0 = x) (fun _h : 0 = x => 0) (fun _h : ¬ 0 = x => modNat.modAux x y) < y) →
     (∀ (n m : Nat), 0 < m → Nat.mod n m < n)
 
 

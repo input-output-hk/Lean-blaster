@@ -23,7 +23,7 @@ Blaster provides an SMT backend for Z3 proofs. Blaster works by first aggressive
     - [Tactic](#tactic)
 - [Features](#features)
 - [Examples](#examples)
-  - [Issues](#issues)
+  - [Fixed Issues](#fixed-issues)
   - [Optimize](#optimize)
   - [Validator examples](#validator-examples)
   - [State Machine](#state-machine)
@@ -79,7 +79,7 @@ In order to use Blaster, your project needs to depend on `lean-blaster`.
 If you use `lakefile.toml` then, simply add a dependency to this repository:
 ```toml
 [[require]]
-name = "Solver"
+name = "Blaster"
 git = "https://github.com/input-output-hk/Lean-blaster"
 rev = "main"
 ```
@@ -87,7 +87,7 @@ rev = "main"
 ### Using lakefile.lean
 If you use `lakefile.lean` then, simply add a dependency to this repository:
 ```lean4
-require «Solver» from git
+require «Blaster» from git
   "https://github.com/input-output-hk/Lean-blaster" @ "main"
 ```
 
@@ -99,26 +99,26 @@ require «Solver» from git
   - `dump-smt-lib`: display the smt lib query to stdout (default: 0)
   - `random-seed`: seed for the random number generator (default: none)
   - `gen-cex`: generate counterexample for falsified theorems (default: 1)
-  - `solve-result`: specify the expected result from the #solve command, i.e.,
+  - `solve-result`: specify the expected result from the #blaster command, i.e.,
                     0 for 'Valid', 1 for 'Falsified' and 2 for 'Undetermined'. (default: 0)
 
 ### Call to the solver
 
 #### Command
 
-You can call the solver by invoking the `#solve` command on a theorem name or on a propositional expression.
+You can call the solver by invoking the `#blaster` command on a theorem name or on a propositional expression.
 The syntax is as follows:
- - `#solve (option1: n) (option2: n) [theoremName]`; or
- - `#solve (option1: n) (option2: n) [theoremBody]`
+ - `#blaster (option1: n) (option2: n) [theoremName]`; or
+ - `#blaster (option1: n) (option2: n) [theoremBody]`
 
 For example,
 ```lean
 theorem addCommute : ∀ (a b : Nat), a + b = b + a := by sorry
-#solve (only-optimize: 1) (solve-result: 0) [addCommute]
+#blaster (only-optimize: 1) (solve-result: 0) [addCommute]
 -- or
-#solve (only-optimize: 1) (solve-result: 0) [∀ (a b : Nat), a + b = b + a]
+#blaster (only-optimize: 1) (solve-result: 0) [∀ (a b : Nat), a + b = b + a]
 -- or
-#solve [∀ (a b : Nat), a + b = b + a]
+#blaster [∀ (a b : Nat), a + b = b + a]
 ```
 
 #### Tactic
@@ -194,7 +194,7 @@ theorem A_self_size (a : A) : (A.self a).sizeA = a.sizeA + 1 := by blaster
 
 #### Recursive Functions
 ```lean
-#solve [ ∀ (x : Nat) (xs : List Nat), List.length xs + 1 = List.length (x :: xs) ]
+#blaster [ ∀ (x : Nat) (xs : List Nat), List.length xs + 1 = List.length (x :: xs) ]
 ```
 
 #### Mutually Recursive Functions
@@ -209,9 +209,9 @@ mutual
     | n+1 => isEven n
 end
 
-#solve [ ∀ (n : Nat), isEven (n+1) = isOdd n ]
+#blaster [ ∀ (n : Nat), isEven (n+1) = isOdd n ]
 
-#solve [ ∀ (n : Nat), isEven (n+2) → isEven n ]
+#blaster [ ∀ (n : Nat), isEven (n+2) → isEven n ]
 ```
 
 #### Polymorphism
@@ -225,7 +225,7 @@ instance [BEq a] [BEq b] : BEq (Either a b) where
       | Either.Right b1, Either.Right b2 => b1 == b2
       | _, _ => false
 
-#solve
+#blaster
   [ (∀ (α : Type) (a b : α), [BEq α] → a == b → a = b) →
       (∀ (α : Type) (β : Type) (x y : Either α β), [BEq α] → [BEq β] → x == y → x = y)
   ]
@@ -234,13 +234,13 @@ instance [BEq a] [BEq b] : BEq (Either a b) where
 #### Higher-Order Logic
 ##### Quantification over Functions
 ```lean
-#solve [ (∀ (β : Type) (x : Term (List β)) (f : Term (List β) → Nat), f x > 10) →
+#blaster [ (∀ (β : Type) (x : Term (List β)) (f : Term (List β) → Nat), f x > 10) →
          (∀ (α : Type) (x y : Term (List α)) (f : Term (List α) → Nat), f x + f y > 20)
        ]
 ```
 ##### Higher-Order Functions
 ```lean
-#solve [ ∀ (x : Nat) (xs : List Nat), !(List.isEmpty xs) →
+#blaster [ ∀ (x : Nat) (xs : List Nat), !(List.isEmpty xs) →
          List.head! (List.map (Nat.add x) xs) ≥ x
        ]
 ```
@@ -253,7 +253,7 @@ def sizeOfTerm (t : Term α) : Nat :=
   | .App _ args => List.length args
   | .Annotated t' _ => 1 + sizeOfTerm t'
 
-#solve [ ∀ (α : Type) (x : Term α), sizeOfTerm x < 10 ]
+#blaster [ ∀ (α : Type) (x : Term α), sizeOfTerm x < 10 ]
 
 ❌ Falsified
 Counterexample:
@@ -353,8 +353,8 @@ Inductive predicates are not yet supported, but our plan is to enable them by tr
 into an equivalent boolean function at SMT-LIB level.
 
 #### Implicit Induction Proof
-The `#solve` command and the `#blaster` tactic do not currently attempt induction on their own.
-Users can work around this by pairing `#blaster` with the `induction` tactic in Lean4.
+Blaster does not currently attempt induction on its own.
+Users can work around this by pairing `blaster` with the `induction` tactic in Lean4.
 We plan to enhance this by introducing heuristics that enable automatic inductive reasoning.
 For example,
 ```lean
@@ -375,8 +375,8 @@ theorem validProof {α : Type}[BEq α](v : α)(p : Path)(ls : List α)
 ```
 
 #### Implicit Case Analysis
-Currently, neither `#solve` nor `#blaster` performs case analysis to split a goal into subgoals.
-Users can address this by using `#blaster` alongside Lean4’s `by_cases` tactic.
+Currently, Blaster does not perform case analysis to split a goal into subgoals.
+Users can address this by using the `blaster` tactic alongside Lean4’s `by_cases` tactic.
 Our plan is to support automatic goal decomposition so that smaller SMT queries are
 generated instead of one monolithic query. This will highlight the harder subgoals
 and make them simpler for users to examine manually.
@@ -386,9 +386,9 @@ and make them simpler for users to examine manually.
 
 Examples are provided in the `Tests` folder.
 
-### Issues
+### Fixed Issues
 
-The `Tests/Issues` folder contains examples that were, at some point, not properly handled by our tool.
+The `Tests/FixedIssues` folder contains examples that were, at some point, not properly handled by our tool.
 
 ### Optimize
 
@@ -451,16 +451,16 @@ Blaster uses a three-step process to automatically reason about Lean theorems.
 
 ### First step: optimization and normalization
 
-Before translation to SMT-LIB, blaster optimizes the Lean expression (see `Solver/Optimize/Basic.lean`). This step simplifies the expression and prepares it for SMT translation by applying various transformations and rewriting rules, which can significantly improve the SMT solver's performance.
+Before translation to SMT-LIB, blaster optimizes the Lean expression (see `Blaster/Optimize/Basic.lean`). This step simplifies the expression and prepares it for SMT translation by applying various transformations and rewriting rules, which can significantly improve the SMT solver's performance.
 These rules are applied recursively to the expression tree and are designed to reduce the complexity of the SMT query.
 
-The core optimization logic is orchestrated in `Solver/Optimize/Basic.lean`, which applies a variety of strategies, including:
+The core optimization logic is orchestrated in `Blaster/Optimize/Basic.lean`, which applies a variety of strategies, including:
 
 - **Beta Reduction**: Lambda applications are simplified by substituting arguments into the lambda body.
 - **Function Unfolding**: Non-recursive and non-opaque functions are unfolded to their definitions.
 - **Let-Expression Inlining**: Let-bindings are inlined to simplify the expression.
 
-In addition to these general strategies, Lean-blaster applies a set of specific rewriting rules for different types of expressions, primarily located in the `Solver/Optimize/Rewriting/` directory. We give a few examples in this section to illustrate the goal of those rules.
+In addition to these general strategies, Lean-blaster applies a set of specific rewriting rules for different types of expressions, primarily located in the `Blaster/Optimize/Rewriting/` directory. We give a few examples in this section to illustrate the goal of those rules.
 
 #### Boolean Operations
 
@@ -473,7 +473,7 @@ Boolean expressions are simplified using a set of rules. These rules include:
 
 #### Natural Number Arithmetic
 
-Arithmetic operations on natural numbers are optimized using a variety of algebraic simplifications and constant folding rules, which can be found in `Solver/Optimize/Rewriting/OptimizeNat.lean`. These include:
+Arithmetic operations on natural numbers are optimized using a variety of algebraic simplifications and constant folding rules, which can be found in `Blaster/Optimize/Rewriting/OptimizeNat.lean`. These include:
 
 - **Constant Folding**: Expressions with constant values are evaluated (e.g., `2 + 3` is replaced with `5`).
 - **Identity and Annihilation**:
@@ -490,7 +490,7 @@ These are just a few examples of the many optimization rules that Blaster applie
 
 #### Control Flow and Pattern Matching
 
-Blaster also includes a set of rules for simplifying control flow expressions like `if-then-else` (ITE), `dependent if-then-else` (DITE) and `match` expressions. These rules, found in `Solver/Optimize/Rewriting/OptimizeITE.lean` and `Solver/Optimize/Rewriting/OptimizeMatch.lean`, are designed to reduce the complexity of the expression by eliminating redundant branches and propagating constants.
+Blaster also includes a set of rules for simplifying control flow expressions like `if-then-else` (ITE), `dependent if-then-else` (DITE) and `match` expressions. These rules, found in `Blaster/Optimize/Rewriting/OptimizeITE.lean` and `Blaster/Optimize/Rewriting/OptimizeMatch.lean`, are designed to reduce the complexity of the expression by eliminating redundant branches and propagating constants.
 
 - **ITE/DITE Simplification**: `if-then-else` expressions are simplified in several ways:
   - If the condition is a constant (`true` or `false`), the expression is replaced with the corresponding branch.
@@ -504,12 +504,12 @@ Blaster also includes a set of rules for simplifying control flow expressions li
 
 #### Function propagation
 
-Function propagation is another key optimization strategy, detailed in `Solver/Optimize/Rewriting/FunPropagation.lean`. This technique simplifies expressions by "pushing" function calls into their arguments. For example, a function applied to an `if-then-else` expression can be transformed into an `if-then-else` expression where the function is applied to both the `then` and `else` branches. This can be particularly effective when one of the branches can be further simplified after the function is applied using other optimization rules.
+Function propagation is another key optimization strategy, detailed in `Blaster/Optimize/Rewriting/FunPropagation.lean`. This technique simplifies expressions by "pushing" function calls into their arguments. For example, a function applied to an `if-then-else` expression can be transformed into an `if-then-else` expression where the function is applied to both the `then` and `else` branches. This can be particularly effective when one of the branches can be further simplified after the function is applied using other optimization rules.
 
 ### Second-step: SMT Translation
 
 Using the whole set of optimization rules, it may happen that a theorem can be reduced to `True`.  This concludes the proof and the theorem is considered as `Valid`. For some other cases, a theorem may also be reduced to `False` and will therefore be declared as `Falsified`. Most of the time, a proof might not be concluded at the optimization phase. In this case, the optimized Lean expression is translated into an SMT-LIB format and submitted to the backend solver.
-The translation step is handled in `Solver/Smt/Translate.lean`. This process involves several key steps:
+The translation step is handled in `Blaster/Smt/Translate.lean`. This process involves several key steps:
 
 1. **Expression Traversal**: The tool recursively traverses the Lean expression tree.
 2. **Type and Function Translation**: Lean types and functions are mapped to their SMT-LIB equivalents.
