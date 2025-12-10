@@ -49,7 +49,7 @@ Use any of the following for our ticket management to know which tickets to move
 - [ ] README updated (if applicable)
 - [ ] Code comments added/updated
 - [ ] Doc comments added for new optimization/rewritting rules
-- [ ] CONTRIBUTING.md updated (if workflow changes)
+<!-- - [ ] CONTRIBUTING.md updated (if workflow changes) -> 
 
 ## Checklist
 
@@ -60,7 +60,7 @@ Use any of the following for our ticket management to know which tickets to move
 - [ ] I have commented my code, particularly in hard-to-understand areas
 - [ ] I have made corresponding changes to the documentation
 - [ ] I have added tests that prove my fix is effective or that my feature works
-- [ ] New and existing unit tests pass locally with my changes using `make test_all`
+- [ ] New and existing unit tests pass locally with my changes using `make check_all`
 - [ ] For bug fixes: Original failing example added to `Tests/Issues/` folder with reference to issue number
 
 ## Additional Notes
