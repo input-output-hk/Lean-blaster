@@ -632,7 +632,7 @@ Z3 version 4.15.2 - 64 bit
 
 We welcome all contributions! Whether it's bug reports, feature requests, documentation improvements, or code contributions, your help is appreciated.
 
-Please see our [Contributing Guidelines](CONTRIBUTING.md) for more information on how to get started.
+<!-- Please see our [Contributing Guidelines](CONTRIBUTING.md) for more information on how to get started. -->
 
 ### Ways to Contribute
 
