@@ -99,20 +99,15 @@ private def findZ3CmdAndVersion : IO (String) := do
 
 
 /-- Spawn a z3 process w.r.t. the provided solver options. -/
-def createBlasterProcess (sOpts : BlasterOptions) : IO (IO.Process.Child ⟨.piped, .piped, .piped⟩) := do
+def createBlasterProcess : IO (IO.Process.Child ⟨.piped, .piped, .piped⟩) := do
   let z3Cmd ← findZ3CmdAndVersion  -- ensures version is OK
   IO.Process.spawn {
     stdin  := .piped
     stdout := .piped
     stderr := .piped
     cmd    := z3Cmd
-    args   := #["-in", "-smt2"] ++ timeOutOptions sOpts
+    args   := #["-in", "-smt2"]
   }
-where
-  timeOutOptions (sOpts : BlasterOptions) : Array String :=
-    match sOpts.timeout with
-    | none   => #[]
-    | some n => #[s!"-T:{n}"]
 
 /-- Update translation cache with `a := b`.
 -/
@@ -135,11 +130,23 @@ def withTranslateEnvCache (a : Expr) (f : Unit → TranslateEnvT SmtTerm) : Tran
      updateTranslateCache a b
      return b
 
+/-- Check if cancel token has been triggered and kill corresponding running
+    Solver instance (if necessary).
+-/
+def checkCancelTk? : TranslateEnvT Unit := do
+  let some p := (← get).smtEnv.smtProc | return ()
+  if let some tk := (← readThe Core.Context).cancelTk? then
+    if ← tk.isSet then
+      p.kill
+      discard $ p.wait
+      throwInterruptException
+
 /-- Retrieve model output from `h` when a counterexample is generated.
     NOTE: A model output starts with "(" and ends with ")\n"
 -/
-partial def getOutputModel (h : IO.FS.Handle) (proof := false) : IO String := do
-  let rec loop (acc : String) : IO String := do
+partial def getOutputModel (h : IO.FS.Handle) (proof := false) : TranslateEnvT String := do
+  let rec loop (acc : String) : TranslateEnvT String := do
+    checkCancelTk?
     let line ← h.getLine
     if (line == ")\n" && !proof) || (line == "\n" && proof) then
       return acc
@@ -466,7 +473,6 @@ def defineInttoNat : TranslateEnvT Unit := do
   let fdef := iteSmt xGeqZero xId natZero
   defineFun toNatSymbol #[(xsym, intSort)] natSort fdef
 
-
 /-- Try to retrieve to evaluate term `t` when a `sat` result is obtained and dump result to stdout.
     TODO: We need to define the Smt-lib syntax and term elaborator to parse produced value
     and generate the corresponding Lean representation.
@@ -476,6 +482,7 @@ def defineInttoNat : TranslateEnvT Unit := do
 def evalTerm (t : SmtTerm) : TranslateEnvT String := do
   let env ← get
   let some p := env.smtEnv.smtProc | return ""
+  checkCancelTk?
   submitCommand (.evalTerm t)
   getOutputEval p.stdout
 
@@ -492,6 +499,7 @@ def getModel : TranslateEnvT (List String) := do
   let some p := env.smtEnv.smtProc | return []
   let topVars := env.smtEnv.topLevelVars
   if !env.optEnv.options.solverOptions.generateCex then return []
+  checkCancelTk?
   if topVars.isEmpty
   then
     submitCommand (.getModel)
@@ -515,14 +523,23 @@ def getModel : TranslateEnvT (List String) := do
     An error is triggered when an unexpected check-sat result is obtained.
     Function can be called only after a check-sat
 -/
-def getSatResult (h : IO.FS.Handle) : TranslateEnvT Result := do
-  let satResult ← h.getLine -- only one line expected for checkSat result
-  match satResult with
-  | "sat\n"     => pure (.Falsified (← getModel))
-  | "unsat\n"   => pure .Valid
-  | "unknown\n"
-  | "timeout\n" => pure .Undetermined
-  | err => throwEnvError s!"checkSat: Unexpected check-sat result: {err}"
+partial def getSatResult (p : IO.Process.Child ⟨.piped, .piped, .piped⟩) : TranslateEnvT Result := do
+  let res ← IO.asTask p.stdout.getLine -- only one line expected for checkSat result
+  waitForResult res
+
+ where
+   waitForResult (res : Task (Except IO.Error String)) : TranslateEnvT Result := do
+     checkCancelTk?
+     if ← IO.hasFinished res then
+       match ← IO.ofExcept res.get with
+       | "sat\n"     => return (.Falsified (← getModel))
+       | "unsat\n"   => return .Valid
+       | "unknown\n" => return .Undetermined -- unknown is also return when timeout is set to stdin
+       | err => throwEnvError s!"checkSat: Unexpected check-sat result: {err}"
+     else
+       let sleepTimeMs := (20 : UInt32)
+       IO.sleep sleepTimeMs
+       waitForResult res
 
 /-- Check satisfiability of current Smt query and return the result.
     An error is triggered when an unexpected check-sat result is obtained.
@@ -532,7 +549,7 @@ def checkSat : TranslateEnvT Result := do
   let env ← get
   let some p := env.smtEnv.smtProc | return .Undetermined
   submitCommand (.checkSat)
-  getSatResult p.stdout
+  getSatResult p
 
 /-- Check satisfiability of current Smt query by assuming the provided terms
     and return the result.
@@ -543,7 +560,7 @@ def checkSatAssuming (args : Array SmtTerm) : TranslateEnvT Result := do
   let env ← get
   let some p := env.smtEnv.smtProc | return .Undetermined
   submitCommand (.checkSatAssuming args)
-  getSatResult p.stdout
+  getSatResult p
 
 
 /-- Try to retrieve the proof artifact when a `unsat` result is obtained and dump result to stdout.
@@ -626,6 +643,13 @@ def setMacroFinder (b : Bool) : TranslateEnvT Unit :=
 def setRelevancy (n : Nat) : TranslateEnvT Unit :=
   trySubmitCommand! (.setOption ":smt.relevancy" (toString n))
 
+/-- Set Smt `timeout` when option is specified. -/
+def setTimeout : TranslateEnvT Unit := do
+  let sOpts := (← get).optEnv.options.solverOptions
+  let some n := sOpts.timeout | return ()
+  -- need to convert timeout to milliseconds
+  trySubmitCommand! (.setOption ":timeout" (toString (n * 1000)))
+
 /-- Set the default Smt options, i.e.:
      - (set-option :print-success true)
      - (set-option :produce-models true)
@@ -645,6 +669,7 @@ def setDefaultSmtOptions (sOpts : BlasterOptions) : TranslateEnvT Unit := do
  setAutoConfig false
  setRandomSeed sOpts.randomSeed
  setMacroFinder true
+ setTimeout
 
 /-- Perform the following actions:
      - when option `only-smt-lib` is set to `false`:
@@ -657,7 +682,7 @@ def setBlasterProcess : TranslateEnvT Unit := do
   let env ← get
   let sOpts := env.optEnv.options.solverOptions
   unless sOpts.onlySmtLib do
-    let proc ← createBlasterProcess sOpts
+    let proc ← createBlasterProcess
     set { env with smtEnv.smtProc := proc }
   setDefaultSmtOptions sOpts
 

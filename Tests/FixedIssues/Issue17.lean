@@ -31,7 +31,10 @@ def sizeOfNatGroup (x : NatGroup) : Nat :=
 
 #blaster [∃ (x : NatGroup), sizeOfNatGroup x > 200]
 
--- remove solver options when supporting proof by induction
+#blaster [∃ (x : NatGroup), sizeOfNatGroup x < 20]
+
+-- Expecting a counterexample
+-- Remove solver options when supporting proof by induction
 #blaster (timeout: 2) (solve-result: 2) [∃ (x : NatGroup), sizeOfNatGroup x < 10]
 
 

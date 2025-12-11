@@ -156,10 +156,9 @@ partial def kIndStrategy (smInst : Expr) : TranslateEnvT Unit := do
 syntax (name := kind) "#kind" (solveOption)* solveTerm : command
 
 def kIndCommand (sOpts: BlasterOptions) (stx : Syntax) : TermElabM Unit :=
- withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0 }) $ do
-   elabTermAndSynthesize stx none >>= fun e => do
-     let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
-     discard $ kIndStrategy e|>.run env
+  elabTermAndSynthesize stx none >>= fun e => do
+    let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
+    discard $ kIndStrategy e|>.run env
 
 @[command_elab kind]
 def kIndImp : CommandElab := commandInvoker kIndCommand

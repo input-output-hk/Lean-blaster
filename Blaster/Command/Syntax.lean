@@ -1,7 +1,6 @@
 import Lean
 import Blaster.Command.Options
 import Blaster.Smt.Translate
-
 open Lean Elab Command Term Meta Blaster.Options
 
 namespace Blaster.Syntax
@@ -136,11 +135,29 @@ def parseTerm : TSyntax `Blaster.solveTerm -> m Syntax
   |`(solveTerm| [ $th ]) => pure th.raw
   | _ => throwUnsupportedSyntax
 
+
 def commandInvoker (f : BlasterOptions → Syntax → TermElabM Unit) : CommandElab := fun stx => do
+  let some cancelTk := (← read).cancelTk? | unreachable!
   let opts := stx[1].getArgs
   let sOpts ← parseSolveOptions opts default  -- Process all options dynamically
   let tr ← parseTerm ⟨stx[2]⟩
-  withoutModifyingEnv $ runTermElabM fun _ => f sOpts tr
+  let act ← wrapAsyncAsSnapshot (cancelTk? := cancelTk) fun _ =>
+    withoutModifyingEnv $ runTermElabM fun _ =>
+    -- NOTE: We need to set maxRecDepth to 0 as the term elaborator function is triggering
+    -- "maximum recursion depth has been reached".
+    -- This only happens when the #solve command is invoked on some complex term.
+    -- NOTE: maxHeartbeats is set to 0 to avoid all Lean4 codebase functions that depends on whnf
+    -- to trigger the maxHeartbeats reached error. Indeed, Lean4 badly handles the number of heat beats.
+    -- Heart beats are only incremented but never decremented. It should be decremented when
+    -- memory allocation is freed.
+    -- The direct use of whnf will soon be removed at the preprocessing phase.
+    -- However, since we rely on functions like isProp, inferType and withLocalDecl, setting maxHearbeats
+    -- to zero will still be required. Unless, we have a new implementation for these functions.
+      withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0, maxRecDepth := 0 }) $ do
+        f sOpts tr
+  let task ← BaseIO.asTask (prio := Task.Priority.dedicated) (act ())
+  logSnapshotTask { stx? := some stx, task, cancelTk? := cancelTk }
+
 
 /-! ### Implementation of solve command -/
 @[command_elab solve]

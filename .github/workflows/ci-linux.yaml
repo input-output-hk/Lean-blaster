@@ -62,7 +62,7 @@ jobs:
           path: ./Blaster/build.log
 
       - name: Execute and Validate Tests
-        run: ./scripts/check_lean_project_compilation.sh Tests
+        run: LEAN_NUM_THREADS=5 ./scripts/check_lean_project_compilation.sh Tests
 
       - name: Upload Tests log
         if: failure()
