@@ -99,10 +99,9 @@ partial def bmcStrategy (smInst : Expr) : TranslateEnvT Unit := do
 syntax (name := bmc) "#bmc" (solveOption)* solveTerm : command
 
 def bmcCommand (sOpts: BlasterOptions) (stx : Syntax) : TermElabM Unit :=
-  withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0 }) $ do
-    elabTermAndSynthesize stx none >>= fun e => do
-      let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
-      discard $ bmcStrategy e|>.run env
+   elabTermAndSynthesize stx none >>= fun e => do
+     let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
+     discard $ bmcStrategy e|>.run env
 
 @[command_elab bmc]
 def bmcImp : CommandElab := commandInvoker bmcCommand

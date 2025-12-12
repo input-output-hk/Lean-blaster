@@ -38,7 +38,7 @@ namespace Test.SmtNatMod
 
 #blaster [∀ (x y : Nat), (x * y) % x = 0]
 
-#blaster [∀ (x y z : Nat), (z * x) % (z * y) = z * (x % y)]
+#blaster (random-seed: 3) [∀ (x y z : Nat), (z * x) % (z * y) = z * (x % y)]
 
 
 /-! # Test cases to ensure that counterexample are properly detected -/
