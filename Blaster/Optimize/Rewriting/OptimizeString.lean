@@ -21,7 +21,7 @@ def normStringValue (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
   if args.size != 1 then throwEnvError "normStringValue: only one argument expected"
   let op := args[0]!
   let some elms ← getListChars? op | return (mkApp f op)
-  return (mkStrLit (String.mk elms.toList))
+  return (mkStrLit (String.ofList elms.toList))
 
   where
     getListChars? (e : Expr) : MetaM (Option (Array Char)) := do
