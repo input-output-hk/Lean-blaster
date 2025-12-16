@@ -63,7 +63,8 @@ def opaqueFuns : NameHashSet :=
     -- String operators
     ``String.append,
     ``String.replace,
-    ``String.length
+    ``String.length,
+    ``String.take
   ]
 
 /-- list of types for which:

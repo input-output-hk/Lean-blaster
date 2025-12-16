@@ -128,6 +128,30 @@ def optimizeStrReplace (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
       Expr.lit (Literal.strVal s3) => mkStrLitExpr (String.replace s1 s2 s3)
     | _, _, _  => return none
 
+/-- Apply the following simplification/normalization rules on `String.take` :
+     - String.take S n ==> "String.take" S n
+   Assume that f = Expr.const ``String.take.
+   An error is triggered when args.size ≠ 2 (i.e., only fully applied `String.take` expected at this stage)
+-/
+def optimizeStrTake (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
+ if args.size != 2 then throwEnvError "optimizeStrTake: exactly two arguments expected"
+ -- args[0] string operand
+ -- args[1] nat operand (number of characters to take)
+ let op1 := args[0]!
+ let op2 := args[1]!
+ if let some r ← cstStrTake? op1 op2 then return r
+ return (mkApp2 f op1 op2)
+
+ where
+   /-- Given `op1` and `op2` corresponding to the operands for `String.take`
+       return `some ("String.take" S n)` when `op1 := S` (a string literal) and `op2 := n` (a nat value).
+       Otherwise `none`.
+   -/
+   cstStrTake? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :=
+    match op1, isNatValue? op2 with
+    | Expr.lit (Literal.strVal s), some n => mkStrLitExpr (s.take n)
+    | _, _ => return none
+
 
 /-- Apply simplification/normalization rules on `String` operators. -/
 def optimizeString? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
@@ -137,6 +161,7 @@ def optimizeString? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr)
  | ``String.append => optimizeStrAppend f args
  | ``String.length => optimizeStrLength f args
  | ``String.replace => optimizeStrReplace f args
+ | ``String.take => optimizeStrTake f args
  | _ => return none
 
 end Blaster.Optimize
