@@ -29,3 +29,5 @@ import Tests.FixedIssues.Issue28
 import Tests.FixedIssues.Issue29
 import Tests.FixedIssues.Issue30
 
+import Tests.FixedIssues.Issue32
+
