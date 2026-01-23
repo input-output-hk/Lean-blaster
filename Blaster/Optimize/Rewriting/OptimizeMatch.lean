@@ -187,7 +187,7 @@ def reduceMatch? (f : Expr) (args : Array Expr) (mInfo : MatchInfo) : TranslateE
 
 -/
 def constMatchPropagation?
-  (cm : Expr) (cargs : Array Expr) (mInfo : MatchInfo) : TranslateEnvT (Option Expr) := withLocalContext $ do
+  (cm : Expr) (cargs : Array Expr) (mInfo : MatchInfo) : TranslateEnvT (Option Expr) := do
   if !(← allDiscrsAreCstMatch mInfo.getFirstDiscrPos mInfo.getFirstAltPos)
   then return none
   else loop mInfo.getFirstDiscrPos mInfo.getFirstAltPos

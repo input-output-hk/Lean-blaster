@@ -15,9 +15,11 @@ namespace Blaster.Optimize
 @[implemented_by exprEqUnsafe]
 def exprEq (op1 : Expr) (op2 : Expr) : Bool := op1 == op2
 
+
 @[always_inline, inline]
 def instantiate1' (e : Expr) (subst : Expr) : Expr :=
   if e.hasLooseBVars then e.instantiate1 subst else e
+
 
 /-- Return `true` if e contains free / bounded variables. -/
 @[always_inline, inline]
@@ -31,34 +33,52 @@ structure stkEntry where
 /-- Return true iff `e` contains a free variable `v`. -/
 @[always_inline, inline] unsafe def containsFVarImp (e : Expr) (v : FVarId) : Bool :=
   let rec visit (e : Expr) (stk : Array stkEntry) (cache : Std.HashSet Expr) :=
-    let skipToNext (xs : Array stkEntry) : Bool :=
+    let skipToNext (xs : Array stkEntry) (cache : Std.HashSet Expr) : Bool :=
       if xs.usize > 0 then
-        let res := xs.uget (xs.usize - 1) lcProof
-        visit res.next xs.pop (cache.insert res.prev)
+        let topIdx := xs.usize - 1
+        let res := xs.uget topIdx lcProof
+        let xs := xs.pop
+        let cache := cache.insert res.prev
+        visit res.next xs cache
       else false
-    let continuity (xs : Array stkEntry) : Bool :=
+    let continuity (xs : Array stkEntry) (cache : Std.HashSet Expr) : Bool :=
       if xs.usize > 0 then
-        let res := xs.uget (xs.usize - 1) lcProof
-        if ptrEq res.prev res.next
-        then skipToNext xs.pop
-        else visit res.next xs.pop (cache.insert res.prev)
+        let topIdx := xs.usize - 1
+        let res := xs.uget topIdx lcProof
+        let xs := xs.pop
+        if ptrEq res.prev res.next then
+          skipToNext xs cache
+        else
+          let cache := cache.insert res.prev
+          visit res.next xs cache
       else false
-    if cache.contains e then continuity stk
+    if cache.contains e then
+      continuity stk cache
     else
-      if !e.hasFVar then continuity stk
+      if !e.hasFVar then
+        continuity stk cache
       else
-       match e with
-       | Expr.forallE _ d b _
-       | Expr.lam _ d b _
-       | Expr.app d b => visit d ((stk.push ⟨d, b⟩).push ⟨e, e⟩) cache
-       | Expr.letE _ t v b _ =>
-           visit t (((stk.push ⟨v, b⟩).push ⟨t, v⟩).push ⟨e, e⟩) cache
-       | Expr.mdata _ n
-       | Expr.proj _ _ n => visit n (stk.push ⟨e, e⟩) cache
-       | Expr.fvar fvarId => if fvarId == v then true
-                             else continuity stk
-       | _  => continuity stk
-  visit e (Array.emptyWithCapacity e.approxDepth.toNat) Std.HashSet.emptyWithCapacity
+        match e with
+        | Expr.forallE _ d b _
+        | Expr.lam _ d b _
+        | Expr.app d b =>
+            let stk := stk.push ⟨d, b⟩
+            let stk := stk.push ⟨e, e⟩
+            visit d stk cache
+        | Expr.letE _ t v b _ =>
+            let stk := stk.push ⟨v, b⟩
+            let stk := stk.push ⟨t, v⟩
+            let stk := stk.push ⟨e, e⟩
+            visit t stk cache
+        | Expr.mdata _ n
+        | Expr.proj _ _ n =>
+            let stk := stk.push ⟨e, e⟩
+            visit n stk cache
+        | Expr.fvar fvarId =>
+            if fvarId == v then true
+            else continuity stk cache
+        | _ => continuity stk cache
+  visit e (Array.emptyWithCapacity e.approxDepth.toNat) (Std.HashSet.emptyWithCapacity)
 
 @[implemented_by containsFVarImp]
 def containsFVar (e : Expr) (v : FVarId) : Bool := e.containsFVar v
@@ -501,17 +521,18 @@ partial def betaForAll (e : Expr) (args : Array Expr) : Expr :=
     else e
   visit 0 e
 
-/-- Given `e` of the form `λ (a₁ : A₁) ... (aₙ : Aₙ) => B[a₁, ..., aₙ]`
-    and `p₁ : A₁, ... pₘ : Aₙ`, return `B[p₁, ..., pₘ]`.
--/
-partial def betaLambda (e : Expr) (args : Array Expr) : Expr :=
-  let rec visit (i : Nat) (e : Expr) : Expr :=
-    if h : i < args.size then
-       match e with
-       | Expr.lam _ _ b _ => visit (i + 1) (instantiate1' b args[i])
-       | _ => if i < args.size then mkAppN e (args.extract i args.size) else e
-    else e
-  visit 0 e
+@[always_inline, inline] def betaLambda (e : Expr) (args : Array Expr) : Expr :=
+  let finish (e : Expr) (i : Nat) :=
+    if !e.hasLooseBVars then e
+    else e.instantiateRevRange 0 i args
+  let rec visit (e : Expr) (i : Nat) :=
+    if i < args.size then
+      match e with
+      | .lam _ _ b _ => visit b (i + 1)
+      | _ => mkAppN (finish e i) (args.extract i args.size)
+    else finish e i
+  if args.isEmpty then e
+  else visit e 0
 
 /-- `(fun x => e) a` ==> `e[x/a]`. -/
 def headBeta' (e : Expr) : Expr :=

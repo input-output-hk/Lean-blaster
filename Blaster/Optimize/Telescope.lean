@@ -57,6 +57,7 @@ structure TelescopeEnv where
 
 abbrev TelescopeEnvT := StateRefT TelescopeEnv TranslateEnvT
 
+@[always_inline, inline]
 private def mkDecl (fvar : Expr) (userName : Name) (type : Expr) (bi : BinderInfo := BinderInfo.default) (kind : LocalDeclKind := .default) : TelescopeEnvT Unit := do
   let optClass ← isClassConstraintExpr? type
   modify (fun env =>
@@ -75,25 +76,31 @@ private def mkDecl (fvar : Expr) (userName : Name) (type : Expr) (bi : BinderInf
                    localInsts := localInsts'
                    fvars := env.fvars.push fvar
             })
-
-private partial def forallTelescopeAuxAux
+@[always_inline, inline]
+private def forallTelescopeAuxAux
     (maxFVars? : Option Nat)
     (type : Expr)
     (k : Array Expr → Expr → TranslateEnvT α) : TranslateEnvT α := do
   let rec process (type : Expr) : TelescopeEnvT Expr := do
     match type with
     | .forallE n t b bi =>
-      if fvarsSizeLtMaxFVars (← get).fvars maxFVars? then
-        let fvarId ← mkFreshFVarId
-        let fvar  := mkFVar fvarId
-        mkDecl fvar n t bi
-        process (instantiate1' b fvar)
-      else return type
-    | _ => return type
+       let fvars := (← get).fvars
+       if fvarsSizeLtMaxFVars (← get).fvars maxFVars? then
+         let fvarId ← mkFreshFVarId
+         let fvar  := mkFVar fvarId
+         let t := t.instantiateRevRange 0 fvars.size fvars
+         mkDecl fvar n t bi
+         process b
+       else return type.instantiateRevRange 0 fvars.size fvars
+    | _ =>
+      let fvars := (← get).fvars
+      return type.instantiateRevRange 0 fvars.size fvars
+
   let (body, env) ← process type|>.run {lctx := ← getLCtx, localInsts := ← getLocalInstances, fvars := #[]}
   withLCtx env.lctx env.localInsts do
     k env.fvars body
 
+@[always_inline, inline]
 private partial def forallTelescopeAux
   (type : Expr) (maxFVars? : Option Nat) (k : Array Expr → Expr → TranslateEnvT α) : TranslateEnvT α := do
   match maxFVars? with
@@ -121,7 +128,8 @@ def forallTelescope (type : Expr) (k : Array Expr → Expr → n α) : n α :=
 def forallBoundedTelescope (type : Expr) (maxFVars : Nat) (k : Array Expr → Expr → n α) : n α :=
   map2TranslateEnvT (fun k => forallTelescopeAux type (some maxFVars) k) k
 
-private partial def lambdaTelescopeImp
+@[always_inline, inline]
+private def lambdaTelescopeImp
   (e : Expr) (maxFVars? : Option Nat) (k : Array Expr → Expr → TranslateEnvT α) : TranslateEnvT α := do
   let (body, env) ← process e |>.run {lctx := ← getLCtx, localInsts := ← getLocalInstances, fvars := #[]}
   withLCtx env.lctx env.localInsts do
@@ -130,13 +138,17 @@ where
   process (e : Expr) : TelescopeEnvT Expr := do
     match e with
     | .lam n t b bi =>
-       if fvarsSizeLtMaxFVars (← get).fvars maxFVars? then
+       let fvars := (← get).fvars
+       if fvarsSizeLtMaxFVars fvars maxFVars? then
          let fvarId ← mkFreshFVarId
          let fvar := mkFVar fvarId
+         let t := t.instantiateRevRange 0 fvars.size fvars
          mkDecl fvar n t bi
-         process (instantiate1' b fvar)
-       else return e
-    | _ => return e
+         process b
+       else return e.instantiateRevRange 0 fvars.size fvars
+    | _ =>
+      let fvars := (← get).fvars
+      return e.instantiateRevRange 0 fvars.size fvars
 
 /--
   Given `e` of the form `fun ..xs => A`, execute `k xs A`.
