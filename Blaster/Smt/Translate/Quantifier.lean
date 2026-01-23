@@ -896,8 +896,8 @@ where
        for d in decls do generatePredicates d.1 l d.2 args (mutualRec := true)
      else
        -- define predicate qualifier for single inductive datatype
-       let decl ← generateIndInstDecl t args none typeTranslator (declarePredicate := false)
-       generatePredicates indName l decl args
+       let decl ← generateIndInstDecl t args none typeTranslator (declarePredicate := indVal.isRec)
+       generatePredicates indName l decl args (mutualRec := indVal.isRec)
 
   generatePredicates
     (indName : Name) (us : List Level) (decl : IndTypeDeclaration)
@@ -937,7 +937,10 @@ where
 
   getPredicateQualifierName (t : Expr) (currDecl : IndTypeDeclaration) : TranslateEnvT SmtSymbol := do
     match (← getPredicateDeclaration t) with
-    | some decl => return decl.instName
+    | some decl =>
+        if currDecl.instName == decl.instName
+        then return appendSymbol decl.instName "LRec"
+        else return decl.instName
     | none =>
         if t.isForall then -- function ctor parameter
           withInstantiatedImplicitArgs t fun t' => do
