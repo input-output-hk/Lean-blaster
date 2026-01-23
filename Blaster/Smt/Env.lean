@@ -309,13 +309,13 @@ def definePredQualifier (s : SmtSymbol) (t : SortExpr) (assertFlag : Option Bool
 
 
 /-- Perform the following actions:
-     - Declare smt universal sort `(declare-sort @@Type 0)`
-     - Declare smt predicate `(declare-fun @isType ((@@Type)) Bool)` with `true` assertion
+     - Declare smt universal sort `(declare-sort typeSym 0)`
+     - Declare smt predicate `(declare-fun decl.instName ((decl.instSort)) Bool)` with `true` assertion
     Assume `isTypeSym := @isType`
 -/
-def defineTypeSort (isTypeSym : SmtSymbol) : TranslateEnvT Unit := do
-  declareSort typeSymbol 0
-  definePredQualifier isTypeSym typeSort (some true)
+def defineTypeSort (typeSym: SmtSymbol) (decl: IndTypeDeclaration) : TranslateEnvT Unit := do
+  declareSort typeSym 0
+  definePredQualifier decl.instName decl.instSort (some true)
 
 
 /-- Perform the following actions:

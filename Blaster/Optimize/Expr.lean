@@ -91,6 +91,11 @@ def fVarInExpr (v : FVarId) (e : Expr) : Bool :=
  else false
 
 
+/-- Return `true` only when the given expression is a `.sort u` such that `u ≠ .zero`. -/
+def isTypeUniverse : Expr → Bool
+| Expr.sort u => u != .zero
+| _ => false
+
 /-- If the `e` is a sequence of lambda `fun x₁ => fun x₂ => ... fun xₙ => b`,
     return `b`. Otherwise return `e`.
 -/

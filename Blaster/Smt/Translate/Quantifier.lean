@@ -68,7 +68,7 @@ def nameToSmtSymbol (n : Name) : SmtSymbol :=
      - return smt symbol `"@" ++ v.getUserName ++ v.name` when `unique` is set to `true`
      - return smt symbol `"@" ++ v.getUserName` otherwise.
 -/
-def sortNameToSmtSymbol (v : FVarId) (unique := true) : TranslateEnvT SmtSymbol := do
+def typeParamNameToSmtSymbol (v : FVarId) (unique := true) : TranslateEnvT SmtSymbol := do
   if unique
   then return mkNormalSymbol s!"@{← v.getUserName}{v.name}"
   else return mkNormalSymbol s!"@{← v.getUserName}"
@@ -147,34 +147,24 @@ def declareArrowTypeSort (nbArity : Nat) : TranslateEnvT SmtSymbol := do
       declareSort s nbArity
       return s
 
-/-- Define smt universal sort @@Type and its corresponding predicate qualified
-    whenever flag `typeUniverse` is not set.
-    Do nothing otherwise.
-    Assume `isTypeSym := @isType`
--/
-def declareTypeSort (isTypeSym : SmtSymbol) : TranslateEnvT Unit := do
- unless ((← get).smtEnv.options.typeUniverse) do
-  defineTypeSort isTypeSym
-  modify (fun env => { env with smtEnv.options.typeUniverse := true })
-
 /-- Update sort cache with `v`. -/
 def updateSortCache (v : FVarId) (s : SmtSymbol) : TranslateEnvT Unit := do
-  modify (fun env => { env with smtEnv.sortCache := env.smtEnv.sortCache.insert v s})
+  modify (fun env => { env with smtEnv.typeParamCache := env.smtEnv.typeParamCache.insert v s})
 
 
-/-- Return `vstrₙ` when entry `v := vstrₙ` exists in `sortCache`,
+/-- Return `vstrₙ` when entry `v := vstrₙ` exists in `typeParamCache`,
     otherwise, perform the following:
       - `vstr := "@" ++ v.getUserName ++ v.name`.
       - add `define-sort "vstr" () @@Type` to the Smt context
-      - add entry `v := vstr` to `sortCache`
+      - add entry `v := vstr` to `typeParamCache`
       - return vstr
 -/
-def defineSortAndCache (v : FVarId) : TranslateEnvT SmtSymbol := do
+def defineTypeParamAndCache (v : FVarId) (decl : IndTypeDeclaration): TranslateEnvT SmtSymbol := do
   let env ← get
-  match env.smtEnv.sortCache.get? v with
+  match env.smtEnv.typeParamCache.get? v with
   | none =>
-      let s ← sortNameToSmtSymbol v
-      defineSort s none typeSort
+      let s ← typeParamNameToSmtSymbol v
+      defineSort s none decl.instSort
       updateSortCache v s
       return s
   | some s => return s
@@ -231,7 +221,7 @@ private partial def updateTopLevelVars (step : Nat) (vars : TopLevelVars) (s : S
 
 /-- Perform the following:
       - add `v` to `quantifierFvars` cache
-      - add `v` to `topLevelVars` only when topLevel is set to `true` and `¬ isType (← inferTypeEnv (mkFVar v))`.
+      - add `v` to `topLevelVars` only when topLevel is set to `true` and `¬ isTypeUniverse (← inferTypeEnv (mkFVar v))`.
 -/
 def updateQuantifiedFVarsCache (v : FVarId) (topLevel : Bool) : TranslateEnvT Unit := do
   let s ← fvarIdToSmtSymbol v
@@ -241,7 +231,7 @@ def updateQuantifiedFVarsCache (v : FVarId) (topLevel : Bool) : TranslateEnvT Un
   modify
     (fun env =>
       let updatedVars := env.smtEnv.quantifiedFVars.insert v topLevel
-      if topLevel && !t.isType
+      if topLevel && !(isTypeUniverse t)
       then
         { env with
               smtEnv.quantifiedFVars := updatedVars,
@@ -488,7 +478,7 @@ def createPredQualifierApp (smtSym : SmtSymbol) (t : Expr) : TranslateEnvT SmtTe
          - return `{@is{instName}, st, applyInstName}`
       - Otherwise:
          - let n ← mkFreshId
-         - instName ← (Fun ++ n) (i.e., generate a unique name for function instance)
+         - let instName := Fun ++ n (i.e., generate a unique name for function instance)
          - add entry `t := {@is{instName}, st, applyInstName := some @apply{n}}` to `indTypeInstCache`
          - declare smt predicate `(declare-fun @is{instName} ((instSort)) Bool)`
          - declare apply function `(declare-fun @apply{n} (st sα₁ ... sαₙ₋₁) sαₙ)`
@@ -603,31 +593,46 @@ def generateFunInstDecl (t : Expr) (st : SortExpr) : TranslateEnvT Unit :=
   discard $ generateFunInstDeclAux t st
 
 
-/-- Given `t := Expr.sort _` perform the following actions only when
-    no entry for `t` exists in `indTypeInstCache`:
-     - When `t := Expr.sort .zero`
-        - add entry `t := {@isProp, propSort} to `indTypeInstCache`
-        - define smt sort `(define-sort Prop () Bool)`
-        - declare smt function `(declare-fun @isProp ((Prop)) Bool)` with `true` assertion
-
-     - When `isType t`
-         - add entry `t := {@isType, typeSort} to `indTypeInstCache`
-         - Define smt univseral sort @@Type when flag `typeUniverse is not set
-           (see function `declareTypeSort`)
+/-- Given `t := Expr.sort _` perform the following actions:
+     - When `t := decl ∈ IndTypeDeclaration`
+         - return `decl`
+     - Otherwise:
+         - When `t := Expr.sort .zero`
+            - let decl := {@isProp, propSort, none}
+            - add entry `t := decl to `indTypeInstCache`
+            - define smt sort `(define-sort Prop () Bool)`
+            - declare smt predicate `(declare-fun @isProp ((Prop)) Bool)` with `true` assertion
+            - return `decl`
+         - Otherwise
+            - let n ← mkFreshId
+            - let typeName := "@Type{n}"
+            - let typeSort := .SymbolSort typeName
+            - let decl := {@isType{n}, typeSort, none}
+            - add entry `t := decl to `indTypeInstCache`
+            - declare smt sort `(declare-sort typeName 0)`
+            - declare smt predicate `(declare-fun @isType{n} ((typeSort)) Bool)` with `true` assertion
+            - return `decl`
 
     An error is triggered when t is not the expected sort type.
 -/
-def generateSortInstDecl (t : Expr) : TranslateEnvT Unit := do
+def generateSortInstDecl (t : Expr) : TranslateEnvT IndTypeDeclaration := do
  let Expr.sort u := t | throwEnvError "generateSortInstDecl: sort type expected but got {reprStr t}"
- unless ((← get).smtEnv.indTypeInstCache.get? t).isSome do
-   match u with
-   | .zero =>
-        let decl ← updateIndInstCacheAux t propSymbol propSort (isReservedSymbol := true)
-        definePropSort decl.instName
-   | _ =>
-       if !t.isType then throwEnvError "generateSortInstDecl: sort type expected but got {reprStr t}"
-       let decl ← updateIndInstCacheAux t (mkReservedSymbol "Type") typeSort (isReservedSymbol := true)
-       declareTypeSort decl.instName
+  match (← get).smtEnv.indTypeInstCache.get? t with
+   | some decl => return decl
+   | none =>
+      match u with
+      | .zero =>
+          let decl ← updateIndInstCacheAux t propSymbol propSort (isReservedSymbol := true)
+          definePropSort decl.instName
+          return decl
+      | _ =>
+        let n ← mkFreshId
+        let typeName := mkReservedSymbol s!"@Type{n}"
+        let instName := mkReservedSymbol s!"Type{n}"
+        let typeSort := .SymbolSort typeName
+        let decl ← updateIndInstCacheAux t instName typeSort (isReservedSymbol := true)
+        defineTypeSort typeName decl
+        return decl
 
 /-- TODO: UPDATE SPEC -/
 def getRecRuleFor (recVal : RecursorVal) (c : Name) : TranslateEnvT RecursorRule :=
@@ -801,8 +806,8 @@ def translateInductiveType
             -- resolve type abbreviation (useful when handling instance parameters)
             -- TODO: IMP need to apply optimizer on argument to instance parameters
             let argType' ← removeTypeAbbrev decl.type
-            if argType'.isType then
-              polyParams := polyParams.push (← sortNameToSmtSymbol v false)
+            if isTypeUniverse argType' then
+              polyParams := polyParams.push (← typeParamNameToSmtSymbol v false)
             else throwEnvError "Inductive datatype with instance parameters not supported: {reprStr indVal.name}"
         return polyParams
    if params.isEmpty then return none else return (some params)
@@ -1130,26 +1135,25 @@ partial def translateTypeAux
 
    | Expr.fvar v =>
       let t ← inferTypeEnv e
-      if !t.isType then throwEnvError "translateType: sort type expected but got {reprStr t}"
-      -- Need to call defineSortAndCache to handle case when sort is defined a top level
-      -- `defineSortAndCache` is called only when flags `inTypeDefinition` and `genericParamFun`
+      if !(isTypeUniverse t) then throwEnvError "translateType: sort type expected but got {reprStr t}"
+      -- Need to call defineTypeParamAndCache to handle case when sort is defined a top level
+      -- `defineTypeParamAndCache` is called only when flags `inTypeDefinition` and `genericParamFun`
       -- are set to `false`
       -- NOTE: `inTypeDefinition` is set to `true` only when translating inductive datatype`,
       -- while `genericParamFun` is set to `true` when generating predicate qualifiers.
       if !topts.inTypeDefinition && !topts.genericParamFun then
-        generateSortInstDecl t
-        let smtSym ← defineSortAndCache v
+        let smtSym ← defineTypeParamAndCache v (← generateSortInstDecl t)
         return .SymbolSort smtSym
       else if topts.genericParamFun then
-        generateSortInstDecl t
-        return typeSort
+        let decl ← generateSortInstDecl t
+        return decl.instSort
       else -- case when inTypeDefinition is set to true
         -- check if sort has been defined at top level (see note in `translateArrowType`)
-        match (← get).smtEnv.sortCache.get? v with
+        match (← get).smtEnv.typeParamCache.get? v with
         | some s => -- case when sort defined at top level
            return .SymbolSort s
         | _ => -- case when sort is a param of an inductive data type.
-          return .SymbolSort (← sortNameToSmtSymbol v false)
+          return .SymbolSort (← typeParamNameToSmtSymbol v false)
 
    | Expr.forallE .. =>
        let st ← translateArrowType t topts
@@ -1162,8 +1166,8 @@ partial def translateTypeAux
        return st
 
    | Expr.sort .zero =>
-        generateSortInstDecl e
-        return boolSort -- prop sort represented as bool at smt level
+        let decl ← generateSortInstDecl e
+        return decl.instSort
 
    | Expr.sort .. =>
        throwEnvError "translateType: unexpected sort type {reprStr e}"
@@ -1214,7 +1218,7 @@ def initialQuantifierEnv (topLevel : Bool) : QuantifierEnv :=
 /-- Translate a quantifier `(n : t)` by performing the following actions:
      - Add `n` to the quantified fvars cache.
      - When isType t, e.g., (α : Type or α : Sort u)
-       - Call `defineSortAndCache n` to declare an Smt sort and return quantified array `qts` unchanged
+       - Call `defineTypeParamAndCache n` to declare an Smt sort and return quantified array `qts` unchanged
      - When ¬ isType t:
         - translate n to an Smt symbol `s`
         - translate t to a Smt type `st`
@@ -1236,9 +1240,8 @@ def translateQuantifier
  -- update quantified fvars cache
  updateQuantifiedFVarsCache v (← get).topLevel
  -- define sort if t is a sort type
- if t.isType then
-   generateSortInstDecl t
-   discard $ defineSortAndCache v
+ if isTypeUniverse t then
+   discard $ defineTypeParamAndCache v (← generateSortInstDecl t)
  else
    -- No more required to resolve type at this stage.
    let smtType ← translateTypeAux termTranslator t
@@ -1313,7 +1316,7 @@ def translateFreeVar
    -- top level declaration case
    updateQuantifiedFVarsCache v true
    let t ← inferTypeEnv f
-   if t.isType then throwEnvError "translateFreeVar: sort type not expected but got {reprStr t}"
+   if isTypeUniverse t then throwEnvError "translateFreeVar: sort type not expected but got {reprStr t}"
    let t' ← removeTypeAbbrev t
    let smtType ← translateTypeAux termTranslator t'
    let smtSym ← fvarIdToSmtSymbol v
