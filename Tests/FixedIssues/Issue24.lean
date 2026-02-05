@@ -10,8 +10,7 @@ namespace Tests.Issue24
 
 
 axiom hash : String → String
-axiom hash_collision_prop1 : ∀ (s1 s2 : String), hash s1 = hash s2 → s1 = s2
-axiom hash_collision_prop2 : ∀ (s1 s2 : String), s1 = s2 → hash s1 = hash s2
+axiom hash_collision_prop : ∀ (s1 s2 : String), hash s1 = hash s2 → s1 = s2
 axiom hash_size : ∀ (s : String), (hash s).length = 256
 
 -- check if we have a counterexample of length 256

@@ -1084,7 +1084,8 @@ def translateLambda
 
  where
    retrieveLocalFVars (b : Expr) : TranslateEnvT (Array Expr) := do
-     let fvars ← getFVarsInExpr b
+     -- Need to ensure that fvars are unique
+     let (fvars, _) ← updateGenericArgs b #[] Std.HashSet.emptyWithCapacity
      let mut lvars := #[]
      for h : i in [:fvars.size] do
        let p := fvars[i]
