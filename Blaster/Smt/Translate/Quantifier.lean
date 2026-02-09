@@ -17,6 +17,7 @@ partial def removeTypeAbbrev (te : Expr) : TranslateEnvT Expr := do
              visit b
                (fun b' => k (Expr.updateForall! e bi t' b'))
           )
+    | Expr.mdata _ d => visit d k
     | _ => k te
   visit te (fun e => pure e)
 
@@ -349,19 +350,21 @@ def removeClassConstraintsInFunType (t : Expr) : TranslateEnvT Expr :=
          - instSort ← generateInstType n args typeTranslator
          - instApp ← getIndInst t args
          - add entry `instApp := {@is{instName}, instSort}` to `indTypeInstCache`
-         - When declarePredicate
-             - declare smt predicate `(declare-fun @is{instName} ((instSort)) Bool)`
-             - When `assertFlag := some b`
-                - add smt assertion `(assert (forall ((@x instSort)) (= b (@is{instName} @x))))`
+         - When declarePredicate:
+             - When `assertFlag := some b`:
+                 - define smt predicate `(define-fun @is{instName} ((@x instSort)) Bool b)`
+             - Otherwise:
+                 - declare smt predicate `(declare-fun @is{instName} ((instSort)) Bool)`
          - return {instName, instSort}
     - When args.size = 0:
         - instName := nameToSmtSymbol n
         - instSort ← generateInstType n args typeTranslator
         - add entry `t := {@is{instName}, instSort}` to `indTypeInstCache`
-        - When declarePredicate
-            - declare smt predicate `(declare-fun @is{instName} ((instSort)) Bool)`
-            - When `assertFlag := some b`
-               - add smt assertion `(assert (forall ((@x instSort)) (= b (@is{instName} @x))))`
+        - When declarePredicate:
+            - When `assertFlag := some b`:
+                - define smt predicate `(define-fun @is{instName} ((@x instSort)) Bool b)`
+            - Otherwise:
+                - declare smt predicate `(declare-fun @is{instName} ((instSort)) Bool)`
         - return `{instName, instSort}`
     Assumes that `t` corresponds to the name of an inductive datatype.
 -/
@@ -1028,7 +1031,7 @@ def translateNonOpaqueType
          - return `t`
      - Otherwise:
         - add entry `n := s` in `indTypeInstCache`
-        - declare smt predicate `(declare-fun @is{s} ((s)) Bool)` with `true` assertion
+        - define smt predicate `(define-fun @is{s} ((@x s)) Bool true)`
         - return `t`
 -/
 def translateSmtEquivType (n : Expr) (s : SmtSymbol) (t : SortExpr) : TranslateEnvT SortExpr := do

@@ -289,28 +289,24 @@ def fvarIdToSmtTerm (v : FVarId) : TranslateEnvT SmtTerm :=
   return smtSimpleVarId (← fvarIdToSmtSymbol v)
 
 /-- Given `s` and smt symbol `t` and smt sort and optional `assertFlag` boolean value, perform the following:
-     - declare smt predicate `(declare-fun s ((t)) Bool)`
      - When `assertFlag = some b`:
-        - assert smt formula `(assert (forall ((@x t)) (= b (s @x))))`
+        - define smt predicate `(define-fun s ((@x t)) Bool b)`
+     - Otherwise:
+        - declare smt predicate `(declare-fun s ((t)) Bool)`
    Assume that `s` is defined as `@is{xxx}`
 -/
 def definePredQualifier (s : SmtSymbol) (t : SortExpr) (assertFlag : Option Bool) : TranslateEnvT Unit := do
- declareFun s #[t] boolSort
  match assertFlag with
  | some b =>
-   let xsym := mkReservedSymbol "@x"
-   let xId := smtSimpleVarId xsym
-   let boolSmt := if b then trueSmt else falseSmt
-   let appSmt := mkSimpleSmtAppN s #[xId]
-   let forallBody := eqSmt boolSmt appSmt
-   let patterns := some #[mkPattern #[appSmt]]
-   assertTerm (mkForallTerm none #[(xsym, t)] forallBody patterns)
- | none => return ()
+      let xsym := mkReservedSymbol "@x"
+      let boolSmt := if b then trueSmt else falseSmt
+      defineFun s #[(xsym, t)] boolSort boolSmt
+ | none => declareFun s #[t] boolSort
 
 
 /-- Perform the following actions:
      - Declare smt universal sort `(declare-sort @@Type 0)`
-     - Declare smt predicate `(declare-fun @isType ((@@Type)) Bool)` with `true` assertion
+     - Define smt predicate `(define-fun @isType ((@x @@Type)) Bool true)`
     Assume `isTypeSym := @isType`
 -/
 def defineTypeSort (isTypeSym : SmtSymbol) : TranslateEnvT Unit := do
@@ -320,7 +316,7 @@ def defineTypeSort (isTypeSym : SmtSymbol) : TranslateEnvT Unit := do
 
 /-- Perform the following actions:
      - Declare Empty sort in Smt Lib
-     - Declare smt predicate `(declare-fun @isEmpty ((Empty)) Bool)` with `false` assertion
+     - Define smt predicate `(define-fun @isEmpty ((@x Empty)) Bool false)`
     Assume `isEmptySym := @isEmpty`
 -/
 def defineEmptySort (isEmptySym : SmtSymbol) : TranslateEnvT Unit := do
@@ -329,7 +325,7 @@ def defineEmptySort (isEmptySym : SmtSymbol) : TranslateEnvT Unit := do
 
 /-- Perform the following actions:
      - Declare PEmpty sort in Smt Lib
-     - Declare smt predicate `(declare-fun @isPEmpty ((PEmpty)) Bool)` with `false` assertion
+     - Define smt predicate `(define-fun @isPEmpty ((@x PEmpty)) Bool false)`
     Assume `isPEmptySym := @isPEmpty`
 -/
 def definePEmptySort (isPEmptySym : SmtSymbol) : TranslateEnvT Unit := do
@@ -339,7 +335,7 @@ def definePEmptySort (isPEmptySym : SmtSymbol) : TranslateEnvT Unit := do
 
 /-- Perform the following actions:
      - Define Prop sort in Smt Lib, which is an alias to Bool Smt Sort
-     - Declare smt predicate `(declare-fun @isProp ((Prop)) Bool)` with `true` assertion
+     - Define smt predicate `(define-fun @isProp ((@x Prop)) Bool true)`
     Assume `isPropSym := @isProp`
 -/
 def definePropSort (isPropSym : SmtSymbol) : TranslateEnvT Unit := do

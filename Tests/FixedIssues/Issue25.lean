@@ -9,8 +9,7 @@ namespace Tests.Issue25
 --             during optimization phase.
 
 axiom hash : α → String
-axiom hash_collision_prop1 : ∀ (s1 s2 : α), hash s1 = hash s2 → s1 = s2
-axiom hash_collision_prop2 : ∀ (s1 s2 : α), s1 = s2 → hash s1 = hash s2
+axiom hash_collision_prop : ∀ (s1 s2 : α), hash s1 = hash s2 → s1 = s2
 axiom hash_size : ∀ (s : α), (hash s).length = 256
 
 -- check if we have a counterexample of length 256

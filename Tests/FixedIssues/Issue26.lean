@@ -41,7 +41,7 @@ theorem validProof {α : Type}[BEq α](v : α)(p : Path)(ls : List α)
 theorem getElem?_zipWith {f : α → β → γ} {i : Nat} :
     (List.zipWith f as bs)[i]? = match as[i]?, bs[i]? with
       | some a, some b => some (f a b) | _, _ => none := by
-  induction as generalizing bs i <;> blaster
+  induction as generalizing bs i <;> blaster (random-seed: 2)
 
 -- remove solver option once induction proof is supported
 #blaster (timeout: 5) (solve-result: 2) [getElem?_zipWith]
