@@ -171,7 +171,7 @@ partial def getErrorMsg (h : IO.FS.Handle) : IO String := h.getLine
 -/
 partial def getOutputEval (h : IO.FS.Handle) : IO String := do
   let line ← h.getLine
-  if line.get! 0 != '(' then return line
+  if String.Pos.Raw.get! line 0 != '(' then return line
   getIndValue line (tallyParenthesis line 0)
 
  where
