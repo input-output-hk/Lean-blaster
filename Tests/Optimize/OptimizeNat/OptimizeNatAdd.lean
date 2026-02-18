@@ -342,4 +342,13 @@ elab "natAddReduce_2" : term => return natAddReduce_2
 -- (100 + ((180 - (x + 40)) - 150)) + (((20 - y) - 50) + 24) ===> 124
 #testOptimize [ "NatAddReduce_2" ] (100 + ((180 - (x + 40)) - 150)) + (((20 - y) - 50) + 24)  ===> natAddReduce_2
 
+/-! Test cases for rule
+      `0 = x + y ==> False (if Type (x) = Nat ∧ (nonZeroNatInHyps x ∨ nonZeroNatInHyps y))`
+-/
+
+#testOptimize [ "NotNatAddEqZero1" ] (norm-result: 1) ∀ (x y : Nat), x ≠ 0 -> 0 = x + y ===> ∀ (x : Nat), 0 = x
+#testOptimize [ "NotNatAddEqZero2" ] (norm-result: 1) ∀ (x y : Nat), y ≠ 0 -> 0 = x + y ===> ∀ (y : Nat), 0 = y
+
+#blaster (solve-result: 1) [∀ (x y : Nat), 0 = x + y -> False]
+
 end Test.OptimizeNatAdd

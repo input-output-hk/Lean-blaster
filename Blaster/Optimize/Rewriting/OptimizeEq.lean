@@ -221,6 +221,19 @@ def natEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
      if exprEq e2 op2 then if ← nonZeroNatInHyps e1 then return ← mkPropFalse
      return none
 
+/-- Given `op1 := 0` and `op2 := x + y`:
+      - return `some False` when `nonZeroNatInHyps x ∨ nonZeroNatInHyps y`
+    Otherwise `none`.
+-/
+def addNatEqZeroReduce? (op1 op2 : Expr) : TranslateEnvT (Option Expr) := do
+  let some (e1, e2) := natAdd? op2 | return none
+  match isNatValue? op1 with
+  | some 0 =>
+      if ← nonZeroNatInHyps e1 then return ← mkPropFalse
+      if ← nonZeroNatInHyps e2 then return ← mkPropFalse
+      return none
+  | _ => return none
+
 /-- Given `op1` and `op2` corresponding to the operands for `Eq`:
       - return `some False` when `op1 := N1 ∧ op2 := N2 + a ∧ N1 < N2 ∧ Type(a) = Nat`:
       - return `some N1 "-" N2 = a` when `op1 := N1 ∧ op2 := N2 + a ∧ N1 ≥ N2 ∧ Type(a) = Nat`:
@@ -279,6 +292,7 @@ def addIntEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := d
      - N2 = N1 + a ==> N2 "-" N1 = a (if Type(a) = Nat) if N2 ≥ N1) (restart)
      - N2 = N1 + a ===> N2 "-" N1 = a (if Type(a) = Int) (restart)
      - N1 + a = N2 + b ==> N1 "-" min(N1, N2) + a = N2 "-" min(N1, N2) + b (if Type(a) ∈ [Nat, Int])
+     - 0 = x + y ==> False (if Type (x) = Nat ∧ (nonZeroNatInHyps x ∨ nonZeroNatInHyps y))
      with:
        nonZeroInHyps x := nonZeroNatInHyps x If Type(x) = Nat
                        := nonZeroIntInHyps x Otherwise
@@ -290,6 +304,7 @@ def arithEq? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
   if let some r ← natEqReduce? op2 op1 then return r
   if let some r ← addNatEqReduce? op1 op2 then return r
   if let some r ← addIntEqReduce? op1 op2 then return r
+  if let some r ← addNatEqZeroReduce? op1 op2 then return r
   return none
 
 /-- Apply the following simplification/normalization rules on `Eq` :
