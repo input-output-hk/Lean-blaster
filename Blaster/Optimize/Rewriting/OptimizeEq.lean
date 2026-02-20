@@ -146,8 +146,8 @@ def intAddEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option (Expr × E
 
 /- Given `op1` and `op2` corresponding to the operands for `Eq` and `Type(op1) = Nat`,
     - When ( (op1 := x * y ∧ op2 := x * z) ∨
-             (op1 := y * x ∧ op2 := x * z) ∨
              (op1 := x * y ∧ op2 := z * x) ∨
+             (op1 := y * x ∧ op2 := x * z) ∨
              (op1 := y * x ∧ op2 := z * x) )
            ∧ nonZeroNatInHyps x
         - return `some (y, z)`
@@ -155,7 +155,7 @@ def intAddEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option (Expr × E
         - return `none`
 -/
 def natMulEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option (Expr × Expr)) := do
-  match natAdd? op1, natAdd? op2 with
+  match natMul? op1, natMul? op2 with
   | some (e1, e2), some (e3, e4) =>
      if exprEq e1 e3 then if ← nonZeroNatInHyps e1 then setRestart return (e2, e4)
      if exprEq e1 e4 then if ← nonZeroNatInHyps e1 then setRestart return (e2, e3)
@@ -167,8 +167,8 @@ def natMulEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option (Expr × E
 
 /- Given `op1` and `op2` corresponding to the operands for `Eq` and `Type(op1) = Int`,
     - When ( (op1 := x * y ∧ op2 := x * z) ∨
-             (op1 := y * x ∧ op2 := x * z) ∨
              (op1 := x * y ∧ op2 := z * x) ∨
+             (op1 := y * x ∧ op2 := x * z) ∨
              (op1 := y * x ∧ op2 := z * x) )
            ∧ nonZeroIntInHyps x
         - return `some (y, z)`
@@ -176,7 +176,7 @@ def natMulEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option (Expr × E
         - return `none`
 -/
 def intMulEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option (Expr × Expr)) := do
-  match intAdd? op1, intAdd? op2 with
+  match intMul? op1, intMul? op2 with
   | some (e1, e2), some (e3, e4) =>
      if exprEq e1 e3 then if ← nonZeroIntInHyps e1 then setRestart return (e2, e4)
      if exprEq e1 e4 then if ← nonZeroIntInHyps e1 then setRestart return (e2, e3)
