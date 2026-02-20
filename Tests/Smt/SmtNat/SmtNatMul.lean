@@ -61,4 +61,10 @@ def square (x : Nat) : Nat := x * x
 
 #blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : Nat), x = 0 → x * y > 0]
 
+-- x * y = x * z | y * x = x * z | x * y = z * x | y * x = z * x ==> y = z (if Type(x) ∈ [Nat, Int] ∧ nonZeroInHyps x]
+
+#blaster (only-optimize: 1) [∀ (x y z : Nat), x ≠ 0 → x * y = x * z → y = z]
+-- TODO: this should be optimized as well?
+#blaster (only-optimize: 1) (solve-result: 2) [∀ (x y : Nat), 2 * x = y * 2 → x = y]
+
 end Test.SmtNatMul
