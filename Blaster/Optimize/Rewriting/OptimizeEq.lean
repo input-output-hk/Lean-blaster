@@ -159,8 +159,8 @@ def natMulEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option (Expr × E
   | some (e1, e2), some (e3, e4) =>
      if exprEq e1 e3 then if ← nonZeroNatInHyps e1 then setRestart return (e2, e4)
      if exprEq e1 e4 then if ← nonZeroNatInHyps e1 then setRestart return (e2, e3)
-     if exprEq e2 e3 then if ← nonZeroNatInHyps e1 then setRestart return (e1, e4)
-     if exprEq e2 e4 then if ← nonZeroNatInHyps e1 then setRestart return (e1, e3)
+     if exprEq e2 e3 then if ← nonZeroNatInHyps e2 then setRestart return (e1, e4)
+     if exprEq e2 e4 then if ← nonZeroNatInHyps e2 then setRestart return (e1, e3)
      return none
   | _, _ => return none
 
@@ -180,8 +180,8 @@ def intMulEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option (Expr × E
   | some (e1, e2), some (e3, e4) =>
      if exprEq e1 e3 then if ← nonZeroIntInHyps e1 then setRestart return (e2, e4)
      if exprEq e1 e4 then if ← nonZeroIntInHyps e1 then setRestart return (e2, e3)
-     if exprEq e2 e3 then if ← nonZeroIntInHyps e1 then setRestart return (e1, e4)
-     if exprEq e2 e4 then if ← nonZeroIntInHyps e1 then setRestart return (e1, e3)
+     if exprEq e2 e3 then if ← nonZeroIntInHyps e2 then setRestart return (e1, e4)
+     if exprEq e2 e4 then if ← nonZeroIntInHyps e2 then setRestart return (e1, e3)
      return none
   | _, _ => return none
 
