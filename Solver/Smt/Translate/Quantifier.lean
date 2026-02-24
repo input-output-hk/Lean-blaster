@@ -1140,6 +1140,9 @@ partial def translateTypeAux
         if args.size == 1 then
           if let Expr.lit (Literal.natVal width) := args[0]! then
             return ← translateBitVecType t width
+          else
+            throwEnvError "BitVec with non-literal width is not supported (width must be a static Nat literal, e.g. `BitVec 8`): got {reprStr args[0]!}"
+        throwEnvError "BitVec type requires exactly one argument (the bit width): got {args.size} arguments in {reprStr t}"
       if let some r ← translateOpaqueType e then return r
       translateNonOpaqueType e t.getAppArgs
         (λ a b => translateTypeAux termTranslator a b)
