@@ -9,6 +9,7 @@ import Solver.Optimize.Rewriting.OptimizeInt
 import Solver.Optimize.Rewriting.OptimizeITE
 import Solver.Optimize.Rewriting.OptimizeNat
 import Solver.Optimize.Rewriting.OptimizeString
+import Solver.Optimize.Rewriting.OptimizeBitVec
 import Solver.Optimize.OptimizeStack
 
 open Lean Meta
@@ -140,6 +141,7 @@ def optimizeAppAux (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
   if let some e ← optimizeDecide? f args then return e
   if let some e ← optimizeRelational? f args then return e
   if let some e ← optimizeString? f args then return e
+  if let some e ← optimizeBitVec? f args then return e
   let appExpr := mkAppN f args
   if (← isResolvableType appExpr) then return (← resolveTypeAbbrev appExpr)
   return appExpr

@@ -91,7 +91,59 @@ def pemptySort : SortExpr := .SymbolSort pemptySymbol
 -/
 def typeSort : SortExpr := .SymbolSort typeSymbol
 
--- TODO: add other sort once supported, e.g., BitVec, Unicode (for char), Seq, etc
+/-! Smt BitVec symbol. -/
+def bitvecSymbol : SmtSymbol := mkReservedSymbol "BitVec"
+
+/-! Create an Smt BitVec Sort with static width `n`.
+    In SMT-Lib V2 this renders as `(_ BitVec n)`, which is a built-in indexed sort.
+-/
+def bitvecSort (n : Nat) : SortExpr :=
+  paramSort (mkReservedSymbol "_")
+    #[.SymbolSort bitvecSymbol, .SymbolSort (mkReservedSymbol (toString n))]
+
+-- TODO: add other sort once supported, e.g., Unicode (for char), Seq, etc
+
+/-! ## BitVec SMT symbols. -/
+
+-- Bitwise
+def bvnotSymbol  : SmtSymbol := mkReservedSymbol "bvnot"
+def bvandSymbol  : SmtSymbol := mkReservedSymbol "bvand"
+def bvorSymbol   : SmtSymbol := mkReservedSymbol "bvor"
+def bvxorSymbol  : SmtSymbol := mkReservedSymbol "bvxor"
+-- Arithmetic
+def bvnegSymbol  : SmtSymbol := mkReservedSymbol "bvneg"
+def bvaddSymbol  : SmtSymbol := mkReservedSymbol "bvadd"
+def bvsubSymbol  : SmtSymbol := mkReservedSymbol "bvsub"
+def bvmulSymbol  : SmtSymbol := mkReservedSymbol "bvmul"
+def bvudivSymbol : SmtSymbol := mkReservedSymbol "bvudiv"
+def bvuremSymbol : SmtSymbol := mkReservedSymbol "bvurem"
+def bvsdivSymbol : SmtSymbol := mkReservedSymbol "bvsdiv"
+def bvsremSymbol : SmtSymbol := mkReservedSymbol "bvsrem"
+def bvsmodSymbol : SmtSymbol := mkReservedSymbol "bvsmod"
+-- Shifts
+def bvshlSymbol  : SmtSymbol := mkReservedSymbol "bvshl"
+def bvlshrSymbol : SmtSymbol := mkReservedSymbol "bvlshr"
+def bvashrSymbol : SmtSymbol := mkReservedSymbol "bvashr"
+-- Comparisons
+def bvultSymbol  : SmtSymbol := mkReservedSymbol "bvult"
+def bvsltSymbol  : SmtSymbol := mkReservedSymbol "bvslt"
+def bvuleSymbol  : SmtSymbol := mkReservedSymbol "bvule"
+def bvsleSymbol  : SmtSymbol := mkReservedSymbol "bvsle"
+-- Structural
+def bvconcatSymbol : SmtSymbol := mkReservedSymbol "concat"
+-- Overflow (Z3 extensions)
+def bvuaddoSymbol : SmtSymbol := mkReservedSymbol "bvuaddo"
+def bvsaddoSymbol : SmtSymbol := mkReservedSymbol "bvsaddo"
+def bvumuloSymbol : SmtSymbol := mkReservedSymbol "bvumulo"
+def bvsmuloSymbol : SmtSymbol := mkReservedSymbol "bvsmulo"
+def bvnegoSymbol  : SmtSymbol := mkReservedSymbol "bvnego"
+-- define-fun wrapper symbols (for udiv/sdiv div-by-zero semantics mismatch)
+def bvUDivWrapSymbol (w : Nat) : SmtSymbol := mkReservedSymbol s!"@BitVec.udiv_{w}"
+def bvSDivWrapSymbol (w : Nat) : SmtSymbol := mkReservedSymbol s!"@BitVec.sdiv_{w}"
+
+/-- BitVec numeral literal `(_ bvV W)` in SMT-Lib V2. -/
+def bitvecLitSmt (v : Nat) (w : Nat) : SmtTerm :=
+  .SmtIdent (.SimpleIdent (mkReservedSymbol s!"(_ bv{v} {w})"))
 
 
 /-! ## Builtin Smt symbols. -/

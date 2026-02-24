@@ -423,6 +423,18 @@ def isIntValue? (e : Expr) : Option Int :=
     | none => none
   | _ => none
 
+/-- Detect a BitVec literal `BitVec.ofFin w (Fin.mk _ v _)` and return `some (width, value)`.
+    NOTE: This function is to be used only after the optimizer has reduced `BitVec.ofNat w v`
+    to its normal form.
+-/
+@[always_inline, inline]
+def isBitVecValue? (e : Expr) : Option (Nat × Nat) :=
+  match e with
+  | Expr.app (Expr.app (Expr.const ``BitVec.ofFin _) (Expr.lit (Literal.natVal w)))
+      (Expr.app (Expr.app (Expr.app (Expr.const ``Fin.mk _) _)
+        (Expr.lit (Literal.natVal v))) _) => some (w, v)
+  | _ => none
+
 
 /-- Given `e` of the form `∀ (a₁ : A₁) ... (aₙ : Aₙ), B[a₁, ..., aₙ]`
     and `p₁ : A₁, ... pₘ : Aₙ`, return `B[p₁, ..., pₘ]`.

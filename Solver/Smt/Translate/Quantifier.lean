@@ -1088,9 +1088,28 @@ def translatePEmptyType (n : Expr) : TranslateEnvT SortExpr := do
  | some decl => return decl.instSort
 
 
+/-- Perform the following actions for `BitVec n` where `n` is a static Nat literal:
+     - When entry `BitVec n` exists in `indTypeInstCache` return `bitvecSort n`
+     - Otherwise:
+        - add entry `BitVec n := {@isBitVec_n, (_ BitVec n)}` in `indTypeInstCache`
+        - declare smt predicate `(declare-fun @isBitVec_n ((_ BitVec n)) Bool)` with `true` assertion
+        - return `bitvecSort n`
+  Assume that `bvExpr` is `Expr.app (Expr.const ``BitVec _) (Expr.lit (Literal.natVal n))`.
+-/
+def translateBitVecType (bvExpr : Expr) (n : Nat) : TranslateEnvT SortExpr := do
+  match (← get).smtEnv.indTypeInstCache.get? bvExpr with
+  | some decl => return decl.instSort
+  | none =>
+      let bvSym := mkReservedSymbol s!"BitVec_{n}"
+      let bvSrt := bitvecSort n
+      let decl ← updateIndInstCacheAux bvExpr bvSym bvSrt (isReservedSymbol := true)
+      defineBitVecSort decl.instName n
+      return bvSrt
+
+
 /-- Translate opaque sorts to their Smt counterpart.
     An error is triggered when `e` does not correspond to a name expression.
-    TODO: update function when opacifying other Lean inductive types (e.g., BitVector, Char, etc).
+    TODO: update function when opacifying other Lean inductive types (e.g., Char, etc).
 -/
 def translateOpaqueType (e : Expr) : TranslateEnvT (Option SortExpr) := do
  match e with
@@ -1112,7 +1131,15 @@ partial def translateTypeAux
   TranslateEnvT SortExpr := do
    let e := t.getAppFn
    match e with
-   | Expr.const .. =>
+   | Expr.const nm _ =>
+      -- Handle `BitVec n` with a static (literal) width before the general opaque-type path.
+      -- `BitVec n` is parameterized, so `translateOpaqueType` (which only sees the fn) cannot
+      -- produce the indexed sort `(_ BitVec n)`; we intercept it here where the args are in scope.
+      if nm == ``BitVec then
+        let args := t.getAppArgs
+        if args.size == 1 then
+          if let Expr.lit (Literal.natVal width) := args[0]! then
+            return ← translateBitVecType t width
       if let some r ← translateOpaqueType e then return r
       translateNonOpaqueType e t.getAppArgs
         (λ a b => translateTypeAux termTranslator a b)

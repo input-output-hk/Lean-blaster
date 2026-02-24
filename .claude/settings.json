@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/romainsoulat/.elan/toolchains/leanprover--lean4---v4.24.0/src/lean/Init/Data/**)",
+      "Read(//Users/romainsoulat/.elan/toolchains/leanprover--lean4---v4.24.0/**)"
+    ]
+  }
+}

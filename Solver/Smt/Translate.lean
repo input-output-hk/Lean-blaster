@@ -18,7 +18,7 @@ partial def translateExpr (e : Expr) (topLevel := true) : TranslateEnvT SmtTerm 
     if let some n := isIntValue? e then return intLitSmt n
     if let some n := isNatValue? e then return natLitSmt n
     if let some s := isStrValue? e then return strLitSmt s
-    -- TODO: consider other sort once supported (e.g., BitVec, Char, etc)
+    if let some (w, v) := isBitVecValue? e then return bitvecLitSmt v w
     match e with
      | Expr.fvar .. => translateFreeVar e visit
      | Expr.const .. => translateConst e visit

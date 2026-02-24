@@ -1065,6 +1065,18 @@ def mkNatLeExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do
 def evalBinNatOp (f: Nat -> Nat -> Nat) (n1 n2 : Nat) : TranslateEnvT Expr :=
   mkNatLitExpr (f n1 n2)
 
+/-- `mkBitVecLitExpr w v` constructs `BitVec.ofNat w v` and caches the result.
+    After optimization, `BitVec.ofNat w v` reduces to `BitVec.ofFin w (Fin.mk _ v _)`.
+-/
+def mkBitVecLitExpr (w v : Nat) : TranslateEnvT Expr :=
+  mkExpr (mkApp2 (mkConst ``BitVec.ofNat) (mkRawNatLit w) (mkRawNatLit v))
+
+/-- `evalBitVecOp op w v1 v2` evaluates a binary BitVec operation at the meta level
+    (constant folding), wrapping the result modulo `2^w`.
+-/
+def evalBitVecOp (op : Nat → Nat → Nat) (w v1 v2 : Nat) : TranslateEnvT Expr :=
+  mkBitVecLitExpr w ((op v1 v2) % (2^w))
+
 /-- `mkIntLitExpr n` constructs and cache an Int literal expression, i.e.,
      either `Int.ofNat (Expr.lit (Literal.natVal n)` or `Int.negSucc (Expr.lit (Literal.natVal n)`.
 -/

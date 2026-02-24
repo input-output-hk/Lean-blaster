@@ -778,6 +778,7 @@ def translateApp
   Expr.withApp e fun f args => do
     match f with
     | Expr.const n _ =>
+         if let some r ← translateBitVecOp? f n args then return r
          if let some r ← translateFullyApplied? f n args then return r
          if let some r ← translateEq? f n args then return r
          if let some r ← translateRelational? f n args then return r
@@ -936,6 +937,81 @@ def translateApp
          createAppN f (Sum.inl smtId) args termTranslator
       | some smtId =>
           createAppN f (Sum.inl smtId) args termTranslator
+
+    /-- Translate a BitVec shift operation.
+        The shift amount `s : Nat` (args[2]) must be a static Nat literal; it is converted
+        to a same-width BitVec literal `(_ bvS w)` as required by `bvshl`/`bvlshr`/`bvashr`.
+        args layout: [n_implicit, x_explicit, s_explicit : Nat]
+    -/
+    translateBitVecShift (f : Expr) (args : Array Expr) (sym : SmtSymbol) : TranslateEnvT SmtTerm := do
+      if args.size < 3 then
+        throwEnvError "translateBitVecShift: at least three arguments required (width + value + shift)"
+      let some width := isNatValue? args[0]!
+        | throwEnvError "translateBitVecShift: static width required, got {reprStr args[0]!}"
+      let xSmt ← termTranslator args[1]!
+      let sSmt ← match isNatValue? args[2]! with
+        | some sv => pure (bitvecLitSmt sv width)
+        | none    => throwEnvError
+            "translateBitVecShift: only static (literal) shift amount supported, got {reprStr args[2]!}"
+      return mkSimpleSmtAppN sym #[xSmt, sSmt]
+
+    /-- Translate `BitVec.udiv` or `BitVec.sdiv` via a per-width `define-fun` wrapper that
+        corrects the div-by-zero semantics mismatch (Lean returns 0; SMT returns allOnes).
+        The wrapper is created lazily and cached by `mkApp f args[0]!` (e.g. `@BitVec.udiv 8`).
+    -/
+    translateBitVecWrappedDiv
+        (f : Expr) (args : Array Expr)
+        (definer : SmtSymbol → Nat → TranslateEnvT Unit)
+        (wrapSym : Nat → SmtSymbol) : TranslateEnvT SmtTerm := do
+      let some width := isNatValue? args[0]!
+        | throwEnvError "translateBitVecWrappedDiv: static width required, got {reprStr args[0]!}"
+      let fWithWidth := mkApp f args[0]!
+      let sym := wrapSym width
+      match (← get).smtEnv.funInstCache.get? fWithWidth with
+      | none =>
+          definer sym width
+          discard $ updateFunInstCache fWithWidth sym
+      | some _ => pure ()
+      createAppN f (.inl (.SimpleIdent sym)) args termTranslator
+
+    /-- Dispatch BitVec operator to the appropriate SMT translation.
+        Called before `translateFullyApplied?` so that BitVec ops bypass the `fullyAppliedConst`
+        check (they are parameterized by an implicit width and need specialized handling).
+    -/
+    translateBitVecOp? (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
+      match n with
+      -- Category A: direct 1-to-1 SMT built-ins (createAppN handles implicit width filtering)
+      | ``BitVec.and     => some <$> createAppN f (.inl (← getOpaqueSmtEquivFun f bvandSymbol))  args termTranslator
+      | ``BitVec.or      => some <$> createAppN f (.inl (← getOpaqueSmtEquivFun f bvorSymbol))   args termTranslator
+      | ``BitVec.xor     => some <$> createAppN f (.inl (← getOpaqueSmtEquivFun f bvxorSymbol))  args termTranslator
+      | ``BitVec.not     => some <$> createAppN f (.inl (← getOpaqueSmtEquivFun f bvnotSymbol))  args termTranslator
+      | ``BitVec.neg     => some <$> createAppN f (.inl (← getOpaqueSmtEquivFun f bvnegSymbol))  args termTranslator
+      | ``BitVec.add     => some <$> createAppN f (.inl (← getOpaqueSmtEquivFun f bvaddSymbol))  args termTranslator
+      | ``BitVec.sub     => some <$> createAppN f (.inl (← getOpaqueSmtEquivFun f bvsubSymbol))  args termTranslator
+      | ``BitVec.mul     => some <$> createAppN f (.inl (← getOpaqueSmtEquivFun f bvmulSymbol))  args termTranslator
+      | ``BitVec.umod    => some <$> createAppN f (.inl (← getOpaqueSmtEquivFun f bvuremSymbol)) args termTranslator
+      | ``BitVec.smtUDiv => some <$> createAppN f (.inl (← getOpaqueSmtEquivFun f bvudivSymbol)) args termTranslator
+      | ``BitVec.smtSDiv => some <$> createAppN f (.inl (← getOpaqueSmtEquivFun f bvsdivSymbol)) args termTranslator
+      | ``BitVec.srem    => some <$> createAppN f (.inl (← getOpaqueSmtEquivFun f bvsremSymbol)) args termTranslator
+      | ``BitVec.smod    => some <$> createAppN f (.inl (← getOpaqueSmtEquivFun f bvsmodSymbol)) args termTranslator
+      | ``BitVec.ult     => some <$> createAppN f (.inl (← getOpaqueSmtEquivFun f bvultSymbol))  args termTranslator
+      | ``BitVec.slt     => some <$> createAppN f (.inl (← getOpaqueSmtEquivFun f bvsltSymbol))  args termTranslator
+      | ``BitVec.ule     => some <$> createAppN f (.inl (← getOpaqueSmtEquivFun f bvuleSymbol))  args termTranslator
+      | ``BitVec.sle     => some <$> createAppN f (.inl (← getOpaqueSmtEquivFun f bvsleSymbol))  args termTranslator
+      | ``BitVec.append  => some <$> createAppN f (.inl (← getOpaqueSmtEquivFun f bvconcatSymbol)) args termTranslator
+      | ``BitVec.uaddOverflow => some <$> createAppN f (.inl (← getOpaqueSmtEquivFun f bvuaddoSymbol)) args termTranslator
+      | ``BitVec.saddOverflow => some <$> createAppN f (.inl (← getOpaqueSmtEquivFun f bvsaddoSymbol)) args termTranslator
+      | ``BitVec.umulOverflow => some <$> createAppN f (.inl (← getOpaqueSmtEquivFun f bvumuloSymbol)) args termTranslator
+      | ``BitVec.smulOverflow => some <$> createAppN f (.inl (← getOpaqueSmtEquivFun f bvsmuloSymbol)) args termTranslator
+      | ``BitVec.negOverflow  => some <$> createAppN f (.inl (← getOpaqueSmtEquivFun f bvnegoSymbol))  args termTranslator
+      -- Category B: shifts — Nat shift amount must be converted to same-width BitVec literal
+      | ``BitVec.shiftLeft   => some <$> translateBitVecShift f args bvshlSymbol
+      | ``BitVec.ushiftRight => some <$> translateBitVecShift f args bvlshrSymbol
+      | ``BitVec.sshiftRight => some <$> translateBitVecShift f args bvashrSymbol
+      -- Category C: wrapped div/sdiv — per-width define-fun wrapper for div-by-zero correction
+      | ``BitVec.udiv => some <$> translateBitVecWrappedDiv f args defineBitVecUDiv bvUDivWrapSymbol
+      | ``BitVec.sdiv => some <$> translateBitVecWrappedDiv f args defineBitVecSDiv bvSDivWrapSymbol
+      | _ => return none
 
     translateFullyApplied? (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
       if !(fullyAppliedConst.contains n) then return none

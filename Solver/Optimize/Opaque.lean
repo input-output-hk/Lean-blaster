@@ -58,7 +58,29 @@ def opaqueFuns : NameHashSet :=
     -- String operators
     ``String.append,
     ``String.replace,
-    ``String.length
+    ``String.length,
+    -- BitVec bitwise
+    ``BitVec.and, ``BitVec.or, ``BitVec.xor, ``BitVec.not,
+    -- BitVec arithmetic (direct SMT semantics)
+    ``BitVec.neg, ``BitVec.add, ``BitVec.sub, ``BitVec.mul,
+    ``BitVec.umod,    -- bvurem: div-by-zero semantics match (both return dividend)
+    ``BitVec.smtUDiv, -- bvudiv: exact SMT semantics
+    ``BitVec.smtSDiv, -- bvsdiv: exact SMT semantics
+    ``BitVec.srem,    -- bvsrem: SMT-LIB name annotated in Lean source
+    ``BitVec.smod,    -- bvsmod: SMT-LIB name annotated in Lean source
+    -- BitVec arithmetic (wrapped: div-by-zero semantics differ → define-fun)
+    ``BitVec.udiv,    -- Lean returns 0; SMT bvudiv returns allOnes
+    ``BitVec.sdiv,    -- same issue for signed
+    -- BitVec comparisons (Bool-valued)
+    ``BitVec.ult, ``BitVec.slt, ``BitVec.ule, ``BitVec.sle,
+    -- BitVec shifts (explicit Nat amount → needs static conversion)
+    ``BitVec.shiftLeft, ``BitVec.ushiftRight, ``BitVec.sshiftRight,
+    -- BitVec structural
+    ``BitVec.append,
+    -- BitVec overflow predicates (Z3 extensions)
+    ``BitVec.uaddOverflow, ``BitVec.saddOverflow,
+    ``BitVec.umulOverflow, ``BitVec.smulOverflow,
+    ``BitVec.negOverflow
   ]
 
 /-- list of types for which:

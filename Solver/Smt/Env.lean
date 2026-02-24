@@ -353,6 +353,44 @@ def defineNatSort (isNatSym : SmtSymbol) : TranslateEnvT Unit := do
   defineFun isNatSym #[(psym, natSort)] boolSort (leqSmt zeroSym xId)
 
 
+/-- Perform the following actions for `BitVec n` with concrete width `n`:
+     - Declare smt predicate `(declare-fun @isBitVec_n ((_ BitVec n)) Bool)` with `true` assertion
+    Note: `(_ BitVec n)` is a built-in indexed sort in SMT-Lib V2; no sort declaration is needed.
+    Assume `isBitVecSym := @isBitVec_n`
+-/
+def defineBitVecSort (isBitVecSym : SmtSymbol) (n : Nat) : TranslateEnvT Unit :=
+  definePredQualifier isBitVecSym (bitvecSort n) (some true)
+
+/-- Define `@BitVec.udiv_n`: corrects div-by-zero semantics from Lean (returns 0) to match
+    SMT `bvudiv` (returns allOnes). Emits:
+    `(define-fun @BitVec.udiv_n ((@x (_ BitVec n)) (@y (_ BitVec n))) (_ BitVec n)
+       (ite (= @y (_ bv0 n)) (_ bv0 n) (bvudiv @x @y)))`
+-/
+def defineBitVecUDiv (sym : SmtSymbol) (n : Nat) : TranslateEnvT Unit := do
+  let bvSrt := bitvecSort n
+  let xsym := mkReservedSymbol "@x"
+  let ysym := mkReservedSymbol "@y"
+  let xId := smtSimpleVarId xsym
+  let yId := smtSimpleVarId ysym
+  let zeroSmt := bitvecLitSmt 0 n
+  let fdef := iteSmt (eqSmt yId zeroSmt) zeroSmt (mkSimpleSmtAppN bvudivSymbol #[xId, yId])
+  defineFun sym #[(xsym, bvSrt), (ysym, bvSrt)] bvSrt fdef
+
+/-- Define `@BitVec.sdiv_n`: same div-by-zero correction for signed division. Emits:
+    `(define-fun @BitVec.sdiv_n ((@x (_ BitVec n)) (@y (_ BitVec n))) (_ BitVec n)
+       (ite (= @y (_ bv0 n)) (_ bv0 n) (bvsdiv @x @y)))`
+-/
+def defineBitVecSDiv (sym : SmtSymbol) (n : Nat) : TranslateEnvT Unit := do
+  let bvSrt := bitvecSort n
+  let xsym := mkReservedSymbol "@x"
+  let ysym := mkReservedSymbol "@y"
+  let xId := smtSimpleVarId xsym
+  let yId := smtSimpleVarId ysym
+  let zeroSmt := bitvecLitSmt 0 n
+  let fdef := iteSmt (eqSmt yId zeroSmt) zeroSmt (mkSimpleSmtAppN bvsdivSymbol #[xId, yId])
+  defineFun sym #[(xsym, bvSrt), (ysym, bvSrt)] bvSrt fdef
+
+
 private def defineBinFun
   (fname : SmtSymbol) (top1 : SortExpr) (top2 : SortExpr)
   (ret : SortExpr) (fdef : SmtTerm → SmtTerm → SmtTerm) (isRec := false) :=
