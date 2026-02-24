@@ -10,7 +10,7 @@ abbrev UpdatedHypContext := Bool × HypothesisContext
 -- flag Bool is set to true only when the context has been updated.
 
 /-- Return `true` only when one of the following conditions is satisfied:
-      - e is a constant ∧ e ≠ 0
+      - e := N ∧ N ≠ 0
       - 0 < e := _ ∈ hypothesisContext.hypothesisMap
 -/
 @[always_inline, inline]
@@ -25,7 +25,7 @@ def gtZeroNatInHyps (e : Expr) : TranslateEnvT Bool := do
      return hyps.contains zero_lt
 
 /-- Return `true` only when one of the following conditions is satisfied:
-      - e is a constant ∧ e = 0
+      - e := 0
       - 0 = e := _ ∈ hypothesisContext.hypothesisMap
 -/
 @[always_inline, inline]
@@ -40,7 +40,7 @@ def eqZeroNatInHyps (e : Expr) : TranslateEnvT Bool := do
      return hyps.contains zero_eq
 
 /-- Return `true` only when one of the following conditions is satisfied:
-      - e is a constant ∧ e ≠ 0
+      - e := N ∧ N ≠ 0
       - 0 < e := _ ∈ hypothesisContext.hypothesisMap; or
       - ¬ (0 = e) := _ ∈ hypothesisContext.hypothesisMap
 -/
@@ -58,7 +58,7 @@ def nonZeroNatInHyps (e : Expr) : TranslateEnvT Bool := do
      return hyps.contains (mkApp (← mkPropNotOp) zero_eq)
 
 /-- Return `true` only when one of the following conditions is satisfied:
-      - e is a constant ∧ e < 0
+      - e := N ∧ N < 0
       - e < 0 := _ ∈ hypothesisContext.hypothesisMap
 -/
 @[always_inline, inline]
@@ -73,7 +73,7 @@ def ltZeroIntInHyps (e : Expr) : TranslateEnvT Bool := do
      return hyps.contains lt_zero
 
 /-- Return `true` only when one of the following conditions is satisfied:
-      - e is a constant ∧ e > 0
+      - e := N ∧ N > 0
       - 0 < e := _ ∈ hypothesisContext.hypothesisMap
 -/
 @[always_inline, inline]
@@ -89,7 +89,7 @@ def gtZeroIntInHyps (e : Expr) : TranslateEnvT Bool := do
      return hyps.contains zero_lt
 
 /-- Return `true` only when one of the following conditions is satisfied:
-      - e is a constant ∧ e ≠ 0
+      - e := N ∧ N ≠ 0
       - 0 < e := _ ∈ hypothesisContext.hypothesisMap; or
       - e < 0 := _ ∈ hypothesisContext.hypothesisMap; or
       - ¬ (0 = e) := _ ∈ hypothesisContext.hypothesisMap
@@ -110,7 +110,7 @@ def nonZeroIntInHyps (e : Expr) : TranslateEnvT Bool := do
      return hyps.contains (mkApp (← mkPropNotOp) zero_eq)
 
 /-- Return `true` only when one of the following conditions is satisfied:
-      - e is a constant ∧ e ≥ 0
+      - e := N ∧ N ≥ 0
       - 0 < e := _ ∈ hypothesisContext.hypothesisMap; or
       - 0 = e := _ ∈ hypothesisContext.hypothesisMap; or
       - ¬ (e < 0) := _ ∈ hypothesisContext.hypothesisMap
@@ -131,7 +131,7 @@ def geqZeroIntInHyps (e : Expr) : TranslateEnvT Bool := do
      return hyps.contains (mkApp (← mkPropNotOp) lt_zero)
 
 /-- Return `true` only when one of the following conditions is satisfied:
-      - e is a constant ∧ e ≤ 0
+      - e := N ∧ N ≤ 0
       - e < 0 := _ ∈ hypothesisContext.hypothesisMap; or
       - 0 = e := _ ∈ hypothesisContext.hypothesisMap; or
       - ¬ (0 < e) := _ ∈ hypothesisContext.hypothesisMap

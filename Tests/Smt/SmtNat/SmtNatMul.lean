@@ -105,10 +105,10 @@ def square (x : Nat) : Nat := x * x
 #blaster (only-optimize: 1) [∀ (x y z : Int), x < 0 → x * y = x * z → y = z]
 #blaster (only-optimize: 1) [∀ (x y z : Int), y ≠ 0 → y * y = z * y → y = z]
 
--- NOTE: solve optimization "ordering"
+-- NOTE: This test case can be resolved to True at preprocessing phase when reordering on hypothesis is considered.
 #blaster                    [∀ (x y z : Int), x * z = y * x → x ≠ 0 → y = z]
 #blaster (only-optimize: 1) [∀ (x y z : Int), x ≠ 0 → if x * z = y * x then y = z else true]
--- NOTE: solve optimization "ordering"
+-- NOTE: This test case can be resolved to True at preprocessing phase when reordering on hypothesis is considered.
 #blaster                    [∀ (x y z : Int), x * z = y * x → if x = 0 then true else y = z]
 #blaster (only-optimize: 1) [∀ (a b c x y z : Int) (p : Prop), p →
   match b, decide (a * b = b * c) with
