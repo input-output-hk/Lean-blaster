@@ -593,8 +593,10 @@ def generateFunInstDeclAux (t : Expr) (st : SortExpr) : TranslateEnvT IndTypeDec
      assertTerm (mkForallTerm none quantifiers_fun forallCArgBody (some #[mkPattern fun_patterns, mkQid qidName]))
      -- extensionality
      let qidName := appendSymbol applyName "ext_fun"
-     let forallExtBody := impliesSmt eqAppFun eqFun
-     assertTerm (mkForallTerm none quantifiers_fun forallExtBody (some #[mkPattern #[eqAppFun], mkQid qidName]))
+     let innerForall := mkForallTerm none co_quantifiers eqAppFun none
+     let fg_quantifiers : SortedVars := #[(fsym, st), (gsym, st)]
+     let forallExtBody := impliesSmt innerForall eqFun
+     assertTerm (mkForallTerm none fg_quantifiers forallExtBody (some #[mkQid qidName]))
      -- congruence on args
      let qidName := appendSymbol applyName "congr_args"
      assertTerm (mkForallTerm none arg_quantifiers forallCFunBody (some #[mkPattern arg_patterns, mkQid qidName]))
