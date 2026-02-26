@@ -7,6 +7,7 @@ import Blaster.Optimize.Rewriting.OptimizeDecideBoolBinary
 import Blaster.Optimize.Rewriting.OptimizeExists
 import Blaster.Optimize.Rewriting.OptimizeInt
 import Blaster.Optimize.Rewriting.OptimizeITE
+import Blaster.Optimize.Rewriting.OptimizeListAny
 import Blaster.Optimize.Rewriting.OptimizeNat
 import Blaster.Optimize.Rewriting.OptimizeString
 import Blaster.Optimize.OptimizeStack
@@ -64,6 +65,7 @@ def optimizeAppAux (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
   if let some e ← optimizePropBinary? f args then return e
   if let some e ← optimizeBoolNot? f args then return e
   if let some e ← optimizeBoolBinary? f args then return e
+  if let some e ← optimizeListAny? f args then return e
   if let some e ← optimizeEquality? f args then return e
   if let some e ← optimizeNat? f args then return e
   if let some e ← optimizeInt? f args then return e
