@@ -14,6 +14,9 @@ namespace Blaster.Optimize
     beqArgs[0] = α, beqArgs[1] = inst, beqArgs[2] = lhs, beqArgs[3] = rhs
 
     @List.elem : {α : Type} → [inst : BEq α] → α → List α → Bool
+
+    Uses definitional equality checking to handle custom types with derived BEq
+    instances, where the elaborator may expand (==) into primitive constructs.
 -/
 
 def optimizeListAny? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
