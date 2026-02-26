@@ -7,8 +7,6 @@ open Tests.ValidatorsExamples.PlutusLedgerAPI
 
 namespace Test.OptimizeListAny
 
--- Another approach: Specializing new recursive function
-
 -- List.any l (λ x => x == k) ===> true = List.elem k l
 #testOptimize [ "ListAnyElem_1" ]
   ∀ (l : List Nat) (k : Nat), List.any l (λ x => x == k) ===>
