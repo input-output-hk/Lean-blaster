@@ -148,7 +148,7 @@ partial def getOutputModel (h : IO.FS.Handle) (proof := false) : TranslateEnvT S
   let rec loop (acc : String) : TranslateEnvT String := do
     checkCancelTk?
     let line ← h.getLine
-    if (line == ")\n" && !proof) || (line == "\n" && proof) then
+    if ((line == ")\n" || line == ")\r\n") && !proof) || ((line == "\n" || line == "\r\n") && proof) then
       return acc
     else loop (acc ++ line)
   loop ""
@@ -212,7 +212,7 @@ partial def trySubmitCommand! (c : SmtCommand) (checkSuccess := true) : Translat
   if !checkSuccess then return ()
   let out ← h.getLine
   match out with
-  | "success\n" => return ()
+  | "success\n" | "success\r\n" => return ()
   | err => throwEnvError s!"Unexpected smt error: {err} for {c}"
 
 /-- Same as trySubmitCommand! but with flag `checkSuccess` set to `false`.
@@ -528,9 +528,9 @@ partial def getSatResult (p : IO.Process.Child ⟨.piped, .piped, .piped⟩) : T
      checkCancelTk?
      if ← IO.hasFinished res then
        match ← IO.ofExcept res.get with
-       | "sat\n"     => return (.Falsified (← getModel))
-       | "unsat\n"   => return .Valid
-       | "unknown\n" => return .Undetermined -- unknown is also return when timeout is set to stdin
+       | "sat\n" | "sat\r\n"    => return (.Falsified (← getModel))
+       | "unsat\n" | "unsat\r\n"    => return .Valid
+       | "unknown\n" | "unknown\r\n" => return .Undetermined -- unknown is also return when timeout is set to stdin
        | err => throwEnvError s!"checkSat: Unexpected check-sat result: {err}"
      else
        let sleepTimeMs := (20 : UInt32)
