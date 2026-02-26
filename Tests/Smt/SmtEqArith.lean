@@ -158,6 +158,20 @@ namespace Test.SmtEqArith
   | false => x + y ≠ 0
 ]
 
+#blaster (only-optimize: 1) [∀ (x y : Nat),
+  if x = 0
+    then true
+    else if y = 0
+      then true
+      else if 0 < x + y
+        then true
+        else false
+]
+
+#blaster (only-optimize: 1) [∀ (x y : Nat), x < 0 → x + y > 0]
+#blaster (only-optimize: 1) [∀ (x y : Nat), x < 0 → x + y = 0]
+#blaster (only-optimize: 1) [∀ (x y : Nat), x < 0 → x + y ≠ 0]
+
 #blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : Nat), y ≠ 0 → (0 = x + y)]
 
 #blaster (only-optimize: 1) [∀ (x y : Int), x > 0 → y > 0 → 0 ≠ x + y]
@@ -233,7 +247,37 @@ namespace Test.SmtEqArith
 
 #blaster (only-optimize: 1) [∀ (x y : Int), 0 < y → 0 < x → x + y > 0]
 #blaster (only-optimize: 1) [∀ (x y : Int), 0 < y → 0 ≤ x → x + y > 0]
+
+#blaster (only-optimize: 1) [∀ (x y : Int), 0 < x → 0 < y → 0 < x + y]
+#blaster (only-optimize: 1) [∀ (x y : Int), 0 < x → 0 < y → ¬ x + y ≤ 0]
+
+#blaster (only-optimize: 1) [∀ (x : Int), 0 < x → ¬ 0 ≥ x]
+#blaster (only-optimize: 1) [∀ (x : Int), 0 ≤ x → ¬ 0 > x]
+
+#blaster (only-optimize: 1) [∀ (x y : Int), 0 < x → 0 ≤ x]
+#blaster (only-optimize: 1) [∀ (x y : Int) (p : Prop), 0 < x → p → 0 ≤ x]
+#blaster (only-optimize: 1) [∀ (x y : Int), 0 < x → y < 0 → 0 ≤ x]
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : Int), 0 < x → 0 ≤ x + y]
+#blaster (only-optimize: 1) [∀ (x y : Int), 0 < x → 0 < y → 0 ≤ x + y]
+#blaster (only-optimize: 1) [∀ (x y : Int), 0 < x → 0 < y → 0 < x + y]
+#blaster (only-optimize: 1) [∀ (x y : Int), 0 < x → 0 < x + x → 0 ≤ x + x]
+#blaster (only-optimize: 1) [∀ (x y : Int), 0 < x → 0 < y → 0 ≤ x + x]
+#blaster (gen-cex: 1) (solve-result: 1) [∀ (x y : Int), 0 < x → ¬ 0 > x + y]
+#blaster (only-optimize: 1) [∀ (x y : Int), 0 < x → 0 < y → ¬ 0 > x + y]
+#blaster (gen-cex: 1) (solve-result: 1) [∀ (x y : Int), 0 < x → y < 0 → 0 ≤ x + y]
+#blaster (gen-cex: 1) (solve-result: 1) [∀ (x y : Int) (p : Prop), 0 < x → p → 0 ≤ x + y]
+#blaster (only-optimize: 1) [∀ (x y : Int), 0 < x → 0 < y → ¬ 0 > x + y]
 #blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : Int), 0 ≤ y → 0 ≤ x → x + y > 0]
+
+#blaster (only-optimize: 1) [∀ (x y : Int), 0 < x → 0 < y → 0 < x + y]
+#blaster (only-optimize: 1) [∀ (x y : Int), 0 < x → 0 ≤ y → 0 < x + y]
+#blaster (only-optimize: 1) [∀ (x y : Int), 0 ≤ x → 0 < y → 0 < x + y]
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : Int), 0 ≤ x → 0 ≤ y → 0 < x + y]
+#blaster (only-optimize: 1) [∀ (x y : Int), 0 < x → 0 < y → 0 ≤ x + y]
+#blaster (only-optimize: 1) [∀ (x y : Int), 0 < x → 0 ≤ y → 0 ≤ x + y]
+#blaster (only-optimize: 1) [∀ (x y : Int), 0 ≤ x → 0 < y → 0 ≤ x + y]
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : Int), 0 ≤ x → 0 > y → ¬ 0 > x + y]
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : Int), 0 ≤ x → 0 ≤ y → 0 < x + y]
 
 #blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : Int) (p : Prop), p →
   match decide (x < 0), decide (y < 0) with
