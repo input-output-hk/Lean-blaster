@@ -9,102 +9,148 @@ namespace Blaster.Optimize
 abbrev UpdatedHypContext := Bool × HypothesisContext
 -- flag Bool is set to true only when the context has been updated.
 
-/-- Return `true` only when the following condition is satisfied:
+/-- Return `true` only when one of the following conditions is satisfied:
+      - e := N ∧ N ≠ 0
       - 0 < e := _ ∈ hypothesisContext.hypothesisMap
 -/
 @[always_inline, inline]
 def gtZeroNatInHyps (e : Expr) : TranslateEnvT Bool := do
- let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
- let zero_nat ← mkNatLitExpr 0
- let zero_lt ← mkNatLtExpr zero_nat e
- return hyps.contains zero_lt
+ match isNatValue? e with
+ | .some 0 => return false
+ | .some _ => return true
+ | .none   =>
+     let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
+     let zero_nat ← mkNatLitExpr 0
+     let zero_lt ← mkNatLtExpr zero_nat e
+     return hyps.contains zero_lt
 
-/-- Return `true` only when the following condition is satisfied:
+/-- Return `true` only when one of the following conditions is satisfied:
+      - e := 0
       - 0 = e := _ ∈ hypothesisContext.hypothesisMap
 -/
 @[always_inline, inline]
 def eqZeroNatInHyps (e : Expr) : TranslateEnvT Bool := do
- let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
- let zero_nat ← mkNatLitExpr 0
- let zero_eq ← mkNatEqExpr zero_nat e
- return hyps.contains zero_eq
+ match isNatValue? e with
+ | .some 0 => return true
+ | .some _ => return false
+ | .none   =>
+     let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
+     let zero_nat ← mkNatLitExpr 0
+     let zero_eq ← mkNatEqExpr zero_nat e
+     return hyps.contains zero_eq
 
 /-- Return `true` only when one of the following conditions is satisfied:
+      - e := N ∧ N ≠ 0
       - 0 < e := _ ∈ hypothesisContext.hypothesisMap; or
       - ¬ (0 = e) := _ ∈ hypothesisContext.hypothesisMap
 -/
+@[always_inline, inline]
 def nonZeroNatInHyps (e : Expr) : TranslateEnvT Bool := do
- let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
- let zero_nat ← mkNatLitExpr 0
- let zero_lt ← mkNatLtExpr zero_nat e
- if hyps.contains zero_lt then return true
- let zero_eq ← mkNatEqExpr zero_nat e
- return hyps.contains (mkApp (← mkPropNotOp) zero_eq)
+ match isNatValue? e with
+ | .some 0 => return false
+ | .some _ => return true
+ | .none   =>
+     let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
+     let zero_nat ← mkNatLitExpr 0
+     let zero_lt ← mkNatLtExpr zero_nat e
+     if hyps.contains zero_lt then return true
+     let zero_eq ← mkNatEqExpr zero_nat e
+     return hyps.contains (mkApp (← mkPropNotOp) zero_eq)
 
-/-- Return `true` only when the following condition is satisfied:
+/-- Return `true` only when one of the following conditions is satisfied:
+      - e := N ∧ N < 0
       - e < 0 := _ ∈ hypothesisContext.hypothesisMap
 -/
 @[always_inline, inline]
 def ltZeroIntInHyps (e : Expr) : TranslateEnvT Bool := do
- let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
- let zero_int ← mkIntLitExpr (Int.ofNat 0)
- let lt_zero ← mkIntLtExpr e zero_int
- return hyps.contains lt_zero
+ match isIntValue? e with
+ | .some (.negSucc _) => return true
+ | .some _            => return false
+ | .none =>
+     let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
+     let zero_int ← mkIntLitExpr (Int.ofNat 0)
+     let lt_zero ← mkIntLtExpr e zero_int
+     return hyps.contains lt_zero
 
-/-- Return `true` only when the following condition is satisfied:
+/-- Return `true` only when one of the following conditions is satisfied:
+      - e := N ∧ N > 0
       - 0 < e := _ ∈ hypothesisContext.hypothesisMap
 -/
 @[always_inline, inline]
 def gtZeroIntInHyps (e : Expr) : TranslateEnvT Bool := do
- let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
- let zero_int ← mkIntLitExpr (Int.ofNat 0)
- let zero_lt ← mkIntLtExpr zero_int e
- return hyps.contains zero_lt
+ match isIntValue? e with
+ | .some (.ofNat 0) => return false
+ | .some (.ofNat _) => return true
+ | .some _          => return false
+ | .none =>
+     let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
+     let zero_int ← mkIntLitExpr (Int.ofNat 0)
+     let zero_lt ← mkIntLtExpr zero_int e
+     return hyps.contains zero_lt
 
 /-- Return `true` only when one of the following conditions is satisfied:
+      - e := N ∧ N ≠ 0
       - 0 < e := _ ∈ hypothesisContext.hypothesisMap; or
       - e < 0 := _ ∈ hypothesisContext.hypothesisMap; or
       - ¬ (0 = e) := _ ∈ hypothesisContext.hypothesisMap
 -/
+@[always_inline, inline]
 def nonZeroIntInHyps (e : Expr) : TranslateEnvT Bool := do
- let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
- let zero_int ← mkIntLitExpr (Int.ofNat 0)
- let zero_lt ← mkIntLtExpr zero_int e
- if hyps.contains zero_lt then return true
- let lt_zero ← mkIntLtExpr e zero_int
- if hyps.contains lt_zero then return true
- let zero_eq ← mkIntEqExpr zero_int e
- return hyps.contains (mkApp (← mkPropNotOp) zero_eq)
+ match isIntValue? e with
+ | .some (.ofNat 0) => return false
+ | .some _          => return true
+ | .none =>
+     let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
+     let zero_int ← mkIntLitExpr (Int.ofNat 0)
+     let zero_lt ← mkIntLtExpr zero_int e
+     if hyps.contains zero_lt then return true
+     let lt_zero ← mkIntLtExpr e zero_int
+     if hyps.contains lt_zero then return true
+     let zero_eq ← mkIntEqExpr zero_int e
+     return hyps.contains (mkApp (← mkPropNotOp) zero_eq)
 
 /-- Return `true` only when one of the following conditions is satisfied:
+      - e := N ∧ N ≥ 0
       - 0 < e := _ ∈ hypothesisContext.hypothesisMap; or
       - 0 = e := _ ∈ hypothesisContext.hypothesisMap; or
       - ¬ (e < 0) := _ ∈ hypothesisContext.hypothesisMap
 -/
+@[always_inline, inline]
 def geqZeroIntInHyps (e : Expr) : TranslateEnvT Bool := do
- let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
- let zero_int ← mkIntLitExpr (Int.ofNat 0)
- let zero_lt ← mkIntLtExpr zero_int e
- if hyps.contains zero_lt then return true
- let zero_eq ← mkIntEqExpr zero_int e
- if hyps.contains zero_eq then return true
- let lt_zero ← mkIntLtExpr e zero_int
- return hyps.contains (mkApp (← mkPropNotOp) lt_zero)
+ match isIntValue? e with
+ | .some (.ofNat _) => return true
+ | .some _          => return false
+ | .none =>
+     let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
+     let zero_int ← mkIntLitExpr (Int.ofNat 0)
+     let zero_lt ← mkIntLtExpr zero_int e
+     if hyps.contains zero_lt then return true
+     let zero_eq ← mkIntEqExpr zero_int e
+     if hyps.contains zero_eq then return true
+     let lt_zero ← mkIntLtExpr e zero_int
+     return hyps.contains (mkApp (← mkPropNotOp) lt_zero)
 
 /-- Return `true` only when one of the following conditions is satisfied:
+      - e := N ∧ N ≤ 0
       - e < 0 := _ ∈ hypothesisContext.hypothesisMap; or
       - 0 = e := _ ∈ hypothesisContext.hypothesisMap; or
       - ¬ (0 < e) := _ ∈ hypothesisContext.hypothesisMap
 -/
+@[always_inline, inline]
 def leqZeroIntInHyps (e : Expr) : TranslateEnvT Bool := do
- let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
- let zero_int ← mkIntLitExpr (Int.ofNat 0)
- let lt_zero ← mkIntLtExpr e zero_int
- if hyps.contains lt_zero then return true
- let zero_eq ← mkIntEqExpr zero_int e
- if hyps.contains zero_eq then return true
- let zero_lt ← mkIntLtExpr zero_int e
- return hyps.contains (mkApp (← mkPropNotOp) zero_lt)
+ match isIntValue? e with
+ | .some (.ofNat 0) => return true
+ | .some (.ofNat _) => return false
+ | .some _          => return true
+ | .none =>
+     let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
+     let zero_int ← mkIntLitExpr (Int.ofNat 0)
+     let lt_zero ← mkIntLtExpr e zero_int
+     if hyps.contains lt_zero then return true
+     let zero_eq ← mkIntEqExpr zero_int e
+     if hyps.contains zero_eq then return true
+     let zero_lt ← mkIntLtExpr zero_int e
+     return hyps.contains (mkApp (← mkPropNotOp) zero_lt)
 
 
 /-- Perform the following actions:
