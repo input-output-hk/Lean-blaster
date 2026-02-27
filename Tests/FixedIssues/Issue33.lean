@@ -2,7 +2,9 @@ import Blaster
 
 namespace Tests.Issue33
 
--- Issue: Functional extensionality axiom has incorrect quantifier structure, causing unsoundness.
+-- Issue: Unexpected Valid
+-- Diagnosis: Functional extensionality axiom has incorrect quantifier structure,
+--            causing unsoundness.
 
 -- Blaster emits the following axiom in the SMT-LIB translation:
 
@@ -28,13 +30,6 @@ namespace Tests.Issue33
 -- f and g agree at 42: f(42) = false = g(42).
 -- So the buggy axiom concludes f = g. But f(0) = true ≠ false = g(0).
 -- Contradiction. The theory is inconsistent and can prove anything.
-
--- Diagnosis: In generateApplyFunAndAssertions, the quantifier over x was placed
--- at the outer level alongside f and g, instead of being nested inside the
--- antecedent of the implication.
-
--- Fix: Introduce an inner ∀ x over the equality f(x) = g(x), and quantify
--- only f and g at the outer level.
 
 -- Minimal reproduction: Blaster incorrectly proves that any two functions
 -- agreeing at 0 must be equal everywhere.
