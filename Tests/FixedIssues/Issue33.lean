@@ -1,6 +1,6 @@
 import Blaster
 
-namespace Tests.Issue31
+namespace Tests.Issue33
 
 -- Issue: Functional extensionality axiom has incorrect quantifier structure, causing unsoundness.
 
@@ -80,4 +80,4 @@ def validate_signatures (verifier_config : VerifierConfig) (signatories : List N
   [∀ (transaction : List Nat) (n : Nat),
   validate_signatures (VerifierConfig.mk [] n) transaction = true]
 
-end Tests.Issue31
+end Tests.Issue33
