@@ -512,11 +512,11 @@ def createPredQualifierApp (smtSym : SmtSymbol) (t : Expr) : TranslateEnvT SmtTe
                   :pattern ((@apply{n} @f @x₁ ... @xₙ₋₁) (@apply{n} @g @x₁ ... @xₙ₋₁) (= @f @g))
                   :qid @apply{n}_congr_fun)))`
 
-            - `(assert (forall ((@f (ArrowTN sα₁ sα₂ sαₙ)) (@g (ArrowTN sα₁ sα₂ sαₙ))
-                                (@x₁ sα₁) ... (@xₙ₋₁ sαₙ₋₁))
-               (! (=> (= (@apply{n} @f @x₁ ... @xₙ₋₁) (@apply{n} @g @x₁ ... @xₙ₋₁)) (= @f @g))
-                  :pattern (= (@apply{n} @f @x₁ ... @xₙ₋₁) (@apply{n} @g @x₁ ... @xₙ₋₁)))
-                  :qid @apply{n}_ext_fun)))`
+            - `(assert (forall ((@f (ArrowTN sα₁ sα₂ sαₙ)) (@g (ArrowTN sα₁ sα₂ sαₙ)))
+                 (! (=> (forall ((@x₁ sα₁) ... (@xₙ₋₁ sαₙ₋₁))
+                           (= (@apply{n} @f @x₁ ... @xₙ₋₁) (@apply{n} @g @x₁ ... @xₙ₋₁)))
+                        (= @f @g))
+                    :qid @apply{n}_ext_fun)))`
 
             - `(assert (forall ((@f (ArrowTN sα₁ sα₂ ... αₙ)))
                 (! (= (forall ((@x₁ sα₁) ... (@xₙ₋₁ sαₙ₋₁)) (@isTypeₙ (@apply{n} @f @x₁ ... @xₙ₋₁)))
