@@ -132,6 +132,34 @@ def intZeroLtNorm? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
  setRestart
  mkIntLtExpr op2' op1
 
+/-- Given `op1` and `op2` corresponding to the operands for `LT.lt`:
+      - return `some True` when `op1 := 0` and `op2 := x + y` and `geqZeroIntInHyps x` and `gtZeroIntInHyps y`
+      - return `some True` when `op1 := 0` and `op2 := x + y` and `gtZeroIntInHyps x` and `geqZeroIntInHyps y`
+      - return `some False` when `op1 := 0` and `op2 := x + y` and `leqZeroIntInHyps x` and `ltZeroIntInHyps y`
+      - return `some False` when `op1 := 0` and `op2 := x + y` and `ltZeroIntInHyps x` and `leqZeroIntInHyps y`
+
+      - return `some False` when `op1 := x + y` and `op2 := 0` and `geqZeroIntInHyps x` and `gtZeroIntInHyps y`
+      - return `some False` when `op1 := x + y` and `op2 := 0` and `gtZeroIntInHyps x` and `geqZeroIntInHyps y`
+      - return `some True` when `op1 := x + y` and `op2 := 0` and `leqZeroIntInHyps x` and `ltZeroIntInHyps y`
+      - return `some True` when `op1 := x + y` and `op2 := 0` and `ltZeroIntInHyps x` and `leqZeroIntInHyps y`
+
+    Otherwise `none`
+-/
+def intZeroLtSum? (op1 op2 : Expr) : TranslateEnvT (Option Expr) := do
+  match isIntValue? op1, isIntValue? op2, intAdd? op1, intAdd? op2 with
+  | some 0, _, _, some (e1, e2) =>
+      if (← geqZeroIntInHyps e1 <&&> gtZeroIntInHyps e2) then return (← mkPropTrue)
+      if (← gtZeroIntInHyps e1 <&&> geqZeroIntInHyps e2) then return (← mkPropTrue)
+      if (← leqZeroIntInHyps e1 <&&> ltZeroIntInHyps e2) then return (← mkPropFalse)
+      if (← ltZeroIntInHyps e1 <&&> leqZeroIntInHyps e2) then return (← mkPropFalse)
+      return none
+  | _, some 0, some (e1, e2), _ =>
+      if (← geqZeroIntInHyps e1 <&&> gtZeroIntInHyps e2) then return (← mkPropFalse)
+      if (← gtZeroIntInHyps e1 <&&> geqZeroIntInHyps e2) then return (← mkPropFalse)
+      if (← leqZeroIntInHyps e1 <&&> ltZeroIntInHyps e2) then return (← mkPropTrue)
+      if (← ltZeroIntInHyps e1 <&&> leqZeroIntInHyps e2) then return (← mkPropTrue)
+      return none
+  | _, _, _, _ => return none
 
 /-- Given `op1` and `op2` corresponding to the operands for `LT.lt`:
       - return `some ¬ (b < op1)` when `op2 := 1 + b ∧ Type(a) = Nat`
@@ -242,6 +270,10 @@ def predCstLTInHyp (op1 : Expr) (op2 : Expr) : TranslateEnvT Bool := do
      - N1 < N2 + a ==> N1 "-" N2 < a  (if Type(a) = Int)
      - N1 + a < N2 + b ==> N1 "-" min(N1, N2) + a < N2 "-" min(N1, N2) + b (if Type(a) ∈ [Nat, Int])
      - a < 1 + b ==> ¬ (b < a) (if Type(a) ∈ [Nat, Int])
+     - 0 < x + y ==> True (if Type (x) ∈ Int ∧ geqZeroIntInHyps x ∧ gtZeroIntInHyps y)
+     - 0 < x + y ==> True (if Type (x) ∈ Int ∧ gtZeroIntInHyps x ∧ geqZeroIntInHyps y)
+     - 0 < x + y ==> False (if Type (x) = Int ∧ ltZeroIntInHyps x ∧ leqZeroIntInHyps y)
+     - 0 < x + y ==> False (if Type (x) = Int ∧ leqZeroIntInHyps x ∧ ltZeroIntInHyps y)
    The simplifications are only applied when isOpaqueRelational predicate is satisfied
    Assume that f = Expr.const ``LT.lt.
    Do nothing if operator is partially applied (i.e., args.size < 4)
@@ -273,6 +305,7 @@ def optimizeLT (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
  if let some r ← addIntBothReduce? op1 op2 then return r
  if let some r ← intLtNorm? op1 op2 then return r
  if let some r ← natLtNorm? op1 op2 then return r
+ if let some r ← intZeroLtSum? op1 op2 then return r
  return mkAppN f args
 
  where
