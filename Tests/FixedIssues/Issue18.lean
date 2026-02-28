@@ -32,8 +32,8 @@ def addOptionPoly [LE α] [DecidableLE α] (x : Option α) (xs : List α) : List
   | some x' => List.map (λ y => if x' ≤ y then x' else y) xs
 
 
-#blaster (gen-cex: 0) (solve-result: 1) [ ∀ (α : Type) (x : Option α) (xs : List α),
-          [LE α] → [DecidableLE α] → [Inhabited α] →
+#blaster (gen-cex: 0) (solve-result: 1) (random-seed: 8)
+       [ ∀ (α : Type) (x : Option α) (xs : List α), [LE α] → [DecidableLE α] → [Inhabited α] →
           !(List.isEmpty xs) → (List.head! (addOptionPoly x xs)) ≤ x
        ]
 
