@@ -512,11 +512,11 @@ def createPredQualifierApp (smtSym : SmtSymbol) (t : Expr) : TranslateEnvT SmtTe
                   :pattern ((@apply{n} @f @x₁ ... @xₙ₋₁) (@apply{n} @g @x₁ ... @xₙ₋₁) (= @f @g))
                   :qid @apply{n}_congr_fun)))`
 
-            - `(assert (forall ((@f (ArrowTN sα₁ sα₂ sαₙ)) (@g (ArrowTN sα₁ sα₂ sαₙ))
-                                (@x₁ sα₁) ... (@xₙ₋₁ sαₙ₋₁))
-               (! (=> (= (@apply{n} @f @x₁ ... @xₙ₋₁) (@apply{n} @g @x₁ ... @xₙ₋₁)) (= @f @g))
-                  :pattern (= (@apply{n} @f @x₁ ... @xₙ₋₁) (@apply{n} @g @x₁ ... @xₙ₋₁)))
-                  :qid @apply{n}_ext_fun)))`
+            - `(assert (forall ((@f (ArrowTN sα₁ sα₂ sαₙ)) (@g (ArrowTN sα₁ sα₂ sαₙ)))
+                 (! (=> (forall ((@x₁ sα₁) ... (@xₙ₋₁ sαₙ₋₁))
+                           (= (@apply{n} @f @x₁ ... @xₙ₋₁) (@apply{n} @g @x₁ ... @xₙ₋₁)))
+                        (= @f @g))
+                    :qid @apply{n}_ext_fun)))`
 
             - `(assert (forall ((@f (ArrowTN sα₁ sα₂ ... αₙ)))
                 (! (= (forall ((@x₁ sα₁) ... (@xₙ₋₁ sαₙ₋₁)) (@isTypeₙ (@apply{n} @f @x₁ ... @xₙ₋₁)))
@@ -593,8 +593,10 @@ def generateFunInstDeclAux (t : Expr) (st : SortExpr) : TranslateEnvT IndTypeDec
      assertTerm (mkForallTerm none quantifiers_fun forallCArgBody (some #[mkPattern fun_patterns, mkQid qidName]))
      -- extensionality
      let qidName := appendSymbol applyName "ext_fun"
-     let forallExtBody := impliesSmt eqAppFun eqFun
-     assertTerm (mkForallTerm none quantifiers_fun forallExtBody (some #[mkPattern #[eqAppFun], mkQid qidName]))
+     let innerForall := mkForallTerm none co_quantifiers eqAppFun none
+     let fg_quantifiers : SortedVars := #[(fsym, st), (gsym, st)]
+     let forallExtBody := impliesSmt innerForall eqFun
+     assertTerm (mkForallTerm none fg_quantifiers forallExtBody (some #[mkQid qidName]))
      -- congruence on args
      let qidName := appendSymbol applyName "congr_args"
      assertTerm (mkForallTerm none arg_quantifiers forallCFunBody (some #[mkPattern arg_patterns, mkQid qidName]))
