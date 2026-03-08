@@ -2,11 +2,10 @@ import Lean
 import Blaster.Optimize.Expr
 import Blaster.Optimize.MatchInfo
 import Blaster.Optimize.Opaque
-import Blaster.Reconstruct.Trace
 import Blaster.Smt.Term
 import Blaster.Command.Options
 
-open Lean Meta Blaster.Smt Blaster.Options Blaster.Reconstruct
+open Lean Meta Blaster.Smt Blaster.Options
 
 namespace Blaster.Optimize
 
@@ -290,9 +289,6 @@ structure OptimizeEnv where
   -/
   restart : Bool
 
-  /-- Trace of rewrite steps performed during optimization, used for proof reconstruction. -/
-  rewriteTrace : RewriteTrace
-
   /-- local declaration context -/
   ctx : LocalDeclContext
 
@@ -311,7 +307,6 @@ instance : Inhabited OptimizeEnv where
      memCache := default,
      options := default,
      restart := false,
-     rewriteTrace := [],
      ctx := default
    }
 
@@ -531,11 +526,6 @@ def setNormalizeFunCall (b : Bool) : TranslateEnvT Unit := do
 def setInFunApp (b : Bool) : TranslateEnvT Unit := do
   modify (fun env => { env with optEnv.options.inFunApp := b })
 
-/-- add a rewrite step to the reconstruction trace. -/
-@[always_inline, inline]
-def addTraceStep (step : RewriteStep) : TranslateEnvT Unit := do
-  modify (fun env => { env with optEnv.rewriteTrace := env.optEnv.rewriteTrace ++ [step] })
-
 @[always_inline, inline]
 def updateHypothesis (h : HypothesisContext) (localCache : RewriteCacheMap) : TranslateEnvT Unit := do
   modify (fun env => { env with optEnv.hypothesisContext := h, optEnv.localRewriteCache := localCache})
@@ -673,7 +663,7 @@ def mkExpr (a : Expr) (cacheResult := true) : TranslateEnvT Expr := do
 /-- Return `true` only when both hypothesisMap and matchInContext are empty and isRefHyp flag is not set -/
 @[always_inline, inline]
 def isGlobalContext : TranslateEnvT Bool := do
-  let ⟨_, ⟨_, _, _, _, _, _, _, _, hypothesisContext, matchInContext, _, _, _, _, _⟩⟩ ← get
+  let ⟨_, ⟨_, _, _, _, _, _, _, _, hypothesisContext, matchInContext, _, _, _, _⟩⟩ ← get
   return hypothesisContext.hypothesisMap.size == 0 && matchInContext.size == 0
 
 /-- Perform the following:
@@ -1722,7 +1712,7 @@ where
     An error is triggered if no corresponding entry can be found in `recFunMap`.
 -/
 def hasRecFunInst? (instApp : Expr) : TranslateEnvT (Option Expr) := do
-  let ⟨_, ⟨_, _, _, _, _,recFunInstCache,_,recFunMap, _, _, _, _, _, _, _⟩⟩ ← get
+  let ⟨_, ⟨_, _, _, _, _,recFunInstCache,_,recFunMap, _, _, _, _, _, _⟩⟩ ← get
   match recFunInstCache.get? instApp with
   | some fbody =>
      -- retrieve function application from recFunMap
