@@ -238,7 +238,7 @@ def stackContinuity
              let hyps ← addHypotheses optExpr x
              let hypsCtx ← mkHypStackContext hyps
              return Sum.inl (bodyOpt :: .LambdaWaitForBody x lctx (some hypsCtx) :: xs, proof)
-             else return Sum.inl (bodyOpt :: .LambdaWaitForBody x lctx none :: xs, proof)
+           else return Sum.inl (bodyOpt :: .LambdaWaitForBody x lctx none :: xs, proof)
 
   | .LambdaWaitForBody x lctx hctx :: xs =>
        -- optExpr corresponds to optimized lambda body
