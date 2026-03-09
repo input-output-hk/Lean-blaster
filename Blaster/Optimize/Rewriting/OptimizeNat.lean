@@ -1,30 +1,35 @@
 import Lean
+import Blaster.Optimize.Env
 import Blaster.Optimize.Rewriting.OptimizeEq
 import Blaster.Optimize.Rewriting.OptimizeRelational
 import Blaster.Optimize.Rewriting.Utils
-import Blaster.Optimize.Env
+import Blaster.Optimize.Types
 
 open Lean Meta
 namespace Blaster.Optimize
 
 /-- Apply the following simplification/normalization rules on `Nat.add` :
-     - 0 + n ==> n
+     - 0 + n ==> n  [proof: Nat.zero_add]
      - N1 + N2 ===> N1 "+" N2
      - N1 + (N2 + n) ==> (N1 "+" N2) + n
      - n1 + n2 ==> n2 + n1 (if n2 <ₒ n1)
    Assume that f = Expr.const ``Nat.add.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Nat.add` expected at this stage)
 -/
-def optimizeNatAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
+def optimizeNatAdd (f : Expr) (args : Array Expr) : TranslateEnvT OptimizeResult := do
  if args.size != 2 then throwEnvError "optimizeNatAdd: exactly two arguments expected"
  let op1 := args[0]!
  let op2 := args[1]!
  match isNatValue? op1, isNatValue? op2 with
- | some 0, _ =>  return op2
- | some n1, some n2 => evalBinNatOp Nat.add n1 n2
+ | some 0, _ =>
+    let proof := mkApp (mkConst ``Nat.zero_add) op2
+    return ⟨op2, some proof⟩
+ | some n1, some n2 =>
+    let expr <- evalBinNatOp Nat.add n1 n2
+    return ⟨expr, none⟩
  | nv1,  _ =>
-    if let some r ← cstAddProp? nv1 op2 then return r
-    return (mkApp2 f op1 op2)
+    if let some expr ← cstAddProp? nv1 op2 then return ⟨expr, none⟩
+    return ⟨mkApp2 f op1 op2, none⟩
 
  where
    /- Given `mv1` and `op2`, return `some ((N1 "+" N2) + n)` when
@@ -332,17 +337,17 @@ def optimizeNatble (f : Expr) (b_args : Array Expr) : TranslateEnvT Expr := do
 
 /-- Apply simplification/normalization rules on `Nat` operators. -/
 @[always_inline, inline]
-def optimizeNat? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
+def optimizeNat? (f : Expr) (args : Array Expr) : TranslateEnvT (Option OptimizeResult) := do
   let Expr.const n _ := f | return none
   match n with
   | ``Nat.add => optimizeNatAdd f args
-  | ``Nat.sub => optimizeNatSub f args
-  | ``Nat.mul => optimizeNatMul f args
-  | ``Nat.div => optimizeNatDiv f args
-  | ``Nat.mod => optimizeNatMod f args
-  | ``Nat.beq => optimizeNatBeq f args
-  | ``Nat.ble => optimizeNatble f args
-  | ``Nat.pow => optimizeNatPow f args
+  | ``Nat.sub => return some ⟨← optimizeNatSub f args, none⟩
+  | ``Nat.mul => return some ⟨← optimizeNatMul f args, none⟩
+  | ``Nat.div => return some ⟨← optimizeNatDiv f args, none⟩
+  | ``Nat.mod => return some ⟨← optimizeNatMod f args, none⟩
+  | ``Nat.beq => return some ⟨← optimizeNatBeq f args, none⟩
+  | ``Nat.ble => return some ⟨← optimizeNatble f args, none⟩
+  | ``Nat.pow => return some ⟨← optimizeNatPow f args, none⟩
   | _=> return none
 
 end Blaster.Optimize

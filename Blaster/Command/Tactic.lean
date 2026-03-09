@@ -36,12 +36,19 @@ def blasterTacticImp : Tactic := fun stx =>
    let sOpts ← parseSolveOptions opts default
    let (goal, nbQuantifiers) ← revertHypotheses (← getMainGoal)
    let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
-   let ((result, optExpr), _) ←
+   let ((result, (optExpr, proof)), _) ←
      withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0 }) $ do
        IO.setNumHeartbeats 0
        Translate.main (← goal.getType >>= instantiateMVars') (logUndetermined := false) |>.run env
    match result with
-   | .Valid => goal.admit -- TODO: replace with proof reconstruction
+   | .Valid =>
+        match proof with
+        | some p => goal.assign p
+        | none =>
+            try goal.refl
+            catch _ =>
+              logWarning "blaster: proof reconstruction failed, closing with admit"
+              goal.admit
    | .Falsified cex => throwTacticEx `blaster goal "Goal was falsified (see counterexample above)"
    | .Undetermined =>
         -- Replace the goal with the optimized expression

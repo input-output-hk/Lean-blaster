@@ -160,7 +160,7 @@ def assertAssumptions (smInst : Expr) (iVar : Expr) (state : Expr) : StateMachin
  let currDepth ← getCurrentDepth
  translateAxioms currDepth
  let assumeExpr := mkApp5 (← mkAssumptions) env.inputType env.stateType smInst iVar state
- let optExpr ←
+ let ⟨optExpr, _proof⟩ ←
    profileTask
      s!"Optimizing assumptions at Depth {currDepth}"
      (Optimize.optimizeExpr assumeExpr)
@@ -200,7 +200,7 @@ def assertAssumptions (smInst : Expr) (iVar : Expr) (state : Expr) : StateMachin
           s!"Translating axioms at Depth {currDepth}"
           ( axioms.forM
             (fun e => do
-              let st ← translateExpr (← Optimize.optimizeExpr e) (topLevel := false)
+              let st ← translateExpr (← Optimize.optimizeExpr e).1 (topLevel := false)
               assertTerm st
             ) )
 

@@ -5,7 +5,6 @@ import Blaster.Smt.Env
 import Blaster.Smt.Translate.Match
 import Blaster.Smt.Translate.Quantifier
 
-
 open Lean Meta Blaster.Optimize
 
 namespace Blaster.Smt
@@ -754,7 +753,8 @@ def translateConst
       hasSorryTheorem e "translateConst: Theorem {n} has `sorry` demonstration"
       if info.type.isForall then
         throwEnvError "translateConst: Fully applied theorem expected but got {reprStr info.type}"
-      termTranslator (← optimizeExpr' info.type)
+      let ⟨optExpr, _proof⟩ <- optimizeExpr' info.type
+      termTranslator optExpr
 
     getAxiomOpaqueType (n : Name) : TranslateEnvT (Option Expr) := do
        match ← getConstEnvInfo n with
@@ -981,7 +981,8 @@ def translateApp
       let ConstantInfo.thmInfo info ← getConstEnvInfo n | return none
       -- check if e has sorry demonstration and trigger error if this is the case
       hasSorryTheorem e "translateApp: Theorem {n} has `sorry` demonstration"
-      termTranslator (← optimizeExpr' (betaForAll info.type args))
+      let ⟨optExpr, _proof⟩ ← optimizeExpr' (betaForAll info.type args)
+      termTranslator optExpr
 
 /-- Given `e := λ (x₁ : t₁) → λ (xₙ : tₙ) => b`, perform the following:
      - let V := [ v | v ∈ getFVarsInExpr b ∧ ¬ isType v.type ∧ ¬ isClassConstraintExpr v.type ∧ ¬ isTopLevelFVar v ]

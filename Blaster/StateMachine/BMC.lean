@@ -51,7 +51,7 @@ partial def bmcStrategy (smInst : Expr) : TranslateEnvT Unit := do
   where
     optimizeState (iVar : Expr) (pState : Option Expr) : StateMachineEnvT Expr := do
      let env ← get
-     profileTask s!"Optimizing state at Depth {← getCurrentDepth}"
+     let ⟨optExpr, _proof⟩ ← profileTask s!"Optimizing state at Depth {← getCurrentDepth}"
       (do
         match pState with
         | none => -- depth 0
@@ -59,13 +59,14 @@ partial def bmcStrategy (smInst : Expr) : TranslateEnvT Unit := do
         | some state =>
             Optimize.optimizeExpr' (mkApp5 (← mkNext) env.inputType env.stateType smInst iVar state)
       ) (verboseLevel := 2)
+      return optExpr
 
     analysisAtDepth (iVar : Expr) (state : Expr) : StateMachineEnvT Result := do
      let env ← get
      --- check invariant at step k
      let currDepth ← getCurrentDepth
      let invExpr := mkApp5 (← mkInvariants) env.inputType env.stateType smInst iVar state
-     let optExpr ←
+     let ⟨optExpr, _proof⟩ ←
        profileTask
          s!"Optimizing invariants at Depth {currDepth}"
          (Optimize.optimizeExpr invExpr)

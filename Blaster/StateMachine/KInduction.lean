@@ -74,7 +74,7 @@ partial def kIndStrategy (smInst : Expr) : TranslateEnvT Unit := do
       | none => -- depth 0
            withLocalDecl' (← nameAtDepth env.smName "state") BinderInfo.default env.stateType fun s => do
              let initState := mkApp4 (← mkInit) env.inputType env.stateType smInst iVar
-             let initEq ←
+             let ⟨initEq, _proof⟩ ←
                profileTask s!"Optimizing state at Depth {← getCurrentDepth}"
                  (Optimize.main (mkApp3 (← mkEqOp) env.stateType s initState))
                  (verboseLevel := 2)
@@ -92,7 +92,7 @@ partial def kIndStrategy (smInst : Expr) : TranslateEnvT Unit := do
              modify (fun env => { env with initFlag := some iflag })
              f s
       | some state =>
-          let state' ←
+          let ⟨state', _proof⟩ ←
             profileTask s!"Optimizing state at Depth {← getCurrentDepth}"
               (Optimize.optimizeExpr' (mkApp5 (← mkNext) env.inputType env.stateType smInst iVar state))
               (verboseLevel := 2)
@@ -104,7 +104,7 @@ partial def kIndStrategy (smInst : Expr) : TranslateEnvT Unit := do
      --- invariant at step k
      let currDepth ← getCurrentDepth
      let invExpr := mkApp5 (← mkInvariants) env.inputType env.stateType smInst iVar state
-     let optExpr ←
+     let ⟨optExpr, _proof⟩ ←
        profileTask
          s!"Optimizing invariants at Depth {currDepth}"
          (Optimize.optimizeExpr invExpr)

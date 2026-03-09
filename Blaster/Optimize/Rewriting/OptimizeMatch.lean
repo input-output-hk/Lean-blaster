@@ -552,7 +552,7 @@ def optimizeMatch
  match (← normMatchExpr? args' mInfo') with
  | some mdef =>
     -- trace[Optimize.normMatch] "normalizing match to ite {reprStr f'} {reprStr args'} => {reprStr mdef}"
-    return Sum.inl (.InitOptimizeExpr mdef :: xs)
+    return Sum.inl (.InitOptimizeExpr mdef :: xs, none)
  | _ => return (← stackContinuity xs (← mkAppExpr f' args'))
 
 

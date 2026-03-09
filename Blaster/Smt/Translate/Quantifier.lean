@@ -980,7 +980,7 @@ where
         let selTerms ← mkCtorSelectorExpr recRule.ctor selectorIdx arg decl.type
         substituteList := (arg, selTerms.1) :: substituteList
         if (← isPropEnv decl.type) then
-          let optExpr ← optimizeExpr' decl.type
+          let ⟨optExpr, _proof⟩ ← optimizeExpr' decl.type
           -- apply substitue list on optExpr before translation
           let propTerm ← termTranslator (substituteList.foldr (fun a acc => acc.replace (substitutePred a)) optExpr)
           predTermCond := updatePredTerm predTermCond (andSmt (eqSmt selTerms.2 propTerm) selTerms.2)

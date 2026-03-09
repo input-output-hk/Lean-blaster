@@ -186,11 +186,11 @@ def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeCo
       else
         if (← hasImplicitArgs e) then return none
         if (← isRecursiveFun f) then
-          return (some $ Sum.inl $ .InitOpaqueRecExpr e #[] :: stack)
+          return (some $ Sum.inl $ (.InitOpaqueRecExpr e #[] :: stack, none))
         if (← isNotFoldable e #[]) then return none
         -- non recursive function case
         if let some fbody ← getFunBody e then
-          return (some $ Sum.inl $ .InitOptimizeExpr fbody :: stack)
+          return (some $ Sum.inl $ (.InitOptimizeExpr fbody :: stack, none))
         else return none
 
 end Blaster.Optimize

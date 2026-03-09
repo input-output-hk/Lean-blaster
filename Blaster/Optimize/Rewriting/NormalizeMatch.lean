@@ -3,7 +3,6 @@ import Blaster.Optimize.Rewriting.Utils
 import Blaster.Optimize.Rewriting.OptimizeNat
 import Blaster.Optimize.Rewriting.OptimizeInt
 
-
 open Lean Meta Elab
 namespace Blaster.Optimize
 
@@ -163,7 +162,9 @@ partial def removeNamedPatternExpr (p : Expr) : TranslateEnvT Expr := do
  where
    optimizePattern (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      match f with
-     | Expr.const ``Nat.add _ => optimizeNatAdd f args
+     | Expr.const ``Nat.add _ =>
+        let ⟨expr, _proof⟩ ← optimizeNatAdd f args
+        return expr
      | Expr.const ``Int.neg _ => optimizeIntNeg f args
      | _ => return mkAppN f args
 
