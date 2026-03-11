@@ -6,7 +6,7 @@ namespace Test.SmtNatMul
 
 /-! # Test cases to validate `Nat.mul` semantics with backend solver -/
 
-#blaster [∀ (x : Nat), (x * 0) = 0]
+#blaster (output-format: 1) [∀ (x : Nat), (x * 0) = 0]
 
 #blaster [∀ (x : Nat), (x * 1) = x]
 

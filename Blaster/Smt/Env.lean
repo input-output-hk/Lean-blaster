@@ -2,6 +2,7 @@ import Lean
 import Blaster.Command.Options
 import Blaster.Optimize.Env
 import Blaster.Smt.EmitCommand
+import Blaster.Logging.Basic
 
 open Lean Meta Blaster.Optimize Blaster.Options
 
@@ -47,32 +48,68 @@ def blankRef : TranslateEnvT Syntax := do
   let pos ← getRefPos
   return Syntax.atom (SourceInfo.original "".toSubstring pos "  ".toSubstring pos) ""
 
-def logResult (r : Result) (isCTI := false) (indLabel := "") (cexLabel := "Counterexample") : TranslateEnvT Unit := do
+def logResult (r : Result) (isCTI := false) (indLabel := "") (cexLabel := "Counterexample")
+    (depth : Option Nat := none) : TranslateEnvT Unit := do
   let sOpts := (← get).optEnv.options.solverOptions
   let ref ← blankRef
-  match r with
-  | .Valid =>
-      if isExpectedValid sOpts.solveResult
-      then logInfoAt ref "✅ Valid"
-      else logErrorAt ref "❌ Unexpected Valid"
-  | .Falsified cex =>
-      if isCTI
-      then dumpCex (logInfoAt ref) indLabel cex
-      else if isExpectedFalsified sOpts.solveResult
-           then dumpCex (logInfoAt ref) "✅ Expected Falsified" cex
-           else dumpCex (logErrorAt ref) "❌ Falsified" cex
-  | .Undetermined =>
-      if isExpectedUndetermined sOpts.solveResult
-      then logInfoAt ref "✅ Expected Undetermined"
-      else logWarningAt ref "⚠️ Undetermined"
+  match sOpts.outputRepr with
+  | .JsonL => logResultJsonL ref r isCTI indLabel cexLabel depth sOpts
+  | .Textual => logResultTextual ref r isCTI indLabel cexLabel sOpts
 
   where
-    dumpCex (f : MessageData -> MetaM Unit) (failure : String) (cex : List String) : TranslateEnvT Unit := do
+    logResultTextual (ref : Syntax) (r : Result) (isCTI : Bool) (indLabel : String)
+        (cexLabel : String) (sOpts : BlasterOptions) : TranslateEnvT Unit := do
+      let emitI := fun msg => Blaster.emitInfo ref msg [] depth
+      let emitE := fun msg => Blaster.emitError ref msg [] depth
+      let emitW := fun msg => Blaster.emitWarning ref msg [] depth
+      match r with
+      | .Valid =>
+          if isExpectedValid sOpts.solveResult
+          then emitI "✅ Valid"
+          else emitE "❌ Unexpected Valid"
+      | .Falsified cex =>
+          if isCTI
+          then dumpCexTextual emitI indLabel cexLabel cex
+          else if isExpectedFalsified sOpts.solveResult
+               then dumpCexTextual emitI "✅ Expected Falsified" cexLabel cex
+               else dumpCexTextual emitE "❌ Falsified" cexLabel cex
+      | .Undetermined =>
+          if isExpectedUndetermined sOpts.solveResult
+          then emitI "✅ Expected Undetermined"
+          else emitW "⚠️ Undetermined"
+
+    dumpCexTextual (f : MessageData → TranslateEnvT Unit) (failure : String)
+        (cexLabel : String) (cex : List String) : TranslateEnvT Unit := do
       if (← get).optEnv.options.solverOptions.generateCex then
          f failure
          f s!"{cexLabel}:"
          cex.forM (λ s => f s!" - {s.dropRight 1}")
       else f failure
+
+    logResultJsonL (ref : Syntax) (r : Result) (isCTI : Bool) (indLabel : String)
+        (cexLabel : String) (depth : Option Nat) (sOpts : BlasterOptions) : TranslateEnvT Unit := do
+      let status : String := match r with | .Valid => "valid" | .Falsified _ => "falsified" | .Undetermined => "undetermined"
+      let expected : Bool := match r with
+        | .Valid => isExpectedValid sOpts.solveResult
+        | .Falsified _ => if isCTI then true else isExpectedFalsified sOpts.solveResult
+        | .Undetermined => isExpectedUndetermined sOpts.solveResult
+      let cexData : List String := match r with
+        | .Falsified cex => if sOpts.generateCex then cex.map (fun s => s.dropRight 1) else []
+        | _ => []
+      let mut fields : List (String × Json) := [
+        ("type", .str "result"),
+        ("status", .str status),
+        ("expected", .bool expected)]
+      -- Add counterexample field for falsified results
+      if !cexData.isEmpty then
+        fields := fields ++ [("counterexample", Json.arr (cexData.map Json.str).toArray)]
+      -- Add CTI label if applicable
+      if isCTI && indLabel != "" then
+        fields := fields ++ [("indLabel", .str indLabel)]
+      if cexLabel != "Counterexample" then
+        fields := fields ++ [("cexLabel", .str cexLabel)]
+      -- Delegate to the handler via emitInfo (handler handles mode dispatch)
+      Blaster.emitInfo ref "" fields depth
 
 /-- Tries to find if z3 is natively present in PATH, if not checks wsl z3 -/
 private def findZ3CmdAndVersion : IO (String) := do

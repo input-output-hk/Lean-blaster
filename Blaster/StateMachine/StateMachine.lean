@@ -78,8 +78,8 @@ def nameAtDepth (smName : Name) (suffix : String) : TranslateEnvT Name := do
 
 def logDepthProgress (header : String) : TranslateEnvT Unit := do
   if (← get).optEnv.options.solverOptions.verbose > 0 then
-    IO.println f!"{header} at Depth {← getCurrentDepth}"
-    (← IO.getStdout).flush
+    let d ← getCurrentDepth
+    Blaster.emitProgress s!"{header} at Depth {d}" (some d)
 
 def defineSmtInitFlag : TranslateEnvT SmtTerm := do
   let dflag := mkReservedSymbol s!"_InitFlag"
@@ -98,42 +98,64 @@ def defineSmtDepthFlag : TranslateEnvT SmtTerm := do
 
 def logNotInductiveAtDepth : TranslateEnvT Unit := do
   let sOpts := (← get).optEnv.options.solverOptions
-  let msg := s!"Failed to establish induction up to Depth {← getMaxDepth}"
+  let ref ← blankRef
+  let maxD ← getMaxDepth
+  let d ← getCurrentDepth
+  let msg := s!"Failed to establish induction up to Depth {maxD}"
   if isExpectedUndetermined sOpts.solveResult then
-    logInfoAt (← blankRef) s!"✅ Expected {msg}"
+    Blaster.emitInfo ref s!"✅ Expected {msg}"
+      [("type", .str "warning"), ("message", .str s!"Expected {msg}")] (some d)
   else
-    logWarningAt (← blankRef) s!"⚠️ {msg}"
+    Blaster.emitWarning ref s!"⚠️ {msg}"
+      [("type", .str "warning"), ("message", .str msg)] (some d)
   -- dump smt commands submitted to backend solver when `dumpSmtLib` option is set.
   logSmtQuery
   discard $ exitSmt
 
 def logNoCexAtDepth : TranslateEnvT Unit := do
-  logInfoAt (← blankRef) f!"✅ No counterexample up to Depth {← getMaxDepth}"
+  let maxD ← getMaxDepth
+  let d ← getCurrentDepth
+  let ref ← blankRef
+  let msg := s!"No counterexample up to Depth {maxD}"
+  Blaster.emitInfo ref s!"✅ {msg}"
+    [("type", .str "result"), ("status", .str "no_cex"),
+     ("message", .str msg)] (some d)
   discard $ exitSmt
 
 def logUndeterminedAtDepth : TranslateEnvT Unit := do
-  logWarningAt (← blankRef) f!"⚠️ Undetermined at Depth {← getCurrentDepth}"
+  let d ← getCurrentDepth
+  let ref ← blankRef
+  let msg := s!"Undetermined at Depth {d}"
+  Blaster.emitWarning ref s!"⚠️ {msg}"
+    [("type", .str "warning"), ("message", .str msg)] (some d)
   discard $ exitSmt
 
 def logCexAtDepth (r : Result) : TranslateEnvT Unit := do
+  let d ← getCurrentDepth
   discard $ exitSmt
-  logResult r (cexLabel := s!"Counterexample detected at Depth {← getCurrentDepth}")
+  logResult r (cexLabel := s!"Counterexample detected at Depth {d}") (depth := some d)
   (← IO.getStdout).flush
 
 def logCtiAtDepth (r : Result) : TranslateEnvT Unit := do
   let sOpts := (← get).optEnv.options.solverOptions
+  let d ← getCurrentDepth
   unless !sOpts.generateCex do
     logResult r
       (isCTI := true)
-      (indLabel := s!"⚠️ Induction failed at Depth {← getCurrentDepth}")
+      (indLabel := s!"⚠️ Induction failed at Depth {d}")
       (cexLabel := s!"Counterexample to Induction")
+      (depth := some d)
     (← IO.getStdout).flush
 
 def logContradictionAtDepth : TranslateEnvT Unit := do
-  -- dump smt commands submitted to backend solver when `dumpSmtiLb` option is set.
+  -- dump smt commands submitted to backend solver when `dumpSmtLib` option is set.
   logSmtQuery
   discard $ exitSmt
-  logErrorAt (← blankRef) f!"❌ Contradictory context at Depth {← getCurrentDepth}"
+  let d ← getCurrentDepth
+  let ref ← blankRef
+  let msg := s!"Contradictory context at Depth {d}"
+  Blaster.emitError ref s!"❌ {msg}"
+    [("type", .str "error"), ("message", .str msg)] (some d)
 
 
 /-- Determine if `smInst` corresponds to a `StateMachine` instance

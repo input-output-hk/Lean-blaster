@@ -293,7 +293,7 @@ def Optimize.main (e : Expr) : TranslateEnvT Expr := do
 def command (sOpts: BlasterOptions) (e : Expr) : MetaM (Expr × TranslateEnv) := do
   -- keep the current name generator and restore it afterwards
   let ngen ← getNGen
-  let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
+  let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts, logger := Blaster.mkLogger sOpts.outputMode sOpts.outputRepr}
   let res ← Optimize.main e|>.run env
   -- restore name generator
   setNGen ngen

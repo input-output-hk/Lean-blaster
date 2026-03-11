@@ -20,6 +20,8 @@ Options:
   - `gen-cex`: generate counterexample for falsified theorems (default: 1)
   - `solve-result`: specify the expected result from the #blaster command, i.e.,
                     0 for 'Valid', 1 for 'Falsified' and 2 for 'Undetermined'. (default: 0)
+  - `output-mode`: 0 for LogInfo (Lean diagnostics, default), 1 for StdOut (IO.println)
+  - `output-repr`: 0 for Textual (human-readable, default), 1 for JsonL (structured JSON lines)
 
 Examples:
    - #blaster [∀ x y : Nat, x + y ≥ x]
@@ -38,6 +40,8 @@ syntax "(gen-cex:" num ")" : solveOption
 syntax "(solve-result:" num ")" : solveOption
 syntax "(max-depth:" num ")" : solveOption
 syntax "(random-seed:" num ")" : solveOption
+syntax "(output-mode:" num ")" : solveOption
+syntax "(output-repr:" num ")" : solveOption
 
 -- NOTE: Limited to one term for the time being
 syntax solveTerm := "[" term "]"
@@ -111,6 +115,22 @@ def parseSolveResult (sOpts : BlasterOptions) : TSyntax `solveOption → m Blast
       | _ => throwUnsupportedSyntax
   | _ => return sOpts
 
+def parseOutputMode (sOpts : BlasterOptions) : TSyntax `solveOption → m BlasterOptions
+  | `(solveOption| (output-mode: $n:num)) =>
+      match n.getNat with
+      | 0 => return { sOpts with outputMode := .LogInfo }
+      | 1 => return { sOpts with outputMode := .StdOut }
+      | _ => throwUnsupportedSyntax
+  | _ => return sOpts
+
+def parseOutputRepr (sOpts : BlasterOptions) : TSyntax `solveOption → m BlasterOptions
+  | `(solveOption| (output-repr: $n:num)) =>
+      match n.getNat with
+      | 0 => return { sOpts with outputRepr := .Textual }
+      | 1 => return { sOpts with outputRepr := .JsonL }
+      | _ => throwUnsupportedSyntax
+  | _ => return sOpts
+
 /-! ### Generic Parser for All Options -/
 def parseSolveOption (sOpts : BlasterOptions) (opt : TSyntax `solveOption) : m BlasterOptions := do
   let sOpts ← parseUnfoldDepth sOpts opt
@@ -123,6 +143,8 @@ def parseSolveOption (sOpts : BlasterOptions) (opt : TSyntax `solveOption) : m B
   let sOpts ← parseSolveResult sOpts opt
   let sOpts ← parseMaxDepth sOpts opt
   let sOpts ← parseRandomSeed sOpts opt
+  let sOpts ← parseOutputMode sOpts opt
+  let sOpts ← parseOutputRepr sOpts opt
   return sOpts
 
 /-! ### Process Multiple Options -/

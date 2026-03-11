@@ -22,6 +22,18 @@ def isExpectedUndetermined : ExpectedResult -> Bool
 | .ExpectedUndetermined => true
 | _ => false
 
+/-- Output mode for logging results. -/
+inductive OutputMode where
+  | LogInfo   -- Use Lean's logInfoAt/logErrorAt/logWarningAt (default)
+  | StdOut    -- Use IO.println to stdout
+deriving Repr, DecidableEq
+
+/-- Output representation format. -/
+inductive OutputRepr where
+  | Textual   -- Human-readable emoji-prefixed format (default)
+  | JsonL     -- One JSON object per line (for VS Code extension RPC)
+deriving Repr, DecidableEq
+
 /-- Type introducing the options passed on to the solver. -/
 structure BlasterOptions where
   /-- The number of unfolding steps to be considered when
@@ -71,6 +83,12 @@ structure BlasterOptions where
   /-- Maximum analysis depth to be considered when performing BMC and K-Induction.
       It is set to 10 by default. -/
   maxDepth : Nat := 10
+
+  /-- Output mode: LogInfo (default) uses Lean diagnostics, StdOut uses IO.println. -/
+  outputMode : OutputMode := .LogInfo
+
+  /-- Output representation: Textual (default) for human-readable, JsonL for structured JSON lines. -/
+  outputRepr : OutputRepr := .Textual
  deriving Repr
 
 instance : Inhabited BlasterOptions where

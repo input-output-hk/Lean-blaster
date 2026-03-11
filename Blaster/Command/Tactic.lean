@@ -23,6 +23,8 @@ Options:
   - `random-seed`: seed for the random number generator (default: none)
   - `solve-result`: specify the expected result from the blaster tactic, i.e.,
                     0 for 'Valid', 1 for 'Falsified' and 2 for 'Undetermined'. (default: 0)
+  - `output-mode`: 0 for LogInfo (Lean diagnostics, default), 1 for StdOut (IO.println)
+  - `output-repr`: 0 for Textual (human-readable, default), 1 for JsonL (structured JSON lines)
 Example: `blaster (timeout: 10) (verbose: 1)`
 -/
 syntax (name := blasterTactic) "blaster" (solveOption)* : tactic
@@ -35,7 +37,7 @@ def blasterTacticImp : Tactic := fun stx =>
    let opts := stx[1].getArgs
    let sOpts ← parseSolveOptions opts default
    let (goal, nbQuantifiers) ← revertHypotheses (← getMainGoal)
-   let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
+   let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts, logger := Blaster.mkLogger sOpts.outputMode sOpts.outputRepr}
    let ((result, optExpr), _) ←
      withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0 }) $ do
        IO.setNumHeartbeats 0
