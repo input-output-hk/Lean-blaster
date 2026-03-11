@@ -1,9 +1,10 @@
 import Lean
+import Blaster.Command.Options
 import Blaster.Optimize.Expr
 import Blaster.Optimize.MatchInfo
 import Blaster.Optimize.Opaque
+import Blaster.Optimize.Types
 import Blaster.Smt.Term
-import Blaster.Command.Options
 
 open Lean Meta Blaster.Smt Blaster.Options
 
@@ -83,7 +84,7 @@ inductive MatchEntry where
  deriving Repr
 
 abbrev HypothesisMap := Std.HashMap Lean.Expr Lean.Expr
-abbrev RewriteCacheMap := Std.HashMap Lean.Expr Lean.Expr
+abbrev RewriteCacheMap := Std.HashMap Lean.Expr OptimizeResult
 abbrev MatchEntryMap := Std.HashMap Lean.Expr MatchEntry -- with key corresponding to a match pattern
 abbrev MatchContextMap := Std.HashMap Lean.Expr MatchEntryMap  -- with key corresponding to a match discriminator
 abbrev EqualityMap := Std.HashMap Lean.Expr Lean.Expr -- with key corresponding to expression to be replaced.
@@ -612,20 +613,20 @@ def isInFunApp : TranslateEnvT Bool :=
   return (← get).optEnv.options.inFunApp
 
 @[always_inline, inline]
-def findGlobalCache (a : Expr) : TranslateEnvT (Option Expr) := do
+def findGlobalCache (a : Expr) : TranslateEnvT (Option OptimizeResult) := do
  return (← get).optEnv.globalRewriteCache.get? a
 
 @[always_inline, inline]
-def findLocalCache (a : Expr) : TranslateEnvT (Option Expr) := do
+def findLocalCache (a : Expr) : TranslateEnvT (Option OptimizeResult) := do
  return (← get).optEnv.localRewriteCache.get? a
 
 /-- Update global rewrite cache with `a := b`. -/
-def updateGlobalRewriteCache (a : Expr) (b : Expr) : TranslateEnvT Unit := do
-  modify (fun env => { env with optEnv.globalRewriteCache := env.optEnv.globalRewriteCache.insert a b })
+def updateGlobalRewriteCache (a : Expr) (r : OptimizeResult) : TranslateEnvT Unit := do
+  modify (fun env => { env with optEnv.globalRewriteCache := env.optEnv.globalRewriteCache.insert a r })
 
 /-- Update local rewrite cache with `a := b`. -/
-def updateLocalRewriteCache (a : Expr) (b : Expr) : TranslateEnvT Unit := do
-  modify (fun env => { env with optEnv.localRewriteCache := env.optEnv.localRewriteCache.insert a b })
+def updateLocalRewriteCache (a : Expr) (r : OptimizeResult) : TranslateEnvT Unit := do
+  modify (fun env => { env with optEnv.localRewriteCache := env.optEnv.localRewriteCache.insert a r })
 
 /-- Update synthesize decidable instance cache with `a := b`. -/
 @[always_inline, inline]
@@ -655,9 +656,9 @@ def withSynthInstanceCache (a : Expr) (f: Unit → TranslateEnvT (Option Expr)) 
 @[always_inline, inline]
 def mkExpr (a : Expr) (cacheResult := true) : TranslateEnvT Expr := do
    match (← findGlobalCache a) with
-   | some a' => return a'
+   | some r => return r.optExpr
    | none => do
-       if cacheResult then updateGlobalRewriteCache a a
+       if cacheResult then updateGlobalRewriteCache a ⟨a, none⟩
        return a
 
 /-- Return `true` only when both hypothesisMap and matchInContext are empty and isRefHyp flag is not set -/
@@ -668,16 +669,17 @@ def isGlobalContext : TranslateEnvT Bool := do
 
 /-- Perform the following:
       - When isGlobal
-         - Add entry `a := b` to `globalRewriteCache`
+         - Add entry `a := r` to `globalRewriteCache`
       - Otherwise
-         - Add entry `a := b` to `localRewriteCache`
+         - Add entry `a := r` to `localRewriteCache`
 -/
 @[always_inline, inline]
-def updateOptimizeEnvCache (a : Expr) (b : Expr) (isGlobal : Bool) : TranslateEnvT Unit := do
-  -- trace[Optimize.cacheExpr] "cacheExpr {← ppExpr a} ===> {← ppExpr b}"
+def updateOptimizeEnvCache (a : Expr) (r : OptimizeResult) (isGlobal : Bool) :
+    TranslateEnvT Unit := do
+  -- trace[Optimize.cacheExpr] "cacheExpr {← ppExpr a} ===> {← ppExpr r.optExpr}"
   if isGlobal
-  then updateGlobalRewriteCache a b
-  else updateLocalRewriteCache a b
+  then updateGlobalRewriteCache a r
+  else updateLocalRewriteCache a r
 
 /-- Perform the following:
       - When isGlobal
@@ -690,7 +692,7 @@ def updateOptimizeEnvCache (a : Expr) (b : Expr) (isGlobal : Bool) : TranslateEn
          - Otherwise `none`
 -/
 @[always_inline, inline]
-def isInOptimizeCache? (a : Expr) (isGlobal : Bool) : TranslateEnvT (Option Expr) := do
+def isInOptimizeCache? (a : Expr) (isGlobal : Bool) : TranslateEnvT (Option OptimizeResult) := do
  if isGlobal
  then findGlobalCache a
  else findLocalCache a

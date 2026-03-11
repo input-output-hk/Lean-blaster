@@ -44,8 +44,7 @@ def blasterTacticImp : Tactic := fun stx =>
    | .Valid =>
         match proof with
         | some p =>
-            -- verify certificate type matches goal before assigning,
-            -- as composition via Eq.trans is not yet fully implemented
+            -- verify certificate type matches goal before assigning
             let goalType ← goal.getType
             let pType ← inferType p
             if (← isDefEq pType goalType) then

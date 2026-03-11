@@ -10,8 +10,9 @@ import Blaster.Optimize.Rewriting.OptimizeITE
 import Blaster.Optimize.Rewriting.OptimizeNat
 import Blaster.Optimize.Rewriting.OptimizeString
 import Blaster.Optimize.OptimizeStack
+import Blaster.Reconstruct.Basic
 
-open Lean Meta
+open Lean Meta Blaster.Reconstruct
 
 namespace Blaster.Optimize
 
@@ -88,7 +89,9 @@ def optimizeAppAux (f : Expr) (args: Array Expr) : TranslateEnvT OptimizeResult 
                 - proceed with stack continuity
 
     `incomingProof` is an optional proof certificate threaded through the optimizer stack.
-    NOTE: proof certificate composition via `Eq.trans` is not yet implemented (see TODO comments).
+
+    When an argument was rewritten, the incoming proof is lifted via `congrArg`
+    and composed with the application-level proof via `Eq.trans` in `optimizeApp`.
 
     NOTE: skipPropCheck is set to `true` only when it is known beforehand that `f`
     is a recursive function for which `allExplicitParamsAreCtor f args (funPropagation := true)`
@@ -99,7 +102,15 @@ def optimizeApp
   (stack : List OptimizeStack) (incomingProof : Option Expr := none) (skipPropCheck := false) :
     TranslateEnvT OptimizeContinuity := do
   let ⟨e, newProof⟩ ← optimizeAppAux f args
-  let proof := newProof.orElse (λ _ => incomingProof)
+  let proof ← match incomingProof, newProof with
+    | some inP, some np => do
+      -- inP : origArg = optArg (an argument was rewritten)
+      -- np : f(optArgs) = result (the application-level rewrite on optimized args)
+      -- build congrArg to lift the arg rewrite to application level, then compose
+      match ← buildCongrArgFromProof f args inP with
+      | some congrP => composeProofs? (some congrP) (some np)
+      | none => pure (some np)
+    | _, _ => composeProofs? incomingProof newProof
   if ← isRestart then
     resetRestart
     return Sum.inl (.InitOptimizeExpr e :: stack, none)

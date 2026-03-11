@@ -2,8 +2,9 @@ import Lean
 import Blaster.Optimize.Rewriting.OptimizeITE
 import Blaster.Optimize.Rewriting.OptimizeProjection
 import Blaster.Optimize.Telescope
+import Blaster.Reconstruct.Basic
 
-open Lean Meta
+open Lean Meta Blaster.Reconstruct
 
 namespace Blaster.Optimize
 
@@ -49,6 +50,8 @@ inductive OptimizeStack where
                            (startArgIdx : Nat) (stopIdx : Nat) (pInfo : FunEnvInfo)
  | AppOptimizeExplicitArgs (f : Expr) (args : Array Expr) (idx : Nat)
                            (stopIdx : Nat) (pInfo : FunEnvInfo) (mInfo : Option MatchInfo)
+                           (origArgs : Array Expr)
+                           (argProofs : Array (Option Expr)) -- reserved for future use
  | DiteChoiceWaitForCond (f : Expr) (args : Array Expr) (pInfo : FunEnvInfo) (startArgIdx : Nat)
  | MatchChoiceOptimizeDiscrs (f : Expr) (args : Array Expr) (pInfo : FunEnvInfo)
                              (startArgIdx : Nat) (idx : Nat) (mInfo : MatchInfo)
@@ -108,7 +111,12 @@ def stackContinuity
   | [] => return Sum.inr ⟨optExpr, proof⟩
 
   | .InitOptimizeReturn e isGlobal :: xs =>
-       if !skipCache then updateOptimizeEnvCache e optExpr isGlobal
+       if !skipCache then
+         -- only cache the proof certificate if the expression contains no free variables,
+         -- as certificates with fvars are only valid within the local scope where those
+         -- variables were introduced
+         let cachedProof := if e.hasFVar then none else proof
+         updateOptimizeEnvCache e ⟨optExpr, cachedProof⟩ isGlobal
        match xs with
        | [] => return Sum.inr ⟨optExpr, proof⟩
        | _ => stackContinuity xs optExpr proof
@@ -199,12 +207,12 @@ def stackContinuity
         (.AppOptimizeImplicitArgs f (args.set! idx optExpr)
           (idx + 1) startArgIdx stopIdx pInfo :: xs, proof)
 
-  | .AppOptimizeExplicitArgs f args idx stopIdx pInfo mInfo :: xs =>
+  | .AppOptimizeExplicitArgs f args idx stopIdx pInfo mInfo origArgs argProofs :: xs =>
        -- optExpr corresponds to the optimized explicit argument referenced by idx.
        -- continuity with optimizing the next explicit argument.
        return Sum.inl
         (.AppOptimizeExplicitArgs f (args.set! idx optExpr)
-          (idx + 1) stopIdx pInfo mInfo :: xs, proof)
+          (idx + 1) stopIdx pInfo mInfo origArgs argProofs :: xs, proof)
 
   | .DiteChoiceWaitForCond f args pInfo startArgIdx :: xs =>
        -- optExpr corresponds to the optimized Blaster.dite' conditional, i.e., referenced by index 1.
@@ -219,7 +227,7 @@ def stackContinuity
           -- NOTE: keep matchInfo to avoid unnecessary query and to avoid optimizing discriminators again
           return Sum.inl
             (.AppOptimizeExplicitArgs f (args.set! 1 optExpr)
-              startArgIdx args.size pInfo none :: xs, proof)
+              startArgIdx args.size pInfo none args (Array.replicate args.size none) :: xs, proof)
 
   | .MatchChoiceOptimizeDiscrs f args pInfo startArgIdx idx mInfo :: xs =>
        -- optExpr corresponds to the optimized match discriminator referenced by idx.
@@ -332,12 +340,16 @@ def optimizeIfThenElse? (f : Expr) (args : Array Expr) (stack : List OptimizeSta
 
 @[always_inline, inline]
 def isInOptimizeEnvCache (expr : Expr) (proof : Option Expr) (stack : List OptimizeStack) :
-    TranslateEnvT (Sum (List OptimizeStack) OptimizeContinuity) := do
+    TranslateEnvT (Sum (List OptimizeStack × Option Expr) OptimizeContinuity) := do
   -- NOTE: Always consider global context when `a` does not contain any FVar.
   let isGlobal := !expr.hasFVar || (← isGlobalContext)
   match (← isInOptimizeCache? expr isGlobal) with
-  | some b => Sum.inr <$> stackContinuity stack b proof
-  | none => return Sum.inl (.InitOptimizeReturn expr isGlobal :: stack)
+  | some r =>
+      if r.proof.isNone && expr.hasFVar then
+        return Sum.inl (.InitOptimizeReturn expr isGlobal :: stack, proof)
+      else
+        Sum.inr <$> stackContinuity stack r.optExpr (← composeProofs? proof r.proof)
+  | none => return Sum.inl (.InitOptimizeReturn expr isGlobal :: stack, none)
 
 
 end Blaster.Optimize
