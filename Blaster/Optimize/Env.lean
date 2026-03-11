@@ -290,6 +290,11 @@ structure OptimizeEnv where
   -/
   restart : Bool
 
+  /-- Set of expressions whose proof certificates were stripped during caching
+      due to containing free variables in a global context.
+  -/
+  strippedProofExprs : Std.HashSet Lean.Expr
+
   /-- local declaration context -/
   ctx : LocalDeclContext
 
@@ -308,6 +313,7 @@ instance : Inhabited OptimizeEnv where
      memCache := default,
      options := default,
      restart := false,
+     strippedProofExprs := Std.HashSet.emptyWithCapacity,
      ctx := default
    }
 
@@ -664,7 +670,7 @@ def mkExpr (a : Expr) (cacheResult := true) : TranslateEnvT Expr := do
 /-- Return `true` only when both hypothesisMap and matchInContext are empty and isRefHyp flag is not set -/
 @[always_inline, inline]
 def isGlobalContext : TranslateEnvT Bool := do
-  let ⟨_, ⟨_, _, _, _, _, _, _, _, hypothesisContext, matchInContext, _, _, _, _⟩⟩ ← get
+  let ⟨_, ⟨_, _, _, _, _, _, _, _, hypothesisContext, matchInContext, _, _, _, _, _⟩⟩ ← get
   return hypothesisContext.hypothesisMap.size == 0 && matchInContext.size == 0
 
 /-- Perform the following:
@@ -1714,7 +1720,7 @@ where
     An error is triggered if no corresponding entry can be found in `recFunMap`.
 -/
 def hasRecFunInst? (instApp : Expr) : TranslateEnvT (Option Expr) := do
-  let ⟨_, ⟨_, _, _, _, _,recFunInstCache,_,recFunMap, _, _, _, _, _, _⟩⟩ ← get
+  let ⟨_, ⟨_, _, _, _, _,recFunInstCache,_,recFunMap, _, _, _, _, _, _, _⟩⟩ ← get
   match recFunInstCache.get? instApp with
   | some fbody =>
      -- retrieve function application from recFunMap

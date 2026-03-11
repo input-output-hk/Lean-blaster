@@ -70,7 +70,7 @@ abbrev OptimizeContinuity := Sum (List OptimizeStack × Option Expr) OptimizeRes
 
 @[always_inline, inline]
 def mkHypStackContext (h : UpdatedHypContext) : TranslateEnvT HypsStackContext := do
-  let ⟨_, ⟨_, localRewriteCache, _, _, _, _, _, _, hypothesisContext, _, _, _, _, _⟩⟩ ← get
+  let ⟨_, ⟨_, localRewriteCache, _, _, _, _, _, _, hypothesisContext, _, _, _, _, _, _⟩⟩ ← get
   if h.1 then
     updateHypothesis h.2 Std.HashMap.emptyWithCapacity
     return {newHCtx := h, oldHCtx := some hypothesisContext, oldCache := some localRewriteCache}
@@ -85,7 +85,7 @@ def resetHypContext (h : HypsStackContext) : TranslateEnvT Unit := do
 
 @[always_inline, inline]
 def mkMatchStackContext (h : MatchContextMap) : TranslateEnvT MatchStackContext := do
-  let ⟨_, ⟨_, localRewriteCache, _, _, _, _, _, _, _, matchInContext, _, _, _, _⟩⟩ ← get
+  let ⟨_, ⟨_, localRewriteCache, _, _, _, _, _, _, _, matchInContext, _, _, _, _, _⟩⟩ ← get
   updateMatchContext h Std.HashMap.emptyWithCapacity
   return {oldMatchCtx := matchInContext, oldCache := localRewriteCache}
 
@@ -112,10 +112,13 @@ def stackContinuity
 
   | .InitOptimizeReturn e isGlobal :: xs =>
        if !skipCache then
-         -- only cache the proof certificate if the expression contains no free variables,
-         -- as certificates with fvars are only valid within the local scope where those
-         -- variables were introduced
+         -- Strip proof certificates for expressions with free variables in global cache,
+         -- as fvars are only valid within the local scope where they were introduced.
+         -- Track stripped proofs so they can be selectively re-derived on cache hit.
          let cachedProof := if e.hasFVar then none else proof
+         if proof.isSome && cachedProof.isNone then
+           modify (fun env => { env with
+             optEnv.strippedProofExprs := env.optEnv.strippedProofExprs.insert e })
          updateOptimizeEnvCache e ⟨optExpr, cachedProof⟩ isGlobal
        match xs with
        | [] => return Sum.inr ⟨optExpr, proof⟩
@@ -345,7 +348,7 @@ def isInOptimizeEnvCache (expr : Expr) (proof : Option Expr) (stack : List Optim
   let isGlobal := !expr.hasFVar || (← isGlobalContext)
   match (← isInOptimizeCache? expr isGlobal) with
   | some r =>
-      if r.proof.isNone && expr.hasFVar && !Lean.Expr.equal r.optExpr expr then
+      if r.proof.isNone && expr.hasFVar && (← get).optEnv.strippedProofExprs.contains expr then
         return Sum.inl (.InitOptimizeReturn expr isGlobal :: stack, proof)
       else
         Sum.inr <$> stackContinuity stack r.optExpr (← composeProofs? proof r.proof)
