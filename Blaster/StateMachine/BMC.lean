@@ -100,7 +100,7 @@ syntax (name := bmc) "#bmc" (solveOption)* solveTerm : command
 
 def bmcCommand (sOpts: BlasterOptions) (stx : Syntax) : TermElabM Unit :=
    elabTermAndSynthesize stx none >>= fun e => do
-     let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts, logger := Blaster.mkLogger sOpts.outputMode sOpts.outputRepr}
+     let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
      discard $ bmcStrategy e|>.run env
 
 @[command_elab bmc]

@@ -4,29 +4,19 @@ open Lean Meta
 
 namespace Blaster
 
-/-- A logging backend that handles output dispatch.
-    To add a new output mode, create a new `mkXxxLogger` factory function
-    that returns a `BlasterLogger` with the desired behavior.
--/
-structure BlasterLogger where
+/-- Typeclass for monads that support structured logging.
+    To add a new output format, extend the `OutputRepr` enum and
+    add the corresponding branches in the `TranslateEnvT` instance. -/
+class MonadBlasterLog (m : Type → Type) where
   /-- Emit an info-level message. -/
-  emitInfo     : Syntax → MessageData → List (String × Json) → Option Nat → MetaM Unit
+  emitInfo     : Syntax → MessageData → List (String × Json) → Option Nat → m Unit
   /-- Emit a warning-level message. -/
-  emitWarning  : Syntax → MessageData → List (String × Json) → Option Nat → MetaM Unit
+  emitWarning  : Syntax → MessageData → List (String × Json) → Option Nat → m Unit
   /-- Emit an error-level message. -/
-  emitError    : Syntax → MessageData → List (String × Json) → Option Nat → MetaM Unit
+  emitError    : Syntax → MessageData → List (String × Json) → Option Nat → m Unit
   /-- Emit a progress message (e.g., BMC depth step). -/
-  emitProgress : String → Option Nat → MetaM Unit
+  emitProgress : String → Option Nat → m Unit
   /-- Emit a profiling result (task name + duration in seconds). -/
-  emitProfile  : String → Float → MetaM Unit
-
-instance : Inhabited BlasterLogger where
-  default := {
-    emitInfo     := fun _ _ _ _ => pure ()
-    emitWarning  := fun _ _ _ _ => pure ()
-    emitError    := fun _ _ _ _ => pure ()
-    emitProgress := fun _ _ => pure ()
-    emitProfile  := fun _ _ => pure ()
-  }
+  emitProfile  : String → Float → m Unit
 
 end Blaster

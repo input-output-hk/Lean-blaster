@@ -90,7 +90,7 @@ def Translate.main (e : Expr) (logUndetermined := true) : TranslateEnvT (Result 
 def command (sOpts: BlasterOptions) (stx : Syntax) : TermElabM Unit := do
    withRef stx do
      instantiateMVars (← withSynthesize (postpone := .partial) <| elabTerm stx none) >>= fun e => do
-       let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts, logger := Blaster.mkLogger sOpts.outputMode sOpts.outputRepr}
+       let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
        discard $ Translate.main e|>.run env
 
 initialize

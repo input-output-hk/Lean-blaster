@@ -1,4 +1,5 @@
 import Lean
+import Blaster.Logging.Handler
 import Blaster.Optimize.Env
 
 open Lean Meta Blaster.Options Blaster.Optimize
@@ -23,101 +24,93 @@ def mkJsonObj (fields : List (String × Json)) (depth : Option Nat := none) : IO
 /-- Render a Json value as a compact single-line string (JSONL). -/
 def jsonLine (j : Json) : String := j.compress
 
-/-! ### Logger factory functions
-
-    To add a new output mode, create a new `mkXxxLogger` factory function
-    below and wire it into `mkLogger`.
--/
-
-/-- Textual output via Lean diagnostics (logInfoAt/logWarningAt/logErrorAt). -/
-def mkTextualLogInfoLogger : BlasterLogger where
-  emitInfo     := fun ref msg _ _ => logInfoAt ref msg
-  emitWarning  := fun ref msg _ _ => logWarningAt ref msg
-  emitError    := fun ref msg _ _ => logErrorAt ref msg
-  emitProgress := fun msg _ => do
-    IO.println msg
-    (← IO.getStdout).flush
-  emitProfile  := fun task duration => do
-    IO.println s!"[End]: {task} ({reprPrec duration 2}s)"
-
-/-- Textual output via stdout (IO.println). -/
-def mkTextualStdOutLogger : BlasterLogger where
-  emitInfo     := fun _ msg _ _ => do stdOutPrintln (toString (← msg.format))
-  emitWarning  := fun _ msg _ _ => do stdOutPrintln (toString (← msg.format))
-  emitError    := fun _ msg _ _ => do stdOutPrintln (toString (← msg.format))
-  emitProgress := fun msg _ => stdOutPrintln msg
-  emitProfile  := fun task duration => stdOutPrintln s!"[End]: {task} ({reprPrec duration 2}s)"
-
-/-- JSONL output via Lean diagnostics (logInfoAt). -/
-def mkJsonLLogInfoLogger : BlasterLogger where
-  emitInfo     := fun ref _ fields depth => do
-    logInfoAt ref (jsonLine (← mkJsonObj fields depth))
-  emitWarning  := fun ref _ fields depth => do
-    logWarningAt ref (jsonLine (← mkJsonObj fields depth))
-  emitError    := fun ref _ fields depth => do
-    logErrorAt ref (jsonLine (← mkJsonObj fields depth))
-  emitProgress := fun msg depth => do
-    let j ← mkJsonObj [("type", "progress"), ("message", .str msg)] depth
-    logInfo (jsonLine j)
-  emitProfile  := fun task duration => do
-    let durationMs := (duration * 1000).toUInt64.toNat
-    let j ← mkJsonObj [("type", "profile"), ("task", .str task), ("durationMs", .num durationMs)] none
-    logInfo (jsonLine j)
-
-/-- JSONL output via stdout (IO.println). -/
-def mkJsonLStdOutLogger : BlasterLogger where
-  emitInfo     := fun _ _ fields depth => do
-    stdOutPrintln (jsonLine (← mkJsonObj fields depth))
-  emitWarning  := fun _ _ fields depth => do
-    stdOutPrintln (jsonLine (← mkJsonObj fields depth))
-  emitError    := fun _ _ fields depth => do
-    stdOutPrintln (jsonLine (← mkJsonObj fields depth))
-  emitProgress := fun msg depth => do
-    let j ← mkJsonObj [("type", "progress"), ("message", .str msg)] depth
-    stdOutPrintln (jsonLine j)
-  emitProfile  := fun task duration => do
-    let durationMs := (duration * 1000).toUInt64.toNat
-    let j ← mkJsonObj [("type", "profile"), ("task", .str task), ("durationMs", .num durationMs)] none
-    stdOutPrintln (jsonLine j)
-
-/-- Create a logger from the given output mode and representation. -/
-def mkLogger (mode : OutputMode) (repr : OutputRepr) : BlasterLogger :=
-  match repr, mode with
-  | .Textual, .LogInfo => mkTextualLogInfoLogger
-  | .Textual, .StdOut  => mkTextualStdOutLogger
-  | .JsonL,   .LogInfo => mkJsonLLogInfoLogger
-  | .JsonL,   .StdOut  => mkJsonLStdOutLogger
-
-/-! ### Emit helpers (delegate through handler in TranslateEnvT state) -/
-
-private def getLogger : TranslateEnvT BlasterLogger := do
-  return (← get).logger
+/-! ### Helper: read options from TranslateEnvT state -/
 
 private def getBlasterOpts : TranslateEnvT BlasterOptions := do
   return (← get).optEnv.options.solverOptions
 
-/-- Emit an info-level message via the configured logger. -/
+/-! ### MonadBlasterLog instance for TranslateEnvT
+
+    Dispatches on `outputMode` and `outputRepr` read from `BlasterOptions` in state.
+    To add a new output format (e.g. XML), extend `OutputRepr` and add branches here.
+-/
+
+private def emitMsg (severity : MessageSeverity) (ref : Syntax) (textMsg : MessageData)
+    (jsonFields : List (String × Json)) (depth : Option Nat) : TranslateEnvT Unit := do
+  let sOpts ← getBlasterOpts
+  match sOpts.outputRepr, sOpts.outputMode with
+  | .Textual, .LogInfo =>
+    match severity with
+    | .information => logInfoAt ref textMsg
+    | .warning     => logWarningAt ref textMsg
+    | .error       => logErrorAt ref textMsg
+  | .Textual, .StdOut => do
+    stdOutPrintln (toString (← textMsg.format))
+  | .JsonL, .LogInfo => do
+    let line := jsonLine (← mkJsonObj jsonFields depth)
+    match severity with
+    | .information => logInfoAt ref line
+    | .warning     => logWarningAt ref line
+    | .error       => logErrorAt ref line
+  | .JsonL, .StdOut => do
+    stdOutPrintln (jsonLine (← mkJsonObj jsonFields depth))
+
+private def emitProgressImpl (msg : String) (depth : Option Nat) : TranslateEnvT Unit := do
+  let sOpts ← getBlasterOpts
+  match sOpts.outputRepr, sOpts.outputMode with
+  | .Textual, .LogInfo => do
+    IO.println msg
+    (← IO.getStdout).flush
+  | .Textual, .StdOut =>
+    stdOutPrintln msg
+  | .JsonL, .LogInfo => do
+    let j ← mkJsonObj [("type", "progress"), ("message", .str msg)] depth
+    logInfo (jsonLine j)
+  | .JsonL, .StdOut => do
+    let j ← mkJsonObj [("type", "progress"), ("message", .str msg)] depth
+    stdOutPrintln (jsonLine j)
+
+private def emitProfileImpl (task : String) (duration : Float) : TranslateEnvT Unit := do
+  let sOpts ← getBlasterOpts
+  let durationMs := (duration * 1000).toUInt64.toNat
+  match sOpts.outputRepr, sOpts.outputMode with
+  | .Textual, .LogInfo => do
+    IO.println s!"[End]: {task} ({reprPrec duration 2}s)"
+  | .Textual, .StdOut =>
+    stdOutPrintln s!"[End]: {task} ({reprPrec duration 2}s)"
+  | .JsonL, .LogInfo => do
+    let j ← mkJsonObj [("type", "profile"), ("task", .str task), ("durationMs", .num durationMs)] none
+    logInfo (jsonLine j)
+  | .JsonL, .StdOut => do
+    let j ← mkJsonObj [("type", "profile"), ("task", .str task), ("durationMs", .num durationMs)] none
+    stdOutPrintln (jsonLine j)
+
+instance : MonadBlasterLog TranslateEnvT where
+  emitInfo     := emitMsg .information
+  emitWarning  := emitMsg .warning
+  emitError    := emitMsg .error
+  emitProgress := emitProgressImpl
+  emitProfile  := emitProfileImpl
+
+/-! ### Convenience aliases (shorter names for call sites) -/
+
 def emitInfo (ref : Syntax) (textMsg : MessageData) (jsonFields : List (String × Json))
-    (depth : Option Nat := none) : TranslateEnvT Unit := do
-  (← getLogger).emitInfo ref textMsg jsonFields depth
+    (depth : Option Nat := none) : TranslateEnvT Unit :=
+  MonadBlasterLog.emitInfo ref textMsg jsonFields depth
 
-/-- Emit a warning-level message via the configured logger. -/
 def emitWarning (ref : Syntax) (textMsg : MessageData) (jsonFields : List (String × Json))
-    (depth : Option Nat := none) : TranslateEnvT Unit := do
-  (← getLogger).emitWarning ref textMsg jsonFields depth
+    (depth : Option Nat := none) : TranslateEnvT Unit :=
+  MonadBlasterLog.emitWarning ref textMsg jsonFields depth
 
-/-- Emit an error-level message via the configured logger. -/
 def emitError (ref : Syntax) (textMsg : MessageData) (jsonFields : List (String × Json))
-    (depth : Option Nat := none) : TranslateEnvT Unit := do
-  (← getLogger).emitError ref textMsg jsonFields depth
+    (depth : Option Nat := none) : TranslateEnvT Unit :=
+  MonadBlasterLog.emitError ref textMsg jsonFields depth
 
-/-- Emit a progress message via the configured logger. -/
-def emitProgress (msg : String) (depth : Option Nat := none) : TranslateEnvT Unit := do
-  (← getLogger).emitProgress msg depth
+def emitProgress (msg : String) (depth : Option Nat := none) : TranslateEnvT Unit :=
+  MonadBlasterLog.emitProgress msg depth
 
-/-- Emit a profile timing message via the configured logger. -/
-def emitProfile (task : String) (duration : Float) : TranslateEnvT Unit := do
-  (← getLogger).emitProfile task duration
+def emitProfile (task : String) (duration : Float) : TranslateEnvT Unit :=
+  MonadBlasterLog.emitProfile task duration
 
 /-! ### Refactored existing functions -/
 

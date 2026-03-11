@@ -37,7 +37,7 @@ def blasterTacticImp : Tactic := fun stx =>
    let opts := stx[1].getArgs
    let sOpts ← parseSolveOptions opts default
    let (goal, nbQuantifiers) ← revertHypotheses (← getMainGoal)
-   let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts, logger := Blaster.mkLogger sOpts.outputMode sOpts.outputRepr}
+   let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
    let ((result, optExpr), _) ←
      withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0 }) $ do
        IO.setNumHeartbeats 0
