@@ -7,6 +7,11 @@ open Lean Meta Blaster.Optimize Blaster.Options
 
 namespace Blaster.Smt
 
+/-- Normalize solver output line endings: strip any `\r` so that downstream
+    code only sees Unix-style `\n` terminators, regardless of platform. -/
+private def normalizeLine (s : String) : String :=
+  s.replace "\r" ""
+
 /-- Minimal version of z3 we support -/
 private def minZ3Version : String := "4.15.2"
 
@@ -142,26 +147,29 @@ def checkCancelTk? : TranslateEnvT Unit := do
       throwInterruptException
 
 /-- Retrieve model output from `h` when a counterexample is generated.
-    NOTE: A model output starts with "(" and ends with ")\n"
+    NOTE: A model output starts with "(" and ends with ")\n".
+    Line endings are normalized to handle both Unix (LF) and Windows (CRLF).
 -/
 partial def getOutputModel (h : IO.FS.Handle) (proof := false) : TranslateEnvT String := do
   let rec loop (acc : String) : TranslateEnvT String := do
     checkCancelTk?
-    let line ← h.getLine
-    if ((line == ")\n" || line == ")\r\n") && !proof) || ((line == "\n" || line == "\r\n") && proof) then
+    let line := normalizeLine (← h.getLine)
+    if (line == ")\n" && !proof) || (line == "\n" && proof) then
       return acc
     else loop (acc ++ line)
   loop ""
 
 /-- Retrieve proof output for an `unsat` result.
     NOTE: A proof output starts with "(proof" and ends with ")\n\n".
+    Line endings are normalized to handle both Unix (LF) and Windows (CRLF).
 -/
 def getOutputProof := λ h => getOutputModel h true
 
 /-- Retrieve error msg from 'h'.
     NOTE: An error msg starts with "(error" and ends with ")\n".
+    Line endings are normalized to handle both Unix (LF) and Windows (CRLF).
 -/
-partial def getErrorMsg (h : IO.FS.Handle) : IO String := h.getLine
+partial def getErrorMsg (h : IO.FS.Handle) : IO String := normalizeLine <$> h.getLine
 
 /-- Retrieve an `eval` output from `h` after execution `(eval t)`
     NOTE: An eval output may either correspond to a scalar value
@@ -170,7 +178,7 @@ partial def getErrorMsg (h : IO.FS.Handle) : IO String := h.getLine
     should tally to stop reading from `h`.
 -/
 partial def getOutputEval (h : IO.FS.Handle) : IO String := do
-  let line ← h.getLine
+  let line := normalizeLine (← h.getLine)
   if line.get! 0 != '(' then return line
   getIndValue line (tallyParenthesis line 0)
 
@@ -184,7 +192,7 @@ partial def getOutputEval (h : IO.FS.Handle) : IO String := do
   getIndValue (acc : String) (tally : Int) : IO String := do
     if tally == 0 then return acc
     else
-      let line ← h.getLine
+      let line := normalizeLine (← h.getLine)
       getIndValue (acc ++ line) (tallyParenthesis line tally)
 
 /-- Push smt command `c` in the translation environment only when sOpts.dumpSmtLib is set -/
@@ -210,9 +218,9 @@ partial def trySubmitCommand! (c : SmtCommand) (checkSuccess := true) : Translat
   c.emit
   let h ← getProcStdOut
   if !checkSuccess then return ()
-  let out ← h.getLine
+  let out := normalizeLine (← h.getLine)
   match out with
-  | "success\n" | "success\r\n" => return ()
+  | "success\n" => return ()
   | err => throwEnvError s!"Unexpected smt error: {err} for {c}"
 
 /-- Same as trySubmitCommand! but with flag `checkSuccess` set to `false`.
@@ -527,10 +535,10 @@ partial def getSatResult (p : IO.Process.Child ⟨.piped, .piped, .piped⟩) : T
    waitForResult (res : Task (Except IO.Error String)) : TranslateEnvT Result := do
      checkCancelTk?
      if ← IO.hasFinished res then
-       match ← IO.ofExcept res.get with
-       | "sat\n" | "sat\r\n"    => return (.Falsified (← getModel))
-       | "unsat\n" | "unsat\r\n"    => return .Valid
-       | "unknown\n" | "unknown\r\n" => return .Undetermined -- unknown is also return when timeout is set to stdin
+       match normalizeLine (← IO.ofExcept res.get) with
+       | "sat\n"     => return (.Falsified (← getModel))
+       | "unsat\n"   => return .Valid
+       | "unknown\n" => return .Undetermined -- unknown is also return when timeout is set to stdin
        | err => throwEnvError s!"checkSat: Unexpected check-sat result: {err}"
      else
        let sleepTimeMs := (20 : UInt32)
