@@ -16,10 +16,13 @@ private def normalizeLine (s : String) : String :=
 /-- Minimal version of z3 we support -/
 private def minZ3Version : String := "4.15.2"
 
+/-- A single counterexample entry: variable name and its z3 value. -/
+abbrev CexEntry := String × String
+
 /-- Result of an Smt query. -/
 inductive Result where
   | Valid  : Result
-  | Falsified (cex : List String) : Result
+  | Falsified (cex : List CexEntry) : Result
   | Undetermined : Result
 deriving Repr
 
@@ -53,6 +56,43 @@ def blankRef : TranslateEnvT Syntax := do
   let pos ← getRefPos
   return Syntax.atom (SourceInfo.original "".toSubstring pos "  ".toSubstring pos) ""
 
+/-- Strip Lean guillemets `«»` from a name string. -/
+private def stripGuillemets (s : String) : String :=
+  let s := if s.startsWith "«" then s.drop 1 else s
+  if s.endsWith "»" then s.dropRight 1 else s
+
+/-- Try to split `name@N` into `(name, N)`. Returns `none` if no `@N` suffix. -/
+private def splitStepSuffix (name : String) : Option (String × String) :=
+  let clean := stripGuillemets name
+  match clean.revPosOf '@' with
+  | some pos =>
+    let step := clean.drop (pos.byteIdx + 1)
+    if step.toNat?.isSome then
+      some (clean.take pos.byteIdx, step)
+    else
+      none
+  | none => none
+
+private def cexEntriesToJson (entries : List CexEntry) : Json :=
+  let hasSteps := entries.any fun (name, _) => (splitStepSuffix name).isSome
+  if hasSteps then
+    -- Group by variable name, collecting values ordered by step
+    let grouped := entries.foldl (init := Std.HashMap.emptyWithCapacity (α := String) (β := List (Nat × String)))
+      fun acc (name, val) =>
+        match splitStepSuffix name with
+        | some (baseName, step) =>
+          let prev := acc.getD baseName []
+          acc.insert baseName (prev ++ [(step.toNat?.getD 0, val)])
+        | none =>
+          let prev := acc.getD (stripGuillemets name) []
+          acc.insert (stripGuillemets name) (prev ++ [(0, val)])
+    -- Sort each variable's values by step, then build {"varName": ["val@1", "val@2", ...]}
+    Json.mkObj (grouped.toList.map fun (varName, steps) =>
+      let sorted := steps.mergeSort fun a b => a.1 < b.1
+      (varName, Json.arr (sorted.map (fun (_, v) => Json.str v) |>.toArray)))
+  else
+    Json.mkObj (entries.map fun (name, val) => (stripGuillemets name, .str val))
+
 def logResult (r : Result) (isCTI := false) (indLabel := "") (cexLabel := "Counterexample")
     (depth : Option Nat := none) : TranslateEnvT Unit := do
   let sOpts := (← get).optEnv.options.solverOptions
@@ -84,11 +124,11 @@ def logResult (r : Result) (isCTI := false) (indLabel := "") (cexLabel := "Count
           else emitW "⚠️ Undetermined"
 
     dumpCexTextual (f : MessageData → TranslateEnvT Unit) (failure : String)
-        (cexLabel : String) (cex : List String) : TranslateEnvT Unit := do
+        (cexLabel : String) (cex : List CexEntry) : TranslateEnvT Unit := do
       if (← get).optEnv.options.solverOptions.generateCex then
          f failure
          f s!"{cexLabel}:"
-         cex.forM (λ s => f s!" - {s.dropRight 1}")
+         cex.forM (λ (name, val) => f s!" - {name}: {val}")
       else f failure
 
     logResultJsonL (ref : Syntax) (r : Result) (isCTI : Bool) (indLabel : String)
@@ -98,23 +138,28 @@ def logResult (r : Result) (isCTI := false) (indLabel := "") (cexLabel := "Count
         | .Valid => isExpectedValid sOpts.solveResult
         | .Falsified _ => if isCTI then true else isExpectedFalsified sOpts.solveResult
         | .Undetermined => isExpectedUndetermined sOpts.solveResult
-      let cexData : List String := match r with
-        | .Falsified cex => if sOpts.generateCex then cex.map (fun s => s.dropRight 1) else []
+      let cexData : List CexEntry := match r with
+        | .Falsified cex => if sOpts.generateCex then cex else []
         | _ => []
       let mut fields : List (String × Json) := [
         ("type", .str "result"),
         ("status", .str status),
         ("expected", .bool expected)]
-      -- Add counterexample field for falsified results
+      -- Add counterexample: group by step if names contain `@N` suffixes (BMC/KInduction)
       if !cexData.isEmpty then
-        fields := fields ++ [("counterexample", Json.arr (cexData.map Json.str).toArray)]
+        let cexJson := cexEntriesToJson cexData
+        fields := fields ++ [("counterexample", cexJson)]
       -- Add CTI label if applicable
       if isCTI && indLabel != "" then
         fields := fields ++ [("indLabel", .str indLabel)]
       if cexLabel != "Counterexample" then
         fields := fields ++ [("cexLabel", .str cexLabel)]
-      -- Delegate to the handler via emitInfo (handler handles mode dispatch)
-      Blaster.emitInfo ref "" fields depth
+      -- Use the same severity as the textual path
+      if expected then
+        Blaster.emitInfo ref "" fields depth
+      else match r with
+        | .Undetermined => Blaster.emitWarning ref "" fields depth
+        | _ => Blaster.emitError ref "" fields depth
 
 /-- Tries to find if z3 is natively present in PATH, if not checks wsl z3 -/
 private def findZ3CmdAndVersion : IO (String) := do
@@ -535,7 +580,7 @@ def evalTerm (t : SmtTerm) : TranslateEnvT String := do
     and generate the corresponding Lean representation.
     This will also be helpful when writing the test cases to validate the Smt-Lib translation.
 -/
-def getModel : TranslateEnvT (List String) := do
+def getModel : TranslateEnvT (List CexEntry) := do
   let env ← get
   let some p := env.smtEnv.smtProc | return []
   let topVars := env.smtEnv.topLevelVars
@@ -545,7 +590,7 @@ def getModel : TranslateEnvT (List String) := do
   then
     submitCommand (.getModel)
     let s ← getOutputModel p.stdout
-    return [s]
+    return [("model", s)]
   else
     -- Note: List is append when adding top level variables
     -- We therefore need to traverse the list in reverse order to
@@ -554,11 +599,12 @@ def getModel : TranslateEnvT (List String) := do
     return cexArray.toList
 
   where
-    genCexAtStep (cex : Array String) (vars : List (SmtSymbol × Name)) : TranslateEnvT (Array String) := do
+    genCexAtStep (cex : Array CexEntry) (vars : List (SmtSymbol × Name)) : TranslateEnvT (Array CexEntry) := do
       List.foldrM (λ v acc => return acc.push (← getVarValue v)) cex vars
 
-    getVarValue (v : SmtSymbol × Name) : TranslateEnvT String := do
-      return s!"{v.2}: {← evalTerm (smtSimpleVarId v.1)}"
+    getVarValue (v : SmtSymbol × Name) : TranslateEnvT CexEntry := do
+      let val ← evalTerm (smtSimpleVarId v.1)
+      return (toString v.2, val.trimRight)
 
 /-- Retrieve sat result from `h`.
     An error is triggered when an unexpected check-sat result is obtained.
