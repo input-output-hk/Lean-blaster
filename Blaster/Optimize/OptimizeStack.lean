@@ -345,11 +345,7 @@ def isInOptimizeEnvCache (expr : Expr) (proof : Option Expr) (stack : List Optim
   let isGlobal := !expr.hasFVar || (← isGlobalContext)
   match (← isInOptimizeCache? expr isGlobal) with
   | some r =>
-      if r.proof.isNone && expr.hasFVar then
-        return Sum.inl (.InitOptimizeReturn expr isGlobal :: stack, proof)
-      else
-        Sum.inr <$> stackContinuity stack r.optExpr (← composeProofs? proof r.proof)
+      Sum.inr <$> stackContinuity stack r.optExpr (← composeProofs? proof r.proof)
   | none => return Sum.inl (.InitOptimizeReturn expr isGlobal :: stack, none)
-
 
 end Blaster.Optimize
