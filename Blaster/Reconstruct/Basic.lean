@@ -30,8 +30,9 @@ def buildCongrArgFromProof (f : Expr) (args : Array Expr)
   let some (_, _, optArg) := proofType.eq? | return none
   let mut idx : Option Nat := none
   for i in [:args.size] do
-    if ← isDefEq args[i]! optArg then
-      idx := some i
+    let i' := args.size - 1 - i
+    if ← isDefEq args[i']! optArg then
+      idx := some i'
       break
   let some i := idx | return none
   let partialApp := mkAppN f (args.extract 0 i)

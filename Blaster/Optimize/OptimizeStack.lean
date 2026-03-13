@@ -352,6 +352,6 @@ def isInOptimizeEnvCache (expr : Expr) (proof : Option Expr) (stack : List Optim
         return Sum.inl (.InitOptimizeReturn expr isGlobal :: stack, proof)
       else
         Sum.inr <$> stackContinuity stack r.optExpr (← composeProofs? proof r.proof)
-  | none => return Sum.inl (.InitOptimizeReturn expr isGlobal :: stack, none)
+  | none => return Sum.inl (.InitOptimizeReturn expr isGlobal :: stack, proof)
 
 end Blaster.Optimize

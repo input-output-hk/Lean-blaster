@@ -138,18 +138,21 @@ def optimizeNatPow (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
    Assume that f = Expr.const ``Nat.mul.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Nat.mul` expected at this stage)
 -/
-def optimizeNatMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
+def optimizeNatMul (f : Expr) (args : Array Expr) : TranslateEnvT OptimizeResult := do
  if args.size != 2 then throwEnvError "optimizeNatMul: exactly two arguments expected"
  let op1 := args[0]!
  let op2 := args[1]!
  match isNatValue? op1, isNatValue? op2 with
- | some 0, _ => return op1
- | some 1, _ => return op2
- | some n1, some n2 => evalBinNatOp Nat.mul n1 n2
+ | some 0, _ =>
+    let proof := mkApp (mkConst ``Nat.zero_mul) op2
+    trace[Optimize.expr] "optimizeNatMul : {proof}"
+    return ⟨op1, some proof⟩
+ | some 1, _ => return ⟨op2, none⟩
+ | some n1, some n2 => return ⟨← evalBinNatOp Nat.mul n1 n2, none⟩
  | nv1, _ =>
-   if let some r ← cstMulProp? nv1 op2 then return r
-   if let some r ← mulPowReduceExpr? op1 op2 then return r
-   return (mkApp2 f op1 op2)
+   if let some r ← cstMulProp? nv1 op2 then return ⟨r, none⟩
+   if let some r ← mulPowReduceExpr? op1 op2 then return ⟨r, none⟩
+   return ⟨(mkApp2 f op1 op2), none⟩
 
  where
    /- Given `mv1` and `op2`, return `some ((N1 "*" N2) * n)`
@@ -342,7 +345,7 @@ def optimizeNat? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Optimize
   match n with
   | ``Nat.add => optimizeNatAdd f args
   | ``Nat.sub => return some ⟨← optimizeNatSub f args, none⟩
-  | ``Nat.mul => return some ⟨← optimizeNatMul f args, none⟩
+  | ``Nat.mul => optimizeNatMul f args
   | ``Nat.div => return some ⟨← optimizeNatDiv f args, none⟩
   | ``Nat.mod => return some ⟨← optimizeNatMod f args, none⟩
   | ``Nat.beq => return some ⟨← optimizeNatBeq f args, none⟩
