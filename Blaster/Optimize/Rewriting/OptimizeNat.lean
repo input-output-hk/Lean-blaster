@@ -145,7 +145,6 @@ def optimizeNatMul (f : Expr) (args : Array Expr) : TranslateEnvT OptimizeResult
  match isNatValue? op1, isNatValue? op2 with
  | some 0, _ =>
     let proof := mkApp (mkConst ``Nat.zero_mul) op2
-    trace[Optimize.expr] "optimizeNatMul : {proof}"
     return ⟨op1, some proof⟩
  | some 1, _ => return ⟨op2, none⟩
  | some n1, some n2 => return ⟨← evalBinNatOp Nat.mul n1 n2, none⟩

@@ -112,10 +112,12 @@ def stackContinuity
 
   | .InitOptimizeReturn e isGlobal :: xs =>
        if !skipCache then
-         -- Strip proof certificates for expressions with free variables in global cache,
-         -- as fvars are only valid within the local scope where they were introduced.
-         -- Track stripped proofs so they can be selectively re-derived on cache hit.
-         let cachedProof := if e.hasFVar then none else proof
+         -- Strip proofs containing fvars before caching, as fvars are scope-local.
+         -- Track stripped entries for re-derivation on cache hit.
+         let cachedProof := if e.hasFVar then none
+                            else match proof with
+                                 | some p => if p.hasFVar then none else some p
+                                 | none => none
          if proof.isSome && cachedProof.isNone then
            modify (fun env => { env with
              optEnv.strippedProofExprs := env.optEnv.strippedProofExprs.insert e })
@@ -213,9 +215,13 @@ def stackContinuity
   | .AppOptimizeExplicitArgs f args idx stopIdx pInfo mInfo origArgs argProofs :: xs =>
        -- optExpr corresponds to the optimized explicit argument referenced by idx.
        -- continuity with optimizing the next explicit argument.
+       -- Only store proof when the argument was actually rewritten,
+       -- to avoid contamination from carried-over proofs of previous arguments.
+       let argChanged := !exprEq optExpr origArgs[idx]!
+       let argProofs' := if proof.isSome && argChanged then argProofs.set! idx proof else argProofs
        return Sum.inl
         (.AppOptimizeExplicitArgs f (args.set! idx optExpr)
-          (idx + 1) stopIdx pInfo mInfo origArgs argProofs :: xs, proof)
+          (idx + 1) stopIdx pInfo mInfo origArgs argProofs' :: xs, proof)
 
   | .DiteChoiceWaitForCond f args pInfo startArgIdx :: xs =>
        -- optExpr corresponds to the optimized Blaster.dite' conditional, i.e., referenced by index 1.
@@ -344,11 +350,11 @@ def optimizeIfThenElse? (f : Expr) (args : Array Expr) (stack : List OptimizeSta
 @[always_inline, inline]
 def isInOptimizeEnvCache (expr : Expr) (proof : Option Expr) (stack : List OptimizeStack) :
     TranslateEnvT (Sum (List OptimizeStack × Option Expr) OptimizeContinuity) := do
-  -- NOTE: Always consider global context when `a` does not contain any FVar.
+  -- NOTE: Always consider global context when `expr` does not contain any FVar.
   let isGlobal := !expr.hasFVar || (← isGlobalContext)
   match (← isInOptimizeCache? expr isGlobal) with
   | some r =>
-      if r.proof.isNone && expr.hasFVar && (← get).optEnv.strippedProofExprs.contains expr then
+      if r.proof.isNone && (← get).optEnv.strippedProofExprs.contains expr then
         return Sum.inl (.InitOptimizeReturn expr isGlobal :: stack, proof)
       else
         Sum.inr <$> stackContinuity stack r.optExpr (← composeProofs? proof r.proof)

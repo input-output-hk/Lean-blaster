@@ -128,6 +128,8 @@ partial def optimizeExprAux (stack : List OptimizeStack) (proof : Option Expr :=
 
   | .AppOptimizeExplicitArgs f args idx stopIdx pInfo mInfo origArgs argProofs :: xs =>
        if idx ≥ stopIdx then
+         -- annotating proof with position-from-end so it survives unfolding
+         let proof ← annotateProofWithPosFromEnd args origArgs argProofs proof
          -- normalizing ite/match function application
          if let some re ← normChoiceApplication? f args then
            -- trace[Optimize.normChoiceApp] "normalizing choice application {reprStr f} {reprStr args} => {reprStr re}"
