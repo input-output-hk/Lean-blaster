@@ -33,13 +33,10 @@ def annotateProofWithPosFromEnd
     let mut proofIdx? : Option Nat := none
     for i in [:argProofs.size] do
       if (argProofs[i]!).isSome then
-        let unchanged ← try
-            withLocalContext $
-              withNewMCtxDepth $
-              withReducible $
-              isDefEq args[i]! origArgs[i]!
-          catch _ => pure false
-        if !unchanged then
+        if !(← withLocalContext $
+                  withNewMCtxDepth $
+                  withReducible $
+                  isDefEq args[i]! origArgs[i]!) then
           proofIdx? := some i
     match proofIdx? with
     | some proofIdx =>
