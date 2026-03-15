@@ -146,7 +146,9 @@ def optimizeNatMul (f : Expr) (args : Array Expr) : TranslateEnvT OptimizeResult
  | some 0, _ =>
     let proof := mkApp (mkConst ``Nat.zero_mul) op2
     return ⟨op1, some proof⟩
- | some 1, _ => return ⟨op2, none⟩
+ | some 1, _ =>
+    let proof := mkApp (mkConst ``Nat.one_mul) op2
+    return ⟨op2, some proof⟩
  | some n1, some n2 => return ⟨← evalBinNatOp Nat.mul n1 n2, none⟩
  | nv1, _ =>
    if let some r ← cstMulProp? nv1 op2 then return ⟨r, none⟩

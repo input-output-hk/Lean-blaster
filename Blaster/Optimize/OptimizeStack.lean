@@ -36,6 +36,7 @@ instance : Repr LocalContext where
 inductive OptimizeStack where
  | InitOptimizeExpr (e : Expr)
  | InitOptimizeReturn (e : Expr) (isGlobal : Bool)
+ | ProofBridge (proof : Expr)
  | InitOpaqueRecExpr (f : Expr) (args : Array Expr)
  | RecFunDefWaitForStorage (args : Array Expr) (instApp : Expr)
                            (subsInts : Expr) (params : ImplicitParameters)
@@ -125,6 +126,9 @@ def stackContinuity
        match xs with
        | [] => return Sum.inr ⟨optExpr, proof⟩
        | _ => stackContinuity xs optExpr proof
+
+  | .ProofBridge storedProof :: xs =>
+       stackContinuity xs optExpr (← composeProofs? (some storedProof) proof)
 
   | .RecFunDefWaitForStorage args instApp subsInst params :: xs =>
        -- optExpr corresponds to optimized rec fun body
@@ -219,9 +223,10 @@ def stackContinuity
        -- to avoid contamination from carried-over proofs of previous arguments.
        let argChanged := !exprEq optExpr origArgs[idx]!
        let argProofs' := if proof.isSome && argChanged then argProofs.set! idx proof else argProofs
+       let proof' := if proof.isSome && argChanged then none else proof
        return Sum.inl
         (.AppOptimizeExplicitArgs f (args.set! idx optExpr)
-          (idx + 1) stopIdx pInfo mInfo origArgs argProofs' :: xs, proof)
+          (idx + 1) stopIdx pInfo mInfo origArgs argProofs' :: xs, proof')
 
   | .DiteChoiceWaitForCond f args pInfo startArgIdx :: xs =>
        -- optExpr corresponds to the optimized Blaster.dite' conditional, i.e., referenced by index 1.
@@ -263,7 +268,10 @@ def stackContinuity
        if let some h := hctx then resetHypContext h
        let e ← withLocalContext $ do mkLambdaExpr x optExpr
        resetLocalDeclContext lctx
-       stackContinuity xs e proof
+       let proof' := match proof with
+         | some p => if p.containsFVar x.fvarId! then none else some p
+         | none   => none
+       stackContinuity xs e proof'
 
   | .MatchRhsLambdaWaitForType n bi body :: xs =>
         -- optExpr corresponds to optimized lambda type
@@ -281,7 +289,10 @@ def stackContinuity
         -- rhs has not been optimized yet.
         let e ← withLocalContext $ do mkLambdaFVar x optExpr
         resetLocalDeclContext lctx
-        stackContinuity xs e proof
+        let proof' := match proof with
+          | some p => if p.containsFVar x.fvarId! then none else some p
+          | none   => none
+        stackContinuity xs e proof'
 
   | .MatchAltWaitForExpr params lctx mctx :: xs =>
        -- optExpr corresponds to the optimized match rhs
@@ -289,7 +300,12 @@ def stackContinuity
        let e ← withLocalContext $ do mkExpr (← mkLambdaFVars' params optExpr)
        resetMatchContext mctx
        resetLocalDeclContext lctx
-       stackContinuity xs e proof
+       let proof' := match proof with
+         | some p =>
+           if params.any (fun param => p.containsFVar param.fvarId!) then none
+           else some p
+         | none => none
+       stackContinuity xs e proof'
 
   | .LetWaitForValue body :: xs =>
        -- optExpr corresponds to the optimized let value

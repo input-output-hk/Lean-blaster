@@ -37,9 +37,10 @@ def blasterTacticImp : Tactic := fun stx =>
    let (goal, nbQuantifiers) ← revertHypotheses (← getMainGoal)
    let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
    let ((result, (optExpr, proof)), _) ←
-     withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0 }) $ do
-       IO.setNumHeartbeats 0
-       Translate.main (← goal.getType >>= instantiateMVars') (logUndetermined := false) |>.run env
+     withTheReader Core.Context
+      (fun ctx => { ctx with maxHeartbeats := 0, maxRecDepth := max ctx.maxRecDepth 4096 }) $ do
+        IO.setNumHeartbeats 0
+        Translate.main (← goal.getType >>= instantiateMVars') (logUndetermined := false) |>.run env
    match result with
    | .Valid =>
         match proof with

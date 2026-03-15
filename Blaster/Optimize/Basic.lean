@@ -128,6 +128,10 @@ partial def optimizeExprAux (stack : List OptimizeStack) (proof : Option Expr :=
 
   | .AppOptimizeExplicitArgs f args idx stopIdx pInfo mInfo origArgs argProofs :: xs =>
        if idx ≥ stopIdx then
+         -- recover proof from argProofs if it was lost during arg processing
+         let proof := match proof with
+           | some _ => proof
+           | none => argProofs.findSome? id
          -- annotating proof with position-from-end so it survives unfolding
          let proof ← annotateProofWithPosFromEnd args origArgs argProofs proof
          -- normalizing ite/match function application
@@ -155,7 +159,22 @@ partial def optimizeExprAux (stack : List OptimizeStack) (proof : Option Expr :=
          -- NOTE: we can only unfold once all parameters have been optimized.
          else if let some fdef ← getUnfoldFunDef? f args then
            -- trace[Optimize.unfoldDef] "unfolding function definition {reprStr f} {reprStr args} => {reprStr fdef}"
-           optimizeExprAux (.InitOptimizeExpr fdef :: xs) proof
+           match proof with
+           | some p =>
+               let isGlobal := !fdef.hasFVar || (← isGlobalContext)
+               if (← isInOptimizeCache? fdef isGlobal).isSome then
+                 optimizeExprAux (.InitOptimizeExpr fdef :: xs) proof
+               else
+                 match ← buildCongrArgFromProof f args p with
+                 | some liftedProof =>
+                   if liftedProof.hasFVar && !fdef.hasFVar then
+                     optimizeExprAux (.InitOptimizeExpr fdef :: xs) proof
+                   else
+                     optimizeExprAux (.InitOptimizeExpr fdef :: .ProofBridge liftedProof :: xs) none
+                 | none =>
+                   optimizeExprAux (.InitOptimizeExpr fdef :: xs) proof
+           | none =>
+               optimizeExprAux (.InitOptimizeExpr fdef :: xs) none
          -- normalizing partially apply function after unfolding non-opaque functions
          else if let some pe ← normPartialFun? f args then
            -- trace[Optimize.normPartial] "normalizing partial function {reprStr f} {reprStr args} => {reprStr pe}"
@@ -324,13 +343,14 @@ def Optimize.main (e : Expr) : TranslateEnvT OptimizeResult := do
     NOTE: This function is to be used only by callOptimize in package Test.
 -/
 def command (sOpts: BlasterOptions) (e : Expr) : MetaM (Expr × TranslateEnv) := do
-  -- keep the current name generator and restore it afterwards
-  let ngen ← getNGen
-  let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
-  let (⟨optExpr, _proof⟩, translateEnv) ← Optimize.main e|>.run env
-  -- restore name generator
-  setNGen ngen
-  return (optExpr, translateEnv)
+  withTheReader Core.Context (fun ctx => { ctx with maxRecDepth := max ctx.maxRecDepth 4096 }) do
+    -- keep the current name generator and restore it afterwards
+    let ngen ← getNGen
+    let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
+    let (⟨optExpr, _proof⟩, translateEnv) ← Optimize.main e|>.run env
+    -- restore name generator
+    setNGen ngen
+    return (optExpr, translateEnv)
 
 
 initialize
