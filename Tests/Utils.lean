@@ -10,10 +10,9 @@ def parseTerm (stx : Syntax) : TermElabM Expr := elabTermAndSynthesize stx none
 
 /-- Parse a term syntax and call optimize. -/
 def callOptimize (sOpts : BlasterOptions) (stx : Syntax) : TermElabM (Expr × Option Expr) :=
-  withTheReader Core.Context
-    (fun ctx => { ctx with maxHeartbeats := 0, maxRecDepth := max ctx.maxRecDepth 4096 }) $ do
-      let (optExpr, proof, _) ← Blaster.Optimize.command sOpts (← parseTerm stx)
-      pure (optExpr, proof)
+  withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0 }) $ do
+    let (optExpr, proof, _) ← Blaster.Optimize.command sOpts (← parseTerm stx)
+    pure (optExpr, proof)
 
 /-! ## Definition of #testOptimize command to write unit test for Blaster.optimize
     The #testOptimize usage is as follows:
