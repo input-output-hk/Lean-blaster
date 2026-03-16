@@ -9,7 +9,7 @@ open Lean Meta
 namespace Blaster.Optimize
 
 /-- Apply the following simplification/normalization rules on `Nat.add` :
-     - 0 + n ==> n  [proof: Nat.zero_add]
+     - 0 + n ==> n                       [proof: Nat.zero_add]
      - N1 + N2 ===> N1 "+" N2
      - N1 + (N2 + n) ==> (N1 "+" N2) + n
      - n1 + n2 ==> n2 + n1 (if n2 <ₒ n1)
@@ -43,9 +43,9 @@ def optimizeNatAdd (f : Expr) (args : Array Expr) : TranslateEnvT OptimizeResult
 
 
 /-- Apply the following simplification/normalization rules on `Nat.sub` :
-     - n1 - n2 ==> 0 (if n1 =ₚₜᵣ n2)
-     - 0 - n ==> 0
-     - n - 0 ==> n
+     - n1 - n2 ==> 0 (if n1 =ₚₜᵣ n2)                 [proof: Nat.sub_self]
+     - 0 - n ==> 0                                   [proof: Nat.zero_sub]
+     - n - 0 ==> n                                   [proof: Nat.sub_zero]
      - N1 - N2 ==> N1 "-" N2
      - N1 - (N2 + n) ==> (N1 "-" N2) - n
      - (N1 - n) - N2 ==> (N1 "-" N2) - n
@@ -54,19 +54,25 @@ def optimizeNatAdd (f : Expr) (args : Array Expr) : TranslateEnvT OptimizeResult
    Assume that f = Expr.const ``Nat.sub.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Nat.sub` expected at this stage)
 -/
-def optimizeNatSub (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
+def optimizeNatSub (f : Expr) (args : Array Expr) : TranslateEnvT OptimizeResult := do
  if args.size != 2 then throwEnvError "optimizeNatSub: exactly two arguments expected"
  let op1 := args[0]!
  let op2 := args[1]!
- if exprEq op1 op2 then return (← mkNatLitExpr 0)
+ if exprEq op1 op2 then
+    let proof := mkApp (mkConst ``Nat.sub_self) op1
+    return ⟨← mkNatLitExpr 0, some proof⟩
  match isNatValue? op1, isNatValue? op2 with
- | some 0, _
- | _, some 0 => return op1
- | some n1, some n2 => evalBinNatOp Nat.sub n1 n2
+ | some 0, _ =>
+    let proof := mkApp (mkConst ``Nat.zero_sub) op2
+    return ⟨op1, some proof⟩
+ | _, some 0 =>
+    let proof := mkApp (mkConst ``Nat.sub_zero) op1
+    return ⟨op1, some proof⟩
+ | some n1, some n2 => return ⟨← evalBinNatOp Nat.sub n1 n2, none⟩
  | nv1, nv2 =>
-   if let some r ← cstSubPropRight? nv1 op2 then return r
-   if let some r ← cstSubPropLeft? op1 nv2 then return r
-   return (mkApp2 f op1 op2)
+   if let some r ← cstSubPropRight? nv1 op2 then return ⟨r, none⟩
+   if let some r ← cstSubPropLeft? op1 nv2 then return ⟨r, none⟩
+   return ⟨mkApp2 f op1 op2, none⟩
 
  where
    /- Given `mv1` and `op2` return `some ((N1 "-" N2) - n)` when
@@ -129,8 +135,8 @@ def optimizeNatPow (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  | _, _ => return (mkApp2 f op1 op2)
 
 /-- Apply the following simplification/normalization rules on `Nat.mul` :
-     - 0 * n ==> 0
-     - 1 * n ==> n
+     - 0 * n ==> 0                        [proof: Nat.zero_mul]
+     - 1 * n ==> n                        [proof: Nat.one_mul]
      - N1 + N2 ==> N1 "*" N2
      - N1 * (N2 * n) ==> (N1 "*" N2) * n
      - n1 * n2 ==> n2 * n1 (if n2 <ₒ n1)
@@ -345,7 +351,7 @@ def optimizeNat? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Optimize
   let Expr.const n _ := f | return none
   match n with
   | ``Nat.add => optimizeNatAdd f args
-  | ``Nat.sub => return some ⟨← optimizeNatSub f args, none⟩
+  | ``Nat.sub => optimizeNatSub f args
   | ``Nat.mul => optimizeNatMul f args
   | ``Nat.div => return some ⟨← optimizeNatDiv f args, none⟩
   | ``Nat.mod => return some ⟨← optimizeNatMod f args, none⟩

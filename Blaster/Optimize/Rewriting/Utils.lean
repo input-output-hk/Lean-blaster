@@ -317,7 +317,7 @@ def reorderEq (args : Array Expr) : TranslateEnvT (Expr × Expr) := do
    if isBoolNotExprOf e1 e2 then return (e2, e1)
    return r
 
-/-- Reorder operands for commutative `Int` operators as follows:
+/-- Reorder operands for commutative `Nat` operators as follows:
     - #[N1, N2] ===> args
     - #[N, e] ===> args
     - #[e, N] ===> #[N, e]

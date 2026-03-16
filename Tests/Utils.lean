@@ -9,31 +9,37 @@ namespace Tests
 def parseTerm (stx : Syntax) : TermElabM Expr := elabTermAndSynthesize stx none
 
 /-- Parse a term syntax and call optimize. -/
-def callOptimize (sOpts : BlasterOptions) (stx : Syntax) : TermElabM Expr :=
-  withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0 }) $ do
-    let optRes ← (Blaster.Optimize.command sOpts (← parseTerm stx))
-    pure optRes.1
+def callOptimize (sOpts : BlasterOptions) (stx : Syntax) : TermElabM (Expr × Option Expr) :=
+  withTheReader Core.Context
+    (fun ctx => { ctx with maxHeartbeats := 0, maxRecDepth := max ctx.maxRecDepth 4096 }) $ do
+      let (optExpr, proof, _) ← Blaster.Optimize.command sOpts (← parseTerm stx)
+      pure (optExpr, proof)
 
 /-! ## Definition of #testOptimize command to write unit test for Blaster.optimize
     The #testOptimize usage is as follows:
-     #testOptimize [ "TestName" ] (verbose: num)? (norm-result: num)? TermToOptimize ==> OptimizedTerm
+     #testOptimize [ "TestName" ] (verbose: num)? (norm-result: num)? TermToOptimize ===> OptimizedTerm
+     #testOptimize [ "TestName", proof ] (verbose: num)? (norm-result: num)? TermToOptimize ===> OptimizedTerm
 
     with options:
      - verbose: activate debug info
      - norm-result: apply nat literal normalization, beta reduction on lambda application
                     and structure projection normalization on expected result.
+     - proof: require that the optimizer produces a valid proof certificate
+              (verified via type check).
 
     E.g.
-     #testOptimize [ "AndSubsumption" ] ∀ (a : Prop), a ∧ a ==> ∀ (a : Prop), a
+     #testOptimize [ "AndSubsumption" ] ∀ (a : Prop), a ∧ a ===> ∀ (a : Prop), a
+     #testOptimize [ "NatAddZero", proof ] ∀ (x : Nat), 0 + x = x ===> True
 -/
-syntax testName := "[" str "]"
+syntax testName := "[" str ("," "proof")? "]"
 syntax termReducedTo := term  "===>" term
 syntax normNatLitOption := ("(norm-result:" num ")")?
 syntax (name := testOptimize) "#testOptimize" testName solveOption* normNatLitOption termReducedTo : command
 
-def parseTestName : TSyntax `testName -> CommandElabM String
- | `(testName| [ $s:str ]) => pure s.getString
- | _ => throwUnsupportedSyntax
+def parseTestName : TSyntax `testName → CommandElabM (String × Bool)
+  | `(testName| [ $s:str , proof ]) => pure (s.getString, true)
+  | `(testName| [ $s:str ]) => pure (s.getString, false)
+  | _ => throwUnsupportedSyntax
 
 def parseTermReducedTo : TSyntax `termReducedTo -> CommandElabM (Syntax × Syntax)
 |`(termReducedTo | $t1 ===> $t2) => pure (t1.raw, t2.raw)
@@ -47,7 +53,6 @@ def parseNormNatLitOption : TSyntax `normNatLitOption -> CommandElabM Bool
         | _ => throwUnsupportedSyntax
  | `(normNatLitOption| ) => return false
  | _ => throwUnsupportedSyntax
-
 
 /-- Remove metadata annotations from `e`. -/
 def removeAnnotations (e : Expr) : Expr :=
@@ -145,23 +150,38 @@ partial def normNatLitAndLambdaBeta (e : Expr) : MetaM Expr := do
 
 @[command_elab testOptimize]
 def testOptimizeImp : CommandElab := fun stx => do
- let name ← parseTestName ⟨stx[1]⟩
- let sOpts ← parseVerbose default ⟨stx[2]⟩
- let normNatFlag ← parseNormNatLitOption ⟨stx[3]⟩
- let (t1, t2) ← parseTermReducedTo ⟨stx[4]⟩
- withoutModifyingEnv $ runTermElabM fun _ => do
-   -- create a local declaration name for the test case
-   let m ← getMainModule
-   withDeclName (m ++ name.toName) $ do
-     let actual ← callOptimize sOpts t1
-     let expected' := removeAnnotations (← parseTerm t2)
-     -- keep the current name generator and restore it afterwards
-     let ngen ← getNGen
-     let expected ← if normNatFlag then normNatLitAndLambdaBeta expected' else pure expected'
-     -- restore name generator
-     setNGen ngen
-     if actual == expected
-     then logInfo f!"{name} ✅ Success!"
-     else logError f!"{name} ❌ Failure! : expecting {reprStr expected} \nbut got {reprStr actual}"
+  let (name, requireProof) ← parseTestName ⟨stx[1]⟩
+  let sOpts ← parseVerbose default ⟨stx[2]⟩
+  let normNatFlag ← parseNormNatLitOption ⟨stx[3]⟩
+  let (t1, t2) ← parseTermReducedTo ⟨stx[4]⟩
+  withoutModifyingEnv $ runTermElabM fun _ => do
+    -- create a local declaration name for the test case
+    let m ← getMainModule
+    withDeclName (m ++ name.toName) $ do
+      let (actual, proofCert) ← callOptimize sOpts t1
+      let expected' := removeAnnotations (← parseTerm t2)
+      -- keep the current name generator and restore it afterwards
+      let ngen ← getNGen
+      let expected ← if normNatFlag then normNatLitAndLambdaBeta expected' else pure expected'
+      -- restore name generator
+      setNGen ngen
+      if actual == expected then
+        if requireProof then
+          match proofCert with
+          | some p =>
+              if (← try inferType p *> pure true catch _ => pure false) then
+                logInfo f!"{name} ✅ Success! [proof ✓]"
+              else
+                logError f!"{name} ❌ Failure! : proof certificate failed type check"
+          | none =>
+              let inputExpr ← parseTerm t1
+              if (← try isDefEq actual inputExpr catch _ => pure false) then
+                logInfo f!"{name} ✅ Success! [refl ✓]"
+              else
+                logError f!"{name} ❌ Failure! : no proof certificate and refl failed"
+        else
+          logInfo f!"{name} ✅ Success!"
+      else
+        logError f!"{name} ❌ Failure! : expecting {reprStr expected} \nbut got {reprStr actual}"
 
 end Tests
