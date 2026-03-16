@@ -344,14 +344,13 @@ def Optimize.main (e : Expr) : TranslateEnvT OptimizeResult := do
     NOTE: This function is to be used only by callOptimize in package Test.
 -/
 def command (sOpts: BlasterOptions) (e : Expr) : MetaM (Expr × Option Expr × TranslateEnv) := do
-  withTheReader Core.Context (fun ctx => { ctx with maxRecDepth := max ctx.maxRecDepth 4096 }) do
     -- keep the current name generator and restore it afterwards
-    let ngen ← getNGen
-    let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
-    let (⟨optExpr, proof⟩, translateEnv) ← Optimize.main e|>.run env
+  let ngen ← getNGen
+  let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
+  let (⟨optExpr, proof⟩, translateEnv) ← Optimize.main e|>.run env
     -- restore name generator
-    setNGen ngen
-    return (optExpr, proof, translateEnv)
+  setNGen ngen
+  return (optExpr, proof, translateEnv)
 
 initialize
   registerTraceClass `Optimize.expr

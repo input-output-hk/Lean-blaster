@@ -356,6 +356,7 @@ variable (x : Nat)
 variable (y : Nat)
 
 -- (100 * (30 - ((180 - (x * 1)) - 150))) * ((320 - (y + 400)) - y) ===> 0
+set_option maxRecDepth 4096 in
 #testOptimize [ "NatMulReduce_1" ] (100 * (30 - ((180 - (x * 1)) - 150))) * ((320 - (y + 400)) - y) ===> natMulCst_1
 
 -- (100 * (((180 - (x * 40)) - 150) - 30)) * ((((20 - y) - 50) * 24) + 1) ===> 100
