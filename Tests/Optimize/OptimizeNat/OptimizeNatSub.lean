@@ -477,6 +477,7 @@ elab "natSubSubRight_2" : term => return natSubSubRight_2
 #testOptimize [ "NatSubSubRight_2" ] ∀ (x y : Nat), (x - 20) - 10 < y ===> natSubSubRight_2
 
 -- ((x - 100) - 45) - 125 = x - 270 ===> True
+set_option maxRecDepth 4096 in
 #testOptimize [ "NatSubSubRight_3" ] ∀ (x : Nat), ((x - 100) - 45) - 125 = x - 270 ===> True
 
 -- ((200 - x) - 45) - 125 = 30 - x ===> True
@@ -490,9 +491,11 @@ set_option maxRecDepth 4096 in
 #testOptimize [ "NatSubSubRight_6" ] ∀ (x : Nat), ((x - 200) - 45) - ((125 - x) - 130) = x - 245 ===> True
 
 -- (((x - 60) - 40) - 45) - 125 = x - 270 ===> True
+set_option maxRecDepth 4096 in
 #testOptimize [ "NatSubSubRight_7" ] ∀ (x : Nat), (((x - 60) - 40) - 45) - 125 = x - 270 ===> True
 
 -- (100 - ((x - 100) - 45)) = 100 - (x - 145) ===> True
+set_option maxRecDepth 4096 in
 #testOptimize [ "NatSubSubRight_8" ] ∀ (x : Nat), (100 - ((x - 100) - 45)) = 100 - (x - 145) ===> True
 
 
@@ -536,6 +539,7 @@ elab "natAddSub_2" : term => return natAddSub_2
 #testOptimize [ "NatAddSub_6" ] ∀ (x : Nat), (50 + (40 + (x + 60))) - 120 = 30 + x ===> True
 
 -- (((230 + x) - 20) - 120) - 40 = 50 + x ===> True
+set_option maxRecDepth 4096 in
 #testOptimize [ "NatAddSub_7" ] ∀ (x : Nat), (((230 + x) - 20) - 120) - 40 = 50 + x ===> True
 
 -- (((x + 180) - 100) - 20) + 120 = 180 + x ===> True

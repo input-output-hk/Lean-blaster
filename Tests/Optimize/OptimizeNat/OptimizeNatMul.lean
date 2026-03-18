@@ -178,6 +178,7 @@ elab "natAddCstProp_5" : term => return natAddCstProp_5
 #testOptimize [ "NatMulCstProp_11" ] ∀ (x : Nat), 10 * (20 * ((x - 3) - 7)) = 200 * (x - 10) ===> True
 
 -- 10 * (20 * (100 - (x + 190))) = 0 ===> True
+set_option maxRecDepth 4096 in
 #testOptimize [ "NatMulCstProp_12" ] ∀ (x : Nat), 10 * (20 * (100 - (x + 190))) = 0 ===> True
 
 

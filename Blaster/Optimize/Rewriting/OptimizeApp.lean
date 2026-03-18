@@ -67,9 +67,7 @@ private def optimizeAppCore (f : Expr) (args : Array Expr) : TranslateEnvT Optim
     let proof ← do
       let Expr.const ``Eq _ := f | pure none
       if args.size != 3 || !exprEq args[1]! args[2]! then pure none
-      else
-        try pure (some (← mkAppM ``Eq.refl #[args[1]!]))
-        catch _ => pure none
+      else pure (some (mkApp2 (mkConst ``Eq.refl [.succ .zero]) args[0]! args[1]!))
     return ⟨e, proof⟩
   if let some r ← optimizeNat? f args then return r
   if let some e ← optimizeInt? f args then return ⟨e, none⟩
@@ -101,6 +99,9 @@ def optimizeAppAux (f : Expr) (args : Array Expr) : TranslateEnvT OptimizeResult
   let origArgs := args
   let args ← reorderOperands f args
   let result ← optimizeAppCore f args
+  let reordered := origArgs.size != args.size ||
+    (origArgs.zip args).any fun (a, b) => !exprEq a b
+  if !reordered then return result
   let reorderProof := detectReorderProof (mkAppN f origArgs) (mkAppN f args)
   /- trace[Optimize.proof] "optimizeAppAux reorder: f={reprStr f} swapped={reorderProof.isSome} resultProof={result.proof.isSome}" -/
   match reorderProof with
