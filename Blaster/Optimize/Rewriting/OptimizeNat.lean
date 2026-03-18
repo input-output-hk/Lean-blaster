@@ -28,19 +28,23 @@ def optimizeNatAdd (f : Expr) (args : Array Expr) : TranslateEnvT OptimizeResult
     let expr <- evalBinNatOp Nat.add n1 n2
     return ⟨expr, none⟩
  | nv1,  _ =>
-    if let some expr ← cstAddProp? nv1 op2 then return ⟨expr, none⟩
+    if let some r ← cstAddProp? nv1 op2 then return r
     return ⟨mkApp2 f op1 op2, none⟩
 
  where
-   /- Given `mv1` and `op2`, return `some ((N1 "+" N2) + n)` when
-      `mv1 := some N1 ∧ op2 := N2 + n`.
+   /- Given `mv1` and `op2`, return `some ⟨(N1 "+" N2) + n, proof⟩` when
+      `mv1 := some N1 ∧ op2 := N2 + n`, with
+      `proof : N1 + (N2 + n) = (N1 "+" N2) + n` via `Eq.symm (Nat.add_assoc N1 N2 n)`.
       Otherwise `none`
    -/
-   cstAddProp? (mv1 : Option Nat) (op2 : Expr) : TranslateEnvT (Option Expr) := do
+   cstAddProp? (mv1 : Option Nat) (op2 : Expr) : TranslateEnvT (Option OptimizeResult) := do
     match mv1, toNatCstOpExpr? op2 with
-    | some n1, (NatCstOpInfo.NatAddExpr n2 e2) => return (mkApp2 f (← evalBinNatOp Nat.add n1 n2) e2)
+    | some n1, (NatCstOpInfo.NatAddExpr n2 e2) =>
+        let expr := mkApp2 f (← evalBinNatOp Nat.add n1 n2) e2
+        let assocProof := mkApp3 (mkConst ``Nat.add_assoc) (mkRawNatLit n1) (mkRawNatLit n2) e2
+        let proof ← mkAppM ``Eq.symm #[assocProof]
+        return some ⟨expr, some proof⟩
     | _, _ => return none
-
 
 /-- Apply the following simplification/normalization rules on `Nat.sub` :
      - n1 - n2 ==> 0 (if n1 =ₚₜᵣ n2)                 [proof: Nat.sub_self]

@@ -105,16 +105,16 @@ elab "natAddZeroUnchanged_4" : term => return natAddZeroUnchanged_4
 /-! Test cases for simplification rule `N1 + (N2 + n) ===> (N1 "+" N2) + n`. -/
 
 -- 10 + (20 + x) = 30 + x ===> True
-#testOptimize [ "NatAddCstProp_1" ] ∀ (x : Nat), 10 + (20 + x) = 30 + x ===> True
+#testOptimize [ "NatAddCstProp_1", proof ] ∀ (x : Nat), 10 + (20 + x) = 30 + x ===> True
 
 -- 10 + (x + 20) = x + 30 ===> True
-#testOptimize [ "NatAddCstProp_2" ] ∀ (x : Nat), 10 + (x + 20) = x + 30 ===> True
+#testOptimize [ "NatAddCstProp_2", proof ] ∀ (x : Nat), 10 + (x + 20) = x + 30 ===> True
 
 -- (x + 20) + 10 = 30 + x ===> True
-#testOptimize [ "NatAddCstProp_3" ] ∀ (x : Nat), (x + 20) + 10 = 30 + x ===> True
+#testOptimize [ "NatAddCstProp_3", proof ] ∀ (x : Nat), (x + 20) + 10 = 30 + x ===> True
 
 -- (20 + x) + 10 = x + 30 ===> True
-#testOptimize [ "NatAddCstProp_4" ] ∀ (x : Nat), (20 + x) + 10 = x + 30 ===> True
+#testOptimize [ "NatAddCstProp_4", proof ] ∀ (x : Nat), (20 + x) + 10 = x + 30 ===> True
 
 -- 10 + (20 + x) ===> (30 + x)
 def natAddCstProp_5 : Expr :=
@@ -136,22 +136,22 @@ def natAddCstProp_5 : Expr :=
 
 elab "natAddCstProp_5" : term => return natAddCstProp_5
 
-#testOptimize [ "NatAddCstProp_5" ] ∀ (x y : Nat), 10 + (20 + x) < y ===> natAddCstProp_5
+#testOptimize [ "NatAddCstProp_5", proof ] ∀ (x y : Nat), 10 + (20 + x) < y ===> natAddCstProp_5
 
 -- 10 + (20 + (40 + x)) = 70 + x ===> True
-#testOptimize [ "NatAddCstProp_6" ] ∀ (x : Nat), 10 + (20 + (40 + x)) = 70 + x ===> True
+#testOptimize [ "NatAddCstProp_6", proof ] ∀ (x : Nat), 10 + (20 + (40 + x)) = 70 + x ===> True
 
 -- 10 + (20 + (x + 40)) = 70 + x ===> True
-#testOptimize [ "NatAddCstProp_7" ] ∀ (x : Nat), 10 + (20 + (x + 40)) = 70 + x ===> True
+#testOptimize [ "NatAddCstProp_7", proof ] ∀ (x : Nat), 10 + (20 + (x + 40)) = 70 + x ===> True
 
 -- 10 + ((x + 20) - 10) = 20 + x ===> True
-#testOptimize [ "NatAddCstProp_8" ] ∀ (x : Nat), 10 + ((x + 20) - 10) = 20 + x ===> True
+#testOptimize [ "NatAddCstProp_8", proof ] ∀ (x : Nat), 10 + ((x + 20) - 10) = 20 + x ===> True
 
 -- 10 + (20 + (15 + (x + 25))) = 70 + x ===> True
-#testOptimize [ "NatAddCstProp_9" ] ∀ (x : Nat), 10 + (20 + (15 + (x + 25))) = 70 + x ===> True
+#testOptimize [ "NatAddCstProp_9", proof ] ∀ (x : Nat), 10 + (20 + (15 + (x + 25))) = 70 + x ===> True
 
 -- 10 + (20 + ((x + 10) - 7)) = 33 + x ===> True
-#testOptimize [ "NatAddCstProp_10" ] ∀ (x : Nat), 10 + (20 + ((x + 10) - 7)) = 33 + x ===> True
+#testOptimize [ "NatAddCstProp_10", proof ] ∀ (x : Nat), 10 + (20 + ((x + 10) - 7)) = 33 + x ===> True
 
 -- 100 + ((180 - (x + 40)) - 150) = 100
 set_option maxRecDepth 4096 in
@@ -249,10 +249,10 @@ elab "natAddCstPropUnchanged_3" : term => return natAddCstPropUnchanged_3
 #testOptimize [ "NatAddCommut_1" ] ∀ (x y : Nat), x + y = x + y ===> True
 
 -- x + y = y + x ===> True
-#testOptimize [ "NatAddCommut_2" ] ∀ (x y : Nat), x + y = y + x ===> True
+#testOptimize [ "NatAddCommut_2", proof ] ∀ (x y : Nat), x + y = y + x ===> True
 
 -- x + 10 = 10 + x ===> True
-#testOptimize [ "NatAddCommut_3" ] ∀ (x : Nat), x + 10 = 10 + x ===> True
+#testOptimize [ "NatAddCommut_3", proof ] ∀ (x : Nat), x + 10 = 10 + x ===> True
 
 -- y + x ===> x + y (with `x` declared first)
 #testOptimize [ "NatAddCommut_4" ] ∀ (x y z : Nat), z < y + x ===> ∀ (x y z : Nat), z < Nat.add x y

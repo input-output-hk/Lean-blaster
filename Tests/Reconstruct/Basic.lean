@@ -1,7 +1,6 @@
 import Blaster
 
-/-! Tests that `blaster` closes goals with valid proof certificates (no sorry).
--/
+/-! ## Tests that `blaster` closes goals with valid proof certificates (no sorry). -/
 
 -- Nat.zero_add: 0 + n → n
 example : ∀ {n : Nat}, 0 + n = n := by blaster
