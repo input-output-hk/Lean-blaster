@@ -486,6 +486,7 @@ elab "natSubSubRight_2" : term => return natSubSubRight_2
 #testOptimize [ "NatSubSubRight_5" ] ∀ (x : Nat), ((100 - x) - 45) - 125 = 0 ===> True
 
 -- ((x - 200) - 45) - ((125 - x) - 130) = x - 245 ===> True
+set_option maxRecDepth 4096 in
 #testOptimize [ "NatSubSubRight_6" ] ∀ (x : Nat), ((x - 200) - 45) - ((125 - x) - 130) = x - 245 ===> True
 
 -- (((x - 60) - 40) - 45) - 125 = x - 270 ===> True
