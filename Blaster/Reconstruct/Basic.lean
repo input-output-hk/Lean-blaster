@@ -17,7 +17,11 @@ def composeProofs? (opt_p₁ opt_p₂ : Option Expr) : MetaM (Option Expr) :=
   | p, none => return p
   | some p₁, some p₂ =>
       try return some (← composeProofs p₁ p₂)
-      catch _ => return none
+      catch _ =>
+        /- trace[Optimize.expr] "composeProofs? failed: {e.toMessageData}" -/
+        /- trace[Optimize.expr] "  p₁ type: {← try inferType p₁ catch _ => pure (toExpr "??")}" -/
+        /- trace[Optimize.expr] "  p₂ type: {← try inferType p₂ catch _ => pure (toExpr "??")}" -/
+        return none
 
 /-- Tag for annotating the argument position from the end. -/
 def argPosFromEndKey : Name := `_blaster.argPosFromEnd
@@ -84,7 +88,10 @@ def buildCongrArgFromProof (f : Expr) (args : Array Expr) (argProof : Expr)
           p ← mkCongrFun p args[j]!
         return some p
     | none => return none
-  catch _ => return none
+  catch _ =>
+    /- trace[Optimize.expr] "buildCongrArgFromProof failed: {e.toMessageData}" -/
+    /- trace[Optimize.expr] "  f={← ppExpr f} args.size={args.size}" -/
+    return none
 
 /-- Detect if the difference between origExpr and optExpr is a simple
     commutativity swap at the top level, and return the corresponding proof.

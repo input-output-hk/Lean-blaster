@@ -168,10 +168,19 @@ def testOptimizeImp : CommandElab := fun stx => do
         if requireProof then
           match proofCert with
           | some p =>
-              if (← try inferType p *> pure true catch _ => pure false) then
-                logInfo f!"{name} ✅ Success! [proof ✓]"
+              let inputExpr ← parseTerm t1
+              let pType ← inferType p
+              let isRewriteProof ← try
+                let eqType ← mkEq inputExpr actual
+                isDefEq pType eqType
+              catch _ => pure false
+              let isDirectProof ← try isDefEq pType inputExpr catch _ => pure false
+              if isRewriteProof then
+                logInfo f!"{name} ✅ Success! [proof ✓ rewrite]"
+              else if isDirectProof then
+                logInfo f!"{name} ✅ Success! [proof ✓ direct]"
               else
-                logError f!"{name} ❌ Failure! : proof certificate failed type check"
+                logError f!"{name} ❌ Failure! : proof type mismatch\n  got: {← ppExpr pType}"
           | none =>
               let inputExpr ← parseTerm t1
               if (← try isDefEq actual inputExpr catch _ => pure false) then
