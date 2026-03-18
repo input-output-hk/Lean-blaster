@@ -159,6 +159,7 @@ def testOptimizeImp : CommandElab := fun stx => do
     withDeclName (m ++ name.toName) $ do
       let (actual, proofCert) ← callOptimize sOpts t1
       let expected' := removeAnnotations (← parseTerm t2)
+      let inputExpr ← parseTerm t1
       -- keep the current name generator and restore it afterwards
       let ngen ← getNGen
       let expected ← if normNatFlag then normNatLitAndLambdaBeta expected' else pure expected'
@@ -168,22 +169,25 @@ def testOptimizeImp : CommandElab := fun stx => do
         if requireProof then
           match proofCert with
           | some p =>
-              let inputExpr ← parseTerm t1
               let pType ← inferType p
-              let isRewriteProof ← try
-                let eqType ← mkEq inputExpr actual
-                isDefEq pType eqType
-              catch _ => pure false
-              let isDirectProof ← try isDefEq pType inputExpr catch _ => pure false
-              if isRewriteProof then
-                logInfo f!"{name} ✅ Success! [proof ✓ rewrite]"
-              else if isDirectProof then
-                logInfo f!"{name} ✅ Success! [proof ✓ direct]"
+              if let some (_, lhs, rhs) := pType.eq? then
+                -- Rewrite proof: p : lhs = rhs, check lhs =defEq input and rhs =defEq optimized
+                if (lhs == inputExpr && rhs == actual)
+                   || (← try isDefEq lhs inputExpr <&&> isDefEq rhs actual catch _ => pure false)
+                      then
+                  logInfo f!"{name} ✅ Success! [proof ✓ rewrite]"
+                else
+                  logError f!"{name} ❌ Failure! : proof type mismatch\n  got: {← ppExpr pType}"
               else
-                logError f!"{name} ❌ Failure! : proof type mismatch\n  got: {← ppExpr pType}"
+                -- Direct proof: p : inputExpr (proof of the proposition itself)
+                if pType == inputExpr
+                   || (← try isDefEq pType inputExpr catch _ => pure false) then
+                  logInfo f!"{name} ✅ Success! [proof ✓ direct]"
+                else
+                  logError f!"{name} ❌ Failure! : proof type mismatch\n  got: {← ppExpr pType}"
           | none =>
-              let inputExpr ← parseTerm t1
-              if (← try isDefEq actual inputExpr catch _ => pure false) then
+              if actual == inputExpr
+                 || (← try isDefEq actual inputExpr catch _ => pure false) then
                 logInfo f!"{name} ✅ Success! [refl ✓]"
               else
                 logError f!"{name} ❌ Failure! : no proof certificate and refl failed"
