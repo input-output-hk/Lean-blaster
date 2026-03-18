@@ -74,19 +74,22 @@ def optimizeNatSub (f : Expr) (args : Array Expr) : TranslateEnvT OptimizeResult
     return ⟨op1, some proof⟩
  | some n1, some n2 => return ⟨← evalBinNatOp Nat.sub n1 n2, none⟩
  | nv1, nv2 =>
-   if let some r ← cstSubPropRight? nv1 op2 then return ⟨r, none⟩
-   if let some r ← cstSubPropLeft? op1 nv2 then return ⟨r, none⟩
+   if let some r ← cstSubPropRight? nv1 op2 then return r
+   if let some r ← cstSubPropLeft? op1 nv2 then return r
    return ⟨mkApp2 f op1 op2, none⟩
 
  where
    /- Given `mv1` and `op2` return `some ((N1 "-" N2) - n)` when
       `mv1 := some N1 ∧ op2 := (N2 + n)`. Otherwise `none`.
    -/
-   cstSubPropRight? (mv1 : Option Nat) (op2 : Expr) : TranslateEnvT (Option Expr) := do
+
+   cstSubPropRight? (mv1 : Option Nat) (op2 : Expr) : TranslateEnvT (Option OptimizeResult) := do
     match mv1, toNatCstOpExpr? op2 with
-    | some n1, NatCstOpInfo.NatAddExpr n2 e2 =>
+    | some n1, (NatCstOpInfo.NatAddExpr n2 e2) =>
+        let expr := mkApp2 f (← evalBinNatOp Nat.sub n1 n2) e2
+        let proof := mkApp3 (mkConst ``Nat.sub_add_eq) (mkRawNatLit n1) (mkRawNatLit n2) e2
         setRestart
-        return mkApp2 f (← evalBinNatOp Nat.sub n1 n2) e2
+        return some ⟨expr, some proof⟩
     | _, _ => return none
 
    /- Given `op1` and `mv2`,
@@ -95,20 +98,39 @@ def optimizeNatSub (f : Expr) (args : Array Expr) : TranslateEnvT OptimizeResult
        - return `some ((N1 "-" N2) + n)` when `op1 := N1 + n ∧ mv2 := some N2 ∧ N1 ≥ N2`
       Otherwise `none`
    -/
-   cstSubPropLeft? (op1 : Expr) (mv2 : Option Nat) : TranslateEnvT (Option Expr) := do
+   cstSubPropLeft? (op1 : Expr) (mv2 : Option Nat) : TranslateEnvT (Option OptimizeResult) := do
      match mv2 with
      | some n2 =>
           match toNatCstOpExpr? op1 with
           | some (NatCstOpInfo.NatSubLeftExpr n1 e1) =>
+              let expr := mkApp2 f (← evalBinNatOp Nat.sub n1 n2) e1
+              let proof := mkApp3 (mkConst ``Nat.sub_right_comm) (mkRawNatLit n1) e1 (mkRawNatLit n2)
               setRestart
-              return mkApp2 f (← evalBinNatOp Nat.sub n1 n2) e1
+              return some ⟨expr, some proof⟩
           | some (NatCstOpInfo.NatSubRightExpr e1 n1) =>
-              -- no need to restart here
-              return (mkApp2 f e1 (← evalBinNatOp Nat.add n1 n2))
+              let expr := (mkApp2 f e1 (← evalBinNatOp Nat.add n1 n2))
+              let proof := mkApp3 (mkConst ``Nat.sub_sub) e1 (mkRawNatLit n1) (mkRawNatLit n2)
+              return some ⟨expr, some proof⟩
           | some (NatCstOpInfo.NatAddExpr n1 e1) =>
               if Nat.ble n2 n1 then
                 setRestart
-                return mkApp2 (← mkNatAddOp) (← evalBinNatOp Nat.sub n1 n2) e1
+                let expr := mkApp2 (← mkNatAddOp) (← evalBinNatOp Nat.sub n1 n2) e1
+                let proof ← try
+                  let n1Lit := mkRawNatLit n1
+                  let n2Lit := mkRawNatLit n2
+                  let n1SubN2 ← evalBinNatOp Nat.sub n1 n2
+                  let leType ← mkAppM ``LE.le #[n2Lit, n1Lit]
+                  let hLE ← mkDecideProof leType
+                  let comm := mkApp2 (mkConst ``Nat.add_comm) n1Lit e1
+                  let subFn := mkLambda `x .default (mkConst ``Nat) (mkApp2 (mkConst ``Nat.sub) (mkBVar 0) n2Lit)
+                  let step1 ← mkCongrArg subFn comm
+                  let step2 ← mkAppM ``Nat.add_sub_assoc #[hLE, e1]
+                  let step3 := mkApp2 (mkConst ``Nat.add_comm) e1 n1SubN2
+                  let step12 ← mkAppM ``Eq.trans #[step1, step2]
+                  let proof ← mkAppM ``Eq.trans #[step12, step3]
+                  pure (some proof)
+                catch _ => pure none
+                return some ⟨expr, proof⟩
               else return none
           | _ => return none
      | _ => return none

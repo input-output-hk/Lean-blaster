@@ -56,25 +56,58 @@ def reduceApp? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := wi
        | throwEnvError "reduceApp?: recursive function body expected for {reprStr f}"
      return (betaLambda fbody args)
 
-/-- Perform constant propagation and apply simplification and normalization rules
-    on application expressions.
--/
-def optimizeAppAux (f : Expr) (args: Array Expr) : TranslateEnvT OptimizeResult  := do
-  let args ← reorderOperands f args
-  if let some e ← optimizePropNot? f args then return (OptimizeResult.mk e none)
-  if let some e ← optimizePropBinary? f args then return (OptimizeResult.mk e none)
-  if let some e ← optimizeBoolNot? f args then return (OptimizeResult.mk e none)
-  if let some e ← optimizeBoolBinary? f args then return (OptimizeResult.mk e none)
-  if let some e ← optimizeEquality? f args then return (OptimizeResult.mk e none)
+/-- Core optimization logic for application expressions (post-reorder). -/
+private def optimizeAppCore (f : Expr) (args : Array Expr) : TranslateEnvT OptimizeResult := do
+  if let some e ← optimizePropNot? f args then return ⟨e, none⟩
+  if let some e ← optimizePropBinary? f args then return ⟨e, none⟩
+  if let some e ← optimizeBoolNot? f args then return ⟨e, none⟩
+  if let some e ← optimizeBoolBinary? f args then return ⟨e, none⟩
+  if let some e ← optimizeEquality? f args then
+    -- TODO: refactor optimizeEq chain to return OptimizeResult; for now only Eq.refl (a = a)
+    let proof ← do
+      let Expr.const ``Eq _ := f | pure none
+      if args.size != 3 || !exprEq args[1]! args[2]! then pure none
+      else
+        try pure (some (← mkAppM ``Eq.refl #[args[1]!]))
+        catch _ => pure none
+    return ⟨e, proof⟩
   if let some r ← optimizeNat? f args then return r
-  if let some e ← optimizeInt? f args then return (OptimizeResult.mk e none)
-  if let some e ← optimizeExists? f args then return (OptimizeResult.mk e none)
-  if let some e ← optimizeDecide? f args then return (OptimizeResult.mk e none)
-  if let some e ← optimizeRelational? f args then return (OptimizeResult.mk e none)
-  if let some e ← optimizeString? f args then return (OptimizeResult.mk e none)
+  if let some e ← optimizeInt? f args then return ⟨e, none⟩
+  if let some e ← optimizeExists? f args then return ⟨e, none⟩
+  if let some e ← optimizeDecide? f args then return ⟨e, none⟩
+  if let some e ← optimizeRelational? f args then
+    -- TODO: refactor optimizeRelational chain to return OptimizeResult
+    let proof ← do
+      let Expr.const ``LE.le _ := f | pure none
+      if args.size != 4 then pure none
+      else try
+        let Expr.const ``Nat _ := args[0]! | pure none
+        let op1 := args[2]!
+        let op2 := args[3]!
+        let notLtIff := mkApp2 (mkConst ``Nat.not_lt) op2 op1
+        let iffProof ← mkAppM ``Iff.symm #[notLtIff]
+        pure (some (← mkAppM ``propext #[iffProof]))
+      catch _ => pure none
+    return ⟨e, proof⟩
+  if let some e ← optimizeString? f args then return ⟨e, none⟩
   let appExpr := mkAppN f args
   if (← isResolvableType appExpr) then return ⟨← resolveTypeAbbrev appExpr, none⟩
   return ⟨appExpr, none⟩
+
+/-- Perform constant propagation and apply simplification and normalization rules
+    on application expressions. Tracks operand reordering and composes commutativity
+    proofs with any downstream optimization proof. -/
+def optimizeAppAux (f : Expr) (args : Array Expr) : TranslateEnvT OptimizeResult := do
+  let origArgs := args
+  let args ← reorderOperands f args
+  let result ← optimizeAppCore f args
+  let reorderProof := detectReorderProof (mkAppN f origArgs) (mkAppN f args)
+  /- trace[Optimize.proof] "optimizeAppAux reorder: f={reprStr f} swapped={reorderProof.isSome} resultProof={result.proof.isSome}" -/
+  match reorderProof with
+  | none => return result
+  | some rp =>
+      -- Compose: rp : f(origArgs) = f(reorderedArgs), result.proof : f(reorderedArgs) = optimized
+      return ⟨result.optExpr, ← composeProofs? (some rp) result.proof⟩
 
 /-- Perform the following:
      - apply normalization and simplification rules on the given application expression
@@ -102,18 +135,26 @@ def optimizeApp
   (stack : List OptimizeStack) (incomingProof : Option Expr := none) (skipPropCheck := false) :
     TranslateEnvT OptimizeContinuity := do
   let ⟨e, newProof⟩ ← optimizeAppAux f args
+  /- trace[Optimize.proof] "optimizeApp: f={reprStr f} incomingProof={incomingProof.isSome} newProof={newProof.isSome}" -/
   let proof ← match incomingProof, newProof with
     | some inP, some np => do
-      -- inP : origArg = optArg (an argument was rewritten)
-      -- np : f(optArgs) = result (the application-level rewrite on optimized args)
-      -- build congrArg to lift the arg rewrite to application level, then compose
-      match ← buildCongrArgFromProof f args inP with
-      | some congrP => composeProofs? (some congrP) (some np)
-      | none => pure (some np)
-    | _, _ => composeProofs? incomingProof newProof
+        -- inP : origArg = optArg (an argument was rewritten)
+        -- np : f(optArgs) = result (the application-level rewrite on optimized args)
+        -- build congrArg to lift the arg rewrite to application level, then compose
+        match ← buildCongrArgFromProof f args inP with
+        | some congrP => composeProofs? (some congrP) (some np)
+        | none => pure (some np)
+    | some inP, none => do
+        match ← buildCongrArgFromProof f args inP with
+        | some congrP => pure (some congrP)
+        | none => pure (some inP)
+    | none, _ => pure newProof
+  /- trace[Optimize.proof] "optimizeApp: composedProof={proof.isSome}" -/
   if ← isRestart then
     resetRestart
-    return Sum.inl (.InitOptimizeExpr e :: stack, none)
+    match proof with
+    | none => return Sum.inl (.InitOptimizeExpr e :: stack, none)
+    | some p => return Sum.inl (.InitOptimizeExpr e :: .ProofBridge p :: stack, none)
   else
     match (← isFunPropagation? e) with
     | some r => return Sum.inl (.InitOptimizeExpr r :: stack, none)

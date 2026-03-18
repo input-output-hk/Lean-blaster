@@ -183,9 +183,12 @@ where
       to obtain `bridge : origArg = source`, and composes `Eq.trans bridge p`. -/
 def resolveArgProof (argProof : Option Expr) (origArg optArg : Expr) : MetaM (Option Expr) :=
   match argProof with
-  | none => pure (detectReorderProof origArg optArg)
+  | none => do
+      /- trace[Optimize.expr] "resolveArgProof: none → detectReorderProof orig={reprStr origArg} opt={reprStr optArg}" -/
+      pure (detectReorderProof origArg optArg)
   | some p => do
     let proofType ← inferType p
+    /- trace[Optimize.proof] "resolveArgProof: some p, type={reprStr proofType}" -/
     match proofType.eq? with
     | some (_, proofSrc, _) =>
         if Blaster.Optimize.exprEq proofSrc origArg then

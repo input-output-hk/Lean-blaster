@@ -159,7 +159,31 @@ def stackContinuity
          resetRestart
          return Sum.inl (.InitOptimizeExpr e :: xs, proof)
        else -- continuity with optimizing next expression
-          let proof' ← withLocalContext $ proof.mapM (fun p => mkLambdaFVars #[x] p)
+          let proof' ← withLocalContext $ match proof with
+           | some p => do
+             let pType ← inferType p
+             match pType.eq? with
+             | some (_, lhs, rhs) =>
+               if (← isProp lhs) then
+                 try
+                   let forallLhs ← mkForallFVars #[x] lhs
+                   let forallRhs ← mkForallFVars #[x] rhs
+                   -- Forward: (∀ x, P x) → (∀ x, Q x) via Eq.mp
+                   let fwd ← withLocalDeclD `h forallLhs fun h => do
+                     let step ← mkAppM ``Eq.mp #[p, mkApp h x]
+                     mkLambdaFVars #[h] (← mkLambdaFVars #[x] step)
+                   -- Backward: (∀ x, Q x) → (∀ x, P x) via Eq.mpr
+                   let bwd ← withLocalDeclD `h forallRhs fun h => do
+                     let step ← mkAppM ``Eq.mpr #[p, mkApp h x]
+                     mkLambdaFVars #[h] (← mkLambdaFVars #[x] step)
+                   let iff ← mkAppM ``Iff.intro #[fwd, bwd]
+                   pure (some (← mkAppM ``propext #[iff]))
+                 catch _ => pure none
+               else
+                 pure (some (← mkLambdaFVars #[x] p))
+             | none =>
+               pure (some (← mkLambdaFVars #[x] p))
+           | none => pure none
           resetLocalDeclContext lctx
           stackContinuity xs (← mkExpr e) proof'
 
@@ -225,6 +249,7 @@ def stackContinuity
        let argChanged := !exprEq optExpr origArgs[idx]!
        let argProofs' := if proof.isSome && argChanged then argProofs.set! idx proof else argProofs
        let proof' := if proof.isSome && argChanged then none else proof
+       /- trace[Optimize.proof] "AppOptExplArgs: idx={idx} argChanged={argChanged} proof={proof.isSome} argProofs[idx]={argProofs'[idx]!.isSome}" -/
        return Sum.inl
         (.AppOptimizeExplicitArgs f (args.set! idx optExpr)
           (idx + 1) stopIdx pInfo mInfo origArgs argProofs' :: xs, proof')

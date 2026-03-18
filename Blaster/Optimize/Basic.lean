@@ -376,6 +376,7 @@ def command (sOpts: BlasterOptions) (e : Expr) : MetaM (Expr × Option Expr × T
 
 initialize
   registerTraceClass `Optimize.expr
+  /- registerTraceClass `Optimize.proof -/
   registerTraceClass `Optimize.funPropagation
   registerTraceClass `Optimize.normChoiceApp
   registerTraceClass `Optimize.normPartial
