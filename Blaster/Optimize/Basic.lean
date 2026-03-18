@@ -179,6 +179,28 @@ partial def optimizeExprAux (stack : List OptimizeStack) (proof : Option Expr :=
          else if let some pe ← normPartialFun? f args then
            -- trace[Optimize.normPartial] "normalizing partial function {reprStr f} {reprStr args} => {reprStr pe}"
            optimizeExprAux (.InitOptimizeExpr pe :: xs) proof
+         -- Eq intercept: build proof when both sides became equal via arg rewrites or commutativity
+         else if let Expr.const ``Eq _ := f then
+           if args.size == 3 && origArgs.size >= 3
+              && exprEq args[1]! args[2]!
+              && !exprEq origArgs[1]! origArgs[2]! then
+             let eqProof? ← withLocalContext do
+               let lhsProof ← Reconstruct.resolveArgProof argProofs[1]! origArgs[1]! args[1]!
+               let rhsProof ← Reconstruct.resolveArgProof argProofs[2]! origArgs[2]! args[2]!
+               if lhsProof.isSome || rhsProof.isSome then
+                 Reconstruct.buildEqReflProof lhsProof rhsProof
+               else
+                 pure none
+             match eqProof? with
+             | some eqProof =>
+               let trueExpr ← mkPropTrue
+               match (← stackContinuity xs trueExpr eqProof) with
+               | Sum.inr e' => return e'
+               | Sum.inl (nextStack, nextProof) => optimizeExprAux nextStack nextProof
+             | none =>
+               optimizeExprAux (.InitOpaqueRecExpr f args :: xs) proof
+           else
+             optimizeExprAux (.InitOpaqueRecExpr f args :: xs) proof
          -- applying optimization on opaque rec function and app and proceed with fun propagation rules
          else optimizeExprAux (.InitOpaqueRecExpr f args :: xs) proof
        else if idx < pInfo.paramsInfo.size

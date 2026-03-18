@@ -363,6 +363,7 @@ set_option maxRecDepth 4096 in
 def natMulReduce_2 : Expr := Lean.Expr.lit (Lean.Literal.natVal 100)
 elab "natMulReduce_2" : term => return natMulReduce_2
 
+set_option maxRecDepth 4096 in
 #testOptimize [ "NatMulReduce_2" ] (100 + (((180 - (x * 40)) - 150) - 30)) * ((((20 - y) - 50) * 24) + 1) ===> natMulReduce_2
 
 

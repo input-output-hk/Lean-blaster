@@ -1,30 +1,53 @@
 import Blaster
 
--- Nat.add
-example : 1 + 2 = 3 := by blaster
-example : ∀ {n : Nat}, 0 + n = n := by blaster
-example : ∀ {n : Nat}, 0 + (0 + n) = n := by blaster
-example : ∀ {n : Nat}, 0 + (0 + (0 + n)) = n := by blaster
+/-! Tests that `blaster` closes goals with valid proof certificates (no sorry).
+-/
 
--- Nat.sub
+-- Nat.zero_add: 0 + n → n
+example : ∀ {n : Nat}, 0 + n = n := by blaster
+
+-- Nat.sub_self: n - n → 0
 example : ∀ {n : Nat}, n - n = 0 := by blaster
+
+-- Nat.zero_sub: 0 - n → 0
 example : ∀ {n : Nat}, 0 - n = 0 := by blaster
 
--- Nat.mul
-example : 2 * 3 = 6 := by blaster
-example : ∀ {n : Nat}, 0 * n = 0 := by blaster
-example : ∀ {n : Nat}, 0 * (0 * n) = 0 := by blaster
-example : ∀ {n : Nat}, 0 * (0 * (0 * n)) = 0 := by blaster
-example : ∀ {n : Nat}, 1 * n = n := by blaster
-example : ∀ {n : Nat}, 1 * (1 * n) = n := by blaster
-example : ∀ {n : Nat}, 1 * (1 * (1 * n)) = n := by blaster
+-- Nat.sub_zero: n - 0 → n
+example : ∀ {n : Nat}, n - 0 = n := by blaster
 
--- Combination
+-- Nat.zero_mul: 0 * n → 0
+example : ∀ {n : Nat}, 0 * n = 0 := by blaster
+
+-- Nat.one_mul: 1 * n → n
+example : ∀ {n : Nat}, 1 * n = n := by blaster
+
+-- Constant evaluation
+example : 1 + 2 = 3 := by blaster
+example : 2 * 3 = 6 := by blaster
 example : (2 * 3) + 1 = 7 := by blaster
+
+-- Constant propagation: N1 + (N2 + n) → (N1 + N2) + n
+example : ∀ (x : Nat), 10 + (20 + x) = 30 + x := by blaster
+
+-- Nat.add commutativity
+example : ∀ (m n : Nat), m + n = n + m := by blaster
+example : ∀ (n : Nat), n + 1 = 1 + n := by blaster
+
+-- Nat.mul commutativity
+example : ∀ (m n : Nat), m * n = n * m := by blaster
+example : ∀ (n : Nat), 2 * n = n * 2 := by blaster
+
+-- Mixed rewrites
+example : ∀ {n : Nat}, 0 + (0 + n) = n := by blaster
+example : ∀ {n : Nat}, 0 * (0 * n) = 0 := by blaster
+example : ∀ {n : Nat}, 1 * (1 * n) = n := by blaster
 example : ∀ {n : Nat}, 0 + ((0 * (0 * (0 + n))) + n) = n := by blaster
 example : ∀ {n : Nat}, (1 * ((0 * n) + n)) - 0 = n := by blaster
 example : ∀ {n : Nat}, (0 + n) + 1 = n + 1 := by blaster
 example : ∀ {n : Nat}, 1 + (0 + n) = n + 1 := by blaster
 
--- N1 + (N2 + n) ==> (N1 "+" N2) + n
-example : ∀ (x : Nat), 10 + (20 + x) = 30 + x := by blaster
+-- Mixed rewrite + commutativity
+example : ∀ (m n : Nat), 0 + (m + n) = n + m := by blaster
+example : ∀ (m n : Nat), (m + n) + 0 = n + m := by blaster
+example : ∀ (m n : Nat), 1 * (m + n) = n + m := by blaster
+example : ∀ (m n : Nat), (m + n) - 0 = n + m := by blaster

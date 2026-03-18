@@ -154,12 +154,13 @@ def stackContinuity
        resetHypContext hctx
        let e ← withLocalContext $ do
                  optimizeForall x t hctx.newHCtx.2.1 optExpr
-       resetLocalDeclContext lctx
        if ← isRestart then
+         resetLocalDeclContext lctx
          resetRestart
          return Sum.inl (.InitOptimizeExpr e :: xs, proof)
        else -- continuity with optimizing next expression
-          let proof' ← proof.mapM (fun p => mkLambdaFVars #[x] p)
+          let proof' ← withLocalContext $ proof.mapM (fun p => mkLambdaFVars #[x] p)
+          resetLocalDeclContext lctx
           stackContinuity xs (← mkExpr e) proof'
 
   | .AppWaitForConst args :: xs =>

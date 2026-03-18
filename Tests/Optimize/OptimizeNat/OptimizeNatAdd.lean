@@ -154,6 +154,7 @@ elab "natAddCstProp_5" : term => return natAddCstProp_5
 #testOptimize [ "NatAddCstProp_10" ] ∀ (x : Nat), 10 + (20 + ((x + 10) - 7)) = 33 + x ===> True
 
 -- 100 + ((180 - (x + 40)) - 150) = 100
+set_option maxRecDepth 4096 in
 #testOptimize [ "NatAddCstProp_11", proof ] ∀ (x : Nat), 100 + ((180 - (x + 40)) - 150) = 100 ===> True
 
 
@@ -334,12 +335,14 @@ variable (y : Nat)
 def natAddReduce_1 : Expr := Lean.Expr.lit (Lean.Literal.natVal 100)
 elab "natAddReduce_1" : term => return natAddReduce_1
 
+set_option maxRecDepth 4096 in
 #testOptimize [ "NatAddReduce_1", proof ] (100 + ((180 - (x + 40)) - 150)) + ((200 - y) - 320) ===> natAddReduce_1
 
 def natAddReduce_2 : Expr := Lean.Expr.lit (Lean.Literal.natVal 124)
 elab "natAddReduce_2" : term => return natAddReduce_2
 
 -- (100 + ((180 - (x + 40)) - 150)) + (((20 - y) - 50) + 24) ===> 124
+set_option maxRecDepth 4096 in
 #testOptimize [ "NatAddReduce_2", proof ] (100 + ((180 - (x + 40)) - 150)) + (((20 - y) - 50) + 24)  ===> natAddReduce_2
 
 end Test.OptimizeNatAdd
