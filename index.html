@@ -785,12 +785,43 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100);
 camera.position.z = 7;
 
-// Torus knot
-const knotGeo = new THREE.TorusKnotGeometry(1.4, 0.32, 160, 24);
-const knotWire = new THREE.WireframeGeometry(knotGeo);
-const knotMat = new THREE.LineBasicMaterial({ color: 0x818cf8, transparent: true, opacity: 0.10 });
-const knot = new THREE.LineSegments(knotWire, knotMat);
-scene.add(knot);
+// Klein bottle — standard "bottle" immersion in ℝ³
+// u ∈ [0, π], v ∈ [0, 2π]
+function kleinPt(u, v) {
+  const cu = Math.cos(u), su = Math.sin(u);
+  const cv = Math.cos(v), sv = Math.sin(v);
+  const cu2 = cu*cu, cu4 = cu2*cu2, cu6 = cu4*cu2;
+  const x = -(2/15)*cu*(3*cv - 30*su + 90*cu4*su - 60*cu6*su + 5*cu*cv*su);
+  const y = -(1/15)*su*(3*cv - 3*cu2*cv - 48*cu4*cv + 48*cu6*cv
+             - 60*su + 5*cu*cv*su - 5*cu2*cu*cv*su - 80*cu4*cu*cv*su + 80*cu6*cu*cv*su);
+  const z =  (2/15)*(3 + 5*cu*su)*sv;
+  return [x, y, z];
+}
+
+// Build iso-lines as line segments
+const NU = 60, NV = 60;
+const kleinPts = [];
+// u-isolines (fixed u, vary v)
+for (let i = 0; i <= NU; i++) {
+  const u = (i / NU) * Math.PI;
+  for (let j = 0; j < NV; j++) {
+    kleinPts.push(...kleinPt(u, (j/NV)*2*Math.PI), ...kleinPt(u, ((j+1)/NV)*2*Math.PI));
+  }
+}
+// v-isolines (fixed v, vary u)
+for (let j = 0; j <= NV; j++) {
+  const v = (j / NV) * 2 * Math.PI;
+  for (let i = 0; i < NU; i++) {
+    kleinPts.push(...kleinPt((i/NU)*Math.PI, v), ...kleinPt(((i+1)/NU)*Math.PI, v));
+  }
+}
+
+const kleinGeo = new THREE.BufferGeometry();
+kleinGeo.setAttribute('position', new THREE.Float32BufferAttribute(kleinPts, 3));
+const kleinMat = new THREE.LineBasicMaterial({ color: 0x818cf8, transparent: true, opacity: 0.10 });
+const klein = new THREE.LineSegments(kleinGeo, kleinMat);
+klein.scale.setScalar(0.28);
+scene.add(klein);
 
 // Particles
 const NP = 80;
@@ -828,9 +859,9 @@ window.addEventListener('resize', () => {
   const s = t * 0.001;
   const fade = Math.max(0, 1 - scrollY / (window.innerHeight * 0.9));
 
-  knot.rotation.x = s * 0.09 + my * 0.12;
-  knot.rotation.y = s * 0.14 + mx * 0.12;
-  knotMat.opacity = 0.10 * fade;
+  klein.rotation.x = s * 0.09 + my * 0.12;
+  klein.rotation.y = s * 0.14 + mx * 0.12;
+  kleinMat.opacity = 0.10 * fade;
 
   // Drift particles
   const pp = pGeo.attributes.position.array;
