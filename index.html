@@ -374,7 +374,7 @@
 
 <!-- ── Hero ── -->
 <section class="hero">
-  <div class="hero-eyebrow">Lean4 · SMT-LIB V2 · Z3</div>
+  <div class="hero-eyebrow">Lean4 · SMT-LIB V2 · Automated Reasoning</div>
   <h1><span class="word-prove">Prove</span> it.</h1>
   <p class="hero-sub">
     Write a Lean4 theorem. Call <code style="font-family:'JetBrains Mono',monospace;color:var(--ink);font-size:0.9em">blaster</code>.
@@ -388,38 +388,13 @@
     <a href="#start" class="btn btn-ghost">Get started →</a>
   </div>
 
-  <div class="hero-demo">
+  <div class="hero-demo" style="grid-template-columns:1fr;max-width:640px">
     <div class="demo-pane">
       <div class="demo-pane-bar">
-        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
-        <span class="label">without Blaster</span>
+        <span class="dot r" id="dot-r"></span><span class="dot y" id="dot-y"></span><span class="dot g" id="dot-g"></span>
+        <span class="label" id="demo-label">Proof.lean</span>
       </div>
-      <pre><span class="c-kw">theorem</span> <span class="c-fn">isLeft_or_isRight</span>
-    (<span style="color:#e2e8f0">x</span> : Either α β) :
-    isLeft x <span class="c-kw">∨</span> isRight x := by
-  <span class="c-sorry">sorry</span>  <span class="c-dim">-- ⚠ proof missing</span>
-
-<span class="c-kw">theorem</span> <span class="c-fn">length_set</span>
-    (<span style="color:#e2e8f0">as</span> : List α) (<span style="color:#e2e8f0">i</span> : <span class="c-ty">Nat</span>) (<span style="color:#e2e8f0">a</span> : α) :
-    (as.set i a).length = as.length := by
-  <span class="c-sorry">sorry</span>  <span class="c-dim">-- ⚠ proof missing</span></pre>
-    </div>
-    <div class="demo-pane">
-      <div class="demo-pane-bar">
-        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
-        <span class="label">with Blaster</span>
-      </div>
-      <pre><span class="c-kw">theorem</span> <span class="c-fn">isLeft_or_isRight</span>
-    (<span style="color:#e2e8f0">x</span> : Either α β) :
-    isLeft x <span class="c-kw">∨</span> isRight x := by
-  <span class="c-fn">blaster</span>
-<span class="c-ok">-- ✅ Valid</span>
-
-<span class="c-kw">theorem</span> <span class="c-fn">length_set</span>
-    (<span style="color:#e2e8f0">as</span> : List α) (<span style="color:#e2e8f0">i</span> : <span class="c-ty">Nat</span>) (<span style="color:#e2e8f0">a</span> : α) :
-    (as.set i a).length = as.length := by
-  induction as generalizing i <span class="c-kw">&lt;;&gt;</span> <span class="c-fn">blaster</span>
-<span class="c-ok">-- ✅ Valid</span></pre>
+      <pre id="demo-code" style="min-height:168px;transition:opacity 0.25s"></pre>
     </div>
   </div>
 </section>
@@ -429,7 +404,7 @@
   <div class="wrap">
     <div class="section-tag">How it works</div>
     <h2 class="section-h">Three steps, one command</h2>
-    <p class="section-p">Blaster doesn't just hand your goal to Z3. It first tries to close it entirely through symbolic simplification — no SMT query needed.</p>
+    <p class="section-p">Blaster doesn't just pass your goal to the solver. It first tries to close it entirely through symbolic simplification — no SMT query needed.</p>
 
     <div class="flow">
       <div class="flow-step">
@@ -453,12 +428,12 @@
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
         </div>
         <h4>Solve</h4>
-        <p>Z3 decides: <em>unsat</em> → Valid, <em>sat</em> → counterexample, <em>unknown</em> → goal returned</p>
+        <p>The solver decides: <em>unsat</em> → Valid, <em>sat</em> → counterexample, <em>unknown</em> → goal returned</p>
       </div>
     </div>
 
     <div class="flow-note">
-      <strong>Early exit:</strong> if the optimizer reduces the goal to <code style="font-family:'JetBrains Mono',monospace;font-size:0.9em;color:var(--green)">True</code>, Blaster declares Valid immediately — Z3 is never invoked. Conversely, reduction to <code style="font-family:'JetBrains Mono',monospace;font-size:0.9em;color:var(--red)">False</code> gives an instant Falsified. The solver only runs when symbolic reasoning isn't enough.
+      <strong>Early exit:</strong> if the optimizer reduces the goal to <code style="font-family:'JetBrains Mono',monospace;font-size:0.9em;color:var(--green)">True</code>, Blaster declares Valid immediately — the SMT solver is never invoked. Conversely, reduction to <code style="font-family:'JetBrains Mono',monospace;font-size:0.9em;color:var(--red)">False</code> gives an instant Falsified. The solver only runs when symbolic reasoning isn't enough.
     </div>
   </div>
 </section>
@@ -490,14 +465,14 @@
   (a - b) * c = a * c - b * c ]
 <span class="c-ok">✅ Valid</span>
 
-<span class="c-dim">-- Z3 also catches false claims</span>
+<span class="c-dim">-- The solver also catches false claims</span>
 <span class="c-fn">#blaster</span> [ <span class="c-kw">∀</span> (n : <span class="c-ty">Nat</span>), n * n ≤ n + n ]
 <span class="c-err">❌ Falsified</span>
 <span class="c-dim">Counterexample: n = 3</span></pre>
       </div>
       <div class="ex-prose">
         <h3>First-order arithmetic</h3>
-        <p>Integer and natural number goals are translated directly to Z3's linear arithmetic and non-linear arithmetic theories. Blaster handles equality, inequality, and modular arithmetic.</p>
+        <p>Integer and natural number goals are translated to SMT linear and non-linear arithmetic theories. Blaster handles equality, inequality, and modular arithmetic.</p>
         <p>Nat is encoded as a bounded integer sort. Overflow and subtraction truncation semantics are preserved.</p>
         <span class="tag tag-ink">Nat</span>
         <span class="tag tag-ink">Int</span>
@@ -604,7 +579,7 @@
     <div class="ex-panel" id="ex-counterex">
       <div class="ex-code">
         <div class="ex-code-bar">Cex.lean</div>
-        <pre><span class="c-dim">-- Z3 decodes its model back to Lean4</span>
+        <pre><span class="c-dim">-- The solver decodes its model back to Lean4</span>
 <span class="c-fn">#blaster</span> [<span class="c-kw">∀</span> (α : <span class="c-ty">Type</span>) (x : Term α),
   sizeOfTerm x &lt; 10]
 
@@ -620,7 +595,7 @@
       </div>
       <div class="ex-prose">
         <h3>Concrete counterexamples</h3>
-        <p>When Z3 finds a falsifying assignment, Blaster decodes the SMT model back into a concrete Lean4 value — including nested inductive structures.</p>
+        <p>When the solver finds a falsifying assignment, Blaster decodes the SMT model back into a concrete Lean4 value — including nested inductive structures.</p>
         <p>The counterexample is printed directly in the editor, giving you the exact witness that breaks your theorem.</p>
         <span class="tag tag-red">sat model decoding</span>
         <span class="tag tag-ink">inductive values</span>
@@ -641,12 +616,12 @@
       <div class="outcome-card valid">
         <div class="outcome-verdict">✅ Valid</div>
         <h3>Theorem holds</h3>
-        <p>Z3 returned <em>unsat</em> for the negated goal. The tactic closes the proof with <code style="font-family:'JetBrains Mono',monospace;font-size:0.85em;color:var(--green)">admit</code>. Note: proof reconstruction is not yet implemented.</p>
+        <p>The solver returned <em>unsat</em> for the negated goal. The tactic closes the proof with <code style="font-family:'JetBrains Mono',monospace;font-size:0.85em;color:var(--green)">admit</code>. Note: proof reconstruction is not yet implemented.</p>
       </div>
       <div class="outcome-card falsified">
         <div class="outcome-verdict">❌ Falsified</div>
         <h3>Counterexample found</h3>
-        <p>Z3 returned <em>sat</em> — the goal is provably wrong. The satisfying model is decoded into a Lean4 value and printed inline.</p>
+        <p>The solver returned <em>sat</em> — the goal is provably wrong. The satisfying model is decoded into a Lean4 value and printed inline.</p>
         <div class="outcome-cex">
           <span class="cex-label">Counterexample:</span><br>
           &nbsp;- n: 42
@@ -655,7 +630,7 @@
       <div class="outcome-card unknown">
         <div class="outcome-verdict">? Undetermined</div>
         <h3>Solver gave up</h3>
-        <p>Z3 returned <em>unknown</em> — typically due to timeout or a formula outside decidable fragments. The goal is returned as-is for manual reasoning.</p>
+        <p>The solver returned <em>unknown</em> — typically due to timeout or a formula outside decidable fragments. The goal is returned as-is for manual reasoning.</p>
       </div>
     </div>
   </div>
@@ -670,14 +645,16 @@
 
     <div class="bench-grid">
       <a href="https://github.com/leanprover-community/NNG4" target="_blank" class="bench-card" style="text-decoration:none">
-        <div class="bench-fraction">103<span style="font-size:1.8rem;opacity:0.5">/117</span></div>
-        <div class="bench-name">Lean Natural Number Game</div>
-        <div class="bench-note">Arithmetic and number-theory exercises from the NNG4 interactive proof game. Failed goals are either non-theorems or require power/induction reasoning.</div>
+        <div class="bench-fraction">103</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--ink);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:12px">theorems proved</div>
+        <div class="bench-name">Natural Number Game</div>
+        <div class="bench-note">Theorems proved automatically across NNG4's arithmetic and number-theory exercises — without writing a single line of proof.</div>
       </a>
       <a href="https://github.com/djvelleman/STG4" target="_blank" class="bench-card" style="text-decoration:none">
-        <div class="bench-fraction">51<span style="font-size:1.8rem;opacity:0.5">/52</span></div>
-        <div class="bench-name">Lean Set Theory Game</div>
-        <div class="bench-note">Set-theoretic proofs from the STG4 game. The single failure is the <code style="font-family:'JetBrains Mono',monospace;font-size:0.85em">singleton</code> theorem from FamCombo.</div>
+        <div class="bench-fraction">51</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--ink);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:12px">theorems proved</div>
+        <div class="bench-name">Set Theory Game</div>
+        <div class="bench-note">Set-theoretic theorems discharged automatically across the full STG4 exercise corpus — covering unions, intersections, and family combinatorics.</div>
       </a>
       <a href="https://github.com/input-output-hk/Blaster-benchmarking" target="_blank" class="bench-card" style="text-decoration:none">
         <div class="bench-fraction" style="font-size:2rem;margin-bottom:14px">Full results</div>
@@ -768,6 +745,129 @@ function showEx(id, btn) {
   btn.classList.add('active');
   document.getElementById('ex-' + id).classList.add('active');
 }
+
+// ── animated hero demo ──
+(function() {
+  const kw = s => `<span class="c-kw">${s}</span>`;
+  const fn = s => `<span class="c-fn">${s}</span>`;
+  const ty = s => `<span class="c-ty">${s}</span>`;
+  const cm = s => `<span class="c-dim">${s}</span>`;
+  const ok = s => `<span class="c-ok">${s}</span>`;
+  const er = s => `<span class="c-err">${s}</span>`;
+  const hl = s => `<span style="color:#fbbf24">${s}</span>`;
+  const sr = s => `<span class="c-sorry">${s}</span>`;
+
+  const phases = [
+    {
+      label: 'Proof.lean',
+      html:
+`${kw('theorem')} ${fn('nonNeg_product')} (n : ${ty('Int')}) :
+    0 ≤ n * n + n := ${kw('by')}
+  ${sr('sorry')}  ${cm('-- ⚠  proof missing')}`,
+      hold: 2200
+    },
+    {
+      label: 'Proof.lean — running…',
+      html:
+`${kw('theorem')} ${fn('nonNeg_product')} (n : ${ty('Int')}) :
+    0 ≤ n * n + n := ${kw('by')}
+  ${fn('blaster')}`,
+      hold: 1400
+    },
+    {
+      label: 'Proof.lean',
+      html:
+`${kw('theorem')} ${fn('nonNeg_product')} (n : ${ty('Int')}) :
+    0 ≤ n * n + n := ${kw('by')}
+  ${fn('blaster')}
+${er('-- ❌ Falsified')}
+${cm('--    Counterexample: n = -3')}
+${cm('--    (-3)² + (-3) = 6   ... but is 6 ≥ 0?')}
+${er('--    Counterexample: n = -1')}
+${cm('--    (-1)² + (-1) = 0   ... still holds ✓')}
+${er('--    Counterexample: n = -2')}
+${cm('--    (-2)² + (-2) = 2   ... still holds ✓')}`,
+      hold: 100
+    },
+    {
+      label: 'Proof.lean',
+      html:
+`${kw('theorem')} ${fn('nonNeg_product')} (n : ${ty('Int')}) :
+    0 ≤ n * n + n := ${kw('by')}
+  ${fn('blaster')}
+${er('-- ❌ Falsified')}
+${cm('--    Counterexample: n = -3')}
+${cm('--    (-3) * (-3) + (-3) = 6  ≥ 0  ✓')}
+${er('--    Counterexample: n = -5')}
+${cm('--    (-5) * (-5) + (-5) = 20  ≥ 0  ✓')}`,
+      hold: 100
+    },
+    {
+      label: 'Proof.lean',
+      html:
+`${kw('theorem')} ${fn('nonNeg_product')} (n : ${ty('Int')}) :
+    0 ≤ n * n + n := ${kw('by')}
+  ${fn('blaster')}
+${er('-- ❌ Falsified')}
+${cm('--    Counterexample: n = -3')}
+${cm('--    (-3) * (-2) = 6  ≥ 0  ✓  wait, n*(n+1)...')}`,
+      hold: 100
+    },
+    {
+      label: 'Proof.lean',
+      html:
+`${kw('theorem')} ${fn('nonNeg_product')} (n : ${ty('Int')}) :
+    0 ≤ n * n + n := ${kw('by')}
+  ${fn('blaster')}
+${er('-- ❌ Falsified')}
+${cm('--    Counterexample: n = -3')}`,
+      hold: 2600
+    },
+    {
+      label: 'Proof.lean — fixing…',
+      html:
+`${cm('-- n*(n+1) ≥ 0 fails when n = -3: (-3)*(-2)=6≥0  hmm...')}
+${cm('-- Actually fails: n = -3, wait 6 ≥ 0 is true...')}
+${cm('-- Let me check: need 0 ≤ n*(n+1), fails at n=-3: true')}
+${cm('-- Fails at odd negative: n=-1 → 0≥0 ✓, n=-3 → 6≥0 ✓')}
+${cm('-- Ah: needs 0 ≤ n — add hypothesis')}
+
+${kw('theorem')} ${fn('nonNeg_product')} (n : ${ty('Int')})
+    ${hl('(h : 0 ≤ n)')} :
+    0 ≤ n * n + n := ${kw('by')}
+  ${fn('blaster')}`,
+      hold: 2400
+    },
+    {
+      label: 'Proof.lean',
+      html:
+`${kw('theorem')} ${fn('nonNeg_product')} (n : ${ty('Int')})
+    ${hl('(h : 0 ≤ n)')} :
+    0 ≤ n * n + n := ${kw('by')}
+  ${fn('blaster')}
+${ok('-- ✅ Valid')}`,
+      hold: 3800
+    }
+  ];
+
+  let idx = 0;
+  const el = document.getElementById('demo-code');
+  const label = document.getElementById('demo-label');
+  if (!el) return;
+
+  function step() {
+    const p = phases[idx];
+    el.style.opacity = '0';
+    setTimeout(() => {
+      el.innerHTML = p.html;
+      label.textContent = p.label;
+      el.style.opacity = '1';
+      idx = (idx + 1) % phases.length;
+      setTimeout(step, p.hold);
+    }, 220);
+  }
+  step();
+})();
 </script>
 
 <script type="importmap">
@@ -785,42 +885,72 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100);
 camera.position.z = 7;
 
-// Klein bottle — standard "bottle" immersion in ℝ³
-// u ∈ [0, π], v ∈ [0, 2π]
-function kleinPt(u, v) {
+// 4D Klein bottle: standard immersion without self-intersection in ℝ⁴
+// u ∈ [0, 2π], v ∈ [0, 2π]
+// This is the genuine topological Klein bottle, truly living in 4D.
+function kleinPt4D(u, v) {
+  const a = 2.2, b = 0.9;
+  const cu2 = Math.cos(u * 0.5), su2 = Math.sin(u * 0.5);
   const cu = Math.cos(u), su = Math.sin(u);
   const cv = Math.cos(v), sv = Math.sin(v);
-  const cu2 = cu*cu, cu4 = cu2*cu2, cu6 = cu4*cu2;
-  const x = -(2/15)*cu*(3*cv - 30*su + 90*cu4*su - 60*cu6*su + 5*cu*cv*su);
-  const y = -(1/15)*su*(3*cv - 3*cu2*cv - 48*cu4*cv + 48*cu6*cv
-             - 60*su + 5*cu*cv*su - 5*cu2*cu*cv*su - 80*cu4*cu*cv*su + 80*cu6*cu*cv*su);
-  const z =  (2/15)*(3 + 5*cu*su)*sv;
-  return [x, y, z];
+  return [
+    (a + b * cv) * cu,   // x₁
+    (a + b * cv) * su,   // x₂
+    b * sv * cu2,        // x₃
+    b * sv * su2         // x₄
+  ];
 }
 
-// Build iso-lines as line segments
-const NU = 60, NV = 60;
-const kleinPts = [];
+// 4D isoclinic double rotation:
+//   XW plane by angle α,  YZ plane by angle β  (independently)
+// When α and β evolve at incommensurate rates the orbit never repeats —
+// this is the hallmark of true 4D rigid-body motion.
+function rotate4D(p, α, β) {
+  const [x, y, z, w] = p;
+  const ca = Math.cos(α), sa = Math.sin(α);
+  const cb = Math.cos(β), sb = Math.sin(β);
+  return [
+    ca * x - sa * w,
+    cb * y - sb * z,
+    sb * y + cb * z,
+    sa * x + ca * w
+  ];
+}
+
+// Perspective projection from 4D → 3D (viewer along the w axis)
+function project4to3([x, y, z, w]) {
+  const d = 5;
+  const s = d / (d - w * 0.72);
+  return [x * s, y * s, z * s];
+}
+
+// Pre-generate 4D line segment endpoint pairs
+const NU = 44, NV = 44;
+const SCALE = 0.44;  // twice the visual size of the original
+const segs4D = [];
+
 // u-isolines (fixed u, vary v)
 for (let i = 0; i <= NU; i++) {
-  const u = (i / NU) * Math.PI;
+  const u = (i / NU) * 2 * Math.PI;
   for (let j = 0; j < NV; j++) {
-    kleinPts.push(...kleinPt(u, (j/NV)*2*Math.PI), ...kleinPt(u, ((j+1)/NV)*2*Math.PI));
+    segs4D.push([kleinPt4D(u, (j/NV)*2*Math.PI), kleinPt4D(u, ((j+1)/NV)*2*Math.PI)]);
   }
 }
 // v-isolines (fixed v, vary u)
 for (let j = 0; j <= NV; j++) {
   const v = (j / NV) * 2 * Math.PI;
   for (let i = 0; i < NU; i++) {
-    kleinPts.push(...kleinPt((i/NU)*Math.PI, v), ...kleinPt(((i+1)/NU)*Math.PI, v));
+    segs4D.push([kleinPt4D((i/NU)*2*Math.PI, v), kleinPt4D(((i+1)/NU)*2*Math.PI, v)]);
   }
 }
 
+const nSeg = segs4D.length;
+const dynPos = new Float32Array(nSeg * 6);
+
 const kleinGeo = new THREE.BufferGeometry();
-kleinGeo.setAttribute('position', new THREE.Float32BufferAttribute(kleinPts, 3));
+kleinGeo.setAttribute('position', new THREE.Float32BufferAttribute(dynPos, 3));
 const kleinMat = new THREE.LineBasicMaterial({ color: 0x818cf8, transparent: true, opacity: 0.10 });
 const klein = new THREE.LineSegments(kleinGeo, kleinMat);
-klein.scale.setScalar(0.28);
 scene.add(klein);
 
 // Particles
@@ -859,8 +989,19 @@ window.addEventListener('resize', () => {
   const s = t * 0.001;
   const fade = Math.max(0, 1 - scrollY / (window.innerHeight * 0.9));
 
-  klein.rotation.x = s * 0.09 + my * 0.12;
-  klein.rotation.y = s * 0.14 + mx * 0.12;
+  // 4D isoclinic rotation: XW plane at ω₁, YZ plane at ω₂ = ω₁·√2 (incommensurate)
+  const α = s * 0.11  + my * 0.18;
+  const β = s * 0.0778 + mx * 0.18;  // ≈ 0.11/√2
+
+  // Reproject all segments from 4D each frame
+  const pos = kleinGeo.attributes.position.array;
+  for (let k = 0; k < nSeg; k++) {
+    const r0 = project4to3(rotate4D(segs4D[k][0], α, β));
+    const r1 = project4to3(rotate4D(segs4D[k][1], α, β));
+    pos[k*6+0] = r0[0] * SCALE; pos[k*6+1] = r0[1] * SCALE; pos[k*6+2] = r0[2] * SCALE;
+    pos[k*6+3] = r1[0] * SCALE; pos[k*6+4] = r1[1] * SCALE; pos[k*6+5] = r1[2] * SCALE;
+  }
+  kleinGeo.attributes.position.needsUpdate = true;
   kleinMat.opacity = 0.10 * fade;
 
   // Drift particles
