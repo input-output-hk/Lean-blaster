@@ -5,29 +5,27 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Blaster — SMT Backend for Lean4</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   :root {
-    --bg: #0a0b0f;
-    --bg2: #12141c;
-    --bg3: #1a1d2a;
-    --accent: #00d4aa;
-    --accent2: #00b894;
-    --accent-glow: rgba(0, 212, 170, 0.15);
-    --purple: #a78bfa;
-    --red: #f87171;
-    --amber: #fbbf24;
-    --blue: #60a5fa;
-    --green: #34d399;
-    --text: #e2e8f0;
-    --text-dim: #94a3b8;
-    --border: rgba(255,255,255,0.06);
+    --bg:     #080910;
+    --bg2:    #0e0f19;
+    --bg3:    #15172a;
+    --ink:    #818cf8;   /* indigo — primary */
+    --ink2:   #6366f1;
+    --ink-glow: rgba(129,140,248,0.12);
+    --green:  #4ade80;
+    --red:    #f87171;
+    --amber:  #fbbf24;
+    --sky:    #38bdf8;
+    --text:   #e2e8f0;
+    --dim:    #8b92a9;
+    --border: rgba(255,255,255,0.07);
   }
 
   html { scroll-behavior: smooth; }
-
   body {
     font-family: 'Inter', -apple-system, sans-serif;
     background: var(--bg);
@@ -36,797 +34,770 @@
     overflow-x: hidden;
   }
 
-  /* ── Animated background ── */
-  #three-bg {
-    position: fixed; inset: 0; z-index: 0; pointer-events: none;
-  }
+  /* ── background ── */
+  #bg-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
   .bg-grid {
     position: fixed; inset: 0; z-index: 0; pointer-events: none;
     background-image:
-      linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-    background-size: 60px 60px;
+      linear-gradient(rgba(129,140,248,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(129,140,248,0.025) 1px, transparent 1px);
+    background-size: 48px 48px;
   }
   .bg-glow {
     position: fixed; z-index: 0; pointer-events: none;
-    width: 600px; height: 600px; border-radius: 50%;
-    filter: blur(120px); opacity: 0.4;
+    border-radius: 50%; filter: blur(130px); opacity: 0.35;
   }
-  .bg-glow.g1 { top: -200px; left: -100px; background: rgba(0,212,170,0.12); }
-  .bg-glow.g2 { bottom: -200px; right: -100px; background: rgba(167,139,250,0.10); }
+  .bg-glow.g1 { width: 700px; height: 700px; top: -250px; right: -150px;  background: rgba(99,102,241,0.18); }
+  .bg-glow.g2 { width: 500px; height: 500px; bottom: -200px; left: -100px; background: rgba(52,211,153,0.10); }
 
   .content { position: relative; z-index: 1; }
 
-  /* ── Nav ── */
+  /* ── nav ── */
   nav {
     position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-    padding: 16px 40px;
+    padding: 14px 48px;
     display: flex; align-items: center; justify-content: space-between;
-    background: rgba(10,11,15,0.8);
-    backdrop-filter: blur(20px);
+    background: rgba(8,9,16,0.75); backdrop-filter: blur(24px);
     border-bottom: 1px solid var(--border);
   }
   .nav-logo {
     display: flex; align-items: center; gap: 10px;
-    font-weight: 700; font-size: 1.2rem; color: var(--text);
-    text-decoration: none;
+    font-weight: 800; font-size: 1.15rem; color: var(--text); text-decoration: none;
+    letter-spacing: -0.02em;
   }
-  .nav-logo .logo-icon {
-    width: 32px; height: 32px; border-radius: 8px;
-    background: linear-gradient(135deg, var(--accent), var(--purple));
+  .nav-logo .logotype {
+    width: 30px; height: 30px; border-radius: 7px;
+    background: linear-gradient(135deg, var(--ink), #c084fc);
     display: flex; align-items: center; justify-content: center;
-    font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; color: #000;
+    font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700;
+    color: #fff; letter-spacing: 0;
   }
-  .nav-links { display: flex; gap: 32px; align-items: center; }
+  .nav-links { display: flex; gap: 28px; align-items: center; }
   .nav-links a {
-    color: var(--text-dim); text-decoration: none; font-size: 0.9rem;
-    font-weight: 500; transition: color 0.2s;
+    color: var(--dim); text-decoration: none; font-size: 0.88rem; font-weight: 500;
+    transition: color 0.2s;
   }
-  .nav-links a:hover { color: var(--accent); }
-  .nav-cta {
-    padding: 8px 20px; border-radius: 8px; font-weight: 600; font-size: 0.85rem;
-    background: var(--accent); color: #000; text-decoration: none;
-    transition: all 0.2s;
+  .nav-links a:hover { color: var(--text); }
+  .nav-gh {
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 16px; border-radius: 7px; font-weight: 600; font-size: 0.83rem;
+    background: var(--bg3); color: var(--text); text-decoration: none;
+    border: 1px solid var(--border); transition: all 0.2s;
   }
-  .nav-cta:hover { background: #00eabb; transform: translateY(-1px); box-shadow: 0 4px 20px rgba(0,212,170,0.3); }
+  .nav-gh:hover { border-color: rgba(129,140,248,0.35); color: var(--ink); }
 
-  /* ── Hero ── */
+  /* ── hero ── */
   .hero {
     min-height: 100vh; display: flex; flex-direction: column;
     align-items: center; justify-content: center; text-align: center;
-    padding: 120px 40px 80px;
+    padding: 130px 40px 80px;
   }
-  .badge {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 6px 16px; border-radius: 100px;
-    background: var(--accent-glow); border: 1px solid rgba(0,212,170,0.2);
-    font-size: 0.8rem; font-weight: 600; color: var(--accent);
-    margin-bottom: 28px;
-    animation: fadeInUp 0.6s ease-out both;
+  .hero-eyebrow {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; font-weight: 600;
+    letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink);
+    margin-bottom: 24px; opacity: 0.9;
+    animation: rise 0.7s ease-out both;
   }
-  .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse-dot 2s infinite; }
-  @keyframes pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
-
   .hero h1 {
-    font-size: clamp(2.8rem, 6vw, 5rem);
-    font-weight: 800; line-height: 1.08;
-    letter-spacing: -0.03em;
-    max-width: 800px;
-    animation: fadeInUp 0.6s ease-out 0.1s both;
+    font-size: clamp(3.5rem, 8vw, 7rem);
+    font-weight: 900; line-height: 1.0; letter-spacing: -0.04em;
+    animation: rise 0.7s ease-out 0.1s both;
   }
-  .hero h1 .gradient {
-    background: linear-gradient(135deg, var(--accent), var(--purple));
+  .hero h1 .word-prove {
+    background: linear-gradient(110deg, var(--ink) 0%, #c084fc 50%, var(--sky) 100%);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   }
-  .hero .subtitle {
-    font-size: 1.15rem; color: var(--text-dim); max-width: 600px;
-    margin-top: 20px; line-height: 1.7; font-weight: 400;
-    animation: fadeInUp 0.6s ease-out 0.2s both;
+  .hero-sub {
+    font-size: 1.1rem; color: var(--dim); max-width: 520px;
+    margin-top: 22px; line-height: 1.75; font-weight: 400;
+    animation: rise 0.7s ease-out 0.2s both;
   }
   .hero-actions {
-    margin-top: 36px; display: flex; gap: 14px; flex-wrap: wrap; justify-content: center;
-    animation: fadeInUp 0.6s ease-out 0.3s both;
+    margin-top: 32px; display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
+    animation: rise 0.7s ease-out 0.3s both;
   }
   .btn {
-    padding: 14px 28px; border-radius: 10px; font-weight: 600; font-size: 0.95rem;
-    text-decoration: none; display: inline-flex; align-items: center; gap: 8px;
-    transition: all 0.25s; cursor: pointer; border: none;
+    padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 0.9rem;
+    text-decoration: none; display: inline-flex; align-items: center; gap: 7px;
+    transition: all 0.2s; border: none; cursor: pointer;
   }
-  .btn-primary { background: var(--accent); color: #000; }
-  .btn-primary:hover { background: #00eabb; transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,212,170,0.25); }
-  .btn-secondary { background: var(--bg3); color: var(--text); border: 1px solid var(--border); }
-  .btn-secondary:hover { border-color: rgba(255,255,255,0.15); transform: translateY(-2px); }
+  .btn-ink     { background: var(--ink); color: #fff; }
+  .btn-ink:hover { background: #9da5fb; transform: translateY(-1px); box-shadow: 0 6px 24px rgba(129,140,248,0.3); }
+  .btn-ghost   { background: transparent; color: var(--dim); border: 1px solid var(--border); }
+  .btn-ghost:hover { color: var(--text); border-color: rgba(255,255,255,0.15); }
 
-  .hero-code {
-    margin-top: 56px; max-width: 820px; width: 100%; text-align: left;
-    background: var(--bg2); border: 1px solid var(--border); border-radius: 14px;
-    overflow: hidden;
-    animation: fadeInUp 0.6s ease-out 0.4s both;
+  /* before/after split demo */
+  .hero-demo {
+    margin-top: 52px; width: 100%; max-width: 860px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+    text-align: left;
+    animation: rise 0.7s ease-out 0.4s both;
   }
-  .hero-code-bar {
-    padding: 12px 16px; display: flex; align-items: center; gap: 8px;
+  .demo-pane {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
+    overflow: hidden;
+  }
+  .demo-pane-bar {
+    padding: 9px 14px; display: flex; align-items: center; gap: 7px;
     border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.02);
   }
-  .hero-code-bar span { width: 10px; height: 10px; border-radius: 50%; }
-  .hero-code-bar span:nth-child(1) { background: #f87171; }
-  .hero-code-bar span:nth-child(2) { background: #fbbf24; }
-  .hero-code-bar span:nth-child(3) { background: #34d399; }
-  .hero-code-bar .filename {
-    margin-left: 8px; font-family: 'JetBrains Mono', monospace;
-    font-size: 0.75rem; color: var(--text-dim);
+  .demo-pane-bar .dot { width: 9px; height: 9px; border-radius: 50%; }
+  .demo-pane-bar .dot.r { background: #f87171; }
+  .demo-pane-bar .dot.y { background: #fbbf24; }
+  .demo-pane-bar .dot.g { background: #4ade80; }
+  .demo-pane-bar .label {
+    margin-left: 6px; font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem; color: var(--dim);
   }
-  .hero-code pre {
-    padding: 20px 24px; font-family: 'JetBrains Mono', monospace;
-    font-size: 0.82rem; line-height: 1.9; overflow-x: auto;
+  .demo-pane pre {
+    padding: 18px 20px; font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem; line-height: 1.9; overflow-x: auto;
   }
-  .hero-code .kw  { color: var(--purple); }
-  .hero-code .fn  { color: var(--accent); }
-  .hero-code .ty  { color: var(--blue); }
-  .hero-code .cmt { color: #4a5568; font-style: italic; }
-  .hero-code .ok  { color: var(--green); }
-  .hero-code .fail{ color: var(--red); }
-  .hero-code .cex { color: var(--text-dim); }
+  .c-kw   { color: #c084fc; }
+  .c-fn   { color: var(--ink); }
+  .c-ty   { color: var(--sky); }
+  .c-cm   { color: #464e62; font-style: italic; }
+  .c-ok   { color: var(--green); }
+  .c-err  { color: #f87171; }
+  .c-dim  { color: #3a4257; }
+  .c-sorry{ color: #f87171; text-decoration: underline wavy; }
 
-  @keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  /* ── Section shared ── */
-  section { padding: 100px 40px; max-width: 1100px; margin: 0 auto; }
-  .section-label {
-    font-size: 0.75rem; font-weight: 700; letter-spacing: 0.12em;
-    text-transform: uppercase; color: var(--accent); margin-bottom: 12px;
-  }
-  section h2 {
-    font-size: 2.4rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 16px;
-  }
-  section .section-desc {
-    color: var(--text-dim); font-size: 1.05rem; max-width: 600px; line-height: 1.7;
-    margin-bottom: 48px;
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
 
-  /* ── Features grid ── */
-  .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
-  .feature-card {
-    background: var(--bg2); border: 1px solid var(--border); border-radius: 16px;
-    padding: 32px; transition: all 0.3s;
+  /* ── shared section styles ── */
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 96px 40px; }
+  .section-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem; font-weight: 600; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--ink); margin-bottom: 10px;
   }
-  .feature-card:hover {
-    border-color: rgba(0,212,170,0.2); transform: translateY(-4px);
-    box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+  .section-h {
+    font-size: 2.2rem; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 14px;
   }
-  .feature-icon {
-    width: 44px; height: 44px; border-radius: 10px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1.3rem; margin-bottom: 18px;
-  }
-  .feature-card h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; }
-  .feature-card p { color: var(--text-dim); font-size: 0.9rem; line-height: 1.65; }
-  .feature-card code {
-    font-family: 'JetBrains Mono', monospace; font-size: 0.8em;
-    color: var(--accent); background: rgba(0,212,170,0.08);
-    padding: 1px 5px; border-radius: 4px;
+  .section-p {
+    color: var(--dim); font-size: 1rem; max-width: 520px;
+    line-height: 1.75; margin-bottom: 48px;
   }
 
-  /* ── Pipeline section ── */
-  .pipeline-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
-  .pipeline-group-label {
-    font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em;
-    text-transform: uppercase; padding: 8px 0 4px; margin-top: 16px;
+  /* ── pipeline flow ── */
+  .flow {
+    display: flex; align-items: flex-start; gap: 0;
+    overflow-x: auto; padding-bottom: 8px;
   }
-  .pipeline-group-label:first-child { margin-top: 0; }
-  .pipeline-group-label.label-opt   { color: var(--amber); }
-  .pipeline-group-label.label-smt   { color: var(--blue); }
-  .pipeline-group-label.label-solve { color: var(--accent); }
-  .pipeline-item {
-    display: flex; align-items: center; gap: 16px;
-    padding: 18px 24px; background: var(--bg2); border: 1px solid var(--border);
-    border-radius: 12px; transition: all 0.2s;
+  .flow-step {
+    flex: 1; min-width: 160px; text-align: center; padding: 28px 16px;
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
+    transition: border-color 0.2s, transform 0.2s;
   }
-  .pipeline-item:hover { border-color: rgba(0,212,170,0.15); }
-  .pipeline-item > div { flex: 1; min-width: 0; }
-  .step-badge {
-    font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; font-weight: 700;
-    padding: 4px 10px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.05em;
-    white-space: nowrap; flex-shrink: 0;
+  .flow-step:hover { border-color: rgba(129,140,248,0.3); transform: translateY(-3px); }
+  .flow-step .step-icon {
+    width: 48px; height: 48px; margin: 0 auto 14px;
+    border-radius: 12px; display: flex; align-items: center; justify-content: center;
   }
-  .badge-opt { background: rgba(251,191,36,0.12); color: var(--amber); }
-  .badge-smt { background: rgba(96,165,250,0.12); color: var(--blue); }
-  .badge-z3  { background: rgba(0,212,170,0.12);  color: var(--accent); }
-  .badge-cex { background: rgba(248,113,113,0.12); color: var(--red); }
-  .badge-unk { background: rgba(148,163,184,0.12); color: var(--text-dim); }
-  .pipeline-item .item-name { font-weight: 600; font-size: 0.92rem; }
-  .pipeline-item .item-desc { color: var(--text-dim); font-size: 0.82rem; margin-top: 2px; }
-  .pipeline-item code {
-    font-family: 'JetBrains Mono', monospace; font-size: 0.8em;
-    color: var(--accent); background: rgba(0,212,170,0.08);
-    padding: 1px 5px; border-radius: 4px;
+  .flow-step h4 { font-size: 0.95rem; font-weight: 700; margin-bottom: 6px; }
+  .flow-step p  { font-size: 0.8rem; color: var(--dim); line-height: 1.6; }
+  .flow-arrow {
+    align-self: center; padding: 0 12px; color: var(--border);
+    font-size: 1.4rem; flex-shrink: 0; user-select: none;
   }
+  .flow-note {
+    margin-top: 20px; padding: 14px 20px; border-radius: 10px;
+    background: rgba(129,140,248,0.06); border: 1px solid rgba(129,140,248,0.14);
+    font-size: 0.85rem; color: var(--dim); line-height: 1.6;
+  }
+  .flow-note strong { color: var(--ink); }
 
-  /* ── Usage / IDE section ── */
-  .ide-block {
-    background: var(--bg2); border: 1px solid var(--border); border-radius: 16px;
-    overflow: hidden;
-  }
-  .ide-tabs { display: flex; border-bottom: 1px solid var(--border); }
-  .ide-tab {
-    padding: 14px 24px; font-size: 0.85rem; font-weight: 600;
-    color: var(--text-dim); cursor: pointer; transition: all 0.2s;
-    border-bottom: 2px solid transparent; background: none;
-    border-top: none; border-left: none; border-right: none;
-  }
-  .ide-tab.active { color: var(--accent); border-bottom-color: var(--accent); background: rgba(0,212,170,0.04); }
-  .ide-tab:hover { color: var(--text); }
-  .ide-content { padding: 24px 28px; }
-  .ide-content pre {
-    font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; line-height: 1.7;
-  }
-
-  /* ── CTA ── */
-  .cta-section {
-    text-align: center; padding: 80px 40px 120px;
-    max-width: 700px; margin: 0 auto;
-  }
-  .cta-section h2 { font-size: 2.2rem; font-weight: 800; margin-bottom: 16px; }
-  .cta-section p { color: var(--text-dim); font-size: 1.05rem; margin-bottom: 36px; line-height: 1.7; }
-  .cta-actions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
-
-  /* ── Built By ── */
-  .built-by {
-    text-align: center; padding: 60px 40px 80px;
-    max-width: 900px; margin: 0 auto;
-  }
-  .built-by-label {
-    font-size: 1rem; color: var(--text-dim); font-weight: 500; margin-bottom: 32px;
-  }
-  .built-by-logos {
-    display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;
-  }
-  .org-card {
-    display: flex; align-items: center; gap: 12px;
-    padding: 16px 24px; border-radius: 12px;
+  /* ── examples tabs ── */
+  .ex-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; }
+  .ex-tab {
+    padding: 7px 16px; border-radius: 7px; font-size: 0.83rem; font-weight: 600;
     background: var(--bg2); border: 1px solid var(--border);
-    text-decoration: none; color: var(--text); font-weight: 600; font-size: 0.92rem;
-    transition: all 0.25s;
+    color: var(--dim); cursor: pointer; transition: all 0.2s;
   }
-  .org-card:hover {
-    border-color: rgba(0,212,170,0.2); transform: translateY(-3px);
-    box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+  .ex-tab.active { background: rgba(129,140,248,0.12); border-color: rgba(129,140,248,0.35); color: var(--ink); }
+  .ex-tab:hover:not(.active) { color: var(--text); border-color: rgba(255,255,255,0.12); }
+  .ex-panel { display: none; }
+  .ex-panel.active { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 720px) { .ex-panel.active { grid-template-columns: 1fr; } }
+  .ex-code {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
   }
-  .org-icon {
-    width: 40px; height: 40px; border-radius: 8px;
-    display: flex; align-items: center; justify-content: center;
-    overflow: hidden; flex-shrink: 0;
+  .ex-code-bar {
+    padding: 9px 14px; border-bottom: 1px solid var(--border);
+    background: rgba(255,255,255,0.015); display: flex; align-items: center; gap: 6px;
+    font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--dim);
   }
-  .org-icon img { max-width: 100%; max-height: 100%; object-fit: contain; }
-  .org-icon--iog { background: #1a1d2a; padding: 6px; }
-  .org-icon--iog img { filter: brightness(0) invert(1); }
-  .org-icon--person {
-    background: linear-gradient(135deg, var(--accent), var(--purple));
-    font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;
-    font-weight: 700; color: #000;
+  .ex-code pre {
+    padding: 18px 20px; font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem; line-height: 1.85; overflow-x: auto;
   }
-  .org-card-info { text-align: left; }
-  .org-card .org-sub { font-size: 0.75rem; color: var(--text-dim); font-weight: 400; margin-top: 2px; }
+  .ex-prose { padding: 8px 4px; }
+  .ex-prose h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 10px; }
+  .ex-prose p  { font-size: 0.88rem; color: var(--dim); line-height: 1.7; margin-bottom: 12px; }
+  .ex-prose .tag {
+    display: inline-block; padding: 2px 9px; border-radius: 5px; font-size: 0.72rem; font-weight: 600;
+    font-family: 'JetBrains Mono', monospace; margin-right: 6px; margin-bottom: 4px;
+  }
+  .tag-ink   { background: rgba(129,140,248,0.12); color: var(--ink); }
+  .tag-green { background: rgba(74,222,128,0.10);  color: var(--green); }
+  .tag-sky   { background: rgba(56,189,248,0.10);  color: var(--sky); }
+  .tag-amber { background: rgba(251,191,36,0.10);  color: var(--amber); }
 
-  /* ── Footer ── */
-  footer {
-    padding: 32px 40px; border-top: 1px solid var(--border);
-    text-align: center; color: var(--text-dim); font-size: 0.82rem;
+  /* ── outcomes ── */
+  .outcomes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+  .outcome-card {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 14px;
+    padding: 28px; transition: all 0.25s;
   }
-  footer a { color: var(--accent); text-decoration: none; }
+  .outcome-card:hover { transform: translateY(-3px); }
+  .outcome-card.valid   { border-top: 2px solid var(--green); }
+  .outcome-card.falsified { border-top: 2px solid var(--red); }
+  .outcome-card.unknown { border-top: 2px solid var(--dim); }
+  .outcome-verdict {
+    font-family: 'JetBrains Mono', monospace; font-size: 1rem; font-weight: 700;
+    margin-bottom: 10px;
+  }
+  .outcome-card.valid   .outcome-verdict { color: var(--green); }
+  .outcome-card.falsified .outcome-verdict { color: var(--red); }
+  .outcome-card.unknown .outcome-verdict { color: var(--dim); }
+  .outcome-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
+  .outcome-card p  { font-size: 0.85rem; color: var(--dim); line-height: 1.65; }
+  .outcome-cex {
+    margin-top: 14px; padding: 10px 14px; border-radius: 8px;
+    background: rgba(248,113,113,0.06); border: 1px solid rgba(248,113,113,0.15);
+    font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; line-height: 1.7;
+    color: var(--dim);
+  }
+  .outcome-cex .cex-label { color: var(--red); }
+
+  /* ── benchmarks ── */
+  .bench-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; }
+  .bench-card {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 14px;
+    padding: 32px 28px; text-align: center; transition: all 0.25s;
+  }
+  .bench-card:hover { border-color: rgba(129,140,248,0.25); transform: translateY(-3px); }
+  .bench-fraction {
+    font-size: 3rem; font-weight: 900; letter-spacing: -0.04em;
+    background: linear-gradient(135deg, var(--ink), #c084fc);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 10px; line-height: 1;
+  }
+  .bench-name { font-weight: 700; font-size: 0.95rem; margin-bottom: 6px; }
+  .bench-note { color: var(--dim); font-size: 0.8rem; line-height: 1.6; }
+
+  /* ── get started ── */
+  .setup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+  @media (max-width: 700px) { .setup-grid { grid-template-columns: 1fr; } }
+  .setup-step { }
+  .setup-num {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; font-weight: 700;
+    color: var(--ink); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px;
+  }
+  .setup-step h4 { font-size: 1rem; font-weight: 700; margin-bottom: 12px; }
+  .code-block {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+  }
+  .code-block-bar {
+    padding: 8px 14px; border-bottom: 1px solid var(--border);
+    background: rgba(255,255,255,0.015); font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem; color: var(--dim); display: flex; align-items: center; gap: 6px;
+  }
+  .code-block pre {
+    padding: 16px 18px; font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem; line-height: 1.8; overflow-x: auto;
+  }
+
+  /* ── built by ── */
+  .people { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+  .person-card {
+    display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-radius: 10px;
+    background: var(--bg2); border: 1px solid var(--border);
+    text-decoration: none; color: var(--text); transition: all 0.2s;
+  }
+  .person-card:hover { border-color: rgba(129,140,248,0.3); transform: translateY(-2px); }
+  .person-avatar {
+    width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; font-weight: 700;
+    color: #fff;
+  }
+  .person-name  { font-weight: 600; font-size: 0.9rem; }
+  .person-handle{ font-size: 0.75rem; color: var(--dim); }
+  .org-card {
+    display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-radius: 10px;
+    background: var(--bg2); border: 1px solid var(--border);
+    text-decoration: none; color: var(--text); font-weight: 600; font-size: 0.9rem;
+    transition: all 0.2s;
+  }
+  .org-card:hover { border-color: rgba(129,140,248,0.3); transform: translateY(-2px); }
+  .org-logo {
+    width: 36px; height: 36px; border-radius: 8px; background: #1a1d2a; padding: 5px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden;
+  }
+  .org-logo img { max-width: 100%; max-height: 100%; object-fit: contain; filter: brightness(0) invert(1); }
+
+  /* ── footer ── */
+  footer {
+    padding: 28px 40px; border-top: 1px solid var(--border);
+    text-align: center; font-size: 0.8rem; color: var(--dim);
+  }
+  footer a { color: var(--ink); text-decoration: none; }
   footer a:hover { text-decoration: underline; }
 
-  /* ── Animated editor demo ── */
-  .demo-editor {
-    background: var(--bg2); border: 1px solid var(--border); border-radius: 14px;
-    overflow: hidden; margin-bottom: 40px; position: relative;
-  }
-  .demo-titlebar {
-    padding: 12px 16px; display: flex; align-items: center; gap: 8px;
-    border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.02);
-  }
-  .demo-titlebar span { width: 10px; height: 10px; border-radius: 50%; }
-  .demo-titlebar span:nth-child(1) { background: #f87171; }
-  .demo-titlebar span:nth-child(2) { background: #fbbf24; }
-  .demo-titlebar span:nth-child(3) { background: #34d399; }
-  .demo-titlebar .demo-filename {
-    margin-left: 8px; font-family: 'JetBrains Mono', monospace;
-    font-size: 0.75rem; color: var(--text-dim); width: auto; height: auto;
-    border-radius: 0; background: none;
-  }
-  .demo-body {
-    padding: 20px 0; font-family: 'JetBrains Mono', monospace;
-    font-size: 0.8rem; line-height: 1.8; min-height: 240px; position: relative;
-  }
-  .demo-line {
-    display: flex; padding: 0 24px 0 0; white-space: pre; position: relative;
-  }
-  .demo-lineno {
-    display: inline-block; width: 44px; text-align: right; padding-right: 16px;
-    color: #334155; user-select: none; flex-shrink: 0;
-  }
-  .demo-code { flex: 1; min-width: 0; position: relative; }
-  .demo-cursor {
-    display: inline-block; width: 2px; height: 1.1em; background: var(--accent);
-    vertical-align: text-bottom; animation: blink-cursor 0.8s step-end infinite;
-    margin-left: 1px;
-  }
-  @keyframes blink-cursor { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
-
-  .demo-squiggly-ok {
-    position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
-    background: repeating-linear-gradient(90deg, var(--accent) 0px, var(--accent) 3px, transparent 3px, transparent 6px);
-    opacity: 0; transition: opacity 0.3s;
-  }
-  .demo-squiggly-ok.visible { opacity: 1; }
-
-  .demo-diagnostic {
-    margin: 4px 0 0 44px; padding: 8px 14px; border-radius: 8px;
-    font-size: 0.75rem; line-height: 1.5;
-    opacity: 0; transform: translateY(-4px); transition: all 0.4s ease-out;
-    display: none;
-  }
-  .demo-diagnostic.success {
-    background: rgba(0,212,170,0.08); border: 1px solid rgba(0,212,170,0.2);
-  }
-  .demo-diagnostic.visible { opacity: 1; transform: translateY(0); display: block; }
-  .demo-diagnostic .diag-severity { font-weight: 700; margin-right: 6px; }
-  .demo-diagnostic.success .diag-severity { color: var(--accent); }
-  .demo-diagnostic .diag-msg { color: var(--text-dim); }
-
-  .demo-status {
-    padding: 6px 16px; border-top: 1px solid var(--border);
-    font-size: 0.7rem; color: var(--text-dim); display: flex;
-    align-items: center; gap: 12px; background: rgba(255,255,255,0.01);
-  }
-  .demo-status .status-ok    { color: var(--accent); }
-  .demo-status .status-valid { color: var(--green); }
-
-  /* ── Responsive ── */
-  @media (max-width: 700px) {
-    nav { padding: 14px 20px; }
+  /* ── responsive ── */
+  @media (max-width: 720px) {
+    nav { padding: 12px 20px; }
     .nav-links { display: none; }
-    section { padding: 60px 20px; }
-    .hero { padding: 100px 20px 60px; }
-    .pipeline-item { flex-wrap: wrap; gap: 8px; }
+    .wrap { padding: 64px 20px; }
+    .hero { padding: 110px 20px 60px; }
+    .hero-demo { grid-template-columns: 1fr; }
+    .flow { flex-direction: column; }
+    .flow-arrow { transform: rotate(90deg); align-self: flex-start; margin-left: 50%; }
   }
 </style>
 </head>
 <body>
 
-<canvas id="three-bg"></canvas>
+<canvas id="bg-canvas"></canvas>
 <div class="bg-grid"></div>
 <div class="bg-glow g1"></div>
 <div class="bg-glow g2"></div>
 
 <div class="content">
 
-<!-- Nav -->
+<!-- ── Nav ── -->
 <nav>
   <a href="#" class="nav-logo">
-    <div class="logo-icon">B</div>
+    <div class="logotype">B</div>
     Blaster
   </a>
   <div class="nav-links">
-    <a href="#features">Features</a>
     <a href="#pipeline">Pipeline</a>
-    <a href="#usage">Usage</a>
-    <a href="https://github.com/input-output-hk/Lean-blaster" class="nav-cta" target="_blank">GitHub →</a>
+    <a href="#examples">Examples</a>
+    <a href="#start">Get started</a>
   </div>
+  <a href="https://github.com/input-output-hk/Lean-blaster" target="_blank" class="nav-gh">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+    GitHub
+  </a>
 </nav>
 
-<!-- Hero -->
+<!-- ── Hero ── -->
 <section class="hero">
-  <div class="badge"><span class="dot"></span> Lean4 · Z3 · SMT-LIB V2</div>
-  <h1>SMT Proof Automation<br>for <span class="gradient">Lean4</span></h1>
-  <p class="subtitle">Automatically prove Lean4 theorems using Z3. Blaster aggressively optimizes goals — often closing proofs without invoking the solver — then translates the remainder to SMT-LIB V2.</p>
+  <div class="hero-eyebrow">Lean4 · SMT-LIB V2 · Z3</div>
+  <h1><span class="word-prove">Prove</span> it.</h1>
+  <p class="hero-sub">
+    Write a Lean4 theorem. Call <code style="font-family:'JetBrains Mono',monospace;color:var(--ink);font-size:0.9em">blaster</code>.
+    Get a proof — or a concrete counterexample that tells you exactly why it's wrong.
+  </p>
   <div class="hero-actions">
-    <a href="https://github.com/input-output-hk/Lean-blaster" class="btn btn-primary" target="_blank">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <a href="https://github.com/input-output-hk/Lean-blaster" class="btn btn-ink" target="_blank">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
       View on GitHub
     </a>
-    <a href="#pipeline" class="btn btn-secondary">How it works ↓</a>
+    <a href="#start" class="btn btn-ghost">Get started →</a>
   </div>
 
-  <div class="hero-code">
-    <div class="hero-code-bar">
-      <span></span><span></span><span></span>
-      <span class="filename">Theorems.lean</span>
-    </div>
-    <pre><span class="cmt">-- Prove commutativity of addition over Nat</span>
-<span class="fn">#blaster</span> [ <span class="kw">∀</span> (a b : <span class="ty">Nat</span>), a + b = b + a ]
-<span class="ok">✅ Valid</span>
+  <div class="hero-demo">
+    <div class="demo-pane">
+      <div class="demo-pane-bar">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="label">without Blaster</span>
+      </div>
+      <pre><span class="c-kw">theorem</span> <span class="c-fn">isLeft_or_isRight</span>
+    (<span style="color:#e2e8f0">x</span> : Either α β) :
+    isLeft x <span class="c-kw">∨</span> isRight x := by
+  <span class="c-sorry">sorry</span>  <span class="c-dim">-- ⚠ proof missing</span>
 
-<span class="cmt">-- Catch a false claim and get a counterexample</span>
-<span class="fn">#blaster</span> [ <span class="kw">∀</span> (n : <span class="ty">Nat</span>), n &lt; 10 ]
-<span class="fail">❌ Falsified</span>
-<span class="cex">Counterexample:</span>
-<span class="cex"> - n: 42</span></pre>
-  </div>
-</section>
+<span class="c-kw">theorem</span> <span class="c-fn">length_set</span>
+    (<span style="color:#e2e8f0">as</span> : List α) (<span style="color:#e2e8f0">i</span> : <span class="c-ty">Nat</span>) (<span style="color:#e2e8f0">a</span> : α) :
+    (as.set i a).length = as.length := by
+  <span class="c-sorry">sorry</span>  <span class="c-dim">-- ⚠ proof missing</span></pre>
+    </div>
+    <div class="demo-pane">
+      <div class="demo-pane-bar">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="label">with Blaster</span>
+      </div>
+      <pre><span class="c-kw">theorem</span> <span class="c-fn">isLeft_or_isRight</span>
+    (<span style="color:#e2e8f0">x</span> : Either α β) :
+    isLeft x <span class="c-kw">∨</span> isRight x := by
+  <span class="c-fn">blaster</span>
+<span class="c-ok">-- ✅ Valid</span>
 
-<!-- Features -->
-<section id="features">
-  <div class="section-label">Why Blaster</div>
-  <h2>Formal verification, automated</h2>
-  <p class="section-desc">From simple arithmetic to complex inductive data types, Blaster brings SMT-powered proof automation to your Lean4 development workflow.</p>
-
-  <div class="features-grid">
-    <div class="feature-card">
-      <div class="feature-icon" style="background: rgba(251,191,36,0.1);">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-      </div>
-      <h3>Aggressive Optimization</h3>
-      <p>30+ rewriting rules covering beta reduction, function unfolding, let-expression inlining, Boolean simplification, and algebraic identities. Many theorems close to <code>True</code> without ever touching the SMT solver.</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon" style="background: rgba(96,165,250,0.1);">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-      </div>
-      <h3>Full SMT Translation</h3>
-      <p>Lean4 types and expressions faithfully translated to SMT-LIB V2. Supports <code>Bool</code>, <code>Int</code>, <code>Nat</code>, <code>String</code>, <code>BitVec n</code>, <code>Fin n</code>, <code>SMTArray α</code>, parametric &amp; mutual inductives, and higher-order logic.</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon" style="background: rgba(0,212,170,0.1);">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-      </div>
-      <h3>Z3 Integration</h3>
-      <p>Automatic spawning of the Z3 process with configurable timeout, random seed, and verbosity. Dump the raw SMT-LIB query for debugging. Results interpreted as Valid, Falsified, or Undetermined.</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon" style="background: rgba(248,113,113,0.1);">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      </div>
-      <h3>Counterexample Generation</h3>
-      <p>When Z3 returns <em>sat</em>, Blaster decodes the model into a concrete Lean4 counterexample — showing exactly which values falsify the theorem, including complex inductive structures.</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon" style="background: rgba(167,139,250,0.1);">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
-      </div>
-      <h3>State Machine Verification</h3>
-      <p>Built-in <code>#bmc</code> (Bounded Model Checking) and <code>#kind</code> (K-Induction) commands for verifying invariants of Lean4 <code>StateMachine</code> instances up to a configurable depth.</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon" style="background: rgba(251,146,60,0.1);">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fb923c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/><path d="M9 12l2 2 4-4"/></svg>
-      </div>
-      <h3>Open Source</h3>
-      <p>Apache 2.0 licensed. Benchmarked on the <a href="https://github.com/leanprover-community/NNG4" style="color:var(--accent);text-decoration:none;">Lean Natural Number Game</a> (103/117) and <a href="https://github.com/djvelleman/STG4" style="color:var(--accent);text-decoration:none;">Set Theory Game</a> (51/52). Contributions welcome.</p>
+<span class="c-kw">theorem</span> <span class="c-fn">length_set</span>
+    (<span style="color:#e2e8f0">as</span> : List α) (<span style="color:#e2e8f0">i</span> : <span class="c-ty">Nat</span>) (<span style="color:#e2e8f0">a</span> : α) :
+    (as.set i a).length = as.length := by
+  induction as generalizing i <span class="c-kw">&lt;;&gt;</span> <span class="c-fn">blaster</span>
+<span class="c-ok">-- ✅ Valid</span></pre>
     </div>
   </div>
 </section>
 
-<!-- Pipeline -->
+<!-- ── Pipeline ── -->
 <section id="pipeline">
-  <div class="section-label">How It Works</div>
-  <h2>The three-step pipeline</h2>
-  <p class="section-desc">Blaster uses a staged approach: optimize aggressively first, translate what remains to SMT-LIB, then let Z3 decide. Each step is optional and configurable via solver flags.</p>
+  <div class="wrap">
+    <div class="section-tag">How it works</div>
+    <h2 class="section-h">Three steps, one command</h2>
+    <p class="section-p">Blaster doesn't just hand your goal to Z3. It first tries to close it entirely through symbolic simplification — no SMT query needed.</p>
 
-  <div class="pipeline-grid">
-    <div class="pipeline-group-label label-opt">Step 1 — Optimize</div>
-    <div class="pipeline-item">
-      <div>
-        <div class="item-name">Beta Reduction</div>
-        <div class="item-desc">Lambda applications are simplified by substituting arguments directly into the lambda body, reducing indirection.</div>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="step-icon" style="background:rgba(251,191,36,0.1)">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        </div>
+        <h4>Optimize</h4>
+        <p>Beta reduction, function unfolding, let-inlining, 30+ algebraic rewriting rules</p>
       </div>
-      <span class="step-badge badge-opt">Opt</span>
-    </div>
-    <div class="pipeline-item">
-      <div>
-        <div class="item-name">Function Unfolding</div>
-        <div class="item-desc">Non-recursive, non-opaque definitions are expanded inline at every call site, exposing further simplification opportunities.</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="step-icon" style="background:rgba(129,140,248,0.1)">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        </div>
+        <h4>Translate</h4>
+        <p>Lean4 types and expressions encoded as SMT-LIB V2 — sorts, terms, quantifiers</p>
       </div>
-      <span class="step-badge badge-opt">Opt</span>
-    </div>
-    <div class="pipeline-item">
-      <div>
-        <div class="item-name">Let-Expression Inlining &amp; Algebraic Rewriting</div>
-        <div class="item-desc">Let-bindings inlined; 30+ rules for Bool, Nat, Int, ITE, match, and function propagation normalize expressions to canonical form.</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="step-icon" style="background:rgba(56,189,248,0.1)">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        </div>
+        <h4>Solve</h4>
+        <p>Z3 decides: <em>unsat</em> → Valid, <em>sat</em> → counterexample, <em>unknown</em> → goal returned</p>
       </div>
-      <span class="step-badge badge-opt">Opt</span>
-    </div>
-    <div class="pipeline-item">
-      <div>
-        <div class="item-name">Early Exit: True / False</div>
-        <div class="item-desc">If the expression reduces to <code>True</code>, the theorem is declared Valid immediately. If it reduces to <code>False</code>, it is declared Falsified — no SMT query needed.</div>
-      </div>
-      <span class="step-badge badge-opt">Opt</span>
     </div>
 
-    <div class="pipeline-group-label label-smt">Step 2 — Translate</div>
-    <div class="pipeline-item">
-      <div>
-        <div class="item-name">Type Mapping</div>
-        <div class="item-desc">Lean types → SMT sorts: <code>Nat/Int → Int</code>, <code>Bool → Bool</code>, <code>BitVec n → (_ BitVec n)</code>, <code>Fin n → Fin_n</code>, <code>Array α → (Array Int α)</code>.</div>
-      </div>
-      <span class="step-badge badge-smt">SMT</span>
-    </div>
-    <div class="pipeline-item">
-      <div>
-        <div class="item-name">Inductive Type Encoding</div>
-        <div class="item-desc">Parametric and mutually inductive types become uninterpreted SMT sorts. Predicate qualifiers constrain quantified variables to the right shape.</div>
-      </div>
-      <span class="step-badge badge-smt">SMT</span>
-    </div>
-    <div class="pipeline-item">
-      <div>
-        <div class="item-name">Quantifier &amp; Application Translation</div>
-        <div class="item-desc">Universal/existential quantifiers become SMT <code>forall</code>/<code>exists</code> with type-predicate guards. Function applications mapped to SMT terms or <code>define-fun</code> declarations.</div>
-      </div>
-      <span class="step-badge badge-smt">SMT</span>
-    </div>
-
-    <div class="pipeline-group-label label-solve">Step 3 — Solve</div>
-    <div class="pipeline-item">
-      <div>
-        <div class="item-name">Valid (unsat)</div>
-        <div class="item-desc">The negation of the goal is unsatisfiable — the original theorem holds. The <code>blaster</code> tactic closes the goal with <code>admit</code>.</div>
-      </div>
-      <span class="step-badge badge-z3">✅ Valid</span>
-    </div>
-    <div class="pipeline-item">
-      <div>
-        <div class="item-name">Falsified (sat)</div>
-        <div class="item-desc">Z3 found a satisfying model for the negation. The model is decoded into a concrete Lean4 counterexample with actual values.</div>
-      </div>
-      <span class="step-badge badge-cex">❌ Falsified</span>
-    </div>
-    <div class="pipeline-item">
-      <div>
-        <div class="item-name">Undetermined (unknown)</div>
-        <div class="item-desc">The solver timed out or could not decide. The current goal is returned to the user for further manual reasoning.</div>
-      </div>
-      <span class="step-badge badge-unk">? Unknown</span>
+    <div class="flow-note">
+      <strong>Early exit:</strong> if the optimizer reduces the goal to <code style="font-family:'JetBrains Mono',monospace;font-size:0.9em;color:var(--green)">True</code>, Blaster declares Valid immediately — Z3 is never invoked. Conversely, reduction to <code style="font-family:'JetBrains Mono',monospace;font-size:0.9em;color:var(--red)">False</code> gives an instant Falsified. The solver only runs when symbolic reasoning isn't enough.
     </div>
   </div>
 </section>
 
-<!-- Usage -->
-<section id="usage">
-  <div class="section-label">Usage</div>
-  <h2>Prove theorems as you write</h2>
-  <p class="section-desc">Use the <code style="color:var(--accent);background:rgba(0,212,170,0.08);padding:2px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace">#blaster</code> command to check propositions interactively, or the <code style="color:var(--accent);background:rgba(0,212,170,0.08);padding:2px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace">blaster</code> tactic inside proof blocks.</p>
+<!-- ── Examples ── -->
+<section id="examples">
+  <div class="wrap" style="padding-top: 0">
+    <div class="section-tag">Examples</div>
+    <h2 class="section-h">What Blaster can prove</h2>
+    <p class="section-p">From first-order arithmetic to polymorphic inductive types and state machines — with a single tactic.</p>
 
-  <div class="demo-editor" id="demo-editor">
-    <div class="demo-titlebar">
-      <span></span><span></span><span></span>
-      <span class="demo-filename">Theorems.lean</span>
+    <div class="ex-tabs">
+      <button class="ex-tab active" onclick="showEx('arith', this)">Arithmetic</button>
+      <button class="ex-tab" onclick="showEx('inductives', this)">Inductive types</button>
+      <button class="ex-tab" onclick="showEx('recursive', this)">Recursive functions</button>
+      <button class="ex-tab" onclick="showEx('statemachine', this)">State machines</button>
+      <button class="ex-tab" onclick="showEx('counterex', this)">Counterexamples</button>
     </div>
-    <div class="demo-body" id="demo-body"></div>
-    <div class="demo-status" id="demo-status">
-      <span class="status-ok">Blaster</span>
-      <span>Lean4</span>
-    </div>
-  </div>
 
-  <div class="ide-block">
-    <div class="ide-tabs">
-      <button class="ide-tab active" onclick="showTab('command', event)">#blaster command</button>
-      <button class="ide-tab" onclick="showTab('tactic', event)">blaster tactic</button>
-      <button class="ide-tab" onclick="showTab('toml', event)">lakefile.toml</button>
-      <button class="ide-tab" onclick="showTab('lean4', event)">lakefile.lean</button>
+    <!-- Arithmetic -->
+    <div class="ex-panel active" id="ex-arith">
+      <div class="ex-code">
+        <div class="ex-code-bar">Theorems.lean</div>
+        <pre><span class="c-dim">-- Basic arithmetic properties</span>
+<span class="c-fn">#blaster</span> [ <span class="c-kw">∀</span> (a b : <span class="c-ty">Nat</span>), a + b = b + a ]
+<span class="c-ok">✅ Valid</span>
+
+<span class="c-fn">#blaster</span> [ <span class="c-kw">∀</span> (a b c : <span class="c-ty">Int</span>),
+  (a - b) * c = a * c - b * c ]
+<span class="c-ok">✅ Valid</span>
+
+<span class="c-dim">-- Z3 also catches false claims</span>
+<span class="c-fn">#blaster</span> [ <span class="c-kw">∀</span> (n : <span class="c-ty">Nat</span>), n * n ≤ n + n ]
+<span class="c-err">❌ Falsified</span>
+<span class="c-dim">Counterexample: n = 3</span></pre>
+      </div>
+      <div class="ex-prose">
+        <h3>First-order arithmetic</h3>
+        <p>Integer and natural number goals are translated directly to Z3's linear arithmetic and non-linear arithmetic theories. Blaster handles equality, inequality, and modular arithmetic.</p>
+        <p>Nat is encoded as a bounded integer sort. Overflow and subtraction truncation semantics are preserved.</p>
+        <span class="tag tag-ink">Nat</span>
+        <span class="tag tag-ink">Int</span>
+        <span class="tag tag-sky">QF_NIA</span>
+        <span class="tag tag-green">constant folding</span>
+      </div>
     </div>
-    <div class="ide-content" id="tab-content">
-      <pre id="code-display"></pre>
+
+    <!-- Inductive types -->
+    <div class="ex-panel" id="ex-inductives">
+      <div class="ex-code">
+        <div class="ex-code-bar">Either.lean</div>
+        <pre><span class="c-kw">inductive</span> <span class="c-ty">Either</span> (α β : <span class="c-ty">Type</span>) <span class="c-kw">where</span>
+  | Left  : α → Either α β
+  | Right : β → Either α β
+
+<span class="c-kw">def</span> <span class="c-fn">isLeft</span>  : Either a b → <span class="c-ty">Bool</span>
+  | .Left _  => true  | .Right _ => false
+<span class="c-kw">def</span> <span class="c-fn">isRight</span> : Either a b → <span class="c-ty">Bool</span>
+  | .Left _  => false | .Right _ => true
+
+<span class="c-kw">theorem</span> <span class="c-fn">isLeft_not_isRight</span> (x : Either α β) :
+    ¬isRight x = isLeft x := by <span class="c-fn">blaster</span>
+<span class="c-ok">✅ Valid</span>
+
+<span class="c-kw">theorem</span> <span class="c-fn">isLeft_or_isRight</span> (x : Either α β) :
+    isLeft x <span class="c-kw">∨</span> isRight x := by <span class="c-fn">blaster</span>
+<span class="c-ok">✅ Valid</span></pre>
+      </div>
+      <div class="ex-prose">
+        <h3>Parametric &amp; mutual inductives</h3>
+        <p>Blaster encodes inductive types as uninterpreted SMT sorts with constructor predicates. It handles parametric types, mutually inductive definitions, and polymorphic functions over them.</p>
+        <p>Type parameters become universally quantified SMT sorts with predicate qualifiers to preserve constructor disjointness.</p>
+        <span class="tag tag-ink">parametric</span>
+        <span class="tag tag-ink">mutual inductive</span>
+        <span class="tag tag-sky">uninterpreted sorts</span>
+        <span class="tag tag-green">polymorphism</span>
+      </div>
+    </div>
+
+    <!-- Recursive -->
+    <div class="ex-panel" id="ex-recursive">
+      <div class="ex-code">
+        <div class="ex-code-bar">Lists.lean</div>
+        <pre><span class="c-dim">-- List length and cons</span>
+<span class="c-fn">#blaster</span> [ <span class="c-kw">∀</span> (x : <span class="c-ty">Nat</span>) (xs : List <span class="c-ty">Nat</span>),
+  xs.length + 1 = (x :: xs).length ]
+<span class="c-ok">✅ Valid</span>
+
+<span class="c-dim">-- Mutually recursive isEven / isOdd</span>
+<span class="c-kw">mutual</span>
+  <span class="c-kw">def</span> <span class="c-fn">isEven</span> : <span class="c-ty">Nat</span> → <span class="c-ty">Bool</span>
+    | 0   => true  | n+1 => isOdd n
+  <span class="c-kw">def</span> <span class="c-fn">isOdd</span>  : <span class="c-ty">Nat</span> → <span class="c-ty">Bool</span>
+    | 0   => false | n+1 => isEven n
+<span class="c-kw">end</span>
+
+<span class="c-fn">#blaster</span> [ <span class="c-kw">∀</span> n, isEven (n+1) = isOdd n ]
+<span class="c-ok">✅ Valid</span>
+<span class="c-fn">#blaster</span> [ <span class="c-kw">∀</span> n, isEven (n+2) → isEven n ]
+<span class="c-ok">✅ Valid</span></pre>
+      </div>
+      <div class="ex-prose">
+        <h3>Recursive &amp; mutually recursive</h3>
+        <p>Blaster unfolds recursive definitions and applies algebraic normalization before SMT translation — often reducing recursive properties to straightforward quantified formulae.</p>
+        <p>Combine with Lean4's <code style="font-family:'JetBrains Mono',monospace;color:var(--ink);font-size:0.88em">induction</code> tactic to split goals that require induction; Blaster handles each case.</p>
+        <span class="tag tag-ink">recursive defs</span>
+        <span class="tag tag-ink">mutual recursion</span>
+        <span class="tag tag-amber">+ induction tactic</span>
+      </div>
+    </div>
+
+    <!-- State machines -->
+    <div class="ex-panel" id="ex-statemachine">
+      <div class="ex-code">
+        <div class="ex-code-bar">Counter.lean</div>
+        <pre><span class="c-dim">-- Bounded Model Checking: find counterexamples</span>
+<span class="c-fn">#bmc</span> (max-depth: 8) [counterStateMachine]
+<span class="c-err">❌ Falsified — Depth 4</span>
+<span class="c-dim">Counterexample:</span>
+<span class="c-dim"> input@1: Request.Tr</span>
+<span class="c-dim"> input@2: Request.Fa</span>
+<span class="c-dim"> input@3: Request.Fa</span>
+<span class="c-dim"> input@4: Request.Tr</span>
+
+<span class="c-dim">-- K-Induction: prove invariants hold forever</span>
+<span class="c-fn">#kind</span> (max-depth: 1) [counterStateMachine]
+<span class="c-ok">✅ Valid</span>
+<span class="c-dim">KInd at Depth 0</span>
+<span class="c-dim">KInd at Depth 1</span></pre>
+      </div>
+      <div class="ex-prose">
+        <h3>State machine verification</h3>
+        <p>Blaster ships with a <code style="font-family:'JetBrains Mono',monospace;color:var(--ink);font-size:0.88em">StateMachine</code> typeclass. Define your states, transitions, and invariants in Lean4 — then use <code style="font-family:'JetBrains Mono',monospace;color:var(--ink);font-size:0.88em">#bmc</code> or <code style="font-family:'JetBrains Mono',monospace;color:var(--ink);font-size:0.88em">#kind</code> to verify them.</p>
+        <p><strong>#bmc</strong> searches for invariant violations up to a given depth. <strong>#kind</strong> proves invariants hold at every reachable state via k-induction.</p>
+        <span class="tag tag-ink">StateMachine</span>
+        <span class="tag tag-sky">#bmc</span>
+        <span class="tag tag-sky">#kind</span>
+        <span class="tag tag-amber">trace counterexamples</span>
+      </div>
+    </div>
+
+    <!-- Counterexamples -->
+    <div class="ex-panel" id="ex-counterex">
+      <div class="ex-code">
+        <div class="ex-code-bar">Cex.lean</div>
+        <pre><span class="c-dim">-- Z3 decodes its model back to Lean4</span>
+<span class="c-fn">#blaster</span> [<span class="c-kw">∀</span> (α : <span class="c-ty">Type</span>) (x : Term α),
+  sizeOfTerm x &lt; 10]
+
+<span class="c-err">❌ Falsified</span>
+<span class="c-dim">Counterexample:</span>
+<span class="c-dim"> x: (Term.Annotated</span>
+<span class="c-dim">      (Term.Annotated</span>
+<span class="c-dim">        (Term.Annotated</span>
+<span class="c-dim">          (Term.Annotated</span>
+<span class="c-dim">            (Term.Annotated</span>
+<span class="c-dim">              (Term.Ident "a")</span>
+<span class="c-dim">              []) []) []) []) [])</span></pre>
+      </div>
+      <div class="ex-prose">
+        <h3>Concrete counterexamples</h3>
+        <p>When Z3 finds a falsifying assignment, Blaster decodes the SMT model back into a concrete Lean4 value — including nested inductive structures.</p>
+        <p>The counterexample is printed directly in the editor, giving you the exact witness that breaks your theorem.</p>
+        <span class="tag tag-red">sat model decoding</span>
+        <span class="tag tag-ink">inductive values</span>
+        <span class="tag tag-amber">nested structures</span>
+      </div>
     </div>
   </div>
 </section>
 
-<!-- CTA -->
-<section class="cta-section">
-  <h2>Make proofs effortless</h2>
-  <p>Blaster is open source and actively developed. Add it to your Lean4 project today, or help improve it by contributing new features, rewriting rules, or test cases.</p>
-  <div class="cta-actions">
-    <a href="https://github.com/input-output-hk/Lean-blaster" class="btn btn-primary" target="_blank">Star on GitHub</a>
-    <a href="https://github.com/input-output-hk/Lean-blaster/issues" class="btn btn-secondary" target="_blank">Report an Issue</a>
+<!-- ── Outcomes ── -->
+<section>
+  <div class="wrap" style="padding-top: 0">
+    <div class="section-tag">Results</div>
+    <h2 class="section-h">Three possible answers</h2>
+    <p class="section-p">Every call to <code style="font-family:'JetBrains Mono',monospace;color:var(--ink)">blaster</code> ends in one of three outcomes — each actionable.</p>
+
+    <div class="outcomes">
+      <div class="outcome-card valid">
+        <div class="outcome-verdict">✅ Valid</div>
+        <h3>Theorem holds</h3>
+        <p>Z3 returned <em>unsat</em> for the negated goal. The tactic closes the proof with <code style="font-family:'JetBrains Mono',monospace;font-size:0.85em;color:var(--green)">admit</code>. Note: proof reconstruction is not yet implemented.</p>
+      </div>
+      <div class="outcome-card falsified">
+        <div class="outcome-verdict">❌ Falsified</div>
+        <h3>Counterexample found</h3>
+        <p>Z3 returned <em>sat</em> — the goal is provably wrong. The satisfying model is decoded into a Lean4 value and printed inline.</p>
+        <div class="outcome-cex">
+          <span class="cex-label">Counterexample:</span><br>
+          &nbsp;- n: 42
+        </div>
+      </div>
+      <div class="outcome-card unknown">
+        <div class="outcome-verdict">? Undetermined</div>
+        <h3>Solver gave up</h3>
+        <p>Z3 returned <em>unknown</em> — typically due to timeout or a formula outside decidable fragments. The goal is returned as-is for manual reasoning.</p>
+      </div>
+    </div>
   </div>
 </section>
 
-<!-- Built By -->
-<section class="built-by">
-  <p class="built-by-label">Built with ❤️ by</p>
-  <div class="built-by-logos">
-    <a href="https://iog.io" target="_blank" class="org-card">
-      <div class="org-icon org-icon--iog"><img src="assets/iog-logo.svg" alt="IOG" /></div>
-      <span>Input Output Global</span>
-    </a>
-    <a href="https://github.com/etiennejf" target="_blank" class="org-card">
-      <div class="org-icon org-icon--person">JE</div>
-      <div class="org-card-info">
-        <div>Jean-Frédéric Etienne</div>
-        <div class="org-sub">@etiennejf</div>
+<!-- ── Benchmarks ── -->
+<section>
+  <div class="wrap" style="padding-top: 0">
+    <div class="section-tag">Benchmarks</div>
+    <h2 class="section-h">Proven on real proof libraries</h2>
+    <p class="section-p">Blaster has been evaluated against established Lean4 proof corpora to assess coverage and correctness.</p>
+
+    <div class="bench-grid">
+      <a href="https://github.com/leanprover-community/NNG4" target="_blank" class="bench-card" style="text-decoration:none">
+        <div class="bench-fraction">103<span style="font-size:1.8rem;opacity:0.5">/117</span></div>
+        <div class="bench-name">Lean Natural Number Game</div>
+        <div class="bench-note">Arithmetic and number-theory exercises from the NNG4 interactive proof game. Failed goals are either non-theorems or require power/induction reasoning.</div>
+      </a>
+      <a href="https://github.com/djvelleman/STG4" target="_blank" class="bench-card" style="text-decoration:none">
+        <div class="bench-fraction">51<span style="font-size:1.8rem;opacity:0.5">/52</span></div>
+        <div class="bench-name">Lean Set Theory Game</div>
+        <div class="bench-note">Set-theoretic proofs from the STG4 game. The single failure is the <code style="font-family:'JetBrains Mono',monospace;font-size:0.85em">singleton</code> theorem from FamCombo.</div>
+      </a>
+      <a href="https://github.com/input-output-hk/Blaster-benchmarking" target="_blank" class="bench-card" style="text-decoration:none">
+        <div class="bench-fraction" style="font-size:2rem;margin-bottom:14px">Full results</div>
+        <div class="bench-name">Blaster Benchmarking repo</div>
+        <div class="bench-note">All benchmark scripts, inputs, and detailed results are published in the public benchmarking repository for reproducibility.</div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ── Get started ── -->
+<section id="start">
+  <div class="wrap" style="padding-top: 0">
+    <div class="section-tag">Get started</div>
+    <h2 class="section-h">Add Blaster to your project</h2>
+    <p class="section-p">Two steps: declare the dependency, then call <code style="font-family:'JetBrains Mono',monospace;color:var(--ink)">blaster</code>.</p>
+
+    <div class="setup-grid">
+      <div class="setup-step">
+        <div class="setup-num">Step 1 — Add dependency</div>
+        <h4>lakefile.toml</h4>
+        <div class="code-block" style="margin-bottom:16px">
+          <div class="code-block-bar">lakefile.toml</div>
+          <pre><span style="color:#c084fc">[[require]]</span>
+<span style="color:#818cf8">name</span> = <span style="color:#4ade80">"Blaster"</span>
+<span style="color:#818cf8">git</span>  = <span style="color:#4ade80">"https://github.com/input-output-hk/Lean-blaster"</span>
+<span style="color:#818cf8">rev</span>  = <span style="color:#4ade80">"main"</span></pre>
+        </div>
+        <h4>lakefile.lean</h4>
+        <div class="code-block">
+          <div class="code-block-bar">lakefile.lean</div>
+          <pre><span style="color:#c084fc">require</span> «<span style="color:#818cf8">Blaster</span>» <span style="color:#c084fc">from</span> git
+  <span style="color:#4ade80">"https://github.com/input-output-hk/Lean-blaster"</span>
+  @ <span style="color:#4ade80">"main"</span></pre>
+        </div>
       </div>
-    </a>
-    <a href="https://github.com/RSoulatIOHK" target="_blank" class="org-card">
-      <div class="org-icon org-icon--person">RS</div>
-      <div class="org-card-info">
-        <div>Romain Soulat</div>
-        <div class="org-sub">@RSoulatIOHK</div>
+
+      <div class="setup-step">
+        <div class="setup-num">Step 2 — Use it</div>
+        <h4>Your Lean4 file</h4>
+        <div class="code-block">
+          <div class="code-block-bar">MyProofs.lean</div>
+          <pre><span style="color:#c084fc">import</span> <span style="color:#818cf8">Blaster.Tactic</span>
+
+<span style="color:#c084fc">theorem</span> <span style="color:#818cf8">addComm</span> (a b : <span style="color:#38bdf8">Nat</span>) :
+    a + b = b + a := by
+  <span style="color:#818cf8">blaster</span>
+<span style="color:#4ade80">-- ✅ Valid</span>
+
+<span style="color:#8b92a9">-- or inline, outside a proof:</span>
+<span style="color:#818cf8">#blaster</span> [ <span style="color:#c084fc">∀</span> (a b : <span style="color:#38bdf8">Nat</span>), a + b = b + a ]
+<span style="color:#4ade80">-- ✅ Valid</span>
+
+<span style="color:#8b92a9">-- with options:</span>
+<span style="color:#818cf8">#blaster</span> (timeout: 30) (dump-smt-lib: 1)
+  [ <span style="color:#c084fc">∀</span> (a b : <span style="color:#38bdf8">Nat</span>), a + b = b + a ]</pre>
+        </div>
       </div>
-    </a>
+    </div>
+  </div>
+</section>
+
+<!-- ── Built by ── -->
+<section>
+  <div class="wrap" style="padding-top:0;padding-bottom:80px;text-align:center">
+    <p style="font-size:0.85rem;color:var(--dim);margin-bottom:24px">Built at</p>
+    <div class="people" style="justify-content:center;margin-bottom:16px">
+      <a href="https://iog.io" target="_blank" class="org-card">
+        <div class="org-logo"><img src="assets/iog-logo.svg" alt="IOG"></div>
+        Input Output Global
+      </a>
+    </div>
+    <p style="font-size:0.85rem;color:var(--dim);margin-bottom:20px;margin-top:24px">Maintained by</p>
+    <div class="people">
+      <a href="https://github.com/etiennejf" target="_blank" class="person-card">
+        <div class="person-avatar" style="background:linear-gradient(135deg,#818cf8,#c084fc)">JE</div>
+        <div>
+          <div class="person-name">Jean-Frédéric Etienne</div>
+          <div class="person-handle">@etiennejf</div>
+        </div>
+      </a>
+      <a href="https://github.com/RSoulatIOHK" target="_blank" class="person-card">
+        <div class="person-avatar" style="background:linear-gradient(135deg,#38bdf8,#818cf8)">RS</div>
+        <div>
+          <div class="person-name">Romain Soulat</div>
+          <div class="person-handle">@RSoulatIOHK</div>
+        </div>
+      </a>
+    </div>
   </div>
 </section>
 
 <footer>
-  Licensed under Apache 2.0. <a href="https://github.com/input-output-hk/Lean-blaster" target="_blank">View source on GitHub</a>.
+  Apache 2.0 · <a href="https://github.com/input-output-hk/Lean-blaster">github.com/input-output-hk/Lean-blaster</a>
 </footer>
 
 </div>
 
 <script>
-const tabs = {
-  command: `<span style="color:#4a5568">-- Check a theorem by name</span>
-<span style="color:#e2e8f0">theorem</span> <span style="color:#00d4aa">addCommute</span> : <span style="color:#60a5fa">∀</span> (a b : <span style="color:#60a5fa">Nat</span>), a + b = b + a := by sorry
-<span style="color:#00d4aa">#blaster</span> [addCommute]
-
-<span style="color:#4a5568">-- Or check an inline expression directly</span>
-<span style="color:#00d4aa">#blaster</span> [ <span style="color:#60a5fa">∀</span> (a b : <span style="color:#60a5fa">Nat</span>), a + b = b + a ]
-
-<span style="color:#4a5568">-- With solver options</span>
-<span style="color:#00d4aa">#blaster</span> (timeout: 30) (dump-smt-lib: 1) [addCommute]
-<span style="color:#00d4aa">#blaster</span> (only-optimize: 1) [addCommute]   <span style="color:#4a5568">-- skip Z3, optimization only</span>`,
-
-  tactic: `<span style="color:#4a5568">-- Use as a drop-in tactic</span>
-<span style="color:#e2e8f0">theorem</span> <span style="color:#00d4aa">addCommute</span> (a b : <span style="color:#60a5fa">Nat</span>) : a + b = b + a := by
-  <span style="color:#00d4aa">blaster</span>
-
-<span style="color:#4a5568">-- Combine with induction for recursive goals</span>
-<span style="color:#e2e8f0">theorem</span> <span style="color:#00d4aa">length_set</span> {as : <span style="color:#60a5fa">List</span> α} {i : <span style="color:#60a5fa">Nat</span>} {a : α}
-    : (as.set i a).length = as.length := by
-  induction as generalizing i <span style="color:#60a5fa">&lt;;&gt;</span> <span style="color:#00d4aa">blaster</span>
-
-<span style="color:#4a5568">-- K-Induction to prove state machine invariants hold forever</span>
-<span style="color:#00d4aa">#kind</span> (max-depth: 1) [counterStateMachine]
-<span style="color:#34d399">✅ Valid</span>`,
-
-  toml: `<span style="color:#4a5568"># Add to your lakefile.toml</span>
-[[<span style="color:#a78bfa">require</span>]]
-<span style="color:#a78bfa">name</span> = <span style="color:#fbbf24">"Blaster"</span>
-<span style="color:#a78bfa">git</span>  = <span style="color:#fbbf24">"https://github.com/input-output-hk/Lean-blaster"</span>
-<span style="color:#a78bfa">rev</span>  = <span style="color:#fbbf24">"main"</span>
-
-<span style="color:#4a5568"># Then import in your .lean file</span>
-<span style="color:#a78bfa">import</span> <span style="color:#00d4aa">Blaster.Tactic</span>`,
-
-  lean4: `<span style="color:#4a5568">-- Add to your lakefile.lean</span>
-<span style="color:#a78bfa">require</span> «<span style="color:#00d4aa">Blaster</span>» <span style="color:#a78bfa">from</span> git
-  <span style="color:#fbbf24">"https://github.com/input-output-hk/Lean-blaster"</span> @ <span style="color:#fbbf24">"main"</span>
-
-<span style="color:#4a5568">-- Then import in your .lean file</span>
-<span style="color:#a78bfa">import</span> <span style="color:#00d4aa">Blaster.Tactic</span>`
-};
-
-document.getElementById('code-display').innerHTML = tabs.command;
-
-function showTab(id, e) {
-  document.querySelectorAll('.ide-tab').forEach(t => t.classList.remove('active'));
-  e.target.classList.add('active');
-  document.getElementById('code-display').innerHTML = tabs[id];
+// ── example tabs ──
+function showEx(id, btn) {
+  document.querySelectorAll('.ex-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.ex-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('ex-' + id).classList.add('active');
 }
-</script>
-
-<script>
-// ── Animated editor demo ──
-(function() {
-  const lines = [
-    { code: '<span style="color:#4a5568">-- Prove commutativity of addition</span>', delay: 35 },
-    { code: '<span style="color:#e2e8f0">theorem</span> <span style="color:#00d4aa">comm</span> (a b : <span style="color:#60a5fa">Nat</span>) :', delay: 30 },
-    { code: '    a + b = b + a := by', delay: 28 },
-    { code: '  <span style="color:#00d4aa">blaster</span>', delay: 40, success: true },
-  ];
-
-  const diagnostic = {
-    severity: '✅ Valid',
-    message: 'Goal proved by Z3 — negation is unsatisfiable.',
-  };
-
-  const demoBody = document.getElementById('demo-body');
-  const demoStatus = document.getElementById('demo-status');
-  let observer;
-
-  function stripTags(html) {
-    const tmp = document.createElement('div');
-    tmp.innerHTML = html;
-    return tmp.textContent || '';
-  }
-
-  async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-  async function typeLine(lineEl, codeEl, html, charDelay) {
-    const plain = stripTags(html);
-    const cursor = document.createElement('span');
-    cursor.className = 'demo-cursor';
-    codeEl.appendChild(cursor);
-
-    for (let i = 0; i <= plain.length; i++) {
-      let plainCount = 0, htmlIdx = 0, inTag = false;
-      for (htmlIdx = 0; htmlIdx < html.length && plainCount < i; htmlIdx++) {
-        if (html[htmlIdx] === '<') inTag = true;
-        else if (html[htmlIdx] === '>') inTag = false;
-        else if (!inTag) plainCount++;
-      }
-      while (htmlIdx < html.length && html[htmlIdx] === '<') {
-        const close = html.indexOf('>', htmlIdx);
-        if (close === -1) break;
-        htmlIdx = close + 1;
-      }
-      codeEl.innerHTML = html.substring(0, htmlIdx);
-      codeEl.appendChild(cursor);
-      await sleep(charDelay + Math.random() * 20);
-    }
-
-    cursor.remove();
-    codeEl.innerHTML = html;
-  }
-
-  async function runDemo() {
-    demoBody.innerHTML = '';
-    demoStatus.innerHTML = '<span class="status-ok">Blaster — analyzing...</span><span>Lean4</span>';
-
-    let successLineEl = null;
-
-    for (let i = 0; i < lines.length; i++) {
-      const { code, delay, success } = lines[i];
-
-      const lineEl = document.createElement('div');
-      lineEl.className = 'demo-line' + (success ? ' has-success' : '');
-
-      const lineNo = document.createElement('span');
-      lineNo.className = 'demo-lineno';
-      lineNo.textContent = i + 1;
-
-      const codeEl = document.createElement('span');
-      codeEl.className = 'demo-code';
-
-      lineEl.appendChild(lineNo);
-      lineEl.appendChild(codeEl);
-
-      if (success) {
-        const squiggly = document.createElement('div');
-        squiggly.className = 'demo-squiggly-ok';
-        codeEl.appendChild(squiggly);
-        successLineEl = { lineEl, squiggly };
-      }
-
-      demoBody.appendChild(lineEl);
-      await typeLine(lineEl, codeEl, code, delay);
-      if (i < lines.length - 1) await sleep(180);
-    }
-
-    await sleep(500);
-
-    if (successLineEl) {
-      successLineEl.squiggly.classList.add('visible');
-
-      const diagEl = document.createElement('div');
-      diagEl.className = 'demo-diagnostic success';
-      diagEl.innerHTML =
-        '<span class="diag-severity">' + diagnostic.severity + '</span>' +
-        '<span class="diag-msg">' + diagnostic.message + '</span>';
-      demoBody.appendChild(diagEl);
-
-      await sleep(50);
-      diagEl.classList.add('visible');
-
-      demoStatus.innerHTML =
-        '<span class="status-valid">Blaster — ✅ Valid</span><span>Lean4</span>';
-    }
-
-    await sleep(5000);
-    runDemo();
-  }
-
-  observer = new IntersectionObserver(function(entries) {
-    if (entries[0].isIntersecting) {
-      observer.disconnect();
-      runDemo();
-    }
-  }, { threshold: 0.3 });
-  observer.observe(document.getElementById('demo-editor'));
-})();
 </script>
 
 <script type="importmap">
@@ -835,96 +806,82 @@ function showTab(id, e) {
 <script type="module">
 import * as THREE from 'three';
 
-const canvas = document.getElementById('three-bg');
+const canvas = document.getElementById('bg-canvas');
 const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-camera.position.z = 6;
+const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.z = 7;
 
-const icoGeo = new THREE.IcosahedronGeometry(1.8, 1);
-const wireframe = new THREE.WireframeGeometry(icoGeo);
-const lineMat = new THREE.LineBasicMaterial({ color: 0x00d4aa, transparent: true, opacity: 0.12 });
-const ico = new THREE.LineSegments(wireframe, lineMat);
-scene.add(ico);
+// Torus knot — more mathematical feel
+const knotGeo = new THREE.TorusKnotGeometry(1.4, 0.32, 160, 24);
+const knotWire = new THREE.WireframeGeometry(knotGeo);
+const knotMat = new THREE.LineBasicMaterial({ color: 0x818cf8, transparent: true, opacity: 0.10 });
+const knot = new THREE.LineSegments(knotWire, knotMat);
+scene.add(knot);
 
-const innerMat = new THREE.MeshBasicMaterial({ color: 0x00d4aa, transparent: true, opacity: 0.015 });
-const inner = new THREE.Mesh(icoGeo, innerMat);
-scene.add(inner);
+// Outer ring
+const ringGeo = new THREE.TorusGeometry(2.8, 0.015, 8, 120);
+const ringMat = new THREE.MeshBasicMaterial({ color: 0x6366f1, transparent: true, opacity: 0.25 });
+const ring = new THREE.Mesh(ringGeo, ringMat);
+ring.rotation.x = Math.PI / 3;
+scene.add(ring);
 
-const particleCount = 120;
-const particleGeo = new THREE.BufferGeometry();
-const positions = new Float32Array(particleCount * 3);
-const velocities = [];
-for (let i = 0; i < particleCount; i++) {
-  const theta = Math.random() * Math.PI * 2;
-  const phi = Math.acos(2 * Math.random() - 1);
-  const r = 2.2 + Math.random() * 1.5;
-  positions[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
-  positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
-  positions[i * 3 + 2] = r * Math.cos(phi);
-  velocities.push({
-    speed: 0.001 + Math.random() * 0.003,
-    axis: new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize()
-  });
+// Particles
+const N = 90;
+const pGeo = new THREE.BufferGeometry();
+const pos = new Float32Array(N * 3);
+const vels = [];
+for (let i = 0; i < N; i++) {
+  const th = Math.random() * Math.PI * 2;
+  const ph = Math.acos(2 * Math.random() - 1);
+  const r  = 2.5 + Math.random() * 2.0;
+  pos[i*3]   = r * Math.sin(ph) * Math.cos(th);
+  pos[i*3+1] = r * Math.sin(ph) * Math.sin(th);
+  pos[i*3+2] = r * Math.cos(ph);
+  vels.push({ speed: 0.001 + Math.random() * 0.002,
+              axis: new THREE.Vector3(Math.random()-.5, Math.random()-.5, Math.random()-.5).normalize() });
 }
-particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-const particleMat = new THREE.PointsMaterial({ color: 0xa78bfa, size: 0.02, transparent: true, opacity: 0.5 });
-const particles = new THREE.Points(particleGeo, particleMat);
-scene.add(particles);
+pGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+const pMat = new THREE.PointsMaterial({ color: 0xc084fc, size: 0.025, transparent: true, opacity: 0.45 });
+scene.add(new THREE.Points(pGeo, pMat));
 
-const outerGeo = new THREE.IcosahedronGeometry(2.8, 0);
-const outerWire = new THREE.WireframeGeometry(outerGeo);
-const outerMat = new THREE.LineBasicMaterial({ color: 0xa78bfa, transparent: true, opacity: 0.06 });
-const outerIco = new THREE.LineSegments(outerWire, outerMat);
-scene.add(outerIco);
-
-let scrollY = 0;
+let scrollY = 0, mx = 0, my = 0;
 window.addEventListener('scroll', () => { scrollY = window.scrollY; }, { passive: true });
-
-let mouseX = 0, mouseY = 0;
-window.addEventListener('mousemove', (e) => {
-  mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
-  mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
+window.addEventListener('mousemove', e => {
+  mx = (e.clientX / window.innerWidth  - .5) * 2;
+  my = (e.clientY / window.innerHeight - .5) * 2;
 }, { passive: true });
-
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-function animate(time) {
+(function animate(t) {
   requestAnimationFrame(animate);
-  const t = time * 0.001;
+  const s = t * 0.001;
+  const fade = Math.max(0, 1 - scrollY / (window.innerHeight * 0.9));
 
-  ico.rotation.x = t * 0.08 + mouseY * 0.15;
-  ico.rotation.y = t * 0.12 + mouseX * 0.15;
-  inner.rotation.copy(ico.rotation);
+  knot.rotation.x = s * 0.09 + my * 0.12;
+  knot.rotation.y = s * 0.14 + mx * 0.12;
+  ring.rotation.z = s * 0.06;
 
-  outerIco.rotation.x = -t * 0.05 + mouseY * 0.08;
-  outerIco.rotation.y = -t * 0.07 + mouseX * 0.08;
+  knotMat.opacity = 0.10 * fade;
+  pMat.opacity    = 0.45 * fade;
+  ringMat.opacity = 0.25 * fade;
 
-  const scrollFade = Math.max(0, 1 - scrollY / (window.innerHeight * 0.8));
-  scene.position.y = scrollY * 0.001;
-  lineMat.opacity    = 0.12 * scrollFade;
-  innerMat.opacity   = 0.015 * scrollFade;
-  outerMat.opacity   = 0.06 * scrollFade;
-  particleMat.opacity = 0.5 * scrollFade;
-
-  const pos = particleGeo.attributes.position.array;
-  for (let i = 0; i < particleCount; i++) {
-    const v = new THREE.Vector3(pos[i*3], pos[i*3+1], pos[i*3+2]);
-    v.applyAxisAngle(velocities[i].axis, velocities[i].speed);
-    pos[i*3] = v.x; pos[i*3+1] = v.y; pos[i*3+2] = v.z;
+  const pa = pGeo.attributes.position.array;
+  for (let i = 0; i < N; i++) {
+    const v = new THREE.Vector3(pa[i*3], pa[i*3+1], pa[i*3+2]);
+    v.applyAxisAngle(vels[i].axis, vels[i].speed);
+    pa[i*3] = v.x; pa[i*3+1] = v.y; pa[i*3+2] = v.z;
   }
-  particleGeo.attributes.position.needsUpdate = true;
-
+  pGeo.attributes.position.needsUpdate = true;
   renderer.render(scene, camera);
-}
-animate(0);
+})(0);
 </script>
 
 </body>
