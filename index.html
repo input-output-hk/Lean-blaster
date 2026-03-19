@@ -13,9 +13,9 @@
     --bg:     #0d0908;
     --bg2:    #120a07;
     --bg3:    #180d0a;
-    --ink:    #e63318;
-    --ink2:   #c41414;
-    --ink-glow: rgba(230,51,24,0.08);
+    --ink:    #b84032;
+    --ink2:   #8f2d20;
+    --ink-glow: rgba(184,64,50,0.08);
     --green:  #4ade80;
     --red:    #f87171;
     --amber:  #fbbf24;
@@ -51,11 +51,10 @@
     color: var(--text); text-decoration: none; letter-spacing: 0.01em;
   }
   .nav-logo .logotype {
-    width: 28px; height: 28px; border-radius: 5px;
-    background: var(--ink);
-    display: flex; align-items: center; justify-content: center;
-    font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 700;
-    color: #fff; letter-spacing: 0;
+    height: 32px; width: auto; flex-shrink: 0;
+  }
+  .nav-logo .logotype img {
+    height: 32px; width: auto;
   }
   .nav-links { display: flex; gap: 28px; align-items: center; }
   .nav-links a {
@@ -70,7 +69,7 @@
     background: transparent; color: var(--dim); text-decoration: none;
     border: 1px solid var(--border); transition: all 0.2s;
   }
-  .nav-gh:hover { border-color: rgba(230,51,24,0.25); color: var(--text); }
+  .nav-gh:hover { border-color: rgba(184,64,50,0.25); color: var(--text); }
 
   /* ── hero ── */
   .hero {
@@ -93,7 +92,7 @@
     animation: rise 0.7s ease-out 0.1s both;
   }
   .hero h1 .word-prove {
-    background: linear-gradient(110deg, #c41414 0%, #e63318 45%, #ff6b2b 100%);
+    background: linear-gradient(110deg, #8f2d20 0%, #b84032 45%, #c96040 100%);
     -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
   }
   .hero-sub {
@@ -210,7 +209,7 @@
   }
   .flow-note {
     margin-top: 24px; padding: 14px 20px;
-    border-left: 2px solid rgba(230,51,24,0.3);
+    border-left: 2px solid rgba(184,64,50,0.3);
     font-family: 'IBM Plex Sans', sans-serif;
     font-size: 1rem; color: var(--dim); line-height: 1.65;
   }
@@ -254,7 +253,7 @@
     display: inline-block; padding: 1px 8px; border-radius: 2px; font-size: 0.7rem; font-weight: 600;
     font-family: 'IBM Plex Mono', monospace; margin-right: 5px; margin-bottom: 4px;
   }
-  .tag-ink   { background: rgba(230,51,24,0.08); color: var(--ink); }
+  .tag-ink   { background: rgba(184,64,50,0.08); color: var(--ink); }
   .tag-green { background: rgba(74,222,128,0.07);  color: var(--green); }
   .tag-sky   { background: rgba(125,211,252,0.07); color: var(--sky); }
   .tag-amber { background: rgba(251,191,36,0.07);  color: var(--amber); }
@@ -383,7 +382,7 @@
 <!-- ── Nav ── -->
 <nav>
   <a href="#" class="nav-logo">
-    <div class="logotype">B</div>
+    <div class="logotype"><img src="assets/blaster-logo.png" alt="Blaster"></div>
     Blaster
   </a>
   <div class="nav-links">
@@ -441,8 +440,8 @@
       </div>
       <div class="flow-arrow">→</div>
       <div class="flow-step">
-        <div class="step-icon" style="background:rgba(230,51,24,0.1)">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#e63318" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        <div class="step-icon" style="background:rgba(184,64,50,0.1)">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#b84032" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
         </div>
         <h4>Translate</h4>
         <p>Lean4 types and expressions encoded as SMT-LIB V2: sorts, terms, quantifiers</p>
@@ -681,14 +680,14 @@
         <div class="code-block" style="margin-bottom:16px">
           <div class="code-block-bar">lakefile.toml</div>
           <pre><span style="color:#c084fc">[[require]]</span>
-<span style="color:#e63318">name</span> = <span style="color:#4ade80">"Blaster"</span>
-<span style="color:#e63318">git</span>  = <span style="color:#4ade80">"https://github.com/input-output-hk/Lean-blaster"</span>
-<span style="color:#e63318">rev</span>  = <span style="color:#4ade80">"main"</span></pre>
+<span style="color:#b84032">name</span> = <span style="color:#4ade80">"Blaster"</span>
+<span style="color:#b84032">git</span>  = <span style="color:#4ade80">"https://github.com/input-output-hk/Lean-blaster"</span>
+<span style="color:#b84032">rev</span>  = <span style="color:#4ade80">"main"</span></pre>
         </div>
         <h4>lakefile.lean</h4>
         <div class="code-block">
           <div class="code-block-bar">lakefile.lean</div>
-          <pre><span style="color:#c084fc">require</span> «<span style="color:#e63318">Blaster</span>» <span style="color:#c084fc">from</span> git
+          <pre><span style="color:#c084fc">require</span> «<span style="color:#b84032">Blaster</span>» <span style="color:#c084fc">from</span> git
   <span style="color:#4ade80">"https://github.com/input-output-hk/Lean-blaster"</span>
   @ <span style="color:#4ade80">"main"</span></pre>
         </div>
@@ -699,19 +698,19 @@
         <h4>Your Lean4 file</h4>
         <div class="code-block">
           <div class="code-block-bar">MyProofs.lean</div>
-          <pre><span style="color:#c084fc">import</span> <span style="color:#e63318">Blaster.Tactic</span>
+          <pre><span style="color:#c084fc">import</span> <span style="color:#b84032">Blaster.Tactic</span>
 
-<span style="color:#c084fc">theorem</span> <span style="color:#e63318">addComm</span> (a b : <span style="color:#38bdf8">Nat</span>) :
+<span style="color:#c084fc">theorem</span> <span style="color:#b84032">addComm</span> (a b : <span style="color:#38bdf8">Nat</span>) :
     a + b = b + a := by
-  <span style="color:#e63318">blaster</span>
+  <span style="color:#b84032">blaster</span>
 <span style="color:#4ade80">-- ✅ Valid</span>
 
 <span style="color:#8b92a9">-- or inline, outside a proof:</span>
-<span style="color:#e63318">#blaster</span> [ <span style="color:#c084fc">∀</span> (a b : <span style="color:#38bdf8">Nat</span>), a + b = b + a ]
+<span style="color:#b84032">#blaster</span> [ <span style="color:#c084fc">∀</span> (a b : <span style="color:#38bdf8">Nat</span>), a + b = b + a ]
 <span style="color:#4ade80">-- ✅ Valid</span>
 
 <span style="color:#8b92a9">-- with options:</span>
-<span style="color:#e63318">#blaster</span> (timeout: 30) (dump-smt-lib: 1)
+<span style="color:#b84032">#blaster</span> (timeout: 30) (dump-smt-lib: 1)
   [ <span style="color:#c084fc">∀</span> (a b : <span style="color:#38bdf8">Nat</span>), a + b = b + a ]</pre>
         </div>
       </div>
