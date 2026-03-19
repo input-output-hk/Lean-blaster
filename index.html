@@ -789,31 +789,60 @@ camera.position.z = 7;
 // 16 vertices at all (±1, ±1, ±1, ±1)
 const verts4 = [];
 for (let i = 0; i < 16; i++) {
-  verts4.push([
-    (i & 1) ? 1 : -1,
-    (i & 2) ? 1 : -1,
-    (i & 4) ? 1 : -1,
-    (i & 8) ? 1 : -1,
-  ]);
+  verts4.push([ (i&1)?1:-1, (i&2)?1:-1, (i&4)?1:-1, (i&8)?1:-1 ]);
 }
 
-// 32 edges: pairs of vertices that differ in exactly one bit
+// 32 edges: vertex pairs differing in exactly one bit
 const edgeIdx = [];
-for (let a = 0; a < 16; a++) {
-  for (let b = a + 1; b < 16; b++) {
-    const d = a ^ b;
-    if (d !== 0 && (d & (d - 1)) === 0) edgeIdx.push(a, b);
+for (let a = 0; a < 16; a++)
+  for (let b = a+1; b < 16; b++) {
+    const d = a^b;
+    if (d && !(d & (d-1))) edgeIdx.push(a, b);
+  }
+
+// 24 faces: choose 2 varying dimensions, fix the other 2 → quad → 2 triangles
+// 6 dim-pairs × 4 fixed-value combos × 2 tris × 3 verts = 144 entries
+const faceIdx = [];
+for (let d1 = 0; d1 < 4; d1++) {
+  for (let d2 = d1+1; d2 < 4; d2++) {
+    const fx = [0,1,2,3].filter(d => d !== d1 && d !== d2);
+    for (let fv = 0; fv < 4; fv++) {
+      const base = ((fv&1)?(1<<fx[0]):0) | ((fv&2)?(1<<fx[1]):0);
+      const v0=base, v1=base|(1<<d1), v2=base|(1<<d1)|(1<<d2), v3=base|(1<<d2);
+      faceIdx.push(v0,v1,v2, v0,v2,v3);
+    }
   }
 }
-// edgeIdx has 64 entries (32 edges × 2 vertex indices)
 
-// BufferGeometry with 64 positions updated every frame
+// Edges
 const tessGeo = new THREE.BufferGeometry();
 const tessPos = new Float32Array(edgeIdx.length * 3);
 tessGeo.setAttribute('position', new THREE.BufferAttribute(tessPos, 3));
-const tessMat = new THREE.LineBasicMaterial({ color: 0x818cf8, transparent: true, opacity: 0.13 });
-const tess = new THREE.LineSegments(tessGeo, tessMat);
-scene.add(tess);
+const tessMat = new THREE.LineBasicMaterial({
+  color: 0x818cf8, transparent: true, opacity: 0.20,
+  blending: THREE.AdditiveBlending, depthWrite: false
+});
+scene.add(new THREE.LineSegments(tessGeo, tessMat));
+
+// Faces (semi-transparent, additive — overlapping faces naturally brighten)
+const faceGeo = new THREE.BufferGeometry();
+const facePos = new Float32Array(faceIdx.length * 3);
+faceGeo.setAttribute('position', new THREE.BufferAttribute(facePos, 3));
+const faceMat = new THREE.MeshBasicMaterial({
+  color: 0x6366f1, transparent: true, opacity: 0.045,
+  side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false
+});
+scene.add(new THREE.Mesh(faceGeo, faceMat));
+
+// Vertex glow points
+const vertGeo = new THREE.BufferGeometry();
+const vertPos = new Float32Array(16 * 3);
+vertGeo.setAttribute('position', new THREE.BufferAttribute(vertPos, 3));
+const vertMat = new THREE.PointsMaterial({
+  color: 0xa5b4fc, size: 0.08, transparent: true, opacity: 0.75,
+  blending: THREE.AdditiveBlending, depthWrite: false
+});
+scene.add(new THREE.Points(vertGeo, vertMat));
 
 // 4D perspective projection: viewer sits at w = +d, projects onto w = 0 hyperplane
 function project(v4, d = 2.8) {
@@ -885,16 +914,32 @@ const SCALE = 1.55;
     return project(r);
   });
 
-  // Fill LineSegments buffer
-  const pa = tessGeo.attributes.position.array;
+  // Edges
+  const ea = tessGeo.attributes.position.array;
   for (let e = 0; e < edgeIdx.length; e++) {
-    const [x, y, z] = proj[edgeIdx[e]];
-    pa[e*3]   = x * SCALE;
-    pa[e*3+1] = y * SCALE;
-    pa[e*3+2] = z * SCALE;
+    const [x,y,z] = proj[edgeIdx[e]];
+    ea[e*3] = x*SCALE; ea[e*3+1] = y*SCALE; ea[e*3+2] = z*SCALE;
   }
   tessGeo.attributes.position.needsUpdate = true;
-  tessMat.opacity = 0.13 * fade;
+  tessMat.opacity = 0.20 * fade;
+
+  // Faces
+  const fa = faceGeo.attributes.position.array;
+  for (let i = 0; i < faceIdx.length; i++) {
+    const [x,y,z] = proj[faceIdx[i]];
+    fa[i*3] = x*SCALE; fa[i*3+1] = y*SCALE; fa[i*3+2] = z*SCALE;
+  }
+  faceGeo.attributes.position.needsUpdate = true;
+  faceMat.opacity = 0.045 * fade;
+
+  // Vertices
+  const va = vertGeo.attributes.position.array;
+  for (let i = 0; i < 16; i++) {
+    const [x,y,z] = proj[i];
+    va[i*3] = x*SCALE; va[i*3+1] = y*SCALE; va[i*3+2] = z*SCALE;
+  }
+  vertGeo.attributes.position.needsUpdate = true;
+  vertMat.opacity = 0.75 * fade;
 
   // Drift particles
   const pp = pGeo.attributes.position.array;
