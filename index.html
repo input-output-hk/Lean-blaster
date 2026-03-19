@@ -313,20 +313,6 @@
 
   /* ── built by ── */
   .people { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
-  .person-card {
-    display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-radius: 10px;
-    background: var(--bg2); border: 1px solid var(--border);
-    text-decoration: none; color: var(--text); transition: all 0.2s;
-  }
-  .person-card:hover { border-color: rgba(129,140,248,0.3); transform: translateY(-2px); }
-  .person-avatar {
-    width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center;
-    font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; font-weight: 700;
-    color: #fff;
-  }
-  .person-name  { font-weight: 600; font-size: 0.9rem; }
-  .person-handle{ font-size: 0.75rem; color: var(--dim); }
   .org-card {
     display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-radius: 10px;
     background: var(--bg2); border: 1px solid var(--border);
@@ -764,23 +750,7 @@
         Input Output Global
       </a>
     </div>
-    <p style="font-size:0.85rem;color:var(--dim);margin-bottom:20px;margin-top:24px">Maintained by</p>
-    <div class="people">
-      <a href="https://github.com/etiennejf" target="_blank" class="person-card">
-        <div class="person-avatar" style="background:linear-gradient(135deg,#818cf8,#c084fc)">JE</div>
-        <div>
-          <div class="person-name">Jean-Frédéric Etienne</div>
-          <div class="person-handle">@etiennejf</div>
-        </div>
-      </a>
-      <a href="https://github.com/RSoulatIOHK" target="_blank" class="person-card">
-        <div class="person-avatar" style="background:linear-gradient(135deg,#38bdf8,#818cf8)">RS</div>
-        <div>
-          <div class="person-name">Romain Soulat</div>
-          <div class="person-handle">@RSoulatIOHK</div>
-        </div>
-      </a>
-    </div>
+
   </div>
 </section>
 
