@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Blaster — SMT Backend for Lean4</title>
+<title>Blaster: SMT Backend for Lean4</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
@@ -378,7 +378,7 @@
   <h1><span class="word-prove">Prove</span> it.</h1>
   <p class="hero-sub">
     Write a Lean4 theorem. Call <code style="font-family:'JetBrains Mono',monospace;color:var(--ink);font-size:0.9em">blaster</code>.
-    Get a proof — or a concrete counterexample that tells you exactly why it's wrong.
+    Get a proof, or a concrete counterexample that tells you exactly why it's wrong.
   </p>
   <div class="hero-actions">
     <a href="https://github.com/input-output-hk/Lean-blaster" class="btn btn-ink" target="_blank">
@@ -404,7 +404,7 @@
   <div class="wrap">
     <div class="section-tag">How it works</div>
     <h2 class="section-h">Three steps, one command</h2>
-    <p class="section-p">Blaster doesn't just pass your goal to the solver. It first tries to close it entirely through symbolic simplification — no SMT query needed.</p>
+    <p class="section-p">Blaster doesn't just pass your goal to the solver. It first tries to close it through symbolic simplification. No SMT query needed.</p>
 
     <div class="flow">
       <div class="flow-step">
@@ -420,7 +420,7 @@
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
         </div>
         <h4>Translate</h4>
-        <p>Lean4 types and expressions encoded as SMT-LIB V2 — sorts, terms, quantifiers</p>
+        <p>Lean4 types and expressions encoded as SMT-LIB V2: sorts, terms, quantifiers</p>
       </div>
       <div class="flow-arrow">→</div>
       <div class="flow-step">
@@ -433,7 +433,7 @@
     </div>
 
     <div class="flow-note">
-      <strong>Early exit:</strong> if the optimizer reduces the goal to <code style="font-family:'JetBrains Mono',monospace;font-size:0.9em;color:var(--green)">True</code>, Blaster declares Valid immediately — the SMT solver is never invoked. Conversely, reduction to <code style="font-family:'JetBrains Mono',monospace;font-size:0.9em;color:var(--red)">False</code> gives an instant Falsified. The solver only runs when symbolic reasoning isn't enough.
+      <strong>Early exit:</strong> if the optimizer reduces the goal to <code style="font-family:'JetBrains Mono',monospace;font-size:0.9em;color:var(--green)">True</code>, Blaster declares Valid immediately with no SMT call. Reduction to <code style="font-family:'JetBrains Mono',monospace;font-size:0.9em;color:var(--red)">False</code> gives an instant Falsified. The solver only runs when symbolic reasoning is not enough.
     </div>
   </div>
 </section>
@@ -443,7 +443,7 @@
   <div class="wrap" style="padding-top: 0">
     <div class="section-tag">Examples</div>
     <h2 class="section-h">What Blaster can prove</h2>
-    <p class="section-p">From first-order arithmetic to polymorphic inductive types and state machines — with a single tactic.</p>
+    <p class="section-p">From first-order arithmetic to polymorphic inductive types and state machines, all with a single tactic.</p>
 
     <div class="ex-tabs">
       <button class="ex-tab active" onclick="showEx('arith', this)">Arithmetic</button>
@@ -537,7 +537,7 @@
       </div>
       <div class="ex-prose">
         <h3>Recursive &amp; mutually recursive</h3>
-        <p>Blaster unfolds recursive definitions and applies algebraic normalization before SMT translation — often reducing recursive properties to straightforward quantified formulae.</p>
+        <p>Blaster unfolds recursive definitions and applies algebraic normalization before SMT translation, often reducing recursive properties to straightforward quantified formulae.</p>
         <p>Combine with Lean4's <code style="font-family:'JetBrains Mono',monospace;color:var(--ink);font-size:0.88em">induction</code> tactic to split goals that require induction; Blaster handles each case.</p>
         <span class="tag tag-ink">recursive defs</span>
         <span class="tag tag-ink">mutual recursion</span>
@@ -551,7 +551,7 @@
         <div class="ex-code-bar">Counter.lean</div>
         <pre><span class="c-dim">-- Bounded Model Checking: find counterexamples</span>
 <span class="c-fn">#bmc</span> (max-depth: 8) [counterStateMachine]
-<span class="c-err">❌ Falsified — Depth 4</span>
+<span class="c-err">❌ Falsified  (Depth 4)</span>
 <span class="c-dim">Counterexample:</span>
 <span class="c-dim"> input@1: Request.Tr</span>
 <span class="c-dim"> input@2: Request.Fa</span>
@@ -566,7 +566,7 @@
       </div>
       <div class="ex-prose">
         <h3>State machine verification</h3>
-        <p>Blaster ships with a <code style="font-family:'JetBrains Mono',monospace;color:var(--ink);font-size:0.88em">StateMachine</code> typeclass. Define your states, transitions, and invariants in Lean4 — then use <code style="font-family:'JetBrains Mono',monospace;color:var(--ink);font-size:0.88em">#bmc</code> or <code style="font-family:'JetBrains Mono',monospace;color:var(--ink);font-size:0.88em">#kind</code> to verify them.</p>
+        <p>Blaster ships with a <code style="font-family:'JetBrains Mono',monospace;color:var(--ink);font-size:0.88em">StateMachine</code> typeclass. Define your states, transitions, and invariants in Lean4, then use <code style="font-family:'JetBrains Mono',monospace;color:var(--ink);font-size:0.88em">#bmc</code> or <code style="font-family:'JetBrains Mono',monospace;color:var(--ink);font-size:0.88em">#kind</code> to verify them.</p>
         <p><strong>#bmc</strong> searches for invariant violations up to a given depth. <strong>#kind</strong> proves invariants hold at every reachable state via k-induction.</p>
         <span class="tag tag-ink">StateMachine</span>
         <span class="tag tag-sky">#bmc</span>
@@ -595,7 +595,7 @@
       </div>
       <div class="ex-prose">
         <h3>Concrete counterexamples</h3>
-        <p>When the solver finds a falsifying assignment, Blaster decodes the SMT model back into a concrete Lean4 value — including nested inductive structures.</p>
+        <p>When the solver finds a falsifying assignment, Blaster decodes the SMT model back into a concrete Lean4 value, including nested inductive structures.</p>
         <p>The counterexample is printed directly in the editor, giving you the exact witness that breaks your theorem.</p>
         <span class="tag tag-red">sat model decoding</span>
         <span class="tag tag-ink">inductive values</span>
@@ -610,7 +610,7 @@
   <div class="wrap" style="padding-top: 0">
     <div class="section-tag">Results</div>
     <h2 class="section-h">Three possible answers</h2>
-    <p class="section-p">Every call to <code style="font-family:'JetBrains Mono',monospace;color:var(--ink)">blaster</code> ends in one of three outcomes — each actionable.</p>
+    <p class="section-p">Every call to <code style="font-family:'JetBrains Mono',monospace;color:var(--ink)">blaster</code> ends in one of three outcomes, each actionable.</p>
 
     <div class="outcomes">
       <div class="outcome-card valid">
@@ -621,7 +621,7 @@
       <div class="outcome-card falsified">
         <div class="outcome-verdict">❌ Falsified</div>
         <h3>Counterexample found</h3>
-        <p>The solver returned <em>sat</em> — the goal is provably wrong. The satisfying model is decoded into a Lean4 value and printed inline.</p>
+        <p>The solver returned <em>sat</em>: the goal is provably wrong. The satisfying model is decoded into a Lean4 value and printed inline.</p>
         <div class="outcome-cex">
           <span class="cex-label">Counterexample:</span><br>
           &nbsp;- n: 42
@@ -630,7 +630,7 @@
       <div class="outcome-card unknown">
         <div class="outcome-verdict">? Undetermined</div>
         <h3>Solver gave up</h3>
-        <p>The solver returned <em>unknown</em> — typically due to timeout or a formula outside decidable fragments. The goal is returned as-is for manual reasoning.</p>
+        <p>The solver returned <em>unknown</em>, typically due to timeout or a formula outside decidable fragments. The goal is returned as-is for manual reasoning.</p>
       </div>
     </div>
   </div>
@@ -648,13 +648,13 @@
         <div class="bench-fraction">103</div>
         <div style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--ink);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:12px">theorems proved</div>
         <div class="bench-name">Natural Number Game</div>
-        <div class="bench-note">Theorems proved automatically across NNG4's arithmetic and number-theory exercises — without writing a single line of proof.</div>
+        <div class="bench-note">Theorems proved automatically across NNG4's arithmetic and number-theory exercises, without writing a single line of proof.</div>
       </a>
       <a href="https://github.com/djvelleman/STG4" target="_blank" class="bench-card" style="text-decoration:none">
         <div class="bench-fraction">51</div>
         <div style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--ink);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:12px">theorems proved</div>
         <div class="bench-name">Set Theory Game</div>
-        <div class="bench-note">Set-theoretic theorems discharged automatically across the full STG4 exercise corpus — covering unions, intersections, and family combinatorics.</div>
+        <div class="bench-note">Set-theoretic theorems discharged automatically across the full STG4 exercise corpus, covering unions, intersections, and family combinatorics.</div>
       </a>
       <a href="https://github.com/input-output-hk/Blaster-benchmarking" target="_blank" class="bench-card" style="text-decoration:none">
         <div class="bench-fraction" style="font-size:2rem;margin-bottom:14px">Full results</div>
@@ -674,7 +674,7 @@
 
     <div class="setup-grid">
       <div class="setup-step">
-        <div class="setup-num">Step 1 — Add dependency</div>
+        <div class="setup-num">Step 1: Add dependency</div>
         <h4>lakefile.toml</h4>
         <div class="code-block" style="margin-bottom:16px">
           <div class="code-block-bar">lakefile.toml</div>
@@ -693,7 +693,7 @@
       </div>
 
       <div class="setup-step">
-        <div class="setup-num">Step 2 — Use it</div>
+        <div class="setup-num">Step 2: Use it</div>
         <h4>Your Lean4 file</h4>
         <div class="code-block">
           <div class="code-block-bar">MyProofs.lean</div>
@@ -767,7 +767,7 @@ function showEx(id, btn) {
       hold: 2200
     },
     {
-      label: 'Proof.lean — running…',
+      label: 'Proof.lean  running…',
       html:
 `${kw('theorem')} ${fn('nonNeg_product')} (n : ${ty('Int')}) :
     0 ≤ n * n + n := ${kw('by')}
@@ -824,13 +824,13 @@ ${cm('--    Counterexample: n = -3')}`,
       hold: 2600
     },
     {
-      label: 'Proof.lean — fixing…',
+      label: 'Proof.lean  fixing…',
       html:
 `${cm('-- n*(n+1) ≥ 0 fails when n = -3: (-3)*(-2)=6≥0  hmm...')}
 ${cm('-- Actually fails: n = -3, wait 6 ≥ 0 is true...')}
 ${cm('-- Let me check: need 0 ≤ n*(n+1), fails at n=-3: true')}
 ${cm('-- Fails at odd negative: n=-1 → 0≥0 ✓, n=-3 → 6≥0 ✓')}
-${cm('-- Ah: needs 0 ≤ n — add hypothesis')}
+${cm('-- Ah: needs hypothesis 0 ≤ n')}
 
 ${kw('theorem')} ${fn('nonNeg_product')} (n : ${ty('Int')})
     ${hl('(h : 0 ≤ n)')} :
