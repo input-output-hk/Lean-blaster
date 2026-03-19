@@ -5,126 +5,117 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Blaster: SMT Backend for Lean4</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   :root {
-    --bg:     #080910;
-    --bg2:    #0e0f19;
-    --bg3:    #15172a;
-    --ink:    #818cf8;   /* indigo — primary */
+    --bg:     #09090e;
+    --bg2:    #0d0d14;
+    --bg3:    #121219;
+    --ink:    #818cf8;
     --ink2:   #6366f1;
-    --ink-glow: rgba(129,140,248,0.12);
+    --ink-glow: rgba(129,140,248,0.08);
     --green:  #4ade80;
     --red:    #f87171;
     --amber:  #fbbf24;
-    --sky:    #38bdf8;
-    --text:   #e2e8f0;
-    --dim:    #8b92a9;
-    --border: rgba(255,255,255,0.07);
+    --sky:    #7dd3fc;
+    --text:   #dde1ef;
+    --dim:    #7a8099;
+    --border: rgba(255,255,255,0.04);
   }
 
   html { scroll-behavior: smooth; }
   body {
-    font-family: 'Inter', -apple-system, sans-serif;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 17px;
     background: var(--bg);
     color: var(--text);
-    line-height: 1.6;
+    line-height: 1.65;
     overflow-x: hidden;
   }
-
-  /* ── background ── */
-  #bg-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
-  .bg-grid {
-    position: fixed; inset: 0; z-index: 0; pointer-events: none;
-    background-image:
-      linear-gradient(rgba(129,140,248,0.025) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(129,140,248,0.025) 1px, transparent 1px);
-    background-size: 48px 48px;
-  }
-  .bg-glow {
-    position: fixed; z-index: 0; pointer-events: none;
-    border-radius: 50%; filter: blur(130px); opacity: 0.35;
-  }
-  .bg-glow.g1 { width: 700px; height: 700px; top: -250px; right: -150px;  background: rgba(99,102,241,0.18); }
-  .bg-glow.g2 { width: 500px; height: 500px; bottom: -200px; left: -100px; background: rgba(52,211,153,0.10); }
 
   .content { position: relative; z-index: 1; }
 
   /* ── nav ── */
   nav {
     position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-    padding: 14px 48px;
+    padding: 13px 48px;
     display: flex; align-items: center; justify-content: space-between;
-    background: rgba(8,9,16,0.75); backdrop-filter: blur(24px);
+    background: rgba(9,9,14,0.88); backdrop-filter: blur(18px);
     border-bottom: 1px solid var(--border);
   }
   .nav-logo {
     display: flex; align-items: center; gap: 10px;
-    font-weight: 800; font-size: 1.15rem; color: var(--text); text-decoration: none;
-    letter-spacing: -0.02em;
+    font-family: 'IBM Plex Sans', sans-serif; font-weight: 700; font-size: 1.2rem;
+    color: var(--text); text-decoration: none; letter-spacing: 0.01em;
   }
   .nav-logo .logotype {
-    width: 30px; height: 30px; border-radius: 7px;
-    background: linear-gradient(135deg, var(--ink), #c084fc);
+    width: 28px; height: 28px; border-radius: 5px;
+    background: var(--ink);
     display: flex; align-items: center; justify-content: center;
-    font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700;
+    font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 700;
     color: #fff; letter-spacing: 0;
   }
   .nav-links { display: flex; gap: 28px; align-items: center; }
   .nav-links a {
-    color: var(--dim); text-decoration: none; font-size: 0.88rem; font-weight: 500;
-    transition: color 0.2s;
+    color: var(--dim); text-decoration: none; font-size: 0.95rem; font-weight: 500;
+    font-family: 'IBM Plex Sans', sans-serif; transition: color 0.2s;
   }
   .nav-links a:hover { color: var(--text); }
   .nav-gh {
     display: flex; align-items: center; gap: 6px;
-    padding: 7px 16px; border-radius: 7px; font-weight: 600; font-size: 0.83rem;
-    background: var(--bg3); color: var(--text); text-decoration: none;
+    padding: 6px 14px; border-radius: 5px; font-weight: 600; font-size: 0.82rem;
+    font-family: 'IBM Plex Mono', monospace;
+    background: transparent; color: var(--dim); text-decoration: none;
     border: 1px solid var(--border); transition: all 0.2s;
   }
-  .nav-gh:hover { border-color: rgba(129,140,248,0.35); color: var(--ink); }
+  .nav-gh:hover { border-color: rgba(129,140,248,0.25); color: var(--text); }
 
   /* ── hero ── */
   .hero {
     min-height: 100vh; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; text-align: center;
-    padding: 130px 40px 80px;
+    align-items: flex-start; justify-content: center; text-align: left;
+    padding: 130px 0 80px;
+    max-width: 900px; margin: 0 auto;
+    padding-left: 48px; padding-right: 48px;
   }
   .hero-eyebrow {
-    font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; font-weight: 600;
-    letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink);
-    margin-bottom: 24px; opacity: 0.9;
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; font-weight: 600;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink);
+    margin-bottom: 20px; opacity: 0.85;
     animation: rise 0.7s ease-out both;
   }
   .hero h1 {
-    font-size: clamp(3.5rem, 8vw, 7rem);
-    font-weight: 900; line-height: 1.0; letter-spacing: -0.04em;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: clamp(3.2rem, 7.5vw, 6.5rem);
+    font-weight: 700; line-height: 1.0; letter-spacing: -0.01em;
     animation: rise 0.7s ease-out 0.1s both;
   }
   .hero h1 .word-prove {
     background: linear-gradient(110deg, var(--ink) 0%, #c084fc 50%, var(--sky) 100%);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
   }
   .hero-sub {
-    font-size: 1.1rem; color: var(--dim); max-width: 520px;
+    font-size: 1.15rem; color: var(--dim); max-width: 560px;
     margin-top: 22px; line-height: 1.75; font-weight: 400;
+    font-family: 'IBM Plex Sans', sans-serif;
     animation: rise 0.7s ease-out 0.2s both;
   }
   .hero-actions {
-    margin-top: 32px; display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
+    margin-top: 30px; display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-start;
     animation: rise 0.7s ease-out 0.3s both;
   }
   .btn {
-    padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 0.9rem;
+    padding: 9px 22px; border-radius: 4px; font-weight: 600; font-size: 0.82rem;
+    font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.02em;
     text-decoration: none; display: inline-flex; align-items: center; gap: 7px;
     transition: all 0.2s; border: none; cursor: pointer;
   }
   .btn-ink     { background: var(--ink); color: #fff; }
-  .btn-ink:hover { background: #9da5fb; transform: translateY(-1px); box-shadow: 0 6px 24px rgba(129,140,248,0.3); }
+  .btn-ink:hover { background: #9da5fb; }
   .btn-ghost   { background: transparent; color: var(--dim); border: 1px solid var(--border); }
-  .btn-ghost:hover { color: var(--text); border-color: rgba(255,255,255,0.15); }
+  .btn-ghost:hover { color: var(--text); border-color: rgba(255,255,255,0.10); }
 
   /* before/after split demo */
   .hero-demo {
@@ -134,33 +125,40 @@
     animation: rise 0.7s ease-out 0.4s both;
   }
   .demo-pane {
-    background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 3px;
     overflow: hidden;
   }
   .demo-pane-bar {
-    padding: 9px 14px; display: flex; align-items: center; gap: 7px;
-    border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.02);
+    padding: 8px 14px; display: flex; align-items: center; gap: 7px;
+    border-bottom: 1px solid var(--border);
   }
-  .demo-pane-bar .dot { width: 9px; height: 9px; border-radius: 50%; }
-  .demo-pane-bar .dot.r { background: #f87171; }
-  .demo-pane-bar .dot.y { background: #fbbf24; }
-  .demo-pane-bar .dot.g { background: #4ade80; }
+  .demo-pane-bar .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .demo-pane-bar .dot.r { background: rgba(248,113,113,0.5); }
+  .demo-pane-bar .dot.y { background: rgba(251,191,36,0.5); }
+  .demo-pane-bar .dot.g { background: rgba(74,222,128,0.5); }
   .demo-pane-bar .label {
-    margin-left: 6px; font-family: 'JetBrains Mono', monospace;
-    font-size: 0.7rem; color: var(--dim);
+    margin-left: 6px; font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem; color: var(--dim);
   }
   .demo-pane pre {
-    padding: 18px 20px; font-family: 'JetBrains Mono', monospace;
-    font-size: 0.78rem; line-height: 1.9; overflow-x: auto;
+    padding: 18px 20px; font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.88rem; line-height: 1.8; overflow-x: auto;
   }
-  .c-kw   { color: #c084fc; }
+  .c-kw   { color: #a78bfa; }
   .c-fn   { color: var(--ink); }
   .c-ty   { color: var(--sky); }
-  .c-cm   { color: #464e62; font-style: italic; }
+  .c-cm   { color: #3e4459; font-style: italic; }
   .c-ok   { color: var(--green); }
   .c-err  { color: #f87171; }
-  .c-dim  { color: #3a4257; }
+  .c-dim  { color: #333b52; }
   .c-sorry{ color: #f87171; text-decoration: underline wavy; }
+
+  .c-cursor {
+    display: inline-block; width: 2px; height: 1.1em;
+    background: var(--ink); vertical-align: text-bottom; margin-left: 1px;
+    animation: blink 1s step-end infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
 
   @keyframes rise {
     from { opacity: 0; transform: translateY(18px); }
@@ -168,17 +166,19 @@
   }
 
   /* ── shared section styles ── */
-  .wrap { max-width: 1080px; margin: 0 auto; padding: 96px 40px; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 96px 48px; }
   .section-tag {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.7rem; font-weight: 600; letter-spacing: 0.12em;
-    text-transform: uppercase; color: var(--ink); margin-bottom: 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem; font-weight: 600; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--ink); margin-bottom: 12px;
   }
   .section-h {
-    font-size: 2.2rem; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 14px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 2.4rem; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 14px;
   }
   .section-p {
-    color: var(--dim); font-size: 1rem; max-width: 520px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    color: var(--dim); font-size: 1.05rem; max-width: 540px;
     line-height: 1.75; margin-bottom: 48px;
   }
 
@@ -188,151 +188,181 @@
     overflow-x: auto; padding-bottom: 8px;
   }
   .flow-step {
-    flex: 1; min-width: 160px; text-align: center; padding: 28px 16px;
-    background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
-    transition: border-color 0.2s, transform 0.2s;
+    flex: 1; min-width: 160px; text-align: left; padding: 24px 20px;
+    border-left: 1px solid var(--border);
   }
-  .flow-step:hover { border-color: rgba(129,140,248,0.3); transform: translateY(-3px); }
+  .flow-step:first-child { border-left: none; }
   .flow-step .step-icon {
-    width: 48px; height: 48px; margin: 0 auto 14px;
-    border-radius: 12px; display: flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px; margin: 0 0 14px;
+    display: flex; align-items: center; justify-content: center;
   }
-  .flow-step h4 { font-size: 0.95rem; font-weight: 700; margin-bottom: 6px; }
-  .flow-step p  { font-size: 0.8rem; color: var(--dim); line-height: 1.6; }
+  .flow-step h4 {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 1.1rem; font-weight: 700; margin-bottom: 6px;
+  }
+  .flow-step p  {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 0.95rem; color: var(--dim); line-height: 1.65;
+  }
   .flow-arrow {
-    align-self: center; padding: 0 12px; color: var(--border);
-    font-size: 1.4rem; flex-shrink: 0; user-select: none;
+    align-self: center; padding: 0 8px; color: rgba(255,255,255,0.08);
+    font-size: 1.2rem; flex-shrink: 0; user-select: none;
   }
   .flow-note {
-    margin-top: 20px; padding: 14px 20px; border-radius: 10px;
-    background: rgba(129,140,248,0.06); border: 1px solid rgba(129,140,248,0.14);
-    font-size: 0.85rem; color: var(--dim); line-height: 1.6;
+    margin-top: 24px; padding: 14px 20px;
+    border-left: 2px solid rgba(129,140,248,0.3);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 1rem; color: var(--dim); line-height: 1.65;
   }
-  .flow-note strong { color: var(--ink); }
+  .flow-note strong { color: var(--text); font-weight: 600; }
 
   /* ── examples tabs ── */
-  .ex-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; }
+  .ex-tabs { display: flex; gap: 0; flex-wrap: wrap; margin-bottom: 28px; border-bottom: 1px solid var(--border); }
   .ex-tab {
-    padding: 7px 16px; border-radius: 7px; font-size: 0.83rem; font-weight: 600;
-    background: var(--bg2); border: 1px solid var(--border);
-    color: var(--dim); cursor: pointer; transition: all 0.2s;
+    padding: 8px 18px; font-size: 0.82rem; font-weight: 600;
+    font-family: 'IBM Plex Mono', monospace;
+    background: transparent; border: none; border-bottom: 2px solid transparent;
+    color: var(--dim); cursor: pointer; transition: all 0.2s; margin-bottom: -1px;
   }
-  .ex-tab.active { background: rgba(129,140,248,0.12); border-color: rgba(129,140,248,0.35); color: var(--ink); }
-  .ex-tab:hover:not(.active) { color: var(--text); border-color: rgba(255,255,255,0.12); }
+  .ex-tab.active { border-bottom-color: var(--ink); color: var(--ink); }
+  .ex-tab:hover:not(.active) { color: var(--text); }
   .ex-panel { display: none; }
-  .ex-panel.active { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+  .ex-panel.active { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
   @media (max-width: 720px) { .ex-panel.active { grid-template-columns: 1fr; } }
   .ex-code {
-    background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 3px; overflow: hidden;
   }
   .ex-code-bar {
-    padding: 9px 14px; border-bottom: 1px solid var(--border);
-    background: rgba(255,255,255,0.015); display: flex; align-items: center; gap: 6px;
-    font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--dim);
+    padding: 8px 14px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 6px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; color: var(--dim);
   }
   .ex-code pre {
-    padding: 18px 20px; font-family: 'JetBrains Mono', monospace;
-    font-size: 0.78rem; line-height: 1.85; overflow-x: auto;
+    padding: 18px 20px; font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.86rem; line-height: 1.8; overflow-x: auto;
   }
-  .ex-prose { padding: 8px 4px; }
-  .ex-prose h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 10px; }
-  .ex-prose p  { font-size: 0.88rem; color: var(--dim); line-height: 1.7; margin-bottom: 12px; }
+  .ex-prose { padding: 4px 0; }
+  .ex-prose h3 {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 1.25rem; font-weight: 700; margin-bottom: 10px;
+  }
+  .ex-prose p  {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 1rem; color: var(--dim); line-height: 1.7; margin-bottom: 12px;
+  }
   .ex-prose .tag {
-    display: inline-block; padding: 2px 9px; border-radius: 5px; font-size: 0.72rem; font-weight: 600;
-    font-family: 'JetBrains Mono', monospace; margin-right: 6px; margin-bottom: 4px;
+    display: inline-block; padding: 1px 8px; border-radius: 2px; font-size: 0.7rem; font-weight: 600;
+    font-family: 'IBM Plex Mono', monospace; margin-right: 5px; margin-bottom: 4px;
   }
-  .tag-ink   { background: rgba(129,140,248,0.12); color: var(--ink); }
-  .tag-green { background: rgba(74,222,128,0.10);  color: var(--green); }
-  .tag-sky   { background: rgba(56,189,248,0.10);  color: var(--sky); }
-  .tag-amber { background: rgba(251,191,36,0.10);  color: var(--amber); }
+  .tag-ink   { background: rgba(129,140,248,0.08); color: var(--ink); }
+  .tag-green { background: rgba(74,222,128,0.07);  color: var(--green); }
+  .tag-sky   { background: rgba(125,211,252,0.07); color: var(--sky); }
+  .tag-amber { background: rgba(251,191,36,0.07);  color: var(--amber); }
 
   /* ── outcomes ── */
-  .outcomes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+  .outcomes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0; }
   .outcome-card {
-    background: var(--bg2); border: 1px solid var(--border); border-radius: 14px;
-    padding: 28px; transition: all 0.25s;
+    border-left: 1px solid var(--border);
+    padding: 28px 28px 28px 24px;
   }
-  .outcome-card:hover { transform: translateY(-3px); }
-  .outcome-card.valid   { border-top: 2px solid var(--green); }
-  .outcome-card.falsified { border-top: 2px solid var(--red); }
-  .outcome-card.unknown { border-top: 2px solid var(--dim); }
+  .outcome-card:first-child { border-left: none; padding-left: 0; }
+  .outcome-card.valid   { border-left-color: rgba(74,222,128,0.2); }
+  .outcome-card.falsified { border-left-color: rgba(248,113,113,0.2); }
   .outcome-verdict {
-    font-family: 'JetBrains Mono', monospace; font-size: 1rem; font-weight: 700;
-    margin-bottom: 10px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.88rem; font-weight: 700;
+    margin-bottom: 12px; letter-spacing: 0.03em;
   }
   .outcome-card.valid   .outcome-verdict { color: var(--green); }
   .outcome-card.falsified .outcome-verdict { color: var(--red); }
   .outcome-card.unknown .outcome-verdict { color: var(--dim); }
-  .outcome-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
-  .outcome-card p  { font-size: 0.85rem; color: var(--dim); line-height: 1.65; }
+  .outcome-card h3 {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 1.15rem; font-weight: 700; margin-bottom: 8px;
+  }
+  .outcome-card p  {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 1rem; color: var(--dim); line-height: 1.7;
+  }
   .outcome-cex {
-    margin-top: 14px; padding: 10px 14px; border-radius: 8px;
-    background: rgba(248,113,113,0.06); border: 1px solid rgba(248,113,113,0.15);
-    font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; line-height: 1.7;
+    margin-top: 14px; padding: 10px 14px;
+    border-left: 2px solid rgba(248,113,113,0.25);
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; line-height: 1.7;
     color: var(--dim);
   }
   .outcome-cex .cex-label { color: var(--red); }
 
   /* ── benchmarks ── */
-  .bench-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; }
+  .bench-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0; }
   .bench-card {
-    background: var(--bg2); border: 1px solid var(--border); border-radius: 14px;
-    padding: 32px 28px; text-align: center; transition: all 0.25s;
+    border-left: 1px solid var(--border);
+    padding: 28px 28px 28px 24px; text-align: left; transition: color 0.2s;
+    text-decoration: none; display: block;
   }
-  .bench-card:hover { border-color: rgba(129,140,248,0.25); transform: translateY(-3px); }
+  .bench-card:first-child { border-left: none; padding-left: 0; }
   .bench-fraction {
-    font-size: 3rem; font-weight: 900; letter-spacing: -0.04em;
-    background: linear-gradient(135deg, var(--ink), #c084fc);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    margin-bottom: 10px; line-height: 1;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 3.5rem; font-weight: 700; letter-spacing: -0.02em;
+    color: var(--ink); margin-bottom: 4px; line-height: 1;
   }
-  .bench-name { font-weight: 700; font-size: 0.95rem; margin-bottom: 6px; }
-  .bench-note { color: var(--dim); font-size: 0.8rem; line-height: 1.6; }
+  .bench-name {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-weight: 600; font-size: 1rem; margin-bottom: 8px; color: var(--text);
+  }
+  .bench-note {
+    font-family: 'IBM Plex Sans', sans-serif;
+    color: var(--dim); font-size: 0.95rem; line-height: 1.65;
+  }
 
   /* ── get started ── */
   .setup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
   @media (max-width: 700px) { .setup-grid { grid-template-columns: 1fr; } }
   .setup-step { }
   .setup-num {
-    font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; font-weight: 700;
-    color: var(--ink); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; font-weight: 700;
+    color: var(--ink); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 10px;
   }
-  .setup-step h4 { font-size: 1rem; font-weight: 700; margin-bottom: 12px; }
+  .setup-step h4 {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 1.1rem; font-weight: 700; margin-bottom: 14px;
+  }
   .code-block {
-    background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 3px; overflow: hidden;
   }
   .code-block-bar {
-    padding: 8px 14px; border-bottom: 1px solid var(--border);
-    background: rgba(255,255,255,0.015); font-family: 'JetBrains Mono', monospace;
-    font-size: 0.7rem; color: var(--dim); display: flex; align-items: center; gap: 6px;
+    padding: 7px 14px; border-bottom: 1px solid var(--border);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem; color: var(--dim); display: flex; align-items: center; gap: 6px;
   }
   .code-block pre {
-    padding: 16px 18px; font-family: 'JetBrains Mono', monospace;
-    font-size: 0.78rem; line-height: 1.8; overflow-x: auto;
+    padding: 16px 18px; font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.86rem; line-height: 1.75; overflow-x: auto;
   }
 
   /* ── built by ── */
-  .people { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+  .people { display: flex; gap: 16px; justify-content: flex-start; flex-wrap: wrap; }
   .org-card {
-    display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-radius: 10px;
-    background: var(--bg2); border: 1px solid var(--border);
-    text-decoration: none; color: var(--text); font-weight: 600; font-size: 0.9rem;
-    transition: all 0.2s;
+    display: flex; align-items: center; gap: 12px; padding: 12px 18px;
+    border: 1px solid var(--border); border-radius: 3px;
+    text-decoration: none; color: var(--dim);
+    font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 1rem;
+    transition: color 0.2s;
   }
-  .org-card:hover { border-color: rgba(129,140,248,0.3); transform: translateY(-2px); }
+  .org-card:hover { color: var(--text); }
   .org-logo {
-    width: 36px; height: 36px; border-radius: 8px; background: #1a1d2a; padding: 5px;
+    width: 28px; height: 28px; padding: 3px;
     display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden;
   }
-  .org-logo img { max-width: 100%; max-height: 100%; object-fit: contain; filter: brightness(0) invert(1); }
+  .org-logo img { max-width: 100%; max-height: 100%; object-fit: contain; filter: brightness(0) invert(0.5); }
 
   /* ── footer ── */
   footer {
-    padding: 28px 40px; border-top: 1px solid var(--border);
-    text-align: center; font-size: 0.8rem; color: var(--dim);
+    padding: 24px 48px; border-top: 1px solid var(--border);
+    text-align: left; font-size: 0.8rem; color: var(--dim);
+    font-family: 'IBM Plex Mono', monospace;
+    max-width: 1080px; margin: 0 auto;
   }
-  footer a { color: var(--ink); text-decoration: none; }
-  footer a:hover { text-decoration: underline; }
+  footer a { color: var(--dim); text-decoration: none; }
+  footer a:hover { color: var(--text); }
 
   /* ── responsive ── */
   @media (max-width: 720px) {
@@ -347,11 +377,6 @@
 </style>
 </head>
 <body>
-
-<canvas id="bg-canvas"></canvas>
-<div class="bg-grid"></div>
-<div class="bg-glow g1"></div>
-<div class="bg-glow g2"></div>
 
 <div class="content">
 
@@ -377,7 +402,7 @@
   <div class="hero-eyebrow">Lean4 · SMT-LIB V2 · Automated Reasoning</div>
   <h1><span class="word-prove">Prove</span> it.</h1>
   <p class="hero-sub">
-    Write a Lean4 theorem. Call <code style="font-family:'JetBrains Mono',monospace;color:var(--ink);font-size:0.9em">blaster</code>.
+    Write a Lean4 theorem. Call <code style="font-family:'Inconsolata',monospace;color:var(--ink);font-size:0.9em">blaster</code>.
     Get a proof, or a concrete counterexample that tells you exactly why it's wrong.
   </p>
   <div class="hero-actions">
@@ -388,13 +413,13 @@
     <a href="#start" class="btn btn-ghost">Get started →</a>
   </div>
 
-  <div class="hero-demo" style="grid-template-columns:1fr;max-width:640px">
+  <div class="hero-demo" style="grid-template-columns:1fr;max-width:580px">
     <div class="demo-pane">
       <div class="demo-pane-bar">
-        <span class="dot r" id="dot-r"></span><span class="dot y" id="dot-y"></span><span class="dot g" id="dot-g"></span>
-        <span class="label" id="demo-label">Proof.lean</span>
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="label">Proof.lean</span>
       </div>
-      <pre id="demo-code" style="min-height:168px;transition:opacity 0.25s"></pre>
+      <pre id="demo-code" style="min-height:140px"></pre>
     </div>
   </div>
 </section>
@@ -428,12 +453,12 @@
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
         </div>
         <h4>Solve</h4>
-        <p>The solver decides: <em>unsat</em> → Valid, <em>sat</em> → counterexample, <em>unknown</em> → goal returned</p>
+        <p>Proof or counterexample. No manual proof required.</p>
       </div>
     </div>
 
     <div class="flow-note">
-      <strong>Early exit:</strong> if the optimizer reduces the goal to <code style="font-family:'JetBrains Mono',monospace;font-size:0.9em;color:var(--green)">True</code>, Blaster declares Valid immediately with no SMT call. Reduction to <code style="font-family:'JetBrains Mono',monospace;font-size:0.9em;color:var(--red)">False</code> gives an instant Falsified. The solver only runs when symbolic reasoning is not enough.
+      <strong>Early exit:</strong> if the optimizer reduces the goal to <code style="font-family:'Inconsolata',monospace;font-size:0.9em;color:var(--green)">True</code>, Blaster declares Valid immediately with no SMT call. Reduction to <code style="font-family:'Inconsolata',monospace;font-size:0.9em;color:var(--red)">False</code> gives an instant Falsified. The solver only runs when symbolic reasoning is not enough.
     </div>
   </div>
 </section>
@@ -538,7 +563,7 @@
       <div class="ex-prose">
         <h3>Recursive &amp; mutually recursive</h3>
         <p>Blaster unfolds recursive definitions and applies algebraic normalization before SMT translation, often reducing recursive properties to straightforward quantified formulae.</p>
-        <p>Combine with Lean4's <code style="font-family:'JetBrains Mono',monospace;color:var(--ink);font-size:0.88em">induction</code> tactic to split goals that require induction; Blaster handles each case.</p>
+        <p>Combine with Lean4's <code style="font-family:'Inconsolata',monospace;color:var(--ink);font-size:0.88em">induction</code> tactic to split goals that require induction; Blaster handles each case.</p>
         <span class="tag tag-ink">recursive defs</span>
         <span class="tag tag-ink">mutual recursion</span>
         <span class="tag tag-amber">+ induction tactic</span>
@@ -566,7 +591,7 @@
       </div>
       <div class="ex-prose">
         <h3>State machine verification</h3>
-        <p>Blaster ships with a <code style="font-family:'JetBrains Mono',monospace;color:var(--ink);font-size:0.88em">StateMachine</code> typeclass. Define your states, transitions, and invariants in Lean4, then use <code style="font-family:'JetBrains Mono',monospace;color:var(--ink);font-size:0.88em">#bmc</code> or <code style="font-family:'JetBrains Mono',monospace;color:var(--ink);font-size:0.88em">#kind</code> to verify them.</p>
+        <p>Blaster ships with a <code style="font-family:'Inconsolata',monospace;color:var(--ink);font-size:0.88em">StateMachine</code> typeclass. Define your states, transitions, and invariants in Lean4, then use <code style="font-family:'Inconsolata',monospace;color:var(--ink);font-size:0.88em">#bmc</code> or <code style="font-family:'Inconsolata',monospace;color:var(--ink);font-size:0.88em">#kind</code> to verify them.</p>
         <p><strong>#bmc</strong> searches for invariant violations up to a given depth. <strong>#kind</strong> proves invariants hold at every reachable state via k-induction.</p>
         <span class="tag tag-ink">StateMachine</span>
         <span class="tag tag-sky">#bmc</span>
@@ -610,13 +635,13 @@
   <div class="wrap" style="padding-top: 0">
     <div class="section-tag">Results</div>
     <h2 class="section-h">Three possible answers</h2>
-    <p class="section-p">Every call to <code style="font-family:'JetBrains Mono',monospace;color:var(--ink)">blaster</code> ends in one of three outcomes, each actionable.</p>
+    <p class="section-p">Every call to <code style="font-family:'Inconsolata',monospace;color:var(--ink)">blaster</code> ends in one of three outcomes, each actionable.</p>
 
     <div class="outcomes">
       <div class="outcome-card valid">
         <div class="outcome-verdict">✅ Valid</div>
         <h3>Theorem holds</h3>
-        <p>The solver returned <em>unsat</em> for the negated goal. The tactic closes the proof with <code style="font-family:'JetBrains Mono',monospace;font-size:0.85em;color:var(--green)">admit</code>. Note: proof reconstruction is not yet implemented.</p>
+        <p>The solver returned <em>unsat</em> for the negated goal. The tactic closes the proof with <code style="font-family:'Inconsolata',monospace;font-size:0.85em;color:var(--green)">admit</code>. Note: proof reconstruction is not yet implemented.</p>
       </div>
       <div class="outcome-card falsified">
         <div class="outcome-verdict">❌ Falsified</div>
@@ -646,13 +671,13 @@
     <div class="bench-grid">
       <a href="https://github.com/leanprover-community/NNG4" target="_blank" class="bench-card" style="text-decoration:none">
         <div class="bench-fraction">103</div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--ink);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:12px">theorems proved</div>
+        <div style="font-family:'Inconsolata',monospace;font-size:0.7rem;color:var(--ink);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:12px">theorems proved</div>
         <div class="bench-name">Natural Number Game</div>
         <div class="bench-note">Theorems proved automatically across NNG4's arithmetic and number-theory exercises, without writing a single line of proof.</div>
       </a>
       <a href="https://github.com/djvelleman/STG4" target="_blank" class="bench-card" style="text-decoration:none">
         <div class="bench-fraction">51</div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--ink);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:12px">theorems proved</div>
+        <div style="font-family:'Inconsolata',monospace;font-size:0.7rem;color:var(--ink);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:12px">theorems proved</div>
         <div class="bench-name">Set Theory Game</div>
         <div class="bench-note">Set-theoretic theorems discharged automatically across the full STG4 exercise corpus, covering unions, intersections, and family combinatorics.</div>
       </a>
@@ -670,7 +695,7 @@
   <div class="wrap" style="padding-top: 0">
     <div class="section-tag">Get started</div>
     <h2 class="section-h">Add Blaster to your project</h2>
-    <p class="section-p">Two steps: declare the dependency, then call <code style="font-family:'JetBrains Mono',monospace;color:var(--ink)">blaster</code>.</p>
+    <p class="section-p">Two steps: declare the dependency, then call <code style="font-family:'Inconsolata',monospace;color:var(--ink)">blaster</code>.</p>
 
     <div class="setup-grid">
       <div class="setup-step">
@@ -719,9 +744,9 @@
 
 <!-- ── Built by ── -->
 <section>
-  <div class="wrap" style="padding-top:0;padding-bottom:80px;text-align:center">
-    <p style="font-size:0.85rem;color:var(--dim);margin-bottom:24px">Built at</p>
-    <div class="people" style="justify-content:center;margin-bottom:16px">
+  <div class="wrap" style="padding-top:0;padding-bottom:80px">
+    <p style="font-family:'Inconsolata',monospace;font-size:0.72rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--dim);margin-bottom:20px">Built at</p>
+    <div class="people" style="margin-bottom:16px">
       <a href="https://iog.io" target="_blank" class="org-card">
         <div class="org-logo"><img src="assets/iog-logo.svg" alt="IOG"></div>
         Input Output Global
@@ -748,275 +773,90 @@ function showEx(id, btn) {
 
 // ── animated hero demo ──
 (function() {
-  const kw = s => `<span class="c-kw">${s}</span>`;
-  const fn = s => `<span class="c-fn">${s}</span>`;
-  const ty = s => `<span class="c-ty">${s}</span>`;
-  const cm = s => `<span class="c-dim">${s}</span>`;
-  const ok = s => `<span class="c-ok">${s}</span>`;
-  const er = s => `<span class="c-err">${s}</span>`;
-  const hl = s => `<span style="color:#fbbf24">${s}</span>`;
-  const sr = s => `<span class="c-sorry">${s}</span>`;
-
-  const phases = [
-    {
-      label: 'Proof.lean',
-      html:
-`${kw('theorem')} ${fn('nonNeg_product')} (n : ${ty('Int')}) :
-    0 ≤ n * n + n := ${kw('by')}
-  ${sr('sorry')}  ${cm('-- ⚠  proof missing')}`,
-      hold: 2200
-    },
-    {
-      label: 'Proof.lean  running…',
-      html:
-`${kw('theorem')} ${fn('nonNeg_product')} (n : ${ty('Int')}) :
-    0 ≤ n * n + n := ${kw('by')}
-  ${fn('blaster')}`,
-      hold: 1400
-    },
-    {
-      label: 'Proof.lean',
-      html:
-`${kw('theorem')} ${fn('nonNeg_product')} (n : ${ty('Int')}) :
-    0 ≤ n * n + n := ${kw('by')}
-  ${fn('blaster')}
-${er('-- ❌ Falsified')}
-${cm('--    Counterexample: n = -3')}
-${cm('--    (-3)² + (-3) = 6   ... but is 6 ≥ 0?')}
-${er('--    Counterexample: n = -1')}
-${cm('--    (-1)² + (-1) = 0   ... still holds ✓')}
-${er('--    Counterexample: n = -2')}
-${cm('--    (-2)² + (-2) = 2   ... still holds ✓')}`,
-      hold: 100
-    },
-    {
-      label: 'Proof.lean',
-      html:
-`${kw('theorem')} ${fn('nonNeg_product')} (n : ${ty('Int')}) :
-    0 ≤ n * n + n := ${kw('by')}
-  ${fn('blaster')}
-${er('-- ❌ Falsified')}
-${cm('--    Counterexample: n = -3')}
-${cm('--    (-3) * (-3) + (-3) = 6  ≥ 0  ✓')}
-${er('--    Counterexample: n = -5')}
-${cm('--    (-5) * (-5) + (-5) = 20  ≥ 0  ✓')}`,
-      hold: 100
-    },
-    {
-      label: 'Proof.lean',
-      html:
-`${kw('theorem')} ${fn('nonNeg_product')} (n : ${ty('Int')}) :
-    0 ≤ n * n + n := ${kw('by')}
-  ${fn('blaster')}
-${er('-- ❌ Falsified')}
-${cm('--    Counterexample: n = -3')}
-${cm('--    (-3) * (-2) = 6  ≥ 0  ✓  wait, n*(n+1)...')}`,
-      hold: 100
-    },
-    {
-      label: 'Proof.lean',
-      html:
-`${kw('theorem')} ${fn('nonNeg_product')} (n : ${ty('Int')}) :
-    0 ≤ n * n + n := ${kw('by')}
-  ${fn('blaster')}
-${er('-- ❌ Falsified')}
-${cm('--    Counterexample: n = -3')}`,
-      hold: 2600
-    },
-    {
-      label: 'Proof.lean  fixing…',
-      html:
-`${cm('-- n*(n+1) ≥ 0 fails when n = -3: (-3)*(-2)=6≥0  hmm...')}
-${cm('-- Actually fails: n = -3, wait 6 ≥ 0 is true...')}
-${cm('-- Let me check: need 0 ≤ n*(n+1), fails at n=-3: true')}
-${cm('-- Fails at odd negative: n=-1 → 0≥0 ✓, n=-3 → 6≥0 ✓')}
-${cm('-- Ah: needs hypothesis 0 ≤ n')}
-
-${kw('theorem')} ${fn('nonNeg_product')} (n : ${ty('Int')})
-    ${hl('(h : 0 ≤ n)')} :
-    0 ≤ n * n + n := ${kw('by')}
-  ${fn('blaster')}`,
-      hold: 2400
-    },
-    {
-      label: 'Proof.lean',
-      html:
-`${kw('theorem')} ${fn('nonNeg_product')} (n : ${ty('Int')})
-    ${hl('(h : 0 ≤ n)')} :
-    0 ≤ n * n + n := ${kw('by')}
-  ${fn('blaster')}
-${ok('-- ✅ Valid')}`,
-      hold: 3800
-    }
-  ];
-
-  let idx = 0;
   const el = document.getElementById('demo-code');
-  const label = document.getElementById('demo-label');
   if (!el) return;
 
-  function step() {
-    const p = phases[idx];
-    el.style.opacity = '0';
-    setTimeout(() => {
-      el.innerHTML = p.html;
-      label.textContent = p.label;
-      el.style.opacity = '1';
-      idx = (idx + 1) % phases.length;
-      setTimeout(step, p.hold);
-    }, 220);
+  function syntax(text) {
+    let h = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    h = h.replace(/\b(theorem|def|by|fun|let|have|show|where)\b/g, '<span class="c-kw">$1</span>');
+    h = h.replace(/\b(Nat|Int|Bool|String|Type|Prop|True|False)\b/g, '<span class="c-ty">$1</span>');
+    h = h.replace(/\b(blaster|sorry|omega|simp|rfl|linarith)\b/g, '<span class="c-fn">$1</span>');
+    return h;
   }
-  step();
+
+  let code = '';
+  let outputLines = [];
+
+  function render() {
+    const outHtml = outputLines.length ? '\n' + outputLines.join('\n') : '';
+    el.innerHTML = syntax(code) + '<span class="c-cursor"></span>' + outHtml;
+  }
+
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  async function typeText(text, delay) {
+    for (const ch of text) {
+      code += ch;
+      render();
+      await sleep(delay + Math.random() * delay * 0.3);
+    }
+  }
+
+  async function deleteChars(n, delay) {
+    for (let i = 0; i < n && code.length > 0; i++) {
+      code = code.slice(0, -1);
+      render();
+      await sleep(delay);
+    }
+  }
+
+  function addOutput(html) { outputLines.push(html); render(); }
+  function clearOutput()   { outputLines = [];        render(); }
+
+  const PREFIX     = 'theorem sub_cancel (n k : Nat)';
+  const SORRY_TAIL = ' :\n    n - k + k = n := by\n  sorry';
+  const BLAST_TAIL = ' :\n    n - k + k = n := by\n  blaster';
+  const FIX_INSERT = ' (h : k \u2264 n)';
+
+  async function run() {
+    code = ''; clearOutput(); render();
+
+    await sleep(700);
+    await typeText(PREFIX + SORRY_TAIL, 28);
+
+    // swap sorry -> blaster
+    await sleep(900);
+    await deleteChars(5, 40);
+    await typeText('blaster', 55);
+
+    // counterexample
+    await sleep(800);
+    addOutput('<span class="c-err">-- \u274C Falsified</span>');
+    await sleep(350);
+    addOutput('<span class="c-dim">--    counterexample: n := 0, k := 1</span>');
+    await sleep(350);
+    addOutput('<span class="c-dim">--    0 - 1 + 1 = 1  (Nat subtraction truncates)</span>');
+
+    // fix: erase the wrong suffix, insert hypothesis
+    await sleep(2800);
+    clearOutput();
+    await deleteChars(BLAST_TAIL.length, 18);
+    await sleep(450);
+    await typeText(FIX_INSERT, 50);
+    await typeText(BLAST_TAIL, 30);
+
+    // valid
+    await sleep(800);
+    addOutput('<span class="c-ok">-- \u2705 Valid</span>');
+
+    await sleep(4000);
+    run();
+  }
+
+  run();
 })();
 </script>
 
-<script type="importmap">
-{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
-</script>
-<script type="module">
-import * as THREE from 'three';
-
-const canvas = document.getElementById('bg-canvas');
-const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
-
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100);
-camera.position.z = 7;
-
-// 4D Klein bottle: standard immersion without self-intersection in ℝ⁴
-// u ∈ [0, 2π], v ∈ [0, 2π]
-// This is the genuine topological Klein bottle, truly living in 4D.
-function kleinPt4D(u, v) {
-  const a = 2.2, b = 0.9;
-  const cu2 = Math.cos(u * 0.5), su2 = Math.sin(u * 0.5);
-  const cu = Math.cos(u), su = Math.sin(u);
-  const cv = Math.cos(v), sv = Math.sin(v);
-  return [
-    (a + b * cv) * cu,   // x₁
-    (a + b * cv) * su,   // x₂
-    b * sv * cu2,        // x₃
-    b * sv * su2         // x₄
-  ];
-}
-
-// 4D isoclinic double rotation:
-//   XW plane by angle α,  YZ plane by angle β  (independently)
-// When α and β evolve at incommensurate rates the orbit never repeats —
-// this is the hallmark of true 4D rigid-body motion.
-function rotate4D(p, α, β) {
-  const [x, y, z, w] = p;
-  const ca = Math.cos(α), sa = Math.sin(α);
-  const cb = Math.cos(β), sb = Math.sin(β);
-  return [
-    ca * x - sa * w,
-    cb * y - sb * z,
-    sb * y + cb * z,
-    sa * x + ca * w
-  ];
-}
-
-// Perspective projection from 4D → 3D (viewer along the w axis)
-function project4to3([x, y, z, w]) {
-  const d = 5;
-  const s = d / (d - w * 0.72);
-  return [x * s, y * s, z * s];
-}
-
-// Pre-generate 4D line segment endpoint pairs
-const NU = 44, NV = 44;
-const SCALE = 0.44;  // twice the visual size of the original
-const segs4D = [];
-
-// u-isolines (fixed u, vary v)
-for (let i = 0; i <= NU; i++) {
-  const u = (i / NU) * 2 * Math.PI;
-  for (let j = 0; j < NV; j++) {
-    segs4D.push([kleinPt4D(u, (j/NV)*2*Math.PI), kleinPt4D(u, ((j+1)/NV)*2*Math.PI)]);
-  }
-}
-// v-isolines (fixed v, vary u)
-for (let j = 0; j <= NV; j++) {
-  const v = (j / NV) * 2 * Math.PI;
-  for (let i = 0; i < NU; i++) {
-    segs4D.push([kleinPt4D((i/NU)*2*Math.PI, v), kleinPt4D(((i+1)/NU)*2*Math.PI, v)]);
-  }
-}
-
-const nSeg = segs4D.length;
-const dynPos = new Float32Array(nSeg * 6);
-
-const kleinGeo = new THREE.BufferGeometry();
-kleinGeo.setAttribute('position', new THREE.Float32BufferAttribute(dynPos, 3));
-const kleinMat = new THREE.LineBasicMaterial({ color: 0x818cf8, transparent: true, opacity: 0.10 });
-const klein = new THREE.LineSegments(kleinGeo, kleinMat);
-scene.add(klein);
-
-// Particles
-const NP = 80;
-const pGeo = new THREE.BufferGeometry();
-const pPos = new Float32Array(NP * 3);
-const pVels = [];
-for (let i = 0; i < NP; i++) {
-  const th = Math.random() * Math.PI * 2;
-  const ph = Math.acos(2 * Math.random() - 1);
-  const r  = 3.2 + Math.random() * 2.2;
-  pPos[i*3]   = r * Math.sin(ph) * Math.cos(th);
-  pPos[i*3+1] = r * Math.sin(ph) * Math.sin(th);
-  pPos[i*3+2] = r * Math.cos(ph);
-  pVels.push({ speed: 0.0007 + Math.random() * 0.0018,
-               axis: new THREE.Vector3(Math.random()-.5, Math.random()-.5, Math.random()-.5).normalize() });
-}
-pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
-const pMat = new THREE.PointsMaterial({ color: 0xc084fc, size: 0.022, transparent: true, opacity: 0.4 });
-scene.add(new THREE.Points(pGeo, pMat));
-
-let scrollY = 0, mx = 0, my = 0;
-window.addEventListener('scroll', () => { scrollY = window.scrollY; }, { passive: true });
-window.addEventListener('mousemove', e => {
-  mx = (e.clientX / window.innerWidth  - .5) * 2;
-  my = (e.clientY / window.innerHeight - .5) * 2;
-}, { passive: true });
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
-
-(function animate(t) {
-  requestAnimationFrame(animate);
-  const s = t * 0.001;
-  const fade = Math.max(0, 1 - scrollY / (window.innerHeight * 0.9));
-
-  // 4D isoclinic rotation: XW plane at ω₁, YZ plane at ω₂ = ω₁·√2 (incommensurate)
-  const α = s * 0.11  + my * 0.18;
-  const β = s * 0.0778 + mx * 0.18;  // ≈ 0.11/√2
-
-  // Reproject all segments from 4D each frame
-  const pos = kleinGeo.attributes.position.array;
-  for (let k = 0; k < nSeg; k++) {
-    const r0 = project4to3(rotate4D(segs4D[k][0], α, β));
-    const r1 = project4to3(rotate4D(segs4D[k][1], α, β));
-    pos[k*6+0] = r0[0] * SCALE; pos[k*6+1] = r0[1] * SCALE; pos[k*6+2] = r0[2] * SCALE;
-    pos[k*6+3] = r1[0] * SCALE; pos[k*6+4] = r1[1] * SCALE; pos[k*6+5] = r1[2] * SCALE;
-  }
-  kleinGeo.attributes.position.needsUpdate = true;
-  kleinMat.opacity = 0.10 * fade;
-
-  // Drift particles
-  const pp = pGeo.attributes.position.array;
-  for (let i = 0; i < NP; i++) {
-    const v = new THREE.Vector3(pp[i*3], pp[i*3+1], pp[i*3+2]);
-    v.applyAxisAngle(pVels[i].axis, pVels[i].speed);
-    pp[i*3] = v.x; pp[i*3+1] = v.y; pp[i*3+2] = v.z;
-  }
-  pGeo.attributes.position.needsUpdate = true;
-  pMat.opacity = 0.40 * fade;
-
-  renderer.render(scene, camera);
-})(0);
-</script>
 
 </body>
 </html>
