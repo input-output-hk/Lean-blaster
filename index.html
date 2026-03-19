@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blaster — SMT Backend for Lean4</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0a0b0f;
+    --bg2: #12141c;
+    --bg3: #1a1d2a;
+    --accent: #00d4aa;
+    --accent2: #00b894;
+    --accent-glow: rgba(0, 212, 170, 0.15);
+    --purple: #a78bfa;
+    --red: #f87171;
+    --amber: #fbbf24;
+    --blue: #60a5fa;
+    --green: #34d399;
+    --text: #e2e8f0;
+    --text-dim: #94a3b8;
+    --border: rgba(255,255,255,0.06);
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* ── Animated background ── */
+  #three-bg {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  }
+  .bg-grid {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+  .bg-glow {
+    position: fixed; z-index: 0; pointer-events: none;
+    width: 600px; height: 600px; border-radius: 50%;
+    filter: blur(120px); opacity: 0.4;
+  }
+  .bg-glow.g1 { top: -200px; left: -100px; background: rgba(0,212,170,0.12); }
+  .bg-glow.g2 { bottom: -200px; right: -100px; background: rgba(167,139,250,0.10); }
+
+  .content { position: relative; z-index: 1; }
+
+  /* ── Nav ── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    padding: 16px 40px;
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(10,11,15,0.8);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-logo {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 700; font-size: 1.2rem; color: var(--text);
+    text-decoration: none;
+  }
+  .nav-logo .logo-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; color: #000;
+  }
+  .nav-links { display: flex; gap: 32px; align-items: center; }
+  .nav-links a {
+    color: var(--text-dim); text-decoration: none; font-size: 0.9rem;
+    font-weight: 500; transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--accent); }
+  .nav-cta {
+    padding: 8px 20px; border-radius: 8px; font-weight: 600; font-size: 0.85rem;
+    background: var(--accent); color: #000; text-decoration: none;
+    transition: all 0.2s;
+  }
+  .nav-cta:hover { background: #00eabb; transform: translateY(-1px); box-shadow: 0 4px 20px rgba(0,212,170,0.3); }
+
+  /* ── Hero ── */
+  .hero {
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    padding: 120px 40px 80px;
+  }
+  .badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 16px; border-radius: 100px;
+    background: var(--accent-glow); border: 1px solid rgba(0,212,170,0.2);
+    font-size: 0.8rem; font-weight: 600; color: var(--accent);
+    margin-bottom: 28px;
+    animation: fadeInUp 0.6s ease-out both;
+  }
+  .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse-dot 2s infinite; }
+  @keyframes pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  .hero h1 {
+    font-size: clamp(2.8rem, 6vw, 5rem);
+    font-weight: 800; line-height: 1.08;
+    letter-spacing: -0.03em;
+    max-width: 800px;
+    animation: fadeInUp 0.6s ease-out 0.1s both;
+  }
+  .hero h1 .gradient {
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .hero .subtitle {
+    font-size: 1.15rem; color: var(--text-dim); max-width: 600px;
+    margin-top: 20px; line-height: 1.7; font-weight: 400;
+    animation: fadeInUp 0.6s ease-out 0.2s both;
+  }
+  .hero-actions {
+    margin-top: 36px; display: flex; gap: 14px; flex-wrap: wrap; justify-content: center;
+    animation: fadeInUp 0.6s ease-out 0.3s both;
+  }
+  .btn {
+    padding: 14px 28px; border-radius: 10px; font-weight: 600; font-size: 0.95rem;
+    text-decoration: none; display: inline-flex; align-items: center; gap: 8px;
+    transition: all 0.25s; cursor: pointer; border: none;
+  }
+  .btn-primary { background: var(--accent); color: #000; }
+  .btn-primary:hover { background: #00eabb; transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,212,170,0.25); }
+  .btn-secondary { background: var(--bg3); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { border-color: rgba(255,255,255,0.15); transform: translateY(-2px); }
+
+  .hero-code {
+    margin-top: 56px; max-width: 820px; width: 100%; text-align: left;
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 14px;
+    overflow: hidden;
+    animation: fadeInUp 0.6s ease-out 0.4s both;
+  }
+  .hero-code-bar {
+    padding: 12px 16px; display: flex; align-items: center; gap: 8px;
+    border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.02);
+  }
+  .hero-code-bar span { width: 10px; height: 10px; border-radius: 50%; }
+  .hero-code-bar span:nth-child(1) { background: #f87171; }
+  .hero-code-bar span:nth-child(2) { background: #fbbf24; }
+  .hero-code-bar span:nth-child(3) { background: #34d399; }
+  .hero-code-bar .filename {
+    margin-left: 8px; font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem; color: var(--text-dim);
+  }
+  .hero-code pre {
+    padding: 20px 24px; font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem; line-height: 1.9; overflow-x: auto;
+  }
+  .hero-code .kw  { color: var(--purple); }
+  .hero-code .fn  { color: var(--accent); }
+  .hero-code .ty  { color: var(--blue); }
+  .hero-code .cmt { color: #4a5568; font-style: italic; }
+  .hero-code .ok  { color: var(--green); }
+  .hero-code .fail{ color: var(--red); }
+  .hero-code .cex { color: var(--text-dim); }
+
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Section shared ── */
+  section { padding: 100px 40px; max-width: 1100px; margin: 0 auto; }
+  .section-label {
+    font-size: 0.75rem; font-weight: 700; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 12px;
+  }
+  section h2 {
+    font-size: 2.4rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 16px;
+  }
+  section .section-desc {
+    color: var(--text-dim); font-size: 1.05rem; max-width: 600px; line-height: 1.7;
+    margin-bottom: 48px;
+  }
+
+  /* ── Features grid ── */
+  .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+  .feature-card {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 16px;
+    padding: 32px; transition: all 0.3s;
+  }
+  .feature-card:hover {
+    border-color: rgba(0,212,170,0.2); transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+  }
+  .feature-icon {
+    width: 44px; height: 44px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem; margin-bottom: 18px;
+  }
+  .feature-card h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; }
+  .feature-card p { color: var(--text-dim); font-size: 0.9rem; line-height: 1.65; }
+  .feature-card code {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.8em;
+    color: var(--accent); background: rgba(0,212,170,0.08);
+    padding: 1px 5px; border-radius: 4px;
+  }
+
+  /* ── Pipeline section ── */
+  .pipeline-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+  .pipeline-group-label {
+    font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; padding: 8px 0 4px; margin-top: 16px;
+  }
+  .pipeline-group-label:first-child { margin-top: 0; }
+  .pipeline-group-label.label-opt   { color: var(--amber); }
+  .pipeline-group-label.label-smt   { color: var(--blue); }
+  .pipeline-group-label.label-solve { color: var(--accent); }
+  .pipeline-item {
+    display: flex; align-items: center; gap: 16px;
+    padding: 18px 24px; background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 12px; transition: all 0.2s;
+  }
+  .pipeline-item:hover { border-color: rgba(0,212,170,0.15); }
+  .pipeline-item > div { flex: 1; min-width: 0; }
+  .step-badge {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; font-weight: 700;
+    padding: 4px 10px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.05em;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .badge-opt { background: rgba(251,191,36,0.12); color: var(--amber); }
+  .badge-smt { background: rgba(96,165,250,0.12); color: var(--blue); }
+  .badge-z3  { background: rgba(0,212,170,0.12);  color: var(--accent); }
+  .badge-cex { background: rgba(248,113,113,0.12); color: var(--red); }
+  .badge-unk { background: rgba(148,163,184,0.12); color: var(--text-dim); }
+  .pipeline-item .item-name { font-weight: 600; font-size: 0.92rem; }
+  .pipeline-item .item-desc { color: var(--text-dim); font-size: 0.82rem; margin-top: 2px; }
+  .pipeline-item code {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.8em;
+    color: var(--accent); background: rgba(0,212,170,0.08);
+    padding: 1px 5px; border-radius: 4px;
+  }
+
+  /* ── Usage / IDE section ── */
+  .ide-block {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 16px;
+    overflow: hidden;
+  }
+  .ide-tabs { display: flex; border-bottom: 1px solid var(--border); }
+  .ide-tab {
+    padding: 14px 24px; font-size: 0.85rem; font-weight: 600;
+    color: var(--text-dim); cursor: pointer; transition: all 0.2s;
+    border-bottom: 2px solid transparent; background: none;
+    border-top: none; border-left: none; border-right: none;
+  }
+  .ide-tab.active { color: var(--accent); border-bottom-color: var(--accent); background: rgba(0,212,170,0.04); }
+  .ide-tab:hover { color: var(--text); }
+  .ide-content { padding: 24px 28px; }
+  .ide-content pre {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; line-height: 1.7;
+  }
+
+  /* ── CTA ── */
+  .cta-section {
+    text-align: center; padding: 80px 40px 120px;
+    max-width: 700px; margin: 0 auto;
+  }
+  .cta-section h2 { font-size: 2.2rem; font-weight: 800; margin-bottom: 16px; }
+  .cta-section p { color: var(--text-dim); font-size: 1.05rem; margin-bottom: 36px; line-height: 1.7; }
+  .cta-actions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+
+  /* ── Built By ── */
+  .built-by {
+    text-align: center; padding: 60px 40px 80px;
+    max-width: 900px; margin: 0 auto;
+  }
+  .built-by-label {
+    font-size: 1rem; color: var(--text-dim); font-weight: 500; margin-bottom: 32px;
+  }
+  .built-by-logos {
+    display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;
+  }
+  .org-card {
+    display: flex; align-items: center; gap: 12px;
+    padding: 16px 24px; border-radius: 12px;
+    background: var(--bg2); border: 1px solid var(--border);
+    text-decoration: none; color: var(--text); font-weight: 600; font-size: 0.92rem;
+    transition: all 0.25s;
+  }
+  .org-card:hover {
+    border-color: rgba(0,212,170,0.2); transform: translateY(-3px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+  }
+  .org-icon {
+    width: 40px; height: 40px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden; flex-shrink: 0;
+  }
+  .org-icon img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .org-icon--iog { background: #1a1d2a; padding: 6px; }
+  .org-icon--iog img { filter: brightness(0) invert(1); }
+  .org-icon--person {
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;
+    font-weight: 700; color: #000;
+  }
+  .org-card-info { text-align: left; }
+  .org-card .org-sub { font-size: 0.75rem; color: var(--text-dim); font-weight: 400; margin-top: 2px; }
+
+  /* ── Footer ── */
+  footer {
+    padding: 32px 40px; border-top: 1px solid var(--border);
+    text-align: center; color: var(--text-dim); font-size: 0.82rem;
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+
+  /* ── Animated editor demo ── */
+  .demo-editor {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 14px;
+    overflow: hidden; margin-bottom: 40px; position: relative;
+  }
+  .demo-titlebar {
+    padding: 12px 16px; display: flex; align-items: center; gap: 8px;
+    border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.02);
+  }
+  .demo-titlebar span { width: 10px; height: 10px; border-radius: 50%; }
+  .demo-titlebar span:nth-child(1) { background: #f87171; }
+  .demo-titlebar span:nth-child(2) { background: #fbbf24; }
+  .demo-titlebar span:nth-child(3) { background: #34d399; }
+  .demo-titlebar .demo-filename {
+    margin-left: 8px; font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem; color: var(--text-dim); width: auto; height: auto;
+    border-radius: 0; background: none;
+  }
+  .demo-body {
+    padding: 20px 0; font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem; line-height: 1.8; min-height: 240px; position: relative;
+  }
+  .demo-line {
+    display: flex; padding: 0 24px 0 0; white-space: pre; position: relative;
+  }
+  .demo-lineno {
+    display: inline-block; width: 44px; text-align: right; padding-right: 16px;
+    color: #334155; user-select: none; flex-shrink: 0;
+  }
+  .demo-code { flex: 1; min-width: 0; position: relative; }
+  .demo-cursor {
+    display: inline-block; width: 2px; height: 1.1em; background: var(--accent);
+    vertical-align: text-bottom; animation: blink-cursor 0.8s step-end infinite;
+    margin-left: 1px;
+  }
+  @keyframes blink-cursor { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+
+  .demo-squiggly-ok {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
+    background: repeating-linear-gradient(90deg, var(--accent) 0px, var(--accent) 3px, transparent 3px, transparent 6px);
+    opacity: 0; transition: opacity 0.3s;
+  }
+  .demo-squiggly-ok.visible { opacity: 1; }
+
+  .demo-diagnostic {
+    margin: 4px 0 0 44px; padding: 8px 14px; border-radius: 8px;
+    font-size: 0.75rem; line-height: 1.5;
+    opacity: 0; transform: translateY(-4px); transition: all 0.4s ease-out;
+    display: none;
+  }
+  .demo-diagnostic.success {
+    background: rgba(0,212,170,0.08); border: 1px solid rgba(0,212,170,0.2);
+  }
+  .demo-diagnostic.visible { opacity: 1; transform: translateY(0); display: block; }
+  .demo-diagnostic .diag-severity { font-weight: 700; margin-right: 6px; }
+  .demo-diagnostic.success .diag-severity { color: var(--accent); }
+  .demo-diagnostic .diag-msg { color: var(--text-dim); }
+
+  .demo-status {
+    padding: 6px 16px; border-top: 1px solid var(--border);
+    font-size: 0.7rem; color: var(--text-dim); display: flex;
+    align-items: center; gap: 12px; background: rgba(255,255,255,0.01);
+  }
+  .demo-status .status-ok    { color: var(--accent); }
+  .demo-status .status-valid { color: var(--green); }
+
+  /* ── Responsive ── */
+  @media (max-width: 700px) {
+    nav { padding: 14px 20px; }
+    .nav-links { display: none; }
+    section { padding: 60px 20px; }
+    .hero { padding: 100px 20px 60px; }
+    .pipeline-item { flex-wrap: wrap; gap: 8px; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="three-bg"></canvas>
+<div class="bg-grid"></div>
+<div class="bg-glow g1"></div>
+<div class="bg-glow g2"></div>
+
+<div class="content">
+
+<!-- Nav -->
+<nav>
+  <a href="#" class="nav-logo">
+    <div class="logo-icon">B</div>
+    Blaster
+  </a>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#pipeline">Pipeline</a>
+    <a href="#usage">Usage</a>
+    <a href="https://github.com/input-output-hk/Lean-blaster" class="nav-cta" target="_blank">GitHub →</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="badge"><span class="dot"></span> Lean4 · Z3 · SMT-LIB V2</div>
+  <h1>SMT Proof Automation<br>for <span class="gradient">Lean4</span></h1>
+  <p class="subtitle">Automatically prove Lean4 theorems using Z3. Blaster aggressively optimizes goals — often closing proofs without invoking the solver — then translates the remainder to SMT-LIB V2.</p>
+  <div class="hero-actions">
+    <a href="https://github.com/input-output-hk/Lean-blaster" class="btn btn-primary" target="_blank">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+      View on GitHub
+    </a>
+    <a href="#pipeline" class="btn btn-secondary">How it works ↓</a>
+  </div>
+
+  <div class="hero-code">
+    <div class="hero-code-bar">
+      <span></span><span></span><span></span>
+      <span class="filename">Theorems.lean</span>
+    </div>
+    <pre><span class="cmt">-- Prove commutativity of addition over Nat</span>
+<span class="fn">#blaster</span> [ <span class="kw">∀</span> (a b : <span class="ty">Nat</span>), a + b = b + a ]
+<span class="ok">✅ Valid</span>
+
+<span class="cmt">-- Catch a false claim and get a counterexample</span>
+<span class="fn">#blaster</span> [ <span class="kw">∀</span> (n : <span class="ty">Nat</span>), n &lt; 10 ]
+<span class="fail">❌ Falsified</span>
+<span class="cex">Counterexample:</span>
+<span class="cex"> - n: 42</span></pre>
+  </div>
+</section>
+
+<!-- Features -->
+<section id="features">
+  <div class="section-label">Why Blaster</div>
+  <h2>Formal verification, automated</h2>
+  <p class="section-desc">From simple arithmetic to complex inductive data types, Blaster brings SMT-powered proof automation to your Lean4 development workflow.</p>
+
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon" style="background: rgba(251,191,36,0.1);">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      </div>
+      <h3>Aggressive Optimization</h3>
+      <p>30+ rewriting rules covering beta reduction, function unfolding, let-expression inlining, Boolean simplification, and algebraic identities. Many theorems close to <code>True</code> without ever touching the SMT solver.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background: rgba(96,165,250,0.1);">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      </div>
+      <h3>Full SMT Translation</h3>
+      <p>Lean4 types and expressions faithfully translated to SMT-LIB V2. Supports <code>Bool</code>, <code>Int</code>, <code>Nat</code>, <code>String</code>, <code>BitVec n</code>, <code>Fin n</code>, <code>SMTArray α</code>, parametric &amp; mutual inductives, and higher-order logic.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background: rgba(0,212,170,0.1);">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </div>
+      <h3>Z3 Integration</h3>
+      <p>Automatic spawning of the Z3 process with configurable timeout, random seed, and verbosity. Dump the raw SMT-LIB query for debugging. Results interpreted as Valid, Falsified, or Undetermined.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background: rgba(248,113,113,0.1);">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </div>
+      <h3>Counterexample Generation</h3>
+      <p>When Z3 returns <em>sat</em>, Blaster decodes the model into a concrete Lean4 counterexample — showing exactly which values falsify the theorem, including complex inductive structures.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background: rgba(167,139,250,0.1);">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+      </div>
+      <h3>State Machine Verification</h3>
+      <p>Built-in <code>#bmc</code> (Bounded Model Checking) and <code>#kind</code> (K-Induction) commands for verifying invariants of Lean4 <code>StateMachine</code> instances up to a configurable depth.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background: rgba(251,146,60,0.1);">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fb923c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/><path d="M9 12l2 2 4-4"/></svg>
+      </div>
+      <h3>Open Source</h3>
+      <p>Apache 2.0 licensed. Benchmarked on the <a href="https://github.com/leanprover-community/NNG4" style="color:var(--accent);text-decoration:none;">Lean Natural Number Game</a> (103/117) and <a href="https://github.com/djvelleman/STG4" style="color:var(--accent);text-decoration:none;">Set Theory Game</a> (51/52). Contributions welcome.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Pipeline -->
+<section id="pipeline">
+  <div class="section-label">How It Works</div>
+  <h2>The three-step pipeline</h2>
+  <p class="section-desc">Blaster uses a staged approach: optimize aggressively first, translate what remains to SMT-LIB, then let Z3 decide. Each step is optional and configurable via solver flags.</p>
+
+  <div class="pipeline-grid">
+    <div class="pipeline-group-label label-opt">Step 1 — Optimize</div>
+    <div class="pipeline-item">
+      <div>
+        <div class="item-name">Beta Reduction</div>
+        <div class="item-desc">Lambda applications are simplified by substituting arguments directly into the lambda body, reducing indirection.</div>
+      </div>
+      <span class="step-badge badge-opt">Opt</span>
+    </div>
+    <div class="pipeline-item">
+      <div>
+        <div class="item-name">Function Unfolding</div>
+        <div class="item-desc">Non-recursive, non-opaque definitions are expanded inline at every call site, exposing further simplification opportunities.</div>
+      </div>
+      <span class="step-badge badge-opt">Opt</span>
+    </div>
+    <div class="pipeline-item">
+      <div>
+        <div class="item-name">Let-Expression Inlining &amp; Algebraic Rewriting</div>
+        <div class="item-desc">Let-bindings inlined; 30+ rules for Bool, Nat, Int, ITE, match, and function propagation normalize expressions to canonical form.</div>
+      </div>
+      <span class="step-badge badge-opt">Opt</span>
+    </div>
+    <div class="pipeline-item">
+      <div>
+        <div class="item-name">Early Exit: True / False</div>
+        <div class="item-desc">If the expression reduces to <code>True</code>, the theorem is declared Valid immediately. If it reduces to <code>False</code>, it is declared Falsified — no SMT query needed.</div>
+      </div>
+      <span class="step-badge badge-opt">Opt</span>
+    </div>
+
+    <div class="pipeline-group-label label-smt">Step 2 — Translate</div>
+    <div class="pipeline-item">
+      <div>
+        <div class="item-name">Type Mapping</div>
+        <div class="item-desc">Lean types → SMT sorts: <code>Nat/Int → Int</code>, <code>Bool → Bool</code>, <code>BitVec n → (_ BitVec n)</code>, <code>Fin n → Fin_n</code>, <code>Array α → (Array Int α)</code>.</div>
+      </div>
+      <span class="step-badge badge-smt">SMT</span>
+    </div>
+    <div class="pipeline-item">
+      <div>
+        <div class="item-name">Inductive Type Encoding</div>
+        <div class="item-desc">Parametric and mutually inductive types become uninterpreted SMT sorts. Predicate qualifiers constrain quantified variables to the right shape.</div>
+      </div>
+      <span class="step-badge badge-smt">SMT</span>
+    </div>
+    <div class="pipeline-item">
+      <div>
+        <div class="item-name">Quantifier &amp; Application Translation</div>
+        <div class="item-desc">Universal/existential quantifiers become SMT <code>forall</code>/<code>exists</code> with type-predicate guards. Function applications mapped to SMT terms or <code>define-fun</code> declarations.</div>
+      </div>
+      <span class="step-badge badge-smt">SMT</span>
+    </div>
+
+    <div class="pipeline-group-label label-solve">Step 3 — Solve</div>
+    <div class="pipeline-item">
+      <div>
+        <div class="item-name">Valid (unsat)</div>
+        <div class="item-desc">The negation of the goal is unsatisfiable — the original theorem holds. The <code>blaster</code> tactic closes the goal with <code>admit</code>.</div>
+      </div>
+      <span class="step-badge badge-z3">✅ Valid</span>
+    </div>
+    <div class="pipeline-item">
+      <div>
+        <div class="item-name">Falsified (sat)</div>
+        <div class="item-desc">Z3 found a satisfying model for the negation. The model is decoded into a concrete Lean4 counterexample with actual values.</div>
+      </div>
+      <span class="step-badge badge-cex">❌ Falsified</span>
+    </div>
+    <div class="pipeline-item">
+      <div>
+        <div class="item-name">Undetermined (unknown)</div>
+        <div class="item-desc">The solver timed out or could not decide. The current goal is returned to the user for further manual reasoning.</div>
+      </div>
+      <span class="step-badge badge-unk">? Unknown</span>
+    </div>
+  </div>
+</section>
+
+<!-- Usage -->
+<section id="usage">
+  <div class="section-label">Usage</div>
+  <h2>Prove theorems as you write</h2>
+  <p class="section-desc">Use the <code style="color:var(--accent);background:rgba(0,212,170,0.08);padding:2px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace">#blaster</code> command to check propositions interactively, or the <code style="color:var(--accent);background:rgba(0,212,170,0.08);padding:2px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace">blaster</code> tactic inside proof blocks.</p>
+
+  <div class="demo-editor" id="demo-editor">
+    <div class="demo-titlebar">
+      <span></span><span></span><span></span>
+      <span class="demo-filename">Theorems.lean</span>
+    </div>
+    <div class="demo-body" id="demo-body"></div>
+    <div class="demo-status" id="demo-status">
+      <span class="status-ok">Blaster</span>
+      <span>Lean4</span>
+    </div>
+  </div>
+
+  <div class="ide-block">
+    <div class="ide-tabs">
+      <button class="ide-tab active" onclick="showTab('command', event)">#blaster command</button>
+      <button class="ide-tab" onclick="showTab('tactic', event)">blaster tactic</button>
+      <button class="ide-tab" onclick="showTab('toml', event)">lakefile.toml</button>
+      <button class="ide-tab" onclick="showTab('lean4', event)">lakefile.lean</button>
+    </div>
+    <div class="ide-content" id="tab-content">
+      <pre id="code-display"></pre>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <h2>Make proofs effortless</h2>
+  <p>Blaster is open source and actively developed. Add it to your Lean4 project today, or help improve it by contributing new features, rewriting rules, or test cases.</p>
+  <div class="cta-actions">
+    <a href="https://github.com/input-output-hk/Lean-blaster" class="btn btn-primary" target="_blank">Star on GitHub</a>
+    <a href="https://github.com/input-output-hk/Lean-blaster/issues" class="btn btn-secondary" target="_blank">Report an Issue</a>
+  </div>
+</section>
+
+<!-- Built By -->
+<section class="built-by">
+  <p class="built-by-label">Built with ❤️ by</p>
+  <div class="built-by-logos">
+    <a href="https://iog.io" target="_blank" class="org-card">
+      <div class="org-icon org-icon--iog"><img src="assets/iog-logo.svg" alt="IOG" /></div>
+      <span>Input Output Global</span>
+    </a>
+    <a href="https://github.com/etiennejf" target="_blank" class="org-card">
+      <div class="org-icon org-icon--person">JE</div>
+      <div class="org-card-info">
+        <div>Jean-Frédéric Etienne</div>
+        <div class="org-sub">@etiennejf</div>
+      </div>
+    </a>
+    <a href="https://github.com/RSoulatIOHK" target="_blank" class="org-card">
+      <div class="org-icon org-icon--person">RS</div>
+      <div class="org-card-info">
+        <div>Romain Soulat</div>
+        <div class="org-sub">@RSoulatIOHK</div>
+      </div>
+    </a>
+  </div>
+</section>
+
+<footer>
+  Licensed under Apache 2.0. <a href="https://github.com/input-output-hk/Lean-blaster" target="_blank">View source on GitHub</a>.
+</footer>
+
+</div>
+
+<script>
+const tabs = {
+  command: `<span style="color:#4a5568">-- Check a theorem by name</span>
+<span style="color:#e2e8f0">theorem</span> <span style="color:#00d4aa">addCommute</span> : <span style="color:#60a5fa">∀</span> (a b : <span style="color:#60a5fa">Nat</span>), a + b = b + a := by sorry
+<span style="color:#00d4aa">#blaster</span> [addCommute]
+
+<span style="color:#4a5568">-- Or check an inline expression directly</span>
+<span style="color:#00d4aa">#blaster</span> [ <span style="color:#60a5fa">∀</span> (a b : <span style="color:#60a5fa">Nat</span>), a + b = b + a ]
+
+<span style="color:#4a5568">-- With solver options</span>
+<span style="color:#00d4aa">#blaster</span> (timeout: 30) (dump-smt-lib: 1) [addCommute]
+<span style="color:#00d4aa">#blaster</span> (only-optimize: 1) [addCommute]   <span style="color:#4a5568">-- skip Z3, optimization only</span>`,
+
+  tactic: `<span style="color:#4a5568">-- Use as a drop-in tactic</span>
+<span style="color:#e2e8f0">theorem</span> <span style="color:#00d4aa">addCommute</span> (a b : <span style="color:#60a5fa">Nat</span>) : a + b = b + a := by
+  <span style="color:#00d4aa">blaster</span>
+
+<span style="color:#4a5568">-- Combine with induction for recursive goals</span>
+<span style="color:#e2e8f0">theorem</span> <span style="color:#00d4aa">length_set</span> {as : <span style="color:#60a5fa">List</span> α} {i : <span style="color:#60a5fa">Nat</span>} {a : α}
+    : (as.set i a).length = as.length := by
+  induction as generalizing i <span style="color:#60a5fa">&lt;;&gt;</span> <span style="color:#00d4aa">blaster</span>
+
+<span style="color:#4a5568">-- K-Induction to prove state machine invariants hold forever</span>
+<span style="color:#00d4aa">#kind</span> (max-depth: 1) [counterStateMachine]
+<span style="color:#34d399">✅ Valid</span>`,
+
+  toml: `<span style="color:#4a5568"># Add to your lakefile.toml</span>
+[[<span style="color:#a78bfa">require</span>]]
+<span style="color:#a78bfa">name</span> = <span style="color:#fbbf24">"Blaster"</span>
+<span style="color:#a78bfa">git</span>  = <span style="color:#fbbf24">"https://github.com/input-output-hk/Lean-blaster"</span>
+<span style="color:#a78bfa">rev</span>  = <span style="color:#fbbf24">"main"</span>
+
+<span style="color:#4a5568"># Then import in your .lean file</span>
+<span style="color:#a78bfa">import</span> <span style="color:#00d4aa">Blaster.Tactic</span>`,
+
+  lean4: `<span style="color:#4a5568">-- Add to your lakefile.lean</span>
+<span style="color:#a78bfa">require</span> «<span style="color:#00d4aa">Blaster</span>» <span style="color:#a78bfa">from</span> git
+  <span style="color:#fbbf24">"https://github.com/input-output-hk/Lean-blaster"</span> @ <span style="color:#fbbf24">"main"</span>
+
+<span style="color:#4a5568">-- Then import in your .lean file</span>
+<span style="color:#a78bfa">import</span> <span style="color:#00d4aa">Blaster.Tactic</span>`
+};
+
+document.getElementById('code-display').innerHTML = tabs.command;
+
+function showTab(id, e) {
+  document.querySelectorAll('.ide-tab').forEach(t => t.classList.remove('active'));
+  e.target.classList.add('active');
+  document.getElementById('code-display').innerHTML = tabs[id];
+}
+</script>
+
+<script>
+// ── Animated editor demo ──
+(function() {
+  const lines = [
+    { code: '<span style="color:#4a5568">-- Prove commutativity of addition</span>', delay: 35 },
+    { code: '<span style="color:#e2e8f0">theorem</span> <span style="color:#00d4aa">comm</span> (a b : <span style="color:#60a5fa">Nat</span>) :', delay: 30 },
+    { code: '    a + b = b + a := by', delay: 28 },
+    { code: '  <span style="color:#00d4aa">blaster</span>', delay: 40, success: true },
+  ];
+
+  const diagnostic = {
+    severity: '✅ Valid',
+    message: 'Goal proved by Z3 — negation is unsatisfiable.',
+  };
+
+  const demoBody = document.getElementById('demo-body');
+  const demoStatus = document.getElementById('demo-status');
+  let observer;
+
+  function stripTags(html) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    return tmp.textContent || '';
+  }
+
+  async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  async function typeLine(lineEl, codeEl, html, charDelay) {
+    const plain = stripTags(html);
+    const cursor = document.createElement('span');
+    cursor.className = 'demo-cursor';
+    codeEl.appendChild(cursor);
+
+    for (let i = 0; i <= plain.length; i++) {
+      let plainCount = 0, htmlIdx = 0, inTag = false;
+      for (htmlIdx = 0; htmlIdx < html.length && plainCount < i; htmlIdx++) {
+        if (html[htmlIdx] === '<') inTag = true;
+        else if (html[htmlIdx] === '>') inTag = false;
+        else if (!inTag) plainCount++;
+      }
+      while (htmlIdx < html.length && html[htmlIdx] === '<') {
+        const close = html.indexOf('>', htmlIdx);
+        if (close === -1) break;
+        htmlIdx = close + 1;
+      }
+      codeEl.innerHTML = html.substring(0, htmlIdx);
+      codeEl.appendChild(cursor);
+      await sleep(charDelay + Math.random() * 20);
+    }
+
+    cursor.remove();
+    codeEl.innerHTML = html;
+  }
+
+  async function runDemo() {
+    demoBody.innerHTML = '';
+    demoStatus.innerHTML = '<span class="status-ok">Blaster — analyzing...</span><span>Lean4</span>';
+
+    let successLineEl = null;
+
+    for (let i = 0; i < lines.length; i++) {
+      const { code, delay, success } = lines[i];
+
+      const lineEl = document.createElement('div');
+      lineEl.className = 'demo-line' + (success ? ' has-success' : '');
+
+      const lineNo = document.createElement('span');
+      lineNo.className = 'demo-lineno';
+      lineNo.textContent = i + 1;
+
+      const codeEl = document.createElement('span');
+      codeEl.className = 'demo-code';
+
+      lineEl.appendChild(lineNo);
+      lineEl.appendChild(codeEl);
+
+      if (success) {
+        const squiggly = document.createElement('div');
+        squiggly.className = 'demo-squiggly-ok';
+        codeEl.appendChild(squiggly);
+        successLineEl = { lineEl, squiggly };
+      }
+
+      demoBody.appendChild(lineEl);
+      await typeLine(lineEl, codeEl, code, delay);
+      if (i < lines.length - 1) await sleep(180);
+    }
+
+    await sleep(500);
+
+    if (successLineEl) {
+      successLineEl.squiggly.classList.add('visible');
+
+      const diagEl = document.createElement('div');
+      diagEl.className = 'demo-diagnostic success';
+      diagEl.innerHTML =
+        '<span class="diag-severity">' + diagnostic.severity + '</span>' +
+        '<span class="diag-msg">' + diagnostic.message + '</span>';
+      demoBody.appendChild(diagEl);
+
+      await sleep(50);
+      diagEl.classList.add('visible');
+
+      demoStatus.innerHTML =
+        '<span class="status-valid">Blaster — ✅ Valid</span><span>Lean4</span>';
+    }
+
+    await sleep(5000);
+    runDemo();
+  }
+
+  observer = new IntersectionObserver(function(entries) {
+    if (entries[0].isIntersecting) {
+      observer.disconnect();
+      runDemo();
+    }
+  }, { threshold: 0.3 });
+  observer.observe(document.getElementById('demo-editor'));
+})();
+</script>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+const canvas = document.getElementById('three-bg');
+const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.z = 6;
+
+const icoGeo = new THREE.IcosahedronGeometry(1.8, 1);
+const wireframe = new THREE.WireframeGeometry(icoGeo);
+const lineMat = new THREE.LineBasicMaterial({ color: 0x00d4aa, transparent: true, opacity: 0.12 });
+const ico = new THREE.LineSegments(wireframe, lineMat);
+scene.add(ico);
+
+const innerMat = new THREE.MeshBasicMaterial({ color: 0x00d4aa, transparent: true, opacity: 0.015 });
+const inner = new THREE.Mesh(icoGeo, innerMat);
+scene.add(inner);
+
+const particleCount = 120;
+const particleGeo = new THREE.BufferGeometry();
+const positions = new Float32Array(particleCount * 3);
+const velocities = [];
+for (let i = 0; i < particleCount; i++) {
+  const theta = Math.random() * Math.PI * 2;
+  const phi = Math.acos(2 * Math.random() - 1);
+  const r = 2.2 + Math.random() * 1.5;
+  positions[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
+  positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+  positions[i * 3 + 2] = r * Math.cos(phi);
+  velocities.push({
+    speed: 0.001 + Math.random() * 0.003,
+    axis: new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize()
+  });
+}
+particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+const particleMat = new THREE.PointsMaterial({ color: 0xa78bfa, size: 0.02, transparent: true, opacity: 0.5 });
+const particles = new THREE.Points(particleGeo, particleMat);
+scene.add(particles);
+
+const outerGeo = new THREE.IcosahedronGeometry(2.8, 0);
+const outerWire = new THREE.WireframeGeometry(outerGeo);
+const outerMat = new THREE.LineBasicMaterial({ color: 0xa78bfa, transparent: true, opacity: 0.06 });
+const outerIco = new THREE.LineSegments(outerWire, outerMat);
+scene.add(outerIco);
+
+let scrollY = 0;
+window.addEventListener('scroll', () => { scrollY = window.scrollY; }, { passive: true });
+
+let mouseX = 0, mouseY = 0;
+window.addEventListener('mousemove', (e) => {
+  mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
+  mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
+}, { passive: true });
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+function animate(time) {
+  requestAnimationFrame(animate);
+  const t = time * 0.001;
+
+  ico.rotation.x = t * 0.08 + mouseY * 0.15;
+  ico.rotation.y = t * 0.12 + mouseX * 0.15;
+  inner.rotation.copy(ico.rotation);
+
+  outerIco.rotation.x = -t * 0.05 + mouseY * 0.08;
+  outerIco.rotation.y = -t * 0.07 + mouseX * 0.08;
+
+  const scrollFade = Math.max(0, 1 - scrollY / (window.innerHeight * 0.8));
+  scene.position.y = scrollY * 0.001;
+  lineMat.opacity    = 0.12 * scrollFade;
+  innerMat.opacity   = 0.015 * scrollFade;
+  outerMat.opacity   = 0.06 * scrollFade;
+  particleMat.opacity = 0.5 * scrollFade;
+
+  const pos = particleGeo.attributes.position.array;
+  for (let i = 0; i < particleCount; i++) {
+    const v = new THREE.Vector3(pos[i*3], pos[i*3+1], pos[i*3+2]);
+    v.applyAxisAngle(velocities[i].axis, velocities[i].speed);
+    pos[i*3] = v.x; pos[i*3+1] = v.y; pos[i*3+2] = v.z;
+  }
+  particleGeo.attributes.position.needsUpdate = true;
+
+  renderer.render(scene, camera);
+}
+animate(0);
+</script>
+
+</body>
+</html>
