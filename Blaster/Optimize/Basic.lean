@@ -128,12 +128,13 @@ partial def optimizeExprAux (stack : List OptimizeStack) (proof : Option Expr :=
 
   | .AppOptimizeExplicitArgs f args idx stopIdx pInfo mInfo origArgs argProofs :: xs =>
        if idx ≥ stopIdx then
-         -- recover proof from argProofs if it was lost during arg processing
-         let proof := match proof with
-           | some _ => proof
-           | none => argProofs.findSome? id
-         -- annotating proof with position-from-end so it survives unfolding
-         let proof ← annotateProofWithPosFromEnd args origArgs argProofs proof
+         let mut rewrittenCount : Nat := 0
+         for i in [:argProofs.size] do
+           if argProofs[i]!.isSome && !exprEq origArgs[i]! args[i]! then
+             rewrittenCount := rewrittenCount + 1
+         let proof ← if rewrittenCount >= 1 then
+           buildMultiArgCongrProof f origArgs args argProofs proof
+         else pure proof
          -- normalizing ite/match function application
          if let some re ← normChoiceApplication? f args then
            -- trace[Optimize.normChoiceApp] "normalizing choice application {reprStr f} {reprStr args} => {reprStr re}"
@@ -376,7 +377,6 @@ def command (sOpts: BlasterOptions) (e : Expr) : MetaM (Expr × Option Expr × T
 
 initialize
   registerTraceClass `Optimize.expr
-  /- registerTraceClass `Optimize.proof -/
   registerTraceClass `Optimize.funPropagation
   registerTraceClass `Optimize.normChoiceApp
   registerTraceClass `Optimize.normPartial

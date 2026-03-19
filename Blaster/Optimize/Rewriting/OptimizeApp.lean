@@ -103,7 +103,6 @@ def optimizeAppAux (f : Expr) (args : Array Expr) : TranslateEnvT OptimizeResult
     (origArgs.zip args).any fun (a, b) => !exprEq a b
   if !reordered then return result
   let reorderProof := detectReorderProof (mkAppN f origArgs) (mkAppN f args)
-  /- trace[Optimize.proof] "optimizeAppAux reorder: f={reprStr f} swapped={reorderProof.isSome} resultProof={result.proof.isSome}" -/
   match reorderProof with
   | none => return result
   | some rp =>
@@ -136,7 +135,6 @@ def optimizeApp
   (stack : List OptimizeStack) (incomingProof : Option Expr := none) (skipPropCheck := false) :
     TranslateEnvT OptimizeContinuity := do
   let ⟨e, newProof⟩ ← optimizeAppAux f args
-  /- trace[Optimize.proof] "optimizeApp: f={reprStr f} incomingProof={incomingProof.isSome} newProof={newProof.isSome}" -/
   let proof ← match incomingProof, newProof with
     | some inP, some np => do
         -- inP : origArg = optArg (an argument was rewritten)
@@ -144,13 +142,15 @@ def optimizeApp
         -- build congrArg to lift the arg rewrite to application level, then compose
         match ← buildCongrArgFromProof f args inP with
         | some congrP => composeProofs? (some congrP) (some np)
-        | none => pure (some np)
+        | none =>
+            match ← composeProofs? (some inP) (some np) with
+            | some composed => pure (some composed)
+            | none => pure (some np)
     | some inP, none => do
         match ← buildCongrArgFromProof f args inP with
         | some congrP => pure (some congrP)
         | none => pure (some inP)
     | none, _ => pure newProof
-  /- trace[Optimize.proof] "optimizeApp: composedProof={proof.isSome}" -/
   if ← isRestart then
     resetRestart
     match proof with

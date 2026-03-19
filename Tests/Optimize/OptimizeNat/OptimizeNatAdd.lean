@@ -280,7 +280,6 @@ elab "natAddCommut_5" : term => return natAddCommut_5
 #testOptimize [ "NatAddCommut_5", proof ] ∀ (x y : Nat), y < x + 40 ===> natAddCommut_5
 
 -- (x + (y + 20)) + z = z + ((y + 20) + x) ===> True
-/- set_option trace.Optimize.proof true in -/
 #testOptimize [ "NatAddCommut_6" ] ∀ (x y z : Nat), (x + (y + 20)) + z = z + ((y + 20) + x) ===> True
 
 --- (x - y) + (p + q) ===> (p + q) + (x - y)
@@ -300,8 +299,7 @@ elab "natAddCommut_5" : term => return natAddCommut_5
 #testOptimize [ "NatAddVar_2", proof ] ∀ (x y : Nat), (x + 0) + y = y + x ===> True
 
 -- (x + 0) + (y + 0) = y + x ===> True
-/- set_option trace.Optimize.proof true in -/
-#testOptimize [ "NatAddVar_3" ] ∀ (x y : Nat), (x + 0) + (y + 0) = y + x ===> True
+#testOptimize [ "NatAddVar_3", proof ] ∀ (x y : Nat), (x + 0) + (y + 0) = y + x ===> True
 
 -- x + y < 10 ===> x + y < 10
 def natAddVar_4 : Expr :=
@@ -338,15 +336,13 @@ def natAddReduce_1 : Expr := Lean.Expr.lit (Lean.Literal.natVal 100)
 elab "natAddReduce_1" : term => return natAddReduce_1
 
 set_option maxRecDepth 4096 in
-/- set_option trace.Optimize.proof true in -/
-#testOptimize [ "NatAddReduce_1" ] (100 + ((180 - (x + 40)) - 150)) + ((200 - y) - 320) ===> natAddReduce_1
+#testOptimize [ "NatAddReduce_1", proof ] (100 + ((180 - (x + 40)) - 150)) + ((200 - y) - 320) ===> natAddReduce_1
 
 def natAddReduce_2 : Expr := Lean.Expr.lit (Lean.Literal.natVal 124)
 elab "natAddReduce_2" : term => return natAddReduce_2
 
 -- (100 + ((180 - (x + 40)) - 150)) + (((20 - y) - 50) + 24) ===> 124
 set_option maxRecDepth 4096 in
-/- set_option trace.Optimize.proof true in -/
-#testOptimize [ "NatAddReduce_2" ] (100 + ((180 - (x + 40)) - 150)) + (((20 - y) - 50) + 24)  ===> natAddReduce_2
+#testOptimize [ "NatAddReduce_2", proof ] (100 + ((180 - (x + 40)) - 150)) + (((20 - y) - 50) + 24)  ===> natAddReduce_2
 
 end Test.OptimizeNatAdd

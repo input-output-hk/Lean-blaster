@@ -249,7 +249,6 @@ def stackContinuity
        let argChanged := !exprEq optExpr origArgs[idx]!
        let argProofs' := if proof.isSome && argChanged then argProofs.set! idx proof else argProofs
        let proof' := if proof.isSome && argChanged then none else proof
-       /- trace[Optimize.proof] "AppOptExplArgs: idx={idx} argChanged={argChanged} proof={proof.isSome} argProofs[idx]={argProofs'[idx]!.isSome}" -/
        return Sum.inl
         (.AppOptimizeExplicitArgs f (args.set! idx optExpr)
           (idx + 1) stopIdx pInfo mInfo origArgs argProofs' :: xs, proof')

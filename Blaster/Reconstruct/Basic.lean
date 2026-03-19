@@ -6,8 +6,13 @@ open Lean Meta Blaster.Optimize
 namespace Blaster.Reconstruct
 
 /-- Compose two proof certificates `p₁ : a = b` and `p₂ : b = c` into `p : a = c` via `Eq.trans`. -/
-def composeProofs (p₁ p₂ : Expr) : MetaM Expr :=
-  mkAppM ``Eq.trans #[p₁, p₂]
+def composeProofs (p₁ p₂ : Expr) : MetaM Expr := do
+  let t₁ ← inferType p₁
+  let some (α, a, b) := t₁.eq? | throwError "composeProofs: p₁ is not an equality proof"
+  let t₂ ← inferType p₂
+  let some (_, _, c) := t₂.eq? | throwError "composeProofs: p₂ is not an equality proof"
+  let u ← getLevel α
+  return mkApp6 (mkConst ``Eq.trans [u]) α a b c p₁ p₂
 
 /-- Compose two optional proof certificates via `Eq.trans`.
     If either is `none`, the other is returned unchanged. -/
@@ -16,87 +21,14 @@ def composeProofs? (opt_p₁ opt_p₂ : Option Expr) : MetaM (Option Expr) :=
   | none, p => return p
   | p, none => return p
   | some p₁, some p₂ =>
-      try return some (← composeProofs p₁ p₂)
-      catch _ =>
-        /- trace[Optimize.expr] "composeProofs? failed: {e.toMessageData}" -/
-        /- trace[Optimize.expr] "  p₁ type: {← try inferType p₁ catch _ => pure (toExpr "??")}" -/
-        /- trace[Optimize.expr] "  p₂ type: {← try inferType p₂ catch _ => pure (toExpr "??")}" -/
-        return none
+      try
+        return some (← composeProofs p₁ p₂)
+      catch _ => return none
 
-/-- Tag for annotating the argument position from the end. -/
-def argPosFromEndKey : Name := `_blaster.argPosFromEnd
-
-/-- Annotate the proof with the position relative to the end, so it survives
-    unfolding (which strips implicit args from the front).
-    Compares args against origArgs via isDefEq to find which argument
-    was actually rewritten, ignoring definitionally equal changes. -/
-def annotateProofWithPosFromEnd
-    (args : Array Expr) (origArgs : Array Expr) (argProofs : Array (Option Expr))
-    (proof : Option Expr) : TranslateEnvT (Option Expr) := do
-  match proof with
-  | none => return none
-  | some p =>
-      let mut proofIdx? : Option Nat := none
-      for i in [:argProofs.size] do
-        if (argProofs[i]!).isSome then
-          if !(← withLocalContext $
-                    withNewMCtxDepth $
-                    withReducible $
-                    isDefEq args[i]! origArgs[i]!) then
-              proofIdx? := some i
-      match proofIdx? with
-      | some proofIdx =>
-          let posFromEnd := args.size - 1 - proofIdx
-          return some (Expr.mdata (MData.empty.setNat argPosFromEndKey posFromEnd) p)
-      | none => return some p
-
-/-- Given a function application f(args) and a proof that one argument was rewritten
-    (argProof : origArg = optArg), build a congruence proof that lifts the rewrite
-    to the full application level.
-    Finds i such that args[i] was rewritten, using either an MData annotation
-    encoding position-from-end, or a reverse isDefEq search as fallback.
-    Then builds:
-      congrFun (... (congrFun (congrArg (f a₀..a_{i-1}) proof) a_{i+1}) ...) a_{n-1}
-    Returns none if the rewritten argument cannot be identified. -/
-def buildCongrArgFromProof (f : Expr) (args : Array Expr) (argProof : Expr)
-    : MetaM (Option Expr) := do
-  try
-    let (proof, annotatedIdx?) := match argProof with
-      | Expr.mdata d p =>
-          let posFromEnd := d.getNat argPosFromEndKey args.size
-          if posFromEnd < args.size then
-            (p, some (args.size - 1 - posFromEnd))
-          else (argProof, none)
-      | _ => (argProof, none)
-    let idx? ← match annotatedIdx? with
-      | some idx => pure (some idx)
-      | none =>
-          let proofType ← inferType proof
-          let some (_, _origArg, optArg) := proofType.eq? | return none
-          let mut found := none
-          for i in [:args.size] do
-            let i' := args.size - 1 - i
-            if ← isDefEq args[i']! optArg then
-              found := some i'
-              break
-          pure found
-    match idx? with
-    | some idx =>
-        let partialApp := mkAppN f (args[:idx])
-        let mut p ← mkCongrArg partialApp proof
-        for j in [idx + 1 : args.size] do
-          p ← mkCongrFun p args[j]!
-        return some p
-    | none => return none
-  catch _ =>
-    /- trace[Optimize.expr] "buildCongrArgFromProof failed: {e.toMessageData}" -/
-    /- trace[Optimize.expr] "  f={← ppExpr f} args.size={args.size}" -/
-    return none
-
-/-- Detect if the difference between origExpr and optExpr is a simple
+/-- Detect if the difference between `origExpr` and `optExpr` is a simple
     commutativity swap at the top level, and return the corresponding proof.
-    Returns `some (a_comm a b : a ⊕ b = b ⊕ a)` when origExpr = `a ⊕ b`
-    and optExpr = `b ⊕ a`. -/
+    Returns `some (a_comm a b : a ⊕ b = b ⊕ a)` when `origExpr = a ⊕ b`
+    and `optExpr = b ⊕ a`. -/
 def detectReorderProof (origExpr optExpr : Expr) : Option Expr :=
   if Blaster.Optimize.exprEq origExpr optExpr then none
   else
@@ -135,7 +67,7 @@ def detectReorderProof (origExpr optExpr : Expr) : Option Expr :=
         | some n1, some n2 => n1 == n2
         | _, _ => false
 
-/-- MetaM fallback for detecting commutativity between expressions in different
+/-- Fallback for detecting commutativity between expressions in different
     representations (e.g., `HAdd.hAdd` vs `Nat.add`). Uses `isDefEq` to compare operands.
     Returns a proof `origExpr = targetExpr` via the appropriate commutativity lemma.
     Only invoked when `detectReorderProof` fails due to representation mismatch. -/
@@ -172,7 +104,79 @@ where
         else none
     | _ => none
 
-/-- Resolve the proof for an Eq argument, bridging a potential gap between
+/-- Tag for annotating proofs already at the application level -/
+def appLevelProofKey : Name := `_blaster.appLevelProof
+
+/-- Given a function application `f(args)` and a proof that one argument was rewritten
+    (`argProof : origArg = optArg`), build a congruence proof that lifts the rewrite
+    to the full application level.
+
+    Uses a reverse `isDefEq` search to find `i` such that `args[i]` matches `optArg`.
+    Then builds:
+      `congrFun (... (congrFun (congrArg (f a₀..a_{i-1}) proof) a_{i+1}) ...) a_{n-1}`
+
+    If `argProof` is annotated with `appLevelProofKey` (i.e., it is already an app-level
+    proof from `buildMultiArgCongrProof`), it is returned as-is to avoid double-lifting.
+
+    Returns `none` if the rewritten argument cannot be identified. -/
+def buildCongrArgFromProof (f : Expr) (args : Array Expr) (argProof : Expr)
+    : MetaM (Option Expr) := do
+  if let Expr.mdata d _ := argProof then
+    if d.getBool appLevelProofKey false then
+      return some argProof
+  try
+    let proofType ← inferType argProof
+    let some (_, _origArg, optArg) := proofType.eq? | return none
+    let mut idx? : Option Nat := none
+    for i in [:args.size] do
+      let i' := args.size - 1 - i
+      if ← isDefEq args[i']! optArg then
+        idx? := some i'
+        break
+    match idx? with
+    | some idx =>
+        let partialApp := mkAppN f (args[:idx])
+        let mut p ← mkCongrArg partialApp argProof
+        for j in [idx + 1 : args.size] do
+          p ← mkCongrFun p args[j]!
+        return some p
+    | none => return none
+  catch _ => return none
+
+/-- Build a combined congruence proof when multiple arguments were rewritten.
+
+    Given `f(origArgs)` where some `origArgs[i]` were rewritten to `args[i]` with
+    `argProofs[i]`, composes individual congruence steps:
+      `f(orig₀, orig₁, ...) = f(opt₀, orig₁, ...) = f(opt₀, opt₁, ...) = ...`
+
+    The result is annotated with `appLevelProofKey` so that downstream calls to
+    `buildCongrArgFromProof` return it as-is rather than attempting to double-lift. -/
+def buildMultiArgCongrProof (f : Expr) (origArgs args : Array Expr)
+    (argProofs : Array (Option Expr)) (carriedProof : Option Expr)
+    : MetaM (Option Expr) := do
+  let mut rewrittenIndices := #[]
+  for i in [:argProofs.size] do
+    if let some _ := argProofs[i]! then
+      if !exprEq origArgs[i]! args[i]! then
+        rewrittenIndices := rewrittenIndices.push i
+  if rewrittenIndices.isEmpty then return carriedProof
+  let mut composedProof : Option Expr := carriedProof
+  let mut currentArgs := origArgs
+  for i in rewrittenIndices do
+    if let some ap := argProofs[i]! then
+      try
+        let partialApp := mkAppN f (currentArgs[:i])
+        let mut step ← mkCongrArg partialApp ap
+        for j in [i + 1 : currentArgs.size] do
+          step ← mkCongrFun step currentArgs[j]!
+        currentArgs := currentArgs.set! i args[i]!
+        composedProof ← composeProofs? composedProof (some step)
+      catch _ => currentArgs := currentArgs.set! i args[i]!
+  return match composedProof with
+    | some p => some (Expr.mdata (MData.empty.setBool appLevelProofKey true) p)
+    | none => none
+
+/-- Resolve the proof for an `Eq` argument, bridging a potential gap between
     the proof source and the original expression.
 
     When `argProof` is `none`, falls back to `detectReorderProof`.
@@ -183,12 +187,9 @@ where
       to obtain `bridge : origArg = source`, and composes `Eq.trans bridge p`. -/
 def resolveArgProof (argProof : Option Expr) (origArg optArg : Expr) : MetaM (Option Expr) :=
   match argProof with
-  | none => do
-      /- trace[Optimize.expr] "resolveArgProof: none → detectReorderProof orig={reprStr origArg} opt={reprStr optArg}" -/
-      pure (detectReorderProof origArg optArg)
+  | none => pure (detectReorderProof origArg optArg)
   | some p => do
     let proofType ← inferType p
-    /- trace[Optimize.proof] "resolveArgProof: some p, type={reprStr proofType}" -/
     match proofType.eq? with
     | some (_, proofSrc, _) =>
         if Blaster.Optimize.exprEq proofSrc origArg then
@@ -202,17 +203,16 @@ def resolveArgProof (argProof : Option Expr) (origArg optArg : Expr) : MetaM (Op
               | none => pure (some p)
     | none => pure (some p)
 
-/-- Build a proof of `orig_lhs = orig_rhs` from individual Eq argument proofs
+/-- Build a proof of `orig_lhs = orig_rhs` from individual `Eq` argument proofs
     when both sides have been optimized to the same expression.
 
     Given:
-    - `lhsProof : orig_lhs = opt_lhs` (or none if LHS unchanged)
-    - `rhsProof : orig_rhs = opt_rhs` (or none if RHS unchanged)
+    - `lhsProof : orig_lhs = opt_lhs` (or `none` if LHS unchanged)
+    - `rhsProof : orig_rhs = opt_rhs` (or `none` if RHS unchanged)
     - `opt_lhs` and `opt_rhs` are definitionally equal
 
     Constructs `Eq.trans lhsProof (Eq.symm rhsProof) : orig_lhs = orig_rhs`
-    with the appropriate simplification when either side is none (rfl).
--/
+    with the appropriate simplification when either side is `none` (rfl). -/
 def buildEqReflProof (lhsProof rhsProof : Option Expr) : MetaM (Option Expr) :=
   match lhsProof, rhsProof with
   | none, none => pure none

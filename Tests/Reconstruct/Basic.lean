@@ -50,3 +50,9 @@ example : ∀ (m n : Nat), 0 + (m + n) = n + m := by blaster
 example : ∀ (m n : Nat), (m + n) + 0 = n + m := by blaster
 example : ∀ (m n : Nat), 1 * (m + n) = n + m := by blaster
 example : ∀ (m n : Nat), (m + n) - 0 = n + m := by blaster
+
+-- Multi-arg rewrites
+example : ∀ {x y : Nat}, (x + 0) + (y + 0) = x + y := by blaster
+example : ∀ {x y : Nat}, (0 + x) + (0 + y)  = x + y := by blaster
+example : ∀ {x y : Nat}, (x + 0) + (y + 0) = y + x := by blaster
+example : ∀ {x y : Nat}, (0 + x) + (0 + y)  = y + x := by blaster
