@@ -3,838 +3,1145 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Blaster: SMT Backend for Lean4</title>
+<title>Blaster: Lean 4 Proof Automation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg:        #100f0d;
+  --bg-ed:     #1b1916;
+  --bg-gut:    #161310;
+  --bg-term:   #0d0c0a;
+  --ink:       #b84032;
+  --ink-lo:    rgba(184,64,50,0.09);
+  --ink-med:   rgba(184,64,50,0.18);
+  --valid:     #4ec994;
+  --valid-lo:  rgba(78,201,148,0.08);
+  --error:     #f47067;
+  --error-lo:  rgba(244,112,103,0.08);
+  --kw:        #c792ea;
+  --ty:        #82aaff;
+  --nm:        #f78c6c;
+  --op:        #89ddff;
+  --cm:        #465a66;
+  --id:        #cdd6f4;
+  --txt:       #cdd6f4;
+  --dim:       #6b6358;
+  --muted:     #343028;
+  --bdr:       rgba(255,255,255,0.06);
+  --bdr-lo:    rgba(255,255,255,0.03);
+  --fc: 'JetBrains Mono', monospace;
+  --fp: 'Lora', Georgia, serif;
+}
 
-  :root {
-    --bg:     #0d0908;
-    --bg2:    #120a07;
-    --bg3:    #180d0a;
-    --ink:    #b84032;
-    --ink2:   #8f2d20;
-    --ink-glow: rgba(184,64,50,0.08);
-    --green:  #4ade80;
-    --red:    #f87171;
-    --amber:  #fbbf24;
-    --sky:    #7dd3fc;
-    --text:   #dde1ef;
-    --dim:    #7a8099;
-    --border: rgba(255,255,255,0.04);
-  }
+html { font-size: 16px; scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--txt);
+  font-family: var(--fp);
+  line-height: 1.7;
+  overflow-x: hidden;
+  padding-bottom: 24px; /* status bar */
+}
+a { color: inherit; text-decoration: none; }
 
-  html { scroll-behavior: smooth; }
-  body {
-    font-family: 'IBM Plex Sans', sans-serif;
-    font-size: 17px;
-    background: var(--bg);
-    color: var(--text);
-    line-height: 1.65;
-    overflow-x: hidden;
-  }
+/* ─── NAV ────────────────────────────────────────── */
+.nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 200;
+  height: 38px;
+  display: flex;
+  align-items: stretch;
+  background: rgba(16,15,13,0.92);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--bdr);
+  font-family: var(--fc);
+  font-size: 12px;
+  color: var(--dim);
+}
+.nav-wm {
+  display: flex; align-items: center;
+  padding: 0 14px; gap: 6px;
+  border-right: 1px solid var(--bdr);
+  flex-shrink: 0;
+}
+.tl { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+.tl-r { background: #ff5f57; }
+.tl-y { background: #febc2e; }
+.tl-g { background: #28c840; }
 
-  .content { position: relative; z-index: 1; }
+.nav-tabs { display: flex; align-items: stretch; flex: 1; overflow: hidden; }
+.nav-tab {
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 16px;
+  border-right: 1px solid var(--bdr);
+  white-space: nowrap; cursor: default;
+  position: relative;
+}
+.nav-tab.active {
+  background: rgba(255,255,255,0.02);
+  color: var(--txt);
+}
+.nav-tab.active::after {
+  content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+  height: 1px; background: var(--ink);
+}
+.nav-tab.inactive { color: var(--dim); }
+.nav-tab.inactive:hover { color: var(--txt); background: rgba(255,255,255,0.02); }
+.tab-icon { font-size: 10px; color: var(--ty); }
+.tab-dot-mod { width: 6px; height: 6px; border-radius: 50%; background: var(--nm); }
 
-  /* ── nav ── */
-  nav {
-    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-    padding: 13px 48px;
-    display: flex; align-items: center; justify-content: space-between;
-    background: rgba(13,9,8,0.90); backdrop-filter: blur(18px);
-    border-bottom: 1px solid var(--border);
-  }
-  .nav-logo {
-    display: flex; align-items: center; gap: 10px;
-    font-family: 'IBM Plex Sans', sans-serif; font-weight: 700; font-size: 1.2rem;
-    color: var(--text); text-decoration: none; letter-spacing: 0.01em;
-  }
-  .nav-logo .logotype {
-    height: 32px; width: auto; flex-shrink: 0;
-  }
-  .nav-logo .logotype img {
-    height: 32px; width: auto;
-  }
-  .nav-links { display: flex; gap: 28px; align-items: center; }
-  .nav-links a {
-    color: var(--dim); text-decoration: none; font-size: 0.95rem; font-weight: 500;
-    font-family: 'IBM Plex Sans', sans-serif; transition: color 0.2s;
-  }
-  .nav-links a:hover { color: var(--text); }
-  .nav-gh {
-    display: flex; align-items: center; gap: 6px;
-    padding: 6px 14px; border-radius: 5px; font-weight: 600; font-size: 0.82rem;
-    font-family: 'IBM Plex Mono', monospace;
-    background: transparent; color: var(--dim); text-decoration: none;
-    border: 1px solid var(--border); transition: all 0.2s;
-  }
-  .nav-gh:hover { border-color: rgba(184,64,50,0.25); color: var(--text); }
+.nav-links {
+  margin-left: auto;
+  display: flex; align-items: stretch;
+  border-left: 1px solid var(--bdr);
+}
+.nav-links a {
+  display: flex; align-items: center;
+  height: 100%; padding: 0 14px;
+  color: var(--dim); font-family: var(--fc); font-size: 12px;
+  border-left: 1px solid var(--bdr);
+  transition: color 0.15s;
+}
+.nav-links a:hover { color: var(--txt); }
+.nav-links a.primary {
+  color: rgba(255,255,255,0.8);
+  gap: 6px;
+}
 
-  /* ── hero ── */
-  .hero {
-    min-height: 100vh; display: flex; flex-direction: column;
-    align-items: flex-start; justify-content: center; text-align: left;
-    padding: 130px 0 80px;
-    max-width: 900px; margin: 0 auto;
-    padding-left: 48px; padding-right: 48px;
-  }
-  .hero-eyebrow {
-    font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; font-weight: 600;
-    letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink);
-    margin-bottom: 20px; opacity: 0.85;
-    animation: rise 0.7s ease-out both;
-  }
-  .hero h1 {
-    font-family: 'IBM Plex Sans', sans-serif;
-    font-size: clamp(3.2rem, 7.5vw, 6.5rem);
-    font-weight: 700; line-height: 1.0; letter-spacing: -0.01em;
-    animation: rise 0.7s ease-out 0.1s both;
-  }
-  .hero h1 .word-prove {
-    background: linear-gradient(110deg, #8f2d20 0%, #b84032 45%, #c96040 100%);
-    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
-  }
-  .hero-sub {
-    font-size: 1.15rem; color: var(--dim); max-width: 560px;
-    margin-top: 22px; line-height: 1.75; font-weight: 400;
-    font-family: 'IBM Plex Sans', sans-serif;
-    animation: rise 0.7s ease-out 0.2s both;
-  }
-  .hero-actions {
-    margin-top: 30px; display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-start;
-    animation: rise 0.7s ease-out 0.3s both;
-  }
-  .btn {
-    padding: 9px 22px; border-radius: 4px; font-weight: 600; font-size: 0.82rem;
-    font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.02em;
-    text-decoration: none; display: inline-flex; align-items: center; gap: 7px;
-    transition: all 0.2s; border: none; cursor: pointer;
-  }
-  .btn-ink     { background: var(--ink); color: #fff; }
-  .btn-ink:hover { background: #9da5fb; }
-  .btn-ghost   { background: transparent; color: var(--dim); border: 1px solid var(--border); }
-  .btn-ghost:hover { color: var(--text); border-color: rgba(255,255,255,0.10); }
+/* ─── HERO ────────────────────────────────────────── */
+.hero {
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 80px 24px 64px;
+  position: relative;
+  background:
+    radial-gradient(ellipse 70% 50% at 50% 38%, rgba(184,64,50,0.055) 0%, transparent 100%),
+    var(--bg);
+}
+.hero::before {
+  content: ''; position: absolute; inset: 0;
+  background-image: radial-gradient(rgba(255,255,255,0.035) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 40%, transparent 100%);
+  pointer-events: none;
+}
 
-  /* before/after split demo */
-  .hero-demo {
-    margin-top: 52px; width: 100%; max-width: 860px;
-    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
-    text-align: left;
-    animation: rise 0.7s ease-out 0.4s both;
-  }
-  .demo-pane {
-    background: var(--bg2); border: 1px solid var(--border); border-radius: 3px;
-    overflow: hidden;
-  }
-  .demo-pane-bar {
-    padding: 8px 14px; display: flex; align-items: center; gap: 7px;
-    border-bottom: 1px solid var(--border);
-  }
-  .demo-pane-bar .dot { width: 8px; height: 8px; border-radius: 50%; }
-  .demo-pane-bar .dot.r { background: rgba(248,113,113,0.5); }
-  .demo-pane-bar .dot.y { background: rgba(251,191,36,0.5); }
-  .demo-pane-bar .dot.g { background: rgba(74,222,128,0.5); }
-  .demo-pane-bar .label {
-    margin-left: 6px; font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.72rem; color: var(--dim);
-  }
-  .demo-pane pre {
-    padding: 18px 20px; font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.88rem; line-height: 1.8; overflow-x: auto;
-  }
-  .c-kw   { color: #a78bfa; }
-  .c-fn   { color: var(--ink); }
-  .c-ty   { color: var(--sky); }
-  .c-cm   { color: #3e4459; font-style: italic; }
-  .c-ok   { color: var(--green); }
-  .c-err  { color: #f87171; }
-  .c-dim  { color: #333b52; }
-  .c-sorry{ color: #f87171; text-decoration: underline wavy; }
+/* ─── EDITOR WINDOW ──────────────────────────────── */
+.editor-win {
+  width: 100%; max-width: 660px;
+  background: var(--bg-ed);
+  border: 1px solid var(--bdr);
+  border-radius: 9px;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,0.5),
+    0 24px 80px rgba(0,0,0,0.7),
+    0 0 80px rgba(184,64,50,0.045);
+  animation: ed-appear 0.55s cubic-bezier(0.16,1,0.3,1) 0.1s both;
+  position: relative;
+  z-index: 1;
+}
+@keyframes ed-appear {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
 
-  .c-cursor {
-    display: inline-block; width: 2px; height: 1.1em;
-    background: var(--ink); vertical-align: text-bottom; margin-left: 1px;
-    animation: blink 1s step-end infinite;
-  }
-  @keyframes blink { 50% { opacity: 0; } }
+.ed-titlebar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px;
+  background: var(--bg-gut);
+  border-bottom: 1px solid var(--bdr-lo);
+}
+.ed-fname {
+  margin-left: auto; margin-right: auto;
+  font-family: var(--fc); font-size: 12px;
+  color: rgba(205,214,244,0.5);
+  position: absolute; left: 50%; transform: translateX(-50%);
+}
 
-  @keyframes rise {
-    from { opacity: 0; transform: translateY(18px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
+.ed-body {
+  counter-reset: ln;
+  padding: 14px 0;
+  min-height: 180px;
+}
 
-  /* ── shared section styles ── */
-  .wrap { max-width: 1080px; margin: 0 auto; padding: 96px 48px; }
-  .section-tag {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.72rem; font-weight: 600; letter-spacing: 0.14em;
-    text-transform: uppercase; color: var(--ink); margin-bottom: 12px;
-  }
-  .section-h {
-    font-family: 'IBM Plex Sans', sans-serif;
-    font-size: 2.4rem; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 14px;
-  }
-  .section-p {
-    font-family: 'IBM Plex Sans', sans-serif;
-    color: var(--dim); font-size: 1.05rem; max-width: 540px;
-    line-height: 1.75; margin-bottom: 48px;
-  }
+.ln {
+  display: flex;
+  line-height: 1.65;
+  counter-increment: ln;
+  font-size: 0; /* collapse whitespace between flex children */
+}
+.ln:hover { background: rgba(255,255,255,0.015); }
 
-  /* ── pipeline flow ── */
-  .flow {
-    display: flex; align-items: flex-start; gap: 0;
-    overflow-x: auto; padding-bottom: 8px;
-  }
-  .flow-step {
-    flex: 1; min-width: 160px; text-align: left; padding: 24px 20px;
-    border-left: 1px solid var(--border);
-  }
-  .flow-step:first-child { border-left: none; }
-  .flow-step .step-icon {
-    width: 36px; height: 36px; margin: 0 0 14px;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .flow-step h4 {
-    font-family: 'IBM Plex Sans', sans-serif;
-    font-size: 1.1rem; font-weight: 700; margin-bottom: 6px;
-  }
-  .flow-step p  {
-    font-family: 'IBM Plex Sans', sans-serif;
-    font-size: 0.95rem; color: var(--dim); line-height: 1.65;
-  }
-  .flow-arrow {
-    align-self: center; padding: 0 8px; color: rgba(255,255,255,0.08);
-    font-size: 1.2rem; flex-shrink: 0; user-select: none;
-  }
-  .flow-note {
-    margin-top: 24px; padding: 14px 20px;
-    border-left: 2px solid rgba(184,64,50,0.3);
-    font-family: 'IBM Plex Sans', sans-serif;
-    font-size: 1rem; color: var(--dim); line-height: 1.65;
-  }
-  .flow-note strong { color: var(--text); font-weight: 600; }
+.ln::before {
+  content: counter(ln);
+  display: inline-block; min-width: 44px;
+  padding: 0 14px 0 0;
+  text-align: right;
+  color: var(--muted);
+  font-family: var(--fc); font-size: 13px;
+  user-select: none; flex-shrink: 0;
+  line-height: 1.65;
+}
+.lc {
+  padding: 0 20px 0 14px;
+  font-family: var(--fc); font-size: 13.5px;
+  white-space: pre; flex: 1; line-height: 1.65;
+  border-left: 1px solid var(--bdr-lo);
+}
 
-  /* ── examples tabs ── */
-  .ex-tabs { display: flex; gap: 0; flex-wrap: wrap; margin-bottom: 28px; border-bottom: 1px solid var(--border); }
-  .ex-tab {
-    padding: 8px 18px; font-size: 0.82rem; font-weight: 600;
-    font-family: 'IBM Plex Mono', monospace;
-    background: transparent; border: none; border-bottom: 2px solid transparent;
-    color: var(--dim); cursor: pointer; transition: all 0.2s; margin-bottom: -1px;
-  }
-  .ex-tab.active { border-bottom-color: var(--ink); color: var(--ink); }
-  .ex-tab:hover:not(.active) { color: var(--text); }
-  .ex-panel { display: none; }
-  .ex-panel.active { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
-  @media (max-width: 720px) { .ex-panel.active { grid-template-columns: 1fr; } }
-  .ex-code {
-    background: var(--bg2); border: 1px solid var(--border); border-radius: 3px; overflow: hidden;
-  }
-  .ex-code-bar {
-    padding: 8px 14px; border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; gap: 6px;
-    font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; color: var(--dim);
-  }
-  .ex-code pre {
-    padding: 18px 20px; font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.86rem; line-height: 1.8; overflow-x: auto;
-  }
-  .ex-prose { padding: 4px 0; }
-  .ex-prose h3 {
-    font-family: 'IBM Plex Sans', sans-serif;
-    font-size: 1.25rem; font-weight: 700; margin-bottom: 10px;
-  }
-  .ex-prose p  {
-    font-family: 'IBM Plex Sans', sans-serif;
-    font-size: 1rem; color: var(--dim); line-height: 1.7; margin-bottom: 12px;
-  }
-  .ex-prose .tag {
-    display: inline-block; padding: 1px 8px; border-radius: 2px; font-size: 0.7rem; font-weight: 600;
-    font-family: 'IBM Plex Mono', monospace; margin-right: 5px; margin-bottom: 4px;
-  }
-  .tag-ink   { background: rgba(184,64,50,0.08); color: var(--ink); }
-  .tag-green { background: rgba(74,222,128,0.07);  color: var(--green); }
-  .tag-sky   { background: rgba(125,211,252,0.07); color: var(--sky); }
-  .tag-amber { background: rgba(251,191,36,0.07);  color: var(--amber); }
+/* highlight line on error */
+.ln.err-line .lc { background: var(--error-lo); }
+.ln.ok-line  .lc { background: var(--valid-lo); }
 
-  /* ── outcomes ── */
-  .outcomes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0; }
-  .outcome-card {
-    border-left: 1px solid var(--border);
-    padding: 28px 28px 28px 24px;
-  }
-  .outcome-card:first-child { border-left: none; padding-left: 0; }
-  .outcome-card.valid   { border-left-color: rgba(74,222,128,0.2); }
-  .outcome-card.falsified { border-left-color: rgba(248,113,113,0.2); }
-  .outcome-verdict {
-    font-family: 'IBM Plex Mono', monospace; font-size: 0.88rem; font-weight: 700;
-    margin-bottom: 12px; letter-spacing: 0.03em;
-  }
-  .outcome-card.valid   .outcome-verdict { color: var(--green); }
-  .outcome-card.falsified .outcome-verdict { color: var(--red); }
-  .outcome-card.unknown .outcome-verdict { color: var(--dim); }
-  .outcome-card h3 {
-    font-family: 'IBM Plex Sans', sans-serif;
-    font-size: 1.15rem; font-weight: 700; margin-bottom: 8px;
-  }
-  .outcome-card p  {
-    font-family: 'IBM Plex Sans', sans-serif;
-    font-size: 1rem; color: var(--dim); line-height: 1.7;
-  }
-  .outcome-cex {
-    margin-top: 14px; padding: 10px 14px;
-    border-left: 2px solid rgba(248,113,113,0.25);
-    font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; line-height: 1.7;
-    color: var(--dim);
-  }
-  .outcome-cex .cex-label { color: var(--red); }
+/* syntax */
+.kw { color: var(--kw); }
+.ty { color: var(--ty); }
+.nm { color: var(--nm); }
+.op { color: var(--op); }
+.cm { color: var(--cm); font-style: italic; }
+.id { color: var(--id); }
+.pu { color: #c3e88d; } /* punctuation / strings */
 
-  /* ── benchmarks ── */
-  .bench-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0; }
-  .bench-card {
-    border-left: 1px solid var(--border);
-    padding: 28px 28px 28px 24px; text-align: left; transition: color 0.2s;
-    text-decoration: none; display: block;
-  }
-  .bench-card:first-child { border-left: none; padding-left: 0; }
-  .bench-fraction {
-    font-family: 'IBM Plex Sans', sans-serif;
-    font-size: 3.5rem; font-weight: 700; letter-spacing: -0.02em;
-    color: var(--ink); margin-bottom: 4px; line-height: 1;
-  }
-  .bench-name {
-    font-family: 'IBM Plex Sans', sans-serif;
-    font-weight: 600; font-size: 1rem; margin-bottom: 8px; color: var(--text);
-  }
-  .bench-note {
-    font-family: 'IBM Plex Sans', sans-serif;
-    color: var(--dim); font-size: 0.95rem; line-height: 1.65;
-  }
+/* cursor blink */
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+.cursor {
+  display: inline-block; width: 2px; height: 1em;
+  background: var(--txt); vertical-align: text-bottom;
+  animation: blink 1.1s step-end infinite;
+}
 
-  /* ── get started ── */
-  .setup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
-  @media (max-width: 700px) { .setup-grid { grid-template-columns: 1fr; } }
-  .setup-step { }
-  .setup-num {
-    font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; font-weight: 700;
-    color: var(--ink); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 10px;
-  }
-  .setup-step h4 {
-    font-family: 'IBM Plex Sans', sans-serif;
-    font-size: 1.1rem; font-weight: 700; margin-bottom: 14px;
-  }
-  .code-block {
-    background: var(--bg2); border: 1px solid var(--border); border-radius: 3px; overflow: hidden;
-  }
-  .code-block-bar {
-    padding: 7px 14px; border-bottom: 1px solid var(--border);
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.72rem; color: var(--dim); display: flex; align-items: center; gap: 6px;
-  }
-  .code-block pre {
-    padding: 16px 18px; font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.86rem; line-height: 1.75; overflow-x: auto;
-  }
+/* ─── TERMINAL STRIP ──────────────────────────────── */
+.term-strip {
+  background: var(--bg-term);
+  border-top: 1px solid var(--bdr);
+  max-height: 0; overflow: hidden;
+  transition: max-height 0.38s cubic-bezier(0.4,0,0.2,1);
+}
+.term-strip.open { max-height: 110px; }
 
-  /* ── built by ── */
-  .people { display: flex; gap: 16px; justify-content: flex-start; flex-wrap: wrap; }
-  .org-card {
-    display: flex; align-items: center; gap: 12px; padding: 12px 18px;
-    border: 1px solid var(--border); border-radius: 3px;
-    text-decoration: none; color: var(--dim);
-    font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 1rem;
-    transition: color 0.2s;
-  }
-  .org-card:hover { color: var(--text); }
-  .org-logo {
-    width: 32px; height: 22px;
-    display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden;
-  }
-  .org-logo img { max-width: 100%; max-height: 100%; object-fit: contain; opacity: 0.5; }
+.term-hdr {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 14px 6px;
+  border-bottom: 1px solid var(--bdr-lo);
+  font-family: var(--fc); font-size: 11px; color: var(--dim);
+}
+.term-dot { width:6px;height:6px;border-radius:50%;background:var(--muted); }
 
-  /* ── footer ── */
-  footer {
-    padding: 24px 48px; border-top: 1px solid var(--border);
-    text-align: left; font-size: 0.8rem; color: var(--dim);
-    font-family: 'IBM Plex Mono', monospace;
-    max-width: 1080px; margin: 0 auto;
-  }
-  footer a { color: var(--dim); text-decoration: none; }
-  footer a:hover { color: var(--text); }
+.term-body {
+  padding: 10px 14px 14px;
+  font-family: var(--fc); font-size: 13px; line-height: 1.6;
+}
+.tr { display: flex; align-items: baseline; gap: 10px; margin: 2px 0; }
+.tb-run  { color: var(--dim); }
+.tb-ok   { color: var(--valid); font-weight: 700; }
+.tb-err  { color: var(--error); font-weight: 700; }
+.tv      { color: var(--valid); }
+.te      { color: var(--error); }
+.ti      { color: var(--dim); }
+.tm      { color: var(--muted); }
 
-  /* ── responsive ── */
-  @media (max-width: 720px) {
-    nav { padding: 12px 20px; }
-    .nav-links { display: none; }
-    .wrap { padding: 64px 20px; }
-    .hero { padding: 110px 20px 60px; }
-    .hero-demo { grid-template-columns: 1fr; }
-    .flow { flex-direction: column; }
-    .flow-arrow { transform: rotate(90deg); align-self: flex-start; margin-left: 50%; }
-  }
+/* ─── SCROLL HINT ─────────────────────────────────── */
+.scroll-hint {
+  margin-top: 44px;
+  font-family: var(--fc); font-size: 11px;
+  color: rgba(205,214,244,0.45);
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  animation: sh-fade 2s ease 3.5s both;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+@keyframes sh-fade { from{opacity:0} to{opacity:1} }
+@keyframes sh-bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(6px)} }
+.scroll-chevron {
+  animation: sh-bob 1.6s ease-in-out infinite;
+  opacity: 0.5;
+}
+
+/* ─── TAGLINE ─────────────────────────────────────── */
+.tagline {
+  padding: 130px 24px;
+  text-align: center;
+  border-top: 1px solid var(--bdr-lo);
+  border-bottom: 1px solid var(--bdr-lo);
+  background: linear-gradient(180deg, transparent, rgba(26,25,22,0.5) 50%, transparent);
+}
+.tagline h2 {
+  font-family: var(--fp);
+  font-size: clamp(38px, 6.5vw, 72px);
+  font-weight: 700; line-height: 1.08;
+  letter-spacing: -0.025em;
+  margin-bottom: 28px;
+}
+.tagline h2 em { font-style: italic; color: var(--ink); }
+.tagline p {
+  font-family: var(--fp); font-size: 19px;
+  color: var(--dim); max-width: 520px;
+  margin: 0 auto; line-height: 1.6; font-weight: 400;
+}
+
+/* ─── SECTION CHROME ──────────────────────────────── */
+.section-wrap {
+  max-width: 960px; margin: 0 auto;
+  padding: 100px 24px;
+}
+.section-wrap.narrow { max-width: 720px; }
+
+.section-tag {
+  font-family: var(--fc); font-size: 11px;
+  color: var(--cm); letter-spacing: 0.1em;
+  text-transform: uppercase; margin-bottom: 48px;
+  display: flex; align-items: center; gap: 0;
+}
+.section-tag::before { content: '/- '; white-space: pre; }
+.section-tag::after  { content: ' -/'; white-space: pre; }
+.section-title {
+  font-family: var(--fp); font-size: 32px;
+  font-weight: 600; margin-bottom: 12px;
+  letter-spacing: -0.02em;
+}
+.section-sub {
+  font-family: var(--fp); font-size: 17px;
+  color: var(--dim); margin-bottom: 56px;
+  max-width: 540px;
+}
+
+/* ─── PIPELINE ────────────────────────────────────── */
+.pipe-row {
+  display: flex; align-items: flex-start; gap: 0;
+  overflow-x: auto; padding-bottom: 8px;
+}
+.pipe-stage {
+  flex: 1; min-width: 130px;
+  opacity: 0; transform: translateY(14px);
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+.pipe-stage.vis { opacity: 1; transform: translateY(0); }
+
+.pipe-conn {
+  display: flex; align-items: center;
+  padding: 0 4px; padding-top: 34px; flex-shrink: 0;
+}
+.pipe-arrow {
+  width: 32px; height: 1px; background: var(--bdr);
+  position: relative;
+}
+.pipe-arrow::after {
+  content: ''; position: absolute;
+  right: -1px; top: -3px;
+  border: 4px solid transparent;
+  border-left-color: var(--dim); border-right-width: 0;
+}
+
+.pipe-label {
+  font-family: var(--fc); font-size: 10.5px;
+  font-weight: 600; color: var(--dim);
+  letter-spacing: 0.08em; text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.pipe-box {
+  background: var(--bg-ed); border: 1px solid var(--bdr);
+  border-radius: 5px; padding: 10px 12px;
+  font-family: var(--fc); font-size: 12px;
+  line-height: 1.55; white-space: pre;
+  color: var(--id); overflow: hidden;
+}
+.pipe-stage.final .pipe-box {
+  border-color: rgba(78,201,148,0.22);
+  color: var(--valid);
+}
+.pipe-note {
+  font-family: var(--fc); font-size: 10.5px;
+  color: var(--dim); margin-top: 8px;
+  font-style: italic;
+}
+
+/* ─── GALLERY ─────────────────────────────────────── */
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+.gc {
+  background: var(--bg-ed); border: 1px solid var(--bdr);
+  border-radius: 7px; overflow: hidden;
+  display: flex; flex-direction: column;
+  cursor: pointer;
+  opacity: 0; transform: translateY(16px);
+  transition: opacity 0.4s ease, transform 0.4s ease, border-color 0.2s, box-shadow 0.2s;
+}
+.gc.vis { opacity: 1; transform: translateY(0); }
+.gc:hover {
+  border-color: rgba(255,255,255,0.12);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+  transform: translateY(-2px);
+}
+.gc-hdr {
+  display: flex; align-items: center; gap: 7px;
+  padding: 9px 12px; border-bottom: 1px solid var(--bdr-lo);
+  font-family: var(--fc); font-size: 11px; color: var(--dim);
+}
+.gc-dot { width:8px;height:8px;border-radius:50%;background:var(--muted); }
+.gc-expand { margin-left: auto; font-size: 10px; color: var(--muted); letter-spacing: 0.05em; }
+.gc:hover .gc-expand { color: var(--dim); }
+.gc-code {
+  padding: 14px 14px 12px; flex: 1;
+  font-family: var(--fc); font-size: 12.5px;
+  line-height: 1.65; white-space: pre; overflow-x: auto;
+}
+.gc-status {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 12px; border-top: 1px solid var(--bdr-lo);
+  background: rgba(0,0,0,0.18);
+  font-family: var(--fc); font-size: 11px;
+}
+.gc-check { color: var(--valid); font-weight: 700; }
+.gc-falsified { color: var(--error); font-weight: 700; }
+.gc-time  { color: var(--dim); }
+.gc-sep   { color: var(--muted); }
+.gc-tag   { margin-left: auto; color: var(--muted); font-size: 10.5px; letter-spacing: 0.05em; }
+
+/* ─── MODAL ──────────────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 500;
+  background: rgba(0,0,0,0.78);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.22s ease;
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+
+.modal {
+  width: 100%; max-width: 640px;
+  background: var(--bg-ed); border: 1px solid var(--bdr);
+  border-radius: 9px; overflow: hidden;
+  transform: scale(0.96) translateY(10px);
+  transition: transform 0.22s cubic-bezier(0.16,1,0.3,1);
+  box-shadow: 0 32px 80px rgba(0,0,0,0.85);
+  max-height: 90vh; display: flex; flex-direction: column;
+}
+.modal-overlay.open .modal { transform: scale(1) translateY(0); }
+
+.modal-title {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px;
+  background: var(--bg-gut); border-bottom: 1px solid var(--bdr-lo);
+  font-family: var(--fc); font-size: 12px; color: var(--dim);
+  flex-shrink: 0;
+}
+.modal-close {
+  margin-left: auto; background: none; border: none;
+  color: var(--dim); cursor: pointer; font-size: 16px;
+  line-height: 1; padding: 0 2px;
+  transition: color 0.15s;
+}
+.modal-close:hover { color: var(--txt); }
+
+.modal-body { overflow-y: auto; }
+
+.modal-code {
+  padding: 16px 20px; font-family: var(--fc); font-size: 13px;
+  line-height: 1.65; white-space: pre; overflow-x: auto;
+}
+
+.modal-actions {
+  padding: 12px 16px; border-top: 1px solid var(--bdr-lo);
+  display: flex; align-items: center; gap: 12px;
+  flex-shrink: 0;
+}
+.blast-btn {
+  padding: 7px 18px; background: var(--ink); border: none;
+  border-radius: 4px; font-family: var(--fc); font-size: 12px;
+  font-weight: 600; color: white; cursor: pointer;
+  transition: background 0.15s; letter-spacing: 0.03em;
+}
+.blast-btn:hover:not(:disabled) { background: #c74838; }
+.blast-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.blast-btn.done-ok  { background: #2d7a55; }
+.blast-btn.done-err { background: #7a2d2d; }
+.modal-hint { font-family: var(--fc); font-size: 11px; color: var(--muted); }
+
+.modal-term {
+  margin: 0 16px 12px;
+  background: var(--bg-term); border: 1px solid var(--bdr);
+  border-radius: 5px; overflow: hidden;
+  max-height: 0; transition: max-height 0.35s ease;
+  flex-shrink: 0;
+}
+.modal-term.show { max-height: 130px; }
+.modal-term-body {
+  padding: 12px 14px; font-family: var(--fc); font-size: 12.5px; line-height: 1.6;
+}
+
+/* ─── INSTALL ─────────────────────────────────────── */
+.install-block {
+  background: var(--bg-ed); border: 1px solid var(--bdr);
+  border-radius: 7px; overflow: hidden; margin-bottom: 20px;
+}
+.ib-hdr {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 14px; border-bottom: 1px solid var(--bdr-lo);
+  font-family: var(--fc); font-size: 11px; color: var(--dim);
+}
+.ib-copy {
+  cursor: pointer; transition: color 0.15s; font-size: 11px;
+  background: none; border: none; color: var(--dim); font-family: var(--fc);
+}
+.ib-copy:hover { color: var(--txt); }
+.ib-body {
+  padding: 16px; font-family: var(--fc); font-size: 13px;
+  line-height: 1.65; white-space: pre; overflow-x: auto;
+}
+
+.links-row {
+  display: flex; gap: 12px; flex-wrap: wrap; margin-top: 32px;
+}
+.btn-link {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 10px 20px;
+  border: 1px solid var(--bdr);
+  border-radius: 5px; font-family: var(--fc); font-size: 13px;
+  color: var(--txt); transition: all 0.15s;
+}
+.btn-link:hover { border-color: rgba(255,255,255,0.14); background: rgba(255,255,255,0.03); }
+.btn-link.primary { background: var(--ink); border-color: var(--ink); font-weight: 600; }
+.btn-link.primary:hover { background: #c74838; border-color: #c74838; }
+
+/* ─── FOOTER / STATUS BAR ─────────────────────────── */
+.status-bar {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  height: 24px; z-index: 200;
+  background: var(--ink);
+  display: flex; align-items: center;
+  font-family: var(--fc); font-size: 11px;
+  color: rgba(255,255,255,0.82);
+  user-select: none;
+}
+.sb-item {
+  display: flex; align-items: center; height: 100%;
+  padding: 0 11px; gap: 5px; cursor: default;
+  transition: background 0.12s; white-space: nowrap;
+}
+.sb-item:hover { background: rgba(0,0,0,0.15); }
+.sb-sep { width:1px; height:14px; background: rgba(255,255,255,0.2); }
+.sb-right { margin-left: auto; display: flex; align-items: center; }
+.sb-badge {
+  background: rgba(0,0,0,0.2); padding: 2px 8px;
+  border-radius: 2px; font-weight: 600;
+}
+
+/* ─── UTILS ───────────────────────────────────────── */
+.fade-up {
+  opacity: 0; transform: translateY(18px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.fade-up.vis { opacity: 1; transform: translateY(0); }
+
+.divider {
+  max-width: 960px; margin: 0 auto;
+  border: none; border-top: 1px solid var(--bdr-lo);
+}
+
+/* ─── RESPONSIVE ──────────────────────────────────── */
+@media (max-width: 640px) {
+  .nav-links a:not(.primary) { display: none; }
+  .pipe-row { flex-direction: column; }
+  .pipe-conn { display: none; }
+  .gallery-grid { grid-template-columns: 1fr; gap: 14px; }
+  .ed-fname { display: none; }
+}
 </style>
 </head>
 <body>
 
-<div class="content">
-
-<!-- ── Nav ── -->
-<nav>
-  <a href="#" class="nav-logo">
-    <div class="logotype"><img src="assets/blaster-logo.png" alt="Blaster"></div>
-    Blaster
-  </a>
-  <div class="nav-links">
-    <a href="#pipeline">Pipeline</a>
-    <a href="#examples">Examples</a>
-    <a href="#start">Get started</a>
+<!-- ─── NAV ─────────────────────────────────────── -->
+<header class="nav">
+  <div class="nav-wm">
+    <span class="tl tl-r"></span>
+    <span class="tl tl-y"></span>
+    <span class="tl tl-g"></span>
   </div>
-  <a href="https://github.com/input-output-hk/Lean-blaster" target="_blank" class="nav-gh">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
-    GitHub
-  </a>
-</nav>
-
-<!-- ── Hero ── -->
-<section class="hero">
-  <div class="hero-eyebrow">Lean4 · Automated Reasoning</div>
-  <h1><span class="word-prove">Prove</span> it.</h1>
-  <p class="hero-sub">
-    Write a Lean4 theorem. Call <code style="font-family:'Inconsolata',monospace;color:var(--ink);font-size:0.9em">blaster</code>.
-    Get a proof, or a concrete counterexample that tells you exactly why it's wrong.
-  </p>
-  <div class="hero-actions">
-    <a href="https://github.com/input-output-hk/Lean-blaster" class="btn btn-ink" target="_blank">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
-      View on GitHub
+  <div class="nav-tabs">
+    <div class="nav-tab active">
+      <span class="tab-icon">𝕃</span>
+      Blaster.lean
+    </div>
+    <a class="nav-tab inactive" href="https://input-output-hk.github.io/plu-stan/" style="cursor:pointer">
+      <span style="color:#6eb58a;font-size:10px">λ</span>
+      PluStan.hs
     </a>
-    <a href="#start" class="btn btn-ghost">Get started →</a>
+    <a class="nav-tab inactive" href="https://github.com/input-output-hk/Lean-blaster/blob/main/README.md" target="_blank" rel="noopener" style="cursor:pointer">
+      <span style="color:var(--dim);font-size:11px">◻</span>
+      README.md
+    </a>
+  </div>
+  <nav class="nav-links">
+    <a href="#pipeline">How it works</a>
+    <a href="#gallery">Examples</a>
+    <a href="#install">Install</a>
+    <a href="https://github.com/input-output-hk/Lean-blaster" class="primary">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+      GitHub
+    </a>
+  </nav>
+</header>
+
+<!-- ─── HERO ─────────────────────────────────────── -->
+<section class="hero">
+  <div class="editor-win">
+    <div class="ed-titlebar">
+      <span class="tl tl-r"></span>
+      <span class="tl tl-y"></span>
+      <span class="tl tl-g"></span>
+      <span class="ed-fname">theorem_demo.lean</span>
+    </div>
+
+    <div class="ed-body" id="ed-body">
+      <!-- Static lines 1–9 -->
+      <div class="ln"><span class="lc"><span class="cm">/-!</span></span></div>
+      <div class="ln"><span class="lc"><span class="cm">  Lean 4 proof automation via SMT.</span></span></div>
+      <div class="ln"><span class="lc"><span class="cm">-/</span></span></div>
+      <div class="ln"><span class="lc"></span></div>
+      <div class="ln"><span class="lc"><span class="kw">import</span> <span class="id">Blaster</span><span style="color:var(--dim)">.</span><span class="id">Tactic</span></span></div>
+      <div class="ln"><span class="lc"></span></div>
+      <div class="ln"><span class="lc"><span class="kw">namespace</span> <span class="id">Demo</span></span></div>
+      <div class="ln"><span class="lc"></span></div>
+      <!-- Dynamic typewriter lines inserted here -->
+      <div id="tw-lines"></div>
+      <div class="ln"><span class="lc"></span></div>
+      <div class="ln"><span class="lc"><span class="kw">end</span> <span class="id">Demo</span></span></div>
+    </div>
+
+    <div class="term-strip" id="term-strip">
+      <div class="term-hdr">
+        <span class="term-dot"></span>
+        TERMINAL
+      </div>
+      <div class="term-body" id="term-body"></div>
+    </div>
   </div>
 
-  <div class="hero-demo" style="grid-template-columns:1fr;max-width:580px">
-    <div class="demo-pane">
-      <div class="demo-pane-bar">
-        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
-        <span class="label">Proof.lean</span>
-      </div>
-      <pre id="demo-code" style="min-height:140px"></pre>
+  <div class="scroll-hint">
+    scroll to explore
+    <svg class="scroll-chevron" width="22" height="13" viewBox="0 0 22 13" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <polyline points="1,1 11,11 21,1" stroke="rgba(205,214,244,0.9)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+</section>
+
+<!-- ─── TAGLINE ───────────────────────────────────── -->
+<section class="tagline">
+  <h2>Stop writing proofs.<br><em>Blast</em> them.</h2>
+  <p>Feed Blaster a theorem. Get a proof, or a counterexample that shows exactly why it's wrong.</p>
+</section>
+
+<!-- ─── PIPELINE ─────────────────────────────────── -->
+<section class="section-wrap" id="pipeline">
+  <div class="section-tag fade-up">how it works</div>
+  <h3 class="section-title fade-up" style="transition-delay:0.05s">Lean → Optimizer → SMT → Result</h3>
+  <p class="section-sub fade-up" style="transition-delay:0.1s">
+    Blaster doesn't call Z3 directly. It first simplifies your goal through ~40 algebraic rewriting
+    passes, then emits a minimal SMT-Lib 2 query.
+  </p>
+
+  <div class="pipe-row" id="pipe-row">
+    <div class="pipe-stage" data-delay="0">
+      <div class="pipe-label">Lean Goal</div>
+      <div class="pipe-box"><span class="id">n</span> <span class="op">+</span> <span class="nm">0</span> <span class="op">=</span> <span class="id">n</span></div>
+      <div class="pipe-note">your theorem</div>
+    </div>
+    <div class="pipe-conn"><div class="pipe-arrow"></div></div>
+    <div class="pipe-stage" data-delay="1">
+      <div class="pipe-label">Optimizer</div>
+      <div class="pipe-box"><span class="id">n</span> <span class="op">=</span> <span class="id">n</span></div>
+      <div class="pipe-note">add-identity removed</div>
+    </div>
+    <div class="pipe-conn"><div class="pipe-arrow"></div></div>
+    <div class="pipe-stage" data-delay="2">
+      <div class="pipe-label">SMT-Lib 2</div>
+      <div class="pipe-box"><span class="kw">(assert</span>
+  <span class="op">(not</span>
+    <span class="op">(=</span> n n<span class="op">)))
+(check-sat)</span></div>
+      <div class="pipe-note">query sent to Z3</div>
+    </div>
+    <div class="pipe-conn"><div class="pipe-arrow"></div></div>
+    <div class="pipe-stage" data-delay="3">
+      <div class="pipe-label">Z3</div>
+      <div class="pipe-box"><span class="cm">unsat</span></div>
+      <div class="pipe-note">unsatisfiable → valid</div>
+    </div>
+    <div class="pipe-conn"><div class="pipe-arrow"></div></div>
+    <div class="pipe-stage final" data-delay="4">
+      <div class="pipe-label">Result</div>
+      <div class="pipe-box">✓  Valid
+· 4ms</div>
+      <div class="pipe-note">goal closed</div>
     </div>
   </div>
 </section>
 
-<!-- ── Pipeline ── -->
-<section id="pipeline">
-  <div class="wrap">
-    <div class="section-tag">How it works</div>
-    <h2 class="section-h">Three steps, one command</h2>
-    <p class="section-p">Blaster doesn't just pass your goal to the solver. It first tries to close it through symbolic simplification. No SMT query needed.</p>
+<hr class="divider">
 
-    <div class="flow">
-      <div class="flow-step">
-        <div class="step-icon" style="background:rgba(251,191,36,0.1)">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-        </div>
-        <h4>Optimize</h4>
-        <p>Beta reduction, function unfolding, let-inlining, 30+ algebraic rewriting rules</p>
-      </div>
-      <div class="flow-arrow">→</div>
-      <div class="flow-step">
-        <div class="step-icon" style="background:rgba(184,64,50,0.1)">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#b84032" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-        </div>
-        <h4>Translate</h4>
-        <p>Lean4 types and expressions encoded as SMT-LIB V2: sorts, terms, quantifiers</p>
-      </div>
-      <div class="flow-arrow">→</div>
-      <div class="flow-step">
-        <div class="step-icon" style="background:rgba(56,189,248,0.1)">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-        </div>
-        <h4>Solve</h4>
-        <p>Proof or counterexample. No manual proof required.</p>
-      </div>
+<!-- ─── GALLERY ───────────────────────────────────── -->
+<section class="section-wrap" id="gallery">
+  <div class="section-tag fade-up">examples</div>
+  <h3 class="section-title fade-up" style="transition-delay:0.05s">What Blaster handles today</h3>
+
+  <div class="gallery-grid" id="gallery-grid">
+
+    <div class="gc" data-ex="0">
+      <div class="gc-hdr"><span class="gc-dot"></span> higher_order.lean <span class="gc-expand">click to run →</span></div>
+      <div class="gc-code"><span class="id">#blaster</span> <span class="op">[</span>
+  <span class="op">∀</span> <span class="op">(</span><span class="id">x</span> <span class="op">:</span> <span class="ty">Nat</span><span class="op">)</span> <span class="op">(</span><span class="id">xs</span> <span class="op">:</span> <span class="ty">List</span> <span class="ty">Nat</span><span class="op">),</span>
+  <span class="op">!</span><span class="id">xs</span><span class="op">.</span><span class="id">isEmpty</span> <span class="op">→</span>
+  <span class="op">(</span><span class="id">xs</span><span class="op">.</span><span class="id">map</span> <span class="op">(</span><span class="ty">Nat</span><span class="op">.</span><span class="id">add x</span><span class="op">)).</span><span class="id">head!</span> <span class="op">≥</span> <span class="id">x</span><span class="op">]</span></div>
+      <div class="gc-status"><span class="gc-check">✓ Valid</span><span class="gc-sep">·</span><span class="gc-tag">higher-order</span></div>
     </div>
 
-    <div class="flow-note">
-      <strong>Early exit:</strong> if the optimizer reduces the goal to <code style="font-family:'Inconsolata',monospace;font-size:0.9em;color:var(--green)">True</code>, Blaster declares Valid immediately with no SMT call. Reduction to <code style="font-family:'Inconsolata',monospace;font-size:0.9em;color:var(--red)">False</code> gives an instant Falsified. The solver only runs when symbolic reasoning is not enough.
-    </div>
-  </div>
-</section>
-
-<!-- ── Examples ── -->
-<section id="examples">
-  <div class="wrap" style="padding-top: 0">
-    <div class="section-tag">Examples</div>
-    <h2 class="section-h">What Blaster can prove</h2>
-    <p class="section-p">From first-order arithmetic to polymorphic inductive types and state machines, all with a single tactic.</p>
-
-    <div class="ex-tabs">
-      <button class="ex-tab active" onclick="showEx('arith', this)">Arithmetic</button>
-      <button class="ex-tab" onclick="showEx('inductives', this)">Inductive types</button>
-      <button class="ex-tab" onclick="showEx('recursive', this)">Recursive functions</button>
-      <button class="ex-tab" onclick="showEx('statemachine', this)">State machines</button>
+    <div class="gc" data-ex="1">
+      <div class="gc-hdr"><span class="gc-dot"></span> polymorphism.lean <span class="gc-expand">click to run →</span></div>
+      <div class="gc-code"><span class="id">#blaster</span> <span class="op">[</span>
+  <span class="op">(∀</span> <span class="op">(</span><span class="id">α</span><span class="op">)</span> <span class="op">(</span><span class="id">a b</span> <span class="op">:</span> <span class="id">α</span><span class="op">)</span> <span class="op">[</span><span class="ty">BEq</span> <span class="id">α</span><span class="op">],</span>
+    <span class="id">a</span> <span class="op">==</span> <span class="id">b</span> <span class="op">→</span> <span class="id">a</span> <span class="op">=</span> <span class="id">b</span><span class="op">)</span> <span class="op">→</span>
+  <span class="op">∀</span> <span class="op">(</span><span class="id">x y</span> <span class="op">:</span> <span class="ty">Either</span> <span class="id">α β</span><span class="op">)</span>
+    <span class="op">[</span><span class="ty">BEq</span> <span class="id">α</span><span class="op">]</span> <span class="op">[</span><span class="ty">BEq</span> <span class="id">β</span><span class="op">],</span> <span class="id">x</span> <span class="op">==</span> <span class="id">y</span> <span class="op">→</span> <span class="id">x</span> <span class="op">=</span> <span class="id">y</span><span class="op">]</span></div>
+      <div class="gc-status"><span class="gc-check">✓ Valid</span><span class="gc-sep">·</span><span class="gc-tag">polymorphism + typeclass</span></div>
     </div>
 
-    <!-- Arithmetic -->
-    <div class="ex-panel active" id="ex-arith">
-      <div class="ex-code">
-        <div class="ex-code-bar">Theorems.lean</div>
-        <pre><span class="c-dim">-- Basic arithmetic properties</span>
-<span class="c-fn">#blaster</span> [ <span class="c-kw">∀</span> (a b : <span class="c-ty">Nat</span>), a + b = b + a ]
-<span class="c-ok">✅ Valid</span>
-
-<span class="c-fn">#blaster</span> [ <span class="c-kw">∀</span> (a b c : <span class="c-ty">Int</span>),
-  (a - b) * c = a * c - b * c ]
-<span class="c-ok">✅ Valid</span>
-
-<span class="c-dim">-- The solver also catches false claims</span>
-<span class="c-fn">#blaster</span> [ <span class="c-kw">∀</span> (n : <span class="c-ty">Nat</span>), n * n ≤ n + n ]
-<span class="c-err">❌ Falsified</span>
-<span class="c-dim">Counterexample: n = 3</span></pre>
-      </div>
-      <div class="ex-prose">
-        <h3>First-order arithmetic</h3>
-        <p>Integer and natural number goals are translated to SMT linear and non-linear arithmetic theories. Blaster handles equality, inequality, and modular arithmetic.</p>
-        <p>Nat is encoded as a bounded integer sort. Overflow and subtraction truncation semantics are preserved.</p>
-        <span class="tag tag-ink">Nat</span>
-        <span class="tag tag-ink">Int</span>
-        <span class="tag tag-sky">QF_NIA</span>
-        <span class="tag tag-green">constant folding</span>
-      </div>
+    <div class="gc" data-ex="2">
+      <div class="gc-hdr"><span class="gc-dot"></span> mutual_inductive.lean <span class="gc-expand">click to run →</span></div>
+      <div class="gc-code"><span class="kw">theorem</span> <span class="id">A_self_size</span> <span class="op">(</span><span class="id">a</span> <span class="op">:</span> <span class="ty">A</span><span class="op">)</span> <span class="op">:</span>
+    <span class="op">(</span><span class="ty">A</span><span class="op">.</span><span class="id">self a</span><span class="op">).</span><span class="id">sizeA</span> <span class="op">=</span> <span class="id">a</span><span class="op">.</span><span class="id">sizeA</span> <span class="op">+</span> <span class="nm">1</span> <span class="op">:=</span> <span class="kw">by</span>
+  <span class="kw">blaster</span></div>
+      <div class="gc-status"><span class="gc-check">✓ Valid</span><span class="gc-sep">·</span><span class="gc-tag">mutually inductive</span></div>
     </div>
 
-    <!-- Inductive types -->
-    <div class="ex-panel" id="ex-inductives">
-      <div class="ex-code">
-        <div class="ex-code-bar">Either.lean</div>
-        <pre><span class="c-kw">inductive</span> <span class="c-ty">Either</span> (α β : <span class="c-ty">Type</span>) <span class="c-kw">where</span>
-  | Left  : α → Either α β
-  | Right : β → Either α β
-
-<span class="c-kw">def</span> <span class="c-fn">isLeft</span>  : Either a b → <span class="c-ty">Bool</span>
-  | .Left _  => true  | .Right _ => false
-<span class="c-kw">def</span> <span class="c-fn">isRight</span> : Either a b → <span class="c-ty">Bool</span>
-  | .Left _  => false | .Right _ => true
-
-<span class="c-kw">theorem</span> <span class="c-fn">isLeft_not_isRight</span> (x : Either α β) :
-    ¬isRight x = isLeft x := by <span class="c-fn">blaster</span>
-<span class="c-ok">✅ Valid</span>
-
-<span class="c-kw">theorem</span> <span class="c-fn">isLeft_or_isRight</span> (x : Either α β) :
-    isLeft x <span class="c-kw">∨</span> isRight x := by <span class="c-fn">blaster</span>
-<span class="c-ok">✅ Valid</span></pre>
-      </div>
-      <div class="ex-prose">
-        <h3>Parametric &amp; mutual inductives</h3>
-        <p>Blaster encodes inductive types as uninterpreted SMT sorts with constructor predicates. It handles parametric types, mutually inductive definitions, and polymorphic functions over them.</p>
-        <p>Type parameters become universally quantified SMT sorts with predicate qualifiers to preserve constructor disjointness.</p>
-        <span class="tag tag-ink">parametric</span>
-        <span class="tag tag-ink">mutual inductive</span>
-        <span class="tag tag-sky">uninterpreted sorts</span>
-        <span class="tag tag-green">polymorphism</span>
-      </div>
+    <div class="gc" data-ex="3">
+      <div class="gc-hdr"><span class="gc-dot"></span> counterexample.lean <span class="gc-expand">click to run →</span></div>
+      <div class="gc-code"><span class="cm">-- Blaster finds a witness</span>
+<span class="id">#blaster</span> <span class="op">[∀</span> <span class="op">(</span><span class="id">α</span> <span class="op">:</span> <span class="ty">Type</span><span class="op">)</span> <span class="op">(</span><span class="id">x</span> <span class="op">:</span> <span class="ty">Term</span> <span class="id">α</span><span class="op">),</span>
+  <span class="id">sizeOfTerm x</span> <span class="op">&lt;</span> <span class="nm">10</span><span class="op">]</span></div>
+      <div class="gc-status"><span class="gc-falsified">✗ Falsified</span><span class="gc-sep">·</span><span class="gc-tag">counterexample</span></div>
     </div>
 
-    <!-- Recursive -->
-    <div class="ex-panel" id="ex-recursive">
-      <div class="ex-code">
-        <div class="ex-code-bar">Lists.lean</div>
-        <pre><span class="c-dim">-- List length and cons</span>
-<span class="c-fn">#blaster</span> [ <span class="c-kw">∀</span> (x : <span class="c-ty">Nat</span>) (xs : List <span class="c-ty">Nat</span>),
-  xs.length + 1 = (x :: xs).length ]
-<span class="c-ok">✅ Valid</span>
-
-<span class="c-dim">-- Mutually recursive isEven / isOdd</span>
-<span class="c-kw">mutual</span>
-  <span class="c-kw">def</span> <span class="c-fn">isEven</span> : <span class="c-ty">Nat</span> → <span class="c-ty">Bool</span>
-    | 0   => true  | n+1 => isOdd n
-  <span class="c-kw">def</span> <span class="c-fn">isOdd</span>  : <span class="c-ty">Nat</span> → <span class="c-ty">Bool</span>
-    | 0   => false | n+1 => isEven n
-<span class="c-kw">end</span>
-
-<span class="c-fn">#blaster</span> [ <span class="c-kw">∀</span> n, isEven (n+1) = isOdd n ]
-<span class="c-ok">✅ Valid</span>
-<span class="c-fn">#blaster</span> [ <span class="c-kw">∀</span> n, isEven (n+2) → isEven n ]
-<span class="c-ok">✅ Valid</span></pre>
-      </div>
-      <div class="ex-prose">
-        <h3>Recursive &amp; mutually recursive</h3>
-        <p>Blaster unfolds recursive definitions and applies algebraic normalization before SMT translation, often reducing recursive properties to straightforward quantified formulae.</p>
-        <p>Combine with Lean4's <code style="font-family:'Inconsolata',monospace;color:var(--ink);font-size:0.88em">induction</code> tactic to split goals that require induction; Blaster handles each case.</p>
-        <span class="tag tag-ink">recursive defs</span>
-        <span class="tag tag-ink">mutual recursion</span>
-        <span class="tag tag-amber">+ induction tactic</span>
-      </div>
+    <div class="gc" data-ex="4">
+      <div class="gc-hdr"><span class="gc-dot"></span> quant_functions.lean <span class="gc-expand">click to run →</span></div>
+      <div class="gc-code"><span class="id">#blaster</span> <span class="op">[</span>
+  <span class="op">(∀</span> <span class="op">(</span><span class="id">β</span><span class="op">)</span> <span class="op">(</span><span class="id">x</span> <span class="op">:</span> <span class="ty">Term</span> <span class="op">(</span><span class="ty">List</span> <span class="id">β</span><span class="op">))</span>
+     <span class="op">(</span><span class="id">f</span> <span class="op">:</span> <span class="ty">Term</span> <span class="op">(</span><span class="ty">List</span> <span class="id">β</span><span class="op">)</span> <span class="op">→</span> <span class="ty">Nat</span><span class="op">),</span> <span class="id">f x</span> <span class="op">&gt;</span> <span class="nm">10</span><span class="op">)</span> <span class="op">→</span>
+  <span class="op">∀</span> <span class="op">(</span><span class="id">x y</span> <span class="op">:</span> <span class="ty">Term</span> <span class="op">(</span><span class="ty">List</span> <span class="id">α</span><span class="op">))</span>
+    <span class="op">(</span><span class="id">f</span> <span class="op">:</span> <span class="ty">Term</span> <span class="op">(</span><span class="ty">List</span> <span class="id">α</span><span class="op">)</span> <span class="op">→</span> <span class="ty">Nat</span><span class="op">),</span>
+    <span class="id">f x</span> <span class="op">+</span> <span class="id">f y</span> <span class="op">&gt;</span> <span class="nm">20</span><span class="op">]</span></div>
+      <div class="gc-status"><span class="gc-check">✓ Valid</span><span class="gc-sep">·</span><span class="gc-tag">quantification over functions</span></div>
     </div>
 
-    <!-- State machines -->
-    <div class="ex-panel" id="ex-statemachine">
-      <div class="ex-code">
-        <div class="ex-code-bar">TrafficLight.lean</div>
-        <pre><span class="c-kw">inductive</span> <span class="c-ty">Light</span> <span class="c-kw">where</span>
-  | Red | Yellow | Green
-
-<span class="c-kw">instance</span> : <span class="c-ty">StateMachine</span> <span class="c-ty">Light</span> <span class="c-kw">where</span>
-  init := .Red
-  step
-    | .Red    =&gt; .Yellow
-    | .Yellow =&gt; .Green
-    | .Green  =&gt; .Red
-  <span class="c-dim">-- safety: Green never jumps directly to Red</span>
-  inv := <span class="c-kw">fun</span> s s&#39; =&gt; ¬(s = .Green ∧ s&#39; = .Red)
-
-<span class="c-dim">-- search for violation up to depth 6</span>
-<span class="c-fn">#bmc</span> (max-depth: 6) [<span class="c-ty">Light</span>]
-<span class="c-ok">✅ No counterexample found</span>
-
-<span class="c-dim">-- prove it holds for all reachable states</span>
-<span class="c-fn">#kind</span> (max-depth: 2) [<span class="c-ty">Light</span>]
-<span class="c-ok">✅ Valid  (KInd at Depth 2)</span></pre>
-      </div>
-      <div class="ex-prose">
-        <h3>State machine verification</h3>
-        <p>Define states, transitions, and safety invariants as ordinary Lean4 types. Blaster's <code style="font-family:'IBM Plex Mono',monospace;color:var(--ink);font-size:0.88em">StateMachine</code> typeclass wires them together.</p>
-        <p><code style="font-family:'IBM Plex Mono',monospace;color:var(--ink);font-size:0.88em">#bmc</code> searches for invariant violations up to a bounded depth. <code style="font-family:'IBM Plex Mono',monospace;color:var(--ink);font-size:0.88em">#kind</code> proves the invariant holds at every reachable state via k-induction — no bound needed.</p>
-        <span class="tag tag-ink">StateMachine</span>
-        <span class="tag tag-sky">#bmc</span>
-        <span class="tag tag-sky">#kind</span>
-        <span class="tag tag-amber">k-induction</span>
-      </div>
+    <div class="gc" data-ex="5">
+      <div class="gc-hdr"><span class="gc-dot"></span> state_machine.lean <span class="gc-expand">click to run →</span></div>
+      <div class="gc-code"><span class="cm">-- invariants hold ∀ states, ∀ depths</span>
+<span class="id">#kind</span> <span class="op">(</span><span class="id">max-depth</span><span class="op">:</span> <span class="nm">1</span><span class="op">)</span>
+  <span class="op">[</span><span class="id">counterStateMachine</span><span class="op">]</span></div>
+      <div class="gc-status"><span class="gc-check">✓ Valid</span><span class="gc-sep">·</span><span class="gc-tag">k-induction</span></div>
     </div>
 
   </div>
 </section>
 
-<!-- ── Outcomes ── -->
-<section>
-  <div class="wrap" style="padding-top: 0">
-    <div class="section-tag">Results</div>
-    <h2 class="section-h">Three possible answers</h2>
-    <p class="section-p">Every call to <code style="font-family:'Inconsolata',monospace;color:var(--ink)">blaster</code> ends in one of three outcomes, each actionable.</p>
+<hr class="divider">
 
-    <div class="outcomes">
-      <div class="outcome-card valid">
-        <div class="outcome-verdict">✅ Valid</div>
-        <h3>Theorem holds</h3>
-        <p>The solver returned <em>unsat</em> for the negated goal. The tactic closes the proof with <code style="font-family:'Inconsolata',monospace;font-size:0.85em;color:var(--green)">admit</code>. Note: proof reconstruction is not yet implemented.</p>
+<!-- ─── INSTALL ───────────────────────────────────── -->
+<section class="section-wrap narrow" id="install">
+  <div class="section-tag fade-up">getting started</div>
+  <h3 class="section-title fade-up" style="transition-delay:0.05s">Add Blaster to your project</h3>
+
+  <div class="fade-up" style="transition-delay:0.1s">
+    <div class="install-block">
+      <div class="ib-hdr">
+        <span>lakefile.lean</span>
+        <button class="ib-copy" onclick="copyCode(this, 0)">copy</button>
       </div>
-      <div class="outcome-card falsified">
-        <div class="outcome-verdict">❌ Falsified</div>
-        <h3>Counterexample found</h3>
-        <p>The solver returned <em>sat</em>: the goal is provably wrong. The satisfying model is decoded into a Lean4 value and printed inline.</p>
-        <div class="outcome-cex">
-          <span class="cex-label">Counterexample:</span><br>
-          &nbsp;- n: 42
-        </div>
-      </div>
-      <div class="outcome-card unknown">
-        <div class="outcome-verdict">? Undetermined</div>
-        <h3>Solver gave up</h3>
-        <p>The solver returned <em>unknown</em>, typically due to timeout or a formula outside decidable fragments. The goal is returned as-is for manual reasoning.</p>
-      </div>
+      <div class="ib-body"><span class="kw">require</span> <span class="id">Blaster</span> <span class="kw">from</span> <span class="id">git</span>
+  <span class="pu">"https://github.com/input-output-hk/Lean-blaster"</span>
+  <span class="id">@</span> <span class="pu">"main"</span></div>
     </div>
-  </div>
-</section>
 
-<!-- ── Benchmarks ── -->
-<section>
-  <div class="wrap" style="padding-top: 0">
-    <div class="section-tag">Benchmarks</div>
-    <h2 class="section-h">Proven on real proof libraries</h2>
-    <p class="section-p">Blaster has been evaluated against established Lean4 proof corpora to assess coverage and correctness.</p>
+    <div class="install-block">
+      <div class="ib-hdr">
+        <span>usage</span>
+        <button class="ib-copy" onclick="copyCode(this, 1)">copy</button>
+      </div>
+      <div class="ib-body"><span class="kw">import</span> <span class="id">Blaster.Tactic</span>
 
-    <div class="bench-grid">
-      <a href="https://github.com/leanprover-community/NNG4" target="_blank" class="bench-card" style="text-decoration:none">
-        <div class="bench-fraction">103</div>
-        <div style="font-family:'Inconsolata',monospace;font-size:0.7rem;color:var(--ink);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:12px">theorems proved</div>
-        <div class="bench-name">Natural Number Game</div>
-        <div class="bench-note">Theorems proved automatically across NNG4's arithmetic and number-theory exercises, without writing a single line of proof.</div>
+<span class="kw">theorem</span> <span class="id">add_comm</span> <span class="op">(</span><span class="id">a b</span> <span class="op">:</span> <span class="ty">Nat</span><span class="op">)</span> <span class="op">:</span> <span class="id">a</span> <span class="op">+</span> <span class="id">b</span> <span class="op">=</span> <span class="id">b</span> <span class="op">+</span> <span class="id">a</span> <span class="op">:=</span> <span class="kw">by</span>
+  <span class="kw">blaster</span> <span class="cm">-- ✓ Valid · 8ms</span>
+
+<span class="cm">-- Bounded model checking</span>
+<span class="id">#bmc</span> <span class="op">[</span><span class="kw">∀</span> <span class="op">(</span><span class="id">n</span> <span class="op">:</span> <span class="ty">Nat</span><span class="op">),</span> <span class="id">n</span> <span class="op">+</span> <span class="nm">1</span> <span class="op">&gt;</span> <span class="id">n</span><span class="op">]</span></div>
+    </div>
+
+    <div class="links-row">
+      <a href="https://github.com/input-output-hk/Lean-blaster" class="btn-link primary">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        View on GitHub
       </a>
-      <a href="https://github.com/djvelleman/STG4" target="_blank" class="bench-card" style="text-decoration:none">
-        <div class="bench-fraction">51</div>
-        <div style="font-family:'Inconsolata',monospace;font-size:0.7rem;color:var(--ink);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:12px">theorems proved</div>
-        <div class="bench-name">Set Theory Game</div>
-        <div class="bench-note">Set-theoretic theorems discharged automatically across the full STG4 exercise corpus, covering unions, intersections, and family combinatorics.</div>
-      </a>
-      <a href="https://github.com/input-output-hk/Blaster-benchmarking" target="_blank" class="bench-card" style="text-decoration:none">
-        <div class="bench-fraction" style="font-size:2rem;margin-bottom:14px">Full results</div>
-        <div class="bench-name">Blaster Benchmarking repo</div>
-        <div class="bench-note">All benchmark scripts, inputs, and detailed results are published in the public benchmarking repository for reproducibility.</div>
+      <a href="https://github.com/input-output-hk/Lean-blaster/blob/main/README.md" class="btn-link">
+        Documentation
       </a>
     </div>
   </div>
 </section>
 
-<!-- ── Get started ── -->
-<section id="start">
-  <div class="wrap" style="padding-top: 0">
-    <div class="section-tag">Get started</div>
-    <h2 class="section-h">Add Blaster to your project</h2>
-    <p class="section-p">Two steps: declare the dependency, then call <code style="font-family:'Inconsolata',monospace;color:var(--ink)">blaster</code>.</p>
-
-    <div class="setup-grid">
-      <div class="setup-step">
-        <div class="setup-num">Step 1: Add dependency</div>
-        <h4>lakefile.toml</h4>
-        <div class="code-block" style="margin-bottom:16px">
-          <div class="code-block-bar">lakefile.toml</div>
-          <pre><span style="color:#c084fc">[[require]]</span>
-<span style="color:#b84032">name</span> = <span style="color:#4ade80">"Blaster"</span>
-<span style="color:#b84032">git</span>  = <span style="color:#4ade80">"https://github.com/input-output-hk/Lean-blaster"</span>
-<span style="color:#b84032">rev</span>  = <span style="color:#4ade80">"main"</span></pre>
-        </div>
-        <h4>lakefile.lean</h4>
-        <div class="code-block">
-          <div class="code-block-bar">lakefile.lean</div>
-          <pre><span style="color:#c084fc">require</span> «<span style="color:#b84032">Blaster</span>» <span style="color:#c084fc">from</span> git
-  <span style="color:#4ade80">"https://github.com/input-output-hk/Lean-blaster"</span>
-  @ <span style="color:#4ade80">"main"</span></pre>
-        </div>
-      </div>
-
-      <div class="setup-step">
-        <div class="setup-num">Step 2: Use it</div>
-        <h4>Your Lean4 file</h4>
-        <div class="code-block">
-          <div class="code-block-bar">MyProofs.lean</div>
-          <pre><span style="color:#c084fc">import</span> <span style="color:#b84032">Blaster.Tactic</span>
-
-<span style="color:#c084fc">theorem</span> <span style="color:#b84032">addComm</span> (a b : <span style="color:#38bdf8">Nat</span>) :
-    a + b = b + a := by
-  <span style="color:#b84032">blaster</span>
-<span style="color:#4ade80">-- ✅ Valid</span>
-
-<span style="color:#8b92a9">-- or inline, outside a proof:</span>
-<span style="color:#b84032">#blaster</span> [ <span style="color:#c084fc">∀</span> (a b : <span style="color:#38bdf8">Nat</span>), a + b = b + a ]
-<span style="color:#4ade80">-- ✅ Valid</span>
-
-<span style="color:#8b92a9">-- with options:</span>
-<span style="color:#b84032">#blaster</span> (timeout: 30) (dump-smt-lib: 1)
-  [ <span style="color:#c084fc">∀</span> (a b : <span style="color:#38bdf8">Nat</span>), a + b = b + a ]</pre>
-        </div>
-      </div>
+<!-- ─── MODAL ─────────────────────────────────────── -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal" id="modal">
+    <div class="modal-title">
+      <span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span>
+      <span id="modal-fname" style="margin-left:8px"></span>
+      <button class="modal-close" id="modal-close">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-code" id="modal-code"></div>
+    </div>
+    <div class="modal-term" id="modal-term">
+      <div class="modal-term-body" id="modal-term-body"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="blast-btn" id="modal-blast-btn">Run Blaster →</button>
+      <span class="modal-hint" id="modal-hint">Z3 4.15.2 ready</span>
     </div>
   </div>
-</section>
-
-<!-- ── Built by ── -->
-<section>
-  <div class="wrap" style="padding-top:0;padding-bottom:80px">
-    <p style="font-family:'Inconsolata',monospace;font-size:0.72rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--dim);margin-bottom:20px">Built at</p>
-    <div class="people" style="margin-bottom:16px">
-      <a href="https://iog.io" target="_blank" class="org-card">
-        <div class="org-logo"><img src="assets/iog-logo.svg" alt="IOG"></div>
-        Input Output Global
-      </a>
-    </div>
-
-  </div>
-</section>
-
-<footer>
-  Apache 2.0 · <a href="https://github.com/input-output-hk/Lean-blaster">github.com/input-output-hk/Lean-blaster</a>
-</footer>
-
 </div>
 
-</script>
+<!-- ─── STATUS BAR ────────────────────────────────── -->
+<footer class="status-bar">
+  <div class="sb-item">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+    input-output-hk/Lean-blaster
+  </div>
+  <div class="sb-sep"></div>
+  <div class="sb-item">𝕃 Lean 4</div>
+  <div class="sb-sep"></div>
+  <div class="sb-item">Z3 4.12</div>
+  <div class="sb-right">
+    <div class="sb-item"><span class="sb-badge">Open Source</span></div>
+    <div class="sb-sep"></div>
+    <div class="sb-item">© IOG 2025</div>
+  </div>
+</footer>
 
 <script>
-// ── example tabs ──
-function showEx(id, btn) {
-  document.querySelectorAll('.ex-tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.ex-panel').forEach(p => p.classList.remove('active'));
-  btn.classList.add('active');
-  document.getElementById('ex-' + id).classList.add('active');
+/* ─── LEAN TOKENIZER ─────────────────────────────── */
+function hl(src) {
+  const KW = new Set(['theorem','def','by','where','fun','namespace','end','import','open',
+    'let','have','show','sorry','blaster','intro','exact','apply','induction','cases',
+    'simp','omega','rfl','rw','#bmc','#kind','#check','#blaster','require','from',
+    'mutual','match','if','then','else','return','do','inductive','structure','instance',
+    'deriving','abbrev','variable','universe','class','extends']);
+  const TY = new Set(['Nat','Int','Bool','String','Prop','Type','True','False',
+    'List','Array','Fin','Either','Term','A','B']);
+  const out = [];
+  let i = 0;
+  while (i < src.length) {
+    if (src[i]==='/' && src[i+1]==='-') {
+      const e = src.indexOf('-/',i+2);
+      const val = e!==-1 ? src.slice(i,e+2) : src.slice(i);
+      out.push(`<span class="cm">${esc(val)}</span>`); i += val.length; continue;
+    }
+    if (src[i]==='-' && src[i+1]==='-') {
+      const e = src.indexOf('\n',i);
+      const val = e!==-1 ? src.slice(i,e) : src.slice(i);
+      out.push(`<span class="cm">${esc(val)}</span>`); i += val.length; continue;
+    }
+    if (src[i]==='"') {
+      let j=i+1; while(j<src.length && src[j]!=='"') j++;
+      out.push(`<span class="pu">${esc(src.slice(i,j+1))}</span>`); i=j+1; continue;
+    }
+    if (/[a-zA-Z_#@']/.test(src[i])) {
+      let j=i; while(j<src.length && /[a-zA-Z0-9_'#@.!?-]/.test(src[j])) j++;
+      if (j===i) { out.push(esc(src[i])); i++; continue; } // safety: always advance
+      const w=src.slice(i,j);
+      if (KW.has(w)) out.push(`<span class="kw">${esc(w)}</span>`);
+      else if (TY.has(w)) out.push(`<span class="ty">${esc(w)}</span>`);
+      else out.push(`<span class="id">${esc(w)}</span>`);
+      i=j; continue;
+    }
+    if (/\d/.test(src[i])) {
+      let j=i; while(j<src.length && /\d/.test(src[j])) j++;
+      out.push(`<span class="nm">${esc(src.slice(i,j))}</span>`); i=j; continue;
+    }
+    const UNI = ['≤','≥','→','←','↔','∀','∃','∧','∨','¬','≠','⟨','⟩','^^^','·','✓','✗','✅','❌'];
+    let matched=false;
+    for (const u of UNI) {
+      if (src.startsWith(u,i)) {
+        out.push(`<span class="op">${esc(u)}</span>`); i+=u.length; matched=true; break;
+      }
+    }
+    if (matched) continue;
+    out.push(esc(src[i])); i++;
+  }
+  return out.join('');
+}
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* ─── TYPEWRITER HERO ────────────────────────────── */
+const twLines = document.getElementById('tw-lines');
+const termStrip = document.getElementById('term-strip');
+const termBody = document.getElementById('term-body');
+let code = '';
+
+function renderTw() {
+  const lines = code.split('\n');
+  twLines.innerHTML = lines.map((line, i) => {
+    const isLast = i === lines.length - 1;
+    return `<div class="ln"><span class="lc">${hl(line)}${isLast?'<span class="cursor"></span>':''}</span></div>`;
+  }).join('');
+}
+renderTw();
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function type(text, delay=54) {
+  for (const ch of text) { code += ch; renderTw(); await sleep(delay + Math.random()*delay*0.22); }
+}
+async function del(n, delay=28) {
+  for (let i=0; i<n && code.length>0; i++) { code=code.slice(0,-1); renderTw(); await sleep(delay); }
+}
+function showTerm(html) { termBody.innerHTML=html; termStrip.classList.add('open'); }
+
+async function heroAnim() {
+  await sleep(1200);
+  await type('theorem sub_cancel (n k : Nat) :\n    n - k + k = n := by\n  sorry');
+  await sleep(2200);
+  await del(5, 30);
+  await type('blaster', 68);
+  await sleep(500);
+  showTerm(`<div class="tr"><span class="tb-run">▶</span><span class="ti">Z3 4.15.2 · running...</span></div>`);
+  await sleep(1100);
+  showTerm(`<div class="tr"><span class="tb-err">✗</span><span class="te">counterexample found</span></div>
+    <div class="tr" style="padding-left:22px"><span class="ti">n = 0 &nbsp; k = 1</span></div>`);
+  await sleep(3000);
+  const tail = ' :\n    n - k + k = n := by\n  blaster';
+  await del(tail.length, 24);
+  await type(' (h : k \u2264 n) :\n    n - k + k = n := by\n  blaster', 50);
+  showTerm(`<div class="tr"><span class="tb-run">▶</span><span class="ti">Z3 4.15.2 · running...</span></div>`);
+  await sleep(900);
+  showTerm(`<div class="tr"><span class="tb-ok">✓</span><span class="tv">valid</span><span class="tm" style="margin-left:10px">· 14ms</span></div>`);
+  await sleep(3000);
+  const cur = twLines.querySelector('.cursor');
+  if (cur) { cur.style.animation='none'; cur.style.opacity='1'; }
+}
+heroAnim();
+
+/* ─── SCROLL ANIMATIONS ──────────────────────────── */
+const io = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('vis'); });
+}, { threshold: 0.12 });
+document.querySelectorAll('.fade-up').forEach(el => io.observe(el));
+
+const pipeIo = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      const delay = parseInt(e.target.dataset.delay||0);
+      setTimeout(() => e.target.classList.add('vis'), delay*120);
+    }
+  });
+}, { threshold: 0.2 });
+document.querySelectorAll('.pipe-stage').forEach(el => pipeIo.observe(el));
+
+const gcIo = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      const idx = Array.from(document.querySelectorAll('.gc')).indexOf(e.target);
+      setTimeout(() => e.target.classList.add('vis'), idx*70);
+    }
+  });
+}, { threshold: 0.1 });
+document.querySelectorAll('.gc').forEach(el => gcIo.observe(el));
+
+/* ─── EXAMPLES DATA ──────────────────────────────── */
+const EXAMPLES = [
+  {
+    file: 'higher_order.lean',
+    code: `-- Head of a mapped list is bounded below
+#blaster [
+  ∀ (x : Nat) (xs : List Nat),
+  !xs.isEmpty →
+  (xs.map (Nat.add x)).head! ≥ x]`,
+    valid: true,
+    resultHtml: `<div class="tr"><span class="tb-ok">✓</span><span class="tv">valid</span><span class="tm" style="margin-left:10px">· Z3 4.15.2</span></div>`
+  },
+  {
+    file: 'polymorphism.lean',
+    code: `-- BEq equality propagates through Either
+#blaster [
+  (∀ (α : Type) (a b : α) [BEq α],
+    a == b → a = b) →
+  (∀ (α β : Type) (x y : Either α β)
+     [BEq α] [BEq β],
+     x == y → x = y)]`,
+    valid: true,
+    resultHtml: `<div class="tr"><span class="tb-ok">✓</span><span class="tv">valid</span><span class="tm" style="margin-left:10px">· Z3 4.15.2</span></div>`
+  },
+  {
+    file: 'mutual_inductive.lean',
+    code: `mutual
+  inductive A | self : A → A | other : B → A | empty
+  inductive B | self : B → B | other : A → B | empty
+end
+
+mutual
+  def A.sizeA : A → Nat
+    | .self a  => a.sizeA + 1
+    | .other b => b.sizeB + 1
+    | .empty   => 0
+  def B.sizeB : B → Nat
+    | .self b  => b.sizeB + 1
+    | .other a => a.sizeA + 1
+    | .empty   => 0
+end
+
+theorem A_self_size (a : A) :
+    (A.self a).sizeA = a.sizeA + 1 := by
+  blaster`,
+    valid: true,
+    resultHtml: `<div class="tr"><span class="tb-ok">✓</span><span class="tv">valid</span><span class="tm" style="margin-left:10px">· Z3 4.15.2</span></div>`
+  },
+  {
+    file: 'counterexample.lean',
+    code: `def sizeOfTerm (t : Term α) : Nat :=
+  match t with
+  | .Ident _      => 1
+  | .Seq xs       => List.length xs
+  | .App _ args   => List.length args
+  | .Annotated t' _ => 1 + sizeOfTerm t'
+
+-- Is every term smaller than 10 nodes?
+#blaster [
+  ∀ (α : Type) (x : Term α),
+  sizeOfTerm x < 10]`,
+    valid: false,
+    resultHtml: `<div class="tr"><span class="tb-err">✗</span><span class="te">falsified</span><span class="tm" style="margin-left:10px">· counterexample found</span></div>
+<div class="tr" style="padding-left:22px;font-size:11.5px;color:var(--dim)">x = Term.Annotated (Term.Annotated (… 10 levels deep))</div>`
+  },
+  {
+    file: 'quant_functions.lean',
+    code: `-- Quantifying over higher-order functions
+#blaster [
+  (∀ (β : Type) (x : Term (List β))
+     (f : Term (List β) → Nat),
+     f x > 10) →
+  (∀ (α : Type)
+     (x y : Term (List α))
+     (f : Term (List α) → Nat),
+     f x + f y > 20)]`,
+    valid: true,
+    resultHtml: `<div class="tr"><span class="tb-ok">✓</span><span class="tv">valid</span><span class="tm" style="margin-left:10px">· Z3 4.15.2</span></div>`
+  },
+  {
+    file: 'state_machine.lean',
+    code: `instance counterStateMachine : StateMachine Request CounterState where
+  init _ := { state := .Ready, timer := 0 }
+  next i s := match s.state with
+    | .Ready => match i with
+      | .Tr => { state := .Delay, timer := 0 }
+      | _   => s
+    | .Delay =>
+      if s.timer < 3 then { s with timer := s.timer + 1 }
+      else { s with state := .Busy }
+    | .Busy => match i with
+      | .Fa => { s with state := .Ready }
+      | _   => s
+  invariants _ s :=
+    (s.timer > 0 → s.timer < 3 → s.state = .Delay) ∧
+    s.timer ≥ 0 ∧ s.timer ≤ 3
+
+-- Prove invariants hold at all reachable depths
+#kind (max-depth: 1) [counterStateMachine]`,
+    valid: true,
+    resultHtml: `<div class="tr"><span class="tb-ok">✓</span><span class="tv">valid</span><span class="tm" style="margin-left:10px">· K-Induction at depth 1</span></div>`
+  }
+];
+
+/* ─── MODAL ──────────────────────────────────────── */
+const overlay   = document.getElementById('modal-overlay');
+const modalCode = document.getElementById('modal-code');
+const modalFname= document.getElementById('modal-fname');
+const modalTerm = document.getElementById('modal-term');
+const modalTermBody = document.getElementById('modal-term-body');
+const modalBlastBtn = document.getElementById('modal-blast-btn');
+const modalHint = document.getElementById('modal-hint');
+const modalClose= document.getElementById('modal-close');
+
+let activeEx = null;
+let blasting = false;
+
+function openModal(idx) {
+  activeEx = EXAMPLES[idx];
+  modalFname.textContent = activeEx.file;
+  modalCode.innerHTML = activeEx.code.split('\n').map(l => hl(l)).join('\n');
+  modalTerm.classList.remove('show');
+  modalTermBody.innerHTML = '';
+  modalBlastBtn.className = 'blast-btn';
+  modalBlastBtn.textContent = 'Run Blaster →';
+  modalBlastBtn.disabled = false;
+  modalHint.textContent = 'Z3 4.15.2 ready';
+  blasting = false;
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
 }
 
-// ── animated hero demo ──
-(function() {
-  const el = document.getElementById('demo-code');
-  if (!el) return;
+function closeModal() {
+  overlay.classList.remove('open');
+  document.body.style.overflow = '';
+}
 
-  function syntax(text) {
-    let h = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    h = h.replace(/\b(theorem|def|by|fun|let|have|show|where)\b/g, '<span class="c-kw">$1</span>');
-    h = h.replace(/\b(Nat|Int|Bool|String|Type|Prop|True|False)\b/g, '<span class="c-ty">$1</span>');
-    h = h.replace(/\b(blaster|sorry|omega|simp|rfl|linarith)\b/g, '<span class="c-fn">$1</span>');
-    return h;
+document.querySelectorAll('.gc').forEach(card => {
+  card.addEventListener('click', () => openModal(parseInt(card.dataset.ex)));
+});
+
+modalClose.addEventListener('click', closeModal);
+overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+modalBlastBtn.addEventListener('click', async () => {
+  if (blasting || !activeEx) return;
+  blasting = true;
+  modalBlastBtn.disabled = true;
+  modalBlastBtn.textContent = 'Running...';
+  modalHint.textContent = 'sending to Z3...';
+  modalTermBody.innerHTML = `<div class="tr"><span class="tb-run">▶</span><span class="ti">Z3 4.15.2 · running...</span></div>`;
+  modalTerm.classList.add('show');
+  await sleep(900 + Math.random()*600);
+  modalTermBody.innerHTML = activeEx.resultHtml;
+  if (activeEx.valid) {
+    modalBlastBtn.className = 'blast-btn done-ok';
+    modalBlastBtn.textContent = '✓ Valid';
+    modalHint.textContent = '';
+  } else {
+    modalBlastBtn.className = 'blast-btn done-err';
+    modalBlastBtn.textContent = '✗ Falsified';
+    modalHint.textContent = '';
   }
+  blasting = false;
+});
 
-  let code = '';
-  let outputLines = [];
-
-  function render() {
-    const outHtml = outputLines.length ? '\n' + outputLines.join('\n') : '';
-    el.innerHTML = syntax(code) + '<span class="c-cursor"></span>' + outHtml;
-  }
-
-  const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-  async function typeText(text, delay) {
-    for (const ch of text) {
-      code += ch;
-      render();
-      await sleep(delay + Math.random() * delay * 0.3);
-    }
-  }
-
-  async function deleteChars(n, delay) {
-    for (let i = 0; i < n && code.length > 0; i++) {
-      code = code.slice(0, -1);
-      render();
-      await sleep(delay);
-    }
-  }
-
-  function addOutput(html) { outputLines.push(html); render(); }
-  function clearOutput()   { outputLines = [];        render(); }
-
-  const PREFIX     = 'theorem sub_cancel (n k : Nat)';
-  const SORRY_TAIL = ' :\n    n - k + k = n := by\n  sorry';
-  const BLAST_TAIL = ' :\n    n - k + k = n := by\n  blaster';
-  const FIX_INSERT = ' (h : k \u2264 n)';
-
-  async function run() {
-    code = ''; clearOutput(); render();
-
-    await sleep(700);
-    await typeText(PREFIX + SORRY_TAIL, 28);
-
-    // swap sorry -> blaster
-    await sleep(900);
-    await deleteChars(5, 40);
-    await typeText('blaster', 55);
-
-    // counterexample
-    await sleep(800);
-    addOutput('<span class="c-err">-- \u274C Falsified</span>');
-    await sleep(350);
-    addOutput('<span class="c-dim">--    counterexample: n := 0, k := 1</span>');
-    await sleep(350);
-    addOutput('<span class="c-dim">--    0 - 1 + 1 = 1  (Nat subtraction truncates)</span>');
-
-    // fix: erase the wrong suffix, insert hypothesis
-    await sleep(2800);
-    clearOutput();
-    await deleteChars(BLAST_TAIL.length, 18);
-    await sleep(450);
-    await typeText(FIX_INSERT, 50);
-    await typeText(BLAST_TAIL, 30);
-
-    // valid
-    await sleep(800);
-    addOutput('<span class="c-ok">-- \u2705 Valid</span>');
-
-    await sleep(4000);
-    run();
-  }
-
-  run();
-})();
+/* ─── COPY ───────────────────────────────────────── */
+const copyTexts = [
+  `require Blaster from git\n  "https://github.com/input-output-hk/Lean-blaster"\n  @ "main"`,
+  `import Blaster.Tactic\n\ntheorem add_comm (a b : Nat) : a + b = b + a := by\n  blaster`
+];
+function copyCode(btn, idx) {
+  navigator.clipboard.writeText(copyTexts[idx]).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = 'copied!';
+    setTimeout(() => btn.textContent = orig, 1500);
+  });
+}
 </script>
-
-
 </body>
-</html>
