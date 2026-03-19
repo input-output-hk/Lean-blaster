@@ -25,8 +25,10 @@ example : 1 + 2 = 3 := by blaster
 example : 2 * 3 = 6 := by blaster
 example : (2 * 3) + 1 = 7 := by blaster
 
--- Constant propagation: N1 + (N2 + n) → (N1 + N2) + n
+-- Constant propagation
 example : ∀ (x : Nat), 10 + (20 + x) = 30 + x := by blaster
+example : ∀ (x : Nat), 120 - (40 + x) = 80 - x := by blaster
+example : ∀ (x : Nat), 120 - (x + 40) = 80 - x := by blaster
 
 -- Nat.add commutativity
 example : ∀ (m n : Nat), m + n = n + m := by blaster
@@ -52,7 +54,7 @@ example : ∀ (m n : Nat), 1 * (m + n) = n + m := by blaster
 example : ∀ (m n : Nat), (m + n) - 0 = n + m := by blaster
 
 -- Multi-arg rewrites
-example : ∀ {x y : Nat}, (x + 0) + (y + 0) = x + y := by blaster
+example : ∀ {x y : Nat}, (x + 0) + (y - 0) = x + y := by blaster
 example : ∀ {x y : Nat}, (0 + x) + (0 + y)  = x + y := by blaster
-example : ∀ {x y : Nat}, (x + 0) + (y + 0) = y + x := by blaster
+example : ∀ {x y : Nat}, (x - 0) + (y + 0) = y + x := by blaster
 example : ∀ {x y : Nat}, (0 + x) + (0 + y)  = y + x := by blaster
