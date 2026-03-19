@@ -475,7 +475,6 @@
       <button class="ex-tab" onclick="showEx('inductives', this)">Inductive types</button>
       <button class="ex-tab" onclick="showEx('recursive', this)">Recursive functions</button>
       <button class="ex-tab" onclick="showEx('statemachine', this)">State machines</button>
-      <button class="ex-tab" onclick="showEx('counterex', this)">Counterexamples</button>
     </div>
 
     <!-- Arithmetic -->
@@ -573,60 +572,38 @@
     <!-- State machines -->
     <div class="ex-panel" id="ex-statemachine">
       <div class="ex-code">
-        <div class="ex-code-bar">Counter.lean</div>
-        <pre><span class="c-dim">-- Bounded Model Checking: find counterexamples</span>
-<span class="c-fn">#bmc</span> (max-depth: 8) [counterStateMachine]
-<span class="c-err">❌ Falsified  (Depth 4)</span>
-<span class="c-dim">Counterexample:</span>
-<span class="c-dim"> input@1: Request.Tr</span>
-<span class="c-dim"> input@2: Request.Fa</span>
-<span class="c-dim"> input@3: Request.Fa</span>
-<span class="c-dim"> input@4: Request.Tr</span>
+        <div class="ex-code-bar">TrafficLight.lean</div>
+        <pre><span class="c-kw">inductive</span> <span class="c-ty">Light</span> <span class="c-kw">where</span>
+  | Red | Yellow | Green
 
-<span class="c-dim">-- K-Induction: prove invariants hold forever</span>
-<span class="c-fn">#kind</span> (max-depth: 1) [counterStateMachine]
-<span class="c-ok">✅ Valid</span>
-<span class="c-dim">KInd at Depth 0</span>
-<span class="c-dim">KInd at Depth 1</span></pre>
+<span class="c-kw">instance</span> : <span class="c-ty">StateMachine</span> <span class="c-ty">Light</span> <span class="c-kw">where</span>
+  init := .Red
+  step
+    | .Red    =&gt; .Yellow
+    | .Yellow =&gt; .Green
+    | .Green  =&gt; .Red
+  <span class="c-dim">-- safety: Green never jumps directly to Red</span>
+  inv := <span class="c-kw">fun</span> s s&#39; =&gt; ¬(s = .Green ∧ s&#39; = .Red)
+
+<span class="c-dim">-- search for violation up to depth 6</span>
+<span class="c-fn">#bmc</span> (max-depth: 6) [<span class="c-ty">Light</span>]
+<span class="c-ok">✅ No counterexample found</span>
+
+<span class="c-dim">-- prove it holds for all reachable states</span>
+<span class="c-fn">#kind</span> (max-depth: 2) [<span class="c-ty">Light</span>]
+<span class="c-ok">✅ Valid  (KInd at Depth 2)</span></pre>
       </div>
       <div class="ex-prose">
         <h3>State machine verification</h3>
-        <p>Blaster ships with a <code style="font-family:'Inconsolata',monospace;color:var(--ink);font-size:0.88em">StateMachine</code> typeclass. Define your states, transitions, and invariants in Lean4, then use <code style="font-family:'Inconsolata',monospace;color:var(--ink);font-size:0.88em">#bmc</code> or <code style="font-family:'Inconsolata',monospace;color:var(--ink);font-size:0.88em">#kind</code> to verify them.</p>
-        <p><strong>#bmc</strong> searches for invariant violations up to a given depth. <strong>#kind</strong> proves invariants hold at every reachable state via k-induction.</p>
+        <p>Define states, transitions, and safety invariants as ordinary Lean4 types. Blaster's <code style="font-family:'IBM Plex Mono',monospace;color:var(--ink);font-size:0.88em">StateMachine</code> typeclass wires them together.</p>
+        <p><code style="font-family:'IBM Plex Mono',monospace;color:var(--ink);font-size:0.88em">#bmc</code> searches for invariant violations up to a bounded depth. <code style="font-family:'IBM Plex Mono',monospace;color:var(--ink);font-size:0.88em">#kind</code> proves the invariant holds at every reachable state via k-induction — no bound needed.</p>
         <span class="tag tag-ink">StateMachine</span>
         <span class="tag tag-sky">#bmc</span>
         <span class="tag tag-sky">#kind</span>
-        <span class="tag tag-amber">trace counterexamples</span>
+        <span class="tag tag-amber">k-induction</span>
       </div>
     </div>
 
-    <!-- Counterexamples -->
-    <div class="ex-panel" id="ex-counterex">
-      <div class="ex-code">
-        <div class="ex-code-bar">Cex.lean</div>
-        <pre><span class="c-dim">-- The solver decodes its model back to Lean4</span>
-<span class="c-fn">#blaster</span> [<span class="c-kw">∀</span> (α : <span class="c-ty">Type</span>) (x : Term α),
-  sizeOfTerm x &lt; 10]
-
-<span class="c-err">❌ Falsified</span>
-<span class="c-dim">Counterexample:</span>
-<span class="c-dim"> x: (Term.Annotated</span>
-<span class="c-dim">      (Term.Annotated</span>
-<span class="c-dim">        (Term.Annotated</span>
-<span class="c-dim">          (Term.Annotated</span>
-<span class="c-dim">            (Term.Annotated</span>
-<span class="c-dim">              (Term.Ident "a")</span>
-<span class="c-dim">              []) []) []) []) [])</span></pre>
-      </div>
-      <div class="ex-prose">
-        <h3>Concrete counterexamples</h3>
-        <p>When the solver finds a falsifying assignment, Blaster decodes the SMT model back into a concrete Lean4 value, including nested inductive structures.</p>
-        <p>The counterexample is printed directly in the editor, giving you the exact witness that breaks your theorem.</p>
-        <span class="tag tag-red">sat model decoding</span>
-        <span class="tag tag-ink">inductive values</span>
-        <span class="tag tag-amber">nested structures</span>
-      </div>
-    </div>
   </div>
 </section>
 
