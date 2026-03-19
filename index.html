@@ -327,11 +327,16 @@ a { color: inherit; text-decoration: none; }
 .pipe-conn {
   display: flex; align-items: center;
   padding: 0 4px; padding-top: 34px; flex-shrink: 0;
+  opacity: 0; transition: opacity 0.3s ease;
 }
+.pipe-conn.vis { opacity: 1; }
 .pipe-arrow {
   width: 32px; height: 1px; background: var(--bdr);
   position: relative;
+  transform: scaleX(0); transform-origin: left;
+  transition: transform 0.3s ease;
 }
+.pipe-conn.vis .pipe-arrow { transform: scaleX(1); }
 .pipe-arrow::after {
   content: ''; position: absolute;
   right: -1px; top: -3px;
@@ -660,14 +665,14 @@ a { color: inherit; text-decoration: none; }
 <span class="kw">else</span> <span class="id">x</span> <span class="op">-</span> <span class="nm">1</span><span class="op">)</span> <span class="op">&gt;</span> <span class="nm">0</span></div>
       <div class="pipe-note">your theorem</div>
     </div>
-    <div class="pipe-conn"><div class="pipe-arrow"></div></div>
+    <div class="pipe-conn" data-delay="0.5"><div class="pipe-arrow"></div></div>
     <div class="pipe-stage" data-delay="1">
       <div class="pipe-label">Optimizer</div>
       <div class="pipe-box"><span class="id">x</span> <span class="op">&gt;</span> <span class="nm">0</span> <span class="op">→</span>
 <span class="id">x</span> <span class="op">+</span> <span class="nm">1</span> <span class="op">&gt;</span> <span class="nm">0</span></div>
       <div class="pipe-note">branch eliminated via hypothesis</div>
     </div>
-    <div class="pipe-conn"><div class="pipe-arrow"></div></div>
+    <div class="pipe-conn" data-delay="1.5"><div class="pipe-arrow"></div></div>
     <div class="pipe-stage" data-delay="2">
       <div class="pipe-label">SMT-Lib 2</div>
       <div class="pipe-box"><span class="kw">(assert</span> <span class="op">(not</span>
@@ -675,13 +680,13 @@ a { color: inherit; text-decoration: none; }
       <span class="op">(</span><span class="kw">&lt;</span> <span class="op">-</span><span class="nm">1</span> x<span class="op">))))</span></div>
       <div class="pipe-note">minimal query to Z3</div>
     </div>
-    <div class="pipe-conn"><div class="pipe-arrow"></div></div>
+    <div class="pipe-conn" data-delay="2.5"><div class="pipe-arrow"></div></div>
     <div class="pipe-stage" data-delay="3">
       <div class="pipe-label">Z3</div>
       <div class="pipe-box"><span class="cm">unsat</span></div>
       <div class="pipe-note">unsatisfiable → valid</div>
     </div>
-    <div class="pipe-conn"><div class="pipe-arrow"></div></div>
+    <div class="pipe-conn" data-delay="3.5"><div class="pipe-arrow"></div></div>
     <div class="pipe-stage final" data-delay="4">
       <div class="pipe-label">Result</div>
       <div class="pipe-box">✓  Valid
@@ -950,12 +955,12 @@ document.querySelectorAll('.fade-up').forEach(el => io.observe(el));
 const pipeIo = new IntersectionObserver(entries => {
   entries.forEach(e => {
     if (e.isIntersecting) {
-      const delay = parseInt(e.target.dataset.delay||0);
+      const delay = parseFloat(e.target.dataset.delay||0);
       setTimeout(() => e.target.classList.add('vis'), delay*120);
     }
   });
 }, { threshold: 0.2 });
-document.querySelectorAll('.pipe-stage').forEach(el => pipeIo.observe(el));
+document.querySelectorAll('.pipe-stage, .pipe-conn').forEach(el => pipeIo.observe(el));
 
 const gcIo = new IntersectionObserver(entries => {
   entries.forEach(e => {
