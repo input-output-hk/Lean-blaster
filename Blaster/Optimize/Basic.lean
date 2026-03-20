@@ -279,6 +279,8 @@ def Optimize.main (e : Expr) : TranslateEnvT Expr := do
   updateLocalContext (← mkLocalContext)
   -- populate recFunInstCache with recursive function definition.
   cacheOpaqueRecFun
+  -- discard proof steps from cache initialization
+  clearProofStack
   optimizeExpr e
 
 

@@ -386,6 +386,16 @@ def reorderOperands (f : Expr) (args : Array Expr) : TranslateEnvT (Array Expr) 
   | ``Nat.mul =>
        if args.size != 2 then return args
        let (op1, op2) := reorderNatOp args
+       if !exprEq op1 args[0]! then
+         if n == ``Nat.add then
+           match isNatValue? op1 with
+           | some 0 => pushProofStep (.rewrite (mkConst ``Nat.add_zero))
+           | _ => pushProofStep (.rewrite (mkConst ``Nat.add_comm) (once := true))
+         else
+           match isNatValue? op1 with
+           | some 0 => pushProofStep (.rewrite (mkConst ``Nat.mul_zero))
+           | some 1 => pushProofStep (.rewrite (mkConst ``Nat.mul_one))
+           | _ => pushProofStep (.rewrite (mkConst ``Nat.mul_comm) (once := true))
        return #[op1, op2]
 
   | ``Int.add

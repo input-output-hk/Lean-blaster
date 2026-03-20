@@ -27,6 +27,40 @@ Example: `blaster (timeout: 10) (verbose: 1)`
 -/
 syntax (name := blasterTactic) "blaster" (solveOption)* : tactic
 
+/-- Apply recorded proof stack rewrites to a goal.
+    Each rewrite step is attempted; steps that don't match are skipped.
+-/
+def applyProofStack (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep) : MetaM MVarId := do
+  /- trace[Optimize.expr] "proofStack size: {steps.size}" -/
+  let mut g := goal
+  g ← rewriteFixpoint g steps
+  for step in steps do
+    match step with
+    | .rewrite heq symm once =>
+      if once then
+        try
+          let r ← g.rewrite (← g.getType) heq symm
+          g ← g.replaceTargetEq r.eNew r.eqProof
+        catch _ => pure ()
+  g ← rewriteFixpoint g steps
+  /- trace[Optimize.expr] "final goal after proofStack: {← g.getType}" -/
+  return g
+where
+  rewriteFixpoint (g : MVarId) (steps : Array Blaster.Optimize.ProofStep) : MetaM MVarId := do
+    let mut g := g
+    let mut changed := true
+    while changed do
+      changed := false
+      for step in steps do
+        match step with
+        | .rewrite heq symm once =>
+          if !once then
+            try
+              let r ← g.rewrite (← g.getType) heq symm
+              g ← g.replaceTargetEq r.eNew r.eqProof
+              changed := true
+            catch _ => pure ()
+    return g
 
 @[tactic blasterTactic]
 def blasterTacticImp : Tactic := fun stx =>
@@ -36,12 +70,18 @@ def blasterTacticImp : Tactic := fun stx =>
    let sOpts ← parseSolveOptions opts default
    let (goal, nbQuantifiers) ← revertHypotheses (← getMainGoal)
    let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
-   let ((result, optExpr), _) ←
+   let ((result, optExpr), finalEnv) ←
      withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0 }) $ do
        IO.setNumHeartbeats 0
        Translate.main (← goal.getType >>= instantiateMVars') (logUndetermined := false) |>.run env
    match result with
-   | .Valid => goal.admit -- TODO: replace with proof reconstruction
+   | .Valid =>
+        -- intro all binders so rewrite can find patterns
+        let numBinders ← forallTelescope (← goal.getType) fun fvars _ => pure fvars.size
+        let (_, g) ← goal.introNP numBinders
+        let g ← applyProofStack g finalEnv.optEnv.proofStack
+        try g.refl
+        catch _ => g.admit
    | .Falsified cex => throwTacticEx `blaster goal "Goal was falsified (see counterexample above)"
    | .Undetermined =>
         -- Replace the goal with the optimized expression

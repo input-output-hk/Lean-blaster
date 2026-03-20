@@ -82,6 +82,11 @@ inductive MatchEntry where
   | NotEqPattern
  deriving Repr
 
+/-- A single proof step recorded during expression optimization. -/
+inductive ProofStep where
+  | rewrite (proof : Expr) (symm : Bool := false) (once : Bool := false)
+deriving Repr
+
 abbrev HypothesisMap := Std.HashMap Lean.Expr Lean.Expr
 abbrev RewriteCacheMap := Std.HashMap Lean.Expr Lean.Expr
 abbrev MatchEntryMap := Std.HashMap Lean.Expr MatchEntry -- with key corresponding to a match pattern
@@ -291,6 +296,9 @@ structure OptimizeEnv where
 
   /-- local declaration context -/
   ctx : LocalDeclContext
+
+  /-- Proof steps accumulated during optimization, replayed for proof reconstruction. -/
+  proofStack : Array ProofStep := #[]
 
 instance : Inhabited OptimizeEnv where
   default :=
@@ -611,6 +619,21 @@ def isOptimizeRecCall : TranslateEnvT Bool :=
 def isInFunApp : TranslateEnvT Bool :=
   return (← get).optEnv.options.inFunApp
 
+/-- Push a proof step onto the proof stack. -/
+@[always_inline, inline]
+def pushProofStep (step : ProofStep) : TranslateEnvT Unit :=
+  modify fun env => { env with optEnv.proofStack := env.optEnv.proofStack.push step }
+
+/-- Return the current proof stack. -/
+@[always_inline, inline]
+def getProofStack : TranslateEnvT (Array ProofStep) :=
+  return (← get).optEnv.proofStack
+
+/-- Clear all proof steps from the proof stack. -/
+@[always_inline, inline]
+def clearProofStack : TranslateEnvT Unit :=
+  modify fun env => { env with optEnv.proofStack := #[] }
+
 @[always_inline, inline]
 def findGlobalCache (a : Expr) : TranslateEnvT (Option Expr) := do
  return (← get).optEnv.globalRewriteCache.get? a
@@ -663,7 +686,7 @@ def mkExpr (a : Expr) (cacheResult := true) : TranslateEnvT Expr := do
 /-- Return `true` only when both hypothesisMap and matchInContext are empty and isRefHyp flag is not set -/
 @[always_inline, inline]
 def isGlobalContext : TranslateEnvT Bool := do
-  let ⟨_, ⟨_, _, _, _, _, _, _, _, hypothesisContext, matchInContext, _, _, _, _⟩⟩ ← get
+  let ⟨_, ⟨_, _, _, _, _, _, _, _, hypothesisContext, matchInContext, _, _, _, _, _⟩⟩ ← get
   return hypothesisContext.hypothesisMap.size == 0 && matchInContext.size == 0
 
 /-- Perform the following:
@@ -1712,7 +1735,7 @@ where
     An error is triggered if no corresponding entry can be found in `recFunMap`.
 -/
 def hasRecFunInst? (instApp : Expr) : TranslateEnvT (Option Expr) := do
-  let ⟨_, ⟨_, _, _, _, _,recFunInstCache,_,recFunMap, _, _, _, _, _, _⟩⟩ ← get
+  let ⟨_, ⟨_, _, _, _, _,recFunInstCache,_,recFunMap, _, _, _, _, _, _, _⟩⟩ ← get
   match recFunInstCache.get? instApp with
   | some fbody =>
      -- retrieve function application from recFunMap

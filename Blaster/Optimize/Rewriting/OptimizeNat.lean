@@ -8,9 +8,9 @@ open Lean Meta
 namespace Blaster.Optimize
 
 /-- Apply the following simplification/normalization rules on `Nat.add` :
-     - 0 + n ==> n
+     - 0 + n ==> n                          [proof: Nat.zero_add]
      - N1 + N2 ===> N1 "+" N2
-     - N1 + (N2 + n) ==> (N1 "+" N2) + n
+     - N1 + (N2 + n) ==> (N1 "+" N2) + n    [proof: ← Nat.add_assoc]
      - n1 + n2 ==> n2 + n1 (if n2 <ₒ n1)
    Assume that f = Expr.const ``Nat.add.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Nat.add` expected at this stage)
@@ -20,7 +20,9 @@ def optimizeNatAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let op1 := args[0]!
  let op2 := args[1]!
  match isNatValue? op1, isNatValue? op2 with
- | some 0, _ =>  return op2
+ | some 0, _ =>
+    pushProofStep (.rewrite (mkConst ``Nat.zero_add))
+    return op2
  | some n1, some n2 => evalBinNatOp Nat.add n1 n2
  | nv1,  _ =>
     if let some r ← cstAddProp? nv1 op2 then return r
@@ -33,18 +35,20 @@ def optimizeNatAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
    -/
    cstAddProp? (mv1 : Option Nat) (op2 : Expr) : TranslateEnvT (Option Expr) := do
     match mv1, toNatCstOpExpr? op2 with
-    | some n1, (NatCstOpInfo.NatAddExpr n2 e2) => return (mkApp2 f (← evalBinNatOp Nat.add n1 n2) e2)
+    | some n1, (NatCstOpInfo.NatAddExpr n2 e2) =>
+        pushProofStep (.rewrite (mkConst ``Nat.add_assoc) (symm := true) (once := true))
+        return (mkApp2 f (← evalBinNatOp Nat.add n1 n2) e2)
     | _, _ => return none
 
 
 /-- Apply the following simplification/normalization rules on `Nat.sub` :
-     - n1 - n2 ==> 0 (if n1 =ₚₜᵣ n2)
-     - 0 - n ==> 0
-     - n - 0 ==> n
+     - n1 - n2 ==> 0 (if n1 =ₚₜᵣ n2)                   [proof: Nat.sub_self]
+     - 0 - n ==> 0                                     [proof: Nat.zero_sub]
+     - n - 0 ==> n                                     [proof: Nat.sub_zero]
      - N1 - N2 ==> N1 "-" N2
-     - N1 - (N2 + n) ==> (N1 "-" N2) - n
-     - (N1 - n) - N2 ==> (N1 "-" N2) - n
-     - (n - N1) - N2 ==> n - (N1 "+" N2)
+     - N1 - (N2 + n) ==> (N1 "-" N2) - n               [proof: Nat.sub_add_eq]
+     - (N1 - n) - N2 ==> (N1 "-" N2) - n               [proof: Nat.sub_right_comm]
+     - (n - N1) - N2 ==> n - (N1 "+" N2)               [proof: Nat.sub_sub]
      - (N1 + n) - N2 ==> (N1 "-" N2) + n (if N1 ≥ N2)
    Assume that f = Expr.const ``Nat.sub.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Nat.sub` expected at this stage)
@@ -53,10 +57,16 @@ def optimizeNatSub (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeNatSub: exactly two arguments expected"
  let op1 := args[0]!
  let op2 := args[1]!
- if exprEq op1 op2 then return (← mkNatLitExpr 0)
+ if exprEq op1 op2 then
+   pushProofStep (.rewrite (mkConst ``Nat.sub_self))
+   return (← mkNatLitExpr 0)
  match isNatValue? op1, isNatValue? op2 with
- | some 0, _
- | _, some 0 => return op1
+ | some 0, _ =>
+    pushProofStep (.rewrite (mkConst ``Nat.zero_sub))
+    return op1
+ | _, some 0 =>
+    pushProofStep (.rewrite (mkConst ``Nat.sub_zero))
+    return op1
  | some n1, some n2 => evalBinNatOp Nat.sub n1 n2
  | nv1, nv2 =>
    if let some r ← cstSubPropRight? nv1 op2 then return r
@@ -70,6 +80,7 @@ def optimizeNatSub (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
    cstSubPropRight? (mv1 : Option Nat) (op2 : Expr) : TranslateEnvT (Option Expr) := do
     match mv1, toNatCstOpExpr? op2 with
     | some n1, NatCstOpInfo.NatAddExpr n2 e2 =>
+        pushProofStep (.rewrite (mkConst ``Nat.sub_add_eq) (once := true))
         setRestart
         return mkApp2 f (← evalBinNatOp Nat.sub n1 n2) e2
     | _, _ => return none
@@ -85,13 +96,16 @@ def optimizeNatSub (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      | some n2 =>
           match toNatCstOpExpr? op1 with
           | some (NatCstOpInfo.NatSubLeftExpr n1 e1) =>
+              pushProofStep (.rewrite (mkConst ``Nat.sub_right_comm) (once := true))
               setRestart
               return mkApp2 f (← evalBinNatOp Nat.sub n1 n2) e1
           | some (NatCstOpInfo.NatSubRightExpr e1 n1) =>
+              pushProofStep (.rewrite (mkConst ``Nat.sub_sub) (once := true))
               -- no need to restart here
               return (mkApp2 f e1 (← evalBinNatOp Nat.add n1 n2))
           | some (NatCstOpInfo.NatAddExpr n1 e1) =>
               if Nat.ble n2 n1 then
+                -- TODO: composed proof (add_comm + add_sub_assoc + add_comm)
                 setRestart
                 return mkApp2 (← mkNatAddOp) (← evalBinNatOp Nat.sub n1 n2) e1
               else return none
@@ -124,10 +138,10 @@ def optimizeNatPow (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  | _, _ => return (mkApp2 f op1 op2)
 
 /-- Apply the following simplification/normalization rules on `Nat.mul` :
-     - 0 * n ==> 0
-     - 1 * n ==> n
-     - N1 + N2 ==> N1 "*" N2
-     - N1 * (N2 * n) ==> (N1 "*" N2) * n
+     - 0 * n ==> 0                          [proof: Nat.zero_mul]
+     - 1 * n ==> n                          [proof: Nat.one_mul]
+     - N1 * N2 ==> N1 "*" N2
+     - N1 * (N2 * n) ==> (N1 "*" N2) * n    [proof: ← Nat.mul_assoc]
      - n1 * n2 ==> n2 * n1 (if n2 <ₒ n1)
      - n * n^m ===> n ^ (m + 1)
    Assume that f = Expr.const ``Nat.mul.
@@ -138,8 +152,12 @@ def optimizeNatMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let op1 := args[0]!
  let op2 := args[1]!
  match isNatValue? op1, isNatValue? op2 with
- | some 0, _ => return op1
- | some 1, _ => return op2
+ | some 0, _ =>
+    pushProofStep (.rewrite (mkConst ``Nat.zero_mul))
+    return op1
+ | some 1, _ =>
+    pushProofStep (.rewrite (mkConst ``Nat.one_mul))
+    return op2
  | some n1, some n2 => evalBinNatOp Nat.mul n1 n2
  | nv1, _ =>
    if let some r ← cstMulProp? nv1 op2 then return r
@@ -154,6 +172,7 @@ def optimizeNatMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
    cstMulProp? (mv1 : Option Nat) (op2 : Expr) : TranslateEnvT (Option Expr) := do
      match mv1, toNatCstOpExpr? op2 with
      | some n1, some (NatCstOpInfo.NatMulExpr n2 e2) =>
+         pushProofStep (.rewrite (mkConst ``Nat.mul_assoc) (symm := true) (once := true))
          return (mkApp2 f (← evalBinNatOp Nat.mul n1 n2) e2)
      | _, _ => return none
 

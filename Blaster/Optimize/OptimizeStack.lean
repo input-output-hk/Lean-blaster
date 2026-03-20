@@ -67,7 +67,7 @@ abbrev OptimizeContinuity := Sum (List OptimizeStack) Expr
 
 @[always_inline, inline]
 def mkHypStackContext (h : UpdatedHypContext) : TranslateEnvT HypsStackContext := do
-  let ⟨_, ⟨_, localRewriteCache, _, _, _, _, _, _, hypothesisContext, _, _, _, _, _⟩⟩ ← get
+  let ⟨_, ⟨_, localRewriteCache, _, _, _, _, _, _, hypothesisContext, _, _, _, _, _, _⟩⟩ ← get
   if h.1 then
     updateHypothesis h.2 Std.HashMap.emptyWithCapacity
     return {newHCtx := h, oldHCtx := some hypothesisContext, oldCache := some localRewriteCache}
@@ -82,7 +82,7 @@ def resetHypContext (h : HypsStackContext) : TranslateEnvT Unit := do
 
 @[always_inline, inline]
 def mkMatchStackContext (h : MatchContextMap) : TranslateEnvT MatchStackContext := do
-  let ⟨_, ⟨_, localRewriteCache, _, _, _, _, _, _, _, matchInContext, _, _, _, _⟩⟩ ← get
+  let ⟨_, ⟨_, localRewriteCache, _, _, _, _, _, _, _, matchInContext, _, _, _, _, _⟩⟩ ← get
   updateMatchContext h Std.HashMap.emptyWithCapacity
   return {oldMatchCtx := matchInContext, oldCache := localRewriteCache}
 
