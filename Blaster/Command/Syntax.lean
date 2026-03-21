@@ -161,7 +161,8 @@ def parseTerm : TSyntax `Blaster.solveTerm -> m Syntax
 def commandInvoker (f : BlasterOptions → Syntax → TermElabM Unit) : CommandElab := fun stx => do
   let some cancelTk := (← read).cancelTk? | unreachable!
   let opts := stx[1].getArgs
-  let sOpts ← parseSolveOptions opts default  -- Process all options dynamically
+  let baseOpts := applyGlobalOptions default (← getOptions)
+  let sOpts ← parseSolveOptions opts baseOpts  -- Process all options dynamically
   let tr ← parseTerm ⟨stx[2]⟩
   let act ← wrapAsyncAsSnapshot (cancelTk? := cancelTk) fun _ =>
     withoutModifyingEnv $ runTermElabM fun _ =>

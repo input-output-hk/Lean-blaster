@@ -94,4 +94,31 @@ structure BlasterOptions where
 instance : Inhabited BlasterOptions where
   default := {}
 
+/-- Global Lean option: output representation format.
+    0 = Textual (default, human-readable), 1 = JsonL (structured JSON lines).
+    Can be set file-wide with `set_option blaster.outputRepr 1`. -/
+register_option blaster.outputRepr : Nat := {
+  defValue := 0
+  descr := "Blaster output format: 0 = Textual (default), 1 = JsonL"
+}
+
+/-- Global Lean option: output mode.
+    0 = LogInfo (Lean diagnostics, default), 1 = StdOut (IO.println).
+    Can be set file-wide with `set_option blaster.outputMode 1`. -/
+register_option blaster.outputMode : Nat := {
+  defValue := 0
+  descr := "Blaster output mode: 0 = LogInfo (default), 1 = StdOut"
+}
+
+/-- Read `blaster.outputRepr` and `blaster.outputMode` from Lean's global option
+    system and apply them as defaults, letting per-invocation syntax options override. -/
+def applyGlobalOptions (opts : BlasterOptions) (leanOpts : Options) : BlasterOptions :=
+  let repr := match blaster.outputRepr.get leanOpts with
+    | 1 => .JsonL
+    | _ => opts.outputRepr
+  let mode := match blaster.outputMode.get leanOpts with
+    | 1 => .StdOut
+    | _ => opts.outputMode
+  { opts with outputRepr := repr, outputMode := mode }
+
 end Blaster.Options

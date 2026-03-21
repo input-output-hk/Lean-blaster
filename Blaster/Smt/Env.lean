@@ -141,10 +141,13 @@ def logResult (r : Result) (isCTI := false) (indLabel := "") (cexLabel := "Count
       let cexData : List CexEntry := match r with
         | .Falsified cex => if sOpts.generateCex then cex else []
         | _ => []
+      let thmName := (← get).theoremName
       let mut fields : List (String × Json) := [
         ("type", .str "result"),
         ("status", .str status),
         ("expected", .bool expected)]
+      if let some name := thmName then
+        fields := fields ++ [("name", .str name)]
       -- Add counterexample: group by step if names contain `@N` suffixes (BMC/KInduction)
       if !cexData.isEmpty then
         let cexJson := cexEntriesToJson cexData

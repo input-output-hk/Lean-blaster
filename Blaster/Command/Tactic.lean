@@ -33,11 +33,16 @@ syntax (name := blasterTactic) "blaster" (solveOption)* : tactic
 @[tactic blasterTactic]
 def blasterTacticImp : Tactic := fun stx =>
   withMainContext $ do
-   -- Parse options in any order
+   -- Parse options in any order, applying global set_option defaults first
    let opts := stx[1].getArgs
-   let sOpts ← parseSolveOptions opts default
+   let baseOpts := applyGlobalOptions default (← getOptions)
+   let sOpts ← parseSolveOptions opts baseOpts
+   -- Capture the theorem/lemma name for structured logging
+   let thmName : Option String := (← Elab.Term.getDeclName?).map (·.toString)
    let (goal, nbQuantifiers) ← revertHypotheses (← getMainGoal)
-   let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
+   let env := {(default : TranslateEnv) with
+     optEnv.options.solverOptions := sOpts,
+     theoremName := thmName }
    let ((result, optExpr), _) ←
      withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0 }) $ do
        IO.setNumHeartbeats 0
