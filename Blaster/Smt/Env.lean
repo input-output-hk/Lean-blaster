@@ -148,6 +148,9 @@ def logResult (r : Result) (isCTI := false) (indLabel := "") (cexLabel := "Count
         ("expected", .bool expected)]
       if let some name := thmName then
         fields := fields ++ [("name", .str name)]
+      if let some pos := ref.getPos? then
+        let srcLine := (← getFileMap).toPosition pos |>.line
+        fields := fields ++ [("line", toJson srcLine)]
       -- Add counterexample: group by step if names contain `@N` suffixes (BMC/KInduction)
       if !cexData.isEmpty then
         let cexJson := cexEntriesToJson cexData
