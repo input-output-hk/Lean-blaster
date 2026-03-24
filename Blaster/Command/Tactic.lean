@@ -28,6 +28,11 @@ Example: `blaster (timeout: 10) (verbose: 1)`
 syntax (name := blasterTactic) "blaster" (solveOption)* : tactic
 
 
+/-- Custom sorry for Blaster
+    Quite useful for AI tools to differentiate
+    between SMT-verified goals and regular sorry-/
+axiom blasterProven : ∀ {α : Prop}, α
+
 @[tactic blasterTactic]
 def blasterTacticImp : Tactic := fun stx =>
   withMainContext $ do
@@ -41,7 +46,10 @@ def blasterTacticImp : Tactic := fun stx =>
        IO.setNumHeartbeats 0
        Translate.main (← goal.getType >>= instantiateMVars') (logUndetermined := false) |>.run env
    match result with
-   | .Valid => goal.admit -- TODO: replace with proof reconstruction
+   | .Valid =>
+      let p ← goal.getType >>= instantiateMVars
+      goal.assign (mkApp (mkConst ``blasterProven []) p)
+      logWarning "declaration uses 'blasterProven' (SMT-verified, no proof term)" -- TODO: replace with proof reconstruction
    | .Falsified cex => throwTacticEx `blaster goal "Goal was falsified (see counterexample above)"
    | .Undetermined =>
         -- Replace the goal with the optimized expression
