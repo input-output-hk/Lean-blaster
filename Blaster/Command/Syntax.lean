@@ -153,10 +153,10 @@ def commandInvoker (f : BlasterOptions → Syntax → TermElabM Unit) : CommandE
     -- The direct use of whnf will soon be removed at the preprocessing phase.
     -- However, since we rely on functions like isProp, inferType and withLocalDecl, setting maxHearbeats
     -- to zero will still be required. Unless, we have a new implementation for these functions.
-      withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0, maxRecDepth := 0 }) $ do
-        f sOpts tr
+      withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0, maxRecDepth := 0 }) $
+        withRef stx[2] $ f sOpts tr
   let task ← BaseIO.asTask (prio := Task.Priority.dedicated) (act ())
-  logSnapshotTask { stx? := some stx, task, cancelTk? := cancelTk }
+  logSnapshotTask { stx? := some stx[2], task, cancelTk? := cancelTk }
 
 
 /-! ### Implementation of solve command -/
