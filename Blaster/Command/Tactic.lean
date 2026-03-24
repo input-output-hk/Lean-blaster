@@ -31,7 +31,14 @@ syntax (name := blasterTactic) "blaster" (solveOption)* : tactic
 /-- Custom sorry for Blaster
     Quite useful for AI tools to differentiate
     between SMT-verified goals and regular sorry-/
-axiom blasterProven : ∀ {α : Prop}, α
+private axiom blasterProven : ∀ {α : Sort u}, α
+
+private def blasterAdmit (mvarId : MVarId) : MetaM Unit :=
+  mvarId.withContext do
+    mvarId.checkNotAssigned `blasterAdmit
+    let mvarType ← mvarId.getType >>= instantiateMVars
+    let u ← getLevel mvarType
+    mvarId.assign (mkApp (mkConst ``blasterProven [u]) mvarType)
 
 @[tactic blasterTactic]
 def blasterTacticImp : Tactic := fun stx =>
@@ -47,9 +54,10 @@ def blasterTacticImp : Tactic := fun stx =>
        Translate.main (← goal.getType >>= instantiateMVars') (logUndetermined := false) |>.run env
    match result with
    | .Valid =>
-      let p ← goal.getType >>= instantiateMVars
-      goal.assign (mkApp (mkConst ``blasterProven []) p)
-      logWarning "declaration uses 'blasterProven' (SMT-verified, no proof term)" -- TODO: replace with proof reconstruction
+      blasterAdmit goal
+      if (← getOptions).getBool `warn.sorry true then
+        logWarning "declaration uses 'blasterProven' (SMT-verified, no proof term)" -- TODO: replace with proof reconstruction
+
    | .Falsified cex => throwTacticEx `blaster goal "Goal was falsified (see counterexample above)"
    | .Undetermined =>
         -- Replace the goal with the optimized expression
@@ -92,6 +100,5 @@ def blasterTacticImp : Tactic := fun stx =>
              let (_, g) ← g.revert #[h]
              return g) goal
         return (goal', nbQuantifiers)
-
 
 end Blaster.Tactic
