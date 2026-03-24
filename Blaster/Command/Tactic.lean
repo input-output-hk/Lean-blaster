@@ -28,10 +28,9 @@ Example: `blaster (timeout: 10) (verbose: 1)`
 syntax (name := blasterTactic) "blaster" (solveOption)* : tactic
 
 
-/-- Custom sorry for Blaster
-    Quite useful for AI tools to differentiate
-    between SMT-verified goals and regular sorry-/
-private axiom blasterProven : ∀ {α : Sort u}, α
+/-- Custom sorry for Blaster to differentiate
+    between SMT-verified goals and regular `sorry`.-/
+axiom blasterProven : ∀ {α : Sort u}, α
 
 private def blasterAdmit (mvarId : MVarId) : MetaM Unit :=
   mvarId.withContext do
@@ -56,7 +55,7 @@ def blasterTacticImp : Tactic := fun stx =>
    | .Valid =>
       blasterAdmit goal
       if (← getOptions).getBool `warn.sorry true then
-        logWarning "declaration uses 'blasterProven' (SMT-verified, no proof term)" -- TODO: replace with proof reconstruction
+        logWarningAt stx "declaration uses 'blasterProven' (SMT-verified, no proof term)" -- TODO: replace with proof reconstruction
 
    | .Falsified cex => throwTacticEx `blaster goal "Goal was falsified (see counterexample above)"
    | .Undetermined =>
