@@ -32,6 +32,8 @@ syntax (name := blasterTactic) "blaster" (solveOption)* : tactic
 -/
 def applyProofStack (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep) : MetaM MVarId := do
   /- trace[Optimize.expr] "proofStack size: {steps.size}" -/
+  /- trace[Optimize.expr] "proofStack: -/
+  /-   {reprStr $ Array.map (λ | .rewrite proof _ _ => proof) steps}" -/
   let mut g := goal
   g ← rewriteFixpoint g steps
   for step in steps do
@@ -62,6 +64,32 @@ where
             catch _ => pure ()
     return g
 
+/-- Normalize an expression by sorting arguments of commutative operators,
+    so that AC-equivalent expressions become structurally equal. -/
+private def acNormalize : Expr → Expr
+  | Expr.app (Expr.app f a) b =>
+      if isCommOp f then
+        let a' := acNormalize a
+        let b' := acNormalize b
+        if b'.lt a' then mkApp2 f b' a' else mkApp2 f a' b'
+      else
+        Expr.app (acNormalize (Expr.app f a)) (acNormalize b)
+  | Expr.app f a => Expr.app (acNormalize f) (acNormalize a)
+  | e => e
+where
+  isCommOp (f : Expr) : Bool :=
+    let head := f.getAppFn
+    head.isConstOf ``Nat.add || head.isConstOf ``Nat.mul ||
+    head.isConstOf ``HAdd.hAdd || head.isConstOf ``HMul.hMul
+
+/-- Check if a goal of the form `LHS = RHS` is AC-equivalent
+    by normalizing both sides and comparing structurally. -/
+private def isACEquiv (g : MVarId) : MetaM Bool := do
+  let some (_, lhs, rhs) := (← g.getType).eq? | return false
+  /- trace[Optimize.expr] "isACEquiv lhs: {repr (acNormalize lhs)}" -/
+  /- trace[Optimize.expr] "isACEquiv rhs: {repr (acNormalize rhs)}" -/
+  return BEq.beq (acNormalize lhs) (acNormalize rhs)
+
 @[tactic blasterTactic]
 def blasterTacticImp : Tactic := fun stx =>
   withMainContext $ do
@@ -81,7 +109,13 @@ def blasterTacticImp : Tactic := fun stx =>
         let (_, g) ← goal.introNP numBinders
         let g ← applyProofStack g finalEnv.optEnv.proofStack
         try g.refl
-        catch _ => g.admit
+        catch _ =>
+          if ← isACEquiv g then
+            try
+              setGoals [g]
+              evalTactic (← `(tactic| ac_rfl))
+            catch _ => g.admit
+          else g.admit
    | .Falsified cex => throwTacticEx `blaster goal "Goal was falsified (see counterexample above)"
    | .Undetermined =>
         -- Replace the goal with the optimized expression
