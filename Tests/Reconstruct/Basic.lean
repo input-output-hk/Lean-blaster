@@ -53,6 +53,7 @@ example : ∀ (m n : Nat), 0 + (m + n) = n + m := by blaster
 example : ∀ (m n : Nat), (m + n) + 0 = n + m := by blaster
 example : ∀ (m n : Nat), 1 * (m + n) = n + m := by blaster
 example : ∀ (m n : Nat), (m + n) - 0 = n + m := by blaster
+example :  ∀ (x : Nat), 0 + (x + 40) - (40 + x) = 0 := by blaster
 
 -- Multiple arguments rewrites
 example : ∀ {x y : Nat}, (x + 0) + (y - 0) = x + y := by blaster
@@ -69,8 +70,8 @@ example : ∀ (n : Nat),
   (match n with | 0 => 0 + 1 | k + 1 => k + 0) =
   (match n with | 0 => 1 | k + 1 => k) := by blaster
 
--- TODO: Multiple commutativity on different sub-expressions
+-- Multiple commutativity on different sub-expressions
 example : ∀ {m n p q : Nat}, (m + n) + (p + q) = (q + p) + (n + m) := by blaster
 
--- TODO: Commutativity on both sides of different operators
+-- Commutativity on both sides of different operators
 example : ∀ {a b c d : Nat}, (a * b) + (c * d) = (d * c) + (b * a) := by blaster
