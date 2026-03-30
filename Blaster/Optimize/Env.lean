@@ -46,6 +46,9 @@ structure IndTypeDeclaration where
  -/
  instSort : SortExpr
 
+ /-- unique @Instance_<UUID> sort generated for type universe. -/
+ instInstanceSort : Option SortExpr
+
  /-- unique @apply function generated for each HOF/quantified function or lambda term. -/
  applyInstName : Option SmtSymbol
 
@@ -312,9 +315,6 @@ instance : Inhabited OptimizeEnv where
 
 
 structure TranslateOptions where
-  /-- Flag set when universe @@Type has already been declared in Smt instance. -/
-  typeUniverse : Bool := false
-
   /-- Cache keeping track of ArrowTN already declared in Smt instance,
       with `N` corresponding to the function arity.
   -/
@@ -331,13 +331,15 @@ structure TranslateOptions where
   axiomMap : Std.HashMap Name SmtSymbol
 
 instance : Inhabited TranslateOptions where
-  default := {typeUniverse := false,
-              arrowTypeArities := .emptyWithCapacity,
+  default := {arrowTypeArities := .emptyWithCapacity,
               inPatternMatching := .emptyWithCapacity,
               axiomMap := .emptyWithCapacity
              }
 
 abbrev TopLevelVars := Array (List (SmtSymbol × Lean.Name))
+
+abbrev ConversionFunCache := Std.HashMap (SortExpr × SortExpr) SmtSymbol
+abbrev AbstractTypeCache := Std.HashMap Expr SmtSymbol
 
 /-- Type defining the environment used when translating to Smt-Lib. -/
 structure SmtEnv where
@@ -371,6 +373,11 @@ structure SmtEnv where
               `λ b₀ → .. → bₘ → α₀ → ... → α` := {instName := n, instSort := (Array sα₀ ... sαₙ)} ∈ indTypeInstCache
              with
                - `b₀ .. bₘ` corresponding to the polymorphic arguments (see `getFunInstDecl`).
+       - Given a type universe t such that t.isProp:
+            t := {instName := @isProp, instSort := Prop} ∈ indTypeInstCache
+       - Given a type universe t such that ¬ t.isProp:
+            t := {instName := @is{n}, instSort := n} ∈ indTypeInstCache
+           with n corresponding to a unique smt symbol name.
      See note on `IndTypeDeclaration`.
   -/
   indTypeInstCache : Std.HashMap Lean.Expr IndTypeDeclaration
@@ -386,9 +393,6 @@ structure SmtEnv where
       TODO: UPDATE SPEC
   -/
   funInstCache : Std.HashMap Lean.Expr SmtQualifiedIdent
-
-  /-- Cache keeping track of sort that have already been declared. -/
-  sortCache : Std.HashMap FVarId SmtSymbol
 
   /-- Hash keeping track of all translated fvars. (see function fvarIdToSmtSymbol)  -/
   fvarsCache : Std.HashMap FVarId Nat
@@ -430,6 +434,14 @@ structure SmtEnv where
   -/
   funCtorCache : Std.HashMap Name FunEnvInfo
 
+  /-- Hash Map keeping track of declared smt conversion functions
+      from polymorphic to concrete datatype instances and vice-versa.
+  -/
+  coerceCache : ConversionFunCache
+
+  /-- Set keeping track of Lean4 datatypes for which a corresponding abstract smt datatype has been defined -/
+  abstractTypeCache : AbstractTypeCache
+
   /-- Translation options (see note on TranslateOptions) -/
   options: TranslateOptions
 
@@ -441,13 +453,14 @@ instance : Inhabited SmtEnv where
      indTypeVisited := Std.HashSet.emptyWithCapacity,
      indTypeInstCache := Std.HashMap.emptyWithCapacity,
      funInstCache := Std.HashMap.emptyWithCapacity,
-     sortCache := Std.HashMap.emptyWithCapacity,
      fvarsCache := Std.HashMap.emptyWithCapacity,
      quantifiedFVars := Std.HashMap.emptyWithCapacity,
      topLevelVars := Array.mkEmpty 3,
      symbolStrCache := Std.HashMap.emptyWithCapacity,
+     funCtorCache := Std.HashMap.emptyWithCapacity,
+     coerceCache := Std.HashMap.emptyWithCapacity,
+     abstractTypeCache := Std.HashMap.emptyWithCapacity,
      options := default
-     funCtorCache := Std.HashMap.emptyWithCapacity
    }
 
 /-- Type defining the environment used when optimizing a lean theorem and translating to Smt-lib. -/
@@ -1511,8 +1524,8 @@ partial def isGenericParam (e : Expr) : TranslateEnvT Bool := do
  | Expr.lit ..
  | Expr.lam ..
  | Expr.proj ..
- | Expr.forallE ..
  | Expr.letE .. => return false
+ | Expr.forallE _n t b _ => isGenericParam t <||> isGenericParam b
  | Expr.sort .. => return true
  | Expr.mdata _ e  => isGenericParam e
  | Expr.const n _ =>
@@ -1557,7 +1570,6 @@ def updateGenericArgs
  let mut pset := pset
  for h : i in [:fvars.size] do
    let p := fvars[i]
-   let decl ← getFVarLocalDecl p
    if !(pset.contains p) then
      gargs := gargs.push p
      pset := pset.insert p
@@ -1712,7 +1724,7 @@ where
     An error is triggered if no corresponding entry can be found in `recFunMap`.
 -/
 def hasRecFunInst? (instApp : Expr) : TranslateEnvT (Option Expr) := do
-  let ⟨_, ⟨_, _, _, _, _,recFunInstCache,_,recFunMap, _, _, _, _, _, _⟩⟩ ← get
+  let ⟨_, ⟨_, _, _, _, _,recFunInstCache,_,recFunMap, _, _, _, _, _, _, _⟩⟩ ← get
   match recFunInstCache.get? instApp with
   | some fbody =>
      -- retrieve function application from recFunMap

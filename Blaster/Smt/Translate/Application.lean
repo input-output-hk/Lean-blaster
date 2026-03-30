@@ -343,18 +343,112 @@ def translateOpaqueFun (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT
   | _ => throwEnvError "translateOpaqueFun: unexpected opaque operator {n}"
 
 
+/-- Given `t := ∀ α₀ → ∀ α₁ ... → αₙ`, infer the instanitated type w.r.t. `args` such that:
+     - let S := [ αᵢ | i ∈ [0..n] ∧ ¬ αᵢ.isExplicit ]
+     - let R := [ args[i] | i ∈ [0..n] ∧ ¬ αᵢ.isExplicit ]
+     - let k := S.size-1
+     - let [α'₀, ..., α'ₚ] := [ αᵢ [S[0]/R[0]] ... [S[k]/R[k]] | i ∈ [0..n] ∧  αᵢ.isExplicit ]
+     - return `∀ α'₀ → ∀ α'₁ ... → α'ₚ`
+    TODO: change function to pure tail rec call using stack-based approach
+-/
+partial def inferFunType (t : Expr) (args : Array Expr) : Expr :=
+  let rec visit (idx : Nat) (e : Expr) : Expr :=
+    if idx ≥ args.size then e
+    else
+      match e with
+      | Expr.forallE n t b bi =>
+          if !bi.isExplicit then
+            visit (idx + 1) (b.instantiate1 args[idx]!)
+          else Expr.forallE n t (visit (idx + 1) b) bi
+      | _ => e
+  visit 0 t
+
+
+def updateCoerceCache (fromSmtType toSmtType : SortExpr) (coeName : SmtSymbol) : TranslateEnvT Unit := do
+  modify (fun env => { env with smtEnv.coerceCache := env.smtEnv.coerceCache.insert (fromSmtType, toSmtType) coeName })
+
+/-- Given two smt types `fromSmtType` and `toSmtType` and optional coDomainType corresponding to the Lean4 type of toSmtType,
+    perform the following:
+     - When (fromSmtType, toSmtType) := coeInst ∈ coerceCache
+         - return `coeInst`
+     - Otherwise:
+         - let n ← mkFreshId
+         - let coeName := @coerce ++ n
+         - add the following entry in coerceCache
+             - `(fromSmtType, toSmtType) := coeName`
+         - Declare the following smt function:
+            - `(declare-fun coeName ((fromSmtType)) toSmtType)`
+         - When `coDomainType := some toType` assert the following codomain value constraints:
+             - `(assert (forall ((@x fromSmtType)),
+                     ( ! (@isToSmtType (coeName @x)) :pattern ((coeName @x)) :qid @coeName_co_cstr)))`
+         - return `coeName`
+-/
+def getConversionFunction (fromSmtType toSmtType : SortExpr) (coDomainType : Option Expr) : TranslateEnvT SmtSymbol := do
+  match (← get).smtEnv.coerceCache.get? (fromSmtType, toSmtType) with
+  | some coeInst => return coeInst
+  | none =>
+      let n ← mkFreshId
+      let coeName := mkReservedSymbol s!"@coerce{n}"
+      -- update coerce cache
+      updateCoerceCache fromSmtType toSmtType coeName
+      -- declare smt coercion function
+      declareFun coeName #[fromSmtType] toSmtType
+      if let some toType := coDomainType then
+         -- asserting codomain value constraint
+        let xsym := mkReservedSymbol s!"@x"
+        let xId := smtSimpleVarId xsym
+        let f_coeTerm := mkSimpleSmtAppN coeName #[xId]
+        let coeQuant := #[(xsym, fromSmtType)]
+        let coDomain ← createPredQualifierAppAux f_coeTerm toType
+        let qidName := mkQid $ appendSymbol coeName "co_cstr"
+        let patterns := some #[mkPattern #[f_coeTerm], qidName]
+        assertTerm (mkForallTerm none coeQuant coDomain patterns)
+      return coeName
+
 /-- Helper function for createAppN -/
 def createAppNAux (pInfo : FunEnvInfo) (s : Sum SmtQualifiedIdent SmtTerm)
   (args : Array Expr) (termTranslator : Expr → TranslateEnvT SmtTerm)
   (isHOF := false) : TranslateEnvT SmtTerm := do
-  let mut genArgs := #[]
   let nbSize := if args.size < pInfo.paramsInfo.size then args.size else pInfo.paramsInfo.size
-  for i in [:nbSize] do
-    if pInfo.paramsInfo[i]!.isExplicit then
-       genArgs := genArgs.push (← termTranslator args[i]!)
-  if genArgs.size == 0
-  then genUnapplied s
-  else genApplied s genArgs
+  if isHOF then
+    let instType := inferFunType pInfo.type args
+    withInstantiatedImplicitArgs pInfo.type fun polyType' => do
+      let instArgTypes := retrieveArrowTypes instType
+      let polyArgTypes := retrieveArrowTypes polyType'
+      let mut idxType := 0
+      let mut genArgs := #[]
+      for i in [:nbSize] do
+        if pInfo.paramsInfo[i]!.isExplicit then
+          let sarg ← termTranslator args[i]!
+          let t1 := instArgTypes[idxType]!
+          let t2 := polyArgTypes[idxType]!
+          let st1 ← translateType termTranslator t1
+          let st2 ← translateType termTranslator t2
+          idxType := idxType + 1
+          if st1 == st2 then
+            genArgs := genArgs.push sarg
+          else
+            let coerceInst ← getConversionFunction st1 st2 none
+            genArgs := genArgs.push (mkSimpleSmtAppN coerceInst #[sarg])
+      if genArgs.size == 0
+      then genUnapplied s
+      else
+        let retTypeIdx := instArgTypes.size - 1
+        let t1 := instArgTypes[retTypeIdx]!
+        let t2 := polyArgTypes[retTypeIdx]!
+        let st1 ← translateType termTranslator t1
+        let st2 ← translateType termTranslator t2
+        let coeReturn ← if st1 == st2 then pure none else some <$> getConversionFunction st2 st1 (some t1)
+        genApplied s genArgs coeReturn
+
+  else
+    let mut genArgs := #[]
+    for i in [:nbSize] do
+      if pInfo.paramsInfo[i]!.isExplicit then
+        genArgs := genArgs.push (← termTranslator args[i]!)
+    if genArgs.size == 0
+    then genUnapplied s
+    else genApplied s genArgs none
 
   where
     genUnapplied (id : Sum SmtQualifiedIdent SmtTerm) : TranslateEnvT SmtTerm := do
@@ -367,13 +461,17 @@ def createAppNAux (pInfo : FunEnvInfo) (s : Sum SmtQualifiedIdent SmtTerm)
         | Sum.inl qi => return .SmtIdent qi
         | _ => throwEnvError "genUnapplied: SmtQualifiedIdent expected !!!"
 
-    genApplied (id : Sum SmtQualifiedIdent SmtTerm) (sargs : Array SmtTerm) : TranslateEnvT SmtTerm := do
+    genApplied (id : Sum SmtQualifiedIdent SmtTerm) (sargs : Array SmtTerm) (coeReturn : Option SmtSymbol) : TranslateEnvT SmtTerm := do
       if isHOF then
         let applyInst ← getApplyInstName pInfo.type
-        match id with
-        | Sum.inl qi => return mkSimpleSmtAppN applyInst (#[(.SmtIdent qi)] ++ sargs)
-        | Sum.inr st => return mkSimpleSmtAppN applyInst (#[st] ++ sargs)
-           -- case when f corresponds to a function in a ctor argument.
+        let fApp :=
+          match id with
+          | Sum.inl qi => .SmtIdent qi
+          | Sum.inr st => st -- case when f corresponds to a function in a ctor argument.
+        let smtApp := mkSimpleSmtAppN applyInst (#[fApp] ++ sargs)
+        match coeReturn with
+        | some coerceInst => return mkSimpleSmtAppN coerceInst #[smtApp]
+        | none => return smtApp
       else
         match id with
         | Sum.inl qi => return mkSmtAppN qi sargs
@@ -391,21 +489,40 @@ def createAppNAux (pInfo : FunEnvInfo) (s : Sum SmtQualifiedIdent SmtTerm)
                 - return `s`
          - Otherwise:
              - When `isSmtQualifiedIdent s`
-                - return `asArraySmt s`
+                - return `.SmtIdent s`
              - Otherwise (i.e., only a defined function expected)
                  - return ⊥
       - When `∃ i ∈ [0..n], isExplicit xᵢ,`
-         let A := [x₀,..., xₙ]
-         let B := [termTranslator A[i] | i ∈ [0..n] ∧ isExplicit A[i]]
            - When isHOF:
-              - When `isSmtQualifiedIdent s`
-                 - return `selectSmt (.SmtIdent s) B`
-              - Otherwise (i;e., case when f corresponds to a function in a ctor argument)
-                  - return `selectSmt s B`
+              - let pInfo ← getFunEnvInfo f
+              - let ∀ α₀ → .. → αₖ := inferFunType pInfo.types #[x₀ ... xₙ]`
+              - let ∀ p₀ → .. → pₖ := withInstantiatedImplicitArgs pInfo.type
+              - let [b₀, ..., bₖ] := [termTranslator xᵢ | i ∈ [0..n] ∧ isExplicit xᵢ]
+              - let B := [ eᵢ | i ∈ [0..k-1] ∧
+                                taᵢ = translateType termTranslator αᵢ
+                                tpᵢ = translateType termTranslator pᵢ
+                                (taᵢ = tpᵢ → eᵢ = bᵢ) ∧
+                                (taᵢ ≠ tpᵢ → eᵢ = mkSimpleSmtAppN (← getConversionFunction taᵢ tpᵢ none) bᵢ)
+                         ]
+              - let taₖ = translateType termTranslator αₖ
+              - let tpₖ = translateType termTranslator pₖ
+              - let applyInst ← getApplyInstName pInfo.type
+              - When taₖ = tpₖ
+                   - When `isSmtQualifiedIdent s`
+                        - return `mkSimpleSmtAppN applyInst (#[.SmtIdent s] ++ B)`
+                   - Otherwise:
+                        - return `mkSimpleSmtAppN applyInst (#[s] ++ B)`
+               - Otherwise
+                   - let coeInst ← getConversionFunction tpₖ taₖ (some taₖ)
+                   - When `isSmtQualifiedIdent s`
+                        - return `mkSimpleSmtAppN coeInst #[mkSimpleSmtAppN applyInst (#[.SmtIdent s] ++ B)]`
+                   - Otherwise:
+                        - return `mkSimpleSmtAppN coeInst #[mkSimpleSmtAppN applyInst (#[s] ++ B)]`
            - Otherwise:
               - When `isSmtQualifiedIdent s`
+                  - let B := [termTranslator xᵢ | i ∈ [0..n] ∧ isExplicit xᵢ]
                   - return `mkSmtAppN s B`
-             - Otherwise (i.e., only a defined function expected)
+              - Otherwise (i.e., only a defined function expected)
                   - return ⊥
 -/
 @[always_inline, inline]
@@ -416,12 +533,12 @@ def createAppN
   createAppNAux pInfo s args termTranslator isHOF
 
 /-- Given `t` corresponding the type of a function/lambda parameter:
-     - return `translateType termTranslator t optionsForFunLambdaParam`
+     - return `translateType termTranslator t
     An error is triggered if `t` corresponds to the type of an implicit argument.
 -/
 def translateFunLambdaParamType
   (t : Expr) (termTranslator : Expr → TranslateEnvT SmtTerm) : TranslateEnvT SortExpr := do
-  translateType termTranslator t optionsForFunLambdaParam
+  translateType termTranslator t
 
 structure FunctionDefinitions where
   funDecls : Array SmtFunDecl
@@ -654,6 +771,68 @@ def generateUndeclaredFun
     else
       assertTerm (← createPredQualifierAppAux (smtSimpleVarId s) retType)
 
+
+def updateAbstractTypeCache (t : Expr) (abstName : SmtSymbol) : TranslateEnvT Unit := do
+  modify (fun env => { env with smtEnv.abstractTypeCache := env.smtEnv.abstractTypeCache.insert t abstName })
+
+/-- Given `t` a potential type expression, perform the following:
+     - When isInductiveTypeExpr t
+         - When t := absInst ∈ abstractTypeCache
+           - return `smtSimpleVarId abstInst`
+         - Otherwise:
+             - let sortType ← inferTypeEnv t
+             - When sortType := decl ∈ indTypeInstCache:
+                 - let st ← translateType termTranslator t
+                 - let n ← mkFreshId
+                 - let abstName := "@abstractType{n}"
+                 - add entry `t := abstName` to `abstractTypeCache`
+                 - declare global abstract type for t at smt level
+                    `(declare-const abstName decl.instSort)`
+                 - let instSort ← getInstanceSort decl
+                 - let coerceInst ← getConversionFunction st instSort none
+                 - assert inhabited constraint at smt level
+                    - `(forall ((@x st)) (=> (@isType @x) (decl.instName (coerceInst @x) abstName)))`
+                    - E.g., for Nat
+                       `(forall ((@x Nat)) (=> (@isNat @x) (@isInstance_<UUID> (@coerce @x) @abstractType<UUID>)))`
+                       with
+                         - `(declare-fun @coerce ((Nat)) @Instance_<UUID>)`
+                         - `(declare-const @abstractType<UUID> @Type_<UUID>)`
+                         - `(declare-fun @isInstance_<UUID> @Instance_<UUID> @Type_<UUID>)`
+                 - return `smtSimpleVarId abstName`
+             - Otherwise:
+                - return ⊥
+     - Otherwise:
+         - return `none`
+-/
+def translateIndTypeExpr? (t : Expr) (termTranslator : Expr → TranslateEnvT SmtTerm) : TranslateEnvT (Option SmtTerm) := do
+ let env ← get
+ if !(← isInductiveTypeExpr t) then return none
+ match env.smtEnv.abstractTypeCache.get? t with
+ | some abstInst => return smtSimpleVarId abstInst
+ | none =>
+      let sortType ← inferTypeEnv t
+      match env.smtEnv.indTypeInstCache.get? sortType with
+      | none => throwEnvError "translateConst: Abstract sort instance expected for {reprStr t}"
+      | some decl =>
+          let st ← translateType termTranslator t
+          let n ← mkFreshId
+          -- declare global abstract type
+          let abstName := mkReservedSymbol s!"@abstractType{n}"
+          -- update abstract type cache
+          updateAbstractTypeCache t abstName
+          declareConst abstName decl.instSort
+          -- assert inhabited constraint
+          let instSort ← getInstanceSort decl
+          let coerceInst ← getConversionFunction st instSort none
+          let xsym := mkReservedSymbol s!"@x"
+          let xId := smtSimpleVarId xsym
+          let predQualifier ← createPredQualifierAppAux xId t
+          let coerceApp := mkSimpleSmtAppN coerceInst #[xId]
+          let instPred := mkSimpleSmtAppN decl.instName #[coerceApp, smtSimpleVarId abstName]
+          let forallBody := impliesSmt predQualifier instPred
+          assertTerm (mkForallTerm none #[(xsym, st)] forallBody none)
+          return smtSimpleVarId abstName
+
 /-- Given `e := Expr.const n l`,
      - When `n := false`
         - return `BoolTerm false`
@@ -716,8 +895,6 @@ def translateConst
   | ``True => return trueSmt
   | ``Int.ofNat => return (← termTranslator (← Optimize.etaExpand e))
   | _ =>
-    if (← isInductiveTypeExpr e) then
-      throwEnvError "translateConst: unexpected inductive datatype {reprStr e}"
     if isForbiddenUnappliedConst n then
       throwEnvError "translateConst: unexpected name expression {reprStr e}"
     if (← isMatchExpr e) then
@@ -728,10 +905,12 @@ def translateConst
     if let some r ← translateDefineFun? n then return r
     if let some r ← translateTheorem? n then return r
     if let some r ← translateAxiomOrOpaque? n then return r
-    throwEnvError "translateConst: only opaque/recursive functions and theorems expected but got {reprStr e}"
+    if let some r ← translateIndTypeExpr? e termTranslator then return r
+    throwEnvError "translateConst: only inductive type/opaque/recursive functions and theorems expected but got {reprStr e}"
 
 
   where
+
     translateCtor (c : Name) : TranslateEnvT (Option SmtTerm) := do
       let ConstantInfo.ctorInfo info ← getConstEnvInfo c | return none
       if info.numParams != 0 then
@@ -790,6 +969,17 @@ def translateConst
       | _ => isForbiddenConst n
 
 
+/-- Given `n` corresponding to the name of a structure, return the structure ctor name.
+    An error is triggered when:
+      - Induction Info is not found for `n`
+      - Induction type `n` has more than one ctor
+-/
+def getProjectionCtor (n : Name) : TranslateEnvT Name := do
+  let ConstantInfo.inductInfo indVal ← getConstEnvInfo n
+    | throwEnvError "getProjectionCtor: induction info expected for {n}"
+  match indVal.ctors with
+  | [c] => return c
+  | _ => throwEnvError "getProjectionCtor: only one ctor expected for structure for {n}"
 
 /-- Translate Application
     TODO: UPDATE
@@ -813,6 +1003,7 @@ def translateApp
          if let some r ← translateAxiomOrUndeclFun? f n args then return r
          if let some r ← translateTheorem n args then return r
          if let some r ← translateInductivePredicate? f n args then return r
+         if let some r ← translateIndTypeExpr? e termTranslator then return r
          throwEnvError "translateApp: unexpected application {reprStr e}"
 
     | Expr.fvar _ => -- case for HOF
@@ -824,13 +1015,17 @@ def translateApp
         match toTaggedCtorSelector? f with
         | some (Expr.app (Expr.const s _) _) =>
             match (← get).smtEnv.funCtorCache.get? s with
-            | none => throwEnvError "translateApp: FunEnvInfo expected for {reprStr s}"
+            | none => throwEnvError "translateApp (mdata): FunEnvInfo expected for {reprStr s}"
             | some pInfo =>
                createAppNAux pInfo (← Sum.inr <$> termTranslator f) args termTranslator (isHOF := true)
         | _ => throwEnvError "translateApp: ctor selector tag expected but got {reprStr f}"
 
-    | Expr.proj .. => -- case when f is a function within a ctor.
-         createAppN f (← Sum.inr <$> termTranslator f) args termTranslator (isHOF := true)
+    | Expr.proj n i s => -- case when f is a function within a ctor.
+         let ctor ← getProjectionCtor n
+         let sctor := s!"{ctor}.{i}".toName
+         let some pInfo := (← get).smtEnv.funCtorCache.get? sctor
+           | throwEnvError "translateApp (proj): FunEnvInfo expected for {reprStr sctor}"
+         createAppNAux pInfo (← Sum.inr <$> termTranslator f) args termTranslator (isHOF := true)
 
     | _ => throwEnvError "translateApp: unexpected application {reprStr e}"
 
@@ -892,13 +1087,13 @@ def translateApp
           let fv := fvars[i]
           let decl ← getFVarLocalDecl fv
           translateQuantifier fv decl.type termTranslator
-        let ebody ← termTranslator b
         let env ← get
-        if env.premises.size != 1 then
-          throwEnvError "genExistsTerm: only one predicate qualifier premise expected but got {env.premises}"
-        -- set patterns to none for now
-        -- TODO: We need to check if e-pattern is necessary for existential
-        return (mkExistsTerm none env.quantifiers (andSmt env.premises[0]! ebody) none)
+        let mut ebody ← termTranslator b
+        let nbPremises := env.premises.size
+        for i in [:nbPremises] do
+          let idx := nbPremises - i - 1
+          ebody := andSmt env.premises[idx]! ebody
+        return (mkExistsTerm none env.quantifiers ebody none)
 
     translateExists? (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
       match n with
@@ -1035,7 +1230,7 @@ def translateLambda
    let lamType ← Optimize.mkForallFVars' fvars bodyType
    let arrowT ← declareArrowTypeSort (fvars.size + 1)
    let funArrowType := paramSort arrowT ((Array.map (λ s => s.2) svars).push rt)
-   -- generate apply function with corresponding congruence assertions (or retriving if already declared).
+   -- generate apply function with corresponding congruence assertions (or retrieving if already declared).
    let decl ← generateFunInstDeclAux lamType funArrowType
    let some applyName := decl.applyInstName
        | throwEnvError "translateLambda: @apply instance function expected !!!"
@@ -1090,7 +1285,7 @@ def translateLambda
      for h : i in [:fvars.size] do
        let p := fvars[i]
        let decl ← getFVarLocalDecl p
-       if !(← isTopLevelFVar p.fvarId!) && !decl.type.isType && !(← isClassConstraintExpr decl.type) then
+       if !(← isTopLevelFVar p.fvarId!) && !(isTypeUniverse decl.type) && !(← isClassConstraintExpr decl.type) then
          lvars := lvars.push p
      return lvars
 
@@ -1101,17 +1296,12 @@ def translateLambda
       - When `n` has more than one ctor `c` (i.e., structure only has one defined ctor with each field as arguments)
          - return ⊥
       - Otherwise:
-          - return smt term application `(c.idx+1 p)`
+          - return smt term application `(c.idx p)`
 -/
 def translateProj
   (n : Name) (idx : Nat) (p : Expr)
   (termTranslator : Expr → TranslateEnvT SmtTerm) : TranslateEnvT SmtTerm := do
-  let ConstantInfo.inductInfo indVal ← getConstEnvInfo n
-    | throwEnvError "translateProj: induction info expected for {n}"
-  match indVal.ctors with
-  | [c] =>
-      let selectorSym := mkCtorSelectorSymbol c (idx+1)
-      return (mkSimpleSmtAppN selectorSym #[← termTranslator p])
-  | _ => throwEnvError "translateProj: only one ctor expected for structure for {n}"
+ let selectorSym := mkCtorSelectorSymbol (← getProjectionCtor n) idx
+ return (mkSimpleSmtAppN selectorSym #[← termTranslator p])
 
 end Blaster.Smt

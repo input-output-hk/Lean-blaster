@@ -37,10 +37,6 @@ def emptySymbol : SmtSymbol := mkReservedSymbol "Empty"
 /-! Smt PEmpty symbol. -/
 def pemptySymbol : SmtSymbol := mkReservedSymbol "PEmpty"
 
-/-! Smt universal type symbol. -/
-def typeSymbol : SmtSymbol := mkReservedSymbol "@@Type"
-
-
 /-! ## Builtin Smt sorts. -/
 
 /-! Smt Int Sort. -/
@@ -85,14 +81,7 @@ def emptySort : SortExpr := .SymbolSort emptySymbol
 -/
 def pemptySort : SortExpr := .SymbolSort pemptySymbol
 
-/-! Smt @@Type Sort used to denote universal sort
-    NOTE: This sort is declared during translation whenever required.
-    (see function `defineTypeSort`).
--/
-def typeSort : SortExpr := .SymbolSort typeSymbol
-
 -- TODO: add other sort once supported, e.g., BitVec, Unicode (for char), Seq, etc
-
 
 /-! ## Builtin Smt symbols. -/
 

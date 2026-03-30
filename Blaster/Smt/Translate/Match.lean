@@ -130,7 +130,7 @@ private partial def mkLet
 private partial def mkLetCtors
   (c : Name) (idx : Nat) (args : Array Expr) (se : SmtTerm) (rhs : SmtTerm)
   (k : SmtTerm → TranslateEnvT SmtTerm) : TranslateEnvT SmtTerm := do
-  let selectorTerm := mkSimpleSmtAppN (mkCtorSelectorSymbol c (idx+1)) #[se]
+  let selectorTerm := mkSimpleSmtAppN (mkCtorSelectorSymbol c idx) #[se]
   if idx == 0 then
     mkLet selectorTerm args[idx]! rhs k
   else
@@ -187,7 +187,7 @@ private partial def mkCond
      -- case: p' = C x₁ ... xₖ
      let mut mand := andTerms.push (mkCtorTestorTerm n se)
      for i in [:args.size] do
-       let selectorTerm := mkSimpleSmtAppN (mkCtorSelectorSymbol n (i+1)) #[se]
+       let selectorTerm := mkSimpleSmtAppN (mkCtorSelectorSymbol n i) #[se]
        mand ← mkCond selectorTerm args[i]! mand termTranslator
      return mand
 

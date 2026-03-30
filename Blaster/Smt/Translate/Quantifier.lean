@@ -69,7 +69,7 @@ def nameToSmtSymbol (n : Name) : SmtSymbol :=
      - return smt symbol `"@" ++ v.getUserName ++ v.name` when `unique` is set to `true`
      - return smt symbol `"@" ++ v.getUserName` otherwise.
 -/
-def sortNameToSmtSymbol (v : FVarId) (unique := true) : TranslateEnvT SmtSymbol := do
+def typeParamNameToSmtSymbol (v : FVarId) (unique := true) : TranslateEnvT SmtSymbol := do
   if unique
   then return mkNormalSymbol s!"@{← v.getUserName}{v.name}"
   else return mkNormalSymbol s!"@{← v.getUserName}"
@@ -148,38 +148,6 @@ def declareArrowTypeSort (nbArity : Nat) : TranslateEnvT SmtSymbol := do
       declareSort s nbArity
       return s
 
-/-- Define smt universal sort @@Type and its corresponding predicate qualified
-    whenever flag `typeUniverse` is not set.
-    Do nothing otherwise.
-    Assume `isTypeSym := @isType`
--/
-def declareTypeSort (isTypeSym : SmtSymbol) : TranslateEnvT Unit := do
- unless ((← get).smtEnv.options.typeUniverse) do
-  defineTypeSort isTypeSym
-  modify (fun env => { env with smtEnv.options.typeUniverse := true })
-
-/-- Update sort cache with `v`. -/
-def updateSortCache (v : FVarId) (s : SmtSymbol) : TranslateEnvT Unit := do
-  modify (fun env => { env with smtEnv.sortCache := env.smtEnv.sortCache.insert v s})
-
-
-/-- Return `vstrₙ` when entry `v := vstrₙ` exists in `sortCache`,
-    otherwise, perform the following:
-      - `vstr := "@" ++ v.getUserName ++ v.name`.
-      - add `define-sort "vstr" () @@Type` to the Smt context
-      - add entry `v := vstr` to `sortCache`
-      - return vstr
--/
-def defineSortAndCache (v : FVarId) : TranslateEnvT SmtSymbol := do
-  let env ← get
-  match env.smtEnv.sortCache.get? v with
-  | none =>
-      let s ← sortNameToSmtSymbol v
-      defineSort s none typeSort
-      updateSortCache v s
-      return s
-  | some s => return s
-
 /-- Add an inductive datatype name to the visited inductive datatype cache. -/
 def cacheIndName (indName : Name) : TranslateEnvT Unit := do
   modify (fun env => { env with smtEnv.indTypeVisited := env.smtEnv.indTypeVisited.insert indName})
@@ -191,27 +159,28 @@ def cacheIndName (indName : Name) : TranslateEnvT Unit := do
 def isVisitedIndName (indName : Name) : TranslateEnvT Bool :=
   return (← get).smtEnv.indTypeVisited.contains indName
 
-/-- Given `d` corresponding to a inductive datatype name expression,
-    or an instantiated polymorphic inductive datatype, or a function instance declaration and
-    `n` a unique smt identifier generated for `d` and
-    `instSort` the instantiated Smt sort for `d`, perform the following:
-      - add entry `d := {instName := "@is{n}", instSort, applyInstName}` in `indTypeInstCache`
-      - return {instName := "@is{n}", instSort, applyInstName}
+/-- Given
+      - `d` corresponding to a inductive datatype name expression, or an instantiated polymorphic inductive datatype,
+           or a function instance declaration;
+      - `n` a unique smt identifier generated for `d`;
+      - `instSort` the instantiated Smt sort for `d`;
+      - `applyInstName` optional `@apply{<UUID>}` function generated when `d` is a HOF function (see `generateFunInstDeclAux`)
+      - `instInstanceSort` optional @Instance{<UUID>}` sort generated when `d` is a sort type with a specified type universe
+         (see `generateSortInstDecl`).
 
-    with `applyInstName` set to `none` for inductive datatype and set to `some @apply{uniq_xxx}`.
-    See function `generateFunInstDeclAux`.
+    perform the following:
+     - let decl := {instName := "@is{n}", instSort, instInstanceSort, applyInstName}`
+     - Add entry `d := decl` in `indTypeInstCache`
+     - return `decl`
 -/
-def updateIndInstCacheAux
+def updateIndInstCache
   (d : Expr) (n : SmtSymbol) (instSort : SortExpr)
-  (isReservedSymbol := false) (applyInstName : Option SmtSymbol := none) : TranslateEnvT IndTypeDeclaration := do
+  (isReservedSymbol := false) (applyInstName : Option SmtSymbol := none)
+  (instInstanceSort : Option SortExpr := none) : TranslateEnvT IndTypeDeclaration := do
   let instName := if isReservedSymbol then mkReservedSymbol s!"@is{n}" else mkNormalSymbol s!"@is{n}"
-  let decl := ({instName, instSort, applyInstName} : IndTypeDeclaration)
+  let decl := ({instName, instSort, instInstanceSort, applyInstName} : IndTypeDeclaration)
   modify (fun env => {env with smtEnv.indTypeInstCache := env.smtEnv.indTypeInstCache.insert d decl})
   return decl
-
-/-- Same as `updateIndInstCacheAux` but return value is discarded. -/
-def updateIndInstCache (d : Expr) (n : SmtSymbol) (instSort : SortExpr) : TranslateEnvT Unit :=
-  discard (updateIndInstCacheAux d n instSort)
 
 /-- Return `true` if `v` is tagged as a top level free variable. -/
 def isTopLevelFVar (v : FVarId) : TranslateEnvT Bool := do
@@ -232,7 +201,7 @@ private partial def updateTopLevelVars (step : Nat) (vars : TopLevelVars) (s : S
 
 /-- Perform the following:
       - add `v` to `quantifierFvars` cache
-      - add `v` to `topLevelVars` only when topLevel is set to `true` and `¬ isType (← inferTypeEnv (mkFVar v))`.
+      - add `v` to `topLevelVars` only when topLevel is set to `true` and `¬ isTypeUniverse (← inferTypeEnv (mkFVar v))`.
 -/
 def updateQuantifiedFVarsCache (v : FVarId) (topLevel : Bool) : TranslateEnvT Unit := do
   let s ← fvarIdToSmtSymbol v
@@ -242,7 +211,7 @@ def updateQuantifiedFVarsCache (v : FVarId) (topLevel : Bool) : TranslateEnvT Un
   modify
     (fun env =>
       let updatedVars := env.smtEnv.quantifiedFVars.insert v topLevel
-      if topLevel && !t.isType
+      if topLevel && !(isTypeUniverse t)
       then
         { env with
               smtEnv.quantifiedFVars := updatedVars,
@@ -304,6 +273,13 @@ def retrieveGenericArgs (args : Array Expr) : TranslateEnvT (Array Expr) := do
       (genericArgs, knownGenParams) ← updateGenericArgs e genericArgs knownGenParams
   return genericArgs
 
+/-- Same as getIndInst but also returns the generic arguments -/
+@[always_inline, inline]
+def getIndInst' (t : Expr) (args : Array Expr) : TranslateEnvT (Expr × Array Expr) := do
+  let genericArgs ← retrieveGenericArgs args
+  let auxApp := mkAppN t args
+  return (← mkLambdaFVars genericArgs auxApp (usedOnly := true), genericArgs)
+
 /-- Given an inductive datatype instance `t x₀ ... xₙ`, perform the following:
      - When `∀ i ∈ [0..n], ¬ isGenericParam xᵢ`,
          - return `t x₀ ... xₙ`
@@ -313,10 +289,8 @@ def retrieveGenericArgs (args : Array Expr) : TranslateEnvT (Array Expr) := do
         let [b₀ ... bₘ ] := V
           - return `λ b₀ → .. → bₘ → t x₀ ... xₙ`
 -/
-def getIndInst (t : Expr) (args : Array Expr) : TranslateEnvT Expr := do
-  let genericArgs ← retrieveGenericArgs args
-  let auxApp := mkAppN t args
-  mkLambdaFVars genericArgs auxApp (usedOnly := true)
+def getIndInst (t : Expr) (args : Array Expr) : TranslateEnvT Expr :=
+  return (← getIndInst' t args).1
 
 /-- Given `t := ∀ α₀ → ∀ α₁ ... → αₙ` returns #[α₀, α₁ ..., αₙ].
     Assumes that `t` no more contains any class constraints (see function `removeClassConstraintsInFunType`).
@@ -327,6 +301,53 @@ def retrieveArrowTypes (t : Expr) : Array Expr :=
    | Expr.forallE _ t b _ => visit b (arrowTypes.push t)
    | _ => arrowTypes.push e
  visit t #[]
+
+
+/-- Given `t := Expr.sort _` perform the following actions:
+     - When `t := decl ∈ IndTypeDeclaration`
+         - return `decl`
+     - Otherwise:
+         - When `t := Expr.sort .zero`
+            - let decl := {@isProp, propSort, none}
+            - add entry `t := decl to `indTypeInstCache`
+            - define smt sort `(define-sort Prop () Bool)`
+            - declare smt predicate `(declare-fun @isProp ((Prop)) Bool)` with `true` assertion
+            - return `decl`
+         - Otherwise
+            - let n ← mkFreshId
+            - let typeName := "@Type{n}"
+            - let instTypeName := "@Instance{n}"
+            - let typeSort := .SymbolSort typeName
+            - let instTypeSort := .SymbolSort instTypeName
+            - let decl := {@isInstance{n}, typeSort, some instTypeSort, none}
+            - add entry `t := decl to `indTypeInstCache`
+            - declare smt sort `(declare-sort typeName 0)`
+            - declare smt sort `(declare-sort instTypeSort 0)`
+            - declare smt predicate `(declare-fun @isInstance{n} (((instSort typeSort)) Bool)`
+            - return `decl`
+
+    An error is triggered when t is not the expected sort type.
+-/
+def generateSortInstDecl (t : Expr) : TranslateEnvT IndTypeDeclaration := do
+ let Expr.sort u := t | throwEnvError "generateSortInstDecl: sort type expected but got {reprStr t}"
+  match (← get).smtEnv.indTypeInstCache.get? t with
+   | some decl => return decl
+   | none =>
+      match u with
+      | .zero =>
+          let decl ← updateIndInstCache t propSymbol propSort (isReservedSymbol := true)
+          definePropSort decl.instName
+          return decl
+      | _ =>
+        let n ← mkFreshId
+        let typeName := mkReservedSymbol s!"@Type{n}"
+        let instTypeName := mkReservedSymbol s!"@Instance{n}"
+        let instName := mkReservedSymbol s!"Instance{n}"
+        let typeSort := .SymbolSort typeName
+        let instTypeSort := .SymbolSort instTypeName
+        let decl ← updateIndInstCache t instName typeSort (isReservedSymbol := true) (instInstanceSort := some instTypeSort)
+        defineTypeSort typeName instTypeName decl
+        return decl
 
 /-- Given `t := ∀ α₀ → ∀ α₁ ... → αₙ`, perform the following:
      - let A := [αᵢ | i ∈ [0..n-1], isClassConstraintExpr αᵢ]
@@ -342,6 +363,25 @@ def removeClassConstraintsInFunType (t : Expr) : TranslateEnvT Expr :=
         xs := xs.push fvars[i]
     Optimize.mkForallFVars' xs body
 
+/-- Given #[fv₀, ..., fvₙ] an array of generic parameters perform the following:
+     - [(svᵢ, stᵢ) | i ∈ [0..,n], isTypeUniverse (← inferTypeEnv fvᵢ) ∧
+                    svᵢ = typeParamNameToSmtSymbol fvᵢ (unique := !inPredQualifier ∧
+                    declᵢ = generateSortInstDecl (← inferTypeEnv fvᵢ)
+                    stᵢ = declᵢ.instSort
+       ]
+    Assumes that fv₀, ..., fvₙ are FVar expressions.
+-/
+def genericArgsToSortedVars (fvars : Array Expr) (inPredQualifier := false) : TranslateEnvT SortedVars := do
+  let mut svars := (#[] : SortedVars)
+  for h : i in [:fvars.size] do
+    let v := fvars[i]
+    let fdecl ← getFVarLocalDecl v
+    if (isTypeUniverse fdecl.type) then -- only considering polymorphic types
+      let decl ← generateSortInstDecl fdecl.type
+      let smtSym ← typeParamNameToSmtSymbol v.fvarId! (unique := !inPredQualifier)
+      svars := svars.push (smtSym, decl.instSort)
+  return svars
+
 /-- Given `t := Expr.const n _` corresponding to an inductive datatype name and
     `args` the parameters instantiating the inductive datatype (if any),
     perform the following actions:
@@ -350,11 +390,13 @@ def removeClassConstraintsInFunType (t : Expr) : TranslateEnvT Expr :=
          - instSort ← generateInstType n args typeTranslator
          - instApp ← getIndInst t args
          - add entry `instApp := {@is{instName}, instSort}` to `indTypeInstCache`
-         - When declarePredicate:
-             - When `assertFlag := some b`:
-                 - define smt predicate `(define-fun @is{instName} ((@x instSort)) Bool b)`
-             - Otherwise:
-                 - declare smt predicate `(declare-fun @is{instName} ((instSort)) Bool)`
+         - When declarePredicate
+            - let V := {α | i ∈ [0..args.size-1] ∧ α ∈ getFVarsInExpr args[i] ∧ isGenericParam args[i] ∧ isTypeUniverse (← inferTypeEnv α)}
+            - let [gt₀ ... gtₘ] := [typeTranslator V[i] | i ∈ [0..V.size-1]]
+            - When `assertFlag := some b`:
+                - define smt predicate `(define-fun @is{instName} ((@t₀ gt₀) .. (@tₘ gtₘ) (@x instSort)) Bool b)`
+            - Otherwise:
+                - declare smt predicate `(declare-fun @is{instName} ((gt₀) .. (gtₘ) (instSort)) Bool)`
          - return {instName, instSort}
     - When args.size = 0:
         - instName := nameToSmtSymbol n
@@ -377,15 +419,18 @@ def generateIndInstDecl
  if args.size == 0
  then
    let instName := nameToSmtSymbol n
-   let decl ← updateIndInstCacheAux t instName instSort
-   if declarePredicate then definePredQualifier decl.instName decl.instSort assertFlag
+   let decl ← updateIndInstCache t instName instSort
+   if declarePredicate then definePredQualifier decl.instName #[decl.instSort] assertFlag
    return decl
  else
    let v ← mkFreshId
    let instName := nameToSmtSymbol (n ++ v)
-   let instApp ← getIndInst t args
-   let decl ← updateIndInstCacheAux instApp instName instSort
-   if declarePredicate then definePredQualifier decl.instName decl.instSort assertFlag
+   let (instApp, genArgs) ← getIndInst' t args
+   let decl ← updateIndInstCache instApp instName instSort
+   if declarePredicate then
+     let sargs ← genericArgsToSortedVars genArgs (inPredQualifier := true)
+     let genSorts := sargs.map (λ s => s.2)
+     definePredQualifier decl.instName (genSorts.push decl.instSort) assertFlag
    return decl
 
 
@@ -428,6 +473,22 @@ def withInstantiatedImplicitArgs (t : Expr) (k : Expr → TranslateEnvT α) : Tr
    let t' ← Optimize.mkForallFVars' explicitArgs body -- keeping implicit arguments instantiated
    k t'
 
+/-- Same as withInstantiatedImplicitArgs but also passes the instantiated implicit arguments to k. -/
+def withInstantiatedImplicitArgs' (t : Expr) (k : Std.HashSet Expr → Expr → TranslateEnvT α) : TranslateEnvT α :=
+ Optimize.forallTelescope t fun fvars body => do
+   let mut explicitArgs := #[]
+   let mut implicitArgs := Std.HashSet.emptyWithCapacity
+   for h : i in [:fvars.size] do
+     let v := fvars[i]
+     let decl ← getFVarLocalDecl v
+     -- Need to consider case when fun type has implicit sort type arguments (see `Issue15.thm4`)
+     if decl.binderInfo.isExplicit then
+       explicitArgs := explicitArgs.push v
+     else
+       implicitArgs := implicitArgs.insert v
+   let t' ← Optimize.mkForallFVars' explicitArgs body -- keeping implicit arguments instantiated
+   k implicitArgs t'
+
 /-- Return `decl.instName` when `t := decl` exists in `indTypeInstCache`.
     Otherwise `none`.
     TODO: UPDATE
@@ -468,20 +529,115 @@ def getApplyInstName (t : Expr) : TranslateEnvT SmtSymbol := do
         throwEnvError "getApplyInstName: @apply instance function expected to be defined for {reprStr t} !!!"
       return n
 
-/-- Given `st` an smt term and `t` its corresponding type expression, perform the following:
-     - retrieve predicate qualifier name `instName` for `t`
-     - return smt application (instName v)
-    An error is triggered if the predicate qualifier name for `t` does not exists.
+/-- Given `st` an smt term and `t` its corresponding type expression, `decl` its inductive type declaration,
+    perform the following:
+      - When `decl.instInstanceSort = none`
+        - When t := `∀ α₀ → .. → αₙ` (i.e., function type)
+           - When inPredQualifier
+               - let (implicits, ∀ β₀ → .. → βₖ) ← withInstantiatedimplicitArgs' t
+               - let V := {v | v ∈ getFVarsInExpr βₖ ∧ isGenericParam βₖ}
+               - let [(sv₀, st₀), ..., (svₖ, stₖ)] := genericArgsToSortedVars V inPredQualifier
+               - let localGenArgs ← getLocalPolymorphicTypes V implicits
+               - When localGenArgs.isEmpty
+                  - return `(mkSimpleSmtAppN decl.instName #[sv₀, ..., svₖ, st])`
+               - Otherwise: (i.e., case when constructors has local polymorphic types (see Issue15.lean)
+                   - let (gv₀, gt₀), ..., (gvₖ, gtₖ) := genericArgsToSortedVars localGenArgs inPredQualifier
+                   - `return (forall ((gv₀, gt₀) ... (gvₖ, gtₖ)) (mkSimpleSmtAppN decl.instName #[sv₀, ..., svₖ, st]))`
+           - Otherwise:
+               - let V := {v | v ∈ getFVarsInExpr αₙ ∧ isGenericParam αₙ}
+               - let [(sv₀, st₀), ..., (svₖ, stₖ)] := genericArgsToSortedVars V
+               - return `(mkSimpleSmtAppN decl.instName #[sv₀, ..., svₖ, st])`
+
+        - When t := D x₀ .. xₙ (i.e., an instantiated inductive data type)
+            - let V := {α | i ∈ [0..n] ∧ α ∈ getFVarsInExpr xᵢ ∧ isGenericParam xᵢ}
+            - let [(sv₀, st₀), ..., (svₖ, stₖ)] := genericArgsToSortedVars V inPredQualifier
+            - return `(mkSimpleSmtAppN decl.instName #[sv₀, ..., svₖ, st])`
+
+        - Otherwise (i.e., case for non-parameteric inductive datatype)
+             return `(mkSimpleSmtAppN decl.instName #[st])`
+
+      - Otherwise:
+          - When t.isFVar (i.e, return @isInstance_<UUID> application)
+                 - return `(mkSimpleSmtAppN decl.instName #[st, smtSimpleVarId (← typeParamNameToSmtSymbol t.fvarId! (unique := !inPredQualifier)))])`
+          - Otherwise:
+              - return ⊥
+
     Assume that there is no type abbreviation in `t`, i.e., call to `removeTypeAbbrev` has been applied.
 -/
-def createPredQualifierAppAux (st : SmtTerm) (t : Expr) : TranslateEnvT SmtTerm := do
+
+def createPredQualifierAppAux'
+  (st : SmtTerm) (t : Expr) (decl : IndTypeDeclaration)
+  (inPredQualifier := false) : TranslateEnvT SmtTerm := do
+  if decl.instInstanceSort.isNone then
+    match t with
+    | Expr.forallE .. =>
+        -- arrow type case
+        if inPredQualifier then
+          -- case when polymorphic type instance (if any) is local
+          withInstantiatedImplicitArgs' t fun implicits t' => do
+            let genArgs ← retrieveGenericArgs (getReturnType t')
+            let sargs ← genericArgsToSortedVars genArgs inPredQualifier
+            let localGenArgs ← getLocalPolymorphicTypes genArgs implicits
+            let appTerm := mkSimpleSmtAppN decl.instName ((sargs.map (λ s => smtSimpleVarId s.1)).push st)
+            if localGenArgs.isEmpty then
+              return appTerm
+            else
+              let quantifiers ← genericArgsToSortedVars localGenArgs inPredQualifier
+              return mkForallTerm none quantifiers appTerm none
+        else
+          -- NOTE: When inPreqQualifier is set to false, it is assumed that all types in t are
+          -- fully instantiated (i.e., no bounded loose variables)
+          -- case when polymorphic type instance (if any) is global
+          let sargs ← genericArgsToSortedVars (← retrieveGenericArgs (getReturnType t))
+          return mkSimpleSmtAppN decl.instName ((sargs.map (λ s => smtSimpleVarId s.1)).push st)
+    | Expr.app .. =>
+        -- instantiated inductive data type case
+        let sargs ← genericArgsToSortedVars (← retrieveGenericArgs t.getAppArgs) inPredQualifier
+        return mkSimpleSmtAppN decl.instName ((sargs.map (λ s => smtSimpleVarId s.1)).push st)
+
+    | _ => return mkSimpleSmtAppN decl.instName #[st]
+  else
+    let Expr.fvar v := t
+         | throwEnvError "createPredQualifierAppAux: FVarExpr expected for polymorphic type but got {reprStr t}"
+    return (mkSimpleSmtAppN decl.instName #[st, smtSimpleVarId (← typeParamNameToSmtSymbol v (unique := !inPredQualifier))])
+
+  where
+    @[always_inline, inline]
+    getReturnType (t : Expr) : Array Expr :=
+      let funTypes := retrieveArrowTypes t
+      let retIdx := funTypes.size - 1
+      #[removeOutParam funTypes[retIdx]!]
+
+    @[always_inline, inline]
+    getLocalPolymorphicTypes (genArgs : Array Expr) (implicits : Std.HashSet Expr) : TranslateEnvT (Array Expr) := do
+      let mut localArgs := #[]
+      for h : i in [:genArgs.size] do
+        let v := genArgs[i]
+        if implicits.contains v then
+          localArgs := localArgs.push v
+      return localArgs
+
+/-- Given `st` an smt term and `t` its corresponding type expression, perform the following:
+      When some decl ← getPredicateDeclaration t:
+         - When decl.instInstanceSort.isNone
+            - return `(mkSimpleSmtAppN decl.instName #[st])`
+         - Otherwise:
+             - When t.isFVar (i.e, return @isInstance_<UUID> application)
+                 - return `(mkSimpleSmtAppN decl.instName #[st, smtSimpleVarId (← typeParamNameToSmtSymbol t.fvarId!)])`
+             - Otherwise:
+                - return ⊥
+      Otherwise:
+         - return ⊥
+    Assume that there is no type abbreviation in `t`, i.e., call to `removeTypeAbbrev` has been applied.
+-/
+def createPredQualifierAppAux (st : SmtTerm) (t : Expr) (inPredQualifier := false) : TranslateEnvT SmtTerm := do
   let some decl ← getPredicateDeclaration t
-    | throwEnvError "createPredQualifierApp: predicate declaration expected for {reprStr t}"
-  return (mkSimpleSmtAppN decl.instName #[st])
+    | throwEnvError "createPredQualifierAppAux: predicate declaration expected for {reprStr t}"
+  createPredQualifierAppAux' st t decl inPredQualifier
 
 /-- Same as `createPredQualifierAppAux` but accepts an SmtSymbol as argument. -/
-def createPredQualifierApp (smtSym : SmtSymbol) (t : Expr) : TranslateEnvT SmtTerm :=
-  createPredQualifierAppAux (smtSimpleVarId smtSym) t
+def createPredQualifierApp (smtSym : SmtSymbol) (t : Expr) (inPredQualifier := false) : TranslateEnvT SmtTerm :=
+  createPredQualifierAppAux (smtSimpleVarId smtSym) t inPredQualifier
 
 
 /-- Given `t := α₁ → α₂ ... → αₙ` and `st` its corresponding smt representation (i.e., ArrowTN sα₁ sα₂ sαₙ),
@@ -491,37 +647,57 @@ def createPredQualifierApp (smtSym : SmtSymbol) (t : Expr) : TranslateEnvT SmtTe
          - return `{@is{instName}, st, applyInstName}`
       - Otherwise:
          - let n ← mkFreshId
-         - instName ← (Fun ++ n) (i.e., generate a unique name for function instance)
+         - let instName := Fun ++ n (i.e., generate a unique name for function instance)
          - add entry `t := {@is{instName}, st, applyInstName := some @apply{n}}` to `indTypeInstCache`
-         - declare smt predicate `(declare-fun @is{instName} ((instSort)) Bool)`
+         - let R := {v | v ∈ getFVarsInExpr (removeOutparam αₙ) ∧ isGenericParam (removeOutparam αₙ) ∧ isTypeUniverse (← inferTypeEnv v)}
+         - let [rt₀ ... rtₖ] := [typeTranslator R[i] | i ∈ [0..V.size]]
+         - let V := {v | i ∈ [0..n-1] ∧ v ∈ getFVarsInExpr αᵢ ∧ isGenericParam αᵢ ∧ isTypeUniverse (← inferTypeEnv v)}
+         - let [gt₀ ... gtₘ] := [typeTranslator V[i] | i ∈ [0..V.size]]
+         - declare smt predicate `(declare-fun @is{instName} ((rt₀) .. (rtₖ) (instSort)) Bool)`
          - declare apply function `(declare-fun @apply{n} (st sα₁ ... sαₙ₋₁) sαₙ)`
-         - assert the following propositions to specify congruence, extensionality and codomain values constraints:
-            - `(assert (forall ((@f (ArrowTN sα₁ sα₂ sαₙ))(@x₁ sα₁) ... (@xₙ₋₁ sαₙ₋₁) (@y₁ sα₁) ... (@yₙ₋₁ sαₙ₋₁))
-               (! (=> (= @x₁ @y₁)
+         - assert the following propositions to specify congruence, extensionality and codomain value constraints:
+            - `(assert (forall ((@t₀ gt₀) ... (@tₘ gtₘ) (@r₀ rt₀) ... (@rₖ rtₖ) (@f (ArrowTN sα₁ sα₂ sαₙ))
+                                (@x₁ sα₁) ... (@xₙ₋₁ sαₙ₋₁) (@y₁ sα₁) ... (@yₙ₋₁ sαₙ₋₁))
+               (! (=> (@is{instName} @r₀ ... @rₖ @f)
+                  (=> (@isType₁ @x₁)
+                  ...
+                  (=> (@isTypeₙ₋₁ @xₙ₋₁)
+                  (=> (@isType₁ @y₁)
+                  ...
+                  (=> (@isTypeₙ₋₁ @yₙ₋₁)
+                  (=> (= @x₁ @y₁)
                   (=> (= @x₂ @y₂)
                   ...
                   (=> (= @xₙ₋₁ @yₙ₋₁)
-                      (= (@apply{n} @f @x₁ ... @xₙ₋₁) (@apply{n} @f @y₁ ... @yₙ₋₁)))))
-                  :pattern ((@apply{n} @f @x₁ ... @xₙ₋₁) (@apply{n} @f @y₁ ... @yₙ₋₁)
-                            (= @x₁ @y₁) ... (= @xₙ₋₁ @yₙ₋₁))
+                      (= (@apply{n} @f @x₁ ... @xₙ₋₁) (@apply{n} @f @y₁ ... @yₙ₋₁))))))))))
                   :qid @apply{n}_congr_args)))`
 
-            - `(assert (forall ((@f (ArrowTN sα₁ sα₂ sαₙ)) (@g (ArrowTN sα₁ sα₂ sαₙ))
-                                (@x₁ sα₁) ... (@xₙ₋₁ sαₙ₋₁))
-               (! (=> (= @f @g) (= (@apply{n} @f @x₁ ... @xₙ₋₁) (@apply{n} @g @x₁ ... @xₙ₋₁)))
-                  :pattern ((@apply{n} @f @x₁ ... @xₙ₋₁) (@apply{n} @g @x₁ ... @xₙ₋₁) (= @f @g))
+            - `(assert (forall ((@t₀ gt₀) ... (@tₘ gtₘ) (@r₀ rt₀) ... (@rₖ rtₖ) (@f (ArrowTN sα₁ sα₂ sαₙ)) (@g (ArrowTN sα₁ sα₂ sαₙ)))
+               (! (=> (@is{instName} @r₀ ... @rₖ @f)
+                  (=> (@is{instName} @r₀ ... @rₖ @g)
+                  (=> (= @f @g)
+                    (forall ((@x₁ sα₁) ... (@xₙ₋₁ sαₙ₋₁))
+                      (=> (@isType₁ @x₁)
+                      ...
+                      (=> (@isTypeₙ₋₁ @xₙ₋₁)
+                          (= (@apply{n} @f @x₁ ... @xₙ₋₁) (@apply{n} @g @x₁ ... @xₙ₋₁))))))))
                   :qid @apply{n}_congr_fun)))`
 
-            - `(assert (forall ((@f (ArrowTN sα₁ sα₂ sαₙ)) (@g (ArrowTN sα₁ sα₂ sαₙ)))
-                 (! (=> (forall ((@x₁ sα₁) ... (@xₙ₋₁ sαₙ₋₁))
-                           (= (@apply{n} @f @x₁ ... @xₙ₋₁) (@apply{n} @g @x₁ ... @xₙ₋₁)))
-                        (= @f @g))
+            - `(assert (forall ((@t₀ gt₀) ... (@tₘ gtₘ) (@r₀ rt₀) ... (@rₖ rtₖ) (@f (ArrowTN sα₁ sα₂ sαₙ)) (@g (ArrowTN sα₁ sα₂ sαₙ)))
+                 (! (=> (@is{instName} @r₀ ... @rₖ @f)
+                    (=> (@is{instName} @r₀ ... @rₖ @g)
+                    (=> (forall ((@x₁ sα₁) ... (@xₙ₋₁ sαₙ₋₁))
+                         (=> (@isType₁ @x₁)
+                          ...
+                         (=> (@isTypeₙ₋₁ @xₙ₋₁)
+                           (= (@apply{n} @f @x₁ ... @xₙ₋₁) (@apply{n} @g @x₁ ... @xₙ₋₁)))))
+                        (= @f @g))))
                     :qid @apply{n}_ext_fun)))`
 
-            - `(assert (forall ((@f (ArrowTN sα₁ sα₂ ... αₙ)))
+            - `(assert (forall ((@r₀ rt₀) ... (@rₖ rtₖ) (@f (ArrowTN sα₁ sα₂ ... sαₙ)))
                 (! (= (forall ((@x₁ sα₁) ... (@xₙ₋₁ sαₙ₋₁)) (@isTypeₙ (@apply{n} @f @x₁ ... @xₙ₋₁)))
-                      (@is{instName} @f) )
-                   :pattern ( (@is{instName} @f)) :qid @isFun{v}_cstr)))`
+                      (@is{instName} @r₀ ... @rₖ @f) )
+                   :pattern ( (@is{instName} @r₀ ... @rₖ @f)) :qid @isFun{v}_cstr)))`
 
             - with ∀ i ∈ [1..n] = s
          - return `{@is{instName}, st}`
@@ -535,20 +711,23 @@ def generateFunInstDeclAux (t : Expr) (st : SortExpr) : TranslateEnvT IndTypeDec
        let v ← mkFreshId
        let instName := mkReservedSymbol s!"Fun{v}"
        let applyName := mkReservedSymbol s!"@apply{v}"
-       let decl ← updateIndInstCacheAux funInst instName st (applyInstName := some applyName)
-       definePredQualifier decl.instName decl.instSort none
-       generateApplyFunAndAssertions t' decl.instName applyName
+       let decl ← updateIndInstCache funInst instName st (applyInstName := some applyName)
+       generateApplyFunAndAssertions t' decl applyName
        return decl
 
   where
-    removeOutParam : Expr → Expr
-     | Expr.app (Expr.const ``outParam _) e => e
-     | e => e
 
-    generateApplyFunAndAssertions (t : Expr) (instName : SmtSymbol) (applyName : SmtSymbol) : TranslateEnvT Unit := do
+    generateApplyFunAndAssertions (t : Expr) (decl : IndTypeDeclaration) (applyName : SmtSymbol) : TranslateEnvT Unit := do
      let funTypes := retrieveArrowTypes t
      let .ParamSort _ smtTypes := st | throwEnvError "defineFunAssertions: ParamSort expected but got {st}"
      let nbTypes := funTypes.size - 1
+     -- declare @isFun predicate qualifier
+     -- Need to remove outParam on return type (if necessary) (see, translateLambda)
+     let retType := removeOutParam funTypes[nbTypes]!
+     let rt_args ← genericArgsToSortedVars (← retrieveGenericArgs #[retType]) (inPredQualifier := true)
+     let sargs ← genericArgsToSortedVars (← retrieveGenericArgs $ funTypes ++ #[retType]) (inPredQualifier := true)
+     let genSorts := rt_args.map (λ s => s.2)
+     definePredQualifier decl.instName (genSorts.push decl.instSort) none
      -- declare apply function `(declare-fun @apply{n} (st sα₁ ... sαₙ₋₁) sαₙ)`
      let declArgs := Array.foldl (λ acc s => acc.push s) #[st] smtTypes (stop := smtTypes.size - 1)
      declareFun applyName declArgs smtTypes[nbTypes]!
@@ -564,42 +743,45 @@ def generateFunInstDeclAux (t : Expr) (st : SortExpr) : TranslateEnvT IndTypeDec
      let f_applyTerm2 := mkSimpleSmtAppN applyName (#[fId] ++ yIds)
      let g_applyTerm := mkSimpleSmtAppN applyName (#[gId] ++ xIds)
      let mut co_quantifiers := (#[] : SortedVars)
-     let mut arg_quantifiers := (#[(fsym, st)] : SortedVars)
-     let mut arg_patterns := #[f_applyTerm1, f_applyTerm2]
+     let mut arg_quantifiers := sargs.push (fsym, st)
      let mut forallCFunBody := eqSmt f_applyTerm1 f_applyTerm2
+     let mut innerForallBody := eqSmt f_applyTerm1 g_applyTerm
      for i in [:nbTypes] do
        let idx := nbTypes - i - 1
+       let predAppX ← createPredQualifierAppAux xIds[idx]! funTypes[idx]! (inPredQualifier := true)
+       let predAppY ← createPredQualifierAppAux yIds[idx]! funTypes[idx]! (inPredQualifier := true)
        let eqPremise := eqSmt xIds[idx]! yIds[idx]!
        forallCFunBody := impliesSmt eqPremise forallCFunBody
-       arg_patterns := arg_patterns.push eqPremise
+       forallCFunBody := impliesSmt predAppY forallCFunBody
+       forallCFunBody := impliesSmt predAppX forallCFunBody
+       innerForallBody := impliesSmt predAppX innerForallBody
        co_quantifiers := co_quantifiers.push (xsyms[i]!, smtTypes[i]!)
        arg_quantifiers := (arg_quantifiers.push (xsyms[i]!, smtTypes[i]!)).push (ysyms[i]!, smtTypes[i]!)
      -- isFun constraint
-     -- Need to remove outParam on return type (if necessary) (see, translateLambda)
-     let coDomainCstr ← createPredQualifierAppAux f_applyTerm1 (removeOutParam funTypes[nbTypes]!)
-     let forallCoDomain := mkForallTerm none co_quantifiers coDomainCstr none
-     let f_funPredApp := mkSimpleSmtAppN instName #[fId]
+     let forallCoBody ← createPredQualifierAppAux f_applyTerm1 retType (inPredQualifier := true)
+     let forallCoDomain := mkForallTerm none co_quantifiers forallCoBody none
+     let rt_args_vIds := rt_args.map (λ s => smtSimpleVarId s.1)
+     let f_funPredApp := mkSimpleSmtAppN decl.instName (rt_args_vIds.push fId)
+     let g_funPredApp := mkSimpleSmtAppN decl.instName (rt_args_vIds.push gId)
      let forallFunBody := eqSmt forallCoDomain f_funPredApp
-     let qidName := appendSymbol instName "cstr"
+     let qidName := appendSymbol decl.instName "cstr"
      let fun_annotations := some #[mkPattern #[f_funPredApp], mkQid qidName]
-     assertTerm (mkForallTerm none #[(fsym, st)] forallFunBody fun_annotations)
+     assertTerm (mkForallTerm none (rt_args.push (fsym, st)) forallFunBody fun_annotations)
      -- congruence on fun
-     let qidName := appendSymbol applyName "congr_fun"
-     let quantifiers_fun := (co_quantifiers.push (fsym, st)).push (gsym, st)
+     let qidName := appendSymbol applyName "congr_ext_fun"
      let eqFun := eqSmt fId gId
-     let fun_patterns := #[eqFun, f_applyTerm1, g_applyTerm]
-     let eqAppFun := eqSmt f_applyTerm1 g_applyTerm
-     let forallCArgBody := impliesSmt eqFun eqAppFun
-     assertTerm (mkForallTerm none quantifiers_fun forallCArgBody (some #[mkPattern fun_patterns, mkQid qidName]))
+     let fg_quantifiers : SortedVars := (sargs.push (fsym, st)).push (gsym, st)
+     let innerForall := mkForallTerm none co_quantifiers innerForallBody none
+     let forallCArgBody := impliesSmt f_funPredApp (impliesSmt g_funPredApp (impliesSmt eqFun innerForall))
+     assertTerm (mkForallTerm none fg_quantifiers forallCArgBody (some #[mkQid qidName]))
      -- extensionality
      let qidName := appendSymbol applyName "ext_fun"
-     let innerForall := mkForallTerm none co_quantifiers eqAppFun none
-     let fg_quantifiers : SortedVars := #[(fsym, st), (gsym, st)]
-     let forallExtBody := impliesSmt innerForall eqFun
+     let forallExtBody := impliesSmt f_funPredApp (impliesSmt g_funPredApp (impliesSmt innerForall eqFun))
      assertTerm (mkForallTerm none fg_quantifiers forallExtBody (some #[mkQid qidName]))
      -- congruence on args
      let qidName := appendSymbol applyName "congr_args"
-     assertTerm (mkForallTerm none arg_quantifiers forallCFunBody (some #[mkPattern arg_patterns, mkQid qidName]))
+     forallCFunBody := impliesSmt f_funPredApp forallCFunBody
+     assertTerm (mkForallTerm none arg_quantifiers forallCFunBody (some #[mkQid qidName]))
 
 
 /-- Same as `generateFunInstDeclAux` but return (). -/
@@ -608,31 +790,10 @@ def generateFunInstDecl (t : Expr) (st : SortExpr) : TranslateEnvT Unit :=
   discard $ generateFunInstDeclAux t st
 
 
-/-- Given `t := Expr.sort _` perform the following actions only when
-    no entry for `t` exists in `indTypeInstCache`:
-     - When `t := Expr.sort .zero`
-        - add entry `t := {@isProp, propSort} to `indTypeInstCache`
-        - define smt sort `(define-sort Prop () Bool)`
-        - declare smt function `(declare-fun @isProp ((Prop)) Bool)` with `true` assertion
-
-     - When `isType t`
-         - add entry `t := {@isType, typeSort} to `indTypeInstCache`
-         - Define smt univseral sort @@Type when flag `typeUniverse is not set
-           (see function `declareTypeSort`)
-
-    An error is triggered when t is not the expected sort type.
--/
-def generateSortInstDecl (t : Expr) : TranslateEnvT Unit := do
- let Expr.sort u := t | throwEnvError "generateSortInstDecl: sort type expected but got {reprStr t}"
- unless ((← get).smtEnv.indTypeInstCache.get? t).isSome do
-   match u with
-   | .zero =>
-        let decl ← updateIndInstCacheAux t propSymbol propSort (isReservedSymbol := true)
-        definePropSort decl.instName
-   | _ =>
-       if !t.isType then throwEnvError "generateSortInstDecl: sort type expected but got {reprStr t}"
-       let decl ← updateIndInstCacheAux t (mkReservedSymbol "Type") typeSort (isReservedSymbol := true)
-       declareTypeSort decl.instName
+def getInstanceSort (decl : IndTypeDeclaration) : TranslateEnvT SortExpr := do
+  match decl.instInstanceSort with
+  | none => throwEnvError "getInstanceSort: instance type sort expected !!!"
+  | some t => return t
 
 /-- TODO: UPDATE SPEC -/
 def getRecRuleFor (recVal : RecursorVal) (c : Name) : TranslateEnvT RecursorRule :=
@@ -647,24 +808,11 @@ structure TypeOptions where
      used in ctor parameters.
   -/
   inTypeDefinition : Bool := false
-  /-- flag set to true only when translating type of function arguments
-      so as to use universal sort @@Type when function are still
-      polymorphic after instantiation.
-  -/
-  genericParamFun : Bool := false
 deriving Inhabited
 
 /-- type options to be used when translating inductive datatype. -/
 def optionsForInductiveType : TypeOptions :=
-  { inTypeDefinition := true, genericParamFun := false}
-
-/-- type options to be used when generating predicate qualifiers. -/
-def optionsForPredicateQualifier : TypeOptions :=
-  { inTypeDefinition := false, genericParamFun := true}
-
-/-- Same as optionsForPredicateQualifier. -/
-def optionsForFunLambdaParam : TypeOptions :=
-  { inTypeDefinition := false, genericParamFun := true}
+  { inTypeDefinition := true}
 
 /-- TODO: UPDATE SPEC
 
@@ -806,8 +954,8 @@ def translateInductiveType
             -- resolve type abbreviation (useful when handling instance parameters)
             -- TODO: IMP need to apply optimizer on argument to instance parameters
             let argType' ← removeTypeAbbrev decl.type
-            if argType'.isType then
-              polyParams := polyParams.push (← sortNameToSmtSymbol v false)
+            if isTypeUniverse argType' then
+              polyParams := polyParams.push (← typeParamNameToSmtSymbol v false)
             else throwEnvError "Inductive datatype with instance parameters not supported: {reprStr indVal.name}"
         return polyParams
    if params.isEmpty then return none else return (some params)
@@ -821,8 +969,8 @@ def translateInductiveType
       for h : i in [firstCtorFieldIdx : fvars.size] do
         let arg := fvars[i]
         let decl ← getFVarLocalDecl arg
-        let selectorIdx := i - firstCtorFieldIdx + 1
-        let selSym := mkNormalSymbol s!"{ctorSym}.{selectorIdx}"
+        let selectorIdx := i - firstCtorFieldIdx
+        let selSym := mkCtorSelectorSymbol recRule.ctor selectorIdx
         if (← isPropEnv decl.type) then
           selectors := selectors.push (selSym, boolSort)
         else
@@ -917,12 +1065,13 @@ where
    -- define function and add proposition assertion for limited call (if necessary)
    let funName := if mutualRec then appendSymbol decl.instName "LRec" else decl.instName
    let xsym := mkReservedSymbol "@x"
-   let quantifiers := #[(xsym, decl.instSort)]
+   let quantifiers ← genericArgsToSortedVars (← retrieveGenericArgs args) (inPredQualifier := true)
+   let quantifiers := quantifiers.push (xsym, decl.instSort)
    defineFun funName quantifiers boolSort funBody indVal.isRec
    unless !(mutualRec) do
-     let xId := smtSimpleVarId xsym
-     let predRecApp := mkSimpleSmtAppN decl.instName #[xId]
-     let limitedApp := mkSimpleSmtAppN funName #[xId]
+     let varIds := quantifiers.map (λ q => smtSimpleVarId q.1)
+     let predRecApp := mkSimpleSmtAppN decl.instName varIds
+     let limitedApp := mkSimpleSmtAppN funName varIds
      let patterns := some #[mkPattern #[predRecApp]]
      let forallTerm := (eqSmt limitedApp predRecApp)
      assertTerm (mkForallTerm none quantifiers forallTerm patterns)
@@ -940,23 +1089,24 @@ where
      prevTerm -- nullary constructor case
    else iteSmt (mkGenericCtorTestorTerm recRule.ctor) predTerm prevTerm
 
-  getPredicateQualifierName (t : Expr) (currDecl : IndTypeDeclaration) : TranslateEnvT SmtSymbol := do
+  getPredicateQualifierInst (t : Expr) (currDecl : IndTypeDeclaration) : TranslateEnvT (IndTypeDeclaration) := do
     match (← getPredicateDeclaration t) with
     | some decl =>
         if currDecl.instName == decl.instName
-        then return appendSymbol decl.instName "LRec"
-        else return decl.instName
+        then return { decl with instName := appendSymbol decl.instName "LRec" }
+        else return decl
+
     | none =>
         if t.isForall then -- function ctor parameter
           withInstantiatedImplicitArgs t fun t' => do
             let decl ← generateFunInstDeclAux t' (← typeTranslator t')
-            return decl.instName
+            return decl
         else -- other inductive datatype
           let (f, args) := getAppFnWithArgs t
           defineInstPredicateQualifier typeTranslator termTranslator f args
           let some decl ← getPredicateDeclaration t
             | throwEnvError "predicate qualifier name expected for {reprStr t}"
-          return decl.instName
+          return decl
 
 
   generatePredicateAssertions
@@ -964,7 +1114,9 @@ where
     (recVal : RecursorVal) (recRule : RecursorRule)
     (args : Array Expr) (funBody: SmtTerm) : TranslateEnvT SmtTerm := do
     let cinfo ← getConstEnvInfo indName
-    let auxApp := (mkAppN recRule.rhs args).instantiateLevelParams cinfo.levelParams us
+    -- NOTE: we need to only consider level for provided arguments only.
+    -- Indeed, we must not instantiated internal polymorphic types
+    let auxApp := (mkAppN recRule.rhs args).instantiateLevelParams cinfo.levelParams (List.take args.size us)
     let firstCtorFieldIdx := recVal.numMotives + recVal.numMinors
     -- NOTE: recVal.numParams is ignored here when determining firstCtorFieldIdx
     -- as we are instantiating the datatype parameters
@@ -976,7 +1128,7 @@ where
       for h : i in [firstCtorFieldIdx : fvars.size] do
         let arg := fvars[i]
         let decl ← getFVarLocalDecl arg
-        let selectorIdx := i - firstCtorFieldIdx + 1
+        let selectorIdx := i - firstCtorFieldIdx
         let selTerms ← mkCtorSelectorExpr recRule.ctor selectorIdx arg decl.type
         substituteList := (arg, selTerms.1) :: substituteList
         if (← isPropEnv decl.type) then
@@ -986,9 +1138,10 @@ where
           predTermCond := updatePredTerm predTermCond (andSmt (eqSmt selTerms.2 propTerm) selTerms.2)
         else
           -- resolve type abbreviation first
-          let argType' ← resolveTypeAbbrev decl.type
-          let instName ← getPredicateQualifierName argType' declInd
-          predTermCond := updatePredTerm predTermCond (mkSimpleSmtAppN instName #[selTerms.2])
+          let argType' ← removeTypeAbbrev decl.type
+          let declInst ← getPredicateQualifierInst argType' declInd
+          let appTerm ← createPredQualifierAppAux' selTerms.2 argType' declInst (inPredQualifier := true)
+          predTermCond := updatePredTerm predTermCond appTerm
       -- update fun body
       return updateIteTerm recRule funBody predTermCond
 
@@ -1021,8 +1174,8 @@ def translateNonOpaqueType
        let smtType ← generateInstType indName args typeTrans
        if !topts.inTypeDefinition then
           -- generate predicate qualifier
-          -- reset indTypeDefinition flag and set genericParamFun to `true`
-          defineInstPredicateQualifier (λ e => typeTranslator e optionsForPredicateQualifier) termTranslator t args
+          -- reset indTypeDefinition flag
+          defineInstPredicateQualifier (λ e => typeTranslator e default) termTranslator t args
        return smtType
 
 
@@ -1039,8 +1192,8 @@ def translateNonOpaqueType
 def translateSmtEquivType (n : Expr) (s : SmtSymbol) (t : SortExpr) : TranslateEnvT SortExpr := do
  match (← get).smtEnv.indTypeInstCache.get? n with
  | none =>
-    let decl ← updateIndInstCacheAux n s t (isReservedSymbol := true)
-    definePredQualifier decl.instName t (some true)
+    let decl ← updateIndInstCache n s t (isReservedSymbol := true)
+    definePredQualifier decl.instName #[t] (some true)
     return t
  | some decl => return decl.instSort
 
@@ -1058,7 +1211,7 @@ def translateSmtEquivType (n : Expr) (s : SmtSymbol) (t : SortExpr) : TranslateE
 def translateNatType (n : Expr) : TranslateEnvT SortExpr := do
  match (← get).smtEnv.indTypeInstCache.get? n with
  | none =>
-    let decl ← updateIndInstCacheAux n natSymbol natSort (isReservedSymbol := true)
+    let decl ← updateIndInstCache n natSymbol natSort (isReservedSymbol := true)
     defineNatSort decl.instName
     return natSort
  | some decl => return decl.instSort
@@ -1078,7 +1231,7 @@ def translateNatType (n : Expr) : TranslateEnvT SortExpr := do
 def translateEmptyType (n : Expr) : TranslateEnvT SortExpr := do
  match (← get).smtEnv.indTypeInstCache.get? n with
  | none =>
-    let decl ← updateIndInstCacheAux n emptySymbol emptySort (isReservedSymbol := true)
+    let decl ← updateIndInstCache n emptySymbol emptySort (isReservedSymbol := true)
     defineEmptySort decl.instName
     return emptySort
  | some decl => return decl.instSort
@@ -1097,7 +1250,7 @@ def translateEmptyType (n : Expr) : TranslateEnvT SortExpr := do
 def translatePEmptyType (n : Expr) : TranslateEnvT SortExpr := do
  match (← get).smtEnv.indTypeInstCache.get? n with
  | none =>
-    let decl ← updateIndInstCacheAux n pemptySymbol pemptySort (isReservedSymbol := true)
+    let decl ← updateIndInstCache n pemptySymbol pemptySort (isReservedSymbol := true)
     definePEmptySort decl.instName
     return pemptySort
  | some decl => return decl.instSort
@@ -1135,43 +1288,43 @@ partial def translateTypeAux
 
    | Expr.fvar v =>
       let t ← inferTypeEnv e
-      if !t.isType then throwEnvError "translateType: sort type expected but got {reprStr t}"
-      -- Need to call defineSortAndCache to handle case when sort is defined a top level
-      -- `defineSortAndCache` is called only when flags `inTypeDefinition` and `genericParamFun`
-      -- are set to `false`
+      if !(isTypeUniverse t) then throwEnvError "translateType: sort type expected but got {reprStr t}"
       -- NOTE: `inTypeDefinition` is set to `true` only when translating inductive datatype`,
       -- while `genericParamFun` is set to `true` when generating predicate qualifiers.
-      if !topts.inTypeDefinition && !topts.genericParamFun then
-        generateSortInstDecl t
-        let smtSym ← defineSortAndCache v
-        return .SymbolSort smtSym
-      else if topts.genericParamFun then
-        generateSortInstDecl t
-        return typeSort
+      if !topts.inTypeDefinition then
+         -- case when polymorphic type (e.g., α : Type u) is declared at top level
+         let decl ← generateSortInstDecl t
+         -- check if already declared
+         if !(← (isInQuantifiedFVarsCache v)) then
+           let smtSym ← typeParamNameToSmtSymbol v
+           updateQuantifiedFVarsCache v false
+           declareConst smtSym decl.instSort
+         -- return @Instance_xxx as type
+         return (← getInstanceSort decl)
       else -- case when inTypeDefinition is set to true
-        -- check if sort has been defined at top level (see note in `translateArrowType`)
-        match (← get).smtEnv.sortCache.get? v with
-        | some s => -- case when sort defined at top level
-           return .SymbolSort s
-        | _ => -- case when sort is a param of an inductive data type.
-          return .SymbolSort (← sortNameToSmtSymbol v false)
+         -- implicit polymorphic type case (see note in `translateArrowType`)
+         if ← (isInQuantifiedFVarsCache v) then
+            let decl ← generateSortInstDecl t
+            -- return @Instance_xxx as type
+            return (← getInstanceSort decl)
+         else -- case when sort is a param of an inductive data type.
+            return .SymbolSort (← typeParamNameToSmtSymbol v false)
 
    | Expr.forallE .. =>
        let st ← translateArrowType t topts
        if !topts.inTypeDefinition then
          -- NOTE: predicate qualifier and congruence constraints not generated when translating
          -- fun defined in an inductive predicate
-         -- NOTE: use of smt universal type @@Type in predicate qualifier signature,
+         -- NOTE: use of smt universal type @Type in predicate qualifier signature,
          -- especially when polymorphic types still remain.
          withInstantiatedImplicitArgs t fun t' => do generateFunInstDecl t' st
        return st
 
    | Expr.sort .zero =>
-        generateSortInstDecl e
-        return boolSort -- prop sort represented as bool at smt level
+        let decl ← generateSortInstDecl e
+        return decl.instSort
 
-   | Expr.sort .. =>
-       throwEnvError "translateType: unexpected sort type {reprStr e}"
+   | Expr.sort .. => throwEnvError "translateType: unexpected sort type {reprStr e}"
 
    | _ => throwEnvError "translateType: type expression expected but got {reprStr e}"
 
@@ -1186,10 +1339,7 @@ partial def translateTypeAux
           if decl.binderInfo.isExplicit then
             arrowArgs := arrowArgs.push (← translateTypeAux termTranslator decl.type opts)
           else
-            -- Need to consider case when fun type has implicit sort type arguments (see `Issue15.thm4`)
-            -- In this case, we need to define a sort at top level, i.e.,
-            -- reset flags inTypeDefinition and genericParamFun.
-            -- We should include the defined sort in fun signature
+            -- Need to consider case when fun/proposition in type definition has implicit polymorphic type (see `Issue15.thm4`)
             discard $ translateTypeAux termTranslator v default
        arrowArgs := arrowArgs.push (← translateTypeAux termTranslator body opts)
        let arrowT ← declareArrowTypeSort arrowArgs.size
@@ -1217,18 +1367,6 @@ def initialQuantifierEnv (topLevel : Bool) : QuantifierEnv :=
   { quantifiers := #[], premises := #[], topLevel }
 
 /-- Translate a quantifier `(n : t)` by performing the following actions:
-     - Add `n` to the quantified fvars cache.
-     - When isType t, e.g., (α : Type or α : Sort u)
-       - Call `defineSortAndCache n` to declare an Smt sort and return quantified array `qts` unchanged
-     - When ¬ isType t:
-        - translate n to an Smt symbol `s`
-        - translate t to a Smt type `st`
-        - When toplevel flag is set:
-           - Call `declareConst s st` to declare a free Smt scalar variable when `st := α` (i.e., scalar type).
-           - Call `declareFun s #[α₁ ... αₙ] β` to declare an uninterpreted Smt function when `st := α₁ → ... → αₙ → β`.
-        - When toplevel flag is not set:
-          - Add (s : st) to quantifier array `qts` when `st := α` (i.e., scalar type)
-          - Add (s : Array α₁ ... αₙ β) to quantifier array `qts` when `st := α₁ → ... → αₙ → β`.
 
     Assume that `t` is not a proposition (i.e., !(← isPropEnv t)) nor a class constraint.
     An error is triggered if `n` is not an `fvar` expression.
@@ -1240,20 +1378,20 @@ def translateQuantifier
  let Expr.fvar v := n | throwEnvError "translateQuantifier: FVarExpr expected but got {reprStr n}"
  -- update quantified fvars cache
  updateQuantifiedFVarsCache v (← get).topLevel
- -- define sort if t is a sort type
- if t.isType then
-   generateSortInstDecl t
-   discard $ defineSortAndCache v
+ -- polymorphic type case (e.g., α : Type u)
+ if isTypeUniverse t then
+   let decl ← generateSortInstDecl t
+   let smtSym ← typeParamNameToSmtSymbol v
+   addQuantifier smtSym decl.instSort
  else
    -- No more required to resolve type at this stage.
    let smtType ← translateTypeAux termTranslator t
    let smtSym ← fvarIdToSmtSymbol v
    updatePredicateQualifiers t smtSym -- update predicate qualifiers list
-   if !(← get).topLevel
-   then updateQuantifiers smtSym smtType -- add quantifier to list
-   else declareConst smtSym smtType -- declare quantifier at top level
+   addQuantifier smtSym smtType
 
  where
+
    updatePredicateQualifiers (t : Expr) (smtSym : SmtSymbol) : QuantifierEnvT Unit := do
      let pTerm ← createPredQualifierApp smtSym t
      modify (fun env => { env with premises := env.premises.push pTerm})
@@ -1261,6 +1399,10 @@ def translateQuantifier
    updateQuantifiers (smtSym : SmtSymbol) (smtType: SortExpr) : QuantifierEnvT Unit := do
     modify (fun env => { env with quantifiers := env.quantifiers.push (smtSym, smtType)})
 
+   addQuantifier (smtSym : SmtSymbol) (smtType: SortExpr) : QuantifierEnvT Unit := do
+     if !(← get).topLevel
+     then updateQuantifiers smtSym smtType -- add quantifier to list
+     else declareConst smtSym smtType -- declare quantifier at top level
 
 /-- TODO: UPDATE SPEC -/
 def translateForAll
@@ -1312,13 +1454,16 @@ def translateForAll
 def translateFreeVar
   (f : Expr) (termTranslator : Expr → TranslateEnvT SmtTerm) : TranslateEnvT SmtTerm := do
  let Expr.fvar v := f | throwEnvError "translateFreeVar: FVarExpr expected but got {reprStr f}"
+ let t ← inferTypeEnv f
  if ← (isInQuantifiedFVarsCache v) <||> (isPatternMatchFVar v)
- then fvarIdToSmtTerm v
+ then
+   if isTypeUniverse t
+   then smtSimpleVarId <$> typeParamNameToSmtSymbol v -- case when polymorphic types are used in expression (see, Issue31.lean)
+   else fvarIdToSmtTerm v
  else
    -- top level declaration case
    updateQuantifiedFVarsCache v true
-   let t ← inferTypeEnv f
-   if t.isType then throwEnvError "translateFreeVar: sort type not expected but got {reprStr t}"
+   if isTypeUniverse t then throwEnvError "translateFreeVar: sort type not expected but got {reprStr t}"
    let t' ← removeTypeAbbrev t
    let smtType ← translateTypeAux termTranslator t'
    let smtSym ← fvarIdToSmtSymbol v

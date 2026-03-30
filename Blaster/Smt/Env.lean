@@ -296,30 +296,32 @@ def fvarIdToSmtSymbol (v : FVarId) : TranslateEnvT SmtSymbol := do
 def fvarIdToSmtTerm (v : FVarId) : TranslateEnvT SmtTerm :=
   return smtSimpleVarId (← fvarIdToSmtSymbol v)
 
-/-- Given `s` and smt symbol `t` and smt sort and optional `assertFlag` boolean value, perform the following:
+/-- Given `s` an smt symbol, `t₀ ... tₙ` an array of smt sorts and optional `assertFlag` boolean value, perform the following:
      - When `assertFlag = some b`:
-        - define smt predicate `(define-fun s ((@x t)) Bool b)`
+        - define smt predicate `(define-fun s ((@x₀ t₀) ..(@xₙ tₙ)) Bool b)`
      - Otherwise:
-        - declare smt predicate `(declare-fun s ((t)) Bool)`
+        - declare smt predicate `(define-fun s ((t₀) ..(tₙ)) Bool)`
    Assume that `s` is defined as `@is{xxx}`
 -/
-def definePredQualifier (s : SmtSymbol) (t : SortExpr) (assertFlag : Option Bool) : TranslateEnvT Unit := do
+def definePredQualifier (s : SmtSymbol) (t : Array SortExpr) (assertFlag : Option Bool) : TranslateEnvT Unit := do
  match assertFlag with
  | some b =>
-      let xsym := mkReservedSymbol "@x"
-      let boolSmt := if b then trueSmt else falseSmt
-      defineFun s #[(xsym, t)] boolSort boolSmt
- | none => declareFun s #[t] boolSort
+     let args := Array.ofFn (λ f : Fin t.size => (mkReservedSymbol s!"@x{f.val}", t[f]))
+     let boolSmt := if b then trueSmt else falseSmt
+     defineFun s args boolSort boolSmt
+ | none =>  declareFun s t boolSort
 
 
 /-- Perform the following actions:
-     - Declare smt universal sort `(declare-sort @@Type 0)`
-     - Define smt predicate `(define-fun @isType ((@x @@Type)) Bool true)`
-    Assume `isTypeSym := @isType`
+     - Declare smt universal sort `(declare-sort typeSym 0)`
+     - Declare smt instance sort `(declare-sort instSym 0)`
+     - let instSort := .SymbolSort instSym
+     - Declare smt predicate `(declare-fun decl.instName ((instSort) (decl.instSort)) Bool)`
 -/
-def defineTypeSort (isTypeSym : SmtSymbol) : TranslateEnvT Unit := do
-  declareSort typeSymbol 0
-  definePredQualifier isTypeSym typeSort (some true)
+def defineTypeSort (typeSym : SmtSymbol) (instSym : SmtSymbol) (decl: IndTypeDeclaration) : TranslateEnvT Unit := do
+  declareSort typeSym 0
+  declareSort instSym 0
+  declareFun decl.instName #[.SymbolSort instSym, decl.instSort] boolSort
 
 
 /-- Perform the following actions:
@@ -329,7 +331,7 @@ def defineTypeSort (isTypeSym : SmtSymbol) : TranslateEnvT Unit := do
 -/
 def defineEmptySort (isEmptySym : SmtSymbol) : TranslateEnvT Unit := do
   declareSort emptySymbol 0
-  definePredQualifier isEmptySym emptySort (some false)
+  definePredQualifier isEmptySym #[emptySort] (some false)
 
 /-- Perform the following actions:
      - Declare PEmpty sort in Smt Lib
@@ -338,7 +340,7 @@ def defineEmptySort (isEmptySym : SmtSymbol) : TranslateEnvT Unit := do
 -/
 def definePEmptySort (isPEmptySym : SmtSymbol) : TranslateEnvT Unit := do
   declareSort pemptySymbol 0
-  definePredQualifier isPEmptySym pemptySort (some false)
+  definePredQualifier isPEmptySym #[pemptySort] (some false)
 
 
 /-- Perform the following actions:
@@ -348,7 +350,7 @@ def definePEmptySort (isPEmptySym : SmtSymbol) : TranslateEnvT Unit := do
 -/
 def definePropSort (isPropSym : SmtSymbol) : TranslateEnvT Unit := do
   defineSort propSymbol none boolSort
-  definePredQualifier isPropSym propSort (some true)
+  definePredQualifier isPropSym #[propSort] (some true)
 
 /-- Perform the following actions:
      - Define Nat sort in Smt Lib, which is an alias to Int Smt Sort
