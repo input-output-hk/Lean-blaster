@@ -390,12 +390,12 @@ def reorderOperands (f : Expr) (args : Array Expr) : TranslateEnvT (Array Expr) 
          if n == ``Nat.add then
            match isNatValue? op1 with
            | some 0 => pushProofStep (.rewrite (mkConst ``Nat.add_zero))
-           | _ => pushProofStep (.rewrite (mkConst ``Nat.add_comm) (once := true))
+           | _ => pushProofStep (.rewrite (mkApp2 (mkConst ``Nat.add_comm) args[0]! args[1]!))
          else
            match isNatValue? op1 with
            | some 0 => pushProofStep (.rewrite (mkConst ``Nat.mul_zero))
            | some 1 => pushProofStep (.rewrite (mkConst ``Nat.mul_one))
-           | _ => pushProofStep (.rewrite (mkConst ``Nat.mul_comm) (once := true))
+           | _ => pushProofStep (.rewrite (mkApp2 (mkConst ``Nat.mul_comm) args[0]! args[1]!))
        return #[op1, op2]
 
   | ``Int.add

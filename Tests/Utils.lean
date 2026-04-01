@@ -8,32 +8,40 @@ namespace Tests
 /-- Parse a term syntax. -/
 def parseTerm (stx : Syntax) : TermElabM Expr := elabTermAndSynthesize stx none
 
-/-- Parse a term syntax and call optimize. -/
-def callOptimize (sOpts : BlasterOptions) (stx : Syntax) : TermElabM Expr :=
+/-- Parse a term syntax and call optimize, returning both the optimized expression
+    and the translation environment (which contains the proof stack). -/
+def callOptimize (sOpts : BlasterOptions) (stx : Syntax) :
+    TermElabM (Expr × Blaster.Optimize.TranslateEnv) :=
   withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0 }) $ do
-    let optRes ← (Blaster.Optimize.command sOpts (← parseTerm stx))
-    pure optRes.1
+    Blaster.Optimize.command sOpts (← parseTerm stx)
 
 /-! ## Definition of #testOptimize command to write unit test for Blaster.optimize
     The #testOptimize usage is as follows:
-     #testOptimize [ "TestName" ] (verbose: num)? (norm-result: num)? TermToOptimize ==> OptimizedTerm
+     #testOptimize [ "TestName" ] (verbose: num)? (norm-result: num)? TermToOptimize ===> OptimizedTerm
+     #testOptimize [ "TestName", proof ] (verbose: num)? (norm-result: num)? TermToOptimize ===> OptimizedTerm
 
     with options:
      - verbose: activate debug info
      - norm-result: apply nat literal normalization, beta reduction on lambda application
                     and structure projection normalization on expected result.
+     - proof: require that proof reconstruction succeeds for this test case.
+              The optimizer's proof stack is replayed and the resulting goal
+              must close via `refl` or `ac_rfl`, mirroring the `blaster` tactic.
 
     E.g.
-     #testOptimize [ "AndSubsumption" ] ∀ (a : Prop), a ∧ a ==> ∀ (a : Prop), a
+     #testOptimize [ "AndSubsumption" ] ∀ (a : Prop), a ∧ a ===> ∀ (a : Prop), a
+     #testOptimize [ "NatAddZero", proof ] ∀ (x : Nat), 0 + x = x ===> True
 -/
-syntax testName := "[" str "]"
+syntax testName := "[" str ("," "proof")? "]"
 syntax termReducedTo := term  "===>" term
 syntax normNatLitOption := ("(norm-result:" num ")")?
 syntax (name := testOptimize) "#testOptimize" testName solveOption* normNatLitOption termReducedTo : command
 
-def parseTestName : TSyntax `testName -> CommandElabM String
- | `(testName| [ $s:str ]) => pure s.getString
- | _ => throwUnsupportedSyntax
+/-- Parse test name and optional `proof` flag. -/
+def parseTestName : TSyntax `testName → CommandElabM (String × Bool)
+  | `(testName| [ $s:str , proof ]) => pure (s.getString, true)
+  | `(testName| [ $s:str ]) => pure (s.getString, false)
+  | _ => throwUnsupportedSyntax
 
 def parseTermReducedTo : TSyntax `termReducedTo -> CommandElabM (Syntax × Syntax)
 |`(termReducedTo | $t1 ===> $t2) => pure (t1.raw, t2.raw)
@@ -143,25 +151,73 @@ partial def normNatLitAndLambdaBeta (e : Expr) : MetaM Expr := do
     | _ => return e
   visit e
 
+/-- Replay the proof stack and attempt to close the goal, mirroring the
+    `blaster` tactic closing strategy exactly: try `refl`, otherwise report failure.
+    Returns `true` when the goal is closed without sorry. -/
+private def replayProofStack (inputExpr : Expr) (optimized : Expr)
+    (proofStack : Array Blaster.Optimize.ProofStep)
+    (optBinders : Array FVarId) : TermElabM Bool := do
+  -- For propositions prove the statement directly;
+  -- for non-Prop expressions prove `inputExpr = optimized`.
+  let isPropInput ← isProp inputExpr
+  let goalType ← if isPropInput then pure inputExpr else mkEq inputExpr optimized
+  let goal ← mkFreshExprMVar goalType
+  let goalId := goal.mvarId!
+  -- Intro all binders so rewrite can find patterns
+  let numBinders ← forallTelescope goalType fun fvars _ => pure fvars.size
+  -- Apply proof stack rewrites
+  let (goalFVarIds, g) ← goalId.introNP numBinders
+  let proofStack := Blaster.Tactic.substProofStackFVars proofStack optBinders goalFVarIds
+  let g ← Blaster.Tactic.applyProofStack g proofStack
+  try g.refl; return true
+  catch _ => return false
+
+/-- Build the remaining goal after proof stack application (for error reporting). -/
+private def showRemainingGoal (inputExpr : Expr) (optimized : Expr)
+    (proofStack : Array Blaster.Optimize.ProofStep)
+    (optBinders : Array FVarId) : TermElabM MessageData := do
+  let isPropInput ← isProp inputExpr
+  let goalType ← if isPropInput then pure inputExpr else mkEq inputExpr optimized
+  let goal ← mkFreshExprMVar goalType
+  let gid := goal.mvarId!
+  let numBinders ← forallTelescope goalType fun fvars _ => pure fvars.size
+  let (goalFVarIds, g) ← gid.introNP numBinders
+  let proofStack := Blaster.Tactic.substProofStackFVars proofStack optBinders goalFVarIds
+  let g ← Blaster.Tactic.applyProofStack g proofStack
+  g.withContext (ppExpr (← g.getType))
+
 @[command_elab testOptimize]
 def testOptimizeImp : CommandElab := fun stx => do
- let name ← parseTestName ⟨stx[1]⟩
- let sOpts ← parseVerbose default ⟨stx[2]⟩
- let normNatFlag ← parseNormNatLitOption ⟨stx[3]⟩
- let (t1, t2) ← parseTermReducedTo ⟨stx[4]⟩
- withoutModifyingEnv $ runTermElabM fun _ => do
-   -- create a local declaration name for the test case
-   let m ← getMainModule
-   withDeclName (m ++ name.toName) $ do
-     let actual ← callOptimize sOpts t1
-     let expected' := removeAnnotations (← parseTerm t2)
-     -- keep the current name generator and restore it afterwards
-     let ngen ← getNGen
-     let expected ← if normNatFlag then normNatLitAndLambdaBeta expected' else pure expected'
-     -- restore name generator
-     setNGen ngen
-     if actual == expected
-     then logInfo f!"{name} ✅ Success!"
-     else logError f!"{name} ❌ Failure! : expecting {reprStr expected} \nbut got {reprStr actual}"
+  let (name, requireProof) ← parseTestName ⟨stx[1]⟩
+  let sOpts ← parseVerbose default ⟨stx[2]⟩
+  let normNatFlag ← parseNormNatLitOption ⟨stx[3]⟩
+  let (t1, t2) ← parseTermReducedTo ⟨stx[4]⟩
+  withoutModifyingEnv $ runTermElabM fun _ => do
+    -- create a local declaration name for the test case
+    let m ← getMainModule
+    withDeclName (m ++ name.toName) $ do
+      let (actual, env) ← callOptimize sOpts t1
+      let expected' := removeAnnotations (← parseTerm t2)
+      -- keep the current name generator and restore it afterwards
+      let ngen ← getNGen
+      let expected ← if normNatFlag then normNatLitAndLambdaBeta expected' else pure expected'
+      -- restore name generator
+      setNGen ngen
+      if actual == expected then
+        if requireProof then
+          -- Re-elaborate to obtain the original (pre-optimization) expression
+          let inputExpr ← parseTerm t1
+          let proofStack := env.optEnv.proofStack
+          let optBinders := env.optEnv.optBinders
+          let closed ← replayProofStack inputExpr actual proofStack optBinders
+          if closed then
+            logInfo f!"{name} ✅ Success! [proof ✓]"
+          else
+            let remainingGoal ← showRemainingGoal inputExpr actual proofStack optBinders
+            logError m!"{name} ❌ Failure! : proof reconstruction failed\n  remaining goal: {remainingGoal}"
+        else
+          logInfo f!"{name} ✅ Success!"
+      else
+        logError f!"{name} ❌ Failure! : expecting {reprStr expected} \nbut got {reprStr actual}"
 
 end Tests

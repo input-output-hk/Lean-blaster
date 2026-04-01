@@ -63,7 +63,8 @@ example : ∀ {x y : Nat}, (0 + x) + (0 + y)  = y + x := by blaster
 
 -- Rewrites inside if-then-else
 example : ∀ (c : Bool) (x y : Nat),
-  (if c then x + 0 else y) = (if c then 0 + x else 0 + y) := by blaster
+  (if c then x + 0 else y) =
+  (if c then 0 + x else 0 + y) := by blaster
 
 -- Rewrites inside match
 example : ∀ (n : Nat),

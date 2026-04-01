@@ -27,68 +27,55 @@ Example: `blaster (timeout: 10) (verbose: 1)`
 -/
 syntax (name := blasterTactic) "blaster" (solveOption)* : tactic
 
+/-- Convert core Nat operators to their HAdd/HSub/HMul elaborated form
+    so that proof term LHS patterns structurally match goal expressions. -/
+def toElabForm (e : Expr) : MetaM Expr := do
+  match e with
+  | Expr.app (Expr.app (Expr.const ``Nat.add _) a) b =>
+      mkAdd (← toElabForm a) (← toElabForm b)
+  | Expr.app (Expr.app (Expr.const ``Nat.sub _) a) b =>
+      mkSub (← toElabForm a) (← toElabForm b)
+  | Expr.app (Expr.app (Expr.const ``Nat.mul _) a) b =>
+      mkMul (← toElabForm a) (← toElabForm b)
+  | Expr.app f a =>
+      return mkApp (← toElabForm f) (← toElabForm a)
+  | _ => return e
+
+/-- Replace optimizer-context FVarIds with goal-context FVarIds in proof steps. -/
+def substProofStackFVars (steps : Array Blaster.Optimize.ProofStep)
+    (optBinders goalFVarIds : Array FVarId) : Array Blaster.Optimize.ProofStep :=
+  if optBinders.isEmpty then steps
+  else
+    let n := min optBinders.size goalFVarIds.size
+    let from_ := (optBinders[:n].toArray).map mkFVar
+    let to_ := (goalFVarIds[:n].toArray).map mkFVar
+    steps.map fun
+      | .rewrite proof symm  => .rewrite (proof.replaceFVars from_ to_) symm
+
 /-- Apply recorded proof stack rewrites to a goal.
     Each rewrite step is attempted; steps that don't match are skipped.
 -/
 def applyProofStack (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep) : MetaM MVarId := do
+  -- normalize proof terms once upfront
+  let steps : Array Blaster.Optimize.ProofStep ← goal.withContext <| steps.mapM fun
+    | .rewrite proof symm => return .rewrite (← toElabForm proof) symm
   /- trace[Optimize.expr] "proofStack size: {steps.size}" -/
   /- trace[Optimize.expr] "proofStack: -/
-  /-   {reprStr $ Array.map (λ | .rewrite proof _ _ => proof) steps}" -/
+  /-   {reprStr $ Array.map (λ | .rewrite proof _ => proof) steps}" -/
   let mut g := goal
-  g ← rewriteFixpoint g steps
-  for step in steps do
-    match step with
-    | .rewrite heq symm once =>
-      if once then
+  let mut changed := true
+  while changed do
+    changed := false
+    for step in steps do
+      match step with
+      | .rewrite heq symm =>
         try
           let r ← g.rewrite (← g.getType) heq symm
           g ← g.replaceTargetEq r.eNew r.eqProof
+          changed := true
         catch _ => pure ()
-  g ← rewriteFixpoint g steps
   /- trace[Optimize.expr] "final goal after proofStack: {← g.getType}" -/
   return g
-where
-  rewriteFixpoint (g : MVarId) (steps : Array Blaster.Optimize.ProofStep) : MetaM MVarId := do
-    let mut g := g
-    let mut changed := true
-    while changed do
-      changed := false
-      for step in steps do
-        match step with
-        | .rewrite heq symm once =>
-          if !once then
-            try
-              let r ← g.rewrite (← g.getType) heq symm
-              g ← g.replaceTargetEq r.eNew r.eqProof
-              changed := true
-            catch _ => pure ()
-    return g
-
-/-- Normalize an expression by sorting arguments of commutative operators,
-    so that AC-equivalent expressions become structurally equal. -/
-private def acNormalize : Expr → Expr
-  | Expr.app (Expr.app f a) b =>
-      if isCommOp f then
-        let a' := acNormalize a
-        let b' := acNormalize b
-        if b'.lt a' then mkApp2 f b' a' else mkApp2 f a' b'
-      else
-        Expr.app (acNormalize (Expr.app f a)) (acNormalize b)
-  | Expr.app f a => Expr.app (acNormalize f) (acNormalize a)
-  | e => e
-where
-  isCommOp (f : Expr) : Bool :=
-    let head := f.getAppFn
-    head.isConstOf ``Nat.add || head.isConstOf ``Nat.mul ||
-    head.isConstOf ``HAdd.hAdd || head.isConstOf ``HMul.hMul
-
-/-- Check if a goal of the form `LHS = RHS` is AC-equivalent
-    by normalizing both sides and comparing structurally. -/
-private def isACEquiv (g : MVarId) : MetaM Bool := do
-  let some (_, lhs, rhs) := (← g.getType).eq? | return false
-  /- trace[Optimize.expr] "isACEquiv lhs: {repr (acNormalize lhs)}" -/
-  /- trace[Optimize.expr] "isACEquiv rhs: {repr (acNormalize rhs)}" -/
-  return BEq.beq (acNormalize lhs) (acNormalize rhs)
 
 @[tactic blasterTactic]
 def blasterTacticImp : Tactic := fun stx =>
@@ -103,19 +90,15 @@ def blasterTacticImp : Tactic := fun stx =>
        IO.setNumHeartbeats 0
        Translate.main (← goal.getType >>= instantiateMVars') (logUndetermined := false) |>.run env
    match result with
-   | .Valid =>
+  | .Valid =>
         -- intro all binders so rewrite can find patterns
         let numBinders ← forallTelescope (← goal.getType) fun fvars _ => pure fvars.size
-        let (_, g) ← goal.introNP numBinders
-        let g ← applyProofStack g finalEnv.optEnv.proofStack
+        let (goalFVarIds, g) ← goal.introNP numBinders
+        let proofStack := substProofStackFVars finalEnv.optEnv.proofStack
+                            finalEnv.optEnv.optBinders goalFVarIds
+        let g ← applyProofStack g proofStack
         try g.refl
-        catch _ =>
-          if ← isACEquiv g then
-            try
-              setGoals [g]
-              evalTactic (← `(tactic| ac_rfl))
-            catch _ => g.admit
-          else g.admit
+        catch _ => g.admit
    | .Falsified cex => throwTacticEx `blaster goal "Goal was falsified (see counterexample above)"
    | .Undetermined =>
         -- Replace the goal with the optimized expression
