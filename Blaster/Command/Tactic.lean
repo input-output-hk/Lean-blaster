@@ -77,6 +77,29 @@ def applyProofStack (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep) :
   /- trace[Optimize.expr] "final goal after proofStack: {← g.getType}" -/
   return g
 
+/-- Given a proof `h : ∀ x₁ ... xₙ, P x₁...xₙ = Q x₁...xₙ`, produce a proof of
+    `(∀ x₁ ... xₙ, P x₁...xₙ) = (∀ x₁ ... xₙ, Q x₁...xₙ)`.
+    When `lhs` and `rhs` are not both foralls, returns `h` unchanged. -/
+partial def liftForallEq (lhs rhs h : Expr) : MetaM Expr := do
+  match lhs, rhs with
+  | Expr.forallE n α lhsBody bi, Expr.forallE _ _ rhsBody _ =>
+    let forward ← withLocalDecl `hp .default lhs fun hp =>
+      withLocalDecl n bi α fun x => do
+        let innerEq ← liftForallEq (lhsBody.instantiate1 x) (rhsBody.instantiate1 x) (mkApp h x)
+        let body ← mkAppM ``cast #[innerEq, mkApp hp x]
+        let lam ← mkLambdaFVars #[x] body
+        mkLambdaFVars #[hp] lam
+    let backward ← withLocalDecl `hq .default rhs fun hq =>
+      withLocalDecl n bi α fun x => do
+        let innerEq ← liftForallEq (lhsBody.instantiate1 x) (rhsBody.instantiate1 x) (mkApp h x)
+        let symmEq ← mkAppM ``Eq.symm #[innerEq]
+        let body ← mkAppM ``cast #[symmEq, mkApp hq x]
+        let lam ← mkLambdaFVars #[x] body
+        mkLambdaFVars #[hq] lam
+    let iff ← mkAppM ``Iff.intro #[forward, backward]
+    mkAppM ``propext #[iff]
+  | _, _ => return h
+
 @[tactic blasterTactic]
 def blasterTacticImp : Tactic := fun stx =>
   withMainContext $ do
@@ -90,15 +113,45 @@ def blasterTacticImp : Tactic := fun stx =>
        IO.setNumHeartbeats 0
        Translate.main (← goal.getType) (logUndetermined := false) |>.run env
    match result with
-  | .Valid =>
-        -- intro all binders so rewrite can find patterns
-        let numBinders ← forallTelescope (← goal.getType) fun fvars _ => pure fvars.size
-        let (goalFVarIds, g) ← goal.introNP numBinders
-        let proofStack := substProofStackFVars finalEnv.optEnv.proofStack
-                            finalEnv.optEnv.optBinders goalFVarIds
-        let g ← applyProofStack g proofStack
-        try g.refl
-        catch _ => g.admit
+   | .Valid =>
+        let goalType ← goal.getType
+        -- Try propositional equality path: (∀ xs, body₁) = (∀ xs, body₂)
+        let usedPropEqPath ← try
+          match goalType.eq? with
+          | some (_, lhs, rhs) =>
+            if ← isProp lhs then
+              let numBinders ← forallTelescope lhs fun fvars _ => pure fvars.size
+              if numBinders > 0 then
+                -- Build pointwise equality goal: ∀ xs, body₁(xs) = body₂(xs)
+                let innerGoalType ← forallTelescope lhs fun inputFvars inputBody => do
+                  let optBody ← forallBoundedTelescope rhs (some numBinders) fun optFvars optBody =>
+                    pure (optBody.replaceFVars optFvars inputFvars)
+                  let eq ← mkEq inputBody optBody
+                  mkForallFVars inputFvars eq
+                let innerMVar ← mkFreshExprMVar innerGoalType
+                let (goalFVarIds, ig) ← innerMVar.mvarId!.introNP numBinders
+                let proofStack := substProofStackFVars finalEnv.optEnv.proofStack
+                                    finalEnv.optEnv.optBinders goalFVarIds
+                let ig ← applyProofStack ig proofStack
+                try ig.refl
+                catch _ => ig.admit
+                -- Lift: (∀ xs, body₁ = body₂) → (∀ xs, body₁) = (∀ xs, body₂)
+                let liftedProof ← liftForallEq lhs rhs innerMVar
+                goal.assign liftedProof
+                pure true
+              else pure false
+            else pure false
+          | none => pure false
+        catch _ => pure false
+        unless usedPropEqPath do
+          -- intro all binders, rewrite, refl
+          let numBinders ← forallTelescope goalType fun fvars _ => pure fvars.size
+          let (goalFVarIds, g) ← goal.introNP numBinders
+          let proofStack := substProofStackFVars finalEnv.optEnv.proofStack
+                              finalEnv.optEnv.optBinders goalFVarIds
+          let g ← applyProofStack g proofStack
+          try g.refl
+          catch _ => g.admit
    | .Falsified cex => throwTacticEx `blaster goal "Goal was falsified (see counterexample above)"
    | .Undetermined =>
         -- Replace the goal with the optimized expression

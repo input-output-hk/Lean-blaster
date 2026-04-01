@@ -7,6 +7,11 @@ import Blaster.Optimize.Env
 open Lean Meta
 namespace Blaster.Optimize
 
+theorem natAddSubOfBle {c a : Nat} (b : Nat) (h : Nat.ble c a = true) :
+    (a + b) - c = (a - c) + b := by
+  have h : c ≤ a := by simpa [Nat.ble] using h
+  simpa [Nat.add_comm, Nat.add_left_comm, Nat.add_assoc] using Nat.add_sub_assoc h b
+
 /-- Apply the following simplification/normalization rules on `Nat.add` :
      - 0 + n ==> n                          [proof: Nat.zero_add]
      - N1 + N2 ===> N1 "+" N2
@@ -109,7 +114,10 @@ def optimizeNatSub (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
               return (mkApp2 f e1 (← evalBinNatOp Nat.add n1 n2))
           | some (NatCstOpInfo.NatAddExpr n1 e1) =>
               if Nat.ble n2 n1 then
-                -- TODO: composed proof (add_comm + add_sub_assoc + add_comm)
+                let n1Expr := op1.appFn!.appArg!
+                let hProof :=
+                  mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Bool) (mkConst ``Bool.true)
+                pushProofStep (.rewrite (mkApp4 (mkConst ``natAddSubOfBle) op2 n1Expr e1 hProof))
                 setRestart
                 return mkApp2 (← mkNatAddOp) (← evalBinNatOp Nat.sub n1 n2) e1
               else return none

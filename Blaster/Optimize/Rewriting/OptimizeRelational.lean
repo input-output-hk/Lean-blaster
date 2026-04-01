@@ -4,6 +4,13 @@ import Blaster.Optimize.Hypotheses
 open Lean Meta
 namespace Blaster.Optimize
 
+theorem natLeEqNotLt (a b : Nat) : (a ≤ b) = (¬ (b < a)) :=
+  propext ⟨fun h hlt => Nat.lt_irrefl b (Nat.lt_of_lt_of_le hlt h),
+           Nat.le_of_not_lt⟩
+
+theorem intLeEqNotLt (a b : Int) : (a ≤ b) = (¬ (b < a)) :=
+  propext ⟨fun h hlt => absurd (Int.lt_of_lt_of_le hlt h) (Int.lt_irrefl b), Int.not_lt.mp⟩
+
 /-- Return `true` when `e` corresponds to the one nat literal. -/
 def isOneNat (e : Expr) : Bool :=
   match isNatValue? e with
@@ -362,6 +369,10 @@ def optimizeLE (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
    let le_type := args[0]!
    let op1 := args[2]!
    let op2 := args[3]!
+   if le_type.isConstOf ``Nat then
+     pushProofStep (.rewrite (mkApp2 (mkConst ``natLeEqNotLt) op1 op2))
+   else if le_type.isConstOf ``Int then
+     pushProofStep (.rewrite (mkApp2 (mkConst ``intLeEqNotLt) op1 op2))
    setRestart
    mkNotLtExpr le_type op2 op1
  else if args.size == 2 then

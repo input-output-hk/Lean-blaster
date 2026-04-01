@@ -157,15 +157,26 @@ partial def normNatLitAndLambdaBeta (e : Expr) : MetaM Expr := do
 private def replayProofStack (inputExpr : Expr) (optimized : Expr)
     (proofStack : Array Blaster.Optimize.ProofStep)
     (optBinders : Array FVarId) : TermElabM Bool := do
-  -- For propositions prove the statement directly;
-  -- for non-Prop expressions prove `inputExpr = optimized`.
   let isPropInput ← isProp inputExpr
-  let goalType ← if isPropInput then pure inputExpr else mkEq inputExpr optimized
+  let isOptTrue := optimized.isConstOf ``True
+  let (goalType, numBinders) ←
+    if isPropInput && isOptTrue then
+      let n ← forallTelescope inputExpr fun fvars _ => pure fvars.size
+      pure (inputExpr, n)
+    else if isPropInput then
+      let n ← forallTelescope inputExpr fun fvars _ => pure fvars.size
+      let gt ← forallTelescope inputExpr fun inputFvars inputBody => do
+        let optBody ← forallBoundedTelescope optimized (some n) fun optFvars optBody =>
+          pure (optBody.replaceFVars optFvars inputFvars)
+        let eq ← mkEq inputBody optBody
+        mkForallFVars inputFvars eq
+      pure (gt, n)
+    else
+      let gt ← mkEq inputExpr optimized
+      let n ← forallTelescope gt fun fvars _ => pure fvars.size
+      pure (gt, n)
   let goal ← mkFreshExprMVar goalType
   let goalId := goal.mvarId!
-  -- Intro all binders so rewrite can find patterns
-  let numBinders ← forallTelescope goalType fun fvars _ => pure fvars.size
-  -- Apply proof stack rewrites
   let (goalFVarIds, g) ← goalId.introNP numBinders
   let proofStack := Blaster.Tactic.substProofStackFVars proofStack optBinders goalFVarIds
   let g ← Blaster.Tactic.applyProofStack g proofStack
@@ -177,10 +188,25 @@ private def showRemainingGoal (inputExpr : Expr) (optimized : Expr)
     (proofStack : Array Blaster.Optimize.ProofStep)
     (optBinders : Array FVarId) : TermElabM MessageData := do
   let isPropInput ← isProp inputExpr
-  let goalType ← if isPropInput then pure inputExpr else mkEq inputExpr optimized
+  let isOptTrue := optimized.isConstOf ``True
+  let (goalType, numBinders) ←
+    if isPropInput && isOptTrue then
+      let n ← forallTelescope inputExpr fun fvars _ => pure fvars.size
+      pure (inputExpr, n)
+    else if isPropInput then
+      let n ← forallTelescope inputExpr fun fvars _ => pure fvars.size
+      let gt ← forallTelescope inputExpr fun inputFvars inputBody => do
+        let optBody ← forallBoundedTelescope optimized (some n) fun optFvars optBody =>
+          pure (optBody.replaceFVars optFvars inputFvars)
+        let eq ← mkEq inputBody optBody
+        mkForallFVars inputFvars eq
+      pure (gt, n)
+    else
+      let gt ← mkEq inputExpr optimized
+      let n ← forallTelescope gt fun fvars _ => pure fvars.size
+      pure (gt, n)
   let goal ← mkFreshExprMVar goalType
   let gid := goal.mvarId!
-  let numBinders ← forallTelescope goalType fun fvars _ => pure fvars.size
   let (goalFVarIds, g) ← gid.introNP numBinders
   let proofStack := Blaster.Tactic.substProofStackFVars proofStack optBinders goalFVarIds
   let g ← Blaster.Tactic.applyProofStack g proofStack
