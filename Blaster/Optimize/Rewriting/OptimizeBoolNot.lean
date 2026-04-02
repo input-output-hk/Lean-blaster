@@ -17,8 +17,8 @@ def notDecideProp? (op : Expr) : TranslateEnvT (Option Expr) := do
  return mkApp op.getAppFn (mkApp (← mkPropNotOp) e)
 
 /-- Apply the following simplification/normalization rules on `not` :
-     - ! true ==> false
-     - ! false ==> true
+     - ! true ==> false                 [proof: Bool.not_true]
+     - ! false ==> true                 [proof: Bool.not_false]
      - ! (! e) ==> e
      - !(decide' e) ==> decide' (¬ e)
    Assume that f = Expr.const ``not.
@@ -29,8 +29,12 @@ def optimizeBoolNot (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 1 then throwEnvError "optimizeBoolNot: exactly one argument expected"
  let op := args[0]!
  match op with
- | Expr.const ``true _ => mkBoolFalse
- | Expr.const ``false _ => mkBoolTrue
+ | Expr.const ``true _ =>
+    pushProofStep (.rewrite (mkConst ``Bool.not_true))
+    mkBoolFalse
+ | Expr.const ``false _ =>
+    pushProofStep (.rewrite (mkConst ``Bool.not_false))
+    mkBoolTrue
  | _ =>
     if let some e := boolNot? op then return e
     if let some r ← notDecideProp? op then return r

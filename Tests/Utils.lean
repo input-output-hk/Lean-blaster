@@ -180,6 +180,7 @@ private def replayProofStack (inputExpr : Expr) (optimized : Expr)
   let (goalFVarIds, g) ← goalId.introNP numBinders
   let proofStack := Blaster.Tactic.substProofStackFVars proofStack optBinders goalFVarIds
   let g ← Blaster.Tactic.applyProofStack g proofStack
+  if ← g.isAssigned then return true
   try g.refl; return true
   catch _ => return false
 
@@ -210,6 +211,7 @@ private def showRemainingGoal (inputExpr : Expr) (optimized : Expr)
   let (goalFVarIds, g) ← gid.introNP numBinders
   let proofStack := Blaster.Tactic.substProofStackFVars proofStack optBinders goalFVarIds
   let g ← Blaster.Tactic.applyProofStack g proofStack
+  if ← g.isAssigned then return "goal closed by proof stack"
   g.withContext (ppExpr (← g.getType))
 
 @[command_elab testOptimize]

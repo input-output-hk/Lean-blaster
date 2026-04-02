@@ -51,6 +51,7 @@ def substProofStackFVars (steps : Array Blaster.Optimize.ProofStep)
     let to_ := (goalFVarIds[:n].toArray).map mkFVar
     steps.map fun
       | .rewrite proof symm  => .rewrite (proof.replaceFVars from_ to_) symm
+      | .exact proof => .exact (proof.replaceFVars from_ to_)
 
 /-- Apply recorded proof stack rewrites to a goal.
     Each rewrite step is attempted; steps that don't match are skipped.
@@ -59,9 +60,10 @@ def applyProofStack (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep) :
   -- normalize proof terms once upfront
   let steps : Array Blaster.Optimize.ProofStep ← goal.withContext <| steps.mapM fun
     | .rewrite proof symm => return .rewrite (← toElabForm proof) symm
+    | .exact proof => return .exact proof
   /- trace[Optimize.expr] "proofStack size: {steps.size}" -/
   /- trace[Optimize.expr] "proofStack: -/
-  /-   {reprStr $ Array.map (λ | .rewrite proof _ => proof) steps}" -/
+  /-   {reprStr $ Array.map (λ | .rewrite proof _ => proof | .exact proof => proof) steps}" -/
   let mut g := goal
   let mut changed := true
   while changed do
@@ -73,6 +75,11 @@ def applyProofStack (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep) :
           let r ← g.rewrite (← g.getType) heq symm
           g ← g.replaceTargetEq r.eNew r.eqProof
           changed := true
+        catch _ => pure ()
+      | .exact proof =>
+        try
+          g.assign proof
+          return g
         catch _ => pure ()
   /- trace[Optimize.expr] "final goal after proofStack: {← g.getType}" -/
   return g
@@ -150,8 +157,9 @@ def blasterTacticImp : Tactic := fun stx =>
           let proofStack := substProofStackFVars finalEnv.optEnv.proofStack
                               finalEnv.optEnv.optBinders goalFVarIds
           let g ← applyProofStack g proofStack
-          try g.refl
-          catch _ => g.admit
+          unless ← g.isAssigned do
+            try g.refl
+            catch _ => g.admit
    | .Falsified cex => throwTacticEx `blaster goal "Goal was falsified (see counterexample above)"
    | .Undetermined =>
         -- Replace the goal with the optimized expression

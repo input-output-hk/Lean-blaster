@@ -383,7 +383,14 @@ def reorderIntOp (args: Array Expr) : (Expr × Expr) :=
       let (e1', e2') := reorderCommon e1 e2
       if isIntNegExprOf e1' e2' then (e2', e1') else (e1', e2')
 
-/-- Reorder operands for commutative operators -/
+/-- Reorder operands for commutative operators.
+    The following proof steps are emitted during reordering:
+     - Nat.add: n1 + n2 ==> n2 + n1          [proof: Nat.add_comm]
+     - Nat.add: n + 0 ==> 0 + n              [proof: Nat.add_zero]
+     - Nat.mul: n1 * n2 ==> n2 * n1          [proof: Nat.mul_comm]
+     - Nat.mul: n * 0 ==> 0 * n              [proof: Nat.mul_zero]
+     - Nat.mul: n * 1 ==> 1 * n              [proof: Nat.mul_one]
+-/
 def reorderOperands (f : Expr) (args : Array Expr) : TranslateEnvT (Array Expr) := do
   let Expr.const n _ := f | return args
   match n with

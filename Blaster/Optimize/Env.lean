@@ -88,6 +88,7 @@ inductive MatchEntry where
 /-- A single proof step recorded during expression optimization. -/
 inductive ProofStep where
   | rewrite (proof : Expr) (symm : Bool := false)
+  | exact (proof : Expr)
 deriving Repr
 
 abbrev HypothesisMap := Std.HashMap Lean.Expr Lean.Expr

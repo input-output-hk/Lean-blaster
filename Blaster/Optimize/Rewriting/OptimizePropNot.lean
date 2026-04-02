@@ -45,7 +45,7 @@ def notLTNumNorm? (ne : Expr) (restart := true) : TranslateEnvT (Option Expr) :=
 
 
 /-- Apply the following simplification/normalization rules on `Not` :
-     - ¬ False ==> True
+     - ¬ False ==> True             [proof: not_false_eq_true]
      - ¬ True ==> False
      - ¬ (¬ e) ==> e (classical)
      - ¬ (false = e) ==> true = e
@@ -58,7 +58,10 @@ def notLTNumNorm? (ne : Expr) (restart := true) : TranslateEnvT (Option Expr) :=
 def optimizeNot (f : Expr) (args : Array Expr) (cacheResult := true) : TranslateEnvT Expr := do
  if args.size != 1 then throwEnvError "optimizeNot: exactly one argument expected"
  let e := args[0]!
- if let Expr.const ``False _ := e then return (← mkPropTrue)
+ if let Expr.const ``False _ := e then
+  pushProofStep (.rewrite (mkConst ``not_false_eq_true))
+  pushProofStep (.exact (mkConst ``True.intro))
+  return (← mkPropTrue)
  if let Expr.const ``True _ := e then return (← mkPropFalse)
  if let some op := propNot? e then return op
  if let some r ← notEqSimp? e then return r

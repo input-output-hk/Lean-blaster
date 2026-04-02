@@ -7,7 +7,7 @@ import Blaster.Optimize.Env
 open Lean Meta
 namespace Blaster.Optimize
 
-theorem natAddSubOfBle {c a : Nat} (b : Nat) (h : Nat.ble c a = true) :
+theorem nat_add_sub_of_ble {c a : Nat} (b : Nat) (h : Nat.ble c a = true) :
     (a + b) - c = (a - c) + b := by
   have h : c ≤ a := by simpa [Nat.ble] using h
   simpa [Nat.add_comm, Nat.add_left_comm, Nat.add_assoc] using Nat.add_sub_assoc h b
@@ -55,7 +55,7 @@ def optimizeNatAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      - N1 - (N2 + n) ==> (N1 "-" N2) - n               [proof: Nat.sub_add_eq]
      - (N1 - n) - N2 ==> (N1 "-" N2) - n               [proof: Nat.sub_right_comm]
      - (n - N1) - N2 ==> n - (N1 "+" N2)               [proof: Nat.sub_sub]
-     - (N1 + n) - N2 ==> (N1 "-" N2) + n (if N1 ≥ N2)
+     - (N1 + n) - N2 ==> (N1 "-" N2) + n (if N1 ≥ N2)  [proof: nat_add_sub_of_ble]
    Assume that f = Expr.const ``Nat.sub.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Nat.sub` expected at this stage)
 -/
@@ -117,7 +117,8 @@ def optimizeNatSub (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
                 let n1Expr := op1.appFn!.appArg!
                 let hProof :=
                   mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Bool) (mkConst ``Bool.true)
-                pushProofStep (.rewrite (mkApp4 (mkConst ``natAddSubOfBle) op2 n1Expr e1 hProof))
+                pushProofStep
+                  (.rewrite (mkApp4 (mkConst ``nat_add_sub_of_ble) op2 n1Expr e1 hProof))
                 setRestart
                 return mkApp2 (← mkNatAddOp) (← evalBinNatOp Nat.sub n1 n2) e1
               else return none
