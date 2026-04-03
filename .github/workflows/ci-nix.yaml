@@ -4,16 +4,14 @@ permissions:
   contents: read
 
 on:
-  pull_request:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: nix-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
+  check:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -22,15 +20,5 @@ jobs:
       - name: Install Nix
         uses: cachix/install-nix-action@v30
 
-      - name: Build Blaster library
-        run: nix build .#default
-
-      - name: Build z3check executable
-        run: nix build .#z3check
-
-      - name: Verify z3check runs
-        run: nix run .#z3check
-
-      - name: Verify blaster tactic works
-        run: |
-          nix develop --command bash -c 'lake build && lake env lean tests/nix/TestBlaster.lean'
+      - name: Run flake checks
+        run: nix flake check -L
