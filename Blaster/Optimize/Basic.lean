@@ -11,6 +11,8 @@ open Lean Elab Command Term Meta Blaster.Options
 
 namespace Blaster.Optimize
 
+theorem nat_succ_eq_one_add (n : Nat) : Nat.succ n = 1 + n := by
+  rw [Nat.succ_eq_add_one, Nat.add_comm]
 
 -- TODO: update formalization with inference rule style notation.
 partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr := do
@@ -54,6 +56,9 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
                -- perform beta reduction and apply optimization
                optimizeExprAux (.InitOptimizeExpr (betaLambda f ras) :: i_stack)
              else
+               -- emit proof step for Nat.succ ==> 1 + n before cache is consulted
+               if f.isConstOf ``Nat.succ && ras.size == 1 then
+                 pushProofStep (.rewrite (mkConst ``nat_succ_eq_one_add))
                -- set inFunApp flag before optimizing `f`
                setInFunApp true
                let i_stack' := .AppWaitForConst ras :: i_stack

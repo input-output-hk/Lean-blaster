@@ -80,7 +80,7 @@ variable (x : Nat)
 #testOptimize [ "NatMulOne_4", proof ] ∀ (x y : Nat), (10 - 9) * x < y ===> ∀ (x y : Nat), x < y
 
 -- ((((Nat.succ y) - 1) - y) + 1) * x ===> x
-#testOptimize [ "NatMulOne_5" ]
+#testOptimize [ "NatMulOne_5", proof ]
   ∀ (x y z : Nat), ((((Nat.succ y) - 1) - y) + 1) * x < z ===>
   ∀ (x z : Nat), x < z
 

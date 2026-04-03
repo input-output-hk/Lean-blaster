@@ -1,4 +1,3 @@
-
 import Tests.Optimize.OptimizeNat.OptimizeNatAdd
 import Tests.Optimize.OptimizeNat.OptimizeNatDiv
 import Tests.Optimize.OptimizeNat.OptimizeNatMod

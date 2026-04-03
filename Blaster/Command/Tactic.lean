@@ -53,9 +53,25 @@ def substProofStackFVars (steps : Array Blaster.Optimize.ProofStep)
       | .rewrite proof symm  => .rewrite (proof.replaceFVars from_ to_) symm
       | .exact proof => .exact (proof.replaceFVars from_ to_)
 
+/-- Map optimized body fvars to input fvars when binder counts differ.
+    Uses binder names to find the correct correspondence, since the
+    optimizer preserves binder names for surviving forall binders. -/
+def mapOptBodyToInputFVars (optBody : Expr) (optFvars inputFvars : Array Expr) : MetaM Expr := do
+  let mut mapping : Array Expr := #[]
+  for i in [:optFvars.size] do
+    let optName ← optFvars[i]!.fvarId!.getUserName
+    let mut found := false
+    for inputFvar in inputFvars do
+      if (← inputFvar.fvarId!.getUserName) == optName then
+        mapping := mapping.push inputFvar
+        found := true
+        break
+    unless found do
+      mapping := mapping.push optFvars[i]!
+  return optBody.replaceFVars optFvars mapping
+
 /-- Apply recorded proof stack rewrites to a goal.
-    Each rewrite step is attempted; steps that don't match are skipped.
--/
+    Each rewrite step is attempted; steps that don't match are skipped. -/
 def applyProofStack (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep) : MetaM MVarId := do
   -- normalize proof terms once upfront
   let steps : Array Blaster.Optimize.ProofStep ← goal.withContext <| steps.mapM fun
@@ -84,28 +100,54 @@ def applyProofStack (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep) :
   /- trace[Optimize.expr] "final goal after proofStack: {← g.getType}" -/
   return g
 
-/-- Given a proof `h : ∀ x₁ ... xₙ, P x₁...xₙ = Q x₁...xₙ`, produce a proof of
-    `(∀ x₁ ... xₙ, P x₁...xₙ) = (∀ x₁ ... xₙ, Q x₁...xₙ)`.
-    When `lhs` and `rhs` are not both foralls, returns `h` unchanged. -/
-partial def liftForallEq (lhs rhs h : Expr) : MetaM Expr := do
-  match lhs, rhs with
-  | Expr.forallE n α lhsBody bi, Expr.forallE _ _ rhsBody _ =>
-    let forward ← withLocalDecl `hp .default lhs fun hp =>
-      withLocalDecl n bi α fun x => do
-        let innerEq ← liftForallEq (lhsBody.instantiate1 x) (rhsBody.instantiate1 x) (mkApp h x)
-        let body ← mkAppM ``cast #[innerEq, mkApp hp x]
-        let lam ← mkLambdaFVars #[x] body
-        mkLambdaFVars #[hp] lam
-    let backward ← withLocalDecl `hq .default rhs fun hq =>
-      withLocalDecl n bi α fun x => do
-        let innerEq ← liftForallEq (lhsBody.instantiate1 x) (rhsBody.instantiate1 x) (mkApp h x)
-        let symmEq ← mkAppM ``Eq.symm #[innerEq]
-        let body ← mkAppM ``cast #[symmEq, mkApp hq x]
-        let lam ← mkLambdaFVars #[x] body
-        mkLambdaFVars #[hq] lam
-    let iff ← mkAppM ``Iff.intro #[forward, backward]
-    mkAppM ``propext #[iff]
-  | _, _ => return h
+/-- Build a proof of `(∀ x₁…xₙ, P) = (∀ y₁…yₘ, Q)` when m < n (some binders eliminated),
+    given `innerProof : ∀ x₁…xₙ, P(x₁…xₙ) = Q(kept(x₁…xₙ))`. -/
+private def liftForallEq (lhs rhs innerProof : Expr) : MetaM Expr := do
+  let rhsNames := getForallBinderNames rhs
+  -- Forward: lhs → rhs
+  let forward ← withLocalDecl `h .default lhs fun h =>
+    forallTelescope lhs fun lhsFvars _ => do
+      let mut lhsArgs : Array Expr := #[]
+      let mut keptFvars : Array Expr := #[]
+      let mut rhsIdx := 0
+      for fvar in lhsFvars do
+        let name ← fvar.fvarId!.getUserName
+        if rhsIdx < rhsNames.size && rhsNames[rhsIdx]! == name then
+          lhsArgs := lhsArgs.push fvar
+          keptFvars := keptFvars.push fvar
+          rhsIdx := rhsIdx + 1
+        else
+          let ty ← inferType fvar
+          let u ← getLevel ty
+          let inst ← synthInstance (mkApp (mkConst ``Inhabited [u]) ty)
+          lhsArgs := lhsArgs.push (mkApp2 (mkConst ``Inhabited.default [u]) ty inst)
+      let eqProof := mkAppN innerProof lhsArgs
+      let hApp := mkAppN h lhsArgs
+      let castExpr ← mkAppM ``cast #[eqProof, hApp]
+      let body ← mkLambdaFVars keptFvars castExpr
+      mkLambdaFVars #[h] body
+  -- Backward: rhs → lhs
+  let backward ← withLocalDecl `h .default rhs fun h =>
+    forallTelescope lhs fun lhsFvars _ => do
+      let mut rhsArgs : Array Expr := #[]
+      for fvar in lhsFvars do
+        let name ← fvar.fvarId!.getUserName
+        if rhsNames.contains name then
+          rhsArgs := rhsArgs.push fvar
+      let hApp := mkAppN h rhsArgs
+      let eqProof := mkAppN innerProof lhsFvars
+      let symmEq ← mkAppM ``Eq.symm #[eqProof]
+      let castExpr ← mkAppM ``cast #[symmEq, hApp]
+      let body ← mkLambdaFVars lhsFvars castExpr
+      mkLambdaFVars #[h] body
+  let iff ← mkAppM ``Iff.intro #[forward, backward]
+  mkAppM ``propext #[iff]
+
+ where
+   /-- Extract binder names from a chain of forall quantifiers. -/
+   getForallBinderNames : Expr → Array Name
+     | Expr.forallE n _ body _ => #[n] ++ getForallBinderNames body
+     | _ => #[]
 
 @[tactic blasterTactic]
 def blasterTacticImp : Tactic := fun stx =>
@@ -131,8 +173,8 @@ def blasterTacticImp : Tactic := fun stx =>
               if numBinders > 0 then
                 -- Build pointwise equality goal: ∀ xs, body₁(xs) = body₂(xs)
                 let innerGoalType ← forallTelescope lhs fun inputFvars inputBody => do
-                  let optBody ← forallBoundedTelescope rhs (some numBinders) fun optFvars optBody =>
-                    pure (optBody.replaceFVars optFvars inputFvars)
+                  let optBody ← forallTelescope rhs fun optFvars optBody =>
+                    mapOptBodyToInputFVars optBody optFvars inputFvars
                   let eq ← mkEq inputBody optBody
                   mkForallFVars inputFvars eq
                 let innerMVar ← mkFreshExprMVar innerGoalType

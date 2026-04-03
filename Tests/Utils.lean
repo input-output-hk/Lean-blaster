@@ -1,8 +1,7 @@
 import Lean
-import Blaster.Optimize.Basic
-import Blaster
+import Blaster.Command.Tactic
 
-open Lean Elab Command Term Meta Blaster.Options Blaster.Syntax
+open Lean Elab Command Term Meta Blaster.Options Blaster.Syntax Blaster.Tactic
 
 namespace Tests
 /-- Parse a term syntax. -/
@@ -151,12 +150,10 @@ partial def normNatLitAndLambdaBeta (e : Expr) : MetaM Expr := do
     | _ => return e
   visit e
 
-/-- Replay the proof stack and attempt to close the goal, mirroring the
-    `blaster` tactic closing strategy exactly: try `refl`, otherwise report failure.
-    Returns `true` when the goal is closed without sorry. -/
-private def replayProofStack (inputExpr : Expr) (optimized : Expr)
+/-- Build the goal type and apply the proof stack. Returns the (possibly assigned) goal. -/
+private def buildAndApplyProofStack (inputExpr : Expr) (optimized : Expr)
     (proofStack : Array Blaster.Optimize.ProofStep)
-    (optBinders : Array FVarId) : TermElabM Bool := do
+    (optBinders : Array FVarId) : TermElabM MVarId := do
   let isPropInput ← isProp inputExpr
   let isOptTrue := optimized.isConstOf ``True
   let (goalType, numBinders) ←
@@ -166,8 +163,8 @@ private def replayProofStack (inputExpr : Expr) (optimized : Expr)
     else if isPropInput then
       let n ← forallTelescope inputExpr fun fvars _ => pure fvars.size
       let gt ← forallTelescope inputExpr fun inputFvars inputBody => do
-        let optBody ← forallBoundedTelescope optimized (some n) fun optFvars optBody =>
-          pure (optBody.replaceFVars optFvars inputFvars)
+        let optBody ← forallTelescope optimized fun optFvars optBody =>
+          mapOptBodyToInputFVars optBody optFvars inputFvars
         let eq ← mkEq inputBody optBody
         mkForallFVars inputFvars eq
       pure (gt, n)
@@ -178,39 +175,21 @@ private def replayProofStack (inputExpr : Expr) (optimized : Expr)
   let goal ← mkFreshExprMVar goalType
   let goalId := goal.mvarId!
   let (goalFVarIds, g) ← goalId.introNP numBinders
-  let proofStack := Blaster.Tactic.substProofStackFVars proofStack optBinders goalFVarIds
-  let g ← Blaster.Tactic.applyProofStack g proofStack
+  let proofStack := substProofStackFVars proofStack optBinders goalFVarIds
+  applyProofStack g proofStack
+
+private def replayProofStack (inputExpr : Expr) (optimized : Expr)
+    (proofStack : Array Blaster.Optimize.ProofStep)
+    (optBinders : Array FVarId) : TermElabM Bool := do
+  let g ← buildAndApplyProofStack inputExpr optimized proofStack optBinders
   if ← g.isAssigned then return true
   try g.refl; return true
   catch _ => return false
 
-/-- Build the remaining goal after proof stack application (for error reporting). -/
 private def showRemainingGoal (inputExpr : Expr) (optimized : Expr)
     (proofStack : Array Blaster.Optimize.ProofStep)
     (optBinders : Array FVarId) : TermElabM MessageData := do
-  let isPropInput ← isProp inputExpr
-  let isOptTrue := optimized.isConstOf ``True
-  let (goalType, numBinders) ←
-    if isPropInput && isOptTrue then
-      let n ← forallTelescope inputExpr fun fvars _ => pure fvars.size
-      pure (inputExpr, n)
-    else if isPropInput then
-      let n ← forallTelescope inputExpr fun fvars _ => pure fvars.size
-      let gt ← forallTelescope inputExpr fun inputFvars inputBody => do
-        let optBody ← forallBoundedTelescope optimized (some n) fun optFvars optBody =>
-          pure (optBody.replaceFVars optFvars inputFvars)
-        let eq ← mkEq inputBody optBody
-        mkForallFVars inputFvars eq
-      pure (gt, n)
-    else
-      let gt ← mkEq inputExpr optimized
-      let n ← forallTelescope gt fun fvars _ => pure fvars.size
-      pure (gt, n)
-  let goal ← mkFreshExprMVar goalType
-  let gid := goal.mvarId!
-  let (goalFVarIds, g) ← gid.introNP numBinders
-  let proofStack := Blaster.Tactic.substProofStackFVars proofStack optBinders goalFVarIds
-  let g ← Blaster.Tactic.applyProofStack g proofStack
+  let g ← buildAndApplyProofStack inputExpr optimized proofStack optBinders
   if ← g.isAssigned then return "goal closed by proof stack"
   g.withContext (ppExpr (← g.getType))
 

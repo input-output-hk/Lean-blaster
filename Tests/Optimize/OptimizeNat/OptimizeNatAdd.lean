@@ -312,7 +312,6 @@ elab "natAddCommut_5" : term => return natAddCommut_5
 #testOptimize [ "NatAddVar_2", proof ] ∀ (x y : Nat), (x + 0) + y = y + x ===> True
 
 -- (x + 0) + (y + 0) = y + x ===> True
-set_option trace.Optimize.expr true in
 #testOptimize [ "NatAddVar_3", proof ] ∀ (x y : Nat), (x + 0) + (y + 0) = y + x ===> True
 
 -- x + y < 10 ===> x + y < 10
