@@ -56,9 +56,11 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
                -- perform beta reduction and apply optimization
                optimizeExprAux (.InitOptimizeExpr (betaLambda f ras) :: i_stack)
              else
-               -- emit proof step for Nat.succ ==> 1 + n before cache is consulted
+               -- emit proof steps before cache is consulted
                if f.isConstOf ``Nat.succ && ras.size == 1 then
-                 pushProofStep (.rewrite (mkConst ``nat_succ_eq_one_add))
+                 pushProofStep (.rewrite (mkApp (mkConst ``nat_succ_eq_one_add) ras[0]!))
+               else if f.isConstOf ``Nat.pred && ras.size == 1 then
+                 pushProofStep (.rewrite (mkApp (mkConst ``Nat.pred_eq_sub_one) ras[0]!))
                -- set inFunApp flag before optimizing `f`
                setInFunApp true
                let i_stack' := .AppWaitForConst ras :: i_stack

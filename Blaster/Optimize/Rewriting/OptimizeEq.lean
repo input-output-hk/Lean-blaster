@@ -363,7 +363,11 @@ def optimizeEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
     return mkApp (← mkPropNotOp) op2
  if let Expr.const ``True _ := op1 then return op2
  if isNotExprOf op2 op1 || isBoolNotExprOf op2 op1 then return ← mkPropFalse
- if exprEq op1 op2 then return ← mkPropTrue
+ if exprEq op1 op2 then
+  let lvl ← mkFreshLevelMVar
+  pushProofStep (.rewrite (mkConst ``eq_self [lvl]))
+  pushProofStep (.exact (mkConst ``True.intro))
+  return ← mkPropTrue
  if let some false ← structEq? op1 op2 then return ← mkPropFalse
  if let some (e1, e2) ← notNegEqSimp? op1 op2 then return mkApp3 f eqType e1 e2
  if let some r ← zeroEqNegReduce? op1 op2 eqType then return r

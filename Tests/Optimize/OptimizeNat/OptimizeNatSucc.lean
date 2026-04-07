@@ -85,10 +85,11 @@ elab "natSuccNorm_3" : term => return natSuccNorm_3
 #testOptimize [ "NatSuccNorm_3", proof ] ∀ (x y : Nat), (Nat.succ x) < y ===> natSuccNorm_3
 
 -- Nat.succ (Nat.succ x) = x + 2 ===> True
-#testOptimize [ "NatSuccNorm_4" ] ∀ (x : Nat), Nat.succ (Nat.succ x) = x + 2 ===> True
+#testOptimize [ "NatSuccNorm_4", proof] ∀ (x : Nat), Nat.succ (Nat.succ x) = x + 2 ===> True
 
 -- Nat.succ (Nat.succ (Nat.succ x)) = x + 3 ===> True
-#testOptimize [ "NatSuccNorm_5" ] ∀ (x : Nat), Nat.succ (Nat.succ (Nat.succ x)) = x + 3 ===> True
+#testOptimize [ "NatSuccNorm_5", proof ]
+  ∀ (x : Nat), Nat.succ (Nat.succ (Nat.succ x)) = x + 3 ===> True
 
 -- Nat.succ (x + y) = (x + y) + 1 ===> True
 #testOptimize [ "NatSuccNorm_6", proof ] ∀ (x y : Nat), Nat.succ (x + y) = (x + y) + 1 ===> True
@@ -97,13 +98,16 @@ elab "natSuccNorm_3" : term => return natSuccNorm_3
 #testOptimize [ "NatSuccNorm_7", proof ] ∀ (x y : Nat), Nat.succ (x - y) = (x - y) + 1 ===> True
 
 -- Nat.succ (Nat.succ (x + y)) = 2 + (x + y) ===> True
-#testOptimize [ "NatSuccNorm_8" ] ∀ (x y : Nat), Nat.succ (Nat.succ (x + y)) = (x + y) + 2 ===> True
+#testOptimize [ "NatSuccNorm_8", proof ]
+  ∀ (x y : Nat), Nat.succ (Nat.succ (x + y)) = (x + y) + 2 ===> True
 
 -- Nat.succ (Nat.succ (x - y)) = 2 + (x - y) ===> True
-#testOptimize [ "NatSuccNorm_9" ] ∀ (x y : Nat), Nat.succ (Nat.succ (x - y)) = (x - y) + 2 ===> True
+#testOptimize [ "NatSuccNorm_9", proof ]
+  ∀ (x y : Nat), Nat.succ (Nat.succ (x - y)) = (x - y) + 2 ===> True
 
 -- Nat.succ (Nat.pred (Nat.succ x)) = 1 + x ===> True
-#testOptimize [ "NatSuccNorm_10" ] ∀ (x : Nat), Nat.succ (Nat.pred (Nat.succ x)) = 1 + x ===> True
+#testOptimize [ "NatSuccNorm_10", proof ]
+  ∀ (x : Nat), Nat.succ (Nat.pred (Nat.succ x)) = 1 + x ===> True
 
 
 /-! Test cases to ensure that `reduceApp` is properly called

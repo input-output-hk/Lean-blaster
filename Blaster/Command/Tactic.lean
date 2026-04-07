@@ -77,9 +77,6 @@ def applyProofStack (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep) :
   let steps : Array Blaster.Optimize.ProofStep ← goal.withContext <| steps.mapM fun
     | .rewrite proof symm => return .rewrite (← toElabForm proof) symm
     | .exact proof => return .exact proof
-  /- trace[Optimize.expr] "proofStack size: {steps.size}" -/
-  /- trace[Optimize.expr] "proofStack: -/
-  /-   {reprStr $ Array.map (λ | .rewrite proof _ => proof | .exact proof => proof) steps}" -/
   let mut g := goal
   let mut changed := true
   while changed do
@@ -94,10 +91,10 @@ def applyProofStack (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep) :
         catch _ => pure ()
       | .exact proof =>
         try
-          g.assign proof
-          return g
+          if ← isDefEq (← inferType proof) (← g.getType) then
+            g.assign proof
+            return g
         catch _ => pure ()
-  /- trace[Optimize.expr] "final goal after proofStack: {← g.getType}" -/
   return g
 
 /-- Build a proof of `(∀ x₁…xₙ, P) = (∀ y₁…yₘ, Q)` when m < n (some binders eliminated),
@@ -149,6 +146,20 @@ private def liftForallEq (lhs rhs innerProof : Expr) : MetaM Expr := do
      | Expr.forallE n _ body _ => #[n] ++ getForallBinderNames body
      | _ => #[]
 
+/-- Prove a goal by introducing binders, applying the proof stack, then closing with refl.
+    Returns the proof term so callers can use it directly. -/
+private def proveByProofStack (goalType : Expr) (proofStack : Array Blaster.Optimize.ProofStep)
+    (optBinders : Array FVarId) : MetaM Expr := do
+  let proofMVar ← mkFreshExprMVar goalType
+  let numBinders ← forallTelescope goalType fun fvars _ => pure fvars.size
+  let (goalFVarIds, g) ← proofMVar.mvarId!.introNP numBinders
+  let proofStack := substProofStackFVars proofStack optBinders goalFVarIds
+  let g ← applyProofStack g proofStack
+  unless ← g.isAssigned do
+    try g.refl
+    catch _ => g.admit
+  return proofMVar
+
 @[tactic blasterTactic]
 def blasterTacticImp : Tactic := fun stx =>
   withMainContext $ do
@@ -161,6 +172,8 @@ def blasterTacticImp : Tactic := fun stx =>
      withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0 }) $ do
        IO.setNumHeartbeats 0
        Translate.main (← goal.getType) (logUndetermined := false) |>.run env
+   let proofStack := finalEnv.optEnv.proofStack
+   let optBinders := finalEnv.optEnv.optBinders
    match result with
    | .Valid =>
         let goalType ← goal.getType
@@ -168,7 +181,12 @@ def blasterTacticImp : Tactic := fun stx =>
         let usedPropEqPath ← try
           match goalType.eq? with
           | some (_, lhs, rhs) =>
-            if ← isProp lhs then
+            if rhs.isConstOf ``True && (← isProp lhs) then
+              -- Goal is `P = True`: prove P directly, then lift via eq_true
+              let proof ← proveByProofStack lhs proofStack optBinders
+              goal.assign (← mkAppM ``eq_true #[proof])
+              pure true
+            else if ← isProp lhs then
               let numBinders ← forallTelescope lhs fun fvars _ => pure fvars.size
               if numBinders > 0 then
                 -- Build pointwise equality goal: ∀ xs, body₁(xs) = body₂(xs)
@@ -177,34 +195,22 @@ def blasterTacticImp : Tactic := fun stx =>
                     mapOptBodyToInputFVars optBody optFvars inputFvars
                   let eq ← mkEq inputBody optBody
                   mkForallFVars inputFvars eq
-                let innerMVar ← mkFreshExprMVar innerGoalType
-                let (goalFVarIds, ig) ← innerMVar.mvarId!.introNP numBinders
-                let proofStack := substProofStackFVars finalEnv.optEnv.proofStack
-                                    finalEnv.optEnv.optBinders goalFVarIds
-                let ig ← applyProofStack ig proofStack
-                try ig.refl
-                catch _ => ig.admit
+                let innerProof ← proveByProofStack innerGoalType proofStack optBinders
                 -- Lift: (∀ xs, body₁ = body₂) → (∀ xs, body₁) = (∀ xs, body₂)
-                let liftedProof ← liftForallEq lhs rhs innerMVar
+                let liftedProof ← liftForallEq lhs rhs innerProof
                 goal.assign liftedProof
                 pure true
               else pure false
             else pure false
           | none => pure false
-        catch _ => pure false
+        catch _ =>
+          /- trace[Optimize.expr] "propEqPath failed: {e.toMessageData}" -/
+          pure false
         unless usedPropEqPath do
-          -- intro all binders, rewrite, refl
-          let numBinders ← forallTelescope goalType fun fvars _ => pure fvars.size
-          let (goalFVarIds, g) ← goal.introNP numBinders
-          let proofStack := substProofStackFVars finalEnv.optEnv.proofStack
-                              finalEnv.optEnv.optBinders goalFVarIds
-          let g ← applyProofStack g proofStack
-          unless ← g.isAssigned do
-            try g.refl
-            catch _ => g.admit
+          let proof ← proveByProofStack goalType proofStack optBinders
+          goal.assign proof
    | .Falsified cex => throwTacticEx `blaster goal "Goal was falsified (see counterexample above)"
    | .Undetermined =>
-        -- Replace the goal with the optimized expression
         let newGoal ← goal.replaceTargetDefEq optExpr
         replaceMainGoal [newGoal]
 
