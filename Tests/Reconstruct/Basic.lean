@@ -9,15 +9,21 @@ example : ∀ {n : Nat}, 0 - n = 0 := by blaster
 example : ∀ {n : Nat}, n - 0 = n := by blaster
 example : ∀ {n : Nat}, 0 * n = 0 := by blaster
 example : ∀ {n : Nat}, 1 * n = n := by blaster
+example : ∀ (n : Nat), n / 0 = 0 := by blaster
+example : ∀ (n : Nat), 0 / n = 0 := by blaster
+example : ∀ (n : Nat), n / 1 = n := by blaster
 
 -- Constant evaluation
 example : 1 + 2 = 3 := by blaster
 example : 2 * 3 = 6 := by blaster
 example : (2 * 3) + 1 = 7 := by blaster
+example : 18 / 3 = 6 := by blaster
 
 -- Constant propagation
 example : ∀ (x : Nat), 10 + (20 + x) = 30 + x := by blaster
 example : ∀ (x : Nat), 120 - (40 + x) = 80 - x := by blaster
+example : ∀ (x : Nat), (x / 10) / 20 = x / 200 := by blaster
+example : ∀ (x : Nat), (10 * x) / 5 = 2 * x := by blaster
 
 -- Constant-level rewrites (Nat.succ / Nat.pred)
 example : ∀ (n : Nat), Nat.succ n = 1 + n := by blaster
@@ -65,3 +71,8 @@ example : (∀ (m n : Nat), m + n = n + m) = (∀ (m n : Nat), n + m = n + m) :=
 example : (∀ (x : Nat), 0 * x = 0) = True := by blaster
 example : (∀ (m n : Nat), m + n = n + m) = True := by blaster
 example : (0 + 0 = 0) = True := by blaster
+
+-- Hypothesis-dependent rewrites
+example : ∀ (n : Nat), 0 < n → n / n = 1 := by blaster
+example : ∀ (x y : Nat), 0 < y → (x * y) / y = x := by blaster
+example : ∀ (x y : Nat), 0 < x → (x * y) / x = y := by blaster

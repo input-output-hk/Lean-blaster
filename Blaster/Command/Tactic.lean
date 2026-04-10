@@ -37,6 +37,10 @@ def toElabForm (e : Expr) : MetaM Expr := do
       mkSub (← toElabForm a) (← toElabForm b)
   | Expr.app (Expr.app (Expr.const ``Nat.mul _) a) b =>
       mkMul (← toElabForm a) (← toElabForm b)
+  -- Future-proofing: Nat.div currently elaborates directly (not via HDiv.hDiv),
+  -- but we normalize it here in case that changes, consistent with add/sub/mul.
+  | Expr.app (Expr.app (Expr.const ``Nat.div _) a) b =>
+      mkAppM ``HDiv.hDiv #[← toElabForm a, ← toElabForm b]
   | Expr.app f a =>
       return mkApp (← toElabForm f) (← toElabForm a)
   | _ => return e
@@ -77,7 +81,19 @@ def applyProofStack (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep) :
   let steps : Array Blaster.Optimize.ProofStep ← goal.withContext <| steps.mapM fun
     | .rewrite proof symm => return .rewrite (← toElabForm proof) symm
     | .exact proof => return .exact proof
+  /- trace[Optimize.expr] "proofStack ({steps.size} steps):" -/
+  /- let mut idx : Nat := 0 -/
+  /- for step in steps do -/
+  /-   match step with -/
+  /-   | .rewrite heq symm => -/
+  /-     let ty ← inferType heq -/
+  /-     trace[Optimize.expr] "  [{idx}] rewrite{if symm then " (symm)" else ""}: {ty}" -/
+  /-   | .exact proof => -/
+  /-     let ty ← inferType proof -/
+  /-     trace[Optimize.expr] "  [{idx}] exact: {ty}" -/
+  /-   idx := idx + 1 -/
   let mut g := goal
+  /- trace[Optimize.expr] "initial goal: {← g.getType}" -/
   let mut changed := true
   while changed do
     changed := false
@@ -88,13 +104,16 @@ def applyProofStack (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep) :
           let r ← g.rewrite (← g.getType) heq symm
           g ← g.replaceTargetEq r.eNew r.eqProof
           changed := true
+          /- trace[Optimize.expr] "  applied rewrite → {← g.getType}" -/
         catch _ => pure ()
       | .exact proof =>
         try
           if ← isDefEq (← inferType proof) (← g.getType) then
             g.assign proof
+            /- trace[Optimize.expr] "  applied exact, goal closed" -/
             return g
         catch _ => pure ()
+  /- trace[Optimize.expr] "final goal: {← g.getType}" -/
   return g
 
 /-- Build a proof of `(∀ x₁…xₙ, P) = (∀ y₁…yₘ, Q)` when m < n (some binders eliminated),
