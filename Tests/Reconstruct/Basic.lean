@@ -12,6 +12,12 @@ example : ∀ {n : Nat}, 1 * n = n := by blaster
 example : ∀ (n : Nat), n / 0 = 0 := by blaster
 example : ∀ (n : Nat), 0 / n = 0 := by blaster
 example : ∀ (n : Nat), n / 1 = n := by blaster
+example : ∀ (n : Nat), n % 0 = n := by blaster
+example : ∀ (n : Nat), 0 % n = 0 := by blaster
+example : ∀ (n : Nat), n % 1 = 0 := by blaster
+example : ∀ (x : Nat), x % x = 0 := by blaster
+example : ∀ (x y : Nat), (x * y) % y = 0 := by blaster
+example : ∀ (x y : Nat), (y * x) % y = 0 := by blaster
 
 -- Constant evaluation
 example : 1 + 2 = 3 := by blaster
@@ -24,6 +30,7 @@ example : ∀ (x : Nat), 10 + (20 + x) = 30 + x := by blaster
 example : ∀ (x : Nat), 120 - (40 + x) = 80 - x := by blaster
 example : ∀ (x : Nat), (x / 10) / 20 = x / 200 := by blaster
 example : ∀ (x : Nat), (10 * x) / 5 = 2 * x := by blaster
+example : ∀ (x : Nat), (124 * x) % 4 = 0 := by blaster
 
 -- Constant-level rewrites (Nat.succ / Nat.pred)
 example : ∀ (n : Nat), Nat.succ n = 1 + n := by blaster

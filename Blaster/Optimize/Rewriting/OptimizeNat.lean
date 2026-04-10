@@ -33,6 +33,17 @@ theorem nat_pos_of_ne_zero {n : Nat} (h : ¬ (0 = n)) : 0 < n := by omega
 theorem nat_mul_div_cancel_left_of_pos {n : Nat} (m : Nat) (h : 0 < n) : n * m / n = m :=
   Nat.mul_div_cancel_left m h
 
+theorem nat_mul_mod_of_mod_eq_zero {a b : Nat} (x : Nat)
+    (h : Nat.beq (a % b) 0 = true) : (a * x) % b = 0 := by
+  have h' : a % b = 0 := by simp [Nat.beq_eq] at h; exact h
+  rw [Nat.mul_mod, h', Nat.zero_mul, Nat.zero_mod]
+
+theorem nat_mul_mod_left (n m : Nat) : (n * m) % n = 0 := by
+  rw [Nat.mul_mod, Nat.mod_self, Nat.zero_mul, Nat.zero_mod]
+
+theorem nat_mul_mod_right (m n : Nat) : (m * n) % n = 0 := by
+  rw [Nat.mul_comm]; exact nat_mul_mod_left n m
+
 /-- Find an FVar proof of `0 < e` in the optimizer's local context.
     If only `¬(0 = e)` is found, wraps it with `nat_pos_of_ne_zero`.
     Assumes `nonZeroNatInHyps e` has returned `true`. -/
@@ -389,13 +400,15 @@ def natModToZeroExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := d
   | none => return none
 
 /-- Apply the following simplification/normalization rules on `Nat.mod` :
-     - n % 0 ==> n
-     - n % 1 ==> 0
-     - 0 % n ==> 0
+     - n % 0 ==> n                           [proof: Nat.mod_zero]
+     - n % 1 ==> 0                           [proof: Nat.mod_one]
+     - 0 % n ==> 0                           [proof: Nat.zero_mod]
      - N1 % N2 ==> N1 "%" N2
      - (N1 * n) % N2 ==> 0 (if N1 % N2 = 0)
-     - n1 % n2 ==> 0 (if n1 =ₚₜᵣ n2)
-     - (m * n) % m | (n * m) % m ==> 0
+                                             [proof: nat_mul_mod_of_mod_eq_zero]
+     - n1 % n2 ==> 0 (if n1 =ₚₜᵣ n2)         [proof: Nat.mod_self]
+     - (n * m) % n ==> 0                     [proof: nat_mul_mod_left]
+     - (m * n) % n ==> 0                     [proof: nat_mul_mod_right]
    Assume that f = Expr.const ``Nat.mod.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Nat.mod` expected at this stage)
 -/
@@ -405,26 +418,52 @@ def optimizeNatMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let op1 := args[0]!
  let op2 := args[1]!
  match isNatValue? op1, isNatValue? op2 with
- | _, some 0 => return op1
- | _, some 1 => mkNatLitExpr 0
- | some 0, _ => return op1
+ | _, some 0 =>
+    pushProofStep (.rewrite (mkConst ``Nat.mod_zero))
+    return op1
+ | _, some 1 =>
+    pushProofStep (.rewrite (mkConst ``Nat.mod_one))
+    mkNatLitExpr 0
+ | some 0, _ =>
+    pushProofStep (.rewrite (mkConst ``Nat.zero_mod))
+    return op1
  | some n1, some n2 => evalBinNatOp Nat.mod n1 n2
  | _, nv2 =>
-   if let some r ← cstModProp? op1 nv2 then return r
-   if let some r ← natModToZeroExpr? op1 op2 then return r
+   if let some r ← cstModProp? op1 op2 nv2 then return r
+   if let some r ← natModToZeroExpr? op1 op2 then
+     emitModToZeroProofStep op1 op2
+     return r
    return (mkApp2 f op1 op2)
 
  where
-   /- Given `op1` and `mv2`, return `some 0`
+   /-- Emit the proof step for n % n ==> 0, (n * m) % n ==> 0, or (m * n) % n ==> 0. -/
+   emitModToZeroProofStep (op1 op2 : Expr) : TranslateEnvT Unit := do
+     if exprEq op1 op2 then
+       pushProofStep (.rewrite (mkConst ``Nat.mod_self))
+     else
+       let some (a, b) := natMul? op1 | return ()
+       if exprEq a op2 then
+         pushProofStep (.rewrite (mkConst ``nat_mul_mod_left))
+       else if exprEq b op2 then
+         pushProofStep (.rewrite (mkConst ``nat_mul_mod_right))
+
+   /- Given `op1`, `outerOp2` and `mv2`, return `some 0`
       when `op1 := N1 * n ∧ mv2 := N2 ∧ N1 % N2 = 0`
       Otherwise `none`.
       Assumes that N2 > 0
    -/
-   cstModProp? (op1 : Expr) (mv2 : Option Nat) : TranslateEnvT (Option Expr) := do
+   cstModProp? (op1 : Expr) (outerOp2 : Expr) (mv2 : Option Nat)
+       : TranslateEnvT (Option Expr) := do
     match toNatCstOpExpr? op1, mv2 with
-    | some (NatCstOpInfo.NatMulExpr n1 _e1), some n2 =>
-        if Nat.mod n1 n2 == 0
-        then some <$> mkNatLitExpr 0
+    | some (NatCstOpInfo.NatMulExpr n1 e1), some n2 =>
+        if Nat.mod n1 n2 == 0 then
+          let n1Expr := op1.appFn!.appArg!
+          let boolRefl :=
+            mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Bool) (mkConst ``Bool.true)
+          pushProofStep (.rewrite
+            (mkAppN (mkConst ``nat_mul_mod_of_mod_eq_zero)
+               #[n1Expr, outerOp2, e1, boolRefl]))
+          some <$> mkNatLitExpr 0
         else return none
     | _, _ => return none
 

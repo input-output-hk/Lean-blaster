@@ -37,10 +37,13 @@ def toElabForm (e : Expr) : MetaM Expr := do
       mkSub (← toElabForm a) (← toElabForm b)
   | Expr.app (Expr.app (Expr.const ``Nat.mul _) a) b =>
       mkMul (← toElabForm a) (← toElabForm b)
-  -- Future-proofing: Nat.div currently elaborates directly (not via HDiv.hDiv),
+  -- Future-proofing: Nat.div /Nat.mod currently elaborates directly
+  --                  (not via HDiv.hDiv / HMod.hMod),
   -- but we normalize it here in case that changes, consistent with add/sub/mul.
   | Expr.app (Expr.app (Expr.const ``Nat.div _) a) b =>
       mkAppM ``HDiv.hDiv #[← toElabForm a, ← toElabForm b]
+  | Expr.app (Expr.app (Expr.const ``Nat.mod _) a) b =>
+      mkAppM ``HMod.hMod #[← toElabForm a, ← toElabForm b]
   | Expr.app f a =>
       return mkApp (← toElabForm f) (← toElabForm a)
   | _ => return e
