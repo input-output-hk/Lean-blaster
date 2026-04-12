@@ -6,3 +6,4 @@ import Blaster.Logging
 import Blaster.Optimize
 import Blaster.Smt
 import Blaster.StateMachine
+import Blaster.Wasm
