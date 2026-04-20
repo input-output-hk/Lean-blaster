@@ -191,14 +191,20 @@ def normOpaqueAndRecFun (s : OptimizeStack) (xs : List OptimizeStack) :
             -- trace[Optimize.recFun] "generalizing rec body for {n} got {reprStr fdef}"
             let subsInst ← opaqueInstApp uf uargs isOpaqueRec instApp
             -- optimize recursive fun definition and store
-            return Sum.inl (.InitOptimizeExpr fdef :: .RecFunDefWaitForStorage uargs instApp subsInst params :: xs)
+            let recCtx ← mkRecFuncStackContext
+            updateLocalProofStack #[]
+            return Sum.inl
+              (.InitOptimizeExpr
+                fdef :: .RecFunDefWaitForStorage uargs instApp subsInst params recCtx :: xs)
       else optimizeApp uf uargs xs -- optimizations on opaque functions
 
-  | .RecFunDefStorage uargs instApp subsInst params optDef =>
+  | .RecFunDefStorage uargs instApp subsInst params optDef recCtx =>
         uncacheFunName instApp
         -- trace[Optimize.recFun] "optimized rec body for {reprStr subsInst} got {reprStr optDef}"
-        let fn' ← storeRecFunDef subsInst params optDef
+        let localStack := (← get).optEnv.localProofStack
+        let fn' ← storeRecFunDef subsInst params optDef localStack
         -- trace[Optimize.recFun] "rec function instance {reprStr subsInst} is equivalent to {reprStr fn'}"
+        restoreRecFunStackContext recCtx
         optimizeRecApp subsInst fn' uargs params xs
 
   | _ => throwEnvError "normOpaqueAndRecFun: unexpected continuity {reprStr s} !!!"

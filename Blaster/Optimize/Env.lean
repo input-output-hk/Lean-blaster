@@ -68,6 +68,10 @@ structure OptimizeOptions where
   -/
   inFunApp : Bool := false
 
+  /-- Flag set to `true` when optimizing a recursive function body.
+      Controls whether `pushProofStep` targets `localProofStack` or `proofStack`. -/
+  optimizeRecFunBody : Bool := false
+
   /-- Keep track of the analysis Step reached for bmc and k-induction. -/
   mcDepth : Nat
 
@@ -90,6 +94,12 @@ inductive ProofStep where
   | rewrite (proof : Expr) (symm : Bool := false)
   | exact (proof : Expr)
 deriving Repr
+
+/-- Result of optimizing a recursive function body, storing both the
+    normalized body and the proof steps applied during normalization. -/
+structure RecFunOptResult where
+  optimizedBody : Expr
+  proofStack : Array ProofStep
 
 abbrev HypothesisMap := Std.HashMap Lean.Expr Lean.Expr
 abbrev RewriteCacheMap := Std.HashMap Lean.Expr Lean.Expr
@@ -255,7 +265,7 @@ structure OptimizeEnv where
         - fdef: correspond to the recursive function body.
       TODO: UPDATE SPEC
   -/
-  recFunInstCache : Std.HashMap Lean.Expr Lean.Expr
+  recFunInstCache : Std.HashMap Lean.Expr RecFunOptResult
 
   /-- Cache keeping track of visited recursive function.
       Note that we here keep track of each instantiated polymorphic function.
@@ -303,6 +313,9 @@ structure OptimizeEnv where
 
   /-- Proof steps accumulated during optimization, replayed for proof reconstruction. -/
   proofStack : Array ProofStep := #[]
+
+  /-- Proof steps accumulated during the optimization of the body of recursive functions -/
+  localProofStack : Array ProofStep := #[]
 
   /-- Forall binder FVarIds created during optimization, used to map
       optimizer-context variables to goal-context variables during proof replay. -/
@@ -637,10 +650,49 @@ def isOptimizeRecCall : TranslateEnvT Bool :=
 def isInFunApp : TranslateEnvT Bool :=
   return (← get).optEnv.options.inFunApp
 
-/-- Push a proof step onto the proof stack. -/
+/-- Push a proof step onto the appropriate proof stack.
+    When optimizing a recursive function body, steps go to `localProofStack`;
+    otherwise they go to the global `proofStack`. -/
 @[always_inline, inline]
 def pushProofStep (step : ProofStep) : TranslateEnvT Unit :=
-  modify fun env => { env with optEnv.proofStack := env.optEnv.proofStack.push step }
+  modify fun env =>
+    if env.optEnv.options.optimizeRecFunBody then
+      { env with optEnv.localProofStack := env.optEnv.localProofStack.push step }
+    else
+      { env with optEnv.proofStack := env.optEnv.proofStack.push step }
+
+/-- Set the `optimizeRecFunBody` flag. -/
+@[always_inline, inline]
+def setOptimizeRecFunBody (b : Bool) : TranslateEnvT Unit :=
+  modify fun env => { env with optEnv.options.optimizeRecFunBody := b }
+
+/-- Return `true` if currently optimizing a recursive function body. -/
+@[always_inline, inline]
+def inOptimizeRecFunBody : TranslateEnvT Bool :=
+  return (← get).optEnv.options.optimizeRecFunBody
+
+/-- Replace the local proof stack with `s`. -/
+@[always_inline, inline]
+def updateLocalProofStack (s : Array ProofStep) : TranslateEnvT Unit :=
+  modify fun env => { env with optEnv.localProofStack := s }
+
+/-- Save local proof stack context before optimizing a recursive function body.
+    Returns `some oldStack` when already inside a rec body (mutually recursive case),
+    or `none` when entering the first rec body. -/
+def mkRecFuncStackContext : TranslateEnvT (Option (Array ProofStep)) := do
+  if ← inOptimizeRecFunBody then
+    return some (← get).optEnv.localProofStack
+  else
+    setOptimizeRecFunBody true
+    return none
+
+/-- Restore local proof stack context after optimizing a recursive function body.
+    When `recCtx = some oldStack`, restores the previous local stack (mutually recursive case).
+    When `recCtx = none`, resets the `optimizeRecFunBody` flag. -/
+def restoreRecFunStackContext (recCtx : Option (Array ProofStep)) : TranslateEnvT Unit := do
+  match recCtx with
+  | some oldProofStack => updateLocalProofStack oldProofStack
+  | none => setOptimizeRecFunBody false
 
 /-- Return the current proof stack. -/
 @[always_inline, inline]
@@ -714,7 +766,7 @@ def mkExpr (a : Expr) (cacheResult := true) : TranslateEnvT Expr := do
 /-- Return `true` only when both hypothesisMap and matchInContext are empty and isRefHyp flag is not set -/
 @[always_inline, inline]
 def isGlobalContext : TranslateEnvT Bool := do
-  let ⟨_, ⟨_, _, _, _, _, _, _, _, hypothesisContext, matchInContext, _, _, _, _, _, _⟩⟩ ← get
+  let ⟨_, ⟨_, _, _, _, _, _, _, _, hypothesisContext, matchInContext, _, _, _, _, _, _, _⟩⟩ ← get
   return hypothesisContext.hypothesisMap.size == 0 && matchInContext.size == 0
 
 /-- Perform the following:
@@ -1701,8 +1753,10 @@ where
 /-- Given `f` which is either a function name expression or a fully/partially instantiated polymorphic function (see `getInstApp`),
     and `fbody` corresponding to `f`'s definition, update the recursive instance cache (i.e., `recFunInstCache`),
 -/
-def updateRecFunInst (f : Expr) (fbody : Expr) : TranslateEnvT Unit := do
-  modify (fun env => { env with optEnv.recFunInstCache := env.optEnv.recFunInstCache.insert f fbody })
+def updateRecFunInst (f : Expr) (fbody : Expr) (localProofStack : Array ProofStep) :
+    TranslateEnvT Unit := do
+  modify (fun env => { env with optEnv.recFunInstCache :=
+    env.optEnv.recFunInstCache.insert f { optimizedBody := fbody, proofStack := localProofStack } })
 
 
 /-- Return `fₙ` if `body[mkAnnotation `_solver.recursivecall _'/_recFun α₁ ... αₖ x₁ ... xₙ] := fₙ` is already
@@ -1723,10 +1777,11 @@ def updateRecFunInst (f : Expr) (fbody : Expr) : TranslateEnvT Unit := do
       - an entry exists for each opaque recursive function in `recFunMap` before optimization is performed
         (see function `cacheOpaqueRecFun`).
 -/
-partial def storeRecFunDef (f : Expr) (params : ImplicitParameters) (body : Expr) : TranslateEnvT Expr := do
+partial def storeRecFunDef (f : Expr) (params : ImplicitParameters) (body : Expr)
+    (localProofStack : Array ProofStep) : TranslateEnvT Expr := do
   let body' := body.replace (replacePred (← mkExpr (mkConst internalRecFun)))
   -- update polymorphic instance cache
-  updateRecFunInst f body'
+  updateRecFunInst f body' localProofStack
   match (← get).optEnv.recFunMap.get? body' with
   | some fb => return fb
   | none =>
@@ -1762,12 +1817,13 @@ where
     An error is triggered if no corresponding entry can be found in `recFunMap`.
 -/
 def hasRecFunInst? (instApp : Expr) : TranslateEnvT (Option Expr) := do
-  let ⟨_, ⟨_, _, _, _, _,recFunInstCache,_,recFunMap, _, _, _, _, _, _, _, _⟩⟩ ← get
+  let recFunInstCache := (← get).optEnv.recFunInstCache
+  let recFunMap := (← get).optEnv.recFunMap
   match recFunInstCache.get? instApp with
-  | some fbody =>
+  | some result =>
+     match recFunMap.get? result.optimizedBody with
      -- retrieve function application from recFunMap
-     match recFunMap.get? fbody with
-     | none => throwEnvError "hasRecFunInst: expecting entry for {reprStr fbody} in recFunMap"
+     | none => throwEnvError "hasRecFunInst: expecting entry for {reprStr result.optimizedBody} in recFunMap"
      | res => return res
   | none => return none
 

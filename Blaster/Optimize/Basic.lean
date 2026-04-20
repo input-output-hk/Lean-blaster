@@ -291,7 +291,8 @@ def cacheOpaqueRecFun : TranslateEnvT Unit := do
 
 /-- Perform the following actions:
       - populate the recFunInstCache with default recursive function definitions.
-      - discard proof steps and optimize binders accumulated during cache initialization
+      - discard proof steps, local proof stack and optimize binders accumulated
+        during cache initialization.
       - optimize expression `e`
 -/
 def Optimize.main (e : Expr) : TranslateEnvT Expr := do
@@ -299,6 +300,7 @@ def Optimize.main (e : Expr) : TranslateEnvT Expr := do
   updateLocalContext (← mkLocalContext)
   cacheOpaqueRecFun
   clearProofStack
+  updateLocalProofStack #[]
   clearOptBinders
   optimizeExpr e
 

@@ -671,9 +671,9 @@ partial def translateRecFun
         let auxApp := finfos[i]!.1
         let smtId := finfos[i]!.2
         let instApp ← getInstApp auxApp params
-        let some fbody := env.optEnv.recFunInstCache.get? instApp
+        let some result := env.optEnv.recFunInstCache.get? instApp
           | throwEnvError "translateRecFun: function body expected for {reprStr instApp}"
-        let fbody' := fbody.replace (replaceGenericRecFun auxApp params)
+        let fbody' := result.optimizedBody.replace (replaceGenericRecFun auxApp params)
         -- apply polymorphic instances on body
         let genFVars ← retrieveGenericFVars params
         funDefs ← updateFunDefinitions smtId (Expr.beta fbody' genFVars) funDefs

@@ -38,8 +38,10 @@ inductive OptimizeStack where
  | InitOpaqueRecExpr (f : Expr) (args : Array Expr)
  | RecFunDefWaitForStorage (args : Array Expr) (instApp : Expr)
                            (subsInts : Expr) (params : ImplicitParameters)
+                           (recCtx : Option (Array ProofStep))
  | RecFunDefStorage (args : Array Expr) (instApp : Expr)
                     (subsInts : Expr) (params : ImplicitParameters) (optBody : Expr)
+                    (recCtx : Option (Array ProofStep))
  | ForallWaitForType (n : Name) (bi : BinderInfo) (body : Expr)
  | ForallWaitForBody (x : Expr) (t : Expr) (hctx : HypsStackContext) (lctx : LocalDeclContext)
  | AppWaitForConst (args : Array Expr)
@@ -67,7 +69,7 @@ abbrev OptimizeContinuity := Sum (List OptimizeStack) Expr
 
 @[always_inline, inline]
 def mkHypStackContext (h : UpdatedHypContext) : TranslateEnvT HypsStackContext := do
-  let ⟨_, ⟨_, localRewriteCache, _, _, _, _, _, _, hypothesisContext, _, _, _, _, _, _, _⟩⟩ ← get
+  let ⟨_, ⟨_, localRewriteCache, _, _, _, _, _, _, hypothesisContext, _, _, _, _, _, _, _, _⟩⟩ ← get
   if h.1 then
     updateHypothesis h.2 Std.HashMap.emptyWithCapacity
     return {newHCtx := h, oldHCtx := some hypothesisContext, oldCache := some localRewriteCache}
@@ -82,7 +84,7 @@ def resetHypContext (h : HypsStackContext) : TranslateEnvT Unit := do
 
 @[always_inline, inline]
 def mkMatchStackContext (h : MatchContextMap) : TranslateEnvT MatchStackContext := do
-  let ⟨_, ⟨_, localRewriteCache, _, _, _, _, _, _, _, matchInContext, _, _, _, _, _, _⟩⟩ ← get
+  let ⟨_, ⟨_, localRewriteCache, _, _, _, _, _, _, _, matchInContext, _, _, _, _, _, _, _⟩⟩ ← get
   updateMatchContext h Std.HashMap.emptyWithCapacity
   return {oldMatchCtx := matchInContext, oldCache := localRewriteCache}
 
@@ -110,10 +112,10 @@ def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := 
        | [] => return Sum.inr optExpr
        | _ => stackContinuity xs optExpr
 
-  | .RecFunDefWaitForStorage args instApp subsInst params :: xs =>
+  | .RecFunDefWaitForStorage args instApp subsInst params recCtx :: xs =>
        -- optExpr corresponds to optimized rec fun body
        -- continuity with normOpaqueAndRecFun
-       return Sum.inl (.RecFunDefStorage args instApp subsInst params optExpr :: xs)
+       return Sum.inl (.RecFunDefStorage args instApp subsInst params optExpr recCtx :: xs)
 
   | .ForallWaitForType n bi body :: xs =>
        -- optExpr corresponds to optimized forall binder type
