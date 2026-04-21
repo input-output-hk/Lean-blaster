@@ -138,6 +138,145 @@ def normPartialFun? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr)
      | Expr.const ``Blaster.dite' _ => args.size > 4
      | _ => false
 
+/-- Try to rewrite a goal with a single expression.
+    Returns the new goal if the rewrite succeeded, or the original goal unchanged. -/
+private def tryRewriteStep (g : MVarId) (proof : Expr) : MetaM MVarId := do
+  if ← g.isAssigned then return g
+  try
+    let r ← g.rewrite (← g.getType) proof
+    let g' ← g.replaceTargetEq r.eNew r.eqProof
+    try g'.refl; return g' catch _ => pure ()
+    return g'
+  catch _ => return g
+
+/-- Close an induction subgoal for recursive function equivalence.
+    Strategy: unfold head definitions → rewrite with IH → commutativity → refl.
+    Falls back to `admit` if unable to close. -/
+private def closeInductionSubgoal (sg : MVarId) : MetaM Unit := do
+  if ← sg.isAssigned then return
+  try sg.refl; return catch _ => pure ()
+  -- Unfold head definitions on both sides to expose recursive structure
+  let g ← sg.withContext do
+    try
+      let ty ← sg.getType
+      if let some (_, lhs, rhs) := ty.eq? then
+        let lhsU ← unfoldDefinition? lhs
+        let rhsU ← unfoldDefinition? rhs
+        let lhs' := lhsU.getD lhs
+        let rhs' := rhsU.getD rhs
+        if lhs' != lhs || rhs' != rhs then
+          let newTy ← mkEq lhs' rhs'
+          let g' ← sg.change newTy
+          try g'.refl catch _ => pure ()
+          pure g'
+        else pure sg
+      else pure sg
+    catch _ => pure sg
+  if ← g.isAssigned then return
+  -- Rewrite with all propositional hypotheses (including induction hypothesis)
+  let g ← g.withContext do
+    let lctx ← getLCtx
+    let decls := lctx.foldl (init := #[]) fun acc decl =>
+      if decl.isImplementationDetail then acc else acc.push decl
+    let mut g : MVarId := g
+    for decl in decls do
+      if ← g.isAssigned then return g
+      if !(← isProp decl.type) then continue
+      g ← tryRewriteStep g decl.toExpr
+      if ← g.isAssigned then return g
+    return g
+  if ← g.isAssigned then return
+  -- Apply commutativity lemmas
+  let g ← g.withContext do
+    let mut g : MVarId := g
+    for commName in #[``Int.mul_comm, ``Nat.mul_comm, ``Int.add_comm, ``Nat.add_comm] do
+      if ← g.isAssigned then return g
+      g ← tryRewriteStep g (mkConst commName)
+      if ← g.isAssigned then return g
+    return g
+  if ← g.isAssigned then return
+  -- Second pass: retry hypotheses after commutativity may have changed the goal
+  let g ← g.withContext do
+    let lctx ← getLCtx
+    let decls := lctx.foldl (init := #[]) fun acc decl =>
+      if decl.isImplementationDetail then acc else acc.push decl
+    let mut g : MVarId := g
+    for decl in decls do
+      if ← g.isAssigned then return g
+      if !(← isProp decl.type) then continue
+      g ← tryRewriteStep g decl.toExpr
+      if ← g.isAssigned then return g
+    return g
+  unless ← g.isAssigned do g.admit
+
+/-- Prove `uf args = rf args` by structural induction.
+    Abstracts all free variables, inducts on the last inductive-type parameter,
+    and closes subgoals via unfold + IH + commutativity.
+    Falls back to `admit` for subgoals that cannot be closed. -/
+private def proveRecFunEquiv (ufApp rfApp : Expr) : MetaM Expr := do
+  let eq ← mkEq ufApp rfApp
+  -- Collect all free variables, sorted by dependency
+  let fvarIds ← do
+    let s := collectFVars {} eq
+    sortFVarIds s.fvarSet.toArray
+  let allFvars := fvarIds.map mkFVar
+  if allFvars.isEmpty then
+    let proof ← mkFreshExprMVar eq
+    try proof.mvarId!.refl catch _ => proof.mvarId!.admit
+    return proof
+  -- Find the last parameter with an inductive type (the recursion parameter)
+  let mut inductIdx? : Option Nat := none
+  for h : i in [:allFvars.size] do
+    let fvarId := allFvars[i].fvarId!
+    try
+      let ty ← fvarId.getType
+      if let .const tyName _ := ty.getAppFn then
+        if let some (.inductInfo _) := (← getEnv).find? tyName then
+          inductIdx? := some i
+    catch _ => continue
+  -- Abstract over all fvars so the mvar type is closed
+  let forallType ← mkForallFVars allFvars eq
+  let proof ← mkFreshExprMVar forallType
+  let goalId := proof.mvarId!
+  let (introFVarIds, goalId) ← goalId.introNP allFvars.size
+  match inductIdx? with
+  | none =>
+    unless ← goalId.isAssigned do goalId.admit
+  | some idx =>
+    try
+      goalId.withContext do
+        let inductFVarId := introFVarIds[idx]!
+        let ty ← inductFVarId.getType
+        let .const tyName _ := ty.getAppFn
+          | goalId.admit; return
+        let results ← goalId.induction inductFVarId (Name.mkStr tyName "rec")
+        for result in results do
+          closeInductionSubgoal result.mvarId
+        for result in results do
+          unless ← result.mvarId.isAssigned do result.mvarId.admit
+    catch _ =>
+      unless ← goalId.isAssigned do goalId.admit
+  -- Instantiate the universally quantified proof with the original fvars
+  return mkAppN proof allFvars
+
+/-- Emit a rewrite proof step for recursive function equivalence.
+    Skips trivially equal applications. For non-trivial cases, proves
+    `uf args = rf args` by induction and pushes the proof as a rewrite step. -/
+private def emitRecFunEquivStep
+    (uf rf : Expr) (uargs : Array Expr)
+    : TranslateEnvT Unit := do
+  let ufApp := mkAppN uf uargs
+  let rfApp := mkAppN rf uargs
+  -- Skip when both sides are definitionally equal
+  try if ← isDefEq ufApp rfApp then return catch _ => pure ()
+  try
+    let ufTy ← inferType ufApp
+    let rfTy ← inferType rfApp
+    if ← isDefEq ufTy rfTy then
+      let proof ← withLocalContext (proveRecFunEquiv ufApp rfApp)
+      pushProofStep (.rewrite proof)
+  catch _ => pure ()
+
 /-- Given application `f x₁ ... xₙ` perform the following:
     - when `f` corresponds to a recursive definition `λ p₁ ... pₙ → body` the following actions are performed:
         - params ← getImplicitParameters f #[x₁ ... xₙ]
@@ -286,6 +425,7 @@ def normOpaqueAndRecFun (s : OptimizeStack) (xs : List OptimizeStack) :
          -- case when a polymorphic/non-polymorphic function is equivalent to another non-polymorphic one
          let eargs := Array.filterMap (λ p => if !p.isInstance then some p.effectiveArg else none) params
          -- trace[Optimize.recFun.app] "non-polymorphic equivalent case {reprStr rf} {reprStr eargs}"
+         emitRecFunEquivStep uf rf uargs
          optimizeApp rf eargs xs
      else
        let auxApp := rf.beta (← getEffectiveParams params)
@@ -294,10 +434,12 @@ def normOpaqueAndRecFun (s : OptimizeStack) (xs : List OptimizeStack) :
          let appCall := getLambdaBody auxApp
          let (f, largs) := getAppFnWithArgs appCall
          -- trace[Optimize.recFun.app] "partially applied case {reprStr appCall.getAppFn'} {reprStr largs[0:largs.size-auxApp.getNumHeadLambdas]}"
+         emitRecFunEquivStep uf rf uargs
          optimizeApp f (largs.take (largs.size-auxApp.getNumHeadLambdas)) xs
        else
          -- trace[Optimize.recFun.app] "polymorphic equivalent case {reprStr auxApp.getAppFn'} {reprStr auxApp.getAppArgs}"
          let (f, args) := getAppFnWithArgs auxApp
+         emitRecFunEquivStep uf rf uargs
          optimizeApp f args xs
 
 initialize

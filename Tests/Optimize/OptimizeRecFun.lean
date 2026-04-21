@@ -17,12 +17,12 @@ def powerN (a : Int) (n : Nat) : Int :=
 
 -- ∀ (x : Int) (n : Nat), powerN x n = Int.pow x n ===> True
 -- NOTE: Equivalence detection with opaque function
-#testOptimize [ "NormRecFun_1" ] ∀ (x : Int) (n : Nat), powerN x n = Int.pow x n ===> True
+#testOptimize [ "NormRecFun_1", proof ] ∀ (x : Int) (n : Nat), powerN x n = Int.pow x n ===> True
 
 
 -- ∀ (x : Int) (n : Nat), x ^ n = powerN x n ===> True
 -- NOTE: Equivalence detection with opaque function
-#testOptimize [ "NormRecFun_2" ] ∀ (x : Int) (n : Nat), x ^ n = powerN x n ===> True
+#testOptimize [ "NormRecFun_2", proof ] ∀ (x : Int) (n : Nat), x ^ n = powerN x n ===> True
 
 def addNat (a : Nat) (b : Nat) : Nat :=
  match a, b with
@@ -31,11 +31,11 @@ def addNat (a : Nat) (b : Nat) : Nat :=
 
 -- ∀ (x y : Nat), addNat x y = x + y ===> True
 -- NOTE: Equivalence detection with opaque function
-#testOptimize [ "NormRecFun_3" ] ∀ (x y : Nat), addNat x y = x + y ===> True
+#testOptimize [ "NormRecFun_3", proof ] ∀ (x y : Nat), addNat x y = x + y ===> True
 
 -- ∀ (x y : Nat), x + y = addNat x y = ===> True
 -- NOTE: Equivalence detection with opaque function
-#testOptimize [ "NormRecFun_4" ] ∀ (x y : Nat), x + y = addNat x y ===> True
+#testOptimize [ "NormRecFun_4", proof ] ∀ (x y : Nat), x + y = addNat x y ===> True
 
 
 def listNatBeq (xs : List Nat) (ys : List Nat) : Bool :=
@@ -107,7 +107,7 @@ def powerNat (a : Nat) (n : Nat) : Nat :=
 -- ∀ (x y : Nat), x ^ y = powerNat x y ===> True
 -- NOTE: Equivalence detection between nested opaque function (i.e., here 3 nested level)
 -- NOTE: Also ensures that non-recursive function are inlined.
-#testOptimize [ "NormRecFun_12" ] ∀ (x y : Nat), x ^ y = powerNat x y ===> True
+#testOptimize [ "NormRecFun_12", proof ] ∀ (x y : Nat), x ^ y = powerNat x y ===> True
 
 
 -- ∀ (x y : Nat), powerNat y x + Nat.pow x y = Nat.pow y x + powerNat x y ===> True
@@ -420,7 +420,7 @@ def listPolyBeqInverse [BEq α] (xs : List α) (ys : List α) : Bool :=
 -- ∀ (xs ys : List Nat), listPolyBeq xs ys = listPolyBeqInverse xs ys ===>
 -- ∀ (xs ys : List Nat), listPolyBeq xs ys = listPolyBeqInverse xs ys
 -- NOTE: Test cases to ensure that structural equivalence no match are not wrongly applied
-#testOptimize [ "NormRecUnchanged_5" ]
+#testOptimize [ "NormRecUnchanged_5", proof ]
   ∀ (xs ys : List Nat), listPolyBeq xs ys = listPolyBeqInverse xs ys ===>
   ∀ (xs ys : List Nat), listPolyBeq xs ys = listPolyBeqInverse xs ys
 
@@ -447,7 +447,7 @@ def polyMul [Mul α] (x : α) (y : α) : α := x * y
 
 -- ∀ (x y z : Int), polyMul x y > z → polyMul x.toNat y.toNat > z.toNat ===>
 -- ∀ (x y z : Int), z < Int.mul x y → z.toNat < Nat.mul x.toNat y.toNat
-#testOptimize [ "NormRecUnchanged_7" ]
+#testOptimize [ "NormRecUnchanged_7", proof ]
   ∀ (x y z : Int), polyMul x y > z → polyMul x.toNat y.toNat > z.toNat ===>
   ∀ (x y z : Int), z < Int.mul x y → z.toNat < Nat.mul x.toNat y.toNat
 
@@ -456,7 +456,7 @@ def polyMul [Mul α] (x : α) (y : α) : α := x * y
 -- ∀ (a b : List Int) (c d : List Nat), (listPolyBeq a b) = (listPolyBeq c d)
 -- NOTE: test case to ensure that structural equivalence is not performed
 -- on polymorphic function instantiated with different types.
-#testOptimize [ "NormRecUnchanged_8" ]
+#testOptimize [ "NormRecUnchanged_8", proof ]
   ∀ (a b : List Int) (c d : List Nat), (listPolyBeq a b) = (listPolyBeq c d) ===>
   ∀ (a b : List Int) (c d : List Nat), (listPolyBeq a b) = (listPolyBeq c d)
 
@@ -615,7 +615,7 @@ where
 --   (∀ (n m : Nat), 0 < m → Nat.mod n m < n)
 -- NOTE: Test case can result to `True` when implementing structural
 -- equivalence with opaque function.
-#testOptimize [ "NormRecUnchanged_15" ] (norm-result: 1)
+#testOptimize [ "NormRecUnchanged_15", proof ] (norm-result: 1)
   (∀ (x y : Nat), y > 0 → modNat x y < y) → (∀ (n m : Nat), m > 0 → n % m < n) ===>
   (∀ (x y : Nat), 0 < y → Blaster.dite' (0 = x) (fun _h : 0 = x => 0) (fun _h : ¬ 0 = x => modNat.modAux x y) < y) →
     (∀ (n m : Nat), 0 < m → Nat.mod n m < n)
@@ -660,7 +660,7 @@ end
 -- ∀ (a : A), sizeAOne a = sizeATwo a ===> ∀ (a : A), sizeAOne a = sizeATwo a
 -- NOTE: Test case can result to `True` when implementing structural equivalence
 -- on mutually recursive functions
-#testOptimize [ "NormRecUnchanged_16" ]
+#testOptimize [ "NormRecUnchanged_16", proof ]
   ∀ (a : A), sizeAOne a = sizeATwo a ===> ∀ (a : A), sizeAOne a = sizeATwo a
 
 -- (∀ (a : A), sizeAOne (A.self a) > sizeAOne a) → (∀ (a : A), sizeATwo (A.self a) > sizeATwo a) ===>
@@ -672,7 +672,7 @@ end
 -- ∀ (b : B), sizeBOne b = sizeBTwo b ===> ∀ (b : B), sizeBOne b = sizeBTwo b
 -- NOTE: Test case can result to `True` when implementing structural equivalence
 -- on mutually recursive functions
-#testOptimize [ "NormRecUnchanged_18" ]
+#testOptimize [ "NormRecUnchanged_18", proof ]
   ∀ (b : B), sizeBOne b = sizeBTwo b ===> ∀ (b : B), sizeBOne b = sizeBTwo b
 
 -- (∀ (b : B), sizeBOne (B.self b) > sizeBOne b) → (∀ (b : B), sizeBTwo (B.self b) > sizeBTwo b) ===>

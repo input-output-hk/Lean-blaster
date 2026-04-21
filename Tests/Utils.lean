@@ -178,11 +178,31 @@ private def buildAndApplyProofStack (inputExpr : Expr) (optimized : Expr)
   let proofStack := substProofStackFVars proofStack optBinders goalFVarIds
   applyProofStack g proofStack
 
+/-- Return `true` if the expression contains `sorryAx` anywhere. -/
+private partial def containsSorry (e : Expr) : Bool :=
+  match e with
+  | .const ``sorryAx _ => true
+  | .app f a => containsSorry f || containsSorry a
+  | .lam _ t b _ => containsSorry t || containsSorry b
+  | .forallE _ t b _ => containsSorry t || containsSorry b
+  | .letE _ t v b _ => containsSorry t || containsSorry v || containsSorry b
+  | .mdata _ e => containsSorry e
+  | .proj _ _ e => containsSorry e
+  | _ => false
+
 private def replayProofStack (inputExpr : Expr) (optimized : Expr)
     (proofStack : Array Blaster.Optimize.ProofStep)
     (optBinders : Array FVarId) : TermElabM Bool := do
   let g ← buildAndApplyProofStack inputExpr optimized proofStack optBinders
-  if ← g.isAssigned then return true
+  if ← g.isAssigned then
+    -- Check that no proof step contains sorry
+    for step in proofStack do
+      let p := match step with
+        | .rewrite e _ => e
+        | .exact e => e
+      let p ← instantiateMVars p
+      if containsSorry p then return false
+    return true
   try g.refl; return true
   catch _ => return false
 
