@@ -1,5 +1,15 @@
 {"version": "1.1.0",
  "packagesDir": ".lake/packages",
- "packages": [],
- "name": "Solver",
+ "packages":
+ [{"url": "https://github.com/RSoulatIOHK/Pigment.git",
+   "type": "git",
+   "subDir": null,
+   "scope": "",
+   "rev": "3b725487634e3a89489b33ce2b5f79643d77c909",
+   "name": "Pigment",
+   "manifestFile": "lake-manifest.json",
+   "inputRev": "main",
+   "inherited": false,
+   "configFile": "lakefile.lean"}],
+ "name": "Blaster",
  "lakeDir": ".lake"}
