@@ -6,7 +6,7 @@
 
 **Architecture:** During elaboration, `#blaster` and `by blaster` write NDJSON records to `.lake/blast-results/<module>.ndjson` (suppressing all `logInfo` output when `BLAST_CHECK=1`). The `blast_check` executable sets that env var, spawns `lake build` with stdout+stderr suppressed, polls the NDJSON file every 200ms, and renders results with Pigment in Elm compiler style.
 
-**Tech Stack:** Lean 4.24.0, Lake, Pigment (`github.com/RSoulatIOHK/Pigment`), `Lean.Data.Json`
+**Tech Stack:** Lean 4.26.0 (bumped from 4.24.0 when Pigment was added — unavoidable, Pigment requires 4.26.0), Lake, Pigment (`github.com/RSoulatIOHK/Pigment`), `Lean.Data.Json`
 
 **Spec:** `docs/superpowers/specs/2026-04-22-blast-check-design.md`
 
