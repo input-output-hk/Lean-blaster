@@ -150,30 +150,66 @@ private def tryRewriteStep (g : MVarId) (proof : Expr) : MetaM MVarId := do
   catch _ => return g
 
 /-- Close an induction subgoal for recursive function equivalence.
-    Strategy: unfold head definitions → rewrite with IH → commutativity → refl.
-    Falls back to `admit` if unable to close. -/
-private def closeInductionSubgoal (sg : MVarId) : MetaM Unit := do
+    Leaves the goal unassigned if unable to close. -/
+private def closeInductionSubgoal (sg : MVarId)
+    (ufSteps rfSteps : Array ProofStep) : MetaM Unit := do
   if ← sg.isAssigned then return
   try sg.refl; return catch _ => pure ()
-  -- Unfold head definitions on both sides to expose recursive structure
+  -- Iteratively unfold head definitions on both sides
   let g ← sg.withContext do
-    try
-      let ty ← sg.getType
-      if let some (_, lhs, rhs) := ty.eq? then
-        let lhsU ← unfoldDefinition? lhs
-        let rhsU ← unfoldDefinition? rhs
-        let lhs' := lhsU.getD lhs
-        let rhs' := rhsU.getD rhs
-        if lhs' != lhs || rhs' != rhs then
-          let newTy ← mkEq lhs' rhs'
-          let g' ← sg.change newTy
-          try g'.refl catch _ => pure ()
-          pure g'
-        else pure sg
-      else pure sg
-    catch _ => pure sg
+    let mut g := sg
+    let mut progress := true
+    while progress do
+      progress := false
+      if ← g.isAssigned then return g
+      try
+        let ty ← g.getType
+        match ty.eq? with
+        | some (_, lhs, rhs) =>
+          let lhsU ← unfoldDefinition? lhs
+          let rhsU ← unfoldDefinition? rhs
+          let lhs' := lhsU.getD lhs
+          let rhs' := rhsU.getD rhs
+          if lhs' != lhs || rhs' != rhs then
+            let newTy ← mkEq lhs' rhs'
+            g ← g.change newTy
+            try g.refl; return g catch _ => pure ()
+            progress := true
+        | none => pure ()
+      catch _ => pure ()
+    return g
   if ← g.isAssigned then return
-  -- Rewrite with all propositional hypotheses (including induction hypothesis)
+  -- uf local steps
+  let g ← g.withContext do
+    let mut g := g
+    for step in ufSteps do
+      if ← g.isAssigned then return g
+      match step with
+      | .rewrite proof _ =>
+        g ← tryRewriteStep g proof
+      | .exact _ => pure ()
+    return g
+  if ← g.isAssigned then return
+  -- rf local steps (both directions)
+  let g ← g.withContext do
+    let mut g := g
+    for step in rfSteps do
+      if ← g.isAssigned then return g
+      match step with
+      | .rewrite proof _ =>
+        g ← tryRewriteStep g proof
+        if ← g.isAssigned then return g
+        try
+          let r ← g.rewrite (← g.getType) proof (symm := true)
+          let g' ← g.replaceTargetEq r.eNew r.eqProof
+          try g'.refl; return g' catch _ => pure ()
+          g := g'
+        catch _ => pure ()
+      | .exact _ => pure ()
+    return g
+  if ← g.isAssigned then return
+  try g.refl; return catch _ => pure ()
+  -- Rewrite with hypotheses
   let g ← g.withContext do
     let lctx ← getLCtx
     let decls := lctx.foldl (init := #[]) fun acc decl =>
@@ -186,7 +222,7 @@ private def closeInductionSubgoal (sg : MVarId) : MetaM Unit := do
       if ← g.isAssigned then return g
     return g
   if ← g.isAssigned then return
-  -- Apply commutativity lemmas
+  -- Commutativity lemmas
   let g ← g.withContext do
     let mut g : MVarId := g
     for commName in #[``Int.mul_comm, ``Nat.mul_comm, ``Int.add_comm, ``Nat.add_comm] do
@@ -195,27 +231,24 @@ private def closeInductionSubgoal (sg : MVarId) : MetaM Unit := do
       if ← g.isAssigned then return g
     return g
   if ← g.isAssigned then return
-  -- Second pass: retry hypotheses after commutativity may have changed the goal
-  let g ← g.withContext do
+  -- Retry hypotheses after commutativity
+  g.withContext do
     let lctx ← getLCtx
     let decls := lctx.foldl (init := #[]) fun acc decl =>
       if decl.isImplementationDetail then acc else acc.push decl
     let mut g : MVarId := g
     for decl in decls do
-      if ← g.isAssigned then return g
+      if ← g.isAssigned then return
       if !(← isProp decl.type) then continue
       g ← tryRewriteStep g decl.toExpr
-      if ← g.isAssigned then return g
-    return g
-  unless ← g.isAssigned do g.admit
+      if ← g.isAssigned then return
 
-/-- Prove `uf args = rf args` by structural induction.
-    Abstracts all free variables, inducts on the last inductive-type parameter,
-    and closes subgoals via unfold + IH + commutativity.
+/-- Prove `uf = rf` by structural induction, universally quantified over free variables.
+    Returns the forall-quantified proof so that `rewrite` can unify with any instantiation.
     Falls back to `admit` for subgoals that cannot be closed. -/
-private def proveRecFunEquiv (ufApp rfApp : Expr) : MetaM Expr := do
+private def proveRecFunEquiv (ufApp rfApp : Expr)
+    (ufSteps rfSteps : Array ProofStep := #[]) : MetaM Expr := do
   let eq ← mkEq ufApp rfApp
-  -- Collect all free variables, sorted by dependency
   let fvarIds ← do
     let s := collectFVars {} eq
     sortFVarIds s.fvarSet.toArray
@@ -224,7 +257,6 @@ private def proveRecFunEquiv (ufApp rfApp : Expr) : MetaM Expr := do
     let proof ← mkFreshExprMVar eq
     try proof.mvarId!.refl catch _ => proof.mvarId!.admit
     return proof
-  -- Find the last parameter with an inductive type (the recursion parameter)
   let mut inductIdx? : Option Nat := none
   for h : i in [:allFvars.size] do
     let fvarId := allFvars[i].fvarId!
@@ -234,7 +266,6 @@ private def proveRecFunEquiv (ufApp rfApp : Expr) : MetaM Expr := do
         if let some (.inductInfo _) := (← getEnv).find? tyName then
           inductIdx? := some i
     catch _ => continue
-  -- Abstract over all fvars so the mvar type is closed
   let forallType ← mkForallFVars allFvars eq
   let proof ← mkFreshExprMVar forallType
   let goalId := proof.mvarId!
@@ -251,31 +282,59 @@ private def proveRecFunEquiv (ufApp rfApp : Expr) : MetaM Expr := do
           | goalId.admit; return
         let results ← goalId.induction inductFVarId (Name.mkStr tyName "rec")
         for result in results do
-          closeInductionSubgoal result.mvarId
+          closeInductionSubgoal result.mvarId ufSteps rfSteps
         for result in results do
           unless ← result.mvarId.isAssigned do result.mvarId.admit
     catch _ =>
       unless ← goalId.isAssigned do goalId.admit
-  -- Instantiate the universally quantified proof with the original fvars
-  return mkAppN proof allFvars
+  return proof
+
+/-- Retrieve the local proof stack for a function from recFunInstCache.
+    Returns empty array if not found. -/
+private def getRecFunLocalProofStack (f : Expr) (args : Array Expr)
+    : TranslateEnvT (Array ProofStep) := do
+  let cache := (← get).optEnv.recFunInstCache
+  try
+    let params ← getImplicitParameters f args
+    let instApp ← getInstApp f params
+    match cache.get? instApp with
+    | some result => return result.proofStack
+    | none =>
+      match cache.get? f with
+      | some result => return result.proofStack
+      | none => return #[]
+  catch _ => return #[]
 
 /-- Emit a rewrite proof step for recursive function equivalence.
-    Skips trivially equal applications. For non-trivial cases, proves
-    `uf args = rf args` by induction and pushes the proof as a rewrite step. -/
+    Retrieves local proof stacks from recFunInstCache and uses them
+    to close induction subgoals. -/
 private def emitRecFunEquivStep
     (uf rf : Expr) (uargs : Array Expr)
     : TranslateEnvT Unit := do
   let ufApp := mkAppN uf uargs
   let rfApp := mkAppN rf uargs
-  -- Skip when both sides are definitionally equal
   try if ← isDefEq ufApp rfApp then return catch _ => pure ()
+  let ufSteps ← getRecFunLocalProofStack uf uargs
+  let rfSteps ← getRecFunLocalProofStack rf uargs
   try
     let ufTy ← inferType ufApp
     let rfTy ← inferType rfApp
     if ← isDefEq ufTy rfTy then
-      let proof ← withLocalContext (proveRecFunEquiv ufApp rfApp)
-      pushProofStep (.rewrite proof)
+      let proof ← withLocalContext do proveRecFunEquiv ufApp rfApp ufSteps rfSteps
+      let proof ← instantiateMVars proof
+      unless containsSorry proof do
+        pushProofStep (.rewrite proof)
   catch _ => pure ()
+where
+  containsSorry : Expr → Bool
+    | .const ``sorryAx _ => true
+    | .app f a => containsSorry f || containsSorry a
+    | .lam _ t b _ => containsSorry t || containsSorry b
+    | .forallE _ t b _ => containsSorry t || containsSorry b
+    | .letE _ t v b _ => containsSorry t || containsSorry v || containsSorry b
+    | .mdata _ e => containsSorry e
+    | .proj _ _ e => containsSorry e
+    | _ => false
 
 /-- Given application `f x₁ ... xₙ` perform the following:
     - when `f` corresponds to a recursive definition `λ p₁ ... pₙ → body` the following actions are performed:
