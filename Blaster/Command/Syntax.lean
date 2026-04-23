@@ -136,11 +136,14 @@ def parseTerm : TSyntax `Blaster.solveTerm -> m Syntax
   | _ => throwUnsupportedSyntax
 
 
-def commandInvoker (f : BlasterOptions → Syntax → TermElabM Unit) : CommandElab := fun stx => do
+def commandInvoker (f : BlasterOptions → Syntax → Nat → TermElabM Unit) : CommandElab := fun stx => do
   let some cancelTk := (← read).cancelTk? | unreachable!
   let opts := stx[1].getArgs
   let sOpts ← parseSolveOptions opts default  -- Process all options dynamically
   let tr ← parseTerm ⟨stx[2]⟩
+  -- Compute source line for blast-check output (position of the #blaster keyword).
+  let fm ← getFileMap
+  let line := stx.getPos?.map (fm.toPosition ·) |>.map (·.line) |>.getD 0
   let act ← wrapAsyncAsSnapshot (cancelTk? := cancelTk) fun _ =>
     withoutModifyingEnv $ runTermElabM fun _ =>
     -- NOTE: We need to set maxRecDepth to 0 as the term elaborator function is triggering
@@ -154,13 +157,14 @@ def commandInvoker (f : BlasterOptions → Syntax → TermElabM Unit) : CommandE
     -- However, since we rely on functions like isProp, inferType and withLocalDecl, setting maxHearbeats
     -- to zero will still be required. Unless, we have a new implementation for these functions.
       withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0, maxRecDepth := 0 }) $ do
-        f sOpts tr
+        f sOpts tr line
   let task ← BaseIO.asTask (prio := Task.Priority.dedicated) (act ())
   logSnapshotTask { stx? := some stx, task, cancelTk? := cancelTk }
 
 
 /-! ### Implementation of solve command -/
 @[command_elab solve]
-def solveImp : CommandElab := commandInvoker Blaster.Smt.command
+def solveImp : CommandElab :=
+  commandInvoker (fun opts tr line => Blaster.Smt.command opts tr line)
 
 end Blaster.Syntax

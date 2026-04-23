@@ -4,6 +4,7 @@ import Blaster.Optimize.Basic
 import Blaster.Smt.Env
 import Blaster.Smt.Term
 import Blaster.Smt.Translate.Application
+import Blaster.BlastResults
 
 open Lean Elab Command Term Meta Blaster.Optimize Blaster.Options
 
@@ -87,11 +88,27 @@ def Translate.main (e : Expr) (logUndetermined := true) : TranslateEnvT (Result 
       | a :: tl =>
          addAxioms (mkForall (← Term.mkFreshBinderName) BinderInfo.default a e) tl
 
-def command (sOpts: BlasterOptions) (stx : Syntax) : TermElabM Unit := do
-   withRef stx do
-     instantiateMVars (← withSynthesize (postpone := .partial) <| elabTerm stx none) >>= fun e => do
-       let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
-       discard $ Translate.main e|>.run env
+def command (sOpts : BlasterOptions) (stx : Syntax) (sourceLine : Nat := 0) : TermElabM Unit := do
+  withRef stx do
+    let e ← instantiateMVars (← withSynthesize (postpone := .partial) <| elabTerm stx none)
+    let modName := (← getEnv).mainModule.toString
+    -- Pretty-print the expression for the decl field.
+    let declStr := s!"#blaster [{← ppExpr e}]"
+    let startRec : Blaster.BlastResults.StartRecord :=
+      { name := s!"Line {sourceLine}", desc := s!"Line {sourceLine}",
+        decl := declStr, moduleName := modName, line := sourceLine }
+    (Blaster.BlastResults.writeStart startRec).catchExceptions fun _ => pure ()
+    let startMs ← IO.monoMsNow
+    let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
+    let ((result, _), _) ← Translate.main e |>.run env
+    let endMs ← IO.monoMsNow
+    let (status, cex) := match result with
+      | .Valid          => ("proved",       [])
+      | .Falsified cex  => ("falsified",    cex)
+      | .Undetermined   => ("undetermined", [])
+    let endRec : Blaster.BlastResults.EndRecord :=
+      { name := s!"Line {sourceLine}", status, time_ms := endMs - startMs, cex }
+    (Blaster.BlastResults.writeEnd endRec modName).catchExceptions fun _ => pure ()
 
 initialize
    registerTraceClass `Translate.expr

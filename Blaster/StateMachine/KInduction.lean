@@ -161,6 +161,6 @@ def kIndCommand (sOpts: BlasterOptions) (stx : Syntax) : TermElabM Unit :=
     discard $ kIndStrategy e|>.run env
 
 @[command_elab kind]
-def kIndImp : CommandElab := commandInvoker kIndCommand
+def kIndImp : CommandElab := commandInvoker (fun opts tr _line => kIndCommand opts tr)
 
 end Blaster.StateMachine

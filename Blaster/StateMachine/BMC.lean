@@ -104,6 +104,6 @@ def bmcCommand (sOpts: BlasterOptions) (stx : Syntax) : TermElabM Unit :=
      discard $ bmcStrategy e|>.run env
 
 @[command_elab bmc]
-def bmcImp : CommandElab := commandInvoker bmcCommand
+def bmcImp : CommandElab := commandInvoker (fun opts tr _line => bmcCommand opts tr)
 
 end Blaster.StateMachine
