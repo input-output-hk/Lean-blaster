@@ -97,8 +97,8 @@ def command (sOpts : BlasterOptions) (stx : Syntax) (sourceLine : Nat := 0) : Te
     let startRec : Blaster.BlastResults.StartRecord :=
       { name := s!"Line {sourceLine}", desc := s!"Line {sourceLine}",
         decl := declStr, moduleName := modName, line := sourceLine }
-    (Blaster.BlastResults.writeStart startRec).catchExceptions fun _ => pure ()
     let startMs ← IO.monoMsNow
+    (Blaster.BlastResults.writeStart startRec).catchExceptions fun _ => pure ()
     let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
     try
       let ((result, _), _) ← Translate.main e |>.run env
