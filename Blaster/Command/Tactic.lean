@@ -1,4 +1,5 @@
 import Lean
+import Blaster.BlastResults
 import Blaster.Command.Syntax
 import Blaster.Smt.Translate
 import Blaster.Optimize
@@ -31,19 +32,53 @@ syntax (name := blasterTactic) "blaster" (solveOption)* : tactic
 @[tactic blasterTactic]
 def blasterTacticImp : Tactic := fun stx =>
   withMainContext $ do
-   -- Parse options in any order
-   let opts := stx[1].getArgs
-   let sOpts ← parseSolveOptions opts default
-   let goal ← revertHypotheses (← getMainGoal)
-   let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
-   let ((result, optExpr), _) ←
-     withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0 }) $ do
-       IO.setNumHeartbeats 0
-       Translate.main (← goal.getType) (logUndetermined := false) |>.run env
-   match result with
-   | .Valid => goal.admit -- TODO: replace with proof reconstruction
-   | .Falsified cex => throwTacticEx `blaster goal "Goal was falsified (see counterexample above)"
-   | .Undetermined =>
+    let opts := stx[1].getArgs
+    let sOpts ← parseSolveOptions opts default
+    -- Capture original goal type for display before hypotheses are reverted.
+    let origGoalType ← (← getMainGoal).getType
+    let goal ← revertHypotheses (← getMainGoal)
+    -- Gather theorem identity from the enclosing declaration.
+    let declName? ← Lean.Elab.Term.getDeclName?
+    let name    := declName?.map (·.toString) |>.getD "anonymous"
+    let docStr? ← do
+      if let some n := declName? then findDocString? (← getEnv) n
+      else pure none
+    let desc    := docStr?.getD name
+    let declStr := s!"theorem {name} : {← ppExpr origGoalType}"
+    let modName := (← getEnv).mainModule.toString
+    let fm ← getFileMap
+    let line := stx.getPos?.map (fm.toPosition ·) |>.map (·.line) |>.getD 0
+    let startRec : Blaster.BlastResults.StartRecord :=
+      { name, desc, decl := declStr, moduleName := modName, line }
+    let startMs ← IO.monoMsNow
+    (Blaster.BlastResults.writeStart startRec).catchExceptions fun _ => pure ()
+    let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
+    let resultPair ← try
+      let ((result, optExpr), _) ←
+        withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0 }) $ do
+          IO.setNumHeartbeats 0
+          Translate.main (← goal.getType) (logUndetermined := false) |>.run env
+      let endMs ← IO.monoMsNow
+      let (status, cex) := match result with
+        | .Valid         => ("proved",       [])
+        | .Falsified cex => ("falsified",    cex)
+        | .Undetermined  => ("undetermined", [])
+      let endRec : Blaster.BlastResults.EndRecord :=
+        { name, status, time_ms := endMs - startMs, cex }
+      (Blaster.BlastResults.writeEnd endRec modName).catchExceptions fun _ => pure ()
+      pure (result, optExpr)
+    catch ex =>
+      let endMs ← IO.monoMsNow
+      let endRec : Blaster.BlastResults.EndRecord :=
+        { name, status := "error", time_ms := endMs - startMs, cex := [] }
+      (Blaster.BlastResults.writeEnd endRec modName).catchExceptions fun _ => pure ()
+      throw ex
+    let (result, optExpr) := resultPair
+    -- Original result-handling logic unchanged.
+    match result with
+    | .Valid       => goal.admit -- TODO: replace with proof reconstruction
+    | .Falsified _ => throwTacticEx `blaster goal "Goal was falsified (see counterexample above)"
+    | .Undetermined =>
         -- Replace the goal with the optimized expression
         let newGoal ← goal.replaceTargetDefEq optExpr
         replaceMainGoal [newGoal]
