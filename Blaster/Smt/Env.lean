@@ -53,6 +53,8 @@ def blankRef : TranslateEnvT Syntax := do
   return Syntax.atom (SourceInfo.original "".toSubstring pos "  ".toSubstring pos) ""
 
 def logResult (r : Result) (isCTI := false) (indLabel := "") (cexLabel := "Counterexample") : TranslateEnvT Unit := do
+  -- In blast-check mode all output goes through the NDJSON file, not logInfo.
+  if (← IO.getEnv "BLAST_CHECK") == some "1" then return ()
   let sOpts := (← get).optEnv.options.solverOptions
   let ref ← blankRef
   match r with

@@ -35,7 +35,7 @@ def logSmtQuery : TranslateEnvT Unit := do
 @[always_inline, inline]
 def profileTask (msg : String) (p : TranslateEnvT α) (verboseLevel := 1) : TranslateEnvT α := do
   let sOpts := (← get).optEnv.options.solverOptions
-  if sOpts.verbose ≥ verboseLevel then
+  if sOpts.verbose ≥ verboseLevel && (← IO.getEnv "BLAST_CHECK") != some "1" then
     let startTime ← IO.monoMsNow
     IO.println f!"[Start]: {msg}"
     (← IO.getStdout).flush
