@@ -117,6 +117,7 @@ private def processLine
       match e.status with
       | "proved"    => renderProved s e
       | "falsified" => renderFalsified s e
+      | "error"     => renderUndetermined s e  -- translation/solver error; still unresolved
       | _           => renderUndetermined s e
     | none => pure ()
     -- Update counters
@@ -153,14 +154,12 @@ def main (args : List String) : IO UInt32 := do
       return 1
     | some m => pure m
 
-  -- Collect current PATH so the child process can find tools
-  let pathVal := (← IO.getEnv "PATH").getD ""
-
-  -- Spawn `lake build <moduleName>` with BLAST_CHECK=1, suppressing output
+  -- Spawn `lake build <moduleName>` with BLAST_CHECK=1, suppressing output.
+  -- Child inherits the full parent environment; BLAST_CHECK is added on top.
   let proc ← IO.Process.spawn {
     cmd    := "lake"
     args   := #["build", moduleName]
-    env    := #[("BLAST_CHECK", "1"), ("PATH", pathVal)]
+    env    := #[("BLAST_CHECK", "1")]
     stdout := .null
     stderr := .null
   }
@@ -191,7 +190,9 @@ def main (args : List String) : IO UInt32 := do
     | .ok code => code
     | .error _ => 1
 
-  -- If build failed and no records were written, show build-failed banner and exit 1
+  -- If build failed with no records, show build-failed banner and exit 1.
+  -- If build failed but some records were written (partial run), fall through
+  -- to the summary so partial results are still shown, but exit 1.
   if buildExitCode != 0 && state.lineCount == 0 then
     (renderBuildFailed moduleName).run cfg
     return 1
@@ -199,6 +200,6 @@ def main (args : List String) : IO UInt32 := do
   -- Print summary
   (renderSummary state.proved state.falsified state.undetermined state.totalMs).run cfg
 
-  -- Exit 1 if any falsified, otherwise 0
-  if state.falsified > 0 then return 1
+  -- Exit 1 if any falsified or if the build itself failed
+  if state.falsified > 0 || buildExitCode != 0 then return 1
   return 0
