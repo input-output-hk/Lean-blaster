@@ -44,3 +44,8 @@ clean_all: clean_blaster clean_tests
 
 .PHONY: check_all
 check_all: check_blaster check_tests
+
+.PHONY: blast-check
+blast-check: ## Run blast-check on a module. Usage: make blast-check MODULE=Tests.Smt.SmtEqArith
+	@lake build blast_check
+	@.lake/build/bin/blast_check $(MODULE)
