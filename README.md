@@ -143,6 +143,29 @@ theorem length_set {as : List α} {i : Nat} {a : α} : (as.set i a).length = as.
 > - When the solver returns `Undetermined` (i.e., the back-end solver was not able to prove/refute the goal),
 > the tactic returns the current goal to be solved.
 
+## blast-check: Human-Friendly Output
+
+Instead of reading raw `lake build` output, use `blast-check` for clean, formatted results — live proof status as each theorem runs, Elm-style failure blocks with first-person language, and a summary footer.
+
+**For blaster developers (in this repo):**
+```bash
+make blast-check MODULE=Tests.Smt.SmtEqArith
+```
+
+**For projects that use Blaster as a dependency:**
+```bash
+# Build the binary once after adding the dependency
+lake build +Blaster:blast_check
+
+# Run it
+.lake/packages/Blaster/build/bin/blast_check MyProject.Theorems
+```
+
+Or copy `blast-check.sh` to your project and run:
+```bash
+./blast-check.sh MyProject.Theorems
+```
+
 ## Features
 
 ### Supported
