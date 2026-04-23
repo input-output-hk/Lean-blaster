@@ -100,15 +100,23 @@ def command (sOpts : BlasterOptions) (stx : Syntax) (sourceLine : Nat := 0) : Te
     (Blaster.BlastResults.writeStart startRec).catchExceptions fun _ => pure ()
     let startMs ← IO.monoMsNow
     let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
-    let ((result, _), _) ← Translate.main e |>.run env
-    let endMs ← IO.monoMsNow
-    let (status, cex) := match result with
-      | .Valid          => ("proved",       [])
-      | .Falsified cex  => ("falsified",    cex)
-      | .Undetermined   => ("undetermined", [])
-    let endRec : Blaster.BlastResults.EndRecord :=
-      { name := s!"Line {sourceLine}", status, time_ms := endMs - startMs, cex }
-    (Blaster.BlastResults.writeEnd endRec modName).catchExceptions fun _ => pure ()
+    try
+      let ((result, _), _) ← Translate.main e |>.run env
+      let endMs ← IO.monoMsNow
+      let (status, cex) := match result with
+        | .Valid          => ("proved",       [])
+        | .Falsified cex  => ("falsified",    cex)
+        | .Undetermined   => ("undetermined", [])
+      let endRec : Blaster.BlastResults.EndRecord :=
+        { name := s!"Line {sourceLine}", status, time_ms := endMs - startMs, cex }
+      (Blaster.BlastResults.writeEnd endRec modName).catchExceptions fun _ => pure ()
+    catch ex =>
+      let endMs ← IO.monoMsNow
+      let endRec : Blaster.BlastResults.EndRecord :=
+        { name := s!"Line {sourceLine}", status := "error",
+          time_ms := endMs - startMs, cex := [] }
+      (Blaster.BlastResults.writeEnd endRec modName).catchExceptions fun _ => pure ()
+      throw ex
 
 initialize
    registerTraceClass `Translate.expr

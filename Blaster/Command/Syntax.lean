@@ -164,7 +164,6 @@ def commandInvoker (f : BlasterOptions → Syntax → Nat → TermElabM Unit) : 
 
 /-! ### Implementation of solve command -/
 @[command_elab solve]
-def solveImp : CommandElab :=
-  commandInvoker (fun opts tr line => Blaster.Smt.command opts tr line)
+def solveImp : CommandElab := commandInvoker (fun opts tr line => Blaster.Smt.command opts tr line)
 
 end Blaster.Syntax
