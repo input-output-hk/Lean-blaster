@@ -106,7 +106,9 @@ private def resultsDir : FilePath := ".lake" / "blast-results"
 def resultsPath (moduleName : String) : FilePath :=
   resultsDir / (moduleName ++ ".ndjson")
 
--- Tracks which modules have been truncated during this OS process lifetime.
+-- Safe under Lean 4's snapshot elaboration: commands in a module are elaborated
+-- sequentially (wrapAsyncAsSnapshot queues, not truly parallel within a module),
+-- so the check-and-set in writeStart is not subject to a TOCTOU race.
 private initialize truncatedModules : IO.Ref (List String) ← IO.mkRef []
 
 def writeStart (r : StartRecord) : IO Unit := do
@@ -121,6 +123,7 @@ def writeStart (r : StartRecord) : IO Unit := do
   h.flush
 
 def writeEnd (r : EndRecord) (moduleName : String) : IO Unit := do
+  IO.FS.createDirAll resultsDir
   let h ← IO.FS.Handle.mk (resultsPath moduleName) .append
   h.putStrLn (endRecordJson r)
   h.flush
