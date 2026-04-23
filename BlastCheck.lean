@@ -23,9 +23,10 @@ private def headerWidth : Nat := 60
 
 private def paddedHeader (label : String) (right : String) : String :=
   let core := "-- " ++ label ++ " "
-  let available := headerWidth - core.length - right.length
+  let sep := if right.isEmpty then "" else " "
+  let available := headerWidth - core.length - sep.length - right.length
   let fill := if available > 0 then dashes available else ""
-  core ++ fill ++ " " ++ right
+  core ++ fill ++ sep ++ right
 
 -- ── Per-record renderers ──────────────────────────────────────────────────────
 
@@ -190,9 +191,10 @@ def main (args : List String) : IO UInt32 := do
     | .ok code => code
     | .error _ => 1
 
-  -- If build failed and no records were written, show build-failed banner
+  -- If build failed and no records were written, show build-failed banner and exit 1
   if buildExitCode != 0 && state.lineCount == 0 then
     (renderBuildFailed moduleName).run cfg
+    return 1
 
   -- Print summary
   (renderSummary state.proved state.falsified state.undetermined state.totalMs).run cfg
