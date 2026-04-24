@@ -96,42 +96,45 @@ private def renderSummary
 
 -- ── Polling state ─────────────────────────────────────────────────────────────
 
+-- Map from theorem name → its start record, to handle concurrent elaboration
+-- where multiple start events arrive before any end events.
+private abbrev StartMap := Std.HashMap String StartRecord
+
 private structure RunState where
-  lineCount    : Nat := 0
-  pendingStart : Option StartRecord := none
-  proved       : Nat := 0
-  falsified    : Nat := 0
-  undetermined : Nat := 0
-  totalMs      : Nat := 0
+  lineCount     : Nat := 0
+  pendingStarts : StartMap := {}
+  proved        : Nat := 0
+  falsified     : Nat := 0
+  undetermined  : Nat := 0
+  totalMs       : Nat := 0
 
 private def processLine
     (line : String) (state : RunState) : ReaderT Config IO RunState := do
   match parseRecord line with
   | .start r =>
     renderStart r
-    return { state with pendingStart := some r }
+    return { state with pendingStarts := state.pendingStarts.insert r.name r }
   | .end_ e =>
-    -- Render based on the pending start
-    match state.pendingStart with
-    | some s =>
+    -- Look up the matching start record by name
+    let startOpt := state.pendingStarts.get? e.name
+    if let some s := startOpt then
       match e.status with
       | "proved"    => renderProved s e
       | "falsified" => renderFalsified s e
-      | "error"     => renderUndetermined s e  -- translation/solver error; still unresolved
+      | "error"     => renderUndetermined s e
       | _           => renderUndetermined s e
-    | none => pure ()
-    -- Update counters
+    let newStarts := state.pendingStarts.erase e.name
     let newState : RunState :=
       match e.status with
       | "proved"    => { state with proved       := state.proved       + 1,
                                     totalMs      := state.totalMs      + e.time_ms,
-                                    pendingStart := none }
+                                    pendingStarts := newStarts }
       | "falsified" => { state with falsified    := state.falsified    + 1,
                                     totalMs      := state.totalMs      + e.time_ms,
-                                    pendingStart := none }
+                                    pendingStarts := newStarts }
       | _           => { state with undetermined := state.undetermined + 1,
                                     totalMs      := state.totalMs      + e.time_ms,
-                                    pendingStart := none }
+                                    pendingStarts := newStarts }
     return newState
   | .unknown =>
     return state
