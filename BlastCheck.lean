@@ -74,10 +74,19 @@ private def renderCardBody (r : ResultRecord) : ReaderT Config IO Unit := do
     if r.decl.startsWith "#blaster [" && r.decl.endsWith "]" then
       r.decl.drop 10 |>.dropRight 1
     else r.decl
+  -- For named theorems, extract the docstring from label ("name  docstring" format)
+  let docString? :=
+    if r.name.startsWith "Line " then none
+    else
+      let pfx := r.name ++ "  "
+      if r.label.startsWith pfx then some (r.label.drop pfx.length)
+      else none
   println ("".style)
   let fileInfo := s!"  {filePart}  {timePart}".style
   println (match r.status with | "falsified" => fileInfo |> red | _ => fileInfo |> yellow)
   println ("".style)
+  if let some doc := docString? then
+    println (s!"    -- {doc}".style |> dim)
   println (s!"    {formula}".style)
   println ("".style)
   match r.status with
