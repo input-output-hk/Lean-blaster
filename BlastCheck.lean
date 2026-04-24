@@ -58,11 +58,15 @@ private def renderFalsified (start : StartRecord) (e : EndRecord) : ReaderT Conf
   println ("".style)
   println (s!"    {start.decl}".style)
   println ("".style)
-  println ("I found a counterexample:".style)
-  println ("".style)
-  for cexLine in e.cex do
-    println (s!"    {cexLine}".style)
-  println ("".style)
+  if e.cex.isEmpty then
+    println ("I found the theorem to be trivially false during optimization.".style)
+    println ("".style)
+  else
+    println ("I found a counterexample:".style)
+    println ("".style)
+    for cexLine in e.cex do
+      println (s!"    {cexLine}".style)
+    println ("".style)
 
 /-- Yellow bold header + timeout message -/
 private def renderUndetermined (start : StartRecord) (e : EndRecord) : ReaderT Config IO Unit := do
@@ -117,6 +121,7 @@ private def processLine
     -- Look up the matching start record by name, print start line then result together
     let startOpt := state.pendingStarts.get? e.name
     if let some s := startOpt then
+      println ("".style)
       renderStart s
       match e.status with
       | "proved"    => renderProved s e
