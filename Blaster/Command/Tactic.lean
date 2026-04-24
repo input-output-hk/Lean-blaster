@@ -40,14 +40,27 @@ def blasterTacticImp : Tactic := fun stx =>
     -- Gather theorem identity from the enclosing declaration.
     let declName? ← Lean.Elab.Term.getDeclName?
     let name    := declName?.map (·.toString) |>.getD "anonymous"
-    let docStr? ← do
-      if let some n := declName? then findDocString? (← getEnv) n
-      else pure none
-    let desc    := docStr?.getD name
-    let declStr := s!"theorem {name} : {← ppExpr origGoalType}"
     let modName := (← getEnv).mainModule.toString
     let fm ← getFileMap
     let line := stx.getPos?.map (fm.toPosition ·) |>.map (·.line) |>.getD 0
+    let docStr? : Option String ← do
+      match declName? with
+      | none => pure none
+      | some n =>
+        let fromEnv ← findDocString? (← getEnv) n
+        match fromEnv with
+        | some s => pure (some s)
+        | none =>
+          -- The current declaration isn't in the env yet while it elaborates.
+          -- Scan the source text before this tactic call for the last /-- ... -/ block.
+          let textBefore := fm.source.extract ⟨0⟩ (stx.getPos?.getD ⟨0⟩)
+          let startParts := textBefore.splitOn "/--"
+          if startParts.length < 2 then pure none
+          else
+            let endParts := startParts.getLast!.splitOn "-/"
+            pure (endParts.head?.map String.trim)
+    let desc    := docStr?.getD name
+    let declStr := s!"theorem {name} : {← ppExpr origGoalType}"
     let startRec : Blaster.BlastResults.StartRecord :=
       { name, desc, decl := declStr, moduleName := modName, line }
     let startMs ← IO.monoMsNow

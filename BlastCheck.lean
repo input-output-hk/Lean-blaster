@@ -111,7 +111,7 @@ private def byLine (results : Array ResultRecord) : Array ResultRecord :=
 -- For named theorems show the name; for #blaster calls show file:line.
 private def validLabel (r : ResultRecord) : String :=
   if r.name.startsWith "Line " then s!"{moduleToFilePath r.moduleName}:{r.line}"
-  else r.name
+  else r.label
 
 private def renderValidSection (proved : Array ResultRecord) : ReaderT Config IO Unit := do
   println ((dashes headerWidth).style |> dim)
