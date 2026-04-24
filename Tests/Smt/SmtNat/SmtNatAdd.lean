@@ -67,4 +67,7 @@ namespace Test.SmtNatAdd
 #blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : Nat), (x ≤ y + 1) = (x < y)]
 #blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : Nat), (1 + x < y) = (x ≤ y)]
 
+/-- Named test to see what hihihi -/
+theorem spec01_NatAdd :
+  ∀ (x y : Nat), x + y = y + x := by blaster
 end Test.SmtNatAdd
