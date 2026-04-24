@@ -32,12 +32,16 @@ private def paddedHeader (label : String) (right : String) : String :=
 
 /-- Gray/dim line showing that a check is running -/
 private def renderStart (r : StartRecord) : ReaderT Config IO Unit := do
+  -- For #blaster calls name == desc == "Line N"; use the decl expression instead.
+  -- For `by blaster` theorems, name is the theorem name and desc is the docstring.
   let label :=
     if r.name == r.desc then
-      s!"  ⟳  {r.name}"
-    else
-      s!"  ⟳  {r.name}  {r.desc}"
-  println (label.style |> dim)
+      -- Strip "#blaster [" prefix and "]" suffix to show just the formula.
+      let d := r.decl
+      if d.startsWith "#blaster [" && d.endsWith "]" then d.drop 10 |>.dropRight 1
+      else r.name
+    else s!"{r.name}  {r.desc}"
+  println (s!"  ⟳  {label}".style |> dim)
 
 /-- Green bold header + indented declaration -/
 private def renderProved (start : StartRecord) (e : EndRecord) : ReaderT Config IO Unit := do
