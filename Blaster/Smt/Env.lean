@@ -48,9 +48,7 @@ def falsifiedError (r : Result) : String :=
   s!"Falsified result expected but got {reprStr r}"
 
 
-def blankRef : TranslateEnvT Syntax := do
-  let pos ← getRefPos
-  return Syntax.atom (SourceInfo.original "".toSubstring pos "  ".toSubstring pos) ""
+def blankRef : TranslateEnvT Syntax := getRef
 
 def logResult (r : Result) (isCTI := false) (indLabel := "") (cexLabel := "Counterexample") : TranslateEnvT Unit := do
   let sOpts := (← get).optEnv.options.solverOptions

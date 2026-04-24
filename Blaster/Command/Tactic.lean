@@ -28,6 +28,17 @@ Example: `blaster (timeout: 10) (verbose: 1)`
 syntax (name := blasterTactic) "blaster" (solveOption)* : tactic
 
 
+/-- Custom sorry for Blaster to differentiate
+    between SMT-verified goals and regular `sorry`.-/
+axiom blasterProven : ∀ {α : Sort u}, α
+
+private def blasterAdmit (mvarId : MVarId) : MetaM Unit :=
+  mvarId.withContext do
+    mvarId.checkNotAssigned `blasterAdmit
+    let mvarType ← mvarId.getType >>= instantiateMVars
+    let u ← getLevel mvarType
+    mvarId.assign (mkApp (mkConst ``blasterProven [u]) mvarType)
+
 @[tactic blasterTactic]
 def blasterTacticImp : Tactic := fun stx =>
   withMainContext $ do
@@ -41,7 +52,11 @@ def blasterTacticImp : Tactic := fun stx =>
        IO.setNumHeartbeats 0
        Translate.main (← goal.getType) (logUndetermined := false) |>.run env
    match result with
-   | .Valid => goal.admit -- TODO: replace with proof reconstruction
+   | .Valid =>
+      blasterAdmit goal
+      if (← getOptions).getBool `warn.sorry true then
+        logWarningAt stx "declaration uses 'blasterProven' (SMT-verified, no proof term)" -- TODO: replace with proof reconstruction
+
    | .Falsified cex => throwTacticEx `blaster goal "Goal was falsified (see counterexample above)"
    | .Undetermined =>
         -- Replace the goal with the optimized expression
@@ -65,6 +80,5 @@ def blasterTacticImp : Tactic := fun stx =>
           (fun h g => do
              let (_, g) ← g.revert #[h]
              return g) goal
-
 
 end Blaster.Tactic
