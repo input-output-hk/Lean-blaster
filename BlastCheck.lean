@@ -305,19 +305,18 @@ def main (args : List String) : IO UInt32 := do
     | .ok code => code
     | .error _ => 1
 
-  -- Cache-hit fallback: if the build succeeded but wrote no new records, the module
-  -- was served from cache. Read the full existing file so old results are still shown.
-  if state.results.isEmpty && buildExitCode == 0 then
+  -- Fallback: if polling captured no results (preRunLines >= new records, or cache hit),
+  -- read the full ndjson from the start. This handles both cache hits and builds that
+  -- fail with exit code 1 (e.g. a by-blaster falsified theorem throws throwTacticEx).
+  if state.results.isEmpty then
     let allLines ← readAllLines moduleName
     let mut s : RunState := {}
     for line in allLines do
       s := processLine line s
     state := s
 
-  -- If build failed with no records, show build-failed banner and exit 1.
-  -- If build failed but some records were written (partial run), fall through
-  -- to the summary so partial results are still shown, but exit 1.
-  if buildExitCode != 0 && state.lineCount == 0 then
+  -- If no results even after the fallback, the build truly failed (compile error).
+  if buildExitCode != 0 && state.results.isEmpty then
     (renderBuildFailed moduleName).run cfg
     return 1
 
