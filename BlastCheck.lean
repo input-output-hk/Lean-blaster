@@ -112,12 +112,12 @@ private def processLine
     (line : String) (state : RunState) : ReaderT Config IO RunState := do
   match parseRecord line with
   | .start r =>
-    renderStart r
     return { state with pendingStarts := state.pendingStarts.insert r.name r }
   | .end_ e =>
-    -- Look up the matching start record by name
+    -- Look up the matching start record by name, print start line then result together
     let startOpt := state.pendingStarts.get? e.name
     if let some s := startOpt then
+      renderStart s
       match e.status with
       | "proved"    => renderProved s e
       | "falsified" => renderFalsified s e
