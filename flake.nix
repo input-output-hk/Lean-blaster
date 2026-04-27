@@ -98,6 +98,10 @@
           '';
         };
 
+        legacyPackages = {
+          inherit blaster tests z3check;
+        };
+
         devShells.default = pkgs.mkShell {
           packages = [leanPkgs.lean-all pkgs.z3 pkgs.elan];
         };
