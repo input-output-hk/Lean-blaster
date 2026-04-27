@@ -25,7 +25,16 @@
         ...
       }: let
         leanPkgs = pkgs.lean;
-        src = pkgs.lib.cleanSource ./.;
+        src = pkgs.lib.cleanSourceWith {
+          src = ./.;
+          filter = path: type: let
+            baseName = builtins.baseNameOf (toString path);
+          in
+            pkgs.lib.cleanSourceFilter path type
+            && baseName != ".lake"
+            && baseName != ".direnv"
+            && !(pkgs.lib.hasPrefix "result" baseName);
+        };
         inherit (pkgs) makeWrapper;
         blaster = leanPkgs.buildLeanPackage {
           name = "Blaster";
