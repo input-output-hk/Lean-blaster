@@ -86,4 +86,92 @@ def isValidRatio (a : Ratio) : Bool := !a.isNaN
 def isValidAndNormalizedRatio (a : Ratio) : Bool :=
   !a.isNaN && decide (a.denominator > 0)
 
+/-- Absolute value on ratio; NaN propagates. -/
+def absRatio (a : Ratio) : Ratio :=
+  if a.isNaN then R_NaN
+  else if a.numerator < 0 then { numerator := -a.numerator, denominator := a.denominator, isNaN := false }
+  else a
+
+/-- Reciprocal; NaN when the numerator is zero (this also covers a NaN input). -/
+def recip (a : Ratio) : Ratio :=
+  if a.numerator == 0 then R_NaN
+  else normalizeRatio a.denominator a.numerator
+
+/-- Integer division rounding toward zero (Lustre `div` = Euclidean = `Int.ediv`).
+    Undefined when `b = 0`. -/
+def quotient (a b : Int) : Int :=
+  let t_div := Int.ediv (absInt a) b
+  if a < 0 then -t_div else t_div
+
+/-- Truncate a ratio toward zero. Undefined when NaN. -/
+def truncate (a : Ratio) : Int := quotient a.numerator a.denominator
+
+/-- Ceiling of a ratio (rounds toward +∞). Uses `(num + den - 1) ediv den`. -/
+def ceil (a : Ratio) : Int := Int.ediv (a.numerator + a.denominator - 1) a.denominator
+
+/-- Divide an integer by a ratio, rounding toward zero. -/
+def truncateRecipRatio (a : Int) (b : Ratio) : Int := quotient (a * b.denominator) b.numerator
+
+/-- Multiply an integer by a ratio; NaN propagates. -/
+def integerMulRatio (a : Int) (b : Ratio) : Ratio :=
+  if b.isNaN then R_NaN
+  else { numerator := b.numerator * a, denominator := b.denominator, isNaN := false }
+
+/-- Multiply a ratio by the reciprocal of an integer; NaN when ratio is NaN or a = 0. -/
+def recipMulRatio (a : Int) (b : Ratio) : Ratio :=
+  if b.isNaN || a == 0 then R_NaN
+  else normalizeRatio b.numerator (b.denominator * a)
+
+/-- Add an integer to a ratio; NaN propagates. -/
+def integerAddRatio (a : Int) (b : Ratio) : Ratio :=
+  if b.isNaN then R_NaN
+  else { numerator := a * b.denominator + b.numerator, denominator := b.denominator, isNaN := false }
+
+/-- Subtract a ratio from an integer; NaN propagates. -/
+def integerSubRatio (a : Int) (b : Ratio) : Ratio :=
+  if b.isNaN then R_NaN
+  else { numerator := a * b.denominator - b.numerator, denominator := b.denominator, isNaN := false }
+
+/-- Integer < ratio. False if the ratio is NaN. -/
+def integerLtRatio (a : Int) (b : Ratio) : Bool :=
+  if b.isNaN then false else decide (b.denominator * a < b.numerator)
+
+/-- Integer ≤ ratio. False if the ratio is NaN. -/
+def integerLeqRatio (a : Int) (b : Ratio) : Bool :=
+  if b.isNaN then false else decide (b.denominator * a ≤ b.numerator)
+
+/-- Integer > ratio. False if the ratio is NaN. -/
+def integerGtRatio (a : Int) (b : Ratio) : Bool :=
+  if b.isNaN then false else decide (b.denominator * a > b.numerator)
+
+/-- Integer ≥ ratio. False if the ratio is NaN. -/
+def integerGeqRatio (a : Int) (b : Ratio) : Bool :=
+  if b.isNaN then false else decide (b.denominator * a ≥ b.numerator)
+
+/-- Ratio > integer. False if the ratio is NaN. -/
+def ratioGtInteger (a : Ratio) (b : Int) : Bool :=
+  if a.isNaN then false else decide (a.numerator > a.denominator * b)
+
+/-- Ratio ≥ integer. False if the ratio is NaN. -/
+def ratioGeqInteger (a : Ratio) (b : Int) : Bool :=
+  if a.isNaN then false else decide (a.numerator ≥ a.denominator * b)
+
+/-- Ratio < integer. False if the ratio is NaN. -/
+def ratioLtInteger (a : Ratio) (b : Int) : Bool :=
+  if a.isNaN then false else decide (a.numerator < a.denominator * b)
+
+/-- Ratio ≤ integer. False if the ratio is NaN. -/
+def ratioLeqInteger (a : Ratio) (b : Int) : Bool :=
+  if a.isNaN then false else decide (a.numerator ≤ a.denominator * b)
+
+/-- Minimum of two ratios; NaN if either is NaN. -/
+def minRatio (a b : Ratio) : Ratio :=
+  if a.isNaN || b.isNaN then R_NaN
+  else if a.numerator * b.denominator < b.numerator * a.denominator then a else b
+
+/-- Maximum of two ratios; NaN if either is NaN. -/
+def maxRatio (a b : Ratio) : Ratio :=
+  if a.isNaN || b.isNaN then R_NaN
+  else if a.numerator * b.denominator < b.numerator * a.denominator then b else a
+
 end Ratio
