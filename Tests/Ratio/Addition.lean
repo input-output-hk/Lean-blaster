@@ -211,4 +211,25 @@ namespace Tests.Ratio.Addition
   isValidRatio a = true → isValidRatio b = true →
   (isValidAndNormalizedRatio (addRatio a b)) = true ]
 
+/- AdditionDistributivity -/
+
+-- ADD_MUL_DISTRIB: (a + b) * c = (a * c) + (b * c), plus the source's normalization/positivity lemmas
+#blaster (timeout: 120) [ ∀ (a_n a_d b_n b_d c_n c_d : Int),
+  let a := ratio a_n a_d
+  let b := ratio b_n b_d
+  let c := ratio c_n c_d
+  isValidRatio a = true → isValidRatio b = true → isValidRatio c = true →
+  ( eqRatio (mulRatio (addRatio a b) c) (addRatio (mulRatio a c) (mulRatio b c))
+    && (((a.denominator == -a_d) && (a.numerator == -a_n)) || ((a.denominator == a_d) && (a.numerator == a_n)))
+    && (((b.denominator == -b_d) && (b.numerator == -b_n)) || ((b.denominator == b_d) && (b.numerator == b_n)))
+    && (((c.denominator == -c_d) && (c.numerator == -c_n)) || ((c.denominator == c_d) && (c.numerator == c_n)))
+    && decide ((addRatio (mulRatio a c) (mulRatio b c)).denominator > 0)
+    && decide ((mulRatio a c).denominator > 0)
+    && decide ((mulRatio b c).denominator > 0)
+    && decide ((mulRatio (addRatio a b) c).denominator > 0)
+    && decide ((addRatio a b).denominator > 0)
+    && decide (a.denominator > 0)
+    && decide (b.denominator > 0)
+    && decide (c.denominator > 0) ) = true ]
+
 end Tests.Ratio.Addition
