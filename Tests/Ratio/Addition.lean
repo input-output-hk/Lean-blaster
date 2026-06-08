@@ -188,4 +188,27 @@ namespace Tests.Ratio.Addition
   ((((a.denominator == -a_d) && (a.numerator == -a_n))
     || ((a.denominator == a_d) && (a.numerator == a_n)))) = true ]
 
+/- AdditionValidity -/
+
+-- ADD_NOT_VALIDRATIO_LEFT: ¬valid a → valid b → ¬valid (a + b)
+#blaster [ ∀ (a_n a_d b_n b_d : Int),
+  let a := ratio a_n a_d
+  let b := ratio b_n b_d
+  isValidRatio a = false → isValidRatio b = true →
+  (isValidRatio (addRatio a b)) = false ]
+
+-- ADD_NOT_VALIDRATIO_RIGHT: valid a → ¬valid b → ¬valid (a + b)
+#blaster [ ∀ (a_n a_d b_n b_d : Int),
+  let a := ratio a_n a_d
+  let b := ratio b_n b_d
+  isValidRatio a = true → isValidRatio b = false →
+  (isValidRatio (addRatio a b)) = false ]
+
+-- ADD_VALID_AND_NORMALIZED_RATIO: valid a → valid b → validAndNormalized (a + b)
+#blaster (timeout: 60) [ ∀ (a_n a_d b_n b_d : Int),
+  let a := ratio a_n a_d
+  let b := ratio b_n b_d
+  isValidRatio a = true → isValidRatio b = true →
+  (isValidAndNormalizedRatio (addRatio a b)) = true ]
+
 end Tests.Ratio.Addition
