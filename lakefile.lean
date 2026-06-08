@@ -13,6 +13,9 @@ lean_lib «Blaster» where
 lean_lib «Ratio» where
   precompileModules := true
 
+lean_lib «Stablecoin» where
+  precompileModules := true
+
 @[test_driver]
 lean_lib «Tests» where
   moreLeanArgs := #["--threads=4"]
