@@ -10,6 +10,9 @@ lean_lib «Blaster» where
   precompileModules := true
   moreLeancArgs := #["-O3"]
 
+lean_lib «Ratio» where
+  precompileModules := true
+
 @[test_driver]
 lean_lib «Tests» where
   moreLeanArgs := #["--threads=4"]
