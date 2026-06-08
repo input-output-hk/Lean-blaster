@@ -93,4 +93,99 @@ namespace Tests.Ratio.Addition
   isValidRatio a = true → isValidRatio b = true →
   (negate (addRatio a b) == addRatio (negate a) (negate b)) = true ]
 
+/- AdditionRelational -/
+
+-- ADD_TWICE_EQ_MUL_BY_2: a + a = 2 * a
+#blaster [ ∀ (a_n a_d : Int),
+  let a := ratio a_n a_d
+  isValidRatio a = true →
+  (eqRatio (addRatio a a) (mulRatio (fromInteger 2) a)) = true ]
+
+-- ADD_GT_POS: a > 0 → b > 0 → a + b > 0
+#blaster [ ∀ (a_n a_d b_n b_d : Int),
+  let a := ratio a_n a_d
+  let b := ratio b_n b_d
+  isValidRatio a = true → isValidRatio b = true →
+  gtRatio a R_ZERO = true → gtRatio b R_ZERO = true →
+  (gtRatio (addRatio a b) R_ZERO) = true ]
+
+-- ADD_LT_NEG: a < 0 → b < 0 → a + b < 0
+#blaster [ ∀ (a_n a_d b_n b_d : Int),
+  let a := ratio a_n a_d
+  let b := ratio b_n b_d
+  isValidRatio a = true → isValidRatio b = true →
+  ltRatio a R_ZERO = true → ltRatio b R_ZERO = true →
+  (ltRatio (addRatio a b) R_ZERO) = true ]
+
+-- ADD_OPP_GEQ_POS: a < 0 → a + b ≥ 0 → b ≥ -a
+#blaster [ ∀ (a_n a_d b_n b_d : Int),
+  let a := ratio a_n a_d
+  let b := ratio b_n b_d
+  isValidRatio a = true → isValidRatio b = true →
+  ltRatio a R_ZERO = true → geqRatio (addRatio a b) R_ZERO = true →
+  (geqRatio b (negate a)) = true ]
+
+-- ADD_OPP_LEQ_NEG: a > 0 → a + b ≤ 0 → b ≤ -a
+#blaster [ ∀ (a_n a_d b_n b_d : Int),
+  let a := ratio a_n a_d
+  let b := ratio b_n b_d
+  isValidRatio a = true → isValidRatio b = true →
+  gtRatio a R_ZERO = true → leqRatio (addRatio a b) R_ZERO = true →
+  (leqRatio b (negate a)) = true ]
+
+-- ADD_REQ_IFF: (a + b = a + c) ↔ (b = c)
+#blaster (timeout: 60) [ ∀ (a_n a_d b_n b_d c_n c_d : Int),
+  let a := ratio a_n a_d
+  let b := ratio b_n b_d
+  let c := ratio c_n c_d
+  isValidRatio a = true → isValidRatio b = true →
+  (eqRatio (addRatio a b) (addRatio a c) == eqRatio b c) = true ]
+
+-- ADD_RLT_IFF: (a + b < a + c) ↔ (b < c)
+#blaster (timeout: 60) [ ∀ (a_n a_d b_n b_d c_n c_d : Int),
+  let a := ratio a_n a_d
+  let b := ratio b_n b_d
+  let c := ratio c_n c_d
+  isValidRatio a = true → isValidRatio b = true →
+  (ltRatio (addRatio a b) (addRatio a c) == ltRatio b c) = true ]
+
+-- ADD_RLEQ_IFF: (a + b ≤ a + c) ↔ (b ≤ c)
+#blaster (timeout: 60) [ ∀ (a_n a_d b_n b_d c_n c_d : Int),
+  let a := ratio a_n a_d
+  let b := ratio b_n b_d
+  let c := ratio c_n c_d
+  isValidRatio a = true → isValidRatio b = true →
+  (leqRatio (addRatio a b) (addRatio a c) == leqRatio b c) = true ]
+
+-- ADD_RGT_IFF: (a + b > a + c) ↔ (b > c)
+#blaster (timeout: 60) [ ∀ (a_n a_d b_n b_d c_n c_d : Int),
+  let a := ratio a_n a_d
+  let b := ratio b_n b_d
+  let c := ratio c_n c_d
+  isValidRatio a = true → isValidRatio b = true →
+  (gtRatio (addRatio a b) (addRatio a c) == gtRatio b c) = true ]
+
+-- ADD_RGEQ_IFF: (a + b ≥ a + c) ↔ (b ≥ c)
+#blaster (timeout: 60) [ ∀ (a_n a_d b_n b_d c_n c_d : Int),
+  let a := ratio a_n a_d
+  let b := ratio b_n b_d
+  let c := ratio c_n c_d
+  isValidRatio a = true → isValidRatio b = true →
+  (geqRatio (addRatio a b) (addRatio a c) == geqRatio b c) = true ]
+
+-- ADD_EQ_SWAP: (a + b = c) ↔ (a = c - b)
+#blaster (timeout: 60) [ ∀ (a_n a_d b_n b_d c_n c_d : Int),
+  let a := ratio a_n a_d
+  let b := ratio b_n b_d
+  let c := ratio c_n c_d
+  isValidRatio a = true → isValidRatio b = true →
+  (eqRatio (addRatio a b) c == eqRatio a (subRatio c b)) = true ]
+
+-- Normalization lemmas (numerator/denominator carry at most a shared sign flip)
+#blaster [ ∀ (a_n a_d : Int),
+  let a := ratio a_n a_d
+  isValidRatio a = true →
+  ((((a.denominator == -a_d) && (a.numerator == -a_n))
+    || ((a.denominator == a_d) && (a.numerator == a_n)))) = true ]
+
 end Tests.Ratio.Addition
