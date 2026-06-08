@@ -181,12 +181,25 @@ namespace Tests.Ratio.Addition
   isValidRatio a = true → isValidRatio b = true →
   (eqRatio (addRatio a b) c == eqRatio a (subRatio c b)) = true ]
 
--- Normalization lemmas (numerator/denominator carry at most a shared sign flip)
+-- Normalization lemmas (numerator/denominator carry at most a shared sign flip).
+-- One per node variable a/b/c, mirroring AdditionRelational.lus:48-50.
 #blaster [ ∀ (a_n a_d : Int),
   let a := ratio a_n a_d
   isValidRatio a = true →
   ((((a.denominator == -a_d) && (a.numerator == -a_n))
     || ((a.denominator == a_d) && (a.numerator == a_n)))) = true ]
+
+#blaster [ ∀ (b_n b_d : Int),
+  let b := ratio b_n b_d
+  isValidRatio b = true →
+  ((((b.denominator == -b_d) && (b.numerator == -b_n))
+    || ((b.denominator == b_d) && (b.numerator == b_n)))) = true ]
+
+#blaster [ ∀ (c_n c_d : Int),
+  let c := ratio c_n c_d
+  isValidRatio c = true →
+  ((((c.denominator == -c_d) && (c.numerator == -c_n))
+    || ((c.denominator == c_d) && (c.numerator == c_n)))) = true ]
 
 /- AdditionValidity -/
 
