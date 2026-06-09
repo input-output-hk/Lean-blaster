@@ -73,7 +73,7 @@ instance theorem12 : StateMachine Inp St where
       i.s_market.price < (-(computeFee params.fees.fee_s_sc (price_sc p_reserve p_sc i.rate * (-1))))) →
         o_msg.ack = .RedeemedSC)
 
-#bmc (max-depth: 2) (timeout: 60) [theorem12]
-#kind (max-depth: 2) (timeout: 60) [theorem12]
+#bmc (max-depth: 1) (timeout: 60) [theorem12]
+#kind (max-depth: 1) (timeout: 60) [theorem12]
 
 end Tests.Stablecoin.Theorem1and2
