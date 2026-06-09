@@ -183,7 +183,7 @@ namespace Tests.Ratio.RatioInteger
   (ratioLeqInteger a i) = false ]
 
 -- RATIO_LEQ_INTEGER_CORRECTNESS
-#blaster (timeout: 60) [ ∀ (i a_n a_d : Int),
+#blaster [ ∀ (i a_n a_d : Int),
   let a := ratio a_n a_d
   isValidRatio a = true →
   (ratioLeqInteger a i == leqRatio a (fromInteger i)) = true ]

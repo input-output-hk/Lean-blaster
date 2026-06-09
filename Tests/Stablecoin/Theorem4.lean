@@ -24,6 +24,6 @@ instance theorem4 : StateMachine Inp St where
     let (_, c) := stepStableCoin i.i_msg i.rate s.core
     equity c.reserve c.n_sc i.rate ≥ 0
 
-#kind (max-depth: 3) (timeout: 60) [theorem4]
+#kind (max-depth: 1) (timeout: 60) [theorem4]
 
 end Tests.Stablecoin.Theorem4

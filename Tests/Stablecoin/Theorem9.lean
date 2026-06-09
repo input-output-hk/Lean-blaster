@@ -60,6 +60,6 @@ instance theorem9 : StateMachine Inp St where
     ∧ (p_rc > 0 → p_reserve > 0)
     ∧ (p_sc > 0 → p_reserve > 0)
 
-#kind (max-depth: 1) (timeout: 30) [theorem9]
+#kind (max-depth: 3) (timeout: 30) [theorem9]
 
 end Tests.Stablecoin.Theorem9

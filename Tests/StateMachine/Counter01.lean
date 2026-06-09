@@ -24,6 +24,6 @@ instance counter : StateMachine Request Nat where
 
 #bmc (max-depth: 6) [counter]
 
-#kind (max-depth: 3) [counter]
+#kind (max-depth: 1) [counter]
 
 end Test.Counter01

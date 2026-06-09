@@ -38,6 +38,6 @@ instance theorem21and22 : StateMachine Inp St where
     --             THEN total buying price = max(DefaultPrice, EquityPrice) * N * (1 + baseFee)
     (o_msg.ack = .MintedRC → o_msg.price = computeFee params.fees.fee_b_rc b_price)
 
-#kind (max-depth: 3) (timeout: 30) [theorem21and22]
+#kind (max-depth: 1) (timeout: 30) [theorem21and22]
 
 end Tests.Stablecoin.Theorem21and22

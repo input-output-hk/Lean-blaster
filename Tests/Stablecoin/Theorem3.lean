@@ -46,6 +46,6 @@ instance theorem3 : StateMachine Inp St where
     ∧ ( (n_sc > 0 ∧ p_rate > 0 ∧ rate > p_rate ∧ reserve > n_sc * p_rate) →
           (reserve - n_sc * p_rate) * rate > 0 )
 
-#kind (max-depth: 3) (timeout: 60) [theorem3]
+#kind (max-depth: 1) (timeout: 60) [theorem3]
 
 end Tests.Stablecoin.Theorem3

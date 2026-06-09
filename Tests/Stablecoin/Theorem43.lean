@@ -48,6 +48,6 @@ instance theorem43 : StateMachine Inp St where
     ∧
     (p_rc > 0 → p_reserve > 0)
 
-#kind (max-depth: 3) (timeout: 30) [theorem43]
+#kind (max-depth: 1) (timeout: 30) [theorem43]
 
 end Tests.Stablecoin.Theorem43

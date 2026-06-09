@@ -236,13 +236,14 @@ namespace Tests.Ratio.Addition
     && (((a.denominator == -a_d) && (a.numerator == -a_n)) || ((a.denominator == a_d) && (a.numerator == a_n)))
     && (((b.denominator == -b_d) && (b.numerator == -b_n)) || ((b.denominator == b_d) && (b.numerator == b_n)))
     && (((c.denominator == -c_d) && (c.numerator == -c_n)) || ((c.denominator == c_d) && (c.numerator == c_n)))
-    && decide ((addRatio (mulRatio a c) (mulRatio b c)).denominator > 0)
-    && decide ((mulRatio a c).denominator > 0)
-    && decide ((mulRatio b c).denominator > 0)
-    && decide ((mulRatio (addRatio a b) c).denominator > 0)
-    && decide ((addRatio a b).denominator > 0)
-    && decide (a.denominator > 0)
-    && decide (b.denominator > 0)
-    && decide (c.denominator > 0) ) = true ]
+    && ((addRatio (mulRatio a c) (mulRatio b c)).denominator > 0)
+    && ((mulRatio a c).denominator > 0)
+    && ((mulRatio b c).denominator > 0)
+    && ((mulRatio (addRatio a b) c).denominator > 0)
+    && ((addRatio a b).denominator > 0)
+    && (a.denominator > 0)
+    && (b.denominator > 0)
+    && (c.denominator > 0)
+  ) = true ]
 
 end Tests.Ratio.Addition
