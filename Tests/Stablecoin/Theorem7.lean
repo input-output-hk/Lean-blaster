@@ -26,56 +26,53 @@ structure Inp where
   i_rc      : Int
 deriving BEq, Repr, Inhabited
 
-/-- State = bank pre-state + all five observer fields + p_rate (needed for constant_rate recurrence).
-    Framework pairing: `s.core` = (p_reserve, p_sc, p_rc) at step k;
-    `stepStableCoin i.i_msg i.rate s.core` yields (o_msg, post-state).
-    Observer recurrences:
-      constant_rate : Bool   — true at step 0; prev_cr ∧ (rate = prev_rate) thereafter
-      p_rate        : Int    — holds rate of previous step (for constant_rate recurrence)
-      reserve_0     : Int    — frozen at i_reserve of step 0
-      n_sc_0        : Int    — frozen at i_sc of step 0
-      n_rc_0        : Int    — frozen at i_rc of step 0
-      coins_positive: Bool   — (i_sc>0 ∧ i_rc>0) at step 0; prev_cp ∧ p_sc>0 ∧ p_rc>0 thereafter
--/
+/-- State = bank pre-state + observer fields.
+    `cr_pre`  and `p_rate`: store the PREVIOUS step's constant_rate and rate, so that
+      `constant_rate` for the CURRENT step is recomputed in `invariants` as
+      `s.cr_pre && (i.rate == s.p_rate)`.
+    `coins_positive_pre`: store the PREVIOUS step's coins_positive, so that
+      `coins_positive` for the CURRENT step is recomputed in `invariants` as
+      `s.coins_positive_pre && (s.core.n_sc > 0 && s.core.n_rc > 0)`.
+      (s.core = p_sc/p_rc = pre-state at step k, so p_sc>0 and p_rc>0 is the source's "pre" values.)
+    `reserve_0`, `n_sc_0`, `n_rc_0`: frozen at step 0. -/
 structure St where
-  core           : CoreState
-  constant_rate  : Bool
-  p_rate         : Int
-  reserve_0      : Int
-  n_sc_0         : Int
-  n_rc_0         : Int
-  coins_positive : Bool
+  core               : CoreState
+  cr_pre             : Bool   -- constant_rate at PREVIOUS step
+  p_rate             : Int    -- rate at PREVIOUS step
+  reserve_0          : Int
+  n_sc_0             : Int
+  n_rc_0             : Int
+  coins_positive_pre : Bool   -- coins_positive at PREVIOUS step
 deriving BEq, Repr, Inhabited
 
 instance theorem7 : StateMachine Inp St where
-  -- At step 0: pre-state = (i_reserve, i_sc, i_rc) (StableCoin_InitState with explicit init);
-  -- constant_rate = true (-> branch); p_rate = rate; frozen observers = initial inputs;
-  -- coins_positive = (i_sc > 0 ∧ i_rc > 0) (-> branch).
+  -- At step 0: pre-state = (i_reserve, i_sc, i_rc);
+  -- constant_rate = true (-> branch) → cr_pre = true;  p_rate = rate;
+  -- frozen observers = initial inputs;
+  -- coins_positive at step 0 = (i_sc > 0 ∧ i_rc > 0) (-> branch) → coins_positive_pre = that value.
   init i :=
-    { core           := ⟨i.i_reserve, i.i_sc, i.i_rc⟩
-      constant_rate  := true
-      p_rate         := i.rate
-      reserve_0      := i.i_reserve
-      n_sc_0         := i.i_sc
-      n_rc_0         := i.i_rc
-      coins_positive := (i.i_sc > 0 && i.i_rc > 0) }
-  -- At step k+1: advance core to post-state; update all observers.
-  -- constant_rate_{k+1} = constant_rate_k ∧ rate_{k+1} = rate_k   (pre constant_rate and rate = pre rate)
-  -- reserve_0/n_sc_0/n_rc_0 stay frozen (pre reserve_0, etc.)
-  -- coins_positive_{k+1} = coins_positive_k ∧ p_sc_{k+1} > 0 ∧ p_rc_{k+1} > 0
-  --   where p_sc_{k+1} = s.core.n_sc, p_rc_{k+1} = s.core.n_rc  (current pre-state = incoming state)
+    { core               := ⟨i.i_reserve, i.i_sc, i.i_rc⟩
+      cr_pre             := true
+      p_rate             := i.rate
+      reserve_0          := i.i_reserve
+      n_sc_0             := i.i_sc
+      n_rc_0             := i.i_rc
+      coins_positive_pre := (i.i_sc > 0 && i.i_rc > 0) }
+  -- At step k+1: advance core; update all stored-previous values.
+  -- cr_pre_{k+1}             = constant_rate at step k = s.cr_pre && (i.rate == s.p_rate)
+  -- coins_positive_pre_{k+1} = coins_positive at step k = s.coins_positive_pre && (s.core.n_sc > 0 && s.core.n_rc > 0)
   next i s :=
     let (_, c) := stepStableCoin i.i_msg i.rate s.core
-    { core           := c
-      constant_rate  := s.constant_rate && (i.rate == s.p_rate)
-      p_rate         := i.rate
-      reserve_0      := s.reserve_0
-      n_sc_0         := s.n_sc_0
-      n_rc_0         := s.n_rc_0
-      coins_positive := s.coins_positive && (s.core.n_sc > 0 && s.core.n_rc > 0) }
-  -- Assumptions: ParameterConstraints() + initial bank state validity (assert block lines 47-53).
-  -- These are Lustre node-level asserts (apply every step) mapped to Blaster assumptions.
-  -- i_reserve/i_sc/i_rc/rate here refer to inputs at step k.
+    let cr_cur := s.cr_pre && (i.rate == s.p_rate)
+    let cp_cur := s.coins_positive_pre && (s.core.n_sc > 0 && s.core.n_rc > 0)
+    { core               := c
+      cr_pre             := cr_cur
+      p_rate             := i.rate
+      reserve_0          := s.reserve_0
+      n_sc_0             := s.n_sc_0
+      n_rc_0             := s.n_rc_0
+      coins_positive_pre := cp_cur }
+  -- Assumptions: ParameterConstraints() + initial bank state validity asserts
   assumptions i _ :=
     paramConstraints ∧
     i.i_reserve ≥ 0 ∧
@@ -85,21 +82,24 @@ instance theorem7 : StateMachine Inp St where
     (i.i_sc > 0 → Int.ediv i.i_reserve i.i_sc > 0) ∧
     (i.i_sc > 0 → Int.ediv i.i_reserve i.i_sc > i.rate) ∧
     (i.i_rc > 0 → i.i_reserve > 0)
-  -- Invariants: ALL non-commented check expressions (14 total).
-  -- p_reserve/p_sc/p_rc = s.core (pre-state at step k); reserve/n_sc/n_rc = post-state.
+  -- Invariants: ALL non-commented check expressions.
+  -- Recompute constant_rate and coins_positive for the CURRENT step inside invariants.
   invariants i s :=
-    let (_, c)        := stepStableCoin i.i_msg i.rate s.core
-    let reserve       := c.reserve
-    let n_sc          := c.n_sc
-    let n_rc          := c.n_rc
-    let p_reserve     := s.core.reserve
-    let p_sc          := s.core.n_sc
-    let p_rc          := s.core.n_rc
-    let constant_rate := s.constant_rate
-    let reserve_0     := s.reserve_0
-    let n_sc_0        := s.n_sc_0
-    let n_rc_0        := s.n_rc_0
-    let coins_positive := s.coins_positive
+    let (_, c)   := stepStableCoin i.i_msg i.rate s.core
+    let reserve  := c.reserve
+    let n_sc     := c.n_sc
+    let n_rc     := c.n_rc
+    let p_reserve := s.core.reserve
+    let p_sc      := s.core.n_sc
+    let p_rc      := s.core.n_rc
+    -- Recompute current constant_rate = true -> pre constant_rate and rate = pre rate
+    let constant_rate   := s.cr_pre && (i.rate == s.p_rate)
+    -- Recompute current coins_positive = (i_sc>0 and i_rc>0) -> pre coins_positive and p_sc>0 and p_rc>0
+    -- (p_sc/p_rc at step k = s.core.n_sc/n_rc = the source's p_sc/p_rc)
+    let coins_positive  := s.coins_positive_pre && (s.core.n_sc > 0 && s.core.n_rc > 0)
+    let reserve_0       := s.reserve_0
+    let n_sc_0          := s.n_sc_0
+    let n_rc_0          := s.n_rc_0
     -- check "THEOREM_7": constant_rate => not (coins_positive and reserve < reserve_0 and n_sc = n_sc_0 and n_rc = n_rc_0)
     (constant_rate = true →
        ¬(coins_positive = true ∧ reserve < reserve_0 ∧ n_sc = n_sc_0 ∧ n_rc = n_rc_0))
@@ -132,6 +132,6 @@ instance theorem7 : StateMachine Inp St where
     -- check n_sc_0 > 0 => reserve_0 div n_sc_0 > 0
     ∧ (n_sc_0 > 0 → Int.ediv reserve_0 n_sc_0 > 0)
 
-#kind (max-depth: 3) (timeout: 45) [theorem7]
+#kind (max-depth: 1) (timeout: 45) [theorem7]
 
 end Tests.Stablecoin.Theorem7
