@@ -408,6 +408,12 @@ def intLitSmt (n : Int) : SmtTerm :=
 /-! Convert an Nat literal to an Smt representation. -/
 def natLitSmt (n : Nat) : SmtTerm := .NumTerm n
 
+/-! Convert a BitVec literal of value `v` and width `w` to its Smt
+    representation `(_ bv{v} w)`. -/
+def bitvecLitSmt (v : Nat) (w : Nat) : SmtTerm :=
+  mkSimpleSmtAppN underSymbol
+    #[.SmtIdent (.SimpleIdent (mkReservedSymbol s!"bv{v}")), .NumTerm w]
+
 /-! Convert an String literal to an Smt representation. -/
 def strLitSmt (s : String) : SmtTerm := .StrTerm s!"\"{s}\""
 

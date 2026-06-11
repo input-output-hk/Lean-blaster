@@ -314,6 +314,26 @@ def isUInt32Value? (e : Expr) : Option Nat :=
   | _ => none
 
 
+/-- Determine if `e` is a `BitVec` literal expression, i.e., either
+     - `BitVec.ofNat w v` (opaque form, value taken modulo 2^w); or
+     - `BitVec.ofFin w (Fin.mk s v isLt)` (kernel-normalized form)
+    with `w`, `v` Nat literals, and return `some (w, v % 2^w)`.
+    Otherwise return `none`.
+-/
+def isBitVecValue? (e : Expr) : Option (Nat × Nat) :=
+  match e with
+  | Expr.app (Expr.app (Expr.const ``BitVec.ofNat _)
+      (Expr.lit (Literal.natVal w))) (Expr.lit (Literal.natVal v)) =>
+      some (w, v % (2 ^ w))
+  | Expr.app (Expr.app (Expr.const ``BitVec.ofFin _)
+      (Expr.lit (Literal.natVal w))) fn =>
+      match fn with
+      | Expr.app (Expr.app (Expr.app (Expr.const ``Fin.mk _) _)
+          (Expr.lit (Literal.natVal v))) _ => some (w, v % (2 ^ w))
+      | _ => none
+  | _ => none
+
+
 /-- Determine if `e` is a `Char` literal expression `Char.mk (UInt32.mk (Fin.mk UInt32.size n isLt)`
     and return `some Char.ofNat n)` only when `Nat.isValidChar n`.
     Otherwise return `none`

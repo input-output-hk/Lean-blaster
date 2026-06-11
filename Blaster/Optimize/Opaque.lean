@@ -60,6 +60,9 @@ def opaqueFuns : NameHashSet :=
     ``Blaster.decide', -- decide predicate that ignores decidable instance
     ``Blaster.dite', -- dependent ite that ignores decidable instance
     -- Note: ite is normalized to Blaster.dite'
+    -- BitVec literal constructor (kept opaque so `5#8` survives optimization;
+    -- recognized by isBitVecValue? and emitted as an Smt literal)
+    ``BitVec.ofNat,
     -- String operators
     ``String.append,
     ``String.replace,
