@@ -81,7 +81,16 @@ def emptySort : SortExpr := .SymbolSort emptySymbol
 -/
 def pemptySort : SortExpr := .SymbolSort pemptySymbol
 
--- TODO: add other sort once supported, e.g., BitVec, Unicode (for char), Seq, etc
+/-! Smt BitVec symbol for width `w`, i.e., the indexed sort `(_ BitVec w)`
+    rendered via a reserved symbol. -/
+def bitvecSymbol (w : Nat) : SmtSymbol := mkReservedSymbol s!"BitVec_{w}"
+
+/-! Smt BitVec Sort `(_ BitVec w)` (builtin indexed sort). -/
+def bitvecSort (w : Nat) : SortExpr :=
+  paramSort (mkReservedSymbol "_")
+    #[.SymbolSort (mkReservedSymbol "BitVec"), .SymbolSort (mkReservedSymbol s!"{w}")]
+
+-- TODO: add other sort once supported, e.g., Unicode (for char), Seq, etc
 
 /-! ## Builtin Smt symbols. -/
 

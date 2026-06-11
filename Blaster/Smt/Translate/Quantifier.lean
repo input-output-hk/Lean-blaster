@@ -1256,9 +1256,24 @@ def translatePEmptyType (n : Expr) : TranslateEnvT SortExpr := do
  | some decl => return decl.instSort
 
 
+/-- Translate `BitVec w` (literal `w` only) to the builtin Smt sort `(_ BitVec w)`.
+    A trivial predicate qualifier `@isBitVec_{w}` is defined (the Smt sort is exact).
+    An error is triggered when the width is not a Nat literal.
+    Assume `t := Expr.app (Expr.const ``BitVec _) widthArg`.
+-/
+def translateBitVecType (t : Expr) : TranslateEnvT SortExpr := do
+ match (← get).smtEnv.indTypeInstCache.get? t with
+ | some decl => return decl.instSort
+ | none =>
+    let some w := isNatValue? t.appArg!
+      | throwEnvError "translateBitVecType: BitVec with non-literal width is not supported, got {reprStr t.appArg!}"
+    let decl ← updateIndInstCache t (bitvecSymbol w) (bitvecSort w) (isReservedSymbol := true)
+    definePredQualifier decl.instName #[bitvecSort w] (some true)
+    return decl.instSort
+
 /-- Translate opaque sorts to their Smt counterpart.
     An error is triggered when `e` does not correspond to a name expression.
-    TODO: update function when opacifying other Lean inductive types (e.g., BitVector, Char, etc).
+    TODO: update function when opacifying other Lean inductive types (e.g., Char, etc).
 -/
 def translateOpaqueType (e : Expr) : TranslateEnvT (Option SortExpr) := do
  match e with
@@ -1280,6 +1295,7 @@ partial def translateTypeAux
   TranslateEnvT SortExpr := do
    let e := t.getAppFn
    match e with
+   | Expr.const ``BitVec _ => translateBitVecType t
    | Expr.const .. =>
       if let some r ← translateOpaqueType e then return r
       translateNonOpaqueType e t.getAppArgs
