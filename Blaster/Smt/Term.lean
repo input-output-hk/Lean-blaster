@@ -414,6 +414,17 @@ def bitvecLitSmt (v : Nat) (w : Nat) : SmtTerm :=
   mkSimpleSmtAppN underSymbol
     #[.SmtIdent (.SimpleIdent (mkReservedSymbol s!"bv{v}")), .NumTerm w]
 
+/-! ## BitVec Smt operator symbols (QF_BV theory). -/
+
+def bvaddSymbol : SmtSymbol := mkReservedSymbol "bvadd"
+def bvsubSymbol : SmtSymbol := mkReservedSymbol "bvsub"
+def bvmulSymbol : SmtSymbol := mkReservedSymbol "bvmul"
+def bvnegSymbol : SmtSymbol := mkReservedSymbol "bvneg"
+def bvandSymbol : SmtSymbol := mkReservedSymbol "bvand"
+def bvorSymbol  : SmtSymbol := mkReservedSymbol "bvor"
+def bvxorSymbol : SmtSymbol := mkReservedSymbol "bvxor"
+def bvnotSymbol : SmtSymbol := mkReservedSymbol "bvnot"
+
 /-! Convert an String literal to an Smt representation. -/
 def strLitSmt (s : String) : SmtTerm := .StrTerm s!"\"{s}\""
 

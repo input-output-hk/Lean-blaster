@@ -63,6 +63,15 @@ def opaqueFuns : NameHashSet :=
     -- BitVec literal constructor (kept opaque so `5#8` survives optimization;
     -- recognized by isBitVecValue? and emitted as an Smt literal)
     ``BitVec.ofNat,
+    -- BitVec operators (arith is modulo 2^w)
+    ``BitVec.add,
+    ``BitVec.sub,
+    ``BitVec.mul,
+    ``BitVec.neg,
+    ``BitVec.and,
+    ``BitVec.or,
+    ``BitVec.xor,
+    ``BitVec.not,
     -- String operators
     ``String.append,
     ``String.replace,

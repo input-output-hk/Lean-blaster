@@ -41,6 +41,14 @@ def fullyAppliedConst : NameHashSet :=
     ``Nat.div,
     ``Nat.mod,
     ``Nat.pow,
+    ``BitVec.add,
+    ``BitVec.sub,
+    ``BitVec.mul,
+    ``BitVec.neg,
+    ``BitVec.and,
+    ``BitVec.or,
+    ``BitVec.xor,
+    ``BitVec.not,
     ``String.append,
     ``String.length,
     ``String.replace
@@ -340,6 +348,14 @@ def translateOpaqueFun (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT
   | ``String.append => getOpaqueSmtEquivFun f strAppendSymbol
   | ``String.length => getOpaqueSmtEquivFun f strLengthSymbol
   | ``String.replace => getOpaqueSmtEquivFun f strReplaceAllSymbol
+  | ``BitVec.add => getOpaqueSmtEquivFun f bvaddSymbol
+  | ``BitVec.sub => getOpaqueSmtEquivFun f bvsubSymbol
+  | ``BitVec.mul => getOpaqueSmtEquivFun f bvmulSymbol
+  | ``BitVec.neg => getOpaqueSmtEquivFun f bvnegSymbol
+  | ``BitVec.and => getOpaqueSmtEquivFun f bvandSymbol
+  | ``BitVec.or  => getOpaqueSmtEquivFun f bvorSymbol
+  | ``BitVec.xor => getOpaqueSmtEquivFun f bvxorSymbol
+  | ``BitVec.not => getOpaqueSmtEquivFun f bvnotSymbol
   | _ => throwEnvError "translateOpaqueFun: unexpected opaque operator {n}"
 
 
