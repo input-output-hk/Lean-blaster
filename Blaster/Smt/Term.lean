@@ -433,6 +433,9 @@ def bvsdivSymbol : SmtSymbol := mkReservedSymbol "bvsdiv"
 def bvuremSymbol : SmtSymbol := mkReservedSymbol "bvurem"
 def bvsmodSymbol : SmtSymbol := mkReservedSymbol "bvsmod"
 def bvsremSymbol : SmtSymbol := mkReservedSymbol "bvsrem"
+def bvshlSymbol  : SmtSymbol := mkReservedSymbol "bvshl"
+def bvlshrSymbol : SmtSymbol := mkReservedSymbol "bvlshr"
+def bvashrSymbol : SmtSymbol := mkReservedSymbol "bvashr"
 
 /-! Per-width wrapper names for division ops whose div-by-zero semantics
     differ between Lean (0) and Smt-Lib (allOnes / ±1).

@@ -79,6 +79,11 @@ def opaqueFuns : NameHashSet :=
     ``BitVec.ule,
     ``BitVec.slt,
     ``BitVec.sle,
+    -- Shifts (Nat amount must be a literal; BitVec-amount shifts unfold through
+    -- BitVec.toNat with no intermediate named constant and are not supported)
+    ``BitVec.shiftLeft,
+    ``BitVec.ushiftRight,
+    ``BitVec.sshiftRight,
     -- Division: Lean x/0 = 0 mismatches SMT bvudiv/bvsdiv — wrapped per width
     ``BitVec.udiv,
     ``BitVec.umod,

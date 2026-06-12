@@ -1047,6 +1047,34 @@ def getProjectionCtor (n : Name) : TranslateEnvT Name := do
   | [c] => return c
   | _ => throwEnvError "getProjectionCtor: only one ctor expected for structure for {n}"
 
+/-- Translate BitVec shifts.
+    For `BitVec.shiftLeft x (s : Nat)`, `BitVec.ushiftRight x (s : Nat)`, and
+    `BitVec.sshiftRight x (s : Nat)`, `s` must be a Nat literal and is emitted as
+    `(_ bv{s} w)` (a width-`w` bitvec constant) so that the SMT bvshl/bvlshr/bvashr
+    application is well-sorted.  A variable Nat shift amount has no faithful
+    fixed-width encoding and triggers an error suggesting the BitVec-amount form.
+
+    All three Lean shift functions share the same arg layout:
+      args[0] : Nat     — width (implicit, must be a literal)
+      args[1] : BitVec w — the value to shift
+      args[2] : Nat     — the shift amount (must be a literal)
+
+    Note: BitVec-by-BitVec shifts (`x <<< y` with `y : BitVec w`) unfold through
+    `BitVec.toNat` with no intermediate named constant surviving after optimization,
+    so they are not supported here.
+-/
+def translateBitVecShift
+  (n : Name) (args : Array Expr) (sym : SmtSymbol)
+  (termTranslator : Expr → TranslateEnvT SmtTerm) : TranslateEnvT SmtTerm := do
+  if args.size != 3 then
+    throwEnvError "translateBitVecShift: fully applied {n} expected but got {args.size} arguments"
+  let some w := isNatValue? args[0]!
+    | throwEnvError "translateBitVecShift: literal width expected for {n}"
+  let sx ← termTranslator args[1]!
+  let some s := isNatValue? args[2]!
+    | throwEnvError "translateBitVecShift: literal shift amount expected for {n}; use a `BitVec {w}` shift amount for symbolic shifts"
+  return mkSimpleSmtAppN sym #[sx, bitvecLitSmt s w]
+
 /-- Translate Application
     TODO: UPDATE
 -/
@@ -1057,6 +1085,7 @@ def translateApp
     match f with
     | Expr.const n _ =>
          if let some r ← translateFullyApplied? f n args then return r
+         if let some r ← translateBitVecShift? n args then return r
          if let some r ← translateEq? f n args then return r
          if let some r ← translateRelational? f n args then return r
          if let some r ← translateDITE? f n args then return r
@@ -1231,6 +1260,13 @@ def translateApp
       if pInfo.paramsInfo.size != args.size then
         throwEnvError "translateFullyApplied?: fully applied function expected for {reprStr f}"
       createAppN f (← Sum.inl <$> translateOpaqueFun f n args) args termTranslator
+
+    translateBitVecShift? (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
+      match n with
+      | ``BitVec.shiftLeft   => return some (← translateBitVecShift n args bvshlSymbol  termTranslator)
+      | ``BitVec.ushiftRight => return some (← translateBitVecShift n args bvlshrSymbol termTranslator)
+      | ``BitVec.sshiftRight => return some (← translateBitVecShift n args bvashrSymbol termTranslator)
+      | _ => return none
 
     translateInductivePredicate? (f : Expr) (n : Name) (_args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
       if (← isInductivePredicate n) then
