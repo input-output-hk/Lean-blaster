@@ -286,14 +286,19 @@ def translateInttoNat (n : Expr) : TranslateEnvT SmtQualifiedIdent := do
  | some smtId => return smtId
 
 
-/-- Translate `BitVec.udiv`/`BitVec.sdiv` to a per-width Smt wrapper
-    (Lean div-by-zero = 0, unlike bvudiv/bvsdiv). The wrapper is defined
-    lazily once per (op, width) and cached on `f w`.
-    An error is triggered when the width is not a Nat literal.
+/-- Perform the following actions:
+     - Return `SimpleIdent "@BitVec.udiv_w"` (resp. `"@BitVec.sdiv_w"`) when entry
+       `f w := SimpleIdent "@BitVec.udiv_w"` (resp. `"@BitVec.sdiv_w"`) exists in `funInstCache`
+     - Otherwise:
+        - define `@BitVec.udiv_w` (resp. `@BitVec.sdiv_w`) Smt wrapper (see `defineBitVecUDiv`/`defineBitVecSDiv`)
+        - add entry `f w := SimpleIdent "@BitVec.udiv_w"` (resp. `"@BitVec.sdiv_w"`) to `funInstCache`
+        - return `SimpleIdent "@BitVec.udiv_w"` (resp. `"@BitVec.sdiv_w"`)
+  Assume that `f := Expr.const ``BitVec.udiv _` or `f := Expr.const ``BitVec.sdiv _`.
+  An error is triggered when `args.size != 3` or when the width is not a Nat literal.
 -/
 def translateBitVecWrappedDiv (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT SmtQualifiedIdent := do
   if args.size != 3 then
-    throwEnvError "translateBitVecWrappedDiv: fully applied {n} expected"
+    throwEnvError "translateBitVecWrappedDiv: fully applied {n} expected but got {args.size} arguments"
   let some w := isNatValue? args[0]!
     | throwEnvError "translateBitVecWrappedDiv: literal width expected for {n} but got {reprStr args[0]!}"
   let instApp := mkApp f args[0]!
@@ -302,10 +307,10 @@ def translateBitVecWrappedDiv (f : Expr) (n : Name) (args : Array Expr) : Transl
   | none =>
       if n == ``BitVec.udiv then
         defineBitVecUDiv w
-        updateFunInstCache instApp (bvudivSymbol w)
+        updateFunInstCache instApp (bitvecUDivSymbol w)
       else
         defineBitVecSDiv w
-        updateFunInstCache instApp (bvsdivSymbol w)
+        updateFunInstCache instApp (bitvecSDivSymbol w)
 
 /-- Return `stₙ` when entry `f := stₙ` exists in `funInstCache`.
     Otherwise:

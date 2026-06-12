@@ -385,27 +385,17 @@ def defineNatSub : TranslateEnvT Unit := do
     (Lean division-by-zero yields 0; Smt bvudiv yields allOnes.)
 -/
 def defineBitVecUDiv (w : Nat) : TranslateEnvT Unit := do
-  let xsym := mkReservedSymbol "@x"
-  let ysym := mkReservedSymbol "@y"
-  let xId := smtSimpleVarId xsym
-  let yId := smtSimpleVarId ysym
   let zero := bitvecLitSmt 0 w
-  let divApp := mkSimpleSmtAppN (mkReservedSymbol "bvudiv") #[xId, yId]
-  let body := iteSmt (eqSmt yId zero) zero divApp
-  defineFun (bvudivSymbol w) #[(xsym, bitvecSort w), (ysym, bitvecSort w)] (bitvecSort w) body
+  let fdef := λ xId yId => iteSmt (eqSmt yId zero) zero (mkSimpleSmtAppN bvudivSymbol #[xId, yId])
+  defineBinFun (bitvecUDivSymbol w) (bitvecSort w) (bitvecSort w) (bitvecSort w) fdef
 
 /-- Define the BitVec.sdiv Smt wrapper for width `w`, i.e.,
      @BitVec.sdiv_w x y := (ite (= y (_ bv0 w)) (_ bv0 w) (bvsdiv x y))
 -/
 def defineBitVecSDiv (w : Nat) : TranslateEnvT Unit := do
-  let xsym := mkReservedSymbol "@x"
-  let ysym := mkReservedSymbol "@y"
-  let xId := smtSimpleVarId xsym
-  let yId := smtSimpleVarId ysym
   let zero := bitvecLitSmt 0 w
-  let divApp := mkSimpleSmtAppN (mkReservedSymbol "bvsdiv") #[xId, yId]
-  let body := iteSmt (eqSmt yId zero) zero divApp
-  defineFun (bvsdivSymbol w) #[(xsym, bitvecSort w), (ysym, bitvecSort w)] (bitvecSort w) body
+  let fdef := λ xId yId => iteSmt (eqSmt yId zero) zero (mkSimpleSmtAppN bvsdivSymbol #[xId, yId])
+  defineBinFun (bitvecSDivSymbol w) (bitvecSort w) (bitvecSort w) (bitvecSort w) fdef
 
 /-- Define Int.ediv Smt function, i.e.,
       @Int.ediv x y := (ite (= 0 y) 0 (div x y))
