@@ -1280,6 +1280,8 @@ def translateBitVecType (t : Expr) : TranslateEnvT SortExpr := do
     let widthArg ← whnf t.appArg!
     let some w := isNatValue? widthArg
       | throwEnvError "translateBitVecType: BitVec with non-literal width is not supported, got {reprStr t.appArg!}"
+    if w == 0 then
+      throwEnvError "translateBitVecType: BitVec 0 is not representable in SMT-Lib ((_ BitVec 0) is illegal)"
     -- Canonicalize: always use `BitVec (Expr.lit w)` as the cache key so that
     -- `BitVec 8 (lit)`, `BitVec (OfNat.ofNat ... 8)`, and `BitVec (proj OfNat 0 ...)` all
     -- share a single entry.

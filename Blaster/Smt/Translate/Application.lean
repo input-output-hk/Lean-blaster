@@ -376,13 +376,13 @@ def translateOpaqueFun (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT
   | ``LE.le =>
         if Nat.blt args.size 2 then throwEnvError "translateOpaqueFun: at least two arguments expected for Le.le"
         if isBitVecType args[0]!
-        then getOpaqueSmtEquivFun f bvuleSymbol
+        then return .SimpleIdent bvuleSymbol
         else getOpaqueSmtEquivFun f leqSymbol
   | ``Nat.ble => getOpaqueSmtEquivFun f leqSymbol
   | ``LT.lt =>
         if Nat.blt args.size 2 then throwEnvError "translateOpaqueFun: at least two arguments expected for Lt.lt"
         if isBitVecType args[0]!
-        then getOpaqueSmtEquivFun f bvultSymbol
+        then return .SimpleIdent bvultSymbol
         else if isStringType args[0]!
         then return .SimpleIdent strLtSymbol
         else getOpaqueSmtEquivFun f ltSymbol
