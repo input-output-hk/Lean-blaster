@@ -436,6 +436,14 @@ def bvsremSymbol : SmtSymbol := mkReservedSymbol "bvsrem"
 def bvshlSymbol  : SmtSymbol := mkReservedSymbol "bvshl"
 def bvlshrSymbol : SmtSymbol := mkReservedSymbol "bvlshr"
 def bvashrSymbol : SmtSymbol := mkReservedSymbol "bvashr"
+def bvconcatSymbol : SmtSymbol := mkReservedSymbol "concat"
+
+/-! Indexed Smt identifiers for BitVec structure ops (rendered verbatim as reserved symbols). -/
+def bvextractSymbol (hi lo : Nat) : SmtSymbol := mkReservedSymbol s!"(_ extract {hi} {lo})"
+def bvzeroExtendSymbol (k : Nat) : SmtSymbol := mkReservedSymbol s!"(_ zero_extend {k})"
+def bvsignExtendSymbol (k : Nat) : SmtSymbol := mkReservedSymbol s!"(_ sign_extend {k})"
+def bvrotateLeftSymbol (k : Nat) : SmtSymbol := mkReservedSymbol s!"(_ rotate_left {k})"
+def bvrotateRightSymbol (k : Nat) : SmtSymbol := mkReservedSymbol s!"(_ rotate_right {k})"
 
 /-! Per-width wrapper names for division ops whose div-by-zero semantics
     differ between Lean (0) and Smt-Lib (allOnes / ±1).

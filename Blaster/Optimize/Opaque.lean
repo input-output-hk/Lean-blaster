@@ -93,6 +93,14 @@ def opaqueFuns : NameHashSet :=
     ``BitVec.sdiv,
     ``BitVec.smod,
     ``BitVec.srem,
+    -- BitVec structure ops (all index arguments must be literals at translation time)
+    ``BitVec.append,
+    ``BitVec.extractLsb,
+    ``BitVec.extractLsb',
+    ``BitVec.setWidth,    -- zeroExtend is a @[reducible] alias for setWidth; setWidth is the surviving constant
+    ``BitVec.signExtend,
+    ``BitVec.rotateLeft,
+    ``BitVec.rotateRight,
     -- String operators
     ``String.append,
     ``String.replace,
