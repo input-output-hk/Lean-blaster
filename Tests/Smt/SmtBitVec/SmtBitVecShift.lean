@@ -16,6 +16,7 @@ namespace Test.SmtBitVecShift
 #blaster [∀ (x : BitVec 8), x >>> 1 ≤ 127#8]
 
 -- BitVec-by-BitVec shifts
+-- the ||| 0#8 keeps the optimizer from folding the reflexive equality to True
 #blaster [∀ (x y : BitVec 8), x <<< y = x <<< y ||| 0#8]
 
 #blaster [∀ (x : BitVec 8) (y : BitVec 8), 8#8 ≤ y → x <<< y = 0#8]
@@ -27,3 +28,8 @@ namespace Test.SmtBitVecShift
 #blaster [(128#8).sshiftRight 1 = 192#8]
 
 #blaster (gen-cex: 0) (solve-result: 1) [∀ (x : BitVec 8), x <<< 1 = x]
+
+-- literal amount ≥ 2^w must clamp, not wrap mod 2^w in the SMT numeral
+#blaster [∀ (x : BitVec 8), x <<< 256 = 0#8]
+
+#blaster [∀ (x : BitVec 8), x.sshiftRight 300 = x.sshiftRight 8]

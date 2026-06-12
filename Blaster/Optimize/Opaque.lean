@@ -83,8 +83,7 @@ def opaqueFuns : NameHashSet :=
     -- `shiftLeft x y.toNat`) survives to translation; standalone toNat is still
     -- unsupported and errors at translation.
     ``BitVec.toNat,
-    -- Shifts (Nat amount must be a literal; BitVec-amount shifts unfold through
-    -- BitVec.toNat with no intermediate named constant and are not supported)
+    -- Shifts (Nat amount must be a literal; BitVec-amount shifts are handled via the BitVec.toNat pattern in translateBitVecShift)
     ``BitVec.shiftLeft,
     ``BitVec.ushiftRight,
     ``BitVec.sshiftRight,

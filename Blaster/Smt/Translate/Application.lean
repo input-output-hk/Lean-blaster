@@ -1050,7 +1050,8 @@ def getProjectionCtor (n : Name) : TranslateEnvT Name := do
 /-- Translate BitVec shifts.
     For `BitVec.shiftLeft x (s : Nat)`, `BitVec.ushiftRight x (s : Nat)`, and
     `BitVec.sshiftRight x (s : Nat)`, `s` must be either:
-      (a) a Nat literal → emitted as `(_ bv{s} w)` (a width-`w` bitvec constant); or
+      (a) a Nat literal → emitted as `(_ bv{min s w} w)` (a width-`w` bitvec constant,
+          clamped to `w` so the SMT numeral stays representable); or
       (b) `BitVec.toNat w' y'` where `w' = w` → emitted as `(bvOP sx sy')`.
 
     Case (b) arises from `x <<< y` with `y : BitVec w`, which Lean unfolds to
@@ -1058,6 +1059,13 @@ def getProjectionCtor (n : Name) : TranslateEnvT Name := do
     survives optimization and is detected here.  The encoding is faithful: both Lean
     and SMT bvshl/bvlshr/bvashr agree on the out-of-range behavior (≥ width yields
     0 / sign-fill).
+
+    For case (a), the literal is clamped to `min s w` before encoding.  This is
+    sound because Lean and SMT shifts both saturate at amounts ≥ width (bvshl/bvlshr
+    → 0, bvashr → sign-fill), so any `s ≥ w` is equivalent to `w`.  The clamping
+    also avoids a Z3 bug: Z3 silently truncates `(_ bvS w)` mod 2^w when S ≥ 2^w,
+    which would make e.g. `x <<< 256` at width 8 appear as shift-by-0 and
+    produce false counterexamples.
 
     All three Lean shift functions share the same arg layout:
       args[0] : Nat      — width (implicit, must be a literal)
@@ -1083,7 +1091,9 @@ def translateBitVecShift
     return mkSimpleSmtAppN sym #[sx, ← termTranslator sAmount]
   let some s := isNatValue? args[2]!
     | throwEnvError "translateBitVecShift: literal shift amount expected for {n}; use a `BitVec {w}` shift amount for symbolic shifts"
-  return mkSimpleSmtAppN sym #[sx, bitvecLitSmt s w]
+  -- Lean and SMT shifts both saturate at s ≥ w, so clamp the literal: keeps
+  -- the numeral representable (Z3 silently truncates `(_ bvS w)` mod 2^w).
+  return mkSimpleSmtAppN sym #[sx, bitvecLitSmt (min s w) w]
 
 /-- Translate Application
     TODO: UPDATE
