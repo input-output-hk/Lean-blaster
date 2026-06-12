@@ -342,13 +342,14 @@ def translateOpaqueFun (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT
   | ``Int.pow => translateIntPow f
   | ``Nat.pow => translateNatPow f
   | ``LE.le =>
-        if args.size >= 1 && args[0]!.getAppFn.isConstOf ``BitVec
+        if Nat.blt args.size 2 then throwEnvError "translateOpaqueFun: at least two arguments expected for Le.le"
+        if isBitVecType args[0]!
         then getOpaqueSmtEquivFun f bvuleSymbol
         else getOpaqueSmtEquivFun f leqSymbol
   | ``Nat.ble => getOpaqueSmtEquivFun f leqSymbol
   | ``LT.lt =>
         if Nat.blt args.size 2 then throwEnvError "translateOpaqueFun: at least two arguments expected for Lt.lt"
-        if args[0]!.getAppFn.isConstOf ``BitVec
+        if isBitVecType args[0]!
         then getOpaqueSmtEquivFun f bvultSymbol
         else if isStringType args[0]!
         then return .SimpleIdent strLtSymbol

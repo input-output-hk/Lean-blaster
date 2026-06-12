@@ -259,6 +259,12 @@ def isStringType (e : Expr) : Bool :=
   | Expr.const ``String _ => true
   | _ => false
 
+/-- Return `true` if the head constant of `e` is `BitVec` (i.e., `e` is `BitVec w`).
+    Unlike `isStringType` etc., `BitVec` is parameterized, so we check the head of
+    the application rather than matching a bare constant. -/
+def isBitVecType (e : Expr) : Bool :=
+  e.getAppFn.isConstOf ``BitVec
+
 /-- Determine if `e` is an `autoParam` expression and return its corresponding arguments.
     Otherwise return `none`.
 -/

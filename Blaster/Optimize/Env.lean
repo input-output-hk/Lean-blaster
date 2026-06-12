@@ -1214,9 +1214,8 @@ def isOpaqueRelational (f : Name) (args : Array Expr) : TranslateEnvT Bool := do
   | `LT.lt
   | `LE.le =>
       if args.size < 2 then throwEnvError "isOpaqueRelational: implicit arguments expected"
-      -- BitVec comparisons are opaque too: the optimizer must not unfold them through
-      -- BitVec.toNat → Fin selectors.  The translator maps them to bvult/bvule.
-      return (isCompatibleRelationalType args[0]! || args[0]!.getAppFn.isConstOf ``BitVec)
+      -- BitVec </≤ are opaque but NOT relational-compatible (see NOTE above)
+      return (isCompatibleRelationalType args[0]! || isBitVecType args[0]!)
   | _ => return false
 
 
