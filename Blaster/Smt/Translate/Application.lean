@@ -49,6 +49,10 @@ def fullyAppliedConst : NameHashSet :=
     ``BitVec.or,
     ``BitVec.xor,
     ``BitVec.not,
+    ``BitVec.ult,
+    ``BitVec.ule,
+    ``BitVec.slt,
+    ``BitVec.sle,
     ``String.append,
     ``String.length,
     ``String.replace
@@ -337,11 +341,16 @@ def translateOpaqueFun (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT
   | ``Nat.mod => translateIntEMod f
   | ``Int.pow => translateIntPow f
   | ``Nat.pow => translateNatPow f
-  | ``LE.le
+  | ``LE.le =>
+        if args.size >= 1 && args[0]!.getAppFn.isConstOf ``BitVec
+        then getOpaqueSmtEquivFun f bvuleSymbol
+        else getOpaqueSmtEquivFun f leqSymbol
   | ``Nat.ble => getOpaqueSmtEquivFun f leqSymbol
   | ``LT.lt =>
         if Nat.blt args.size 2 then throwEnvError "translateOpaqueFun: at least two arguments expected for Lt.lt"
-        if isStringType args[0]!
+        if args[0]!.getAppFn.isConstOf ``BitVec
+        then getOpaqueSmtEquivFun f bvultSymbol
+        else if isStringType args[0]!
         then return .SimpleIdent strLtSymbol
         else getOpaqueSmtEquivFun f ltSymbol
   | ``Nat.sub => translateNatSub f
@@ -356,6 +365,10 @@ def translateOpaqueFun (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT
   | ``BitVec.or  => getOpaqueSmtEquivFun f bvorSymbol
   | ``BitVec.xor => getOpaqueSmtEquivFun f bvxorSymbol
   | ``BitVec.not => getOpaqueSmtEquivFun f bvnotSymbol
+  | ``BitVec.ult => getOpaqueSmtEquivFun f bvultSymbol
+  | ``BitVec.ule => getOpaqueSmtEquivFun f bvuleSymbol
+  | ``BitVec.slt => getOpaqueSmtEquivFun f bvsltSymbol
+  | ``BitVec.sle => getOpaqueSmtEquivFun f bvsleSymbol
   | _ => throwEnvError "translateOpaqueFun: unexpected opaque operator {n}"
 
 

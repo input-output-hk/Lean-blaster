@@ -424,6 +424,10 @@ def bvandSymbol : SmtSymbol := mkReservedSymbol "bvand"
 def bvorSymbol  : SmtSymbol := mkReservedSymbol "bvor"
 def bvxorSymbol : SmtSymbol := mkReservedSymbol "bvxor"
 def bvnotSymbol : SmtSymbol := mkReservedSymbol "bvnot"
+def bvultSymbol : SmtSymbol := mkReservedSymbol "bvult"
+def bvuleSymbol : SmtSymbol := mkReservedSymbol "bvule"
+def bvsltSymbol : SmtSymbol := mkReservedSymbol "bvslt"
+def bvsleSymbol : SmtSymbol := mkReservedSymbol "bvsle"
 
 /-! Convert an String literal to an Smt representation. -/
 def strLitSmt (s : String) : SmtTerm := .StrTerm s!"\"{s}\""

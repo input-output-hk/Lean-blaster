@@ -1195,9 +1195,16 @@ def mkOfDecideEqProof (c : Expr) (b : Bool) : TranslateEnvT Expr := do
      - `f := BEq.beq` with sort parameter that has a `LawfulBEq` instance
      - `f := LT.lt` with sort parameter in `relationalCompatibleTypes`
      - `f : LE.le` with sort parameter in `relationalCompatibleTypes`
+     - `f := LT.lt` with sort parameter `BitVec w` (unsigned comparison; mapped to `bvult`)
+     - `f := LE.le` with sort parameter `BitVec w` (unsigned comparison; mapped to `bvule`)
 
 In fact, we can't assume that `BEq.beq`, `LT.lt` and `LE.le` will properly be defined
 for any user-defined types or parametric inductive types (e.g., List, Option, etc).
+
+NOTE: `BitVec` is deliberately NOT in `relationalCompatibleTypes` — wrap-around arithmetic
+violates the order laws that the relational rewriting rules assume. The BitVec cases here
+only block the optimizer from unfolding the LT/LE instances through `BitVec.toNat → Fin`;
+the translator maps them directly to `bvult`/`bvule`.
 -/
 def isOpaqueRelational (f : Name) (args : Array Expr) : TranslateEnvT Bool := do
   match f with
@@ -1207,7 +1214,9 @@ def isOpaqueRelational (f : Name) (args : Array Expr) : TranslateEnvT Bool := do
   | `LT.lt
   | `LE.le =>
       if args.size < 2 then throwEnvError "isOpaqueRelational: implicit arguments expected"
-      return (isCompatibleRelationalType args[0]!)
+      -- BitVec comparisons are opaque too: the optimizer must not unfold them through
+      -- BitVec.toNat → Fin selectors.  The translator maps them to bvult/bvule.
+      return (isCompatibleRelationalType args[0]! || args[0]!.getAppFn.isConstOf ``BitVec)
   | _ => return false
 
 

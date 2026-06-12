@@ -72,6 +72,13 @@ def opaqueFuns : NameHashSet :=
     ``BitVec.or,
     ``BitVec.xor,
     ``BitVec.not,
+    -- BitVec comparison operators (Bool-valued; Prop-level < and ≤ are intercepted
+    -- in translateRelational? and translated directly to bvult/bvule without going
+    -- through toNat.  BitVec is deliberately NOT in relationalCompatibleTypes.)
+    ``BitVec.ult,
+    ``BitVec.ule,
+    ``BitVec.slt,
+    ``BitVec.sle,
     -- String operators
     ``String.append,
     ``String.replace,
