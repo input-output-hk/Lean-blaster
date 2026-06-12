@@ -1,5 +1,6 @@
 import Lean
 import Blaster.Optimize.Rewriting.FunPropagation
+import Blaster.Optimize.Rewriting.OptimizeBitVec
 import Blaster.Optimize.Rewriting.OptimizeBoolNot
 import Blaster.Optimize.Rewriting.OptimizeBoolPropBinary
 import Blaster.Optimize.Rewriting.OptimizeDecide
@@ -67,6 +68,7 @@ def optimizeAppAux (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
   if let some e ← optimizeEquality? f args then return e
   if let some e ← optimizeNat? f args then return e
   if let some e ← optimizeInt? f args then return e
+  if let some e ← optimizeBitVec? f args then return e
   if let some e ← optimizeExists? f args then return e
   if let some e ← optimizeDecide? f args then return e
   if let some e ← optimizeRelational? f args then return e

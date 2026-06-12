@@ -1075,6 +1075,13 @@ def mkIntLitExpr (n : Int) : TranslateEnvT Expr := do
   | Int.ofNat n => mkExpr (mkApp (← mkIntOfNat) (← mkNatLitExpr n))
   | Int.negSucc n => mkExpr (mkApp (mkConst ``Int.negSucc) (← mkNatLitExpr n))
 
+/-- Create a BitVec literal expression `BitVec.ofNat w (v % 2^w)`.
+    NOTE: `BitVec.ofNat` is opaque and recognized by `isBitVecValue?`.
+-/
+def mkBitVecLitExpr (w v : Nat) : TranslateEnvT Expr :=
+  mkExpr (mkApp2 (mkConst ``BitVec.ofNat)
+           (mkRawNatLit w) (mkRawNatLit (v % (2 ^ w))))
+
 /-- Return Int `a = b` and don't cache result. -/
 def mkIntEqExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do
   return mkApp3 (← mkEqOp) (← mkIntType) a b
