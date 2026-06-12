@@ -1139,6 +1139,13 @@ where
         else
           -- resolve type abbreviation first
           let argType' ← removeTypeAbbrev decl.type
+          -- For BitVec types, normalize the width argument (OfNat/proj → raw Nat literal)
+          -- so that the indTypeInstCache lookup in getPredicateQualifierInst hits the
+          -- canonical entry stored by translateBitVecType (keyed under `BitVec (Expr.lit w)`).
+          let argType' ← if isBitVecType argType' then do
+                            let widthArg ← whnf argType'.appArg!
+                            pure (mkApp argType'.appFn! widthArg)
+                          else pure argType'
           let declInst ← getPredicateQualifierInst argType' declInd
           let appTerm ← createPredQualifierAppAux' selTerms.2 argType' declInst (inPredQualifier := true)
           predTermCond := updatePredTerm predTermCond appTerm
@@ -1260,16 +1267,29 @@ def translatePEmptyType (n : Expr) : TranslateEnvT SortExpr := do
     A trivial predicate qualifier `@isBitVec_{w}` is defined (the Smt sort is exact).
     An error is triggered when the width is not a Nat literal.
     Assume `t := Expr.app (Expr.const ``BitVec _) widthArg`.
+    The width argument is WHNF-reduced before checking; this normalizes non-literal
+    forms such as `@OfNat.ofNat Nat 8 (instOfNatNat 8)` or
+    `Expr.proj OfNat 0 (instOfNatNat 8)` to `Expr.lit (natVal 8)`.  Such forms arise
+    from UInt8/UInt32 structure definitions where the width is written via the OfNat
+    typeclass rather than a raw numeral.
+    The cache is keyed by the CANONICAL form `BitVec (litVal w)` so all non-literal
+    width representations of the same width share a single cache entry.
 -/
 def translateBitVecType (t : Expr) : TranslateEnvT SortExpr := do
- match (← get).smtEnv.indTypeInstCache.get? t with
- | some decl => return decl.instSort
- | none =>
-    let some w := isNatValue? t.appArg!
+    -- WHNF-reduce the width argument to normalize OfNat/proj forms to raw Nat literals.
+    let widthArg ← whnf t.appArg!
+    let some w := isNatValue? widthArg
       | throwEnvError "translateBitVecType: BitVec with non-literal width is not supported, got {reprStr t.appArg!}"
-    let decl ← updateIndInstCache t (bitvecSymbol w) (bitvecSort w) (isReservedSymbol := true)
-    definePredQualifier decl.instName #[bitvecSort w] (some true)
-    return decl.instSort
+    -- Canonicalize: always use `BitVec (Expr.lit w)` as the cache key so that
+    -- `BitVec 8 (lit)`, `BitVec (OfNat.ofNat ... 8)`, and `BitVec (proj OfNat 0 ...)` all
+    -- share a single entry.
+    let tNorm := mkApp t.appFn! (mkLit (Literal.natVal w))
+    match (← get).smtEnv.indTypeInstCache.get? tNorm with
+    | some decl => return decl.instSort
+    | none =>
+      let decl ← updateIndInstCache tNorm (bitvecSymbol w) (bitvecSort w) (isReservedSymbol := true)
+      definePredQualifier decl.instName #[bitvecSort w] (some true)
+      return decl.instSort
 
 /-- Translate opaque sorts to their Smt counterpart.
     An error is triggered when `e` does not correspond to a name expression.

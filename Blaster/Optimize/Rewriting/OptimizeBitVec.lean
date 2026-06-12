@@ -28,6 +28,10 @@ private def evalBitVecBinOp (op : Name) (w v1 v2 : Nat) : Option Nat :=
   | _ => none
 
 /-- Apply constant-folding and identity rules on opaque BitVec applications:
+     - BitVec.toNat w V     ==> V (as Nat literal) (literal bv)
+     - LT.lt  (BitVec w) _ V1 V2 ==> True/False   (both literal, unsigned)
+     - LE.le  (BitVec w) _ V1 V2 ==> True/False   (both literal, unsigned)
+     - BitVec.ult/ule/slt/sle w V1 V2 ==> true/false (both literal)
      - binop V1 V2          ==> V1 "op" V2   (both literal)
      - BitVec.not V / neg V ==> folded literal
      - x &&& 0 / 0 &&& x    ==> 0
@@ -43,6 +47,34 @@ private def evalBitVecBinOp (op : Name) (w v1 v2 : Nat) : Option Nat :=
 -/
 def optimizeBitVec? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
   let Expr.const n _ := f | return none
+  -- BitVec.toNat w x  (args := #[w, x]) — fold when x is a literal
+  if n == ``BitVec.toNat then
+    if args.size != 2 then return none
+    let some (_, v) := isBitVecValue? args[1]! | return none
+    return some (← mkNatLitExpr v)
+  -- Prop LT/LE on BitVec literals — fold to True/False (unsigned semantics)
+  if n == ``LT.lt || n == ``LE.le then
+    if args.size != 4 then return none
+    if !isBitVecType args[0]! then return none
+    let some (_, v1) := isBitVecValue? args[2]! | return none
+    let some (_, v2) := isBitVecValue? args[3]! | return none
+    let b := if n == ``LT.lt then Nat.blt v1 v2 else Nat.ble v1 v2
+    return some (← mkPropLit b)
+  -- Bool comparison ops on BitVec literals — fold to true/false
+  if n == ``BitVec.ult || n == ``BitVec.ule ||
+     n == ``BitVec.slt || n == ``BitVec.sle then
+    if args.size != 3 then return none
+    let some w := isNatValue? args[0]! | return none
+    let some (_, v1) := isBitVecValue? args[1]! | return none
+    let some (_, v2) := isBitVecValue? args[2]! | return none
+    let x := BitVec.ofNat w v1
+    let y := BitVec.ofNat w v2
+    let b := match n with
+             | ``BitVec.ult => x.ult y
+             | ``BitVec.ule => x.ule y
+             | ``BitVec.slt => x.slt y
+             | _            => x.sle y  -- ``BitVec.sle
+    return some (← mkBoolLit b)
   -- unary ops: args := #[w, x]
   if n == ``BitVec.not || n == ``BitVec.neg then
     if args.size != 2 then return none
