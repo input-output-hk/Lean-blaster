@@ -737,9 +737,10 @@ Expected: eight `✅ Valid`, one `✅ Expected Falsified`.
 - [ ] **Step 7: Manually verify the variable-Nat-shift error** (scratch, not committed)
 
 ```lean
-#blaster [∀ (x : BitVec 8) (s : Nat), x <<< s = x <<< s]
+#blaster [∀ (x : BitVec 8) (s : Nat), x <<< s = 0#8]
 ```
 Expected: error `literal shift amount expected ... use a BitVec 8 shift amount`.
+(⚠️ Do NOT use a trivially-true prop like `x <<< s = x <<< s` — the optimizer folds it to `True` before translation and the error path is never reached.)
 
 - [ ] **Step 8: Commit**
 
@@ -1084,14 +1085,50 @@ import Tests.Smt.SmtBitVec.SmtBitVecFold
 Run: `LEAN_NUM_THREADS=5 lake test`
 Expected: entire suite green (pre-existing suites unaffected — scan output for `❌`).
 
-- [ ] **Step 3: Cleanup stale TODOs**
+- [ ] **Step 3: Review follow-ups (from Task 2 quality review)**
+
+In `Blaster/Optimize/Expr.lean` `isBitVecValue?`: guard the `v % (2 ^ w)` computation against pathological widths (a folded `0#(2^64)` would materialize 2^(2^64) in GMP and hang the elaborator). Fast-path when `v` is already in range:
+
+```lean
+      some (w, if v == 0 || v.log2 < w then v else v % (2 ^ w))
+```
+
+(apply in both the `ofNat` and `ofFin` branches). Also add one test exercising the kernel-normalized `ofFin` branch to `SmtBitVecLit.lean`:
+
+```lean
+#blaster [∀ (x : BitVec 8), x = BitVec.ofFin ⟨200, by decide⟩ → x ≠ 201#8]
+```
+
+And one mixed-width test to `SmtBitVecArith.lean` (guards the width-polymorphic `funInstCache` sharing of `bvadd` across sorts, from Task 3 quality review):
+
+```lean
+#blaster [∀ (x : BitVec 8) (y : BitVec 16), x + x = x + x ∧ y + 1#16 ≠ y]
+```
+
+Also (from Task 7 quality review): add a `/-! ## BitVec ops requiring custom translation -/` section marker above the shift+indexed block in `Blaster/Smt/Translate/Application.lean` (~line 1052), and note in the phase-2 planning that a future `Translate/BitVec.lean` split may be warranted as the file grows.
+
+Also (from Task 8 quality review): in `Blaster/Optimize/Rewriting/OptimizeBitVec.lean` `identityRules`, add the spec-promised same-operand rules (one `exprEq x y` check each, mirroring `optimizeNatSub`'s precedent): `x ^^^ x ==> 0` and `x - x ==> 0`. Apply the same `2^w` fast-path guard to `mkBitVecLitExpr` as to `isBitVecValue?`. Add identity + same-operand fold tests to `SmtBitVecFold.lean`:
+
+```lean
+#blaster (only-optimize: 1) [∀ (x : BitVec 8), x + 0#8 = x]
+
+#blaster (only-optimize: 1) [∀ (x : BitVec 8), 0#8 ||| x = x]
+
+#blaster (only-optimize: 1) [∀ (x : BitVec 8), x * 0#8 = 0#8]
+
+#blaster (only-optimize: 1) [∀ (x : BitVec 8), x ^^^ x = 0#8]
+
+#blaster (only-optimize: 1) [∀ (x : BitVec 8), x - x = 0#8]
+```
+
+- [ ] **Step 4: Cleanup stale TODOs**
 
 Verify the BitVec mentions in the TODOs at `Blaster/Smt/Term.lean` (was line 84) and `Blaster/Smt/Translate.lean` (was line 21) were updated in Tasks 1-2; update `Blaster/Smt/Translate/Quantifier.lean` doc comment if missed.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add Tests/Smt/SmtBitVec.lean Tests/Smt.lean
+git add Tests/Smt/SmtBitVec.lean Tests/Smt.lean Blaster/Optimize/Expr.lean Tests/Smt/SmtBitVec/SmtBitVecLit.lean
 git commit -m "test(bitvec): register SmtBitVec suite in test driver"
 ```
 
