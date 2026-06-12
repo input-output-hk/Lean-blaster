@@ -1120,92 +1120,72 @@ def translateBitVecShift
     All index arguments must be Nat literals; non-literal indices trigger an error.
     Width-0 results (setWidth 0, signExtend 0, extractLsb' with len=0) trigger an error
     since `(_ BitVec 0)` is illegal in SMT-LIB.
+    Out-of-range extracts (`hi ≥ srcW` for extractLsb/extractLsb', `hi < lo` for extractLsb)
+    trigger errors even though Lean zero-fills them — SMT `(_ extract hi lo)` requires
+    `lo ≤ hi < srcW`.
 -/
 def translateBitVecIndexed
   (n : Name) (args : Array Expr)
   (termTranslator : Expr → TranslateEnvT SmtTerm) : TranslateEnvT SmtTerm := do
   -- Helper: extract a Nat literal from args[i]; error on non-literal
-  let litArg : Nat → TranslateEnvT Nat := fun i => do
+  let litArg : Nat → String → TranslateEnvT Nat := fun i role => do
     let some v := isNatValue? args[i]!
-      | throwEnvError "translateBitVecIndexed: literal Nat index expected for {n} at arg {i}; got {reprStr args[i]!}"
+      | throwEnvError "translateBitVecIndexed: literal Nat {role} expected for {n}"
     return v
   match n with
   | ``BitVec.extractLsb =>
     -- args: #[n(implicit), hi, lo, x]
     if args.size != 4 then
       throwEnvError "translateBitVecIndexed: extractLsb expects 4 args, got {args.size}"
-    let srcW ← litArg 0
-    let hi ← litArg 1
-    let lo ← litArg 2
+    let srcW ← litArg 0 "width"
+    let hi ← litArg 1 "high index"
+    let lo ← litArg 2 "low index"
     if hi ≥ srcW then
       throwEnvError "translateBitVecIndexed: extractLsb hi={hi} out of range for BitVec {srcW} (SMT requires hi < source width)"
     if hi < lo then
       throwEnvError "translateBitVecIndexed: extractLsb hi={hi} < lo={lo} is invalid"
     let sx ← termTranslator args[3]!
-    return mkSmtAppN (.SimpleIdent (bvextractSymbol hi lo)) #[sx]
+    return mkSimpleSmtAppN (bvextractSymbol hi lo) #[sx]
   | ``BitVec.extractLsb' =>
     -- args: #[n(implicit), start, len, x]
     if args.size != 4 then
       throwEnvError "translateBitVecIndexed: extractLsb' expects 4 args, got {args.size}"
-    let srcW ← litArg 0
-    let start ← litArg 1
-    let len   ← litArg 2
+    let srcW ← litArg 0 "width"
+    let start ← litArg 1 "start index"
+    let len   ← litArg 2 "length"
     if len == 0 then
       throwEnvError "translateBitVecIndexed: extractLsb' with len=0 would produce illegal (_ BitVec 0)"
     let hi := start + len - 1
     if hi ≥ srcW then
       throwEnvError "translateBitVecIndexed: extractLsb' start={start} len={len} (hi={hi}) out of range for BitVec {srcW}"
     let sx ← termTranslator args[3]!
-    return mkSmtAppN (.SimpleIdent (bvextractSymbol hi start)) #[sx]
-  | ``BitVec.setWidth =>
+    return mkSimpleSmtAppN (bvextractSymbol hi start) #[sx]
+  | ``BitVec.setWidth | ``BitVec.signExtend =>
     -- args: #[w(implicit), v, x]
     if args.size != 3 then
-      throwEnvError "translateBitVecIndexed: setWidth expects 3 args, got {args.size}"
-    let w ← litArg 0
-    let v ← litArg 1
+      throwEnvError "translateBitVecIndexed: {n} expects 3 args, got {args.size}"
+    let extSym := if n == ``BitVec.signExtend then bvsignExtendSymbol else bvzeroExtendSymbol
+    let w ← litArg 0 "width"
+    let v ← litArg 1 "target width"
     if v == 0 then
-      throwEnvError "translateBitVecIndexed: setWidth 0 would produce illegal (_ BitVec 0)"
+      throwEnvError "translateBitVecIndexed: {n} 0 would produce illegal (_ BitVec 0)"
     let sx ← termTranslator args[2]!
     if v ≥ w then
-      return mkSmtAppN (.SimpleIdent (bvzeroExtendSymbol (v - w))) #[sx]
+      return mkSimpleSmtAppN (extSym (v - w)) #[sx]
     else
-      -- v < w: truncate to lowest v bits (same semantics as Lean's setWidth)
-      return mkSmtAppN (.SimpleIdent (bvextractSymbol (v - 1) 0)) #[sx]
-  | ``BitVec.signExtend =>
-    -- args: #[w(implicit), v, x]
-    if args.size != 3 then
-      throwEnvError "translateBitVecIndexed: signExtend expects 3 args, got {args.size}"
-    let w ← litArg 0
-    let v ← litArg 1
-    if v == 0 then
-      throwEnvError "translateBitVecIndexed: signExtend 0 would produce illegal (_ BitVec 0)"
-    let sx ← termTranslator args[2]!
-    if v ≥ w then
-      return mkSmtAppN (.SimpleIdent (bvsignExtendSymbol (v - w))) #[sx]
-    else
-      -- v < w: truncation; Lean signExtend via toInt → mod 2^v; same bits as extract for positive
-      -- and for negative (where upper bits are sign-ext): extract gives correct lower v bits
-      return mkSmtAppN (.SimpleIdent (bvextractSymbol (v - 1) 0)) #[sx]
-  | ``BitVec.rotateLeft =>
+      -- v < w: truncate to lowest v bits (same semantics as Lean's setWidth/signExtend shrink)
+      return mkSimpleSmtAppN (bvextractSymbol (v - 1) 0) #[sx]
+  | ``BitVec.rotateLeft | ``BitVec.rotateRight =>
     -- args: #[w(implicit), x, k]
     if args.size != 3 then
-      throwEnvError "translateBitVecIndexed: rotateLeft expects 3 args, got {args.size}"
-    let w ← litArg 0
-    let k ← litArg 2
+      throwEnvError "translateBitVecIndexed: {n} expects 3 args, got {args.size}"
+    let rotSym := if n == ``BitVec.rotateLeft then bvrotateLeftSymbol else bvrotateRightSymbol
+    let w ← litArg 0 "width"
+    let k ← litArg 2 "rotation amount"
     if w == 0 then
-      throwEnvError "translateBitVecIndexed: rotateLeft on BitVec 0 is not supported"
+      throwEnvError "translateBitVecIndexed: {n} on BitVec 0 is not supported"
     let sx ← termTranslator args[1]!
-    return mkSmtAppN (.SimpleIdent (bvrotateLeftSymbol (k % w))) #[sx]
-  | ``BitVec.rotateRight =>
-    -- args: #[w(implicit), x, k]
-    if args.size != 3 then
-      throwEnvError "translateBitVecIndexed: rotateRight expects 3 args, got {args.size}"
-    let w ← litArg 0
-    let k ← litArg 2
-    if w == 0 then
-      throwEnvError "translateBitVecIndexed: rotateRight on BitVec 0 is not supported"
-    let sx ← termTranslator args[1]!
-    return mkSmtAppN (.SimpleIdent (bvrotateRightSymbol (k % w))) #[sx]
+    return mkSimpleSmtAppN (rotSym (k % w)) #[sx]
   | _ => throwEnvError "translateBitVecIndexed: unexpected op {n}"
 
 /-- Translate Application

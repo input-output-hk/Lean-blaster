@@ -27,3 +27,8 @@ namespace Test.SmtBitVecStructure
 #blaster [(0x81#8).rotateRight 1 = 0xC0#8]
 
 #blaster (gen-cex: 0) (solve-result: 1) [∀ (x : BitVec 8), x.rotateLeft 1 = x]
+
+#blaster [(0xABCD#16).extractLsb' 8 8 = 0xAB#8]
+
+-- signExtend shrink behaves like extract-truncation
+#blaster [(0xABCD#16).signExtend 8 = 0xCD#8]
