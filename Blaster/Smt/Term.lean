@@ -428,6 +428,16 @@ def bvultSymbol : SmtSymbol := mkReservedSymbol "bvult"
 def bvuleSymbol : SmtSymbol := mkReservedSymbol "bvule"
 def bvsltSymbol : SmtSymbol := mkReservedSymbol "bvslt"
 def bvsleSymbol : SmtSymbol := mkReservedSymbol "bvsle"
+def bvuremSymbol : SmtSymbol := mkReservedSymbol "bvurem"
+def bvsmodSymbol : SmtSymbol := mkReservedSymbol "bvsmod"
+def bvsremSymbol : SmtSymbol := mkReservedSymbol "bvsrem"
+
+/-! Per-width wrapper names for division ops whose div-by-zero semantics
+    differ between Lean (0) and Smt-Lib (allOnes / ±1).
+    NOTE: These functions are defined during translation whenever required.
+-/
+def bvudivSymbol (w : Nat) : SmtSymbol := mkReservedSymbol s!"@BitVec.udiv_{w}"
+def bvsdivSymbol (w : Nat) : SmtSymbol := mkReservedSymbol s!"@BitVec.sdiv_{w}"
 
 /-! Convert an String literal to an Smt representation. -/
 def strLitSmt (s : String) : SmtTerm := .StrTerm s!"\"{s}\""

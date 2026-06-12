@@ -79,6 +79,12 @@ def opaqueFuns : NameHashSet :=
     ``BitVec.ule,
     ``BitVec.slt,
     ``BitVec.sle,
+    -- Division: Lean x/0 = 0 mismatches SMT bvudiv/bvsdiv — wrapped per width
+    ``BitVec.udiv,
+    ``BitVec.umod,
+    ``BitVec.sdiv,
+    ``BitVec.smod,
+    ``BitVec.srem,
     -- String operators
     ``String.append,
     ``String.replace,

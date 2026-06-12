@@ -53,6 +53,11 @@ def fullyAppliedConst : NameHashSet :=
     ``BitVec.ule,
     ``BitVec.slt,
     ``BitVec.sle,
+    ``BitVec.udiv,
+    ``BitVec.umod,
+    ``BitVec.sdiv,
+    ``BitVec.smod,
+    ``BitVec.srem,
     ``String.append,
     ``String.length,
     ``String.replace
@@ -281,6 +286,27 @@ def translateInttoNat (n : Expr) : TranslateEnvT SmtQualifiedIdent := do
  | some smtId => return smtId
 
 
+/-- Translate `BitVec.udiv`/`BitVec.sdiv` to a per-width Smt wrapper
+    (Lean div-by-zero = 0, unlike bvudiv/bvsdiv). The wrapper is defined
+    lazily once per (op, width) and cached on `f w`.
+    An error is triggered when the width is not a Nat literal.
+-/
+def translateBitVecWrappedDiv (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT SmtQualifiedIdent := do
+  if args.size != 3 then
+    throwEnvError "translateBitVecWrappedDiv: fully applied {n} expected"
+  let some w := isNatValue? args[0]!
+    | throwEnvError "translateBitVecWrappedDiv: literal width expected for {n} but got {reprStr args[0]!}"
+  let instApp := mkApp f args[0]!
+  match (← get).smtEnv.funInstCache.get? instApp with
+  | some smtId => return smtId
+  | none =>
+      if n == ``BitVec.udiv then
+        defineBitVecUDiv w
+        updateFunInstCache instApp (bvudivSymbol w)
+      else
+        defineBitVecSDiv w
+        updateFunInstCache instApp (bvsdivSymbol w)
+
 /-- Return `stₙ` when entry `f := stₙ` exists in `funInstCache`.
     Otherwise:
      - add entry `f := SimpleIdent s` to `funInstCache`
@@ -370,6 +396,11 @@ def translateOpaqueFun (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT
   | ``BitVec.ule => getOpaqueSmtEquivFun f bvuleSymbol
   | ``BitVec.slt => getOpaqueSmtEquivFun f bvsltSymbol
   | ``BitVec.sle => getOpaqueSmtEquivFun f bvsleSymbol
+  | ``BitVec.udiv
+  | ``BitVec.sdiv => translateBitVecWrappedDiv f n args
+  | ``BitVec.umod => getOpaqueSmtEquivFun f bvuremSymbol
+  | ``BitVec.smod => getOpaqueSmtEquivFun f bvsmodSymbol
+  | ``BitVec.srem => getOpaqueSmtEquivFun f bvsremSymbol
   | _ => throwEnvError "translateOpaqueFun: unexpected opaque operator {n}"
 
 
