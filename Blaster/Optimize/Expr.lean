@@ -354,6 +354,19 @@ def isCharValue? (e : Expr) : Option Char :=
   | _ => none
 
 
+/-- Match `BitVec.toNat w y` and return `(w, y)` when `w` is a Nat literal.
+    This form arises after optimization when `BitVec.toNat` is opaque: the implicit
+    width argument is already reduced to a raw `Expr.lit (Literal.natVal w)` by the
+    optimizer, giving `Expr.app (Expr.app (Expr.const ``BitVec.toNat _) wLit) y`.
+    Used by `translateBitVecShift` to detect bv-by-bv shift amounts. -/
+def isBitVecToNat? (e : Expr) : Option (Nat × Expr) :=
+  match e with
+  | Expr.app (Expr.app (Expr.const ``BitVec.toNat _) wArg) y =>
+      match isNatValue? wArg with
+      | some w => some (w, y)
+      | none => none
+  | _ => none
+
 /-- Return `true` if `e := Nat.add e1 e2`. Otherwise return `false`.
     Note that `true` is returned only when e is a fully applied `Nat.add expression.
 -/

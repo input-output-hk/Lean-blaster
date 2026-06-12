@@ -1049,19 +1049,23 @@ def getProjectionCtor (n : Name) : TranslateEnvT Name := do
 
 /-- Translate BitVec shifts.
     For `BitVec.shiftLeft x (s : Nat)`, `BitVec.ushiftRight x (s : Nat)`, and
-    `BitVec.sshiftRight x (s : Nat)`, `s` must be a Nat literal and is emitted as
-    `(_ bv{s} w)` (a width-`w` bitvec constant) so that the SMT bvshl/bvlshr/bvashr
-    application is well-sorted.  A variable Nat shift amount has no faithful
-    fixed-width encoding and triggers an error suggesting the BitVec-amount form.
+    `BitVec.sshiftRight x (s : Nat)`, `s` must be either:
+      (a) a Nat literal → emitted as `(_ bv{s} w)` (a width-`w` bitvec constant); or
+      (b) `BitVec.toNat w' y'` where `w' = w` → emitted as `(bvOP sx sy')`.
+
+    Case (b) arises from `x <<< y` with `y : BitVec w`, which Lean unfolds to
+    `BitVec.shiftLeft x y.toNat`.  With `BitVec.toNat` opaque the toNat call
+    survives optimization and is detected here.  The encoding is faithful: both Lean
+    and SMT bvshl/bvlshr/bvashr agree on the out-of-range behavior (≥ width yields
+    0 / sign-fill).
 
     All three Lean shift functions share the same arg layout:
-      args[0] : Nat     — width (implicit, must be a literal)
+      args[0] : Nat      — width (implicit, must be a literal)
       args[1] : BitVec w — the value to shift
-      args[2] : Nat     — the shift amount (must be a literal)
+      args[2] : Nat      — the shift amount (literal OR `BitVec.toNat w' y'`)
 
-    Note: BitVec-by-BitVec shifts (`x <<< y` with `y : BitVec w`) unfold through
-    `BitVec.toNat` with no intermediate named constant surviving after optimization,
-    so they are not supported here.
+    A symbolic Nat shift amount (neither a literal nor a same-width toNat) triggers
+    an error suggesting the BitVec-amount form.
 -/
 def translateBitVecShift
   (n : Name) (args : Array Expr) (sym : SmtSymbol)
@@ -1071,6 +1075,12 @@ def translateBitVecShift
   let some w := isNatValue? args[0]!
     | throwEnvError "translateBitVecShift: literal width expected for {n}"
   let sx ← termTranslator args[1]!
+  -- bv-by-bv shifts arrive as `shiftLeft x (y.toNat)`: faithful as a direct
+  -- bv shift when y has the same width
+  if let some (w', sAmount) := isBitVecToNat? args[2]! then
+    if w' != w then
+      throwEnvError "translateBitVecShift: shift amount width {w'} ≠ operand width {w} for {n}"
+    return mkSimpleSmtAppN sym #[sx, ← termTranslator sAmount]
   let some s := isNatValue? args[2]!
     | throwEnvError "translateBitVecShift: literal shift amount expected for {n}; use a `BitVec {w}` shift amount for symbolic shifts"
   return mkSimpleSmtAppN sym #[sx, bitvecLitSmt s w]

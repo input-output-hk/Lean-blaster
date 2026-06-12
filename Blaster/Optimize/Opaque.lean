@@ -79,6 +79,10 @@ def opaqueFuns : NameHashSet :=
     ``BitVec.ule,
     ``BitVec.slt,
     ``BitVec.sle,
+    -- toNat is opaque ONLY so that `x <<< y` (bv-by-bv shifts, which unfold to
+    -- `shiftLeft x y.toNat`) survives to translation; standalone toNat is still
+    -- unsupported and errors at translation.
+    ``BitVec.toNat,
     -- Shifts (Nat amount must be a literal; BitVec-amount shifts unfold through
     -- BitVec.toNat with no intermediate named constant and are not supported)
     ``BitVec.shiftLeft,
