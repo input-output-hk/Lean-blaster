@@ -1049,6 +1049,8 @@ def getProjectionCtor (n : Name) : TranslateEnvT Name := do
   | [c] => return c
   | _ => throwEnvError "getProjectionCtor: only one ctor expected for structure for {n}"
 
+/-! ## BitVec ops requiring custom translation -/
+
 /-- Translate BitVec shifts.
     For `BitVec.shiftLeft x (s : Nat)`, `BitVec.ushiftRight x (s : Nat)`, and
     `BitVec.sshiftRight x (s : Nat)`, `s` must be either:

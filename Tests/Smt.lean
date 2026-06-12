@@ -1,5 +1,6 @@
 
 import Tests.Smt.Benchmarks
+import Tests.Smt.SmtBitVec
 import Tests.Smt.SmtEqArith
 import Tests.Smt.SmtLtArith
 import Tests.Smt.SmtMatch

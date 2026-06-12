@@ -12,3 +12,6 @@ namespace Test.SmtBitVecLit
 
 -- ofNat wraps modulo 2^w
 #blaster [∀ (x : BitVec 8), x = 256#8 → x = 0#8]
+
+-- kernel-normalized ofFin literal form
+#blaster [∀ (x : BitVec 8), x = BitVec.ofFin ⟨200, by decide⟩ → x ≠ 201#8]

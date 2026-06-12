@@ -14,4 +14,14 @@ namespace Test.SmtBitVecFold
 
 #blaster (only-optimize: 1) [(5#8 / 0#8 : BitVec 8) = 0#8]
 
+#blaster (only-optimize: 1) [∀ (x : BitVec 8), x + 0#8 = x]
+
+#blaster (only-optimize: 1) [∀ (x : BitVec 8), 0#8 ||| x = x]
+
+#blaster (only-optimize: 1) [∀ (x : BitVec 8), x * 0#8 = 0#8]
+
+#blaster (only-optimize: 1) [∀ (x : BitVec 8), x ^^^ x = 0#8]
+
+#blaster (only-optimize: 1) [∀ (x : BitVec 8), x - x = 0#8]
+
 end Test.SmtBitVecFold

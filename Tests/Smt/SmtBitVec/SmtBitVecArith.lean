@@ -27,3 +27,6 @@ namespace Test.SmtBitVecArith
 #blaster [∀ (x : BitVec 8), x &&& 255#8 = x]
 
 #blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : BitVec 8), x + y = x]
+
+-- mixed widths: + at width 8 and width 16 share the same bvadd encoding
+#blaster [∀ (x : BitVec 8) (y : BitVec 16), x + x = x + x ∧ y + 1#16 ≠ y]

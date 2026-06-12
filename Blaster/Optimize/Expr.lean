@@ -330,7 +330,7 @@ def isBitVecValue? (e : Expr) : Option (Nat × Nat) :=
   match e with
   | Expr.app (Expr.app (Expr.const ``BitVec.ofNat _)
       (Expr.lit (Literal.natVal w))) (Expr.lit (Literal.natVal v)) =>
-      some (w, v % (2 ^ w))
+      some (w, if v == 0 || v.log2 < w then v else v % (2 ^ w))
   | Expr.app (Expr.app (Expr.const ``BitVec.ofFin _)
       (Expr.lit (Literal.natVal w))) fn =>
       match fn with

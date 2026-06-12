@@ -1075,12 +1075,15 @@ def mkIntLitExpr (n : Int) : TranslateEnvT Expr := do
   | Int.ofNat n => mkExpr (mkApp (← mkIntOfNat) (← mkNatLitExpr n))
   | Int.negSucc n => mkExpr (mkApp (mkConst ``Int.negSucc) (← mkNatLitExpr n))
 
-/-- Create a BitVec literal expression `BitVec.ofNat w (v % 2^w)`.
+/-- Create a BitVec literal expression `BitVec.ofNat w v'` where
+    `v' = v` when `v < 2^w` (fast path: avoids materializing `2^w`),
+    and `v' = v % 2^w` otherwise.
     NOTE: `BitVec.ofNat` is opaque and recognized by `isBitVecValue?`.
 -/
 def mkBitVecLitExpr (w v : Nat) : TranslateEnvT Expr :=
+  let v := if v == 0 || v.log2 < w then v else v % (2 ^ w)
   mkExpr (mkApp2 (mkConst ``BitVec.ofNat)
-           (mkRawNatLit w) (mkRawNatLit (v % (2 ^ w))))
+           (mkRawNatLit w) (mkRawNatLit v))
 
 /-- Return Int `a = b` and don't cache result. -/
 def mkIntEqExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do

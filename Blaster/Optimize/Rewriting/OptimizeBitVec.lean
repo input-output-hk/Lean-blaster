@@ -32,8 +32,10 @@ private def evalBitVecBinOp (op : Name) (w v1 v2 : Nat) : Option Nat :=
      - BitVec.not V / neg V ==> folded literal
      - x &&& 0 / 0 &&& x    ==> 0
      - x ||| 0 / 0 ||| x    ==> x
+     - x ^^^ x              ==> 0
      - x ^^^ 0 / 0 ^^^ x    ==> x
      - x + 0 / 0 + x        ==> x
+     - x - x                ==> 0
      - x - 0                ==> x
      - x * 1 / 1 * x        ==> x
      - x * 0 / 0 * x        ==> 0
@@ -76,13 +78,15 @@ def optimizeBitVec? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr)
         if isZero v1? then return some y
         else if isZero v2? then return some x else return none
     | ``BitVec.xor =>
-        if isZero v1? then return some y
+        if exprEq x y then return some (← mkBitVecLitExpr w 0)
+        else if isZero v1? then return some y
         else if isZero v2? then return some x else return none
     | ``BitVec.add =>
         if isZero v1? then return some y
         else if isZero v2? then return some x else return none
     | ``BitVec.sub =>
-        if isZero v2? then return some x else return none
+        if exprEq x y then return some (← mkBitVecLitExpr w 0)
+        else if isZero v2? then return some x else return none
     | ``BitVec.mul =>
         if isZero v1? || isZero v2? then return some (← mkBitVecLitExpr w 0)
         else if isOne v1? then return some y
