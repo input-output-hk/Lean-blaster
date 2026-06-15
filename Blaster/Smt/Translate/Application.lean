@@ -1195,6 +1195,12 @@ def translateBitVecIndexed
     return mkSimpleSmtAppN (rotSym (k % w)) #[sx]
   | _ => throwEnvError "translateBitVecIndexed: unexpected op {n}"
 
+/-- Max Vector length unrolled into an explicit equality conjunction; above this, a bounded forall is used. -/
+def vectorUnrollThreshold : Nat := 16
+
+/-- Max nesting depth for recursive pointwise equality of nested Vector elements. -/
+def vectorMaxNestDepth : Nat := 16
+
 /-- Translate Application
     TODO: UPDATE
 -/
@@ -1258,29 +1264,35 @@ def translateApp
         - Leaf element: emits `(= (select tv k) (select tw k))`
         - `Vector β m` element: recurses to produce nested pointwise equality
 
-        `depth` bounds the recursion (default 16; sufficient for any realistic nesting depth).
+        `depth` bounds the recursion (default `vectorMaxNestDepth`; sufficient for any realistic nesting depth).
 
         - n = 0 → `true`
-        - 1 ≤ n ≤ 16 → unrolled conjunction (recursive for nested Vectors)
-        - n > 16 → bounded forall `∀ @__veq_i, 0 ≤ i < n → (sel tv i) = (sel tw i)`.
-          **Limitation**: n > 16 uses plain `=` for elements even if the element type is
+        - 1 ≤ n ≤ `vectorUnrollThreshold` → unrolled conjunction (recursive for nested Vectors)
+        - n > `vectorUnrollThreshold` → bounded forall `∀ @__veq_i, 0 ≤ i < n → (sel tv i) = (sel tw i)`.
+          **Limitation**: n > `vectorUnrollThreshold` uses plain `=` for elements even if the element type is
           itself a Vector (nested pointwise inside forall requires additional quantifiers).
     -/
-    vectorPointwiseEqSmtM (elemTypeExpr : Expr) (tv tw : SmtTerm) (n : Nat) (depth : Nat := 16) : TranslateEnvT SmtTerm :=
+    vectorPointwiseEqSmtM (elemTypeExpr : Expr) (tv tw : SmtTerm) (n : Nat) (depth : Nat := vectorMaxNestDepth) : TranslateEnvT SmtTerm := do
       if n == 0 then return trueSmt
-      else if n ≤ 16 then do
+      else if n ≤ vectorUnrollThreshold then do
+        -- Hoist loop-invariant element-type analysis: check once whether elemTypeExpr is a
+        -- nested Vector with a literal length, so the per-index closure just builds select-eq.
+        let innerVec? : Option (Expr × Nat) ←
+          if elemTypeExpr.getAppFn.isConstOf ``Vector then do
+            let innerArgs := elemTypeExpr.getAppArgs
+            if innerArgs.size >= 2 then do
+              let mExpr ← whnf innerArgs[1]!
+              if let some mVal := isNatValue? mExpr then
+                pure (some (innerArgs[0]!, mVal))
+              else pure none
+            else pure none
+          else pure none
         -- Build element equality, recursing into nested Vectors when depth allows.
         let mkElemEq (te1 te2 : SmtTerm) : TranslateEnvT SmtTerm := do
-          match depth with
-          | 0 => return eqSmt te1 te2
-          | depth' + 1 =>
-            if elemTypeExpr.getAppFn.isConstOf ``Vector then
-              let innerArgs := elemTypeExpr.getAppArgs
-              if innerArgs.size >= 2 then
-                let mExpr ← whnf innerArgs[1]!
-                if let some mVal := isNatValue? mExpr then
-                  return ← vectorPointwiseEqSmtM innerArgs[0]! te1 te2 mVal depth'
-            return eqSmt te1 te2
+          match depth, innerVec? with
+          | depth' + 1, some (innerElem, mVal) =>
+            return ← vectorPointwiseEqSmtM innerElem te1 te2 mVal depth'
+          | _, _ => return eqSmt te1 te2
         -- Unrolled conjunction over [0, n)
         let mut result ← mkElemEq (selectSmt tv #[natLitSmt 0]) (selectSmt tw #[natLitSmt 0])
         for k in List.range (n - 1) do
@@ -1289,7 +1301,7 @@ def translateApp
           result := andSmt result conjunct
         return result
       else
-        -- Bounded forall (n > 16): uses plain `=` for elements (limitation for nested Vectors).
+        -- Bounded forall (n > vectorUnrollThreshold): uses plain `=` for elements (limitation for nested Vectors).
         let iSym := mkReservedSymbol "@__veq_i"
         let iTerm : SmtTerm := .SmtIdent (.SimpleIdent iSym)
         let guard := andSmt (leqSmt (natLitSmt 0) iTerm) (ltSmt iTerm (natLitSmt n))
@@ -1355,19 +1367,9 @@ def translateApp
        | _ => return none
 
     translateRelational? (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
+      -- Vector `==` unfolds to Vector.isEqv/toArray upstream, so there's no BEq.beq node to intercept here; Vector equality is handled at the propositional `=` path (translateVectorEq?).
       match n with
-       | ``BEq.beq =>
-            -- Intercept BEq.beq on Vector BEFORE isOpaqueRelational (which requires LawfulBEq).
-            -- @BEq.beq : {α} → [BEq α] → α → α → Bool
-            -- args[0] = α (type), args[1] = BEq instance, args[2] = lhs, args[3] = rhs
-            if args.size == 4 then
-              if let some r ← translateVectorEq? args[0]! args[2]! args[3]! then return r
-            if (← isOpaqueRelational n args) then
-              if args.size == 3 then
-                throwEnvError "translateRelational?: unexpected partially applied {n} got {reprStr args}"
-              if args.size == 2 then return (← termTranslator (← Optimize.etaExpand e))
-              createAppN f (← Sum.inl <$> translateOpaqueFun f n args) args termTranslator
-            else return none -- undefined fun class case
+       | ``BEq.beq
        | ``LE.le
        | ``LT.lt =>
             if (← isOpaqueRelational n args) then

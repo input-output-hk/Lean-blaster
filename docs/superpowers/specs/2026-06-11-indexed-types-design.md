@@ -259,6 +259,11 @@ vectors. Equality at a Vector type is therefore intercepted and translated
 `(and (= (select v 0) (select w 0)) …)` for `n ≤ 16`, a bounded `forall`
 otherwise. Faithful in both directions.
 
+**Known limitation — `BEq` (`==`) not supported.** `v == w` on `Vector α n`
+unfolds through `Vector.instBEq` to `Vector.isEqv`/`Vector.toArray` — a
+cross-encoding operation that blaster cannot translate. Use propositional `=`
+instead, which IS faithful (intercepted and translated pointwise as above).
+
 **Qualifier:** for qualified element sorts:
 `(forall ((i Int)) (=> (and (<= 0 i) (< i n)) (@isElem (select v i))))`.
 
