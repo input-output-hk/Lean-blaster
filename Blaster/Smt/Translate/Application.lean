@@ -1212,6 +1212,7 @@ def translateApp
          if let some r ← translateSMTArrayCtor? n then return r
          if let some r ← translateBitVecShift? n args then return r
          if let some r ← translateBitVecIndexed? n args then return r
+         if let some r ← translateUnsupportedConv? n then return r
          if let some r ← translateEq? f n args then return r
          if let some r ← translateRelational? f n args then return r
          if let some r ← translateDITE? f n args then return r
@@ -1538,6 +1539,24 @@ def translateApp
       match n with
       | ``Blaster.SMTArray.ofArray | ``Blaster.SMTArray.toArray =>
           throwEnvError "translateApp: concrete SMTArray construction/unwrapping ({n}) is not supported; use symbolic `SMTArray` variables with `.get`/`.set`"
+      | _ => return none
+
+    /-- Reject BitVec-family conversion-out-of-fixed-width ops with an actionable error.
+        `BitVec.toNat`, `BitVec.toInt`, and `BitVec.toFin` convert a fixed-width value
+        to an unbounded type (Nat, Int, or Fin), which would require Z3-specific
+        `bv2int`/`int2bv` extensions and is a declared Non-Goal.  Intercept here so the
+        user sees a clear message instead of the raw `translateApp: unexpected application`
+        dump produced by the fallthrough.
+
+        NOTE: this arm must sit AFTER `translateBitVecShift?` in the dispatch chain.
+        `translateBitVecShift` consumes `BitVec.toNat y` as a shift-amount sub-expression
+        (via `isBitVecToNat?`) before the head `f` ever reaches `translateApp`.  Only a
+        standalone `x.toNat`/`x.toInt`/`x.toFin` application whose head is one of these
+        names arrives here, so there is no clash. -/
+    translateUnsupportedConv? (n : Name) : TranslateEnvT (Option SmtTerm) := do
+      match n with
+      | ``BitVec.toNat | ``BitVec.toInt | ``BitVec.toFin =>
+          throwEnvError "translateApp: conversion out of the fixed-width domain ({n}) is not supported (see Non-Goals); reason over the fixed-width value directly"
       | _ => return none
 
     translateFinArith? (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do

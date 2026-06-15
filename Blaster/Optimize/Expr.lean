@@ -265,11 +265,6 @@ def isStringType (e : Expr) : Bool :=
 def isBitVecType (e : Expr) : Bool :=
   e.getAppFn.isConstOf ``BitVec
 
-/-- Default platform BitVec width for `USize`/`ISize` (used as the default value
-    of the `usize-width` option).  Translation reads the live option via `getUsizeWidth`;
-    this constant is kept as a named default only. -/
-def platformBitWidth : Nat := 64
-
 /-- Map a UInt/Int family type-head name to its BitVec width. `USize`/`ISize`
     return `none` (width is configuration-dependent — resolved by the caller). -/
 def uintWidth? : Name → Option Nat

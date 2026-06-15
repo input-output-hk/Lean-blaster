@@ -212,6 +212,24 @@ should be checked at both widths.
 extension of `OptimizeBitVec.lean`), without round-tripping through
 BitVec terms.
 
+**Known limitations (Phase 3).**
+
+- **Negative `USize`/`ISize` literals** (e.g. `(-1 : ISize)`) are not
+  supported. They elaborate through `BitVec.ofNat System.Platform.numBits v`
+  whose width argument is the opaque platform projection
+  `System.Platform.getNumBits ()` — never a `Nat` literal — so
+  `translatePlatformBvLit?` does not recognize the form. Positive
+  `USize`/`ISize` literals (e.g. `(42 : USize)`) and all fixed-width
+  negative literals (e.g. `(-5 : Int8)`) work correctly. Fails safe:
+  produces a clean "non-literal width" error rather than a wrong translation.
+- **`toNat`/`toInt`/`toFin` on BitVec-family values** produce an actionable
+  error: "conversion out of the fixed-width domain … is not supported (see
+  Non-Goals); reason over the fixed-width value directly". This covers
+  `BitVec.toNat`, `BitVec.toInt`, and `BitVec.toFin` when they appear as
+  the head of a top-level application. Note: `BitVec.toNat` used internally
+  as a shift-amount expression (e.g. `x <<< y` with `y : BitVec w`) is
+  consumed by `translateBitVecShift` before this check and continues to work.
+
 ---
 
 ## Phase 4 — `Vector α n`
@@ -256,7 +274,8 @@ and the supported alternative:
 | `BitVec n`, variable `n` | not supported; use a literal width |
 | Variable `Nat` shift/rotate amount | use a BitVec shift amount |
 | `Fin` with dynamic bound (`Fin a.size`) | use `SMTArray` |
-| `toNat`/`toInt` on BitVec family | unsupported (see Non-Goals) |
+| `toNat`/`toInt`/`toFin` on BitVec family | unsupported (see Non-Goals); reason over the fixed-width value directly |
+| Negative `USize`/`ISize` literal (e.g. `(-1 : ISize)`) | non-literal platform width; use `Int64`/`Int32` for negative signed literals |
 | `Vector α n`, variable `n` | use `SMTArray` |
 | Higher-order array/vector ops | unsupported |
 
