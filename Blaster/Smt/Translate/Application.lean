@@ -1201,6 +1201,7 @@ def translateApp
     | Expr.const n _ =>
          if let some r ← translateFullyApplied? f n args then return r
          if let some r ← translateFinOp? n args then return r
+         if let some r ← translateFinArith? n args then return r
          if let some r ← translateBitVecShift? n args then return r
          if let some r ← translateBitVecIndexed? n args then return r
          if let some r ← translateEq? f n args then return r
@@ -1406,6 +1407,31 @@ def translateApp
       | ``Fin.mk =>
           -- @Fin.mk {n} v proof — value v is at index 1
           if args.size ≥ 2 then return some (← termTranslator args[1]!) else return none
+      | _ => return none
+
+    /-- Translate modular arithmetic on `Fin n` (opaque in the optimizer).
+
+        Arg layout for all three ops: `@Fin.add {n} a b` → args := #[n, a, b]
+        where n is the implicit bound (must be a Nat literal at translation time).
+
+        - `Fin.add a b` → `(a + b) % n`   (matches Lean's `Fin.add`)
+        - `Fin.mul a b` → `(a * b) % n`   (matches Lean's `Fin.mul`)
+        - `Fin.sub a b` → `(n - b + a) % n` (matches Lean's `Fin.sub`: stays non-negative
+            since `b < n`, so `n - b ≥ 1`; no Nat truncation mismatch in Int SMT) -/
+    translateFinArith? (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
+      match n with
+      | ``Fin.add | ``Fin.mul | ``Fin.sub =>
+          if args.size != 3 then return none
+          let some bound := isNatValue? args[0]!
+            | throwEnvError "translateFinArith?: literal Fin bound expected for {n}"
+          let ta ← termTranslator args[1]!
+          let tb ← termTranslator args[2]!
+          let modN := natLitSmt bound
+          let body := match n with
+            | ``Fin.add => addSmt ta tb
+            | ``Fin.mul => mulSmt ta tb
+            | _ /- Fin.sub -/ => addSmt (subSmt modN tb) ta
+          return some (modSmt body modN)
       | _ => return none
 
     translateInductivePredicate? (f : Expr) (n : Name) (_args : Array Expr) : TranslateEnvT (Option SmtTerm) := do

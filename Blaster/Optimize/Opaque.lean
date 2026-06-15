@@ -102,8 +102,12 @@ def opaqueFuns : NameHashSet :=
     ``BitVec.rotateLeft,
     ``BitVec.rotateRight,
     -- Fin: val/mk are identity at SMT level (Fin_n is an Int alias)
+    -- Fin.add/sub/mul are opaque: custom translation emits modular arithmetic
     ``Fin.val,
     ``Fin.mk,
+    ``Fin.add,
+    ``Fin.sub,
+    ``Fin.mul,
     -- String operators
     ``String.append,
     ``String.replace,
