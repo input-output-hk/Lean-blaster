@@ -24,3 +24,9 @@ namespace Test.SmtIntDiv
 -- signed remainder: T-division means remainder has same sign as dividend
 -- Lean: #eval ((-7 : Int8)) % 2  => -1
 #blaster [((-7 : Int8)) % 2 = -1]
+
+-- T-division invariant (symbolic, forces SMT bvsdiv/bvsrem path, cannot be folded):
+-- for all nonzero y, x = (x/y)*y + x%y
+-- NOTE: the concrete tests above are optimizer-folded to True; this symbolic test
+-- actually exercises the SMT sdiv wrapper and verifies T-division semantics end-to-end.
+#blaster [∀ (x y : Int8), y ≠ 0 → (x / y) * y + x % y = x]
