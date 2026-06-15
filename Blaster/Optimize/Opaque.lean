@@ -109,6 +109,15 @@ def opaqueFuns : NameHashSet :=
     ``Fin.add,
     ``Fin.sub,
     ``Fin.mul,
+    -- UInt/Int family wrapper constructors (identity at SMT level — erased to (_ BitVec w)).
+    -- Private Int*/ISize ctors (_private…Int8.ofUInt8, _private…ISize.ofUSize etc.)
+    -- cannot be written as backtick literals; handled at translation time via
+    -- ctorInfo.induct detection in translateUIntOp?.
+    ``UInt8.ofBitVec,
+    ``UInt16.ofBitVec,
+    ``UInt32.ofBitVec,
+    ``UInt64.ofBitVec,
+    ``USize.ofBitVec,
     -- SMTArray Nat-indexed get/set → SMT array theory select/store
     ``Blaster.SMTArray.get,
     ``Blaster.SMTArray.set,

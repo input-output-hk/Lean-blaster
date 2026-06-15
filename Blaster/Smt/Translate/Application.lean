@@ -1206,6 +1206,7 @@ def translateApp
     | Expr.const n _ =>
          if let some r ← translateFullyApplied? f n args then return r
          if let some r ← translateFinOp? n args then return r
+         if let some r ← translateUIntOp? n args then return r
          if let some r ← translateFinArith? n args then return r
          if let some r ← translateSMTArrayCtor? n then return r
          if let some r ← translateBitVecShift? n args then return r
@@ -1402,6 +1403,47 @@ def translateApp
       | ``BitVec.rotateRight => return some (← translateBitVecIndexed n args termTranslator)
       | _ => return none
 
+    /-- UInt/Int family wrapper ctors/projections are identity at the SMT level —
+        all 12 types translate to `(_ BitVec w)`, so their single-field constructors
+        and projections are no-ops.
+
+        - `UInt8.ofBitVec bv`         → translate bv  (identity)
+        - `_private…Int8.ofUInt8 x`   → translate x   (identity; private ctor detected
+                                         via ctorInfo.induct rather than a backtick literal)
+        - `USize.ofBitVec (BitVec.ofNat <platform-w> v)` → `bitvecLitSmt (v%2^64) 64`
+          (platform width is opaque at compile time → hardcoded 64; TODO: Task 6)
+        - `ISize.ofUSize (USize.ofBitVec …)` → recurse twice; bottoms out at the USize arm.
+    -/
+    translateUIntOp? (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
+      -- Only fires for single-field structure constructors whose parent is a UInt/Int family
+      let ConstantInfo.ctorInfo ci ← getConstEnvInfo n | return none
+      let isUIntFamily := (uintWidth? ci.induct).isSome
+      let isUSizeFamily := ci.induct == ``USize
+      let isISizeFamily := ci.induct == ``ISize
+      if !isUIntFamily && !isUSizeFamily && !isISizeFamily then return none
+      -- The ctor has exactly one field (numParams=0, numFields=1); the field is the last arg.
+      if args.isEmpty then return (← termTranslator (← Optimize.etaExpand e))
+      let inner := args[args.size - 1]!
+      -- USize/ISize special case: the inner arg may be `BitVec.ofNat <non-literal-w> v`
+      -- because System.Platform.numBits is opaque (not a Nat literal) — isBitVecValue? would fail.
+      -- Detect it here and emit the literal with hardcoded width=64. (TODO Task 6: read from options)
+      if isUSizeFamily || isISizeFamily then
+        if let some t ← translatePlatformBvLit? inner then return some t
+      return some (← termTranslator inner)
+
+    /-- Detect `BitVec.ofNat <non-literal-width> (Expr.lit (natVal v))` as a USize/ISize literal.
+        `System.Platform.numBits` reduces to `(System.Platform.getNumBits ()).val` which is an
+        `Expr.proj` — never a Nat literal — so `isBitVecValue?` cannot fire.
+        Hardcode width=64 (TODO Task 6). -/
+    translatePlatformBvLit? (bvExpr : Expr) : TranslateEnvT (Option SmtTerm) := do
+      match bvExpr with
+      | Expr.app (Expr.app (Expr.const ``BitVec.ofNat _) _wExpr)
+          (Expr.lit (Literal.natVal v)) =>
+          -- Width arg is non-literal (platform-dependent) — hardcode 64 (TODO Task 6)
+          let w := 64
+          return some (bitvecLitSmt (v % (2 ^ w)) w)
+      | _ => return none
+
     /-- Fin.val / Fin.mk are identity at SMT level (Fin_n aliases Int).
         `@Fin.val {n} x` → translate x (last arg, index args.size-1).
         `@Fin.mk {n} v proof` → translate v (index 1, proof dropped). -/
@@ -1592,6 +1634,11 @@ def translateLambda
 def translateProj
   (n : Name) (idx : Nat) (p : Expr)
   (termTranslator : Expr → TranslateEnvT SmtTerm) : TranslateEnvT SmtTerm := do
+ -- UInt/Int family types are erased to their underlying `(_ BitVec w)` sort.
+ -- Their projections (`.toBitVec` / `.toUInt8` etc.) are identity: translate the inner value.
+ let isUIntFamilyProj := (uintWidth? n).isSome || n == ``USize || n == ``ISize
+ if isUIntFamilyProj then
+   return (← termTranslator p)
  let selectorSym := mkCtorSelectorSymbol (← getProjectionCtor n) idx
  return (mkSimpleSmtAppN selectorSym #[← termTranslator p])
 
