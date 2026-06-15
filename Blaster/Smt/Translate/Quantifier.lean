@@ -1386,6 +1386,13 @@ def translateOpaqueType (e : Expr) : TranslateEnvT (Option SortExpr) := do
     | _ => return none
  | _ => throwEnvError "translateOpaqueType: name expression expected but got {reprStr e}"
 
+/-- Read the configured USize/ISize bit-width from the solver options.
+    Validates that the value is 32 or 64; throws a clear error otherwise. -/
+def getUsizeWidth : TranslateEnvT Nat := do
+  let w := (← get).optEnv.options.solverOptions.usizeWidth
+  if w == 32 || w == 64 then return w
+  throwEnvError s!"usize-width must be 32 or 64, but got {w}"
+
 /-- Translate a UInt/Int family type to its underlying `(_ BitVec w)` sort
     (wrappers erased — UInt8 and BitVec 8 share the SMT sort).
     Assume `t.getAppFn = Expr.const n _` with n a UInt/Int family name.
@@ -1404,7 +1411,7 @@ def translateUIntType (t : Expr) : TranslateEnvT SortExpr := do
       | throwEnvError "translateUIntType: name expression expected but got {reprStr t}"
     let w ← match uintWidth? n with
       | some w => pure w
-      | none => pure platformBitWidth  -- USize/ISize: platform width
+      | none => getUsizeWidth  -- USize/ISize: read from usize-width option
     let decl ← updateIndInstCache t (mkReservedSymbol s!"{n}") (bitvecSort w) (isReservedSymbol := true)
     definePredQualifier decl.instName #[bitvecSort w] (some true)
     return decl.instSort

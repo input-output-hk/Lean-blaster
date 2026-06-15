@@ -38,6 +38,7 @@ syntax "(gen-cex:" num ")" : solveOption
 syntax "(solve-result:" num ")" : solveOption
 syntax "(max-depth:" num ")" : solveOption
 syntax "(random-seed:" num ")" : solveOption
+syntax "(usize-width:" num ")" : solveOption
 
 -- NOTE: Limited to one term for the time being
 syntax solveTerm := "[" term "]"
@@ -102,6 +103,14 @@ def parseRandomSeed (sOpts : BlasterOptions) : TSyntax `solveOption → m Blaste
       | n => return { sOpts with randomSeed := some n }
   | _ => return sOpts
 
+def parseUsizeWidth (sOpts : BlasterOptions) : TSyntax `solveOption → m BlasterOptions
+  | `(solveOption| (usize-width: $n:num)) =>
+      match n.getNat with
+      | 32 => return { sOpts with usizeWidth := 32 }
+      | 64 => return { sOpts with usizeWidth := 64 }
+      | _ => throwUnsupportedSyntax
+  | _ => return sOpts
+
 def parseSolveResult (sOpts : BlasterOptions) : TSyntax `solveOption → m BlasterOptions
   | `(solveOption| (solve-result: $n:num)) =>
       match n.getNat with
@@ -123,6 +132,7 @@ def parseSolveOption (sOpts : BlasterOptions) (opt : TSyntax `solveOption) : m B
   let sOpts ← parseSolveResult sOpts opt
   let sOpts ← parseMaxDepth sOpts opt
   let sOpts ← parseRandomSeed sOpts opt
+  let sOpts ← parseUsizeWidth sOpts opt
   return sOpts
 
 /-! ### Process Multiple Options -/

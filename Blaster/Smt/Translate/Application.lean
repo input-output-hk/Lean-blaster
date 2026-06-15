@@ -1411,8 +1411,8 @@ def translateApp
         - `UInt8.ofBitVec bv`         → translate bv  (identity)
         - `_private…Int8.ofUInt8 x`   → translate x   (identity; private ctor detected
                                          via ctorInfo.induct rather than a backtick literal)
-        - `USize.ofBitVec (BitVec.ofNat <platform-w> v)` → `bitvecLitSmt (v%2^64) 64`
-          (platform width is opaque at compile time → hardcoded 64; TODO: Task 6)
+        - `USize.ofBitVec (BitVec.ofNat <platform-w> v)` → `bitvecLitSmt (v%2^w) w`
+          (platform width is opaque at compile time → read from usize-width option, default 64)
         - `ISize.ofUSize (USize.ofBitVec …)` → recurse twice; bottoms out at the USize arm.
     -/
     translateUIntOp? (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
@@ -1426,7 +1426,7 @@ def translateApp
       let inner := args[args.size - 1]!
       -- USize/ISize special case: the inner arg may be `BitVec.ofNat <non-literal-w> v`
       -- because System.Platform.numBits is opaque (not a Nat literal) — isBitVecValue? would fail.
-      -- Detect it here and emit the literal with hardcoded width=64. (TODO Task 6: read from options)
+      -- Detect it here and emit the literal with the configured usize-width.
       if isUSizeFamily || isISizeFamily then
         if let some t ← translatePlatformBvLit? inner then return some t
       return some (← termTranslator inner)
@@ -1438,7 +1438,7 @@ def translateApp
 
         Supported conversions — all are unsigned (zero-extend on widen, extract on narrow):
           UInt{m}.toUInt{n}   for all m,n ∈ {8,16,32,64}
-          UInt{m}.toUSize     for m ∈ {8,16,32}    (widen to platformBitWidth=64)
+          UInt{m}.toUSize     for m ∈ {8,16,32}    (widen to usize-width, default 64)
           USize.toUInt64      / UInt64.toUSize      (same-width=64 identity)
 
         Int widen/narrow (BitVec.signExtend path) and same-width reinterprets (ctor/proj identity)
@@ -1471,9 +1471,10 @@ def translateApp
       -- Exactly one explicit argument expected (the value to convert).
       if args.isEmpty then return none
       let inner := args[args.size - 1]!
-      -- Resolve widths (USize/ISize → platformBitWidth = 64).
-      let srcW := (uintWidth? srcName).getD platformBitWidth
-      let tgtW := (uintWidth? tgtName).getD platformBitWidth
+      -- Resolve widths (USize/ISize → read from usize-width option).
+      let usizeW ← getUsizeWidth
+      let srcW := (uintWidth? srcName).getD usizeW
+      let tgtW := (uintWidth? tgtName).getD usizeW
       let sx ← termTranslator inner
       if tgtW == srcW then
         -- Same-width → identity (these are already handled by ctor/proj for signed ones;
@@ -1495,13 +1496,13 @@ def translateApp
         `System.Platform.numBits` reduces to `(System.Platform.getNumBits ()).val` which is an
         `Expr.proj` — never a Nat literal — so `isBitVecValue?` cannot fire.
         The width arg is ignored — this is only reached for USize/ISize ctor args whose
-        underlying width is the platform width (`platformBitWidth`). -/
+        underlying width is read from the usize-width option. -/
     translatePlatformBvLit? (bvExpr : Expr) : TranslateEnvT (Option SmtTerm) := do
       match bvExpr with
       | Expr.app (Expr.app (Expr.const ``BitVec.ofNat _) _wExpr)
           (Expr.lit (Literal.natVal v)) =>
-          -- Width arg is ignored — only reached for USize/ISize whose width is the platform width.
-          let w := platformBitWidth
+          -- Width is read from the usize-width option (default 64).
+          let w ← getUsizeWidth
           return some (bitvecLitSmt (v % (2 ^ w)) w)
       | _ => return none
 

@@ -71,6 +71,10 @@ structure BlasterOptions where
   /-- Maximum analysis depth to be considered when performing BMC and K-Induction.
       It is set to 10 by default. -/
   maxDepth : Nat := 10
+
+  /-- The bit-width used for `USize` and `ISize` sorts and literals.
+      Must be 32 or 64. It is set to 64 by default (matches 64-bit platforms). -/
+  usizeWidth : Nat := 64
  deriving Repr
 
 instance : Inhabited BlasterOptions where
