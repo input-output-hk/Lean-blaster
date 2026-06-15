@@ -1253,12 +1253,53 @@ def translateApp
     | _ => throwEnvError "translateApp: unexpected application {reprStr e}"
 
   where
+    /-- Build a pointwise conjunction `(select v 0) = (select w 0) ∧ … ∧ (select v (n-1)) = (select w (n-1))`
+        for two SMT array terms `tv` and `tw` of Vector length `n`.
+        - n = 0  → `true`
+        - 1 ≤ n ≤ 16 → unrolled conjunction
+        - n > 16 → bounded forall `∀ @__veq_i : Int, 0 ≤ @__veq_i < n → (select tv @__veq_i) = (select tw @__veq_i)`
+    -/
+    vectorPointwiseEqSmt (tv tw : SmtTerm) (n : Nat) : SmtTerm :=
+      if n == 0 then trueSmt
+      else if n ≤ 16 then
+        -- Unrolled conjunction over [0, n)
+        let conjuncts := Array.range n |>.map fun k =>
+          eqSmt (selectSmt tv #[natLitSmt k]) (selectSmt tw #[natLitSmt k])
+        -- Fold: start with conjuncts[0], accumulate with andSmt
+        conjuncts[1:].foldl andSmt conjuncts[0]!
+      else
+        -- Bounded forall: ∀ @__veq_i : Int, 0 ≤ @__veq_i ∧ @__veq_i < n → sel(v,i) = sel(w,i)
+        let iSym := mkReservedSymbol "@__veq_i"
+        let iTerm : SmtTerm := .SmtIdent (.SimpleIdent iSym)
+        let guard := andSmt (leqSmt (natLitSmt 0) iTerm) (ltSmt iTerm (natLitSmt n))
+        let body := impliesSmt guard (eqSmt (selectSmt tv #[iTerm]) (selectSmt tw #[iTerm]))
+        mkForallTerm none #[(iSym, intSort)] body none
+
+    /-- If `typeExpr` is `Vector α n` with literal length `n`, translate the two operands
+        `lhsExpr`/`rhsExpr` and return `some (pointwise conjunction)`.
+        Returns `none` if `typeExpr` is not a Vector with a literal length (falls through to
+        generic equality). -/
+    translateVectorEq? (typeExpr lhsExpr rhsExpr : Expr) : TranslateEnvT (Option SmtTerm) := do
+      -- Quick check: head constant must be Vector
+      if !typeExpr.getAppFn.isConstOf ``Vector then return none
+      let vecArgs := typeExpr.getAppArgs
+      -- Vector has two type parameters: α (index 0) and n (index 1)
+      if vecArgs.size < 2 then return none
+      let nExpr ← whnf vecArgs[1]!
+      let some nVal := isNatValue? nExpr | return none
+      -- Type confirmed as `Vector α (literal nVal)` — build pointwise eq
+      let tv ← termTranslator lhsExpr
+      let tw ← termTranslator rhsExpr
+      return some (vectorPointwiseEqSmt tv tw nVal)
+
     translateEq? (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
       match n with
        | ``Eq =>
          if args.size == 2 then
            throwEnvError "translateEq?: unexpected partially applied Eq got {reprStr args}"
          if args.size == 1 then return (← termTranslator (← Optimize.etaExpand e))
+         -- Intercept Vector equality: emit pointwise conjunction instead of extensional SMT `=`
+         if let some r ← translateVectorEq? args[0]! args[1]! args[2]! then return r
          match args[1]! with
           | Expr.const ``true _ => termTranslator args[2]!
           | Expr.const ``false _ => termTranslator (mkApp (← mkBoolNotOp) args[2]!)
@@ -1293,7 +1334,18 @@ def translateApp
 
     translateRelational? (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
       match n with
-       | ``BEq.beq
+       | ``BEq.beq =>
+            -- Intercept BEq.beq on Vector BEFORE isOpaqueRelational (which requires LawfulBEq).
+            -- @BEq.beq : {α} → [BEq α] → α → α → Bool
+            -- args[0] = α (type), args[1] = BEq instance, args[2] = lhs, args[3] = rhs
+            if args.size == 4 then
+              if let some r ← translateVectorEq? args[0]! args[2]! args[3]! then return r
+            if (← isOpaqueRelational n args) then
+              if args.size == 3 then
+                throwEnvError "translateRelational?: unexpected partially applied {n} got {reprStr args}"
+              if args.size == 2 then return (← termTranslator (← Optimize.etaExpand e))
+              createAppN f (← Sum.inl <$> translateOpaqueFun f n args) args termTranslator
+            else return none -- undefined fun class case
        | ``LE.le
        | ``LT.lt =>
             if (← isOpaqueRelational n args) then
