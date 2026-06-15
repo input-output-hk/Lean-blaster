@@ -1206,6 +1206,7 @@ def translateApp
     | Expr.const n _ =>
          if let some r ← translateFullyApplied? f n args then return r
          if let some r ← translateFinOp? n args then return r
+         if let some r ← translateVectorOp? n args then return r
          if let some r ← translateUIntOp? n args then return r
          if let some r ← translateUIntConv? n args then return r
          if let some r ← translateFinArith? n args then return r
@@ -1539,6 +1540,60 @@ def translateApp
       match n with
       | ``Blaster.SMTArray.ofArray | ``Blaster.SMTArray.toArray =>
           throwEnvError "translateApp: concrete SMTArray construction/unwrapping ({n}) is not supported; use symbolic `SMTArray` variables with `.get`/`.set`"
+      | _ => return none
+
+    /-- Translate Vector ops to SMT array theory.
+
+        Arg layouts (all args after Expr.withApp, including implicit ones):
+          - `@Vector.get {α} {n} v i`         → args[0]=α, args[1]=n, args[2]=v, args[3]=i
+                 SMT: `(select v i)`
+          - `@Vector.set {α} {n} v idx x h`   → args[0]=α, args[1]=n, args[2]=v,
+                                                  args[3]=idx, args[4]=x, args[5]=h
+                 SMT: `(store v idx x)`  (proof `h` is dropped)
+          - `@Vector.push {α} {n} v x`        → args[0]=α, args[1]=n, args[2]=v, args[3]=x
+                 SMT: `(store v n x)`  where `n` is the literal current length (from args[1])
+          - `@Vector.replicate {α} n x`       → args[0]=α, args[1]=n, args[2]=x
+                 SMT: `((as const (Array Int σ)) x)` where σ is the translated element sort
+
+        `Vector.get` and `Vector.set` are also called with a `Fin n` index (for `get`) or a
+        Nat literal (for `set`); both pass through `termTranslator` directly — `Fin.val`/`Fin.mk`
+        are identity at SMT level (see `translateFinOp?`).
+    -/
+    translateVectorOp? (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
+      match n with
+      | ``Vector.get =>
+          -- @Vector.get {α} {n} v i — 4 args total, v at [2], i at [3]
+          if args.size != 4 then
+            throwEnvError "translateVectorOp?: fully applied Vector.get expected but got {args.size} args"
+          let sv ← termTranslator args[2]!
+          let si ← termTranslator args[3]!
+          return some (selectSmt sv #[si])
+      | ``Vector.set =>
+          -- @Vector.set {α} {n} v idx x h — 6 args total, v at [2], idx at [3], x at [4], h at [5]
+          if args.size != 6 then
+            throwEnvError "translateVectorOp?: fully applied Vector.set expected but got {args.size} args"
+          let sv  ← termTranslator args[2]!
+          let si  ← termTranslator args[3]!
+          let sx  ← termTranslator args[4]!
+          return some (storeSmt sv si sx)
+      | ``Vector.push =>
+          -- @Vector.push {α} {n} v x — 4 args total, n at [1], v at [2], x at [3]
+          if args.size != 4 then
+            throwEnvError "translateVectorOp?: fully applied Vector.push expected but got {args.size} args"
+          let some nVal := isNatValue? (← whnf args[1]!)
+            | throwEnvError "translateVectorOp?: literal length expected for Vector.push but got {reprStr args[1]!}"
+          let sv ← termTranslator args[2]!
+          let sx ← termTranslator args[3]!
+          return some (storeSmt sv (natLitSmt nVal) sx)
+      | ``Vector.replicate =>
+          -- @Vector.replicate {α} n x — 3 args total, α at [0], n at [1], x at [2]
+          if args.size != 3 then
+            throwEnvError "translateVectorOp?: fully applied Vector.replicate expected but got {args.size} args"
+          -- The result sort is (Array Int σ); σ comes from the element type α (args[0])
+          let elemSort ← translateType termTranslator args[0]!
+          let arrSort  := arraySort #[intSort, elemSort]
+          let sx ← termTranslator args[2]!
+          return some (constArraySmt arrSort sx)
       | _ => return none
 
     /-- Reject BitVec-family conversion-out-of-fixed-width ops with an actionable error.

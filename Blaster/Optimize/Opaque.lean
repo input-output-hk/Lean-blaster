@@ -140,6 +140,11 @@ def opaqueFuns : NameHashSet :=
     -- SMTArray Nat-indexed get/set → SMT array theory select/store
     ``Blaster.SMTArray.get,
     ``Blaster.SMTArray.set,
+    -- Vector ops → SMT array theory select/store/const
+    ``Vector.get,
+    ``Vector.set,
+    ``Vector.push,
+    ``Vector.replicate,
     -- String operators
     ``String.append,
     ``String.replace,

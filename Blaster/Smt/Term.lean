@@ -403,6 +403,13 @@ def selectSmt (f : SmtTerm) (args : Array SmtTerm) : SmtTerm :=
 /-! Create a store Smt application `(store a i v)`. -/
 def storeSmt (a i v : SmtTerm) : SmtTerm := mkSimpleSmtAppN storeSymbol #[a, i, v]
 
+/-! Create a constant-array Smt term `((as const sort) x)`.
+    Used to translate `Vector.replicate n x` → a Z3 constant array where every
+    index maps to `x`.  The `(as const sort)` qualified identifier is applied to `x`,
+    rendering as `((as const (Array Int σ)) x)` in SMT-Lib V2. -/
+def constArraySmt (sort : SortExpr) (x : SmtTerm) : SmtTerm :=
+  mkSmtAppN (.QualifiedIdent (mkReservedSymbol "const") sort) #[x]
+
 /-! Return `true` Smt term. -/
 def trueSmt : SmtTerm := .BoolTerm true
 
