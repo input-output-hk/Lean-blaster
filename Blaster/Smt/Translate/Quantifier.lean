@@ -1293,8 +1293,21 @@ def translateArrayType
     let v ← mkFreshId
     let sym := mkReservedSymbol s!"Array_{v}"
     let decl ← updateIndInstCache t sym sort (isReservedSymbol := true)
-    -- Trivially-true qualifier: the SMT sort is exact, no additional constraint needed.
-    definePredQualifier decl.instName #[sort] (some true)
+    -- Lift the element qualifier pointwise: every `(select a i)` must satisfy the
+    -- element type's qualifier. This is a SOUNDNESS requirement, not an
+    -- optimization — without it, `SMTArray Nat`/`SMTArray (Fin n)` elements are
+    -- unconstrained Ints and admit spurious witnesses in positive (existential)
+    -- position, allowing false proofs. For exact element types (Int/BitVec/Bool)
+    -- the element qualifier is trivially `true`, so the body is `(forall i true)`,
+    -- which Z3 discharges immediately.
+    --   (define-fun @isArray_v ((@x (Array Int σ))) Bool
+    --      (forall ((@i Int)) (@isElem (select @x @i))))
+    let xsym := mkReservedSymbol "@x"
+    let isym := mkReservedSymbol "@i"
+    let elemPred ← createPredQualifierAppAux
+      (selectSmt (smtSimpleVarId xsym) #[smtSimpleVarId isym]) elemType (inPredQualifier := true)
+    let body := mkForallTerm none #[(isym, intSort)] elemPred none
+    defineFun decl.instName #[(xsym, sort)] boolSort body
     return sort
 
 /-- Translate `BitVec w` (literal `w` only) to the builtin Smt sort `(_ BitVec w)`.
