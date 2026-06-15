@@ -1263,6 +1263,40 @@ def translatePEmptyType (n : Expr) : TranslateEnvT SortExpr := do
  | some decl => return decl.instSort
 
 
+/-- Translate `Array α` (and its abbrev `SMTArray α`, resolved by `removeTypeAbbrev`)
+    to the SMT array theory sort `(Array Int σ_α)`, where `σ_α` is the translated
+    element sort.  The index domain is always `Int` (SMT integer theory) because
+    `SMTArray.get`/`set` take a `Nat` index, which is translated to `Int` in SMT.
+
+    Qualifier uniqueness: `updateIndInstCache` derives the qualifier name as
+    `@is<symbol>`.  Using a single fixed symbol (e.g. `@isArray`) would collide when
+    two different element types are used in the same query (Z3 rejects duplicate
+    `define-fun`).  We therefore derive a fresh counter-based symbol per call;
+    the `indTypeInstCache` lookup at the top of this function ensures the fresh id
+    is generated only once per distinct element-type expression.
+
+    The predicate qualifier is trivially `true` (the SMT sort is exact for array
+    equality; element-wise qualifier lifting is a documented future enhancement).
+-/
+def translateArrayType
+    (typeTranslator : Expr → TranslateEnvT SortExpr)
+    (t : Expr) : TranslateEnvT SortExpr := do
+  -- Cache lookup: key is the full `Array α` expression.
+  match (← get).smtEnv.indTypeInstCache.get? t with
+  | some decl => return decl.instSort
+  | none =>
+    let elemType := t.appArg!
+    let elemSort ← typeTranslator elemType
+    let sort := arraySort #[intSort, elemSort]
+    -- Generate a fresh ID so that `SMTArray Int` and `SMTArray (BitVec 8)`
+    -- produce distinct qualifier names, e.g. `@isArray_1` and `@isArray_2`.
+    let v ← mkFreshId
+    let sym := mkReservedSymbol s!"Array_{v}"
+    let decl ← updateIndInstCache t sym sort (isReservedSymbol := true)
+    -- Trivially-true qualifier: the SMT sort is exact, no additional constraint needed.
+    definePredQualifier decl.instName #[sort] (some true)
+    return sort
+
 /-- Translate `BitVec w` (literal `w` only) to the builtin Smt sort `(_ BitVec w)`.
     A trivial predicate qualifier `@isBitVec_{w}` is defined (the Smt sort is exact).
     An error is triggered when the width is not a Nat literal.
@@ -1341,6 +1375,7 @@ partial def translateTypeAux
   TranslateEnvT SortExpr := do
    let e := t.getAppFn
    match e with
+   | Expr.const ``Array _ => translateArrayType (λ a => translateTypeAux termTranslator a) t
    | Expr.const ``Fin _ => translateFinType t
    | Expr.const ``BitVec _ => translateBitVecType t
    | Expr.const .. =>
