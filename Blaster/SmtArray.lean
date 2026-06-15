@@ -2,17 +2,26 @@
 
 `Array.get` requires a `Fin a.size` index (a dynamically-sized bound the
 translator cannot model). `SMTArray` exposes total `Nat`-indexed `get`/`set`
-so user code never produces `Fin a.size`. It is `Array` at runtime (zero cost)
-and translates to the SMT array theory (`select`/`store`). -/
+so user code never produces `Fin a.size`, and it translates to the SMT array
+theory (`select`/`store`).
+
+It is a *single-field structure* wrapping `Array` (not an `abbrev`/`def`):
+Lean represents single-field structures identically to the field, so this is
+zero runtime cost, but — unlike an `abbrev` — `SMTArray α` does NOT reduce to
+`Array α` during translation. That distinction is essential: raw `Array α` is
+translated as an opaque datatype (so concrete arrays keep structural equality),
+while `SMTArray α` opts into the SMT array theory. -/
 
 namespace Blaster
 
-abbrev SMTArray (α : Type u) := Array α
+structure SMTArray (α : Type u) where
+  ofArray ::
+  toArray : Array α
 
 /-- Total Nat-indexed read; out-of-bounds yields `default`. -/
-def SMTArray.get [Inhabited α] (a : SMTArray α) (i : Nat) : α := a.getD i default
+def SMTArray.get [Inhabited α] (a : SMTArray α) (i : Nat) : α := a.toArray.getD i default
 
 /-- Total Nat-indexed write; out-of-bounds is a no-op. -/
-def SMTArray.set (a : SMTArray α) (i : Nat) (v : α) : SMTArray α := a.setIfInBounds i v
+def SMTArray.set (a : SMTArray α) (i : Nat) (v : α) : SMTArray α := ⟨a.toArray.setIfInBounds i v⟩
 
 end Blaster

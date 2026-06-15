@@ -1263,10 +1263,11 @@ def translatePEmptyType (n : Expr) : TranslateEnvT SortExpr := do
  | some decl => return decl.instSort
 
 
-/-- Translate `Array α` (and its abbrev `SMTArray α`, resolved by `removeTypeAbbrev`)
-    to the SMT array theory sort `(Array Int σ_α)`, where `σ_α` is the translated
-    element sort.  The index domain is always `Int` (SMT integer theory) because
-    `SMTArray.get`/`set` take a `Nat` index, which is translated to `Int` in SMT.
+/-- Translate `SMTArray α` (the single-field structure, NOT raw `Array α` — raw
+    arrays stay on the opaque-datatype path so concrete arrays keep structural
+    equality) to the SMT array theory sort `(Array Int σ_α)`, where `σ_α` is the
+    translated element sort.  The index domain is always `Int` (SMT integer
+    theory) because `SMTArray.get`/`set` take a `Nat` index, translated to `Int`.
 
     Qualifier uniqueness: `updateIndInstCache` derives the qualifier name as
     `@is<symbol>`.  Using a single fixed symbol (e.g. `@isArray`) would collide when
@@ -1285,7 +1286,7 @@ def translatePEmptyType (n : Expr) : TranslateEnvT SortExpr := do
 def translateArrayType
     (typeTranslator : Expr → TranslateEnvT SortExpr)
     (t : Expr) : TranslateEnvT SortExpr := do
-  -- Cache lookup: key is the full `Array α` expression.
+  -- Cache lookup: key is the full `SMTArray α` expression.
   match (← get).smtEnv.indTypeInstCache.get? t with
   | some decl => return decl.instSort
   | none =>
@@ -1392,7 +1393,7 @@ partial def translateTypeAux
   TranslateEnvT SortExpr := do
    let e := t.getAppFn
    match e with
-   | Expr.const ``Array _ => translateArrayType (λ a => translateTypeAux termTranslator a) t
+   | Expr.const ``Blaster.SMTArray _ => translateArrayType (λ a => translateTypeAux termTranslator a) t
    | Expr.const ``Fin _ => translateFinType t
    | Expr.const ``BitVec _ => translateBitVecType t
    | Expr.const .. =>
