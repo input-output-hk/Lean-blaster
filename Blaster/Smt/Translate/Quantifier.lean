@@ -1386,6 +1386,29 @@ def translateOpaqueType (e : Expr) : TranslateEnvT (Option SortExpr) := do
     | _ => return none
  | _ => throwEnvError "translateOpaqueType: name expression expected but got {reprStr e}"
 
+/-- Translate a UInt/Int family type to its underlying `(_ BitVec w)` sort
+    (wrappers erased — UInt8 and BitVec 8 share the SMT sort).
+    Assume `t.getAppFn = Expr.const n _` with n a UInt/Int family name.
+
+    Qualifier uniqueness: the qualifier name is derived from the TYPE name
+    (`@isUInt8`, `@isInt8`, `@isUSize`, …), NOT the width: a width-derived
+    `@isBitVec_8` would collide across `UInt8`/`Int8`/`BitVec 8` (all map
+    to `(_ BitVec 8)`) → duplicate `define-fun` → Z3 error.  The sort is
+    built-in (no `define-sort`), so a distinct predicate name fully resolves it.
+-/
+def translateUIntType (t : Expr) : TranslateEnvT SortExpr := do
+  match (← get).smtEnv.indTypeInstCache.get? t with
+  | some decl => return decl.instSort
+  | none =>
+    let Expr.const n _ := t.getAppFn
+      | throwEnvError "translateUIntType: name expression expected but got {reprStr t}"
+    let w ← match uintWidth? n with
+      | some w => pure w
+      | none => pure 64  -- USize/ISize: platform width, fixed at 64 for this target
+    let decl ← updateIndInstCache t (mkReservedSymbol s!"{n}") (bitvecSort w) (isReservedSymbol := true)
+    definePredQualifier decl.instName #[bitvecSort w] (some true)
+    return decl.instSort
+
 /-- TODO: UPDATE SPEC -/
 partial def translateTypeAux
   (termTranslator : Expr → TranslateEnvT SmtTerm)
@@ -1396,6 +1419,10 @@ partial def translateTypeAux
    | Expr.const ``Blaster.SMTArray _ => translateArrayType (λ a => translateTypeAux termTranslator a) t
    | Expr.const ``Fin _ => translateFinType t
    | Expr.const ``BitVec _ => translateBitVecType t
+   | Expr.const ``UInt8 _  | Expr.const ``UInt16 _ | Expr.const ``UInt32 _
+   | Expr.const ``UInt64 _ | Expr.const ``USize _
+   | Expr.const ``Int8 _   | Expr.const ``Int16 _  | Expr.const ``Int32 _
+   | Expr.const ``Int64 _  | Expr.const ``ISize _ => translateUIntType t
    | Expr.const .. =>
       if let some r ← translateOpaqueType e then return r
       translateNonOpaqueType e t.getAppArgs
