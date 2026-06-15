@@ -1,5 +1,6 @@
 import Lean
 import Blaster.Optimize.Decidable
+import Blaster.SmtArray
 
 open Lean Meta
 
@@ -108,6 +109,9 @@ def opaqueFuns : NameHashSet :=
     ``Fin.add,
     ``Fin.sub,
     ``Fin.mul,
+    -- SMTArray Nat-indexed get/set → SMT array theory select/store
+    ``Blaster.SMTArray.get,
+    ``Blaster.SMTArray.set,
     -- String operators
     ``String.append,
     ``String.replace,

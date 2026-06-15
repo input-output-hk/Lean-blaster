@@ -4,6 +4,7 @@ import Blaster.Optimize.Telescope
 import Blaster.Smt.Env
 import Blaster.Smt.Translate.Match
 import Blaster.Smt.Translate.Quantifier
+import Blaster.SmtArray
 
 
 open Lean Meta Blaster.Optimize
@@ -61,7 +62,9 @@ def fullyAppliedConst : NameHashSet :=
     ``BitVec.append,
     ``String.append,
     ``String.length,
-    ``String.replace
+    ``String.replace,
+    ``Blaster.SMTArray.get,
+    ``Blaster.SMTArray.set
   ]
 
 /-- Return `true` when `e` corresponds to one of the following:
@@ -408,6 +411,8 @@ def translateOpaqueFun (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT
   | ``BitVec.smod => getOpaqueSmtEquivFun f bvsmodSymbol
   | ``BitVec.srem => getOpaqueSmtEquivFun f bvsremSymbol
   | ``BitVec.append => getOpaqueSmtEquivFun f bvconcatSymbol
+  | ``Blaster.SMTArray.get => getOpaqueSmtEquivFun f selectSymbol
+  | ``Blaster.SMTArray.set => getOpaqueSmtEquivFun f storeSymbol
   | _ => throwEnvError "translateOpaqueFun: unexpected opaque operator {n}"
 
 
