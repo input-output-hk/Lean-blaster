@@ -365,7 +365,10 @@ def defineNatSort (isNatSym : SmtSymbol) : TranslateEnvT Unit := do
 
 /-- Define Fin_n sort (Int alias) and qualifier
      `(define-fun @isFin_n ((@x Fin_n)) Bool (and (<= 0 @x) (< @x n)))`.
-    n = 0 → `false` (Fin 0 uninhabited). Assume `isFinSym := @isFin_n`. -/
+    n = 0 → `false` (Fin 0 is uninhabited; ∀ over it is vacuously true).
+    NOTE: unlike BitVec (which rejects width 0 since `(_ BitVec 0)` is illegal
+    in SMT-Lib), `Fin 0` is representable here — its qualifier is just `false`.
+    Assume `isFinSym := @isFin_n`. -/
 def defineFinSort (isFinSym : SmtSymbol) (n : Nat) : TranslateEnvT Unit := do
   defineSort (finSymbol n) none intSort
   let psym := mkReservedSymbol "@x"
