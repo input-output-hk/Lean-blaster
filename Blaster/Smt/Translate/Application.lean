@@ -1253,27 +1253,49 @@ def translateApp
     | _ => throwEnvError "translateApp: unexpected application {reprStr e}"
 
   where
-    /-- Build a pointwise conjunction `(select v 0) = (select w 0) ∧ … ∧ (select v (n-1)) = (select w (n-1))`
-        for two SMT array terms `tv` and `tw` of Vector length `n`.
-        - n = 0  → `true`
-        - 1 ≤ n ≤ 16 → unrolled conjunction
-        - n > 16 → bounded forall `∀ @__veq_i : Int, 0 ≤ @__veq_i < n → (select tv @__veq_i) = (select tw @__veq_i)`
+    /-- Build a pointwise conjunction for `Vector α n` equality between SMT terms `tv` and `tw`.
+        Dispatches on the element type `elemTypeExpr` to handle nested Vectors faithfully:
+        - Leaf element: emits `(= (select tv k) (select tw k))`
+        - `Vector β m` element: recurses to produce nested pointwise equality
+
+        `depth` bounds the recursion (default 16; sufficient for any realistic nesting depth).
+
+        - n = 0 → `true`
+        - 1 ≤ n ≤ 16 → unrolled conjunction (recursive for nested Vectors)
+        - n > 16 → bounded forall `∀ @__veq_i, 0 ≤ i < n → (sel tv i) = (sel tw i)`.
+          **Limitation**: n > 16 uses plain `=` for elements even if the element type is
+          itself a Vector (nested pointwise inside forall requires additional quantifiers).
     -/
-    vectorPointwiseEqSmt (tv tw : SmtTerm) (n : Nat) : SmtTerm :=
-      if n == 0 then trueSmt
-      else if n ≤ 16 then
+    vectorPointwiseEqSmtM (elemTypeExpr : Expr) (tv tw : SmtTerm) (n : Nat) (depth : Nat := 16) : TranslateEnvT SmtTerm :=
+      if n == 0 then return trueSmt
+      else if n ≤ 16 then do
+        -- Build element equality, recursing into nested Vectors when depth allows.
+        let mkElemEq (te1 te2 : SmtTerm) : TranslateEnvT SmtTerm := do
+          match depth with
+          | 0 => return eqSmt te1 te2
+          | depth' + 1 =>
+            if elemTypeExpr.getAppFn.isConstOf ``Vector then
+              let innerArgs := elemTypeExpr.getAppArgs
+              if innerArgs.size >= 2 then
+                let mExpr ← whnf innerArgs[1]!
+                if let some mVal := isNatValue? mExpr then
+                  return ← vectorPointwiseEqSmtM innerArgs[0]! te1 te2 mVal depth'
+            return eqSmt te1 te2
         -- Unrolled conjunction over [0, n)
-        let conjuncts := Array.range n |>.map fun k =>
-          eqSmt (selectSmt tv #[natLitSmt k]) (selectSmt tw #[natLitSmt k])
-        -- Fold: start with conjuncts[0], accumulate with andSmt
-        conjuncts[1:].foldl andSmt conjuncts[0]!
+        let mut result ← mkElemEq (selectSmt tv #[natLitSmt 0]) (selectSmt tw #[natLitSmt 0])
+        for k in List.range (n - 1) do
+          let kNext := k + 1
+          let conjunct ← mkElemEq (selectSmt tv #[natLitSmt kNext]) (selectSmt tw #[natLitSmt kNext])
+          result := andSmt result conjunct
+        return result
       else
-        -- Bounded forall: ∀ @__veq_i : Int, 0 ≤ @__veq_i ∧ @__veq_i < n → sel(v,i) = sel(w,i)
+        -- Bounded forall (n > 16): uses plain `=` for elements (limitation for nested Vectors).
         let iSym := mkReservedSymbol "@__veq_i"
         let iTerm : SmtTerm := .SmtIdent (.SimpleIdent iSym)
         let guard := andSmt (leqSmt (natLitSmt 0) iTerm) (ltSmt iTerm (natLitSmt n))
         let body := impliesSmt guard (eqSmt (selectSmt tv #[iTerm]) (selectSmt tw #[iTerm]))
-        mkForallTerm none #[(iSym, intSort)] body none
+        return mkForallTerm none #[(iSym, intSort)] body none
+      termination_by depth
 
     /-- If `typeExpr` is `Vector α n` with literal length `n`, translate the two operands
         `lhsExpr`/`rhsExpr` and return `some (pointwise conjunction)`.
@@ -1290,7 +1312,7 @@ def translateApp
       -- Type confirmed as `Vector α (literal nVal)` — build pointwise eq
       let tv ← termTranslator lhsExpr
       let tw ← termTranslator rhsExpr
-      return some (vectorPointwiseEqSmt tv tw nVal)
+      return some (← vectorPointwiseEqSmtM vecArgs[0]! tv tw nVal)
 
     translateEq? (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
       match n with

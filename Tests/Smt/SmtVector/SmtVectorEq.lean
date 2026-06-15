@@ -37,6 +37,15 @@ namespace Test.SmtVectorEq
     v.get ⟨1, by omega⟩ = w.get ⟨1, by omega⟩ →
     v = w]
 
+-- Nested Vector equality: `Vector (Vector Int 2) 2` discriminator.
+-- The outer equality is pointwise; the inner element equality is ALSO pointwise
+-- (each `(select v k) = (select w k)` of type `Vector Int 2` recurses).
+-- Without recursive element equality, this would be spuriously Falsified.
+#blaster [∀ (v w : Vector (Vector Int 2) 2),
+    v.get ⟨0, by omega⟩ = w.get ⟨0, by omega⟩ →
+    v.get ⟨1, by omega⟩ = w.get ⟨1, by omega⟩ →
+    v = w]
+
 -- NOTE: `v == w` (BEq.beq) on Vector unfolds through Vector.instBEq to `Vector.isEqv`,
 -- which uses `Vector.toArray` — an unsupported operation in blaster. The BEq interception
 -- added to `translateRelational?` is correct code but in practice unreachable since the
