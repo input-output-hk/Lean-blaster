@@ -249,8 +249,10 @@ the length statically known to the translator. Non-literal `n` → error.
 - Literal `#v[a, b, c]` → folded by the optimizer to a constant array;
   equality and falsification both work correctly (e.g. `#v[1,2,3] = #v[1,2,4]`
   → ❌ Falsified). `store` chain translation is not needed.
-- `map/foldl/zipWith/…` → non-goal; these unfold during optimization and
+- `map/zipWith/…` → non-goal; these unfold during optimization and
   transitively hit the `Vector.mk` error (no separate arm needed).
+  `foldl` → non-goal; unfolds via a different path and hits an internal
+  `translateNonOpaqueType` error (see Known Limitations).
   `append` → deferred.
 
 **Equality (the key nuance).** Lean equality on `Vector α n` is
@@ -278,11 +280,17 @@ otherwise. Faithful in both directions.
   hits the above error. Use propositional `=` instead, which IS faithful
   (intercepted and translated pointwise as above).
 
-- **Higher-order ops (`map`, `foldl`, `zipWith`, …) not supported.** These
-  unfold during optimization and transitively trigger the `Vector.mk` clean
-  error. The message is `"concrete Vector construction/unwrapping (Vector.mk)
-  is not supported"` — the Vector.map arm would be dead (pre-unfolded), so
-  no separate arm exists. Documented here for user awareness.
+- **Higher-order ops (`map`, `zipWith`, …) not supported.** These unfold
+  during optimization and transitively trigger the `Vector.mk` clean error:
+  `"concrete Vector construction/unwrapping (Vector.mk) is not supported"`.
+  No separate per-op arm exists (the head constant is pre-unfolded away).
+
+- **`foldl` not supported — non-actionable error.** `Vector.foldl` unfolds
+  through a different recursive path that produces an internal
+  `translateNonOpaqueType: inductive info expected for LT.lt` error — the loop
+  bound `<` leaks through unfold. This is fail-safe (no wrong answer) but not
+  actionable. A future improvement would register `Vector.foldl` opaque to
+  intercept it before unfolding; not in scope for Phase 4.
 
 - **`#v[…]` literals with non-constant elements are not supported.** Pure
   literal vectors (e.g. `#v[1,2,3] : Vector Int 3`) fold correctly. A `#v[]`
@@ -308,7 +316,8 @@ and the supported alternative:
 | Negative `USize`/`ISize` literal (e.g. `(-1 : ISize)`) | non-literal platform width; use `Int64`/`Int32` for negative signed literals |
 | `Vector α n`, variable `n` | use `SMTArray` |
 | `Vector.mk` / `Vector.toArray` | crosses array-theory and opaque-Array encodings; use `get`/`set`/`push`/`replicate` on symbolic Vector variables |
-| Higher-order Vector ops (`map`, `foldl`, …) | non-goal; unfold to `Vector.mk` error transitively |
+| Higher-order Vector ops (`map`, `zipWith`, …) | non-goal; unfold to `Vector.mk` error transitively |
+| `Vector.foldl` | non-goal; unfolds to non-actionable internal `LT.lt` error (loop bound leaks) |
 | `v == w` (`BEq`) on Vector | unfolds to `Vector.toArray`; use propositional `=` instead |
 
 ## Testing

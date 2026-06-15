@@ -1629,10 +1629,12 @@ def translateApp
         names silently produce invalid SMT (`unknown constant Vector.mk.0`) that Z3
         rejects with an unactionable error.
 
-        Higher-order ops (`map`, `foldl`, `zipWith`, …) are Non-Goals and reach this
-        path pre-unfolded by the optimizer, so their head constant is no longer
-        `Vector.map`/… by the time translateApp runs; they hit the `Vector.mk` arm
-        transitively. No separate arms are needed for them.
+        Higher-order ops (`map`, `zipWith`, …) are Non-Goals and reach this path
+        pre-unfolded by the optimizer, so their head constant is no longer `Vector.map`
+        by the time translateApp runs; they hit the `Vector.mk` arm transitively.
+        `foldl` unfolds through a different path (loop bound `<` leaks) and surfaces
+        an internal `translateNonOpaqueType: inductive info expected for LT.lt` error.
+        No separate arms are added for either group (arms would be dead code).
 
         NOTE: this arm sits AFTER `translateVectorOp?` so the supported ops
         (get/set/push/replicate) are already handled and never reach here.
