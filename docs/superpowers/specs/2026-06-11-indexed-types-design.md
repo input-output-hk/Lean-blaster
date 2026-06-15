@@ -245,11 +245,13 @@ the length statically known to the translator. Non-literal `n` → error.
 - `Vector.set v i x` → `(store v i x)`.
 - `Vector.push v x` → `(store v n x)` (legal because `n` is literal).
 - `Vector.replicate n x` → `((as const (Array Int σ)) x)` (Z3 const array).
-- `Vector.mk` / `.toArray` → identity (drops to `SMTArray` semantics,
-  losing static length — allowed, documented).
-- Literal `#v[a, b, c]` → `store` chain over a const-array base.
-- `map/foldl/zipWith/…` → error (non-goal). `append` → deferred
-  (encodable as `n` stores; revisit on demand).
+- `Vector.mk` / `.toArray` → **clean error** (see Known Limitations below).
+- Literal `#v[a, b, c]` → folded by the optimizer to a constant array;
+  equality and falsification both work correctly (e.g. `#v[1,2,3] = #v[1,2,4]`
+  → ❌ Falsified). `store` chain translation is not needed.
+- `map/foldl/zipWith/…` → non-goal; these unfold during optimization and
+  transitively hit the `Vector.mk` error (no separate arm needed).
+  `append` → deferred.
 
 **Equality (the key nuance).** Lean equality on `Vector α n` is
 element-wise over `[0, n)`; SMT array equality is extensional over all of
@@ -259,10 +261,33 @@ vectors. Equality at a Vector type is therefore intercepted and translated
 `(and (= (select v 0) (select w 0)) …)` for `n ≤ 16`, a bounded `forall`
 otherwise. Faithful in both directions.
 
-**Known limitation — `BEq` (`==`) not supported.** `v == w` on `Vector α n`
-unfolds through `Vector.instBEq` to `Vector.isEqv`/`Vector.toArray` — a
-cross-encoding operation that blaster cannot translate. Use propositional `=`
-instead, which IS faithful (intercepted and translated pointwise as above).
+**Known Limitations (Phase 4).**
+
+- **`Vector.mk` and `.toArray` are clean errors.** The original spec planned
+  these as identity (drops to `SMTArray` semantics). This was superseded by
+  Phase 2, which made raw `Array α` an opaque SMT datatype with a distinct
+  sort from `Vector α n`'s `(Array Int σ)`. A `Vector.mk`/`.toArray` round-trip
+  would cross incompatible encodings. Both are now rejected with an actionable
+  error: `"concrete Vector construction/unwrapping … not supported (crosses the
+  array-theory and opaque-Array encodings); use Vector get/set/push/replicate"`.
+  Two interception points: `translateVectorUnsupported?` in `translateApp`
+  (for `Vector.mk`/`Vector.toArray` as `Expr.const`) and a guard in
+  `translateProj` (for `v.toArray` dot-notation, which elaborates as `Expr.proj`).
+
+- **`BEq` (`==`) not supported.** `v == w` unfolds to `Vector.toArray` and
+  hits the above error. Use propositional `=` instead, which IS faithful
+  (intercepted and translated pointwise as above).
+
+- **Higher-order ops (`map`, `foldl`, `zipWith`, …) not supported.** These
+  unfold during optimization and transitively trigger the `Vector.mk` clean
+  error. The message is `"concrete Vector construction/unwrapping (Vector.mk)
+  is not supported"` — the Vector.map arm would be dead (pre-unfolded), so
+  no separate arm exists. Documented here for user awareness.
+
+- **`#v[…]` literals with non-constant elements are not supported.** Pure
+  literal vectors (e.g. `#v[1,2,3] : Vector Int 3`) fold correctly. A `#v[]`
+  containing free variables does not have a `store`-chain translator and hits
+  the `Vector.mk` error.
 
 **Qualifier:** for qualified element sorts:
 `(forall ((i Int)) (=> (and (<= 0 i) (< i n)) (@isElem (select v i))))`.
@@ -282,7 +307,9 @@ and the supported alternative:
 | `toNat`/`toInt`/`toFin` on BitVec family | unsupported (see Non-Goals); reason over the fixed-width value directly |
 | Negative `USize`/`ISize` literal (e.g. `(-1 : ISize)`) | non-literal platform width; use `Int64`/`Int32` for negative signed literals |
 | `Vector α n`, variable `n` | use `SMTArray` |
-| Higher-order array/vector ops | unsupported |
+| `Vector.mk` / `Vector.toArray` | crosses array-theory and opaque-Array encodings; use `get`/`set`/`push`/`replicate` on symbolic Vector variables |
+| Higher-order Vector ops (`map`, `foldl`, …) | non-goal; unfold to `Vector.mk` error transitively |
+| `v == w` (`BEq`) on Vector | unfolds to `Vector.toArray`; use propositional `=` instead |
 
 ## Testing
 
@@ -300,4 +327,6 @@ phase also re-runs the full existing suite as a regression gate.
 - `SmtUInt/`: per-width smoke tests; signed vs unsigned division;
   cross-width conversions; USize at both width settings.
 - `SmtVector/`: get/set/push; pointwise equality (provable and refutable
-  directions); replicate; Vector↔SMTArray boundary via `.toArray`.
+  directions); replicate. `Vector.mk`/`.toArray`/`BEq`/HO-ops all produce
+  clean errors (not committed as test cases — error-triggering `#blaster`
+  fails the build).

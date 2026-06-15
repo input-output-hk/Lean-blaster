@@ -1213,6 +1213,7 @@ def translateApp
          if let some r ← translateFullyApplied? f n args then return r
          if let some r ← translateFinOp? n args then return r
          if let some r ← translateVectorOp? n args then return r
+         if let some r ← translateVectorUnsupported? n then return r
          if let some r ← translateUIntOp? n args then return r
          if let some r ← translateUIntConv? n args then return r
          if let some r ← translateFinArith? n args then return r
@@ -1618,6 +1619,30 @@ def translateApp
           throwEnvError "translateApp: concrete SMTArray construction/unwrapping ({n}) is not supported; use symbolic `SMTArray` variables with `.get`/`.set`"
       | _ => return none
 
+    /-- Reject unsupported Vector constructs with clean, actionable errors.
+
+        `Vector.mk` and `Vector.toArray` cross between the SMT array-theory sort
+        `(Array Int σ)` used for `Vector α n` and the opaque-datatype encoding of raw
+        `Array α` — incompatible encodings. Phase 2 made raw `Array α` an opaque SMT
+        datatype, so `Vector.mk`/`.toArray` cannot be identity as the spec originally
+        planned.  Without this arm (and the companion guard in `translateProj`), these
+        names silently produce invalid SMT (`unknown constant Vector.mk.0`) that Z3
+        rejects with an unactionable error.
+
+        Higher-order ops (`map`, `foldl`, `zipWith`, …) are Non-Goals and reach this
+        path pre-unfolded by the optimizer, so their head constant is no longer
+        `Vector.map`/… by the time translateApp runs; they hit the `Vector.mk` arm
+        transitively. No separate arms are needed for them.
+
+        NOTE: this arm sits AFTER `translateVectorOp?` so the supported ops
+        (get/set/push/replicate) are already handled and never reach here.
+    -/
+    translateVectorUnsupported? (n : Name) : TranslateEnvT (Option SmtTerm) := do
+      match n with
+      | ``Vector.mk | ``Vector.toArray =>
+          throwEnvError "translateApp: concrete Vector construction/unwrapping ({n}) is not supported (crosses the array-theory and opaque-Array encodings); use Vector get/set/push/replicate on symbolic Vector variables"
+      | _ => return none
+
     /-- Translate Vector ops to SMT array theory.
 
         Arg layouts (all args after Expr.withApp, including implicit ones):
@@ -1851,6 +1876,12 @@ def translateProj
  let isUIntFamilyProj := isUIntFamilyName n
  if isUIntFamilyProj then
    return (← termTranslator p)
+ -- `Vector` structure projections (`.toArray`, `.size_toArray`) cross between the SMT
+ -- array-theory sort `(Array Int σ)` and the opaque-datatype encoding of raw `Array α`.
+ -- Without this guard the proj elaborates to selector symbol `Vector.mk.0` which Z3
+ -- rejects with an unactionable `unknown constant` error.
+ if n == ``Vector then
+   throwEnvError "translateProj: Vector.toArray/size_toArray projection is not supported (crosses the array-theory and opaque-Array encodings); use Vector get/set/push/replicate on symbolic Vector variables"
  let selectorSym := mkCtorSelectorSymbol (← getProjectionCtor n) idx
  return (mkSimpleSmtAppN selectorSym #[← termTranslator p])
 
