@@ -1200,6 +1200,7 @@ def translateApp
     match f with
     | Expr.const n _ =>
          if let some r ← translateFullyApplied? f n args then return r
+         if let some r ← translateFinOp? n args then return r
          if let some r ← translateBitVecShift? n args then return r
          if let some r ← translateBitVecIndexed? n args then return r
          if let some r ← translateEq? f n args then return r
@@ -1392,6 +1393,19 @@ def translateApp
       | ``BitVec.signExtend
       | ``BitVec.rotateLeft
       | ``BitVec.rotateRight => return some (← translateBitVecIndexed n args termTranslator)
+      | _ => return none
+
+    /-- Fin.val / Fin.mk are identity at SMT level (Fin_n aliases Int).
+        `@Fin.val {n} x` → translate x (last arg, index args.size-1).
+        `@Fin.mk {n} v proof` → translate v (index 1, proof dropped). -/
+    translateFinOp? (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
+      match n with
+      | ``Fin.val =>
+          -- @Fin.val {n} x — explicit arg is the Fin value, at index args.size - 1
+          if args.size ≥ 1 then return some (← termTranslator args[args.size - 1]!) else return none
+      | ``Fin.mk =>
+          -- @Fin.mk {n} v proof — value v is at index 1
+          if args.size ≥ 2 then return some (← termTranslator args[1]!) else return none
       | _ => return none
 
     translateInductivePredicate? (f : Expr) (n : Name) (_args : Array Expr) : TranslateEnvT (Option SmtTerm) := do

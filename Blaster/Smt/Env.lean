@@ -363,6 +363,17 @@ def defineNatSort (isNatSym : SmtSymbol) : TranslateEnvT Unit := do
   let zeroSym := natLitSmt 0
   defineFun isNatSym #[(psym, natSort)] boolSort (leqSmt zeroSym xId)
 
+/-- Define Fin_n sort (Int alias) and qualifier
+     `(define-fun @isFin_n ((@x Fin_n)) Bool (and (<= 0 @x) (< @x n)))`.
+    n = 0 → `false` (Fin 0 uninhabited). Assume `isFinSym := @isFin_n`. -/
+def defineFinSort (isFinSym : SmtSymbol) (n : Nat) : TranslateEnvT Unit := do
+  defineSort (finSymbol n) none intSort
+  let psym := mkReservedSymbol "@x"
+  let xId := smtSimpleVarId psym
+  let body := if n == 0 then falseSmt
+              else andSmt (leqSmt (natLitSmt 0) xId) (ltSmt xId (natLitSmt n))
+  defineFun isFinSym #[(psym, finSort n)] boolSort body
+
 
 private def defineBinFun
   (fname : SmtSymbol) (top1 : SortExpr) (top2 : SortExpr)

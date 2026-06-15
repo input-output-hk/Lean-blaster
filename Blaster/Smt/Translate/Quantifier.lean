@@ -1293,6 +1293,30 @@ def translateBitVecType (t : Expr) : TranslateEnvT SortExpr := do
       definePredQualifier decl.instName #[bitvecSort w] (some true)
       return decl.instSort
 
+/-- Translate `Fin n` (literal `n` only) to the Int-aliased `Fin_n` sort with
+    range qualifier `(and (<= 0 x) (< x n))`.
+    Non-literal bound → error pointing at SMTArray.
+    Assume `t := Expr.app (Expr.const ``Fin _) boundArg`.
+    The bound argument is WHNF-reduced before checking; this normalizes
+    non-literal forms such as `@OfNat.ofNat Nat 5 (instOfNatNat 5)` to
+    `Expr.lit (natVal 5)`.
+    The cache is keyed by the CANONICAL form `Fin (litVal n)` so all non-literal
+    bound representations of the same bound share a single cache entry.
+-/
+def translateFinType (t : Expr) : TranslateEnvT SortExpr := do
+    -- WHNF-reduce the bound argument to normalize OfNat/proj forms to raw Nat literals.
+    let boundArg ← whnf t.appArg!
+    let some n := isNatValue? boundArg
+      | throwEnvError "translateFinType: Fin with non-literal bound is not supported (got {reprStr t.appArg!}); use SMTArray for dynamically-sized indexing"
+    -- Canonicalize: always use `Fin (Expr.lit n)` as the cache key.
+    let tNorm := mkApp t.appFn! (mkLit (Literal.natVal n))
+    match (← get).smtEnv.indTypeInstCache.get? tNorm with
+    | some decl => return decl.instSort
+    | none =>
+      let decl ← updateIndInstCache tNorm (finSymbol n) (finSort n) (isReservedSymbol := true)
+      defineFinSort decl.instName n
+      return decl.instSort
+
 /-- Translate opaque sorts to their Smt counterpart.
     An error is triggered when `e` does not correspond to a name expression.
     TODO: update function when opacifying other Lean inductive types (e.g., Char, etc).
@@ -1317,6 +1341,7 @@ partial def translateTypeAux
   TranslateEnvT SortExpr := do
    let e := t.getAppFn
    match e with
+   | Expr.const ``Fin _ => translateFinType t
    | Expr.const ``BitVec _ => translateBitVecType t
    | Expr.const .. =>
       if let some r ← translateOpaqueType e then return r

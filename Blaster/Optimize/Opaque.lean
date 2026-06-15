@@ -101,6 +101,9 @@ def opaqueFuns : NameHashSet :=
     ``BitVec.signExtend,
     ``BitVec.rotateLeft,
     ``BitVec.rotateRight,
+    -- Fin: val/mk are identity at SMT level (Fin_n is an Int alias)
+    ``Fin.val,
+    ``Fin.mk,
     -- String operators
     ``String.append,
     ``String.replace,

@@ -90,6 +90,12 @@ def bitvecSort (w : Nat) : SortExpr :=
   paramSort (mkReservedSymbol "_")
     #[.SymbolSort (mkReservedSymbol "BitVec"), .SymbolSort (mkReservedSymbol s!"{w}")]
 
+/-! Smt Fin symbol/sort for bound `n`: `Fin_n`, an Int alias constrained by
+    the `@isFin_n` qualifier `(and (<= 0 x) (< x n))`. -/
+def finSymbol (n : Nat) : SmtSymbol := mkReservedSymbol s!"Fin_{n}"
+
+def finSort (n : Nat) : SortExpr := .SymbolSort (finSymbol n)
+
 -- TODO: add other sort once supported, e.g., Unicode (for char), Seq, etc
 
 /-! ## Builtin Smt symbols. -/
