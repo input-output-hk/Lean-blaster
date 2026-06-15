@@ -1207,6 +1207,7 @@ def translateApp
          if let some r ← translateFullyApplied? f n args then return r
          if let some r ← translateFinOp? n args then return r
          if let some r ← translateFinArith? n args then return r
+         if let some r ← translateSMTArrayCtor? n then return r
          if let some r ← translateBitVecShift? n args then return r
          if let some r ← translateBitVecIndexed? n args then return r
          if let some r ← translateEq? f n args then return r
@@ -1423,6 +1424,18 @@ def translateApp
         - `Fin.mul a b` → `(a * b) % n`   (matches Lean's `Fin.mul`)
         - `Fin.sub a b` → `(n - b + a) % n` (matches Lean's `Fin.sub`: stays non-negative
             since `b < n`, so `n - b ≥ 1`; no Nat truncation mismatch in Int SMT) -/
+    -- `SMTArray`'s structure constructor/projection (`SMTArray.ofArray`/`.toArray`)
+    -- cross between the SMT array-theory sort `(Array Int σ)` and the opaque-datatype
+    -- encoding of raw `Array α` — incompatible encodings, so they cannot be translated.
+    -- Reject with a clean error (mirrors `translateFinType`'s treatment of unsupported
+    -- Fin) rather than emitting an unknown SMT constant. Only symbolic `SMTArray`
+    -- variables + `get`/`set` are supported.
+    translateSMTArrayCtor? (n : Name) : TranslateEnvT (Option SmtTerm) := do
+      match n with
+      | ``Blaster.SMTArray.ofArray | ``Blaster.SMTArray.toArray =>
+          throwEnvError "translateApp: concrete SMTArray construction/unwrapping ({n}) is not supported; use symbolic `SMTArray` variables with `.get`/`.set`"
+      | _ => return none
+
     translateFinArith? (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
       match n with
       | ``Fin.add | ``Fin.mul | ``Fin.sub =>
