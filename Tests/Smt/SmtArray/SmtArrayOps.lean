@@ -15,3 +15,14 @@ open Blaster
 #blaster [∀ (a : SMTArray (BitVec 8)) (i : Nat) (v : BitVec 8), (a.set i v).get i = v]
 
 #blaster (gen-cex: 0) (solve-result: 1) [∀ (a : SMTArray Int) (i j : Nat) (v : Int), (a.set i v).get j = v]
+
+/-! ## Documented limitation: no size/`default` modeling (spec §SMTArray).
+
+SMT arrays are total over `Int`; we do not model `Array.size` or the `default`
+returned by `getD` out of bounds. A read from an unwritten index is an
+*unconstrained* (but type-qualified) element, NOT provably `default`. This is an
+over-approximation in the safe direction: a property depending on the `default`
+value is not proven (Falsified/Undetermined — a spurious counterexample, never a
+false proof). The test pins that we do NOT wrongly prove an unwritten element
+equals a particular value. -/
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (a : SMTArray Int) (i : Nat), a.get i = 0]
