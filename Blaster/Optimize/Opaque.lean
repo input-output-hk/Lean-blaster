@@ -118,6 +118,18 @@ def opaqueFuns : NameHashSet :=
     ``UInt32.ofBitVec,
     ``UInt64.ofBitVec,
     ``USize.ofBitVec,
+    -- UInt unsigned widen/narrow conversions (go through BitVec.toNat at the Lean level;
+    -- must be kept opaque so the translator can intercept them and emit zero_extend/extract).
+    -- Int signed conversions (widen/narrow) fold to BitVec.signExtend and are handled by
+    -- path A (translateBitVecIndexed); same-width reinterprets fold to ctor/proj (identity).
+    -- USize ↔ UInt64 are same-width-64 identity; UInt{m}.toUSize widen by (64-m).
+    ``UInt8.toUInt16,  ``UInt8.toUInt32,  ``UInt8.toUInt64,
+    ``UInt16.toUInt8,  ``UInt16.toUInt32, ``UInt16.toUInt64,
+    ``UInt32.toUInt8,  ``UInt32.toUInt16, ``UInt32.toUInt64,
+    ``UInt64.toUInt8,  ``UInt64.toUInt16, ``UInt64.toUInt32,
+    -- USize unsigned: widen small UInt to USize, and USize↔UInt64 (same-width identity)
+    ``UInt8.toUSize,   ``UInt16.toUSize,  ``UInt32.toUSize,
+    ``USize.toUInt64,  ``UInt64.toUSize,
     -- SMTArray Nat-indexed get/set → SMT array theory select/store
     ``Blaster.SMTArray.get,
     ``Blaster.SMTArray.set,

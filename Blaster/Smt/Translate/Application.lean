@@ -1207,6 +1207,7 @@ def translateApp
          if let some r ← translateFullyApplied? f n args then return r
          if let some r ← translateFinOp? n args then return r
          if let some r ← translateUIntOp? n args then return r
+         if let some r ← translateUIntConv? n args then return r
          if let some r ← translateFinArith? n args then return r
          if let some r ← translateSMTArrayCtor? n then return r
          if let some r ← translateBitVecShift? n args then return r
@@ -1429,6 +1430,61 @@ def translateApp
       if isUSizeFamily || isISizeFamily then
         if let some t ← translatePlatformBvLit? inner then return some t
       return some (← termTranslator inner)
+
+    /-- Translate unsigned UInt/USize cross-width conversions (path B).
+
+        These conversions all reduce to `a.toNat` internally (making them opaque is required to
+        prevent the translator from seeing a bare `BitVec.toNat`).
+
+        Supported conversions — all are unsigned (zero-extend on widen, extract on narrow):
+          UInt{m}.toUInt{n}   for all m,n ∈ {8,16,32,64}
+          UInt{m}.toUSize     for m ∈ {8,16,32}    (widen to platformBitWidth=64)
+          USize.toUInt64      / UInt64.toUSize      (same-width=64 identity)
+
+        Int widen/narrow (BitVec.signExtend path) and same-width reinterprets (ctor/proj identity)
+        are handled by paths A and B of `translateUIntOp?`/`translateBitVecIndexed` and do NOT
+        appear here.
+
+        `toNat`/`toInt` (unbounded) are explicitly rejected.
+
+        Arg layout: `UInt{m}.toUInt{n} x` has exactly one explicit arg (x); the conversion
+        functions are unary with no implicit type-width args that survive optimization.
+    -/
+    translateUIntConv? (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
+      -- Parse "TypeName.toOtherTypeName" → (srcName, tgtName)
+      let some (srcName, tgtName) := (match n with
+        | .str p s =>
+            if s.startsWith "to" then
+              let t := s.drop 2
+              if t.isEmpty then none
+              else some (p, Name.mkSimple t)
+            else none
+        | _ => none)
+        | return none
+      -- Only fire for conversions within the UInt/Int family (both source and target).
+      -- Reject toNat/toInt (target = Nat or Int, which are unbounded).
+      if tgtName == ``Nat || tgtName == ``Int then
+        return none
+      -- Source must be in the UInt/Int family; target must too.
+      if !isUIntFamilyName srcName then return none
+      if !isUIntFamilyName tgtName then return none
+      -- Exactly one explicit argument expected (the value to convert).
+      if args.isEmpty then return none
+      let inner := args[args.size - 1]!
+      -- Resolve widths (USize/ISize → platformBitWidth = 64).
+      let srcW := (uintWidth? srcName).getD platformBitWidth
+      let tgtW := (uintWidth? tgtName).getD platformBitWidth
+      let sx ← termTranslator inner
+      if tgtW == srcW then
+        -- Same-width → identity (these are already handled by ctor/proj for signed ones;
+        -- we reach here only for USize.toUInt64 / UInt64.toUSize which are unsigned same-width).
+        return some sx
+      else if tgtW > srcW then
+        -- Widen — unsigned source → zero_extend
+        return some (mkSimpleSmtAppN (bvzeroExtendSymbol (tgtW - srcW)) #[sx])
+      else
+        -- Narrow → extract low tgtW bits
+        return some (mkSimpleSmtAppN (bvextractSymbol (tgtW - 1) 0) #[sx])
 
     /-- Detect `BitVec.ofNat <non-literal-width> (Expr.lit (natVal v))` as a USize/ISize literal.
         `System.Platform.numBits` reduces to `(System.Platform.getNumBits ()).val` which is an
