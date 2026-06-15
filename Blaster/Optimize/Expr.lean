@@ -265,6 +265,9 @@ def isStringType (e : Expr) : Bool :=
 def isBitVecType (e : Expr) : Bool :=
   e.getAppFn.isConstOf ``BitVec
 
+/-- Platform BitVec width used for `USize`/`ISize`. -/
+def platformBitWidth : Nat := 64 -- TODO(Task 6): read from the usize-width solver option
+
 /-- Map a UInt/Int family type-head name to its BitVec width. `USize`/`ISize`
     return `none` (width is configuration-dependent — resolved by the caller). -/
 def uintWidth? : Name → Option Nat
@@ -274,10 +277,14 @@ def uintWidth? : Name → Option Nat
   | ``UInt64 | ``Int64 => some 64
   | _ => none
 
+/-- `true` if `n` is one of the twelve UInt/Int family type names. -/
+def isUIntFamilyName (n : Name) : Bool :=
+  (uintWidth? n).isSome || n == ``USize || n == ``ISize
+
 /-- `true` if `e`'s head is one of the twelve UInt/Int family types. -/
 def isUIntFamilyType (e : Expr) : Bool :=
   match e.getAppFn with
-  | Expr.const n _ => (uintWidth? n).isSome || n == ``USize || n == ``ISize
+  | Expr.const n _ => isUIntFamilyName n
   | _ => false
 
 /-- Determine if `e` is an `autoParam` expression and return its corresponding arguments.

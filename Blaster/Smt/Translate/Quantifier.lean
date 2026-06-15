@@ -1404,7 +1404,7 @@ def translateUIntType (t : Expr) : TranslateEnvT SortExpr := do
       | throwEnvError "translateUIntType: name expression expected but got {reprStr t}"
     let w ← match uintWidth? n with
       | some w => pure w
-      | none => pure 64  -- USize/ISize: platform width, fixed at 64 for this target
+      | none => pure platformBitWidth  -- USize/ISize: platform width
     let decl ← updateIndInstCache t (mkReservedSymbol s!"{n}") (bitvecSort w) (isReservedSymbol := true)
     definePredQualifier decl.instName #[bitvecSort w] (some true)
     return decl.instSort
@@ -1419,11 +1419,8 @@ partial def translateTypeAux
    | Expr.const ``Blaster.SMTArray _ => translateArrayType (λ a => translateTypeAux termTranslator a) t
    | Expr.const ``Fin _ => translateFinType t
    | Expr.const ``BitVec _ => translateBitVecType t
-   | Expr.const ``UInt8 _  | Expr.const ``UInt16 _ | Expr.const ``UInt32 _
-   | Expr.const ``UInt64 _ | Expr.const ``USize _
-   | Expr.const ``Int8 _   | Expr.const ``Int16 _  | Expr.const ``Int32 _
-   | Expr.const ``Int64 _  | Expr.const ``ISize _ => translateUIntType t
    | Expr.const .. =>
+      if isUIntFamilyType e then return (← translateUIntType t)
       if let some r ← translateOpaqueType e then return r
       translateNonOpaqueType e t.getAppArgs
         (λ a b => translateTypeAux termTranslator a b)

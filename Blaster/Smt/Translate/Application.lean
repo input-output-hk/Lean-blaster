@@ -1417,10 +1417,9 @@ def translateApp
     translateUIntOp? (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
       -- Only fires for single-field structure constructors whose parent is a UInt/Int family
       let ConstantInfo.ctorInfo ci ← getConstEnvInfo n | return none
-      let isUIntFamily := (uintWidth? ci.induct).isSome
       let isUSizeFamily := ci.induct == ``USize
       let isISizeFamily := ci.induct == ``ISize
-      if !isUIntFamily && !isUSizeFamily && !isISizeFamily then return none
+      if !isUIntFamilyName ci.induct then return none
       -- The ctor has exactly one field (numParams=0, numFields=1); the field is the last arg.
       if args.isEmpty then return (← termTranslator (← Optimize.etaExpand e))
       let inner := args[args.size - 1]!
@@ -1434,13 +1433,14 @@ def translateApp
     /-- Detect `BitVec.ofNat <non-literal-width> (Expr.lit (natVal v))` as a USize/ISize literal.
         `System.Platform.numBits` reduces to `(System.Platform.getNumBits ()).val` which is an
         `Expr.proj` — never a Nat literal — so `isBitVecValue?` cannot fire.
-        Hardcode width=64 (TODO Task 6). -/
+        The width arg is ignored — this is only reached for USize/ISize ctor args whose
+        underlying width is the platform width (`platformBitWidth`). -/
     translatePlatformBvLit? (bvExpr : Expr) : TranslateEnvT (Option SmtTerm) := do
       match bvExpr with
       | Expr.app (Expr.app (Expr.const ``BitVec.ofNat _) _wExpr)
           (Expr.lit (Literal.natVal v)) =>
-          -- Width arg is non-literal (platform-dependent) — hardcode 64 (TODO Task 6)
-          let w := 64
+          -- Width arg is ignored — only reached for USize/ISize whose width is the platform width.
+          let w := platformBitWidth
           return some (bitvecLitSmt (v % (2 ^ w)) w)
       | _ => return none
 
@@ -1636,7 +1636,7 @@ def translateProj
   (termTranslator : Expr → TranslateEnvT SmtTerm) : TranslateEnvT SmtTerm := do
  -- UInt/Int family types are erased to their underlying `(_ BitVec w)` sort.
  -- Their projections (`.toBitVec` / `.toUInt8` etc.) are identity: translate the inner value.
- let isUIntFamilyProj := (uintWidth? n).isSome || n == ``USize || n == ``ISize
+ let isUIntFamilyProj := isUIntFamilyName n
  if isUIntFamilyProj then
    return (← termTranslator p)
  let selectorSym := mkCtorSelectorSymbol (← getProjectionCtor n) idx
