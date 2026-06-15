@@ -45,9 +45,9 @@ namespace Test.SmtUIntConv
 -- platform-narrow FROM USize/ISize (regression: these used to crash the translator)
 #blaster [(0x1FF : USize).toUInt8 = 0xFF]
 #blaster [(255 : ISize).toInt8 = -1]
--- symbolic USize narrow: consistent (tautology exercises the symbolic path without USize literal)
-#blaster [∀ (x : USize), x.toUInt8.toUSize = x.toUInt8.toUSize]
--- symbolic ISize narrow: symmetric tautology exercises ISize→Int8 extract symbolically
-#blaster [∀ (x : ISize), x.toInt8.toISize = x.toInt8.toISize]
+-- symbolic USize narrow discriminator: USize→UInt8 is NOT a round-trip
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (x : USize), x.toUInt8.toUSize = x]
+-- symbolic ISize narrow discriminator: ISize→Int8→Int32 is NOT a round-trip
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (x : ISize), x.toInt32.toInt8.toInt32 = x.toInt32]
 
 end Test.SmtUIntConv
