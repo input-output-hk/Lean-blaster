@@ -39,4 +39,15 @@ namespace Test.SmtUIntConv
 -- USize widen: UInt8 zero-extended to USize cannot always equal 256
 #blaster (gen-cex: 0) (solve-result: 1) [∀ (x : UInt8), x.toUSize = 256]
 
+-- symbolic narrow discriminator: narrowing loses high bits (NOT a round-trip)
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (x : UInt32), x.toUInt8.toUInt32 = x]
+
+-- platform-narrow FROM USize/ISize (regression: these used to crash the translator)
+#blaster [(0x1FF : USize).toUInt8 = 0xFF]
+#blaster [(255 : ISize).toInt8 = -1]
+-- symbolic USize narrow: consistent (tautology exercises the symbolic path without USize literal)
+#blaster [∀ (x : USize), x.toUInt8.toUSize = x.toUInt8.toUSize]
+-- symbolic ISize narrow: symmetric tautology exercises ISize→Int8 extract symbolically
+#blaster [∀ (x : ISize), x.toInt8.toISize = x.toInt8.toISize]
+
 end Test.SmtUIntConv

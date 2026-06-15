@@ -1480,6 +1480,11 @@ def translateApp
         -- we reach here only for USize.toUInt64 / UInt64.toUSize which are unsigned same-width).
         return some sx
       else if tgtW > srcW then
+        -- Guard: signed sources must widen via BitVec.signExtend (path A), not zero_extend.
+        -- If a signed-widening name were ever registered in opaqueFuns, it would silently
+        -- produce an unsound zero-extension; this guard converts that silent bug into an error.
+        if [``Int8, ``Int16, ``Int32, ``Int64, ``ISize].contains srcName then
+          throwEnvError "translateUIntConv?: signed widening of {srcName} must sign-extend (path-A via BitVec.signExtend); not handled here"
         -- Widen — unsigned source → zero_extend
         return some (mkSimpleSmtAppN (bvzeroExtendSymbol (tgtW - srcW)) #[sx])
       else

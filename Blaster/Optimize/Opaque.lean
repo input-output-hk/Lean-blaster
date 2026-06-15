@@ -130,6 +130,13 @@ def opaqueFuns : NameHashSet :=
     -- USize unsigned: widen small UInt to USize, and USize↔UInt64 (same-width identity)
     ``UInt8.toUSize,   ``UInt16.toUSize,  ``UInt32.toUSize,
     ``USize.toUInt64,  ``UInt64.toUSize,
+    -- USize/ISize platform-narrow: narrowing FROM the 64-bit platform width to a smaller type.
+    -- Width 64 → 8/16/32 routes to the extract branch in translateUIntConv? (sign-agnostic).
+    -- INVARIANT: signed *widening* names must NOT be registered here — they must unfold to
+    -- BitVec.signExtend (path A). Registering one would be silently unsound
+    -- (see translateUIntConv? widen guard).
+    ``USize.toUInt8,   ``USize.toUInt16,  ``USize.toUInt32,
+    ``ISize.toInt8,    ``ISize.toInt16,   ``ISize.toInt32,
     -- SMTArray Nat-indexed get/set → SMT array theory select/store
     ``Blaster.SMTArray.get,
     ``Blaster.SMTArray.set,
