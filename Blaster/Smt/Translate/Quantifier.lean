@@ -1315,6 +1315,55 @@ def translateArrayType
     defineFun decl.instName #[(xsym, sort)] boolSort body
     return sort
 
+/-- Translate `Vector α n` (literal `n` only) to the SMT array theory sort `(Array Int σ_α)`,
+    where `σ_α` is the translated element sort.  The index domain is always `Int` (SMT integer
+    theory) because `Vector.get` takes a `Fin n` index, which is range-checked at the Lean level;
+    at the SMT level we lift the element qualifier pointwise over all integers, matching the
+    treatment of `SMTArray`.
+
+    The length argument must be a Nat literal (WHNF-reduced); non-literal lengths are not
+    supported (use `SMTArray` for dynamically-sized arrays).
+
+    Qualifier uniqueness: a fresh ID is generated per distinct `Vector α n` expression so that
+    `Vector Int 3` and `Vector (BitVec 8) 4` produce distinct qualifier names (e.g.,
+    `@isVector_1`, `@isVector_2`), avoiding Z3 `define-fun` redefinition errors.
+
+    The predicate qualifier lifts the element type's qualifier pointwise (all-Int domain, same as
+    `translateArrayType`):
+    `(define-fun @isVector_v ((@x (Array Int σ))) Bool (forall ((@i Int)) (@isElem (select @x @i))))`.
+-/
+def translateVectorType
+    (typeTranslator : Expr → TranslateEnvT SortExpr)
+    (t : Expr) : TranslateEnvT SortExpr := do
+  -- Cache lookup: key is the full `Vector α n` expression.
+  match (← get).smtEnv.indTypeInstCache.get? t with
+  | some decl => return decl.instSort
+  | none =>
+    let args := t.getAppArgs
+    -- Element type is the first explicit arg; length is the second.
+    let elemType := args[0]!
+    let lengthArg ← whnf args[1]!
+    let some _n := isNatValue? lengthArg
+      | throwEnvError "translateVectorType: Vector with non-literal length is not supported (got {reprStr args[1]!})"
+    let elemSort ← typeTranslator elemType
+    let sort := arraySort #[intSort, elemSort]
+    -- Generate a fresh ID so that `Vector Int 3` and `Vector (BitVec 8) 4`
+    -- produce distinct qualifier names, e.g. `@isVector_1` and `@isVector_2`.
+    let v ← mkFreshId
+    let sym := mkReservedSymbol s!"Vector_{v}"
+    let decl ← updateIndInstCache t sym sort (isReservedSymbol := true)
+    -- Lift the element qualifier pointwise over all integers (all-Int domain, same as
+    -- translateArrayType).
+    --   (define-fun @isVector_v ((@x (Array Int σ))) Bool
+    --      (forall ((@i Int)) (@isElem (select @x @i))))
+    let xsym := mkReservedSymbol "@x"
+    let isym := mkReservedSymbol "@i"
+    let elemPred ← createPredQualifierAppAux
+      (selectSmt (smtSimpleVarId xsym) #[smtSimpleVarId isym]) elemType (inPredQualifier := true)
+    let body := mkForallTerm none #[(isym, intSort)] elemPred none
+    defineFun decl.instName #[(xsym, sort)] boolSort body
+    return sort
+
 /-- Translate `BitVec w` (literal `w` only) to the builtin Smt sort `(_ BitVec w)`.
     A trivial predicate qualifier `@isBitVec_{w}` is defined (the Smt sort is exact).
     An error is triggered when the width is not a Nat literal.
@@ -1424,6 +1473,7 @@ partial def translateTypeAux
    let e := t.getAppFn
    match e with
    | Expr.const ``Blaster.SMTArray _ => translateArrayType (λ a => translateTypeAux termTranslator a) t
+   | Expr.const ``Vector _ => translateVectorType (λ a => translateTypeAux termTranslator a) t
    | Expr.const ``Fin _ => translateFinType t
    | Expr.const ``BitVec _ => translateBitVecType t
    | Expr.const .. =>

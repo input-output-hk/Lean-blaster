@@ -11,4 +11,5 @@ import Tests.Smt.SmtNat
 import Tests.Smt.SmtPredQualifier
 import Tests.Smt.SmtRecFun
 import Tests.Smt.SmtUInt
+import Tests.Smt.SmtVector
 
