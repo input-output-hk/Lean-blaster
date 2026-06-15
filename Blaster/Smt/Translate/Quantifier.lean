@@ -1275,8 +1275,12 @@ def translatePEmptyType (n : Expr) : TranslateEnvT SortExpr := do
     the `indTypeInstCache` lookup at the top of this function ensures the fresh id
     is generated only once per distinct element-type expression.
 
-    The predicate qualifier is trivially `true` (the SMT sort is exact for array
-    equality; element-wise qualifier lifting is a documented future enhancement).
+    The predicate qualifier lifts the element type's qualifier pointwise:
+    `(define-fun @isArray_v ((@x (Array Int σ))) Bool (forall ((@i Int)) (@isElem (select @x @i))))`.
+    This is a soundness requirement — without it, elements of `SMTArray Nat` /
+    `SMTArray (Fin n)` are unconstrained Ints and admit spurious witnesses in
+    positive position. For exact element types (Int/BitVec/Bool) `@isElem` is
+    trivially `true`, so the body reduces to `(forall i true)`.
 -/
 def translateArrayType
     (typeTranslator : Expr → TranslateEnvT SortExpr)
