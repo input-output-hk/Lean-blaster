@@ -1421,16 +1421,21 @@ def translateApp
     translateFinArith? (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
       match n with
       | ``Fin.add | ``Fin.mul | ``Fin.sub =>
-          if args.size != 3 then return none
-          let some bound := isNatValue? args[0]!
+          if args.size != 3 then
+            throwEnvError "translateFinArith?: fully applied {n} expected but got {args.size} arguments"
+          -- WHNF-reduce the bound to normalize OfNat/proj forms, matching translateFinType.
+          let some bound := isNatValue? (← whnf args[0]!)
             | throwEnvError "translateFinArith?: literal Fin bound expected for {n}"
           let ta ← termTranslator args[1]!
           let tb ← termTranslator args[2]!
           let modN := natLitSmt bound
-          let body := match n with
-            | ``Fin.add => addSmt ta tb
-            | ``Fin.mul => mulSmt ta tb
-            | _ /- Fin.sub -/ => addSmt (subSmt modN tb) ta
+          -- NOTE: bound 0 is unreachable for inhabited terms — `Fin 0` has no
+          -- values, so any Fin.add/mul/sub term sits under the false Fin_0 guard.
+          let body ← match n with
+            | ``Fin.add => pure (addSmt ta tb)
+            | ``Fin.mul => pure (mulSmt ta tb)
+            | ``Fin.sub => pure (addSmt (subSmt modN tb) ta)
+            | _ => throwEnvError "translateFinArith?: unexpected op {n}"
           return some (modSmt body modN)
       | _ => return none
 
