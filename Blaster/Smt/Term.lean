@@ -210,6 +210,9 @@ def underSymbol : SmtSymbol := mkReservedSymbol "_"
 /-! select Smt symbol. -/
 def selectSymbol : SmtSymbol := mkReservedSymbol "select"
 
+/-! store Smt symbol (array theory). -/
+def storeSymbol : SmtSymbol := mkReservedSymbol "store"
+
 /-! as-array Smt symbol. -/
 def asArraySymbol : SmtSymbol := mkReservedSymbol "as-array"
 
@@ -396,6 +399,9 @@ def asArraySmt (f : SmtQualifiedIdent) : SmtTerm :=
 /-! Create a select Smt application (i.e., applying an fun array representation to its arguments). -/
 def selectSmt (f : SmtTerm) (args : Array SmtTerm) : SmtTerm :=
   mkSimpleSmtAppN selectSymbol (#[f] ++ args)
+
+/-! Create a store Smt application `(store a i v)`. -/
+def storeSmt (a i v : SmtTerm) : SmtTerm := mkSimpleSmtAppN storeSymbol #[a, i, v]
 
 /-! Return `true` Smt term. -/
 def trueSmt : SmtTerm := .BoolTerm true

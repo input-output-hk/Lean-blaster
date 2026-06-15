@@ -5,4 +5,5 @@ import Blaster.Command
 import Blaster.Logging
 import Blaster.Optimize
 import Blaster.Smt
+import Blaster.SmtArray
 import Blaster.StateMachine
