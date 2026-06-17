@@ -489,13 +489,44 @@ def withInstantiatedImplicitArgs' (t : Expr) (k : Std.HashSet Expr → Expr → 
    let t' ← Optimize.mkForallFVars' explicitArgs body -- keeping implicit arguments instantiated
    k implicitArgs t'
 
+/-- Canonicalize a parameterized indexed type's `Nat` bound to a raw literal so
+    that cache writes and reads agree regardless of how the bound was elaborated:
+    a raw `Nat` literal, `@OfNat.ofNat Nat n _`, or `Expr.proj OfNat 0 …` (the
+    form a reverted hypothesis binder carries). This is the single source of
+    truth for the indexed-type cache key — both `translate{Fin,BitVec,Vector}Type`
+    (write) and `getPredicateDeclaration` (read) route through it.
+
+    Non-indexed types, and indexed types whose bound is not a literal after
+    `whnf`, are returned unchanged (the per-type translators surface their own
+    "non-literal bound" errors). -/
+def canonicalizeIndexedType (t : Expr) : TranslateEnvT Expr := do
+  match t.getAppFn with
+  | Expr.const ``Fin _ | Expr.const ``BitVec _ =>
+      let args := t.getAppArgs
+      if args.size == 1 then
+        match isNatValue? (← whnf args[0]!) with
+        | some n => return mkApp t.getAppFn (mkLit (Literal.natVal n))
+        | none => return t
+      else return t
+  | Expr.const ``Vector _ =>
+      let args := t.getAppArgs
+      if args.size == 2 then
+        match isNatValue? (← whnf args[1]!) with
+        | some n => return mkApp (mkApp t.getAppFn args[0]!) (mkLit (Literal.natVal n))
+        | none => return t
+      else return t
+  | _ => return t
+
 /-- Return `decl.instName` when `t := decl` exists in `indTypeInstCache`.
     Otherwise `none`.
     TODO: UPDATE
 -/
 def getPredicateDeclaration (t : Expr) : TranslateEnvT (Option IndTypeDeclaration) := do
   let t' ← getType t
-  let typeInst ← getInst t'
+  -- Canonicalize the indexed-type bound so the lookup key matches the canonical
+  -- key written by translate{Fin,BitVec,Vector}Type (else a proj-form bound from
+  -- a reverted hypothesis binder misses the cache).
+  let typeInst ← getInst (← canonicalizeIndexedType t')
   return (← get).smtEnv.indTypeInstCache.get? typeInst
 
  where
@@ -1335,8 +1366,11 @@ def translateArrayType
 def translateVectorType
     (typeTranslator : Expr → TranslateEnvT SortExpr)
     (t : Expr) : TranslateEnvT SortExpr := do
-  -- Cache lookup: key is the full `Vector α n` expression.
-  match (← get).smtEnv.indTypeInstCache.get? t with
+  -- Cache key is the canonical `Vector α (lit n)` form (single source of truth:
+  -- see canonicalizeIndexedType) so a proj-form length from a reverted hypothesis
+  -- binder shares the entry written here and read by getPredicateDeclaration.
+  let tKey ← canonicalizeIndexedType t
+  match (← get).smtEnv.indTypeInstCache.get? tKey with
   | some decl => return decl.instSort
   | none =>
     let args := t.getAppArgs
@@ -1351,7 +1385,7 @@ def translateVectorType
     -- produce distinct qualifier names, e.g. `@isVector_1` and `@isVector_2`.
     let v ← mkFreshId
     let sym := mkReservedSymbol s!"Vector_{v}"
-    let decl ← updateIndInstCache t sym sort (isReservedSymbol := true)
+    let decl ← updateIndInstCache tKey sym sort (isReservedSymbol := true)
     -- Lift the element qualifier pointwise over all integers (all-Int domain, same as
     -- translateArrayType).
     --   (define-fun @isVector_v ((@x (Array Int σ))) Bool
@@ -1386,7 +1420,7 @@ def translateBitVecType (t : Expr) : TranslateEnvT SortExpr := do
     -- Canonicalize: always use `BitVec (Expr.lit w)` as the cache key so that
     -- `BitVec 8 (lit)`, `BitVec (OfNat.ofNat ... 8)`, and `BitVec (proj OfNat 0 ...)` all
     -- share a single entry.
-    let tNorm := mkApp t.appFn! (mkLit (Literal.natVal w))
+    let tNorm ← canonicalizeIndexedType t
     match (← get).smtEnv.indTypeInstCache.get? tNorm with
     | some decl => return decl.instSort
     | none =>
@@ -1409,8 +1443,8 @@ def translateFinType (t : Expr) : TranslateEnvT SortExpr := do
     let boundArg ← whnf t.appArg!
     let some n := isNatValue? boundArg
       | throwEnvError "translateFinType: Fin with non-literal bound is not supported (got {reprStr t.appArg!}); use SMTArray for dynamically-sized indexing"
-    -- Canonicalize: always use `Fin (Expr.lit n)` as the cache key.
-    let tNorm := mkApp t.appFn! (mkLit (Literal.natVal n))
+    -- Canonicalize the cache key (single source of truth: see canonicalizeIndexedType).
+    let tNorm ← canonicalizeIndexedType t
     match (← get).smtEnv.indTypeInstCache.get? tNorm with
     | some decl => return decl.instSort
     | none =>

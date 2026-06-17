@@ -2,6 +2,7 @@ import Tests.Smt.SmtBitVec.SmtBitVecArith
 import Tests.Smt.SmtBitVec.SmtBitVecCompare
 import Tests.Smt.SmtBitVec.SmtBitVecDiv
 import Tests.Smt.SmtBitVec.SmtBitVecFold
+import Tests.Smt.SmtBitVec.SmtBitVecHyp
 import Tests.Smt.SmtBitVec.SmtBitVecLit
 import Tests.Smt.SmtBitVec.SmtBitVecShift
 import Tests.Smt.SmtBitVec.SmtBitVecSort
