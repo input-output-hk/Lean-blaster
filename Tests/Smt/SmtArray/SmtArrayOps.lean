@@ -18,15 +18,16 @@ open Blaster
 
 #blaster (gen-cex: 0) (solve-result: 1) [∀ (a : SMTArray Int) (i j : Nat) (v : Int), (a.set i v).get j = v]
 
-/-! ## Documented limitation: no size/`default` modeling (spec §SMTArray).
+/-! ## Documented limitation: out-of-bounds `default` value not modeled (spec §SMTArray).
 
-SMT arrays are total over `Int`; we do not model `Array.size` or the `default`
-returned by `getD` out of bounds. A read from an unwritten index is an
-*unconstrained* (but type-qualified) element, NOT provably `default`. This is an
-over-approximation in the safe direction: a property depending on the `default`
-value is not proven (Falsified/Undetermined — a spurious counterexample, never a
-false proof). The test pins that we do NOT wrongly prove an unwritten element
-equals a particular value. -/
+`Array.size` IS modeled (the datatype-pair carries a `size` field, and `get`/`set`
+are bounds-aware). What is NOT modeled is the *concrete* value `getD`/`get!` return
+out of bounds: instead of Lean's `Inhabited.default`, an out-of-bounds read yields an
+*unconstrained* (but element-qualifier-satisfying) value. This is an over-approximation
+in the safe direction — a property depending on the exact `default` value is not proven
+(Falsified/Undetermined: a spurious counterexample, never a false proof). The test below
+pins that we do NOT wrongly prove an unwritten/out-of-bounds element equals a particular
+value. -/
 #blaster (gen-cex: 0) (solve-result: 1) [∀ (a : SMTArray Int) (i : Nat), a.get i = 0]
 
 -- SOUND: out-of-bounds set is a no-op, so the unguarded statement is NOT valid (countermodel exists)
