@@ -1323,28 +1323,40 @@ def translateArrayType
   | none =>
     let elemType := t.appArg!
     let elemSort ← typeTranslator elemType
-    let sort := arraySort #[intSort, elemSort]
+    let dataSort := arraySort #[intSort, elemSort]
     -- Generate a fresh ID so that `SMTArray Int` and `SMTArray (BitVec 8)`
-    -- produce distinct qualifier names, e.g. `@isArray_1` and `@isArray_2`.
+    -- produce distinct datatype/qualifier names.
     let v ← mkFreshId
-    let sym := mkReservedSymbol s!"Array_{v}"
-    let decl ← updateIndInstCache t sym sort (isReservedSymbol := true)
-    -- Lift the element qualifier pointwise: every `(select a i)` must satisfy the
-    -- element type's qualifier. This is a SOUNDNESS requirement, not an
-    -- optimization — without it, `SMTArray Nat`/`SMTArray (Fin n)` elements are
-    -- unconstrained Ints and admit spurious witnesses in positive (existential)
-    -- position, allowing false proofs. For exact element types (Int/BitVec/Bool)
-    -- the element qualifier is trivially `true`, so the body is `(forall i true)`,
-    -- which Z3 discharges immediately.
-    --   (define-fun @isArray_v ((@x (Array Int σ))) Bool
-    --      (forall ((@i Int)) (@isElem (select @x @i))))
+    let names := smtArrNames v
+    -- Faithful size-aware encoding: a datatype pair (data : (Array Int σ), size : Int)
+    -- plus a per-instance out-of-bounds `default` constant. `get`/`set`/`size`
+    -- (see translateSMTArrayOp?) interpret these so the SMT model matches the
+    -- bounds-checked Lean semantics of `SMTArray.get`/`set`/`size`.
+    let ctorDecl : SmtConstructorDecl :=
+      (names.ctorSym, some #[(names.dataSel, dataSort), (names.sizeSel, intSort)])
+    declareDataType names.sortSym { params := none, ctors := #[ctorDecl] }
+    let arrSort := SortExpr.SymbolSort names.sortSym
+    -- per-instance out-of-bounds default constant, constrained to satisfy the element qualifier
+    declareConst names.dfltSym elemSort
+    let dfltPred ← createPredQualifierAppAux (smtSimpleVarId names.dfltSym) elemType (inPredQualifier := true)
+    assertTerm dfltPred
+    let decl ← updateIndInstCache t names.sortSym arrSort (isReservedSymbol := true)
+    modify (fun env => { env with smtEnv.smtArrNamesCache := env.smtEnv.smtArrNamesCache.insert t names })
+    -- qualifier: size >= 0 AND elements satisfy the element qualifier through the data selector.
+    -- The pointwise element lift is a SOUNDNESS requirement (without it, `SMTArray Nat`/
+    -- `SMTArray (Fin n)` elements are unconstrained Ints and admit spurious witnesses).
+    --   (define-fun @isSMTArray_v ((@x SMTArray_v)) Bool
+    --      (and (<= 0 (@sizeSMTArray_v @x))
+    --           (forall ((@i Int)) (@isElem (select (@dataSMTArray_v @x) @i)))))
     let xsym := mkReservedSymbol "@x"
     let isym := mkReservedSymbol "@i"
-    let elemPred ← createPredQualifierAppAux
-      (selectSmt (smtSimpleVarId xsym) #[smtSimpleVarId isym]) elemType (inPredQualifier := true)
-    let body := mkForallTerm none #[(isym, intSort)] elemPred none
-    defineFun decl.instName #[(xsym, sort)] boolSort body
-    return sort
+    let sizeNonNeg := mkSimpleSmtAppN leqSymbol #[natLitSmt 0, smtSelectorApp names.sizeSel (smtSimpleVarId xsym)]
+    let elemSel := selectSmt (smtSelectorApp names.dataSel (smtSimpleVarId xsym)) #[smtSimpleVarId isym]
+    let elemPred ← createPredQualifierAppAux elemSel elemType (inPredQualifier := true)
+    let elemForall := mkForallTerm none #[(isym, intSort)] elemPred none
+    let body := andSmt sizeNonNeg elemForall
+    defineFun decl.instName #[(xsym, arrSort)] boolSort body
+    return arrSort
 
 /-- Translate `Vector α n` (literal `n` only) to the SMT array theory sort `(Array Int σ_α)`,
     where `σ_α` is the translated element sort.  The index domain is always `Int` (SMT integer

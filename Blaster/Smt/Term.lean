@@ -247,6 +247,29 @@ def mkSmtAppN (nm : SmtQualifiedIdent) (args : Array SmtTerm) : SmtTerm := .AppT
 def mkSimpleSmtAppN (nm : SmtSymbol) (args : Array SmtTerm) : SmtTerm :=
   mkSmtAppN (.SimpleIdent nm) args
 
+/-- SMT names for the `SMTArray` datatype-pair encoding at fresh-id `v`.
+    Single source of truth shared by `translateArrayType` (declaration) and
+    `translateSMTArrayOp?` (application). -/
+structure SmtArrNames where
+  sortSym  : SmtSymbol
+  ctorSym  : SmtSymbol
+  dataSel  : SmtSymbol
+  sizeSel  : SmtSymbol
+  dfltSym  : SmtSymbol
+
+def smtArrNames (v : Name) : SmtArrNames :=
+  { sortSym := mkReservedSymbol s!"SMTArray_{v}"
+    ctorSym := mkReservedSymbol s!"@mkSMTArray_{v}"
+    dataSel := mkReservedSymbol s!"@dataSMTArray_{v}"
+    sizeSel := mkReservedSymbol s!"@sizeSMTArray_{v}"
+    dfltSym := mkReservedSymbol s!"@dfltSMTArray_{v}" }
+
+/-- `(sel a)` — apply a unary datatype selector. -/
+def smtSelectorApp (sel : SmtSymbol) (a : SmtTerm) : SmtTerm := mkSimpleSmtAppN sel #[a]
+
+/-- `(ctor data size)` — apply the 2-field SMTArray constructor. -/
+def smtArrCtorApp (ctor : SmtSymbol) (data size : SmtTerm) : SmtTerm := mkSimpleSmtAppN ctor #[data, size]
+
 /-! Create an Equality Smt application -/
 def eqSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
   mkSimpleSmtAppN eqSymbol #[op1, op2]

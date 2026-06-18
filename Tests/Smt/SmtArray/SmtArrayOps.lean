@@ -26,3 +26,8 @@ value is not proven (Falsified/Undetermined — a spurious counterexample, never
 false proof). The test pins that we do NOT wrongly prove an unwritten element
 equals a particular value. -/
 #blaster (gen-cex: 0) (solve-result: 1) [∀ (a : SMTArray Int) (i : Nat), a.get i = 0]
+
+-- SOUND: out-of-bounds set is a no-op, so the unguarded statement is NOT valid (countermodel exists)
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (a : SMTArray Int) (i : Nat) (v : Int), (a.set i v).get i = v]
+-- SOUND positive: with an in-bounds guard it IS valid
+#blaster [∀ (a : SMTArray Int) (i : Nat) (v : Int), i < a.size → (a.set i v).get i = v]

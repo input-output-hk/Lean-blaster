@@ -382,6 +382,12 @@ structure SmtEnv where
   -/
   indTypeInstCache : Std.HashMap Lean.Expr IndTypeDeclaration
 
+  /-- Cache mapping a `SMTArray α` Lean type `Expr` to the SMT names used for its
+      datatype-pair encoding. Written by `translateArrayType` (declaration site) and
+      read by `translateSMTArrayOp?` (application site) so the selectors applied to an
+      array variable match the sort the variable already has. -/
+  smtArrNamesCache : Std.HashMap Lean.Expr SmtArrNames
+
   /-- Cache keeping track of opaque functions, recursive function instances as well as undefined class functions
       that have already been translated.
       An entry in this map is expected to be of the form `f x₁ ... xₙ := n`,
@@ -452,6 +458,7 @@ instance : Inhabited SmtEnv where
      smtProc := default,
      indTypeVisited := Std.HashSet.emptyWithCapacity,
      indTypeInstCache := Std.HashMap.emptyWithCapacity,
+     smtArrNamesCache := Std.HashMap.emptyWithCapacity,
      funInstCache := Std.HashMap.emptyWithCapacity,
      fvarsCache := Std.HashMap.emptyWithCapacity,
      quantifiedFVars := Std.HashMap.emptyWithCapacity,

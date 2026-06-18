@@ -62,9 +62,7 @@ def fullyAppliedConst : NameHashSet :=
     ``BitVec.append,
     ``String.append,
     ``String.length,
-    ``String.replace,
-    ``Blaster.SMTArray.get,
-    ``Blaster.SMTArray.set
+    ``String.replace
   ]
 
 /-- Return `true` when `e` corresponds to one of the following:
@@ -411,8 +409,6 @@ def translateOpaqueFun (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT
   | ``BitVec.smod => getOpaqueSmtEquivFun f bvsmodSymbol
   | ``BitVec.srem => getOpaqueSmtEquivFun f bvsremSymbol
   | ``BitVec.append => getOpaqueSmtEquivFun f bvconcatSymbol
-  | ``Blaster.SMTArray.get => getOpaqueSmtEquivFun f selectSymbol
-  | ``Blaster.SMTArray.set => getOpaqueSmtEquivFun f storeSymbol
   | _ => throwEnvError "translateOpaqueFun: unexpected opaque operator {n}"
 
 
@@ -1217,6 +1213,7 @@ def translateApp
          if let some r ← translateUIntOp? n args then return r
          if let some r ← translateUIntConv? n args then return r
          if let some r ← translateFinArith? n args then return r
+         if let some r ← translateSMTArrayOp? n args then return r
          if let some r ← translateSMTArrayCtor? n then return r
          if let some r ← translateBitVecShift? n args then return r
          if let some r ← translateBitVecIndexed? n args then return r
@@ -1617,6 +1614,60 @@ def translateApp
       match n with
       | ``Blaster.SMTArray.ofArray | ``Blaster.SMTArray.toArray =>
           throwEnvError "translateApp: concrete SMTArray construction/unwrapping ({n}) is not supported; use symbolic `SMTArray` variables with `.get`/`.set`"
+      | _ => return none
+
+    /-- Translate `SMTArray.get`/`set`/`size` against the size-aware datatype-pair
+        encoding declared by `translateArrayType`.
+
+        The pair is `(@mkSMTArray_v (data (Array Int σ)) (size Int))` with a
+        per-instance out-of-bounds `default` constant `@dfltSMTArray_v`. The SMT
+        terms below mirror the bounds-checked Lean semantics:
+          - `get a i`   → `(ite (and (<= 0 i) (< i (size a))) (select (data a) i) dflt)`
+          - `set a i v` → `(@mkSMTArray_v (ite inB (store (data a) i v) (data a)) (size a))`
+          - `size a`    → `(size a)`
+
+        Arg layouts (all args incl. implicits):
+          - `@SMTArray.get α inst a i` → #[α, inst, a, i]  (array at [2], index at [3])
+          - `@SMTArray.set α a i v`    → #[α, a, i, v]      (array at [1], index at [2], value at [3])
+          - `@SMTArray.size α a`       → #[α, a]            (array at [1])
+
+        The names are looked up by `inferTypeEnv` of the ARRAY argument (its binder
+        type is exactly the `SMTArray α` Expr used as the cache key in
+        `translateArrayType`). `translateType` is called first (idempotent cache hit)
+        to guarantee the datatype is declared and the names are cached; a miss is an
+        internal error (we never silently re-declare). -/
+    translateSMTArrayOp? (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
+      match n with
+      | ``Blaster.SMTArray.get | ``Blaster.SMTArray.set | ``Blaster.SMTArray.size => do
+        let arrArgIdx := if n == ``Blaster.SMTArray.get then 2 else 1
+        let arrTy ← inferTypeEnv args[arrArgIdx]!     -- the SMTArray α binder type = the cache key
+        let _ ← translateType termTranslator arrTy    -- idempotent: ensures datatype declared + names cached
+        let some names := (← get).smtEnv.smtArrNamesCache.get? arrTy
+          | throwEnvError "translateSMTArrayOp?: SMTArray names not cached for {reprStr arrTy}"
+        match n with
+        | ``Blaster.SMTArray.get =>
+            if args.size != 4 then throwEnvError "translateSMTArrayOp?: SMTArray.get expects 4 args, got {args.size}"
+            let a ← termTranslator args[2]!
+            let i ← termTranslator args[3]!
+            let inB := andSmt (mkSimpleSmtAppN leqSymbol #[natLitSmt 0, i])
+                              (mkSimpleSmtAppN ltSymbol #[i, smtSelectorApp names.sizeSel a])
+            let hit := selectSmt (smtSelectorApp names.dataSel a) #[i]
+            return some (mkSimpleSmtAppN iteSymbol #[inB, hit, smtSimpleVarId names.dfltSym])
+        | ``Blaster.SMTArray.set =>
+            if args.size != 4 then throwEnvError "translateSMTArrayOp?: SMTArray.set expects 4 args, got {args.size}"
+            let a ← termTranslator args[1]!
+            let i ← termTranslator args[2]!
+            let v ← termTranslator args[3]!
+            let inB := andSmt (mkSimpleSmtAppN leqSymbol #[natLitSmt 0, i])
+                              (mkSimpleSmtAppN ltSymbol #[i, smtSelectorApp names.sizeSel a])
+            let newData := mkSimpleSmtAppN iteSymbol
+              #[inB, storeSmt (smtSelectorApp names.dataSel a) i v, smtSelectorApp names.dataSel a]
+            return some (smtArrCtorApp names.ctorSym newData (smtSelectorApp names.sizeSel a))
+        | ``Blaster.SMTArray.size =>
+            if args.size != 2 then throwEnvError "translateSMTArrayOp?: SMTArray.size expects 2 args, got {args.size}"
+            let a ← termTranslator args[1]!
+            return some (smtSelectorApp names.sizeSel a)
+        | _ => return none
       | _ => return none
 
     /-- Reject unsupported Vector constructs with clean, actionable errors.
