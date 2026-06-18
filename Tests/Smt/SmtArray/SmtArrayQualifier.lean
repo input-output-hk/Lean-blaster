@@ -25,7 +25,9 @@ false-proof regression verified during review. -/
 #blaster [∀ (a : SMTArray Nat) (i j : Nat), a.get i + a.get j ≥ a.get j]
 
 -- functional coverage: read-over-write with a qualified (Nat) element type
-#blaster [∀ (a : SMTArray Nat) (i : Nat) (v : Nat), (a.set i v).get i = v]
+-- out-of-bounds set is a no-op, so unguarded form is NOT valid; with in-bounds guard it IS valid
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (a : SMTArray Nat) (i : Nat) (v : Nat), (a.set i v).get i = v]
+#blaster [∀ (a : SMTArray Nat) (i : Nat) (v : Nat), i < a.size → (a.set i v).get i = v]
 
 -- the @isArray premise is satisfiable, so universal goals are not vacuously
 -- Valid: a too-strong claim about elements is still Falsified
