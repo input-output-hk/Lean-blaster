@@ -137,9 +137,10 @@ def opaqueFuns : NameHashSet :=
     -- (see translateUIntConv? widen guard).
     ``USize.toUInt8,   ``USize.toUInt16,  ``USize.toUInt32,
     ``ISize.toInt8,    ``ISize.toInt16,   ``ISize.toInt32,
-    -- SMTArray Nat-indexed get/set → SMT array theory select/store
+    -- SMTArray Nat-indexed get/set/size → SMT array theory select/store/size
     ``Blaster.SMTArray.get,
     ``Blaster.SMTArray.set,
+    ``Blaster.SMTArray.size,
     -- Vector ops → SMT array theory select/store/const
     ``Vector.get,
     ``Vector.set,
