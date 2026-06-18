@@ -1644,24 +1644,23 @@ def translateApp
         let _ ← translateType termTranslator arrTy    -- idempotent: ensures datatype declared + names cached
         let some names := (← get).smtEnv.smtArrNamesCache.get? arrTy
           | throwEnvError "translateSMTArrayOp?: SMTArray names not cached for {reprStr arrTy}"
+        -- 0 <= i < size: shared bounds guard used by both get and set arms.
+        let inBounds := fun (a i : SmtTerm) =>
+          andSmt (leqSmt (natLitSmt 0) i) (ltSmt i (smtSelectorApp names.sizeSel a))
         match n with
         | ``Blaster.SMTArray.get =>
             if args.size != 4 then throwEnvError "translateSMTArrayOp?: SMTArray.get expects 4 args, got {args.size}"
             let a ← termTranslator args[2]!
             let i ← termTranslator args[3]!
-            let inB := andSmt (mkSimpleSmtAppN leqSymbol #[natLitSmt 0, i])
-                              (mkSimpleSmtAppN ltSymbol #[i, smtSelectorApp names.sizeSel a])
             let hit := selectSmt (smtSelectorApp names.dataSel a) #[i]
-            return some (mkSimpleSmtAppN iteSymbol #[inB, hit, smtSimpleVarId names.dfltSym])
+            return some (iteSmt (inBounds a i) hit (smtSimpleVarId names.dfltSym))
         | ``Blaster.SMTArray.set =>
             if args.size != 4 then throwEnvError "translateSMTArrayOp?: SMTArray.set expects 4 args, got {args.size}"
             let a ← termTranslator args[1]!
             let i ← termTranslator args[2]!
             let v ← termTranslator args[3]!
-            let inB := andSmt (mkSimpleSmtAppN leqSymbol #[natLitSmt 0, i])
-                              (mkSimpleSmtAppN ltSymbol #[i, smtSelectorApp names.sizeSel a])
-            let newData := mkSimpleSmtAppN iteSymbol
-              #[inB, storeSmt (smtSelectorApp names.dataSel a) i v, smtSelectorApp names.dataSel a]
+            let newData := iteSmt (inBounds a i)
+              (storeSmt (smtSelectorApp names.dataSel a) i v) (smtSelectorApp names.dataSel a)
             return some (smtArrCtorApp names.ctorSym newData (smtSelectorApp names.sizeSel a))
         | ``Blaster.SMTArray.size =>
             if args.size != 2 then throwEnvError "translateSMTArrayOp?: SMTArray.size expects 2 args, got {args.size}"

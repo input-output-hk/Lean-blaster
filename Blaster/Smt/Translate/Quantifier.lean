@@ -1296,23 +1296,42 @@ def translatePEmptyType (n : Expr) : TranslateEnvT SortExpr := do
 
 /-- Translate `SMTArray α` (the single-field structure, NOT raw `Array α` — raw
     arrays stay on the opaque-datatype path so concrete arrays keep structural
-    equality) to the SMT array theory sort `(Array Int σ_α)`, where `σ_α` is the
-    translated element sort.  The index domain is always `Int` (SMT integer
-    theory) because `SMTArray.get`/`set` take a `Nat` index, translated to `Int`.
+    equality) to a freshly-declared SMT **datatype pair**, NOT a bare array-theory
+    sort.  `σ_α` is the translated element sort; the index domain is always `Int`
+    (SMT integer theory) because `SMTArray.get`/`set` take a `Nat` index.
+
+    The datatype has a single constructor with two selectors — the backing array
+    and the (logical) size — plus a per-instance out-of-bounds default constant:
+    `(declare-datatype SMTArray_v
+       ((@mkSMTArray_v (@dataSMTArray_v (Array Int σ)) (@sizeSMTArray_v Int))))`
+    `(declare-const @dfltSMTArray_v σ)`  -- out-of-bounds value, see below
+    This size-aware pair is what makes `get`/`set`/`size` (see `translateSMTArrayOp?`)
+    match the bounds-checked Lean semantics: out-of-range `get` returns the default,
+    out-of-range `set` is a no-op, and `size` reads the size selector.  A bare
+    `(Array Int σ)` sort could not model the size or the out-of-bounds behaviour.
+
+    The out-of-bounds default `@dfltSMTArray_v` is declared as a free constant and
+    only constrained to satisfy the element qualifier.  This is SOUND: it
+    over-approximates Lean's fixed `Inhabited.default`, so the solver sees at most
+    more countermodels, never a false proof (computing the exact default is
+    deferred — this is incompleteness, not unsoundness).
 
     Qualifier uniqueness: `updateIndInstCache` derives the qualifier name as
-    `@is<symbol>`.  Using a single fixed symbol (e.g. `@isArray`) would collide when
+    `@is<symbol>`.  Using a single fixed symbol (e.g. `@isSMTArray`) would collide when
     two different element types are used in the same query (Z3 rejects duplicate
     `define-fun`).  We therefore derive a fresh counter-based symbol per call;
     the `indTypeInstCache` lookup at the top of this function ensures the fresh id
     is generated only once per distinct element-type expression.
 
-    The predicate qualifier lifts the element type's qualifier pointwise:
-    `(define-fun @isArray_v ((@x (Array Int σ))) Bool (forall ((@i Int)) (@isElem (select @x @i))))`.
-    This is a soundness requirement — without it, elements of `SMTArray Nat` /
-    `SMTArray (Fin n)` are unconstrained Ints and admit spurious witnesses in
-    positive position. For exact element types (Int/BitVec/Bool) `@isElem` is
-    trivially `true`, so the body reduces to `(forall i true)`.
+    The predicate qualifier constrains the size to be non-negative and lifts the
+    element type's qualifier pointwise over the backing array (all-Int domain):
+    `(define-fun @isSMTArray_v ((@x <datatypeSort>)) Bool
+       (and (<= 0 (@sizeSMTArray_v @x))
+            (forall ((@i Int)) (@isElem (select (@dataSMTArray_v @x) @i)))))`.
+    The pointwise element lift is a soundness requirement — without it, elements of
+    `SMTArray Nat` / `SMTArray (Fin n)` are unconstrained Ints and admit spurious
+    witnesses in positive position. For exact element types (Int/BitVec/Bool)
+    `@isElem` is trivially `true`, so that conjunct reduces to `(forall i true)`.
 -/
 def translateArrayType
     (typeTranslator : Expr → TranslateEnvT SortExpr)
@@ -1336,11 +1355,18 @@ def translateArrayType
       (names.ctorSym, some #[(names.dataSel, dataSort), (names.sizeSel, intSort)])
     declareDataType names.sortSym { params := none, ctors := #[ctorDecl] }
     let arrSort := SortExpr.SymbolSort names.sortSym
-    -- per-instance out-of-bounds default constant, constrained to satisfy the element qualifier
+    -- per-instance out-of-bounds default constant, constrained to satisfy the element qualifier.
+    -- SOUNDNESS: leaving this value free (only element-qualifier-constrained) over-approximates
+    -- Lean's fixed `Inhabited.default`, so the solver gets at most more countermodels, never a
+    -- false proof (the exact default is deferred — incompleteness, not unsoundness).
     declareConst names.dfltSym elemSort
     let dfltPred ← createPredQualifierAppAux (smtSimpleVarId names.dfltSym) elemType (inPredQualifier := true)
     assertTerm dfltPred
     let decl ← updateIndInstCache t names.sortSym arrSort (isReservedSymbol := true)
+    -- Cache key coupling: this writer keys on the raw `t`, and the reader
+    -- (`translateSMTArrayOp?`) looks up via the `inferTypeEnv`-derived binder type. The two MUST
+    -- stay in lockstep. Unlike Vector/Fin/BitVec, SMTArray has no numeric index to canonicalize,
+    -- so raw `t` is correct here — do NOT canonicalize this key without canonicalizing the reader.
     modify (fun env => { env with smtEnv.smtArrNamesCache := env.smtEnv.smtArrNamesCache.insert t names })
     -- qualifier: size >= 0 AND elements satisfy the element qualifier through the data selector.
     -- The pointwise element lift is a SOUNDNESS requirement (without it, `SMTArray Nat`/
@@ -1350,7 +1376,7 @@ def translateArrayType
     --           (forall ((@i Int)) (@isElem (select (@dataSMTArray_v @x) @i)))))
     let xsym := mkReservedSymbol "@x"
     let isym := mkReservedSymbol "@i"
-    let sizeNonNeg := mkSimpleSmtAppN leqSymbol #[natLitSmt 0, smtSelectorApp names.sizeSel (smtSimpleVarId xsym)]
+    let sizeNonNeg := leqSmt (natLitSmt 0) (smtSelectorApp names.sizeSel (smtSimpleVarId xsym))
     let elemSel := selectSmt (smtSelectorApp names.dataSel (smtSimpleVarId xsym)) #[smtSimpleVarId isym]
     let elemPred ← createPredQualifierAppAux elemSel elemType (inPredQualifier := true)
     let elemForall := mkForallTerm none #[(isym, intSort)] elemPred none
