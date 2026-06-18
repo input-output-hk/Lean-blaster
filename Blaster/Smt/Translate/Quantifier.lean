@@ -1545,6 +1545,7 @@ partial def translateTypeAux
    let e := t.getAppFn
    match e with
    | Expr.const ``Blaster.SMTArray _ => translateArrayType (λ a => translateTypeAux termTranslator a) t
+   | Expr.const ``Array _ => translateArrayType (λ a => translateTypeAux termTranslator a) t
    | Expr.const ``Vector _ => translateVectorType (λ a => translateTypeAux termTranslator a) t
    | Expr.const ``Fin _ => translateFinType t
    | Expr.const ``BitVec _ => translateBitVecType t

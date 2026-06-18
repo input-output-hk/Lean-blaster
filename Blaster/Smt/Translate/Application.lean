@@ -1638,9 +1638,13 @@ def translateApp
         internal error (we never silently re-declare). -/
     translateSMTArrayOp? (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
       match n with
-      | ``Blaster.SMTArray.get | ``Blaster.SMTArray.set | ``Blaster.SMTArray.size => do
-        let arrArgIdx := if n == ``Blaster.SMTArray.get then 2 else 1
-        let arrTy ← inferTypeEnv args[arrArgIdx]!     -- the SMTArray α binder type = the cache key
+      | ``Blaster.SMTArray.get | ``Blaster.SMTArray.set | ``Blaster.SMTArray.size
+      | ``Array.get! | ``Array.getD | ``Array.set! | ``Array.setIfInBounds | ``Array.size => do
+        -- Array layout: `get!`/`SMTArray.get` carry `[Inhabited α]`, so the array
+        -- arg is at index 2; all others have the array at index 1.
+        let arrArgIdx :=
+          if n == ``Blaster.SMTArray.get || n == ``Array.get! then 2 else 1
+        let arrTy ← inferTypeEnv args[arrArgIdx]!     -- the (SMT)Array α binder type = the cache key
         let _ ← translateType termTranslator arrTy    -- idempotent: ensures datatype declared + names cached
         let some names := (← get).smtEnv.smtArrNamesCache.get? arrTy
           | throwEnvError "translateSMTArrayOp?: SMTArray names not cached for {reprStr arrTy}"
@@ -1648,22 +1652,30 @@ def translateApp
         let inBounds := fun (a i : SmtTerm) =>
           andSmt (leqSmt (natLitSmt 0) i) (ltSmt i (smtSelectorApp names.sizeSel a))
         match n with
-        | ``Blaster.SMTArray.get =>
-            if args.size != 4 then throwEnvError "translateSMTArrayOp?: SMTArray.get expects 4 args, got {args.size}"
+        | ``Blaster.SMTArray.get | ``Array.get! =>
+            if args.size != 4 then throwEnvError "translateSMTArrayOp?: {n} expects 4 args, got {args.size}"
             let a ← termTranslator args[2]!
             let i ← termTranslator args[3]!
             let hit := selectSmt (smtSelectorApp names.dataSel a) #[i]
             return some (iteSmt (inBounds a i) hit (smtSimpleVarId names.dfltSym))
-        | ``Blaster.SMTArray.set =>
-            if args.size != 4 then throwEnvError "translateSMTArrayOp?: SMTArray.set expects 4 args, got {args.size}"
+        | ``Array.getD =>
+            -- `@Array.getD α a i d` → array@1, index@2, EXPLICIT default@3 (NOT @dflt).
+            if args.size != 4 then throwEnvError "translateSMTArrayOp?: Array.getD expects 4 args, got {args.size}"
+            let a ← termTranslator args[1]!
+            let i ← termTranslator args[2]!
+            let d ← termTranslator args[3]!
+            let hit := selectSmt (smtSelectorApp names.dataSel a) #[i]
+            return some (iteSmt (inBounds a i) hit d)
+        | ``Blaster.SMTArray.set | ``Array.set! | ``Array.setIfInBounds =>
+            if args.size != 4 then throwEnvError "translateSMTArrayOp?: {n} expects 4 args, got {args.size}"
             let a ← termTranslator args[1]!
             let i ← termTranslator args[2]!
             let v ← termTranslator args[3]!
             let newData := iteSmt (inBounds a i)
               (storeSmt (smtSelectorApp names.dataSel a) i v) (smtSelectorApp names.dataSel a)
             return some (smtArrCtorApp names.ctorSym newData (smtSelectorApp names.sizeSel a))
-        | ``Blaster.SMTArray.size =>
-            if args.size != 2 then throwEnvError "translateSMTArrayOp?: SMTArray.size expects 2 args, got {args.size}"
+        | ``Blaster.SMTArray.size | ``Array.size =>
+            if args.size != 2 then throwEnvError "translateSMTArrayOp?: {n} size expects 2 args, got {args.size}"
             let a ← termTranslator args[1]!
             return some (smtSelectorApp names.sizeSel a)
         | _ => return none

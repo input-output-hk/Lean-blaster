@@ -141,6 +141,12 @@ def opaqueFuns : NameHashSet :=
     ``Blaster.SMTArray.get,
     ``Blaster.SMTArray.set,
     ``Blaster.SMTArray.size,
+    -- Raw Array named ops → routed to the same datatype-pair model
+    ``Array.get!,
+    ``Array.getD,
+    ``Array.set!,
+    ``Array.setIfInBounds,
+    ``Array.size,
     -- Vector ops → SMT array theory select/store/const
     ``Vector.get,
     ``Vector.set,
