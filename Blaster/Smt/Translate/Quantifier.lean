@@ -1107,9 +1107,6 @@ where
      let forallTerm := (eqSmt limitedApp predRecApp)
      assertTerm (mkForallTerm none quantifiers forallTerm patterns)
 
-  substitutePred (sub : Expr × Expr) (e : Expr) : Option Expr :=
-    if sub.1 == e then some sub.2 else none -- TODO: check if we can use pointer equality
-
   updatePredTerm (prevTerm : SmtTerm) (newTerm : SmtTerm) : SmtTerm :=
     if isTrueSmt prevTerm
     then newTerm
@@ -1152,8 +1149,8 @@ where
     -- NOTE: recVal.numParams is ignored here when determining firstCtorFieldIdx
     -- as we are instantiating the datatype parameters
     Optimize.forallTelescope (← inferTypeEnv auxApp) fun fvars _ => do
-      -- list to replace each ctor field with appropriate selector name
-      let mut substituteList := []
+      -- maps each ctor field's SMT symbol → its constructor-selector term `(C.idx @x)`
+      let mut symSubst : List (SmtSymbol × SmtTerm) := []
       -- predTerm condition to be asserted
       let mut predTermCond := trueSmt
       for h : i in [firstCtorFieldIdx : fvars.size] do
@@ -1161,11 +1158,20 @@ where
         let decl ← getFVarLocalDecl arg
         let selectorIdx := i - firstCtorFieldIdx
         let selTerms ← mkCtorSelectorExpr recRule.ctor selectorIdx arg decl.type
-        substituteList := (arg, selTerms.1) :: substituteList
+        -- Treat the field as a bound (not top-level) variable so that translating an invariant
+        -- referring to it yields its SMT symbol rather than declaring a spurious global constant.
+        let Expr.fvar fid := arg
+          | throwEnvError "generatePredicateAssertions: fvar expected but got {reprStr arg}"
+        updateQuantifiedFVarsCache fid false
+        symSubst := (← fvarIdToSmtSymbol fid, selTerms.2) :: symSubst
         if (← isPropEnv decl.type) then
           let optExpr ← optimizeExpr' decl.type
-          -- apply substitue list on optExpr before translation
-          let propTerm ← termTranslator (substituteList.foldr (fun a acc => acc.replace (substitutePred a)) optExpr)
+          -- Translate the invariant with the real (well-typed) field variables in place — so every
+          -- downstream `inferTypeEnv` succeeds — then rewrite each field symbol to its selector
+          -- term `(C.idx @x)`. (The earlier fake-`mkConst`-selector substitution broke `inferTypeEnv`
+          -- whenever an invariant applied a function to a field, e.g. `cells.size = n`.)
+          let propTerm := (← termTranslator optExpr).substSimpleIdent
+                            (fun s => (symSubst.find? (fun p => p.1 == s)).map (·.2))
           predTermCond := updatePredTerm predTermCond (andSmt (eqSmt selTerms.2 propTerm) selTerms.2)
         else
           -- resolve type abbreviation first

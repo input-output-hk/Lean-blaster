@@ -504,6 +504,29 @@ def smtSimpleVarId (nm : SmtSymbol) : SmtTerm := .SmtIdent (.SimpleIdent nm)
 def smtQualifiedVarId (nm : SmtSymbol) (t : SortExpr) : SmtTerm :=
   .SmtIdent (.QualifiedIdent nm t)
 
+mutual
+/-- Replace, throughout an `SmtTerm`, every simple identifier `(SmtIdent (SimpleIdent s))`
+    whose symbol `s` is mapped by `lookup` with the corresponding replacement term.
+    Used to rewrite the SMT translation of a structure invariant, where each field
+    variable's symbol is replaced by its constructor-selector application `(C.idx @x)`. -/
+partial def SmtTerm.substSimpleIdent (lookup : SmtSymbol → Option SmtTerm) : SmtTerm → SmtTerm
+  | t@(.SmtIdent (.SimpleIdent s)) => (lookup s).getD t
+  | .AppTerm nm args => .AppTerm nm (args.map (SmtTerm.substSimpleIdent lookup))
+  | .LetTerm bs body =>
+      .LetTerm (bs.map (fun b => (b.1, SmtTerm.substSimpleIdent lookup b.2)))
+               (SmtTerm.substSimpleIdent lookup body)
+  | .ForallTerm bs body => .ForallTerm bs (SmtTerm.substSimpleIdent lookup body)
+  | .ExistsTerm bs body => .ExistsTerm bs (SmtTerm.substSimpleIdent lookup body)
+  | .LambdaTerm bs body => .LambdaTerm bs (SmtTerm.substSimpleIdent lookup body)
+  | .AnnotatedTerm t annot =>
+      .AnnotatedTerm (SmtTerm.substSimpleIdent lookup t) (annot.map (SmtAttribute.substSimpleIdent lookup))
+  | t => t
+
+partial def SmtAttribute.substSimpleIdent (lookup : SmtSymbol → Option SmtTerm) : SmtAttribute → SmtAttribute
+  | .Pattern p => .Pattern (p.map (SmtTerm.substSimpleIdent lookup))
+  | a => a
+end
+
 /-! Create an e-matching pattern to be used for a forall or an exists Smt term. -/
 def mkPattern (patterns : Array SmtTerm) : SmtAttribute := .Pattern patterns
 
