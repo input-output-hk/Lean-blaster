@@ -1214,6 +1214,7 @@ def translateApp
          if let some r ← translateUIntConv? n args then return r
          if let some r ← translateFinArith? n args then return r
          if let some r ← translateSMTArrayOp? n args then return r
+         if let some r ← translateArrayLit? n args then return r
          if let some r ← translateSMTArrayCtor? n then return r
          if let some r ← translateBitVecShift? n args then return r
          if let some r ← translateBitVecIndexed? n args then return r
@@ -1615,6 +1616,40 @@ def translateApp
       | ``Blaster.SMTArray.ofArray | ``Blaster.SMTArray.toArray =>
           throwEnvError "translateApp: concrete SMTArray construction/unwrapping ({n}) is not supported; use symbolic `SMTArray` variables with `.get`/`.set`"
       | _ => return none
+
+    /-- Collect the elements of a literal `List` spine (`List.cons`/`List.nil`) as Exprs.
+        The spine must be concrete; a symbolic tail (e.g. a `List` variable) is rejected. -/
+    collectListElems (l : Expr) : TranslateEnvT (Array Expr) := do
+      let mut cur := l
+      let mut elems := #[]
+      while true do
+        match cur.getAppFnArgs with
+        | (``List.cons, #[_, h, t]) => elems := elems.push h; cur := t
+        | (``List.nil, _)           => break
+        | _ => throwEnvError "translateArrayLit?: `Array.mk` requires a literal list spine; symbolic list argument {reprStr cur} is unsupported (use a symbolic `Array`/`SMTArray` variable with `.get`/`.set`/`.size`)"
+      return elems
+
+    /-- Translate a concrete array constructor `@Array.mk α [e₀, …, eₙ₋₁]` into the
+        size-aware datatype-pair encoding (see `translateArrayType`): a `data` array
+        built as a store-chain over the per-instance `@dflt` const, plus a literal `size`.
+        Required because the `Array α` *type* is routed to the pair model, so a literal of
+        that type must produce a pair term `(@mkSMTArray_v data size)`, not the raw
+        `Array.mk` constructor (whose SMT symbol is never declared for the pair sort). -/
+    translateArrayLit? (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
+      unless n == ``Array.mk do return none
+      if args.size != 2 then throwEnvError "translateArrayLit?: `Array.mk` expects 2 args (elemType, list), got {args.size}"
+      let arrTy ← inferTypeEnv e
+      let _ ← translateType termTranslator arrTy   -- idempotent: ensures pair datatype declared + names cached
+      let some names := (← get).smtEnv.smtArrNamesCache.get? arrTy
+        | throwEnvError "translateArrayLit?: SMTArray names not cached for {reprStr arrTy}"
+      let elemSort ← translateType termTranslator args[0]!
+      let dataSort := arraySort #[intSort, elemSort]
+      let elems ← collectListElems args[1]!
+      let mut data := constArraySmt dataSort (smtSimpleVarId names.dfltSym)
+      for h : i in [0 : elems.size] do
+        let v ← termTranslator elems[i]
+        data := storeSmt data (natLitSmt i) v
+      return some (smtArrCtorApp names.ctorSym data (natLitSmt elems.size))
 
     /-- Translate the SMTArray AND raw-`Array` ops against the size-aware
         datatype-pair encoding declared by `translateArrayType`.
