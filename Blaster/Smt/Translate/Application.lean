@@ -1616,23 +1616,33 @@ def translateApp
           throwEnvError "translateApp: concrete SMTArray construction/unwrapping ({n}) is not supported; use symbolic `SMTArray` variables with `.get`/`.set`"
       | _ => return none
 
-    /-- Translate `SMTArray.get`/`set`/`size` against the size-aware datatype-pair
-        encoding declared by `translateArrayType`.
+    /-- Translate the SMTArray AND raw-`Array` ops against the size-aware
+        datatype-pair encoding declared by `translateArrayType`.
+
+        `SMTArray.get`/`set`/`size` are *definitionally* `Array.get!`/`set!`/`size`,
+        so both families emit the same terms; raw `Array` shares this path (Spec 2).
+        Handled: `SMTArray.get`/`set`/`size`, `Array.get!`/`getD`/`set!`/
+        `setIfInBounds`/`size`.
 
         The pair is `(@mkSMTArray_v (data (Array Int σ)) (size Int))` with a
         per-instance out-of-bounds `default` constant `@dfltSMTArray_v`. The SMT
         terms below mirror the bounds-checked Lean semantics:
-          - `get a i`   → `(ite (and (<= 0 i) (< i (size a))) (select (data a) i) dflt)`
-          - `set a i v` → `(@mkSMTArray_v (ite inB (store (data a) i v) (data a)) (size a))`
-          - `size a`    → `(size a)`
+          - `get!/get a i` → `(ite (and (<= 0 i) (< i (size a))) (select (data a) i) dflt)`
+          - `getD a i d`   → as above but the out-of-bounds branch is the EXPLICIT
+                             default `d`, not `@dflt`
+          - `set/set!/setIfInBounds a i v`
+                           → `(@mkSMTArray_v (ite inB (store (data a) i v) (data a)) (size a))`
+          - `size a`       → `(size a)`
 
-        Arg layouts (all args incl. implicits):
-          - `@SMTArray.get α inst a i` → #[α, inst, a, i]  (array at [2], index at [3])
-          - `@SMTArray.set α a i v`    → #[α, a, i, v]      (array at [1], index at [2], value at [3])
-          - `@SMTArray.size α a`       → #[α, a]            (array at [1])
+        Arg layouts (all args incl. implicits). `get!`/`SMTArray.get` carry an
+        `[Inhabited α]` instance (array at [2]); every other op has the array at [1]:
+          - `@SMTArray.get α inst a i` / `@Array.get! α inst a i` → #[α, inst, a, i]
+          - `@Array.getD α a i d`                                → #[α, a, i, d]
+          - `@SMTArray.set/@Array.set!/@Array.setIfInBounds α a i v` → #[α, a, i, v]
+          - `@SMTArray.size/@Array.size α a`                     → #[α, a]
 
         The names are looked up by `inferTypeEnv` of the ARRAY argument (its binder
-        type is exactly the `SMTArray α` Expr used as the cache key in
+        type is exactly the `SMTArray α`/`Array α` Expr used as the cache key in
         `translateArrayType`). `translateType` is called first (idempotent cache hit)
         to guarantee the datatype is declared and the names are cached; a miss is an
         internal error (we never silently re-declare). -/
