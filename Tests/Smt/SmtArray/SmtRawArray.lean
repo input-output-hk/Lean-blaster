@@ -8,3 +8,6 @@ import Blaster
 #blaster [∀ (a : Array Int) (i : Nat) (v : Int), i < a.size → (a.setIfInBounds i v).get! i = v]
 -- getD returns the explicit default out of bounds
 #blaster [∀ (a : Array Int) (i : Nat) (d : Int), a.size ≤ i → a.getD i d = d]
+-- `a[i]!` (getElem!) must funnel to the same sound model as `.get!`
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (a : Array Int) (i : Nat) (v : Int), (a.set! i v)[i]! = v]
+#blaster [∀ (a : Array Int) (i : Nat) (v : Int), i < a.size → (a.set! i v)[i]! = v]
