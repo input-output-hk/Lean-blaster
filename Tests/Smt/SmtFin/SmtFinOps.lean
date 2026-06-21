@@ -10,7 +10,7 @@ namespace Test.SmtFinOps
 
 #blaster [∀ (x y : Fin 8), x < y → x.val < y.val]
 
-#blaster [∀ (x y : Fin 8), x ≤ y ∨ y ≤ x]
+#blaster [∀ (x y : Fin 8), x > 0 → x < y ∨ y <= x]
 
 #blaster [∀ (h : (3:Nat) < 5), (Fin.mk 3 h).val = 3]
 

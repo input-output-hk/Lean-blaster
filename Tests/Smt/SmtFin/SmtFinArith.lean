@@ -5,9 +5,9 @@ namespace Test.SmtFinArith
 /-! # Test cases to validate Fin modular arithmetic -/
 
 -- 3 + 4 = 7 ≡ 2 (mod 5)
-#blaster [(⟨3, by decide⟩ + ⟨4, by decide⟩ : Fin 5) = ⟨2, by decide⟩]
+#blaster [(⟨3, by blaster⟩ + ⟨4, by blaster⟩ : Fin 5) = ⟨2, by blaster⟩]
 
-#blaster [∀ (x : Fin 5), x + ⟨0, by decide⟩ = x]
+#blaster [∀ (x : Fin 5), x + ⟨0, by blaster⟩ = x]
 
 -- modular wrap keeps result in range
 #blaster [∀ (x y : Fin 5), (x + y).val < 5]
