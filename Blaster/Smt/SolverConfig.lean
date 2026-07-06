@@ -62,9 +62,12 @@ def z3Config : SolverConfig := {
 def cvc5Config : SolverConfig := {
   displayName := "cvc5"
   candidates := #["cvc5", "wsl cvc5"]
-  spawnArgs := #["--incremental"]
+  -- `--parsing-mode=lenient`: cvc5 ≥ 1.3 reserves `@`/`.`-prefixed symbols in
+  -- default mode, but Blaster emits qualifiers like `@isNat` and parameters
+  -- like `@x`; lenient mode accepts them.
+  spawnArgs := #["--incremental", "--parsing-mode=lenient"]
   versionFlag := "--version"
-  minVersion := "1.2.1"
+  minVersion := "1.3.4"
   defaultOptions := #[
     (":print-success", "true"),
     (":produce-models", "true"),

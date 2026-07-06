@@ -17,12 +17,12 @@ bit-for-bit identical to today, so existing behavior cannot drift.
 
 ## Background: verified solver divergences
 
-Probed against cvc5 1.2.1 (installed locally) with the exact command patterns
+Probed against cvc5 1.3.4 (installed locally) with the exact command patterns
 blaster emits:
 
 | Divergence | Z3 | cvc5 |
 |---|---|---|
-| Spawn | `z3 -in -smt2` | `cvc5 --incremental` (stdin works bare; `--incremental` required for the multiple `check-sat-assuming` queries issued by BMC/K-Induction) |
+| Spawn | `z3 -in -smt2` | `cvc5 --incremental --parsing-mode=lenient` (stdin works bare; `--incremental` required for the multiple `check-sat-assuming` queries issued by BMC/K-Induction) |
 | Version probe | `z3 -version` | `cvc5 --version` |
 | Tuning options | `:smt.mbqi`, `:smt.pull-nested-quantifiers`, `:auto_config`, `:smt.macro_finder`, `:smt.case_split`, `:smt.qi.eager_threshold`, `:smt.delay_units`, `:smt.relevancy` | none of these — cvc5 answers `unsupported`, which trips the `print-success` check in `trySubmitCommand!`; quantifier strength comes from `:full-saturate-quant` instead |
 | Timeout | `:timeout` (ms) | `:tlimit-per` (ms) |
@@ -57,9 +57,9 @@ One record per solver holding every divergence point:
 ```
 structure SolverConfig where
   candidates     : Array String          -- e.g. #["cvc5", "wsl cvc5"]
-  spawnArgs      : Array String          -- e.g. #["--incremental"]
+  spawnArgs      : Array String          -- e.g. #["--incremental", "--parsing-mode=lenient"]
   versionFlag    : String                -- "-version" / "--version"
-  minVersion     : String                -- "4.15.2" / "1.2.1"
+  minVersion     : String                -- "4.15.2" / "1.3.4"
   defaultOptions : Array (String × String) -- startup set-option pairs
   timeoutOption  : String                -- ":timeout" / ":tlimit-per" (both ms)
   seedOption     : String                -- ":smt.random-seed" / ":seed"
@@ -118,7 +118,7 @@ structure SolverConfig where
   differ:
   - `tests/StateMachine/Counter04–06.lean` `#guard_msgs` blocks hard-code
     model values; the cvc5 siblings get baselines captured from actual cvc5
-    1.2.1 output.
+    1.3.4 output.
   - Invocations expecting `Undetermined` (`solve-result: 2`, 18 occurrences)
     are re-baselined per empirical cvc5 outcome (cvc5 may answer where Z3
     says `unknown`, and vice versa).
@@ -129,7 +129,7 @@ structure SolverConfig where
 
 - New `Cvc5Check.lean` + `lean_exe cvc5check` in `lakefile.lean`, mirroring
   `Z3Check.lean` (runs `cvc5 --version`, prints result).
-- `.github/workflows/ci-linux.yaml`: install pinned cvc5 1.2.1 (GitHub
+- `.github/workflows/ci-linux.yaml`: install pinned cvc5 1.3.4 (GitHub
   release binary) alongside Z3; the single `lake test` run covers both
   solvers because coverage is inline.
 - `README.md`: document the `(solver: ...)` option and cvc5 installation.
@@ -137,7 +137,7 @@ structure SolverConfig where
 ## Error handling
 
 - cvc5 binary missing → same error style as Z3 today:
-  `❌ Could not find a working cvc5 ≥ 1.2.1.` plus per-candidate attempt log.
+  `❌ Could not find a working cvc5 ≥ 1.3.4.` plus per-candidate attempt log.
 - `(solver: foo)` with unknown name → elaboration error (unsupported syntax).
 - Unexpected solver output paths (non-`success` echo, unexpected `check-sat`
   line) are already handled generically and stay unchanged.

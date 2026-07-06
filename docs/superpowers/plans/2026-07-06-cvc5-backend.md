@@ -6,11 +6,11 @@
 
 **Architecture:** A `SmtSolver` enum in `BlasterOptions` selects the backend; a per-solver `SolverConfig` record centralizes every divergence (spawn command/args, version probe, startup `set-option` list, timeout/seed option names, `eval` vs `get-value`). `Blaster/Smt/Env.lean` becomes config-driven; Z3's command stream stays identical to today in the default configuration.
 
-**Tech Stack:** Lean 4 (4.24.0), Lake, Z3 4.15.2, cvc5 1.2.1, Python 3 (test-duplication script).
+**Tech Stack:** Lean 4 (4.24.0), Lake, Z3 4.15.2, cvc5 1.3.4, Python 3 (test-duplication script).
 
 **Spec:** `docs/superpowers/specs/2026-07-06-cvc5-backend-design.md`
 
-**Verified solver facts** (probed against cvc5 1.2.1 — do not re-litigate):
+**Verified solver facts** (probed against cvc5 1.3.4 — do not re-litigate):
 - cvc5 reads SMT-Lib from stdin with no file argument; `--incremental` is required because BMC/K-Induction issue multiple `check-sat-assuming` queries.
 - cvc5 rejects `(eval t)`; `(get-value (t))` responds `((t value))` on one line, e.g. `((x 4))`, `((i (- 4)))`, `((p (mk (- 7) 0)))`. The bare value matches Z3's `eval` output format.
 - cvc5 answers `unsupported` (not `success`) to Z3's `:smt.*` / `:auto_config` options — that would trip `trySubmitCommand!`'s success check, so cvc5 must never receive them.
@@ -168,7 +168,7 @@ open Blaster.Smt Blaster.Options
     (":auto_config", "false"),
     (":smt.macro_finder", "true")]
 
-#guard (SmtSolver.cvc5).config.spawnArgs == #["--incremental"]
+#guard (SmtSolver.cvc5).config.spawnArgs == #["--incremental", "--parsing-mode=lenient"]
 #guard (SmtSolver.cvc5).config.versionFlag == "--version"
 #guard (SmtSolver.cvc5).config.usesGetValue == true
 #guard (SmtSolver.cvc5).config.timeoutOption == ":tlimit-per"
@@ -252,9 +252,9 @@ def z3Config : SolverConfig := {
 def cvc5Config : SolverConfig := {
   displayName := "cvc5"
   candidates := #["cvc5", "wsl cvc5"]
-  spawnArgs := #["--incremental"]
+  spawnArgs := #["--incremental", "--parsing-mode=lenient"]
   versionFlag := "--version"
-  minVersion := "1.2.1"
+  minVersion := "1.3.4"
   defaultOptions := #[
     (":print-success", "true"),
     (":produce-models", "true"),
@@ -391,7 +391,7 @@ Expected: output containing the full SMT command dump (starts with `(set-option 
 Append to `tests/Smt/SmtSolverSelection.lean`:
 
 ```lean
-/-! get-value response unwrapping (shapes verified against cvc5 1.2.1). -/
+/-! get-value response unwrapping (shapes verified against cvc5 1.3.4). -/
 section UnwrapChecks
 open Blaster.Smt
 
@@ -638,7 +638,7 @@ git commit -m "test: cvc5 end-to-end coverage"
   If cvc5 is installed correctly, you will see
 
      Successfully ran cvc5:
-     This is cvc5 version 1.2.1 [...]
+     This is cvc5 version 1.3.4 [...]
 
   otherwise, it will print an error message.
 -/
@@ -823,7 +823,7 @@ theorem thm5_cvc5 : ∀ (f : FunRelThree) (x y : Nat), f.f x ≤ f.f y → f.f y
 
 IMPORTANT: if cvc5 cannot prove one of these goals, the tactic leaves an
 unsolved goal and the file fails to build. In that case remove that sibling and
-leave a comment: `-- cvc5 (1.2.1) cannot prove this goal — sibling omitted`.
+leave a comment: `-- cvc5 (1.3.4) cannot prove this goal — sibling omitted`.
 
 - [ ] **Step 2: Baseline cvc5 siblings for Counter04–06**
 
@@ -902,7 +902,7 @@ Scan `/tmp/suite_run.log` for `error:` lines. For each failing cvc5 sibling:
    rejects reached it. Diagnose via `(dump-smt-lib: 1)`; fix in
    `SolverConfig`/translation, not in the test.
 5. **Tactic sibling fails with unsolved goals**: remove that sibling with the
-   `-- cvc5 (1.2.1) cannot prove this goal` comment (per Task 8 Step 1).
+   `-- cvc5 (1.3.4) cannot prove this goal` comment (per Task 8 Step 1).
 6. **Hang**: add `(timeout: 10)` to the sibling (10s → `:tlimit-per 10000`).
 
 If MANY siblings return Undetermined on goals Z3 proves, try strengthening
@@ -934,9 +934,9 @@ git commit -m "test: re-baseline cvc5 sibling expectations across the suite"
 
 - [ ] **Step 1: Verify the cvc5 release asset URL**
 
-Run: `curl -sIL https://github.com/cvc5/cvc5/releases/download/cvc5-1.2.1/cvc5-Linux-x86_64-static.zip | head -1`
+Run: `curl -sIL https://github.com/cvc5/cvc5/releases/download/cvc5-1.3.4/cvc5-Linux-x86_64-static.zip | head -1`
 Expected: `HTTP/2 200`. If 404, list assets with
-`curl -s https://api.github.com/repos/cvc5/cvc5/releases/tags/cvc5-1.2.1 | grep browser_download_url`
+`curl -s https://api.github.com/repos/cvc5/cvc5/releases/tags/cvc5-1.3.4 | grep browser_download_url`
 and use the Linux x86_64 static zip asset name found there.
 
 - [ ] **Step 2: Edit `.github/workflows/ci-linux.yaml`**
@@ -944,7 +944,7 @@ and use the Linux x86_64 static zip asset name found there.
 In the `env:` block add:
 
 ```yaml
-  CVC5_VERSION: "1.2.1"
+  CVC5_VERSION: "1.3.4"
 ```
 
 After the `Install Z3` step add:
@@ -970,7 +970,7 @@ In the `Tools version` step, add a line:
 Run (in a scratch dir, not the repo):
 
 ```bash
-cd /tmp && wget -q https://github.com/cvc5/cvc5/releases/download/cvc5-1.2.1/cvc5-Linux-x86_64-static.zip && unzip -l cvc5-Linux-x86_64-static.zip | grep "bin/cvc5"
+cd /tmp && wget -q https://github.com/cvc5/cvc5/releases/download/cvc5-1.3.4/cvc5-Linux-x86_64-static.zip && unzip -l cvc5-Linux-x86_64-static.zip | grep "bin/cvc5"
 ```
 
 Expected: the archive contains `cvc5-Linux-x86_64-static/bin/cvc5` (this
@@ -982,10 +982,10 @@ validates the `$GITHUB_PATH` line). Clean up the download afterwards.
   `solver`: `select the backend SMT solver, z3 or cvc5 (default: z3)`,
   matching the surrounding format.
 - Add a short "Installing cvc5" subsection next to "Installing Z3":
-  currently tested version 1.2.1, install from
+  currently tested version 1.3.4, install from
   https://github.com/cvc5/cvc5/releases (or `brew install cvc5` /
   the Linux release zip), verify with `lake exe cvc5check`.
-- Mention in the prerequisites list: `cvc5 v1.2.1 (optional — only needed
+- Mention in the prerequisites list: `cvc5 v1.3.4 (optional — only needed
   when using (solver: cvc5))`.
 
 - [ ] **Step 5: Commit**
