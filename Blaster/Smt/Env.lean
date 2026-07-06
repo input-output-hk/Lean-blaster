@@ -2,6 +2,7 @@ import Lean
 import Blaster.Command.Options
 import Blaster.Optimize.Env
 import Blaster.Smt.EmitCommand
+import Blaster.Smt.SolverConfig
 
 open Lean Meta Blaster.Optimize Blaster.Options
 
@@ -11,9 +12,6 @@ namespace Blaster.Smt
     code only sees Unix-style `\n` terminators, regardless of platform. -/
 private def normalizeLine (s : String) : String :=
   s.replace "\r" ""
-
-/-- Minimal version of z3 we support -/
-private def minZ3Version : String := "4.15.2"
 
 /-- Result of an Smt query. -/
 inductive Result where
@@ -77,17 +75,17 @@ def logResult (r : Result) (isCTI := false) (indLabel := "") (cexLabel := "Count
          cex.forM (λ s => f s!" - {s.dropRight 1}")
       else f failure
 
-/-- Tries to find if z3 is natively present in PATH, if not checks wsl z3 -/
-private def findZ3CmdAndVersion : IO (String) := do
-  let candidates := #["z3", "wsl z3"]
+/-- Tries to find the backend solver binary among `cfg.candidates`:
+    natively in PATH first, then through WSL. -/
+private def findSolverCmd (cfg : SolverConfig) : IO String := do
   -- We'll store a short log message for each candidate attempt
   let mut attemptLogs := #[]
-  for candidate in candidates do
+  for candidate in cfg.candidates do
     try
-      let out ← IO.Process.output { cmd := candidate, args := #["-version"] }
+      let out ← IO.Process.output { cmd := candidate, args := #[cfg.versionFlag] }
       if out.exitCode == 0 then
         -- Found a good candidate => Return immediately
-        return (candidate)
+        return candidate
       else
         attemptLogs := attemptLogs.push
           s!"Candidate '{candidate}': exit code {out.exitCode}"
@@ -98,18 +96,17 @@ private def findZ3CmdAndVersion : IO (String) := do
 
   -- If we get here, no candidate succeeded
   let attemptsReport := String.join (attemptLogs.toList.map (fun x => x ++ "\n"))
-  throw <| IO.userError s!"❌ Could not find a working Z3 ≥ {minZ3Version}.\n\nTried:\n{attemptsReport}"
+  throw <| IO.userError s!"❌ Could not find a working {cfg.displayName} ≥ {cfg.minVersion}.\n\nTried:\n{attemptsReport}"
 
-
-/-- Spawn a z3 process w.r.t. the provided solver options. -/
-def createBlasterProcess : IO (IO.Process.Child ⟨.piped, .piped, .piped⟩) := do
-  let z3Cmd ← findZ3CmdAndVersion  -- ensures version is OK
+/-- Spawn the backend solver process described by `cfg`. -/
+def createBlasterProcess (cfg : SolverConfig) : IO (IO.Process.Child ⟨.piped, .piped, .piped⟩) := do
+  let solverCmd ← findSolverCmd cfg  -- ensures the binary is present
   IO.Process.spawn {
     stdin  := .piped
     stdout := .piped
     stderr := .piped
-    cmd    := z3Cmd
-    args   := #["-in", "-smt2"]
+    cmd    := solverCmd
+    args   := cfg.spawnArgs
   }
 
 /-- Update translation cache with `a := b`.
@@ -477,6 +474,18 @@ def defineInttoNat : TranslateEnvT Unit := do
   let fdef := iteSmt xGeqZero xId natZero
   defineFun toNatSymbol #[(xsym, intSort)] natSort fdef
 
+/-- Unwrap a `(get-value (t))` response of shape `((t value))` and return the
+    bare value string followed by a newline — the same shape Z3's `(eval t)`
+    produces, so downstream counterexample rendering is solver-independent.
+    Assumes the queried term is a single symbol (which holds for the only
+    caller, `getModel.getVarValue`; SMT symbols never contain spaces). -/
+def unwrapGetValue (s : String) : String :=
+  let inner := ((s.trim.drop 2).dropRight 2).trim
+  let val := match inner.splitOn " " with
+    | [] => inner
+    | _ :: rest => String.intercalate " " rest
+  val.trim ++ "\n"
+
 /-- Try to retrieve to evaluate term `t` when a `sat` result is obtained and dump result to stdout.
     TODO: We need to define the Smt-lib syntax and term elaborator to parse produced value
     and generate the corresponding Lean representation.
@@ -487,8 +496,12 @@ def evalTerm (t : SmtTerm) : TranslateEnvT String := do
   let env ← get
   let some p := env.smtEnv.smtProc | return ""
   checkCancelTk?
-  submitCommand (.evalTerm t)
-  getOutputEval p.stdout
+  if env.optEnv.options.solverOptions.solver.config.usesGetValue then
+    submitCommand (.getValue t)
+    return unwrapGetValue (← getOutputEval p.stdout)
+  else
+    submitCommand (.evalTerm t)
+    getOutputEval p.stdout
 
 /-- Try to retrieve the model when a `sat` result is obtained and dump result to stdout.
     Do nothing when:
@@ -596,35 +609,11 @@ def exitSmt : TranslateEnvT UInt32 := do
 def setLogicAll : TranslateEnvT Unit :=
   trySubmitCommand! (.setLogic "ALL")
 
-/-- Set Smt `produce-proofs` option to `b`. -/
-def setProduceProofs (b : Bool) : TranslateEnvT Unit :=
-  trySubmitCommand! (.setOption ":produce-proofs" (toString b))
-
-/-- Set Smt `produce-models` option to `b`. -/
-def setProduceModels (b : Bool) : TranslateEnvT Unit :=
-  trySubmitCommand! (.setOption ":produce-models" (toString b))
-
-/-- Set Smt `smt.mbqi` option to `b`. -/
-def setMbqi (b : Bool) : TranslateEnvT Unit :=
-  trySubmitCommand! (.setOption ":smt.mbqi" (toString b))
-
-/-- Set Smt `smt.pull-nested-quantifiers` option to `b`. -/
-def setPullNestedQuantifiers (b : Bool) : TranslateEnvT Unit :=
-  trySubmitCommand! (.setOption ":smt.pull-nested-quantifiers" (toString b))
-
-/-- Set Smt `print-success` option to `b`. -/
-def setPrintSuccess (b : Bool) : TranslateEnvT Unit :=
-  trySubmitCommand! (.setOption ":print-success" (toString b))
-
-/-- Set Smt `smt.random-seed` option to `n` or none. -/
-def setRandomSeed (n : Option Nat) : TranslateEnvT Unit := do
+/-- Set the Smt random seed option (solver-specific option name) to `n` or none. -/
+def setRandomSeed (cfg : SolverConfig) (n : Option Nat) : TranslateEnvT Unit := do
   match n with
-  | some n => trySubmitCommand! (.setOption ":smt.random-seed" (toString n))
+  | some n => trySubmitCommand! (.setOption cfg.seedOption (toString n))
   | none => pure ()
-
-/-- Set Smt `auto_config` option to `b`. -/
-def setAutoConfig (b : Bool) : TranslateEnvT Unit :=
-  trySubmitCommand! (.setOption ":auto_config" (toString b))
 
 /-- Set Smt `smt.case_split` to `n`, with n ∈ [0..6]. -/
 def setCaseSplit (n : Nat) : TranslateEnvT Unit :=
@@ -639,41 +628,27 @@ def setQiEagerThreshold (n : Nat) : TranslateEnvT Unit :=
 def setDelayUnits (b : Bool) : TranslateEnvT Unit :=
   trySubmitCommand! (.setOption ":smt.delay_units" (toString b))
 
-/-- Set Smt `smt.macro_finder` option to `b`. -/
-def setMacroFinder (b : Bool) : TranslateEnvT Unit :=
-  trySubmitCommand! (.setOption ":smt.macro_finder" (toString b))
-
 /-- Set Smt `smt.relevancy` option to `i`. -/
 def setRelevancy (n : Nat) : TranslateEnvT Unit :=
   trySubmitCommand! (.setOption ":smt.relevancy" (toString n))
 
-/-- Set Smt `timeout` when option is specified. -/
-def setTimeout : TranslateEnvT Unit := do
+/-- Set the Smt timeout (solver-specific option name, in milliseconds)
+    when the option is specified. -/
+def setTimeout (cfg : SolverConfig) : TranslateEnvT Unit := do
   let sOpts := (← get).optEnv.options.solverOptions
   let some n := sOpts.timeout | return ()
   -- need to convert timeout to milliseconds
-  trySubmitCommand! (.setOption ":timeout" (toString (n * 1000)))
+  trySubmitCommand! (.setOption cfg.timeoutOption (toString (n * 1000)))
 
-/-- Set the default Smt options, i.e.:
-     - (set-option :print-success true)
-     - (set-option :produce-models true)
-     - (set-option :produce-proofs true)
-     - (set-option :smt-pull-nested-quantifiers true)
-     - (set-option :smt-mbqi true)
-     - (set-option :auto_config false)
-     - (set-option :smt.random-seed n) when `n` is provided in solver options
-     - (set-option :smt.macro_finder true)
--/
+/-- Set the default Smt options of the selected backend solver, i.e. the
+    solver's `SolverConfig.defaultOptions` pairs in order, followed by the
+    random seed and timeout when provided in the solver options. -/
 def setDefaultSmtOptions (sOpts : BlasterOptions) : TranslateEnvT Unit := do
- setPrintSuccess true
- setProduceModels true
- setProduceProofs true
- setPullNestedQuantifiers true
- setMbqi true
- setAutoConfig false
- setRandomSeed sOpts.randomSeed
- setMacroFinder true
- setTimeout
+  let cfg := sOpts.solver.config
+  for (opt, val) in cfg.defaultOptions do
+    trySubmitCommand! (.setOption opt val)
+  setRandomSeed cfg sOpts.randomSeed
+  setTimeout cfg
 
 /-- Perform the following actions:
      - when option `only-smt-lib` is set to `false`:
@@ -686,7 +661,7 @@ def setBlasterProcess : TranslateEnvT Unit := do
   let env ← get
   let sOpts := env.optEnv.options.solverOptions
   unless sOpts.onlySmtLib do
-    let proc ← createBlasterProcess
+    let proc ← createBlasterProcess sOpts.solver.config
     set { env with smtEnv.smtProc := proc }
   setDefaultSmtOptions sOpts
 

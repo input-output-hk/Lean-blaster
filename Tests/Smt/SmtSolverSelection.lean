@@ -51,4 +51,15 @@ open Blaster.Smt
 
 end GetValueChecks
 
+/-! get-value response unwrapping (shapes verified against cvc5 1.2.1). -/
+section UnwrapChecks
+open Blaster.Smt
+
+#guard unwrapGetValue "((x 4))\n" == "4\n"
+#guard unwrapGetValue "(($5 (- 4)))\n" == "(- 4)\n"
+#guard unwrapGetValue "((r Idle))\n" == "Idle\n"
+#guard unwrapGetValue "((p (mk (- 7) 0)))\n" == "(mk (- 7) 0)\n"
+
+end UnwrapChecks
+
 end Tests.SmtSolverSelection
