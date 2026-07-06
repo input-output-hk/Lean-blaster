@@ -58,7 +58,12 @@ def z3Config : SolverConfig := {
     NOTE: no `:produce-proofs` (proof retrieval is unused and expensive in
     cvc5). `:full-saturate-quant` is cvc5's main quantifier-instantiation
     strengthening, playing the role Z3's `:smt.mbqi`/`:smt.macro_finder`
-    play in the Z3 configuration. -/
+    play in the Z3 configuration. `:finite-model-find` + `:fmf-fun` let
+    cvc5 produce models (counterexamples) for falsified goals involving
+    recursively-defined functions, which `:full-saturate-quant` alone
+    cannot. `:fmf-fun` is sound here because it assumes admissible
+    (terminating) recursive definitions — guaranteed, as Lean only accepts
+    terminating `def`s and Blaster emits them as `define-funs-rec`. -/
 def cvc5Config : SolverConfig := {
   displayName := "cvc5"
   candidates := #["cvc5", "wsl cvc5"]
@@ -74,7 +79,14 @@ def cvc5Config : SolverConfig := {
   defaultOptions := #[
     (":print-success", "true"),
     (":produce-models", "true"),
-    (":full-saturate-quant", "true")
+    (":full-saturate-quant", "true"),
+    (":finite-model-find", "true"),
+    (":fmf-fun", "true"),
+    -- Default per-check time limit: cvc5's quantifier engines can diverge on
+    -- goals Z3 gives up on quickly (e.g. hard Nat mod/pow), so every check is
+    -- capped by default. An explicit `(timeout: n)` still takes precedence:
+    -- it is emitted after these defaults and later set-options win.
+    (":tlimit-per", "30000")
   ]
   timeoutOption := ":tlimit-per"
   seedOption := ":seed"

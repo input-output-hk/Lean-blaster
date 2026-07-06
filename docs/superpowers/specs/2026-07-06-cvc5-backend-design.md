@@ -134,6 +134,32 @@ structure SolverConfig where
   solvers because coverage is inline.
 - `README.md`: document the `(solver: ...)` option and cvc5 installation.
 
+## Known cvc5 limitations (verified on 1.3.4)
+
+- **Model production for falsified quantified goals** requires cvc5's
+  finite-model-finding machinery: the defaults now include
+  `:finite-model-find true` + `:fmf-fun true` (suggested by JFE, validated
+  2026-07-06), which upgrade falsifications over recursively-defined
+  functions (e.g. `isEven`/`isOdd`) from `unknown` to `sat` + model while
+  keeping valid goals `unsat`. (`:fmf-fun` assumes admissible/terminating
+  definitions — guaranteed for Lean `def`s.)
+- **Falsifications blocked by the qualifier bridge-axiom pattern.** For
+  each inductive type Blaster emits `(declare-fun @isX ...)` (uninterpreted)
+  plus a quantified bridge axiom `∀x. @isX_LRec(x) = @isX(x)` tying it to
+  the real recursive definition. Z3 handles this because
+  `:smt.macro_finder` eliminates `@isX` by inlining; cvc5 has no working
+  macro elimination for this shape (verified: `--macros-quant` in all
+  modes, both equality orientations, with/without `:pattern` — all
+  `unknown`), so answering `sat` would require certifying the ∀-equality
+  over an infinite datatype. Affected: falsified goals over recursive
+  datatypes (`NatGroup`, `List.head!/map`, nested `Term α`). PROVEN FIX
+  (follow-up, out of scope here): emit the qualifier directly as
+  `(define-fun @isX ((@x T)) Bool (@isX_LRec @x))` — hand-editing a dumped
+  query this way makes cvc5 answer `sat` instantly; mutual datatypes can
+  put the wrappers in the same `define-funs-rec` block. Until then the
+  affected cvc5 siblings carry `(timeout: N)` and terminate as
+  `⚠️ Undetermined` (warning, suite stays green).
+
 ## Error handling
 
 - cvc5 binary missing → same error style as Z3 today:
