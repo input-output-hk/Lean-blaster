@@ -20,6 +20,10 @@ set_option warn.sorry false in
 theorem length_append {as bs : List α} : (as ++ bs).length = as.length + bs.length := by
  induction as <;> simp <;> blaster
 
+set_option warn.sorry false in
+theorem length_append_cvc5 {as bs : List α} : (as ++ bs).length = as.length + bs.length := by
+ induction as <;> simp <;> blaster (solver: cvc5)
+
 /-! ## Test objectives to validate mutually recursive functions Smt lib translation -/
 
 mutual

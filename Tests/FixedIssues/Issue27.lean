@@ -14,5 +14,8 @@ set_option warn.sorry false
 theorem length_set {as : List α} {i : Nat} {a : α} : (as.set i a).length = as.length := by
  induction as generalizing i <;> blaster
 
+theorem length_set_cvc5 {as : List α} {i : Nat} {a : α} : (as.set i a).length = as.length := by
+ induction as generalizing i <;> blaster (solver: cvc5)
+
 
 end Tests.Issue27

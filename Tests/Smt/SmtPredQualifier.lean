@@ -74,6 +74,11 @@ theorem nextFirst_spec : ∀ (x : NatGroup), isNextFirst x → let r := toNextFi
   intro x
   induction x <;> blaster
 
+set_option warn.sorry false in
+theorem nextFirst_spec_cvc5 : ∀ (x : NatGroup), isNextFirst x → let r := toNextFirst x; r ≥ 10 ∧ r < 100 := by
+  intro x
+  induction x <;> blaster (solver: cvc5)
+
 abbrev IdentName := String
 
 mutual
@@ -132,22 +137,22 @@ def sizeOfTerm (t : Term α) : Nat :=
   | .Annotated t' _ => 1 + sizeOfTerm t'
 
 #blaster (gen-cex:0) (solve-result: 1) (random-seed: 1) [ ∀ (α : Type) (x : Term α), sizeOfTerm x < 10 ]
-#blaster (solver: cvc5) (gen-cex:0) (solve-result: 1) (random-seed: 1) [ ∀ (α : Type) (x : Term α), sizeOfTerm x < 10 ]
+#blaster (solver: cvc5) (gen-cex:0) (solve-result: 1) (timeout: 1) (random-seed: 1) [ ∀ (α : Type) (x : Term α), sizeOfTerm x < 10 ]
 
 #blaster (gen-cex: 0) (solve-result: 1)
   [ ∀ (xs : List Nat), !(List.isEmpty xs) → List.head! (List.map Int.ofNat xs) ≥ 10 ]
-#blaster (solver: cvc5) (gen-cex: 0) (solve-result: 1)
+#blaster (solver: cvc5) (gen-cex: 0) (solve-result: 1) (timeout: 1)
   [ ∀ (xs : List Nat), !(List.isEmpty xs) → List.head! (List.map Int.ofNat xs) ≥ 10 ]
 
 
 #blaster (gen-cex: 0) (solve-result: 1)
   [ ∀ (x : NatGroup), isFirst x → let r := toFirst x; r > 20 ∧ r < 100 ]
-#blaster (solver: cvc5) (gen-cex: 0) (solve-result: 1)
+#blaster (solver: cvc5) (gen-cex: 0) (solve-result: 1) (timeout: 1)
   [ ∀ (x : NatGroup), isFirst x → let r := toFirst x; r > 20 ∧ r < 100 ]
 
 #blaster (gen-cex: 0) (solve-result: 1)
   [ ∀ (x : NatGroup), isSecond x → let r := toSecond x; r > 200 ∧ r < 300 ]
-#blaster (solver: cvc5) (gen-cex: 0) (solve-result: 1)
+#blaster (solver: cvc5) (gen-cex: 0) (solve-result: 1) (timeout: 1)
   [ ∀ (x : NatGroup), isSecond x → let r := toSecond x; r > 200 ∧ r < 300 ]
 
 #blaster (gen-cex: 0) (solve-result: 1)
@@ -157,7 +162,7 @@ def sizeOfTerm (t : Term α) : Nat :=
 
 #blaster (gen-cex: 0) (solve-result: 1)
   [ (∀ (α : Type) (x y : Term (List α)) (f : Term (List α) → Nat), f x + f y > 10) ]
-#blaster (solver: cvc5) (gen-cex: 0) (solve-result: 1)
+#blaster (solver: cvc5) (gen-cex: 0) (solve-result: 1) (timeout: 1)
   [ (∀ (α : Type) (x y : Term (List α)) (f : Term (List α) → Nat), f x + f y > 10) ]
 
 #blaster (gen-cex: 0) (solve-result: 1)
