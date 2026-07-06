@@ -24,6 +24,8 @@ theorem thm8 : ∀ (a : Int), 0 ≠ -a → 0 < a := by sorry
 #blaster (only-optimize: 1) [ thm5 ]
 #blaster (only-optimize: 1) [ thm6 ]
 #blaster (gen-cex: 0) (solve-result: 1) [ thm7 ]
+#blaster (solver: cvc5) (gen-cex: 0) (solve-result: 1) [ thm7 ]
 #blaster (gen-cex: 0) (solve-result: 1) [ thm8 ]
+#blaster (solver: cvc5) (gen-cex: 0) (solve-result: 1) [ thm8 ]
 
 end Tests.Issue28

@@ -11,6 +11,7 @@ namespace Tests.Issue17
 theorem exist_bool_true : ∃ p : Bool, p := by simp
 
 #blaster [exist_bool_true]
+#blaster (solver: cvc5) [exist_bool_true]
 
 
 inductive NatGroup where
@@ -26,16 +27,21 @@ def sizeOfNatGroup (x : NatGroup) : Nat :=
   | .next ng => 1 + sizeOfNatGroup ng
 
 #blaster [∃ (x : NatGroup), sizeOfNatGroup x ≥ 10]
+#blaster (solver: cvc5) [∃ (x : NatGroup), sizeOfNatGroup x ≥ 10]
 
 #blaster [∃ (x : NatGroup), sizeOfNatGroup x > 100]
+#blaster (solver: cvc5) [∃ (x : NatGroup), sizeOfNatGroup x > 100]
 
 #blaster [∃ (x : NatGroup), sizeOfNatGroup x > 200]
+#blaster (solver: cvc5) [∃ (x : NatGroup), sizeOfNatGroup x > 200]
 
 #blaster [∃ (x : NatGroup), sizeOfNatGroup x < 20]
+#blaster (solver: cvc5) [∃ (x : NatGroup), sizeOfNatGroup x < 20]
 
 -- Expecting a counterexample
 -- Remove solver options when supporting proof by induction
 #blaster (timeout: 2) (solve-result: 2) [∃ (x : NatGroup), sizeOfNatGroup x < 10]
+#blaster (solver: cvc5) (timeout: 2) (solve-result: 2) [∃ (x : NatGroup), sizeOfNatGroup x < 10]
 
 
 end Tests.Issue17

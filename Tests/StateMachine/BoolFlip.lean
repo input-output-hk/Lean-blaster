@@ -24,10 +24,13 @@ instance boolFlip : StateMachine Input StateB where
 
 
 #bmc (max-depth: 10) [boolFlip]
+#bmc (solver: cvc5) (max-depth: 10) [boolFlip]
 
 #kind (gen-cex: 0) (max-depth: 1) (solve-result: 2) [boolFlip] -- Will not work
+#kind (solver: cvc5) (gen-cex: 0) (max-depth: 1) (solve-result: 2) [boolFlip] -- Will not work
 
 -- Inductive established at Depth 2
 #kind (gen-cex: 0) (max-depth: 2) [boolFlip]
+#kind (solver: cvc5) (gen-cex: 0) (max-depth: 2) [boolFlip]
 
 end Test.BoolFlip

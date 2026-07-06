@@ -37,6 +37,7 @@ theorem validProof {α : Type}[BEq α](v : α)(p : Path)(ls : List α)
 
 -- remove solver option once induction proof is supported
 #blaster (timeout: 5) (solve-result: 2) [validProof]
+#blaster (solver: cvc5) (timeout: 5) (solve-result: 2) [validProof]
 
 theorem getElem?_zipWith {f : α → β → γ} {i : Nat} :
     (List.zipWith f as bs)[i]? = match as[i]?, bs[i]? with
@@ -45,6 +46,7 @@ theorem getElem?_zipWith {f : α → β → γ} {i : Nat} :
 
 -- remove solver option once induction proof is supported
 #blaster (timeout: 5) (solve-result: 2) [getElem?_zipWith]
+#blaster (solver: cvc5) (timeout: 5) (solve-result: 2) [getElem?_zipWith]
 
 theorem getElem?_zipWith' {f : α → β → γ} {i : Nat} :
     (List.zipWith f l₁ l₂)[i]? = (l₁[i]?.map f).bind fun g => l₂[i]?.map g := by
@@ -52,6 +54,7 @@ theorem getElem?_zipWith' {f : α → β → γ} {i : Nat} :
 
 -- remove solver option once induction proof is supported
 #blaster (timeout: 5) (solve-result: 2) [getElem?_zipWith']
+#blaster (solver: cvc5) (timeout: 5) (solve-result: 2) [getElem?_zipWith']
 
 theorem zipWith_map_left {l₁ : List α} {l₂ : List β} {f : α → α'} {g : α' → β → γ} :
     List.zipWith g (l₁.map f) l₂ = List.zipWith (fun a b => g (f a) b) l₁ l₂ := by
@@ -59,6 +62,7 @@ theorem zipWith_map_left {l₁ : List α} {l₂ : List β} {f : α → α'} {g :
 
 -- remove solver option once induction proof is supported
 #blaster (timeout: 5) (solve-result: 2) [zipWith_map_left]
+#blaster (solver: cvc5) (timeout: 5) (solve-result: 2) [zipWith_map_left]
 
 theorem zipWith_foldr_eq_zip_foldr {f : α → β → γ} {i : δ} {g : γ → δ → δ} :
     (List.zipWith f l₁ l₂).foldr g i = (List.zip l₁ l₂).foldr (fun p r => g (f p.1 p.2) r) i := by
@@ -66,5 +70,6 @@ theorem zipWith_foldr_eq_zip_foldr {f : α → β → γ} {i : δ} {g : γ → �
 
 -- remove solver option once induction proof is supported
 #blaster (timeout: 5) (solve-result: 2) [zipWith_foldr_eq_zip_foldr]
+#blaster (solver: cvc5) (timeout: 5) (solve-result: 2) [zipWith_foldr_eq_zip_foldr]
 
 end Tests.Issue26

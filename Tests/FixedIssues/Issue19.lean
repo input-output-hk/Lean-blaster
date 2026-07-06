@@ -37,5 +37,6 @@ theorem uniqueness_neutral_gen : ∀ (G : Type) [Group G] (a : G),
         exact h_specific
 
 #blaster [uniqueness_neutral_gen]
+#blaster (solver: cvc5) [uniqueness_neutral_gen]
 
 end Tests.Issue19

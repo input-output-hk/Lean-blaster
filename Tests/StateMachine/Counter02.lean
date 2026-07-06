@@ -42,7 +42,9 @@ instance counterStateMachine : StateMachine Request CounterState where
     s.timer ≤ 3
 
 #bmc (max-depth: 8) [counterStateMachine]
+#bmc (solver: cvc5) (max-depth: 8) [counterStateMachine]
 
 #kind (max-depth: 1) [counterStateMachine]
+#kind (solver: cvc5) (max-depth: 1) [counterStateMachine]
 
 end Test.Counter02

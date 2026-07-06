@@ -22,5 +22,6 @@ def matchExpr (a : Prop) (b : Prop) : Prop :=
   | _ => False
 
 #blaster [∀ (a b : Prop), matchExpr a b = False]
+#blaster (solver: cvc5) [∀ (a b : Prop), matchExpr a b = False]
 
 end Tests.Issue11

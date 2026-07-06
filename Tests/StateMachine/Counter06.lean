@@ -45,6 +45,7 @@ instance counterStateMachine : StateMachine Request CounterState where
     (s.prev_state = .Delay ∧ s.prev_timer = 3) → s.state = .Busy -- cannot be proved alone as not inductive
 
 #bmc (max-depth: 8) [counterStateMachine]
+#bmc (solver: cvc5) (max-depth: 8) [counterStateMachine]
 
 /--
 info: ⚠️ Induction failed at Depth 1

@@ -12,5 +12,6 @@ namespace Tests.Issue14
 theorem thm1: ∀ (x y : Unit), x = y ∧ x = () := by simp
 
 #blaster [thm1]
+#blaster (solver: cvc5) [thm1]
 
 end Tests.Issue14

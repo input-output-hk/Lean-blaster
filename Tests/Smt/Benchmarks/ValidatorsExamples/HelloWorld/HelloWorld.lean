@@ -18,5 +18,6 @@ theorem spec01_HelloWorld :
      "Hello World!" == redeemer.redeemerMessage := by sorry
 
 #blaster [spec01_HelloWorld]
+#blaster (solver: cvc5) [spec01_HelloWorld]
 
 end Tests.ValidatorsExamples.HelloWorld

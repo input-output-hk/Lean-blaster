@@ -16,5 +16,6 @@ namespace Tests.Issue5
 -- NOTE: add option (only-optimize: 1) when advanced optimizations normalizing ordering
 -- on multiple add are introduced.
 #blaster [ ∀ (a b c d e : Nat), List.foldr (λ x acc => x + acc) 0 [a, b, c, d, e] = a + b + c + d + e ]
+#blaster (solver: cvc5) [ ∀ (a b c d e : Nat), List.foldr (λ x acc => x + acc) 0 [a, b, c, d, e] = a + b + c + d + e ]
 
 end Tests.Issue5

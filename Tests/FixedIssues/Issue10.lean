@@ -30,5 +30,10 @@ def validAction (x : NormalizedAction) : Prop :=
           some n = getBuySCTokens x →
           n ≠ 0
        ]
+#blaster (solver: cvc5) [∀ (x : NormalizedAction) (n : Int),
+          validAction x →
+          some n = getBuySCTokens x →
+          n ≠ 0
+       ]
 
 end Tests.Issue10

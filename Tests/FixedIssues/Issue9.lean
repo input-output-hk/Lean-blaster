@@ -8,6 +8,7 @@ namespace Tests.Issue9
 --            instantiating explicit arguments (i.e., IdxArg was not incremented for all cases).
 
 #blaster [∀ (α : Type) (x y : α) (xs ys : List α), [BEq α] → (x :: xs) == (y :: ys) → x == y]
+#blaster (solver: cvc5) [∀ (α : Type) (x y : α) (xs ys : List α), [BEq α] → (x :: xs) == (y :: ys) → x == y]
 
 inductive GenericGroup (α : Type) [LE α] where
  | first (n1 : α) (n2 : α) (h1 : n1 ≥ n2) : GenericGroup α
@@ -19,8 +20,10 @@ def sizeOfGenericGroup [LE α] (a : GenericGroup α) : Nat :=
   | .next n => 1 + (sizeOfGenericGroup n)
 
 #blaster (gen-cex: 0) (solve-result: 1) [∀ (α : Type), [LE α] → ∀ (a : GenericGroup α), sizeOfGenericGroup a ≥ 10]
+#blaster (solver: cvc5) (gen-cex: 0) (solve-result: 1) [∀ (α : Type), [LE α] → ∀ (a : GenericGroup α), sizeOfGenericGroup a ≥ 10]
 
 #blaster (gen-cex: 0) (solve-result: 1) [∀ (α : Type), [LE α] → ∀ (a : GenericGroup α), sizeOfGenericGroup a < 10]
+#blaster (solver: cvc5) (gen-cex: 0) (solve-result: 1) [∀ (α : Type), [LE α] → ∀ (a : GenericGroup α), sizeOfGenericGroup a < 10]
 
 mutual
  structure FunGroup (α : Type) [LE α] where
@@ -40,6 +43,11 @@ def sizeOfGenericGroupFun [LE α] [LE (GenericGroupFun α)] [DecidableLE (Generi
           else 2
 
 #blaster (gen-cex: 0) (solve-result: 1)
+  [ ∀ (α : Type), [LE α] →
+    [LE (GenericGroupFun α)] →
+    [DecidableLE (GenericGroupFun α)] →
+    ∀ (a : GenericGroupFun α), sizeOfGenericGroupFun a ≥ 10 ]
+#blaster (solver: cvc5) (gen-cex: 0) (solve-result: 1)
   [ ∀ (α : Type), [LE α] →
     [LE (GenericGroupFun α)] →
     [DecidableLE (GenericGroupFun α)] →

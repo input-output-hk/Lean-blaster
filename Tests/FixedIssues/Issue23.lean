@@ -34,7 +34,9 @@ instance counterInit : StateMachine Input Nat where
     s ≤ 3
 
 #bmc (max-depth: 7) [counterInit]
+#bmc (solver: cvc5) (max-depth: 7) [counterInit]
 
 #kind (max-depth: 1) [counterInit]
+#kind (solver: cvc5) (max-depth: 1) [counterInit]
 
 end Tests.Issue23

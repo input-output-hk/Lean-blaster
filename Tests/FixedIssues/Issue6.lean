@@ -41,5 +41,10 @@ def toFirst (x : NatGroup) : Nat :=
           isFirst c →
           let r := toFirst c;
           r ≥ 10 ∧ r < 100]
+#blaster (solver: cvc5) [∀ (x : Nat),
+          let c := constrNatGroup x;
+          isFirst c →
+          let r := toFirst c;
+          r ≥ 10 ∧ r < 100]
 
 end Tests.Issue6
