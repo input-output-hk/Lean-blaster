@@ -17,3 +17,7 @@ lean_lib «Tests» where
 lean_exe z3check where
   -- add executable configuration options here
   root := `Z3Check
+
+lean_exe cvc5check where
+  -- add executable configuration options here
+  root := `Cvc5Check
