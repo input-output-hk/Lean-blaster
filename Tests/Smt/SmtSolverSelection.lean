@@ -32,7 +32,8 @@ open Blaster.Smt Blaster.Options
     (":auto_config", "false"),
     (":smt.macro_finder", "true")]
 
-#guard (SmtSolver.cvc5).config.spawnArgs == #["--incremental", "--parsing-mode=lenient"]
+#guard (SmtSolver.cvc5).config.spawnArgs ==
+  #["--incremental", "--parsing-mode=lenient", "--dt-nested-rec"]
 #guard (SmtSolver.cvc5).config.versionFlag == "--version"
 #guard (SmtSolver.cvc5).config.usesGetValue == true
 #guard (SmtSolver.cvc5).config.timeoutOption == ":tlimit-per"

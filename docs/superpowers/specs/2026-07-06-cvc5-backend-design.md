@@ -22,7 +22,7 @@ blaster emits:
 
 | Divergence | Z3 | cvc5 |
 |---|---|---|
-| Spawn | `z3 -in -smt2` | `cvc5 --incremental --parsing-mode=lenient` (stdin works bare; `--incremental` required for the multiple `check-sat-assuming` queries issued by BMC/K-Induction) |
+| Spawn | `z3 -in -smt2` | `cvc5 --incremental --parsing-mode=lenient --dt-nested-rec` (stdin works bare; `--incremental` required for the multiple `check-sat-assuming` queries issued by BMC/K-Induction) |
 | Version probe | `z3 -version` | `cvc5 --version` |
 | Tuning options | `:smt.mbqi`, `:smt.pull-nested-quantifiers`, `:auto_config`, `:smt.macro_finder`, `:smt.case_split`, `:smt.qi.eager_threshold`, `:smt.delay_units`, `:smt.relevancy` | none of these — cvc5 answers `unsupported`, which trips the `print-success` check in `trySubmitCommand!`; quantifier strength comes from `:full-saturate-quant` instead |
 | Timeout | `:timeout` (ms) | `:tlimit-per` (ms) |
@@ -57,7 +57,7 @@ One record per solver holding every divergence point:
 ```
 structure SolverConfig where
   candidates     : Array String          -- e.g. #["cvc5", "wsl cvc5"]
-  spawnArgs      : Array String          -- e.g. #["--incremental", "--parsing-mode=lenient"]
+  spawnArgs      : Array String          -- e.g. #["--incremental", "--parsing-mode=lenient", "--dt-nested-rec"]
   versionFlag    : String                -- "-version" / "--version"
   minVersion     : String                -- "4.15.2" / "1.3.4"
   defaultOptions : Array (String × String) -- startup set-option pairs

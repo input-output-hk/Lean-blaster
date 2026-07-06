@@ -168,7 +168,7 @@ open Blaster.Smt Blaster.Options
     (":auto_config", "false"),
     (":smt.macro_finder", "true")]
 
-#guard (SmtSolver.cvc5).config.spawnArgs == #["--incremental", "--parsing-mode=lenient"]
+#guard (SmtSolver.cvc5).config.spawnArgs == #["--incremental", "--parsing-mode=lenient", "--dt-nested-rec"]
 #guard (SmtSolver.cvc5).config.versionFlag == "--version"
 #guard (SmtSolver.cvc5).config.usesGetValue == true
 #guard (SmtSolver.cvc5).config.timeoutOption == ":tlimit-per"
@@ -252,7 +252,7 @@ def z3Config : SolverConfig := {
 def cvc5Config : SolverConfig := {
   displayName := "cvc5"
   candidates := #["cvc5", "wsl cvc5"]
-  spawnArgs := #["--incremental", "--parsing-mode=lenient"]
+  spawnArgs := #["--incremental", "--parsing-mode=lenient", "--dt-nested-rec"]
   versionFlag := "--version"
   minVersion := "1.3.4"
   defaultOptions := #[

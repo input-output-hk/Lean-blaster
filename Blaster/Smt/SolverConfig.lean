@@ -65,7 +65,10 @@ def cvc5Config : SolverConfig := {
   -- `--parsing-mode=lenient`: cvc5 ≥ 1.3 reserves `@`/`.`-prefixed symbols in
   -- default mode, but Blaster emits qualifiers like `@isNat` and parameters
   -- like `@x`; lenient mode accepts them.
-  spawnArgs := #["--incremental", "--parsing-mode=lenient"]
+  -- `--dt-nested-rec`: translated Lean inductives can nest recursion through
+  -- other datatypes (e.g. `Term α` with a `List (Term α)` field), which cvc5
+  -- only supports behind this flag.
+  spawnArgs := #["--incremental", "--parsing-mode=lenient", "--dt-nested-rec"]
   versionFlag := "--version"
   minVersion := "1.3.4"
   defaultOptions := #[
