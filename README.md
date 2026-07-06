@@ -407,6 +407,14 @@ The `Tests/StateMachine` folder contains example on how to use the state machine
 Blaster has been benchmarked against a variety of well-known benchmarks to evaluate its performance and correctness.
 The evaluation can be found on this public repository: [Blaster-benchmarking](https://github.com/input-output-hk/Blaster-benchmarking)
 
+### Latest cross-tactic comparison
+
+Each tactic is benchmarked on **its own latest default branch and that branch's Lean toolchain** (tracked live), so the comparison is fair even when the tools target different Lean versions. Auto-updated weekly by the [`weekly-benchmark`](.github/workflows/benchmark.yml) workflow.
+
+<!-- BENCH:START -->
+_The comparison table is generated on the first run of the weekly benchmark workflow. Run it manually from the Actions tab to populate this now._
+<!-- BENCH:END -->
+
 <details>
 <summary><b>Lean Natural Number Game</b></summary>
   
