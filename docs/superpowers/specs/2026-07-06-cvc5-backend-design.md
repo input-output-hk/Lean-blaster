@@ -154,3 +154,14 @@ structure SolverConfig where
 - Version-number parsing for either solver (today's behavior: probe only).
 - Exposing per-solver tuning knobs beyond the defaults.
 - Making cvc5 the default solver.
+
+## Future work (agreed 2026-07-06, phase 2 after this lands)
+
+`(solver: all)` (run every solver, require agreement — differential testing of
+the translation; `sat` vs `unsat` conflict = hard error) and `(solver: any)`
+(parallel portfolio race, first definitive answer wins). Needs its own spec:
+`SolverChoice` type, multi-process emit layer (`smtProc` → array,
+handle-parameterized emit), race/join logic, stale-response bookkeeping for
+the incremental `#bmc`/`#kind` loops, and stdin-backpressure mitigation
+(default per-check timeouts, kill-and-replay of laggards from the stored
+command list).
