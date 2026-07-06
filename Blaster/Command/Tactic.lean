@@ -23,6 +23,7 @@ Options:
   - `random-seed`: seed for the random number generator (default: none)
   - `solve-result`: specify the expected result from the blaster tactic, i.e.,
                     0 for 'Valid', 1 for 'Falsified' and 2 for 'Undetermined'. (default: 0)
+  - `solver`: select the backend SMT solver, `z3` or `cvc5` (default: z3)
 Example: `blaster (timeout: 10) (verbose: 1)`
 -/
 syntax (name := blasterTactic) "blaster" (solveOption)* : tactic

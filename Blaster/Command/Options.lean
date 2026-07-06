@@ -22,6 +22,15 @@ def isExpectedUndetermined : ExpectedResult -> Bool
 | .ExpectedUndetermined => true
 | _ => false
 
+/-- Backend SMT solver. -/
+inductive SmtSolver where
+  | z3
+  | cvc5
+deriving Repr, DecidableEq
+
+instance : Inhabited SmtSolver where
+  default := .z3
+
 /-- Type introducing the options passed on to the solver. -/
 structure BlasterOptions where
   /-- The number of unfolding steps to be considered when
@@ -71,6 +80,9 @@ structure BlasterOptions where
   /-- Maximum analysis depth to be considered when performing BMC and K-Induction.
       It is set to 10 by default. -/
   maxDepth : Nat := 10
+
+  /-- The backend SMT solver to be used. It is set to `z3` by default. -/
+  solver : SmtSolver := .z3
  deriving Repr
 
 instance : Inhabited BlasterOptions where
