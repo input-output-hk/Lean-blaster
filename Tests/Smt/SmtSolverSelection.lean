@@ -43,4 +43,12 @@ open Blaster.Smt Blaster.Options
 
 end SolverConfigChecks
 
+/-! SmtCommand.getValue renders as the standard get-value command. -/
+section GetValueChecks
+open Blaster.Smt
+
+#guard toString (SmtCommand.getValue (smtSimpleVarId (mkNormalSymbol "x"))) == "(get-value (x))"
+
+end GetValueChecks
+
 end Tests.SmtSolverSelection

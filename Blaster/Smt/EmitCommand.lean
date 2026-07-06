@@ -338,6 +338,10 @@ def SmtCommand.emit (c : SmtCommand) : TranslateEnvT Unit := do
           h.putStr "(eval "
           t.emit
           h.putStr ")\n"
+     | .getValue t =>
+          h.putStr "(get-value ("
+          t.emit
+          h.putStr "))\n"
      | .setLogic l =>
           h.putStr "(set-logic "
           h.putStr l
