@@ -6,6 +6,9 @@ namespace Tests.Issue8
 -- Issue: #blaster not capturing ill-formed formulae
 -- Diagnosis: There is a need to check if formula is well typed and does not contain any sorryAx
 
+-- NOTE: no (solver: cvc5) siblings here — both invocations fail during
+-- translation (ill-formed formulae) and never reach a backend solver.
+
 /--
 error: Unknown identifier `y`
 ---

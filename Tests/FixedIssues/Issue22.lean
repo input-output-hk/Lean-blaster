@@ -17,18 +17,22 @@ axiom y : Nat
 axiom nat_pos : ∀ (n : Nat), n > 0
 
 theorem x_add_y_gt_zero : x + y > 0 := by blaster
+theorem x_add_y_gt_zero_cvc5 : x + y > 0 := by blaster (solver: cvc5)
 #blaster [x_add_y_gt_zero]
 #blaster (solver: cvc5) [x_add_y_gt_zero]
 
 theorem x_add_y_gt_x : x + y > x := by blaster
+theorem x_add_y_gt_x_cvc5 : x + y > x := by blaster (solver: cvc5)
 #blaster [x_add_y_gt_x]
 #blaster (solver: cvc5) [x_add_y_gt_x]
 
 theorem x_add_y_gt_y : x + y > y := by blaster
+theorem x_add_y_gt_y_cvc5 : x + y > y := by blaster (solver: cvc5)
 #blaster [x_add_y_gt_y]
 #blaster (solver: cvc5) [x_add_y_gt_y]
 
 theorem x_add_y_gt_2x : x + y > 2 * x := by blaster
+theorem x_add_y_gt_2x_cvc5 : x + y > 2 * x := by blaster (solver: cvc5)
 #blaster [x_add_y_gt_2x]
 #blaster (solver: cvc5) [x_add_y_gt_2x]
 

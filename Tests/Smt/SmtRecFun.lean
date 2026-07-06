@@ -65,6 +65,9 @@ end
 set_option warn.sorry false in
 theorem A_self_size (a : A) : (A.self a).sizeA = a.sizeA + 1 := by blaster
 
+set_option warn.sorry false in
+theorem A_self_size_cvc5 (a : A) : (A.self a).sizeA = a.sizeA + 1 := by blaster (solver: cvc5)
+
 
 /-! # Test cases to ensure that counterexample are properly detected -/
 

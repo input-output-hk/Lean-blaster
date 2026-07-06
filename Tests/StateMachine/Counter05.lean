@@ -36,6 +36,20 @@ error:  - «Test.Counter05.counter.input@2»: Test.Counter05.Request.Idle
 #bmc (max-depth: 6) [counter]
 
 /--
+error: ❌ Falsified
+---
+error: Counterexample detected at Depth 3:
+---
+error:  - «Test.Counter05.counter.input@3»: Test.Counter05.Request.Idle
+---
+error:  - «Test.Counter05.counter.input@1»: Test.Counter05.Request.Idle
+---
+error:  - «Test.Counter05.counter.input@2»: Test.Counter05.Request.Idle
+-/
+#guard_msgs in
+#bmc (solver: cvc5) (max-depth: 6) [counter]
+
+/--
 info: ⚠️ Induction failed at Depth 1
 ---
 info: Counterexample to Induction:
@@ -68,5 +82,39 @@ error:  - «Test.Counter05.counter.input@3»: Test.Counter05.Request.Idle
 -/
 #guard_msgs in
 #kind (max-depth: 3) [counter]
+
+/--
+info: ⚠️ Induction failed at Depth 1
+---
+info: Counterexample to Induction:
+---
+info:  - «Test.Counter05.counter.state@0»: 2
+---
+info:  - «Test.Counter05.counter.input@1»: Test.Counter05.Request.Idle
+---
+info: ⚠️ Induction failed at Depth 2
+---
+info: Counterexample to Induction:
+---
+info:  - «Test.Counter05.counter.state@0»: 1
+---
+info:  - «Test.Counter05.counter.input@1»: Test.Counter05.Request.Idle
+---
+info:  - «Test.Counter05.counter.input@2»: Test.Counter05.Request.Idle
+---
+error: ❌ Falsified
+---
+error: Counterexample detected at Depth 3:
+---
+error:  - «Test.Counter05.counter.state@0»: 0
+---
+error:  - «Test.Counter05.counter.input@1»: Test.Counter05.Request.Idle
+---
+error:  - «Test.Counter05.counter.input@2»: Test.Counter05.Request.Idle
+---
+error:  - «Test.Counter05.counter.input@3»: Test.Counter05.Request.Idle
+-/
+#guard_msgs in
+#kind (solver: cvc5) (max-depth: 3) [counter]
 
 end Test.Counter05

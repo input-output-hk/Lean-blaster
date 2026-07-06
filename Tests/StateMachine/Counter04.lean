@@ -30,6 +30,12 @@ error: ❌ Contradictory context at Depth 2
 #guard_msgs in
 #bmc (max-depth: 6) [counterInit]
 
+/--
+error: ❌ Contradictory context at Depth 2
+-/
+#guard_msgs in
+#bmc (solver: cvc5) (max-depth: 6) [counterInit]
+
 -- Note: Kind can be valid even in contradictory context
 #kind (max-depth: 1) [counterInit]
 #kind (solver: cvc5) (max-depth: 1) [counterInit]
