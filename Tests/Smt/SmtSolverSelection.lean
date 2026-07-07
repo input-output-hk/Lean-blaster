@@ -89,4 +89,37 @@ example : ∀ (f : Nat → Nat) (x y : Nat), x = y → f x = f y := by blaster (
 
 end Cvc5EndToEnd
 
+/-! Portfolio modes: `(solver: all)` cross-checks every solver's answer
+    (sat/unsat disagreement = soundness error; definitive vs unknown =
+    warning); `(solver: any)` adopts the first definitive answer and kills
+    the other processes. -/
+section AllAnyEndToEnd
+open Blaster.Options
+
+#guard SolverChoice.all.solvers == #[SmtSolver.z3, SmtSolver.cvc5]
+#guard SolverChoice.any.solvers == #[SmtSolver.z3, SmtSolver.cvc5]
+#guard (SolverChoice.one .cvc5).solvers == #[SmtSolver.cvc5]
+
+-- all: both solvers prove (unsat + unsat → Valid).
+#blaster (solver: all) [∀ (f : Nat → Nat) (x y : Nat), x = y → f x = f y]
+
+-- all: both solvers falsify (sat + sat → Falsified, model from Z3).
+#blaster (solver: all) (solve-result: 1) [∀ (x : Int), x < 0]
+
+-- any: first definitive answer wins (Valid).
+#blaster (solver: any) [∀ (f : Nat → Nat) (x y : Nat), x = y → f x = f y]
+
+-- any: first definitive answer wins (Falsified, model from the winner).
+#blaster (solver: any) (solve-result: 1) [∀ (x : Int), x < 0]
+
+-- both modes parse without a live solver too.
+#blaster (solver: all) (only-smt-lib: 1) [∀ (x : Nat), x + 0 = x]
+#blaster (solver: any) (only-smt-lib: 1) [∀ (x : Nat), x + 0 = x]
+
+-- the blaster tactic accepts the portfolio modes.
+example : ∀ (f : Nat → Nat) (x y : Nat), x = y → f x = f y := by blaster (solver: any)
+example : ∀ (f : Nat → Nat) (x y : Nat), x = y → f x = f y := by blaster (solver: all)
+
+end AllAnyEndToEnd
+
 end Tests.SmtSolverSelection

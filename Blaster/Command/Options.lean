@@ -31,6 +31,28 @@ deriving Repr, DecidableEq
 instance : Inhabited SmtSolver where
   default := .z3
 
+/-- Backend solver selection:
+     - `one s`: run solver `s` only.
+     - `all`: run every supported solver on the same query and cross-check
+       the answers (`sat` vs `unsat` disagreement is a soundness error;
+       a definitive answer next to `unknown` raises a warning).
+     - `any`: run every supported solver in parallel and adopt the first
+       definitive answer (portfolio race). -/
+inductive SolverChoice where
+  | one (s : SmtSolver)
+  | all
+  | any
+deriving Repr, DecidableEq
+
+instance : Inhabited SolverChoice where
+  default := .one .z3
+
+/-- The solvers a `SolverChoice` runs, in deterministic order
+    (Z3 first for `all`/`any`). -/
+def SolverChoice.solvers : SolverChoice → Array SmtSolver
+  | .one s => #[s]
+  | .all | .any => #[.z3, .cvc5]
+
 /-- Type introducing the options passed on to the solver. -/
 structure BlasterOptions where
   /-- The number of unfolding steps to be considered when
@@ -82,7 +104,7 @@ structure BlasterOptions where
   maxDepth : Nat := 10
 
   /-- The backend SMT solver to be used. It is set to `z3` by default. -/
-  solver : SmtSolver := .z3
+  solver : SolverChoice := .one .z3
  deriving Repr
 
 instance : Inhabited BlasterOptions where

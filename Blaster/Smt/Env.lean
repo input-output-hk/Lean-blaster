@@ -130,15 +130,17 @@ def withTranslateEnvCache (a : Expr) (f : Unit → TranslateEnvT SmtTerm) : Tran
      updateTranslateCache a b
      return b
 
-/-- Check if cancel token has been triggered and kill corresponding running
-    Solver instance (if necessary).
+/-- Check if cancel token has been triggered and kill all running
+    Solver instances (if necessary).
 -/
 def checkCancelTk? : TranslateEnvT Unit := do
-  let some p := (← get).smtEnv.smtProc | return ()
+  let procs := (← get).smtEnv.smtProcs
+  if procs.isEmpty then return ()
   if let some tk := (← readThe Core.Context).cancelTk? then
     if ← tk.isSet then
-      p.kill
-      discard $ p.wait
+      for (_, p) in procs do
+        p.kill
+        discard $ p.wait
       throwInterruptException
 
 /-- Retrieve model output from `h` when a counterexample is generated.
@@ -196,32 +198,48 @@ def storeCommand (c : SmtCommand) : TranslateEnvT Unit := do
     modify (fun env => { env with smtEnv.smtCommands := env.smtEnv.smtCommands.push c })
   else pure ()
 
-/-- Return `true` when the smtProc has been initialized -/
+/-- Return `true` when at least one solver process has been initialized -/
 def isSmtProcSet : TranslateEnvT Bool :=
-  return (← get).smtEnv.smtProc.isSome
+  return !(← get).smtEnv.smtProcs.isEmpty
+
+/-- Set the process index used by the low-level emit/read functions. -/
+@[always_inline, inline]
+def setCurrentProcIdx (i : Nat) : TranslateEnvT Unit :=
+  modify (fun env => { env with smtEnv.currentProcIdx := i })
 
 /-- Push smt command `c` in the translation environment only when sOpts.dumpSmtLib is set.
-    The command is piped to the backend solver if the corresponding process has been created.
+    The command is piped to the backend solver processes if any have been created:
+    to every process by default, or only to process `only` when provided.
     An error is triggered when the `checkSuccess` flag is set and
-    not `success` output is produced.
+    no `success` output is produced by a receiving process.
     NOTE: The `checkSuccess` is to be set only for Smt command that
     are NOT expected to produce any output.
 -/
-partial def trySubmitCommand! (c : SmtCommand) (checkSuccess := true) : TranslateEnvT Unit := do
+partial def trySubmitCommand! (c : SmtCommand) (checkSuccess := true) (only : Option Nat := none) : TranslateEnvT Unit := do
   storeCommand c
-  if !(← isSmtProcSet) then return ()
-  c.emit
-  let h ← getProcStdOut
-  if !checkSuccess then return ()
-  let out := normalizeLine (← h.getLine)
-  match out with
-  | "success\n" => return ()
-  | err => throwEnvError s!"Unexpected smt error: {err} for {c}"
+  let procs := (← get).smtEnv.smtProcs
+  if procs.isEmpty then return ()
+  let indices := match only with
+    | some i => #[i]
+    | none => Array.ofFn (n := procs.size) (·.val)
+  for i in indices do
+    setCurrentProcIdx i
+    c.emit
+    if checkSuccess then
+      let h ← getProcStdOut
+      let out := normalizeLine (← h.getLine)
+      match out with
+      | "success\n" => pure ()
+      | err =>
+          let name := match procs[i]? with
+            | some p => p.1.config.displayName
+            | none => "?"
+          throwEnvError s!"Unexpected smt error: {err} for {c} ({name})"
 
 /-- Same as trySubmitCommand! but with flag `checkSuccess` set to `false`.
 -/
-def submitCommand (c : SmtCommand) : TranslateEnvT Unit := do
-  trySubmitCommand! c (checkSuccess := false)
+def submitCommand (c : SmtCommand) (only : Option Nat := none) : TranslateEnvT Unit := do
+  trySubmitCommand! c (checkSuccess := false) (only := only)
 
 
 /-- Declare a free variable with name `id` and sort `t`. -/
@@ -494,13 +512,16 @@ def unwrapGetValue (s : String) : String :=
 -/
 def evalTerm (t : SmtTerm) : TranslateEnvT String := do
   let env ← get
-  let some p := env.smtEnv.smtProc | return ""
+  let idx := env.smtEnv.currentProcIdx
+  let some (solver, p) := env.smtEnv.smtProcs[idx]? | return ""
   checkCancelTk?
-  if env.optEnv.options.solverOptions.solver.config.usesGetValue then
-    submitCommand (.getValue t)
+  -- model values are queried only on the process that answered `sat`,
+  -- using that solver's query style
+  if solver.config.usesGetValue then
+    submitCommand (.getValue t) (only := some idx)
     return unwrapGetValue (← getOutputEval p.stdout)
   else
-    submitCommand (.evalTerm t)
+    submitCommand (.evalTerm t) (only := some idx)
     getOutputEval p.stdout
 
 /-- Try to retrieve the model when a `sat` result is obtained and dump result to stdout.
@@ -513,13 +534,14 @@ def evalTerm (t : SmtTerm) : TranslateEnvT String := do
 -/
 def getModel : TranslateEnvT (List String) := do
   let env ← get
-  let some p := env.smtEnv.smtProc | return []
+  let idx := env.smtEnv.currentProcIdx
+  let some (_, p) := env.smtEnv.smtProcs[idx]? | return []
   let topVars := env.smtEnv.topLevelVars
   if !env.optEnv.options.solverOptions.generateCex then return []
   checkCancelTk?
   if topVars.isEmpty
   then
-    submitCommand (.getModel)
+    submitCommand (.getModel) (only := some idx)
     let s ← getOutputModel p.stdout
     return [s]
   else
@@ -536,48 +558,150 @@ def getModel : TranslateEnvT (List String) := do
     getVarValue (v : SmtSymbol × Name) : TranslateEnvT String := do
       return s!"{v.2}: {← evalTerm (smtSimpleVarId v.1)}"
 
-/-- Retrieve sat result from `h`.
-    An error is triggered when an unexpected check-sat result is obtained.
-    Function can be called only after a check-sat
+/-- Raw check-sat answer of a single solver process. -/
+private inductive SatAnswer where
+  | sat
+  | unsat
+  | unknown
+deriving Repr, DecidableEq, Inhabited
+
+private def parseSatAnswer (solverName : String) (line : String) : TranslateEnvT SatAnswer := do
+  match normalizeLine line with
+  | "sat\n"     => return .sat
+  | "unsat\n"   => return .unsat
+  | "unknown\n" => return .unknown -- unknown is also returned when timeout is set to stdin
+  | err => throwEnvError s!"checkSat: Unexpected check-sat result: {err} ({solverName})"
+
+/-- Convert the answer of process `i` to a `Result`, pinning the current
+    process index to `i` first so that model retrieval reads from the
+    answering solver. -/
+private def satAnswerToResult (i : Nat) (a : SatAnswer) : TranslateEnvT Result := do
+  setCurrentProcIdx i
+  match a with
+  | .sat => return (.Falsified (← getModel))
+  | .unsat => return .Valid
+  | .unknown => return .Undetermined
+
+/-- Retrieve and join the check-sat answers of all running solver processes
+    according to the selected `SolverChoice`. Must be called right after a
+    `check-sat`/`check-sat-assuming` has been submitted to every process.
+
+     - `one`: single process, its answer is the result (historical behavior).
+     - `any`: the first *definitive* answer (`sat`/`unsat`) wins; every other
+       process is killed and dropped, and the run continues with the winner
+       only. All-unknown → `Undetermined` (all processes kept).
+     - `all`: wait for every answer. `sat` vs `unsat` disagreement is a hard
+       error (soundness alarm). A definitive answer next to `unknown` stands,
+       but a warning lists the per-solver verdicts (tracking signal for tests
+       not discharged by every solver).
 -/
-partial def getSatResult (p : IO.Process.Child ⟨.piped, .piped, .piped⟩) : TranslateEnvT Result := do
-  let res ← IO.asTask p.stdout.getLine -- only one line expected for checkSat result
-  waitForResult res
+partial def getSatResults : TranslateEnvT Result := do
+  let env ← get
+  let procs := env.smtEnv.smtProcs
+  let choice := env.optEnv.options.solverOptions.solver
+  let tasks ← procs.mapM (fun p => IO.asTask p.2.stdout.getLine)
+  match choice, procs.size with
+  | _, 0 => return .Undetermined
+  | .any, n =>
+      if n == 1 then waitSingle tasks[0]! else waitAny procs tasks
+  | _, _ =>
+      -- `.one` has a single process; `.all` joins all answers
+      if procs.size == 1 then waitSingle tasks[0]!
+      else waitAll procs tasks
 
  where
-   waitForResult (res : Task (Except IO.Error String)) : TranslateEnvT Result := do
+   solverNameAt (procs : Array (SmtSolver × IO.Process.Child ⟨.piped, .piped, .piped⟩)) (i : Nat) : String :=
+     match procs[i]? with
+     | some p => p.1.config.displayName
+     | none => "?"
+
+   waitSingle (t : Task (Except IO.Error String)) : TranslateEnvT Result := do
      checkCancelTk?
-     if ← IO.hasFinished res then
-       match normalizeLine (← IO.ofExcept res.get) with
-       | "sat\n"     => return (.Falsified (← getModel))
-       | "unsat\n"   => return .Valid
-       | "unknown\n" => return .Undetermined -- unknown is also return when timeout is set to stdin
-       | err => throwEnvError s!"checkSat: Unexpected check-sat result: {err}"
+     if ← IO.hasFinished t then
+       let procs := (← get).smtEnv.smtProcs
+       let a ← parseSatAnswer (solverNameAt procs 0) (← IO.ofExcept t.get)
+       satAnswerToResult 0 a
      else
-       let sleepTimeMs := (20 : UInt32)
-       IO.sleep sleepTimeMs
-       waitForResult res
+       IO.sleep 20
+       waitSingle t
+
+   /-- `any` mode: poll until a process gives a definitive answer; kill the
+       others and narrow `smtProcs` to the winner. -/
+   waitAny (procs : Array (SmtSolver × IO.Process.Child ⟨.piped, .piped, .piped⟩))
+       (tasks : Array (Task (Except IO.Error String))) : TranslateEnvT Result := do
+     let rec loop (answers : Array (Option SatAnswer)) : TranslateEnvT Result := do
+       checkCancelTk?
+       let mut answers := answers
+       for h : i in [0:procs.size] do
+         if answers[i]!.isNone then
+           if ← IO.hasFinished tasks[i]! then
+             let a ← parseSatAnswer (solverNameAt procs i) (← IO.ofExcept (tasks[i]!).get)
+             if a != .unknown then
+               -- winner: kill and drop every other process
+               for h' : j in [0:procs.size] do
+                 if j != i then
+                   procs[j].2.kill
+                   discard $ procs[j].2.wait
+               modify (fun env => { env with smtEnv.smtProcs := #[procs[i]] })
+               return (← satAnswerToResult 0 a)
+             answers := answers.set! i (some a)
+       if answers.all (· == some .unknown) then
+         return .Undetermined
+       IO.sleep 20
+       loop answers
+     loop (Array.replicate procs.size none)
+
+   /-- `all` mode: wait for every answer and cross-check. -/
+   waitAll (procs : Array (SmtSolver × IO.Process.Child ⟨.piped, .piped, .piped⟩))
+       (tasks : Array (Task (Except IO.Error String))) : TranslateEnvT Result := do
+     let rec collect (answers : Array (Option SatAnswer)) : TranslateEnvT (Array SatAnswer) := do
+       checkCancelTk?
+       let mut answers := answers
+       for h : i in [0:procs.size] do
+         if answers[i]!.isNone then
+           if ← IO.hasFinished tasks[i]! then
+             answers := answers.set! i (some (← parseSatAnswer (solverNameAt procs i) (← IO.ofExcept (tasks[i]!).get)))
+       if answers.all (·.isSome) then
+         return answers.map (·.get!)
+       IO.sleep 20
+       collect answers
+     let answers ← collect (Array.replicate procs.size none)
+     let verdicts := String.intercalate ", " (List.ofFn (n := answers.size)
+       fun i => s!"{solverNameAt procs i} → {satAnswerStr answers[i]!}")
+     if answers.contains .sat && answers.contains .unsat then
+       throwEnvError s!"Solver disagreement (soundness alarm): {verdicts}"
+     if answers.contains .unknown && answers.any (· != .unknown) then
+       logWarningAt (← getRef) s!"⚠️ Solvers disagree on decidability: {verdicts}"
+     match answers.findIdx? (· == .sat) with
+     | some i => satAnswerToResult i .sat
+     | none =>
+       match answers.findIdx? (· == .unsat) with
+       | some i => satAnswerToResult i .unsat
+       | none => return .Undetermined
+
+   satAnswerStr : SatAnswer → String
+     | .sat => "sat"
+     | .unsat => "unsat"
+     | .unknown => "unknown"
 
 /-- Check satisfiability of current Smt query and return the result.
     An error is triggered when an unexpected check-sat result is obtained.
-    Return `Undetermined` when the Smt process is not defined.
+    Return `Undetermined` when no Smt process is defined.
 -/
 def checkSat : TranslateEnvT Result := do
-  let env ← get
-  let some p := env.smtEnv.smtProc | return .Undetermined
+  if (← get).smtEnv.smtProcs.isEmpty then return .Undetermined
   submitCommand (.checkSat)
-  getSatResult p
+  getSatResults
 
 /-- Check satisfiability of current Smt query by assuming the provided terms
     and return the result.
     An error is triggered when an unexpected check-sat result is obtained.
-    Return `Undetermined` when the Smt process is not defined.
+    Return `Undetermined` when no Smt process is defined.
 -/
 def checkSatAssuming (args : Array SmtTerm) : TranslateEnvT Result := do
-  let env ← get
-  let some p := env.smtEnv.smtProc | return .Undetermined
+  if (← get).smtEnv.smtProcs.isEmpty then return .Undetermined
   submitCommand (.checkSatAssuming args)
-  getSatResult p
+  getSatResults
 
 
 /-- Try to retrieve the proof artifact when a `unsat` result is obtained and dump result to stdout.
@@ -588,21 +712,26 @@ def checkSatAssuming (args : Array SmtTerm) : TranslateEnvT Result := do
 -/
 def getProof : TranslateEnvT String := do
   let env ← get
-  let some p := env.smtEnv.smtProc | return ""
-  submitCommand (.getProof)
+  let idx := env.smtEnv.currentProcIdx
+  let some (_, p) := env.smtEnv.smtProcs[idx]? | return ""
+  submitCommand (.getProof) (only := some idx)
   getOutputProof p.stdout
 
 
 
-/-- Try to terminate the Smt process.
-    Do nothing if Smt process is not defined.
+/-- Try to terminate all Smt processes.
+    Do nothing if no Smt process is defined.
 -/
 def exitSmt : TranslateEnvT UInt32 := do
  let env ← get
- let some p := env.smtEnv.smtProc | return 0
+ if env.smtEnv.smtProcs.isEmpty then return 0
  submitCommand (.exitSmt)
- let (_, p) ← p.takeStdin
- p.wait
+ let mut code : UInt32 := 0
+ for (_, p) in env.smtEnv.smtProcs do
+   let (_, p) ← p.takeStdin
+   code ← p.wait
+ modify (fun env => { env with smtEnv.smtProcs := #[], smtEnv.currentProcIdx := 0 })
+ return code
 
 
 /-- Set the Smt logic to `ALL`. -/
@@ -610,9 +739,9 @@ def setLogicAll : TranslateEnvT Unit :=
   trySubmitCommand! (.setLogic "ALL")
 
 /-- Set the Smt random seed option (solver-specific option name) to `n` or none. -/
-def setRandomSeed (cfg : SolverConfig) (n : Option Nat) : TranslateEnvT Unit := do
+def setRandomSeed (cfg : SolverConfig) (n : Option Nat) (only : Option Nat := none) : TranslateEnvT Unit := do
   match n with
-  | some n => trySubmitCommand! (.setOption cfg.seedOption (toString n))
+  | some n => trySubmitCommand! (.setOption cfg.seedOption (toString n)) (only := only)
   | none => pure ()
 
 /-- Set Smt `smt.case_split` to `n`, with n ∈ [0..6]. -/
@@ -634,35 +763,40 @@ def setRelevancy (n : Nat) : TranslateEnvT Unit :=
 
 /-- Set the Smt timeout (solver-specific option name, in milliseconds)
     when the option is specified. -/
-def setTimeout (cfg : SolverConfig) : TranslateEnvT Unit := do
+def setTimeout (cfg : SolverConfig) (only : Option Nat := none) : TranslateEnvT Unit := do
   let sOpts := (← get).optEnv.options.solverOptions
   let some n := sOpts.timeout | return ()
   -- need to convert timeout to milliseconds
-  trySubmitCommand! (.setOption cfg.timeoutOption (toString (n * 1000)))
+  trySubmitCommand! (.setOption cfg.timeoutOption (toString (n * 1000))) (only := only)
 
-/-- Set the default Smt options of the selected backend solver, i.e. the
-    solver's `SolverConfig.defaultOptions` pairs in order, followed by the
-    random seed and timeout when provided in the solver options. -/
+/-- Set the default Smt options of every selected backend solver: for each
+    solver, its `SolverConfig.defaultOptions` pairs in order, followed by the
+    random seed and timeout when provided in the solver options. Each option
+    set is sent only to the corresponding solver process (solvers reject each
+    other's option names). -/
 def setDefaultSmtOptions (sOpts : BlasterOptions) : TranslateEnvT Unit := do
-  let cfg := sOpts.solver.config
-  for (opt, val) in cfg.defaultOptions do
-    trySubmitCommand! (.setOption opt val)
-  setRandomSeed cfg sOpts.randomSeed
-  setTimeout cfg
+  let solvers := sOpts.solver.solvers
+  for h : i in [0:solvers.size] do
+    let cfg := solvers[i].config
+    for (opt, val) in cfg.defaultOptions do
+      trySubmitCommand! (.setOption opt val) (only := some i)
+    setRandomSeed cfg sOpts.randomSeed (only := some i)
+    setTimeout cfg (only := some i)
 
 /-- Perform the following actions:
      - when option `only-smt-lib` is set to `false`:
-       - Spawn the backend solver process and update TranslateEnv
+       - Spawn one backend solver process per selected solver and update TranslateEnv
        - set the default smt solver options by emitting the corresponding commands
      - when option `only-smt-lib` is set to `true`:
        - only add the solver options to the list of smt commands.
 -/
 def setBlasterProcess : TranslateEnvT Unit := do
-  let env ← get
-  let sOpts := env.optEnv.options.solverOptions
+  let sOpts := (← get).optEnv.options.solverOptions
   unless sOpts.onlySmtLib do
-    let proc ← createBlasterProcess sOpts.solver.config
-    set { env with smtEnv.smtProc := proc }
+    let mut procs := #[]
+    for s in sOpts.solver.solvers do
+      procs := procs.push (s, ← createBlasterProcess s.config)
+    modify (fun env => { env with smtEnv.smtProcs := procs, smtEnv.currentProcIdx := 0 })
   setDefaultSmtOptions sOpts
 
 

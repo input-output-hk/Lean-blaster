@@ -349,8 +349,17 @@ structure SmtEnv where
   /-- Smt-Lib commands emitted to the backend solver. -/
   smtCommands : Array SmtCommand
 
-  /-- Backend solver process. -/
-  smtProc : Option (IO.Process.Child ⟨.piped, .piped, .piped⟩)
+  /-- Backend solver processes, one per selected solver
+      (a single entry for `(solver: z3|cvc5)`, one per supported solver
+      for `(solver: all|any)`). Every process receives the same command
+      stream; answers are joined according to the `SolverChoice`. -/
+  smtProcs : Array (Blaster.Options.SmtSolver × IO.Process.Child ⟨.piped, .piped, .piped⟩)
+
+  /-- Index into `smtProcs` selecting the process whose handles the
+      low-level emit/read functions use. Commands that must reach every
+      process iterate this index; model-value queries after a `sat` answer
+      pin it to the answering process. -/
+  currentProcIdx : Nat
 
   /-- Cache keeping track of visited inductive datatype during translation. -/
   indTypeVisited : Std.HashSet Lean.Name
@@ -449,7 +458,8 @@ instance : Inhabited SmtEnv where
   default :=
    { translateCache := Std.HashMap.emptyWithCapacity,
      smtCommands := Array.mkEmpty 1023,
-     smtProc := default,
+     smtProcs := #[],
+     currentProcIdx := 0,
      indTypeVisited := Std.HashSet.emptyWithCapacity,
      indTypeInstCache := Std.HashMap.emptyWithCapacity,
      funInstCache := Std.HashMap.emptyWithCapacity,
@@ -488,7 +498,7 @@ instance : MonadMCtx TranslateEnvT where
   modifyMCtx f := modifyMCtx' f
 
 protected def throwEnvError (msg : MessageData) : TranslateEnvT α := do
-  if let some p := (← get).smtEnv.smtProc then
+  for (_, p) in (← get).smtEnv.smtProcs do
     p.kill
     discard $ p.wait
   throwError msg

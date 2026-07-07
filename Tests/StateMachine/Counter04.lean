@@ -39,5 +39,9 @@ error: ❌ Contradictory context at Depth 2
 -- Note: Kind can be valid even in contradictory context
 #kind (max-depth: 1) [counterInit]
 #kind (solver: cvc5) (max-depth: 1) [counterInit]
+-- portfolio modes: incremental check-sat-assuming rounds stay in lockstep (all)
+-- and narrow to the first decided solver (any)
+#kind (solver: all) (max-depth: 1) [counterInit]
+#kind (solver: any) (max-depth: 1) [counterInit]
 
 end Test.Counter04

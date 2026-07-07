@@ -181,13 +181,31 @@ structure SolverConfig where
 - Exposing per-solver tuning knobs beyond the defaults.
 - Making cvc5 the default solver.
 
-## Future work (agreed 2026-07-06, phase 2 after this lands)
+## Portfolio modes `(solver: all)` / `(solver: any)` (v1, approved 2026-07-07)
 
-`(solver: all)` (run every solver, require agreement — differential testing of
-the translation; `sat` vs `unsat` conflict = hard error) and `(solver: any)`
-(parallel portfolio race, first definitive answer wins). Needs its own spec:
-`SolverChoice` type, multi-process emit layer (`smtProc` → array,
-handle-parameterized emit), race/join logic, stale-response bookkeeping for
-the incremental `#bmc`/`#kind` loops, and stdin-backpressure mitigation
-(default per-check timeouts, kill-and-replay of laggards from the stored
-command list).
+Pulled into this branch (originally phase 2). Semantics:
+
+- `SolverChoice` = `one SmtSolver | all | any`; `BlasterOptions.solver
+  : SolverChoice := .one .z3`. `all`/`any` run every supported solver
+  (Z3 + cvc5), each spawned with its own config/options, all receiving the
+  identical command stream.
+- **`any` (portfolio race):** first *definitive* answer (`sat`/`unsat`)
+  wins; every other process is killed immediately and the run continues
+  with the winner only (BMC/K-Induction steps after the first decided
+  check are single-solver — sidesteps stale-response/backpressure hazards
+  in v1). All-unknown → `Undetermined` (all processes kept).
+- **`all` (differential check):** wait for every answer on each check.
+  `sat` vs `unsat` → **hard error** (automatic soundness alarm naming the
+  per-solver verdicts). Definitive vs `unknown` → the definitive result
+  stands, but a **warning** lists per-solver verdicts — these warnings are
+  the tracking signal for tests not discharged by every solver (to measure
+  translation/option improvements over time). Counterexample/model comes
+  from the first `sat` answerer in array order (Z3 first, deterministic).
+- Process layer: `smtEnv.smtProc : Option Child` →
+  `smtProcs : Array (SmtSolver × Child)` + `currentProcIdx`; the emit
+  layer keeps single-handle functions (they read the current index) and
+  only the command-submission level broadcasts. Model-value queries
+  (`get-model`/`eval`/`get-value`) go only to the answering process,
+  using *that* solver's config.
+- Deferred past v1: keeping losers alive across BMC steps (respawn/replay),
+  portfolio seed control, >2 solvers.

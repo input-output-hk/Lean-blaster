@@ -7,15 +7,17 @@ namespace Blaster.Smt
 
 @[always_inline, inline]
 def getProcStdIn : TranslateEnvT (IO.FS.Handle) := do
-  let some p := (← get).smtEnv.smtProc |
+  let env ← get
+  let some p := env.smtEnv.smtProcs[env.smtEnv.currentProcIdx]? |
     throwEnvError "getProcStdIn: Undefined solver instance !!!"
-  return p.stdin
+  return p.2.stdin
 
 @[always_inline, inline]
 def getProcStdOut : TranslateEnvT (IO.FS.Handle) := do
-  let some p := (← get).smtEnv.smtProc |
+  let env ← get
+  let some p := env.smtEnv.smtProcs[env.smtEnv.currentProcIdx]? |
     throwEnvError "getProcStdOut: Undefined solver instance !!!"
-  return p.stdout
+  return p.2.stdout
 
 def updateSymbolCache (s : SmtSymbol) (rep : String) : TranslateEnvT Unit := do
   modify (fun env => { env with smtEnv.symbolStrCache :=

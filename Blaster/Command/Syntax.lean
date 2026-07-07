@@ -20,7 +20,7 @@ Options:
   - `gen-cex`: generate counterexample for falsified theorems (default: 1)
   - `solve-result`: specify the expected result from the #blaster command, i.e.,
                     0 for 'Valid', 1 for 'Falsified' and 2 for 'Undetermined'. (default: 0)
-  - `solver`: select the backend SMT solver, `z3` or `cvc5` (default: z3)
+  - `solver`: select the backend SMT solver: `z3`, `cvc5`, `all` (run every solver, cross-check answers) or `any` (first definitive answer wins) (default: z3)
 
 Examples:
    - #blaster [∀ x y : Nat, x + y ≥ x]
@@ -115,8 +115,10 @@ def parseSolveResult (sOpts : BlasterOptions) : TSyntax `solveOption → m Blast
 
 def parseSolver (sOpts : BlasterOptions) : TSyntax `solveOption → m BlasterOptions
   | `(solveOption| (solver: $s:ident)) =>
-      if s.getId == `z3 then return { sOpts with solver := .z3 }
-      else if s.getId == `cvc5 then return { sOpts with solver := .cvc5 }
+      if s.getId == `z3 then return { sOpts with solver := .one .z3 }
+      else if s.getId == `cvc5 then return { sOpts with solver := .one .cvc5 }
+      else if s.getId == `all then return { sOpts with solver := .all }
+      else if s.getId == `any then return { sOpts with solver := .any }
       else throwUnsupportedSyntax
   | _ => return sOpts
 
