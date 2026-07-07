@@ -24,8 +24,7 @@ structure Input where
 theorem thm1: ∀ (f : Input) (g : Input), f.2 = g.2 → f.1 = g.1 → f.2 f.1 = g.2 g.1 := by
   intro f g; apply congr
 
-#blaster [thm1]
-#blaster (solver: cvc5) [thm1]
+#blaster (solver: all) [thm1]
 
 
 structure FunRelOne where
@@ -37,8 +36,7 @@ theorem thm2: ∀ (f : FunRelOne) (x y : Nat), x = y → f.f x = f.f y := by
   apply f.inv
   assumption
 
-#blaster [thm2]
-#blaster (solver: cvc5) [thm2]
+#blaster (solver: all) [thm2]
 
 /-- Considering implicit arguments in ctor proposition with explicit polymorphic param -/
 structure FunRelTwo α where
@@ -50,8 +48,7 @@ theorem thm3 : ∀ (α : Type) (f : FunRelTwo α) (x y : α) [LT α], x < y → 
   apply f.inv
   assumption
 
-#blaster [thm3]
-#blaster (solver: cvc5) [thm3]
+#blaster (solver: all) [thm3]
 
 /-- Considering implicit arguments in ctor proposition without explicit polymorphic param -/
 structure FunRelThree where
@@ -62,13 +59,10 @@ theorem thm4 : ∀ (f : FunRelThree) (x y : α) [LT α], x < y → f.f x < f.f y
   intros f x y h
   apply f.inv
 
- #blaster [thm4]
- #blaster (solver: cvc5) [thm4]
+ #blaster (solver: all) [thm4]
 
 /-- Same as thm4 but with non-polymorphic instantiations to force use of concrete LT definition -/
-theorem thm5 : ∀ (f : FunRelThree) (x y : Nat), f.f x ≤ f.f y → f.f y ≤ f.f x → f.f y = f.f x := by blaster
-
-theorem thm5_cvc5 : ∀ (f : FunRelThree) (x y : Nat), f.f x ≤ f.f y → f.f y ≤ f.f x → f.f y = f.f x := by blaster (solver: cvc5)
+theorem thm5 : ∀ (f : FunRelThree) (x y : Nat), f.f x ≤ f.f y → f.f y ≤ f.f x → f.f y = f.f x := by blaster (solver: all)
 
 
 end Tests.Issue15

@@ -16,7 +16,6 @@ theorem dite_to_prop {c : Bool} {t : c → Prop} {e : ¬ c → Prop} :
        . intro h3
          assumption
 
-#blaster (only-optimize:1) [dite_to_prop]
-#blaster (solver: cvc5) (only-optimize:1) [dite_to_prop]
+#blaster (solver: all) (only-optimize:1) [dite_to_prop]
 
 end Tests.Issue12

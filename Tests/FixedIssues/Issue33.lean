@@ -33,8 +33,7 @@ namespace Tests.Issue33
 
 -- Minimal reproduction: Blaster incorrectly proves that any two functions
 -- agreeing at 0 must be equal everywhere.
-#blaster (gen-cex: 0) (solve-result: 1) [∀ (f g : Nat → Bool), f 0 = g 0 → f = g]
-#blaster (solver: cvc5) (gen-cex: 0) (solve-result: 1) [∀ (f g : Nat → Bool), f 0 = g 0 → f = g]
+#blaster (solver: all) (gen-cex: 0) (solve-result: 1) [∀ (f g : Nat → Bool), f 0 = g 0 → f = g]
 
 -- Real-world example: a multi-signature validator that Blaster incorrectly
 -- deems always valid, regardless of the threshold.
@@ -72,10 +71,7 @@ def validate_signatures (verifier_config : VerifierConfig) (signatories : List N
 
   all_mandatory_signed && threshold_met
 
-#blaster (gen-cex: 0) (solve-result: 2) (timeout: 3)
-  [∀ (transaction : List Nat) (n : Nat),
-       validate_signatures (VerifierConfig.mk [] n) transaction = true]
-#blaster (solver: cvc5) (gen-cex: 0) (solve-result: 2) (timeout: 3)
+#blaster (solver: all) (gen-cex: 0) (solve-result: 2) (timeout: 3)
   [∀ (transaction : List Nat) (n : Nat),
        validate_signatures (VerifierConfig.mk [] n) transaction = true]
 

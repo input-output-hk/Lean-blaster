@@ -15,10 +15,7 @@ inductive Term (α : Type u) where
  | App (nm : IdentName) (args : List (Term α))
  | Annotated (t : Term α) (annot : List (String))
 
-#blaster [ (∀ (β : Type) (x : Term (List β)) (f : Term (List β) → Nat), f x > 10) →
-           (∀ (α : Type) (x y : Term (List α)) (f : Term (List α) → Nat), f x + f y > 20)
-         ]
-#blaster (solver: cvc5) [ (∀ (β : Type) (x : Term (List β)) (f : Term (List β) → Nat), f x > 10) →
+#blaster (solver: all) [ (∀ (β : Type) (x : Term (List β)) (f : Term (List β) → Nat), f x > 10) →
            (∀ (α : Type) (x y : Term (List α)) (f : Term (List α) → Nat), f x + f y > 20)
          ]
 

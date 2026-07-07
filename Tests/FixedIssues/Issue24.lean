@@ -15,8 +15,7 @@ axiom hash_size : ∀ (s : String), (hash s).length = 256
 
 -- check if we have a counterexample of length 256
 -- Remove solver options once performance issue resolved
-#blaster (timeout: 5) (solve-result: 2) [∀ (s : String), (hash s).length < 256]
-#blaster (solver: cvc5) (timeout: 5) (solve-result: 2) [∀ (s : String), (hash s).length < 256]
+#blaster (solver: all) (timeout: 5) (solve-result: 2) [∀ (s : String), (hash s).length < 256]
 
 -- validate axiom
 #blaster (only-optimize: 1) [∀ (s : String), (hash s).length = 256]
@@ -24,15 +23,11 @@ axiom hash_size : ∀ (s : String), (hash s).length = 256
 -- check if we are not wrongly applying axiom on another function
 axiom hash2 : String → String
 -- Remove solver options once performance issue resolved
-#blaster (timeout: 5) (solve-result: 2) [∀ (s : String), (hash2 s).length = 256]
-#blaster (solver: cvc5) (timeout: 5) (solve-result: 2) [∀ (s : String), (hash2 s).length = 256]
-#blaster (timeout: 5) (solve-result: 2) [∀ (s : String) (f : String → String), (f s).length = 256]
-#blaster (solver: cvc5) (timeout: 5) (solve-result: 2) [∀ (s : String) (f : String → String), (f s).length = 256]
+#blaster (solver: all) (timeout: 5) (solve-result: 2) [∀ (s : String), (hash2 s).length = 256]
+#blaster (solver: all) (timeout: 5) (solve-result: 2) [∀ (s : String) (f : String → String), (f s).length = 256]
 
 -- check when axiom function is passed as argument
-#blaster (random-seed: 1)
-       [ ∀ (xs : List String), !(List.isEmpty xs) → (List.head! (List.map hash xs)).length = 256 ]
-#blaster (solver: cvc5) (random-seed: 1)
+#blaster (solver: all) (random-seed: 1)
        [ ∀ (xs : List String), !(List.isEmpty xs) → (List.head! (List.map hash xs)).length = 256 ]
 
 

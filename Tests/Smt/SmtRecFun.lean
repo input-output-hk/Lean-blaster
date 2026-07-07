@@ -6,23 +6,16 @@ namespace Test.SmtRecFun
 /-! ## Test objectives to validate recursive functions Smt lib translation -/
 
 
-#blaster [ ∀ (x : Nat) (xs : List Nat), List.length xs + 1 = List.length (x :: xs) ]
-#blaster (solver: cvc5) [ ∀ (x : Nat) (xs : List Nat), List.length xs + 1 = List.length (x :: xs) ]
+#blaster (solver: all) [ ∀ (x : Nat) (xs : List Nat), List.length xs + 1 = List.length (x :: xs) ]
 
-#blaster [ ∀ (α : Type) (x : α) (xs : List α), List.length xs + 1 = List.length (x :: xs) ]
-#blaster (solver: cvc5) [ ∀ (α : Type) (x : α) (xs : List α), List.length xs + 1 = List.length (x :: xs) ]
+#blaster (solver: all) [ ∀ (α : Type) (x : α) (xs : List α), List.length xs + 1 = List.length (x :: xs) ]
 
-#blaster [ ∀ (s1 s2 : String), String.length s1 + String.length s2 = String.length (String.append s1 s2) ]
-#blaster (solver: cvc5) [ ∀ (s1 s2 : String), String.length s1 + String.length s2 = String.length (String.append s1 s2) ]
+#blaster (solver: all) [ ∀ (s1 s2 : String), String.length s1 + String.length s2 = String.length (String.append s1 s2) ]
 
 -- NOTE: remove induction when supporting implicit induction
 set_option warn.sorry false in
 theorem length_append {as bs : List α} : (as ++ bs).length = as.length + bs.length := by
- induction as <;> simp <;> blaster
-
-set_option warn.sorry false in
-theorem length_append_cvc5 {as bs : List α} : (as ++ bs).length = as.length + bs.length := by
- induction as <;> simp <;> blaster (solver: cvc5)
+ induction as <;> simp <;> blaster (solver: all)
 
 /-! ## Test objectives to validate mutually recursive functions Smt lib translation -/
 
@@ -36,12 +29,10 @@ mutual
     | n+1 => isEven n
 end
 
-#blaster [ ∀ (n : Nat), isEven (n+1) = isOdd n ]
-#blaster (solver: cvc5) [ ∀ (n : Nat), isEven (n+1) = isOdd n ]
+#blaster (solver: all) [ ∀ (n : Nat), isEven (n+1) = isOdd n ]
 
 -- NOTE: remove solver options when induction schema supported
-#blaster [ ∀ (n : Nat), isEven (n+2) → isEven n ]
-#blaster (solver: cvc5) [ ∀ (n : Nat), isEven (n+2) → isEven n ]
+#blaster (solver: all) [ ∀ (n : Nat), isEven (n+2) → isEven n ]
 
 mutual
 inductive A
@@ -67,28 +58,19 @@ def B.sizeB : B → Nat
 end
 
 set_option warn.sorry false in
-theorem A_self_size (a : A) : (A.self a).sizeA = a.sizeA + 1 := by blaster
-
-set_option warn.sorry false in
-theorem A_self_size_cvc5 (a : A) : (A.self a).sizeA = a.sizeA + 1 := by blaster (solver: cvc5)
+theorem A_self_size (a : A) : (A.self a).sizeA = a.sizeA + 1 := by blaster (solver: all)
 
 
 /-! # Test cases to ensure that counterexample are properly detected -/
 
-#blaster (gen-cex: 0) (solve-result: 1)
-  [ ∀ (x : Nat) (xs : List Nat), List.length xs + 2 = List.length (x :: xs) ]
-#blaster (solver: cvc5) (gen-cex: 0) (solve-result: 1)
+#blaster (solver: all) (gen-cex: 0) (solve-result: 1)
   [ ∀ (x : Nat) (xs : List Nat), List.length xs + 2 = List.length (x :: xs) ]
 
-#blaster (gen-cex: 0) (solve-result: 1)
-  [ ∀ (s1 s2 : String), String.length s1 + String.length s2 > String.length (String.append s1 s2) ]
-#blaster (solver: cvc5) (gen-cex: 0) (solve-result: 1)
+#blaster (solver: all) (gen-cex: 0) (solve-result: 1)
   [ ∀ (s1 s2 : String), String.length s1 + String.length s2 > String.length (String.append s1 s2) ]
 
-#blaster (gen-cex: 0) (solve-result: 1) [ ∀ (n : Nat), isEven (n+1) = ¬ isOdd n ]
-#blaster (solver: cvc5) (gen-cex: 0) (solve-result: 1) [ ∀ (n : Nat), isEven (n+1) = ¬ isOdd n ]
+#blaster (solver: all) (gen-cex: 0) (solve-result: 1) [ ∀ (n : Nat), isEven (n+1) = ¬ isOdd n ]
 
-#blaster (gen-cex: 0) (solve-result: 1) [ ∀ (n : Nat), isEven (n+2) → ¬ isEven n ]
-#blaster (solver: cvc5) (gen-cex: 0) (solve-result: 1) [ ∀ (n : Nat), isEven (n+2) → ¬ isEven n ]
+#blaster (solver: all) (gen-cex: 0) (solve-result: 1) [ ∀ (n : Nat), isEven (n+2) → ¬ isEven n ]
 
 end Test.SmtRecFun

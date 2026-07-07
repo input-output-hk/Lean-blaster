@@ -31,13 +31,10 @@ def mkBuiltinList (xs : List ByteArray) : List BuiltinByteString :=
 def exampleDataList1 := mkBuiltinList [ "Token1".toUTF8, "Token2".toUTF8, "Token4".toUTF8 ]
 def exampleDataList2 := mkBuiltinList [ "Token2".toUTF8, "Token3".toUTF8, "Token4".toUTF8 ]
 
-#blaster [ (exampleDataList1 != exampleDataList2) = true]
-#blaster (solver: cvc5) [ (exampleDataList1 != exampleDataList2) = true]
+#blaster (solver: all) [ (exampleDataList1 != exampleDataList2) = true]
 
-#blaster [ (exampleDataList1 == exampleDataList1) = true]
-#blaster (solver: cvc5) [ (exampleDataList1 == exampleDataList1) = true]
+#blaster (solver: all) [ (exampleDataList1 == exampleDataList1) = true]
 
-#blaster [exampleDataList1 = exampleDataList1]
-#blaster (solver: cvc5) [exampleDataList1 = exampleDataList1]
+#blaster (solver: all) [exampleDataList1 = exampleDataList1]
 
 end Tests.Issue3

@@ -20,34 +20,26 @@ namespace Test.SmtNatPow
 
 #blaster (only-optimize: 1) [∀ (x y : Nat), x * x^y * x * x = x^(y + 3)]
 
-#blaster [∀ (x : Nat), 0 < x → 0^x = 0]
-#blaster (solver: cvc5) [∀ (x : Nat), 0 < x → 0^x = 0]
+#blaster (solver: all) [∀ (x : Nat), 0 < x → 0^x = 0]
 
 -- NOTE: remove solve option when induction schema implemented
-#blaster (timeout: 5) (solve-result: 2) [(∀ (x y : Nat), x ≤ y → ∀ (i : Nat), x^i ≤ y^i)]
-#blaster (solver: cvc5) (timeout: 5) (solve-result: 2) [(∀ (x y : Nat), x ≤ y → ∀ (i : Nat), x^i ≤ y^i)]
+#blaster (solver: all) (timeout: 5) (solve-result: 2) [(∀ (x y : Nat), x ≤ y → ∀ (i : Nat), x^i ≤ y^i)]
 
 -- NOTE: remove solve option when induction schema implemented
-#blaster (timeout: 5) (solve-result: 2) [∀ (x y : Nat), 0 < x → 0 < x^y]
-#blaster (solver: cvc5) (timeout: 5) (solve-result: 2) [∀ (x y : Nat), 0 < x → 0 < x^y]
+#blaster (solver: all) (timeout: 5) (solve-result: 2) [∀ (x y : Nat), 0 < x → 0 < x^y]
 
 -- NOTE: remove solve option when induction schema implemented
-#blaster (timeout: 5) (solve-result: 2) [∀ (x : Nat), 0 < 2^x]
-#blaster (solver: cvc5) (timeout: 5) (solve-result: 2) [∀ (x : Nat), 0 < 2^x]
+#blaster (solver: all) (timeout: 5) (solve-result: 2) [∀ (x : Nat), 0 < 2^x]
 
 -- NOTE: remove solve option when induction schema implemented
-#blaster (timeout: 5) (solve-result: 2) [∀ (x : Nat), 2^(x + x) = 2^x * 2^x]
-#blaster (solver: cvc5) (timeout: 5) (solve-result: 2) [∀ (x : Nat), 2^(x + x) = 2^x * 2^x]
+#blaster (solver: all) (timeout: 5) (solve-result: 2) [∀ (x : Nat), 2^(x + x) = 2^x * 2^x]
 
 /-! # Test cases to ensure that counterexample are properly detected -/
 
-#blaster (gen-cex: 0) (solve-result: 1) [∀ (x : Nat), x^0 ≠ 1]
-#blaster (solver: cvc5) (gen-cex: 0) (solve-result: 1) [∀ (x : Nat), x^0 ≠ 1]
+#blaster (solver: all) (gen-cex: 0) (solve-result: 1) [∀ (x : Nat), x^0 ≠ 1]
 
-#blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : Nat), x^(Nat.succ y) = x^y]
-#blaster (solver: cvc5) (gen-cex: 0) (solve-result: 1) [∀ (x y : Nat), x^(Nat.succ y) = x^y]
+#blaster (solver: all) (gen-cex: 0) (solve-result: 1) [∀ (x y : Nat), x^(Nat.succ y) = x^y]
 
-#blaster (gen-cex: 0) (solve-result: 1) [∀ (x : Nat), 0 < x → 0^x > 0]
-#blaster (solver: cvc5) (gen-cex: 0) (solve-result: 1) [∀ (x : Nat), 0 < x → 0^x > 0]
+#blaster (solver: all) (gen-cex: 0) (solve-result: 1) [∀ (x : Nat), 0 < x → 0^x > 0]
 
 end Test.SmtNatPow

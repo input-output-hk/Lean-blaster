@@ -47,10 +47,8 @@ instance counterStateMachine : StateMachine Request CounterState where
     (s.prev_state = .Delay ∧ s.state = .Delay) → s.timer = s.prev_timer + 1 ∧ s.prev_timer < 3 ∧
     (s.prev_state = .Busy ∧ s.prev_req = .Fa) → s.state = .Ready
 
-#bmc (max-depth: 8) [counterStateMachine]
-#bmc (solver: cvc5) (max-depth: 8) [counterStateMachine]
+#bmc (solver: all) (max-depth: 8) [counterStateMachine]
 
-#kind (max-depth: 1) [counterStateMachine]
-#kind (solver: cvc5) (max-depth: 1) [counterStateMachine]
+#kind (solver: all) (max-depth: 1) [counterStateMachine]
 
 end Test.Counter07

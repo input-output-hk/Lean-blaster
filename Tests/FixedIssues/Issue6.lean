@@ -36,12 +36,7 @@ def toFirst (x : NatGroup) : Nat :=
   | .first n _ _ => n
   | _ => 0
 
-#blaster [∀ (x : Nat),
-          let c := constrNatGroup x;
-          isFirst c →
-          let r := toFirst c;
-          r ≥ 10 ∧ r < 100]
-#blaster (solver: cvc5) [∀ (x : Nat),
+#blaster (solver: all) [∀ (x : Nat),
           let c := constrNatGroup x;
           isFirst c →
           let r := toFirst c;

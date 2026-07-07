@@ -21,7 +21,6 @@ def matchExpr (a : Prop) (b : Prop) : Prop :=
   | [some (some (Data.Constr 0 [Data.I _allowed, Data.I _actual]))] => a ∧ b
   | _ => False
 
-#blaster [∀ (a b : Prop), matchExpr a b = False]
-#blaster (solver: cvc5) [∀ (a b : Prop), matchExpr a b = False]
+#blaster (solver: all) [∀ (a b : Prop), matchExpr a b = False]
 
 end Tests.Issue11

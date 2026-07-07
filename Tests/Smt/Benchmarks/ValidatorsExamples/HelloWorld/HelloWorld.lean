@@ -17,7 +17,6 @@ theorem spec01_HelloWorld :
      HelloWorldValidator datum redeemer _c = true →
      "Hello World!" == redeemer.redeemerMessage := by sorry
 
-#blaster [spec01_HelloWorld]
-#blaster (solver: cvc5) [spec01_HelloWorld]
+#blaster (solver: all) [spec01_HelloWorld]
 
 end Tests.ValidatorsExamples.HelloWorld

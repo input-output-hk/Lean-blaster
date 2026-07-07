@@ -33,64 +33,38 @@ def check_valid_path {α : Type}[BEq α](v : α)(p : Path)(ls : List α)
 
 theorem validProof {α : Type}[BEq α](v : α)(p : Path)(ls : List α)
  : check_valid_path v p ls == true -> List.elem v ls := by
-   induction ls generalizing p <;> blaster
-
-theorem validProof_cvc5 {α : Type}[BEq α](v : α)(p : Path)(ls : List α)
- : check_valid_path v p ls == true -> List.elem v ls := by
-   induction ls generalizing p <;> blaster (solver: cvc5)
+   induction ls generalizing p <;> blaster (solver: all)
 
 -- remove solver option once induction proof is supported
-#blaster (timeout: 5) (solve-result: 2) [validProof]
-#blaster (solver: cvc5) (timeout: 5) (solve-result: 2) [validProof]
+#blaster (solver: all) (timeout: 5) (solve-result: 2) [validProof]
 
 theorem getElem?_zipWith {f : α → β → γ} {i : Nat} :
     (List.zipWith f as bs)[i]? = match as[i]?, bs[i]? with
       | some a, some b => some (f a b) | _, _ => none := by
-  induction as generalizing bs i <;> blaster (random-seed: 2)
-
-theorem getElem?_zipWith_cvc5 {f : α → β → γ} {i : Nat} :
-    (List.zipWith f as bs)[i]? = match as[i]?, bs[i]? with
-      | some a, some b => some (f a b) | _, _ => none := by
-  induction as generalizing bs i <;> blaster (solver: cvc5) (random-seed: 2)
+  induction as generalizing bs i <;> blaster (solver: all) (random-seed: 2)
 
 -- remove solver option once induction proof is supported
-#blaster (timeout: 5) (solve-result: 2) [getElem?_zipWith]
-#blaster (solver: cvc5) (timeout: 5) (solve-result: 2) [getElem?_zipWith]
+#blaster (solver: all) (timeout: 5) (solve-result: 2) [getElem?_zipWith]
 
 theorem getElem?_zipWith' {f : α → β → γ} {i : Nat} :
     (List.zipWith f l₁ l₂)[i]? = (l₁[i]?.map f).bind fun g => l₂[i]?.map g := by
-  induction l₁ generalizing l₂ i <;> blaster
-
-theorem getElem?_zipWith'_cvc5 {f : α → β → γ} {i : Nat} :
-    (List.zipWith f l₁ l₂)[i]? = (l₁[i]?.map f).bind fun g => l₂[i]?.map g := by
-  induction l₁ generalizing l₂ i <;> blaster (solver: cvc5)
+  induction l₁ generalizing l₂ i <;> blaster (solver: all)
 
 -- remove solver option once induction proof is supported
-#blaster (timeout: 5) (solve-result: 2) [getElem?_zipWith']
-#blaster (solver: cvc5) (timeout: 5) (solve-result: 2) [getElem?_zipWith']
+#blaster (solver: all) (timeout: 5) (solve-result: 2) [getElem?_zipWith']
 
 theorem zipWith_map_left {l₁ : List α} {l₂ : List β} {f : α → α'} {g : α' → β → γ} :
     List.zipWith g (l₁.map f) l₂ = List.zipWith (fun a b => g (f a) b) l₁ l₂ := by
-  induction l₁ generalizing l₂ <;> blaster
-
-theorem zipWith_map_left_cvc5 {l₁ : List α} {l₂ : List β} {f : α → α'} {g : α' → β → γ} :
-    List.zipWith g (l₁.map f) l₂ = List.zipWith (fun a b => g (f a) b) l₁ l₂ := by
-  induction l₁ generalizing l₂ <;> blaster (solver: cvc5)
+  induction l₁ generalizing l₂ <;> blaster (solver: all)
 
 -- remove solver option once induction proof is supported
-#blaster (timeout: 5) (solve-result: 2) [zipWith_map_left]
-#blaster (solver: cvc5) (timeout: 5) (solve-result: 2) [zipWith_map_left]
+#blaster (solver: all) (timeout: 5) (solve-result: 2) [zipWith_map_left]
 
 theorem zipWith_foldr_eq_zip_foldr {f : α → β → γ} {i : δ} {g : γ → δ → δ} :
     (List.zipWith f l₁ l₂).foldr g i = (List.zip l₁ l₂).foldr (fun p r => g (f p.1 p.2) r) i := by
-  induction l₁ generalizing l₂ <;> blaster
-
-theorem zipWith_foldr_eq_zip_foldr_cvc5 {f : α → β → γ} {i : δ} {g : γ → δ → δ} :
-    (List.zipWith f l₁ l₂).foldr g i = (List.zip l₁ l₂).foldr (fun p r => g (f p.1 p.2) r) i := by
-  induction l₁ generalizing l₂ <;> blaster (solver: cvc5)
+  induction l₁ generalizing l₂ <;> blaster (solver: all)
 
 -- remove solver option once induction proof is supported
-#blaster (timeout: 5) (solve-result: 2) [zipWith_foldr_eq_zip_foldr]
-#blaster (solver: cvc5) (timeout: 5) (solve-result: 2) [zipWith_foldr_eq_zip_foldr]
+#blaster (solver: all) (timeout: 5) (solve-result: 2) [zipWith_foldr_eq_zip_foldr]
 
 end Tests.Issue26

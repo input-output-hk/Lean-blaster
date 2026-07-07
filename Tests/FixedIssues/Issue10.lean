@@ -25,12 +25,7 @@ def validAction (x : NormalizedAction) : Prop :=
   | .NormalizedDoubleSell n m => n < 0 ∧ m < 0
   | .NormalizedDoubleBuy m n p => m > 0 ∧ n > 0 ∧ p > 0
 
-#blaster [∀ (x : NormalizedAction) (n : Int),
-          validAction x →
-          some n = getBuySCTokens x →
-          n ≠ 0
-       ]
-#blaster (solver: cvc5) [∀ (x : NormalizedAction) (n : Int),
+#blaster (solver: all) [∀ (x : NormalizedAction) (n : Int),
           validAction x →
           some n = getBuySCTokens x →
           n ≠ 0

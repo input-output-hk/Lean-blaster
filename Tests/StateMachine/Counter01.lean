@@ -22,10 +22,8 @@ instance counter : StateMachine Request Nat where
   invariants _ s :=
     s ≤ 3
 
-#bmc (max-depth: 6) [counter]
-#bmc (solver: cvc5) (max-depth: 6) [counter]
+#bmc (solver: all) (max-depth: 6) [counter]
 
-#kind (max-depth: 3) [counter]
-#kind (solver: cvc5) (max-depth: 3) [counter]
+#kind (solver: all) (max-depth: 3) [counter]
 
 end Test.Counter01

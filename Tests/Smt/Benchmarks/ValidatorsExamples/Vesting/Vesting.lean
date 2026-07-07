@@ -111,16 +111,12 @@ theorem if_accepted_then_purpose_spend :
                 intros _ _ _ _ h1 _ _
                 exact h1
 
-#blaster [if_accepted_then_purpose_spend]
-#blaster (solver: cvc5) [if_accepted_then_purpose_spend]
+#blaster (solver: all) [if_accepted_then_purpose_spend]
 
-#blaster [reject_other_purposes]
-#blaster (solver: cvc5) [reject_other_purposes]
+#blaster (solver: all) [reject_other_purposes]
 
-#blaster [only_accept_if_signatory_and_time_elapsed]
-#blaster (solver: cvc5) [only_accept_if_signatory_and_time_elapsed]
+#blaster (solver: all) [only_accept_if_signatory_and_time_elapsed]
 
-#blaster (gen-cex: 0) (solve-result: 1) [only_accept_if_signatory_and_time_elapsed_bugged]
-#blaster (solver: cvc5) (gen-cex: 0) (solve-result: 1) [only_accept_if_signatory_and_time_elapsed_bugged]
+#blaster (solver: all) (gen-cex: 0) (solve-result: 1) [only_accept_if_signatory_and_time_elapsed_bugged]
 
 end Tests.ValidatorsExamples.Vesting

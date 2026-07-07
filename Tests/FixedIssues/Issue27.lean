@@ -12,10 +12,7 @@ namespace Tests.Issue27
 set_option warn.sorry false
 -- NOTE: remove induction when supporting implicit induction
 theorem length_set {as : List α} {i : Nat} {a : α} : (as.set i a).length = as.length := by
- induction as generalizing i <;> blaster
-
-theorem length_set_cvc5 {as : List α} {i : Nat} {a : α} : (as.set i a).length = as.length := by
- induction as generalizing i <;> blaster (solver: cvc5)
+ induction as generalizing i <;> blaster (solver: all)
 
 
 end Tests.Issue27
