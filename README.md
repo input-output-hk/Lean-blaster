@@ -412,7 +412,17 @@ The evaluation can be found on this public repository: [Blaster-benchmarking](ht
 Each tactic is benchmarked on **its own latest default branch and that branch's Lean toolchain** (tracked live), so the comparison is fair even when the tools target different Lean versions. Auto-updated weekly by the [`weekly-benchmark`](.github/workflows/benchmark.yml) workflow.
 
 <!-- BENCH:START -->
-_The comparison table is generated on the first run of the weekly benchmark workflow. Run it manually from the Actions tab to populate this now._
+| Tactic | Version | ITL4 | NNG4 | STG4 | **Solved** |
+|:--|:--|--:|--:|--:|--:|
+| `blaster` | `v4.24.0` @ `402f6d22c` | 44/44 | 103/108 | 45/52 | **192/204** |
+| `hammer` | `v4.30.0` @ `3ef50193c` | 44/44 | 97/108 | 29/52 | **170/204** |
+| `auto` | `v4.32.0-rc1` @ `dcc3ecf8f` | 44/44 | 100/108 | 4/52 | **148/204** |
+| `aesop` | `v4.32.0-rc1` @ `24fa6b359` | 44/44 | 67/108 | 0/52 | **111/204** |
+| `smt +model` | `v4.32.0-rc1` @ `3c6faf56d` | 0/44 | 0/108 | 0/52 | **0/204** |
+
+_Each tactic runs in an isolated Lake project on its **latest default branch** and that branch's own Lean toolchain (tracked live). Cells show theorems **solved / total**; cross-version numbers can shift with mathlib changes, not only tactic quality._
+
+**[Full interactive report →](https://input-output-hk.github.io/Lean-blaster/benchmark/)**
 <!-- BENCH:END -->
 
 <details>
