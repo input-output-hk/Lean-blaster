@@ -412,17 +412,17 @@ The evaluation can be found on this public repository: [Blaster-benchmarking](ht
 Each tactic is benchmarked on **its own latest default branch and that branch's Lean toolchain** (tracked live), so the comparison is fair even when the tools target different Lean versions. Auto-updated weekly by the [`weekly-benchmark`](.github/workflows/benchmark.yml) workflow.
 
 <!-- BENCH:START -->
-| Tactic | Version | ITL4 | MiniF2F | NNG4 | STG4 | **Solved** |
-|:--|:--|--:|--:|--:|--:|--:|
-| `blaster` | `v4.24.0` @ `402f6d22c` | 44/44 | 51/96 | 103/108 | 45/52 | **243/300** |
-| `grind` | `v4.31.0` @ `(core)` | 44/44 | 34/96 | 93/108 | 38/52 | **209/300** |
-| `hammer` | `v4.30.0` @ `3ef50193c` | 44/44 | 25/96 | 97/108 | 29/52 | **195/300** |
-| `auto` | `v4.32.0-rc1` @ `dcc3ecf8f` | 44/44 | 30/96 | 100/108 | 4/52 | **178/300** |
-| `blaster (only-optimize: 1)` | `v4.24.0` @ `402f6d22c` | 26/44 | 17/96 | 59/108 | 13/52 | **115/300** |
-| `aesop` | `v4.32.0-rc1` @ `24fa6b359` | 44/44 | 0/96 | 67/108 | 0/52 | **111/300** |
-| `simp` | `v4.31.0` @ `(core)` | 5/44 | 17/96 | 37/108 | 14/52 | **73/300** |
-| `omega` | `v4.31.0` @ `(core)` | 1/44 | 29/96 | 7/108 | 1/52 | **38/300** |
-| `smt +model` | `v4.32.0-rc1` @ `3c6faf56d` | 6/44 | 9/96 | 17/108 | 0/52 | **32/300** |
+| Tactic | Version | ITL4 | MiniF2F | NNG4 | STG4 | Verina | **Solved** |
+|:--|:--|--:|--:|--:|--:|--:|--:|
+| `blaster` | `v4.24.0` @ `402f6d22c` | 44/44 | 54/96 | 103/108 | 49/52 | 26/108 | **276/408** |
+| `grind` | `v4.31.0` @ `(core)` | 44/44 | 35/96 | 93/108 | 41/52 | 1/108 | **214/408** |
+| `hammer` | `v4.30.0` @ `3ef50193c` | 44/44 | 25/96 | 97/108 | 31/52 | 4/108 | **201/408** |
+| `auto` | `v4.32.0-rc1` @ `dcc3ecf8f` | 44/44 | 32/96 | 100/108 | 4/52 | 0/108 | **180/408** |
+| `aesop` | `v4.31.0` @ `(via mathlib)` | 44/44 | 23/96 | 67/108 | 35/52 | 2/108 | **171/408** |
+| `blaster (only-optimize: 1)` | `v4.24.0` @ `402f6d22c` | 26/44 | 17/96 | 59/108 | 13/52 | 11/108 | **126/408** |
+| `simp` | `v4.31.0` @ `(core)` | 5/44 | 17/96 | 37/108 | 15/52 | 0/108 | **74/408** |
+| `omega` | `v4.31.0` @ `(core)` | 1/44 | 30/96 | 7/108 | 1/52 | 1/108 | **40/408** |
+| `smt +model` | `v4.32.0-rc1` @ `3c6faf56d` | 6/44 | 9/96 | 17/108 | 0/52 | 1/108 | **33/408** |
 
 _Each tactic runs in an isolated Lake project on its **latest default branch** and that branch's own Lean toolchain (tracked live). Cells show theorems **solved / total**; cross-version numbers can shift with mathlib changes, not only tactic quality._
 
