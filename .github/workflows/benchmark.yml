@@ -39,7 +39,7 @@ jobs:
           - { tool: smt,     url: "https://github.com/ufmg-smite/lean-smt.git",             branch: main }
           - { tool: hammer,  url: "https://github.com/JOSHCLUNE/LeanHammer.git",            branch: main }
           - { tool: auto,    url: "https://github.com/leanprover-community/lean-auto.git",  branch: main }
-          - { tool: aesop,   url: "https://github.com/leanprover-community/aesop",          branch: master }
+          - { tool: aesop,   url: "", branch: "" }   # via mathlib (aesop is a mathlib dep)
           - { tool: baselines, url: "", branch: "" }   # repo-less: omega/grind/simp on latest stable Lean
     steps:
       - name: Free disk space
