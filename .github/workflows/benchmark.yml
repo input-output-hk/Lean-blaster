@@ -42,6 +42,7 @@ jobs:
           - { tool: hammer,  url: "https://github.com/JOSHCLUNE/LeanHammer.git",            branch: main }
           - { tool: auto,    url: "https://github.com/leanprover-community/lean-auto.git",  branch: main }
           - { tool: aesop,   url: "https://github.com/leanprover-community/aesop",          branch: master }
+          - { tool: baselines, url: "", branch: "" }   # repo-less: omega/grind/simp on latest stable Lean
     steps:
       - name: Free disk space
         run: |
@@ -72,9 +73,15 @@ jobs:
       - name: Resolve tool commit (for cache key)
         id: resolve
         run: |
-          commit=$(git ls-remote "${{ matrix.url }}" "refs/heads/${{ matrix.branch }}" | cut -c1-9)
+          if [ -n "${{ matrix.url }}" ]; then
+            commit=$(git ls-remote "${{ matrix.url }}" "refs/heads/${{ matrix.branch }}" | cut -c1-9)
+          else
+            # repo-less baselines: identity is the newest stable mathlib release tag
+            commit=$(git ls-remote --tags https://github.com/leanprover-community/mathlib4 \
+                     | grep -oE 'v4\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
+          fi
           echo "commit=$commit" >> "$GITHUB_OUTPUT"
-          echo "Resolved ${{ matrix.tool }} @ ${{ matrix.branch }} -> $commit"
+          echo "Resolved ${{ matrix.tool }} -> $commit"
 
       - name: Restore result cache
         uses: actions/cache@v4
