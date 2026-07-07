@@ -418,7 +418,8 @@ Each tactic is benchmarked on **its own latest default branch and that branch's 
 | `hammer` | `v4.30.0` @ `3ef50193c` | 44/44 | 97/108 | 29/52 | **170/204** |
 | `auto` | `v4.32.0-rc1` @ `dcc3ecf8f` | 44/44 | 100/108 | 4/52 | **148/204** |
 | `aesop` | `v4.32.0-rc1` @ `24fa6b359` | 44/44 | 67/108 | 0/52 | **111/204** |
-| `smt +model` | `v4.32.0-rc1` @ `3c6faf56d` | 0/44 | 0/108 | 0/52 | **0/204** |
+| `smt +model` | `v4.32.0-rc1` @ `3c6faf56d` | 6/44 | 17/108 | 0/52 | **23/204** |
+| `omega` | `v4.31.0` @ `(core)` | 1/44 | 7/108 | 1/52 | **9/204** |
 
 _Each tactic runs in an isolated Lake project on its **latest default branch** and that branch's own Lean toolchain (tracked live). Cells show theorems **solved / total**; cross-version numbers can shift with mathlib changes, not only tactic quality._
 
