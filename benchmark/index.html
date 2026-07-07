@@ -21,7 +21,14 @@ th,td{padding:8px 13px;border-bottom:1px solid var(--bd);text-align:left;vertica
 th{color:var(--dim);font-size:.68rem;text-transform:uppercase;letter-spacing:.07em;font-weight:600}
 td{font-variant-numeric:tabular-nums}
 .manifest td,.summary td{white-space:nowrap}
-.manifest,.summary{background:var(--panel);border:1px solid var(--bd);border-radius:10px;overflow:hidden}
+.manifest,.summary,.standings{background:var(--panel);border:1px solid var(--bd);border-radius:10px;overflow:hidden}
+.suite-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:12px 0 26px}
+.scard{background:var(--panel);border:1px solid var(--bd);border-radius:10px;padding:16px 18px}
+.scard-name{font-weight:700;font-size:1.1rem;letter-spacing:-.01em}
+.scard-desc{color:var(--dim);font-size:.78rem;margin:1px 0 12px}
+.scard-n{font-size:.72rem;color:var(--dim);text-transform:uppercase;letter-spacing:.05em}
+.scard-best{margin-top:8px;font-size:.9rem}.scard-best b{color:var(--acc)}
+.standings td{white-space:nowrap}.standings td:last-child{width:46%}
 .bar{display:flex;height:8px;border-radius:5px;overflow:hidden;background:rgba(148,163,199,.1)}
 .bar span{display:block}
 .scroll{overflow-x:auto;border:1px solid var(--bd);border-radius:10px}
@@ -44,6 +51,19 @@ tr:hover td{background:rgba(148,163,199,.05)}
 <p class="lede">Each tactic runs in an isolated Lake project pinned to its <b>latest default branch</b> and that branch's own Lean toolchain — tracked live, not pinned to a shared version. Every column is labelled with the toolchain and resolved commit it actually ran on.</p>
 <div class="spanline">toolchains span <b>v4.24.0 – v4.32.0-rc1</b> &middot; 5 tactics &middot; 3 suites</div>
 </header>
+<h2>Overview</h2>
+<div class="suite-cards">
+<div class="scard"><div class="scard-name">ITL4</div><div class="scard-desc">Introduction to Logic</div><div class="scard-n mono">44 theorems</div><div class="scard-best">best <b>blaster</b> <span class="mono">44/44 (100%)</span></div></div>
+<div class="scard"><div class="scard-name">NNG4</div><div class="scard-desc">Lean Natural Number Game</div><div class="scard-n mono">108 theorems</div><div class="scard-best">best <b>blaster</b> <span class="mono">103/108 (95%)</span></div></div>
+<div class="scard"><div class="scard-name">STG4</div><div class="scard-desc">Lean Set Theory Game</div><div class="scard-n mono">52 theorems</div><div class="scard-best">best <b>blaster</b> <span class="mono">45/52 (87%)</span></div></div>
+</div>
+<table class="standings"><tr><th>#</th><th>tactic</th><th>solved</th><th style="width:46%"></th></tr>
+<tr><td class="mono dim">1</td><td class="mono">blaster</td><td class="mono"><b>192</b>/204 <span class="dim">(94%)</span></td><td><div class="bar"><span style="background:#4ade80;width:94.1%"></span></div></td></tr>
+<tr><td class="mono dim">2</td><td class="mono">hammer</td><td class="mono"><b>170</b>/204 <span class="dim">(83%)</span></td><td><div class="bar"><span style="background:#4ade80;width:83.3%"></span></div></td></tr>
+<tr><td class="mono dim">3</td><td class="mono">auto</td><td class="mono"><b>148</b>/204 <span class="dim">(73%)</span></td><td><div class="bar"><span style="background:#4ade80;width:72.5%"></span></div></td></tr>
+<tr><td class="mono dim">4</td><td class="mono">aesop</td><td class="mono"><b>111</b>/204 <span class="dim">(54%)</span></td><td><div class="bar"><span style="background:#4ade80;width:54.4%"></span></div></td></tr>
+<tr><td class="mono dim">5</td><td class="mono">smt +model</td><td class="mono"><b>0</b>/204 <span class="dim">(0%)</span></td><td><div class="bar"><span style="background:#4ade80;width:0.0%"></span></div></td></tr>
+</table>
 <h2>Versions run</h2>
 <table class="manifest"><tr><th>tactic</th><th>branch</th><th>toolchain</th><th>commit</th><th>build</th></tr>
 <tr><td class="mono">blaster</td><td class="mono">main</td><td class="mono">leanprover/lean4:v4.24.0</td><td class="mono">402f6d22c</td><td class="mono" style="color:#4ade80">OK</td></tr>
@@ -68,318 +88,318 @@ tr:hover td{background:rgba(148,163,199,.05)}
 <th><div class="tac">hammer</div><div class="ver">v4.30.0 · 3ef50193c</div></th>
 </tr>
 <tr><td class="thm mono">AndIntro_01</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1740 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1708 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1856 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1094 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2749 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1749 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1143 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2785 ms</td>
 </tr>
 <tr><td class="thm mono">AndIntro_02</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1759 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1712 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1835 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1092 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2833 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1768 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1136 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2724 ms</td>
 </tr>
 <tr><td class="thm mono">AndIntro_03</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1744 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1704 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1856 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1104 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2839 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1743 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1131 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2740 ms</td>
 </tr>
 <tr><td class="thm mono">AndIntro_04</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1757 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1742 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1846 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1097 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2891 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1758 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1135 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2729 ms</td>
 </tr>
 <tr><td class="thm mono">AndIntro_05</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1738 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1713 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1832 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1100 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2807 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1737 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1142 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2730 ms</td>
 </tr>
 <tr><td class="thm mono">AndIntro_06</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1724 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1742 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1799 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1107 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2932 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1745 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1148 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2758 ms</td>
 </tr>
 <tr><td class="thm mono">AndIntro_07</td>
 <td class="cell mono" style="color:#4ade80" title="OK">✓ 1746 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1792 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1100 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2853 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1737 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1131 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2795 ms</td>
 </tr>
 <tr><td class="thm mono">AndIntro_08</td>
 <td class="cell mono" style="color:#4ade80" title="OK">✓ 1739 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1795 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1099 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2874 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1781 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1142 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2789 ms</td>
 </tr>
 <tr><td class="thm mono">IffIntro_01</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1741 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1787 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1804 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1120 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2835 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1825 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1149 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2724 ms</td>
 </tr>
 <tr><td class="thm mono">IffIntro_02</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1728 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1764 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1845 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1096 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 3120 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1775 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1134 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2770 ms</td>
 </tr>
 <tr><td class="thm mono">IffIntro_03</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1788 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1817 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1101 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 3101 ms</td>
-</tr>
-<tr><td class="thm mono">IffIntro_04</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1783 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1827 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1101 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2961 ms</td>
-</tr>
-<tr><td class="thm mono">IffIntro_05</td>
 <td class="cell mono" style="color:#4ade80" title="OK">✓ 1794 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1817 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1129 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 3027 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1748 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1203 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2788 ms</td>
 </tr>
-<tr><td class="thm mono">IffIntro_06</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1780 ms</td>
+<tr><td class="thm mono">IffIntro_04</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1814 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1801 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1106 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2908 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1743 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1150 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2788 ms</td>
 </tr>
-<tr><td class="thm mono">IffIntro_07</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1791 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1817 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1102 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2858 ms</td>
-</tr>
-<tr><td class="thm mono">ImpIntro_01</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1731 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1813 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1103 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2809 ms</td>
-</tr>
-<tr><td class="thm mono">ImpIntro_02</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1744 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1804 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1101 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2800 ms</td>
-</tr>
-<tr><td class="thm mono">ImpIntro_03</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1732 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1780 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1103 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2824 ms</td>
-</tr>
-<tr><td class="thm mono">ImpIntro_04</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1785 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1775 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1095 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2897 ms</td>
-</tr>
-<tr><td class="thm mono">ImpIntro_05</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1738 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1796 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1107 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2944 ms</td>
-</tr>
-<tr><td class="thm mono">ImpIntro_06</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1779 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1775 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1097 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2960 ms</td>
-</tr>
-<tr><td class="thm mono">ImpIntro_07</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1793 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1782 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1100 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2812 ms</td>
-</tr>
-<tr><td class="thm mono">ImpIntro_08</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1780 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1781 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1091 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2872 ms</td>
-</tr>
-<tr><td class="thm mono">ImpIntro_09</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1732 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1781 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1088 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2909 ms</td>
-</tr>
-<tr><td class="thm mono">NotIntro_01</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1744 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1787 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1100 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2749 ms</td>
-</tr>
-<tr><td class="thm mono">NotIntro_02</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1732 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1792 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1091 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2804 ms</td>
-</tr>
-<tr><td class="thm mono">NotIntro_03</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1741 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1797 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1101 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2806 ms</td>
-</tr>
-<tr><td class="thm mono">NotIntro_04</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1725 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1828 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1087 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2848 ms</td>
-</tr>
-<tr><td class="thm mono">NotIntro_05</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1790 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1810 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1100 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2837 ms</td>
-</tr>
-<tr><td class="thm mono">NotIntro_06</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1735 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1826 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1086 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2951 ms</td>
-</tr>
-<tr><td class="thm mono">NotIntro_07</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1788 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1811 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1108 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2856 ms</td>
-</tr>
-<tr><td class="thm mono">NotIntro_08</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1727 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1822 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1091 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2815 ms</td>
-</tr>
-<tr><td class="thm mono">NotIntro_09</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1778 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1813 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1087 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2884 ms</td>
-</tr>
-<tr><td class="thm mono">NotIntro_10</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1789 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1827 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1102 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2804 ms</td>
-</tr>
-<tr><td class="thm mono">NotIntro_11</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1734 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1866 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1089 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2851 ms</td>
-</tr>
-<tr><td class="thm mono">NotIntro_12</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1778 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1833 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1097 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2801 ms</td>
-</tr>
-<tr><td class="thm mono">OrIntro_01</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1731 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1840 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1135 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2796 ms</td>
-</tr>
-<tr><td class="thm mono">OrIntro_02</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1756 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1846 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1110 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2912 ms</td>
-</tr>
-<tr><td class="thm mono">OrIntro_03</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1784 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1787 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1108 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2867 ms</td>
-</tr>
-<tr><td class="thm mono">OrIntro_04</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1733 ms</td>
+<tr><td class="thm mono">IffIntro_05</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1795 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#4ade80" title="OK">✓ 1769 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1107 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2843 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1165 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2942 ms</td>
 </tr>
-<tr><td class="thm mono">OrIntro_05</td>
+<tr><td class="thm mono">IffIntro_06</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1793 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1776 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1146 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2844 ms</td>
+</tr>
+<tr><td class="thm mono">IffIntro_07</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1774 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1773 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1135 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2811 ms</td>
+</tr>
+<tr><td class="thm mono">ImpIntro_01</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1744 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1795 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1134 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2728 ms</td>
+</tr>
+<tr><td class="thm mono">ImpIntro_02</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1684 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1792 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1133 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2709 ms</td>
+</tr>
+<tr><td class="thm mono">ImpIntro_03</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1734 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1756 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1138 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2739 ms</td>
+</tr>
+<tr><td class="thm mono">ImpIntro_04</td>
 <td class="cell mono" style="color:#4ade80" title="OK">✓ 1776 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1785 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1138 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2667 ms</td>
+</tr>
+<tr><td class="thm mono">ImpIntro_05</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1734 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1854 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1135 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2724 ms</td>
+</tr>
+<tr><td class="thm mono">ImpIntro_06</td>
 <td class="cell mono" style="color:#4ade80" title="OK">✓ 1800 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1106 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2784 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1856 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1151 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2711 ms</td>
+</tr>
+<tr><td class="thm mono">ImpIntro_07</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1801 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1802 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1142 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2703 ms</td>
+</tr>
+<tr><td class="thm mono">ImpIntro_08</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1777 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1826 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1134 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2707 ms</td>
+</tr>
+<tr><td class="thm mono">ImpIntro_09</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1726 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1790 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1128 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2722 ms</td>
+</tr>
+<tr><td class="thm mono">NotIntro_01</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1748 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1796 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1138 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2697 ms</td>
+</tr>
+<tr><td class="thm mono">NotIntro_02</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1761 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1794 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1135 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2739 ms</td>
+</tr>
+<tr><td class="thm mono">NotIntro_03</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1748 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1805 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1131 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2809 ms</td>
+</tr>
+<tr><td class="thm mono">NotIntro_04</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1731 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1775 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1132 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 5523 ms</td>
+</tr>
+<tr><td class="thm mono">NotIntro_05</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1786 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1776 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1140 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2768 ms</td>
+</tr>
+<tr><td class="thm mono">NotIntro_06</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1704 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1775 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1136 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2718 ms</td>
+</tr>
+<tr><td class="thm mono">NotIntro_07</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1761 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1776 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1137 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2730 ms</td>
+</tr>
+<tr><td class="thm mono">NotIntro_08</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1729 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1798 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1146 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2755 ms</td>
+</tr>
+<tr><td class="thm mono">NotIntro_09</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1752 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1887 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1139 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2729 ms</td>
+</tr>
+<tr><td class="thm mono">NotIntro_10</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1751 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1827 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1147 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2761 ms</td>
+</tr>
+<tr><td class="thm mono">NotIntro_11</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1696 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1790 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1140 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2788 ms</td>
+</tr>
+<tr><td class="thm mono">NotIntro_12</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1787 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1774 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1133 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2772 ms</td>
+</tr>
+<tr><td class="thm mono">OrIntro_01</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1820 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1756 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1141 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2735 ms</td>
+</tr>
+<tr><td class="thm mono">OrIntro_02</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1746 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1746 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1139 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2701 ms</td>
+</tr>
+<tr><td class="thm mono">OrIntro_03</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1752 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1757 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1154 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2722 ms</td>
+</tr>
+<tr><td class="thm mono">OrIntro_04</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1751 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1754 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1138 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2778 ms</td>
+</tr>
+<tr><td class="thm mono">OrIntro_05</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1763 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1758 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1145 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2744 ms</td>
 </tr>
 <tr><td class="thm mono">OrIntro_06</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1800 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1750 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1786 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1102 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2818 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1762 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1149 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2751 ms</td>
 </tr>
 <tr><td class="thm mono">OrIntro_07</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1775 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1668 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1778 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1095 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2843 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1753 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1138 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2776 ms</td>
 </tr>
 <tr><td class="thm mono">OrIntro_08</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1785 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1710 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1770 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1098 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2768 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1752 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1155 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2753 ms</td>
 </tr>
 </table></div>
 <h2>NNG4 <span class="dim">· 108 theorems</span></h2>
 <table class="summary"><tr><th>tactic</th><th>solved</th><th style="width:38%">breakdown</th><th>timeout</th><th>env</th><th>fail</th></tr>
 <tr><td class="mono">blaster</td><td class="mono"><b style="color:#4ade80">103</b>/108 (95%)</td><td><div class="bar"><span style="background:#4ade80;width:95.4%"></span><span style="background:#fbbf24;width:4.6%"></span><span style="background:#60a5fa;width:0.0%"></span><span style="background:#f87171;width:0.0%"></span></div></td><td class="mono">5</td><td class="mono" style="color:#60a5fa">0</td><td class="mono">0</td></tr>
-<tr><td class="mono">smt +model</td><td class="mono"><b style="color:#4ade80">0</b>/108 (0%)</td><td><div class="bar"><span style="background:#4ade80;width:0.0%"></span><span style="background:#fbbf24;width:2.8%"></span><span style="background:#60a5fa;width:0.0%"></span><span style="background:#f87171;width:97.2%"></span></div></td><td class="mono">3</td><td class="mono" style="color:#60a5fa">0</td><td class="mono">105</td></tr>
+<tr><td class="mono">smt +model</td><td class="mono"><b style="color:#4ade80">0</b>/108 (0%)</td><td><div class="bar"><span style="background:#4ade80;width:0.0%"></span><span style="background:#fbbf24;width:4.6%"></span><span style="background:#60a5fa;width:0.0%"></span><span style="background:#f87171;width:95.4%"></span></div></td><td class="mono">5</td><td class="mono" style="color:#60a5fa">0</td><td class="mono">103</td></tr>
 <tr><td class="mono">auto</td><td class="mono"><b style="color:#4ade80">100</b>/108 (93%)</td><td><div class="bar"><span style="background:#4ade80;width:92.6%"></span><span style="background:#fbbf24;width:0.0%"></span><span style="background:#60a5fa;width:0.0%"></span><span style="background:#f87171;width:7.4%"></span></div></td><td class="mono">0</td><td class="mono" style="color:#60a5fa">0</td><td class="mono">8</td></tr>
 <tr><td class="mono">aesop</td><td class="mono"><b style="color:#4ade80">67</b>/108 (62%)</td><td><div class="bar"><span style="background:#4ade80;width:62.0%"></span><span style="background:#fbbf24;width:0.0%"></span><span style="background:#60a5fa;width:0.0%"></span><span style="background:#f87171;width:38.0%"></span></div></td><td class="mono">0</td><td class="mono" style="color:#60a5fa">0</td><td class="mono">41</td></tr>
 <tr><td class="mono">hammer</td><td class="mono"><b style="color:#4ade80">97</b>/108 (90%)</td><td><div class="bar"><span style="background:#4ade80;width:89.8%"></span><span style="background:#fbbf24;width:1.9%"></span><span style="background:#60a5fa;width:0.0%"></span><span style="background:#f87171;width:8.3%"></span></div></td><td class="mono">2</td><td class="mono" style="color:#60a5fa">0</td><td class="mono">9</td></tr>
@@ -392,672 +412,672 @@ tr:hover td{background:rgba(148,163,199,.05)}
 <th><div class="tac">hammer</div><div class="ver">v4.30.0 · 3ef50193c</div></th>
 </tr>
 <tr><td class="thm mono">zero_add</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1745 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1585 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1885 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1110 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 3079 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1860 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1157 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2799 ms</td>
 </tr>
 <tr><td class="thm mono">succ_add</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1779 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1639 ms</td>
 <td class="cell mono" style="color:#fbbf24" title="TIMEOUT">⏱ TIMEOUT</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1908 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1855 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 3022 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 3079 ms</td>
 </tr>
 <tr><td class="thm mono">add_comm</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1735 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1626 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1918 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1791 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 3077 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2835 ms</td>
 </tr>
 <tr><td class="thm mono">add_assoc</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1771 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1629 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1889 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1746 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 3086 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2987 ms</td>
 </tr>
 <tr><td class="thm mono">add_right_comm</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1790 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1664 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1863 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1775 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 3060 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2987 ms</td>
 </tr>
 <tr><td class="thm mono">add_right_cancel</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1736 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1641 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1892 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1106 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 3073 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1758 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1139 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2790 ms</td>
 </tr>
 <tr><td class="thm mono">add_left_cancel</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1728 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1618 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1911 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1103 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2923 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1771 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1135 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2862 ms</td>
 </tr>
 <tr><td class="thm mono">add_left_eq_self</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1776 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1625 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1894 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1160 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2861 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1745 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1136 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2848 ms</td>
 </tr>
 <tr><td class="thm mono">add_right_eq_self</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1781 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1685 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1919 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1741 ms</td>
 <td class="cell mono" style="color:#4ade80" title="OK">✓ 1143 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2776 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2935 ms</td>
 </tr>
 <tr><td class="thm mono">add_right_eq_zero</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1794 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1676 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1863 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1130 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2828 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1761 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1139 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2732 ms</td>
 </tr>
 <tr><td class="thm mono">add_left_eq_zero</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1797 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1685 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1976 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1094 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2766 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1762 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1146 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2878 ms</td>
 </tr>
 <tr><td class="thm mono">mul_le_mul_right</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1795 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1649 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1866 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1762 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#fbbf24" title="TIMEOUT">⏱ TIMEOUT</td>
 </tr>
 <tr><td class="thm mono">mul_left_ne_zero</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1799 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1625 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1885 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1115 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2929 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1812 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1158 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2824 ms</td>
 </tr>
 <tr><td class="thm mono">eq_succ_of_ne_zero</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1784 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1615 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1905 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1818 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2991 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2917 ms</td>
 </tr>
 <tr><td class="thm mono">one_le_of_ne_zero</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1742 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1561 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1901 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1784 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 </tr>
 <tr><td class="thm mono">le_mul_right</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1781 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1599 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1936 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1788 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 </tr>
 <tr><td class="thm mono">mul_right_eq_one</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1787 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1628 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1903 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1763 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 </tr>
 <tr><td class="thm mono">mul_ne_zero</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1730 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1567 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1883 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1755 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 3173 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 3124 ms</td>
 </tr>
 <tr><td class="thm mono">mul_eq_zero</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1786 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1629 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1944 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1765 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 3127 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 3040 ms</td>
 </tr>
 <tr><td class="thm mono">mul_left_cancel</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1737 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1576 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1908 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1760 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 3252 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 3310 ms</td>
 </tr>
 <tr><td class="thm mono">mul_right_eq_self</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1777 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1650 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1916 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1775 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 3113 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 3040 ms</td>
 </tr>
 <tr><td class="thm mono">add_left_comm</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1629 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#4ade80" title="OK">✓ 1792 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1904 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2907 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2902 ms</td>
 </tr>
 <tr><td class="thm mono">add_algo1</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1793 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1692 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1920 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1775 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 3443 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 3483 ms</td>
 </tr>
 <tr><td class="thm mono">add_algo2</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1815 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1684 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1965 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1810 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 9715 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 9880 ms</td>
 </tr>
 <tr><td class="thm mono">add_algo3</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1799 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1638 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1916 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1836 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 9728 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 9813 ms</td>
 </tr>
 <tr><td class="thm mono">pred05</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1733 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1871 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1102 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2873 ms</td>
-</tr>
-<tr><td class="thm mono">succ_ne_zero</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1730 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1863 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1093 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2798 ms</td>
-</tr>
-<tr><td class="thm mono">succ_ne_succ</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1735 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1851 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1093 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2817 ms</td>
-</tr>
-<tr><td class="thm mono">decide</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1730 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1870 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1101 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2890 ms</td>
-</tr>
-<tr><td class="thm mono">decide2</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1728 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1828 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1100 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2820 ms</td>
-</tr>
-<tr><td class="thm mono">exact</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1748 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1853 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1120 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2765 ms</td>
-</tr>
-<tr><td class="thm mono">exact2</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1734 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1839 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1111 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2837 ms</td>
-</tr>
-<tr><td class="thm mono">apply</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1726 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1835 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1118 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2766 ms</td>
-</tr>
-<tr><td class="thm mono">succ_inj</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1735 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1849 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1106 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2873 ms</td>
-</tr>
-<tr><td class="thm mono">succ_inj2</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1748 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1882 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1106 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2798 ms</td>
-</tr>
-<tr><td class="thm mono">intro</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1727 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1851 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1106 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2749 ms</td>
-</tr>
-<tr><td class="thm mono">intro2</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1727 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1592 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#4ade80" title="OK">✓ 1833 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1108 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2849 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1143 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 3535 ms</td>
+</tr>
+<tr><td class="thm mono">succ_ne_zero</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1583 ms</td>
+<td class="cell mono" style="color:#fbbf24" title="TIMEOUT">⏱ TIMEOUT</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1782 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1137 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2893 ms</td>
+</tr>
+<tr><td class="thm mono">succ_ne_succ</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1594 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1741 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1155 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2862 ms</td>
+</tr>
+<tr><td class="thm mono">decide</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1630 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1776 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1136 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2851 ms</td>
+</tr>
+<tr><td class="thm mono">decide2</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1631 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1753 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1136 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2752 ms</td>
+</tr>
+<tr><td class="thm mono">exact</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1597 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1782 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1160 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2742 ms</td>
+</tr>
+<tr><td class="thm mono">exact2</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1617 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1765 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1157 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2967 ms</td>
+</tr>
+<tr><td class="thm mono">apply</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1610 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1766 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1145 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2787 ms</td>
+</tr>
+<tr><td class="thm mono">succ_inj</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1623 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1776 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1147 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2694 ms</td>
+</tr>
+<tr><td class="thm mono">succ_inj2</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1601 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1754 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1144 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2843 ms</td>
+</tr>
+<tr><td class="thm mono">intro</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1584 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1747 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1139 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2651 ms</td>
+</tr>
+<tr><td class="thm mono">intro2</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1609 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1833 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1150 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2910 ms</td>
 </tr>
 <tr><td class="thm mono">NE</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1718 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1566 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1820 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1085 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2822 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1855 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1141 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2782 ms</td>
 </tr>
 <tr><td class="thm mono">zero_ne_one</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1730 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1560 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1923 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1092 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2780 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1790 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1145 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2761 ms</td>
 </tr>
 <tr><td class="thm mono">one_ne_zero</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1724 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1585 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1912 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1092 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2784 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1759 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1143 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2672 ms</td>
 </tr>
 <tr><td class="thm mono">two_add_two_ne_five</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1736 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1617 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1908 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1084 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2852 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1758 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1143 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2719 ms</td>
 </tr>
 <tr><td class="thm mono">le_refl</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1726 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1664 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1832 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1092 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2755 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1736 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1148 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2663 ms</td>
 </tr>
 <tr><td class="thm mono">zero_le</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1724 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1645 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1848 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1090 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2748 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1745 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1142 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2781 ms</td>
 </tr>
 <tr><td class="thm mono">le_succ_self</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1726 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1579 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1927 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1086 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2777 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1750 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1149 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2754 ms</td>
 </tr>
 <tr><td class="thm mono">le_trans</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1804 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1649 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1863 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1759 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 </tr>
 <tr><td class="thm mono">le_zero</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1752 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1590 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1858 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1088 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2764 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1751 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1164 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2701 ms</td>
 </tr>
 <tr><td class="thm mono">le_antisymm</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1797 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1594 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1834 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1773 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 </tr>
 <tr><td class="thm mono">or_symm</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1727 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1546 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1899 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1106 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2751 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1774 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1149 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2703 ms</td>
 </tr>
 <tr><td class="thm mono">le_total</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1800 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1622 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1854 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1807 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2772 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2812 ms</td>
 </tr>
 <tr><td class="thm mono">succ_le_succ</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1732 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1578 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1843 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1096 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2848 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1879 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1141 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2712 ms</td>
 </tr>
 <tr><td class="thm mono">le_one</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1785 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1636 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1849 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1863 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 3125 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 3010 ms</td>
 </tr>
 <tr><td class="thm mono">le_two</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1792 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1631 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1907 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1789 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 </tr>
 <tr><td class="thm mono">one_add_le_self</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1725 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1544 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1841 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1097 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2803 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1757 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1176 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2846 ms</td>
 </tr>
 <tr><td class="thm mono">refl</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1722 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1574 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1849 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1092 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2745 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1772 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1147 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2615 ms</td>
 </tr>
 <tr><td class="thm mono">le_implies_le_plus_one</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1782 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1672 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1884 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1798 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 </tr>
 <tr><td class="thm mono">mul_one</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1731 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1571 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1887 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1094 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2760 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1763 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1146 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2673 ms</td>
 </tr>
 <tr><td class="thm mono">zero_mul</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1732 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1575 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1876 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1091 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2869 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1781 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1131 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2687 ms</td>
 </tr>
 <tr><td class="thm mono">succ_mul</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1810 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1616 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1868 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1769 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 3155 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2820 ms</td>
 </tr>
 <tr><td class="thm mono">mul_comm</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1742 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1568 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1865 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1755 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2859 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2726 ms</td>
 </tr>
 <tr><td class="thm mono">one_mul</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1734 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1572 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1830 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1112 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 3041 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1767 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1131 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2875 ms</td>
 </tr>
 <tr><td class="thm mono">two_mul</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1787 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1643 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1809 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1763 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 </tr>
 <tr><td class="thm mono">mul_add</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1785 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1654 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1882 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1880 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2958 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2789 ms</td>
 </tr>
 <tr><td class="thm mono">add_mul</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1795 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1652 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1879 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1835 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2851 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2805 ms</td>
 </tr>
 <tr><td class="thm mono">mul_assoc</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1786 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1682 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1881 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1755 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2916 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2697 ms</td>
 </tr>
 <tr><td class="thm mono">product_not_zero_of_not_zero</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1748 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1566 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1851 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1781 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 3649 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 3454 ms</td>
 </tr>
 <tr><td class="thm mono">MyNat.eq_zero_or_eq_zero_of_mul_eq_zero</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1789 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1686 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1858 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1842 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 3100 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 3098 ms</td>
 </tr>
 <tr><td class="thm mono">product_zero_iff_zero</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1779 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1696 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1843 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1790 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 3404 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 3106 ms</td>
 </tr>
 <tr><td class="thm mono">MyNat.mul_left_cancel</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1740 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1616 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1853 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1759 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 3226 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 3134 ms</td>
 </tr>
 <tr><td class="thm mono">MyNat.mul_left_comm</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1785 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1630 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1850 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1731 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2982 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2744 ms</td>
 </tr>
 <tr><td class="thm mono">P_and_Q_implies_PANDQ</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1732 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1574 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1825 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1123 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2844 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1760 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1140 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2811 ms</td>
 </tr>
 <tr><td class="thm mono">and_symm</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1726 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1593 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1821 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1115 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2846 ms</td>
-</tr>
-<tr><td class="thm mono">and_trans</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1732 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1829 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1123 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2835 ms</td>
-</tr>
-<tr><td class="thm mono">iff_trans</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1787 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1879 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1115 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2928 ms</td>
-</tr>
-<tr><td class="thm mono">Q_implies_PORQ</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1734 ms</td>
-<td class="cell mono" style="color:#fbbf24" title="TIMEOUT">⏱ TIMEOUT</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1836 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1092 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2852 ms</td>
-</tr>
-<tr><td class="thm mono">or_trans</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1731 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1858 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1114 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2851 ms</td>
-</tr>
-<tr><td class="thm mono">and_or_distrib_left</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1783 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1812 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1102 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2826 ms</td>
-</tr>
-<tr><td class="thm mono">contra</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1723 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1858 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1104 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2798 ms</td>
-</tr>
-<tr><td class="thm mono">implies_trad</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1779 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1839 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1100 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2837 ms</td>
-</tr>
-<tr><td class="thm mono">level01</td>
 <td class="cell mono" style="color:#4ade80" title="OK">✓ 1750 ms</td>
-<td class="cell mono" style="color:#fbbf24" title="TIMEOUT">⏱ TIMEOUT</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1857 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1156 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2836 ms</td>
-</tr>
-<tr><td class="thm mono">level02</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1731 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1850 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1139 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2916 ms</td>
-</tr>
-<tr><td class="thm mono">level03</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1726 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1838 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1117 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2809 ms</td>
-</tr>
-<tr><td class="thm mono">level04</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1728 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1830 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1120 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2910 ms</td>
-</tr>
-<tr><td class="thm mono">level05</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1741 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1836 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1099 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2858 ms</td>
-</tr>
-<tr><td class="thm mono">level06</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1777 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1824 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1098 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2783 ms</td>
-</tr>
-<tr><td class="thm mono">level07</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1782 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1814 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1104 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2786 ms</td>
-</tr>
-<tr><td class="thm mono">level08</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1777 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1824 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1108 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2776 ms</td>
-</tr>
-<tr><td class="thm mono">level09</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1769 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1855 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1124 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2821 ms</td>
-</tr>
-<tr><td class="thm mono">zero_pow_zero</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1737 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1819 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1109 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2910 ms</td>
-</tr>
-<tr><td class="thm mono">zero_pow_any</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1779 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1834 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1114 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1137 ms</td>
 <td class="cell mono" style="color:#4ade80" title="OK">✓ 2740 ms</td>
 </tr>
-<tr><td class="thm mono">any_pow_one</td>
+<tr><td class="thm mono">and_trans</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1639 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1760 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1137 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2763 ms</td>
+</tr>
+<tr><td class="thm mono">iff_trans</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1651 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1747 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1142 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2840 ms</td>
+</tr>
+<tr><td class="thm mono">Q_implies_PORQ</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1613 ms</td>
+<td class="cell mono" style="color:#fbbf24" title="TIMEOUT">⏱ TIMEOUT</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1792 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1136 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2721 ms</td>
+</tr>
+<tr><td class="thm mono">or_trans</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1616 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1828 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1158 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2740 ms</td>
+</tr>
+<tr><td class="thm mono">and_or_distrib_left</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1631 ms</td>
+<td class="cell mono" style="color:#fbbf24" title="TIMEOUT">⏱ TIMEOUT</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1745 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1152 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2776 ms</td>
+</tr>
+<tr><td class="thm mono">contra</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1573 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1760 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1136 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2934 ms</td>
+</tr>
+<tr><td class="thm mono">implies_trad</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1659 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1739 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1159 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2697 ms</td>
+</tr>
+<tr><td class="thm mono">level01</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1590 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#4ade80" title="OK">✓ 1787 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1164 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2745 ms</td>
+</tr>
+<tr><td class="thm mono">level02</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1643 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1754 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1139 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2709 ms</td>
+</tr>
+<tr><td class="thm mono">level03</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1614 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1768 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1141 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2720 ms</td>
+</tr>
+<tr><td class="thm mono">level04</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1667 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1746 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1153 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2740 ms</td>
+</tr>
+<tr><td class="thm mono">level05</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1645 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1729 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1150 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2728 ms</td>
+</tr>
+<tr><td class="thm mono">level06</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1769 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1759 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1142 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2676 ms</td>
+</tr>
+<tr><td class="thm mono">level07</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1742 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1750 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1164 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2680 ms</td>
+</tr>
+<tr><td class="thm mono">level08</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1693 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1756 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1134 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2713 ms</td>
+</tr>
+<tr><td class="thm mono">level09</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1648 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1821 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1156 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2737 ms</td>
+</tr>
+<tr><td class="thm mono">zero_pow_zero</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1605 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1832 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1140 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2772 ms</td>
+</tr>
+<tr><td class="thm mono">zero_pow_any</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1695 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1792 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1138 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2709 ms</td>
+</tr>
+<tr><td class="thm mono">any_pow_one</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1690 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1092 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2750 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1144 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2696 ms</td>
 </tr>
 <tr><td class="thm mono">one_pow_any</td>
 <td class="cell mono" style="color:#fbbf24" title="TIMEOUT">⏱ TIMEOUT</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1092 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2713 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1138 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2679 ms</td>
 </tr>
 <tr><td class="thm mono">pow_two</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1797 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1680 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2737 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2717 ms</td>
 </tr>
 <tr><td class="thm mono">pow_add</td>
 <td class="cell mono" style="color:#fbbf24" title="TIMEOUT">⏱ TIMEOUT</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2876 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2799 ms</td>
 </tr>
 <tr><td class="thm mono">mul_pow</td>
 <td class="cell mono" style="color:#fbbf24" title="TIMEOUT">⏱ TIMEOUT</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2819 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2796 ms</td>
 </tr>
 <tr><td class="thm mono">pow_pow</td>
 <td class="cell mono" style="color:#fbbf24" title="TIMEOUT">⏱ TIMEOUT</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 3233 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 3182 ms</td>
 </tr>
 <tr><td class="thm mono">add_sq</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1810 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1856 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
@@ -1071,81 +1091,81 @@ tr:hover td{background:rgba(148,163,199,.05)}
 <td class="cell mono" style="color:#fbbf24" title="TIMEOUT">⏱ TIMEOUT</td>
 </tr>
 <tr><td class="thm mono">level01rfl</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1753 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1720 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1884 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1114 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2888 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1759 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1144 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2980 ms</td>
 </tr>
 <tr><td class="thm mono">level02rw</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1759 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1754 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1903 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1106 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2764 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1776 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1168 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2796 ms</td>
 </tr>
 <tr><td class="thm mono">level03_two_eq_succ_succ_zero</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1728 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1955 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1100 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2746 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1729 ms</td>
+<td class="cell mono" style="color:#fbbf24" title="TIMEOUT">⏱ TIMEOUT</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1772 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1140 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2750 ms</td>
 </tr>
 <tr><td class="thm mono">level04_rw_backwards</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1734 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1731 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1870 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1097 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2731 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1782 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1138 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2807 ms</td>
 </tr>
 <tr><td class="thm mono">level05_add_zero</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1738 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1763 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1882 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1107 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2820 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1794 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1139 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2941 ms</td>
 </tr>
 <tr><td class="thm mono">level06_add_zero2</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1729 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1731 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1889 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1091 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2855 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1774 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1176 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2874 ms</td>
 </tr>
 <tr><td class="thm mono">succ_eq_add_one</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1738 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1694 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1878 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1108 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2738 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1762 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1143 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2761 ms</td>
 </tr>
 <tr><td class="thm mono">level08_two_add_two</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1735 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1725 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1905 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1120 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2813 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1751 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1132 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2886 ms</td>
 </tr>
 <tr><td class="thm mono">l11_accrfl</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1805 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1792 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1893 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1762 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 9591 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 10064 ms</td>
 </tr>
 <tr><td class="thm mono">decide01</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1741 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1695 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1879 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1108 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2819 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1781 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1141 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2779 ms</td>
 </tr>
 <tr><td class="thm mono">decode02</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1747 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1754 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1897 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1123 ms</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2787 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1877 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1140 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2766 ms</td>
 </tr>
 </table></div>
 <h2>STG4 <span class="dim">· 52 theorems</span></h2>
@@ -1164,368 +1184,368 @@ tr:hover td{background:rgba(148,163,199,.05)}
 <th><div class="tac">hammer</div><div class="ver">v4.30.0 · 3ef50193c</div></th>
 </tr>
 <tr><td class="thm mono">compl_union</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2027 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2060 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2809 ms</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2738 ms</td>
 </tr>
 <tr><td class="thm mono">compl_inter</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2036 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2038 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2839 ms</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2847 ms</td>
 </tr>
 <tr><td class="thm mono">inter_distrib_left</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2028 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2040 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2871 ms</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2745 ms</td>
 </tr>
 <tr><td class="thm mono">union_distrib_left</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2030 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2022 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2829 ms</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2826 ms</td>
 </tr>
 <tr><td class="thm mono">union_sub_inter_sub</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2035 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2070 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 </tr>
 <tr><td class="thm mono">contra</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2033 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2056 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 </tr>
 <tr><td class="thm mono">mem_compl_iff</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1983 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2022 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2817 ms</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2770 ms</td>
 </tr>
 <tr><td class="thm mono">compl_subset_compl_of_subs</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2032 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2070 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2834 ms</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2813 ms</td>
 </tr>
 <tr><td class="thm mono">compl_compl2</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2021 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2030 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2923 ms</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2828 ms</td>
 </tr>
 <tr><td class="thm mono">comp_sub_iff</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2027 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1991 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2953 ms</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2923 ms</td>
 </tr>
 <tr><td class="thm mono">helloWorld</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2024 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1994 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2174 ms</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2978 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2018 ms</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 3015 ms</td>
 </tr>
 <tr><td class="thm mono">comp_union</td>
 <td class="cell mono" style="color:#fbbf24" title="TIMEOUT">⏱ TIMEOUT</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
 <td class="cell mono" style="color:#fbbf24" title="TIMEOUT">⏱ TIMEOUT</td>
 </tr>
 <tr><td class="thm mono">comp_inter</td>
 <td class="cell mono" style="color:#fbbf24" title="TIMEOUT">⏱ TIMEOUT</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
 <td class="cell mono" style="color:#fbbf24" title="TIMEOUT">⏱ TIMEOUT</td>
 </tr>
 <tr><td class="thm mono">common_elt</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2032 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2046 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 </tr>
 <tr><td class="thm mono">three_fam:</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unexpected token &#x27;∀&#x27;; expected &#x27;:=&#x27;, &#x27;where&#x27; or &#x27;|&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unexpected token &#x27;∀&#x27;; expected &#x27;:=&#x27;, &#x27;where&#x27; or &#x27;|&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unexpected token &#x27;∀&#x27;; expected &#x27;:=&#x27;, &#x27;where&#x27; or &#x27;|&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unexpected token &#x27;∀&#x27;; expected &#x27;:=&#x27;, &#x27;where&#x27; or &#x27;|&#x27; ">⊘ ENV</td>
 </tr>
 <tr><td class="thm mono">union_int_comp_union</td>
 <td class="cell mono" style="color:#4ade80" title="OK">✓ 2035 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 </tr>
 <tr><td class="thm mono">union_int_union:</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unexpected token &#x27;∀&#x27;; expected &#x27;:=&#x27;, &#x27;where&#x27; or &#x27;|&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unexpected token &#x27;∀&#x27;; expected &#x27;:=&#x27;, &#x27;where&#x27; or &#x27;|&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unexpected token &#x27;∀&#x27;; expected &#x27;:=&#x27;, &#x27;where&#x27; or &#x27;|&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unexpected token &#x27;∀&#x27;; expected &#x27;:=&#x27;, &#x27;where&#x27; or &#x27;|&#x27; ">⊘ ENV</td>
 </tr>
 <tr><td class="thm mono">union_int_comp_int</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2052 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2031 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 </tr>
 <tr><td class="thm mono">singleton</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 </tr>
 <tr><td class="thm mono">inter_sub</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2033 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1998 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 </tr>
 <tr><td class="thm mono">inter_sub_inter</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2025 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1997 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 </tr>
 <tr><td class="thm mono">inter_pair</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2029 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2017 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2890 ms</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2781 ms</td>
 </tr>
 <tr><td class="thm mono">inter_union</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2023 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2038 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 3009 ms</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2751 ms</td>
 </tr>
 <tr><td class="thm mono">sub_inter</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2034 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1997 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2993 ms</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2919 ms</td>
 </tr>
 <tr><td class="thm mono">eltwise_union</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2043 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2018 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 </tr>
 <tr><td class="thm mono">prove_exists</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2019 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1988 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 </tr>
 <tr><td class="thm mono">sub_union</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2060 ms</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2006 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 </tr>
 <tr><td class="thm mono">union_sub_union</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2059 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-</tr>
-<tr><td class="thm mono">union_pair</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2023 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2886 ms</td>
-</tr>
-<tr><td class="thm mono">union_union</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2020 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2926 ms</td>
-</tr>
-<tr><td class="thm mono">union_sub</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-</tr>
-<tr><td class="thm mono">eltwise_inter</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2085 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-</tr>
-<tr><td class="thm mono">and_thm</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1963 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2158 ms</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2959 ms</td>
-</tr>
-<tr><td class="thm mono">elt_inter_elt_right</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1961 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2802 ms</td>
-</tr>
-<tr><td class="thm mono">inter_sub_left</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1959 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2820 ms</td>
-</tr>
-<tr><td class="thm mono">prove_and</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1955 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2841 ms</td>
-</tr>
-<tr><td class="thm mono">sub_int</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-</tr>
-<tr><td class="thm mono">inter_subset_swap</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1963 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2884 ms</td>
-</tr>
-<tr><td class="thm mono">inter_comm</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1956 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2863 ms</td>
-</tr>
-<tr><td class="thm mono">inter_assoc</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2014 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2892 ms</td>
-</tr>
-<tr><td class="thm mono">subset_exact</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1962 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2077 ms</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2858 ms</td>
-</tr>
-<tr><td class="thm mono">sub_hyp</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2021 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-</tr>
-<tr><td class="thm mono">subset_have</td>
 <td class="cell mono" style="color:#4ade80" title="OK">✓ 2049 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 </tr>
-<tr><td class="thm mono">subset_imp</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2022 ms</td>
+<tr><td class="thm mono">union_pair</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2085 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2772 ms</td>
+</tr>
+<tr><td class="thm mono">union_union</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2048 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2798 ms</td>
+</tr>
+<tr><td class="thm mono">union_sub</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — statement failed to elaborate">⊘ ENV</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — statement failed to elaborate">⊘ ENV</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — statement failed to elaborate">⊘ ENV</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — statement failed to elaborate">⊘ ENV</td>
+</tr>
+<tr><td class="thm mono">eltwise_inter</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2019 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 </tr>
-<tr><td class="thm mono">Subset.refl</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1955 ms</td>
+<tr><td class="thm mono">and_thm</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1953 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2877 ms</td>
-</tr>
-<tr><td class="thm mono">Subset.trans</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2011 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-</tr>
-<tr><td class="thm mono">union_or</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1955 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2110 ms</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2877 ms</td>
-</tr>
-<tr><td class="thm mono">sub_union_2</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1949 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2856 ms</td>
-</tr>
-<tr><td class="thm mono">union_cases</td>
 <td class="cell mono" style="color:#4ade80" title="OK">✓ 2016 ms</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2833 ms</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 3009 ms</td>
 </tr>
-<tr><td class="thm mono">union_subset_swap</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1963 ms</td>
+<tr><td class="thm mono">elt_inter_elt_right</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1935 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2832 ms</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2925 ms</td>
 </tr>
-<tr><td class="thm mono">union_comm</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 1959 ms</td>
+<tr><td class="thm mono">inter_sub_left</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1918 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2911 ms</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2836 ms</td>
 </tr>
-<tr><td class="thm mono">union_assoc</td>
+<tr><td class="thm mono">prove_and</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1931 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2948 ms</td>
+</tr>
+<tr><td class="thm mono">sub_int</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — statement failed to elaborate">⊘ ENV</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — statement failed to elaborate">⊘ ENV</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — statement failed to elaborate">⊘ ENV</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — statement failed to elaborate">⊘ ENV</td>
+</tr>
+<tr><td class="thm mono">inter_subset_swap</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1954 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2802 ms</td>
+</tr>
+<tr><td class="thm mono">inter_comm</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1941 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2850 ms</td>
+</tr>
+<tr><td class="thm mono">inter_assoc</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2032 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2835 ms</td>
+</tr>
+<tr><td class="thm mono">subset_exact</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1961 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2008 ms</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2839 ms</td>
+</tr>
+<tr><td class="thm mono">sub_hyp</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2051 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+</tr>
+<tr><td class="thm mono">subset_have</td>
 <td class="cell mono" style="color:#4ade80" title="OK">✓ 2013 ms</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
 <td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
-<td class="cell mono" style="color:#60a5fa" title="ENV">⊘ ENV</td>
-<td class="cell mono" style="color:#4ade80" title="OK">✓ 2941 ms</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+</tr>
+<tr><td class="thm mono">subset_imp</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2041 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+</tr>
+<tr><td class="thm mono">Subset.refl</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1954 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2799 ms</td>
+</tr>
+<tr><td class="thm mono">Subset.trans</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1995 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+</tr>
+<tr><td class="thm mono">union_or</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1958 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1993 ms</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2785 ms</td>
+</tr>
+<tr><td class="thm mono">sub_union_2</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1976 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2905 ms</td>
+</tr>
+<tr><td class="thm mono">union_cases</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2039 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2815 ms</td>
+</tr>
+<tr><td class="thm mono">union_subset_swap</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1983 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2849 ms</td>
+</tr>
+<tr><td class="thm mono">union_comm</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 1979 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2967 ms</td>
+</tr>
+<tr><td class="thm mono">union_assoc</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2022 ms</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#f87171" title="FAIL">✗ FAIL</td>
+<td class="cell mono" style="color:#60a5fa" title="ENV — error: unknown module prefix &#x27;Mathlib&#x27; ">⊘ ENV</td>
+<td class="cell mono" style="color:#4ade80" title="OK">✓ 2837 ms</td>
 </tr>
 </table></div>
 <h2>Reading these results fairly</h2><ul class="caveats">
