@@ -56,8 +56,9 @@ def blasterTacticImp : Tactic := fun stx =>
    -- performance report: total wall-clock of the whole call
    if sOpts.verbose ≥ 1 then
      logInfoAt stx s!"⏱ blaster total: {(← IO.monoMsNow) - t0}ms"
-   -- pin-the-winner suggestion after a decisive `any` race
-   if sOpts.solver == .any then
+   -- pin-the-winner suggestion after a decisive `any` race or an
+   -- `all` run (fastest solver agreeing with the adopted answer)
+   if sOpts.solver == .any || sOpts.solver == .all then
      if let some w := fenv.smtEnv.anyWinner then
        Blaster.Smt.suggestPinnedSolver stx w
    match result with

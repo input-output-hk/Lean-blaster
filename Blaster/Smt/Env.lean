@@ -681,9 +681,22 @@ partial def getSatResults : TranslateEnvT Result := do
      let timed ← collect (Array.replicate procs.size none)
      let answers := timed.map (·.1)
      let perf := (procs.zip timed).map (fun pt => (pt.1.1, satAnswerStr pt.2.1, pt.2.2))
-     modify (fun env => { env with smtEnv.solverPerf := perf })
      let verdicts := String.intercalate ", " (List.ofFn (n := timed.size)
        fun i => s!"{solverNameAt procs i} → {satAnswerStr timed[i].1} ({timed[i].2}ms)")
+     -- the pinnable winner is the fastest solver whose answer is the
+     -- definitive answer the run adopts (used by the Try-this suggestion)
+     let adopted := if answers.contains .sat then some SatAnswer.sat
+                    else if answers.contains .unsat then some SatAnswer.unsat
+                    else none
+     let winner := adopted.bind fun a =>
+       ((procs.zip timed).filter (fun pt => pt.2.1 == a)).foldl
+         (fun best pt => match best with
+           | none => some (pt.1.1, pt.2.2)
+           | some (_, bms) => if pt.2.2 < bms then some (pt.1.1, pt.2.2) else best)
+         none
+     modify (fun env => { env with
+       smtEnv.solverPerf := perf,
+       smtEnv.anyWinner := winner.map (·.1) })
      logInfoAt (← getRef) s!"⏱ (solver: all) {verdicts}"
      if answers.contains .sat && answers.contains .unsat then
        throwEnvError s!"Solver disagreement (soundness alarm): {verdicts}"

@@ -103,7 +103,9 @@ def suggestPinnedSolver (invocationStx : Syntax) (winner : SmtSolver) : TermElab
     match src.trim.splitOn "solver:" with
     | p0 :: rest@(_ :: _) =>
         let after := String.intercalate "solver:" rest
-        (replaceFirst after "any" winner.identName).map (p0 ++ "solver:" ++ ·)
+        ((replaceFirst after "any" winner.identName).orElse
+          (fun _ => replaceFirst after "all" winner.identName)).map
+          (p0 ++ "solver:" ++ ·)
     | _ => none) | return ()
   Lean.Meta.Tactic.TryThis.addSuggestion invocationStx { suggestion := newText }
 
@@ -118,8 +120,9 @@ def command (sOpts: BlasterOptions) (cmdStx : Syntax) (stx : Syntax) : TermElabM
        -- (optimization + translation + solving)
        if sOpts.verbose ≥ 1 then
          logInfoAt stx s!"⏱ blaster total: {totalMs}ms"
-       -- pin-the-winner suggestion after a decisive `any` race
-       if sOpts.solver == .any then
+       -- pin-the-winner suggestion after a decisive `any` race or an
+       -- `all` run (fastest solver agreeing with the adopted answer)
+       if sOpts.solver == .any || sOpts.solver == .all then
          if let some w := fenv.smtEnv.anyWinner then
            suggestPinnedSolver cmdStx w
 
