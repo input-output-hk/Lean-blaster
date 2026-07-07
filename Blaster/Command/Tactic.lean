@@ -48,10 +48,18 @@ def blasterTacticImp : Tactic := fun stx =>
    let sOpts ← parseSolveOptions opts default
    let goal ← revertHypotheses (← getMainGoal)
    let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
-   let ((result, optExpr), _) ←
+   let t0 ← IO.monoMsNow
+   let ((result, optExpr), fenv) ←
      withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0 }) $ do
        IO.setNumHeartbeats 0
        Translate.main (← goal.getType) (logUndetermined := false) |>.run env
+   -- performance report: total wall-clock of the whole call
+   if sOpts.verbose ≥ 1 then
+     logInfoAt stx s!"⏱ blaster total: {(← IO.monoMsNow) - t0}ms"
+   -- pin-the-winner suggestion after a decisive `any` race
+   if sOpts.solver == .any then
+     if let some w := fenv.smtEnv.anyWinner then
+       Blaster.Smt.suggestPinnedSolver stx w
    match result with
    | .Valid =>
       blasterAdmit goal

@@ -98,7 +98,7 @@ partial def bmcStrategy (smInst : Expr) : TranslateEnvT Unit := do
 
 syntax (name := bmc) "#bmc" (solveOption)* solveTerm : command
 
-def bmcCommand (sOpts: BlasterOptions) (stx : Syntax) : TermElabM Unit :=
+def bmcCommand (sOpts: BlasterOptions) (_cmdStx : Syntax) (stx : Syntax) : TermElabM Unit :=
    elabTermAndSynthesize stx none >>= fun e => do
      let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
      discard $ bmcStrategy e|>.run env

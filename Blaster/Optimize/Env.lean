@@ -361,6 +361,13 @@ structure SmtEnv where
       pin it to the answering process. -/
   currentProcIdx : Nat
 
+  /-- Per-solver verdict and wall-clock answer time (ms) of the most recent
+      check-sat, recorded by `all`/`any` runs for the performance report. -/
+  solverPerf : Array (Blaster.Options.SmtSolver × String × Nat)
+
+  /-- Solver whose answer was adopted by the last `(solver: any)` race. -/
+  anyWinner : Option Blaster.Options.SmtSolver
+
   /-- Cache keeping track of visited inductive datatype during translation. -/
   indTypeVisited : Std.HashSet Lean.Name
 
@@ -460,6 +467,8 @@ instance : Inhabited SmtEnv where
      smtCommands := Array.mkEmpty 1023,
      smtProcs := #[],
      currentProcIdx := 0,
+     solverPerf := #[],
+     anyWinner := none,
      indTypeVisited := Std.HashSet.emptyWithCapacity,
      indTypeInstCache := Std.HashMap.emptyWithCapacity,
      funInstCache := Std.HashMap.emptyWithCapacity,

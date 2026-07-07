@@ -87,11 +87,41 @@ def Translate.main (e : Expr) (logUndetermined := true) : TranslateEnvT (Result 
       | a :: tl =>
          addAxioms (mkForall (← Term.mkFreshBinderName) BinderInfo.default a e) tl
 
-def command (sOpts: BlasterOptions) (stx : Syntax) : TermElabM Unit := do
+/-- Replace the first occurrence of `pat` in `s` with `repl`. -/
+private def replaceFirst (s pat repl : String) : Option String :=
+  match s.splitOn pat with
+  | [] | [_] => none
+  | p0 :: rest => some (p0 ++ repl ++ String.intercalate pat rest)
+
+/-- After a decisive `(solver: any)` race, offer a code-action suggestion
+    replacing `any` with the winning solver, so the same result can be
+    reproduced deterministically with the fastest backend. -/
+def suggestPinnedSolver (invocationStx : Syntax) (winner : SmtSolver) : TermElabM Unit := do
+  -- drop trailing trivia (whitespace/comments following the invocation)
+  let some src := invocationStx.unsetTrailing.reprint | return ()
+  let some newText := (
+    match src.trim.splitOn "solver:" with
+    | p0 :: rest@(_ :: _) =>
+        let after := String.intercalate "solver:" rest
+        (replaceFirst after "any" winner.identName).map (p0 ++ "solver:" ++ ·)
+    | _ => none) | return ()
+  Lean.Meta.Tactic.TryThis.addSuggestion invocationStx { suggestion := newText }
+
+def command (sOpts: BlasterOptions) (cmdStx : Syntax) (stx : Syntax) : TermElabM Unit := do
    withRef stx do
      instantiateMVars (← withSynthesize (postpone := .partial) <| elabTerm stx none) >>= fun e => do
        let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
-       discard $ Translate.main e|>.run env
+       let t0 ← IO.monoMsNow
+       let (_, fenv) ← Translate.main e|>.run env
+       let totalMs := (← IO.monoMsNow) - t0
+       -- performance report: total wall-clock of the whole call
+       -- (optimization + translation + solving)
+       if sOpts.verbose ≥ 1 then
+         logInfoAt stx s!"⏱ blaster total: {totalMs}ms"
+       -- pin-the-winner suggestion after a decisive `any` race
+       if sOpts.solver == .any then
+         if let some w := fenv.smtEnv.anyWinner then
+           suggestPinnedSolver cmdStx w
 
 initialize
    registerTraceClass `Translate.expr

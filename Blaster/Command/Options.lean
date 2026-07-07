@@ -31,6 +31,11 @@ deriving Repr, DecidableEq
 instance : Inhabited SmtSolver where
   default := .z3
 
+/-- The identifier accepted by the `(solver: ...)` option for this solver. -/
+def SmtSolver.identName : SmtSolver → String
+  | .z3 => "z3"
+  | .cvc5 => "cvc5"
+
 /-- Backend solver selection:
      - `one s`: run solver `s` only.
      - `all`: run every supported solver on the same query and cross-check

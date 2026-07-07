@@ -155,7 +155,7 @@ partial def kIndStrategy (smInst : Expr) : TranslateEnvT Unit := do
 
 syntax (name := kind) "#kind" (solveOption)* solveTerm : command
 
-def kIndCommand (sOpts: BlasterOptions) (stx : Syntax) : TermElabM Unit :=
+def kIndCommand (sOpts: BlasterOptions) (_cmdStx : Syntax) (stx : Syntax) : TermElabM Unit :=
   elabTermAndSynthesize stx none >>= fun e => do
     let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
     discard $ kIndStrategy e|>.run env

@@ -148,7 +148,7 @@ def parseTerm : TSyntax `Blaster.solveTerm -> m Syntax
   | _ => throwUnsupportedSyntax
 
 
-def commandInvoker (f : BlasterOptions → Syntax → TermElabM Unit) : CommandElab := fun stx => do
+def commandInvoker (f : BlasterOptions → Syntax → Syntax → TermElabM Unit) : CommandElab := fun stx => do
   let some cancelTk := (← read).cancelTk? | unreachable!
   let opts := stx[1].getArgs
   let sOpts ← parseSolveOptions opts default  -- Process all options dynamically
@@ -166,7 +166,7 @@ def commandInvoker (f : BlasterOptions → Syntax → TermElabM Unit) : CommandE
     -- However, since we rely on functions like isProp, inferType and withLocalDecl, setting maxHearbeats
     -- to zero will still be required. Unless, we have a new implementation for these functions.
       withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0, maxRecDepth := 0 }) $
-        withRef stx[2] $ f sOpts tr
+        withRef stx[2] $ f sOpts stx tr
   let task ← BaseIO.asTask (prio := Task.Priority.dedicated) (act ())
   logSnapshotTask { stx? := some stx[2], task, cancelTk? := cancelTk }
 

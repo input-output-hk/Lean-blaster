@@ -600,14 +600,15 @@ partial def getSatResults : TranslateEnvT Result := do
   let procs := env.smtEnv.smtProcs
   let choice := env.optEnv.options.solverOptions.solver
   let tasks ← procs.mapM (fun p => IO.asTask p.2.stdout.getLine)
+  let t0 ← IO.monoMsNow
   match choice, procs.size with
   | _, 0 => return .Undetermined
   | .any, n =>
-      if n == 1 then waitSingle tasks[0]! else waitAny procs tasks
+      if n == 1 then waitSingle tasks[0]! else waitAny procs tasks t0
   | _, _ =>
       -- `.one` has a single process; `.all` joins all answers
       if procs.size == 1 then waitSingle tasks[0]!
-      else waitAll procs tasks
+      else waitAll procs tasks t0
 
  where
    solverNameAt (procs : Array (SmtSolver × IO.Process.Child ⟨.piped, .piped, .piped⟩)) (i : Nat) : String :=
@@ -626,48 +627,64 @@ partial def getSatResults : TranslateEnvT Result := do
        waitSingle t
 
    /-- `any` mode: poll until a process gives a definitive answer; kill the
-       others and narrow `smtProcs` to the winner. -/
+       others, narrow `smtProcs` to the winner and announce it (with its
+       wall-clock answer time, for benchmarking). -/
    waitAny (procs : Array (SmtSolver × IO.Process.Child ⟨.piped, .piped, .piped⟩))
-       (tasks : Array (Task (Except IO.Error String))) : TranslateEnvT Result := do
-     let rec loop (answers : Array (Option SatAnswer)) : TranslateEnvT Result := do
+       (tasks : Array (Task (Except IO.Error String))) (t0 : Nat) : TranslateEnvT Result := do
+     let rec loop (answers : Array (Option (SatAnswer × Nat))) : TranslateEnvT Result := do
        checkCancelTk?
        let mut answers := answers
        for h : i in [0:procs.size] do
          if answers[i]!.isNone then
            if ← IO.hasFinished tasks[i]! then
              let a ← parseSatAnswer (solverNameAt procs i) (← IO.ofExcept (tasks[i]!).get)
+             let ms := (← IO.monoMsNow) - t0
              if a != .unknown then
                -- winner: kill and drop every other process
                for h' : j in [0:procs.size] do
                  if j != i then
                    procs[j].2.kill
                    discard $ procs[j].2.wait
-               modify (fun env => { env with smtEnv.smtProcs := #[procs[i]] })
+               modify (fun env => { env with
+                 smtEnv.smtProcs := #[procs[i]],
+                 smtEnv.solverPerf := #[(procs[i].1, satAnswerStr a, ms)],
+                 smtEnv.anyWinner := some procs[i].1 })
+               logInfoAt (← getRef) s!"🏁 (solver: any) {solverNameAt procs i} → {satAnswerStr a} ({ms}ms)"
                return (← satAnswerToResult 0 a)
-             answers := answers.set! i (some a)
-       if answers.all (· == some .unknown) then
+             answers := answers.set! i (some (a, ms))
+       if answers.all (·.isSome) then
+         -- every solver gave up: report their times, keep all processes
+         let perf := (procs.zip answers).map (fun pa => (pa.1.1, "unknown", (pa.2.map (·.2)).getD 0))
+         modify (fun env => { env with smtEnv.solverPerf := perf, smtEnv.anyWinner := none })
+         logInfoAt (← getRef) s!"🏁 (solver: any) no definitive answer: {perfReport procs answers}"
          return .Undetermined
        IO.sleep 20
        loop answers
      loop (Array.replicate procs.size none)
 
-   /-- `all` mode: wait for every answer and cross-check. -/
+   /-- `all` mode: wait for every answer (recording each solver's wall-clock
+       answer time) and cross-check. -/
    waitAll (procs : Array (SmtSolver × IO.Process.Child ⟨.piped, .piped, .piped⟩))
-       (tasks : Array (Task (Except IO.Error String))) : TranslateEnvT Result := do
-     let rec collect (answers : Array (Option SatAnswer)) : TranslateEnvT (Array SatAnswer) := do
+       (tasks : Array (Task (Except IO.Error String))) (t0 : Nat) : TranslateEnvT Result := do
+     let rec collect (answers : Array (Option (SatAnswer × Nat))) : TranslateEnvT (Array (SatAnswer × Nat)) := do
        checkCancelTk?
        let mut answers := answers
        for h : i in [0:procs.size] do
          if answers[i]!.isNone then
            if ← IO.hasFinished tasks[i]! then
-             answers := answers.set! i (some (← parseSatAnswer (solverNameAt procs i) (← IO.ofExcept (tasks[i]!).get)))
+             let a ← parseSatAnswer (solverNameAt procs i) (← IO.ofExcept (tasks[i]!).get)
+             answers := answers.set! i (some (a, (← IO.monoMsNow) - t0))
        if answers.all (·.isSome) then
          return answers.map (·.get!)
        IO.sleep 20
        collect answers
-     let answers ← collect (Array.replicate procs.size none)
-     let verdicts := String.intercalate ", " (List.ofFn (n := answers.size)
-       fun i => s!"{solverNameAt procs i} → {satAnswerStr answers[i]!}")
+     let timed ← collect (Array.replicate procs.size none)
+     let answers := timed.map (·.1)
+     let perf := (procs.zip timed).map (fun pt => (pt.1.1, satAnswerStr pt.2.1, pt.2.2))
+     modify (fun env => { env with smtEnv.solverPerf := perf })
+     let verdicts := String.intercalate ", " (List.ofFn (n := timed.size)
+       fun i => s!"{solverNameAt procs i} → {satAnswerStr timed[i].1} ({timed[i].2}ms)")
+     logInfoAt (← getRef) s!"⏱ (solver: all) {verdicts}"
      if answers.contains .sat && answers.contains .unsat then
        throwEnvError s!"Solver disagreement (soundness alarm): {verdicts}"
      if answers.contains .unknown && answers.any (· != .unknown) then
@@ -683,6 +700,13 @@ partial def getSatResults : TranslateEnvT Result := do
      | .sat => "sat"
      | .unsat => "unsat"
      | .unknown => "unknown"
+
+   perfReport (procs : Array (SmtSolver × IO.Process.Child ⟨.piped, .piped, .piped⟩))
+       (answers : Array (Option (SatAnswer × Nat))) : String :=
+     String.intercalate ", " (List.ofFn (n := answers.size) fun i =>
+       match answers[i] with
+       | some (a, ms) => s!"{solverNameAt procs i.val} → {satAnswerStr a} ({ms}ms)"
+       | none => s!"{solverNameAt procs i.val} → ?")
 
 /-- Check satisfiability of current Smt query and return the result.
     An error is triggered when an unexpected check-sat result is obtained.
