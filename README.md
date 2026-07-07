@@ -2,6 +2,7 @@
 
 [![Lean Version](https://img.shields.io/badge/Lean-v4.24.0-blue.svg)](https://github.com/leanprover/lean4)
 [![Z3 Version](https://img.shields.io/badge/Z3-v4.15.2-green.svg)](https://github.com/Z3Prover/z3)
+[![cvc5 Version](https://img.shields.io/badge/cvc5-v1.3.4-green.svg)](https://github.com/cvc5/cvc5)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
@@ -49,6 +50,7 @@ Blaster is built with the philosophy that fewer dependencies mean better maintai
 
 - **Lean4** v4.24.0 (or compatible version)
 - **Z3** v4.15.2 (or compatible version)
+- **cvc5** v1.3.4 (optional — only needed when using `(solver: cvc5)`, `(solver: all)` or `(solver: any)`)
 
 ### Installing Lean4
 
@@ -70,6 +72,26 @@ The section on [Installing the Z3 Solver](#installing-the-z3-solver)
 below explains how to get the right version of Z3 installed and check that
 Lean is using that version.  If you need more help, please see the official
 installation guidelines from the [Z3 GitHub repository](https://github.com/Z3Prover/z3).
+
+### Installing cvc5 (optional)
+
+Blaster can also use **cvc5** as backend solver, selected per invocation with
+`(solver: cvc5)`, or combined with Z3 via `(solver: all)` / `(solver: any)`.
+
+**Currently tested version:** cvc5 v1.3.4
+
+Install a release binary from the
+[cvc5 GitHub repository](https://github.com/cvc5/cvc5/releases) (or
+`brew install cvc5`), make sure `cvc5` is on your `PATH`, and verify the
+installation with:
+
+```bash
+lake exe cvc5check
+```
+
+> **Note:** cvc5 v1.3+ is required: Blaster spawns it with
+> `--parsing-mode=lenient` (for `@`-prefixed symbols) and `--dt-nested-rec`
+> (for nested recursive datatypes).
 
 ## How to use?
 
@@ -101,6 +123,10 @@ require «Blaster» from git
   - `gen-cex`: generate counterexample for falsified theorems (default: 1)
   - `solve-result`: specify the expected result from the #blaster command, i.e.,
                     0 for 'Valid', 1 for 'Falsified' and 2 for 'Undetermined'. (default: 0)
+  - `solver`: select the backend SMT solver: `z3`, `cvc5`, `all` (run every solver and
+              cross-check the answers — a `sat`/`unsat` disagreement is a soundness error,
+              a definitive answer next to `unknown` raises a warning) or `any`
+              (run every solver in parallel, first definitive answer wins). (default: z3)
 
 ### Call to the solver
 
