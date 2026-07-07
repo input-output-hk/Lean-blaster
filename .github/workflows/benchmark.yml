@@ -93,6 +93,7 @@ jobs:
           mkdir -p out/${{ matrix.tool }}
           cp latest/results/${{ matrix.tool }}/*_results.csv out/${{ matrix.tool }}/ 2>/dev/null || \
             echo "no CSVs for ${{ matrix.tool }} (build may have failed)"
+          cp latest/results/${{ matrix.tool }}/env_errors.tsv out/${{ matrix.tool }}/ 2>/dev/null || true
           cp latest/results/manifest.tsv out/manifest-${{ matrix.tool }}.tsv
 
       - name: Upload results
