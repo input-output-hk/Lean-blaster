@@ -81,11 +81,13 @@ jobs:
           echo "commit=$commit" >> "$GITHUB_OUTPUT"
           echo "Resolved ${{ matrix.tool }} -> $commit"
 
-      - name: Restore result cache
+      - name: Restore result cache (per-suite; rolling key so adding a suite reuses the rest)
         uses: actions/cache@v4
         with:
           path: benchmarking/latest/results_cache
-          key: bench-${{ matrix.tool }}-${{ steps.resolve.outputs.commit }}-${{ hashFiles('benchmarking/BlasterBenchmarks/**/*.lean') }}
+          key: bench-v4-${{ matrix.tool }}-${{ steps.resolve.outputs.commit }}-${{ github.run_id }}
+          restore-keys: |
+            bench-v4-${{ matrix.tool }}-${{ steps.resolve.outputs.commit }}-
 
       - name: Tool versions
         run: elan --version; z3 --version || true
