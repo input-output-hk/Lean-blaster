@@ -1,5 +1,6 @@
 
 import Tests.Smt.Benchmarks
+import Tests.Smt.FFI.FFICore
 import Tests.Smt.FFI.FFISmoke
 import Tests.Smt.SmtEqArith
 import Tests.Smt.SmtLtArith
