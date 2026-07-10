@@ -45,6 +45,15 @@ deriving Inhabited
 
 abbrev StateMachineEnvT := StateRefT StateMachineEnv TranslateEnvT
 
+/-- A completed step of the unrolling: the `state` at some depth and the `input` that drives the
+    transition out of it into the next depth's state (pseudocode `stᵢ₊₁ = next inᵢ stᵢ`).
+    Threaded through the `#kind` / `#bmc` recursion so each state is built from the previous input,
+    keeping it independent of the current input at that step. -/
+structure PrevStep where
+  state : Expr
+  input : Expr
+deriving Inhabited
+
 
 /-- Return `StateMachine` const expression and cache result. -/
 def mkStateMachineConst : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.StateMachine.StateMachine [levelZero])

@@ -24,40 +24,41 @@ namespace Blaster.StateMachine
     Trigger an error when `smInst` is not an instance of `StateMachine`.
 -/
 partial def bmcStrategy (smInst : Expr) : TranslateEnvT Unit := do
-  let rec visit (prevState : Option Expr) : StateMachineEnvT Unit := do
+  let rec visit (prev : Option PrevStep) : StateMachineEnvT Unit := do
     if (← maxDepthReached) then
       logNoCexAtDepth
     else
       let env ← get
       withLocalDecl' (← nameAtDepth env.smName "input") BinderInfo.default env.inputType fun i => do
         logDepthProgress "BMC"
-        let nextState ← optimizeState i prevState
+        let curState ← optimizeState i prev
         -- assert assumptions and check contradiction at step k
-        if (← assertAssumptions smInst i nextState) then
+        if (← assertAssumptions smInst i curState) then
           pure () -- contradictory context
         else
-          let res ← analysisAtDepth i nextState
+          let res ← analysisAtDepth i curState
           match res with
           | .Falsified _ => logCexAtDepth res
           | .Undetermined => logUndeterminedAtDepth
           | _ =>
               incDepth
-              visit (some nextState)
+              visit (some { state := curState, input := i })
   let smEnv ← getSMTypes smInst
   -- set backend solver
   setBlasterProcess
   discard $ visit none |>.run smEnv
 
   where
-    optimizeState (iVar : Expr) (pState : Option Expr) : StateMachineEnvT Expr := do
+    optimizeState (iVar : Expr) (prev : Option PrevStep) : StateMachineEnvT Expr := do
      let env ← get
      profileTask s!"Optimizing state at Depth {← getCurrentDepth}"
       (do
-        match pState with
+        match prev with
         | none => -- depth 0
             Optimize.main (mkApp4 (← mkInit) env.inputType env.stateType smInst iVar)
-        | some state =>
-            Optimize.optimizeExpr' (mkApp5 (← mkNext) env.inputType env.stateType smInst iVar state)
+        | some prevStep =>
+            -- built from the previous input (see PrevStep)
+            Optimize.optimizeExpr' (mkApp5 (← mkNext) env.inputType env.stateType smInst prevStep.input prevStep.state)
       ) (verboseLevel := 2)
 
     analysisAtDepth (iVar : Expr) (state : Expr) : StateMachineEnvT Result := do

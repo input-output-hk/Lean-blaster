@@ -31,19 +31,19 @@ namespace Blaster.StateMachine
     Trigger an error when `smInst` is not an instance of `StateMachine`.
 -/
 partial def kIndStrategy (smInst : Expr) : TranslateEnvT Unit := do
-  let rec visit (prevState : Option Expr) : StateMachineEnvT Unit := do
+  let rec visit (prev : Option PrevStep) : StateMachineEnvT Unit := do
     if (← maxDepthReached) then
       logNotInductiveAtDepth
     else
       let env ← get
       withLocalDecl' (← nameAtDepth env.smName "input") BinderInfo.default env.inputType fun i => do
         logDepthProgress "KInd"
-        withDeclState i prevState fun nextState => do
+        withDeclState i prev fun curState => do
           -- assert assumptions and check contradiction at step k
-          if (← assertAssumptions smInst i nextState) then
+          if (← assertAssumptions smInst i curState) then
             pure () -- contradictory context
           else
-            let invExpr ← invariantAtDepth i nextState
+            let invExpr ← invariantAtDepth i curState
             match (toResult invExpr) with
             | .Undetermined =>
                  let res ← analysisAtDepth invExpr
@@ -53,7 +53,7 @@ partial def kIndStrategy (smInst : Expr) : TranslateEnvT Unit := do
                  | some .Undetermined => logUndeterminedAtDepth
                  | _ =>
                      incDepth
-                     visit (some nextState)
+                     visit (some { state := curState, input := i })
             | res =>
                 if isFalsifiedResult res then
                   logCexAtDepth res
@@ -67,10 +67,10 @@ partial def kIndStrategy (smInst : Expr) : TranslateEnvT Unit := do
   where
 
     withDeclState
-      (iVar : Expr) (pState : Option Expr)
+      (iVar : Expr) (prev : Option PrevStep)
       (f : Expr → StateMachineEnvT Unit) : StateMachineEnvT Unit := do
       let env ← get
-      match pState with
+      match prev with
       | none => -- depth 0
            withLocalDecl' (← nameAtDepth env.smName "state") BinderInfo.default env.stateType fun s => do
              let initState := mkApp4 (← mkInit) env.inputType env.stateType smInst iVar
@@ -91,10 +91,11 @@ partial def kIndStrategy (smInst : Expr) : TranslateEnvT Unit := do
              -- store init flag
              modify (fun env => { env with initFlag := some iflag })
              f s
-      | some state =>
+      | some prevStep =>
+          -- built from the previous input (see PrevStep)
           let state' ←
             profileTask s!"Optimizing state at Depth {← getCurrentDepth}"
-              (Optimize.optimizeExpr' (mkApp5 (← mkNext) env.inputType env.stateType smInst iVar state))
+              (Optimize.optimizeExpr' (mkApp5 (← mkNext) env.inputType env.stateType smInst prevStep.input prevStep.state))
               (verboseLevel := 2)
           f state'
 
