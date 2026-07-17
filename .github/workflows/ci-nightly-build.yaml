@@ -6,11 +6,18 @@ on:
     - cron: '0 2 * * *'
   workflow_dispatch: # Allow manual triggering
 
+permissions:
+  contents: read
+  issues: write
+
+env:
+  Z3_VERSION: "4.15.2"
+  GLIBC_Z3: "2.39"
+
 jobs:
   test-nightly-lean:
     runs-on: ubuntu-latest
-    continue-on-error: true # Don't fail the workflow if build fails
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
