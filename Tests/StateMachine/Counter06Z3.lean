@@ -9,12 +9,7 @@ info: Counterexample to Induction:
 ---
 info:  - «Test.Counter06.counterStateMachine.input@0»: Test.Counter06.Request.Tr
 ---
-info:  - «Test.Counter06.counterStateMachine.state@0»: (Test.Counter06.CounterState.mk
-  Test.Counter06.State.Delay
-  2
-  Test.Counter06.State.Busy
-  Test.Counter06.Request.Tr
-  3)
+info:  - «Test.Counter06.counterStateMachine.state@0»: Test.Counter06.CounterState.mk Test.Counter06.State.Delay 2 Test.Counter06.State.Busy Test.Counter06.Request.Tr 3
 ---
 info: ⚠️ Induction failed at Depth 2
 ---
@@ -22,12 +17,7 @@ info: Counterexample to Induction:
 ---
 info:  - «Test.Counter06.counterStateMachine.input@0»: Test.Counter06.Request.Tr
 ---
-info:  - «Test.Counter06.counterStateMachine.state@0»: (Test.Counter06.CounterState.mk
-  Test.Counter06.State.Ready
-  2
-  Test.Counter06.State.Busy
-  Test.Counter06.Request.Tr
-  3)
+info:  - «Test.Counter06.counterStateMachine.state@0»: Test.Counter06.CounterState.mk Test.Counter06.State.Ready 2 Test.Counter06.State.Busy Test.Counter06.Request.Tr 3
 ---
 info:  - «Test.Counter06.counterStateMachine.input@1»: Test.Counter06.Request.Tr
 ---
@@ -39,12 +29,7 @@ info: Counterexample to Induction:
 ---
 info:  - «Test.Counter06.counterStateMachine.input@0»: Test.Counter06.Request.Tr
 ---
-info:  - «Test.Counter06.counterStateMachine.state@0»: (Test.Counter06.CounterState.mk
-  Test.Counter06.State.Ready
-  2
-  Test.Counter06.State.Busy
-  Test.Counter06.Request.Tr
-  3)
+info:  - «Test.Counter06.counterStateMachine.state@0»: Test.Counter06.CounterState.mk Test.Counter06.State.Ready 2 Test.Counter06.State.Busy Test.Counter06.Request.Tr 3
 ---
 info:  - «Test.Counter06.counterStateMachine.input@1»: Test.Counter06.Request.Fa
 ---
