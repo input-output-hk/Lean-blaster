@@ -46,7 +46,9 @@ structure BlasterOptions where
       unfolding a recursive function. It is set to 100 by default. -/
   unfoldDepth : Nat := 100
 
-  /-- The solving timeout in seconds. It is set to 'none' by default (i.e., unlimited). -/
+  /-- The solving timeout in seconds. An explicit value wins; otherwise,
+      `BLASTER_TIMEOUT` is trimmed. An unset or blank value means unlimited,
+      while any nonblank value must be a natural number of seconds or resolution fails. -/
   timeout : Option Nat := none
 
   /-- The verbosity level. It is set to zero by default (i.e., no verbosity).

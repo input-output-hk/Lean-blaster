@@ -14,7 +14,9 @@ namespace Blaster.Tactic
 backend SMT solver (Z3 by default, or cvc5).
 
 Options:
-  - `timeout`: specifying the timeout (in second) to be used for the backend smt solver (defaut: ∞)
+  - `timeout`: timeout in seconds for the backend SMT solver. An explicit option wins;
+               otherwise, trimmed `BLASTER_TIMEOUT` is used. Unset or blank means unlimited;
+               a nonblank value must be a natural number of seconds or resolution fails.
   - `verbose:` activating debug info (default: 0)
   - `only-smt-lib`: only translating unsolved goals to smt-lib without invoking the backend solver (default: 0)
   - `only-optimize`: only perform optimization on lean specification and do not translate to smt-lib (default: 0)
