@@ -334,10 +334,10 @@ def SmtCommand.emit (c : SmtCommand) : TranslateEnvT Unit := do
      | .exitSmt => h.putStr "(exit)\n"
      | .getModel => h.putStr "(get-model)\n"
      | .getProof => h.putStr "(get-proof)\n"
-     | .evalTerm t =>
-          h.putStr "(eval "
+     | .getValue t =>
+          h.putStr "(get-value ("
           t.emit
-          h.putStr ")\n"
+          h.putStr "))\n"
      | .setLogic l =>
           h.putStr "(set-logic "
           h.putStr l

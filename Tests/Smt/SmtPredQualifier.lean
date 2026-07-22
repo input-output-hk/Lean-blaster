@@ -119,22 +119,22 @@ def sizeOfTerm (t : Term α) : Nat :=
   | .App _ args => List.length args
   | .Annotated t' _ => 1 + sizeOfTerm t'
 
-#blaster (gen-cex:0) (solve-result: 1) (random-seed: 1) [ ∀ (α : Type) (x : Term α), sizeOfTerm x < 10 ]
+#blaster (gen-cex:0) (solve-result: 1) (random-seed: 1) (cvc5-allow-undetermined: 1) [ ∀ (α : Type) (x : Term α), sizeOfTerm x < 10 ]
 
-#blaster (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
   [ ∀ (xs : List Nat), !(List.isEmpty xs) → List.head! (List.map Int.ofNat xs) ≥ 10 ]
 
 
-#blaster (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
   [ ∀ (x : NatGroup), isFirst x → let r := toFirst x; r > 20 ∧ r < 100 ]
 
-#blaster (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
   [ ∀ (x : NatGroup), isSecond x → let r := toSecond x; r > 200 ∧ r < 300 ]
 
-#blaster (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
   [ (∀ (x : NatGroup), isNextFirst x → let r := toNextFirst x; r > 20 ∧ r < 100) ]
 
-#blaster (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
   [ (∀ (α : Type) (x y : Term (List α)) (f : Term (List α) → Nat), f x + f y > 10) ]
 
 #blaster (gen-cex: 0) (solve-result: 1)

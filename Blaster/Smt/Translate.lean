@@ -43,6 +43,13 @@ partial def translateExpr (e : Expr) (topLevel := true) : TranslateEnvT SmtTerm 
      | Expr.sort _ => throwEnvError "translateExpr: unexpected sort type {reprStr e}" -- sort type are handled elsewhere
   visit e topLevel
 
+private def shouldLogUndetermined (logOrdinary : Bool) : TranslateEnvT Bool := do
+  if logOrdinary then return true
+  let env ← get
+  let sOpts := env.optEnv.options.solverOptions
+  return undeterminedAction sOpts env.smtEnv.solver
+    (← strictCvc5ResultCheckingRequested) == .strictError
+
 def Translate.main (e : Expr) (logUndetermined := true) : TranslateEnvT (Result × Expr) := do
     let e' ← addAxioms (← toPropExpr e) (← findLocalAxioms)
     let optExpr ← profileTask "Optimization" $ Optimize.main e'
@@ -50,7 +57,10 @@ def Translate.main (e : Expr) (logUndetermined := true) : TranslateEnvT (Result 
     match (toResult optExpr) with
     | res@(.Undetermined) =>
         if (← get).optEnv.options.solverOptions.onlyOptimize then
-          if logUndetermined then logResult res
+          let sOpts := (← get).optEnv.options.solverOptions
+          let solver ← resolveSolver sOpts
+          modify fun env => { env with smtEnv.solver := solver }
+          if ← shouldLogUndetermined logUndetermined then logResult res
           return (res, optExpr)
         else
           -- set backend solver
@@ -61,7 +71,10 @@ def Translate.main (e : Expr) (logUndetermined := true) : TranslateEnvT (Result 
           -- dump smt commands submitted to backend solver when `dumpSmtLib` option is set.
           logSmtQuery
           let res ← profileTask "Solve" checkSat
-          if !isUndeterminedResult res || logUndetermined then logResult res
+          if isUndeterminedResult res then
+            if ← shouldLogUndetermined logUndetermined then logResult res
+          else
+            logResult res
           discard $ exitSmt
           return (res, optExpr)
     | res =>

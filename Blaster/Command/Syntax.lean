@@ -17,9 +17,13 @@ Options:
   - `only-optimize`: only perform optimization on lean specification and do not translate to smt-lib (default: 0)
   - `dump-smt-lib`: display the smt lib query to stdout (default: 0)
   - `random-seed`: seed for the random number generator (default: none)
+  - `solver`: backend SMT solver to be used, i.e., `z3` or `cvc5`
+              (default: the `BLASTER_SOLVER` environment variable if defined, `z3` otherwise)
   - `gen-cex`: generate counterexample for falsified theorems (default: 1)
   - `solve-result`: specify the expected result from the #blaster command, i.e.,
                     0 for 'Valid', 1 for 'Falsified' and 2 for 'Undetermined'. (default: 0)
+  - `cvc5-allow-undetermined`: allow cvc5 to return `Undetermined` for a known case
+                                  while retaining `solve-result` for decided outcomes (default: 0)
 
 Examples:
    - #blaster [∀ x y : Nat, x + y ≥ x]
@@ -36,8 +40,10 @@ syntax "(only-optimize:" num ")" : solveOption
 syntax "(dump-smt-lib:" num ")" : solveOption
 syntax "(gen-cex:" num ")" : solveOption
 syntax "(solve-result:" num ")" : solveOption
+syntax "(cvc5-allow-undetermined:" num ")" : solveOption
 syntax "(max-depth:" num ")" : solveOption
 syntax "(random-seed:" num ")" : solveOption
+syntax "(solver:" ident ")" : solveOption
 
 -- NOTE: Limited to one term for the time being
 syntax solveTerm := "[" term "]"
@@ -102,12 +108,27 @@ def parseRandomSeed (sOpts : BlasterOptions) : TSyntax `solveOption → m Blaste
       | n => return { sOpts with randomSeed := some n }
   | _ => return sOpts
 
+def parseSolver (sOpts : BlasterOptions) : TSyntax `solveOption → m BlasterOptions
+  | `(solveOption| (solver: $s:ident)) =>
+      match SmtSolver.ofString? s.getId.toString with
+      | some solver => return { sOpts with solver := some solver }
+      | none => throw <| .error s m!"unknown solver '{s.getId}' (expected 'z3' or 'cvc5')"
+  | _ => return sOpts
+
 def parseSolveResult (sOpts : BlasterOptions) : TSyntax `solveOption → m BlasterOptions
   | `(solveOption| (solve-result: $n:num)) =>
       match n.getNat with
       | 0 => return { sOpts with solveResult := .ExpectedValid }
       | 1 => return { sOpts with solveResult := .ExpectedFalsified }
       | 2 => return { sOpts with solveResult := .ExpectedUndetermined }
+      | _ => throwUnsupportedSyntax
+  | _ => return sOpts
+
+def parseCvc5AllowUndetermined (sOpts : BlasterOptions) : TSyntax `solveOption → m BlasterOptions
+  | `(solveOption| (cvc5-allow-undetermined: $n:num)) =>
+      match n.getNat with
+      | 0 => return { sOpts with allowCvc5Undetermined := false }
+      | 1 => return { sOpts with allowCvc5Undetermined := true }
       | _ => throwUnsupportedSyntax
   | _ => return sOpts
 
@@ -121,8 +142,10 @@ def parseSolveOption (sOpts : BlasterOptions) (opt : TSyntax `solveOption) : m B
   let sOpts ← parseDumpSmt sOpts opt
   let sOpts ← parseGenCex sOpts opt
   let sOpts ← parseSolveResult sOpts opt
+  let sOpts ← parseCvc5AllowUndetermined sOpts opt
   let sOpts ← parseMaxDepth sOpts opt
   let sOpts ← parseRandomSeed sOpts opt
+  let sOpts ← parseSolver sOpts opt
   return sOpts
 
 /-! ### Process Multiple Options -/
