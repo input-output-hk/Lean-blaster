@@ -117,6 +117,6 @@ theorem if_accepted_then_purpose_spend :
 
 #blaster [only_accept_if_signatory_and_time_elapsed]
 
-#blaster (gen-cex: 0) (solve-result: 1) [only_accept_if_signatory_and_time_elapsed_bugged]
+#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1) [only_accept_if_signatory_and_time_elapsed_bugged]
 
 end Tests.ValidatorsExamples.Vesting

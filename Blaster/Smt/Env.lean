@@ -12,8 +12,12 @@ namespace Blaster.Smt
 private def normalizeLine (s : String) : String :=
   s.replace "\r" ""
 
-/-- Minimal version of z3 we support -/
-private def minZ3Version : String := "4.15.2"
+/-- Executable candidates, version arguments, and process arguments for a solver. -/
+private def solverConfig : SmtSolver → Array String × Array String × Array String
+  | .z3 => (#["z3", "wsl z3"], #["-version"], #["-in", "-smt2"])
+  | .cvc5 =>
+      (#["cvc5", "wsl cvc5"], #["--version"],
+        #["--lang", "smt2", "--incremental", "--parsing-mode=lenient", "--dt-nested-rec"])
 
 /-- Result of an Smt query. -/
 inductive Result where
@@ -48,10 +52,37 @@ def falsifiedError (r : Result) : String :=
   s!"Falsified result expected but got {reprStr r}"
 
 
+/-- Whether strict cvc5 test conformance was requested for this process. -/
+def strictCvc5ResultCheckingRequested : IO Bool := do
+  let some value ← IO.getEnv "BLASTER_STRICT_CVC5_RESULTS" | return false
+  if value == "" || value == "0" then return false
+  if value == "1" then return true
+  throw <| IO.userError
+    s!"❌ Invalid BLASTER_STRICT_CVC5_RESULTS value '{value}' (expected '0' or '1')."
+
+/-- How a declared result contract handles an `Undetermined` outcome. -/
+inductive UndeterminedAction where
+  | expected
+  | allowed
+  | strictError
+  | warning
+deriving Repr, BEq, DecidableEq
+
+def undeterminedAction
+    (sOpts : BlasterOptions) (solver : SmtSolver) (strictRequested : Bool) :
+    UndeterminedAction :=
+  if isExpectedUndetermined sOpts.solveResult then .expected
+  else if sOpts.allowCvc5Undetermined && solver == .cvc5 then .allowed
+  else if strictRequested && solver == .cvc5 then .strictError
+  else .warning
+
 def blankRef : TranslateEnvT Syntax := getRef
 
 def logResult (r : Result) (isCTI := false) (indLabel := "") (cexLabel := "Counterexample") : TranslateEnvT Unit := do
-  let sOpts := (← get).optEnv.options.solverOptions
+  let env ← get
+  let sOpts := env.optEnv.options.solverOptions
+  let action := undeterminedAction sOpts env.smtEnv.solver
+    (← strictCvc5ResultCheckingRequested)
   let ref ← blankRef
   match r with
   | .Valid =>
@@ -65,52 +96,68 @@ def logResult (r : Result) (isCTI := false) (indLabel := "") (cexLabel := "Count
            then dumpCex (logInfoAt ref) "✅ Expected Falsified" cex
            else dumpCex (logErrorAt ref) "❌ Falsified" cex
   | .Undetermined =>
-      if isExpectedUndetermined sOpts.solveResult
-      then logInfoAt ref "✅ Expected Undetermined"
-      else logWarningAt ref "⚠️ Undetermined"
+      match action with
+      | .expected => logInfoAt ref "✅ Expected Undetermined"
+      | .allowed => logInfoAt ref "✅ Allowed cvc5 Undetermined"
+      | .strictError => logErrorAt ref "❌ Unexpected Undetermined"
+      | .warning => logWarningAt ref "⚠️ Undetermined"
 
   where
     dumpCex (f : MessageData -> MetaM Unit) (failure : String) (cex : List String) : TranslateEnvT Unit := do
       if (← get).optEnv.options.solverOptions.generateCex then
          f failure
          f s!"{cexLabel}:"
-         cex.forM (λ s => f s!" - {s.dropRight 1}")
+         cex.forM (λ s => f s!" - {s.trimRight}")
       else f failure
 
-/-- Tries to find if z3 is natively present in PATH, if not checks wsl z3 -/
-private def findZ3CmdAndVersion : IO (String) := do
-  let candidates := #["z3", "wsl z3"]
-  -- We'll store a short log message for each candidate attempt
+/-- Find the first working executable candidate for `solver`. -/
+private def findSolverCmdAndVersion (solver : SmtSolver) : IO String := do
+  let (candidates, versionArgs, _) := solverConfig solver
   let mut attemptLogs := #[]
   for candidate in candidates do
     try
-      let out ← IO.Process.output { cmd := candidate, args := #["-version"] }
+      let out ← IO.Process.output { cmd := candidate, args := versionArgs }
       if out.exitCode == 0 then
-        -- Found a good candidate => Return immediately
-        return (candidate)
+        return candidate
       else
         attemptLogs := attemptLogs.push
           s!"Candidate '{candidate}': exit code {out.exitCode}"
     catch e =>
-      -- “No such file or directory” or other IO error
       attemptLogs := attemptLogs.push
         s!"Candidate '{candidate}': IO error => {e}"
-
-  -- If we get here, no candidate succeeded
   let attemptsReport := String.join (attemptLogs.toList.map (fun x => x ++ "\n"))
-  throw <| IO.userError s!"❌ Could not find a working Z3 ≥ {minZ3Version}.\n\nTried:\n{attemptsReport}"
+  throw <| IO.userError s!"❌ Could not find a working {solver}.\n\nTried:\n{attemptsReport}"
 
+/-- Resolve a solver from an explicit option and a supplied environment value. -/
+def resolveSolverConfig
+    (sOpts : BlasterOptions) (envValue : Option String) : Except String SmtSolver := do
+  if let some solver := sOpts.solver then return solver
+  let some str := envValue | return .z3
+  let some solver := SmtSolver.ofString? str.trim
+    | throw s!"❌ Unknown BLASTER_SOLVER value '{str}' (expected 'z3' or 'cvc5')."
+  return solver
 
-/-- Spawn a z3 process w.r.t. the provided solver options. -/
-def createBlasterProcess : IO (IO.Process.Child ⟨.piped, .piped, .piped⟩) := do
-  let z3Cmd ← findZ3CmdAndVersion  -- ensures version is OK
+/-- Resolve the explicit option, then `BLASTER_SOLVER`, then the Z3 default. -/
+def resolveSolver (sOpts : BlasterOptions) : IO SmtSolver := do
+  match resolveSolverConfig sOpts (← IO.getEnv "BLASTER_SOLVER") with
+  | .ok solver => return solver
+  | .error message => throw <| IO.userError message
+
+/-- Spawn the selected backend solver. -/
+def createBlasterProcess (solver : SmtSolver) :
+    IO (IO.Process.Child ⟨.piped, .piped, .piped⟩) := do
+  let cmd ← findSolverCmdAndVersion solver
+  let (_, _, args) := solverConfig solver
   IO.Process.spawn {
     stdin  := .piped
     stdout := .piped
     stderr := .piped
-    cmd    := z3Cmd
-    args   := #["-in", "-smt2"]
+    cmd    := cmd
+    args   := args
   }
+
+def getSolver : TranslateEnvT SmtSolver :=
+  return (← get).smtEnv.solver
 
 /-- Update translation cache with `a := b`.
 -/
@@ -169,29 +216,53 @@ def getOutputProof := λ h => getOutputModel h true
 -/
 partial def getErrorMsg (h : IO.FS.Handle) : IO String := normalizeLine <$> h.getLine
 
-/-- Retrieve an `eval` output from `h` after execution `(eval t)`
-    NOTE: An eval output may either correspond to a scalar value
-    or to an inductive datatype one. In the latter case it's provided
-    within parenthesis. The number of opening and closing parenthesis
-    should tally to stop reading from `h`.
--/
-partial def getOutputEval (h : IO.FS.Handle) : IO String := do
+/-- Retrieve a `get-value` response, which may span multiple lines. -/
+partial def getOutputGetValue (h : IO.FS.Handle) : IO String := do
   let line := normalizeLine (← h.getLine)
   if line.get! 0 != '(' then return line
-  getIndValue line (tallyParenthesis line 0)
-
+  getValue line (tallyParenthesis line 0)
  where
   tallyParenthesis (s : String) (tally : Int) : Int :=
-   s.foldr (λ c acc =>
-              match c with
-              | '(' => acc + 1
-              | ')' => acc - 1
-              | _ => acc) tally
-  getIndValue (acc : String) (tally : Int) : IO String := do
+    s.foldr (λ c acc =>
+      match c with
+      | '(' => acc + 1
+      | ')' => acc - 1
+      | _ => acc) tally
+  getValue (acc : String) (tally : Int) : IO String := do
     if tally == 0 then return acc
-    else
-      let line := normalizeLine (← h.getLine)
-      getIndValue (acc ++ line) (tallyParenthesis line tally)
+    let line := normalizeLine (← h.getLine)
+    getValue (acc ++ line) (tallyParenthesis line tally)
+
+/-- Extract `v` from a `get-value` response of the form `((t v))`. -/
+partial def unwrapGetValueOutput (s : String) : String :=
+  let cs := s.toList.dropWhile Char.isWhitespace
+  match cs with
+  | '(' :: rest =>
+      match rest.dropWhile Char.isWhitespace with
+      | '(' :: inner =>
+          let afterTerm := dropSexp (inner.dropWhile Char.isWhitespace)
+          String.mk (takeValue afterTerm 0 []) |>.trim
+      | _ => s.trim
+  | _ => s.trim
+ where
+  dropSexp (cs : List Char) : List Char :=
+    match cs with
+    | [] => []
+    | '(' :: rest => dropParen rest 1
+    | _ :: _ => cs.dropWhile (λ c => !c.isWhitespace && c != '(' && c != ')')
+  dropParen (cs : List Char) (depth : Nat) : List Char :=
+    match cs with
+    | [] => []
+    | '(' :: rest => dropParen rest (depth + 1)
+    | ')' :: rest => if depth == 1 then rest else dropParen rest (depth - 1)
+    | _ :: rest => dropParen rest depth
+  takeValue (cs : List Char) (depth : Nat) (acc : List Char) : List Char :=
+    match cs with
+    | [] => acc.reverse
+    | '(' :: rest => takeValue rest (depth + 1) ('(' :: acc)
+    | ')' :: rest =>
+        if depth == 0 then acc.reverse else takeValue rest (depth - 1) (')' :: acc)
+    | c :: rest => takeValue rest depth (c :: acc)
 
 /-- Push smt command `c` in the translation environment only when sOpts.dumpSmtLib is set -/
 def storeCommand (c : SmtCommand) : TranslateEnvT Unit := do
@@ -477,18 +548,13 @@ def defineInttoNat : TranslateEnvT Unit := do
   let fdef := iteSmt xGeqZero xId natZero
   defineFun toNatSymbol #[(xsym, intSort)] natSort fdef
 
-/-- Try to retrieve to evaluate term `t` when a `sat` result is obtained and dump result to stdout.
-    TODO: We need to define the Smt-lib syntax and term elaborator to parse produced value
-    and generate the corresponding Lean representation.
-    This will also be helpful when writing the test cases to validate the Smt-Lib translation.
-    Do nothing if the Smt process is not defined.
--/
+/-- Retrieve and unwrap the value of `t` using standard SMT-LIB `get-value`. -/
 def evalTerm (t : SmtTerm) : TranslateEnvT String := do
   let env ← get
   let some p := env.smtEnv.smtProc | return ""
   checkCancelTk?
-  submitCommand (.evalTerm t)
-  getOutputEval p.stdout
+  submitCommand (.getValue t)
+  return unwrapGetValueOutput (← getOutputGetValue p.stdout)
 
 /-- Try to retrieve the model when a `sat` result is obtained and dump result to stdout.
     Do nothing when:
@@ -604,55 +670,62 @@ def setProduceProofs (b : Bool) : TranslateEnvT Unit :=
 def setProduceModels (b : Bool) : TranslateEnvT Unit :=
   trySubmitCommand! (.setOption ":produce-models" (toString b))
 
-/-- Set Smt `smt.mbqi` option to `b`. -/
-def setMbqi (b : Bool) : TranslateEnvT Unit :=
-  trySubmitCommand! (.setOption ":smt.mbqi" (toString b))
+/-- Set model-based quantifier instantiation for the selected solver. -/
+def setMbqi (b : Bool) : TranslateEnvT Unit := do
+  match ← getSolver with
+  | .z3 => trySubmitCommand! (.setOption ":smt.mbqi" (toString b))
+  | .cvc5 => trySubmitCommand! (.setOption ":mbqi" (toString b))
 
-/-- Set Smt `smt.pull-nested-quantifiers` option to `b`. -/
-def setPullNestedQuantifiers (b : Bool) : TranslateEnvT Unit :=
+/-- Set Z3's nested-quantifier option; cvc5 has no equivalent. -/
+def setPullNestedQuantifiers (b : Bool) : TranslateEnvT Unit := do
+  let .z3 ← getSolver | return ()
   trySubmitCommand! (.setOption ":smt.pull-nested-quantifiers" (toString b))
 
 /-- Set Smt `print-success` option to `b`. -/
 def setPrintSuccess (b : Bool) : TranslateEnvT Unit :=
   trySubmitCommand! (.setOption ":print-success" (toString b))
 
-/-- Set Smt `smt.random-seed` option to `n` or none. -/
+/-- Set the random seed using the selected solver's option name. -/
 def setRandomSeed (n : Option Nat) : TranslateEnvT Unit := do
-  match n with
-  | some n => trySubmitCommand! (.setOption ":smt.random-seed" (toString n))
-  | none => pure ()
+  let some n := n | return ()
+  match ← getSolver with
+  | .z3 => trySubmitCommand! (.setOption ":smt.random-seed" (toString n))
+  | .cvc5 => trySubmitCommand! (.setOption ":seed" (toString n))
 
-/-- Set Smt `auto_config` option to `b`. -/
-def setAutoConfig (b : Bool) : TranslateEnvT Unit :=
+/-- Set Z3's `auto_config` option; cvc5 has no equivalent. -/
+def setAutoConfig (b : Bool) : TranslateEnvT Unit := do
+  let .z3 ← getSolver | return ()
   trySubmitCommand! (.setOption ":auto_config" (toString b))
 
-/-- Set Smt `smt.case_split` to `n`, with n ∈ [0..6]. -/
-def setCaseSplit (n : Nat) : TranslateEnvT Unit :=
+def setCaseSplit (n : Nat) : TranslateEnvT Unit := do
+  let .z3 ← getSolver | return ()
   trySubmitCommand! (.setOption ":smt.case_split" (toString n))
 
-/-- Set Smt `smt.qi.eager_threshold` to `n`. -/
-def setQiEagerThreshold (n : Nat) : TranslateEnvT Unit :=
+def setQiEagerThreshold (n : Nat) : TranslateEnvT Unit := do
+  let .z3 ← getSolver | return ()
   trySubmitCommand! (.setOption ":smt.qi.eager_threshold" (toString n))
 
-
-/-- Set Smt `smt.delay_units` to `b`. -/
-def setDelayUnits (b : Bool) : TranslateEnvT Unit :=
+def setDelayUnits (b : Bool) : TranslateEnvT Unit := do
+  let .z3 ← getSolver | return ()
   trySubmitCommand! (.setOption ":smt.delay_units" (toString b))
 
-/-- Set Smt `smt.macro_finder` option to `b`. -/
-def setMacroFinder (b : Bool) : TranslateEnvT Unit :=
-  trySubmitCommand! (.setOption ":smt.macro_finder" (toString b))
+/-- Set macro handling using the selected solver's option name. -/
+def setMacroFinder (b : Bool) : TranslateEnvT Unit := do
+  match ← getSolver with
+  | .z3 => trySubmitCommand! (.setOption ":smt.macro_finder" (toString b))
+  | .cvc5 => trySubmitCommand! (.setOption ":macros-quant" (toString b))
 
-/-- Set Smt `smt.relevancy` option to `i`. -/
-def setRelevancy (n : Nat) : TranslateEnvT Unit :=
+def setRelevancy (n : Nat) : TranslateEnvT Unit := do
+  let .z3 ← getSolver | return ()
   trySubmitCommand! (.setOption ":smt.relevancy" (toString n))
 
-/-- Set Smt `timeout` when option is specified. -/
+/-- Set the solver-specific per-check timeout when requested. -/
 def setTimeout : TranslateEnvT Unit := do
   let sOpts := (← get).optEnv.options.solverOptions
   let some n := sOpts.timeout | return ()
-  -- need to convert timeout to milliseconds
-  trySubmitCommand! (.setOption ":timeout" (toString (n * 1000)))
+  match ← getSolver with
+  | .z3 => trySubmitCommand! (.setOption ":timeout" (toString (n * 1000)))
+  | .cvc5 => trySubmitCommand! (.setOption ":tlimit-per" (toString (n * 1000)))
 
 /-- Set the default Smt options, i.e.:
      - (set-option :print-success true)
@@ -674,6 +747,8 @@ def setDefaultSmtOptions (sOpts : BlasterOptions) : TranslateEnvT Unit := do
  setRandomSeed sOpts.randomSeed
  setMacroFinder true
  setTimeout
+ if (← getSolver) == .cvc5 then
+   setLogicAll
 
 /-- Perform the following actions:
      - when option `only-smt-lib` is set to `false`:
@@ -683,11 +758,12 @@ def setDefaultSmtOptions (sOpts : BlasterOptions) : TranslateEnvT Unit := do
        - only add the solver options to the list of smt commands.
 -/
 def setBlasterProcess : TranslateEnvT Unit := do
-  let env ← get
-  let sOpts := env.optEnv.options.solverOptions
+  let sOpts := (← get).optEnv.options.solverOptions
+  let solver ← resolveSolver sOpts
+  modify fun env => { env with smtEnv.solver := solver }
   unless sOpts.onlySmtLib do
-    let proc ← createBlasterProcess
-    set { env with smtEnv.smtProc := proc }
+    let proc ← createBlasterProcess solver
+    modify fun env => { env with smtEnv.smtProc := proc }
   setDefaultSmtOptions sOpts
 
 

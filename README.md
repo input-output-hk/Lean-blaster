@@ -2,10 +2,11 @@
 
 [![Lean Version](https://img.shields.io/badge/Lean-v4.24.0-blue.svg)](https://github.com/leanprover/lean4)
 [![Z3 Version](https://img.shields.io/badge/Z3-v4.15.2-green.svg)](https://github.com/Z3Prover/z3)
+[![cvc5 Version](https://img.shields.io/badge/cvc5-v1.3.4-green.svg)](https://github.com/cvc5/cvc5)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-Blaster provides an SMT backend for Z3 proofs. Blaster works by first aggressively optimizing the Lean expression of a theorem, sometimes up to a `True` goal, before sending the remaining goal and context to an SMT solver.
+Blaster provides an SMT backend for Z3 and cvc5 proofs. Blaster works by first aggressively optimizing the Lean expression of a theorem, sometimes up to a `True` goal, before sending the remaining goal and context to an SMT solver.
 
 ## Table of Contents
 
@@ -14,6 +15,7 @@ Blaster provides an SMT backend for Z3 proofs. Blaster works by first aggressive
   - [Prerequisites](#prerequisites)
   - [Installing Lean4](#installing-lean4)
   - [Installing Z3](#installing-z3)
+  - [Installing cvc5](#installing-cvc5)
 - [How to use?](#how-to-use)
   - [Using lakefile.toml](#using-lakefiletoml)
   - [Using lakefile.lean](#using-lakefilelean)
@@ -49,6 +51,7 @@ Blaster is built with the philosophy that fewer dependencies mean better maintai
 
 - **Lean4** v4.24.0 (or compatible version)
 - **Z3** v4.15.2 (or compatible version)
+- **cvc5** v1.3.4 (optional alternative to Z3)
 
 ### Installing Lean4
 
@@ -70,6 +73,28 @@ The section on [Installing the Z3 Solver](#installing-the-z3-solver)
 below explains how to get the right version of Z3 installed and check that
 Lean is using that version.  If you need more help, please see the official
 installation guidelines from the [Z3 GitHub repository](https://github.com/Z3Prover/z3).
+
+### Installing cvc5
+
+Download a cvc5 release from the [official cvc5 releases](https://github.com/cvc5/cvc5/releases)
+and place the `cvc5` executable on `PATH`.
+
+**Currently tested version:** cvc5 v1.3.4
+
+Z3 remains the default. Select cvc5 with the `solver` option:
+
+```lean
+#blaster (solver: cvc5) [∀ (x : Nat), x + 0 = x]
+```
+
+or for a process with the `BLASTER_SOLVER` environment variable:
+
+```bash
+BLASTER_SOLVER=cvc5 lake build
+```
+
+An explicit `solver` option takes precedence over `BLASTER_SOLVER`. Supported
+values are `z3` and `cvc5`.
 
 ## How to use?
 
@@ -98,6 +123,9 @@ require «Blaster» from git
   - `only-optimize`: only perform optimization on lean specification and do not translate to smt-lib (default: 0)
   - `dump-smt-lib`: display the smt lib query to stdout (default: 0)
   - `random-seed`: seed for the random number generator (default: none)
+  - `solver`: backend SMT solver, `z3` or `cvc5` (default: `BLASTER_SOLVER`, then `z3`)
+  - `cvc5-allow-undetermined`: allow an explicitly identified cvc5 case to return
+                                `Undetermined` without weakening decided-result expectations
   - `gen-cex`: generate counterexample for falsified theorems (default: 1)
   - `solve-result`: specify the expected result from the #blaster command, i.e.,
                     0 for 'Valid', 1 for 'Falsified' and 2 for 'Undetermined'. (default: 0)

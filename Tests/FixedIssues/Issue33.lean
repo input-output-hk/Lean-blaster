@@ -3,43 +3,27 @@ import Blaster
 namespace Tests.Issue33
 
 -- Issue: Unexpected Valid
--- Diagnosis: Functional extensionality axiom has incorrect quantifier structure,
---            causing unsoundness.
+-- Diagnosis: lambda definition axioms ranged over every value of an SMT
+-- carrier instead of only values represented by the corresponding Lean type.
+-- This is unsound for refined encodings such as `Nat`, whose SMT carrier is
+-- `Int` and whose valid domain is selected by `@isNat`.
 
--- Blaster emits the following axiom in the SMT-LIB translation:
+-- For the closure-converted equality lambda `fun x y : Nat => x = y`, the
+-- unguarded definition constrained its behavior even at negative integers.
+-- The closures obtained at `x = -1` and `x = -2` agree on every valid `Nat`,
+-- so valid-domain function extensionality equates them. Their unguarded
+-- definitions nevertheless disagree at `y = -1`, making the SMT theory
+-- inconsistent. Guarding the monomorphic captured values and explicit lambda
+-- arguments with their domain predicates prevents this contradiction.
 
--- (assert (forall ((@x0 Nat) (@f (@@ArrowT2 Nat Bool)) (@g (@@ArrowT2 Nat Bool)))
---   (!(=> (= (@apply_uniq @f @x0) (@apply_uniq @g @x0)) (= @f @g))
---   :pattern ( (= (@apply_uniq @f @x0) (@apply_uniq @g @x0)))
---   :qid @apply_uniq_ext_fun)
--- ))
-
--- This is intended to be functional extensionality:
---   ∀ f g, (∀ x, f(x) = g(x)) → f = g
-
--- But the quantifier structure is wrong. It says:
---   ∀ x f g, f(x) = g(x) → f = g
-
--- In the buggy version, f and g agreeing on any single point implies equality.
--- In the correct version, f and g must agree on all points.
-
--- This makes the theory inconsistent. For example, let:
---   f = (λ x => x == 0)   -- true only at 0
---   g = (λ x => x == 1)   -- true only at 1
-
--- f and g agree at 42: f(42) = false = g(42).
--- So the buggy axiom concludes f = g. But f(0) = true ≠ false = g(0).
--- Contradiction. The theory is inconsistent and can prove anything.
-
--- Minimal reproduction: Blaster incorrectly proves that any two functions
--- agreeing at 0 must be equal everywhere.
+-- Minimal soundness check: agreement at one point does not imply equality.
 #blaster (gen-cex: 0) (solve-result: 1) [∀ (f g : Nat → Bool), f 0 = g 0 → f = g]
 
--- Real-world example: a multi-signature validator that Blaster incorrectly
--- deems always valid, regardless of the threshold.
--- validate_signatures should only return true when threshold is zero and
--- there are no verifiers. For threshold n > 0, it should return false.
--- Blaster proves it valid for arbitrary n, which is false.
+-- Real-world regression: the validator is true only when the threshold is
+-- zero and there are no verifiers. The universally quantified claim below is
+-- false for every positive threshold. Z3 4.15.2 does not find its model within
+-- the existing three-second limit, but it must never derive `Valid` from an
+-- inconsistent background theory.
 structure Verifier where
   payment_key : Nat
   is_mandatory : Bool

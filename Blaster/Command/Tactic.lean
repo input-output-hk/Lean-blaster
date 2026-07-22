@@ -10,7 +10,8 @@ open Blaster.Optimize Blaster.Smt Blaster.Options Blaster.Syntax
 namespace Blaster.Tactic
 
 /--
-`blaster` is an SMT-based tactic that automatically proves goals using Z3.
+`blaster` is an SMT-based tactic that automatically proves goals using the
+backend SMT solver (Z3 by default, or cvc5).
 
 Options:
   - `timeout`: specifying the timeout (in second) to be used for the backend smt solver (defaut: ∞)
@@ -21,6 +22,8 @@ Options:
   - `gen-cex`: generate counterexample for falsified theorems (default: 1)
   - `unfold-depth`: specifying the number of unfolding to be performed on recursive functions (default: 100)
   - `random-seed`: seed for the random number generator (default: none)
+  - `solver`: backend SMT solver to be used, i.e., `z3` or `cvc5`
+              (default: the `BLASTER_SOLVER` environment variable if defined, `z3` otherwise)
   - `solve-result`: specify the expected result from the blaster tactic, i.e.,
                     0 for 'Valid', 1 for 'Falsified' and 2 for 'Undetermined'. (default: 0)
 Example: `blaster (timeout: 10) (verbose: 1)`
