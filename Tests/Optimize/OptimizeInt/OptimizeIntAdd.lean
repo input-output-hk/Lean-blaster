@@ -18,11 +18,8 @@ elab "intAddCst_1" : term => return intAddCst_1
 
 #testOptimize [ "intAddCst_1", proof] (0 : Int) + 1 ===> intAddCst_1
 
--- 0 - 2 ===> -2
-def intAddCst_2 : Expr := Lean.Expr.app
-  (Lean.Expr.const `Int.negSucc [])
-  (Lean.Expr.lit (Lean.Literal.natVal 1))
+/-! Test cases for simplification rule `0 + n ===> n` -/
 
-elab "intAddCst_2" : term => return intAddCst_2
+#testOptimize ["IntAddZero_1", proof] ∀ (m n: Int), 0 + m = n ===> ∀ (m n: Int), m = n
 
-#testOptimize [ "intAddCst_2", proof] (0 : Int) - 2 ===> intAddCst_2
+#testOptimize ["IntAddZero_2", proof] ∀ (n : Int), 0 + n = n ===> True
