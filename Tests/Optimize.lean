@@ -8,6 +8,7 @@ import Tests.Optimize.OptimizeEq
 import Tests.Optimize.OptimizeExists
 import Tests.Optimize.OptimizeDecide
 import Tests.Optimize.OptimizeForAll
+import Tests.Optimize.OptimizeInt
 import Tests.Optimize.OptimizeITE
 import Tests.Optimize.OptimizeLet
 import Tests.Optimize.OptimizeMatch

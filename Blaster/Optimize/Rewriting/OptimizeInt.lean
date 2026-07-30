@@ -24,7 +24,7 @@ def optimizeIntNeg (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 
 
 /-- Apply the following simplification/normalization rules on `Int.add` :
-     - 0 + n ==> n
+     - 0 + n ==> n                          [proof: Int.zero_add]
      - N1 + N2 ==> N1 "+" N2
      - N1 + (N2 + n) ==> (N1 "+" N2) + n
      - N1 + -(N2 + n) ==> (N1 "-" N2) + -n
@@ -41,7 +41,9 @@ def optimizeIntAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  -- let op1 := opArgs[0]!
  -- let op2 := opArgs[1]!
  match isIntValue? op1, isIntValue? op2 with
- | some (Int.ofNat 0), _ => return op2
+ | some (Int.ofNat 0), _ =>
+  pushProofStep (.rewrite (mkConst ``Int.zero_add))
+  return op2
  | some n1, some n2 => evalBinIntOp Int.add n1 n2
  | nv1, _ =>
    if let some r ← cstAddProp? nv1 op2 then return r
