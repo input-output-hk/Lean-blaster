@@ -71,8 +71,8 @@ def optimizeIntAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
   | none => return none
 
 /-- Apply the following simplification/normalization rules on `Int.mul` :
-     - 0 * n ==> 0
-     - 1 * n ==> n
+     - 0 * n ==> 0                          [proof: Int.zero_mul]
+     - 1 * n ==> n                          [proof: Int.one_mul]
      - -1 * n ==> -n
      - N1 * N2 ==> N1 "*" N2
      - N1 * (N2 * n) ==> (N1 "*" N2) * n
@@ -85,8 +85,12 @@ def optimizeIntMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let op1 := args[0]!
  let op2 := args[1]!
  match isIntValue? op1, isIntValue? op2 with
- | some (Int.ofNat 0), _ => return op1
- | some (Int.ofNat 1), _ => return op2
+ | some (Int.ofNat 0), _ =>
+  pushProofStep (.rewrite (mkConst ``Int.zero_mul))
+  return op1
+ | some (Int.ofNat 1), _ =>
+  pushProofStep (.rewrite (mkConst ``Int.one_mul))
+  return op2
  | some (Int.negSucc 0), _ =>
       setRestart
       return mkApp (← mkIntNegOp) op2
