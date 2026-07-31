@@ -16,7 +16,7 @@ def intAddCst_1 : Expr := Lean.Expr.app
 
 elab "intAddCst_1" : term => return intAddCst_1
 
-#testOptimize [ "intAddCst_1", proof] (0 : Int) + 1 ===> intAddCst_1
+#testOptimize [ "IntAddCst_1", proof] (0 : Int) + 1 ===> intAddCst_1
 
 /-! Test cases for simplification rule `0 + n ===> n` -/
 

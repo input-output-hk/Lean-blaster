@@ -5,9 +5,9 @@ open Lean Elab Command Term
 
 namespace Tests.OptimizeIntMul
 
-/-! ## Test objectives to validate normalization and simplification rules on ``Int.Mul -/
+/-! ## Test objectives to validate normalization and simplification rules on ``Int.mul -/
 
-/-! Test cases for `reduceApp` rule on ``Int.Mul-/
+/-! Test cases for `reduceApp` rule on ``Int.mul -/
 
 -- 0 * 5 ===> 0
 def intMulCst_1 : Expr := Lean.Expr.app
@@ -16,7 +16,7 @@ def intMulCst_1 : Expr := Lean.Expr.app
 
 elab "intMulCst_1" : term => return intMulCst_1
 
-#testOptimize [ "intMulCst_1", proof] (0 : Int) * 5 ===> intMulCst_1
+#testOptimize [ "IntMulCst_1", proof] (0 : Int) * 5 ===> intMulCst_1
 
 
 -- 1 * 5 ===> 5
