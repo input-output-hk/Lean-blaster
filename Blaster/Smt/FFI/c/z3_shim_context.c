@@ -37,12 +37,16 @@ void *ctx_ptr(lean_object *o) { return unbox_context(o); }
 /* ctxErrorCode : Context → IO UInt32 (0 == OK) */
 LEAN_EXPORT lean_obj_res lean_z3_ctx_error_code(b_lean_obj_arg c, lean_obj_arg w) {
   (void)w;
-  return z3_io_ok(lean_box_uint32((uint32_t)Z3_get_error_code((Z3_context)unbox_context(c))));
+  uint32_t code = (uint32_t)Z3_get_error_code((Z3_context)unbox_context(c));
+  lean_dec(c);
+  return z3_io_ok(lean_box_uint32(code));
 }
 
 /* ctxErrorMsg : Context → UInt32 → IO String */
 LEAN_EXPORT lean_obj_res lean_z3_ctx_error_msg(b_lean_obj_arg c, uint32_t code, lean_obj_arg w) {
   (void)w;
   Z3_string m = Z3_get_error_msg((Z3_context)unbox_context(c), (Z3_error_code)code);
-  return z3_io_ok(lean_mk_string(m ? m : ""));
+  lean_object *r = lean_mk_string(m ? m : "");
+  lean_dec(c);
+  return z3_io_ok(r);
 }

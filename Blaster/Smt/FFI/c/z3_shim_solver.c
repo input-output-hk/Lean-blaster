@@ -18,5 +18,7 @@ LEAN_EXPORT lean_obj_res lean_z3_mk_solver(b_lean_obj_arg c, lean_obj_arg w) {
   Z3_solver_inc_ref(ctx, s);
   z3_solver_box *b = (z3_solver_box *)malloc(sizeof(z3_solver_box));
   b->ctx = ctx; b->s = s;
-  return z3_io_ok(box_solver(b));
+  lean_object *res = box_solver(b);
+  lean_dec(c); /* Context arg passed owned; the Session keeps ctx alive (spec §5) */
+  return z3_io_ok(res);
 }
