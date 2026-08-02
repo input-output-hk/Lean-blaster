@@ -14,7 +14,7 @@ structure MacroDef where
 structure BuildState where
   mkRaw ::
   ctx      : Context
-  sorts    : Std.HashMap SmtSymbol «Sort»
+  sorts    : Std.HashMap SmtSymbol Z3Sort
   consts   : Std.HashMap SmtSymbol Ast
   funcs    : Std.HashMap SmtSymbol FuncDecl
   macros   : Std.HashMap SmtSymbol MacroDef

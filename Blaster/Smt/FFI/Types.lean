@@ -8,9 +8,9 @@ opaque SolverPointed : NonemptyType
 def Solver : Type := SolverPointed.type
 instance : Nonempty Solver := SolverPointed.property
 
-opaque SortPointed : NonemptyType
-def «Sort» : Type := SortPointed.type
-instance : Nonempty «Sort» := SortPointed.property
+opaque Z3SortPointed : NonemptyType
+def Z3Sort : Type := Z3SortPointed.type
+instance : Nonempty Z3Sort := Z3SortPointed.property
 
 opaque AstPointed : NonemptyType
 def Ast : Type := AstPointed.type
