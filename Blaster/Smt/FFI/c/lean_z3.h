@@ -16,11 +16,15 @@
   } \
   static inline void *unbox_##name(b_lean_obj_arg o) { return lean_get_external_data(o); }
 
-/* No-finalizer external class for context-owned pointers (ast/sort/funcdecl). */
+/* No-finalizer external class for context-owned pointers (ast/sort/funcdecl).
+ * The finalizer is a no-op (context-owned pointers are freed with the context),
+ * but it must be a valid function: Lean's runtime calls m_finalize(m_data)
+ * unconditionally when the object is freed, so a NULL finalizer segfaults. */
 static lean_external_class *g_owned_class = NULL;
+static void owned_finalize(void *p) { (void)p; }
 static void owned_foreach(void *p, b_lean_obj_arg f) { (void)p; (void)f; }
 static inline lean_object *box_owned(void *p) {
-  if (!g_owned_class) g_owned_class = lean_register_external_class(NULL, owned_foreach);
+  if (!g_owned_class) g_owned_class = lean_register_external_class(owned_finalize, owned_foreach);
   return lean_alloc_external(g_owned_class, p);
 }
 static inline void *unbox_owned(b_lean_obj_arg o) { return lean_get_external_data(o); }
