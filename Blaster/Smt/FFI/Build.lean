@@ -1,4 +1,5 @@
 import Blaster.Smt.FFI.Sorts
+import Blaster.Smt.FFI.Terms
 import Blaster.Smt.FFI.BuildEnv
 import Blaster.Smt.Term
 
@@ -34,5 +35,19 @@ partial def buildSort (se : SortExpr) : BuildM Z3Sort := do
       match (← get).sorts.get? nm with
       | some s => return s
       | none => throw (IO.userError s!"buildSort: unknown parameterized sort {nm.toString}")
+
+/-- Strip the surrounding quotes strLitSmt adds to string literals. -/
+private def unquote (s : String) : String :=
+  if s.length ≥ 2 && s.front == '"' && s.back == '"' then (s.drop 1).dropRight 1 else s
+
+/-- Translate an SmtTerm to a Z3 Ast. Only literal cases in Task 5; identifiers,
+    applications, quantifiers, let, etc. are added in later tasks. -/
+partial def buildTerm (t : SmtTerm) : BuildM Ast := do
+  let ctx := (← get).ctx
+  match t with
+  | .NumTerm n  => ctx.mkNumeral (toString n) (← ctx.mkIntSort)
+  | .BoolTerm b => ctx.mkBool b
+  | .StrTerm s  => ctx.mkStringLit (unquote s)
+  | _ => throw (IO.userError s!"buildTerm: unhandled term kind (added in a later task)")
 
 end Blaster.Smt.FFI

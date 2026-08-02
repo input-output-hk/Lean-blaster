@@ -26,3 +26,13 @@ open Blaster.Smt.FFI Blaster.Smt
     let _ ← buildSort (.SymbolSort (Blaster.Smt.mkNormalSymbol "MySort"))
     let _ ← buildSort (.SymbolSort (Blaster.Smt.mkNormalSymbol "MySort"))
     IO.println "uninterp-ok"
+
+/-- info: lits-ok -/
+#guard_msgs in
+#eval do
+  let ctx ← mkContext
+  BuildM.run ctx do
+    let _ ← buildTerm (.NumTerm 42)
+    let _ ← buildTerm (.BoolTerm true)
+    let _ ← buildTerm (.StrTerm "\"hi\"")
+    IO.println "lits-ok"
