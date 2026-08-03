@@ -368,7 +368,12 @@ def optimizeEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
   pushProofStep (.rewrite (mkConst ``eq_self [lvl]))
   pushProofStep (.exact (mkConst ``True.intro))
   return ← mkPropTrue
- if let some false ← structEq? op1 op2 then return ← mkPropFalse
+ if let some false ← structEq? op1 op2 then
+   try
+     let notEq ← mkDecideProof (mkApp (mkConst ``Not) (← mkEq op1 op2))
+     pushProofStep (.rewrite (← mkAppM ``eq_false #[notEq]))
+   catch _ => pure ()
+   return ← mkPropFalse
  if let some (e1, e2) ← notNegEqSimp? op1 op2 then return mkApp3 f eqType e1 e2
  if let some r ← zeroEqNegReduce? op1 op2 eqType then return r
  if let some (e1, e2) ← intNegEqReduce? op1 op2 then return mkApp3 f eqType e1 e2
