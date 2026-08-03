@@ -231,3 +231,43 @@ open Blaster.Smt in
   let r2 ← s2.checkSat #[] false
   let showR := fun r => match r with | Result.Valid => "valid" | Result.Falsified _ => "falsified" | Result.Undetermined => "undet"
   IO.println s!"dt r1={showR r1} r2={showR r2}"
+
+open Blaster.Smt in
+/-- info: def r1=valid r2=valid r3=valid -/
+#guard_msgs in
+#eval do
+  -- (1) non-recursive inline: (define-fun inc ((x Int)) Int (+ x 1)); (inc 5) = 6 valid
+  let s1 ← Z3Session.create
+  s1.runCommand (.defineFun false (.NormalSymbol "inc") #[(.NormalSymbol "x", intSort)] intSort
+    (.AppTerm (.SimpleIdent (.ReservedSymbol "+")) #[.SmtIdent (.SimpleIdent (.NormalSymbol "x")), .NumTerm 1]))
+  s1.assert (.AppTerm (.SimpleIdent (.ReservedSymbol "not")) #[
+    .AppTerm (.SimpleIdent (.ReservedSymbol "=")) #[
+      .AppTerm (.SimpleIdent (.NormalSymbol "inc")) #[.NumTerm 5], .NumTerm 6]])
+  let r1 ← s1.checkSat #[] false
+  -- (2) qualifier-shaped macro: (define-fun isNat ((x Int)) Bool (<= 0 x)); (isNat 3) valid
+  let s2 ← Z3Session.create
+  s2.runCommand (.defineFun false (.NormalSymbol "isNat") #[(.NormalSymbol "x", intSort)] boolSort
+    (.AppTerm (.SimpleIdent (.ReservedSymbol "<=")) #[.NumTerm 0, .SmtIdent (.SimpleIdent (.NormalSymbol "x"))]))
+  s2.assert (.AppTerm (.SimpleIdent (.ReservedSymbol "not")) #[
+    .AppTerm (.SimpleIdent (.NormalSymbol "isNat")) #[.NumTerm 3]])
+  let r2 ← s2.checkSat #[] false
+  -- (3) recursive rec-def (concrete eval):
+  --     (define-fun-rec f ((n Int)) Int (ite (<= n 0) 0 (+ n (f (- n 1))))); f 0 = 0 valid
+  let s3 ← Z3Session.create
+  let nref : SmtTerm := .SmtIdent (.SimpleIdent (.NormalSymbol "n"))
+  s3.runCommand (.defineFun true (.NormalSymbol "f") #[(.NormalSymbol "n", intSort)] intSort
+    (.AppTerm (.SimpleIdent (.ReservedSymbol "ite")) #[
+      .AppTerm (.SimpleIdent (.ReservedSymbol "<=")) #[nref, .NumTerm 0],
+      .NumTerm 0,
+      .AppTerm (.SimpleIdent (.ReservedSymbol "+")) #[nref,
+        .AppTerm (.SimpleIdent (.NormalSymbol "f")) #[.AppTerm (.SimpleIdent (.ReservedSymbol "-")) #[nref, .NumTerm 1]]]]))
+  -- The context uses a no-op error handler, so a rejected rec-def AST (bad arity,
+  -- args that aren't the body's free consts, sort mismatch) would pass silently.
+  -- Fail loudly if Z3 flagged an error building the definition.
+  let ec ← s3.ctx.errorCode
+  if ec != 0 then throw (IO.userError s!"rec-def: z3 error {ec} ({← s3.ctx.errorMsg ec})")
+  s3.assert (.AppTerm (.SimpleIdent (.ReservedSymbol "not")) #[
+    .AppTerm (.SimpleIdent (.ReservedSymbol "=")) #[.AppTerm (.SimpleIdent (.NormalSymbol "f")) #[.NumTerm 0], .NumTerm 0]])
+  let r3 ← s3.checkSat #[] false
+  let showR := fun r => match r with | Result.Valid => "valid" | Result.Falsified _ => "falsified" | Result.Undetermined => "undet"
+  IO.println s!"def r1={showR r1} r2={showR r2} r3={showR r3}"

@@ -143,8 +143,19 @@ partial def buildBuiltin? (sym : SmtSymbol) (args : Array SmtTerm) : BuildM (Opt
   -- str.replace_all: no Z3 4.15 built-in; falls through to buildApp (throws) by design.
   | _, _ => return none
 
-partial def inlineMacro (_m : MacroDef) (_args : Array SmtTerm) : BuildM Ast :=
-  throw (IO.userError "inlineMacro: implemented in a later task")
+/-- Inline a non-recursive define-fun macro at an application site. Arg values are
+    built in the CALLER's scope (macro args do not see the macro's own params),
+    then params are bound as `locals` (like `let`) so `buildIdent` resolves them,
+    the body is built, and the pushed locals are popped. -/
+partial def inlineMacro (m : MacroDef) (args : Array SmtTerm) : BuildM Ast := do
+  if m.params.size != args.size then
+    throw (IO.userError s!"inlineMacro: arity mismatch {m.params.size} ≠ {args.size}")
+  let vals ← args.mapM buildTerm
+  (Array.zip m.params vals).forM fun (p, v) =>
+    modify fun st => { st with locals := st.locals.push (p, v) }
+  let r ← buildTerm m.body
+  modify fun st => { st with locals := st.locals.shrink (st.locals.size - m.params.size) }
+  return r
 
 /-- Push each bound var as a FRESH Z3 const into `locals`, run `k`, then pop.
     Returns k's result and the array of fresh bound consts (for the binder). -/
@@ -168,6 +179,18 @@ partial def buildQuant (isForall : Bool) (bs : SortedVars) (body : SmtTerm)
     return (b, patAsts))
   (← get).ctx.mkQuantConst isForall 0 consts patAsts b
 end
+
+/-- Does `t` reference the symbol `nm` (i.e. is the definition self-recursive)?
+    Used as a fallback recursion check when the `isRec` flag is not set. -/
+partial def bodyReferences (nm : SmtSymbol) (t : SmtTerm) : Bool :=
+  match t with
+  | .SmtIdent (.SimpleIdent s) => s == nm
+  | .AppTerm (.SimpleIdent s) as => s == nm || as.any (bodyReferences nm)
+  | .AppTerm _ as => as.any (bodyReferences nm)
+  | .LetTerm bs b => bs.any (fun (_, v) => bodyReferences nm v) || bodyReferences nm b
+  | .ForallTerm _ b | .ExistsTerm _ b | .LambdaTerm _ b => bodyReferences nm b
+  | .AnnotatedTerm t' _ => bodyReferences nm t'
+  | _ => false
 
 /-- Interpret an SmtCommand against the build state (declarations only in this task). -/
 partial def runCommand (c : SmtCommand) : BuildM Unit := do
@@ -225,6 +248,38 @@ partial def runCommand (c : SmtCommand) : BuildM Unit := do
           modify fun st => { st with funcs := st.funcs.insert sn accFd }
   | .declareMutualDataTypes _ _ =>
       throw (IO.userError "declareMutualDataTypes: FFI backend does not yet support mutual datatypes")
+  | .defineFun isRec nm params rt body =>
+      if isRec || bodyReferences nm body then
+        -- recursive: declare a rec func decl, register it (so the body's self-
+        -- reference resolves via recFuncs), then bind the params as fresh consts
+        -- and add the definition using those consts as the formal arguments.
+        let ds ← params.mapM (fun (_, se) => buildSort se)
+        let r ← buildSort rt
+        let fd ← ctx.mkRecFuncDecl nm.toString ds r
+        modify fun st => { st with recFuncs := st.recFuncs.insert nm fd }
+        let (bodyAst, consts) ← withBound params (buildTerm body)
+        ctx.addRecDef fd consts bodyAst
+      else
+        -- non-recursive: register as an inlinable macro (expanded at apply sites).
+        modify fun st => { st with macros := st.macros.insert nm { params := params.map (·.1), body } }
+  | .defineFunsRec decls bodies =>
+      -- mutual recursion: FIRST declare + register every rec func decl (so cross-
+      -- references between the group's bodies resolve via recFuncs), THEN bind
+      -- each one's params and add its definition.
+      if decls.size != bodies.size then
+        throw (IO.userError s!"defineFunsRec: {decls.size} decls ≠ {bodies.size} bodies")
+      for decl in decls do
+        let ds ← decl.params.mapM (fun (_, se) => buildSort se)
+        let r ← buildSort decl.ret
+        let fd ← ctx.mkRecFuncDecl decl.name.toString ds r
+        modify fun st => { st with recFuncs := st.recFuncs.insert decl.name fd }
+      for h : i in [:decls.size] do
+        let decl := decls[i]
+        let some body := bodies[i]? | throw (IO.userError "defineFunsRec: body index out of range")
+        let some fd := (← get).recFuncs.get? decl.name
+          | throw (IO.userError s!"defineFunsRec: missing rec func decl for {decl.name.toString}")
+        let (bodyAst, consts) ← withBound decl.params (buildTerm body)
+        ctx.addRecDef fd consts bodyAst
   | _ => throw (IO.userError s!"runCommand: unhandled command (later tasks)")
 
 end Blaster.Smt.FFI

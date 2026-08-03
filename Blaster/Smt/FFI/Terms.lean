@@ -43,4 +43,8 @@ namespace Blaster.Smt.FFI
 @[extern "lean_z3_mk_quant_const"]  opaque Context.mkQuantConst  : Context → Bool → UInt32 → Array Ast → Array Ast → Ast → IO Ast
 @[extern "lean_z3_mk_lambda_const"] opaque Context.mkLambdaConst : Context → Array Ast → Ast → IO Ast
 
+/- Task 13: recursive define-fun (define-fun-rec / define-funs-rec). -/
+@[extern "lean_z3_mk_rec_func_decl"] opaque Context.mkRecFuncDecl : Context → String → Array Z3Sort → Z3Sort → IO FuncDecl
+@[extern "lean_z3_add_rec_def"]      opaque Context.addRecDef     : Context → FuncDecl → Array Ast → Ast → IO Unit
+
 end Blaster.Smt.FFI

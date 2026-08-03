@@ -177,3 +177,32 @@ LEAN_EXPORT lean_obj_res lean_z3_mk_lambda_const(b_lean_obj_arg c, b_lean_obj_ar
   lean_object *res=box_owned(r);
   lean_dec(c); lean_dec(bounds); lean_dec(body); return z3_io_ok(res);
 }
+
+/* ==== Task 13: recursive define-fun shims ================================= *
+ * Refcount rule as above: dec each OBJECT arg once (arrays once; their elements
+ * from lean_array_get_core are borrowed). Scalars/world are never dec'd. */
+
+/* mkRecFuncDecl : Context → String → Array Z3Sort(dom) → Z3Sort(rng) → IO FuncDecl */
+LEAN_EXPORT lean_obj_res lean_z3_mk_rec_func_decl(b_lean_obj_arg c, b_lean_obj_arg name,
+    b_lean_obj_arg dom, b_lean_obj_arg rng, lean_obj_arg w) {
+  (void)w; Z3_context ctx=(Z3_context)ctx_ptr(c);
+  size_t n=lean_array_size(dom);
+  Z3_sort *ds=(Z3_sort*)malloc(sizeof(Z3_sort)*(n?n:1));
+  for (size_t i=0;i<n;i++) ds[i]=(Z3_sort)unbox_owned(lean_array_get_core(dom,i));
+  Z3_symbol sym=Z3_mk_string_symbol(ctx, lean_string_cstr(name));
+  Z3_func_decl fd=Z3_mk_rec_func_decl(ctx, sym, (unsigned)n, ds, (Z3_sort)unbox_owned(rng));
+  free(ds);
+  lean_object *r=box_owned(fd);
+  lean_dec(c); lean_dec(name); lean_dec(dom); lean_dec(rng); return z3_io_ok(r);
+}
+/* addRecDef : Context → FuncDecl → Array Ast(args) → Ast(body) → IO Unit */
+LEAN_EXPORT lean_obj_res lean_z3_add_rec_def(b_lean_obj_arg c, b_lean_obj_arg fd,
+    b_lean_obj_arg args, b_lean_obj_arg body, lean_obj_arg w) {
+  (void)w; Z3_context ctx=(Z3_context)ctx_ptr(c);
+  size_t n=lean_array_size(args);
+  Z3_ast *as=(Z3_ast*)malloc(sizeof(Z3_ast)*(n?n:1));
+  for (size_t i=0;i<n;i++) as[i]=(Z3_ast)unbox_owned(lean_array_get_core(args,i));
+  Z3_add_rec_def(ctx, (Z3_func_decl)unbox_owned(fd), (unsigned)n, as, (Z3_ast)unbox_owned(body));
+  free(as);
+  lean_dec(c); lean_dec(fd); lean_dec(args); lean_dec(body); return z3_io_unit();
+}
