@@ -454,3 +454,89 @@ open Blaster.Smt in
   let post ← s.checkSatCancel none #[] false
   let showR := fun r => match r with | Result.Valid => "valid" | Result.Falsified _ => "falsified" | Result.Undetermined => "undet"
   IO.println s!"sticky-probe pre={showR pre} post-interrupt={showR post}"
+
+open Blaster.Smt in
+/-- info: dtrec r1=valid r2=falsified -/
+#guard_msgs in
+#eval do
+  -- SINGLE RECURSIVE datatype `IntTree ::= leaf(val:Int) | node(l:IntTree, r:IntTree)`.
+  -- The `l`/`r` fields are self-references (`.SymbolSort itName`, the SAME symbol
+  -- passed to declareDataType), so the sort_ref path must fire; otherwise Z3 would
+  -- get a Bool placeholder as the field sort and the round-trips below would break.
+  let itName : SmtSymbol := .NormalSymbol "IntTree"
+  let itSort : SortExpr := .SymbolSort itName
+  -- `tip` is a NULLARY ctor (`none` fields) — exercises the `[ctor, recog]` (no
+  -- accessor) slice of the flat layout, the most common recursive-datatype shape.
+  let itDecl : SmtDatatypeDecl := { params := none, ctors := #[
+    (.NormalSymbol "leaf", some #[(.NormalSymbol "val", intSort)]),
+    (.NormalSymbol "node", some #[(.NormalSymbol "l", itSort), (.NormalSymbol "r", itSort)]),
+    (.NormalSymbol "tip", none) ] }
+  let app := fun (nm : SmtSymbol) (args : Array SmtTerm) => SmtTerm.AppTerm (.SimpleIdent nm) args
+  let notOp := fun t => app (.ReservedSymbol "not") #[t]
+  let leaf1 := app (.NormalSymbol "leaf") #[.NumTerm 1]
+  let leaf2 := app (.NormalSymbol "leaf") #[.NumTerm 2]
+  let tree  := app (.NormalSymbol "node") #[leaf1, leaf2]
+  let tipT  := app (.NormalSymbol "tip") #[]
+  let showR := fun r => match r with | Result.Valid => "valid" | Result.Falsified _ => "falsified" | Result.Undetermined => "undet"
+  -- r1: accessor round-trip THROUGH the recursive field + recognizers, all valid ⇒ ¬ ⇒ Valid.
+  --     (l tree) = leaf1  AND  (val (l tree)) = 1  AND  (is-node tree)  AND
+  --     (is-tip tip)  AND  ¬(is-tip tree)
+  let s1 ← Z3Session.create
+  s1.runCommand (.declareDataType itName itDecl)
+  let ec1 ← s1.ctx.errorCode
+  if ec1 != 0 then throw (IO.userError s!"dtrec declare: z3 error {ec1} ({← s1.ctx.errorMsg ec1})")
+  let goal1 : SmtTerm := app (.ReservedSymbol "and") #[
+    app (.ReservedSymbol "=") #[app (.NormalSymbol "l") #[tree], leaf1],
+    app (.ReservedSymbol "=") #[app (.NormalSymbol "val") #[app (.NormalSymbol "l") #[tree]], .NumTerm 1],
+    app (.NormalSymbol "is-node") #[tree],
+    app (.NormalSymbol "is-tip") #[tipT],
+    notOp (app (.NormalSymbol "is-tip") #[tree])]
+  s1.assert (notOp goal1)
+  let r1 ← s1.checkSat #[] false
+  -- r2: (val (l tree)) = 2 is FALSE (it is 1) ⇒ ¬ is sat ⇒ Falsified.
+  let s2 ← Z3Session.create
+  s2.runCommand (.declareDataType itName itDecl)
+  let goal2 : SmtTerm := app (.ReservedSymbol "=") #[app (.NormalSymbol "val") #[app (.NormalSymbol "l") #[tree]], .NumTerm 2]
+  s2.assert (notOp goal2)
+  let r2 ← s2.checkSat #[] false
+  IO.println s!"dtrec r1={showR r1} r2={showR r2}"
+
+open Blaster.Smt in
+/-- info: dtmut r1=valid r2=falsified -/
+#guard_msgs in
+#eval do
+  -- MUTUAL datatypes `A ::= mkA(Int) | wrapB(theB:B)` and `B ::= mkB(Int) | wrapA(theA:A)`.
+  -- wrapB's field references B (group index 1 ⇒ ref 2) and wrapA's references A
+  -- (index 0 ⇒ ref 1). Field-sort symbols are the SAME values as the sort names.
+  let aName : SmtSymbol := .NormalSymbol "A"
+  let bName : SmtSymbol := .NormalSymbol "B"
+  let declA : SmtDatatypeDecl := { params := none, ctors := #[
+    (.NormalSymbol "mkA", some #[(.NormalSymbol "getA", intSort)]),
+    (.NormalSymbol "wrapB", some #[(.NormalSymbol "theB", .SymbolSort bName)]) ] }
+  let declB : SmtDatatypeDecl := { params := none, ctors := #[
+    (.NormalSymbol "mkB", some #[(.NormalSymbol "getB", intSort)]),
+    (.NormalSymbol "wrapA", some #[(.NormalSymbol "theA", .SymbolSort aName)]) ] }
+  let nms  : Array SmtSortDecl := #[{name := aName, arity := 0}, {name := bName, arity := 0}]
+  let app := fun (nm : SmtSymbol) (args : Array SmtTerm) => SmtTerm.AppTerm (.SimpleIdent nm) args
+  let notOp := fun t => app (.ReservedSymbol "not") #[t]
+  let mkB7  := app (.NormalSymbol "mkB") #[.NumTerm 7]        -- : B
+  let wrap  := app (.NormalSymbol "wrapB") #[mkB7]            -- : A, holds a B recursively
+  let showR := fun r => match r with | Result.Valid => "valid" | Result.Falsified _ => "falsified" | Result.Undetermined => "undet"
+  -- r1: (theB wrap) = (mkB 7)  AND  (getB (theB wrap)) = 7  AND  (is-wrapB wrap)  ⇒ valid ⇒ ¬ ⇒ Valid.
+  let s1 ← Z3Session.create
+  s1.runCommand (.declareMutualDataTypes nms #[declA, declB])
+  let ec1 ← s1.ctx.errorCode
+  if ec1 != 0 then throw (IO.userError s!"dtmut declare: z3 error {ec1} ({← s1.ctx.errorMsg ec1})")
+  let goal1 : SmtTerm := app (.ReservedSymbol "and") #[
+    app (.ReservedSymbol "=") #[app (.NormalSymbol "theB") #[wrap], mkB7],
+    app (.ReservedSymbol "=") #[app (.NormalSymbol "getB") #[app (.NormalSymbol "theB") #[wrap]], .NumTerm 7],
+    app (.NormalSymbol "is-wrapB") #[wrap]]
+  s1.assert (notOp goal1)
+  let r1 ← s1.checkSat #[] false
+  -- r2: (getB (theB wrap)) = 8 is FALSE (it is 7) ⇒ ¬ is sat ⇒ Falsified.
+  let s2 ← Z3Session.create
+  s2.runCommand (.declareMutualDataTypes nms #[declA, declB])
+  let goal2 : SmtTerm := app (.ReservedSymbol "=") #[app (.NormalSymbol "getB") #[app (.NormalSymbol "theB") #[wrap]], .NumTerm 8]
+  s2.assert (notOp goal2)
+  let r2 ← s2.checkSat #[] false
+  IO.println s!"dtmut r1={showR r1} r2={showR r2}"

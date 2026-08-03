@@ -44,6 +44,30 @@ partial def sortMentions (target : SmtSymbol) : SortExpr → Bool
   | .SymbolSort s   => s == target
   | .ParamSort s ps => s == target || ps.any (sortMentions target)
 
+/-- For a datatype field of sort `se`, in a group whose datatype sort names are
+    `group`, return the Z3 field sort paired with its Z3 `sort_ref`:
+    * `0` — a normal field; the returned sort (built via `buildSort`) is the field's
+      real sort.
+    * `k+1` — a self/mutual reference to the k-th datatype in `group` (a direct
+      `.SymbolSort s` with `s == group[k]`). Z3 IGNORES the paired sort in this
+      case, so we hand it a Bool placeholder rather than trying to `buildSort` the
+      not-yet-declared datatype name (which would mint a bogus uninterpreted sort).
+    A recursive reference nested inside a PARAMETERIZED sort (e.g. `List T` where
+    `T` is in the group) needs parametric datatype support and is rejected here. -/
+def buildFieldSortRef (group : Array SmtSymbol) (se : SortExpr) :
+    BuildM (Z3Sort × UInt32) := do
+  let ctx := (← get).ctx
+  match se with
+  | .SymbolSort s =>
+      match (List.range group.size).find? (fun i => group[i]? == some s) with
+      | some k => return (← ctx.mkBoolSort, UInt32.ofNat (k + 1))
+      | none   => return (← buildSort se, 0)
+  | _ =>
+      if group.any (fun g => sortMentions g se) then
+        throw (IO.userError s!"FFI datatype: recursive field inside a parameterized \
+          sort {se} unsupported (parametric datatypes pending, next task)")
+      else return (← buildSort se, 0)
+
 /-- Strip the surrounding quotes strLitSmt adds to string literals. -/
 private def unquote (s : String) : String :=
   if s.length ≥ 2 && s.front == '"' && s.back == '"' then (s.drop 1).dropRight 1 else s
@@ -209,25 +233,30 @@ partial def runCommand (c : SmtCommand) : BuildM Unit := do
       let s ← ctx.mkUninterpSort nm.toString
       modify fun st => { st with sorts := st.sorts.insert nm s }
   | .declareDataType nm decl => do
-      -- MVP scope: single, non-recursive, non-mutual, non-parametric datatype.
+      -- Single datatype: non-recursive OR (self-)recursive, non-parametric.
       if let some ps := decl.params then
         if !ps.isEmpty then
-          throw (IO.userError s!"declareDataType: parametric datatype {nm.toString} unsupported (FFI backend MVP: non-parametric only)")
+          throw (IO.userError s!"declareDataType: parametric datatype {nm.toString} — pending (next task)")
       let selsOf := fun (sels : Option (Array SmtSelector)) => sels.getD #[]
-      -- Reject self-recursive fields BEFORE building any sort, so a throw cannot
-      -- leave a half-populated `sorts` cache (buildSort would otherwise mint an
-      -- uninterpreted placeholder for the self-reference).
-      for (_, sels) in decl.ctors do
-        for (_, st) in selsOf sels do
-          if sortMentions nm st then
-            throw (IO.userError s!"declareDataType: recursive datatype {nm.toString} unsupported (FFI backend MVP: non-recursive only)")
       let ctorNames  : Array String := decl.ctors.map (fun (cn, _) => cn.toString)
       let recogNames : Array String := decl.ctors.map (fun (cn, _) => s!"is-{cn.toString}")
       let fieldNames : Array (Array String) :=
         decl.ctors.map (fun (_, sels) => (selsOf sels).map (fun (sn, _) => sn.toString))
-      let fieldSorts : Array (Array Z3Sort) ←
-        decl.ctors.mapM (fun (_, sels) => (selsOf sels).mapM (fun (_, se) => buildSort se))
-      let (dtSort, decls) ← ctx.mkDatatype nm.toString ctorNames recogNames fieldNames fieldSorts
+      -- Per field: (Z3 sort, sort_ref). A direct `.SymbolSort nm` self-reference
+      -- gets ref=1 with a Bool placeholder sort (Z3 ignores it); all other fields
+      -- get ref=0 and their real built sort. `buildFieldSortRef` rejects recursion
+      -- nested inside a parameterized sort (needs parametric support).
+      let fieldData : Array (Array (Z3Sort × UInt32)) ←
+        decl.ctors.mapM (fun (_, sels) =>
+          (selsOf sels).mapM (fun (_, se) => buildFieldSortRef #[nm] se))
+      let fieldSorts : Array (Array Z3Sort) := fieldData.map (·.map (·.1))
+      let fieldRefs  : Array (Array UInt32) := fieldData.map (·.map (·.2))
+      let isRec := fieldRefs.any (·.any (· != 0))
+      let (dtSort, decls) ←
+        if isRec then
+          ctx.mkDatatypeRec nm.toString ctorNames recogNames fieldNames fieldSorts fieldRefs
+        else
+          ctx.mkDatatype nm.toString ctorNames recogNames fieldNames fieldSorts
       modify fun st => { st with sorts := st.sorts.insert nm dtSort }
       -- Walk the flat decl layout `[ctor, recog, acc0, acc1, ...]` per ctor and
       -- register each func_decl under the SmtSymbol the translator references:
@@ -246,8 +275,62 @@ partial def runCommand (c : SmtCommand) : BuildM Unit := do
           let some accFd := decls[k]? | throw (IO.userError "declareDataType: decl layout mismatch (accessor)")
           k := k + 1
           modify fun st => { st with funcs := st.funcs.insert sn accFd }
-  | .declareMutualDataTypes _ _ =>
-      throw (IO.userError "declareMutualDataTypes: FFI backend does not yet support mutual datatypes")
+  | .declareMutualDataTypes nms decls => do
+      -- Mutually recursive group, non-parametric only. The parametric signal lives
+      -- in BOTH the sort decls' `arity` and each datatype decl's `params`; reject on
+      -- EITHER, BEFORE building any sort (so a throw can't leave a half-populated
+      -- cache — mirrors the single-datatype discipline).
+      if nms.size != decls.size then
+        throw (IO.userError s!"declareMutualDataTypes: {nms.size} sort decls ≠ {decls.size} datatype decls")
+      for sd in nms do
+        if sd.arity != 0 then
+          throw (IO.userError s!"declareMutualDataTypes: parametric datatype {sd.name.toString} — pending (next task)")
+      for decl in decls do
+        if let some ps := decl.params then
+          if !ps.isEmpty then
+            throw (IO.userError s!"declareMutualDataTypes: parametric datatype group — pending (next task)")
+      let group : Array SmtSymbol := nms.map (·.name)
+      let selsOf := fun (sels : Option (Array SmtSelector)) => sels.getD #[]
+      let sortNames  : Array String := group.map (·.toString)
+      let ctorNames  : Array (Array String) :=
+        decls.map (fun d => d.ctors.map (fun (cn, _) => cn.toString))
+      let recogNames : Array (Array String) :=
+        decls.map (fun d => d.ctors.map (fun (cn, _) => s!"is-{cn.toString}"))
+      let fieldNames : Array (Array (Array String)) :=
+        decls.map (fun d => d.ctors.map (fun (_, sels) =>
+          (selsOf sels).map (fun (sn, _) => sn.toString)))
+      -- Per sort/ctor/field: (Z3 sort, ref). A `.SymbolSort s` naming a group member
+      -- → ref = (its group index)+1 with a placeholder sort; otherwise ref=0.
+      let fieldData : Array (Array (Array (Z3Sort × UInt32))) ←
+        decls.mapM (fun d => d.ctors.mapM (fun (_, sels) =>
+          (selsOf sels).mapM (fun (_, se) => buildFieldSortRef group se)))
+      let fieldSorts : Array (Array (Array Z3Sort)) :=
+        fieldData.map (·.map (·.map (·.1)))
+      let fieldRefs  : Array (Array (Array UInt32)) :=
+        fieldData.map (·.map (·.map (·.2)))
+      let (dtSorts, declGroups) ←
+        ctx.mkDatatypes sortNames ctorNames recogNames fieldNames fieldSorts fieldRefs
+      -- register each datatype's sort under its group name
+      for h : i in [:group.size] do
+        let some s := dtSorts[i]? | throw (IO.userError "declareMutualDataTypes: sort layout mismatch")
+        modify fun st => { st with sorts := st.sorts.insert group[i] s }
+      -- register each datatype's func_decls from its flat `[ctor, recog, acc...]` layout
+      for h : si in [:decls.size] do
+        let decl := decls[si]
+        let some declsFlat := declGroups[si]?
+          | throw (IO.userError "declareMutualDataTypes: decl group layout mismatch")
+        let mut k := 0
+        for (cn, sels) in decl.ctors do
+          let some ctorFd := declsFlat[k]? | throw (IO.userError "declareMutualDataTypes: layout mismatch (ctor)")
+          k := k + 1
+          let some recogFd := declsFlat[k]? | throw (IO.userError "declareMutualDataTypes: layout mismatch (recog)")
+          k := k + 1
+          modify fun st => { st with funcs := st.funcs.insert cn ctorFd }
+          modify fun st => { st with funcs := st.funcs.insert (.NormalSymbol s!"is-{cn.toString}") recogFd }
+          for (sn, _) in selsOf sels do
+            let some accFd := declsFlat[k]? | throw (IO.userError "declareMutualDataTypes: layout mismatch (accessor)")
+            k := k + 1
+            modify fun st => { st with funcs := st.funcs.insert sn accFd }
   | .defineFun isRec nm params rt body =>
       if isRec || bodyReferences nm body then
         -- recursive: declare a rec func decl, register it (so the body's self-
