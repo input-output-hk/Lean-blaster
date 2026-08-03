@@ -32,7 +32,17 @@ partial def buildSort (se : SortExpr) : BuildM Z3Sort := do
         let r ← buildSort ps[1]!
         ctx.mkArraySort d r
       else throw (IO.userError s!"buildSort: Array expects 2 params, got {ps.size}")
-  | .ParamSort nm _ =>
+  | .ParamSort nm args =>
+      -- A registered PARAMETRIC datatype instantiated at concrete `args` (e.g.
+      -- `(@List Int)`): build the arg sorts and instantiate via `Z3_mk_datatype_sort`.
+      -- This MUST precede the `sorts.get?` lookup, which would otherwise hand back the
+      -- UNINSTANTIATED polymorphic sort (a silent wrong-sort bug).
+      if (← get).paramDatatypes.contains nm then
+        if let some s := (← get).instSortCache.get? se then return s
+        let argSorts ← args.mapM buildSort
+        let s ← ctx.mkDatatypeSort nm.toString argSorts
+        modify fun st => { st with instSortCache := st.instSortCache.insert se s }
+        return s
       match (← get).sorts.get? nm with
       | some s => return s
       | none => throw (IO.userError s!"buildSort: unknown parameterized sort {nm.toString}")
@@ -66,6 +76,32 @@ def buildFieldSortRef (group : Array SmtSymbol) (se : SortExpr) :
       if group.any (fun g => sortMentions g se) then
         throw (IO.userError s!"FFI datatype: recursive field inside a parameterized \
           sort {se} unsupported (parametric datatypes pending, next task)")
+      else return (← buildSort se, 0)
+
+/-- Field-sort resolution for a PARAMETRIC datatype `nm` with type params `params`
+    (each mapped to its Z3 type variable in `tvMap`). Returns the Z3 field sort paired
+    with its Z3 `sort_ref` (same convention as `buildFieldSortRef`):
+    * a param field `.SymbolSort p` with `p ∈ params` → the type var, ref `0`;
+    * a self-recursive field `.ParamSort nm _` (head == `nm`) → `placeholder`, ref `1`
+      (Z3 IGNORES the sort when ref>0; a REGULAR recursion always recurs at the
+      datatype's own params, which a self sort_ref means — the placeholder is never read);
+    * any other CONCRETE field sort (`Int`, `Bool`, an already-declared sort) → built via
+      `buildSort`, ref `0`.
+    A type parameter nested UNDER another type constructor (e.g. `List (Term α)`) is
+    rejected with a clear error (nested parametric occurrences need forward references). -/
+def buildParamFieldSortRef (nm : SmtSymbol) (params : Array SmtSymbol)
+    (tvMap : Std.HashMap SmtSymbol Z3Sort) (placeholder : Z3Sort) (se : SortExpr) :
+    BuildM (Z3Sort × UInt32) := do
+  match se with
+  | .SymbolSort p =>
+      match tvMap.get? p with
+      | some tv => return (tv, 0)
+      | none    => return (← buildSort se, 0)
+  | .ParamSort h _ =>
+      if h == nm then return (placeholder, 1)
+      else if params.any (fun p => sortMentions p se) then
+        throw (IO.userError s!"FFI parametric datatype {nm.toString}: nested parametric \
+          field {se} (a type parameter under another type constructor) unsupported")
       else return (← buildSort se, 0)
 
 /-- Strip the surrounding quotes strLitSmt adds to string literals. -/
@@ -109,6 +145,15 @@ partial def buildTerm (t : SmtTerm) : BuildM Ast := do
   | _ => throw (IO.userError s!"buildTerm: unhandled term kind (added in a later task)")
 
 partial def buildIdent (nm : SmtQualifiedIdent) : BuildM Ast := do
+  -- A NULLARY parametric-datatype constructor arrives QUALIFIED with its instantiated
+  -- sort: `(as List.nil (@List Int))` = `.SmtIdent (.QualifiedIdent List.nil (@List Int))`.
+  -- Resolve it to the monomorphized ctor func_decl and apply with no args. Non-parametric
+  -- constructors are NOT in `ctorIndex`, so they fall through to the `funcs` path below.
+  if let .QualifiedIdent cn sortExpr := nm then
+    if let some (_, ci) := (← get).ctorIndex.get? cn then
+      let instSort ← buildSort sortExpr
+      let fd ← (← get).ctx.dtConstructor instSort (UInt32.ofNat ci)
+      return (← (← get).ctx.mkApp fd #[])
   let sym := match nm with | .SimpleIdent s => s | .QualifiedIdent s _ => s
   if let some a ← lookupLocal sym then return a
   if let some a := (← get).consts.get? sym then return a
@@ -120,7 +165,29 @@ partial def buildIdent (nm : SmtQualifiedIdent) : BuildM Ast := do
   throw (IO.userError s!"buildIdent: unbound identifier {sym.toString}")
 
 partial def buildApp (nm : SmtQualifiedIdent) (args : Array SmtTerm) : BuildM Ast := do
+  let ctx := (← get).ctx
   let sym := match nm with | .SimpleIdent s => s | .QualifiedIdent s _ => s
+  -- Parametric-datatype resolution (checked BEFORE builtins/funcs; the names never
+  -- collide, but this keeps the branch order matching the design):
+  -- (1) applied constructor `(List.cons x xs)` = `.AppTerm (.QualifiedIdent List.cons (@List Int)) …`
+  if let .QualifiedIdent cn sortExpr := nm then
+    if let some (_, ci) := (← get).ctorIndex.get? cn then
+      let instSort ← buildSort sortExpr
+      let fd ← ctx.dtConstructor instSort (UInt32.ofNat ci)
+      return (← ctx.mkApp fd (← args.mapM buildTerm))
+  -- (2) accessor `(List.cons.0 x)` — the ctor/field indices are fixed; the INSTANTIATED
+  --     sort comes from arg0's own sort (`Z3_get_sort`), so the accessor is monomorphized.
+  if let some (_, ci, fj) := (← get).accessorIndex.get? sym then
+    let argAsts ← args.mapM buildTerm
+    let some a0 := argAsts[0]? | throw (IO.userError s!"buildApp: accessor {sym.toString} expects 1 argument")
+    let fd ← ctx.dtAccessor (← ctx.astSort a0) (UInt32.ofNat ci) (UInt32.ofNat fj)
+    return (← ctx.mkApp fd argAsts)
+  -- (3) recognizer `(is-List.cons x)` — same arg-sort-driven monomorphization.
+  if let some (_, ci) := (← get).recognizerIndex.get? sym then
+    let argAsts ← args.mapM buildTerm
+    let some a0 := argAsts[0]? | throw (IO.userError s!"buildApp: recognizer {sym.toString} expects 1 argument")
+    let fd ← ctx.dtRecognizer (← ctx.astSort a0) (UInt32.ofNat ci)
+    return (← ctx.mkApp fd argAsts)
   if let some a ← buildBuiltin? sym args then return a
   if let some m := (← get).macros.get? sym then return (← inlineMacro m args)
   let argAsts ← args.mapM buildTerm
@@ -216,6 +283,51 @@ partial def bodyReferences (nm : SmtSymbol) (t : SmtTerm) : Bool :=
   | .AnnotatedTerm t' _ => bodyReferences nm t'
   | _ => false
 
+/-- Declare a PARAMETRIC datatype (`decl.params = some ps`, `ps` non-empty) via
+    `Z3_mk_polymorphic_datatype`: one type var per param, per-field sort/ref resolution
+    (`buildParamFieldSortRef`), then register the template and the ctor/accessor/recognizer
+    resolution indices — ONLY after the Z3 call succeeds, so a throw cannot leave a
+    half-populated registry (mirrors the mutual-datatype discipline). The instantiated
+    (monomorphized) func_decls are recovered on demand at use sites via the `dt*` calls. -/
+def declareParamDatatype (nm : SmtSymbol) (ps : Array SmtSymbol)
+    (decl : SmtDatatypeDecl) : BuildM Unit := do
+  let ctx := (← get).ctx
+  -- 1. one Z3 type variable per param, mapped by param symbol
+  let tvs ← ps.mapM (fun p => ctx.mkTypeVar p.toString)
+  let mut tvMap : Std.HashMap SmtSymbol Z3Sort := {}
+  for (p, tv) in ps.zip tvs do
+    tvMap := tvMap.insert p tv
+  let placeholder ← ctx.mkBoolSort   -- never-read filler for recursive field slots (ref>0)
+  let selsOf := fun (sels : Option (Array SmtSelector)) => sels.getD #[]
+  let ctorNames  : Array String := decl.ctors.map (fun (cn, _) => cn.toString)
+  let recogNames : Array String := decl.ctors.map (fun (cn, _) => s!"is-{cn.toString}")
+  let fieldNames : Array (Array String) :=
+    decl.ctors.map (fun (_, sels) => (selsOf sels).map (fun (sn, _) => sn.toString))
+  -- 2. per ctor / per field: (Z3 field sort, sort_ref)
+  let fieldData : Array (Array (Z3Sort × UInt32)) ←
+    decl.ctors.mapM (fun (_, sels) =>
+      (selsOf sels).mapM (fun (_, se) => buildParamFieldSortRef nm ps tvMap placeholder se))
+  let fieldSorts : Array (Array Z3Sort) := fieldData.map (·.map (·.1))
+  let fieldRefs  : Array (Array UInt32) := fieldData.map (·.map (·.2))
+  -- 3. declare the polymorphic datatype (returns the uninstantiated poly sort)
+  let polySort ← ctx.mkPolyDatatype nm.toString tvs ctorNames recogNames fieldNames fieldSorts fieldRefs
+  -- 4. register the template + resolution indices (AFTER the Z3 call succeeds)
+  let ctorSyms      : Array SmtSymbol := decl.ctors.map (·.1)
+  let accessorNames : Array (Array SmtSymbol) :=
+    decl.ctors.map (fun (_, sels) => (selsOf sels).map (·.1))
+  let template : ParamDatatype :=
+    { name := nm, polySort, nparams := ps.size, ctorNames := ctorSyms, accessorNames }
+  modify fun st => { st with paramDatatypes := st.paramDatatypes.insert nm template }
+  for h : ci in [:decl.ctors.size] do
+    let (cn, sels) := decl.ctors[ci]
+    modify fun st => { st with
+      ctorIndex       := st.ctorIndex.insert cn (nm, ci),
+      recognizerIndex := st.recognizerIndex.insert (.NormalSymbol s!"is-{cn.toString}") (nm, ci) }
+    let sels' := selsOf sels
+    for h : fj in [:sels'.size] do
+      let (sn, _) := sels'[fj]
+      modify fun st => { st with accessorIndex := st.accessorIndex.insert sn (nm, ci, fj) }
+
 /-- Interpret an SmtCommand against the build state (declarations only in this task). -/
 partial def runCommand (c : SmtCommand) : BuildM Unit := do
   let ctx := (← get).ctx
@@ -233,10 +345,13 @@ partial def runCommand (c : SmtCommand) : BuildM Unit := do
       let s ← ctx.mkUninterpSort nm.toString
       modify fun st => { st with sorts := st.sorts.insert nm s }
   | .declareDataType nm decl => do
-      -- Single datatype: non-recursive OR (self-)recursive, non-parametric.
+      -- Parametric datatype (`@List α`, `@Either α β`): handled via
+      -- `Z3_mk_polymorphic_datatype`; instantiated func_decls resolved at use sites.
       if let some ps := decl.params then
         if !ps.isEmpty then
-          throw (IO.userError s!"declareDataType: parametric datatype {nm.toString} — pending (next task)")
+          declareParamDatatype nm ps decl
+          return
+      -- Single datatype: non-recursive OR (self-)recursive, non-parametric.
       let selsOf := fun (sels : Option (Array SmtSelector)) => sels.getD #[]
       let ctorNames  : Array String := decl.ctors.map (fun (cn, _) => cn.toString)
       let recogNames : Array String := decl.ctors.map (fun (cn, _) => s!"is-{cn.toString}")

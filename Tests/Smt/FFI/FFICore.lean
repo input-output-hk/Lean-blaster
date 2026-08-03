@@ -540,3 +540,109 @@ open Blaster.Smt in
   s2.assert (notOp goal2)
   let r2 ← s2.checkSat #[] false
   IO.println s!"dtmut r1={showR r1} r2={showR r2}"
+
+open Blaster.Smt in
+/-- info: dtparam r1=valid r2=falsified r3=valid -/
+#guard_msgs in
+#eval do
+  -- PARAMETRIC (self-recursive) datatype, declared via `Z3_mk_polymorphic_datatype`:
+  --   @List α = List.nil | List.cons (List.cons.0 : α) (List.cons.1 : @List α)
+  -- `List.cons.1`'s field is the datatype at its OWN param ⇒ the self-recursive
+  -- sort_ref path (NULL sort + ref 0) must fire, exactly as the non-parametric
+  -- recursive path does. Terms are built the way the translator emits them:
+  -- constructors QUALIFIED with the instantiated sort (`(as List.nil (@List Int))`,
+  -- `(List.cons … : (@List Int))`), accessors/recognizers as bare SimpleIdents whose
+  -- instantiated func_decl is recovered from the argument's own sort.
+  let aSym   : SmtSymbol := .NormalSymbol "@α"
+  let listNm : SmtSymbol := .NormalSymbol "@List"
+  let listDecl : SmtDatatypeDecl := {
+    params := some #[aSym],
+    ctors := #[
+      (.NormalSymbol "List.nil", none),
+      (.NormalSymbol "List.cons", some #[
+        (.NormalSymbol "List.cons.0", .SymbolSort aSym),
+        (.NormalSymbol "List.cons.1", .ParamSort listNm #[.SymbolSort aSym]) ]) ] }
+  let listInt : SortExpr := .ParamSort listNm #[intSort]
+  let app := fun (nm : SmtSymbol) (args : Array SmtTerm) => SmtTerm.AppTerm (.SimpleIdent nm) args
+  let notOp := fun t => app (.ReservedSymbol "not") #[t]
+  -- nullary ctor via `(as List.nil (@List Int))`; applied ctor via qualified `List.cons`
+  let nilI : SmtTerm := .SmtIdent (.QualifiedIdent (.NormalSymbol "List.nil") listInt)
+  let consI := fun (h t : SmtTerm) =>
+    SmtTerm.AppTerm (.QualifiedIdent (.NormalSymbol "List.cons") listInt) #[h, t]
+  let l3 := consI (.NumTerm 3) nilI
+  let showR := fun r => match r with
+    | Result.Valid => "valid" | Result.Falsified _ => "falsified" | Result.Undetermined => "undet"
+  -- r1 (Valid): accessor round-trip (incl. the recursive `List.cons.1` field) + BOTH
+  -- recognizers, all concrete ⇒ ¬ unsat ⇒ Valid.
+  let s1 ← Z3Session.create
+  s1.runCommand (.declareDataType listNm listDecl)
+  let ec1 ← s1.ctx.errorCode
+  if ec1 != 0 then throw (IO.userError s!"dtparam declare: z3 error {ec1} ({← s1.ctx.errorMsg ec1})")
+  let goal1 : SmtTerm := app (.ReservedSymbol "and") #[
+    app (.ReservedSymbol "=") #[app (.NormalSymbol "List.cons.0") #[l3], .NumTerm 3],
+    app (.ReservedSymbol "=") #[app (.NormalSymbol "List.cons.1") #[l3], nilI],
+    app (.NormalSymbol "is-List.cons") #[l3],
+    app (.NormalSymbol "is-List.nil") #[nilI],
+    notOp (app (.NormalSymbol "is-List.nil") #[l3]) ]
+  s1.assert (notOp goal1)
+  let r1 ← s1.checkSat #[] false
+  -- r2 (Falsified): (List.cons.0 l3) = 4 is FALSE (it is 3) ⇒ ¬ sat ⇒ Falsified.
+  let s2 ← Z3Session.create
+  s2.runCommand (.declareDataType listNm listDecl)
+  let goal2 : SmtTerm := app (.ReservedSymbol "=") #[app (.NormalSymbol "List.cons.0") #[l3], .NumTerm 4]
+  s2.assert (notOp goal2)
+  let r2 ← s2.checkSat #[] false
+  -- r3 (Valid): (cons 3 nil) ≠ nil (constructor distinctness) ⇒ ¬ unsat ⇒ Valid.
+  let s3 ← Z3Session.create
+  s3.runCommand (.declareDataType listNm listDecl)
+  let goal3 : SmtTerm := notOp (app (.ReservedSymbol "=") #[l3, nilI])
+  s3.assert (notOp goal3)
+  let r3 ← s3.checkSat #[] false
+  IO.println s!"dtparam r1={showR r1} r2={showR r2} r3={showR r3}"
+
+open Blaster.Smt in
+/-- info: either r1=valid r2=falsified -/
+#guard_msgs in
+#eval do
+  -- TWO-PARAM (non-recursive) parametric datatype, to pin type-param ORDERING (a
+  -- single-param test cannot distinguish correct ordering from a `tvMap` that works
+  -- only because it has one entry):
+  --   @Either α β = Either.Left (Either.Left.0 : α) | Either.Right (Either.Right.0 : β)
+  -- Instantiated at `(@Either Int Bool)`, `Either.Left.0` MUST monomorphize to Int
+  -- (param 0) and `Either.Right.0` to Bool (param 1); a swapped map would make the
+  -- concrete goal below an `Int = Bool` sort error rather than Valid.
+  let aSym : SmtSymbol := .NormalSymbol "@α"
+  let bSym : SmtSymbol := .NormalSymbol "@β"
+  let eNm  : SmtSymbol := .NormalSymbol "@Either"
+  let eitherDecl : SmtDatatypeDecl := {
+    params := some #[aSym, bSym],
+    ctors := #[
+      (.NormalSymbol "Either.Left",  some #[(.NormalSymbol "Either.Left.0",  .SymbolSort aSym)]),
+      (.NormalSymbol "Either.Right", some #[(.NormalSymbol "Either.Right.0", .SymbolSort bSym)]) ] }
+  let eIB : SortExpr := .ParamSort eNm #[intSort, boolSort]
+  let app := fun (nm : SmtSymbol) (args : Array SmtTerm) => SmtTerm.AppTerm (.SimpleIdent nm) args
+  let notOp := fun t => app (.ReservedSymbol "not") #[t]
+  let left3  : SmtTerm := .AppTerm (.QualifiedIdent (.NormalSymbol "Either.Left")  eIB) #[.NumTerm 3]
+  let rightT : SmtTerm := .AppTerm (.QualifiedIdent (.NormalSymbol "Either.Right") eIB) #[.BoolTerm true]
+  let showR := fun r => match r with
+    | Result.Valid => "valid" | Result.Falsified _ => "falsified" | Result.Undetermined => "undet"
+  -- r1 (Valid): Left.0 : Int (param 0) AND Right.0 : Bool (param 1) + recognizers.
+  let s1 ← Z3Session.create
+  s1.runCommand (.declareDataType eNm eitherDecl)
+  let ec ← s1.ctx.errorCode
+  if ec != 0 then throw (IO.userError s!"either declare: z3 error {ec} ({← s1.ctx.errorMsg ec})")
+  let goal1 : SmtTerm := app (.ReservedSymbol "and") #[
+    app (.ReservedSymbol "=") #[app (.NormalSymbol "Either.Left.0")  #[left3],  .NumTerm 3],
+    app (.ReservedSymbol "=") #[app (.NormalSymbol "Either.Right.0") #[rightT], .BoolTerm true],
+    app (.NormalSymbol "is-Either.Left")  #[left3],
+    app (.NormalSymbol "is-Either.Right") #[rightT],
+    notOp (app (.NormalSymbol "is-Either.Left") #[rightT]) ]
+  s1.assert (notOp goal1)
+  let r1 ← s1.checkSat #[] false
+  -- r2 (Falsified): (Either.Left.0 (Left 3)) = 4 is FALSE (it is 3) ⇒ ¬ sat ⇒ Falsified.
+  let s2 ← Z3Session.create
+  s2.runCommand (.declareDataType eNm eitherDecl)
+  let goal2 : SmtTerm := app (.ReservedSymbol "=") #[app (.NormalSymbol "Either.Left.0") #[left3], .NumTerm 4]
+  s2.assert (notOp goal2)
+  let r2 ← s2.checkSat #[] false
+  IO.println s!"either r1={showR r1} r2={showR r2}"

@@ -34,4 +34,43 @@ opaque Context.mkDatatypes : Context → Array String → Array (Array String) �
   → Array (Array (Array String)) → Array (Array (Array Z3Sort)) → Array (Array (Array UInt32))
   → IO (Array Z3Sort × Array (Array FuncDecl))
 
+/-- Create a Z3 type variable from a name (e.g. `@α`), for a polymorphic datatype's params. -/
+@[extern "lean_z3_mk_type_var"]
+opaque Context.mkTypeVar : Context → String → IO Z3Sort
+
+/-- Declare a PARAMETRIC datatype via `Z3_mk_polymorphic_datatype`. `typevars` are the
+    type-variable params. Field arrays mirror `mkDatatypeRec`: a `fieldRefs` entry `0`
+    uses `fieldSorts[i][j]` (a type-var for a `@α` field, or a real sort); `1` marks a
+    self-recursive field ⇒ the shim substitutes a NULL sort with `sort_ref 0` (the field's
+    slot in `fieldSorts` is then a never-read placeholder). Returns ONLY the polymorphic
+    sort; the instantiated func_decls are recovered per-instantiation via the `dt*` calls. -/
+@[extern "lean_z3_mk_poly_datatype"]
+opaque Context.mkPolyDatatype : Context → String → Array Z3Sort → Array String → Array String
+  → Array (Array String) → Array (Array Z3Sort) → Array (Array UInt32) → IO Z3Sort
+
+/-- Instantiate a previously-declared datatype `name` at concrete `params`
+    (e.g. `@List` at `[Int]` ⇒ `(@List Int)`) via `Z3_mk_datatype_sort`. -/
+@[extern "lean_z3_mk_datatype_sort"]
+opaque Context.mkDatatypeSort : Context → String → Array Z3Sort → IO Z3Sort
+
+/-- Number of constructors of an (instantiated) datatype sort. -/
+@[extern "lean_z3_dt_num_ctors"]
+opaque Context.dtNumCtors : Context → Z3Sort → IO UInt32
+
+/-- The `i`-th constructor func_decl of an instantiated datatype sort (monomorphized). -/
+@[extern "lean_z3_dt_constructor"]
+opaque Context.dtConstructor : Context → Z3Sort → UInt32 → IO FuncDecl
+
+/-- The `i`-th recognizer (`is-<ctor>`) func_decl of an instantiated datatype sort. -/
+@[extern "lean_z3_dt_recognizer"]
+opaque Context.dtRecognizer : Context → Z3Sort → UInt32 → IO FuncDecl
+
+/-- The `j`-th accessor of the `i`-th ctor of an instantiated datatype sort (monomorphized). -/
+@[extern "lean_z3_dt_accessor"]
+opaque Context.dtAccessor : Context → Z3Sort → UInt32 → UInt32 → IO FuncDecl
+
+/-- The sort of a term (`Z3_get_sort`) — used to resolve accessor/recognizer arg sorts. -/
+@[extern "lean_z3_ast_sort"]
+opaque Context.astSort : Context → Ast → IO Z3Sort
+
 end Blaster.Smt.FFI

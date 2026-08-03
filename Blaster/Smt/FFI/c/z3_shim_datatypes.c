@@ -237,3 +237,128 @@ LEAN_EXPORT lean_obj_res lean_z3_mk_datatypes(b_lean_obj_arg c, b_lean_obj_arg s
   lean_dec(fieldNames); lean_dec(fieldSorts); lean_dec(fieldRefs);
   return z3_io_ok(pair);
 }
+
+/* ==== PARAMETRIC datatypes (Z3_mk_polymorphic_datatype) =================== *
+ * A parametric datatype (`@List α`, `@Either α β`) is declared ONCE with type
+ * variables as its params; concrete instantiations (`(@List Int)`) are obtained
+ * later via Z3_mk_datatype_sort, and the instantiated (monomorphized) func_decls
+ * via the Z3_get_datatype_sort_* family. Same refcount + NULL-recursive-field
+ * discipline as the non-parametric shims above. */
+
+/* mkTypeVar : Context → String → IO Z3Sort  (a Z3 type variable, e.g. `@α`) */
+LEAN_EXPORT lean_obj_res lean_z3_mk_type_var(b_lean_obj_arg c, b_lean_obj_arg name, lean_obj_arg w) {
+  (void)w; Z3_context ctx=(Z3_context)ctx_ptr(c);
+  Z3_symbol sym=Z3_mk_string_symbol(ctx, lean_string_cstr(name));
+  lean_object *r=box_owned(Z3_mk_type_variable(ctx, sym));
+  lean_dec(c); lean_dec(name); return z3_io_ok(r);
+}
+
+/* mkPolyDatatype :
+ *   Context → sortName:String → typevars:Array Z3Sort
+ *   → ctorNames:Array String → recogNames:Array String
+ *   → fieldNames:Array (Array String) → fieldSorts:Array (Array Z3Sort)
+ *   → fieldRefs:Array (Array UInt32)
+ *   → IO Z3Sort
+ *
+ * Mirrors lean_z3_mk_datatype_rec (same `fieldRefs` convention: ref 0 uses
+ * fieldSorts[i][j] as given; ref k+1 ⇒ NULL sort + sort_ref k, so a self-ref for
+ * this single poly datatype is ref 1 ⇒ NULL + sort_ref 0), but the params are the
+ * type variables and it calls Z3_mk_polymorphic_datatype. For a REGULAR recursive
+ * parametric datatype the self-reference always occurs at the datatype's own type
+ * params, which is exactly what a self sort_ref means — no extra channel needed.
+ * Returns ONLY the polymorphic sort; the (monomorphized) func_decls are recovered
+ * per instantiation via the dt* accessors below, NOT here. */
+LEAN_EXPORT lean_obj_res lean_z3_mk_poly_datatype(b_lean_obj_arg c, b_lean_obj_arg sortName,
+    b_lean_obj_arg typevars, b_lean_obj_arg ctorNames, b_lean_obj_arg recogNames,
+    b_lean_obj_arg fieldNames, b_lean_obj_arg fieldSorts, b_lean_obj_arg fieldRefs,
+    lean_obj_arg w) {
+  (void)w; Z3_context ctx=(Z3_context)ctx_ptr(c);
+  unsigned np=(unsigned)lean_array_size(typevars);
+  Z3_sort *params=(Z3_sort*)malloc(sizeof(Z3_sort)*(np?np:1));
+  for (unsigned i=0;i<np;i++) params[i]=(Z3_sort)unbox_owned(lean_array_get_core(typevars,i));
+  unsigned nc=(unsigned)lean_array_size(ctorNames);
+  Z3_constructor *cons=(Z3_constructor*)malloc(sizeof(Z3_constructor)*(nc?nc:1));
+  for (unsigned i=0;i<nc;i++){
+    lean_object *fn=lean_array_get_core(fieldNames,i);
+    lean_object *fs=lean_array_get_core(fieldSorts,i);
+    lean_object *fr=lean_array_get_core(fieldRefs,i);
+    unsigned nf=(unsigned)lean_array_size(fn);
+    Z3_symbol *fnames=(Z3_symbol*)malloc(sizeof(Z3_symbol)*(nf?nf:1));
+    Z3_sort   *fsorts=(Z3_sort*)malloc(sizeof(Z3_sort)*(nf?nf:1));
+    unsigned  *refs  =(unsigned*)malloc(sizeof(unsigned)*(nf?nf:1));
+    for (unsigned j=0;j<nf;j++){
+      fnames[j]=Z3_mk_string_symbol(ctx, lean_string_cstr(lean_array_get_core(fn,j)));
+      unsigned ref_in=(unsigned)lean_unbox_uint32(lean_array_get_core(fr,j));
+      if (ref_in==0){ fsorts[j]=(Z3_sort)unbox_owned(lean_array_get_core(fs,j)); refs[j]=0; }
+      else          { fsorts[j]=(Z3_sort)0;                                     refs[j]=ref_in-1; }
+    }
+    Z3_symbol cn=Z3_mk_string_symbol(ctx, lean_string_cstr(lean_array_get_core(ctorNames,i)));
+    Z3_symbol rn=Z3_mk_string_symbol(ctx, lean_string_cstr(lean_array_get_core(recogNames,i)));
+    cons[i]=Z3_mk_constructor(ctx, cn, rn, nf, fnames, fsorts, refs);
+    free(fnames); free(fsorts); free(refs);
+  }
+  Z3_symbol sn=Z3_mk_string_symbol(ctx, lean_string_cstr(sortName));
+  Z3_sort dt=Z3_mk_polymorphic_datatype(ctx, sn, np, params, nc, cons);
+  for (unsigned i=0;i<nc;i++) Z3_del_constructor(ctx, cons[i]);
+  free(cons); free(params);
+  lean_object *r=box_owned(dt);
+  lean_dec(c); lean_dec(sortName); lean_dec(typevars); lean_dec(ctorNames);
+  lean_dec(recogNames); lean_dec(fieldNames); lean_dec(fieldSorts); lean_dec(fieldRefs);
+  return z3_io_ok(r);
+}
+
+/* mkDatatypeSort : Context → name:String → params:Array Z3Sort → IO Z3Sort
+ * Instantiate a previously-declared (parametric) datatype `name` at concrete
+ * `params` (e.g. `@List` at `[Int]` ⇒ `(@List Int)`). */
+LEAN_EXPORT lean_obj_res lean_z3_mk_datatype_sort(b_lean_obj_arg c, b_lean_obj_arg name,
+    b_lean_obj_arg params, lean_obj_arg w) {
+  (void)w; Z3_context ctx=(Z3_context)ctx_ptr(c);
+  unsigned np=(unsigned)lean_array_size(params);
+  Z3_sort *ps=(Z3_sort*)malloc(sizeof(Z3_sort)*(np?np:1));
+  for (unsigned i=0;i<np;i++) ps[i]=(Z3_sort)unbox_owned(lean_array_get_core(params,i));
+  Z3_symbol sn=Z3_mk_string_symbol(ctx, lean_string_cstr(name));
+  Z3_sort dt=Z3_mk_datatype_sort(ctx, sn, np, ps);
+  free(ps);
+  lean_object *r=box_owned(dt);
+  lean_dec(c); lean_dec(name); lean_dec(params); return z3_io_ok(r);
+}
+
+/* dtNumCtors : Context → Z3Sort → IO UInt32 */
+LEAN_EXPORT lean_obj_res lean_z3_dt_num_ctors(b_lean_obj_arg c, b_lean_obj_arg srt, lean_obj_arg w) {
+  (void)w; Z3_context ctx=(Z3_context)ctx_ptr(c);
+  unsigned n=Z3_get_datatype_sort_num_constructors(ctx, (Z3_sort)unbox_owned(srt));
+  lean_dec(c); lean_dec(srt); return z3_io_ok(lean_box_uint32(n));
+}
+
+/* dtConstructor : Context → Z3Sort → i:UInt32 → IO FuncDecl  (i-th ctor, instantiated) */
+LEAN_EXPORT lean_obj_res lean_z3_dt_constructor(b_lean_obj_arg c, b_lean_obj_arg srt, uint32_t i, lean_obj_arg w) {
+  (void)w; Z3_context ctx=(Z3_context)ctx_ptr(c);
+  Z3_func_decl fd=Z3_get_datatype_sort_constructor(ctx, (Z3_sort)unbox_owned(srt), i);
+  lean_object *r=box_owned(fd);
+  lean_dec(c); lean_dec(srt); return z3_io_ok(r);
+}
+
+/* dtRecognizer : Context → Z3Sort → i:UInt32 → IO FuncDecl  (i-th recognizer) */
+LEAN_EXPORT lean_obj_res lean_z3_dt_recognizer(b_lean_obj_arg c, b_lean_obj_arg srt, uint32_t i, lean_obj_arg w) {
+  (void)w; Z3_context ctx=(Z3_context)ctx_ptr(c);
+  Z3_func_decl fd=Z3_get_datatype_sort_recognizer(ctx, (Z3_sort)unbox_owned(srt), i);
+  lean_object *r=box_owned(fd);
+  lean_dec(c); lean_dec(srt); return z3_io_ok(r);
+}
+
+/* dtAccessor : Context → Z3Sort → i:UInt32 → j:UInt32 → IO FuncDecl
+ * j-th accessor of the i-th ctor, monomorphized to the instantiated sort. */
+LEAN_EXPORT lean_obj_res lean_z3_dt_accessor(b_lean_obj_arg c, b_lean_obj_arg srt, uint32_t i, uint32_t j, lean_obj_arg w) {
+  (void)w; Z3_context ctx=(Z3_context)ctx_ptr(c);
+  Z3_func_decl fd=Z3_get_datatype_sort_constructor_accessor(ctx, (Z3_sort)unbox_owned(srt), i, j);
+  lean_object *r=box_owned(fd);
+  lean_dec(c); lean_dec(srt); return z3_io_ok(r);
+}
+
+/* astSort : Context → Ast → IO Z3Sort  (Z3_get_sort — the sort of a term) */
+LEAN_EXPORT lean_obj_res lean_z3_ast_sort(b_lean_obj_arg c, b_lean_obj_arg a, lean_obj_arg w) {
+  (void)w; Z3_context ctx=(Z3_context)ctx_ptr(c);
+  Z3_sort s=Z3_get_sort(ctx, (Z3_ast)unbox_owned(a));
+  lean_object *r=box_owned(s);
+  lean_dec(c); lean_dec(a); return z3_io_ok(r);
+}
