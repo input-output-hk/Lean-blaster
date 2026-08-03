@@ -59,6 +59,9 @@ partial def buildIdent (nm : SmtQualifiedIdent) : BuildM Ast := do
   if let some a := (← get).consts.get? sym then return a
   if let some m := (← get).macros.get? sym then
     if m.params.isEmpty then return (← buildTerm m.body)
+  -- a nullary declared/recursive function referenced bare is its 0-ary application
+  if let some fd := (← get).recFuncs.get? sym then return (← (← get).ctx.mkApp fd #[])
+  if let some fd := (← get).funcs.get? sym then return (← (← get).ctx.mkApp fd #[])
   throw (IO.userError s!"buildIdent: unbound identifier {sym.toString}")
 
 partial def buildApp (nm : SmtQualifiedIdent) (args : Array SmtTerm) : BuildM Ast := do
