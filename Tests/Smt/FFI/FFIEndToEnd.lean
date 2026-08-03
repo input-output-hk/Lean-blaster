@@ -2,43 +2,54 @@ import Blaster
 /-!
 # First real end-to-end `#blaster (backend: ffi)`
 
-With `define-sort` (Task 14) the FFI session's `runCommand` handles the full set of
-declarative commands the translator emits, so a real `#blaster (backend: ffi)` query
-now runs the ENTIRE in-process Z3 pipeline: opaque-type qualifiers
-(`define-sort`/`define-fun`), quantifiers, and integer/boolean operators — no legacy
-`z3` subprocess involved. Each goal below is proved `✅ Valid` through the FFI path.
+Each goal below is proved through the ENTIRE in-process Z3 FFI pipeline — opaque-type
+qualifiers (`define-sort`/`define-fun`), quantifiers, and integer operators — with no
+legacy `z3` subprocess.
 
-The final query has no `(backend: …)` option, so it runs the legacy `.smtlib`
-subprocess: a parity control showing the default path is unchanged and produces the
-same verdict.
+**Crucially, every goal is verified to actually reach the solver**, not be discharged
+by the pre-SMT optimizer. For each goal we pin TWO results:
+
+* `(only-optimize: 1)` ⇒ `⚠️ Undetermined` — the optimizer alone CANNOT close it, so the
+  SMT solver is genuinely required (if the optimizer solved it, this would be `✅ Valid`
+  and no Z3 call would happen).
+* `(backend: ffi)` ⇒ `✅ Valid` — the in-process FFI Z3 closes it.
+
+The two together prove the FFI solver did the work. A plain (default `.smtlib`) control
+shows subprocess/FFI parity.
 -/
 namespace Test.FFIEndToEnd
 
--- Int + 0 = x : no `define-sort` needed (Int is a built-in sort in buildSort), so
--- this exercises quantifier + arithmetic through the FFI session.
-/-- info: ✅ Valid -/
-#guard_msgs (info) in
-#blaster (backend: ffi) [∀ (x : Int), x + 0 = x]
+/-! ## Int implication (linear arithmetic; reaches the solver) -/
+/-- warning: ⚠️ Undetermined -/
+#guard_msgs (warning) in
+#blaster (only-optimize: 1) [∀ (x y : Int), x ≤ y → x - 1 < y]
 
--- Two binders + commutativity of +.
 /-- info: ✅ Valid -/
 #guard_msgs (info) in
-#blaster (backend: ffi) [∀ (x y : Int), x + y = y + x]
+#blaster (backend: ffi) [∀ (x y : Int), x ≤ y → x - 1 < y]
 
--- Nat : the load-bearing goal for Task 14 — emits `(define-sort Nat () Int)` and
--- the `@isNat` qualifier `define-fun`, both now handled by the FFI `runCommand`.
 /-- info: ✅ Valid -/
 #guard_msgs (info) in
-#blaster (backend: ffi) [∀ (x : Nat), x + 0 = x]
+#blaster [∀ (x y : Int), x ≤ y → x - 1 < y]  -- legacy `.smtlib` parity control
 
--- Bool : exercises the Bool qualifier plus `∨`/`=` over the built-in Bool sort.
-/-- info: ✅ Valid -/
-#guard_msgs (info) in
-#blaster (backend: ffi) [∀ (b : Bool), b = true ∨ b = false]
+/-! ## Int transitivity -/
+/-- warning: ⚠️ Undetermined -/
+#guard_msgs (warning) in
+#blaster (only-optimize: 1) [∀ (x y z : Int), x < y → y < z → x < z]
 
--- Legacy control (default `.smtlib` subprocess): same goal, same verdict.
 /-- info: ✅ Valid -/
 #guard_msgs (info) in
-#blaster [∀ (x : Int), x + 0 = x]
+#blaster (backend: ffi) [∀ (x y z : Int), x < y → y < z → x < z]
+
+/-! ## Nat — the load-bearing goal: emits `(define-sort Nat () Int)` and the `@isNat`
+     qualifier `define-fun`, both handled by the FFI `runCommand`, AND genuinely needs
+     the solver (Undetermined under only-optimize). -/
+/-- warning: ⚠️ Undetermined -/
+#guard_msgs (warning) in
+#blaster (only-optimize: 1) [∀ (n m x : Nat), n = m → m = n + x → 0 = x]
+
+/-- info: ✅ Valid -/
+#guard_msgs (info) in
+#blaster (backend: ffi) [∀ (n m x : Nat), n = m → m = n + x → 0 = x]
 
 end Test.FFIEndToEnd
