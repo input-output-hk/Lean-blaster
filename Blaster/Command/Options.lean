@@ -22,6 +22,14 @@ def isExpectedUndetermined : ExpectedResult -> Bool
 | .ExpectedUndetermined => true
 | _ => false
 
+/-- Backend solver used to discharge unsolved goals.
+      - `.smtlib`: the legacy `z3` subprocess driven over an smt-lib pipe (default).
+      - `.ffi`: the in-process Z3 session built via the C-API FFI. -/
+inductive SolverBackend where
+  | ffi
+  | smtlib
+deriving Repr, BEq, Inhabited
+
 /-- Type introducing the options passed on to the solver. -/
 structure BlasterOptions where
   /-- The number of unfolding steps to be considered when
@@ -71,6 +79,11 @@ structure BlasterOptions where
   /-- Maximum analysis depth to be considered when performing BMC and K-Induction.
       It is set to 10 by default. -/
   maxDepth : Nat := 10
+
+  /-- Backend solver used to discharge unsolved goals. It defaults to `.smtlib`
+      (the legacy `z3` subprocess); use `(backend: ffi)` to opt in to the
+      in-process Z3 FFI session. -/
+  backend : SolverBackend := .smtlib
  deriving Repr
 
 instance : Inhabited BlasterOptions where

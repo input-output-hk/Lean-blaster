@@ -20,6 +20,9 @@ Options:
   - `gen-cex`: generate counterexample for falsified theorems (default: 1)
   - `solve-result`: specify the expected result from the #blaster command, i.e.,
                     0 for 'Valid', 1 for 'Falsified' and 2 for 'Undetermined'. (default: 0)
+  - `backend`: backend solver used to discharge unsolved goals, i.e.,
+                    `smtlib` for the legacy z3 subprocess or `ffi` for the in-process
+                    Z3 FFI session. (default: smtlib)
 
 Examples:
    - #blaster [∀ x y : Nat, x + y ≥ x]
@@ -38,6 +41,7 @@ syntax "(gen-cex:" num ")" : solveOption
 syntax "(solve-result:" num ")" : solveOption
 syntax "(max-depth:" num ")" : solveOption
 syntax "(random-seed:" num ")" : solveOption
+syntax "(backend:" ident ")" : solveOption
 
 -- NOTE: Limited to one term for the time being
 syntax solveTerm := "[" term "]"
@@ -111,6 +115,14 @@ def parseSolveResult (sOpts : BlasterOptions) : TSyntax `solveOption → m Blast
       | _ => throwUnsupportedSyntax
   | _ => return sOpts
 
+def parseBackend (sOpts : BlasterOptions) : TSyntax `solveOption → m BlasterOptions
+  | `(solveOption| (backend: $b:ident)) =>
+      match b.getId.toString with
+      | "ffi" => return { sOpts with backend := .ffi }
+      | "smtlib" => return { sOpts with backend := .smtlib }
+      | _ => throwUnsupportedSyntax
+  | _ => return sOpts
+
 /-! ### Generic Parser for All Options -/
 def parseSolveOption (sOpts : BlasterOptions) (opt : TSyntax `solveOption) : m BlasterOptions := do
   let sOpts ← parseUnfoldDepth sOpts opt
@@ -123,6 +135,7 @@ def parseSolveOption (sOpts : BlasterOptions) (opt : TSyntax `solveOption) : m B
   let sOpts ← parseSolveResult sOpts opt
   let sOpts ← parseMaxDepth sOpts opt
   let sOpts ← parseRandomSeed sOpts opt
+  let sOpts ← parseBackend sOpts opt
   return sOpts
 
 /-! ### Process Multiple Options -/

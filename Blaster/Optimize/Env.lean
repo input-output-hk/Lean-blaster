@@ -3,6 +3,7 @@ import Blaster.Optimize.Expr
 import Blaster.Optimize.MatchInfo
 import Blaster.Optimize.Opaque
 import Blaster.Smt.Term
+import Blaster.Smt.FFI.Session
 import Blaster.Command.Options
 
 open Lean Meta Blaster.Smt Blaster.Options
@@ -352,6 +353,9 @@ structure SmtEnv where
   /-- Backend solver process. -/
   smtProc : Option (IO.Process.Child ⟨.piped, .piped, .piped⟩)
 
+  /-- In-process Z3 FFI session, used when the `ffi` backend is selected. -/
+  smtSession : Option Blaster.Smt.FFI.Z3Session
+
   /-- Cache keeping track of visited inductive datatype during translation. -/
   indTypeVisited : Std.HashSet Lean.Name
 
@@ -450,6 +454,7 @@ instance : Inhabited SmtEnv where
    { translateCache := Std.HashMap.emptyWithCapacity,
      smtCommands := Array.mkEmpty 1023,
      smtProc := default,
+     smtSession := none,
      indTypeVisited := Std.HashSet.emptyWithCapacity,
      indTypeInstCache := Std.HashMap.emptyWithCapacity,
      funInstCache := Std.HashMap.emptyWithCapacity,

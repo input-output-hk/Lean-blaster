@@ -54,4 +54,14 @@ def Z3Session.checkSat (sess : Z3Session)
   | 2 => return .Falsified (← sess.getModel topVars genCex)
   | _ => return .Undetermined
 
+/-- Route a declarative SmtCommand to the FFI session. Declarations go to the
+    build env; assert goes to the solver; options/check/model/exit are handled
+    elsewhere (no-op here). -/
+def Z3Session.submit (sess : Z3Session) (c : SmtCommand) : IO Unit := do
+  match c with
+  | .assertTerm t => sess.assert t
+  | .checkSat | .checkSatAssuming _ | .getModel | .getProof | .evalTerm _ | .exitSmt => pure ()
+  | .setLogic _ | .setOption _ _ => pure ()   -- options: a later task
+  | other => sess.runCommand other
+
 end Blaster.Smt.FFI

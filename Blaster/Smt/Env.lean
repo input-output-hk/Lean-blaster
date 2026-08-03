@@ -206,14 +206,17 @@ def isSmtProcSet : TranslateEnvT Bool :=
 -/
 partial def trySubmitCommand! (c : SmtCommand) (checkSuccess := true) : TranslateEnvT Unit := do
   storeCommand c
-  if !(← isSmtProcSet) then return ()
-  c.emit
-  let h ← getProcStdOut
-  if !checkSuccess then return ()
-  let out := normalizeLine (← h.getLine)
-  match out with
-  | "success\n" => return ()
-  | err => throwEnvError s!"Unexpected smt error: {err} for {c}"
+  match (← get).smtEnv.smtSession with
+  | some sess => return (← sess.submit c)
+  | none =>
+      if !(← isSmtProcSet) then return ()
+      c.emit
+      let h ← getProcStdOut
+      if !checkSuccess then return ()
+      let out := normalizeLine (← h.getLine)
+      match out with
+      | "success\n" => return ()
+      | err => throwEnvError s!"Unexpected smt error: {err} for {c}"
 
 /-- Same as trySubmitCommand! but with flag `checkSuccess` set to `false`.
 -/
@@ -545,9 +548,15 @@ partial def getSatResult (p : IO.Process.Child ⟨.piped, .piped, .piped⟩) : T
 -/
 def checkSat : TranslateEnvT Result := do
   let env ← get
-  let some p := env.smtEnv.smtProc | return .Undetermined
-  submitCommand (.checkSat)
-  getSatResult p
+  match env.smtEnv.smtSession with
+  | some sess =>
+      let topVars := env.smtEnv.topLevelVars
+      let genCex := env.optEnv.options.solverOptions.generateCex
+      return (← sess.checkSat topVars genCex)
+  | none =>
+      let some p := env.smtEnv.smtProc | return .Undetermined
+      submitCommand (.checkSat)
+      getSatResult p
 
 /-- Check satisfiability of current Smt query by assuming the provided terms
     and return the result.
@@ -580,10 +589,13 @@ def getProof : TranslateEnvT String := do
 -/
 def exitSmt : TranslateEnvT UInt32 := do
  let env ← get
- let some p := env.smtEnv.smtProc | return 0
- submitCommand (.exitSmt)
- let (_, p) ← p.takeStdin
- p.wait
+ match env.smtEnv.smtSession with
+ | some _ => set { env with smtEnv.smtSession := none }; return 0
+ | none =>
+   let some p := env.smtEnv.smtProc | return 0
+   submitCommand (.exitSmt)
+   let (_, p) ← p.takeStdin
+   p.wait
 
 
 /-- Set the Smt logic to `ALL`. -/
@@ -680,8 +692,13 @@ def setBlasterProcess : TranslateEnvT Unit := do
   let env ← get
   let sOpts := env.optEnv.options.solverOptions
   unless sOpts.onlySmtLib do
-    let proc ← createBlasterProcess
-    set { env with smtEnv.smtProc := proc }
+    match sOpts.backend with
+    | .ffi =>
+        let sess ← Blaster.Smt.FFI.Z3Session.create
+        set { env with smtEnv.smtSession := some sess }
+    | .smtlib =>
+        let proc ← createBlasterProcess
+        set { env with smtEnv.smtProc := proc }
   setDefaultSmtOptions sOpts
 
 
