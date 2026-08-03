@@ -271,3 +271,15 @@ open Blaster.Smt in
   let r3 ← s3.checkSat #[] false
   let showR := fun r => match r with | Result.Valid => "valid" | Result.Falsified _ => "falsified" | Result.Undetermined => "undet"
   IO.println s!"def r1={showR r1} r2={showR r2} r3={showR r3}"
+
+open Blaster.Smt in
+/-- info: alias-ok -/
+#guard_msgs in
+#eval do
+  let s ← Z3Session.create
+  s.runCommand (.defineSort (.NormalSymbol "MyInt") none intSort)
+  s.runCommand (.declareConst (.NormalSymbol "z") (.SymbolSort (.NormalSymbol "MyInt")))
+  s.assert (.AppTerm (.SimpleIdent (.ReservedSymbol "=")) #[
+    .SmtIdent (.SimpleIdent (.NormalSymbol "z")), .NumTerm 5])
+  let r ← s.checkSat #[] false
+  IO.println s!"alias-{if r matches Result.Falsified _ then "ok" else "BAD"}"

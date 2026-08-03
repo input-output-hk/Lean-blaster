@@ -280,6 +280,20 @@ partial def runCommand (c : SmtCommand) : BuildM Unit := do
           | throw (IO.userError s!"defineFunsRec: missing rec func decl for {decl.name.toString}")
         let (bodyAst, consts) ← withBound decl.params (buildTerm body)
         ctx.addRecDef fd consts bodyAst
+  | .defineSort nm args body =>
+      -- Sort alias. Only nullary aliases are supported (parametric aliases would
+      -- need to substitute the params into `body` at each use site). Register the
+      -- resolved sort under `nm` so `buildSort (.SymbolSort nm)` finds it. Note
+      -- `Nat`/`Prop` are `ReservedSymbol`s that `buildSort` special-cases before
+      -- consulting `sorts`, so their aliases (from defineNat/PropSort) are harmless
+      -- no-ops; a `NormalSymbol` alias is what actually exercises this path.
+      match args with
+      | none => let s ← buildSort body; modify fun st => { st with sorts := st.sorts.insert nm s }
+      | some ps =>
+          if ps.isEmpty then
+            let s ← buildSort body; modify fun st => { st with sorts := st.sorts.insert nm s }
+          else
+            throw (IO.userError s!"defineSort: parametric alias {nm.toString} unsupported")
   | _ => throw (IO.userError s!"runCommand: unhandled command (later tasks)")
 
 end Blaster.Smt.FFI
