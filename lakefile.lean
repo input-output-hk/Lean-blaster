@@ -35,6 +35,10 @@ input_file «z3_shim_terms.c» where
   path := "Blaster/Smt/FFI/c/z3_shim_terms.c"
   text := true
 
+input_file «z3_shim_datatypes.c» where
+  path := "Blaster/Smt/FFI/c/z3_shim_datatypes.c"
+  text := true
+
 target «z3_shim_context.o» (pkg : NPackage _package.name) : FilePath := do
   let o := pkg.buildDir / "ffi" / "z3_shim_context.o"
   buildO o (← «z3_shim_context.c».fetch) (← cWeakArgs) #["-O2"]
@@ -51,12 +55,17 @@ target «z3_shim_terms.o» (pkg : NPackage _package.name) : FilePath := do
   let o := pkg.buildDir / "ffi" / "z3_shim_terms.o"
   buildO o (← «z3_shim_terms.c».fetch) (← cWeakArgs) #["-O2"]
 
+target «z3_shim_datatypes.o» (pkg : NPackage _package.name) : FilePath := do
+  let o := pkg.buildDir / "ffi" / "z3_shim_datatypes.o"
+  buildO o (← «z3_shim_datatypes.c».fetch) (← cWeakArgs) #["-O2"]
+
 extern_lib «libz3shim» (pkg : NPackage _package.name) := do
   let oCtx ← «z3_shim_context.o».fetch
   let oSol ← «z3_shim_solver.o».fetch
   let oSorts ← «z3_shim_sorts.o».fetch
   let oTerms ← «z3_shim_terms.o».fetch
-  buildStaticLib (pkg.staticLibDir / nameToStaticLib "z3shim") #[oCtx, oSol, oSorts, oTerms]
+  let oDt ← «z3_shim_datatypes.o».fetch
+  buildStaticLib (pkg.staticLibDir / nameToStaticLib "z3shim") #[oCtx, oSol, oSorts, oTerms, oDt]
 
 @[default_target]
 lean_lib «Blaster» where

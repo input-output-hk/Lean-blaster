@@ -1,5 +1,6 @@
 import Blaster.Smt.FFI.Sorts
 import Blaster.Smt.FFI.Terms
+import Blaster.Smt.FFI.Datatypes
 import Blaster.Smt.FFI.BuildEnv
 import Blaster.Smt.Term
 
@@ -35,6 +36,13 @@ partial def buildSort (se : SortExpr) : BuildM Z3Sort := do
       match (← get).sorts.get? nm with
       | some s => return s
       | none => throw (IO.userError s!"buildSort: unknown parameterized sort {nm.toString}")
+
+/-- Does `se` mention the sort symbol `target` anywhere? Used to reject
+    (MVP: non-recursive datatypes only) self-recursive datatype fields with a
+    clear error instead of silently minting an uninterpreted placeholder sort. -/
+partial def sortMentions (target : SmtSymbol) : SortExpr → Bool
+  | .SymbolSort s   => s == target
+  | .ParamSort s ps => s == target || ps.any (sortMentions target)
 
 /-- Strip the surrounding quotes strLitSmt adds to string literals. -/
 private def unquote (s : String) : String :=
@@ -177,6 +185,46 @@ partial def runCommand (c : SmtCommand) : BuildM Unit := do
   | .declareSort nm _arity =>
       let s ← ctx.mkUninterpSort nm.toString
       modify fun st => { st with sorts := st.sorts.insert nm s }
+  | .declareDataType nm decl => do
+      -- MVP scope: single, non-recursive, non-mutual, non-parametric datatype.
+      if let some ps := decl.params then
+        if !ps.isEmpty then
+          throw (IO.userError s!"declareDataType: parametric datatype {nm.toString} unsupported (FFI backend MVP: non-parametric only)")
+      let selsOf := fun (sels : Option (Array SmtSelector)) => sels.getD #[]
+      -- Reject self-recursive fields BEFORE building any sort, so a throw cannot
+      -- leave a half-populated `sorts` cache (buildSort would otherwise mint an
+      -- uninterpreted placeholder for the self-reference).
+      for (_, sels) in decl.ctors do
+        for (_, st) in selsOf sels do
+          if sortMentions nm st then
+            throw (IO.userError s!"declareDataType: recursive datatype {nm.toString} unsupported (FFI backend MVP: non-recursive only)")
+      let ctorNames  : Array String := decl.ctors.map (fun (cn, _) => cn.toString)
+      let recogNames : Array String := decl.ctors.map (fun (cn, _) => s!"is-{cn.toString}")
+      let fieldNames : Array (Array String) :=
+        decl.ctors.map (fun (_, sels) => (selsOf sels).map (fun (sn, _) => sn.toString))
+      let fieldSorts : Array (Array Z3Sort) ←
+        decl.ctors.mapM (fun (_, sels) => (selsOf sels).mapM (fun (_, se) => buildSort se))
+      let (dtSort, decls) ← ctx.mkDatatype nm.toString ctorNames recogNames fieldNames fieldSorts
+      modify fun st => { st with sorts := st.sorts.insert nm dtSort }
+      -- Walk the flat decl layout `[ctor, recog, acc0, acc1, ...]` per ctor and
+      -- register each func_decl under the SmtSymbol the translator references:
+      -- constructor = the ctor symbol; recognizer = `is-<ctor>` (mkCtorTestorTerm);
+      -- accessor = the selector symbol (mkCtorSelectorSymbol). `decls[k]?` avoids
+      -- the missing `Inhabited FuncDecl`.
+      let mut k := 0
+      for (cn, sels) in decl.ctors do
+        let some ctorFd := decls[k]? | throw (IO.userError "declareDataType: decl layout mismatch (ctor)")
+        k := k + 1
+        let some recogFd := decls[k]? | throw (IO.userError "declareDataType: decl layout mismatch (recog)")
+        k := k + 1
+        modify fun st => { st with funcs := st.funcs.insert cn ctorFd }
+        modify fun st => { st with funcs := st.funcs.insert (.NormalSymbol s!"is-{cn.toString}") recogFd }
+        for (sn, _) in selsOf sels do
+          let some accFd := decls[k]? | throw (IO.userError "declareDataType: decl layout mismatch (accessor)")
+          k := k + 1
+          modify fun st => { st with funcs := st.funcs.insert sn accFd }
+  | .declareMutualDataTypes _ _ =>
+      throw (IO.userError "declareMutualDataTypes: FFI backend does not yet support mutual datatypes")
   | _ => throw (IO.userError s!"runCommand: unhandled command (later tasks)")
 
 end Blaster.Smt.FFI

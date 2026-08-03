@@ -202,3 +202,32 @@ open Blaster.Smt in
   s.assert (.AppTerm (.SimpleIdent (.ReservedSymbol "not")) #[lt])
   let r ← s.checkSat #[] false
   IO.println s!"let-{if r matches Result.Valid then "ok" else "BAD"}"
+
+open Blaster.Smt in
+/-- info: dt r1=valid r2=falsified -/
+#guard_msgs in
+#eval do
+  -- datatype `Pair` with ctor `mk`, selectors `fst`,`snd` : Int, recognizer `is-mk`.
+  let mkDecl : SmtDatatypeDecl := { params := none, ctors := #[
+    (.NormalSymbol "mk", some #[(.NormalSymbol "fst", intSort), (.NormalSymbol "snd", intSort)]) ] }
+  let mk34 : SmtTerm := .AppTerm (.SimpleIdent (.NormalSymbol "mk")) #[.NumTerm 3, .NumTerm 4]
+  let app := fun (nm : SmtSymbol) (args : Array SmtTerm) => SmtTerm.AppTerm (.SimpleIdent nm) args
+  let notOp := fun t => app (.ReservedSymbol "not") #[t]
+  -- r1: (and (= (fst mk34) 3) (= (snd mk34) 4) (is-mk mk34)) is valid ⇒ assert ¬ ⇒ Valid.
+  --     Exercises constructor + BOTH accessors (field order → fst=.0, snd=.1) + recognizer.
+  let s1 ← Z3Session.create
+  s1.runCommand (.declareDataType (.NormalSymbol "Pair") mkDecl)
+  let goal1 : SmtTerm := app (.ReservedSymbol "and") #[
+    app (.ReservedSymbol "=") #[app (.NormalSymbol "fst") #[mk34], .NumTerm 3],
+    app (.ReservedSymbol "=") #[app (.NormalSymbol "snd") #[mk34], .NumTerm 4],
+    app (.NormalSymbol "is-mk") #[mk34]]
+  s1.assert (notOp goal1)
+  let r1 ← s1.checkSat #[] false
+  -- r2: (fst mk34) = 4 is false ⇒ ¬ is true ⇒ assert ¬ ⇒ sat ⇒ Falsified.
+  let s2 ← Z3Session.create
+  s2.runCommand (.declareDataType (.NormalSymbol "Pair") mkDecl)
+  let goal2 : SmtTerm := app (.ReservedSymbol "=") #[app (.NormalSymbol "fst") #[mk34], .NumTerm 4]
+  s2.assert (notOp goal2)
+  let r2 ← s2.checkSat #[] false
+  let showR := fun r => match r with | Result.Valid => "valid" | Result.Falsified _ => "falsified" | Result.Undetermined => "undet"
+  IO.println s!"dt r1={showR r1} r2={showR r2}"
