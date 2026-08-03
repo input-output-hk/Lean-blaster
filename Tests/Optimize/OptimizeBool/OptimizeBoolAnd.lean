@@ -10,34 +10,34 @@ namespace Test.OptimizeBoolAnd
 /-! Test cases for `reduceApp` rule on ``and. -/
 
 -- true && false ===> false
-#testOptimize [ "BoolAndCst_1" ] true && false ===> false
+#testOptimize [ "BoolAndCst_1", proof ] true && false ===> false
 
 -- false && true ===> false
-#testOptimize [ "BoolAndCst_2" ] false && true ===> false
+#testOptimize [ "BoolAndCst_2", proof ] false && true ===> false
 
 -- true && true ===> true
-#testOptimize [ "BoolAndCst_3" ] true && true ===> true
+#testOptimize [ "BoolAndCst_3", proof ] true && true ===> true
 
 -- false && false ===> false
-#testOptimize [ "BoolAndCst_4" ] false && false ===> false
+#testOptimize [ "BoolAndCst_4", proof ] false && false ===> false
 
 -- ! true && false ===> false
-#testOptimize [ "BoolAndCst_5" ] !true && false ===> false
+#testOptimize [ "BoolAndCst_5", proof ] !true && false ===> false
 
 -- ! false && true ===> true
-#testOptimize [ "BoolAndCst_6" ] ! false && true ===> true
+#testOptimize [ "BoolAndCst_6", proof ] ! false && true ===> true
 
 
 /-! Test cases for simplification rule `false && e ==> false`. -/
 
 -- (a && false) = false ===> True
-#testOptimize [ "BoolAndFalse_1" ] ∀ (a : Bool), (a && false) = false ===> True
+#testOptimize [ "BoolAndFalse_1", proof ] ∀ (a : Bool), (a && false) = false ===> True
 
 -- (a && false) ===> False
 #testOptimize [ "BoolAndFalse_2" ] ∀ (a : Bool), a && false ===> False
 
 -- (false && a) = false ===> True
-#testOptimize [ "BoolAndFalse_3" ] ∀ (a : Bool), (false && a) = false ===> True
+#testOptimize [ "BoolAndFalse_3", proof ] ∀ (a : Bool), (false && a) = false ===> True
 
 -- false && a ===> False
 #testOptimize [ "BoolAndFalse_4" ] ∀ (a : Bool), false && a ===> False
@@ -63,25 +63,25 @@ namespace Test.OptimizeBoolAnd
 /-! Test cases for simplification rule `true && e ==> e`. -/
 
 -- (a && true) = a ===> True
-#testOptimize [ "BoolAndTrue_1" ] ∀ (a : Bool), (a && true) = a ===> True
+#testOptimize [ "BoolAndTrue_1", proof ] ∀ (a : Bool), (a && true) = a ===> True
 
 -- (a && true) ===> a (i.e., true = a)
 #testOptimize [ "BoolAndTrue_2" ] ∀ (a : Bool), a && true ===> ∀ (a : Bool), true = a
 
 -- (true && a) = a ===> True
-#testOptimize [ "BoolAndTrue_3" ] ∀ (a : Bool), (true && a) = a ===> True
+#testOptimize [ "BoolAndTrue_3", proof ] ∀ (a : Bool), (true && a) = a ===> True
 
 -- (true && (a || b)) = (a || b) ===> True
-#testOptimize [ "BoolAndTrue_4" ] ∀ (a b : Bool), (true && (a || b)) = (a || b) ===> True
+#testOptimize [ "BoolAndTrue_4", proof ] ∀ (a b : Bool), (true && (a || b)) = (a || b) ===> True
 
 -- ((a && b) && true) = (a && b) ===> True
-#testOptimize [ "BoolAndTrue_5" ] ∀ (a b : Bool), ((a && b) && true) = (a && b) ===> True
+#testOptimize [ "BoolAndTrue_5", proof ] ∀ (a b : Bool), ((a && b) && true) = (a && b) ===> True
 
 -- ((a && true) && b) = (a && b) ===> True
-#testOptimize [ "BoolAndTrue_6" ] ∀ (a b : Bool), ((a && true) && b) = (a && b) ===> True
+#testOptimize [ "BoolAndTrue_6", proof ] ∀ (a b : Bool), ((a && true) && b) = (a && b) ===> True
 
 -- ((true && a) && b) = (a && b) ===> True
-#testOptimize [ "BoolAndTrue_7" ] ∀ (a b : Bool), ((true && a) && b) = (a && b) ===> True
+#testOptimize [ "BoolAndTrue_7", proof ] ∀ (a b : Bool), ((true && a) && b) = (a && b) ===> True
 
 -- let x := a && a
 -- let y := a || !x
@@ -155,7 +155,7 @@ namespace Test.OptimizeBoolAnd
 /-! Test cases for simplification rule `e1 && e2 ==> e1 (if e1 =ₚₜᵣ e2)`. -/
 
 -- (a && a) = a ===> True
-#testOptimize [ "BoolAndSubsumption_1" ] ∀ (a : Bool), (a && a) = a ===> True
+#testOptimize [ "BoolAndSubsumption_1", proof ] ∀ (a : Bool), (a && a) = a ===> True
 
 -- (a && a) ===> a
 #testOptimize [ "BoolAndSubsumption_2" ] ∀ (a : Bool), a && a ===> ∀ (a : Bool), true = a

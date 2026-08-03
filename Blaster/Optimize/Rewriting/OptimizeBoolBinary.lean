@@ -27,10 +27,10 @@ namespace Blaster.Optimize
   return none
 
 /-- Apply the following simplification/normalization rules on `and` :
-     - false && e ==> false
-     - true && e ==> e
+     - false && e ==> false                                                                  [proof: Bool.and_false]
+     - true && e ==> e                                                                       [proof: Bool.and_true]
      - e && not e ==> false
-     - e1 && e2 ==> e1 (if e1 =ₚₜᵣ e2)
+     - e1 && e2 ==> e1 (if e1 =ₚₜᵣ e2)                                                        [proof: Bool.and_self]
      - e1 && e2 ===> e2 (if true = e1 := _ ∈ hypothesisContext.hypothesisMap)
      - e1 && e2 ===> e1 (if true = e2 := _ ∈ hypothesisContext.hypothesisMap)
      - e1 && e2 ===> false (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = false = e1)
@@ -48,9 +48,15 @@ def optimizeBoolAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeBoolAnd: exactly two arguments expected"
  let op1 := args[0]!
  let op2 := args[1]!
- if let Expr.const ``false _ := op1 then return op1
- if let Expr.const ``true _ := op1 then return op2
- if exprEq op1 op2 then return op1
+ if let Expr.const ``false _ := op1 then
+   pushProofStep (.rewrite (mkConst ``Bool.and_false))
+   return op1
+ if let Expr.const ``true _ := op1 then
+   pushProofStep (.rewrite (mkConst ``Bool.and_true))
+   return op2
+ if exprEq op1 op2 then
+   pushProofStep (.rewrite (mkConst ``Bool.and_self))
+   return op1
  if isBoolNotExprOf op2 op1 then return (← mkBoolFalse)
  if let some r ← andBoolReduction? op1 op2 then return r
  -- no caching at this level as optimizeBoolAnd is called by optimizeDecideBoolAnd
@@ -98,10 +104,18 @@ def optimizeBoolOr (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeBoolOr: exactly two arguments expected"
  let op1 := args[0]!
  let op2 := args[1]!
- if let Expr.const ``false _ := op1 then return op2
- if let Expr.const ``true _ := op1 then return op1
- if exprEq op1 op2 then return op1
- if isBoolNotExprOf op2 op1 then return (← mkBoolTrue)
+ if let Expr.const ``false _ := op1 then
+   pushProofStep (.rewrite (mkConst ``Bool.or_false))
+   return op2
+ if let Expr.const ``true _ := op1 then
+   pushProofStep (.rewrite (mkConst ``Bool.or_true))
+   return op1
+ if exprEq op1 op2 then
+   pushProofStep (.rewrite (mkConst ``Bool.or_self))
+   return op1
+ if isBoolNotExprOf op2 op1 then
+   pushProofStep (.rewrite (mkConst ``Bool.or_not_self))
+   return (← mkBoolTrue)
  if let some r ← orBoolReduction? op1 op2 then return r
  -- no caching at this level as optimizeBoolAnd is called by optimizeDecideBoolOr
  return mkApp2 f op1 op2
