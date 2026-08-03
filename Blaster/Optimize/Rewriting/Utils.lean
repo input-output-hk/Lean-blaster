@@ -419,6 +419,9 @@ def reorderOperands (f : Expr) (args : Array Expr) : TranslateEnvT (Array Expr) 
   | ``Eq =>
        if args.size != 3 then return args
        let (op1, op2) ← reorderEq #[args[1]!, args[2]!]
+       if !exprEq op1 args[1]! then
+         let iff ← mkAppOptM ``eq_comm #[args[0]!, args[1]!, args[2]!]
+         pushProofStep (.rewrite (← mkAppM ``propext #[iff]))
        return (args.set! 1 op1).set! 2 op2
 
   | ``BEq.beq =>
