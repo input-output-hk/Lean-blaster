@@ -34,7 +34,7 @@ namespace Test.OptimizeBoolAnd
 #testOptimize [ "BoolAndFalse_1", proof ] ∀ (a : Bool), (a && false) = false ===> True
 
 -- (a && false) ===> False
-#testOptimize [ "BoolAndFalse_2" ] ∀ (a : Bool), a && false ===> False
+#testOptimize [ "BoolAndFalse_2", proof ] ∀ (a : Bool), a && false ===> False
 
 -- (false && a) = false ===> True
 #testOptimize [ "BoolAndFalse_3", proof ] ∀ (a : Bool), (false && a) = false ===> True
@@ -66,7 +66,7 @@ namespace Test.OptimizeBoolAnd
 #testOptimize [ "BoolAndTrue_1", proof ] ∀ (a : Bool), (a && true) = a ===> True
 
 -- (a && true) ===> a (i.e., true = a)
-#testOptimize [ "BoolAndTrue_2" ] ∀ (a : Bool), a && true ===> ∀ (a : Bool), true = a
+#testOptimize [ "BoolAndTrue_2", proof ] ∀ (a : Bool), a && true ===> ∀ (a : Bool), true = a
 
 -- (true && a) = a ===> True
 #testOptimize [ "BoolAndTrue_3", proof ] ∀ (a : Bool), (true && a) = a ===> True
@@ -158,7 +158,7 @@ namespace Test.OptimizeBoolAnd
 #testOptimize [ "BoolAndSubsumption_1", proof ] ∀ (a : Bool), (a && a) = a ===> True
 
 -- (a && a) ===> a
-#testOptimize [ "BoolAndSubsumption_2" ] ∀ (a : Bool), a && a ===> ∀ (a : Bool), true = a
+#testOptimize [ "BoolAndSubsumption_2", proof ] ∀ (a : Bool), a && a ===> ∀ (a : Bool), true = a
 
 
 -- (a || b) && (b || a) ===> (a || b)
@@ -180,10 +180,10 @@ namespace Test.OptimizeBoolAnd
      -`e1 && e2 ==> e1 (if e1 =ₚₜᵣ e2)`
 -/
 -- a && b ===> a && b
-#testOptimize [ "BoolAndUnchanged_1" ] ∀ (a b : Bool), (a && b) ===> ∀ (a b : Bool), true = (a && b)
+#testOptimize [ "BoolAndUnchanged_1", proof ] ∀ (a b : Bool), (a && b) ===> ∀ (a b : Bool), true = (a && b)
 
 -- (a && c) && (b || d) ===> (a && c) && (b || d)
-#testOptimize [ "BoolAndUnchanged_2" ] ∀ (a b c d : Bool), (a && c) && (b || d) ===>
+#testOptimize [ "BoolAndUnchanged_2", proof ] ∀ (a b c d : Bool), (a && c) && (b || d) ===>
                                        ∀ (a b c d : Bool), true = ((a && c) && (b || d))
 
 
