@@ -78,17 +78,61 @@ def buildFieldSortRef (group : Array SmtSymbol) (se : SortExpr) :
           sort {se} unsupported (parametric datatypes pending, next task)")
       else return (← buildSort se, 0)
 
+/-- Build the Z3 field sort for an arbitrarily-NESTED field of a PARAMETRIC datatype
+    `nm` whose type parameters are mapped to Z3 type variables in `tvMap`. Handles a
+    type parameter appearing UNDER another type constructor (`Option α`, `List (Term α)`):
+    * `.SymbolSort p`, `p ∈ tvMap` → its Z3 type variable (so Z3 sees `@α` as the
+      datatype's own parameter); any other `.SymbolSort` (Int/Bool/String/declared
+      sort) → `buildSort`.
+    * `.ParamSort head args` where `head` is `nm` itself (a SELF forward-reference —
+      e.g. the `@Term` inside `(@List (@Term @α))` while `@Term` is still being
+      declared) OR an already-declared parametric datatype (`@List`, `@Option`) →
+      recursively build the arg sorts and instantiate / forward-ref via
+      `Z3_mk_datatype_sort` (dual-purpose: instantiation AND forward reference).
+    * any other `.ParamSort head args` (`head` is NOT a datatype — an uninterpreted
+      arity-n sort like `@@ArrowT2`, or `Array`) → `buildSort` on the whole sort:
+      `Array` is resolved structurally; an uninterpreted parameterized sort collapses
+      to its declared sort (its type args are ignored, as the FFI does elsewhere). A
+      parametric datatype declared only LATER falls through to `buildSort`'s generic
+      "unknown parameterized sort" error (mutual-parametric is a separate task).
+    The result is always a REAL sort, used with `sort_ref 0` (never NULL). -/
+partial def buildParamFieldSort (nm : SmtSymbol) (tvMap : Std.HashMap SmtSymbol Z3Sort)
+    (se : SortExpr) : BuildM Z3Sort := do
+  match se with
+  | .SymbolSort p =>
+      match tvMap.get? p with
+      | some tv => return tv
+      | none    => buildSort (.SymbolSort p)
+  | .ParamSort head args =>
+      let isDatatype := (← get).paramDatatypes.contains head
+      if head == nm || isDatatype then
+        let argSorts ← args.mapM (buildParamFieldSort nm tvMap)
+        (← get).ctx.mkDatatypeSort head.toString argSorts
+      else
+        buildSort se
+
+/-- Is `se` a REGULAR (direct) self-reference of datatype `nm` — i.e. `nm` applied to
+    exactly its own type parameters `params`, in order (`(@Term @α)` for `@Term` with
+    param `@α`)? Such a TOP-LEVEL field uses Z3's NULL + `sort_ref` convention; every
+    other occurrence of `nm` (nested under a constructor, or at different args) is a
+    forward reference built through `buildParamFieldSort`. -/
+def isRegularSelfRef (nm : SmtSymbol) (params : Array SmtSymbol) (se : SortExpr) : Bool :=
+  se == .ParamSort nm (params.map .SymbolSort)
+
 /-- Field-sort resolution for a PARAMETRIC datatype `nm` with type params `params`
     (each mapped to its Z3 type variable in `tvMap`). Returns the Z3 field sort paired
     with its Z3 `sort_ref` (same convention as `buildFieldSortRef`):
     * a param field `.SymbolSort p` with `p ∈ params` → the type var, ref `0`;
-    * a self-recursive field `.ParamSort nm _` (head == `nm`) → `placeholder`, ref `1`
-      (Z3 IGNORES the sort when ref>0; a REGULAR recursion always recurs at the
-      datatype's own params, which a self sort_ref means — the placeholder is never read);
+    * a REGULAR self-recursive field `(@nm @α …)` at the datatype's OWN params →
+      `placeholder`, ref `1` (Z3 IGNORES the sort when ref>0 and keys recursion off a
+      NULL `sorts[]` slot; a regular recursion always recurs at the datatype's own
+      params, which is exactly what a self sort_ref means — the placeholder is never read);
+    * any NESTED occurrence — a type parameter under another constructor (`(@Option @α)`,
+      `(@List (@Term @α))`), a self nested under another constructor, or a nested-at-
+      concrete (`(@List String)`) — → a REAL forward-ref/instantiated sort built via
+      `buildParamFieldSort`, ref `0`;
     * any other CONCRETE field sort (`Int`, `Bool`, an already-declared sort) → built via
-      `buildSort`, ref `0`.
-    A type parameter nested UNDER another type constructor (e.g. `List (Term α)`) is
-    rejected with a clear error (nested parametric occurrences need forward references). -/
+      `buildSort`, ref `0`. -/
 def buildParamFieldSortRef (nm : SmtSymbol) (params : Array SmtSymbol)
     (tvMap : Std.HashMap SmtSymbol Z3Sort) (placeholder : Z3Sort) (se : SortExpr) :
     BuildM (Z3Sort × UInt32) := do
@@ -97,12 +141,9 @@ def buildParamFieldSortRef (nm : SmtSymbol) (params : Array SmtSymbol)
       match tvMap.get? p with
       | some tv => return (tv, 0)
       | none    => return (← buildSort se, 0)
-  | .ParamSort h _ =>
-      if h == nm then return (placeholder, 1)
-      else if params.any (fun p => sortMentions p se) then
-        throw (IO.userError s!"FFI parametric datatype {nm.toString}: nested parametric \
-          field {se} (a type parameter under another type constructor) unsupported")
-      else return (← buildSort se, 0)
+  | .ParamSort _ _ =>
+      if isRegularSelfRef nm params se then return (placeholder, 1)
+      else return (← buildParamFieldSort nm tvMap se, 0)
 
 /-- Strip the surrounding quotes strLitSmt adds to string literals. -/
 private def unquote (s : String) : String :=

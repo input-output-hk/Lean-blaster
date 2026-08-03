@@ -3,6 +3,7 @@ import Tests.Smt.Benchmarks
 import Tests.Smt.FFI.FFIBackend
 import Tests.Smt.FFI.FFICore
 import Tests.Smt.FFI.FFIEndToEnd
+import Tests.Smt.FFI.FFINestedDT
 import Tests.Smt.FFI.FFIOptions
 import Tests.Smt.FFI.FFIParam
 import Tests.Smt.FFI.FFISmoke
