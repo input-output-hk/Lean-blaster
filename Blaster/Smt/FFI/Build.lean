@@ -324,40 +324,37 @@ partial def bodyReferences (nm : SmtSymbol) (t : SmtTerm) : Bool :=
   | .AnnotatedTerm t' _ => bodyReferences nm t'
   | _ => false
 
-/-- Declare a PARAMETRIC datatype (`decl.params = some ps`, `ps` non-empty) via
-    `Z3_mk_polymorphic_datatype`: one type var per param, per-field sort/ref resolution
-    (`buildParamFieldSortRef`), then register the template and the ctor/accessor/recognizer
-    resolution indices — ONLY after the Z3 call succeeds, so a throw cannot leave a
-    half-populated registry (mirrors the mutual-datatype discipline). The instantiated
-    (monomorphized) func_decls are recovered on demand at use sites via the `dt*` calls. -/
-def declareParamDatatype (nm : SmtSymbol) (ps : Array SmtSymbol)
-    (decl : SmtDatatypeDecl) : BuildM Unit := do
+/-- Eval a datatype-declaration command STRING on the session context via Z3's own
+    SMT-LIB parser (`Context.evalSmtlib2`) and verify it succeeded. Z3 resets the error
+    code at the head of every API call, so `errorCode` is read IMMEDIATELY after the eval
+    with no intervening FFI call. A parse/declaration failure surfaces BOTH as a nonzero
+    error code AND as a non-empty return string (the FFI context installs a no-op error
+    handler, so a silent failure would otherwise corrupt sorts downstream — the hazard
+    `FFINestedDT` documents); both are checked. Throws with the eval output on failure,
+    BEFORE any registration, so a throw cannot leave a half-populated registry. -/
+def evalDeclChecked (cmd : String) : BuildM Unit := do
   let ctx := (← get).ctx
-  -- 1. one Z3 type variable per param, mapped by param symbol
-  let tvs ← ps.mapM (fun p => ctx.mkTypeVar p.toString)
-  let mut tvMap : Std.HashMap SmtSymbol Z3Sort := {}
-  for (p, tv) in ps.zip tvs do
-    tvMap := tvMap.insert p tv
-  let placeholder ← ctx.mkBoolSort   -- never-read filler for recursive field slots (ref>0)
+  let out ← ctx.evalSmtlib2 cmd
+  let ec ← ctx.errorCode
+  if ec != 0 || !out.trim.isEmpty then
+    let msg ← ctx.errorMsg ec
+    throw (IO.userError s!"evalSmtlib2 failed (errorCode={ec}, msg={msg}); output: {out}\non command:\n{cmd}")
+
+/-- Register the NAME→index metadata for a PARAMETRIC datatype `nm` with `nparams` type
+    params, given its `decl`. The datatype's sorts have already been built in the manager
+    by the parser (`evalDeclChecked`); this only records the template + the ctor/accessor/
+    recognizer resolution indices so `buildSort (@nm …)` (via `mkDatatypeSort`, resolving
+    by name) and use-site resolution in `buildApp`/`buildIdent` work. Shared by the single
+    (`declareParamDatatype`) and mutual parametric paths. `polySort` is `none` (no longer
+    produced). -/
+def registerParamDatatypeTemplate (nm : SmtSymbol) (nparams : Nat)
+    (decl : SmtDatatypeDecl) : BuildM Unit := do
   let selsOf := fun (sels : Option (Array SmtSelector)) => sels.getD #[]
-  let ctorNames  : Array String := decl.ctors.map (fun (cn, _) => cn.toString)
-  let recogNames : Array String := decl.ctors.map (fun (cn, _) => s!"is-{cn.toString}")
-  let fieldNames : Array (Array String) :=
-    decl.ctors.map (fun (_, sels) => (selsOf sels).map (fun (sn, _) => sn.toString))
-  -- 2. per ctor / per field: (Z3 field sort, sort_ref)
-  let fieldData : Array (Array (Z3Sort × UInt32)) ←
-    decl.ctors.mapM (fun (_, sels) =>
-      (selsOf sels).mapM (fun (_, se) => buildParamFieldSortRef nm ps tvMap placeholder se))
-  let fieldSorts : Array (Array Z3Sort) := fieldData.map (·.map (·.1))
-  let fieldRefs  : Array (Array UInt32) := fieldData.map (·.map (·.2))
-  -- 3. declare the polymorphic datatype (returns the uninstantiated poly sort)
-  let polySort ← ctx.mkPolyDatatype nm.toString tvs ctorNames recogNames fieldNames fieldSorts fieldRefs
-  -- 4. register the template + resolution indices (AFTER the Z3 call succeeds)
   let ctorSyms      : Array SmtSymbol := decl.ctors.map (·.1)
   let accessorNames : Array (Array SmtSymbol) :=
     decl.ctors.map (fun (_, sels) => (selsOf sels).map (·.1))
   let template : ParamDatatype :=
-    { name := nm, polySort, nparams := ps.size, ctorNames := ctorSyms, accessorNames }
+    { name := nm, polySort := none, nparams, ctorNames := ctorSyms, accessorNames }
   modify fun st => { st with paramDatatypes := st.paramDatatypes.insert nm template }
   for h : ci in [:decl.ctors.size] do
     let (cn, sels) := decl.ctors[ci]
@@ -368,6 +365,45 @@ def declareParamDatatype (nm : SmtSymbol) (ps : Array SmtSymbol)
     for h : fj in [:sels'.size] do
       let (sn, _) := sels'[fj]
       modify fun st => { st with accessorIndex := st.accessorIndex.insert sn (nm, ci, fj) }
+
+/-- Register a NON-parametric datatype `nm` that was declared through the parser as part
+    of a MIXED mutual group (some members parametric, some not). Its use sites resolve
+    through `funcs`/`sorts` (via `SimpleIdent`), NOT `ctorIndex`, so recover the sort and
+    each ctor/recognizer/accessor func_decl by name from the parser-built datatype (arity
+    0 ⇒ `mkDatatypeSort nm #[]`) and register them exactly as the native non-parametric
+    paths do. -/
+def registerParserDatatypeFuncs (nm : SmtSymbol) (decl : SmtDatatypeDecl) : BuildM Unit := do
+  let ctx := (← get).ctx
+  let dtSort ← ctx.mkDatatypeSort nm.toString #[]
+  modify fun st => { st with sorts := st.sorts.insert nm dtSort }
+  let selsOf := fun (sels : Option (Array SmtSelector)) => sels.getD #[]
+  for h : ci in [:decl.ctors.size] do
+    let (cn, sels) := decl.ctors[ci]
+    let ctorFd  ← ctx.dtConstructor dtSort (UInt32.ofNat ci)
+    let recogFd ← ctx.dtRecognizer  dtSort (UInt32.ofNat ci)
+    modify fun st => { st with funcs := st.funcs.insert cn ctorFd }
+    modify fun st => { st with funcs := st.funcs.insert (.NormalSymbol s!"is-{cn.toString}") recogFd }
+    let sels' := selsOf sels
+    for h : fj in [:sels'.size] do
+      let (sn, _) := sels'[fj]
+      let accFd ← ctx.dtAccessor dtSort (UInt32.ofNat ci) (UInt32.ofNat fj)
+      modify fun st => { st with funcs := st.funcs.insert sn accFd }
+
+/-- Declare a PARAMETRIC datatype (`decl.params = some ps`, `ps` non-empty) through Z3's
+    own SMT-LIB parser (`evalDeclChecked`) rather than the C API. Rationale: the C API has
+    NO parametric-mutual constructor, and (verified) the parser CANNOT see a datatype
+    declared via the C API — so if some parametric datatypes stayed on the C API and others
+    went through the parser, a mutual group could not reference an earlier single one. Routing
+    ALL parametric datatypes through the parser keeps exactly one sort per name in the
+    manager; successive evals accumulate (a later group sees earlier declarations), and the
+    parser resolves nested self/forward references itself (so the old field-sort machinery is
+    bypassed). The instantiated (monomorphized) func_decls are recovered on demand at use
+    sites via the `dt*` calls, keyed by name — unchanged. Register the template AFTER the
+    eval succeeds, mirroring the no-half-populated-registry discipline. -/
+def declareParamDatatype (nm : SmtSymbol) (ps : Array SmtSymbol)
+    (decl : SmtDatatypeDecl) : BuildM Unit := do
+  evalDeclChecked (toString (SmtCommand.declareDataType nm decl))
+  registerParamDatatypeTemplate nm ps.size decl
 
 /-- Interpret an SmtCommand against the build state (declarations only in this task). -/
 partial def runCommand (c : SmtCommand) : BuildM Unit := do
@@ -432,61 +468,84 @@ partial def runCommand (c : SmtCommand) : BuildM Unit := do
           k := k + 1
           modify fun st => { st with funcs := st.funcs.insert sn accFd }
   | .declareMutualDataTypes nms decls => do
-      -- Mutually recursive group, non-parametric only. The parametric signal lives
-      -- in BOTH the sort decls' `arity` and each datatype decl's `params`; reject on
-      -- EITHER, BEFORE building any sort (so a throw can't leave a half-populated
-      -- cache — mirrors the single-datatype discipline).
+      -- A mutually-recursive datatype group. The parametric signal lives in BOTH the sort
+      -- decls' `arity` and each datatype decl's `params`.
       if nms.size != decls.size then
         throw (IO.userError s!"declareMutualDataTypes: {nms.size} sort decls ≠ {decls.size} datatype decls")
-      for sd in nms do
-        if sd.arity != 0 then
-          throw (IO.userError s!"declareMutualDataTypes: parametric datatype {sd.name.toString} — pending (next task)")
-      for decl in decls do
-        if let some ps := decl.params then
-          if !ps.isEmpty then
-            throw (IO.userError s!"declareMutualDataTypes: parametric datatype group — pending (next task)")
-      let group : Array SmtSymbol := nms.map (·.name)
       let selsOf := fun (sels : Option (Array SmtSelector)) => sels.getD #[]
-      let sortNames  : Array String := group.map (·.toString)
-      let ctorNames  : Array (Array String) :=
-        decls.map (fun d => d.ctors.map (fun (cn, _) => cn.toString))
-      let recogNames : Array (Array String) :=
-        decls.map (fun d => d.ctors.map (fun (cn, _) => s!"is-{cn.toString}"))
-      let fieldNames : Array (Array (Array String)) :=
-        decls.map (fun d => d.ctors.map (fun (_, sels) =>
-          (selsOf sels).map (fun (sn, _) => sn.toString)))
-      -- Per sort/ctor/field: (Z3 sort, ref). A `.SymbolSort s` naming a group member
-      -- → ref = (its group index)+1 with a placeholder sort; otherwise ref=0.
-      let fieldData : Array (Array (Array (Z3Sort × UInt32))) ←
-        decls.mapM (fun d => d.ctors.mapM (fun (_, sels) =>
-          (selsOf sels).mapM (fun (_, se) => buildFieldSortRef group se)))
-      let fieldSorts : Array (Array (Array Z3Sort)) :=
-        fieldData.map (·.map (·.map (·.1)))
-      let fieldRefs  : Array (Array (Array UInt32)) :=
-        fieldData.map (·.map (·.map (·.2)))
-      let (dtSorts, declGroups) ←
-        ctx.mkDatatypes sortNames ctorNames recogNames fieldNames fieldSorts fieldRefs
-      -- register each datatype's sort under its group name
-      for h : i in [:group.size] do
-        let some s := dtSorts[i]? | throw (IO.userError "declareMutualDataTypes: sort layout mismatch")
-        modify fun st => { st with sorts := st.sorts.insert group[i] s }
-      -- register each datatype's func_decls from its flat `[ctor, recog, acc...]` layout
-      for h : si in [:decls.size] do
-        let decl := decls[si]
-        let some declsFlat := declGroups[si]?
-          | throw (IO.userError "declareMutualDataTypes: decl group layout mismatch")
-        let mut k := 0
-        for (cn, sels) in decl.ctors do
-          let some ctorFd := declsFlat[k]? | throw (IO.userError "declareMutualDataTypes: layout mismatch (ctor)")
-          k := k + 1
-          let some recogFd := declsFlat[k]? | throw (IO.userError "declareMutualDataTypes: layout mismatch (recog)")
-          k := k + 1
-          modify fun st => { st with funcs := st.funcs.insert cn ctorFd }
-          modify fun st => { st with funcs := st.funcs.insert (.NormalSymbol s!"is-{cn.toString}") recogFd }
-          for (sn, _) in selsOf sels do
-            let some accFd := declsFlat[k]? | throw (IO.userError "declareMutualDataTypes: layout mismatch (accessor)")
+      let isParam := nms.any (·.arity != 0) || decls.any (fun d => !(d.params.getD #[]).isEmpty)
+      if isParam then
+        -- PARAMETRIC (or MIXED parametric/non-parametric) mutual group. The Z3 C API cannot
+        -- build parametric-mutual datatypes (only single via `Z3_mk_polymorphic_datatype` and
+        -- non-parametric-mutual via `Z3_mk_datatypes`), so route the WHOLE group through Z3's
+        -- own SMT-LIB parser (`evalDeclChecked`, which renders via the existing `ToString`).
+        -- Every parametric datatype — single (see `declareParamDatatype`) and mutual — goes
+        -- through the parser, so all cross-references live in one manager name space and the
+        -- monomorphized func_decls are recovered on demand via the `dt*` calls, by name. The
+        -- parser resolves nested self/forward references itself, so NO field-sort machinery
+        -- (`buildFieldSortRef`/`buildParamFieldSort*`) runs here — that is exactly what dodges
+        -- the mutual forward-reference problem. Validate arity ↔ params BEFORE the eval (a
+        -- mismatch means the rendered text is malformed); register AFTER it succeeds (no
+        -- half-populated registry).
+        for h : i in [:decls.size] do
+          let np := (decls[i].params.getD #[]).size
+          let some sd := nms[i]? | throw (IO.userError "declareMutualDataTypes: sort/decl count mismatch")
+          if sd.arity != np then
+            throw (IO.userError s!"declareMutualDataTypes: sort decl arity {sd.arity} ≠ \
+              datatype params {np} for {sd.name.toString}")
+        evalDeclChecked (toString (SmtCommand.declareMutualDataTypes nms decls))
+        -- Register each member: parametric (arity>0) via the template + ctor/accessor/
+        -- recognizer indices; a non-parametric member of a MIXED group via its by-name sort
+        -- and dt* func_decls (its use sites resolve through `funcs`, not `ctorIndex`).
+        for h : i in [:decls.size] do
+          let some sd := nms[i]? | throw (IO.userError "declareMutualDataTypes: sort/decl count mismatch")
+          if sd.arity != 0 then
+            registerParamDatatypeTemplate sd.name sd.arity decls[i]
+          else
+            registerParserDatatypeFuncs sd.name decls[i]
+      else
+        -- Non-parametric mutual group: native `Z3_mk_datatypes`.
+        let group : Array SmtSymbol := nms.map (·.name)
+        let sortNames  : Array String := group.map (·.toString)
+        let ctorNames  : Array (Array String) :=
+          decls.map (fun d => d.ctors.map (fun (cn, _) => cn.toString))
+        let recogNames : Array (Array String) :=
+          decls.map (fun d => d.ctors.map (fun (cn, _) => s!"is-{cn.toString}"))
+        let fieldNames : Array (Array (Array String)) :=
+          decls.map (fun d => d.ctors.map (fun (_, sels) =>
+            (selsOf sels).map (fun (sn, _) => sn.toString)))
+        -- Per sort/ctor/field: (Z3 sort, ref). A `.SymbolSort s` naming a group member
+        -- → ref = (its group index)+1 with a placeholder sort; otherwise ref=0.
+        let fieldData : Array (Array (Array (Z3Sort × UInt32))) ←
+          decls.mapM (fun d => d.ctors.mapM (fun (_, sels) =>
+            (selsOf sels).mapM (fun (_, se) => buildFieldSortRef group se)))
+        let fieldSorts : Array (Array (Array Z3Sort)) :=
+          fieldData.map (·.map (·.map (·.1)))
+        let fieldRefs  : Array (Array (Array UInt32)) :=
+          fieldData.map (·.map (·.map (·.2)))
+        let (dtSorts, declGroups) ←
+          ctx.mkDatatypes sortNames ctorNames recogNames fieldNames fieldSorts fieldRefs
+        -- register each datatype's sort under its group name
+        for h : i in [:group.size] do
+          let some s := dtSorts[i]? | throw (IO.userError "declareMutualDataTypes: sort layout mismatch")
+          modify fun st => { st with sorts := st.sorts.insert group[i] s }
+        -- register each datatype's func_decls from its flat `[ctor, recog, acc...]` layout
+        for h : si in [:decls.size] do
+          let decl := decls[si]
+          let some declsFlat := declGroups[si]?
+            | throw (IO.userError "declareMutualDataTypes: decl group layout mismatch")
+          let mut k := 0
+          for (cn, sels) in decl.ctors do
+            let some ctorFd := declsFlat[k]? | throw (IO.userError "declareMutualDataTypes: layout mismatch (ctor)")
             k := k + 1
-            modify fun st => { st with funcs := st.funcs.insert sn accFd }
+            let some recogFd := declsFlat[k]? | throw (IO.userError "declareMutualDataTypes: layout mismatch (recog)")
+            k := k + 1
+            modify fun st => { st with funcs := st.funcs.insert cn ctorFd }
+            modify fun st => { st with funcs := st.funcs.insert (.NormalSymbol s!"is-{cn.toString}") recogFd }
+            for (sn, _) in selsOf sels do
+              let some accFd := declsFlat[k]? | throw (IO.userError "declareMutualDataTypes: layout mismatch (accessor)")
+              k := k + 1
+              modify fun st => { st with funcs := st.funcs.insert sn accFd }
   | .defineFun isRec nm params rt body =>
       if isRec || bodyReferences nm body then
         -- recursive: declare a rec func decl, register it (so the body's self-

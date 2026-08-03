@@ -32,4 +32,10 @@ instance : Nonempty FuncDecl := FuncDeclPointed.property
 @[extern "lean_z3_ctx_error_code"]  opaque Context.errorCode : Context → IO UInt32
 @[extern "lean_z3_ctx_error_msg"]   opaque Context.errorMsg : Context → UInt32 → IO String
 
+/-- Parse and evaluate a sequence of SMT-LIB2 commands on this context
+    (`Z3_eval_smtlib2_string`). Declarations register by name in the same context, so
+    subsequent name-based C-API queries (`mkDatatypeSort`, `dt*`) can reach them. Used
+    to declare parametric-MUTUAL datatypes, which the C API cannot build directly. -/
+@[extern "lean_z3_eval_smtlib2"]    opaque Context.evalSmtlib2 : Context → String → IO String
+
 end Blaster.Smt.FFI

@@ -66,3 +66,21 @@ LEAN_EXPORT lean_obj_res lean_z3_ctx_error_msg(b_lean_obj_arg c, uint32_t code, 
   lean_dec(c);
   return z3_io_ok(r);
 }
+
+/* evalSmtlib2 : Context → String → IO String
+ * Parse and evaluate a sequence of SMT-LIB2 commands on THIS context via
+ * `Z3_eval_smtlib2_string`. Declarations made this way (e.g. a parametric-mutual
+ * `declare-datatypes`) register the datatypes by name in the same context, so the
+ * existing name-based C-API queries (`Z3_mk_datatype_sort`, `dt*`) can reach them.
+ * The returned Z3_string is owned by Z3 (do NOT free it); `lean_mk_string` copies.
+ * Refcount: `c`/`s` are owned OBJECT args → lean_dec after use (read their C strings
+ * first); `w` is never decremented. Matches this file's shim convention. */
+LEAN_EXPORT lean_obj_res lean_z3_eval_smtlib2(b_lean_obj_arg c, b_lean_obj_arg s, lean_obj_arg w) {
+  (void)w;
+  Z3_context ctx = (Z3_context)ctx_ptr(c);
+  Z3_string r = Z3_eval_smtlib2_string(ctx, lean_string_cstr(s));
+  lean_object *res = lean_mk_string(r ? r : "");
+  lean_dec(c);
+  lean_dec(s);
+  return z3_io_ok(res);
+}

@@ -6,6 +6,7 @@ import Tests.Smt.FFI.FFIEndToEnd
 import Tests.Smt.FFI.FFINestedDT
 import Tests.Smt.FFI.FFIOptions
 import Tests.Smt.FFI.FFIParam
+import Tests.Smt.FFI.FFIParamMutual
 import Tests.Smt.FFI.FFISmoke
 import Tests.Smt.SmtEqArith
 import Tests.Smt.SmtLtArith
