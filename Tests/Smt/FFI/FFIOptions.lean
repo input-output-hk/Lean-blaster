@@ -61,7 +61,14 @@ open Blaster.Smt.FFI Blaster.Smt
 
 /-! ## random-seed flows through the full `#blaster` pipeline (different seed ⇒ different cex).
      The goal is false; its counterexample is any `x ∈ {1..20}`. Seeds 1 and 42 pick
-     different witnesses, which can only happen if the seed reached Z3's search. -/
+     different witnesses, which can only happen if the seed reached Z3's search.
+     The load-bearing invariant is that the two pinned witnesses DIFFER — not that they
+     are specifically 5 and 9. Those exact values are coupled to the Z3 version AND to
+     the optimizer's encoding of `x ≠ 1 ∧ … ∧ x ≠ 20`; if a rewrite-rule or Z3 change
+     shifts them, update the two values (they should still differ), don't suspect the
+     FFI option wiring. (The legacy `.smtlib` backend picks yet other witnesses — x:1 /
+     x:2 — because it also applies mbqi/macro_finder/auto_config, which no-op on FFI;
+     verdicts match, only the model witness differs.) -/
 
 /--
 info: ✅ Expected Falsified
