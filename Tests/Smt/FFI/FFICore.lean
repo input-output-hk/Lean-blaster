@@ -350,3 +350,107 @@ open Blaster.Smt in
   ecChk "deact"
   let showR := fun r => match r with | Result.Valid => "valid" | Result.Falsified _ => "falsified" | Result.Undetermined => "undet"
   IO.println s!"lifecycle base={showR base} step={showR step} deact={showR deact}"
+
+open Blaster.Smt in
+/-- info: cancel-path r1=valid r2=falsified -/
+#guard_msgs in
+#eval do
+  -- No-token path: `runCheckCancellable` calls the check DIRECTLY (no task/poll), so the
+  -- verdicts must match the plain `checkSat`. r1: ¬(x=x) unsat ⇒ Valid; r2: x=1 sat ⇒ Falsified.
+  let s1 ← Z3Session.create
+  s1.runCommand (.declareConst (.NormalSymbol "x") intSort)
+  let x : SmtTerm := .SmtIdent (.SimpleIdent (.NormalSymbol "x"))
+  s1.assert (.AppTerm (.SimpleIdent (.ReservedSymbol "not")) #[.AppTerm (.SimpleIdent (.ReservedSymbol "=")) #[x,x]])
+  let r1 ← s1.checkSatCancel none #[] false
+  let s2 ← Z3Session.create
+  s2.runCommand (.declareConst (.NormalSymbol "x") intSort)
+  s2.assert (.AppTerm (.SimpleIdent (.ReservedSymbol "=")) #[x, .NumTerm 1])
+  let r2 ← s2.checkSatCancel none #[] false
+  let showR := fun r => match r with | Result.Valid => "valid" | Result.Falsified _ => "falsified" | Result.Undetermined => "undet"
+  IO.println s!"cancel-path r1={showR r1} r2={showR r2}"
+
+open Blaster.Smt in
+/-- info: cancel-live r=falsified cex=x: 1 ec=0 -/
+#guard_msgs in
+#eval do
+  -- The case elaboration ACTUALLY hits: token PRESENT but NOT set ⇒ spawns a task, polls,
+  -- and completes normally. Exercises cross-thread check (Z3_solver_check on the task
+  -- thread) + cross-thread model extraction (getModel on the main thread). The errorCode
+  -- assert catches any silent Z3 error from the cross-thread access (no-op error handler).
+  let s ← Z3Session.create
+  s.runCommand (.declareConst (.NormalSymbol "x") intSort)
+  let x : SmtTerm := .SmtIdent (.SimpleIdent (.NormalSymbol "x"))
+  s.assert (.AppTerm (.SimpleIdent (.ReservedSymbol "=")) #[x, .NumTerm 1])
+  let tk ← IO.CancelToken.new       -- present but NOT set
+  let topVars : Array (List (SmtSymbol × Lean.Name)) := #[[(.NormalSymbol "x", `x)]]
+  let r ← s.checkSatCancel (some tk) topVars true
+  let ec ← s.ctx.errorCode
+  let showR := fun r => match r with | Result.Valid => "valid" | Result.Falsified _ => "falsified" | Result.Undetermined => "undet"
+  let cex := match r with | Result.Falsified c => c | _ => []
+  IO.println s!"cancel-live r={showR r} cex={String.intercalate ", " cex} ec={ec}"
+
+open Blaster.Smt in
+/-- info: assume-cancel r1=valid r2=falsified -/
+#guard_msgs in
+#eval do
+  -- checkAssumingCancel through the LIVE task path (token present, not set): exercises the
+  -- assumption AST-build step (assumps.mapM buildTerm) + task+poll for the assuming variant.
+  -- Mirrors the "assume" test: r1 flag ⇒ ¬(x=x) unsat ⇒ Valid; r2 flag ⇒ x=1 sat ⇒ Falsified.
+  let ecChk := fun (sess : Z3Session) (label : String) => do
+    let ec ← sess.ctx.errorCode
+    if ec != 0 then throw (IO.userError s!"{label}: z3 error {ec} ({← sess.ctx.errorMsg ec})")
+  let s1 ← Z3Session.create        -- IO action first, so the do-block monad is IO
+  let tk ← IO.CancelToken.new       -- present but NOT set ⇒ routes through the task path
+  s1.runCommand (.declareConst (.NormalSymbol "flag") boolSort)
+  s1.runCommand (.declareConst (.NormalSymbol "x") intSort)
+  let flag : SmtTerm := .SmtIdent (.SimpleIdent (.NormalSymbol "flag"))
+  let x : SmtTerm := .SmtIdent (.SimpleIdent (.NormalSymbol "x"))
+  s1.assert (.AppTerm (.SimpleIdent (.ReservedSymbol "=>")) #[flag,
+    .AppTerm (.SimpleIdent (.ReservedSymbol "not")) #[.AppTerm (.SimpleIdent (.ReservedSymbol "=")) #[x, x]]])
+  let r1 ← s1.checkAssumingCancel #[flag] (some tk) #[] false
+  ecChk s1 "r1"
+  let s2 ← Z3Session.create
+  s2.runCommand (.declareConst (.NormalSymbol "flag") boolSort)
+  s2.runCommand (.declareConst (.NormalSymbol "x") intSort)
+  s2.assert (.AppTerm (.SimpleIdent (.ReservedSymbol "=>")) #[flag,
+    .AppTerm (.SimpleIdent (.ReservedSymbol "=")) #[x, .NumTerm 1]])
+  let r2 ← s2.checkAssumingCancel #[flag] (some tk) #[] false
+  ecChk s2 "r2"
+  let showR := fun r => match r with | Result.Valid => "valid" | Result.Falsified _ => "falsified" | Result.Undetermined => "undet"
+  IO.println s!"assume-cancel r1={showR r1} r2={showR r2}"
+
+open Blaster.Smt in
+/-- info: interrupt-path-ran -/
+#guard_msgs in
+#eval do
+  -- Smoke: token PRE-SET before the check forces the `some tk` branch of
+  -- `runCheckCancellable`. On a trivial/fast query either `hasFinished` or `isSet` may win
+  -- the race, so this proves the interrupt code path runs without crash/hang — not that the
+  -- interrupt necessarily fired.
+  let s ← Z3Session.create
+  s.runCommand (.declareConst (.NormalSymbol "x") intSort)
+  s.assert (.AppTerm (.SimpleIdent (.ReservedSymbol "=")) #[.SmtIdent (.SimpleIdent (.NormalSymbol "x")), .NumTerm 1])
+  let tk ← IO.CancelToken.new
+  tk.set  -- pre-set: forces the interrupt branch
+  let _ ← s.checkSatCancel (some tk) #[] false
+  IO.println "interrupt-path-ran"
+
+open Blaster.Smt in
+/-- info: sticky-probe pre=falsified post-interrupt=falsified -/
+#guard_msgs in
+#eval do
+  -- Deterministic probe of whether `Z3_solver_interrupt` leaves the solver in a sticky
+  -- cancelled state (no task race here: interrupt + check are both synchronous). `x=1` is
+  -- sat, so `pre` is Falsified. Then a DIRECT `solver.interrupt` (no check in flight),
+  -- then a fresh check on the SAME solver. OBSERVED on this Z3 (4.x): `post` is Falsified —
+  -- i.e. the interrupt flag is NOT sticky; a stray interrupt does not poison later checks.
+  -- Independently, the Env-level `throwInterruptException` aborts elaboration on a real
+  -- cancel, so the interrupted (Undetermined) verdict is never consumed as a result anyway.
+  let s ← Z3Session.create
+  s.runCommand (.declareConst (.NormalSymbol "x") intSort)
+  s.assert (.AppTerm (.SimpleIdent (.ReservedSymbol "=")) #[.SmtIdent (.SimpleIdent (.NormalSymbol "x")), .NumTerm 1])
+  let pre ← s.checkSatCancel none #[] false
+  s.solver.interrupt
+  let post ← s.checkSatCancel none #[] false
+  let showR := fun r => match r with | Result.Valid => "valid" | Result.Falsified _ => "falsified" | Result.Undetermined => "undet"
+  IO.println s!"sticky-probe pre={showR pre} post-interrupt={showR post}"

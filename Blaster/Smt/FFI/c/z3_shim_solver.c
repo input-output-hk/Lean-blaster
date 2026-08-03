@@ -98,3 +98,12 @@ LEAN_EXPORT lean_obj_res lean_z3_solver_set_seed(b_lean_obj_arg s, uint32_t seed
   Z3_solver_set_params(ctx, ssol(s), p);
   Z3_params_dec_ref(ctx,p); lean_dec(s); return z3_io_unit();
 }
+
+/* solverInterrupt : Solver → IO Unit  (thread-safe; signals a running check to stop).
+ * Called from a poll thread WHILE another thread runs Z3_solver_check on the same
+ * solver — Z3_solver_interrupt is the sanctioned cross-thread call for this. Refcount:
+ * `s` is an owned OBJECT arg (a distinct reference from the one the check holds) →
+ * lean_dec after use; scalar/world never. */
+LEAN_EXPORT lean_obj_res lean_z3_solver_interrupt(b_lean_obj_arg s, lean_obj_arg w) {
+  (void)w; Z3_solver_interrupt(sctx(s), ssol(s)); lean_dec(s); return z3_io_unit();
+}

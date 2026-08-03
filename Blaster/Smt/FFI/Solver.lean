@@ -8,6 +8,10 @@ namespace Blaster.Smt.FFI
 @[extern "lean_z3_solver_eval_str"] opaque Solver.evalStr : Solver → Ast → IO String
 @[extern "lean_z3_solver_check_assuming"] opaque Solver.checkAssuming : Solver → Array Ast → IO UInt32
 
+/-- Signal a running `Solver.check`/`checkAssuming` to stop (thread-safe: may be called
+    from another thread while a check is blocking; the check then returns `undef`/1). -/
+@[extern "lean_z3_solver_interrupt"] opaque Solver.interrupt : Solver → IO Unit
+
 /-- Install a wall-clock timeout (milliseconds) on the solver via `Z3_params`. -/
 @[extern "lean_z3_solver_set_timeout"] opaque Solver.setTimeout    : Solver → UInt32 → IO Unit
 /-- Install the random seed on the solver via `Z3_params`. -/

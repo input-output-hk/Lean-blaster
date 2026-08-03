@@ -552,7 +552,14 @@ def checkSat : TranslateEnvT Result := do
   | some sess =>
       let topVars := env.smtEnv.topLevelVars
       let genCex := env.optEnv.options.solverOptions.generateCex
-      return (← sess.checkSat topVars genCex)
+      -- FFI has no process to kill, so `checkCancelTk?` (which needs `smtProc`) is a
+      -- no-op here. Pass the cancel token into the check so a running Z3 solver is
+      -- interrupted, then throw the interrupt exception ourselves on cancellation.
+      let tk? := (← readThe Core.Context).cancelTk?
+      let r ← sess.checkSatCancel tk? topVars genCex
+      if let some tk := tk? then
+        if ← tk.isSet then throwInterruptException
+      return r
   | none =>
       let some p := env.smtEnv.smtProc | return .Undetermined
       submitCommand (.checkSat)
@@ -569,7 +576,13 @@ def checkSatAssuming (args : Array SmtTerm) : TranslateEnvT Result := do
   | some sess =>
       let topVars := env.smtEnv.topLevelVars
       let genCex := env.optEnv.options.solverOptions.generateCex
-      return (← sess.checkAssuming args topVars genCex)
+      -- See `checkSat`: FFI has no process, so pass the token to interrupt a running
+      -- Z3 check, then throw the interrupt exception ourselves on cancellation.
+      let tk? := (← readThe Core.Context).cancelTk?
+      let r ← sess.checkAssumingCancel args tk? topVars genCex
+      if let some tk := tk? then
+        if ← tk.isSet then throwInterruptException
+      return r
   | none =>
       let some p := env.smtEnv.smtProc | return .Undetermined
       submitCommand (.checkSatAssuming args)
