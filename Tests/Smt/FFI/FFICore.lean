@@ -50,3 +50,56 @@ open Blaster.Smt.FFI Blaster.Smt
     -- also exercise an uninterpreted sort declaration
     runCommand (.declareSort (.NormalSymbol "S") 0)
     IO.println "decl-ok"
+
+/-- info: ops-ok -/
+#guard_msgs in
+#eval do
+  let ctx ← mkContext
+  BuildM.run ctx do
+    runCommand (.declareConst (.NormalSymbol "x") Blaster.Smt.intSort)
+    runCommand (.declareConst (.NormalSymbol "s") Blaster.Smt.stringSort)
+    runCommand (.declareConst (.NormalSymbol "a")
+      (Blaster.Smt.arraySort #[Blaster.Smt.intSort, Blaster.Smt.intSort]))
+    let x : SmtTerm := .SmtIdent (.SimpleIdent (.NormalSymbol "x"))
+    let s : SmtTerm := .SmtIdent (.SimpleIdent (.NormalSymbol "s"))
+    let a : SmtTerm := .SmtIdent (.SimpleIdent (.NormalSymbol "a"))
+    let op (o : String) (as : Array SmtTerm) : SmtTerm :=
+      .AppTerm (.SimpleIdent (.ReservedSymbol o)) as
+    -- Build a term, then confirm Z3 flagged no error building it. The context uses a
+    -- no-op error handler, so a sort mismatch would otherwise pass silently; Z3 resets
+    -- the error code at the start of every API call, so we check immediately after.
+    let chk (label : String) (t : SmtTerm) : BuildM Unit := do
+      let _ ← buildTerm t
+      let ec ← ctx.errorCode
+      if ec != 0 then throw (IO.userError s!"{label}: z3 error {ec} ({← ctx.errorMsg ec})")
+    -- One operator per `chk`, with the operator under test OUTERMOST: `buildTerm`
+    -- constructs args first, and Z3 resets its error code at the head of each API
+    -- call, so only the head operator's construction is what `errorCode` reflects.
+    -- integer arithmetic: unary -, binary -, +, *, div, mod, abs, ^, to_int
+    chk "neg" (op "-" #[x])
+    chk "sub" (op "-" #[x, .NumTerm 1])
+    chk "add" (op "+" #[x, .NumTerm 2])
+    chk "mul" (op "*" #[x, .NumTerm 2])
+    chk "div" (op "div" #[x, .NumTerm 3])
+    chk "mod" (op "mod" #[x, .NumTerm 4])
+    chk "abs" (op "abs" #[x])
+    chk "pow" (op "^" #[x, .NumTerm 2])
+    chk "to_int" (op "to_int" #[op "^" #[x, .NumTerm 2]])
+    -- boolean / core: <, <=, =, not, =>, or, and, ite
+    chk "lt"   (op "<" #[x, .NumTerm 0])
+    chk "le"   (op "<=" #[.NumTerm 0, x])
+    chk "eq"   (op "=" #[x, .NumTerm 0])
+    chk "not"  (op "not" #[op "=" #[x, .NumTerm 1]])
+    chk "impl" (op "=>" #[op "<" #[x, .NumTerm 0], op "<" #[x, .NumTerm 1]])
+    chk "or"   (op "or" #[op "<" #[x, .NumTerm 0], op "<=" #[.NumTerm 0, x]])
+    chk "and"  (op "and" #[op "<" #[x, .NumTerm 0], op "<=" #[.NumTerm 0, x]])
+    chk "ite"  (op "ite" #[op "<" #[x, .NumTerm 0], .NumTerm 1, .NumTerm 2])
+    -- arrays: select
+    chk "select" (op "select" #[a, x])
+    -- strings: str.len, str.++, str.<, str.<=, str.replace
+    chk "strlen" (op "str.len" #[s])
+    chk "strcat" (op "str.++" #[s, s])
+    chk "strlt"  (op "str.<" #[s, s])
+    chk "strle"  (op "str.<=" #[s, s])
+    chk "strrep" (op "str.replace" #[s, s, s])
+    IO.println "ops-ok"

@@ -73,8 +73,44 @@ partial def buildApp (nm : SmtQualifiedIdent) (args : Array SmtTerm) : BuildM As
   if let some fd := (← get).funcs.get? sym then return (← (← get).ctx.mkApp fd argAsts)
   throw (IO.userError s!"buildApp: unbound function {sym.toString}")
 
-partial def buildBuiltin? (_sym : SmtSymbol) (_args : Array SmtTerm) : BuildM (Option Ast) :=
-  return none
+/-- Dispatch the SMT-LIB built-in operators the emitter actually produces to the
+    corresponding Z3 constructors. Returns `none` for anything else (define-fun
+    wrappers like `@Int.ediv`, user functions, unsupported ops), which then falls
+    through to `buildApp`'s macro/func path. Arity is validated via the argument
+    list pattern (there is no `Inhabited Ast`, so `!`-indexing is unavailable). -/
+partial def buildBuiltin? (sym : SmtSymbol) (args : Array SmtTerm) : BuildM (Option Ast) := do
+  let ctx := (← get).ctx
+  let bs ← args.mapM buildTerm
+  match sym, bs.toList with
+  -- boolean / core
+  | .ReservedSymbol "and", _         => return some (← ctx.mkAnd bs)
+  | .ReservedSymbol "or",  _         => return some (← ctx.mkOr bs)
+  | .ReservedSymbol "not", [a]       => return some (← ctx.mkNot a)
+  | .ReservedSymbol "=>",  [a, b]    => return some (← ctx.mkImplies a b)
+  | .ReservedSymbol "=",   [a, b]    => return some (← ctx.mkEq a b)
+  | .ReservedSymbol "ite", [a, b, c] => return some (← ctx.mkIte a b c)
+  -- integer arithmetic
+  | .ReservedSymbol "+",   _         => return some (← ctx.mkAdd bs)
+  | .ReservedSymbol "*",   _         => return some (← ctx.mkMul bs)
+  | .ReservedSymbol "-",   [a]       => return some (← ctx.mkNeg a)   -- unary negation
+  | .ReservedSymbol "-",   _         => return some (← ctx.mkSub bs)  -- subtraction (nary)
+  | .ReservedSymbol "<",   [a, b]    => return some (← ctx.mkLt a b)
+  | .ReservedSymbol "<=",  [a, b]    => return some (← ctx.mkLe a b)
+  | .ReservedSymbol "div", [a, b]    => return some (← ctx.mkIDiv a b)
+  | .ReservedSymbol "mod", [a, b]    => return some (← ctx.mkMod a b)
+  | .ReservedSymbol "^",   [a, b]    => return some (← ctx.mkPower a b)
+  | .ReservedSymbol "abs",    [a]    => return some (← ctx.mkIntAbs a)
+  | .ReservedSymbol "to_int", [a]    => return some (← ctx.mkToInt a)
+  -- arrays
+  | .ReservedSymbol "select", [a, b] => return some (← ctx.mkSelect a b)
+  -- strings
+  | .ReservedSymbol "str.len", [a]      => return some (← ctx.mkStrLen a)
+  | .ReservedSymbol "str.++",  _        => return some (← ctx.mkStrConcat bs)
+  | .ReservedSymbol "str.<",   [a, b]   => return some (← ctx.mkStrLt a b)
+  | .ReservedSymbol "str.<=",  [a, b]   => return some (← ctx.mkStrLe a b)
+  | .ReservedSymbol "str.replace", [a, b, c] => return some (← ctx.mkStrReplace a b c)
+  -- str.replace_all: no Z3 4.15 built-in; falls through to buildApp (throws) by design.
+  | _, _ => return none
 
 partial def inlineMacro (_m : MacroDef) (_args : Array SmtTerm) : BuildM Ast :=
   throw (IO.userError "inlineMacro: implemented in a later task")
