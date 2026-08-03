@@ -3,12 +3,13 @@ open Blaster.Smt.FFI Blaster.Smt
 /-!
 # PARAMETRIC-MUTUAL datatype groups on the in-process Z3 FFI backend
 
-The Z3 C API has no parametric-mutual datatype constructor (only single via
-`Z3_mk_polymorphic_datatype` and non-parametric-mutual via `Z3_mk_datatypes`), so a
-parametric-mutual `declare-datatypes` is routed through Z3's OWN SMT-LIB parser
-(`Context.evalSmtlib2`) on the session context; the datatypes then resolve by NAME via
-`Z3_mk_datatype_sort` and the `dt*` func_decl queries. This mirrors Issue16's
-`Attribute`/`Term` shape, reduced to the probe's mutually-recursive pair:
+The Z3 C API has no single parametric-mutual constructor, but a parametric-mutual
+`declare-datatypes` is built NATIVELY (no SMT-LIB parser): each member gets its own
+`Z3_mk_polymorphic_datatype` call, and a reference to a group SIBLING is a
+`Z3_mk_datatype_sort(sibling, [args])` FORWARD REF that Z3 resolves when that sibling's own
+declaration runs. Instantiations then resolve by NAME via `Z3_mk_datatype_sort` and the
+`dt*` func_decl queries. This mirrors Issue16's `Attribute`/`Term` shape, reduced to the
+probe's mutually-recursive pair:
 
 ```
 (declare-datatypes ((@A 1)(@B 1))
@@ -16,10 +17,10 @@ parametric-mutual `declare-datatypes` is routed through Z3's OWN SMT-LIB parser
    (par (@T) ((B.leaf (B.leaf.0 @T)) (B.node (B.node.0 (@A @T))))))))  -- B holds an A
 ```
 
-Because the FFI context uses a no-op error handler, a parse failure corrupts sorts
+Because the FFI context uses a no-op error handler, a declaration failure corrupts sorts
 SILENTLY (no throw). Each stage therefore pins `errorCode == 0` right after the API call
-that could have failed: after the `declare-datatypes` eval (`decl-ec`), after building the
-cross-referencing constructor `(A.node y)` with `y : (@B Int)` (`ctor-ec` — this discriminates
+that could have failed: after the `declare-datatypes` native build (`decl-ec`), after building
+the cross-referencing constructor `(A.node y)` with `y : (@B Int)` (`ctor-ec` — this discriminates
 that Z3 substituted `@T := Int` through the `(@B @T)` field), and after building the accessor
 term (`acc-ec`).
 
@@ -91,11 +92,12 @@ g1={showR r1} recog={showR r2} cross={showR r3} inv={showR r4}"
 
 The Issue16 shape: a single parametric datatype (`@List`) is declared first, then a
 parametric-MUTUAL group (`@C`/`@D`) whose fields reference it (`C.node.0 : (@List (@D @T))`).
-This works ONLY because single parametric datatypes are now ALSO routed through the parser
-(`declareParamDatatype` → `evalDeclChecked`): successive evals accumulate, so the later
-mutual group's parser eval sees the earlier `@List`. If `@List` were declared via the C API
-(the old path), the mutual eval would fail with `unknown sort '@List'` — the regression this
-block guards against. -/
+Because BOTH the single datatype and the mutual group are declared NATIVELY into the SAME Z3
+manager, the mutual group's field-sort builder sees the earlier `@List` (registered in
+`paramDatatypes`, so a `(@List …)` field resolves via `Z3_mk_datatype_sort` by name) and the
+sibling `@D` via a forward-ref. This is exactly the cross-reference the old SMT-LIB parser
+route could NOT do — a parser-declared group cannot see a C-API-declared sort, and vice versa
+— the regression this block guards against. -/
 
 private def listSym : SmtSymbol := mkNormalSymbol "@List"
 private def cSym : SmtSymbol := mkNormalSymbol "@C"

@@ -11,18 +11,23 @@ structure MacroDef where
   body   : SmtTerm
 
 /-- Template for a PARAMETRIC datatype. Both single and mutual parametric datatypes are
-    now declared through Z3's SMT-LIB parser (`Context.evalSmtlib2`), because the C API
-    cannot build parametric-MUTUAL datatypes and the parser cannot see C-API-declared
-    sorts (so keeping some parametric datatypes on the C API would split the name space).
-    Concrete instantiations are obtained on demand via `Context.mkDatatypeSort name argSorts`
-    (which resolves by NAME, hence works for parser-declared datatypes). `ctorNames` is
-    ordered by Z3 ctor index; `accessorNames[i]` is the ordered accessor names of ctor `i`.
-    `polySort` is now always `none` (the old `Z3_mk_polymorphic_datatype` result is no
-    longer produced); the field is kept for now but is dead — see follow-up. -/
+    declared NATIVELY via `Z3_mk_polymorphic_datatype` (`Context.mkPolyDatatype`) — one call
+    per datatype, with `Z3_mk_datatype_sort(sibling, [args])` forward-refs for cross-references
+    in a mutual group. No SMT-LIB parser is involved, so all datatypes and the C-API-declared
+    uninterpreted sorts (`@@ArrowT2`) share ONE Z3 manager name space. Concrete instantiations
+    are obtained on demand via `Context.mkDatatypeSort name argSorts` (resolving by NAME).
+    `ctorNames` is ordered by Z3 ctor index; `accessorNames[i]` is the ordered accessor names of
+    ctor `i`. `polySort` is always `none` (the `Z3_mk_polymorphic_datatype` result is not kept);
+    the field is dead — never read. -/
 structure ParamDatatype where
   name          : SmtSymbol
   polySort      : Option Z3Sort
   nparams       : Nat
+  /-- Whether the datatype is (self- or mutually-) recursive. Used to classify a datatype used
+      as a field WRAPPER: a NON-recursive datatype with ≥2 constructors is an "unsafe wrapper" —
+      instantiating it at a bare forward-ref sibling segfaults Z3, so a mutual member that wraps
+      a sibling directly in one must be declared AFTER that sibling (see the mutual reorder). -/
+  recursive     : Bool
   ctorNames     : Array SmtSymbol
   accessorNames : Array (Array SmtSymbol)
 

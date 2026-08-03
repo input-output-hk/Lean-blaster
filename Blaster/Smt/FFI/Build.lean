@@ -79,24 +79,27 @@ def buildFieldSortRef (group : Array SmtSymbol) (se : SortExpr) :
       else return (← buildSort se, 0)
 
 /-- Build the Z3 field sort for an arbitrarily-NESTED field of a PARAMETRIC datatype
-    `nm` whose type parameters are mapped to Z3 type variables in `tvMap`. Handles a
-    type parameter appearing UNDER another type constructor (`Option α`, `List (Term α)`):
+    whose type parameters are mapped to Z3 type variables in `tvMap`, given the set of
+    datatype names `group` declared TOGETHER (`#[nm]` for a single datatype; all member
+    names for a mutual group). Handles a type parameter appearing UNDER another type
+    constructor (`Option α`, `List (Term α)`):
     * `.SymbolSort p`, `p ∈ tvMap` → its Z3 type variable (so Z3 sees `@α` as the
       datatype's own parameter); any other `.SymbolSort` (Int/Bool/String/declared
       sort) → `buildSort`.
-    * `.ParamSort head args` where `head` is `nm` itself (a SELF forward-reference —
-      e.g. the `@Term` inside `(@List (@Term @α))` while `@Term` is still being
+    * `.ParamSort head args` where `head ∈ group` (a SELF or SIBLING forward-reference —
+      e.g. the `@Term` inside `(@List (@Term @α))` while the group is still being
       declared) OR an already-declared parametric datatype (`@List`, `@Option`) →
       recursively build the arg sorts and instantiate / forward-ref via
-      `Z3_mk_datatype_sort` (dual-purpose: instantiation AND forward reference).
+      `Z3_mk_datatype_sort` (dual-purpose: instantiation AND forward reference; a
+      not-yet-declared group sibling resolves when its own `mkPolyDatatype` runs).
     * any other `.ParamSort head args` (`head` is NOT a datatype — an uninterpreted
       arity-n sort like `@@ArrowT2`, or `Array`) → `buildSort` on the whole sort:
       `Array` is resolved structurally; an uninterpreted parameterized sort collapses
       to its declared sort (its type args are ignored, as the FFI does elsewhere). A
-      parametric datatype declared only LATER falls through to `buildSort`'s generic
-      "unknown parameterized sort" error (mutual-parametric is a separate task).
+      parametric datatype declared only LATER (outside `group`) falls through to
+      `buildSort`'s generic "unknown parameterized sort" error.
     The result is always a REAL sort, used with `sort_ref 0` (never NULL). -/
-partial def buildParamFieldSort (nm : SmtSymbol) (tvMap : Std.HashMap SmtSymbol Z3Sort)
+partial def buildParamFieldSort (group : Array SmtSymbol) (tvMap : Std.HashMap SmtSymbol Z3Sort)
     (se : SortExpr) : BuildM Z3Sort := do
   match se with
   | .SymbolSort p =>
@@ -105,8 +108,8 @@ partial def buildParamFieldSort (nm : SmtSymbol) (tvMap : Std.HashMap SmtSymbol 
       | none    => buildSort (.SymbolSort p)
   | .ParamSort head args =>
       let isDatatype := (← get).paramDatatypes.contains head
-      if head == nm || isDatatype then
-        let argSorts ← args.mapM (buildParamFieldSort nm tvMap)
+      if group.contains head || isDatatype then
+        let argSorts ← args.mapM (buildParamFieldSort group tvMap)
         (← get).ctx.mkDatatypeSort head.toString argSorts
       else
         buildSort se
@@ -119,21 +122,24 @@ partial def buildParamFieldSort (nm : SmtSymbol) (tvMap : Std.HashMap SmtSymbol 
 def isRegularSelfRef (nm : SmtSymbol) (params : Array SmtSymbol) (se : SortExpr) : Bool :=
   se == .ParamSort nm (params.map .SymbolSort)
 
-/-- Field-sort resolution for a PARAMETRIC datatype `nm` with type params `params`
-    (each mapped to its Z3 type variable in `tvMap`). Returns the Z3 field sort paired
-    with its Z3 `sort_ref` (same convention as `buildFieldSortRef`):
+/-- Field-sort resolution for a member `nm` (type params `params`, each mapped to its Z3
+    type variable in `tvMap`) of the PARAMETRIC datatype `group` declared together
+    (`#[nm]` for a single datatype; all member names for a mutual group). Returns the Z3
+    field sort paired with its Z3 `sort_ref` (same convention as `buildFieldSortRef`):
     * a param field `.SymbolSort p` with `p ∈ params` → the type var, ref `0`;
-    * a REGULAR self-recursive field `(@nm @α …)` at the datatype's OWN params →
-      `placeholder`, ref `1` (Z3 IGNORES the sort when ref>0 and keys recursion off a
-      NULL `sorts[]` slot; a regular recursion always recurs at the datatype's own
-      params, which is exactly what a self sort_ref means — the placeholder is never read);
+    * a REGULAR self-recursive field `(@nm @α …)` — `nm` (the CURRENT member) applied to its
+      OWN params — → `placeholder`, ref `1` (Z3 IGNORES the sort when ref>0 and keys
+      recursion off a NULL `sorts[]` slot; sort_ref 0 selects the sole datatype in `nm`'s
+      own `mkPolyDatatype` call, i.e. `nm` itself; the placeholder is never read). A SIBLING
+      reference is never a regular self ref (`isRegularSelfRef` keys on `nm`), so it falls to
+      the forward-ref case below;
     * any NESTED occurrence — a type parameter under another constructor (`(@Option @α)`,
-      `(@List (@Term @α))`), a self nested under another constructor, or a nested-at-
-      concrete (`(@List String)`) — → a REAL forward-ref/instantiated sort built via
-      `buildParamFieldSort`, ref `0`;
+      `(@List (@Term @α))`), a self/sibling nested under another constructor, a top-level
+      sibling `(@B @α)`, or a nested-at-concrete (`(@List String)`) — → a REAL
+      forward-ref/instantiated sort built via `buildParamFieldSort`, ref `0`;
     * any other CONCRETE field sort (`Int`, `Bool`, an already-declared sort) → built via
       `buildSort`, ref `0`. -/
-def buildParamFieldSortRef (nm : SmtSymbol) (params : Array SmtSymbol)
+def buildParamFieldSortRef (group : Array SmtSymbol) (nm : SmtSymbol) (params : Array SmtSymbol)
     (tvMap : Std.HashMap SmtSymbol Z3Sort) (placeholder : Z3Sort) (se : SortExpr) :
     BuildM (Z3Sort × UInt32) := do
   match se with
@@ -143,7 +149,7 @@ def buildParamFieldSortRef (nm : SmtSymbol) (params : Array SmtSymbol)
       | none    => return (← buildSort se, 0)
   | .ParamSort _ _ =>
       if isRegularSelfRef nm params se then return (placeholder, 1)
-      else return (← buildParamFieldSort nm tvMap se, 0)
+      else return (← buildParamFieldSort group tvMap se, 0)
 
 /-- Strip the surrounding quotes strLitSmt adds to string literals. -/
 private def unquote (s : String) : String :=
@@ -324,37 +330,22 @@ partial def bodyReferences (nm : SmtSymbol) (t : SmtTerm) : Bool :=
   | .AnnotatedTerm t' _ => bodyReferences nm t'
   | _ => false
 
-/-- Eval a datatype-declaration command STRING on the session context via Z3's own
-    SMT-LIB parser (`Context.evalSmtlib2`) and verify it succeeded. Z3 resets the error
-    code at the head of every API call, so `errorCode` is read IMMEDIATELY after the eval
-    with no intervening FFI call. A parse/declaration failure surfaces BOTH as a nonzero
-    error code AND as a non-empty return string (the FFI context installs a no-op error
-    handler, so a silent failure would otherwise corrupt sorts downstream — the hazard
-    `FFINestedDT` documents); both are checked. Throws with the eval output on failure,
-    BEFORE any registration, so a throw cannot leave a half-populated registry. -/
-def evalDeclChecked (cmd : String) : BuildM Unit := do
-  let ctx := (← get).ctx
-  let out ← ctx.evalSmtlib2 cmd
-  let ec ← ctx.errorCode
-  if ec != 0 || !out.trim.isEmpty then
-    let msg ← ctx.errorMsg ec
-    throw (IO.userError s!"evalSmtlib2 failed (errorCode={ec}, msg={msg}); output: {out}\non command:\n{cmd}")
-
 /-- Register the NAME→index metadata for a PARAMETRIC datatype `nm` with `nparams` type
-    params, given its `decl`. The datatype's sorts have already been built in the manager
-    by the parser (`evalDeclChecked`); this only records the template + the ctor/accessor/
-    recognizer resolution indices so `buildSort (@nm …)` (via `mkDatatypeSort`, resolving
-    by name) and use-site resolution in `buildApp`/`buildIdent` work. Shared by the single
-    (`declareParamDatatype`) and mutual parametric paths. `polySort` is `none` (no longer
-    produced). -/
-def registerParamDatatypeTemplate (nm : SmtSymbol) (nparams : Nat)
+    params, given its `decl`. The datatype's sort has already been built in the manager
+    NATIVELY (`Z3_mk_polymorphic_datatype`, via `mkPolyDatatype`); this only records the
+    template + the ctor/accessor/recognizer resolution indices so `buildSort (@nm …)` (via
+    `mkDatatypeSort`, resolving by name) and use-site resolution in `buildApp`/`buildIdent`
+    work. Pure state mutation — no Z3 call — so callers may run it after their last Z3 API
+    call without disturbing `errorCode`. Shared by the single (`declareParamDatatype`) and
+    mutual parametric paths. `polySort` is `none` (the field is dead — never read). -/
+def registerParamDatatypeTemplate (nm : SmtSymbol) (nparams : Nat) (recursive : Bool)
     (decl : SmtDatatypeDecl) : BuildM Unit := do
   let selsOf := fun (sels : Option (Array SmtSelector)) => sels.getD #[]
   let ctorSyms      : Array SmtSymbol := decl.ctors.map (·.1)
   let accessorNames : Array (Array SmtSymbol) :=
     decl.ctors.map (fun (_, sels) => (selsOf sels).map (·.1))
   let template : ParamDatatype :=
-    { name := nm, polySort := none, nparams, ctorNames := ctorSyms, accessorNames }
+    { name := nm, polySort := none, nparams, recursive, ctorNames := ctorSyms, accessorNames }
   modify fun st => { st with paramDatatypes := st.paramDatatypes.insert nm template }
   for h : ci in [:decl.ctors.size] do
     let (cn, sels) := decl.ctors[ci]
@@ -366,12 +357,15 @@ def registerParamDatatypeTemplate (nm : SmtSymbol) (nparams : Nat)
       let (sn, _) := sels'[fj]
       modify fun st => { st with accessorIndex := st.accessorIndex.insert sn (nm, ci, fj) }
 
-/-- Register a NON-parametric datatype `nm` that was declared through the parser as part
-    of a MIXED mutual group (some members parametric, some not). Its use sites resolve
-    through `funcs`/`sorts` (via `SimpleIdent`), NOT `ctorIndex`, so recover the sort and
-    each ctor/recognizer/accessor func_decl by name from the parser-built datatype (arity
-    0 ⇒ `mkDatatypeSort nm #[]`) and register them exactly as the native non-parametric
-    paths do. -/
+/-- Register a NON-parametric (arity-0) datatype `nm` that is a member of a MIXED mutual
+    group (some members parametric, some not) already declared NATIVELY (via
+    `mkPolyDatatype` with zero type vars). Its use sites resolve through `funcs`/`sorts`
+    (via `SimpleIdent`), NOT `ctorIndex`, so recover the sort and each ctor/recognizer/
+    accessor func_decl BY NAME (`mkDatatypeSort nm #[]` + the `dt*` queries) and register
+    them exactly as the native non-parametric paths do. NOTE: this issues Z3 API calls, so
+    callers that read `errorCode` right after the group's declaration must not route a
+    member here between the last `mkPolyDatatype` and that read (no test exercises the
+    mixed case, so this is defensive only). -/
 def registerParserDatatypeFuncs (nm : SmtSymbol) (decl : SmtDatatypeDecl) : BuildM Unit := do
   let ctx := (← get).ctx
   let dtSort ← ctx.mkDatatypeSort nm.toString #[]
@@ -389,21 +383,105 @@ def registerParserDatatypeFuncs (nm : SmtSymbol) (decl : SmtDatatypeDecl) : Buil
       let accFd ← ctx.dtAccessor dtSort (UInt32.ofNat ci) (UInt32.ofNat fj)
       modify fun st => { st with funcs := st.funcs.insert sn accFd }
 
-/-- Declare a PARAMETRIC datatype (`decl.params = some ps`, `ps` non-empty) through Z3's
-    own SMT-LIB parser (`evalDeclChecked`) rather than the C API. Rationale: the C API has
-    NO parametric-mutual constructor, and (verified) the parser CANNOT see a datatype
-    declared via the C API — so if some parametric datatypes stayed on the C API and others
-    went through the parser, a mutual group could not reference an earlier single one. Routing
-    ALL parametric datatypes through the parser keeps exactly one sort per name in the
-    manager; successive evals accumulate (a later group sees earlier declarations), and the
-    parser resolves nested self/forward references itself (so the old field-sort machinery is
-    bypassed). The instantiated (monomorphized) func_decls are recovered on demand at use
-    sites via the `dt*` calls, keyed by name — unchanged. Register the template AFTER the
-    eval succeeds, mirroring the no-half-populated-registry discipline. -/
+/-- Does datatype `decl` mention any of `names` (its own name and/or its group siblings) in a
+    field sort? Determines (self- or mutual-) recursiveness for wrapper classification. -/
+def declMentionsAny (names : Array SmtSymbol) (decl : SmtDatatypeDecl) : Bool :=
+  decl.ctors.any (fun (_, sels) =>
+    (sels.getD #[]).any (fun (_, se) => names.any (fun n => sortMentions n se)))
+
+/-- Head symbol of a sort expression. -/
+def sortHead : SortExpr → SmtSymbol
+  | .SymbolSort s  => s
+  | .ParamSort s _ => s
+
+/-- Is `d` an UNSAFE wrapper — a datatype that is NON-recursive with ≥2 constructors — per the
+    snapshot `wrapperInfo` (`name ↦ (recursive, ctorCount)`, covering the current group's members
+    and every already-declared parametric datatype)? Instantiating such a datatype at a BARE
+    forward-ref sibling segfaults Z3 (its `Z3_mk_datatype_sort` forward-ref contract covers only
+    recursive datatypes and array-range / sequence-element nesting), so a member wrapping a sibling
+    directly in one must be declared AFTER that sibling. A name absent from `wrapperInfo` is a
+    builtin or uninterpreted sort (`@@ArrowT2`, `Array`) — NOT a datatype wrapper. -/
+def isUnsafeWrapper (wrapperInfo : Std.HashMap SmtSymbol (Bool × Nat)) (d : SmtSymbol) : Bool :=
+  match wrapperInfo.get? d with
+  | some (rec, nc) => !rec && nc ≥ 2
+  | none           => false
+
+/-- Precedence edges `(before, after)` forced by a field sort `se` of member `X`: for each
+    `.ParamSort d dargs` where `d` is an unsafe wrapper, a DIRECT argument whose head is a group
+    member `Y` forces `Y` before `X` (Z3 must see a REAL `Y`, not a forward-ref, to instantiate
+    `d Y`); and if the unsafe wrapper `d` is itself a group sibling, it too must precede `X`. A
+    sibling reference nested under a SAFE (recursive) wrapper — `d (List (Y …))` — imposes nothing
+    (probe-verified), so only direct arguments are scanned. `Y == X` yields a self edge → later
+    flagged as an unresolvable cycle. -/
+partial def scanPrecede (group : Array SmtSymbol) (wrapperInfo : Std.HashMap SmtSymbol (Bool × Nat))
+    (X : SmtSymbol) : SortExpr → Array (SmtSymbol × SmtSymbol)
+  | .SymbolSort _     => #[]
+  | .ParamSort d dargs =>
+      let sub := dargs.foldl (fun acc a => acc ++ scanPrecede group wrapperInfo X a) #[]
+      if isUnsafeWrapper wrapperInfo d then
+        let direct := dargs.filterMap (fun a =>
+          let h := sortHead a
+          if group.contains h then some (h, X) else none)
+        let dEdge := if group.contains d && d != X then #[(d, X)] else #[]
+        sub ++ direct ++ dEdge
+      else sub
+
+/-- A stable topological order of `group` satisfying the precedence edges `(before, after)`:
+    a member is emitted only once every member that must precede it has been emitted, and among
+    otherwise-free members the original order is kept (so a group with no unsafe-wrapper constraint
+    declares in the emitter's order — the native forward-ref path, unchanged). Throws (naming the
+    members) on a cycle, including a self edge `(X, X)` — a member that wraps a sibling or itself
+    directly in an unsafe wrapper along a cycle has NO valid order, and Z3 would segfault. -/
+def mutualDeclOrder (group : Array SmtSymbol) (edges : Array (SmtSymbol × SmtSymbol)) :
+    BuildM (Array SmtSymbol) := do
+  if let some (b, _) := edges.find? (fun (b, a) => b == a) then
+    throw (IO.userError s!"declareMutualDataTypes: {b.toString} wraps itself directly in a \
+      non-recursive multi-constructor datatype — Z3 cannot forward-reference it (no valid order)")
+  let mut remaining := group
+  let mut result : Array SmtSymbol := #[]
+  for _ in [:group.size] do
+    match remaining.find? (fun m => !(edges.any (fun (b, a) => a == m && remaining.contains b))) with
+    | some m => result := result.push m; remaining := remaining.filter (· != m)
+    | none   =>
+        throw (IO.userError s!"declareMutualDataTypes: cyclic unsafe-wrapper dependency among \
+          {remaining.map (·.toString)} — members mutually wrap each other directly in \
+          non-recursive multi-constructor datatypes, which Z3 cannot forward-reference")
+  return result
+
+/-- Declare a SINGLE PARAMETRIC datatype (`decl.params = some ps`, `ps` non-empty)
+    NATIVELY via `Z3_mk_polymorphic_datatype` (`mkPolyDatatype`) — no SMT-LIB parser. One
+    Z3 type variable per param (`mkTypeVar`, mapped by param symbol); each field's sort +
+    `sort_ref` is resolved by `buildParamFieldSortRef` (param → type var; regular self-ref →
+    NULL + ref 1; nested self / declared-datatype instantiation / forward-ref →
+    `Z3_mk_datatype_sort`; uninterpreted `@@ArrowT2`/`Array` → `buildSort` collapse). The
+    instantiated (monomorphized) func_decls are recovered on demand at use sites via the
+    `dt*` calls, keyed by name. Register the template AFTER the Z3 call succeeds (no
+    half-populated registry); `group = #[nm]` (a single datatype is its own only sibling). -/
 def declareParamDatatype (nm : SmtSymbol) (ps : Array SmtSymbol)
     (decl : SmtDatatypeDecl) : BuildM Unit := do
-  evalDeclChecked (toString (SmtCommand.declareDataType nm decl))
-  registerParamDatatypeTemplate nm ps.size decl
+  let ctx := (← get).ctx
+  -- 1. one Z3 type variable per param, mapped by param symbol
+  let tvs ← ps.mapM (fun p => ctx.mkTypeVar p.toString)
+  let mut tvMap : Std.HashMap SmtSymbol Z3Sort := {}
+  for (p, tv) in ps.zip tvs do
+    tvMap := tvMap.insert p tv
+  let placeholder ← ctx.mkBoolSort   -- never-read filler for recursive field slots (ref>0)
+  let selsOf := fun (sels : Option (Array SmtSelector)) => sels.getD #[]
+  let ctorNames  : Array String := decl.ctors.map (fun (cn, _) => cn.toString)
+  let recogNames : Array String := decl.ctors.map (fun (cn, _) => s!"is-{cn.toString}")
+  let fieldNames : Array (Array String) :=
+    decl.ctors.map (fun (_, sels) => (selsOf sels).map (fun (sn, _) => sn.toString))
+  -- 2. per ctor / per field: (Z3 field sort, sort_ref); group is just this datatype
+  let fieldData : Array (Array (Z3Sort × UInt32)) ←
+    decl.ctors.mapM (fun (_, sels) =>
+      (selsOf sels).mapM (fun (_, se) => buildParamFieldSortRef #[nm] nm ps tvMap placeholder se))
+  let fieldSorts : Array (Array Z3Sort) := fieldData.map (·.map (·.1))
+  let fieldRefs  : Array (Array UInt32) := fieldData.map (·.map (·.2))
+  -- 3. declare the polymorphic datatype (the returned poly sort is unused — polySort is dead)
+  let _ ← ctx.mkPolyDatatype nm.toString tvs ctorNames recogNames fieldNames fieldSorts fieldRefs
+  -- 4. register the template + resolution indices (AFTER the Z3 call succeeds); `recursive` is
+  --    whether any field mentions `nm` (self-recursion) — used to classify `nm` as a field wrapper.
+  registerParamDatatypeTemplate nm ps.size (declMentionsAny #[nm] decl) decl
 
 /-- Interpret an SmtCommand against the build state (declarations only in this task). -/
 partial def runCommand (c : SmtCommand) : BuildM Unit := do
@@ -475,32 +553,90 @@ partial def runCommand (c : SmtCommand) : BuildM Unit := do
       let selsOf := fun (sels : Option (Array SmtSelector)) => sels.getD #[]
       let isParam := nms.any (·.arity != 0) || decls.any (fun d => !(d.params.getD #[]).isEmpty)
       if isParam then
-        -- PARAMETRIC (or MIXED parametric/non-parametric) mutual group. The Z3 C API cannot
-        -- build parametric-mutual datatypes (only single via `Z3_mk_polymorphic_datatype` and
-        -- non-parametric-mutual via `Z3_mk_datatypes`), so route the WHOLE group through Z3's
-        -- own SMT-LIB parser (`evalDeclChecked`, which renders via the existing `ToString`).
-        -- Every parametric datatype — single (see `declareParamDatatype`) and mutual — goes
-        -- through the parser, so all cross-references live in one manager name space and the
-        -- monomorphized func_decls are recovered on demand via the `dt*` calls, by name. The
-        -- parser resolves nested self/forward references itself, so NO field-sort machinery
-        -- (`buildFieldSortRef`/`buildParamFieldSort*`) runs here — that is exactly what dodges
-        -- the mutual forward-reference problem. Validate arity ↔ params BEFORE the eval (a
-        -- mismatch means the rendered text is malformed); register AFTER it succeeds (no
-        -- half-populated registry).
+        -- PARAMETRIC (or MIXED parametric/non-parametric) mutual group, declared NATIVELY:
+        -- each member gets its own `Z3_mk_polymorphic_datatype` (`mkPolyDatatype`) call, and a
+        -- reference to a group SIBLING becomes a `Z3_mk_datatype_sort(sibling, [args])` FORWARD REF
+        -- (real sort, `sort_ref 0`) that Z3 resolves when that sibling's own `mkPolyDatatype` runs.
+        -- No SMT-LIB parser is involved, so everything lives in ONE manager name space — the
+        -- uninterpreted `@@ArrowT2` and earlier single parametric datatypes (`@List`/`@Option`/…)
+        -- are visible to the group (what the parser route could NOT do — the DT-8 regression).
+        --
+        -- One Z3 limitation the probe missed: `Z3_mk_datatype_sort`'s forward-ref contract covers
+        -- only RECURSIVE datatypes (and array-range / sequence-element nesting), so instantiating a
+        -- NON-recursive multi-constructor datatype (`Option`/`Except`) DIRECTLY at a bare forward-ref
+        -- sibling SEGFAULTS. We avoid it by DECLARATION ORDER: a member that wraps a sibling directly
+        -- in such an "unsafe wrapper" is declared AFTER that sibling (so the sibling is a REAL sort,
+        -- not a forward-ref). `mutualDeclOrder` computes this; an unbreakable cycle throws.
+        --
+        -- Validate arity ↔ params BEFORE any Z3 call; register AFTER all declarations succeed (no
+        -- half-populated registry), and do NOT emit a Z3 call between the last `mkPolyDatatype` and
+        -- the caller's `errorCode` read — `registerParamDatatypeTemplate` (pure) is used per member.
         for h : i in [:decls.size] do
           let np := (decls[i].params.getD #[]).size
           let some sd := nms[i]? | throw (IO.userError "declareMutualDataTypes: sort/decl count mismatch")
           if sd.arity != np then
             throw (IO.userError s!"declareMutualDataTypes: sort decl arity {sd.arity} ≠ \
               datatype params {np} for {sd.name.toString}")
-        evalDeclChecked (toString (SmtCommand.declareMutualDataTypes nms decls))
-        -- Register each member: parametric (arity>0) via the template + ctor/accessor/
-        -- recognizer indices; a non-parametric member of a MIXED group via its by-name sort
-        -- and dt* func_decls (its use sites resolve through `funcs`, not `ctorIndex`).
+        let group : Array SmtSymbol := nms.map (·.name)
+        -- Wrapper snapshot: every already-declared parametric datatype + this group's members
+        -- (a member is recursive iff it mentions itself OR any sibling — mutual recursion is safe).
+        let mut wrapperInfo : Std.HashMap SmtSymbol (Bool × Nat) :=
+          (← get).paramDatatypes.fold
+            (fun acc nm t => acc.insert nm (t.recursive, t.ctorNames.size)) {}
+        for h : i in [:decls.size] do
+          let some sd := nms[i]? | throw (IO.userError "declareMutualDataTypes: sort/decl count mismatch")
+          wrapperInfo := wrapperInfo.insert sd.name (declMentionsAny group decls[i], decls[i].ctors.size)
+        -- Precedence edges from every member's field sorts, then a safe declaration order.
+        let mut edges : Array (SmtSymbol × SmtSymbol) := #[]
+        for h : i in [:decls.size] do
+          let some sd := nms[i]? | throw (IO.userError "declareMutualDataTypes: sort/decl count mismatch")
+          for (_, sels) in decls[i].ctors do
+            for (_, se) in selsOf sels do
+              edges := edges ++ scanPrecede group wrapperInfo sd.name se
+        let order ← mutualDeclOrder group edges
+        let mut nameToIdx : Std.HashMap SmtSymbol Nat := {}
+        for h : i in [:decls.size] do
+          let some sd := nms[i]? | throw (IO.userError "declareMutualDataTypes: sort/decl count mismatch")
+          nameToIdx := nameToIdx.insert sd.name i
+        let placeholder ← ctx.mkBoolSort   -- never-read filler for regular self-ref slots (ref 1)
+        -- Shared param-name → Z3 type-var cache: same-named params across members (all groups
+        -- here name their param `@α`) share ONE interned type var, matching the probe.
+        let mut tvCache : Std.HashMap SmtSymbol Z3Sort := {}
+        -- Declare each member in the SAFE order (a forward-ref to a LATER sibling is fine; an unsafe
+        -- wrapper of a sibling never occurs because that sibling was ordered earlier and is REAL).
+        for nm in order do
+          let some idx := nameToIdx.get? nm | throw (IO.userError "declareMutualDataTypes: order/name mismatch")
+          let some decl := decls[idx]? | throw (IO.userError "declareMutualDataTypes: decl index out of range")
+          let ps := decl.params.getD #[]
+          let mut tvs : Array Z3Sort := #[]
+          for p in ps do
+            match tvCache.get? p with
+            | some tv => tvs := tvs.push tv
+            | none    => let tv ← ctx.mkTypeVar p.toString
+                         tvCache := tvCache.insert p tv
+                         tvs := tvs.push tv
+          let ctorNames  : Array String := decl.ctors.map (fun (cn, _) => cn.toString)
+          let recogNames : Array String := decl.ctors.map (fun (cn, _) => s!"is-{cn.toString}")
+          let fieldNames : Array (Array String) :=
+            decl.ctors.map (fun (_, sels) => (selsOf sels).map (fun (sn, _) => sn.toString))
+          -- Per field: (Z3 sort, sort_ref). `group` = all member names, so a self OR sibling
+          -- reference resolves via `mkDatatypeSort` (forward-ref, ref 0); a REGULAR self-ref of
+          -- THIS member gets NULL + ref 1 (`buildParamFieldSortRef` keys `isRegularSelfRef` on `nm`);
+          -- `@@ArrowT2`/`Array` collapse via `buildSort`.
+          let fieldData : Array (Array (Z3Sort × UInt32)) ←
+            decl.ctors.mapM (fun (_, sels) =>
+              (selsOf sels).mapM (fun (_, se) =>
+                buildParamFieldSortRef group nm ps tvCache placeholder se))
+          let fieldSorts : Array (Array Z3Sort) := fieldData.map (·.map (·.1))
+          let fieldRefs  : Array (Array UInt32) := fieldData.map (·.map (·.2))
+          let _ ← ctx.mkPolyDatatype nm.toString tvs ctorNames recogNames fieldNames fieldSorts fieldRefs
+        -- Register each member (AFTER all Z3 declarations): parametric (arity>0) via the pure
+        -- template + ctor/accessor/recognizer indices; a non-parametric (arity 0) member of a
+        -- MIXED group via by-name recovery (no test exercises this — see `registerParserDatatypeFuncs`).
         for h : i in [:decls.size] do
           let some sd := nms[i]? | throw (IO.userError "declareMutualDataTypes: sort/decl count mismatch")
           if sd.arity != 0 then
-            registerParamDatatypeTemplate sd.name sd.arity decls[i]
+            registerParamDatatypeTemplate sd.name sd.arity (declMentionsAny group decls[i]) decls[i]
           else
             registerParserDatatypeFuncs sd.name decls[i]
       else
