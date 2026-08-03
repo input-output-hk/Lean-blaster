@@ -103,3 +103,24 @@ open Blaster.Smt.FFI Blaster.Smt
     chk "strle"  (op "str.<=" #[s, s])
     chk "strrep" (op "str.replace" #[s, s, s])
     IO.println "ops-ok"
+
+open Blaster.Smt in
+/-- info: r1=valid r2=falsified cex=x: 1 -/
+#guard_msgs in
+#eval do
+  -- Valid: ¬(x = x) is unsat
+  let s1 ← Z3Session.create
+  s1.runCommand (.declareConst (.NormalSymbol "x") intSort)
+  let x : SmtTerm := .SmtIdent (.SimpleIdent (.NormalSymbol "x"))
+  s1.assert (.AppTerm (.SimpleIdent (.ReservedSymbol "not")) #[
+    .AppTerm (.SimpleIdent (.ReservedSymbol "=")) #[x, x]])
+  let r1 ← s1.checkSat #[] false
+  -- Falsified: (x = 1) is sat; extract the model (genCex := true) for x.
+  let s2 ← Z3Session.create
+  s2.runCommand (.declareConst (.NormalSymbol "x") intSort)
+  s2.assert (.AppTerm (.SimpleIdent (.ReservedSymbol "=")) #[x, .NumTerm 1])
+  let topVars : Array (List (SmtSymbol × Lean.Name)) := #[[(.NormalSymbol "x", `x)]]
+  let r2 ← s2.checkSat topVars true
+  let showR := fun r => match r with | Result.Valid => "valid" | Result.Falsified _ => "falsified" | Result.Undetermined => "undet"
+  let cex := match r2 with | Result.Falsified c => c | _ => []
+  IO.println s!"r1={showR r1} r2={showR r2} cex={String.intercalate ", " cex}"

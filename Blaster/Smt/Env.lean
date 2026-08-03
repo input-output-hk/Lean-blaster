@@ -2,6 +2,7 @@ import Lean
 import Blaster.Command.Options
 import Blaster.Optimize.Env
 import Blaster.Smt.EmitCommand
+import Blaster.Smt.Result
 
 open Lean Meta Blaster.Optimize Blaster.Options
 
@@ -14,13 +15,6 @@ private def normalizeLine (s : String) : String :=
 
 /-- Minimal version of z3 we support -/
 private def minZ3Version : String := "4.15.2"
-
-/-- Result of an Smt query. -/
-inductive Result where
-  | Valid  : Result
-  | Falsified (cex : List String) : Result
-  | Undetermined : Result
-deriving Repr
 
 def toResult (e : Expr) : Result :=
  match e with
