@@ -36,3 +36,17 @@ open Blaster.Smt.FFI Blaster.Smt
     let _ ← buildTerm (.BoolTerm true)
     let _ ← buildTerm (.StrTerm "\"hi\"")
     IO.println "lits-ok"
+
+/-- info: decl-ok -/
+#guard_msgs in
+#eval do
+  let ctx ← mkContext
+  BuildM.run ctx do
+    runCommand (.declareConst (.NormalSymbol "x") Blaster.Smt.intSort)
+    let _ ← buildTerm (.SmtIdent (.SimpleIdent (.NormalSymbol "x")))
+    -- also exercise a declared function application
+    runCommand (.declareFun (.NormalSymbol "f") #[Blaster.Smt.intSort] Blaster.Smt.intSort)
+    let _ ← buildTerm (.AppTerm (.SimpleIdent (.NormalSymbol "f")) #[.NumTerm 3])
+    -- also exercise an uninterpreted sort declaration
+    runCommand (.declareSort (.NormalSymbol "S") 0)
+    IO.println "decl-ok"
