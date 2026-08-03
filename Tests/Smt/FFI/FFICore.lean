@@ -124,3 +124,65 @@ open Blaster.Smt in
   let showR := fun r => match r with | Result.Valid => "valid" | Result.Falsified _ => "falsified" | Result.Undetermined => "undet"
   let cex := match r2 with | Result.Falsified c => c | _ => []
   IO.println s!"r1={showR r1} r2={showR r2} cex={String.intercalate ", " cex}"
+
+open Blaster.Smt in
+/-- info: quant r1=valid r2=falsified r3=valid multi=valid lam=valid pat=valid -/
+#guard_msgs in
+#eval do
+  let xref : SmtTerm := .SmtIdent (.SimpleIdent (.NormalSymbol "x"))
+  let yref : SmtTerm := .SmtIdent (.SimpleIdent (.NormalSymbol "y"))
+  let eqOp  := fun (a b : SmtTerm) => SmtTerm.AppTerm (.SimpleIdent (.ReservedSymbol "=")) #[a, b]
+  let addOp := fun (a b : SmtTerm) => SmtTerm.AppTerm (.SimpleIdent (.ReservedSymbol "+")) #[a, b]
+  let notOp := fun (a : SmtTerm)   => SmtTerm.AppTerm (.SimpleIdent (.ReservedSymbol "not")) #[a]
+  let showR := fun r => match r with | Result.Valid => "valid" | Result.Falsified _ => "falsified" | Result.Undetermined => "undet"
+  -- Build `t` in the session and fail loudly on any silent Z3 error. The context uses a
+  -- no-op error handler, so a rejected quantifier/lambda/pattern AST (bad Z3_to_app, a
+  -- pattern missing a bound var, a 0-binder lambda) would otherwise pass sat/unsat silently.
+  let chk := fun (sess : Z3Session) (label : String) (t : SmtTerm) => do
+    let _ ← sess.run (buildTerm t)
+    let ec ← sess.ctx.errorCode
+    if ec != 0 then throw (IO.userError s!"{label}: z3 error {ec} ({← sess.ctx.errorMsg ec})")
+  -- r1: ∀x. x=x is valid ⇒ ¬∀ unsat ⇒ Valid
+  let s1 ← Z3Session.create
+  let fa : SmtTerm := .ForallTerm #[(.NormalSymbol "x", intSort)] (eqOp xref xref)
+  chk s1 "r1" (notOp fa)
+  s1.assert (notOp fa)
+  let r1 ← s1.checkSat #[] false
+  -- r2: ∃x. 100 < x is sat ⇒ Falsified
+  let s2 ← Z3Session.create
+  let ex : SmtTerm := .ExistsTerm #[(.NormalSymbol "x", intSort)]
+    (.AppTerm (.SimpleIdent (.ReservedSymbol "<")) #[.NumTerm 100, xref])
+  chk s2 "r2" ex
+  s2.assert ex
+  let r2 ← s2.checkSat #[] false
+  -- r3: nested shadowing ∀x.(∀x. x=x) must BUILD without Z3-level collision (fresh consts)
+  -- and stay valid ⇒ ¬ unsat ⇒ Valid. The chk errorCode check is what makes this bite.
+  let s3 ← Z3Session.create
+  let outerFa : SmtTerm := .ForallTerm #[(.NormalSymbol "x", intSort)] fa
+  chk s3 "r3" (notOp outerFa)
+  s3.assert (notOp outerFa)
+  let r3 ← s3.checkSat #[] false
+  -- multi: ∀x y. x+y = y+x  ⇒ ¬ unsat ⇒ Valid  (exercises >1 binder + the shrink pop)
+  let s4 ← Z3Session.create
+  let comm : SmtTerm := .ForallTerm #[(.NormalSymbol "x", intSort), (.NormalSymbol "y", intSort)]
+    (eqOp (addOp xref yref) (addOp yref xref))
+  chk s4 "multi" (notOp comm)
+  s4.assert (notOp comm)
+  let rMulti ← s4.checkSat #[] false
+  -- lam: (select (λx. x+1) 5) = 6  ⇒ ¬ unsat ⇒ Valid  (exercises mkLambdaConst / Z3_to_app)
+  let s5 ← Z3Session.create
+  let lam : SmtTerm := .LambdaTerm #[(.NormalSymbol "x", intSort)] (addOp xref (.NumTerm 1))
+  let lapp : SmtTerm := .AppTerm (.SimpleIdent (.ReservedSymbol "select")) #[lam, .NumTerm 5]
+  chk s5 "lam" (notOp (eqOp lapp (.NumTerm 6)))
+  s5.assert (notOp (eqOp lapp (.NumTerm 6)))
+  let rLam ← s5.checkSat #[] false
+  -- pat: ∀x {f(x)}. f(x)=f(x)  ⇒ ¬ unsat ⇒ Valid  (exercises Z3_mk_pattern + patternsOf)
+  let s6 ← Z3Session.create
+  s6.runCommand (.declareFun (.NormalSymbol "f") #[intSort] intSort)
+  let fx : SmtTerm := .AppTerm (.SimpleIdent (.NormalSymbol "f")) #[xref]
+  let pq : SmtTerm := .AnnotatedTerm
+    (.ForallTerm #[(.NormalSymbol "x", intSort)] (eqOp fx fx)) #[.Pattern #[fx]]
+  chk s6 "pat" (notOp pq)
+  s6.assert (notOp pq)
+  let rPat ← s6.checkSat #[] false
+  IO.println s!"quant r1={showR r1} r2={showR r2} r3={showR r3} multi={showR rMulti} lam={showR rLam} pat={showR rPat}"

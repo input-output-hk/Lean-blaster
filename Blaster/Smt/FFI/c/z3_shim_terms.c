@@ -137,3 +137,43 @@ LEAN_EXPORT lean_obj_res lean_z3_mk_int_abs(b_lean_obj_arg c, b_lean_obj_arg a, 
   lean_object *r=box_owned(Z3_mk_ite(ctx, Z3_mk_ge(ctx,x,zero), x, Z3_mk_unary_minus(ctx,x)));
   lean_dec(c); lean_dec(a); return z3_io_ok(r);
 }
+
+/* ==== Task 10: quantifier shims ========================================== *
+ * Binders use Z3_mk_fresh_const (NOT Z3_mk_const): fresh consts are distinct,
+ * so a bound var never hash-collides with a same-named top-level const or an
+ * outer shadowed binder. Refcount rule as above: dec each OBJECT arg once
+ * (arrays once; their elements from lean_array_get_core are borrowed). */
+
+/* mkFreshConst : Context → String(prefix) → Z3Sort → IO Ast  (a distinct constant each call) */
+LEAN_EXPORT lean_obj_res lean_z3_mk_fresh_const(b_lean_obj_arg c, b_lean_obj_arg prefix, b_lean_obj_arg srt, lean_obj_arg w) {
+  (void)w; Z3_context ctx=(Z3_context)ctx_ptr(c);
+  lean_object *r=box_owned(Z3_mk_fresh_const(ctx, lean_string_cstr(prefix), (Z3_sort)unbox_owned(srt)));
+  lean_dec(c); lean_dec(prefix); lean_dec(srt); return z3_io_ok(r);
+}
+/* mkQuantConst : Context → isForall(Bool) → weight(UInt32) → Array Ast(bound consts) → Array Ast(patterns) → Ast(body) → IO Ast */
+LEAN_EXPORT lean_obj_res lean_z3_mk_quant_const(b_lean_obj_arg c, uint8_t isForall, uint32_t weight,
+    b_lean_obj_arg bounds, b_lean_obj_arg pats, b_lean_obj_arg body, lean_obj_arg w) {
+  (void)w; Z3_context ctx=(Z3_context)ctx_ptr(c);
+  size_t nb=lean_array_size(bounds);
+  Z3_app *bs=(Z3_app*)malloc(sizeof(Z3_app)*(nb?nb:1));
+  for (size_t i=0;i<nb;i++) bs[i]=Z3_to_app(ctx,(Z3_ast)unbox_owned(lean_array_get_core(bounds,i)));
+  size_t np=lean_array_size(pats);
+  Z3_pattern *ps=(Z3_pattern*)malloc(sizeof(Z3_pattern)*(np?np:1));
+  for (size_t i=0;i<np;i++){ Z3_ast pt=(Z3_ast)unbox_owned(lean_array_get_core(pats,i)); ps[i]=Z3_mk_pattern(ctx,1,&pt); }
+  Z3_ast r=Z3_mk_quantifier_const(ctx, isForall?true:false, weight, (unsigned)nb, bs, (unsigned)np, ps, (Z3_ast)unbox_owned(body));
+  free(bs); free(ps);
+  lean_object *res=box_owned(r);
+  lean_dec(c); lean_dec(bounds); lean_dec(pats); lean_dec(body);
+  return z3_io_ok(res);
+}
+/* mkLambdaConst : Context → Array Ast(bound) → Ast(body) → IO Ast */
+LEAN_EXPORT lean_obj_res lean_z3_mk_lambda_const(b_lean_obj_arg c, b_lean_obj_arg bounds, b_lean_obj_arg body, lean_obj_arg w) {
+  (void)w; Z3_context ctx=(Z3_context)ctx_ptr(c);
+  size_t nb=lean_array_size(bounds);
+  Z3_app *bs=(Z3_app*)malloc(sizeof(Z3_app)*(nb?nb:1));
+  for (size_t i=0;i<nb;i++) bs[i]=Z3_to_app(ctx,(Z3_ast)unbox_owned(lean_array_get_core(bounds,i)));
+  Z3_ast r=Z3_mk_lambda_const(ctx,(unsigned)nb,bs,(Z3_ast)unbox_owned(body));
+  free(bs);
+  lean_object *res=box_owned(r);
+  lean_dec(c); lean_dec(bounds); lean_dec(body); return z3_io_ok(res);
+}

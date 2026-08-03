@@ -40,6 +40,10 @@ partial def buildSort (se : SortExpr) : BuildM Z3Sort := do
 private def unquote (s : String) : String :=
   if s.length ≥ 2 && s.front == '"' && s.back == '"' then (s.drop 1).dropRight 1 else s
 
+/-- Collect pattern terms from a quantifier's annotations. -/
+private def patternsOf (annot : Array SmtAttribute) : Array SmtTerm :=
+  annot.foldl (fun acc a => match a with | .Pattern ps => acc ++ ps | _ => acc) #[]
+
 mutual
 /-- Translate an SmtTerm to a Z3 Ast. Literals, identifiers, and applications are
     handled here; quantifiers, let, etc. are added in later tasks. -/
@@ -51,6 +55,16 @@ partial def buildTerm (t : SmtTerm) : BuildM Ast := do
   | .StrTerm s  => ctx.mkStringLit (unquote s)
   | .SmtIdent nm => buildIdent nm
   | .AppTerm nm args => buildApp nm args
+  | .ForallTerm bs body => buildQuant true bs body
+  | .ExistsTerm bs body => buildQuant false bs body
+  | .LambdaTerm bs body => do
+      let (b, consts) ← withBound bs (buildTerm body)
+      (← get).ctx.mkLambdaConst consts b
+  | .AnnotatedTerm t annot =>
+      match t with
+      | .ForallTerm bs body => buildQuant true bs body (patternsOf annot)
+      | .ExistsTerm bs body => buildQuant false bs body (patternsOf annot)
+      | _ => buildTerm t
   | _ => throw (IO.userError s!"buildTerm: unhandled term kind (added in a later task)")
 
 partial def buildIdent (nm : SmtQualifiedIdent) : BuildM Ast := do
@@ -114,6 +128,28 @@ partial def buildBuiltin? (sym : SmtSymbol) (args : Array SmtTerm) : BuildM (Opt
 
 partial def inlineMacro (_m : MacroDef) (_args : Array SmtTerm) : BuildM Ast :=
   throw (IO.userError "inlineMacro: implemented in a later task")
+
+/-- Push each bound var as a FRESH Z3 const into `locals`, run `k`, then pop.
+    Returns k's result and the array of fresh bound consts (for the binder). -/
+partial def withBound {α : Type} (bs : SortedVars) (k : BuildM α) : BuildM (α × Array Ast) := do
+  let ctx := (← get).ctx
+  let mut consts : Array Ast := #[]
+  for (sym, se) in bs do
+    let s ← buildSort se
+    let a ← ctx.mkFreshConst sym.toString s
+    consts := consts.push a
+    modify fun st => { st with locals := st.locals.push (sym, a) }
+  let r ← k
+  modify fun st => { st with locals := st.locals.shrink (st.locals.size - bs.size) }
+  return (r, consts)
+
+partial def buildQuant (isForall : Bool) (bs : SortedVars) (body : SmtTerm)
+    (pats : Array SmtTerm := #[]) : BuildM Ast := do
+  let ((b, patAsts), consts) ← withBound bs (do
+    let b ← buildTerm body
+    let patAsts ← pats.mapM buildTerm
+    return (b, patAsts))
+  (← get).ctx.mkQuantConst isForall 0 consts patAsts b
 end
 
 /-- Interpret an SmtCommand against the build state (declarations only in this task). -/
