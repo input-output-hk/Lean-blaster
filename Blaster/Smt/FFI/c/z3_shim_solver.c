@@ -75,3 +75,26 @@ LEAN_EXPORT lean_obj_res lean_z3_solver_check_assuming(b_lean_obj_arg s, b_lean_
   lean_dec(s); lean_dec(assumps);
   return z3_io_ok(lean_box_uint32((r==Z3_L_TRUE)?2u:(r==Z3_L_FALSE?0u:1u)));
 }
+
+/* solverSetTimeout : Solver → UInt32(ms) → IO Unit.
+ * Builds a one-key Z3_params ("timeout", uint, milliseconds) and installs it on
+ * the solver. `Z3_solver_set_params` accumulates keys across calls (verified: a
+ * later seed-only call does not drop an earlier timeout), so timeout and seed can
+ * be set independently. Refcount: `s` is an owned OBJECT arg → lean_dec after use;
+ * the scalar `ms` and `w` are never decremented. */
+LEAN_EXPORT lean_obj_res lean_z3_solver_set_timeout(b_lean_obj_arg s, uint32_t ms, lean_obj_arg w) {
+  (void)w; Z3_context ctx=sctx(s); Z3_params p=Z3_mk_params(ctx); Z3_params_inc_ref(ctx,p);
+  Z3_params_set_uint(ctx, p, Z3_mk_string_symbol(ctx,"timeout"), ms);
+  Z3_solver_set_params(ctx, ssol(s), p);
+  Z3_params_dec_ref(ctx,p); lean_dec(s); return z3_io_unit();
+}
+
+/* solverSetRandomSeed : Solver → UInt32 → IO Unit.
+ * Builds a one-key Z3_params ("random_seed", uint) and installs it on the solver.
+ * Refcount: `s` is an owned OBJECT arg → lean_dec after use; scalar/world never. */
+LEAN_EXPORT lean_obj_res lean_z3_solver_set_seed(b_lean_obj_arg s, uint32_t seed, lean_obj_arg w) {
+  (void)w; Z3_context ctx=sctx(s); Z3_params p=Z3_mk_params(ctx); Z3_params_inc_ref(ctx,p);
+  Z3_params_set_uint(ctx, p, Z3_mk_string_symbol(ctx,"random_seed"), seed);
+  Z3_solver_set_params(ctx, ssol(s), p);
+  Z3_params_dec_ref(ctx,p); lean_dec(s); return z3_io_unit();
+}

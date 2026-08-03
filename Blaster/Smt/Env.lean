@@ -628,10 +628,17 @@ def setPullNestedQuantifiers (b : Bool) : TranslateEnvT Unit :=
 def setPrintSuccess (b : Bool) : TranslateEnvT Unit :=
   trySubmitCommand! (.setOption ":print-success" (toString b))
 
-/-- Set Smt `smt.random-seed` option to `n` or none. -/
+/-- Set Smt `smt.random-seed` option to `n` or none.
+    On the FFI backend the `set-option` command is a no-op on a live session, so the
+    seed is additionally installed directly on the in-process Z3 solver via `Z3_params`
+    (`Z3_solver_set_params`). The legacy subprocess path still emits the
+    `(set-option :smt.random-seed …)` command through `trySubmitCommand!`. -/
 def setRandomSeed (n : Option Nat) : TranslateEnvT Unit := do
   match n with
-  | some n => trySubmitCommand! (.setOption ":smt.random-seed" (toString n))
+  | some n =>
+      trySubmitCommand! (.setOption ":smt.random-seed" (toString n))
+      if let some sess := (← get).smtEnv.smtSession then
+        sess.solver.setRandomSeed (UInt32.ofNat n)
   | none => pure ()
 
 /-- Set Smt `auto_config` option to `b`. -/
@@ -659,12 +666,20 @@ def setMacroFinder (b : Bool) : TranslateEnvT Unit :=
 def setRelevancy (n : Nat) : TranslateEnvT Unit :=
   trySubmitCommand! (.setOption ":smt.relevancy" (toString n))
 
-/-- Set Smt `timeout` when option is specified. -/
+/-- Set Smt `timeout` when option is specified.
+    On the FFI backend the `set-option` command is a no-op on a live session, so the
+    wall-clock timeout is additionally installed directly on the in-process Z3 solver
+    via `Z3_params` (`Z3_solver_set_params`, key `timeout`, milliseconds). The legacy
+    subprocess path still emits the `(set-option :timeout …)` command. -/
 def setTimeout : TranslateEnvT Unit := do
   let sOpts := (← get).optEnv.options.solverOptions
   let some n := sOpts.timeout | return ()
   -- need to convert timeout to milliseconds
   trySubmitCommand! (.setOption ":timeout" (toString (n * 1000)))
+  if let some sess := (← get).smtEnv.smtSession then
+    -- Z3's timeout is a uint (ms); clamp to the UInt32 max so a huge second-count
+    -- stays a huge ms-count instead of wrapping around to a tiny value.
+    sess.solver.setTimeout (UInt32.ofNat (min (n * 1000) 4294967295))
 
 /-- Set the default Smt options, i.e.:
      - (set-option :print-success true)
