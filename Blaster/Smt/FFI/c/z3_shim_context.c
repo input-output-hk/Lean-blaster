@@ -21,6 +21,22 @@ LEAN_EXPORT lean_obj_res lean_z3_smoke_check_true(lean_obj_arg w) {
   return z3_io_ok(lean_box_uint32((r == Z3_L_TRUE) ? 2u : (r == Z3_L_FALSE ? 0u : 1u)));
 }
 
+/* globalParamSet : String → String → IO Unit.
+ * Wraps Z3_global_param_set (process-global / module param store). Used to install
+ * the engine defaults (auto_config / smt.mbqi / smt.macro_finder /
+ * smt.pull_nested_quantifiers) BEFORE context+solver creation, mirroring the legacy
+ * subprocess `(set-option …)` semantics. Z3 copies the strings into its param store,
+ * so both String args may be released after the call. Refcount: `id`/`val` are owned
+ * OBJECT args → lean_dec after use (read their C strings first); `w` is never
+ * decremented. */
+LEAN_EXPORT lean_obj_res lean_z3_global_param_set(b_lean_obj_arg id, b_lean_obj_arg val, lean_obj_arg w) {
+  (void)w;
+  Z3_global_param_set(lean_string_cstr(id), lean_string_cstr(val));
+  lean_dec(id);
+  lean_dec(val);
+  return z3_io_unit();
+}
+
 /* mkContext : IO Context */
 LEAN_EXPORT lean_obj_res lean_z3_mk_context(lean_obj_arg w) {
   (void)w;

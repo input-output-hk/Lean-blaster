@@ -22,11 +22,16 @@ As in `FFIEndToEnd`, every goal is pinned with TWO results proving the SMT solve
 Both goals exercise the APPLIED constructor path (`x :: xs` ⇒ `.AppTerm (.QualifiedIdent
 List.cons (@List Int)) …`) and the datatype qualifier's accessors/recognizers; the second
 also relies on head-field injectivity. (Both are VALID/unsat, provable by the datatype theory
-+ E-matching. A falsifiable model-CONSTRUCTION goal such as `xs = []` was measured to return
-`Undetermined` via FFI where the `.smtlib` subprocess answers instantly; the FFI backend
-currently ignores `.setOption` (`Session.lean:126`), so the emitted `:smt.mbqi` /
-`:smt.macro_finder` never reach the solver — root cause not isolated here, tracked separately
-as the engine-params work, not parametric-datatype support.)
++ E-matching.)
+
+A falsifiable model-CONSTRUCTION goal such as `∀ xs, xs = []` previously returned
+`Undetermined` (in fact it DIVERGED with no timeout) via FFI where the `.smtlib` subprocess
+answers instantly. Root cause: the FFI backend ignored `.setOption`, so the engine params
+`setDefaultSmtOptions` emits (`auto_config false` / `smt.macro_finder true` / `smt.mbqi` /
+`smt.pull_nested_quantifiers`) never reached the in-process solver. With those params now
+installed as process-global `Z3_global_param_set` values in `Z3Session.create`, the FFI
+backend model-constructs the counterexample and returns `❌ Falsified`, matching legacy — see
+the goal at the end of this file.
 -/
 namespace Test.FFIParam
 
@@ -55,5 +60,20 @@ namespace Test.FFIParam
 /-- info: ✅ Valid -/
 #guard_msgs (info) in
 #blaster [∀ (x y : Int) (xs : List Int), x :: xs = y :: xs → x = y]  -- legacy `.smtlib` parity control
+
+/-! ## Falsifiable model-CONSTRUCTION goal: `∀ xs, xs = []` (engine-params payoff)
+
+Refuting this requires the solver to CONSTRUCT a witness `xs ≠ []` over the recursive
+`List Int` datatype (a bounded model of `@isList`). Before the engine params reached the
+FFI solver this diverged (→ `Undetermined`); with `auto_config false` + `smt.macro_finder`
+now installed in the session, FFI returns `❌ Falsified` — matching the legacy subprocess. -/
+
+/-- error: ❌ Falsified -/
+#guard_msgs (error) in
+#blaster (backend: ffi) (gen-cex: 0) [∀ (xs : List Int), xs = []]
+
+/-- error: ❌ Falsified -/
+#guard_msgs (error) in
+#blaster (gen-cex: 0) [∀ (xs : List Int), xs = []]  -- legacy `.smtlib` parity control
 
 end Test.FFIParam

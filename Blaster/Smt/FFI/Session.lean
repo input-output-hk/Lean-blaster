@@ -11,7 +11,28 @@ structure Z3Session where
   solver : Solver
   state  : IO.Ref BuildState
 
+/-- Create an in-process Z3 session (context + solver + build state).
+
+    The engine parameters that legacy `setDefaultSmtOptions` emits as SMT-LIB
+    `(set-option …)` commands (`auto_config`, `smt.mbqi`, `smt.macro_finder`,
+    `smt.pull_nested_quantifiers`) are installed here as PROCESS-GLOBAL Z3 params
+    (`Z3_global_param_set`) BEFORE `mkContext`/`mkSolver`, because:
+    * `Z3_update_param_value` rejects the `smt.*` module params (error INVALID_ARG),
+    * a default `auto_config = true` overrides solver-level `smt.*` params, so the
+      canonical fix is to disable it before the solver is built, and
+    * global params live in a separate store from `Z3_solver_set_params`, so they are
+      immune to the later `setTimeout`/`setRandomSeed` `Z3_solver_set_params` calls.
+
+    These are the FIXED defaults from `setDefaultSmtOptions` (they never vary between
+    goals), so the individual `Blaster.Smt.Env` engine-param setters (`setMbqi` etc.)
+    remain no-ops on the FFI backend — the values applied here always match what they
+    would request. `random_seed`/`timeout` stay solver-level (installed on demand). -/
 def Z3Session.create : IO Z3Session := do
+  -- Mirror legacy `setDefaultSmtOptions` engine params (must precede solver creation).
+  globalParamSet "auto_config" "false"
+  globalParamSet "smt.mbqi" "true"
+  globalParamSet "smt.macro_finder" "true"
+  globalParamSet "smt.pull_nested_quantifiers" "true"
   let ctx ← mkContext
   let solver ← ctx.mkSolver
   let st ← BuildState.mk ctx
