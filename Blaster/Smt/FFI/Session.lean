@@ -54,6 +54,19 @@ def Z3Session.checkSat (sess : Z3Session)
   | 2 => return .Falsified (← sess.getModel topVars genCex)
   | _ => return .Undetermined
 
+/-- Check satisfiability of the asserted formula under the given assumption
+    literals, mapping Z3's lbool to Result. Each assumption term is built against
+    the persistent build state (mirroring `assert`/`checkSat`), so consts declared
+    earlier via `runCommand` resolve through `buildIdent`. On `sat`, evaluates
+    top-level vars for the counterexample. -/
+def Z3Session.checkAssuming (sess : Z3Session) (assumps : Array SmtTerm)
+    (topVars : Array (List (SmtSymbol × Lean.Name))) (genCex : Bool) : IO Result := do
+  let asts ← assumps.mapM (fun t => sess.run (buildTerm t))
+  match ← sess.solver.checkAssuming asts with
+  | 0 => return .Valid
+  | 2 => return .Falsified (← sess.getModel topVars genCex)
+  | _ => return .Undetermined
+
 /-- Route a declarative SmtCommand to the FFI session. Declarations go to the
     build env; assert goes to the solver; options/check/model/exit are handled
     elsewhere (no-op here). -/

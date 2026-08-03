@@ -61,3 +61,17 @@ LEAN_EXPORT lean_obj_res lean_z3_solver_eval_str(b_lean_obj_arg s, b_lean_obj_ar
   }
   lean_dec(s); lean_dec(a); return z3_io_ok(res);
 }
+
+/* solverCheckAssuming : Solver → Array Ast → IO UInt32 (2 sat / 0 unsat / 1 unknown).
+ * The assumption Asts are read out of the array via lean_array_get_core, so they are
+ * BORROWED: dec the ARRAY once, never the elements; dec the Solver; scalars/world never. */
+LEAN_EXPORT lean_obj_res lean_z3_solver_check_assuming(b_lean_obj_arg s, b_lean_obj_arg assumps, lean_obj_arg w) {
+  (void)w; Z3_context ctx=sctx(s); Z3_solver sol=ssol(s);
+  size_t n=lean_array_size(assumps);
+  Z3_ast *as=(Z3_ast*)malloc(sizeof(Z3_ast)*(n?n:1));
+  for (size_t i=0;i<n;i++) as[i]=(Z3_ast)unbox_owned(lean_array_get_core(assumps,i));
+  Z3_lbool r=Z3_solver_check_assumptions(ctx, sol, (unsigned)n, as);
+  free(as);
+  lean_dec(s); lean_dec(assumps);
+  return z3_io_ok(lean_box_uint32((r==Z3_L_TRUE)?2u:(r==Z3_L_FALSE?0u:1u)));
+}

@@ -283,3 +283,70 @@ open Blaster.Smt in
     .SmtIdent (.SimpleIdent (.NormalSymbol "z")), .NumTerm 5])
   let r ← s.checkSat #[] false
   IO.println s!"alias-{if r matches Result.Falsified _ then "ok" else "BAD"}"
+
+open Blaster.Smt in
+/-- info: assume r1=valid r2=falsified -/
+#guard_msgs in
+#eval do
+  -- After each checkAssuming, verify Z3 flagged no error. The context uses a no-op
+  -- error handler, so a rejected assumption would otherwise map to unknown/.Undetermined
+  -- silently instead of throwing.
+  let ecChk := fun (sess : Z3Session) (label : String) => do
+    let ec ← sess.ctx.errorCode
+    if ec != 0 then throw (IO.userError s!"{label}: z3 error {ec} ({← sess.ctx.errorMsg ec})")
+  -- r1: assert (=> flag (not (x = x))); check assuming [flag] ⇒ flag forces ¬(x=x) ⇒ unsat ⇒ Valid
+  let s1 ← Z3Session.create
+  s1.runCommand (.declareConst (.NormalSymbol "flag") boolSort)
+  s1.runCommand (.declareConst (.NormalSymbol "x") intSort)
+  let flag : SmtTerm := .SmtIdent (.SimpleIdent (.NormalSymbol "flag"))
+  let x : SmtTerm := .SmtIdent (.SimpleIdent (.NormalSymbol "x"))
+  s1.assert (.AppTerm (.SimpleIdent (.ReservedSymbol "=>")) #[flag,
+    .AppTerm (.SimpleIdent (.ReservedSymbol "not")) #[.AppTerm (.SimpleIdent (.ReservedSymbol "=")) #[x, x]]])
+  let r1 ← s1.checkAssuming #[flag] #[] false
+  ecChk s1 "r1"
+  -- r2: assert (=> flag (x = 1)); check assuming [flag] ⇒ sat ⇒ Falsified
+  let s2 ← Z3Session.create
+  s2.runCommand (.declareConst (.NormalSymbol "flag") boolSort)
+  s2.runCommand (.declareConst (.NormalSymbol "x") intSort)
+  s2.assert (.AppTerm (.SimpleIdent (.ReservedSymbol "=>")) #[flag,
+    .AppTerm (.SimpleIdent (.ReservedSymbol "=")) #[x, .NumTerm 1]])
+  let r2 ← s2.checkAssuming #[flag] #[] false
+  ecChk s2 "r2"
+  let showR := fun r => match r with | Result.Valid => "valid" | Result.Falsified _ => "falsified" | Result.Undetermined => "undet"
+  IO.println s!"assume r1={showR r1} r2={showR r2}"
+
+open Blaster.Smt in
+/-- info: lifecycle base=valid step=valid deact=falsified -/
+#guard_msgs in
+#eval do
+  -- Exercises the exact BMC/K-induction assumption-flag lifecycle (BMC.lean:92,95;
+  -- KInduction.lean:138,143,148): a guarded constraint activated by an assumption flag,
+  -- a COMPOUND `(not flag)` assumption literal (KInduction step case), and permanent
+  -- deactivation via `assert (not flag)` so a later check sees the constraint gone.
+  let s ← Z3Session.create
+  s.runCommand (.declareConst (.NormalSymbol "iflag") boolSort)
+  s.runCommand (.declareConst (.NormalSymbol "dflag") boolSort)
+  s.runCommand (.declareConst (.NormalSymbol "x") intSort)
+  let iflag : SmtTerm := .SmtIdent (.SimpleIdent (.NormalSymbol "iflag"))
+  let dflag : SmtTerm := .SmtIdent (.SimpleIdent (.NormalSymbol "dflag"))
+  let x : SmtTerm := .SmtIdent (.SimpleIdent (.NormalSymbol "x"))
+  let app := fun (o : String) (as : Array SmtTerm) => SmtTerm.AppTerm (.SimpleIdent (.ReservedSymbol o)) as
+  let notOp := fun t => app "not" #[t]
+  let ecChk := fun (label : String) => do
+    let ec ← s.ctx.errorCode
+    if ec != 0 then throw (IO.userError s!"{label}: z3 error {ec} ({← s.ctx.errorMsg ec})")
+  -- dflag guards a contradiction ¬(x=x); iflag guards x=7
+  s.assert (app "=>" #[dflag, notOp (app "=" #[x, x])])
+  s.assert (app "=>" #[iflag, app "=" #[x, .NumTerm 7]])
+  -- base-case-like: assume [iflag, dflag] ⇒ dflag active ⇒ ¬(x=x) ⇒ unsat ⇒ Valid
+  let base ← s.checkAssuming #[iflag, dflag] #[] false
+  ecChk "base"
+  -- step-case-like: assume [(not iflag), dflag] (COMPOUND literal) ⇒ dflag still active ⇒ Valid
+  let step ← s.checkAssuming #[notOp iflag, dflag] #[] false
+  ecChk "step"
+  -- deactivate dflag permanently, then re-check without it ⇒ contradiction gone ⇒ sat ⇒ Falsified
+  s.assert (notOp dflag)
+  let deact ← s.checkAssuming #[notOp iflag] #[] false
+  ecChk "deact"
+  let showR := fun r => match r with | Result.Valid => "valid" | Result.Falsified _ => "falsified" | Result.Undetermined => "undet"
+  IO.println s!"lifecycle base={showR base} step={showR step} deact={showR deact}"

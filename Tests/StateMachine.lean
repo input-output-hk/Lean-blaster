@@ -7,3 +7,4 @@ import Tests.StateMachine.Counter04
 import Tests.StateMachine.Counter05
 import Tests.StateMachine.Counter06
 import Tests.StateMachine.Counter07
+import Tests.StateMachine.FFICounter

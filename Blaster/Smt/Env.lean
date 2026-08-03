@@ -565,9 +565,15 @@ def checkSat : TranslateEnvT Result := do
 -/
 def checkSatAssuming (args : Array SmtTerm) : TranslateEnvT Result := do
   let env ← get
-  let some p := env.smtEnv.smtProc | return .Undetermined
-  submitCommand (.checkSatAssuming args)
-  getSatResult p
+  match env.smtEnv.smtSession with
+  | some sess =>
+      let topVars := env.smtEnv.topLevelVars
+      let genCex := env.optEnv.options.solverOptions.generateCex
+      return (← sess.checkAssuming args topVars genCex)
+  | none =>
+      let some p := env.smtEnv.smtProc | return .Undetermined
+      submitCommand (.checkSatAssuming args)
+      getSatResult p
 
 
 /-- Try to retrieve the proof artifact when a `unsat` result is obtained and dump result to stdout.
