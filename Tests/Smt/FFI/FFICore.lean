@@ -186,3 +186,19 @@ open Blaster.Smt in
   s6.assert (notOp pq)
   let rPat ← s6.checkSat #[] false
   IO.println s!"quant r1={showR r1} r2={showR r2} r3={showR r3} multi={showR rMulti} lam={showR rLam} pat={showR rPat}"
+
+open Blaster.Smt in
+/-- info: let-ok -/
+#guard_msgs in
+#eval do
+  let s ← Z3Session.create
+  s.runCommand (.declareConst (.NormalSymbol "x") intSort)
+  let x : SmtTerm := .SmtIdent (.SimpleIdent (.NormalSymbol "x"))
+  -- (let ((y (+ x 1))) (= y (+ x 1))) is valid ⇒ assert its negation ⇒ unsat ⇒ Valid
+  let lt : SmtTerm := .LetTerm #[(.NormalSymbol "y", .AppTerm (.SimpleIdent (.ReservedSymbol "+")) #[x, .NumTerm 1])]
+    (.AppTerm (.SimpleIdent (.ReservedSymbol "=")) #[
+      .SmtIdent (.SimpleIdent (.NormalSymbol "y")),
+      .AppTerm (.SimpleIdent (.ReservedSymbol "+")) #[x, .NumTerm 1]])
+  s.assert (.AppTerm (.SimpleIdent (.ReservedSymbol "not")) #[lt])
+  let r ← s.checkSat #[] false
+  IO.println s!"let-{if r matches Result.Valid then "ok" else "BAD"}"

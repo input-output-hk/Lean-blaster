@@ -65,6 +65,15 @@ partial def buildTerm (t : SmtTerm) : BuildM Ast := do
       | .ForallTerm bs body => buildQuant true bs body (patternsOf annot)
       | .ExistsTerm bs body => buildQuant false bs body (patternsOf annot)
       | _ => buildTerm t
+  | .LetTerm bs body => do
+      -- SMT-LIB `let` binds SIMULTANEOUSLY: every RHS is evaluated in the OUTER
+      -- scope, so translate all values BEFORE pushing any. Then push, build the
+      -- body, and pop (mirrors withBound's push/shrink discipline).
+      let vals ← bs.mapM (fun (s, v) => do return (s, ← buildTerm v))
+      vals.forM fun (s, v) => modify fun st => { st with locals := st.locals.push (s, v) }
+      let r ← buildTerm body
+      modify fun st => { st with locals := st.locals.shrink (st.locals.size - bs.size) }
+      return r
   | _ => throw (IO.userError s!"buildTerm: unhandled term kind (added in a later task)")
 
 partial def buildIdent (nm : SmtQualifiedIdent) : BuildM Ast := do
