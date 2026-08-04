@@ -19,7 +19,9 @@ def optimizeIntNeg (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 1 then throwEnvError "optimizeIntNeg: only one argument expected"
  let op := args[0]!
  if let some n1 := isIntValue? op then return (← mkIntLitExpr (Int.neg n1))
- if let some e := intNeg? op then return e
+ if let some e := intNeg? op then
+  pushProofStep (.rewrite (mkConst ``Int.neg_neg))
+  return e
  return (mkApp f op)
 
 
