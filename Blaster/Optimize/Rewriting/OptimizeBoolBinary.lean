@@ -83,10 +83,10 @@ def optimizeBoolAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
   return none
 
 /-- Apply the following simplification/normalization rules on `or` :
-     - false || e ==> e
-     - true || e ==> true
+     - false || e ==> e                                                                      [proof: Bool.or_false]
+     - true || e ==> true                                                                    [proof: Bool.or_true]
      - e || not e ==> true
-     - e1 || e2 ==> e1 (if e1 =ₚₜᵣ e2)
+     - e1 || e2 ==> e1 (if e1 =ₚₜᵣ e2)                                                        [proof: Bool.or_self]
      - e1 || e2 ===> true (if true = e1 := _ ∈ hypothesisContext.hypothesisMap)
      - e1 || e2 ===> true (if true = e2 := _ ∈ hypothesisContext.hypothesisMap)
      - e1 || e2 ===> e2 (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = false = e1)
