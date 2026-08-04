@@ -10,7 +10,7 @@ namespace Blaster.Optimize
 
 /-- Apply the following simplification/normalization rules on `Int.neg` :
      - - (N) ==> "-" N
-     - - (- n) ==> n
+     - - (- n) ==> n      [proof: Int.neg_neg]
    Assume that f = Expr.const ``Int.neg.
    An error is triggered if args.size ≠ 1 (i.e., only fully applied `Int.neg` expected at this stage)
    TODO: consider additional simplification rules
