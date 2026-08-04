@@ -27,7 +27,7 @@ Example: `blaster (timeout: 10) (verbose: 1)`
 -/
 syntax (name := blasterTactic) "blaster" (solveOption)* : tactic
 
-/-- Convert core Nat operators to their HAdd/HSub/HMul elaborated form
+/-- Convert core Nat/Int operators to their HAdd/HSub/HMul/Neg elaborated form
     so that proof term LHS patterns structurally match goal expressions. -/
 def toElabForm (e : Expr) : MetaM Expr := do
   match e with
@@ -37,6 +37,14 @@ def toElabForm (e : Expr) : MetaM Expr := do
       mkSub (← toElabForm a) (← toElabForm b)
   | Expr.app (Expr.app (Expr.const ``Nat.mul _) a) b =>
       mkMul (← toElabForm a) (← toElabForm b)
+  | Expr.app (Expr.app (Expr.const ``Int.add _) a) b =>
+      mkAdd (← toElabForm a) (← toElabForm b)
+  | Expr.app (Expr.app (Expr.const ``Int.sub _) a) b =>
+      mkSub (← toElabForm a) (← toElabForm b)
+  | Expr.app (Expr.app (Expr.const ``Int.mul _) a) b =>
+      mkMul (← toElabForm a) (← toElabForm b)
+  | Expr.app (Expr.const ``Int.neg _) a =>
+      mkAppM ``Neg.neg #[← toElabForm a]
   -- Future-proofing: Nat.div /Nat.mod currently elaborates directly
   --                  (not via HDiv.hDiv / HMod.hMod),
   -- but we normalize it here in case that changes, consistent with add/sub/mul.
