@@ -32,10 +32,10 @@ namespace Tests.OptimizeBoolOr
 /-! Test cases for simplification rule `false || e ==> e`. -/
 
 -- (a || false) = a ===> True
-#testOptimize [ "BoolOrFalse_1", proof ] ∀ (a : Bool), (a || false) = a ===> True
+#testOptimize [ "BoolOrFalse_1" ] ∀ (a : Bool), (a || false) = a ===> True
 
 -- a || false ===> a (i.e., true = a)
-#testOptimize [ "BoolOrFalse_2", proof ] ∀ (a : Bool), (a || false) ===> ∀ (a : Bool), true = a
+#testOptimize [ "BoolOrFalse_2" ] ∀ (a : Bool), (a || false) ===> ∀ (a : Bool), true = a
 
 -- (false || a) = a ===> True
 #testOptimize [ "BoolOrFalse_3", proof ] ∀ (a : Bool), (false || a) = a ===> True
@@ -44,10 +44,10 @@ namespace Tests.OptimizeBoolOr
 #testOptimize [ "BoolOrFalse_4", proof ] ∀ (a b : Bool), (false || (a && b)) = (a && b) ===> True
 
 -- ((a || b) || false) = a || b ===> True
-#testOptimize [ "BoolOrFalse_5", proof ] ∀ (a b : Bool), ((a || b) || false) = (a || b) ===> True
+#testOptimize [ "BoolOrFalse_5"] ∀ (a b : Bool), ((a || b) || false) = (a || b) ===> True
 
 -- ((a || false) || b) = a || b ===> True
-#testOptimize [ "BoolOrFalse_6", proof ] ∀ (a b : Bool), ((a || false) || b) = (a || b) ===> True
+#testOptimize [ "BoolOrFalse_6" ] ∀ (a b : Bool), ((a || false) || b) = (a || b) ===> True
 
 -- ((false || a) || b) = a || b ===> True
 #testOptimize [ "BoolOrFalse_7", proof ] ∀ (a b : Bool), ((false || a) || b) = (a || b) ===> True
@@ -62,10 +62,10 @@ namespace Tests.OptimizeBoolOr
 /-! Test cases for simplification rule `true || e ==> true`. -/
 
 -- (a || true) = true ===> True
-#testOptimize [ "BoolOrTrue_1", proof ] ∀ (a : Bool), (a || true) = true ===> True
+#testOptimize [ "BoolOrTrue_1" ] ∀ (a : Bool), (a || true) = true ===> True
 
 -- (a || true) ====> True
-#testOptimize [ "BoolOrTrue_2", proof ] ∀ (a : Bool), (a || true) ===> True
+#testOptimize [ "BoolOrTrue_2" ] ∀ (a : Bool), (a || true) ===> True
 
 -- (true || a) = true ===> True
 #testOptimize [ "BoolOrTrue_3" , proof] ∀ (a : Bool), (true || a) = true ===> True
@@ -77,10 +77,10 @@ namespace Tests.OptimizeBoolOr
 #testOptimize [ "BoolOrTrue_5", proof] ∀ (a b : Bool), true || (a && b) ===> True
 
 -- (a || b) || true ===> True
-#testOptimize [ "BoolOrTrue_6", proof ] ∀ (a b : Bool), (a || b) || true ===> True
+#testOptimize [ "BoolOrTrue_6" ] ∀ (a b : Bool), (a || b) || true ===> True
 
 -- (a || true) || b ===> True
-#testOptimize [ "BoolOrTrue_7", proof ] ∀ (a b : Bool), (a || true) || b ===> True
+#testOptimize [ "BoolOrTrue_7" ] ∀ (a b : Bool), (a || true) || b ===> True
 
 -- (true || a) || b ===> True
 #testOptimize [ "BoolOrTrue_8", proof ] ∀ (a b : Bool), (true || a) || b ===> True

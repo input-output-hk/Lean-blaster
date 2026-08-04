@@ -27,8 +27,8 @@ namespace Blaster.Optimize
   return none
 
 /-- Apply the following simplification/normalization rules on `and` :
-     - false && e ==> false                                                                  [proof: Bool.and_false]
-     - true && e ==> e                                                                       [proof: Bool.and_true]
+     - false && e ==> false                                                                  [proof: Bool.false_and]
+     - true && e ==> e                                                                       [proof: Bool.true_and]
      - e && not e ==> false
      - e1 && e2 ==> e1 (if e1 =ₚₜᵣ e2)                                                        [proof: Bool.and_self]
      - e1 && e2 ===> e2 (if true = e1 := _ ∈ hypothesisContext.hypothesisMap)
@@ -49,10 +49,10 @@ def optimizeBoolAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let op1 := args[0]!
  let op2 := args[1]!
  if let Expr.const ``false _ := op1 then
-   pushProofStep (.rewrite (mkConst ``Bool.and_false))
+   pushProofStep (.rewrite (mkConst ``Bool.false_and))
    return op1
  if let Expr.const ``true _ := op1 then
-   pushProofStep (.rewrite (mkConst ``Bool.and_true))
+   pushProofStep (.rewrite (mkConst ``Bool.true_and))
    return op2
  if exprEq op1 op2 then
    pushProofStep (.rewrite (mkConst ``Bool.and_self))
@@ -83,8 +83,8 @@ def optimizeBoolAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
   return none
 
 /-- Apply the following simplification/normalization rules on `or` :
-     - false || e ==> e                                                                      [proof: Bool.or_false]
-     - true || e ==> true                                                                    [proof: Bool.or_true]
+     - false || e ==> e                                                                      [proof: Bool.false_or]
+     - true || e ==> true                                                                    [proof: Bool.true_or]
      - e || not e ==> true
      - e1 || e2 ==> e1 (if e1 =ₚₜᵣ e2)                                                        [proof: Bool.or_self]
      - e1 || e2 ===> true (if true = e1 := _ ∈ hypothesisContext.hypothesisMap)
@@ -105,10 +105,10 @@ def optimizeBoolOr (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let op1 := args[0]!
  let op2 := args[1]!
  if let Expr.const ``false _ := op1 then
-   pushProofStep (.rewrite (mkConst ``Bool.or_false))
+   pushProofStep (.rewrite (mkConst ``Bool.false_or))
    return op2
  if let Expr.const ``true _ := op1 then
-   pushProofStep (.rewrite (mkConst ``Bool.or_true))
+   pushProofStep (.rewrite (mkConst ``Bool.true_or))
    return op1
  if exprEq op1 op2 then
    pushProofStep (.rewrite (mkConst ``Bool.or_self))
