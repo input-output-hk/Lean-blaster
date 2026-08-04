@@ -15,6 +15,12 @@ driver iteration (`Retention.due` short-circuits on the `0` sentinel) and
 nothing is ever written. `BLASTER_RETENTION_EVERY` overrides `N`
 (default 20000).
 
+A sample walks every table (the nested ones are `O(capacity)`), which costs
+~40 ms on a large environment, so samples are additionally rate limited to
+one per `BLASTER_RETENTION_MIN_MS` milliseconds (default 2000) — that keeps
+the overhead near 2% of wall clock whatever `N` is, while the iteration
+counter still advances by `N` on every period.
+
 Every line is flushed: the profiled process is expected to die by OOM, so
 buffered data is lost data.
 -/
@@ -33,6 +39,10 @@ initialize itersRef : IO.Ref Nat ← IO.mkRef 0
 initialize handleRef : IO.Ref (Option IO.FS.Handle) ← IO.mkRef none
 /-- `IO.monoMsNow` at profiling start. -/
 initialize startMsRef : IO.Ref Nat ← IO.mkRef 0
+/-- `IO.monoMsNow` of the last emitted sample. -/
+initialize lastMsRef : IO.Ref Nat ← IO.mkRef 0
+/-- Minimum milliseconds between two emitted samples. -/
+initialize minMsRef : IO.Ref Nat ← IO.mkRef 2000
 
 private def header : String :=
   "phase,elapsed_s,iters,rss_kb,stack_depth," ++
@@ -49,10 +59,8 @@ def rssKb : IO Nat := do
   | .ok ls =>
     for l in ls do
       if l.startsWith "VmRSS:" then
-        let toks := (l.drop 6).splitOn " " |>.filter (· != "")
-        match toks[0]? with
-        | some t => return t.toNat?.getD 0
-        | none => return 0
+        -- "VmRSS:\t   2869096 kB"
+        return ((l.drop 6).trim.takeWhile Char.isDigit).toNat?.getD 0
     return 0
 
 /-- Enable profiling if `BLASTER_RETENTION_PROFILE` is set. Idempotent:
@@ -65,24 +73,37 @@ def init : IO Unit := do
   | some path =>
     let period := ((← IO.getEnv "BLASTER_RETENTION_EVERY").bind String.toNat?).getD 20000
     let period := if period == 0 then 20000 else period
+    let minMs := ((← IO.getEnv "BLASTER_RETENTION_MIN_MS").bind String.toNat?).getD 2000
     let h ← IO.FS.Handle.mk path IO.FS.Mode.write
     h.putStr header
     h.flush
     handleRef.set (some h)
     periodRef.set period
     countdownRef.set period
+    minMsRef.set minMs
     itersRef.set 0
-    startMsRef.set (← IO.monoMsNow)
+    let now ← IO.monoMsNow
+    startMsRef.set now
+    lastMsRef.set now
 
 /-- One driver iteration; `true` when this iteration should be sampled.
-    Disabled fast path: a single `IO.Ref` read. -/
+    Disabled fast path: a single `IO.Ref` read. Every `N`-th iteration the
+    iteration counter advances and the rate limiter decides whether a sample
+    is actually emitted. -/
 @[inline] def due : IO Bool := do
   let c ← countdownRef.get
   if c == 0 then
     return false
   else if c == 1 then
-    countdownRef.set (← periodRef.get)
-    return true
+    let period ← periodRef.get
+    countdownRef.set period
+    itersRef.modify (· + period)
+    let now ← IO.monoMsNow
+    if now - (← lastMsRef.get) ≥ (← minMsRef.get) then
+      lastMsRef.set now
+      return true
+    else
+      return false
   else
     countdownRef.set (c - 1)
     return false
@@ -115,8 +136,7 @@ def sample (phase : String) (stackDepth : Nat) : TranslateEnvT Unit := do
   match ← handleRef.get with
   | none => return ()
   | some h =>
-    let period ← periodRef.get
-    let iters ← itersRef.modifyGet (fun i => let i := i + period; (i, i))
+    let iters ← itersRef.get
     let elapsed := ((← IO.monoMsNow) - (← startMsRef.get)).toFloat / 1000.0
     let rss ← rssKb
     let env ← get
