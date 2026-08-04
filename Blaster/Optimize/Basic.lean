@@ -324,12 +324,17 @@ def cacheOpaqueRecFun : TranslateEnvT Unit := do
       - optimize expression `e`
 -/
 def Optimize.mainAux (e : Expr) (applyHashCons := true) : TranslateEnvT Expr := do
+  -- retention profiling: enabled only when BLASTER_RETENTION_PROFILE is set
+  Retention.init
   -- populate recFunInstCache with recursive function definition.
   cacheOpaqueRecFun
   -- hash cons expression before optimization
-  if applyHashCons
-  then optimizeExpr (← hashcons e)
-  else optimizeExpr e
+  let r ←
+    if applyHashCons
+    then optimizeExpr (← hashcons e)
+    else optimizeExpr e
+  Retention.sample "final" 0
+  return r
 
 /-- Same as mainAux but set localContext -/
 def Optimize.main (e : Expr) (applyHashCons := true) : TranslateEnvT Expr := do

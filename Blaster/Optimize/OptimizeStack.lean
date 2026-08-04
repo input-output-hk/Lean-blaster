@@ -2,6 +2,7 @@ import Lean
 import Blaster.Optimize.Rewriting.OptimizeITE
 import Blaster.Optimize.Rewriting.OptimizeProjection
 import Blaster.Optimize.Telescope
+import Blaster.Optimize.RetentionProfile
 
 open Lean Meta Elab Blaster.Data.HashMap
 
@@ -357,6 +358,8 @@ def optimizeIfThenElse? (f : Expr) (args : Array Expr) (stack : List OptimizeSta
 
 @[always_inline, inline]
 def isInOptimizeEnvCache (a : Expr) (stack : List OptimizeStack) (mvarDecls : Option MVarIdDecls) : TranslateEnvT (Sum (List OptimizeStack) OptimizeContinuity) := do
+  -- retention profiling: one driver iteration (no-op unless BLASTER_RETENTION_PROFILE is set)
+  if ← Retention.due then Retention.sample "tick" stack.length
   let env ← get
   -- NOTE: Always consider global context when `a` does not contain any FVar/MVar
   let isGlobal := !(hasVar a) || isGlobalContext env

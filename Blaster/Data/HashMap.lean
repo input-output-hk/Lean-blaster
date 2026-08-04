@@ -336,6 +336,24 @@ def getD (_m : HashMap α β) (_a : α) (fallback : β) : β :=
 def probeStats (m : HashMap α β) : Nat × Float × Nat :=
   unsafe probeStatsImpl m
 
+@[specialize] private unsafe def valsImpl (m : HashMap α β) : Array β := Id.run do
+  let cap := m.ctrl.size
+  if m.slots.isEmpty || m.size == 0 then
+    return #[]
+  let mut out := Array.emptyWithCapacity m.size
+  for i in [0:cap] do
+    if m.ctrl.uget i.toUSize lcProof &&& 0x80 != 0 then  -- occupied (not empty, not tombstone)
+      out := out.push (unsafeCast (m.slots.uget ((i.toUSize <<< 1) + 1) lcProof))
+  return out
+
+/-- All live values, in slot order. `O(capacity)`; intended for diagnostics
+    only (retention profiling of nested tables), never on a hot path.
+    `@[implemented_by]` for the same reason as `getD`: safe code cannot
+    decode the untyped slots. -/
+@[implemented_by valsImpl]
+def vals (_m : HashMap α β) : Array β :=
+  #[]
+
 end HashMap
 
 end Blaster.Data.HashMap
