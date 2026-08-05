@@ -26,8 +26,9 @@ elab "#testStatsJsonl" : command => do
   runTermElabM fun _ => do
     let sOpts : BlasterOptions :=
       { statsFile := some statsPath, statsInterval := 10, onlyOptimize := true }
-    -- The formula must resist full syntactic reduction: trivial arithmetic identities fold
-    -- to True in the optimizer, ending the run before enough steps accumulate to sample.
+    -- The same formula is used in all three tests below. It must resist full syntactic
+    -- reduction because the #blaster smoke test asserts solve-result: 2 (Undetermined);
+    -- a trivial arithmetic identity folds to True in the optimizer and would report Valid.
     let stx ← `(∀ (x y : List UInt8), (if x < y then y.length else x.length) > 0)
     discard <| callOptimize sOpts stx
     let content ← IO.FS.readFile statsPath
