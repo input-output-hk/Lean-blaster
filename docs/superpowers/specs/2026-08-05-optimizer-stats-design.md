@@ -25,8 +25,9 @@ any change to optimizer behavior.
 ## Surface
 
 Two new solve options in the existing `(key: value)` grammar (`Blaster/Command/Syntax.lean`),
-carried by `BlasterOptions` (`Blaster/Command/Options.lean`), hence available to `#blaster`,
-`#solve`, `#kind`, and downstream commands that thread `BlasterOptions`:
+carried by `BlasterOptions` (`Blaster/Command/Options.lean`), hence available to `#blaster`
+(a.k.a. `#solve` in older repo vocabulary), `#bmc`, `#kind`, the `blaster` tactic, and
+downstream commands that thread `BlasterOptions`:
 
 - `(stats-file: "prep_growth.jsonl")` — enables telemetry, names the sink file.
   Default `none`: zero behavior change, one `Option` check per optimizer step.
@@ -45,8 +46,8 @@ messages accumulate in elaborator memory, worsening the OOM regime, and die with
 New module `Blaster/Optimize/Stats.lean`:
 
 - `OptimizeStats` — state record: `handle : Option IO.FS.Handle`, `interval : Nat`,
-  `steps : Nat`, `nextSampleAt : Nat`, `startMs : Nat`. Lives in the translate-env state
-  alongside `optEnv`.
+  `steps : Nat`, `nextSampleAt : Nat`, `startMs : Nat`, `samples : Nat`. Lives in the
+  translate-env state alongside `optEnv`.
 - `initStats` — called once at optimize entry when `statsFile` is set: opens the file
   (truncate), writes the `start` event. Open failure → `logWarning` + stats disabled;
   the solve proceeds.
@@ -56,7 +57,8 @@ New module `Blaster/Optimize/Stats.lean`:
 - `sampleStats` — reads `IO.monoMsNow` and the O(1) `.size` of each tracked cache, appends
   one JSON line, flushes (flush-per-line is what makes killed runs analyzable). A write
   failure disables stats silently (no error spam at sample cadence).
-- `finalizeStats` — writes the `end` event, closes the handle; at `verbose ≥ 1` logs a human
+- `finalizeStats` — writes the `end` event and drops the last handle reference (RC release
+  closes the file; Lean has no `Handle.close`); at `verbose ≥ 1` logs a human
   summary (total steps, elapsed ms, top-8 caches by final size). Gating the summary behind
   `verbose` keeps default command output stable for the golden-message test suite.
 
@@ -106,7 +108,9 @@ Complements PR #155 (hashconsing) rather than duplicating it.
 - `Tests/` addition: a small `#blaster (stats-file: "<scratch>.jsonl") (stats-interval: <small>)`
   run, followed by `#eval` assertions: every line parses as JSON; `steps` strictly monotone
   across samples; exactly one `start` and one `end` event; `end.steps > 0`.
-- A default-options run asserting no file is created and command output is unchanged.
+- Default-off behavior pinned via `#guard` on `BlasterOptions` defaults (`statsFile = none`,
+  `statsInterval = 100000`); the no-file default path is exercised dynamically by the entire
+  existing suite.
 - Failure-path test: `stats-file` pointing into a nonexistent directory → warning, solve
   still succeeds.
 
@@ -114,5 +118,7 @@ Complements PR #155 (hashconsing) rather than duplicating it.
 
 - Disabled: one `Option` check per `optimizeExprAux` iteration (same class as existing
   per-step flag checks).
-- Enabled at default interval: ~25 O(1) size reads + one small JSON line + flush per
-  100k steps — sub-permille of the 171 s / 15.6M-step reference run.
+- Enabled at default interval: 29 O(1) size reads (20 reported fields + 9 summed into
+  `memNamed`) + one small JSON line + flush per 100k steps — sub-permille of the
+  171 s / 15.6M-step reference run. Keys within each JSON line are emitted in
+  alphabetical order (`Json.mkObj` sorts).

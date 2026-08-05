@@ -88,7 +88,7 @@ def bumpStatsAndMaybeSample : TranslateEnvT Unit := do
 /-- Open the stats file and write the `start` event when `stats-file` is set.
     Open failure logs a warning and leaves telemetry disabled — it never
     fails the solve. Opening truncates the file. Use one stats file per command:
-    concurrent commands sharing a path will clobber each other. -/
+    concurrent or repeated commands sharing a path will clobber each other. -/
 def initStats : TranslateEnvT Unit := do
   if (← get).stats.handle.isSome then return ()
   let sOpts := (← get).optEnv.options.solverOptions
