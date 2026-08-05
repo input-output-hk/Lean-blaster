@@ -50,7 +50,7 @@ def blasterTacticImp : Tactic := fun stx =>
    let ((result, optExpr), _) ←
      withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0 }) $ do
        IO.setNumHeartbeats 0
-       Translate.main (← goal.getType) (logUndetermined := false) |>.run env
+       (withOptimizeStats <| Translate.main (← goal.getType) (logUndetermined := false)) |>.run env
    match result with
    | .Valid =>
       blasterAdmit goal

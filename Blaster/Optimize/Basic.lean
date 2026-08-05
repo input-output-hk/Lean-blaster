@@ -6,6 +6,7 @@ import Blaster.Optimize.Rewriting.FunPropagation
 import Blaster.Optimize.Rewriting.OptimizeApp
 import Blaster.Optimize.Rewriting.OptimizeConst
 import Blaster.Optimize.Rewriting.OptimizeForAll
+import Blaster.Optimize.Stats
 
 open Lean Elab Command Term Meta Blaster.Options
 
@@ -14,6 +15,7 @@ namespace Blaster.Optimize
 
 -- TODO: update formalization with inference rule style notation.
 partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr := do
+  bumpStatsAndMaybeSample
   match stack with
   | .InitOptimizeExpr e :: xs =>
       match (← isInOptimizeEnvCache e xs) with
@@ -306,7 +308,7 @@ def command (sOpts: BlasterOptions) (e : Expr) : MetaM (Expr × TranslateEnv) :=
   -- keep the current name generator and restore it afterwards
   let ngen ← getNGen
   let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
-  let res ← Optimize.main e|>.run env
+  let res ← (withOptimizeStats <| Optimize.main e)|>.run env
   -- restore name generator
   setNGen ngen
   return res

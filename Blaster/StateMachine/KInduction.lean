@@ -158,7 +158,7 @@ syntax (name := kind) "#kind" (solveOption)* solveTerm : command
 def kIndCommand (sOpts: BlasterOptions) (stx : Syntax) : TermElabM Unit :=
   elabTermAndSynthesize stx none >>= fun e => do
     let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
-    discard $ kIndStrategy e|>.run env
+    discard $ (withOptimizeStats <| kIndStrategy e)|>.run env
 
 @[command_elab kind]
 def kIndImp : CommandElab := commandInvoker kIndCommand

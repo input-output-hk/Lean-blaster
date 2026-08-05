@@ -91,7 +91,7 @@ def command (sOpts: BlasterOptions) (stx : Syntax) : TermElabM Unit := do
    withRef stx do
      instantiateMVars (← withSynthesize (postpone := .partial) <| elabTerm stx none) >>= fun e => do
        let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
-       discard $ Translate.main e|>.run env
+       discard $ (withOptimizeStats <| Translate.main e)|>.run env
 
 initialize
    registerTraceClass `Translate.expr
