@@ -38,3 +38,21 @@ variable (x : Int)
 #testOptimize ["IntMulOne_1", proof] ∀ (x : Int), 1 * x = x ===> True
 
 #testOptimize ["IntMulOne_2", proof] ∀ (x y : Int), 1 * x = y ===> ∀ (x y : Int), x = y
+
+/-! Tests cases for simplification rule `-1 * n ==> -n` -/
+#testOptimize ["IntMulNegOne_1", proof] ∀ (n : Int), -1 * n = -n ===> True
+
+/-! Tests cases for simplification rule `N1 * (N2 * n) ==> (N1 "*" N2) * n` -/
+#testOptimize ["IntMulAssoc_1", proof] ∀ (n : Int), 2 * (3 * n) = 6 * n ===> True
+
+-- nested operand carries a core `Int.mul`, exercising `toElabForm`'s Int branch
+#testOptimize ["IntMulAssoc_2", proof] ∀ (a b : Int), 2 * (3 * (a * b)) = 6 * (a * b) ===> True
+
+/-! Tests cases for the commutative reorder `n1 * n2 ==> n2 * n1` -/
+#testOptimize ["IntMulComm_1", proof] ∀ (n : Int), n * 3 = 3 * n ===> True
+
+-- reorder `n * 0 ==> 0 * n`, closed with `Int.mul_zero`
+#testOptimize ["IntMulComm_2", proof] ∀ (n : Int), n * 0 = 0 ===> True
+
+-- reorder `n * 1 ==> 1 * n`, closed with `Int.mul_one`
+#testOptimize ["IntMulComm_3", proof] ∀ (n : Int), n * 1 = n ===> True

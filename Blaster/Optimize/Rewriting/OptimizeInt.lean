@@ -7,6 +7,7 @@ import Blaster.Optimize.Env
 open Lean Meta
 namespace Blaster.Optimize
 
+theorem int_add_neg_add (a b c : Int) : a + -(b + c) = (a - b) + -c := by omega
 
 /-- Apply the following simplification/normalization rules on `Int.neg` :
      - - (N) ==> "-" N
@@ -26,10 +27,10 @@ def optimizeIntNeg (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 /-- Apply the following simplification/normalization rules on `Int.add` :
      - 0 + n ==> n                          [proof: Int.zero_add]
      - N1 + N2 ==> N1 "+" N2
-     - N1 + (N2 + n) ==> (N1 "+" N2) + n
-     - N1 + -(N2 + n) ==> (N1 "-" N2) + -n
+     - N1 + (N2 + n) ==> (N1 "+" N2) + n    [proof: ← Int.add_assoc]
+     - N1 + -(N2 + n) ==> (N1 "-" N2) + -n  [proof: int_add_neg_add]
      - n1 + (-n2) ==> 0 if (if n1 =ₚₜᵣ n2)
-     - n1 + n2 ==> n2 + n1 (if n2 <ₒ n1)
+     - n1 + n2 ==> n2 + n1 (if n2 <ₒ n1)    [proof: Int.add_comm, see reorderOperands]
    Assume that f = Expr.const ``Int.add.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Int.add` expected at this stage)
 
@@ -46,25 +47,31 @@ def optimizeIntAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
   return op2
  | some n1, some n2 => evalBinIntOp Int.add n1 n2
  | nv1, _ =>
-   if let some r ← cstAddProp? nv1 op2 then return r
+   if let some r ← cstAddProp? nv1 op1 op2 then return r
    if isIntNegExprOf op2 op1 then return (← mkIntLitExpr (Int.ofNat 0))
    return (mkApp2 f op1 op2)
 
  where
-  /- Given `mv1` and `op2`,
+  /- Given `mv1`, `op1` and `op2`,
       - return `some ((N1 "+" N2) + n)` when `mv1 := some N1 ∧ op2 := (N2 + n)`
       - return `some ((N1 "-" N2) + -n)` when `mv1 := some N1 ∧ op2 := -(N2 + n)`
      Otherwise `none`
   -/
  @[always_inline, inline]
- cstAddProp? (mv1 : Option Int) (op2 : Expr) : TranslateEnvT (Option Expr) := do
+ cstAddProp? (mv1 : Option Int) (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
   match mv1 with
   | some n1 =>
      match (toIntCstOpExpr? op2) with
      | some (IntCstOpInfo.IntAddExpr n2 e2) =>
+         -- `op2 := Int.add N2 n`, so `op2.appFn!.appArg!` is the `N2` operand.
+         let n2Expr := op2.appFn!.appArg!
+         pushProofStep (.rewrite (mkApp3 (mkConst ``Int.add_assoc) op1 n2Expr e2) (symm := true))
          setRestart
          return mkApp2 f (← evalBinIntOp Int.add n1 n2) e2
      | some (IntCstOpInfo.IntNegAddExpr n2 e2) =>
+         -- `op2 := Int.neg (Int.add N2 n)`, so `op2.appArg!.appFn!.appArg!` is `N2`.
+         let n2Expr := op2.appArg!.appFn!.appArg!
+         pushProofStep (.rewrite (mkApp3 (mkConst ``int_add_neg_add) op1 n2Expr e2))
          setRestart
          return mkApp2 f (← evalBinIntOp Int.sub n1 n2) (mkApp (← mkIntNegOp) e2)
      | _ => return none
@@ -73,10 +80,10 @@ def optimizeIntAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 /-- Apply the following simplification/normalization rules on `Int.mul` :
      - 0 * n ==> 0                          [proof: Int.zero_mul]
      - 1 * n ==> n                          [proof: Int.one_mul]
-     - -1 * n ==> -n
+     - -1 * n ==> -n                        [proof: Int.neg_one_mul]
      - N1 * N2 ==> N1 "*" N2
-     - N1 * (N2 * n) ==> (N1 "*" N2) * n
-     - n1 * n2 ==> n2 * n1 (if n2 <ₒ n1)
+     - N1 * (N2 * n) ==> (N1 "*" N2) * n    [proof: ← Int.mul_assoc]
+     - n1 * n2 ==> n2 * n1 (if n2 <ₒ n1)    [proof: Int.mul_comm, see reorderOperands]
    Assume that f = Expr.const ``Int.mul.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Int.mul` expected at this stage)
 -/
@@ -92,21 +99,25 @@ def optimizeIntMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
   pushProofStep (.rewrite (mkConst ``Int.one_mul))
   return op2
  | some (Int.negSucc 0), _ =>
+      pushProofStep (.rewrite (mkConst ``Int.neg_one_mul))
       setRestart
       return mkApp (← mkIntNegOp) op2
  | some n1, some n2 => evalBinIntOp Int.mul n1 n2
  | nv1, _ =>
-   if let some r ← cstMulProp? nv1 op2 then return r
+   if let some r ← cstMulProp? nv1 op1 op2 then return r
    return (mkApp2 f op1 op2)
 
  where
-   /- Given `mv1` and `op2` return `some ((N1 "*" N2) * n)` when
+   /- Given `mv1`, `op1` and `op2` return `some ((N1 "*" N2) * n)` when
       `mv1 := some N1 ∧ op2 := (N2 * n)`. Otherwise `none`
    -/
    @[always_inline, inline]
-   cstMulProp? (mv1 : Option Int) (op2 : Expr) : TranslateEnvT (Option Expr) := do
+   cstMulProp? (mv1 : Option Int) (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
     match mv1, toIntCstOpExpr? op2 with
     | some n1, some (IntCstOpInfo.IntMulExpr n2 e2) =>
+       -- `op2 := Int.mul N2 n`, so `op2.appFn!.appArg!` is the `N2` operand.
+       let n2Expr := op2.appFn!.appArg!
+       pushProofStep (.rewrite (mkApp3 (mkConst ``Int.mul_assoc) op1 n2Expr e2) (symm := true))
        return (mkApp2 f (← evalBinIntOp Int.mul n1 n2) e2)
     | _, _ => return none
 
