@@ -469,11 +469,13 @@ instance : Inhabited SmtEnv where
 structure OptimizeStats where
   /-- JSONL sink. `none` means telemetry is disabled (the default). -/
   handle : Option IO.FS.Handle := none
-  /-- Optimizer stack steps between two samples. -/
+  /-- Optimizer stack steps between two samples. Assumed ≥ 1 (clamped by `initStats`);
+      must be set together with `nextSampleAt`. -/
   interval : Nat := 100000
   /-- Number of `optimizeExprAux` iterations so far. -/
   steps : Nat := 0
-  /-- Step count at which the next sample fires. -/
+  /-- Step count at which the next sample fires. Maintained by `initStats`/`bumpStatsAndMaybeSample`;
+      must stay consistent with `interval`. -/
   nextSampleAt : Nat := 100000
   /-- `IO.monoMsNow` reading at `initStats` time. -/
   startMs : Nat := 0
