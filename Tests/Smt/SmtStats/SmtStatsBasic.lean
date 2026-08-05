@@ -26,6 +26,8 @@ elab "#testStatsJsonl" : command => do
   runTermElabM fun _ => do
     let sOpts : BlasterOptions :=
       { statsFile := some statsPath, statsInterval := 10, onlyOptimize := true }
+    -- The formula must resist full syntactic reduction: trivial arithmetic identities fold
+    -- to True in the optimizer, ending the run before enough steps accumulate to sample.
     let stx ← `(∀ (x y : List UInt8), (if x < y then y.length else x.length) > 0)
     discard <| callOptimize sOpts stx
     let content ← IO.FS.readFile statsPath
@@ -37,16 +39,20 @@ elab "#testStatsJsonl" : command => do
       match Json.parse l with
       | .ok j => events := events.push j
       | .error err => logError s!"SmtStats ❌ unparseable JSONL line: {l} ({err})"
-    -- exactly one start (first) and one end (last), ≥1 sample between
+    -- exactly one start (first) and one end (last), ≥2 samples between
     if events.size < 3 then
       logError s!"SmtStats ❌ expected ≥3 events (start/sample.../end), got {events.size}"
     if getEv events[0]! ≠ "start" then
       logError s!"SmtStats ❌ first event is not start: {events[0]!.compress}"
+    if getNatField events[0]! "schema" ≠ 1 then
+      logError s!"SmtStats ❌ start.schema ≠ 1: {events[0]!.compress}"
+    if getNatField events[0]! "interval" ≠ 10 then
+      logError s!"SmtStats ❌ start.interval ≠ 10 (configured statsInterval did not reach initStats): {events[0]!.compress}"
     if getEv events[events.size - 1]! ≠ "end" then
       logError s!"SmtStats ❌ last event is not end: {events[events.size - 1]!.compress}"
     let samples := events.filter (fun j => getEv j == "sample")
-    if samples.isEmpty then
-      logError "SmtStats ❌ no sample events (interval 10 should have fired)"
+    if samples.size < 2 then
+      logError s!"SmtStats ❌ expected ≥2 sample events (periodic sampling), got {samples.size}"
     -- steps strictly monotone across samples; sample carries known cache fields
     let mut prev := 0
     for s in samples do
@@ -73,7 +79,9 @@ elab "#testStatsJsonl" : command => do
 #guard (default : BlasterOptions).statsFile.isNone
 #guard (default : BlasterOptions).statsInterval == 100000
 
-/-- A bad path must warn but never fail the run. -/
+/-- A bad path must warn but never fail the run.
+    The warning text itself is deliberately not asserted: it embeds OS errno strings
+    that differ across platforms. -/
 elab "#testStatsBadPath" : command => do
   runTermElabM fun _ => do
     let sOpts : BlasterOptions :=
@@ -87,6 +95,8 @@ elab "#testStatsBadPath" : command => do
 
 -- End-to-end surface smoke test: options parse and the command completes.
 -- (No file-content assertions here: #blaster elaborates asynchronously.)
+-- The leftover .lake/smtstats_syntax_test.jsonl is intentional: .lake is gitignored, the file
+-- is truncated on each rerun, and `lake clean` reaps it.
 #blaster (stats-file: ".lake/smtstats_syntax_test.jsonl") (stats-interval: 1000) (only-optimize: 1) (solve-result: 2) [ ∀ (x y : List UInt8), (if x < y then y.length else x.length) > 0 ]
 
 end Test.SmtStatsBasic
