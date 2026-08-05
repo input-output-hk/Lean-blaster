@@ -130,7 +130,8 @@ def finalizeStats : TranslateEnvT Unit := do
     logInfo m!"optimizer stats: {env.stats.steps} steps, {now - env.stats.startMs} ms\n{String.intercalate "\n" lines}"
 
 /-- Run `act` with telemetry initialized before and finalized after (when the
-    `stats-file` option is set; otherwise both hooks are no-ops). -/
+    `stats-file` option is set; otherwise both hooks are no-ops).
+    `finalizeStats` runs via try/finally, so the end event is also written when `act` throws mid-run. -/
 def withOptimizeStats (act : TranslateEnvT α) : TranslateEnvT α := do
   initStats
   try act finally finalizeStats

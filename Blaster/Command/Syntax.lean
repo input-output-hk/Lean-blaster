@@ -20,6 +20,8 @@ Options:
   - `gen-cex`: generate counterexample for falsified theorems (default: 1)
   - `solve-result`: specify the expected result from the #blaster command, i.e.,
                     0 for 'Valid', 1 for 'Falsified' and 2 for 'Undetermined'. (default: 0)
+  - `stats-file`: write optimizer growth telemetry (JSON lines) to this file (default: none)
+  - `stats-interval`: optimizer stack steps between telemetry samples (default: 100000)
 
 Examples:
    - #blaster [∀ x y : Nat, x + y ≥ x]
@@ -38,6 +40,8 @@ syntax "(gen-cex:" num ")" : solveOption
 syntax "(solve-result:" num ")" : solveOption
 syntax "(max-depth:" num ")" : solveOption
 syntax "(random-seed:" num ")" : solveOption
+syntax "(stats-file:" str ")" : solveOption
+syntax "(stats-interval:" num ")" : solveOption
 
 -- NOTE: Limited to one term for the time being
 syntax solveTerm := "[" term "]"
@@ -102,6 +106,14 @@ def parseRandomSeed (sOpts : BlasterOptions) : TSyntax `solveOption → m Blaste
       | n => return { sOpts with randomSeed := some n }
   | _ => return sOpts
 
+def parseStatsFile (sOpts : BlasterOptions) : TSyntax `solveOption → m BlasterOptions
+  | `(solveOption| (stats-file: $s:str)) => return { sOpts with statsFile := some s.getString }
+  | _ => return sOpts
+
+def parseStatsInterval (sOpts : BlasterOptions) : TSyntax `solveOption → m BlasterOptions
+  | `(solveOption| (stats-interval: $n:num)) => return { sOpts with statsInterval := n.getNat }
+  | _ => return sOpts
+
 def parseSolveResult (sOpts : BlasterOptions) : TSyntax `solveOption → m BlasterOptions
   | `(solveOption| (solve-result: $n:num)) =>
       match n.getNat with
@@ -123,6 +135,8 @@ def parseSolveOption (sOpts : BlasterOptions) (opt : TSyntax `solveOption) : m B
   let sOpts ← parseSolveResult sOpts opt
   let sOpts ← parseMaxDepth sOpts opt
   let sOpts ← parseRandomSeed sOpts opt
+  let sOpts ← parseStatsFile sOpts opt
+  let sOpts ← parseStatsInterval sOpts opt
   return sOpts
 
 /-! ### Process Multiple Options -/

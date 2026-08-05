@@ -287,6 +287,7 @@ git commit -m "feat: optimizer growth telemetry module (init/bump/sample/finaliz
 - Modify: `Blaster/Smt/Translate.lean:90-94` (`Smt.command`)
 - Modify: `Blaster/StateMachine/BMC.lean:101-104` (`bmcCommand`)
 - Modify: `Blaster/StateMachine/KInduction.lean:158-161` (`kIndCommand`)
+- Modify: `Blaster/Command/Tactic.lean:42-53` (`blasterTacticImp` — added by code review: the tactic builds its own `TranslateEnv`)
 
 - [ ] **Step 1: Import Stats in `Blaster/Optimize/Basic.lean`**
 
@@ -379,7 +380,7 @@ Expected: `Build completed successfully`.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add Blaster/Optimize/Basic.lean Blaster/Smt/Translate.lean Blaster/StateMachine/BMC.lean Blaster/StateMachine/KInduction.lean
+git add Blaster/Optimize/Basic.lean Blaster/Smt/Translate.lean Blaster/StateMachine/BMC.lean Blaster/StateMachine/KInduction.lean Blaster/Command/Tactic.lean
 git commit -m "feat: wire telemetry into optimizeExprAux and command entry points (#138)"
 ```
 
@@ -390,6 +391,8 @@ git commit -m "feat: wire telemetry into optimizeExprAux and command entry point
 **Files:**
 - Modify: `Blaster/Command/Syntax.lean` (docstring ~line 12-23, syntax decls ~line 30-40, parsers ~line 98-126)
 - Modify: `Blaster/Command/Tactic.lean` (docstring option list, ~line 22-23)
+- Modify: `Blaster/Optimize/Stats.lean` (docstring extension, added by code review)
+- Modify: `docs/superpowers/plans/2026-08-05-optimizer-stats.md` (plan-doc consistency fixes, added by code review)
 
 - [ ] **Step 1: Declare the syntax**
 
@@ -442,7 +445,7 @@ Expected: `Build completed successfully`.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add Blaster/Command/Syntax.lean Blaster/Command/Tactic.lean
+git add Blaster/Command/Syntax.lean Blaster/Command/Tactic.lean Blaster/Optimize/Stats.lean docs/superpowers/plans/2026-08-05-optimizer-stats.md
 git commit -m "feat: stats-file / stats-interval solve options (#138)"
 ```
 

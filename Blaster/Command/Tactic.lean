@@ -21,6 +21,8 @@ Options:
   - `gen-cex`: generate counterexample for falsified theorems (default: 1)
   - `unfold-depth`: specifying the number of unfolding to be performed on recursive functions (default: 100)
   - `random-seed`: seed for the random number generator (default: none)
+  - `stats-file`: write optimizer growth telemetry (JSON lines) to this file (default: none)
+  - `stats-interval`: optimizer stack steps between telemetry samples (default: 100000)
   - `solve-result`: specify the expected result from the blaster tactic, i.e.,
                     0 for 'Valid', 1 for 'Falsified' and 2 for 'Undetermined'. (default: 0)
 Example: `blaster (timeout: 10) (verbose: 1)`
