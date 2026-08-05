@@ -71,6 +71,17 @@ structure BlasterOptions where
   /-- Maximum analysis depth to be considered when performing BMC and K-Induction.
       It is set to 10 by default. -/
   maxDepth : Nat := 10
+
+  /-- When set, write optimizer growth telemetry as JSON-lines to this file.
+      One `sample` event is emitted every `statsInterval` optimizer stack steps
+      (see `Blaster/Optimize/Stats.lean` and
+      docs/superpowers/specs/2026-08-05-optimizer-stats-design.md).
+      It is set to `none` by default (i.e., telemetry disabled). -/
+  statsFile : Option String := none
+
+  /-- Number of optimizer stack steps between two telemetry samples.
+      Only meaningful when `statsFile` is set. Values below 1 are clamped to 1. -/
+  statsInterval : Nat := 100000
  deriving Repr
 
 instance : Inhabited BlasterOptions where

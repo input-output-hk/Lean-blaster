@@ -463,17 +463,40 @@ instance : Inhabited SmtEnv where
      options := default
    }
 
+/-- Runtime state for optimizer growth telemetry (issue #138).
+    Disabled (`handle = none`) unless the `stats-file` solve option is set.
+    Operations live in `Blaster/Optimize/Stats.lean`. -/
+structure OptimizeStats where
+  /-- JSONL sink. `none` means telemetry is disabled (the default). -/
+  handle : Option IO.FS.Handle := none
+  /-- Optimizer stack steps between two samples. -/
+  interval : Nat := 100000
+  /-- Number of `optimizeExprAux` iterations so far. -/
+  steps : Nat := 0
+  /-- Step count at which the next sample fires. -/
+  nextSampleAt : Nat := 100000
+  /-- `IO.monoMsNow` reading at `initStats` time. -/
+  startMs : Nat := 0
+  /-- Number of `sample` events written so far. -/
+  samples : Nat := 0
+
+instance : Inhabited OptimizeStats where
+  default := {}
+
 /-- Type defining the environment used when optimizing a lean theorem and translating to Smt-lib. -/
 structure TranslateEnv where
   /-- Environment used when translating to Smt-ling. -/
   smtEnv : SmtEnv
   /-- Environment used when optimization a lean expression. -/
   optEnv : OptimizeEnv
+  /-- Optimizer growth telemetry state (see note on OptimizeStats). -/
+  stats : OptimizeStats
 
 instance : Inhabited TranslateEnv where
   default :=
     { smtEnv := default,
-      optEnv := default
+      optEnv := default,
+      stats := default
     }
 
 abbrev TranslateEnvT := StateRefT TranslateEnv MetaM
@@ -676,7 +699,7 @@ def mkExpr (a : Expr) (cacheResult := true) : TranslateEnvT Expr := do
 /-- Return `true` only when both hypothesisMap and matchInContext are empty and isRefHyp flag is not set -/
 @[always_inline, inline]
 def isGlobalContext : TranslateEnvT Bool := do
-  let ⟨_, ⟨_, _, _, _, _, _, _, _, hypothesisContext, matchInContext, _, _, _, _⟩⟩ ← get
+  let ⟨_, ⟨_, _, _, _, _, _, _, _, hypothesisContext, matchInContext, _, _, _, _⟩, _⟩ ← get
   return hypothesisContext.hypothesisMap.size == 0 && matchInContext.size == 0
 
 /-- Perform the following:
@@ -1724,7 +1747,7 @@ where
     An error is triggered if no corresponding entry can be found in `recFunMap`.
 -/
 def hasRecFunInst? (instApp : Expr) : TranslateEnvT (Option Expr) := do
-  let ⟨_, ⟨_, _, _, _, _,recFunInstCache,_,recFunMap, _, _, _, _, _, _, _⟩⟩ ← get
+  let ⟨_, ⟨_, _, _, _, _,recFunInstCache,_,recFunMap, _, _, _, _, _, _, _⟩, _⟩ ← get
   match recFunInstCache.get? instApp with
   | some fbody =>
      -- retrieve function application from recFunMap
