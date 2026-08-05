@@ -45,6 +45,8 @@ def toElabForm (e : Expr) : MetaM Expr := do
       mkMul (← toElabForm a) (← toElabForm b)
   | Expr.app (Expr.const ``Int.neg _) a =>
       mkAppM ``Neg.neg #[← toElabForm a]
+  | Expr.app (Expr.const ``Int.ofNat _) (a@(Expr.lit (Literal.natVal _))) =>
+      mkAppOptM ``OfNat.ofNat #[mkConst ``Int, a, none]
   -- Future-proofing: Nat.div /Nat.mod currently elaborates directly
   --                  (not via HDiv.hDiv / HMod.hMod),
   -- but we normalize it here in case that changes, consistent with add/sub/mul.

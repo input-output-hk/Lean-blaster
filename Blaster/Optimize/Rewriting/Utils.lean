@@ -390,6 +390,11 @@ def reorderIntOp (args: Array Expr) : (Expr × Expr) :=
      - Nat.mul: n1 * n2 ==> n2 * n1          [proof: Nat.mul_comm]
      - Nat.mul: n * 0 ==> 0 * n              [proof: Nat.mul_zero]
      - Nat.mul: n * 1 ==> 1 * n              [proof: Nat.mul_one]
+     - Int.add: n1 + n2 ==> n2 + n1          [proof: Int.add_comm]
+     - Int.add: n + 0 ==> 0 + n              [proof: Int.add_zero]
+     - Int.mul: n1 * n2 ==> n2 * n1          [proof: Int.mul_comm]
+     - Int.mul: n * 0 ==> 0 * n              [proof: Int.mul_zero]
+     - Int.mul: n * 1 ==> 1 * n              [proof: Int.mul_one]
 -/
 def reorderOperands (f : Expr) (args : Array Expr) : TranslateEnvT (Array Expr) := do
   let Expr.const n _ := f | return args
@@ -414,6 +419,16 @@ def reorderOperands (f : Expr) (args : Array Expr) : TranslateEnvT (Array Expr) 
   | ``Int.mul =>
        if args.size != 2 then return args
        let (op1, op2) := reorderIntOp args
+       if !exprEq op1 args[0]! then
+         if n == ``Int.add then
+           match isIntValue? op1 with
+           | some 0 => pushProofStep (.rewrite (mkConst ``Int.add_zero))
+           | _ => pushProofStep (.rewrite (mkApp2 (mkConst ``Int.add_comm) args[0]! args[1]!))
+         else
+           match isIntValue? op1 with
+           | some 0 => pushProofStep (.rewrite (mkConst ``Int.mul_zero))
+           | some 1 => pushProofStep (.rewrite (mkConst ``Int.mul_one))
+           | _ => pushProofStep (.rewrite (mkApp2 (mkConst ``Int.mul_comm) args[0]! args[1]!))
        return #[op1, op2]
 
   | ``Eq =>
