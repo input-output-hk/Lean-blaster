@@ -102,6 +102,15 @@ structure OptimizeOptions where
 
   resetOptions : ResetOptions
 
+  /-- Parent of each allocated context id (append-only; recorded by `newCtx`).
+      Drives the ancestor-chain walk of `findLocalCache`: entries cached in an
+      enclosing context were derived under a subset of the current context's
+      hypotheses, so the equivalences they record remain valid in every
+      descendant. Measured motivation: 97.2–97.4% of local rewrite-cache
+      misses on the #prep_uplc workload would hit in an active ancestor
+      (p0a counters, budgets 1600/1700/1900). -/
+  parents : HashMap CtxId CtxId := HashMap.emptyWithCapacity 1024
+
 instance : Inhabited OptimizeOptions where
   default := { normalizeFunCall := true, inFunApp := false, mcDepth := 0, solverOptions := default, resetOptions := default }
 
@@ -843,7 +852,7 @@ def updateGlobalRewriteCache (a : Expr) (b : Expr) (insertIfNew := false) : Tran
 /-- Update rewrite cache at curCtx with `a := b`. -/
 @[always_inline, inline]
 def updateLocalRewriteCache (a : Expr) (b : Expr) (insertIfNew := false) : TranslateEnvT Unit := do
-  let ⟨_, rewriteCache, _, _, _, _, _, _, _, _, ⟨_, _, _, _, curCtx, _, _, _⟩, _, _, _⟩ := (← get).optEnv
+  let ⟨_, rewriteCache, _, _, _, _, _, _, _, _, ⟨_, _, _, _, curCtx, _, _, _, _⟩, _, _, _⟩ := (← get).optEnv
   match rewriteCache.get? curCtx with
   | none =>
        let refEntry ← IO.mkRef $ (HashMap.emptyWithCapacity 256 : HashMap PtrExpr Expr).insert a b
@@ -878,7 +887,7 @@ def updateEqualityMap (lhs : Expr) (rhs : Expr) (ctxId : CtxId) : TranslateEnvT 
     newest entry visible in the current context (tag ∈ active). -/
 @[always_inline, inline]
 def eqMapFind? (lhs : Expr) : TranslateEnvT (Option Expr) := do
-  let ⟨_, _, _, _, _, _, _, ⟨_, equalityMap⟩, _, _, ⟨_, _, _, _, _, _, active, _⟩, _, _, _⟩ := (← get).optEnv
+  let ⟨_, _, _, _, _, _, _, ⟨_, equalityMap⟩, _, _, ⟨_, _, _, _, _, _, active, _, _⟩, _, _, _⟩ := (← get).optEnv
   if equalityMap.size == 0
   then return none
   else ContextMap.findRaw equalityMap active lhs
@@ -888,7 +897,7 @@ def eqMapFind? (lhs : Expr) : TranslateEnvT (Option Expr) := do
     proof of the newest entry for `e` whose tag is active in the current context. -/
 @[always_inline, inline]
 def hypMapFind? (e : Expr) : TranslateEnvT (Option Expr) := do
-  let ⟨_, _, _, _, _, _, _, ⟨hypothesisMap, _⟩, _, _, ⟨_, _, _, _, _, _, active, _⟩, _, _, _⟩ := (← get).optEnv
+  let ⟨_, _, _, _, _, _, _, ⟨hypothesisMap, _⟩, _, _, ⟨_, _, _, _, _, _, active, _, _⟩, _, _, _⟩ := (← get).optEnv
   if hypothesisMap.size == 0
   then return none
   else ContextMap.findRaw hypothesisMap active e
@@ -906,7 +915,8 @@ def newCtx : TranslateEnvT CtxScope := do
    let current := env.optEnv.options.nextCtxId
    let parent := env.optEnv.options.curCtx
    (⟨parent, current⟩, {env with optEnv.options.nextCtxId := current + 1, optEnv.options.curCtx := current
-                                 optEnv.options.active := env.optEnv.options.active.insert current })
+                                 optEnv.options.active := env.optEnv.options.active.insert current
+                                 optEnv.options.parents := env.optEnv.options.parents.insert current parent })
 
 @[always_inline, inline]
 def setAndCommitCtx (s : CtxScope) : TranslateEnvT Unit :=
@@ -918,9 +928,9 @@ def setAndCommitCtx (s : CtxScope) : TranslateEnvT Unit :=
 -/
 @[always_inline, inline]
 def endCtx (s : CtxScope) : TranslateEnvT Unit :=
-  modifyOptEnv fun ⟨o1, rewrite, o3, o4, o5, o6, o7, o8, o9, o10, ⟨s1, s2, s3, s4, _, s6, active, s7⟩, o12, o13, o14⟩ =>
+  modifyOptEnv fun ⟨o1, rewrite, o3, o4, o5, o6, o7, o8, o9, o10, ⟨s1, s2, s3, s4, _, s6, active, s7, s8⟩, o12, o13, o14⟩ =>
                    ⟨o1, rewrite.erase s.current, o3, o4, o5, o6, o7, o8, o9, o10,
-                   ⟨s1, s2, s3, s4, s.parent, s6, active.erase s.current, s7⟩, o12, o13, o14⟩
+                   ⟨s1, s2, s3, s4, s.parent, s6, active.erase s.current, s7, s8⟩, o12, o13, o14⟩
 
 
 
@@ -936,7 +946,7 @@ def ContextReuseMap.findRaw (m : ContextReuseMap) (e : Expr) (idx : USize) (curC
 
 @[always_inline, inline]
 def reuseContext? (e : Expr) (idx : USize) : TranslateEnvT (Option CtxReuseScope) := do
-  let ⟨_, _, _, _, _, _, _, _, _, memCache, ⟨_, _, _, _, curCtx, _, _, _⟩, _, _, _⟩ := (← get).optEnv
+  let ⟨_, _, _, _, _, _, _, _, _, memCache, ⟨_, _, _, _, curCtx, _, _, _, _⟩, _, _, _⟩ := (← get).optEnv
   memCache.contextReuseCache.findRaw e idx curCtx
 
 @[always_inline, inline]
@@ -1177,7 +1187,7 @@ def updateContextReuseCache (e : Expr) (idx : USize) (s : CtxReuseScope) : Trans
 
 
 @[inline] def propagateReuseContext (current : Expr) (next : Expr) (idx : USize) : TranslateEnvT Unit := do
-  let ⟨_, _, _, _, _, _, _, _, _, memCache, ⟨_, _, _, _, curCtx, _, _, _⟩, _, _, _⟩ := (← get).optEnv
+  let ⟨_, _, _, _, _, _, _, _, _, memCache, ⟨_, _, _, _, curCtx, _, _, _, _⟩, _, _, _⟩ := (← get).optEnv
   match ← memCache.contextReuseCache.findRaw current idx curCtx with
   | some reuse => updateContextReuseCache next idx reuse
   | none => return ()
@@ -1191,7 +1201,7 @@ def updateContextReuseCache (e : Expr) (idx : USize) (s : CtxReuseScope) : Trans
                     ⟨o1, rewrite, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14⟩
 
 @[inline] def freeRewriteCacheReuse (e : Expr) (idx : USize) : TranslateEnvT Unit := do
-  let ⟨_, _, _, _, _, _, _, _, _, memCache, ⟨_, _, _, _, curCtx, _, _, _⟩, _, _, _⟩ := (← get).optEnv
+  let ⟨_, _, _, _, _, _, _, _, _, memCache, ⟨_, _, _, _, curCtx, _, _, _, _⟩, _, _, _⟩ := (← get).optEnv
   match ← memCache.contextReuseCache.findRaw e idx curCtx with
   | some reuse =>
       modifyOptEnv
@@ -1210,11 +1220,35 @@ def findGlobalCache (a : Expr) (env : TranslateEnv) : IO Expr :=
   | none => return instCacheMiss
   | some refEntry => return (← refEntry.get).getD a instCacheMiss
 
+/-- Probe `ctx`'s rewrite cache for `a`, then walk up the ancestor chain
+    (`options.parents`), ending with the global (ctx 0) cache. Nearest
+    ancestor wins: it cached under the largest hypothesis subset. Contexts
+    whose maps were already freed (`endCtx`/`freeRewriteCacheRange`) are
+    skipped via the `get?` miss.
+
+    SOUNDNESS: an entry `a := b` cached under ancestor `C` was derived using
+    only hypotheses on `C`'s scope chain — all still active in any descendant
+    probing here — so `b` is a valid rewrite of `a` now. The walk can be
+    *incomplete* (a descendant's extra hypotheses might have simplified `a`
+    further than `b`), which can only under-optimize, never unsound; the
+    residual byte-comparison harness guards the practical effect. -/
+partial def findAncestorCache (a : Expr) (env : TranslateEnv) : IO Expr := do
+  let o := env.optEnv
+  let rec go (ctx : CtxId) : IO Expr := do
+    -- (`pure`, not `return`: a `return` here would exit `go` with the probe
+    -- result even on a miss, silently disabling the walk)
+    let v ← do
+      match o.rewriteCache.get? ctx with
+      | some refEntry => pure ((← refEntry.get).getD a instCacheMiss)
+      | none => pure instCacheMiss
+    if !exprEq v instCacheMiss then return v
+    else if ctx == 0 then return instCacheMiss
+    else go (o.options.parents.getD ctx 0)
+  go o.options.curCtx
+
 @[always_inline, inline]
 def findLocalCache (a : Expr) (env : TranslateEnv) : IO Expr :=
-  match env.optEnv.rewriteCache.get? env.optEnv.options.curCtx with
-  | none => return instCacheMiss
-  | some refEntry => return (← refEntry.get).getD a instCacheMiss
+  findAncestorCache a env
 
 end Blaster.Optimize
 

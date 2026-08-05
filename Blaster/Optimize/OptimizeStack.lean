@@ -67,8 +67,8 @@ def resetChoiceContext (h : HypsStackContext) (fvars : Array Expr) (lam : Expr) 
   | some scope =>
        updateContextReuseCache lam idx ⟨scope, fvars⟩
        modifyOptEnv
-         fun ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, ⟨s1, s2, s3, s4, _, s6, active, s7⟩, o12, o13, o14⟩ =>
-             ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, ⟨s1, s2, s3, s4, scope.parent, s6, active.erase scope.current, s7⟩, o12, o13, o14⟩
+         fun ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, ⟨s1, s2, s3, s4, _, s6, active, s7, s8⟩, o12, o13, o14⟩ =>
+             ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, ⟨s1, s2, s3, s4, scope.parent, s6, active.erase scope.current, s7, s8⟩, o12, o13, o14⟩
   | none => return ()
 
 def restoreMVarDecls (optDecls : Option MVarIdDecls) : TranslateEnvT Unit :=
