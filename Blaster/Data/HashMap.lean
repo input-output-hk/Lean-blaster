@@ -145,12 +145,12 @@ def getD (_m : HashMap α β) (_a : α) (fallback : β) : β :=
     hash. -/
 @[specialize] private unsafe def growImpl
     (ctrl : ByteArray) (slots : Array NonScalar) (size : Nat) : HashMap α β :=
-  -- ×4 while small, ×2 from 2^20 slots up — same reasoning as
+  -- ×4 while small, ×2 from 2^27 slots up — same reasoning as
   -- `Bench.HashSet.growImpl`: at large sizes the ×4 transient old+new
   -- peak and retained slack dominate the fewer-rehashes saving.
   let newCap :=
     if size * 2 ≥ ctrl.size then
-      if ctrl.size ≥ 1048576 then ctrl.size * 2 else ctrl.size * 4
+      if ctrl.size ≥ 134217728 then ctrl.size * 2 else ctrl.size * 4
     else ctrl.size
   let mask := newCap.toUSize - 1
   let rec findEmpty (nctrl : ByteArray) (j : USize) : USize :=

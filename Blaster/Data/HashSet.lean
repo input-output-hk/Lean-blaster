@@ -185,14 +185,14 @@ def getByD (_s : HashSet α) (_h : UInt64) (_eq : α → Bool) (fallback : α) :
     the hash. -/
 @[specialize] private unsafe def growImpl
     (ctrl : ByteArray) (data : Array α) (size : Nat) : HashSet α :=
-  -- ×4 while small (fewer rehash passes), ×2 once the table reaches 2^20
+  -- ×4 while small (fewer rehash passes), ×2 once the table reaches 2^27
   -- slots: above that, quadrupling's transient old+new peak and retained
   -- slack dominate — on the #prep_uplc workload the hash-cons set's
   -- 2^28→2^30 step is a ~12 GB single-insert allocation, versus ~4.8 GB
   -- transient for 2^28→2^29.
   let newCap :=
     if size * 2 ≥ ctrl.size then
-      if ctrl.size ≥ 1048576 then ctrl.size * 2 else ctrl.size * 4
+      if ctrl.size ≥ 134217728 then ctrl.size * 2 else ctrl.size * 4
     else ctrl.size
   let mask := newCap.toUSize - 1
   let rec findEmpty (nctrl : ByteArray) (j : USize) : USize :=
