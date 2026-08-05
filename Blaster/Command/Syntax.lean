@@ -21,7 +21,7 @@ Options:
   - `solve-result`: specify the expected result from the #blaster command, i.e.,
                     0 for 'Valid', 1 for 'Falsified' and 2 for 'Undetermined'. (default: 0)
   - `stats-file`: write optimizer growth telemetry (JSON lines) to this file (default: none)
-  - `stats-interval`: optimizer stack steps between telemetry samples (default: 100000)
+  - `stats-interval`: optimizer stack steps between telemetry samples; ignored unless `stats-file` is set (default: 100000)
 
 Examples:
    - #blaster [∀ x y : Nat, x + y ≥ x]

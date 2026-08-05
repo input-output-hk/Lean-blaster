@@ -99,6 +99,8 @@ require «Blaster» from git
   - `dump-smt-lib`: display the smt lib query to stdout (default: 0)
   - `random-seed`: seed for the random number generator (default: none)
   - `gen-cex`: generate counterexample for falsified theorems (default: 1)
+  - `stats-file`: write optimizer growth telemetry (JSON lines) to this file (default: none)
+  - `stats-interval`: optimizer stack steps between telemetry samples; ignored unless `stats-file` is set (default: 100000)
   - `solve-result`: specify the expected result from the #blaster command, i.e.,
                     0 for 'Valid', 1 for 'Falsified' and 2 for 'Undetermined'. (default: 0)
 
