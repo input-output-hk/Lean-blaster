@@ -10,7 +10,7 @@ namespace Blaster.Optimize
 
 /-- Apply the following simplification/normalization rules on `Int.neg` :
      - - (N) ==> "-" N
-     - - (- n) ==> n
+     - - (- n) ==> n      [proof: Int.neg_neg]
    Assume that f = Expr.const ``Int.neg.
    An error is triggered if args.size ≠ 1 (i.e., only fully applied `Int.neg` expected at this stage)
    TODO: consider additional simplification rules
@@ -19,7 +19,9 @@ def optimizeIntNeg (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 1 then throwEnvError "optimizeIntNeg: only one argument expected"
  let op := args[0]!
  if let some n1 := isIntValue? op then return (← mkIntLitExpr (Int.neg n1))
- if let some e := intNeg? op then return e
+ if let some e := intNeg? op then
+  pushProofStep (.rewrite (mkConst ``Int.neg_neg))
+  return e
  return (mkApp f op)
 
 
