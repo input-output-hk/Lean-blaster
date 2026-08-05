@@ -1,4 +1,5 @@
 import Lean
+import Blaster.Optimize.RetentionCounters
 import Blaster.Optimize.Rewriting.OptimizeForAll
 
 open Lean Meta Elab
@@ -16,7 +17,16 @@ def toImpliesExpr (e : Expr) (c : Expr) (isThen := false) (isRestart := true) : 
  | Expr.lam n t b bi =>
       -- NOTE: we need to propagate the reuse context to the new implication expressions
       let e' ← mkForallExpr n bi t b
-      if isThen && isRestart then propagateReuseContext e e' 0 else
+      if isThen && isRestart then
+        Retention.bump Retention.p0bPropagated
+        propagateReuseContext e e' 0
+      else
+        -- retention diagnostics (p0b): count destroyed branch contexts,
+        -- and separately those with a live reuse entry (an
+        -- already-optimized body about to be re-descended from scratch)
+        if ← Retention.enabledIO then
+          Retention.p0bFreed.modify (· + 1)
+          if (← reuseContext? e 0).isSome then Retention.p0bFreedLive.modify (· + 1)
         freeRewriteCacheReuse e 0
       return e'
  | _ =>

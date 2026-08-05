@@ -2,6 +2,7 @@ import Lean
 import Blaster.Data.HashSet
 import Blaster.Data.HashMap
 import Blaster.Optimize.Expr
+import Blaster.Optimize.RetentionCounters
 import Blaster.Optimize.Env.ContextMap
 import Blaster.Optimize.MatchInfo
 import Blaster.Smt.Term
@@ -820,6 +821,9 @@ macro_rules
 
 /-- Update global rewrite cache with `a := b`. -/
 @[inline] def updateHashConsCache (a : SharedExpr) : TranslateEnvT Unit := do
+  -- retention diagnostics: attribute interns performed inside a
+  -- hypothesis-query predicate (always 0 when profiling is disabled)
+  if (← Retention.hypQueryDepth.get) != 0 then Retention.hypqInterned.modify (· + 1)
   modifyOptEnv fun ⟨hashConsCache, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14⟩ =>
                    ⟨hashConsCache.insert a, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14⟩
 

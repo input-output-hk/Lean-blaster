@@ -367,7 +367,11 @@ def isInOptimizeEnvCache (a : Expr) (stack : List OptimizeStack) (mvarDecls : Op
   if useCache then
     let cached := ← isInOptimizeCache? a isGlobal env
     if !exprEq cached instCacheMiss then Sum.inr <$> stackContinuity stack cached
-    else return Sum.inl (.InitOptimizeReturn a isGlobal mvarDecls :: stack)
+    else
+      -- retention diagnostics (p0a): would this local miss have hit
+      -- another context's cache? No-op unless profiling is enabled.
+      if !isGlobal then Retention.probeWouldHit a env
+      return Sum.inl (.InitOptimizeReturn a isGlobal mvarDecls :: stack)
   else return Sum.inl (.InitOptimizeReturn a isGlobal mvarDecls :: stack)
 
   where

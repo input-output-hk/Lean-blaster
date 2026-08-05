@@ -1,4 +1,5 @@
 import Lean
+import Blaster.Optimize.RetentionCounters
 import Blaster.Optimize.OptimizeStack
 import Blaster.Optimize.Rewriting.NormalizeMatch
 import Blaster.Optimize.Rewriting.OptimizeITE
@@ -401,6 +402,11 @@ def constMatchPropagation?
     @[always_inline, inline]
     isDiteArg (idx : Nat) : TranslateEnvT (Option OptimizeStack) := do
       if let some (_psort, pcond, e1, e2) := dite'? cargs[idx]! then
+        -- retention diagnostics (p0c): dite pull-out duplicates the outer
+        -- match into both branches
+        if ← Retention.enabledIO then
+          Retention.p0cDitePull.modify (· + 1)
+          Retention.p0cOuterAlts.modify (· + (mInfo.arity - mInfo.getFirstAltPos))
         -- erase context
         eraseMatchRhsRewriteCache mInfo
         -- NOTE: we also need to set the sort type for the pulled dite to meet
@@ -426,6 +432,12 @@ def constMatchPropagation?
     @[always_inline, inline]
     isMatchArg (idx : Nat) : TranslateEnvT (Option OptimizeStack) := do
       if let some argInfo ← isMatcher? cargs[idx]!.getAppFn then
+        -- retention diagnostics (p0c): case-of-case pull-out duplicates
+        -- the outer match into every alternative of the inner match
+        if ← Retention.enabledIO then
+          Retention.p0cMatchPull.modify (· + 1)
+          Retention.p0cInnerAlts.modify (· + (argInfo.arity - argInfo.getFirstAltPos))
+          Retention.p0cOuterAlts.modify (· + (mInfo.arity - mInfo.getFirstAltPos))
         -- erase context
         eraseMatchRhsRewriteCache mInfo
         let mut pargs := cargs[idx]!.getAppArgs

@@ -1,4 +1,5 @@
 import Lean
+import Blaster.Optimize.RetentionCounters
 import Blaster.Optimize.Lemmas
 import Blaster.Optimize.Rewriting.OptimizePropNot
 
@@ -11,7 +12,7 @@ namespace Blaster.Optimize
       - 0 < e := _ ∈ hypothesisContext.hypothesisMap
 -/
 @[always_inline, inline]
-def gtZeroNatInHyps (e : Expr) : TranslateEnvT Bool := do
+def gtZeroNatInHyps (e : Expr) : TranslateEnvT Bool := Retention.withHypQuery do
  match isNatValue? e with
  | .some 0 => return false
  | .some _ => return true
@@ -25,7 +26,7 @@ def gtZeroNatInHyps (e : Expr) : TranslateEnvT Bool := do
       - 0 = e := _ ∈ hypothesisContext.hypothesisMap
 -/
 @[always_inline, inline]
-def eqZeroNatInHyps (e : Expr) : TranslateEnvT Bool := do
+def eqZeroNatInHyps (e : Expr) : TranslateEnvT Bool := Retention.withHypQuery do
  match isNatValue? e with
  | .some 0 => return true
  | .some _ => return false
@@ -40,7 +41,7 @@ def eqZeroNatInHyps (e : Expr) : TranslateEnvT Bool := do
       - ¬ (0 = e) := _ ∈ hypothesisContext.hypothesisMap
 -/
 @[always_inline, inline]
-def nonZeroNatInHyps (e : Expr) : TranslateEnvT Bool := do
+def nonZeroNatInHyps (e : Expr) : TranslateEnvT Bool := Retention.withHypQuery do
  match isNatValue? e with
  | .some 0 => return false
  | .some _ => return true
@@ -57,7 +58,7 @@ def nonZeroNatInHyps (e : Expr) : TranslateEnvT Bool := do
       - e < 0 := _ ∈ hypothesisContext.hypothesisMap
 -/
 @[always_inline, inline]
-def ltZeroIntInHyps (e : Expr) : TranslateEnvT Bool := do
+def ltZeroIntInHyps (e : Expr) : TranslateEnvT Bool := Retention.withHypQuery do
  match isIntValue? e with
  | .some (.negSucc _) => return true
  | .some _            => return false
@@ -71,7 +72,7 @@ def ltZeroIntInHyps (e : Expr) : TranslateEnvT Bool := do
       - 0 < e := _ ∈ hypothesisContext.hypothesisMap
 -/
 @[always_inline, inline]
-def gtZeroIntInHyps (e : Expr) : TranslateEnvT Bool := do
+def gtZeroIntInHyps (e : Expr) : TranslateEnvT Bool := Retention.withHypQuery do
  match isIntValue? e with
  | .some (.ofNat 0) => return false
  | .some (.ofNat _) => return true
@@ -88,7 +89,7 @@ def gtZeroIntInHyps (e : Expr) : TranslateEnvT Bool := do
       - ¬ (0 = e) := _ ∈ hypothesisContext.hypothesisMap
 -/
 @[always_inline, inline]
-def nonZeroIntInHyps (e : Expr) : TranslateEnvT Bool := do
+def nonZeroIntInHyps (e : Expr) : TranslateEnvT Bool := Retention.withHypQuery do
  match isIntValue? e with
  | .some (.ofNat 0) => return false
  | .some _          => return true
@@ -108,7 +109,7 @@ def nonZeroIntInHyps (e : Expr) : TranslateEnvT Bool := do
       - ¬ (e < 0) := _ ∈ hypothesisContext.hypothesisMap
 -/
 @[always_inline, inline]
-def geqZeroIntInHyps (e : Expr) : TranslateEnvT Bool := do
+def geqZeroIntInHyps (e : Expr) : TranslateEnvT Bool := Retention.withHypQuery do
  match isIntValue? e with
  | .some (.ofNat _) => return true
  | .some _          => return false
@@ -128,7 +129,7 @@ def geqZeroIntInHyps (e : Expr) : TranslateEnvT Bool := do
       - ¬ (0 < e) := _ ∈ hypothesisContext.hypothesisMap
 -/
 @[always_inline, inline]
-def leqZeroIntInHyps (e : Expr) : TranslateEnvT Bool := do
+def leqZeroIntInHyps (e : Expr) : TranslateEnvT Bool := Retention.withHypQuery do
  match isIntValue? e with
  | .some (.ofNat 0) => return true
  | .some (.ofNat _) => return false
@@ -325,7 +326,7 @@ partial def addHypotheses
      - `0 = -a` is normalized to `0 = a when `Type(a) = Int`
 -/
 @[always_inline, inline]
-def inHypMap (e : Expr) : TranslateEnvT (Option Expr) := do
+def inHypMap (e : Expr) : TranslateEnvT (Option Expr) := Retention.withHypQuery do
   if e.hasMVar then return none
   if let some m ← hypMapFind? e then return some m
   if let some m ← notEqInHyp? e then return some m
@@ -460,7 +461,7 @@ def inHypMap (e : Expr) : TranslateEnvT (Option Expr) := do
        - return `some p`
 -/
 @[always_inline, inline]
-def notInHypMap (e : Expr) : TranslateEnvT (Option Expr) := do
+def notInHypMap (e : Expr) : TranslateEnvT (Option Expr) := Retention.withHypQuery do
   if e.hasMVar then return none
   let not_e ← optimizeAdvancedNot (← mkPropNotOp) (restart := false) #[e]
   inHypMap not_e

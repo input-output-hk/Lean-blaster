@@ -185,7 +185,15 @@ def getByD (_s : HashSet α) (_h : UInt64) (_eq : α → Bool) (fallback : α) :
     the hash. -/
 @[specialize] private unsafe def growImpl
     (ctrl : ByteArray) (data : Array α) (size : Nat) : HashSet α :=
-  let newCap := if size * 2 ≥ ctrl.size then ctrl.size * 4 else ctrl.size
+  -- ×4 while small (fewer rehash passes), ×2 once the table reaches 2^20
+  -- slots: above that, quadrupling's transient old+new peak and retained
+  -- slack dominate — on the #prep_uplc workload the hash-cons set's
+  -- 2^28→2^30 step is a ~12 GB single-insert allocation, versus ~4.8 GB
+  -- transient for 2^28→2^29.
+  let newCap :=
+    if size * 2 ≥ ctrl.size then
+      if ctrl.size ≥ 1048576 then ctrl.size * 2 else ctrl.size * 4
+    else ctrl.size
   let mask := newCap.toUSize - 1
   let rec findEmpty (nctrl : ByteArray) (j : USize) : USize :=
     if nctrl.uget j lcProof == 0 then j else findEmpty nctrl ((j + 1) &&& mask)
@@ -325,6 +333,24 @@ def getByD (_s : HashSet α) (_h : UInt64) (_eq : α → Bool) (fallback : α) :
     the next rehash. -/
 @[inline] def erase (s : HashSet α) (a : α) : HashSet α :=
   unsafe eraseImpl s a
+
+/-- All live elements, in slot order. `O(capacity)`; intended for
+    diagnostics only (retention profiling), never on a hot path. -/
+@[specialize] private unsafe def valsImpl (s : HashSet α) : Array α := Id.run do
+  if s.data.isEmpty || s.size == 0 then
+    return #[]
+  let mut out := Array.emptyWithCapacity s.size
+  for i in [0:s.ctrl.size] do
+    if s.ctrl.uget i.toUSize lcProof &&& 0x80 != 0 then  -- occupied
+      out := out.push (s.data.uget i.toUSize lcProof)
+  return out
+
+/-- All live elements, in slot order. `O(capacity)`; diagnostics only.
+    `@[implemented_by]` because safe code cannot prove the slot reads
+    in-bounds. -/
+@[implemented_by valsImpl]
+def vals (_s : HashSet α) : Array α :=
+  #[]
 
 /-! ## `union` -/
 

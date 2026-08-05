@@ -1,3 +1,4 @@
+import Blaster.Optimize.RetentionCounters
 import Lean
 import Blaster.Optimize.Hypotheses
 
@@ -233,7 +234,7 @@ def addIntRightLtReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr)
       - ¬ (N - 1 < op2) _ ∈ hypothesisContext.hypothesisMap ∧
       - Type(op2) ∈ [Nat, Int]
 -/
-def predCstLTInHyp (op1 : Expr) (op2 : Expr) : TranslateEnvT Bool := do
+def predCstLTInHyp (op1 : Expr) (op2 : Expr) : TranslateEnvT Bool := Retention.withHypQuery do
  match isNatValue? op1 with
  | some n =>
       let pred_n ← evalBinNatOp Nat.sub n 1

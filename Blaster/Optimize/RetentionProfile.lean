@@ -1,4 +1,5 @@
 import Lean
+import Blaster.Optimize.RetentionCounters
 import Blaster.Optimize.Env.Types
 
 /-!
@@ -50,7 +51,10 @@ private def header : String :=
   "hypMap_keys,hypMap_entries,eqMap_keys,eqMap_entries,matchInCtx_keys,matchInCtx_entries,matchInCtx_pats," ++
   "isRecFun,isInstance,isClass,getMatcher,getConstInfo,inferType,isMatcher,isPartial,funEnvInfo,funBody," ++
   "isProp,matchToIte,isNotFun,matchAlts,betaLambda,forallMeta,genericMatch,ctxReuse_keys,ctxReuse_entries,isCtorMatchProp," ++
-  "curCtx,nextCtxId,activeCtxs,lctx_decls,localInsts,mAssignments,mvarCounter\n"
+  "curCtx,nextCtxId,activeCtxs,lctx_decls,localInsts,mAssignments,mvarCounter," ++
+  "p0a_localMiss,p0a_sampled,p0a_globalHit,p0a_activeHit," ++
+  "p0b_propagated,p0b_freed,p0b_freedLive," ++
+  "p0c_matchPull,p0c_ditePull,p0c_innerAlts,p0c_outerAlts,hypq_calls,hypq_interned\n"
 
 /-- Read `VmRSS` (kB) from `/proc/self/status`; `0` if unavailable. -/
 def rssKb : IO Nat := do
@@ -78,6 +82,7 @@ def init : IO Unit := do
     h.putStr header
     h.flush
     handleRef.set (some h)
+    enabledRef.set true
     periodRef.set period
     countdownRef.set period
     minMsRef.set minMs
@@ -166,9 +171,36 @@ def sample (phase : String) (stackDepth : Nat) : TranslateEnvT Unit := do
         m.contextReuseCache.size, ctxReuseEntries, m.isCtorMatchPropCache.size,
         o.options.curCtx, o.options.nextCtxId, o.options.active.size,
         o.ctx.ctx.decls.size, o.ctx.localInsts.size,
-        o.mAssignments.size, mctx.mvarCounter ]
+        o.mAssignments.size, mctx.mvarCounter,
+        ← p0aLocalMiss.get, ← p0aSampled.get, ← p0aGlobalHit.get, ← p0aActiveHit.get,
+        ← p0bPropagated.get, ← p0bFreed.get, ← p0bFreedLive.get,
+        ← p0cMatchPull.get, ← p0cDitePull.get, ← p0cInnerAlts.get, ← p0cOuterAlts.get,
+        ← hypqCalls.get, ← hypqInterned.get ]
     let line := s!"{phase},{elapsed},{iters}," ++ String.intercalate "," (cols.map toString) ++ "\n"
     h.putStr line
     h.flush
+
+/-- p0a: on a local rewrite-cache miss for `a`, count the miss and — on a
+    1-in-64 sample — probe the global (ctx 0) cache and every *other*
+    active context's cache for the same key, recording would-have-hits.
+    Diagnostic only: never changes what the optimizer does. -/
+def probeWouldHit (a : Expr) (env : TranslateEnv) : IO Unit := do
+  if !(← enabledRef.get) then return ()
+  p0aLocalMiss.modify (· + 1)
+  let c ← p0aCountdown.get
+  if c > 1 then
+    p0aCountdown.set (c - 1)
+  else
+    p0aCountdown.set 64
+    p0aSampled.modify (· + 1)
+    if !exprEq (← findGlobalCache a env) instCacheMiss then
+      p0aGlobalHit.modify (· + 1)
+    let cur := env.optEnv.options.curCtx
+    for ctx in env.optEnv.options.active.vals do
+      if ctx != cur && ctx != 0 then
+        if let some refEntry := env.optEnv.rewriteCache.get? ctx then
+          if !exprEq ((← refEntry.get).getD a instCacheMiss) instCacheMiss then
+            p0aActiveHit.modify (· + 1)
+            break
 
 end Blaster.Optimize.Retention
