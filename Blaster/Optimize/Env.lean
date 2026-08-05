@@ -135,6 +135,7 @@ structure FunEnvInfo where
 deriving Inhabited, Repr
 
 /-- Type defining the memoization cache for internally demanding functions. -/
+-- NOTE: when adding a cache field here, also add it to `cacheSizes` in Blaster/Optimize/Stats.lean.
 structure MemoizeEnv where
   /-- Cache memoizing the isRecursiveFun result -/
   isRecFunCache : Std.HashMap Lean.Name Bool
@@ -217,6 +218,7 @@ structure LocalDeclContext where
 deriving Inhabited
 
 /-- Type defining the environment used when optimizing a lean theorem. -/
+-- NOTE: when adding a cache field here, also add it to `cacheSizes` in Blaster/Optimize/Stats.lean.
 structure OptimizeEnv where
   /-- Cache memoizing the normalization and rewriting performed on the lean theorem according
       to a given context.

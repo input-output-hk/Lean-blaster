@@ -69,7 +69,7 @@ One JSON object per line. Three event shapes:
 {"ev":"sample","steps":100000,"ms":812,"mcDepth":0,
  "globalRewrite":51234,"localRewrite":210,"whnf":20411,"synthInstance":12,
  "match":95,"recFunInst":40,"recFun":38,"recFunMap":38,
- "hypMap":45,"eqMap":12,"matchInCtx":312,
+ "hypMap":45,"eqMap":12,"matchInCtx":312,"localDecls":58,
  "inferType":80211,"isProp":15002,"getFunBody":9110,"isResolvable":420,
  "isType":1200,"isNotFun":310,"isCstMatchProp":95,"getFunEnvInfo":2013,
  "memNamed":1650}
@@ -85,6 +85,7 @@ Field map (all `Std.HashMap`/`HashSet` sizes, O(1)):
 | `recFunInst`, `recFun`, `recFunMap` | `.recFunInstCache` / `.recFunCache` / `.recFunMap` |
 | `hypMap`, `eqMap` | `hypothesisContext.hypothesisMap` / `.equalityMap` |
 | `matchInCtx` | `.matchInContext` (outer map size) |
+| `localDecls` | `.ctx.ctx` local context size (only non-cache structure that grows) |
 | `inferType` … `getFunEnvInfo` | the `Expr`-keyed maps of `MemoizeEnv`, individually |
 | `memNamed` | sum of the `Name`-keyed `MemoizeEnv` maps (bounded by program size) |
 | `mcDepth` | `OptimizeOptions.mcDepth` (correlates samples with BMC/k-induction depth) |

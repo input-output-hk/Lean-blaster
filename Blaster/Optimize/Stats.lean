@@ -15,6 +15,7 @@ Events (one JSON object per line, flushed per line so killed runs stay analyzabl
  - `{"ev":"start", "schema":1, "unfoldDepth":…, "maxDepth":…, "interval":…}`
  - `{"ev":"sample", "steps":…, "ms":…, "mcDepth":…, "<cache>":<size>, …}`
  - `{"ev":"end", "steps":…, "ms":…, "samples":…}`
+Fields within an event are emitted in alphabetical order (Json.mkObj sorts keys).
 -/
 
 /-- Sizes of all tracked optimizer caches. All reads are O(1).
@@ -34,6 +35,7 @@ def cacheSizes (env : TranslateEnv) : List (String × Nat) :=
     ("hypMap",         o.hypothesisContext.hypothesisMap.size),
     ("eqMap",          o.hypothesisContext.equalityMap.size),
     ("matchInCtx",     o.matchInContext.size),
+    ("localDecls",     o.ctx.ctx.decls.size),
     ("inferType",      m.inferTypeCache.size),
     ("isProp",         m.isPropCache.size),
     ("getFunBody",     m.getFunBodyCache.size),
@@ -71,7 +73,7 @@ def sampleStats : TranslateEnvT Unit := do
     modify fun e => { e with stats.handle := none }
 
 /-- Count one optimizer stack step; emit a sample every `interval` steps.
-    Disabled path (the default): a single `Option` check. -/
+    Disabled path (the default): one state-ref read plus an Option tag test; no allocation, no state write. -/
 @[always_inline, inline]
 def bumpStatsAndMaybeSample : TranslateEnvT Unit := do
   let s := (← get).stats
@@ -85,8 +87,10 @@ def bumpStatsAndMaybeSample : TranslateEnvT Unit := do
 
 /-- Open the stats file and write the `start` event when `stats-file` is set.
     Open failure logs a warning and leaves telemetry disabled — it never
-    fails the solve. -/
+    fails the solve. Opening truncates the file. Use one stats file per command:
+    concurrent commands sharing a path will clobber each other. -/
 def initStats : TranslateEnvT Unit := do
+  if (← get).stats.handle.isSome then return ()
   let sOpts := (← get).optEnv.options.solverOptions
   let some path := sOpts.statsFile | return ()
   let interval := max 1 sOpts.statsInterval
@@ -103,7 +107,7 @@ def initStats : TranslateEnvT Unit := do
       { e with stats := { handle := some h, interval, steps := 0,
                           nextSampleAt := interval, startMs := now, samples := 0 } }
   catch ex =>
-    logWarning m!"stats-file: could not open '{path}' ({ex.toMessageData}); telemetry disabled"
+    logWarning m!"stats-file: could not initialize '{path}' ({ex.toMessageData}); telemetry disabled"
 
 /-- Emit the `end` event and drop the handle. At `verbose ≥ 1`, log a human
     summary (total steps, elapsed, top-8 caches by final size). -/
@@ -118,6 +122,7 @@ def finalizeStats : TranslateEnvT Unit := do
         ("ms", toJson (now - env.stats.startMs)),
         ("samples", toJson env.stats.samples) ]
   catch _ => pure ()
+  -- Dropping the last reference closes the file (Lean handles close on RC release; there is no Handle.close).
   modify fun e => { e with stats.handle := none }
   if env.optEnv.options.solverOptions.verbose ≥ 1 then
     let top := ((cacheSizes env).toArray.qsort (fun a b => a.2 > b.2)).extract 0 8
