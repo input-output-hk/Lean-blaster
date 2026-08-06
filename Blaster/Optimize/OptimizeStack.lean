@@ -542,9 +542,17 @@ private def gcCollectRoots (stack : List OptimizeStack) (liveCtxs : HashSet Nat)
   -- ALL alive holders are roots — marking an alive object costs no memory
   -- (it is retained regardless); it only preserves its table entry and so
   -- its identity, preventing twin-minting churn. Memo caches retain their
-  -- keys AND values, so both are alive holders:
+  -- keys AND values, so both are alive holders.
+  -- Bit 128 = MINIMAL ROOTS: skip the memo-cache root sections below.
+  -- Measured motivation (1900, 2026-08-06): memo-cache holders dominate
+  -- gc_live (32.3 M, ~43% of all interns, growing at the same exponent as
+  -- the table) — evicting their entries costs only re-derivation, priced
+  -- by the iteration counter. Combine with bit 2 (clear memo) so the
+  -- caches do not keep serving values whose subgraphs left the table.
   for e in ← Retention.gcExtraRootsRef.get do
     rs := rs.push e
+  if (← Retention.gcMaskRef.get) &&& 128 != 0 then
+    return rs
   let m := o.memCache
   let mut cpIt := 0
   pa := gcArrAddr rs
