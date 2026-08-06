@@ -29,7 +29,13 @@ def saveHashCons (old : Expr) (new : Expr) : TranslateEnvT Expr := do
   else return new
 
 
-private unsafe def hashconsAux (cur : Expr) (isResult : Bool) (stk : Array HashConsStack) : TranslateEnvT Expr := do
+/-- `memo` maps ORIGINAL node pointers to their canonical results within
+    this call. It is what guarantees DAG-linear traversal: the intern table
+    alone cannot, because an evicted-and-reinterned child changes the
+    parent's signature, making old-identity shared subDAGs unfindable and
+    the traversal exponential in them (the v1/v2 GC stall mechanism,
+    2026-08-05/06). One map per top-level `hashcons` call. -/
+private unsafe def hashconsAux (cur : Expr) (isResult : Bool) (stk : Array HashConsStack) (memo : HashMap PtrExpr Expr) : TranslateEnvT Expr := do
   if isResult then
     if stk.usize > 0 then
       let topIdx := stk.usize - 1
@@ -37,69 +43,75 @@ private unsafe def hashconsAux (cur : Expr) (isResult : Bool) (stk : Array HashC
       match next with
       | .WaitAppFun e a =>
            let stk := stk.uset topIdx (.WaitAppArg e cur) lcProof
-           hashconsAux a false stk
+           hashconsAux a false stk memo
       | .WaitAppArg e f =>
            let r' ← saveHashCons e (← e.updateAppExpr! f cur)
-           hashconsAux r' true stk.pop
+           hashconsAux r' true stk.pop (memo.insert e r')
       | .WaitForallType e b =>
            let stk := stk.uset topIdx (.WaitForallBody e cur) lcProof
-           hashconsAux b false stk
+           hashconsAux b false stk memo
       | .WaitForallBody e t =>
            let r' ← saveHashCons e (← e.updateForallExpr! t cur)
-           hashconsAux r' true stk.pop
+           hashconsAux r' true stk.pop (memo.insert e r')
       | .WaitLambdaType e b =>
            let stk := stk.uset topIdx (.WaitLambdaBody e cur) lcProof
-           hashconsAux b false stk
+           hashconsAux b false stk memo
       | .WaitLambdaBody e t =>
            let r' ← saveHashCons e (← e.updateLambdaExpr! t cur)
-           hashconsAux r' true stk.pop
+           hashconsAux r' true stk.pop (memo.insert e r')
       | .WaitLetType e v b =>
            let stk := stk.uset topIdx (.WaitLetValue e cur b) lcProof
-           hashconsAux v false stk
+           hashconsAux v false stk memo
       | .WaitLetValue e t b =>
            let stk := stk.uset topIdx (.WaitLetBody e t cur) lcProof
-           hashconsAux b false stk
+           hashconsAux b false stk memo
       | .WaitLetBody e t v =>
            let r' ← saveHashCons e (← e.updateLetExpr! t v cur)
-           hashconsAux r' true stk.pop
+           hashconsAux r' true stk.pop (memo.insert e r')
       | .WaitMData e =>
            let r' ← saveHashCons e (← e.updateMDataExpr! cur)
-           hashconsAux r' true stk.pop
+           hashconsAux r' true stk.pop (memo.insert e r')
       | .WaitProjExpr e =>
            let r' ← saveHashCons e (← e.updateProjExpr! cur)
-           hashconsAux r' true stk.pop
+           hashconsAux r' true stk.pop (memo.insert e r')
     else return cur
   else
+    -- per-call DAG memo first: exact old-pointer hit, immune to eviction
+    let memoized := memo.getD cur instCacheMiss
+    if !exprEq memoized instCacheMiss then
+      hashconsAux memoized true stk memo
+    else
     let cached := (← get).optEnv.hashConsCache.getD cur instCacheMiss
-    if !exprEq cached.expr instCacheMiss then hashconsAux cached.expr true stk
+    if !exprEq cached.expr instCacheMiss then hashconsAux cached.expr true stk memo
     else
        match cur with
        | .bvar .. | .mvar .. | .const .. | .fvar .. | .sort .. | .lit .. =>
            updateHashConsCache cur
-           hashconsAux cur true stk
+           hashconsAux cur true stk memo
        | .app f a =>
             let stk := stk.push (.WaitAppFun cur a)
-            hashconsAux f false stk
+            hashconsAux f false stk memo
        | .letE _ t v b _ =>
             let stk := stk.push (.WaitLetType cur v b)
-            hashconsAux t false stk
+            hashconsAux t false stk memo
        | .forallE _ t b _ =>
             let stk := stk.push (.WaitForallType cur b)
-            hashconsAux t false stk
+            hashconsAux t false stk memo
        | .lam _ t b _ =>
             let stk := stk.push (.WaitLambdaType cur b)
-            hashconsAux t false stk
+            hashconsAux t false stk memo
        | .mdata _ b =>
             let stk := stk.push (.WaitMData cur)
-            hashconsAux b false stk
+            hashconsAux b false stk memo
        | .proj _ _ b =>
             let stk := stk.push (.WaitProjExpr cur)
-            hashconsAux b false stk
+            hashconsAux b false stk memo
 
 /-- Apply hashconsing on an expression. -/
 @[always_inline, inline]
-def hashcons (e : Expr) : TranslateEnvT Expr :=
-  unsafe hashconsAux e false (Array.emptyWithCapacity e.approxDepth.toNat)
+def hashcons (e : Expr) : TranslateEnvT Expr := do
+  Retention.crumb "hashcons"
+  unsafe hashconsAux e false (Array.emptyWithCapacity e.approxDepth.toNat) (HashMap.emptyWithCapacity 64)
 
 
 private unsafe def cleanHashConsAux (stk : Array Expr) : TranslateEnvT Unit := do
@@ -134,9 +146,11 @@ def cleanHashCons (e : Expr) : TranslateEnvT Unit :=
 /-- Same as the default inferType in the Lean codebase but perform hashconsing and cache the result. -/
 @[always_inline, inline]
 def inferTypeEnv (e : Expr) : TranslateEnvT Expr := do
+  Retention.crumb "inferType"
   let cached := (← get).optEnv.memCache.inferTypeCache.getD e instCacheMiss
   if !exprEq cached instCacheMiss then return cached
   else
+    Retention.crumb "inferTypeLean"
     let t ← withLocalContext $ do
        IO.setNumHeartbeats 0
        let t ← inferType e

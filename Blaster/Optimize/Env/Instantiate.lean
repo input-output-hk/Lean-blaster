@@ -120,6 +120,7 @@ def instantiateSharedRevRange (e : Expr) (beginIdx endIdx : Nat) (subst : Array 
 
 @[always_inline, inline]
 def instantiateShared1 (e : Expr) (subst : Expr) : TranslateEnvT Expr := do
+  Retention.crumb "inst1"
   if e.hasLooseBVars then instantiateSharedRevRange e 0 1 #[subst] else return e
 
 

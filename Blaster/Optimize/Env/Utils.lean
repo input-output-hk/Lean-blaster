@@ -316,6 +316,7 @@ def getMVarDecls (mvars : Array Expr) : TranslateEnvT MVarIdDecls :=
 -/
 @[always_inline, inline]
 partial def betaLambdaEnv (lam : Expr) (args : Array Expr) : TranslateEnvT BetaLambdaResult := do
+  Retention.crumb "betaLambda"
   let nbParams := Expr.getNumHeadLambdas lam
   let nbParamsU := nbParams.toUSize
   let nbArgs := args.usize

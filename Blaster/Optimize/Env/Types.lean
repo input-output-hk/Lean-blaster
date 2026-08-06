@@ -1296,23 +1296,37 @@ def findLocalCache (a : Expr) (env : TranslateEnv) : IO Expr :=
 def maybeGCHashCons : TranslateEnvT Unit := do
   let interval ← Retention.gcIntervalRef.get
   if interval == 0 then return ()
-  if (← get).optEnv.hashConsCache.size < interval then return ()
+  let nextFire ← Retention.gcNextFireRef.get
+  let nextFire := if nextFire == 0 then interval else nextFire
+  if (← get).optEnv.hashConsCache.size < nextFire then
+    Retention.gcNextFireRef.set nextFire
+    return ()
   Retention.gcRunsRef.modify (· + 1)
+  let mask ← Retention.gcMaskRef.get
   modifyOptEnv fun o =>
-    { o with
-      hashConsCache := HashSet.emptyWithCapacity (1 <<< 20)
-      memCache := { o.memCache with
-        inferTypeCache := HashMap.emptyWithCapacity 4096
-        getFunEnvInfoCache := HashMap.emptyWithCapacity 1024
-        getFunBodyCache := HashMap.emptyWithCapacity 1024
-        isPropCache := HashMap.emptyWithCapacity 1024
-        isNotFunCache := HashMap.emptyWithCapacity 1024
-        matchAltsCache := HashMap.emptyWithCapacity 256
-        genericMatchCache := HashMap.emptyWithCapacity 64
-        forallMetaCache := HashMap.emptyWithCapacity 256
-        betaLambdaCache := HashMap.emptyWithCapacity 1024
-        contextReuseCache := HashMap.emptyWithCapacity 1024
-        isCtorMatchPropCache := HashSet.emptyWithCapacity 4096 } }
+    let o := if mask &&& 1 != 0 then
+      { o with hashConsCache := HashSet.emptyWithCapacity (1 <<< 20) }
+    else o
+    let o := if mask &&& 2 != 0 then
+      { o with memCache := { o.memCache with
+          inferTypeCache := HashMap.emptyWithCapacity 4096
+          getFunEnvInfoCache := HashMap.emptyWithCapacity 1024
+          getFunBodyCache := HashMap.emptyWithCapacity 1024
+          isPropCache := HashMap.emptyWithCapacity 1024
+          isNotFunCache := HashMap.emptyWithCapacity 1024
+          matchAltsCache := HashMap.emptyWithCapacity 256
+          genericMatchCache := HashMap.emptyWithCapacity 64
+          forallMetaCache := HashMap.emptyWithCapacity 256
+          isCtorMatchPropCache := HashSet.emptyWithCapacity 4096 } }
+    else o
+    if mask &&& 4 != 0 then
+      { o with memCache := { o.memCache with
+          betaLambdaCache := HashMap.emptyWithCapacity 1024
+          contextReuseCache := HashMap.emptyWithCapacity 1024 } }
+    else o
+  -- rearm: fire again once the table has grown by `interval` past its
+  -- post-clear size (works whether or not this mask cleared the table)
+  Retention.gcNextFireRef.set ((← get).optEnv.hashConsCache.size + interval)
 
 end Blaster.Optimize
 

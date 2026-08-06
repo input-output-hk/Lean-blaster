@@ -4,7 +4,7 @@ import Blaster.Optimize.Rewriting.OptimizeProjection
 import Blaster.Optimize.Telescope
 import Blaster.Optimize.RetentionProfile
 
-open Lean Meta Elab Blaster.Data.HashMap
+open Lean Meta Elab Blaster.Data.HashMap Blaster.Data.HashSet
 
 namespace Blaster.Optimize
 
@@ -342,6 +342,418 @@ def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := 
         return visit' 0 extra_size stop extra_args args (Array.emptyWithCapacity stop)
 
 
+/-! ## Hash-cons GC v2 — mark-and-rebuild
+
+v1 (bulk clear, `maybeGCHashCons`) hangs: the intern table's entries are
+load-bearing identity/visited state. v2 instead computes the transitive
+pointer closure of every Expr the rest of the run can still touch (driver
+stack + semantic env state) and FILTERS by reachability:
+
+* `hashConsCache`: keep entries whose canonical node is marked;
+* the `InstKey`-keyed caches (`betaLambdaCache`, `contextReuseCache`):
+  keep entries whose embedded pointer address (low 47 bits of `packed`)
+  is marked — unmarked keys' objects may be freed and their addresses
+  recycled, which would produce wrong hits;
+* the `PtrExpr`-keyed memo caches: cleared (recomputable; any traversal
+  the future performs starts from marked roots, whose entries survive
+  in the table, so no exponential re-expansion is possible).
+
+Dropping a REACHABLE entry can never happen (mark is a superset of use);
+dropping an unreachable one costs at most re-interning (linear, self-
+populating) and cross-time sharing. Controlled by `BLASTER_HASHCONS_GC=<n>`
+(fire threshold, 0=off) and `BLASTER_GC_MASK` (bit1=clear memo caches,
+bit2=filter InstKey caches; the table rebuild always runs). -/
+
+section GCv2
+
+/-- Mark-set key: a pointer address as a `Nat` inside a single-field
+    structure. Addresses are < 2^47 so the `Nat` is a tagged immediate, and
+    the trivial single-field wrapper is erased at runtime — zero allocation
+    per stored entry (a `USize` field would box). The dedicated type also
+    carries its own `Hashable` (the pointer mixer — core's near-identity
+    `Nat` hash would cluster 16-byte-aligned addresses) without shadowing
+    `instHashableNat`, which is baked into `CtxId`-keyed map types. -/
+private structure GCAddr where
+  a : Nat
+private instance : BEq GCAddr := ⟨fun x y => x.a == y.a⟩
+private instance : Hashable GCAddr := ⟨fun x => ptrAddrHash (USize.ofNat x.a)⟩
+private instance : Inhabited GCAddr := ⟨⟨0⟩⟩
+
+private abbrev GCMark := HashSet GCAddr
+
+private unsafe def gcAddrAux (e : Expr) : GCAddr := ⟨(ptrAddrUnsafe e).toNat⟩
+@[inline] private def gcAddr (e : Expr) : GCAddr := unsafe gcAddrAux e
+
+/-- GCT instrumentation (TEMPORARY, root-sweep cost diagnosis): borrow-only
+    physical address of an `Array Expr`; an address change between two
+    observations of the same `mut` array means a reallocation happened
+    (copy-on-write if not a capacity growth). `ptrAddrUnsafe` takes its
+    argument `@&`, so this is RC-traffic-free. -/
+private unsafe def gcArrAddrAux (a : Array Expr) : Nat := (ptrAddrUnsafe a).toNat
+@[inline] private def gcArrAddr (a : Array Expr) : Nat := unsafe gcArrAddrAux a
+
+/-- GCT instrumentation: append one line to `$BLASTER_RETENTION_PROFILE.gct`. -/
+private def gcTimeLog (line : String) : IO Unit := do
+  match ← IO.getEnv "BLASTER_RETENTION_PROFILE" with
+  | some p => IO.FS.withFile (p ++ ".gct") .append fun h => h.putStrLn line
+  | none => pure ()
+
+/-- Iterative pointer-closure mark: visits each distinct physical node once.
+    Membership is detected by insert-then-size-delta — one table probe per
+    visit instead of `contains` + `insert`. -/
+private def gcMark (roots : Array Expr) : GCMark := Id.run do
+  let mut marked : GCMark := HashSet.emptyWithCapacity 262144
+  let mut stk : Array Expr := roots
+  while stk.size > 0 do
+    let e := stk.back!
+    stk := stk.pop
+    let szBefore := marked.size
+    marked := marked.insert (gcAddr e)
+    if marked.size == szBefore then
+      continue  -- already visited
+    match e with
+    | .app f a => stk := (stk.push f).push a
+    | .lam _ d b _ => stk := (stk.push d).push b
+    | .forallE _ d b _ => stk := (stk.push d).push b
+    | .letE _ t v b _ => stk := ((stk.push t).push v).push b
+    | .mdata _ b => stk := stk.push b
+    | .proj _ _ b => stk := stk.push b
+    | _ => pure ()
+  return marked
+
+/-- Exprs held by one driver-stack frame. -/
+private def gcFrameExprs (rs : Array Expr) (f : OptimizeStack) : Array Expr := Id.run do
+  let mut rs := rs
+  let pushDecls (rs : Array Expr) (mds : Option MVarIdDecls) : Array Expr := Id.run do
+    let mut rs := rs
+    if let some ds := mds then
+      for d in ds do
+        rs := (rs.push d.mvar).push d.value
+    return rs
+  let pushParams (rs : Array Expr) (ps : ImplicitParameters) : Array Expr := Id.run do
+    let mut rs := rs
+    for p in ps do
+      rs := rs.push p.effectiveArg
+    return rs
+  let pushMInfo (rs : Array Expr) (m : MatchInfo) : Array Expr :=
+    (rs.push m.nameExpr).push m.instApp
+  match f with
+  | .InitOptimizeExpr e mds => rs := pushDecls (rs.push e) mds
+  | .InitOptimizeReturn e _ mds => rs := pushDecls (rs.push e) mds
+  | .InitOpaqueRecExpr g args => rs := (rs.push g) ++ args
+  | .RecFunDefWaitForStorage args instApp subsInts params _ =>
+      rs := pushParams (((rs ++ args).push instApp).push subsInts) params
+  | .RecFunDefStorage args instApp subsInts params optBody _ =>
+      rs := pushParams ((((rs ++ args).push instApp).push subsInts).push optBody) params
+  | .ForallWaitForType _ _ body => rs := rs.push body
+  | .ForallWaitForBody x t _ _ => rs := (rs.push x).push t
+  | .AppWaitForConst args => rs := rs ++ args
+  | .OptimizeMatchInfoWaitForInst g args _ pInfo _ =>
+      rs := ((rs.push g) ++ args).push pInfo.type
+  | .AppOptimizeImplicitArgs g args _ _ _ pInfo _ =>
+      rs := ((rs.push g) ++ args).push pInfo.type
+  | .AppOptimizeExplicitArgs g args _ _ pInfo mInfo? _ =>
+      rs := ((rs.push g) ++ args).push pInfo.type
+      if let some m := mInfo? then rs := pushMInfo rs m
+  | .InitNonFunOptimizeArgs g args _ _ => rs := (rs.push g) ++ args
+  | .NonFunOptimizeArgs g args _ _ _ => rs := (rs.push g) ++ args
+  | .DiteChoiceWaitForCond g args pInfo _ => rs := ((rs.push g) ++ args).push pInfo.type
+  | .MatchChoiceOptimizeDiscrs g args pInfo _ mInfo _ =>
+      rs := pushMInfo (((rs.push g) ++ args).push pInfo.type) mInfo
+  | .LambdaWaitForType _ _ body => rs := rs.push body
+  | .LambdaWaitForBody x _ _ _ => rs := rs.push x
+  | .MatchRhsLambdaWaitForType _ _ body => rs := rs.push body
+  | .MatchRhsLambdaNext e => rs := rs.push e
+  | .MatchRhsLambdaWaitForBody x => rs := rs.push x
+  | .MatchLhsSkipForallType e => rs := rs.push e
+  | .MatchLhsForallWaitForBody e => rs := rs.push e
+  | .MatchAltWaitForExpr params _ _ mInfo => rs := pushMInfo (rs ++ params) mInfo
+  | .LetWaitForValue body => rs := rs.push body
+  | .MDataRecCallWaitForExpr _ => pure ()
+  | .ProjWaitForExpr _ _ => pure ()
+  return rs
+
+/-- Every Expr the rest of the run can still touch: driver stack frames plus
+    the semantic state in `TranslateEnv` (rewrite caches, hypothesis /
+    equality / pattern maps, recFun registrations, mvar assignments, local
+    context, local instances). Derived memo caches are deliberately NOT
+    roots — they are recomputable and would defeat the collection. -/
+private def gcCollectRoots (stack : List OptimizeStack) (liveCtxs : HashSet Nat) : TranslateEnvT (Array Expr) := do
+  let o := (← get).optEnv
+  -- GCT instrumentation (TEMPORARY): per-section wall clock + rs.size, and
+  -- reallocation counters on one bind-crossing section (rewriteCache) and
+  -- one pure section (inferTypeCache) to discriminate copy-on-write.
+  let dbg ← Retention.enabledIO
+  let mut gt ← IO.monoMsNow
+  let mut gl : String := ""
+  let mut rs : Array Expr := Array.emptyWithCapacity 8192
+  for f in stack do
+    rs := gcFrameExprs rs f
+  if dbg then let t ← IO.monoMsNow; gl := gl ++ s!" stack={t-gt}/{rs.size}"; gt := t
+  let mut cpRw := 0
+  let mut pa := gcArrAddr rs
+  for (ctx, ref) in o.rewriteCache.pairs do
+    if liveCtxs.contains ctx then
+      if gcArrAddr rs != pa then cpRw := cpRw + 1
+      for (k, v) in (← ref.get).pairs do
+        rs := (rs.push k.expr).push v
+      pa := gcArrAddr rs
+  if dbg then let t ← IO.monoMsNow; gl := gl ++ s!" rewrite={t-gt}/{rs.size}/cp{cpRw}"; gt := t
+  for (k, ref) in o.hypothesisContext.hypothesisMap.pairs do
+    rs := rs.push k.expr
+    for (_, v) in (← ref.get) do
+      rs := rs.push v
+  if dbg then let t ← IO.monoMsNow; gl := gl ++ s!" hyp={t-gt}/{rs.size}"; gt := t
+  for (k, ref) in o.hypothesisContext.equalityMap.pairs do
+    rs := rs.push k.expr
+    for (_, v) in (← ref.get) do
+      rs := rs.push v
+  if dbg then let t ← IO.monoMsNow; gl := gl ++ s!" eq={t-gt}/{rs.size}"; gt := t
+  for (k, ref) in o.matchInContext.pairs do
+    rs := rs.push k.expr
+    for (_, sref) in (← ref.get) do
+      for p in (← sref.get).vals do
+        rs := rs.push p.expr
+  if dbg then let t ← IO.monoMsNow; gl := gl ++ s!" matchIn={t-gt}/{rs.size}"; gt := t
+  for (k, v) in o.recFunInstCache.pairs do
+    rs := (rs.push k.expr).push v
+  for (k, v) in o.recFunMap.pairs do
+    rs := (rs.push k.expr).push v
+  for k in o.recFunCache.vals do
+    rs := rs.push k.expr
+  for (k, v?) in o.synthInstanceCache.pairs do
+    rs := rs.push k.expr
+    if let some v := v? then rs := rs.push v
+  for (k, v) in o.matchCache.pairs do
+    rs := (rs.push k.expr).push v
+  for (k, v) in o.mAssignments.pairs do
+    rs := (rs.push k.expr).push v
+  if dbg then let t ← IO.monoMsNow; gl := gl ++ s!" recEtc={t-gt}/{rs.size}"; gt := t
+  -- decls is a PersistentArray; iterating it directly in this deep monad
+  -- measured 212 us/element (54.8 s of a 54.9 s sweep — the entire "GC
+  -- stall"). Flatten to an Array first (pure, fast), then iterate.
+  for d? in o.ctx.ctx.decls.toArray do
+    if let some d := d? then
+      rs := rs.push d.type
+      if let some v := d.value? then rs := rs.push v
+  if dbg then let t ← IO.monoMsNow; gl := gl ++ s!" decls={t-gt}/{rs.size}"; gt := t
+  for inst in o.ctx.localInsts do
+    rs := rs.push inst.fvar
+  -- ALL alive holders are roots — marking an alive object costs no memory
+  -- (it is retained regardless); it only preserves its table entry and so
+  -- its identity, preventing twin-minting churn. Memo caches retain their
+  -- keys AND values, so both are alive holders:
+  for e in ← Retention.gcExtraRootsRef.get do
+    rs := rs.push e
+  let m := o.memCache
+  let mut cpIt := 0
+  pa := gcArrAddr rs
+  for (k, v) in m.inferTypeCache.pairs do
+    if gcArrAddr rs != pa then cpIt := cpIt + 1
+    rs := (rs.push k.expr).push v
+    pa := gcArrAddr rs
+  if dbg then let t ← IO.monoMsNow; gl := gl ++ s!" inferT={t-gt}/{rs.size}/cp{cpIt}"; gt := t
+  for (k, v) in m.getFunEnvInfoCache.pairs do
+    rs := (rs.push k.expr).push v.type
+  for (k, v?) in m.getFunBodyCache.pairs do
+    rs := rs.push k.expr
+    if let some v := v? then rs := rs.push v
+  for (k, _) in m.isPropCache.pairs do
+    rs := rs.push k.expr
+  for (k, _) in m.isNotFunCache.pairs do
+    rs := rs.push k.expr
+  for (k, vs) in m.matchAltsCache.pairs do
+    rs := (rs.push k.expr) ++ vs
+  for (k, _) in m.genericMatchCache.pairs do
+    rs := rs.push k.expr
+  for (k, v) in m.forallMetaCache.pairs do
+    rs := (rs.push k.expr).push v.instExpr
+  for k in m.isCtorMatchPropCache.vals do
+    rs := rs.push k.expr
+  if dbg then let t ← IO.monoMsNow; gl := gl ++ s!" memA={t-gt}/{rs.size}"; gt := t
+  for (_, ref) in m.contextReuseCache.pairs do
+    for (_, scope) in (← ref.get).pairs do
+      rs := rs ++ scope.fvars
+  if dbg then let t ← IO.monoMsNow; gl := gl ++ s!" ctxReuse={t-gt}/{rs.size}"; gt := t
+  for (_, v) in m.betaLambdaCache.pairs do
+    rs := (rs.push v.betaReduced) ++ v.mvarArgs
+  -- PtrName-keyed caches whose VALUES hold hot alive Exprs (previously the
+  -- unrooted twin sources): match-instance apps re-entered by every match
+  -- reduction, and constant-definition bodies
+  for (_, v) in m.isMatcherCache.pairs do
+    rs := (rs.push v.nameExpr).push v.instApp
+  for (_, ci) in m.getConstInfoCache.pairs do
+    rs := rs.push ci.type
+    if let some val := ci.value? then rs := rs.push val
+  if dbg then
+    let t ← IO.monoMsNow
+    gl := gl ++ s!" tail={t-gt}/{rs.size}"
+    gcTimeLog s!"roots{gl}"
+  return rs
+
+/-- Address embedded in an `InstKey` (low 47 bits of `packed`). -/
+@[inline] private def gcInstKeyAddr (k : InstKey) : GCAddr :=
+  ⟨k.packed &&& ((1 <<< 47) - 1)⟩
+
+/-- Context ids whose rewrite maps remain REACHABLE: the active ancestor
+    chain (the only thing `findAncestorCache` consults) plus, transitively,
+    contexts a surviving `contextReuseCache` entry could reactivate
+    (`setAndCommitCtx` fires only when the entry's recorded parent is the
+    then-current ctx, so reachability propagates parent→scope). Conservative:
+    ignores lambda liveness, so it may keep a few maps whose reuse entry is
+    later dropped — safe, never the reverse. Maps of ids outside this set
+    are erased by `gcRebuild`: they are invisible to lookups and were the
+    dominant dead-weight the marker previously treated as roots. -/
+private def gcLiveCtxs : TranslateEnvT (HashSet Nat) := do
+  let o := (← get).optEnv
+  let mut live : HashSet Nat := HashSet.emptyWithCapacity 1024
+  let mut work : Array Nat := Array.emptyWithCapacity 1024
+  live := live.insert 0
+  work := work.push 0
+  -- seed: the FULL active set (covers `withParentHyps` windows and any
+  -- chain subtleties), plus the explicit parent chain from curCtx
+  for ctx in o.options.active.vals do
+    if !live.contains ctx then
+      live := live.insert ctx
+      work := work.push ctx
+  let mut ctx := o.options.curCtx
+  let mut fuel := 1000000
+  while ctx != 0 && fuel > 0 do
+    if !live.contains ctx then
+      live := live.insert ctx
+      work := work.push ctx
+    ctx := o.options.parents.getD ctx 0
+    fuel := fuel - 1
+  -- reuse reachability as BFS over a once-built adjacency (parent →
+  -- reactivatable ctxs): O(edges), no ref re-reads, no fixed-point rounds
+  -- (the round-scanning version measured ~200 s per collection).
+  -- Buckets are LISTS: `(adj.getD p #[]).push c` on Arrays borrows the
+  -- bucket while the map still holds it, copying the whole bucket per
+  -- edge — O(k²) per parent, ~180 s per collection measured. Cons shares
+  -- the tail: O(1) per edge, no copy.
+  let mut adj : HashMap Nat (List Nat) := HashMap.emptyWithCapacity 4096
+  for (_, ref) in o.memCache.contextReuseCache.pairs do
+    for (parent, scope) in (← ref.get).pairs do
+      adj := adj.insert parent (scope.scope.current :: adj.getD parent [])
+  while work.size > 0 do
+    let p := work.back!
+    work := work.pop
+    for c in adj.getD p [] do
+      if !live.contains c then
+        live := live.insert c
+        work := work.push c
+  return live
+
+private def gcRebuild (marked : GCMark) (liveCtxs : HashSet Nat) : TranslateEnvT Nat := do
+  let mask ← Retention.gcMaskRef.get
+  let o := (← get).optEnv
+  -- table: keep marked canonicals. Bit 16 = KEEP-ALL control experiment
+  -- (mark+sweep+rebuild with zero drops): separates rebuild mechanics from
+  -- eviction semantics as the stall trigger.
+  let survivors := if mask &&& 16 != 0 then o.hashConsCache.vals
+    else o.hashConsCache.vals.filter fun se => marked.contains (gcAddr se.expr)
+  let live := survivors.size
+  let table := survivors.foldl (init := HashSet.emptyWithCapacity (max 4096 (live * 2))) fun t se => t.insert se
+  -- rewrite maps: erase contexts no lookup or reactivation should reach.
+  -- OPT-IN (mask bit 8): the 2026-08-05 run measured iteration inflation
+  -- 25.86 M → 35 M+ with erasure on, i.e. some erased maps DO get probed
+  -- again — with erasure off those probes still hit (kept maps stay
+  -- intact), so the invariant must hold while the table still collects.
+  let rewrite := if mask &&& 8 != 0 then
+    o.rewriteCache.pairs.foldl
+      (init := (HashMap.emptyWithCapacity 4096 : RewriteCacheMap)) fun m (ctx, ref) =>
+        if liveCtxs.contains ctx then m.insert ctx ref else m
+    else o.rewriteCache
+  modifyOptEnv fun o => Id.run do
+    let mut o := { o with hashConsCache := table, rewriteCache := rewrite }
+    if mask &&& 2 != 0 then
+      -- FILTER by key liveness, do not clear: cleared memo caches push the
+      -- tail's giant terms onto Lean's inferType/whnf, which runs here with
+      -- heartbeats disabled — any excursion there is a silent unbounded
+      -- stall. Live-keyed entries keep absorbing that traffic.
+      let keepM {β} (m : HashMap PtrExpr β) : HashMap PtrExpr β :=
+        m.pairs.foldl (init := (HashMap.emptyWithCapacity 4096 : HashMap PtrExpr β)) fun acc (k, v) =>
+          if marked.contains (gcAddr k.expr) then acc.insert k v else acc
+      o := { o with memCache := { o.memCache with
+        inferTypeCache := keepM o.memCache.inferTypeCache
+        getFunEnvInfoCache := keepM o.memCache.getFunEnvInfoCache
+        getFunBodyCache := keepM o.memCache.getFunBodyCache
+        isPropCache := keepM o.memCache.isPropCache
+        isNotFunCache := keepM o.memCache.isNotFunCache
+        matchAltsCache := keepM o.memCache.matchAltsCache
+        genericMatchCache := keepM o.memCache.genericMatchCache
+        forallMetaCache := keepM o.memCache.forallMetaCache
+        isCtorMatchPropCache := o.memCache.isCtorMatchPropCache.vals.foldl
+          (init := (HashSet.emptyWithCapacity 4096 : HashSet PtrExpr)) fun acc k =>
+            if marked.contains (gcAddr k.expr) then acc.insert k else acc } }
+    if mask &&& 4 != 0 then
+      let bl := o.memCache.betaLambdaCache.pairs.foldl
+        (init := (HashMap.emptyWithCapacity 1024 : BetaLambdaMap)) fun m (k, v) =>
+          if marked.contains (gcInstKeyAddr k) then m.insert k v else m
+      let cr := o.memCache.contextReuseCache.pairs.foldl
+        (init := (HashMap.emptyWithCapacity 1024 : ContextReuseMap)) fun m (k, v) =>
+          if marked.contains (gcInstKeyAddr k) then m.insert k v else m
+      o := { o with memCache := { o.memCache with betaLambdaCache := bl, contextReuseCache := cr } }
+    return o
+  return live
+
+/-- v2 GC trigger: one `IO.Ref` read per driver iteration when disabled;
+    two reads and NO writes on the armed not-yet path (the rearm point is
+    initialized once and then written only by collections). Rearm is
+    proportional — `live + max(interval, live)` — so total GC work stays
+    O(total interns) with geometrically spaced pauses. -/
+def maybeGCv2 (stack : List OptimizeStack) : TranslateEnvT Unit := do
+  let interval ← Retention.gcIntervalRef.get
+  if interval == 0 then return ()
+  let nextFire ← Retention.gcNextFireRef.get
+  if nextFire == 0 then
+    Retention.gcNextFireRef.set interval
+    return ()
+  if (← get).optEnv.hashConsCache.size < nextFire then
+    return ()
+  let t0 ← IO.monoMsNow
+  Retention.gcRunsRef.modify (· + 1)
+  let mask ← Retention.gcMaskRef.get
+  -- component-isolation bits (stall bisection): 32 = observe-only (read
+  -- sweep + mark, ZERO mutations); 64 = rebuild-without-sweep (skip root
+  -- collection and marking entirely; combine with 16 for keep-all)
+  if mask &&& 32 != 0 then
+    let liveCtxs ← gcLiveCtxs
+    let tA ← IO.monoMsNow
+    let roots ← gcCollectRoots stack liveCtxs
+    let tB ← IO.monoMsNow
+    let marked := gcMark roots
+    let tC ← IO.monoMsNow
+    if ← Retention.enabledIO then
+      gcTimeLog s!"m33 livectx={tA-t0} roots={tB-tA}/{roots.size} mark={tC-tB}/{marked.size}"
+    Retention.gcLiveRef.set marked.size
+    let sz := (← get).optEnv.hashConsCache.size
+    Retention.gcNextFireRef.set (sz + interval)
+    Retention.gcPauseMsRef.modify (· + ((← IO.monoMsNow) - t0))
+    return ()
+  let (marked, liveCtxs) ←
+    if mask &&& 64 != 0 then
+      pure ((HashSet.emptyWithCapacity 8 : GCMark), (HashSet.emptyWithCapacity 8 : HashSet Nat))
+    else do
+      let liveCtxs ← gcLiveCtxs
+      let tLc ← IO.monoMsNow
+      Retention.gcLiveCtxMsRef.modify (· + (tLc - t0))
+      let roots ← gcCollectRoots stack liveCtxs
+      let t1 ← IO.monoMsNow
+      Retention.gcRootsMsRef.modify (· + (t1 - t0))
+      let marked := gcMark roots
+      Retention.gcMarkMsRef.modify (· + ((← IO.monoMsNow) - t1))
+      pure (marked, liveCtxs)
+  let t2 ← IO.monoMsNow
+  let live ← gcRebuild marked liveCtxs
+  Retention.gcLiveRef.set live
+  Retention.gcNextFireRef.set (live + max interval live)
+  let t3 ← IO.monoMsNow
+  Retention.gcRebuildMsRef.modify (· + (t3 - t2))
+  Retention.gcPauseMsRef.modify (· + (t3 - t0))
+
+end GCv2
+
 @[always_inline, inline]
 def mkOptimizeContinuity (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeContinuity := do
   if ← isRestart then
@@ -360,8 +772,8 @@ def optimizeIfThenElse? (f : Expr) (args : Array Expr) (stack : List OptimizeSta
 def isInOptimizeEnvCache (a : Expr) (stack : List OptimizeStack) (mvarDecls : Option MVarIdDecls) : TranslateEnvT (Sum (List OptimizeStack) OptimizeContinuity) := do
   -- retention profiling: one driver iteration (no-op unless BLASTER_RETENTION_PROFILE is set)
   if ← Retention.due then Retention.sample "tick" stack.length
-  -- hash-cons GC v1 (no-op unless BLASTER_HASHCONS_GC is set)
-  maybeGCHashCons
+  -- hash-cons GC v2, mark-and-rebuild (no-op unless BLASTER_HASHCONS_GC is set)
+  maybeGCv2 stack
   let env ← get
   -- NOTE: Always consider global context when `a` does not contain any FVar/MVar
   let isGlobal := !(hasVar a) || isGlobalContext env

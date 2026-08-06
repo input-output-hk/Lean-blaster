@@ -1,4 +1,5 @@
 import Lean
+import Blaster.Optimize.RetentionCounters
 import Blaster.Optimize.Hypotheses
 
 open Lean Meta Elab
@@ -121,6 +122,7 @@ def hypReduction? (mscope : Option CtxScope) (h : Expr) (a : Expr) (b : Expr) (i
   Assume that `h` corresponds to the hypothesis map updated with hypotheses in `t`.
 -/
 def optimizeForall (n : Expr) (t : Expr) (b : Expr) (s : Option CtxScope) (isProp : Bool) : TranslateEnvT Expr := do
+  Retention.crumb "optForall"
   if let Expr.const ``True _ := b then return b
   if let some r ← isNotDef? t b then return r
   if exprEq t b then if isProp then return (← mkPropTrue)

@@ -223,6 +223,7 @@ that the result is also maximally shared.
 When `usedOnly = true` then only variables that the expression body depends on will appear.
 -/
 def mkLambdaFVarsExpr (xs : Array Expr) (e : Expr) (usedOnly := false) : TranslateEnvT Expr := do
+  Retention.crumb "abstract"
   let xs ← referencedFVars xs e usedOnly
   let b ← abstractFVars e xs
   xs.size.foldRevM (init := b) fun i _ b => do

@@ -331,8 +331,15 @@ def Optimize.mainAux (e : Expr) (applyHashCons := true) : TranslateEnvT Expr := 
   -- hash cons expression before optimization
   let r ←
     if applyHashCons
-    then optimizeExpr (← hashcons e)
-    else optimizeExpr e
+    then do
+      let e' ← hashcons e
+      -- register the original term as a GC root: it is alive for the whole
+      -- run but visible only through this frame's locals
+      Retention.gcExtraRootsRef.set #[e']
+      optimizeExpr e'
+    else do
+      Retention.gcExtraRootsRef.set #[e]
+      optimizeExpr e
   Retention.sample "final" 0
   return r
 

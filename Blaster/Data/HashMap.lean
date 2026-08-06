@@ -360,6 +360,23 @@ def probeStats (m : HashMap α β) : Nat × Float × Nat :=
 def vals (_m : HashMap α β) : Array β :=
   #[]
 
+@[specialize] private unsafe def pairsImpl (m : HashMap α β) : Array (α × β) := Id.run do
+  let cap := m.ctrl.size
+  if m.slots.isEmpty || m.size == 0 then
+    return #[]
+  let mut out := Array.emptyWithCapacity m.size
+  for i in [0:cap] do
+    if m.ctrl.uget i.toUSize lcProof &&& 0x80 != 0 then  -- occupied
+      let k := i.toUSize <<< 1
+      out := out.push (unsafeCast (m.slots.uget k lcProof), unsafeCast (m.slots.uget (k + 1) lcProof))
+  return out
+
+/-- All live (key, value) pairs, in slot order. `O(capacity)`; intended for
+    diagnostics and GC root/filter sweeps, never on a hot path. -/
+@[implemented_by pairsImpl]
+def pairs (_m : HashMap α β) : Array (α × β) :=
+  #[]
+
 end HashMap
 
 end Blaster.Data.HashMap
