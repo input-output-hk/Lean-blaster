@@ -1234,21 +1234,85 @@ def findGlobalCache (a : Expr) (env : TranslateEnv) : IO Expr :=
     residual byte-comparison harness guards the practical effect. -/
 partial def findAncestorCache (a : Expr) (env : TranslateEnv) : IO Expr := do
   let o := env.optEnv
-  let rec go (ctx : CtxId) : IO Expr := do
+  let curCtx := o.options.curCtx
+  let curRef? := o.rewriteCache.get? curCtx
+  let rec go (ctx : CtxId) (depth : Nat) : IO Expr := do
     -- (`pure`, not `return`: a `return` here would exit `go` with the probe
     -- result even on a miss, silently disabling the walk)
     let v ← do
       match o.rewriteCache.get? ctx with
       | some refEntry => pure ((← refEntry.get).getD a instCacheMiss)
       | none => pure instCacheMiss
-    if !exprEq v instCacheMiss then return v
+    if !exprEq v instCacheMiss then
+      -- Memoize deep hits into curCtx's own map so repeated probes of the
+      -- same key resolve at depth 1 instead of re-walking the chain (the
+      -- walk measures at 40-55% of wall at budget 1600). Semantics are
+      -- unchanged: the memoized value is exactly what the walk returns,
+      -- and both key and value are already retained by the ancestor entry.
+      -- Skipped when curCtx has no map yet (created only by writes) — the
+      -- common repeated-probe case has one. A/B gate: BLASTER_MEMO_DEPTH=0.
+      if depth > 1 then
+        if let some curRef := curRef? then
+          if ← Retention.walkMemoRef.get then
+            curRef.modify (·.insert a v)
+      return v
     else if ctx == 0 then return instCacheMiss
-    else go (o.options.parents.getD ctx 0)
-  go o.options.curCtx
+    else go (o.options.parents.getD ctx 0) (depth + 1)
+  go curCtx 1
 
 @[always_inline, inline]
 def findLocalCache (a : Expr) (env : TranslateEnv) : IO Expr :=
   findAncestorCache a env
+
+/-- ⚠️ FAILED EXPERIMENT — DO NOT ENABLE. Hash-cons GC, v1 (clear-based).
+    Measured 2026-08-05: enabling this HANGS budget-1600 deterministically
+    (stall at ~12.7 M iterations, right after the first clear; reproduced
+    twice). Root cause: `hashConsCache` is not merely a cache — `hashconsAux`
+    (HashConsing.lean) uses table hits as the visited-set that terminates DAG
+    traversal, so clearing it makes the next `hashcons` over a large shared
+    DAG expand it as a tree (exponential). The same hazard applies to the
+    other `PtrExpr`-keyed traversal caches. Any real GC must FILTER these
+    structures by reachability (mark-and-rebuild, keeping every live entry),
+    never bulk-clear. Kept (default-off) as the measured record and as the
+    trigger scaffold for v2. Original v1 rationale follows:
+
+    When `BLASTER_HASHCONS_GC=<n>` is set and
+    the intern table holds ≥ n entries, drop the table together with every
+    derived memo cache whose entries could dangle:
+
+    * `betaLambdaCache` and `contextReuseCache` MUST go — they are keyed by
+      bare packed pointer addresses (`InstKey`) and do not retain their key
+      objects; if the cleared table was the last retainer of a key's Expr,
+      a recycled address would produce a genuinely wrong cache hit.
+    * the `PtrExpr`-keyed memo caches (inferType, funEnvInfo, funBody,
+      isProp, isNotFun, matchAlts, genericMatch, forallMeta, isCtorMatchProp)
+      retain their keys and are merely repriced — cleared so their Expr
+      retention does not defeat the point of the GC.
+
+    Semantic state (rewrite caches, hypothesis/equality/pattern maps, recFun
+    registrations, local context) is untouched. Consequences of a clear are
+    sharing loss and re-derivation only — never unsoundness: equal nodes
+    re-intern under new identities and pointer-keyed probes simply miss. -/
+def maybeGCHashCons : TranslateEnvT Unit := do
+  let interval ← Retention.gcIntervalRef.get
+  if interval == 0 then return ()
+  if (← get).optEnv.hashConsCache.size < interval then return ()
+  Retention.gcRunsRef.modify (· + 1)
+  modifyOptEnv fun o =>
+    { o with
+      hashConsCache := HashSet.emptyWithCapacity (1 <<< 20)
+      memCache := { o.memCache with
+        inferTypeCache := HashMap.emptyWithCapacity 4096
+        getFunEnvInfoCache := HashMap.emptyWithCapacity 1024
+        getFunBodyCache := HashMap.emptyWithCapacity 1024
+        isPropCache := HashMap.emptyWithCapacity 1024
+        isNotFunCache := HashMap.emptyWithCapacity 1024
+        matchAltsCache := HashMap.emptyWithCapacity 256
+        genericMatchCache := HashMap.emptyWithCapacity 64
+        forallMetaCache := HashMap.emptyWithCapacity 256
+        betaLambdaCache := HashMap.emptyWithCapacity 1024
+        contextReuseCache := HashMap.emptyWithCapacity 1024
+        isCtorMatchPropCache := HashSet.emptyWithCapacity 4096 } }
 
 end Blaster.Optimize
 

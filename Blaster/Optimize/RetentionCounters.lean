@@ -33,6 +33,28 @@ namespace Blaster.Optimize.Retention
 /-- Master switch, set by `Retention.init` when `BLASTER_RETENTION_PROFILE` is present. -/
 initialize enabledRef : IO.Ref Bool ← IO.mkRef false
 
+/-- Ancestor-walk memoization (see `findAncestorCache`): OFF by default —
+    measured A/B (2026-08-05): memo-on LOSES at both quick rungs
+    (1600: 39.7 s vs 36.9 s; 1700: 92.1 s vs 87.2 s; oleans identical) —
+    the insert traffic costs more than the walk it saves. Kept behind
+    `BLASTER_MEMO_DEPTH=<n>0` for re-testing at deeper budgets only. -/
+initialize walkMemoRef : IO.Ref Bool ← do
+  let v := (← IO.getEnv "BLASTER_MEMO_DEPTH").bind String.toNat?
+  IO.mkRef (v.getD 0 != 0)
+
+/-- Hash-cons GC v1 (clear-based): when the intern table's entry count
+    reaches this threshold, `maybeGCHashCons` clears it together with every
+    derived memo cache — mandatorily including the two bare-pointer
+    `InstKey`-keyed caches (`betaLambdaCache`, `contextReuseCache`), which
+    would otherwise hold recyclable addresses of objects the cleared table
+    may have been the last retainer of. `0` (default) = disabled.
+    Set via `BLASTER_HASHCONS_GC=<entry count>`. -/
+initialize gcIntervalRef : IO.Ref Nat ← do
+  IO.mkRef (((← IO.getEnv "BLASTER_HASHCONS_GC").bind String.toNat?).getD 0)
+
+/-- Number of GC clears performed (diagnostic, reported in the CSV). -/
+initialize gcRunsRef : IO.Ref Nat ← IO.mkRef 0
+
 @[inline] def enabledIO : IO Bool := enabledRef.get
 
 /-- Bump `r` by `n` iff profiling is enabled. -/

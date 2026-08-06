@@ -360,6 +360,8 @@ def optimizeIfThenElse? (f : Expr) (args : Array Expr) (stack : List OptimizeSta
 def isInOptimizeEnvCache (a : Expr) (stack : List OptimizeStack) (mvarDecls : Option MVarIdDecls) : TranslateEnvT (Sum (List OptimizeStack) OptimizeContinuity) := do
   -- retention profiling: one driver iteration (no-op unless BLASTER_RETENTION_PROFILE is set)
   if ← Retention.due then Retention.sample "tick" stack.length
+  -- hash-cons GC v1 (no-op unless BLASTER_HASHCONS_GC is set)
+  maybeGCHashCons
   let env ← get
   -- NOTE: Always consider global context when `a` does not contain any FVar/MVar
   let isGlobal := !(hasVar a) || isGlobalContext env

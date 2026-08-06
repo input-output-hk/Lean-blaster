@@ -54,7 +54,7 @@ private def header : String :=
   "curCtx,nextCtxId,activeCtxs,lctx_decls,localInsts,mAssignments,mvarCounter," ++
   "p0a_localMiss,p0a_sampled,p0a_globalHit,p0a_activeHit," ++
   "p0b_propagated,p0b_freed,p0b_freedLive," ++
-  "p0c_matchPull,p0c_ditePull,p0c_innerAlts,p0c_outerAlts,hypq_calls,hypq_interned\n"
+  "p0c_matchPull,p0c_ditePull,p0c_innerAlts,p0c_outerAlts,hypq_calls,hypq_interned,gc_runs\n"
 
 /-- Read `VmRSS` (kB) from `/proc/self/status`; `0` if unavailable. -/
 def rssKb : IO Nat := do
@@ -175,7 +175,7 @@ def sample (phase : String) (stackDepth : Nat) : TranslateEnvT Unit := do
         ← p0aLocalMiss.get, ← p0aSampled.get, ← p0aGlobalHit.get, ← p0aActiveHit.get,
         ← p0bPropagated.get, ← p0bFreed.get, ← p0bFreedLive.get,
         ← p0cMatchPull.get, ← p0cDitePull.get, ← p0cInnerAlts.get, ← p0cOuterAlts.get,
-        ← hypqCalls.get, ← hypqInterned.get ]
+        ← hypqCalls.get, ← hypqInterned.get, ← gcRunsRef.get ]
     let line := s!"{phase},{elapsed},{iters}," ++ String.intercalate "," (cols.map toString) ++ "\n"
     h.putStr line
     h.flush
