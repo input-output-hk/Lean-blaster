@@ -111,6 +111,17 @@ structure OptimizeOptions where
       (p0a counters, budgets 1600/1700/1900). -/
   parents : HashMap CtxId CtxId := HashMap.emptyWithCapacity 1024
 
+  /-- Direct-ref mirror of the live scope chain, top = current context:
+      `(ctxId, its rewrite-map ref once one exists)`. Cuts each ancestor-walk
+      step from 4 dependent random loads (outer map probe + ref read + inner
+      probe + parents probe) to ≤2 (ref read + inner probe). Maintained at
+      the four curCtx transition sites (`newCtx` push / `setAndCommitCtx`
+      push / `endCtx` pop / `resetChoiceContext` pop) and repointed by
+      `updateLocalRewriteCache` when a context's map is first created.
+      `findAncestorCache` falls back to the `parents` walk if the top
+      doesn't match `curCtx` (invariant safety net). -/
+  chain : Array (CtxId × Option (IO.Ref (HashMap PtrExpr Lean.Expr))) := #[]
+
 instance : Inhabited OptimizeOptions where
   default := { normalizeFunCall := true, inFunApp := false, mcDepth := 0, solverOptions := default, resetOptions := default }
 
@@ -852,12 +863,16 @@ def updateGlobalRewriteCache (a : Expr) (b : Expr) (insertIfNew := false) : Tran
 /-- Update rewrite cache at curCtx with `a := b`. -/
 @[always_inline, inline]
 def updateLocalRewriteCache (a : Expr) (b : Expr) (insertIfNew := false) : TranslateEnvT Unit := do
-  let ⟨_, rewriteCache, _, _, _, _, _, _, _, _, ⟨_, _, _, _, curCtx, _, _, _, _⟩, _, _, _⟩ := (← get).optEnv
+  let ⟨_, rewriteCache, _, _, _, _, _, _, _, _, ⟨_, _, _, _, curCtx, _, _, _, _, _⟩, _, _, _⟩ := (← get).optEnv
   match rewriteCache.get? curCtx with
   | none =>
        let refEntry ← IO.mkRef $ (HashMap.emptyWithCapacity 256 : HashMap PtrExpr Expr).insert a b
        modifyOptEnv
          fun ⟨o1, rewriteCache, o3, o4, o5, o6, o7, o8, o9, o10, options, o12, o13, o14⟩ =>
+             -- repoint the scope chain's top at the newly created map
+             let options := if options.chain.size > 0 && (options.chain.back!).1 == options.curCtx
+               then { options with chain := options.chain.set! (options.chain.size - 1) (options.curCtx, some refEntry) }
+               else options
              ⟨o1, rewriteCache.insert options.curCtx refEntry, o3, o4, o5, o6, o7, o8, o9, o10, options, o12, o13, o14⟩
   | some refEntry => refEntry.modify (λ h => if insertIfNew then h.insertIfNew a b else h.insert a b)
 
@@ -887,7 +902,7 @@ def updateEqualityMap (lhs : Expr) (rhs : Expr) (ctxId : CtxId) : TranslateEnvT 
     newest entry visible in the current context (tag ∈ active). -/
 @[always_inline, inline]
 def eqMapFind? (lhs : Expr) : TranslateEnvT (Option Expr) := do
-  let ⟨_, _, _, _, _, _, _, ⟨_, equalityMap⟩, _, _, ⟨_, _, _, _, _, _, active, _, _⟩, _, _, _⟩ := (← get).optEnv
+  let ⟨_, _, _, _, _, _, _, ⟨_, equalityMap⟩, _, _, ⟨_, _, _, _, _, _, active, _, _, _⟩, _, _, _⟩ := (← get).optEnv
   if equalityMap.size == 0
   then return none
   else ContextMap.findRaw equalityMap active lhs
@@ -897,7 +912,7 @@ def eqMapFind? (lhs : Expr) : TranslateEnvT (Option Expr) := do
     proof of the newest entry for `e` whose tag is active in the current context. -/
 @[always_inline, inline]
 def hypMapFind? (e : Expr) : TranslateEnvT (Option Expr) := do
-  let ⟨_, _, _, _, _, _, _, ⟨hypothesisMap, _⟩, _, _, ⟨_, _, _, _, _, _, active, _, _⟩, _, _, _⟩ := (← get).optEnv
+  let ⟨_, _, _, _, _, _, _, ⟨hypothesisMap, _⟩, _, _, ⟨_, _, _, _, _, _, active, _, _, _⟩, _, _, _⟩ := (← get).optEnv
   if hypothesisMap.size == 0
   then return none
   else ContextMap.findRaw hypothesisMap active e
@@ -916,21 +931,25 @@ def newCtx : TranslateEnvT CtxScope := do
    let parent := env.optEnv.options.curCtx
    (⟨parent, current⟩, {env with optEnv.options.nextCtxId := current + 1, optEnv.options.curCtx := current
                                  optEnv.options.active := env.optEnv.options.active.insert current
-                                 optEnv.options.parents := env.optEnv.options.parents.insert current parent })
+                                 optEnv.options.parents := env.optEnv.options.parents.insert current parent
+                                 optEnv.options.chain := env.optEnv.options.chain.push (current, none) })
 
 @[always_inline, inline]
 def setAndCommitCtx (s : CtxScope) : TranslateEnvT Unit :=
   modify fun env => { env with optEnv.options.curCtx := s.current,
-                               optEnv.options.active := env.optEnv.options.active.insert s.current }
+                               optEnv.options.active := env.optEnv.options.active.insert s.current,
+                               optEnv.options.chain :=
+                                 env.optEnv.options.chain.push
+                                   (s.current, env.optEnv.rewriteCache.get? s.current) }
 
 /-- Leave a committed scope: deactivate its id, restore the parent and delete the corresponding rewrite cache.
     Its entries remain in the map (tagged, now invisible).
 -/
 @[always_inline, inline]
 def endCtx (s : CtxScope) : TranslateEnvT Unit :=
-  modifyOptEnv fun ⟨o1, rewrite, o3, o4, o5, o6, o7, o8, o9, o10, ⟨s1, s2, s3, s4, _, s6, active, s7, s8⟩, o12, o13, o14⟩ =>
+  modifyOptEnv fun ⟨o1, rewrite, o3, o4, o5, o6, o7, o8, o9, o10, ⟨s1, s2, s3, s4, _, s6, active, s7, s8, chain⟩, o12, o13, o14⟩ =>
                    ⟨o1, rewrite.erase s.current, o3, o4, o5, o6, o7, o8, o9, o10,
-                   ⟨s1, s2, s3, s4, s.parent, s6, active.erase s.current, s7, s8⟩, o12, o13, o14⟩
+                   ⟨s1, s2, s3, s4, s.parent, s6, active.erase s.current, s7, s8, chain.pop⟩, o12, o13, o14⟩
 
 
 
@@ -946,7 +965,7 @@ def ContextReuseMap.findRaw (m : ContextReuseMap) (e : Expr) (idx : USize) (curC
 
 @[always_inline, inline]
 def reuseContext? (e : Expr) (idx : USize) : TranslateEnvT (Option CtxReuseScope) := do
-  let ⟨_, _, _, _, _, _, _, _, _, memCache, ⟨_, _, _, _, curCtx, _, _, _, _⟩, _, _, _⟩ := (← get).optEnv
+  let ⟨_, _, _, _, _, _, _, _, _, memCache, ⟨_, _, _, _, curCtx, _, _, _, _, _⟩, _, _, _⟩ := (← get).optEnv
   memCache.contextReuseCache.findRaw e idx curCtx
 
 @[always_inline, inline]
@@ -1187,7 +1206,7 @@ def updateContextReuseCache (e : Expr) (idx : USize) (s : CtxReuseScope) : Trans
 
 
 @[inline] def propagateReuseContext (current : Expr) (next : Expr) (idx : USize) : TranslateEnvT Unit := do
-  let ⟨_, _, _, _, _, _, _, _, _, memCache, ⟨_, _, _, _, curCtx, _, _, _, _⟩, _, _, _⟩ := (← get).optEnv
+  let ⟨_, _, _, _, _, _, _, _, _, memCache, ⟨_, _, _, _, curCtx, _, _, _, _, _⟩, _, _, _⟩ := (← get).optEnv
   match ← memCache.contextReuseCache.findRaw current idx curCtx with
   | some reuse => updateContextReuseCache next idx reuse
   | none => return ()
@@ -1201,7 +1220,7 @@ def updateContextReuseCache (e : Expr) (idx : USize) (s : CtxReuseScope) : Trans
                     ⟨o1, rewrite, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14⟩
 
 @[inline] def freeRewriteCacheReuse (e : Expr) (idx : USize) : TranslateEnvT Unit := do
-  let ⟨_, _, _, _, _, _, _, _, _, memCache, ⟨_, _, _, _, curCtx, _, _, _, _⟩, _, _, _⟩ := (← get).optEnv
+  let ⟨_, _, _, _, _, _, _, _, _, memCache, ⟨_, _, _, _, curCtx, _, _, _, _, _⟩, _, _, _⟩ := (← get).optEnv
   match ← memCache.contextReuseCache.findRaw e idx curCtx with
   | some reuse =>
       modifyOptEnv
@@ -1235,6 +1254,29 @@ def findGlobalCache (a : Expr) (env : TranslateEnv) : IO Expr :=
 partial def findAncestorCache (a : Expr) (env : TranslateEnv) : IO Expr := do
   let o := env.optEnv
   let curCtx := o.options.curCtx
+  -- FAST PATH: direct-ref scope chain (top must mirror curCtx; if the
+  -- invariant is broken we fall through to the parents walk below).
+  -- ≤2 dependent loads per step vs 4; ends with the global (ctx 0) map.
+  let chain := o.options.chain
+  if h : chain.size > 0 then
+    if (chain.back!).1 == curCtx then
+      let rec goc (i : Nat) : IO Expr := do
+        match i with
+        | 0 =>
+          match o.rewriteCache.get? 0 with
+          | some refEntry => pure ((← refEntry.get).getD a instCacheMiss)
+          | none => pure instCacheMiss
+        | i + 1 =>
+          let (_, ref?) := chain[i]!
+          let v ← do
+            match ref? with
+            | some ref => pure ((← ref.get).getD a instCacheMiss)
+            | none => pure instCacheMiss
+          if !exprEq v instCacheMiss then return v
+          else goc i
+      return ← goc chain.size
+  -- fallback: parents walk (also the path when the chain is empty, e.g.
+  -- curCtx = 0 with no scopes open)
   let curRef? := o.rewriteCache.get? curCtx
   let rec go (ctx : CtxId) (depth : Nat) : IO Expr := do
     -- (`pure`, not `return`: a `return` here would exit `go` with the probe

@@ -16,7 +16,7 @@ partial def eraseMatchRhsRewriteCache (mInfo : MatchInfo) : TranslateEnvT Unit :
     else
       freeRewriteCacheReuse mInfo.nameExpr (idx - offset)
       visit (idx + 1) stop offset
-  let ⟨_, _, _, _, _, _, _, _, _, memCache, ⟨_, _, _, _, curCtx, _, _, _, _⟩, _, _, _⟩ := (← get).optEnv
+  let ⟨_, _, _, _, _, _, _, _, _, memCache, ⟨_, _, _, _, curCtx, _, _, _, _, _⟩, _, _, _⟩ := (← get).optEnv
   if (← memCache.contextReuseCache.findRaw mInfo.nameExpr 0 curCtx).isSome then
     let start := mInfo.getFirstAltPos.toUSize
     visit start mInfo.arity.toUSize start
@@ -318,7 +318,7 @@ def reduceMatch? (args : Array Expr) (mInfo : MatchInfo) (resolveArgs := false) 
      else allMatchDiscrsAreCtor args (idx + 1) stop
 
     resolveArgsWithEqualityStack (args : Array Expr) : TranslateEnvT (Array Expr) := do
-     let ⟨_, _, _, _, _, _, _, ⟨_, equalityMap⟩, _, _, ⟨_, _, _, _, _, _, active, _, _⟩, _, _, _⟩ := (← get).optEnv
+     let ⟨_, _, _, _, _, _, _, ⟨_, equalityMap⟩, _, _, ⟨_, _, _, _, _, _, active, _, _, _⟩, _, _, _⟩ := (← get).optEnv
      let rec visit (idx : Nat) (stop : Nat) (args : Array Expr) : TranslateEnvT (Array Expr) := do
        if idx ≥ stop then return args
        else
@@ -738,7 +738,7 @@ partial def optimizeMatchAlt
        return .InitOptimizeExpr body :: .MatchAltWaitForExpr reuse.fvars (some reuse.scope) currIdx mInfo :: stack
   | none =>
        let alts ← getMatchAlts args mInfo
-       let ⟨_, ⟨_, _, _, _, _, _, _, _, _,_, ⟨_, _, _, _, _, nextCtxId, _, _, _⟩, _, _, _⟩⟩ ← get
+       let ⟨_, ⟨_, _, _, _, _, _, _, _, _,_, ⟨_, _, _, _, _, nextCtxId, _, _, _, _⟩, _, _, _⟩⟩ ← get
        let updatedMCtx ← addNotEqPatternToContext args mInfo alts 0 currIdx nextCtxId false
        forallTelescope alts[currIdx]! fun xs b => do
          let lhs := b.getAppArgs
@@ -847,7 +847,7 @@ where
 
   @[always_inline, inline]
   lastPatternReduction? (mInfo : MatchInfo) (args : Array Expr) : TranslateEnvT (Option MatchElimResult) := do
-     let ⟨_, _, _, _, _, _, _, _, matchInContext, _, ⟨_, _, _, _, _, _, active, _, _⟩, _, _, _⟩ := (← get).optEnv
+     let ⟨_, _, _, _, _, _, _, _, matchInContext, _, ⟨_, _, _, _, _, _, active, _, _, _⟩, _, _, _⟩ := (← get).optEnv
      let h := (← get).optEnv.matchInContext
      let alts ← getMatchAlts args mInfo
      -- all last patterns are FVars
