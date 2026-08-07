@@ -9,6 +9,17 @@ namespace Blaster.Optimize
 
 theorem int_add_neg_add (a b c : Int) : a + -(b + c) = (a - b) + -c := by omega
 
+/-- Return `true` when `e` corresponds to the zero int literal. -/
+@[always_inline, inline]
+def isZeroInt (e : Expr) : Bool :=
+  match isIntValue? e with
+  | some (Int.ofNat 0) => true
+  | _ => false
+
+theorem int_ne_zero_of_zero_lt {n : Int} (h : 0 < n) : n ≠ 0 := by omega
+theorem int_ne_zero_of_lt_zero {n : Int} (h : n < 0) : n ≠ 0 := by omega
+theorem int_ne_zero_of_not_zero_eq {n : Int} (h : ¬ (0 = n)) : n ≠ 0 := by omega
+
 /-- Apply the following simplification/normalization rules on `Int.neg` :
      - - (N) ==> "-" N
      - - (- n) ==> n      [proof: Int.neg_neg]
@@ -159,6 +170,38 @@ def mulIntDivReduceExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) :
      return none
   | none => return none
 
+/-- Find an FVar proof of `e ≠ 0` in the optimizer's local context, wrapping the
+    hypothesis found (`0 < e`, `e < 0`, or `¬ (0 = e)`) with the matching bridge
+    lemma. Assumes `nonZeroIntInHyps e` has returned `true`. -/
+def findNeZeroIntProof? (e : Expr) : TranslateEnvT (Option Expr) := withLocalContext $ do
+  let lctx ← getLCtx
+  -- First pass: 0 < e
+  for decl in lctx do
+    if decl.isImplementationDetail then continue
+    let ty := decl.type
+    if ty.isAppOfArity ``LT.lt 4 then
+      let args := ty.getAppArgs
+      if args[0]!.isConstOf ``Int && isZeroInt args[2]! && exprEq args[3]! e then
+        return some (mkApp2 (mkConst ``int_ne_zero_of_zero_lt) e (mkFVar decl.fvarId))
+  -- Second pass: e < 0
+  for decl in lctx do
+    if decl.isImplementationDetail then continue
+    let ty := decl.type
+    if ty.isAppOfArity ``LT.lt 4 then
+      let args := ty.getAppArgs
+      if args[0]!.isConstOf ``Int && exprEq args[2]! e && isZeroInt args[3]! then
+        return some (mkApp2 (mkConst ``int_ne_zero_of_lt_zero) e (mkFVar decl.fvarId))
+  -- Third pass: ¬ (0 = e)
+  for decl in lctx do
+    if decl.isImplementationDetail then continue
+    let ty := decl.type
+    if let some inner := ty.not? then
+      if inner.isAppOfArity ``Eq 3 then
+        let args := inner.getAppArgs
+        if args[0]!.isConstOf ``Int && isZeroInt args[1]! && exprEq args[2]! e then
+          return some (mkApp2 (mkConst ``int_ne_zero_of_not_zero_eq) e (mkFVar decl.fvarId))
+  return none
+
 /--
   Data type to distinguish between the three integer division operators:
    - `Int.ediv`
@@ -208,9 +251,28 @@ def optimizeIntDivCommon (d: DivKind) (op1 : Expr) (op2 : Expr) : TranslateEnvT 
   return op1
  | some n1, some n2 => evalBinIntOp Int.ediv n1 n2
  | _, _ =>
-   if let some r ← intDivSelfReduce? op1 op2 then return r
-   if let some r ← mulIntDivReduceExpr? op1 op2 then return r
+   if let some r ← intDivSelfReduce? op1 op2 then
+     if let DivKind.ediv := d then emitEDivSelfProofStep op1
+     return r
+   if let some r ← mulIntDivReduceExpr? op1 op2 then
+     if let DivKind.ediv := d then emitMulEDivProofStep op1 op2
+     return r
    return none
+
+ where
+   /-- Emit the proof step for n / n ==> 1 (requires n ≠ 0). -/
+   emitEDivSelfProofStep (n : Expr) : TranslateEnvT Unit := do
+     if let some h ← findNeZeroIntProof? n then
+       pushProofStep (.rewrite (mkApp2 (mkConst ``Int.ediv_self) n h))
+
+   /-- Emit the proof step for (m * n) / n ==> m or (n * m) / n ==> m (requires n ≠ 0). -/
+   emitMulEDivProofStep (op1 op2 : Expr) : TranslateEnvT Unit := do
+     let some (a, b) := intMul? op1 | return ()
+     let some h ← findNeZeroIntProof? op2 | return ()
+     if exprEq b op2 then
+       pushProofStep (.rewrite (mkApp3 (mkConst ``Int.mul_ediv_cancel) a op2 h))
+     else if exprEq a op2 then
+       pushProofStep (.rewrite (mkApp3 (mkConst ``Int.mul_ediv_cancel_left) op2 b h))
 
 /- Given `op1` and `op2` corresponding to the operands for `Int.ediv`, `Int.tdiv` and `Int.fdiv`,
    and `f_div` the corresponding divisor operator,
@@ -238,11 +300,12 @@ def cstCommonDivProp?
      - n / 1 ==> n                                              [proof: Int.ediv_one]
      - 0 / n ==> 0                                              [proof: Int.zero_ediv]
      - N1 / N2 ==> N1 "/ₑ" N2
-     - n / n ==> 1
+     - n / n ==> 1                                              [proof: Int.ediv_self]
          (if 0 < n := _ ∈ hypothesisContext.hypothesisMap ∨
              ¬ (0 = n) := _ ∈ hypothesisContext.hypothesisMap ∨
              n < 0 := _ ∈ hypothesisContext.hypothesisMap )
-     - (m * n) / m | (n * m) / m ==> n
+     - (m * n) / m ==> n                                        [proof: Int.mul_ediv_cancel_left]
+     - (n * m) / m ==> n                                        [proof: Int.mul_ediv_cancel]
          (if  0 < m := _ ∈ hypothesisContext.hypothesisMap ∨
               ¬ (0 = m) := _ ∈ hypothesisContext.hypothesisMap ∨
               m < 0 := _ ∈ hypothesisContext.hypothesisMap)
@@ -319,10 +382,23 @@ def optimizeIntModCommon (m : ModKind) (op1 : Expr) (op2 : Expr) : TranslateEnvT
  | some n1, some n2 => evalBinIntOp Int.emod n1 n2
  | _, nv2 =>
    if let some r ← cstModProp? op1 nv2 then return r
-   if let some r ← intModToZeroExpr? op1 op2 then return r
+   if let some r ← intModToZeroExpr? op1 op2 then
+     if let ModKind.emod := m then emitEModToZeroProofStep op1 op2
+     return r
    return none
 
  where
+   /-- Emit the proof step for n % n ==> 0, (m * n) % m ==> 0, or (n * m) % m ==> 0. -/
+   emitEModToZeroProofStep (op1 op2 : Expr) : TranslateEnvT Unit := do
+     if exprEq op1 op2 then
+       pushProofStep (.rewrite (mkConst ``Int.emod_self))
+     else
+       let some (a, b) := intMul? op1 | return ()
+       if exprEq a op2 then
+         pushProofStep (.rewrite (mkConst ``Int.mul_emod_right))
+       else if exprEq b op2 then
+         pushProofStep (.rewrite (mkConst ``Int.mul_emod_left))
+
    /- Given `op1` and `mv2`, return `some 0`
       when `op1 := N1 * n ∧ mv2 := N2 ∧ N1 % N2 = 0`
       Otherwise `none`.
@@ -344,8 +420,9 @@ def optimizeIntModCommon (m : ModKind) (op1 : Expr) (op2 : Expr) : TranslateEnvT
      - 0 % n ==> 0                            [proof: Int.zero_emod]
      - N1 % N2 ==> N1 "%" N2
      - (N1 * n) % N2 ==> 0 (if N1 % N2 = 0)
-     - n1 % n2 ==> 0 (if n1 =ₚₜᵣ n2)
-     - (m * n) % m | (n * m) % m ==> 0
+     - n1 % n2 ==> 0 (if n1 =ₚₜᵣ n2)          [proof: Int.emod_self]
+     - (m * n) % m ==> 0                      [proof: Int.mul_emod_right]
+     - (n * m) % m ==> 0                      [proof: Int.mul_emod_left]
    Assume that f = Expr.const ``Int.emod.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Int.emod` expected at this stage)
 -/
