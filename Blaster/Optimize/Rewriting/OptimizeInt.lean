@@ -159,6 +159,16 @@ def mulIntDivReduceExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) :
      return none
   | none => return none
 
+/--
+  Data type to distinguish between the three integer division operators:
+   - `Int.ediv`
+   - `Int.tdiv`
+   - `Int.fdiv`
+-/
+inductive DivKind where
+  | ediv
+  | tdiv
+  | fdiv
 
 /-- Given `op1` and `op2` corresponding to the operands for `Int.ediv`, `Int.tdiv` and `Int.fdiv`,
     try to apply the following simplification rules:
@@ -176,11 +186,26 @@ def mulIntDivReduceExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) :
                m < 0 := _ ∈ hypothesisContext.hypothesisMap)
 -/
 @[always_inline, inline]
-def optimizeIntDivCommon (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
+def optimizeIntDivCommon (d: DivKind) (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
  match isIntValue? op1, isIntValue? op2 with
- | _, some (Int.ofNat 0) => return op2
- | _, some (Int.ofNat 1)
- | some (Int.ofNat 0), _ => return op1
+ | _, some (Int.ofNat 0) =>
+  match d with
+  | DivKind.ediv => pushProofStep (.rewrite (mkConst ``Int.ediv_zero))
+  | DivKind.tdiv => pushProofStep (.rewrite (mkConst ``Int.tdiv_zero))
+  | DivKind.fdiv => pushProofStep (.rewrite (mkConst ``Int.fdiv_zero))
+  return op2
+ | _, some (Int.ofNat 1) =>
+  match d with
+  | DivKind.ediv => pushProofStep (.rewrite (mkConst ``Int.ediv_one))
+  | DivKind.tdiv => pushProofStep (.rewrite (mkConst ``Int.tdiv_one))
+  | DivKind.fdiv => pushProofStep (.rewrite (mkConst ``Int.fdiv_one))
+  return op1
+ | some (Int.ofNat 0), _ =>
+  match d with
+  | DivKind.ediv => pushProofStep (.rewrite (mkConst ``Int.zero_ediv))
+  | DivKind.tdiv => pushProofStep (.rewrite (mkConst ``Int.zero_tdiv))
+  | DivKind.fdiv => pushProofStep (.rewrite (mkConst ``Int.zero_fdiv))
+  return op1
  | some n1, some n2 => evalBinIntOp Int.ediv n1 n2
  | _, _ =>
    if let some r ← intDivSelfReduce? op1 op2 then return r
@@ -209,9 +234,9 @@ def cstCommonDivProp?
 
 
 /-- Apply the following simplification/normalization rules on `Int.ediv`:
-     - n / 0 ==> 0
-     - n / 1 ==> n
-     - 0 / n ==> 0
+     - n / 0 ==> 0                                              [proof: Int.ediv_zero]
+     - n / 1 ==> n                                              [proof: Int.ediv_one]
+     - 0 / n ==> 0                                              [proof: Int.zero_ediv]
      - N1 / N2 ==> N1 "/ₑ" N2
      - n / n ==> 1
          (if 0 < n := _ ∈ hypothesisContext.hypothesisMap ∨
@@ -229,7 +254,7 @@ def optimizeIntEDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeIntEDiv: exactly two arguments expected"
  let op1 := args[0]!
  let op2 := args[1]!
- if let some r ← optimizeIntDivCommon op1 op2 then return r
+ if let some r ← optimizeIntDivCommon DivKind.ediv op1 op2 then return r
  if let some (op1', op2') ← cstCommonDivProp? op1 op2 Int.ediv then return mkApp2 f op1' op2'
  return (mkApp2 f op1 op2)
 
@@ -249,6 +274,17 @@ def intModToZeroExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := d
      return none
   | none => return none
 
+
+/- Data type for distinguishing between the three integer modulus operators:
+   - `Int.emod`
+   - `Int.tmod`
+   - `Int.fmod`
+-/
+inductive ModKind where
+  | emod
+  | tmod
+  | fmod
+
 /--  Given `op1` and `op2` corresponding to the operands for `Int.emod`, `Int.fmod` and `Int.tmod`,
      try to apply the following simplification rules:
      - n % 0 ==> n
@@ -260,11 +296,26 @@ def intModToZeroExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := d
      - (m * n) % m | (n * m) % m ==> 0
 -/
 @[always_inline, inline]
-def optimizeIntModCommon (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
+def optimizeIntModCommon (m : ModKind) (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
  match isIntValue? op1, isIntValue? op2 with
- | _, some (Int.ofNat 0) => return op1
- | _, some (Int.ofNat 1) => mkIntLitExpr (Int.ofNat 0)
- | some (Int.ofNat 0), _ => return op1
+ | _, some (Int.ofNat 0) =>
+  match m with
+  | ModKind.emod => pushProofStep (.rewrite (mkConst ``Int.emod_zero))
+  | ModKind.tmod => pushProofStep (.rewrite (mkConst ``Int.tmod_zero))
+  | ModKind.fmod => pushProofStep (.rewrite (mkConst ``Int.fmod_zero))
+  return op1
+ | _, some (Int.ofNat 1) =>
+  match m with
+  | ModKind.emod => pushProofStep (.rewrite (mkConst ``Int.emod_one))
+  | ModKind.tmod => pushProofStep (.rewrite (mkConst ``Int.tmod_one))
+  | ModKind.fmod => pushProofStep (.rewrite (mkConst ``Int.fmod_one))
+  mkIntLitExpr (Int.ofNat 0)
+ | some (Int.ofNat 0), _ =>
+  match m with
+  | ModKind.emod => pushProofStep (.rewrite (mkConst ``Int.zero_emod))
+  | ModKind.tmod => pushProofStep (.rewrite (mkConst ``Int.zero_tmod))
+  | ModKind.fmod => pushProofStep (.rewrite (mkConst ``Int.zero_fmod))
+  return op1
  | some n1, some n2 => evalBinIntOp Int.emod n1 n2
  | _, nv2 =>
    if let some r ← cstModProp? op1 nv2 then return r
@@ -288,9 +339,9 @@ def optimizeIntModCommon (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr)
     | _, _ => return none
 
 /-- Apply the following simplification/normalization rules on `Int.emod` :
-     - n % 0 ==> n
-     - n % 1 ==> 0
-     - 0 % n ==> 0
+     - n % 0 ==> n                            [proof: Int.emod_zero]
+     - n % 1 ==> 0                            [proof: Int.emod_one]
+     - 0 % n ==> 0                            [proof: Int.zero_emod]
      - N1 % N2 ==> N1 "%" N2
      - (N1 * n) % N2 ==> 0 (if N1 % N2 = 0)
      - n1 % n2 ==> 0 (if n1 =ₚₜᵣ n2)
@@ -303,13 +354,13 @@ def optimizeIntEMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeIntEMod: exactly two arguments expected"
  let op1 := args[0]!
  let op2 := args[1]!
- if let some r ← optimizeIntModCommon op1 op2 then return r
+ if let some r ← optimizeIntModCommon ModKind.emod op1 op2 then return r
  return (mkApp2 f op1 op2)
 
 /-- Apply the following simplification/normalization rules on `Int.tdiv`:
-     - n / 0 ==> 0
-     - n / 1 ==> n
-     - 0 / n ==> 0
+     - n / 0 ==> 0                                              [proof: Int.tdiv_zero]
+     - n / 1 ==> n                                              [proof: Int.tdiv_one]
+     - 0 / n ==> 0                                              [proof: Int.zero_tdiv]
      - N1 / N2 ==> N1 "/" N2
      - n / n ==> 1
          (if 0 < n := _ ∈ hypothesisContext.hypothesisMap ∨
@@ -328,7 +379,7 @@ def optimizeIntTDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeIntTDiv: exactly two arguments expected"
  let op1 := args[0]!
  let op2 := args[1]!
- if let some r ← optimizeIntDivCommon op1 op2 then return r
+ if let some r ← optimizeIntDivCommon DivKind.tdiv op1 op2 then return r
  if let some r ← cstTDivProp? op1 op2 then return r
  if let some (op1', op2') ← cstCommonDivProp? op1 op2 Int.tdiv then return mkApp2 f op1' op2'
  else return (mkApp2 f op1 op2)
@@ -347,9 +398,9 @@ def optimizeIntTDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      | _, _ => return none
 
 /-- Apply the following simplification/normalization rules on `Int.tmod` :
-     - n % 0 ==> n
-     - n % 1 ==> 0
-     - 0 % n ==> 0
+     - n % 0 ==> n              [proof: Int.tmod_zero]
+     - n % 1 ==> 0              [proof: Int.tmod_one]
+     - 0 % n ==> 0              [proof: Int.zero_tmod]
      - N1 % N2 ==> N1 "%" N2
      - (N1 * n) % N2 ==> 0 (if N1 % N2 = 0)
      - n1 % n2 ==> 0 (if n1 =ₚₜᵣ n2)
@@ -362,13 +413,13 @@ def optimizeIntTMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeIntTMod: exactly two arguments expected"
  let op1 := args[0]!
  let op2 := args[1]!
- if let some r ← optimizeIntModCommon op1 op2 then return r
+ if let some r ← optimizeIntModCommon ModKind.tmod op1 op2 then return r
  return (mkApp2 f op1 op2)
 
 /-- Apply the following simplification/normalization rules on `Int.fdiv`:
-     - n / 0 ==> 0
-     - n / 1 ==> n
-     - 0 / n ==> 0
+     - n / 0 ==> 0                                        [proof: Int.fdiv_zero]
+     - n / 1 ==> n                                        [proof: Int.fdiv_one]
+     - 0 / n ==> 0                                        [proof: Int.zero_fdiv]
      - N1 / N2 ==> N1 "/" N2
      - n / n ==> 1
          (if 0 < n := _ ∈ hypothesisContext.hypothesisMap ∨
@@ -386,14 +437,14 @@ def optimizeIntFDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeIntFDiv: exactly two arguments expected"
  let op1 := args[0]!
  let op2 := args[1]!
- if let some r ← optimizeIntDivCommon op1 op2 then return r
+ if let some r ← optimizeIntDivCommon DivKind.fdiv op1 op2 then return r
  if let some (op1', op2') ← cstCommonDivProp? op1 op2 Int.fdiv then return mkApp2 f op1' op2'
  return (mkApp2 f op1 op2)
 
 /-- Apply the following simplification/normalization rules on `Int.fmod` :
-     - n % 0 ==> n
-     - n % 1 ==> 0
-     - 0 % n ==> 0
+     - n % 0 ==> n                          [proof: Int.fmod_zero]
+     - n % 1 ==> 0                          [proof: Int.fmod_one]
+     - 0 % n ==> 0                          [proof: Int.zero_fmod]
      - N1 % N2 ==> N1 "%" N2
      - (N1 * n) % N2 ==> 0 (if N1 % N2 = 0)
      - n1 % n2 ==> 0 (if n1 =ₚₜᵣ n2)
@@ -406,7 +457,7 @@ def optimizeIntFMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeIntFMod: exactly two arguments expected"
  let op1 := args[0]!
  let op2 := args[1]!
- if let some r ← optimizeIntModCommon op1 op2 then return r
+ if let some r ← optimizeIntModCommon ModKind.fmod op1 op2 then return r
  return (mkApp2 f op1 op2)
 
 
