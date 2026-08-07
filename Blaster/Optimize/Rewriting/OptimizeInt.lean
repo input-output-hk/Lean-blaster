@@ -275,7 +275,7 @@ def intModToZeroExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := d
   | none => return none
 
 
-/- Data type for distinguishing between the three integer modulus operators:
+/-- Data type for distinguishing between the three integer modulo operators:
    - `Int.emod`
    - `Int.tmod`
    - `Int.fmod`
