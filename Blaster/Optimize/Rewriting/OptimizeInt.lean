@@ -20,7 +20,7 @@ def optimizeIntNeg (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let op := args[0]!
  if let some n1 := isIntValue? op then return (← mkIntLitExpr (Int.neg n1))
  if let some e := intNeg? op then return e
- return (mkApp f op)
+ mkAppExpr f op
 
 
 /-- Apply the following simplification/normalization rules on `Int.add` :
@@ -46,7 +46,7 @@ def optimizeIntAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  | nv1, _ =>
    if let some r ← cstAddProp? nv1 op2 then return r
    if isIntNegExprOf op2 op1 then return (← mkIntLitExpr (Int.ofNat 0))
-   return (mkApp2 f op1 op2)
+   mkApp2Expr f op1 op2
 
  where
   /- Given `mv1` and `op2`,
@@ -61,10 +61,10 @@ def optimizeIntAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      match (toIntCstOpExpr? op2) with
      | some (IntCstOpInfo.IntAddExpr n2 e2) =>
          setRestart
-         return mkApp2 f (← evalBinIntOp Int.add n1 n2) e2
+         mkApp2Expr f (← evalBinIntOp Int.add n1 n2) e2
      | some (IntCstOpInfo.IntNegAddExpr n2 e2) =>
          setRestart
-         return mkApp2 f (← evalBinIntOp Int.sub n1 n2) (mkApp (← mkIntNegOp) e2)
+         mkApp2Expr f (← evalBinIntOp Int.sub n1 n2) (← mkAppExpr (← mkIntNegOp) e2)
      | _ => return none
   | none => return none
 
@@ -87,11 +87,11 @@ def optimizeIntMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  | some (Int.ofNat 1), _ => return op2
  | some (Int.negSucc 0), _ =>
       setRestart
-      return mkApp (← mkIntNegOp) op2
+      mkAppExpr (← mkIntNegOp) op2
  | some n1, some n2 => evalBinIntOp Int.mul n1 n2
  | nv1, _ =>
    if let some r ← cstMulProp? nv1 op2 then return r
-   return (mkApp2 f op1 op2)
+   mkApp2Expr f op1 op2
 
  where
    /- Given `mv1` and `op2` return `some ((N1 "*" N2) * n)` when
@@ -101,7 +101,7 @@ def optimizeIntMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
    cstMulProp? (mv1 : Option Int) (op2 : Expr) : TranslateEnvT (Option Expr) := do
     match mv1, toIntCstOpExpr? op2 with
     | some n1, some (IntCstOpInfo.IntMulExpr n2 e2) =>
-       return (mkApp2 f (← evalBinIntOp Int.mul n1 n2) e2)
+        mkApp2Expr f (← evalBinIntOp Int.mul n1 n2) e2
     | _, _ => return none
 
 /-- Given `e1` and `e2` corresponding to the operands for `Int.ediv`, `Int.tdiv` and `Int.fdiv`,
@@ -116,7 +116,7 @@ def optimizeIntMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 def intDivSelfReduce? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := do
   if !(exprEq e1 e2) then return none
   if (← nonZeroIntInHyps e1)
-  then return ← mkIntLitExpr (Int.ofNat 1)
+  then mkIntLitExpr (Int.ofNat 1)
   else return none
 
 /-- Given `e1` and `e2` corresponding to the operands for `Int.ediv`, `Int.tdiv` and `Int.fdiv`,
@@ -184,7 +184,7 @@ def cstCommonDivProp?
     let gcd := Int.gcd n1 n2
     if gcd == 1 then return none
     setRestart
-    let mulExpr := mkApp2 (← mkIntMulOp) (← evalBinIntOp f_div n1 gcd) e1
+    let mulExpr ← mkApp2Expr (← mkIntMulOp) (← evalBinIntOp f_div n1 gcd) e1
     return (mulExpr, (← evalBinIntOp f_div n2 gcd))
  | _, _ => return none
 
@@ -211,8 +211,8 @@ def optimizeIntEDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let op1 := args[0]!
  let op2 := args[1]!
  if let some r ← optimizeIntDivCommon op1 op2 then return r
- if let some (op1', op2') ← cstCommonDivProp? op1 op2 Int.ediv then return mkApp2 f op1' op2'
- return (mkApp2 f op1 op2)
+ if let some (op1', op2') ← cstCommonDivProp? op1 op2 Int.ediv then return ← mkApp2Expr f op1' op2'
+ mkApp2Expr f op1 op2
 
 /-- Given `e1` and `e2` corresponding to the operands for `Int.emod`, `Int.fmod` and `Int.tmod`,
     return `some 0` only when one of the following conditions is satisfied:
@@ -285,7 +285,7 @@ def optimizeIntEMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let op1 := args[0]!
  let op2 := args[1]!
  if let some r ← optimizeIntModCommon op1 op2 then return r
- return (mkApp2 f op1 op2)
+ mkApp2Expr f op1 op2
 
 /-- Apply the following simplification/normalization rules on `Int.tdiv`:
      - n / 0 ==> 0
@@ -311,8 +311,8 @@ def optimizeIntTDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let op2 := args[1]!
  if let some r ← optimizeIntDivCommon op1 op2 then return r
  if let some r ← cstTDivProp? op1 op2 then return r
- if let some (op1', op2') ← cstCommonDivProp? op1 op2 Int.tdiv then return mkApp2 f op1' op2'
- else return (mkApp2 f op1 op2)
+ if let some (op1', op2') ← cstCommonDivProp? op1 op2 Int.tdiv then return ← mkApp2Expr f op1' op2'
+ else mkApp2Expr f op1 op2
 
  where
    /- Given `op1` and `op2` corresponding to the operands for Int.tdiv,
@@ -324,7 +324,7 @@ def optimizeIntTDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
    cstTDivProp? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
      let some (e1, n) := intTDiv? op1 | return none
      match isIntValue? n, isIntValue? op2 with
-     | some n1, some n2 => return (mkApp2 f e1 (← evalBinIntOp Int.mul n1 n2))
+     | some n1, some n2 => mkApp2Expr f e1 (← evalBinIntOp Int.mul n1 n2)
      | _, _ => return none
 
 /-- Apply the following simplification/normalization rules on `Int.tmod` :
@@ -344,7 +344,7 @@ def optimizeIntTMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let op1 := args[0]!
  let op2 := args[1]!
  if let some r ← optimizeIntModCommon op1 op2 then return r
- return (mkApp2 f op1 op2)
+ mkApp2Expr f op1 op2
 
 /-- Apply the following simplification/normalization rules on `Int.fdiv`:
      - n / 0 ==> 0
@@ -368,8 +368,8 @@ def optimizeIntFDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let op1 := args[0]!
  let op2 := args[1]!
  if let some r ← optimizeIntDivCommon op1 op2 then return r
- if let some (op1', op2') ← cstCommonDivProp? op1 op2 Int.fdiv then return mkApp2 f op1' op2'
- return (mkApp2 f op1 op2)
+ if let some (op1', op2') ← cstCommonDivProp? op1 op2 Int.fdiv then return ← mkApp2Expr f op1' op2'
+ mkApp2Expr f op1 op2
 
 /-- Apply the following simplification/normalization rules on `Int.fmod` :
      - n % 0 ==> n
@@ -388,7 +388,7 @@ def optimizeIntFMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let op1 := args[0]!
  let op2 := args[1]!
  if let some r ← optimizeIntModCommon op1 op2 then return r
- return (mkApp2 f op1 op2)
+ mkApp2Expr f op1 op2
 
 
 /-- Return `some e` if `n := Int.neg (Int.ofNat e)`. Otherwise return `none`. -/
@@ -411,7 +411,7 @@ def optimizeIntToNat (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if let some n := isIntValue? op then return (← mkNatLitExpr (Int.toNat n))
  if let some e := op.app1? ``Int.ofNat then return e
  if let some .. := intNegOfNat? op then return (← mkNatLitExpr 0)
- return (mkApp f op)
+ mkAppExpr f op
 
 /-- Normalize `Int.negSucc n` to `Int.neg (Int.ofNat (1 + n))` only when `n` is not a constant value.
     An error is triggered if args.size ≠ 1.
@@ -422,11 +422,11 @@ def optimizeIntToNat (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 def optimizeIntNegSucc (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 1 then throwEnvError "optimizeIntNegSucc: only one argument expected"
  let op := args[0]!
- if isNatValue op then return (mkApp f op)
+ if isNatValue op then return ← mkAppExpr f op
  setRestart
- let addExpr := mkApp2 (← mkNatAddOp) (← mkNatLitExpr 1) args[0]!
- let intExpr := mkApp (← mkIntOfNat) addExpr
- return mkApp (← mkIntNegOp) intExpr
+ let addExpr ← mkApp2Expr (← mkNatAddOp) (← mkNatLitExpr 1) args[0]!
+ let intExpr ← mkAppExpr (← mkIntOfNat) addExpr
+ mkAppExpr (← mkIntNegOp) intExpr
 
 /-- Apply simplification/normalization rules on `Int` operators.
 -/
@@ -437,7 +437,6 @@ def optimizeInt? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) :=
   | ``Int.add => optimizeIntAdd f args
   | ``Int.mul => optimizeIntMul f args
   | ``Int.neg => optimizeIntNeg f args
-  | ``Int.negSucc => optimizeIntNegSucc f args
   | ``Int.toNat => optimizeIntToNat f args
   | ``Int.ediv => optimizeIntEDiv f args
   | ``Int.emod => optimizeIntEMod f args

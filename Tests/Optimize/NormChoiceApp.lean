@@ -247,39 +247,41 @@ def toNat (x : Color) : Nat → Nat :=
 
 -- ∀ (c : Color) (factor : Nat), factor > 0 → toNat c factor > factor ===>
 -- ∀ (c : Color) (factor : Nat), 0 < factor  →
---   factor < toWeight.match_1 (fun ( _ : Color) => Nat) c
---            (fun (x : Color) =>
---               toWeight.match_1 (fun ( _ : Color) => Nat) x
---               (fun (_ : Color) => Nat.mul 10 factor)
---               (fun (_ : Unit) => 1)
---               (fun (_ : Color) => Nat.mul 12 factor)
---               (fun (_ : Unit) => 0))
---            (fun (_ : Unit) => Nat.mul 5 factor)
---            (fun (x : Color) =>
---               toWeight.match_1 (fun ( _ : Color) => Nat) x
---               (fun (_ : Color) => Nat.mul 10 factor)
---               (fun (_ : Unit) => 1)
---               (fun (_ : Color) => Nat.mul 12 factor)
---               (fun (_ : Unit) => 0))
---            (fun (_ : Unit) => Nat.add 1 factor)
+-- factor <
+--   ( match c with
+--     | .red x =>
+--         match x with
+--         | .red _ => Nat.mul 10 factor
+--         | .transparent => 1
+--         | .blue _ => Nat.mul 12 factor
+--         | .black => 0
+--     | .transparent => Nat.mul 5 factor
+--     | .blue x =>
+--          match x with
+--          | .red _ => Nat.mul 10 factor
+--          | .transparent => 1
+--          | .blue _ => Nat.mul 12 factor
+--          | .black => 0
+--     | .black => Nat.add 1 factor )
 #testOptimize [ "NormChoiceAppMatch_1" ] (norm-result: 1)
   ∀ (c : Color) (factor : Nat), factor > 0 → toNat c factor > factor ===>
   ∀ (c : Color) (factor : Nat), 0 < factor  →
-    factor < toWeight.match_1 (fun ( _ : Color) => Nat) c
-             (fun (x : Color) =>
-                toWeight.match_1 (fun ( _ : Color) => Nat) x
-                (fun (_ : Color) => Nat.mul 10 factor)
-                (fun (_ : Unit) => 1)
-                (fun (_ : Color) => Nat.mul 12 factor)
-                (fun (_ : Unit) => 0))
-             (fun (_ : Unit) => Nat.mul 5 factor)
-             (fun (x : Color) =>
-                toWeight.match_1 (fun ( _ : Color) => Nat) x
-                (fun (_ : Color) => Nat.mul 10 factor)
-                (fun (_ : Unit) => 1)
-                (fun (_ : Color) => Nat.mul 12 factor)
-                (fun (_ : Unit) => 0))
-             (fun (_ : Unit) => Nat.add 1 factor)
+    factor <
+      ( match c with
+        | .red x =>
+            match x with
+            | .red _ => Nat.mul 10 factor
+            | .transparent => 1
+            | .blue _ => Nat.mul 12 factor
+            | .black => 0
+        | .transparent => Nat.mul 5 factor
+        | .blue x =>
+             match x with
+             | .red _ => Nat.mul 10 factor
+             | .transparent => 1
+             | .blue _ => Nat.mul 12 factor
+             | .black => 0
+        | .black => Nat.add 1 factor )
 
 def listToNatOne (x : List α) : Nat → Nat :=
  match x with

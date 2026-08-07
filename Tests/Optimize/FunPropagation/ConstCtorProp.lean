@@ -225,19 +225,83 @@ namespace Tests.ConstCtorProp
 -- ∀ (c : Bool) (x y z : Int),
 --   some ((if c then λ n => x + n else λ n => x - n) z) = some y ===>
 -- ∀ (c : Bool) (x y z : Int),
---  (false = c → some y = some (Int.add x (Int.neg z))) ∧
---  (true = c → some y = some (Int.add x z))
+--   Blaster.dite' (true = c) (λ _ => some y = some (Int.add x z)) (λ _ => some y = some (Int.add x (Int.neg z)))
 -- NOTE: Can be reduced to
---  (false = c → y = Int.add x (Int.neg z)) ∧
---  (true = c → y = Int.add x z)
+--   Blaster.dite' (true = c) (λ _ => y = Int.add x z)) (λ _ => y = Int.add x (Int.neg z))
 -- with additional simplification rules.
 #testOptimize [ "IteOverCtor_12" ]
   ∀ (c : Bool) (x y z : Int),
     some ((if c then λ n => x + n else λ n => x - n) z) = some y ===>
   ∀ (c : Bool) (x y z : Int),
-    (false = c → some y = some (Int.add x (Int.neg z))) ∧
-    (true = c → some y = some (Int.add x z))
+    Blaster.dite' (true = c) (λ _ => some y = some (Int.add x z)) (λ _ => some y = some (Int.add x (Int.neg z)))
 
+-- ∀ (b c d : Prop) (xs : List (Option Int)) (x : Int) (p : Option Int),
+--   [Decidable b] → [Decidable c] → [Decidable d] →
+--   let op1 :=
+--     if c then if d then some x else p
+--     else if b then some x else none;
+--   let op2 := if b then if c then [] else p :: [] else p :: []
+--   (op1 :: op2) = xs ===>
+-- ∀ (b c d : Prop) (xs : List (Option Int)) (x : Int) (p : Option Int),
+--   xs = Blaster.dite' c
+--        (fun _ =>
+--          Blaster.dite' d
+--          (fun _ => Blaster.dite' b (fun _ => [some x]) (fun _ => [some x, p]))
+--          (fun _ => Blaster.dite' b (fun _ => [p]) (fun _ => [p, p])))
+--        (fun _ => Blaster.dite' b (fun _ => [some x, p]) (fun _ => [none, p]))
+-- NOTE: Test cases to ensure that context reuse are properly handled
+#testOptimize [ "IteOverCtor_12" ]
+∀ (b c d : Prop) (xs : List (Option Int)) (x : Int) (p : Option Int),
+  [Decidable b] → [Decidable c] → [Decidable d] →
+  let op1 :=
+    if c then if d then some x else p
+    else if b then some x else none;
+  let op2 := if b then if c then [] else p :: [] else p :: []
+  (op1 :: op2) = xs ===>
+∀ (b c d : Prop) (xs : List (Option Int)) (x : Int) (p : Option Int),
+  xs = Blaster.dite' c
+       (fun _ =>
+         Blaster.dite' d
+         (fun _ => Blaster.dite' b (fun _ => [some x]) (fun _ => [some x, p]))
+         (fun _ => Blaster.dite' b (fun _ => [p]) (fun _ => [p, p])))
+       (fun _ => Blaster.dite' b (fun _ => [some x, p]) (fun _ => [none, p]))
+
+-- ∀ (b c d : Prop) (xs : List (Option Int)) (x : Int) (p : Option Int),
+--   [Decidable b] → [Decidable c] → [Decidable d] →
+--   let op1 :=
+--     if c then if d then some x else p
+--     else if b then some x else none;
+--   let op2 := if b then if c ∨ d then [] else p :: [] else p :: []
+--   (op1 :: op2) = xs ===>
+-- ∀ (b c d : Prop) (xs : List (Option Int)) (x : Int) (p : Option Int),
+--   xs = Blaster.dite' c
+--        (fun _ =>
+--          Blaster.dite' d
+--          (fun _ => Blaster.dite' b (fun _ => [some x]) (fun _ => [some x, p]))
+--          (fun _ => Blaster.dite' b (fun _ => [p]) (fun _ => [p, p])))
+--        (fun _ =>
+--          Blaster.dite' b
+--          (fun _ => Blaster.dite' d (fun _ => [some x]) (fun _ => [some x, p]))
+--          (fun _ => [none, p]))
+-- NOTE: Test cases to ensure that context reuse are properly handled
+#testOptimize [ "IteOverCtor_13" ]
+∀ (b c d : Prop) (xs : List (Option Int)) (x : Int) (p : Option Int),
+  [Decidable b] → [Decidable c] → [Decidable d] →
+  let op1 :=
+    if c then if d then some x else p
+    else if b then some x else none;
+  let op2 := if b then if c ∨ d then [] else p :: [] else p :: []
+  (op1 :: op2) = xs ===>
+∀ (b c d : Prop) (xs : List (Option Int)) (x : Int) (p : Option Int),
+  xs = Blaster.dite' c
+       (fun _ =>
+         Blaster.dite' d
+         (fun _ => Blaster.dite' b (fun _ => [some x]) (fun _ => [some x, p]))
+         (fun _ => Blaster.dite' b (fun _ => [p]) (fun _ => [p, p])))
+       (fun _ =>
+         Blaster.dite' b
+         (fun _ => Blaster.dite' d (fun _ => [some x]) (fun _ => [some x, p]))
+         (fun _ => [none, p]))
 
 /-! Test cases to validate when dite over constructor constant propagation must be applied. -/
 
@@ -513,18 +577,21 @@ namespace Tests.ConstCtorProp
 -- ∀ (c : Bool) (x y z : Int) (t : true = c → Int → Int) (f : ¬ true = c → Int → Int),
 --   some ((if h : true = c then λ n => t h (x + n) else λ n => f h (x - n)) z) = some y ===>
 -- ∀ (c : Bool) (x y z : Int) (t : true = c → Int → Int) (f : false = c → Int → Int),
---   (∀ h : false = c, some y = some (f h (Int.add x (Int.neg z)))) ∧
---   (∀ h : true = c, some y = some (t h (Int.add x z)))
+--   Blaster.dite' (true = c)
+--   (λ h : _ => some y = some (t h (Int.add x z)))
+--   (λ h : _ => some y = some (f (Blaster.false_eq_of_not_true_eq h) (Int.add x (Int.neg z))))
 -- NOTE: Can be reduced to
---   (∀ h : false = c, y = f h (Int.add x (Int.neg z))) ∧
---   (∀ h : true = c, y = t h (Int.add x z))
+--   Blaster.dite' (true = c)
+--   (λ h : _ => y = t h (Int.add x z))
+--   (λ h : _ => y = f (Blaster.false_eq_of_not_true_eq h) (Int.add x (Int.neg z)))
 -- with additional simplification rules.
 #testOptimize [ "DIteOverCtor_13" ]
   ∀ (c : Bool) (x y z : Int) (t : true = c → Int → Int) (f : ¬ true = c → Int → Int),
     some ((if h : true = c then λ n => t h (x + n) else λ n => f h (x - n)) z) = some y ===>
   ∀ (c : Bool) (x y z : Int) (t : true = c → Int → Int) (f : false = c → Int → Int),
-    (∀ h : false = c, some y = some (f h (Int.add x (Int.neg z)))) ∧
-    (∀ h : true = c, some y = some (t h (Int.add x z)))
+    Blaster.dite' (true = c)
+    (λ h : _ => some y = some (t h (Int.add x z)))
+    (λ h : _ => some y = some (f (Blaster.false_eq_of_not_true_eq h) (Int.add x (Int.neg z))))
 
 -- ∀ (c : Prop) (r : Option Bool) (t : c → Bool) (e : ¬ c → Bool), [Decidable c] →
 --   r = some (dite c t e) ===>
@@ -685,29 +752,63 @@ def beqColorDegree : Color → Color → (Nat → Bool)
 --   let op := if c then [] else .transparent :: [];
 --   toColorTwo n :: op = xs ===>
 -- ∀ (α : Type) (n : Option α) (xs : List Color) (c : Prop),
---   xs = Blaster.dite' c
---       (fun _ =>
---          toColorTwo.match_1 (fun (_ : Option α) => List Color) n
---          (fun (_ : Unit) => [.black])
---          (fun (_ : α) => [.blue .transparent] ) )
---       (fun _ =>
---          toColorTwo.match_1 (fun (_ : Option α) => List Color) n
---          (fun (_ : Unit) => [.black, .transparent])
---          (fun (_ : α) => [.blue .transparent, .transparent]) )
+-- xs =
+-- Blaster.dite' c
+--   (fun _ =>
+--    toColorTwo.match_1 (fun (_ : Option α) => List Color) n
+--      (fun (_ : Unit) => [Color.black])
+--      (fun _ => [Color.transparent.blue] ))
+--   (fun _ =>
+--      toColorTwo.match_1 (fun (_ : Option α) => List Color) n
+--      (fun (_ : Unit) => [Color.black, Color.transparent])
+--      (fun _ => [Color.transparent.blue, Color.transparent]))
 -- NOTE: Test case to ensure that generic type are also properly handled
 #testOptimize [ "MatchOverCtor_5" ] (norm-result: 1)
   ∀ (α : Type) (n : Option α) (xs : List Color) (c : Prop), [Decidable c] →
     let op := if c then [] else .transparent :: [];
     toColorTwo n :: op = xs ===>
   ∀ (α : Type) (n : Option α) (xs : List Color) (c : Prop),
-    xs =  Blaster.dite' c
-          (fun _ =>
-             toColorTwo.match_1 (fun (_ : Option α) => List Color) n
-             (fun (_ : Unit) => [.black])
-             (fun (_ : α) => [.blue .transparent] ) )
-          (fun _ =>
-             toColorTwo.match_1 (fun (_ : Option α) => List Color) n
-             (fun (_ : Unit) => [.black, .transparent])
-             (fun (_ : α) => [.blue .transparent, .transparent]) )
+    xs =
+     Blaster.dite' c
+       (fun _ =>
+        toColorTwo.match_1 (fun (_ : Option α) => List Color) n
+          (fun (_ : Unit) => [Color.black])
+          (fun _ => [Color.transparent.blue] ))
+       (fun _ =>
+          toColorTwo.match_1 (fun (_ : Option α) => List Color) n
+          (fun (_ : Unit) => [Color.black, Color.transparent])
+          (fun _ => [Color.transparent.blue, Color.transparent]))
+
+-- ∀ (n : Option Nat) (xs : List Color), toColorThree n :: [] = xs ===>
+-- ∀ (n : Option Nat) (xs : List Color),
+--   xs = ( toColorOne.match_1 (fun (_ : Option Nat) => List Color) n
+--          (fun (_ : Unit) => .black :: [])
+--          (fun (_ : Unit) => .transparent :: [])
+--          (fun (_ : Unit) => .red .transparent :: [])
+--          (fun (_ : Unit) => .blue .black :: [])
+--          (fun (a : Nat) =>
+--            Blaster.dite' (a < 10)
+--              (fun _ => .blue .transparent :: [])
+--              (fun _ =>
+--                Blaster.dite' (a < 100)
+--                (fun _ => .red .black :: [])
+--                (fun _ => .red .transparent :: []))) )
+-- NOTE: Lean4 already applied structural equivalence between toColorFour.match_1 and toColorOne.match_1
+-- NOTE: Test cases to ensure that context reuse are properly handled
+#testOptimize [ "MatchOverCtor_6" ] (norm-result: 1)
+  ∀ (n : Option Nat) (xs : List Color), toColorThree n :: toColorThree n :: [] = xs ===>
+  ∀ (n : Option Nat) (xs : List Color),
+    xs = ( toColorOne.match_1 (fun (_ : Option Nat) => List Color) n
+           (fun (_ : Unit) => [.black, .black])
+           (fun (_ : Unit) => [.transparent, .transparent])
+           (fun (_ : Unit) => [.red .transparent, .red .transparent])
+           (fun (_ : Unit) => [.blue .black, .blue .black])
+           (fun (a : Nat) =>
+             Blaster.dite' (a < 10)
+               (fun _ => [.blue .transparent, .blue .transparent])
+               (fun _ =>
+                 Blaster.dite' (a < 100)
+                 (fun _ => [.red .black, .red .black])
+                 (fun _ => [.red .transparent, .red .transparent]))) )
 
 end Tests.ConstCtorProp

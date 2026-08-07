@@ -1,15 +1,17 @@
 import Lean
+import Blaster.Optimize.Env.Types
+import Blaster.Data.HashSet
 import Blaster.Optimize.Decidable
 
-open Lean Meta
+open Lean Meta Blaster.Data.HashSet
 
 namespace Blaster.Optimize
 
 /-- list of operators that must not be unfolded, i.e., they will directly be
 translated to their corresponding SMT counterpart.
 -/
-def opaqueFuns : NameHashSet :=
-  List.foldr (fun c s => s.insert c) Std.HashSet.emptyWithCapacity
+def opaqueFuns : HashSet Name :=
+  List.foldr (fun c s => s.insert c) HashSet.emptyWithCapacity
   [
     -- structural equality
     ``Eq,
@@ -71,8 +73,8 @@ def opaqueFuns : NameHashSet :=
      - LE instance is guaranteed to be reflexive, symmetric and transitive.
 TODO: add other basic lean types (e.g., Char, etc)
 -/
-def relationalCompatibleTypes : NameHashSet :=
-  List.foldr (fun c s => s.insert c) Std.HashSet.emptyWithCapacity
+def relationalCompatibleTypes : HashSet Name :=
+  List.foldr (fun c s => s.insert c) HashSet.emptyWithCapacity
   [ ``Nat,
     ``Int,
     ``Bool,

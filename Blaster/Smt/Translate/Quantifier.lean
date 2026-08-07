@@ -2,64 +2,20 @@ import Lean
 import Blaster.Smt.Env
 import Blaster.Optimize.Basic
 
-open Lean Meta Blaster.Optimize
+open Lean Meta Blaster.Optimize Blaster.Data.HashSet
 
 namespace Blaster.Smt
 
 /-- Removes an occurrence of type abbreviation in type expression `t` -/
 partial def removeTypeAbbrev (te : Expr) : TranslateEnvT Expr := do
-  let rec visit (te : Expr) (k : Expr → TranslateEnvT Expr) : TranslateEnvT Expr := do
+  let rec visit (te : Expr) : TranslateEnvT Expr := do
     match te.getAppFn with
-    | Expr.const _ _ => k (← resolveTypeAbbrev te)
-    | e@(Expr.forallE _ t b bi) =>
-         visit t
-          (fun t' =>
-             visit b
-               (fun b' => k (Expr.updateForall! e bi t' b'))
-          )
-    | Expr.mdata _ d => visit d k
-    | _ => k te
-  visit te (fun e => pure e)
+    | Expr.const _ _ => resolveTypeAbbrev te
+    | e@(Expr.forallE _ t b _) => e.updateForallExpr! (← visit t) (← visit b)
+    | Expr.mdata _ d => visit d
+    | _ => return te
+  visit te
 
-  -- /-- Map keeping track of visited inductive datatype during translation.
-  --     An entry in this map is expected to be of the form `d := some pbody`,
-  --     where `pbody` correspond to the body of the function predicate to qualify quantifiers
-  --     for this inductive datatype.
-
-  --     The body is defined only when the inductive datatype instance has at least
-  --     one constructor whith a proposition argument. E.g.,
-  --     Given the following inductive datatype
-  --      inductive NatGroup where
-  --      | first (n : Nat) (h1 : n ≥ 10) (h2 : n < 100) : NatGroup
-  --      | second (n : Nat) (h1 : n > 100) (h2 : n < 200) : NatGroup
-  --      | next (n : NatGroup)
-
-  --     The entry in `indTypeMap` is the following:
-  --       `NatGroup := some (ite (is-first x) (and (= (first.2 x) (<= 10 (first.1 x)))
-  --                                           (and (= (first.3 x) (< (first.1 x) 100))
-  --                                           (and (<= 10 (first.1 x)) (< (first.1 x) 100))))
-  --                         (ite (is-second x) (and (= (second.2 x) (< 100 (second.1 x)))
-  --                                            (and (= (second.3 x) (< (second.1 x) 200))
-  --                                            (and (< 100 (second.1 x)) (< (second.1 x) 200))))
-  --                                            true))`
-
-  --     Note that any user-defined selectors for each constructor are replaced with generated ones during translation:
-  --     E.g., `first (n : Nat) (h1 : n ≥ 10) (h2 : n < 100) ===> first (first.1 : Nat) (first.2 : n ≥ 10) (first.3 : n < 100)`
-  --     Moreover, proposition arguments are replaced with boolean expressions.
-
-  --     For each inductive datatype instance, a corresponding declared/defined qualifier predicate will be generated s.t.:
-  --      - an uninterpreted predicate function will be generated when the entry in indTypeMap points to `none`, e.g.
-  --         - (declare-fun isList_1 ((List Int)) Bool)
-  --      - a defined predicate function will be generated when the entry in indTypeMap points to `some ..`, e.g.
-  --         - (define-fun isNatGroup (x IsNatGroup) Bool
-  --                       (ite (is-first x) (and (= (first.2 x) (<= 10 (first.1 x)))
-  --                                         (and (= (first.3 x) (< (first.1 x) 100))
-  --                                         (and (<= 10 (first.1 x)) (< (first.1 x) 100))))
-  --                       (ite (is-second x) (and (= (second.2 x) (< 100 (second.1 x)))
-  --                                          (and (= (second.3 x) (< (second.1 x) 200))
-  --                                          (and (< 100 (second.1 x)) (< (second.1 x) 200))))
-  --                                          true))
-  -- -/
 
 /-- Generate an smt symbol from a given Name. -/
 def nameToSmtSymbol (n : Name) : SmtSymbol :=
@@ -71,8 +27,8 @@ def nameToSmtSymbol (n : Name) : SmtSymbol :=
 -/
 def typeParamNameToSmtSymbol (v : FVarId) (unique := true) : TranslateEnvT SmtSymbol := do
   if unique
-  then return mkNormalSymbol s!"@{← v.getUserName}{v.name}"
-  else return mkNormalSymbol s!"@{← v.getUserName}"
+  then return mkNormalSymbol s!"@{← v.getEnvUserName}{v.name}"
+  else return mkNormalSymbol s!"@{← v.getEnvUserName}"
 
 
 /-- Generate an smt symbol from a given inductive type name. -/
@@ -98,7 +54,7 @@ def isTaggedCtorSelector (e : Expr) : Bool :=
     the index for one of the ctor's effective parameters,
     create the ctor selector symbol `ctor.idx`
 -/
-def mkCtorSelectorSymbol (ctor : Name) (idx : Nat) :=
+def mkCtorSelectorSymbol (ctor : Name) (idx : Nat) : SmtSymbol :=
   mkNormalSymbol s!"{ctor}.{idx}"
 
 
@@ -117,9 +73,9 @@ def mkCtorSelectorExpr (ctor : Name) (idx : Nat) (arg : Expr) (type : Expr) : Tr
     let pInfo ← getFunEnvInfo arg
     modify (fun env => {env with smtEnv.funCtorCache := env.smtEnv.funCtorCache.insert sctor pInfo})
   let selectorSym := mkCtorSelectorSymbol ctor idx
-  let appExpr := mkApp (mkConst sctor) (mkConst "x".toName)
+  let appExpr ← mkAppExpr (← mkExpr (mkConst sctor)) (← mkExpr (mkConst "x".toName))
   let smtTerm := mkSimpleSmtAppN selectorSym #[smtSimpleVarId (mkReservedSymbol "@x")]
-  return (mkAnnotation `_solver.ctorSelector appExpr, smtTerm)
+  return (← mkExpr (mkAnnotation `_solver.ctorSelector appExpr), smtTerm)
 
 /-- Given `ctor` a constructor name and an smt term `s`,
     create the smt term application `is-ctor s`.
@@ -205,8 +161,8 @@ private partial def updateTopLevelVars (step : Nat) (vars : TopLevelVars) (s : S
 -/
 def updateQuantifiedFVarsCache (v : FVarId) (topLevel : Bool) : TranslateEnvT Unit := do
   let s ← fvarIdToSmtSymbol v
-  let t ← inferTypeEnv (mkFVar v)
-  let uname ← v.getUserName
+  let t ← inferTypeEnv (← mkExpr (mkFVar v))
+  let uname ← v.getEnvUserName
   let idx ← getCurrentDepth
   modify
     (fun env =>
@@ -266,7 +222,7 @@ def generateInstType
 -/
 def retrieveGenericArgs (args : Array Expr) : TranslateEnvT (Array Expr) := do
   let mut genericArgs := #[]
-  let mut knownGenParams := (.emptyWithCapacity : Std.HashSet Expr)
+  let mut knownGenParams := (.emptyWithCapacity : HashSet Expr)
   for h : i in [:args.size] do
     let e := args[i]
     if (← isGenericParam e) then
@@ -277,8 +233,8 @@ def retrieveGenericArgs (args : Array Expr) : TranslateEnvT (Array Expr) := do
 @[always_inline, inline]
 def getIndInst' (t : Expr) (args : Array Expr) : TranslateEnvT (Expr × Array Expr) := do
   let genericArgs ← retrieveGenericArgs args
-  let auxApp := mkAppN t args
-  return (← mkLambdaFVars genericArgs auxApp (usedOnly := true), genericArgs)
+  let auxApp ← mkAppNExpr t args
+  return (← mkLambdaFVarsExpr genericArgs auxApp (usedOnly := true), genericArgs)
 
 /-- Given an inductive datatype instance `t x₀ ... xₙ`, perform the following:
      - When `∀ i ∈ [0..n], ¬ isGenericParam xᵢ`,
@@ -358,10 +314,10 @@ def removeClassConstraintsInFunType (t : Expr) : TranslateEnvT Expr :=
   Optimize.forallTelescope t fun fvars body => do
     let mut xs := #[]
     for h : i in [:fvars.size] do
-      let decl ← getFVarLocalDecl fvars[i]
-      if !(← isClassConstraintExpr decl.type) then
+      let ftype ← inferTypeEnv fvars[i]
+      if !(← isClassConstraintExpr ftype) then
         xs := xs.push fvars[i]
-    Optimize.mkForallFVars' xs body
+    mkForallFVarsExpr xs body
 
 /-- Given #[fv₀, ..., fvₙ] an array of generic parameters perform the following:
      - [(svᵢ, stᵢ) | i ∈ [0..,n], isTypeUniverse (← inferTypeEnv fvᵢ) ∧
@@ -375,9 +331,9 @@ def genericArgsToSortedVars (fvars : Array Expr) (inPredQualifier := false) : Tr
   let mut svars := (#[] : SortedVars)
   for h : i in [:fvars.size] do
     let v := fvars[i]
-    let fdecl ← getFVarLocalDecl v
-    if (isTypeUniverse fdecl.type) then -- only considering polymorphic types
-      let decl ← generateSortInstDecl fdecl.type
+    let ftype ← inferTypeEnv v
+    if (isTypeUniverse ftype) then -- only considering polymorphic types
+      let decl ← generateSortInstDecl ftype
       let smtSym ← typeParamNameToSmtSymbol v.fvarId! (unique := !inPredQualifier)
       svars := svars.push (smtSym, decl.instSort)
   return svars
@@ -448,7 +404,7 @@ def generateIndInstDecl
 -/
 def getFunInstDeclAux (t : Expr) : TranslateEnvT Expr := do
   let genericArgs ← retrieveGenericArgs (retrieveArrowTypes t)
-  mkLambdaFVars' genericArgs t
+  mkLambdaFVarsExpr genericArgs t
 
 /-- Same as `getFunInstDeclAux` but calls `removeClassConstraintsInFunType on `t` first. -/
 def getFunInstDecl (t : Expr) : TranslateEnvT Expr := do
@@ -466,27 +422,27 @@ def withInstantiatedImplicitArgs (t : Expr) (k : Expr → TranslateEnvT α) : Tr
    let mut explicitArgs := #[]
    for h : i in [:fvars.size] do
      let v := fvars[i]
-     let decl ← getFVarLocalDecl v
+     let decl ← v.fvarId!.getEnvDecl
      -- Need to consider case when fun type has implicit sort type arguments (see `Issue15.thm4`)
      if decl.binderInfo.isExplicit then
        explicitArgs := explicitArgs.push v
-   let t' ← Optimize.mkForallFVars' explicitArgs body -- keeping implicit arguments instantiated
+   let t' ← mkForallFVarsExpr explicitArgs body -- keeping implicit arguments instantiated
    k t'
 
 /-- Same as withInstantiatedImplicitArgs but also passes the instantiated implicit arguments to k. -/
-def withInstantiatedImplicitArgs' (t : Expr) (k : Std.HashSet Expr → Expr → TranslateEnvT α) : TranslateEnvT α :=
+def withInstantiatedImplicitArgs' (t : Expr) (k : HashSet PtrExpr → Expr → TranslateEnvT α) : TranslateEnvT α :=
  Optimize.forallTelescope t fun fvars body => do
    let mut explicitArgs := #[]
-   let mut implicitArgs := Std.HashSet.emptyWithCapacity
+   let mut implicitArgs : HashSet PtrExpr := HashSet.emptyWithCapacity
    for h : i in [:fvars.size] do
      let v := fvars[i]
-     let decl ← getFVarLocalDecl v
+     let decl ← v.fvarId!.getEnvDecl
      -- Need to consider case when fun type has implicit sort type arguments (see `Issue15.thm4`)
      if decl.binderInfo.isExplicit then
        explicitArgs := explicitArgs.push v
      else
        implicitArgs := implicitArgs.insert v
-   let t' ← Optimize.mkForallFVars' explicitArgs body -- keeping implicit arguments instantiated
+   let t' ← mkForallFVarsExpr explicitArgs body -- keeping implicit arguments instantiated
    k implicitArgs t'
 
 /-- Return `decl.instName` when `t := decl` exists in `indTypeInstCache`.
@@ -609,7 +565,7 @@ def createPredQualifierAppAux'
       #[removeOutParam funTypes[retIdx]!]
 
     @[always_inline, inline]
-    getLocalPolymorphicTypes (genArgs : Array Expr) (implicits : Std.HashSet Expr) : TranslateEnvT (Array Expr) := do
+    getLocalPolymorphicTypes (genArgs : Array Expr) (implicits : HashSet PtrExpr) : TranslateEnvT (Array Expr) := do
       let mut localArgs := #[]
       for h : i in [:genArgs.size] do
         let v := genArgs[i]
@@ -768,7 +724,7 @@ def generateFunInstDeclAux (t : Expr) (st : SortExpr) : TranslateEnvT IndTypeDec
      let fun_annotations := some #[mkPattern #[f_funPredApp], mkQid qidName]
      assertTerm (mkForallTerm none (rt_args.push (fsym, st)) forallFunBody fun_annotations)
      -- congruence on fun
-     let qidName := appendSymbol applyName "congr_ext_fun"
+     let qidName := appendSymbol applyName "congr_fun"
      let eqFun := eqSmt fId gId
      let fg_quantifiers : SortedVars := (sargs.push (fsym, st)).push (gsym, st)
      let innerForall := mkForallTerm none co_quantifiers innerForallBody none
@@ -913,8 +869,7 @@ Given `indValStart` an inductive value info for an inductive datatype,
         - no recursor rule is found for at least one constructor for `n`.
 -/
 def translateInductiveType
-  (indValStart : InductiveVal) (typeTranslator : Expr → TranslateEnvT SortExpr) :
-  TranslateEnvT Unit := do
+  (indValStart : InductiveVal) (typeTranslator : Expr → TranslateEnvT SortExpr) : TranslateEnvT Unit := do
 
   -- add all inductive name to cache
   indValStart.all.forM fun n => cacheIndName n
@@ -922,10 +877,10 @@ def translateInductiveType
   let mut sortDecls := (#[] : Array SmtSortDecl)
   let mut dataTypeDecls := (#[] : Array SmtDatatypeDecl)
   for indName in indValStart.all do
-    let ConstantInfo.inductInfo indVal ← getConstEnvInfo indName
+    let ConstantInfo.inductInfo indVal ← getConstInfo indName
       | throwEnvError "translateInductiveType: no InductInfo found for {indName}"
     -- recVal to get the list of RecusorRule for all ctors
-    let ConstantInfo.recInfo recVal ← getConstEnvInfo (mkRecName indName)
+    let ConstantInfo.recInfo recVal ← getConstInfo (mkRecName indName)
       | throwEnvError "translateInductiveType: {mkRecName indName} not a recinfo"
     let params ← genIndParams indVal
     let ctors ← createCtorDecls recVal indVal.ctors
@@ -943,17 +898,17 @@ def translateInductiveType
 
   genIndParams (indVal : InductiveVal) : TranslateEnvT (Option (Array SmtSymbol)) := do
    let params ←
-     Optimize.forallTelescope indVal.type fun fvars _ => do
+     Optimize.forallTelescope (← hashcons indVal.type) fun fvars _ => do
         let mut polyParams := #[]
         for h : i in [: fvars.size] do
           let arg := fvars[i]
-          let decl ← getFVarLocalDecl arg
-          if !(← isClassConstraintExpr decl.type) then -- ignore class constraints
+          let ftype ← inferTypeEnv arg
+          if !(← isClassConstraintExpr ftype) then -- ignore class constraints
             let Expr.fvar v := arg
               | throwEnvError "translateInductiveType: FVarExpr expected but got {reprStr arg}"
             -- resolve type abbreviation (useful when handling instance parameters)
             -- TODO: IMP need to apply optimizer on argument to instance parameters
-            let argType' ← removeTypeAbbrev decl.type
+            let argType' ← removeTypeAbbrev ftype
             if isTypeUniverse argType' then
               polyParams := polyParams.push (← typeParamNameToSmtSymbol v false)
             else throwEnvError "Inductive datatype with instance parameters not supported: {reprStr indVal.name}"
@@ -963,19 +918,19 @@ def translateInductiveType
   createCtorDeclaration (recVal : RecursorVal) (recRule : RecursorRule) : TranslateEnvT SmtConstructorDecl := do
     let ctorSym := nameToSmtSymbol recRule.ctor
     let firstCtorFieldIdx := recVal.numParams + recVal.numMotives + recVal.numMinors
-    Optimize.forallTelescope (← inferTypeEnv recRule.rhs) fun fvars _ => do
+    Optimize.forallTelescope (← inferTypeEnv (← hashcons recRule.rhs)) fun fvars _ => do
       if recRule.nfields == 0 then return (ctorSym, none) -- nullary constructor
       let mut selectors := #[]
       for h : i in [firstCtorFieldIdx : fvars.size] do
         let arg := fvars[i]
-        let decl ← getFVarLocalDecl arg
+        let ftype ← inferTypeEnv arg
         let selectorIdx := i - firstCtorFieldIdx
         let selSym := mkCtorSelectorSymbol recRule.ctor selectorIdx
-        if (← isPropEnv decl.type) then
+        if (← isPropEnv ftype) then
           selectors := selectors.push (selSym, boolSort)
         else
           -- resolve type abbreviation
-          let argType' ← removeTypeAbbrev decl.type
+          let argType' ← removeTypeAbbrev ftype
           selectors := selectors.push (selSym, ← typeTranslator argType')
       return (ctorSym, some selectors)
 
@@ -1023,7 +978,7 @@ where
   isEnumeration (indVal : InductiveVal) : TranslateEnvT Bool := do
     match indVal.all with
     | [n] =>
-      let ConstantInfo.recInfo recVal ← getConstEnvInfo (mkRecName n)
+      let ConstantInfo.recInfo recVal ← getConstInfo (mkRecName n)
         | throwEnvError "isEnumeration: {mkRecName n} not a recinfo"
       for c in indVal.ctors do
         if (← getRecRuleFor recVal c).nfields != 0 then return false
@@ -1044,8 +999,8 @@ where
        -- NOTE: Lean4 imposes that all inductive data type within a mutual block
        -- must have the same parameters. Otherwise, any error is triggered
        let decls ← List.mapM
-                 (fun n => Prod.mk n <$> generateIndInstDecl (mkConst n l) args none typeTranslator)
-                 indVal.all
+                   (fun n => do Prod.mk n <$> generateIndInstDecl (← mkExpr (mkConst n l)) args none typeTranslator)
+                   indVal.all
        for d in decls do generatePredicates d.1 l d.2 args (mutualRec := true)
      else
        -- define predicate qualifier for single inductive datatype
@@ -1055,9 +1010,9 @@ where
   generatePredicates
     (indName : Name) (us : List Level) (decl : IndTypeDeclaration)
     (args : Array Expr) (mutualRec := false) : TranslateEnvT Unit := do
-   let ConstantInfo.inductInfo indVal ← getConstEnvInfo indName
+   let ConstantInfo.inductInfo indVal ← getConstInfo indName
        | throwEnvError "generatePredicates: inductive info expected for {indName}"
-   let ConstantInfo.recInfo recVal ← getConstEnvInfo (mkRecName indName)
+   let ConstantInfo.recInfo recVal ← getConstInfo (mkRecName indName)
      | throwEnvError "generatePredicates: {mkRecName indName} not a recinfo"
    let mut funBody := trueSmt
    for c in indVal.ctors do
@@ -1076,8 +1031,8 @@ where
      let forallTerm := (eqSmt limitedApp predRecApp)
      assertTerm (mkForallTerm none quantifiers forallTerm patterns)
 
-  substitutePred (sub : Expr × Expr) (e : Expr) : Option Expr :=
-    if sub.1 == e then some sub.2 else none -- TODO: check if we can use pointer equality
+  substitutePred (sub : Expr × Expr) (e : Expr) : TranslateEnvT (Option Expr) :=
+    if exprEq sub.1 e then return sub.2 else return none
 
   updatePredTerm (prevTerm : SmtTerm) (newTerm : SmtTerm) : SmtTerm :=
     if isTrueSmt prevTerm
@@ -1113,10 +1068,10 @@ where
     (indName : Name) (us : List Level) (declInd : IndTypeDeclaration)
     (recVal : RecursorVal) (recRule : RecursorRule)
     (args : Array Expr) (funBody: SmtTerm) : TranslateEnvT SmtTerm := do
-    let cinfo ← getConstEnvInfo indName
+    let cinfo ← getConstInfo indName
     -- NOTE: we need to only consider level for provided arguments only.
     -- Indeed, we must not instantiated internal polymorphic types
-    let auxApp := (mkAppN recRule.rhs args).instantiateLevelParams cinfo.levelParams (List.take args.size us)
+    let auxApp ← hashcons ((mkAppN recRule.rhs args).instantiateLevelParams cinfo.levelParams (List.take args.size us))
     let firstCtorFieldIdx := recVal.numMotives + recVal.numMinors
     -- NOTE: recVal.numParams is ignored here when determining firstCtorFieldIdx
     -- as we are instantiating the datatype parameters
@@ -1127,18 +1082,18 @@ where
       let mut predTermCond := trueSmt
       for h : i in [firstCtorFieldIdx : fvars.size] do
         let arg := fvars[i]
-        let decl ← getFVarLocalDecl arg
+        let ftype ← inferTypeEnv arg
         let selectorIdx := i - firstCtorFieldIdx
-        let selTerms ← mkCtorSelectorExpr recRule.ctor selectorIdx arg decl.type
+        let selTerms ← mkCtorSelectorExpr recRule.ctor selectorIdx arg ftype
         substituteList := (arg, selTerms.1) :: substituteList
-        if (← isPropEnv decl.type) then
-          let optExpr ← optimizeExpr' decl.type
+        if (← isPropEnv ftype) then
+          let optExpr ← optimizeExpr ftype
           -- apply substitue list on optExpr before translation
-          let propTerm ← termTranslator (substituteList.foldr (fun a acc => acc.replace (substitutePred a)) optExpr)
+          let propTerm ← termTranslator (← substituteList.foldrM (fun a acc => replaceShared acc (substitutePred a)) optExpr)
           predTermCond := updatePredTerm predTermCond (andSmt (eqSmt selTerms.2 propTerm) selTerms.2)
         else
           -- resolve type abbreviation first
-          let argType' ← removeTypeAbbrev decl.type
+          let argType' ← removeTypeAbbrev ftype
           let declInst ← getPredicateQualifierInst argType' declInd
           let appTerm ← createPredQualifierAppAux' selTerms.2 argType' declInst (inPredQualifier := true)
           predTermCond := updatePredTerm predTermCond appTerm
@@ -1165,9 +1120,8 @@ def translateNonOpaqueType
 
  where
    translateInstType (indName : Name) : TranslateEnvT SortExpr := do
-     let env ← get
      let instApp ← getIndInst t args
-     match env.smtEnv.indTypeInstCache.get? instApp with
+     match (← get).smtEnv.indTypeInstCache.get? instApp with
      | some decl => return decl.instSort
      | none =>
        let typeTrans := λ e => typeTranslator e topts
@@ -1334,10 +1288,11 @@ partial def translateTypeAux
        let mut arrowArgs := #[]
        for h : i in [:fvars.size] do
          let v := fvars[i]
-         let decl ← getFVarLocalDecl v
-         if !(← isClassConstraintExpr decl.type) then -- ignore class constraints
+         let decl ← v.fvarId!.getEnvDecl
+         let ftype ← inferTypeEnv v -- need to ensure hashcons on fvar type
+         if !(← isClassConstraintExpr ftype) then -- ignore class constraints
           if decl.binderInfo.isExplicit then
-            arrowArgs := arrowArgs.push (← translateTypeAux termTranslator decl.type opts)
+            arrowArgs := arrowArgs.push (← translateTypeAux termTranslator ftype opts)
           else
             -- Need to consider case when fun/proposition in type definition has implicit polymorphic type (see `Issue15.thm4`)
             discard $ translateTypeAux termTranslator v default
@@ -1410,7 +1365,7 @@ def translateForAll
  Optimize.forallTelescope e fun fvars b => do
    for h : i in [:fvars.size] do
      let v := fvars[i]
-     let decl ← getFVarLocalDecl v
+     let decl ← v.fvarId!.getEnvDecl
      if (← isPropEnv decl.type) then
        updatePremises (← termTranslator decl.type)
      -- need to filter out class constraints
