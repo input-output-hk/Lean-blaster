@@ -235,4 +235,22 @@ variable (b : Bool)
                                        (z ≠ x ∨ ((y ≠ x) ∨ n > m) ∨ z = m) ===> True
 
 
+/-! ## Proof-reconstruction tests for the `decide'` regrouping on Boolean `or`. -/
+
+variable (p : Prop)
+variable (q : Prop)
+
+-- (decide' p || decide' q) ===> decide' (p ∨ q)
+#testOptimize [ "DecideOrDecideProof", proof ]
+  (Blaster.decide' p || Blaster.decide' q) = Blaster.decide' (p ∨ q) ===> True
+
+-- (b || decide' p) ===> decide' (p ∨ true = b)
+#testOptimize [ "DecideOrBoolProof_1", proof ]
+  (b || Blaster.decide' p) = Blaster.decide' (p ∨ (true = b)) ===> True
+
+-- (decide' p || !b) ===> decide' (p ∨ true = !b)
+#testOptimize [ "DecideOrBoolProof_2", proof ]
+  (Blaster.decide' p || !b) = Blaster.decide' (p ∨ (true = !b)) ===> True
+
+
 end Test.DecideBoolOr

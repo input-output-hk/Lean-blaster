@@ -1,28 +1,52 @@
 import Lean
 import Blaster.Optimize.Rewriting.OptimizeBoolBinary
+import Blaster.Optimize.Lemmas.LemmasDecide
 
 
 open Lean Meta
 namespace Blaster.Optimize
 
+/-- Data type for distinguishing between the two Boolean binary operators handled by
+    `decideOpDecide?` (`and` and `or`), used to select the matching regrouping lemma. -/
+inductive BoolBinOpKind where
+  | and
+  | or
 
 /-- Given `op1` and `op2` corresponding to the operands for a Boolean binary operator:
     - return `some (decide' (mkOpExpr #[e1, e2]))` when `op1 := decide' e1 ∧ op2 := decide' e2`
     - return `some (decide' (mkOpExpr #[e1, true = e2]))` when `op1 := decide' e1 ∧ op2 := e2`
     - return `some (decide' (mkOpExpr #[e1, true = e2]))` when `op1 := e2 ∧ op2 := decide' e1`
     Otherwise `none`.
+
+    `k` selects the operator (`and`/`or`) so the emitted proof step uses the matching
+    regrouping lemma.
 -/
 def decideOpDecide?
   (op1 : Expr) (op2 : Expr)
-  (mkOpExpr : Expr → Expr → Expr) : TranslateEnvT (Option Expr) := do
+  (mkOpExpr : Expr → Expr → Expr) (k : BoolBinOpKind) : TranslateEnvT (Option Expr) := do
   match decide'? op1, decide'? op2 with
   | some e1, some e2 =>
+      -- `(decide' e1 <op> decide' e2) = decide' (e1 <∧/∨> e2)`
+      let lemma := match k with
+        | BoolBinOpKind.and => ``Blaster.decide'_and_decide'
+        | BoolBinOpKind.or  => ``Blaster.decide'_or_decide'
+      pushProofStep (.rewrite (mkApp2 (mkConst lemma) e1 e2))
       setRestart
       return mkApp (← mkBlasterDecideConst) (mkOpExpr e1 e2)
   | some e1, _ =>
+      -- `(decide' e1 <op> op2) = decide' (e1 <∧/∨> (true = op2))`
+      let lemma := match k with
+        | BoolBinOpKind.and => ``Blaster.decide'_and_bool
+        | BoolBinOpKind.or  => ``Blaster.decide'_or_bool
+      pushProofStep (.rewrite (mkApp2 (mkConst lemma) e1 op2))
       setRestart
       return mkApp (← mkBlasterDecideConst) (mkOpExpr e1 (mkApp3 (← mkEqOp) (← mkBoolType) (← mkBoolTrue) op2))
   | _, some e1 =>
+      -- `(op1 <op> decide' e1) = decide' (e1 <∧/∨> (true = op1))`
+      let lemma := match k with
+        | BoolBinOpKind.and => ``Blaster.bool_and_decide'
+        | BoolBinOpKind.or  => ``Blaster.bool_or_decide'
+      pushProofStep (.rewrite (mkApp2 (mkConst lemma) e1 op1))
       setRestart
       return mkApp (← mkBlasterDecideConst) (mkOpExpr e1 (mkApp3 (← mkEqOp) (← mkBoolType) (← mkBoolTrue) op1))
   | _, _ => return none
@@ -42,7 +66,7 @@ def decideOpDecide?
 def optimizeDecideBoolAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let e ← optimizeBoolAnd f args
  let some (op1, op2) := boolAnd? e | return e
- if let some r ← decideOpDecide? op1 op2 (mkApp2 (← mkPropAndOp)) then return r
+ if let some r ← decideOpDecide? op1 op2 (mkApp2 (← mkPropAndOp)) BoolBinOpKind.and then return r
  return e
 
 /-- Call `optimizeBoolOr f args` and apply the following `decide` simplification/normalization
@@ -61,7 +85,7 @@ def optimizeDecideBoolAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr :=
 def optimizeDecideBoolOr (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let e ← optimizeBoolOr f args
  let some (op1, op2) := boolOr? e | return e
- if let some r ← decideOpDecide? op1 op2 (mkApp2 (← mkPropOrOp)) then return r
+ if let some r ← decideOpDecide? op1 op2 (mkApp2 (← mkPropOrOp)) BoolBinOpKind.or then return r
  return e
 
 
