@@ -65,3 +65,14 @@ elab "intModCst_2" : term => return intModCst_2
 #testOptimize ["IntFmodZero_3", proof] ∀ (n m : Int), Int.fmod n 0 = m ===> ∀ (n m : Int), n = m
 
 #testOptimize ["IntTmodZero_3", proof] ∀ (n m : Int), Int.tmod n 0 = m ===> ∀ (n m : Int), n = m
+
+
+/-! Test cases for the gcd normalization `(N1 * n) % N2 ==> 0 (if N1 % N2 = 0)`. -/
+
+#testOptimize ["IntEModGcd_1", proof] ∀ (x : Int), (6 * x) % 3 = 0 ===> True
+
+#testOptimize ["IntEModGcd_2", proof] ∀ (x : Int), (6 * x) % (-3) = 0 ===> True
+
+#testOptimize ["IntFmodGcd_1", proof] ∀ (x : Int), Int.fmod (6 * x) 3 = 0 ===> True
+
+#testOptimize ["IntTmodGcd_1", proof] ∀ (x : Int), Int.tmod (6 * x) 3 = 0 ===> True

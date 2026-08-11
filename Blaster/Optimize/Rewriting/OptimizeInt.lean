@@ -283,12 +283,17 @@ def optimizeIntDivCommon (d: DivKind) (op1 : Expr) (op2 : Expr) : TranslateEnvT 
 -/
 @[always_inline, inline]
 def cstCommonDivProp?
-  (op1 : Expr) (op2 : Expr) (f_div : Int -> Int -> Int) : TranslateEnvT (Option (Expr × Expr)) := do
+  (op1 : Expr) (op2 : Expr) (dk : DivKind) : TranslateEnvT (Option (Expr × Expr)) := do
  let some (n, e1) := intMul? op1 | return none
  match isIntValue? n, isIntValue? op2 with
  | some n1, some n2 =>
     let gcd := Int.gcd n1 n2
     if gcd == 1 then return none
+    let (f_div, lemma) := match dk with
+      | DivKind.ediv => (Int.ediv, ``Blaster.int_ediv_gcd_norm)
+      | DivKind.tdiv => (Int.tdiv, ``Blaster.int_tdiv_gcd_norm)
+      | DivKind.fdiv => (Int.fdiv, ``Blaster.int_fdiv_gcd_norm)
+    pushProofStep (.rewrite (mkApp3 (mkConst lemma) n op2 e1))
     setRestart
     let mulExpr := mkApp2 (← mkIntMulOp) (← evalBinIntOp f_div n1 gcd) e1
     return (mulExpr, (← evalBinIntOp f_div n2 gcd))
@@ -318,7 +323,7 @@ def optimizeIntEDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let op1 := args[0]!
  let op2 := args[1]!
  if let some r ← optimizeIntDivCommon DivKind.ediv op1 op2 then return r
- if let some (op1', op2') ← cstCommonDivProp? op1 op2 Int.ediv then return mkApp2 f op1' op2'
+ if let some (op1', op2') ← cstCommonDivProp? op1 op2 DivKind.ediv then return mkApp2 f op1' op2'
  return (mkApp2 f op1 op2)
 
 /-- Given `e1` and `e2` corresponding to the operands for `Int.emod`, `Int.fmod` and `Int.tmod`,
@@ -381,7 +386,9 @@ def optimizeIntModCommon (m : ModKind) (op1 : Expr) (op2 : Expr) : TranslateEnvT
   return op1
  | some n1, some n2 => evalBinIntOp Int.emod n1 n2
  | _, nv2 =>
-   if let some r ← cstModProp? op1 nv2 then return r
+   if let some r ← cstModProp? op1 nv2 then
+     emitModGcdZeroProofStep m op1 op2
+     return r
    if let some r ← intModToZeroExpr? op1 op2 then
      if let ModKind.emod := m then emitEModToZeroProofStep op1 op2
      return r
@@ -398,6 +405,18 @@ def optimizeIntModCommon (m : ModKind) (op1 : Expr) (op2 : Expr) : TranslateEnvT
          pushProofStep (.rewrite (mkConst ``Int.mul_emod_right))
        else if exprEq b op2 then
          pushProofStep (.rewrite (mkConst ``Int.mul_emod_left))
+
+   /-- Emit the proof step for (N1 * n) % N2 ==> 0 (when N1 % N2 = 0). The `N1 % N2 = 0`
+       hypothesis holds by reflexivity on the constant operands. -/
+   emitModGcdZeroProofStep (m : ModKind) (op1 op2 : Expr) : TranslateEnvT Unit := do
+     let some (n, e1) := intMul? op1 | return ()
+     let hZero :=
+        mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Int) (← mkIntLitExpr (Int.ofNat 0))
+     let lemma := match m with
+       | ModKind.emod => ``Blaster.int_emod_mul_zero
+       | ModKind.tmod => ``Blaster.int_tmod_mul_zero
+       | ModKind.fmod => ``Blaster.int_fmod_mul_zero
+     pushProofStep (.rewrite (mkApp4 (mkConst lemma) n op2 e1 hZero))
 
    /- Given `op1` and `mv2`, return `some 0`
       when `op1 := N1 * n ∧ mv2 := N2 ∧ N1 % N2 = 0`
@@ -458,7 +477,7 @@ def optimizeIntTDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let op2 := args[1]!
  if let some r ← optimizeIntDivCommon DivKind.tdiv op1 op2 then return r
  if let some r ← cstTDivProp? op1 op2 then return r
- if let some (op1', op2') ← cstCommonDivProp? op1 op2 Int.tdiv then return mkApp2 f op1' op2'
+ if let some (op1', op2') ← cstCommonDivProp? op1 op2 DivKind.tdiv then return mkApp2 f op1' op2'
  else return (mkApp2 f op1 op2)
 
  where
@@ -515,7 +534,7 @@ def optimizeIntFDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let op1 := args[0]!
  let op2 := args[1]!
  if let some r ← optimizeIntDivCommon DivKind.fdiv op1 op2 then return r
- if let some (op1', op2') ← cstCommonDivProp? op1 op2 Int.fdiv then return mkApp2 f op1' op2'
+ if let some (op1', op2') ← cstCommonDivProp? op1 op2 DivKind.fdiv then return mkApp2 f op1' op2'
  return (mkApp2 f op1 op2)
 
 /-- Apply the following simplification/normalization rules on `Int.fmod` :
