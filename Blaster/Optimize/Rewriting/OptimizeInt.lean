@@ -157,12 +157,12 @@ def mulIntDivReduceExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) :
                m < 0 := _ ∈ hypothesisContext.hypothesisMap)
 -/
 @[always_inline, inline]
-def optimizeIntDivCommon (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
+def optimizeIntDivCommon (op1 : Expr) (op2 : Expr) (f: Int -> Int -> Int): TranslateEnvT (Option Expr) := do
  match isIntValue? op1, isIntValue? op2 with
  | _, some (Int.ofNat 0) => return op2
  | _, some (Int.ofNat 1)
  | some (Int.ofNat 0), _ => return op1
- | some n1, some n2 => evalBinIntOp Int.ediv n1 n2
+ | some n1, some n2 => evalBinIntOp f n1 n2
  | _, _ =>
    if let some r ← intDivSelfReduce? op1 op2 then return r
    if let some r ← mulIntDivReduceExpr? op1 op2 then return r
@@ -210,7 +210,7 @@ def optimizeIntEDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeIntEDiv: exactly two arguments expected"
  let op1 := args[0]!
  let op2 := args[1]!
- if let some r ← optimizeIntDivCommon op1 op2 then return r
+ if let some r ← optimizeIntDivCommon op1 op2 Int.ediv then return r
  if let some (op1', op2') ← cstCommonDivProp? op1 op2 Int.ediv then return mkApp2 f op1' op2'
  return (mkApp2 f op1 op2)
 
@@ -241,12 +241,12 @@ def intModToZeroExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := d
      - (m * n) % m | (n * m) % m ==> 0
 -/
 @[always_inline, inline]
-def optimizeIntModCommon (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
+def optimizeIntModCommon (op1 : Expr) (op2 : Expr) (f: Int -> Int -> Int) : TranslateEnvT (Option Expr) := do
  match isIntValue? op1, isIntValue? op2 with
  | _, some (Int.ofNat 0) => return op1
  | _, some (Int.ofNat 1) => mkIntLitExpr (Int.ofNat 0)
  | some (Int.ofNat 0), _ => return op1
- | some n1, some n2 => evalBinIntOp Int.emod n1 n2
+ | some n1, some n2 => evalBinIntOp f n1 n2
  | _, nv2 =>
    if let some r ← cstModProp? op1 nv2 then return r
    if let some r ← intModToZeroExpr? op1 op2 then return r
@@ -284,7 +284,7 @@ def optimizeIntEMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeIntEMod: exactly two arguments expected"
  let op1 := args[0]!
  let op2 := args[1]!
- if let some r ← optimizeIntModCommon op1 op2 then return r
+ if let some r ← optimizeIntModCommon op1 op2 Int.emod then return r
  return (mkApp2 f op1 op2)
 
 /-- Apply the following simplification/normalization rules on `Int.tdiv`:
@@ -309,7 +309,7 @@ def optimizeIntTDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeIntTDiv: exactly two arguments expected"
  let op1 := args[0]!
  let op2 := args[1]!
- if let some r ← optimizeIntDivCommon op1 op2 then return r
+ if let some r ← optimizeIntDivCommon op1 op2 Int.tdiv then return r
  if let some r ← cstTDivProp? op1 op2 then return r
  if let some (op1', op2') ← cstCommonDivProp? op1 op2 Int.tdiv then return mkApp2 f op1' op2'
  else return (mkApp2 f op1 op2)
@@ -343,7 +343,7 @@ def optimizeIntTMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeIntTMod: exactly two arguments expected"
  let op1 := args[0]!
  let op2 := args[1]!
- if let some r ← optimizeIntModCommon op1 op2 then return r
+ if let some r ← optimizeIntModCommon op1 op2 Int.tmod then return r
  return (mkApp2 f op1 op2)
 
 /-- Apply the following simplification/normalization rules on `Int.fdiv`:
@@ -367,7 +367,7 @@ def optimizeIntFDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeIntFDiv: exactly two arguments expected"
  let op1 := args[0]!
  let op2 := args[1]!
- if let some r ← optimizeIntDivCommon op1 op2 then return r
+ if let some r ← optimizeIntDivCommon op1 op2 Int.fdiv then return r
  if let some (op1', op2') ← cstCommonDivProp? op1 op2 Int.fdiv then return mkApp2 f op1' op2'
  return (mkApp2 f op1 op2)
 
@@ -387,7 +387,7 @@ def optimizeIntFMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeIntFMod: exactly two arguments expected"
  let op1 := args[0]!
  let op2 := args[1]!
- if let some r ← optimizeIntModCommon op1 op2 then return r
+ if let some r ← optimizeIntModCommon op1 op2 Int.fmod then return r
  return (mkApp2 f op1 op2)
 
 
