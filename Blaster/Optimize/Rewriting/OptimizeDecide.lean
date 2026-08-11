@@ -15,8 +15,12 @@ def optimizeDecideCore (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
   if args.size != 1 then throwEnvError "optimizeDecideCore: one argument expected but got {reprStr args}"
   -- args[0] proposition
   let p := args[0]!
-  if let Expr.const ``False _ := p then return (← mkBoolFalse)
-  if let Expr.const ``True _ := p then return (← mkBoolTrue)
+  if let Expr.const ``False _ := p then
+    pushProofStep (.rewrite (mkConst ``decide_false))
+    return (← mkBoolFalse)
+  if let Expr.const ``True _ := p then
+    pushProofStep (.rewrite (mkConst ``decide_true))
+    return (← mkBoolTrue)
   if let some r ← decideBoolEq? p then return r
   return mkApp f p
 
@@ -27,8 +31,12 @@ where
   -/
   decideBoolEq? (e : Expr) : TranslateEnvT (Option Expr) := do
    match eq? e with
-   | some (_, Expr.const ``true _, p) => return (some p)
-   | some (_, Expr.const ``false _, p) => return (mkApp (← mkBoolNotOp) p)
+   | some (_, Expr.const ``true _, p) =>
+    pushProofStep (.rewrite (mkConst ``Blaster.decide'_true))
+    return (some p)
+   | some (_, Expr.const ``false _, p) =>
+    pushProofStep (.rewrite (mkConst ``Blaster.decide'_false))
+    return (mkApp (← mkBoolNotOp) p)
    | _ => return none
 
 /-- Apply simplification/normalization rules on `Blaster.decide'`. -/
