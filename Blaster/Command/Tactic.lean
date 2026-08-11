@@ -47,6 +47,9 @@ def toElabForm (e : Expr) : MetaM Expr := do
       mkAppM ``Neg.neg #[← toElabForm a]
   | Expr.app (Expr.const ``Int.ofNat _) (a@(Expr.lit (Literal.natVal _))) =>
       mkAppOptM ``OfNat.ofNat #[mkConst ``Int, a, none]
+  | Expr.app (Expr.const ``Int.negSucc _) (Expr.lit (Literal.natVal n)) =>
+      -- `Int.negSucc n` denotes `-(n+1)`.
+      mkAppM ``Neg.neg #[← mkAppOptM ``OfNat.ofNat #[mkConst ``Int, mkNatLit (n + 1), none]]
   -- Future-proofing: Nat.div /Nat.mod currently elaborates directly
   --                  (not via HDiv.hDiv / HMod.hMod),
   -- but we normalize it here in case that changes, consistent with add/sub/mul.

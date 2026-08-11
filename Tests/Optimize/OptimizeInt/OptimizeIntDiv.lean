@@ -73,3 +73,14 @@ elab "intDivCst_2" : term => return intDivCst_2
 #testOptimize[ "IntFdivZero_2", proof] ∀ (n : Int), Int.fdiv 0 n = 0 ===> True
 
 #testOptimize[ "IntTdivZero_2", proof] ∀ (n : Int), Int.tdiv 0 n = 0 ===> True
+
+
+/-! Test cases for the gcd normalization `(N1 * n) / N2 ==> ((N1 "/" gcd) * n) / (N2 "/" gcd)`. -/
+
+#testOptimize[ "IntEDivGcd_1", proof] ∀ (x : Int), (6 * x) / 4 = (3 * x) / 2 ===> True
+
+#testOptimize[ "IntEDivGcd_2", proof] ∀ (x : Int), (6 * x) / (-4) = (3 * x) / (-2) ===> True
+
+#testOptimize[ "IntFdivGcd_1", proof] ∀ (x : Int), Int.fdiv (6 * x) 4 = Int.fdiv (3 * x) 2 ===> True
+
+#testOptimize[ "IntTdivGcd_1", proof] ∀ (x : Int), Int.tdiv (6 * x) 4 = Int.tdiv (3 * x) 2 ===> True
