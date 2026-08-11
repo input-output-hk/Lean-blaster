@@ -142,6 +142,7 @@ def mulIntDivReduceExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) :
 
 
 /-- Given `op1` and `op2` corresponding to the operands for `Int.ediv`, `Int.tdiv` and `Int.fdiv`,
+    and `f_div` the corresponding divisor operator,
     try to apply the following simplification rules:
      - n / 0 ==> 0
      - n / 1 ==> n
@@ -157,12 +158,12 @@ def mulIntDivReduceExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) :
                m < 0 := _ ∈ hypothesisContext.hypothesisMap)
 -/
 @[always_inline, inline]
-def optimizeIntDivCommon (op1 : Expr) (op2 : Expr) (f: Int -> Int -> Int): TranslateEnvT (Option Expr) := do
+def optimizeIntDivCommon (op1 : Expr) (op2 : Expr) (f_div: Int -> Int -> Int): TranslateEnvT (Option Expr) := do
  match isIntValue? op1, isIntValue? op2 with
  | _, some (Int.ofNat 0) => return op2
  | _, some (Int.ofNat 1)
  | some (Int.ofNat 0), _ => return op1
- | some n1, some n2 => evalBinIntOp f n1 n2
+ | some n1, some n2 => evalBinIntOp f_div n1 n2
  | _, _ =>
    if let some r ← intDivSelfReduce? op1 op2 then return r
    if let some r ← mulIntDivReduceExpr? op1 op2 then return r
@@ -231,6 +232,7 @@ def intModToZeroExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := d
   | none => return none
 
 /--  Given `op1` and `op2` corresponding to the operands for `Int.emod`, `Int.fmod` and `Int.tmod`,
+     and `f_mod` the corresponding modulo operator,
      try to apply the following simplification rules:
      - n % 0 ==> n
      - n % 1 ==> 0
@@ -241,12 +243,12 @@ def intModToZeroExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := d
      - (m * n) % m | (n * m) % m ==> 0
 -/
 @[always_inline, inline]
-def optimizeIntModCommon (op1 : Expr) (op2 : Expr) (f: Int -> Int -> Int) : TranslateEnvT (Option Expr) := do
+def optimizeIntModCommon (op1 : Expr) (op2 : Expr) (f_mod: Int -> Int -> Int) : TranslateEnvT (Option Expr) := do
  match isIntValue? op1, isIntValue? op2 with
  | _, some (Int.ofNat 0) => return op1
  | _, some (Int.ofNat 1) => mkIntLitExpr (Int.ofNat 0)
  | some (Int.ofNat 0), _ => return op1
- | some n1, some n2 => evalBinIntOp f n1 n2
+ | some n1, some n2 => evalBinIntOp f_mod n1 n2
  | _, nv2 =>
    if let some r ← cstModProp? op1 nv2 then return r
    if let some r ← intModToZeroExpr? op1 op2 then return r
