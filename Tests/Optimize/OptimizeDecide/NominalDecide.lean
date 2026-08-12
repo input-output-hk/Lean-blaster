@@ -281,4 +281,18 @@ variable (q : Bool)
 #testOptimize [ "DecideUnchanged_11" ] decide (q = !(!(!(!p)))) ===> Blaster.decide' (p = q)
 
 
+/-! Proof reconstruction tests for the eliminative decide' cases -/
+
+-- Blaster.decide' False ===> false
+#testOptimize [ "Decide'False_1", proof ] Blaster.decide' False ===> false
+
+-- Blaster.decide' True ===> true
+#testOptimize [ "Decide'True_1", proof ] Blaster.decide' True ===> true
+
+-- Blaster.decide' (true = p) ===> p
+#testOptimize [ "Decide'EqTrue_1", proof ] Blaster.decide' (true = q) ===> q
+
+-- Blaster.decide' (false = p) ===> !p
+#testOptimize [ "Decide'EqFalse_1", proof ] Blaster.decide' (false = q) ===> !q
+
 end Test.NominalDecide
