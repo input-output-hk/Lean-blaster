@@ -1,4 +1,4 @@
-
+import Blaster.Optimize.Decidable
 
 namespace Blaster
 
@@ -101,6 +101,53 @@ protected theorem or_iff_eq_prop_2 : ∀ (a b : Bool), (a || !b) ↔ (true = a �
 protected theorem or_iff_eq_prop_3 : ∀ (a b : Bool), (!a || b) ↔ (false = a ∨ true = b) := by decide
 
 protected theorem or_iff_eq_prop_4 : ∀ (a b : Bool), !(a && b) ↔ (false = a ∨ false = b) := by decide
+
+
+/-! ## Lemmas validating the `decide'` regrouping on Boolean `&&`/`||:`
+      - `(decide' p && decide' q) ==> decide' (p ∧ q)`
+      - `(decide' p && b) | (b && decide' p) ==> decide' (p ∧ true = b)`
+      - `(decide' p || decide' q) ==> decide' (p ∨ q)`
+      - `(decide' p || b) | (b || decide' p) ==> decide' (p ∨ true = b)`
+-/
+
+protected theorem bool_eq_of_iff (b1 b2 : Bool) (h : b1 = true ↔ b2 = true) : b1 = b2 := by
+  cases b1 <;> cases b2 <;> simp_all
+
+protected theorem decide'_and_decide' (p q : Prop) :
+    (Blaster.decide' p && Blaster.decide' q) = Blaster.decide' (p ∧ q) := by
+  apply Blaster.bool_eq_of_iff; simp only [Bool.and_eq_true, Blaster.decide'_true]
+
+protected theorem decide'_and_bool (p : Prop) (b : Bool) :
+    (Blaster.decide' p && b) = Blaster.decide' (p ∧ (true = b)) := by
+  apply Blaster.bool_eq_of_iff; simp only [Bool.and_eq_true, Blaster.decide'_true]
+  constructor
+  · rintro ⟨hp, hb⟩; exact ⟨hp, hb.symm⟩
+  · rintro ⟨hp, hb⟩; exact ⟨hp, hb.symm⟩
+
+protected theorem bool_and_decide' (p : Prop) (b : Bool) :
+    (b && Blaster.decide' p) = Blaster.decide' (p ∧ (true = b)) := by
+  apply Blaster.bool_eq_of_iff; simp only [Bool.and_eq_true, Blaster.decide'_true]
+  constructor
+  · rintro ⟨hb, hp⟩; exact ⟨hp, hb.symm⟩
+  · rintro ⟨hp, hb⟩; exact ⟨hb.symm, hp⟩
+
+protected theorem decide'_or_decide' (p q : Prop) :
+    (Blaster.decide' p || Blaster.decide' q) = Blaster.decide' (p ∨ q) := by
+  apply Blaster.bool_eq_of_iff; simp only [Bool.or_eq_true, Blaster.decide'_true]
+
+protected theorem decide'_or_bool (p : Prop) (b : Bool) :
+    (Blaster.decide' p || b) = Blaster.decide' (p ∨ (true = b)) := by
+  apply Blaster.bool_eq_of_iff; simp only [Bool.or_eq_true, Blaster.decide'_true]
+  constructor
+  · rintro (hp | hb); exact Or.inl hp; exact Or.inr hb.symm
+  · rintro (hp | hb); exact Or.inl hp; exact Or.inr hb.symm
+
+protected theorem bool_or_decide' (p : Prop) (b : Bool) :
+    (b || Blaster.decide' p) = Blaster.decide' (p ∨ (true = b)) := by
+  apply Blaster.bool_eq_of_iff; simp only [Bool.or_eq_true, Blaster.decide'_true]
+  constructor
+  · rintro (hb | hp); exact Or.inr hb.symm; exact Or.inl hp
+  · rintro (hp | hb); exact Or.inr hp; exact Or.inl hb.symm
 
 
 end Blaster
