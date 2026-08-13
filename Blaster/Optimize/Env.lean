@@ -113,8 +113,8 @@ structure HypothesisContext where
       Given an implication of the form `h : a → b`, the following entries are introduced in this map:
        - `a := h` ∈ hypothesisMap
        - When `a := e₁ ∧ e₂`
-          - e₁ := Blaster.and_left e₁ e₂ h ∈ hypothesisMap
-          - e₂ := Blaster.and_right e₁ e₂ h ∈ hypothesisMap
+          - e₁ := And.left e₁ e₂ h ∈ hypothesisMap
+          - e₂ := And.right e₁ e₂ h ∈ hypothesisMap
       The Map is populated only when Type(a) = Prop.
       The updated Map is considered only when optimizing `b`, which may also be an implication.
       (see `addHypotheses` function and `optimizeForall` rule).

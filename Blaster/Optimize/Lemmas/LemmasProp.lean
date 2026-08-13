@@ -5,15 +5,10 @@ open Lean Meta Blaster.Optimize
 
 namespace Blaster
 
-/-! ## Lemmas validating the normalization and simplifications rules on `Prop` -/
+/-! ## Const-expression accessors for the `Prop` simplification rules -/
 
-protected theorem Blaster.and_left {a b : Prop} (h : a ∧ b) : a := by apply (And.left h)
-protected theorem Blaster.and_right {a b : Prop} (h : a ∧ b) : b := by apply (And.right h)
+def mkBlasterAndLeft : TranslateEnvT Expr := mkExpr (mkConst ``And.left)
 
-/-- Return `Blaster.and_left` const expression and cache result. -/
-def mkBlasterAndLeft : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.and_left)
-
-/-- Return `Blaster.and_right` const expression and cache result. -/
-def mkBlasterAndRight : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.and_right)
+def mkBlasterAndRight : TranslateEnvT Expr := mkExpr (mkConst ``And.right)
 
 end Blaster

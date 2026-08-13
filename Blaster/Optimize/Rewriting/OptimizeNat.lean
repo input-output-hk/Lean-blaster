@@ -7,45 +7,8 @@ import Blaster.Optimize.Env
 open Lean Meta
 namespace Blaster.Optimize
 
-theorem nat_add_sub_of_ble {c a : Nat} (b : Nat) (h : Nat.ble c a = true) :
-    (a + b) - c = (a - c) + b := by
-  have h : c ≤ a := by simpa [Nat.ble] using h
-  simpa [Nat.add_comm, Nat.add_left_comm, Nat.add_assoc] using Nat.add_sub_assoc h b
-
-theorem nat_mul_div_cancel_gcd {a b g : Nat} (x : Nat)
-    (hg : Nat.ble 1 g = true)
-    (ha : Nat.beq (a % g) 0 = true)
-    (hb : Nat.beq (b % g) 0 = true) :
-    (a * x) / b = ((a / g) * x) / (b / g) := by
-  have hg' : 0 < g := by simp [Nat.ble_eq] at hg; omega
-  have ha' : a % g = 0 := by simp [Nat.beq_eq] at ha; exact ha
-  have hb' : b % g = 0 := by simp [Nat.beq_eq] at hb; exact hb
-  have hag : a = a / g * g := (Nat.div_mul_cancel (Nat.dvd_of_mod_eq_zero ha')).symm
-  have hbg : b = b / g * g := (Nat.div_mul_cancel (Nat.dvd_of_mod_eq_zero hb')).symm
-  have key : a / g * g * x / (b / g * g) = a / g * x / (b / g) := by
-    rw [Nat.mul_assoc, Nat.mul_comm g x, ← Nat.mul_assoc]
-    exact Nat.mul_div_mul_right _ _ hg'
-  rw [← hag, ← hbg] at key
-  exact key
-
-theorem nat_pos_of_ne_zero {n : Nat} (h : ¬ (0 = n)) : 0 < n := by omega
-
-theorem nat_mul_div_cancel_left_of_pos {n : Nat} (m : Nat) (h : 0 < n) : n * m / n = m :=
-  Nat.mul_div_cancel_left m h
-
-theorem nat_mul_mod_of_mod_eq_zero {a b : Nat} (x : Nat)
-    (h : Nat.beq (a % b) 0 = true) : (a * x) % b = 0 := by
-  have h' : a % b = 0 := by simp [Nat.beq_eq] at h; exact h
-  rw [Nat.mul_mod, h', Nat.zero_mul, Nat.zero_mod]
-
-theorem nat_mul_mod_left (n m : Nat) : (n * m) % n = 0 := by
-  rw [Nat.mul_mod, Nat.mod_self, Nat.zero_mul, Nat.zero_mod]
-
-theorem nat_mul_mod_right (m n : Nat) : (m * n) % n = 0 := by
-  rw [Nat.mul_comm]; exact nat_mul_mod_left n m
-
 /-- Find an FVar proof of `0 < e` in the optimizer's local context.
-    If only `¬(0 = e)` is found, wraps it with `nat_pos_of_ne_zero`.
+    If only `¬(0 = e)` is found, wraps it with `Blaster.nat_pos_of_ne_zero`.
     Assumes `nonZeroNatInHyps e` has returned `true`. -/
 def findPosNatProof? (e : Expr) : TranslateEnvT (Option Expr) := withLocalContext $ do
   let lctx ← getLCtx
@@ -57,7 +20,7 @@ def findPosNatProof? (e : Expr) : TranslateEnvT (Option Expr) := withLocalContex
       let args := ty.getAppArgs
       if args[0]!.isConstOf ``Nat && isZeroNat args[2]! && exprEq args[3]! e then
         return some (mkFVar decl.fvarId)
-  -- Second pass: look for ¬(0 = e) and wrap with nat_pos_of_ne_zero
+  -- Second pass: look for ¬(0 = e) and wrap with Blaster.nat_pos_of_ne_zero
   for decl in lctx do
     if decl.isImplementationDetail then continue
     let ty := decl.type
@@ -65,7 +28,7 @@ def findPosNatProof? (e : Expr) : TranslateEnvT (Option Expr) := withLocalContex
       if inner.isAppOfArity ``Eq 3 then
         let args := inner.getAppArgs
         if args[0]!.isConstOf ``Nat && isZeroNat args[1]! && exprEq args[2]! e then
-          return some (mkApp2 (mkConst ``nat_pos_of_ne_zero) e (mkFVar decl.fvarId))
+          return some (mkApp2 (mkConst ``Blaster.nat_pos_of_ne_zero) e (mkFVar decl.fvarId))
   return none
 
 /-- Apply the following simplification/normalization rules on `Nat.add` :
@@ -111,7 +74,7 @@ def optimizeNatAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      - N1 - (N2 + n) ==> (N1 "-" N2) - n               [proof: Nat.sub_add_eq]
      - (N1 - n) - N2 ==> (N1 "-" N2) - n               [proof: Nat.sub_right_comm]
      - (n - N1) - N2 ==> n - (N1 "+" N2)               [proof: Nat.sub_sub]
-     - (N1 + n) - N2 ==> (N1 "-" N2) + n (if N1 ≥ N2)  [proof: nat_add_sub_of_ble]
+     - (N1 + n) - N2 ==> (N1 "-" N2) + n (if N1 ≥ N2)  [proof: Blaster.nat_add_sub_of_ble]
    Assume that f = Expr.const ``Nat.sub.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Nat.sub` expected at this stage)
 -/
@@ -174,7 +137,7 @@ def optimizeNatSub (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
                 let hProof :=
                   mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Bool) (mkConst ``Bool.true)
                 pushProofStep
-                  (.rewrite (mkApp4 (mkConst ``nat_add_sub_of_ble) op2 n1Expr e1 hProof))
+                  (.rewrite (mkApp4 (mkConst ``Blaster.nat_add_sub_of_ble) op2 n1Expr e1 hProof))
                 setRestart
                 return mkApp2 (← mkNatAddOp) (← evalBinNatOp Nat.sub n1 n2) e1
               else return none
@@ -294,7 +257,7 @@ def natDivSelfReduce? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := d
      - N1 / N2 ==> N1 "/" N2
      - (n / N1) / N2 ==> n / (N1 "*" N2)               [proof: Nat.div_div_eq_div_mul]
      - (N1 * n) / N2 ===> ((N1 "/" Nat.gcd N1 N2) * n) / (N2 "/" Nat.gcd N1 N2)
-       (if N2 > 0 ∧ Nat.gcd N1 N2 ≠ 1)                 [proof: nat_mul_div_cancel_gcd]
+       (if N2 > 0 ∧ Nat.gcd N1 N2 ≠ 1)                 [proof: Blaster.nat_mul_div_cancel_gcd]
      - n / n ==> 1 (if 0 < n := _ ∈ hypothesisContext.hypothesisMap ∨
                        ¬ (0 = n) := _ ∈ hypothesisContext.hypothesisMap)
                                                         [proof: Nat.div_self]
@@ -303,7 +266,7 @@ def natDivSelfReduce? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := d
                                                          [proof: Nat.mul_div_cancel]
      - (n * m) / n ==> m (if 0 < n := _ ∈ hypothesisContext.hypothesisMap ∨
                              ¬ (0 = n) := _ ∈ hypothesisContext.hypothesisMap)
-                                                         [proof: nat_mul_div_cancel_left_of_pos]
+                                                         [proof: Nat.mul_div_cancel_left]
    Assume that f = Expr.const ``Nat.div.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Nat.div` expected at this stage)
 
@@ -346,7 +309,7 @@ def optimizeNatDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
        pushProofStep (.rewrite (mkApp3 (mkConst ``Nat.mul_div_cancel) a op2 h))
      else if exprEq a op2 then
        -- n * m / n = m
-       pushProofStep (.rewrite (mkApp3 (mkConst ``nat_mul_div_cancel_left_of_pos) op2 b h))
+       pushProofStep (.rewrite (mkApp3 (mkConst ``Nat.mul_div_cancel_left) b op2 h))
 
    /- Given `op1` and `mv2`,
         - return `some (n / (N1 "*" N2))` when `op1 := (n / N1) ∧ mv2 := some N2`
@@ -376,7 +339,7 @@ def optimizeNatDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
              let boolRefl :=
                mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Bool) (mkConst ``Bool.true)
              pushProofStep (.rewrite
-               (mkAppN (mkConst ``nat_mul_div_cancel_gcd)
+               (mkAppN (mkConst ``Blaster.nat_mul_div_cancel_gcd)
                   #[n1Expr, outerOp2, gExpr, e1, boolRefl, boolRefl, boolRefl]))
              setRestart
              let mulExpr := mkApp2 (← mkNatMulOp) (← evalBinNatOp Nat.div n1 gcd) e1
@@ -405,10 +368,10 @@ def natModToZeroExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := d
      - 0 % n ==> 0                           [proof: Nat.zero_mod]
      - N1 % N2 ==> N1 "%" N2
      - (N1 * n) % N2 ==> 0 (if N1 % N2 = 0)
-                                             [proof: nat_mul_mod_of_mod_eq_zero]
+                                             [proof: Blaster.nat_mul_mod_of_mod_eq_zero]
      - n1 % n2 ==> 0 (if n1 =ₚₜᵣ n2)         [proof: Nat.mod_self]
-     - (n * m) % n ==> 0                     [proof: nat_mul_mod_left]
-     - (m * n) % n ==> 0                     [proof: nat_mul_mod_right]
+     - (n * m) % n ==> 0                     [proof: Nat.mul_mod_right]
+     - (m * n) % n ==> 0                     [proof: Nat.mul_mod_left]
    Assume that f = Expr.const ``Nat.mod.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Nat.mod` expected at this stage)
 -/
@@ -443,9 +406,9 @@ def optimizeNatMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      else
        let some (a, b) := natMul? op1 | return ()
        if exprEq a op2 then
-         pushProofStep (.rewrite (mkConst ``nat_mul_mod_left))
+         pushProofStep (.rewrite (mkConst ``Nat.mul_mod_right))
        else if exprEq b op2 then
-         pushProofStep (.rewrite (mkConst ``nat_mul_mod_right))
+         pushProofStep (.rewrite (mkConst ``Nat.mul_mod_left))
 
    /- Given `op1`, `outerOp2` and `mv2`, return `some 0`
       when `op1 := N1 * n ∧ mv2 := N2 ∧ N1 % N2 = 0`
@@ -461,7 +424,7 @@ def optimizeNatMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
           let boolRefl :=
             mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Bool) (mkConst ``Bool.true)
           pushProofStep (.rewrite
-            (mkAppN (mkConst ``nat_mul_mod_of_mod_eq_zero)
+            (mkAppN (mkConst ``Blaster.nat_mul_mod_of_mod_eq_zero)
                #[n1Expr, outerOp2, e1, boolRefl]))
           some <$> mkNatLitExpr 0
         else return none

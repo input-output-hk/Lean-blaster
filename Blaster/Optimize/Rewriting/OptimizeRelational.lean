@@ -4,16 +4,6 @@ import Blaster.Optimize.Hypotheses
 open Lean Meta
 namespace Blaster.Optimize
 
-theorem nat_le_eq_not_lt (a b : Nat) : (a ≤ b) = (¬ (b < a)) :=
-  propext ⟨fun h hlt => Nat.lt_irrefl b (Nat.lt_of_lt_of_le hlt h),
-           Nat.le_of_not_lt⟩
-
-theorem int_le_eq_not_lt (a b : Int) : (a ≤ b) = (¬ (b < a)) :=
-  propext ⟨fun h hlt => absurd (Int.lt_of_lt_of_le hlt h) (Int.lt_irrefl b), Int.not_lt.mp⟩
-
-theorem nat_lt_zero_eq_false (a : Nat) : (a < 0) = False :=
-  propext ⟨fun h => Nat.not_lt_zero a h, fun h => h.elim⟩
-
 /-- Return `true` when `e` corresponds to the one nat literal. -/
 def isOneNat (e : Expr) : Bool :=
   match isNatValue? e with
@@ -256,7 +246,7 @@ def predCstLTInHyp (op1 : Expr) (op2 : Expr) : TranslateEnvT Bool := do
 
 /-- Apply the following simplification/normalization rules on `LT.lt` :
      - e1 < e2 ==> False (if e1 =ₚₜᵣ e2)
-     - e < 0 ==> False (if Type(e) = Nat)    [proof: nat_lt_zero_eq_false]
+     - e < 0 ==> False (if Type(e) = Nat)    [proof: Blaster.nat_lt_zero_eq_false]
      - 0 < -e ==> e < 0 (if Type(e) = Int)
      - N1 < N2 ==> N1 "<" N2
      - N < e ==> False (if ¬ (N - 1 < e) := _ ∈ hypothesisContext.hypothesisMap ∧ Type(e) ∈ [Nat, Int])
@@ -299,7 +289,7 @@ def optimizeLT (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
  let op2 := args[3]!
  if (exprEq op1 op2) then return (← mkPropFalse)
  if (isZeroNat op2) then
-   pushProofStep (.rewrite (mkConst ``nat_lt_zero_eq_false))
+   pushProofStep (.rewrite (mkConst ``Blaster.nat_lt_zero_eq_false))
    return (← mkPropFalse)
  if let some r ← intZeroLtNorm? op1 op2 then return r
  if let some r ← cstLTProp? op1 op2 then return r
@@ -359,8 +349,8 @@ def optimizeLT (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
 
 
 /-- Apply the following normalization rule on `LE.le` :
-     - e1 ≤ e2 ==> ¬ (e2 < e1) (if Type(e1) = Nat)   [proof: nat_le_eq_not_lt]
-     - e1 ≤ e2 ==> ¬ (e2 < e1) (if Type(e1) = Int)   [proof: int_le_eq_not_lt]
+     - e1 ≤ e2 ==> ¬ (e2 < e1) (if Type(e1) = Nat)   [proof: Blaster.nat_le_eq_not_lt]
+     - e1 ≤ e2 ==> ¬ (e2 < e1) (if Type(e1) = Int)   [proof: Blaster.int_le_eq_not_lt]
 
    This normalization rule is applied only when isOpaqueRelational predicate is satisfied
    Assume that f = Expr.const ``LE.le.
@@ -376,9 +366,9 @@ def optimizeLE (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
    let op1 := args[2]!
    let op2 := args[3]!
    if le_type.isConstOf ``Nat then
-     pushProofStep (.rewrite (mkApp2 (mkConst ``nat_le_eq_not_lt) op1 op2))
+     pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.nat_le_eq_not_lt) op1 op2))
    else if le_type.isConstOf ``Int then
-     pushProofStep (.rewrite (mkApp2 (mkConst ``int_le_eq_not_lt) op1 op2))
+     pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.int_le_eq_not_lt) op1 op2))
    setRestart
    mkNotLtExpr le_type op2 op1
  else if args.size == 2 then

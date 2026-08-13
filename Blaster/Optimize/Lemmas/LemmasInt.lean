@@ -8,9 +8,6 @@ namespace Blaster
 
 /-! ## Lemmas validating the normalization and simplifications on `Int` -/
 
-protected theorem int_not_lt_of_lt {a b : Int} (h : a < b) : ¬ b < a := by
-  apply (Int.lt_asymm h)
-
 protected theorem int_not_lt_right_of_eq {a b : Int} (h : a = b) : ¬ b < a := by
   apply (Int.not_lt_of_ge (Int.le_of_eq h))
 
@@ -28,10 +25,6 @@ protected theorem int_not_zero_eq_of_lt_zero {a : Int} (h : a < 0) : ¬ 0 = a :=
 
 protected theorem int_not_zero_eq_of_zero_lt {a : Int} (h : 0 < a) : ¬ 0 = a := by
   unfold Not; intro h1; rw [h1] at h; simp at *
-
-protected theorem zero_lt_neg_of_lt_zero {a : Int} (h : a < 0) : 0 < -a := by simp; assumption
-
-protected theorem lt_zero_of_zero_lt_neg {a : Int} (h : 0 < -a) : a < 0 := by simp at *; assumption
 
 protected theorem sub_min_int_of_eq (N1 N2 a b : Int) (h : N1 + a = N2 + b) :
     N1 - min N1 N2 + a = N2 - min N1 N2 + b := by
@@ -88,34 +81,32 @@ protected theorem int_fmod_mul_zero (N1 N2 x : Int) (h : N1 % N2 = 0) : (N1 * x)
   obtain ⟨k, hk⟩ := Int.dvd_of_emod_eq_zero h
   exact Int.fmod_eq_zero_of_dvd ⟨k * x, by rw [hk, Int.mul_assoc]⟩
 
-/-- Return `Blaster.int_not_lt_of_lt` const expression and cache result. -/
-def mkInt_not_lt_of_lt : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.int_not_lt_of_lt)
+/-! Lemma to validate normalization rule `e1 ≤ e2 ==> ¬ (e2 < e1) (if Type(e1) = Int)`. -/
+protected theorem int_le_eq_not_lt (a b : Int) : (a ≤ b) = (¬ (b < a)) :=
+  propext ⟨fun h hlt => absurd (Int.lt_of_lt_of_le hlt h) (Int.lt_irrefl b), Int.not_lt.mp⟩
 
-/-- Return `Blaster.int_not_lt_right_of_eq` const expression and cache result. -/
+/-! Lemma to validate simplification rule `N1 + -(N2 + n) ==> (N1 "-" N2) + -n`. -/
+protected theorem int_add_neg_add (a b c : Int) : a + -(b + c) = (a - b) + -c := by omega
+
+/-! Helpers turning a strict sign hypothesis into `n ≠ 0`. -/
+protected theorem int_ne_zero_of_zero_lt {n : Int} (h : 0 < n) : n ≠ 0 := by omega
+protected theorem int_ne_zero_of_lt_zero {n : Int} (h : n < 0) : n ≠ 0 := by omega
+protected theorem int_ne_zero_of_not_zero_eq {n : Int} (h : ¬ (0 = n)) : n ≠ 0 := by omega
+
+def mkInt_lt_asymm : TranslateEnvT Expr := mkExpr (mkConst ``Int.lt_asymm)
+
 def mkInt_not_lt_right_of_eq : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.int_not_lt_right_of_eq)
 
-/-- Return `Blaster.int_not_lt_left_of_eq` const expression and cache result. -/
 def mkInt_not_lt_left_of_eq : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.int_not_lt_left_of_eq)
 
-/-- Return `Blaster.int_not_eq_of_lt_left` const expression and cache result. -/
 def mkInt_not_eq_of_lt_left : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.int_not_eq_of_lt_left)
 
-/-- Return `Blaster.int_not_eq_of_lt_right` const expression and cache result. -/
 def mkInt_not_eq_of_lt_right : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.int_not_eq_of_lt_right)
 
-/-- Return `Blaster.int_not_zero_eq_of_lt_zero` const expression and cache result. -/
 def mkInt_not_zero_eq_of_lt_zero : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.int_not_zero_eq_of_lt_zero)
 
-/-- Return `Blaster.int_not_zero_eq_of_zero_lt` const expression and cache result. -/
 def mkInt_not_zero_eq_of_zero_lt : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.int_not_zero_eq_of_zero_lt)
 
-/-- Return `Blaster.zero_lt_neg_of_lt_zero` const expression and cache result. -/
-def mkInt_zero_lt_neg_of_lt_zero : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.zero_lt_neg_of_lt_zero)
-
-/-- Return `Blaster.lt_zero_of_zero_lt_neg` const expression and cache result. -/
-def mkInt_lt_zero_of_zero_lt_neg : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.lt_zero_of_zero_lt_neg)
-
-/-- Return `Blaster.sub_min_int_of_eq` const expression and cache result. -/
 def mkInt_sub_min_int_of_eq : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.sub_min_int_of_eq)
 
 

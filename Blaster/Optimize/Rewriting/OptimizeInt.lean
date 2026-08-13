@@ -7,18 +7,12 @@ import Blaster.Optimize.Env
 open Lean Meta
 namespace Blaster.Optimize
 
-theorem int_add_neg_add (a b c : Int) : a + -(b + c) = (a - b) + -c := by omega
-
 /-- Return `true` when `e` corresponds to the zero int literal. -/
 @[always_inline, inline]
 def isZeroInt (e : Expr) : Bool :=
   match isIntValue? e with
   | some (Int.ofNat 0) => true
   | _ => false
-
-theorem int_ne_zero_of_zero_lt {n : Int} (h : 0 < n) : n ≠ 0 := by omega
-theorem int_ne_zero_of_lt_zero {n : Int} (h : n < 0) : n ≠ 0 := by omega
-theorem int_ne_zero_of_not_zero_eq {n : Int} (h : ¬ (0 = n)) : n ≠ 0 := by omega
 
 /-- Apply the following simplification/normalization rules on `Int.neg` :
      - - (N) ==> "-" N
@@ -41,7 +35,7 @@ def optimizeIntNeg (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      - 0 + n ==> n                          [proof: Int.zero_add]
      - N1 + N2 ==> N1 "+" N2
      - N1 + (N2 + n) ==> (N1 "+" N2) + n    [proof: ← Int.add_assoc]
-     - N1 + -(N2 + n) ==> (N1 "-" N2) + -n  [proof: int_add_neg_add]
+     - N1 + -(N2 + n) ==> (N1 "-" N2) + -n  [proof: Blaster.int_add_neg_add]
      - n1 + (-n2) ==> 0 if (if n1 =ₚₜᵣ n2)
      - n1 + n2 ==> n2 + n1 (if n2 <ₒ n1)    [proof: Int.add_comm, see reorderOperands]
    Assume that f = Expr.const ``Int.add.
@@ -84,7 +78,7 @@ def optimizeIntAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      | some (IntCstOpInfo.IntNegAddExpr n2 e2) =>
          -- `op2 := Int.neg (Int.add N2 n)`, so `op2.appArg!.appFn!.appArg!` is `N2`.
          let n2Expr := op2.appArg!.appFn!.appArg!
-         pushProofStep (.rewrite (mkApp3 (mkConst ``int_add_neg_add) op1 n2Expr e2))
+         pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.int_add_neg_add) op1 n2Expr e2))
          setRestart
          return mkApp2 f (← evalBinIntOp Int.sub n1 n2) (mkApp (← mkIntNegOp) e2)
      | _ => return none
@@ -182,7 +176,7 @@ def findNeZeroIntProof? (e : Expr) : TranslateEnvT (Option Expr) := withLocalCon
     if ty.isAppOfArity ``LT.lt 4 then
       let args := ty.getAppArgs
       if args[0]!.isConstOf ``Int && isZeroInt args[2]! && exprEq args[3]! e then
-        return some (mkApp2 (mkConst ``int_ne_zero_of_zero_lt) e (mkFVar decl.fvarId))
+        return some (mkApp2 (mkConst ``Blaster.int_ne_zero_of_zero_lt) e (mkFVar decl.fvarId))
   -- Second pass: e < 0
   for decl in lctx do
     if decl.isImplementationDetail then continue
@@ -190,7 +184,7 @@ def findNeZeroIntProof? (e : Expr) : TranslateEnvT (Option Expr) := withLocalCon
     if ty.isAppOfArity ``LT.lt 4 then
       let args := ty.getAppArgs
       if args[0]!.isConstOf ``Int && exprEq args[2]! e && isZeroInt args[3]! then
-        return some (mkApp2 (mkConst ``int_ne_zero_of_lt_zero) e (mkFVar decl.fvarId))
+        return some (mkApp2 (mkConst ``Blaster.int_ne_zero_of_lt_zero) e (mkFVar decl.fvarId))
   -- Third pass: ¬ (0 = e)
   for decl in lctx do
     if decl.isImplementationDetail then continue
@@ -199,7 +193,7 @@ def findNeZeroIntProof? (e : Expr) : TranslateEnvT (Option Expr) := withLocalCon
       if inner.isAppOfArity ``Eq 3 then
         let args := inner.getAppArgs
         if args[0]!.isConstOf ``Int && isZeroInt args[1]! && exprEq args[2]! e then
-          return some (mkApp2 (mkConst ``int_ne_zero_of_not_zero_eq) e (mkFVar decl.fvarId))
+          return some (mkApp2 (mkConst ``Blaster.int_ne_zero_of_not_zero_eq) e (mkFVar decl.fvarId))
   return none
 
 /--

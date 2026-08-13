@@ -158,8 +158,8 @@ def leqZeroIntInHyps (e : Expr) : TranslateEnvT Bool := do
      Let hMap := hyps.hypothesisMap
       - When Type(e) = Prop:
          - let hMap' := hMap ∪ [ e := h | ¬ ∃ e := h' ∈ hMap ] ∪
-                               [ e₁ := Blaster.and_left e₁ e₂ h | e := e₁ ∧ e₂, ¬ ∃ e₁ := h' ∈ hMap ] ∪
-                               [ e₂ := Blaster.and_right e₁ e₂ h | e := e₁ ∧ e₂, ¬ ∃ e₂ := h' ∈ hMap ]
+                               [ e₁ := And.left e₁ e₂ h | e := e₁ ∧ e₂, ¬ ∃ e₁ := h' ∈ hMap ] ∪
+                               [ e₂ := And.right e₁ e₂ h | e := e₁ ∧ e₂, ¬ ∃ e₂ := h' ∈ hMap ]
 
          - return (hMap' ≠ hMap, {hypothesisMap := hMap', equalityMap := default})
      Otherwise:
@@ -230,7 +230,7 @@ def leqZeroIntInHyps (e : Expr) : TranslateEnvT Bool := do
           - return `some Blaster.int_not_lt_right_of_eq b a p`
 
       - When `e := ¬ (a < b) ∧ Type(a) = Int ∧ b < a := p ∈ h
-          - return `some Blaster.int_not_lt_of_lt b a p`
+          - return `some Int.lt_asymm b a p`
 
       - When `e := ¬ (a < b) ∧ Type(a) = Nat ∧ a = b := p ∈ h
           - return `some Blaster.nat_not_lt_left_of_eq a b p`
@@ -239,7 +239,7 @@ def leqZeroIntInHyps (e : Expr) : TranslateEnvT Bool := do
           - return `some Blaster.nat_not_lt_right_of_eq b a p`
 
       - When `e := ¬ (a < b) ∧ Type(a) = Nat ∧ b < a := p ∈ h
-          - return `some Blaster.nat_not_lt_of_lt b a p`
+          - return `some Nat.lt_asymm b a p`
 
      - When `e := 0 < a ∧ Type(a) = Nat ∧ ¬ 0 = a := p ∈ h
           - return `some Blaster.nat_zero_lt_of_not_zero_eq a p`
@@ -342,7 +342,7 @@ def inHypMap (e : Expr) (h : HypothesisMap) : TranslateEnvT (Option Expr) := do
             - return `some Blaster.int_not_lt_right_of_eq b a p`
 
         - When `e := ¬ (a < b) ∧ Type(a) = Int ∧ b < a := p ∈ h
-            - return `some Blaster.int_not_lt_of_lt b a p`
+            - return `some Int.lt_asymm b a p`
 
         - When `e := ¬ (a < b) ∧ Type(a) = Nat ∧ a = b := p ∈ h
             - return `some Blaster.nat_not_lt_left_of_eq a b p`
@@ -351,7 +351,7 @@ def inHypMap (e : Expr) (h : HypothesisMap) : TranslateEnvT (Option Expr) := do
             - return `some Blaster.nat_not_lt_right_of_eq b a p`
 
         - When `e := ¬ (a < b) ∧ Type(a) = Nat ∧ b < a := p ∈ h
-            - return `some Blaster.nat_not_lt_of_lt b a p`
+            - return `some Nat.lt_asymm b a p`
 
         - Otherwise:
             - return `none`
@@ -367,7 +367,7 @@ def inHypMap (e : Expr) (h : HypothesisMap) : TranslateEnvT (Option Expr) := do
             then return mkApp3 (← mkNat_not_lt_left_of_eq) op1 op2 p
             else return mkApp3 (← mkNat_not_lt_right_of_eq) op2 op1 p
           else if let some p := h.get? (← mkNatLtExpr op2 op1) then
-            return mkApp3 (← mkNat_not_lt_of_lt) op2 op1 p
+            return mkApp3 (← mkNat_lt_asymm) op2 op1 p
           else return none
 
      | Expr.const ``Int _ =>
@@ -377,7 +377,7 @@ def inHypMap (e : Expr) (h : HypothesisMap) : TranslateEnvT (Option Expr) := do
             then return mkApp3 (← mkInt_not_lt_left_of_eq) op1 op2 p
             else return mkApp3 (← mkInt_not_lt_right_of_eq) op2 op1 p
           else if let some p := h.get? (← mkIntLtExpr op2 op1) then
-            return mkApp3 (← mkInt_not_lt_of_lt) op2 op1 p
+            return mkApp3 (← mkInt_lt_asymm) op2 op1 p
           else return none
      | _ => return none
 
