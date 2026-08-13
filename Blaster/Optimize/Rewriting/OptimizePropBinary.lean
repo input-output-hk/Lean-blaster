@@ -5,12 +5,6 @@ open Lean Meta
 namespace Blaster.Optimize
 
 
-theorem and_not_self_is_false (a : Prop) : (a ∧ ¬ a) = False := by
-   simp
-
-theorem true_and_false_is_false (a : Bool) : (true = a ∧ false = a) = False := by
-  simp
-
  /-- Given `a` and `b` the operands for `And`, apply the simplification rules:
      - When a := _ ∈ hypothesisContext.hypothesisMap,
         - return `some b`
@@ -64,10 +58,10 @@ def optimizeAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
    pushProofStep (.rewrite (mkConst ``and_self))
    return op1
  if isNotExprOf op2 op1 then
-   pushProofStep (.rewrite (mkConst ``and_not_self_is_false))
+   pushProofStep (.rewrite (mkConst ``Blaster.and_not_self_is_false))
    return ← mkPropFalse
  if isNegBoolEqOf op2 op1 then
-   pushProofStep (.rewrite (mkConst ``true_and_false_is_false))
+   pushProofStep (.rewrite (mkConst ``Blaster.true_and_false_is_false))
    return ← mkPropFalse
  if let some r ← andImpliesReduce? op1 op2 then return r
  if let some r ← andPropReduction? op1 op2 then return r
