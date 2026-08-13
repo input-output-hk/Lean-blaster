@@ -4,6 +4,13 @@ import Blaster.Optimize.Rewriting.OptimizeForAll
 open Lean Meta
 namespace Blaster.Optimize
 
+
+theorem and_not_self_is_false (a : Prop) : (a ∧ ¬ a) = False := by
+   simp
+
+theorem true_and_false_is_false (a : Bool) : (true = a ∧ false = a) = False := by
+  simp
+
  /-- Given `a` and `b` the operands for `And`, apply the simplification rules:
      - When a := _ ∈ hypothesisContext.hypothesisMap,
         - return `some b`
@@ -26,11 +33,11 @@ namespace Blaster.Optimize
 
 
 /-- Apply the following simplification/normalization rules on `And` :
-     - False ∧ e ==> False
-     - True ∧ e ==> e
-     - e1 ∧ e2 ==> e1 (if e1 =ₚₜᵣ e2)
-     - e ∧ ¬ e ==> False
-     - true = e ∧ false = e ==> False
+     - False ∧ e ==> False                                  [proof: false_and]
+     - True ∧ e ==> e                                       [proof: true_and]
+     - e1 ∧ e2 ==> e1 (if e1 =ₚₜᵣ e2)                        [proof: and_self]
+     - e ∧ ¬ e ==> False                                    [proof: and_not_self_is_false]
+     - true = e ∧ false = e ==> False                       [proof: true_and_false_is_false]
      - e1 ∧ (e1 → e2) ==> e1 ∧ e2 (if ¬ e2.hasLooseBVars)
      - e1 ∧ (e2 → e1) ==> e1
      - (e1 → e2) ∧ (¬ e1 → e2) ==> e2
@@ -47,11 +54,21 @@ def optimizeAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeAnd: exactly two arguments expected"
  let op1 := args[0]!
  let op2 := args[1]!
- if let Expr.const ``False _  := op1 then return op1
- if let Expr.const ``True _ := op1 then return op2
- if exprEq op1 op2 then return op1
- if isNotExprOf op2 op1 then return ← mkPropFalse
- if isNegBoolEqOf op2 op1 then return ← mkPropFalse
+ if let Expr.const ``False _  := op1 then
+   pushProofStep (.rewrite (mkConst ``false_and))
+   return op1
+ if let Expr.const ``True _ := op1 then
+   pushProofStep (.rewrite (mkConst ``true_and))
+   return op2
+ if exprEq op1 op2 then
+   pushProofStep (.rewrite (mkConst ``and_self))
+   return op1
+ if isNotExprOf op2 op1 then
+   pushProofStep (.rewrite (mkConst ``and_not_self_is_false))
+   return ← mkPropFalse
+ if isNegBoolEqOf op2 op1 then
+   pushProofStep (.rewrite (mkConst ``true_and_false_is_false))
+   return ← mkPropFalse
  if let some r ← andImpliesReduce? op1 op2 then return r
  if let some r ← andPropReduction? op1 op2 then return r
  -- no caching at this level as optimizeAnd is called by optimizeBoolPropAnd
