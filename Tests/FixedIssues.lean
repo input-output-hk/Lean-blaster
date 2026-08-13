@@ -30,3 +30,4 @@ import Tests.FixedIssues.Issue30
 import Tests.FixedIssues.Issue31
 import Tests.FixedIssues.Issue32
 import Tests.FixedIssues.Issue33
+import Tests.FixedIssues.Issue34
