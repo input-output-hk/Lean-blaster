@@ -6,10 +6,10 @@ open Lean Meta Elab
 namespace Blaster.Optimize
 
 /-- Apply the following simplification/normalization rules on `Blaster.decide'`:
-      - decide' False ==> false      [proof: decide'_false_simp]
-      - decide' True ==> true        [proof: decide'_true_simp]
-      - decide' (true = p) ==> p     [proof: decide'_true_eq]
-      - decide' (false = p) ==> ! p  [proof: decide'_false_eq]
+      - decide' False ==> false      [proof: Blaster.decide'_false_simp]
+      - decide' True ==> true        [proof: Blaster.decide'_true_simp]
+      - decide' (true = p) ==> p     [proof: Blaster.decide'_true_eq]
+      - decide' (false = p) ==> ! p  [proof: Blaster.decide'_false_eq]
     An error is trigerred if args.size ≠ 2.
 -/
 def optimizeDecideCore (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do

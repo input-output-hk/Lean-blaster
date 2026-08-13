@@ -30,8 +30,8 @@ namespace Blaster.Optimize
      - False ∧ e ==> False                                  [proof: false_and]
      - True ∧ e ==> e                                       [proof: true_and]
      - e1 ∧ e2 ==> e1 (if e1 =ₚₜᵣ e2)                        [proof: and_self]
-     - e ∧ ¬ e ==> False                                    [proof: and_not_self_is_false]
-     - true = e ∧ false = e ==> False                       [proof: true_and_false_is_false]
+     - e ∧ ¬ e ==> False                                    [proof: Blaster.and_not_self_is_false]
+     - true = e ∧ false = e ==> False                       [proof: Blaster.true_and_false_is_false]
      - e1 ∧ (e1 → e2) ==> e1 ∧ e2 (if ¬ e2.hasLooseBVars)
      - e1 ∧ (e2 → e1) ==> e1
      - (e1 → e2) ∧ (¬ e1 → e2) ==> e2
