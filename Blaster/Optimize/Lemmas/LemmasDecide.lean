@@ -149,12 +149,13 @@ protected theorem bool_or_decide' (p : Prop) (b : Bool) :
   · rintro (hb | hp); exact Or.inr hb.symm; exact Or.inl hp
   · rintro (hp | hb); exact Or.inr hp; exact Or.inl hb.symm
 
-  /-! ## Lemmas validating the `decide'` simplification rules:
-      - `decide' False ==> false`
-      - `decide' True ==> true`
-      - `decide' (true = p) ==> p`
-      - `decide' (false = p) ==> ! p`
-  -/
+/-! ## Lemmas validating the `decide'` simplification rules:
+    - `decide' False ==> false`
+    - `decide' True ==> true`
+    - `decide' (true = p) ==> p`
+    - `decide' (false = p) ==> ! p`
+-/
+
 protected theorem decide'_false_simp : Blaster.decide' False = false := by
   simp [Blaster.decide'_false]
 
