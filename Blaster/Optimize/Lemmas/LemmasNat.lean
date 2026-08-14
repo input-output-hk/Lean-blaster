@@ -78,6 +78,73 @@ protected theorem nat_mul_mod_of_mod_eq_zero {a b : Nat} (x : Nat)
   have h' : a % b = 0 := by simp [Nat.beq_eq] at h; exact h
   rw [Nat.mul_mod, h', Nat.zero_mul, Nat.zero_mod]
 
+/-! ## Lemmas validating the `optimizeLT` simplification and normalization rules on `Nat` -/
+
+/-! Lemma to validate simplification rule `e < e ==> False`. -/
+protected theorem nat_lt_self_eq_false (a : Nat) : (a < a) = False :=
+  propext ⟨fun h => by omega, False.elim⟩
+
+/-! Lemma to validate constant fold `N1 < N2 ==> True (if N1 "<" N2)`. -/
+protected theorem nat_lt_eq_true (a b : Nat) (h : decide (a < b) = true) : (a < b) = True :=
+  eq_true (of_decide_eq_true h)
+
+/-! Lemma to validate constant fold `N1 < N2 ==> False (if ¬ (N1 "<" N2))`. -/
+protected theorem nat_lt_eq_false (a b : Nat) (h : decide (a < b) = false) : (a < b) = False :=
+  eq_false (of_decide_eq_false h)
+
+/-! Lemma to validate simplification rule `e < 1 ==> 0 = e`. -/
+protected theorem nat_lt_one_eq_zero_eq (a : Nat) : (a < 1) = (0 = a) :=
+  propext (by omega)
+
+/-! Lemma to validate simplification rule `a + b < a ==> False`. -/
+protected theorem nat_add_lt_self_eq_false (a b : Nat) : (a + b < a) = False :=
+  propext ⟨fun h => by omega, False.elim⟩
+
+/-! Lemma to validate simplification rule `b + a < a ==> False`. -/
+protected theorem nat_add_lt_self_right_eq_false (a b : Nat) : (b + a < a) = False :=
+  propext ⟨fun h => by omega, False.elim⟩
+
+/-! Lemma to validate simplification rule `e < N + e ==> True (if N > 0)`. -/
+protected theorem nat_lt_add_left_eq_true (a n : Nat) (h : Nat.ble 1 n = true) :
+    (a < n + a) = True := by
+  have h1 : 1 ≤ n := Nat.le_of_ble_eq_true h
+  exact propext ⟨fun _ => trivial, fun _ => by omega⟩
+
+/-! Lemma to validate simplification rule `N1 + a < N2 ==> False (if N2 ≤ N1)`. -/
+protected theorem nat_add_const_lt_eq_false (a n1 n2 : Nat) (h : Nat.ble n2 n1 = true) :
+    (n1 + a < n2) = False := by
+  have : n2 ≤ n1 := Nat.le_of_ble_eq_true h
+  exact propext ⟨fun h => by omega, False.elim⟩
+
+/-! Lemma to validate simplification rule `N1 + a < N2 ==> a < N2 "-" N1`. -/
+protected theorem nat_add_const_lt_eq_lt_sub (a n1 n2 : Nat) :
+    (n1 + a < n2) = (a < n2 - n1) := propext (by omega)
+
+/-! Lemma to validate simplification rule `N1 < N2 + a ==> True (if N1 < N2)`. -/
+protected theorem nat_const_lt_add_eq_true (a n1 n2 : Nat) (h : Nat.blt n1 n2 = true) :
+    (n1 < n2 + a) = True := by
+  have h1 : n1 < n2 := cast Nat.blt_eq h
+  exact propext ⟨fun _ => trivial, fun _ => by omega⟩
+
+/-! Lemma to validate simplification rule `N1 < N2 + a ==> N1 "-" N2 < a (if N1 ≥ N2)`. -/
+protected theorem nat_const_lt_add_eq_sub_lt (a n1 n2 : Nat) (h : Nat.ble n2 n1 = true) :
+    (n1 < n2 + a) = (n1 - n2 < a) := by
+  have : n2 ≤ n1 := Nat.le_of_ble_eq_true h
+  exact propext (by omega)
+
+/-! Lemma to validate simplification rule
+    `N1 + a < N2 + b ==> N1 "-" min(N1, N2) + a < N2 "-" min(N1, N2) + b`.
+    `m1` and `m2` are the (already reduced) constants `N1 "-" min(N1, N2)` and
+    `N2 "-" min(N1, N2)`, so the reconstructed goal matches the optimizer output literally. -/
+protected theorem nat_add_both_lt (a b n1 n2 m1 m2 : Nat)
+    (h1 : n1 - min n1 n2 = m1) (h2 : n2 - min n1 n2 = m2) :
+    (n1 + a < n2 + b) = (m1 + a < m2 + b) := by
+  subst h1 h2; exact propext (by omega)
+
+/-! Lemma to validate normalization rule `a < 1 + b ==> ¬ (b < a)`. -/
+protected theorem nat_lt_one_add_eq_not_lt (a b : Nat) : (a < 1 + b) = (¬ (b < a)) :=
+  propext (by omega)
+
 def mkNat_lt_asymm : TranslateEnvT Expr := mkExpr (mkConst ``Nat.lt_asymm)
 
 def mkNat_not_lt_right_of_eq : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.nat_not_lt_right_of_eq)
