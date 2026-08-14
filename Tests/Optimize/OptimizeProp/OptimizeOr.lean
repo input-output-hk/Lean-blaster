@@ -9,16 +9,16 @@ namespace Tests.OptimizeOr
 /-! Test cases for simplification rule `False ∨ e ==> e`. -/
 
 -- False ∨ True ===> True
-#testOptimize [ "OrFalse_1"] False ∨ True ===> True
+#testOptimize [ "OrFalse_1" ] False ∨ True ===> True
 
 -- (False ∨ True) = True ===> True
-#testOptimize [ "OrFalse_2" ] (False ∨ True) = True ===> True
+#testOptimize [ "OrFalse_2", proof ] (False ∨ True) = True ===> True
 
 -- True ∨ False ===> True
 #testOptimize [ "OrFalse_3" ] True ∨ False ===> True
 
 -- False ∨ False ===> False
-#testOptimize [ "OrFalse_4" ] False ∨ False ===> False
+#testOptimize [ "OrFalse_4", proof ] False ∨ False ===> False
 
 -- a ∨ False ===> a
 #testOptimize [ "OrFalse_5" ] ∀ (a : Prop), a ∨ False ===> ∀ (a : Prop), a
