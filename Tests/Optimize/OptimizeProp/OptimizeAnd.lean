@@ -9,16 +9,16 @@ namespace Test.OptimizeAnd
 /-! Test cases for simplification rule `False ∧ e ==> False`. -/
 
 -- False ∧ True ===> False
-#testOptimize [ "AndFalse_1" ] False ∧ True ===> False
+#testOptimize [ "AndFalse_1", proof ] False ∧ True ===> False
 
 -- (False ∧ True) = False ===> True
-#testOptimize [ "AndFalse_2" ] (False ∧ True) = False ===> True
+#testOptimize [ "AndFalse_2", proof ] (False ∧ True) = False ===> True
 
 -- True ∧ False ===> False
 #testOptimize [ "AndFalse_3" ] True ∧ False ===> False
 
 -- False ∧ False ===> False
-#testOptimize [ "AndFalse_4" ] False ∧ False ===> False
+#testOptimize [ "AndFalse_4", proof ] False ∧ False ===> False
 
 -- a ∧ False ===> False
 #testOptimize [ "AndFalse_5" ] ∀ (a : Prop), a ∧ False ===> False
@@ -27,10 +27,10 @@ namespace Test.OptimizeAnd
 #testOptimize [ "AndFalse_6" ] ∀ (a : Prop), (a ∧ False) = False ===> True
 
 -- False ∧ a ===> False
-#testOptimize [ "AndFalse_7" ] ∀ (a : Prop), False ∧ a ===> False
+#testOptimize [ "AndFalse_7", proof ] ∀ (a : Prop), False ∧ a ===> False
 
 -- False ∧ (a ∧ b) ===> False
-#testOptimize [ "AndFalse_8" ] ∀ (a b : Prop), False ∧ (a ∧ b) ===> False
+#testOptimize [ "AndFalse_8", proof ] ∀ (a b : Prop), False ∧ (a ∧ b) ===> False
 
 -- (a ∨ b) ∧ False ===> False
 #testOptimize [ "AndFalse_9" ] ∀ (a b : Prop), (a ∨ b) ∧ False ===> False
@@ -39,7 +39,7 @@ namespace Test.OptimizeAnd
 #testOptimize [ "AndFalse_10" ] ∀ (a b : Prop), (a ∧ False) ∧ b ===> False
 
 -- (False ∧ a) ∧ b  ===> False
-#testOptimize [ "AndFalse_11" ] ∀ (a b : Prop), (False ∧ a) ∧ b ===> False
+#testOptimize [ "AndFalse_11", proof ] ∀ (a b : Prop), (False ∧ a) ∧ b ===> False
 
 -- (a ∧ False) ∧ (a ∧ b) ===> False
 #testOptimize [ "AndFalse_12" ] ∀ (a b : Prop), (a ∧ False) ∧ (a ∧ b) ===> False
@@ -65,7 +65,7 @@ namespace Test.OptimizeAnd
 #testOptimize [ "AndTrue_1" ] True ∧ True ===> True
 
 -- (True ∧ True) = True ===> True
-#testOptimize [ "AndTrue_2" ] (True ∧ True) = True ===> True
+#testOptimize [ "AndTrue_2", proof ] (True ∧ True) = True ===> True
 
 -- a ∧ True ===> a
 #testOptimize [ "AndTrue_3" ] ∀ (a : Prop), a ∧ True ===> ∀ (a : Prop), a
@@ -74,10 +74,10 @@ namespace Test.OptimizeAnd
 #testOptimize [ "AndTrue_4" ] ∀ (a : Prop), (a ∧ True) = a ===> True
 
 -- True ∧ a ===> a
-#testOptimize [ "AndTrue_5" ] ∀ (a : Prop), True ∧ a ===> ∀ (a : Prop), a
+#testOptimize [ "AndTrue_5", proof ] ∀ (a : Prop), True ∧ a ===> ∀ (a : Prop), a
 
 -- True ∧ (a ∨ b) ===> a ∨ b
-#testOptimize [ "AndTrue_6" ] ∀ (a b : Prop), True ∧ (a ∨ b) ===> ∀ (a b : Prop), a ∨ b
+#testOptimize [ "AndTrue_6", proof ] ∀ (a b : Prop), True ∧ (a ∨ b) ===> ∀ (a b : Prop), a ∨ b
 
 -- (a ∧ b) ∧ True ==> a ∧ b
 #testOptimize [ "AndTrue_7" ] ∀ (a b : Prop), (a ∧ b) ∧ True ===> ∀ (a b : Prop), a ∧ b
@@ -86,7 +86,7 @@ namespace Test.OptimizeAnd
 #testOptimize [ "AndTrue_8" ] ∀ (a b : Prop), (a ∧ True) ∧ b ===> ∀ (a b : Prop), a ∧ b
 
 -- (True ∧ a) ∧ b ===> a ∧ b
-#testOptimize [ "AndTrue_9" ] ∀ (a b : Prop), (True ∧ a) ∧ b ===> ∀ (a b : Prop), a ∧ b
+#testOptimize [ "AndTrue_9", proof ] ∀ (a b : Prop), (True ∧ a) ∧ b ===> ∀ (a b : Prop), a ∧ b
 
 -- (a ∨ True) ∧ (a ∨ b) ===> a ∨ b
 #testOptimize [ "AndTrue_10" ] ∀ (a b : Prop), (a ∨ True) ∧ (a ∨ b) ===> ∀ (a b : Prop), a ∨ b
@@ -112,10 +112,10 @@ namespace Test.OptimizeAnd
 /-! Test cases for simplification rule `e ∧ ¬ e ==> False`. -/
 
 -- a ∧ ¬ a ===> False
-#testOptimize [ "AndNeg_1" ] ∀ (a : Prop), a ∧ ¬ a ===> False
+#testOptimize [ "AndNeg_1", proof ] ∀ (a : Prop), a ∧ ¬ a ===> False
 
 -- (a ∧ ¬ a) = False ===> True
-#testOptimize [ "AndNeg_2" ] ∀ (a : Prop), (a ∧ ¬ a) = False ===> True
+#testOptimize [ "AndNeg_2", proof ] ∀ (a : Prop), (a ∧ ¬ a) = False ===> True
 
 -- (a ∧ b) ∧ ¬ (b ∧ a) ===> False
 #testOptimize [ "AndNeg_3" ] ∀ (a b : Prop), (a ∧ b) ∧ ¬ (b ∧ a) ===> False
@@ -149,7 +149,7 @@ namespace Test.OptimizeAnd
 #testOptimize [ "AndNegUnchanged_1" ] ∀ (a b : Prop), ¬ a ∧ b ===> ∀ (a b : Prop), b ∧ ¬ a
 
 -- b ∧ ¬ a ===> b ∧ ¬ a
-#testOptimize [ "AndNegUnchanged_2" ] ∀ (a b : Prop), b ∧ ¬ a ===> ∀ (a b : Prop), b ∧ ¬ a
+#testOptimize [ "AndNegUnchanged_2", proof ] ∀ (a b : Prop), b ∧ ¬ a ===> ∀ (a b : Prop), b ∧ ¬ a
 
 -- ¬ (a ∧ b) ∧ c ===> ¬ (a ∧ b) ∧ c
 -- NOTE: reordering applied on operands
@@ -175,7 +175,7 @@ namespace Test.OptimizeAnd
 /-! Test cases for simplification rule `true = e ∧ false = e ==> False`. -/
 
 -- ∀ (a : Bool), true = a ∧ false = a ===> False
-#testOptimize [ "AndNegBoolEq_1" ] ∀ (a : Bool), true = a ∧ false = a ===> False
+#testOptimize [ "AndNegBoolEq_1", proof ] ∀ (a : Bool), true = a ∧ false = a ===> False
 
 -- ∀ (a : Bool), true = a ∧ a = false ===> False
 #testOptimize [ "AndNegBoolEq_2" ] ∀ (a : Bool), true = a ∧ a = false ===> False
