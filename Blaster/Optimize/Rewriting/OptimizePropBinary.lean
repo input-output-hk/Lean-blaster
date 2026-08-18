@@ -137,7 +137,7 @@ def orImpliesReduce? (a : Expr) (b : Expr) : TranslateEnvT (Option Expr) := do
      - True ∨ e ==> True               [proof: true_or]
      - e1 ∨ e2 ==> e1 (if e1 =ₚₜᵣ e2)   [proof: or_self]
      - e ∨ ¬ e ==> True (classical)    [proof: Blaster.or_not_self_is_true]
-     - true = e ∨ false = e ==> True   [proof: Blaster.true_or_false_is_false]
+     - true = e ∨ false = e ==> True   [proof: Blaster.true_or_false_is_true]
      - e1 ∨ (e1 → e2) ==> True
      - e1 ∨ (e2 → e1) ==> (e2 → e1)
      - e1 ∨ e2 ==> True (if e1 := _ ∈ hypothesisContext.hypothesisMap)
@@ -168,7 +168,7 @@ def optimizeOr (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
    pushProofStep (.exact (mkConst ``True.intro))
    return (← mkPropTrue)
  if isNegBoolEqOf op2 op1 then
-   pushProofStep (.rewrite (mkConst ``Blaster.true_or_false_is_false))
+   pushProofStep (.rewrite (mkConst ``Blaster.true_or_false_is_true))
    pushProofStep (.exact (mkConst ``True.intro))
    return (← mkPropTrue)
  if let some r ← orImpliesReduce? op1 op2 then return r
