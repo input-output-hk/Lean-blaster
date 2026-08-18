@@ -97,12 +97,16 @@ def defineSmtDepthFlag : TranslateEnvT SmtTerm := do
   return (smtSimpleVarId dflag)
 
 def logNotInductiveAtDepth : TranslateEnvT Unit := do
-  let sOpts := (← get).optEnv.options.solverOptions
+  let env ← get
+  let sOpts := env.optEnv.options.solverOptions
+  let action := undeterminedAction sOpts env.smtEnv.solver
+    (← strictCvc5ResultCheckingRequested)
   let msg := s!"Failed to establish induction up to Depth {← getMaxDepth}"
-  if isExpectedUndetermined sOpts.solveResult then
-    logInfoAt (← blankRef) s!"✅ Expected {msg}"
-  else
-    logWarningAt (← blankRef) s!"⚠️ {msg}"
+  match action with
+  | .expected => logInfoAt (← blankRef) s!"✅ Expected {msg}"
+  | .allowed => logInfoAt (← blankRef) s!"✅ Allowed cvc5 {msg}"
+  | .strictError => logErrorAt (← blankRef) s!"❌ {msg}"
+  | .warning => logWarningAt (← blankRef) s!"⚠️ {msg}"
   -- dump smt commands submitted to backend solver when `dumpSmtLib` option is set.
   logSmtQuery
   discard $ exitSmt
@@ -112,7 +116,16 @@ def logNoCexAtDepth : TranslateEnvT Unit := do
   discard $ exitSmt
 
 def logUndeterminedAtDepth : TranslateEnvT Unit := do
-  logWarningAt (← blankRef) f!"⚠️ Undetermined at Depth {← getCurrentDepth}"
+  let env ← get
+  let sOpts := env.optEnv.options.solverOptions
+  let action := undeterminedAction sOpts env.smtEnv.solver
+    (← strictCvc5ResultCheckingRequested)
+  let msg := f!"Undetermined at Depth {← getCurrentDepth}"
+  match action with
+  | .expected => logInfoAt (← blankRef) f!"✅ Expected {msg}"
+  | .allowed => logInfoAt (← blankRef) f!"✅ Allowed cvc5 {msg}"
+  | .strictError => logErrorAt (← blankRef) f!"❌ Unexpected {msg}"
+  | .warning => logWarningAt (← blankRef) f!"⚠️ {msg}"
   discard $ exitSmt
 
 def logCexAtDepth (r : Result) : TranslateEnvT Unit := do
@@ -181,10 +194,14 @@ def assertAssumptions (smInst : Expr) (iVar : Expr) (state : Expr) : StateMachin
         s!"Checking contradiction at Depth {currDepth}"
         (checkContradiction env.initFlag)
         (verboseLevel := 2)
-    if isValidResult res then
-      logContradictionAtDepth
-      return true
-    else return false
+    match res with
+    | .Valid =>
+        logContradictionAtDepth
+        return true
+    | .Falsified _ => return false
+    | .Undetermined =>
+        logUndeterminedAtDepth
+        return true
  | .Valid => return false
  | .Falsified .. =>
      logContradictionAtDepth

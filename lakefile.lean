@@ -17,3 +17,6 @@ lean_lib «Tests» where
 lean_exe z3check where
   -- add executable configuration options here
   root := `Z3Check
+
+lean_exe solvercheck where
+  root := `SolverCheck

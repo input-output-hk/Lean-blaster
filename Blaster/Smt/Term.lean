@@ -399,8 +399,21 @@ def intLitSmt (n : Int) : SmtTerm :=
 /-! Convert an Nat literal to an Smt representation. -/
 def natLitSmt (n : Nat) : SmtTerm := .NumTerm n
 
+/-! Quote `s` as an SMT-LIB 2.6 string literal: `"` is escaped by doubling;
+    `\` and characters outside the printable ASCII range are emitted as
+    `\u{…}` escapes. (The SMT-LIB Unicode strings theory interprets `\u{…}`
+    sequences inside string constants — so a literal backslash must itself be
+    escaped — and only printable ASCII characters may appear verbatim.)
+    The mirror decoding lives in `Blaster.Smt.Sexp.decodeStringLit?`. -/
+def quoteSmtString (s : String) : String :=
+  s.foldl (init := "\"") (fun acc c =>
+    if c == '"' then acc ++ "\"\""
+    else if c == '\\' || c.toNat < 0x20 || c.toNat > 0x7e then
+      acc ++ s!"\\u\{{String.mk (Nat.toDigits 16 c.toNat)}}"
+    else acc.push c) ++ "\""
+
 /-! Convert an String literal to an Smt representation. -/
-def strLitSmt (s : String) : SmtTerm := .StrTerm s!"\"{s}\""
+def strLitSmt (s : String) : SmtTerm := .StrTerm (quoteSmtString s)
 
 /-! Create an Smt variable identifier. -/
 def smtSimpleVarId (nm : SmtSymbol) : SmtTerm := .SmtIdent (.SimpleIdent nm)

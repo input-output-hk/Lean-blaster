@@ -1178,51 +1178,42 @@ def translateApp
       hasSorryTheorem e "translateApp: Theorem {n} has `sorry` demonstration"
       termTranslator (← optimizeExpr' (betaForAll info.type args))
 
-/-- Given `e := λ (x₁ : t₁) → λ (xₙ : tₙ) => b`, perform the following:
-     - let V := [ v | v ∈ getFVarsInExpr b ∧ ¬ isType v.type ∧ ¬ isClassConstraintExpr v.type ∧ ¬ isTopLevelFVar v ]
-     - let A := [x₁, ..., xₙ]
-     - let (x₁, st₁) ... (xₘ, stₘ) := [(A[i], translateFunLambdaParamType tᵢ termTranslator) | i ∈ [0..n] ∧ isExplicit A[i]]
-     - let rt ← translateFunLambdaParamType (← inferTypEnv b) termTranslator
-     - let n ← mkFreshId
-     - let FunArrowType := ArrowTN st₁ ... stₘ rt
-     - let decl ← generateFunInstDeclAux (← inferTypeEnv e) FunArrowType
-     - let some @apply{k} := decl.applyInstName
-     - let sb := termTranslator b
-     - When V = ∅
-        - declare smt function `(declare-const @lambda{n} FunArrowType)`
-        - assert the following proposition to properly constrain @lambda{n}:
-          `(assert (forall ((x₁ st₁) ... (xₘ stₘ))
-             (! (= (@apply{k} @lambda{n} x₁ ... xₘ) sb)
-               :pattern ((@apply{k} @lambda{n} x₁ ... xₘ))
-               :qid @lambda{n]_def_cstr)))`
-        - return `smtSimpleVarId @lambda{n}`
-     - When V ≠ ∅
-        - let (y₁, yt₁) ... (yₖ, ytₖ) := [(V[i], translateFunLambdaParamType V[i].type termTranslator) | i ∈ [0..V.size-1]]
-        - let GlobalArrowType := ArrowTN yt₁ ... ytₖ FunArrowType
-        - let [v₁, ..., vₖ] = V
-        - let globalType ← ∀ v₁ → ... ∀ vₖ → outParam (← inferTypeEnv e)
-        - let globalDecl ← generateFunInstDeclAux globalType GlobalArrowType
-        - let some @apply{n} := globalDecl.applyInstName
-        - declare smt function `(declare-const @global_lambda{n} GlobalArrowType)`
-        - assert the following proposition to properly constrain @global_lambda{n}!
-           - `(assert (forall ((y₁, yt₁) ... (yₖ, ytₖ) (x₁, st₁) ... (xₘ, stₘ))
-               (! (= (@apply{k} (@apply{n} @global_lambda{n} y₁ ... yₖ) x₁ ... xₘ) sb)
-                  :pattern ((@apply{k} (@apply{n} @global_lambda{n} y₁ ... yₖ) x₁ ... xₘ))
-                  :qid @global_lambda{n}_def_cstr)))`
-       - return `(@apply{n} @global_lambda{n} y₁ ... yₖ)`
--/
+/-- Translate a lambda to Blaster's first-order function encoding.
+
+    Explicit lambda binders become arguments to an `@apply` declaration. Local
+    free value variables become leading arguments to a closure-converted
+    `@global_lambda`; a lambda without captures uses an `@lambda` constant.
+    Both forms receive a universally quantified defining equation, with the
+    application term retained as its SMT pattern.
+
+    SMT carriers can overapproximate Lean types (`Nat` uses `Int`, for example).
+    Each monomorphic captured value and explicit binder therefore contributes
+    its predicate qualifier as a premise of the defining equation. Without
+    those premises, closure definitions constrain non-Lean carrier values and
+    can contradict valid-domain function extensionality. Polymorphic qualifier
+    applications also mention type-value symbols that are not currently scoped
+    by these top-level axioms, so no polymorphic premise is emitted until lambda
+    closure conversion captures those type parameters. -/
 def translateLambda
   (e : Expr) (termTranslator : Expr → TranslateEnvT SmtTerm) : TranslateEnvT SmtTerm := do
  let pInfo ← getFunEnvInfo e
  Optimize.lambdaTelescope e fun fvars b => do
    let mut svars := (#[] : SortedVars)
+   let mut sguards := (#[] : Array SmtTerm)
    for h1 : i in [:fvars.size] do
      let fv := fvars[i]
      let decl ← getFVarLocalDecl fv
      updateQuantifiedFVarsCache fv.fvarId! false
      if pInfo.paramsInfo[i]!.isExplicit then
        let st ← translateFunLambdaParamType decl.type termTranslator
-       svars := svars.push (← fvarIdToSmtSymbol fv.fvarId!, st)
+       let symbol ← fvarIdToSmtSymbol fv.fvarId!
+       svars := svars.push (symbol, st)
+       -- A polymorphic qualifier also mentions type-value symbols that are not
+       -- in scope in this top-level axiom. Guard monomorphic domains here;
+       -- polymorphic lambdas require capturing those type parameters first.
+       if (← retrieveGenericArgs #[decl.type]).isEmpty then
+         sguards := sguards.push (← createPredQualifierAppAux
+           (smtSimpleVarId symbol) decl.type (inPredQualifier := true))
    let bodyType ← inferTypeEnv b
    let rt ← translateFunLambdaParamType bodyType termTranslator
    let v ← mkFreshId
@@ -1244,16 +1235,23 @@ def translateLambda
      let lamId := smtSimpleVarId lambdaName
      let applyArgs := Array.foldl (λ acc s => acc.push (smtSimpleVarId s.1)) #[lamId] svars
      let applyTerm := mkSimpleSmtAppN applyName applyArgs
-     let forallBody := eqSmt applyTerm sb
+     let mut forallBody := eqSmt applyTerm sb
+     for guard in sguards do
+       forallBody := impliesSmt guard forallBody
      assertTerm (mkForallTerm none svars forallBody (some #[mkPattern #[applyTerm], mkQid qidName]))
      return lamId
    else
     let mut gvars := (#[] : SortedVars)
+    let mut gguards := (#[] : Array SmtTerm)
     for h2 : i in [:lvars.size] do
      let fv := lvars[i]
      let decl ← getFVarLocalDecl fv
      let st ← translateFunLambdaParamType decl.type termTranslator
-     gvars := gvars.push (← fvarIdToSmtSymbol fv.fvarId!, st)
+     let symbol ← fvarIdToSmtSymbol fv.fvarId!
+     gvars := gvars.push (symbol, st)
+     if (← retrieveGenericArgs #[decl.type]).isEmpty then
+       gguards := gguards.push (← createPredQualifierAppAux
+         (smtSimpleVarId symbol) decl.type (inPredQualifier := true))
     let arrowT ← declareArrowTypeSort (lvars.size + 1)
     let globalArrowType := paramSort arrowT ((Array.map (λ s => s.2) gvars).push funArrowType)
     -- wrapping lamType within `outParam` to properly generate function instance
@@ -1274,7 +1272,12 @@ def translateLambda
     let qidName := appendSymbol globalName "def_cstr"
     let g_patterns := some #[mkPattern #[applyTerm], mkQid qidName]
     gvars := Array.foldl (λ acc s => acc.push s) gvars svars
-    assertTerm (mkForallTerm none gvars (eqSmt applyTerm sb) g_patterns)
+    let mut forallBody := eqSmt applyTerm sb
+    for guard in sguards do
+      forallBody := impliesSmt guard forallBody
+    for guard in gguards do
+      forallBody := impliesSmt guard forallBody
+    assertTerm (mkForallTerm none gvars forallBody g_patterns)
     return globalAppTerm
 
  where

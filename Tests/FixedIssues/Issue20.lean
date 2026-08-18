@@ -13,7 +13,7 @@ theorem funextEq_poly {α β : Type} (f g : α → β) : (f = g) = ∀ x, f x = 
       { intro h ; simp only [h, implies_true] }
       { intro h ; apply funext h }
 
-#blaster [funextEq_poly]
+#blaster (cvc5-allow-undetermined: 1) [funextEq_poly]
 
 theorem funextEq_one_inst {β : Type} (f g : Nat → β) : (f = g) = ∀ x, f x = g x := by
       apply propext

@@ -26,7 +26,7 @@ namespace Test.SmtNatDiv
 
 #blaster [∀ (x y z : Nat), 0 < z → (x ≤ y / z ↔ x * z ≤ y)]
 
-#blaster [∀ (x y z : Nat), x / y / z = x / (y * z)]
+#blaster (cvc5-allow-undetermined: 1) [∀ (x y z : Nat), x / y / z = x / (y * z)]
 
 #blaster [∀ (x y : Nat), x / y * y ≤ x]
 
@@ -34,11 +34,11 @@ namespace Test.SmtNatDiv
 
 #blaster [∀ (x z : Nat), (0 < z) → (x + z) / z = (x / z) + 1]
 
-#blaster [∀ (x z y : Nat), (0 < y) → (x + y * z) / y = x / y + z]
+#blaster (cvc5-allow-undetermined: 1) [∀ (x z y : Nat), (0 < y) → (x + y * z) / y = x / y + z]
 
 #blaster [∀ (x y z : Nat), z * x ≤ y → y < (z + 1) * x → y / x = z]
 
-#blaster [∀ (x y z : Nat), (y*z ≤ x) → (x - y*z) / y = x / y - z]
+#blaster (cvc5-allow-undetermined: 1) [∀ (x y z : Nat), (y*z ≤ x) → (x - y*z) / y = x / y - z]
 
 #blaster [∀ (x y z : Nat), x < y*z → (y * z - (x + 1)) / y = z - ((x / y) + 1)]
 

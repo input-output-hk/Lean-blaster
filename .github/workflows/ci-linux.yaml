@@ -13,60 +13,136 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  LEAN_VERSION: "4.24.0"
   Z3_VERSION: "4.15.2"
   GLIBC_Z3: "2.39"
+  CVC5_VERSION: "1.3.4"
+  CVC5_FLOOR_VERSION: "1.2.1"
 
 jobs:
-  build:
+  solver-tests:
     runs-on: ubuntu-latest
 
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - tier: z3
+            install_z3: true
+            install_cvc5: false
+            install_cvc5_floor: false
+          - tier: cvc5
+            install_z3: false
+            install_cvc5: true
+            install_cvc5_floor: false
+          - tier: all-solvers
+            install_z3: true
+            install_cvc5: true
+            install_cvc5_floor: false
+          - tier: cvc5-1.2.1
+            install_z3: false
+            install_cvc5: false
+            install_cvc5_floor: true
+
+    name: solver tests (${{ matrix.tier }})
+
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
       - name: Setup Lean
+        # The toolchain is pinned by the repo's `lean-toolchain` file (single
+        # source of truth); elan is installed without a default toolchain to
+        # avoid downloading an unpinned "stable" release.
         run: |
-          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
+          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y --default-toolchain none
           echo "/home/runner/.elan/bin" >> $GITHUB_PATH
           chmod +x /home/runner/.elan/bin/*
 
-      - name: Fix Elan version
+      - name: Install Lean toolchain
+        # The toolchain download is a large GitHub-release fetch; retry
+        # transient failures before giving up.
         run: |
-          elan toolchain install ${{ env.LEAN_VERSION }}
-          elan default ${{ env.LEAN_VERSION }}
+          TOOLCHAIN="$(cat lean-toolchain)"
+          for attempt in 1 2 3; do
+            /home/runner/.elan/bin/elan toolchain install "$TOOLCHAIN" && break
+            if [ "$attempt" = 3 ]; then
+              echo "::error::Failed to install Lean toolchain $TOOLCHAIN after 3 attempts"
+              exit 1
+            fi
+            echo "elan toolchain install failed (attempt $attempt), retrying in 15s..."
+            sleep 15
+          done
+          /home/runner/.elan/bin/elan default "$TOOLCHAIN"
 
       - name: Install Z3
+        if: ${{ matrix.install_z3 }}
         run: |
           cd /home/runner/
           wget -q https://github.com/Z3Prover/z3/releases/download/z3-${{ env.Z3_VERSION }}/z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}.zip
           unzip -q z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}.zip
-          chmod +x z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}.zip
+          chmod +x /home/runner/z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}/bin/z3
           echo "/home/runner/z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}/bin" >> $GITHUB_PATH
 
-      - name: Tools version
+      - name: Install cvc5
+        if: ${{ matrix.install_cvc5 }}
+        run: |
+          cd /home/runner/
+          wget -q https://github.com/cvc5/cvc5/releases/download/cvc5-${{ env.CVC5_VERSION }}/cvc5-Linux-x86_64-static.zip
+          unzip -q cvc5-Linux-x86_64-static.zip
+          chmod +x /home/runner/cvc5-Linux-x86_64-static/bin/cvc5
+          echo "/home/runner/cvc5-Linux-x86_64-static/bin" >> $GITHUB_PATH
+
+      - name: Install cvc5 support floor
+        if: ${{ matrix.install_cvc5_floor }}
+        run: |
+          cd /home/runner/
+          wget -q https://github.com/cvc5/cvc5/releases/download/cvc5-${{ env.CVC5_FLOOR_VERSION }}/cvc5-Linux-x86_64-static.zip
+          unzip -q cvc5-Linux-x86_64-static.zip
+          mv cvc5-Linux-x86_64-static cvc5-${{ env.CVC5_FLOOR_VERSION }}-Linux-x86_64-static
+          chmod +x /home/runner/cvc5-${{ env.CVC5_FLOOR_VERSION }}-Linux-x86_64-static/bin/cvc5
+          echo "/home/runner/cvc5-${{ env.CVC5_FLOOR_VERSION }}-Linux-x86_64-static/bin" >> $GITHUB_PATH
+
+      - name: Lean versions
         run: |
           elan --version
           lake --version
           lean --version
-          z3 --version
 
-      - name: Checkout repository
-        uses: actions/checkout@v6
+      - name: Z3 version
+        if: ${{ matrix.install_z3 }}
+        run: z3 --version
+
+      - name: cvc5 version
+        if: ${{ matrix.install_cvc5 || matrix.install_cvc5_floor }}
+        run: cvc5 --version | head -1
 
       - name: Build and Validate Blaster
         run: make check_blaster
+
+      - name: Solver-independent tests
+        if: matrix.tier == 'z3' || matrix.tier == 'cvc5'
+        run: make test-pure
+
+      - name: Z3 backend tests
+        if: matrix.tier == 'z3'
+        run: make test-z3
+
+      - name: Strict cvc5 result conformance
+        if: matrix.tier == 'cvc5'
+        run: make BLASTER_TIMEOUT=120 test-cvc5
+
+      - name: Cross-backend integration
+        if: matrix.tier == 'all-solvers'
+        run: make test-all-solvers
+
+      - name: cvc5 1.2.1 support-floor compatibility
+        if: matrix.tier == 'cvc5-1.2.1'
+        run: make test-cvc5-floor
 
       - name: Upload Blaster build log
         if: failure()
         uses: actions/upload-artifact@v6
         with:
-          name: blaster-build
-          path: ./Blaster/build.log
-
-      - name: Execute and Validate Tests
-        run: LEAN_NUM_THREADS=5 ./scripts/check_lean_project_compilation.sh Tests
-
-      - name: Upload Tests log
-        if: failure()
-        uses: actions/upload-artifact@v6
-        with:
-          name: tests-build
-          path: ./Tests/build.log
+          name: blaster-build-${{ matrix.tier }}
+          path: ./build.log
+          if-no-files-found: ignore

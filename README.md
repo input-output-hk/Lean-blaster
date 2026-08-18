@@ -2,10 +2,11 @@
 
 [![Lean Version](https://img.shields.io/badge/Lean-v4.24.0-blue.svg)](https://github.com/leanprover/lean4)
 [![Z3 Version](https://img.shields.io/badge/Z3-v4.15.2-green.svg)](https://github.com/Z3Prover/z3)
+[![cvc5 Version](https://img.shields.io/badge/cvc5-v1.2.1-green.svg)](https://github.com/cvc5/cvc5)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-Blaster provides an SMT backend for Z3 proofs. Blaster works by first aggressively optimizing the Lean expression of a theorem, sometimes up to a `True` goal, before sending the remaining goal and context to an SMT solver.
+Blaster provides an SMT backend for Lean4 proofs, supporting both the Z3 (default) and cvc5 solvers. Blaster works by first aggressively optimizing the Lean expression of a theorem, sometimes up to a `True` goal, before sending the remaining goal and context to an SMT solver.
 
 ## Table of Contents
 
@@ -14,6 +15,7 @@ Blaster provides an SMT backend for Z3 proofs. Blaster works by first aggressive
   - [Prerequisites](#prerequisites)
   - [Installing Lean4](#installing-lean4)
   - [Installing Z3](#installing-z3)
+  - [Installing cvc5](#installing-cvc5)
 - [How to use?](#how-to-use)
   - [Using lakefile.toml](#using-lakefiletoml)
   - [Using lakefile.lean](#using-lakefilelean)
@@ -45,10 +47,14 @@ Blaster provides an SMT backend for Z3 proofs. Blaster works by first aggressive
 
 ### Prerequisites
 
-Blaster is built with the philosophy that fewer dependencies mean better maintainability and more optimization opportunities. That said, Blaster requires:
+Blaster requires Lean. Invoking a solver additionally requires the selected
+backend executable; solver-independent translation and pure tests require neither:
 
-- **Lean4** v4.24.0 (or compatible version)
-- **Z3** v4.15.2 (or compatible version)
+- **Lean4** v4.24.0 (or compatible version);
+- **Z3** v4.15.2 (or compatible version) — the default backend, required only
+  when using the default/explicit Z3 path or running Z3 tests;
+- **cvc5** v1.2.1 or later — the optional alternative, required only when
+  selecting or testing the cvc5 backend.
 
 ### Installing Lean4
 
@@ -71,6 +77,46 @@ below explains how to get the right version of Z3 installed and check that
 Lean is using that version.  If you need more help, please see the official
 installation guidelines from the [Z3 GitHub repository](https://github.com/Z3Prover/z3).
 
+### Installing cvc5
+
+The cvc5 backend is optional: Blaster only looks for a `cvc5` executable when the
+`(solver: cvc5)` option (or `BLASTER_SOLVER=cvc5`) is used. The test entry points
+preserve that isolation:
+
+- `make test-pure` runs parser, model-reconstruction, version-policy, launch-spec,
+  setup-command, and configuration-precedence tests without either solver;
+- `make test-z3` runs the default backend suite and requires only Z3;
+- `make test-cvc5` runs the cvc5 backend suite in strict result-conformance mode
+  and requires only cvc5;
+- `make test-all-solvers` checks every test module plus same-process backend
+  selection and requires both solvers;
+- `make test-cvc5-floor` requires exactly cvc5 1.2.1 and runs the focused
+  support-floor checks described below.
+
+`make check_tests` runs the pure and Z3 tiers. Linux CI mirrors this topology in
+separate Z3-only, cvc5-only, dual-solver, and cvc5-support-floor matrix legs.
+
+**Full-suite tested version:** cvc5 v1.3.4. Version 1.2.1 is the hard support
+floor enforced by Blaster's solver-version validation. A dedicated CI leg
+downloads the official cvc5 1.2.1 static binary and requires
+discovery/version validation, one satisfiable query, one unsatisfiable query,
+and one counterexample/model query to pass.
+
+Install a release binary from the [cvc5 GitHub repository](https://github.com/cvc5/cvc5/releases)
+and make sure it is available in your `PATH` as `cvc5`. You can check the setup with:
+
+```bash
+lake exe solvercheck cvc5
+```
+
+Solver executables are validated before use: a candidate whose version banner
+cannot be parsed, or reports a version below the supported minimum, is
+rejected with a diagnostic listing every candidate tried (fail-closed; this
+also applies to `z3`). On Windows, Blaster makes a best-effort fallback by
+probing `wsl` with `z3` / `cvc5` as its first argument when no native solver
+is found. Automated Linux CI does not exercise this fallback, so it is not a
+tested Windows-support guarantee.
+
 ## How to use?
 
 In order to use Blaster, your project needs to depend on `lean-blaster`.
@@ -92,12 +138,19 @@ require «Blaster» from git
 ```
 
 ### Solver options
-  - `timeout`: specifying the timeout (in second) to be used for the backend smt solver (defaut: ∞)
+  - `timeout`: timeout in seconds for the backend solver. Precedence is the explicit
+               option, then `BLASTER_TIMEOUT`, then no timeout (∞). Surrounding
+               whitespace is ignored; an unset or blank environment value means ∞,
+               and any other environment value must be a natural number.
   - `verbose:` activating debug info (default: 0)
   - `only-smt-lib`: only translating unsolved goals to smt-lib without invoking the backend solver (default: 0)
   - `only-optimize`: only perform optimization on lean specification and do not translate to smt-lib (default: 0)
   - `dump-smt-lib`: display the smt lib query to stdout (default: 0)
   - `random-seed`: seed for the random number generator (default: none)
+  - `solver`: backend SMT solver (`z3` or `cvc5`). Precedence is the explicit option,
+              then `BLASTER_SOLVER`, then `z3`. Surrounding whitespace in the
+              environment value is ignored, but names are case-sensitive lowercase;
+              any other value is rejected with the valid choices.
   - `gen-cex`: generate counterexample for falsified theorems (default: 1)
   - `solve-result`: specify the expected result from the #blaster command, i.e.,
                     0 for 'Valid', 1 for 'Falsified' and 2 for 'Undetermined'. (default: 0)
@@ -257,29 +310,37 @@ def sizeOfTerm (t : Term α) : Nat :=
 
 ❌ Falsified
 Counterexample:
- - x: (let ((a!1 (Test.SmtPredQualifier.Term.Annotated
-             (Test.SmtPredQualifier.Term.Annotated
-               (Test.SmtPredQualifier.Term.Annotated
-                 (Test.SmtPredQualifier.Term.Ident "!a!")
-                 (as List.nil (@List (@Test.SmtPredQualifier.Attribute @@Type))))
-               (as List.nil (@List (@Test.SmtPredQualifier.Attribute @@Type))))
-             (as List.nil (@List (@Test.SmtPredQualifier.Attribute @@Type))))))
-(let ((a!2 (Test.SmtPredQualifier.Term.Annotated
-             (Test.SmtPredQualifier.Term.Annotated
-               (Test.SmtPredQualifier.Term.Annotated
-                 (Test.SmtPredQualifier.Term.Annotated
-                   a!1
-                   (as List.nil
-                       (@List (@Test.SmtPredQualifier.Attribute @@Type))))
-                 (as List.nil (@List (@Test.SmtPredQualifier.Attribute @@Type))))
-               (as List.nil (@List (@Test.SmtPredQualifier.Attribute @@Type))))
-             (as List.nil (@List (@Test.SmtPredQualifier.Attribute @@Type))))))
-  (Test.SmtPredQualifier.Term.Annotated
-    (Test.SmtPredQualifier.Term.Annotated
-      a!2
-      (as List.nil (@List (@Test.SmtPredQualifier.Attribute @@Type))))
-    (as List.nil (@List (@Test.SmtPredQualifier.Attribute @@Type))))))
+ - x: Test.SmtPredQualifier.Term.Annotated (Test.SmtPredQualifier.Term.Annotated
+   (Test.SmtPredQualifier.Term.Annotated (... (Test.SmtPredQualifier.Term.Ident "!9!") []) ...) []) []
 ```
+(exact model values vary with the backend solver and its version)
+
+##### Counterexample display rendering
+
+Counterexample values are read back from the solver through `(get-value …)`
+and normalized into Lean-flavored display text; Blaster does not reconstruct
+typed Lean values. For supported value shapes, the renderer smooths
+backend-specific formatting differences: `let`-shared subterms are expanded,
+cvc5's `as` constructor qualifiers are dropped, negative integers are
+rendered `-n`, SMT-LIB string escapes are decoded back to Lean string
+literals, and `List`/`Prod` values use Lean's `[x, y]` and `(x, y)` notations.
+
+Two distinct failure layers are surfaced differently and should not be
+confused:
+
+- **The solver produced a value, but it has no Lean counterpart** — e.g.
+  elements of uninterpreted sorts standing for abstracted `Type` parameters,
+  or function-typed variables (SMT arrays/lambdas). The value is displayed as
+  a raw solver term rather than rejected. This is a rendering fallback, not a
+  missing model.
+- **The solver did not produce a value at all** — e.g. it reports an error
+  for `(get-value …)` (partial model, unsupported construct) or for the raw
+  `(get-model)` dump. This is reported inline as `<no value: …>` (per
+  variable) or `<no model available: …>` (whole model), carrying the solver's
+  own error message. A solver that answers `unknown` (including on a
+  per-check timeout) is never queried for a model: the result is reported as
+  `Undetermined` without a counterexample.
+
 #### State-Machine Formalization
 ```lean
 instance counterStateMachine : StateMachine Request CounterState where
@@ -408,6 +469,58 @@ Blaster has been benchmarked against a variety of well-known benchmarks to evalu
 The evaluation can be found on this public repository: [Blaster-benchmarking](https://github.com/input-output-hk/Blaster-benchmarking)
 
 <details>
+<summary><b>Backend solver comparison (z3 vs cvc5)</b></summary>
+
+Historical measurement recorded when the cvc5 backend was introduced, using
+the then-current local builds: Z3 4.15.4 and cvc5 1.3.4. This table is retained
+as a historical snapshot; this branch's CI does not regenerate it. The
+measurement collected the 425 `#blaster` queries in the two suites below and
+ran each in batch mode through both solvers with a 15s wall clock; *match*
+means the solver's verdict agrees with the test's expected result
+(`solve-result:`).
+
+| Suite | Queries | z3 | cvc5 |
+|---|---|---|---|
+| Tests/FixedIssues | 71 | 69 | 59 |
+| Tests/Smt | 354 | 351 | 313 |
+| **Total** | **425** | **420 (98.8%)** | **372 (87.5%)** |
+
+The measurement records agreement with the expected result for 420 of 425
+queries under z3 and 372 of 425 under cvc5. The accompanying cvc5 result
+records include `Undetermined` outcomes with `unknown`/timeout diagnostics;
+neither the table nor those diagnostics establishes a solver-strategy cause.
+Successful `(get-value …)` responses from either backend pass through the same
+Lean-flavored text renderer (see
+[Counterexample display rendering](#counterexample-display-rendering)).
+
+##### Known cvc5 backend limitations
+
+These describe current backend-facing behavior visible to Blaster, separate
+from model-value normalization and display rendering:
+
+- **Timeout behavior**: the `timeout:` option maps to cvc5's `tlimit-per`,
+  which bounds each `check-sat` call individually (z3's `timeout` applies
+  per context). Suite-wide bounding via `BLASTER_TIMEOUT` is recommended for
+  cvc5 runs. The strict cvc5-only CI leg uses 120s; the local target defaults
+  to 30s.
+- **`unknown` yields no model**: after `unknown` (including per-check
+  timeouts), Blaster does not query a model, so no counterexample is shown.
+- **Nested recursive datatypes** rely on cvc5's experimental
+  `--dt-nested-rec` support (z3 accepts them natively).
+
+Known display-rendering limitations, common to both solvers:
+
+- goals without top-level quantified variables fall back to a raw
+  `(get-model)` dump, which is displayed as produced by the solver (a solver
+  error on that dump is reported inline as `<no model available: …>`);
+- function-typed variables and abstracted `Type` parameters are modeled by
+  SMT arrays/lambdas and uninterpreted-sort elements, which have no Lean
+  counterpart and are displayed as raw solver terms
+  (e.g. z3's `U!val!0`, cvc5's `@U_0`).
+
+</details>
+
+<details>
 <summary><b>Lean Natural Number Game</b></summary>
   
 - **Repository:** [NNG4](https://github.com/leanprover-community/NNG4)
@@ -518,7 +631,7 @@ The translation step is handled in `Blaster/Smt/Translate.lean`. This process in
 
 ### Final step: SMT Solver Interaction
 
-Once an expression has been translated, Blaster interacts with an external SMT solver (i.e.,  Z3) to verify the SMT-LIB formula. This is done by asserting  the negation of the formula to determine its satisfiability. The results are interpreted as follows:
+Once an expression has been translated, Blaster interacts with an external SMT solver (Z3 by default, or cvc5 when selected through the `solver:` option) to verify the SMT-LIB formula. This is done by asserting  the negation of the formula to determine its satisfiability. The results are interpreted as follows:
 
 - **unsat**: The original expression is valid.
 - **sat**: The original expression is falsified, and a counterexample may be generated.
@@ -528,7 +641,7 @@ Once an expression has been translated, Blaster interacts with an external SMT s
 
 ## Installing the Z3 Solver
 
-Blaster requires Z3 version 4.15.2.  To install that, you need to
+The Z3 backend's supported minimum is version 4.15.2. To install it, you need to
 
 1. **Check out** the 4.15.2 tagged branch of the Z3 repo;
 2. **Install** Z3 in a location that doesn't conflict with possible existing versions

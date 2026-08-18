@@ -38,8 +38,8 @@ namespace Test.SmtNatPow
 
 #blaster (gen-cex: 0) (solve-result: 1) [∀ (x : Nat), x^0 ≠ 1]
 
-#blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : Nat), x^(Nat.succ y) = x^y]
+#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1) [∀ (x y : Nat), x^(Nat.succ y) = x^y]
 
-#blaster (gen-cex: 0) (solve-result: 1) [∀ (x : Nat), 0 < x → 0^x > 0]
+#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1) [∀ (x : Nat), 0 < x → 0^x > 0]
 
 end Test.SmtNatPow
