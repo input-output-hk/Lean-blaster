@@ -93,6 +93,68 @@ protected theorem int_ne_zero_of_zero_lt {n : Int} (h : 0 < n) : n ≠ 0 := by o
 protected theorem int_ne_zero_of_lt_zero {n : Int} (h : n < 0) : n ≠ 0 := by omega
 protected theorem int_ne_zero_of_not_zero_eq {n : Int} (h : ¬ (0 = n)) : n ≠ 0 := by omega
 
+/-! ## Lemmas validating the `optimizeLT` simplification and normalization rules on `Int` -/
+
+/-! Lemma to validate simplification rule `e < e ==> False`. -/
+protected theorem int_lt_self_eq_false (a : Int) : (a < a) = False :=
+  propext ⟨fun h => by omega, False.elim⟩
+
+/-! Lemma to validate constant fold `N1 < N2 ==> True (if N1 "<" N2)`. -/
+protected theorem int_lt_eq_true (a b : Int) (h : decide (a < b) = true) : (a < b) = True :=
+  eq_true (of_decide_eq_true h)
+
+/-! Lemma to validate constant fold `N1 < N2 ==> False (if ¬ (N1 "<" N2))`. -/
+protected theorem int_lt_eq_false (a b : Int) (h : decide (a < b) = false) : (a < b) = False :=
+  eq_false (of_decide_eq_false h)
+
+/-! Lemma to validate normalization rule `0 < -e ==> e < 0`. -/
+protected theorem int_zero_lt_neg_eq_lt_zero (a : Int) : (0 < -a) = (a < 0) := propext (by omega)
+
+/-! Lemma to validate simplification rule `N + e < e ==> False (if N > 0)`. -/
+protected theorem int_add_pos_lt_self_eq_false (a n : Int) (h : decide (0 < n) = true) :
+    (n + a < a) = False := by
+  have : 0 < n := of_decide_eq_true h
+  exact propext ⟨fun h => by omega, False.elim⟩
+
+/-! Lemma to validate simplification rule `N + e < e ==> True (if N < 0)`. -/
+protected theorem int_add_neg_lt_self_eq_true (a n : Int) (h : decide (n < 0) = true) :
+    (n + a < a) = True := by
+  have : n < 0 := of_decide_eq_true h
+  exact propext ⟨fun _ => trivial, fun _ => by omega⟩
+
+/-! Lemma to validate simplification rule `e < N + e ==> True (if N > 0)`. -/
+protected theorem int_lt_add_pos_eq_true (a n : Int) (h : decide (0 < n) = true) :
+    (a < n + a) = True := by
+  have : 0 < n := of_decide_eq_true h
+  exact propext ⟨fun _ => trivial, fun _ => by omega⟩
+
+/-! Lemma to validate simplification rule `e < N + e ==> False (if N < 0)`. -/
+protected theorem int_lt_add_neg_eq_false (a n : Int) (h : decide (n < 0) = true) :
+    (a < n + a) = False := by
+  have : n < 0 := of_decide_eq_true h
+  exact propext ⟨fun h => by omega, False.elim⟩
+
+/-! Lemma to validate simplification rule `N1 + a < N2 ==> a < N2 "-" N1`. -/
+protected theorem int_add_const_lt_eq_lt_sub (a n1 n2 : Int) :
+    (n1 + a < n2) = (a < n2 - n1) := propext (by omega)
+
+/-! Lemma to validate simplification rule `N1 < N2 + a ==> N1 "-" N2 < a`. -/
+protected theorem int_const_lt_add_eq_sub_lt (a n1 n2 : Int) :
+    (n1 < n2 + a) = (n1 - n2 < a) := propext (by omega)
+
+/-! Lemma to validate simplification rule
+    `N1 + a < N2 + b ==> N1 "-" min(N1, N2) + a < N2 "-" min(N1, N2) + b`.
+    `m1` and `m2` are the (already reduced) constants `N1 "-" min(N1, N2)` and
+    `N2 "-" min(N1, N2)`, so the reconstructed goal matches the optimizer output literally. -/
+protected theorem int_add_both_lt (a b n1 n2 m1 m2 : Int)
+    (h1 : n1 - min n1 n2 = m1) (h2 : n2 - min n1 n2 = m2) :
+    (n1 + a < n2 + b) = (m1 + a < m2 + b) := by
+  subst h1 h2; exact propext (by omega)
+
+/-! Lemma to validate normalization rule `a < 1 + b ==> ¬ (b < a)`. -/
+protected theorem int_lt_one_add_eq_not_lt (a b : Int) : (a < 1 + b) = (¬ (b < a)) :=
+  propext (by omega)
+
 def mkInt_lt_asymm : TranslateEnvT Expr := mkExpr (mkConst ``Int.lt_asymm)
 
 def mkInt_not_lt_right_of_eq : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.int_not_lt_right_of_eq)
