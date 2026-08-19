@@ -32,12 +32,30 @@ syntax (name := blasterTactic) "blaster" (solveOption)* : tactic
     between SMT-verified goals and regular `sorry`.-/
 axiom blasterProven : ∀ {α : Sort u}, α
 
-private def blasterAdmit (mvarId : MVarId) : MetaM Unit :=
+def blasterAdmit (mvarId : MVarId) : MetaM Unit :=
   mvarId.withContext do
     mvarId.checkNotAssigned `blasterAdmit
     let mvarType ← mvarId.getType >>= instantiateMVars
     let u ← getLevel mvarType
     mvarId.assign (mkApp (mkConst ``blasterProven [u]) mvarType)
+
+/-- Revert all `Prop` hypotheses of `goal` into the target, so that the goal
+    type is the full proposition submitted to the translator. -/
+@[always_inline, inline]
+def revertHypotheses (goal : MVarId) : TacticM MVarId :=
+  goal.withContext $ do
+    -- Get all hypotheses from the local context
+    let lctx ← getLCtx
+    let mut hyps := #[]
+    for decl in lctx do
+      if decl.isImplementationDetail then continue
+      if ← isProp decl.type then
+        hyps := hyps.push decl.fvarId
+    -- revert hyp from context
+    hyps.foldrM
+      (fun h g => do
+         let (_, g) ← g.revert #[h]
+         return g) goal
 
 @[tactic blasterTactic]
 def blasterTacticImp : Tactic := fun stx =>
@@ -62,23 +80,5 @@ def blasterTacticImp : Tactic := fun stx =>
         -- Replace the goal with the optimized expression
         let newGoal ← goal.replaceTargetDefEq optExpr
         replaceMainGoal [newGoal]
-
-  where
-
-    @[always_inline, inline]
-    revertHypotheses (goal : MVarId) : TacticM MVarId :=
-      goal.withContext $ do
-        -- Get all hypotheses from the local context
-        let lctx ← getLCtx
-        let mut hyps := #[]
-        for decl in lctx do
-          if decl.isImplementationDetail then continue
-          if ← isProp decl.type then
-            hyps := hyps.push decl.fvarId
-        -- revert hyp from context
-        hyps.foldrM
-          (fun h g => do
-             let (_, g) ← g.revert #[h]
-             return g) goal
 
 end Blaster.Tactic
