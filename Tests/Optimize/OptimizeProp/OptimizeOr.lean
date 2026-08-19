@@ -12,13 +12,13 @@ namespace Tests.OptimizeOr
 #testOptimize [ "OrFalse_1" ] False ∨ True ===> True
 
 -- (False ∨ True) = True ===> True
-#testOptimize [ "OrFalse_2" ] (False ∨ True) = True ===> True
+#testOptimize [ "OrFalse_2", proof ] (False ∨ True) = True ===> True
 
 -- True ∨ False ===> True
 #testOptimize [ "OrFalse_3" ] True ∨ False ===> True
 
 -- False ∨ False ===> False
-#testOptimize [ "OrFalse_4" ] False ∨ False ===> False
+#testOptimize [ "OrFalse_4", proof ] False ∨ False ===> False
 
 -- a ∨ False ===> a
 #testOptimize [ "OrFalse_5" ] ∀ (a : Prop), a ∨ False ===> ∀ (a : Prop), a
@@ -27,10 +27,10 @@ namespace Tests.OptimizeOr
 #testOptimize [ "OrFalse_6" ] ∀ (a : Prop), (a ∨ False) = a ===> True
 
 -- False ∨ a ===> a
-#testOptimize [ "OrFalse_7" ] ∀ (a : Prop), False ∨ a ===> ∀ (a : Prop), a
+#testOptimize [ "OrFalse_7", proof ] ∀ (a : Prop), False ∨ a ===> ∀ (a : Prop), a
 
 -- False ∨ (a ∧ b) ===> a ∧ b
-#testOptimize [ "OrFalse_8" ] ∀ (a b : Prop), False ∨ (a ∧ b) ===> ∀ (a b : Prop), a ∧ b
+#testOptimize [ "OrFalse_8", proof ] ∀ (a b : Prop), False ∨ (a ∧ b) ===> ∀ (a b : Prop), a ∧ b
 
 -- (a ∨ b) ∨ False ===> a ∨ b
 #testOptimize [ "OrFalse_9" ] ∀ (a b : Prop), (a ∨ b) ∨ False ===> ∀ (a b : Prop), a ∨ b
@@ -39,7 +39,7 @@ namespace Tests.OptimizeOr
 #testOptimize [ "OrFalse_10" ] ∀ (a b : Prop), (a ∨ False) ∨ b ===> ∀ (a b : Prop), a ∨ b
 
 -- (False ∨ a) ∨ b  ===> a ∨ b
-#testOptimize [ "OrFalse_11" ] ∀ (a b : Prop), (False ∨ a) ∨ b ===> ∀ (a b : Prop), a ∨ b
+#testOptimize [ "OrFalse_11", proof ] ∀ (a b : Prop), (False ∨ a) ∨ b ===> ∀ (a b : Prop), a ∨ b
 
 -- (a ∧ False) ∨ (a ∨ b) ===> a ∨ b
 #testOptimize [ "OrFalse_12" ] ∀ (a b : Prop), (a ∧ False) ∨ (a ∨ b) ===>
@@ -57,10 +57,10 @@ namespace Tests.OptimizeOr
 /-! Test cases for simplification rule `True ∨ e ==> True`. -/
 
 -- True ∨ True ===> True
-#testOptimize [ "OrTrue_1" ] True ∨ True ===> True
+#testOptimize [ "OrTrue_1", proof ] True ∨ True ===> True
 
 -- (True ∨ True) = True ===> True
-#testOptimize [ "OrTrue_2" ] (True ∨ True) = True ===> True
+#testOptimize [ "OrTrue_2", proof ] (True ∨ True) = True ===> True
 
 -- a ∨ True ===> True
 #testOptimize [ "OrTrue_3" ] ∀ (a : Prop), a ∨ True ===> True
@@ -69,10 +69,10 @@ namespace Tests.OptimizeOr
 #testOptimize [ "OrTrue_4" ] ∀ (a : Prop), (a ∨ True) = True ===> True
 
 -- True ∨ a ===> True
-#testOptimize [ "OrTrue_5" ] ∀ (a : Prop), True ∨ a ===> True
+#testOptimize [ "OrTrue_5", proof ] ∀ (a : Prop), True ∨ a ===> True
 
 -- True ∨ (a ∧ b) ===> True
-#testOptimize [ "OrTrue_6" ] ∀ (a b : Prop), True ∨ (a ∧ b) ===> True
+#testOptimize [ "OrTrue_6", proof ] ∀ (a b : Prop), True ∨ (a ∧ b) ===> True
 
 -- (a ∨ b) ∨ True ===> True
 #testOptimize [ "OrTrue_7" ] ∀ (a b : Prop), (a ∨ b) ∨ True ===> True
@@ -99,10 +99,10 @@ namespace Tests.OptimizeOr
 /-! Test cases for simplification rule `e ∨ ¬ e ==> True`. -/
 
 -- a ∨ ¬ a ===> True
-#testOptimize [ "OrNeg_1" ] ∀ (a : Prop), a ∨ ¬ a ===> True
+#testOptimize [ "OrNeg_1", proof ] ∀ (a : Prop), a ∨ ¬ a ===> True
 
 -- (a ∨ ¬ a) = True ===> True
-#testOptimize [ "OrNeg_2" ] ∀ (a : Prop), (a ∨ ¬ a) = True ===> True
+#testOptimize [ "OrNeg_2", proof ] ∀ (a : Prop), (a ∨ ¬ a) = True ===> True
 
 -- (a ∧ b) ∨ ¬ (b ∧ a) ===> True
 #testOptimize [ "OrNeg_3" ] ∀ (a b : Prop), (a ∧ b) ∨ ¬ (b ∧ a) ===> True
@@ -164,7 +164,7 @@ namespace Tests.OptimizeOr
 /-! Test cases for simplification rule `true = e ∨ false = e ==> True`. -/
 
 -- ∀ (a : Bool), true = a ∨ false = a ===> True
-#testOptimize [ "OrNegBoolEq_1" ] ∀ (a : Bool), true = a ∨ false = a ===> True
+#testOptimize [ "OrNegBoolEq_1", proof ] ∀ (a : Bool), true = a ∨ false = a ===> True
 
 -- ∀ (a : Bool), true = a ∨ a = false ===> True
 #testOptimize [ "OrNegBoolEq_2" ] ∀ (a : Bool), true = a ∨ a = false ===> True
@@ -208,10 +208,10 @@ namespace Tests.OptimizeOr
 /-! Test cases for simplification rule `e1 ∨ e2 ==> e1 (if e1 =ₚₜᵣ e2)`. -/
 
 -- a ∨ a ===> a
-#testOptimize [ "OrSubsumption_1" ] ∀ (a : Prop), a ∨ a ===> ∀ (a : Prop), a
+#testOptimize [ "OrSubsumption_1", proof ] ∀ (a : Prop), a ∨ a ===> ∀ (a : Prop), a
 
 -- (a ∨ a) = a ===> True
-#testOptimize [ "OrSubsumption_2" ] ∀ (a : Prop), (a ∨ a) = a ===> True
+#testOptimize [ "OrSubsumption_2", proof ] ∀ (a : Prop), (a ∨ a) = a ===> True
 
 
 -- (a ∧ b) ∨ (b ∧ a) ===> a ∧ b

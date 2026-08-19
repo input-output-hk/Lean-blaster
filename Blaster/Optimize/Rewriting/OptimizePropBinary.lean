@@ -133,11 +133,11 @@ def orImpliesReduce? (a : Expr) (b : Expr) : TranslateEnvT (Option Expr) := do
   | _ => return none
 
 /-- Apply the following simplification/normalization rules on `Or` :
-     - False ∨ e ==> e
-     - True ∨ e ==> True
-     - e1 ∨ e2 ==> e1 (if e1 =ₚₜᵣ e2)
-     - e ∨ ¬ e ==> True (classical)
-     - true = e ∨ false = e ==> True
+     - False ∨ e ==> e                 [proof: false_or]
+     - True ∨ e ==> True               [proof: true_or]
+     - e1 ∨ e2 ==> e1 (if e1 =ₚₜᵣ e2)   [proof: or_self]
+     - e ∨ ¬ e ==> True (classical)    [proof: Blaster.or_not_self_is_true]
+     - true = e ∨ false = e ==> True   [proof: Blaster.true_or_false_is_true]
      - e1 ∨ (e1 → e2) ==> True
      - e1 ∨ (e2 → e1) ==> (e2 → e1)
      - e1 ∨ e2 ==> True (if e1 := _ ∈ hypothesisContext.hypothesisMap)
@@ -153,11 +153,24 @@ def optimizeOr (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeOr: exactly two arguments expected"
  let op1 := args[0]!
  let op2 := args[1]!
- if let Expr.const ``False _ := op1 then return op2
- if let Expr.const ``True _ := op1 then return op1
- if exprEq op1 op2 then return op1
- if isNotExprOf op2 op1 then return (← mkPropTrue)
- if isNegBoolEqOf op2 op1 then return (← mkPropTrue)
+ if let Expr.const ``False _ := op1 then
+   pushProofStep (.rewrite (mkConst ``false_or))
+   return op2
+ if let Expr.const ``True _ := op1 then
+   pushProofStep (.rewrite (mkConst ``true_or))
+   pushProofStep (.exact (mkConst ``True.intro))
+   return op1
+ if exprEq op1 op2 then
+   pushProofStep (.rewrite (mkConst ``or_self))
+   return op1
+ if isNotExprOf op2 op1 then
+   pushProofStep (.rewrite (mkConst ``Blaster.or_not_self_is_true))
+   pushProofStep (.exact (mkConst ``True.intro))
+   return (← mkPropTrue)
+ if isNegBoolEqOf op2 op1 then
+   pushProofStep (.rewrite (mkConst ``Blaster.true_or_false_is_true))
+   pushProofStep (.exact (mkConst ``True.intro))
+   return (← mkPropTrue)
  if let some r ← orImpliesReduce? op1 op2 then return r
  if let some r ← orPropReduction? op1 op2 then return r
  -- no caching at this level as optimizeOr is called by optimizeBoolPropOr

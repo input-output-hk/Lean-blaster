@@ -157,15 +157,18 @@ protected theorem bool_or_decide' (p : Prop) (b : Bool) :
 -/
 
 protected theorem decide'_false_simp : Blaster.decide' False = false := by
-  simp [Blaster.decide'_false]
+  simp only [decide'_false, not_false_eq_true]
 
 protected theorem decide'_true_simp : Blaster.decide' True = true := by
-  simp [Blaster.decide'_true]
+  simp only [Blaster.decide'_true]
 
 protected theorem decide'_true_eq (p : Bool) : Blaster.decide' (true = p) = p := by
-  cases p <;> simp [Blaster.decide'_true, Blaster.decide'_false]
+  apply Blaster.bool_eq_of_iff ;
+  rw [Blaster.decide'_true, Bool.true_eq]
 
 protected theorem decide'_false_eq (p : Bool) : Blaster.decide' (false = p) = ! p := by
-  cases p <;> simp [Blaster.decide'_true, Blaster.decide'_false]
+  apply Blaster.bool_eq_of_iff;
+  rw [Blaster.decide'_true, Bool.false_eq];
+  exact Bool.coe_false_iff_true.mpr rfl
 
 end Blaster
