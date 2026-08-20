@@ -84,3 +84,5 @@ elab "intDivCst_2" : term => return intDivCst_2
 #testOptimize[ "IntFdivGcd_1", proof] ∀ (x : Int), Int.fdiv (6 * x) 4 = Int.fdiv (3 * x) 2 ===> True
 
 #testOptimize[ "IntTdivGcd_1", proof] ∀ (x : Int), Int.tdiv (6 * x) 4 = Int.tdiv (3 * x) 2 ===> True
+
+end Tests.OptimizeIntDiv

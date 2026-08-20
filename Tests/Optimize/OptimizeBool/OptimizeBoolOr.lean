@@ -94,13 +94,13 @@ namespace Tests.OptimizeBoolOr
 /-! Test cases for simplification rule `e || not e ==> true`. -/
 
 -- (a || not a) = true ===> True
-#testOptimize [ "BoolOrNot_1" ] ∀ (a : Bool), (a || not a) = true ===> True
+#testOptimize [ "BoolOrNot_1", proof ] ∀ (a : Bool), (a || not a) = true ===> True
 
 -- a || not a ===> True
-#testOptimize [ "BoolOrNot_2" ] ∀ (a : Bool), (a || not a) ===> True
+#testOptimize [ "BoolOrNot_2", proof ] ∀ (a : Bool), (a || not a) ===> True
 
 -- a || !a ===> True
-#testOptimize [ "BoolOrNot_3" ] ∀ (a : Bool), (a || !a) ===> True
+#testOptimize [ "BoolOrNot_3", proof ] ∀ (a : Bool), (a || !a) ===> True
 
 -- (a && b) || !(b && a) ===> True
 #testOptimize [ "BoolOrNot_4" ] ∀ (a b : Bool), (a && b) || !(b && a) ===> True
