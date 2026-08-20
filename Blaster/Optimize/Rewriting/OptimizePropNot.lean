@@ -1,5 +1,6 @@
 import Lean
 import Blaster.Optimize.Rewriting.Utils
+import Blaster.Optimize.Lemmas.LemmasProp
 
 open Lean Meta
 namespace Blaster.Optimize
@@ -24,8 +25,10 @@ def notEqSimp? (ne : Expr) : TranslateEnvT (Option Expr) := do
   | some (eq_sort, op1, op2) =>
      match op1 with
      | Expr.const ``false _ =>
+         pushProofStep (.rewrite (mkConst ``Blaster.not_false_is_true))
          return (mkApp3 ne.getAppFn eq_sort (← mkBoolTrue) op2)
      | Expr.const ``true _ =>
+         pushProofStep (.rewrite (mkConst ``Blaster.not_true_is_false))
          return (mkApp3 ne.getAppFn eq_sort (← mkBoolFalse) op2)
      | _ => return none
   | none => return none
@@ -46,10 +49,10 @@ def notLTNumNorm? (ne : Expr) (restart := true) : TranslateEnvT (Option Expr) :=
 
 /-- Apply the following simplification/normalization rules on `Not` :
      - ¬ False ==> True             [proof: not_false_eq_true]
-     - ¬ True ==> False
-     - ¬ (¬ e) ==> e (classical)
-     - ¬ (false = e) ==> true = e
-     - ¬ (true = e) ==> false = e
+     - ¬ True ==> False             [proof: true_ne_false]
+     - ¬ (¬ e) ==> e (classical)    [proof: Blaster.double_not_classical]
+     - ¬ (false = e) ==> true = e   [proof: Blaster.not_false_is_true]
+     - ¬ (true = e) ==> false = e   [proof: Blaster.not_true_is_false]
      - ¬ (0 < e) ==> (0 = e) (if Type(e) = Nat)
    Assume that f = Expr.const ``Not.
    An error is triggered if args.size ≠ 1 (i.e., only fully applied `Not` expected at this stage)
@@ -62,8 +65,12 @@ def optimizeNot (f : Expr) (args : Array Expr) (cacheResult := true) : Translate
   pushProofStep (.rewrite (mkConst ``not_false_eq_true))
   pushProofStep (.exact (mkConst ``True.intro))
   return (← mkPropTrue)
- if let Expr.const ``True _ := e then return (← mkPropFalse)
- if let some op := propNot? e then return op
+ if let Expr.const ``True _ := e then
+  pushProofStep (.rewrite (mkConst ``not_true_eq_false))
+  return (← mkPropFalse)
+ if let some op := propNot? e then
+  pushProofStep (.rewrite (mkConst ``Blaster.double_not_classical))
+  return op
  if let some r ← notEqSimp? e then return r
  if let some r ← notLTNumNorm? e cacheResult then return r
  return (mkApp f e)
