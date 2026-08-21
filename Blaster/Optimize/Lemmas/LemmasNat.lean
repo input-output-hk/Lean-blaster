@@ -145,6 +145,28 @@ protected theorem nat_add_both_lt (a b n1 n2 m1 m2 : Nat)
 protected theorem nat_lt_one_add_eq_not_lt (a b : Nat) : (a < 1 + b) = (¬ (b < a)) :=
   propext (by omega)
 
+/-! ## Lemmas validating the hypothesis-context `optimizeLT` reductions on `Nat`. -/
+
+/-! Lemma to validate simplification rule `a < a + b ==> False (if 0 = b)`. -/
+protected theorem nat_lt_add_self_eq_false_of_zero_eq (a b : Nat) (h : 0 = b) :
+    (a < a + b) = False := propext ⟨fun hlt => by omega, False.elim⟩
+
+/-! Lemma to validate simplification rule `a < b + a ==> False (if 0 = b)`. -/
+protected theorem nat_lt_add_self_right_eq_false_of_zero_eq (a b : Nat) (h : 0 = b) :
+    (a < b + a) = False := propext ⟨fun hlt => by omega, False.elim⟩
+
+/-! Lemma to validate simplification rule `a < a + b ==> True (if 0 < b)`. -/
+protected theorem nat_lt_add_self_eq_true_of_zero_lt (a b : Nat) (h : 0 < b) :
+    (a < a + b) = True := propext ⟨fun _ => trivial, fun _ => by omega⟩
+
+/-! Lemma to validate simplification rule `a < b + a ==> True (if 0 < b)`. -/
+protected theorem nat_lt_add_self_right_eq_true_of_zero_lt (a b : Nat) (h : 0 < b) :
+    (a < b + a) = True := propext ⟨fun _ => trivial, fun _ => by omega⟩
+
+/-! Lemma to validate simplification rule `N < e ==> False (if ¬ (N - 1 < e))`. -/
+protected theorem nat_lt_false_of_not_pred_lt (n e : Nat) (h : ¬ (n - 1 < e)) :
+    (n < e) = False := propext ⟨fun hlt => by omega, False.elim⟩
+
 def mkNat_lt_asymm : TranslateEnvT Expr := mkExpr (mkConst ``Nat.lt_asymm)
 
 def mkNat_not_lt_right_of_eq : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.nat_not_lt_right_of_eq)

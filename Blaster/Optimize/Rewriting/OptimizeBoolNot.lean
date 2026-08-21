@@ -19,7 +19,7 @@ def notDecideProp? (op : Expr) : TranslateEnvT (Option Expr) := do
 /-- Apply the following simplification/normalization rules on `not` :
      - ! true ==> false                 [proof: Bool.not_true]
      - ! false ==> true                 [proof: Bool.not_false]
-     - ! (! e) ==> e
+     - ! (! e) ==> e                    [proof: Bool.not_not]
      - !(decide' e) ==> decide' (¬ e)
    Assume that f = Expr.const ``not.
    An error is triggered if args.size ≠ 1 (i.e., only fully applied `not` expected at this stage)
@@ -36,7 +36,9 @@ def optimizeBoolNot (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
     pushProofStep (.rewrite (mkConst ``Bool.not_false))
     mkBoolTrue
  | _ =>
-    if let some e := boolNot? op then return e
+    if let some e := boolNot? op then
+      pushProofStep (.rewrite (mkConst ``Bool.not_not))
+      return e
     if let some r ← notDecideProp? op then return r
     return (mkApp f op)
 

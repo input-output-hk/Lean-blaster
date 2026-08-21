@@ -27,3 +27,5 @@ elab "intNegCst_1" : term => return intNegCst_1
 #testOptimize ["IntNegNeg_2", proof] ∀ (x y : Int), -(-x) = y ===> ∀ (x y : Int), x = y
 
 #testOptimize ["IntNegNeg_3", proof] ∀ (x : Int), -(-(-x)) = -x ===> True
+
+end Tests.OptimizeIntNeg

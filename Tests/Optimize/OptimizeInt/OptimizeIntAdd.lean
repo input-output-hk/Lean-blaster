@@ -41,3 +41,11 @@ elab "intAddCst_1" : term => return intAddCst_1
 
 -- reorder `n + 0 ==> 0 + n`, closed with `Int.add_zero`
 #testOptimize ["IntAddComm_2", proof] ∀ (n : Int), n + 0 = n ===> True
+
+
+/-! Test cases for the simplification rule `n1 + (-n2) ==> 0 (if n1 =ₚₜᵣ n2)` -/
+
+-- n + (-n) = 0 ==> True
+#testOptimize ["IntAddNeg_1", proof] ∀ (n : Int), n + (-n) = 0 ===> True
+
+end Tests.OptimizeIntAdd

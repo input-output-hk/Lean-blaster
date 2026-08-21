@@ -56,3 +56,5 @@ variable (x : Int)
 
 -- reorder `n * 1 ==> 1 * n`, closed with `Int.mul_one`
 #testOptimize ["IntMulComm_3", proof] ∀ (n : Int), n * 1 = n ===> True
+
+end Tests.OptimizeIntMul

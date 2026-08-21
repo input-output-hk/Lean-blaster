@@ -36,7 +36,7 @@ def optimizeIntNeg (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      - N1 + N2 ==> N1 "+" N2
      - N1 + (N2 + n) ==> (N1 "+" N2) + n    [proof: ← Int.add_assoc]
      - N1 + -(N2 + n) ==> (N1 "-" N2) + -n  [proof: Blaster.int_add_neg_add]
-     - n1 + (-n2) ==> 0 if (if n1 =ₚₜᵣ n2)
+     - n1 + (-n2) ==> 0 if (if n1 =ₚₜᵣ n2)   [proof: Int.add_right_neg]
      - n1 + n2 ==> n2 + n1 (if n2 <ₒ n1)    [proof: Int.add_comm, see reorderOperands]
    Assume that f = Expr.const ``Int.add.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Int.add` expected at this stage)
@@ -55,7 +55,9 @@ def optimizeIntAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  | some n1, some n2 => evalBinIntOp Int.add n1 n2
  | nv1, _ =>
    if let some r ← cstAddProp? nv1 op1 op2 then return r
-   if isIntNegExprOf op2 op1 then return (← mkIntLitExpr (Int.ofNat 0))
+   if isIntNegExprOf op2 op1 then
+    pushProofStep (.rewrite (mkConst ``Int.add_right_neg))
+    return (← mkIntLitExpr (Int.ofNat 0))
    return (mkApp2 f op1 op2)
 
  where

@@ -92,13 +92,13 @@ namespace Test.OptimizeBoolAnd
 /-! Test cases for simplification rule `e && not e ==> false`. -/
 
 -- (a && not a) = false ===> True
-#testOptimize [ "BoolAndNot_1" ] ∀ (a : Bool), (a && not a) = false ===> True
+#testOptimize [ "BoolAndNot_1", proof ] ∀ (a : Bool), (a && not a) = false ===> True
 
 -- a && not a ===> False
-#testOptimize [ "BoolAndNot_2" ] ∀ (a : Bool), a && not a ===> False
+#testOptimize [ "BoolAndNot_2", proof ] ∀ (a : Bool), a && not a ===> False
 
 -- a && !a ===> False
-#testOptimize [ "BoolAndNot_3" ] ∀ (a : Bool), a && !a ===> False
+#testOptimize [ "BoolAndNot_3", proof ] ∀ (a : Bool), a && !a ===> False
 
 -- (a && b) && !(b && a) ===> False
 #testOptimize [ "BoolAndNot_4" ] ∀ (a b : Bool), (a && b) && !(b && a) ===> False
