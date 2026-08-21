@@ -208,6 +208,7 @@ inductive DivKind where
   | fdiv
 
 /-- Given `op1` and `op2` corresponding to the operands for `Int.ediv`, `Int.tdiv` and `Int.fdiv`,
+    and `d` the corresponding `DivKind`,
     try to apply the following simplification rules:
      - n / 0 ==> 0
      - n / 1 ==> n
@@ -243,7 +244,11 @@ def optimizeIntDivCommon (d: DivKind) (op1 : Expr) (op2 : Expr) : TranslateEnvT 
   | DivKind.tdiv => pushProofStep (.rewrite (mkConst ``Int.zero_tdiv))
   | DivKind.fdiv => pushProofStep (.rewrite (mkConst ``Int.zero_fdiv))
   return op1
- | some n1, some n2 => evalBinIntOp Int.ediv n1 n2
+ | some n1, some n2 =>
+  match d with
+  | DivKind.ediv => evalBinIntOp Int.ediv n1 n2
+  | DivKind.tdiv => evalBinIntOp Int.tdiv n1 n2
+  | DivKind.fdiv => evalBinIntOp Int.fdiv n1 n2
  | _, _ =>
    if let some r ← intDivSelfReduce? op1 op2 then
      if let DivKind.ediv := d then emitEDivSelfProofStep op1
@@ -269,7 +274,7 @@ def optimizeIntDivCommon (d: DivKind) (op1 : Expr) (op2 : Expr) : TranslateEnvT 
        pushProofStep (.rewrite (mkApp3 (mkConst ``Int.mul_ediv_cancel_left) op2 b h))
 
 /- Given `op1` and `op2` corresponding to the operands for `Int.ediv`, `Int.tdiv` and `Int.fdiv`,
-   and `f_div` the corresponding divisor operator,
+   and `dk` the corresponding `DivKind` (yielding the divisor operator `f_div`),
      - return `some (((f_div N1 (Int.gcd N1 N2)) * n), (f_div N2 (Int.gcd N1 N2)))`
        when `op1 := (N1 * n) ∧ op2 := N2 ∧ Int.gcd N1 N2 ≠ 1
    Otherwise `none`.
@@ -348,6 +353,7 @@ inductive ModKind where
   | fmod
 
 /--  Given `op1` and `op2` corresponding to the operands for `Int.emod`, `Int.fmod` and `Int.tmod`,
+     and `m` the corresponding `ModKind`,
      try to apply the following simplification rules:
      - n % 0 ==> n
      - n % 1 ==> 0
@@ -378,7 +384,11 @@ def optimizeIntModCommon (m : ModKind) (op1 : Expr) (op2 : Expr) : TranslateEnvT
   | ModKind.tmod => pushProofStep (.rewrite (mkConst ``Int.zero_tmod))
   | ModKind.fmod => pushProofStep (.rewrite (mkConst ``Int.zero_fmod))
   return op1
- | some n1, some n2 => evalBinIntOp Int.emod n1 n2
+ | some n1, some n2 =>
+  match m with
+  | ModKind.emod => evalBinIntOp Int.emod n1 n2
+  | ModKind.tmod => evalBinIntOp Int.tmod n1 n2
+  | ModKind.fmod => evalBinIntOp Int.fmod n1 n2
  | _, nv2 =>
    if let some r ← cstModProp? op1 nv2 then
      emitModGcdZeroProofStep m op1 op2

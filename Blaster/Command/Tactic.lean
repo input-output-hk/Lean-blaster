@@ -195,6 +195,17 @@ private def proveByProofStack (goalType : Expr) (proofStack : Array Blaster.Opti
     catch _ => g.admit
   return proofMVar
 
+/-- Custom sorry for Blaster to differentiate
+    between SMT-verified goals and regular `sorry`.-/
+axiom blasterProven : ∀ {α : Sort u}, α
+
+private def blasterAdmit (mvarId : MVarId) : MetaM Unit :=
+  mvarId.withContext do
+    mvarId.checkNotAssigned `blasterAdmit
+    let mvarType ← mvarId.getType >>= instantiateMVars
+    let u ← getLevel mvarType
+    mvarId.assign (mkApp (mkConst ``blasterProven [u]) mvarType)
+
 @[tactic blasterTactic]
 def blasterTacticImp : Tactic := fun stx =>
   withMainContext $ do
@@ -266,6 +277,5 @@ def blasterTacticImp : Tactic := fun stx =>
           (fun h g => do
              let (_, g) ← g.revert #[h]
              return g) goal
-
 
 end Blaster.Tactic
