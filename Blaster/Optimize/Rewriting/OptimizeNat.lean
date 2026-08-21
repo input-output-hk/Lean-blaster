@@ -154,7 +154,7 @@ def optimizeNatSub (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 -- -/
 
 /-- Apply the following simplification/normalization rules on `Nat.pow` :
-     - n ^ 0 ==> 1
+     - n ^ 0 ==> 1            [proof: Nat.pow_zero]
      - N1 ^ N2 ==> N1 "^" N2
    Assume that f = Expr.const ``Nat.pow.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Nat.pow` expected at this stage)
@@ -165,7 +165,9 @@ def optimizeNatPow (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let op1 := args[0]!
  let op2 := args[1]!
  match isNatValue? op1, isNatValue? op2 with
- | _, some 0 => return (← mkNatLitExpr 1)
+ | _, some 0 =>
+  pushProofStep (.rewrite (mkConst ``Nat.pow_zero))
+  return (← mkNatLitExpr 1)
  | some n1, some n2 => evalBinNatOp Nat.pow n1 n2
  | _, _ => return (mkApp2 f op1 op2)
 

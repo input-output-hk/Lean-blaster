@@ -76,3 +76,5 @@ elab "intModCst_2" : term => return intModCst_2
 #testOptimize ["IntFmodGcd_1", proof] ∀ (x : Int), Int.fmod (6 * x) 3 = 0 ===> True
 
 #testOptimize ["IntTmodGcd_1", proof] ∀ (x : Int), Int.tmod (6 * x) 3 = 0 ===> True
+
+end Tests.OptimizeIntMod

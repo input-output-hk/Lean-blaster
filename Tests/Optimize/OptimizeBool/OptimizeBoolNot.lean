@@ -9,24 +9,24 @@ namespace Tests.OptimizeBoolNot
 /-! Test cases for `reduceApp` rule on ``not. -/
 
 -- not false ===> true
-#testOptimize [ "BoolNotCst_1" ] not false ===> true
+#testOptimize [ "BoolNotCst_1", proof ] not false ===> true
 
 -- ! false ===> true
-#testOptimize [ "BoolNotCst_2" ] ! false ===> true
+#testOptimize [ "BoolNotCst_2", proof ] ! false ===> true
 
 -- not true ===> false
-#testOptimize [ "BoolNotCst_3" ] not true ===> false
+#testOptimize [ "BoolNotCst_3", proof ] not true ===> false
 
 -- ! true ===> false
-#testOptimize [ "BoolNotCst_4" ] ! true ===> false
+#testOptimize [ "BoolNotCst_4", proof ] ! true ===> false
 
 /-! Test cases for simplification rule `! (! e) ==> e`. -/
 
 -- not (not a) = a ===> True
-#testOptimize [ "BoolNot_1" ] ∀ (a : Bool), not (not a) = a ===> True
+#testOptimize [ "BoolNot_1", proof ] ∀ (a : Bool), not (not a) = a ===> True
 
 -- not (not a) ===> a
-#testOptimize [ "BoolNot_2" ] ∀ (a : Bool), not (not a) ===> ∀ (a : Bool), true = a
+#testOptimize [ "BoolNot_2", proof ] ∀ (a : Bool), not (not a) ===> ∀ (a : Bool), true = a
 
 -- not (not (not a)) = not a ===> True
 #testOptimize [ "BoolNot_3" ] ∀ (a : Bool), not (not (not a)) = not a ===> True
@@ -35,10 +35,10 @@ namespace Tests.OptimizeBoolNot
 #testOptimize [ "BoolNot_4" ] ∀ (a : Bool), not (not (not (not a))) = a ===> True
 
 -- ! (! a) = a ==> True
-#testOptimize [ "BoolNot_5" ] ∀ (a : Bool), (! (! a)) = a ===> True
+#testOptimize [ "BoolNot_5", proof ] ∀ (a : Bool), (! (! a)) = a ===> True
 
 -- ! (! a) ===> a
-#testOptimize [ "BoolNot_6" ] ∀ (a : Bool), (! (! a)) ===> ∀ (a : Bool), true = a
+#testOptimize [ "BoolNot_6", proof ] ∀ (a : Bool), (! (! a)) ===> ∀ (a : Bool), true = a
 
 -- ! (! (! a)) = ! a ===> True
 #testOptimize [ "BoolNot_7" ] ∀ (a : Bool), (! (! (! a))) = (! a) ===> True
