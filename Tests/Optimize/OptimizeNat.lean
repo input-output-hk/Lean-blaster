@@ -5,3 +5,4 @@ import Tests.Optimize.OptimizeNat.OptimizeNatMul
 import Tests.Optimize.OptimizeNat.OptimizeNatPred
 import Tests.Optimize.OptimizeNat.OptimizeNatSub
 import Tests.Optimize.OptimizeNat.OptimizeNatSucc
+import Tests.Optimize.OptimizeNat.OptimizeNatPow

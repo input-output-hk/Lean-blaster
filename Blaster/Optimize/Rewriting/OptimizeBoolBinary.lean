@@ -29,7 +29,7 @@ namespace Blaster.Optimize
 /-- Apply the following simplification/normalization rules on `and` :
      - false && e ==> false                                                                  [proof: Bool.false_and]
      - true && e ==> e                                                                       [proof: Bool.true_and]
-     - e && not e ==> false
+     - e && not e ==> false                                                                  [proof: Bool.and_not_self]
      - e1 && e2 ==> e1 (if e1 =ₚₜᵣ e2)                                                        [proof: Bool.and_self]
      - e1 && e2 ===> e2 (if true = e1 := _ ∈ hypothesisContext.hypothesisMap)
      - e1 && e2 ===> e1 (if true = e2 := _ ∈ hypothesisContext.hypothesisMap)
@@ -57,7 +57,9 @@ def optimizeBoolAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if exprEq op1 op2 then
    pushProofStep (.rewrite (mkConst ``Bool.and_self))
    return op1
- if isBoolNotExprOf op2 op1 then return (← mkBoolFalse)
+ if isBoolNotExprOf op2 op1 then
+   pushProofStep (.rewrite (mkConst ``Bool.and_not_self))
+   return (← mkBoolFalse)
  if let some r ← andBoolReduction? op1 op2 then return r
  -- no caching at this level as optimizeBoolAnd is called by optimizeDecideBoolAnd
  return mkApp2 f op1 op2
@@ -85,7 +87,7 @@ def optimizeBoolAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 /-- Apply the following simplification/normalization rules on `or` :
      - false || e ==> e                                                                      [proof: Bool.false_or]
      - true || e ==> true                                                                    [proof: Bool.true_or]
-     - e || not e ==> true
+     - e || not e ==> true                                                                   [proof: Bool.or_not_self]
      - e1 || e2 ==> e1 (if e1 =ₚₜᵣ e2)                                                        [proof: Bool.or_self]
      - e1 || e2 ===> true (if true = e1 := _ ∈ hypothesisContext.hypothesisMap)
      - e1 || e2 ===> true (if true = e2 := _ ∈ hypothesisContext.hypothesisMap)

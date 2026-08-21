@@ -9,10 +9,10 @@ namespace Tests.OptimizeNot
 /-! Test cases for simplification rule `¬ False ==> True`. -/
 
 -- ¬ False ===> True
-#testOptimize [ "NotFalse_1" ] ¬ False ===> True
+#testOptimize [ "NotFalse_1", proof ] ¬ False ===> True
 
 -- ¬ (true = false) ===> True
-#testOptimize [ "NotFalse_2" ] ¬ (true = false) ===> True
+#testOptimize [ "NotFalse_2", proof ] ¬ (true = false) ===> True
 
 -- ¬ ((10 : Nat) = 20) ===> True
 #testOptimize [ "NotFalse_3" ] ¬ ((10 : Nat) = 20) ===> True
@@ -33,10 +33,10 @@ namespace Tests.OptimizeNot
 /-! Test cases for simplification rule `¬ True ==> False`. -/
 
 -- ¬ True ===> False
-#testOptimize [ "NotTrue_1" ] ¬ True ===> False
+#testOptimize [ "NotTrue_1", proof ] ¬ True ===> False
 
 -- ¬ (true = true) ===> False
-#testOptimize [ "NotTrue_2" ] ¬ (true = true) ===> False
+#testOptimize [ "NotTrue_2", proof ] ¬ (true = true) ===> False
 
 -- ¬ ((10 : Nat) = 10) ===> False
 #testOptimize [ "NotTrue_3" ] ¬ ((10 : Nat) = 10) ===> False
@@ -57,13 +57,13 @@ namespace Tests.OptimizeNot
 /-! Test cases for simplification rule `¬ (¬ e) ==> e`. -/
 
 -- ¬ (¬ a) ===> a
-#testOptimize [ "Not_1" ] ∀ (a : Prop), ¬ (¬ a) ===> ∀ (a : Prop), a
+#testOptimize [ "Not_1", proof ] ∀ (a : Prop), ¬ (¬ a) ===> ∀ (a : Prop), a
 
 -- ¬ (¬ a) = a ===> True
-#testOptimize [ "Not_2" ] ∀ (a : Prop), ¬ (¬ a) = a ===> True
+#testOptimize [ "Not_2", proof ] ∀ (a : Prop), (¬ (¬ a)) = a ===> True
 
 -- ¬ (¬ (¬ a)) ===> ¬ a
-#testOptimize [ "Not_3" ] ∀ (a : Prop), ¬ (¬ (¬ a)) ===> ∀ (a : Prop), ¬ a
+#testOptimize [ "Not_3", proof ] ∀ (a : Prop), ¬ (¬ (¬ a)) ===> ∀ (a : Prop), ¬ a
 
 -- ¬ (¬ (¬ (¬ a))) ===> a
 #testOptimize [ "Not_4" ] ∀ (a : Prop), ¬ (¬ (¬ (¬ a))) ===> ∀ (a : Prop), a
@@ -114,10 +114,10 @@ namespace Tests.OptimizeNot
 /-! Test cases for simplification rule `¬ (false = e) ==> true = e`. -/
 
 -- ¬ (false = a) ===> true = a (with Type(a) = Bool)
-#testOptimize [ "NotEqFalse_1" ] ∀ (a : Bool), ¬ (false = a) ===> ∀ (a : Bool), true = a
+#testOptimize [ "NotEqFalse_1", proof ] ∀ (a : Bool), ¬ (false = a) ===> ∀ (a : Bool), true = a
 
 -- (¬ (false = a)) = (true = a) ===> True (with Type(a) = Bool)
-#testOptimize [ "NotEqFalse_2" ] ∀ (a : Bool), (¬ (false = a)) = (true = a) ===> True
+#testOptimize [ "NotEqFalse_2", proof ] ∀ (a : Bool), (¬ (false = a)) = (true = a) ===> True
 
 -- ¬ (a = false) ===> true = a (with Type(a) = Bool)
 #testOptimize [ "NotEqFalse_3" ] ∀ (a : Bool), ¬ (a = false) ===> ∀ (a : Bool), true = a
@@ -151,10 +151,10 @@ namespace Tests.OptimizeNot
 /-! Test cases for simplification rule `¬ (true = e) ==> false = e`. -/
 
 -- ¬ (true = a) ===> false = a (with Type(a) = Bool)
-#testOptimize [ "NotEqTrue_1" ] ∀ (a : Bool), ¬ (true = a) ===> ∀ (a : Bool), false = a
+#testOptimize [ "NotEqTrue_1", proof ] ∀ (a : Bool), ¬ (true = a) ===> ∀ (a : Bool), false = a
 
 -- (¬ (true = a)) = (false = a) ===> True (with Type(a) = Bool)
-#testOptimize [ "NotEqTrue_2" ] ∀ (a : Bool), (¬ (true = a)) = (false = a) ===> True
+#testOptimize [ "NotEqTrue_2", proof ] ∀ (a : Bool), (¬ (true = a)) = (false = a) ===> True
 
 -- ¬ (a = true) ===> false = a (with Type(a) = Bool)
 #testOptimize [ "NotEqTrue_3" ] ∀ (a : Bool), ¬ (a = true) ===> ∀ (a : Bool), false = a

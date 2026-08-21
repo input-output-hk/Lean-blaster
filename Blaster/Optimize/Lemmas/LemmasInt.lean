@@ -155,6 +155,87 @@ protected theorem int_add_both_lt (a b n1 n2 m1 m2 : Int)
 protected theorem int_lt_one_add_eq_not_lt (a b : Int) : (a < 1 + b) = (¬ (b < a)) :=
   propext (by omega)
 
+/-! ## Lemmas validating the hypothesis-context `optimizeLT` reductions on `Int`.
+    Bridges converting the three stored hypothesis forms (`0 < b`, `0 = b`, `¬ (b < 0)`)
+    into the canonical `0 ≤ b` consumed by the reconstruction lemmas below. -/
+protected theorem int_le_of_zero_lt (b : Int) (h : 0 < b) : 0 ≤ b := Int.le_of_lt h
+
+protected theorem int_le_of_zero_eq (b : Int) (h : 0 = b) : 0 ≤ b := Int.le_of_eq h
+
+protected theorem int_le_of_not_lt_zero (b : Int) (h : ¬ (b < 0)) : 0 ≤ b := Int.not_lt.mp h
+
+/-! Lemma to validate simplification rule `a + b < a ==> False (if 0 ≤ b)`. -/
+protected theorem int_add_lt_self_eq_false_of_nonneg (a b : Int) (h : 0 ≤ b) :
+    (a + b < a) = False := propext ⟨fun hlt => by omega, False.elim⟩
+
+/-! Lemma to validate simplification rule `b + a < a ==> False (if 0 ≤ b)`. -/
+protected theorem int_add_lt_self_right_eq_false_of_nonneg (a b : Int) (h : 0 ≤ b) :
+    (b + a < a) = False := propext ⟨fun hlt => by omega, False.elim⟩
+
+/-! Lemma to validate simplification rule `a + b < a ==> True (if b < 0)`. -/
+protected theorem int_add_lt_self_eq_true_of_neg (a b : Int) (h : b < 0) :
+    (a + b < a) = True := propext ⟨fun _ => trivial, fun _ => by omega⟩
+
+/-! Lemma to validate simplification rule `b + a < a ==> True (if b < 0)`. -/
+protected theorem int_add_lt_self_right_eq_true_of_neg (a b : Int) (h : b < 0) :
+    (b + a < a) = True := propext ⟨fun _ => trivial, fun _ => by omega⟩
+
+/-! Bridges converting the three stored hypothesis forms (`e < 0`, `0 = e`, `¬ (0 < e)`)
+    into the canonical `e ≤ 0` consumed by the reconstruction lemmas below. -/
+protected theorem int_le_zero_of_lt_zero (e : Int) (h : e < 0) : e ≤ 0 := Int.le_of_lt h
+
+protected theorem int_le_zero_of_zero_eq (e : Int) (h : 0 = e) : e ≤ 0 := Int.le_of_eq h.symm
+
+protected theorem int_le_zero_of_not_zero_lt (e : Int) (h : ¬ (0 < e)) : e ≤ 0 := Int.not_lt.mp h
+
+/-! Lemma to validate simplification rule `a < a + b ==> False (if b ≤ 0)`. -/
+protected theorem int_lt_add_self_eq_false_of_nonpos (a b : Int) (h : b ≤ 0) :
+    (a < a + b) = False := propext ⟨fun hlt => by omega, False.elim⟩
+
+/-! Lemma to validate simplification rule `a < b + a ==> False (if b ≤ 0)`. -/
+protected theorem int_lt_add_self_right_eq_false_of_nonpos (a b : Int) (h : b ≤ 0) :
+    (a < b + a) = False := propext ⟨fun hlt => by omega, False.elim⟩
+
+/-! Lemma to validate simplification rule `a < a + b ==> True (if 0 < b)`. -/
+protected theorem int_lt_add_self_eq_true_of_pos (a b : Int) (h : 0 < b) :
+    (a < a + b) = True := propext ⟨fun _ => trivial, fun _ => by omega⟩
+
+/-! Lemma to validate simplification rule `a < b + a ==> True (if 0 < b)`. -/
+protected theorem int_lt_add_self_right_eq_true_of_pos (a b : Int) (h : 0 < b) :
+    (a < b + a) = True := propext ⟨fun _ => trivial, fun _ => by omega⟩
+
+/-! Lemmas to validate simplification rule `0 < x + y ==> True / False` from the signs of
+    `x` and `y` in the hypothesis context. -/
+protected theorem int_zero_lt_add_eq_true_of_nonneg_pos (x y : Int) (hx : 0 ≤ x) (hy : 0 < y) :
+    (0 < x + y) = True := propext ⟨fun _ => trivial, fun _ => by omega⟩
+
+protected theorem int_zero_lt_add_eq_true_of_pos_nonneg (x y : Int) (hx : 0 < x) (hy : 0 ≤ y) :
+    (0 < x + y) = True := propext ⟨fun _ => trivial, fun _ => by omega⟩
+
+protected theorem int_zero_lt_add_eq_false_of_nonpos_neg (x y : Int) (hx : x ≤ 0) (hy : y < 0) :
+    (0 < x + y) = False := propext ⟨fun hlt => by omega, False.elim⟩
+
+protected theorem int_zero_lt_add_eq_false_of_neg_nonpos (x y : Int) (hx : x < 0) (hy : y ≤ 0) :
+    (0 < x + y) = False := propext ⟨fun hlt => by omega, False.elim⟩
+
+/-! Lemmas to validate simplification rule `x + y < 0 ==> False / True` from the signs of
+    `x` and `y` in the hypothesis context. -/
+protected theorem int_add_lt_zero_eq_false_of_nonneg_pos (x y : Int) (hx : 0 ≤ x) (hy : 0 < y) :
+    (x + y < 0) = False := propext ⟨fun hlt => by omega, False.elim⟩
+
+protected theorem int_add_lt_zero_eq_false_of_pos_nonneg (x y : Int) (hx : 0 < x) (hy : 0 ≤ y) :
+    (x + y < 0) = False := propext ⟨fun hlt => by omega, False.elim⟩
+
+protected theorem int_add_lt_zero_eq_true_of_nonpos_neg (x y : Int) (hx : x ≤ 0) (hy : y < 0) :
+    (x + y < 0) = True := propext ⟨fun _ => trivial, fun _ => by omega⟩
+
+protected theorem int_add_lt_zero_eq_true_of_neg_nonpos (x y : Int) (hx : x < 0) (hy : y ≤ 0) :
+    (x + y < 0) = True := propext ⟨fun _ => trivial, fun _ => by omega⟩
+
+/-! Lemma to validate simplification rule `N < e ==> False (if ¬ (N - 1 < e))`. -/
+protected theorem int_lt_false_of_not_pred_lt (n e : Int) (h : ¬ (n - 1 < e)) :
+    (n < e) = False := propext ⟨fun hlt => by omega, False.elim⟩
+
 def mkInt_lt_asymm : TranslateEnvT Expr := mkExpr (mkConst ``Int.lt_asymm)
 
 def mkInt_not_lt_right_of_eq : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.int_not_lt_right_of_eq)
