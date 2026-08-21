@@ -49,7 +49,7 @@ def notLTNumNorm? (ne : Expr) (restart := true) : TranslateEnvT (Option Expr) :=
 
 /-- Apply the following simplification/normalization rules on `Not` :
      - ¬ False ==> True             [proof: not_false_eq_true]
-     - ¬ True ==> False             [proof: true_ne_false]
+     - ¬ True ==> False             [proof: not_true_eq_false]
      - ¬ (¬ e) ==> e (classical)    [proof: Blaster.double_not_classical]
      - ¬ (false = e) ==> true = e   [proof: Blaster.not_false_is_true]
      - ¬ (true = e) ==> false = e   [proof: Blaster.not_true_is_false]
