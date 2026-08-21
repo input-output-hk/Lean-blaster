@@ -37,4 +37,24 @@ protected theorem true_or_false_is_true (a : Bool) :
   apply propext;
   rw [Bool.true_eq, Bool.false_eq, Bool.eq_true_or_eq_false_self]
 
+/-! ## Lemmas validating the `Not` simplification rules:
+  - `¬ (¬ e) ==> e`
+  - `¬ (false = e) ==> true = e`
+  - `¬ (true = e) ==> false = e`
+-/
+protected theorem double_not_classical (p : Prop) : (¬ (¬ p)) = p := by
+  apply propext;
+  exact Classical.not_not
+
+
+protected theorem not_false_is_true (e : Bool) :
+  (¬ (false = e)) = (true = e) := by
+  apply propext;
+  rw [Bool.false_eq, Bool.not_eq_false, Bool.true_eq]
+
+protected theorem not_true_is_false (e : Bool):
+  (¬ (true = e)) = (false = e) := by
+  apply propext;
+  rw [Bool.true_eq, Bool.not_eq_true, Bool.false_eq]
+
 end Blaster
