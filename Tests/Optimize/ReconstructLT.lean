@@ -112,4 +112,53 @@ namespace Test.ReconstructLT
 -- ∀ (a b : Int), a < 1 + b ===> ∀ (a b : Int), ¬ (b < a)
 #testOptimize [ "LtOneAddInt", proof ] ∀ (a b : Int), a < 1 + b ===> ∀ (a b : Int), ¬ (b < a)
 
+/-! ## Hypothesis-context reductions (Int).
+    `a + b < a ==> False (if 0 ≤ b)` / `==> True (if b < 0)` (intRelLeftReduce?). -/
+
+-- ∀ (a b : Int), 0 < b → ((a + b < a) = False) ===> True
+#testOptimize [ "AddLtSelfNonNegInt", proof ] ∀ (a b : Int), 0 < b → ((a + b < a) = False) ===> True
+
+-- ∀ (a b : Int), b < 0 → ((a + b < a) = True) ===> True
+#testOptimize [ "AddLtSelfNegInt", proof ] ∀ (a b : Int), b < 0 → ((a + b < a) = True) ===> True
+
+/-! `a < a + b ==> False (if b ≤ 0)` / `==> True (if 0 < b)` (Int, intRelRightReduce?). -/
+
+-- ∀ (a b : Int), b < 0 → ((a < a + b) = False) ===> True
+#testOptimize [ "LtAddSelfNonPosInt", proof ] ∀ (a b : Int), b < 0 → ((a < a + b) = False) ===> True
+
+-- ∀ (a b : Int), 0 < b → ((a < a + b) = True) ===> True
+#testOptimize [ "LtAddSelfPosInt", proof ] ∀ (a b : Int), 0 < b → ((a < a + b) = True) ===> True
+
+/-! `a < a + b ==> False (if 0 = b)` / `==> True (if 0 < b)` (Nat, natRelRightReduce?). -/
+
+-- ∀ (a b : Nat), 0 = b → ((a < a + b) = False) ===> True
+#testOptimize [ "LtAddSelfZeroNat", proof ] ∀ (a b : Nat), 0 = b → ((a < a + b) = False) ===> True
+
+-- ∀ (a b : Nat), 0 < b → ((a < a + b) = True) ===> True
+#testOptimize [ "LtAddSelfPosNat", proof ] ∀ (a b : Nat), 0 < b → ((a < a + b) = True) ===> True
+
+/-! `0 < x + y ==> True / False` from the signs of `x` and `y` (Int, intZeroLtSum?). -/
+
+-- ∀ (x y : Int), 0 < x → 0 < y → ((0 < x + y) = True) ===> True
+#testOptimize [ "ZeroLtSumPosInt", proof ] ∀ (x y : Int), 0 < x → 0 < y → ((0 < x + y) = True) ===> True
+
+-- ∀ (x y : Int), x < 0 → y < 0 → ((0 < x + y) = False) ===> True
+#testOptimize [ "ZeroLtSumNegInt", proof ] ∀ (x y : Int), x < 0 → y < 0 → ((0 < x + y) = False) ===> True
+
+/-! `N < e ==> False (if ¬ (N - 1 < e))` (predCstLTInHyp). -/
+
+-- ∀ (e : Nat), ¬ (4 < e) → ((5 < e) = False) ===> True
+#testOptimize [ "PredCstLtNat", proof ] ∀ (e : Nat), ¬ (4 < e) → ((5 < e) = False) ===> True
+
+-- ∀ (e : Int), ¬ (4 < e) → (((5 : Int) < e) = False) ===> True
+#testOptimize [ "PredCstLtInt", proof ] ∀ (e : Int), ¬ ((4 : Int) < e) → (((5 : Int) < e) = False) ===> True
+
+/-! `x + y < 0 ==> False / True` from the signs of `x` and `y` (Int, intZeroLtSum?). -/
+
+-- ∀ (x y : Int), 0 < x → 0 < y → ((x + y < 0) = False) ===> True
+#testOptimize [ "SumLtZeroPosInt", proof ] ∀ (x y : Int), 0 < x → 0 < y → ((x + y < 0) = False) ===> True
+
+-- ∀ (x y : Int), x < 0 → y < 0 → ((x + y < 0) = True) ===> True
+#testOptimize [ "SumLtZeroNegInt", proof ] ∀ (x y : Int), x < 0 → y < 0 → ((x + y < 0) = True) ===> True
+
 end Test.ReconstructLT
