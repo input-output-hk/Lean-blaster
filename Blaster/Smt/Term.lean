@@ -399,8 +399,24 @@ def intLitSmt (n : Int) : SmtTerm :=
 /-! Convert an Nat literal to an Smt representation. -/
 def natLitSmt (n : Nat) : SmtTerm := .NumTerm n
 
-/-! Convert an String literal to an Smt representation. -/
-def strLitSmt (s : String) : SmtTerm := .StrTerm s!"\"{s}\""
+/-! Escape a Lean string into the body of an Smt-Lib 2.6 string literal.
+    Per the standard only printable ASCII (0x20-0x7E) may appear verbatim, and a `"` is
+    written by doubling it; every other character uses the `\u{d}`..`\u{ddddd}` form. A
+    literal backslash is escaped as well, so that it can never open a spurious `\u{..}`
+    sequence. Without this, a Lean string carrying any character outside printable ASCII
+    -- a byte string wrapped over `String`, say -- reaches the solver verbatim and the
+    entire query is rejected with `unexpected character`. -/
+private def escapeSmtStringLit (s : String) : String :=
+  s.foldl (init := "") (λ acc c =>
+    let n := c.toNat
+         if c == '"'             then acc ++ "\"\""
+    else if c == '\\'            then acc ++ "\\u{5c}"
+    else if n ≥ 0x20 && n ≤ 0x7e then acc.push c
+    else acc ++ "\\u{" ++ (Nat.toDigits 16 n).asString ++ "}"
+  )
+
+/-! Convert a String literal to an Smt representation. -/
+def strLitSmt (s : String) : SmtTerm := .StrTerm s!"\"{escapeSmtStringLit s}\""
 
 /-! Create an Smt variable identifier. -/
 def smtSimpleVarId (nm : SmtSymbol) : SmtTerm := .SmtIdent (.SimpleIdent nm)
