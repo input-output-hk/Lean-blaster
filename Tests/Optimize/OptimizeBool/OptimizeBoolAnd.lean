@@ -232,4 +232,13 @@ variable (c : Bool)
 #testOptimize [ "BoolAndReduce_6"] ((!a || ((b || c) && !(c || b))) || a) && (!(b && a) || (a && b)) ===> true
 
 
+/-! Test cases for simplification rule `e1 && e2 ==> false (if false = e1 ∨ false = e2 ∈ hypothesisMap)`. -/
+
+-- false = b → (a && b) = false ===> True
+#testOptimize [ "BoolAndFalseHyp_1" ] ∀ (a b : Bool), false = b → ((a && b) = false) ===> True
+
+-- false = a → (a && b) = false ===> True
+#testOptimize [ "BoolAndFalseHyp_2" ] ∀ (a b : Bool), false = a → ((a && b) = false) ===> True
+
+
 end Test.OptimizeBoolAnd
