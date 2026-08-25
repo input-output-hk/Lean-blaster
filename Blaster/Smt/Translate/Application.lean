@@ -399,7 +399,7 @@ def getConversionFunction (fromSmtType toSmtType : SortExpr) (coDomainType : Opt
         let xId := smtSimpleVarId xsym
         let f_coeTerm := mkSimpleSmtAppN coeName #[xId]
         let coeQuant := #[(xsym, fromSmtType)]
-        let coDomain ← createPredQualifierAppAux f_coeTerm (← removeTypeAbbrev toType)
+        let coDomain ← createPredQualifierAppAux f_coeTerm toType
         let qidName := mkQid $ appendSymbol coeName "co_cstr"
         let patterns := some #[mkPattern #[f_coeTerm], qidName]
         assertTerm (mkForallTerm none coeQuant coDomain patterns)
@@ -749,8 +749,7 @@ def generateUndeclaredFun
   let pInfo ← getFunEnvInfo f
   -- infer fun type and removing implicit arguments (i.e., even class constraints)
   let funType := inferUndeclFunType pInfo.type params
-  Optimize.forallTelescope funType fun fvars rawRetType => do
-    let retType ← removeTypeAbbrev rawRetType
+  Optimize.forallTelescope funType fun fvars retType => do
     let xsyms := Array.ofFn (λ f : Fin fvars.size => mkReservedSymbol s!"@x{f.val}")
     let mut pargs := (#[] : Array SortExpr)
     let mut co_quantifiers := (#[] : SortedVars)
@@ -827,7 +826,7 @@ def translateIndTypeExpr? (t : Expr) (termTranslator : Expr → TranslateEnvT Sm
           let coerceInst ← getConversionFunction st instSort none
           let xsym := mkReservedSymbol s!"@x"
           let xId := smtSimpleVarId xsym
-          let predQualifier ← createPredQualifierAppAux xId (← removeTypeAbbrev t)
+          let predQualifier ← createPredQualifierAppAux xId t
           let coerceApp := mkSimpleSmtAppN coerceInst #[xId]
           let instPred := mkSimpleSmtAppN decl.instName #[coerceApp, smtSimpleVarId abstName]
           let forallBody := impliesSmt predQualifier instPred
