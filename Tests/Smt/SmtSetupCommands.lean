@@ -6,11 +6,10 @@ open Blaster.Options Blaster.Optimize Blaster.Smt
 
 /-! ## Test objectives to validate the emitted default solver setup commands
 
-    `setBlasterProcess` resolves the backend solver and emits the default
-    setup commands through `setDefaultSmtOptions` — the same code path for
-    normal runs and `only-smt-lib` runs. These tests run it in `only-smt-lib`
-    mode (no solver process is spawned) and pin the exact command sequence
-    recorded for each solver, guarding:
+    `setBlasterProcess` resolves the backend and records the same pure
+    `solverSetupCommands` transcript used to initialize live sessions. These
+    tests run it in `only-smt-lib` mode (no solver process is spawned) and pin
+    the exact per-solver sequence, guarding:
      - the default options every query relies on (`print-success` handshake,
        model/proof production, quantifier instantiation, macro elimination);
      - solver-specific option spellings and the seconds → milliseconds
@@ -31,7 +30,9 @@ def setupCommands (solver : SmtSolver) : Lean.MetaM (Array String) := do
   let env : TranslateEnv := default
   let env := { env with optEnv.options.solverOptions := sOpts }
   let (_, env) ← setBlasterProcess.run env
-  return env.smtEnv.smtCommands.map toString
+  let some record := env.smtEnv.solverRecords.find? (·.solver == solver)
+    | throwError "missing solver setup record"
+  return record.setupCommands.map toString
 
 /-- Print the setup commands one per line (pinned with `#guard_msgs`). -/
 def printSetupCommands (solver : SmtSolver) : Lean.MetaM Unit := do
