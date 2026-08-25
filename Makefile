@@ -33,12 +33,13 @@ clean_tests:
 
 .PHONY: check_tests
 check_tests: clean_tests
-	LEAN_NUM_THREADS=5 ./scripts/check_lean_project_compilation.sh Tests
+	./scripts/check_lean_project_compilation.sh Tests
 
 # Aggregate commands
 # To maintain when you add new components
 .PHONY: build_all
 build_all: build_blaster build_tests
+
 .PHONY: clean_all
 clean_all: clean_blaster clean_tests
 
