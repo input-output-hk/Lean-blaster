@@ -51,10 +51,10 @@ Blaster requires Lean. Invoking a solver additionally requires the selected
 backend executable; solver-independent translation and pure tests require neither:
 
 - **Lean4** v4.24.0 (or compatible version);
-- **Z3** v4.15.2 (or compatible version) — the default backend, required only
-  when using the default/explicit Z3 path or running Z3 tests;
-- **cvc5** v1.2.1 or later — the optional alternative, required only when
-  selecting or testing the cvc5 backend.
+- **Z3** v4.15.2 or later — required for the default/explicit Z3 path and
+  every concurrent solver mode;
+- **cvc5** v1.2.1 or later — required when selecting cvc5 or using `first` /
+  `agree`.
 
 ### Installing Lean4
 
@@ -79,9 +79,9 @@ installation guidelines from the [Z3 GitHub repository](https://github.com/Z3Pro
 
 ### Installing cvc5
 
-The cvc5 backend is optional: Blaster only looks for a `cvc5` executable when the
-`(solver: cvc5)` option (or `BLASTER_SOLVER=cvc5`) is used. The test entry points
-preserve that isolation:
+The cvc5 backend is optional for single-solver use: Blaster looks for `cvc5`
+when `(solver: cvc5)`, `BLASTER_SOLVER=cvc5`, or either concurrent solver mode
+is used. The test entry points preserve single-backend isolation:
 
 - `make test-pure` runs parser, model-reconstruction, version-policy, launch-spec,
   setup-command, and configuration-precedence tests without either solver;
@@ -145,16 +145,64 @@ require «Blaster» from git
   - `verbose:` activating debug info (default: 0)
   - `only-smt-lib`: only translating unsolved goals to smt-lib without invoking the backend solver (default: 0)
   - `only-optimize`: only perform optimization on lean specification and do not translate to smt-lib (default: 0)
-  - `dump-smt-lib`: display the smt lib query to stdout (default: 0)
+  - `dump-smt-lib`: display the SMT-LIB query to stdout (default: 0). Concurrent
+                    modes emit separate labeled runnable Z3 and cvc5 transcripts.
   - `random-seed`: seed for the random number generator (default: none)
   - `solver`: backend SMT solver (`z3` or `cvc5`). Precedence is the explicit option,
               then `BLASTER_SOLVER`, then `z3`. Surrounding whitespace in the
               environment value is ignored, but names are case-sensitive lowercase;
               any other value is rejected with the valid choices.
+  - `solver-mode`: `single` (default), `first`, or `agree`; see
+                   [Concurrent solver modes](#concurrent-solver-modes).
   - `gen-cex`: generate counterexample for falsified theorems (default: 1)
   - `solve-result`: specify the expected result from the #blaster command, i.e.,
                     0 for 'Valid', 1 for 'Falsified' and 2 for 'Undetermined'. (default: 0)
 
+
+#### Concurrent solver modes
+
+`solver-mode` controls execution without changing the existing `solver`
+selection:
+
+| Configuration | Behavior |
+|---|---|
+| no `solver-mode`, or `(solver-mode: single)` | Use `(solver: ...)`, then `BLASTER_SOLVER`, then Z3 |
+| `(solver-mode: first)` | Run Z3 and cvc5 concurrently; first decisive verdict wins |
+| `(solver-mode: agree)` | Run both and require compatible verdicts |
+
+`first` treats only `Valid` and `Falsified` as decisive. `Undetermined`, a
+timeout, a process failure, or a protocol failure cannot beat a still-running
+solver. After a winning `Falsified` verdict, Blaster retrieves that solver's
+counterexample before killing and reaping the loser. Model retrieval failure
+does not erase `Falsified`; it emits a counterexample-unavailable diagnostic.
+The winning backend is printed only at maintenance verbosity (`verbose: 2` or
+higher).
+
+`agree` waits for both verdicts. Matching `Valid`, matching `Falsified`, and
+matching `Undetermined` aggregate to that verdict. `Valid` versus `Falsified`
+is a hard disagreement; a decisive verdict versus `Undetermined` is an
+incomplete/coverage disagreement; process, protocol, and timeout failures are
+infrastructure failures. Matching counterexamples are not required. When both
+results are falsified, returned evidence is selected deterministically in Z3,
+then cvc5 order. Every unsuccessful agreement writes a shared-query summary
+and labeled solver transcripts under `.blaster/agreement-*`.
+
+Concurrent modes always require supported Z3 and cvc5 binaries. There is no
+mode environment variable and no single-solver fallback. Combining an
+explicit `solver:` with `first`/`agree` is rejected, as is combining
+`only-smt-lib` with a concurrent mode. `only-optimize` starts no solver.
+Timeout and random-seed options are translated independently for both
+backends. `gen-cex: 0` skips model retrieval.
+
+Examples:
+
+```lean
+#blaster (solver-mode: first) [∀ (x y : Int), x + y = y + x]
+#blaster (solver-mode: agree) (solve-result: 1) [∀ (x : Int), x ≠ 3]
+
+example : ∀ (x y : Int), x + y = y + x := by
+  blaster (solver-mode: first)
+```
 ### Call to the solver
 
 #### Command
@@ -325,21 +373,25 @@ cvc5's `as` constructor qualifiers are dropped, negative integers are
 rendered `-n`, SMT-LIB string escapes are decoded back to Lean string
 literals, and `List`/`Prod` values use Lean's `[x, y]` and `(x, y)` notations.
 
-Two distinct failure layers are surfaced differently and should not be
-confused:
+Verdicts, evidence, and infrastructure status are separate:
 
-- **The solver produced a value, but it has no Lean counterpart** — e.g.
-  elements of uninterpreted sorts standing for abstracted `Type` parameters,
-  or function-typed variables (SMT arrays/lambdas). The value is displayed as
-  a raw solver term rather than rejected. This is a rendering fallback, not a
-  missing model.
-- **The solver did not produce a value at all** — e.g. it reports an error
-  for `(get-value …)` (partial model, unsupported construct) or for the raw
-  `(get-model)` dump. This is reported inline as `<no value: …>` (per
-  variable) or `<no model available: …>` (whole model), carrying the solver's
-  own error message. A solver that answers `unknown` (including on a
-  per-check timeout) is never queried for a model: the result is reported as
-  `Undetermined` without a counterexample.
+- **The solver produced a value with no Lean counterpart** — e.g.
+  uninterpreted-sort elements or function values. Blaster displays the raw
+  SMT term. This is a rendering fallback, not a missing model.
+- **Model retrieval or rendering failed after `sat`** — the result remains
+  `Falsified`. Blaster reports that counterexample evidence is unavailable and
+  retains the exact model command and raw response in level-3 diagnostics
+  (and agreement artifacts). A per-variable failure is displayed as
+  `<counterexample unavailable>`.
+- **The solver answered `unknown`** — no model command is sent; the verdict is
+  `Undetermined`.
+- **The solver process or protocol failed** — this remains an infrastructure
+  failure and is never converted into an ordinary solver `unknown`.
+
+`verbose: 3` captures the Lean goal, optimized expression, complete labeled
+SMT transcript, solver name/version/invocation, `check-sat` response,
+`topLevelVars`, exact model command, raw response, parsed S-expression,
+Lean-facing rendering, and stderr stage. See `Tests/Smt/CounterexampleSpike.lean`.
 
 #### State-Machine Formalization
 ```lean
@@ -511,8 +563,11 @@ from model-value normalization and display rendering:
 Known display-rendering limitations, common to both solvers:
 
 - goals without top-level quantified variables fall back to a raw
-  `(get-model)` dump, which is displayed as produced by the solver (a solver
-  error on that dump is reported inline as `<no model available: …>`);
+  `(get-model)` dump; an error on that dump leaves the verdict `Falsified`
+  and reports unavailable counterexample evidence;
+- variables bound only by nested SMT quantifiers are not entries in
+  `topLevelVars`; their local witnesses cannot be queried with a top-level
+  `(get-value ...)` command and are currently absent from rendered evidence;
 - function-typed variables and abstracted `Type` parameters are modeled by
   SMT arrays/lambdas and uninterpreted-sort elements, which have no Lean
   counterpart and are displayed as raw solver terms
