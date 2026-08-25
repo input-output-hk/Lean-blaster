@@ -339,6 +339,28 @@ instance : Inhabited TranslateOptions where
 abbrev TopLevelVars := Array (List (SmtSymbol × Lean.Name))
 
 abbrev ConversionFunCache := Std.HashMap (SortExpr × SortExpr) SmtSymbol
+
+/-- Child-process shape used by every SMT backend session. -/
+abbrev PipedChild := IO.Process.Child ⟨.piped, .piped, .piped⟩
+
+/-- One independently owned solver process. Removing a session from
+    `SmtEnv.sessions` transfers sole cleanup responsibility to the remover. -/
+structure SolverSession where
+  solver : SmtSolver
+  process : PipedChild
+
+/-- Persistent launch and protocol data retained after a child has been
+    retired. It is used by opt-in diagnostics and agreement artifacts. -/
+structure SolverRecord where
+  solver : SmtSolver
+  version : String
+  commandLine : String
+  setupCommands : Array SmtCommand
+  stdout : Array String := #[]
+  modelCommands : Array String := #[]
+  modelResponses : Array String := #[]
+  stderr : Array String := #[]
+
 abbrev AbstractTypeCache := Std.HashMap Expr SmtSymbol
 
 /-- Type defining the environment used when translating to Smt-Lib. -/
@@ -346,17 +368,32 @@ structure SmtEnv where
   /-- Cache memoizing the translation to Smt-Lib term. -/
   translateCache : Std.HashMap Lean.Expr SmtTerm
 
-  /-- Smt-Lib commands emitted to the backend solver. -/
+  /-- Canonical solver-neutral declarations and assertions. Commands are
+      retained unconditionally so both backends always receive one translation
+      and a retired concurrent session can be restarted without retranslation. -/
   smtCommands : Array SmtCommand
 
-  /-- Backend solver process, if one has been spawned. This remains `none` on
-      optimizer-only and `only-smt-lib` paths. -/
-  smtProc : Option (IO.Process.Child ⟨.piped, .piped, .piped⟩)
+  /-- Solver processes currently owned by this environment. -/
+  sessions : Array SolverSession
 
-  /-- Selected backend solver. It defaults to Z3 and is resolved/stored when an
-      `Undetermined` optimizer-only result needs backend policy or during solver
-      setup; `smtProc` may remain `none` when no process is spawned. -/
-  solver : SmtSolver
+  /-- Temporary output target used only while serializing one command. The
+      owning process remains in `sessions`. -/
+  emitProc : Option PipedChild
+
+  /-- Backends selected for this run, in deterministic policy order. -/
+  configuredSolvers : Array SmtSolver
+
+  /-- Resolved backend used only by single-mode result policy and logging.
+      Process routing never consults this field. -/
+  singleSolver : Option SmtSolver
+
+  /-- Persistent per-backend transcripts and launch metadata. -/
+  solverRecords : Array SolverRecord
+
+  /-- Most recent operational satisfiability command, retained for exact
+      incremental dump transcripts but excluded from canonical replay. -/
+  lastCheckCommand : Option SmtCommand
+
 
   /-- Cache keeping track of visited inductive datatype during translation. -/
   indTypeVisited : Std.HashSet Lean.Name
@@ -455,8 +492,12 @@ instance : Inhabited SmtEnv where
   default :=
    { translateCache := Std.HashMap.emptyWithCapacity,
      smtCommands := Array.mkEmpty 1023,
-     smtProc := default,
-     solver := .z3,
+     sessions := #[],
+     emitProc := none,
+     configuredSolvers := #[],
+     lastCheckCommand := none,
+     singleSolver := none,
+     solverRecords := #[],
      indTypeVisited := Std.HashSet.emptyWithCapacity,
      indTypeInstCache := Std.HashMap.emptyWithCapacity,
      funInstCache := Std.HashMap.emptyWithCapacity,
@@ -495,9 +536,27 @@ instance : MonadMCtx TranslateEnvT where
   modifyMCtx f := modifyMCtx' f
 
 protected def throwEnvError (msg : MessageData) : TranslateEnvT α := do
-  if let some p := (← get).smtEnv.smtProc then
-    p.kill
-    discard $ p.wait
+  -- Retire ownership before touching a child. Any nested error handler then
+  -- observes an empty session set and cannot kill or reap the same process.
+  let sessions := (← get).smtEnv.sessions
+  modify fun env => { env with smtEnv.sessions := #[], smtEnv.emitProc := none }
+  for session in sessions do
+    let p := session.process
+    let shouldTerminate ←
+      try pure (← p.tryWait).isNone
+      catch _ => pure false
+    if shouldTerminate then
+      try p.kill catch _ => pure ()
+      try discard p.wait catch _ => pure ()
+    let stderr ←
+      try p.stderr.readToEnd
+      catch _ => pure ""
+    unless stderr.trim.isEmpty do
+      modify fun env =>
+        { env with smtEnv.solverRecords := env.smtEnv.solverRecords.map fun record =>
+            if record.solver == session.solver then
+              { record with stderr := record.stderr.push stderr.trim }
+            else record }
   throwError msg
 
 /-- macro `throwEnvError` to avoid applying format on msg before throwEnvError is called -/
