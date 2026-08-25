@@ -56,7 +56,7 @@ test-cvc5-floor:
 .PHONY: test-all-solvers
 test-all-solvers:
 	rm -rf .lake/build/lib/lean/Tests .lake/build/ir/Tests
-	env -u BLASTER_SOLVER -u BLASTER_TIMEOUT BLASTER_STRICT_CVC5_RESULTS=1 LEAN_NUM_THREADS=5 ./scripts/check_lean_project_compilation.sh Tests Tests.AllSolvers
+	env -u BLASTER_SOLVER BLASTER_TIMEOUT=$(BLASTER_TIMEOUT) BLASTER_STRICT_CVC5_RESULTS=1 LEAN_NUM_THREADS=5 ./scripts/check_lean_project_compilation.sh Tests Tests.AllSolvers
 
 .PHONY: build_tests
 build_tests:

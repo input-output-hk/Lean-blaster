@@ -4,3 +4,5 @@ import Tests.Smt.SmtSetupCommands
 import Tests.Smt.SolverResponses
 import Tests.Smt.SolverVersion
 import Tests.Smt.StrictResultPolicy
+import Tests.Smt.SolverOutcomePolicy
+import Tests.Smt.SolverModeConfiguration
