@@ -21,6 +21,9 @@ Options:
   - `random-seed`: seed for the random number generator (default: none)
   - `solver`: backend SMT solver to be used, i.e., `z3` or `cvc5`
               (default: the `BLASTER_SOLVER` environment variable if defined, `z3` otherwise)
+  - `solver-mode`: execution policy, i.e., `single`, `first`, or `agree`
+                   (default: `single`)
+                   Concurrent modes require both backends and conflict with `solver`.
   - `gen-cex`: generate counterexample for falsified theorems (default: 1)
   - `solve-result`: specify the expected result from the #blaster command, i.e.,
                     0 for 'Valid', 1 for 'Falsified' and 2 for 'Undetermined'. (default: 0)
@@ -46,6 +49,7 @@ syntax "(cvc5-allow-undetermined:" num ")" : solveOption
 syntax "(max-depth:" num ")" : solveOption
 syntax "(random-seed:" num ")" : solveOption
 syntax "(solver:" ident ")" : solveOption
+syntax "(solver-mode:" ident ")" : solveOption
 
 -- NOTE: Limited to one term for the time being
 syntax solveTerm := "[" term "]"
@@ -117,6 +121,13 @@ def parseSolver (sOpts : BlasterOptions) : TSyntax `solveOption → m BlasterOpt
       | none => throw <| .error s m!"unknown solver '{s.getId}' (expected 'z3' or 'cvc5')"
   | _ => return sOpts
 
+def parseSolverMode (sOpts : BlasterOptions) : TSyntax `solveOption → m BlasterOptions
+  | `(solveOption| (solver-mode: $s:ident)) =>
+      match SolverMode.ofString? s.getId.toString with
+      | some mode => return { sOpts with solverMode := mode }
+      | none => throw <| .error s m!"unknown solver mode '{s.getId}' (expected 'single', 'first', or 'agree')"
+  | _ => return sOpts
+
 def parseSolveResult (sOpts : BlasterOptions) : TSyntax `solveOption → m BlasterOptions
   | `(solveOption| (solve-result: $n:num)) =>
       match n.getNat with
@@ -148,6 +159,7 @@ def parseSolveOption (sOpts : BlasterOptions) (opt : TSyntax `solveOption) : m B
   let sOpts ← parseMaxDepth sOpts opt
   let sOpts ← parseRandomSeed sOpts opt
   let sOpts ← parseSolver sOpts opt
+  let sOpts ← parseSolverMode sOpts opt
   return sOpts
 
 /-! ### Process Multiple Options -/

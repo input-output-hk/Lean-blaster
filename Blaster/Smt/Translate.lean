@@ -47,24 +47,35 @@ private def shouldLogUndetermined (logOrdinary : Bool) : TranslateEnvT Bool := d
   if logOrdinary then return true
   let env ← get
   let sOpts := env.optEnv.options.solverOptions
-  return undeterminedAction sOpts env.smtEnv.solver
+  return undeterminedAction sOpts env.smtEnv.singleSolver
     (← strictCvc5ResultCheckingRequested) == .strictError
 
 def Translate.main (e : Expr) (logUndetermined := true) : TranslateEnvT (Result × Expr) := do
+    let initialOptions := (← get).optEnv.options.solverOptions
+    match validateSolverOptions initialOptions with
+    | .ok () => pure ()
+    | .error error => throwEnvError error
+    let concurrentStarted :=
+      initialOptions.solverMode != .single && !initialOptions.onlyOptimize
+    if concurrentStarted then setBlasterProcess
+    logPPExpr "Lean goal" e
     let e' ← addAxioms (← toPropExpr e) (← findLocalAxioms)
     let optExpr ← profileTask "Optimization" $ Optimize.main e'
+    logPPExpr "Optimized Lean expression" optExpr
     trace[Translate.optExpr] "optimized expression: {← ppExpr optExpr}"
     match (toResult optExpr) with
     | res@(.Undetermined) =>
         if (← get).optEnv.options.solverOptions.onlyOptimize then
           let sOpts := (← get).optEnv.options.solverOptions
-          let solver ← resolveSolver sOpts
-          modify fun env => { env with smtEnv.solver := solver }
+          let policySolver ←
+            if sOpts.solverMode == .single then some <$> resolveSolver sOpts else pure none
+          modify fun env => { env with smtEnv.singleSolver := policySolver }
           if ← shouldLogUndetermined logUndetermined then logResult res
           return (res, optExpr)
         else
-          -- set backend solver
-          setBlasterProcess
+          -- Single mode starts lazily to preserve existing behavior; concurrent
+          -- modes were started before optimization to require both binaries.
+          if !concurrentStarted then setBlasterProcess
           let st ← profileTask "Translation" $ translateExpr optExpr
           -- assert negation for check sat
           profileTask "Submitting Smt Query" $ assertTerm (notSmt st)
@@ -79,6 +90,7 @@ def Translate.main (e : Expr) (logUndetermined := true) : TranslateEnvT (Result 
           return (res, optExpr)
     | res =>
        logResult res
+       if concurrentStarted then discard exitSmt
        return (res, optExpr)
 
   where
