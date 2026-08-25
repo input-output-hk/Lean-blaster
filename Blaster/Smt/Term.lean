@@ -399,8 +399,63 @@ def intLitSmt (n : Int) : SmtTerm :=
 /-! Convert an Nat literal to an Smt representation. -/
 def natLitSmt (n : Nat) : SmtTerm := .NumTerm n
 
-/-! Convert an String literal to an Smt representation. -/
-def strLitSmt (s : String) : SmtTerm := .StrTerm s!"\"{s}\""
+/-! Highest code point denotable in an Smt string.
+
+    The Smt-Lib Unicode Strings theory fixes the string alphabet to
+    "the set UC of all integers from 0x00000 to 0x2FFFF, representing the set of all code
+    points for Unicode characters in Planes 0-2".
+    Lean's `Char` ranges over the whole Unicode scalar range up to `0x10FFFF`, so not every
+    Lean string is denotable -- see `escapeSmtStringLit`. -/
+def maxSmtCodePoint : Nat := 0x2FFFF
+
+/-! Escape a Lean string into the body of an Smt string literal.
+
+    Two separate documents govern this, and only the first is the standard itself:
+
+    * SMT-LIB Standard v2.6, §3.1 (Lexicon). A string literal is "any sequence of characters
+      from ⟨printable_char⟩ or ⟨white_space_char⟩ delimited by the double quote character",
+      where a ⟨printable_char⟩ is "any character from 32dec to 126dec (US-ASCII) and from
+      128dec on". Its *only* escape sequence is `""`, denoting one `"`. The standard is
+      explicit that the base language has no backslash escapes: within a literal the
+      sequences `\n`, `\012`, `\x0A` and `\u0008` "are not escape sequences ... but regular
+      sequences denoting their individual characters".
+
+    * The Smt-Lib Unicode Strings theory (https://smt-lib.org/theories-UnicodeStrings.shtml,
+      Tinelli/Barrett/Fontaine, 2020-02-01), published alongside the standard rather than in
+      it, is what gives `\u{...}` its meaning. It recognises exactly `\ud₃d₂d₁d₀` and
+      `\u{d₀}`..`\u{d₄d₃d₂d₁d₀}`, the five-digit form being restricted to `d₄ ∈ {0,1,2}` by
+      the alphabet bound above. Every other backslash is taken literally.
+
+    So `"` is doubled, `0x20`-`0x7E` is emitted verbatim, and everything else uses `\u{...}`.
+
+    Characters from 128dec on would in fact be *lexically* legal verbatim, but §3.1 leaves the
+    source encoding unspecified -- it "should be a compatible 8-bit extension of the 7-bit
+    US-ASCII set, such as UTF-8" -- and z3 counts the raw UTF-8 bytes of such a character
+    individually, turning a one-character Lean string into a multi-character Smt string.
+    Escaping them removes the dependency on the encoding. Whitespace is likewise legal
+    verbatim and escaped only for uniformity.
+
+    The backslash is escaped as `\u{5c}` even though a lone backslash is legal, so that a Lean
+    string containing the *text* `\u{41}` can never be re-read by the solver as the escape for
+    `A`. Decoding is a single left-to-right pass with no rescanning, so `\u{5c}u{41}` denotes
+    the six characters `\u{41}` as intended.
+
+    Fails with the offending character when it is above `maxSmtCodePoint`: the theory has no
+    such character and no escape denotes one, so there is nothing correct to emit. -/
+private def escapeSmtStringLit (s : String) : Except Char String :=
+  s.data.foldlM (init := "") (λ acc c =>
+    let n := c.toNat
+         if c == '"'             then .ok (acc ++ "\"\"")
+    else if c == '\\'            then .ok (acc ++ "\\u{5c}")
+    else if n ≥ 0x20 && n ≤ 0x7e then .ok (acc.push c)
+    else if n ≤ maxSmtCodePoint  then .ok (acc ++ "\\u{" ++ (Nat.toDigits 16 n).asString ++ "}")
+    else .error c
+  )
+
+/-! Convert a String literal to an Smt representation.
+    Fails with the offending character when `s` holds one outside the Smt string alphabet. -/
+def strLitSmt (s : String) : Except Char SmtTerm :=
+  (escapeSmtStringLit s).map (λ body => .StrTerm s!"\"{body}\"")
 
 /-! Create an Smt variable identifier. -/
 def smtSimpleVarId (nm : SmtSymbol) : SmtTerm := .SmtIdent (.SimpleIdent nm)
