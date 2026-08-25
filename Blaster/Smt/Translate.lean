@@ -17,7 +17,12 @@ partial def translateExpr (e : Expr) (topLevel := true) : TranslateEnvT SmtTerm 
     logReprExpr "Translate:" e
     if let some n := isIntValue? e then return intLitSmt n
     if let some n := isNatValue? e then return natLitSmt n
-    if let some s := isStrValue? e then return strLitSmt s
+    if let some s := isStrValue? e then
+      match strLitSmt s with
+      | .ok t => return t
+      | .error c =>
+          throwEnvError "translateExpr: string literal holds the character with code point \
+                         {c.toNat}, above the Smt string alphabet bound {maxSmtCodePoint}"
     -- TODO: consider other sort once supported (e.g., BitVec, Char, etc)
     match e with
      | Expr.fvar .. => translateFreeVar e visit
