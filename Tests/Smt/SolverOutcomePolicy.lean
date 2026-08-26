@@ -7,8 +7,9 @@ open Blaster.Options Blaster.Smt
 private def outcome
     (solver : SmtSolver) (verdict : Option SolverVerdict)
     (status : SolverRunStatus := .completed)
-    (counterexample : Option (List String) := none) : SolverOutcome :=
-  { solver, verdict, status, counterexample }
+    (counterexample : Option (List String) := none)
+    (diagnostic : Option String := none) : SolverOutcome :=
+  { solver, verdict, status, counterexample, diagnostic }
 
 private def agreesWith
     (expectedVerdict : SolverVerdict) (expectedStatus : SolverRunStatus)
@@ -32,6 +33,9 @@ private def failsWith
 
 #guard failsWith .hardDisagreement <|
   aggregateAgreement (outcome .z3 (some .valid)) (outcome .cvc5 (some .falsified))
+
+#guard failsWith .hardDisagreement <|
+  aggregateAgreement (outcome .z3 (some .falsified)) (outcome .cvc5 (some .valid))
 
 #guard failsWith .incompleteDisagreement <|
   aggregateAgreement (outcome .z3 (some .valid)) (outcome .cvc5 (some .undetermined))
@@ -57,25 +61,55 @@ private def failsWith
     (outcome .z3 (some .undetermined) .timedOut)
     (outcome .cvc5 (some .undetermined))
 
-private def modelFailurePreservesFalsified : Bool :=
-  match aggregateAgreement
-      (outcome .z3 (some .falsified) .modelFailed)
-      (outcome .cvc5 (some .falsified) .completed (some ["x: 1"])) with
+private def completeEvidenceOutranksPartialZ3 : Bool :=
+  let z3 := outcome .z3 (some .falsified) .modelFailed
+    (some ["x: <counterexample unavailable>"]) (some "z3 model failed")
+  let cvc5 := outcome .cvc5 (some .falsified) .completed (some ["x: 1"])
+  match aggregateAgreement z3 cvc5 with
   | .ok decision =>
-      decision.verdict == .falsified && decision.status == .modelFailed &&
-        decision.counterexample == some ["x: 1"]
+      decision.verdict == .falsified && decision.status == .completed &&
+        decision.counterexample == some ["x: 1"] &&
+        decision.diagnostic == some "z3: z3 model failed"
   | .error _ => false
 
-#guard modelFailurePreservesFalsified
+#guard completeEvidenceOutranksPartialZ3
 
-private def z3EvidenceWinsRegardlessOfCompletionOrder : Bool :=
+private def z3CompleteTieBreakIsStable : Bool :=
   let z3 := outcome .z3 (some .falsified) .completed (some ["x: 3"])
   let cvc5 := outcome .cvc5 (some .falsified) .completed (some ["x: 4"])
   match aggregateAgreement cvc5 z3 with
   | .ok decision => decision.counterexample == some ["x: 3"]
   | .error _ => false
 
-#guard z3EvidenceWinsRegardlessOfCompletionOrder
+#guard z3CompleteTieBreakIsStable
+
+private def z3PartialTieBreakIsStable : Bool :=
+  let z3 := outcome .z3 (some .falsified) .modelFailed (some ["z3 partial"])
+  let cvc5 := outcome .cvc5 (some .falsified) .modelFailed (some ["cvc5 partial"])
+  match aggregateAgreement cvc5 z3 with
+  | .ok decision =>
+      decision.status == .modelFailed && decision.counterexample == some ["z3 partial"]
+  | .error _ => false
+
+#guard z3PartialTieBreakIsStable
+
+private def completeEvidenceOutranksAbsent : Bool :=
+  match aggregateAgreement
+      (outcome .z3 (some .falsified))
+      (outcome .cvc5 (some .falsified) .completed (some ["x: 2"])) with
+  | .ok decision => decision.counterexample == some ["x: 2"]
+  | .error _ => false
+
+#guard completeEvidenceOutranksAbsent
+
+private def absentEvidencePreservesFalsified : Bool :=
+  match aggregateAgreement
+      (outcome .z3 (some .falsified))
+      (outcome .cvc5 (some .falsified)) with
+  | .ok decision => decision.verdict == .falsified && decision.counterexample.isNone
+  | .error _ => false
+
+#guard absentEvidencePreservesFalsified
 
 private def concurrentCvc5AllowanceDoesNotApply : Bool :=
   let options : BlasterOptions :=

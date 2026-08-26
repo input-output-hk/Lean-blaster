@@ -51,13 +51,10 @@ info:  - value: Option.some 5
 #guard_msgs in
 #blaster (solver-mode: agree) (solve-result: 1) [∀ (value : Option Int), value ≠ some 5]
 
-inductive Tick where
-  | tick
-
-instance counter : StateMachine Tick Nat where
-  init _ := 0
-  next _ state := state + 1
-  assumptions _ _ := True
+instance counter : StateMachine Int Int where
+  init input := input
+  next input _ := input
+  assumptions input _ := 0 ≤ input
   invariants _ state := 0 ≤ state
 
 -- Repeated `check-sat-assuming` calls force first mode to restart a retired

@@ -320,7 +320,7 @@ def isGreen (c : Color) : Bool :=
     x = 1 ∨ x = 0 ∨ y.isNone ∨ (y = some t ∧ t ≠ 1) → namedPatternInt x y = Int.toNat x + 3
   ]
 
-#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1) [∀ (xs : List Nat), ¬ isNil xs → List.length xs = 0]
+#blaster (timeout: 10) (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1) [∀ (xs : List Nat), ¬ isNil xs → List.length xs = 0]
 
 #blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : POSIXTime), x == y → y ≠ x]
 
@@ -359,79 +359,79 @@ def isGreen (c : Color) : Bool :=
 #blaster (gen-cex: 0) (solve-result: 1)
   [∀ (x y : ScriptContext), x == y → x.purpose == Purpose.Rewarding → y.purpose != Purpose.Rewarding]
 
-#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
+#blaster (timeout: 10) (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
   [∀ (x y : Color), x == y → x == Color.transparent → y != Color.transparent ]
 
-#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
+#blaster (timeout: 10) (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
   [∀ (x y z : Color), x == y → x == Color.transparent → y == Color.red z ]
 
-#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
+#blaster (timeout: 10) (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
   [∀ (x y z : Color), x == y → x == Color.transparent → y == Color.blue z ]
 
-#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
+#blaster (timeout: 10) (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
   [∀ (x y z : Color), x == y → x == Color.transparent → y == Color.yellow z ]
 
-#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
+#blaster (timeout: 10) (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
   [∀ (x y z : Color), x == y → x == Color.red z → y == Color.transparent ]
 
-#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
+#blaster (timeout: 10) (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
   [∀ (x y z : Color), x == y → x == Color.red z → y == Color.black ]
 
-#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
+#blaster (timeout: 10) (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
   [∀ (x y z : Color), x == y → x == Color.red z → y == Color.white ]
 
-#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
+#blaster (timeout: 10) (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
   [∀ (x y z : Color), x == y → x == Color.red z → y == Color.blue z ]
 
-#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
+#blaster (timeout: 10) (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
   [∀ (x y z : Color), x == y → x == Color.red z → y == Color.yellow z ]
 
-#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
+#blaster (timeout: 10) (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
   [∀ (x y z : Color), x == y → x == Color.blue z → y == Color.transparent ]
 
-#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
+#blaster (timeout: 10) (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
   [∀ (x y z : Color), x == y → x == Color.blue z → y == Color.black ]
 
-#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
+#blaster (timeout: 10) (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
   [∀ (x y z : Color), x == y → x == Color.blue z → y == Color.white ]
 
-#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
+#blaster (timeout: 10) (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
   [∀ (x y z : Color), x == y → x == Color.blue z → y == Color.red z ]
 
-#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
+#blaster (timeout: 10) (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
   [∀ (x y z : Color), x == y → x == Color.blue z → y == Color.yellow z ]
 
-#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
+#blaster (timeout: 10) (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
   [∀ (x y z : Color), x == y → x == Color.yellow z → y == Color.transparent ]
 
-#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
+#blaster (timeout: 10) (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
   [∀ (x y z : Color), x == y → x == Color.yellow z → y == Color.black ]
 
-#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
+#blaster (timeout: 10) (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
   [∀ (x y z : Color), x == y → x == Color.yellow z → y == Color.white ]
 
-#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
+#blaster (timeout: 10) (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
   [∀ (x y z : Color), x == y → x == Color.yellow z → y == Color.red z ]
 
-#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
+#blaster (timeout: 10) (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
   [∀ (x y z : Color), x == y → x == Color.yellow z → y == Color.blue z ]
 
-#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
+#blaster (timeout: 10) (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
   [∀ (x y : Color), x == y → isRed x → ¬ isRed y]
 
-#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
+#blaster (timeout: 10) (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
   [∀ (x y : Color), x == y → isBlue x → ¬ isBlue y]
 
-#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
+#blaster (timeout: 10) (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
   [∀ (x y : Color), x == y → isYellow x → ¬ isYellow y]
 
-#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
+#blaster (timeout: 10) (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
   [∀ (x y : Color), x == y → x != Color.black ]
 
-#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
+#blaster (timeout: 10) (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
   [∀ (x y : Color), x == y → x != Color.white ]
 
-#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
+#blaster (timeout: 10) (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
   [∀ (x y : Color), x == y → x != Color.transparent ]
 
 end Test.SmtMatch

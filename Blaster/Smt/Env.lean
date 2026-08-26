@@ -131,16 +131,37 @@ structure AgreementDecision where
   diagnostic : Option String
 deriving Repr
 
+private def orderOutcomes (outcomes : List SolverOutcome) : List SolverOutcome :=
+  [SmtSolver.z3, SmtSolver.cvc5].filterMap fun solver =>
+    outcomes.find? (·.solver == solver)
+
 private def combineDiagnostics (outcomes : List SolverOutcome) : Option String :=
-  let lines := outcomes.filterMap fun outcome =>
+  let lines := (orderOutcomes outcomes).filterMap fun outcome =>
     outcome.diagnostic.map fun diagnostic => s!"{outcome.solver}: {diagnostic}"
   if lines.isEmpty then none else some (String.intercalate "\n" lines)
 
-/-- Compare completed verdicts only. Process, protocol, and timeout failures
-    are infrastructure failures; model failure after `sat` does not erase or
-    invalidate the verdict. Z3-first ordering makes selected evidence stable. -/
+private def evidenceQuality (outcome : SolverOutcome) : Nat :=
+  match outcome.counterexample with
+  | some counterexample =>
+      if counterexample.isEmpty then 0
+      else if outcome.status == .completed then 2
+      else if outcome.status == .modelFailed then 1
+      else 0
+  | none => 0
+
+private def bestEvidence (outcomes : List SolverOutcome) : Option SolverOutcome :=
+  (orderOutcomes outcomes).foldl (init := none) fun best candidate =>
+    match best with
+    | none => some candidate
+    | some current =>
+        if evidenceQuality candidate > evidenceQuality current then some candidate
+        else some current
+
+/-- Compare verdicts independently from evidence. Infrastructure failures are
+    fatal; after matching `sat`, complete evidence outranks partial evidence,
+    with fixed Z3-then-cvc5 order only breaking equal-quality ties. -/
 def aggregateAgreement (a b : SolverOutcome) : Except AgreementFailure AgreementDecision := do
-  let ordered := if a.solver == .z3 then [a, b] else [b, a]
+  let ordered := orderOutcomes [a, b]
   if let some failed := ordered.find? fun outcome =>
       outcome.status != .completed && outcome.status != .modelFailed then
     throw {
@@ -151,9 +172,15 @@ def aggregateAgreement (a b : SolverOutcome) : Except AgreementFailure Agreement
     | throw { kind := .infrastructureFailure, diagnostic := s!"{a.solver} produced no verdict" }
   let some bv := b.verdict
     | throw { kind := .infrastructureFailure, diagnostic := s!"{b.solver} produced no verdict" }
-  let counterexample := ordered.findSome? (·.counterexample)
-  let status := if ordered.any (·.status == .modelFailed) then .modelFailed else .completed
+  let selected := bestEvidence ordered
+  let selectedQuality := selected.map evidenceQuality |>.getD 0
   let decision (verdict : SolverVerdict) :=
+    let counterexample :=
+      if verdict == .falsified then selected.bind (·.counterexample) else none
+    let status :=
+      if verdict == .falsified && selectedQuality == 2 then .completed
+      else if ordered.any (·.status == .modelFailed) then .modelFailed
+      else .completed
     { verdict, status, counterexample, elapsedMs := max a.elapsedMs b.elapsedMs,
       diagnostic := combineDiagnostics ordered }
   match av, bv with
@@ -489,7 +516,9 @@ private def cleanupOwnedSession (session : SolverSession) (hard : Bool) : Transl
     modifySolverRecord session.solver fun record =>
       { record with stderr := record.stderr.push stderr }
   if (← get).optEnv.options.solverOptions.verbose ≥ 3 then
-    IO.println s!"[blaster diagnostic] solver={session.solver}; stage=session cleanup; stderr={if stderr.isEmpty then "<empty>" else stderr}"
+    try
+      IO.println s!"[blaster diagnostic] solver={session.solver}; stage=session cleanup; stderr={if stderr.isEmpty then "<empty>" else stderr}"
+    catch _ => pure ()
   return stderr
 
 private def retireAndCleanup (solver : SmtSolver) (hard : Bool) : TranslateEnvT String := do
@@ -501,6 +530,13 @@ private def retireAllSessions (hard : Bool) : TranslateEnvT Unit := do
   modify fun env => { env with smtEnv.sessions := #[], smtEnv.emitProc := none }
   for session in sessions do
     discard <| cleanupOwnedSession session hard
+
+/-- Unconditional owner boundary for every session created by `action`.
+    Cleanup is idempotent because ownership is retired before child handling;
+    the finalizer cannot consume an exception or Lean interruption from `action`. -/
+def withSmtSessionOwner (action : TranslateEnvT α) : TranslateEnvT α := do
+  try action
+  finally retireAllSessions true
 
 /-- Lean cancellation owns both active children: retire state first, then kill
     and reap every session before raising the interrupt. -/
@@ -681,12 +717,82 @@ partial def unwrapGetValueOutput (s : String) : String :=
 def storeCommand (c : SmtCommand) : TranslateEnvT Unit :=
   modify fun env => { env with smtEnv.smtCommands := env.smtEnv.smtCommands.push c }
 
+private def orderedSolverRecords (records : Array SolverRecord) : List SolverRecord :=
+  [SmtSolver.z3, SmtSolver.cvc5].filterMap fun solver =>
+    records.find? (·.solver == solver)
+
+private def solverTranscript (record : SolverRecord) (canonical : Array SmtCommand) : String :=
+  let check :=
+    match record.checkCommand with
+    | some command => [toString command]
+    | none => []
+  String.intercalate "\n" <|
+    record.setupCommands.toList.map toString ++
+    canonical.toList.map toString ++ check ++ record.modelCommands.toList ++ ["(exit)"]
+
+private def agreementSummary
+    (reason : String) (outcomes : Array SolverOutcome) : TranslateEnvT String := do
+  let env ← get
+  let query := String.intercalate "\n" (env.smtEnv.smtCommands.toList.map toString)
+  let records := String.intercalate "\n\n" <|
+    (orderedSolverRecords env.smtEnv.solverRecords).map fun record =>
+      let outcome := outcomes.find? (·.solver == record.solver)
+      let verdict := outcome.bind (·.verdict) |>.map reprStr |>.getD "<none>"
+      let status := outcome.map (reprStr ∘ (·.status)) |>.getD "<none>"
+      let elapsed := outcome.map (toString ∘ (·.elapsedMs)) |>.getD
+        (record.failureElapsedMs.map toString |>.getD "<none>")
+      s!"solver: {record.solver}\nversion: {record.version}\ncommand line: {record.commandLine}\nverdict: {verdict}\nstatus: {status}\nelapsed ms: {elapsed}\nconfigured timeout ms: {record.timeoutMs.map toString |>.getD "<none>"}\nfailed stage: {record.failedStage.getD "<none>"}\nfailed command: {record.failedCommand.getD "<none>"}\nfailure response: {record.failureResponse.getD "<none>"}\ncheck command: {record.checkCommand.map toString |>.getD "<none>"}\nstdout:\n{String.join record.stdout.toList}\nstderr:\n{String.intercalate "\n" record.stderr.toList}\nmodel commands:\n{String.intercalate "\n" record.modelCommands.toList}\nraw model responses:\n{String.intercalate "\n" record.modelResponses.toList}"
+  return s!"reason: {reason}\noutcomes: {reprStr (orderOutcomes outcomes.toList)}\n\nshared SMT query:\n{query}\n\n{records}\n"
+
+private def saveAgreementArtifacts
+    (reason : String) (outcomes : Array SolverOutcome) : TranslateEnvT (Option String) := do
+  let stamp ← IO.monoMsNow
+  let serial ← agreementArtifactCounter.modifyGet fun current => (current, current + 1)
+  let directory := s!".blaster/agreement-{stamp}-{serial}"
+  try
+    IO.FS.createDirAll directory
+    IO.FS.writeFile s!"{directory}/summary.txt" (← agreementSummary reason outcomes)
+    let canonical := (← get).smtEnv.smtCommands
+    for record in orderedSolverRecords (← get).smtEnv.solverRecords do
+      IO.FS.writeFile s!"{directory}/{record.solver}.smt2"
+        (solverTranscript record canonical ++ "\n")
+    return some directory
+  catch error =>
+    if error.isInterrupt || error.isRuntime then throw error
+    logWarningAt (← blankRef) m!"Failed to save agreement artifacts: {error.toMessageData}"
+    return none
+
+private def recordSessionFailure
+    (solver : SmtSolver) (stage : String) (command : SmtCommand)
+    (response : String) (elapsedMs : Nat) : TranslateEnvT Unit :=
+  modifySolverRecord solver fun record =>
+    { record with
+      failedStage := some stage
+      failedCommand := some (toString command)
+      failureResponse := some response
+      failureElapsedMs := some elapsedMs }
+
+private def retireFailedSession
+    (session : SolverSession) (stage : String) (command : SmtCommand)
+    (response : String) (startedMs : Nat) : TranslateEnvT String := do
+  let elapsedMs := (← IO.monoMsNow) - startedMs
+  recordSessionFailure session.solver stage command response elapsedMs
+  let stderr ← retireAndCleanup session.solver true
+  return s!"solver={session.solver}; stage={stage}; command={command}; response={response}; elapsed={elapsedMs}ms{stderrNote stderr}"
+
 private def logDiagnostic (message : String) : TranslateEnvT Unit := do
   if (← get).optEnv.options.solverOptions.verbose ≥ 3 then
     IO.println s!"[blaster diagnostic] {message}"
 
+private def cancellationRequested : TranslateEnvT Bool := do
+  let some token := (← readThe Core.Context).cancelTk? | return false
+  token.isSet
+
 private partial def awaitTaskCancelable (task : Task α) : TranslateEnvT α := do
-  checkCancelTk?
+  if ← cancellationRequested then
+    retireAllSessions true
+    let _ := task.get
+    throwInterruptException
   if ← IO.hasFinished task then return task.get
   IO.sleep 20
   awaitTaskCancelable task
@@ -696,43 +802,84 @@ private def withEmitProcess (process : PipedChild) (action : TranslateEnvT α) :
   try action
   finally modify fun env => { env with smtEnv.emitProc := none }
 
-/-- Send one command to one session. The returned error is data so check-sat
-    policy can distinguish a failed backend from an `unknown` verdict. -/
+/-- Send one command to one session. Only I/O emission failures become data;
+    Lean interruption and unexpected exceptions propagate to the owner. -/
 private def sendCommandToSession
     (session : SolverSession) (c : SmtCommand) (checkSuccess : Bool) :
     TranslateEnvT (Except String Unit) := do
-  try
-    withEmitProcess session.process c.emit
-    if !checkSuccess then return .ok ()
-    let responseTask ← IO.asTask session.process.stdout.getLine
-    let response ← awaitTaskCancelable responseTask
-    match response with
-    | .error error => return .error s!"IO error while executing {c}: {error}"
-    | .ok raw =>
-        let out := normalizeLine raw
-        modifySolverRecord session.solver fun record =>
-          { record with stdout := record.stdout.push out }
-        match out with
-        | "success\n" => return .ok ()
-        | "" => return .error s!"solver closed stdout while executing {c}"
-        | err => return .error s!"unexpected response {err.trim} while executing {c}"
-  catch e =>
-    let message ← e.toMessageData.toString
-    return .error s!"IO error while executing {c}: {message}"
+  let emitted ←
+    try
+      withEmitProcess session.process c.emit
+      pure (.ok () : Except String Unit)
+    catch error =>
+      if error.isInterrupt || error.isRuntime then throw error
+      pure (.error s!"IO error while executing {c}: {← error.toMessageData.toString}")
+  if let .error error := emitted then return .error error
+  if !checkSuccess then return .ok ()
+  let responseTask ← IO.asTask session.process.stdout.getLine Task.Priority.dedicated
+  let response ← awaitTaskCancelable responseTask
+  match response with
+  | .error error => return .error s!"IO error while executing {c}: {error}"
+  | .ok raw =>
+      let out := normalizeLine raw
+      modifySolverRecord session.solver fun record =>
+        { record with stdout := record.stdout.push out }
+      match out with
+      | "success\n" => return .ok ()
+      | "" => return .error s!"solver closed stdout while executing {c}"
+      | err => return .error s!"unexpected response {err.trim} while executing {c}"
 
 private def throwSessionCommandError
-    (session : SolverSession) (stage error : String) : TranslateEnvT α := do
-  let stderr ← retireAndCleanup session.solver true
-  throwEnvError s!"{session.solver} {stage} failed: {error}{stderrNote stderr}"
+    (session : SolverSession) (stage : String) (command : SmtCommand)
+    (error : String) : TranslateEnvT α := do
+  let startedMs ← IO.monoMsNow
+  throwEnvError (← retireFailedSession session stage command error startedMs)
 
-/-- Broadcast a solver-neutral declaration or assertion to every active
-    session while recording it once in the canonical query. -/
+private def beginCanonicalEpoch : TranslateEnvT Unit :=
+  modify fun env =>
+    { env with smtEnv.solverRecords := env.smtEnv.solverRecords.map fun record =>
+        if record.checkCommand.isSome then
+          { record with
+            checkCommand := none
+            stdout := #[]
+            modelCommands := #[]
+            modelResponses := #[]
+            failedStage := none
+            failedCommand := none
+            failureResponse := none
+            failureElapsedMs := none }
+        else record }
+
+/-- Broadcast a canonical declaration/assertion once. `first` retires a failed
+    backend and continues with every healthy session; `agree` records an
+    infrastructure artifact and fails immediately. -/
 partial def trySubmitCommand! (c : SmtCommand) (checkSuccess := true) : TranslateEnvT Unit := do
+  beginCanonicalEpoch
   storeCommand c
-  for session in (← get).smtEnv.sessions do
+  let mode := (← get).optEnv.options.solverOptions.solverMode
+  let sessions := (← get).smtEnv.sessions
+  let mut failures : Array String := #[]
+  for session in sessions do
+    let startedMs ← IO.monoMsNow
     match ← sendCommandToSession session c checkSuccess with
     | .ok () => pure ()
-    | .error error => throwSessionCommandError session "command submission" error
+    | .error error =>
+        let diagnostic ← retireFailedSession session "command submission" c error startedMs
+        failures := failures.push diagnostic
+        match mode with
+        | .single => throwEnvError diagnostic
+        | .first =>
+            modify fun env =>
+              { env with smtEnv.deferredSessions :=
+                  if env.smtEnv.deferredSessions.contains session.solver then
+                    env.smtEnv.deferredSessions
+                  else env.smtEnv.deferredSessions.push session.solver }
+        | .agree =>
+            retireAllSessions true
+            let artifact ← saveAgreementArtifacts diagnostic #[]
+            throwEnvError s!"Agreement infrastructure failure: {diagnostic}\nAgreement artifacts: {artifact.getD "unavailable"}"
+  if mode == .first && !failures.isEmpty && (← get).smtEnv.sessions.isEmpty then
+    throwEnvError s!"No usable solver session remains after command submission:\n{String.intercalate "\n" failures.toList}"
 
 
 
@@ -1029,7 +1176,8 @@ private def upsertSolverRecord (record : SolverRecord) : TranslateEnvT Unit :=
             { old with
               version := record.version
               commandLine := record.commandLine
-              setupCommands := record.setupCommands }
+              setupCommands := record.setupCommands
+              timeoutMs := record.timeoutMs }
           else old
       else env.smtEnv.solverRecords.push record
     { env with smtEnv.solverRecords := records }
@@ -1041,26 +1189,33 @@ private def spawnAndInitializeSolver
     (solver : SmtSolver) (replay : Bool) : TranslateEnvT (Except String Unit) := do
   try
     let (session, record) ← createSolverSession solver
-    let setup := solverSetupCommands solver (← get).optEnv.options.solverOptions
+    let sOpts := (← get).optEnv.options.solverOptions
+    let setup := solverSetupCommands solver sOpts
     modify fun env => { env with smtEnv.sessions := env.smtEnv.sessions.push session }
-    upsertSolverRecord { record with setupCommands := setup }
+    upsertSolverRecord {
+      record with
+      setupCommands := setup
+      timeoutMs := sOpts.timeout.map (· * 1000)
+    }
     for command in setup do
+      let startedMs ← IO.monoMsNow
       match ← sendCommandToSession session command true with
       | .ok () => pure ()
       | .error error =>
-          let stderr ← retireAndCleanup solver true
-          return .error s!"setup command {command} failed: {error}{stderrNote stderr}"
+          return .error (← retireFailedSession session "solver setup" command error startedMs)
     if replay then
       for command in (← get).smtEnv.smtCommands do
+        let startedMs ← IO.monoMsNow
         match ← sendCommandToSession session command true with
         | .ok () => pure ()
         | .error error =>
-            let stderr ← retireAndCleanup solver true
-            return .error s!"query replay command {command} failed: {error}{stderrNote stderr}"
+            return .error (← retireFailedSession session "canonical query replay" command error startedMs)
     logDiagnostic s!"solver={solver}; version={record.version}; command={record.commandLine}"
     return .ok ()
-  catch e =>
-    return .error (← e.toMessageData.toString)
+  catch error =>
+    if error.isInterrupt || error.isRuntime then throw error
+    let stderr ← retireAndCleanup solver true
+    return .error s!"solver={solver}; stage=process startup; response={← error.toMessageData.toString}{stderrNote stderr}"
 
 /-- Counterexample evidence is allowed to fail without changing a `sat`
     verdict. The diagnostic retains stage and raw-response information. -/
@@ -1071,20 +1226,23 @@ private structure ModelEvidence where
 private def requestModelResponse
     (session : SolverSession) (command : SmtCommand) (readResponse : IO String) :
     TranslateEnvT (Except String String) := do
+  let startedMs ← IO.monoMsNow
   let commandText := toString command
   modifySolverRecord session.solver fun record =>
     { record with modelCommands := record.modelCommands.push commandText }
   logDiagnostic s!"solver={session.solver}; model-command={commandText}"
   match ← sendCommandToSession session command false with
   | .error error =>
-      let stderr ← retireAndCleanup session.solver true
-      return .error s!"Solver process failed during model retrieval while sending {commandText}: {error}{stderrNote stderr}"
+      let diagnostic ←
+        retireFailedSession session "model command submission" command error startedMs
+      return .error diagnostic
   | .ok () =>
-      let responseTask ← IO.asTask readResponse
+      let responseTask ← IO.asTask readResponse Task.Priority.dedicated
       match ← awaitTaskCancelable responseTask with
       | .error error =>
-          let stderr ← retireAndCleanup session.solver true
-          return .error s!"Response framing failed during model retrieval: {error}{stderrNote stderr}"
+          let diagnostic ←
+            retireFailedSession session "model response" command (toString error) startedMs
+          return .error diagnostic
       | .ok response =>
           modifySolverRecord session.solver fun record =>
             { record with
@@ -1160,29 +1318,49 @@ private def getModelFor (solver : SmtSolver) : TranslateEnvT ModelEvidence := do
 
 private structure PendingCheck where
   solver : SmtSolver
+  command : SmtCommand
   startedMs : Nat
+  timeoutMs : Option Nat
+  deadlineMs : Option Nat
   response : Task (Except IO.Error String)
 
 private inductive CheckStart where
   | pending (check : PendingCheck)
   | failed (outcome : SolverOutcome)
 
+private inductive PendingCompletion where
+  | response (check : PendingCheck) (value : Except IO.Error String)
+      (remaining : Array PendingCheck)
+  | timedOut (check : PendingCheck) (remaining : Array PendingCheck)
+/-- Native solvers receive the configured limit themselves. Give their
+    terminal `unknown` response bounded scheduling and pipe-drain slack before
+    enforcing Blaster's hard process deadline. -/
+private def responseDeadlineGraceMs : Nat := 1000
+
+
 private def startCheck (solver : SmtSolver) (command : SmtCommand) : TranslateEnvT CheckStart := do
-  let start ← IO.monoMsNow
+  let submissionStartedMs ← IO.monoMsNow
   let some session ← getSession? solver
     | return .failed {
         solver, verdict := none, status := .processFailed,
-        diagnostic := some "solver session is unavailable"
+        diagnostic := some s!"solver={solver}; stage=check startup; command={command}; solver session is unavailable"
       }
+  let timeoutMs :=
+    (← get).smtEnv.solverRecords.find? (·.solver == solver) |>.bind (·.timeoutMs)
   match ← sendCommandToSession session command false with
   | .ok () =>
-      let response ← IO.asTask session.process.stdout.getLine
-      return .pending { solver, startedMs := start, response }
+      let startedMs ← IO.monoMsNow
+      let response ← IO.asTask session.process.stdout.getLine Task.Priority.dedicated
+      return .pending {
+        solver, command, startedMs, timeoutMs,
+        deadlineMs := timeoutMs.map (startedMs + · + responseDeadlineGraceMs), response
+      }
   | .error error =>
-      let stderr ← retireAndCleanup solver true
+      let diagnostic ←
+        retireFailedSession session "check submission" command error submissionStartedMs
       return .failed {
         solver, verdict := none, status := .processFailed,
-        diagnostic := some s!"failed to send {command}: {error}{stderrNote stderr}"
+        elapsedMs := (← IO.monoMsNow) - submissionStartedMs, diagnostic := some diagnostic
       }
 
 private def finishCheck
@@ -1190,10 +1368,12 @@ private def finishCheck
   let elapsedMs := (← IO.monoMsNow) - pending.startedMs
   match response with
   | .error error =>
+      let response := toString error
+      recordSessionFailure pending.solver "check response" pending.command response elapsedMs
       let stderr ← retireAndCleanup pending.solver true
       return {
         solver := pending.solver, verdict := none, status := .processFailed, elapsedMs,
-        diagnostic := some s!"check-sat read failed: {error}{stderrNote stderr}"
+        diagnostic := some s!"solver={pending.solver}; stage=check response; command={pending.command}; response={response}; elapsed={elapsedMs}ms{stderrNote stderr}"
       }
   | .ok raw =>
       let response := normalizeLine raw
@@ -1215,17 +1395,33 @@ private def finishCheck
           diagnostic := some "solver returned unknown"
         }
       | "" =>
+          recordSessionFailure pending.solver "check response" pending.command
+            "solver closed stdout before reporting a verdict" elapsedMs
           let stderr ← retireAndCleanup pending.solver true
           return {
             solver := pending.solver, verdict := none, status := .processFailed, elapsedMs,
-            diagnostic := some s!"solver closed stdout before reporting a verdict{stderrNote stderr}"
+            diagnostic := some s!"solver={pending.solver}; stage=check response; command={pending.command}; solver closed stdout before reporting a verdict; elapsed={elapsedMs}ms{stderrNote stderr}"
           }
       | unexpected =>
+          recordSessionFailure pending.solver "check protocol" pending.command unexpected.trim elapsedMs
           let stderr ← retireAndCleanup pending.solver true
           return {
             solver := pending.solver, verdict := none, status := .protocolFailed, elapsedMs,
-            diagnostic := some s!"unexpected check-sat response: {unexpected.trim}{stderrNote stderr}"
+            diagnostic := some s!"solver={pending.solver}; stage=check protocol; command={pending.command}; response={unexpected.trim}; elapsed={elapsedMs}ms{stderrNote stderr}"
           }
+
+private def timeoutCheck (pending : PendingCheck) : TranslateEnvT SolverOutcome := do
+  let elapsedMs := (← IO.monoMsNow) - pending.startedMs
+  let configured := pending.timeoutMs.getD 0
+  let diagnostic :=
+    s!"solver={pending.solver}; stage=check timeout; command={pending.command}; configured timeout={configured}ms; elapsed={elapsedMs}ms"
+  recordSessionFailure pending.solver "check timeout" pending.command diagnostic elapsedMs
+  discard <| retireAndCleanup pending.solver true
+  let _ := pending.response.get
+  return {
+    solver := pending.solver, verdict := none, status := .timedOut, elapsedMs,
+    diagnostic := some diagnostic
+  }
 
 private def attachCounterexample (outcome : SolverOutcome) : TranslateEnvT SolverOutcome := do
   if outcome.verdict != some .falsified ||
@@ -1235,6 +1431,11 @@ private def attachCounterexample (outcome : SolverOutcome) : TranslateEnvT Solve
   match evidence.diagnostic with
   | none => return { outcome with counterexample := some evidence.counterexample }
   | some diagnostic =>
+      modifySolverRecord outcome.solver fun record =>
+        { record with
+          failedStage := some "model evidence"
+          failedCommand := record.modelCommands.back?
+          failureResponse := some diagnostic }
       logWarningAt (← blankRef)
         m!"Counterexample unavailable from {outcome.solver}; the Falsified verdict is preserved. {diagnostic}"
       return {
@@ -1246,33 +1447,52 @@ private def attachCounterexample (outcome : SolverOutcome) : TranslateEnvT Solve
         diagnostic := some diagnostic
       }
 
-private def waitFirstPending
-    (pending : Array PendingCheck) :
-    TranslateEnvT (PendingCheck × Except IO.Error String × Array PendingCheck) := do
-  match pending.toList with
-  | [] => throwEnvError "internal error: attempted to wait for an empty solver set"
-  | [check] =>
-      return (check, ← awaitTaskCancelable check.response, #[])
-  | first :: second :: _ =>
-      let firstTask := first.response.map fun response => (first.solver, response)
-      let secondTask := second.response.map fun response => (second.solver, response)
-      let waiter ← BaseIO.asTask (IO.waitAny [firstTask, secondTask])
-      let (solver, response) ← awaitTaskCancelable waiter
-      let check := if first.solver == solver then first else second
-      return (check, response, pending.filter (·.solver != solver))
+private partial def waitFirstPending
+    (pending : Array PendingCheck) : TranslateEnvT PendingCompletion := do
+  if pending.isEmpty then
+    throwEnvError "internal error: attempted to wait for an empty solver set"
+  if ← cancellationRequested then
+    retireAllSessions true
+    for check in pending do
+      let _ := check.response.get
+    throwInterruptException
+  for check in pending do
+    if ← IO.hasFinished check.response then
+      return .response check check.response.get (pending.filter (·.solver != check.solver))
+  let now ← IO.monoMsNow
+  for check in pending do
+    if check.deadlineMs.any (· ≤ now) then
+      return .timedOut check (pending.filter (·.solver != check.solver))
+  IO.sleep 10
+  waitFirstPending pending
+
+private def deferredFailureOutcome (solver : SmtSolver) : TranslateEnvT SolverOutcome := do
+  let record := (← get).smtEnv.solverRecords.find? (·.solver == solver)
+  let diagnostic := record.bind (·.failureResponse) |>.getD
+    "session was retired after a command failure"
+  return {
+    solver, verdict := none, status := .processFailed,
+    elapsedMs := record.bind (·.failureElapsedMs) |>.getD 0,
+    diagnostic := some diagnostic
+  }
 
 private def ensureConfiguredSessions : TranslateEnvT (Array SolverOutcome) := do
+  let deferred := (← get).smtEnv.deferredSessions
   let mut failures := #[]
   for solver in (← get).smtEnv.configuredSolvers do
     if (← getSession? solver).isNone then
-      let started ← IO.monoMsNow
-      match ← spawnAndInitializeSolver solver true with
-      | .ok () => pure ()
-      | .error diagnostic =>
-          failures := failures.push {
-            solver, verdict := none, status := .processFailed,
-            elapsedMs := (← IO.monoMsNow) - started, diagnostic := some diagnostic
-          }
+      if deferred.contains solver then
+        failures := failures.push (← deferredFailureOutcome solver)
+      else
+        let started ← IO.monoMsNow
+        match ← spawnAndInitializeSolver solver true with
+        | .ok () => pure ()
+        | .error diagnostic =>
+            failures := failures.push {
+              solver, verdict := none, status := .processFailed,
+              elapsedMs := (← IO.monoMsNow) - started, diagnostic := some diagnostic
+            }
+  modify fun env => { env with smtEnv.deferredSessions := #[] }
   return failures
 
 private def beginConfiguredChecks
@@ -1293,18 +1513,26 @@ private def outcomeToResult (outcome : SolverOutcome) : Result :=
   | _ => .Undetermined
 
 private def logInfrastructureOutcomes (outcomes : Array SolverOutcome) : TranslateEnvT Unit := do
-  for outcome in outcomes do
+  for outcome in orderOutcomes outcomes.toList do
     if outcome.status != .completed && outcome.status != .modelFailed then
       logErrorAt (← blankRef)
         m!"{outcome.solver} infrastructure failure ({reprStr outcome.status}): {outcome.diagnostic.getD "no diagnostic"}"
+
+private def completedOutcome (completion : PendingCompletion) :
+    TranslateEnvT (SolverOutcome × Array PendingCheck) := do
+  match completion with
+  | .response check response remaining =>
+      return (← finishCheck check response, remaining)
+  | .timedOut check remaining =>
+      return (← timeoutCheck check, remaining)
 
 private def runSingleCheck (command : SmtCommand) : TranslateEnvT Result := do
   let (pending, failures) ← beginConfiguredChecks command
   if let some failure := failures[0]? then
     throwEnvError s!"{failure.solver} solver failure: {failure.diagnostic.getD "no diagnostic"}"
-  let some check := pending[0]?
+  let some _ := pending[0]?
     | throwEnvError "single solver session produced no check task"
-  let outcome ← finishCheck check (← awaitTaskCancelable check.response)
+  let (outcome, _) ← completedOutcome (← waitFirstPending pending)
   if outcome.status != .completed then
     throwEnvError s!"{outcome.solver} solver failure: {outcome.diagnostic.getD "no diagnostic"}"
   outcomeToResult <$> attachCounterexample outcome
@@ -1315,88 +1543,73 @@ private partial def runFirstCheck (command : SmtCommand) : TranslateEnvT Result 
  where
   loop (pending : Array PendingCheck) (outcomes : Array SolverOutcome) : TranslateEnvT Result := do
     if pending.isEmpty then
+      let ordered := orderOutcomes outcomes.toList
+      let ordinaryUndetermined :=
+        !ordered.isEmpty && ordered.all fun outcome =>
+          outcome.status == .completed && outcome.verdict == some .undetermined
+      if ordinaryUndetermined then return .Undetermined
       logInfrastructureOutcomes outcomes
-      let diagnostics := combineDiagnostics outcomes.toList
-      if let some diagnostics := diagnostics then
-        logDiagnostic s!"first mode had no decisive verdict:\n{diagnostics}"
-      return .Undetermined
-    let (check, response, remaining) ← waitFirstPending pending
-    let outcome ← finishCheck check response
+      let diagnostics := combineDiagnostics ordered |>.getD "no solver produced a verdict"
+      throwEnvError s!"First mode produced no decisive verdict because solver infrastructure failed:\n{diagnostics}"
+    let (outcome, remaining) ← completedOutcome (← waitFirstPending pending)
     let outcomes := outcomes.push outcome
     if outcome.verdict.any SolverVerdict.isDecisive then
-      -- The verdict is the winning point. Retire every loser before optional
-      -- model rendering; only the winner session remains available for evidence.
+      -- The verdict wins immediately, but its evidence is secured before any
+      -- loser is retired so model latency cannot change the winner.
+      let outcome ← attachCounterexample outcome
       for session in (← get).smtEnv.sessions do
         if session.solver != outcome.solver then
           discard <| retireAndCleanup session.solver true
-      let outcome ← attachCounterexample outcome
+      for check in remaining do
+        let _ := check.response.get
       if (← get).optEnv.options.solverOptions.verbose ≥ 2 then
         IO.println s!"[blaster] first winner: {outcome.solver} ({outcome.elapsedMs}ms)"
-        for observed in outcomes do
-          if observed.solver != outcome.solver && observed.status != .completed &&
-              observed.status != .modelFailed then
-            IO.println s!"[blaster] {observed.solver} did not decide: {observed.diagnostic.getD (reprStr observed.status)}"
-
       return outcomeToResult outcome
     loop remaining outcomes
 
-private def agreementSummary
-    (command : SmtCommand) (outcomes : Array SolverOutcome) : TranslateEnvT String := do
-  let env ← get
-  let query := String.intercalate "\n" (env.smtEnv.smtCommands.toList.map toString)
-  let records := String.intercalate "\n\n" <| env.smtEnv.solverRecords.toList.map fun record =>
-    s!"solver: {record.solver}\nversion: {record.version}\ncommand: {record.commandLine}\nstdout:\n{String.join record.stdout.toList}\nstderr:\n{String.intercalate "\n" record.stderr.toList}\nmodel commands:\n{String.intercalate "\n" record.modelCommands.toList}\nmodel responses:\n{String.intercalate "\n" record.modelResponses.toList}"
-  return s!"check command: {command}\noutcomes: {reprStr outcomes}\n\nshared SMT query:\n{query}\n\n{records}\n"
-
-private def saveAgreementArtifacts
-    (command : SmtCommand) (outcomes : Array SolverOutcome) : TranslateEnvT (Option String) := do
-  let stamp ← IO.monoMsNow
-  let serial ← agreementArtifactCounter.modifyGet fun current => (current, current + 1)
-  let directory := s!".blaster/agreement-{stamp}-{serial}"
-  try
-    IO.FS.createDirAll directory
-    IO.FS.writeFile s!"{directory}/summary.txt" (← agreementSummary command outcomes)
-    let common := (← get).smtEnv.smtCommands
-    for record in (← get).smtEnv.solverRecords do
-      let runnable :=
-        String.intercalate "\n" ((record.setupCommands ++ common).toList.map toString ++
-          [toString command] ++ record.modelCommands.toList ++ ["(exit)"])
-      IO.FS.writeFile s!"{directory}/{record.solver}.smt2" (runnable ++ "\n")
-    return some directory
-  catch error =>
-    logWarningAt (← blankRef) m!"Failed to save agreement artifacts: {error.toMessageData}"
-    return none
 
 private def runAgreementCheck (command : SmtCommand) : TranslateEnvT Result := do
-  let (pending, initialOutcomes) ← beginConfiguredChecks command
+  let (initialPending, initialOutcomes) ← beginConfiguredChecks command
+  let mut pending := initialPending
   let mut outcomes := initialOutcomes
-  for check in pending do
-    let outcome ← finishCheck check (← awaitTaskCancelable check.response)
+  while !pending.isEmpty do
+    let (outcome, remaining) ← completedOutcome (← waitFirstPending pending)
     outcomes := outcomes.push outcome
+    pending := remaining
+  if let some failed := (orderOutcomes outcomes.toList).find? fun outcome =>
+      outcome.status != .completed && outcome.status != .modelFailed then
+    let diagnostic :=
+      s!"{failed.solver} ended with {reprStr failed.status}: {failed.diagnostic.getD "no diagnostic"}"
+    retireAllSessions true
+    let artifact ← saveAgreementArtifacts diagnostic outcomes
+    throwEnvError s!"{diagnostic}\nAgreement artifacts: {artifact.getD "unavailable"}"
   let mut enriched := #[]
   for solver in [SmtSolver.z3, SmtSolver.cvc5] do
     if let some outcome := outcomes.find? (·.solver == solver) then
       enriched := enriched.push (← attachCounterexample outcome)
-  let artifactOnFailure := fun outcomes => saveAgreementArtifacts command outcomes
   let some z3 := enriched.find? (·.solver == .z3)
     | retireAllSessions true
-      let artifact ← artifactOnFailure enriched
+      let artifact ← saveAgreementArtifacts "Z3 produced no outcome" enriched
       throwEnvError s!"Agreement infrastructure failure: Z3 produced no outcome. Artifacts: {artifact.getD "unavailable"}"
   let some cvc5 := enriched.find? (·.solver == .cvc5)
     | retireAllSessions true
-      let artifact ← artifactOnFailure enriched
+      let artifact ← saveAgreementArtifacts "cvc5 produced no outcome" enriched
       throwEnvError s!"Agreement infrastructure failure: cvc5 produced no outcome. Artifacts: {artifact.getD "unavailable"}"
   match aggregateAgreement z3 cvc5 with
   | .error failure =>
       retireAllSessions true
-      let artifact ← artifactOnFailure enriched
+      let artifact ← saveAgreementArtifacts failure.diagnostic enriched
       throwEnvError s!"{failure.diagnostic}\nAgreement artifacts: {artifact.getD "unavailable"}"
   | .ok decision =>
-      if decision.verdict == .undetermined || decision.status == .modelFailed then
+      let incompleteModel := enriched.any (·.status == .modelFailed)
+      if decision.verdict == .undetermined || incompleteModel then
         retireAllSessions true
-        let artifact ← artifactOnFailure enriched
+        let reason :=
+          if incompleteModel then "one or more model-evidence steps failed"
+          else "both solvers returned ordinary Undetermined"
+        let artifact ← saveAgreementArtifacts reason enriched
         logWarningAt (← blankRef)
-          m!"Agreement did not produce a fully usable decisive result. Artifacts: {artifact.getD "unavailable"}"
+          m!"Agreement diagnostics saved: {artifact.getD "unavailable"}"
       return outcomeToResult {
         solver := .z3, verdict := some decision.verdict, status := decision.status,
         counterexample := decision.counterexample, elapsedMs := decision.elapsedMs,
@@ -1404,7 +1617,18 @@ private def runAgreementCheck (command : SmtCommand) : TranslateEnvT Result := d
       }
 
 private def checkSatWith (command : SmtCommand) : TranslateEnvT Result := do
-  modify fun env => { env with smtEnv.lastCheckCommand := some command }
+  let deferred := (← get).smtEnv.deferredSessions
+  modify fun env =>
+    { env with smtEnv.solverRecords := env.smtEnv.solverRecords.map fun record =>
+        { record with
+          checkCommand := some command
+          stdout := if deferred.contains record.solver then record.stdout else #[]
+          modelCommands := #[]
+          modelResponses := #[]
+          failedStage := if deferred.contains record.solver then record.failedStage else none
+          failedCommand := if deferred.contains record.solver then record.failedCommand else none
+          failureResponse := if deferred.contains record.solver then record.failureResponse else none
+          failureElapsedMs := if deferred.contains record.solver then record.failureElapsedMs else none } }
   if (← get).optEnv.options.solverOptions.onlySmtLib then return .Undetermined
   match (← get).optEnv.options.solverOptions.solverMode with
   | .single => runSingleCheck command
@@ -1423,11 +1647,13 @@ def checkSatAssuming (args : Array SmtTerm) : TranslateEnvT Result :=
 def getProof : TranslateEnvT String := do
   let some session := (← get).smtEnv.sessions[0]? | return ""
   match ← sendCommandToSession session .getProof false with
-  | .error error => throwSessionCommandError session "proof retrieval" error
+  | .error error => throwSessionCommandError session "proof retrieval" .getProof error
   | .ok () =>
-      match ← awaitTaskCancelable (← IO.asTask (getOutputProof session.process.stdout)) with
+      match ← awaitTaskCancelable
+          (← IO.asTask (getOutputProof session.process.stdout) Task.Priority.dedicated) with
       | .ok proof => return proof
-      | .error error => throwSessionCommandError session "proof retrieval" (toString error)
+      | .error error =>
+          throwSessionCommandError session "proof retrieval" .getProof (toString error)
 
 /-- Gracefully retire and reap every remaining solver session. -/
 def exitSmt : TranslateEnvT UInt32 := do
@@ -1472,7 +1698,8 @@ def setBlasterProcess : TranslateEnvT Unit := do
         solver,
         version := "not probed (only-smt-lib)",
         commandLine := String.intercalate " " (cmd :: args.toList),
-        setupCommands := solverSetupCommands solver sOpts
+        setupCommands := solverSetupCommands solver sOpts,
+        timeoutMs := sOpts.timeout.map (· * 1000)
       }
   else
     for solver in solvers do

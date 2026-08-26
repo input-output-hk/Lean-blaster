@@ -50,7 +50,8 @@ private def shouldLogUndetermined (logOrdinary : Bool) : TranslateEnvT Bool := d
   return undeterminedAction sOpts env.smtEnv.singleSolver
     (← strictCvc5ResultCheckingRequested) == .strictError
 
-def Translate.main (e : Expr) (logUndetermined := true) : TranslateEnvT (Result × Expr) := do
+def Translate.main (e : Expr) (logUndetermined := true) : TranslateEnvT (Result × Expr) :=
+  withSmtSessionOwner do
     let initialOptions := (← get).optEnv.options.solverOptions
     match validateSolverOptions initialOptions with
     | .ok () => pure ()
@@ -79,9 +80,10 @@ def Translate.main (e : Expr) (logUndetermined := true) : TranslateEnvT (Result 
           let st ← profileTask "Translation" $ translateExpr optExpr
           -- assert negation for check sat
           profileTask "Submitting Smt Query" $ assertTerm (notSmt st)
-          -- dump smt commands submitted to backend solver when `dumpSmtLib` option is set.
-          logSmtQuery
           let res ← profileTask "Solve" checkSat
+          -- The transcript is recorded after the check so it contains this
+          -- check's model commands and no stale commands from a prior epoch.
+          logSmtQuery
           if isUndeterminedResult res then
             if ← shouldLogUndetermined logUndetermined then logResult res
           else

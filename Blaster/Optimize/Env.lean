@@ -349,18 +349,23 @@ structure SolverSession where
   solver : SmtSolver
   process : PipedChild
 
-/-- Persistent launch and protocol data retained after a child has been
-    retired. It is used by opt-in diagnostics and agreement artifacts. -/
+/-- Persistent launch, per-check transcript, and failure data retained after a
+    child is retired. Per-check fields are reset when a new check starts. -/
 structure SolverRecord where
   solver : SmtSolver
   version : String
   commandLine : String
   setupCommands : Array SmtCommand
+  timeoutMs : Option Nat := none
+  checkCommand : Option SmtCommand := none
   stdout : Array String := #[]
   modelCommands : Array String := #[]
   modelResponses : Array String := #[]
   stderr : Array String := #[]
-
+  failedStage : Option String := none
+  failedCommand : Option String := none
+  failureResponse : Option String := none
+  failureElapsedMs : Option Nat := none
 abbrev AbstractTypeCache := Std.HashMap Expr SmtSymbol
 
 /-- Type defining the environment used when translating to Smt-Lib. -/
@@ -387,12 +392,12 @@ structure SmtEnv where
       Process routing never consults this field. -/
   singleSolver : Option SmtSolver
 
-  /-- Persistent per-backend transcripts and launch metadata. -/
+  /-- Persistent per-backend launch data and exact current-check transcripts. -/
   solverRecords : Array SolverRecord
 
-  /-- Most recent operational satisfiability command, retained for exact
-      incremental dump transcripts but excluded from canonical replay. -/
-  lastCheckCommand : Option SmtCommand
+  /-- Sessions retired by a `first`-mode translation failure are skipped for
+      the imminent check, then eligible for replay on the next incremental check. -/
+  deferredSessions : Array SmtSolver
 
 
   /-- Cache keeping track of visited inductive datatype during translation. -/
@@ -495,9 +500,9 @@ instance : Inhabited SmtEnv where
      sessions := #[],
      emitProc := none,
      configuredSolvers := #[],
-     lastCheckCommand := none,
      singleSolver := none,
      solverRecords := #[],
+     deferredSessions := #[],
      indTypeVisited := Std.HashSet.emptyWithCapacity,
      indTypeInstCache := Std.HashMap.emptyWithCapacity,
      funInstCache := Std.HashMap.emptyWithCapacity,
@@ -536,16 +541,16 @@ instance : MonadMCtx TranslateEnvT where
   modifyMCtx f := modifyMCtx' f
 
 protected def throwEnvError (msg : MessageData) : TranslateEnvT α := do
-  -- Retire ownership before touching a child. Any nested error handler then
+  -- Retire ownership before touching a child. Any nested owner/finalizer then
   -- observes an empty session set and cannot kill or reap the same process.
   let sessions := (← get).smtEnv.sessions
   modify fun env => { env with smtEnv.sessions := #[], smtEnv.emitProc := none }
   for session in sessions do
     let p := session.process
-    let shouldTerminate ←
-      try pure (← p.tryWait).isNone
-      catch _ => pure false
-    if shouldTerminate then
+    let alreadyExited ←
+      try p.tryWait
+      catch _ => pure none
+    if alreadyExited.isNone then
       try p.kill catch _ => pure ()
       try discard p.wait catch _ => pure ()
     let stderr ←
