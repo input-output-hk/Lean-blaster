@@ -148,7 +148,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload solver agreement artifacts
-        if: failure() && matrix.tier == 'all-solvers'
+        if: always() && matrix.tier == 'all-solvers'
         uses: actions/upload-artifact@v6
         with:
           name: blaster-agreement-${{ matrix.tier }}
