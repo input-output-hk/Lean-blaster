@@ -83,14 +83,19 @@ def optimizeAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      match b with
      | Expr.forallE _ t1 c1 _ =>
          if exprEq t1 a && !(c1.hasLooseBVars) then
+           pushProofStep (.rewrite (mkConst ``Blaster.and_imp_self_eq_and))
            setRestart
            return mkApp2 f a c1
-         if exprEq c1 a then return a -- no need to restart here
+         if exprEq c1 a then
+           pushProofStep (.rewrite (mkConst ``Blaster.and_imp_right_eq_left))
+           return a -- no need to restart here
          match a with
          | Expr.forallE _ t2 c2 _ =>
             if !(exprEq c1 c2) then return none
             let not_t2 ← optimizeNot (← mkPropNotOp) (cacheResult := false) #[t2]
-            if t1 == not_t2 then return c1 -- no need to restart here
+            if t1 == not_t2 then
+              pushProofStep (.rewrite (mkConst ``Blaster.and_imp_not_imp_eq))
+              return c1 -- no need to restart here
             else return none
          | _ => return none
      | _ => return none
@@ -127,8 +132,13 @@ def optimizeAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 def orImpliesReduce? (a : Expr) (b : Expr) : TranslateEnvT (Option Expr) := do
   match b with
   | Expr.forallE _ t c _ =>
-      if exprEq t a then return (← mkPropTrue)
-      if exprEq c a then return b
+      if exprEq t a then
+        pushProofStep (.rewrite (mkConst ``Blaster.or_imp_self_eq_true))
+        pushProofStep (.exact (mkConst ``True.intro))
+        return (← mkPropTrue)
+      if exprEq c a then
+        pushProofStep (.rewrite (mkConst ``Blaster.or_imp_right_eq_imp))
+        return b
       return none
   | _ => return none
 
@@ -177,13 +187,14 @@ def optimizeOr (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  return mkApp2 f op1 op2
 
 
-/-- Normalize `p ↔ p` to `p → q ∧ p → q`
+/-- Normalize `p ↔ q` to `(p → q) ∧ (q → p)`             [proof: Blaster.iff_eq_implies_and_implies]
     An error is triggered when args.size ≠ 2 (i.e., only fully applied `↔` expected at this stage)
 -/
 def optimizeIff (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeIff: exactly two arguments expected"
  let op1 := args[0]!
  let op2 := args[1]!
+ pushProofStep (.rewrite (mkConst ``Blaster.iff_eq_implies_and_implies))
  setRestart
  return mkApp2 (← mkPropAndOp) (← mkImpliesExpr op1 op2) (← mkImpliesExpr op2 op1)
 
