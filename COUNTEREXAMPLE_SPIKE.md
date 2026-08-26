@@ -2,11 +2,15 @@
 
 ## Reproduction
 
-Environment used for this spike:
+Local environment actually exercised:
 
 - Lean 4.24.0
 - cvc5 1.3.4 (`git f3b21c4`)
 - Z3 4.15.4
+
+CI policy is separate: Z3 4.15.2, cvc5 1.3.4, and the dedicated cvc5 1.2.1
+support-floor lane. The cvc5 1.2.1 binary was not available locally and is not
+claimed as locally tested.
 
 Run the saved instrumented cases:
 
@@ -32,6 +36,20 @@ lists, strings, uninterpreted values, and functions):
 lake env lean Tests/Smt/SmtSolverCvc5.lean
 ```
 
+The focused commands actually run for this work were:
+
+```bash
+lake env lean Tests/Smt/SolverOutcomePolicy.lean
+lake env lean Tests/Smt/CrashLifecycle.lean
+lake env lean Tests/Smt/CounterexampleSpike.lean
+lake env lean Tests/Smt/ConcurrentSolvers.lean
+lake env lean Tests/Smt/ConcurrentDump.lean
+```
+
+`Tests/Smt/CounterexampleSpike.lean` remains directly runnable but is not
+imported by `Tests/AllSolvers.lean`; stable assertions live in normal policy,
+lifecycle, reconstruction, and integration tests.
+
 ## Cases and classifications
 
 | Case | Observed pipeline | Classification | Result |
@@ -44,6 +62,7 @@ lake env lean Tests/Smt/SmtSolverCvc5.lean
 | Fake solver returns `sat`, then `(error "model unavailable")` | Raw model error retained; evidence status becomes `modelFailed` | get-model returned an SMT error | Remains `Falsified`; clear counterexample-unavailable warning |
 | Fake child closes stdout and writes stderr | Framing/read failure; child is retired, killed if live, reaped, and stderr retained | Response framing / solver process failure | Infrastructure failure, never `Undetermined` |
 | Cancellation during model extraction | Both sessions retired before interruption; both process groups terminated and reaped | Solver process interrupted during model retrieval | Cancellation propagated; no child remains |
+| Fake backend exceeds its Blaster deadline | Per-session response polling reaches the configured deadline plus the fixed 1 s response-drain grace; the child is retired, killed, and reaped | `timedOut`, distinct from solver `unknown` | Does not beat a healthy solver in `first`; infrastructure failure in `agree` |
 
 No S-expression parser rewrite was indicated. Existing pure reconstruction cases for
 primitives, strings, quoted symbols, datatype constructors, multiline values,
@@ -63,9 +82,21 @@ primitives, strings, quoted symbols, datatype constructors, multiline values,
   artifacts.
 - Process/protocol failures have structured statuses and cannot be represented
   as ordinary solver `unknown` outcomes.
-- Fake-process regressions cover stderr preservation, closed stdout, exact-once
-  retirement, loser cancellation, two-child cancellation, and cancellation
-  during model extraction.
+- Fake-process regressions cover stderr preservation, closed stdout,
+  exact-once retirement, command rejection, real Blaster-side deadlines,
+  winner-model-before-loser-cleanup, unexpected pre-check exceptions, and
+  cancellation before solving, during command submission/checking, and during
+  model extraction.
+
+## Original report availability
+
+The exact original reporter-provided inductive counterexample was not present
+in this repository's branch history, documentation, tests, or locally
+available issue/PR material. This branch therefore does **not** claim that the
+unavailable original symptom is fixed. It verifies the saved scalar,
+telescope, nested-quantifier, abstract-type, model-error, process-failure, and
+cancellation reproductions above. The original case still requires input from
+the reporter before it can become a stable regression.
 
 ## Unresolved follow-up
 

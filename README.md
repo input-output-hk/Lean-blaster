@@ -171,28 +171,59 @@ selection:
 | `(solver-mode: agree)` | Run both and require compatible verdicts |
 
 `first` treats only `Valid` and `Falsified` as decisive. `Undetermined`, a
-timeout, a process failure, or a protocol failure cannot beat a still-running
-solver. After a winning `Falsified` verdict, Blaster retrieves that solver's
-counterexample before killing and reaping the loser. Model retrieval failure
-does not erase `Falsified`; it emits a counterexample-unavailable diagnostic.
-The winning backend is printed only at maintenance verbosity (`verbose: 2` or
-higher).
+Blaster-side deadline, a process failure, or a protocol failure cannot beat a
+still-running solver. If a backend rejects a later declaration/assertion, that
+session is retired and the healthy backend remains usable; a later incremental
+check may recreate the retired session and replay the canonical query. When no
+backend decides, ordinary `Undetermined` is returned only if both backends
+returned `unknown`; infrastructure failures remain visible errors.
 
-`agree` waits for both verdicts. Matching `Valid`, matching `Falsified`, and
-matching `Undetermined` aggregate to that verdict. `Valid` versus `Falsified`
-is a hard disagreement; a decisive verdict versus `Undetermined` is an
-incomplete/coverage disagreement; process, protocol, and timeout failures are
-infrastructure failures. Matching counterexamples are not required. When both
-results are falsified, returned evidence is selected deterministically in Z3,
-then cvc5 order. Every unsuccessful agreement writes a shared-query summary
-and labeled solver transcripts under `.blaster/agreement-*`.
+After a winning `Falsified` verdict, Blaster retrieves that solver's
+counterexample while the loser is still alive, then kills and reaps the loser.
+Model retrieval failure does not erase `Falsified`; it emits a precise
+counterexample-unavailable diagnostic. The winning backend is printed only at
+maintenance verbosity (`verbose: 2` or higher).
 
-Concurrent modes always require supported Z3 and cvc5 binaries. There is no
-mode environment variable and no single-solver fallback. Combining an
-explicit `solver:` with `first`/`agree` is rejected, as is combining
+`agree` compares verdicts, not model text:
+
+| Z3 | cvc5 | Result |
+|---|---|---|
+| `Valid` | `Valid` | `Valid` |
+| `Falsified` | `Falsified` | `Falsified` |
+| `Undetermined` | `Undetermined` | `Undetermined` |
+| `Valid` | `Falsified` (or the reverse) | hard disagreement |
+| decisive | `Undetermined` (or the reverse) | incomplete/coverage disagreement |
+| any verdict | timeout, process failure, or protocol failure | infrastructure failure |
+
+Matching falsified results do not require identical counterexamples. Evidence
+is selected by quality: complete evidence from a completed model step, then
+partial evidence from a `modelFailed` step, then no evidence. Z3 precedes cvc5
+only as the tie-breaker between equal-quality candidates. A complete cvc5
+counterexample therefore outranks a partial Z3 counterexample; the Z3 model
+diagnostic is still retained.
+
+Every hard/incomplete disagreement, infrastructure failure, or incomplete
+model step writes `.blaster/agreement-*`. Each directory contains deterministic
+`z3.smt2` and `cvc5.smt2` transcripts for the exact current check plus
+`summary.txt` with solver version, invocation, verdict, status, elapsed time,
+configured timeout, failed stage/command, stdout, stderr, and raw model
+responses.
+
+The `timeout`/`BLASTER_TIMEOUT` value is translated to each backend's native
+option and enforced independently for each check. After that native deadline,
+Blaster allows a fixed 1 s response-drain grace so a backend's terminal
+`unknown` is not raced by process retirement. Expiry after the grace retires,
+kills, and reaps that session and produces a structured `timedOut` status. In
+`first` it cannot beat a healthy solver; in `agree` it is an infrastructure
+failure; in `single` it is a visible solver failure. A solver's ordinary
+`unknown` response remains `Undetermined` and is not inferred to be a timeout.
+
+Concurrent modes always require supported Z3 and cvc5 binaries at startup.
+There is no mode environment variable and no single-solver fallback. Combining
+an explicit `solver:` with `first`/`agree` is rejected, as is combining
 `only-smt-lib` with a concurrent mode. `only-optimize` starts no solver.
-Timeout and random-seed options are translated independently for both
-backends. `gen-cex: 0` skips model retrieval.
+Random-seed options are translated independently for both backends.
+`gen-cex: 0` skips model retrieval.
 
 Examples:
 
@@ -550,13 +581,16 @@ Lean-flavored text renderer (see
 These describe current backend-facing behavior visible to Blaster, separate
 from model-value normalization and display rendering:
 
-- **Timeout behavior**: the `timeout:` option maps to cvc5's `tlimit-per`,
-  which bounds each `check-sat` call individually (z3's `timeout` applies
-  per context). Suite-wide bounding via `BLASTER_TIMEOUT` is recommended for
-  cvc5 runs. The strict cvc5-only CI leg uses 120s; the local target defaults
-  to 30s.
-- **`unknown` yields no model**: after `unknown` (including per-check
-  timeouts), Blaster does not query a model, so no counterexample is shown.
+- **Timeout behavior**: the `timeout:` option maps to cvc5's `tlimit-per`
+  and z3's `timeout`. Blaster independently enforces that deadline around each
+  backend's `check-sat`/`check-sat-assuming` response, with a fixed 1 s grace
+  for the native timeout response to reach the pipe. Expiry after that grace is
+  `timedOut`, not `Undetermined`; the child is retired, killed, and reaped.
+  Suite-wide bounding via `BLASTER_TIMEOUT` is recommended for cvc5 runs. The
+  strict cvc5-only CI leg uses 120s; the local target defaults to 30s.
+- **`unknown` yields no model**: an ordinary solver `unknown` remains
+  `Undetermined` and is never inferred to be a timeout. Blaster does not query
+  a model after `unknown`.
 - **Nested recursive datatypes** rely on cvc5's experimental
   `--dt-nested-rec` support (z3 accepts them natively).
 
