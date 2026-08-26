@@ -1,7 +1,7 @@
 import Lean
 import Blaster
 
-namespace Tests.Issue35
+namespace Tests.Issue36
 
 -- Issue: createPredQualifierAppAux: predicate declaration expected for Lean.Expr.app
 --          (Lean.Expr.app (Lean.Expr.const `Except [Lean.Level.zero, Lean.Level.zero])
@@ -97,4 +97,4 @@ opaque spelledOut (b : Nat) : Except String Nat := .error "x"
 #blaster (gen-cex: 0) (solve-result: 1)
   [∀ b, match viaStruct b with | .ok _ => True | .error _ => False]
 
-end Tests.Issue35
+end Tests.Issue36
