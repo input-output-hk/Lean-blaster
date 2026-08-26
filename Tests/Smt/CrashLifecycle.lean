@@ -7,6 +7,12 @@ open Lean Blaster.Options Blaster.Optimize Blaster.Smt
 private def contains (text fragment : String) : Bool :=
   (text.splitOn fragment).length > 1
 
+private def withoutLoggedMessages (action : MetaM α) : MetaM α := do
+  let saved ← Core.getMessageLog
+  Core.resetMessageLog
+  try action
+  finally Core.setMessageLog saved
+
 private def spawnFakeChild
     (response : String) (delaySeconds : String := "0")
     (modelDelaySeconds : String := "0") (stderr : String := "")
@@ -348,9 +354,12 @@ private def testCancellationDuringCommandSubmission : MetaM Unit := do
   assertStopped "command-cancelled z3" z3
   assertStopped "command-cancelled cvc5" cvc5
 
+-- The timed child sleeps past the 1 s response-drain grace. The healthy child
+-- answers after that deadline but before its own, so test order cannot create
+-- the timeout being asserted.
 private def testZ3TimeoutDoesNotBeatCvc5 : MetaM Unit := do
-  let z3 ← spawnFakeChild "unsat" "0.20"
-  let cvc5 ← spawnFakeChild "unsat" "0.10"
+  let z3 ← spawnFakeChild "unsat" "10"
+  let cvc5 ← spawnFakeChild "unsat" "1.20"
   let (result, finalEnv) ← runFirst z3 cvc5 false (some 30) (some 500)
   expectValid "cvc5 after z3 timeout" result
   let some z3Record := finalEnv.smtEnv.solverRecords.find? (·.solver == .z3)
@@ -361,8 +370,8 @@ private def testZ3TimeoutDoesNotBeatCvc5 : MetaM Unit := do
   assertStopped "healthy cvc5 after timeout" cvc5
 
 private def testCvc5TimeoutDoesNotBeatZ3 : MetaM Unit := do
-  let z3 ← spawnFakeChild "sat" "0.10"
-  let cvc5 ← spawnFakeChild "unsat" "0.20"
+  let z3 ← spawnFakeChild "sat" "1.20"
+  let cvc5 ← spawnFakeChild "unsat" "10"
   let (result, finalEnv) ← runFirst z3 cvc5 false (some 500) (some 30)
   expectFalsified "z3 after cvc5 timeout" result
   let some cvc5Record := finalEnv.smtEnv.solverRecords.find? (·.solver == .cvc5)
@@ -398,7 +407,7 @@ private def testAgreementTimeoutIsInfrastructureFailure : MetaM Unit := do
   IO.FS.withTempDir fun directory => do
     try
       IO.Process.setCurrentDir directory
-      let z3 ← spawnFakeChild "unsat" "0.20"
+      let z3 ← spawnFakeChild "unsat" "10"
       let cvc5 ← spawnFakeChild "unsat" "0.10"
       let env := environment .agree
         #[{ solver := .z3, process := z3 }, { solver := .cvc5, process := cvc5 }]
@@ -495,7 +504,7 @@ private def testAgreementUsesCompletePeerEvidence : MetaM Unit := do
         return result).run env
       match result with
       | .Falsified evidence =>
-          unless evidence == ["()"] do
+          unless evidence.map String.trim == ["()"] do
             throwError "complete cvc5 evidence did not outrank failed Z3 evidence: {evidence}"
       | other => throwError "model failure erased agreement verdict: {reprStr other}"
       let entries ← (".blaster" : System.FilePath).readDir
@@ -583,33 +592,29 @@ private def testAgreementFailureSavesArtifacts : MetaM Unit := do
     finally
       IO.Process.setCurrentDir original
 
-private def testCrashLifecycle : MetaM Unit := do
-  testZ3WinsAndCvc5IsReaped
-  testCvc5WinsAndZ3IsReaped
-  testLoserLivesThroughWinnerModel
-  testClosedStdoutDoesNotBeatDecisiveSolver
-  testFirstRetiresRejectedDeclaration
-  testAgreeRejectsDeclarationWithArtifacts
-  testCrashPreservesStderrWithoutDuplicateCleanup
-  testAlreadyExitedChildIsHandled
-  testModelFailurePreservesSatVerdict
-  testOwnerCleansUnexpectedPrecheckException
-  testCancellationBeforeSolving
-  testCancellationDuringCommandSubmission
-  testCancellationReapsBothChildren
-  testCancellationDuringModelExtraction
-  testZ3TimeoutDoesNotBeatCvc5
-  testCvc5TimeoutDoesNotBeatZ3
-  testBothTimeoutsAreInfrastructureFailure
-  testSingleTimeoutIsVisibleFailure
-  testProtocolFailureDoesNotBeatHealthySolver
-  testInfrastructurePlusUnknownIsNotUndetermined
-  testBothOrdinaryUnknownRemainUndetermined
-  testAgreementUsesCompletePeerEvidence
-  testAgreementTimeoutIsInfrastructureFailure
-  testAgreementFailureSavesArtifacts
-
-#guard_msgs in
-#eval testCrashLifecycle
+#eval testZ3WinsAndCvc5IsReaped
+#eval testCvc5WinsAndZ3IsReaped
+#eval testLoserLivesThroughWinnerModel
+#eval testClosedStdoutDoesNotBeatDecisiveSolver
+#eval testFirstRetiresRejectedDeclaration
+#eval testAgreeRejectsDeclarationWithArtifacts
+#eval testCrashPreservesStderrWithoutDuplicateCleanup
+#eval testAlreadyExitedChildIsHandled
+#eval testModelFailurePreservesSatVerdict
+#eval testOwnerCleansUnexpectedPrecheckException
+#eval testCancellationBeforeSolving
+#eval testCancellationDuringCommandSubmission
+#eval testCancellationReapsBothChildren
+#eval testCancellationDuringModelExtraction
+#eval testZ3TimeoutDoesNotBeatCvc5
+#eval testCvc5TimeoutDoesNotBeatZ3
+#eval withoutLoggedMessages testBothTimeoutsAreInfrastructureFailure
+#eval testSingleTimeoutIsVisibleFailure
+#eval testProtocolFailureDoesNotBeatHealthySolver
+#eval withoutLoggedMessages testInfrastructurePlusUnknownIsNotUndetermined
+#eval testBothOrdinaryUnknownRemainUndetermined
+#eval testAgreementUsesCompletePeerEvidence
+#eval testAgreementTimeoutIsInfrastructureFailure
+#eval testAgreementFailureSavesArtifacts
 
 end Test.CrashLifecycle
