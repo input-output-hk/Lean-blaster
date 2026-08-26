@@ -640,6 +640,27 @@ def createPredQualifierApp (smtSym : SmtSymbol) (t : Expr) (inPredQualifier := f
   createPredQualifierAppAux (smtSimpleVarId smtSym) t inPredQualifier
 
 
+/-- Helper for `generateFunInstDeclAux` (issue #195): return `true` when the domain
+    qualifier premise for an argument of type `t` may be emitted inside the isFun
+    membership constraint, i.e., when `t` involves no generic type parameter that would
+    materialize as an SMT variable (type-universe parameters, see
+    `genericArgsToSortedVars`). Two reasons force the restriction:
+     - a domain-only generic parameter would occur FREE in the constraint (it only
+       binds the return type's generics, matching `@is{instName}`'s arity);
+     - even when the parameter is bound (e.g. `α → α`), a qualifier premise over an
+       Instance sort (`(@isInstance @x @α)`) makes z3's model search diverge on the
+       sat side of the constraint's iff (measured: Tests/FixedIssues/Issue18's
+       `addOptionPoly` probe, expected Falsified, hangs MBQI indefinitely).
+    Polymorphic arguments therefore conservatively keep the pre-#195 (unguarded)
+    behaviour. -/
+def canGuardCoDomainArg (t : Expr) : TranslateEnvT Bool := do
+  let domGens ← retrieveGenericArgs #[t]
+  for v in domGens do
+    let fdecl ← getFVarLocalDecl v
+    if isTypeUniverse fdecl.type then
+      return false
+  return true
+
 /-- Given `t := α₁ → α₂ ... → αₙ` and `st` its corresponding smt representation (i.e., ArrowTN sα₁ sα₂ sαₙ),
     perform the following action:
       - let funInst ← getFunInstDecl t
@@ -695,9 +716,28 @@ def createPredQualifierApp (smtSym : SmtSymbol) (t : Expr) (inPredQualifier := f
                     :qid @apply{n}_ext_fun)))`
 
             - `(assert (forall ((@r₀ rt₀) ... (@rₖ rtₖ) (@f (ArrowTN sα₁ sα₂ ... sαₙ)))
-                (! (= (forall ((@x₁ sα₁) ... (@xₙ₋₁ sαₙ₋₁)) (@isTypeₙ (@apply{n} @f @x₁ ... @xₙ₋₁)))
+                (! (= (forall ((@x₁ sα₁) ... (@xₙ₋₁ sαₙ₋₁))
+                        (=> (@isType₁ @x₁)
+                        ...
+                        (=> (@isTypeₙ₋₁ @xₙ₋₁)
+                            (@isTypeₙ (@apply{n} @f @x₁ ... @xₙ₋₁)))))
                       (@is{instName} @r₀ ... @rₖ @f) )
                    :pattern ( (@is{instName} @r₀ ... @rₖ @f)) :qid @isFun{v}_cstr)))`
+
+              NOTE (issue #195): each argument @xᵢ is premised with its domain qualifier
+              `(@isTypeᵢ @xᵢ)` so that membership in the function sort only constrains the
+              function's behaviour on the QUALIFIED domain (matching Lean semantics), not on
+              the whole carrier sort. Without the premise, `@is{instName}` is unsatisfiable
+              for any concrete lambda whose SMT image leaves the codomain qualifier off the
+              qualified domain (e.g. `fun x : Nat => x + 1` over the Int carrier at x = -2),
+              which makes every congruence/extensionality axiom premised on it vacuous.
+              The premise for @xᵢ is only emitted when αᵢ involves NO generic type
+              parameter (see `canGuardCoDomainArg`): a domain-only generic would occur
+              free in this assertion (which, matching `@is{instName}`'s arity, only binds
+              the return type's generics — widening that arity is the follow-up), and even
+              a bound one (e.g. `α → α`) makes z3's model search diverge on the sat side
+              of the iff. Polymorphic arguments conservatively stay unguarded (pre-#195
+              behaviour).
 
             - with ∀ i ∈ [1..n] = s
          - return `{@is{instName}, st}`
@@ -746,6 +786,7 @@ def generateFunInstDeclAux (t : Expr) (st : SortExpr) : TranslateEnvT IndTypeDec
      let mut arg_quantifiers := sargs.push (fsym, st)
      let mut forallCFunBody := eqSmt f_applyTerm1 f_applyTerm2
      let mut innerForallBody := eqSmt f_applyTerm1 g_applyTerm
+     let mut coGuards : Array (Option SmtTerm) := Array.replicate nbTypes none
      for i in [:nbTypes] do
        let idx := nbTypes - i - 1
        let predAppX ← createPredQualifierAppAux xIds[idx]! funTypes[idx]! (inPredQualifier := true)
@@ -755,10 +796,17 @@ def generateFunInstDeclAux (t : Expr) (st : SortExpr) : TranslateEnvT IndTypeDec
        forallCFunBody := impliesSmt predAppY forallCFunBody
        forallCFunBody := impliesSmt predAppX forallCFunBody
        innerForallBody := impliesSmt predAppX innerForallBody
+       if (← canGuardCoDomainArg funTypes[idx]!) then
+         coGuards := coGuards.set! idx (some predAppX)
        co_quantifiers := co_quantifiers.push (xsyms[i]!, smtTypes[i]!)
        arg_quantifiers := (arg_quantifiers.push (xsyms[i]!, smtTypes[i]!)).push (ysyms[i]!, smtTypes[i]!)
      -- isFun constraint
-     let forallCoBody ← createPredQualifierAppAux f_applyTerm1 retType (inPredQualifier := true)
+     -- issue #195: quantify the arguments over the QUALIFIED domain (see docstring NOTE).
+     let mut forallCoBody ← createPredQualifierAppAux f_applyTerm1 retType (inPredQualifier := true)
+     for i in [:nbTypes] do
+       let idx := nbTypes - i - 1
+       if let some predAppX := coGuards[idx]! then
+         forallCoBody := impliesSmt predAppX forallCoBody
      let forallCoDomain := mkForallTerm none co_quantifiers forallCoBody none
      let rt_args_vIds := rt_args.map (λ s => smtSimpleVarId s.1)
      let f_funPredApp := mkSimpleSmtAppN decl.instName (rt_args_vIds.push fId)
