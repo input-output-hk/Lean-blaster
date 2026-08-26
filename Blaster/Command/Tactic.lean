@@ -237,8 +237,9 @@ def blasterTacticImp : Tactic := fun stx =>
               if numBinders > 0 then
                 -- Build pointwise equality goal: ∀ xs, body₁(xs) = body₂(xs)
                 let innerGoalType ← forallTelescope lhs fun inputFvars inputBody => do
-                  let optBody ← forallTelescope rhs fun optFvars optBody =>
-                    mapOptBodyToInputFVars optBody optFvars inputFvars
+                  let optBody ←
+                    forallBoundedTelescope rhs (some inputFvars.size) fun optFvars optBody =>
+                      mapOptBodyToInputFVars optBody optFvars inputFvars
                   let eq ← mkEq inputBody optBody
                   mkForallFVars inputFvars eq
                 let innerProof ← proveByProofStack innerGoalType proofStack optBinders
