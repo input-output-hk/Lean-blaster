@@ -163,7 +163,8 @@ private def buildAndApplyProofStack (inputExpr : Expr) (optimized : Expr)
     else if isPropInput then
       let n ← forallTelescope inputExpr fun fvars _ => pure fvars.size
       let gt ← forallTelescope inputExpr fun inputFvars inputBody => do
-        let optBody ← forallTelescope optimized fun optFvars optBody =>
+        let optBody ←
+          forallBoundedTelescope optimized (some inputFvars.size) fun optFvars optBody =>
           mapOptBodyToInputFVars optBody optFvars inputFvars
         let eq ← mkEq inputBody optBody
         mkForallFVars inputFvars eq

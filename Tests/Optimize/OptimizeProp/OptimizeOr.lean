@@ -261,10 +261,8 @@ namespace Tests.OptimizeOr
 -- a ∨ (a → b) ===> True
 #testOptimize [ "OrImplies_1", proof ] ∀ (a b : Prop), a ∨ (a → b) ===> True
 
--- (a ∨ (b → a)) = (b → a) ===> True
--- NOTE: the reduction is `a ∨ (b → a) ==> (b → a)`. It is stated equationally
--- because the proof replay mistelescopes a top-level implication as the optimized form.
-#testOptimize [ "OrImplies_2", proof ] ∀ (a b : Prop), (a ∨ (b → a)) = (b → a) ===> True
+-- a ∨ (b → a) ===> (b → a)
+#testOptimize [ "OrImplies_2", proof ] ∀ (a b : Prop), a ∨ (b → a) ===> ∀ (a b : Prop), (b → a)
 
 
 end Tests.OptimizeOr

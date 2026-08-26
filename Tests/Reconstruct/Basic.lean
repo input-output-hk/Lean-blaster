@@ -74,6 +74,9 @@ example : ∀ (n : Nat),
 example : (∀ (n : Nat), 0 + n = n) = (∀ (n : Nat), n = n) := by blaster
 example : (∀ (m n : Nat), m + n = n + m) = (∀ (m n : Nat), n + m = n + m) := by blaster
 
+-- Optimized side is a top-level implication
+example : (∀ (a b : Prop), a ∨ (b → a)) = (∀ (a b : Prop), b → a) := by blaster
+
 -- Propositional equality with True
 example : (∀ (x : Nat), 0 * x = 0) = True := by blaster
 example : (∀ (m n : Nat), m + n = n + m) = True := by blaster
