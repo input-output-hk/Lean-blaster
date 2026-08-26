@@ -26,17 +26,18 @@ def logSmtQuery : TranslateEnvT Unit := do
   let env ← get
   let sOpts := env.optEnv.options.solverOptions
   unless sOpts.dumpSmtLib || sOpts.verbose ≥ 3 do return
-  if env.smtEnv.solverRecords.size == 1 && sOpts.solverMode == .single then
-    IO.println "Smt Query:"
-    let some record := env.smtEnv.solverRecords[0]? | return
+  let records := [SmtSolver.z3, SmtSolver.cvc5].filterMap fun solver =>
+    env.smtEnv.solverRecords.find? (·.solver == solver)
+  for record in records do
+    if records.length == 1 && sOpts.solverMode == .single then
+      IO.println "Smt Query:"
+    else
+      IO.println s!"SMT Query [{record.solver}]:"
     record.setupCommands.forM (fun command => IO.println s!"{command}")
     env.smtEnv.smtCommands.forM (fun command => IO.println s!"{command}")
-  else
-    for record in env.smtEnv.solverRecords do
-      IO.println s!"SMT Query [{record.solver}]:"
-      record.setupCommands.forM (fun command => IO.println s!"{command}")
-      env.smtEnv.smtCommands.forM (fun command => IO.println s!"{command}")
-      IO.println s!"{env.smtEnv.lastCheckCommand.getD .checkSat}"
+    if let some command := record.checkCommand then IO.println s!"{command}"
+    record.modelCommands.forM (fun command => IO.println command)
+    IO.println "(exit)"
 
 
 /-- Profile Task `msg` when verbose is greater than verboseLevel by displaying
