@@ -253,4 +253,18 @@ namespace Tests.OptimizeOr
 #testOptimize [ "OrCommut_4" ] ∀ (a b c : Prop), (a ∨ (b ∨ c)) = ((c ∨ b) ∨ a) ===> True
 
 
+/-! Test cases for the implicative reductions on `Or`:
+     - `e1 ∨ (e1 → e2) ==> True`
+     - `e1 ∨ (e2 → e1) ==> (e2 → e1)`
+-/
+
+-- a ∨ (a → b) ===> True
+#testOptimize [ "OrImplies_1", proof ] ∀ (a b : Prop), a ∨ (a → b) ===> True
+
+-- (a ∨ (b → a)) = (b → a) ===> True
+-- NOTE: the reduction is `a ∨ (b → a) ==> (b → a)`. It is stated equationally
+-- because the proof replay mistelescopes a top-level implication as the optimized form.
+#testOptimize [ "OrImplies_2", proof ] ∀ (a b : Prop), (a ∨ (b → a)) = (b → a) ===> True
+
+
 end Tests.OptimizeOr

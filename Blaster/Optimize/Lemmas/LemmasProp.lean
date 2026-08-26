@@ -57,4 +57,37 @@ protected theorem not_true_is_false (e : Bool):
   apply propext;
   rw [Bool.true_eq, Bool.not_eq_true, Bool.false_eq]
 
+/-! ## Lemmas validating the `Iff` expansion and the And/Or implicative reductions:
+    - `p ↔ q ==> (p → q) ∧ (q → p)`
+    - `e1 ∧ (e1 → e2) ==> e1 ∧ e2`
+    - `e1 ∧ (e2 → e1) ==> e1`
+    - `(e1 → e2) ∧ (¬ e1 → e2) ==> e2`
+    - `e1 ∨ (e1 → e2) ==> True`
+    - `e1 ∨ (e2 → e1) ==> (e2 → e1)`
+-/
+protected theorem iff_eq_implies_and_implies (p q : Prop) :
+  (p ↔ q) = ((p → q) ∧ (q → p)) :=
+  propext iff_iff_implies_and_implies
+
+protected theorem and_imp_self_eq_and (p q : Prop) :
+  (p ∧ (p → q)) = (p ∧ q) :=
+  propext ⟨fun h => ⟨h.1, h.2 h.1⟩, fun h => ⟨h.1, fun _ => h.2⟩⟩
+
+protected theorem and_imp_right_eq_left (p q : Prop) :
+  (p ∧ (q → p)) = p :=
+  propext ⟨fun h => h.1, fun h => ⟨h, fun _ => h⟩⟩
+
+protected theorem and_imp_not_imp_eq (p q : Prop) :
+  ((p → q) ∧ (¬ p → q)) = q :=
+  propext (imp_and_neg_imp_iff p)
+
+protected theorem or_imp_self_eq_true (p q : Prop) :
+  (p ∨ (p → q)) = True :=
+  propext ⟨fun _ => trivial,
+           fun _ => (Classical.em p).elim Or.inl (fun hnp => Or.inr (fun hp => absurd hp hnp))⟩
+
+protected theorem or_imp_right_eq_imp (p q : Prop) :
+  (p ∨ (q → p)) = (q → p) :=
+  propext ⟨fun h => h.elim (fun hp _ => hp) id, fun h => Or.inr h⟩
+
 end Blaster

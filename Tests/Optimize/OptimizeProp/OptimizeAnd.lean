@@ -265,4 +265,20 @@ namespace Test.OptimizeAnd
 #testOptimize [ "AndCommut_4" ] ∀ (a b c : Prop), (a ∧ (b ∧ c)) = ((c ∧ b) ∧ a) ===> True
 
 
+/-! Test cases for the implicative reductions on `And`:
+     - `e1 ∧ (e1 → e2) ==> e1 ∧ e2`
+     - `e1 ∧ (e2 → e1) ==> e1`
+     - `(e1 → e2) ∧ (¬ e1 → e2) ==> e2`
+-/
+
+-- a ∧ (a → b) ===> a ∧ b
+#testOptimize [ "AndImplies_1", proof ] ∀ (a b : Prop), a ∧ (a → b) ===> ∀ (a b : Prop), a ∧ b
+
+-- a ∧ (b → a) ===> a
+#testOptimize [ "AndImplies_2", proof ] ∀ (a b : Prop), a ∧ (b → a) ===> ∀ (a : Prop), a
+
+-- (a → b) ∧ (¬ a → b) ===> b
+#testOptimize [ "AndImplies_3", proof ] ∀ (a b : Prop), (a → b) ∧ (¬ a → b) ===> ∀ (b : Prop), b
+
+
 end Test.OptimizeAnd
