@@ -1190,9 +1190,13 @@ def translateApp
      - let sb := termTranslator b
      - When V = ∅
         - declare smt function `(declare-const @lambda{n} FunArrowType)`
-        - assert the following proposition to properly constrain @lambda{n}:
+        - assert the following proposition to properly constrain @lambda{n}
+          (the definition is guarded by the domain qualifiers `@isT{i}` of the
+          quantified variables, mirroring the guarded extensionality/congruence
+          assertions of `generateFunInstDeclAux` — see Issue194):
           `(assert (forall ((x₁ st₁) ... (xₘ stₘ))
-             (! (= (@apply{k} @lambda{n} x₁ ... xₘ) sb)
+             (! (=> (@isT₁ x₁) (... (=> (@isTₘ xₘ)
+                  (= (@apply{k} @lambda{n} x₁ ... xₘ) sb))))
                :pattern ((@apply{k} @lambda{n} x₁ ... xₘ))
                :qid @lambda{n]_def_cstr)))`
         - return `smtSimpleVarId @lambda{n}`
@@ -1204,9 +1208,11 @@ def translateApp
         - let globalDecl ← generateFunInstDeclAux globalType GlobalArrowType
         - let some @apply{n} := globalDecl.applyInstName
         - declare smt function `(declare-const @global_lambda{n} GlobalArrowType)`
-        - assert the following proposition to properly constrain @global_lambda{n}!
+        - assert the following proposition to properly constrain @global_lambda{n}
+          (guarded by the domain qualifiers of ALL quantified variables, as above):
            - `(assert (forall ((y₁, yt₁) ... (yₖ, ytₖ) (x₁, st₁) ... (xₘ, stₘ))
-               (! (= (@apply{k} (@apply{n} @global_lambda{n} y₁ ... yₖ) x₁ ... xₘ) sb)
+               (! (=> (@isYT₁ y₁) (... (=> (@isTₘ xₘ)
+                    (= (@apply{k} (@apply{n} @global_lambda{n} y₁ ... yₖ) x₁ ... xₘ) sb))))
                   :pattern ((@apply{k} (@apply{n} @global_lambda{n} y₁ ... yₖ) x₁ ... xₘ))
                   :qid @global_lambda{n}_def_cstr)))`
        - return `(@apply{n} @global_lambda{n} y₁ ... yₖ)`
@@ -1216,13 +1222,20 @@ def translateLambda
  let pInfo ← getFunEnvInfo e
  Optimize.lambdaTelescope e fun fvars b => do
    let mut svars := (#[] : SortedVars)
+   let mut squalifiers := (#[] : Array SmtTerm)
    for h1 : i in [:fvars.size] do
      let fv := fvars[i]
      let decl ← getFVarLocalDecl fv
      updateQuantifiedFVarsCache fv.fvarId! false
      if pInfo.paramsInfo[i]!.isExplicit then
        let st ← translateFunLambdaParamType decl.type termTranslator
-       svars := svars.push (← fvarIdToSmtSymbol fv.fvarId!, st)
+       let smtSym ← fvarIdToSmtSymbol fv.fvarId!
+       svars := svars.push (smtSym, st)
+       -- domain qualifier premise guarding the lambda definition constraint
+       -- (must mirror the guarded extensionality/congruence assertions of
+       -- `generateFunInstDeclAux`, otherwise the background theory becomes
+       -- inconsistent — see Issue194)
+       squalifiers := squalifiers.push (← createPredQualifierApp smtSym (← removeTypeAbbrev decl.type))
    let bodyType ← inferTypeEnv b
    let rt ← translateFunLambdaParamType bodyType termTranslator
    let v ← mkFreshId
@@ -1244,16 +1257,20 @@ def translateLambda
      let lamId := smtSimpleVarId lambdaName
      let applyArgs := Array.foldl (λ acc s => acc.push (smtSimpleVarId s.1)) #[lamId] svars
      let applyTerm := mkSimpleSmtAppN applyName applyArgs
-     let forallBody := eqSmt applyTerm sb
+     let forallBody := guardWithQualifiers squalifiers (eqSmt applyTerm sb)
      assertTerm (mkForallTerm none svars forallBody (some #[mkPattern #[applyTerm], mkQid qidName]))
      return lamId
    else
     let mut gvars := (#[] : SortedVars)
+    let mut gqualifiers := (#[] : Array SmtTerm)
     for h2 : i in [:lvars.size] do
      let fv := lvars[i]
      let decl ← getFVarLocalDecl fv
      let st ← translateFunLambdaParamType decl.type termTranslator
-     gvars := gvars.push (← fvarIdToSmtSymbol fv.fvarId!, st)
+     let smtSym ← fvarIdToSmtSymbol fv.fvarId!
+     gvars := gvars.push (smtSym, st)
+     -- domain qualifier premise (see squalifiers above)
+     gqualifiers := gqualifiers.push (← createPredQualifierApp smtSym (← removeTypeAbbrev decl.type))
     let arrowT ← declareArrowTypeSort (lvars.size + 1)
     let globalArrowType := paramSort arrowT ((Array.map (λ s => s.2) gvars).push funArrowType)
     -- wrapping lamType within `outParam` to properly generate function instance
@@ -1274,10 +1291,17 @@ def translateLambda
     let qidName := appendSymbol globalName "def_cstr"
     let g_patterns := some #[mkPattern #[applyTerm], mkQid qidName]
     gvars := Array.foldl (λ acc s => acc.push s) gvars svars
-    assertTerm (mkForallTerm none gvars (eqSmt applyTerm sb) g_patterns)
+    let forallBody := guardWithQualifiers (gqualifiers ++ squalifiers) (eqSmt applyTerm sb)
+    assertTerm (mkForallTerm none gvars forallBody g_patterns)
     return globalAppTerm
 
  where
+   /-- Wrap `body` with the domain qualifier premises of the quantified variables
+       (first variable's premise outermost), mirroring the qualifier guards of the
+       extensionality/congruence assertions generated by `generateFunInstDeclAux`. -/
+   guardWithQualifiers (qualifiers : Array SmtTerm) (body : SmtTerm) : SmtTerm :=
+     Array.foldr (fun q acc => impliesSmt q acc) body qualifiers
+
    retrieveLocalFVars (b : Expr) : TranslateEnvT (Array Expr) := do
      -- Need to ensure that fvars are unique
      let (fvars, _) ← updateGenericArgs b #[] Std.HashSet.emptyWithCapacity
