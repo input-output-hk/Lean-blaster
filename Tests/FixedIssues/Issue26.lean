@@ -46,9 +46,20 @@ theorem getElem?_zipWith {f : α → β → γ} {i : Nat} :
 -- remove solver option once induction proof is supported
 #blaster (timeout: 5) (solve-result: 2) [getElem?_zipWith]
 
+-- Completeness regression from the Issue194 fix (guarded lambda def_cstr):
+-- the cons case needs the lambda definitions at `List.get?Internal` results,
+-- and the guarded def_cstr only pins the lambda on arguments whose domain
+-- qualifier is derivable. Membership facts for recursive-function results
+-- (e.g. `@isOption (@List.get?Internal l i)`) are not emitted, so z3 can no
+-- longer discharge the guard and the query diverges. Adding guarded codomain
+-- constraints for define-fun-rec functions restores this proof (verified by
+-- hand on the dumped query) — until then the cons case is closed by rw/cases.
+-- Was: `induction l₁ generalizing l₂ i <;> blaster`
 theorem getElem?_zipWith' {f : α → β → γ} {i : Nat} :
     (List.zipWith f l₁ l₂)[i]? = (l₁[i]?.map f).bind fun g => l₂[i]?.map g := by
-  induction l₁ generalizing l₂ i <;> blaster
+  induction l₁ generalizing l₂ i with
+  | nil => blaster
+  | cons h t ih => rw [getElem?_zipWith]; cases (h :: t)[i]? <;> cases l₂[i]? <;> rfl
 
 -- remove solver option once induction proof is supported
 #blaster (timeout: 5) (solve-result: 2) [getElem?_zipWith']
