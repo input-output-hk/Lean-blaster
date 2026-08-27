@@ -14,31 +14,31 @@ private def expectedWithCvc5Allowance : BlasterOptions :=
   { solveResult := .ExpectedUndetermined, allowCvc5Undetermined := true }
 
 private def strictCvc5RejectsUnexpected : Bool :=
-  undeterminedAction default .cvc5 true == .strictError
+  undeterminedAction default (some .cvc5) true == .strictError
 
 private def nonstrictCvc5WarnsOnUnexpected : Bool :=
-  undeterminedAction default .cvc5 false == .warning
+  undeterminedAction default (some .cvc5) false == .warning
 
 private def strictFlagDoesNotAffectZ3 : Bool :=
-  undeterminedAction default .z3 true == .warning
+  undeterminedAction default (some .z3) true == .warning
 
 private def declaredUndeterminedWinsInStrictMode : Bool :=
-  undeterminedAction expectedUndetermined .cvc5 true == .expected
+  undeterminedAction expectedUndetermined (some .cvc5) true == .expected
 
 private def cvc5AllowanceWinsInStrictMode : Bool :=
-  undeterminedAction cvc5Allowance .cvc5 true == .allowed
+  undeterminedAction cvc5Allowance (some .cvc5) true == .allowed
 
 private def cvc5AllowanceDoesNotApplyToZ3 : Bool :=
-  undeterminedAction cvc5Allowance .z3 true == .warning
+  undeterminedAction cvc5Allowance (some .z3) true == .warning
 
 private def declaredUndeterminedAppliesToZ3 : Bool :=
-  undeterminedAction expectedUndetermined .z3 true == .expected
+  undeterminedAction expectedUndetermined (some .z3) true == .expected
 
 private def nonstrictCvc5AllowanceIsAccepted : Bool :=
-  undeterminedAction cvc5Allowance .cvc5 false == .allowed
+  undeterminedAction cvc5Allowance (some .cvc5) false == .allowed
 
 private def declarationPrecedesCvc5Allowance : Bool :=
-  undeterminedAction expectedWithCvc5Allowance .cvc5 true == .expected
+  undeterminedAction expectedWithCvc5Allowance (some .cvc5) true == .expected
 
 #guard strictCvc5RejectsUnexpected
 #guard nonstrictCvc5WarnsOnUnexpected

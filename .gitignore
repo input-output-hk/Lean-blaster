@@ -1,3 +1,4 @@
 .venv/
 .lake/
 build.log
+.blaster/
