@@ -207,6 +207,28 @@ namespace Tests.OptimizeBoolOr
 #testOptimize [ "BoolOrCommut_4" ] ∀ (a b c : Bool), (a || (b || c)) = ((c || b) || a) ===> True
 
 
+/-! Test cases for normalization rule `e1 || e2 ===> true (if true = e1 := _ ∈ hypothesisContext.hypothesisMap)` -/
+#testOptimize ["BoolTrueOr_1", proof] (norm-result: 1)
+    ∀ (a b : Bool), true = a → (a || b) = true ===> True
+
+#testOptimize ["BoolTrueOr_2", proof] (norm-result: 1)
+    ∀ (a b : Bool), true = a → (a || b) ===> True
+
+/-! Test cases for normalization rule `e1 || e2 ===> true (if true = e2 := _ ∈ hypothesisContext.hypothesisMap)`-/
+#testOptimize ["BoolOrTrue_1", proof] (norm-result: 1)
+    ∀ (a b : Bool), true = b → (a || b) = true ===> True
+
+#testOptimize ["BoolOrTrue_2", proof] (norm-result: 1)
+    ∀ (a b : Bool), true = b → (a || b) ===> True
+
+/-! Test cases for normalization rule `e1 || e2 ===> e2 (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = false = e1)`-/
+#testOptimize ["BoolFalseOr_1", proof] (norm-result: 1)
+    ∀ (a b : Bool), false = a → (a || b) = b ===> True
+
+/-! Test cases for normalization rule `e1 || e2 ===> e1 (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = false = e2)`-/
+#testOptimize ["BoolOrFalse_1", proof] (norm-result: 1)
+    ∀ (a b : Bool), false = b → (a || b) = a ===> True
+
 /-! Test cases to ensure that constant propagation is properly performed
     when `or` operands are reduced to constant values via optimization.
 -/

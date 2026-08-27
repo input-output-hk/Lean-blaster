@@ -1,10 +1,26 @@
 import Lean
 import Blaster.Optimize.Rewriting.Utils
 import Blaster.Optimize.Env
-
+import Blaster.Optimize.Lemmas.LemmasBool
 
 open Lean Meta
 namespace Blaster.Optimize
+
+/-- Proof-returning companion to looking for `mkEqBool b true` in the hypothesis context
+  for a non literal `e`: when `true = e` is a hypothesis in the context,
+  return its proof; otherwise `none`.
+-/
+def trueEqProof? (e : Expr) : TranslateEnvT (Option Expr) := do
+  let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
+  return hyps.get? (← mkEqBool e true)
+
+/-- Proof-returning companion to looking for `mkEqBool b false` in the hypothesis context
+  for a non literal `e`: when `false = e` is a hypothesis in the context,
+  return its proof; otherwise `none`.
+-/
+def falseEqProof? (e: Expr) : TranslateEnvT (Option Expr) := do
+  let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
+  return hyps.get? (← mkEqBool e false)
 
  /-- Given `a` and `b` the operands for `and`, apply the simplification rules:
      - When true = a := _ ∈ hypothesisContext.hypothesisMap,
@@ -19,11 +35,18 @@ namespace Blaster.Optimize
         - return `none`
  -/
  def andBoolReduction? (a : Expr) (b : Expr) : TranslateEnvT (Option Expr) := do
-  let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
-  if hyps.contains (← mkEqBool a true) then return b
-  if hyps.contains (← mkEqBool b true) then return a
-  if hyps.contains (← mkEqBool a false) then return (← mkBoolFalse)
-  if hyps.contains (← mkEqBool b false) then return (← mkPropFalse)
+  if let some p ← trueEqProof? a then
+    pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.true_and_with_hyp) a b p))
+    return b
+  if let some p ← trueEqProof? b then
+    pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.and_true_with_hyp) a b p))
+    return a
+  if let some p ← falseEqProof? a then
+    pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.false_and_with_hyp) a b p))
+    return (← mkBoolFalse)
+  if let some p ← falseEqProof? b then
+    pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.and_false_with_hyp) a b p))
+    return (← mkBoolFalse)
   return none
 
 /-- Apply the following simplification/normalization rules on `and` :
@@ -31,10 +54,10 @@ namespace Blaster.Optimize
      - true && e ==> e                                                                       [proof: Bool.true_and]
      - e && not e ==> false                                                                  [proof: Bool.and_not_self]
      - e1 && e2 ==> e1 (if e1 =ₚₜᵣ e2)                                                        [proof: Bool.and_self]
-     - e1 && e2 ===> e2 (if true = e1 := _ ∈ hypothesisContext.hypothesisMap)
-     - e1 && e2 ===> e1 (if true = e2 := _ ∈ hypothesisContext.hypothesisMap)
-     - e1 && e2 ===> false (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = false = e1)
-     - e1 && e2 ===> false (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = false = e2)
+     - e1 && e2 ===> e2 (if true = e1 := _ ∈ hypothesisContext.hypothesisMap)               [proof: Blaster.true_and_with_hyp]
+     - e1 && e2 ===> e1 (if true = e2 := _ ∈ hypothesisContext.hypothesisMap)               [proof: Blaster.and_true_with_hyp]
+     - e1 && e2 ===> false (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = false = e1)  [proof: Blaster.false_and_with_hyp]
+     - e1 && e2 ===> false (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = false = e2)  [proof: Blaster.and_false_with_hyp]
      - e1 && e2 ==> e2 && e1 (if e2 <ₒ e1)
    Assume that f = Expr.const ``and.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `and` expected at this stage)
@@ -77,11 +100,18 @@ def optimizeBoolAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
         - return `none`
  -/
  def orBoolReduction? (a : Expr) (b : Expr) : TranslateEnvT (Option Expr) := do
-  let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
-  if hyps.contains (← mkEqBool a true) then return (← mkBoolTrue)
-  if hyps.contains (← mkEqBool b true) then return (← mkBoolTrue)
-  if hyps.contains (← mkEqBool a false) then return b
-  if hyps.contains (← mkEqBool b false) then return a
+  if let some p ← trueEqProof? a then
+    pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.true_or_with_hyp) a b p))
+    return (← mkBoolTrue)
+  if let some p ← trueEqProof? b then
+    pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.or_true_with_hyp) a b p))
+    return (← mkBoolTrue)
+  if let some p ← falseEqProof? a then
+    pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.false_or_with_hyp) a b p))
+    return b
+  if let some p ← falseEqProof? b then
+    pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.or_false_with_hyp) a b p))
+    return a
   return none
 
 /-- Apply the following simplification/normalization rules on `or` :
@@ -89,10 +119,10 @@ def optimizeBoolAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      - true || e ==> true                                                                    [proof: Bool.true_or]
      - e || not e ==> true                                                                   [proof: Bool.or_not_self]
      - e1 || e2 ==> e1 (if e1 =ₚₜᵣ e2)                                                        [proof: Bool.or_self]
-     - e1 || e2 ===> true (if true = e1 := _ ∈ hypothesisContext.hypothesisMap)
-     - e1 || e2 ===> true (if true = e2 := _ ∈ hypothesisContext.hypothesisMap)
-     - e1 || e2 ===> e2 (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = false = e1)
-     - e1 || e2 ===> e1 (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = false = e2)
+     - e1 || e2 ===> true (if true = e1 := _ ∈ hypothesisContext.hypothesisMap)             [proof: Blaster.true_or_with_hyp]
+     - e1 || e2 ===> true (if true = e2 := _ ∈ hypothesisContext.hypothesisMap)             [proof: Blaster.or_true_with_hyp]
+     - e1 || e2 ===> e2 (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = false = e1)     [proof: Blaster.false_or_with_hyp]
+     - e1 || e2 ===> e1 (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = false = e2)     [proof: Blaster.or_false_with_hyp]
      - e1 || e2 ==> e2 || e1 (if e2 <ₒ e1)
    Assume that f = Expr.const ``or.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `or` expected at this stage)

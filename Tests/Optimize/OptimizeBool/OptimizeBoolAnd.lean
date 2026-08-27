@@ -204,6 +204,28 @@ namespace Test.OptimizeBoolAnd
 #testOptimize [ "BoolAndCommut_4" ] ∀ (a b c : Bool), (a && (b && c)) = ((c && b) && a) ===> True
 
 
+/-! Test cases for normalization rule `e1 && e2 ===> e2 (if true = e1 := _ ∈ hypothesisContext.hypothesisMap)`-/
+
+#testOptimize ["BoolTrueAnd_1", proof] (norm-result: 1)
+    ∀ (a b : Bool), true = a → (a && b) = b ===> True
+
+#testOptimize ["BoolTrueAnd_2", proof] (norm-result: 1)
+    ∀ (a b : Bool), ¬ (false = a) → (a && b) = b ===> True
+
+/-! Test cases for normalization rule `e1 && e2 ===> e1 (if true = e2 := _ ∈ hypothesisContext.hypothesisMap)`-/
+
+#testOptimize["BoolAndTrue_1", proof] (norm-result: 1)
+    ∀ (a b : Bool), true = b → (a && b) = a ===> True
+
+/-! Test cases for normalization rule`e1 && e2 ===> false (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = false = e1)`-/
+
+#testOptimize["BoolFalseAnd_1", proof] (norm-result: 1)
+    ∀ (a b : Bool), false = a → (a && b) = false ===> True
+
+/-! Test cases for normalization rule `e1 && e2 ===> false (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = false = e2)`-/
+
+#testOptimize["BoolAndFalse_1", proof] (norm-result: 1)
+    ∀ (a b : Bool), false = b → (a && b) = false ===> True
 
 /-! Test cases to ensure that constant propagation is properly performed
     when `and` operands are reduced to constant values via optimization.
