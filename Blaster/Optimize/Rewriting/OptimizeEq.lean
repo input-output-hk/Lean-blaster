@@ -364,6 +364,8 @@ def optimizeEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
     return mkApp (← mkPropNotOp) op2
  if let Expr.const ``True _ := op1 then
   pushProofStep (.rewrite (mkConst ``Blaster.true_prop_is_idem))
+  if let Expr.const ``True _ := op2 then
+    pushProofStep (.exact (mkConst ``True.intro))
   return op2
  if isNotExprOf op2 op1 then
   pushProofStep (.rewrite (mkConst ``Blaster.eq_neg_is_false))
