@@ -90,4 +90,30 @@ protected theorem or_imp_right_eq_imp (p q : Prop) :
   (p ∨ (q → p)) = (q → p) :=
   propext ⟨fun h => h.elim (fun hp _ => hp) id, fun h => Or.inr h⟩
 
+
+/-! ## Lemmas validating the `Eq` simplifications over Prop:
+    - `False = e ==> ¬ e`
+    - `True = e ==> e`
+    - `e = ¬ e ==> False`
+    - `¬ e1 = ¬ e2 ==> e1 = e2 (Classical)`
+-/
+
+protected theorem false_prop_is_neg (e : Prop) : (False = e) = ¬ e := by
+  apply propext
+  rw [eq_iff_iff]
+  exact iff_false_left fun a => a
+
+protected theorem true_prop_is_idem (e : Prop) : (True = e) = e := by
+  apply propext
+  rw [eq_iff_iff]
+  exact iff_true_left trivial
+
+protected theorem eq_neg_is_false (e : Prop) : (e = ¬ e) = False := by
+  simp only [eq_iff_iff, iff_not_self]
+
+protected theorem neg_eq_neg_is_eq (a b : Prop) :
+  (¬ a = ¬ b) = (a = b) := by
+  classical
+  simp only [eq_iff_iff, Classical.not_iff, Decidable.not_iff_not]
+
 end Blaster

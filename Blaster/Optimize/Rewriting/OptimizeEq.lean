@@ -320,10 +320,10 @@ def arithEq? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
   return none
 
 /-- Apply the following simplification/normalization rules on `Eq` :
-     - False = e ==> ¬ e
-     - True = e ==> e
-     - e = ¬ e ==> False
-     - e = not e ==> False
+     - False = e ==> ¬ e                  [proof: Blaster.false_prop_is_neg]
+     - True = e ==> e                     [proof: Blaster.true_prop_is_idem]
+     - e = ¬ e ==> False                  [proof: Blaster.eq_neg_is_false]
+     - e = not e ==> False                [proof: Blaster.eq_not_is_false]
      - e1 = e2 ==> True (if e1 =ₚₜᵣ e2)
      - e1 = e2 ==> False (if structEq? e1 e2 = some false) (NOTE: `some true` case already handled by =ₚₜᵣ)
      - true = not e ==> false = e
@@ -359,10 +359,18 @@ def optimizeEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
  let op2 := args[2]!
  let eqType := args[0]!
  if let Expr.const ``False _ := op1 then
+    pushProofStep (.rewrite (mkConst ``Blaster.false_prop_is_neg))
     setRestart
     return mkApp (← mkPropNotOp) op2
- if let Expr.const ``True _ := op1 then return op2
- if isNotExprOf op2 op1 || isBoolNotExprOf op2 op1 then return ← mkPropFalse
+ if let Expr.const ``True _ := op1 then
+  pushProofStep (.rewrite (mkConst ``Blaster.true_prop_is_idem))
+  return op2
+ if isNotExprOf op2 op1 then
+  pushProofStep (.rewrite (mkConst ``Blaster.eq_neg_is_false))
+  return ← mkPropFalse
+ if isBoolNotExprOf op2 op1 then
+  pushProofStep (.rewrite (mkConst ``Blaster.eq_not_is_false))
+  return ← mkPropFalse
  if exprEq op1 op2 then
   let lvl ← mkFreshLevelMVar
   pushProofStep (.rewrite (mkConst ``eq_self [lvl]))
@@ -412,17 +420,21 @@ def optimizeEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
    notNegEqSimp? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option (Expr × Expr)) := do
     match op1, boolNot? op2, boolNot? op1 with
     | Expr.const ``true _, some e, _ =>
+         pushProofStep (.rewrite (mkConst ``Blaster.true_eq_not_is_false_eq))
          setRestart
          return some (← mkBoolFalse, e)
     | Expr.const ``false _, some e, _ =>
+         pushProofStep (.rewrite (mkConst ``Blaster.false_eq_not_is_true_eq))
          setRestart
          return (some (← mkBoolTrue, e))
     | _, some e2, some e1 =>
+         pushProofStep (.rewrite (mkConst ``Blaster.not_eq_not_is_eq))
          setRestart
          return (some (e1, e2))
     | _, _, _ =>
       match propNot? op1, propNot? op2 with
       | some e1, some e2 =>
+           pushProofStep (.rewrite (mkConst ``Blaster.neg_eq_neg_is_eq))
            setRestart
            return (some (e1, e2))
       | _, _ => return none

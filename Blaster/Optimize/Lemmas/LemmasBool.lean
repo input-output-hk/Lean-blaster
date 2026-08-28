@@ -45,4 +45,28 @@ protected theorem or_false_with_hyp (a b : Bool) (h : false = b) :
   rw [← h]
   exact Bool.or_false a
 
+/-! ## Lemmas validating the Bool `Eq` reductions rules:
+  - `e = not e ==> False`
+  - `true = not e ==> false = e`
+  - `false = not e ==> true = e`
+  - `not e1 = not e2 ==> e1 = e2`
+-/
+
+protected theorem eq_not_is_false (e : Bool) : (e = not e) = False := by
+  rw[Bool.eq_not_self]
+
+protected theorem true_eq_not_is_false_eq (e : Bool) :
+  (true = not e) = (false = e) := by
+  rw [Bool.true_eq, Bool.false_eq]
+  exact Bool.not_eq_true' e
+
+protected theorem false_eq_not_is_true_eq (e : Bool) :
+  (false = not e) = (true = e) := by
+  rw [Bool.true_eq, Bool.false_eq]
+  exact Bool.not_eq_false' e
+
+protected theorem not_eq_not_is_eq (a b : Bool) :
+  (not a = not b) = (a = b) := by
+  rw [Bool.not_eq_eq_eq_not, Bool.not_not]
+
 end Blaster
