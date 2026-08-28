@@ -265,4 +265,30 @@ namespace Tests.OptimizeOr
 #testOptimize [ "OrImplies_2", proof ] ∀ (a b : Prop), a ∨ (b → a) ===> ∀ (a b : Prop), (b → a)
 
 
+/-! Test cases for the hypothesis-context reductions on `Or`:
+     - `e1 ∨ e2 ==> True (if e1 holds in the hypothesis context)`
+     - `e1 ∨ e2 ==> True (if e2 holds in the hypothesis context)`
+     - `e1 ∨ e2 ==> e2 (if ¬ e1 holds in the hypothesis context)`
+     - `e1 ∨ e2 ==> e1 (if ¬ e2 holds in the hypothesis context)`
+-/
+
+-- a → (a ∨ b)
+#testOptimize [ "OrHyp_1", proof ] ∀ (a b : Prop), a → (a ∨ b) ===> True
+
+-- b → (a ∨ b)
+#testOptimize [ "OrHyp_2", proof ] ∀ (a b : Prop), b → (a ∨ b) ===> True
+
+-- ¬ a → (a ∨ b) = b
+#testOptimize [ "OrHyp_3", proof ] ∀ (a b : Prop), ¬ a → (a ∨ b) = b ===> True
+
+-- ¬ b → (a ∨ b) = a
+#testOptimize [ "OrHyp_4", proof ] ∀ (a b : Prop), ¬ b → (a ∨ b) = a ===> True
+
+
+/-! Test case for the commutative reorder on `Or`: e1 ∨ e2 ==> e2 ∨ e1 (if e2 <ₒ e1). -/
+
+-- b ∨ a ===> a ∨ b
+#testOptimize [ "OrReorder_1", proof ] ∀ (a b : Prop), b ∨ a ===> ∀ (a b : Prop), a ∨ b
+
+
 end Tests.OptimizeOr

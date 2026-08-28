@@ -19,10 +19,18 @@ namespace Blaster.Optimize
  -/
  def andPropReduction? (a : Expr) (b : Expr) : TranslateEnvT (Option Expr) := do
   let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
-  if (← inHypMap a hyps).isSome then return b
-  if (← inHypMap b hyps).isSome then return a
-  if (← notInHypMap a hyps).isSome then return (← mkPropFalse)
-  if (← notInHypMap b hyps).isSome then return (← mkPropFalse)
+  if let some p ← inHypMap a hyps then
+    pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.and_left_hyp_eq_right) a b p))
+    return b
+  if let some p ← inHypMap b hyps then
+    pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.and_right_hyp_eq_left) a b p))
+    return a
+  if let some p ← notInHypMap a hyps then
+    pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.and_left_neg_hyp_eq_false) a b p))
+    return (← mkPropFalse)
+  if let some p ← notInHypMap b hyps then
+    pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.and_right_neg_hyp_eq_false) a b p))
+    return (← mkPropFalse)
   return none
 
 
@@ -35,11 +43,11 @@ namespace Blaster.Optimize
      - e1 ∧ (e1 → e2) ==> e1 ∧ e2 (if ¬ e2.hasLooseBVars)
      - e1 ∧ (e2 → e1) ==> e1
      - (e1 → e2) ∧ (¬ e1 → e2) ==> e2
-     - e1 ∧ e2 ==> e2 (if e1 := _ ∈ hypothesisContext.hypothesisMap)
-     - e1 ∧ e2 ==> e1 (if e2 := _ ∈ hypothesisContext.hypothesisMap)
-     - e1 ∧ e2 ==> False (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = ¬ e1)
-     - e1 ∧ e2 ==> False (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = ¬ e2)
-     - e1 ∧ e2 ==> e2 ∧ e1 (if e2 <ₒ e1)
+     - e1 ∧ e2 ==> e2 (if e1 := _ ∈ hypothesisContext.hypothesisMap)                  [proof: Blaster.and_left_hyp_eq_right]
+     - e1 ∧ e2 ==> e1 (if e2 := _ ∈ hypothesisContext.hypothesisMap)                  [proof: Blaster.and_right_hyp_eq_left]
+     - e1 ∧ e2 ==> False (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = ¬ e1)    [proof: Blaster.and_left_neg_hyp_eq_false]
+     - e1 ∧ e2 ==> False (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = ¬ e2)    [proof: Blaster.and_right_neg_hyp_eq_false]
+     - e1 ∧ e2 ==> e2 ∧ e1 (if e2 <ₒ e1)                                              [proof: and_comm, see reorderOperands]
    Assume that f = Expr.const ``And.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `And` expected at this stage)
    TODO: consider additional simplification rules
@@ -114,10 +122,20 @@ def optimizeAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  -/
  def orPropReduction? (a : Expr) (b : Expr) : TranslateEnvT (Option Expr) := do
   let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
-  if (← inHypMap a hyps).isSome then return (← mkPropTrue)
-  if (← inHypMap b hyps).isSome then return (← mkPropTrue)
-  if (← notInHypMap a hyps).isSome then return b
-  if (← notInHypMap b hyps).isSome then return a
+  if let some p ← inHypMap a hyps then
+    pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.or_left_hyp_eq_true) a b p))
+    pushProofStep (.exact (mkConst ``True.intro))
+    return (← mkPropTrue)
+  if let some p ← inHypMap b hyps then
+    pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.or_right_hyp_eq_true) a b p))
+    pushProofStep (.exact (mkConst ``True.intro))
+    return (← mkPropTrue)
+  if let some p ← notInHypMap a hyps then
+    pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.or_left_neg_hyp_eq_right) a b p))
+    return b
+  if let some p ← notInHypMap b hyps then
+    pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.or_right_neg_hyp_eq_left) a b p))
+    return a
   return none
 
 
@@ -150,11 +168,11 @@ def orImpliesReduce? (a : Expr) (b : Expr) : TranslateEnvT (Option Expr) := do
      - true = e ∨ false = e ==> True   [proof: Blaster.true_or_false_is_true]
      - e1 ∨ (e1 → e2) ==> True
      - e1 ∨ (e2 → e1) ==> (e2 → e1)
-     - e1 ∨ e2 ==> True (if e1 := _ ∈ hypothesisContext.hypothesisMap)
-     - e1 ∨ e2 ==> True (if e2 := _ ∈ hypothesisContext.hypothesisMap)
-     - e1 ∨ e2 ==> e2 (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = ¬ e1)
-     - e1 ∨ e2 ==> e1 (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = ¬ e2)
-     - e1 ∨ e2 ==> e2 ∨ e1 (if e2 <ₒ e1)
+     - e1 ∨ e2 ==> True (if e1 := _ ∈ hypothesisContext.hypothesisMap)                [proof: Blaster.or_left_hyp_eq_true]
+     - e1 ∨ e2 ==> True (if e2 := _ ∈ hypothesisContext.hypothesisMap)                [proof: Blaster.or_right_hyp_eq_true]
+     - e1 ∨ e2 ==> e2 (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = ¬ e1)       [proof: Blaster.or_left_neg_hyp_eq_right]
+     - e1 ∨ e2 ==> e1 (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = ¬ e2)       [proof: Blaster.or_right_neg_hyp_eq_left]
+     - e1 ∨ e2 ==> e2 ∨ e1 (if e2 <ₒ e1)                                              [proof: or_comm, see reorderOperands]
    Assume that f = Expr.const ``Or.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Or` expected at this stage)
    TODO: consider additional simplification rules
@@ -187,7 +205,7 @@ def optimizeOr (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  return mkApp2 f op1 op2
 
 
-/-- Normalize `p ↔ q` to `(p → q) ∧ (q → p)`             [proof: Blaster.iff_eq_implies_and_implies]
+/-- Normalize `p ↔ q` to `(p → q) ∧ (q → p)`   [proof: Blaster.iff_eq_implies_and_implies]
     An error is triggered when args.size ≠ 2 (i.e., only fully applied `↔` expected at this stage)
 -/
 def optimizeIff (args : Array Expr) : TranslateEnvT Expr := do

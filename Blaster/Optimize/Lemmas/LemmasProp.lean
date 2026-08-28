@@ -118,4 +118,48 @@ protected theorem neg_eq_neg_is_eq (a b : Prop) :
   rw [eq_iff_iff, eq_iff_iff]
   exact Decidable.not_iff_not
 
+/-! ## Lemmas validating the hypothesis-context `And` reductions:
+    - `a ∧ b ==> b (if a holds in the hypothesis context)`
+    - `a ∧ b ==> a (if b holds in the hypothesis context)`
+    - `a ∧ b ==> False (if ¬ a holds in the hypothesis context)`
+    - `a ∧ b ==> False (if ¬ b holds in the hypothesis context)`
+-/
+protected theorem and_left_hyp_eq_right (a b : Prop) (h : a) :
+  (a ∧ b) = b :=
+  propext ⟨And.right, fun hb => ⟨h, hb⟩⟩
+
+protected theorem and_right_hyp_eq_left (a b : Prop) (h : b) :
+  (a ∧ b) = a :=
+  propext ⟨And.left, fun ha => ⟨ha, h⟩⟩
+
+protected theorem and_left_neg_hyp_eq_false (a b : Prop) (h : ¬ a) :
+  (a ∧ b) = False :=
+  propext ⟨fun hab => h hab.1, False.elim⟩
+
+protected theorem and_right_neg_hyp_eq_false (a b : Prop) (h : ¬ b) :
+  (a ∧ b) = False :=
+  propext ⟨fun hab => h hab.2, False.elim⟩
+
+/-! ## Lemmas validating the hypothesis-context `Or` reductions:
+    - `a ∨ b ==> True (if a holds in the hypothesis context)`
+    - `a ∨ b ==> True (if b holds in the hypothesis context)`
+    - `a ∨ b ==> b (if ¬ a holds in the hypothesis context)`
+    - `a ∨ b ==> a (if ¬ b holds in the hypothesis context)`
+-/
+protected theorem or_left_hyp_eq_true (a b : Prop) (h : a) :
+  (a ∨ b) = True :=
+  propext ⟨fun _ => trivial, fun _ => Or.inl h⟩
+
+protected theorem or_right_hyp_eq_true (a b : Prop) (h : b) :
+  (a ∨ b) = True :=
+  propext ⟨fun _ => trivial, fun _ => Or.inr h⟩
+
+protected theorem or_left_neg_hyp_eq_right (a b : Prop) (h : ¬ a) :
+  (a ∨ b) = b :=
+  propext ⟨fun hab => hab.elim (fun ha => absurd ha h) id, Or.inr⟩
+
+protected theorem or_right_neg_hyp_eq_left (a b : Prop) (h : ¬ b) :
+  (a ∨ b) = a :=
+  propext ⟨fun hab => hab.elim id (fun hb => absurd hb h), Or.inl⟩
+
 end Blaster
