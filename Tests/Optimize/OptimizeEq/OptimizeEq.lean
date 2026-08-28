@@ -458,14 +458,14 @@ elab "eqStrConstructor_4" : term => return eqStrConstructor_4
 #testOptimize [ "NotEqNot_2" ] ∀ (a b : Bool), not a = not (not b) ===> ∀ (a b : Bool), b = not a
 
 -- not a = not (not (not b)) ===> a = b
-#testOptimize [ "NotEqNot_3" ] ∀ (a b : Bool), not a = not (not (not b)) ===> ∀ (a b : Bool), a = b
+#testOptimize [ "NotEqNot_3", proof ] ∀ (a b : Bool), not a = not (not (not b)) ===> ∀ (a b : Bool), a = b
 
 -- not (not a) = not (not b) ===> a = b
-#testOptimize [ "NotEqNot_4" ] ∀ (a b : Bool), not (not a) = not (not b) ===> ∀ (a b : Bool), a = b
+#testOptimize [ "NotEqNot_4", proof ] ∀ (a b : Bool), not (not a) = not (not b) ===> ∀ (a b : Bool), a = b
 
 
 -- not (not (not a)) = not (not (not b)) ===> a = b
-#testOptimize [ "NotEqNot_5" ] ∀ (a b : Bool), not (not (not a)) = not (not (not b)) ===> ∀ (a b : Bool), a = b
+#testOptimize [ "NotEqNot_5", proof ] ∀ (a b : Bool), not (not (not a)) = not (not (not b)) ===> ∀ (a b : Bool), a = b
 
 -- not (not (not a)) = b ===> not a = b
 -- NOTE: reordering applied on operands
@@ -484,16 +484,16 @@ elab "eqStrConstructor_4" : term => return eqStrConstructor_4
 
 -- (¬ a) = ¬ (¬ b) ===> (¬ a) = b
 -- NOTE: reordering applied on operands
-#testOptimize [ "NegEqNeg_2" ] ∀ (a b : Prop), (¬ a) = ¬ (¬ b) ===> ∀ (a b : Prop), b = ¬ a
+#testOptimize [ "NegEqNeg_2", proof ] ∀ (a b : Prop), (¬ a) = ¬ (¬ b) ===> ∀ (a b : Prop), b = ¬ a
 
 -- (¬ a) = ¬ (¬ (¬ b)) ===> a = b
-#testOptimize [ "NegEqNeg_3" ] ∀ (a b : Prop), (¬ a) = ¬ (¬ (¬ b)) ===> ∀ (a b : Prop), a = b
+#testOptimize [ "NegEqNeg_3", proof ] ∀ (a b : Prop), (¬ a) = ¬ (¬ (¬ b)) ===> ∀ (a b : Prop), a = b
 
 -- (¬ (¬ a)) = ¬ (¬ b) ===> a = b
-#testOptimize [ "NegEqNeg_4" ] ∀ (a b : Prop), (¬ (¬ a)) = ¬ (¬ b) ===> ∀ (a b : Prop), a = b
+#testOptimize [ "NegEqNeg_4", proof ] ∀ (a b : Prop), (¬ (¬ a)) = ¬ (¬ b) ===> ∀ (a b : Prop), a = b
 
 -- (¬ (¬ (¬ a))) = ¬ (¬ (¬ b)) ===> a = b
-#testOptimize [ "NegEqNeg_5" ] ∀ (a b : Prop), (¬ (¬ (¬ a))) = ¬ (¬ (¬ b)) ===> ∀ (a b : Prop), a = b
+#testOptimize [ "NegEqNeg_5", proof ] ∀ (a b : Prop), (¬ (¬ (¬ a))) = ¬ (¬ (¬ b)) ===> ∀ (a b : Prop), a = b
 
 -- (¬ (¬ (¬ a))) = b ===> ¬ a = b
 -- NOTE: reordering applied on operands

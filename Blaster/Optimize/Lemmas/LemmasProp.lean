@@ -112,8 +112,10 @@ protected theorem eq_neg_is_false (e : Prop) : (e = ¬ e) = False := by
   simp only [eq_iff_iff, iff_not_self]
 
 protected theorem neg_eq_neg_is_eq (a b : Prop) :
-  (¬ a = ¬ b) = (a = b) := by
+  ((¬ a) = ¬ b) = (a = b) := by
   classical
-  simp only [eq_iff_iff, Classical.not_iff, Decidable.not_iff_not]
+  apply propext
+  rw [eq_iff_iff, eq_iff_iff]
+  exact Decidable.not_iff_not
 
 end Blaster
