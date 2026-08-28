@@ -14,37 +14,37 @@ namespace Test.OptimizeEq
 #testOptimize [ "EqTrueFalse" ] True = False ===> False
 
 -- False = a ===> ¬ a
-#testOptimize [ "EqFalseLeft" ] ∀ (a : Prop), False = a ===> ∀ (a : Prop), ¬ a
+#testOptimize [ "EqFalseLeft", proof ] ∀ (a : Prop), False = a ===> ∀ (a : Prop), ¬ a
 
 -- a = False ===> ¬ a
-#testOptimize [ "EqFalseRight" ] ∀ (a : Prop), a = False ===> ∀ (a : Prop), ¬ a
+#testOptimize [ "EqFalseRight", proof ] ∀ (a : Prop), a = False ===> ∀ (a : Prop), ¬ a
 
 -- True = a ===> a
-#testOptimize [ "EqTrueLeft" ] ∀ (a : Prop), True = a ===> ∀ (a : Prop), a
+#testOptimize [ "EqTrueLeft", proof ] ∀ (a : Prop), True = a ===> ∀ (a : Prop), a
 
 -- a = True ===> a
-#testOptimize [ "EqTrueRight" ] ∀ (a : Prop), a = True ===> ∀ (a : Prop), a
+#testOptimize [ "EqTrueRight", proof ] ∀ (a : Prop), a = True ===> ∀ (a : Prop), a
 
 -- a = a ===> True
-#testOptimize [ "EqReflexive_1" ] ∀ (a : Prop), a = a ===> True
+#testOptimize [ "EqReflexive_1", proof ] ∀ (a : Prop), a = a ===> True
 
 -- a = (a ∨ a)  ===> True
-#testOptimize [ "EqReflexive_2" ] ∀ (a : Prop), a = (a ∨ a) ===> True
+#testOptimize [ "EqReflexive_2", proof ] ∀ (a : Prop), a = (a ∨ a) ===> True
 
 -- (a ∨ a) = a ===> True
-#testOptimize [ "EqReflexive_3" ] ∀ (a : Prop), (a ∨ a) = a ===> True
+#testOptimize [ "EqReflexive_3", proof ] ∀ (a : Prop), (a ∨ a) = a ===> True
 
 -- ((b ∧ ¬ b) ∨ a) = a ===> True
-#testOptimize [ "EqReflexive_4" ] ∀ (a b : Prop), ((b ∧ ¬ b) ∨ a) = a ===> True
+#testOptimize [ "EqReflexive_4", proof ] ∀ (a b : Prop), ((b ∧ ¬ b) ∨ a) = a ===> True
 
 -- (if c then a else b) = if c then a else b ===> True
 #testOptimize [ "EqReflexive_5" ] ∀ (c : Bool) (a b : Prop), (if c then a else b) = if c then a else b ===> True
 
 -- a = ¬ a ===> False
-#testOptimize [ "EqNeq_1" ] ∀ (a : Prop), (a = ¬ a) ===> False
+#testOptimize [ "EqNeq_1" , proof] ∀ (a : Prop), (a = ¬ a) ===> False
 
 -- ¬ a = a ===> False
-#testOptimize [ "EqNeq_2" ] ∀ (a : Prop), (¬ a = a) ===> False
+#testOptimize [ "EqNeq_2", proof ] ∀ (a : Prop), (¬ a = a) ===> False
 
 -- a = (¬ (¬ a)) ===> True
 #testOptimize [ "EqNeq_3" ] ∀ (a : Prop), (a = ¬ (¬ a)) ===> True
@@ -60,13 +60,13 @@ namespace Test.OptimizeEq
 #testOptimize [ "EqNeq_6" ] ∀ (a b : Prop), (¬ b) = a ===> ∀ (a b : Prop), a = (¬ b)
 
 -- a = !a ===> False
-#testOptimize [ "EqNot_1" ] ∀ (a : Bool), a = !a ===> False
+#testOptimize [ "EqNot_1", proof ] ∀ (a : Bool), a = !a ===> False
 
 -- !a = a ===> False
-#testOptimize [ "EqNot_2" ] ∀ (a : Bool), (!a) = a ===> False
+#testOptimize [ "EqNot_2", proof ] ∀ (a : Bool), (!a) = a ===> False
 
 -- a = (! (! a)) ===> True
-#testOptimize [ "EqNot_3" ] ∀ (a : Bool), a = ! (!a) ===> True
+#testOptimize [ "EqNot_3", proof ] ∀ (a : Bool), a = ! (!a) ===> True
 
 -- a = (! (! (! a))) ===> False
 #testOptimize [ "EqNot_4" ] ∀ (a : Bool), (a = ! (! (! a))) ===> False
@@ -418,7 +418,7 @@ elab "eqStrConstructor_4" : term => return eqStrConstructor_4
 
 
 -- true = not a ===> false = a
-#testOptimize [ "TrueEqNot_1" ] ∀ (a : Bool), true = not a ===> ∀ (a : Bool), false = a
+#testOptimize [ "TrueEqNot_1", proof ] ∀ (a : Bool), true = not a ===> ∀ (a : Bool), false = a
 
 -- true = (not (not a) ===> true = a
 #testOptimize [ "TrueEqNot_2" ] ∀ (a : Bool), true = (not (not a)) ===> ∀ (a : Bool), true = a
@@ -435,10 +435,10 @@ elab "eqStrConstructor_4" : term => return eqStrConstructor_4
 
 
 -- false = not a ===> true = a
-#testOptimize [ "FalseEqNot_1" ] ∀ (a : Bool), false = not a ===> ∀ (a : Bool), true = a
+#testOptimize [ "FalseEqNot_1", proof ] ∀ (a : Bool), false = not a ===> ∀ (a : Bool), true = a
 
 -- false = (not (not a) ===> false = a
-#testOptimize [ "FalseEqNot_2" ] ∀ (a : Bool), false = (not (not a)) ===> ∀ (a : Bool), false = a
+#testOptimize [ "FalseEqNot_2", proof ] ∀ (a : Bool), false = (not (not a)) ===> ∀ (a : Bool), false = a
 
 -- false = (not (not (not a)) ===> true = a
 #testOptimize [ "FalseEqNot_3" ] ∀ (a : Bool), false = (not (not (not a))) ===> ∀ (a : Bool), true = a
@@ -451,21 +451,21 @@ elab "eqStrConstructor_4" : term => return eqStrConstructor_4
 #testOptimize [ "FalseEqUnchanged_2" ] ∀ (a : Bool), a = false ===> ∀ (a : Bool), false = a
 
 -- not a = not b ===> a = b
-#testOptimize [ "NotEqNot_1" ] ∀ (a b : Bool), not a = not b ===> ∀ (a b : Bool), a = b
+#testOptimize [ "NotEqNot_1", proof ] ∀ (a b : Bool), not a = not b ===> ∀ (a b : Bool), a = b
 
 -- not a = not (not b) ===> not a = b
 -- NOTE: reordering applied on operands
 #testOptimize [ "NotEqNot_2" ] ∀ (a b : Bool), not a = not (not b) ===> ∀ (a b : Bool), b = not a
 
 -- not a = not (not (not b)) ===> a = b
-#testOptimize [ "NotEqNot_3" ] ∀ (a b : Bool), not a = not (not (not b)) ===> ∀ (a b : Bool), a = b
+#testOptimize [ "NotEqNot_3", proof ] ∀ (a b : Bool), not a = not (not (not b)) ===> ∀ (a b : Bool), a = b
 
 -- not (not a) = not (not b) ===> a = b
-#testOptimize [ "NotEqNot_4" ] ∀ (a b : Bool), not (not a) = not (not b) ===> ∀ (a b : Bool), a = b
+#testOptimize [ "NotEqNot_4", proof ] ∀ (a b : Bool), not (not a) = not (not b) ===> ∀ (a b : Bool), a = b
 
 
 -- not (not (not a)) = not (not (not b)) ===> a = b
-#testOptimize [ "NotEqNot_5" ] ∀ (a b : Bool), not (not (not a)) = not (not (not b)) ===> ∀ (a b : Bool), a = b
+#testOptimize [ "NotEqNot_5", proof ] ∀ (a b : Bool), not (not (not a)) = not (not (not b)) ===> ∀ (a b : Bool), a = b
 
 -- not (not (not a)) = b ===> not a = b
 -- NOTE: reordering applied on operands
@@ -480,20 +480,20 @@ elab "eqStrConstructor_4" : term => return eqStrConstructor_4
 
 
 -- (¬ a) = ¬ b ===> a = b
-#testOptimize [ "NeqEqNeg_1" ] ∀ (a b : Prop), (¬ a) = ¬ b ===> ∀ (a b : Prop), a = b
+#testOptimize [ "NeqEqNeg_1", proof ] ∀ (a b : Prop), (¬ a) = ¬ b ===> ∀ (a b : Prop), a = b
 
 -- (¬ a) = ¬ (¬ b) ===> (¬ a) = b
 -- NOTE: reordering applied on operands
-#testOptimize [ "NegEqNeg_2" ] ∀ (a b : Prop), (¬ a) = ¬ (¬ b) ===> ∀ (a b : Prop), b = ¬ a
+#testOptimize [ "NegEqNeg_2", proof ] ∀ (a b : Prop), (¬ a) = ¬ (¬ b) ===> ∀ (a b : Prop), b = ¬ a
 
 -- (¬ a) = ¬ (¬ (¬ b)) ===> a = b
-#testOptimize [ "NegEqNeg_3" ] ∀ (a b : Prop), (¬ a) = ¬ (¬ (¬ b)) ===> ∀ (a b : Prop), a = b
+#testOptimize [ "NegEqNeg_3", proof ] ∀ (a b : Prop), (¬ a) = ¬ (¬ (¬ b)) ===> ∀ (a b : Prop), a = b
 
 -- (¬ (¬ a)) = ¬ (¬ b) ===> a = b
-#testOptimize [ "NegEqNeg_4" ] ∀ (a b : Prop), (¬ (¬ a)) = ¬ (¬ b) ===> ∀ (a b : Prop), a = b
+#testOptimize [ "NegEqNeg_4", proof ] ∀ (a b : Prop), (¬ (¬ a)) = ¬ (¬ b) ===> ∀ (a b : Prop), a = b
 
 -- (¬ (¬ (¬ a))) = ¬ (¬ (¬ b)) ===> a = b
-#testOptimize [ "NegEqNeg_5" ] ∀ (a b : Prop), (¬ (¬ (¬ a))) = ¬ (¬ (¬ b)) ===> ∀ (a b : Prop), a = b
+#testOptimize [ "NegEqNeg_5", proof ] ∀ (a b : Prop), (¬ (¬ (¬ a))) = ¬ (¬ (¬ b)) ===> ∀ (a b : Prop), a = b
 
 -- (¬ (¬ (¬ a))) = b ===> ¬ a = b
 -- NOTE: reordering applied on operands
