@@ -441,12 +441,12 @@ def mapOptionDefault (x : Nat) (y : Option Nat) : Nat :=
 -- ∀ (x : Nat) (xs : List Nat),
 --   List.any xs (λ a => a == x) → ∃ (p : Prop), p ∈ (List.map (Eq x) xs) ∧ p ===>
 -- ∀ (x : Nat) (xs : List Nat),
---   true = List.any xs (λ a => x == a) → ∃ (p : Prop), p ∧ List.Mem p (List.map (λ a => Eq x a) xs)
+--   true = List.elem x xs → ∃ (p : Prop), p ∧ List.Mem p (List.map (λ a => x = a) xs)
 #testOptimize [ "ConstPartialFunArg_4" ]
     ∀ (x : Nat) (xs : List Nat),
       List.any xs (λ a => a == x) → ∃ (p : Prop), p ∈ (List.map (Eq x) xs) ∧ p ===>
     ∀ (x : Nat) (xs : List Nat),
-      true = List.any xs (λ a => x == a) → ∃ (p : Prop), p ∧ List.Mem p (List.map (λ a => Eq x a) xs)
+      true = List.elem x xs → ∃ (p : Prop), p ∧ List.Mem p (List.map (λ a => Eq x a) xs)
 
 /-! Test cases to ensure that opaque functions passed as arguments are properly normalized. -/
 
@@ -473,11 +473,9 @@ def mapOptionDefault (x : Nat) (y : Option Nat) : Nat :=
 
 def boolWapper (f : Nat → Nat → Bool) (x : Nat) (y : Nat) := f x y
 
--- ∀ (x : Nat) (xs : List Nat), List.any xs (beqWapper Nat.beq x) → List.contains xs x ===>
--- ∀ (x : Nat) (xs : List Nat), true = List.any xs (λ a => x == a) → true = List.elem x xs
+-- ∀ (x : Nat) (xs : List Nat), List.any xs (beqWapper Nat.beq x) → List.contains xs x ===> True
 #testOptimize [ "ConstNormOpaqueFunArg_5" ]
-  ∀ (x : Nat) (xs : List Nat), List.any xs (boolWapper Nat.beq x) → List.contains xs x ===>
-  ∀ (x : Nat) (xs : List Nat), true = List.any xs (λ a => x == a) → true = List.elem x xs
+  ∀ (x : Nat) (xs : List Nat), List.any xs (boolWapper Nat.beq x) → List.contains xs x ===> True
 
 -- ∀ (x : Nat) (xs : List Nat), List.any (λ a => x ≤ a) xs = List.any xs (Nat.ble x)  ===> True
 #testOptimize [ "ConstNormOpaqueFunArg_6" ]

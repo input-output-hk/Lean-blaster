@@ -1,15 +1,15 @@
-
 import Tests.Optimize.FunPropagation
 import Tests.Optimize.NormChoiceApp
 import Tests.Optimize.OptimizeBEq
 import Tests.Optimize.OptimizeBool
 import Tests.Optimize.OptimizeConst
+import Tests.Optimize.OptimizeDecide
 import Tests.Optimize.OptimizeEq
 import Tests.Optimize.OptimizeExists
-import Tests.Optimize.OptimizeDecide
 import Tests.Optimize.OptimizeForAll
 import Tests.Optimize.OptimizeITE
 import Tests.Optimize.OptimizeLet
+import Tests.Optimize.OptimizeListAny
 import Tests.Optimize.OptimizeMatch
 import Tests.Optimize.OptimizeNat
 import Tests.Optimize.OptimizeProp
