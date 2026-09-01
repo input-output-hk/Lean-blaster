@@ -236,6 +236,21 @@ protected theorem int_add_lt_zero_eq_true_of_neg_nonpos (x y : Int) (hx : x < 0)
 protected theorem int_lt_false_of_not_pred_lt (n e : Int) (h : ¬ (n - 1 < e)) :
     (n < e) = False := propext ⟨fun hlt => by omega, False.elim⟩
 
+/-! ## Lemmas validating the simplification rules on equality negation rules:
+  - `0 = -e ==> 0 = e`
+  - `-e1 = -e2 ==> e1 = e2`
+  - `0 = x * y ==> False (if x ≠ 0 ∧ y ≠ 0 in hyps)`
+  - `0 = x + y ==> False (same-sign x , y)`
+-/
+protected theorem zero_eq_int (e : Int) : (0 = -e) = (0 = e) := by
+  apply propext
+  rw [← Int.neg_zero, Int.neg_inj]
+  exact Eq.to_iff rfl
+
+protected theorem int_neg_eq (a b : Int) : (-a = -b) = (a = b) := by
+  apply propext
+  exact Int.neg_inj
+
 def mkInt_lt_asymm : TranslateEnvT Expr := mkExpr (mkConst ``Int.lt_asymm)
 
 def mkInt_not_lt_right_of_eq : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.int_not_lt_right_of_eq)

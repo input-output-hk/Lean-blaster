@@ -535,4 +535,8 @@ elab "eqStrConstructor_4" : term => return eqStrConstructor_4
 -- (∀ (x : Int), fun y => x > x = fun z => x > x) ===> True
 #testOptimize [ "LambdaEq_3" ] ∀ (x : Int), (fun (y : Int) => x > y) = (fun z => x > z) ===> True
 
+
+#testOptimize ["ZeroNatEqInHyps_1"]
+  ∀ (x y : Nat), (x ≠ 0 ∧ y ≠ 0) → 0 = (x * y) ===> False
+
 end Test.OptimizeEq
