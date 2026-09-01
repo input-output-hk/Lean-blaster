@@ -451,6 +451,9 @@ def reorderOperands (f : Expr) (args : Array Expr) : TranslateEnvT (Array Expr) 
   | ``or =>
        if args.size != 2 then return args
        let (op1, op2) := reorderBoolOp args
+       if !exprEq op1 args[0]! then
+         let commLemma := if n == ``and then ``Bool.and_comm else ``Bool.or_comm
+         pushProofStep (.rewrite (mkApp2 (mkConst commLemma) args[0]! args[1]!))
        return #[op1, op2]
 
   | ``And

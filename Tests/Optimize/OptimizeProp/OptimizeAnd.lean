@@ -216,6 +216,29 @@ namespace Test.OptimizeAnd
   ∀ (a b c : Bool), c = (a && b) ∧ true = c
 
 
+/-! Test cases for the Bool↔Prop bridge on `And` (`propExprToBoolExpr?`),
+    with `NOP(B, e) = e if B else !e`:
+     - `B1 = e1 ∧ B2 = e2 ==> true  = (NOP(B1,e1) && NOP(B2,e2))`  (if `B1 ∨ B2`)
+     - `B1 = e1 ∧ B2 = e2 ==> false = (e1 || e2)`                  (if `¬B1 ∧ ¬B2`)
+-/
+
+-- ∀ (a b : Bool), true = a ∧ true = b ===> ∀ (a b : Bool), true = (a && b)
+#testOptimize [ "AndBridge_tt", proof ]
+  ∀ (a b : Bool), true = a ∧ true = b ===> ∀ (a b : Bool), true = (a && b)
+
+-- ∀ (a b : Bool), true = a ∧ false = b ===> ∀ (a b : Bool), true = (a && !b)
+#testOptimize [ "AndBridge_tf", proof ]
+  ∀ (a b : Bool), true = a ∧ false = b ===> ∀ (a b : Bool), true = (a && !b)
+
+-- ∀ (a b : Bool), false = a ∧ true = b ===> ∀ (a b : Bool), true = (b && !a)
+#testOptimize [ "AndBridge_ft", proof ]
+  ∀ (a b : Bool), false = a ∧ true = b ===> ∀ (a b : Bool), true = (b && !a)
+
+-- ∀ (a b : Bool), false = a ∧ false = b ===> ∀ (a b : Bool), false = (a || b)
+#testOptimize [ "AndBridge_ff", proof ]
+  ∀ (a b : Bool), false = a ∧ false = b ===> ∀ (a b : Bool), false = (a || b)
+
+
 
 /-! Test cases for simplification rule `e1 ∧ e2 ==> e1 (if e1 =ₚₜᵣ e2)`. -/
 
