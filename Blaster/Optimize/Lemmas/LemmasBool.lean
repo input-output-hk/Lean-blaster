@@ -69,4 +69,52 @@ protected theorem not_eq_not_is_eq (a b : Bool) :
   (not a = not b) = (a = b) := by
   rw [Bool.not_eq_eq_eq_not, Bool.not_not]
 
+/-! ## Lemmas validating the Bool↔Prop bridge on `And` (propExprToBoolExpr?):
+    with `NOP(B, e) = e if B else !e`
+    - `(true = e1) ∧ (true = e2)   ==> true  = (e1 && e2)`
+    - `(true = e1) ∧ (false = e2)  ==> true  = (e1 && !e2)`
+    - `(false = e1) ∧ (true = e2)  ==> true  = (!e1 && e2)`
+    - `(false = e1) ∧ (false = e2) ==> false = (e1 || e2)`
+-/
+
+protected theorem bridge_and_tt (e1 e2 : Bool) :
+  ((true = e1) ∧ (true = e2)) = (true = (e1 && e2)) := by
+  cases e1 <;> cases e2 <;> exact propext (by decide)
+
+protected theorem bridge_and_tf (e1 e2 : Bool) :
+  ((true = e1) ∧ (false = e2)) = (true = (e1 && !e2)) := by
+  cases e1 <;> cases e2 <;> exact propext (by decide)
+
+protected theorem bridge_and_ft (e1 e2 : Bool) :
+  ((false = e1) ∧ (true = e2)) = (true = (!e1 && e2)) := by
+  cases e1 <;> cases e2 <;> exact propext (by decide)
+
+protected theorem bridge_and_ff (e1 e2 : Bool) :
+  ((false = e1) ∧ (false = e2)) = (false = (e1 || e2)) := by
+  cases e1 <;> cases e2 <;> exact propext (by decide)
+
+/-! ## Lemmas validating the Bool↔Prop bridge on `Or` (propExprToBoolExpr?):
+    with `NOP(B, e) = e if B else !e`
+    - `(true = e1) ∨ (true = e2)   ==> true  = (e1 || e2)`
+    - `(true = e1) ∨ (false = e2)  ==> true  = (e1 || !e2)`
+    - `(false = e1) ∨ (true = e2)  ==> true  = (!e1 || e2)`
+    - `(false = e1) ∨ (false = e2) ==> false = (e1 && e2)`
+-/
+
+protected theorem bridge_or_tt (e1 e2 : Bool) :
+  ((true = e1) ∨ (true = e2)) = (true = (e1 || e2)) := by
+  cases e1 <;> cases e2 <;> exact propext (by decide)
+
+protected theorem bridge_or_tf (e1 e2 : Bool) :
+  ((true = e1) ∨ (false = e2)) = (true = (e1 || !e2)) := by
+  cases e1 <;> cases e2 <;> exact propext (by decide)
+
+protected theorem bridge_or_ft (e1 e2 : Bool) :
+  ((false = e1) ∨ (true = e2)) = (true = (!e1 || e2)) := by
+  cases e1 <;> cases e2 <;> exact propext (by decide)
+
+protected theorem bridge_or_ff (e1 e2 : Bool) :
+  ((false = e1) ∨ (false = e2)) = (false = (e1 && e2)) := by
+  cases e1 <;> cases e2 <;> exact propext (by decide)
+
 end Blaster

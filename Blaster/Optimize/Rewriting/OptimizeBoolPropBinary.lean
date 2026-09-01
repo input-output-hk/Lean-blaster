@@ -1,5 +1,6 @@
 import Lean
 import Blaster.Optimize.Rewriting.OptimizePropBinary
+import Blaster.Optimize.Lemmas.LemmasBool
 
 open Lean Meta
 namespace Blaster.Optimize
@@ -29,10 +30,22 @@ def propExprToBoolExpr?
            let e2 ← toBoolNotExpr bv2 b_op2
            let boolOp ← if isBoolAnd? then mkBoolAndOp else mkBoolOrOp
            let binExpr := mkApp2 boolOp e1 e2
+           let lemma :=
+             if isBoolAnd? then
+               if bv1 && bv2 then ``Blaster.bridge_and_tt
+               else if bv1 then ``Blaster.bridge_and_tf
+               else ``Blaster.bridge_and_ft
+             else
+               if bv1 && bv2 then ``Blaster.bridge_or_tt
+               else if bv1 then ``Blaster.bridge_or_tf
+               else ``Blaster.bridge_or_ft
+           pushProofStep (.rewrite (mkApp2 (mkConst lemma) a_op2 b_op2))
            return mkApp3 (← mkEqOp) (← mkBoolType) (← mkBoolTrue) binExpr
          else
            let boolOp ← if isBoolAnd? then mkBoolOrOp else mkBoolAndOp
            let binExpr := mkApp2 boolOp a_op2 b_op2
+           let lemma := if isBoolAnd? then ``Blaster.bridge_and_ff else ``Blaster.bridge_or_ff
+           pushProofStep (.rewrite (mkApp2 (mkConst lemma) a_op2 b_op2))
            return mkApp3 (← mkEqOp) (← mkBoolType) (← mkBoolFalse) binExpr
      | _, _ => return none
   | _, _ => return none
