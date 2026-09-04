@@ -395,6 +395,8 @@ def reorderIntOp (args: Array Expr) : (Expr × Expr) :=
      - Int.mul: n1 * n2 ==> n2 * n1          [proof: Int.mul_comm]
      - Int.mul: n * 0 ==> 0 * n              [proof: Int.mul_zero]
      - Int.mul: n * 1 ==> 1 * n              [proof: Int.mul_one]
+     - And: e1 ∧ e2 ==> e2 ∧ e1              [proof: and_comm]
+     - Or:  e1 ∨ e2 ==> e2 ∨ e1              [proof: or_comm]
 -/
 def reorderOperands (f : Expr) (args : Array Expr) : TranslateEnvT (Array Expr) := do
   let Expr.const n _ := f | return args
@@ -449,12 +451,19 @@ def reorderOperands (f : Expr) (args : Array Expr) : TranslateEnvT (Array Expr) 
   | ``or =>
        if args.size != 2 then return args
        let (op1, op2) := reorderBoolOp args
+       if !exprEq op1 args[0]! then
+         let commLemma := if n == ``and then ``Bool.and_comm else ``Bool.or_comm
+         pushProofStep (.rewrite (mkApp2 (mkConst commLemma) args[0]! args[1]!))
        return #[op1, op2]
 
   | ``And
   | ``Or =>
        if args.size != 2 then return args
        let (op1, op2) := reorderPropOp args
+       if !exprEq op1 args[0]! then
+         let commLemma := if n == ``And then ``and_comm else ``or_comm
+         let iff := mkApp2 (mkConst commLemma) args[0]! args[1]!
+         pushProofStep (.rewrite (← mkAppM ``propext #[iff]))
        return #[op1, op2]
 
   | _ => return args

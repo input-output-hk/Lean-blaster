@@ -216,6 +216,29 @@ namespace Test.OptimizeAnd
   ∀ (a b c : Bool), c = (a && b) ∧ true = c
 
 
+/-! Test cases for the Bool↔Prop bridge on `And` (`propExprToBoolExpr?`),
+    with `NOP(B, e) = e if B else !e`:
+     - `B1 = e1 ∧ B2 = e2 ==> true  = (NOP(B1,e1) && NOP(B2,e2))`  (if `B1 ∨ B2`)
+     - `B1 = e1 ∧ B2 = e2 ==> false = (e1 || e2)`                  (if `¬B1 ∧ ¬B2`)
+-/
+
+-- ∀ (a b : Bool), true = a ∧ true = b ===> ∀ (a b : Bool), true = (a && b)
+#testOptimize [ "AndBridge_tt", proof ]
+  ∀ (a b : Bool), true = a ∧ true = b ===> ∀ (a b : Bool), true = (a && b)
+
+-- ∀ (a b : Bool), true = a ∧ false = b ===> ∀ (a b : Bool), true = (a && !b)
+#testOptimize [ "AndBridge_tf", proof ]
+  ∀ (a b : Bool), true = a ∧ false = b ===> ∀ (a b : Bool), true = (a && !b)
+
+-- ∀ (a b : Bool), false = a ∧ true = b ===> ∀ (a b : Bool), true = (b && !a)
+#testOptimize [ "AndBridge_ft", proof ]
+  ∀ (a b : Bool), false = a ∧ true = b ===> ∀ (a b : Bool), true = (b && !a)
+
+-- ∀ (a b : Bool), false = a ∧ false = b ===> ∀ (a b : Bool), false = (a || b)
+#testOptimize [ "AndBridge_ff", proof ]
+  ∀ (a b : Bool), false = a ∧ false = b ===> ∀ (a b : Bool), false = (a || b)
+
+
 
 /-! Test cases for simplification rule `e1 ∧ e2 ==> e1 (if e1 =ₚₜᵣ e2)`. -/
 
@@ -279,6 +302,32 @@ namespace Test.OptimizeAnd
 
 -- (a → b) ∧ (¬ a → b) ===> b
 #testOptimize [ "AndImplies_3", proof ] ∀ (a b : Prop), (a → b) ∧ (¬ a → b) ===> ∀ (b : Prop), b
+
+
+/-! Test cases for the hypothesis-context reductions on `And`:
+     - `e1 ∧ e2 ==> e2 (if e1 holds in the hypothesis context)`
+     - `e1 ∧ e2 ==> e1 (if e2 holds in the hypothesis context)`
+     - `e1 ∧ e2 ==> False (if ¬ e1 holds in the hypothesis context)`
+     - `e1 ∧ e2 ==> False (if ¬ e2 holds in the hypothesis context)`
+-/
+
+-- a → (a ∧ b) = b
+#testOptimize [ "AndHyp_1", proof ] ∀ (a b : Prop), a → (a ∧ b) = b ===> True
+
+-- b → (a ∧ b) = a
+#testOptimize [ "AndHyp_2", proof ] ∀ (a b : Prop), b → (a ∧ b) = a ===> True
+
+-- ¬ a → (a ∧ b) = False
+#testOptimize [ "AndHyp_3", proof ] ∀ (a b : Prop), ¬ a → (a ∧ b) = False ===> True
+
+-- ¬ b → (a ∧ b) = False
+#testOptimize [ "AndHyp_4", proof ] ∀ (a b : Prop), ¬ b → (a ∧ b) = False ===> True
+
+
+/-! Test case for the commutative reorder on `And`: e1 ∧ e2 ==> e2 ∧ e1 (if e2 <ₒ e1). -/
+
+-- b ∧ a ===> a ∧ b
+#testOptimize [ "AndReorder_1", proof ] ∀ (a b : Prop), b ∧ a ===> ∀ (a b : Prop), a ∧ b
 
 
 end Test.OptimizeAnd

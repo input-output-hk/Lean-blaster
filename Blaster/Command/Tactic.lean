@@ -181,22 +181,7 @@ private def liftForallEq (lhs rhs innerProof : Expr) : MetaM Expr := do
      | Expr.forallE n _ body _ => #[n] ++ getForallBinderNames body
      | _ => #[]
 
-/-- Prove a goal by introducing binders, applying the proof stack, then closing with refl.
-    Returns the proof term so callers can use it directly. -/
-private def proveByProofStack (goalType : Expr) (proofStack : Array Blaster.Optimize.ProofStep)
-    (optBinders : Array FVarId) : MetaM Expr := do
-  let proofMVar ← mkFreshExprMVar goalType
-  let numBinders ← forallTelescope goalType fun fvars _ => pure fvars.size
-  let (goalFVarIds, g) ← proofMVar.mvarId!.introNP numBinders
-  let proofStack := substProofStackFVars proofStack optBinders goalFVarIds
-  let g ← applyProofStack g proofStack
-  unless ← g.isAssigned do
-    try g.refl
-    catch _ => g.admit
-  return proofMVar
-
-/-- Custom sorry for Blaster to differentiate
-    between SMT-verified goals and regular `sorry`.-/
+/-- Custom sorry for Blaster to differentiate between SMT-verified goals and regular `sorry`.-/
 axiom blasterProven : ∀ {α : Sort u}, α
 
 private def blasterAdmit (mvarId : MVarId) : MetaM Unit :=
@@ -205,6 +190,25 @@ private def blasterAdmit (mvarId : MVarId) : MetaM Unit :=
     let mvarType ← mvarId.getType >>= instantiateMVars
     let u ← getLevel mvarType
     mvarId.assign (mkApp (mkConst ``blasterProven [u]) mvarType)
+
+/-- Prove a goal by introducing binders, applying the proof stack, then closing with refl.
+    On failure, admit via `blasterProven`.
+    Warn only when `optimizerClosed`, since then the optimizer proved it by rewriting and
+    it should have reconstructed. -/
+private def proveByProofStack (goalType : Expr) (proofStack : Array Blaster.Optimize.ProofStep)
+    (optBinders : Array FVarId) (optimizerClosed : Bool) : MetaM Expr := do
+  let proofMVar ← mkFreshExprMVar goalType
+  let numBinders ← forallTelescope goalType fun fvars _ => pure fvars.size
+  let (goalFVarIds, g) ← proofMVar.mvarId!.introNP numBinders
+  let proofStack := substProofStackFVars proofStack optBinders goalFVarIds
+  let g ← applyProofStack g proofStack
+  unless ← g.isAssigned do
+    try g.refl
+    catch _ =>
+      if optimizerClosed then
+        logWarning m!"blaster: reconstruction gap ({proofStack.size} steps), admitted via `blasterProven`\n{.ofGoal g}"
+      blasterAdmit g
+  return proofMVar
 
 @[tactic blasterTactic]
 def blasterTacticImp : Tactic := fun stx =>
@@ -223,13 +227,15 @@ def blasterTacticImp : Tactic := fun stx =>
    match result with
    | .Valid =>
         let goalType ← goal.getType
+        -- `optExpr == True` ⟹ proved by rewriting (no SMT)
+        let optimizerClosed := optExpr.isConstOf ``True
         -- Try propositional equality path: (∀ xs, body₁) = (∀ xs, body₂)
         let usedPropEqPath ← try
           match goalType.eq? with
           | some (_, lhs, rhs) =>
             if rhs.isConstOf ``True && (← isProp lhs) then
               -- Goal is `P = True`: prove P directly, then lift via eq_true
-              let proof ← proveByProofStack lhs proofStack optBinders
+              let proof ← proveByProofStack lhs proofStack optBinders optimizerClosed
               goal.assign (← mkAppM ``eq_true #[proof])
               pure true
             else if ← isProp lhs then
@@ -242,7 +248,7 @@ def blasterTacticImp : Tactic := fun stx =>
                       mapOptBodyToInputFVars optBody optFvars inputFvars
                   let eq ← mkEq inputBody optBody
                   mkForallFVars inputFvars eq
-                let innerProof ← proveByProofStack innerGoalType proofStack optBinders
+                let innerProof ← proveByProofStack innerGoalType proofStack optBinders optimizerClosed
                 -- Lift: (∀ xs, body₁ = body₂) → (∀ xs, body₁) = (∀ xs, body₂)
                 let liftedProof ← liftForallEq lhs rhs innerProof
                 goal.assign liftedProof
@@ -254,7 +260,7 @@ def blasterTacticImp : Tactic := fun stx =>
           /- trace[Optimize.expr] "propEqPath failed: {e.toMessageData}" -/
           pure false
         unless usedPropEqPath do
-          let proof ← proveByProofStack goalType proofStack optBinders
+          let proof ← proveByProofStack goalType proofStack optBinders optimizerClosed
           goal.assign proof
    | .Falsified cex => throwTacticEx `blaster goal "Goal was falsified (see counterexample above)"
    | .Undetermined =>

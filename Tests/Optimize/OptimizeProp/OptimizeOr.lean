@@ -204,6 +204,29 @@ namespace Tests.OptimizeOr
   ∀ (a b c : Bool), c = (a && b) ∨ true = c
 
 
+/-! Test cases for the Bool↔Prop bridge on `Or` (`propExprToBoolExpr?`),
+    with `NOP(B, e) = e if B else !e`:
+     - `B1 = e1 ∨ B2 = e2 ==> true  = (NOP(B1,e1) || NOP(B2,e2))`  (if `B1 ∨ B2`)
+     - `B1 = e1 ∨ B2 = e2 ==> false = (e1 && e2)`                  (if `¬B1 ∧ ¬B2`)
+-/
+
+-- ∀ (a b : Bool), true = a ∨ true = b ===> ∀ (a b : Bool), true = (a || b)
+#testOptimize [ "OrBridge_tt", proof ]
+  ∀ (a b : Bool), true = a ∨ true = b ===> ∀ (a b : Bool), true = (a || b)
+
+-- ∀ (a b : Bool), true = a ∨ false = b ===> ∀ (a b : Bool), true = (a || !b)
+#testOptimize [ "OrBridge_tf", proof ]
+  ∀ (a b : Bool), true = a ∨ false = b ===> ∀ (a b : Bool), true = (a || !b)
+
+-- ∀ (a b : Bool), false = a ∨ true = b ===> ∀ (a b : Bool), true = (b || !a)
+#testOptimize [ "OrBridge_ft", proof ]
+  ∀ (a b : Bool), false = a ∨ true = b ===> ∀ (a b : Bool), true = (b || !a)
+
+-- ∀ (a b : Bool), false = a ∨ false = b ===> ∀ (a b : Bool), false = (a && b)
+#testOptimize [ "OrBridge_ff", proof ]
+  ∀ (a b : Bool), false = a ∨ false = b ===> ∀ (a b : Bool), false = (a && b)
+
+
 
 /-! Test cases for simplification rule `e1 ∨ e2 ==> e1 (if e1 =ₚₜᵣ e2)`. -/
 
@@ -263,6 +286,32 @@ namespace Tests.OptimizeOr
 
 -- a ∨ (b → a) ===> (b → a)
 #testOptimize [ "OrImplies_2", proof ] ∀ (a b : Prop), a ∨ (b → a) ===> ∀ (a b : Prop), (b → a)
+
+
+/-! Test cases for the hypothesis-context reductions on `Or`:
+     - `e1 ∨ e2 ==> True (if e1 holds in the hypothesis context)`
+     - `e1 ∨ e2 ==> True (if e2 holds in the hypothesis context)`
+     - `e1 ∨ e2 ==> e2 (if ¬ e1 holds in the hypothesis context)`
+     - `e1 ∨ e2 ==> e1 (if ¬ e2 holds in the hypothesis context)`
+-/
+
+-- a → (a ∨ b)
+#testOptimize [ "OrHyp_1", proof ] ∀ (a b : Prop), a → (a ∨ b) ===> True
+
+-- b → (a ∨ b)
+#testOptimize [ "OrHyp_2", proof ] ∀ (a b : Prop), b → (a ∨ b) ===> True
+
+-- ¬ a → (a ∨ b) = b
+#testOptimize [ "OrHyp_3", proof ] ∀ (a b : Prop), ¬ a → (a ∨ b) = b ===> True
+
+-- ¬ b → (a ∨ b) = a
+#testOptimize [ "OrHyp_4", proof ] ∀ (a b : Prop), ¬ b → (a ∨ b) = a ===> True
+
+
+/-! Test case for the commutative reorder on `Or`: e1 ∨ e2 ==> e2 ∨ e1 (if e2 <ₒ e1). -/
+
+-- b ∨ a ===> a ∨ b
+#testOptimize [ "OrReorder_1", proof ] ∀ (a b : Prop), b ∨ a ===> ∀ (a b : Prop), a ∨ b
 
 
 end Tests.OptimizeOr
