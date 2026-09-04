@@ -535,4 +535,52 @@ elab "eqStrConstructor_4" : term => return eqStrConstructor_4
 -- (∀ (x : Int), fun y => x > x = fun z => x > x) ===> True
 #testOptimize [ "LambdaEq_3" ] ∀ (x : Int), (fun (y : Int) => x > y) = (fun z => x > z) ===> True
 
+-- ∀ (x : Int), (0 = -x) = (0 = x) ===> True
+#testOptimize ["ZeroIntEq_1", proof]
+  ∀ (x : Int), (0 = -x) = (0 = x) ===> True
+
+-- ∀ (x y : Int), (-x = -y) = (x = y) ===> True
+#testOptimize ["ZeroIntEq_2", proof]
+  ∀ (x y : Int), (-x = -y) = (x = y) ===> True
+
+-- ∀ (x y : Int), (-x = -y) ===> ∀ (x y : Int), (x = y)
+#testOptimize ["ZeroIntEq_3", proof]
+  ∀ (x y : Int), (-x = -y) ===> ∀ (x y : Int), (x = y)
+
+-- ∀ (x y : Nat), (x ≠ 0 ∧ y ≠ 0) → (0 = (x * y)) = False ===> True
+#testOptimize ["ZeroNatMulEqInHyps_1", proof]
+  ∀ (x y : Nat), (x ≠ 0 ∧ y ≠ 0) → (0 = (x * y)) = False ===> True
+
+-- ∀ (x y : Nat), (0 < x ∧ 0 < y) → (0 = (x * y)) = False ===> True
+#testOptimize ["ZeroNatMulEqInHyps_2", proof]
+  ∀ (x y : Nat), (0 < x ∧ 0 < y) → (0 = (x * y)) = False ===> True
+
+-- ∀ (x y : Int), (x ≠ 0 ∧ y ≠ 0) → (0 = (x * y)) = False ===> True
+#testOptimize ["ZeroIntEqInHyps_1", proof]
+  ∀ (x y : Int), (x ≠ 0 ∧ y ≠ 0) → (0 = x * y) = False ===> True
+
+-- ∀ (x y : Int), (0 < x ∧ 0 < y) → (0 = (x * y)) = False ===> True
+#testOptimize ["ZeroIntEqInHyps_2", proof]
+  ∀ (x y : Int), (0 < x ∧ 0 < y) → (0 = x * y) = False ===> True
+
+-- ∀ (x y : Int), (x > 0 ∧ y > 0) → (0 = (x * y)) = False ===> True
+#testOptimize ["ZeroIntEqInHyps_3", proof]
+  ∀ (x y : Int), (x > 0 ∧ y > 0) → (0 = x * y) = False ===> True
+
+-- ∀ (x y : Nat), (x > 0) → (0 = x + y) = False ===> True
+#testOptimize ["ZeroNatAddEqInHyps_1", proof]
+  ∀ (x y : Nat), (x > 0) → (0 = x + y) = False ===> True
+
+-- ∀ (x y : Nat), (y > 0) → (0 = x + y) = False ===> True
+#testOptimize ["ZeroNatAddEqInHyps_2", proof]
+  ∀ (x y : Nat), (y > 0) → (0 = x + y) = False ===> True
+
+-- ∀ (x y : Int), (x > 0 ∧ y > 0) → (0 = x + y) = False ===> True
+#testOptimize ["ZeroIntAddEqInHyps_1", proof]
+  ∀ (x y : Int), (0 < x ∧ 0 < y) → (0 = x + y) = False ===> True
+
+-- ∀ (x y : Int), (x < 0 ∧ y < 0) → (0 = x + y) = False ===> True
+#testOptimize ["ZeroIntAddEqInHyps_2", proof]
+  ∀ (x y : Int), (x < 0 ∧ y < 0) → (0 = x + y) = False ===> True
+
 end Test.OptimizeEq

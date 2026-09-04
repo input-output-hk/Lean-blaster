@@ -4,6 +4,53 @@ import Blaster.Optimize.Hypotheses
 open Lean Meta
 namespace Blaster.Optimize
 
+
+/-- Return `true` when `e` corresponds to the zero int literal. -/
+@[always_inline, inline]
+def isZeroInt (e : Expr) : Bool :=
+  match isIntValue? e with
+  | some (Int.ofNat 0) => true
+  | _ => false
+
+/-- Find an FVar proof of `e ≠ 0` in the optimizer's local context, wrapping the
+    hypothesis found (`0 < e`, `e < 0`, or `¬ (0 = e)`) with the matching bridge
+    lemma. Assumes `nonZeroIntInHyps e` has returned `true`. -/
+def findNeZeroIntProof? (e : Expr) : TranslateEnvT (Option Expr) := do
+  match isIntValue? e with
+  | .some (Int.ofNat 0) => return none
+  | .some _ => return none
+  | _ =>
+    let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
+    let zero_int ← mkIntLitExpr 0
+    let zero_lt ← mkIntLtExpr zero_int e
+    if let some p := hyps.get? zero_lt then
+      return mkApp2 (mkConst ``Blaster.int_ne_zero_of_zero_lt) e p
+    let zero_gt ← mkIntLtExpr e zero_int
+    if let some p := hyps.get? zero_gt then
+      return mkApp2 (mkConst ``Blaster.int_ne_zero_of_lt_zero) e p
+    let zero_eq ← mkIntEqExpr zero_int e
+    if let some p := hyps.get? (mkApp (← mkPropNotOp) zero_eq) then
+      return some (← mkAppM ``Blaster.int_ne_zero_of_not_zero_eq #[p])
+    return none
+
+/-- Proof-returning companion to `nonZeroNatInHyps` for a non-literal `e`: when a hypothesis
+  entailing `0 ≠ e` (stores as `0 < e` or `0 ≠ e`) is in the context, return its proof; otherwise `none`.
+-/
+def findNeZeroNatProof? (e : Expr) : TranslateEnvT (Option Expr) := do
+  match isNatValue? e with
+    | .some 0 => return none
+    | .some _ => return none
+    | _ =>
+      let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
+      let zero_nat ← mkNatLitExpr 0
+      let zero_lt ← mkNatLtExpr zero_nat e
+      if let some p := hyps.get? zero_lt then
+        return mkApp2 (mkConst ``Blaster.nat_zero_lt_imp_zero_neq) e p
+      let zero_eq ← mkNatEqExpr zero_nat e
+      if let some p := hyps.get? (mkApp (← mkPropNotOp) zero_eq) then
+        return some (← mkAppM ``Ne.symm #[p])
+      return none
+
 /-- Return `some true` if op1 and op2 are constructors that are structurally equivalent modulo
     variable name/function equivalence
     Return `some false` if op1 and op2 are constructors that are NOT structurally equivalent.
@@ -85,11 +132,13 @@ def zeroEqNegReduce? (op1 : Expr) (op2 : Expr) (eqType : Expr) : TranslateEnvT (
     - Otherwise `none`.
 -/
 def natZeroEqMulReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
-  match isNatValue? op1, natMul? op2 with
+    match isNatValue? op1, natMul? op2 with
   | some 0, some (e1, e2) =>
-       if (← nonZeroNatInHyps e1 <&&> nonZeroNatInHyps e2)
-       then mkPropFalse
-       else return none
+      if let (some p1 , some p2) :=  (← findNeZeroNatProof? e1, ← findNeZeroNatProof? e2) then
+        let conj ← mkAppM ``And.intro #[p1, p2]
+        pushProofStep (.rewrite (← mkAppM ``Blaster.nat_mul_eq_false_of_ne #[e1 , e2 , conj]))
+        mkPropFalse
+      else return none
   | _, _ => return none
 
 /- Given `op1` and `op2` corresponding to the operands for `Eq`,
@@ -100,8 +149,11 @@ def natZeroEqMulReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) 
 def intZeroEqMulReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
   match isIntValue? op1, intMul? op2 with
   | some 0, some (e1, e2) =>
-       if (← nonZeroIntInHyps e1 <&&> nonZeroIntInHyps e2)
-       then mkPropFalse
+       if let (some p1, some p2) := (← findNeZeroIntProof? e1, ← findNeZeroIntProof? e2)
+       then
+          let conj ← mkAppM ``And.intro #[p1, p2]
+          pushProofStep (.rewrite (← mkAppM ``Blaster.int_mul_eq_false_of_ne #[e1, e2, conj]))
+          mkPropFalse
        else return none
   | _, _ => return none
 
@@ -229,8 +281,12 @@ def addNatEqZeroReduce? (op1 op2 : Expr) : TranslateEnvT (Option Expr) := do
   let some (e1, e2) := natAdd? op2 | return none
   match isNatValue? op1 with
   | some 0 =>
-      if ← nonZeroNatInHyps e1 then return ← mkPropFalse
-      if ← nonZeroNatInHyps e2 then return ← mkPropFalse
+      if let some p ← findNeZeroNatProof? e1 then
+        pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.nat_add_eq_false_of_ne_fst) e1 e2 p))
+        return ← mkPropFalse
+      if let some p ← findNeZeroNatProof? e2 then
+        pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.nat_add_eq_false_of_ne_snd) e1 e2 p))
+        return ← mkPropFalse
       return none
   | _ => return none
 
@@ -260,6 +316,35 @@ def addNatEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := d
    let op2' := mkApp2 (← mkNatAddOp) (← mkNatLitExpr rightValue) e2
    mkNatEqExpr op1' op2'
 
+/-- Proof-returning companion to `gtZeroIntInHyps` for a non literal `e` :
+  when a hypothesis entailing `0 < e` is in the context, otherwise `none`
+-/
+def gtZeroIntInHypsProof (e : Expr) : TranslateEnvT (Option Expr) := do
+  match isIntValue? e with
+  | .some (.ofNat 0) => return none
+  | .some (.ofNat _) => return none
+  | .some _          => return none
+  | .none =>
+    let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
+    let zero_int ← mkIntLitExpr (Int.ofNat 0)
+    let zero_lt ← mkIntLtExpr zero_int e
+    return hyps.get? zero_lt
+
+
+/-- Proof-returning companion to `ltZeroIntInHyps` for a non literal `e` :
+  when a hypothesis entailing `e < 0` is in the context, otherwise `none`
+-/
+def ltZeroIntInHypsProof (e : Expr) : TranslateEnvT (Option Expr) := do
+  match isIntValue? e with
+  | .some (.ofNat 0) => return none
+  | .some (.ofNat _) => return none
+  | .some _          => return none
+  | .none =>
+    let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
+    let zero_int ← mkIntLitExpr (Int.ofNat 0)
+    let lt_zero ← mkIntLtExpr e zero_int
+    return hyps.get? lt_zero
+
 /-- Given `op1` and `op2` corresponding to the operands for `Eq`:
       - return `some False` when `gtZeroIntInHyps x ∧ gtZeroIntInHyps y`
       - return `some False` when `ltZeroIntInHyps x ∧ ltZeroIntInHyps y`
@@ -269,8 +354,14 @@ def addIntEqZeroReduce? (op1 op2 : Expr) : TranslateEnvT (Option Expr) := do
   let some (e1, e2) := intAdd? op2 | return none
   match isIntValue? op1 with
   | some 0 =>
-      if (← gtZeroIntInHyps e1 <&&> gtZeroIntInHyps e2) then return ← mkPropFalse
-      if (← ltZeroIntInHyps e1 <&&> ltZeroIntInHyps e2) then return ← mkPropFalse
+      if let (some p1, some p2) := (← gtZeroIntInHypsProof e1 , ← gtZeroIntInHypsProof e2) then
+        let conj ← mkAppM ``And.intro #[p1, p2]
+        pushProofStep (.rewrite (← mkAppM ``Blaster.int_add_eq_false_of_gt #[e1, e2, conj]))
+        return ← mkPropFalse
+      if let (some p1, some p2) := (← ltZeroIntInHypsProof e1 , ← ltZeroIntInHypsProof e2) then
+        let conj ← mkAppM ``And.intro #[p1, p2]
+        pushProofStep (.rewrite (← mkAppM ``Blaster.int_add_eq_false_of_lt #[e1, e2, conj]))
+        return ← mkPropFalse
       return none
   | _ => return none
 
@@ -320,22 +411,22 @@ def arithEq? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
   return none
 
 /-- Apply the following simplification/normalization rules on `Eq` :
-     - False = e ==> ¬ e                  [proof: Blaster.false_prop_is_neg]
-     - True = e ==> e                     [proof: Blaster.true_prop_is_idem]
-     - e = ¬ e ==> False                  [proof: Blaster.eq_neg_is_false]
-     - e = not e ==> False                [proof: Blaster.eq_not_is_false]
-     - e1 = e2 ==> True (if e1 =ₚₜᵣ e2)
+     - False = e ==> ¬ e                          [proof: Blaster.false_prop_is_neg]
+     - True = e ==> e                             [proof: Blaster.true_prop_is_idem]
+     - e = ¬ e ==> False                          [proof: Blaster.eq_neg_is_false]
+     - e = not e ==> False                        [proof: Blaster.eq_not_is_false]
+     - e1 = e2 ==> True (if e1 =ₚₜᵣ e2)            [proof: eq_self]
      - e1 = e2 ==> False (if structEq? e1 e2 = some false) (NOTE: `some true` case already handled by =ₚₜᵣ)
-     - true = not e ==> false = e
-     - false = not e ==> true = e
-     - ¬ e1 = ¬ e2 ==> e1 = e2 (require classical)
-     - not e1 = not e2 ==> e1 = e2
-     - 0 = (-e) ==> 0 = e (if Type(e) = Int)
-     - -e1 = -e2 ==> e1 = e2 (if Type(e1) = Int)
-     - 0 = x * y ==> False (if Type(x) ∈ [Nat, Int] ∧ nonZeroInHyps x ∧ nonZeroInHyps y)
-     - 0 = x + y ==> False (if Type (x) = Nat ∧ (nonZeroNatInHyps x ∨ nonZeroNatInHyps y))
-     - 0 = x + y ==> False (if Type (x) = Int ∧ gtZeroIntInHyps x ∧ gtZeroIntInHyps y)
-     - 0 = x + y ==> False (if Type (x) = Int ∧ ltZeroIntInHyps x ∧ ltZeroIntInHyps y)
+     - true = not e ==> false = e                 [proof: Blaster.true_eq_not_is_false_eq]
+     - false = not e ==> true = e                 [proof: Blaster.false_eq_not_is_true_eq]
+     - ¬ e1 = ¬ e2 ==> e1 = e2 (require classical)[proof: Blaster.neg_eq_neg_is_eq]
+     - not e1 = not e2 ==> e1 = e2                [proof: Blaster.not_eq_not_is_eq]
+     - 0 = (-e) ==> 0 = e (if Type(e) = Int)      [proof: Blaster.zero_eq_int]
+     - -e1 = -e2 ==> e1 = e2 (if Type(e1) = Int)  [proof: Blaster.int_neg_eq]
+     - 0 = x * y ==> False (if Type(x) ∈ [Nat, Int] ∧ nonZeroInHyps x ∧ nonZeroInHyps y)  [proof: Blaster.nat_mul_eq_false_of_ne, Blaster.int_mul_eq_false_of_ne]
+     - 0 = x + y ==> False (if Type (x) = Nat ∧ (nonZeroNatInHyps x ∨ nonZeroNatInHyps y))[proof: Blaster.nat_add_eq_false_of_ne_fst, Blaster.nat_add_eq_false_of_ne_snd]
+     - 0 = x + y ==> False (if Type (x) = Int ∧ gtZeroIntInHyps x ∧ gtZeroIntInHyps y)    [proof: Blaster.int_add_eq_false_of_gt]
+     - 0 = x + y ==> False (if Type (x) = Int ∧ ltZeroIntInHyps x ∧ ltZeroIntInHyps y)    [proof: Blaster.int_add_eq_false_of_lt]
      - e1 = e2 ==> r (if some r ← arithEq? e1 e2)
      - x + y = x + z | y + x = x + z | x + y = z + x | y + x = z + x ==> y = z (if Type(x) ∈ [Nat, Int]]
      - x * y = x * z | y * x = x * z | x * y = z * x | y * x = z * x ==> y = z (if Type(x) ∈ [Nat, Int] ∧ nonZeroInHyps x]
@@ -385,8 +476,12 @@ def optimizeEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
    catch _ => pure ()
    return ← mkPropFalse
  if let some (e1, e2) ← notNegEqSimp? op1 op2 then return mkApp3 f eqType e1 e2
- if let some r ← zeroEqNegReduce? op1 op2 eqType then return r
- if let some (e1, e2) ← intNegEqReduce? op1 op2 then return mkApp3 f eqType e1 e2
+ if let some r ← zeroEqNegReduce? op1 op2 eqType then
+  pushProofStep (.rewrite (mkConst ``Blaster.zero_eq_int))
+  return r
+ if let some (e1, e2) ← intNegEqReduce? op1 op2 then
+  pushProofStep (.rewrite (mkConst ``Blaster.int_neg_eq))
+  return mkApp3 f eqType e1 e2
  if let some r ← natZeroEqMulReduce? op1 op2 then return r
  if let some r ← intZeroEqMulReduce? op1 op2 then return r
  if let some r ← addNatEqZeroReduce? op1 op2 then return r
