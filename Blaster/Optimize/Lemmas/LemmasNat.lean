@@ -171,14 +171,26 @@ protected theorem nat_lt_false_of_not_pred_lt (n e : Nat) (h : ¬ (n - 1 < e)) :
 /-! ## Lemmas for validating the hypothesis-context `OptimizeEq` reductions on `Nat`:
   - `0 = x * y ==> False (if x ≠ 0 ∧ y ≠ 0)` -/
 
-theorem nat_zero_lt_imp_zero_neq (e: Nat) (h : 0 < e): e ≠ 0 := by
+protected theorem nat_zero_lt_imp_zero_neq (e: Nat) (h : 0 < e): e ≠ 0 := by
   exact Nat.ne_zero_of_lt h
 
-theorem non_zero_mul_contradiction (a b : Nat) (h : a ≠ 0 ∧ b ≠ 0) :
+protected theorem nat_mul_eq_false_of_ne (a b : Nat) (h : a ≠ 0 ∧ b ≠ 0) :
   (0 = a * b) = False := by
   apply propext
   rw [iff_false, ← ne_eq]
   exact (Nat.mul_ne_zero h.1 h.2).symm
+
+protected theorem nat_add_eq_false_of_ne_fst (a b : Nat) (h : a ≠ 0) :
+  (0 = a + b) = False := by
+  apply propext
+  rw [iff_false, ← ne_eq]
+  omega
+
+protected theorem nat_add_eq_false_of_ne_snd (a b : Nat) (h : b ≠ 0) :
+  (0 = a + b) = False := by
+  apply propext
+  rw [iff_false, ← ne_eq]
+  omega
 
 def mkNat_lt_asymm : TranslateEnvT Expr := mkExpr (mkConst ``Nat.lt_asymm)
 

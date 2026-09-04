@@ -535,8 +535,40 @@ elab "eqStrConstructor_4" : term => return eqStrConstructor_4
 -- (∀ (x : Int), fun y => x > x = fun z => x > x) ===> True
 #testOptimize [ "LambdaEq_3" ] ∀ (x : Int), (fun (y : Int) => x > y) = (fun z => x > z) ===> True
 
+-- ∀ (x y : Nat), (x ≠ 0 ∧ y ≠ 0) → (0 = (x * y)) = False ===> True
+#testOptimize ["ZeroNatMulEqInHyps_1", proof]
+  ∀ (x y : Nat), (x ≠ 0 ∧ y ≠ 0) → (0 = (x * y)) = False ===> True
 
-#testOptimize ["ZeroNatEqInHyps_1"]
-  ∀ (x y : Nat), (x ≠ 0 ∧ y ≠ 0) → 0 = (x * y) ===> False
+-- ∀ (x y : Nat), (0 < x ∧ 0 < y) → (0 = (x * y)) = False ===> True
+#testOptimize ["ZeroNatMulEqInHyps_2", proof]
+  ∀ (x y : Nat), (0 < x ∧ 0 < y) → (0 = (x * y)) = False ===> True
+
+-- ∀ (x y : Int), (x ≠ 0 ∧ y ≠ 0) → (0 = (x * y)) = False ===> True
+#testOptimize ["ZeroIntEqInHyps_1", proof]
+  ∀ (x y : Int), (x ≠ 0 ∧ y ≠ 0) → (0 = x * y) = False ===> True
+
+-- ∀ (x y : Int), (0 < x ∧ 0 < y) → (0 = (x * y)) = False ===> True
+#testOptimize ["ZeroIntEqInHyps_2", proof]
+  ∀ (x y : Int), (0 < x ∧ 0 < y) → (0 = x * y) = False ===> True
+
+-- ∀ (x y : Int), (x > 0 ∧ y > 0) → (0 = (x * y)) = False ===> True
+#testOptimize ["ZeroIntEqInHyps_3", proof]
+  ∀ (x y : Int), (x > 0 ∧ y > 0) → (0 = x * y) = False ===> True
+
+-- ∀ (x y : Nat), (x > 0) → (0 = x + y) = False ===> True
+#testOptimize ["ZeroNatAddEqInHyps_1", proof]
+  ∀ (x y : Nat), (x > 0) → (0 = x + y) = False ===> True
+
+-- ∀ (x y : Nat), (y > 0) → (0 = x + y) = False ===> True
+#testOptimize ["ZeroNatAddEqInHyps_2", proof]
+  ∀ (x y : Nat), (y > 0) → (0 = x + y) = False ===> True
+
+-- ∀ (x y : Int), (x > 0 ∧ y > 0) → (0 = x + y) = False ===> True
+#testOptimize ["ZeroIntAddEqInHyps_1", proof]
+  ∀ (x y : Int), (0 < x ∧ 0 < y) → (0 = x + y) = False ===> True
+
+-- ∀ (x y : Int), (x < 0 ∧ y < 0) → (0 = x + y) = False ===> True
+#testOptimize ["ZeroIntAddEqInHyps_2", proof]
+  ∀ (x y : Int), (x < 0 ∧ y < 0) → (0 = x + y) = False ===> True
 
 end Test.OptimizeEq
