@@ -415,18 +415,18 @@ def arithEq? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
      - True = e ==> e                             [proof: Blaster.true_prop_is_idem]
      - e = ¬ e ==> False                          [proof: Blaster.eq_neg_is_false]
      - e = not e ==> False                        [proof: Blaster.eq_not_is_false]
-     - e1 = e2 ==> True (if e1 =ₚₜᵣ e2)
+     - e1 = e2 ==> True (if e1 =ₚₜᵣ e2)            [proof: eq_self]
      - e1 = e2 ==> False (if structEq? e1 e2 = some false) (NOTE: `some true` case already handled by =ₚₜᵣ)
-     - true = not e ==> false = e
-     - false = not e ==> true = e
-     - ¬ e1 = ¬ e2 ==> e1 = e2 (require classical)
-     - not e1 = not e2 ==> e1 = e2
+     - true = not e ==> false = e                 [proof: Blaster.true_eq_not_is_false_eq]
+     - false = not e ==> true = e                 [proof: Blaster.false_eq_not_is_true_eq]
+     - ¬ e1 = ¬ e2 ==> e1 = e2 (require classical)[proof: Blaster.neg_eq_neg_is_eq]
+     - not e1 = not e2 ==> e1 = e2                [proof: Blaster.not_eq_not_is_eq]
      - 0 = (-e) ==> 0 = e (if Type(e) = Int)      [proof: Blaster.zero_eq_int]
      - -e1 = -e2 ==> e1 = e2 (if Type(e1) = Int)  [proof: Blaster.int_neg_eq]
-     - 0 = x * y ==> False (if Type(x) ∈ [Nat, Int] ∧ nonZeroInHyps x ∧ nonZeroInHyps y)
-     - 0 = x + y ==> False (if Type (x) = Nat ∧ (nonZeroNatInHyps x ∨ nonZeroNatInHyps y))
-     - 0 = x + y ==> False (if Type (x) = Int ∧ gtZeroIntInHyps x ∧ gtZeroIntInHyps y)
-     - 0 = x + y ==> False (if Type (x) = Int ∧ ltZeroIntInHyps x ∧ ltZeroIntInHyps y)
+     - 0 = x * y ==> False (if Type(x) ∈ [Nat, Int] ∧ nonZeroInHyps x ∧ nonZeroInHyps y)  [proof: Blaster.nat_mul_eq_false_of_ne, Blaster.int_mul_eq_false_of_ne]
+     - 0 = x + y ==> False (if Type (x) = Nat ∧ (nonZeroNatInHyps x ∨ nonZeroNatInHyps y))[proof: Blaster.nat_add_eq_false_of_ne_fst, Blaster.nat_add_eq_false_of_ne_snd]
+     - 0 = x + y ==> False (if Type (x) = Int ∧ gtZeroIntInHyps x ∧ gtZeroIntInHyps y)    [proof: Blaster.int_add_eq_false_of_gt]
+     - 0 = x + y ==> False (if Type (x) = Int ∧ ltZeroIntInHyps x ∧ ltZeroIntInHyps y)    [proof: Blaster.int_add_eq_false_of_lt]
      - e1 = e2 ==> r (if some r ← arithEq? e1 e2)
      - x + y = x + z | y + x = x + z | x + y = z + x | y + x = z + x ==> y = z (if Type(x) ∈ [Nat, Int]]
      - x * y = x * z | y * x = x * z | x * y = z * x | y * x = z * x ==> y = z (if Type(x) ∈ [Nat, Int] ∧ nonZeroInHyps x]
