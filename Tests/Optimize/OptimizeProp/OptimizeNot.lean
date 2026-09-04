@@ -15,19 +15,19 @@ namespace Tests.OptimizeNot
 #testOptimize [ "NotFalse_2", proof ] ¬ (true = false) ===> True
 
 -- ¬ ((10 : Nat) = 20) ===> True
-#testOptimize [ "NotFalse_3" ] ¬ ((10 : Nat) = 20) ===> True
+#testOptimize [ "NotFalse_3", proof ] ¬ ((10 : Nat) = 20) ===> True
 
 -- ¬ (¬ True) ===> True
-#testOptimize [ "NotFalse_4" ] ¬ (¬ True) ===> True
+#testOptimize [ "NotFalse_4", proof ] ¬ (¬ True) ===> True
 
 -- ¬ (¬ a ∧ b) ===> True
-#testOptimize [ "NotFalse_5" ] ∀ (a : Prop), ¬ (¬ a ∧ a) ===> True
+#testOptimize [ "NotFalse_5", proof ] ∀ (a : Prop), ¬ (¬ a ∧ a) ===> True
 
 -- ¬ (Nat.ble (10 : Nat) 0) ===> True
-#testOptimize [ "NotFalse_6" ] ¬ (Nat.ble (10 : Nat) 0) ===> True
+#testOptimize [ "NotFalse_6", proof ] ¬ (Nat.ble (10 : Nat) 0) ===> True
 
 -- ¬ ((a ∨ (b ∧ ¬ b)) ∧ ¬ a) ==> True
-#testOptimize [ "NotFalse_7" ] ∀ (a b : Prop), ¬ ((a ∨ (b ∧ ¬ b)) ∧ ¬ a) ===> True
+#testOptimize [ "NotFalse_7", proof ] ∀ (a b : Prop), ¬ ((a ∨ (b ∧ ¬ b)) ∧ ¬ a) ===> True
 
 
 /-! Test cases for simplification rule `¬ True ==> False`. -/
@@ -39,19 +39,19 @@ namespace Tests.OptimizeNot
 #testOptimize [ "NotTrue_2", proof ] ¬ (true = true) ===> False
 
 -- ¬ ((10 : Nat) = 10) ===> False
-#testOptimize [ "NotTrue_3" ] ¬ ((10 : Nat) = 10) ===> False
+#testOptimize [ "NotTrue_3", proof ] ¬ ((10 : Nat) = 10) ===> False
 
 -- ¬ (¬ False) ===> False
-#testOptimize [ "NotTrue_4" ] ¬ (¬ False) ===> False
+#testOptimize [ "NotTrue_4", proof ] ¬ (¬ False) ===> False
 
 -- ¬ (¬ a ∨ a) ===> False
-#testOptimize [ "NotTrue_5" ] ∀ (a : Prop), ¬ (¬ a ∨ a) ===> False
+#testOptimize [ "NotTrue_5", proof ] ∀ (a : Prop), ¬ (¬ a ∨ a) ===> False
 
 -- ¬ (Nat.blt Nat.zero 10) ===> False
-#testOptimize [ "NotTrue_6" ] ¬ (Nat.blt Nat.zero 10) ===> False
+#testOptimize [ "NotTrue_6", proof ] ¬ (Nat.blt Nat.zero 10) ===> False
 
 -- ¬ ((a ∨ (b ∧ ¬ b)) ∨ ¬ a) ==> False
-#testOptimize [ "NotTrue_7" ] ∀ (a b : Prop), ¬ ((a ∨ (b ∧ ¬ b)) ∨ ¬ a) ===> False
+#testOptimize [ "NotTrue_7", proof ] ∀ (a b : Prop), ¬ ((a ∨ (b ∧ ¬ b)) ∨ ¬ a) ===> False
 
 
 /-! Test cases for simplification rule `¬ (¬ e) ==> e`. -/
@@ -66,18 +66,18 @@ namespace Tests.OptimizeNot
 #testOptimize [ "Not_3", proof ] ∀ (a : Prop), ¬ (¬ (¬ a)) ===> ∀ (a : Prop), ¬ a
 
 -- ¬ (¬ (¬ (¬ a))) ===> a
-#testOptimize [ "Not_4" ] ∀ (a : Prop), ¬ (¬ (¬ (¬ a))) ===> ∀ (a : Prop), a
+#testOptimize [ "Not_4", proof ] ∀ (a : Prop), ¬ (¬ (¬ (¬ a))) ===> ∀ (a : Prop), a
 
 -- ¬ (¬ (a ∧ b)) ===> a ∧ b
-#testOptimize [ "Not_5" ] ∀ (a b : Prop), ¬ (¬ (a ∧ b)) ===> ∀ (a b : Prop), a ∧ b
+#testOptimize [ "Not_5", proof ] ∀ (a b : Prop), ¬ (¬ (a ∧ b)) ===> ∀ (a b : Prop), a ∧ b
 
 -- ¬ (¬ (a = b)) ===> a = b
-#testOptimize [ "Not_6" ] ∀ (a b : Prop), ¬ (¬ (a = b)) ===> ∀ (a b : Prop), a = b
+#testOptimize [ "Not_6", proof ] ∀ (a b : Prop), ¬ (¬ (a = b)) ===> ∀ (a b : Prop), a = b
 
 -- ¬ (false = a) ===> a (with Type(a) = Prop)
 -- NOTE: `false = a` is interpreted as `(false = true) = a`, which is in turn reduced to
 --       `False = a` and then to `¬ a`.
-#testOptimize [ "Not_7" ]  ∀ (a : Prop), ¬ (false = a) ===> ∀ (a : Prop), a
+#testOptimize [ "Not_7", proof ]  ∀ (a : Prop), ¬ (false = a) ===> ∀ (a : Prop), a
 
 
 /-! Test cases to ensure that the following simplification rules are not applied wrongly:
@@ -87,16 +87,16 @@ namespace Tests.OptimizeNot
 -/
 
 -- ¬ a ===> ¬ a
-#testOptimize [ "NotUnchanged_1" ] ∀ (a : Prop), ¬ a ===> ∀ (a : Prop), ¬ a
+#testOptimize [ "NotUnchanged_1", proof ] ∀ (a : Prop), ¬ a ===> ∀ (a : Prop), ¬ a
 
 -- ¬ (a ∧ b) ===> ¬ (a ∧ b)
-#testOptimize [ "NotUnchanged_2" ] ∀ (a b : Prop), ¬ (a ∧ b) ===> ∀ (a b : Prop), ¬ (a ∧ b)
+#testOptimize [ "NotUnchanged_2", proof ] ∀ (a b : Prop), ¬ (a ∧ b) ===> ∀ (a b : Prop), ¬ (a ∧ b)
 
 -- ¬ (a ∨ b) ===> ¬ (a ∨ b)
-#testOptimize [ "NotUnchanged_3" ] ∀ (a b : Prop), ¬ (a ∨ b) ===> ∀ (a b : Prop), ¬ (a ∨ b)
+#testOptimize [ "NotUnchanged_3", proof ] ∀ (a b : Prop), ¬ (a ∨ b) ===> ∀ (a b : Prop), ¬ (a ∨ b)
 
 -- ¬ (a → b) ===> ¬ (a → b)
-#testOptimize [ "NotUnchanged_4" ] ∀ (a b : Prop), ¬ (a → b) ===> ∀ (a b : Prop), ¬ (a → b)
+#testOptimize [ "NotUnchanged_4", proof ] ∀ (a b : Prop), ¬ (a → b) ===> ∀ (a b : Prop), ¬ (a → b)
 
 -- ¬ (if c then a else b) ===> ¬ ((false = c → b) ∧ (true = c → a))
 #testOptimize [ "NotUnchanged_5" ] ∀ (c : Bool) (a b : Prop), ¬ (if c then a else b) ===>
@@ -104,11 +104,11 @@ namespace Tests.OptimizeNot
 
 -- ¬ ((¬ a) ∧ b) ===> ¬ ((¬ a) ∧ b)
 -- NOTE: reordering applied on commutative operators
-#testOptimize [ "NotUnchanged_6" ] ∀ (a b : Prop), ¬ ((¬ a) ∧ b) ===> ∀ (a b : Prop), ¬ (b ∧ ¬ a)
+#testOptimize [ "NotUnchanged_6", proof ] ∀ (a b : Prop), ¬ ((¬ a) ∧ b) ===> ∀ (a b : Prop), ¬ (b ∧ ¬ a)
 
 -- ¬ ((¬ a) = b) ===> ¬ ((¬ a) = b)
 -- NOTE: reordering applied on commutative operators
-#testOptimize [ "NotUnchanged_7" ] ∀ (a b : Prop), ¬ ((¬ a) = b) ===> ∀ (a b : Prop), ¬ (b = ¬ a)
+#testOptimize [ "NotUnchanged_7", proof ] ∀ (a b : Prop), ¬ ((¬ a) = b) ===> ∀ (a b : Prop), ¬ (b = ¬ a)
 
 
 /-! Test cases for simplification rule `¬ (false = e) ==> true = e`. -/
@@ -120,32 +120,32 @@ namespace Tests.OptimizeNot
 #testOptimize [ "NotEqFalse_2", proof ] ∀ (a : Bool), (¬ (false = a)) = (true = a) ===> True
 
 -- ¬ (a = false) ===> true = a (with Type(a) = Bool)
-#testOptimize [ "NotEqFalse_3" ] ∀ (a : Bool), ¬ (a = false) ===> ∀ (a : Bool), true = a
+#testOptimize [ "NotEqFalse_3", proof ] ∀ (a : Bool), ¬ (a = false) ===> ∀ (a : Bool), true = a
 
 -- (¬ (false = a)) = a ===> True (with Type(a) = Bool)
-#testOptimize [ "NotEqFalse_4" ] ∀ (a : Bool), (¬ (false = a)) = a ===> True
+#testOptimize [ "NotEqFalse_4", proof ] ∀ (a : Bool), (¬ (false = a)) = a ===> True
 
 -- ¬ (a = false) = a ===> True (with Type(a) = Bool)
-#testOptimize [ "NotEqFalse_5" ] ∀ (a : Bool), (¬ (a = false)) = a ===> True
+#testOptimize [ "NotEqFalse_5", proof ] ∀ (a : Bool), (¬ (a = false)) = a ===> True
 
 -- ¬ (a = (b && ! b)) ===> true = a (with Type(a) = Bool)
-#testOptimize [ "NotEqFalse_6" ] ∀ (a b : Bool), ¬ (a = (b && !b)) ===> ∀ (a : Bool), true = a
+#testOptimize [ "NotEqFalse_6", proof ] ∀ (a b : Bool), ¬ (a = (b && !b)) ===> ∀ (a : Bool), true = a
 
 -- ¬ (a = (b && ! b)) = a ===> True (with Type(a) = Bool)
-#testOptimize [ "NotEqFalse_7" ] ∀ (a b : Bool), (¬ (a = (b && !b))) = a ===> True
+#testOptimize [ "NotEqFalse_7", proof ] ∀ (a b : Bool), (¬ (a = (b && !b))) = a ===> True
 
 -- ¬ (!a) ===> true = a (with Type(a) = Bool)
-#testOptimize [ "NotEqFalse_8" ] ∀ (a : Bool), (¬ !a) ===> ∀ (a : Bool), true = a
+#testOptimize [ "NotEqFalse_8", proof ] ∀ (a : Bool), (¬ !a) ===> ∀ (a : Bool), true = a
 
 -- let x := a || a in
 -- let y := ! a || ! x in
 -- ¬ y ===> true = a (with Type(a) = Bool)
-#testOptimize [ "NotEqFalse_9" ] ∀ (a : Bool), let x := a || a; let y := !a || !x; ¬ y ===> ∀ (a : Bool), true = a
+#testOptimize [ "NotEqFalse_9", proof ] ∀ (a : Bool), let x := a || a; let y := !a || !x; ¬ y ===> ∀ (a : Bool), true = a
 
 -- let x := a || a in
 -- let y := ! a || ! x in
 -- (¬ y) = a ===> True (with Type(a) = Bool)
-#testOptimize [ "NotEqFalse_10" ] ∀ (a : Bool), let x := a || a; let y := !a || !x; (¬ y) = a ===> True
+#testOptimize [ "NotEqFalse_10", proof ] ∀ (a : Bool), let x := a || a; let y := !a || !x; (¬ y) = a ===> True
 
 
 /-! Test cases for simplification rule `¬ (true = e) ==> false = e`. -/
@@ -157,32 +157,32 @@ namespace Tests.OptimizeNot
 #testOptimize [ "NotEqTrue_2", proof ] ∀ (a : Bool), (¬ (true = a)) = (false = a) ===> True
 
 -- ¬ (a = true) ===> false = a (with Type(a) = Bool)
-#testOptimize [ "NotEqTrue_3" ] ∀ (a : Bool), ¬ (a = true) ===> ∀ (a : Bool), false = a
+#testOptimize [ "NotEqTrue_3", proof ] ∀ (a : Bool), ¬ (a = true) ===> ∀ (a : Bool), false = a
 
 -- ¬ (true = a) = not a ===> True (with Type(a) = Bool)
-#testOptimize [ "NotEqTrue_4" ] ∀ (a : Bool), (¬ (true = a)) = not a ===> True
+#testOptimize [ "NotEqTrue_4", proof ] ∀ (a : Bool), (¬ (true = a)) = not a ===> True
 
 -- ¬ (a = false) = not a ===> True (with Type(a) = Bool)
-#testOptimize [ "NotEqTrue_5" ] ∀ (a : Bool), (¬ (a = true)) = not a ===> True
+#testOptimize [ "NotEqTrue_5", proof ] ∀ (a : Bool), (¬ (a = true)) = not a ===> True
 
 -- ¬ (a = (b || ! b)) ===> false = a (with Type(a) = Bool)
-#testOptimize [ "NotEqTrue_6" ] ∀ (a b : Bool), ¬ (a = (b || !b)) ===> ∀ (a : Bool), false = a
+#testOptimize [ "NotEqTrue_6", proof ] ∀ (a b : Bool), ¬ (a = (b || !b)) ===> ∀ (a : Bool), false = a
 
 -- ¬ (a = (b || ! b)) = not a ===> True (with Type(a) = Bool)
-#testOptimize [ "NotEqTrue_7" ] ∀ (a b : Bool), (¬ (a = (b || !b))) = not a ===> True
+#testOptimize [ "NotEqTrue_7", proof ] ∀ (a b : Bool), (¬ (a = (b || !b))) = not a ===> True
 
 -- ¬ a ===> false = a  (with Type(a) = Bool)
-#testOptimize [ "NotEqFalse_8" ] ∀ (a : Bool), ¬ a ===> ∀ (a : Bool), false = a
+#testOptimize [ "NotEqFalse_8", proof ] ∀ (a : Bool), ¬ a ===> ∀ (a : Bool), false = a
 
 -- let x := a && a in
 -- let y := a || x in
 -- ¬ y ===> false = a (with Type(a) = Bool)
-#testOptimize [ "NotEqTrue_9" ] ∀ (a : Bool), let x := a && a; let y := a || x; ¬ y ===> ∀ (a : Bool), false = a
+#testOptimize [ "NotEqTrue_9", proof ] ∀ (a : Bool), let x := a && a; let y := a || x; ¬ y ===> ∀ (a : Bool), false = a
 
 -- let x := a && a in
 -- let y := a || x in
 -- (¬ y) = not a ===> True (with Type(a) = Bool)
-#testOptimize [ "NotEqTrue_10" ] ∀ (a : Bool), let x := a && a; let y := a || x; (¬ y) = not a ===> True
+#testOptimize [ "NotEqTrue_10", proof ] ∀ (a : Bool), let x := a && a; let y := a || x; (¬ y) = not a ===> True
 
 
 /-! Test cases to ensure that the following simplification rules are not applied wrongly:
@@ -191,11 +191,11 @@ namespace Tests.OptimizeNot
 -/
 
 -- ¬ (a = b) ===> ¬ (a = b) (with Type(a) = Type(b) = Bool)
-#testOptimize [ "NotEqBoolCstUnchanged_1" ] ∀ (a b : Bool), ¬ (a = b) ===> ∀ (a b : Bool), ¬ (a = b)
+#testOptimize [ "NotEqBoolCstUnchanged_1", proof ] ∀ (a b : Bool), ¬ (a = b) ===> ∀ (a b : Bool), ¬ (a = b)
 
 -- ¬ ((!a) = b) ===> ¬ ((!a) = b) (with Type(a) = Type(b) = Bool)
 -- NOTE: reordering applied on commutative operators
-#testOptimize [ "NotEqBoolCstUnchanged_2" ] ∀ (a b : Bool), ¬ ((!a) = b) ===> ∀ (a b : Bool), ¬ (b = !a)
+#testOptimize [ "NotEqBoolCstUnchanged_2", proof ] ∀ (a b : Bool), ¬ ((!a) = b) ===> ∀ (a b : Bool), ¬ (b = !a)
 
 
 end Tests.OptimizeNot

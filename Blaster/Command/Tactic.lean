@@ -90,9 +90,22 @@ def mapOptBodyToInputFVars (optBody : Expr) (optFvars inputFvars : Array Expr) :
       mapping := mapping.push optFvars[i]!
   return optBody.replaceFVars optFvars mapping
 
+/-- `true` iff `e` contains a `let` binding anywhere. -/
+private partial def hasLet : Expr → Bool
+  | .letE .. => true
+  | .app f a => hasLet f || hasLet a
+  | .lam _ t b _ => hasLet t || hasLet b
+  | .forallE _ t b _ => hasLet t || hasLet b
+  | .mdata _ e => hasLet e
+  | .proj _ _ s => hasLet s
+  | _ => false
+
 /-- Apply recorded proof stack rewrites to a goal.
     Each rewrite step is attempted; steps that don't match are skipped. -/
 def applyProofStack (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep) : MetaM MVarId := do
+  let goal ← goal.withContext do
+    let t ← goal.getType
+    if hasLet t then goal.change (← zetaReduce t) else pure goal
   -- normalize proof terms once upfront
   let steps : Array Blaster.Optimize.ProofStep ← goal.withContext <| steps.mapM fun
     | .rewrite proof symm => return .rewrite (← toElabForm proof) symm
