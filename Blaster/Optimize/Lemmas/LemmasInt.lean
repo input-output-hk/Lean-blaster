@@ -251,12 +251,6 @@ protected theorem int_neg_eq (a b : Int) : (-a = -b) = (a = b) := by
   apply propext
   exact Int.neg_inj
 
-protected theorem int_zero_gt_imp_zero_neq (e: Int) (h : 0 < e): e ≠ 0 := by
-  exact Int.ne_of_gt h
-
-protected theorem int_zero_lt_imp_zero_neq (e: Int) (h : e < 0): e ≠ 0 := by
-  exact Int.ne_of_lt h
-
 protected theorem int_mul_eq_false_of_ne (a b : Int) (h : a ≠ 0 ∧ b ≠ 0) :
   (0 = a * b) = False := by
   apply propext

@@ -322,7 +322,7 @@ def addNatEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := d
 def gtZeroIntInHypsProof (e : Expr) : TranslateEnvT (Option Expr) := do
   match isIntValue? e with
   | .some (.ofNat 0) => return none
-  | .some (.ofNat _) => return some e
+  | .some (.ofNat _) => return none
   | .some _          => return none
   | .none =>
     let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
@@ -338,7 +338,7 @@ def ltZeroIntInHypsProof (e : Expr) : TranslateEnvT (Option Expr) := do
   match isIntValue? e with
   | .some (.ofNat 0) => return none
   | .some (.ofNat _) => return none
-  | .some _          => return some e
+  | .some _          => return none
   | .none =>
     let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
     let zero_int ← mkIntLitExpr (Int.ofNat 0)
