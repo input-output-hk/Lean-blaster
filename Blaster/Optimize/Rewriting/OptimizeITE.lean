@@ -4,35 +4,38 @@ import Blaster.Optimize.Rewriting.OptimizeForAll
 open Lean Meta Elab
 namespace Blaster.Optimize
 
+
+/-- Given `e` and `c` corresponding respectively to then/else and conditional operands for `Blaster.dite'`,
+    perform the following:
+     - When `e := λ h : c => x` return `h : c → x`
+     - Otherwise:
+        - return `h : c => (mkApp e h)`
+-/
+def toImpliesExpr (e : Expr) (c : Expr) (isThen := false) (isRestart := true) : TranslateEnvT Expr := do
+ match e with
+ | Expr.lam n t b bi =>
+      -- NOTE: we need to propagate the reuse context to the new implication expressions
+      let e' ← mkForallExpr n bi t b
+      if isThen && isRestart then propagateReuseContext e e' 0 else
+        freeRewriteCacheReuse e 0
+      return e'
+ | _ =>
+     mkForallExpr (← Term.mkFreshBinderName) BinderInfo.default c (← mkAppExpr e (← mkBVarExpr 0))
+
 /-- Given `thn` and `els` corresponding respectively to the `then` and `else` terms
     of a `Blaster.dite'` expression, perform the following normalization rules:
-      - When `Type(t) = Prop ∧ t := fun h : c => e1 ∧ e := fun h : ¬ c => e2`
-          - return `(h : c → e1) ∧ (h : ¬ c → e2)`
-      - When `Type(t) = Prop ∧ t := c → Prop ∧ e := ¬ c → Prop`
-          - return `(h : c → t h) ∧ (h : ¬ c → e h)`
-      - When `Type(t) ≠ Prop:
+      - When `Type(t) = Prop ∧ thn := c → Prop ∧ els := ¬ c → Prop`
+          - return `(h : c → thn h) ∧ (h : ¬ c → els h)`
+      - When `Type(t) ≠ Prop ∨ thn.isLambda ∨ else.isLambda:
           - return `none`
       - Otherwise
            - return ⊥
 -/
 def diteToPropExpr? (iteType: Expr) (cond : Expr) (thn : Expr) (els : Expr) : TranslateEnvT (Option Expr) := do
-  if !iteType.isProp then return none
-  let leftAnd ← toImpliesExpr thn cond
-  let rightAnd ← toImpliesExpr els (mkApp (← mkPropNotOp) cond)
-  return mkApp2 (← mkPropAndOp) leftAnd rightAnd
-
-  where
-    toImpliesExpr (ite : Expr) (c : Expr) : TranslateEnvT Expr := do
-     match ite with
-     | Expr.lam n t b bi => return mkForall n bi t b
-     | _ =>
-         if !(← isQuantifiedFun ite) then
-            throwEnvError "diteToPropExpr? : lambda/quantified function expected but got {reprStr ite}"
-         else
-           -- Need to create a lambda term embedding the following application
-           -- `fun x : cond => ite x`
-           withLocalDecl' (← Term.mkFreshBinderName) BinderInfo.default c fun x => do
-             mkForallFVars #[x] (ite.beta #[x])
+  if !iteType.isProp || thn.isLambda || els.isLambda then return none
+  let leftAnd ← toImpliesExpr thn cond (isThen := true)
+  let rightAnd ← toImpliesExpr els (← mkAppExpr (← mkPropNotOp) cond)
+  mkApp2Expr (← mkPropAndOp) leftAnd rightAnd
 
 
 /-- Return `some (true = c')` only when `c := false = c'`.
@@ -42,7 +45,7 @@ def diteToPropExpr? (iteType: Expr) (cond : Expr) (thn : Expr) (els : Expr) : Tr
 def isITEBoolSwap? (c : Expr) : TranslateEnvT (Option Expr) := do
   match eq? c with
   | some (eq_sort, Expr.const ``false _, op2) =>
-      mkExpr (mkApp3 c.getAppFn eq_sort (← mkBoolTrue) op2)
+      mkApp3Expr c.getAppFn eq_sort (← mkBoolTrue) op2
   | _ => return none
 
 /-- Given `e`, a `Blaster.dite'` then/else expression perform the following:
@@ -61,19 +64,130 @@ def extractDependentITEExpr (e : Expr) : TranslateEnvT Expr := do
       throwEnvError "extractDependentITEExpr : lambda/quantified function expected but got {reprStr e}"
     else return e -- case when then/else clause is a quantified function (see theorem `dite_true`).
 
-/-- Given an Blaster.dite' expression:
+/-- Given an `Blaster.dite'` expression:
       - return `some sif h : c' then e2 else e1` when `c := ¬ c'`
       - return `some sif h : true = c' then e2 else e1` when `c := false = c'`
     Otherwise none.
 
 -/
-def isITESwap? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
- let c := args[1]!
- if let Expr.app (Expr.const ``Not _) ne := c then
-    return mkAppN f ((args.set! 1 ne).swapIfInBounds 2 3)
- if let some c' ← (isITEBoolSwap? c) then
-    return mkAppN f ((args.set! 1 c').swapIfInBounds 2 3)
- return none
+def isITESwap? (f : Expr) (iteType : Expr) (c : Expr) (t : Expr) (e : Expr) : TranslateEnvT (Option Expr) := do
+ if let Expr.app (Expr.const ``Not _) ne := c
+ then mkApp4Expr f iteType ne e t
+ else if let some c' ← (isITEBoolSwap? c)
+ then mkApp4Expr f iteType c' e t
+ else return none
+
+/-- Given `c`, `t` and `e` corresponding respectively to the conditional, then and else operands for `Blaster.dite'`,
+    apply the following simplification rules:
+      - sif h : c then e1 else e2 ==> e1 (if e1 =ₚₜᵣ e2)
+      - sif h : c then True else False ===> c
+      - sif h : c then False else True ===> ¬ c (restart)
+
+      - sif h : c then True else p ===> h : ¬ c → p (restart)
+      - sif h : c then c else p ===> h : ¬ c → p (restart)
+      - sif h : c then q else p ===> h : ¬ c → p (restart) (if q := _ ∈ hypothesisContext.hypothesisMap)
+
+      - sif h : c then False else p ===> ¬ c ∧ (h : ¬ c → p) (restart) (if p.hasLooseBVars)
+      - sif h : c then False else p ===> ¬ c ∧ p (restart) if (¬ p.hasLooseBVars)
+      - sif h : c then ¬ c else p ===> ¬ c ∧ (h : ¬ c → p) (restart) (if p.hasLooseBVars)
+      - sif h : c then ¬ c else p ===> ¬ c ∧ p (restart) (if ¬ p.hasLooseBVars)
+      - sif h : c then ¬ q else p ===> ¬ c ∧ (h : ¬ c → p) (restart) (if p.hasLooseBVars ∧ q := _ ∈ hypothesisContext.hypothesisMap)
+      - sif h : c then ¬ q else p ===> ¬ c ∧ p (restart) (if ¬ p.hasLooseBVars ∧ q := _ ∈ hypothesisContext.hypothesisMap)
+
+      - sif h : c then p else True ===> h : c → p
+      - sif h : c then p else ¬ c ==> h : c → p
+      - sif h : c then p else q ==> h : c → p (if q := _ ∈ hypothesisContext.hypothesisMap)
+
+      - sif h : c then p else False ===> c ∧ (h : c → p) (restart) (if p.hasLooseBVars)
+      - sif h : c then p else False ===> c ∧ p (restart) (if ¬ p.hasLooseBVars)
+      - sif h : c then p else c ===> c ∧ (h : c → p) (restart) (if p.hasLooseBVars)
+      - sif h : c then p else c ===> c ∧ p (restart) (if ¬ p.hasLooseBVars)
+      - sif h : c then p else ¬ q ===> c ∧ (h : c → p) (restart) (if p.hasLooseBVars ∧ q := _ ∈ hypothesisContext.hypothesisMap)
+      - sif h : c then p else ¬ q ===> c ∧ p (restart) (if ¬ p.hasLooseBVars ∧ q := _ ∈ hypothesisContext.hypothesisMap)
+-/
+def iteSimp? (iteType : Expr) (c : Expr) (t : Expr) (e : Expr) (inDiteChoice := false) : TranslateEnvT (Option Expr) := do
+ let thenExpr ← extractDependentITEExpr t
+ let elseExpr ← extractDependentITEExpr e
+ if exprEq thenExpr elseExpr then
+    freeRewriteCacheReuse t 0
+    freeRewriteCacheReuse e 0
+    return thenExpr -- c cannot be referenced in both thenExpr and elseExpr
+ else if !iteType.isProp then return none
+ else
+   match thenExpr, elseExpr with
+   | Expr.const ``True _, Expr.const ``False _ =>
+       freeRewriteCacheReuse t 0
+       freeRewriteCacheReuse e 0
+       return c
+
+   | Expr.const ``False _, Expr.const ``True _ =>
+        freeRewriteCacheReuse t 0
+        freeRewriteCacheReuse e 0
+        setRestart
+        mkAppExpr (← mkPropNotOp) c
+   | _, _ =>
+      if let some r ← isThenTrue? thenExpr then return r
+      if let some r ← isThenFalse? thenExpr elseExpr then return r
+      if let some r ← isElseTrue? elseExpr then return r
+      if let some r ← isElseFalse? elseExpr thenExpr then return r
+      return none
+
+ where
+
+   @[always_inline, inline]
+   isTrueHyp (e : Expr) : TranslateEnvT Bool :=
+     match e with
+     | Expr.const ``True _ => return true
+     | _ => return (← inHypMap e).isSome
+
+   @[always_inline, inline]
+   isFalseHyp (e : Expr) : TranslateEnvT Bool :=
+     match e with
+     | Expr.const ``False _ => return true
+     | _ => return (← notInHypMap e).isSome
+
+   @[always_inline, inline]
+   isThenTrue? (thenExpr : Expr) : TranslateEnvT (Option Expr) := do
+     if (← isTrueHyp thenExpr) || exprEq c thenExpr then
+       freeRewriteCacheReuse t 0
+       setRestart
+       toImpliesExpr e (← mkAppExpr (← mkPropNotOp) c)
+     else return none
+
+   @[always_inline, inline]
+   isThenFalse? (thenExpr : Expr) (elseExpr : Expr) : TranslateEnvT (Option Expr) := do
+     if (← isFalseHyp thenExpr) || isNotExprOf thenExpr c || isNegBoolEqOf thenExpr c then
+       freeRewriteCacheReuse t 0
+       setRestart
+       let notExpr ← mkAppExpr (← mkPropNotOp) c
+       if elseExpr.hasLooseBVars then
+         let impExpr ← toImpliesExpr e notExpr
+         mkApp2Expr (← mkPropAndOp) notExpr impExpr
+       else
+         freeRewriteCacheReuse e 0
+         mkApp2Expr (← mkPropAndOp) notExpr elseExpr
+     else return none
+
+   @[always_inline, inline]
+   isElseTrue? (elseExpr : Expr) : TranslateEnvT (Option Expr) := do
+     if (← isTrueHyp elseExpr) || isNotExprOf elseExpr c || isNegBoolEqOf elseExpr c then
+       freeRewriteCacheReuse e 0
+       toImpliesExpr t c (isThen := true) (isRestart := inDiteChoice)
+     else return none
+
+   @[always_inline, inline]
+   isElseFalse? (elseExpr : Expr) (thenExpr : Expr) : TranslateEnvT (Option Expr) := do
+     if (← isFalseHyp elseExpr) || exprEq c elseExpr then
+       freeRewriteCacheReuse e 0
+       setRestart
+       if thenExpr.hasLooseBVars then
+         let impExpr ← toImpliesExpr t c (isThen := true)
+         mkApp2Expr (← mkPropAndOp) c impExpr
+       else
+         freeRewriteCacheReuse t 0
+         mkApp2Expr (← mkPropAndOp) c thenExpr
+     else return none
+
 
 /-- Given `a`, 't` and `e` the condition, then and else expressions for
     a Blaster.dite' expression,
@@ -105,66 +219,129 @@ def diteFactorize? (a : Expr) (t : Expr) (e : Expr) : TranslateEnvT (Option Expr
           if !c1.hasLooseBVars && !c2.hasLooseBVars then
             setRestart
             let and_op ← mkPropAndOp
-            let and_e1 := mkApp2 and_op a c1
-            let and_e2 := mkApp2 and_op (mkApp (← mkPropNotOp) a) c2
-            let or_e := mkApp2 (← mkPropOrOp) and_e1 and_e2
+            let and_e1 ← mkApp2Expr and_op a c1
+            let and_e2 ← mkApp2Expr and_op (← mkAppExpr (← mkPropNotOp) a) c2
+            let or_e ← mkApp2Expr (← mkPropOrOp) and_e1 and_e2
             let hName ← Term.mkFreshBinderName
-            let lam1 := mkLambda hName BinderInfo.default or_e t1
-            let lam2 := mkLambda hName BinderInfo.default (mkApp (← mkPropNotOp) or_e) e1
-            return mkApp4 (← mkBlasterDIteOp) sort1 or_e lam1 lam2
+            let lam1 ← mkLambdaExpr hName BinderInfo.default or_e t1
+            let lam2 ← mkLambdaExpr hName BinderInfo.default (← mkAppExpr (← mkPropNotOp) or_e) e1
+            return ← mkApp4Expr (← mkBlasterDIteOp) sort1 or_e lam1 lam2
           else return none
       if exprEq c1 c2 then
         if exprEq t1 t2 then
           withLocalDecl' n1 bi1 dc1 fun n1' => do
             withLocalDecl' n2 bi2 dc2 fun n2' => do
-              match instantiate1' e1 n1', instantiate1' e2 n2' with
+              match ← instantiateShared1 e1 n1', ← instantiateShared1 e2 n2' with
               | Expr.lam x1 tc1 e1' bi1', Expr.lam _x2 _tc2 e2' _bi2' =>
                   setRestart
                   withLocalDecl' x1 bi1' tc1 fun x1' => do
-                    let lam1 ← mkLambdaFVar n1' (instantiate1' e1' x1')
-                    let lam2 ← mkLambdaFVar n2' (instantiate1' e2' x1')
-                    let dite ← mkLambdaFVar x1' (mkApp4 (← mkBlasterDIteOp) sort1 a lam1 lam2)
-                    return mkApp4 (← mkBlasterDIteOp) sort1 c1 t1 dite
+                    let lam1 ← mkLambdaFVarsExpr #[n1'] (← instantiateShared1 e1' x1')
+                    let lam2 ← mkLambdaFVarsExpr #[n2'] (← instantiateShared1 e2' x1')
+                    let dite ← mkLambdaFVarsExpr #[x1'] (← mkApp4Expr (← mkBlasterDIteOp) sort1 a lam1 lam2)
+                    return ← mkApp4Expr (← mkBlasterDIteOp) sort1 c1 t1 dite
               |_, _ => return none
         else if exprEq e1 e2 then
            withLocalDecl' n1 bi1 dc1 fun n1' => do
             withLocalDecl' n2 bi2 dc2 fun n2' => do
-              match instantiate1' t1 n1', instantiate1' t2 n2' with
+              match ← instantiateShared1 t1 n1', ← instantiateShared1 t2 n2' with
               | Expr.lam x1 tc1 t1' bi1', Expr.lam _x2 _tc2 t2' _bi2' =>
                   setRestart
                   withLocalDecl' x1 bi1' tc1 fun x1' => do
-                    let lam1 ← mkLambdaFVar n1' (instantiate1' t1' x1')
-                    let lam2 ← mkLambdaFVar n2' (instantiate1' t2' x1')
-                    let dite ← mkLambdaFVar x1' (mkApp4 (← mkBlasterDIteOp) sort1 a lam1 lam2)
-                    return mkApp4 (← mkBlasterDIteOp) sort1 c1 dite e1
+                    let lam1 ← mkLambdaFVarsExpr #[n1'] (← instantiateShared1 t1' x1')
+                    let lam2 ← mkLambdaFVarsExpr #[n2'] (← instantiateShared1 t2' x1')
+                    let dite ← mkLambdaFVarsExpr #[x1'] (← mkApp4Expr (← mkBlasterDIteOp) sort1 a lam1 lam2)
+                    return ← mkApp4Expr (← mkBlasterDIteOp) sort1 c1 dite e1
               |_, _ => return none
         else if exprEq t1 e2 && exprEq t2 e1 then
           setRestart
-          let eq_cond := mkApp3 (← mkEqOp) (← mkPropType) a c1
+          let eq_cond ← mkApp3Expr (← mkEqOp) (← mkPropType) a c1
           let hName ← Term.mkFreshBinderName
-          let lam1 := mkLambda hName BinderInfo.default eq_cond t1
-          let lam2 := mkLambda hName BinderInfo.default (mkApp (← mkPropNotOp) eq_cond) e1
-          return mkApp4 (← mkBlasterDIteOp) sort1 eq_cond lam1 lam2
+          let lam1 ← mkLambdaExpr hName BinderInfo.default eq_cond t1
+          let lam2 ← mkLambdaExpr hName BinderInfo.default (← mkAppExpr (← mkPropNotOp) eq_cond) e1
+          return ← mkApp4Expr (← mkBlasterDIteOp) sort1 eq_cond lam1 lam2
         else return none
       else return none
   | _, _ => return none
+
+
+@[always_inline, inline]
+def isCstPropMatch (p : Expr) : TranslateEnvT Bool := do
+  match p with
+  | Expr.app f (.lam ..) =>
+      if (← isMatcher? f.getAppFn).isSome then
+        return (← get).optEnv.memCache.isCtorMatchPropCache.contains p
+      else return false
+  | _ => return false
+
+/-- Given a `Solve.dite'` expression of the form `sif h : c then e1 else e2` apply the following constant
+    propagation rule:
+
+    - When isCstPropMatch c ∧
+           c := match₂ f₁, ..., fₚ with
+                | p₍₁₎₍₁₎, ..., p₍₁₎₍ₚ₎ => t₁
+                ...
+                | p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₚ₎ => tₘ
+
+               ∀ k ∈ [1..m],
+                (i ≠ j → g₍ₖ₎₍ᵢ₎ = eᵢ) ∧ (i = j → g₍ₖ₎₍ᵢ₎ = tₖ)
+       Return
+         `match₂ f₁, ..., fₚ with
+          | p₍₁₎₍₁₎, ..., p₍₁₎₍ₚ₎ => sif h : t₁ then e1 else e2
+          ...
+          | p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₚ₎ => sif h : tₘ then e1 else e2`
+
+-/
+def constDITEPropagation? (dargs : Array Expr) : TranslateEnvT (Option Expr) := do
+  let c := dargs[1]!
+  if !(← isCstPropMatch c) then return none
+  else
+    let iteType := dargs[0]!
+    let t := dargs[2]!
+    let e := dargs[3]!
+    isMatchConst? c iteType t e
+
+  where
+    @[always_inline, inline]
+    pushDiteInLambda (thn : Expr) (els : Expr) (rhs : Expr) : TranslateEnvT Expr := do
+       -- NOTE: we can safely telescope as isCstPropMatch guarantees match rhs are Prop literals
+       -- NOTE: we also push the extra arguments applied to the pushed ite
+       applyOnLambdaBody rhs (fun body => do
+                                  match body with
+                                  | Expr.const ``True _ => mkAppRangeExpr (← mkAppExpr thn (← mkTrueIntro)) 4 dargs.size dargs
+                                  | _ => mkAppRangeExpr (← mkAppExpr els (← mkNotFalse)) 4 dargs.size dargs)
+
+    @[always_inline, inline]
+    isMatchConst? (m : Expr) (iteType : Expr) (thn : Expr) (els : Expr) : TranslateEnvT (Option Expr) := do
+      if let some argInfo ← isMatcher? m.getAppFn then
+        -- NOTE: extra arguments are push within the ite expression.
+        let mut pargs := m.getAppArgs
+        for i in [argInfo.getFirstAltPos : argInfo.arity] do
+          -- NOTE: No need to propagate reuse context as match name has not changed
+          pargs ← pargs.modifyM i (pushDiteInLambda thn els)
+        freeRewriteCacheReuse thn 0
+        freeRewriteCacheReuse els 0
+        -- NOTE: we also need to set the return type for pulled over match to meet the Dite type.
+        let idxType := argInfo.getFirstDiscrPos - 1
+        let iteType := iteType.getForallBodyMaxDepth (dargs.size - 4)
+        pargs ← pargs.modifyM idxType (updateMatchReturnType iteType)
+        mkAppNExpr argInfo.nameExpr pargs
+      else return none
+
 
 /-- Apply the following simplification/normalization rules on `Solve.dite'` in the given order only when args.size ≥ 4:
      - sif h : True then e1 else e2 ==> applyExtraArgs e1 -- TODO: consider proof reconstruction
 
      - sif h : False then e1 else e2 ==> applyExtraArgs e2 -- TODO: consider proof reconstruction
 
-     - sif h : c then e1 else e2 ==> applyExtraArgs e1
-           (if c := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ e1.hasLooseBVars)
+     - sif h : c then e1 else e2 ==> applyExtraArgs (mkApp e1 h')
+           (if c := h' ∈ hypothesisContext.hypothesisMap)
 
-     - sif h : c then e1 else e2 ==> applyExtraArgs e2
-           (if ∃ e := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ e2.hasLooseBVars ∧ e = ¬ c )
+     - sif h : c then e1 else e2 ==> applyExtraArgs (mkApp e2 h')
+           (if ∃ e := h' ∈ hypothesisContext.hypothesisMap ∧ e = ¬ c)
 
-     - sif h : c then e1 else e2 ==> applyExtraArgs e1[h/h']
-           (if c := h' ∈ hypothesisContext.hypothesisMap ∧ e1.hasLooseBVars)
+     - sif h : c then e1 else e2 ==> r (if some r ← iteSimp? c e1 e2)
 
-     - sif h : c then e1 else e2 ==> applyExtraArgs e2[h/h']
-          (if ∃ e := h' ∈ hypothesisContext.hypothesisMap ∧ e2.hasLooseBVars ∧ e = ¬ c)
+     - sif h : c then e1 else e2 ==> r (if some r ← constDITEPropagation? args)
 
      - sif h : c then e1 else e2 ==> (h : c → e1) ∧ (h : ¬ c → e2) (if Type(e1) = Prop)
          -- TO BE REMOVED: when performing normalization at the implication level
@@ -176,15 +353,15 @@ def diteFactorize? (a : Expr) (t : Expr) (e : Expr) : TranslateEnvT (Option Expr
     with
       applyExtraArgs e :=
         if args.size > 4 then
-          let extra_args := args.extract 4 args.size
-          mkAppN e extra_args
+          mkAppRangeExpr e 4 args.size args
         else e
     Note that this function is called only when dite conditional has been optimized,
     i.e., then and else terms still have to be optimized (see DiteChoiceWaitForCond logic in `optimizeStack`).
 
     Assume that f = Expr.const ``Blaster.dite'
+    Assume that `normChoiceApplication` has already applied to push extra arguments in then/else expression.
 -/
-def optimizeDITEChoice (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := withLocalContext $ do
+def optimizeDITEChoice (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
  if args.size < 4 then return none
  -- args[0] is sort parameter
  -- args[1] is cond operand
@@ -194,48 +371,46 @@ def optimizeDITEChoice (f : Expr) (args : Array Expr) : TranslateEnvT (Option Ex
  let c := args[1]!
  let t := args[2]!
  let e := args[3]!
- if let Expr.const ``True _ := c then return applyExtraArgs (betaLambda t #[← mkTrueIntro])
- if let Expr.const ``False _ := c then return applyExtraArgs (betaLambda e #[← mkNotFalse])
- if let some r ← diteReduce? c t then return applyExtraArgs r
- if let some r ← diteReduce? (← optimizeNot (← mkPropNotOp) #[c] (cacheResult := false)) e then
-   return applyExtraArgs r
+ if let some r ← condReduction? c t e then return r
+ if let some r ← diteReduce? c t e then return r
+ if let some r ← diteReduce? (← optimizeAdvancedNot (← mkPropNotOp) #[c] (restart := false)) e t then return r
+ if let some r ← iteSimp? iteType c t e (inDiteChoice := true) then
+    resetRestart
+    return r
+ if let some r ← constDITEPropagation? args then return r
  if let some r ← diteToPropExpr? iteType c t e then return r
- isITESwap? f args
+ isITESwap? f iteType c t e
 
  where
+
    @[always_inline, inline]
-   applyExtraArgs (e : Expr) : Expr :=
-     if args.size > 4 then
-       let extra_args := args.extract 4 args.size
-       mkAppN e extra_args
-     else e
+   condReduction? (c : Expr) (t : Expr) (e : Expr) : TranslateEnvT (Option Expr) := do
+     match c with
+     | Expr.const ``True _ =>
+          freeRewriteCacheReuse t 0
+          freeRewriteCacheReuse e 0
+          mkAppExpr t (← mkTrueIntro)
+     | Expr.const ``False _ =>
+          freeRewriteCacheReuse t 0
+          freeRewriteCacheReuse e 0
+          mkAppExpr e (← mkNotFalse)
+     | _ => return none
 
    /-- Given `cond` and `t` the condition and then/else expression for a Blaster.dite' expression,
        perform the following:
-        - When `t := fun h : c => e ∧ c := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ e.hasLooseBVars`
-            - return `some e`
-        - When `t := fun h : c => e ∧ c := h' ∈ hypothesisContext.hypothesisMap ∧ e.hasLooseBVars`
-            - return `some e[h/h']`
-        - When `t := c → α ∧ c := h ∈ hypothesisContext.hypothesisMap`
-            - return `some t h`
+        - When `c := h' ∈ hypothesisContext.hypothesisMap`
+            - return `some $ mkApp t h'`
         - Otherwise
             - return `none`
    -/
-   diteReduce? (cond : Expr) (t : Expr) : TranslateEnvT (Option Expr) := do
-     let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
-     match t with
-     | Expr.lam _h _c b _bi =>
-         if let some p ← inHypMap cond hyps then
-            if !b.hasLooseBVars
-            then return b
-            else return (t.beta #[p])
-         else return none
-     | _ =>
-        if !(← isQuantifiedFun t) then
-          throwEnvError "diteReduce?: lambda/quantified function expression expected but got {reprStr t}"
-        if let some p ← inHypMap cond hyps
-        then return (t.beta #[p])
-        else return none
+   @[always_inline, inline]
+   diteReduce? (cond : Expr) (t : Expr) (e : Expr) : TranslateEnvT (Option Expr) := do
+     if let some p ← inHypMap cond
+     then
+       freeRewriteCacheReuse t 0
+       freeRewriteCacheReuse e 0
+       mkAppExpr t p
+     else return none
 
 /-- Apply simplification/normalization rules on `Blaster.dite'` in the given order.
     Note that dependent ite is written with notation `if h : c then t else e`, which
@@ -245,7 +420,18 @@ def optimizeDITEChoice (f : Expr) (args : Array Expr) : TranslateEnvT (Option Ex
 
     The simplifcation/normalization rules applied are:
      - sif h : c then e1 else e2 ==> e1  (if e1 =ₚₜᵣ e2)
-
+     - sif h : c then True else False ===> c
+     - sif h : c then False else True ===> ¬ c (restart)
+     - sif h : c then True else p ===> h : ¬ c → p (restart)
+     - sif h : c then False else p ===> ¬ c ∧ (h : ¬ c → p) (restart)
+     - sif h : c then p else True ===> h : c → p
+     - sif h : c then p else False ===> c ∧ (h : c → p) (restart)
+     - sif h : c then c else p ===> h : ¬ c → p (restart)
+     - sif h : c then p else c ===> c ∧ (h : c → p) (restart)
+     - sif h : c then p else ¬ c ==> h : c → p
+     - sif h : c then ¬ c else p ===> ¬ c ∧ (h : ¬ c → p) (restart)
+     - sif h : c then e1 else e2 ==> (h : c → e1) ∧ (h : ¬ c → e2) (if Type(e1) = Prop)
+         -- TO BE REMOVED: when performing normalization at the implication level
      - sif h1 : a then (sif h2 : c1 then e1 else e2) else (sif h3 : c2 then e1 else e2) ==>
           sif h1 : (a ∧ c1) ∨ (¬ a ∧ c2) then e1 else e2 (if ¬ c1.hasLooseBVars ∧ ¬ c2.hasLooseBVars)
         -- NOTE: rule is sound as h1, h2 and h3 can't be referenced in e1 and e2.
@@ -275,10 +461,26 @@ def optimizeDITE (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let c := args[1]!
  let t := args[2]!
  let e := args[3]!
- let thenExpr ← extractDependentITEExpr t
- let elseExpr ← extractDependentITEExpr e
- if exprEq thenExpr elseExpr then return betaLambda t #[← mkOfDecideEqProof c true]
+ if let some r ← iteSimp? iteType c t e then return r
  if let some r ← diteFactorize? c t e then return r
- return mkApp4 f iteType c t e
+ let ite' ← mkApp4Expr f iteType c t e
+ let isCtor ← updateCtorCache ite' t e
+ freeUnusedContext iteType t e isCtor
+ return ite'
+
+ where
+   updateCtorCache (ite : Expr) (t : Expr) (e : Expr) : TranslateEnvT Bool := do
+     let isCtorMatchPropCache := (← get).optEnv.memCache.isCtorMatchPropCache
+     if isCtorMatchPropCache.contains t && isCtorMatchPropCache.contains e then
+       updateCtorMatchPropCache ite
+       return true
+     else return false
+
+   freeUnusedContext (iteType : Expr) (t : Expr) (e : Expr) (isCtor : Bool) : TranslateEnvT Unit := do
+     if (← isCtorArg) || ((← isAppArg) && (isCtor || isBoolType iteType)) then return ()
+     else
+       -- erase context
+       freeRewriteCacheReuse t 0
+       freeRewriteCacheReuse e 0
 
 end Blaster.Optimize

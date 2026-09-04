@@ -59,4 +59,8 @@ def MatchInfo.getFirstAltPos (info : MatchInfo) : Nat :=
 def MatchInfo.isCasesOn (info : MatchInfo) : Bool :=
   info.recInfo.isCasesOn
 
+@[always_inline, inline]
+def MatchInfo.discrInfos (info : MatchInfo) : Array Match.DiscrInfo :=
+  info.recInfo.mInfo.discrInfos
+
 end Blaster.Optimize
