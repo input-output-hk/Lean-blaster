@@ -1,0 +1,196 @@
+name: weekly-benchmark
+
+# Fair "latest-branch" tactic benchmark: each tactic (blaster, smt, hammer, auto,
+# aesop) runs in its own isolated Lake project on its latest default branch and that
+# branch's own Lean toolchain. The harness lives in the Blaster-benchmarking repo;
+# this workflow drives it, one matrix job per tactic (so each job only needs that
+# tool's ~6 GB mathlib + itself), then merges results, updates the README table, and
+# publishes the full report to GitHub Pages.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"   # Mondays 06:00 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: weekly-benchmark
+  cancel-in-progress: false
+
+permissions:
+  contents: write   # commit the README table (to main) and the report (to gh-pages)
+
+env:
+  BENCHMARKING_REPO: input-output-hk/Blaster-benchmarking
+  # Existing Pages site is served from the gh-pages branch; we publish the report to
+  # a benchmark/ subpath so the current site root is left untouched.
+  REPORT_URL: https://input-output-hk.github.io/Lean-blaster/benchmark/
+  Z3_VERSION: "4.15.2"
+  GLIBC_Z3: "2.39"
+
+jobs:
+  bench:
+    name: bench (${{ matrix.tool }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { tool: blaster, url: "https://github.com/input-output-hk/Lean-blaster",        branch: main }
+          - { tool: smt,     url: "https://github.com/ufmg-smite/lean-smt.git",             branch: main }
+          - { tool: hammer,  url: "https://github.com/JOSHCLUNE/LeanHammer.git",            branch: main }
+          - { tool: auto,    url: "https://github.com/leanprover-community/lean-auto.git",  branch: main }
+          - { tool: aesop,   url: "", branch: "" }   # via mathlib (aesop is a mathlib dep)
+          - { tool: baselines, url: "", branch: "" }   # repo-less: omega/grind/simp on latest stable Lean
+    steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /opt/hostedtoolcache/CodeQL /usr/local/share/boost || true
+          df -h /
+
+      - name: Checkout benchmarking harness
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ env.BENCHMARKING_REPO }}
+          ref: main
+          path: benchmarking
+
+      - name: Setup Lean (elan)
+        run: |
+          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf \
+            | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Install Z3
+        run: |
+          cd "$HOME"
+          wget -q "https://github.com/Z3Prover/z3/releases/download/z3-${Z3_VERSION}/z3-${Z3_VERSION}-x64-glibc-${GLIBC_Z3}.zip"
+          unzip -q "z3-${Z3_VERSION}-x64-glibc-${GLIBC_Z3}.zip"
+          echo "$HOME/z3-${Z3_VERSION}-x64-glibc-${GLIBC_Z3}/bin" >> "$GITHUB_PATH"
+
+      - name: Resolve tool commit (for cache key)
+        id: resolve
+        run: |
+          if [ -n "${{ matrix.url }}" ]; then
+            commit=$(git ls-remote "${{ matrix.url }}" "refs/heads/${{ matrix.branch }}" | cut -c1-9)
+          else
+            # repo-less baselines: identity is the newest stable mathlib release tag
+            commit=$(git ls-remote --tags https://github.com/leanprover-community/mathlib4 \
+                     | grep -oE 'v4\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
+          fi
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          echo "Resolved ${{ matrix.tool }} -> $commit"
+
+      - name: Restore result cache (per-suite; rolling key so adding a suite reuses the rest)
+        uses: actions/cache@v4
+        with:
+          path: benchmarking/latest/results_cache
+          key: bench-v4-${{ matrix.tool }}-${{ steps.resolve.outputs.commit }}-${{ github.run_id }}
+          restore-keys: |
+            bench-v4-${{ matrix.tool }}-${{ steps.resolve.outputs.commit }}-
+
+      - name: Tool versions
+        run: elan --version; z3 --version || true
+
+      - name: Run benchmark for ${{ matrix.tool }}
+        working-directory: benchmarking
+        run: bash latest/run_latest.sh ${{ matrix.tool }}
+
+      - name: Stage artifact
+        working-directory: benchmarking
+        run: |
+          mkdir -p out/${{ matrix.tool }}
+          cp latest/results/${{ matrix.tool }}/*_results.csv out/${{ matrix.tool }}/ 2>/dev/null || \
+            echo "no CSVs for ${{ matrix.tool }} (build may have failed)"
+          cp latest/results/${{ matrix.tool }}/env_errors.tsv out/${{ matrix.tool }}/ 2>/dev/null || true
+          cp latest/results/manifest.tsv out/manifest-${{ matrix.tool }}.tsv
+
+      - name: Upload results
+        uses: actions/upload-artifact@v6
+        with:
+          name: bench-${{ matrix.tool }}
+          path: benchmarking/out
+          if-no-files-found: warn
+
+  publish:
+    needs: bench
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout lean-blaster (default branch, for README)
+        uses: actions/checkout@v6
+
+      - name: Checkout benchmarking harness (merge script)
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ env.BENCHMARKING_REPO }}
+          ref: main
+          path: benchmarking
+
+      - name: Checkout gh-pages (for the hosted report)
+        uses: actions/checkout@v6
+        with:
+          ref: gh-pages
+          path: ghpages
+
+      - name: Download all tool results
+        uses: actions/download-artifact@v6
+        with:
+          pattern: bench-*
+          path: results
+          merge-multiple: true
+
+      - name: Assemble manifest
+        run: |
+          printf 'tool\ttoolchain\tbranch\tresolved_commit\ttactic\tbuild_status\n' > results/manifest.tsv
+          # append every tool's data row, dropping the per-file header line
+          grep -hv '^tool' results/manifest-*.tsv >> results/manifest.tsv 2>/dev/null || true
+          echo "=== manifest ==="; cat results/manifest.tsv
+
+      - name: Merge results + render report/summary
+        env:
+          BENCH_REPORT_URL: ${{ env.REPORT_URL }}
+        run: python3 benchmarking/latest/merge_results.py results
+
+      - name: Update README table
+        run: |
+          python3 - <<'PY'
+          import pathlib, re
+          readme = pathlib.Path("README.md")
+          summary = pathlib.Path("results/summary.md").read_text().strip()
+          block = "<!-- BENCH:START -->\n" + summary + "\n<!-- BENCH:END -->"
+          txt = readme.read_text()
+          if "<!-- BENCH:START -->" not in txt:
+              raise SystemExit("BENCH markers not found in README.md")
+          txt = re.sub(r"<!-- BENCH:START -->.*?<!-- BENCH:END -->", lambda _: block, txt, flags=re.S)
+          readme.write_text(txt)
+          print("README table updated")
+          PY
+
+      - name: Commit README update (main)
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          if git diff --cached --quiet; then
+            echo "No README change."
+          else
+            git commit -m "chore(benchmark): weekly results update [skip ci]"
+            git push
+          fi
+
+      - name: Publish report to gh-pages/benchmark/
+        run: |
+          cp results/report.html ghpages/benchmark_index.html
+          cd ghpages
+          mkdir -p benchmark
+          mv benchmark_index.html benchmark/index.html
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add benchmark/index.html
+          if git diff --cached --quiet; then
+            echo "No report change."
+          else
+            git commit -m "chore(benchmark): weekly report update [skip ci]"
+            git push origin gh-pages
+          fi
