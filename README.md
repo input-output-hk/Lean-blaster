@@ -36,6 +36,7 @@ Blaster provides an SMT backend for Z3 proofs. Blaster works by first aggressive
     - [Function propagation](#function-propagation)
   - [Second-step: SMT Translation](#second-step-smt-translation)
   - [Final step: SMT Solver Interaction](#final-step-smt-solver-interaction)
+- [Nix (NixOS / direnv)](#nix-nixos--direnv)
 - [Installing the Z3 Solver](#installing-the-z3-solver)
 - [Contributing](#contributing)
   - [Ways to Contribute](#ways-to-contribute)
@@ -523,6 +524,39 @@ Once an expression has been translated, Blaster interacts with an external SMT s
 - **unsat**: The original expression is valid.
 - **sat**: The original expression is falsified, and a counterexample may be generated.
 - **unknown**: The solver could not determine the validity of the expression.
+
+---
+
+## Nix (NixOS / direnv)
+
+A Nix flake is provided for reproducible builds and development. It pins the exact Lean and Z3 versions required by Blaster.
+
+### Development shell
+
+```bash
+nix develop    # or use direnv with the included .envrc
+```
+
+This gives you Lean 4.24.0, Z3 4.15.2, Lake, and elan — everything needed for `lake build` and VS Code with the [Lean 4 extension](https://marketplace.visualstudio.com/items?itemName=leanprover.lean4).
+
+### Building
+
+```bash
+nix build              # Blaster library
+nix build .#z3check    # z3check executable (Z3 in PATH)
+```
+
+### Checks
+
+```bash
+nix flake check        # builds library, z3check, and the full test suite
+```
+
+The test suite compiles every module in `Tests/` with Z3 4.15.2 injected into the build sandbox.
+
+### CI
+
+The `ci-nix` workflow can be triggered manually from the Actions tab. It runs `nix flake check` on `ubuntu-latest`.
 
 ---
 
