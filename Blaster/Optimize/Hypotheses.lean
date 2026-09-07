@@ -152,6 +152,63 @@ def leqZeroIntInHyps (e : Expr) : TranslateEnvT Bool := do
      let zero_lt ← mkIntLtExpr zero_int e
      return hyps.contains (mkApp (← mkPropNotOp) zero_lt)
 
+/-- Return `true` only when `e1` and `e2` are distinct Bool literals. -/
+@[always_inline, inline]
+def notEqBool? (e1 e2 : Expr) : Bool :=
+  match isBoolValue? e1, isBoolValue? e2 with
+  | .some x1, .some x2 => x1 != x2
+  | _       , _        => false
+
+/-- Return `true` only when `e1` and `e2` are distinct Nat literals. -/
+@[always_inline, inline]
+def notEqNat? (e1 e2 : Expr) : Bool :=
+  match isNatValue? e1, isNatValue? e2 with
+  | .some x1, .some x2 => x1 != x2
+  | _       , _        => false
+
+/-- Return `true` only when `e1` and `e2` are distinct Int literals. -/
+@[always_inline, inline]
+def notEqInt? (e1 e2 : Expr) : Bool :=
+  match isIntValue? e1, isIntValue? e2 with
+  | .some x1, .some x2 => x1 != x2
+  | _       , _        => false
+
+/-- Return `true` only when `e1` and `e2` are distinct UInt32 literals. -/
+@[always_inline, inline]
+def notEqUInt32? (e1 e2 : Expr) : Bool :=
+  match isUInt32Value? e1, isUInt32Value? e2 with
+  | .some x1, .some x2 => x1 != x2
+  | _       , _        => false
+
+/-- Return `true` only when `e1` and `e2` are distinct Char literals. -/
+@[always_inline, inline]
+def notEqChar? (e1 e2 : Expr) : Bool :=
+  match isCharValue? e1, isCharValue? e2 with
+  | .some x1, .some x2 => x1 != x2
+  | _       , _        => false
+
+/-- Return `true` only when `e1` and `e2` are distinct String literals. -/
+@[always_inline, inline]
+def notEqString? (e1 e2 : Expr) : Bool :=
+  match isStrValue? e1, isStrValue? e2 with
+  | .some x1, .some x2 => x1 != x2
+  | _       , _        => false
+
+/-- Return `true` only when one of the following conditions is satisfied:
+      - e1 ≠ e2 can be determined by literal comparison (Bool, Nat, Int, UInt32, Char, or String); or
+      - ¬ (e1 = e2) := _ ∈ hypothesisContext.hypothesisMap
+-/
+@[always_inline, inline]
+def notEqInHyps (sort e1 e2 : Expr) : TranslateEnvT Bool := do
+  if notEqBool?   e1 e2 then return true
+  if notEqNat?    e1 e2 then return true
+  if notEqInt?    e1 e2 then return true
+  if notEqUInt32? e1 e2 then return true
+  if notEqChar?   e1 e2 then return true
+  if notEqString? e1 e2 then return true
+  let hyps     := (← get).optEnv.hypothesisContext.hypothesisMap
+  let e1_ne_e2 := mkApp (← mkPropNotOp) (mkApp3 (← mkEqOp) sort e1 e2)
+  return hyps.contains e1_ne_e2
 
 /-- Perform the following actions:
      Let hyps := (← get).optEnv.options.hypothesisContext
