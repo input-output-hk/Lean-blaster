@@ -194,17 +194,17 @@ variable (q : Bool)
 /-! Test cases to validate proper update of Decidable instance in `decide` application. -/
 
 -- ∀ (a b : Prop) (c : Bool), [Decidable a] → [Decidable b] → (((a ∧ b) ∧ (b ∨ ¬ b)) && c) = (c && (a ∧ b)) ===> True
-#testOptimize [ "DecideDecidableUpdate_1" ] ∀ (a b : Prop) (c : Bool), [Decidable a] → [Decidable b] →
+#testOptimize [ "DecideDecidableUpdate_1", proof ] ∀ (a b : Prop) (c : Bool), [Decidable a] → [Decidable b] →
                                              (((a ∧ b) ∧ (b ∨ ¬ b)) && c) = (c && (a ∧ b)) ===> True
 
 -- ∀ (a b : Prop) (c : Bool), [Decidable a] → [Decidable b] → ((a ∧ b) ∧ ((b ∨ ¬ b) && c)) = (c ∧ (a ∧ b)) ===> True
-#testOptimize [ "DecideDecidableUpdate_2" ] ∀ (a b : Prop) (c : Bool), [Decidable a] → [Decidable b] →
+#testOptimize [ "DecideDecidableUpdate_2", proof ] ∀ (a b : Prop) (c : Bool), [Decidable a] → [Decidable b] →
                                              ((a ∧ b) ∧ ((b ∨ ¬ b) && c)) = (c ∧ (a ∧ b)) ===> True
 
 -- ∀ (x y : Int) (a b c : Bool),
 -- (if (x ≤ y) && ((a || ((b || c) && !(c || b)))) then x else y) =
 -- (if (x ≤ y) && a then x else y) ===> True
-#testOptimize [ "DecideDecidableUpdate_3" ] ∀ (x y : Int) (a b c : Bool),
+#testOptimize [ "DecideDecidableUpdate_3", proof ] ∀ (x y : Int) (a b c : Bool),
                                               (if (x ≤ y ∧ y ≥ x) && ((a || ((b || c) && !(c || b)))) then x else y) =
                                               (if (x ≤ y) && a then x else y) ===> True
 
@@ -225,19 +225,19 @@ variable (q : Bool)
 -/
 -- ∀ (a : Prop), [Decidable a] → decide a === ∀ (a : Prop), a
 -- NOTE: `true = decide p` is reduce to `p`
-#testOptimize [ "DecideUnchanged_1" ] ∀ (a : Prop), [Decidable a] → decide a ===> ∀ (a : Prop), a
+#testOptimize [ "DecideUnchanged_1", proof ] ∀ (a : Prop), [Decidable a] → decide a ===> ∀ (a : Prop), a
 
 
 -- ∀ (a b : Prop), [Decidable a] → [Decidable b] → decide (a = b) ===> ∀ (a b : Prop), a = b
 -- NOTE: `true = decide p` is reduced to `p`
-#testOptimize [ "DecideUnchanged_2" ] ∀ (a b : Prop), [Decidable a] → [Decidable b] → decide (a = b) ===>
+#testOptimize [ "DecideUnchanged_2", proof ] ∀ (a b : Prop), [Decidable a] → [Decidable b] → decide (a = b) ===>
                                       ∀ (a b : Prop), a = b
 
 
 -- ∀ (a : Prop) (b : Bool), [Decidable a] → decide a = b ===>
 -- ∀ (a : Prop) (b : Bool), a = (true = b)
 -- NOTE: `(decide a) = b` is normalized to `a = (true = b)`
-#testOptimize [ "DecideUnchanged_3" ] ∀ (a : Prop) (b : Bool), [Decidable a] → (decide a) = b ===>
+#testOptimize [ "DecideUnchanged_3", proof ] ∀ (a : Prop) (b : Bool), [Decidable a] → (decide a) = b ===>
                                       ∀ (a : Prop) (b : Bool), a = (true = b)
 
 -- ∀ (a b : Prop), [Decidable a] → [Decidable b] → (a ∧ b) = false ===>
@@ -248,30 +248,30 @@ variable (q : Bool)
 
 -- ∀ (a b c : Prop), [Decidable a] → [Decidable b] → [Decidable c] → (b ∧ c) && a ===>
 -- ∀ (a b c : Prop), a ∧ (b ∧ c)
-#testOptimize [ "DecideUnchanged_5" ] ∀ (a b c : Prop), [Decidable a] → [Decidable b] → [Decidable c] → (b ∧ c) && a ===>
+#testOptimize [ "DecideUnchanged_5", proof ] ∀ (a b c : Prop), [Decidable a] → [Decidable b] → [Decidable c] → (b ∧ c) && a ===>
                                       ∀ (a b c : Prop), a ∧ (b ∧ c)
 
 -- ∀ (x y z : Int) (xs : List Int), ([x, y, z] = xs) = false ===>
 -- ∀ (x y z : Int) (xs : List Int), ¬ ([x, y, z] = xs)
 -- NOTE: `false = decide p is normalized to `¬ p`
-#testOptimize [ "DecideUnchanged_6" ] ∀ (x y z : Int) (xs : List Int), ([x, y, z] = xs) = false ===>
+#testOptimize [ "DecideUnchanged_6", proof ] ∀ (x y z : Int) (xs : List Int), ([x, y, z] = xs) = false ===>
                                       ∀ (x y z : Int) (xs : List Int), ¬ ([x, y, z] = xs)
 
 -- ∀ (a b : Prop), [Decidable a] → [Decidable b] → (a ∨ b) = true ===>
 -- ∀ (a b : Prop), (a ∨ b)
 -- NOTE: `true = decide p` is reduced to `p`
-#testOptimize [ "DecideUnchanged_7" ] ∀ (a b : Prop), [Decidable a] → [Decidable b] → (a ∨ b) = true ===>
+#testOptimize [ "DecideUnchanged_7", proof ] ∀ (a b : Prop), [Decidable a] → [Decidable b] → (a ∨ b) = true ===>
                                       ∀ (a b : Prop), (a ∨ b)
 
 -- ∀ (a b c : Prop), [Decidable a] → [Decidable b] → [Decidable c] → (b ∨ c) && a ===>
 -- ∀ (a b c : Prop), a ∧ (b ∨ c)
-#testOptimize [ "DecideUnchanged_8" ] ∀ (a b c : Prop), [Decidable a] → [Decidable b] → [Decidable c] → (b ∨ c) && a ===>
+#testOptimize [ "DecideUnchanged_8", proof ] ∀ (a b c : Prop), [Decidable a] → [Decidable b] → [Decidable c] → (b ∨ c) && a ===>
                                       ∀ (a b c : Prop), a ∧ (b ∨ c)
 
 -- ∀ (x y z : Int) (xs : List Int), ([x, y, z] = xs) = true ===>
 -- ∀ (x y z : Int) (xs : List Int), [x, y, z] = xs
 -- NOTE: `true = decide p` is reduced to `p`
-#testOptimize [ "DecideUnchanged_9" ]  ∀ (x y z : Int) (xs : List Int), ([x, y, z] = xs) = true ===>
+#testOptimize [ "DecideUnchanged_9", proof ]  ∀ (x y z : Int) (xs : List Int), ([x, y, z] = xs) = true ===>
                                        ∀ (x y z : Int) (xs : List Int), [x, y, z] = xs
 
 -- decide (q = !(!(!(!p)))) ===> Blaster.decide' (q = !p)

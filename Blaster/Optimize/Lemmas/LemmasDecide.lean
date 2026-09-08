@@ -171,4 +171,80 @@ protected theorem decide'_false_eq (p : Bool) : Blaster.decide' (false = p) = ! 
   rw [Blaster.decide'_true, Bool.false_eq];
   exact Bool.coe_false_iff_true.mpr rfl
 
+/-! ## Lemma validating the nominal `Decidable.decide` to `Blaster.decide'` bridge:
+    - `decide p ==> decide' p`  (drops the concrete `Decidable` instance)
+-/
+
+protected theorem decide_eq_decide' (p : Prop) [inst : Decidable p] :
+    decide p = Blaster.decide' p := by
+  cases h : Blaster.decide' p with
+  | true => have hp := (Blaster.decide'_true p).mp h; simp [hp]
+  | false => have hnp := (Blaster.decide'_false p).mp h; simp [hnp]
+
+/-! ## Lemmas validating the `Eq`-context `decide'` normalization rules:
+    - `true = decide' p        ==> p`
+    - `false = decide' p       ==> ¬ p`
+    - `decide' p = decide' q   ==> p = q`
+    - `decide' p = b           ==> p = (true = b)`
+    - `b = decide' p           ==> p = (true = b)`
+-/
+
+protected theorem true_eq_decide' (p : Prop) : (true = Blaster.decide' p) = p := by
+  apply propext
+  constructor
+  · intro h; exact (Blaster.decide'_true p).mp h.symm
+  · intro h; exact ((Blaster.decide'_true p).mpr h).symm
+
+protected theorem false_eq_decide' (p : Prop) : (false = Blaster.decide' p) = ¬ p := by
+  apply propext
+  constructor
+  · intro h; exact (Blaster.decide'_false p).mp h.symm
+  · intro h; exact ((Blaster.decide'_false p).mpr h).symm
+
+protected theorem decide'_eq_decide' (p q : Prop) :
+    (Blaster.decide' p = Blaster.decide' q) = (p = q) := by
+  apply propext
+  constructor
+  · intro h
+    apply propext
+    rw [← Blaster.decide'_true p, ← Blaster.decide'_true q, h]
+  · intro h; rw [h]
+
+protected theorem decide'_eq_bool (p : Prop) (b : Bool) :
+    (Blaster.decide' p = b) = (p = (true = b)) := by
+  apply propext
+  constructor
+  · intro h
+    apply propext
+    constructor
+    · intro hp; rw [← h]; exact ((Blaster.decide'_true p).mpr hp).symm
+    · intro hb; exact (Blaster.decide'_true p).mp (by rw [h]; exact hb.symm)
+  · intro h
+    rw [h]
+    cases b with
+    | true => exact (Blaster.decide'_true (true = true)).mpr rfl
+    | false => exact (Blaster.decide'_false (true = false)).mpr (by decide)
+
+protected theorem bool_eq_decide' (p : Prop) (b : Bool) :
+    (b = Blaster.decide' p) = (p = (true = b)) := by
+  have h : (b = Blaster.decide' p) = (Blaster.decide' p = b) := propext eq_comm
+  rw [h, Blaster.decide'_eq_bool]
+
+/-! ## Lemma validating the Bool-not-over-`decide'` bridge:
+    - `!(decide' p) ==> decide' (¬ p)`
+-/
+
+protected theorem not_decide' (p : Prop) : (!(Blaster.decide' p)) = Blaster.decide' (¬ p) := by
+  apply Blaster.bool_eq_of_iff
+  cases h : Blaster.decide' p with
+  | true =>
+    simp only [Bool.not_true]
+    constructor
+    · intro hc; simp at hc
+    · intro hnp
+      exact absurd ((Blaster.decide'_true p).mp h) ((Blaster.decide'_true (¬ p)).mp hnp)
+  | false =>
+    simp only [Bool.not_false]
+    exact iff_of_true trivial ((Blaster.decide'_true (¬ p)).mpr ((Blaster.decide'_false p).mp h))
+
 end Blaster
