@@ -52,48 +52,96 @@ as successful only when the command reports `PREP_INTERPRETER staged=true`.
 Three early global scouts had an unwired WSC option and measured the reference
 path despite their labels; they are excluded from fused performance evidence.
 
-## Initial paired results (three repetitions per arm)
+## Final paired results (three repetitions per arm)
 
-These observations used the initial named adapter. Its full constructor/case
-extension is measured separately below; the indexed global implementation is
-unchanged.
+These results use the complete named and indexed evaluators, including
+constructor and primitive case transitions. All preparations retain fully
+symbolic inputs; their domains have not been narrowed.
 
 | Workload / fuel | Reference prep | Fused prep | Prep speedup | Reference prep + proofs | Fused prep + proofs |
 |---|---:|---:|---:|---:|---:|
-| SellNFT / 1800 | 39.083 s | 24.046 s | 1.63× | 79.961 s | 66.268 s |
+| SellNFT / 1800 | 39.569 s | 23.336 s | 1.70× | 80.862 s | 65.089 s |
+| Governance / 9000 | 35.410 s | 22.574 s | 1.57× | 42.352 s | 28.789 s |
 | Production global / 1600 | 58.454 s | 46.275 s | 1.26× | 63.366 s | 50.624 s |
 
 All table values are medians. Preparation is the optimizer's interval; totals
 are the median of each paired preparation/proof module wall-time sum. SellNFT
-includes its unchanged 30-second timeout in every total. Proof time itself is
-37.613 → 39.212 s on SellNFT and 1.659 → 1.651 s on global. The total gains are
-therefore **1.21×** and **1.25×**, respectively. These are descriptive results
-from three samples, not a statistical confidence claim.
+includes its unchanged 30-second timeout in every total. Median proof module
+time is 37.423 → 39.178 s on SellNFT, 4.404 → 4.409 s on Governance, and
+1.659 → 1.651 s on global. Total gains are **1.24×**, **1.47×**, and **1.25×**,
+respectively. The total is the median of paired sums, not the sum of phase
+medians. These are descriptive results from three samples, not a statistical
+confidence claim. The SellNFT proof phase becomes slightly slower, despite
+the overall improvement.
 
-Prep ranges: SellNFT reference 38.946–41.968 s, fused 22.838–25.445 s; global
-reference 58.141–62.182 s, fused 46.271–50.297 s. No timed run was discarded.
+Prep ranges: SellNFT reference 38.904–41.638 s, fused 22.277–24.252 s;
+Governance reference 35.295–37.302 s, fused 20.960–23.991 s; global reference
+58.141–62.182 s, fused 46.271–50.297 s. No run from these paired series was
+discarded.
 
 | Workload | Reference nodes | Fused nodes | Contexts, both arms | Reference peak RSS | Fused peak RSS | Residual `.olean`, reference → fused |
 |---|---:|---:|---:|---:|---:|---:|
-| SellNFT | 15,574,522 | 8,271,045 | 29,063 | 3.027 GiB | 2.193 GiB | 831,312 → 826,280 bytes |
+| SellNFT | 15,574,522 | 8,271,483 | 29,063 | 3.027 GiB | 2.193 GiB | 831,312 → 826,280 bytes |
+| Governance | 10,889,149 | 5,070,510 | 17,761 | 2.082 GiB | 1.872 GiB | 2,216,312 → 2,216,312 bytes |
 | Global | 15,668,782 | 8,316,039 | 103,138 | 3.195 GiB | 2.330 GiB | 634,096 → 634,096 bytes |
 
-Node counts fall by about 47%, and sampled preparation memory by 27%. Context
-counts do not change. The result isolates reduced interpreter work and allocation,
-with no large residual-size inflation. Module size equality is not a semantic
-certificate; the acceptance checks and interpreter equality proof are separate.
+Node counts fall by 47% on SellNFT/global and 53% on Governance. Sampled
+preparation memory falls by 28%, 10%, and 27%, respectively. Context counts
+do not change. This is evidence of reduced interpreter work and allocation,
+without large residual-size inflation. Module size equality is not a semantic
+certificate; acceptance checks and the interpreter equality proof are separate.
 
 Raw observations are in
 [`Benchmarks/cardano/results/fused-2026-09-09`](../../Benchmarks/cardano/results/fused-2026-09-09).
-The measured Blaster commit is `40981aff` with an empty tracked patch in every
-primary run. Later commits add only reports and the portable pairing driver.
-The legacy named evaluator pin is `0c713ef6`; the indexed evaluator pin is
-`09ca8995`, with the complete preparation wiring captured by tracked-patch hashes
-and supplied reconstruction patches.
+The final named series uses Blaster `a07d55b4` and named evaluator `096c7a22`.
+The global series uses Blaster `40981aff` and indexed evaluator `09ca8995`.
+Blaster has an empty tracked patch in all these runs. No optimizer code changed
+between those two Blaster revisions: later commits added reports, the pairing
+driver, and the complete named benchmark adapter. The indexed implementation
+and wiring are unchanged. Each arm uses the same fixed optimizer as its paired
+reference. Interpreter preparation wiring and local dependency changes are
+captured by tracked-patch hashes and supplied reconstruction patches.
+
+`final-summary.json` summarizes `final-sellnft-1800-*`,
+`final-governance-9000-*`, and `paired-global-*`. The archive also preserves
+earlier observations explicitly as history; see its README for the mapping.
+
+## Secondary checks and higher bound
+
+One final reference/fused pair using the complete named adapter checks the two
+smaller workloads. These are spot checks, not three-sample estimates:
+
+| Workload / fuel | Reference prep | Fused prep | Reference prep + proofs | Fused prep + proofs | Proof outcomes, both arms |
+|---|---:|---:|---:|---:|---|
+| MintingPolicy / 1200 | 6.360 s | 3.774 s | 12.625 s | 9.882 s | 2 Valid, 1 expected counterexample |
+| ParamFeed / 10000 | 0.140 s | 0.124 s | 3.307 s | 3.296 s | 1 Valid |
+
+MintingPolicy prep is 1.69× faster in this pair; its node count falls from
+3,275,325 to 1,968,184 with 7,575 contexts in both arms. ParamFeed's whole-module
+time is essentially unchanged. These `complete-secondary-*` runs use
+`a07d55b4` plus only the two final symbolic-fallback tests in the tracked patch;
+the optimizer and interpreter implementations match the main named series.
+
+The complete indexed evaluator at **global fuel 1800 still times out after
+240.037 seconds**, with sampled peak RSS 5.13 GiB. Its raw result is
+`fused-global1800.json`. Lean did not flush the activation or optimizer metrics
+before termination; the requested source and its hash are recorded. This is
+a censored experiment, not a completed fused preparation or a speedup sample.
+There is no residual proof result at this bound. Fusion has **not** unlocked it.
+
+The earlier partial named adapter improved SellNFT but left Governance's
+constructor/case work in the reference interpreter: a secondary pair measured
+35.526 → 37.605 s, with essentially unchanged node counts. Completing those
+paths produced the final Governance improvement above. The initial SellNFT
+series (39.083 → 24.046 s) and partial-adapter secondary observations remain
+archived under `paired-sellnft-*` and `secondary-*`; they are not pooled into
+the final named medians.
 
 ## Correctness gates
 
 - The full native Blaster test suite passes on the specialization branch.
+- Symbolic list-tail and surrounding-match fallback checks pass, including a
+  kernel theorem for the explicit symbolic-tail residual.
 - Seventeen named and seventeen indexed CEK normalization checks pass, including
   capture, field/application order, missing bindings, invalid tags and case
   indices, terminal states, and exact exhaustion boundaries.
@@ -107,6 +155,9 @@ and supplied reconstruction patches.
 - SellNFT has two valid properties, two expected counterexamples, and the
   existing multisatisfaction query that times out at 30 seconds. That timeout
   remains a failed proof phase; it is neither omitted nor counted as a pass.
+- All four measured Governance properties remain Valid in every pair.
+- The public PlutusCore PR builds and tests against its exact pinned Blaster
+  dependency `c576289c`; its Linux build and CodeQL checks pass.
 
 ## Reproduction
 
@@ -121,9 +172,16 @@ and validates against its pinned Blaster dependency.
 ## Remaining limits
 
 Fusion reduces interpreter overhead and allocations. It does not merge dynamic
-paths: compare context counts as well as elapsed time. Large accepting global
-executions require substantially more fuel than the first accepting golden.
-Further work should target repeated symbolic contexts while preserving the
-acceptance gate, and reduce the conservative cache-snapshot cost without
-reintroducing Issue #242. A general claim of unlocked large contracts requires
-new completed preparations and proofs at those larger bounds.
+paths: context counts remain 103,138 for global at fuel 1600. That bound covers
+only the first accepting golden; the other two require 2782 and 3441 transitions.
+The 1800 timeout confirms that the next bottleneck remains unresolved.
+
+The next experiment should attribute repeated normalization to the expression
+and the hypotheses actually read, then evaluate reuse across contexts that agree
+on those dependencies. A cache keyed only by an ancestor context is insufficient:
+context-sensitive reductions must remain valid under the reused hypotheses.
+Measure unique expressions versus expression/context pairs before implementing
+reuse. Preserve exact fuel and accepting Unit-return checks, and require a
+completed larger preparation plus its proofs before claiming a newly unlocked
+bound. Separately, reducing the conservative beta-cache snapshot cost is useful
+only if all Issue242 aliasing and restoration regressions remain passing.

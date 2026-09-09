@@ -47,8 +47,31 @@ theorem symbolic_key_correct (key : String) :
     simp [lookup, eq_comm]
   simpa only [Blaster.ite_to_dite'_equiv] using h
 
+theorem symbolic_tail_correct (key : String) (xs : List (String × Nat)) :
+    lookup (("y", 3) :: xs) key =
+      Blaster.dite' ("y" = key) (fun _ => some 3) (fun _ => lookup xs key) := by
+  have h : lookup (("y", 3) :: xs) key =
+      (if "y" = key then some 3 else lookup xs key) := by
+    simp [lookup, eq_comm]
+  simpa only [Blaster.ite_to_dite'_equiv] using h
+
 section
 attribute [local blaster_specialize 1] lookup
+
+-- Symbolic recursive tails remain available to the ordinary fallback, also
+-- under a surrounding match. The explicit tail residual is kernel checked above.
+#testOptimize ["SpecializeUnderSymbolicListMatch"] (norm-result: 1)
+  (fun xs : List (String × Nat) => match xs with
+    | [] => none
+    | _ :: ys => lookup ys "x") ===>
+  (fun xs : List (String × Nat) => match xs with
+    | [] => none
+    | _ :: ys => lookup ys "x")
+
+#testOptimize ["SpecializeSymbolicTail"] (norm-result: 1)
+  (fun key : String => fun xs : List (String × Nat) => lookup (("y", 3) :: xs) key) ===>
+  (fun key : String => fun xs : List (String × Nat) =>
+    Blaster.dite' ("y" = key) (fun _ => some 3) (fun _ => lookup xs key))
 
 #testOptimize ["SpecializedSymbolicKey"] (norm-result: 1)
   (fun key : String => lookup [("x", 3), ("y", 5)] key) ===>
