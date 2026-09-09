@@ -21,7 +21,7 @@ namespace Blaster.Optimize
          | p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₙ₎ => tₘ x₁ ... xₙ
 -/
 def normChoiceApplication?
-  (f : Expr) (args : Array Expr) (prevInApp : Bool) : TranslateEnvT (Option OptimizeStack) := do
+  (f : Expr) (args : Array Expr) (prevInApp : Bool) : TranslateEnvT (Option OptimizeFrame) := do
     if let some r ← normDIteApp? f args then return r
     normMatchApp? f args
 
@@ -38,7 +38,7 @@ def normChoiceApplication?
          let auxApp ← mkAppRangeExpr (← mkAppExpr ite_e (← mkBVarExpr 0)) 4 args.size args
          mkLambdaExpr (← Term.mkFreshBinderName) BinderInfo.default ite_cond auxApp
 
-    normDIteApp? (f : Expr) (args : Array Expr) : TranslateEnvT (Option OptimizeStack) := do
+    normDIteApp? (f : Expr) (args : Array Expr) : TranslateEnvT (Option OptimizeFrame) := do
       let Expr.const ``Blaster.dite' _ := f | return none
       if args.size ≤ 4 then return none
       let e1 ← mkAppInDIteExpr args args[1]! args[2]!
@@ -55,7 +55,7 @@ def normChoiceApplication?
     mkAppInRhs (args : Array Expr) (beginIdx endIdx : Nat) (nbParams : Nat) (rhs : Expr) : TranslateEnvT Expr := do
       applyOnLambdaBoundedBody rhs nbParams (fun body => mkAppRangeExpr body beginIdx endIdx args)
 
-    normMatchApp? (f : Expr) (args : Array Expr) : TranslateEnvT (Option OptimizeStack) := do
+    normMatchApp? (f : Expr) (args : Array Expr) : TranslateEnvT (Option OptimizeFrame) := do
       let some argInfo ← isMatcher? f | return none
       if args.size ≤ argInfo.arity then return none
       let idxType := argInfo.getFirstDiscrPos - 1
@@ -111,7 +111,7 @@ def normChoiceApplication?
 -/
 def funPropagation?
   (cf : Expr) (cargs : Array Expr) (prevInApp : Bool)
-  (reorderArgs := false) (resolveArgs := false) : TranslateEnvT (Option OptimizeStack) := do
+  (reorderArgs := false) (resolveArgs := false) : TranslateEnvT (Option OptimizeFrame) := do
   match cf with
   | Expr.const n _ =>
       if n == ``Blaster.dite' then return none
@@ -136,7 +136,7 @@ def funPropagation?
              | _ => go (idx + 1) stop
       return go 0 args.size
 
-    loop (idx : Nat) (stop : Nat) (args : Array Expr) : TranslateEnvT (Option OptimizeStack) := do
+    loop (idx : Nat) (stop : Nat) (args : Array Expr) : TranslateEnvT (Option OptimizeFrame) := do
       if idx ≥ stop then return none
       else if let some re ← diteCstProp? cf args idx then
         profileEvent (Name.str cf.constName! "choice_ite")
@@ -176,7 +176,7 @@ def funPropagation?
 
     /-- Implements dite over ctor rule -/
     @[always_inline, inline]
-    diteCstProp? (f : Expr) (args : Array Expr) (idxArg : Nat) : TranslateEnvT (Option OptimizeStack) := do
+    diteCstProp? (f : Expr) (args : Array Expr) (idxArg : Nat) : TranslateEnvT (Option OptimizeFrame) := do
       -- NOTE: can't be an applied dite' function (e.g., applied to more than 4 arguments)
       if let some (_psort, pcond, e1, e2) := dite'? args[idxArg]! then
         let pInfo ← getFunEnvInfo f
@@ -206,7 +206,7 @@ def funPropagation?
 
     /-- Implements match over ctor rule -/
     @[always_inline, inline]
-    matchCstProp? (f : Expr) (args : Array Expr) (idxArg : Nat) : TranslateEnvT (Option OptimizeStack) := do
+    matchCstProp? (f : Expr) (args : Array Expr) (idxArg : Nat) : TranslateEnvT (Option OptimizeFrame) := do
       if let some argInfo ← isMatcher? args[idxArg]!.getAppFn then
         -- NOTE: can't be an applied match (e.g., applied to more argInfo.mInfo.arity arguments)
         let pargs := args[idxArg]!.getAppArgs

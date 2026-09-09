@@ -1,0 +1,10 @@
+Selected telemetry/verdict lines from the complete local build log.
+info: Tests/Benchmarks/CardanoPerfCase.lean:31:0: PREP_PHASE input_construct_ms=0
+PREP_INTERPRETER staged=true lifted_search=true
+PREP_METRICS optimize_ms=16928 hashcons=5510804 contexts=29234 beta_cache=23802
+PREP_PHASE declaration_ms=5 command_ms=17635
+info: Tests/Benchmarks/CardanoPerfProofs.lean:69:30: ✅ Valid
+info: Tests/Benchmarks/CardanoPerfProofs.lean:76:54: ✅ Valid
+error: Tests/Benchmarks/CardanoPerfProofs.lean:86:0: checkSat: Unexpected check-sat result: timeout
+info: Tests/Benchmarks/CardanoPerfProofs.lean:95:72: ✅ Expected Falsified
+info: Tests/Benchmarks/CardanoPerfProofs.lean:103:55: ✅ Expected Falsified

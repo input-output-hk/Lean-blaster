@@ -104,7 +104,7 @@ partial def normLevels (xs : List Level) : TranslateEnvT (List Level) := do
          - Otherwise
              - return `mkExpr e`
 -/
-def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeContinuity := do
+def normConst (e : Expr) (stack : OptimizeStack) : TranslateEnvT OptimizeContinuity := do
   match e with
   | Expr.const n l =>
       match n with
@@ -238,7 +238,7 @@ def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeCo
         if (← isNotFoldable e #[]) then return none
         -- non recursive function case
         if let some fbody ← getFunBody e then
-          return (some $ Sum.inl $ .InitOptimizeExpr fbody :: stack)
+          return (some $ Sum.inl $ .InitOptimizeExpr fbody ::: stack)
         else return none
 
 /-- Given a ctor application `C x₁ ... xₙ`,
@@ -266,13 +266,13 @@ def normPartialCtorApp? (f : Expr) (args : Array Expr) : TranslateEnvT (Option E
          - Otherwise:
              - proceed with stack continuity
 -/
-def optimizeConstApp (f : Expr) (args : Array Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeContinuity := do
-  if let some r ← normPartialCtorApp? f args then return Sum.inl (.InitOptimizeExpr r :: stack)
-  if let some r ← funPropagation? f args (← isAppArg) then return Sum.inl (r :: stack)
+def optimizeConstApp (f : Expr) (args : Array Expr) (stack : OptimizeStack) : TranslateEnvT OptimizeContinuity := do
+  if let some r ← normPartialCtorApp? f args then return Sum.inl (.InitOptimizeExpr r ::: stack)
+  if let some r ← funPropagation? f args (← isAppArg) then return Sum.inl (r ::: stack)
   let e ← applyConstAppRules f args
   if ← isRestart then
     resetRestart
-    return Sum.inl (.InitOptimizeExpr e :: stack)
+    return Sum.inl (.InitOptimizeExpr e ::: stack)
   else stackContinuity stack e
 
   where

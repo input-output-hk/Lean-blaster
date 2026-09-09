@@ -18,3 +18,5 @@ import Tests.Optimize.OptimizeUnfold
 
 import Tests.Optimize.Profile
 import Tests.Optimize.Specialize
+
+import Tests.Optimize.StackRepresentation

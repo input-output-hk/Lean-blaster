@@ -12,9 +12,9 @@ open Lean Elab Command Term Meta Blaster.Options
 namespace Blaster.Optimize
 
 -- TODO: update formalization with inference rule style notation.
-partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr := do
+partial def optimizeExprAux (stack : OptimizeStack) : TranslateEnvT Expr := do
   match stack with
-  | .InitOptimizeExpr e mvarDecls :: xs =>
+  | .InitOptimizeExpr e mvarDecls ::: xs =>
       match (← isInOptimizeEnvCache e xs mvarDecls) with
       | Sum.inl i_stack =>
           -- trace[Optimize.expr] "optimizing {← ppExpr e}"
@@ -25,7 +25,7 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
               | Sum.inl stack' => optimizeExprAux stack'
 
           | Expr.mvar _ =>
-              optimizeExprAux (.InitOptimizeExpr (← getMVarValue e) :: i_stack)
+              optimizeExprAux (.InitOptimizeExpr (← getMVarValue e) ::: i_stack)
 
           | Expr.sort l =>
               -- sort is used for Type u, Prop, etc
@@ -50,9 +50,9 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
                    let x := reuse.fvars[0]!
                    setAndCommitCtx reuse.scope
                    let body ← instantiateShared1 b x
-                   optimizeExprAux (.InitOptimizeExpr body :: .ForallWaitForBody x t (some reuse.scope) true :: i_stack)
+                   optimizeExprAux (.InitOptimizeExpr body ::: .ForallWaitForBody x t (some reuse.scope) true ::: i_stack)
 
-              | none => optimizeExprAux (.InitOptimizeExpr t :: .ForallWaitForType n bi b :: i_stack)
+              | none => optimizeExprAux (.InitOptimizeExpr t ::: .ForallWaitForType n bi b ::: i_stack)
 
           | Expr.app f a =>
              let f ← if f.isMVar then getMVarValue f else pure f
@@ -61,39 +61,39 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
              if f.isLambda then
                -- perform beta reduction and apply optimization
                let betaRes ← betaLambdaEnv f ras
-               optimizeExprAux (.InitOptimizeExpr betaRes.betaReduced betaRes.prevMVarIdDecls :: i_stack)
+               optimizeExprAux (.InitOptimizeExpr betaRes.betaReduced betaRes.prevMVarIdDecls ::: i_stack)
              else
                -- set inFunApp flag before optimizing `f`
                setInFunApp true
-               let i_stack' := .AppWaitForConst ras :: i_stack
-               optimizeExprAux (.InitOptimizeExpr f :: i_stack')
+               let i_stack' := .AppWaitForConst ras ::: i_stack
+               optimizeExprAux (.InitOptimizeExpr f ::: i_stack')
 
           | Expr.lam n t b bi =>
                if ← isPropEnv t then
                  -- skip proof term
-                 match (← stackContinuity (.LambdaWaitForType n bi b :: i_stack) t) with
+                 match (← stackContinuity (.LambdaWaitForType n bi b ::: i_stack) t) with
                  | Sum.inl stack' => optimizeExprAux stack'
                  | _ => throwEnvError "optimizeExprAux: continuity expected for LambdaWaitForType !!!"
-               else optimizeExprAux (.InitOptimizeExpr t :: .LambdaWaitForType n bi b :: i_stack)
+               else optimizeExprAux (.InitOptimizeExpr t ::: .LambdaWaitForType n bi b ::: i_stack)
 
           | Expr.letE _n _t v b _ => optimizeExprAux (inlineLet v b i_stack) -- inline let expression
 
           | Expr.mdata d me =>
               if (isTaggedRecursiveCall e) then
                 setNormalizeFunCall false
-                optimizeExprAux (.InitOptimizeExpr me :: .MDataRecCallWaitForExpr d :: i_stack)
-              else optimizeExprAux (.InitOptimizeExpr me :: i_stack)
+                optimizeExprAux (.InitOptimizeExpr me ::: .MDataRecCallWaitForExpr d ::: i_stack)
+              else optimizeExprAux (.InitOptimizeExpr me ::: i_stack)
 
           | Expr.proj n idx s =>
-              let i_stack' := .ProjWaitForExpr n idx :: i_stack
-              optimizeExprAux (.InitOptimizeExpr s :: i_stack')
+              let i_stack' := .ProjWaitForExpr n idx ::: i_stack
+              optimizeExprAux (.InitOptimizeExpr s ::: i_stack')
 
           | Expr.bvar .. => throwEnvError "optimizeExpr: unexpected bound variable {e}"
 
       | Sum.inr (Sum.inr e') => return e'
       | Sum.inr (Sum.inl stack') => optimizeExprAux stack'
 
-  | .RecFunDefStorage uargs instApp subsInst params optDef startCtxId :: xs =>
+  | .RecFunDefStorage uargs instApp subsInst params optDef startCtxId ::: xs =>
         uncacheFunName instApp
         -- clean-up rewrite cache
         freeRewriteCacheRange startCtxId (← get).optEnv.options.nextCtxId
@@ -104,74 +104,74 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
         | Sum.inr e => return e
         | Sum.inl stack' => optimizeExprAux stack'
 
-  | .InitNonFunOptimizeArgs f args idx stopIdx :: xs =>
+  | .InitNonFunOptimizeArgs f args idx stopIdx ::: xs =>
          -- try to apply funPropagation to avoid optimizing ite/match multiple times
          if let some r ← funPropagation? f args (resolveArgs := true) (← isAppArg) then
-           optimizeExprAux (r :: xs)
+           optimizeExprAux (r ::: xs)
          else
            let prevInCtor ← isCtorArg
            setIsCtorArg (← isCtorExpr f)
-           optimizeExprAux (.NonFunOptimizeArgs f args idx stopIdx prevInCtor :: xs)
+           optimizeExprAux (.NonFunOptimizeArgs f args idx stopIdx prevInCtor ::: xs)
 
-  | .NonFunOptimizeArgs f args idx stopIdx prevInCtor :: xs =>
+  | .NonFunOptimizeArgs f args idx stopIdx prevInCtor ::: xs =>
         if idx ≥ stopIdx then
           -- restore previous isCtorArg flag
           setIsCtorArg prevInCtor
           match (← finalizeNonFunApp f args xs) with
           | Sum.inr e' => return e'
           | Sum.inl stack' => optimizeExprAux stack'
-        else optimizeExprAux (.InitOptimizeExpr args[idx]! :: stack)
+        else optimizeExprAux (.InitOptimizeExpr args[idx]! ::: stack)
 
-  | .AppOptimizeImplicitArgs f args idx startIdx stopIdx pInfo prevInApp :: xs =>
+  | .AppOptimizeImplicitArgs f args idx startIdx stopIdx pInfo prevInApp ::: xs =>
        if idx ≥ stopIdx then
          -- normalizing ite/match function application first to
          -- avoid handling extra args in optimizeDITEChoice, matchReduction and funPropagation
          if let some re ← normChoiceApplication? f args prevInApp then
            -- trace[Optimize.normChoiceApp] "normalizing choice application {reprStr f} {reprStr args} => {reprStr re}"
-           optimizeExprAux (re :: xs)
+           optimizeExprAux (re ::: xs)
          else if isBlasterDiteConst f && args.size ≥ 2 then
            -- applying choice reduction to avoid optimizing unreachable arguments in Blaster.dite'
            setIsAppArg true
            let condOpt := .InitOptimizeExpr args[1]!
-           optimizeExprAux (condOpt :: .DiteChoiceWaitForCond f args pInfo prevInApp :: xs)
+           optimizeExprAux (condOpt ::: .DiteChoiceWaitForCond f args pInfo prevInApp ::: xs)
          else if let some mInfo ← isMatcher? f then
             -- try match reduction rule first to avoid unnecessary optimization on discriminators
             if let some r ← matchReduction? f args mInfo (resolveArgs := true) prevInApp then
-              optimizeExprAux (r :: xs)
+              optimizeExprAux (r ::: xs)
             else
               -- applying choice reduction and match constant propagation to
               -- avoid optimizing unreachable rhs in match
               -- only optimizing match return type and discriminators first
               setIsAppArg true
-              optimizeExprAux (.MatchChoiceOptimizeDiscrs f args pInfo (mInfo.getFirstDiscrPos - 1) mInfo prevInApp :: xs)
+              optimizeExprAux (.MatchChoiceOptimizeDiscrs f args pInfo (mInfo.getFirstDiscrPos - 1) mInfo prevInApp ::: xs)
          else if let some r ← specializeApp? f args then
            setIsAppArg prevInApp
-           optimizeExprAux (.InitOptimizeExpr r.betaReduced r.prevMVarIdDecls :: xs)
+           optimizeExprAux (.InitOptimizeExpr r.betaReduced r.prevMVarIdDecls ::: xs)
          else if let some argIdx ← specializationArg? f args then
            setIsAppArg true
-           optimizeExprAux (.InitOptimizeExpr args[argIdx]! ::
-             .SpecializeWaitForArg f args argIdx startIdx pInfo prevInApp :: xs)
+           optimizeExprAux (.InitOptimizeExpr args[argIdx]! :::
+             .SpecializeWaitForArg f args argIdx startIdx pInfo prevInApp ::: xs)
          -- try to apply funPropagation to avoid optimizing ite/match multiple times
          else if let some r ← funPropagation? f args (reorderArgs := true) (resolveArgs := true) prevInApp then
-           optimizeExprAux (r :: xs)
+           optimizeExprAux (r ::: xs)
          -- apply optimization on remaining explicit parameters before reduction
-         else optimizeExprAux (.AppOptimizeExplicitArgs f args startIdx args.size pInfo none prevInApp :: xs)
+         else optimizeExprAux (.AppOptimizeExplicitArgs f args startIdx args.size pInfo none prevInApp ::: xs)
 
        else if idx < pInfo.paramsInfo.size -- handle case when HOF is the returned type
             then if !pInfo.paramsInfo[idx]!.isExplicit
-                 then optimizeExprAux (.InitOptimizeExpr args[idx]! :: stack)
-                 else optimizeExprAux (.AppOptimizeImplicitArgs f args (idx + 1) startIdx stopIdx pInfo prevInApp :: xs)
-            else optimizeExprAux (.AppOptimizeImplicitArgs f args (idx + 1) startIdx stopIdx pInfo prevInApp :: xs)
+                 then optimizeExprAux (.InitOptimizeExpr args[idx]! ::: stack)
+                 else optimizeExprAux (.AppOptimizeImplicitArgs f args (idx + 1) startIdx stopIdx pInfo prevInApp ::: xs)
+            else optimizeExprAux (.AppOptimizeImplicitArgs f args (idx + 1) startIdx stopIdx pInfo prevInApp ::: xs)
 
-  | .SpecializeReady f args startIdx pInfo prevInApp :: xs =>
+  | .SpecializeReady f args startIdx pInfo prevInApp ::: xs =>
        if let some r ← specializeApp? f args then
          setIsAppArg prevInApp
-         optimizeExprAux (.InitOptimizeExpr r.betaReduced r.prevMVarIdDecls :: xs)
+         optimizeExprAux (.InitOptimizeExpr r.betaReduced r.prevMVarIdDecls ::: xs)
        else if let some r ← funPropagation? f args (reorderArgs := true) (resolveArgs := true) prevInApp then
-         optimizeExprAux (r :: xs)
-       else optimizeExprAux (.AppOptimizeExplicitArgs f args startIdx args.size pInfo none prevInApp :: xs)
+         optimizeExprAux (r ::: xs)
+       else optimizeExprAux (.AppOptimizeExplicitArgs f args startIdx args.size pInfo none prevInApp ::: xs)
 
-  | .AppOptimizeExplicitArgs f args idx stopIdx pInfo mInfo prevInApp :: xs =>
+  | .AppOptimizeExplicitArgs f args idx stopIdx pInfo mInfo prevInApp ::: xs =>
        if idx ≥ stopIdx then
          -- restore previous isAppArg flag
          setIsAppArg prevInApp
@@ -190,11 +190,11 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
          -- NOTE: we can only unfold once all parameters have been optimized.
          else if let some fdef ← getUnfoldFunDef? f args then
            -- trace[Optimize.unfoldDef] "unfolding function definition {reprStr f} {reprStr args} => {reprStr fdef}"
-           optimizeExprAux (.InitOptimizeExpr fdef.betaReduced fdef.prevMVarIdDecls :: xs)
+           optimizeExprAux (.InitOptimizeExpr fdef.betaReduced fdef.prevMVarIdDecls ::: xs)
          -- normalizing partially apply function after unfolding non-opaque functions
          else if let some pe ← normPartialFun? f args then
            -- trace[Optimize.normPartial] "normalizing partial function {reprStr f} {reprStr args} => {reprStr pe}"
-           optimizeExprAux (.InitOptimizeExpr pe :: xs)
+           optimizeExprAux (.InitOptimizeExpr pe ::: xs)
          -- applying optimization on opaque rec function and app and proceed with fun propagation rules
          else
            match (← optimizeApp f args xs) with
@@ -203,67 +203,67 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
        else if idx < pInfo.paramsInfo.size
             then if pInfo.paramsInfo[idx]!.isExplicit
                  then optimizeExprAux (← optimizeExplicitArgs f args idx stopIdx pInfo mInfo prevInApp stack xs)
-                 else optimizeExprAux (.AppOptimizeExplicitArgs f args (idx + 1) stopIdx pInfo mInfo prevInApp :: xs)
-            else optimizeExprAux (.InitOptimizeExpr args[idx]! :: stack)
+                 else optimizeExprAux (.AppOptimizeExplicitArgs f args (idx + 1) stopIdx pInfo mInfo prevInApp ::: xs)
+            else optimizeExprAux (.InitOptimizeExpr args[idx]! ::: stack)
 
-  | .MatchChoiceOptimizeDiscrs f args pInfo idx mInfo prevInApp :: xs =>
+  | .MatchChoiceOptimizeDiscrs f args pInfo idx mInfo prevInApp ::: xs =>
         if idx ≥ mInfo.getFirstAltPos then
           -- restore prevous isAppArg flag
           setIsAppArg prevInApp
           if let some r ← matchReduction? f args mInfo (matchToIte := true) prevInApp then
-            optimizeExprAux (r :: xs)
+            optimizeExprAux (r ::: xs)
           else
             -- apply optimization on remaining explicit parameters before reduction
             -- keep matchInfo to avoid unnecessary query and to avoid optimizing discriminators again
-            optimizeExprAux (.AppOptimizeExplicitArgs f args mInfo.getFirstAltPos args.size pInfo mInfo prevInApp :: xs)
-        else optimizeExprAux (.InitOptimizeExpr args[idx]! :: stack)
+            optimizeExprAux (.AppOptimizeExplicitArgs f args mInfo.getFirstAltPos args.size pInfo mInfo prevInApp ::: xs)
+        else optimizeExprAux (.InitOptimizeExpr args[idx]! ::: stack)
 
-  | .MatchRhsLambdaNext next :: xs =>
+  | .MatchRhsLambdaNext next ::: xs =>
       match next with
       | Expr.lam n t b bi =>
-          optimizeExprAux (.MatchLhsSkipForallType t :: .MatchRhsLambdaWaitForType n bi b :: xs)
+          optimizeExprAux (.MatchLhsSkipForallType t ::: .MatchRhsLambdaWaitForType n bi b ::: xs)
       | _ =>
          -- header on xs is expected to be .MatchRhsLambdaWaitForBody
          match (← stackContinuity xs next) with
          | Sum.inl stack' => optimizeExprAux stack'
          | _ => throwEnvError "optimizeExprAux: continuity expected for MatchRhsLambdaNext !!!"
 
-  | .MatchLhsSkipForallType e :: xs =>
+  | .MatchLhsSkipForallType e ::: xs =>
       match e with
       | Expr.forallE n t b bi =>
           let stack' ←
             withLocalDecl' n bi t fun x => do
-              pure $ .MatchLhsSkipForallType (← instantiateShared1 b x) :: .MatchLhsForallWaitForBody x :: xs
+              pure $ .MatchLhsSkipForallType (← instantiateShared1 b x) ::: .MatchLhsForallWaitForBody x ::: xs
           optimizeExprAux stack'
-      | _ => optimizeExprAux (.InitOptimizeExpr e :: xs) -- optimize lhs body
+      | _ => optimizeExprAux (.InitOptimizeExpr e ::: xs) -- optimize lhs body
 
   | _ => throwEnvError "optimizeExprAux: unexpected optimize stack continuity {reprStr stack} !!!"
 
   where
     @[always_inline, inline]
-    finalizeNonFunApp (f : Expr) (args : Array Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeContinuity := do
+    finalizeNonFunApp (f : Expr) (args : Array Expr) (stack : OptimizeStack) : TranslateEnvT OptimizeContinuity := do
       if ← isCtorExpr f
       then optimizeConstApp f args stack
       else stackContinuity stack (← mkAppNExpr f args)
 
     /-- Given `e := Expr.fVar fv` perform the following:
          - When `some v := fv.getValue?`
-             - return `Sum.inl (.InitOptimizeExpr v :: stack)`
+             - return `Sum.inl (.InitOptimizeExpr v ::: stack)`
          - Otherwise:
              - return `stackContinuity stack (← mkExpr e)`
     -/
     @[always_inline, inline]
-    normFVar (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeContinuity := do
+    normFVar (e : Expr) (stack : OptimizeStack) : TranslateEnvT OptimizeContinuity := do
       match ← e.fvarId!.getEnvValue? with
       | none => stackContinuity stack e
-      | some v => return Sum.inl (.InitOptimizeExpr (← hashcons v) :: stack)
+      | some v => return Sum.inl (.InitOptimizeExpr (← hashcons v) ::: stack)
 
     @[always_inline, inline]
-    inlineLet (v : Expr) (body : Expr) (stack : List OptimizeStack) : List OptimizeStack :=
-      (.InitOptimizeExpr v :: .LetWaitForValue body :: stack)
+    inlineLet (v : Expr) (body : Expr) (stack : OptimizeStack) : OptimizeStack :=
+      (.InitOptimizeExpr v ::: .LetWaitForValue body ::: stack)
 
     @[always_inline, inline]
-    optimizeDiteArg (e : Expr) (cond : Expr) (isThen : Bool) (stack : List OptimizeStack) : TranslateEnvT (List OptimizeStack) := do
+    optimizeDiteArg (e : Expr) (cond : Expr) (isThen : Bool) (stack : OptimizeStack) : TranslateEnvT (OptimizeStack) := do
       match e with
       | Expr.lam n _t b bi =>
            let mkCond (c : Expr) : TranslateEnvT Expr := do
@@ -274,39 +274,39 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
                let x := reuse.fvars[0]!
                setAndCommitCtx reuse.scope
                let body ← instantiateShared1 b x
-               return .InitOptimizeExpr body :: .LambdaWaitForBody x (some reuse.scope) true 0 :: stack
+               return .InitOptimizeExpr body ::: .LambdaWaitForBody x (some reuse.scope) true 0 ::: stack
            | none =>
                let t' ← mkCond cond
                withLocalDecl' n bi t' fun x => do
                  let bodyOpt := .InitOptimizeExpr (← instantiateShared1 b x)
                  let mscope ← addHypotheses t' x
-                 return bodyOpt :: .LambdaWaitForBody x mscope true 0 :: stack
+                 return bodyOpt ::: .LambdaWaitForBody x mscope true 0 ::: stack
       | Expr.mvar _ => optimizeDiteArg (← getMVarValue e) cond isThen stack
-      | _ => return .InitOptimizeExpr e :: stack
+      | _ => return .InitOptimizeExpr e ::: stack
 
     @[always_inline, inline]
     optimizeExplicitArgs
      (f : Expr) (args : Array Expr) (idx : Nat) (_stopIdx : Nat)
      (_pInfo : FunEnvInfo) (mInfo : Option MatchInfo) (_prevInApp : Bool)
-     (stack : List OptimizeStack) (_nxtStack : List OptimizeStack) : TranslateEnvT (List OptimizeStack) := do
+     (stack : OptimizeStack) (_nxtStack : OptimizeStack) : TranslateEnvT (OptimizeStack) := do
       let currArg := args[idx]!
       if isBlasterDiteConst f then
          -- NOTE: optimization on Blaster.dite' cond already performed at this stage
          -- and idx starts as from 2 (see continuation for DiteChoiceWaitForCond)
         if idx == 2 || idx == 3 then
           optimizeDiteArg currArg args[1]! (idx == 2) stack
-        else return (.InitOptimizeExpr currArg :: stack)
+        else return (.InitOptimizeExpr currArg ::: stack)
       else if let some argInfo := mInfo then
          -- NOTE: optimization on discriminators already performed at this stage
          -- and idx starts as from getFirstDiscrPos (see continuation for MatchChoiceOptimizeDiscrs).
          if idx >= argInfo.getFirstAltPos && idx < argInfo.arity then
            optimizeMatchAlt args argInfo idx currArg stack
-         else return (.InitOptimizeExpr currArg :: stack)
-      else return (.InitOptimizeExpr currArg :: stack)
+         else return (.InitOptimizeExpr currArg ::: stack)
+      else return (.InitOptimizeExpr currArg ::: stack)
 
 @[always_inline, inline]
 def optimizeExpr (e : Expr) : TranslateEnvT Expr :=
-  optimizeExprAux [.InitOptimizeExpr e]
+  optimizeExprAux (.InitOptimizeExpr e ::: .nil)
 
 /-- Populate the `recFunInstCache` with opaque recursive function definition.
     This function need to be call before performing optimization on a lean expression.
@@ -324,7 +324,7 @@ def cacheOpaqueRecFun : TranslateEnvT Unit := do
 
  where
    callOptimize (e : Expr) (params := #[]) : TranslateEnvT Unit := do
-     match ← normRecFun e params e [] with
+     match ← normRecFun e params e .nil with
      | Sum.inr _ => return ()
      | Sum.inl stack' => discard $ optimizeExprAux stack'
 

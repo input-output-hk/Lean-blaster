@@ -142,7 +142,7 @@ def optimizeAppAux (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 -/
 def finalizeRecApp
      (uf rf : Expr) (uargs : Array Expr)
-     (params : ImplicitParameters) (xs : List OptimizeStack) : TranslateEnvT OptimizeContinuity := do
+     (params : ImplicitParameters) (xs : OptimizeStack) : TranslateEnvT OptimizeContinuity := do
      if params.isEmpty then
        return ← stackContinuity xs rf
      if exprEq uf rf then
@@ -170,7 +170,7 @@ def finalizeRecApp
          -- trace[Optimize.recFun.app] "polymorphic equivalent case {reprStr auxApp.getAppFn'} {reprStr auxApp.getAppArgs}"
          isEquivOpaqueFun auxApp.getAppFn auxApp xs
  where
-   isEquivOpaqueFun (f : Expr) (e : Expr) (xs : List OptimizeStack) : TranslateEnvT OptimizeContinuity := do
+   isEquivOpaqueFun (f : Expr) (e : Expr) (xs : OptimizeStack) : TranslateEnvT OptimizeContinuity := do
      let isOpaqueRecFun (f : Expr) : Bool :=
        if exprEq uf f then false
        else
@@ -178,7 +178,7 @@ def finalizeRecApp
          | Expr.const n _ => opaqueFuns.contains n || optRecFuns.contains n
          | _ => false
      if isOpaqueRecFun f then
-       return Sum.inl (.InitOptimizeExpr e :: xs)
+       return Sum.inl (.InitOptimizeExpr e ::: xs)
      else stackContinuity xs e
 
 /-- Given application `f x₁ ... xₙ` perform the following:
@@ -197,7 +197,7 @@ def finalizeRecApp
     Assumes that an entry exists for each opaque recursive function in `recFunMap` before
     optimization is performed (see function `cacheOpaqueRecFun`).
 -/
-def normRecFun (uf : Expr) (uargs : Array Expr) (appExpr : Expr) (xs : List OptimizeStack) : TranslateEnvT OptimizeContinuity := do
+def normRecFun (uf : Expr) (uargs : Array Expr) (appExpr : Expr) (xs : OptimizeStack) : TranslateEnvT OptimizeContinuity := do
  let Expr.const n _ := uf | return (← stackContinuity xs appExpr)
  let isOpaqueRec ← isOpaqueRecFun uf uargs
  if (← isRecursiveFun n) || isOpaqueRec
@@ -227,7 +227,7 @@ def normRecFun (uf : Expr) (uargs : Array Expr) (appExpr : Expr) (xs : List Opti
      -- optimize recursive fun definition and store
      -- NOTE: keeping track of next ctxId to generate for clean-up
      let nextCtxId := (← get).optEnv.options.nextCtxId
-     return Sum.inl (.InitOptimizeExpr fdef :: .RecFunDefWaitForStorage uargs instApp subsInst params nextCtxId :: xs)
+     return Sum.inl (.InitOptimizeExpr fdef ::: .RecFunDefWaitForStorage uargs instApp subsInst params nextCtxId ::: xs)
  else stackContinuity xs appExpr -- proceed with continuity
 
  where
@@ -282,23 +282,23 @@ def normRecFun (uf : Expr) (uargs : Array Expr) (appExpr : Expr) (xs : List Opti
     returns `true`.
 -/
 def optimizeApp
-  (f : Expr) (args: Array Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeContinuity := do
+  (f : Expr) (args: Array Expr) (stack : OptimizeStack) : TranslateEnvT OptimizeContinuity := do
   let e ← optimizeAppAux f args
   if ← isRestart then
     resetRestart
-    return Sum.inl (.InitOptimizeExpr e :: stack)
+    return Sum.inl (.InitOptimizeExpr e ::: stack)
   else
     if e.isApp then
        let (f', args') := getAppFnWithArgs e
-       if let some r ← funPropagation? f' args' (← isAppArg) then return Sum.inl (r :: stack)
+       if let some r ← funPropagation? f' args' (← isAppArg) then return Sum.inl (r ::: stack)
        -- try to reduce app if all params are constructors
-       if let some be ← reduceApp? f' args' then return Sum.inl (.InitOptimizeExpr be.betaReduced be.prevMVarIdDecls :: stack)
+       if let some be ← reduceApp? f' args' then return Sum.inl (.InitOptimizeExpr be.betaReduced be.prevMVarIdDecls ::: stack)
        normRecFun f' args' e stack
     else stackContinuity stack e -- proceed with continuity
 
   where
     @[always_inline, inline]
-    isFunPropagation? (e : Expr) : TranslateEnvT (Option OptimizeStack) := do
+    isFunPropagation? (e : Expr) : TranslateEnvT (Option OptimizeFrame) := do
       if e.isApp then
         let (f', args') := getAppFnWithArgs e
         funPropagation? f' args' (← isAppArg)
