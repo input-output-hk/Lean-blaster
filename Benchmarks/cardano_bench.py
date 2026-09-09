@@ -27,6 +27,7 @@ parser.add_argument('--reduce-before-arguments', action='store_true', help='Redu
 parser.add_argument('--retain-constructor-choices', action='store_true', help='Keep conditionals and matches inside constructor fields during preparation')
 parser.add_argument('--retain-choice-types', nargs='*', default=[], help='Label selected inductive types or constructors to retain field choices')
 parser.add_argument('--staged-cek', action='store_true', help='Use the verified fused CEK prototype (requires staged preparation patches)')
+parser.add_argument('--lifted-search', action='store_true', help='Use certified recursive search workers; requires staged-cek and the named CEK overlay')
 parser.add_argument('--specialize-functions', nargs='*', default=[], help='Specialize NAME:INDEX when its one-based argument has a known constructor')
 parser.add_argument('--profile-normalize', action='store_true', help='Opt-in normalization-head timings; diagnostic runs only')
 parser.add_argument('--acceptance-only', action='store_true', help='Validate existing global goldens through the exact interpreter and input conversion')
@@ -47,8 +48,17 @@ if any(not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_.]*', n) for n in a.retain_choice_
     parser.error('retain-choice-types must be fully qualified Lean declaration names')
 if any(not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_.]*:[1-9][0-9]*', n) for n in a.specialize_functions):
     parser.error('specialize-functions requires qualified NAME:INDEX entries')
+if a.lifted_search and (not a.staged_cek or any(c.split(':')[0]=='global' for c in a.cases)):
+    parser.error('--lifted-search requires --staged-cek and named CEK cases')
 if a.staged_cek:
     defaults = ['PlutusCore.UPLC.StagedCek.eval:2', 'PlutusCore.UPLC.StagedCek.ret:2', 'PlutusCore.UPLC.StagedCek.lookupValue:1']
+    if a.lifted_search:
+        defaults = [n.replace('.StagedCek.', '.LoopCek.') for n in defaults]
+        defaults += ['PlutusCore.UPLC.StagedCek.lookupValue:1', 'PlutusCore.UPLC.RecursiveCalls.recognize:2']
+        for worker in ['LiftedMapSearch', 'LiftedSearch']:
+            defaults += [f'PlutusCore.UPLC.{worker}.{name}:{index}' for name, index in
+                         [('recognizeFast', 2), ('bodyWitness', 1), ('bodyMatches', 1),
+                          ('readyMatch', 1), ('bindingsMatch', 1), ('worker', 3), ('scan', 1)]]
     for entry in defaults:
         if not any(n.split(':')[0] == entry.split(':')[0] for n in a.specialize_functions):
             a.specialize_functions.append(entry)
@@ -85,7 +95,7 @@ result={'label':a.label,'repeat':a.repeat,'timeout_seconds':a.timeout,'rss_limit
         'machine':{'system':platform.system(),'release':platform.release(),'architecture':platform.machine(),'logical_cpus':os.cpu_count()},
         'runner_sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         'acceptance_fixture_sha256':hashlib.sha256((Path(__file__).parent/'cardano/fixtures/GlobalAcceptance.lean').read_bytes()).hexdigest(),
-        'staged_cek':a.staged_cek,'specialize_functions':a.specialize_functions,'retain_choice_types':a.retain_choice_types,'retain_constructor_choices':a.retain_constructor_choices,'reduce_before_arguments':a.reduce_before_arguments,
+        'staged_cek':a.staged_cek,'lifted_search':a.lifted_search,'specialize_functions':a.specialize_functions,'retain_choice_types':a.retain_choice_types,'retain_constructor_choices':a.retain_constructor_choices,'reduce_before_arguments':a.reduce_before_arguments,
         'cpu_sample':a.sample,'profile_normalize':a.profile_normalize,'phase':('proof' if a.proofs_only else 'acceptance' if a.acceptance_only else 'conversion' if a.conversion_only else 'prep'),
         'allocator_env':{k:v for k,v in os.environ.items() if k.startswith('MIMALLOC_')},'runs':[]}
 
@@ -122,6 +132,8 @@ end WSC.Benchmark
         text = text.replace(prep_line, replacement)
     if a.staged_cek:
         text=text.replace('set_option maxHeartbeats 0', 'set_option plutuscore.stagedCek true\nset_option maxHeartbeats 0')
+    if a.lifted_search:
+        text=text.replace('set_option maxHeartbeats 0', 'set_option plutuscore.liftedSearch true\nset_option maxHeartbeats 0')
     if a.specialize_functions:
         for entry in a.specialize_functions:
             fn,index=entry.split(':')
@@ -233,11 +245,16 @@ end WSC.Benchmark
             if row['status']=='running': row['status']='completed' if proc.returncode==0 else 'error'
             if sampler is not None: sampler.wait(timeout=15)
         content=log.read_text()
-        row['interpreter'] = re.findall(r'^PREP_INTERPRETER staged=(true|false)$', content, re.M)
+        row['interpreter'] = re.findall(r'^PREP_INTERPRETER staged=(true|false)(?: lifted_search=(?:true|false))?$', content, re.M)
         if a.staged_cek and not (a.proofs_only or a.acceptance_only or a.conversion_only) and row['status'] == 'completed':
             if row['interpreter'] != ['true']:
                 row['status'] = 'error'
                 row['reason'] = 'staged interpreter activation was not confirmed'
+        row['lifted_search'] = re.findall(r'^PREP_INTERPRETER staged=true lifted_search=(true|false)$', content, re.M)
+        if a.lifted_search and not (a.proofs_only or a.acceptance_only or a.conversion_only) and row['status'] == 'completed':
+            if row['lifted_search'] != ['true']:
+                row['status'] = 'error'
+                row['reason'] = 'recursive search activation was not confirmed'
         row['profiles'] = [json.loads(m[1]) for m in re.finditer(r'BLASTER_PROFILE (.+)$',content,re.M)]
         if a.profile_normalize and profile_log.exists():
             for line in profile_log.read_text().splitlines():

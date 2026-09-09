@@ -9,6 +9,7 @@ import argparse
 import json
 from pathlib import Path
 import subprocess
+import shutil
 
 HERE = Path(__file__).resolve().parent
 NAMES = ['blaster', 'cardano', 'wsc', 'plutuscore', 'plutuscore-wsc']
@@ -18,8 +19,11 @@ for name in NAMES:
     p.add_argument('--' + name, type=Path, required=True, help='Existing local source repository')
 p.add_argument('--blaster-rev', default=None, help='Override the pinned baseline with a candidate commit')
 p.add_argument('--staged-cek', action='store_true', help='Apply the verified fused CEK prototype to both interpreter pins; requires a specialization-enabled Blaster revision')
+p.add_argument('--lifted-search', action='store_true', help='Install certified SellNFT search workers in the named CEK; requires --staged-cek')
 p.add_argument('--no-build', action='store_true', help='Create checkouts only; build dependencies before timing')
 a = p.parse_args()
+if a.lifted_search and not a.staged_cek:
+    p.error('--lifted-search requires --staged-cek')
 if a.staged_cek and not a.blaster_rev:
     p.error('--staged-cek requires --blaster-rev with the specialization-enabled candidate')
 pins = json.loads((HERE / 'pins.json').read_text())
@@ -51,10 +55,24 @@ if a.staged_cek:
         target.mkdir(parents=True, exist_ok=True)
         (target/'OptimizeTestUtils.lean').write_text((root/'blaster/Tests/Utils.lean').read_text())
         (target/(fixture + '.lean')).write_text((HERE/'fixtures'/(fixture + '.lean')).read_text())
+if a.lifted_search:
+    target = root/'plutuscore'
+    overlay = HERE/'overlays'/'lifted-search'
+    for source in sorted(overlay.rglob('*.lean')):
+        relative = source.relative_to(overlay)
+        (target/relative).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, target/relative)
+        subprocess.run(['git', 'add', '--intent-to-add', str(relative)], cwd=target, check=True)
+    subprocess.run(['git', 'apply', str(HERE/'patches'/'plutuscore-lifted-search.patch')], cwd=target, check=True)
+    for fixture in ['LoopCekControl', 'LiftedTemplateSource']:
+        shutil.copyfile(HERE/'fixtures'/(fixture+'.lean'), root/'cardano'/'Tests/Benchmarks'/(fixture+'.lean'))
 if not a.no_build:
     subprocess.run(['lake', 'build', 'CardanoLedgerApi.V3', 'PlutusCore.UPLC'], cwd=root/'cardano', check=True)
     subprocess.run(['lake', 'build', 'WSC.Prep.GlobalImport'], cwd=root/'wsc', check=True)
     if a.staged_cek:
         subprocess.run(['lake', 'build', 'Tests.Benchmarks.StagedControl'], cwd=root/'cardano', check=True)
         subprocess.run(['lake', 'build', 'Tests.Benchmarks.StagedControlIndexed'], cwd=root/'wsc', check=True)
+    if a.lifted_search:
+        subprocess.run(['lake', 'build', 'CardanoLedgerApi.V2', 'Tests.Benchmarks.LoopCekControl',
+                        'Tests.Benchmarks.LiftedTemplateSource'], cwd=root/'cardano', check=True)
 print(root)
