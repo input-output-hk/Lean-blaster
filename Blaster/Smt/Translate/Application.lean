@@ -729,17 +729,11 @@ partial def inferUndeclFunType (ft : Expr) (params : ImplicitParameters) : Trans
       | _ => return e
   visit 0 ft
 
-/-- Given `f` corresponding to either an undeclared class function, an axiom function or an opaque function
-    `params` its corresponding implicit/explicit parameters and `s` its corresponding smt symbol,
-     perform the following:
-       - Let `∀ α₀ → ∀ α₁ ... → αₙ` := inferUndecFunType (← getFunEnvInfo f).type params
-       - declare smt function `declare-fun s ((st₀) .. (stₙ₋₁)) stₙ)`
-       - assert the following proposition to constraint the codomain value:
-          - `(assert (forall ((@x₀ st₀) ... (@xₙ₋₁ stₙ₋₁))
-              (! (@isTypeₙ (s @x₁ ... @xₙ₋₁))
-                 :pattern ((s @x₁ ... @xₙ₋₁))) :qid s_cstr)`
-
-     where ∀ i ∈ [0..n], αᵢ translates to Smt type stᵢ
+/-- Declare an opaque, axiom, or undeclared class function and its result contract.
+The result qualifier is implied by all argument qualifiers. Generic type
+parameters appearing in any qualifier are universally bound: the erased SMT
+function instance can be reused across Lean type instances, and quantifier-local
+types must not escape into a top-level assertion.
 -/
 def generateUndeclaredFun
   (f : Expr) (s : SmtSymbol) (params : ImplicitParameters)
@@ -752,21 +746,32 @@ def generateUndeclaredFun
     let xsyms := Array.ofFn (λ f : Fin fvars.size => mkReservedSymbol s!"@x{f.val}")
     let mut pargs := (#[] : Array SortExpr)
     let mut co_quantifiers := (#[] : SortedVars)
+    let mut domainQualifiers : Array SmtTerm := #[]
+    let mut qualifierTypes := #[retType]
     for h : i in [:fvars.size] do
       let decl ← fvars[i].fvarId!.getEnvDecl
+      qualifierTypes := qualifierTypes.push decl.type
       let st ← translateFunLambdaParamType decl.type termTranslator
       pargs := pargs.push st
       co_quantifiers := co_quantifiers.push (xsyms[i]!, st)
+      domainQualifiers := domainQualifiers.push
+        (← createPredQualifierApp xsyms[i]! (← removeTypeAbbrev decl.type))
     let ret ← translateFunLambdaParamType retType termTranslator
     declareFun s pargs ret
     -- assert codomain constraint
     if fvars.size > 0 then
       let xIds := Array.map (λ v => smtSimpleVarId v) xsyms
       let f_applyTerm := mkSimpleSmtAppN s xIds
-      let forallBody ← createPredQualifierAppAux f_applyTerm retType
+      let codomain ← createPredQualifierAppAux f_applyTerm retType
+      let forallBody := domainQualifiers.foldr impliesSmt codomain
       let qidName := mkQid $ appendSymbol s "cstr"
-      let pattern := some #[mkPattern #[f_applyTerm], qidName]
-      assertTerm (mkForallTerm none co_quantifiers forallBody pattern)
+      -- The erased function instance may be reused at another generic type.
+      -- Bind every generic in the contract, rather than capturing the first
+      -- translated type or leaving a quantifier-local type free at top level.
+      let genericQuantifiers ← genericArgsToSortedVars (← retrieveGenericArgs qualifierTypes)
+      let pattern := if genericQuantifiers.isEmpty
+        then some #[mkPattern #[f_applyTerm], qidName] else some #[qidName]
+      assertTerm (mkForallTerm none (genericQuantifiers ++ co_quantifiers) forallBody pattern)
     else
       assertTerm (← createPredQualifierAppAux (smtSimpleVarId s) retType)
 
