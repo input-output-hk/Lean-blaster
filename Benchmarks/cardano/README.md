@@ -172,7 +172,7 @@ distinguishes exhaustion from an error that the script actually reaches.
 
 These are executable checks using `native_decide`, which trusts native compilation;
 they are not kernel-reduced optimizer equivalence certificates. `--proofs-only`
-adds the Blaster acceptance check against the prepared `.prop` at fuel >=1453.
+adds Blaster acceptance and unit-return checks against the prepared `.prop` at fuel >=1453.
 Prepare that case without profiling immediately before running its proof phase,
 as the runner requires an exact preparation-source match. The gate does not
 claim that every accepting witness satisfies every ledger validity condition.

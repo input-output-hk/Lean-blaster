@@ -1,0 +1,245 @@
+{
+  "label": "conversion-isolation",
+  "repeat": 3,
+  "timeout_seconds": 120.0,
+  "rss_limit_bytes": 17179869184,
+  "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+  "pins": {
+    "cardano": {
+      "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+      "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+    },
+    "wsc": {
+      "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+      "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+    },
+    "blaster": {
+      "commit": "6575b13cb65a060c03b31103f300d26acda80374",
+      "tracked_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "plutuscore": {
+      "commit": "073950e49a11ea58ca432d6a0da39294e4d2ce50",
+      "tracked_patch_sha256": "d5cca502df3208232b396877c337ec8368175c4e4e96f508d68e35cd190daf5d"
+    },
+    "plutuscore-wsc": {
+      "commit": "5f2baa2a965388dbf0bf9ef36b82bb05ea8074c8",
+      "tracked_patch_sha256": "010e995c8eaa581d1db12fd8f81597de755b9a295a65b888e553a8273e7c4d2f"
+    }
+  },
+  "machine": {
+    "system": "Darwin",
+    "release": "25.5.0",
+    "architecture": "arm64",
+    "logical_cpus": 12
+  },
+  "runner_sha256": "bc8ecf6013b195227b9f08b138b44650c2b2c4b19d820c01f8db36a1416cd7bb",
+  "acceptance_fixture_sha256": "f863fe07484be59eeb8fc550f4dafa3427908c9fcd0fdad4d2f6036f6893f4f2",
+  "retain_choice_types": [],
+  "retain_constructor_choices": false,
+  "reduce_before_arguments": false,
+  "cpu_sample": false,
+  "profile_normalize": false,
+  "phase": "conversion",
+  "allocator_env": {},
+  "runs": [
+    {
+      "case": "global",
+      "budget": 1600,
+      "repeat": 1,
+      "status": "completed",
+      "log": "global-1600-1.log",
+      "sampled_peak_rss_bytes": 1574158336,
+      "prep": {
+        "optimize_ms": 116,
+        "hashcons": 41460,
+        "contexts": 531,
+        "beta_cache": 91
+      },
+      "source_sha256": "59bd89396ecc84e759bcd0486b31ba89dd732797b775aa591023b1572d59058d",
+      "elapsed_seconds": 1.6672244172077626,
+      "exit_code": 0,
+      "profiles": [],
+      "phases": [],
+      "acceptance": [],
+      "olean_bytes": 245440,
+      "profile_snapshot_count": 0
+    },
+    {
+      "case": "global",
+      "budget": 1600,
+      "repeat": 2,
+      "status": "completed",
+      "log": "global-1600-2.log",
+      "sampled_peak_rss_bytes": 1571405824,
+      "prep": {
+        "optimize_ms": 110,
+        "hashcons": 41460,
+        "contexts": 531,
+        "beta_cache": 91
+      },
+      "source_sha256": "59bd89396ecc84e759bcd0486b31ba89dd732797b775aa591023b1572d59058d",
+      "elapsed_seconds": 1.6645632500294596,
+      "exit_code": 0,
+      "profiles": [],
+      "phases": [],
+      "acceptance": [],
+      "olean_bytes": 245440,
+      "profile_snapshot_count": 0
+    },
+    {
+      "case": "global",
+      "budget": 1600,
+      "repeat": 3,
+      "status": "completed",
+      "log": "global-1600-3.log",
+      "sampled_peak_rss_bytes": 1577271296,
+      "prep": {
+        "optimize_ms": 117,
+        "hashcons": 41460,
+        "contexts": 531,
+        "beta_cache": 91
+      },
+      "source_sha256": "59bd89396ecc84e759bcd0486b31ba89dd732797b775aa591023b1572d59058d",
+      "elapsed_seconds": 1.6770079170819372,
+      "exit_code": 0,
+      "profiles": [],
+      "phases": [],
+      "acceptance": [],
+      "olean_bytes": 245440,
+      "profile_snapshot_count": 0
+    },
+    {
+      "case": "sellnft",
+      "budget": 1800,
+      "repeat": 1,
+      "status": "completed",
+      "log": "sellnft-1800-1.log",
+      "sampled_peak_rss_bytes": 1564950528,
+      "prep": {
+        "optimize_ms": 58,
+        "hashcons": 7317,
+        "contexts": 68,
+        "beta_cache": 64
+      },
+      "source_sha256": "fb8ccd5d1b5c22c32fd880548cecb1cd008975ff4fe8f1066a542b7b063859bf",
+      "elapsed_seconds": 1.6783837920520455,
+      "exit_code": 0,
+      "profiles": [],
+      "phases": [],
+      "acceptance": [],
+      "olean_bytes": 842504,
+      "profile_snapshot_count": 0
+    },
+    {
+      "case": "sellnft",
+      "budget": 1800,
+      "repeat": 2,
+      "status": "completed",
+      "log": "sellnft-1800-2.log",
+      "sampled_peak_rss_bytes": 1571536896,
+      "prep": {
+        "optimize_ms": 56,
+        "hashcons": 7317,
+        "contexts": 68,
+        "beta_cache": 64
+      },
+      "source_sha256": "fb8ccd5d1b5c22c32fd880548cecb1cd008975ff4fe8f1066a542b7b063859bf",
+      "elapsed_seconds": 1.6663844590075314,
+      "exit_code": 0,
+      "profiles": [],
+      "phases": [],
+      "acceptance": [],
+      "olean_bytes": 842504,
+      "profile_snapshot_count": 0
+    },
+    {
+      "case": "sellnft",
+      "budget": 1800,
+      "repeat": 3,
+      "status": "completed",
+      "log": "sellnft-1800-3.log",
+      "sampled_peak_rss_bytes": 1566670848,
+      "prep": {
+        "optimize_ms": 58,
+        "hashcons": 7317,
+        "contexts": 68,
+        "beta_cache": 64
+      },
+      "source_sha256": "fb8ccd5d1b5c22c32fd880548cecb1cd008975ff4fe8f1066a542b7b063859bf",
+      "elapsed_seconds": 1.6717262919992208,
+      "exit_code": 0,
+      "profiles": [],
+      "phases": [],
+      "acceptance": [],
+      "olean_bytes": 842504,
+      "profile_snapshot_count": 0
+    },
+    {
+      "case": "governance",
+      "budget": 9000,
+      "repeat": 1,
+      "status": "completed",
+      "log": "governance-9000-1.log",
+      "sampled_peak_rss_bytes": 1557348352,
+      "prep": {
+        "optimize_ms": 80,
+        "hashcons": 15652,
+        "contexts": 132,
+        "beta_cache": 84
+      },
+      "source_sha256": "28f29b0dd4fdd1145566aab961ea264f50c83c4e6198fc22afba66a2f8a3a1e3",
+      "elapsed_seconds": 1.674078042153269,
+      "exit_code": 0,
+      "profiles": [],
+      "phases": [],
+      "acceptance": [],
+      "olean_bytes": 2355296,
+      "profile_snapshot_count": 0
+    },
+    {
+      "case": "governance",
+      "budget": 9000,
+      "repeat": 2,
+      "status": "completed",
+      "log": "governance-9000-2.log",
+      "sampled_peak_rss_bytes": 1558151168,
+      "prep": {
+        "optimize_ms": 76,
+        "hashcons": 15652,
+        "contexts": 132,
+        "beta_cache": 84
+      },
+      "source_sha256": "28f29b0dd4fdd1145566aab961ea264f50c83c4e6198fc22afba66a2f8a3a1e3",
+      "elapsed_seconds": 1.6681236249860376,
+      "exit_code": 0,
+      "profiles": [],
+      "phases": [],
+      "acceptance": [],
+      "olean_bytes": 2355296,
+      "profile_snapshot_count": 0
+    },
+    {
+      "case": "governance",
+      "budget": 9000,
+      "repeat": 3,
+      "status": "completed",
+      "log": "governance-9000-3.log",
+      "sampled_peak_rss_bytes": 1564377088,
+      "prep": {
+        "optimize_ms": 80,
+        "hashcons": 15652,
+        "contexts": 132,
+        "beta_cache": 84
+      },
+      "source_sha256": "28f29b0dd4fdd1145566aab961ea264f50c83c4e6198fc22afba66a2f8a3a1e3",
+      "elapsed_seconds": 1.66991808405146,
+      "exit_code": 0,
+      "profiles": [],
+      "phases": [],
+      "acceptance": [],
+      "olean_bytes": 2355296,
+      "profile_snapshot_count": 0
+    }
+  ],
+  "archive_profile_policy": "Last snapshot per run; full intermediate snapshots remain in the local JSONL logs."
+}

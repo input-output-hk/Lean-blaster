@@ -109,3 +109,29 @@ uses staged compilation and continuations for symbolic execution.
 WebAssembly interpreter and uses continuations and snapshots. These support
 trying a staged representation, but their concolic/test-generation performance
 results do not predict a speedup for universally quantified Cardano proofs.
+
+
+## First target selected from normalization telemetry
+
+The follow-up [attribution report](../reviews/cardano-preparation-attribution-2026-09-09.md)
+measures input conversion at 58–116 ms in isolation, while global preparation at
+fuel 1600 takes a median 55.859 seconds. From fuel 1400 to 1600, normalization
+requests rise 4.69× and propagation of the remaining `runSteps` computation across
+choices rises 4.73×. Direct `List.cons` match propagation is unchanged. SellNFT
+spends substantial profiled time in CEK control and environment binding checks.
+
+The first prototype should therefore specialize SellNFT's fixed control and
+variable access, with explicit dynamic environment operands and reusable
+continuations. Its measurements must distinguish reducing interpreter overhead
+from moving branch expansion into the residual or SMT phase. Generic constructor
+choice retention remains experimental in PR #240.
+
+The accepting global gate is now concrete: the existing nonmember golden accepts
+at 1453 steps and its prepared result accepts at fuel 1600. The benchmark also
+requires unit as the returned value. The larger existing goldens require 2782
+and 3441 steps. Preserve these gates as the prototype grows.
+
+[PlutusCoreBlaster PR #42](https://github.com/input-output-hk/PlutusCoreBlaster/pull/42)
+already proposes fuel-free step composition lemmas. Review its compatibility
+with the pinned interpreter before using it for block simulation. This section
+selects the next experiment; no staged compiler is implemented by the telemetry PR.

@@ -1,0 +1,77 @@
+{
+  "label": "telemetry-disabled-after",
+  "repeat": 1,
+  "timeout_seconds": 240.0,
+  "rss_limit_bytes": 17179869184,
+  "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+  "pins": {
+    "cardano": {
+      "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+      "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+    },
+    "wsc": {
+      "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+      "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+    },
+    "blaster": {
+      "commit": "4b0ddd06368cd68149074768ed279753fd3e0802",
+      "tracked_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "plutuscore": {
+      "commit": "073950e49a11ea58ca432d6a0da39294e4d2ce50",
+      "tracked_patch_sha256": "d5cca502df3208232b396877c337ec8368175c4e4e96f508d68e35cd190daf5d"
+    },
+    "plutuscore-wsc": {
+      "commit": "5f2baa2a965388dbf0bf9ef36b82bb05ea8074c8",
+      "tracked_patch_sha256": "010e995c8eaa581d1db12fd8f81597de755b9a295a65b888e553a8273e7c4d2f"
+    }
+  },
+  "machine": {
+    "system": "Darwin",
+    "release": "25.5.0",
+    "architecture": "arm64",
+    "logical_cpus": 12
+  },
+  "runner_sha256": "4029c6f75ee465b33d90fb208390e4894bd03d52da04940e11f895d841ccf016",
+  "acceptance_fixture_sha256": "f863fe07484be59eeb8fc550f4dafa3427908c9fcd0fdad4d2f6036f6893f4f2",
+  "retain_choice_types": [],
+  "retain_constructor_choices": false,
+  "reduce_before_arguments": false,
+  "cpu_sample": false,
+  "profile_normalize": false,
+  "phase": "prep",
+  "allocator_env": {},
+  "runs": [
+    {
+      "case": "global",
+      "budget": 1600,
+      "repeat": 1,
+      "status": "completed",
+      "log": "global-1600-1.log",
+      "sampled_peak_rss_bytes": 3432087552,
+      "prep": {
+        "optimize_ms": 55779,
+        "hashcons": 15595053,
+        "contexts": 103138,
+        "beta_cache": 2044
+      },
+      "source_sha256": "ac85c1dc62686c44421d752928c46bc571443cf462ca0eab0526b97079b1715d",
+      "elapsed_seconds": 59.0609006669838,
+      "exit_code": 0,
+      "profiles": [],
+      "phases": [
+        {
+          "input_construct_ms": 1
+        },
+        {
+          "declaration_ms": 31,
+          "command_ms": 57589
+        }
+      ],
+      "acceptance": [],
+      "olean_bytes": 633904,
+      "profile_snapshot_count": 0
+    }
+  ],
+  "archive_profile_policy": "Last snapshot per run; full intermediate snapshots remain in the local JSONL logs."
+}
