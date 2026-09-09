@@ -345,9 +345,9 @@ elab "natModIdentity_2" : term => return natModIdentity_2
 #testOptimize [ "NatModIdentityUnchanged_1" ] ∀ (x y z : Nat), x % y < z ===>
                                               ∀ (x y z : Nat), Nat.mod x y < z
 
--- (m * n) % (n * x) ===> Nat.mod (Nat.mul m n) (Nat.mul n x)
-#testOptimize [ "NatModIdentityUnchanged_2" ] ∀ (m n x y : Nat), (m * n) % (n * x) < y ===>
-                                              ∀ (m n x y : Nat), Nat.mod (Nat.mul m n) (Nat.mul n x) < y
+-- Factoring a common multiplicand preserves a nonzero remainder.
+#testOptimize [ "NatModCommonFactorNonzero" ] ∀ (m n x y : Nat), (m * n) % (n * x) < y ===>
+                                              ∀ (m n x y : Nat), Nat.mul n (Nat.mod m x) < y
 
 -- (y + (100 - (y + 250))) % x ===> Nat.mod y x
 #testOptimize [ "NatModIdentityUnchanged_3" ] ∀ (x y z : Nat), (y + (100 - (y + 250))) % x < z ===>
