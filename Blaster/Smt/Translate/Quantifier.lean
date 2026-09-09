@@ -491,7 +491,7 @@ def getApplyInstName (t : Expr) : TranslateEnvT SmtSymbol := do
         - When t := `∀ α₀ → .. → αₙ` (i.e., function type)
            - When inPredQualifier
                - let (implicits, ∀ β₀ → .. → βₖ) ← withInstantiatedimplicitArgs' t
-               - let V := {v | v ∈ getFVarsInExpr βₖ ∧ isGenericParam βₖ}
+               - let V := generic types occurring in any domain or the codomain of the function
                - let [(sv₀, st₀), ..., (svₖ, stₖ)] := genericArgsToSortedVars V inPredQualifier
                - let localGenArgs ← getLocalPolymorphicTypes V implicits
                - When localGenArgs.isEmpty
@@ -500,7 +500,7 @@ def getApplyInstName (t : Expr) : TranslateEnvT SmtSymbol := do
                    - let (gv₀, gt₀), ..., (gvₖ, gtₖ) := genericArgsToSortedVars localGenArgs inPredQualifier
                    - `return (forall ((gv₀, gt₀) ... (gvₖ, gtₖ)) (mkSimpleSmtAppN decl.instName #[sv₀, ..., svₖ, st]))`
            - Otherwise:
-               - let V := {v | v ∈ getFVarsInExpr αₙ ∧ isGenericParam αₙ}
+               - let V := generic types occurring in any domain or the codomain of the function
                - let [(sv₀, st₀), ..., (svₖ, stₖ)] := genericArgsToSortedVars V
                - return `(mkSimpleSmtAppN decl.instName #[sv₀, ..., svₖ, st])`
 
@@ -531,7 +531,7 @@ def createPredQualifierAppAux'
         if inPredQualifier then
           -- case when polymorphic type instance (if any) is local
           withInstantiatedImplicitArgs' t fun implicits t' => do
-            let genArgs ← retrieveGenericArgs (getReturnType t')
+            let genArgs ← retrieveGenericArgs (← getFunctionTypes t')
             let sargs ← genericArgsToSortedVars genArgs inPredQualifier
             let localGenArgs ← getLocalPolymorphicTypes genArgs implicits
             let appTerm := mkSimpleSmtAppN decl.instName ((sargs.map (λ s => smtSimpleVarId s.1)).push st)
@@ -544,7 +544,7 @@ def createPredQualifierAppAux'
           -- NOTE: When inPreqQualifier is set to false, it is assumed that all types in t are
           -- fully instantiated (i.e., no bounded loose variables)
           -- case when polymorphic type instance (if any) is global
-          let sargs ← genericArgsToSortedVars (← retrieveGenericArgs (getReturnType t))
+          let sargs ← genericArgsToSortedVars (← retrieveGenericArgs (← getFunctionTypes t))
           return mkSimpleSmtAppN decl.instName ((sargs.map (λ s => smtSimpleVarId s.1)).push st)
     | Expr.app .. =>
         -- instantiated inductive data type case
@@ -559,10 +559,11 @@ def createPredQualifierAppAux'
 
   where
     @[always_inline, inline]
-    getReturnType (t : Expr) : Array Expr :=
-      let funTypes := retrieveArrowTypes t
+    getFunctionTypes (t : Expr) : TranslateEnvT (Array Expr) := do
+      let funTypes := retrieveArrowTypes (← removeClassConstraintsInFunType t)
       let retIdx := funTypes.size - 1
-      #[removeOutParam funTypes[retIdx]!]
+      return funTypes ++ #[removeOutParam funTypes[retIdx]!]
+
 
     @[always_inline, inline]
     getLocalPolymorphicTypes (genArgs : Array Expr) (implicits : HashSet PtrExpr) : TranslateEnvT (Array Expr) := do
@@ -596,67 +597,19 @@ def createPredQualifierApp (smtSym : SmtSymbol) (t : Expr) (inPredQualifier := f
   createPredQualifierAppAux (smtSimpleVarId smtSym) t inPredQualifier
 
 
-/-- Given `t := α₁ → α₂ ... → αₙ` and `st` its corresponding smt representation (i.e., ArrowTN sα₁ sα₂ sαₙ),
-    perform the following action:
-      - let funInst ← getFunInstDecl t
-      - When funInst := {@is{instName}, st, applyInstName} ∈ indTypeInstCache
-         - return `{@is{instName}, st, applyInstName}`
-      - Otherwise:
-         - let n ← mkFreshId
-         - let instName := Fun ++ n (i.e., generate a unique name for function instance)
-         - add entry `t := {@is{instName}, st, applyInstName := some @apply{n}}` to `indTypeInstCache`
-         - let R := {v | v ∈ getFVarsInExpr (removeOutparam αₙ) ∧ isGenericParam (removeOutparam αₙ) ∧ isTypeUniverse (← inferTypeEnv v)}
-         - let [rt₀ ... rtₖ] := [typeTranslator R[i] | i ∈ [0..V.size]]
-         - let V := {v | i ∈ [0..n-1] ∧ v ∈ getFVarsInExpr αᵢ ∧ isGenericParam αᵢ ∧ isTypeUniverse (← inferTypeEnv v)}
-         - let [gt₀ ... gtₘ] := [typeTranslator V[i] | i ∈ [0..V.size]]
-         - declare smt predicate `(declare-fun @is{instName} ((rt₀) .. (rtₖ) (instSort)) Bool)`
-         - declare apply function `(declare-fun @apply{n} (st sα₁ ... sαₙ₋₁) sαₙ)`
-         - assert the following propositions to specify congruence, extensionality and codomain value constraints:
-            - `(assert (forall ((@t₀ gt₀) ... (@tₘ gtₘ) (@r₀ rt₀) ... (@rₖ rtₖ) (@f (ArrowTN sα₁ sα₂ sαₙ))
-                                (@x₁ sα₁) ... (@xₙ₋₁ sαₙ₋₁) (@y₁ sα₁) ... (@yₙ₋₁ sαₙ₋₁))
-               (! (=> (@is{instName} @r₀ ... @rₖ @f)
-                  (=> (@isType₁ @x₁)
-                  ...
-                  (=> (@isTypeₙ₋₁ @xₙ₋₁)
-                  (=> (@isType₁ @y₁)
-                  ...
-                  (=> (@isTypeₙ₋₁ @yₙ₋₁)
-                  (=> (= @x₁ @y₁)
-                  (=> (= @x₂ @y₂)
-                  ...
-                  (=> (= @xₙ₋₁ @yₙ₋₁)
-                      (= (@apply{n} @f @x₁ ... @xₙ₋₁) (@apply{n} @f @y₁ ... @yₙ₋₁))))))))))
-                  :qid @apply{n}_congr_args)))`
+/-- Declare a function instance, its application operation, and its typing axioms.
 
-            - `(assert (forall ((@t₀ gt₀) ... (@tₘ gtₘ) (@r₀ rt₀) ... (@rₖ rtₖ) (@f (ArrowTN sα₁ sα₂ sαₙ)) (@g (ArrowTN sα₁ sα₂ sαₙ)))
-               (! (=> (@is{instName} @r₀ ... @rₖ @f)
-                  (=> (@is{instName} @r₀ ... @rₖ @g)
-                  (=> (= @f @g)
-                    (forall ((@x₁ sα₁) ... (@xₙ₋₁ sαₙ₋₁))
-                      (=> (@isType₁ @x₁)
-                      ...
-                      (=> (@isTypeₙ₋₁ @xₙ₋₁)
-                          (= (@apply{n} @f @x₁ ... @xₙ₋₁) (@apply{n} @g @x₁ ... @xₙ₋₁))))))))
-                  :qid @apply{n}_congr_fun)))`
+The `isFun` predicate is indexed by every generic type in the domain and codomain.
+Membership implies that application to qualified arguments produces a qualified
+result. The converse is deliberately absent: behavior on an empty domain does
+not identify which Lean function type a value inhabits in the shared SMT carrier.
+Actual function values receive membership assertions at their introduction sites.
 
-            - `(assert (forall ((@t₀ gt₀) ... (@tₘ gtₘ) (@r₀ rt₀) ... (@rₖ rtₖ) (@f (ArrowTN sα₁ sα₂ sαₙ)) (@g (ArrowTN sα₁ sα₂ sαₙ)))
-                 (! (=> (@is{instName} @r₀ ... @rₖ @f)
-                    (=> (@is{instName} @r₀ ... @rₖ @g)
-                    (=> (forall ((@x₁ sα₁) ... (@xₙ₋₁ sαₙ₋₁))
-                         (=> (@isType₁ @x₁)
-                          ...
-                         (=> (@isTypeₙ₋₁ @xₙ₋₁)
-                           (= (@apply{n} @f @x₁ ... @xₙ₋₁) (@apply{n} @g @x₁ ... @xₙ₋₁)))))
-                        (= @f @g))))
-                    :qid @apply{n}_ext_fun)))`
-
-            - `(assert (forall ((@r₀ rt₀) ... (@rₖ rtₖ) (@f (ArrowTN sα₁ sα₂ ... sαₙ)))
-                (! (= (forall ((@x₁ sα₁) ... (@xₙ₋₁ sαₙ₋₁)) (@isTypeₙ (@apply{n} @f @x₁ ... @xₙ₋₁)))
-                      (@is{instName} @r₀ ... @rₖ @f) )
-                   :pattern ( (@is{instName} @r₀ ... @rₖ @f)) :qid @isFun{v}_cstr)))`
-
-            - with ∀ i ∈ [1..n] = s
-         - return `{@is{instName}, st}`
+Extensionality uses a fresh distinguishing argument for each explicit parameter:
+two unequal members of the same function type must differ on a qualified tuple.
+These witnesses depend on the generic types and both functions. This is the
+Skolem form of extensionality and avoids a nested universal antecedent. Ordinary
+SMT equality already provides congruence for functions and their arguments.
 -/
 def generateFunInstDeclAux (t : Expr) (st : SortExpr) : TranslateEnvT IndTypeDeclaration := do
   let t' ← removeClassConstraintsInFunType t
@@ -680,9 +633,8 @@ def generateFunInstDeclAux (t : Expr) (st : SortExpr) : TranslateEnvT IndTypeDec
      -- declare @isFun predicate qualifier
      -- Need to remove outParam on return type (if necessary) (see, translateLambda)
      let retType := removeOutParam funTypes[nbTypes]!
-     let rt_args ← genericArgsToSortedVars (← retrieveGenericArgs #[retType]) (inPredQualifier := true)
      let sargs ← genericArgsToSortedVars (← retrieveGenericArgs $ funTypes ++ #[retType]) (inPredQualifier := true)
-     let genSorts := rt_args.map (λ s => s.2)
+     let genSorts := sargs.map (λ s => s.2)
      definePredQualifier decl.instName (genSorts.push decl.instSort) none
      -- declare apply function `(declare-fun @apply{n} (st sα₁ ... sαₙ₋₁) sαₙ)`
      let declArgs := Array.foldl (λ acc s => acc.push s) #[st] smtTypes (stop := smtTypes.size - 1)
@@ -693,51 +645,50 @@ def generateFunInstDeclAux (t : Expr) (st : SortExpr) : TranslateEnvT IndTypeDec
      let gId := smtSimpleVarId gsym
      let xsyms := Array.ofFn (λ f : Fin nbTypes => mkReservedSymbol s!"@x{f.val}")
      let xIds := Array.map (λ s => smtSimpleVarId s) xsyms
-     let ysyms := Array.ofFn (λ f : Fin nbTypes => mkReservedSymbol s!"@y{f.val}")
-     let yIds := Array.map (λ s => smtSimpleVarId s) ysyms
-     let f_applyTerm1 := mkSimpleSmtAppN applyName (#[fId] ++ xIds)
-     let f_applyTerm2 := mkSimpleSmtAppN applyName (#[fId] ++ yIds)
-     let g_applyTerm := mkSimpleSmtAppN applyName (#[gId] ++ xIds)
+     let f_applyTerm := mkSimpleSmtAppN applyName (#[fId] ++ xIds)
      let mut co_quantifiers := (#[] : SortedVars)
-     let mut arg_quantifiers := sargs.push (fsym, st)
-     let mut forallCFunBody := eqSmt f_applyTerm1 f_applyTerm2
-     let mut innerForallBody := eqSmt f_applyTerm1 g_applyTerm
+     let mut forallCoBody ← createPredQualifierAppAux f_applyTerm retType (inPredQualifier := true)
      for i in [:nbTypes] do
        let idx := nbTypes - i - 1
        let predAppX ← createPredQualifierAppAux xIds[idx]! funTypes[idx]! (inPredQualifier := true)
-       let predAppY ← createPredQualifierAppAux yIds[idx]! funTypes[idx]! (inPredQualifier := true)
-       let eqPremise := eqSmt xIds[idx]! yIds[idx]!
-       forallCFunBody := impliesSmt eqPremise forallCFunBody
-       forallCFunBody := impliesSmt predAppY forallCFunBody
-       forallCFunBody := impliesSmt predAppX forallCFunBody
-       innerForallBody := impliesSmt predAppX innerForallBody
+       forallCoBody := impliesSmt predAppX forallCoBody
        co_quantifiers := co_quantifiers.push (xsyms[i]!, smtTypes[i]!)
-       arg_quantifiers := (arg_quantifiers.push (xsyms[i]!, smtTypes[i]!)).push (ysyms[i]!, smtTypes[i]!)
-     -- isFun constraint
-     let forallCoBody ← createPredQualifierAppAux f_applyTerm1 retType (inPredQualifier := true)
+     -- isFun constrains results only for arguments in their Lean domains.
      let forallCoDomain := mkForallTerm none co_quantifiers forallCoBody none
-     let rt_args_vIds := rt_args.map (λ s => smtSimpleVarId s.1)
-     let f_funPredApp := mkSimpleSmtAppN decl.instName (rt_args_vIds.push fId)
-     let g_funPredApp := mkSimpleSmtAppN decl.instName (rt_args_vIds.push gId)
-     let forallFunBody := eqSmt forallCoDomain f_funPredApp
+     let sargs_vIds := sargs.map (λ s => smtSimpleVarId s.1)
+     let f_funPredApp := mkSimpleSmtAppN decl.instName (sargs_vIds.push fId)
+     let g_funPredApp := mkSimpleSmtAppN decl.instName (sargs_vIds.push gId)
+     -- Membership is a typing predicate, not a characterization by behavior.
+     -- In particular, vacuous behavior on an empty domain must not classify
+     -- every value in the shared SMT arrow carrier as that Lean function type.
+     let forallFunBody := impliesSmt f_funPredApp forallCoDomain
      let qidName := appendSymbol decl.instName "cstr"
      let fun_annotations := some #[mkPattern #[f_funPredApp], mkQid qidName]
-     assertTerm (mkForallTerm none (rt_args.push (fsym, st)) forallFunBody fun_annotations)
-     -- congruence on fun
-     let qidName := appendSymbol applyName "congr_fun"
-     let eqFun := eqSmt fId gId
+     assertTerm (mkForallTerm none (sargs.push (fsym, st)) forallFunBody fun_annotations)
+     -- Skolemized extensionality: unequal typed functions differ on a typed tuple.
+     let witnessParams := (genSorts.push st).push st
+     let witnessArgs := (sargs_vIds.push fId).push gId
+     let mut diffArgs := #[]
+     let mut domainPreds := #[]
+     for i in [:nbTypes] do
+       let witnessName := appendSymbol applyName s!"ext_arg{i}"
+       declareFun witnessName witnessParams smtTypes[i]!
+       let witness := mkSimpleSmtAppN witnessName witnessArgs
+       diffArgs := diffArgs.push witness
+       domainPreds := domainPreds.push (← createPredQualifierAppAux witness funTypes[i]! (inPredQualifier := true))
+     let fDiff := mkSimpleSmtAppN applyName (#[fId] ++ diffArgs)
+     let gDiff := mkSimpleSmtAppN applyName (#[gId] ++ diffArgs)
+     let difference := domainPreds.foldr andSmt (notSmt (eqSmt fDiff gDiff))
+     let forallExtBody := impliesSmt f_funPredApp (impliesSmt g_funPredApp
+       (impliesSmt (notSmt (eqSmt fId gId)) difference))
      let fg_quantifiers : SortedVars := (sargs.push (fsym, st)).push (gsym, st)
-     let innerForall := mkForallTerm none co_quantifiers innerForallBody none
-     let forallCArgBody := impliesSmt f_funPredApp (impliesSmt g_funPredApp (impliesSmt eqFun innerForall))
-     assertTerm (mkForallTerm none fg_quantifiers forallCArgBody (some #[mkQid qidName]))
-     -- extensionality
      let qidName := appendSymbol applyName "ext_fun"
-     let forallExtBody := impliesSmt f_funPredApp (impliesSmt g_funPredApp (impliesSmt innerForall eqFun))
-     assertTerm (mkForallTerm none fg_quantifiers forallExtBody (some #[mkQid qidName]))
-     -- congruence on args
-     let qidName := appendSymbol applyName "congr_args"
-     forallCFunBody := impliesSmt f_funPredApp forallCFunBody
-     assertTerm (mkForallTerm none arg_quantifiers forallCFunBody (some #[mkQid qidName]))
+     -- Let the solver see concrete function definitions before the generic
+     -- extensionality axiom; this avoids poor model construction on SAT goals.
+     let extensionality := mkForallTerm none fg_quantifiers forallExtBody
+       (some #[mkPattern #[f_funPredApp, g_funPredApp], mkQid qidName])
+     modify fun env => { env with smtEnv.pendingExtensionality := env.smtEnv.pendingExtensionality.push extensionality }
+
 
 
 /-- Same as `generateFunInstDeclAux` but return (). -/

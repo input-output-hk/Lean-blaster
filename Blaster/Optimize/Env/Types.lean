@@ -665,6 +665,9 @@ structure SmtEnv where
   /-- Smt-Lib commands emitted to the backend solver. -/
   smtCommands : Array SmtCommand
 
+  /-- Extensionality assertions emitted after concrete definitions and the goal. -/
+  pendingExtensionality : Array SmtTerm := #[]
+
   /-- Backend solver process. -/
   smtProc : Option (IO.Process.Child ⟨.piped, .piped, .piped⟩)
 
