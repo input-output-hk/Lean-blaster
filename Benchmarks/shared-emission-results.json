@@ -1,0 +1,150 @@
+{
+  "base_commit": "4ae4d4fe",
+  "lean": "Lean 4.24.0",
+  "z3": "Z3 version 4.15.4 - 64 bit",
+  "machine": "Apple M2 Max",
+  "repeat": 3,
+  "rows": [
+    {
+      "depth": 16,
+      "share_smt": 0,
+      "query_dump_bytes": 459121,
+      "median": {
+        "wall_s": 1.8313705420587212,
+        "Optimization": 0.147,
+        "Translation": 0.008,
+        "Submitting Smt Query": 0.535,
+        "Solve": 0.029
+      },
+      "samples": [
+        {
+          "wall_s": 1.8422324999701232,
+          "Optimization": 0.147,
+          "Translation": 0.008,
+          "Submitting Smt Query": 0.544,
+          "Solve": 0.029
+        },
+        {
+          "wall_s": 1.8313705420587212,
+          "Optimization": 0.144,
+          "Translation": 0.008,
+          "Submitting Smt Query": 0.535,
+          "Solve": 0.022
+        },
+        {
+          "wall_s": 1.7977093749213964,
+          "Optimization": 0.15,
+          "Translation": 0.008,
+          "Submitting Smt Query": 0.532,
+          "Solve": 0.03
+        }
+      ]
+    },
+    {
+      "depth": 16,
+      "share_smt": 1,
+      "query_dump_bytes": 811,
+      "median": {
+        "wall_s": 1.2883592501748353,
+        "Optimization": 0.152,
+        "Translation": 0.008,
+        "Submitting Smt Query": 0.002,
+        "Solve": 0.028
+      },
+      "samples": [
+        {
+          "wall_s": 1.2425428330898285,
+          "Optimization": 0.152,
+          "Translation": 0.008,
+          "Submitting Smt Query": 0.003,
+          "Solve": 0.021
+        },
+        {
+          "wall_s": 1.3116948341485113,
+          "Optimization": 0.146,
+          "Translation": 0.008,
+          "Submitting Smt Query": 0.002,
+          "Solve": 0.028
+        },
+        {
+          "wall_s": 1.2883592501748353,
+          "Optimization": 0.16,
+          "Translation": 0.009,
+          "Submitting Smt Query": 0.002,
+          "Solve": 0.03
+        }
+      ]
+    },
+    {
+      "depth": 20,
+      "share_smt": 0,
+      "query_dump_bytes": 7340401,
+      "median": {
+        "wall_s": 9.780570749891922,
+        "Optimization": 0.155,
+        "Translation": 0.008,
+        "Submitting Smt Query": 8.417,
+        "Solve": 0.027
+      },
+      "samples": [
+        {
+          "wall_s": 9.780570749891922,
+          "Optimization": 0.155,
+          "Translation": 0.008,
+          "Submitting Smt Query": 8.417,
+          "Solve": 0.023
+        },
+        {
+          "wall_s": 9.801313583971933,
+          "Optimization": 0.159,
+          "Translation": 0.008,
+          "Submitting Smt Query": 8.495,
+          "Solve": 0.03
+        },
+        {
+          "wall_s": 9.708712833933532,
+          "Optimization": 0.146,
+          "Translation": 0.008,
+          "Submitting Smt Query": 8.412,
+          "Solve": 0.027
+        }
+      ]
+    },
+    {
+      "depth": 20,
+      "share_smt": 1,
+      "query_dump_bytes": 931,
+      "median": {
+        "wall_s": 1.3075218331068754,
+        "Optimization": 0.15,
+        "Translation": 0.009,
+        "Submitting Smt Query": 0.002,
+        "Solve": 0.03
+      },
+      "samples": [
+        {
+          "wall_s": 1.3236734168604016,
+          "Optimization": 0.149,
+          "Translation": 0.008,
+          "Submitting Smt Query": 0.003,
+          "Solve": 0.03
+        },
+        {
+          "wall_s": 1.3075218331068754,
+          "Optimization": 0.153,
+          "Translation": 0.009,
+          "Submitting Smt Query": 0.002,
+          "Solve": 0.029
+        },
+        {
+          "wall_s": 1.3059171251952648,
+          "Optimization": 0.15,
+          "Translation": 0.009,
+          "Submitting Smt Query": 0.002,
+          "Solve": 0.031
+        }
+      ]
+    }
+  ],
+  "notes": "Depths 16 and 20 completed. The separate depth-24 dump timed out after 180 seconds; its unrecorded timing samples are excluded."
+}

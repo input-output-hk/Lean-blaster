@@ -16,6 +16,7 @@ Options:
   - `only-smt-lib`: only translating unsolved goals to smt-lib without invoking the backend solver (default: 0)
   - `only-optimize`: only perform optimization on lean specification and do not translate to smt-lib (default: 0)
   - `dump-smt-lib`: display the smt lib query to stdout (default: 0)
+  - `share-smt`: emit duplicated subterms as SMT let bindings instead of duplicated text (default: 1)
   - `random-seed`: seed for the random number generator (default: none)
   - `gen-cex`: generate counterexample for falsified theorems (default: 1)
   - `solve-result`: specify the expected result from the #blaster command, i.e.,
@@ -34,6 +35,7 @@ syntax "(verbose:" num ")" : solveOption
 syntax "(only-smt-lib:" num ")" : solveOption
 syntax "(only-optimize:" num ")" : solveOption
 syntax "(dump-smt-lib:" num ")" : solveOption
+syntax "(share-smt:" num ")" : solveOption
 syntax "(gen-cex:" num ")" : solveOption
 syntax "(solve-result:" num ")" : solveOption
 syntax "(max-depth:" num ")" : solveOption
@@ -87,6 +89,14 @@ def parseDumpSmt (sOpts : BlasterOptions) : TSyntax `solveOption → m BlasterOp
       | _ => throwUnsupportedSyntax
   | _ => return sOpts
 
+def parseShareSmt (sOpts : BlasterOptions) : TSyntax `solveOption → m BlasterOptions
+  | `(solveOption| (share-smt: $n:num)) =>
+      match n.getNat with
+      | 0 => return { sOpts with shareSmt := false }
+      | 1 => return { sOpts with shareSmt := true }
+      | _ => throwUnsupportedSyntax
+  | _ => return sOpts
+
 def parseGenCex (sOpts : BlasterOptions) : TSyntax `solveOption → m BlasterOptions
   | `(solveOption| (gen-cex: $n:num)) =>
       match n.getNat with
@@ -119,6 +129,7 @@ def parseSolveOption (sOpts : BlasterOptions) (opt : TSyntax `solveOption) : m B
   let sOpts ← parseSmtLib sOpts opt
   let sOpts ← parseOptimize sOpts opt
   let sOpts ← parseDumpSmt sOpts opt
+  let sOpts ← parseShareSmt sOpts opt
   let sOpts ← parseGenCex sOpts opt
   let sOpts ← parseSolveResult sOpts opt
   let sOpts ← parseMaxDepth sOpts opt

@@ -2,6 +2,7 @@ import Lean
 import Blaster.Command.Options
 import Blaster.Optimize.Env
 import Blaster.Smt.EmitCommand
+import Blaster.Smt.ShareLet
 
 open Lean Meta Blaster.Optimize Blaster.Options
 
@@ -211,6 +212,7 @@ def isSmtProcSet : TranslateEnvT Bool :=
     are NOT expected to produce any output.
 -/
 partial def trySubmitCommand! (c : SmtCommand) (checkSuccess := true) : TranslateEnvT Unit := do
+  let c := if (← get).optEnv.options.solverOptions.shareSmt then c.shareLets else c
   storeCommand c
   if !(← isSmtProcSet) then return ()
   c.emit
