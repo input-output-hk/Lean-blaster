@@ -42,6 +42,10 @@ partial def structEq? (op1 : Expr) (op2: Expr) : TranslateEnvT (Option Bool) := 
        -- return `none` for all other cases if physically equality fails
        pure none
  if exprEq op1 op2 then return true
+ -- Constructor fields may be proofs. Their constructor tags and arguments
+ -- are computationally irrelevant: e.g. `Or.inl h` and `Or.inr h'` must
+ -- never establish disequality of two enclosing structure values.
+ if ← isPropEnv (← inferTypeEnv op1) then return true
  visit op1 op2
 
  where
@@ -365,7 +369,7 @@ def optimizeEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
  if let Expr.const ``True _ := op1 then return op2
  if isNotExprOf op2 op1 || isBoolNotExprOf op2 op1 then return ← mkPropFalse
  if exprEq op1 op2 then return ← mkPropTrue
- if let some false ← structEq? op1 op2 then return ← mkPropFalse
+ if let some equal ← structEq? op1 op2 then return ← mkPropLit equal
  if let some (e1, e2) ← notNegEqSimp? op1 op2 then return ← mkApp3Expr f eqType e1 e2
  if let some r ← zeroEqNegReduce? op1 op2 eqType then return r
  if let some r ← intCtorEqReduce? op1 op2 then return r
