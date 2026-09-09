@@ -1,0 +1,187 @@
+diff --git a/Blaster/Optimize/Env/Types.lean b/Blaster/Optimize/Env/Types.lean
+index 6bd7b1ef..0f709946 100644
+--- a/Blaster/Optimize/Env/Types.lean
++++ b/Blaster/Optimize/Env/Types.lean
+@@ -101,6 +101,12 @@ structure OptimizeOptions where
+ 
+   resetOptions : ResetOptions
+ 
++  /-- Parent links for scoped rewrite reuse, adapted from PR #160. A cached
++      equivalence in an active ancestor remains valid under the additional
++      hypotheses of its descendants. Links also survive choice-context reuse. -/
++  parents : HashMap CtxId CtxId := HashMap.emptyWithCapacity 1024
++
++
+ instance : Inhabited OptimizeOptions where
+   default := { normalizeFunCall := true, inFunApp := false, mcDepth := 0, solverOptions := default, resetOptions := default }
+ 
+@@ -861,7 +867,7 @@ def updateGlobalRewriteCache (a : Expr) (b : Expr) (insertIfNew := false) : Tran
+ /-- Update rewrite cache at curCtx with `a := b`. -/
+ @[always_inline, inline]
+ def updateLocalRewriteCache (a : Expr) (b : Expr) (insertIfNew := false) : TranslateEnvT Unit := do
+-  let ⟨_, rewriteCache, _, _, _, _, _, _, _, _, ⟨_, _, _, _, curCtx, _, _, _⟩, _, _, _⟩ := (← get).optEnv
++  let ⟨_, rewriteCache, _, _, _, _, _, _, _, _, ⟨_, _, _, _, curCtx, _, _, _, _⟩, _, _, _⟩ := (← get).optEnv
+   match rewriteCache.get? curCtx with
+   | none =>
+        let refEntry ← IO.mkRef $ (HashMap.emptyWithCapacity 256 : HashMap PtrExpr Expr).insert a b
+@@ -896,7 +902,7 @@ def updateEqualityMap (lhs : Expr) (rhs : Expr) (ctxId : CtxId) : TranslateEnvT
+     newest entry visible in the current context (tag ∈ active). -/
+ @[always_inline, inline]
+ def eqMapFind? (lhs : Expr) : TranslateEnvT (Option Expr) := do
+-  let ⟨_, _, _, _, _, _, _, ⟨_, equalityMap⟩, _, _, ⟨_, _, _, _, _, _, active, _⟩, _, _, _⟩ := (← get).optEnv
++  let ⟨_, _, _, _, _, _, _, ⟨_, equalityMap⟩, _, _, ⟨_, _, _, _, _, _, active, _, _⟩, _, _, _⟩ := (← get).optEnv
+   if equalityMap.size == 0
+   then return none
+   else ContextMap.findRaw equalityMap active lhs
+@@ -906,7 +912,7 @@ def eqMapFind? (lhs : Expr) : TranslateEnvT (Option Expr) := do
+     proof of the newest entry for `e` whose tag is active in the current context. -/
+ @[always_inline, inline]
+ def hypMapFind? (e : Expr) : TranslateEnvT (Option Expr) := do
+-  let ⟨_, _, _, _, _, _, _, ⟨hypothesisMap, _⟩, _, _, ⟨_, _, _, _, _, _, active, _⟩, _, _, _⟩ := (← get).optEnv
++  let ⟨_, _, _, _, _, _, _, ⟨hypothesisMap, _⟩, _, _, ⟨_, _, _, _, _, _, active, _, _⟩, _, _, _⟩ := (← get).optEnv
+   if hypothesisMap.size == 0
+   then return none
+   else ContextMap.findRaw hypothesisMap active e
+@@ -924,7 +930,8 @@ def newCtx : TranslateEnvT CtxScope := do
+    let current := env.optEnv.options.nextCtxId
+    let parent := env.optEnv.options.curCtx
+    (⟨parent, current⟩, {env with optEnv.options.nextCtxId := current + 1, optEnv.options.curCtx := current
+-                                 optEnv.options.active := env.optEnv.options.active.insert current })
++                                 optEnv.options.active := env.optEnv.options.active.insert current
++                                 optEnv.options.parents := env.optEnv.options.parents.insert current parent })
+ 
+ @[always_inline, inline]
+ def setAndCommitCtx (s : CtxScope) : TranslateEnvT Unit :=
+@@ -936,9 +943,9 @@ def setAndCommitCtx (s : CtxScope) : TranslateEnvT Unit :=
+ -/
+ @[always_inline, inline]
+ def endCtx (s : CtxScope) : TranslateEnvT Unit :=
+-  modifyOptEnv fun ⟨o1, rewrite, o3, o4, o5, o6, o7, o8, o9, o10, ⟨s1, s2, s3, s4, _, s6, active, s7⟩, o12, o13, o14⟩ =>
++  modifyOptEnv fun ⟨o1, rewrite, o3, o4, o5, o6, o7, o8, o9, o10, ⟨s1, s2, s3, s4, _, s6, active, s7, parents⟩, o12, o13, o14⟩ =>
+                    ⟨o1, rewrite.erase s.current, o3, o4, o5, o6, o7, o8, o9, o10,
+-                   ⟨s1, s2, s3, s4, s.parent, s6, active.erase s.current, s7⟩, o12, o13, o14⟩
++                   ⟨s1, s2, s3, s4, s.parent, s6, active.erase s.current, s7, parents⟩, o12, o13, o14⟩
+ 
+ 
+ 
+@@ -954,7 +961,7 @@ def ContextReuseMap.findRaw (m : ContextReuseMap) (e : Expr) (idx : USize) (curC
+ 
+ @[always_inline, inline]
+ def reuseContext? (e : Expr) (idx : USize) : TranslateEnvT (Option CtxReuseScope) := do
+-  let ⟨_, _, _, _, _, _, _, _, _, memCache, ⟨_, _, _, _, curCtx, _, _, _⟩, _, _, _⟩ := (← get).optEnv
++  let ⟨_, _, _, _, _, _, _, _, _, memCache, ⟨_, _, _, _, curCtx, _, _, _, _⟩, _, _, _⟩ := (← get).optEnv
+   memCache.contextReuseCache.findRaw e idx curCtx
+ 
+ @[always_inline, inline]
+@@ -1199,7 +1206,7 @@ def updateContextReuseCache (e : Expr) (idx : USize) (s : CtxReuseScope) : Trans
+ 
+ 
+ @[inline] def propagateReuseContext (current : Expr) (next : Expr) (idx : USize) : TranslateEnvT Unit := do
+-  let ⟨_, _, _, _, _, _, _, _, _, memCache, ⟨_, _, _, _, curCtx, _, _, _⟩, _, _, _⟩ := (← get).optEnv
++  let ⟨_, _, _, _, _, _, _, _, _, memCache, ⟨_, _, _, _, curCtx, _, _, _, _⟩, _, _, _⟩ := (← get).optEnv
+   match ← memCache.contextReuseCache.findRaw current idx curCtx with
+   | some reuse => updateContextReuseCache next idx reuse
+   | none => return ()
+@@ -1213,7 +1220,7 @@ def updateContextReuseCache (e : Expr) (idx : USize) (s : CtxReuseScope) : Trans
+                     ⟨o1, rewrite, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14⟩
+ 
+ @[inline] def freeRewriteCacheReuse (e : Expr) (idx : USize) : TranslateEnvT Unit := do
+-  let ⟨_, _, _, _, _, _, _, _, _, memCache, ⟨_, _, _, _, curCtx, _, _, _⟩, _, _, _⟩ := (← get).optEnv
++  let ⟨_, _, _, _, _, _, _, _, _, memCache, ⟨_, _, _, _, curCtx, _, _, _, _⟩, _, _, _⟩ := (← get).optEnv
+   match ← memCache.contextReuseCache.findRaw e idx curCtx with
+   | some reuse =>
+       modifyOptEnv
+@@ -1232,11 +1239,25 @@ def findGlobalCache (a : Expr) (env : TranslateEnv) : IO Expr :=
+   | none => return instCacheMiss
+   | some refEntry => return (← refEntry.get).getD a instCacheMiss
+ 
++/-- Look up the nearest active ancestor's cached rewrite. Entries from closed
++    siblings are invisible, and erased cache maps are skipped. This ports the
++    ancestor lookup from #160 onto the reviewed beta stack without its GC or
++    allocator experiments. Returning an ancestor normal form can leave further
++    descendant simplifications available; it must not assume sibling facts. -/
++partial def findAncestorCache (a : Expr) (env : TranslateEnv) : IO Expr := do
++  let o := env.optEnv
++  let rec go (ctx : CtxId) : IO Expr := do
++    if ctx == 0 || o.options.active.contains ctx then
++      if let some refEntry := o.rewriteCache.get? ctx then
++        let v := (← refEntry.get).getD a instCacheMiss
++        if !exprEq v instCacheMiss then return v
++    if ctx == 0 then return instCacheMiss
++    go (o.options.parents.getD ctx 0)
++  go o.options.curCtx
++
+ @[always_inline, inline]
+ def findLocalCache (a : Expr) (env : TranslateEnv) : IO Expr :=
+-  match env.optEnv.rewriteCache.get? env.optEnv.options.curCtx with
+-  | none => return instCacheMiss
+-  | some refEntry => return (← refEntry.get).getD a instCacheMiss
++  findAncestorCache a env
+ 
+ end Blaster.Optimize
+ 
+diff --git a/Blaster/Optimize/OptimizeStack.lean b/Blaster/Optimize/OptimizeStack.lean
+index 84df5eac..0e0aac42 100644
+--- a/Blaster/Optimize/OptimizeStack.lean
++++ b/Blaster/Optimize/OptimizeStack.lean
+@@ -65,8 +65,8 @@ def resetChoiceContext (h : HypsStackContext) (fvars : Array Expr) (lam : Expr)
+   | some scope =>
+        updateContextReuseCache lam idx ⟨scope, fvars⟩
+        modifyOptEnv
+-         fun ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, ⟨s1, s2, s3, s4, _, s6, active, s7⟩, o12, o13, o14⟩ =>
+-             ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, ⟨s1, s2, s3, s4, scope.parent, s6, active.erase scope.current, s7⟩, o12, o13, o14⟩
++         fun ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, ⟨s1, s2, s3, s4, _, s6, active, s7, parents⟩, o12, o13, o14⟩ =>
++             ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, ⟨s1, s2, s3, s4, scope.parent, s6, active.erase scope.current, s7, parents⟩, o12, o13, o14⟩
+   | none => return ()
+ 
+ def restoreMVarDecls (optDecls : Option MVarIdDecls) : TranslateEnvT Unit :=
+diff --git a/Blaster/Optimize/Rewriting/OptimizeMatch.lean b/Blaster/Optimize/Rewriting/OptimizeMatch.lean
+index c654e50f..abab5e2c 100644
+--- a/Blaster/Optimize/Rewriting/OptimizeMatch.lean
++++ b/Blaster/Optimize/Rewriting/OptimizeMatch.lean
+@@ -15,7 +15,7 @@ partial def eraseMatchRhsRewriteCache (mInfo : MatchInfo) : TranslateEnvT Unit :
+     else
+       freeRewriteCacheReuse mInfo.nameExpr (idx - offset)
+       visit (idx + 1) stop offset
+-  let ⟨_, _, _, _, _, _, _, _, _, memCache, ⟨_, _, _, _, curCtx, _, _, _⟩, _, _, _⟩ := (← get).optEnv
++  let ⟨_, _, _, _, _, _, _, _, _, memCache, ⟨_, _, _, _, curCtx, _, _, _, _⟩, _, _, _⟩ := (← get).optEnv
+   if (← memCache.contextReuseCache.findRaw mInfo.nameExpr 0 curCtx).isSome then
+     let start := mInfo.getFirstAltPos.toUSize
+     visit start mInfo.arity.toUSize start
+@@ -306,7 +306,7 @@ def reduceMatch? (args : Array Expr) (mInfo : MatchInfo) (resolveArgs := false)
+      go mInfo.getFirstDiscrPos mInfo.getFirstAltPos
+ 
+     resolveArgsWithEqualityStack (args : Array Expr) : TranslateEnvT (Array Expr) := do
+-     let ⟨_, _, _, _, _, _, _, ⟨_, equalityMap⟩, _, _, ⟨_, _, _, _, _, _, active, _⟩, _, _, _⟩ := (← get).optEnv
++     let ⟨_, _, _, _, _, _, _, ⟨_, equalityMap⟩, _, _, ⟨_, _, _, _, _, _, active, _, _⟩, _, _, _⟩ := (← get).optEnv
+      let rec visit (idx : Nat) (stop : Nat) (args : Array Expr) : TranslateEnvT (Array Expr) := do
+        if idx ≥ stop then return args
+        else
+@@ -718,7 +718,7 @@ partial def optimizeMatchAlt
+        return .InitOptimizeExpr body :: .MatchAltWaitForExpr reuse.fvars (some reuse.scope) currIdx matchInst :: stack
+   | none =>
+        let alts ← getMatchAlts args mInfo
+-       let ⟨_, ⟨_, _, _, _, _, _, _, _, _,_, ⟨_, _, _, _, _, nextCtxId, _, _⟩, _, _, _⟩⟩ ← get
++       let ⟨_, ⟨_, _, _, _, _, _, _, _, _,_, ⟨_, _, _, _, _, nextCtxId, _, _, _⟩, _, _, _⟩⟩ ← get
+        let updatedMCtx ← addNotEqPatternToContext args mInfo alts 0 currIdx nextCtxId false
+        forallTelescope alts[currIdx]! fun xs b => do
+          let lhs := b.getAppArgs
+@@ -827,7 +827,7 @@ where
+ 
+   @[always_inline, inline]
+   lastPatternReduction? (mInfo : MatchInfo) (args : Array Expr) : TranslateEnvT (Option MatchElimResult) := do
+-     let ⟨_, _, _, _, _, _, _, _, matchInContext, _, ⟨_, _, _, _, _, _, active, _⟩, _, _, _⟩ := (← get).optEnv
++     let ⟨_, _, _, _, _, _, _, _, matchInContext, _, ⟨_, _, _, _, _, _, active, _, _⟩, _, _, _⟩ := (← get).optEnv
+      let h := (← get).optEnv.matchInContext
+      let alts ← getMatchAlts args mInfo
+      for i in [:alts.size - 1] do
+diff --git a/Tests/Optimize.lean b/Tests/Optimize.lean
+index 200e9bdc..8a10304b 100644
+--- a/Tests/Optimize.lean
++++ b/Tests/Optimize.lean
+@@ -15,3 +15,5 @@ import Tests.Optimize.OptimizeNat
+ import Tests.Optimize.OptimizeProp
+ import Tests.Optimize.OptimizeRecFun
+ import Tests.Optimize.OptimizeUnfold
++
++import Tests.Optimize.CacheReuse.AncestorScopes

@@ -1,0 +1,250 @@
+diff --git a/Blaster/Optimize/Env/Abstract.lean b/Blaster/Optimize/Env/Abstract.lean
+index 9d4c60d8..e716d2b6 100644
+--- a/Blaster/Optimize/Env/Abstract.lean
++++ b/Blaster/Optimize/Env/Abstract.lean
+@@ -100,7 +100,8 @@ Aassume the input is maximally shared and ensure that the result is also maximal
+ def abstractFVarsRange (e : Expr) (endIdx : Nat) (xs : Array Expr) : TranslateEnvT Expr :=
+   if !e.hasFVar then return e
+   else if endIdx < xs.size then
+-    unsafe abstractFVarsAux e endIdx.toUSize xs
++    memoSharedTransform ⟨e, xs, 0, endIdx + 1, true⟩ do
++      unsafe abstractFVarsAux e endIdx.toUSize xs
+   else return e
+ 
+ /--
+diff --git a/Blaster/Optimize/Env/Instantiate.lean b/Blaster/Optimize/Env/Instantiate.lean
+index 16df3fc2..309afe6d 100644
+--- a/Blaster/Optimize/Env/Instantiate.lean
++++ b/Blaster/Optimize/Env/Instantiate.lean
+@@ -118,7 +118,8 @@ def instantiateSharedRevRange (e : Expr) (beginIdx endIdx : Nat) (subst : Array
+   if beginIdx == endIdx then return e else
+   let s := beginIdx.toUSize
+   let n := endIdx.toUSize - s
+-  unsafe instantiateSharedRevRangeAux e 0 s n subst
++  memoSharedTransform ⟨e, subst, beginIdx, endIdx, false⟩ do
++    unsafe instantiateSharedRevRangeAux e 0 s n subst
+ 
+ 
+ @[always_inline, inline]
+diff --git a/Blaster/Optimize/Env/Types.lean b/Blaster/Optimize/Env/Types.lean
+index 6bd7b1ef..51959cd8 100644
+--- a/Blaster/Optimize/Env/Types.lean
++++ b/Blaster/Optimize/Env/Types.lean
+@@ -282,6 +282,41 @@ deriving Inhabited, Repr
+ abbrev ContextReuseEntry := HashMap CtxId CtxReuseScope
+ abbrev ContextReuseMap := HashMap InstKey (IO.Ref ContextReuseEntry)
+ 
++/-- An environment-independent shared-expression transformation. Retaining the
++    operands keeps pointer keys alive. The operation and complete substitution
++    slice are part of the key; hypotheses and metavariable assignments are never
++    consulted by these raw transformations. -/
++structure SharedTransformKey where
++  expr : Expr
++  args : Array Expr
++  beginIdx : Nat
++  endIdx : Nat
++  abstract : Bool
++  deriving Inhabited
++
++instance : BEq SharedTransformKey where
++  beq a b := Id.run do
++    if a.abstract != b.abstract || !exprEq a.expr b.expr ||
++       a.beginIdx != b.beginIdx || a.endIdx != b.endIdx || a.args.size != b.args.size then
++      return false
++    for i in [:a.args.size] do
++      if !exprEq a.args[i]! b.args[i]! then return false
++    return true
++
++instance : Hashable SharedTransformKey where
++  hash k := Id.run do
++    let mut h := mixHash (hashPtrExpr k.expr) (mixHash (hash k.beginIdx) (hash k.endIdx))
++    h := mixHash h (hash k.abstract)
++    for e in k.args do h := mixHash h (hashPtrExpr e)
++    return h
++
++structure SharedTransformMemo where
++  entries : HashMap SharedTransformKey Expr := HashMap.emptyWithCapacity 1024
++  hits : Nat := 0
++  misses : Nat := 0
++  resets : Nat := 0
++  deriving Inhabited
++
+ /-- Type defining the memoization cache for internally demanding functions. -/
+ structure MemoizeEnv where
+   /-- Cache memoizing the isRecursiveFun result -/
+@@ -351,6 +386,9 @@ structure MemoizeEnv where
+   /-- Cache memoizing the isStructure result -/
+   isStructureCache : HashMap PtrName Bool
+ 
++  /-- Bounded memoization of raw abstraction and substitution, across scopes. -/
++  sharedTransforms : SharedTransformMemo := default
++
+ 
+ private def mkCommonExpr : CommonExpr :=
+   let le := mkConst ``LE.le [levelZero]
+@@ -1107,83 +1145,105 @@ def withLocalContext (f : TranslateEnvT α) : TranslateEnvT α := do
+   modify fun ⟨s, ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14⟩⟩ =>
+              ⟨s, ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, f o10, o11, o12, o13, o14⟩⟩
+ 
++/-- Memoize a context-independent transformation. Large argument vectors bypass
++    the table; bounded generations prevent retaining every intermediate root. -/
++def memoSharedTransform (key : SharedTransformKey) (compute : TranslateEnvT Expr) : TranslateEnvT Expr := do
++  if key.args.size > 16 then return ← compute
++  let cached := (← get).optEnv.memCache.sharedTransforms.entries.getD key instCacheMiss
++  if !exprEq cached instCacheMiss then
++    modifyMemCache fun m => { m with sharedTransforms.hits := m.sharedTransforms.hits + 1 }
++    return cached
++  let result ← compute
++  modifyMemCache fun m =>
++    let t := m.sharedTransforms
++    let reset := t.entries.size >= 65536
++    let entries := if reset then HashMap.emptyWithCapacity 1024 else t.entries
++    let updated : SharedTransformMemo := {
++      entries := entries.insert key result
++      hits := t.hits
++      misses := t.misses + 1
++      resets := t.resets + (if reset then 1 else 0)
++    }
++    { m with sharedTransforms := updated }
++  return result
++
+ @[inline] def updateConstInfoCache (n : Name) (info : ConstantInfo) : TranslateEnvT Unit :=
+-  modifyMemCache fun ⟨m1, m2, m3, m4, getConstInfoCache, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩ =>
+-                     ⟨m1, m2, m3, m4, getConstInfoCache.insert n info, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩
++  modifyMemCache fun ⟨m1, m2, m3, m4, getConstInfoCache, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, transforms⟩ =>
++                     ⟨m1, m2, m3, m4, getConstInfoCache.insert n info, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, transforms⟩
+ 
+ @[inline] def updateBetaLambdaCache (key : InstKey) (decl : BetaLambda) : TranslateEnvT Unit := do
+-  unsafe modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, betaLambdaCache, m16, m17, m18, m19, m20, m21⟩ =>
++  unsafe modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, betaLambdaCache, m16, m17, m18, m19, m20, m21, transforms⟩ =>
+                             ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14,
+-                             betaLambdaCache.insert key decl, m16, m17, m18, m19, m20, m21⟩
++                             betaLambdaCache.insert key decl, m16, m17, m18, m19, m20, m21, transforms⟩
+ 
+ @[inline] def updateForallMetaCache (t : Expr) (inst : ForallMeta) : TranslateEnvT Unit := do
+-  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, forallMetaCache, m17, m18, m19, m20, m21⟩ =>
+-                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, forallMetaCache.insert t inst, m17, m18, m19, m20, m21⟩
++  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, forallMetaCache, m17, m18, m19, m20, m21, transforms⟩ =>
++                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, forallMetaCache.insert t inst, m17, m18, m19, m20, m21, transforms⟩
+ 
+ @[inline] def updateInstanceCache (f : Name) (b : Bool) : TranslateEnvT Unit :=
+-  modifyMemCache fun ⟨m1, isInstanceCache, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩ =>
+-                     ⟨m1, isInstanceCache.insert f b, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩
++  modifyMemCache fun ⟨m1, isInstanceCache, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, transforms⟩ =>
++                     ⟨m1, isInstanceCache.insert f b, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, transforms⟩
+ 
+ @[inline] def updateIsRecFunCache (f : Name) (b : Bool) : TranslateEnvT Unit :=
+-  modifyMemCache fun ⟨isRecFunCache, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩ =>
+-                     ⟨isRecFunCache.insert f b, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩
++  modifyMemCache fun ⟨isRecFunCache, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, transforms⟩ =>
++                     ⟨isRecFunCache.insert f b, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, transforms⟩
+ 
+ @[inline] def updateIsClassCache (n : Name) (b : Bool) : TranslateEnvT Unit :=
+-  modifyMemCache fun ⟨m1, m2, isClassCache, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩ =>
+-                     ⟨m1, m2, isClassCache.insert n b, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩
++  modifyMemCache fun ⟨m1, m2, isClassCache, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, transforms⟩ =>
++                     ⟨m1, m2, isClassCache.insert n b, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, transforms⟩
+ 
+ @[inline] def updateMatcherCache (n : Name) (m : Option MatcherRecInfo) : TranslateEnvT Unit :=
+-  modifyMemCache fun ⟨m1, m2, m3, getMatcherCache, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩ =>
+-                     ⟨m1, m2, m3, getMatcherCache.insert n m, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩
++  modifyMemCache fun ⟨m1, m2, m3, getMatcherCache, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, transforms⟩ =>
++                     ⟨m1, m2, m3, getMatcherCache.insert n m, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, transforms⟩
+ 
+ @[inline] def updateIsMatcherCache (n : Name) (mInfo : MatchInfo) : TranslateEnvT Unit := do
+-  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, isMatcherCache, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩ =>
+-                     ⟨m1, m2, m3, m4, m5, m6, isMatcherCache.insert n mInfo, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩
++  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, isMatcherCache, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, transforms⟩ =>
++                     ⟨m1, m2, m3, m4, m5, m6, isMatcherCache.insert n mInfo, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, transforms⟩
+ 
+ @[inline] def updateIsPartialCache (n : Name) (b : Bool) : TranslateEnvT Unit := do
+-  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, isPartialCache, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩ =>
+-                     ⟨m1, m2, m3, m4, m5, m6, m7, isPartialCache.insert n b, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩
++  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, isPartialCache, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, transforms⟩ =>
++                     ⟨m1, m2, m3, m4, m5, m6, m7, isPartialCache.insert n b, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, transforms⟩
+ 
+ @[inline] def updateInferTypeCache (e : Expr) (t : Expr) : TranslateEnvT Unit := do
+-  modifyMemCache fun ⟨m1, m2, m3, m4, m5, inferTypeCache, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩ =>
+-                     ⟨m1, m2, m3, m4, m5, inferTypeCache.insert e t, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩
++  modifyMemCache fun ⟨m1, m2, m3, m4, m5, inferTypeCache, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, transforms⟩ =>
++                     ⟨m1, m2, m3, m4, m5, inferTypeCache.insert e t, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, transforms⟩
+ 
+ @[inline] def updatePropCache (e : Expr) (b : Bool) : TranslateEnvT Unit := do
+-  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, isPropCache, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩ =>
+-                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, isPropCache.insert e b, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩
++  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, isPropCache, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, transforms⟩ =>
++                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, isPropCache.insert e b, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, transforms⟩
+ 
+ @[inline] def updateFunInfoCache (f : Expr) (info : FunEnvInfo) : TranslateEnvT Unit := do
+-  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, getFunEnvInfoCache, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩ =>
+-                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, getFunEnvInfoCache.insert f info, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩
++  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, getFunEnvInfoCache, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, transforms⟩ =>
++                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, getFunEnvInfoCache.insert f info, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, transforms⟩
+ 
+ @[inline] def updateFunBodyCache (f : Expr) (body : Option Expr) : TranslateEnvT Unit := do
+-  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, getFunBodyCache, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩ =>
+-                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, getFunBodyCache.insert f body, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩
++  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, getFunBodyCache, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, transforms⟩ =>
++                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, getFunBodyCache.insert f body, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, transforms⟩
+ 
+ @[inline] def updateIsNotFunCache (e : Expr) (b : Bool) : TranslateEnvT Unit := do
+-  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, isNotFunCache, m14, m15, m16, m17, m18, m19, m20, m21⟩ =>
+-                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, isNotFunCache.insert e b, m14, m15, m16, m17, m18, m19, m20, m21⟩
++  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, isNotFunCache, m14, m15, m16, m17, m18, m19, m20, m21, transforms⟩ =>
++                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, isNotFunCache.insert e b, m14, m15, m16, m17, m18, m19, m20, m21, transforms⟩
+ 
+ @[inline] def updateMatchAltsCache (genApp : Expr) (alts : Array Expr) : TranslateEnvT Unit := do
+-  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, matchAltsCache, m15, m16, m17, m18, m19, m20, m21⟩ =>
+-                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, matchAltsCache.insert genApp alts, m15, m16, m17, m18, m19, m20, m21⟩
++  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, matchAltsCache, m15, m16, m17, m18, m19, m20, m21, transforms⟩ =>
++                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, matchAltsCache.insert genApp alts, m15, m16, m17, m18, m19, m20, m21, transforms⟩
+ 
+ @[inline] def updateMatchToIteCache (n : Name) (b : Bool) : TranslateEnvT Unit := do
+-  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, isMatchToIte, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩ =>
+-                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, isMatchToIte.insert n b, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩
++  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, isMatchToIte, m13, m14, m15, m16, m17, m18, m19, m20, m21, transforms⟩ =>
++                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, isMatchToIte.insert n b, m13, m14, m15, m16, m17, m18, m19, m20, m21, transforms⟩
+ 
+ @[inline] def updateGenericMatchCache (genType : Expr) (g : GenericMatchResult) : TranslateEnvT Unit := do
+-  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, genericMatchCache, m19, m20, m21⟩ =>
+-                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, genericMatchCache.insert genType g, m19, m20, m21⟩
++  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, genericMatchCache, m19, m20, m21, transforms⟩ =>
++                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, genericMatchCache.insert genType g, m19, m20, m21, transforms⟩
+ 
+ @[inline] def updateCtorMatchPropCache (e : Expr) : TranslateEnvT Unit :=
+   modifyMemCache fun
+-    ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, isCtorMatchPropCache, m20⟩ =>
+-    ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, isCtorMatchPropCache.insert e, m20⟩
++    ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, isCtorMatchPropCache, m20, transforms⟩ =>
++    ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, isCtorMatchPropCache.insert e, m20, transforms⟩
+ 
+ @[inline] def updateIsStructureCache (n : Name) (b : Bool) : TranslateEnvT Unit :=
+-  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, isStructureCache⟩ =>
+-                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, isStructureCache.insert n b⟩
++  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, isStructureCache, transforms⟩ =>
++                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, isStructureCache.insert n b, transforms⟩
+ 
+ @[always_inline, inline]
+ def updateContextReuseCache (e : Expr) (idx : USize) (s : CtxReuseScope) : TranslateEnvT Unit := do
+@@ -1192,9 +1252,9 @@ def updateContextReuseCache (e : Expr) (idx : USize) (s : CtxReuseScope) : Trans
+   | none =>
+       let refEntry ← IO.mkRef (HashMap.emptyWithCapacity.insert s.scope.parent s)
+       modifyMemCache
+-        fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, contextReuseCache, m20, m21⟩ =>
++        fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, contextReuseCache, m20, m21, transforms⟩ =>
+             ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16,
+-             m17, m18, contextReuseCache.insert key refEntry, m20, m21⟩
++             m17, m18, contextReuseCache.insert key refEntry, m20, m21, transforms⟩
+   | some refEntry => refEntry.modify (λ h => h.insert s.scope.parent s)
+ 
+ 
+diff --git a/Tests/Optimize.lean b/Tests/Optimize.lean
+index 200e9bdc..60fd899f 100644
+--- a/Tests/Optimize.lean
++++ b/Tests/Optimize.lean
+@@ -15,3 +15,5 @@ import Tests.Optimize.OptimizeNat
+ import Tests.Optimize.OptimizeProp
+ import Tests.Optimize.OptimizeRecFun
+ import Tests.Optimize.OptimizeUnfold
++
++import Tests.Optimize.CacheReuse.PureTransforms

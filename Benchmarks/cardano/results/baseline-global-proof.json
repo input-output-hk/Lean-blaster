@@ -1,0 +1,50 @@
+{
+  "label": "baseline-global-proof",
+  "repeat": 1,
+  "timeout_seconds": 240.0,
+  "rss_limit_bytes": 17179869184,
+  "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+  "pins": {
+    "cardano": {
+      "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+      "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+    },
+    "wsc": {
+      "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+      "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+    },
+    "blaster": {
+      "commit": "36c3a15a9fdc9f3237ad376f8d67665e3742d3f8",
+      "tracked_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "plutuscore": {
+      "commit": "073950e49a11ea58ca432d6a0da39294e4d2ce50",
+      "tracked_patch_sha256": "6c56363bbf8c2e3cf4a4b03612c7aece4282be2d1de79fb20b47db3696388a2d"
+    },
+    "plutuscore-wsc": {
+      "commit": "5f2baa2a965388dbf0bf9ef36b82bb05ea8074c8",
+      "tracked_patch_sha256": "42ea3efa0b12837fca6d35916ad6483e157876f7f767949342a3a24bc64890ac"
+    }
+  },
+  "cpu_sample": false,
+  "phase": "proof",
+  "allocator_env": {},
+  "runs": [
+    {
+      "case": "global",
+      "budget": 1600,
+      "repeat": 1,
+      "status": "completed",
+      "log": "global-1600-1.log",
+      "sampled_peak_rss_bytes": 1547223040,
+      "prep": {},
+      "source_sha256": "afefb5a921decf5e1b05a268c50f4518f45f823f4dd259978868a041ca9bd7d9",
+      "elapsed_seconds": 1.6716808748897165,
+      "exit_code": 0,
+      "verdicts": [
+        "info: Tests/Benchmarks/CardanoPerfProofs.lean:14:2: \u2705 Valid"
+      ],
+      "olean_bytes": 123544
+    }
+  ]
+}

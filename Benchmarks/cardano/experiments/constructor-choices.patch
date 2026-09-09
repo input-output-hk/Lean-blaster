@@ -1,0 +1,27 @@
+diff --git a/Blaster/Optimize/Rewriting/FunPropagation.lean b/Blaster/Optimize/Rewriting/FunPropagation.lean
+index adea608f..54a805cf 100644
+--- a/Blaster/Optimize/Rewriting/FunPropagation.lean
++++ b/Blaster/Optimize/Rewriting/FunPropagation.lean
+@@ -3,6 +3,12 @@ import Blaster.Optimize.Rewriting.NormalizeMatch
+ import Blaster.Optimize.Rewriting.OptimizeMatch
+ 
+ open Lean Meta Elab
++
++register_option blaster.hoistConstructorChoices : Bool := {
++  defValue := true
++  descr := "Lift conditional and match expressions out of constructor fields. Disable during symbolic preparation to keep independent field choices shared."
++}
++
+ namespace Blaster.Optimize
+ 
+ /-- Given application `f x₁ ... xₙ`, apply the following normalization rules:
+@@ -145,7 +151,8 @@ def funPropagation?
+     @[always_inline, inline]
+     propagate (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT Bool := do
+       if !(← hasMatchITEArgs args) then return false
+-      else if (← isCtorName n) then return true
++      else if (← isCtorName n) then
++        return blaster.hoistConstructorChoices.get (← getOptions)
+       else if (← allExplicitParamsAreCtor f args (funPropagation := true)) then return true
+       else
+         match n with

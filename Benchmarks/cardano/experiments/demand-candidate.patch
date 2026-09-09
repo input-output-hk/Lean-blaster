@@ -1,0 +1,88 @@
+diff --git a/Blaster/Optimize/Basic.lean b/Blaster/Optimize/Basic.lean
+index d92b5c37..fbe489da 100644
+--- a/Blaster/Optimize/Basic.lean
++++ b/Blaster/Optimize/Basic.lean
+@@ -85,8 +85,13 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
+               else optimizeExprAux (.InitOptimizeExpr me :: i_stack)
+ 
+           | Expr.proj n idx s =>
+-              let i_stack' := .ProjWaitForExpr n idx :: i_stack
+-              optimizeExprAux (.InitOptimizeExpr s :: i_stack')
++              if blaster.reduceBeforeArguments.get (← getOptions) then
++                if let some r ← reduceEnvProj? e then
++                  optimizeExprAux (.InitOptimizeExpr r :: i_stack)
++                else
++                  optimizeExprAux (.InitOptimizeExpr s :: .ProjWaitForExpr n idx :: i_stack)
++              else
++                optimizeExprAux (.InitOptimizeExpr s :: .ProjWaitForExpr n idx :: i_stack)
+ 
+           | Expr.bvar .. => throwEnvError "optimizeExpr: unexpected bound variable {e}"
+ 
+@@ -144,6 +149,9 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
+               -- only optimizing match return type and discriminators first
+               setIsAppArg true
+               optimizeExprAux (.MatchChoiceOptimizeDiscrs f args pInfo (mInfo.getFirstDiscrPos - 1) mInfo prevInApp :: xs)
++         else if let some r ← reduceBeforeArguments? f args then
++           setIsAppArg prevInApp
++           optimizeExprAux (.InitOptimizeExpr r.betaReduced r.prevMVarIdDecls :: xs)
+          -- try to apply funPropagation to avoid optimizing ite/match multiple times
+          else if let some r ← funPropagation? f args (reorderArgs := true) (resolveArgs := true) prevInApp then
+            optimizeExprAux (r :: xs)
+diff --git a/Blaster/Optimize/Rewriting/FunPropagation.lean b/Blaster/Optimize/Rewriting/FunPropagation.lean
+index adea608f..54a805cf 100644
+--- a/Blaster/Optimize/Rewriting/FunPropagation.lean
++++ b/Blaster/Optimize/Rewriting/FunPropagation.lean
+@@ -3,6 +3,12 @@ import Blaster.Optimize.Rewriting.NormalizeMatch
+ import Blaster.Optimize.Rewriting.OptimizeMatch
+ 
+ open Lean Meta Elab
++
++register_option blaster.hoistConstructorChoices : Bool := {
++  defValue := true
++  descr := "Lift conditional and match expressions out of constructor fields. Disable during symbolic preparation to keep independent field choices shared."
++}
++
+ namespace Blaster.Optimize
+ 
+ /-- Given application `f x₁ ... xₙ`, apply the following normalization rules:
+@@ -145,7 +151,8 @@ def funPropagation?
+     @[always_inline, inline]
+     propagate (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT Bool := do
+       if !(← hasMatchITEArgs args) then return false
+-      else if (← isCtorName n) then return true
++      else if (← isCtorName n) then
++        return blaster.hoistConstructorChoices.get (← getOptions)
+       else if (← allExplicitParamsAreCtor f args (funPropagation := true)) then return true
+       else
+         match n with
+diff --git a/Blaster/Optimize/Rewriting/OptimizeApp.lean b/Blaster/Optimize/Rewriting/OptimizeApp.lean
+index 1eae5b61..2880e0e4 100644
+--- a/Blaster/Optimize/Rewriting/OptimizeApp.lean
++++ b/Blaster/Optimize/Rewriting/OptimizeApp.lean
+@@ -14,8 +14,26 @@ import Blaster.Optimize.OptimizeStack
+ 
+ open Lean Meta
+ 
++register_option blaster.reduceBeforeArguments : Bool := {
++  defValue := false
++  descr := "Reduce transparent function applications and known projections before normalizing their arguments."
++}
++
+ namespace Blaster.Optimize
+ 
++/-- Experimental demand-driven reduction. Preserve the existing opacity and
++    recursive-call guards; the returned body still enters the normal optimizer. -/
++def reduceBeforeArguments? (f : Expr) (args : Array Expr) : TranslateEnvT (Option BetaLambdaResult) := do
++  if !(blaster.reduceBeforeArguments.get (← getOptions)) then return none
++  if !(← isOptimizeRecCall) then return none
++  if let some r ← getUnfoldFunDef? f args then return r
++  if (← isOpaqueFunExpr f args) then return none
++  let Expr.const n _ := f | return none
++  if !(← isRecursiveFun n) then return none
++  if !(← allExplicitParamsAreCtor f args) then return none
++  let some body ← getFunBody f | return none
++  betaLambdaEnv body args
++
+ /-- Given application `f x₁ ... xₙ`, perform the following:
+      - When `isOpaqueRecFun f #[x₁ ... xₙ] ∧ allExplicitParamsAreCtor f #[x₁ ... xₙ]
+           - When some auxFun ← unfoldOpaqueFunDef f #[x₁ ... xₙ]

@@ -1,0 +1,68 @@
+diff --git a/PlutusCore/UPLC/PreProcess.lean b/PlutusCore/UPLC/PreProcess.lean
+index ddbaa30d..40cd2697 100644
+--- a/PlutusCore/UPLC/PreProcess.lean
++++ b/PlutusCore/UPLC/PreProcess.lean
+@@ -37,7 +37,12 @@ def preprocessImp : CommandElab := fun stx => do
+       withoutModifyingEnv $ runTermElabM fun _ => do
+         let plutusScript ← validUplcProg stx[2]
+         let app ← mkUplcApply stx plutusScript
+-        let (e, _) ← Optimize.main app|>.run default
++        let prepStarted ← IO.monoMsNow
++        let (e, prepEnv) ← Optimize.main app|>.run default
++        if (← IO.getEnv "BLASTER_PREP_METRICS") == some "1" then
++          let ms := (← IO.monoMsNow) - prepStarted
++          let o := prepEnv.optEnv
++          IO.println s!"PREP_METRICS optimize_ms={ms} hashcons={o.hashConsCache.size} contexts={o.options.nextCtxId} beta_cache={o.memCache.betaLambdaCache.size}"
+         let t ← inferType e
+         let baseName ← validNewDef stx[1]
+         let propName := Name.append baseName `prop
+diff --git a/lake-manifest.json b/lake-manifest.json
+index 57d627cc..c01e98c3 100644
+--- a/lake-manifest.json
++++ b/lake-manifest.json
+@@ -1,15 +1,17 @@
+-{"version": "1.1.0",
+- "packagesDir": ".lake/packages",
+- "packages":
+- [{"url": "https://github.com/input-output-hk/Lean-blaster",
+-   "type": "git",
+-   "subDir": null,
+-   "scope": "",
+-   "rev": "c576289cb55412b359411d6c89568f95af50730c",
+-   "name": "Blaster",
+-   "manifestFile": "lake-manifest.json",
+-   "inputRev": "main",
+-   "inherited": false,
+-   "configFile": "lakefile.lean"}],
+- "name": "PlutusCore",
+- "lakeDir": ".lake"}
++{
++  "version": "1.1.0",
++  "packagesDir": ".lake/packages",
++  "packages": [
++    {
++      "type": "path",
++      "scope": "",
++      "name": "Blaster",
++      "manifestFile": "lake-manifest.json",
++      "inherited": false,
++      "dir": "../blaster",
++      "configFile": "lakefile.lean"
++    }
++  ],
++  "name": "PlutusCore",
++  "lakeDir": ".lake"
++}
+diff --git a/lakefile.lean b/lakefile.lean
+index b913bb78..3850a2ce 100644
+--- a/lakefile.lean
++++ b/lakefile.lean
+@@ -3,7 +3,7 @@ open Lake DSL
+ 
+ package «PlutusCore» where
+   -- add package configuration options here
+-  require Blaster from git "https://github.com/input-output-hk/Lean-blaster" @ "main"
++  require Blaster from "../blaster"
+ 
+ @[default_target]
+ lean_lib «PlutusCore» where

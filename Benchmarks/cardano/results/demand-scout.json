@@ -1,0 +1,79 @@
+{
+  "label": "demand-scout",
+  "repeat": 1,
+  "timeout_seconds": 120.0,
+  "rss_limit_bytes": 17179869184,
+  "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+  "pins": {
+    "cardano": {
+      "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+      "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+    },
+    "wsc": {
+      "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+      "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+    },
+    "blaster": {
+      "commit": "36c3a15a9fdc9f3237ad376f8d67665e3742d3f8",
+      "tracked_patch_sha256": "daeafbc7518ed80e893d1b2868bc7688610b3ff1703b966e2707cffb7595e246"
+    },
+    "plutuscore": {
+      "commit": "073950e49a11ea58ca432d6a0da39294e4d2ce50",
+      "tracked_patch_sha256": "6c56363bbf8c2e3cf4a4b03612c7aece4282be2d1de79fb20b47db3696388a2d"
+    },
+    "plutuscore-wsc": {
+      "commit": "5f2baa2a965388dbf0bf9ef36b82bb05ea8074c8",
+      "tracked_patch_sha256": "42ea3efa0b12837fca6d35916ad6483e157876f7f767949342a3a24bc64890ac"
+    }
+  },
+  "machine": {
+    "system": "Darwin",
+    "release": "25.5.0",
+    "architecture": "arm64",
+    "logical_cpus": 12
+  },
+  "runner_sha256": "6439bc0c87c6e4bfaf2ff8cf6de696d37d5695b21b266bbf869f3c1f02e4af72",
+  "retain_constructor_choices": false,
+  "reduce_before_arguments": true,
+  "cpu_sample": false,
+  "phase": "prep",
+  "allocator_env": {},
+  "runs": [
+    {
+      "case": "global",
+      "budget": 1600,
+      "repeat": 1,
+      "status": "timeout",
+      "log": "global-1600-1.log",
+      "sampled_peak_rss_bytes": 7903232000,
+      "prep": {},
+      "source_sha256": "2be2a5d6c7a60a8d0352ccfd9c860c63f6195852196f374541afac9b6f48cc01",
+      "elapsed_seconds": 120.4945089998655,
+      "exit_code": -9
+    },
+    {
+      "case": "sellnft",
+      "budget": 1800,
+      "repeat": 1,
+      "status": "memory_limit",
+      "log": "sellnft-1800-1.log",
+      "sampled_peak_rss_bytes": 17204428800,
+      "prep": {},
+      "source_sha256": "36cc1824f8e548b248df718c38bdc9f6b3e73884eec862acac84dbdfab926f64",
+      "elapsed_seconds": 50.67584550008178,
+      "exit_code": -9
+    },
+    {
+      "case": "governance",
+      "budget": 9000,
+      "repeat": 1,
+      "status": "interrupted",
+      "log": "governance-9000-1.log",
+      "sampled_peak_rss_bytes": 3140452352,
+      "prep": {},
+      "source_sha256": "a8ccac8433de058b10e0a7e4c9ed21cca2e049d188f56bd0876a8d3f4d6c2df8",
+      "elapsed_seconds": 5.988912250148132,
+      "reason": "KeyboardInterrupt"
+    }
+  ]
+}
