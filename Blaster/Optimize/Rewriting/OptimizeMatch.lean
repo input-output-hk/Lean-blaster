@@ -258,27 +258,32 @@ partial def instantiateUnifiedMVars (mvars : Array Expr) (margs : Array Expr) (m
       else visit (idx + 1) stop mvars
   visit 0 mvars.size mvars
 
-/-- Given `m := f x₁ ... xₙ` with `f` corresponding to a match function
-    and `mInfo` the corresponding matcher info, perform the following:
-     - When `¬ allMatchDiscrsAreCtor x₁ ... xₙ minfo`:
-          - return none
-     - When `m := b` is already in the weak head cache
-         - return `b`
-     - Otherwise:
-      - When .reduced e ← reduceMatcher? m
-          - update cache with `m := some e`
-          - return `some e`
-      - Otherwise
-          - update cache with `m := none`
-          - return `none`
-    Assume that `m` is a match expression.
-    Assume that `normChoiceApplication` has already applied to push extra arguments in match rhs`
+/-- Reduce a matcher with constructor or proof discriminators. Try structural
+    pattern unification first, then Lean's definitional matcher reduction when
+    parameter syntax prevents unification. Return `none` if neither selects a
+    branch. `normChoiceApplication` must already have pushed extra arguments
+    into the alternatives.
 -/
 def reduceMatch? (args : Array Expr) (mInfo : MatchInfo) (resolveArgs := false) : TranslateEnvT (Option BetaLambdaResult) := do
  let args ← resolveArgsWithEqualityStack args
  if !(← allMatchDiscrsAreCtor args) then return none
  let alts ← getMatchAlts args mInfo
- visit_alts? args alts mInfo.getFirstAltPos mInfo.arity false
+ if let some result ← visit_alts? args alts mInfo.getFirstAltPos mInfo.arity false then
+   return some result
+ -- Implicit parameters can be definitionally equal without having identical
+ -- normalized syntax (for example, `Plan (OfNat.ofNat 1)` and `Plan 1`).
+ -- Let Lean reduce a known matcher when structural pattern matching is stuck.
+ -- Keep its metavariable changes separate from the optimizer's assignments.
+ let app ← mkAppNExpr mInfo.nameExpr args
+ let app ← if app.hasMVar then instantiateSharedMVars app else pure app
+ let result ← withLocalContext <| withoutModifyingMCtx <| withNewMCtxDepth do
+   match ← reduceMatcher? app with
+   | .reduced result => return some (← instantiateMVars result)
+   | _ => return none
+ if let some result := result then
+   eraseMatchRhsRewriteCache mInfo
+   return some ⟨← hashcons result, none⟩
+ return none
 
    where
 

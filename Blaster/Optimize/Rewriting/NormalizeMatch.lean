@@ -551,6 +551,12 @@ def matchExprRewriter
            := ⊥  otherwise
 -/
 def normMatchExpr? (args : Array Expr) (mInfo : MatchInfo) : TranslateEnvT (Option Expr) := do
+  -- A nondependent conditional cannot replace a matcher whose result type
+  -- refers to a discriminator. Stripping that motive's lambdas would expose
+  -- loose bound variables and give branches incompatible result types.
+  -- Check each motive before consulting the matcher-name cache: the same
+  -- matcher can also be instantiated with a nondependent motive.
+  if (getLambdaBody args[mInfo.getFirstDiscrPos - 1]!).hasLooseBVars then return none
   match (← get).optEnv.memCache.isMatchToIte.get? mInfo.name with
   | some b => if b then matchExprRewriter mInfo args normMatchExprAux?
                    else return none
