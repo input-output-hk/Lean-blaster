@@ -4,6 +4,9 @@ import Tests.Utils
 open Lean Elab Command Term
 
 namespace Test.BEqList
+
+-- Quantifiers over arbitrary α must remain even when the body becomes False:
+-- α may be empty, so replacing the whole quantified formula by False is unsound.
 /-! ## Test objectives to validate normalization and simplification rules on ``BEq.beq instance on generic `List -/
 
 /-! Test cases for `reduceApp` rule on ``BEq.beq. -/
@@ -12,11 +15,13 @@ namespace Test.BEqList
 #testOptimize [ "BEqListCst_1" ] ∀ (α : Type), [BEq α] → (List.nil : List α) == List.nil ===> True
 
 -- List.nil == [x, y, z] ===> False (with Type(x) = α)
-#testOptimize [ "BEqListCst_2" ] ∀ (α : Type) (x y z : α), [BEq α] → List.nil == [x, y, z] ===> False
+#testOptimize [ "BEqListCst_2" ] ∀ (α : Type) (x y z : α), [BEq α] → List.nil == [x, y, z] ===>
+  ∀ (α : Type) (x y z : α), False
 
 -- [x, y] == [x, y, z] ===> False
 -- NOTE: Reduce to False via `reduceApp` rule, which is also applicable on recursive functions
-#testOptimize [ "BEqListCst_3" ] ∀ (α : Type) (x y z : α), [BEq α] → [x, y] == [x, y, z] ===> False
+#testOptimize [ "BEqListCst_3" ] ∀ (α : Type) (x y z : α), [BEq α] → [x, y] == [x, y, z] ===>
+  ∀ (α : Type) (x y z : α), False
 
 
 /-! Test cases to ensure that the following simplification rules must not be applied on

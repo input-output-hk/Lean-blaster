@@ -5,6 +5,9 @@ open Lean Elab Command Term
 
 namespace Test.OptimizeEq
 
+-- Quantifiers over arbitrary α must remain even when the body becomes False:
+-- α may be empty, so replacing the whole quantified formula by False is unsound.
+
 /-! ## Test objectives to validate normalization and simplification rules on ``Eq -/
 
 -- False = True ===> False
@@ -135,13 +138,16 @@ inductive Color where
 #testOptimize [ "EqConstructor_13" ] ∀ (α : Type), (List.nil : List α) = (List.nil : List α) ===> True
 
 -- List.nil = [x, y, z] ===> False
-#testOptimize [ "EqConstructor_14" ] ∀ (α : Type) (x y z : α), List.nil = [x, y, z] ===> False
+#testOptimize [ "EqConstructor_14" ] ∀ (α : Type) (x y z : α), List.nil = [x, y, z] ===>
+  ∀ (α : Type) (x y z : α), False
 
 -- [x, y] = [x, y, z] ===> False
-#testOptimize [ "EqConstructor_15" ] ∀ (α : Type) (x y z : α), [x, y] = [x, y, z] ===> False
+#testOptimize [ "EqConstructor_15" ] ∀ (α : Type) (x y z : α), [x, y] = [x, y, z] ===>
+  ∀ (α : Type) (x y z : α), False
 
 -- [z, y] = [x, y, z] ===> False
-#testOptimize [ "EqConstructor_15" ] ∀ (α : Type) (x y z : α), [z, y] = [x, y, z] ===> False
+#testOptimize [ "EqConstructor_15" ] ∀ (α : Type) (x y z : α), [z, y] = [x, y, z] ===>
+  ∀ (α : Type) (x y z : α), False
 
 -- [a + b, c] = [a + b, c, b] ===> False
 #testOptimize [ "EqConstructor_16" ] [a + b, c] = [a + b, c, b] ===> False
@@ -153,7 +159,8 @@ inductive Color where
 #testOptimize [ "EqConstructor_17" ] [b + a, c] = [a + c, c] ===> [Nat.add a b, c] = [Nat.add a c, c]
 
 -- [f x, y] = [f x, y, z] ==> False
-#testOptimize [ "EqConstructor_18" ] ∀ (α : Type) (f : α -> α) (x y z : α), [f x, y] = [f x, y, z] ===> False
+#testOptimize [ "EqConstructor_18" ] ∀ (α : Type) (f : α -> α) (x y z : α), [f x, y] = [f x, y, z] ===>
+  ∀ (α : Type) (f : α → α) (x y z : α), False
 
 -- [f x, z] = [f y, z] ==> [f x, z] = [f y, z]
 -- Must remain unchanged

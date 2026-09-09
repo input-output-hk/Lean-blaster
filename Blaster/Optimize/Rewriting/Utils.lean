@@ -170,35 +170,55 @@ def isNullaryCtor (c : Name) : TranslateEnvT Bool := do
       pure (info.numFields == 0 && !info.type.isProp)
   | _ => pure false
 
-/-- Return `true` if `t` is not a Prop and corresponds to one of the following:
-    - is a sort type only when `existQuantifier` flag is not set.
-    - is prop type when `existQuantifier` flag is set.
-    - is a class constraint; or
-    - is an inductive type for which either at least one nullary constructor or an Inhabited instance exists.
- TODO: extends check to also consider parametric constructor for which each parameter type satisfy `isSortOrInhabited`.
--/
-def isSortOrInhabited (t : Expr) (existsQuantifier := false) : TranslateEnvT Bool := do
- match ← inferTypeEnv t with
- | Expr.sort u =>
-      if u.isAlwaysZero then return false
-      match t.getAppFn' with
-      | Expr.const n _ =>
-          if (← isClassConstraint n) then return true -- break if class constraint
-          else match (← getConstEnvInfo n) with
-               | ConstantInfo.inductInfo indVal =>
-                   for ctorName in indVal.ctors do
-                     -- inductive type has at least one nullary constructor
-                     if (← isNullaryCtor ctorName) then return true
-                   -- check if InHabited instance exists for t
-                   hasInhabitedInstance t
-               | _ => isSortType t
-      | _ => isSortType t
- | _ => return false
-
+/-- Construct an inhabitant using global instances and constructor fields only.
+    The optimizer retains local declarations after leaving their binders, so its
+    local instance table is not evidence that an arbitrary domain is nonempty.
+    In particular, the variable being eliminated must not witness its own domain.
+    Bounded constructor search also handles classes such as `LT α` and `BEq α`
+    without assuming that every class (e.g. `Inhabited Empty`) is inhabited. -/
+private partial def domainWitness? (t : Expr) : MetaM (Option Expr) := do
+  withLCtx (← getLCtx) #[] (go t 8)
  where
-   isSortType (t : Expr) : TranslateEnvT Bool :=
-     if existsQuantifier then return t.isProp
-     else return true
+  go (t : Expr) (fuel : Nat) : MetaM (Option Expr) := do
+    if fuel == 0 then return none
+    let u ← getLevel t
+    let constraint := mkApp (mkConst ``Nonempty [u]) t
+    if let .some proof ← trySynthInstance constraint then
+      return mkApp2 (mkConst ``Classical.choice [u]) t proof
+    let t ← whnf t
+    if let .forallE name domain body bi := t then
+      return ← Lean.Meta.withLocalDecl name bi domain fun x => do
+        let some value ← go (body.instantiate1 x) (fuel - 1) | return none
+        return some (← Lean.Meta.mkLambdaFVars #[x] value)
+    let .const name levels := t.getAppFn | return none
+    let .inductInfo info ← getConstInfo name | return none
+    if info.numIndices != 0 then return none
+    for ctor in info.ctors do
+      let mut value := mkAppN (mkConst ctor levels) (t.getAppArgs.extract 0 info.numParams)
+      let mut type ← inferType value
+      let mut complete := true
+      while type.isForall do
+        let some field ← go type.bindingDomain! (fuel - 1)
+          | complete := false; break
+        value := mkApp value field
+        type := type.bindingBody!.instantiate1 field
+      if complete then return some value
+    return none
+
+/-- An unused quantifier may be removed only over a known nonempty domain.
+    Being a type, a function type, or a type class is not sufficient: Lean
+    permits empty instances of all three. Proposition binders are handled by
+    the implication rules instead. -/
+def isSortOrInhabited (t : Expr) (existsQuantifier := false) : TranslateEnvT Bool := do
+  let .sort u ← inferTypeEnv t | return false
+  if u.isAlwaysZero then return false
+  if t.isSort then return !existsQuantifier || t.isProp
+  withLocalContext do
+    try
+      return (← domainWitness? t).isSome
+    catch _ =>
+      -- Failure to find evidence means that the quantifier must be retained.
+      return false
 
 /-- Return `! e` when `b = false`. Otherwise return `e`. -/
 def toBoolNotExpr (b : Bool) (e : Expr) : TranslateEnvT Expr := do

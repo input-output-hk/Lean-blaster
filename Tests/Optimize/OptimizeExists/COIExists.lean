@@ -4,6 +4,9 @@ import Tests.Utils
 open Lean Elab Command Term
 
 namespace Test.COIExists
+
+-- Unused variables over arbitrary types/function spaces retain vacuity.
+-- Inhabited constructor fields now also justify eliminating a domain.
 /-! ## Test objectives to validate COI reduction on `∃`. -/
 
 /-! Test cases for COI reduction rule:
@@ -145,7 +148,7 @@ inductive Color where
 #testOptimize [ "ExistsCOI_17" ] ∀ (α : Type) (β : Type) (x : α) (y z : β), ∃ (f : α → β), ∃ (a b c : Bool),
                                    let cond := !((!a || ((b || c) && !(c || b))) || a);
                                    (if cond then f x else y) = z ===>
-                                 ∀ (α : Type) (β : Type) (y z : β), ∃ (_f : α → β), y = z
+  ∀ (α β : Type) (_x : α) (y z : β), ∃ (_f : α → β), y = z
 
 -- ∀ (α : Type) (β : Type), ∃ (f : α → β), ∃ (a b c : Bool), ∀ (x : α) (y z : β),
 --  let cond := !((!a || ((b || c) && !(c || b))) || a);
@@ -155,7 +158,7 @@ inductive Color where
 #testOptimize [ "ExistsCOI_18" ] ∀ (α : Type) (β : Type), ∃ (f : α → β), ∃ (a b c : Bool), ∀ (x : α) (y z : β),
                                    let cond := !((!a || ((b || c) && !(c || b))) || a);
                                    (if cond then f x else y) = z ===>
-                                 ∀ (α : Type) (β : Type), ∃ (_f : α → β), ∀ (y z : β), y = z
+  ∀ (α β : Type), ∃ (_f : α → β), ∀ (_x : α) (y z : β), y = z
 
 -- ∀ (α : Type), ∃ (x y : α), ∃ (ys : List α), ∀ (a b c : Bool) (xs : List α), [LT α] → [Decidable (x < y)] →
 --  let cond := ((!a || ((b || c) && !(c || b))) || a);
@@ -235,21 +238,21 @@ inductive ColorDegree (α : Type u) where
 --  let cond := ((!a || ((b || c) && !(c || b))) || a) && (!(b && a) || (a && b));
 --  (if cond then x else y) = z ===>
 --  ∀ (α : Type) (x z : ColorDegree α), ∃ (y : ColorDegree α), x = z
--- Test case: COI reduction rules not applicable when inductive type does not have at least one nullary constructor.
+-- Constructor-field search can witness ColorDegree α via ColorDegree.red Color.transparent.
 #testOptimize [ "ExistsCOIUnchanged_10" ] ∀ (α : Type) (a b c : Bool) (x z : ColorDegree α), ∃ (y : ColorDegree α),
                                             let cond := ((!a || ((b || c) && !(c || b))) || a) && (!(b && a) || (a && b));
                                             (if cond then x else y) = z ===>
-                                          ∀ (α : Type) (x z : ColorDegree α), ∃ (_y : ColorDegree α), x = z
+  ∀ (α : Type) (x z : ColorDegree α), x = z
 
 -- ∀ (α : Type) ∃ (y : ColorDegree α), ∀ (a b c : Bool) (x z : ColorDegree α),
 --  let cond := ((!a || ((b || c) && !(c || b))) || a) && (!(b && a) || (a && b));
 --  (if cond then x else y) = z ===>
 --  ∀ (α : Type) ∃ (y : ColorDegree α), ∀ (x z : ColorDegree α), x = z
--- Test case: COI reduction rules not applicable when inductive type does not have at least one nullary constructor.
+-- Constructor-field search can witness ColorDegree α via ColorDegree.red Color.transparent.
 #testOptimize [ "ExistsCOIUnchanged_11" ] ∀ (α : Type), ∃ (y : ColorDegree α), ∀ (a b c : Bool) (x z : ColorDegree α),
                                             let cond := ((!a || ((b || c) && !(c || b))) || a) && (!(b && a) || (a && b));
                                             (if cond then x else y) = z ===>
-                                          ∀ (α : Type), ∃ (_y : ColorDegree α), ∀ (x z : ColorDegree α), x = z
+  ∀ (α : Type) (x z : ColorDegree α), x = z
 
 inductive NoInstance where
  | first (n : Nat) (h : n < 0) : NoInstance
@@ -291,6 +294,6 @@ inductive NoInstance where
 #testOptimize [ "ExistsCOIUnchanged_15" ] ∀ (α : Type) (β : Type), ∃ (f : α → β), ∃ (a b c : Bool), ∀ (x : α) (y z : β),
                                              let cond := ((!a || ((b || c) && !(c || b))) || a);
                                              (if cond then f x else y) = z ===>
-                                          ∀ (α : Type) (β : Type), ∃ (f : α → β), ∀ (x : α) (z : β), z = f x
+  ∀ (α β : Type), ∃ (f : α → β), ∀ (x : α) (_y z : β), z = f x
 
 end Test.COIExists

@@ -4,6 +4,9 @@ import Tests.Utils
 open Lean Elab Command Term
 
 namespace Test.COIForAll
+
+-- Unused variables over arbitrary types/function spaces retain vacuity.
+-- Inhabited constructor fields now also justify eliminating a domain.
 /-! ## Test objectives to validate COI reduction on `∀` and `→`. -/
 
 /-! Test cases for COI reduction rule:
@@ -81,7 +84,7 @@ inductive Color where
   ∀ (α : Type) (a b c : Bool) (x y : α) (xs ys : List α), [LT α] → [Decidable (x < y)] →
       let cond := !((!a || ((b || c) && !(c || b))) || a);
       (if cond then if x < y then [x, y] else [y, x] else ys) = xs ===>
-  ∀ (α : Type) (xs ys : List α), xs = ys
+  ∀ (α : Type) (x y : α) (xs ys : List α), xs = ys
 
 -- ∀ (α : Type) (β : Type) (f : α → β) (x : α) (y z : β) (a b c : Bool),
 --  let cond := !((!a || ((b || c) && !(c || b))) || a);
@@ -91,7 +94,7 @@ inductive Color where
 #testOptimize [ "ForallCOI_10" ]
   ∀ (α : Type) (β : Type) (f : α → β) (x : α) (y z : β) (a b c : Bool),
     let cond := !((!a || ((b || c) && !(c || b))) || a); (if cond then f x else y) = z ===>
-  ∀ (β : Type) (y z : β), y = z
+  ∀ (α β : Type) (f : α → β) (x : α) (y z : β), y = z
 
 
 -- ∀ (α : Type) (a b c : Bool) (x y : α) (xs ys : List α), [LT α] → [Decidable (x < y)] →
@@ -160,12 +163,12 @@ inductive ColorDegree (α : Type u) where
 --  let cond := ((!a || ((b || c) && !(c || b))) || a) && (!(b && a) || (a && b));
 --  (if cond then x else y) = z ===>
 -- ∀ (α : Type) (x y z : ColorDegree α), x = z
--- Test case: COI reduction rules not applicable when inductive type does not have at least one nullary constructor.
+-- Constructor-field search can witness ColorDegree α via ColorDegree.red Color.transparent.
 #testOptimize [ "ForallCOIUnchanged_7" ]
   ∀ (α : Type) (a b c : Bool) (x y z : ColorDegree α),
     let cond := ((!a || ((b || c) && !(c || b))) || a) && (!(b && a) || (a && b));
     (if cond then x else y) = z ===>
-  ∀ (α : Type) (x _y z : ColorDegree α), x = z
+  ∀ (α : Type) (x z : ColorDegree α), x = z
 
 inductive NoInstance where
  | first (n : Nat) (h : n < 0) : NoInstance
@@ -198,6 +201,6 @@ inductive NoInstance where
 #testOptimize [ "ForallCOIUnchanged_10" ]
   ∀ (α : Type) (β : Type) (f : α → β) (x : α) (y z : β) (a b c : Bool),
     let cond := ((!a || ((b || c) && !(c || b))) || a); (if cond then f x else y) = z ===>
-  ∀ (α : Type) (β : Type) (f : α → β) (x : α) (z : β), z = f x
+  ∀ (α β : Type) (f : α → β) (x : α) (y z : β), z = f x
 
 end Test.COIForAll
