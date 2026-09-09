@@ -29,6 +29,10 @@ inductive OptimizeStack where
  | AppOptimizeImplicitArgs (f : Expr) (args : Array Expr) (idx : Nat)
                            (startArgIdx : Nat) (stopIdx : Nat)
                            (pInfo : FunEnvInfo) (prevInApp : Bool)
+ | SpecializeWaitForArg (f : Expr) (args : Array Expr) (argIdx startIdx : Nat)
+                        (pInfo : FunEnvInfo) (prevInApp : Bool)
+ | SpecializeReady (f : Expr) (args : Array Expr) (startIdx : Nat)
+                   (pInfo : FunEnvInfo) (prevInApp : Bool)
  | AppOptimizeExplicitArgs (f : Expr) (args : Array Expr) (idx : Nat)
                            (stopIdx : Nat) (pInfo : FunEnvInfo)
                            (mInfo : Option MatchInfo) (prevInApp : Bool)
@@ -201,6 +205,9 @@ def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := 
        -- optExpr corresponds to the optimized implicit argument referenced by idx.
        -- continuity with optimizing the next implicit argument.
        return Sum.inl (.AppOptimizeImplicitArgs f (args.set! idx optExpr) (idx + 1) startArgIdx stopIdx pInfo prevInApp :: xs)
+
+  | .SpecializeWaitForArg f args index startIdx pInfo prevInApp :: xs =>
+       return Sum.inl (.SpecializeReady f (args.set! index optExpr) startIdx pInfo prevInApp :: xs)
 
   | .AppOptimizeExplicitArgs f args idx stopIdx pInfo mInfo prevInApp :: xs =>
        -- optExpr corresponds to the optimized explicit argument referenced by idx.

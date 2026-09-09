@@ -176,3 +176,46 @@ adds Blaster acceptance and unit-return checks against the prepared `.prop` at f
 Prepare that case without profiling immediately before running its proof phase,
 as the runner requires an exact preparation-source match. The gate does not
 claim that every accepting witness satisfies every ledger validity condition.
+
+## Verified fused interpreter experiment
+
+Use `prepare_local.py --staged-cek --blaster-rev CANDIDATE` (together with the
+source paths above) to apply the supplied interpreter patches. The named and
+indexed pins have different environment representations; each patch carries
+its own kernel-checked `run_eq_runSteps` and `execute_eq` proof. Both versions fuse all CEK transitions, including constructor and primitive
+case paths. The setup also runs 17 named and 17 indexed normalization checks.
+
+Then prepare **one case at a time**, and check its residual immediately:
+
+```sh
+python3 Benchmarks/cardano_bench.py --root /tmp/cardano-candidate \
+  --label fused-sellnft --cases sellnft:1800 --staged-cek
+python3 Benchmarks/cardano_bench.py --root /tmp/cardano-candidate \
+  --label fused-sellnft-proof --cases sellnft:1800 --staged-cek --proofs-only
+```
+
+Omit `--staged-cek` for the reference arm on the same optimizer revision and
+interpreter checkout. The flag enables the preparation option and adds local
+`blaster_specialize` annotations for `StagedCek.eval` and `.ret` (fuel, index 2)
+and `.lookupValue` (environment, index 1). Use `--specialize-functions NAME:INDEX`
+to override a selected index in an exploratory run. This changes reduction
+order using existing function equations, not interpreter semantics or fuel.
+The runner requires `PREP_INTERPRETER staged=true` from successful fused prep;
+setting a flag in metadata alone is insufficient evidence of activation.
+
+New source files are marked intent-to-add by setup so the existing tracked-patch
+hash covers the complete prototype. They are not automatically committed or
+pushed. The common original pins and local-commit requirements still apply.
+These patches are tied to those pins; the upstream PlutusCore PR targets the
+current indexed environment instead.
+
+To run an alternating paired series with proof checks after every preparation:
+
+```sh
+python3 Benchmarks/cardano/compare_fused.py --root /tmp/cardano-candidate \
+  --cases sellnft:1800 global:1600 --repeat 3
+```
+
+The driver stops on unexpected outcomes. It continues through the documented
+SellNFT multisatisfaction timeout only when the other four verdicts match,
+keeping the proof result as an error row in the raw JSON.

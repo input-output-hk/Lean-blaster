@@ -1,0 +1,345 @@
+--- /dev/null
++++ b/PlutusCore/UPLC/StagedCek.lean
+@@ -0,0 +1,202 @@
++import PlutusCore.UPLC.CekMachine
++
++/-! Experimental fusion of the CEK Eval/Return loop. Each recursive call consumes
++exactly one original transition. Equivalence for every state and fuel is proved
++in `StagedCekProofs`. -/
++namespace PlutusCore.UPLC.StagedCek
++open PlutusCore.Default CekMachine CekValue Term Builtins
++open BuiltinFunctions.Evaluate
++
++/-- Select only the needed binding; discard the rest of the environment. -/
++def lookupValue (env : Environment) (x : String) : Option CekValue :=
++  match env with
++  | .EmptyEnvironment => none
++  | .NonEmptyEnvironment rest y v =>
++      if x = y then some v else lookupValue rest x
++
++mutual
++  def eval (sv : BuiltinSemanticsVariant) (fuel : Nat)
++      (s : Stack) (env : Environment) (t : Term) : State :=
++    match fuel with
++    | 0 => .Error
++    | n + 1 =>
++      match t with
++      | .Var x =>
++          match lookupValue env x with
++          | some v => ret sv n s v
++          | none => .Error
++      | .Const c => ret sv n s (.VCon c)
++      | .Lam x body => ret sv n s (.VLam x body env)
++      | .Delay body => ret sv n s (.VDelay body env)
++      | .Force body => eval sv n (.ForceFrame :: s) env body
++      | .Apply f a => eval sv n (.LeftApplicationToTerm a env :: s) env f
++      | .Builtin b => ret sv n s (.VBuiltin b [] (expectedArgs b))
++      | .Error => .Error
++      | .Constr i ts =>
++          match ts with
++          | body :: rest => eval sv n (.ConstructorArgument i [] rest env :: s) env body
++          | [] => ret sv n s (.VConstr i [])
++      | .Case body branches => eval sv n (.CaseScrutinee branches env :: s) env body
++  termination_by fuel
++
++  def ret (sv : BuiltinSemanticsVariant) (fuel : Nat)
++      (s : Stack) (v : CekValue) : State :=
++    match fuel with
++    | 0 => .Error
++    | n + 1 =>
++      match s with
++      | [] => .Halt v
++      | .LeftApplicationToTerm body env :: rest =>
++          eval sv n (.RightApplicationOfValue v :: rest) env body
++      | .RightApplicationOfValue f :: rest =>
++          match f with
++          | .VLam x body env => eval sv n rest (.NonEmptyEnvironment env x v) body
++          | .VBuiltin b vs expected =>
++              match expected with
++              | .More .ArgV tail => ret sv n rest (.VBuiltin b (v :: vs) tail)
++              | .One .ArgV =>
++                  match evaluateBuiltinFunction sv b (v :: vs) with
++                  | some result => ret sv n rest result
++                  | none => .Error
++              | _ => .Error
++          | _ => .Error
++      | .LeftApplicationToValue arg :: rest =>
++          match v with
++          | .VLam x body env => eval sv n rest (.NonEmptyEnvironment env x arg) body
++          | .VBuiltin b vs expected =>
++              match expected with
++              | .More .ArgV tail => ret sv n rest (.VBuiltin b (arg :: vs) tail)
++              | .One .ArgV =>
++                  match evaluateBuiltinFunction sv b (arg :: vs) with
++                  | some result => ret sv n rest result
++                  | none => .Error
++              | _ => .Error
++          | _ => .Error
++      | .ForceFrame :: rest =>
++          match v with
++          | .VDelay body env => eval sv n rest env body
++          | .VBuiltin b vs expected =>
++              match expected with
++              | .More .ArgQ tail => ret sv n rest (.VBuiltin b vs tail)
++              | .One .ArgQ =>
++                  match evaluateBuiltinFunction sv b vs with
++                  | some result => ret sv n rest result
++                  | none => .Error
++              | _ => .Error
++          | _ => .Error
++      | .ConstructorArgument i vs ts env :: rest =>
++          match ts with
++          | body :: remaining => eval sv n (.ConstructorArgument i (v :: vs) remaining env :: rest) env body
++          | [] => ret sv n rest (.VConstr i (List.reverse (v :: vs)))
++      | .CaseScrutinee Ms ρ :: rest =>
++          match v with
++          | CekValue.VConstr i Vs =>
++               match Ms[i]? with
++               | some mi => eval sv n (step.folding Vs rest) ρ mi
++               | none => .Error
++
++          | CekValue.VCon (Const.Integer value) =>
++               if 0 ≤ value && value.toNat < Ms.length then
++                 match Ms[value.toNat]? with
++                 | some mi => eval sv n rest ρ mi
++                 | none => .Error
++               else .Error
++
++          | CekValue.VCon (Const.Bool false) =>
++               if Ms.length == 1 || Ms.length == 2 then
++                 match Ms[0]? with
++                 | some mi => eval sv n rest ρ mi
++                 | none => .Error
++               else .Error
++
++          | CekValue.VCon (Const.Bool true) =>
++               if Ms.length == 2 then
++                 match Ms[1]? with
++                 | some mi => eval sv n rest ρ mi
++                 | none => .Error
++               else .Error
++
++          | CekValue.VCon Const.Unit =>
++                if Ms.length == 1 then
++                  match Ms[0]? with
++                  | some mi => eval sv n rest ρ mi
++                  | none => .Error
++                else .Error
++
++          | CekValue.VCon (Const.Pair p) =>
++                if Ms.length == 1 then
++                  let Vs := [CekValue.VCon p.1, CekValue.VCon p.2]
++                  match Ms[0]? with
++                  | some mi => eval sv n (step.folding Vs rest) ρ mi
++                  | none => .Error
++                else .Error
++
++          | CekValue.VCon (Const.PairData p) =>
++                if Ms.length == 1 then
++                  let Vs := [CekValue.VCon (Const.Data p.1), CekValue.VCon (Const.Data p.2)]
++                  match Ms[0]? with
++                  | some mi => eval sv n (step.folding Vs rest) ρ mi
++                  | none => .Error
++                else .Error
++
++          | CekValue.VCon (Const.ConstList (c :: cs)) =>
++                if Ms.length == 1 || Ms.length == 2 then
++                  let Vs := [CekValue.VCon c, CekValue.VCon (Const.ConstList cs)]
++                  match Ms[0]? with
++                  | some mi => eval sv n (step.folding Vs rest) ρ mi
++                  | none => .Error
++                else .Error
++
++          | CekValue.VCon (Const.ConstList []) =>
++                if Ms.length == 2 then
++                  match Ms[1]? with
++                  | some mi => eval sv n rest ρ mi
++                  | none => .Error
++                else .Error
++
++          | CekValue.VCon (Const.ConstDataList (c :: cs)) =>
++                if Ms.length == 1 || Ms.length == 2 then
++                  let Vs := [CekValue.VCon (.Data c), CekValue.VCon (Const.ConstDataList cs)]
++                  match Ms[0]? with
++                  | some mi => eval sv n (step.folding Vs rest) ρ mi
++                  | none => .Error
++                else .Error
++
++          | CekValue.VCon (Const.ConstDataList []) =>
++                if Ms.length == 2 then
++                  match Ms[1]? with
++                  | some mi => eval sv n rest ρ mi
++                  | none => .Error
++                else .Error
++
++          | CekValue.VCon (Const.ConstPairDataList (c :: cs)) =>
++                if Ms.length == 1 || Ms.length == 2 then
++                  let Vs := [CekValue.VCon (.PairData c), CekValue.VCon (Const.ConstPairDataList cs)]
++                  match Ms[0]? with
++                  | some mi => eval sv n (step.folding Vs rest) ρ mi
++                  | none => .Error
++                else .Error
++
++          | CekValue.VCon (Const.ConstPairDataList []) =>
++                if Ms.length == 2 then
++                  match Ms[1]? with
++                  | some mi => eval sv n rest ρ mi
++                  | none => .Error
++                else .Error
++
++          | _ => .Error
++  termination_by fuel
++end
++
++/-- Entry point preserving the existing machine's terminal-state convention. -/
++def run (sv : BuiltinSemanticsVariant) (state : State) (fuel : Nat) : State :=
++  match state with
++  | .Eval s env t => eval sv fuel s env t
++  | .Return s v => ret sv fuel s v
++  | .Halt _ | .Error => state
++
++def execute (p : Program) (params : List Term) (fuel : Nat) : State :=
++  match p with
++  | .Program _ body => run default (initialState (applyParams body params)) fuel
++
++end PlutusCore.UPLC.StagedCek
+--- /dev/null
++++ b/PlutusCore/UPLC/StagedCekProofs.lean
+@@ -0,0 +1,102 @@
++import PlutusCore.UPLC.StagedCek
++
++namespace PlutusCore.UPLC.StagedCek
++open PlutusCore.Default CekMachine CekValue Term Builtins
++open BuiltinFunctions.Evaluate
++set_option maxHeartbeats 0
++
++private theorem lookup_correct (sv : BuiltinSemanticsVariant) (n : Nat)
++    (s : Stack) (env : Environment) (x : String) :
++    (match lookupValue env x with
++     | some v => runSteps sv (.Return s v) n
++     | none => .Error) =
++      runSteps sv (ifBoundOtherwiseError s env x) n := by
++  cases env with
++  | EmptyEnvironment => simp [lookupValue, ifBoundOtherwiseError, runSteps]
++  | NonEmptyEnvironment rest y v =>
++    by_cases h : x = y
++    · simp [lookupValue, ifBoundOtherwiseError, h]
++    · simpa only [lookupValue, ifBoundOtherwiseError, h, if_false] using
++        lookup_correct sv n s rest x
++termination_by sizeOf env
++
++
++theorem eval_ret_correct (sv : BuiltinSemanticsVariant) (fuel : Nat) :
++    (∀ s env t, eval sv fuel s env t = runSteps sv (.Eval s env t) fuel) ∧
++    (∀ s v, ret sv fuel s v = runSteps sv (.Return s v) fuel) := by
++  induction fuel with
++  | zero =>
++      constructor <;> intros <;> simp [eval, ret, runSteps]
++  | succ n ih =>
++      constructor
++      · intro s env t
++        cases t <;> try simp only [eval]
++        all_goals try simp only [ih.1, ih.2]
++        case Var x =>
++          simpa only [runSteps, step] using (lookup_correct sv n s env x)
++        case Constr i ts => cases ts <;> simp only [eval, ih.1, ih.2, runSteps, step]
++        all_goals first | rfl | simp [runSteps, step]
++      · intro s v
++        cases s with
++        | nil => simp [ret, runSteps, step]
++        | cons frame rest =>
++          cases frame with
++          | LeftApplicationToTerm body env =>
++              simp only [ret, ih.1]
++              rfl
++          | RightApplicationOfValue f =>
++              cases f <;> try simp only [ret, ih.1]
++              case VBuiltin b vs expected =>
++                cases expected with
++                | More arg tail => cases arg <;> simp [ret, ih.2, runSteps, step, ifArgVOtherwiseError]
++                | One arg =>
++                    cases arg <;> simp only [ret, ih.2, runSteps, step, ifArgVOtherwiseError, evalBuiltin]
++                    case ArgV => split <;> simp_all [runSteps]
++              all_goals first | rfl | simp [runSteps, step]
++          | LeftApplicationToValue arg =>
++              cases v <;> try simp only [ret, ih.1]
++              case VBuiltin b vs expected =>
++                cases expected with
++                | More next tail => cases next <;> simp [ret, ih.2, runSteps, step, ifArgVOtherwiseError]
++                | One next =>
++                    cases next <;> simp only [ret, ih.2, runSteps, step, ifArgVOtherwiseError, evalBuiltin]
++                    case ArgV => split <;> simp_all [runSteps]
++              all_goals first | rfl | simp [runSteps, step]
++          | ForceFrame =>
++              cases v <;> try simp only [ret, ih.1]
++              case VBuiltin b vs expected =>
++                cases expected with
++                | More next tail => cases next <;> simp [ret, ih.2, runSteps, step, ifArgQOtherwiseError]
++                | One next =>
++                    cases next <;> simp only [ret, ih.2, runSteps, step, ifArgQOtherwiseError, evalBuiltin]
++                    case ArgQ => split <;> simp_all [runSteps]
++              all_goals first | rfl | simp [runSteps, step]
++          | ConstructorArgument i vs ts env =>
++              cases ts <;> simp [ret, ih.1, ih.2, runSteps, step]
++          | CaseScrutinee ts env =>
++              rw [ret.eq_def]
++              simp only [ih.1, runSteps]
++              unfold step
++              split <;> simp_all [runSteps] <;>
++                repeat (first | assumption | rfl | (split <;> simp_all [runSteps]))
++              all_goals by_cases h : ts.length = 1 ∨ ts.length = 2 <;>
++                simp_all [runSteps] <;> split <;> simp_all [runSteps]
++
++/-- Kernel-checked equality for every machine state, fuel, and builtin semantics
++variant, including constructor fields and primitive case branches. -/
++theorem run_eq_runSteps (sv : BuiltinSemanticsVariant) (s : State) (fuel : Nat) :
++    run sv s fuel = runSteps sv s fuel := by
++  cases s with
++  | Eval stack env t => exact (eval_ret_correct sv fuel).1 stack env t
++  | Return stack v => exact (eval_ret_correct sv fuel).2 stack v
++  | Halt v => simp [run, runSteps]
++  | Error => simp [run, runSteps]
++
++theorem execute_eq (p : Program) (params : List Term) (fuel : Nat) :
++    execute p params fuel = cekExecuteProgram p params fuel := by
++  cases p
++  simp only [execute, cekExecuteProgram, cekExecuteProgramWithSemanticVariant, run_eq_runSteps]
++
++#print axioms run_eq_runSteps
++#print axioms execute_eq
++end PlutusCore.UPLC.StagedCek
+--- a/PlutusCore/UPLC/PreProcess.lean
++++ b/PlutusCore/UPLC/PreProcess.lean
+@@ -1,8 +1,14 @@
+ import Lean
+ import PlutusCore.UPLC.CekMachine
++import PlutusCore.UPLC.StagedCekProofs
+ import PlutusCore.UPLC.PlutusScript
+ import Blaster.Optimize.Basic
+ open Lean Elab Command Term Meta Blaster.Optimize
++
++register_option plutuscore.stagedCek : Bool := {
++  defValue := false
++  descr := "Use the verified fused CEK interpreter during preparation (experimental)."
++}
+ 
+ namespace PlutusCore.UPLC.PreProcess
+ open CekMachine
+@@ -42,7 +48,16 @@
+         let app ← mkUplcApply stx plutusScript
+         if metrics then IO.println s!"PREP_PHASE input_construct_ms={(← IO.monoMsNow) - inputStarted}"
+         let prepStarted ← IO.monoMsNow
+-        let (e, prepEnv) ← Optimize.main app|>.run default
++        let staged := plutuscore.stagedCek.get (← getOptions)
++        let optApp := if staged then
++          app.replace fun e => match e with
++            | .const ``cekExecuteProgram ls => some (.const ``StagedCek.execute ls)
++            | _ => none
++          else app
++        if staged && (optApp.find? (·.isConstOf ``StagedCek.execute)).isNone then
++          throwError "staged CEK entry point was not installed"
++        if metrics then IO.println s!"PREP_INTERPRETER staged={staged}"
++        let (e, prepEnv) ← Optimize.main optApp|>.run default
+         if (← IO.getEnv "BLASTER_PREP_METRICS") == some "1" then
+           let ms := (← IO.monoMsNow) - prepStarted
+           let o := prepEnv.optEnv

@@ -1,0 +1,78 @@
+{
+  "label": "paired-global-fused-1-proof",
+  "repeat": 1,
+  "timeout_seconds": 180.0,
+  "rss_limit_bytes": 12884901888,
+  "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+  "pins": {
+    "cardano": {
+      "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+      "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+    },
+    "wsc": {
+      "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+      "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+    },
+    "blaster": {
+      "commit": "40981aff5c1deccd1dd7163ea7043d9e1700da50",
+      "tracked_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "plutuscore": {
+      "commit": "0c713ef6716b47b11784736026914f6c95fd4342",
+      "tracked_patch_sha256": "b69e85088285274a70c8f9578ab0bf6c1841df5968f79ccd4725986315e2c7c0"
+    },
+    "plutuscore-wsc": {
+      "commit": "09ca8995273988375e1c57bf3724cd1d323ae44e",
+      "tracked_patch_sha256": "1c4278ec0364e336d1ed1f75dbce5bfad3f008605d11eee95bd324d33b731d13"
+    }
+  },
+  "machine": {
+    "system": "Darwin",
+    "release": "25.5.0",
+    "architecture": "arm64",
+    "logical_cpus": 12
+  },
+  "runner_sha256": "5409dd71f965f12a020334599cb8934626f31f096cc0b79f6060693979f87f5a",
+  "acceptance_fixture_sha256": "f863fe07484be59eeb8fc550f4dafa3427908c9fcd0fdad4d2f6036f6893f4f2",
+  "staged_cek": true,
+  "specialize_functions": [
+    "PlutusCore.UPLC.StagedCek.eval:2",
+    "PlutusCore.UPLC.StagedCek.ret:2",
+    "PlutusCore.UPLC.StagedCek.lookupValue:1"
+  ],
+  "retain_choice_types": [],
+  "retain_constructor_choices": false,
+  "reduce_before_arguments": false,
+  "cpu_sample": false,
+  "profile_normalize": false,
+  "phase": "proof",
+  "allocator_env": {},
+  "runs": [
+    {
+      "case": "global",
+      "budget": 1600,
+      "repeat": 1,
+      "status": "completed",
+      "log": "global-1600-1.log",
+      "sampled_peak_rss_bytes": 1591541760,
+      "prep": {},
+      "source_sha256": "b2e99ca705c8b1ae10e3b5c09fb1752afcb2cae8bfd62b16b4c47d4fb8521874",
+      "elapsed_seconds": 1.6498404170852154,
+      "exit_code": 0,
+      "interpreter": [
+        "true"
+      ],
+      "profiles": [],
+      "phases": [],
+      "acceptance": [
+        "nonmember_k=1453 member_k=2782 mixed_k=3441 rejection_k=2370 roundtrip=true unit_halts=true"
+      ],
+      "verdicts": [
+        "info: Tests/Benchmarks/CardanoPerfProofs.lean:15:2: \u2705 Valid",
+        "info: Tests/Benchmarks/CardanoPerfProofs.lean:22:2: \u2705 Valid",
+        "info: Tests/Benchmarks/CardanoPerfProofs.lean:26:2: \u2705 Valid"
+      ],
+      "olean_bytes": 440768
+    }
+  ]
+}
