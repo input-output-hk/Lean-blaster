@@ -26,7 +26,7 @@ parser.add_argument('--sample', action='store_true', help='Take one macOS CPU sa
 parser.add_argument('--reduce-before-arguments', action='store_true', help='Reduce functions and projections before normalizing their arguments')
 parser.add_argument('--retain-constructor-choices', action='store_true', help='Keep conditionals and matches inside constructor fields during preparation')
 parser.add_argument('--retain-choice-types', nargs='*', default=[], help='Label selected inductive types or constructors to retain field choices')
-parser.add_argument('--staged-cek', action='store_true', help='Use the verified fused named-environment CEK prototype')
+parser.add_argument('--staged-cek', action='store_true', help='Use the verified fused CEK prototype (requires staged preparation patches)')
 parser.add_argument('--specialize-functions', nargs='*', default=[], help='Specialize NAME:INDEX when its one-based argument has a known constructor')
 parser.add_argument('--profile-normalize', action='store_true', help='Opt-in normalization-head timings; diagnostic runs only')
 parser.add_argument('--acceptance-only', action='store_true', help='Validate existing global goldens through the exact interpreter and input conversion')
@@ -35,8 +35,6 @@ parser.add_argument('--proofs-only', action='store_true', help='Check properties
 a=parser.parse_args()
 if sum([a.proofs_only, a.acceptance_only, a.conversion_only]) > 1:
     parser.error('choose at most one of proofs-only, acceptance-only and conversion-only')
-if a.staged_cek and any(c.split(':')[0] == 'global' for c in a.cases):
-    parser.error('the named-environment staged CEK prototype does not yet support global')
 if a.acceptance_only and any(c.split(':')[0] != 'global' for c in a.cases):
     parser.error('acceptance-only currently covers global goldens')
 if a.proofs_only and a.profile_normalize:
@@ -49,6 +47,11 @@ if any(not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_.]*', n) for n in a.retain_choice_
     parser.error('retain-choice-types must be fully qualified Lean declaration names')
 if any(not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_.]*:[1-9][0-9]*', n) for n in a.specialize_functions):
     parser.error('specialize-functions requires qualified NAME:INDEX entries')
+if a.staged_cek:
+    defaults = ['PlutusCore.UPLC.StagedCek.eval:2', 'PlutusCore.UPLC.StagedCek.ret:2', 'PlutusCore.UPLC.StagedCek.lookupValue:1']
+    for entry in defaults:
+        if not any(n.split(':')[0] == entry.split(':')[0] for n in a.specialize_functions):
+            a.specialize_functions.append(entry)
 root=a.root.resolve()
 logs=root/'results'/a.label
 logs.mkdir(parents=True,exist_ok=True)
