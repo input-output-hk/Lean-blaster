@@ -138,8 +138,12 @@ def funPropagation?
 
     loop (idx : Nat) (stop : Nat) (args : Array Expr) : TranslateEnvT (Option OptimizeStack) := do
       if idx ≥ stop then return none
-      else if let some re ← diteCstProp? cf args idx then return re
-      else if let some re ← matchCstProp? cf args idx then return re
+      else if let some re ← diteCstProp? cf args idx then
+        profileEvent (Name.str cf.constName! "choice_ite")
+        return re
+      else if let some re ← matchCstProp? cf args idx then
+        profileEvent (Name.str cf.constName! "choice_match")
+        return re
       else loop (idx + 1) stop args
 
     @[always_inline, inline]

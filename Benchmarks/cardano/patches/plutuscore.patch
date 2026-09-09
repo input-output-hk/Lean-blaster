@@ -1,12 +1,20 @@
 diff --git a/PlutusCore/UPLC/PreProcess.lean b/PlutusCore/UPLC/PreProcess.lean
-index ddbaa30d..40cd2697 100644
+index ddbaa30d..45157a7b 100644
 --- a/PlutusCore/UPLC/PreProcess.lean
 +++ b/PlutusCore/UPLC/PreProcess.lean
-@@ -37,7 +37,12 @@ def preprocessImp : CommandElab := fun stx => do
+@@ -33,11 +33,20 @@ def parseMaxSteps : TSyntax `uplcMaxSteps → TermElabM Nat
+ 
+ @[command_elab preprocess]
+ def preprocessImp : CommandElab := fun stx => do
++  let commandStarted ← IO.monoMsNow
++  let metrics := (← IO.getEnv "BLASTER_PREP_METRICS") == some "1"
+   let (propDecl, execDecl, structDef, structDescr, structInst) ←
        withoutModifyingEnv $ runTermElabM fun _ => do
          let plutusScript ← validUplcProg stx[2]
++        let inputStarted ← IO.monoMsNow
          let app ← mkUplcApply stx plutusScript
 -        let (e, _) ← Optimize.main app|>.run default
++        if metrics then IO.println s!"PREP_PHASE input_construct_ms={(← IO.monoMsNow) - inputStarted}"
 +        let prepStarted ← IO.monoMsNow
 +        let (e, prepEnv) ← Optimize.main app|>.run default
 +        if (← IO.getEnv "BLASTER_PREP_METRICS") == some "1" then
@@ -16,6 +24,23 @@ index ddbaa30d..40cd2697 100644
          let t ← inferType e
          let baseName ← validNewDef stx[1]
          let propName := Name.append baseName `prop
+@@ -56,6 +65,7 @@ def preprocessImp : CommandElab := fun stx => do
+             hints := .abbrev,
+             safety := .safe }
+         return (propDef, execDef, structDef, structDescr, structInst)
++  let declarationStarted ← IO.monoMsNow
+   modifyEnv (addNoncomputable · propDecl.definitionVal!.name)
+   liftCoreM <| addDecl propDecl
+   liftCoreM <| addAndCompile execDecl
+@@ -63,6 +73,8 @@ def preprocessImp : CommandElab := fun stx => do
+   liftCoreM <| modifyEnv (λ env => registerStructure env structDescr)
+   modifyEnv (addNoncomputable · structInst.definitionVal!.name)
+   liftCoreM <| addDecl structInst
++  if metrics then
++    IO.println s!"PREP_PHASE declaration_ms={(← IO.monoMsNow) - declarationStarted} command_ms={(← IO.monoMsNow) - commandStarted}"
+ 
+   where
+     createDefinition (n : Name) (t : Expr) (e : Expr) : Declaration :=
 diff --git a/lake-manifest.json b/lake-manifest.json
 index 57d627cc..c01e98c3 100644
 --- a/lake-manifest.json

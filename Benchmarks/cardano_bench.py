@@ -26,8 +26,17 @@ parser.add_argument('--sample', action='store_true', help='Take one macOS CPU sa
 parser.add_argument('--reduce-before-arguments', action='store_true', help='Reduce functions and projections before normalizing their arguments')
 parser.add_argument('--retain-constructor-choices', action='store_true', help='Keep conditionals and matches inside constructor fields during preparation')
 parser.add_argument('--retain-choice-types', nargs='*', default=[], help='Label selected inductive types or constructors to retain field choices')
+parser.add_argument('--profile-normalize', action='store_true', help='Opt-in normalization-head timings; diagnostic runs only')
+parser.add_argument('--acceptance-only', action='store_true', help='Validate existing global goldens through the exact interpreter and input conversion')
+parser.add_argument('--conversion-only', action='store_true', help='Normalize input conversion alone, without interpreting the UPLC program')
 parser.add_argument('--proofs-only', action='store_true', help='Check properties against the existing, exactly matching prepared benchmark module')
 a=parser.parse_args()
+if sum([a.proofs_only, a.acceptance_only, a.conversion_only]) > 1:
+    parser.error('choose at most one of proofs-only, acceptance-only and conversion-only')
+if a.acceptance_only and any(c.split(':')[0] != 'global' for c in a.cases):
+    parser.error('acceptance-only currently covers global goldens')
+if a.proofs_only and a.profile_normalize:
+    parser.error('profile-normalize is for preparation or conversion; omit it when checking an existing residual')
 if a.repeat < 1 or a.timeout <= 0 or a.max_rss_gib <= 0:
     parser.error('repeat, timeout and memory limit must be positive')
 if not re.fullmatch(r'[A-Za-z0-9_-]+', a.label):
@@ -66,8 +75,9 @@ result={'label':a.label,'repeat':a.repeat,'timeout_seconds':a.timeout,'rss_limit
         'pins':{p:pin(p) for p in ['cardano','wsc','blaster','plutuscore','plutuscore-wsc']},
         'machine':{'system':platform.system(),'release':platform.release(),'architecture':platform.machine(),'logical_cpus':os.cpu_count()},
         'runner_sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        'acceptance_fixture_sha256':hashlib.sha256((Path(__file__).parent/'cardano/fixtures/GlobalAcceptance.lean').read_bytes()).hexdigest(),
         'retain_choice_types':a.retain_choice_types,'retain_constructor_choices':a.retain_constructor_choices,'reduce_before_arguments':a.reduce_before_arguments,
-        'cpu_sample':a.sample,'phase':'proof' if a.proofs_only else 'prep',
+        'cpu_sample':a.sample,'profile_normalize':a.profile_normalize,'phase':('proof' if a.proofs_only else 'acceptance' if a.acceptance_only else 'conversion' if a.conversion_only else 'prep'),
         'allocator_env':{k:v for k,v in os.environ.items() if k.startswith('MIMALLOC_')},'runs':[]}
 
 def save():
@@ -90,6 +100,19 @@ end WSC.Benchmark
         text=re.sub(r'\(stats-file: [^)]*\)|\(stats-interval: [^)]*\)','',text)
         text=re.sub(r'(#prep_uplc[^\n]*?)\d+\s*\n',lambda m:m[1]+str(budget)+'\n',text)
         text=text.replace('\nnamespace ', '\nset_option maxHeartbeats 0\nnamespace ',1)
+    if a.conversion_only:
+        prep_line = next(line for line in text.splitlines() if line.startswith('#prep_uplc '))
+        converter = prep_line.split()[-2]
+        replacement = f'''run_cmd Lean.Elab.Command.liftTermElabM do
+  let expr ← Lean.Elab.Term.elabTermAndSynthesize (← `({converter})) none
+  let started ← IO.monoMsNow
+  let (_, env) ← (Blaster.Optimize.Optimize.main expr).run (default : Blaster.Optimize.TranslateEnv)
+  let o := env.optEnv
+  IO.println s!"PREP_METRICS optimize_ms={{(← IO.monoMsNow) - started}} hashcons={{o.hashConsCache.size}} contexts={{o.options.nextCtxId}} beta_cache={{o.memCache.betaLambdaCache.size}}"
+'''
+        text = text.replace(prep_line, replacement)
+    if a.profile_normalize:
+        text=text.replace('set_option maxHeartbeats 0', 'set_option blaster.profileNormalize true\nset_option maxHeartbeats 0')
     if a.reduce_before_arguments:
         text=text.replace('set_option maxHeartbeats 0', 'set_option blaster.reduceBeforeArguments true\nset_option maxHeartbeats 0')
     if a.retain_constructor_choices:
@@ -98,12 +121,21 @@ end WSC.Benchmark
         text=text.replace('set_option maxHeartbeats 0', 'attribute [local blaster_keep_choices] ' + ' '.join(a.retain_choice_types) + '\nset_option maxHeartbeats 0')
     source=cwd/'Tests/Benchmarks/CardanoPerfCase.lean'
     source.parent.mkdir(parents=True,exist_ok=True)
-    module='CardanoPerfCase'
+    module='CardanoPerfConversion' if a.conversion_only else 'CardanoPerfCase'
+    source=cwd/f'Tests/Benchmarks/{module}.lean'
+    if name=='global':
+        fixture_source=Path(__file__).parent/'cardano/fixtures/GlobalAcceptance.lean'
+        (cwd/'Tests/Benchmarks/GlobalAcceptance.lean').write_text(fixture_source.read_text())
+    if a.acceptance_only:
+        module='GlobalAcceptance'
+        source=cwd/f'Tests/Benchmarks/{module}.lean'
+        text=source.read_text()
     if a.proofs_only:
         if not source.exists() or source.read_text()!=text:
             raise SystemExit('Prepare the requested case and budget first; the existing module does not match.')
         if name=='global':
             text='''import Tests.Benchmarks.CardanoPerfCase
+import Tests.Benchmarks.GlobalAcceptance
 import Blaster
 set_option maxHeartbeats 0
 set_option warn.sorry false
@@ -119,6 +151,8 @@ theorem seize_arm_rejected :
   blaster (timeout: 30)
 end WSC.Benchmark
 '''
+            if budget >= 1453:
+                text += '''\nnamespace WSC.Benchmark\n-- Same accepting golden as the independently executed reference gate.\ntheorem nonmember_accepted :\n    PlutusCore.UPLC.Utils.isSuccessful (appliedGlobalPerf.prop Acceptance.nonmemberCS Acceptance.nonmemberCtx) := by\n  blaster (timeout: 30)\ntheorem nonmember_returns_unit :\n    Acceptance.outcome (appliedGlobalPerf.prop Acceptance.nonmemberCS Acceptance.nonmemberCtx) =\n      Acceptance.Outcome.unit := by\n  blaster (timeout: 30)\nend WSC.Benchmark\n'''
         else:
             text=(cwd/f'Tests/Scripts/{fixture}/Properties.lean').read_text()
             text=text.replace(f'import Tests.Scripts.{fixture}.{fixture}', 'import Tests.Benchmarks.CardanoPerfCase')
@@ -139,6 +173,10 @@ end WSC.Benchmark
              'sampled_peak_rss_bytes':0,'prep':{},'source_sha256':hashlib.sha256(text.encode()).hexdigest()}
         result['runs'].append(row);save()
         env=os.environ.copy();env['BLASTER_PREP_METRICS']='1'
+        profile_log=logs/(tag+'.profile.jsonl')
+        if a.profile_normalize:
+            profile_log.unlink(missing_ok=True)
+            env['BLASTER_PROFILE_FILE']=str(profile_log)
         started=time.monotonic();sampler=None;sampled=False;next_checkpoint=started+5
         with log.open('w') as f:
             proc=subprocess.Popen(['lake','build',f'Tests.Benchmarks.{module}'],cwd=cwd,env=env,
@@ -180,6 +218,14 @@ end WSC.Benchmark
             if row['status']=='running': row['status']='completed' if proc.returncode==0 else 'error'
             if sampler is not None: sampler.wait(timeout=15)
         content=log.read_text()
+        row['profiles'] = [json.loads(m[1]) for m in re.finditer(r'BLASTER_PROFILE (.+)$',content,re.M)]
+        if a.profile_normalize and profile_log.exists():
+            for line in profile_log.read_text().splitlines():
+                try: row['profiles'].append(json.loads(line))
+                except json.JSONDecodeError:
+                    row['profile_truncated']=True  # possible kill during the final write
+        row['phases'] = [] if a.proofs_only or a.acceptance_only else [{k:int(v) for k,v in re.findall(r'(\w+)=(\d+)',m[1])} for m in re.finditer(r'PREP_PHASE (.+)$',content,re.M)]
+        row['acceptance'] = re.findall(r'CARDANO_ACCEPTANCE (.+)$',content,re.M)
         if not a.proofs_only:
             for m in re.finditer(r'PREP_METRICS (.+)',content):
                 row['prep']={k:int(v) for k,v in re.findall(r'(\w+)=(\d+)',m[1])}
@@ -187,4 +233,4 @@ end WSC.Benchmark
             row['verdicts']=[line for line in content.splitlines() if 'CardanoPerfProofs.lean:' in line and ('✅' in line or line.startswith('error:'))]
         artifact=cwd/f'.lake/build/lib/lean/Tests/Benchmarks/{module}.olean'
         if row['status']=='completed' and artifact.exists(): row['olean_bytes']=artifact.stat().st_size
-        save();print(json.dumps(row),flush=True)
+        save();print(json.dumps({k:v for k,v in row.items() if k != 'profiles'}),flush=True)

@@ -15,3 +15,5 @@ import Tests.Optimize.OptimizeNat
 import Tests.Optimize.OptimizeProp
 import Tests.Optimize.OptimizeRecFun
 import Tests.Optimize.OptimizeUnfold
+
+import Tests.Optimize.Profile
