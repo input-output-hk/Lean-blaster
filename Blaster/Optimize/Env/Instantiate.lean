@@ -66,8 +66,7 @@ private unsafe def instantiateSharedRevRangeAux (e : Expr) (offset s n : USize) 
       else return r
   else
       let e := cur
-      let s' := s + offset
-      if s'.toNat >= e.looseBVarRange
+      if offset.toNat >= e.looseBVarRange
       then go e true offset stk cache
       else
         let cached := cache.getD (mkInstKey e offset) instCacheMiss
@@ -76,9 +75,12 @@ private unsafe def instantiateSharedRevRangeAux (e : Expr) (offset s n : USize) 
            match e with
            | .bvar idx =>
                let idx' := idx.toUSize
-               if idx' >= s' then
+               if idx' >= offset then
                  if idx' < offset + n then
-                    let r := subst.uget (n - (idx' - offset) - 1) lcProof
+                    let arg := subst.uget (s + n - (idx' - offset) - 1) lcProof
+                    -- Substitution under a binder must not capture open arguments.
+                    let r ← if offset == 0 || !arg.hasLooseBVars then pure arg
+                            else hashcons (arg.liftLooseBVars 0 offset.toNat)
                     go r true offset stk (cache.insert (mkInstKey e offset) r)
                  else
                    let r ← mkBVarExpr (idx - n.toNat)
@@ -113,6 +115,7 @@ Assume `beginIdx ≤ endIdx` and `endIdx ≤ subst.size`
 def instantiateSharedRevRange (e : Expr) (beginIdx endIdx : Nat) (subst : Array Expr) : TranslateEnvT Expr :=
   if _ : beginIdx > endIdx then unreachable! else
   if _ : endIdx > subst.size then unreachable! else
+  if beginIdx == endIdx then return e else
   let s := beginIdx.toUSize
   let n := endIdx.toUSize - s
   unsafe instantiateSharedRevRangeAux e 0 s n subst
@@ -171,7 +174,7 @@ partial def betaForAll (e : Expr) (args : Array Expr) : TranslateEnvT Expr :=
 def betaLambdaSharedRange (e : Expr) (beginIdx : Nat) (endIdx : Nat) (args : Array Expr) : TranslateEnvT Expr :=
   let finish (e : Expr) (i : Nat) : TranslateEnvT Expr :=
     if !e.hasLooseBVars then return e
-    else instantiateSharedRevRange e 0 i args
+    else instantiateSharedRevRange e beginIdx i args
   let rec visit (e : Expr) (i : Nat) : TranslateEnvT Expr := do
     if i < endIdx then
       match e with
