@@ -1,0 +1,121 @@
+⚠ [294/371] Replayed PlutusCore.UPLC.CekMachine
+warning: PlutusCore/UPLC/CekMachine.lean:312:4: declaration uses 'sorry'
+ℹ [331/371] Replayed PlutusCore.UPLC.StagedCekProofs
+info: PlutusCore/UPLC/StagedCekProofs.lean:100:0: 'PlutusCore.UPLC.StagedCek.run_eq_runSteps' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PlutusCore/UPLC/StagedCekProofs.lean:101:0: 'PlutusCore.UPLC.StagedCek.execute_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+ℹ [332/371] Replayed PlutusCore.UPLC.CekBlocks
+info: PlutusCore/UPLC/CekBlocks.lean:63:0: 'PlutusCore.UPLC.CekBlocks.compose' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PlutusCore/UPLC/CekBlocks.lean:64:0: 'PlutusCore.UPLC.CekBlocks.shorter_error' depends on axioms: [propext, Classical.choice, Quot.sound]
+ℹ [334/371] Replayed PlutusCore.UPLC.LiftedMapSearchProofs
+info: PlutusCore/UPLC/LiftedMapSearchProofs.lean:122:0: 'PlutusCore.UPLC.LiftedMapSearch.scan_correct' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PlutusCore/UPLC/LiftedMapSearchProofs.lean:124:0: 'PlutusCore.UPLC.LiftedMapSearch.empty_block' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PlutusCore/UPLC/LiftedMapSearchProofs.lean:125:0: 'PlutusCore.UPLC.LiftedMapSearch.hit_block' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PlutusCore/UPLC/LiftedMapSearchProofs.lean:126:0: 'PlutusCore.UPLC.LiftedMapSearch.miss_block' depends on axioms: [propext, Classical.choice, Quot.sound]
+ℹ [336/371] Replayed PlutusCore.UPLC.LiftedMapSearchRecognize
+info: PlutusCore/UPLC/LiftedMapSearchRecognize.lean:117:0: 'PlutusCore.UPLC.LiftedMapSearch.recognizeCall' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PlutusCore/UPLC/LiftedMapSearchRecognize.lean:119:0: 'PlutusCore.UPLC.LiftedMapSearch.bodyWitness' does not depend on any axioms
+info: PlutusCore/UPLC/LiftedMapSearchRecognize.lean:120:0: 'PlutusCore.UPLC.LiftedMapSearch.readyWitness' depends on axioms: [propext, Quot.sound]
+ℹ [338/371] Replayed PlutusCore.UPLC.LiftedSearchProofs
+info: PlutusCore/UPLC/LiftedSearchProofs.lean:122:0: 'PlutusCore.UPLC.LiftedSearch.scan_correct' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PlutusCore/UPLC/LiftedSearchProofs.lean:124:0: 'PlutusCore.UPLC.LiftedSearch.empty_block' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PlutusCore/UPLC/LiftedSearchProofs.lean:125:0: 'PlutusCore.UPLC.LiftedSearch.hit_block' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PlutusCore/UPLC/LiftedSearchProofs.lean:126:0: 'PlutusCore.UPLC.LiftedSearch.miss_block' depends on axioms: [propext, Classical.choice, Quot.sound]
+ℹ [339/371] Replayed PlutusCore.UPLC.LiftedSearchRecognize
+info: PlutusCore/UPLC/LiftedSearchRecognize.lean:117:0: 'PlutusCore.UPLC.LiftedSearch.recognizeCall' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PlutusCore/UPLC/LiftedSearchRecognize.lean:119:0: 'PlutusCore.UPLC.LiftedSearch.bodyWitness' does not depend on any axioms
+info: PlutusCore/UPLC/LiftedSearchRecognize.lean:120:0: 'PlutusCore.UPLC.LiftedSearch.readyWitness' depends on axioms: [propext, Quot.sound]
+ℹ [340/371] Replayed PlutusCore.UPLC.LiftedSearchFastRecognize
+info: PlutusCore/UPLC/LiftedSearchFastRecognize.lean:91:0: 'PlutusCore.UPLC.LiftedSearch.recognizeFast_sound' depends on axioms: [propext, Classical.choice, Quot.sound]
+ℹ [341/371] Replayed PlutusCore.UPLC.LiftedMapSearchFastRecognize
+info: PlutusCore/UPLC/LiftedMapSearchFastRecognize.lean:91:0: 'PlutusCore.UPLC.LiftedMapSearch.recognizeFast_sound' depends on axioms: [propext, Classical.choice, Quot.sound]
+ℹ [342/371] Replayed PlutusCore.UPLC.RecursiveCalls
+info: PlutusCore/UPLC/RecursiveCalls.lean:24:0: 'PlutusCore.UPLC.RecursiveCalls.recognize_sound' depends on axioms: [propext, Classical.choice, Quot.sound]
+⚠ [343/371] Replayed PlutusCore.UPLC.LoopCek
+warning: PlutusCore/UPLC/LoopCek.lean:60:21: unused variable `h`
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+⚠ [347/371] Built PlutusCore.UPLC.LoopCekProofs (3.0s)
+warning: PlutusCore/UPLC/LoopCekProofs.lean:55:26: try 'simp' instead of 'simpa'
+
+Note: This linter can be disabled with `set_option linter.unnecessarySimpa false`
+warning: PlutusCore/UPLC/LoopCekProofs.lean:57:29: This simp argument is unused:
+  hp
+
+Hint: Omit it from the simp argument list.
+  simp only ̵[̵h̵p̵]̵
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: PlutusCore/UPLC/LoopCekProofs.lean:66:31: This simp argument is unused:
+  hw
+
+Hint: Omit it from the simp argument list.
+  simp only [h̵w̵,̵ ̵lt]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+info: PlutusCore/UPLC/LoopCekProofs.lean:120:0: 'PlutusCore.UPLC.LoopCek.run_eq_runSteps' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PlutusCore/UPLC/LoopCekProofs.lean:121:0: 'PlutusCore.UPLC.LoopCek.execute_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+✔ [348/371] Built PlutusCore.UPLC.PreProcess (976ms)
+✔ [349/371] Built PlutusCore.UPLC (574ms)
+✔ [350/371] Built PlutusCore.Basic (746ms)
+ℹ [351/371] Built Tests.Benchmarks.LiftedTemplateSource (854ms)
+info: Tests/Benchmarks/LiftedTemplateSource.lean:7:0: Successfully decoded single CBOR hex 'Tests/Scripts/SellNFT/sell_nft.flat'
+info: Tests/Benchmarks/LiftedTemplateSource.lean:26:0: 'LiftedTemplateSource.LiftedSearch_in_script' does not depend on any axioms
+info: Tests/Benchmarks/LiftedTemplateSource.lean:31:0: 'LiftedTemplateSource.LiftedMapSearch_in_script' does not depend on any axioms
+✔ [352/371] Built PlutusCore (590ms)
+ℹ [353/371] Built Tests.Benchmarks.LoopCekControl (1.6s)
+info: Tests/Benchmarks/LoopCekControl.lean:52:0: LoopCekShadowing ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:59:0: LoopCekMissingName ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:64:0: LoopCekLookupFuel ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:69:0: LoopCekCapturedEnvironment ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:76:0: LoopCekHaltAtZeroFuel ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:80:0: LoopCekErrorAtZeroFuel ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:83:0: LoopCekApplyNonFunction ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:88:0: LoopCekWrongForceTag ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:93:0: LoopCekConstructor ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:98:0: LoopCekApplication ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:103:0: LoopCekApplicationExhaustion ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:108:0: LoopCekConstructorFieldOrder ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:113:0: LoopCekCaseApplicationOrder ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:119:0: LoopCekCaseOutOfBounds ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:123:0: LoopCekPrimitiveCase ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:128:0: LoopCekPrimitiveCaseArity ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:132:0: LoopCekNegativeCaseIndex ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:152:0: LoopCekRecognizesUnusedCapture ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:157:0: LoopCekRejectsShadowedBuiltin ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:160:0: LoopCekLiftedHit ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:164:0: LoopCekLiftedHitFuel ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:168:0: LoopCekLiftedRecursion ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:173:0: LoopCekLiftedRecursiveFuel ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:178:0: LoopCekLiftedMalformedUnmatchedPayload ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:182:0: LoopCekFallbackPreservesUnusedBadBinding ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:190:0: LoopCekRejectsDifferentKeyTemplate ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:193:0: LoopCekFallbackUsesChangedKey ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:204:0: LoopCekMapRecognizesUnusedCapture ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:209:0: LoopCekMapRejectsShadowedBuiltin ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:212:0: LoopCekMapHit ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:217:0: LoopCekMapHitFuel ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:222:0: LoopCekMapRecursion ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:227:0: LoopCekMapRecursiveFuel ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:232:0: LoopCekMapMalformedUnmatchedPayload ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:236:0: LoopCekMapMalformedKey ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:239:0: LoopCekMapEmpty ✅ Success!
+info: Tests/Benchmarks/LoopCekControl.lean:243:0: LoopCekMapEmptyFuel ✅ Success!
+✔ [354/371] Built CardanoLedgerApi.IsData.Class (736ms)
+✔ [355/371] Built CardanoLedgerApi.V1.Scripts (889ms)
+✔ [356/371] Built CardanoLedgerApi.V3.Tx (966ms)
+✔ [357/371] Built CardanoLedgerApi.V1.Time (1.3s)
+✔ [358/371] Built CardanoLedgerApi.V1.Value (1.6s)
+✔ [359/371] Built CardanoLedgerApi.V1.Credential (1.1s)
+✔ [360/371] Built CardanoLedgerApi.V1.Address (770ms)
+✔ [361/371] Built CardanoLedgerApi.V1.DCert (1.3s)
+✔ [362/371] Built CardanoLedgerApi.V1.Tx (771ms)
+✔ [363/371] Built CardanoLedgerApi.V2.Tx (977ms)
+✔ [364/371] Built CardanoLedgerApi.V1.Contexts (1.9s)
+✔ [365/371] Built CardanoLedgerApi.V1 (735ms)
+✔ [366/371] Built CardanoLedgerApi.V2.Contexts (1.7s)
+✔ [367/371] Built CardanoLedgerApi.V2 (576ms)
+✔ [368/371] Built CardanoLedgerApi.V3.TxCert (3.9s)
+✔ [369/371] Built CardanoLedgerApi.V3.Governance (1.5s)
+✔ [370/371] Built CardanoLedgerApi.V3.Contexts (2.0s)
+✔ [371/371] Built CardanoLedgerApi.V3 (605ms)
+Build completed successfully (371 jobs).

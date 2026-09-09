@@ -1,0 +1,45 @@
+--- a/PlutusCore/UPLC/PreProcess.lean
++++ b/PlutusCore/UPLC/PreProcess.lean
+@@ -1,6 +1,7 @@
+ import Lean
+ import PlutusCore.UPLC.CekMachine
+ import PlutusCore.UPLC.StagedCekProofs
++import PlutusCore.UPLC.LoopCekProofs
+ import PlutusCore.UPLC.PlutusScript
+ import Blaster.Optimize.Basic
+ open Lean Elab Command Term Meta Blaster.Optimize
+@@ -8,6 +9,11 @@
+ register_option plutuscore.stagedCek : Bool := {
+   defValue := false
+   descr := "Use the verified fused CEK interpreter during preparation (experimental)."
++}
++
++register_option plutuscore.liftedSearch : Bool := {
++  defValue := false
++  descr := "Use certified recursive search workers during staged preparation."
+ }
+ 
+ namespace PlutusCore.UPLC.PreProcess
+@@ -49,14 +55,19 @@
+         if metrics then IO.println s!"PREP_PHASE input_construct_ms={(← IO.monoMsNow) - inputStarted}"
+         let prepStarted ← IO.monoMsNow
+         let staged := plutuscore.stagedCek.get (← getOptions)
++        let lifted := plutuscore.liftedSearch.get (← getOptions)
++        if lifted && !staged then throwError "lifted search requires plutuscore.stagedCek"
++        -- Both replacements preserve all states and fuel by their execute_eq theorem.
++        -- The executable definition below retains the reference CEK.
++        let entry := if lifted then ``LoopCek.execute else ``StagedCek.execute
+         let optApp := if staged then
+           app.replace fun e => match e with
+-            | .const ``cekExecuteProgram ls => some (.const ``StagedCek.execute ls)
++            | .const ``cekExecuteProgram ls => some (.const entry ls)
+             | _ => none
+           else app
+-        if staged && (optApp.find? (·.isConstOf ``StagedCek.execute)).isNone then
++        if staged && (optApp.find? (·.isConstOf entry)).isNone then
+           throwError "staged CEK entry point was not installed"
+-        if metrics then IO.println s!"PREP_INTERPRETER staged={staged}"
++        if metrics then IO.println s!"PREP_INTERPRETER staged={staged} lifted_search={lifted}"
+         let (e, prepEnv) ← Optimize.main optApp|>.run default
+         if (← IO.getEnv "BLASTER_PREP_METRICS") == some "1" then
+           let ms := (← IO.monoMsNow) - prepStarted

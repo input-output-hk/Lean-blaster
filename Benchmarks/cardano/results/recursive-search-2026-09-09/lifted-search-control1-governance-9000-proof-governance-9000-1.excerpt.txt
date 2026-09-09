@@ -1,0 +1,11 @@
+Selected telemetry and verdict lines; this is not the full build log.
+
+info: Tests/Benchmarks/CardanoPerfCase.lean:17:0: PREP_PHASE input_construct_ms=0
+PREP_INTERPRETER staged=true step_fusion=false lifted_search=false
+PREP_METRICS optimize_ms=23079 hashcons=5070520 contexts=17761 beta_cache=17985
+PREP_PHASE declaration_ms=4 command_ms=23802
+info: Tests/Benchmarks/CardanoPerfProofs.lean:51:52: ✅ Valid
+info: Tests/Benchmarks/CardanoPerfProofs.lean:59:54: ✅ Valid
+info: Tests/Benchmarks/CardanoPerfProofs.lean:67:37: ✅ Valid
+info: Tests/Benchmarks/CardanoPerfProofs.lean:75:54: ✅ Valid
+Build completed successfully (366 jobs).

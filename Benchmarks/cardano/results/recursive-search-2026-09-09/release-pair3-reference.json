@@ -1,0 +1,89 @@
+{
+  "label": "release-pair3-reference",
+  "repeat": 1,
+  "timeout_seconds": 120.0,
+  "rss_limit_bytes": 12884901888,
+  "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+  "pins": {
+    "cardano": {
+      "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+      "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+    },
+    "wsc": {
+      "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+      "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+    },
+    "blaster": {
+      "commit": "71dfe27f3b0b05fa0a7d095a46f1ba0b9a67dcc2",
+      "tracked_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "plutuscore": {
+      "commit": "073950e49a11ea58ca432d6a0da39294e4d2ce50",
+      "tracked_patch_sha256": "b4306cdffebf6a25f6129a9db3ce1d948b0116e58ff678ef7978b85aa6043f35"
+    },
+    "plutuscore-wsc": {
+      "commit": "5f2baa2a965388dbf0bf9ef36b82bb05ea8074c8",
+      "tracked_patch_sha256": "1b80d27e6bc928c340ae3d5081ed85014b0455f2b4808ed75595c865f19194c8"
+    }
+  },
+  "machine": {
+    "system": "Darwin",
+    "release": "25.5.0",
+    "architecture": "arm64",
+    "logical_cpus": 12
+  },
+  "runner_sha256": "feb3a27f49d2e245c4eebafe5c46ccb677f218b8d911fbf29ac61467373c5d61",
+  "acceptance_fixture_sha256": "f863fe07484be59eeb8fc550f4dafa3427908c9fcd0fdad4d2f6036f6893f4f2",
+  "staged_cek": true,
+  "lifted_search": false,
+  "specialize_functions": [
+    "PlutusCore.UPLC.StagedCek.eval:2",
+    "PlutusCore.UPLC.StagedCek.ret:2",
+    "PlutusCore.UPLC.StagedCek.lookupValue:1"
+  ],
+  "retain_choice_types": [],
+  "retain_constructor_choices": false,
+  "reduce_before_arguments": false,
+  "cpu_sample": false,
+  "profile_normalize": false,
+  "phase": "prep",
+  "allocator_env": {},
+  "runs": [
+    {
+      "case": "sellnft",
+      "budget": 1800,
+      "repeat": 1,
+      "status": "completed",
+      "log": "sellnft-1800-1.log",
+      "sampled_peak_rss_bytes": 2365997056,
+      "prep": {
+        "optimize_ms": 22874,
+        "hashcons": 8271491,
+        "contexts": 29063,
+        "beta_cache": 35479
+      },
+      "source_sha256": "349981cb9931efdb6e4becb48cb164329390e3b5a3568ab2365e177ade6e52fd",
+      "elapsed_seconds": 25.48491037497297,
+      "exit_code": 0,
+      "interpreter": [
+        "true"
+      ],
+      "lifted_search": [
+        "false"
+      ],
+      "profiles": [],
+      "phases": [
+        {
+          "input_construct_ms": 0
+        },
+        {
+          "declaration_ms": 6,
+          "command_ms": 24022
+        }
+      ],
+      "acceptance": [],
+      "olean_bytes": 826280,
+      "archived_log_excerpt": "release-pair3-reference-sellnft-1800-1.excerpt.txt"
+    }
+  ]
+}

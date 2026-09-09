@@ -1,0 +1,110 @@
+{
+  "label": "lifted-two-loops1-governance-9000",
+  "repeat": 1,
+  "timeout_seconds": 120.0,
+  "rss_limit_bytes": 12884901888,
+  "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+  "pins": {
+    "cardano": {
+      "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+      "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+    },
+    "wsc": {
+      "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+      "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+    },
+    "blaster": {
+      "commit": "7e4a9213e203f0a57017d35e8ee78207eb11812a",
+      "tracked_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "plutuscore": {
+      "commit": "71556f99318bf6bb2f2cd0f74afceaae14698e51",
+      "tracked_patch_sha256": "bcd41493783b3ca49e5dcaf55dcf98d1b316c518f0d685aead0120accfcc70b9"
+    },
+    "plutuscore-wsc": {
+      "commit": "09ca8995273988375e1c57bf3724cd1d323ae44e",
+      "tracked_patch_sha256": "1c4278ec0364e336d1ed1f75dbce5bfad3f008605d11eee95bd324d33b731d13"
+    }
+  },
+  "machine": {
+    "system": "Darwin",
+    "release": "25.5.0",
+    "architecture": "arm64",
+    "logical_cpus": 12
+  },
+  "runner_sha256": "e0a41c754aef86c3298d37d1f1de920e707805490b6c704cb7885d9e119322ac",
+  "acceptance_fixture_sha256": "f863fe07484be59eeb8fc550f4dafa3427908c9fcd0fdad4d2f6036f6893f4f2",
+  "staged_cek": true,
+  "step_fusion": false,
+  "lifted_search": true,
+  "specialize_functions": [
+    "PlutusCore.UPLC.LoopCek.eval:2",
+    "PlutusCore.UPLC.LoopCek.ret:2",
+    "PlutusCore.UPLC.LoopCek.lookupValue:1",
+    "PlutusCore.UPLC.StagedCek.lookupValue:1",
+    "PlutusCore.UPLC.RecursiveCalls.recognize:2",
+    "PlutusCore.UPLC.LiftedMapSearch.recognizeFast:2",
+    "PlutusCore.UPLC.LiftedMapSearch.bodyWitness:1",
+    "PlutusCore.UPLC.LiftedMapSearch.bodyMatches:1",
+    "PlutusCore.UPLC.LiftedMapSearch.readyMatch:1",
+    "PlutusCore.UPLC.LiftedMapSearch.bindingsMatch:1",
+    "PlutusCore.UPLC.LiftedMapSearch.worker:3",
+    "PlutusCore.UPLC.LiftedMapSearch.scan:1",
+    "PlutusCore.UPLC.LiftedSearch.recognizeFast:2",
+    "PlutusCore.UPLC.LiftedSearch.bodyWitness:1",
+    "PlutusCore.UPLC.LiftedSearch.bodyMatches:1",
+    "PlutusCore.UPLC.LiftedSearch.readyMatch:1",
+    "PlutusCore.UPLC.LiftedSearch.bindingsMatch:1",
+    "PlutusCore.UPLC.LiftedSearch.worker:3",
+    "PlutusCore.UPLC.LiftedSearch.scan:1"
+  ],
+  "retain_choice_types": [],
+  "retain_constructor_choices": false,
+  "reduce_before_arguments": false,
+  "cpu_sample": false,
+  "profile_normalize": false,
+  "profile_bindings": false,
+  "phase": "prep",
+  "allocator_env": {},
+  "runs": [
+    {
+      "case": "governance",
+      "budget": 9000,
+      "repeat": 1,
+      "status": "completed",
+      "log": "governance-9000-1.log",
+      "sampled_peak_rss_bytes": 2035548160,
+      "prep": {
+        "optimize_ms": 24543,
+        "hashcons": 5299353,
+        "contexts": 17761,
+        "beta_cache": 17991
+      },
+      "source_sha256": "a1f49490d5cb0b0758d10de0da3087af820ab9b362565a01dd4ccce0c97164ee",
+      "elapsed_seconds": 26.57621124992147,
+      "exit_code": 0,
+      "interpreter": [
+        "true"
+      ],
+      "step_fusion": [
+        "false"
+      ],
+      "lifted_search": [
+        "true"
+      ],
+      "profiles": [],
+      "phases": [
+        {
+          "input_construct_ms": 0
+        },
+        {
+          "declaration_ms": 4,
+          "command_ms": 25286
+        }
+      ],
+      "acceptance": [],
+      "olean_bytes": 2216312,
+      "archived_log_excerpt": "lifted-two-loops1-governance-9000-governance-9000-1.excerpt.txt"
+    }
+  ]
+}
