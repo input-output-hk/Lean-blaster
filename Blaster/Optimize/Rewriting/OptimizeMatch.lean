@@ -357,13 +357,13 @@ def reduceMatch? (args : Array Expr) (mInfo : MatchInfo) (resolveArgs := false) 
 -/
 def constMatchPropagation?
   (cm : Expr) (cargs : Array Expr) (mInfo : MatchInfo)
-  (prevInApp : Bool) (resolveArgs := false) : TranslateEnvT (Option OptimizeStack) := do
+  (prevInApp : Bool) (resolveArgs := false) : TranslateEnvT (Option OptimizeFrame) := do
   if !(← allDiscrsAreCstMatch mInfo.getFirstDiscrPos mInfo.getFirstAltPos)
   then return none
   else loop mInfo.getFirstDiscrPos mInfo.getFirstAltPos
 
   where
-    loop (idx : Nat) (stop : Nat) : TranslateEnvT (Option OptimizeStack) := do
+    loop (idx : Nat) (stop : Nat) : TranslateEnvT (Option OptimizeFrame) := do
       if idx ≥ stop then return none
       else if let some r ← isDiteArg idx then return r
       else if let some r ← isMatchArg idx then return r
@@ -393,7 +393,7 @@ def constMatchPropagation?
       | _ => throwEnvError "pushMatchInDIteExpr: lambda term expected !!!"
 
     @[always_inline, inline]
-    isDiteArg (idx : Nat) : TranslateEnvT (Option OptimizeStack) := do
+    isDiteArg (idx : Nat) : TranslateEnvT (Option OptimizeFrame) := do
       if let some (_psort, pcond, e1, e2) := dite'? cargs[idx]! then
         -- erase context
         eraseMatchRhsRewriteCache mInfo
@@ -418,7 +418,7 @@ def constMatchPropagation?
       else return none
 
     @[always_inline, inline]
-    isMatchArg (idx : Nat) : TranslateEnvT (Option OptimizeStack) := do
+    isMatchArg (idx : Nat) : TranslateEnvT (Option OptimizeFrame) := do
       if let some argInfo ← isMatcher? cargs[idx]!.getAppFn then
         -- erase context
         eraseMatchRhsRewriteCache mInfo
@@ -451,7 +451,7 @@ def constMatchPropagation?
 @[always_inline, inline]
 def matchReduction?
   (f : Expr) (args : Array Expr) (mInfo : MatchInfo) (prevInApp : Bool)
-  (matchToIte := false) (resolveArgs := false) : TranslateEnvT (Option OptimizeStack) := do
+  (matchToIte := false) (resolveArgs := false) : TranslateEnvT (Option OptimizeFrame) := do
     -- try match reduction first
     if let some r ← reduceMatch? args mInfo resolveArgs then
       return some (.InitOptimizeExpr r.betaReduced r.prevMVarIdDecls)
@@ -711,7 +711,7 @@ def updateEqMap
 @[always_inline, inline]
 partial def optimizeMatchAlt
   (args : Array Expr) (mInfo : MatchInfo) (altIdx : Nat) (rhs : Expr)
-  (stack : List OptimizeStack) : TranslateEnvT (List OptimizeStack) := do
+  (stack : OptimizeStack) : TranslateEnvT (OptimizeStack) := do
   let currIdx := (altIdx - mInfo.getFirstAltPos).toUSize
   -- NOTE: We need to consider the generic type for context reuse.
   -- Otherwise, we might instantiate the rhs
@@ -720,7 +720,7 @@ partial def optimizeMatchAlt
   | some reuse =>
        setAndCommitCtx reuse.scope
        let body ← betaLambdaShared rhs reuse.fvars
-       return .InitOptimizeExpr body :: .MatchAltWaitForExpr reuse.fvars (some reuse.scope) currIdx matchInst :: stack
+       return .InitOptimizeExpr body ::: .MatchAltWaitForExpr reuse.fvars (some reuse.scope) currIdx matchInst ::: stack
   | none =>
        let alts ← getMatchAlts args mInfo
        let ⟨_, ⟨_, _, _, _, _, _, _, _, _,_, ⟨_, _, _, _, _, nextCtxId, _, _, _⟩, _, _, _⟩⟩ ← get
@@ -730,7 +730,7 @@ partial def optimizeMatchAlt
          let body ← betaLambdaShared rhs xs
          let updatedEqCtx ← updateEqMap mInfo lhs args nextCtxId false
          let mscope ← if updatedMCtx || updatedEqCtx then some <$> newCtx else pure none
-         return .InitOptimizeExpr body :: .MatchAltWaitForExpr xs mscope currIdx matchInst :: stack
+         return .InitOptimizeExpr body ::: .MatchAltWaitForExpr xs mscope currIdx matchInst ::: stack
 
   where
    onlyOnePattern (lhs : Array Expr) (idx : Nat) (onlyOne : Bool) : TranslateEnvT Bool := do
@@ -910,12 +910,12 @@ def structEqMatch
 @[always_inline, inline]
 partial def optimizeMatch
   (f : Expr) (args : Array Expr) (mInfo : MatchInfo)
-  (xs : List OptimizeStack) : TranslateEnvT OptimizeContinuity := do
+  (xs : OptimizeStack) : TranslateEnvT OptimizeContinuity := do
  -- check for match elimination rules first
  if let some r ← elimMatch? mInfo args then
    match r with
    | Sum.inl e => return (← stackContinuity xs e)
-   | Sum.inr b => return Sum.inl (.InitOptimizeExpr b :: xs)
+   | Sum.inr b => return Sum.inl (.InitOptimizeExpr b ::: xs)
  -- check for match equivalence afterwards
  let (f', args') ← structEqMatch f args mInfo
  let e ← mkAppNExpr f' args'
