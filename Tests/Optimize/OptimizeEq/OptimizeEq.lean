@@ -582,5 +582,68 @@ elab "eqStrConstructor_4" : term => return eqStrConstructor_4
 -- ∀ (x y : Int), (x < 0 ∧ y < 0) → (0 = x + y) = False ===> True
 #testOptimize ["ZeroIntAddEqInHyps_2", proof]
   ∀ (x y : Int), (x < 0 ∧ y < 0) → (0 = x + y) = False ===> True
+-- ∀ (x y z : Nat), (x + y = x + z) = (y = z) ===> True
+#testOptimize [ "AddReduceNat_1", proof ]
+  ∀ (x y z : Nat), (x + y = x + z) = (y = z) ===> True
+
+-- ∀ (x y z : Nat), (x + y = x + z)  ===> ∀ (y z : Nat), y = z
+#testOptimize [ "AddReduceNat_2", proof ]
+  ∀ (x y z : Nat), (x + y = x + z)  ===> ∀ (y z : Nat), y = z
+
+-- ∀ (x y z : Nat), (x + y = z + x) = (y = z) ===> True
+#testOptimize [ "AddReduceNat_3", proof ]
+  ∀ (x y z : Nat), (x + y = z + x) = (y = z) ===> True
+
+-- ∀ (x y z : Nat), (x + y = z + x)  ===> ∀ (y z : Nat), y = z
+#testOptimize [ "AddReduceNat_4", proof ]
+  ∀ (x y z : Nat), (x + y = z + x)  ===> ∀ (y z : Nat), y = z
+
+-- ∀ (x y z : Nat), (y + x = x + z) = (y = z) ===> True
+#testOptimize [ "AddReduceNat_5", proof ]
+  ∀ (x y z : Nat), (y + x = x + z) = (y = z) ===> True
+
+-- ∀ (x y z : Nat), (y + x = x + z)  ===> ∀ (y z : Nat), y = z
+#testOptimize [ "AddReduceNat_6", proof ]
+  ∀ (x y z : Nat), (y + x = x + z)  ===> ∀ (y z : Nat), y = z
+
+-- ∀ (x y z : Nat), (y + x = z + x) = (y = z) ===> True
+#testOptimize [ "AddReduceNat_7", proof ]
+  ∀ (x y z : Nat), (y + x = z + x) = (y = z) ===> True
+
+-- ∀ (x y z : Nat), (y + x = z + x)  ===> ∀ (y z : Nat), y = z
+#testOptimize [ "AddReduceNat_8", proof ]
+  ∀ (x y z : Nat), (y + x = z + x)  ===> ∀ (y z : Nat), y = z
+
+-- ∀ (x y z : Int), (x + y = x + z) = (y = z) ===> True
+#testOptimize [ "AddReduceInt_1", proof ]
+  ∀ (x y z : Int), (x + y = x + z) = (y = z) ===> True
+
+-- ∀ (x y z : Int), (x + y = x + z)  ===> ∀ (y z : Int), y = z
+#testOptimize [ "AddReduceInt_2", proof ]
+  ∀ (x y z : Int), (x + y = x + z)  ===> ∀ (y z : Int), y = z
+
+-- ∀ (x y z : Int), (x + y = z + x) = (y = z) ===> True
+#testOptimize [ "AddReduceInt_3", proof ]
+  ∀ (x y z : Int), (x + y = z + x) = (y = z) ===> True
+
+-- ∀ (x y z : Int), (x + y = z + x)  ===> ∀ (y z : Int), y = z
+#testOptimize [ "AddReduceInt_4", proof ]
+  ∀ (x y z : Int), (x + y = z + x)  ===> ∀ (y z : Int), y = z
+
+-- ∀ (x y z : Int), (y + x = x + z) = (y = z) ===> True
+#testOptimize [ "AddReduceInt_5", proof ]
+  ∀ (x y z : Int), (y + x = x + z) = (y = z) ===> True
+
+-- ∀ (x y z : Int), (y + x = x + z)  ===> ∀ (y z : Int), y = z
+#testOptimize [ "AddReduceInt_6", proof ]
+  ∀ (x y z : Int), (y + x = x + z)  ===> ∀ (y z : Int), y = z
+
+-- ∀ (x y z : Int), (y + x = z + x) = (y = z) ===> True
+#testOptimize [ "AddReduceInt_7", proof ]
+  ∀ (x y z : Int), (y + x = z + x) = (y = z) ===> True
+
+-- ∀ (x y z : Int), (y + x = z + x)  ===> ∀ (y z : Int), y = z
+#testOptimize [ "AddReduceInt_8", proof ]
+  ∀ (x y z : Int), (y + x = z + x)  ===> ∀ (y z : Int), y = z
 
 end Test.OptimizeEq

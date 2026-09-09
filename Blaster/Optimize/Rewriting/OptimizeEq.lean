@@ -169,10 +169,22 @@ def intZeroEqMulReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) 
 def natAddEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option (Expr × Expr)) := do
   match natAdd? op1, natAdd? op2 with
   | some (e1, e2), some (e3, e4) =>
-     if exprEq e1 e3 then setRestart return (e2, e4)
-     if exprEq e1 e4 then setRestart return (e2, e3)
-     if exprEq e2 e3 then setRestart return (e1, e4)
-     if exprEq e2 e4 then setRestart return (e1, e3)
+     if exprEq e1 e3 then
+      pushProofStep (.rewrite (mkConst ``Blaster.nat_add_eq_add_rgt))
+      setRestart
+      return (e2, e4)
+     if exprEq e1 e4 then
+      pushProofStep (.rewrite (mkConst ``Blaster.nat_add_eq_add_lft))
+      setRestart
+      return (e2, e3)
+     if exprEq e2 e3 then
+      pushProofStep (.rewrite (mkConst ``Blaster.nat_add_lft_eq_add))
+      setRestart
+      return (e1, e4)
+     if exprEq e2 e4 then
+      pushProofStep (.rewrite (mkConst ``Blaster.nat_add_lft_eq_add_lft))
+      setRestart
+      return (e1, e3)
      return none
   | _, _ => return none
 
@@ -188,10 +200,22 @@ def natAddEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option (Expr × E
 def intAddEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option (Expr × Expr)) := do
   match intAdd? op1, intAdd? op2 with
   | some (e1, e2), some (e3, e4) =>
-     if exprEq e1 e3 then setRestart return (e2, e4)
-     if exprEq e1 e4 then setRestart return (e2, e3)
-     if exprEq e2 e3 then setRestart return (e1, e4)
-     if exprEq e2 e4 then setRestart return (e1, e3)
+     if exprEq e1 e3 then
+      pushProofStep (.rewrite (mkConst ``Blaster.int_add_eq_add_rgt))
+      setRestart
+      return (e2, e4)
+     if exprEq e1 e4 then
+      pushProofStep (.rewrite (mkConst ``Blaster.int_add_eq_add_lft))
+      setRestart
+      return (e2, e3)
+     if exprEq e2 e3 then
+      pushProofStep (.rewrite (mkConst ``Blaster.int_add_lft_eq_add))
+      setRestart
+      return (e1, e4)
+     if exprEq e2 e4 then
+      pushProofStep (.rewrite (mkConst ``Blaster.int_add_lft_eq_add_lft))
+      setRestart
+      return (e1, e3)
      return none
   | _, _ => return none
 
