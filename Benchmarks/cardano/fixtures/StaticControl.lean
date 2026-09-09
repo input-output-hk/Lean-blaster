@@ -25,12 +25,12 @@ theorem static_access (s : Stack) (env : Environment) (v discarded : CekValue) :
       "x" = .Return s v := by
   simp [ifBoundOtherwiseError]
 
-theorem variable_fuel_one (sv : BuiltinSemanticsVariant) (v : CekValue) :
+theorem variable_fuel_one (sv : PlutusCore.Default.BuiltinSemanticsVariant) (v : CekValue) :
     runSteps sv (.Eval [] (.NonEmptyEnvironment .EmptyEnvironment "x" v) (.Var "x")) 1 =
       .Error := by
   simp [runSteps, step, ifBoundOtherwiseError]
 
-theorem variable_fuel_two (sv : BuiltinSemanticsVariant) (v : CekValue) :
+theorem variable_fuel_two (sv : PlutusCore.Default.BuiltinSemanticsVariant) (v : CekValue) :
     runSteps sv (.Eval [] (.NonEmptyEnvironment .EmptyEnvironment "x" v) (.Var "x")) 2 =
       .Halt v := by
   simp [runSteps, step, ifBoundOtherwiseError]
