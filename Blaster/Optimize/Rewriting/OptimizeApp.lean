@@ -19,7 +19,7 @@ namespace Blaster.Optimize
 /-- Opt-in equation unfolding before argument normalization. This is intended
     for interpreters whose arguments contain large environments. It never
     introduces an assumed equation or changes the meaning of a definition. -/
-initialize specializeExt : LabelExtension ← registerLabelAttr `blaster_specialize "Unfold selected transparent recursive functions before normalizing constructor arguments."
+initialize specializeExt : LabelExtension ← registerLabelAttr `blaster_specialize "Unfold selected transparent functions before normalizing constructor arguments."
 syntax (name := _root_.Parser.Attr.blaster_specialize) "blaster_specialize" : attr
 
 /-- Only enter the existing equation body when all explicit operands already
@@ -30,7 +30,6 @@ partial def specializeApp? (f : Expr) (args : Array Expr) : TranslateEnvT (Optio
   unless (specializeExt.getState (← getEnv)).contains n do return none
   unless ← isOptimizeRecCall do return none
   if ← isOpaqueFunExpr f args then return none
-  unless ← isRecursiveFun n do return none
   let pInfo ← getFunEnvInfo f
   unless args.size == pInfo.paramsInfo.size do return none
   let args ← args.mapM resolveAlias

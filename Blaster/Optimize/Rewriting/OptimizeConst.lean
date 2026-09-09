@@ -115,6 +115,8 @@ def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeCo
         if let some r ← isToNormOpaqueFun n then return r
         let e' ← normConstLevel n l
         if (← isCtorName n) then return ← stackContinuity stack e'
+        if (← isInFunApp) && (specializeExt.getState (← getEnv)).contains n then
+          return ← stackContinuity stack e'
         if let some r ← isHOF n e' then return r
         if (← isResolvableType e')
         then stackContinuity stack (← resolveTypeAbbrev e')

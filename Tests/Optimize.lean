@@ -17,3 +17,4 @@ import Tests.Optimize.OptimizeRecFun
 import Tests.Optimize.OptimizeUnfold
 
 import Tests.Optimize.Profile
+import Tests.Optimize.Specialize
