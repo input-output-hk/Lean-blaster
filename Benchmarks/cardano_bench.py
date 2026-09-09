@@ -26,7 +26,8 @@ parser.add_argument('--sample', action='store_true', help='Take one macOS CPU sa
 parser.add_argument('--reduce-before-arguments', action='store_true', help='Reduce functions and projections before normalizing their arguments')
 parser.add_argument('--retain-constructor-choices', action='store_true', help='Keep conditionals and matches inside constructor fields during preparation')
 parser.add_argument('--retain-choice-types', nargs='*', default=[], help='Label selected inductive types or constructors to retain field choices')
-parser.add_argument('--specialize-functions', nargs='*', default=[], help='Opt in selected recursive functions to early equation unfolding')
+parser.add_argument('--staged-cek', action='store_true', help='Use the verified fused named-environment CEK prototype')
+parser.add_argument('--specialize-functions', nargs='*', default=[], help='Specialize NAME:INDEX when its one-based argument has a known constructor')
 parser.add_argument('--profile-normalize', action='store_true', help='Opt-in normalization-head timings; diagnostic runs only')
 parser.add_argument('--acceptance-only', action='store_true', help='Validate existing global goldens through the exact interpreter and input conversion')
 parser.add_argument('--conversion-only', action='store_true', help='Normalize input conversion alone, without interpreting the UPLC program')
@@ -34,6 +35,8 @@ parser.add_argument('--proofs-only', action='store_true', help='Check properties
 a=parser.parse_args()
 if sum([a.proofs_only, a.acceptance_only, a.conversion_only]) > 1:
     parser.error('choose at most one of proofs-only, acceptance-only and conversion-only')
+if a.staged_cek and any(c.split(':')[0] == 'global' for c in a.cases):
+    parser.error('the named-environment staged CEK prototype does not yet support global')
 if a.acceptance_only and any(c.split(':')[0] != 'global' for c in a.cases):
     parser.error('acceptance-only currently covers global goldens')
 if a.proofs_only and a.profile_normalize:
@@ -42,8 +45,10 @@ if a.repeat < 1 or a.timeout <= 0 or a.max_rss_gib <= 0:
     parser.error('repeat, timeout and memory limit must be positive')
 if not re.fullmatch(r'[A-Za-z0-9_-]+', a.label):
     parser.error('label must contain only letters, digits, underscore or hyphen')
-if any(not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_.]*', n) for n in a.retain_choice_types + a.specialize_functions):
+if any(not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_.]*', n) for n in a.retain_choice_types):
     parser.error('retain-choice-types must be fully qualified Lean declaration names')
+if any(not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_.]*:[1-9][0-9]*', n) for n in a.specialize_functions):
+    parser.error('specialize-functions requires qualified NAME:INDEX entries')
 root=a.root.resolve()
 logs=root/'results'/a.label
 logs.mkdir(parents=True,exist_ok=True)
@@ -77,7 +82,7 @@ result={'label':a.label,'repeat':a.repeat,'timeout_seconds':a.timeout,'rss_limit
         'machine':{'system':platform.system(),'release':platform.release(),'architecture':platform.machine(),'logical_cpus':os.cpu_count()},
         'runner_sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         'acceptance_fixture_sha256':hashlib.sha256((Path(__file__).parent/'cardano/fixtures/GlobalAcceptance.lean').read_bytes()).hexdigest(),
-        'specialize_functions':a.specialize_functions,'retain_choice_types':a.retain_choice_types,'retain_constructor_choices':a.retain_constructor_choices,'reduce_before_arguments':a.reduce_before_arguments,
+        'staged_cek':a.staged_cek,'specialize_functions':a.specialize_functions,'retain_choice_types':a.retain_choice_types,'retain_constructor_choices':a.retain_constructor_choices,'reduce_before_arguments':a.reduce_before_arguments,
         'cpu_sample':a.sample,'profile_normalize':a.profile_normalize,'phase':('proof' if a.proofs_only else 'acceptance' if a.acceptance_only else 'conversion' if a.conversion_only else 'prep'),
         'allocator_env':{k:v for k,v in os.environ.items() if k.startswith('MIMALLOC_')},'runs':[]}
 
@@ -112,8 +117,12 @@ end WSC.Benchmark
   IO.println s!"PREP_METRICS optimize_ms={{(← IO.monoMsNow) - started}} hashcons={{o.hashConsCache.size}} contexts={{o.options.nextCtxId}} beta_cache={{o.memCache.betaLambdaCache.size}}"
 '''
         text = text.replace(prep_line, replacement)
+    if a.staged_cek:
+        text=text.replace('set_option maxHeartbeats 0', 'set_option plutuscore.stagedCek true\nset_option maxHeartbeats 0')
     if a.specialize_functions:
-        text=text.replace('set_option maxHeartbeats 0', 'attribute [local blaster_specialize] ' + ' '.join(a.specialize_functions) + '\nset_option maxHeartbeats 0')
+        for entry in a.specialize_functions:
+            fn,index=entry.split(':')
+            text=text.replace('set_option maxHeartbeats 0', f'attribute [local blaster_specialize {index}] {fn}\nset_option maxHeartbeats 0')
     if a.profile_normalize:
         text=text.replace('set_option maxHeartbeats 0', 'set_option blaster.profileNormalize true\nset_option maxHeartbeats 0')
     if a.reduce_before_arguments:

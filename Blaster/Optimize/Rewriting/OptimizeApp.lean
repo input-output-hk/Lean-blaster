@@ -16,30 +16,50 @@ open Lean Meta
 
 namespace Blaster.Optimize
 
-/-- Opt-in equation unfolding before argument normalization. This is intended
-    for interpreters whose arguments contain large environments. It never
-    introduces an assumed equation or changes the meaning of a definition. -/
-initialize specializeExt : LabelExtension ← registerLabelAttr `blaster_specialize "Unfold selected transparent functions before normalizing constructor arguments."
-syntax (name := _root_.Parser.Attr.blaster_specialize) "blaster_specialize" : attr
+/-- The argument is zero based internally, one based in the attribute syntax. -/
+initialize specializeExt : SimpleScopedEnvExtension (Name × Nat) (NameMap Nat) ←
+  registerSimpleScopedEnvExtension {
+    initial := {}
+    addEntry := fun state (name, index) => state.insert name index
+  }
+syntax (name := _root_.Parser.Attr.blaster_specialize) "blaster_specialize" num : attr
 
-/-- Only enter the existing equation body when all explicit operands already
-    have known outer constructors. Resolve assignment aliases without traversing
-    their fields; beta reduction uses the optimizer's scoped assignments. -/
-partial def specializeApp? (f : Expr) (args : Array Expr) : TranslateEnvT (Option BetaLambdaResult) := do
+initialize registerBuiltinAttribute {
+  name := `blaster_specialize
+  descr := "Unfold before argument normalization when the selected argument has a known constructor (one based, including implicit arguments)."
+  applicationTime := .afterCompilation
+  add := fun name stx kind => do
+    let some index := stx[1].isNatLit? | throwError "blaster_specialize expects an argument index"
+    if index == 0 then throwError "blaster_specialize argument indices start at 1"
+    let info ← getConstInfo name
+    if index > info.type.getNumHeadForalls then
+      throwError "blaster_specialize argument index exceeds the declaration's arity"
+    specializeExt.add (name, index - 1) kind
+  erase := fun name => modifyEnv fun env => specializeExt.modifyState env (·.erase name)
+}
+
+def specializationArg? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Nat) := do
   let Expr.const n _ := f | return none
-  unless (specializeExt.getState (← getEnv)).contains n do return none
+  let some index := (specializeExt.getState (← getEnv)).find? n | return none
   unless ← isOptimizeRecCall do return none
   if ← isOpaqueFunExpr f args then return none
   let pInfo ← getFunEnvInfo f
-  unless args.size == pInfo.paramsInfo.size do return none
-  let args ← args.mapM resolveAlias
-  unless ← allExplicitParamsAreCtor f args do return none
+  unless args.size == pInfo.paramsInfo.size && index < args.size do return none
+  return some index
+
+/-- Demand only the annotated argument's outer constructor. No fields or other
+    operands are normalized here. The original equation body and existing scoped
+    beta substitution implement the reduction. A poor argument choice can cost
+    time; it never supplies an assumed equation or changes the result. -/
+partial def specializeApp? (f : Expr) (args : Array Expr) : TranslateEnvT (Option BetaLambdaResult) := do
+  let some index ← specializationArg? f args | return none
+  let discr ← resolveAlias args[index]!
+  unless ← isNormConstructor discr do return none
   let some body ← getFunBody f | return none
-  betaLambdaEnv body args
+  betaLambdaEnv body (args.set! index discr)
 where
   resolveAlias (e : Expr) : TranslateEnvT Expr := do
     if e.isMVar then resolveAlias (← getMVarValue e) else return e
-
 
 /-- Given application `f x₁ ... xₙ`, perform the following:
      - When `isOpaqueRecFun f #[x₁ ... xₙ] ∧ allExplicitParamsAreCtor f #[x₁ ... xₙ]

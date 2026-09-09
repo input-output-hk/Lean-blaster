@@ -147,6 +147,10 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
          else if let some r ← specializeApp? f args then
            setIsAppArg prevInApp
            optimizeExprAux (.InitOptimizeExpr r.betaReduced r.prevMVarIdDecls :: xs)
+         else if let some argIdx ← specializationArg? f args then
+           setIsAppArg true
+           optimizeExprAux (.InitOptimizeExpr args[argIdx]! ::
+             .SpecializeWaitForArg f args argIdx startIdx pInfo prevInApp :: xs)
          -- try to apply funPropagation to avoid optimizing ite/match multiple times
          else if let some r ← funPropagation? f args (reorderArgs := true) (resolveArgs := true) prevInApp then
            optimizeExprAux (r :: xs)
@@ -158,6 +162,14 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
                  then optimizeExprAux (.InitOptimizeExpr args[idx]! :: stack)
                  else optimizeExprAux (.AppOptimizeImplicitArgs f args (idx + 1) startIdx stopIdx pInfo prevInApp :: xs)
             else optimizeExprAux (.AppOptimizeImplicitArgs f args (idx + 1) startIdx stopIdx pInfo prevInApp :: xs)
+
+  | .SpecializeReady f args startIdx pInfo prevInApp :: xs =>
+       if let some r ← specializeApp? f args then
+         setIsAppArg prevInApp
+         optimizeExprAux (.InitOptimizeExpr r.betaReduced r.prevMVarIdDecls :: xs)
+       else if let some r ← funPropagation? f args (reorderArgs := true) (resolveArgs := true) prevInApp then
+         optimizeExprAux (r :: xs)
+       else optimizeExprAux (.AppOptimizeExplicitArgs f args startIdx args.size pInfo none prevInApp :: xs)
 
   | .AppOptimizeExplicitArgs f args idx stopIdx pInfo mInfo prevInApp :: xs =>
        if idx ≥ stopIdx then

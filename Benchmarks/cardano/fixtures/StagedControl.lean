@@ -4,7 +4,7 @@ import Tests.Benchmarks.OptimizeTestUtils
 open PlutusCore.UPLC.CekMachine PlutusCore.UPLC.CekValue
 open PlutusCore.UPLC.Builtins PlutusCore.UPLC.Term
 
-namespace CardanoStaticControl
+namespace CardanoStagedControl
 set_option maxHeartbeats 0
 
 -- These equations are kernel checked against the pinned interpreter. The
@@ -35,38 +35,63 @@ theorem variable_fuel_two (sv : PlutusCore.Default.BuiltinSemanticsVariant) (v :
       .Halt v := by
   simp [runSteps, step, ifBoundOtherwiseError]
 
-attribute [local blaster_specialize 2] ifBoundOtherwiseError step
-attribute [local blaster_specialize 3] runSteps
+attribute [local blaster_specialize 2] PlutusCore.UPLC.StagedCek.eval PlutusCore.UPLC.StagedCek.ret
+attribute [local blaster_specialize 1] PlutusCore.UPLC.StagedCek.lookupValue
 
-#testOptimize ["StaticCekShadowing"]
+#testOptimize ["StagedCekShadowing"]
   (fun v discarded : CekValue =>
-    runSteps .defaultFunSemanticsVariantA
+    PlutusCore.UPLC.StagedCek.run .defaultFunSemanticsVariantA
       (.Eval [] (.NonEmptyEnvironment (.NonEmptyEnvironment .EmptyEnvironment "x" discarded) "x" v)
         (.Var "x")) 2) ===>
   (fun v _ : CekValue => State.Halt v)
 
-#testOptimize ["StaticCekMissingName"]
-  (fun v : CekValue => runSteps .defaultFunSemanticsVariantA
+#testOptimize ["StagedCekMissingName"]
+  (fun v : CekValue => PlutusCore.UPLC.StagedCek.run .defaultFunSemanticsVariantA
     (.Eval [] (.NonEmptyEnvironment .EmptyEnvironment "other" v) (.Var "x")) 2) ===>
   (fun _ : CekValue => State.Error)
 
-#testOptimize ["StaticCekLookupFuel"]
-  (fun v : CekValue => runSteps .defaultFunSemanticsVariantA
+#testOptimize ["StagedCekLookupFuel"]
+  (fun v : CekValue => PlutusCore.UPLC.StagedCek.run .defaultFunSemanticsVariantA
     (.Eval [] (.NonEmptyEnvironment .EmptyEnvironment "x" v) (.Var "x")) 1) ===>
   (fun _ : CekValue => State.Error)
 
-#testOptimize ["StaticCekCapturedEnvironment"]
-  (fun v other : CekValue => runSteps .defaultFunSemanticsVariantA
+#testOptimize ["StagedCekCapturedEnvironment"]
+  (fun v other : CekValue => PlutusCore.UPLC.StagedCek.run .defaultFunSemanticsVariantA
     (.Return [Frame.RightApplicationOfValue
       (.VLam "argument" (.Var "captured") (.NonEmptyEnvironment .EmptyEnvironment "captured" v))]
       other) 3) ===>
   (fun v _ : CekValue => State.Halt v)
 
-#testOptimize ["StaticCekHaltAtZeroFuel"]
-  (fun v : CekValue => runSteps .defaultFunSemanticsVariantA (.Halt v) 0) ===>
+#testOptimize ["StagedCekHaltAtZeroFuel"]
+  (fun v : CekValue => PlutusCore.UPLC.StagedCek.run .defaultFunSemanticsVariantA (.Halt v) 0) ===>
   (fun v : CekValue => State.Halt v)
 
-#testOptimize ["StaticCekErrorAtZeroFuel"]
-  (runSteps .defaultFunSemanticsVariantA .Error 0) ===> State.Error
+#testOptimize ["StagedCekErrorAtZeroFuel"]
+  (PlutusCore.UPLC.StagedCek.run .defaultFunSemanticsVariantA .Error 0) ===> State.Error
 
-end CardanoStaticControl
+#testOptimize ["StagedCekApplyNonFunction"]
+  (fun c : Const => PlutusCore.UPLC.StagedCek.run .defaultFunSemanticsVariantA
+    (.Return [Frame.RightApplicationOfValue (.VCon c)] (.VCon .Unit)) 3) ===>
+  (fun _ : Const => State.Error)
+
+#testOptimize ["StagedCekWrongForceTag"]
+  (PlutusCore.UPLC.StagedCek.run .defaultFunSemanticsVariantA
+    (.Return [Frame.ForceFrame] (.VBuiltin .AddInteger [] (.One .ArgV))) 3) ===>
+  State.Error
+
+#testOptimize ["StagedCekConstructorFallback"] (norm-result: 1)
+  (PlutusCore.UPLC.StagedCek.run .defaultFunSemanticsVariantA
+    (.Eval [] .EmptyEnvironment (.Constr 0 [])) 2) ===>
+  State.Halt (.VConstr 0 [])
+
+#testOptimize ["StagedCekApplication"]
+  (fun c : Const => PlutusCore.UPLC.StagedCek.run .defaultFunSemanticsVariantA
+    (.Eval [] .EmptyEnvironment (.Apply (.Lam "x" (.Var "x")) (.Const c))) 7) ===>
+  (fun c : Const => State.Halt (.VCon c))
+
+#testOptimize ["StagedCekApplicationExhaustion"]
+  (fun c : Const => PlutusCore.UPLC.StagedCek.run .defaultFunSemanticsVariantA
+    (.Eval [] .EmptyEnvironment (.Apply (.Lam "x" (.Var "x")) (.Const c))) 6) ===>
+  (fun _ : Const => State.Error)
+
+end CardanoStagedControl

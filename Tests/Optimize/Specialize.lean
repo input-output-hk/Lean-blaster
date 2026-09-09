@@ -18,7 +18,6 @@ run_cmd liftTermElabM do
     (← `(fun x y : Nat => lookup [("x", x), ("x", y)] "x")),
     (← `(fun x y : Nat => lookup [("other", x), ("x", y)] "x")),
     (← `(fun x : Nat => lookup [("other", x)] "missing")),
-    (← `(fun key : String => lookup [("x", 3), ("y", 5)] key)),
     (← `(fun b : Bool => lookup [(if b then "x" else "y", 3), ("x", 5)] "x")),
     (← `(fun b : Bool => (lookup [("x", if b then 1 else 2)] "x",
                          lookup [("x", if b then 2 else 1)] "x"))),
@@ -30,15 +29,32 @@ run_cmd liftTermElabM do
     let stx := inputs[i]!
     let input ← Tests.parseTerm stx
     let expected ← (Optimize.main input).run' (default : TranslateEnv)
-    let env := specializeExt.modifyState (← getEnv) (·.push ``lookup)
+    let env := specializeExt.modifyState (← getEnv) (·.insert ``lookup 0)
     let actual ← withEnv env <| (Optimize.main input).run' (default : TranslateEnv)
     unless ← isDefEq actual expected do
-      throwError "specialization changed normalization: {input}"
+      throwError "specialization changed normalization: {input}\nactual: {actual}\nexpected: {expected}"
     unless i >= 3 || (← isDefEq actual input) do
       throwError "specialization is not definitionally equal to the lookup: {input}"
 
+-- This case intentionally specializes farther than the ordinary optimizer.
+-- Check the explicit residual against Lean's kernel, then against Blaster.
+theorem symbolic_key_correct (key : String) :
+    lookup [("x", 3), ("y", 5)] key =
+      (Blaster.dite' ("x" = key) (fun _ => some 3)
+        (fun _ => Blaster.dite' ("y" = key) (fun _ => some 5) (fun _ => none))) := by
+  have h : lookup [("x", 3), ("y", 5)] key =
+      (if "x" = key then some 3 else if "y" = key then some 5 else none) := by
+    simp [lookup, eq_comm]
+  simpa only [Blaster.ite_to_dite'_equiv] using h
+
 section
-attribute [local blaster_specialize] lookup
+attribute [local blaster_specialize 1] lookup
+
+#testOptimize ["SpecializedSymbolicKey"] (norm-result: 1)
+  (fun key : String => lookup [("x", 3), ("y", 5)] key) ===>
+  (fun key : String => Blaster.dite' ("x" = key) (fun _ => some 3)
+    (fun _ => Blaster.dite' ("y" = key) (fun _ => some 5) (fun _ => none)))
+
 
 #testOptimize ["SpecializedLookupShadowing"]
   (fun x y : Nat => lookup [("x", x), ("x", y)] "x") ===>
@@ -51,6 +67,23 @@ attribute [local blaster_specialize] lookup
 
 #blaster (gen-cex: 0) (solve-result: 1)
   [∀ x y : Nat, lookup [("x", x), ("x", y)] "x" = some y]
+end
+
+-- The selected fuel may be known while the payload remains symbolic. Repeated
+-- swaps exercise assignment restoration and simultaneous substitution.
+def swapFuel (fuel : Nat) (x y : Nat) : Nat × Nat :=
+  match fuel with
+  | 0 => (x, y)
+  | n + 1 => swapFuel n y x
+
+section
+attribute [local blaster_specialize 1] swapFuel
+#testOptimize ["SpecializedFuelSymbolicPayload"]
+  (fun x y : Nat => swapFuel 12 x y) ===> (fun x y : Nat => (x, y))
+#testOptimize ["SpecializedFuelOddSwaps"]
+  (fun x y : Nat => swapFuel 13 x y) ===> (fun x y : Nat => (y, x))
+#blaster (gen-cex: 0) (solve-result: 1)
+  [∀ x y : Nat, swapFuel 13 x y = (x, y)]
 end
 
 -- A local annotation must not escape its section.
