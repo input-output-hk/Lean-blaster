@@ -269,6 +269,23 @@ def natModToZeroExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := d
      return none
   | none => return none
 
+/-- Factor a shared multiplicand out of a remainder using
+    `Nat.mul_mod_mul_left`. The identity holds even for a zero factor or divisor.
+    Match either orientation because multiplication normalization can reorder it. -/
+private def natModCommonFactor? (f op1 op2 : Expr) : TranslateEnvT (Option Expr) := do
+  let some (a, b) := natMul? op1 | return none
+  let some (c, d) := natMul? op2 | return none
+  let factorAndRest :=
+    if exprEq a c then some (a, b, d)
+    else if exprEq a d then some (a, b, c)
+    else if exprEq b c then some (b, a, d)
+    else if exprEq b d then some (b, a, c)
+    else none
+  let some (factor, dividend, divisor) := factorAndRest | return none
+  setRestart
+  let remainder ← mkApp2Expr f dividend divisor
+  return some (← mkApp2Expr (← mkNatMulOp) factor remainder)
+
 /-- Apply the following simplification/normalization rules on `Nat.mod` :
      - n % 0 ==> n
      - n % 1 ==> 0
@@ -277,6 +294,7 @@ def natModToZeroExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) := d
      - (N1 * n) % N2 ==> 0 (if N1 % N2 = 0)
      - n1 % n2 ==> 0 (if n1 =ₚₜᵣ n2)
      - (m * n) % m | (n * m) % m ==> 0
+     - (z * x) % (z * y) ==> z * (x % y) (in either product orientation)
    Assume that f = Expr.const ``Nat.mod.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Nat.mod` expected at this stage)
 -/
@@ -293,6 +311,7 @@ def optimizeNatMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  | _, nv2 =>
    if let some r ← cstModProp? op1 nv2 then return r
    if let some r ← natModToZeroExpr? op1 op2 then return r
+   if let some r ← natModCommonFactor? f op1 op2 then return r
    mkApp2Expr f op1 op2
 
  where
