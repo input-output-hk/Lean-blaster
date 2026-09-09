@@ -1,7 +1,7 @@
 import Blaster
 import Tests.Utils
 
-namespace Tests.ProofIrrelevance
+namespace Tests.Issue225
 
 structure ProofBox where
   value : Nat
@@ -29,4 +29,4 @@ theorem boxes_equal :
 #blaster (gen-cex: 0) (solve-result: 1)
   [[ProofBox.mk 7 (.inl .intro)] ≠ [ProofBox.mk 7 (.inr .intro)]]
 
-end Tests.ProofIrrelevance
+end Tests.Issue225
