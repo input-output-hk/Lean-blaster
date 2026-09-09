@@ -3,7 +3,18 @@ import Blaster.Optimize.Rewriting.NormalizeMatch
 import Blaster.Optimize.Rewriting.OptimizeMatch
 
 open Lean Meta Elab
+
 namespace Blaster.Optimize
+
+initialize keepChoicesExt : LabelExtension ← registerLabelAttr `blaster_keep_choices "Keep symbolic choices inside constructors of the labelled inductive type or constructor."
+syntax (name := _root_.Parser.Attr.blaster_keep_choices) "blaster_keep_choices" : attr
+
+/-- A selected datatype also keeps choices in containers parameterized by it,
+    such as `List Value`, without affecting `List Frame`. -/
+private partial def hasKeptChoiceType (kept : Array Name) (e : Expr) : Bool :=
+  match e.getAppFn with
+  | .const n _ => kept.contains n || e.getAppArgs.any (hasKeptChoiceType kept)
+  | _ => false
 
 /-- Given application `f x₁ ... xₙ`, apply the following normalization rules:
      - When `f := Blaster.dite' c (fun h : c => t₁) (fun h : ¬ c => t₂)`
@@ -95,7 +106,7 @@ def normChoiceApplication?
           ...
           | p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₚ₎ => fn g₍ₘ₎₍₁₎, ..., g₍ₘ₎₍ₙ₎`
 
-    with:
+    with (unless fn is a constructor selected for choice retention):
       propagate fn e₁ ... eₙ :=
         isCtorExpr fn ∨
         allExplicitParamsAreCtor fn e₁ ... eₙ (funPropagation := true) ∨
@@ -145,7 +156,12 @@ def funPropagation?
     @[always_inline, inline]
     propagate (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT Bool := do
       if !(← hasMatchITEArgs args) then return false
-      else if (← isCtorName n) then return true
+      else if (← isCtorName n) then
+        let kept := keepChoicesExt.getState (← getEnv)
+        if kept.isEmpty then return true
+        let .ctorInfo info ← getConstEnvInfo n | return true
+        return !(kept.contains n || kept.contains info.induct ||
+          (args.take info.numParams).any (hasKeptChoiceType kept))
       else if (← allExplicitParamsAreCtor f args (funPropagation := true)) then return true
       else
         match n with
