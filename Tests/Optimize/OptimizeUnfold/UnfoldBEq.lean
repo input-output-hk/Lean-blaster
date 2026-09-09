@@ -5,6 +5,9 @@ open Lean Elab Command Term
 
 namespace Tests.UnfoldBEq
 
+-- Quantifiers over arbitrary α must remain even when the body becomes False:
+-- α may be empty, so replacing the whole quantified formula by False is unsound.
+
 /-! ## Test objectives to validate `BEq.beq unfolding -/
 
 /-! Test cases to validate unfolding of `BEq.beq only when reduced to a constant value or via rewriting. -/
@@ -92,7 +95,8 @@ variable (c : Nat)
 #testOptimize [ "UnfoldBEq_26" ] ∀ (α : Type), [BEq α] → (List.nil : List α) != List.nil ===> False
 
 -- ∀ (α : Type) (x y z : α), [BEq α] → List.nil == [x, y, z] ===> False
-#testOptimize [ "UnfoldBEq_27" ] ∀ (α : Type) (x y z : α), [BEq α] → List.nil == [x, y, z] ===> False
+#testOptimize [ "UnfoldBEq_27" ] ∀ (α : Type) (x y z : α), [BEq α] → List.nil == [x, y, z] ===>
+  ∀ (α : Type) (x y z : α), False
 
 -- ∀ (α : Type) (x y z : α), [BEq α] → List.nil != [x, y, z] ===> True
 #testOptimize [ "UnfoldBEq_28" ] ∀ (α : Type) (x y z : α), [BEq α] → List.nil != [x, y, z] ===> True

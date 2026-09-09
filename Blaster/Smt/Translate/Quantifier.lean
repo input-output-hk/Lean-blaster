@@ -1368,8 +1368,10 @@ def translateForAll
      let decl ← v.fvarId!.getEnvDecl
      if (← isPropEnv decl.type) then
        updatePremises (← termTranslator decl.type)
-     -- need to filter out class constraints
-     else if !(← isClassConstraintExpr decl.type) then
+     -- Erasing a class binder is valid only if its domain is nonempty.
+     -- `Inhabited α`, for example, must retain its membership qualifier:
+     -- otherwise an empty α spuriously satisfies `¬ (∀ _ : Inhabited α, False)`.
+     else if !(← isClassConstraintExpr decl.type) || !(← isSortOrInhabited decl.type) then
        translateQuantifier v decl.type termTranslator
    let fbody ← termTranslator b
    genForAllTerm fbody
