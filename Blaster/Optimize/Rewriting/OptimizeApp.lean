@@ -16,6 +16,32 @@ open Lean Meta
 
 namespace Blaster.Optimize
 
+/-- Opt-in equation unfolding before argument normalization. This is intended
+    for interpreters whose arguments contain large environments. It never
+    introduces an assumed equation or changes the meaning of a definition. -/
+initialize specializeExt : LabelExtension ← registerLabelAttr `blaster_specialize "Unfold selected transparent recursive functions before normalizing constructor arguments."
+syntax (name := _root_.Parser.Attr.blaster_specialize) "blaster_specialize" : attr
+
+/-- Only enter the existing equation body when all explicit operands already
+    have known outer constructors. Resolve assignment aliases without traversing
+    their fields; beta reduction uses the optimizer's scoped assignments. -/
+partial def specializeApp? (f : Expr) (args : Array Expr) : TranslateEnvT (Option BetaLambdaResult) := do
+  let Expr.const n _ := f | return none
+  unless (specializeExt.getState (← getEnv)).contains n do return none
+  unless ← isOptimizeRecCall do return none
+  if ← isOpaqueFunExpr f args then return none
+  unless ← isRecursiveFun n do return none
+  let pInfo ← getFunEnvInfo f
+  unless args.size == pInfo.paramsInfo.size do return none
+  let args ← args.mapM resolveAlias
+  unless ← allExplicitParamsAreCtor f args do return none
+  let some body ← getFunBody f | return none
+  betaLambdaEnv body args
+where
+  resolveAlias (e : Expr) : TranslateEnvT Expr := do
+    if e.isMVar then resolveAlias (← getMVarValue e) else return e
+
+
 /-- Given application `f x₁ ... xₙ`, perform the following:
      - When `isOpaqueRecFun f #[x₁ ... xₙ] ∧ allExplicitParamsAreCtor f #[x₁ ... xₙ]
           - When some auxFun ← unfoldOpaqueFunDef f #[x₁ ... xₙ]
