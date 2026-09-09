@@ -152,7 +152,7 @@ theorem seize_arm_rejected :
 end WSC.Benchmark
 '''
             if budget >= 1453:
-                text += '''\nnamespace WSC.Benchmark\n-- Same accepting golden as the independently executed reference gate.\ntheorem nonmember_accepted :\n    PlutusCore.UPLC.Utils.isSuccessful (appliedGlobalPerf.prop Acceptance.nonmemberCS Acceptance.nonmemberCtx) := by\n  blaster (timeout: 30)\nend WSC.Benchmark\n'''
+                text += '''\nnamespace WSC.Benchmark\n-- Same accepting golden as the independently executed reference gate.\ntheorem nonmember_accepted :\n    PlutusCore.UPLC.Utils.isSuccessful (appliedGlobalPerf.prop Acceptance.nonmemberCS Acceptance.nonmemberCtx) := by\n  blaster (timeout: 30)\ntheorem nonmember_returns_unit :\n    Acceptance.outcome (appliedGlobalPerf.prop Acceptance.nonmemberCS Acceptance.nonmemberCtx) =\n      Acceptance.Outcome.unit := by\n  blaster (timeout: 30)\nend WSC.Benchmark\n'''
         else:
             text=(cwd/f'Tests/Scripts/{fixture}/Properties.lean').read_text()
             text=text.replace(f'import Tests.Scripts.{fixture}.{fixture}', 'import Tests.Benchmarks.CardanoPerfCase')
@@ -224,7 +224,7 @@ end WSC.Benchmark
                 try: row['profiles'].append(json.loads(line))
                 except json.JSONDecodeError:
                     row['profile_truncated']=True  # possible kill during the final write
-        row['phases'] = [{k:int(v) for k,v in re.findall(r'(\w+)=(\d+)',m[1])} for m in re.finditer(r'PREP_PHASE (.+)$',content,re.M)]
+        row['phases'] = [] if a.proofs_only or a.acceptance_only else [{k:int(v) for k,v in re.findall(r'(\w+)=(\d+)',m[1])} for m in re.finditer(r'PREP_PHASE (.+)$',content,re.M)]
         row['acceptance'] = re.findall(r'CARDANO_ACCEPTANCE (.+)$',content,re.M)
         if not a.proofs_only:
             for m in re.finditer(r'PREP_METRICS (.+)',content):

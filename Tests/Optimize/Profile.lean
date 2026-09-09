@@ -36,7 +36,19 @@ set_option blaster.profileNormalize true
 #blaster (gen-cex: 0) (solve-result: 1) [∀ x : Nat, x = 0]
 end
 
--- A later invocation must not inherit an earlier invocation's diagnostic ref.
+-- Cleanup must happen even when normalization throws, and a following call in
+-- the same environment must allocate independent diagnostic state.
 run_cmd liftTermElabM do
-  let (_, env) ← (Optimize.main (mkConst ``True)).run (default : TranslateEnv)
-  unless env.optEnv.options.profile?.isNone do throwError "profile state leaked across invocations"
+  withOptions (fun opts => opts.setBool `blaster.profileNormalize true) do
+    let check : TranslateEnvT Unit := do
+      let mut failed := false
+      try
+        discard <| Optimize.main (.bvar 0)
+      catch _ => failed := true
+      unless failed do throwError "expected normalization of a loose bvar to fail"
+      unless (← get).optEnv.options.profile?.isNone do
+        throwError "profile state leaked after an exception"
+      discard <| Optimize.main (mkConst ``True)
+      unless (← get).optEnv.options.profile?.isNone do
+        throwError "profile state leaked after successful normalization"
+    check.run' (default : TranslateEnv)
