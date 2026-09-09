@@ -79,7 +79,7 @@ attribute [local blaster_specialize 1] PlutusCore.UPLC.StagedCek.lookupValue
     (.Return [Frame.ForceFrame] (.VBuiltin .AddInteger [] (.One .ArgV))) 3) ===>
   State.Error
 
-#testOptimize ["StagedCekConstructorFallback"] (norm-result: 1)
+#testOptimize ["StagedCekConstructor"] (norm-result: 1)
   (PlutusCore.UPLC.StagedCek.run .defaultFunSemanticsVariantA
     (.Eval [] .EmptyEnvironment (.Constr 0 [])) 2) ===>
   State.Halt (.VConstr 0 [])
@@ -93,5 +93,33 @@ attribute [local blaster_specialize 1] PlutusCore.UPLC.StagedCek.lookupValue
   (fun c : Const => PlutusCore.UPLC.StagedCek.run .defaultFunSemanticsVariantA
     (.Eval [] .EmptyEnvironment (.Apply (.Lam "x" (.Var "x")) (.Const c))) 6) ===>
   (fun _ : Const => State.Error)
+
+#testOptimize ["StagedCekConstructorFieldOrder"] (norm-result: 1)
+  (PlutusCore.UPLC.StagedCek.run .defaultFunSemanticsVariantA
+    (.Return [Frame.ConstructorArgument 0 [.VCon (.Integer 1)] [] .EmptyEnvironment] (.VCon (.Integer 2))) 2) ===>
+  State.Halt (.VConstr 0 [.VCon (.Integer 1), .VCon (.Integer 2)])
+
+#testOptimize ["StagedCekCaseApplicationOrder"] (norm-result: 1)
+  (PlutusCore.UPLC.StagedCek.run .defaultFunSemanticsVariantA
+    (.Eval [] .EmptyEnvironment (.Case (.Constr 0 [.Const (.Integer 7), .Const (.Integer 9)])
+      [.Lam "a" (.Lam "b" (.Var "a"))])) 20) ===>
+  State.Halt (.VCon (.Integer 7))
+
+#testOptimize ["StagedCekCaseOutOfBounds"]
+  (PlutusCore.UPLC.StagedCek.run .defaultFunSemanticsVariantA
+    (.Return [Frame.CaseScrutinee [.Const .Unit] .EmptyEnvironment] (.VConstr 1 [])) 4) ===> State.Error
+
+#testOptimize ["StagedCekPrimitiveCase"]
+  (PlutusCore.UPLC.StagedCek.run .defaultFunSemanticsVariantA
+    (.Return [Frame.CaseScrutinee [.Const .Unit] .EmptyEnvironment] (.VCon (.Bool false))) 3) ===>
+  State.Halt (.VCon .Unit)
+
+#testOptimize ["StagedCekPrimitiveCaseArity"]
+  (PlutusCore.UPLC.StagedCek.run .defaultFunSemanticsVariantA
+    (.Return [Frame.CaseScrutinee [.Const .Unit] .EmptyEnvironment] (.VCon (.Bool true))) 3) ===> State.Error
+
+#testOptimize ["StagedCekNegativeCaseIndex"]
+  (PlutusCore.UPLC.StagedCek.run .defaultFunSemanticsVariantA
+    (.Return [Frame.CaseScrutinee [.Const .Unit] .EmptyEnvironment] (.VCon (.Integer (-1)))) 3) ===> State.Error
 
 end CardanoStagedControl

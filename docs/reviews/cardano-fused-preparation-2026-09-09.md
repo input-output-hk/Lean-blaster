@@ -11,9 +11,9 @@ function restrictions, and the existing recursive-unfolding option are respected
 The attribute introduces no assumed equations. Its scope can be local.
 
 The companion [PlutusCore PR #44](https://github.com/input-output-hk/PlutusCoreBlaster/pull/44) exposes `eval` and `ret` separately instead
-of building an intermediate CEK state for each transition. The indexed version
-covers every transition; the legacy named pin retains the original interpreter
-for constructor/case paths. Each has a kernel proof of equality with `runSteps`
+of building an intermediate CEK state for each transition. Both versions now cover every transition. The earlier named adapter retained
+the original interpreter for constructor/case paths; that limitation was removed
+after secondary benchmarks exposed the fallback cost. Each has a kernel proof of equality with `runSteps`
 for all states, fuel, and builtin semantics variants. The proof uses only the
 standard `propext`, `Classical.choice`, and `Quot.sound` axioms.
 
@@ -52,7 +52,11 @@ as successful only when the command reports `PREP_INTERPRETER staged=true`.
 Three early global scouts had an unwired WSC option and measured the reference
 path despite their labels; they are excluded from fused performance evidence.
 
-## Paired results (three repetitions per arm)
+## Initial paired results (three repetitions per arm)
+
+These observations used the initial named adapter. Its full constructor/case
+extension is measured separately below; the indexed global implementation is
+unchanged.
 
 | Workload / fuel | Reference prep | Fused prep | Prep speedup | Reference prep + proofs | Fused prep + proofs |
 |---|---:|---:|---:|---:|---:|
@@ -90,7 +94,7 @@ and supplied reconstruction patches.
 ## Correctness gates
 
 - The full native Blaster test suite passes on the specialization branch.
-- Eleven named and seventeen indexed CEK normalization checks pass, including
+- Seventeen named and seventeen indexed CEK normalization checks pass, including
   capture, field/application order, missing bindings, invalid tags and case
   indices, terminal states, and exact exhaustion boundaries.
 - The indexed interpreter's reference equality is kernel checked, as is the

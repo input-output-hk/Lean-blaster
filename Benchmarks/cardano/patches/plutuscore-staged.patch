@@ -1,11 +1,11 @@
 --- /dev/null
 +++ b/PlutusCore/UPLC/StagedCek.lean
-@@ -0,0 +1,99 @@
+@@ -0,0 +1,202 @@
 +import PlutusCore.UPLC.CekMachine
 +
 +/-! Experimental fusion of the CEK Eval/Return loop. Each recursive call consumes
-+exactly one original transition. Constructor/case control falls back to runSteps
-+with the current state and the full remaining fuel. -/
++exactly one original transition. Equivalence for every state and fuel is proved
++in `StagedCekProofs`. -/
 +namespace PlutusCore.UPLC.StagedCek
 +open PlutusCore.Default CekMachine CekValue Term Builtins
 +open BuiltinFunctions.Evaluate
@@ -35,7 +35,11 @@
 +      | .Apply f a => eval sv n (.LeftApplicationToTerm a env :: s) env f
 +      | .Builtin b => ret sv n s (.VBuiltin b [] (expectedArgs b))
 +      | .Error => .Error
-+      | .Constr .. | .Case .. => runSteps sv (.Eval s env t) (n + 1)
++      | .Constr i ts =>
++          match ts with
++          | body :: rest => eval sv n (.ConstructorArgument i [] rest env :: s) env body
++          | [] => ret sv n s (.VConstr i [])
++      | .Case body branches => eval sv n (.CaseScrutinee branches env :: s) env body
 +  termination_by fuel
 +
 +  def ret (sv : BuiltinSemanticsVariant) (fuel : Nat)
@@ -83,8 +87,107 @@
 +                  | none => .Error
 +              | _ => .Error
 +          | _ => .Error
-+      | .ConstructorArgument .. :: _ | .CaseScrutinee .. :: _ =>
-+          runSteps sv (.Return s v) (n + 1)
++      | .ConstructorArgument i vs ts env :: rest =>
++          match ts with
++          | body :: remaining => eval sv n (.ConstructorArgument i (v :: vs) remaining env :: rest) env body
++          | [] => ret sv n rest (.VConstr i (List.reverse (v :: vs)))
++      | .CaseScrutinee Ms ρ :: rest =>
++          match v with
++          | CekValue.VConstr i Vs =>
++               match Ms[i]? with
++               | some mi => eval sv n (step.folding Vs rest) ρ mi
++               | none => .Error
++
++          | CekValue.VCon (Const.Integer value) =>
++               if 0 ≤ value && value.toNat < Ms.length then
++                 match Ms[value.toNat]? with
++                 | some mi => eval sv n rest ρ mi
++                 | none => .Error
++               else .Error
++
++          | CekValue.VCon (Const.Bool false) =>
++               if Ms.length == 1 || Ms.length == 2 then
++                 match Ms[0]? with
++                 | some mi => eval sv n rest ρ mi
++                 | none => .Error
++               else .Error
++
++          | CekValue.VCon (Const.Bool true) =>
++               if Ms.length == 2 then
++                 match Ms[1]? with
++                 | some mi => eval sv n rest ρ mi
++                 | none => .Error
++               else .Error
++
++          | CekValue.VCon Const.Unit =>
++                if Ms.length == 1 then
++                  match Ms[0]? with
++                  | some mi => eval sv n rest ρ mi
++                  | none => .Error
++                else .Error
++
++          | CekValue.VCon (Const.Pair p) =>
++                if Ms.length == 1 then
++                  let Vs := [CekValue.VCon p.1, CekValue.VCon p.2]
++                  match Ms[0]? with
++                  | some mi => eval sv n (step.folding Vs rest) ρ mi
++                  | none => .Error
++                else .Error
++
++          | CekValue.VCon (Const.PairData p) =>
++                if Ms.length == 1 then
++                  let Vs := [CekValue.VCon (Const.Data p.1), CekValue.VCon (Const.Data p.2)]
++                  match Ms[0]? with
++                  | some mi => eval sv n (step.folding Vs rest) ρ mi
++                  | none => .Error
++                else .Error
++
++          | CekValue.VCon (Const.ConstList (c :: cs)) =>
++                if Ms.length == 1 || Ms.length == 2 then
++                  let Vs := [CekValue.VCon c, CekValue.VCon (Const.ConstList cs)]
++                  match Ms[0]? with
++                  | some mi => eval sv n (step.folding Vs rest) ρ mi
++                  | none => .Error
++                else .Error
++
++          | CekValue.VCon (Const.ConstList []) =>
++                if Ms.length == 2 then
++                  match Ms[1]? with
++                  | some mi => eval sv n rest ρ mi
++                  | none => .Error
++                else .Error
++
++          | CekValue.VCon (Const.ConstDataList (c :: cs)) =>
++                if Ms.length == 1 || Ms.length == 2 then
++                  let Vs := [CekValue.VCon (.Data c), CekValue.VCon (Const.ConstDataList cs)]
++                  match Ms[0]? with
++                  | some mi => eval sv n (step.folding Vs rest) ρ mi
++                  | none => .Error
++                else .Error
++
++          | CekValue.VCon (Const.ConstDataList []) =>
++                if Ms.length == 2 then
++                  match Ms[1]? with
++                  | some mi => eval sv n rest ρ mi
++                  | none => .Error
++                else .Error
++
++          | CekValue.VCon (Const.ConstPairDataList (c :: cs)) =>
++                if Ms.length == 1 || Ms.length == 2 then
++                  let Vs := [CekValue.VCon (.PairData c), CekValue.VCon (Const.ConstPairDataList cs)]
++                  match Ms[0]? with
++                  | some mi => eval sv n (step.folding Vs rest) ρ mi
++                  | none => .Error
++                else .Error
++
++          | CekValue.VCon (Const.ConstPairDataList []) =>
++                if Ms.length == 2 then
++                  match Ms[1]? with
++                  | some mi => eval sv n rest ρ mi
++                  | none => .Error
++                else .Error
++
++          | _ => .Error
 +  termination_by fuel
 +end
 +
@@ -102,7 +205,7 @@
 +end PlutusCore.UPLC.StagedCek
 --- /dev/null
 +++ b/PlutusCore/UPLC/StagedCekProofs.lean
-@@ -0,0 +1,93 @@
+@@ -0,0 +1,102 @@
 +import PlutusCore.UPLC.StagedCek
 +
 +namespace PlutusCore.UPLC.StagedCek
@@ -135,10 +238,11 @@
 +  | succ n ih =>
 +      constructor
 +      · intro s env t
-+        cases t <;> simp only [eval]
++        cases t <;> try simp only [eval]
 +        all_goals try simp only [ih.1, ih.2]
 +        case Var x =>
 +          simpa only [runSteps, step] using (lookup_correct sv n s env x)
++        case Constr i ts => cases ts <;> simp only [eval, ih.1, ih.2, runSteps, step]
 +        all_goals first | rfl | simp [runSteps, step]
 +      · intro s v
 +        cases s with
@@ -175,11 +279,19 @@
 +                    cases next <;> simp only [ret, ih.2, runSteps, step, ifArgQOtherwiseError, evalBuiltin]
 +                    case ArgQ => split <;> simp_all [runSteps]
 +              all_goals first | rfl | simp [runSteps, step]
-+          | ConstructorArgument i vs ts env => simp only [ret]
-+          | CaseScrutinee ts env => simp only [ret]
++          | ConstructorArgument i vs ts env =>
++              cases ts <;> simp [ret, ih.1, ih.2, runSteps, step]
++          | CaseScrutinee ts env =>
++              rw [ret.eq_def]
++              simp only [ih.1, runSteps]
++              unfold step
++              split <;> simp_all [runSteps] <;>
++                repeat (first | assumption | rfl | (split <;> simp_all [runSteps]))
++              all_goals by_cases h : ts.length = 1 ∨ ts.length = 2 <;>
++                simp_all [runSteps] <;> split <;> simp_all [runSteps]
 +
 +/-- Kernel-checked equality for every machine state, fuel, and builtin semantics
-+variant. Unsupported control retains the original state and remaining fuel. -/
++variant, including constructor fields and primitive case branches. -/
 +theorem run_eq_runSteps (sv : BuiltinSemanticsVariant) (s : State) (fuel : Nat) :
 +    run sv s fuel = runSteps sv s fuel := by
 +  cases s with

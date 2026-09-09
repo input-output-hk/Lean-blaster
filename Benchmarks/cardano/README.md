@@ -182,10 +182,8 @@ claim that every accepting witness satisfies every ledger validity condition.
 Use `prepare_local.py --staged-cek --blaster-rev CANDIDATE` (together with the
 source paths above) to apply the supplied interpreter patches. The named and
 indexed pins have different environment representations; each patch carries
-its own kernel-checked `run_eq_runSteps` and `execute_eq` proof. The indexed
-version fuses all CEK transitions. The legacy named version fuses the
-Eval/Return loop and retains the reference path for constructor/case control.
-The setup also runs 11 named and 17 indexed normalization checks.
+its own kernel-checked `run_eq_runSteps` and `execute_eq` proof. Both versions fuse all CEK transitions, including constructor and primitive
+case paths. The setup also runs 17 named and 17 indexed normalization checks.
 
 Then prepare **one case at a time**, and check its residual immediately:
 
