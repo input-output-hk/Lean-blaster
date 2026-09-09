@@ -64,7 +64,11 @@ def Translate.main (e : Expr) (logUndetermined := true) : TranslateEnvT (Result 
         setBlasterProcess
         let st ← profileTask "Translation" $ translateExpr optExpr
         -- assert negation for check sat
-        profileTask "Submitting Smt Query" $ assertTerm (notSmt st)
+        profileTask "Submitting Smt Query" do
+          assertTerm (notSmt st)
+          let pending := (← get).smtEnv.pendingExtensionality
+          modify fun env => { env with smtEnv.pendingExtensionality := #[] }
+          pending.forM assertTerm
         -- dump smt commands submitted to backend solver when `dumpSmtLib` option is set.
         logSmtQuery
         let res ← profileTask "Solve" checkSat

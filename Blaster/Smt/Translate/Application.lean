@@ -618,10 +618,11 @@ partial def translateRecFun
   where
     updateFunDefinitions
       (id : SmtQualifiedIdent) (fbody : Expr)
-      (defs : FunctionDefinitions) : TranslateEnvT FunctionDefinitions := do
+      (defs : FunctionDefinitions) : TranslateEnvT (FunctionDefinitions × SmtTerm) := do
       let pInfo ← getFunEnvInfo fbody
       Optimize.lambdaTelescope fbody fun fvars b => do
         let mut params := (#[] : SortedVars)
+        let mut domains : Array SmtTerm := #[]
         for h : i in [:fvars.size] do
           let fv := fvars[i]
           let decl ← fv.fvarId!.getEnvDecl
@@ -630,11 +631,20 @@ partial def translateRecFun
             -- NOTE: We don't optimize proof at preprocessing phase
             let ptype ← if ← isPropEnv decl.type then optimizeExpr decl.type else pure decl.type
             let st ← translateFunLambdaParamType ptype termTranslator
-            params := params.push (← fvarIdToSmtSymbol fv.fvarId!, st)
-        let ret ← translateFunLambdaParamType (← inferTypeEnv b) termTranslator
+            let sym ← fvarIdToSmtSymbol fv.fvarId!
+            params := params.push (sym, st)
+            domains := domains.push (← createPredQualifierApp sym (← removeTypeAbbrev ptype))
+        let retType ← removeTypeAbbrev (← inferTypeEnv b)
+        let ret ← translateFunLambdaParamType retType termTranslator
         let funDecl := {name := getSymbol id, params, ret}
         let sBody ← termTranslator b
-        return { defs with funDecls := defs.funDecls.push funDecl, funBodies := defs.funBodies.push sBody }
+        let app := if params.isEmpty then smtSimpleVarId (getSymbol id)
+          else mkSimpleSmtAppN (getSymbol id) (params.map fun p => smtSimpleVarId p.1)
+        let resultQualifier ← createPredQualifierAppAux app retType
+        let contract := if params.isEmpty then resultQualifier
+          else mkForallTerm none params (domains.foldr impliesSmt resultQualifier)
+            (some #[mkPattern #[app], mkQid (appendSymbol (getSymbol id) "typed_result")])
+        return ({ defs with funDecls := defs.funDecls.push funDecl, funBodies := defs.funBodies.push sBody }, contract)
 
     replaceGenericRecFun (f : Expr) (params : ImplicitParameters) (e : Expr) : TranslateEnvT (Option Expr) :=
       match e with
@@ -660,6 +670,7 @@ partial def translateRecFun
       let env ← get
       let mut funDefs := { (default : FunctionDefinitions) with isRec := true }
       let mut finfos := #[]
+      let mut contracts : Array SmtTerm := #[]
       -- add all rec fun instance to cache first
       for f in funs do
         let auxApp ← mkExpr (mkConst f us)
@@ -674,8 +685,11 @@ partial def translateRecFun
         let fbody' ← replaceShared fbody (replaceGenericRecFun auxApp params)
         -- apply polymorphic instances on body
         let genFVars ← retrieveGenericFVars params
-        funDefs ← updateFunDefinitions smtId (← betaLambdaShared fbody' genFVars) funDefs
+        let (nextDefs, contract) ← updateFunDefinitions smtId (← betaLambdaShared fbody' genFVars) funDefs
+        funDefs := nextDefs
+        contracts := contracts.push contract
       defineFunctions funDefs
+      contracts.forM assertTerm
 
 /-- Return `true` only when `n` corresponds to a function/constructor name
     expected to be eliminated during optimization phase.
@@ -752,18 +766,22 @@ def generateUndeclaredFun
     let xsyms := Array.ofFn (λ f : Fin fvars.size => mkReservedSymbol s!"@x{f.val}")
     let mut pargs := (#[] : Array SortExpr)
     let mut co_quantifiers := (#[] : SortedVars)
+    let mut domainQualifiers : Array SmtTerm := #[]
     for h : i in [:fvars.size] do
       let decl ← fvars[i].fvarId!.getEnvDecl
       let st ← translateFunLambdaParamType decl.type termTranslator
       pargs := pargs.push st
       co_quantifiers := co_quantifiers.push (xsyms[i]!, st)
+      domainQualifiers := domainQualifiers.push
+        (← createPredQualifierApp xsyms[i]! (← removeTypeAbbrev decl.type))
     let ret ← translateFunLambdaParamType retType termTranslator
     declareFun s pargs ret
     -- assert codomain constraint
     if fvars.size > 0 then
       let xIds := Array.map (λ v => smtSimpleVarId v) xsyms
       let f_applyTerm := mkSimpleSmtAppN s xIds
-      let forallBody ← createPredQualifierAppAux f_applyTerm retType
+      let codomain ← createPredQualifierAppAux f_applyTerm retType
+      let forallBody := domainQualifiers.foldr impliesSmt codomain
       let qidName := mkQid $ appendSymbol s "cstr"
       let pattern := some #[mkPattern #[f_applyTerm], qidName]
       assertTerm (mkForallTerm none co_quantifiers forallBody pattern)
@@ -1241,6 +1259,7 @@ def translateLambda
      -- asserting lambda definition
      let qidName := appendSymbol lambdaName "def_cstr"
      let lamId := smtSimpleVarId lambdaName
+     assertTerm (← createPredQualifierAppAux' lamId lamType decl)
      let applyArgs := Array.foldl (λ acc s => acc.push (smtSimpleVarId s.1)) #[lamId] svars
      let applyTerm := mkSimpleSmtAppN applyName applyArgs
      let forallBody := guardWithQualifiers squalifiers (eqSmt applyTerm sb)
@@ -1267,6 +1286,7 @@ def translateLambda
     let globalName := mkReservedSymbol s!"@global_lambda{v}"
     let globalId := smtSimpleVarId globalName
     declareConst globalName globalArrowType
+    assertTerm (← createPredQualifierAppAux' globalId globalType globalDecl)
     -- asserting global lambda definition
     let some globalApplyName := globalDecl.applyInstName
         | throwEnvError "translateLambda: @apply instance function expected !!!"
