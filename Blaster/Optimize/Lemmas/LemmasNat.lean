@@ -191,6 +191,7 @@ protected theorem nat_add_eq_false_of_ne_snd (a b : Nat) (h : b ≠ 0) :
   apply propext
   rw [iff_false, ← ne_eq]
   omega
+
 /-! ## Lemmas to validate simplification equality rules over `Nat.add`:
   - `x + y = x + z ==> y = z`
   - `x + y = z + x ==> y = z`
@@ -217,25 +218,21 @@ protected theorem nat_add_lft_eq_add_lft (x y z: Nat): (y + x = z + x) = (y = z)
     - `y * x = z * x ==> y = z (if x ≠ 0)`
 -/
 
-protected theorem nat_mul_eq_mul_rgt (x y z : Nat) (h : 0 ≠ x) : (x * y = x * z) = (y = z) := by
+protected theorem nat_mul_eq_mul_rgt (x y z : Nat) (h : x ≠ 0) : (x * y = x * z) = (y = z) := by
   apply propext
-  have h1 : x ≠ 0 := by apply Ne.symm h
-  rw [Nat.mul_right_inj h1]
+  rw [Nat.mul_right_inj h]
 
-protected theorem nat_mul_eq_mul_lft (x y z : Nat) (h : 0 ≠ x) : (x * y = z * x) = (y = z) := by
+protected theorem nat_mul_eq_mul_lft (x y z : Nat) (h : x ≠ 0) : (x * y = z * x) = (y = z) := by
   apply propext
-  have h1 : x ≠ 0 := by apply Ne.symm h
-  rw [Nat.mul_comm, Nat.mul_left_inj h1]
+  rw [Nat.mul_comm, Nat.mul_left_inj h]
 
-protected theorem nat_mul_lft_eq_mul (x y z : Nat) (h : 0 ≠ x) : (y * x = x * z) = (y = z) := by
+protected theorem nat_mul_lft_eq_mul (x y z : Nat) (h : x ≠ 0) : (y * x = x * z) = (y = z) := by
   apply propext
-  have h1 : x ≠ 0 := by apply Ne.symm h
-  rw [Nat.mul_comm, Nat.mul_right_inj h1]
+  rw [Nat.mul_comm, Nat.mul_right_inj h]
 
-protected theorem nat_mul_lft_eq_mul_lft (x y z : Nat) (h : 0 ≠ x) : (y * x = z * x) = (y = z) := by
+protected theorem nat_mul_lft_eq_mul_lft (x y z : Nat) (h : x ≠ 0) : (y * x = z * x) = (y = z) := by
   apply propext
-  have h1 : x ≠ 0 := by apply Ne.symm h
-  rw [Nat.mul_left_inj h1]
+  rw [Nat.mul_left_inj h]
 
 def mkNat_lt_asymm : TranslateEnvT Expr := mkExpr (mkConst ``Nat.lt_asymm)
 

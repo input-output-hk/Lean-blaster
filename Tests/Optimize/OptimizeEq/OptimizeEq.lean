@@ -646,4 +646,36 @@ elab "eqStrConstructor_4" : term => return eqStrConstructor_4
 #testOptimize [ "AddReduceInt_8", proof ]
   ∀ (x y z : Int), (y + x = z + x)  ===> ∀ (y z : Int), y = z
 
+-- ∀ (x y z : Nat) , (x ≠ 0) → (x * y = x * z) = (y = z) ===> True
+#testOptimize [ "MulReduceNat_1", proof ]
+  ∀ (x y z : Nat) , (x ≠ 0) → (x * y = x * z) = (y = z) ===> True
+
+-- ∀ (x y z : Nat), (x ≠ 0) → (x * y = z * x) = (y = z) ===> True
+#testOptimize [ "MulReduceNat_2", proof ]
+  ∀ (x y z : Nat), (x ≠ 0) → (x * y = z * x) = (y = z) ===> True
+
+-- ∀ (x y z : Nat), (x ≠ 0) → (y * x = x * z) = (y = z) ===> True
+#testOptimize [ "MulReduceNat_3", proof ]
+  ∀ (x y z : Nat), (x ≠ 0) → (y * x = x * z) = (y = z) ===> True
+
+-- ∀ (x y z : Nat), (x ≠ 0) → (y * x = z * x) = (y = z) ===> True
+#testOptimize [ "MulReduceNat_4", proof ]
+  ∀ (x y z : Nat), (x ≠ 0) → (y * x = z * x) = (y = z) ===> True
+
+-- ∀ (x y z : Int) , (x ≠ 0) → (x * y = x * z) = (y = z) ===> True
+#testOptimize [ "MulReduceInt_1", proof ]
+  ∀ (x y z : Int) , (x ≠ 0) → (x * y = x * z) = (y = z) ===> True
+
+-- ∀ (x y z : Int), (x ≠ 0) → (x * y = z * x) = (y = z) ===> True
+#testOptimize [ "MulReduceInt_2", proof ]
+  ∀ (x y z : Int), (x ≠ 0) → (x * y = z * x) = (y = z) ===> True
+
+-- ∀ (x y z : Int), (x ≠ 0) → (y * x = x * z) = (y = z) ===> True
+#testOptimize [ "MulReduceInt_3", proof ]
+  ∀ (x y z : Int), (x ≠ 0) → (y * x = x * z) = (y = z) ===> True
+
+-- ∀ (x y z : Int), (x ≠ 0) → (y * x = z * x) = (y = z) ===> True
+#testOptimize [ "MulReduceInt_4", proof ]
+  ∀ (x y z : Int), (x ≠ 0) → (y * x = z * x) = (y = z) ===> True
+
 end Test.OptimizeEq
