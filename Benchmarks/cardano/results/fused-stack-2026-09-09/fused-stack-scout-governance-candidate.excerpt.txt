@@ -1,0 +1,6 @@
+Selected telemetry/verdict lines from the complete local build log.
+info: Tests/Benchmarks/CardanoPerfCase.lean:17:0: PREP_PHASE input_construct_ms=0
+PREP_INTERPRETER staged=true lifted_search=false
+PREP_METRICS optimize_ms=20066 hashcons=5070520 contexts=17761 beta_cache=17985
+PREP_PHASE declaration_ms=7 command_ms=20742
+Build completed successfully (369 jobs).
