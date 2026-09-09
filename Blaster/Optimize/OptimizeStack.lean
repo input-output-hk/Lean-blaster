@@ -1,4 +1,5 @@
 import Lean
+import Blaster.Optimize.Env.Profile
 import Blaster.Optimize.Rewriting.OptimizeITE
 import Blaster.Optimize.Rewriting.OptimizeProjection
 import Blaster.Optimize.Telescope
@@ -65,8 +66,8 @@ def resetChoiceContext (h : HypsStackContext) (fvars : Array Expr) (lam : Expr) 
   | some scope =>
        updateContextReuseCache lam idx ⟨scope, fvars⟩
        modifyOptEnv
-         fun ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, ⟨s1, s2, s3, s4, _, s6, active, s7⟩, o12, o13, o14⟩ =>
-             ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, ⟨s1, s2, s3, s4, scope.parent, s6, active.erase scope.current, s7⟩, o12, o13, o14⟩
+         fun ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, ⟨s1, s2, s3, s4, _, s6, active, s7, profile⟩, o12, o13, o14⟩ =>
+             ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, ⟨s1, s2, s3, s4, scope.parent, s6, active.erase scope.current, s7, profile⟩, o12, o13, o14⟩
   | none => return ()
 
 def restoreMVarDecls (optDecls : Option MVarIdDecls) : TranslateEnvT Unit :=
@@ -103,6 +104,7 @@ def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := 
          updateOptimizeEnvCache optExpr optExpr isGlobal
          if !e.hasMVar && !exprEq e optExpr then updateOptimizeEnvCache e optExpr isGlobal
        restoreMVarDecls mvarDecls
+       profileLeave
        match xs with
        | [] => return Sum.inr optExpr
        | _ => stackContinuity xs optExpr
@@ -383,9 +385,15 @@ def isInOptimizeEnvCache (a : Expr) (stack : List OptimizeStack) (mvarDecls : Op
   let useCache := !a.hasMVar
   if useCache then
     let cached := ← isInOptimizeCache? a isGlobal env
-    if !exprEq cached instCacheMiss then Sum.inr <$> stackContinuity stack cached
-    else return Sum.inl (.InitOptimizeReturn a isGlobal mvarDecls :: stack)
-  else return Sum.inl (.InitOptimizeReturn a isGlobal mvarDecls :: stack)
+    if !exprEq cached instCacheMiss then
+      profileCacheHit
+      Sum.inr <$> stackContinuity stack cached
+    else
+      profileEnter a false
+      return Sum.inl (.InitOptimizeReturn a isGlobal mvarDecls :: stack)
+  else
+    profileEnter a true
+    return Sum.inl (.InitOptimizeReturn a isGlobal mvarDecls :: stack)
 
   where
     hasVar (e : Expr) : Bool := e.hasFVar || e.hasMVar

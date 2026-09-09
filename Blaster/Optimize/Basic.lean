@@ -330,7 +330,22 @@ def Optimize.mainAux (e : Expr) (applyHashCons := true) : TranslateEnvT Expr := 
 def Optimize.main (e : Expr) (applyHashCons := true) : TranslateEnvT Expr := do
   -- set start local context
   updateLocalContext (← mkLocalContext)
-  Optimize.mainAux e applyHashCons
+  if !(blaster.profileNormalize.get (← getOptions)) then
+    Optimize.mainAux e applyHashCons
+  else
+    let previous := (← get).optEnv.options.profile?
+    let now ← IO.monoNanosNow
+    let ref ← IO.mkRef ({ startedNs := now, lastNs := now } : NormalizationProfile)
+    modify fun env => { env with optEnv.options.profile? := some ref }
+    try
+      let result ← Optimize.mainAux e applyHashCons
+      profileReport "complete"
+      return result
+    catch ex =>
+      profileReport "error"
+      throw ex
+    finally
+      modify fun env => { env with optEnv.options.profile? := previous }
 
 
 /-- Optimize an expression using the given solver options.
