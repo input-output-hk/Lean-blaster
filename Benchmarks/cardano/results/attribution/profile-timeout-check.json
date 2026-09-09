@@ -81,2861 +81,577 @@
           },
           "hashcons": 755671,
           "heads": [
-            {
-              "calls": 126,
-              "head": "Add.add",
-              "self_ns": 839702
-            },
-            {
-              "calls": 8,
-              "head": "And",
-              "self_ns": 83919
-            },
-            {
-              "calls": 545,
-              "head": "BEq.beq",
-              "self_ns": 14578642
-            },
-            {
-              "calls": 810,
-              "head": "Blaster.decide'",
-              "self_ns": 2269085
-            },
-            {
-              "calls": 5591,
-              "head": "Blaster.dite'",
-              "self_ns": 38148984
-            },
-            {
-              "calls": 1,
-              "head": "Bool",
-              "self_ns": 2584
-            },
-            {
-              "calls": 73,
-              "head": "Bool.and",
-              "self_ns": 368114
-            },
-            {
-              "calls": 1,
-              "head": "Bool.false",
-              "self_ns": 1291
-            },
-            {
-              "calls": 251,
-              "head": "Bool.or",
-              "self_ns": 1282588
-            },
-            {
-              "calls": 1,
-              "head": "Bool.true",
-              "self_ns": 1958
-            },
-            {
-              "calls": 239,
-              "head": "CardanoLedgerApi.IsData.Class.IsData.toData",
-              "self_ns": 1868144
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.IsData.Class.instIsDataData",
-              "self_ns": 5708
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.IsData.Class.instIsDataInteger",
-              "self_ns": 3083
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.IsData.Class.instIsDataOption",
-              "self_ns": 29000
-            },
-            {
-              "calls": 15,
-              "head": "CardanoLedgerApi.IsData.Class.instIsDataOption.match_1",
-              "self_ns": 387125
-            },
-            {
-              "calls": 328,
-              "head": "CardanoLedgerApi.IsData.Class.mkDataConstr",
-              "self_ns": 428865
-            },
-            {
-              "calls": 5,
-              "head": "CardanoLedgerApi.IsData.Class.toTerm",
-              "self_ns": 42333
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V1.Address.Address",
-              "self_ns": 2000
-            },
-            {
-              "calls": 8,
-              "head": "CardanoLedgerApi.V1.Address.Address.addressCredential",
-              "self_ns": 19625
-            },
-            {
-              "calls": 8,
-              "head": "CardanoLedgerApi.V1.Address.Address.addressStakingCredential",
-              "self_ns": 28251
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V1.Address.instIsDataAddress",
-              "self_ns": 3083
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V1.Contexts.instIsDataListPubKeyHash",
-              "self_ns": 5125
-            },
-            {
-              "calls": 2,
-              "head": "CardanoLedgerApi.V1.Contexts.txInfoSignatoriesToListData",
-              "self_ns": 29833
-            },
-            {
-              "calls": 3731,
-              "head": "CardanoLedgerApi.V1.Contexts.txInfoSignatoriesToListData.go._@.CardanoLedgerApi.V1.Contexts.3037641814._hygCtx._hyg.14",
-              "self_ns": 11035506
-            },
-            {
-              "calls": 7,
-              "head": "CardanoLedgerApi.V1.Contexts.txInfoSignatoriesToListData.go.match_1._@.CardanoLedgerApi.V1.Contexts.3037641814._hygCtx._hyg.14",
-              "self_ns": 193500
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V1.Credential.Credential",
-              "self_ns": 1167
-            },
-            {
-              "calls": 3,
-              "head": "CardanoLedgerApi.V1.Credential.Credential.PubKeyCredential",
-              "self_ns": 8125
-            },
-            {
-              "calls": 3,
-              "head": "CardanoLedgerApi.V1.Credential.Credential.ScriptCredential",
-              "self_ns": 7500
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V1.Credential.PubKeyHash",
-              "self_ns": 8000
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V1.Credential.StakingCredential",
-              "self_ns": 2042
-            },
-            {
-              "calls": 3,
-              "head": "CardanoLedgerApi.V1.Credential.StakingCredential.StakingHash",
-              "self_ns": 8958
-            },
-            {
-              "calls": 5,
-              "head": "CardanoLedgerApi.V1.Credential.StakingCredential.StakingPtr",
-              "self_ns": 11542
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V1.Credential.instIsDataCredential",
-              "self_ns": 3875
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V1.Credential.instIsDataStakingCredential",
-              "self_ns": 3916
-            },
-            {
-              "calls": 46,
-              "head": "CardanoLedgerApi.V1.Credential.instReprCredential.repr.match_1",
-              "self_ns": 1274875
-            },
-            {
-              "calls": 7,
-              "head": "CardanoLedgerApi.V1.Credential.instReprStakingCredential.repr.match_1",
-              "self_ns": 207000
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V1.Scripts.Datum",
-              "self_ns": 4291
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V1.Scripts.DatumHash",
-              "self_ns": 5666
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V1.Scripts.Redeemer",
-              "self_ns": 12375
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V1.Scripts.ScriptHash",
-              "self_ns": 7250
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V1.Tx.instIsDataTxId",
-              "self_ns": 4083
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V1.Value.CurrencySymbol",
-              "self_ns": 10875
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V1.Value.Value",
-              "self_ns": 11667
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V1.Value.instIsDataValue",
-              "self_ns": 3792
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V2.Contexts.DatumMap",
-              "self_ns": 11083
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V2.Contexts.instIsDataDatumMap",
-              "self_ns": 3167
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V2.Contexts.instIsDataListTxOut",
-              "self_ns": 8750
-            },
-            {
-              "calls": 2,
-              "head": "CardanoLedgerApi.V2.Contexts.txInfoDataToListPairData",
-              "self_ns": 13292
-            },
-            {
-              "calls": 3731,
-              "head": "CardanoLedgerApi.V2.Contexts.txInfoDataToListPairData.go._@.CardanoLedgerApi.V2.Contexts.1377661293._hygCtx._hyg.19",
-              "self_ns": 10181078
-            },
-            {
-              "calls": 7,
-              "head": "CardanoLedgerApi.V2.Contexts.txInfoDataToListPairData.match_1",
-              "self_ns": 172667
-            },
-            {
-              "calls": 2,
-              "head": "CardanoLedgerApi.V2.Contexts.txInfoOutputsToListData",
-              "self_ns": 23625
-            },
-            {
-              "calls": 399,
-              "head": "CardanoLedgerApi.V2.Contexts.txInfoOutputsToListData.go._@.CardanoLedgerApi.V2.Contexts.3695909053._hygCtx._hyg.14",
-              "self_ns": 6312452
-            },
-            {
-              "calls": 7,
-              "head": "CardanoLedgerApi.V2.Contexts.txInfoOutputsToListData.match_1",
-              "self_ns": 287957
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V2.Tx.OutputDatum",
-              "self_ns": 1750
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V2.Tx.OutputDatum.NoOutputDatum",
-              "self_ns": 1458
-            },
-            {
-              "calls": 3,
-              "head": "CardanoLedgerApi.V2.Tx.OutputDatum.OutputDatum",
-              "self_ns": 7958
-            },
-            {
-              "calls": 3,
-              "head": "CardanoLedgerApi.V2.Tx.OutputDatum.OutputDatumHash",
-              "self_ns": 8333
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V2.Tx.TxOut",
-              "self_ns": 1583
-            },
-            {
-              "calls": 8,
-              "head": "CardanoLedgerApi.V2.Tx.TxOut.txOutAddress",
-              "self_ns": 18250
-            },
-            {
-              "calls": 8,
-              "head": "CardanoLedgerApi.V2.Tx.TxOut.txOutDatum",
-              "self_ns": 17333
-            },
-            {
-              "calls": 8,
-              "head": "CardanoLedgerApi.V2.Tx.TxOut.txOutReferenceScript",
-              "self_ns": 21083
-            },
-            {
-              "calls": 8,
-              "head": "CardanoLedgerApi.V2.Tx.TxOut.txOutValue",
-              "self_ns": 19000
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V2.Tx.instIsDataOutputDatum",
-              "self_ns": 3417
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V2.Tx.instIsDataTxOut",
-              "self_ns": 4041
-            },
-            {
-              "calls": 8,
-              "head": "CardanoLedgerApi.V2.Tx.instReprOutputDatum.repr.match_1",
-              "self_ns": 196375
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Contexts.GovernanceVoteMap",
-              "self_ns": 6625
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Contexts.MintValue",
-              "self_ns": 9875
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Contexts.RedeemerMap",
-              "self_ns": 12542
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Contexts.ScriptContext",
-              "self_ns": 1417
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.Contexts.ScriptContext.scriptContextRedeemer",
-              "self_ns": 13500
-            },
-            {
-              "calls": 9,
-              "head": "CardanoLedgerApi.V3.Contexts.ScriptContext.scriptContextScriptInfo",
-              "self_ns": 25792
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.Contexts.ScriptContext.scriptContextTxInfo",
-              "self_ns": 14667
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Contexts.ScriptInfo",
-              "self_ns": 1625
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.Contexts.ScriptInfo.CertifyingScript",
-              "self_ns": 9667
-            },
-            {
-              "calls": 3,
-              "head": "CardanoLedgerApi.V3.Contexts.ScriptInfo.MintingScript",
-              "self_ns": 9583
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.Contexts.ScriptInfo.ProposingScript",
-              "self_ns": 8458
-            },
-            {
-              "calls": 5,
-              "head": "CardanoLedgerApi.V3.Contexts.ScriptInfo.RewardingScript",
-              "self_ns": 11958
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.Contexts.ScriptInfo.SpendingScript",
-              "self_ns": 10959
-            },
-            {
-              "calls": 3,
-              "head": "CardanoLedgerApi.V3.Contexts.ScriptInfo.VotingScript",
-              "self_ns": 6542
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Contexts.ScriptPurpose",
-              "self_ns": 1958
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.Contexts.ScriptPurpose.Certifying",
-              "self_ns": 14334
-            },
-            {
-              "calls": 3,
-              "head": "CardanoLedgerApi.V3.Contexts.ScriptPurpose.Minting",
-              "self_ns": 8750
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.Contexts.ScriptPurpose.Proposing",
-              "self_ns": 9666
-            },
-            {
-              "calls": 3,
-              "head": "CardanoLedgerApi.V3.Contexts.ScriptPurpose.Rewarding",
-              "self_ns": 7250
-            },
-            {
-              "calls": 3,
-              "head": "CardanoLedgerApi.V3.Contexts.ScriptPurpose.Spending",
-              "self_ns": 7709
-            },
-            {
-              "calls": 3,
-              "head": "CardanoLedgerApi.V3.Contexts.ScriptPurpose.Voting",
-              "self_ns": 8167
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Contexts.TxInInfo",
-              "self_ns": 1416
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.Contexts.TxInInfo.txInInfoOutRef",
-              "self_ns": 16417
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.Contexts.TxInInfo.txInInfoResolved",
-              "self_ns": 11583
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Contexts.TxInfo",
-              "self_ns": 1791
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.Contexts.TxInfo.txInfoCurrentTreasuryAmount",
-              "self_ns": 15708
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.Contexts.TxInfo.txInfoData",
-              "self_ns": 13291
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.Contexts.TxInfo.txInfoFee",
-              "self_ns": 23209
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.Contexts.TxInfo.txInfoId",
-              "self_ns": 20083
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.Contexts.TxInfo.txInfoInputs",
-              "self_ns": 12791
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.Contexts.TxInfo.txInfoMint",
-              "self_ns": 15375
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.Contexts.TxInfo.txInfoOutputs",
-              "self_ns": 16541
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.Contexts.TxInfo.txInfoProposalProcedures",
-              "self_ns": 21542
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.Contexts.TxInfo.txInfoRedeemers",
-              "self_ns": 16125
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.Contexts.TxInfo.txInfoReferenceInputs",
-              "self_ns": 32708
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.Contexts.TxInfo.txInfoSignatories",
-              "self_ns": 18542
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.Contexts.TxInfo.txInfoTreasuryDonation",
-              "self_ns": 15333
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.Contexts.TxInfo.txInfoTxCerts",
-              "self_ns": 14000
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.Contexts.TxInfo.txInfoValidRange",
-              "self_ns": 22666
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.Contexts.TxInfo.txInfoVotes",
-              "self_ns": 12875
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.Contexts.TxInfo.txInfoWdrl",
-              "self_ns": 18167
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Contexts.VoterMap",
-              "self_ns": 8125
-            },
-            {
-              "calls": 2,
-              "head": "CardanoLedgerApi.V3.Contexts.governanceVoteMapToListPairData",
-              "self_ns": 18041
-            },
-            {
-              "calls": 26,
-              "head": "CardanoLedgerApi.V3.Contexts.governanceVoteMapToListPairData.go._@.CardanoLedgerApi.V3.Contexts.3308403429._hygCtx._hyg.19",
-              "self_ns": 3237083
-            },
-            {
-              "calls": 7,
-              "head": "CardanoLedgerApi.V3.Contexts.governanceVoteMapToListPairData.match_1",
-              "self_ns": 204832
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Contexts.instIsDataGovernanceVoteMap",
-              "self_ns": 4667
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Contexts.instIsDataListProposalProcedure",
-              "self_ns": 4084
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Contexts.instIsDataListTxCert",
-              "self_ns": 4458
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Contexts.instIsDataListTxInInfo",
-              "self_ns": 2708
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Contexts.instIsDataRedeemerMap",
-              "self_ns": 3667
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Contexts.instIsDataScriptContext",
-              "self_ns": 3875
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Contexts.instIsDataScriptInfo",
-              "self_ns": 4000
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Contexts.instIsDataScriptPurpose",
-              "self_ns": 4875
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Contexts.instIsDataTxInInfo",
-              "self_ns": 3917
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Contexts.instIsDataTxInfo",
-              "self_ns": 3958
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Contexts.instIsDataVoterMap",
-              "self_ns": 3083
-            },
-            {
-              "calls": 9,
-              "head": "CardanoLedgerApi.V3.Contexts.instReprScriptInfo.repr.match_1",
-              "self_ns": 235750
-            },
-            {
-              "calls": 10,
-              "head": "CardanoLedgerApi.V3.Contexts.instReprScriptPurpose.repr.match_1",
-              "self_ns": 461917
-            },
-            {
-              "calls": 2,
-              "head": "CardanoLedgerApi.V3.Contexts.rewardingInputs",
-              "self_ns": 33709
-            },
-            {
-              "calls": 7,
-              "head": "CardanoLedgerApi.V3.Contexts.rewardingInputs.match_1",
-              "self_ns": 224582
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.Contexts.txInfoInputsToListData",
-              "self_ns": 15667
-            },
-            {
-              "calls": 7556,
-              "head": "CardanoLedgerApi.V3.Contexts.txInfoInputsToListData.go._@.CardanoLedgerApi.V3.Contexts.2536880513._hygCtx._hyg.14",
-              "self_ns": 14738976
-            },
-            {
-              "calls": 7,
-              "head": "CardanoLedgerApi.V3.Contexts.txInfoInputsToListData.match_1",
-              "self_ns": 333999
-            },
-            {
-              "calls": 2,
-              "head": "CardanoLedgerApi.V3.Contexts.txInfoProposalProcsToListData",
-              "self_ns": 20625
-            },
-            {
-              "calls": 3735,
-              "head": "CardanoLedgerApi.V3.Contexts.txInfoProposalProcsToListData.go._@.CardanoLedgerApi.V3.Contexts.283897823._hygCtx._hyg.14",
-              "self_ns": 10123911
-            },
-            {
-              "calls": 7,
-              "head": "CardanoLedgerApi.V3.Contexts.txInfoProposalProcsToListData.match_1",
-              "self_ns": 177041
-            },
-            {
-              "calls": 2,
-              "head": "CardanoLedgerApi.V3.Contexts.txInfoRedeemersToListPairData",
-              "self_ns": 15584
-            },
-            {
-              "calls": 3869,
-              "head": "CardanoLedgerApi.V3.Contexts.txInfoRedeemersToListPairData.go._@.CardanoLedgerApi.V3.Contexts.2123419846._hygCtx._hyg.19",
-              "self_ns": 10937996
-            },
-            {
-              "calls": 7,
-              "head": "CardanoLedgerApi.V3.Contexts.txInfoRedeemersToListPairData.match_1",
-              "self_ns": 279626
-            },
-            {
-              "calls": 2,
-              "head": "CardanoLedgerApi.V3.Contexts.txInfoTxCertsToListData",
-              "self_ns": 15541
-            },
-            {
-              "calls": 3847,
-              "head": "CardanoLedgerApi.V3.Contexts.txInfoTxCertsToListData.go._@.CardanoLedgerApi.V3.Contexts.1881025222._hygCtx._hyg.14",
-              "self_ns": 11839841
-            },
-            {
-              "calls": 7,
-              "head": "CardanoLedgerApi.V3.Contexts.txInfoTxCertsToListData.match_1",
-              "self_ns": 229750
-            },
-            {
-              "calls": 2,
-              "head": "CardanoLedgerApi.V3.Contexts.voterMapToListPairData",
-              "self_ns": 13375
-            },
-            {
-              "calls": 3741,
-              "head": "CardanoLedgerApi.V3.Contexts.voterMapToListPairData.go._@.CardanoLedgerApi.V3.Contexts.2345433621._hygCtx._hyg.19",
-              "self_ns": 9890843
-            },
-            {
-              "calls": 7,
-              "head": "CardanoLedgerApi.V3.Contexts.voterMapToListPairData.match_1",
-              "self_ns": 179916
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Governance.GovernanceActionId",
-              "self_ns": 2041
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.Governance.GovernanceActionId.gaidGovActionIx",
-              "self_ns": 14833
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.Governance.GovernanceActionId.gaidTxId",
-              "self_ns": 22542
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Governance.ProposalProcedure",
-              "self_ns": 1166
-            },
-            {
-              "calls": 8,
-              "head": "CardanoLedgerApi.V3.Governance.ProposalProcedure.ppDeposit",
-              "self_ns": 18957
-            },
-            {
-              "calls": 8,
-              "head": "CardanoLedgerApi.V3.Governance.ProposalProcedure.ppGovernanceAction",
-              "self_ns": 15041
-            },
-            {
-              "calls": 8,
-              "head": "CardanoLedgerApi.V3.Governance.ProposalProcedure.ppReturnAddr",
-              "self_ns": 16208
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Governance.Vote",
-              "self_ns": 1500
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Governance.Vote.Abstain",
-              "self_ns": 1167
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Governance.Vote.VoteNo",
-              "self_ns": 6083
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Governance.Vote.VoteYes",
-              "self_ns": 1208
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Governance.Voter",
-              "self_ns": 1625
-            },
-            {
-              "calls": 3,
-              "head": "CardanoLedgerApi.V3.Governance.Voter.CommitteeVoter",
-              "self_ns": 7042
-            },
-            {
-              "calls": 3,
-              "head": "CardanoLedgerApi.V3.Governance.Voter.DRepVoter",
-              "self_ns": 10500
-            },
-            {
-              "calls": 3,
-              "head": "CardanoLedgerApi.V3.Governance.Voter.StakePoolVoter",
-              "self_ns": 5875
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Governance.Withdrawals",
-              "self_ns": 13542
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Governance.instIsDataGovernanceActionId",
-              "self_ns": 5041
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Governance.instIsDataNewCommitteeMembers",
-              "self_ns": 4500
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Governance.instIsDataProposalProcedure",
-              "self_ns": 3375
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Governance.instIsDataVote",
-              "self_ns": 3291
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Governance.instIsDataVoter",
-              "self_ns": 3875
-            },
-            {
-              "calls": 7,
-              "head": "CardanoLedgerApi.V3.Governance.instReprVote.repr.match_1",
-              "self_ns": 129792
-            },
-            {
-              "calls": 8,
-              "head": "CardanoLedgerApi.V3.Governance.instReprVoter.repr.match_1",
-              "self_ns": 220001
-            },
-            {
-              "calls": 2,
-              "head": "CardanoLedgerApi.V3.Governance.newCommitteeToListPairData",
-              "self_ns": 17583
-            },
-            {
-              "calls": 87,
-              "head": "CardanoLedgerApi.V3.Governance.newCommitteeToListPairData.go._@.CardanoLedgerApi.V3.Governance.329856877._hygCtx._hyg.19",
-              "self_ns": 5664334
-            },
-            {
-              "calls": 7,
-              "head": "CardanoLedgerApi.V3.Governance.newCommitteeToListPairData.match_1",
-              "self_ns": 278625
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Tx.TxId",
-              "self_ns": 8417
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Tx.TxOutRef",
-              "self_ns": 1584
-            },
-            {
-              "calls": 8,
-              "head": "CardanoLedgerApi.V3.Tx.TxOutRef.txOutRefId",
-              "self_ns": 19709
-            },
-            {
-              "calls": 8,
-              "head": "CardanoLedgerApi.V3.Tx.TxOutRef.txOutRefIdx",
-              "self_ns": 16833
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Tx.instIsDataTxId",
-              "self_ns": 5583
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.Tx.instIsDataTxOutRef",
-              "self_ns": 2875
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.TxCert.ColdCommitteeCredential",
-              "self_ns": 6750
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.TxCert.DRep",
-              "self_ns": 1500
-            },
-            {
-              "calls": 3,
-              "head": "CardanoLedgerApi.V3.TxCert.DRep.DRep",
-              "self_ns": 7250
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.TxCert.DRep.DRepAlwaysAbstain",
-              "self_ns": 1375
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.TxCert.DRep.DRepAlwaysNoConfidence",
-              "self_ns": 1291
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.TxCert.DRepCredential",
-              "self_ns": 6625
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.TxCert.Delegatee",
-              "self_ns": 12417
-            },
-            {
-              "calls": 3,
-              "head": "CardanoLedgerApi.V3.TxCert.Delegatee.DelegStake",
-              "self_ns": 7667
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.TxCert.Delegatee.DelegStakeVote",
-              "self_ns": 9208
-            },
-            {
-              "calls": 3,
-              "head": "CardanoLedgerApi.V3.TxCert.Delegatee.DelegVote",
-              "self_ns": 8791
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.TxCert.HotCommitteeCredential",
-              "self_ns": 5583
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.TxCert.TxCert",
-              "self_ns": 4083
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.TxCert.TxCert.TxCertAuthHotCommittee",
-              "self_ns": 10459
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.TxCert.TxCert.TxCertDelegStaking",
-              "self_ns": 11750
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.TxCert.TxCert.TxCertPoolRegister",
-              "self_ns": 9459
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.TxCert.TxCert.TxCertPoolRetire",
-              "self_ns": 9375
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.TxCert.TxCert.TxCertRegDRep",
-              "self_ns": 9875
-            },
-            {
-              "calls": 5,
-              "head": "CardanoLedgerApi.V3.TxCert.TxCert.TxCertRegDeleg",
-              "self_ns": 12000
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.TxCert.TxCert.TxCertRegStaking",
-              "self_ns": 13458
-            },
-            {
-              "calls": 3,
-              "head": "CardanoLedgerApi.V3.TxCert.TxCert.TxCertResignColdCommittee",
-              "self_ns": 6917
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.TxCert.TxCert.TxCertUnRegDRep",
-              "self_ns": 9583
-            },
-            {
-              "calls": 4,
-              "head": "CardanoLedgerApi.V3.TxCert.TxCert.TxCertUnRegStaking",
-              "self_ns": 11000
-            },
-            {
-              "calls": 3,
-              "head": "CardanoLedgerApi.V3.TxCert.TxCert.TxCertUpdateDRep",
-              "self_ns": 7084
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.TxCert.instIsDataDRep",
-              "self_ns": 3709
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.TxCert.instIsDataDelegatee",
-              "self_ns": 3041
-            },
-            {
-              "calls": 1,
-              "head": "CardanoLedgerApi.V3.TxCert.instIsDataTxCert",
-              "self_ns": 5209
-            },
-            {
-              "calls": 14,
-              "head": "CardanoLedgerApi.V3.TxCert.instReprDRep.repr.match_1",
-              "self_ns": 353708
-            },
-            {
-              "calls": 10,
-              "head": "CardanoLedgerApi.V3.TxCert.instReprDelegatee.repr.match_1",
-              "self_ns": 327462
-            },
-            {
-              "calls": 16,
-              "head": "CardanoLedgerApi.V3.TxCert.instReprTxCert.repr.match_1",
-              "self_ns": 1485249
-            },
-            {
-              "calls": 681,
-              "head": "Decidable.decide",
-              "self_ns": 850719
-            },
-            {
-              "calls": 2212,
-              "head": "Eq",
-              "self_ns": 16524774
-            },
-            {
-              "calls": 13,
-              "head": "Function.comp",
-              "self_ns": 77833
-            },
-            {
-              "calls": 132,
-              "head": "HAdd.hAdd",
-              "self_ns": 907438
-            },
-            {
-              "calls": 181,
-              "head": "HMul.hMul",
-              "self_ns": 1102403
-            },
-            {
-              "calls": 2,
-              "head": "HPow.hPow",
-              "self_ns": 52333
-            },
-            {
-              "calls": 2,
-              "head": "Inhabited.default",
-              "self_ns": 30708
-            },
-            {
-              "calls": 1,
-              "head": "Int",
-              "self_ns": 3292
-            },
-            {
-              "calls": 376,
-              "head": "Int.add",
-              "self_ns": 1230431
-            },
-            {
-              "calls": 1,
-              "head": "Int.instAdd",
-              "self_ns": 3792
-            },
-            {
-              "calls": 1,
-              "head": "Int.instDecidableEq",
-              "self_ns": 6167
-            },
-            {
-              "calls": 1,
-              "head": "Int.instLEInt",
-              "self_ns": 5917
-            },
-            {
-              "calls": 1,
-              "head": "Int.instLTInt",
-              "self_ns": 3917
-            },
-            {
-              "calls": 1,
-              "head": "Int.instMul",
-              "self_ns": 3333
-            },
-            {
-              "calls": 610,
-              "head": "Int.mul",
-              "self_ns": 2072920
-            },
-            {
-              "calls": 244,
-              "head": "Int.natAbs",
-              "self_ns": 288080
-            },
-            {
-              "calls": 124,
-              "head": "Int.neg",
-              "self_ns": 304073
-            },
-            {
-              "calls": 127,
-              "head": "Int.neg.match_1",
-              "self_ns": 3977311
-            },
-            {
-              "calls": 7,
-              "head": "Int.negOfNat.match_1",
-              "self_ns": 135292
-            },
-            {
-              "calls": 5,
-              "head": "Int.negSucc",
-              "self_ns": 17416
-            },
-            {
-              "calls": 15,
-              "head": "Int.ofNat",
-              "self_ns": 42085
-            },
-            {
-              "calls": 3,
-              "head": "Int.pow",
-              "self_ns": 8333
-            },
-            {
-              "calls": 246,
-              "head": "Int.toNat",
-              "self_ns": 622964
-            },
-            {
-              "calls": 350,
-              "head": "LE.le",
-              "self_ns": 1894489
-            },
-            {
-              "calls": 1121,
-              "head": "LT.lt",
-              "self_ns": 5902608
-            },
-            {
-              "calls": 234,
-              "head": "List",
-              "self_ns": 412490
-            },
-            {
-              "calls": 229961,
-              "head": "List.cons",
-              "self_ns": 481276433
-            },
-            {
-              "calls": 7,
-              "head": "List.drop",
-              "self_ns": 4424416
-            },
-            {
-              "calls": 8419,
-              "head": "List.get?Internal",
-              "self_ns": 39619300
-            },
-            {
-              "calls": 556,
-              "head": "List.getLast?.match_1",
-              "self_ns": 7304600
-            },
-            {
-              "calls": 341,
-              "head": "List.isEmpty",
-              "self_ns": 1016240
-            },
-            {
-              "calls": 1025,
-              "head": "List.nil",
-              "self_ns": 1714124
-            },
-            {
-              "calls": 1005,
-              "head": "List.reverse",
-              "self_ns": 3116005
-            },
-            {
-              "calls": 1005,
-              "head": "List.reverseAux",
-              "self_ns": 5487822
-            },
-            {
-              "calls": 13,
-              "head": "List.take.match_1",
-              "self_ns": 314708
-            },
-            {
-              "calls": 124,
-              "head": "Mul.mul",
-              "self_ns": 845083
-            },
-            {
-              "calls": 1,
-              "head": "Nat",
-              "self_ns": 43125
-            },
-            {
-              "calls": 152,
-              "head": "Nat.add",
-              "self_ns": 635176
-            },
-            {
-              "calls": 12,
-              "head": "Nat.add.match_1",
-              "self_ns": 333459
-            },
-            {
-              "calls": 2,
-              "head": "Nat.beq",
-              "self_ns": 10750
-            },
-            {
-              "calls": 14,
-              "head": "Nat.beq.match_1",
-              "self_ns": 362374
-            },
-            {
-              "calls": 2,
-              "head": "Nat.ble",
-              "self_ns": 8417
-            },
-            {
-              "calls": 4,
-              "head": "Nat.mul",
-              "self_ns": 21584
-            },
-            {
-              "calls": 12,
-              "head": "Nat.mul.match_1",
-              "self_ns": 237208
-            },
-            {
-              "calls": 4,
-              "head": "Nat.pow",
-              "self_ns": 15707
-            },
-            {
-              "calls": 6,
-              "head": "Nat.pow.match_1",
-              "self_ns": 121126
-            },
-            {
-              "calls": 2,
-              "head": "Nat.pred",
-              "self_ns": 8375
-            },
-            {
-              "calls": 154,
-              "head": "Nat.sub",
-              "self_ns": 4085414
-            },
-            {
-              "calls": 135,
-              "head": "Nat.succ",
-              "self_ns": 238032
-            },
-            {
-              "calls": 1,
-              "head": "Nat.zero",
-              "self_ns": 2416
-            },
-            {
-              "calls": 2,
-              "head": "NatPow.pow",
-              "self_ns": 29001
-            },
-            {
-              "calls": 475,
-              "head": "Not",
-              "self_ns": 1351920
-            },
-            {
-              "calls": 21,
-              "head": "OfNat.ofNat",
-              "self_ns": 320207
-            },
-            {
-              "calls": 777,
-              "head": "Option",
-              "self_ns": 1254621
-            },
-            {
-              "calls": 2140,
-              "head": "Option.getD.match_1",
-              "self_ns": 28071129
-            },
-            {
-              "calls": 401,
-              "head": "Option.map",
-              "self_ns": 1682548
-            },
-            {
-              "calls": 717,
-              "head": "Option.none",
-              "self_ns": 1283213
-            },
-            {
-              "calls": 7553,
-              "head": "Option.some",
-              "self_ns": 33278406
-            },
-            {
-              "calls": 127,
-              "head": "Or",
-              "self_ns": 909165
-            },
-            {
-              "calls": 512,
-              "head": "PlutusCore.Bool.PlutusCore.BoolInternal.ifThenElse",
-              "self_ns": 2069244
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.ByteString.PlutusCore.ByteStringInternal.BEqByteString",
-              "self_ns": 7208
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.ByteString.PlutusCore.ByteStringInternal.ByteString",
-              "self_ns": 1292
-            },
-            {
-              "calls": 1843,
-              "head": "PlutusCore.ByteString.PlutusCore.ByteStringInternal.ByteString.data",
-              "self_ns": 1684935
-            },
-            {
-              "calls": 558,
-              "head": "PlutusCore.ByteString.PlutusCore.ByteStringInternal.ByteString.length",
-              "self_ns": 553946
-            },
-            {
-              "calls": 3,
-              "head": "PlutusCore.ByteString.PlutusCore.ByteStringInternal.ByteString.mk",
-              "self_ns": 6292
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.ByteString.PlutusCore.ByteStringInternal.LTByteString",
-              "self_ns": 7000
-            },
-            {
-              "calls": 38,
-              "head": "PlutusCore.ByteString.PlutusCore.ByteStringInternal.equalsByteString",
-              "self_ns": 66002
-            },
-            {
-              "calls": 26,
-              "head": "PlutusCore.ByteString.PlutusCore.ByteStringInternal.lessThanByteString",
-              "self_ns": 57085
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.Data.PlutusCore.DataInternal.BEqData",
-              "self_ns": 4375
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.Data.PlutusCore.DataInternal.Data",
-              "self_ns": 1792
-            },
-            {
-              "calls": 19822,
-              "head": "PlutusCore.Data.PlutusCore.DataInternal.Data.B",
-              "self_ns": 20990829
-            },
-            {
-              "calls": 31236,
-              "head": "PlutusCore.Data.PlutusCore.DataInternal.Data.Constr",
-              "self_ns": 52749807
-            },
-            {
-              "calls": 10713,
-              "head": "PlutusCore.Data.PlutusCore.DataInternal.Data.I",
-              "self_ns": 11365024
-            },
-            {
-              "calls": 22123,
-              "head": "PlutusCore.Data.PlutusCore.DataInternal.Data.List",
-              "self_ns": 26947877
-            },
-            {
-              "calls": 15442,
-              "head": "PlutusCore.Data.PlutusCore.DataInternal.Data.Map",
-              "self_ns": 22492559
-            },
-            {
-              "calls": 10,
-              "head": "PlutusCore.Data.PlutusCore.DataInternal.eqData",
-              "self_ns": 16251
-            },
-            {
-              "calls": 51,
-              "head": "PlutusCore.Data.PlutusCore.DataInternal.eqData.match_1",
-              "self_ns": 909165
-            },
-            {
-              "calls": 10,
-              "head": "PlutusCore.Data.PlutusCore.DataInternal.eqDataConstr",
-              "self_ns": 84292
-            },
-            {
-              "calls": 19,
-              "head": "PlutusCore.Data.PlutusCore.DataInternal.eqDataConstr.match_1",
-              "self_ns": 149208
-            },
-            {
-              "calls": 10,
-              "head": "PlutusCore.Data.PlutusCore.DataInternal.eqDataList",
-              "self_ns": 74918
-            },
-            {
-              "calls": 11,
-              "head": "PlutusCore.Data.PlutusCore.DataInternal.eqDataList.match_1",
-              "self_ns": 288541
-            },
-            {
-              "calls": 45,
-              "head": "PlutusCore.Data.PlutusCore.DataInternal.eqDataMap",
-              "self_ns": 306416
-            },
-            {
-              "calls": 11,
-              "head": "PlutusCore.Data.PlutusCore.DataInternal.eqDataMap.match_1",
-              "self_ns": 370000
-            },
-            {
-              "calls": 420,
-              "head": "PlutusCore.Data.PlutusCore.DataInternal.equalsData",
-              "self_ns": 594322
-            },
-            {
-              "calls": 538,
-              "head": "PlutusCore.Data.PlutusCore.DataInternal.mapData",
-              "self_ns": 601303
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.Default.Internal.BuiltinSemanticsVariant",
-              "self_ns": 1083
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.Default.Internal.BuiltinSemanticsVariant.defaultFunSemanticsVariantE",
-              "self_ns": 1250
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.Default.Internal.instInhabitedBuiltinSemanticsVariant",
-              "self_ns": 3834
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.Integer.Integer",
-              "self_ns": 7584
-            },
-            {
-              "calls": 82,
-              "head": "PlutusCore.Integer.PlutusCore.IntegerInternal.addInteger",
-              "self_ns": 198626
-            },
-            {
-              "calls": 244,
-              "head": "PlutusCore.Integer.PlutusCore.IntegerInternal.equalsInteger",
-              "self_ns": 337632
-            },
-            {
-              "calls": 136,
-              "head": "PlutusCore.Integer.PlutusCore.IntegerInternal.lessThanEqualsInteger",
-              "self_ns": 201627
-            },
-            {
-              "calls": 7,
-              "head": "PlutusCore.List.PlutusCore.ListInternal.mkCons",
-              "self_ns": 49916
-            },
-            {
-              "calls": 13,
-              "head": "PlutusCore.List.PlutusCore.ListInternal.nullList",
-              "self_ns": 61877
-            },
-            {
-              "calls": 163,
-              "head": "PlutusCore.Pair.PlutusCore.PairInternal.fstPair",
-              "self_ns": 617636
-            },
-            {
-              "calls": 456,
-              "head": "PlutusCore.Pair.PlutusCore.PairInternal.sndPair",
-              "self_ns": 1601926
-            },
-            {
-              "calls": 1022,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.Bool.ifThenElse",
-              "self_ns": 1224239
-            },
-            {
-              "calls": 516,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.Bool.ifThenElse.match_1",
-              "self_ns": 2827748
-            },
-            {
-              "calls": 37,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.ByteString.appendByteString.match_1",
-              "self_ns": 572543
-            },
-            {
-              "calls": 38,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.ByteString.equalsByteString",
-              "self_ns": 71375
-            },
-            {
-              "calls": 26,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.ByteString.lessThanByteString",
-              "self_ns": 66541
-            },
-            {
-              "calls": 420,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.Data.equalsData",
-              "self_ns": 539460
-            },
-            {
-              "calls": 215,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.Data.equalsData.match_1",
-              "self_ns": 1546968
-            },
-            {
-              "calls": 538,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.Data.mapData",
-              "self_ns": 628295
-            },
-            {
-              "calls": 274,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.Data.mapData.match_1",
-              "self_ns": 1513406
-            },
-            {
-              "calls": 80,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.Data.unBData",
-              "self_ns": 101123
-            },
-            {
-              "calls": 45,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.Data.unBData.match_1",
-              "self_ns": 863828
-            },
-            {
-              "calls": 1106,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.Data.unConstrData",
-              "self_ns": 1251760
-            },
-            {
-              "calls": 559,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.Data.unConstrData.match_1",
-              "self_ns": 13098821
-            },
-            {
-              "calls": 785,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.Data.unConstrData.match_3",
-              "self_ns": 3657055
-            },
-            {
-              "calls": 16,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.Data.unIData",
-              "self_ns": 39874
-            },
-            {
-              "calls": 13,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.Data.unIData.match_1",
-              "self_ns": 296457
-            },
-            {
-              "calls": 192,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.Data.unListData",
-              "self_ns": 273954
-            },
-            {
-              "calls": 101,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.Data.unListData.match_1",
-              "self_ns": 603207
-            },
-            {
-              "calls": 164,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.Data.unMapData",
-              "self_ns": 231831
-            },
-            {
-              "calls": 87,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.Data.unMapData.match_1",
-              "self_ns": 1940127
-            },
-            {
-              "calls": 9882,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.Evaluate.evaluateBuiltinFunction",
-              "self_ns": 9706134
-            },
-            {
-              "calls": 5041,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.Evaluate.evaluateBuiltinFunction.match_1",
-              "self_ns": 59033445
-            },
-            {
-              "calls": 82,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.Integer.addInteger",
-              "self_ns": 119336
-            },
-            {
-              "calls": 236,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.Integer.addInteger.match_1",
-              "self_ns": 1437899
-            },
-            {
-              "calls": 244,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.Integer.equalsInteger",
-              "self_ns": 304202
-            },
-            {
-              "calls": 136,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.Integer.lessThanEqualsInteger",
-              "self_ns": 166950
-            },
-            {
-              "calls": 656,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.List.chooseList",
-              "self_ns": 761638
-            },
-            {
-              "calls": 335,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.List.chooseList.match_1",
-              "self_ns": 2514166
-            },
-            {
-              "calls": 2,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.List.dropList",
-              "self_ns": 25541
-            },
-            {
-              "calls": 8,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.List.dropList.match_1",
-              "self_ns": 744459
-            },
-            {
-              "calls": 2004,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.List.headList",
-              "self_ns": 2035130
-            },
-            {
-              "calls": 2314,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.List.headList.match_3",
-              "self_ns": 26847744
-            },
-            {
-              "calls": 276,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.List.headList.match_5",
-              "self_ns": 3946580
-            },
-            {
-              "calls": 1552,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.List.headList.match_7",
-              "self_ns": 8042136
-            },
-            {
-              "calls": 12,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.List.mkCons",
-              "self_ns": 51835
-            },
-            {
-              "calls": 13,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.List.mkCons.match_1",
-              "self_ns": 768707
-            },
-            {
-              "calls": 24,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.List.nullList",
-              "self_ns": 57624
-            },
-            {
-              "calls": 1062,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.List.tailList",
-              "self_ns": 1138138
-            },
-            {
-              "calls": 324,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.Pair.fstPair",
-              "self_ns": 379040
-            },
-            {
-              "calls": 623,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.Pair.fstPair.match_1",
-              "self_ns": 3135153
-            },
-            {
-              "calls": 910,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.Pair.sndPair",
-              "self_ns": 1023677
-            },
-            {
-              "calls": 488,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.Value.unValueData",
-              "self_ns": 613993
-            },
-            {
-              "calls": 249,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.Value.unValueData.match_1",
-              "self_ns": 1256708
-            },
-            {
-              "calls": 162,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.Value.unionValue",
-              "self_ns": 268049
-            },
-            {
-              "calls": 161,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.Value.unionValue.match_1",
-              "self_ns": 1189623
-            },
-            {
-              "calls": 150,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.Value.valueContains",
-              "self_ns": 242619
-            },
-            {
-              "calls": 24,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.Value.valueData",
-              "self_ns": 47500
-            },
-            {
-              "calls": 17,
-              "head": "PlutusCore.UPLC.BuiltinFunctions.Value.valueData.match_1",
-              "self_ns": 254045
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Builtins.ExpectedBuiltinArg.ArgQ",
-              "self_ns": 1667
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Builtins.ExpectedBuiltinArg.ArgV",
-              "self_ns": 6458
-            },
-            {
-              "calls": 12,
-              "head": "PlutusCore.UPLC.Builtins.ExpectedBuiltinArgs.More",
-              "self_ns": 63999
-            },
-            {
-              "calls": 3,
-              "head": "PlutusCore.UPLC.Builtins.ExpectedBuiltinArgs.One",
-              "self_ns": 13166
-            },
-            {
-              "calls": 4016,
-              "head": "PlutusCore.UPLC.Builtins.expectedArgs",
-              "self_ns": 4074893
-            },
-            {
-              "calls": 2108,
-              "head": "PlutusCore.UPLC.Builtins.expectedArgs.match_1",
-              "self_ns": 34671147
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.CekMachine.Frame",
-              "self_ns": 1459
-            },
-            {
-              "calls": 3386,
-              "head": "PlutusCore.UPLC.CekMachine.Frame.CaseScrutinee",
-              "self_ns": 6829597
-            },
-            {
-              "calls": 5549,
-              "head": "PlutusCore.UPLC.CekMachine.Frame.ConstructorArgument",
-              "self_ns": 16144931
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.CekMachine.Frame.ForceFrame",
-              "self_ns": 1292
-            },
-            {
-              "calls": 10014,
-              "head": "PlutusCore.UPLC.CekMachine.Frame.LeftApplicationToTerm",
-              "self_ns": 22377123
-            },
-            {
-              "calls": 3129,
-              "head": "PlutusCore.UPLC.CekMachine.Frame.LeftApplicationToValue",
-              "self_ns": 5674355
-            },
-            {
-              "calls": 7630,
-              "head": "PlutusCore.UPLC.CekMachine.Frame.RightApplicationOfValue",
-              "self_ns": 13203334
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.CekMachine.State",
-              "self_ns": 2375
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.CekMachine.State.Error",
-              "self_ns": 1708
-            },
-            {
-              "calls": 23083,
-              "head": "PlutusCore.UPLC.CekMachine.State.Eval",
-              "self_ns": 67554133
-            },
-            {
-              "calls": 77,
-              "head": "PlutusCore.UPLC.CekMachine.State.Halt",
-              "self_ns": 198626
-            },
-            {
-              "calls": 22083,
-              "head": "PlutusCore.UPLC.CekMachine.State.Return",
-              "self_ns": 55020953
-            },
-            {
-              "calls": 14,
-              "head": "PlutusCore.UPLC.CekMachine.applyParams",
-              "self_ns": 3783750
-            },
-            {
-              "calls": 3,
-              "head": "PlutusCore.UPLC.CekMachine.cekExecuteProgram",
-              "self_ns": 56794
-            },
-            {
-              "calls": 4,
-              "head": "PlutusCore.UPLC.CekMachine.cekExecuteProgramWithSemanticVariant.match_1",
-              "self_ns": 89416
-            },
-            {
-              "calls": 9882,
-              "head": "PlutusCore.UPLC.CekMachine.evalBuiltin",
-              "self_ns": 10561102
-            },
-            {
-              "calls": 16088,
-              "head": "PlutusCore.UPLC.CekMachine.evalBuiltin.match_1",
-              "self_ns": 212234794
-            },
-            {
-              "calls": 2,
-              "head": "PlutusCore.UPLC.CekMachine.initialState",
-              "self_ns": 12959
-            },
-            {
-              "calls": 48942,
-              "head": "PlutusCore.UPLC.CekMachine.runSteps",
-              "self_ns": 323361684
-            },
-            {
-              "calls": 46127,
-              "head": "PlutusCore.UPLC.CekMachine.runSteps.match_1",
-              "self_ns": 149961878
-            },
-            {
-              "calls": 89708,
-              "head": "PlutusCore.UPLC.CekMachine.step",
-              "self_ns": 83534104
-            },
-            {
-              "calls": 4131,
-              "head": "PlutusCore.UPLC.CekMachine.step.folding",
-              "self_ns": 20295711
-            },
-            {
-              "calls": 5138,
-              "head": "PlutusCore.UPLC.CekMachine.step.folding.match_1",
-              "self_ns": 11454025
-            },
-            {
-              "calls": 4143,
-              "head": "PlutusCore.UPLC.CekMachine.step.match_1",
-              "self_ns": 11464955
-            },
-            {
-              "calls": 1021,
-              "head": "PlutusCore.UPLC.CekMachine.step.match_11",
-              "self_ns": 3825034
-            },
-            {
-              "calls": 21863,
-              "head": "PlutusCore.UPLC.CekMachine.step.match_13",
-              "self_ns": 60025241
-            },
-            {
-              "calls": 44861,
-              "head": "PlutusCore.UPLC.CekMachine.step.match_15",
-              "self_ns": 119238793
-            },
-            {
-              "calls": 22937,
-              "head": "PlutusCore.UPLC.CekMachine.step.match_3",
-              "self_ns": 71026036
-            },
-            {
-              "calls": 9749,
-              "head": "PlutusCore.UPLC.CekMachine.step.match_5",
-              "self_ns": 28427407
-            },
-            {
-              "calls": 1133,
-              "head": "PlutusCore.UPLC.CekMachine.step.match_7",
-              "self_ns": 3427933
-            },
-            {
-              "calls": 1009,
-              "head": "PlutusCore.UPLC.CekMachine.step.match_9",
-              "self_ns": 3855244
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.CekValue.CekValue",
-              "self_ns": 1584
-            },
-            {
-              "calls": 4506,
-              "head": "PlutusCore.UPLC.CekValue.CekValue.VBuiltin",
-              "self_ns": 11295643
-            },
-            {
-              "calls": 50105,
-              "head": "PlutusCore.UPLC.CekValue.CekValue.VCon",
-              "self_ns": 74946292
-            },
-            {
-              "calls": 1008,
-              "head": "PlutusCore.UPLC.CekValue.CekValue.VConstr",
-              "self_ns": 2210078
-            },
-            {
-              "calls": 2328,
-              "head": "PlutusCore.UPLC.CekValue.CekValue.VDelay",
-              "self_ns": 5325750
-            },
-            {
-              "calls": 9569,
-              "head": "PlutusCore.UPLC.CekValue.CekValue.VLam",
-              "self_ns": 21501048
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.PlutusScript.PlutusLanguage.PlutusV3",
-              "self_ns": 1792
-            },
-            {
-              "calls": 2,
-              "head": "PlutusCore.UPLC.PlutusScript.PlutusScript.mk",
-              "self_ns": 15041
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun",
-              "self_ns": 1541
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.AddInteger",
-              "self_ns": 1250
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.AndByteString",
-              "self_ns": 1125
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.AppendByteString",
-              "self_ns": 1208
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.AppendString",
-              "self_ns": 1625
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.BData",
-              "self_ns": 1125
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.Blake2b_224",
-              "self_ns": 959
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.Blake2b_256",
-              "self_ns": 1500
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_G1_add",
-              "self_ns": 1042
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_G1_compress",
-              "self_ns": 1042
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_G1_equal",
-              "self_ns": 1375
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_G1_hashToGroup",
-              "self_ns": 1166
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_G1_multiScalarMul",
-              "self_ns": 1292
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_G1_neg",
-              "self_ns": 1208
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_G1_scalarMul",
-              "self_ns": 1458
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_G1_uncompress",
-              "self_ns": 1291
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_G2_add",
-              "self_ns": 1084
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_G2_compress",
-              "self_ns": 1250
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_G2_equal",
-              "self_ns": 1083
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_G2_hashToGroup",
-              "self_ns": 1292
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_G2_multiScalarMul",
-              "self_ns": 1000
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_G2_neg",
-              "self_ns": 1292
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_G2_scalarMul",
-              "self_ns": 1250
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_G2_uncompress",
-              "self_ns": 1250
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_finalVerify",
-              "self_ns": 1292
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_millerLoop",
-              "self_ns": 1083
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_mulMlResult",
-              "self_ns": 1500
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.ByteStringToInteger",
-              "self_ns": 1250
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.ChooseData",
-              "self_ns": 1416
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.ChooseList",
-              "self_ns": 1542
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.ChooseUnit",
-              "self_ns": 1334
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.ComplementByteString",
-              "self_ns": 875
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.ConsByteString",
-              "self_ns": 1459
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.ConstrData",
-              "self_ns": 1166
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.CountSetBits",
-              "self_ns": 1042
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.DecodeUtf8",
-              "self_ns": 1500
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.DivideInteger",
-              "self_ns": 1542
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.DropList",
-              "self_ns": 1500
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.EncodeUtf8",
-              "self_ns": 1375
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.EqualsByteString",
-              "self_ns": 1042
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.EqualsData",
-              "self_ns": 1542
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.EqualsInteger",
-              "self_ns": 1625
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.EqualsString",
-              "self_ns": 1292
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.ExpModInteger",
-              "self_ns": 1250
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.FindFirstSetBit",
-              "self_ns": 1209
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.FstPair",
-              "self_ns": 1375
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.HeadList",
-              "self_ns": 1334
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.IData",
-              "self_ns": 1292
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.IfThenElse",
-              "self_ns": 1333
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.IndexByteString",
-              "self_ns": 1375
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.InsertCoin",
-              "self_ns": 1458
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.IntegerToByteString",
-              "self_ns": 13625
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.Keccak_256",
-              "self_ns": 1459
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.LengthOfByteString",
-              "self_ns": 1208
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.LessThanByteString",
-              "self_ns": 1125
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.LessThanEqualsByteString",
-              "self_ns": 1542
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.LessThanEqualsInteger",
-              "self_ns": 1500
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.LessThanInteger",
-              "self_ns": 1334
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.ListData",
-              "self_ns": 1042
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.LookupCoin",
-              "self_ns": 1250
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.MapData",
-              "self_ns": 1375
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.MkCons",
-              "self_ns": 1333
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.MkNilData",
-              "self_ns": 1209
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.MkNilPairData",
-              "self_ns": 1084
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.MkPairData",
-              "self_ns": 1333
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.ModInteger",
-              "self_ns": 1250
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.MultiplyInteger",
-              "self_ns": 1375
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.NullList",
-              "self_ns": 1334
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.OrByteString",
-              "self_ns": 1292
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.QuotientInteger",
-              "self_ns": 1208
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.ReadBit",
-              "self_ns": 1458
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.RemainderInteger",
-              "self_ns": 1459
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.ReplicateByte",
-              "self_ns": 1250
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.Ripemd_160",
-              "self_ns": 1083
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.RotateByteString",
-              "self_ns": 1208
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.ScaleValue",
-              "self_ns": 1208
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.SerializeData",
-              "self_ns": 1083
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.Sha2_256",
-              "self_ns": 1125
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.Sha3_256",
-              "self_ns": 1584
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.ShiftByteString",
-              "self_ns": 1125
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.SliceByteString",
-              "self_ns": 1083
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.SndPair",
-              "self_ns": 1250
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.SubtractInteger",
-              "self_ns": 1875
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.TailList",
-              "self_ns": 1417
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.Trace",
-              "self_ns": 1041
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.UnBData",
-              "self_ns": 1083
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.UnConstrData",
-              "self_ns": 1250
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.UnIData",
-              "self_ns": 1541
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.UnListData",
-              "self_ns": 1625
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.UnMapData",
-              "self_ns": 1250
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.UnValueData",
-              "self_ns": 1333
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.UnionValue",
-              "self_ns": 1291
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.ValueContains",
-              "self_ns": 1292
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.ValueData",
-              "self_ns": 1125
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.VerifyEcdsaSecp256k1Signature",
-              "self_ns": 1542
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.VerifyEd25519Signature",
-              "self_ns": 1292
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.VerifySchnorrSecp256k1Signature",
-              "self_ns": 1250
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.WriteBits",
-              "self_ns": 1167
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.BuiltinFun.XorByteString",
-              "self_ns": 1083
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.Const",
-              "self_ns": 1416
-            },
-            {
-              "calls": 599,
-              "head": "PlutusCore.UPLC.Term.Const.Bool",
-              "self_ns": 1169240
-            },
-            {
-              "calls": 1539,
-              "head": "PlutusCore.UPLC.Term.Const.ByteString",
-              "self_ns": 1524255
-            },
-            {
-              "calls": 29879,
-              "head": "PlutusCore.UPLC.Term.Const.ConstDataList",
-              "self_ns": 46332073
-            },
-            {
-              "calls": 11,
-              "head": "PlutusCore.UPLC.Term.Const.ConstList",
-              "self_ns": 17083
-            },
-            {
-              "calls": 6964,
-              "head": "PlutusCore.UPLC.Term.Const.ConstPairDataList",
-              "self_ns": 10090036
-            },
-            {
-              "calls": 14672,
-              "head": "PlutusCore.UPLC.Term.Const.Data",
-              "self_ns": 17165281
-            },
-            {
-              "calls": 1691,
-              "head": "PlutusCore.UPLC.Term.Const.Integer",
-              "self_ns": 2161264
-            },
-            {
-              "calls": 2426,
-              "head": "PlutusCore.UPLC.Term.Const.Pair",
-              "self_ns": 3976382
-            },
-            {
-              "calls": 136,
-              "head": "PlutusCore.UPLC.Term.Const.PairData",
-              "self_ns": 216701
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.Const.Unit",
-              "self_ns": 1458
-            },
-            {
-              "calls": 1365,
-              "head": "PlutusCore.UPLC.Term.Const.Value",
-              "self_ns": 2354698
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.Program",
-              "self_ns": 1875
-            },
-            {
-              "calls": 5,
-              "head": "PlutusCore.UPLC.Term.Program.Program",
-              "self_ns": 18627
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.Term",
-              "self_ns": 1416
-            },
-            {
-              "calls": 532,
-              "head": "PlutusCore.UPLC.Term.Term.Apply",
-              "self_ns": 1123635
-            },
-            {
-              "calls": 29,
-              "head": "PlutusCore.UPLC.Term.Term.Builtin",
-              "self_ns": 54582
-            },
-            {
-              "calls": 78,
-              "head": "PlutusCore.UPLC.Term.Term.Case",
-              "self_ns": 170539
-            },
-            {
-              "calls": 17,
-              "head": "PlutusCore.UPLC.Term.Term.Const",
-              "self_ns": 65376
-            },
-            {
-              "calls": 78,
-              "head": "PlutusCore.UPLC.Term.Term.Constr",
-              "self_ns": 165885
-            },
-            {
-              "calls": 83,
-              "head": "PlutusCore.UPLC.Term.Term.Delay",
-              "self_ns": 147785
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.UPLC.Term.Term.Error",
-              "self_ns": 1166
-            },
-            {
-              "calls": 70,
-              "head": "PlutusCore.UPLC.Term.Term.Force",
-              "self_ns": 124909
-            },
-            {
-              "calls": 199,
-              "head": "PlutusCore.UPLC.Term.Term.Lam",
-              "self_ns": 309829
-            },
-            {
-              "calls": 125,
-              "head": "PlutusCore.UPLC.Term.Term.Var",
-              "self_ns": 136461
-            },
-            {
-              "calls": 2,
-              "head": "PlutusCore.UPLC.Term.Version.Version",
-              "self_ns": 12541
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.Value.ValueRep",
-              "self_ns": 15666
-            },
-            {
-              "calls": 558,
-              "head": "PlutusCore.Value.ascendingFrom",
-              "self_ns": 666212
-            },
-            {
-              "calls": 286,
-              "head": "PlutusCore.Value.ascendingFrom.match_1",
-              "self_ns": 1043047
-            },
-            {
-              "calls": 72,
-              "head": "PlutusCore.Value.containedInner",
-              "self_ns": 2514255
-            },
-            {
-              "calls": 163,
-              "head": "PlutusCore.Value.containedOuter",
-              "self_ns": 2476878
-            },
-            {
-              "calls": 268,
-              "head": "PlutusCore.Value.hasNegativeAmount",
-              "self_ns": 3055174
-            },
-            {
-              "calls": 252,
-              "head": "PlutusCore.Value.innerHasNegative",
-              "self_ns": 2964288
-            },
-            {
-              "calls": 206,
-              "head": "PlutusCore.Value.innerHasNegative.match_1",
-              "self_ns": 1040417
-            },
-            {
-              "calls": 1077,
-              "head": "PlutusCore.Value.innerToData",
-              "self_ns": 4799950
-            },
-            {
-              "calls": 12,
-              "head": "PlutusCore.Value.lookupCoin",
-              "self_ns": 3238042
-            },
-            {
-              "calls": 9,
-              "head": "PlutusCore.Value.lookupInner",
-              "self_ns": 3316042
-            },
-            {
-              "calls": 1,
-              "head": "PlutusCore.Value.maxKeyLen",
-              "self_ns": 9208
-            },
-            {
-              "calls": 26,
-              "head": "PlutusCore.Value.outerToData",
-              "self_ns": 2868167
-            },
-            {
-              "calls": 368,
-              "head": "PlutusCore.Value.totalSize.match_1",
-              "self_ns": 1454533
-            },
-            {
-              "calls": 488,
-              "head": "PlutusCore.Value.unValueData",
-              "self_ns": 585710
-            },
-            {
-              "calls": 249,
-              "head": "PlutusCore.Value.unValueData.match_1",
-              "self_ns": 1824457
-            },
-            {
-              "calls": 472,
-              "head": "PlutusCore.Value.unValueDataCurrencies",
-              "self_ns": 44060949
-            },
-            {
-              "calls": 187,
-              "head": "PlutusCore.Value.unValueDataCurrencies.match_1",
-              "self_ns": 1966504
-            },
-            {
-              "calls": 187,
-              "head": "PlutusCore.Value.unValueDataCurrencies.match_3",
-              "self_ns": 1945499
-            },
-            {
-              "calls": 268,
-              "head": "PlutusCore.Value.unValueDataTokens",
-              "self_ns": 14044214
-            },
-            {
-              "calls": 241,
-              "head": "PlutusCore.Value.unValueDataTokens.match_1",
-              "self_ns": 4318160
-            },
-            {
-              "calls": 463,
-              "head": "PlutusCore.Value.unValueDataTokens.match_3",
-              "self_ns": 5812591
-            },
-            {
-              "calls": 13,
-              "head": "PlutusCore.Value.unionInner",
-              "self_ns": 221502
-            },
-            {
-              "calls": 1462,
-              "head": "PlutusCore.Value.unionInner.match_1",
-              "self_ns": 24416342
-            },
-            {
-              "calls": 11,
-              "head": "PlutusCore.Value.unionInner.match_3",
-              "self_ns": 399752
-            },
-            {
-              "calls": 91,
-              "head": "PlutusCore.Value.unionOuter",
-              "self_ns": 610793
-            },
-            {
-              "calls": 454,
-              "head": "PlutusCore.Value.unionOuter.match_1",
-              "self_ns": 7267292
-            },
-            {
-              "calls": 8,
-              "head": "PlutusCore.Value.unionOuter.match_3",
-              "self_ns": 145416
-            },
-            {
-              "calls": 56,
-              "head": "PlutusCore.Value.unionOuter.match_5",
-              "self_ns": 644411
-            },
-            {
-              "calls": 162,
-              "head": "PlutusCore.Value.unionValue",
-              "self_ns": 226746
-            },
-            {
-              "calls": 558,
-              "head": "PlutusCore.Value.validKey",
-              "self_ns": 615632
-            },
-            {
-              "calls": 244,
-              "head": "PlutusCore.Value.validQuantity",
-              "self_ns": 318128
-            },
-            {
-              "calls": 150,
-              "head": "PlutusCore.Value.valueContains",
-              "self_ns": 246663
-            },
-            {
-              "calls": 24,
-              "head": "PlutusCore.Value.valueData",
-              "self_ns": 39461
-            },
-            {
-              "calls": 2,
-              "head": "Pow.pow",
-              "self_ns": 42500
-            },
-            {
-              "calls": 10,
-              "head": "Prod",
-              "self_ns": 34585
-            },
-            {
-              "calls": 255,
-              "head": "Prod.fst",
-              "self_ns": 1543493
-            },
-            {
-              "calls": 13066,
-              "head": "Prod.mk",
-              "self_ns": 29069902
-            },
-            {
-              "calls": 497,
-              "head": "Prod.snd",
-              "self_ns": 4405112
-            },
-            {
-              "calls": 1,
-              "head": "String",
-              "self_ns": 1292
-            },
-            {
-              "calls": 1,
-              "head": "String.instLT",
-              "self_ns": 2916
-            },
-            {
-              "calls": 280,
-              "head": "String.length",
-              "self_ns": 925748
-            },
-            {
-              "calls": 2,
-              "head": "WSC.globalInputs1600",
-              "self_ns": 22583
-            },
-            {
-              "calls": 14,
-              "head": "_normalizer",
-              "self_ns": 23366582
-            },
-            {
-              "calls": 2,
-              "head": "instBEqOfDecidableEq",
-              "self_ns": 21958
-            },
-            {
-              "calls": 2,
-              "head": "instHAdd",
-              "self_ns": 18124
-            },
-            {
-              "calls": 3,
-              "head": "instHMul",
-              "self_ns": 19751
-            },
-            {
-              "calls": 2,
-              "head": "instHPow",
-              "self_ns": 19375
-            },
-            {
-              "calls": 1,
-              "head": "instLENat",
-              "self_ns": 7792
-            },
-            {
-              "calls": 1,
-              "head": "instLTNat",
-              "self_ns": 5166
-            },
-            {
-              "calls": 1,
-              "head": "instNatPowNat",
-              "self_ns": 3375
-            },
-            {
-              "calls": 12,
-              "head": "instOfNat",
-              "self_ns": 30415
-            },
-            {
-              "calls": 9,
-              "head": "instOfNatNat",
-              "self_ns": 24042
-            },
-            {
-              "calls": 2,
-              "head": "instPowNat",
-              "self_ns": 16625
-            },
-            {
-              "calls": 1798,
-              "head": "ite",
-              "self_ns": 2560443
-            },
-            {
-              "calls": 1,
-              "head": "programmableLogicGlobal1600",
-              "self_ns": 1033833
-            }
+            {"calls": 126, "head": "Add.add", "self_ns": 839702},
+            {"calls": 8, "head": "And", "self_ns": 83919},
+            {"calls": 545, "head": "BEq.beq", "self_ns": 14578642},
+            {"calls": 810, "head": "Blaster.decide'", "self_ns": 2269085},
+            {"calls": 5591, "head": "Blaster.dite'", "self_ns": 38148984},
+            {"calls": 1, "head": "Bool", "self_ns": 2584},
+            {"calls": 73, "head": "Bool.and", "self_ns": 368114},
+            {"calls": 1, "head": "Bool.false", "self_ns": 1291},
+            {"calls": 251, "head": "Bool.or", "self_ns": 1282588},
+            {"calls": 1, "head": "Bool.true", "self_ns": 1958},
+            {"calls": 239, "head": "CardanoLedgerApi.IsData.Class.IsData.toData", "self_ns": 1868144},
+            {"calls": 1, "head": "CardanoLedgerApi.IsData.Class.instIsDataData", "self_ns": 5708},
+            {"calls": 1, "head": "CardanoLedgerApi.IsData.Class.instIsDataInteger", "self_ns": 3083},
+            {"calls": 4, "head": "CardanoLedgerApi.IsData.Class.instIsDataOption", "self_ns": 29000},
+            {"calls": 15, "head": "CardanoLedgerApi.IsData.Class.instIsDataOption.match_1", "self_ns": 387125},
+            {"calls": 328, "head": "CardanoLedgerApi.IsData.Class.mkDataConstr", "self_ns": 428865},
+            {"calls": 5, "head": "CardanoLedgerApi.IsData.Class.toTerm", "self_ns": 42333},
+            {"calls": 1, "head": "CardanoLedgerApi.V1.Address.Address", "self_ns": 2000},
+            {"calls": 8, "head": "CardanoLedgerApi.V1.Address.Address.addressCredential", "self_ns": 19625},
+            {"calls": 8, "head": "CardanoLedgerApi.V1.Address.Address.addressStakingCredential", "self_ns": 28251},
+            {"calls": 1, "head": "CardanoLedgerApi.V1.Address.instIsDataAddress", "self_ns": 3083},
+            {"calls": 1, "head": "CardanoLedgerApi.V1.Contexts.instIsDataListPubKeyHash", "self_ns": 5125},
+            {"calls": 2, "head": "CardanoLedgerApi.V1.Contexts.txInfoSignatoriesToListData", "self_ns": 29833},
+            {"calls": 3731, "head": "CardanoLedgerApi.V1.Contexts.txInfoSignatoriesToListData.go._@.CardanoLedgerApi.V1.Contexts.3037641814._hygCtx._hyg.14", "self_ns": 11035506},
+            {"calls": 7, "head": "CardanoLedgerApi.V1.Contexts.txInfoSignatoriesToListData.go.match_1._@.CardanoLedgerApi.V1.Contexts.3037641814._hygCtx._hyg.14", "self_ns": 193500},
+            {"calls": 1, "head": "CardanoLedgerApi.V1.Credential.Credential", "self_ns": 1167},
+            {"calls": 3, "head": "CardanoLedgerApi.V1.Credential.Credential.PubKeyCredential", "self_ns": 8125},
+            {"calls": 3, "head": "CardanoLedgerApi.V1.Credential.Credential.ScriptCredential", "self_ns": 7500},
+            {"calls": 1, "head": "CardanoLedgerApi.V1.Credential.PubKeyHash", "self_ns": 8000},
+            {"calls": 1, "head": "CardanoLedgerApi.V1.Credential.StakingCredential", "self_ns": 2042},
+            {"calls": 3, "head": "CardanoLedgerApi.V1.Credential.StakingCredential.StakingHash", "self_ns": 8958},
+            {"calls": 5, "head": "CardanoLedgerApi.V1.Credential.StakingCredential.StakingPtr", "self_ns": 11542},
+            {"calls": 1, "head": "CardanoLedgerApi.V1.Credential.instIsDataCredential", "self_ns": 3875},
+            {"calls": 1, "head": "CardanoLedgerApi.V1.Credential.instIsDataStakingCredential", "self_ns": 3916},
+            {"calls": 46, "head": "CardanoLedgerApi.V1.Credential.instReprCredential.repr.match_1", "self_ns": 1274875},
+            {"calls": 7, "head": "CardanoLedgerApi.V1.Credential.instReprStakingCredential.repr.match_1", "self_ns": 207000},
+            {"calls": 1, "head": "CardanoLedgerApi.V1.Scripts.Datum", "self_ns": 4291},
+            {"calls": 1, "head": "CardanoLedgerApi.V1.Scripts.DatumHash", "self_ns": 5666},
+            {"calls": 1, "head": "CardanoLedgerApi.V1.Scripts.Redeemer", "self_ns": 12375},
+            {"calls": 1, "head": "CardanoLedgerApi.V1.Scripts.ScriptHash", "self_ns": 7250},
+            {"calls": 1, "head": "CardanoLedgerApi.V1.Tx.instIsDataTxId", "self_ns": 4083},
+            {"calls": 1, "head": "CardanoLedgerApi.V1.Value.CurrencySymbol", "self_ns": 10875},
+            {"calls": 1, "head": "CardanoLedgerApi.V1.Value.Value", "self_ns": 11667},
+            {"calls": 1, "head": "CardanoLedgerApi.V1.Value.instIsDataValue", "self_ns": 3792},
+            {"calls": 1, "head": "CardanoLedgerApi.V2.Contexts.DatumMap", "self_ns": 11083},
+            {"calls": 1, "head": "CardanoLedgerApi.V2.Contexts.instIsDataDatumMap", "self_ns": 3167},
+            {"calls": 1, "head": "CardanoLedgerApi.V2.Contexts.instIsDataListTxOut", "self_ns": 8750},
+            {"calls": 2, "head": "CardanoLedgerApi.V2.Contexts.txInfoDataToListPairData", "self_ns": 13292},
+            {"calls": 3731, "head": "CardanoLedgerApi.V2.Contexts.txInfoDataToListPairData.go._@.CardanoLedgerApi.V2.Contexts.1377661293._hygCtx._hyg.19", "self_ns": 10181078},
+            {"calls": 7, "head": "CardanoLedgerApi.V2.Contexts.txInfoDataToListPairData.match_1", "self_ns": 172667},
+            {"calls": 2, "head": "CardanoLedgerApi.V2.Contexts.txInfoOutputsToListData", "self_ns": 23625},
+            {"calls": 399, "head": "CardanoLedgerApi.V2.Contexts.txInfoOutputsToListData.go._@.CardanoLedgerApi.V2.Contexts.3695909053._hygCtx._hyg.14", "self_ns": 6312452},
+            {"calls": 7, "head": "CardanoLedgerApi.V2.Contexts.txInfoOutputsToListData.match_1", "self_ns": 287957},
+            {"calls": 1, "head": "CardanoLedgerApi.V2.Tx.OutputDatum", "self_ns": 1750},
+            {"calls": 1, "head": "CardanoLedgerApi.V2.Tx.OutputDatum.NoOutputDatum", "self_ns": 1458},
+            {"calls": 3, "head": "CardanoLedgerApi.V2.Tx.OutputDatum.OutputDatum", "self_ns": 7958},
+            {"calls": 3, "head": "CardanoLedgerApi.V2.Tx.OutputDatum.OutputDatumHash", "self_ns": 8333},
+            {"calls": 1, "head": "CardanoLedgerApi.V2.Tx.TxOut", "self_ns": 1583},
+            {"calls": 8, "head": "CardanoLedgerApi.V2.Tx.TxOut.txOutAddress", "self_ns": 18250},
+            {"calls": 8, "head": "CardanoLedgerApi.V2.Tx.TxOut.txOutDatum", "self_ns": 17333},
+            {"calls": 8, "head": "CardanoLedgerApi.V2.Tx.TxOut.txOutReferenceScript", "self_ns": 21083},
+            {"calls": 8, "head": "CardanoLedgerApi.V2.Tx.TxOut.txOutValue", "self_ns": 19000},
+            {"calls": 1, "head": "CardanoLedgerApi.V2.Tx.instIsDataOutputDatum", "self_ns": 3417},
+            {"calls": 1, "head": "CardanoLedgerApi.V2.Tx.instIsDataTxOut", "self_ns": 4041},
+            {"calls": 8, "head": "CardanoLedgerApi.V2.Tx.instReprOutputDatum.repr.match_1", "self_ns": 196375},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Contexts.GovernanceVoteMap", "self_ns": 6625},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Contexts.MintValue", "self_ns": 9875},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Contexts.RedeemerMap", "self_ns": 12542},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Contexts.ScriptContext", "self_ns": 1417},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.Contexts.ScriptContext.scriptContextRedeemer", "self_ns": 13500},
+            {"calls": 9, "head": "CardanoLedgerApi.V3.Contexts.ScriptContext.scriptContextScriptInfo", "self_ns": 25792},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.Contexts.ScriptContext.scriptContextTxInfo", "self_ns": 14667},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Contexts.ScriptInfo", "self_ns": 1625},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.Contexts.ScriptInfo.CertifyingScript", "self_ns": 9667},
+            {"calls": 3, "head": "CardanoLedgerApi.V3.Contexts.ScriptInfo.MintingScript", "self_ns": 9583},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.Contexts.ScriptInfo.ProposingScript", "self_ns": 8458},
+            {"calls": 5, "head": "CardanoLedgerApi.V3.Contexts.ScriptInfo.RewardingScript", "self_ns": 11958},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.Contexts.ScriptInfo.SpendingScript", "self_ns": 10959},
+            {"calls": 3, "head": "CardanoLedgerApi.V3.Contexts.ScriptInfo.VotingScript", "self_ns": 6542},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Contexts.ScriptPurpose", "self_ns": 1958},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.Contexts.ScriptPurpose.Certifying", "self_ns": 14334},
+            {"calls": 3, "head": "CardanoLedgerApi.V3.Contexts.ScriptPurpose.Minting", "self_ns": 8750},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.Contexts.ScriptPurpose.Proposing", "self_ns": 9666},
+            {"calls": 3, "head": "CardanoLedgerApi.V3.Contexts.ScriptPurpose.Rewarding", "self_ns": 7250},
+            {"calls": 3, "head": "CardanoLedgerApi.V3.Contexts.ScriptPurpose.Spending", "self_ns": 7709},
+            {"calls": 3, "head": "CardanoLedgerApi.V3.Contexts.ScriptPurpose.Voting", "self_ns": 8167},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Contexts.TxInInfo", "self_ns": 1416},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.Contexts.TxInInfo.txInInfoOutRef", "self_ns": 16417},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.Contexts.TxInInfo.txInInfoResolved", "self_ns": 11583},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Contexts.TxInfo", "self_ns": 1791},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.Contexts.TxInfo.txInfoCurrentTreasuryAmount", "self_ns": 15708},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.Contexts.TxInfo.txInfoData", "self_ns": 13291},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.Contexts.TxInfo.txInfoFee", "self_ns": 23209},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.Contexts.TxInfo.txInfoId", "self_ns": 20083},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.Contexts.TxInfo.txInfoInputs", "self_ns": 12791},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.Contexts.TxInfo.txInfoMint", "self_ns": 15375},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.Contexts.TxInfo.txInfoOutputs", "self_ns": 16541},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.Contexts.TxInfo.txInfoProposalProcedures", "self_ns": 21542},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.Contexts.TxInfo.txInfoRedeemers", "self_ns": 16125},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.Contexts.TxInfo.txInfoReferenceInputs", "self_ns": 32708},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.Contexts.TxInfo.txInfoSignatories", "self_ns": 18542},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.Contexts.TxInfo.txInfoTreasuryDonation", "self_ns": 15333},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.Contexts.TxInfo.txInfoTxCerts", "self_ns": 14000},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.Contexts.TxInfo.txInfoValidRange", "self_ns": 22666},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.Contexts.TxInfo.txInfoVotes", "self_ns": 12875},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.Contexts.TxInfo.txInfoWdrl", "self_ns": 18167},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Contexts.VoterMap", "self_ns": 8125},
+            {"calls": 2, "head": "CardanoLedgerApi.V3.Contexts.governanceVoteMapToListPairData", "self_ns": 18041},
+            {"calls": 26, "head": "CardanoLedgerApi.V3.Contexts.governanceVoteMapToListPairData.go._@.CardanoLedgerApi.V3.Contexts.3308403429._hygCtx._hyg.19", "self_ns": 3237083},
+            {"calls": 7, "head": "CardanoLedgerApi.V3.Contexts.governanceVoteMapToListPairData.match_1", "self_ns": 204832},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Contexts.instIsDataGovernanceVoteMap", "self_ns": 4667},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Contexts.instIsDataListProposalProcedure", "self_ns": 4084},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Contexts.instIsDataListTxCert", "self_ns": 4458},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Contexts.instIsDataListTxInInfo", "self_ns": 2708},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Contexts.instIsDataRedeemerMap", "self_ns": 3667},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Contexts.instIsDataScriptContext", "self_ns": 3875},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Contexts.instIsDataScriptInfo", "self_ns": 4000},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Contexts.instIsDataScriptPurpose", "self_ns": 4875},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Contexts.instIsDataTxInInfo", "self_ns": 3917},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Contexts.instIsDataTxInfo", "self_ns": 3958},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Contexts.instIsDataVoterMap", "self_ns": 3083},
+            {"calls": 9, "head": "CardanoLedgerApi.V3.Contexts.instReprScriptInfo.repr.match_1", "self_ns": 235750},
+            {"calls": 10, "head": "CardanoLedgerApi.V3.Contexts.instReprScriptPurpose.repr.match_1", "self_ns": 461917},
+            {"calls": 2, "head": "CardanoLedgerApi.V3.Contexts.rewardingInputs", "self_ns": 33709},
+            {"calls": 7, "head": "CardanoLedgerApi.V3.Contexts.rewardingInputs.match_1", "self_ns": 224582},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.Contexts.txInfoInputsToListData", "self_ns": 15667},
+            {"calls": 7556, "head": "CardanoLedgerApi.V3.Contexts.txInfoInputsToListData.go._@.CardanoLedgerApi.V3.Contexts.2536880513._hygCtx._hyg.14", "self_ns": 14738976},
+            {"calls": 7, "head": "CardanoLedgerApi.V3.Contexts.txInfoInputsToListData.match_1", "self_ns": 333999},
+            {"calls": 2, "head": "CardanoLedgerApi.V3.Contexts.txInfoProposalProcsToListData", "self_ns": 20625},
+            {"calls": 3735, "head": "CardanoLedgerApi.V3.Contexts.txInfoProposalProcsToListData.go._@.CardanoLedgerApi.V3.Contexts.283897823._hygCtx._hyg.14", "self_ns": 10123911},
+            {"calls": 7, "head": "CardanoLedgerApi.V3.Contexts.txInfoProposalProcsToListData.match_1", "self_ns": 177041},
+            {"calls": 2, "head": "CardanoLedgerApi.V3.Contexts.txInfoRedeemersToListPairData", "self_ns": 15584},
+            {"calls": 3869, "head": "CardanoLedgerApi.V3.Contexts.txInfoRedeemersToListPairData.go._@.CardanoLedgerApi.V3.Contexts.2123419846._hygCtx._hyg.19", "self_ns": 10937996},
+            {"calls": 7, "head": "CardanoLedgerApi.V3.Contexts.txInfoRedeemersToListPairData.match_1", "self_ns": 279626},
+            {"calls": 2, "head": "CardanoLedgerApi.V3.Contexts.txInfoTxCertsToListData", "self_ns": 15541},
+            {"calls": 3847, "head": "CardanoLedgerApi.V3.Contexts.txInfoTxCertsToListData.go._@.CardanoLedgerApi.V3.Contexts.1881025222._hygCtx._hyg.14", "self_ns": 11839841},
+            {"calls": 7, "head": "CardanoLedgerApi.V3.Contexts.txInfoTxCertsToListData.match_1", "self_ns": 229750},
+            {"calls": 2, "head": "CardanoLedgerApi.V3.Contexts.voterMapToListPairData", "self_ns": 13375},
+            {"calls": 3741, "head": "CardanoLedgerApi.V3.Contexts.voterMapToListPairData.go._@.CardanoLedgerApi.V3.Contexts.2345433621._hygCtx._hyg.19", "self_ns": 9890843},
+            {"calls": 7, "head": "CardanoLedgerApi.V3.Contexts.voterMapToListPairData.match_1", "self_ns": 179916},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Governance.GovernanceActionId", "self_ns": 2041},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.Governance.GovernanceActionId.gaidGovActionIx", "self_ns": 14833},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.Governance.GovernanceActionId.gaidTxId", "self_ns": 22542},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Governance.ProposalProcedure", "self_ns": 1166},
+            {"calls": 8, "head": "CardanoLedgerApi.V3.Governance.ProposalProcedure.ppDeposit", "self_ns": 18957},
+            {"calls": 8, "head": "CardanoLedgerApi.V3.Governance.ProposalProcedure.ppGovernanceAction", "self_ns": 15041},
+            {"calls": 8, "head": "CardanoLedgerApi.V3.Governance.ProposalProcedure.ppReturnAddr", "self_ns": 16208},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Governance.Vote", "self_ns": 1500},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Governance.Vote.Abstain", "self_ns": 1167},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Governance.Vote.VoteNo", "self_ns": 6083},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Governance.Vote.VoteYes", "self_ns": 1208},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Governance.Voter", "self_ns": 1625},
+            {"calls": 3, "head": "CardanoLedgerApi.V3.Governance.Voter.CommitteeVoter", "self_ns": 7042},
+            {"calls": 3, "head": "CardanoLedgerApi.V3.Governance.Voter.DRepVoter", "self_ns": 10500},
+            {"calls": 3, "head": "CardanoLedgerApi.V3.Governance.Voter.StakePoolVoter", "self_ns": 5875},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Governance.Withdrawals", "self_ns": 13542},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Governance.instIsDataGovernanceActionId", "self_ns": 5041},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Governance.instIsDataNewCommitteeMembers", "self_ns": 4500},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Governance.instIsDataProposalProcedure", "self_ns": 3375},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Governance.instIsDataVote", "self_ns": 3291},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Governance.instIsDataVoter", "self_ns": 3875},
+            {"calls": 7, "head": "CardanoLedgerApi.V3.Governance.instReprVote.repr.match_1", "self_ns": 129792},
+            {"calls": 8, "head": "CardanoLedgerApi.V3.Governance.instReprVoter.repr.match_1", "self_ns": 220001},
+            {"calls": 2, "head": "CardanoLedgerApi.V3.Governance.newCommitteeToListPairData", "self_ns": 17583},
+            {"calls": 87, "head": "CardanoLedgerApi.V3.Governance.newCommitteeToListPairData.go._@.CardanoLedgerApi.V3.Governance.329856877._hygCtx._hyg.19", "self_ns": 5664334},
+            {"calls": 7, "head": "CardanoLedgerApi.V3.Governance.newCommitteeToListPairData.match_1", "self_ns": 278625},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Tx.TxId", "self_ns": 8417},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Tx.TxOutRef", "self_ns": 1584},
+            {"calls": 8, "head": "CardanoLedgerApi.V3.Tx.TxOutRef.txOutRefId", "self_ns": 19709},
+            {"calls": 8, "head": "CardanoLedgerApi.V3.Tx.TxOutRef.txOutRefIdx", "self_ns": 16833},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Tx.instIsDataTxId", "self_ns": 5583},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.Tx.instIsDataTxOutRef", "self_ns": 2875},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.TxCert.ColdCommitteeCredential", "self_ns": 6750},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.TxCert.DRep", "self_ns": 1500},
+            {"calls": 3, "head": "CardanoLedgerApi.V3.TxCert.DRep.DRep", "self_ns": 7250},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.TxCert.DRep.DRepAlwaysAbstain", "self_ns": 1375},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.TxCert.DRep.DRepAlwaysNoConfidence", "self_ns": 1291},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.TxCert.DRepCredential", "self_ns": 6625},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.TxCert.Delegatee", "self_ns": 12417},
+            {"calls": 3, "head": "CardanoLedgerApi.V3.TxCert.Delegatee.DelegStake", "self_ns": 7667},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.TxCert.Delegatee.DelegStakeVote", "self_ns": 9208},
+            {"calls": 3, "head": "CardanoLedgerApi.V3.TxCert.Delegatee.DelegVote", "self_ns": 8791},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.TxCert.HotCommitteeCredential", "self_ns": 5583},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.TxCert.TxCert", "self_ns": 4083},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.TxCert.TxCert.TxCertAuthHotCommittee", "self_ns": 10459},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.TxCert.TxCert.TxCertDelegStaking", "self_ns": 11750},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.TxCert.TxCert.TxCertPoolRegister", "self_ns": 9459},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.TxCert.TxCert.TxCertPoolRetire", "self_ns": 9375},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.TxCert.TxCert.TxCertRegDRep", "self_ns": 9875},
+            {"calls": 5, "head": "CardanoLedgerApi.V3.TxCert.TxCert.TxCertRegDeleg", "self_ns": 12000},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.TxCert.TxCert.TxCertRegStaking", "self_ns": 13458},
+            {"calls": 3, "head": "CardanoLedgerApi.V3.TxCert.TxCert.TxCertResignColdCommittee", "self_ns": 6917},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.TxCert.TxCert.TxCertUnRegDRep", "self_ns": 9583},
+            {"calls": 4, "head": "CardanoLedgerApi.V3.TxCert.TxCert.TxCertUnRegStaking", "self_ns": 11000},
+            {"calls": 3, "head": "CardanoLedgerApi.V3.TxCert.TxCert.TxCertUpdateDRep", "self_ns": 7084},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.TxCert.instIsDataDRep", "self_ns": 3709},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.TxCert.instIsDataDelegatee", "self_ns": 3041},
+            {"calls": 1, "head": "CardanoLedgerApi.V3.TxCert.instIsDataTxCert", "self_ns": 5209},
+            {"calls": 14, "head": "CardanoLedgerApi.V3.TxCert.instReprDRep.repr.match_1", "self_ns": 353708},
+            {"calls": 10, "head": "CardanoLedgerApi.V3.TxCert.instReprDelegatee.repr.match_1", "self_ns": 327462},
+            {"calls": 16, "head": "CardanoLedgerApi.V3.TxCert.instReprTxCert.repr.match_1", "self_ns": 1485249},
+            {"calls": 681, "head": "Decidable.decide", "self_ns": 850719},
+            {"calls": 2212, "head": "Eq", "self_ns": 16524774},
+            {"calls": 13, "head": "Function.comp", "self_ns": 77833},
+            {"calls": 132, "head": "HAdd.hAdd", "self_ns": 907438},
+            {"calls": 181, "head": "HMul.hMul", "self_ns": 1102403},
+            {"calls": 2, "head": "HPow.hPow", "self_ns": 52333},
+            {"calls": 2, "head": "Inhabited.default", "self_ns": 30708},
+            {"calls": 1, "head": "Int", "self_ns": 3292},
+            {"calls": 376, "head": "Int.add", "self_ns": 1230431},
+            {"calls": 1, "head": "Int.instAdd", "self_ns": 3792},
+            {"calls": 1, "head": "Int.instDecidableEq", "self_ns": 6167},
+            {"calls": 1, "head": "Int.instLEInt", "self_ns": 5917},
+            {"calls": 1, "head": "Int.instLTInt", "self_ns": 3917},
+            {"calls": 1, "head": "Int.instMul", "self_ns": 3333},
+            {"calls": 610, "head": "Int.mul", "self_ns": 2072920},
+            {"calls": 244, "head": "Int.natAbs", "self_ns": 288080},
+            {"calls": 124, "head": "Int.neg", "self_ns": 304073},
+            {"calls": 127, "head": "Int.neg.match_1", "self_ns": 3977311},
+            {"calls": 7, "head": "Int.negOfNat.match_1", "self_ns": 135292},
+            {"calls": 5, "head": "Int.negSucc", "self_ns": 17416},
+            {"calls": 15, "head": "Int.ofNat", "self_ns": 42085},
+            {"calls": 3, "head": "Int.pow", "self_ns": 8333},
+            {"calls": 246, "head": "Int.toNat", "self_ns": 622964},
+            {"calls": 350, "head": "LE.le", "self_ns": 1894489},
+            {"calls": 1121, "head": "LT.lt", "self_ns": 5902608},
+            {"calls": 234, "head": "List", "self_ns": 412490},
+            {"calls": 229961, "head": "List.cons", "self_ns": 481276433},
+            {"calls": 7, "head": "List.drop", "self_ns": 4424416},
+            {"calls": 8419, "head": "List.get?Internal", "self_ns": 39619300},
+            {"calls": 556, "head": "List.getLast?.match_1", "self_ns": 7304600},
+            {"calls": 341, "head": "List.isEmpty", "self_ns": 1016240},
+            {"calls": 1025, "head": "List.nil", "self_ns": 1714124},
+            {"calls": 1005, "head": "List.reverse", "self_ns": 3116005},
+            {"calls": 1005, "head": "List.reverseAux", "self_ns": 5487822},
+            {"calls": 13, "head": "List.take.match_1", "self_ns": 314708},
+            {"calls": 124, "head": "Mul.mul", "self_ns": 845083},
+            {"calls": 1, "head": "Nat", "self_ns": 43125},
+            {"calls": 152, "head": "Nat.add", "self_ns": 635176},
+            {"calls": 12, "head": "Nat.add.match_1", "self_ns": 333459},
+            {"calls": 2, "head": "Nat.beq", "self_ns": 10750},
+            {"calls": 14, "head": "Nat.beq.match_1", "self_ns": 362374},
+            {"calls": 2, "head": "Nat.ble", "self_ns": 8417},
+            {"calls": 4, "head": "Nat.mul", "self_ns": 21584},
+            {"calls": 12, "head": "Nat.mul.match_1", "self_ns": 237208},
+            {"calls": 4, "head": "Nat.pow", "self_ns": 15707},
+            {"calls": 6, "head": "Nat.pow.match_1", "self_ns": 121126},
+            {"calls": 2, "head": "Nat.pred", "self_ns": 8375},
+            {"calls": 154, "head": "Nat.sub", "self_ns": 4085414},
+            {"calls": 135, "head": "Nat.succ", "self_ns": 238032},
+            {"calls": 1, "head": "Nat.zero", "self_ns": 2416},
+            {"calls": 2, "head": "NatPow.pow", "self_ns": 29001},
+            {"calls": 475, "head": "Not", "self_ns": 1351920},
+            {"calls": 21, "head": "OfNat.ofNat", "self_ns": 320207},
+            {"calls": 777, "head": "Option", "self_ns": 1254621},
+            {"calls": 2140, "head": "Option.getD.match_1", "self_ns": 28071129},
+            {"calls": 401, "head": "Option.map", "self_ns": 1682548},
+            {"calls": 717, "head": "Option.none", "self_ns": 1283213},
+            {"calls": 7553, "head": "Option.some", "self_ns": 33278406},
+            {"calls": 127, "head": "Or", "self_ns": 909165},
+            {"calls": 512, "head": "PlutusCore.Bool.PlutusCore.BoolInternal.ifThenElse", "self_ns": 2069244},
+            {"calls": 1, "head": "PlutusCore.ByteString.PlutusCore.ByteStringInternal.BEqByteString", "self_ns": 7208},
+            {"calls": 1, "head": "PlutusCore.ByteString.PlutusCore.ByteStringInternal.ByteString", "self_ns": 1292},
+            {"calls": 1843, "head": "PlutusCore.ByteString.PlutusCore.ByteStringInternal.ByteString.data", "self_ns": 1684935},
+            {"calls": 558, "head": "PlutusCore.ByteString.PlutusCore.ByteStringInternal.ByteString.length", "self_ns": 553946},
+            {"calls": 3, "head": "PlutusCore.ByteString.PlutusCore.ByteStringInternal.ByteString.mk", "self_ns": 6292},
+            {"calls": 1, "head": "PlutusCore.ByteString.PlutusCore.ByteStringInternal.LTByteString", "self_ns": 7000},
+            {"calls": 38, "head": "PlutusCore.ByteString.PlutusCore.ByteStringInternal.equalsByteString", "self_ns": 66002},
+            {"calls": 26, "head": "PlutusCore.ByteString.PlutusCore.ByteStringInternal.lessThanByteString", "self_ns": 57085},
+            {"calls": 1, "head": "PlutusCore.Data.PlutusCore.DataInternal.BEqData", "self_ns": 4375},
+            {"calls": 1, "head": "PlutusCore.Data.PlutusCore.DataInternal.Data", "self_ns": 1792},
+            {"calls": 19822, "head": "PlutusCore.Data.PlutusCore.DataInternal.Data.B", "self_ns": 20990829},
+            {"calls": 31236, "head": "PlutusCore.Data.PlutusCore.DataInternal.Data.Constr", "self_ns": 52749807},
+            {"calls": 10713, "head": "PlutusCore.Data.PlutusCore.DataInternal.Data.I", "self_ns": 11365024},
+            {"calls": 22123, "head": "PlutusCore.Data.PlutusCore.DataInternal.Data.List", "self_ns": 26947877},
+            {"calls": 15442, "head": "PlutusCore.Data.PlutusCore.DataInternal.Data.Map", "self_ns": 22492559},
+            {"calls": 10, "head": "PlutusCore.Data.PlutusCore.DataInternal.eqData", "self_ns": 16251},
+            {"calls": 51, "head": "PlutusCore.Data.PlutusCore.DataInternal.eqData.match_1", "self_ns": 909165},
+            {"calls": 10, "head": "PlutusCore.Data.PlutusCore.DataInternal.eqDataConstr", "self_ns": 84292},
+            {"calls": 19, "head": "PlutusCore.Data.PlutusCore.DataInternal.eqDataConstr.match_1", "self_ns": 149208},
+            {"calls": 10, "head": "PlutusCore.Data.PlutusCore.DataInternal.eqDataList", "self_ns": 74918},
+            {"calls": 11, "head": "PlutusCore.Data.PlutusCore.DataInternal.eqDataList.match_1", "self_ns": 288541},
+            {"calls": 45, "head": "PlutusCore.Data.PlutusCore.DataInternal.eqDataMap", "self_ns": 306416},
+            {"calls": 11, "head": "PlutusCore.Data.PlutusCore.DataInternal.eqDataMap.match_1", "self_ns": 370000},
+            {"calls": 420, "head": "PlutusCore.Data.PlutusCore.DataInternal.equalsData", "self_ns": 594322},
+            {"calls": 538, "head": "PlutusCore.Data.PlutusCore.DataInternal.mapData", "self_ns": 601303},
+            {"calls": 1, "head": "PlutusCore.Default.Internal.BuiltinSemanticsVariant", "self_ns": 1083},
+            {"calls": 1, "head": "PlutusCore.Default.Internal.BuiltinSemanticsVariant.defaultFunSemanticsVariantE", "self_ns": 1250},
+            {"calls": 1, "head": "PlutusCore.Default.Internal.instInhabitedBuiltinSemanticsVariant", "self_ns": 3834},
+            {"calls": 1, "head": "PlutusCore.Integer.Integer", "self_ns": 7584},
+            {"calls": 82, "head": "PlutusCore.Integer.PlutusCore.IntegerInternal.addInteger", "self_ns": 198626},
+            {"calls": 244, "head": "PlutusCore.Integer.PlutusCore.IntegerInternal.equalsInteger", "self_ns": 337632},
+            {"calls": 136, "head": "PlutusCore.Integer.PlutusCore.IntegerInternal.lessThanEqualsInteger", "self_ns": 201627},
+            {"calls": 7, "head": "PlutusCore.List.PlutusCore.ListInternal.mkCons", "self_ns": 49916},
+            {"calls": 13, "head": "PlutusCore.List.PlutusCore.ListInternal.nullList", "self_ns": 61877},
+            {"calls": 163, "head": "PlutusCore.Pair.PlutusCore.PairInternal.fstPair", "self_ns": 617636},
+            {"calls": 456, "head": "PlutusCore.Pair.PlutusCore.PairInternal.sndPair", "self_ns": 1601926},
+            {"calls": 1022, "head": "PlutusCore.UPLC.BuiltinFunctions.Bool.ifThenElse", "self_ns": 1224239},
+            {"calls": 516, "head": "PlutusCore.UPLC.BuiltinFunctions.Bool.ifThenElse.match_1", "self_ns": 2827748},
+            {"calls": 37, "head": "PlutusCore.UPLC.BuiltinFunctions.ByteString.appendByteString.match_1", "self_ns": 572543},
+            {"calls": 38, "head": "PlutusCore.UPLC.BuiltinFunctions.ByteString.equalsByteString", "self_ns": 71375},
+            {"calls": 26, "head": "PlutusCore.UPLC.BuiltinFunctions.ByteString.lessThanByteString", "self_ns": 66541},
+            {"calls": 420, "head": "PlutusCore.UPLC.BuiltinFunctions.Data.equalsData", "self_ns": 539460},
+            {"calls": 215, "head": "PlutusCore.UPLC.BuiltinFunctions.Data.equalsData.match_1", "self_ns": 1546968},
+            {"calls": 538, "head": "PlutusCore.UPLC.BuiltinFunctions.Data.mapData", "self_ns": 628295},
+            {"calls": 274, "head": "PlutusCore.UPLC.BuiltinFunctions.Data.mapData.match_1", "self_ns": 1513406},
+            {"calls": 80, "head": "PlutusCore.UPLC.BuiltinFunctions.Data.unBData", "self_ns": 101123},
+            {"calls": 45, "head": "PlutusCore.UPLC.BuiltinFunctions.Data.unBData.match_1", "self_ns": 863828},
+            {"calls": 1106, "head": "PlutusCore.UPLC.BuiltinFunctions.Data.unConstrData", "self_ns": 1251760},
+            {"calls": 559, "head": "PlutusCore.UPLC.BuiltinFunctions.Data.unConstrData.match_1", "self_ns": 13098821},
+            {"calls": 785, "head": "PlutusCore.UPLC.BuiltinFunctions.Data.unConstrData.match_3", "self_ns": 3657055},
+            {"calls": 16, "head": "PlutusCore.UPLC.BuiltinFunctions.Data.unIData", "self_ns": 39874},
+            {"calls": 13, "head": "PlutusCore.UPLC.BuiltinFunctions.Data.unIData.match_1", "self_ns": 296457},
+            {"calls": 192, "head": "PlutusCore.UPLC.BuiltinFunctions.Data.unListData", "self_ns": 273954},
+            {"calls": 101, "head": "PlutusCore.UPLC.BuiltinFunctions.Data.unListData.match_1", "self_ns": 603207},
+            {"calls": 164, "head": "PlutusCore.UPLC.BuiltinFunctions.Data.unMapData", "self_ns": 231831},
+            {"calls": 87, "head": "PlutusCore.UPLC.BuiltinFunctions.Data.unMapData.match_1", "self_ns": 1940127},
+            {"calls": 9882, "head": "PlutusCore.UPLC.BuiltinFunctions.Evaluate.evaluateBuiltinFunction", "self_ns": 9706134},
+            {"calls": 5041, "head": "PlutusCore.UPLC.BuiltinFunctions.Evaluate.evaluateBuiltinFunction.match_1", "self_ns": 59033445},
+            {"calls": 82, "head": "PlutusCore.UPLC.BuiltinFunctions.Integer.addInteger", "self_ns": 119336},
+            {"calls": 236, "head": "PlutusCore.UPLC.BuiltinFunctions.Integer.addInteger.match_1", "self_ns": 1437899},
+            {"calls": 244, "head": "PlutusCore.UPLC.BuiltinFunctions.Integer.equalsInteger", "self_ns": 304202},
+            {"calls": 136, "head": "PlutusCore.UPLC.BuiltinFunctions.Integer.lessThanEqualsInteger", "self_ns": 166950},
+            {"calls": 656, "head": "PlutusCore.UPLC.BuiltinFunctions.List.chooseList", "self_ns": 761638},
+            {"calls": 335, "head": "PlutusCore.UPLC.BuiltinFunctions.List.chooseList.match_1", "self_ns": 2514166},
+            {"calls": 2, "head": "PlutusCore.UPLC.BuiltinFunctions.List.dropList", "self_ns": 25541},
+            {"calls": 8, "head": "PlutusCore.UPLC.BuiltinFunctions.List.dropList.match_1", "self_ns": 744459},
+            {"calls": 2004, "head": "PlutusCore.UPLC.BuiltinFunctions.List.headList", "self_ns": 2035130},
+            {"calls": 2314, "head": "PlutusCore.UPLC.BuiltinFunctions.List.headList.match_3", "self_ns": 26847744},
+            {"calls": 276, "head": "PlutusCore.UPLC.BuiltinFunctions.List.headList.match_5", "self_ns": 3946580},
+            {"calls": 1552, "head": "PlutusCore.UPLC.BuiltinFunctions.List.headList.match_7", "self_ns": 8042136},
+            {"calls": 12, "head": "PlutusCore.UPLC.BuiltinFunctions.List.mkCons", "self_ns": 51835},
+            {"calls": 13, "head": "PlutusCore.UPLC.BuiltinFunctions.List.mkCons.match_1", "self_ns": 768707},
+            {"calls": 24, "head": "PlutusCore.UPLC.BuiltinFunctions.List.nullList", "self_ns": 57624},
+            {"calls": 1062, "head": "PlutusCore.UPLC.BuiltinFunctions.List.tailList", "self_ns": 1138138},
+            {"calls": 324, "head": "PlutusCore.UPLC.BuiltinFunctions.Pair.fstPair", "self_ns": 379040},
+            {"calls": 623, "head": "PlutusCore.UPLC.BuiltinFunctions.Pair.fstPair.match_1", "self_ns": 3135153},
+            {"calls": 910, "head": "PlutusCore.UPLC.BuiltinFunctions.Pair.sndPair", "self_ns": 1023677},
+            {"calls": 488, "head": "PlutusCore.UPLC.BuiltinFunctions.Value.unValueData", "self_ns": 613993},
+            {"calls": 249, "head": "PlutusCore.UPLC.BuiltinFunctions.Value.unValueData.match_1", "self_ns": 1256708},
+            {"calls": 162, "head": "PlutusCore.UPLC.BuiltinFunctions.Value.unionValue", "self_ns": 268049},
+            {"calls": 161, "head": "PlutusCore.UPLC.BuiltinFunctions.Value.unionValue.match_1", "self_ns": 1189623},
+            {"calls": 150, "head": "PlutusCore.UPLC.BuiltinFunctions.Value.valueContains", "self_ns": 242619},
+            {"calls": 24, "head": "PlutusCore.UPLC.BuiltinFunctions.Value.valueData", "self_ns": 47500},
+            {"calls": 17, "head": "PlutusCore.UPLC.BuiltinFunctions.Value.valueData.match_1", "self_ns": 254045},
+            {"calls": 1, "head": "PlutusCore.UPLC.Builtins.ExpectedBuiltinArg.ArgQ", "self_ns": 1667},
+            {"calls": 1, "head": "PlutusCore.UPLC.Builtins.ExpectedBuiltinArg.ArgV", "self_ns": 6458},
+            {"calls": 12, "head": "PlutusCore.UPLC.Builtins.ExpectedBuiltinArgs.More", "self_ns": 63999},
+            {"calls": 3, "head": "PlutusCore.UPLC.Builtins.ExpectedBuiltinArgs.One", "self_ns": 13166},
+            {"calls": 4016, "head": "PlutusCore.UPLC.Builtins.expectedArgs", "self_ns": 4074893},
+            {"calls": 2108, "head": "PlutusCore.UPLC.Builtins.expectedArgs.match_1", "self_ns": 34671147},
+            {"calls": 1, "head": "PlutusCore.UPLC.CekMachine.Frame", "self_ns": 1459},
+            {"calls": 3386, "head": "PlutusCore.UPLC.CekMachine.Frame.CaseScrutinee", "self_ns": 6829597},
+            {"calls": 5549, "head": "PlutusCore.UPLC.CekMachine.Frame.ConstructorArgument", "self_ns": 16144931},
+            {"calls": 1, "head": "PlutusCore.UPLC.CekMachine.Frame.ForceFrame", "self_ns": 1292},
+            {"calls": 10014, "head": "PlutusCore.UPLC.CekMachine.Frame.LeftApplicationToTerm", "self_ns": 22377123},
+            {"calls": 3129, "head": "PlutusCore.UPLC.CekMachine.Frame.LeftApplicationToValue", "self_ns": 5674355},
+            {"calls": 7630, "head": "PlutusCore.UPLC.CekMachine.Frame.RightApplicationOfValue", "self_ns": 13203334},
+            {"calls": 1, "head": "PlutusCore.UPLC.CekMachine.State", "self_ns": 2375},
+            {"calls": 1, "head": "PlutusCore.UPLC.CekMachine.State.Error", "self_ns": 1708},
+            {"calls": 23083, "head": "PlutusCore.UPLC.CekMachine.State.Eval", "self_ns": 67554133},
+            {"calls": 77, "head": "PlutusCore.UPLC.CekMachine.State.Halt", "self_ns": 198626},
+            {"calls": 22083, "head": "PlutusCore.UPLC.CekMachine.State.Return", "self_ns": 55020953},
+            {"calls": 14, "head": "PlutusCore.UPLC.CekMachine.applyParams", "self_ns": 3783750},
+            {"calls": 3, "head": "PlutusCore.UPLC.CekMachine.cekExecuteProgram", "self_ns": 56794},
+            {"calls": 4, "head": "PlutusCore.UPLC.CekMachine.cekExecuteProgramWithSemanticVariant.match_1", "self_ns": 89416},
+            {"calls": 9882, "head": "PlutusCore.UPLC.CekMachine.evalBuiltin", "self_ns": 10561102},
+            {"calls": 16088, "head": "PlutusCore.UPLC.CekMachine.evalBuiltin.match_1", "self_ns": 212234794},
+            {"calls": 2, "head": "PlutusCore.UPLC.CekMachine.initialState", "self_ns": 12959},
+            {"calls": 48942, "head": "PlutusCore.UPLC.CekMachine.runSteps", "self_ns": 323361684},
+            {"calls": 46127, "head": "PlutusCore.UPLC.CekMachine.runSteps.match_1", "self_ns": 149961878},
+            {"calls": 89708, "head": "PlutusCore.UPLC.CekMachine.step", "self_ns": 83534104},
+            {"calls": 4131, "head": "PlutusCore.UPLC.CekMachine.step.folding", "self_ns": 20295711},
+            {"calls": 5138, "head": "PlutusCore.UPLC.CekMachine.step.folding.match_1", "self_ns": 11454025},
+            {"calls": 4143, "head": "PlutusCore.UPLC.CekMachine.step.match_1", "self_ns": 11464955},
+            {"calls": 1021, "head": "PlutusCore.UPLC.CekMachine.step.match_11", "self_ns": 3825034},
+            {"calls": 21863, "head": "PlutusCore.UPLC.CekMachine.step.match_13", "self_ns": 60025241},
+            {"calls": 44861, "head": "PlutusCore.UPLC.CekMachine.step.match_15", "self_ns": 119238793},
+            {"calls": 22937, "head": "PlutusCore.UPLC.CekMachine.step.match_3", "self_ns": 71026036},
+            {"calls": 9749, "head": "PlutusCore.UPLC.CekMachine.step.match_5", "self_ns": 28427407},
+            {"calls": 1133, "head": "PlutusCore.UPLC.CekMachine.step.match_7", "self_ns": 3427933},
+            {"calls": 1009, "head": "PlutusCore.UPLC.CekMachine.step.match_9", "self_ns": 3855244},
+            {"calls": 1, "head": "PlutusCore.UPLC.CekValue.CekValue", "self_ns": 1584},
+            {"calls": 4506, "head": "PlutusCore.UPLC.CekValue.CekValue.VBuiltin", "self_ns": 11295643},
+            {"calls": 50105, "head": "PlutusCore.UPLC.CekValue.CekValue.VCon", "self_ns": 74946292},
+            {"calls": 1008, "head": "PlutusCore.UPLC.CekValue.CekValue.VConstr", "self_ns": 2210078},
+            {"calls": 2328, "head": "PlutusCore.UPLC.CekValue.CekValue.VDelay", "self_ns": 5325750},
+            {"calls": 9569, "head": "PlutusCore.UPLC.CekValue.CekValue.VLam", "self_ns": 21501048},
+            {"calls": 1, "head": "PlutusCore.UPLC.PlutusScript.PlutusLanguage.PlutusV3", "self_ns": 1792},
+            {"calls": 2, "head": "PlutusCore.UPLC.PlutusScript.PlutusScript.mk", "self_ns": 15041},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun", "self_ns": 1541},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.AddInteger", "self_ns": 1250},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.AndByteString", "self_ns": 1125},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.AppendByteString", "self_ns": 1208},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.AppendString", "self_ns": 1625},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.BData", "self_ns": 1125},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.Blake2b_224", "self_ns": 959},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.Blake2b_256", "self_ns": 1500},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_G1_add", "self_ns": 1042},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_G1_compress", "self_ns": 1042},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_G1_equal", "self_ns": 1375},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_G1_hashToGroup", "self_ns": 1166},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_G1_multiScalarMul", "self_ns": 1292},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_G1_neg", "self_ns": 1208},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_G1_scalarMul", "self_ns": 1458},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_G1_uncompress", "self_ns": 1291},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_G2_add", "self_ns": 1084},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_G2_compress", "self_ns": 1250},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_G2_equal", "self_ns": 1083},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_G2_hashToGroup", "self_ns": 1292},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_G2_multiScalarMul", "self_ns": 1000},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_G2_neg", "self_ns": 1292},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_G2_scalarMul", "self_ns": 1250},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_G2_uncompress", "self_ns": 1250},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_finalVerify", "self_ns": 1292},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_millerLoop", "self_ns": 1083},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.Bls12_381_mulMlResult", "self_ns": 1500},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.ByteStringToInteger", "self_ns": 1250},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.ChooseData", "self_ns": 1416},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.ChooseList", "self_ns": 1542},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.ChooseUnit", "self_ns": 1334},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.ComplementByteString", "self_ns": 875},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.ConsByteString", "self_ns": 1459},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.ConstrData", "self_ns": 1166},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.CountSetBits", "self_ns": 1042},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.DecodeUtf8", "self_ns": 1500},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.DivideInteger", "self_ns": 1542},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.DropList", "self_ns": 1500},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.EncodeUtf8", "self_ns": 1375},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.EqualsByteString", "self_ns": 1042},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.EqualsData", "self_ns": 1542},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.EqualsInteger", "self_ns": 1625},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.EqualsString", "self_ns": 1292},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.ExpModInteger", "self_ns": 1250},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.FindFirstSetBit", "self_ns": 1209},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.FstPair", "self_ns": 1375},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.HeadList", "self_ns": 1334},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.IData", "self_ns": 1292},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.IfThenElse", "self_ns": 1333},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.IndexByteString", "self_ns": 1375},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.InsertCoin", "self_ns": 1458},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.IntegerToByteString", "self_ns": 13625},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.Keccak_256", "self_ns": 1459},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.LengthOfByteString", "self_ns": 1208},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.LessThanByteString", "self_ns": 1125},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.LessThanEqualsByteString", "self_ns": 1542},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.LessThanEqualsInteger", "self_ns": 1500},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.LessThanInteger", "self_ns": 1334},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.ListData", "self_ns": 1042},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.LookupCoin", "self_ns": 1250},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.MapData", "self_ns": 1375},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.MkCons", "self_ns": 1333},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.MkNilData", "self_ns": 1209},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.MkNilPairData", "self_ns": 1084},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.MkPairData", "self_ns": 1333},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.ModInteger", "self_ns": 1250},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.MultiplyInteger", "self_ns": 1375},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.NullList", "self_ns": 1334},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.OrByteString", "self_ns": 1292},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.QuotientInteger", "self_ns": 1208},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.ReadBit", "self_ns": 1458},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.RemainderInteger", "self_ns": 1459},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.ReplicateByte", "self_ns": 1250},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.Ripemd_160", "self_ns": 1083},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.RotateByteString", "self_ns": 1208},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.ScaleValue", "self_ns": 1208},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.SerializeData", "self_ns": 1083},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.Sha2_256", "self_ns": 1125},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.Sha3_256", "self_ns": 1584},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.ShiftByteString", "self_ns": 1125},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.SliceByteString", "self_ns": 1083},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.SndPair", "self_ns": 1250},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.SubtractInteger", "self_ns": 1875},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.TailList", "self_ns": 1417},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.Trace", "self_ns": 1041},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.UnBData", "self_ns": 1083},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.UnConstrData", "self_ns": 1250},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.UnIData", "self_ns": 1541},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.UnListData", "self_ns": 1625},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.UnMapData", "self_ns": 1250},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.UnValueData", "self_ns": 1333},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.UnionValue", "self_ns": 1291},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.ValueContains", "self_ns": 1292},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.ValueData", "self_ns": 1125},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.VerifyEcdsaSecp256k1Signature", "self_ns": 1542},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.VerifyEd25519Signature", "self_ns": 1292},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.VerifySchnorrSecp256k1Signature", "self_ns": 1250},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.WriteBits", "self_ns": 1167},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.BuiltinFun.XorByteString", "self_ns": 1083},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.Const", "self_ns": 1416},
+            {"calls": 599, "head": "PlutusCore.UPLC.Term.Const.Bool", "self_ns": 1169240},
+            {"calls": 1539, "head": "PlutusCore.UPLC.Term.Const.ByteString", "self_ns": 1524255},
+            {"calls": 29879, "head": "PlutusCore.UPLC.Term.Const.ConstDataList", "self_ns": 46332073},
+            {"calls": 11, "head": "PlutusCore.UPLC.Term.Const.ConstList", "self_ns": 17083},
+            {"calls": 6964, "head": "PlutusCore.UPLC.Term.Const.ConstPairDataList", "self_ns": 10090036},
+            {"calls": 14672, "head": "PlutusCore.UPLC.Term.Const.Data", "self_ns": 17165281},
+            {"calls": 1691, "head": "PlutusCore.UPLC.Term.Const.Integer", "self_ns": 2161264},
+            {"calls": 2426, "head": "PlutusCore.UPLC.Term.Const.Pair", "self_ns": 3976382},
+            {"calls": 136, "head": "PlutusCore.UPLC.Term.Const.PairData", "self_ns": 216701},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.Const.Unit", "self_ns": 1458},
+            {"calls": 1365, "head": "PlutusCore.UPLC.Term.Const.Value", "self_ns": 2354698},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.Program", "self_ns": 1875},
+            {"calls": 5, "head": "PlutusCore.UPLC.Term.Program.Program", "self_ns": 18627},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.Term", "self_ns": 1416},
+            {"calls": 532, "head": "PlutusCore.UPLC.Term.Term.Apply", "self_ns": 1123635},
+            {"calls": 29, "head": "PlutusCore.UPLC.Term.Term.Builtin", "self_ns": 54582},
+            {"calls": 78, "head": "PlutusCore.UPLC.Term.Term.Case", "self_ns": 170539},
+            {"calls": 17, "head": "PlutusCore.UPLC.Term.Term.Const", "self_ns": 65376},
+            {"calls": 78, "head": "PlutusCore.UPLC.Term.Term.Constr", "self_ns": 165885},
+            {"calls": 83, "head": "PlutusCore.UPLC.Term.Term.Delay", "self_ns": 147785},
+            {"calls": 1, "head": "PlutusCore.UPLC.Term.Term.Error", "self_ns": 1166},
+            {"calls": 70, "head": "PlutusCore.UPLC.Term.Term.Force", "self_ns": 124909},
+            {"calls": 199, "head": "PlutusCore.UPLC.Term.Term.Lam", "self_ns": 309829},
+            {"calls": 125, "head": "PlutusCore.UPLC.Term.Term.Var", "self_ns": 136461},
+            {"calls": 2, "head": "PlutusCore.UPLC.Term.Version.Version", "self_ns": 12541},
+            {"calls": 1, "head": "PlutusCore.Value.ValueRep", "self_ns": 15666},
+            {"calls": 558, "head": "PlutusCore.Value.ascendingFrom", "self_ns": 666212},
+            {"calls": 286, "head": "PlutusCore.Value.ascendingFrom.match_1", "self_ns": 1043047},
+            {"calls": 72, "head": "PlutusCore.Value.containedInner", "self_ns": 2514255},
+            {"calls": 163, "head": "PlutusCore.Value.containedOuter", "self_ns": 2476878},
+            {"calls": 268, "head": "PlutusCore.Value.hasNegativeAmount", "self_ns": 3055174},
+            {"calls": 252, "head": "PlutusCore.Value.innerHasNegative", "self_ns": 2964288},
+            {"calls": 206, "head": "PlutusCore.Value.innerHasNegative.match_1", "self_ns": 1040417},
+            {"calls": 1077, "head": "PlutusCore.Value.innerToData", "self_ns": 4799950},
+            {"calls": 12, "head": "PlutusCore.Value.lookupCoin", "self_ns": 3238042},
+            {"calls": 9, "head": "PlutusCore.Value.lookupInner", "self_ns": 3316042},
+            {"calls": 1, "head": "PlutusCore.Value.maxKeyLen", "self_ns": 9208},
+            {"calls": 26, "head": "PlutusCore.Value.outerToData", "self_ns": 2868167},
+            {"calls": 368, "head": "PlutusCore.Value.totalSize.match_1", "self_ns": 1454533},
+            {"calls": 488, "head": "PlutusCore.Value.unValueData", "self_ns": 585710},
+            {"calls": 249, "head": "PlutusCore.Value.unValueData.match_1", "self_ns": 1824457},
+            {"calls": 472, "head": "PlutusCore.Value.unValueDataCurrencies", "self_ns": 44060949},
+            {"calls": 187, "head": "PlutusCore.Value.unValueDataCurrencies.match_1", "self_ns": 1966504},
+            {"calls": 187, "head": "PlutusCore.Value.unValueDataCurrencies.match_3", "self_ns": 1945499},
+            {"calls": 268, "head": "PlutusCore.Value.unValueDataTokens", "self_ns": 14044214},
+            {"calls": 241, "head": "PlutusCore.Value.unValueDataTokens.match_1", "self_ns": 4318160},
+            {"calls": 463, "head": "PlutusCore.Value.unValueDataTokens.match_3", "self_ns": 5812591},
+            {"calls": 13, "head": "PlutusCore.Value.unionInner", "self_ns": 221502},
+            {"calls": 1462, "head": "PlutusCore.Value.unionInner.match_1", "self_ns": 24416342},
+            {"calls": 11, "head": "PlutusCore.Value.unionInner.match_3", "self_ns": 399752},
+            {"calls": 91, "head": "PlutusCore.Value.unionOuter", "self_ns": 610793},
+            {"calls": 454, "head": "PlutusCore.Value.unionOuter.match_1", "self_ns": 7267292},
+            {"calls": 8, "head": "PlutusCore.Value.unionOuter.match_3", "self_ns": 145416},
+            {"calls": 56, "head": "PlutusCore.Value.unionOuter.match_5", "self_ns": 644411},
+            {"calls": 162, "head": "PlutusCore.Value.unionValue", "self_ns": 226746},
+            {"calls": 558, "head": "PlutusCore.Value.validKey", "self_ns": 615632},
+            {"calls": 244, "head": "PlutusCore.Value.validQuantity", "self_ns": 318128},
+            {"calls": 150, "head": "PlutusCore.Value.valueContains", "self_ns": 246663},
+            {"calls": 24, "head": "PlutusCore.Value.valueData", "self_ns": 39461},
+            {"calls": 2, "head": "Pow.pow", "self_ns": 42500},
+            {"calls": 10, "head": "Prod", "self_ns": 34585},
+            {"calls": 255, "head": "Prod.fst", "self_ns": 1543493},
+            {"calls": 13066, "head": "Prod.mk", "self_ns": 29069902},
+            {"calls": 497, "head": "Prod.snd", "self_ns": 4405112},
+            {"calls": 1, "head": "String", "self_ns": 1292},
+            {"calls": 1, "head": "String.instLT", "self_ns": 2916},
+            {"calls": 280, "head": "String.length", "self_ns": 925748},
+            {"calls": 2, "head": "WSC.globalInputs1600", "self_ns": 22583},
+            {"calls": 14, "head": "_normalizer", "self_ns": 23366582},
+            {"calls": 2, "head": "instBEqOfDecidableEq", "self_ns": 21958},
+            {"calls": 2, "head": "instHAdd", "self_ns": 18124},
+            {"calls": 3, "head": "instHMul", "self_ns": 19751},
+            {"calls": 2, "head": "instHPow", "self_ns": 19375},
+            {"calls": 1, "head": "instLENat", "self_ns": 7792},
+            {"calls": 1, "head": "instLTNat", "self_ns": 5166},
+            {"calls": 1, "head": "instNatPowNat", "self_ns": 3375},
+            {"calls": 12, "head": "instOfNat", "self_ns": 30415},
+            {"calls": 9, "head": "instOfNatNat", "self_ns": 24042},
+            {"calls": 2, "head": "instPowNat", "self_ns": 16625},
+            {"calls": 1798, "head": "ite", "self_ns": 2560443},
+            {"calls": 1, "head": "programmableLogicGlobal1600", "self_ns": 1033833}
           ],
           "imbalances": 0,
           "schema": 1,
