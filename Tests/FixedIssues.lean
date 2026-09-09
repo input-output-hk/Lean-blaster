@@ -34,4 +34,4 @@ import Tests.FixedIssues.Issue34
 import Tests.FixedIssues.Issue35
 import Tests.FixedIssues.Issue36
 import Tests.FixedIssues.Issue225
-import Tests.FixedIssues.EmptyDomains
+import Tests.FixedIssues.Issue226

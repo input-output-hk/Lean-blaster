@@ -1,7 +1,7 @@
 import Blaster
 import Tests.Utils
 
-namespace Tests.EmptyDomains
+namespace Tests.Issue226
 
 -- Kernel-checked counterexamples. None uses Blaster or sorry.
 theorem empty_type_counterexample : ¬ (∀ α : Type, (∀ _ : α, False) → False) := by
@@ -60,4 +60,4 @@ inductive Box (α : Type) where
 #testOptimize ["InhabitedFunctionCodomain"]
   (∀ α : Type, ∃ _ : α → Color, True) ===> True
 
-end Tests.EmptyDomains
+end Tests.Issue226
