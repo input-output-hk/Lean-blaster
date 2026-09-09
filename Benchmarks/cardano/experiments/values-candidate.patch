@@ -1,0 +1,44 @@
+diff --git a/Blaster/Optimize/Rewriting/FunPropagation.lean b/Blaster/Optimize/Rewriting/FunPropagation.lean
+index adea608f..e4bed6f7 100644
+--- a/Blaster/Optimize/Rewriting/FunPropagation.lean
++++ b/Blaster/Optimize/Rewriting/FunPropagation.lean
+@@ -3,8 +3,24 @@ import Blaster.Optimize.Rewriting.NormalizeMatch
+ import Blaster.Optimize.Rewriting.OptimizeMatch
+ 
+ open Lean Meta Elab
++
++register_option blaster.hoistConstructorChoices : Bool := {
++  defValue := true
++  descr := "Lift conditional and match expressions out of constructor fields. Disable during symbolic preparation to keep independent field choices shared."
++}
++
+ namespace Blaster.Optimize
+ 
++initialize keepChoicesExt : LabelExtension ← registerLabelAttr `blaster_keep_choices "Keep symbolic choices inside constructors of the labelled inductive type or constructor."
++syntax (name := _root_.Parser.Attr.blaster_keep_choices) "blaster_keep_choices" : attr
++
++/-- A selected datatype also keeps choices in containers parameterized by it,
++    such as `List Value`, without affecting `List Frame`. -/
++private partial def hasKeptChoiceType (kept : Array Name) (e : Expr) : Bool :=
++  match e.getAppFn with
++  | .const n _ => kept.contains n || e.getAppArgs.any (hasKeptChoiceType kept)
++  | _ => false
++
+ /-- Given application `f x₁ ... xₙ`, apply the following normalization rules:
+      - When `f := Blaster.dite' c (fun h : c => t₁) (fun h : ¬ c => t₂)`
+        Return
+@@ -145,7 +161,13 @@ def funPropagation?
+     @[always_inline, inline]
+     propagate (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT Bool := do
+       if !(← hasMatchITEArgs args) then return false
+-      else if (← isCtorName n) then return true
++      else if (← isCtorName n) then
++        if !(blaster.hoistConstructorChoices.get (← getOptions)) then return false
++        let kept := keepChoicesExt.getState (← getEnv)
++        if kept.isEmpty then return true
++        let .ctorInfo info ← getConstEnvInfo n | return true
++        return !(kept.contains n || kept.contains info.induct ||
++          (args.take info.numParams).any (hasKeptChoiceType kept))
+       else if (← allExplicitParamsAreCtor f args (funPropagation := true)) then return true
+       else
+         match n with

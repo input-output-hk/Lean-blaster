@@ -61,6 +61,13 @@ higher-priority experiment than changing the SMT solver.
   normalization regressions. This port was removed; its speedup is not a ready
   optimization. PR #160 also contains GC/retention and allocator work which this
   experiment did not port.
+- **Renormalize ancestor rewrites in the child context.** A second version
+  disables further ancestor reuse throughout each replayed subtree. It passes
+  the normalization regressions, but global retains exactly the baseline's
+  15,595,053 nodes and takes 61.54 s in the optimizer. SellNFT likewise retains
+  the baseline node count and takes 36.42 s. The full suite hit the 30 s cap on
+  one arithmetic test; isolated reruns pass on both baseline and candidate.
+  This version was also removed because it provides no speedup.
 - **Bounded memoization of pure substitution/abstraction.** It produced roughly
   1.89 M hits on global 1,600, but optimizer time was 60.10 s and the retained
   hash-cons count was unchanged. A high cache hit rate did not translate into a
@@ -77,6 +84,12 @@ higher-priority experiment than changing the SMT solver.
 - **Retain choices only for List, Prod and Plutus Data.** This preserved the
   ordinary examples' preparation cost, but global still took 107.12 s inside the
   optimizer. Naming selected types did not resolve the production regression.
+- **Retain choices in interpreter values and their containers.** Keeping
+  CekValue, Environment, Const, Term and Data choices while leaving other
+  control constructors alone still regressed global preparation to 99.78 s.
+  SellNFT retained 7.82 M nodes rather than 8.11 M, but its small timing change
+  is unconfirmed. The ParamFeed property passed in 1.66 s. This remains a
+  scoped representation experiment, not a Cardano performance recommendation.
 - **Unfold functions before normalizing their arguments.** Small unused-argument
   and projection tests passed, but global 1,600 exceeded 120 s, and SellNFT hit
   the 16 GiB memory cap after about 51 s. Governance was cancelled when this
@@ -105,7 +118,9 @@ that the proof phase uses exactly the requested prepared source.
 
 ## Direction for larger gains
 
-The more ambitious route is to specialize the fixed UPLC program into reusable
+The [staged-preparation proposal](../design/cardano-staged-preparation.md)
+defines a bounded first implementation, semantic obligations and measurement
+gates. The more ambitious route is to specialize the fixed UPLC program into reusable
 blocks while retaining dynamic data and path conditions separately. This would
 avoid repeatedly walking the interpreter and distributing independent data
 choices through every state. A sound implementation must preserve CEK step

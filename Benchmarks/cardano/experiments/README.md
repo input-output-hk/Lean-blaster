@@ -29,3 +29,15 @@ sets before measuring. Do not combine these patches.
 The test names imported by the first two patches are not part of the benchmark
 build targets. For benchmark-only reproduction, their test-import hunks can be
 excluded with `git apply --exclude=Tests/Optimize.lean PATCH`.
+
+`replay2-candidate.patch` is the conservative ancestor-replay follow-up. Copy
+`replay2-scope-tests.lean` to
+`Tests/Optimize/CacheReuse/AncestorRenormalization.lean`. It passes the previous
+normalization failures but gives no Cardano speedup. The full-suite arithmetic
+timeout did not reproduce when the module ran alone (both arms pass).
+
+`values-candidate.patch` adds container-aware labels to the selective policy.
+Its scout labels PlutusCore.UPLC.Term.Const, PlutusCore.UPLC.Term.Term,
+PlutusCore.UPLC.CekValue.CekValue, PlutusCore.UPLC.CekValue.Environment and
+PlutusCore.Data.Data. It regresses global preparation. The final scoped-label
+PR removes the earlier global Boolean switch; labels are its only opt-in.
