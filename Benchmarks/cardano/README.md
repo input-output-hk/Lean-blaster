@@ -90,6 +90,11 @@ show that an accepting execution is covered by the bound.
 
 ## Experimental flags and evidence
 
+The [certified recursive-search adapter](overlays/lifted-search/README.md) adds
+`--lifted-search` to setup and measurement for the named CEK. It targets two
+SellNFT loops, preserves exact bounded semantics, and remains opt-in. It does
+not yet support Governance's recursion patterns or the indexed WSC interpreter.
+
 The [review](../../docs/reviews/cardano-preparation-2026-09-09.md) records the
 baseline and explains the rejected prototypes. Archived patches and focused
 tests are under `experiments/`. They are not part of Blaster's imported code.
