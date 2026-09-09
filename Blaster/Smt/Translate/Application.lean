@@ -752,18 +752,22 @@ def generateUndeclaredFun
     let xsyms := Array.ofFn (λ f : Fin fvars.size => mkReservedSymbol s!"@x{f.val}")
     let mut pargs := (#[] : Array SortExpr)
     let mut co_quantifiers := (#[] : SortedVars)
+    let mut domainQualifiers : Array SmtTerm := #[]
     for h : i in [:fvars.size] do
       let decl ← fvars[i].fvarId!.getEnvDecl
       let st ← translateFunLambdaParamType decl.type termTranslator
       pargs := pargs.push st
       co_quantifiers := co_quantifiers.push (xsyms[i]!, st)
+      domainQualifiers := domainQualifiers.push
+        (← createPredQualifierApp xsyms[i]! (← removeTypeAbbrev decl.type))
     let ret ← translateFunLambdaParamType retType termTranslator
     declareFun s pargs ret
     -- assert codomain constraint
     if fvars.size > 0 then
       let xIds := Array.map (λ v => smtSimpleVarId v) xsyms
       let f_applyTerm := mkSimpleSmtAppN s xIds
-      let forallBody ← createPredQualifierAppAux f_applyTerm retType
+      let codomain ← createPredQualifierAppAux f_applyTerm retType
+      let forallBody := domainQualifiers.foldr impliesSmt codomain
       let qidName := mkQid $ appendSymbol s "cstr"
       let pattern := some #[mkPattern #[f_applyTerm], qidName]
       assertTerm (mkForallTerm none co_quantifiers forallBody pattern)
