@@ -233,6 +233,11 @@ end WSC.Benchmark
             if row['status']=='running': row['status']='completed' if proc.returncode==0 else 'error'
             if sampler is not None: sampler.wait(timeout=15)
         content=log.read_text()
+        row['interpreter'] = re.findall(r'^PREP_INTERPRETER staged=(true|false)$', content, re.M)
+        if a.staged_cek and not (a.proofs_only or a.acceptance_only or a.conversion_only) and row['status'] == 'completed':
+            if row['interpreter'] != ['true']:
+                row['status'] = 'error'
+                row['reason'] = 'staged interpreter activation was not confirmed'
         row['profiles'] = [json.loads(m[1]) for m in re.finditer(r'BLASTER_PROFILE (.+)$',content,re.M)]
         if a.profile_normalize and profile_log.exists():
             for line in profile_log.read_text().splitlines():
