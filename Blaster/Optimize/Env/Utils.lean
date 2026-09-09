@@ -336,6 +336,16 @@ partial def betaLambdaEnv (lam : Expr) (args : Array Expr) : TranslateEnvT BetaL
   then return ⟨lam, none⟩
   else if lam.isLambda then
     let nbEffective := if nbParamsU < nbArgs then nbParamsU else nbArgs
+    -- A nested invocation may refer to this cache entry's current parameters,
+    -- including through another assignment. Snapshot every argument under the
+    -- old environment before rebinding any parameter. Include over-application
+    -- arguments: they are appended after the rebinding below.
+    let args ←
+      if args.any (·.hasExprMVar) &&
+          (← get).optEnv.memCache.betaLambdaCache.contains (mkInstKey lam nbEffective) then
+        let assignments := (← get).optEnv.mAssignments
+        args.mapM (snapshotSharedMVars · assignments)
+      else pure args
     let betaRes ← getBetaReduce lam args nbEffective
     if nbParamsU < nbArgs
     then return { betaRes with betaReduced := ← mkAppRangeExpr betaRes.betaReduced nbParams nbArgs.toNat args }
