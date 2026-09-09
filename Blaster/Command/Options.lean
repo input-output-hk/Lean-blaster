@@ -57,6 +57,10 @@ structure BlasterOptions where
   /-- When set to `true`, dump the smt query to stdout. -/
   dumpSmtLib : Bool := false
 
+  /-- When set to `true`, emit duplicated subterms of large queries as SMT
+      `let` bindings instead of duplicated text (see `SmtTerm.shareLets`). -/
+  shareSmt : Bool := true
+
   /-- When set to `true`, generate the counterexample produced for a falsified theorem when
   the backend SMT solver is invoked. -/
   generateCex : Bool := true
