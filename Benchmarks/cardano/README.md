@@ -210,3 +210,14 @@ hash covers the complete prototype. They are not automatically committed or
 pushed. The common original pins and local-commit requirements still apply.
 These patches are tied to those pins; the upstream PlutusCore PR targets the
 current indexed environment instead.
+
+To run an alternating paired series with proof checks after every preparation:
+
+```sh
+python3 Benchmarks/cardano/compare_fused.py --root /tmp/cardano-candidate \
+  --cases sellnft:1800 global:1600 --repeat 3
+```
+
+The driver stops on unexpected outcomes. It continues through the documented
+SellNFT multisatisfaction timeout only when the other four verdicts match,
+keeping the proof result as an error row in the raw JSON.
