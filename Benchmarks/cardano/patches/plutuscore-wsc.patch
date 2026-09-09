@@ -1,0 +1,75 @@
+diff --git a/PlutusCore/UPLC/PreProcess.lean b/PlutusCore/UPLC/PreProcess.lean
+index d5ce4dd2..0df14953 100644
+--- a/PlutusCore/UPLC/PreProcess.lean
++++ b/PlutusCore/UPLC/PreProcess.lean
+@@ -2,7 +2,6 @@ import Lean
+ import PlutusCore.UPLC.CekMachine
+ import PlutusCore.UPLC.PlutusScript
+ import Blaster.Optimize.Basic
+-import Blaster.Optimize.Stats
+ import Blaster.Command.Syntax
+ open Lean Elab Command Term Meta Blaster.Optimize Blaster.Syntax
+ 
+@@ -46,7 +45,12 @@ def preprocessImp : CommandElab := fun stx => do
+         let plutusScript ← validUplcProg stx[3]
+         let app ← mkUplcApply stx plutusScript
+         let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
+-        let (e, _) ← (withOptimizeStats <| Optimize.main app)|>.run env
++        let prepStarted ← IO.monoMsNow
++        let (e, prepEnv) ← (Optimize.main app)|>.run env
++        if (← IO.getEnv "BLASTER_PREP_METRICS") == some "1" then
++          let ms := (← IO.monoMsNow) - prepStarted
++          let o := prepEnv.optEnv
++          IO.println s!"PREP_METRICS optimize_ms={ms} hashcons={o.hashConsCache.size} contexts={o.options.nextCtxId} beta_cache={o.memCache.betaLambdaCache.size}"
+         let t ← inferType e
+         let baseName ← validNewDef stx[2]
+         let propName := Name.append baseName `prop
+diff --git a/lake-manifest.json b/lake-manifest.json
+index 216f05fd..c01e98c3 100644
+--- a/lake-manifest.json
++++ b/lake-manifest.json
+@@ -1,12 +1,17 @@
+-{"version": "1.1.0",
+- "packagesDir": ".lake/packages",
+- "packages":
+- [{"type": "path",
+-   "scope": "",
+-   "name": "Blaster",
+-   "manifestFile": "lake-manifest.json",
+-   "inherited": false,
+-   "dir": "/Users/romainsoulat/Lean-blaster-wsc",
+-   "configFile": "lakefile.lean"}],
+- "name": "PlutusCore",
+- "lakeDir": ".lake"}
++{
++  "version": "1.1.0",
++  "packagesDir": ".lake/packages",
++  "packages": [
++    {
++      "type": "path",
++      "scope": "",
++      "name": "Blaster",
++      "manifestFile": "lake-manifest.json",
++      "inherited": false,
++      "dir": "../blaster",
++      "configFile": "lakefile.lean"
++    }
++  ],
++  "name": "PlutusCore",
++  "lakeDir": ".lake"
++}
+diff --git a/lakefile.lean b/lakefile.lean
+index da21614e..2c452780 100644
+--- a/lakefile.lean
++++ b/lakefile.lean
+@@ -5,8 +5,8 @@ package «PlutusCore» where
+   -- add package configuration options here
+   -- WSC reproduction branch (#138 telemetry): local worktree of the Anastasia
+   -- wsc-d6-dite-branch-retype fork with telemetry grafted on top.
+-  -- Original pin: require Blaster from git "https://github.com/input-output-hk/Lean-blaster" @ "main"
+-  require Blaster from "/Users/romainsoulat/Lean-blaster-wsc"
++  -- Original pin: require Blaster from "../blaster"
++  require Blaster from "../blaster"
+ 
+ @[default_target]
+ lean_lib «PlutusCore» where

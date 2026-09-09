@@ -1,0 +1,65 @@
+diff --git a/lake-manifest.json b/lake-manifest.json
+index e4ceb04..fdfef11 100644
+--- a/lake-manifest.json
++++ b/lake-manifest.json
+@@ -1,19 +1,26 @@
+-{"version": "1.1.0",
+- "packagesDir": ".lake/packages",
+- "packages":
+- [{"type": "path",
+-   "scope": "",
+-   "name": "Blaster",
+-   "manifestFile": "lake-manifest.json",
+-   "inherited": false,
+-   "dir": "/Users/romainsoulat/Lean-blaster",
+-   "configFile": "lakefile.lean"},
+-  {"type": "path",
+-   "scope": "",
+-   "name": "PlutusCore",
+-   "manifestFile": "lake-manifest.json",
+-   "inherited": false,
+-   "dir": "/Users/romainsoulat/PlutusCoreBlaster",
+-   "configFile": "lakefile.lean"}],
+- "name": "CardanoLedgerApi",
+- "lakeDir": ".lake"}
++{
++  "version": "1.1.0",
++  "packagesDir": ".lake/packages",
++  "packages": [
++    {
++      "type": "path",
++      "scope": "",
++      "name": "Blaster",
++      "manifestFile": "lake-manifest.json",
++      "inherited": false,
++      "dir": "../blaster",
++      "configFile": "lakefile.lean"
++    },
++    {
++      "type": "path",
++      "scope": "",
++      "name": "PlutusCore",
++      "manifestFile": "lake-manifest.json",
++      "inherited": false,
++      "dir": "../plutuscore",
++      "configFile": "lakefile.lean"
++    }
++  ],
++  "name": "CardanoLedgerApi",
++  "lakeDir": ".lake"
++}
+diff --git a/lakefile.lean b/lakefile.lean
+index 05bfcc1..7b7f2de 100644
+--- a/lakefile.lean
++++ b/lakefile.lean
+@@ -7,8 +7,8 @@ package «CardanoLedgerApi» where
+   moreLeanArgs := #["--threads=4"]
+   -- Investigation branch (#138 telemetry): local paths for fast iteration.
+   -- Originals: PlutusCore @ git main; Blaster @ git beta-lambda-cache-optimization
+-  require PlutusCore from "/Users/romainsoulat/PlutusCoreBlaster"
+-  require Blaster from "/Users/romainsoulat/Lean-blaster"
++  require Blaster from "../blaster"
++  require PlutusCore from "../plutuscore"
+ 
+ @[default_target]
+ lean_lib «CardanoLedgerApi» where

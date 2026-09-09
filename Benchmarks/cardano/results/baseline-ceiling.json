@@ -1,0 +1,57 @@
+{
+  "label": "baseline-ceiling",
+  "repeat": 1,
+  "timeout_seconds": 240.0,
+  "rss_limit_bytes": 17179869184,
+  "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+  "pins": {
+    "cardano": {
+      "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+      "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+    },
+    "wsc": {
+      "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+      "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+    },
+    "blaster": {
+      "commit": "36c3a15a9fdc9f3237ad376f8d67665e3742d3f8",
+      "tracked_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "plutuscore": {
+      "commit": "073950e49a11ea58ca432d6a0da39294e4d2ce50",
+      "tracked_patch_sha256": "6c56363bbf8c2e3cf4a4b03612c7aece4282be2d1de79fb20b47db3696388a2d"
+    },
+    "plutuscore-wsc": {
+      "commit": "5f2baa2a965388dbf0bf9ef36b82bb05ea8074c8",
+      "tracked_patch_sha256": "42ea3efa0b12837fca6d35916ad6483e157876f7f767949342a3a24bc64890ac"
+    }
+  },
+  "cpu_sample": false,
+  "phase": "prep",
+  "allocator_env": {},
+  "runs": [
+    {
+      "case": "global",
+      "budget": 1800,
+      "repeat": 1,
+      "status": "timeout",
+      "log": "global-1800-1.log",
+      "sampled_peak_rss_bytes": 7406419968,
+      "prep": {},
+      "source_sha256": "d3fb9e08ab1c033bfffc5cc716814a23aba508b987cb668276a3b0b8b76fe37b",
+      "elapsed_seconds": 240.20673025003634,
+      "exit_code": -9
+    },
+    {
+      "case": "global",
+      "budget": 2000,
+      "repeat": 1,
+      "status": "cancelled",
+      "log": "global-2000-1.log",
+      "sampled_peak_rss_bytes": 0,
+      "prep": {},
+      "source_sha256": "4eaa97eb6d2fa241aa99fba55322409a8cbe09124e1dc1867772bb1cdcafaf3e",
+      "reason": "Stopped after 1800 exceeded 240 seconds; prioritize preparation optimization. No timing comparison for this partial run."
+    }
+  ]
+}

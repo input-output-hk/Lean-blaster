@@ -1,0 +1,140 @@
+{
+  "label": "values-scout",
+  "repeat": 1,
+  "timeout_seconds": 120.0,
+  "rss_limit_bytes": 17179869184,
+  "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+  "pins": {
+    "cardano": {
+      "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+      "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+    },
+    "wsc": {
+      "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+      "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+    },
+    "blaster": {
+      "commit": "e6b32fc378fcb7e756f49b12c05d7ec90ad6ece0",
+      "tracked_patch_sha256": "b209e020379933efb2300b7a83427e0c444471e8820a724100c33908348f20f8"
+    },
+    "plutuscore": {
+      "commit": "073950e49a11ea58ca432d6a0da39294e4d2ce50",
+      "tracked_patch_sha256": "6c56363bbf8c2e3cf4a4b03612c7aece4282be2d1de79fb20b47db3696388a2d"
+    },
+    "plutuscore-wsc": {
+      "commit": "5f2baa2a965388dbf0bf9ef36b82bb05ea8074c8",
+      "tracked_patch_sha256": "42ea3efa0b12837fca6d35916ad6483e157876f7f767949342a3a24bc64890ac"
+    }
+  },
+  "machine": {
+    "system": "Darwin",
+    "release": "25.5.0",
+    "architecture": "arm64",
+    "logical_cpus": 12
+  },
+  "runner_sha256": "cc5f37061d519a38a7c009eaa8492028c2a4b4f8b18d370c8da43470d375369e",
+  "retain_choice_types": [
+    "PlutusCore.UPLC.Term.Const",
+    "PlutusCore.UPLC.Term.Term",
+    "PlutusCore.UPLC.CekValue.CekValue",
+    "PlutusCore.UPLC.CekValue.Environment",
+    "PlutusCore.Data.Data"
+  ],
+  "retain_constructor_choices": false,
+  "reduce_before_arguments": false,
+  "cpu_sample": false,
+  "phase": "prep",
+  "allocator_env": {},
+  "runs": [
+    {
+      "case": "sellnft",
+      "budget": 1800,
+      "repeat": 1,
+      "status": "completed",
+      "log": "sellnft-1800-1.log",
+      "sampled_peak_rss_bytes": 2311618560,
+      "prep": {
+        "optimize_ms": 33815,
+        "hashcons": 7822374,
+        "contexts": 29063,
+        "beta_cache": 221
+      },
+      "source_sha256": "d116b1f969f5460a99e09580fbaefb19e254ffd44ad91b8daf3f6216c423c987",
+      "elapsed_seconds": 36.365789792034775,
+      "exit_code": 0,
+      "olean_bytes": 831312
+    },
+    {
+      "case": "global",
+      "budget": 1600,
+      "repeat": 1,
+      "status": "completed",
+      "log": "global-1600-1.log",
+      "sampled_peak_rss_bytes": 2572075008,
+      "prep": {
+        "optimize_ms": 99777,
+        "hashcons": 8099229,
+        "contexts": 95422,
+        "beta_cache": 1184
+      },
+      "source_sha256": "d6b02a569e9d522d0ea9ef101813085f57842ff4072181a7ae945e97222dae94",
+      "elapsed_seconds": 102.1105927079916,
+      "exit_code": 0,
+      "olean_bytes": 634096
+    },
+    {
+      "case": "minting",
+      "budget": 1200,
+      "repeat": 1,
+      "status": "completed",
+      "log": "minting-1200-1.log",
+      "sampled_peak_rss_bytes": 1752891392,
+      "prep": {
+        "optimize_ms": 5777,
+        "hashcons": 1625957,
+        "contexts": 7575,
+        "beta_cache": 237
+      },
+      "source_sha256": "0aad10c73069c192b38a11f9e65037a4cf3fa1c44fd21f1fde7463a6c564c02c",
+      "elapsed_seconds": 7.35228474996984,
+      "exit_code": 0,
+      "olean_bytes": 475616
+    },
+    {
+      "case": "governance",
+      "budget": 9000,
+      "repeat": 1,
+      "status": "completed",
+      "log": "governance-9000-1.log",
+      "sampled_peak_rss_bytes": 2071560192,
+      "prep": {
+        "optimize_ms": 33886,
+        "hashcons": 7221024,
+        "contexts": 17759,
+        "beta_cache": 252
+      },
+      "source_sha256": "1f7ccf3e8a6a36de10e595478c98100608b2058b9a3c0bcc427f208e11019041",
+      "elapsed_seconds": 36.77347491681576,
+      "exit_code": 0,
+      "olean_bytes": 2216312
+    },
+    {
+      "case": "paramfeed",
+      "budget": 10000,
+      "repeat": 1,
+      "status": "completed",
+      "log": "paramfeed-10000-1.log",
+      "sampled_peak_rss_bytes": 1575305216,
+      "prep": {
+        "optimize_ms": 193,
+        "hashcons": 47898,
+        "contexts": 154,
+        "beta_cache": 189
+      },
+      "source_sha256": "ea6aa86275c0a3527d04c34dcaebd9973fc59659582103f4ab13436b4a4472fc",
+      "elapsed_seconds": 1.6962694157846272,
+      "exit_code": 0,
+      "olean_bytes": 154656
+    }
+  ]
+}

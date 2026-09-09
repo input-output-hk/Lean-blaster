@@ -1,0 +1,61 @@
+{
+  "label": "baseline-sellnft-proof",
+  "repeat": 1,
+  "timeout_seconds": 240.0,
+  "rss_limit_bytes": 17179869184,
+  "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+  "pins": {
+    "cardano": {
+      "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+      "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+    },
+    "wsc": {
+      "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+      "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+    },
+    "blaster": {
+      "commit": "36c3a15a9fdc9f3237ad376f8d67665e3742d3f8",
+      "tracked_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "plutuscore": {
+      "commit": "073950e49a11ea58ca432d6a0da39294e4d2ce50",
+      "tracked_patch_sha256": "6c56363bbf8c2e3cf4a4b03612c7aece4282be2d1de79fb20b47db3696388a2d"
+    },
+    "plutuscore-wsc": {
+      "commit": "5f2baa2a965388dbf0bf9ef36b82bb05ea8074c8",
+      "tracked_patch_sha256": "42ea3efa0b12837fca6d35916ad6483e157876f7f767949342a3a24bc64890ac"
+    }
+  },
+  "machine": {
+    "system": "Darwin",
+    "release": "25.5.0",
+    "architecture": "arm64",
+    "logical_cpus": 12
+  },
+  "runner_sha256": "0d3734ed8b5d64ea41682b36f684c179fbfe99e5728369b2829817a856274327",
+  "retain_constructor_choices": false,
+  "cpu_sample": false,
+  "phase": "proof",
+  "allocator_env": {},
+  "runs": [
+    {
+      "case": "sellnft",
+      "budget": 1800,
+      "repeat": 1,
+      "status": "error",
+      "log": "sellnft-1800-1.log",
+      "sampled_peak_rss_bytes": 2313306112,
+      "prep": {},
+      "source_sha256": "2c7d97533811d09f667337f41375bc9c40b091b873fab8ccccde885250d933ca",
+      "elapsed_seconds": 37.4518130000215,
+      "exit_code": 1,
+      "verdicts": [
+        "info: Tests/Benchmarks/CardanoPerfProofs.lean:69:30: \u2705 Valid",
+        "info: Tests/Benchmarks/CardanoPerfProofs.lean:76:54: \u2705 Valid",
+        "error: Tests/Benchmarks/CardanoPerfProofs.lean:86:0: checkSat: Unexpected check-sat result: timeout",
+        "info: Tests/Benchmarks/CardanoPerfProofs.lean:95:72: \u2705 Expected Falsified",
+        "info: Tests/Benchmarks/CardanoPerfProofs.lean:103:55: \u2705 Expected Falsified"
+      ]
+    }
+  ]
+}

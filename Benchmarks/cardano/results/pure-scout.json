@@ -1,0 +1,146 @@
+{
+  "label": "pure-scout",
+  "repeat": 1,
+  "timeout_seconds": 240.0,
+  "rss_limit_bytes": 17179869184,
+  "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+  "pins": {
+    "cardano": {
+      "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+      "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+    },
+    "wsc": {
+      "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+      "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+    },
+    "blaster": {
+      "commit": "36c3a15a9fdc9f3237ad376f8d67665e3742d3f8",
+      "tracked_patch_sha256": "6118b0d6817903113dba5a1516b858922093d18bf269ac0beed733fb50d128c9"
+    },
+    "plutuscore": {
+      "commit": "073950e49a11ea58ca432d6a0da39294e4d2ce50",
+      "tracked_patch_sha256": "7c5255e22c63cd44d3301f4c46050aa974b336e1e2f36c6f105c8be4b0505725"
+    },
+    "plutuscore-wsc": {
+      "commit": "5f2baa2a965388dbf0bf9ef36b82bb05ea8074c8",
+      "tracked_patch_sha256": "ac1b7dac82c1909fcef51b5ce0ceed1519009961cb21d7758ff77f0d09356c5a"
+    }
+  },
+  "machine": {
+    "system": "Darwin",
+    "release": "25.5.0",
+    "architecture": "arm64",
+    "logical_cpus": 12
+  },
+  "runner_sha256": "b9c7c3f9f6611a02ab5d3fb864d70fa79237217a88acf32c34fb28f171f5ffe8",
+  "cpu_sample": false,
+  "phase": "prep",
+  "allocator_env": {},
+  "runs": [
+    {
+      "case": "global",
+      "budget": 1600,
+      "repeat": 1,
+      "status": "completed",
+      "log": "global-1600-1.log",
+      "sampled_peak_rss_bytes": 3444490240,
+      "prep": {
+        "optimize_ms": 60097,
+        "hashcons": 15595053,
+        "contexts": 103138,
+        "beta_cache": 2044,
+        "transform_hits": 1891315,
+        "transform_misses": 1022282,
+        "transform_resets": 15
+      },
+      "source_sha256": "ac85c1dc62686c44421d752928c46bc571443cf462ca0eab0526b97079b1715d",
+      "elapsed_seconds": 63.66115220915526,
+      "exit_code": 0,
+      "olean_bytes": 633904
+    },
+    {
+      "case": "minting",
+      "budget": 1200,
+      "repeat": 1,
+      "status": "completed",
+      "log": "minting-1200-1.log",
+      "sampled_peak_rss_bytes": 1759150080,
+      "prep": {
+        "optimize_ms": 5791,
+        "hashcons": 1682983,
+        "contexts": 7575,
+        "beta_cache": 237,
+        "transform_hits": 188180,
+        "transform_misses": 87077,
+        "transform_resets": 1
+      },
+      "source_sha256": "ba23c32c1953bec198fe9d3d6f510a253d9b0f2956126132c688e6321dd4d0c6",
+      "elapsed_seconds": 7.25781208416447,
+      "exit_code": 0,
+      "olean_bytes": 475424
+    },
+    {
+      "case": "sellnft",
+      "budget": 1800,
+      "repeat": 1,
+      "status": "completed",
+      "log": "sellnft-1800-1.log",
+      "sampled_peak_rss_bytes": 2344206336,
+      "prep": {
+        "optimize_ms": 35916,
+        "hashcons": 8106674,
+        "contexts": 29063,
+        "beta_cache": 221,
+        "transform_hits": 1420777,
+        "transform_misses": 361024,
+        "transform_resets": 5
+      },
+      "source_sha256": "9bc0b034c60b9be3f587c3cf0a17412781a9fb2198ee7e34cec5357b24ef73de",
+      "elapsed_seconds": 38.50874895812012,
+      "exit_code": 0,
+      "olean_bytes": 831120
+    },
+    {
+      "case": "governance",
+      "budget": 9000,
+      "repeat": 1,
+      "status": "completed",
+      "log": "governance-9000-1.log",
+      "sampled_peak_rss_bytes": 2083553280,
+      "prep": {
+        "optimize_ms": 33936,
+        "hashcons": 7293990,
+        "contexts": 17761,
+        "beta_cache": 252,
+        "transform_hits": 1985837,
+        "transform_misses": 93033,
+        "transform_resets": 1
+      },
+      "source_sha256": "9939b1f4c3160625d19e03dad7a735e74e0fc8cd4498323d8c71eda169f99581",
+      "elapsed_seconds": 36.25278787501156,
+      "exit_code": 0,
+      "olean_bytes": 2216120
+    },
+    {
+      "case": "paramfeed",
+      "budget": 10000,
+      "repeat": 1,
+      "status": "completed",
+      "log": "paramfeed-10000-1.log",
+      "sampled_peak_rss_bytes": 1577549824,
+      "prep": {
+        "optimize_ms": 199,
+        "hashcons": 52254,
+        "contexts": 154,
+        "beta_cache": 189,
+        "transform_hits": 561,
+        "transform_misses": 5775,
+        "transform_resets": 0
+      },
+      "source_sha256": "05adfa8df4aaeab945c8ee1521907b5f5388b1c4e22aa9342f2a2dcebf2eb292",
+      "elapsed_seconds": 1.6893667501863092,
+      "exit_code": 0,
+      "olean_bytes": 154464
+    }
+  ]
+}

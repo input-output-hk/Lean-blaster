@@ -1,0 +1,132 @@
+{
+  "label": "choices-scout",
+  "repeat": 1,
+  "timeout_seconds": 240.0,
+  "rss_limit_bytes": 17179869184,
+  "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+  "pins": {
+    "cardano": {
+      "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+      "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+    },
+    "wsc": {
+      "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+      "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+    },
+    "blaster": {
+      "commit": "36c3a15a9fdc9f3237ad376f8d67665e3742d3f8",
+      "tracked_patch_sha256": "537e8ce1366fc29553209b737fcb2fca57369b0cd2d0b4cf7a8b4d893ae42ba4"
+    },
+    "plutuscore": {
+      "commit": "073950e49a11ea58ca432d6a0da39294e4d2ce50",
+      "tracked_patch_sha256": "6c56363bbf8c2e3cf4a4b03612c7aece4282be2d1de79fb20b47db3696388a2d"
+    },
+    "plutuscore-wsc": {
+      "commit": "5f2baa2a965388dbf0bf9ef36b82bb05ea8074c8",
+      "tracked_patch_sha256": "42ea3efa0b12837fca6d35916ad6483e157876f7f767949342a3a24bc64890ac"
+    }
+  },
+  "machine": {
+    "system": "Darwin",
+    "release": "25.5.0",
+    "architecture": "arm64",
+    "logical_cpus": 12
+  },
+  "runner_sha256": "0d3734ed8b5d64ea41682b36f684c179fbfe99e5728369b2829817a856274327",
+  "retain_constructor_choices": true,
+  "cpu_sample": false,
+  "phase": "prep",
+  "allocator_env": {},
+  "runs": [
+    {
+      "case": "global",
+      "budget": 1600,
+      "repeat": 1,
+      "status": "completed",
+      "log": "global-1600-1.log",
+      "sampled_peak_rss_bytes": 2581659648,
+      "prep": {
+        "optimize_ms": 105845,
+        "hashcons": 8245343,
+        "contexts": 95418,
+        "beta_cache": 1184
+      },
+      "source_sha256": "87f5dc0e8ee07116957f9fc7569bfdaced297ef9dc87efadf4410b808d0a4740",
+      "elapsed_seconds": 108.22083837492391,
+      "exit_code": 0,
+      "olean_bytes": 633904
+    },
+    {
+      "case": "minting",
+      "budget": 1200,
+      "repeat": 1,
+      "status": "completed",
+      "log": "minting-1200-1.log",
+      "sampled_peak_rss_bytes": 1659486208,
+      "prep": {
+        "optimize_ms": 1581,
+        "hashcons": 406748,
+        "contexts": 10887,
+        "beta_cache": 764
+      },
+      "source_sha256": "8ccdd19b9ed8e8baa066e3e480e9b8a48f8fa8c4891a9f6f2863717bb85cf274",
+      "elapsed_seconds": 3.34451595810242,
+      "exit_code": 0,
+      "olean_bytes": 754032
+    },
+    {
+      "case": "sellnft",
+      "budget": 1800,
+      "repeat": 1,
+      "status": "completed",
+      "log": "sellnft-1800-1.log",
+      "sampled_peak_rss_bytes": 1620017152,
+      "prep": {
+        "optimize_ms": 1624,
+        "hashcons": 402950,
+        "contexts": 10823,
+        "beta_cache": 743
+      },
+      "source_sha256": "0f3e6dacfcc900d0a861685c685ed5123ae232dc673f0fab9752d424f8ae2f6b",
+      "elapsed_seconds": 2.8098594578914344,
+      "exit_code": 0,
+      "olean_bytes": 1007304
+    },
+    {
+      "case": "governance",
+      "budget": 9000,
+      "repeat": 1,
+      "status": "completed",
+      "log": "governance-9000-1.log",
+      "sampled_peak_rss_bytes": 1633452032,
+      "prep": {
+        "optimize_ms": 1648,
+        "hashcons": 410645,
+        "contexts": 10887,
+        "beta_cache": 763
+      },
+      "source_sha256": "200142727fcdc8c729bddfd15617aab19fe6d28597c98a88272696bf127cccb6",
+      "elapsed_seconds": 3.348807959118858,
+      "exit_code": 0,
+      "olean_bytes": 2535128
+    },
+    {
+      "case": "paramfeed",
+      "budget": 10000,
+      "repeat": 1,
+      "status": "completed",
+      "log": "paramfeed-10000-1.log",
+      "sampled_peak_rss_bytes": 1628389376,
+      "prep": {
+        "optimize_ms": 1633,
+        "hashcons": 406684,
+        "contexts": 10889,
+        "beta_cache": 764
+      },
+      "source_sha256": "7875da2dceb22da7ccb87602da966f3ad14511e514a1c64be8fe94d302263e9b",
+      "elapsed_seconds": 2.8193317078985274,
+      "exit_code": 0,
+      "olean_bytes": 482016
+    }
+  ]
+}
