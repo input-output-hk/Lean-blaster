@@ -54,6 +54,7 @@ theorem eval_ret_correct (sv : BuiltinSemanticsVariant) (fuel : Nat) :
                 cases hp : RecursiveCalls.recognize x body env v with
                 | none => simpa only [hp] using ih.1 rest (.NonEmptyEnvironment env x v) body
                 | some plan =>
+                  simp only [hp]
                   obtain ⟨cert, hworker⟩ := RecursiveCalls.recognize_sound x body env v plan hp
                   have correct := cert.correct sv n rest
                   rw [hworker] at correct
@@ -62,7 +63,7 @@ theorem eval_ret_correct (sv : BuiltinSemanticsVariant) (fuel : Nat) :
                   | some pair =>
                     rcases pair with ⟨remaining,result⟩
                     have lt := cert.spends sv n remaining result (by simpa only [hworker] using hw)
-                    simp only [lt]
+                    simp only [hw, lt]
                     rw [(strong remaining (by omega)).2]
                     simpa only [hw] using correct
               case VBuiltin b vs expected =>
