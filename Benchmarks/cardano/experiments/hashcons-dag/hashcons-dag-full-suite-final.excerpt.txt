@@ -1,0 +1,7 @@
+ℹ [725/735] Built Tests.FixedIssues.Issue249 (900ms)
+info: Tests/FixedIssues/Issue249.lean:23:0: Issue249 DAG allocation heartbeats: 467
+info: Tests/FixedIssues/Issue249.lean:23:0: Issue249 DAG allocation heartbeats: 304
+info: Tests/FixedIssues/Issue249.lean:42:0: Issue249SharedInputDAG ✅ Success!
+✔ [726/735] Built Tests.FixedIssues.Issue249:c.o (66ms)
+✔ [727/735] Built Tests.FixedIssues.Issue249:dynlib (48ms)
+Build completed successfully (735 jobs).
