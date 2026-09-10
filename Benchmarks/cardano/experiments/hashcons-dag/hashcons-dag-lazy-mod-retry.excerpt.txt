@@ -1,0 +1,2 @@
+info: Tests/Smt/SmtNat/SmtNatMod.lean:35:10: ✅ Valid
+Build completed successfully (221 jobs).

@@ -1,0 +1,2222 @@
+{
+  "hashcons-dag-pair1-governance-candidate-proof": {
+    "label": "hashcons-dag-pair1-governance-candidate-proof",
+    "repeat": 1,
+    "timeout_seconds": 120.0,
+    "rss_limit_bytes": 12884901888,
+    "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+    "pins": {
+      "cardano": {
+        "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+        "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+      },
+      "wsc": {
+        "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+        "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+      },
+      "blaster": {
+        "commit": "befd475789603c6b7998c68270d2321627be9d9d",
+        "tracked_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "plutuscore": {
+        "commit": "073950e49a11ea58ca432d6a0da39294e4d2ce50",
+        "tracked_patch_sha256": "b4306cdffebf6a25f6129a9db3ce1d948b0116e58ff678ef7978b85aa6043f35"
+      },
+      "plutuscore-wsc": {
+        "commit": "5f2baa2a965388dbf0bf9ef36b82bb05ea8074c8",
+        "tracked_patch_sha256": "1b80d27e6bc928c340ae3d5081ed85014b0455f2b4808ed75595c865f19194c8"
+      }
+    },
+    "machine": {
+      "system": "Darwin",
+      "release": "25.5.0",
+      "architecture": "arm64",
+      "logical_cpus": 12
+    },
+    "runner_sha256": "feb3a27f49d2e245c4eebafe5c46ccb677f218b8d911fbf29ac61467373c5d61",
+    "acceptance_fixture_sha256": "f863fe07484be59eeb8fc550f4dafa3427908c9fcd0fdad4d2f6036f6893f4f2",
+    "staged_cek": true,
+    "lifted_search": false,
+    "specialize_functions": [
+      "PlutusCore.UPLC.StagedCek.eval:2",
+      "PlutusCore.UPLC.StagedCek.ret:2",
+      "PlutusCore.UPLC.StagedCek.lookupValue:1"
+    ],
+    "retain_choice_types": [],
+    "retain_constructor_choices": false,
+    "reduce_before_arguments": false,
+    "cpu_sample": false,
+    "profile_normalize": false,
+    "phase": "proof",
+    "allocator_env": {},
+    "runs": [
+      {
+        "case": "governance",
+        "budget": 9000,
+        "repeat": 1,
+        "status": "completed",
+        "log": "/private/tmp/lean-blaster-cardano-20260909/hashcons-candidate-workspace/results/hashcons-dag-pair1-governance-candidate-proof/governance-9000-1.log",
+        "sampled_peak_rss_bytes": 1779728384,
+        "prep": {},
+        "source_sha256": "a48166a408953e0ad20d407c49b6490a712ecdd92abbda4734caee0dca20a733",
+        "elapsed_seconds": 4.425580540904775,
+        "exit_code": 0,
+        "interpreter": [
+          "true"
+        ],
+        "lifted_search": [
+          "false"
+        ],
+        "profiles": [],
+        "phases": [],
+        "acceptance": [],
+        "verdicts": [
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:51:52: \u2705 Valid",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:59:54: \u2705 Valid",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:67:37: \u2705 Valid",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:75:54: \u2705 Valid"
+        ],
+        "olean_bytes": 1302792
+      }
+    ]
+  },
+  "hashcons-dag-pair1-governance-candidate": {
+    "label": "hashcons-dag-pair1-governance-candidate",
+    "repeat": 1,
+    "timeout_seconds": 120.0,
+    "rss_limit_bytes": 12884901888,
+    "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+    "pins": {
+      "cardano": {
+        "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+        "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+      },
+      "wsc": {
+        "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+        "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+      },
+      "blaster": {
+        "commit": "befd475789603c6b7998c68270d2321627be9d9d",
+        "tracked_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "plutuscore": {
+        "commit": "073950e49a11ea58ca432d6a0da39294e4d2ce50",
+        "tracked_patch_sha256": "b4306cdffebf6a25f6129a9db3ce1d948b0116e58ff678ef7978b85aa6043f35"
+      },
+      "plutuscore-wsc": {
+        "commit": "5f2baa2a965388dbf0bf9ef36b82bb05ea8074c8",
+        "tracked_patch_sha256": "1b80d27e6bc928c340ae3d5081ed85014b0455f2b4808ed75595c865f19194c8"
+      }
+    },
+    "machine": {
+      "system": "Darwin",
+      "release": "25.5.0",
+      "architecture": "arm64",
+      "logical_cpus": 12
+    },
+    "runner_sha256": "feb3a27f49d2e245c4eebafe5c46ccb677f218b8d911fbf29ac61467373c5d61",
+    "acceptance_fixture_sha256": "f863fe07484be59eeb8fc550f4dafa3427908c9fcd0fdad4d2f6036f6893f4f2",
+    "staged_cek": true,
+    "lifted_search": false,
+    "specialize_functions": [
+      "PlutusCore.UPLC.StagedCek.eval:2",
+      "PlutusCore.UPLC.StagedCek.ret:2",
+      "PlutusCore.UPLC.StagedCek.lookupValue:1"
+    ],
+    "retain_choice_types": [],
+    "retain_constructor_choices": false,
+    "reduce_before_arguments": false,
+    "cpu_sample": false,
+    "profile_normalize": false,
+    "phase": "prep",
+    "allocator_env": {},
+    "runs": [
+      {
+        "case": "governance",
+        "budget": 9000,
+        "repeat": 1,
+        "status": "completed",
+        "log": "/private/tmp/lean-blaster-cardano-20260909/hashcons-candidate-workspace/results/hashcons-dag-pair1-governance-candidate/governance-9000-1.log",
+        "sampled_peak_rss_bytes": 2024439808,
+        "prep": {
+          "optimize_ms": 21420,
+          "hashcons": 5070520,
+          "contexts": 17761,
+          "beta_cache": 17985
+        },
+        "source_sha256": "b856527165c1b3e6c92220556965091daf6641fdad3a9fb8b816b9b260d36196",
+        "elapsed_seconds": 23.696146707981825,
+        "exit_code": 0,
+        "interpreter": [
+          "true"
+        ],
+        "lifted_search": [
+          "false"
+        ],
+        "profiles": [],
+        "phases": [
+          {
+            "input_construct_ms": 1
+          },
+          {
+            "declaration_ms": 3,
+            "command_ms": 22092
+          }
+        ],
+        "acceptance": [],
+        "olean_bytes": 2216312
+      }
+    ]
+  },
+  "hashcons-dag-pair1-governance-reference-proof": {
+    "label": "hashcons-dag-pair1-governance-reference-proof",
+    "repeat": 1,
+    "timeout_seconds": 120.0,
+    "rss_limit_bytes": 12884901888,
+    "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+    "pins": {
+      "cardano": {
+        "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+        "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+      },
+      "wsc": {
+        "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+        "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+      },
+      "blaster": {
+        "commit": "2cc060ca2739f4270490530924425a395769bd2e",
+        "tracked_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "plutuscore": {
+        "commit": "073950e49a11ea58ca432d6a0da39294e4d2ce50",
+        "tracked_patch_sha256": "b4306cdffebf6a25f6129a9db3ce1d948b0116e58ff678ef7978b85aa6043f35"
+      },
+      "plutuscore-wsc": {
+        "commit": "5f2baa2a965388dbf0bf9ef36b82bb05ea8074c8",
+        "tracked_patch_sha256": "1b80d27e6bc928c340ae3d5081ed85014b0455f2b4808ed75595c865f19194c8"
+      }
+    },
+    "machine": {
+      "system": "Darwin",
+      "release": "25.5.0",
+      "architecture": "arm64",
+      "logical_cpus": 12
+    },
+    "runner_sha256": "feb3a27f49d2e245c4eebafe5c46ccb677f218b8d911fbf29ac61467373c5d61",
+    "acceptance_fixture_sha256": "f863fe07484be59eeb8fc550f4dafa3427908c9fcd0fdad4d2f6036f6893f4f2",
+    "staged_cek": true,
+    "lifted_search": false,
+    "specialize_functions": [
+      "PlutusCore.UPLC.StagedCek.eval:2",
+      "PlutusCore.UPLC.StagedCek.ret:2",
+      "PlutusCore.UPLC.StagedCek.lookupValue:1"
+    ],
+    "retain_choice_types": [],
+    "retain_constructor_choices": false,
+    "reduce_before_arguments": false,
+    "cpu_sample": false,
+    "profile_normalize": false,
+    "phase": "proof",
+    "allocator_env": {},
+    "runs": [
+      {
+        "case": "governance",
+        "budget": 9000,
+        "repeat": 1,
+        "status": "completed",
+        "log": "/private/tmp/lean-blaster-cardano-20260909/hashcons-baseline-workspace/results/hashcons-dag-pair1-governance-reference-proof/governance-9000-1.log",
+        "sampled_peak_rss_bytes": 1773551616,
+        "prep": {},
+        "source_sha256": "a48166a408953e0ad20d407c49b6490a712ecdd92abbda4734caee0dca20a733",
+        "elapsed_seconds": 4.407950124936178,
+        "exit_code": 0,
+        "interpreter": [
+          "true"
+        ],
+        "lifted_search": [
+          "false"
+        ],
+        "profiles": [],
+        "phases": [],
+        "acceptance": [],
+        "verdicts": [
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:51:52: \u2705 Valid",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:59:54: \u2705 Valid",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:67:37: \u2705 Valid",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:75:54: \u2705 Valid"
+        ],
+        "olean_bytes": 1302792
+      }
+    ]
+  },
+  "hashcons-dag-pair1-governance-reference": {
+    "label": "hashcons-dag-pair1-governance-reference",
+    "repeat": 1,
+    "timeout_seconds": 120.0,
+    "rss_limit_bytes": 12884901888,
+    "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+    "pins": {
+      "cardano": {
+        "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+        "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+      },
+      "wsc": {
+        "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+        "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+      },
+      "blaster": {
+        "commit": "2cc060ca2739f4270490530924425a395769bd2e",
+        "tracked_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "plutuscore": {
+        "commit": "073950e49a11ea58ca432d6a0da39294e4d2ce50",
+        "tracked_patch_sha256": "b4306cdffebf6a25f6129a9db3ce1d948b0116e58ff678ef7978b85aa6043f35"
+      },
+      "plutuscore-wsc": {
+        "commit": "5f2baa2a965388dbf0bf9ef36b82bb05ea8074c8",
+        "tracked_patch_sha256": "1b80d27e6bc928c340ae3d5081ed85014b0455f2b4808ed75595c865f19194c8"
+      }
+    },
+    "machine": {
+      "system": "Darwin",
+      "release": "25.5.0",
+      "architecture": "arm64",
+      "logical_cpus": 12
+    },
+    "runner_sha256": "feb3a27f49d2e245c4eebafe5c46ccb677f218b8d911fbf29ac61467373c5d61",
+    "acceptance_fixture_sha256": "f863fe07484be59eeb8fc550f4dafa3427908c9fcd0fdad4d2f6036f6893f4f2",
+    "staged_cek": true,
+    "lifted_search": false,
+    "specialize_functions": [
+      "PlutusCore.UPLC.StagedCek.eval:2",
+      "PlutusCore.UPLC.StagedCek.ret:2",
+      "PlutusCore.UPLC.StagedCek.lookupValue:1"
+    ],
+    "retain_choice_types": [],
+    "retain_constructor_choices": false,
+    "reduce_before_arguments": false,
+    "cpu_sample": false,
+    "profile_normalize": false,
+    "phase": "prep",
+    "allocator_env": {},
+    "runs": [
+      {
+        "case": "governance",
+        "budget": 9000,
+        "repeat": 1,
+        "status": "completed",
+        "log": "/private/tmp/lean-blaster-cardano-20260909/hashcons-baseline-workspace/results/hashcons-dag-pair1-governance-reference/governance-9000-1.log",
+        "sampled_peak_rss_bytes": 2020818944,
+        "prep": {
+          "optimize_ms": 19835,
+          "hashcons": 5070520,
+          "contexts": 17761,
+          "beta_cache": 17985
+        },
+        "source_sha256": "b856527165c1b3e6c92220556965091daf6641fdad3a9fb8b816b9b260d36196",
+        "elapsed_seconds": 21.97209524991922,
+        "exit_code": 0,
+        "interpreter": [
+          "true"
+        ],
+        "lifted_search": [
+          "false"
+        ],
+        "profiles": [],
+        "phases": [
+          {
+            "input_construct_ms": 1
+          },
+          {
+            "declaration_ms": 4,
+            "command_ms": 20495
+          }
+        ],
+        "acceptance": [],
+        "olean_bytes": 2216312
+      }
+    ]
+  },
+  "hashcons-dag-pair1-sellnft-candidate-proof": {
+    "label": "hashcons-dag-pair1-sellnft-candidate-proof",
+    "repeat": 1,
+    "timeout_seconds": 120.0,
+    "rss_limit_bytes": 12884901888,
+    "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+    "pins": {
+      "cardano": {
+        "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+        "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+      },
+      "wsc": {
+        "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+        "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+      },
+      "blaster": {
+        "commit": "befd475789603c6b7998c68270d2321627be9d9d",
+        "tracked_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "plutuscore": {
+        "commit": "073950e49a11ea58ca432d6a0da39294e4d2ce50",
+        "tracked_patch_sha256": "b4306cdffebf6a25f6129a9db3ce1d948b0116e58ff678ef7978b85aa6043f35"
+      },
+      "plutuscore-wsc": {
+        "commit": "5f2baa2a965388dbf0bf9ef36b82bb05ea8074c8",
+        "tracked_patch_sha256": "1b80d27e6bc928c340ae3d5081ed85014b0455f2b4808ed75595c865f19194c8"
+      }
+    },
+    "machine": {
+      "system": "Darwin",
+      "release": "25.5.0",
+      "architecture": "arm64",
+      "logical_cpus": 12
+    },
+    "runner_sha256": "feb3a27f49d2e245c4eebafe5c46ccb677f218b8d911fbf29ac61467373c5d61",
+    "acceptance_fixture_sha256": "f863fe07484be59eeb8fc550f4dafa3427908c9fcd0fdad4d2f6036f6893f4f2",
+    "staged_cek": true,
+    "lifted_search": true,
+    "specialize_functions": [
+      "PlutusCore.UPLC.LoopCek.eval:2",
+      "PlutusCore.UPLC.LoopCek.ret:2",
+      "PlutusCore.UPLC.LoopCek.lookupValue:1",
+      "PlutusCore.UPLC.StagedCek.lookupValue:1",
+      "PlutusCore.UPLC.RecursiveCalls.recognize:2",
+      "PlutusCore.UPLC.LiftedMapSearch.recognizeFast:2",
+      "PlutusCore.UPLC.LiftedMapSearch.bodyWitness:1",
+      "PlutusCore.UPLC.LiftedMapSearch.bodyMatches:1",
+      "PlutusCore.UPLC.LiftedMapSearch.readyMatch:1",
+      "PlutusCore.UPLC.LiftedMapSearch.bindingsMatch:1",
+      "PlutusCore.UPLC.LiftedMapSearch.worker:3",
+      "PlutusCore.UPLC.LiftedMapSearch.scan:1",
+      "PlutusCore.UPLC.LiftedSearch.recognizeFast:2",
+      "PlutusCore.UPLC.LiftedSearch.bodyWitness:1",
+      "PlutusCore.UPLC.LiftedSearch.bodyMatches:1",
+      "PlutusCore.UPLC.LiftedSearch.readyMatch:1",
+      "PlutusCore.UPLC.LiftedSearch.bindingsMatch:1",
+      "PlutusCore.UPLC.LiftedSearch.worker:3",
+      "PlutusCore.UPLC.LiftedSearch.scan:1"
+    ],
+    "retain_choice_types": [],
+    "retain_constructor_choices": false,
+    "reduce_before_arguments": false,
+    "cpu_sample": false,
+    "profile_normalize": false,
+    "phase": "proof",
+    "allocator_env": {},
+    "runs": [
+      {
+        "case": "sellnft",
+        "budget": 1800,
+        "repeat": 1,
+        "status": "error",
+        "log": "/private/tmp/lean-blaster-cardano-20260909/hashcons-candidate-workspace/results/hashcons-dag-pair1-sellnft-candidate-proof/sellnft-1800-1.log",
+        "sampled_peak_rss_bytes": 2258059264,
+        "prep": {},
+        "source_sha256": "2c7d97533811d09f667337f41375bc9c40b091b873fab8ccccde885250d933ca",
+        "elapsed_seconds": 37.3359193331562,
+        "exit_code": 1,
+        "interpreter": [
+          "true"
+        ],
+        "lifted_search": [
+          "true"
+        ],
+        "profiles": [],
+        "phases": [],
+        "acceptance": [],
+        "verdicts": [
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:69:30: \u2705 Valid",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:76:54: \u2705 Valid",
+          "error: Tests/Benchmarks/CardanoPerfProofs.lean:86:0: checkSat: Unexpected check-sat result: timeout",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:95:72: \u2705 Expected Falsified",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:103:55: \u2705 Expected Falsified"
+        ]
+      }
+    ]
+  },
+  "hashcons-dag-pair1-sellnft-candidate": {
+    "label": "hashcons-dag-pair1-sellnft-candidate",
+    "repeat": 1,
+    "timeout_seconds": 120.0,
+    "rss_limit_bytes": 12884901888,
+    "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+    "pins": {
+      "cardano": {
+        "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+        "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+      },
+      "wsc": {
+        "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+        "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+      },
+      "blaster": {
+        "commit": "befd475789603c6b7998c68270d2321627be9d9d",
+        "tracked_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "plutuscore": {
+        "commit": "073950e49a11ea58ca432d6a0da39294e4d2ce50",
+        "tracked_patch_sha256": "b4306cdffebf6a25f6129a9db3ce1d948b0116e58ff678ef7978b85aa6043f35"
+      },
+      "plutuscore-wsc": {
+        "commit": "5f2baa2a965388dbf0bf9ef36b82bb05ea8074c8",
+        "tracked_patch_sha256": "1b80d27e6bc928c340ae3d5081ed85014b0455f2b4808ed75595c865f19194c8"
+      }
+    },
+    "machine": {
+      "system": "Darwin",
+      "release": "25.5.0",
+      "architecture": "arm64",
+      "logical_cpus": 12
+    },
+    "runner_sha256": "feb3a27f49d2e245c4eebafe5c46ccb677f218b8d911fbf29ac61467373c5d61",
+    "acceptance_fixture_sha256": "f863fe07484be59eeb8fc550f4dafa3427908c9fcd0fdad4d2f6036f6893f4f2",
+    "staged_cek": true,
+    "lifted_search": true,
+    "specialize_functions": [
+      "PlutusCore.UPLC.LoopCek.eval:2",
+      "PlutusCore.UPLC.LoopCek.ret:2",
+      "PlutusCore.UPLC.LoopCek.lookupValue:1",
+      "PlutusCore.UPLC.StagedCek.lookupValue:1",
+      "PlutusCore.UPLC.RecursiveCalls.recognize:2",
+      "PlutusCore.UPLC.LiftedMapSearch.recognizeFast:2",
+      "PlutusCore.UPLC.LiftedMapSearch.bodyWitness:1",
+      "PlutusCore.UPLC.LiftedMapSearch.bodyMatches:1",
+      "PlutusCore.UPLC.LiftedMapSearch.readyMatch:1",
+      "PlutusCore.UPLC.LiftedMapSearch.bindingsMatch:1",
+      "PlutusCore.UPLC.LiftedMapSearch.worker:3",
+      "PlutusCore.UPLC.LiftedMapSearch.scan:1",
+      "PlutusCore.UPLC.LiftedSearch.recognizeFast:2",
+      "PlutusCore.UPLC.LiftedSearch.bodyWitness:1",
+      "PlutusCore.UPLC.LiftedSearch.bodyMatches:1",
+      "PlutusCore.UPLC.LiftedSearch.readyMatch:1",
+      "PlutusCore.UPLC.LiftedSearch.bindingsMatch:1",
+      "PlutusCore.UPLC.LiftedSearch.worker:3",
+      "PlutusCore.UPLC.LiftedSearch.scan:1"
+    ],
+    "retain_choice_types": [],
+    "retain_constructor_choices": false,
+    "reduce_before_arguments": false,
+    "cpu_sample": false,
+    "profile_normalize": false,
+    "phase": "prep",
+    "allocator_env": {},
+    "runs": [
+      {
+        "case": "sellnft",
+        "budget": 1800,
+        "repeat": 1,
+        "status": "completed",
+        "log": "/private/tmp/lean-blaster-cardano-20260909/hashcons-candidate-workspace/results/hashcons-dag-pair1-sellnft-candidate/sellnft-1800-1.log",
+        "sampled_peak_rss_bytes": 2185592832,
+        "prep": {
+          "optimize_ms": 19387,
+          "hashcons": 5510804,
+          "contexts": 29234,
+          "beta_cache": 23802
+        },
+        "source_sha256": "56fc27ee26722ada1e00cd403f1041bc604cf885cad1e92a726540f29c032fe2",
+        "elapsed_seconds": 21.48029095889069,
+        "exit_code": 0,
+        "interpreter": [
+          "true"
+        ],
+        "lifted_search": [
+          "true"
+        ],
+        "profiles": [],
+        "phases": [
+          {
+            "input_construct_ms": 1
+          },
+          {
+            "declaration_ms": 6,
+            "command_ms": 20218
+          }
+        ],
+        "acceptance": [],
+        "olean_bytes": 818288
+      }
+    ]
+  },
+  "hashcons-dag-pair1-sellnft-reference-proof": {
+    "label": "hashcons-dag-pair1-sellnft-reference-proof",
+    "repeat": 1,
+    "timeout_seconds": 120.0,
+    "rss_limit_bytes": 12884901888,
+    "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+    "pins": {
+      "cardano": {
+        "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+        "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+      },
+      "wsc": {
+        "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+        "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+      },
+      "blaster": {
+        "commit": "2cc060ca2739f4270490530924425a395769bd2e",
+        "tracked_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "plutuscore": {
+        "commit": "073950e49a11ea58ca432d6a0da39294e4d2ce50",
+        "tracked_patch_sha256": "b4306cdffebf6a25f6129a9db3ce1d948b0116e58ff678ef7978b85aa6043f35"
+      },
+      "plutuscore-wsc": {
+        "commit": "5f2baa2a965388dbf0bf9ef36b82bb05ea8074c8",
+        "tracked_patch_sha256": "1b80d27e6bc928c340ae3d5081ed85014b0455f2b4808ed75595c865f19194c8"
+      }
+    },
+    "machine": {
+      "system": "Darwin",
+      "release": "25.5.0",
+      "architecture": "arm64",
+      "logical_cpus": 12
+    },
+    "runner_sha256": "feb3a27f49d2e245c4eebafe5c46ccb677f218b8d911fbf29ac61467373c5d61",
+    "acceptance_fixture_sha256": "f863fe07484be59eeb8fc550f4dafa3427908c9fcd0fdad4d2f6036f6893f4f2",
+    "staged_cek": true,
+    "lifted_search": true,
+    "specialize_functions": [
+      "PlutusCore.UPLC.LoopCek.eval:2",
+      "PlutusCore.UPLC.LoopCek.ret:2",
+      "PlutusCore.UPLC.LoopCek.lookupValue:1",
+      "PlutusCore.UPLC.StagedCek.lookupValue:1",
+      "PlutusCore.UPLC.RecursiveCalls.recognize:2",
+      "PlutusCore.UPLC.LiftedMapSearch.recognizeFast:2",
+      "PlutusCore.UPLC.LiftedMapSearch.bodyWitness:1",
+      "PlutusCore.UPLC.LiftedMapSearch.bodyMatches:1",
+      "PlutusCore.UPLC.LiftedMapSearch.readyMatch:1",
+      "PlutusCore.UPLC.LiftedMapSearch.bindingsMatch:1",
+      "PlutusCore.UPLC.LiftedMapSearch.worker:3",
+      "PlutusCore.UPLC.LiftedMapSearch.scan:1",
+      "PlutusCore.UPLC.LiftedSearch.recognizeFast:2",
+      "PlutusCore.UPLC.LiftedSearch.bodyWitness:1",
+      "PlutusCore.UPLC.LiftedSearch.bodyMatches:1",
+      "PlutusCore.UPLC.LiftedSearch.readyMatch:1",
+      "PlutusCore.UPLC.LiftedSearch.bindingsMatch:1",
+      "PlutusCore.UPLC.LiftedSearch.worker:3",
+      "PlutusCore.UPLC.LiftedSearch.scan:1"
+    ],
+    "retain_choice_types": [],
+    "retain_constructor_choices": false,
+    "reduce_before_arguments": false,
+    "cpu_sample": false,
+    "profile_normalize": false,
+    "phase": "proof",
+    "allocator_env": {},
+    "runs": [
+      {
+        "case": "sellnft",
+        "budget": 1800,
+        "repeat": 1,
+        "status": "error",
+        "log": "/private/tmp/lean-blaster-cardano-20260909/hashcons-baseline-workspace/results/hashcons-dag-pair1-sellnft-reference-proof/sellnft-1800-1.log",
+        "sampled_peak_rss_bytes": 2260992000,
+        "prep": {},
+        "source_sha256": "2c7d97533811d09f667337f41375bc9c40b091b873fab8ccccde885250d933ca",
+        "elapsed_seconds": 36.86648745788261,
+        "exit_code": 1,
+        "interpreter": [
+          "true"
+        ],
+        "lifted_search": [
+          "true"
+        ],
+        "profiles": [],
+        "phases": [],
+        "acceptance": [],
+        "verdicts": [
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:69:30: \u2705 Valid",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:76:54: \u2705 Valid",
+          "error: Tests/Benchmarks/CardanoPerfProofs.lean:86:0: checkSat: Unexpected check-sat result: timeout",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:95:72: \u2705 Expected Falsified",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:103:55: \u2705 Expected Falsified"
+        ]
+      }
+    ]
+  },
+  "hashcons-dag-pair1-sellnft-reference": {
+    "label": "hashcons-dag-pair1-sellnft-reference",
+    "repeat": 1,
+    "timeout_seconds": 120.0,
+    "rss_limit_bytes": 12884901888,
+    "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+    "pins": {
+      "cardano": {
+        "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+        "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+      },
+      "wsc": {
+        "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+        "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+      },
+      "blaster": {
+        "commit": "2cc060ca2739f4270490530924425a395769bd2e",
+        "tracked_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "plutuscore": {
+        "commit": "073950e49a11ea58ca432d6a0da39294e4d2ce50",
+        "tracked_patch_sha256": "b4306cdffebf6a25f6129a9db3ce1d948b0116e58ff678ef7978b85aa6043f35"
+      },
+      "plutuscore-wsc": {
+        "commit": "5f2baa2a965388dbf0bf9ef36b82bb05ea8074c8",
+        "tracked_patch_sha256": "1b80d27e6bc928c340ae3d5081ed85014b0455f2b4808ed75595c865f19194c8"
+      }
+    },
+    "machine": {
+      "system": "Darwin",
+      "release": "25.5.0",
+      "architecture": "arm64",
+      "logical_cpus": 12
+    },
+    "runner_sha256": "feb3a27f49d2e245c4eebafe5c46ccb677f218b8d911fbf29ac61467373c5d61",
+    "acceptance_fixture_sha256": "f863fe07484be59eeb8fc550f4dafa3427908c9fcd0fdad4d2f6036f6893f4f2",
+    "staged_cek": true,
+    "lifted_search": true,
+    "specialize_functions": [
+      "PlutusCore.UPLC.LoopCek.eval:2",
+      "PlutusCore.UPLC.LoopCek.ret:2",
+      "PlutusCore.UPLC.LoopCek.lookupValue:1",
+      "PlutusCore.UPLC.StagedCek.lookupValue:1",
+      "PlutusCore.UPLC.RecursiveCalls.recognize:2",
+      "PlutusCore.UPLC.LiftedMapSearch.recognizeFast:2",
+      "PlutusCore.UPLC.LiftedMapSearch.bodyWitness:1",
+      "PlutusCore.UPLC.LiftedMapSearch.bodyMatches:1",
+      "PlutusCore.UPLC.LiftedMapSearch.readyMatch:1",
+      "PlutusCore.UPLC.LiftedMapSearch.bindingsMatch:1",
+      "PlutusCore.UPLC.LiftedMapSearch.worker:3",
+      "PlutusCore.UPLC.LiftedMapSearch.scan:1",
+      "PlutusCore.UPLC.LiftedSearch.recognizeFast:2",
+      "PlutusCore.UPLC.LiftedSearch.bodyWitness:1",
+      "PlutusCore.UPLC.LiftedSearch.bodyMatches:1",
+      "PlutusCore.UPLC.LiftedSearch.readyMatch:1",
+      "PlutusCore.UPLC.LiftedSearch.bindingsMatch:1",
+      "PlutusCore.UPLC.LiftedSearch.worker:3",
+      "PlutusCore.UPLC.LiftedSearch.scan:1"
+    ],
+    "retain_choice_types": [],
+    "retain_constructor_choices": false,
+    "reduce_before_arguments": false,
+    "cpu_sample": false,
+    "profile_normalize": false,
+    "phase": "prep",
+    "allocator_env": {},
+    "runs": [
+      {
+        "case": "sellnft",
+        "budget": 1800,
+        "repeat": 1,
+        "status": "completed",
+        "log": "/private/tmp/lean-blaster-cardano-20260909/hashcons-baseline-workspace/results/hashcons-dag-pair1-sellnft-reference/sellnft-1800-1.log",
+        "sampled_peak_rss_bytes": 2184691712,
+        "prep": {
+          "optimize_ms": 16818,
+          "hashcons": 5510804,
+          "contexts": 29234,
+          "beta_cache": 23802
+        },
+        "source_sha256": "56fc27ee26722ada1e00cd403f1041bc604cf885cad1e92a726540f29c032fe2",
+        "elapsed_seconds": 19.147565125022084,
+        "exit_code": 0,
+        "interpreter": [
+          "true"
+        ],
+        "lifted_search": [
+          "true"
+        ],
+        "profiles": [],
+        "phases": [
+          {
+            "input_construct_ms": 0
+          },
+          {
+            "declaration_ms": 5,
+            "command_ms": 17499
+          }
+        ],
+        "acceptance": [],
+        "olean_bytes": 818288
+      }
+    ]
+  },
+  "hashcons-dag-pair2-governance-candidate-proof": {
+    "label": "hashcons-dag-pair2-governance-candidate-proof",
+    "repeat": 1,
+    "timeout_seconds": 120.0,
+    "rss_limit_bytes": 12884901888,
+    "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+    "pins": {
+      "cardano": {
+        "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+        "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+      },
+      "wsc": {
+        "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+        "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+      },
+      "blaster": {
+        "commit": "befd475789603c6b7998c68270d2321627be9d9d",
+        "tracked_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "plutuscore": {
+        "commit": "073950e49a11ea58ca432d6a0da39294e4d2ce50",
+        "tracked_patch_sha256": "b4306cdffebf6a25f6129a9db3ce1d948b0116e58ff678ef7978b85aa6043f35"
+      },
+      "plutuscore-wsc": {
+        "commit": "5f2baa2a965388dbf0bf9ef36b82bb05ea8074c8",
+        "tracked_patch_sha256": "1b80d27e6bc928c340ae3d5081ed85014b0455f2b4808ed75595c865f19194c8"
+      }
+    },
+    "machine": {
+      "system": "Darwin",
+      "release": "25.5.0",
+      "architecture": "arm64",
+      "logical_cpus": 12
+    },
+    "runner_sha256": "feb3a27f49d2e245c4eebafe5c46ccb677f218b8d911fbf29ac61467373c5d61",
+    "acceptance_fixture_sha256": "f863fe07484be59eeb8fc550f4dafa3427908c9fcd0fdad4d2f6036f6893f4f2",
+    "staged_cek": true,
+    "lifted_search": false,
+    "specialize_functions": [
+      "PlutusCore.UPLC.StagedCek.eval:2",
+      "PlutusCore.UPLC.StagedCek.ret:2",
+      "PlutusCore.UPLC.StagedCek.lookupValue:1"
+    ],
+    "retain_choice_types": [],
+    "retain_constructor_choices": false,
+    "reduce_before_arguments": false,
+    "cpu_sample": false,
+    "profile_normalize": false,
+    "phase": "proof",
+    "allocator_env": {},
+    "runs": [
+      {
+        "case": "governance",
+        "budget": 9000,
+        "repeat": 1,
+        "status": "completed",
+        "log": "/private/tmp/lean-blaster-cardano-20260909/hashcons-candidate-workspace/results/hashcons-dag-pair2-governance-candidate-proof/governance-9000-1.log",
+        "sampled_peak_rss_bytes": 1755201536,
+        "prep": {},
+        "source_sha256": "a48166a408953e0ad20d407c49b6490a712ecdd92abbda4734caee0dca20a733",
+        "elapsed_seconds": 4.396264750044793,
+        "exit_code": 0,
+        "interpreter": [
+          "true"
+        ],
+        "lifted_search": [
+          "false"
+        ],
+        "profiles": [],
+        "phases": [],
+        "acceptance": [],
+        "verdicts": [
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:51:52: \u2705 Valid",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:59:54: \u2705 Valid",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:67:37: \u2705 Valid",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:75:54: \u2705 Valid"
+        ],
+        "olean_bytes": 1302792
+      }
+    ]
+  },
+  "hashcons-dag-pair2-governance-candidate": {
+    "label": "hashcons-dag-pair2-governance-candidate",
+    "repeat": 1,
+    "timeout_seconds": 120.0,
+    "rss_limit_bytes": 12884901888,
+    "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+    "pins": {
+      "cardano": {
+        "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+        "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+      },
+      "wsc": {
+        "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+        "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+      },
+      "blaster": {
+        "commit": "befd475789603c6b7998c68270d2321627be9d9d",
+        "tracked_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "plutuscore": {
+        "commit": "073950e49a11ea58ca432d6a0da39294e4d2ce50",
+        "tracked_patch_sha256": "b4306cdffebf6a25f6129a9db3ce1d948b0116e58ff678ef7978b85aa6043f35"
+      },
+      "plutuscore-wsc": {
+        "commit": "5f2baa2a965388dbf0bf9ef36b82bb05ea8074c8",
+        "tracked_patch_sha256": "1b80d27e6bc928c340ae3d5081ed85014b0455f2b4808ed75595c865f19194c8"
+      }
+    },
+    "machine": {
+      "system": "Darwin",
+      "release": "25.5.0",
+      "architecture": "arm64",
+      "logical_cpus": 12
+    },
+    "runner_sha256": "feb3a27f49d2e245c4eebafe5c46ccb677f218b8d911fbf29ac61467373c5d61",
+    "acceptance_fixture_sha256": "f863fe07484be59eeb8fc550f4dafa3427908c9fcd0fdad4d2f6036f6893f4f2",
+    "staged_cek": true,
+    "lifted_search": false,
+    "specialize_functions": [
+      "PlutusCore.UPLC.StagedCek.eval:2",
+      "PlutusCore.UPLC.StagedCek.ret:2",
+      "PlutusCore.UPLC.StagedCek.lookupValue:1"
+    ],
+    "retain_choice_types": [],
+    "retain_constructor_choices": false,
+    "reduce_before_arguments": false,
+    "cpu_sample": false,
+    "profile_normalize": false,
+    "phase": "prep",
+    "allocator_env": {},
+    "runs": [
+      {
+        "case": "governance",
+        "budget": 9000,
+        "repeat": 1,
+        "status": "completed",
+        "log": "/private/tmp/lean-blaster-cardano-20260909/hashcons-candidate-workspace/results/hashcons-dag-pair2-governance-candidate/governance-9000-1.log",
+        "sampled_peak_rss_bytes": 2024931328,
+        "prep": {
+          "optimize_ms": 20439,
+          "hashcons": 5070520,
+          "contexts": 17761,
+          "beta_cache": 17985
+        },
+        "source_sha256": "b856527165c1b3e6c92220556965091daf6641fdad3a9fb8b816b9b260d36196",
+        "elapsed_seconds": 22.51600283291191,
+        "exit_code": 0,
+        "interpreter": [
+          "true"
+        ],
+        "lifted_search": [
+          "false"
+        ],
+        "profiles": [],
+        "phases": [
+          {
+            "input_construct_ms": 1
+          },
+          {
+            "declaration_ms": 3,
+            "command_ms": 21060
+          }
+        ],
+        "acceptance": [],
+        "olean_bytes": 2216312
+      }
+    ]
+  },
+  "hashcons-dag-pair2-governance-reference-proof": {
+    "label": "hashcons-dag-pair2-governance-reference-proof",
+    "repeat": 1,
+    "timeout_seconds": 120.0,
+    "rss_limit_bytes": 12884901888,
+    "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+    "pins": {
+      "cardano": {
+        "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+        "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+      },
+      "wsc": {
+        "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+        "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+      },
+      "blaster": {
+        "commit": "2cc060ca2739f4270490530924425a395769bd2e",
+        "tracked_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "plutuscore": {
+        "commit": "073950e49a11ea58ca432d6a0da39294e4d2ce50",
+        "tracked_patch_sha256": "b4306cdffebf6a25f6129a9db3ce1d948b0116e58ff678ef7978b85aa6043f35"
+      },
+      "plutuscore-wsc": {
+        "commit": "5f2baa2a965388dbf0bf9ef36b82bb05ea8074c8",
+        "tracked_patch_sha256": "1b80d27e6bc928c340ae3d5081ed85014b0455f2b4808ed75595c865f19194c8"
+      }
+    },
+    "machine": {
+      "system": "Darwin",
+      "release": "25.5.0",
+      "architecture": "arm64",
+      "logical_cpus": 12
+    },
+    "runner_sha256": "feb3a27f49d2e245c4eebafe5c46ccb677f218b8d911fbf29ac61467373c5d61",
+    "acceptance_fixture_sha256": "f863fe07484be59eeb8fc550f4dafa3427908c9fcd0fdad4d2f6036f6893f4f2",
+    "staged_cek": true,
+    "lifted_search": false,
+    "specialize_functions": [
+      "PlutusCore.UPLC.StagedCek.eval:2",
+      "PlutusCore.UPLC.StagedCek.ret:2",
+      "PlutusCore.UPLC.StagedCek.lookupValue:1"
+    ],
+    "retain_choice_types": [],
+    "retain_constructor_choices": false,
+    "reduce_before_arguments": false,
+    "cpu_sample": false,
+    "profile_normalize": false,
+    "phase": "proof",
+    "allocator_env": {},
+    "runs": [
+      {
+        "case": "governance",
+        "budget": 9000,
+        "repeat": 1,
+        "status": "completed",
+        "log": "/private/tmp/lean-blaster-cardano-20260909/hashcons-baseline-workspace/results/hashcons-dag-pair2-governance-reference-proof/governance-9000-1.log",
+        "sampled_peak_rss_bytes": 1737326592,
+        "prep": {},
+        "source_sha256": "a48166a408953e0ad20d407c49b6490a712ecdd92abbda4734caee0dca20a733",
+        "elapsed_seconds": 4.395515958080068,
+        "exit_code": 0,
+        "interpreter": [
+          "true"
+        ],
+        "lifted_search": [
+          "false"
+        ],
+        "profiles": [],
+        "phases": [],
+        "acceptance": [],
+        "verdicts": [
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:51:52: \u2705 Valid",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:59:54: \u2705 Valid",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:67:37: \u2705 Valid",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:75:54: \u2705 Valid"
+        ],
+        "olean_bytes": 1302792
+      }
+    ]
+  },
+  "hashcons-dag-pair2-governance-reference": {
+    "label": "hashcons-dag-pair2-governance-reference",
+    "repeat": 1,
+    "timeout_seconds": 120.0,
+    "rss_limit_bytes": 12884901888,
+    "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+    "pins": {
+      "cardano": {
+        "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+        "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+      },
+      "wsc": {
+        "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+        "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+      },
+      "blaster": {
+        "commit": "2cc060ca2739f4270490530924425a395769bd2e",
+        "tracked_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "plutuscore": {
+        "commit": "073950e49a11ea58ca432d6a0da39294e4d2ce50",
+        "tracked_patch_sha256": "b4306cdffebf6a25f6129a9db3ce1d948b0116e58ff678ef7978b85aa6043f35"
+      },
+      "plutuscore-wsc": {
+        "commit": "5f2baa2a965388dbf0bf9ef36b82bb05ea8074c8",
+        "tracked_patch_sha256": "1b80d27e6bc928c340ae3d5081ed85014b0455f2b4808ed75595c865f19194c8"
+      }
+    },
+    "machine": {
+      "system": "Darwin",
+      "release": "25.5.0",
+      "architecture": "arm64",
+      "logical_cpus": 12
+    },
+    "runner_sha256": "feb3a27f49d2e245c4eebafe5c46ccb677f218b8d911fbf29ac61467373c5d61",
+    "acceptance_fixture_sha256": "f863fe07484be59eeb8fc550f4dafa3427908c9fcd0fdad4d2f6036f6893f4f2",
+    "staged_cek": true,
+    "lifted_search": false,
+    "specialize_functions": [
+      "PlutusCore.UPLC.StagedCek.eval:2",
+      "PlutusCore.UPLC.StagedCek.ret:2",
+      "PlutusCore.UPLC.StagedCek.lookupValue:1"
+    ],
+    "retain_choice_types": [],
+    "retain_constructor_choices": false,
+    "reduce_before_arguments": false,
+    "cpu_sample": false,
+    "profile_normalize": false,
+    "phase": "prep",
+    "allocator_env": {},
+    "runs": [
+      {
+        "case": "governance",
+        "budget": 9000,
+        "repeat": 1,
+        "status": "completed",
+        "log": "/private/tmp/lean-blaster-cardano-20260909/hashcons-baseline-workspace/results/hashcons-dag-pair2-governance-reference/governance-9000-1.log",
+        "sampled_peak_rss_bytes": 2024636416,
+        "prep": {
+          "optimize_ms": 20063,
+          "hashcons": 5070520,
+          "contexts": 17761,
+          "beta_cache": 17985
+        },
+        "source_sha256": "b856527165c1b3e6c92220556965091daf6641fdad3a9fb8b816b9b260d36196",
+        "elapsed_seconds": 21.961176624987274,
+        "exit_code": 0,
+        "interpreter": [
+          "true"
+        ],
+        "lifted_search": [
+          "false"
+        ],
+        "profiles": [],
+        "phases": [
+          {
+            "input_construct_ms": 0
+          },
+          {
+            "declaration_ms": 4,
+            "command_ms": 20729
+          }
+        ],
+        "acceptance": [],
+        "olean_bytes": 2216312
+      }
+    ]
+  },
+  "hashcons-dag-pair2-sellnft-candidate-proof": {
+    "label": "hashcons-dag-pair2-sellnft-candidate-proof",
+    "repeat": 1,
+    "timeout_seconds": 120.0,
+    "rss_limit_bytes": 12884901888,
+    "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+    "pins": {
+      "cardano": {
+        "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+        "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+      },
+      "wsc": {
+        "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+        "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+      },
+      "blaster": {
+        "commit": "befd475789603c6b7998c68270d2321627be9d9d",
+        "tracked_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "plutuscore": {
+        "commit": "073950e49a11ea58ca432d6a0da39294e4d2ce50",
+        "tracked_patch_sha256": "b4306cdffebf6a25f6129a9db3ce1d948b0116e58ff678ef7978b85aa6043f35"
+      },
+      "plutuscore-wsc": {
+        "commit": "5f2baa2a965388dbf0bf9ef36b82bb05ea8074c8",
+        "tracked_patch_sha256": "1b80d27e6bc928c340ae3d5081ed85014b0455f2b4808ed75595c865f19194c8"
+      }
+    },
+    "machine": {
+      "system": "Darwin",
+      "release": "25.5.0",
+      "architecture": "arm64",
+      "logical_cpus": 12
+    },
+    "runner_sha256": "feb3a27f49d2e245c4eebafe5c46ccb677f218b8d911fbf29ac61467373c5d61",
+    "acceptance_fixture_sha256": "f863fe07484be59eeb8fc550f4dafa3427908c9fcd0fdad4d2f6036f6893f4f2",
+    "staged_cek": true,
+    "lifted_search": true,
+    "specialize_functions": [
+      "PlutusCore.UPLC.LoopCek.eval:2",
+      "PlutusCore.UPLC.LoopCek.ret:2",
+      "PlutusCore.UPLC.LoopCek.lookupValue:1",
+      "PlutusCore.UPLC.StagedCek.lookupValue:1",
+      "PlutusCore.UPLC.RecursiveCalls.recognize:2",
+      "PlutusCore.UPLC.LiftedMapSearch.recognizeFast:2",
+      "PlutusCore.UPLC.LiftedMapSearch.bodyWitness:1",
+      "PlutusCore.UPLC.LiftedMapSearch.bodyMatches:1",
+      "PlutusCore.UPLC.LiftedMapSearch.readyMatch:1",
+      "PlutusCore.UPLC.LiftedMapSearch.bindingsMatch:1",
+      "PlutusCore.UPLC.LiftedMapSearch.worker:3",
+      "PlutusCore.UPLC.LiftedMapSearch.scan:1",
+      "PlutusCore.UPLC.LiftedSearch.recognizeFast:2",
+      "PlutusCore.UPLC.LiftedSearch.bodyWitness:1",
+      "PlutusCore.UPLC.LiftedSearch.bodyMatches:1",
+      "PlutusCore.UPLC.LiftedSearch.readyMatch:1",
+      "PlutusCore.UPLC.LiftedSearch.bindingsMatch:1",
+      "PlutusCore.UPLC.LiftedSearch.worker:3",
+      "PlutusCore.UPLC.LiftedSearch.scan:1"
+    ],
+    "retain_choice_types": [],
+    "retain_constructor_choices": false,
+    "reduce_before_arguments": false,
+    "cpu_sample": false,
+    "profile_normalize": false,
+    "phase": "proof",
+    "allocator_env": {},
+    "runs": [
+      {
+        "case": "sellnft",
+        "budget": 1800,
+        "repeat": 1,
+        "status": "error",
+        "log": "/private/tmp/lean-blaster-cardano-20260909/hashcons-candidate-workspace/results/hashcons-dag-pair2-sellnft-candidate-proof/sellnft-1800-1.log",
+        "sampled_peak_rss_bytes": 2244657152,
+        "prep": {},
+        "source_sha256": "2c7d97533811d09f667337f41375bc9c40b091b873fab8ccccde885250d933ca",
+        "elapsed_seconds": 37.4023253750056,
+        "exit_code": 1,
+        "interpreter": [
+          "true"
+        ],
+        "lifted_search": [
+          "true"
+        ],
+        "profiles": [],
+        "phases": [],
+        "acceptance": [],
+        "verdicts": [
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:69:30: \u2705 Valid",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:76:54: \u2705 Valid",
+          "error: Tests/Benchmarks/CardanoPerfProofs.lean:86:0: checkSat: Unexpected check-sat result: timeout",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:95:72: \u2705 Expected Falsified",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:103:55: \u2705 Expected Falsified"
+        ]
+      }
+    ]
+  },
+  "hashcons-dag-pair2-sellnft-candidate": {
+    "label": "hashcons-dag-pair2-sellnft-candidate",
+    "repeat": 1,
+    "timeout_seconds": 120.0,
+    "rss_limit_bytes": 12884901888,
+    "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+    "pins": {
+      "cardano": {
+        "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+        "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+      },
+      "wsc": {
+        "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+        "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+      },
+      "blaster": {
+        "commit": "befd475789603c6b7998c68270d2321627be9d9d",
+        "tracked_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "plutuscore": {
+        "commit": "073950e49a11ea58ca432d6a0da39294e4d2ce50",
+        "tracked_patch_sha256": "b4306cdffebf6a25f6129a9db3ce1d948b0116e58ff678ef7978b85aa6043f35"
+      },
+      "plutuscore-wsc": {
+        "commit": "5f2baa2a965388dbf0bf9ef36b82bb05ea8074c8",
+        "tracked_patch_sha256": "1b80d27e6bc928c340ae3d5081ed85014b0455f2b4808ed75595c865f19194c8"
+      }
+    },
+    "machine": {
+      "system": "Darwin",
+      "release": "25.5.0",
+      "architecture": "arm64",
+      "logical_cpus": 12
+    },
+    "runner_sha256": "feb3a27f49d2e245c4eebafe5c46ccb677f218b8d911fbf29ac61467373c5d61",
+    "acceptance_fixture_sha256": "f863fe07484be59eeb8fc550f4dafa3427908c9fcd0fdad4d2f6036f6893f4f2",
+    "staged_cek": true,
+    "lifted_search": true,
+    "specialize_functions": [
+      "PlutusCore.UPLC.LoopCek.eval:2",
+      "PlutusCore.UPLC.LoopCek.ret:2",
+      "PlutusCore.UPLC.LoopCek.lookupValue:1",
+      "PlutusCore.UPLC.StagedCek.lookupValue:1",
+      "PlutusCore.UPLC.RecursiveCalls.recognize:2",
+      "PlutusCore.UPLC.LiftedMapSearch.recognizeFast:2",
+      "PlutusCore.UPLC.LiftedMapSearch.bodyWitness:1",
+      "PlutusCore.UPLC.LiftedMapSearch.bodyMatches:1",
+      "PlutusCore.UPLC.LiftedMapSearch.readyMatch:1",
+      "PlutusCore.UPLC.LiftedMapSearch.bindingsMatch:1",
+      "PlutusCore.UPLC.LiftedMapSearch.worker:3",
+      "PlutusCore.UPLC.LiftedMapSearch.scan:1",
+      "PlutusCore.UPLC.LiftedSearch.recognizeFast:2",
+      "PlutusCore.UPLC.LiftedSearch.bodyWitness:1",
+      "PlutusCore.UPLC.LiftedSearch.bodyMatches:1",
+      "PlutusCore.UPLC.LiftedSearch.readyMatch:1",
+      "PlutusCore.UPLC.LiftedSearch.bindingsMatch:1",
+      "PlutusCore.UPLC.LiftedSearch.worker:3",
+      "PlutusCore.UPLC.LiftedSearch.scan:1"
+    ],
+    "retain_choice_types": [],
+    "retain_constructor_choices": false,
+    "reduce_before_arguments": false,
+    "cpu_sample": false,
+    "profile_normalize": false,
+    "phase": "prep",
+    "allocator_env": {},
+    "runs": [
+      {
+        "case": "sellnft",
+        "budget": 1800,
+        "repeat": 1,
+        "status": "completed",
+        "log": "/private/tmp/lean-blaster-cardano-20260909/hashcons-candidate-workspace/results/hashcons-dag-pair2-sellnft-candidate/sellnft-1800-1.log",
+        "sampled_peak_rss_bytes": 2183987200,
+        "prep": {
+          "optimize_ms": 18865,
+          "hashcons": 5510804,
+          "contexts": 29234,
+          "beta_cache": 23802
+        },
+        "source_sha256": "56fc27ee26722ada1e00cd403f1041bc604cf885cad1e92a726540f29c032fe2",
+        "elapsed_seconds": 20.890806541079655,
+        "exit_code": 0,
+        "interpreter": [
+          "true"
+        ],
+        "lifted_search": [
+          "true"
+        ],
+        "profiles": [],
+        "phases": [
+          {
+            "input_construct_ms": 1
+          },
+          {
+            "declaration_ms": 5,
+            "command_ms": 19599
+          }
+        ],
+        "acceptance": [],
+        "olean_bytes": 818288
+      }
+    ]
+  },
+  "hashcons-dag-pair2-sellnft-reference-proof": {
+    "label": "hashcons-dag-pair2-sellnft-reference-proof",
+    "repeat": 1,
+    "timeout_seconds": 120.0,
+    "rss_limit_bytes": 12884901888,
+    "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+    "pins": {
+      "cardano": {
+        "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+        "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+      },
+      "wsc": {
+        "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+        "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+      },
+      "blaster": {
+        "commit": "2cc060ca2739f4270490530924425a395769bd2e",
+        "tracked_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "plutuscore": {
+        "commit": "073950e49a11ea58ca432d6a0da39294e4d2ce50",
+        "tracked_patch_sha256": "b4306cdffebf6a25f6129a9db3ce1d948b0116e58ff678ef7978b85aa6043f35"
+      },
+      "plutuscore-wsc": {
+        "commit": "5f2baa2a965388dbf0bf9ef36b82bb05ea8074c8",
+        "tracked_patch_sha256": "1b80d27e6bc928c340ae3d5081ed85014b0455f2b4808ed75595c865f19194c8"
+      }
+    },
+    "machine": {
+      "system": "Darwin",
+      "release": "25.5.0",
+      "architecture": "arm64",
+      "logical_cpus": 12
+    },
+    "runner_sha256": "feb3a27f49d2e245c4eebafe5c46ccb677f218b8d911fbf29ac61467373c5d61",
+    "acceptance_fixture_sha256": "f863fe07484be59eeb8fc550f4dafa3427908c9fcd0fdad4d2f6036f6893f4f2",
+    "staged_cek": true,
+    "lifted_search": true,
+    "specialize_functions": [
+      "PlutusCore.UPLC.LoopCek.eval:2",
+      "PlutusCore.UPLC.LoopCek.ret:2",
+      "PlutusCore.UPLC.LoopCek.lookupValue:1",
+      "PlutusCore.UPLC.StagedCek.lookupValue:1",
+      "PlutusCore.UPLC.RecursiveCalls.recognize:2",
+      "PlutusCore.UPLC.LiftedMapSearch.recognizeFast:2",
+      "PlutusCore.UPLC.LiftedMapSearch.bodyWitness:1",
+      "PlutusCore.UPLC.LiftedMapSearch.bodyMatches:1",
+      "PlutusCore.UPLC.LiftedMapSearch.readyMatch:1",
+      "PlutusCore.UPLC.LiftedMapSearch.bindingsMatch:1",
+      "PlutusCore.UPLC.LiftedMapSearch.worker:3",
+      "PlutusCore.UPLC.LiftedMapSearch.scan:1",
+      "PlutusCore.UPLC.LiftedSearch.recognizeFast:2",
+      "PlutusCore.UPLC.LiftedSearch.bodyWitness:1",
+      "PlutusCore.UPLC.LiftedSearch.bodyMatches:1",
+      "PlutusCore.UPLC.LiftedSearch.readyMatch:1",
+      "PlutusCore.UPLC.LiftedSearch.bindingsMatch:1",
+      "PlutusCore.UPLC.LiftedSearch.worker:3",
+      "PlutusCore.UPLC.LiftedSearch.scan:1"
+    ],
+    "retain_choice_types": [],
+    "retain_constructor_choices": false,
+    "reduce_before_arguments": false,
+    "cpu_sample": false,
+    "profile_normalize": false,
+    "phase": "proof",
+    "allocator_env": {},
+    "runs": [
+      {
+        "case": "sellnft",
+        "budget": 1800,
+        "repeat": 1,
+        "status": "error",
+        "log": "/private/tmp/lean-blaster-cardano-20260909/hashcons-baseline-workspace/results/hashcons-dag-pair2-sellnft-reference-proof/sellnft-1800-1.log",
+        "sampled_peak_rss_bytes": 2264219648,
+        "prep": {},
+        "source_sha256": "2c7d97533811d09f667337f41375bc9c40b091b873fab8ccccde885250d933ca",
+        "elapsed_seconds": 36.835426749894395,
+        "exit_code": 1,
+        "interpreter": [
+          "true"
+        ],
+        "lifted_search": [
+          "true"
+        ],
+        "profiles": [],
+        "phases": [],
+        "acceptance": [],
+        "verdicts": [
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:69:30: \u2705 Valid",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:76:54: \u2705 Valid",
+          "error: Tests/Benchmarks/CardanoPerfProofs.lean:86:0: checkSat: Unexpected check-sat result: timeout",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:95:72: \u2705 Expected Falsified",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:103:55: \u2705 Expected Falsified"
+        ]
+      }
+    ]
+  },
+  "hashcons-dag-pair2-sellnft-reference": {
+    "label": "hashcons-dag-pair2-sellnft-reference",
+    "repeat": 1,
+    "timeout_seconds": 120.0,
+    "rss_limit_bytes": 12884901888,
+    "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+    "pins": {
+      "cardano": {
+        "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+        "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+      },
+      "wsc": {
+        "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+        "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+      },
+      "blaster": {
+        "commit": "2cc060ca2739f4270490530924425a395769bd2e",
+        "tracked_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "plutuscore": {
+        "commit": "073950e49a11ea58ca432d6a0da39294e4d2ce50",
+        "tracked_patch_sha256": "b4306cdffebf6a25f6129a9db3ce1d948b0116e58ff678ef7978b85aa6043f35"
+      },
+      "plutuscore-wsc": {
+        "commit": "5f2baa2a965388dbf0bf9ef36b82bb05ea8074c8",
+        "tracked_patch_sha256": "1b80d27e6bc928c340ae3d5081ed85014b0455f2b4808ed75595c865f19194c8"
+      }
+    },
+    "machine": {
+      "system": "Darwin",
+      "release": "25.5.0",
+      "architecture": "arm64",
+      "logical_cpus": 12
+    },
+    "runner_sha256": "feb3a27f49d2e245c4eebafe5c46ccb677f218b8d911fbf29ac61467373c5d61",
+    "acceptance_fixture_sha256": "f863fe07484be59eeb8fc550f4dafa3427908c9fcd0fdad4d2f6036f6893f4f2",
+    "staged_cek": true,
+    "lifted_search": true,
+    "specialize_functions": [
+      "PlutusCore.UPLC.LoopCek.eval:2",
+      "PlutusCore.UPLC.LoopCek.ret:2",
+      "PlutusCore.UPLC.LoopCek.lookupValue:1",
+      "PlutusCore.UPLC.StagedCek.lookupValue:1",
+      "PlutusCore.UPLC.RecursiveCalls.recognize:2",
+      "PlutusCore.UPLC.LiftedMapSearch.recognizeFast:2",
+      "PlutusCore.UPLC.LiftedMapSearch.bodyWitness:1",
+      "PlutusCore.UPLC.LiftedMapSearch.bodyMatches:1",
+      "PlutusCore.UPLC.LiftedMapSearch.readyMatch:1",
+      "PlutusCore.UPLC.LiftedMapSearch.bindingsMatch:1",
+      "PlutusCore.UPLC.LiftedMapSearch.worker:3",
+      "PlutusCore.UPLC.LiftedMapSearch.scan:1",
+      "PlutusCore.UPLC.LiftedSearch.recognizeFast:2",
+      "PlutusCore.UPLC.LiftedSearch.bodyWitness:1",
+      "PlutusCore.UPLC.LiftedSearch.bodyMatches:1",
+      "PlutusCore.UPLC.LiftedSearch.readyMatch:1",
+      "PlutusCore.UPLC.LiftedSearch.bindingsMatch:1",
+      "PlutusCore.UPLC.LiftedSearch.worker:3",
+      "PlutusCore.UPLC.LiftedSearch.scan:1"
+    ],
+    "retain_choice_types": [],
+    "retain_constructor_choices": false,
+    "reduce_before_arguments": false,
+    "cpu_sample": false,
+    "profile_normalize": false,
+    "phase": "prep",
+    "allocator_env": {},
+    "runs": [
+      {
+        "case": "sellnft",
+        "budget": 1800,
+        "repeat": 1,
+        "status": "completed",
+        "log": "/private/tmp/lean-blaster-cardano-20260909/hashcons-baseline-workspace/results/hashcons-dag-pair2-sellnft-reference/sellnft-1800-1.log",
+        "sampled_peak_rss_bytes": 2182512640,
+        "prep": {
+          "optimize_ms": 18035,
+          "hashcons": 5510804,
+          "contexts": 29234,
+          "beta_cache": 23802
+        },
+        "source_sha256": "56fc27ee26722ada1e00cd403f1041bc604cf885cad1e92a726540f29c032fe2",
+        "elapsed_seconds": 20.32672612508759,
+        "exit_code": 0,
+        "interpreter": [
+          "true"
+        ],
+        "lifted_search": [
+          "true"
+        ],
+        "profiles": [],
+        "phases": [
+          {
+            "input_construct_ms": 0
+          },
+          {
+            "declaration_ms": 4,
+            "command_ms": 18773
+          }
+        ],
+        "acceptance": [],
+        "olean_bytes": 818288
+      }
+    ]
+  },
+  "hashcons-dag-pair3-governance-candidate-proof": {
+    "label": "hashcons-dag-pair3-governance-candidate-proof",
+    "repeat": 1,
+    "timeout_seconds": 120.0,
+    "rss_limit_bytes": 12884901888,
+    "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+    "pins": {
+      "cardano": {
+        "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+        "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+      },
+      "wsc": {
+        "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+        "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+      },
+      "blaster": {
+        "commit": "befd475789603c6b7998c68270d2321627be9d9d",
+        "tracked_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "plutuscore": {
+        "commit": "073950e49a11ea58ca432d6a0da39294e4d2ce50",
+        "tracked_patch_sha256": "b4306cdffebf6a25f6129a9db3ce1d948b0116e58ff678ef7978b85aa6043f35"
+      },
+      "plutuscore-wsc": {
+        "commit": "5f2baa2a965388dbf0bf9ef36b82bb05ea8074c8",
+        "tracked_patch_sha256": "1b80d27e6bc928c340ae3d5081ed85014b0455f2b4808ed75595c865f19194c8"
+      }
+    },
+    "machine": {
+      "system": "Darwin",
+      "release": "25.5.0",
+      "architecture": "arm64",
+      "logical_cpus": 12
+    },
+    "runner_sha256": "feb3a27f49d2e245c4eebafe5c46ccb677f218b8d911fbf29ac61467373c5d61",
+    "acceptance_fixture_sha256": "f863fe07484be59eeb8fc550f4dafa3427908c9fcd0fdad4d2f6036f6893f4f2",
+    "staged_cek": true,
+    "lifted_search": false,
+    "specialize_functions": [
+      "PlutusCore.UPLC.StagedCek.eval:2",
+      "PlutusCore.UPLC.StagedCek.ret:2",
+      "PlutusCore.UPLC.StagedCek.lookupValue:1"
+    ],
+    "retain_choice_types": [],
+    "retain_constructor_choices": false,
+    "reduce_before_arguments": false,
+    "cpu_sample": false,
+    "profile_normalize": false,
+    "phase": "proof",
+    "allocator_env": {},
+    "runs": [
+      {
+        "case": "governance",
+        "budget": 9000,
+        "repeat": 1,
+        "status": "completed",
+        "log": "/private/tmp/lean-blaster-cardano-20260909/hashcons-candidate-workspace/results/hashcons-dag-pair3-governance-candidate-proof/governance-9000-1.log",
+        "sampled_peak_rss_bytes": 1778466816,
+        "prep": {},
+        "source_sha256": "a48166a408953e0ad20d407c49b6490a712ecdd92abbda4734caee0dca20a733",
+        "elapsed_seconds": 4.411958999931812,
+        "exit_code": 0,
+        "interpreter": [
+          "true"
+        ],
+        "lifted_search": [
+          "false"
+        ],
+        "profiles": [],
+        "phases": [],
+        "acceptance": [],
+        "verdicts": [
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:51:52: \u2705 Valid",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:59:54: \u2705 Valid",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:67:37: \u2705 Valid",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:75:54: \u2705 Valid"
+        ],
+        "olean_bytes": 1302792
+      }
+    ]
+  },
+  "hashcons-dag-pair3-governance-candidate": {
+    "label": "hashcons-dag-pair3-governance-candidate",
+    "repeat": 1,
+    "timeout_seconds": 120.0,
+    "rss_limit_bytes": 12884901888,
+    "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+    "pins": {
+      "cardano": {
+        "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+        "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+      },
+      "wsc": {
+        "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+        "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+      },
+      "blaster": {
+        "commit": "befd475789603c6b7998c68270d2321627be9d9d",
+        "tracked_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "plutuscore": {
+        "commit": "073950e49a11ea58ca432d6a0da39294e4d2ce50",
+        "tracked_patch_sha256": "b4306cdffebf6a25f6129a9db3ce1d948b0116e58ff678ef7978b85aa6043f35"
+      },
+      "plutuscore-wsc": {
+        "commit": "5f2baa2a965388dbf0bf9ef36b82bb05ea8074c8",
+        "tracked_patch_sha256": "1b80d27e6bc928c340ae3d5081ed85014b0455f2b4808ed75595c865f19194c8"
+      }
+    },
+    "machine": {
+      "system": "Darwin",
+      "release": "25.5.0",
+      "architecture": "arm64",
+      "logical_cpus": 12
+    },
+    "runner_sha256": "feb3a27f49d2e245c4eebafe5c46ccb677f218b8d911fbf29ac61467373c5d61",
+    "acceptance_fixture_sha256": "f863fe07484be59eeb8fc550f4dafa3427908c9fcd0fdad4d2f6036f6893f4f2",
+    "staged_cek": true,
+    "lifted_search": false,
+    "specialize_functions": [
+      "PlutusCore.UPLC.StagedCek.eval:2",
+      "PlutusCore.UPLC.StagedCek.ret:2",
+      "PlutusCore.UPLC.StagedCek.lookupValue:1"
+    ],
+    "retain_choice_types": [],
+    "retain_constructor_choices": false,
+    "reduce_before_arguments": false,
+    "cpu_sample": false,
+    "profile_normalize": false,
+    "phase": "prep",
+    "allocator_env": {},
+    "runs": [
+      {
+        "case": "governance",
+        "budget": 9000,
+        "repeat": 1,
+        "status": "completed",
+        "log": "/private/tmp/lean-blaster-cardano-20260909/hashcons-candidate-workspace/results/hashcons-dag-pair3-governance-candidate/governance-9000-1.log",
+        "sampled_peak_rss_bytes": 2022621184,
+        "prep": {
+          "optimize_ms": 21909,
+          "hashcons": 5070520,
+          "contexts": 17761,
+          "beta_cache": 17985
+        },
+        "source_sha256": "b856527165c1b3e6c92220556965091daf6641fdad3a9fb8b816b9b260d36196",
+        "elapsed_seconds": 24.275373042095453,
+        "exit_code": 0,
+        "interpreter": [
+          "true"
+        ],
+        "lifted_search": [
+          "false"
+        ],
+        "profiles": [],
+        "phases": [
+          {
+            "input_construct_ms": 0
+          },
+          {
+            "declaration_ms": 4,
+            "command_ms": 22623
+          }
+        ],
+        "acceptance": [],
+        "olean_bytes": 2216312
+      }
+    ]
+  },
+  "hashcons-dag-pair3-governance-reference-proof": {
+    "label": "hashcons-dag-pair3-governance-reference-proof",
+    "repeat": 1,
+    "timeout_seconds": 120.0,
+    "rss_limit_bytes": 12884901888,
+    "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+    "pins": {
+      "cardano": {
+        "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+        "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+      },
+      "wsc": {
+        "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+        "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+      },
+      "blaster": {
+        "commit": "2cc060ca2739f4270490530924425a395769bd2e",
+        "tracked_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "plutuscore": {
+        "commit": "073950e49a11ea58ca432d6a0da39294e4d2ce50",
+        "tracked_patch_sha256": "b4306cdffebf6a25f6129a9db3ce1d948b0116e58ff678ef7978b85aa6043f35"
+      },
+      "plutuscore-wsc": {
+        "commit": "5f2baa2a965388dbf0bf9ef36b82bb05ea8074c8",
+        "tracked_patch_sha256": "1b80d27e6bc928c340ae3d5081ed85014b0455f2b4808ed75595c865f19194c8"
+      }
+    },
+    "machine": {
+      "system": "Darwin",
+      "release": "25.5.0",
+      "architecture": "arm64",
+      "logical_cpus": 12
+    },
+    "runner_sha256": "feb3a27f49d2e245c4eebafe5c46ccb677f218b8d911fbf29ac61467373c5d61",
+    "acceptance_fixture_sha256": "f863fe07484be59eeb8fc550f4dafa3427908c9fcd0fdad4d2f6036f6893f4f2",
+    "staged_cek": true,
+    "lifted_search": false,
+    "specialize_functions": [
+      "PlutusCore.UPLC.StagedCek.eval:2",
+      "PlutusCore.UPLC.StagedCek.ret:2",
+      "PlutusCore.UPLC.StagedCek.lookupValue:1"
+    ],
+    "retain_choice_types": [],
+    "retain_constructor_choices": false,
+    "reduce_before_arguments": false,
+    "cpu_sample": false,
+    "profile_normalize": false,
+    "phase": "proof",
+    "allocator_env": {},
+    "runs": [
+      {
+        "case": "governance",
+        "budget": 9000,
+        "repeat": 1,
+        "status": "completed",
+        "log": "/private/tmp/lean-blaster-cardano-20260909/hashcons-baseline-workspace/results/hashcons-dag-pair3-governance-reference-proof/governance-9000-1.log",
+        "sampled_peak_rss_bytes": 1783201792,
+        "prep": {},
+        "source_sha256": "a48166a408953e0ad20d407c49b6490a712ecdd92abbda4734caee0dca20a733",
+        "elapsed_seconds": 4.408448708010837,
+        "exit_code": 0,
+        "interpreter": [
+          "true"
+        ],
+        "lifted_search": [
+          "false"
+        ],
+        "profiles": [],
+        "phases": [],
+        "acceptance": [],
+        "verdicts": [
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:51:52: \u2705 Valid",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:59:54: \u2705 Valid",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:67:37: \u2705 Valid",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:75:54: \u2705 Valid"
+        ],
+        "olean_bytes": 1302792
+      }
+    ]
+  },
+  "hashcons-dag-pair3-governance-reference": {
+    "label": "hashcons-dag-pair3-governance-reference",
+    "repeat": 1,
+    "timeout_seconds": 120.0,
+    "rss_limit_bytes": 12884901888,
+    "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+    "pins": {
+      "cardano": {
+        "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+        "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+      },
+      "wsc": {
+        "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+        "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+      },
+      "blaster": {
+        "commit": "2cc060ca2739f4270490530924425a395769bd2e",
+        "tracked_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "plutuscore": {
+        "commit": "073950e49a11ea58ca432d6a0da39294e4d2ce50",
+        "tracked_patch_sha256": "b4306cdffebf6a25f6129a9db3ce1d948b0116e58ff678ef7978b85aa6043f35"
+      },
+      "plutuscore-wsc": {
+        "commit": "5f2baa2a965388dbf0bf9ef36b82bb05ea8074c8",
+        "tracked_patch_sha256": "1b80d27e6bc928c340ae3d5081ed85014b0455f2b4808ed75595c865f19194c8"
+      }
+    },
+    "machine": {
+      "system": "Darwin",
+      "release": "25.5.0",
+      "architecture": "arm64",
+      "logical_cpus": 12
+    },
+    "runner_sha256": "feb3a27f49d2e245c4eebafe5c46ccb677f218b8d911fbf29ac61467373c5d61",
+    "acceptance_fixture_sha256": "f863fe07484be59eeb8fc550f4dafa3427908c9fcd0fdad4d2f6036f6893f4f2",
+    "staged_cek": true,
+    "lifted_search": false,
+    "specialize_functions": [
+      "PlutusCore.UPLC.StagedCek.eval:2",
+      "PlutusCore.UPLC.StagedCek.ret:2",
+      "PlutusCore.UPLC.StagedCek.lookupValue:1"
+    ],
+    "retain_choice_types": [],
+    "retain_constructor_choices": false,
+    "reduce_before_arguments": false,
+    "cpu_sample": false,
+    "profile_normalize": false,
+    "phase": "prep",
+    "allocator_env": {},
+    "runs": [
+      {
+        "case": "governance",
+        "budget": 9000,
+        "repeat": 1,
+        "status": "completed",
+        "log": "/private/tmp/lean-blaster-cardano-20260909/hashcons-baseline-workspace/results/hashcons-dag-pair3-governance-reference/governance-9000-1.log",
+        "sampled_peak_rss_bytes": 2024603648,
+        "prep": {
+          "optimize_ms": 21674,
+          "hashcons": 5070520,
+          "contexts": 17761,
+          "beta_cache": 17985
+        },
+        "source_sha256": "b856527165c1b3e6c92220556965091daf6641fdad3a9fb8b816b9b260d36196",
+        "elapsed_seconds": 23.66985920793377,
+        "exit_code": 0,
+        "interpreter": [
+          "true"
+        ],
+        "lifted_search": [
+          "false"
+        ],
+        "profiles": [],
+        "phases": [
+          {
+            "input_construct_ms": 0
+          },
+          {
+            "declaration_ms": 4,
+            "command_ms": 22392
+          }
+        ],
+        "acceptance": [],
+        "olean_bytes": 2216312
+      }
+    ]
+  },
+  "hashcons-dag-pair3-sellnft-candidate-proof": {
+    "label": "hashcons-dag-pair3-sellnft-candidate-proof",
+    "repeat": 1,
+    "timeout_seconds": 120.0,
+    "rss_limit_bytes": 12884901888,
+    "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+    "pins": {
+      "cardano": {
+        "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+        "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+      },
+      "wsc": {
+        "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+        "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+      },
+      "blaster": {
+        "commit": "befd475789603c6b7998c68270d2321627be9d9d",
+        "tracked_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "plutuscore": {
+        "commit": "073950e49a11ea58ca432d6a0da39294e4d2ce50",
+        "tracked_patch_sha256": "b4306cdffebf6a25f6129a9db3ce1d948b0116e58ff678ef7978b85aa6043f35"
+      },
+      "plutuscore-wsc": {
+        "commit": "5f2baa2a965388dbf0bf9ef36b82bb05ea8074c8",
+        "tracked_patch_sha256": "1b80d27e6bc928c340ae3d5081ed85014b0455f2b4808ed75595c865f19194c8"
+      }
+    },
+    "machine": {
+      "system": "Darwin",
+      "release": "25.5.0",
+      "architecture": "arm64",
+      "logical_cpus": 12
+    },
+    "runner_sha256": "feb3a27f49d2e245c4eebafe5c46ccb677f218b8d911fbf29ac61467373c5d61",
+    "acceptance_fixture_sha256": "f863fe07484be59eeb8fc550f4dafa3427908c9fcd0fdad4d2f6036f6893f4f2",
+    "staged_cek": true,
+    "lifted_search": true,
+    "specialize_functions": [
+      "PlutusCore.UPLC.LoopCek.eval:2",
+      "PlutusCore.UPLC.LoopCek.ret:2",
+      "PlutusCore.UPLC.LoopCek.lookupValue:1",
+      "PlutusCore.UPLC.StagedCek.lookupValue:1",
+      "PlutusCore.UPLC.RecursiveCalls.recognize:2",
+      "PlutusCore.UPLC.LiftedMapSearch.recognizeFast:2",
+      "PlutusCore.UPLC.LiftedMapSearch.bodyWitness:1",
+      "PlutusCore.UPLC.LiftedMapSearch.bodyMatches:1",
+      "PlutusCore.UPLC.LiftedMapSearch.readyMatch:1",
+      "PlutusCore.UPLC.LiftedMapSearch.bindingsMatch:1",
+      "PlutusCore.UPLC.LiftedMapSearch.worker:3",
+      "PlutusCore.UPLC.LiftedMapSearch.scan:1",
+      "PlutusCore.UPLC.LiftedSearch.recognizeFast:2",
+      "PlutusCore.UPLC.LiftedSearch.bodyWitness:1",
+      "PlutusCore.UPLC.LiftedSearch.bodyMatches:1",
+      "PlutusCore.UPLC.LiftedSearch.readyMatch:1",
+      "PlutusCore.UPLC.LiftedSearch.bindingsMatch:1",
+      "PlutusCore.UPLC.LiftedSearch.worker:3",
+      "PlutusCore.UPLC.LiftedSearch.scan:1"
+    ],
+    "retain_choice_types": [],
+    "retain_constructor_choices": false,
+    "reduce_before_arguments": false,
+    "cpu_sample": false,
+    "profile_normalize": false,
+    "phase": "proof",
+    "allocator_env": {},
+    "runs": [
+      {
+        "case": "sellnft",
+        "budget": 1800,
+        "repeat": 1,
+        "status": "error",
+        "log": "/private/tmp/lean-blaster-cardano-20260909/hashcons-candidate-workspace/results/hashcons-dag-pair3-sellnft-candidate-proof/sellnft-1800-1.log",
+        "sampled_peak_rss_bytes": 2261221376,
+        "prep": {},
+        "source_sha256": "2c7d97533811d09f667337f41375bc9c40b091b873fab8ccccde885250d933ca",
+        "elapsed_seconds": 36.874670709017664,
+        "exit_code": 1,
+        "interpreter": [
+          "true"
+        ],
+        "lifted_search": [
+          "true"
+        ],
+        "profiles": [],
+        "phases": [],
+        "acceptance": [],
+        "verdicts": [
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:69:30: \u2705 Valid",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:76:54: \u2705 Valid",
+          "error: Tests/Benchmarks/CardanoPerfProofs.lean:86:0: checkSat: Unexpected check-sat result: timeout",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:95:72: \u2705 Expected Falsified",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:103:55: \u2705 Expected Falsified"
+        ]
+      }
+    ]
+  },
+  "hashcons-dag-pair3-sellnft-candidate": {
+    "label": "hashcons-dag-pair3-sellnft-candidate",
+    "repeat": 1,
+    "timeout_seconds": 120.0,
+    "rss_limit_bytes": 12884901888,
+    "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+    "pins": {
+      "cardano": {
+        "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+        "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+      },
+      "wsc": {
+        "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+        "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+      },
+      "blaster": {
+        "commit": "befd475789603c6b7998c68270d2321627be9d9d",
+        "tracked_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "plutuscore": {
+        "commit": "073950e49a11ea58ca432d6a0da39294e4d2ce50",
+        "tracked_patch_sha256": "b4306cdffebf6a25f6129a9db3ce1d948b0116e58ff678ef7978b85aa6043f35"
+      },
+      "plutuscore-wsc": {
+        "commit": "5f2baa2a965388dbf0bf9ef36b82bb05ea8074c8",
+        "tracked_patch_sha256": "1b80d27e6bc928c340ae3d5081ed85014b0455f2b4808ed75595c865f19194c8"
+      }
+    },
+    "machine": {
+      "system": "Darwin",
+      "release": "25.5.0",
+      "architecture": "arm64",
+      "logical_cpus": 12
+    },
+    "runner_sha256": "feb3a27f49d2e245c4eebafe5c46ccb677f218b8d911fbf29ac61467373c5d61",
+    "acceptance_fixture_sha256": "f863fe07484be59eeb8fc550f4dafa3427908c9fcd0fdad4d2f6036f6893f4f2",
+    "staged_cek": true,
+    "lifted_search": true,
+    "specialize_functions": [
+      "PlutusCore.UPLC.LoopCek.eval:2",
+      "PlutusCore.UPLC.LoopCek.ret:2",
+      "PlutusCore.UPLC.LoopCek.lookupValue:1",
+      "PlutusCore.UPLC.StagedCek.lookupValue:1",
+      "PlutusCore.UPLC.RecursiveCalls.recognize:2",
+      "PlutusCore.UPLC.LiftedMapSearch.recognizeFast:2",
+      "PlutusCore.UPLC.LiftedMapSearch.bodyWitness:1",
+      "PlutusCore.UPLC.LiftedMapSearch.bodyMatches:1",
+      "PlutusCore.UPLC.LiftedMapSearch.readyMatch:1",
+      "PlutusCore.UPLC.LiftedMapSearch.bindingsMatch:1",
+      "PlutusCore.UPLC.LiftedMapSearch.worker:3",
+      "PlutusCore.UPLC.LiftedMapSearch.scan:1",
+      "PlutusCore.UPLC.LiftedSearch.recognizeFast:2",
+      "PlutusCore.UPLC.LiftedSearch.bodyWitness:1",
+      "PlutusCore.UPLC.LiftedSearch.bodyMatches:1",
+      "PlutusCore.UPLC.LiftedSearch.readyMatch:1",
+      "PlutusCore.UPLC.LiftedSearch.bindingsMatch:1",
+      "PlutusCore.UPLC.LiftedSearch.worker:3",
+      "PlutusCore.UPLC.LiftedSearch.scan:1"
+    ],
+    "retain_choice_types": [],
+    "retain_constructor_choices": false,
+    "reduce_before_arguments": false,
+    "cpu_sample": false,
+    "profile_normalize": false,
+    "phase": "prep",
+    "allocator_env": {},
+    "runs": [
+      {
+        "case": "sellnft",
+        "budget": 1800,
+        "repeat": 1,
+        "status": "completed",
+        "log": "/private/tmp/lean-blaster-cardano-20260909/hashcons-candidate-workspace/results/hashcons-dag-pair3-sellnft-candidate/sellnft-1800-1.log",
+        "sampled_peak_rss_bytes": 2183168000,
+        "prep": {
+          "optimize_ms": 17876,
+          "hashcons": 5510804,
+          "contexts": 29234,
+          "beta_cache": 23802
+        },
+        "source_sha256": "56fc27ee26722ada1e00cd403f1041bc604cf885cad1e92a726540f29c032fe2",
+        "elapsed_seconds": 19.79174191597849,
+        "exit_code": 0,
+        "interpreter": [
+          "true"
+        ],
+        "lifted_search": [
+          "true"
+        ],
+        "profiles": [],
+        "phases": [
+          {
+            "input_construct_ms": 0
+          },
+          {
+            "declaration_ms": 4,
+            "command_ms": 18598
+          }
+        ],
+        "acceptance": [],
+        "olean_bytes": 818288
+      }
+    ]
+  },
+  "hashcons-dag-pair3-sellnft-reference-proof": {
+    "label": "hashcons-dag-pair3-sellnft-reference-proof",
+    "repeat": 1,
+    "timeout_seconds": 120.0,
+    "rss_limit_bytes": 12884901888,
+    "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+    "pins": {
+      "cardano": {
+        "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+        "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+      },
+      "wsc": {
+        "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+        "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+      },
+      "blaster": {
+        "commit": "2cc060ca2739f4270490530924425a395769bd2e",
+        "tracked_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "plutuscore": {
+        "commit": "073950e49a11ea58ca432d6a0da39294e4d2ce50",
+        "tracked_patch_sha256": "b4306cdffebf6a25f6129a9db3ce1d948b0116e58ff678ef7978b85aa6043f35"
+      },
+      "plutuscore-wsc": {
+        "commit": "5f2baa2a965388dbf0bf9ef36b82bb05ea8074c8",
+        "tracked_patch_sha256": "1b80d27e6bc928c340ae3d5081ed85014b0455f2b4808ed75595c865f19194c8"
+      }
+    },
+    "machine": {
+      "system": "Darwin",
+      "release": "25.5.0",
+      "architecture": "arm64",
+      "logical_cpus": 12
+    },
+    "runner_sha256": "feb3a27f49d2e245c4eebafe5c46ccb677f218b8d911fbf29ac61467373c5d61",
+    "acceptance_fixture_sha256": "f863fe07484be59eeb8fc550f4dafa3427908c9fcd0fdad4d2f6036f6893f4f2",
+    "staged_cek": true,
+    "lifted_search": true,
+    "specialize_functions": [
+      "PlutusCore.UPLC.LoopCek.eval:2",
+      "PlutusCore.UPLC.LoopCek.ret:2",
+      "PlutusCore.UPLC.LoopCek.lookupValue:1",
+      "PlutusCore.UPLC.StagedCek.lookupValue:1",
+      "PlutusCore.UPLC.RecursiveCalls.recognize:2",
+      "PlutusCore.UPLC.LiftedMapSearch.recognizeFast:2",
+      "PlutusCore.UPLC.LiftedMapSearch.bodyWitness:1",
+      "PlutusCore.UPLC.LiftedMapSearch.bodyMatches:1",
+      "PlutusCore.UPLC.LiftedMapSearch.readyMatch:1",
+      "PlutusCore.UPLC.LiftedMapSearch.bindingsMatch:1",
+      "PlutusCore.UPLC.LiftedMapSearch.worker:3",
+      "PlutusCore.UPLC.LiftedMapSearch.scan:1",
+      "PlutusCore.UPLC.LiftedSearch.recognizeFast:2",
+      "PlutusCore.UPLC.LiftedSearch.bodyWitness:1",
+      "PlutusCore.UPLC.LiftedSearch.bodyMatches:1",
+      "PlutusCore.UPLC.LiftedSearch.readyMatch:1",
+      "PlutusCore.UPLC.LiftedSearch.bindingsMatch:1",
+      "PlutusCore.UPLC.LiftedSearch.worker:3",
+      "PlutusCore.UPLC.LiftedSearch.scan:1"
+    ],
+    "retain_choice_types": [],
+    "retain_constructor_choices": false,
+    "reduce_before_arguments": false,
+    "cpu_sample": false,
+    "profile_normalize": false,
+    "phase": "proof",
+    "allocator_env": {},
+    "runs": [
+      {
+        "case": "sellnft",
+        "budget": 1800,
+        "repeat": 1,
+        "status": "error",
+        "log": "/private/tmp/lean-blaster-cardano-20260909/hashcons-baseline-workspace/results/hashcons-dag-pair3-sellnft-reference-proof/sellnft-1800-1.log",
+        "sampled_peak_rss_bytes": 2248376320,
+        "prep": {},
+        "source_sha256": "2c7d97533811d09f667337f41375bc9c40b091b873fab8ccccde885250d933ca",
+        "elapsed_seconds": 37.31606854102574,
+        "exit_code": 1,
+        "interpreter": [
+          "true"
+        ],
+        "lifted_search": [
+          "true"
+        ],
+        "profiles": [],
+        "phases": [],
+        "acceptance": [],
+        "verdicts": [
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:69:30: \u2705 Valid",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:76:54: \u2705 Valid",
+          "error: Tests/Benchmarks/CardanoPerfProofs.lean:86:0: checkSat: Unexpected check-sat result: timeout",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:95:72: \u2705 Expected Falsified",
+          "info: Tests/Benchmarks/CardanoPerfProofs.lean:103:55: \u2705 Expected Falsified"
+        ]
+      }
+    ]
+  },
+  "hashcons-dag-pair3-sellnft-reference": {
+    "label": "hashcons-dag-pair3-sellnft-reference",
+    "repeat": 1,
+    "timeout_seconds": 120.0,
+    "rss_limit_bytes": 12884901888,
+    "lean": "Lean (version 4.24.0, arm64-apple-darwin23.6.0, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)",
+    "pins": {
+      "cardano": {
+        "commit": "7245eb8d6faf6764ed6d3551ddcae3fc08cd301b",
+        "tracked_patch_sha256": "04235b965a210f5d6604c1ec19cf52ded43b81ff94a672290509e3f3d227161d"
+      },
+      "wsc": {
+        "commit": "58b8b670cd9ae218c56d21ae2ecbfc5da6e77a12",
+        "tracked_patch_sha256": "f9b54b8a3b5bbc6471e784bf48b4f9a34127c0c59df931cc91d6d4eb102a9805"
+      },
+      "blaster": {
+        "commit": "2cc060ca2739f4270490530924425a395769bd2e",
+        "tracked_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "plutuscore": {
+        "commit": "073950e49a11ea58ca432d6a0da39294e4d2ce50",
+        "tracked_patch_sha256": "b4306cdffebf6a25f6129a9db3ce1d948b0116e58ff678ef7978b85aa6043f35"
+      },
+      "plutuscore-wsc": {
+        "commit": "5f2baa2a965388dbf0bf9ef36b82bb05ea8074c8",
+        "tracked_patch_sha256": "1b80d27e6bc928c340ae3d5081ed85014b0455f2b4808ed75595c865f19194c8"
+      }
+    },
+    "machine": {
+      "system": "Darwin",
+      "release": "25.5.0",
+      "architecture": "arm64",
+      "logical_cpus": 12
+    },
+    "runner_sha256": "feb3a27f49d2e245c4eebafe5c46ccb677f218b8d911fbf29ac61467373c5d61",
+    "acceptance_fixture_sha256": "f863fe07484be59eeb8fc550f4dafa3427908c9fcd0fdad4d2f6036f6893f4f2",
+    "staged_cek": true,
+    "lifted_search": true,
+    "specialize_functions": [
+      "PlutusCore.UPLC.LoopCek.eval:2",
+      "PlutusCore.UPLC.LoopCek.ret:2",
+      "PlutusCore.UPLC.LoopCek.lookupValue:1",
+      "PlutusCore.UPLC.StagedCek.lookupValue:1",
+      "PlutusCore.UPLC.RecursiveCalls.recognize:2",
+      "PlutusCore.UPLC.LiftedMapSearch.recognizeFast:2",
+      "PlutusCore.UPLC.LiftedMapSearch.bodyWitness:1",
+      "PlutusCore.UPLC.LiftedMapSearch.bodyMatches:1",
+      "PlutusCore.UPLC.LiftedMapSearch.readyMatch:1",
+      "PlutusCore.UPLC.LiftedMapSearch.bindingsMatch:1",
+      "PlutusCore.UPLC.LiftedMapSearch.worker:3",
+      "PlutusCore.UPLC.LiftedMapSearch.scan:1",
+      "PlutusCore.UPLC.LiftedSearch.recognizeFast:2",
+      "PlutusCore.UPLC.LiftedSearch.bodyWitness:1",
+      "PlutusCore.UPLC.LiftedSearch.bodyMatches:1",
+      "PlutusCore.UPLC.LiftedSearch.readyMatch:1",
+      "PlutusCore.UPLC.LiftedSearch.bindingsMatch:1",
+      "PlutusCore.UPLC.LiftedSearch.worker:3",
+      "PlutusCore.UPLC.LiftedSearch.scan:1"
+    ],
+    "retain_choice_types": [],
+    "retain_constructor_choices": false,
+    "reduce_before_arguments": false,
+    "cpu_sample": false,
+    "profile_normalize": false,
+    "phase": "prep",
+    "allocator_env": {},
+    "runs": [
+      {
+        "case": "sellnft",
+        "budget": 1800,
+        "repeat": 1,
+        "status": "completed",
+        "log": "/private/tmp/lean-blaster-cardano-20260909/hashcons-baseline-workspace/results/hashcons-dag-pair3-sellnft-reference/sellnft-1800-1.log",
+        "sampled_peak_rss_bytes": 2182561792,
+        "prep": {
+          "optimize_ms": 17624,
+          "hashcons": 5510804,
+          "contexts": 29234,
+          "beta_cache": 23802
+        },
+        "source_sha256": "56fc27ee26722ada1e00cd403f1041bc604cf885cad1e92a726540f29c032fe2",
+        "elapsed_seconds": 19.753514249809086,
+        "exit_code": 0,
+        "interpreter": [
+          "true"
+        ],
+        "lifted_search": [
+          "true"
+        ],
+        "profiles": [],
+        "phases": [
+          {
+            "input_construct_ms": 1
+          },
+          {
+            "declaration_ms": 6,
+            "command_ms": 18382
+          }
+        ],
+        "acceptance": [],
+        "olean_bytes": 818288
+      }
+    ]
+  }
+}

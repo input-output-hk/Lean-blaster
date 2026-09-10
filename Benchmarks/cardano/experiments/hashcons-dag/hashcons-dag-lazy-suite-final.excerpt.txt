@@ -1,0 +1,6 @@
+ℹ [269/736] Replayed Tests.FixedIssues.Issue249
+info: Tests/FixedIssues/Issue249.lean:23:0: Issue249 DAG allocation heartbeats: 537
+info: Tests/FixedIssues/Issue249.lean:23:0: Issue249 DAG allocation heartbeats: 326
+info: Tests/FixedIssues/Issue249.lean:42:0: Issue249SharedInputDAG ✅ Success!
+info: Tests/Smt/SmtNat/SmtNatMod.lean:35:10: ✅ Valid
+Build completed successfully (736 jobs).

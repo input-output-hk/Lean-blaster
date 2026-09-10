@@ -1,0 +1,6 @@
+✖ [224/224] Building Tests.FixedIssues.Issue249 (3.3s)
+error: Tests/FixedIssues/Issue249.lean:23:0: hash-consing revisited a shared input graph: 47186118 allocation heartbeats
+info: Tests/FixedIssues/Issue249.lean:42:0: Issue249SharedInputDAG ✅ Success!
+error: Lean exited with code 1
+- Tests.FixedIssues.Issue249
+error: build failed
