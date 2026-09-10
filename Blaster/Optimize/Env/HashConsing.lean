@@ -33,6 +33,8 @@ def saveHashCons (old : Expr) (new : Expr) : TranslateEnvT Expr := do
 change its pointer (including when merging alpha-equivalent binders), so the
 canonical intern table alone cannot avoid revisiting shared input subgraphs.
 The keys retain their source nodes and the memo ends with this call.
+Unchanged nodes are inserted into the canonical table instead; that table
+has no eviction during this walk, so only changed pointers need local entries.
 Adapted from the DAG memoization in PR #160 (Anastasia-Labs, 9caca284). -/
 private unsafe def hashconsAux (cur : Expr) (isResult : Bool) (stk : Array HashConsStack) (memo : HashMap PtrExpr Expr) : TranslateEnvT Expr := do
   if isResult then
@@ -45,19 +47,19 @@ private unsafe def hashconsAux (cur : Expr) (isResult : Bool) (stk : Array HashC
            hashconsAux a false stk memo
       | .WaitAppArg e f =>
            let r' ← saveHashCons e (← e.updateAppExpr! f cur)
-           hashconsAux r' true stk.pop (memo.insert e r')
+           hashconsAux r' true stk.pop (if exprEq e r' then memo else memo.insert e r')
       | .WaitForallType e b =>
            let stk := stk.uset topIdx (.WaitForallBody e cur) lcProof
            hashconsAux b false stk memo
       | .WaitForallBody e t =>
            let r' ← saveHashCons e (← e.updateForallExpr! t cur)
-           hashconsAux r' true stk.pop (memo.insert e r')
+           hashconsAux r' true stk.pop (if exprEq e r' then memo else memo.insert e r')
       | .WaitLambdaType e b =>
            let stk := stk.uset topIdx (.WaitLambdaBody e cur) lcProof
            hashconsAux b false stk memo
       | .WaitLambdaBody e t =>
            let r' ← saveHashCons e (← e.updateLambdaExpr! t cur)
-           hashconsAux r' true stk.pop (memo.insert e r')
+           hashconsAux r' true stk.pop (if exprEq e r' then memo else memo.insert e r')
       | .WaitLetType e v b =>
            let stk := stk.uset topIdx (.WaitLetValue e cur b) lcProof
            hashconsAux v false stk memo
@@ -66,22 +68,23 @@ private unsafe def hashconsAux (cur : Expr) (isResult : Bool) (stk : Array HashC
            hashconsAux b false stk memo
       | .WaitLetBody e t v =>
            let r' ← saveHashCons e (← e.updateLetExpr! t v cur)
-           hashconsAux r' true stk.pop (memo.insert e r')
+           hashconsAux r' true stk.pop (if exprEq e r' then memo else memo.insert e r')
       | .WaitMData e =>
            let r' ← saveHashCons e (← e.updateMDataExpr! cur)
-           hashconsAux r' true stk.pop (memo.insert e r')
+           hashconsAux r' true stk.pop (if exprEq e r' then memo else memo.insert e r')
       | .WaitProjExpr e =>
            let r' ← saveHashCons e (← e.updateProjExpr! cur)
-           hashconsAux r' true stk.pop (memo.insert e r')
+           hashconsAux r' true stk.pop (if exprEq e r' then memo else memo.insert e r')
     else return cur
   else
-    -- per-call DAG memo first: exact old-pointer hit, immune to eviction
-    let memoized := memo.getD cur instCacheMiss
-    if !exprEq memoized instCacheMiss then
-      hashconsAux memoized true stk memo
-    else
+    -- Most nodes already have canonical children. Probe their usual table
+    -- first, and use the local memo only for original nodes it cannot retain.
     let cached := (← get).optEnv.hashConsCache.getD cur instCacheMiss
     if !exprEq cached.expr instCacheMiss then hashconsAux cached.expr true stk memo
+    else
+    let memoized := if memo.size == 0 then instCacheMiss else memo.getD cur instCacheMiss
+    if !exprEq memoized instCacheMiss then
+      hashconsAux memoized true stk memo
     else
        match cur with
        | .bvar .. | .mvar .. | .const .. | .fvar .. | .sort .. | .lit .. =>
@@ -108,8 +111,12 @@ private unsafe def hashconsAux (cur : Expr) (isResult : Bool) (stk : Array HashC
 
 /-- Apply hashconsing on an expression. -/
 @[always_inline, inline]
-def hashcons (e : Expr) : TranslateEnvT Expr :=
-  unsafe hashconsAux e false (Array.emptyWithCapacity e.approxDepth.toNat) (HashMap.emptyWithCapacity 64)
+def hashcons (e : Expr) : TranslateEnvT Expr := do
+  -- Avoid creating traversal state for the frequent already-interned case.
+  let cached := (← get).optEnv.hashConsCache.getD e instCacheMiss
+  if !exprEq cached.expr instCacheMiss then return cached.expr
+  else
+    unsafe hashconsAux e false (Array.emptyWithCapacity e.approxDepth.toNat) (HashMap.emptyWithCapacity 64)
 
 
 private unsafe def cleanHashConsAux (stk : Array Expr) : TranslateEnvT Unit := do
