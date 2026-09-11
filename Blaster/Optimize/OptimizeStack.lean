@@ -102,6 +102,17 @@ def mkLocalDeclStackContext (newCtx : LocalDeclContext) : TranslateEnvT LocalDec
 def resetLocalDeclContext (oldCtx : LocalDeclContext) : TranslateEnvT Unit :=
   updateLocalContext oldCtx
 
+/-- Return `true` when the forall on top of `stack` is a goal binder (`∀ x₁ … xₙ, body` at the
+    outermost level), whose fvar must be recorded in `optBinders`. Below a goal binder there are
+    only `InitOptimizeReturn` cache frames and the `ForallWaitForBody` frames of the previous goal
+    binders. Any other frame means the forall is nested in a binder type (e.g. `f : α → α → α`)
+    or in a sub-term. -/
+def isGoalSpineStack : List OptimizeStack → Bool
+  | [] => true
+  | .InitOptimizeReturn .. :: rest => isGoalSpineStack rest
+  | .ForallWaitForBody .. :: rest => isGoalSpineStack rest
+  | _ => false
+
 def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := false) : TranslateEnvT OptimizeContinuity := do
   match stack with
   | [] => return Sum.inr optExpr
@@ -122,11 +133,8 @@ def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := 
        -- continuity with optimizing forall body
        withLocalContext $ do
          withLocalDecl' n bi optExpr fun x => do
-           -- Record binder only for top-level foralls (not nested inside another forall's type).
-           -- A nested forall has another ForallWaitForType directly below on the stack.
-           match xs with
-           | .ForallWaitForType .. :: _ => pure ()
-           | _ => pushOptBinder x.fvarId!
+           -- Record the binder only for goal-spine foralls.
+           if isGoalSpineStack xs then pushOptBinder x.fvarId!
            let body' := instantiate1' body x
            let isNotPropBody := !(← isPropEnv body')
            let hyps ← addHypotheses optExpr x isNotPropBody
