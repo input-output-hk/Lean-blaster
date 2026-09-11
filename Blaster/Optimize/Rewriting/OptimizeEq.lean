@@ -305,10 +305,30 @@ def intEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
  | some n =>
      if n == 0 then return none
      if !(exprEq e2 op2) then return none
+     let zero := mkIntLit 0
+     let eqZero ← mkEq e1 zero
+     let reflFalse := mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Bool) (mkConst ``Bool.false)
+     let hNe ← mkAppOptM ``of_decide_eq_false #[some eqZero, none, some reflFalse]
+     let commIff ← mkAppOptM ``eq_comm #[some (mkConst ``Int), some op2, some op1]
+     let bridge ← mkAppM ``propext #[commIff]
+     pushProofStep (.rewrite bridge)
+     pushProofStep (.rewrite (← mkAppM ``Blaster.int_add_left_eq_false #[e2, e1, hNe]))
      return ← mkPropFalse
  | none =>
-     if exprEq e1 op2 then if ← nonZeroIntInHyps e2 then return ← mkPropFalse
-     if exprEq e2 op2 then if ← nonZeroIntInHyps e1 then return ← mkPropFalse
+     if exprEq e1 op2 then
+      if let some p ← findNeZeroIntProof? e2 then
+        let commIff ← mkAppOptM ``eq_comm #[none, some op2, some op1]
+        let bridge ← mkAppM ``propext #[commIff]
+        pushProofStep (.rewrite bridge)
+        pushProofStep (.rewrite (← mkAppM ``Blaster.int_add_right_eq_false #[e1, e2, p]))
+        return ← mkPropFalse
+     if exprEq e2 op2 then
+      if let some p ← findNeZeroIntProof? e1 then
+        let commIff ← mkAppOptM ``eq_comm #[none, some op2, some op1]
+        let bridge ← mkAppM ``propext #[commIff]
+        pushProofStep (.rewrite bridge)
+        pushProofStep (.rewrite (← mkAppM ``Blaster.int_add_left_eq_false #[e1, e2, p]))
+        return ← mkPropFalse
      return none
 
 /-- Given `op1` and `op2` corresponding to the operands for `Eq`:
@@ -323,10 +343,30 @@ def natEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
  | some n =>
      if n == 0 then return none
      if !(exprEq e2 op2) then return none
+     let zero := mkNatLit 0
+     let eqZero ← mkEq e1 zero
+     let reflFalse := mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Bool) (mkConst ``Bool.false)
+     let hNe ← mkAppOptM ``of_decide_eq_false #[some eqZero, none, some reflFalse]
+     let commIff ← mkAppOptM ``eq_comm #[some (mkConst ``Nat), some op2, some op1]
+     let bridge ← mkAppM ``propext #[commIff]
+     pushProofStep (.rewrite bridge)
+     pushProofStep (.rewrite (← mkAppM ``Blaster.nat_add_left_eq_false #[e2, e1, hNe]))
      return ← mkPropFalse
  | none =>
-     if exprEq e1 op2 then if ← nonZeroNatInHyps e2 then return ← mkPropFalse
-     if exprEq e2 op2 then if ← nonZeroNatInHyps e1 then return ← mkPropFalse
+     if exprEq e1 op2 then
+      if let some p ← findNeZeroNatProof? e2 then
+        let commIff ← mkAppOptM ``eq_comm #[none, some op2, some op1]
+        let bridge ← mkAppM ``propext #[commIff]
+        pushProofStep (.rewrite bridge)
+        pushProofStep (.rewrite ( ← mkAppM ``Blaster.nat_add_right_eq_false #[e1, e2, p]))
+        return ← mkPropFalse
+     if exprEq e2 op2 then
+      if let some p ← findNeZeroNatProof? e1 then
+        let commIff ← mkAppOptM ``eq_comm  #[none, some op2, some op1]
+        let bridge ← mkAppM ``propext #[commIff]
+        pushProofStep (.rewrite bridge)
+        pushProofStep (.rewrite (← mkAppM ``Blaster.nat_add_left_eq_false #[e1, e2, p]))
+        return ← mkPropFalse
      return none
 
 /-- Given `op1 := 0` and `op2 := x + y`:
@@ -358,7 +398,22 @@ def addNatEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := d
  let some n2 := isNatValue? e1 | return none
  match isNatValue? op1 with
  | some n1 =>
-     if n1 < n2 then return ← mkPropFalse
+     if n1 < n2 then
+      let lt ←  mkLt op1 e1
+      let reflTrue := mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Bool) (mkConst ``Bool.true)
+      let hLt ← mkAppOptM ``of_decide_eq_true #[some lt, none, some reflTrue]
+      let commIff ← mkAppOptM ``eq_comm #[some (mkConst ``Nat), some op2, some op1]
+      let bridge ← mkAppM ``propext #[commIff]
+      pushProofStep (.rewrite bridge)
+      pushProofStep (.rewrite (← mkAppM ``Blaster.nat_eq_add_false_if_lt #[e1, op1, e2, hLt]))
+      return ← mkPropFalse
+     let ge ← mkLe e1 op1
+     let reflTrue := mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Bool) (mkConst ``Bool.true)
+     let hGe ← mkAppOptM ``of_decide_eq_true #[some ge, none, some reflTrue]
+     let commIff ← mkAppOptM ``eq_comm #[some (mkConst ``Nat), some op2, some op1]
+     let bridge ← mkAppM ``propext #[commIff]
+     pushProofStep (.rewrite bridge)
+     pushProofStep (.rewrite (← mkAppM ``Blaster.nat_sub_eq_from_ge_add #[op1, e1, e2, hGe]))
      setRestart -- restart necessary
      mkNatEqExpr (← evalBinNatOp Nat.sub n1 n2) e2
  | _ =>
@@ -370,6 +425,13 @@ def addNatEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := d
    let rightValue := n2 - minValue
    let op1' := mkApp2 (← mkNatAddOp) (← mkNatLitExpr leftValue) p2
    let op2' := mkApp2 (← mkNatAddOp) (← mkNatLitExpr rightValue) e2
+   let commIff ← mkAppOptM ``eq_comm #[some (mkConst ``Nat), some op2, some op1]
+   let bridge ← mkAppM ``propext #[commIff]
+   pushProofStep (.rewrite bridge)
+   let commIff' ← mkAppOptM ``eq_comm #[some (mkConst ``Nat), some op2', some op1']
+   let bridge' ← mkAppM ``propext #[commIff']
+   pushProofStep (.rewrite bridge')
+   pushProofStep (.rewrite (← mkAppM ``Blaster.nat_add_with_min #[op1, op2, p2, e2]))
    mkNatEqExpr op1' op2'
 
 /-- Proof-returning companion to `gtZeroIntInHyps` for a non literal `e` :
@@ -433,6 +495,10 @@ def addIntEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := d
  let some n2 := isIntValue? e1 | return none
  match isIntValue? op1 with
  | some n1 =>
+     let commIff ← mkAppOptM ``eq_comm #[some (mkConst ``Int), some op2, some op1]
+     let bridge ← mkAppM ``propext #[commIff]
+     pushProofStep (.rewrite bridge)
+     pushProofStep (.rewrite (← mkAppM ``Blaster.int_sub_of_eq_add #[op1, e1, e2]))
      setRestart -- restart necessary
      mkIntEqExpr (← evalBinIntOp Int.sub n1 n2) e2
  | _ =>
@@ -447,8 +513,16 @@ def addIntEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := d
    mkIntEqExpr op1' op2'
 
 /-- Apply the following simplification/normalization rules on `Eq` :
-     - N + e = e | e = N + e ==> False (if Type(e) ∈ [Nat, Int])
-     - a + b = a | a = a + b | b + a = a | a = b + a ==> False (if Type(a) ∈ [Nat, Int] ∧ nonZeroInHyps b)
+     - N + e = e | e = N + e ==> False (if Type(e) ∈ [Nat, Int]) [proof:
+                                                                    Blaster.nat_add_left_eq_false,
+                                                                    Blaster.int_add_left_eq_false
+                                                                  ]
+     - a + b = a | a = a + b | b + a = a | a = b + a ==> False (if Type(a) ∈ [Nat, Int] ∧ nonZeroInHyps b) [proof:
+                                                                                                              Blaster.nat_add_left_eq_false,
+                                                                                                              Blaster.nat_add_right_eq_false,
+                                                                                                              Blaster.int_add_left_eq_false,
+                                                                                                              Blaster.int_add_right_eq_false
+                                                                                                            ]
      - N2 = N1 + a ==> False (if Type(a) = Nat) ∧ N2 < N1)
      - N2 = N1 + a ==> N2 "-" N1 = a (if Type(a) = Nat) if N2 ≥ N1) (restart)
      - N2 = N1 + a ===> N2 "-" N1 = a (if Type(a) = Int) (restart)

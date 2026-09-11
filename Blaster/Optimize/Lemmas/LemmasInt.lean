@@ -273,6 +273,9 @@ protected theorem int_add_eq_false_of_lt (a b : Int) (h : a < 0 ∧ b < 0) : (0 
   - `x + y = z + x ==> y = z`
   - `y + x = x + z ==> y = z`
   - `y + x = z + x ==> y = z`
+  - `N + e = e ==> False (if N ≠ 0)`
+  - `x + y = x ==> False (if y ≠ 0)`
+  - `N1 = N2 + a ==> N1 - N2 = a`
 -/
 protected theorem int_add_eq_add_rgt (x y z : Int) : (x + y = x + z) = (y = z) := by
   simp only [Int.add_right_inj]
@@ -287,6 +290,20 @@ protected theorem int_add_lft_eq_add (x y z: Int) : (y + x = x + z) = (y = z) :=
 
 protected theorem int_add_lft_eq_add_lft (x y z: Int) : (y + x = z + x) = (y = z) := by
   simp only [Int.add_left_inj]
+
+protected theorem  int_add_left_eq_false (e N : Int) (h : N ≠ 0) : (N + e = e) = False := by
+  apply propext
+  rw [iff_false]
+  omega
+
+protected theorem int_add_right_eq_false (x y : Int) (h : y ≠ 0) : (x + y = x) = False := by
+  apply propext
+  rw [iff_false]
+  omega
+
+protected theorem int_sub_of_eq_add (N1 N2 a : Int) : (N1 = N2 + a) = (N1 - N2 = a) := by
+  apply propext
+  omega
 
 /-! ## Lemmas to valiate simplification equality rules over `Int.mul`:
   - `x * y = x * z ==> y = z (if x ≠ 0)`

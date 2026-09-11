@@ -678,4 +678,79 @@ elab "eqStrConstructor_4" : term => return eqStrConstructor_4
 #testOptimize [ "MulReduceInt_4", proof ]
   ∀ (x y z : Int), (x ≠ 0) → (y * x = z * x) = (y = z) ===> True
 
+-- ∀ (x : Nat), (5 + x = x) = False ===> True
+#testOptimize [ "AddEqNat_1", proof ]
+  ∀ (x : Nat), (5 + x = x) = False ===> True
+
+-- ∀ (x : Nat), (x = 5 + x) = False ===> True
+#testOptimize [ "AddEqNat_2", proof ]
+  ∀ (x : Nat), (x = 5 + x) = False ===> True
+
+-- ∀ (x y : Nat), (y ≠ 0) → (x + y = x) = False ===> True
+#testOptimize [ "AddEqNat_3", proof ]
+  ∀ (x y : Nat), (y ≠ 0) → (x + y = x) = False ===> True
+
+-- ∀ (x y : Nat), (y ≠ 0) → (y + x = x) = False ===> True
+#testOptimize [ "AddEqNat_4", proof ]
+  ∀ (x y: Nat), (y ≠ 0) → (y + x = x) = False ===> True
+
+-- ∀ (x y : Nat), (y ≠ 0) → (x = x + y) = False ===> True
+#testOptimize [ "AddEqNat_5", proof ]
+  ∀ (x y : Nat), (y ≠ 0) → (x = x + y) = False ===> True
+
+-- ∀ (x y : Nat), (y ≠ 0) → (x = y + x) = False ===> True
+#testOptimize [ "AddEqNat_6", proof ]
+  ∀ (x y : Nat), (y ≠ 0) → (x = y + x) = False ===> True
+
+-- ∀ (x : Int), (5 + x = x) = False ===> True
+#testOptimize [ "AddEqInt_1", proof ]
+  ∀ (x : Int), (5 + x = x) = False ===> True
+
+-- ∀ (x : Int), (-3 + x = x) = False ===> True
+#testOptimize [ "AddEqInt_2", proof ]
+  ∀ (x : Int), (-3 + x = x) = False ===> True
+
+-- ∀ (x : Int), (x = 5 + x) = False ===> True
+#testOptimize [ "AddEqInt_3", proof ]
+  ∀ (x : Int), (x = 5 + x) = False ===> True
+
+-- ∀ (x : Int), (x = -3 + x) = False ===> True
+#testOptimize [ "AddEqInt_4", proof ]
+  ∀ (x : Int), (x = -3 + x) = False ===> True
+
+-- ∀ (x y : Nat), (y ≠ 0) → (x + y = x) = False ===> True
+#testOptimize [ "AddEqInt_5", proof ]
+  ∀ (x y : Int), (y ≠ 0) → (x + y = x) = False ===> True
+
+-- ∀ (x y : Nat), (y ≠ 0) → (y + x = x) = False ===> True
+#testOptimize [ "AddEqInt_6", proof ]
+  ∀ (x y: Int), (y ≠ 0) → (y + x = x) = False ===> True
+
+-- ∀ (x y : Nat), (y ≠ 0) → (x = x + y) = False ===> True
+#testOptimize [ "AddEqInt_7", proof ]
+  ∀ (x y : Int), (y ≠ 0) → (x = x + y) = False ===> True
+
+-- ∀ (x y : Nat), (y ≠ 0) → (x = y + x) = False ===> True
+#testOptimize [ "AddEqInt_8", proof ]
+  ∀ (x y : Int), (y ≠ 0) → (x = y + x) = False ===> True
+
+-- ∀ (a : Nat), (2 = 5 + a) = False ===> True
+#testOptimize [ "EqAddNatLitFalse_1", proof ]
+  ∀ (a : Nat), (2 = 5 + a) = False ===> True
+
+-- ∀ (a : Nat), (5 = 2 + a) = (5 - 2 = a) ===> True
+#testOptimize [ "EqAddNatLit_1", proof ]
+  ∀ (a : Nat), (5 = 2 + a) = (5 - 2 = a) ===> True
+
+-- ∀ (a b : Nat), (5 + a = 2 + b) = (5 - 2 + a = 2 - 2 + b) ===> True
+-- #testOptimize [ "EqAddNatLit_2", proof ]
+--   ∀ (a b : Nat), (5 + a = 2 + b) = (5 - 2 + a = 2 - 2 + b) ===> True
+
+-- ∀ (a : Int), (5 = 2 + a) = (5 - 2 = a) ===> True
+#testOptimize [ "EqAddIntLit_1", proof ]
+  ∀ (a : Int), (5 = 2 + a) = (5 - 2 = a) ===> True
+
+-- ∀ (a : Int), (5 = 7 + a) = (5 - 7 = a) ===> True
+#testOptimize [ "EqAddIntLit_1", proof]
+  ∀ (a : Int), (5 = 7 + a) = (5 - 7 = a) ===> True
 end Test.OptimizeEq
