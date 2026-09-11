@@ -319,13 +319,145 @@ def arithEq? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
   if let some r ← addIntEqReduce? op1 op2 then return r
   return none
 
+/-- Ground literal value, used to compare literal operands syntactically. -/
+private inductive GroundLit where
+  | nat  (n : Nat)
+  | int  (i : Int)
+  | str  (s : String)
+  | bool (b : Bool)
+ deriving BEq
+
+/-- Recognize the literal forms produced by the optimizer: raw `Nat`/`String` literals,
+    `OfNat.ofNat` numerals at `Nat`/`Int`, `Int.ofNat`/`Int.negSucc`/`Neg.neg` of a literal and
+    `Bool.true`/`Bool.false`. -/
+private partial def groundLit? (e : Expr) : Option GroundLit :=
+  match e with
+  | .lit (.natVal n) => some (.nat n)
+  | .lit (.strVal s) => some (.str s)
+  | .const ``Bool.true _ => some (.bool true)
+  | .const ``Bool.false _ => some (.bool false)
+  | _ =>
+    match e.getAppFnArgs with
+    | (``OfNat.ofNat, #[t, v, _]) =>
+        match groundLit? v with
+        | some (.nat n) =>
+            if t.isConstOf ``Nat then some (.nat n)
+            else if t.isConstOf ``Int then some (.int (Int.ofNat n))
+            else none
+        | _ => none
+    | (``Int.ofNat, #[v]) =>
+        match groundLit? v with
+        | some (.nat n) => some (.int (Int.ofNat n))
+        | _ => none
+    | (``Int.negSucc, #[v]) =>
+        match groundLit? v with
+        | some (.nat n) => some (.int (Int.negSucc n))
+        | _ => none
+    | (``Neg.neg, #[t, _, v]) =>
+        if t.isConstOf ``Int then
+          match groundLit? v with
+          | some (.int i) => some (.int (-i))
+          | some (.nat n) => some (.int (-(Int.ofNat n)))
+          | _ => none
+        else none
+    | _ => none
+
+/-- Return `true` when `a` and `b` are closed literals of the same kind with different values.
+    Closedness matters: the kernel must be able to evaluate `decide (a = b)` at replay. -/
+private def isDistinctGroundLit (a b : Expr) : Bool :=
+  if a.hasFVar || a.hasMVar || b.hasFVar || b.hasMVar then false
+  else
+    match groundLit? a, groundLit? b with
+    | some la, some lb => la != lb
+    | _, _ => false
+
+/-- Depth budget for `injectTarget`: bounds the nesting of the constructor mismatch, not the
+    size of the local context. -/
+private def injectMaxDepth : Nat := 64
+
+/-- Run `Lean.Meta.injection`, returning `none` when it does not apply. -/
+private def tryInjection? (g : MVarId) (fv : FVarId) : MetaM (Option InjectionResult) :=
+  try commitIfNoEx do return some (← Lean.Meta.injection g fv)
+  catch _ => return none
+
+/-- Directed injection: start from the introduced hypothesis and recurse only into the
+    equalities that `injection` produces, never into the optimizer's local context (an fvar from
+    there could not be mapped by `substProofStackFVars`). Return `none` when the equality is
+    refuted, otherwise the remaining goal and the leaves on which `injection` did not apply. -/
+private partial def injectTarget (depth : Nat) (g : MVarId) (todo : List FVarId)
+    (leaves : Array FVarId) : MetaM (Option (MVarId × Array FVarId)) := do
+  match depth, todo with
+  | 0, _ => return some (g, leaves ++ todo.toArray)
+  | _, [] => return some (g, leaves)
+  | d + 1, fv :: rest =>
+    -- Literal pairs are leaves: `injection` would unfold them into a `Nat.succ` tower.
+    let isLeaf ← g.withContext do
+      match (← fv.getType).eq? with
+      | some (_, a, b) => return (groundLit? a).isSome && (groundLit? b).isSome
+      | none => return false
+    if isLeaf then
+      injectTarget (d + 1) g rest (leaves.push fv)
+    else
+      match ← tryInjection? g fv with
+      | none => injectTarget (d + 1) g rest (leaves.push fv)
+      | some .solved => return none
+      | some (.subgoal g' newEqs _) =>
+          g'.withContext <| injectTarget d g' (newEqs.toList ++ rest) leaves
+
+/-- Build a proof of `¬ (op1 = op2)` for structurally distinct constructor applications by
+    introducing the equality and chasing the mismatch with `injectTarget`. If the descent ends on
+    a literal mismatch, close it with `of_decide_eq_false` built with raw
+    `mkApp`, so the kernel evaluates `decide` at replay. Return `none` when no proof is found.
+    The metavariable context is restored on exit, otherwise the assigned mvars left behind
+    collide with fresh ones later. -/
+def mkStructDiseqProof? (op1 op2 : Expr) : TranslateEnvT (Option Expr) := do
+  let mctx ← getMCtx
+  try
+    let target ← mkArrow (← mkEq op1 op2) (mkConst ``False)
+    let mvar ← mkFreshExprMVar target
+    let (fv, g) ← mvar.mvarId!.intro1
+    let r ←
+      match ← injectTarget injectMaxDepth g [fv] #[] with
+      | none => mkProof? mvar
+      | some (g, leaves) =>
+          if ← closeByGroundLitDiseq g leaves then mkProof? mvar else pure none
+    setMCtx mctx
+    return r
+  catch _ =>
+    setMCtx mctx
+    return none
+ where
+   mkProof? (mvar : Expr) : TranslateEnvT (Option Expr) := do
+     let proof ← instantiateMVars mvar
+     if proof.hasExprMVar then return none
+     return some proof
+
+   /-- Close the `False` subgoal with a leaf `h : a = b` where `a`, `b` are distinct closed
+       literals. -/
+   closeByGroundLitDiseq (g : MVarId) (leaves : Array FVarId) : TranslateEnvT Bool :=
+     g.withContext do
+       unless (← g.getType).isConstOf ``False do return false
+       for fv in leaves do
+         let some ty ← (try pure (some (← fv.getType)) catch _ => pure none) | continue
+         let some (_, a, b) := ty.eq? | continue
+         unless isDistinctGroundLit a b do continue
+         let some inst ← (try pure (some (← synthInstance (mkApp (mkConst ``Decidable) ty)))
+                          catch _ => pure none) | continue
+         let reflFalse := mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Bool) (mkConst ``Bool.false)
+         let notEq := mkApp3 (mkConst ``of_decide_eq_false) ty inst reflFalse
+         g.assign (mkApp notEq (mkFVar fv))
+         return true
+       return false
+
 /-- Apply the following simplification/normalization rules on `Eq` :
+     - False = True ==> False             [proof: Blaster.false_eq_true_is_false]
      - False = e ==> ¬ e                  [proof: Blaster.false_prop_is_neg]
      - True = e ==> e                     [proof: Blaster.true_prop_is_idem]
      - e = ¬ e ==> False                  [proof: Blaster.eq_neg_is_false]
      - e = not e ==> False                [proof: Blaster.eq_not_is_false]
      - e1 = e2 ==> True (if e1 =ₚₜᵣ e2)
      - e1 = e2 ==> False (if structEq? e1 e2 = some false) (NOTE: `some true` case already handled by =ₚₜᵣ)
+                         [proof: eq_false ∘ mkStructDiseqProof?]
      - true = not e ==> false = e
      - false = not e ==> true = e
      - ¬ e1 = ¬ e2 ==> e1 = e2 (require classical)
@@ -359,6 +491,10 @@ def optimizeEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
  let op2 := args[2]!
  let eqType := args[0]!
  if let Expr.const ``False _ := op1 then
+  if let Expr.const ``True _ := op2 then
+    pushProofStep (.rewrite (mkConst ``Blaster.false_eq_true_is_false))
+    return ← mkPropFalse
+ if let Expr.const ``False _ := op1 then
     pushProofStep (.rewrite (mkConst ``Blaster.false_prop_is_neg))
     setRestart
     return mkApp (← mkPropNotOp) op2
@@ -379,10 +515,9 @@ def optimizeEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
   pushProofStep (.exact (mkConst ``True.intro))
   return ← mkPropTrue
  if let some false ← structEq? op1 op2 then
-   try
-     let notEq ← mkDecideProof (mkApp (mkConst ``Not) (← mkEq op1 op2))
-     pushProofStep (.rewrite (← mkAppM ``eq_false #[notEq]))
-   catch _ => pure ()
+   -- Only this operand order: `reorderOperands` already pushed `eq_comm` when it flipped the sides.
+   if let some notEq ← mkStructDiseqProof? op1 op2 then
+     pushProofStep (.rewrite (mkApp2 (mkConst ``eq_false) (← mkEq op1 op2) notEq))
    return ← mkPropFalse
  if let some (e1, e2) ← notNegEqSimp? op1 op2 then return mkApp3 f eqType e1 e2
  if let some r ← zeroEqNegReduce? op1 op2 eqType then return r

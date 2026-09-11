@@ -92,11 +92,15 @@ protected theorem or_imp_right_eq_imp (p q : Prop) :
 
 
 /-! ## Lemmas validating the `Eq` simplifications over Prop:
+    - `False = True ==> False`
     - `False = e ==> ¬ e`
     - `True = e ==> e`
     - `e = ¬ e ==> False`
     - `¬ e1 = ¬ e2 ==> e1 = e2 (Classical)`
 -/
+
+protected theorem false_eq_true_is_false : (False = True) = False :=
+  eq_false (fun h => cast h.symm True.intro)
 
 protected theorem false_prop_is_neg (e : Prop) : (False = e) = ¬ e := by
   apply propext
