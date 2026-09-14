@@ -513,8 +513,20 @@ def addIntEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := d
    let minValue := min n1 n2
    let leftValue := n1 - minValue
    let rightValue := n2 - minValue
-   let op1' := mkApp2 (← mkIntAddOp) (← mkIntLitExpr leftValue) p2
-   let op2' := mkApp2 (← mkIntAddOp) (← mkIntLitExpr rightValue) e2
+   let lit1 ← mkIntLitExpr leftValue
+   let lit2 ← mkIntLitExpr rightValue
+   let op1' := mkApp2 (← mkIntAddOp) lit1 p2
+   let op2' := mkApp2 (← mkIntAddOp) lit2 e2
+   let commIff ← mkAppOptM ``eq_comm #[some (mkConst ``Int), some op2, some op1]
+   let bridge ← mkAppM ``propext #[commIff]
+   pushProofStep (.rewrite bridge)
+   let commIff' ← mkAppOptM ``eq_comm #[some (mkConst ``Int), some op2', some op1']
+   let bridge' ← mkAppM ``propext #[commIff']
+   pushProofStep (.rewrite bridge')
+   let refl1 := mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Int) lit1
+   let refl2 := mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Int) lit2
+   pushProofStep (.rewrite (mkAppN (mkConst ``Blaster.int_add_with_min)
+    #[p1, e1, p2, e2, lit1, lit2, refl1, refl2]))
    mkIntEqExpr op1' op2'
 
 /-- Apply the following simplification/normalization rules on `Eq` :

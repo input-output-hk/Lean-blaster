@@ -276,6 +276,7 @@ protected theorem int_add_eq_false_of_lt (a b : Int) (h : a < 0 ∧ b < 0) : (0 
   - `N + e = e ==> False (if N ≠ 0)`
   - `x + y = x ==> False (if y ≠ 0)`
   - `N1 = N2 + a ==> N1 - N2 = a`
+  - `N1 + a = N2 + b ==> N1 - min(N1, N2) + a = N2 - min(N1, N2) + B`
 -/
 protected theorem int_add_eq_add_rgt (x y z : Int) : (x + y = x + z) = (y = z) := by
   simp only [Int.add_right_inj]
@@ -302,6 +303,13 @@ protected theorem int_add_right_eq_false (x y : Int) (h : y ≠ 0) : (x + y = x)
   omega
 
 protected theorem int_sub_of_eq_add (N1 N2 a : Int) : (N1 = N2 + a) = (N1 - N2 = a) := by
+  apply propext
+  omega
+
+protected theorem int_add_with_min (N1 N2 a b M1 M2 : Int)
+  (h1: N1 - min N1 N2 = M1) (h2 : N2 - min N1 N2 = M2) :
+  (N1 + a = N2 + b) = (M1 + a = M2 + b) := by
+  subst h1 h2
   apply propext
   omega
 
