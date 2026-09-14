@@ -450,7 +450,6 @@ def mkStructDiseqProof? (op1 op2 : Expr) : TranslateEnvT (Option Expr) := do
        return false
 
 /-- Apply the following simplification/normalization rules on `Eq` :
-     - False = True ==> False             [proof: Blaster.false_eq_true_is_false]
      - False = e ==> ¬ e                  [proof: Blaster.false_prop_is_neg]
      - True = e ==> e                     [proof: Blaster.true_prop_is_idem]
      - e = ¬ e ==> False                  [proof: Blaster.eq_neg_is_false]
@@ -490,10 +489,6 @@ def optimizeEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
  let op1 := args[1]!
  let op2 := args[2]!
  let eqType := args[0]!
- if let Expr.const ``False _ := op1 then
-  if let Expr.const ``True _ := op2 then
-    pushProofStep (.rewrite (mkConst ``Blaster.false_eq_true_is_false))
-    return ← mkPropFalse
  if let Expr.const ``False _ := op1 then
     pushProofStep (.rewrite (mkConst ``Blaster.false_prop_is_neg))
     setRestart

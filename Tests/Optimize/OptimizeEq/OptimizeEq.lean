@@ -8,10 +8,10 @@ namespace Test.OptimizeEq
 /-! ## Test objectives to validate normalization and simplification rules on ``Eq -/
 
 -- False = True ===> False
-#testOptimize [ "EqFalseTrue", proof ] False = True ===> False
+#testOptimize [ "EqFalseTrue" ] False = True ===> False
 
 -- True = False ===> False
-#testOptimize [ "EqTrueFalse", proof ] True = False ===> False
+#testOptimize [ "EqTrueFalse" ] True = False ===> False
 
 -- False = a ===> ¬ a
 #testOptimize [ "EqFalseLeft", proof ] ∀ (a : Prop), False = a ===> ∀ (a : Prop), ¬ a
