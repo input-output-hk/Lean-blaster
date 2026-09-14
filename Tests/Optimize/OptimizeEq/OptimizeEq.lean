@@ -743,8 +743,8 @@ elab "eqStrConstructor_4" : term => return eqStrConstructor_4
   ∀ (a : Nat), (5 = 2 + a) = (5 - 2 = a) ===> True
 
 -- ∀ (a b : Nat), (5 + a = 2 + b) = (5 - 2 + a = 2 - 2 + b) ===> True
--- #testOptimize [ "EqAddNatLit_2", proof ]
---   ∀ (a b : Nat), (5 + a = 2 + b) = (5 - 2 + a = 2 - 2 + b) ===> True
+#testOptimize [ "EqAddNatLit_2", proof ]
+  ∀ (a b : Nat), (5 + a = 2 + b) = (5 - 2 + a = 2 - 2 + b) ===> True
 
 -- ∀ (a : Int), (5 = 2 + a) = (5 - 2 = a) ===> True
 #testOptimize [ "EqAddIntLit_1", proof ]

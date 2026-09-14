@@ -235,7 +235,10 @@ protected theorem nat_sub_eq_from_ge_add (N1 N2 a : Nat) (h : N1 ≥ N2): (N1 = 
   apply propext
   exact Iff.symm (Nat.sub_eq_iff_eq_add' h)
 
-protected theorem nat_add_with_min (N1 N2 a b : Nat) : (N1 + a = N2 + b) = (N1 - (min N1 N2) + a = N2 - (min N1 N2) + b) := by
+protected theorem nat_add_with_min (N1 N2 a b M1 M2 : Nat)
+    (h1 : N1 - min N1 N2 = M1) (h2 : N2 - min N1 N2 = M2) :
+    (N1 + a = N2 + b) = (M1 + a = M2 + b) := by
+  subst h1 h2
   apply propext
   omega
 

@@ -423,15 +423,20 @@ def addNatEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := d
    let minValue := min n1 n2
    let leftValue := n1 - minValue
    let rightValue := n2 - minValue
-   let op1' := mkApp2 (← mkNatAddOp) (← mkNatLitExpr leftValue) p2
-   let op2' := mkApp2 (← mkNatAddOp) (← mkNatLitExpr rightValue) e2
+   let lit1 ← mkNatLitExpr leftValue
+   let lit2 ← mkNatLitExpr rightValue
+   let op1' := mkApp2 (← mkNatAddOp) lit1 p2
+   let op2' := mkApp2 (← mkNatAddOp) lit2 e2
    let commIff ← mkAppOptM ``eq_comm #[some (mkConst ``Nat), some op2, some op1]
    let bridge ← mkAppM ``propext #[commIff]
    pushProofStep (.rewrite bridge)
    let commIff' ← mkAppOptM ``eq_comm #[some (mkConst ``Nat), some op2', some op1']
    let bridge' ← mkAppM ``propext #[commIff']
    pushProofStep (.rewrite bridge')
-   pushProofStep (.rewrite (← mkAppM ``Blaster.nat_add_with_min #[op1, op2, p2, e2]))
+   let refl1 := mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Nat) lit1
+   let refl2 := mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Nat) lit2
+   pushProofStep (.rewrite (mkAppN (mkConst ``Blaster.nat_add_with_min)
+     #[p1, e1, p2, e2, lit1, lit2, refl1, refl2]))
    mkNatEqExpr op1' op2'
 
 /-- Proof-returning companion to `gtZeroIntInHyps` for a non literal `e` :
