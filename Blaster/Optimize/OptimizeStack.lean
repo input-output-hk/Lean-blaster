@@ -102,15 +102,24 @@ def mkLocalDeclStackContext (newCtx : LocalDeclContext) : TranslateEnvT LocalDec
 def resetLocalDeclContext (oldCtx : LocalDeclContext) : TranslateEnvT Unit :=
   updateLocalContext oldCtx
 
+/-- Return `true` when only `InitOptimizeReturn` cache frames remain (the frame above
+    `stack` sits at the top of the goal). -/
+def isGoalTopStack : List OptimizeStack → Bool
+  | [] => true
+  | .InitOptimizeReturn .. :: rest => isGoalTopStack rest
+  | _ => false
+
 /-- Return `true` when the forall on top of `stack` is a goal binder (`∀ x₁ … xₙ, body` at the
     outermost level), whose fvar must be recorded in `optBinders`. Below a goal binder there are
     only `InitOptimizeReturn` cache frames and the `ForallWaitForBody` frames of the previous goal
-    binders. Any other frame means the forall is nested in a binder type (e.g. `f : α → α → α`)
-    or in a sub-term. -/
+    binders. The forall may also be a direct operand of an `Eq` at the top of the goal, as in
+    `(∀ xs, P) = (∀ xs, Q)` or `(∀ xs, P) = True`. Any other frame means the forall is nested
+    in a binder type (e.g. `f : α → α → α`) or in a sub-term. -/
 def isGoalSpineStack : List OptimizeStack → Bool
   | [] => true
   | .InitOptimizeReturn .. :: rest => isGoalSpineStack rest
   | .ForallWaitForBody .. :: rest => isGoalSpineStack rest
+  | .AppOptimizeExplicitArgs (.const ``Eq _) .. :: rest => isGoalTopStack rest
   | _ => false
 
 def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := false) : TranslateEnvT OptimizeContinuity := do
