@@ -14,7 +14,7 @@ def getMatchAlts (args : Array Expr) (mInfo : MatchInfo) : TranslateEnvT (Array 
  match (← get).optEnv.memCache.matchAltsCache.get? genApp with
  | some alts => return alts
  | none =>
-    let auxApp ← betaLambdaSharedRange mInfo.instApp 0 mInfo.getFirstAltPos args
+    let auxApp ← betaLambdaSharedRange mInfo.instApp mInfo.getFirstAltPos args
     let alts ← getLambdaBoundedBinderTypes auxApp mInfo.numAlts
     -- update cache
     updateMatchAltsCache genApp alts
