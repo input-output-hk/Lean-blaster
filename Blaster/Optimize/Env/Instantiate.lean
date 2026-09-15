@@ -110,6 +110,7 @@ Similar to `Lean.Expr.instantiateRevRange` but assume the input is maximally sha
 that the result is also maximally shared and that beginIdx is always zero.
 Assume that `e` does not refer to any outer de bruijn index, i.e., outer indices have been
 replaced by free variables.
+The same assumption is considered for `subst`.
 Assume `0 ≤ endIdx` and `endIdx ≤ subst.size`
 -/
 def instantiateSharedRevRange (e : Expr) (endIdx : Nat) (subst : Array Expr) : TranslateEnvT Expr :=
