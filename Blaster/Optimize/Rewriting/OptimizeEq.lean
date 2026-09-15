@@ -540,10 +540,13 @@ def addIntEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := d
                                                                                                               Blaster.int_add_left_eq_false,
                                                                                                               Blaster.int_add_right_eq_false
                                                                                                             ]
-     - N2 = N1 + a ==> False (if Type(a) = Nat) ∧ N2 < N1)
-     - N2 = N1 + a ==> N2 "-" N1 = a (if Type(a) = Nat) if N2 ≥ N1) (restart)
-     - N2 = N1 + a ===> N2 "-" N1 = a (if Type(a) = Int) (restart)
-     - N1 + a = N2 + b ==> N1 "-" min(N1, N2) + a = N2 "-" min(N1, N2) + b (if Type(a) ∈ [Nat, Int])
+     - N2 = N1 + a ==> False (if Type(a) = Nat) ∧ N2 < N1)                    [proof: Blaster.nat_eq_add_false_if_lt]
+     - N2 = N1 + a ==> N2 "-" N1 = a (if Type(a) = Nat) if N2 ≥ N1) (restart) [proof: Blaster.nat_sub_eq_from_ge_add]
+     - N2 = N1 + a ===> N2 "-" N1 = a (if Type(a) = Int) (restart)            [proof: Blaster.int_sub_of_eq_add]
+     - N1 + a = N2 + b ==> N1 "-" min(N1, N2) + a = N2 "-" min(N1, N2) + b (if Type(a) ∈ [Nat, Int]) [proof:
+                                                                                                        Blaster.nat_add_with_min,
+                                                                                                        Blaster.int_add_with_min
+                                                                                                      ]
      with:
        nonZeroInHyps x := nonZeroNatInHyps x If Type(x) = Nat
                        := nonZeroIntInHyps x Otherwise
