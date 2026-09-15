@@ -850,7 +850,7 @@ def getGenericMatchType (f : Expr) (args : Array Expr) (mInfo : MatchInfo) : Tra
   | none =>
      let params ← getImplicitParametersRange f 0 retTypeIdx args
      let genericFVars ← retrieveGenericFVars params
-     let appType ← genericMatchType genericFVars (← betaLambdaSharedRange mInfo.instApp 0 retTypeIdx args)
+     let appType ← genericMatchType genericFVars (← betaLambdaSharedRange mInfo.instApp retTypeIdx args)
      let res := {appType, genericFVars}
      updateGenericMatchCache genApp res
      return res

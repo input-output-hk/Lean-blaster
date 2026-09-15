@@ -159,8 +159,6 @@ structure HypothesisContext where
   -/
   equalityMap : ContextMap Expr
 
-instance : Repr HypothesisMap where
-  reprPrec _ _ := "<HypothesisMap>"
 
 instance : Inhabited HypothesisContext where
   default := { hypothesisMap := ContextMap.empty
