@@ -760,10 +760,10 @@ elab "eqStrConstructor_4" : term => return eqStrConstructor_4
 
 -- ∀ (a b : Int), (5 + a = 2 + b) = (5 - 2 + a = 2 - 2 + b) ===> True
 #testOptimize [ "EqAddIntLit_2", proof ]
-  ∀ (a b : Int), (5 + a = 2 + b) = (5 - 2 + a = 2 - 2 + b) ===> True
+  ∀ (a b : Int), (5 + a = 2 + b) = (3 + a = 0 + b) ===> True
 
 -- ∀ (a b : Int), (-1 + a = 5 + b) = (-1 + 1 + a = 5 + 1 + b) ===> True
 #testOptimize [ "EqAddIntLit_3", proof]
-  ∀ (a b : Int), (-1 + a = 5 + b) = (-1 -(- 1) + a = 5 - (- 1) + b) ===> True
+  ∀ (a b : Int), (-1 + a = 5 + b) = (0 + a = 6 + b) ===> True
 
 end Test.OptimizeEq

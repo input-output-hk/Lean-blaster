@@ -245,12 +245,12 @@ def natMulEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option (Expr × E
         return (e2, e3)
      if exprEq e2 e3 then
       if let some p ← findNeZeroNatProof? e2 then
-        pushProofStep (.rewrite (← mkAppM ``Blaster.nat_mul_lft_eq_mul #[e1, e2, e4, p]))
+        pushProofStep (.rewrite (← mkAppM ``Blaster.nat_mul_lft_eq_mul #[e2, e1, e4, p]))
         setRestart
         return (e1, e4)
      if exprEq e2 e4 then
       if let some p ← findNeZeroNatProof? e2 then
-        pushProofStep (.rewrite (← mkAppM ``Blaster.nat_mul_lft_eq_mul_lft #[e1, e2, e3, p]))
+        pushProofStep (.rewrite (← mkAppM ``Blaster.nat_mul_lft_eq_mul_lft #[e2, e1, e3, p]))
         setRestart
         return (e1, e3)
      return none
@@ -282,12 +282,12 @@ def intMulEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option (Expr × E
         return (e2, e3)
      if exprEq e2 e3 then
       if let some p ← findNeZeroIntProof? e2 then
-        pushProofStep (.rewrite (← mkAppM ``Blaster.int_mul_lft_eq_mul #[e1, e2, e4, p]))
+        pushProofStep (.rewrite (← mkAppM ``Blaster.int_mul_lft_eq_mul #[e2, e1, e4, p]))
         setRestart
         return (e1, e4)
      if exprEq e2 e4 then
       if let some p ← findNeZeroIntProof? e2 then
-        pushProofStep (.rewrite (← mkAppM ``Blaster.int_mul_lft_eq_mul_lft #[e1, e2, e3, p]))
+        pushProofStep (.rewrite (← mkAppM ``Blaster.int_mul_lft_eq_mul_lft #[e2, e1, e3, p]))
         setRestart
         return (e1, e3)
      return none
@@ -327,7 +327,7 @@ def intEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
         let commIff ← mkAppOptM ``eq_comm #[none, some op2, some op1]
         let bridge ← mkAppM ``propext #[commIff]
         pushProofStep (.rewrite bridge)
-        pushProofStep (.rewrite (← mkAppM ``Blaster.int_add_left_eq_false #[e1, e2, p]))
+        pushProofStep (.rewrite (← mkAppM ``Blaster.int_add_left_eq_false #[e2, e1, p]))
         return ← mkPropFalse
      return none
 
@@ -365,7 +365,7 @@ def natEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
         let commIff ← mkAppOptM ``eq_comm  #[none, some op2, some op1]
         let bridge ← mkAppM ``propext #[commIff]
         pushProofStep (.rewrite bridge)
-        pushProofStep (.rewrite (← mkAppM ``Blaster.nat_add_left_eq_false #[e1, e2, p]))
+        pushProofStep (.rewrite (← mkAppM ``Blaster.nat_add_left_eq_false #[e2, e1, p]))
         return ← mkPropFalse
      return none
 
