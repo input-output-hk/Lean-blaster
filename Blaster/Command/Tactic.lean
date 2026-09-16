@@ -107,8 +107,9 @@ def applyProofStack (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep) :
     let t ← goal.getType
     if hasLet t then goal.change (← zetaReduce t) else pure goal
   -- normalize proof terms once upfront
+  -- a step whose normalization fails is kept as is and skipped
   let steps : Array Blaster.Optimize.ProofStep ← goal.withContext <| steps.mapM fun
-    | .rewrite proof symm => return .rewrite (← toElabForm proof) symm
+    | s@(.rewrite proof symm) => try return .rewrite (← toElabForm proof) symm catch _ => return s
     | .exact proof => return .exact proof
   /- trace[Optimize.expr] "proofStack ({steps.size} steps):" -/
   /- let mut idx : Nat := 0 -/

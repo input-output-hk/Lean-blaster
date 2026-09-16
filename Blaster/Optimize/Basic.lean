@@ -69,6 +69,10 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
                -- subsequent `Nat.ble`/`Nat.succ` steps have a matching subterm on replay.
                else if f.isConstOf ``Nat.blt && ras.size == 2 && (← isOptimizeRecCall) then
                  pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.nat_blt_eq_ble_succ) ras[0]! ras[1]!))
+               -- `GE.ge x y` unfolds to `LE.le y x` via `getUnfoldFunDef?`. Record the fold so the
+               -- subsequent `LE.le` step has a matching subterm on replay.
+               else if f.isConstOf ``GE.ge && ras.size == 4 then
+                 pushProofStep (.rewrite (mkApp4 (mkConst ``Blaster.ge_eq_le f.constLevels!) ras[0]! ras[1]! ras[2]! ras[3]!))
                -- set inFunApp flag before optimizing `f`
                setInFunApp true
                let i_stack' := .AppWaitForConst ras :: i_stack
