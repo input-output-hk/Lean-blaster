@@ -86,3 +86,18 @@ example : (0 + 0 = 0) = True := by blaster
 example : ∀ (n : Nat), 0 < n → n / n = 1 := by blaster
 example : ∀ (x y : Nat), 0 < y → (x * y) / y = x := by blaster
 example : ∀ (x y : Nat), 0 < x → (x * y) / x = y := by blaster
+
+-- Hypotheses not in optimizer normal form (rewritten on replay)
+example : ∀ (a b : Bool), a = true → (a && b) = b := by blaster
+example : ∀ (a b : Bool), ¬ (false = a) → (a && b) = b := by blaster
+example : ∀ (a b : Bool), a → (a && b) = b := by blaster
+example : ∀ (a b : Bool), a = true → b = true → (a && b) = true := by blaster
+example : ∀ (a : Bool), a = true → ∀ (b : Bool), (a && b) = b := by blaster
+example : ∀ (n : Nat), n ≠ 0 → n / n = 1 := by blaster
+example : ∀ (n : Nat), n ≠ 0 → n / n + n / n = 2 := by blaster
+example : ∀ (m n : Nat), m ≤ n → ¬ n < m := by blaster
+example : ∀ (x y : Int), x ≠ 0 → (x * y) / x = y := by blaster
+example : ∀ (x y : Int), x ≤ y → ¬ y < x := by blaster
+example : ∀ (x y : Int), x ≥ y → ¬ x < y := by blaster
+example : ∀ (a b : Prop), (True ∧ a) → (a ∧ b) = b := by blaster
+example : ∀ (p q : Prop), ¬¬p → (p ∧ q) = q := by blaster
