@@ -90,13 +90,59 @@ def mapOptBodyToInputFVars (optBody : Expr) (optFvars inputFvars : Array Expr) :
       mapping := mapping.push optFvars[i]!
   return optBody.replaceFVars optFvars mapping
 
+/-- Notation abbreviations the optimizer unfolds without a proof step.
+    Unfolded in hypotheses so that rewrite steps can match underneath them. -/
+private def isSilentAbbrev (n : Name) : Bool :=
+  n == ``Ne || n == ``GE.ge || n == ``GT.gt
+
+/-- Rewrite the intro'd Prop hypotheses with the recorded steps, so they reach the
+    optimizer normal form that hypothesis-driven steps expect.
+    Returns the new goal and the steps with the replaced hypothesis fvars renamed. -/
+private def rewriteHypotheses (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep)
+    (hyps : Array FVarId) : MetaM (MVarId × Array Blaster.Optimize.ProofStep) := do
+  let mut g := goal
+  let mut steps := steps
+  let mut hs := hyps
+  for i in [:hs.size] do
+    let mut h := hs[i]!
+    let mut ty ← g.withContext do instantiateMVars (← h.getType)
+    unless ← g.withContext (isProp ty) do continue
+    ty ← deltaExpand ty isSilentAbbrev
+    -- bounded fixed point, so a pair of steps undoing each other cannot loop
+    let mut fuel := steps.size + 1
+    let mut changed := true
+    while changed && fuel > 0 do
+      fuel := fuel - 1
+      changed := false
+      for step in steps do
+        if let .rewrite heq symm := step then
+          try
+            -- the rewrite runs on the delta expanded type, which is defeq to the declared one
+            let r ← g.rewrite ty heq symm
+            let res ← g.replaceLocalDecl h r.eNew r.eqProof
+            -- the replaced hypothesis and every later local got fresh fvars
+            let s := res.subst.insert h (mkFVar res.fvarId)
+            steps := steps.map fun
+              | .rewrite proof symm => .rewrite (s.apply proof) symm
+              | .exact proof => .exact (s.apply proof)
+            hs := hs.map fun f => (s.get f).fvarId!
+            g := res.mvarId
+            h := res.fvarId
+            ty := r.eNew
+            changed := true
+          catch _ => pure ()
+  return (g, steps)
+
 /-- Apply recorded proof stack rewrites to a goal.
-    Each rewrite step is attempted; steps that don't match are skipped. -/
-def applyProofStack (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep) : MetaM MVarId := do
+    Each rewrite step is attempted; steps that don't match are skipped.
+    `hyps` are the intro'd binders, rewritten first (see `rewriteHypotheses`). -/
+def applyProofStack (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep)
+    (hyps : Array FVarId := #[]) : MetaM MVarId := do
   -- normalize proof terms once upfront
   let steps : Array Blaster.Optimize.ProofStep ← goal.withContext <| steps.mapM fun
     | .rewrite proof symm => return .rewrite (← toElabForm proof) symm
     | .exact proof => return .exact proof
+  let (goal, steps) ← rewriteHypotheses goal steps hyps
   /- trace[Optimize.expr] "proofStack ({steps.size} steps):" -/
   /- let mut idx : Nat := 0 -/
   /- for step in steps do -/
@@ -130,6 +176,9 @@ def applyProofStack (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep) :
             return g
         catch _ => pure ()
   /- trace[Optimize.expr] "final goal: {← g.getType}" -/
+  -- the target may have been reduced to a hypothesis
+  unless ← g.isAssigned do
+    try g.assumption catch _ => pure ()
   return g
 
 /-- Build a proof of `(∀ x₁…xₙ, P) = (∀ y₁…yₘ, Q)` when m < n (some binders eliminated),
@@ -201,13 +250,16 @@ private def proveByProofStack (goalType : Expr) (proofStack : Array Blaster.Opti
   let numBinders ← forallTelescope goalType fun fvars _ => pure fvars.size
   let (goalFVarIds, g) ← proofMVar.mvarId!.introNP numBinders
   let proofStack := substProofStackFVars proofStack optBinders goalFVarIds
-  let g ← applyProofStack g proofStack
+  let g ← applyProofStack g proofStack goalFVarIds
   unless ← g.isAssigned do
-    try g.refl
-    catch _ =>
-      if optimizerClosed then
-        logWarning m!"blaster: reconstruction gap ({proofStack.size} steps), admitted via `blasterProven`\n{.ofGoal g}"
-      blasterAdmit g
+    if (← instantiateMVars (← g.getType)).isConstOf ``True then
+      g.assign (mkConst ``True.intro)
+    else
+      try g.refl
+      catch _ =>
+        if optimizerClosed then
+          logWarning m!"blaster: reconstruction gap ({proofStack.size} steps), admitted via `blasterProven`\n{.ofGoal g}"
+        blasterAdmit g
   return proofMVar
 
 @[tactic blasterTactic]
