@@ -436,9 +436,14 @@ def isMatchExpr (e : Expr) : TranslateEnvT Bool := do
   | Expr.const n l => Option.isSome <$> getMatcherRecInfo? n l
   | _ => return false
 
+/-- Return `true` when `cInfo` is a definition the reducibility setting says must be kept
+    folded, i.e. one marked `@[irreducible]`. -/
+def isSealedDef (cInfo : ConstantInfo) : TranslateEnvT Bool :=
+  withDefault (not <$> canUnfold cInfo)
+
 /- Return the function definition for `f` whenever `f` corresponds to:
    - a lambda expression
-   - a defined function (recursive or not).
+   - a defined function (recursive or not), unless it is sealed with `@[irreducible]`.
    Otherwise `none`.
    Assumes that `f` cannot be one of the following:
      - an instance class;
@@ -461,7 +466,7 @@ def getFunBodyAux? (f : Expr) : TranslateEnvT (Option Expr) := do
           return auxApp.instantiateLevelParams cinfo.levelParams l
       else
         if let cInfo@(ConstantInfo.defnInfo _) ← getConstEnvInfo n
-        then instantiateValueLevelParams cInfo l
+        then if (← isSealedDef cInfo) then return none else instantiateValueLevelParams cInfo l
         else return none
 
   | Expr.proj .. => reduceProj? f  -- case when f is a function defined in a class instance

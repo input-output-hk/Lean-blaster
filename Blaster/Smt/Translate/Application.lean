@@ -1137,6 +1137,7 @@ def translateApp
          match (← getConstEnvInfo n) with
          | ConstantInfo.axiomInfo _
          | ConstantInfo.opaqueInfo _ => return true
+         | cInfo@(ConstantInfo.defnInfo _) => isSealedDef cInfo
          | _ => return false
 
       | some fbody => isUndefinedClassFunApp (Expr.beta fbody args)
