@@ -346,7 +346,11 @@ def SmtCommand.emit (c : SmtCommand) : TranslateEnvT Unit := do
           h.putStr "(set-option "
           h.putStr opt
           h.putStr " "
-          h.putStr s!"{v}"
+          h.putStr v
+          h.putStr ")\n"
+     | .setSimplifier s =>
+          h.putStr "(set-simplifier "
+          h.putStr s
           h.putStr ")\n"
 
 end Blaster.Smt

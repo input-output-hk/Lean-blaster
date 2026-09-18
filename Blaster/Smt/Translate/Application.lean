@@ -539,20 +539,6 @@ def translateFunLambdaParamType
   (t : Expr) (termTranslator : Expr → TranslateEnvT SmtTerm) : TranslateEnvT SortExpr := do
   translateType termTranslator t
 
-structure FunctionDefinitions where
-  funDecls : Array SmtFunDecl
-  funBodies : Array SmtTerm
-  isRec : Bool
-deriving Inhabited
-
-abbrev FunctionGenEnv := StateRefT FunctionDefinitions TranslateEnvT
-
-def defineFunctions (defs : FunctionDefinitions) : TranslateEnvT Unit := do
- if defs.funDecls.size == 1 then
-   let funDecl := defs.funDecls[0]!
-   defineFun funDecl.name funDecl.params funDecl.ret defs.funBodies[0]! defs.isRec
- else defineMutualFuns defs.funDecls defs.funBodies
-
 /-- Given `f := Expr.const n _` corresponding to a function name and
     `params` its implicit parameter infos, perform the following actions:
       let instanceArgs := Array.filter (λ p => p.isInstance) params
@@ -604,11 +590,7 @@ partial def translateRecFun
   let instApp ← getInstApp f params
   match (← get).smtEnv.funInstCache.get? instApp with
   | none =>
-      let Expr.const n l := f
-        | throwEnvError "translateRecFun: name expression expected but got {reprStr f}"
-      let ConstantInfo.defnInfo dInfo ← getConstEnvInfo n
-        | throwEnvError "translateRecFun: no defnInfo for {n}"
-      generateRecFunDefinitions dInfo.all l params
+      generateRecFunDefinition f params instApp
       let some smtId := (← get).smtEnv.funInstCache.get? instApp
         | throwEnvError "translateRecFun: instance function name expected for {reprStr instApp}"
       createAppN f (Sum.inl smtId) args termTranslator
@@ -616,26 +598,6 @@ partial def translateRecFun
       createAppN f (Sum.inl smtId) args termTranslator
 
   where
-    updateFunDefinitions
-      (id : SmtQualifiedIdent) (fbody : Expr)
-      (defs : FunctionDefinitions) : TranslateEnvT FunctionDefinitions := do
-      let pInfo ← getFunEnvInfo fbody
-      Optimize.lambdaTelescope fbody fun fvars b => do
-        let mut params := (#[] : SortedVars)
-        for h : i in [:fvars.size] do
-          let fv := fvars[i]
-          let decl ← fv.fvarId!.getEnvDecl
-          updateQuantifiedFVarsCache fv.fvarId! false
-          if pInfo.paramsInfo[i]!.isExplicit then
-            -- NOTE: We don't optimize proof at preprocessing phase
-            let ptype ← if ← isPropEnv decl.type then optimizeExpr decl.type else pure decl.type
-            let st ← translateFunLambdaParamType ptype termTranslator
-            params := params.push (← fvarIdToSmtSymbol fv.fvarId!, st)
-        let ret ← translateFunLambdaParamType (← inferTypeEnv b) termTranslator
-        let funDecl := {name := getSymbol id, params, ret}
-        let sBody ← termTranslator b
-        return { defs with funDecls := defs.funDecls.push funDecl, funBodies := defs.funBodies.push sBody }
-
     replaceGenericRecFun (f : Expr) (params : ImplicitParameters) (e : Expr) : TranslateEnvT (Option Expr) :=
       match e with
       | Expr.app .. =>
@@ -655,27 +617,40 @@ partial def translateRecFun
             else return none
       | _ => return none
 
-    generateRecFunDefinitions
-      (funs : List Name) (us : List Level) (params : ImplicitParameters) : TranslateEnvT Unit := do
-      let env ← get
-      let mut funDefs := { (default : FunctionDefinitions) with isRec := true }
-      let mut finfos := #[]
-      -- add all rec fun instance to cache first
-      for f in funs do
-        let auxApp ← mkExpr (mkConst f us)
-        let smtId ← generateFunInst auxApp params
-        finfos := finfos.push (auxApp, smtId)
-      for i in [:finfos.size] do
-        let auxApp := finfos[i]!.1
-        let smtId := finfos[i]!.2
-        let instApp ← getInstApp auxApp params
-        let some fbody := env.optEnv.recFunInstCache.get? instApp
+    generateRecFunDefinition (f : Expr) (params : ImplicitParameters) (instApp : Expr) : TranslateEnvT Unit := do
+      let smtId ← generateFunInst f params
+      let some fbody := (← get).optEnv.recFunInstCache.get? instApp
           | throwEnvError "translateRecFun: function body expected for {reprStr instApp}"
-        let fbody' ← replaceShared fbody (replaceGenericRecFun auxApp params)
-        -- apply polymorphic instances on body
-        let genFVars ← retrieveGenericFVars params
-        funDefs ← updateFunDefinitions smtId (← betaLambdaShared fbody' genFVars) funDefs
-      defineFunctions funDefs
+      let fbody ← replaceShared fbody (replaceGenericRecFun f params)
+      -- apply polymorphic instances on body
+      let genFVars ← retrieveGenericFVars params
+      let fbody ← betaLambdaShared fbody genFVars
+      let pInfo ← getFunEnvInfo fbody
+      Optimize.lambdaTelescope fbody fun fvars b => do
+        let mut params := (#[] : SortedVars)
+        for h : i in [:fvars.size] do
+          let fv := fvars[i]
+          let decl ← fv.fvarId!.getEnvDecl
+          updateQuantifiedFVarsCache fv.fvarId! false
+          if pInfo.paramsInfo[i]!.isExplicit then
+            -- NOTE: We don't optimize proof at preprocessing phase
+            let ptype ← if ← isPropEnv decl.type then optimizeExpr decl.type else pure decl.type
+            let st ← translateFunLambdaParamType ptype termTranslator
+            params := params.push (← fvarIdToSmtSymbol fv.fvarId!, st)
+        let ret ← translateFunLambdaParamType (← inferTypeEnv b) termTranslator
+        let funName := getSymbol smtId
+        -- declare smt rec function
+        declareFun funName (params.map (λ s => s.2)) ret
+        -- define bridge rec definition
+        let bridgeName := appendSymbol funName "LRec"
+        let sBody ← termTranslator b
+        defineFun bridgeName params ret sBody
+        -- assert equality
+        let varIds := params.map (λ s => smtSimpleVarId s.1)
+        let appliedRec := mkSmtAppN smtId varIds
+        let appliedBridge := mkSimpleSmtAppN bridgeName varIds
+        let patterns := some #[mkPattern #[appliedRec]]
+        assertTerm (mkForallTerm none params (eqSmt appliedRec appliedBridge) patterns)
 
 /-- Return `true` only when `n` corresponds to a function/constructor name
     expected to be eliminated during optimization phase.
@@ -701,12 +676,6 @@ def isForbiddenConstExpr (e : Expr) : Bool :=
   match e with
   | Expr.const n _ => isForbiddenConst n
   | _ => false
-
-@[always_inline, inline]
-def updateAxiomMap (n : Name) : TranslateEnvT SmtSymbol := do
-  let s := nameToSmtSymbol n
-  modify (fun env => { env with smtEnv.options.axiomMap := env.smtEnv.options.axiomMap.insert n s })
-  return s
 
 /-- Given `ft := ∀ α₀ → ∀ α₁ ... → αₙ`, infer the instanitated type w.r.t. `params` such that:
      - let S := [ αᵢ | i ∈ [0..n] ∧ ¬ params[i].isInstance ]
@@ -751,7 +720,7 @@ def generateUndeclaredFun
     let retType ← removeTypeAbbrev rawRetType
     let xsyms := Array.ofFn (λ f : Fin fvars.size => mkReservedSymbol s!"@x{f.val}")
     let mut pargs := (#[] : Array SortExpr)
-    let mut co_quantifiers := (#[] : SortedVars)
+    let mut co_quantifiers ← genericArgsToSortedVars (← retrieveGenericArgs #[retType])
     for h : i in [:fvars.size] do
       let decl ← fvars[i].fvarId!.getEnvDecl
       let st ← translateFunLambdaParamType decl.type termTranslator
@@ -951,7 +920,8 @@ def translateConst
            if ← isFunType t then
              termTranslator (← Optimize.etaExpand e)
            else
-             let smtSym ← updateAxiomMap n
+             let smtSym := nameToSmtSymbol n
+             updateAxiomMap n (nameToSmtSymbol n)
              let t' ← removeTypeAbbrev t
              let smtType ← translateTypeAux termTranslator t'
              -- declare free variable at top level

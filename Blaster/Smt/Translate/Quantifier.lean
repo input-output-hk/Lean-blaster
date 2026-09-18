@@ -16,6 +16,9 @@ partial def removeTypeAbbrev (te : Expr) : TranslateEnvT Expr := do
     | _ => return te
   visit te
 
+@[always_inline, inline]
+def updateAxiomMap (n : Name) (s : SmtSymbol) : TranslateEnvT Unit := do
+  modify (fun env => { env with smtEnv.options.axiomMap := env.smtEnv.options.axiomMap.insert n s })
 
 /-- Generate an smt symbol from a given Name. -/
 def nameToSmtSymbol (n : Name) : SmtSymbol :=
@@ -470,6 +473,12 @@ def getPredicateDeclaration (t : Expr) : TranslateEnvT (Option IndTypeDeclaratio
    | Expr.fvar _ => inferTypeEnv e
    | _ => pure e
 
+@[always_inline, inline]
+def isAxiomOrOpaqueName (n : Name) : TranslateEnvT Bool := do
+  match ← getConstEnvInfo n with
+  | .axiomInfo _
+  | .opaqueInfo _ => return true
+  | _ => return false
 
 /-- Return `n` only when entry `t := decl` exists in `indTypeInstCache` and
     `decl.applyInstName := some n`.
@@ -553,9 +562,13 @@ def createPredQualifierAppAux'
 
     | _ => return mkSimpleSmtAppN decl.instName #[st]
   else
-    let Expr.fvar v := t
-         | throwEnvError "createPredQualifierAppAux: FVarExpr expected for polymorphic type but got {reprStr t}"
-    return (mkSimpleSmtAppN decl.instName #[st, smtSimpleVarId (← typeParamNameToSmtSymbol v (unique := !inPredQualifier))])
+    if let Expr.fvar v := t then
+      return (mkSimpleSmtAppN decl.instName #[st, smtSimpleVarId (← typeParamNameToSmtSymbol v (unique := !inPredQualifier))])
+    else if let Expr.const n _ := t then
+      if ← isAxiomOrOpaqueName n
+      then return (mkSimpleSmtAppN decl.instName #[st, smtSimpleVarId (indNameToSmtSymbol n)])
+      else throwEnvError "createPredQualifierAppAux: Axiom info expected for {reprStr t}"
+    else throwEnvError "createPredQualifierAppAux: FVarExpr/Axiom expected for polymorphic type but got {reprStr t}"
 
   where
     @[always_inline, inline]
@@ -587,9 +600,17 @@ def createPredQualifierAppAux'
     Assume that there is no type abbreviation in `t`, i.e., call to `removeTypeAbbrev` has been applied.
 -/
 def createPredQualifierAppAux (st : SmtTerm) (t : Expr) (inPredQualifier := false) : TranslateEnvT SmtTerm := do
-  let some decl ← getPredicateDeclaration t
+  let some decl ← getPredicateDeclaration (← resolveAxiomOrDeclaredOpaqueType t)
     | throwEnvError "createPredQualifierAppAux: predicate declaration expected for {reprStr t}"
   createPredQualifierAppAux' st t decl inPredQualifier
+
+  where
+    /-- We need to sort type declared as axiom -/
+    resolveAxiomOrDeclaredOpaqueType (t : Expr) : TranslateEnvT Expr := do
+     let Expr.const n _ := t | return t
+     if ← isAxiomOrOpaqueName n
+     then inferTypeEnv t
+     else return t
 
 /-- Same as `createPredQualifierAppAux` but accepts an SmtSymbol as argument. -/
 def createPredQualifierApp (smtSym : SmtSymbol) (t : Expr) (inPredQualifier := false) : TranslateEnvT SmtTerm :=
@@ -893,7 +914,13 @@ def translateInductiveType
  where
   defineDataType (sortDecls : Array SmtSortDecl) (typeDecls : Array SmtDatatypeDecl) : TranslateEnvT Unit := do
     if sortDecls.size == 1
-    then declareDataType sortDecls[0]!.name typeDecls[0]!
+    then
+      let ctorDecls := typeDecls[0]!
+      let sortDecl := sortDecls[0]!
+      if ctorDecls.ctors.isEmpty then
+        -- inductive data type with no ctors, define as sort
+        declareSort sortDecl.name sortDecl.arity
+      else declareDataType sortDecl.name ctorDecls
     else declareMutualDataTypes sortDecls typeDecls
 
   genIndParams (indVal : InductiveVal) : TranslateEnvT (Option (Array SmtSymbol)) := do
@@ -993,7 +1020,8 @@ where
        | throwEnvError "declareIndInst: inductive info expected for {indName}"
      if (← isEnumeration indVal) then
        -- only declare smt predicate
-       discard $ generateIndInstDecl t args (some true) typeTranslator
+       -- NOTE: Inductive data types with no constructors are considered as not inhabited
+       discard $ generateIndInstDecl t args (some !indVal.ctors.isEmpty) typeTranslator
      else if indVal.isRec && indVal.all.length > 1 then
        -- generate inductive instance for all mutually inductive datatypes
        -- NOTE: Lean4 imposes that all inductive data type within a mutual block
@@ -1227,6 +1255,24 @@ def translateOpaqueType (e : Expr) : TranslateEnvT (Option SortExpr) := do
     | _ => return none
  | _ => throwEnvError "translateOpaqueType: name expression expected but got {reprStr e}"
 
+/-- Translate axiom sort type -/
+def translateAxiomAndDeclaredOpaqueType (e : Expr) : TranslateEnvT (Option SortExpr) := do
+ match e with
+ | Expr.const n _ =>
+      if ← isAxiomOrOpaqueName n then
+        let t ← inferTypeEnv e
+        if !(isTypeUniverse t) then throwEnvError "translateAxiomAndDeclaredOpaqueType: sort type expected but got {reprStr t}"
+        let decl ← generateSortInstDecl t
+        -- declare axiom sort only when not already in axiom map
+        unless ((← get).smtEnv.options.axiomMap.get? n).isSome do
+          let smtSym := indNameToSmtSymbol n
+          declareConst smtSym decl.instSort
+          updateAxiomMap n smtSym
+        -- return @Instance_xxx as type
+        getInstanceSort decl
+      else return none
+ | _ => throwEnvError "translateAxiomAndDeclaredOpaqueType: name expression expected but got {reprStr e}"
+
 /-- TODO: UPDATE SPEC -/
 partial def translateTypeAux
   (termTranslator : Expr → TranslateEnvT SmtTerm)
@@ -1235,6 +1281,7 @@ partial def translateTypeAux
    let e := t.getAppFn
    match e with
    | Expr.const .. =>
+      if let some r ← translateAxiomAndDeclaredOpaqueType e then return r
       if let some r ← translateOpaqueType e then return r
       translateNonOpaqueType e t.getAppArgs
         (λ a b => translateTypeAux termTranslator a b)
@@ -1366,11 +1413,11 @@ def translateForAll
    for h : i in [:fvars.size] do
      let v := fvars[i]
      let decl ← v.fvarId!.getEnvDecl
-     if (← isPropEnv decl.type) then
-       updatePremises (← termTranslator decl.type)
-     -- need to filter out class constraints
-     else if !(← isClassConstraintExpr decl.type) then
-       translateQuantifier v decl.type termTranslator
+     -- filter out class constraints
+     unless (← isClassConstraintExpr decl.type) do
+       if (← isPropEnv decl.type)
+       then updatePremises (← termTranslator decl.type)
+       else translateQuantifier v decl.type termTranslator
    let fbody ← termTranslator b
    genForAllTerm fbody
 
