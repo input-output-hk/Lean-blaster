@@ -5,20 +5,17 @@ open Lean Meta
 namespace Blaster.Optimize
 
 
-/-- Return `true` when `e` corresponds to the zero int literal. -/
-@[always_inline, inline]
-def isZeroInt (e : Expr) : Bool :=
-  match isIntValue? e with
-  | some (Int.ofNat 0) => true
-  | _ => false
-
 /-- Find an FVar proof of `e ≠ 0` in the optimizer's local context, wrapping the
     hypothesis found (`0 < e`, `e < 0`, or `¬ (0 = e)`) with the matching bridge
     lemma. Assumes `nonZeroIntInHyps e` has returned `true`. -/
 def findNeZeroIntProof? (e : Expr) : TranslateEnvT (Option Expr) := do
   match isIntValue? e with
   | .some (Int.ofNat 0) => return none
-  | .some _ => return none
+  | .some n =>
+    let zero_lit ← mkIntLitExpr 0
+    let N ← mkIntLitExpr n
+    let eq ← mkEq N zero_lit
+    return ← mkOfDecideEqProof eq false
   | _ =>
     let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
     let zero_int ← mkIntLitExpr 0
@@ -34,12 +31,16 @@ def findNeZeroIntProof? (e : Expr) : TranslateEnvT (Option Expr) := do
     return none
 
 /-- Proof-returning companion to `nonZeroNatInHyps` for a non-literal `e`: when a hypothesis
-  entailing `0 ≠ e` (stores as `0 < e` or `0 ≠ e`) is in the context, return its proof; otherwise `none`.
+  entailing `e ≠ 0` (stores as `0 < e` or `0 ≠ e`) is in the context, return its proof; otherwise `none`.
 -/
 def findNeZeroNatProof? (e : Expr) : TranslateEnvT (Option Expr) := do
   match isNatValue? e with
     | .some 0 => return none
-    | .some _ => return none
+    | .some n =>
+      let zero_lit ← mkNatLitExpr 0
+      let N ← mkNatLitExpr n
+      let eq ← mkEq N zero_lit
+      return ← mkOfDecideEqProof eq false
     | _ =>
       let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
       let zero_nat ← mkNatLitExpr 0
@@ -322,7 +323,10 @@ def addNatEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := d
 def gtZeroIntInHypsProof (e : Expr) : TranslateEnvT (Option Expr) := do
   match isIntValue? e with
   | .some (.ofNat 0) => return none
-  | .some (.ofNat _) => return none
+  | .some (.ofNat n) =>
+    let zero_lit ← mkIntLitExpr 0
+    let N ← mkIntLitExpr n
+    return ← mkDecideProof (← mkLt zero_lit N)
   | .some _          => return none
   | .none =>
     let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
@@ -338,7 +342,10 @@ def ltZeroIntInHypsProof (e : Expr) : TranslateEnvT (Option Expr) := do
   match isIntValue? e with
   | .some (.ofNat 0) => return none
   | .some (.ofNat _) => return none
-  | .some _          => return none
+  | .some n          =>
+    let zero_lit ← mkIntLitExpr 0
+    let N ← mkIntLitExpr n
+    return ← mkDecideProof (← mkLt N zero_lit)
   | .none =>
     let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
     let zero_int ← mkIntLitExpr (Int.ofNat 0)
