@@ -5,9 +5,11 @@ open Lean Meta
 namespace Blaster.Optimize
 
 
-/-- Find an FVar proof of `e ≠ 0` in the optimizer's local context, wrapping the
-    hypothesis found (`0 < e`, `e < 0`, or `¬ (0 = e)`) with the matching bridge
-    lemma. Assumes `nonZeroIntInHyps e` has returned `true`. -/
+/-- Proof returning companion to `nonZeroIntInHyps` for a non-literal `e`: when an hypothesis entailing
+    `e ≠ 0` (stored as `0 < e`, `e < 0`, or `¬ (0 = e)`) is in the context, returns its proof;
+    for a non-zero literal `N` returns a decide proof of `N ≠ 0`;
+    otherwise none.
+-/
 def findNeZeroIntProof? (e : Expr) : TranslateEnvT (Option Expr) := do
   match isIntValue? e with
   | .some (Int.ofNat 0) => return none
@@ -31,7 +33,9 @@ def findNeZeroIntProof? (e : Expr) : TranslateEnvT (Option Expr) := do
     return none
 
 /-- Proof-returning companion to `nonZeroNatInHyps` for a non-literal `e`: when a hypothesis
-  entailing `e ≠ 0` (stores as `0 < e` or `0 ≠ e`) is in the context, return its proof; otherwise `none`.
+  entailing `e ≠ 0` (stored as `0 < e` or `0 ≠ e`) is in the context, return its proof;
+  for a non-zero literal `N` returns a decide proof of `N ≠ 0`;
+  otherwise `none`.
 -/
 def findNeZeroNatProof? (e : Expr) : TranslateEnvT (Option Expr) := do
   match isNatValue? e with
@@ -317,8 +321,10 @@ def addNatEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := d
    let op2' := mkApp2 (← mkNatAddOp) (← mkNatLitExpr rightValue) e2
    mkNatEqExpr op1' op2'
 
-/-- Proof-returning companion to `gtZeroIntInHyps` for a non literal `e` :
-  when a hypothesis entailing `0 < e` is in the context, otherwise `none`
+/-- Proof-returning companion to `gtZeroIntInHyps` for a non literal `e`:
+  when a hypothesis entailing `0 < e` is in the context;
+  for a positive literal `N` returns a decide proof of `0 < N`;
+  otherwise `none`.
 -/
 def gtZeroIntInHypsProof (e : Expr) : TranslateEnvT (Option Expr) := do
   match isIntValue? e with
@@ -335,8 +341,10 @@ def gtZeroIntInHypsProof (e : Expr) : TranslateEnvT (Option Expr) := do
     return hyps.get? zero_lt
 
 
-/-- Proof-returning companion to `ltZeroIntInHyps` for a non literal `e` :
-  when a hypothesis entailing `e < 0` is in the context, otherwise `none`
+/-- Proof-returning companion to `ltZeroIntInHyps` for a non literal `e`:
+  when a hypothesis entailing `e < 0` is in the context;
+  for a negative literal `N` returns a decide proof of `N < 0`;
+  otherwise `none`
 -/
 def ltZeroIntInHypsProof (e : Expr) : TranslateEnvT (Option Expr) := do
   match isIntValue? e with

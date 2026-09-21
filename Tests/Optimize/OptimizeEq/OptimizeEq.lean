@@ -560,7 +560,7 @@ elab "eqStrConstructor_4" : term => return eqStrConstructor_4
   (0 = 5 * 3) = False ===> True
 
 -- ∀ (y : Nat), 0 < y → (0 = 5 * y) = False ===> True
-#testOptimize [ "ZeroIntMulEqLit_2", proof ]
+#testOptimize [ "ZeroNatMulEqLit_2", proof ]
   ∀ (y : Nat), 0 < y → (0 = 5 * y) = False ===> True
 
 -- ∀ (x : Nat), (x ≠ 0) → (0 = x * 3) = False ===> True
