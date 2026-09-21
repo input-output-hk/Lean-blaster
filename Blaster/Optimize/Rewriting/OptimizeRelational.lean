@@ -1,5 +1,6 @@
 import Lean
 import Blaster.Optimize.Hypotheses
+import Blaster.Optimize.Rewriting.OptimizeEq
 
 open Lean Meta
 namespace Blaster.Optimize
@@ -32,20 +33,6 @@ def geqZeroIntProof? (e : Expr) : TranslateEnvT (Option Expr) := do
  if let some p := hyps.get? (mkApp (← mkPropNotOp) (← mkIntLtExpr e zero)) then
    return mkApp2 (mkConst ``Blaster.int_le_of_not_lt_zero) e p
  return none
-
-/-- Proof-returning companion to `ltZeroIntInHyps` for a non-literal `e`: when `e < 0` is a
-    hypothesis in context, return its proof; otherwise `none`. -/
-def ltZeroIntProof? (e : Expr) : TranslateEnvT (Option Expr) := do
- let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
- let zero ← mkIntLitExpr (Int.ofNat 0)
- return hyps.get? (← mkIntLtExpr e zero)
-
-/-- Proof-returning companion to `gtZeroIntInHyps` for a non-literal `e`: when `0 < e` is a
-    hypothesis in context, return its proof; otherwise `none`. -/
-def gtZeroIntProof? (e : Expr) : TranslateEnvT (Option Expr) := do
- let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
- let zero ← mkIntLitExpr (Int.ofNat 0)
- return hyps.get? (← mkIntLtExpr zero e)
 
 /-- Proof-returning companion to `leqZeroIntInHyps` for a non-literal `e`: when a hypothesis
     entailing `e ≤ 0` is in context (stored as `e < 0`, `0 = e`, or `¬ (0 < e)`), return a proof
@@ -104,7 +91,7 @@ def intRelLeftReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :=
          pushProofStep
            (.rewrite (mkApp3 (mkConst ``Blaster.int_add_lt_self_eq_false_of_nonneg) op2 e2 p))
          return ← mkPropFalse
-       if let some p ← ltZeroIntProof? e2 then
+       if let some p ← ltZeroIntInHypsProof e2 then
          pushProofStep
            (.rewrite (mkApp3 (mkConst ``Blaster.int_add_lt_self_eq_true_of_neg) op2 e2 p))
          return ← mkPropTrue
@@ -113,7 +100,7 @@ def intRelLeftReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :=
          pushProofStep
            (.rewrite (mkApp3 (mkConst ``Blaster.int_add_lt_self_right_eq_false_of_nonneg) op2 e1 p))
          return ← mkPropFalse
-       if let some p ← ltZeroIntProof? e1 then
+       if let some p ← ltZeroIntInHypsProof e1 then
          pushProofStep
            (.rewrite (mkApp3 (mkConst ``Blaster.int_add_lt_self_right_eq_true_of_neg) op2 e1 p))
          return ← mkPropTrue
@@ -148,7 +135,7 @@ def intRelRightReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :
           pushProofStep
             (.rewrite (mkApp3 (mkConst ``Blaster.int_lt_add_self_eq_false_of_nonpos) op1 e2 p))
           return ← mkPropFalse
-        if let some p ← gtZeroIntProof? e2 then
+        if let some p ← gtZeroIntInHypsProof e2 then
           pushProofStep
             (.rewrite (mkApp3 (mkConst ``Blaster.int_lt_add_self_eq_true_of_pos) op1 e2 p))
           return ← mkPropTrue
@@ -157,7 +144,7 @@ def intRelRightReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :
           pushProofStep
             (.rewrite (mkApp3 (mkConst ``Blaster.int_lt_add_self_right_eq_false_of_nonpos) op1 e1 p))
           return ← mkPropFalse
-        if let some p ← gtZeroIntProof? e1 then
+        if let some p ← gtZeroIntInHypsProof e1 then
           pushProofStep
             (.rewrite (mkApp3 (mkConst ``Blaster.int_lt_add_self_right_eq_true_of_pos) op1 e1 p))
           return ← mkPropTrue
@@ -280,21 +267,21 @@ def intZeroLtSum? (op1 op2 : Expr) : TranslateEnvT (Option Expr) := do
   match isIntValue? op1, isIntValue? op2, intAdd? op1, intAdd? op2 with
   | some 0, _, _, some (e1, e2) =>
       if let some p1 ← geqZeroIntProof? e1 then
-        if let some p2 ← gtZeroIntProof? e2 then
+        if let some p2 ← gtZeroIntInHypsProof e2 then
           pushProofStep
             (.rewrite (mkApp4 (mkConst ``Blaster.int_zero_lt_add_eq_true_of_nonneg_pos) e1 e2 p1 p2))
           return (← mkPropTrue)
-      if let some p1 ← gtZeroIntProof? e1 then
+      if let some p1 ← gtZeroIntInHypsProof e1 then
         if let some p2 ← geqZeroIntProof? e2 then
           pushProofStep
             (.rewrite (mkApp4 (mkConst ``Blaster.int_zero_lt_add_eq_true_of_pos_nonneg) e1 e2 p1 p2))
           return (← mkPropTrue)
       if let some p1 ← leqZeroIntProof? e1 then
-        if let some p2 ← ltZeroIntProof? e2 then
+        if let some p2 ← ltZeroIntInHypsProof e2 then
           pushProofStep
             (.rewrite (mkApp4 (mkConst ``Blaster.int_zero_lt_add_eq_false_of_nonpos_neg) e1 e2 p1 p2))
           return (← mkPropFalse)
-      if let some p1 ← ltZeroIntProof? e1 then
+      if let some p1 ← ltZeroIntInHypsProof e1 then
         if let some p2 ← leqZeroIntProof? e2 then
           pushProofStep
             (.rewrite (mkApp4 (mkConst ``Blaster.int_zero_lt_add_eq_false_of_neg_nonpos) e1 e2 p1 p2))
@@ -302,21 +289,21 @@ def intZeroLtSum? (op1 op2 : Expr) : TranslateEnvT (Option Expr) := do
       return none
   | _, some 0, some (e1, e2), _ =>
       if let some p1 ← geqZeroIntProof? e1 then
-        if let some p2 ← gtZeroIntProof? e2 then
+        if let some p2 ← gtZeroIntInHypsProof e2 then
           pushProofStep
             (.rewrite (mkApp4 (mkConst ``Blaster.int_add_lt_zero_eq_false_of_nonneg_pos) e1 e2 p1 p2))
           return (← mkPropFalse)
-      if let some p1 ← gtZeroIntProof? e1 then
+      if let some p1 ← gtZeroIntInHypsProof e1 then
         if let some p2 ← geqZeroIntProof? e2 then
           pushProofStep
             (.rewrite (mkApp4 (mkConst ``Blaster.int_add_lt_zero_eq_false_of_pos_nonneg) e1 e2 p1 p2))
           return (← mkPropFalse)
       if let some p1 ← leqZeroIntProof? e1 then
-        if let some p2 ← ltZeroIntProof? e2 then
+        if let some p2 ← ltZeroIntInHypsProof e2 then
           pushProofStep
             (.rewrite (mkApp4 (mkConst ``Blaster.int_add_lt_zero_eq_true_of_nonpos_neg) e1 e2 p1 p2))
           return (← mkPropTrue)
-      if let some p1 ← ltZeroIntProof? e1 then
+      if let some p1 ← ltZeroIntInHypsProof e1 then
         if let some p2 ← leqZeroIntProof? e2 then
           pushProofStep
             (.rewrite (mkApp4 (mkConst ``Blaster.int_add_lt_zero_eq_true_of_neg_nonpos) e1 e2 p1 p2))
