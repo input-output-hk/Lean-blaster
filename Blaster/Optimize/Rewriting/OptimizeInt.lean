@@ -7,13 +7,6 @@ import Blaster.Optimize.Env
 open Lean Meta
 namespace Blaster.Optimize
 
-/-- Return `true` when `e` corresponds to the zero int literal. -/
-@[always_inline, inline]
-def isZeroInt (e : Expr) : Bool :=
-  match isIntValue? e with
-  | some (Int.ofNat 0) => true
-  | _ => false
-
 /-- Apply the following simplification/normalization rules on `Int.neg` :
      - - (N) ==> "-" N
      - - (- n) ==> n      [proof: Int.neg_neg]
@@ -165,38 +158,6 @@ def mulIntDivReduceExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) :
      if exprEq op2 e2 then if (← nonZeroIntInHyps e2) then return some op1
      return none
   | none => return none
-
-/-- Find an FVar proof of `e ≠ 0` in the optimizer's local context, wrapping the
-    hypothesis found (`0 < e`, `e < 0`, or `¬ (0 = e)`) with the matching bridge
-    lemma. Assumes `nonZeroIntInHyps e` has returned `true`. -/
-def findNeZeroIntProof? (e : Expr) : TranslateEnvT (Option Expr) := withLocalContext $ do
-  let lctx ← getLCtx
-  -- First pass: 0 < e
-  for decl in lctx do
-    if decl.isImplementationDetail then continue
-    let ty := decl.type
-    if ty.isAppOfArity ``LT.lt 4 then
-      let args := ty.getAppArgs
-      if args[0]!.isConstOf ``Int && isZeroInt args[2]! && exprEq args[3]! e then
-        return some (mkApp2 (mkConst ``Blaster.int_ne_zero_of_zero_lt) e (mkFVar decl.fvarId))
-  -- Second pass: e < 0
-  for decl in lctx do
-    if decl.isImplementationDetail then continue
-    let ty := decl.type
-    if ty.isAppOfArity ``LT.lt 4 then
-      let args := ty.getAppArgs
-      if args[0]!.isConstOf ``Int && exprEq args[2]! e && isZeroInt args[3]! then
-        return some (mkApp2 (mkConst ``Blaster.int_ne_zero_of_lt_zero) e (mkFVar decl.fvarId))
-  -- Third pass: ¬ (0 = e)
-  for decl in lctx do
-    if decl.isImplementationDetail then continue
-    let ty := decl.type
-    if let some inner := ty.not? then
-      if inner.isAppOfArity ``Eq 3 then
-        let args := inner.getAppArgs
-        if args[0]!.isConstOf ``Int && isZeroInt args[1]! && exprEq args[2]! e then
-          return some (mkApp2 (mkConst ``Blaster.int_ne_zero_of_not_zero_eq) e (mkFVar decl.fvarId))
-  return none
 
 /--
   Data type to distinguish between the three integer division operators:
