@@ -40,6 +40,12 @@ def pemptySymbol : SmtSymbol := mkReservedSymbol "PEmpty"
 /-! Smt BitVec symbol. -/
 def bitVecSymbol : SmtSymbol := mkReservedSymbol "BitVec"
 
+/-! Smt PUnit symbol. -/
+def punitSymbol : SmtSymbol := mkReservedSymbol "PUnit"
+
+/-! Smt PUnit.unit constructor symbol. -/
+def punitCtorSymbol : SmtSymbol := mkReservedSymbol "PUnit.unit"
+
 /-! ## Builtin Smt sorts. -/
 
 /-! Smt Int Sort. -/
@@ -86,6 +92,12 @@ def pemptySort : SortExpr := .SymbolSort pemptySymbol
 
 /-! Smt BitVec Sort of size n -/
 def bitVecSort (n : UInt32) : SortExpr := .IndexSort bitVecSymbol #[.NumeralIndex n]
+
+/-! Smt PUnit datatype
+    NOTE: This datatype is declared during translation whenever required.
+    (see function `definePUnitType`)
+-/
+def punitSort : SortExpr := .SymbolSort punitSymbol
 
 -- TODO: add other sort once supported, e.g., BitVec, Unicode (for char), Seq, etc
 
@@ -681,5 +693,14 @@ def isParamSort (t : SortExpr) (sName : SmtSymbol) : Bool :=
 def getSymbol : SmtQualifiedIdent → SmtSymbol
  | .SimpleIdent nm => nm
  | .QualifiedIdent nm _ => nm
+
+/-! Return the smt conjunction of two terms only when `prev` does not correspond to `true`.
+    Otherwise, returns `next`.
+    Assumes that both prev and next cannot be `false`
+-/
+def andCond (prev : SmtTerm) (next : SmtTerm) : SmtTerm :=
+  match prev with
+  | .BoolTerm true => next
+  | _ => andSmt next prev
 
 end Blaster.Smt
