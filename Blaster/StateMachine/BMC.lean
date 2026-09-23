@@ -44,9 +44,9 @@ partial def bmcStrategy (smInst : Expr) : TranslateEnvT Unit := do
               incDepth
               visit (some nextState)
   let smEnv ← getSMTypes smInst
-  -- set backend solver
-  setBlasterProcess
-  discard $ visit none |>.run smEnv
+  withSmtSessionOwner do
+    setBlasterProcess
+    discard $ visit none |>.run smEnv
 
   where
     optimizeState (iVar : Expr) (pState : Option Expr) : StateMachineEnvT Expr := do
@@ -85,12 +85,11 @@ partial def bmcStrategy (smInst : Expr) : TranslateEnvT Unit := do
           s!"Submitting Smt Query at Depth {currDepth}"
           (assertTerm (impliesSmt dflag (notSmt st)))
           (verboseLevel := 2)
-        -- dump smt commands only when `dumpSmtLib` option is set.
-        logSmtQuery
         let res ←
           profileTask s!"Checking invariants at Depth {currDepth}"
           (checkSatAssuming #[dflag])
           (verboseLevel := 2)
+        logSmtQuery
         -- deactivate check sat label
         assertTerm (notSmt dflag)
         return res

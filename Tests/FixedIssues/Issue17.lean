@@ -31,7 +31,7 @@ def sizeOfNatGroup (x : NatGroup) : Nat :=
 
 #blaster (cvc5-allow-undetermined: 1) [∃ (x : NatGroup), sizeOfNatGroup x > 200]
 
-#blaster (cvc5-allow-undetermined: 1) [∃ (x : NatGroup), sizeOfNatGroup x < 20]
+#blaster (timeout: 10) (cvc5-allow-undetermined: 1) [∃ (x : NatGroup), sizeOfNatGroup x < 20]
 
 -- Expecting a counterexample
 -- Remove solver options when supporting proof by induction

@@ -60,9 +60,9 @@ partial def kIndStrategy (smInst : Expr) : TranslateEnvT Unit := do
                 else logResult res
 
   let smEnv ← getSMTypes smInst
-  -- set backend solver
-  setBlasterProcess
-  discard $ visit none |>.run smEnv
+  withSmtSessionOwner do
+    setBlasterProcess
+    discard $ visit none |>.run smEnv
 
   where
 
@@ -130,18 +130,18 @@ partial def kIndStrategy (smInst : Expr) : TranslateEnvT Unit := do
        (verboseLevel := 2)
      -- assert negation for check sat
      assertTerm (impliesSmt dflag (notSmt inv))
-      -- dump smt commands only when `dumpSmtLib` option is set.
-     logSmtQuery
      let some iflag := env.initFlag | throwEnvError "kIndStrategy: initialization flag expected !!!"
      let res ←
        profileTask s!"Checking Base Case at Depth {currDepth}"
        (checkSatAssuming #[iflag, dflag])
        (verboseLevel := 2)
+     logSmtQuery
      if isValidResult res then
        let res ←
          profileTask s!"Checking Step Case at Depth {currDepth}"
          (checkSatAssuming #[(notSmt iflag), dflag])
          (verboseLevel := 2)
+       logSmtQuery
        if isFalsifiedResult res then
          if currDepth > 0 then logCtiAtDepth res -- dumping cti only after depth 0
          -- deactivate check sat label

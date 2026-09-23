@@ -99,7 +99,7 @@ def defineSmtDepthFlag : TranslateEnvT SmtTerm := do
 def logNotInductiveAtDepth : TranslateEnvT Unit := do
   let env ← get
   let sOpts := env.optEnv.options.solverOptions
-  let action := undeterminedAction sOpts env.smtEnv.solver
+  let action := undeterminedAction sOpts env.smtEnv.singleSolver
     (← strictCvc5ResultCheckingRequested)
   let msg := s!"Failed to establish induction up to Depth {← getMaxDepth}"
   match action with
@@ -118,7 +118,7 @@ def logNoCexAtDepth : TranslateEnvT Unit := do
 def logUndeterminedAtDepth : TranslateEnvT Unit := do
   let env ← get
   let sOpts := env.optEnv.options.solverOptions
-  let action := undeterminedAction sOpts env.smtEnv.solver
+  let action := undeterminedAction sOpts env.smtEnv.singleSolver
     (← strictCvc5ResultCheckingRequested)
   let msg := f!"Undetermined at Depth {← getCurrentDepth}"
   match action with

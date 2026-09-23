@@ -19,14 +19,25 @@ def logPPExpr (msg : String) (e : Expr) : TranslateEnvT Unit := do
     logInfo f!"{msg}: {← ppExpr e}"
   else return ()
 
-/-- Dumps to `stdout` the smt commands submitted to the backend solver
-    when option `dumpSmtLib` is set to `true`. -/
+/-- Print runnable SMT transcripts when dumping is requested, or as part of the
+    level-3 diagnostic pipeline. Concurrent runs are labeled per backend and
+    combine backend setup with the one canonical logical query. -/
 def logSmtQuery : TranslateEnvT Unit := do
-  let sOpts := (← get).optEnv.options.solverOptions
-  if sOpts.dumpSmtLib then
-    IO.println f!"Smt Query:"
-    (← get).smtEnv.smtCommands.forM (λ c => IO.println s!"{c}")
-  else pure ()
+  let env ← get
+  let sOpts := env.optEnv.options.solverOptions
+  unless sOpts.dumpSmtLib || sOpts.verbose ≥ 3 do return
+  let records := [SmtSolver.z3, SmtSolver.cvc5].filterMap fun solver =>
+    env.smtEnv.solverRecords.find? (·.solver == solver)
+  for record in records do
+    if records.length == 1 && sOpts.solverMode == .single then
+      IO.println "Smt Query:"
+    else
+      IO.println s!"SMT Query [{record.solver}]:"
+    record.setupCommands.forM (fun command => IO.println s!"{command}")
+    env.smtEnv.smtCommands.forM (fun command => IO.println s!"{command}")
+    if let some command := record.checkCommand then IO.println s!"{command}"
+    record.modelCommands.forM (fun command => IO.println command)
+    IO.println "(exit)"
 
 
 /-- Profile Task `msg` when verbose is greater than verboseLevel by displaying
