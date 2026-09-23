@@ -159,6 +159,7 @@ opaque DigestFour : Type
 axiom digestFourSize : DigestFour → Int
 
 def example_opaque_cex :=  ∀ (d : DigestFour), digestFourSize d > 0
+-- Counterexample expected by Blaster
 #blaster (gen-cex: 0) (solve-result: 1) [example_opaque_cex]
 
 
@@ -167,6 +168,18 @@ inductive Token where
 
 axiom token_size : Nat → Token → Nat
 
-#blaster (gen-cex: 0) (solve-result: 1) [∀ n : Nat, token_size n (.mk n) > 0]
+def example_undecl_fun_cex_5 := ∀ n : Nat, token_size n (.mk n) > 0
+-- Counterexample expected by Blaster
+#blaster (gen-cex: 0) (solve-result: 1) [example_undecl_fun_cex_5]
+
+def Items (α : Type) := List α
+axiom items {α : Type} : Items α
+
+def example_undecl_fun_cex_6 := ∀ (α : Type), (items (α := α)).length > 10
+-- Counterexample expected by Blaster
+#blaster (gen-cex: 0) (solve-result: 1) [example_undecl_fun_cex_6]
+
+def example_undecl_fun_cex_7 := (items (α := Nat)).length > 10
+#blaster (gen-cex: 0) (solve-result: 1) [example_undecl_fun_cex_7]
 
 end Tests.Issue262

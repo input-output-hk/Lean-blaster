@@ -685,7 +685,7 @@ def isForbiddenConstExpr (e : Expr) : Bool :=
      - return `∀ α'₀ → ∀ α'₁ ... → α'ₚ`
     TODO: change function to pure tail rec call using stack-based approach
 -/
-partial def inferUndeclFunType (ft : Expr) (params : ImplicitParameters) : TranslateEnvT Expr :=
+partial def inferUndeclFunType (ft : Expr) (params : ImplicitParameters) : TranslateEnvT Expr := do
   let rec visit (idx : Nat) (e : Expr) : TranslateEnvT Expr := do
     if idx ≥ params.size then return e
     else
@@ -694,9 +694,9 @@ partial def inferUndeclFunType (ft : Expr) (params : ImplicitParameters) : Trans
            let p := params[idx]!
            if p.isInstance
            then visit (idx + 1) (← instantiateShared1 b p.effectiveArg)
-           else e.updateForallExpr! (← removeTypeAbbrev t) (← visit (idx + 1) (← removeTypeAbbrev b))
+           else e.updateForallExpr! t (← visit (idx + 1) b)
       | _ => return e
-  visit 0 ft
+  removeTypeAbbrev (← visit 0 ft)
 
 /-- Given `f` corresponding to either an undeclared class function, an axiom function or an opaque function
     `params` its corresponding implicit/explicit parameters and `s` its corresponding smt symbol,
