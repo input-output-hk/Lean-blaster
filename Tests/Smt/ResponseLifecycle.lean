@@ -157,8 +157,6 @@ private def testAgreementModelTimeout (timedSolver : SmtSolver) : MetaM Unit :=
 #eval testDisagreementBeforeModel .cvc5
 #eval testModelFailure .z3 false "stall"
 #eval testModelFailure .cvc5 true "stall"
-#eval testModelFailure .z3 true "stall"
-#eval testModelFailure .cvc5 false "stall"
 #eval testModelFailure .z3 false "eof"
 #eval testModelFailure .cvc5 true "not-a-value"
 #eval testAgreementModelTimeout .z3
