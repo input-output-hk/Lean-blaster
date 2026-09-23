@@ -1268,40 +1268,40 @@ elab "boolEqDIteUnchanged_1" : term => return boolEqDIteUnchanged_1
 /-! Test cases for simplification rule `(B1 = a) = (B2 = b) ==> NOP(B1, a) = NOP(B2, b)`. -/
 
 -- (true = p) = (true = q) ===> p = q
-#testOptimize [ "EqBoolEqBool_1"] (true = p) = (true = q) ===> p = q
+#testOptimize [ "EqBoolEqBool_1", proof ] (true = p) = (true = q) ===> p = q
 
 -- (true = p) = (false = q) ===> p = !q
-#testOptimize [ "EqBoolEqBool_2"] (true = p) = (false = q) ===> p = !q
+#testOptimize [ "EqBoolEqBool_2", proof ] (true = p) = (false = q) ===> p = !q
 
 -- (false = p) = (true = q) ===> q = !p
-#testOptimize [ "EqBoolEqBool_3"] (false = p) = (true = q) ===> q = !p
+#testOptimize [ "EqBoolEqBool_3", proof ] (false = p) = (true = q) ===> q = !p
 
 -- (false = p) = (false = q) ===> p = q
-#testOptimize [ "EqBoolEqBool_4"] (false = p) = (false = q) ===> p = q
+#testOptimize [ "EqBoolEqBool_4", proof ] (false = p) = (false = q) ===> p = q
 
 -- (false = p) = (true = p) ===> False
-#testOptimize [ "EqBoolEqBool_5"] (false = p) = (true = p) ===> False
+#testOptimize [ "EqBoolEqBool_5", proof ] (false = p) = (true = p) ===> False
 
 -- (true = p) = q ===> p = q
-#testOptimize [ "EqBoolEqBool_6"] (true = p) = q ===> p = q
+#testOptimize [ "EqBoolEqBool_6", proof ] (true = p) = q ===> p = q
 
 -- (true = p) = ¬ q ===> p = !q
-#testOptimize [ "EqBoolEqBool_7"] (true = p) = ¬ q ===> p = !q
+#testOptimize [ "EqBoolEqBool_7", proof ] (true = p) = ¬ q ===> p = !q
 
 -- ¬ p = true = q ===> q = !p
-#testOptimize [ "EqBoolEqBool_8"] ¬ p = true = q ===> q = !p
+#testOptimize [ "EqBoolEqBool_8", proof ] ¬ p = true = q ===> q = !p
 
 -- ¬ p = true = p ===> False
-#testOptimize [ "EqBoolEqBool_9"] ¬ p = true = p ===> False
+#testOptimize [ "EqBoolEqBool_9", proof ] ¬ p = true = p ===> False
 
 -- ¬ p = false = p ===> True
-#testOptimize [ "EqBoolEqBool_10"] ¬ p = false = p ===> True
+#testOptimize [ "EqBoolEqBool_10", proof ] ¬ p = false = p ===> True
 
 -- p = (false = p) ===> False
-#testOptimize [ "EqBoolEqBool_11"] p = (false = p) ===> False
+#testOptimize [ "EqBoolEqBool_11", proof ] p = (false = p) ===> False
 
 -- p = (true = p) ===> True
-#testOptimize [ "EqBoolEqBool_12"] p = (true = p) ===> True
+#testOptimize [ "EqBoolEqBool_12", proof ] p = (true = p) ===> True
 
 -- (true = (p == q)) = (true = (x == y)) ===> (p = q) = (x = y)
 #testOptimize [ "EqBoolEqBool_13"] (true = (p == q)) = (true = (x == y)) ===> (p = q) = (x = y)
@@ -1310,48 +1310,48 @@ elab "boolEqDIteUnchanged_1" : term => return boolEqDIteUnchanged_1
 #testOptimize [ "EqBoolEqBool_14"] (true = (p == q)) = (p ≠ q) ===> False
 
 -- (p ∧ ((x < y) ∨ ¬ (y > x))) = ¬ p ===> False
-#testOptimize [ "EqBoolEqBool_15"] (p ∧ ((x < y) ∨ ¬ (y > x))) = ¬ p ===> False
+#testOptimize [ "EqBoolEqBool_15", proof ] (p ∧ ((x < y) ∨ ¬ (y > x))) = ¬ p ===> False
 
 -- (p ∧ ((x < y) ∨ ¬ (y > x))) = (¬ (¬ (¬ p ∧ ((x < y) ∨ ¬ (y > x))) ∧ (¬ q ∨ q))) ===> False
-#testOptimize [ "EqBoolEqBool_16"] (p ∧ ((x < y) ∨ ¬ (y > x))) =
+#testOptimize [ "EqBoolEqBool_16", proof ] (p ∧ ((x < y) ∨ ¬ (y > x))) =
                                    (¬ (¬ (¬ p ∧ ((x < y) ∨ ¬ (y > x))) ∧ (¬ q ∨ q))) ===> False
 
 -- (¬ (p ∧ ((x < y) ∨ ¬ (y > x)))) = ¬ q ===> p = q
-#testOptimize [ "EqBoolEqBool_17"] (¬ (p ∧ ((x < y) ∨ ¬ (y > x)))) = ¬ q ===> p = q
+#testOptimize [ "EqBoolEqBool_17", proof ] (¬ (p ∧ ((x < y) ∨ ¬ (y > x)))) = ¬ q ===> p = q
 
 -- (p ∧ ((x < y) ∨ ¬ (y > x))) = (¬ (¬ (¬ q ∧ ((x < y) ∨ ¬ (y > x))) ∧ (¬ p ∨ p))) ===> p = !q
-#testOptimize [ "EqBoolEqBool_18"] (p ∧ ((x < y) ∨ ¬ (y > x))) =
+#testOptimize [ "EqBoolEqBool_18", proof ] (p ∧ ((x < y) ∨ ¬ (y > x))) =
                                    (¬ (¬ (¬ q ∧ ((x < y) ∨ ¬ (y > x))) ∧ (¬ p ∨ p))) ===> p = !q
 
 -- ((true = p) = (true = q)) = (q = p) ===> True
-#testOptimize [ "EqBoolEqBool_19"] ((true = p) = (true = q)) = (q = p) ===> True
+#testOptimize [ "EqBoolEqBool_19", proof ] ((true = p) = (true = q)) = (q = p) ===> True
 
 -- ((true = p) = (false = q)) = ((!q) = p) ===> True
-#testOptimize [ "EqBoolEqBool_20"] ((true = p) = (false = q)) = ((!q) = p) ===> True
+#testOptimize [ "EqBoolEqBool_20", proof ] ((true = p) = (false = q)) = ((!q) = p) ===> True
 
 -- ((false = p) = (true = q)) = (q = !p) ===> True
-#testOptimize [ "EqBoolEqBool_21"] ((false = p) = (true = q)) = (q = !p) ===> True
+#testOptimize [ "EqBoolEqBool_21", proof ] ((false = p) = (true = q)) = (q = !p) ===> True
 
 -- ((false = p) = (false = q)) = (q = p) ===> True
-#testOptimize [ "EqBoolEqBool_22"] ((false = p) = (false = q)) = (q = p) ===> True
+#testOptimize [ "EqBoolEqBool_22", proof ] ((false = p) = (false = q)) = (q = p) ===> True
 
 -- ((true = p) = q) = (q = p) ===> True
-#testOptimize [ "EqBoolEqBool_23"] ((true = p) = q) = (q = p) ===> True
+#testOptimize [ "EqBoolEqBool_23", proof ] ((true = p) = q) = (q = p) ===> True
 
 -- ((true = p) = ¬ q) = ((!q) = p) ===> True
-#testOptimize [ "EqBoolEqBool_24"] ((true = p) = ¬ q) = ((!q) = p) ===> True
+#testOptimize [ "EqBoolEqBool_24", proof ] ((true = p) = ¬ q) = ((!q) = p) ===> True
 
 -- (¬ p = true = q) = (q = !p) ===> True
-#testOptimize [ "EqBoolEqBool_25"] (¬ p = true = q) = (q = !p) ===> True
+#testOptimize [ "EqBoolEqBool_25", proof ] (¬ p = true = q) = (q = !p) ===> True
 
 -- ((true = (p == q)) = (true = (x == y))) = ((y = x) = (q = p)) ===> True
 #testOptimize [ "EqBoolEqBool_26"] ((true = (p == q)) = (true = (x == y))) = ((y = x) = (q = p)) ===> True
 
 -- ((¬ (p ∧ ((x < y) ∨ ¬ (y > x)))) = ¬ q) = (q = p) ===> True
-#testOptimize [ "EqBoolEqBool_27"] ((¬ (p ∧ ((x < y) ∨ ¬ (y > x)))) = ¬ q) = (q = p) ===> True
+#testOptimize [ "EqBoolEqBool_27", proof ] ((¬ (p ∧ ((x < y) ∨ ¬ (y > x)))) = ¬ q) = (q = p) ===> True
 
 -- ((p ∧ ((x < y) ∨ ¬ (y > x))) = (¬ (¬ (¬ q ∧ ((x < y) ∨ ¬ (y > x))) ∧ (¬ p ∨ p)))) = ((!q) = p) ===> True
-#testOptimize [ "EqBoolEqBool_28"] ((p ∧ ((x < y) ∨ ¬ (y > x))) = (¬ (¬ (¬ q ∧ ((x < y) ∨ ¬ (y > x))) ∧ (¬ p ∨ p)))) = ((!q) = p) ===> True
+#testOptimize [ "EqBoolEqBool_28", proof ] ((p ∧ ((x < y) ∨ ¬ (y > x))) = (¬ (¬ (¬ q ∧ ((x < y) ∨ ¬ (y > x))) ∧ (¬ p ∨ p)))) = ((!q) = p) ===> True
 
 
 /-! Test cases to ensure that simplification rule `(B1 = a) = (B2 = b) ==> NOP(B1, a) = NOP(B2, b)`

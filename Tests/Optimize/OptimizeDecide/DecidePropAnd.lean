@@ -17,116 +17,116 @@ variable (a : Bool)
 variable (b : Bool)
 
 -- true = a ∧ true = b ===> true = (a && b)
-#testOptimize [ "EqBoolAndEqBool_1" ] true = a ∧ true = b ===> true = (a && b)
+#testOptimize [ "EqBoolAndEqBool_1", proof ] true = a ∧ true = b ===> true = (a && b)
 
 -- true = a ∧ false = b ===> true = (a && !b)
-#testOptimize [ "EqBoolAndEqBool_2" ] true = a ∧ false = b ===> true = (a && !b)
+#testOptimize [ "EqBoolAndEqBool_2", proof ] true = a ∧ false = b ===> true = (a && !b)
 
 -- false = a ∧ true = b ===> true = (b && !a)
-#testOptimize [ "EqBoolAndEqBool_3" ] false = a ∧ true = b ===> true = (b && !a)
+#testOptimize [ "EqBoolAndEqBool_3", proof ] false = a ∧ true = b ===> true = (b && !a)
 
 -- false = a ∧ false = b ===> false = (a || b)
-#testOptimize [ "EqBoolAndEqBool_4" ] false = a ∧ false = b ===> false = (a || b)
+#testOptimize [ "EqBoolAndEqBool_4", proof ] false = a ∧ false = b ===> false = (a || b)
 
 -- a ∧ b ===> true = (a && b)
-#testOptimize [ "EqBoolAndEqBool_5" ] a ∧ b ===> true = (a && b)
+#testOptimize [ "EqBoolAndEqBool_5", proof ] a ∧ b ===> true = (a && b)
 
 -- a ∧ ¬ b ===> true = (a && !b)
-#testOptimize [ "EqBoolAndEqBool_6" ] a ∧ ¬ b ===> true = (a && !b)
+#testOptimize [ "EqBoolAndEqBool_6", proof ] a ∧ ¬ b ===> true = (a && !b)
 
 -- ¬ a ∧ b ===> true = (b && !a)
-#testOptimize [ "EqBoolAndEqBool_7" ] ¬ a ∧ b ===> true = (b && !a)
+#testOptimize [ "EqBoolAndEqBool_7", proof ] ¬ a ∧ b ===> true = (b && !a)
 
 -- ¬ a ∧ ¬ b ===> false = (a || b)
-#testOptimize [ "EqBoolAndEqBool_8" ] ¬ a ∧ ¬ b ===> false = (a || b)
+#testOptimize [ "EqBoolAndEqBool_8", proof ] ¬ a ∧ ¬ b ===> false = (a || b)
 
 -- false = a ∧ true = a ===> False
-#testOptimize [ "EqBoolAndEqBool_9" ] false = a ∧ true = a ===> False
+#testOptimize [ "EqBoolAndEqBool_9", proof ] false = a ∧ true = a ===> False
 
 -- true = a ∧ false = a ===> False
-#testOptimize [ "EqBoolAndEqBool_10" ] true = a ∧ false = a ===> False
+#testOptimize [ "EqBoolAndEqBool_10", proof ] true = a ∧ false = a ===> False
 
 -- ¬ a ∧ true = a ===> False
-#testOptimize [ "EqBoolAndEqBool_11" ] ¬ a ∧ true = a ===> False
+#testOptimize [ "EqBoolAndEqBool_11", proof ] ¬ a ∧ true = a ===> False
 
 -- true = a ∧ ¬ a ===> False
-#testOptimize [ "EqBoolAndEqBool_12" ] true = a ∧ ¬ a ===> False
+#testOptimize [ "EqBoolAndEqBool_12", proof ] true = a ∧ ¬ a ===> False
 
 variable (c : Bool)
 
 -- ¬ a ∧ b ∧ c ===> true = (!a && (b && c))
-#testOptimize [ "EqBoolAndEqBool_13" ] ¬ a ∧ b ∧ c ===> true = (!a && (b && c))
+#testOptimize [ "EqBoolAndEqBool_13", proof ] ¬ a ∧ b ∧ c ===> true = (!a && (b && c))
 
 -- a ∧ ¬ b ∧ ¬ c ===> true = (a && !(b || c))
-#testOptimize [ "EqBoolAndEqBool_14" ] a ∧ ¬ b ∧ ¬ c ===> true = (a && !(b || c))
+#testOptimize [ "EqBoolAndEqBool_14", proof ] a ∧ ¬ b ∧ ¬ c ===> true = (a && !(b || c))
 
 
 -- a ∧ (¬ b ∧ ¬ c) ∧ (b ∨ c) ===> False
-#testOptimize [ "EqBoolAndEqBool_15" ] a ∧ (¬ b ∧ ¬ c) ∧ (b ∨ c) ===> False
+#testOptimize [ "EqBoolAndEqBool_15", proof ] a ∧ (¬ b ∧ ¬ c) ∧ (b ∨ c) ===> False
 
 variable (d : Bool)
 
 -- (a ∧ ¬ b) ∧ c ∧ ¬ d ===> true = ((a && !b) && (c && !d))
-#testOptimize [ "EqBoolAndEqBool_16" ] (a ∧ ¬ b) ∧ c ∧ ¬ d ===> true = ((a && !b) && (c && !d))
+#testOptimize [ "EqBoolAndEqBool_16", proof ] (a ∧ ¬ b) ∧ c ∧ ¬ d ===> true = ((a && !b) && (c && !d))
 
 
 -- a ∧ (¬ b ∧ (c ∧ ¬ d)) ===> true = (a && (!b && (c && !d)))
-#testOptimize [ "EqBoolAndEqBool_17" ] a ∧ (¬ b ∧ (c ∧ ¬ d)) ===> true = (a && (!b && (c && !d)))
+#testOptimize [ "EqBoolAndEqBool_17", proof ] a ∧ (¬ b ∧ (c ∧ ¬ d)) ===> true = (a && (!b && (c && !d)))
 
 -- (true = a ∧ true = b) = (b && a) ===> True
-#testOptimize [ "EqBoolAndEqBool_18" ] (true = a ∧ true = b) = (b && a) ===> True
+#testOptimize [ "EqBoolAndEqBool_18", proof ] (true = a ∧ true = b) = (b && a) ===> True
 
 -- (true = a ∧ false = b) = (!b && a) ===> True
-#testOptimize [ "EqBoolAndEqBool_19" ] (true = a ∧ false = b) = (!b && a) ===> True
+#testOptimize [ "EqBoolAndEqBool_19", proof ] (true = a ∧ false = b) = (!b && a) ===> True
 
 -- (false = a ∧ true = b) = (b && !a) ===> True
-#testOptimize [ "EqBoolAndEqBool_20" ] (false = a ∧ true = b) = (b && !a) ===> True
+#testOptimize [ "EqBoolAndEqBool_20", proof ] (false = a ∧ true = b) = (b && !a) ===> True
 
 -- false = a ∧ false = b = !(b || a) ===> True
-#testOptimize [ "EqBoolAndEqBool_21" ] (false = a ∧ false = b) = !(b || a) ===> True
+#testOptimize [ "EqBoolAndEqBool_21", proof ] (false = a ∧ false = b) = !(b || a) ===> True
 
 -- (a ∧ b) = (a && b) ===> True
-#testOptimize [ "EqBoolAndEqBool_22" ] (a ∧ b) = (b && a) ===> True
+#testOptimize [ "EqBoolAndEqBool_22", proof ] (a ∧ b) = (b && a) ===> True
 
 -- (a ∧ ¬ b) = (!b && a) ===> True
-#testOptimize [ "EqBoolAndEqBool_23" ] (a ∧ ¬ b) = (!b && a) ===> True
+#testOptimize [ "EqBoolAndEqBool_23", proof ] (a ∧ ¬ b) = (!b && a) ===> True
 
 -- (¬ a ∧ b) = (b && !a) ===> True
-#testOptimize [ "EqBoolAndEqBool_24" ] (¬ a ∧ b) = (b && !a) ===> True
+#testOptimize [ "EqBoolAndEqBool_24", proof ] (¬ a ∧ b) = (b && !a) ===> True
 
 -- (¬ a ∧ ¬ b) = !(b || a) ===> True
-#testOptimize [ "EqBoolAndEqBool_25" ] (¬ a ∧ ¬ b) = !(b || a) ===> True
+#testOptimize [ "EqBoolAndEqBool_25", proof ] (¬ a ∧ ¬ b) = !(b || a) ===> True
 
 -- (¬ a ∧ b ∧ c) = ((c && b) && !a) ===> True
-#testOptimize [ "EqBoolAndEqBool_26" ] (¬ a ∧ b ∧ c) = ((c && b) && !a) ===> True
+#testOptimize [ "EqBoolAndEqBool_26", proof ] (¬ a ∧ b ∧ c) = ((c && b) && !a) ===> True
 
 -- (a ∧ ¬ b ∧ ¬ c) = (!(c || b) && a) ===> True
-#testOptimize [ "EqBoolAndEqBool_27" ] (a ∧ ¬ b ∧ ¬ c) = (!(c || b) && a) ===> True
+#testOptimize [ "EqBoolAndEqBool_27", proof ] (a ∧ ¬ b ∧ ¬ c) = (!(c || b) && a) ===> True
 
 -- ((a ∧ ¬ b) ∧ c ∧ ¬ d) = ((!b && a) && (!d && c)) ===> True
-#testOptimize [ "EqBoolAndEqBool_28" ] ((a ∧ ¬ b) ∧ c ∧ ¬ d) = ((!b && a) && (!d && c)) ===> True
+#testOptimize [ "EqBoolAndEqBool_28", proof ] ((a ∧ ¬ b) ∧ c ∧ ¬ d) = ((!b && a) && (!d && c)) ===> True
 
 -- (a ∧ (¬ b ∧ (c ∧ ¬ d))) = (((!d && c) && !b) && a) ===> True
-#testOptimize [ "EqBoolAndEqBool_29" ] (a ∧ (¬ b ∧ (c ∧ ¬ d))) = (((!d && c) && !b) && a) ===> True
+#testOptimize [ "EqBoolAndEqBool_29", proof ] (a ∧ (¬ b ∧ (c ∧ ¬ d))) = (((!d && c) && !b) && a) ===> True
 
 -- ∀ (a b c : Bool), ¬ ((a ∧ b) ∧ c) ===> ∀ (a b c : Bool), false = (c && (a && b))
-#testOptimize [ "EqBoolAndEqBool_30" ] ∀ (a b c : Bool), ¬ ((a ∧ b) ∧ c) ===>
+#testOptimize [ "EqBoolAndEqBool_30", proof ] ∀ (a b c : Bool), ¬ ((a ∧ b) ∧ c) ===>
                                         ∀ (a b c : Bool), false = (c && (a && b))
 
 -- ∀ (a b c : Bool), ¬ ((a ∧ b) ∧ c) = !(c && (b && a)) ===> True
-#testOptimize [ "EqBoolAndEqBool_31" ] ∀ (a b c : Bool), ¬ ((a ∧ b) ∧ c) = !(c && (b && a)) ===> True
+#testOptimize [ "EqBoolAndEqBool_31", proof ] ∀ (a b c : Bool), ¬ ((a ∧ b) ∧ c) = !(c && (b && a)) ===> True
 
 -- ∀ (a b c d : Bool), ¬ ((a ∧ b) ∧ (c ∧ d)) ===>
 -- ∀ (a b c d : Bool), false = ((a && b) && (c && d))
-#testOptimize [ "EqBoolAndEqBool_32" ] ∀ (a b c d : Bool), ¬ ((a ∧ b) ∧ (c ∧ d)) ===>
+#testOptimize [ "EqBoolAndEqBool_32", proof ] ∀ (a b c d : Bool), ¬ ((a ∧ b) ∧ (c ∧ d)) ===>
                                        ∀ (a b c d : Bool), false = ((a && b) && (c && d))
 
 -- ∀ (a b c d : Bool), ¬ ((a ∧ b) ∧ (c ∧ d)) = !((d && c) && (b && a)) ===> True
-#testOptimize [ "EqBoolAndEqBool_33" ] ∀ (a b c d : Bool),
+#testOptimize [ "EqBoolAndEqBool_33", proof ] ∀ (a b c d : Bool),
                                          ¬ ((a ∧ b) ∧ (c ∧ d)) = !((d && c) && (b && a)) ===> True
 
 -- (!(a && b)) = ¬ (b ∧ a) ===> True
-#testOptimize [ "EqBoolAndEqBool_34" ] (!(a && b)) = ¬ (b ∧ a) ===> True
+#testOptimize [ "EqBoolAndEqBool_34", proof ] (!(a && b)) = ¬ (b ∧ a) ===> True
 
 
 -- ∀ (x y : Int) (a b c d : Bool),
@@ -137,13 +137,13 @@ variable (d : Bool)
                                        (if ((x < y) && (a && (b && c))) == d then x else y) ===> True
 
 -- false = a ∧ a ===> False
-#testOptimize [ "EqBoolAndEqBool_36" ] false = a ∧ a ===> False
+#testOptimize [ "EqBoolAndEqBool_36", proof ] false = a ∧ a ===> False
 
 -- a ∧ false = a ===> False
-#testOptimize [ "EqBoolAndEqBool_37" ] a ∧ false = a ===> False
+#testOptimize [ "EqBoolAndEqBool_37", proof ] a ∧ false = a ===> False
 
 -- false = (a && b) ∧ (a && b) ===> False
-#testOptimize [ "EqBoolAndEqBool_38" ] false = (a && b) ∧ (a && b) ===> False
+#testOptimize [ "EqBoolAndEqBool_38", proof ] false = (a && b) ∧ (a && b) ===> False
 
 
 
@@ -153,21 +153,21 @@ variable (d : Bool)
 -/
 
 -- ∀ (x y : Int), x < y ∧ a ===> ∀ (x y : Int), true = a ∧ x < y
-#testOptimize [ "EqBoolAndEqBoolUnchanged_1" ] ∀ (x y : Int), x < y ∧ a ===>
+#testOptimize [ "EqBoolAndEqBoolUnchanged_1", proof ] ∀ (x y : Int), x < y ∧ a ===>
                                                ∀ (x y : Int), true = a ∧ x < y
 
 -- ∀ (x y : Int), a ∧ x < y ===> ∀ (x y : Int), true = a ∧ x < y
-#testOptimize [ "EqBoolAndEqBoolUnchanged_2" ] ∀ (x y : Int), a ∧  x < y ===>
+#testOptimize [ "EqBoolAndEqBoolUnchanged_2", proof ] ∀ (x y : Int), a ∧  x < y ===>
                                                ∀ (x y : Int), true = a ∧ x < y
 
 -- ∀ (x y z : Int), (a ∧ x > z) ∧ x < y ===>
 -- ∀ (x y z : Int), (true = a ∧ z < x) ∧ x < y
-#testOptimize [ "EqBoolAndEqBoolUnchanged_3" ] ∀ (x y z : Int), (a ∧ x > z) ∧ x < y ===>
+#testOptimize [ "EqBoolAndEqBoolUnchanged_3", proof ] ∀ (x y z : Int), (a ∧ x > z) ∧ x < y ===>
                                                ∀ (x y z : Int), (true = a ∧ z < x) ∧ x < y
 
 -- ∀ (x y z : Int), (a ∧ x > z) ∧ (x < y ∧ b) ===>
 -- ∀ (x y z : Int), (true = a ∧ z < x) ∧ (true = b ∧ x < y)
-#testOptimize [ "EqBoolAndEqBoolUnchanged_4" ] ∀ (x y z : Int), (a ∧ x > z) ∧ (x < y ∧ b) ===>
+#testOptimize [ "EqBoolAndEqBoolUnchanged_4", proof ] ∀ (x y z : Int), (a ∧ x > z) ∧ (x < y ∧ b) ===>
                                                ∀ (x y z : Int), (true = a ∧ z < x) ∧ (true = b ∧ x < y)
 
 
