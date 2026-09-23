@@ -219,10 +219,7 @@ partial def trySubmitCommand! (c : SmtCommand) (checkSuccess := true) : Translat
   let out := normalizeLine (← h.getLine)
   match out with
   | "success\n" => return ()
-  | err =>
-        IO.println f!"Smt query:"
-        (← get).smtEnv.smtCommands.forM (λ c => IO.println s!"{c}")
-        throwEnvError s!"Unexpected smt error (caca): {err} for {c}"
+  | err => throwEnvError s!"Unexpected smt error: {err} for {c}"
 
 /-- Same as trySubmitCommand! but with flag `checkSuccess` set to `false`.
 -/

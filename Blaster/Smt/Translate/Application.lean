@@ -678,7 +678,7 @@ def isForbiddenConstExpr (e : Expr) : Bool :=
   | _ => false
 
 /-- Given `ft := ∀ α₀ → ∀ α₁ ... → αₙ`, infer the instanitated type w.r.t. `params` such that:
-     - let S := [ αᵢ | i ∈ [0..n] ∧ ¬ params[i].isInstance ]
+     - let S := [ removeTypeAbbrev αᵢ | i ∈ [0..n] ∧ ¬ params[i].isInstance ]
      - let R := [ params[i].effectiveArg | i ∈ [0..n] ∧ ¬ params[i].isInstance ]
      - let k := S.size-1
      - let [α'₀, ..., α'ₚ] := [ αᵢ [S[0]/R[0]] ... [S[k]/R[k]] | i ∈ [0..n] ∧ params[i].isInstance ]
@@ -694,7 +694,7 @@ partial def inferUndeclFunType (ft : Expr) (params : ImplicitParameters) : Trans
            let p := params[idx]!
            if p.isInstance
            then visit (idx + 1) (← instantiateShared1 b p.effectiveArg)
-           else e.updateForallExpr! t (← visit (idx + 1) b)
+           else e.updateForallExpr! (← removeTypeAbbrev t) (← visit (idx + 1) (← removeTypeAbbrev b))
       | _ => return e
   visit 0 ft
 
@@ -704,8 +704,11 @@ partial def inferUndeclFunType (ft : Expr) (params : ImplicitParameters) : Trans
        - Let `∀ α₀ → ∀ α₁ ... → αₙ` := inferUndecFunType (← getFunEnvInfo f).type params
        - declare smt function `declare-fun s ((st₀) .. (stₙ₋₁)) stₙ)`
        - assert the following proposition to constraint the codomain value:
-          - `(assert (forall ((@x₀ st₀) ... (@xₙ₋₁ stₙ₋₁))
-              (! (@isTypeₙ (s @x₁ ... @xₙ₋₁))
+         - let V := {v | i ∈ [0..n] ∧ v ∈ getFVarsInExpr αᵢ ∧ isGenericParam αᵢ ∧ isTypeUniverse (← inferTypeEnv v)}
+         - let [gt₀ ... gtₘ] := [typeTranslator V[i] | i ∈ [0..V.size]]
+          - `(assert (forall ((@g₀ gt₀) ... (@gₘ gtₘ) (@x₀ st₀) ... (@xₙ₋₁ stₙ₋₁))
+              (! (=> (and (@isType₁ @x₁) ... (@isTypeₙ₋₁ @xₙ₋₁))
+                     (@isTypeₙ (s @x₁ ... @xₙ₋₁))))
                  :pattern ((s @x₁ ... @xₙ₋₁))) :qid s_cstr)`
 
      where ∀ i ∈ [0..n], αᵢ translates to Smt type stᵢ
@@ -714,30 +717,42 @@ def generateUndeclaredFun
   (f : Expr) (s : SmtSymbol) (params : ImplicitParameters)
   (termTranslator : Expr → TranslateEnvT SmtTerm) : TranslateEnvT Unit := do
   let pInfo ← getFunEnvInfo f
-  -- infer fun type and removing implicit arguments (i.e., even class constraints)
-  let funType ← inferUndeclFunType pInfo.type params
-  Optimize.forallTelescope funType fun fvars rawRetType => do
-    let retType ← removeTypeAbbrev rawRetType
-    let xsyms := Array.ofFn (λ f : Fin fvars.size => mkReservedSymbol s!"@x{f.val}")
-    let mut pargs := (#[] : Array SortExpr)
-    let mut co_quantifiers ← genericArgsToSortedVars (← retrieveGenericArgs #[retType])
-    for h : i in [:fvars.size] do
-      let decl ← fvars[i].fvarId!.getEnvDecl
-      let st ← translateFunLambdaParamType decl.type termTranslator
-      pargs := pargs.push st
-      co_quantifiers := co_quantifiers.push (xsyms[i]!, st)
-    let ret ← translateFunLambdaParamType retType termTranslator
-    declareFun s pargs ret
-    -- assert codomain constraint
-    if fvars.size > 0 then
-      let xIds := Array.map (λ v => smtSimpleVarId v) xsyms
-      let f_applyTerm := mkSimpleSmtAppN s xIds
-      let forallBody ← createPredQualifierAppAux f_applyTerm retType
-      let qidName := mkQid $ appendSymbol s "cstr"
-      let pattern := some #[mkPattern #[f_applyTerm], qidName]
-      assertTerm (mkForallTerm none co_quantifiers forallBody pattern)
-    else
-      assertTerm (← createPredQualifierAppAux (smtSimpleVarId s) retType)
+  -- infer fun type, resolve type abbreviation and remove implicit arguments  (i.e., even class constraints)
+  let arrowType ← inferUndeclFunType pInfo.type params
+  let funTypes := retrieveArrowTypes arrowType
+  let nbTypes := funTypes.size - 1
+  let retType := funTypes[nbTypes]!
+  let rtSmt ← translateFunLambdaParamType retType termTranslator
+  let xsyms := Array.ofFn (λ f : Fin nbTypes => mkReservedSymbol s!"@x{f.val}")
+  let xIds := Array.map (λ s => smtSimpleVarId s) xsyms
+  let mut pargs := (Array.emptyWithCapacity nbTypes)
+  let mut co_quantifiers ← genericArgsToSortedVars (← retrieveGenericArgs funTypes)
+  let mut predCond := trueSmt
+  for i in [:nbTypes] do
+    let idx := nbTypes - i - 1
+    let st ← translateFunLambdaParamType funTypes[i]! termTranslator
+    let predAppX ← createPredQualifierAppAux xIds[idx]! funTypes[idx]!
+    pargs := pargs.push st
+    co_quantifiers := co_quantifiers.push (xsyms[i]!, st)
+    predCond := andCond predCond predAppX
+  declareFun s pargs rtSmt
+  -- assert codomain constraint
+  let f_applyTerm := if pargs.size > 0 then mkSimpleSmtAppN s xIds else (smtSimpleVarId s)
+  if co_quantifiers.size > 0 then
+     let predQualifier ← createPredQualifierAppAux f_applyTerm retType
+     let qidName := mkQid $ appendSymbol s "cstr"
+     let pattern := some #[mkPattern #[f_applyTerm], qidName]
+     let forallBody := if isTrueSmt predCond then predQualifier else impliesSmt predCond predQualifier
+     assertTerm (mkForallTerm none co_quantifiers forallBody pattern)
+  else
+    -- case when undeclared functions only has implicit parameters as input
+    assertTerm (← createPredQualifierAppAux f_applyTerm retType)
+
+  where
+    andCond (prevTerm : SmtTerm) (nextTerm : SmtTerm) : SmtTerm :=
+      if isTrueSmt prevTerm
+      then nextTerm
+      else andSmt prevTerm nextTerm
 
 
 def updateAbstractTypeCache (t : Expr) (abstName : SmtSymbol) : TranslateEnvT Unit := do
