@@ -236,6 +236,108 @@ protected theorem int_add_lt_zero_eq_true_of_neg_nonpos (x y : Int) (hx : x < 0)
 protected theorem int_lt_false_of_not_pred_lt (n e : Int) (h : ¬ (n - 1 < e)) :
     (n < e) = False := propext ⟨fun hlt => by omega, False.elim⟩
 
+/-! ## Lemmas validating the simplification rules on equality negation rules:
+  - `0 = -e ==> 0 = e`
+  - `-e1 = -e2 ==> e1 = e2`
+  - `0 = x * y ==> False (if x ≠ 0 ∧ y ≠ 0 in hyps)`
+  - `0 = x + y ==> False (same-sign x , y)`
+-/
+protected theorem zero_eq_int (e : Int) : (0 = -e) = (0 = e) := by
+  apply propext
+  rw [← Int.neg_zero, Int.neg_inj]
+  exact Eq.to_iff rfl
+
+protected theorem int_neg_eq (a b : Int) : (-a = -b) = (a = b) := by
+  apply propext
+  exact Int.neg_inj
+
+protected theorem int_mul_eq_false_of_ne (a b : Int) (h : a ≠ 0 ∧ b ≠ 0) :
+  (0 = a * b) = False := by
+  apply propext
+  rw [iff_false, ← ne_eq]
+  exact (Int.mul_ne_zero h.1 h.2).symm
+
+protected theorem int_add_eq_false_of_gt (a b : Int) (h : 0 < a ∧ 0 < b) : (0 = a + b) = False := by
+  apply propext
+  simp only [iff_false]
+  omega
+
+protected theorem int_add_eq_false_of_lt (a b : Int) (h : a < 0 ∧ b < 0) : (0 = a + b) = False := by
+  apply propext
+  simp only [iff_false]
+  omega
+
+
+/-! ## Lemmas to validate simplification equality rules over `Int.add`:
+  - `x + y = x + z ==> y = z`
+  - `x + y = z + x ==> y = z`
+  - `y + x = x + z ==> y = z`
+  - `y + x = z + x ==> y = z`
+  - `N + e = e ==> False (if N ≠ 0)`
+  - `x + y = x ==> False (if y ≠ 0)`
+  - `N1 = N2 + a ==> N1 - N2 = a`
+  - `N1 + a = N2 + b ==> N1 - min(N1, N2) + a = N2 - min(N1, N2) + B`
+-/
+protected theorem int_add_eq_add_rgt (x y z : Int) : (x + y = x + z) = (y = z) := by
+  simp only [Int.add_right_inj]
+
+protected theorem int_add_eq_add_lft (x y z : Int) : (x + y = z + x) = (y = z) := by
+  simp only [eq_iff_iff]
+  omega
+
+protected theorem int_add_lft_eq_add (x y z: Int) : (y + x = x + z) = (y = z) := by
+  simp only [eq_iff_iff]
+  omega
+
+protected theorem int_add_lft_eq_add_lft (x y z: Int) : (y + x = z + x) = (y = z) := by
+  simp only [Int.add_left_inj]
+
+protected theorem  int_add_left_eq_false (e N : Int) (h : N ≠ 0) : (N + e = e) = False := by
+  apply propext
+  rw [iff_false]
+  omega
+
+protected theorem int_add_right_eq_false (x y : Int) (h : y ≠ 0) : (x + y = x) = False := by
+  apply propext
+  rw [iff_false]
+  omega
+
+protected theorem int_sub_of_eq_add (N1 N2 a : Int) : (N1 = N2 + a) = (N1 - N2 = a) := by
+  apply propext
+  omega
+
+protected theorem int_add_with_min (N1 N2 a b M1 M2 : Int)
+  (h1: N1 - min N1 N2 = M1) (h2 : N2 - min N1 N2 = M2) :
+  (N1 + a = N2 + b) = (M1 + a = M2 + b) := by
+  subst h1 h2
+  apply propext
+  omega
+
+/-! ## Lemmas to valiate simplification equality rules over `Int.mul`:
+  - `x * y = x * z ==> y = z (if x ≠ 0)`
+  - `y * x = z * x ==> y = z (if x ≠ 0)`
+  - `x * y = z * x ==> y = z (if x ≠ 0)`
+  - `y * x = x * z ==> y = z (if x ≠ 0)`
+-/
+
+protected theorem int_mul_eq_mul_rgt (x y z : Int) (h : x ≠ 0) : (x * y = x * z) = (y = z) := by
+  apply propext
+  exact Int.mul_eq_mul_left_iff h
+
+protected theorem int_mul_lft_eq_mul_lft (x y z : Int) (h : x ≠ 0) : (y * x = z * x) = (y = z) := by
+  apply propext
+  exact Int.mul_eq_mul_right_iff h
+
+protected theorem int_mul_eq_mul_lft (x y z : Int) (h : x ≠ 0) : (x * y = z * x) = (y = z) := by
+  apply propext
+  rw [Int.mul_comm]
+  exact Int.mul_eq_mul_right_iff h
+
+protected theorem int_mul_lft_eq_mul (x y z : Int) (h : x ≠ 0) : (y * x = x * z) = (y = z) := by
+  apply propext
+  rw [Int.mul_comm]
+  exact Int.mul_eq_mul_left_iff h
+
 def mkInt_lt_asymm : TranslateEnvT Expr := mkExpr (mkConst ``Int.lt_asymm)
 
 def mkInt_not_lt_right_of_eq : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.int_not_lt_right_of_eq)
