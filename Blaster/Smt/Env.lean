@@ -614,13 +614,6 @@ partial def getOutputModel (h : IO.FS.Handle) (proof := false) : IO String := do
 -/
 def getOutputProof := λ h => getOutputModel h true
 
-/-- Retrieve error msg from 'h'.
-    NOTE: An error msg starts with "(error" and ends with ")\n".
-    Line endings are normalized to handle both Unix (LF) and Windows (CRLF).
--/
-partial def getErrorMsg (h : IO.FS.Handle) : IO String := normalizeLine <$> h.getLine
-
-
 /-- Retrieve a `get-value` response from `h` after executing `(get-value (t))`.
     The response has the form `((t v))` and may span several lines when `v` is
     an inductive datatype value. Reading stops when parentheses tally to zero.
@@ -1578,7 +1571,8 @@ private partial def runFirstCheck (command : SmtCommand) : TranslateEnvT Result 
     loop remaining outcomes
 
 
-private def runAgreementCheck (command : SmtCommand) : TranslateEnvT Result := do
+private def collectAgreementOutcomes (command : SmtCommand) :
+    TranslateEnvT (Array SolverOutcome) := do
   let (initialPending, initialOutcomes) ← beginConfiguredChecks command
   let mut pending := initialPending
   let mut outcomes := initialOutcomes
@@ -1596,6 +1590,18 @@ private def runAgreementCheck (command : SmtCommand) : TranslateEnvT Result := d
     let (outcome, remaining) ← completedOutcome (← waitFirstPending pending)
     outcomes := outcomes.push outcome
     pending := remaining
+  return outcomes
+
+private def requireAgreement (z3 cvc5 : SolverOutcome) : TranslateEnvT AgreementDecision := do
+  match aggregateAgreement z3 cvc5 with
+  | .ok decision => return decision
+  | .error failure =>
+      retireAllSessions true
+      let artifact ← saveAgreementArtifacts failure.diagnostic #[z3, cvc5]
+      throwEnvError s!"{failure.diagnostic}\nAgreement artifacts: {artifact.getD "unavailable"}"
+
+private def runAgreementCheck (command : SmtCommand) : TranslateEnvT Result := do
+  let outcomes ← collectAgreementOutcomes command
   let some z3 := outcomes.find? (·.solver == .z3)
     | retireAllSessions true
       let artifact ← saveAgreementArtifacts "Z3 produced no outcome" outcomes
@@ -1606,33 +1612,24 @@ private def runAgreementCheck (command : SmtCommand) : TranslateEnvT Result := d
       throwEnvError s!"Agreement infrastructure failure: cvc5 produced no outcome. Artifacts: {artifact.getD "unavailable"}"
   -- A model cannot change either verdict. Reject disagreement before asking
   -- for optional evidence, which can fail or take longer than the check.
-  if let .error failure := aggregateAgreement z3 cvc5 then
-    retireAllSessions true
-    let artifact ← saveAgreementArtifacts failure.diagnostic outcomes
-    throwEnvError s!"{failure.diagnostic}\nAgreement artifacts: {artifact.getD "unavailable"}"
+  discard <| requireAgreement z3 cvc5
   let z3 ← attachCounterexample z3
   let cvc5 ← attachCounterexample cvc5
   let enriched := #[z3, cvc5]
-  match aggregateAgreement z3 cvc5 with
-  | .error failure =>
-      retireAllSessions true
-      let artifact ← saveAgreementArtifacts failure.diagnostic enriched
-      throwEnvError s!"{failure.diagnostic}\nAgreement artifacts: {artifact.getD "unavailable"}"
-  | .ok decision =>
-      let incompleteModel := enriched.any (·.status == .modelFailed)
-      if decision.verdict == .undetermined || incompleteModel then
-        retireAllSessions true
-        let reason :=
-          if incompleteModel then "one or more model-evidence steps failed"
-          else "both solvers returned ordinary Undetermined"
-        let artifact ← saveAgreementArtifacts reason enriched
-        logWarningAt (← blankRef)
-          m!"Agreement diagnostics saved: {artifact.getD "unavailable"}"
-      return outcomeToResult {
-        solver := .z3, verdict := some decision.verdict, status := decision.status,
-        counterexample := decision.counterexample, elapsedMs := decision.elapsedMs,
-        diagnostic := decision.diagnostic
-      }
+  let decision ← requireAgreement z3 cvc5
+  let incompleteModel := enriched.any (·.status == .modelFailed)
+  if decision.verdict == .undetermined || incompleteModel then
+    retireAllSessions true
+    let reason :=
+      if incompleteModel then "one or more model-evidence steps failed"
+      else "both solvers returned ordinary Undetermined"
+    let artifact ← saveAgreementArtifacts reason enriched
+    logWarningAt (← blankRef)
+      m!"Agreement diagnostics saved: {artifact.getD "unavailable"}"
+  match decision.verdict with
+  | .valid => return .Valid
+  | .falsified => return .Falsified (decision.counterexample.getD [])
+  | .undetermined => return .Undetermined
 
 private def checkSatWith (command : SmtCommand) : TranslateEnvT Result := do
   let deferred := (← get).smtEnv.deferredSessions
