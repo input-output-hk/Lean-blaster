@@ -1586,18 +1586,23 @@ private def runAgreementCheck (command : SmtCommand) : TranslateEnvT Result := d
     let (outcome, remaining) ← completedOutcome (← waitFirstPending pending)
     outcomes := outcomes.push outcome
     pending := remaining
-  let mut enriched := #[]
-  for solver in [SmtSolver.z3, SmtSolver.cvc5] do
-    if let some outcome := outcomes.find? (·.solver == solver) then
-      enriched := enriched.push (← attachCounterexample outcome)
-  let some z3 := enriched.find? (·.solver == .z3)
+  let some z3 := outcomes.find? (·.solver == .z3)
     | retireAllSessions true
-      let artifact ← saveAgreementArtifacts "Z3 produced no outcome" enriched
+      let artifact ← saveAgreementArtifacts "Z3 produced no outcome" outcomes
       throwEnvError s!"Agreement infrastructure failure: Z3 produced no outcome. Artifacts: {artifact.getD "unavailable"}"
-  let some cvc5 := enriched.find? (·.solver == .cvc5)
+  let some cvc5 := outcomes.find? (·.solver == .cvc5)
     | retireAllSessions true
-      let artifact ← saveAgreementArtifacts "cvc5 produced no outcome" enriched
+      let artifact ← saveAgreementArtifacts "cvc5 produced no outcome" outcomes
       throwEnvError s!"Agreement infrastructure failure: cvc5 produced no outcome. Artifacts: {artifact.getD "unavailable"}"
+  -- A model cannot change either verdict. Reject disagreement before asking
+  -- for optional evidence, which can fail or take longer than the check.
+  if let .error failure := aggregateAgreement z3 cvc5 then
+    retireAllSessions true
+    let artifact ← saveAgreementArtifacts failure.diagnostic outcomes
+    throwEnvError s!"{failure.diagnostic}\nAgreement artifacts: {artifact.getD "unavailable"}"
+  let z3 ← attachCounterexample z3
+  let cvc5 ← attachCounterexample cvc5
+  let enriched := #[z3, cvc5]
   match aggregateAgreement z3 cvc5 with
   | .error failure =>
       retireAllSessions true
