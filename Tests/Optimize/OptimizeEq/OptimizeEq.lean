@@ -787,15 +787,15 @@ elab "eqStrConstructor_4" : term => return eqStrConstructor_4
   ∀ (a : Int), (5 = 2 + a) = (5 - 2 = a) ===> True
 
 -- ∀ (a : Int), (5 = 7 + a) = (5 - 7 = a) ===> True
-#testOptimize [ "EqAddIntLit_1", proof]
+#testOptimize [ "EqAddIntLit_2", proof]
   ∀ (a : Int), (5 = 7 + a) = (5 - 7 = a) ===> True
 
 -- ∀ (a b : Int), (5 + a = 2 + b) = (5 - 2 + a = 2 - 2 + b) ===> True
-#testOptimize [ "EqAddIntLit_2", proof ]
+#testOptimize [ "EqAddIntLit_3", proof ]
   ∀ (a b : Int), (5 + a = 2 + b) = (3 + a = 0 + b) ===> True
 
 -- ∀ (a b : Int), (-1 + a = 5 + b) = (-1 + 1 + a = 5 + 1 + b) ===> True
-#testOptimize [ "EqAddIntLit_3", proof]
+#testOptimize [ "EqAddIntLit_4", proof]
   ∀ (a b : Int), (-1 + a = 5 + b) = (0 + a = 6 + b) ===> True
 
 -- ∀ (y : Int), 0 < y → (0 = 5 + y) = False ===> True
@@ -805,5 +805,13 @@ elab "eqStrConstructor_4" : term => return eqStrConstructor_4
 -- ∀ (y : Int), y < 0 → (0 = -3 + y) = False ===> True
 #testOptimize [ "ZeroIntAddEqLits_2", proof ]
   ∀ (y : Int), y < 0 → (0 = -3 + y) = False ===> True
+
+-- ∀ (x y : Nat), 2 * x = y * 2 → x = y ===> True
+#testOptimize [ "EqNatMulLit_1", proof ]
+  ∀ (x y : Nat), (2 * x = y * 2) = (x = y) ===> True
+
+-- ∀ (x y : Int), 2 * x = y * 2 → x = y ===> True
+#testOptimize [ "EqIntMulLit_1", proof ]
+  ∀ (x y : Int), (2 * x = y * 2) = (x = y) ===> True
 
 end Test.OptimizeEq
