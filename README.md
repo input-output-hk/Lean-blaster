@@ -51,15 +51,10 @@ Blaster requires Lean. Invoking a solver additionally requires the selected
 backend executable; solver-independent translation and pure tests require neither:
 
 - **Lean4** v4.24.0 (or compatible version);
-- **Z3** v4.15.2 or later — required for default/explicit Z3 single mode and `agree`;
-- **cvc5** v1.2.1 or later — required for cvc5 single mode and `agree`.
-  `first` attempts both, but may retain a healthy backend after its peer fails.
-
-Building requires a C compiler for the small process-lifecycle shim (`cc` and
-system headers on POSIX; Lean's bundled compiler on Windows). Use `lake build`, the editor's
-Lake integration, or `lake lean File.lean`; bare `lake env lean` does not load
-the native implementation. The adversarial POSIX tests also require Python 3
-and standard shell utilities.
+- **Z3** v4.15.2 or later — required for the default/explicit Z3 path and
+  every concurrent solver mode;
+- **cvc5** v1.2.1 or later — required when selecting cvc5 or using `first` /
+  `agree`.
 
 ### Installing Lean4
 
@@ -122,78 +117,6 @@ probing `wsl` with `z3` / `cvc5` as its first argument when no native solver
 is found. Automated Linux CI does not exercise this fallback, so it is not a
 tested Windows-support guarantee.
 
-To select an exact stock, minimum-version, or patched build, put its `bin`
-directory first in `PATH`. The same executable is used for discovery and
-sessions. The release version alone does not establish patched-model parity.
-
-#### Pinned patched build
-
-For the recursive-alias and fixed-ground-argument fixes, build the pinned pair
-instead of assuming an official release contains them:
-
-```bash
-# Requires Git, a C/C++ compiler, Python 3.11+, CMake, Ninja, make, and patch.
-# Use a new/empty output directory; dependency downloads require network access.
-python3 scripts/build_patched_cvc5.py --output .blaster/pinned-cvc5 --jobs 8
-lake build Blaster
-python3 scripts/check_cvc5_parity.py \
-  --control .blaster/pinned-cvc5/control/build-parity/bin/cvc5 \
-  --patched .blaster/pinned-cvc5/patched/build-parity/bin/cvc5 \
-  --provenance .blaster/pinned-cvc5/provenance.json \
-  --output .blaster/pinned-cvc5-parity
-export PATH="$PWD/.blaster/pinned-cvc5/patched/build-parity/bin:$PATH"
-export BLASTER_CVC5_BUILD=patched
-lake exe solvercheck cvc5
-```
-
-The builder uses base `67954d09dcc955eba282155766cf452fc0ff1bd6` and the
-single-commit patches from
-[fork PR 1](https://github.com/RSoulatIOHK/cvc5/pull/1)
-(`6eaca4bf1303a69c2c3aaddc0e50b1bf7d3df6e7`) followed by
-[fork PR 2](https://github.com/RSoulatIOHK/cvc5/pull/2)
-(`18ed35b885c1655520e2ffe9d1c143017ce907d9`).
-It verifies both patch SHA-256 pins and the composed tree
-`05793707126cfbc003fc613d3ff335dc9b103740`; PR 2 must merge automatically
-with Git's three-way application. No combined fork branch, manual resolution,
-existing binary, or stock-release fallback is accepted.
-
-Both builds use unrestricted mode, assertions, no MPFR, static cvc5 libraries,
-and source-built GMP. The executable target is `cvc5-bin` (`cvc5` alone builds
-the library). GMP, CaDiCaL, LibPoly, and SymFPU source downloads are SHA-256
-checked by the pinned upstream CMake files; a discovered system copy is
-rejected. The separate patched CI job uses an immutable GCC 14.2.0 Debian
-bookworm image and frozen Debian package snapshot; existing stock and
-support-floor CI legs remain separate.
-The rewrite generator's `pyparsing` dependency is also version/hash pinned in
-an isolated Python environment.
-
-`BLASTER_CVC5_BUILD=patched` enables `--fmf-fun --macros-quant
---macros-quant-mode=all` for cvc5 in single, first, agreement and restarted
-sessions. Unset/`stock` preserves stock behavior. This is an explicit selection,
-not version sniffing or proof that a binary contains patches; use the paired
-builder/validator for provenance. Enabling the profile on stock 1.3.4 or 1.2.1
-loses the forced-list countermodel, so these options are not unconditional.
-
-Keep `provenance.json`, command/build logs, CMake caches, and parity diagnostics
-with any result. Provenance records source/patch/tree pins, the builder's
-SHA-256, build flags, actual toolchain, and each resolved binary's full
-`--version`, `--show-config`, and locally measured SHA-256. These checks pin
-source inputs and identify outputs; **byte-for-byte reproducibility has not
-been established**. Parity covers four recovered solver regressions and the
-ten-case supported Lean corpus plus two repository qualifier counterexamples;
-the latter run only in the patched-profile lane and are decoded and checked
-against their Lean predicates. The author's exact reported six-case bundle
-has not been identified. A repository mapped-list candidate still returns
-unknown with the combined build; no original-six parity claim is made.
-
-When [upstream PR 12951](https://github.com/cvc5/cvc5/pull/12951) reaches a
-release, verify that the release commit contains that fix **and** the separate
-PR 2 fix (or their reviewed equivalents). Then update the source/release pins
-and recorded provenance, rerun the same paired regressions and Lean evidence
-without weakening assertions, and only then switch the installation and CI
-to the verified release. No current release is asserted to contain this
-two-patch series.
-
 ## How to use?
 
 In order to use Blaster, your project needs to depend on `lean-blaster`.
@@ -217,8 +140,8 @@ require «Blaster» from git
 ### Solver options
   - `timeout`: timeout in seconds for the backend solver. Precedence is the explicit
                option, then `BLASTER_TIMEOUT`, then no timeout (∞). Surrounding
-               whitespace is ignored; an unset or blank environment value, or
-               `0`, means unlimited search. Other values must be natural numbers.
+               whitespace is ignored; an unset or blank environment value means ∞,
+               and any other environment value must be a natural number.
   - `verbose:` activating debug info (default: 0)
   - `only-smt-lib`: only translating unsolved goals to smt-lib without invoking the backend solver (default: 0)
   - `only-optimize`: only perform optimization on lean specification and do not translate to smt-lib (default: 0)
@@ -249,21 +172,19 @@ selection:
 
 `first` treats only `Valid` and `Falsified` as decisive. `Undetermined`, a
 Blaster-side deadline, a process failure, or a protocol failure cannot beat a
-still-running solver. Startup, declaration, and assertion failures retire that
-backend while a healthy backend remains usable. A later incremental check may
-recreate the retired session and replay the canonical query. When no
+still-running solver. If a backend rejects a later declaration/assertion, that
+session is retired and the healthy backend remains usable; a later incremental
+check may recreate the retired session and replay the canonical query. When no
 backend decides, ordinary `Undetermined` is returned only if both backends
 returned `unknown`; infrastructure failures remain visible errors.
 
-After selecting a decisive verdict, Blaster locks the winner and stops/reaps
-losers **before** requesting optional counterexample evidence. Model quality
-cannot change that winner. The winning session remains available for later
-incremental checks unless its transport fails; the enclosing owner closes it
-on completion, failure, or cancellation. Model failure preserves `Falsified`
-and marks the evidence incomplete. The winner is printed at `verbose: 2` or higher.
+After a winning `Falsified` verdict, Blaster retrieves that solver's
+counterexample while the loser is still alive, then kills and reaps the loser.
+Model retrieval failure does not erase `Falsified`; it emits a precise
+counterexample-unavailable diagnostic. The winning backend is printed only at
+maintenance verbosity (`verbose: 2` or higher).
 
-`agree` compares verdicts **before** requesting models. A known infrastructure
-failure stops the other session, even if its search limit is unlimited.
+`agree` compares verdicts, not model text:
 
 | Z3 | cvc5 | Result |
 |---|---|---|
@@ -281,12 +202,12 @@ only as the tie-breaker between equal-quality candidates. A complete cvc5
 counterexample therefore outranks a partial Z3 counterexample; the Z3 model
 diagnostic is still retained.
 
-Disagreements, agreement infrastructure failures, incomplete model evidence,
-and owner cancellation retain collision-safe `.blaster/agreement-*`
-directories. Each contains a runnable transcript for every backend reached
-and `summary.txt` with the current query, version, invocation, verdict/status,
-failed stage/command, stdout, bounded stderr, and raw model responses.
-Old artifacts are not removed by the Make targets.
+Every hard/incomplete disagreement, infrastructure failure, or incomplete
+model step writes `.blaster/agreement-*`. Each directory contains deterministic
+`z3.smt2` and `cvc5.smt2` transcripts for the exact current check plus
+`summary.txt` with solver version, invocation, verdict, status, elapsed time,
+configured timeout, failed stage/command, stdout, stderr, and raw model
+responses.
 
 The `timeout`/`BLASTER_TIMEOUT` value is translated to each backend's native
 option and enforced independently for each check. After that native deadline,
@@ -297,38 +218,12 @@ kills, and reaps that session and produces a structured `timedOut` status. In
 failure; in `single` it is a visible solver failure. A solver's ordinary
 `unknown` response remains `Undetermined` and is not inferred to be a timeout.
 
-Concurrent modes request both backends. `agree` requires both and never falls
-back to first-result or single-solver policy. `first` may use a healthy backend
-after recording its peer's failure. Single mode probes and starts only the
-selected backend. There is no mode environment variable. Combining an explicit
-`solver:` with `first`/`agree`, or `only-smt-lib` with either concurrent mode,
-is rejected. `only-optimize` starts no solver.
+Concurrent modes always require supported Z3 and cvc5 binaries at startup.
+There is no mode environment variable and no single-solver fallback. Combining
+an explicit `solver:` with `first`/`agree` is rejected, as is combining
+`only-smt-lib` with a concurrent mode. `only-optimize` starts no solver.
 Random-seed options are translated independently for both backends.
 `gen-cex: 0` skips model retrieval.
-
-Transport limits are independent of solver-search limits, including unlimited
-search. All use monotonic absolute deadlines:
-
-| Operation | Budget |
-|---|---|
-| Standalone version probe | 5 s |
-| Complete discovery, setup, and canonical replay for one backend | 30 s shared across all commands |
-| Each command write and acknowledgement | 5 s shared, capped by its enclosing phase deadline |
-| Evidence for one backend, including all queried variables | 2 s shared; agreement may collect both backends |
-| Graceful shutdown / TERM | 100 ms each, then hard stop and joins |
-
-Stderr is drained from startup, separately from the stdout protocol, retaining
-at most 64 KiB with an explicit truncation marker. On POSIX, every production
-and test solver owns a new process group. Cleanup signals the group, reaps its
-direct child once, and joins registered readers/writers and the stderr drain;
-repeated cleanup shares the same completion. Optimizer exceptions use this
-same lifecycle.
-
-Process-group containment cannot cover descendants that leave the group
-(`setpgid`/`setsid`), WSL's foreign process tree, or uninterruptible kernel waits.
-Native Windows retains direct-child termination, not descendant containment;
-Windows/WSL cleanup has not been validated here. Cleanup does not abandon a
-blocked task to manufacture a successful timeout.
 
 Examples:
 
@@ -512,13 +407,12 @@ literals, and `List`/`Prod` values use Lean's `[x, y]` and `(x, y)` notations.
 Verdicts, evidence, and infrastructure status are separate:
 
 - **The solver produced a value with no Lean counterpart** — e.g.
-  uninterpreted-sort elements or function values. Blaster retains the raw term,
-  labels the display `<unsupported SMT value: …>`, and marks evidence incomplete;
-  it does not invent a Lean value or change `Falsified`.
+  uninterpreted-sort elements or function values. Blaster displays the raw
+  SMT term. This is a rendering fallback, not a missing model.
 - **Model retrieval or rendering failed after `sat`** — the result remains
   `Falsified`. Blaster reports that counterexample evidence is unavailable and
   retains the exact model command and raw response in level-3 diagnostics
-  and saved evidence artifacts. A per-variable failure is displayed as
+  (and agreement artifacts). A per-variable failure is displayed as
   `<counterexample unavailable>`.
 - **The solver answered `unknown`** — no model command is sent; the verdict is
   `Undetermined`.
@@ -710,8 +604,8 @@ Known display-rendering limitations, common to both solvers:
   `(get-value ...)` command and are currently absent from rendered evidence;
 - function-typed variables and abstracted `Type` parameters are modeled by
   SMT arrays/lambdas and uninterpreted-sort elements, which have no Lean
-  counterpart; raw terms are retained and explicitly marked unsupported
-  (e.g. z3's `U!val!0`, cvc5's `@U_0`). These are not complete usable values.
+  counterpart and are displayed as raw solver terms
+  (e.g. z3's `U!val!0`, cvc5's `@U_0`).
 
 </details>
 

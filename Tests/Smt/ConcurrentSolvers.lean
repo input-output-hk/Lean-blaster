@@ -57,8 +57,8 @@ instance counter : StateMachine Int Int where
   assumptions input _ := 0 ≤ input
   invariants _ state := 0 ≤ state
 
--- Real-solver smoke coverage; deterministic restart/winner and replay assertions
--- live in ConcurrentDump's handshake-gated subprocess regressions.
+-- Repeated `check-sat-assuming` calls force first mode to restart a retired
+-- loser and replay the same retained canonical query without retranslating.
 #bmc (solver-mode: first) (max-depth: 2) [counter]
 
 -- Agreement mode keeps both incremental sessions live across depths.

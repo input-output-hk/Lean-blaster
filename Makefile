@@ -1,8 +1,5 @@
 .PHONY: usage
 
-SHELL := /bin/bash -o pipefail
-BUILD_LOG = 2>&1 | tee -a build.log
-
 BLASTER_TIMEOUT ?= 30
 CVC5_FLOOR_VERSION ?= 1.2.1
 
@@ -24,7 +21,7 @@ usage:
 
 .PHONY: build_blaster
 build_blaster:
-	lake build Blaster $(BUILD_LOG)
+	lake build Blaster
 
 .PHONY: clean_blaster
 clean_blaster:
@@ -37,28 +34,29 @@ check_blaster: clean_blaster
 .PHONY: test-pure
 test-pure:
 	rm -rf .lake/build/lib/lean/Tests .lake/build/ir/Tests
-	env -u BLASTER_SOLVER -u BLASTER_TIMEOUT -u BLASTER_STRICT_CVC5_RESULTS LEAN_NUM_THREADS=5 lake build Tests.Pure $(BUILD_LOG)
+	env -u BLASTER_SOLVER -u BLASTER_TIMEOUT -u BLASTER_STRICT_CVC5_RESULTS LEAN_NUM_THREADS=5 lake build Tests.Pure
 
 .PHONY: test-z3
 test-z3:
 	rm -rf .lake/build/lib/lean/Tests .lake/build/ir/Tests
-	BLASTER_SOLVER=z3 BLASTER_TIMEOUT=$(BLASTER_TIMEOUT) BLASTER_STRICT_CVC5_RESULTS=0 LEAN_NUM_THREADS=5 lake build Tests.Z3 $(BUILD_LOG)
+	BLASTER_SOLVER=z3 BLASTER_TIMEOUT=$(BLASTER_TIMEOUT) BLASTER_STRICT_CVC5_RESULTS=0 LEAN_NUM_THREADS=5 lake build Tests.Z3
 
 .PHONY: test-cvc5
 test-cvc5:
 	rm -rf .lake/build/lib/lean/Tests .lake/build/ir/Tests
-	BLASTER_SOLVER=cvc5 BLASTER_TIMEOUT=$(BLASTER_TIMEOUT) BLASTER_STRICT_CVC5_RESULTS=1 LEAN_NUM_THREADS=5 lake build Tests.Cvc5 $(BUILD_LOG)
+	BLASTER_SOLVER=cvc5 BLASTER_TIMEOUT=$(BLASTER_TIMEOUT) BLASTER_STRICT_CVC5_RESULTS=1 LEAN_NUM_THREADS=5 lake build Tests.Cvc5
 
 .PHONY: test-cvc5-floor
 test-cvc5-floor:
 	rm -rf .lake/build/lib/lean/Tests .lake/build/ir/Tests
-	{ cvc5 --version | head -1 | grep -F "version $(CVC5_FLOOR_VERSION) ["; } $(BUILD_LOG)
-	env -u BLASTER_TIMEOUT BLASTER_SOLVER=cvc5 BLASTER_STRICT_CVC5_RESULTS=1 lake exe solvercheck cvc5 $(BUILD_LOG)
-	env -u BLASTER_TIMEOUT BLASTER_SOLVER=cvc5 BLASTER_STRICT_CVC5_RESULTS=1 LEAN_NUM_THREADS=5 lake build Tests.Smt.Cvc5Floor $(BUILD_LOG)
+	cvc5 --version | head -1 | grep -F "version $(CVC5_FLOOR_VERSION) ["
+	env -u BLASTER_TIMEOUT BLASTER_SOLVER=cvc5 BLASTER_STRICT_CVC5_RESULTS=1 lake exe solvercheck cvc5
+	env -u BLASTER_TIMEOUT BLASTER_SOLVER=cvc5 BLASTER_STRICT_CVC5_RESULTS=1 LEAN_NUM_THREADS=5 lake build Tests.Smt.Cvc5Floor
 
 .PHONY: test-all-solvers
 test-all-solvers:
 	rm -rf .lake/build/lib/lean/Tests .lake/build/ir/Tests
+	rm -rf .blaster/agreement-*
 	env -u BLASTER_SOLVER BLASTER_TIMEOUT=$(BLASTER_TIMEOUT) BLASTER_STRICT_CVC5_RESULTS=1 LEAN_NUM_THREADS=5 LEAN_PROJECT_EXCLUDE_MODULES=Tests.Smt.CounterexampleSpike ./scripts/check_lean_project_compilation.sh Tests Tests.AllSolvers
 
 .PHONY: build_tests
