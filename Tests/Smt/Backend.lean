@@ -1,4 +1,5 @@
 import Tests.Smt.Benchmarks
+import Tests.Smt.ModelCorpus
 import Tests.Smt.SmtEqArith
 import Tests.Smt.SmtLtArith
 import Tests.Smt.SmtMatch

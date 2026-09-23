@@ -33,9 +33,8 @@ def sizeOfNatGroup (x : NatGroup) : Nat :=
 
 #blaster (timeout: 10) (cvc5-allow-undetermined: 1) [∃ (x : NatGroup), sizeOfNatGroup x < 20]
 
--- Expecting a counterexample
--- Remove solver options when supporting proof by induction
-#blaster (timeout: 2) (solve-result: 2) [∃ (x : NatGroup), sizeOfNatGroup x < 10]
+-- Every constructor has size at least ten. Unknown is allowed, but Valid is unsound.
+#blaster (timeout: 2) (solve-result: 1) (cvc5-allow-undetermined: 1) [∃ (x : NatGroup), sizeOfNatGroup x < 10]
 
 
 end Tests.Issue17

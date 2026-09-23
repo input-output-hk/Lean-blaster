@@ -1,0 +1,114 @@
+{
+  "description": "Real matched-base/patched/Z3 solver responses. Four upstream solver regressions and two recovered Lean qualifier cases; no attribution to the unavailable exact six-case validation bundle. Binary hashes identify local capture outputs only.",
+  "base": "67954d09dcc955eba282155766cf452fc0ff1bd6",
+  "patched_tree": "05793707126cfbc003fc613d3ff335dc9b103740",
+  "binaries": {
+    "control": {
+      "sha256": "16f0e3e31bbedaed7e39378bb0cb68c0b98e2d3a23eeb33d371ce48db3b04f6c",
+      "version_banner": "cvc5 1.3.5.dev+HEAD@67954d0 [git 67954d0 on branch HEAD]"
+    },
+    "patched": {
+      "sha256": "232e538a0a3e9c76813b5d6bb4a098e45f848ac558f310431d096bcab7ccf83b",
+      "version_banner": "cvc5 1.3.5.dev+HEAD@67954d0-modified [git 67954d0 on branch HEAD with local modifications]"
+    }
+  },
+  "z3": {
+    "source": "https://github.com/Z3Prover/z3/releases/download/z3-4.15.2/z3-4.15.2-arm64-osx-13.7.6.zip",
+    "authoritative_archive_digest": "sha256:fdc797b046a8b1e030200d30c4c32724fc01be359c3ab88a47ce03655cf6efa4",
+    "binary_sha256": "b8c06968b96f7b485382746cb8a956e131423ddd8be54ccdaed88b1466f5fc35",
+    "version": "Z3 version 4.15.2 - 64 bit\n"
+  },
+  "cases": {
+    "rec-alias-preprocess": {
+      "source": "https://github.com/RSoulatIOHK/cvc5/blob/6eaca4bf1303a69c2c3aaddc0e50b1bf7d3df6e7/test/regress/cli/regress0/fmf/rec-alias-preprocess.smt2",
+      "query_sha256": "b97ec840dfa3b7da77575652c78a26baf0e648a40eabad17614aba8600ebc8ab",
+      "patched_stdout": "sat\n((witness (leaf 0)) ((valid witness) true) ((validRec witness) true))\nunsat\nsat\n",
+      "control_stdout": "unknown\n((witness (leaf 0)) ((valid witness) true) ((validRec witness) true))\nunsat\nunknown\n",
+      "z3_stdout": "sat\n((witness (leaf 0))\n ((valid witness) true)\n ((validRec witness) true))\nunsat\nsat\n"
+    },
+    "macros-ground-argument": {
+      "source": "https://github.com/RSoulatIOHK/cvc5/blob/18ed35b885c1655520e2ffe9d1c143017ce907d9/test/regress/cli/regress0/quantifiers/macros-ground-argument.smt2",
+      "query_sha256": "56e24d864082d1364b3634499b89e69d1b4b109cb5780df43a7189dc80335ac6",
+      "patched_stdout": "sat\n(((apply identity 17) 17) ((apply other 17) 99))\nunsat\nsat\n",
+      "control_stdout": "unknown\n(((apply identity 17) 0) ((apply other 17) 99))\nunsat\nunknown\n",
+      "z3_stdout": "sat\n(((apply identity 17) 17)\n ((apply other 17) 99))\nunsat\nsat\n"
+    },
+    "macros-ground-full-core": {
+      "source": "https://github.com/RSoulatIOHK/cvc5/blob/18ed35b885c1655520e2ffe9d1c143017ce907d9/test/regress/cli/regress0/quantifiers/macros-ground-full-core.smt2",
+      "query_sha256": "5029aa5eae618c44f6c95beb49d6041b7d9691e95d1052b7a530a6ffaa203b87",
+      "patched_stdout": "sat\n(((f 0 7) 8) ((g 7) 8))\nunsat\nsat\n",
+      "control_stdout": "unknown\n(((f 0 7) 0) ((g 7) 8))\nunsat\nunknown\n",
+      "z3_stdout": "sat\n(((f 0 7) 8)\n ((g 7) 8))\nunsat\nsat\n"
+    },
+    "macros-ground-multiple-arguments": {
+      "source": "https://github.com/RSoulatIOHK/cvc5/blob/18ed35b885c1655520e2ffe9d1c143017ce907d9/test/regress/cli/regress0/quantifiers/macros-ground-multiple-arguments.smt2",
+      "query_sha256": "cf1c76a2ea220740f0d459365efd564de54ec196e6cc7c3802648b527fbc130e",
+      "patched_stdout": "sat\n(((f 3 5 true 2) 205) ((f 4 5 true 2) 99) ((f 3 5 false 2) 88))\nunsat\nsat\n",
+      "control_stdout": "unknown\n(((f 3 5 true 2) 88) ((f 4 5 true 2) 99) ((f 3 5 false 2) 88))\nunsat\nunknown\n",
+      "z3_stdout": "sat\n(((f 3 5 true 2) 205)\n ((f 4 5 true 2) 99)\n ((f 3 5 false 2) 88))\nunsat\nsat\n"
+    }
+  },
+  "recipe_sha256": "820b1b3e4caca0431f62f6a5a955eb85dbc2f19eca086ee900171122da433adb",
+  "lean_cases": {
+    "natgroup-first": {
+      "source": "Tests/Smt/SmtPredQualifier.lean:128-129",
+      "validation": "Decode the dependent NatGroup constructor, reconstruct its proofs from numeric bounds, and evaluate the original false Lean predicate.",
+      "control": {
+        "values": [],
+        "verdict": "unknown",
+        "raw_model_responses": [],
+        "query_sha256": "1ac2c090040ffeee349b2cecbc2f46cf3420bef4db566544e947d289c7374622"
+      },
+      "patched": {
+        "values": [
+          "x: Test.ModelCorpus.NatGroup.first 10 true true"
+        ],
+        "verdict": "falsified",
+        "raw_model_responses": [
+          "(($0 (Test.ModelCorpus.NatGroup.first 10 true true)))\n"
+        ],
+        "query_sha256": "70c5f6f9555f3628eaa9b6a29211c2db561abdeb8adba4ce168ad8d4d758b2f2"
+      },
+      "z3": {
+        "values": [
+          "x: Test.ModelCorpus.NatGroup.first 10 true true"
+        ],
+        "verdict": "falsified",
+        "raw_model_responses": [
+          "(($0 (Test.ModelCorpus.NatGroup.first 10 true true)))\n"
+        ],
+        "query_sha256": "66c9094833f839205561f4c223a4f278ac7dc40db10077ca9446653957f1d312"
+      }
+    },
+    "natgroup-second": {
+      "source": "Tests/Smt/SmtPredQualifier.lean:131-132",
+      "validation": "Decode the dependent NatGroup constructor, reconstruct its proofs from numeric bounds, and evaluate the original false Lean predicate.",
+      "control": {
+        "values": [],
+        "verdict": "unknown",
+        "raw_model_responses": [],
+        "query_sha256": "4b5cd31b44d2a405894dfb1706b5e5b57493f5509e90acff3cb0cd1b1459ef55"
+      },
+      "patched": {
+        "values": [
+          "x: Test.ModelCorpus.NatGroup.second 101 true true"
+        ],
+        "verdict": "falsified",
+        "raw_model_responses": [
+          "(($0 (Test.ModelCorpus.NatGroup.second 101 true true)))\n"
+        ],
+        "query_sha256": "be9e8fa97016fb6bf23cd49f2ed33cc96a6f7ec3be096dce130f8370ac8925f3"
+      },
+      "z3": {
+        "values": [
+          "x: Test.ModelCorpus.NatGroup.second 101 true true"
+        ],
+        "verdict": "falsified",
+        "raw_model_responses": [
+          "(($0 (Test.ModelCorpus.NatGroup.second 101 true true)))\n"
+        ],
+        "query_sha256": "140ab592f7b9cbf286c6c385963f03c869a7b2c62ce7553e33c637f1bda87808"
+      }
+    }
+  }
+}

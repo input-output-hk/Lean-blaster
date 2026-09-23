@@ -3,6 +3,7 @@ import Blaster.Optimize.Expr
 import Blaster.Optimize.MatchInfo
 import Blaster.Optimize.Opaque
 import Blaster.Smt.Term
+import Blaster.Smt.Process
 import Blaster.Command.Options
 
 open Lean Meta Blaster.Smt Blaster.Options
@@ -340,14 +341,11 @@ abbrev TopLevelVars := Array (List (SmtSymbol × Lean.Name))
 
 abbrev ConversionFunCache := Std.HashMap (SortExpr × SortExpr) SmtSymbol
 
-/-- Child-process shape used by every SMT backend session. -/
-abbrev PipedChild := IO.Process.Child ⟨.piped, .piped, .piped⟩
-
 /-- One independently owned solver process. Removing a session from
     `SmtEnv.sessions` transfers sole cleanup responsibility to the remover. -/
 structure SolverSession where
   solver : SmtSolver
-  process : PipedChild
+  process : OwnedProcess
 
 /-- Persistent launch, per-check transcript, and failure data retained after a
     child is retired. Per-check fields are reset when a new check starts. -/
@@ -380,10 +378,6 @@ structure SmtEnv where
 
   /-- Solver processes currently owned by this environment. -/
   sessions : Array SolverSession
-
-  /-- Temporary output target used only while serializing one command. The
-      owning process remains in `sessions`. -/
-  emitProc : Option PipedChild
 
   /-- Backends selected for this run, in deterministic policy order. -/
   configuredSolvers : Array SmtSolver
@@ -498,7 +492,6 @@ instance : Inhabited SmtEnv where
    { translateCache := Std.HashMap.emptyWithCapacity,
      smtCommands := Array.mkEmpty 1023,
      sessions := #[],
-     emitProc := none,
      configuredSolvers := #[],
      singleSolver := none,
      solverRecords := #[],
@@ -540,28 +533,25 @@ instance : MonadMCtx TranslateEnvT where
   getMCtx := getMCtx'
   modifyMCtx f := modifyMCtx' f
 
+/-- Join the IO owner and retain only the latest child's bounded diagnostics. -/
+def cleanupOwnedSession (session : SolverSession) (hard : Bool) : TranslateEnvT String := do
+  let stderr ← session.process.cleanup hard
+  modify fun env =>
+    { env with smtEnv.solverRecords := env.smtEnv.solverRecords.map fun record =>
+        if record.solver == session.solver then
+          { record with stderr := if stderr.isEmpty then #[] else #[stderr] }
+        else record }
+  if (← get).optEnv.options.solverOptions.verbose ≥ 3 then
+    try
+      IO.println s!"[blaster diagnostic] solver={session.solver}; stage=session cleanup; stderr={if stderr.isEmpty then "<empty>" else stderr}"
+    catch _ => pure ()
+  return stderr
+
 protected def throwEnvError (msg : MessageData) : TranslateEnvT α := do
-  -- Retire ownership before touching a child. Any nested owner/finalizer then
-  -- observes an empty session set and cannot kill or reap the same process.
   let sessions := (← get).smtEnv.sessions
-  modify fun env => { env with smtEnv.sessions := #[], smtEnv.emitProc := none }
   for session in sessions do
-    let p := session.process
-    let alreadyExited ←
-      try p.tryWait
-      catch _ => pure none
-    if alreadyExited.isNone then
-      try p.kill catch _ => pure ()
-      try discard p.wait catch _ => pure ()
-    let stderr ←
-      try p.stderr.readToEnd
-      catch _ => pure ""
-    unless stderr.trim.isEmpty do
-      modify fun env =>
-        { env with smtEnv.solverRecords := env.smtEnv.solverRecords.map fun record =>
-            if record.solver == session.solver then
-              { record with stderr := record.stderr.push stderr.trim }
-            else record }
+    discard <| cleanupOwnedSession session true
+  modify fun env => { env with smtEnv.sessions := #[] }
   throwError msg
 
 /-- macro `throwEnvError` to avoid applying format on msg before throwEnvError is called -/

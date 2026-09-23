@@ -22,17 +22,14 @@ namespace Test.SmtNatPow
 
 #blaster [∀ (x : Nat), 0 < x → 0^x = 0]
 
--- NOTE: remove solve option when induction schema implemented
-#blaster (timeout: 5) (solve-result: 2) [(∀ (x y : Nat), x ≤ y → ∀ (i : Nat), x^i ≤ y^i)]
+-- These true induction laws may be proved by stronger backends; a counterexample is always wrong.
+#blaster (timeout: 5) (cvc5-allow-undetermined: 1) [(∀ (x y : Nat), x ≤ y → ∀ (i : Nat), x^i ≤ y^i)]
 
--- NOTE: remove solve option when induction schema implemented
-#blaster (timeout: 5) (solve-result: 2) [∀ (x y : Nat), 0 < x → 0 < x^y]
+#blaster (timeout: 5) (cvc5-allow-undetermined: 1) [∀ (x y : Nat), 0 < x → 0 < x^y]
 
--- NOTE: remove solve option when induction schema implemented
-#blaster (timeout: 5) (solve-result: 2) [∀ (x : Nat), 0 < 2^x]
+#blaster (timeout: 5) (cvc5-allow-undetermined: 1) [∀ (x : Nat), 0 < 2^x]
 
--- NOTE: remove solve option when induction schema implemented
-#blaster (timeout: 5) (solve-result: 2) [∀ (x : Nat), 2^(x + x) = 2^x * 2^x]
+#blaster (timeout: 5) (cvc5-allow-undetermined: 1) [∀ (x : Nat), 2^(x + x) = 2^x * 2^x]
 
 /-! # Test cases to ensure that counterexample are properly detected -/
 

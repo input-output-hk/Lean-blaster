@@ -65,8 +65,8 @@ private def strictTacticIntegrationGuard : IO Unit :=
     handle.putStr strictTacticIntegrationSource
     handle.flush
     let output ← IO.Process.output {
-      cmd := (← IO.appPath).toString
-      args := #[path.toString]
+      cmd := "lake"
+      args := #["lean", path.toString]
       env := #[("BLASTER_STRICT_CVC5_RESULTS", some "1")]
     }
     unless output.exitCode == 0 do

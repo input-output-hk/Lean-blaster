@@ -1,36 +1,28 @@
 import Lean
-import Blaster.Optimize.Env
+import Blaster.Smt.Term
 
-open Blaster.Optimize
 
 namespace Blaster.Smt
 
-@[always_inline, inline]
-def getProcStdIn : TranslateEnvT (IO.FS.Handle) := do
-  let some p := (← get).smtEnv.emitProc |
-    throwEnvError "getProcStdIn: no active solver emission target"
-  return p.stdin
+abbrev EmitM := ReaderT IO.FS.Handle (StateT (Std.HashMap SmtSymbol String) IO)
 
-
-def updateSymbolCache (s : SmtSymbol) (rep : String) : TranslateEnvT Unit := do
-  modify (fun env => { env with smtEnv.symbolStrCache :=
-                                env.smtEnv.symbolStrCache.insert s rep })
+private def getProcStdIn : EmitM IO.FS.Handle := read
 
 @[always_inline, inline]
-def withSymbolCache (s : SmtSymbol) : TranslateEnvT String := do
-  match (← get).smtEnv.symbolStrCache.get? s with
+def withSymbolCache (s : SmtSymbol) : EmitM String := do
+  match (← get).get? s with
   | some rep => return rep
   | none =>
      let rep := s.toString
-     updateSymbolCache s rep
+     modify (·.insert s rep)
      return rep
 
 
-def SmtSymbol.emit (s : SmtSymbol) : TranslateEnvT Unit := do
+def SmtSymbol.emit (s : SmtSymbol) : EmitM Unit := do
   let h ← getProcStdIn
   h.putStr (← withSymbolCache s)
 
-partial def SortExpr.emit (e : SortExpr) : TranslateEnvT Unit := do
+partial def SortExpr.emit (e : SortExpr) : EmitM Unit := do
   let h ← getProcStdIn
   match e with
   | .SymbolSort nm => nm.emit
@@ -43,7 +35,7 @@ partial def SortExpr.emit (e : SortExpr) : TranslateEnvT Unit := do
          a.emit) ps
        h.putStr ")"
 
-def SortedVars.emit (sv : SortedVars) : TranslateEnvT Unit := do
+def SortedVars.emit (sv : SortedVars) : EmitM Unit := do
   let h ← getProcStdIn
   Array.forM
     (λ a => do
@@ -54,7 +46,7 @@ def SortedVars.emit (sv : SortedVars) : TranslateEnvT Unit := do
         h.putStr ")"
     ) sv
 
-def SmtQualifiedIdent.emit (id : SmtQualifiedIdent) : TranslateEnvT Unit := do
+def SmtQualifiedIdent.emit (id : SmtQualifiedIdent) : EmitM Unit := do
   match id with
   | .SimpleIdent nm => nm.emit
   | .QualifiedIdent nm t =>
@@ -67,7 +59,7 @@ def SmtQualifiedIdent.emit (id : SmtQualifiedIdent) : TranslateEnvT Unit := do
 
 
 mutual
-partial def ArraySmtTerm.emit (terms : Array SmtTerm) : TranslateEnvT Unit := do
+partial def ArraySmtTerm.emit (terms : Array SmtTerm) : EmitM Unit := do
    let h ← getProcStdIn
    Array.forM
      (λ a => do
@@ -75,7 +67,7 @@ partial def ArraySmtTerm.emit (terms : Array SmtTerm) : TranslateEnvT Unit := do
        a.emit
      ) terms
 
-partial def SmtAttribute.emit (a : SmtAttribute) : TranslateEnvT Unit := do
+partial def SmtAttribute.emit (a : SmtAttribute) : EmitM Unit := do
   let h ← getProcStdIn
   match a with
   | .Named n =>
@@ -89,7 +81,7 @@ partial def SmtAttribute.emit (a : SmtAttribute) : TranslateEnvT Unit := do
          h.putStr ":qid "
          n.emit
 
-partial def SmtTerm.emit (e : SmtTerm) : TranslateEnvT Unit := do
+partial def SmtTerm.emit (e : SmtTerm) : EmitM Unit := do
    let h ← getProcStdIn
    match e with
    | .NumTerm v => h.putStr s!"{v}"
@@ -149,7 +141,7 @@ partial def SmtTerm.emit (e : SmtTerm) : TranslateEnvT Unit := do
 end
 
 
-def SmtSelector.emit (s : SmtSelector) : TranslateEnvT Unit := do
+def SmtSelector.emit (s : SmtSelector) : EmitM Unit := do
   let h ← getProcStdIn
   h.putStr "("
   s.1.emit
@@ -158,7 +150,7 @@ def SmtSelector.emit (s : SmtSelector) : TranslateEnvT Unit := do
   h.putStr ")"
 
 
-def SmtConstructorDecl.emit (decl : SmtConstructorDecl) : TranslateEnvT Unit := do
+def SmtConstructorDecl.emit (decl : SmtConstructorDecl) : EmitM Unit := do
   let h ← getProcStdIn
   h.putStr "("
   decl.1.emit
@@ -167,7 +159,7 @@ def SmtConstructorDecl.emit (decl : SmtConstructorDecl) : TranslateEnvT Unit := 
   h.putStr ")\n"
 
   where
-    selectorsEmit (h : IO.FS.Handle) (sels : Option (Array SmtSelector)) : TranslateEnvT Unit := do
+    selectorsEmit (h : IO.FS.Handle) (sels : Option (Array SmtSelector)) : EmitM Unit := do
      match sels with
      | none => pure ()
      | some sel =>
@@ -177,7 +169,7 @@ def SmtConstructorDecl.emit (decl : SmtConstructorDecl) : TranslateEnvT Unit := 
              a.emit
            ) sel
 
-def SmtDatatypeDecl.emit (d : SmtDatatypeDecl) : TranslateEnvT Unit := do
+def SmtDatatypeDecl.emit (d : SmtDatatypeDecl) : EmitM Unit := do
   let h ← getProcStdIn
   match d.params with
   | none => ctorsEmit h d.ctors
@@ -193,7 +185,7 @@ def SmtDatatypeDecl.emit (d : SmtDatatypeDecl) : TranslateEnvT Unit := do
       h.putStr ")"
 
   where
-    ctorsEmit (h : IO.FS.Handle) (ctors : Array SmtConstructorDecl) : TranslateEnvT Unit := do
+    ctorsEmit (h : IO.FS.Handle) (ctors : Array SmtConstructorDecl) : EmitM Unit := do
       h.putStr "("
       Array.forM
         (λ d => do
@@ -202,14 +194,14 @@ def SmtDatatypeDecl.emit (d : SmtDatatypeDecl) : TranslateEnvT Unit := do
         ) ctors
       h.putStr ")"
 
-def SmtSortDecl.emit (d : SmtSortDecl) : TranslateEnvT Unit := do
+def SmtSortDecl.emit (d : SmtSortDecl) : EmitM Unit := do
   let h ← getProcStdIn
   h.putStr "("
   d.name.emit
   h.putStr s!" {d.arity})"
 
 
-def SmtFunDecl.emit (d : SmtFunDecl) : TranslateEnvT Unit := do
+def SmtFunDecl.emit (d : SmtFunDecl) : EmitM Unit := do
   let h ← getProcStdIn
   h.putStr "("
   d.name.emit
@@ -220,13 +212,13 @@ def SmtFunDecl.emit (d : SmtFunDecl) : TranslateEnvT Unit := do
   h.putStr ")"
 
 
-def SmtCommand.emit (c : SmtCommand) : TranslateEnvT Unit := do
+def SmtCommand.emit (c : SmtCommand) : EmitM Unit := do
   let h ← getProcStdIn
   emitAux h c
   h.flush
 
  where
-   sortArgsEmit (h : IO.FS.Handle) (nargs : Option (Array SmtSymbol)) : TranslateEnvT Unit := do
+   sortArgsEmit (h : IO.FS.Handle) (nargs : Option (Array SmtSymbol)) : EmitM Unit := do
      match nargs with
      | none => h.putStr "()"
      | some args =>
@@ -238,7 +230,7 @@ def SmtCommand.emit (c : SmtCommand) : TranslateEnvT Unit := do
            ) args
          h.putStr ")"
 
-   emitAux (h : IO.FS.Handle) (c : SmtCommand) : TranslateEnvT Unit := do
+   emitAux (h : IO.FS.Handle) (c : SmtCommand) : EmitM Unit := do
      match c with
      | .assertTerm t =>
           h.putStr "(assert "

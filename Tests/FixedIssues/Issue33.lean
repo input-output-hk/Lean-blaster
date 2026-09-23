@@ -21,9 +21,8 @@ namespace Tests.Issue33
 
 -- Real-world regression: the validator is true only when the threshold is
 -- zero and there are no verifiers. The universally quantified claim below is
--- false for every positive threshold. Z3 4.15.2 does not find its model within
--- the existing three-second limit, but it must never derive `Valid` from an
--- inconsistent background theory.
+-- false for every positive threshold. A correct countermodel is welcome;
+-- unknown is allowed under the limit, but Valid is always a soundness failure.
 structure Verifier where
   payment_key : Nat
   is_mandatory : Bool
@@ -55,7 +54,7 @@ def validate_signatures (verifier_config : VerifierConfig) (signatories : List N
 
   all_mandatory_signed && threshold_met
 
-#blaster (gen-cex: 0) (solve-result: 2) (timeout: 3)
+#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1) (timeout: 3)
   [∀ (transaction : List Nat) (n : Nat),
        validate_signatures (VerifierConfig.mk [] n) transaction = true]
 

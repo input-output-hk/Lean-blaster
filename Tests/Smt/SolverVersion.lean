@@ -28,6 +28,12 @@ open Blaster.Smt Blaster.Options
 #guard parseVersionNumbers "cvc5 version 1.2.1 [git abc on branch HEAD]" == some [1, 2, 1]
 -- Synthetic cvc5 dev/nightly fixture: parsing stops before the `-dev…` suffix
 #guard parseVersionNumbers "cvc5 version 1.3.5-dev.105.abcdef" == some [1, 3, 5]
+-- Captured source-build banner; the suffix separator is not a numeric component.
+#guard checkVersionBanner "1.2.1"
+  "cvc5 1.3.5.dev+HEAD@67954d09d-modified [git 67954d09d on branch HEAD with local modifications]" == .ok
+#guard checkVersionBanner "1.2.1" "cvc5 1.2.0.dev+HEAD" == .tooOld [1, 2, 0]
+#guard parseVersionNumbers "1.2..dev" == none
+#guard parseVersionNumbers "1.2." == none
 -- The version token may be preceded by arbitrary words
 #guard parseVersionNumbers "some solver wrapper reporting 9.8.7 here" == some [9, 8, 7]
 -- No dotted version anywhere → `none` (feeds the fail-closed policy below)

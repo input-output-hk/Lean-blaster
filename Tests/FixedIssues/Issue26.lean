@@ -35,36 +35,32 @@ theorem validProof {α : Type}[BEq α](v : α)(p : Path)(ls : List α)
  : check_valid_path v p ls == true -> List.elem v ls := by
    induction ls generalizing p <;> blaster
 
--- remove solver option once induction proof is supported
-#blaster (timeout: 5) (solve-result: 2) [validProof]
+-- Induction laws may be proved or remain unknown under the limit, never refuted.
+#blaster (timeout: 5) (cvc5-allow-undetermined: 1) [validProof]
 
 theorem getElem?_zipWith {f : α → β → γ} {i : Nat} :
     (List.zipWith f as bs)[i]? = match as[i]?, bs[i]? with
       | some a, some b => some (f a b) | _, _ => none := by
   induction as generalizing bs i <;> blaster (random-seed: 2)
 
--- remove solver option once induction proof is supported
-#blaster (timeout: 5) (solve-result: 2) [getElem?_zipWith]
+#blaster (timeout: 5) (cvc5-allow-undetermined: 1) [getElem?_zipWith]
 
 theorem getElem?_zipWith' {f : α → β → γ} {i : Nat} :
     (List.zipWith f l₁ l₂)[i]? = (l₁[i]?.map f).bind fun g => l₂[i]?.map g := by
   induction l₁ generalizing l₂ i <;> blaster
 
--- remove solver option once induction proof is supported
-#blaster (timeout: 5) (solve-result: 2) [getElem?_zipWith']
+#blaster (timeout: 5) (cvc5-allow-undetermined: 1) [getElem?_zipWith']
 
 theorem zipWith_map_left {l₁ : List α} {l₂ : List β} {f : α → α'} {g : α' → β → γ} :
     List.zipWith g (l₁.map f) l₂ = List.zipWith (fun a b => g (f a) b) l₁ l₂ := by
   induction l₁ generalizing l₂ <;> blaster
 
--- remove solver option once induction proof is supported
-#blaster (timeout: 5) (solve-result: 2) [zipWith_map_left]
+#blaster (timeout: 5) (cvc5-allow-undetermined: 1) [zipWith_map_left]
 
 theorem zipWith_foldr_eq_zip_foldr {f : α → β → γ} {i : δ} {g : γ → δ → δ} :
     (List.zipWith f l₁ l₂).foldr g i = (List.zip l₁ l₂).foldr (fun p r => g (f p.1 p.2) r) i := by
   induction l₁ generalizing l₂ <;> blaster
 
--- remove solver option once induction proof is supported
-#blaster (timeout: 5) (solve-result: 2) [zipWith_foldr_eq_zip_foldr]
+#blaster (timeout: 5) (cvc5-allow-undetermined: 1) [zipWith_foldr_eq_zip_foldr]
 
 end Tests.Issue26

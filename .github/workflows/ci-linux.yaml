@@ -148,9 +148,85 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload solver agreement artifacts
-        if: always() && matrix.tier == 'all-solvers'
+        if: always()
         uses: actions/upload-artifact@v6
         with:
           name: blaster-agreement-${{ matrix.tier }}
           path: .blaster/agreement-*
+          include-hidden-files: true
           if-no-files-found: ignore
+
+  patched-cvc5-parity:
+    name: pinned patched cvc5 parity
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    container:
+      # Official GCC 14.2.0 bookworm image, immutable Linux/amd64 manifest.
+      image: gcc:14.2.0-bookworm@sha256:82549aa8f90ada3236a8be70c74543132a76662ef33f0c3271ed802b81584a82
+    defaults:
+      run:
+        shell: bash
+    env:
+      CC: /usr/local/bin/gcc
+      CXX: /usr/local/bin/g++
+      CVC5_CI_IMAGE: gcc:14.2.0-bookworm@sha256:82549aa8f90ada3236a8be70c74543132a76662ef33f0c3271ed802b81584a82
+      CVC5_DEBIAN_SNAPSHOT: "20250522T000000Z"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install frozen build dependencies
+        run: |
+          mkdir -p .blaster/patched-ci/diagnostics
+          rm -f /etc/apt/sources.list /etc/apt/sources.list.d/*
+          printf '%s\n' \
+            "deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/${CVC5_DEBIAN_SNAPSHOT}/ bookworm main" \
+            > /etc/apt/sources.list
+          apt-get update 2>&1 | tee .blaster/patched-ci/diagnostics/apt-update.log
+          apt-get install -y --no-install-recommends \
+            cmake=3.25.1-1 ninja-build=1.11.1-2~deb12u1 \
+            python3=3.11.2-1+b1 python3-venv=3.11.2-1+b1 elan=1.4.2-5 \
+            pkg-config=1.8.1-1 patch=2.7.6-7 zstd=1.5.4+dfsg2-5 \
+            2>&1 | tee .blaster/patched-ci/diagnostics/apt-install.log
+          dpkg-query -W > .blaster/patched-ci/diagnostics/packages.txt
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Install repository-pinned Lean
+        run: |
+          elan toolchain install "$(cat lean-toolchain)"
+          elan --version
+          lake --version
+          lean --version
+
+      - name: Build pinned control and patched cvc5
+        run: |
+          python3 scripts/build_patched_cvc5.py \
+            --output .blaster/patched-ci/build --jobs 2 \
+            2>&1 | tee .blaster/patched-ci/diagnostics/build-driver.log
+
+      - name: Check recovered fixtures and Lean evidence against control
+        run: |
+          lake build Blaster
+          python3 scripts/check_cvc5_parity.py \
+            --control .blaster/patched-ci/build/control/build-parity/bin/cvc5 \
+            --patched .blaster/patched-ci/build/patched/build-parity/bin/cvc5 \
+            --provenance .blaster/patched-ci/build/provenance.json \
+            --output .blaster/patched-ci/parity \
+            2>&1 | tee .blaster/patched-ci/diagnostics/parity-driver.log
+
+      - name: Upload pinned build and parity diagnostics
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: pinned-patched-cvc5-parity
+          include-hidden-files: true
+          if-no-files-found: error
+          path: |
+            .blaster/patched-ci/diagnostics/
+            .blaster/patched-ci/parity/
+            .blaster/patched-ci/build/provenance.json
+            .blaster/patched-ci/build/commands.log
+            .blaster/patched-ci/build/logs/
+            .blaster/patched-ci/build/*.patch
+            .blaster/patched-ci/build/*-CMakeCache.txt
+            .blaster/patched-ci/build/*/build-parity/deps/src/*-stamp/*.log
