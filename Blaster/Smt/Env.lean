@@ -345,7 +345,7 @@ def ProbeOutcome.banner : ProbeOutcome → String
 /-- Verdict for one candidate probe: accept the candidate, or produce the
     human-readable rejection reason (one line of the discovery report).
     This is the single acceptance-policy point shared by solver discovery
-    (`findSolverCandidateAndVersion`) and the `solvercheck` executable. -/
+    (`findSolverExecutable`) and the `solvercheck` executable. -/
 def evalCandidateProbe (desc : SolverDescriptor) (candidate : SolverCandidate) :
     ProbeOutcome → Except String Unit
   | .failed err => .error s!"Candidate '{candidate.display}': IO error => {err}"

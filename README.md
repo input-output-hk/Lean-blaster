@@ -157,6 +157,9 @@ require «Blaster» from git
   - `gen-cex`: generate counterexample for falsified theorems (default: 1)
   - `solve-result`: specify the expected result from the #blaster command, i.e.,
                     0 for 'Valid', 1 for 'Falsified' and 2 for 'Undetermined'. (default: 0)
+  - `cvc5-allow-undetermined`: permit an ordinary `Undetermined` result in
+    single-cvc5 mode (default: 0). This does not permit process failures.
+    It does not apply to concurrent modes.
 
 
 #### Concurrent solver modes
@@ -201,6 +204,18 @@ partial evidence from a `modelFailed` step, then no evidence. Z3 precedes cvc5
 only as the tie-breaker between equal-quality candidates. A complete cvc5
 counterexample therefore outranks a partial Z3 counterexample; the Z3 model
 diagnostic is still retained.
+
+Blaster compares both verdicts before it requests model values. It does not
+request a model for a disagreement. If a check fails, `agree` stops the other
+session through the normal cleanup path. It does not wait for another verdict.
+Agreement does not add a checked-proof guarantee.
+
+Each optional `get-model` or `get-value` response read has a five-second limit.
+If that limit expires, Blaster stops the session and joins its response reader.
+It keeps `Falsified` and reports that counterexample details are incomplete.
+This limit starts after command submission. It does not limit submission,
+parsing, value expansion, or the total time for all model requests.
+Cleanup still uses the existing direct-child process handling.
 
 Every hard/incomplete disagreement, infrastructure failure, or incomplete
 model step writes `.blaster/agreement-*`. Each directory contains deterministic
