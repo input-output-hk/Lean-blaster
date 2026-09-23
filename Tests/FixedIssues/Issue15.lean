@@ -60,7 +60,7 @@ theorem thm4 : ∀ (f : FunRelThree) (x y : α) [LT α], x < y → f.f x < f.f y
   intros f x y h
   apply f.inv
 
-#blaster (dump-smt-lib: 1) [thm4]
+#blaster [thm4]
 
 /-- Same as thm4 but with non-polymorphic instantiations to force use of concrete LT definition -/
 theorem thm5 : ∀ (f : FunRelThree) (x y : Nat), f.f x ≤ f.f y → f.f y ≤ f.f x → f.f y = f.f x := by blaster
