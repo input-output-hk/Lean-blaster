@@ -29,7 +29,7 @@ Options:
   - `solver-mode`: `single` (default), `first` (first decisive result), or
                    `agree` (both verdicts must be compatible). `first` and
                    `agree` always require both Z3 and cvc5 and conflict with
-                   an explicit `solver`.
+                   an explicit `solver` or `only-smt-lib`.
   - `solve-result`: specify the expected result from the blaster tactic, i.e.,
                     0 for 'Valid', 1 for 'Falsified' and 2 for 'Undetermined'. (default: 0)
 Example: `blaster (timeout: 10) (verbose: 1)`

@@ -23,7 +23,8 @@ Options:
               (default: the `BLASTER_SOLVER` environment variable if defined, `z3` otherwise)
   - `solver-mode`: execution policy, i.e., `single`, `first`, or `agree`
                    (default: `single`)
-                   Concurrent modes require both backends and conflict with `solver`.
+                   Concurrent modes require both backends. They conflict with
+                   `solver` and `only-smt-lib`.
   - `gen-cex`: generate counterexample for falsified theorems (default: 1)
   - `solve-result`: specify the expected result from the #blaster command, i.e.,
                     0 for 'Valid', 1 for 'Falsified' and 2 for 'Undetermined'. (default: 0)
