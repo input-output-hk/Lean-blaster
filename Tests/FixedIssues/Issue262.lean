@@ -162,4 +162,11 @@ def example_opaque_cex :=  ∀ (d : DigestFour), digestFourSize d > 0
 #blaster (gen-cex: 0) (solve-result: 1) [example_opaque_cex]
 
 
+inductive Token where
+  | mk : Nat → Token
+
+axiom token_size : Nat → Token → Nat
+
+#blaster (gen-cex: 0) (solve-result: 1) [∀ n : Nat, token_size n (.mk n) > 0]
+
 end Tests.Issue262

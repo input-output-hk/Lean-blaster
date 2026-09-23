@@ -729,9 +729,8 @@ def generateUndeclaredFun
   let mut co_quantifiers ← genericArgsToSortedVars (← retrieveGenericArgs funTypes)
   let mut predCond := trueSmt
   for i in [:nbTypes] do
-    let idx := nbTypes - i - 1
     let st ← translateFunLambdaParamType funTypes[i]! termTranslator
-    let predAppX ← createPredQualifierAppAux xIds[idx]! funTypes[idx]!
+    let predAppX ← createPredQualifierAppAux xIds[i]! funTypes[i]!
     pargs := pargs.push st
     co_quantifiers := co_quantifiers.push (xsyms[i]!, st)
     predCond := andCond predCond predAppX
