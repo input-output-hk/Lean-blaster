@@ -1223,9 +1223,27 @@ private structure ModelEvidence where
   counterexample : List String := []
   diagnostic : Option String := none
 
+/-- Limit each optional model response read to five seconds. This does not
+    limit command submission, parsing, or value expansion. -/
+private def modelResponseTimeoutMs : Nat := 5000
+
+private partial def awaitModelResponse
+    (task : Task (Except IO.Error String)) (deadlineMs : Nat) :
+    TranslateEnvT (Option (Except IO.Error String)) := do
+  if ← cancellationRequested then
+    retireAllSessions true
+    let _ := task.get
+    throwInterruptException
+  if ← IO.hasFinished task then return some task.get
+  if (← IO.monoMsNow) ≥ deadlineMs then return none
+  IO.sleep 20
+  awaitModelResponse task deadlineMs
+
 private def requestModelResponse
     (session : SolverSession) (command : SmtCommand) (readResponse : IO String) :
     TranslateEnvT (Except String String) := do
+  if (← getSession? session.solver).isNone then
+    return .error s!"solver={session.solver}; model evidence is unavailable after session retirement"
   let startedMs ← IO.monoMsNow
   let commandText := toString command
   modifySolverRecord session.solver fun record =>
@@ -1237,8 +1255,16 @@ private def requestModelResponse
         retireFailedSession session "model command submission" command error startedMs
       return .error diagnostic
   | .ok () =>
+      let deadlineMs := (← IO.monoMsNow) + modelResponseTimeoutMs
       let responseTask ← IO.asTask readResponse Task.Priority.dedicated
-      match ← awaitTaskCancelable responseTask with
+      let some response ← awaitModelResponse responseTask deadlineMs
+        | let diagnostic ← retireFailedSession session "model response timeout" command
+            s!"response-read timeout={modelResponseTimeoutMs}ms" startedMs
+          -- Stop the child before joining the blocked reader. Do not leave a
+          -- reader task behind when optional evidence exceeds its limit.
+          let _ := responseTask.get
+          return .error diagnostic
+      match response with
       | .error error =>
           let diagnostic ←
             retireFailedSession session "model response" command (toString error) startedMs

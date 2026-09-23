@@ -126,9 +126,42 @@ private def testDisagreementBeforeModel (satSolver : SmtSolver) : MetaM Unit :=
       if ← (directory / (name ++ ".model")).pathExists then
         throwError "Agreement requested a model before reporting disagreement"
 
+private def testModelFailure (solver : SmtSolver) (values : Bool) (model : String) : MetaM Unit :=
+  inTempDirectory fun directory => do
+    let process ← spawnChild directory "solver" "sat" model
+    let sessions := #[{ solver, process }]
+    let (result, finalEnv) ← runCheck (environment .single sessions true values)
+      (directory / "solver.model") 7000
+    match result with
+    | .ok (.Falsified _) => pure ()
+    | other => throwError "Model failure lost Falsified ({solver}, values={values}): {reprStr other}"
+    let some record := finalEnv.smtEnv.solverRecords[0]? | throwError "Missing solver diagnostics"
+    let diagnostic := record.failureResponse.getD ""
+    unless contains diagnostic (if model == "stall" then "timeout" else if model == "eof" then "MODEL_FAILURE" else "raw response") do
+      throwError "Model failure lost its details: {diagnostic}"
+
+private def testAgreementModelTimeout (timedSolver : SmtSolver) : MetaM Unit :=
+  inTempDirectory fun directory => do
+    let z3 ← spawnChild directory "z3" "sat" (if timedSolver == .z3 then "stall" else "((x 42))")
+    let cvc5 ← spawnChild directory "cvc5" "sat" (if timedSolver == .cvc5 then "stall" else "((x 42))")
+    let sessions := #[{ solver := .z3, process := z3 }, { solver := .cvc5, process := cvc5 }]
+    let (result, _) ← runCheck (environment .agree sessions true true)
+      (directory / s!"{timedSolver}.model") 7000
+    match result with
+    | .ok (.Falsified ["x: 42"]) => pure ()
+    | other => throwError "Agreement lost the complete peer values: {reprStr other}"
+
 #eval testAgreementFailure .z3
 #eval testAgreementFailure .cvc5
 #eval testDisagreementBeforeModel .z3
 #eval testDisagreementBeforeModel .cvc5
+#eval testModelFailure .z3 false "stall"
+#eval testModelFailure .cvc5 true "stall"
+#eval testModelFailure .z3 true "stall"
+#eval testModelFailure .cvc5 false "stall"
+#eval testModelFailure .z3 false "eof"
+#eval testModelFailure .cvc5 true "not-a-value"
+#eval testAgreementModelTimeout .z3
+#eval testAgreementModelTimeout .cvc5
 
 end Test.ResponseLifecycle
