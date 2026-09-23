@@ -111,7 +111,24 @@ private def testAgreementFailure (failedSolver : SmtSolver) : MetaM Unit :=
           throwError "Agreement waited after {failedSolver} failed: {message}"
     | .ok result => throwError "Agreement accepted a failed solver: {reprStr result}"
 
+private def testDisagreementBeforeModel (satSolver : SmtSolver) : MetaM Unit :=
+  inTempDirectory fun directory => do
+    let z3 ← spawnChild directory "z3" (if satSolver == .z3 then "sat" else "unsat") "stall"
+    let cvc5 ← spawnChild directory "cvc5" (if satSolver == .cvc5 then "sat" else "unsat") "stall"
+    let sessions := #[{ solver := .z3, process := z3 }, { solver := .cvc5, process := cvc5 }]
+    let (result, _) ← runCheck (environment .agree sessions) (directory / "cvc5.check") 1500
+    match result with
+    | .error message =>
+        unless contains message "Hard solver disagreement" do
+          throwError "A model wait hid disagreement for {satSolver}: {message}"
+    | .ok result => throwError "Agreement accepted opposite verdicts: {reprStr result}"
+    for name in ["z3", "cvc5"] do
+      if ← (directory / (name ++ ".model")).pathExists then
+        throwError "Agreement requested a model before reporting disagreement"
+
 #eval testAgreementFailure .z3
 #eval testAgreementFailure .cvc5
+#eval testDisagreementBeforeModel .z3
+#eval testDisagreementBeforeModel .cvc5
 
 end Test.ResponseLifecycle
