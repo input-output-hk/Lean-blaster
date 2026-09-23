@@ -55,11 +55,33 @@ def setInPatternMatching (h : HashSet FVarId) : TranslateEnvT Unit := do
      - set `inPatternMatching` to s
 -/
 @[always_inline, inline]
-def withTranslatePattern (h : HashSet FVarId) (f: TranslateEnvT α) : TranslateEnvT α := do
+def withTranslatePattern (h : HashSet FVarId) (f : TranslateEnvT α) : TranslateEnvT α := do
   let s := (← get).smtEnv.options.inPatternMatching
   setInPatternMatching (s.union h)
   let t ← f
   setInPatternMatching s
+  return t
+
+/-- set optimize option `inRecFun` to `b`. -/
+def setInRecFun (b : Bool) : TranslateEnvT Unit := do
+  modify (fun env => {env with smtEnv.options.inRecFun := b })
+
+/-- Return `true` only when flag `inRecFun` is set -/
+def isInRecFun : TranslateEnvT Bool :=
+  return (← get).smtEnv.options.inRecFun
+
+/-- Perform the following actions:
+     - let b := (← get).smtEnv.options.inRecFun
+     - set `inRecFun` to `true`
+     - execute `f`
+     - set `inRecFun` back to b
+-/
+@[always_inline, inline]
+def withTranslateRecBody (f : TranslateEnvT α) : TranslateEnvT α := do
+  let b := (← get).smtEnv.options.inRecFun
+  setInRecFun true
+  let t ← f
+  setInRecFun b
   return t
 
 

@@ -18,6 +18,8 @@ theorem sort_unification_thm1 :
 #blaster [sort_unification_thm1]
 
 -- Counterexample expected as β has Type u while α has Type 1
+-- and we can't provide an instance for β. Therefore we can't derive
+-- false from the hypothesis.
 theorem sort_unification_thm2 :
   (∀ (x : β) (f : β → Nat), f x > 10) →
   (∀ (α : Type) (x : α) (f : α → Nat), f x > 10) := by sorry
@@ -35,14 +37,16 @@ theorem sort_unification_thm3 :
 
 #blaster [sort_unification_thm3]
 
--- Counterexample expected as β has Type u + 1 while α has Type v + 1
+-- Can be proved due to false hypothesis
 theorem sort_unification_thm4 :
   (∀ (β : Type u) (x : β) (f : β → Nat), f x > 10) →
-  (∀ (α : Type v) (x : α) (f : α → Nat), f x > 10) := by sorry
-   -- intro h1 α x f
-   -- apply h1 α x f can't apply h1
+  (∀ (α : Type v) (x : α) (f : α → Nat), f x > 10) := by
+   intro h1 α x f
+   have h2 := h1 PUnit ⟨⟩ (λ _ => 0)
+   simp at h2
 
-#blaster (gen-cex: 0) (solve-result: 1) [sort_unification_thm4]
+-- Valid expected by blaster
+#blaster (solve-result: 0) [sort_unification_thm4]
 
 -- Valid expected
 theorem sort_unification_thm5 :
@@ -62,17 +66,20 @@ theorem sort_unification_thm6 :
 
 #blaster [sort_unification_thm6]
 
--- Counterexample expected as β has Type v + 1 while B has Type v + 2
+-- Can be proved due to false hypothesis
 theorem sort_unification_thm7 :
   (∀ (α : Type u) (β : Type v) (x : α) (f : α → β) (g : β → Nat), g (f x) > 10) →
-  (∀ (A : Type u) (B : Type (v + 1)) (x : A) (m : A → B) (n : B → Nat), n (m x) > 10) := by sorry
-  -- intro h1 α β x f g
-  -- apply h1 α β x f g -- can't apply h1
+  (∀ (A : Type u) (B : Type (v + 1)) (x : A) (m : A → B) (n : B → Nat), n (m x) > 10) := by
+  intro h1 α β x f g
+  have h2 := h1 PUnit PUnit ⟨⟩ (λ _ => ⟨⟩) (λ _ => 0)
+  simp at h2
 
-#blaster (gen-cex: 0) (solve-result: 1) [sort_unification_thm7]
+-- Valid expected by blaster
+#blaster (solve-result: 0) (random-seed: 1) [sort_unification_thm7]
 
 -- Counterexample expected as β and α are within the same scope and
--- therefore represent different types
+-- therefore represent different types. Moreover, we can't provide an instance for B.
+-- Hence, we can't derive false from the hypothesis.
 variable (B : Type u)
 theorem sort_unification_thm8 :
   (∀ (x : B) (f : B → Nat), f x > 10) →
@@ -80,7 +87,7 @@ theorem sort_unification_thm8 :
   -- intro h α x f
   -- apply h x f -- can't apply h
 
-#blaster (gen-cex: 0) (solve-result: 1)  [sort_unification_thm8]
+#blaster (gen-cex: 0) (solve-result: 1) [sort_unification_thm8]
 
 
 theorem exists_must_match_forall :
@@ -120,5 +127,24 @@ theorem exist_list_gen_type_with_instance : ∀ (b : Type), ∃ (a : Type) (_x: 
   exists (List b); exists []
 
 #blaster [exist_list_gen_type_with_instance]
+
+theorem exist_punit_type_1 : ∃ (α : Type), α = PUnit := by exact ⟨PUnit, rfl⟩
+#blaster [exist_punit_type_1]
+
+theorem exist_punit_type_2 : ∃ (α : Type u), α = PUnit := by exact ⟨PUnit, rfl⟩
+#blaster [exist_punit_type_2]
+
+theorem exist_punit_type_3 : ∃ (α : Type (u + 1)), α = PUnit := by exact ⟨PUnit, rfl⟩
+#blaster [exist_punit_type_3]
+
+theorem exist_punit_type_1_wth_instance : ∃ (α : Type) (_x : α), α = PUnit := by exists PUnit; exists ⟨⟩
+#blaster [exist_punit_type_1_wth_instance]
+
+
+theorem exist_punit_type_2_wth_instance : ∃ (α : Type u) (_x : α), α = PUnit := by exists PUnit; exists ⟨⟩
+#blaster [exist_punit_type_2_wth_instance]
+
+theorem exist_punit_type_3_wth_instance : ∃ (α : Type (u + 1)) (_x : α), α = PUnit := by exists PUnit; exists ⟨⟩
+#blaster [exist_punit_type_3_wth_instance]
 
 end Tests.Issue31

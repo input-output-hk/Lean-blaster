@@ -312,6 +312,9 @@ def mkListLength : TranslateEnvT Expr :=
 def mkNonemptyConst : TranslateEnvT Expr :=
   return (← get).optEnv.memCache.commonExpr.nonEmpty
 
+/-- Return `PUnit` const expression and cache result. -/
+def mkPUnit (u : List Level) : TranslateEnvT Expr := mkExpr (mkConst ``PUnit u)
+
 def assertShared (e : Expr) : TranslateEnvT Bool := do
   match (← get).optEnv.hashConsCache.get? e with
   | some r => return exprEq r.expr e
