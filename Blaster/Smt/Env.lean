@@ -1572,17 +1572,20 @@ private def runAgreementCheck (command : SmtCommand) : TranslateEnvT Result := d
   let (initialPending, initialOutcomes) ← beginConfiguredChecks command
   let mut pending := initialPending
   let mut outcomes := initialOutcomes
-  while !pending.isEmpty do
+  while true do
+    if let some failed := (orderOutcomes outcomes.toList).find? fun outcome =>
+        outcome.status != .completed && outcome.status != .modelFailed then
+      let diagnostic :=
+        s!"{failed.solver} ended with {reprStr failed.status}: {failed.diagnostic.getD "no diagnostic"}"
+      retireAllSessions true
+      for check in pending do
+        let _ := check.response.get
+      let artifact ← saveAgreementArtifacts diagnostic outcomes
+      throwEnvError s!"{diagnostic}\nAgreement artifacts: {artifact.getD "unavailable"}"
+    if pending.isEmpty then break
     let (outcome, remaining) ← completedOutcome (← waitFirstPending pending)
     outcomes := outcomes.push outcome
     pending := remaining
-  if let some failed := (orderOutcomes outcomes.toList).find? fun outcome =>
-      outcome.status != .completed && outcome.status != .modelFailed then
-    let diagnostic :=
-      s!"{failed.solver} ended with {reprStr failed.status}: {failed.diagnostic.getD "no diagnostic"}"
-    retireAllSessions true
-    let artifact ← saveAgreementArtifacts diagnostic outcomes
-    throwEnvError s!"{diagnostic}\nAgreement artifacts: {artifact.getD "unavailable"}"
   let mut enriched := #[]
   for solver in [SmtSolver.z3, SmtSolver.cvc5] do
     if let some outcome := outcomes.find? (·.solver == solver) then
