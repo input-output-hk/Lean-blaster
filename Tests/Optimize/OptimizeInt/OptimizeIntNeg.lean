@@ -20,6 +20,12 @@ elab "intNegCst_1" : term => return intNegCst_1
 
 #testOptimize [ "IntNegCst_2", proof] -(- 5 : Int) ===> intNegCst_1
 
+-- `-(-2)` folds to `2`, which then feeds the add fold and `Int.zero_add`
+#testOptimize ["IntNegCst_3", proof] ∀ (n : Int), -(-2) + -2 + n = n ===> True
+
+-- `-0` folds to `0`, then `Int.zero_add`
+#testOptimize ["IntNegCst_4", proof] ∀ (n : Int), -0 + n = n ===> True
+
 /-! Test cases for simplification rule -(-n) = n -/
 
 #testOptimize ["IntNegNeg_1", proof] ∀ (n : Int), -(-n) = n ===> True

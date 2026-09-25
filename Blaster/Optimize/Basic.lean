@@ -61,6 +61,10 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
                  pushProofStep (.rewrite (mkApp (mkConst ``nat_succ_eq_one_add) ras[0]!))
                else if f.isConstOf ``Nat.pred && ras.size == 1 then
                  pushProofStep (.rewrite (mkApp (mkConst ``Nat.pred_eq_sub_one) ras[0]!))
+               -- `Int.sub` is unfolded to `m + -n` by `normConst`, which the replay cannot see through.
+               -- Pushed bare: the operands may carry optimizer-local fvars under binders.
+               else if f.isConstOf ``Int.sub && ras.size == 2 then
+                 pushProofStep (.rewrite (mkConst ``Int.sub_eq_add_neg))
                -- set inFunApp flag before optimizing `f`
                setInFunApp true
                let i_stack' := .AppWaitForConst ras :: i_stack
