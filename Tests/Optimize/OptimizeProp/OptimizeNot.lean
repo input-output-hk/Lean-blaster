@@ -198,4 +198,31 @@ namespace Tests.OptimizeNot
 #testOptimize [ "NotEqBoolCstUnchanged_2" ] ∀ (a b : Bool), ¬ ((!a) = b) ===> ∀ (a b : Bool), ¬ (b = !a)
 
 
+/-! Test cases for simplification rule `¬ (¬ e1 ∧ ¬ e2) ==> e1 ∨ e2`. -/
+
+-- ¬ (¬ a ∧ ¬ b) ===> a ∨ b
+#testOptimize [ "NotDeMorganAnd_1", proof ] ∀ (a b : Prop), ¬ (¬ a ∧ ¬ b) ===> ∀ (a b : Prop), a ∨ b
+
+-- c ∧ ¬ (¬ a ∧ ¬ b) ===> c ∧ (a ∨ b)
+#testOptimize [ "NotDeMorganAnd_2", proof ] ∀ (a b c : Prop), c ∧ ¬ (¬ a ∧ ¬ b) ===> ∀ (a b c : Prop), c ∧ (a ∨ b)
+
+
+/-! Test cases for simplification rule `¬ (¬ e1 ∨ ¬ e2) ==> e1 ∧ e2`. -/
+
+-- ¬ (¬ a ∨ ¬ b) ===> a ∧ b
+#testOptimize [ "NotDeMorganOr_1", proof ] ∀ (a b : Prop), ¬ (¬ a ∨ ¬ b) ===> ∀ (a b : Prop), a ∧ b
+
+-- c ∧ ¬ (¬ a ∨ ¬ b) ===> c ∧ (a ∧ b)
+#testOptimize [ "NotDeMorganOr_2", proof ] ∀ (a b c : Prop), c ∧ ¬ (¬ a ∨ ¬ b) ===> ∀ (a b c : Prop), c ∧ (a ∧ b)
+
+
+/-! Test cases for normalization rule `¬ (0 < e) ==> 0 = e (if Type(e) = Nat)`. -/
+
+-- ¬ (0 < e) ===> 0 = e
+#testOptimize [ "NotLTZeroNat_1", proof ] (norm-result: 1) ∀ (e : Nat), ¬ (0 < e) ===> ∀ (e : Nat), 0 = e
+
+-- c ∧ ¬ (0 < e) ===> c ∧ 0 = e
+#testOptimize [ "NotLTZeroNat_2", proof ] (norm-result: 1) ∀ (e : Nat) (c : Prop), c ∧ ¬ (0 < e) ===> ∀ (e : Nat) (c : Prop), c ∧ 0 = e
+
+
 end Tests.OptimizeNot

@@ -1,6 +1,7 @@
 import Lean
 import Blaster.Optimize.Rewriting.Utils
 import Blaster.Optimize.Lemmas.LemmasProp
+import Blaster.Optimize.Lemmas.LemmasNat
 
 open Lean Meta
 namespace Blaster.Optimize
@@ -42,6 +43,7 @@ def notEqSimp? (ne : Expr) : TranslateEnvT (Option Expr) := do
 def notLTNumNorm? (ne : Expr) (restart := true) : TranslateEnvT (Option Expr) := do
   let some (_t, _i, e1, e2) := lt? ne | return none
   if isZeroNat e1 then
+    pushProofStep (.rewrite (mkConst ``Blaster.nat_not_zero_lt_eq_zero_eq))
     if restart then setRestart
     mkNatEqExpr e1 e2
   else return none
@@ -53,7 +55,7 @@ def notLTNumNorm? (ne : Expr) (restart := true) : TranslateEnvT (Option Expr) :=
      - ¬ (¬ e) ==> e (classical)    [proof: Blaster.double_not_classical]
      - ¬ (false = e) ==> true = e   [proof: Blaster.not_false_is_true]
      - ¬ (true = e) ==> false = e   [proof: Blaster.not_true_is_false]
-     - ¬ (0 < e) ==> (0 = e) (if Type(e) = Nat)
+     - ¬ (0 < e) ==> (0 = e) (if Type(e) = Nat)   [proof: Blaster.nat_not_zero_lt_eq_zero_eq]
    Assume that f = Expr.const ``Not.
    An error is triggered if args.size ≠ 1 (i.e., only fully applied `Not` expected at this stage)
    TODO: consider additional simplification rules
@@ -86,23 +88,25 @@ def optimizeNot (f : Expr) (args : Array Expr) (cacheResult := true) : Translate
 -/
 def notLogicalSimp? (ne : Expr) : TranslateEnvT (Option Expr) := do
   match propAnd? ne with
-  | some (ne1, ne2) => notPropagation? ne1 ne2 (← mkPropOrOp)
+  | some (ne1, ne2) => notPropagation? ne1 ne2 (← mkPropOrOp) ``Blaster.not_and_not_eq_or
   | _ =>
     match propOr? ne with
-    | some (ne1, ne2) => notPropagation? ne1 ne2 (← mkPropAndOp)
+    | some (ne1, ne2) => notPropagation? ne1 ne2 (← mkPropAndOp) ``Blaster.not_or_not_eq_and
     | _ => return none
 
  where
-   notPropagation? (ne1 : Expr) (ne2 : Expr) (op : Expr) : TranslateEnvT (Option Expr) := do
+   notPropagation? (ne1 : Expr) (ne2 : Expr) (op : Expr) (lemma : Name) :
+       TranslateEnvT (Option Expr) := do
      match propNot? ne1, propNot? ne2 with
      | some e1, some e2 =>
+           pushProofStep (.rewrite (mkConst lemma))
            setRestart
            return mkApp2 op e1 e2
      | _, _ => return none
 
 /-- Call `optimizeNot f args` and apply the following simplification/normalization rules on `Not` :
-     - ¬ (¬ e1 ∧ ¬ e2) ==> (e1 ∨ e2)
-     - ¬ (¬ e1 ∨ ¬ e2) ==> (e1 ∧ e2)
+     - ¬ (¬ e1 ∧ ¬ e2) ==> (e1 ∨ e2)   [proof: Blaster.not_and_not_eq_or]
+     - ¬ (¬ e1 ∨ ¬ e2) ==> (e1 ∧ e2)   [proof: Blaster.not_or_not_eq_and]
    Assume that f = Expr.const ``Not.
    An error is triggered if args.size ≠ 1 (i.e., only fully applied `Not` expected at this stage)
 -/
