@@ -18,6 +18,26 @@ elab "intAddCst_1" : term => return intAddCst_1
 
 #testOptimize [ "IntAddCst_1", proof] (0 : Int) + 1 ===> intAddCst_1
 
+/-! Test cases for the constant fold `N1 + N2 ==> N1 "+" N2` -/
+
+-- the fold feeds `Int.zero_add`, so its step must be in the stack
+#testOptimize ["IntAddCst_2", proof] ∀ (n : Int), -2 + 2 + n = n ===> True
+
+#testOptimize ["IntAddCst_3", proof] ∀ (n : Int), 1 + 1 + n = 2 + n ===> True
+
+-- `2 - 2` unfolds to `2 + -2` first, then folds
+#testOptimize ["IntAddCst_4", proof] ∀ (n : Int), 2 - 2 + n = n ===> True
+
+/-! Test cases for the `Int.sub` unfolding `m - n ==> m + -n` -/
+
+#testOptimize ["IntSubUnfold_1", proof] ∀ (x y : Int), x - y = x + -y ===> True
+
+-- unfolding then `Int.add_right_neg` and `Int.zero_add`
+#testOptimize ["IntSubUnfold_2", proof] ∀ (x n : Int), x - x + n = n ===> True
+
+-- both sides carry the same `x - y`, one step rewrites both
+#testOptimize ["IntSubUnfold_3", proof] ∀ (x y n : Int), x - y + n = n + (x - y) ===> True
+
 /-! Test cases for simplification rule `0 + n ===> n` -/
 
 #testOptimize ["IntAddZero_1", proof] ∀ (m n: Int), 0 + m = n ===> ∀ (m n: Int), m = n
@@ -31,9 +51,15 @@ elab "intAddCst_1" : term => return intAddCst_1
 -- nested operand carries a core `Int.add`, exercising `toElabForm`'s Int branch
 #testOptimize ["IntAddAssoc_2", proof] ∀ (a b : Int), 1 + (2 + (a + b)) = 3 + (a + b) ===> True
 
+-- fold to `0` inside the associativity branch, then `Int.zero_add`
+#testOptimize ["IntAddAssoc_3", proof] ∀ (n : Int), 2 + (-2 + n) = n ===> True
+
 /-! Test cases for simplification rule `N1 + -(N2 + n) ==> (N1 "-" N2) + -n` -/
 
 #testOptimize ["IntAddNegAdd_1", proof] ∀ (n : Int), 5 + -(2 + n) = 3 + -n ===> True
+
+-- fold `1 - 1` inside the branch, then `Int.zero_add`
+#testOptimize ["IntAddNegAdd_2", proof] ∀ (n : Int), 1 + -(1 + n) = -n ===> True
 
 /-! Test cases for the commutative reorder `n1 + n2 ==> n2 + n1` -/
 
