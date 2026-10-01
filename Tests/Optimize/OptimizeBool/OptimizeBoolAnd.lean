@@ -212,6 +212,9 @@ namespace Test.OptimizeBoolAnd
 #testOptimize ["BoolTrueAnd_2", proof] (norm-result: 1)
     ∀ (a b : Bool), ¬ (false = a) → (a && b) = b ===> True
 
+#testOptimize ["BoolTrueAnd_3", proof] (norm-result: 1)
+    ∀ (a b : Bool), a = true → (a && b) = b ===> True
+
 /-! Test cases for normalization rule `e1 && e2 ===> e1 (if true = e2 := _ ∈ hypothesisContext.hypothesisMap)`-/
 
 #testOptimize["BoolAndTrue_1", proof] (norm-result: 1)

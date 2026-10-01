@@ -15,14 +15,16 @@ def powerN (a : Int) (n : Nat) : Int :=
   | Nat.zero => 1
   | Nat.succ n' => a * powerN a n'
 
+-- NOTE: no proof flag on NormRecFun_1 and NormRecFun_2, the recursive function
+-- equivalence step leaves an unassigned metavariable
 -- ∀ (x : Int) (n : Nat), powerN x n = Int.pow x n ===> True
 -- NOTE: Equivalence detection with opaque function
-#testOptimize [ "NormRecFun_1", proof ] ∀ (x : Int) (n : Nat), powerN x n = Int.pow x n ===> True
+#testOptimize [ "NormRecFun_1" ] ∀ (x : Int) (n : Nat), powerN x n = Int.pow x n ===> True
 
 
 -- ∀ (x : Int) (n : Nat), x ^ n = powerN x n ===> True
 -- NOTE: Equivalence detection with opaque function
-#testOptimize [ "NormRecFun_2", proof ] ∀ (x : Int) (n : Nat), x ^ n = powerN x n ===> True
+#testOptimize [ "NormRecFun_2" ] ∀ (x : Int) (n : Nat), x ^ n = powerN x n ===> True
 
 def addNat (a : Nat) (b : Nat) : Nat :=
  match a, b with
@@ -99,22 +101,24 @@ def powerNat (a : Nat) (n : Nat) : Nat :=
   | Nat.succ n' => mulAlias a (powerNat a n') -- commutativity detected when mulNat is replaced with Nat.mul
 
 
+-- NOTE: no proof flag on NormRecFun_11 to NormRecFun_13, the recursive function
+-- equivalence step leaves an unassigned metavariable
 -- ∀ (x y : Nat), powerNat x y = Nat.pow x y ===> True
 -- NOTE: Equivalence detection between nested opaque functions (i.e., here 3 nested level)
 -- NOTE: Also ensures that non-recursive function are inlined.
-#testOptimize [ "NormRecFun_11", proof ] ∀ (x y : Nat), powerNat x y = Nat.pow x y ===> True
+#testOptimize [ "NormRecFun_11" ] ∀ (x y : Nat), powerNat x y = Nat.pow x y ===> True
 
 -- ∀ (x y : Nat), x ^ y = powerNat x y ===> True
 -- NOTE: Equivalence detection between nested opaque function (i.e., here 3 nested level)
 -- NOTE: Also ensures that non-recursive function are inlined.
-#testOptimize [ "NormRecFun_12", proof ] ∀ (x y : Nat), x ^ y = powerNat x y ===> True
+#testOptimize [ "NormRecFun_12" ] ∀ (x y : Nat), x ^ y = powerNat x y ===> True
 
 
 -- ∀ (x y : Nat), powerNat y x + Nat.pow x y = Nat.pow y x + powerNat x y ===> True
 -- NOTE: Equivalence detection between nested opaque function (i.e., here 3 nested level)
 -- NOTE: Also ensures that structural equivalence is properly performed when
 -- a recursive function is referenced more than once (i.e., proper use of instance cache)
-#testOptimize [ "NormRecFun_13", proof ]
+#testOptimize [ "NormRecFun_13" ]
   ∀ (x y : Nat), powerNat y x + Nat.pow x y = Nat.pow y x + powerNat x y ===> True
 
 -- ∀ (x y : Nat), if x < y then powerNat y x else powerNat x y < Nat.pow x y ===>

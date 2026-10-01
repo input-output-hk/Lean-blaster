@@ -312,6 +312,9 @@ variable (c : Nat)
 -- ∀ (x : Int), (∃ (y z : Int), y > x ∧ z > y) → (∃ (m n : Int), x < m ∧ n > m) ===> True
 #testOptimize [ "ForallExact_30" ] ∀ (x : Int), (∃ (y z : Int), y > x ∧ z > y) → (∃ (m n : Int), x < m ∧ n > m) ===> True
 
+-- ∀ (x y : Int), x ≤ y → ¬ y < x ===> True
+#testOptimize [ "ForallExact_31", proof ] ∀ (x y : Int), x ≤ y → ¬ y < x ===> True
+
 
 /-! Test cases to ensure that the following simplification rules are not wrongly applied:
     - `∀ (n : t), True ==> True`
