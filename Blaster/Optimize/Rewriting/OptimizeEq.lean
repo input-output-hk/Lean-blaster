@@ -579,6 +579,16 @@ def optimizeDecideEq (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
        match isBoolValue? a_op1, isBoolValue? b_op1 with
        | some bv1, some bv2 => do
            setRestart
+           let lemma :=
+            if bv1 && bv2 then
+              ``Blaster.bridge_eq_tt
+            else if bv1 then
+              ``Blaster.bridge_eq_tf
+            else if bv2 then
+              ``Blaster.bridge_eq_ft
+            else
+              ``Blaster.bridge_eq_ff
+           pushProofStep (.rewrite (mkApp2 (mkConst lemma) a_op2 b_op2))
            return mkApp3 f eq_sort (← toBoolNotExpr bv1 a_op2) (← toBoolNotExpr bv2 b_op2)
        | _, _ => return none
     | _, _ => return none
