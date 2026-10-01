@@ -1,5 +1,6 @@
 import Lean
 import Blaster.Optimize.Rewriting.Utils
+import Blaster.Optimize.Lemmas.LemmasDecide
 
 open Lean Meta
 namespace Blaster.Optimize
@@ -14,13 +15,14 @@ namespace Blaster.Optimize
 def notDecideProp? (op : Expr) : TranslateEnvT (Option Expr) := do
  let some e := decide'? op | return none
  setRestart
+ pushProofStep (.rewrite (mkApp (mkConst ``Blaster.not_decide') e))
  return mkApp op.getAppFn (mkApp (← mkPropNotOp) e)
 
 /-- Apply the following simplification/normalization rules on `not` :
      - ! true ==> false                 [proof: Bool.not_true]
      - ! false ==> true                 [proof: Bool.not_false]
      - ! (! e) ==> e                    [proof: Bool.not_not]
-     - !(decide' e) ==> decide' (¬ e)
+     - !(decide' e) ==> decide' (¬ e)   [proof: Blaster.not_decide']
    Assume that f = Expr.const ``not.
    An error is triggered if args.size ≠ 1 (i.e., only fully applied `not` expected at this stage)
    TODO: consider additional simplification rules
