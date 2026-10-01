@@ -80,6 +80,11 @@ namespace Tests.OptimizeBoolNot
 variable (a : Bool)
 variable (b : Bool)
 
+/-! Test case for the Bool-not-over-`decide'` bridge `!(decide' e) ==> decide' (¬ e)`. -/
+
+-- ! (decide' (a = b)) ===> decide' (¬ (a = b))
+#testOptimize [ "BoolNotDecide'_1", proof ] ! (Blaster.decide' (a = b)) ===> Blaster.decide' (¬ (a = b))
+
 -- ! (a || !a) ===> false
 #testOptimize [ "BoolNotReduce_1" ] ! (a || !a) ===> false
 
