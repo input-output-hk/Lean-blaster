@@ -7,13 +7,6 @@ import Blaster.Optimize.Env
 open Lean Meta
 namespace Blaster.Optimize
 
-/-- Return `true` when `e` corresponds to the zero int literal. -/
-@[always_inline, inline]
-def isZeroInt (e : Expr) : Bool :=
-  match isIntValue? e with
-  | some (Int.ofNat 0) => true
-  | _ => false
-
 /-- Apply the following simplification/normalization rules on `Int.neg` :
      - - (N) ==> "-" N
      - - (- n) ==> n      [proof: Int.neg_neg]
@@ -166,38 +159,6 @@ def mulIntDivReduceExpr? (e1 : Expr) (e2 : Expr) : TranslateEnvT (Option Expr) :
      return none
   | none => return none
 
-/-- Find an FVar proof of `e ≠ 0` in the optimizer's local context, wrapping the
-    hypothesis found (`0 < e`, `e < 0`, or `¬ (0 = e)`) with the matching bridge
-    lemma. Assumes `nonZeroIntInHyps e` has returned `true`. -/
-def findNeZeroIntProof? (e : Expr) : TranslateEnvT (Option Expr) := withLocalContext $ do
-  let lctx ← getLCtx
-  -- First pass: 0 < e
-  for decl in lctx do
-    if decl.isImplementationDetail then continue
-    let ty := decl.type
-    if ty.isAppOfArity ``LT.lt 4 then
-      let args := ty.getAppArgs
-      if args[0]!.isConstOf ``Int && isZeroInt args[2]! && exprEq args[3]! e then
-        return some (mkApp2 (mkConst ``Blaster.int_ne_zero_of_zero_lt) e (mkFVar decl.fvarId))
-  -- Second pass: e < 0
-  for decl in lctx do
-    if decl.isImplementationDetail then continue
-    let ty := decl.type
-    if ty.isAppOfArity ``LT.lt 4 then
-      let args := ty.getAppArgs
-      if args[0]!.isConstOf ``Int && exprEq args[2]! e && isZeroInt args[3]! then
-        return some (mkApp2 (mkConst ``Blaster.int_ne_zero_of_lt_zero) e (mkFVar decl.fvarId))
-  -- Third pass: ¬ (0 = e)
-  for decl in lctx do
-    if decl.isImplementationDetail then continue
-    let ty := decl.type
-    if let some inner := ty.not? then
-      if inner.isAppOfArity ``Eq 3 then
-        let args := inner.getAppArgs
-        if args[0]!.isConstOf ``Int && isZeroInt args[1]! && exprEq args[2]! e then
-          return some (mkApp2 (mkConst ``Blaster.int_ne_zero_of_not_zero_eq) e (mkFVar decl.fvarId))
-  return none
-
 /--
   Data type to distinguish between the three integer division operators:
    - `Int.ediv`
@@ -264,16 +225,18 @@ def optimizeIntDivCommon (d: DivKind) (op1 : Expr) (op2 : Expr) : TranslateEnvT 
    /-- Emit the proof step for n / n ==> 1 (requires n ≠ 0). -/
    emitEDivSelfProofStep (n : Expr) : TranslateEnvT Unit := do
      if let some h ← findNeZeroIntProof? n then
-       pushProofStep (.rewrite (mkApp2 (mkConst ``Int.ediv_self) n h))
+       let h' ← mkAppM ``Ne.symm #[h]
+       pushProofStep (.rewrite (mkApp2 (mkConst ``Int.ediv_self) n h'))
 
    /-- Emit the proof step for (m * n) / n ==> m or (n * m) / n ==> m (requires n ≠ 0). -/
    emitMulEDivProofStep (op1 op2 : Expr) : TranslateEnvT Unit := do
      let some (a, b) := intMul? op1 | return ()
      let some h ← findNeZeroIntProof? op2 | return ()
+     let h' ← mkAppM ``Ne.symm #[h]
      if exprEq b op2 then
-       pushProofStep (.rewrite (mkApp3 (mkConst ``Int.mul_ediv_cancel) a op2 h))
+       pushProofStep (.rewrite (mkApp3 (mkConst ``Int.mul_ediv_cancel) a op2 h'))
      else if exprEq a op2 then
-       pushProofStep (.rewrite (mkApp3 (mkConst ``Int.mul_ediv_cancel_left) op2 b h))
+       pushProofStep (.rewrite (mkApp3 (mkConst ``Int.mul_ediv_cancel_left) op2 b h'))
 
 /- Given `op1` and `op2` corresponding to the operands for `Int.ediv`, `Int.tdiv` and `Int.fdiv`,
    and `dk` the corresponding `DivKind` (yielding the divisor operator `f_div`),
