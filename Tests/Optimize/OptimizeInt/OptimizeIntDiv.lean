@@ -85,4 +85,61 @@ elab "intDivCst_2" : term => return intDivCst_2
 
 #testOptimize[ "IntTdivGcd_1", proof] ∀ (x : Int), Int.tdiv (6 * x) 4 = Int.tdiv (3 * x) 2 ===> True
 
+/-! Test cases for cancellation rule `n / n ===> 1 (requires n ≠ 0)` for `Int.fdiv` and `Int.tdiv`. -/
+
+#testOptimize [ "IntFdivSelfReduce_1", proof ] ∀ (n : Int), n ≠ 0 →  Int.fdiv n n = 1 ===> True
+
+#testOptimize [ "IntFdivSelfReduce_2", proof ] ∀ (n : Int), n < 0 → Int.fdiv n n = 1 ===> True
+
+#testOptimize [ "IntFdivSelfReduce_3", proof ] ∀ (n : Int), 0 < n → Int.fdiv n n = 1 ===> True
+
+#testOptimize [ "IntFdivSelfReduce_4", proof ] ∀ (n : Int), n ≠ 0 → Int.fdiv (n + 0) (n + 0) = 1 ===> True
+
+#testOptimize [ "IntTdivSelfReduce_1", proof ] ∀ (n : Int), n ≠ 0 → Int.tdiv n n = 1 ===> True
+
+#testOptimize [ "IntTdivSelfReduce_2", proof ] ∀ (n : Int), n < 0 → Int.tdiv n n = 1 ===> True
+
+#testOptimize [ "IntTdivSelfReduce_3", proof ] ∀ (n : Int), 0 < n → Int.tdiv n n = 1 ===> True
+
+#testOptimize [ "IntTdivSelfReduce_4", proof ] ∀ (n : Int), n ≠ 0 → Int.tdiv (n + 0) (n + 0) = 1 ===> True
+
+/-! Test Cases for cancellation rule `(n * m) / n or (m * n) / n ==> n (requires n ≠ 0)` for `Int.fdiv` and `Int.tdiv`. -/
+
+#testOptimize [ "IntMulFdivCancel_1", proof ] ∀ (n m : Int), n < 0 → Int.fdiv (n * m) n = m ===> True
+
+#testOptimize [ "IntMulFdivCancel_2", proof ] ∀ (n m : Int), 0 < n → Int.fdiv (n * m) n = m ===> True
+
+#testOptimize [ "IntMulFdivCancel_3", proof ] ∀ (n m : Int), n ≠ 0 → Int.fdiv (n * m) n = m ===> True
+
+#testOptimize [ "IntMulFdivCancel_4", proof ] ∀ (n m : Int), n < 0 → Int.fdiv (m * n) n = m ===> True
+
+#testOptimize [ "IntMulFdivCancel_5", proof ] ∀ (n m : Int), 0 < n → Int.fdiv (m * n) n = m ===> True
+
+#testOptimize [ "IntMulFdivCancel_6", proof ] ∀ (n m : Int), n ≠ 0 → Int.fdiv (m * n) n = m ===> True
+
+#testOptimize [ "IntMulTdivCancel_1", proof ] ∀ (n m : Int), n < 0 → Int.tdiv (n * m) n = m ===> True
+
+#testOptimize [ "IntMulTdivCancel_2", proof ] ∀ (n m : Int), 0 < n → Int.tdiv (n * m) n = m ===> True
+
+#testOptimize [ "IntMulTdivCancel_3", proof ] ∀ (n m : Int), n ≠ 0 → Int.tdiv (n * m) n = m ===> True
+
+#testOptimize [ "IntMulTdivCancel_4", proof ] ∀ (n m : Int), n < 0 → Int.tdiv (m * n) n = m ===> True
+
+#testOptimize [ "IntMulTdivCancel_5", proof ] ∀ (n m : Int), 0 < n → Int.tdiv (m * n) n = m ===> True
+
+#testOptimize [ "IntMulTdivCancel_6", proof ] ∀ (n m : Int), n ≠ 0 → Int.tdiv (m * n) n = m ===> True
+
+
+/-! Test cases for `(n /ₜ N1) /ₜ N2 ===> n /ₜ (N1 * N2)` -/
+
+#testOptimize ["IntTdivMulLit_1", proof] ∀ (n : Int), Int.tdiv (Int.tdiv n 5) 3 = Int.tdiv n 15 ===> True
+
+#testOptimize ["IntTdivMulLit_2", proof] ∀ (n : Int), Int.tdiv (Int.tdiv n (-5)) 3 = Int.tdiv n (-15) ===> True
+
+#testOptimize ["IntTdivMulLit_3", proof] ∀ (n : Int), Int.tdiv (Int.tdiv n 5) (-3) = Int.tdiv n (-15) ===> True
+
+#testOptimize ["IntTdivMulLit_4", proof] ∀ (n : Int), Int.tdiv (Int.tdiv n (-5)) (-3) = Int.tdiv n 15 ===> True
+
+#testOptimize ["IntTdivMulLit_5", proof] ∀ (n : Int), Int.tdiv (Int.tdiv (Int.tdiv n 2) 3) 5 = Int.tdiv n 30 ===> True
+
 end Tests.OptimizeIntDiv

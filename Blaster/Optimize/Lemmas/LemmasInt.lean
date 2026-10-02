@@ -88,11 +88,6 @@ protected theorem int_le_eq_not_lt (a b : Int) : (a ≤ b) = (¬ (b < a)) :=
 /-! Lemma to validate simplification rule `N1 + -(N2 + n) ==> (N1 "-" N2) + -n`. -/
 protected theorem int_add_neg_add (a b c : Int) : a + -(b + c) = (a - b) + -c := by omega
 
-/-! Helpers turning a strict sign hypothesis into `n ≠ 0`. -/
-protected theorem int_ne_zero_of_zero_lt {n : Int} (h : 0 < n) : n ≠ 0 := by omega
-protected theorem int_ne_zero_of_lt_zero {n : Int} (h : n < 0) : n ≠ 0 := by omega
-protected theorem int_ne_zero_of_not_zero_eq {n : Int} (h : ¬ (0 = n)) : n ≠ 0 := by omega
-
 /-! ## Lemmas validating the `optimizeLT` simplification and normalization rules on `Int` -/
 
 /-! Lemma to validate simplification rule `e < e ==> False`. -/
@@ -235,6 +230,52 @@ protected theorem int_add_lt_zero_eq_true_of_neg_nonpos (x y : Int) (hx : x < 0)
 /-! Lemma to validate simplification rule `N < e ==> False (if ¬ (N - 1 < e))`. -/
 protected theorem int_lt_false_of_not_pred_lt (n e : Int) (h : ¬ (n - 1 < e)) :
     (n < e) = False := propext ⟨fun hlt => by omega, False.elim⟩
+
+
+/-! ## Lemmas validating the simplification rules on equality negation rules:
+  - `0 = -e ==> 0 = e`
+  - `-e1 = -e2 ==> e1 = e2`
+  - `0 = x * y ==> False (if x ≠ 0 ∧ y ≠ 0 in hyps)`
+  - `0 = x + y ==> False (same-sign x , y)`
+-/
+protected theorem zero_eq_int (e : Int) : (0 = -e) = (0 = e) := by
+  apply propext
+  rw [← Int.neg_zero, Int.neg_inj]
+  exact Eq.to_iff rfl
+
+protected theorem int_neg_eq (a b : Int) : (-a = -b) = (a = b) := by
+  apply propext
+  exact Int.neg_inj
+
+protected theorem int_mul_eq_false_of_ne (a b : Int) (h1 : ¬ (0 = a)) (h2 : ¬ (0 = b)) :
+  (0 = a * b) = False := by
+  apply propext
+  rw [iff_false, ← ne_eq]
+  have h1 : a ≠ 0 := Ne.symm h1
+  have h2 : b ≠ 0 := Ne.symm h2
+  exact (Int.mul_ne_zero h1 h2).symm
+
+protected theorem int_add_eq_false_of_gt (a b : Int) (h1 : 0 < a) (h2 : 0 < b) : (0 = a + b) = False := by
+  apply propext
+  simp only [iff_false]
+  omega
+
+protected theorem int_add_eq_false_of_lt (a b : Int) (h1 : a < 0) (h2:  b < 0) : (0 = a + b) = False := by
+  apply propext
+  simp only [iff_false]
+  omega
+
+/-! Lemma to validate simplification rule `(n /ₜ N1) /ₜ N2 ==> n /ₜ (N1 * N2)` -/
+protected theorem int_tdiv_mul_lit (n N1 N2 M: Int) (h: N1 * N2 = M) :
+    Int.tdiv (Int.tdiv n N1) N2 = Int.tdiv n M := by
+  subst h
+  rcases Int.eq_nat_or_neg n with ⟨a, ha | ha⟩ <;>
+  rcases Int.eq_nat_or_neg N1 with ⟨b, hb | hb⟩ <;>
+  rcases Int.eq_nat_or_neg N2 with ⟨c, hc | hc⟩ <;>
+  rw [ha, hb, hc] <;>
+  simp only [Int.neg_tdiv, Int.tdiv_neg, Int.neg_mul, Int.mul_neg, Int.neg_neg,
+    ← Int.natCast_ediv, Int.natCast_tdiv_eq_ediv, ← Int.natCast_mul,
+    Nat.div_div_eq_div_mul]
 
 def mkInt_lt_asymm : TranslateEnvT Expr := mkExpr (mkConst ``Int.lt_asymm)
 
