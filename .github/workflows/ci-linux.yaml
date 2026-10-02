@@ -3,70 +3,61 @@ name: ci-linux
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
 on:
   pull_request:
   push:
-    branches: [ staging, main ]
+    branches: [staging, main]
+  workflow_dispatch:
 
 concurrency:
-  group: ${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  LEAN_VERSION: "4.24.0"
-  Z3_VERSION: "4.15.2"
-  GLIBC_Z3: "2.39"
-
 jobs:
+  # Keep this job id: main's ruleset requires the "build" check.
   build:
-    runs-on: ubuntu-latest
-
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
     steps:
-      - name: Setup Lean
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Test build checker failure handling
         run: |
-          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
-          echo "/home/runner/.elan/bin" >> $GITHUB_PATH
-          chmod +x /home/runner/.elan/bin/*
-
-      - name: Fix Elan version
-        run: |
-          elan toolchain install ${{ env.LEAN_VERSION }}
-          elan default ${{ env.LEAN_VERSION }}
-
-      - name: Install Z3
-        run: |
-          cd /home/runner/
-          wget -q https://github.com/Z3Prover/z3/releases/download/z3-${{ env.Z3_VERSION }}/z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}.zip
-          unzip -q z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}.zip
-          chmod +x z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}.zip
-          echo "/home/runner/z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}/bin" >> $GITHUB_PATH
-
-      - name: Tools version
-        run: |
-          elan --version
-          lake --version
-          lean --version
-          z3 --version
-
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Build and Validate Blaster
+          python3 scripts/ci/test_build_check.py
+          python3 scripts/ci/test_z3_build.py
+          python3 scripts/ci/test_bounded_z3.py
+          python3 scripts/ci/test_downstream.py
+          node scripts/ci/test_nightly_report.cjs
+      - name: Setup Lean and Z3 master
+        run: bash scripts/ci/setup-tools.sh
+      - name: Build and validate Blaster
         run: make check_blaster
-
-      - name: Upload Blaster build log
-        if: failure()
-        uses: actions/upload-artifact@v6
+      - name: Execute and validate tests
+        run: BUILD_TIMEOUT_SECONDS=900 LEAN_NUM_THREADS=5 ./scripts/check_lean_project_compilation.sh Tests
+      - name: Record tested environment
+        if: always()
+        run: python3 scripts/ci/record_environment.py
+      - name: Upload build evidence
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
-          name: blaster-build
-          path: ./Blaster/build.log
+          name: ci-build-${{ github.run_attempt }}
+          path: .ci-results/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
 
-      - name: Execute and Validate Tests
-        run: LEAN_NUM_THREADS=5 ./scripts/check_lean_project_compilation.sh Tests
-
-      - name: Upload Tests log
-        if: failure()
-        uses: actions/upload-artifact@v6
+  workflow-checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          name: tests-build
-          path: ./Tests/build.log
+          persist-credentials: false
+      - name: Validate workflow definitions
+        run: bash scripts/ci/lint-workflows.sh
