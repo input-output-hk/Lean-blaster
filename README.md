@@ -1,7 +1,7 @@
 # Blaster - An SMT Backend for Lean4
 
 [![Lean Version](https://img.shields.io/badge/Lean-v4.24.0-blue.svg)](https://github.com/leanprover/lean4)
-[![Z3 Version](https://img.shields.io/badge/Z3-v4.15.2-green.svg)](https://github.com/Z3Prover/z3)
+[![Z3 Capability](https://img.shields.io/badge/Z3-recfun--finder-green.svg)](https://github.com/RSoulatIOHK/z3)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
@@ -48,7 +48,7 @@ Blaster provides an SMT backend for Z3 proofs. Blaster works by first aggressive
 Blaster is built with the philosophy that fewer dependencies mean better maintainability and more optimization opportunities. That said, Blaster requires:
 
 - **Lean4** v4.24.0 (or compatible version)
-- **Z3** `master` branch until official version > v5.1.0 is out. We submitted patches that were merged into `master`.
+- **Z3** with the `recfun-finder` simplifier; use the pinned build below.
 
 ### Installing Lean4
 
@@ -60,11 +60,9 @@ Please follow the official installation guidelines from the [Lean4 GitHub reposi
 
 ### Installing Z3
 
-We do our best to stay updated with the latest release of Z3. However, regressions can occur and often require extensive research and resolution, so Blaster might be slightly behind the latest version.
-
-**Currently tested version:** Z3 v4.15.2
-
-> **Note:** Blaster should work with later releases, though no guarantees are made.
+The tested assurance baseline reports Z3 5.1.0 and is pinned by source revision.
+A version number alone does not establish compatibility: `z3check` probes the
+required `recfun-finder` simplifier.
 
 The section on [Installing the Z3 Solver](#installing-the-z3-solver)
 below explains how to get the right version of Z3 installed and check that
@@ -528,103 +526,29 @@ Once an expression has been translated, Blaster interacts with an external SMT s
 
 ## Installing the Z3 Solver
 
-Blaster requires Z3 version 4.15.2.  To install that, you need to
+### Build a solver with the required capability
 
-1. **Check out** the 4.15.2 tagged branch of the Z3 repo;
-2. **Install** Z3 in a location that doesn't conflict with possible existing versions
-   on your machine (e.g., in `/usr/bin/z3`)
-3. **Ensure** Lean 4 is using the right version of Z3.
+This branch emits `(set-simplifier recfun-finder)`. A solver that prints a version
+successfully can still be incompatible. The reproducible assurance baseline is
+[RSoulatIOHK/z3 at ca39e58](https://github.com/RSoulatIOHK/z3/commit/ca39e58c525c5b03c2484f118ade2b92fae31215),
+which reports 5.1.0 and includes the required simplifier. This is a pinned fork,
+not a claim that every stock Z3 5.1.0 build supports it.
 
-Below are instructions for accomplishing these objectives.  (They are aimed at
-.deb-based Linux, but the same or similar steps should work on other platforms.)
-
-### 1. Build and install Z3 v4.15.2 from source
-
-Z3 releases are tagged on GitHub; the tag you want is `z3-4.15.2`.
-
-**1.1 Install build dependencies**
+With Git, CMake, Python 3 and a C++ toolchain installed:
 
 ```bash
-sudo apt update
-sudo apt install -y build-essential python3 git
+bash scripts/build-assurance-z3.sh "$PWD/.tools/z3"
+PATH="$PWD/.tools/z3/bin:$PATH" lake exe z3check
 ```
 
-**1.2 Clone the 4.15.2 tag**
+The script installs only into the requested directory. Use that PATH for the
+subsequent `lake` commands; it does not replace the system solver. CI uses the
+same pinned source and probes the capability before running proofs.
 
-Do **not** clone the `master` branch; it will give you a newer version (e.g., 4.15.4) that we do not yet fully support. Instead:
-
-```bash
-# Shallow clone just the 4.15.2 tag, into a directory named z3-4.15.2
-git clone --branch z3-4.15.2 --depth 1 https://github.com/Z3Prover/z3.git z3-4.15.2
-cd z3-4.15.2
-
-# Sanity check: this should print something like "z3-4.15.2"
-git describe --tags
-```
-
-**1.3 Configure build with a safe prefix**
-
-By default, `mk_make.py` uses a prefix like `/usr`, which can clash with files installed by
-package managers (e.g., `apt`).  The Z3 README documentation recommends using
-`--prefix` to choose a custom install directory, typically `/usr/local`, as follows:
-
-```bash
-python3 scripts/mk_make.py --prefix=/usr/local
-cd build
-make -j"$(nproc)"
-sudo make install
-```
-
-This installs
-
-+  `z3` to `/usr/local/bin/z3`
-+  libraries to `/usr/local/lib`
-+  header files to `/usr/local/include`
-
-### 2. Make sure **4.15.2** comes first in your `PATH`
-
-Check which `z3` you’re actually picking up:
-
-```bash
-which z3
-z3 --version
-```
-
-Ideally you will see
-`/usr/local/bin/z3` and `Z3 version 4.15.2 - 64 bit`.
-
-If `which z3` shows something else, e.g., `/usr/bin/z3`, then `/usr/local/bin` isn’t ahead
-of `/usr/bin` in your `PATH`; fix this by either removing the version of `z3` that's
-in `/usr/bin` (use `sudo apt remove z3` if you installed the old version of Z3 with
-`apt`) or by adding the following to your shell config file (`~/.bashrc`, `~/.zshrc`, etc.):
-
-```bash
-export PATH=/usr/local/bin:$PATH
-```
-
-Then reload your shell and re-run `which z3`.
-
-### 3. Make sure Lean 4 uses the right Z3
-
-Lean just calls `z3` as an external process (via `IO.Process` or tactics that use Z3).
-
-It doesn’t have its own embedded Z3. So:
-
-**If the shell you run `lake` from sees `/usr/local/bin/z3` (4.15.2), then Lean will also use 4.15.2.**
-
-Just to be sure, you can run the simple test we provide in this repository, as follows:
-
-```bash
-lake build z3check
-lake exe z3check
-```
-
-If Z3 is installed correctly, you should see the following output:
-
-```
-Successfully ran z3:
-Z3 version 4.15.2 - 64 bit
-```
+`z3check` exits nonzero if the solver is missing, rejects the simplifier, emits an
+error, or fails the satisfiability probe. Its success message includes the actual
+version and `recfun-finder available`. Reproducible verification should also
+record the executable digest, as the assurance environment capture does.
 
 ---
 
