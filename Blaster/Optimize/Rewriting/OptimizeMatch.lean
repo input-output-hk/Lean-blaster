@@ -104,6 +104,7 @@ def joinMatchResult (x : MatchResult) (y : MatchResult) : MatchResult :=
 -/
 partial def isPatternMatch (lhs : Expr) (rhs : Expr) : TranslateEnvT MatchResult := do
  if exprEq lhs rhs then return .UnifyMatch
+ else if let some r ← ctorPatternMatch? lhs rhs then return r
  else
   match lhs with
   | Expr.mvar _ =>
@@ -204,6 +205,33 @@ partial def isPatternMatch (lhs : Expr) (rhs : Expr) : TranslateEnvT MatchResult
 
   | _ => return .NoMatch -- unreachable: only const, app, mvar, fvar and lit expected as pattern match
 
+ where
+   /-- When `lhs` and `rhs` are applications of constructors: `NoMatch` when the constructors differ,
+       and the match of their fields otherwise. The parameters of the inductive type are not
+       patterns (e.g., the `n` of `@Fin.mk n v h`, which is computed, not matched), and a proof
+       field cannot decide which alternative applies: a pattern variable there is assigned the
+       proof, and anything else (e.g., the `sorry` of a proof `normProof` could not rebuild)
+       matches. -/
+   ctorPatternMatch? (lhs : Expr) (rhs : Expr) : TranslateEnvT (Option MatchResult) := do
+     let Expr.const n1 _ := lhs.getAppFn | return none
+     let Expr.const n2 _ := rhs.getAppFn | return none
+     let ConstantInfo.ctorInfo info ← getConstEnvInfo n1 | return none
+     let ConstantInfo.ctorInfo _ ← getConstEnvInfo n2 | return none
+     if n1 != n2 then return some .NoMatch
+     let largs := lhs.getAppArgs
+     let rargs := rhs.getAppArgs
+     if largs.size != info.numParams + info.numFields || rargs.size != largs.size then return none
+     let pInfo ← getFunEnvInfo lhs.getAppFn
+     let mut res := MatchResult.UnifyMatch
+     for k in [info.numParams:largs.size] do
+       if k < pInfo.paramsInfo.size && pInfo.paramsInfo[k]!.isProp then
+         if largs[k]!.isMVar then assignMVar largs[k]! rargs[k]!
+       else
+         match ← isPatternMatch largs[k]! rargs[k]! with
+         | .NoMatch => return some .NoMatch
+         | r => res := joinMatchResult res r
+     return some res
+
 
 @[always_inline, inline]
 def isNoMatchResult (x : MatchResult) : Bool :=
@@ -248,7 +276,8 @@ partial def instantiateUnifiedMVars (mvars : Array Expr) (margs : Array Expr) (m
  let rec visit (idx : Nat) (stop : Nat) (mvars : Array Expr) : TranslateEnvT (Array Expr) := do
     if idx ≥ stop then
       -- traverse discrs in reverse order to properly set heq
-      assignEqRefl mInfo mvars margs
+      let mvars ← assignEqRefl mInfo mvars margs
+      mvars.mapM proofForUnassigned
     else
       let val := mAssignments.getD mvars[idx]! instCacheMiss
       if !exprEq val instCacheMiss then
@@ -257,6 +286,17 @@ partial def instantiateUnifiedMVars (mvars : Array Expr) (margs : Array Expr) (m
         else visit (idx + 1) stop (mvars.set! idx val)
       else visit (idx + 1) stop mvars
   visit 0 mvars.size mvars
+
+ where
+   /-- A proof pattern variable can be left unassigned: `normProof` may have replaced it in the
+       pattern (e.g., `h` in `⟨i+1, h⟩` of `List.get`), while the alternative's rhs still refers to
+       it. Supply the proof `normProof` would have, rather than a dangling mvar. -/
+   proofForUnassigned (x : Expr) : TranslateEnvT Expr := do
+     if !x.isMVar then return x
+     try
+       let mty ← instantiateSharedMVars' (← inferTypeEnv x) (← get).optEnv.mAssignments
+       if !mty.hasMVar && (← isPropEnv mty) then backwardProof mty else return x
+     catch _ => return x
 
 /-- Given `m := f x₁ ... xₙ` with `f` corresponding to a match function
     and `mInfo` the corresponding matcher info, perform the following:
