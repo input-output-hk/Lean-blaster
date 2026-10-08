@@ -9,16 +9,16 @@ namespace Test.OptimizeForAll
 /-! Test cases for simplification rule `∀ (n : t), True ==> True`. -/
 
 -- ∀ (c : Prop), True ===> True
-#testOptimize [ "ForallTrue_1" ] ∀ (_a : Prop), True ===> True
+#testOptimize [ "ForallTrue_1", proof ] ∀ (_a : Prop), True ===> True
 
 -- ∀ (x : Int), True ===> True
-#testOptimize [ "ForallTrue_2" ] ∀ (_x : Int), True ===> True
+#testOptimize [ "ForallTrue_2", proof ] ∀ (_x : Int), True ===> True
 
 -- ∀ (α : Type) (x : List α), True ===> True
-#testOptimize [ "ForallTrue_3" ] ∀ (α : Type) (_x : List α), True ===> True
+#testOptimize [ "ForallTrue_3", proof ] ∀ (α : Type) (_x : List α), True ===> True
 
 -- ∀ (a : Bool), ! a || a ===> True
-#testOptimize [ "ForallTrue_4" ] ∀ (a : Bool), !a || a ===> True
+#testOptimize [ "ForallTrue_4", proof ] ∀ (a : Bool), !a || a ===> True
 
 -- ∀ (a : Bool), (if a then true else !a) = true ===> True
 #testOptimize [ "ForallTrue_5" ] ∀ (a : Bool), (if a then true else !a) = true ===> True
@@ -28,7 +28,7 @@ namespace Test.OptimizeForAll
 #testOptimize [ "ForallTrue_6" ] ∀ (a : Bool), if a then True else !a ===> True
 
 -- ∀ (a b c : Prop), ¬ (((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬a) ∧ ((b ∧ a) ∧ ¬(a ∧ b))) ===> True
-#testOptimize [ "ForallTrue_7"]
+#testOptimize [ "ForallTrue_7", proof ]
   ∀ (a b c : Prop), ¬ (((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬a) ∧ ((b ∧ a) ∧ ¬(a ∧ b))) ===> True
 
 -- let x := a && a
@@ -39,29 +39,37 @@ namespace Test.OptimizeForAll
 
 /-! Test cases for simplification rule `e → True ==> True`. -/
 
+-- ∀ (a : Prop), (a → True) = True ===> True
+#testOptimize [ "ForallImpTrueEq_1", proof ]
+  ∀ (a : Prop), (a → True) = True ===> True
+
+-- ∀ (a : Prop), (a → True) ∧ True ===> True
+#testOptimize [ "ForallImpTrueAnd_1", proof ]
+  ∀ (a : Prop), (a → True) ∧ True ===> True
+
 -- ∀ (a : Prop), a → True ===> True
-#testOptimize [ "ForallImpTrue_1" ] ∀ (a : Prop), a → True ===> True
+#testOptimize [ "ForallImpTrue_1", proof ] ∀ (a : Prop), a → True ===> True
 
 -- ∀ (x : Int), x > 10 → True ===> True
-#testOptimize [ "ForallImpTrue_2" ] ∀ (x : Int), x > 10 → True ===> True
+#testOptimize [ "ForallImpTrue_2", proof ] ∀ (x : Int), x > 10 → True ===> True
 
 -- ∀ (α : Type) (x : List α), List.length x > 10 ===> True
-#testOptimize [ "ForallImpTrue_3" ] ∀ (α : Type) (x : List α), List.length x > 10 → True ===> True
+#testOptimize [ "ForallImpTrue_3", proof ] ∀ (α : Type) (x : List α), List.length x > 10 → True ===> True
 
 -- ∀ (a : Prop) (b : Bool), a → (b || !b) ===> True
-#testOptimize [ "ForallImpTrue_4" ] ∀ (a : Prop) (b : Bool), a → (b || !b) ===> True
+#testOptimize [ "ForallImpTrue_4", proof ] ∀ (a : Prop) (b : Bool), a → (b || !b) ===> True
 
 -- ∀ (a b : Prop) (c : Bool), a ∧ b → (if c then true else !c) = true ===> True
 #testOptimize [ "ForallImpTrue_5" ] ∀ (a b : Prop) (c : Bool), a ∧ b → (if c then true else !c) = true ===> True
 
 -- ∀ (a b c : Prop), (a ∨ c) → ¬ ((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬a) ===> True
-#testOptimize [ "ForallImpTrue_6"] ∀ (a b c : Prop), a ∨ c → ¬ ((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬a) ===> True
+#testOptimize [ "ForallImpTrue_6", proof] ∀ (a b c : Prop), a ∨ c → ¬ ((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬a) ===> True
 
 -- ∀ (a b : Prop), a → b → True ===> True
-#testOptimize [ "ForallImpTrue_7" ] ∀ (a b : Prop), a → b → True ===> True
+#testOptimize [ "ForallImpTrue_7", proof ] ∀ (a b : Prop), a → b → True ===> True
 
 -- ∀ (a b c : Prop), a → b → c → True ===> True
-#testOptimize [ "ForallImpTrue_8" ] ∀ (a b c : Prop), a → b → c → True ===> True
+#testOptimize [ "ForallImpTrue_8", proof ] ∀ (a b c : Prop), a → b → c → True ===> True
 
 
 /-! Test cases to ensure that `∀ (n : t), False` will not be simplified to `False`. -/
@@ -106,6 +114,14 @@ namespace Test.OptimizeForAll
 
 
 /-! Test cases for simplification rule `False → e ==> True (if Type(e) = Prop)`. -/
+
+-- ∀ (a : Prop), (False → a) ∧ True  ===> True
+#testOptimize [ "ForallFalseImpAnd_1", proof ]
+  ∀ (a : Prop), (False → a) ∧ True  ===> True
+
+-- ∀ (a : Prop), (False → a) = True  ===> True
+#testOptimize [ "ForallFalseImpEq_1", proof ]
+  ∀ (a : Prop), (False → a) = True  ===> True
 
 -- ∀ (a : Prop), False → a ===> True
 #testOptimize [ "ForallFalseImp_1" ] ∀ (a : Prop), False → a ===> True
@@ -159,14 +175,19 @@ namespace Test.OptimizeForAll
 
 /-! Test cases for simplification rule `True → e ==> e (if Type(e) = Prop)`. -/
 
+-- ∀ (a : Prop), (True → a) = a ===> True
+#testOptimize [ "ForallTrueImpEq_1", proof ]
+  ∀ (a : Prop), (True → a) = a ===> True
+
+
 -- ∀ (a : Prop), True → a ===> ∀ (a : Prop), a
-#testOptimize [ "ForallTrueImp_1" ] ∀ (a : Prop), True → a ===> ∀ (a : Prop), a
+#testOptimize [ "ForallTrueImp_1", proof ] ∀ (a : Prop), True → a ===> ∀ (a : Prop), a
 
 -- ∀ (a b : Prop), (¬ (¬ a)) = a → b ===> ∀ (b : Prop), b
-#testOptimize [ "ForallTrueImp_2" ] ∀ (a b : Prop), (¬ (¬ a)) = a → b ===> ∀ (b : Prop), b
+#testOptimize [ "ForallTrueImp_2", proof ] ∀ (a b : Prop), (¬ (¬ a)) = a → b ===> ∀ (b : Prop), b
 
 -- ∀ (a : Bool) (b : Prop), (!a || a) → b ===> ∀ (b : Prop), b
-#testOptimize [ "ForallTrueImp_3" ] ∀ (a : Bool) (b : Prop), (!a || a) → b ===>
+#testOptimize [ "ForallTrueImp_3", proof ] ∀ (a : Bool) (b : Prop), (!a || a) → b ===>
                                     ∀ (b : Prop), b
 
 -- ∀ (a : Bool) (b p : Prop), (if a then b ∨ ¬ b else True) → p ===> ∀ (p : Prop), p
@@ -178,7 +199,7 @@ namespace Test.OptimizeForAll
                                     ∀ (p : Prop), p
 
 -- ∀ (a b c d : Prop), ((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∨ ¬ a → d ===> ∀ (d : Prop), d
-#testOptimize [ "ForallTrueImp_6"] ∀ (a b c d : Prop), (a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∨ ¬ a → d ===>
+#testOptimize [ "ForallTrueImp_6", proof ] ∀ (a b c d : Prop), (a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∨ ¬ a → d ===>
                                    ∀ (d : Prop), d
 
 -- let x := a && a in
@@ -190,15 +211,23 @@ namespace Test.OptimizeForAll
                                     ∀ (p : Prop), p
 
 -- ∀ (a b : Prop) (h: (¬ (¬ a)) = a), b ===> ∀ (b : Prop), b
-#testOptimize [ "ForallTrueImp_8" ] ∀ (a b : Prop) (_h : (¬ (¬ a)) = a), b ===> ∀ (b : Prop), b
+#testOptimize [ "ForallTrueImp_8", proof ] ∀ (a b : Prop) (_h : (¬ (¬ a)) = a), b ===> ∀ (b : Prop), b
 
 
 -- ∀ (a : Bool) (b : Prop), (b ∨ ¬ b) → (!a || a) → b ===> ∀ (b : Prop), b
-#testOptimize [ "ForallTrueImp_9" ] ∀ (a : Bool) (b : Prop), (b ∨ ¬ b) → (!a || a) → b ===>
+#testOptimize [ "ForallTrueImp_9", proof ] ∀ (a : Bool) (b : Prop), (b ∨ ¬ b) → (!a || a) → b ===>
                                     ∀ (b : Prop), b
 
 
 /-! Test cases for simplification rule `e1 → e2 ==> True (if p1 =ₚₜᵣ p2 ∧ Type(e1) = Prop)`. -/
+
+-- ∀ (p : Prop), (p → p) ∧ True ===> True
+#testOptimize [ "ForallExactAnd_1", proof ]
+  ∀ (p : Prop), (p → p) ∧ True ===> True
+
+-- ∀ (p : Prop), (p → p) = True ===> True
+#testOptimize [ "ForallExactEq_1", proof ]
+  ∀ (p : Prop), (p → p) = True ===> True
 
 -- ∀ (p : Prop), p → p ===> True
 #testOptimize [ "ForallExact_1" ] ∀ (p : Prop), p → p ===> True
