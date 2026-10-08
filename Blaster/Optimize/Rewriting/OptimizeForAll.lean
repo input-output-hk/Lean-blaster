@@ -116,13 +116,13 @@ def hypReduction? (h : Expr) (a : Expr) (b : Expr) : TranslateEnvT (Option Expr)
 /-- Apply the following simplification/normalized rules on `forallE`.
     Note that implication `a → b` is internally represented as `forallE _ a b bi`.
     The simplification/normalization rules applied are:
-      - ∀ (n : t), True | e → True ==> True
-      - False → e ==> True (if Type(e) = Prop)
-      - h : True → e ==> e (if Type(e) = Prop ∧ ¬ fVarInExpr h.fvarId! e)
+      - ∀ (n : t), True | e → True ==> True                               [proof: implies_true]
+      - False → e ==> True (if Type(e) = Prop)                            [proof: false_implies]
+      - h : True → e ==> e (if Type(e) = Prop ∧ ¬ fVarInExpr h.fvarId! e) [proof: true_implies]
       - h : True → e ==> e[h/True.intro] (if Type(e) = Prop ∧ fVarInExpr h.fvarId! e)
             TODO: replace True.intro with proper proof
       - e → False ==> ¬ e
-      - e1 → e2 ==> True (if e1 =ₚₜᵣ e2 ∧ Type(e1) = Prop)
+      - e1 → e2 ==> True (if e1 =ₚₜᵣ e2 ∧ Type(e1) = Prop)                 [proof: Blaster.implies_self_eq_true]
       - e1 → e2 ==> True (if ∃ e1 → e2 := _ ∈ hypothesisContext.hypothesisMap)
       - e1 → e2 ==> ¬ e1 (if ∃ e := _ ∈ h, e = ¬ e2)
       - e1 → e2 ==> ¬ e1 (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = ¬ e2)
