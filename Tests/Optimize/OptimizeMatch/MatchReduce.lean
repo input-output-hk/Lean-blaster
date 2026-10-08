@@ -583,12 +583,12 @@ def namedPatternIntTwo (x : Int) (y : Int) : Nat :=
 --    namedPatternIntTwo
 --     (Int.ofNat (Nat.succ (Nat.succ n1)))
 --     (Int.ofNat (Nat.succ (Nat.succ (Nat.succ (Nat.succ ((Nat.succ n2))))))) ===>
---  Blaster.dite' (n1 < 2) (fun _ => Nat.add 2 n1) (fun _ => (Nat.add 5 n2).add ((Nat.add 2 n1).sub 4))
+--  Blaster.dite' (n1 < 2) (fun _ => Nat.add 2 n1) (fun _ => (Nat.add 5 n2).add (Nat.sub n1 2))
 -- NOTE: Normalized and simplified via match to ite, eq and relational rules
 #testOptimize [ "MatchReduceUnchanged_17" ] (norm-result: 1)
   namedPatternIntTwo
    (Int.ofNat (Nat.succ (Nat.succ n1)))
    (Int.ofNat (Nat.succ (Nat.succ (Nat.succ (Nat.succ ((Nat.succ n2))))))) ===>
-     Blaster.dite' (n1 < 2) (fun _ => Nat.add 2 n1) (fun _ => (Nat.add 5 n2).add ((Nat.add 2 n1).sub 4))
+     Blaster.dite' (n1 < 2) (fun _ => Nat.add 2 n1) (fun _ => (Nat.add 5 n2).add (Nat.sub n1 2))
 
 end Tests.MatchReduce

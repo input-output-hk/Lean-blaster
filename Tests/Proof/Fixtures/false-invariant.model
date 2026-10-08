@@ -1,0 +1,4 @@
+sat
+(
+(define-fun R0 () Bool false)
+)

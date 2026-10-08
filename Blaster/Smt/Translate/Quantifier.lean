@@ -897,11 +897,20 @@ def translateInductiveType
     else declareMutualDataTypes sortDecls typeDecls
 
   genIndParams (indVal : InductiveVal) : TranslateEnvT (Option (Array SmtSymbol)) := do
+   -- Constructor field sorts are translated from CONSTRUCTOR telescopes, so
+   -- the `par` binder names must come from the same source.  The inductive
+   -- header's binders can carry different (e.g. hygienic) names than the
+   -- constructor signatures, which previously produced datatype declarations
+   -- whose parameter list and field sorts disagreed (unknown sort '@α').
+   let src ←
+     match indVal.ctors with
+     | c :: _ => do pure (← getConstEnvInfo c).type
+     | [] => pure indVal.type
    let params ←
-     Optimize.forallTelescope (← hashcons indVal.type) fun fvars _ => do
+     Optimize.forallTelescope (← hashcons src) fun fvars _ => do
         let mut polyParams := #[]
-        for h : i in [: fvars.size] do
-          let arg := fvars[i]
+        for _h : i in [: min indVal.numParams fvars.size] do
+          let arg := fvars[i]!
           let ftype ← inferTypeEnv arg
           if !(← isClassConstraintExpr ftype) then -- ignore class constraints
             let Expr.fvar v := arg
@@ -941,6 +950,54 @@ def translateInductiveType
      ctorDecls := ctorDecls.push ctorDecl
    return ctorDecls
 
+/-- `Fin n` as an uninterpreted sort with an uninterpreted membership
+    predicate, one pair for each instance. They can be interpreted as `Fin n`
+    (as a single element outside the predicate when `n = 0`), and no `Fin`
+    operation is translated, so an `unsat` result holds for `Fin n`. (Mapping
+    `Fin n` to `Int` would be unsound: a hypothesis `∀ x : Fin n, …` is
+    stronger over `Int`.) Datatypes with `Fin` fields, such as the BLS12-381
+    elements of UPLC constants, can then be declared. -/
+def translateFinType (fin : Expr) (args : Array Expr) : TranslateEnvT SortExpr := do
+  let instApp ← getIndInst fin args
+  if let some decl := (← get).smtEnv.indTypeInstCache.get? instApp then return decl.instSort
+  let sym := mkReservedSymbol s!"Fin{(← get).smtEnv.indTypeInstCache.size}"
+  declareSort sym 0
+  let decl ← updateIndInstCache instApp sym (.SymbolSort sym) (isReservedSymbol := true)
+  definePredQualifier decl.instName #[decl.instSort] none
+  return decl.instSort
+
+/-- A closed, unindexed datatype built solely from native SMT domains needs no
+    recursive membership constraint. Inspect the entire constructor graph before
+    returning true: a cycle may also reach a constrained field such as Nat.
+    Proof fields, dependent/indexed types, functions and polymorphic domains
+    retain the existing encoding. The size bound is a conservative fallback. -/
+private def hasIntrinsicNativeDomain (root : Expr) : TranslateEnvT Bool :=
+  withLocalContext do
+    let mut pending := #[root]
+    let mut seen : Std.HashSet Expr := {}
+    while !pending.isEmpty do
+      let type ← Lean.Meta.whnf pending.back!
+      pending := pending.pop
+      if type.hasFVar || type.hasMVar || type.hasLooseBVars then return false
+      if seen.contains type then continue
+      seen := seen.insert type
+      if seen.size > 512 then return false
+      if type.isConstOf ``Bool || type.isConstOf ``Int || type.isConstOf ``String then continue
+      if type.isConstOf ``Nat || (← Lean.Meta.isProp type) then return false
+      let .const name levels := type.getAppFn | return false
+      let .inductInfo info ← Lean.getConstInfo name | return false
+      if info.numIndices != 0 || info.ctors.isEmpty then return false
+      let arguments := type.getAppArgs
+      unless arguments.size == info.numParams do return false
+      for constructor in info.ctors do
+        let signature ← Lean.Meta.inferType (mkAppN (mkConst constructor levels) arguments)
+        let fields ← Lean.Meta.forallTelescope signature fun fields _ =>
+          fields.mapM fun field => Lean.Meta.inferType field
+        for field in fields do
+          if field.hasFVar || field.hasMVar || (← Lean.Meta.isProp field) then return false
+          pending := pending.push field
+    return true
+
 /-- Given an instantiated inductive data type `t x₁ ... xₙ`, generate it's corresponding
     predicate qualifier predicate and propositional assertions when instance is not already
     in `indTypeInstCache`. In particular,
@@ -968,6 +1025,9 @@ partial def defineInstPredicateQualifier
     (typeTranslator : Expr → TranslateEnvT SortExpr)
     (termTranslator : Expr → TranslateEnvT SmtTerm)
     (t : Expr) (args : Array Expr) : TranslateEnvT Unit := do
+ if t.isConstOf ``Fin then
+   discard <| translateFinType t args
+   return
  -- get inst application
  let instApp ← getIndInst t args
  unless ((← get).smtEnv.indTypeInstCache.get? instApp).isSome do
@@ -991,7 +1051,7 @@ where
        | throwEnvError "declareIndInst: name expression expected but got {reprStr t}"
      let ConstantInfo.inductInfo indVal ← getConstEnvInfo indName
        | throwEnvError "declareIndInst: inductive info expected for {indName}"
-     if (← isEnumeration indVal) then
+     if (← hasIntrinsicNativeDomain (← mkAppNExpr t args)) || (← isEnumeration indVal) then
        -- only declare smt predicate
        discard $ generateIndInstDecl t args (some true) typeTranslator
      else if indVal.isRec && indVal.all.length > 1 then
@@ -1235,6 +1295,7 @@ partial def translateTypeAux
    let e := t.getAppFn
    match e with
    | Expr.const .. =>
+      if e.isConstOf ``Fin then return ← translateFinType e t.getAppArgs
       if let some r ← translateOpaqueType e then return r
       translateNonOpaqueType e t.getAppArgs
         (λ a b => translateTypeAux termTranslator a b)
@@ -1412,6 +1473,14 @@ def translateFreeVar
  let t ← inferTypeEnv f
  if ← (isInQuantifiedFVarsCache v) <||> (isPatternMatchFVar v)
  then
+   -- Match scrutinees are translated on demand. A live function-valued
+   -- pattern variable can therefore be applied before its scrutinee registers
+   -- the arrow type's predicate and @apply function. Register the type here
+   -- without forcing translation of the scrutinee or unused pattern values.
+   if ← isPatternMatchFVar v then
+     if ← isFunType t then
+       if (← getPredicateDeclaration t).isNone then
+         discard <| translateType termTranslator t
    if isTypeUniverse t
    then smtSimpleVarId <$> typeParamNameToSmtSymbol v -- case when polymorphic types are used in expression (see, Issue31.lean)
    else fvarIdToSmtTerm v

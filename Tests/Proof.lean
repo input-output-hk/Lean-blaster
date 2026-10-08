@@ -1,0 +1,11 @@
+import Tests.Proof.Machine
+import Tests.Proof.Houdini
+import Tests.Proof.Lists
+import Tests.Proof.ClosedCache
+import Tests.Proof.IntDivision
+import Tests.Proof.Fin
+import Tests.Proof.HigherOrder
+import Tests.Proof.Printer
+import Tests.Proof.Kernel
+import Tests.Proof.Library
+import Tests.Proof.Normalization

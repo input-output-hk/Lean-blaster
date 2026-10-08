@@ -3,6 +3,7 @@ import Blaster.Data.HashSet
 import Blaster.Data.HashMap
 import Blaster.Optimize.Expr
 import Blaster.Optimize.Env.ContextMap
+import Blaster.Optimize.Env.DependencyCache
 import Blaster.Optimize.MatchInfo
 import Blaster.Smt.Term
 import Blaster.Command.Options
@@ -129,7 +130,6 @@ instance instBeqEnvName : BEq Name where
     else Name.beq x y
 
 abbrev HashConsSet := HashSet SharedExpr
-abbrev RewriteCacheMap := HashMap CtxId (IO.Ref (HashMap PtrExpr Lean.Expr))
 abbrev NotEqPatterns := HashSet PtrExpr -- an element corresponding to a match pattern
 abbrev MatchNotEqPatternMap := ContextMap (IO.Ref NotEqPatterns)  -- with key corresponding to a match discriminator
 abbrev BetaLambdaMap := HashMap InstKey BetaLambda -- with Nat corresponding to number of args applied to lambda expression.
@@ -614,7 +614,7 @@ instance : Inhabited OptimizeEnv where
      , memCache.commonExpr.trueIntro
      ]
    { hashConsCache,
-     rewriteCache := HashMap.emptyWithCapacity 1024
+     rewriteCache := RewriteCacheMap.emptyWithCapacity 1024
      synthInstanceCache := HashMap.emptyWithCapacity,
      matchCache := HashMap.emptyWithCapacity,
      recFunInstCache := HashMap.emptyWithCapacity,
@@ -851,24 +851,40 @@ macro_rules
 def updateGlobalRewriteCache (a : Expr) (b : Expr) (insertIfNew := false) : TranslateEnvT Unit := do
   match (← get).optEnv.rewriteCache.get? 0 with
   | none =>
-      let refEntry ← IO.mkRef $ (HashMap.emptyWithCapacity 2048 : HashMap PtrExpr Expr).insert a b
+      let refEntry ← IO.mkRef $ (HashMap.emptyWithCapacity 2048 : HashMap PtrExpr CachedRewrite).insert a {value := b}
       modifyOptEnv
         fun ⟨o1, rewriteCache, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14⟩ =>
             ⟨o1, rewriteCache.insert 0 refEntry, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14⟩
-  | some refEntry => refEntry.modify (λ h => if insertIfNew then h.insertIfNew a b else h.insert a b)
+  | some refEntry => refEntry.modify (λ h => if insertIfNew then h.insertIfNew a {value := b} else h.insert a {value := b})
 
 
 /-- Update rewrite cache at curCtx with `a := b`. -/
 @[always_inline, inline]
-def updateLocalRewriteCache (a : Expr) (b : Expr) (insertIfNew := false) : TranslateEnvT Unit := do
+def updateLocalRewriteCache (a : Expr) (b : Expr) (insertIfNew := false)
+    (dependencies : Array CtxId := #[]) : TranslateEnvT Unit := do
   let ⟨_, rewriteCache, _, _, _, _, _, _, _, _, ⟨_, _, _, _, curCtx, _, _, _⟩, _, _, _⟩ := (← get).optEnv
   match rewriteCache.get? curCtx with
   | none =>
-       let refEntry ← IO.mkRef $ (HashMap.emptyWithCapacity 256 : HashMap PtrExpr Expr).insert a b
+       let refEntry ← IO.mkRef $ (HashMap.emptyWithCapacity 256 : HashMap PtrExpr CachedRewrite).insert a {value := b, dependencies}
        modifyOptEnv
          fun ⟨o1, rewriteCache, o3, o4, o5, o6, o7, o8, o9, o10, options, o12, o13, o14⟩ =>
              ⟨o1, rewriteCache.insert options.curCtx refEntry, o3, o4, o5, o6, o7, o8, o9, o10, options, o12, o13, o14⟩
-  | some refEntry => refEntry.modify (λ h => if insertIfNew then h.insertIfNew a b else h.insert a b)
+  | some refEntry => refEntry.modify (λ h => if insertIfNew then h.insertIfNew a {value := b, dependencies} else h.insert a {value := b, dependencies})
+
+def getRewriteDependencies : TranslateEnvT (IO.Ref RewriteDependencies) := do
+  if let some ref := (← get).optEnv.rewriteCache.dependencies then return ref
+  let ref ← IO.mkRef ({} : RewriteDependencies)
+  modifyOptEnv fun env => {env with rewriteCache.dependencies := some ref}
+  return ref
+
+def recordContextUse (ctx : CtxId) : TranslateEnvT Unit := do
+  RewriteDependencies.use (← getRewriteDependencies) ctx
+
+def findContextValue? (map : ContextMap α) (active : HashSet CtxId)
+    (key : PtrExpr) : TranslateEnvT (Option α) := do
+  let some (ctx, value) ← map.findRawEntry active key | return none
+  recordContextUse ctx
+  return some value
 
 /-- Update synthesize decidable instance cache with `a := b`. -/
 @[always_inline, inline]
@@ -884,32 +900,33 @@ def removeFromHashConsCache (a : SharedExpr) : TranslateEnvT Unit := do
 
 @[always_inline, inline]
 def updateEqualityMap (lhs : Expr) (rhs : Expr) (ctxId : CtxId) : TranslateEnvT Unit := do
-  match (← get).optEnv.hypothesisContext.equalityMap.get? lhs with
+  RewriteDependencies.addFact (← getRewriteDependencies) ctxId lhs
+  match (← get).optEnv.hypothesisContext.equalityMap.find? lhs with
   | none =>
-       let refEntry ← IO.mkRef [(ctxId, rhs)]
+       let refEntry ← IO.mkRef (ContextEntries.singleton ctxId rhs)
        modifyOptEnv
          fun ⟨o1, o2, o3, o4, o5, o6, o7, ⟨hypothesisMap, equalityMap⟩, o9, o10, o11, o12, o13, o14⟩ =>
              ⟨o1, o2, o3, o4, o5, o6, o7, ⟨hypothesisMap, equalityMap.insert lhs refEntry⟩, o9, o10, o11, o12, o13, o14⟩
-  | some refEntry => refEntry.modify (λ l => (ctxId, rhs) :: l)
+  | some refEntry => refEntry.modify (·.insert ctxId rhs)
 
 /-- Look up `lhs` in the context-aware equality map, returning the rhs of the
-    newest entry visible in the current context (tag ∈ active). -/
+    newest inserted active entry on the current ancestor path. -/
 @[always_inline, inline]
 def eqMapFind? (lhs : Expr) : TranslateEnvT (Option Expr) := do
   let ⟨_, _, _, _, _, _, _, ⟨_, equalityMap⟩, _, _, ⟨_, _, _, _, _, _, active, _⟩, _, _, _⟩ := (← get).optEnv
-  if equalityMap.size == 0
+  if equalityMap.isEmpty
   then return none
-  else ContextMap.findRaw equalityMap active lhs
+  else findContextValue? equalityMap active lhs
 
 
 /-- Context-aware lookup in the (now context-id-tagged) hypothesis map: returns the
-    proof of the newest entry for `e` whose tag is active in the current context. -/
+    proof of the newest inserted active entry for `e` on the current ancestor path. -/
 @[always_inline, inline]
 def hypMapFind? (e : Expr) : TranslateEnvT (Option Expr) := do
   let ⟨_, _, _, _, _, _, _, ⟨hypothesisMap, _⟩, _, _, ⟨_, _, _, _, _, _, active, _⟩, _, _, _⟩ := (← get).optEnv
-  if hypothesisMap.size == 0
+  if hypothesisMap.isEmpty
   then return none
-  else ContextMap.findRaw hypothesisMap active e
+  else findContextValue? hypothesisMap active e
 
 /-- `true` iff `e` is present (and active) in the hypothesis map. -/
 @[always_inline, inline]
@@ -920,11 +937,13 @@ def hypMapContains (e : Expr) : TranslateEnvT Bool :=
 /-- Allocate a fresh context id and make it current. -/
 @[always_inline, inline]
 def newCtx : TranslateEnvT CtxScope := do
- modifyGet fun env =>
+ let scope ← modifyGet fun env =>
    let current := env.optEnv.options.nextCtxId
    let parent := env.optEnv.options.curCtx
    (⟨parent, current⟩, {env with optEnv.options.nextCtxId := current + 1, optEnv.options.curCtx := current
                                  optEnv.options.active := env.optEnv.options.active.insert current })
+ RewriteDependencies.enter (← getRewriteDependencies) scope.parent scope.current
+ return scope
 
 @[always_inline, inline]
 def setAndCommitCtx (s : CtxScope) : TranslateEnvT Unit :=
@@ -932,7 +951,8 @@ def setAndCommitCtx (s : CtxScope) : TranslateEnvT Unit :=
                                optEnv.options.active := env.optEnv.options.active.insert s.current }
 
 /-- Leave a committed scope: deactivate its id, restore the parent and delete the corresponding rewrite cache.
-    Its entries remain in the map (tagged, now invisible).
+    Its entries remain in the map (tagged, now invisible); indexed lookup does
+    not scan the accumulated history of retired sibling scopes.
 -/
 @[always_inline, inline]
 def endCtx (s : CtxScope) : TranslateEnvT Unit :=
@@ -1078,8 +1098,10 @@ def _root_.Lean.FVarId.getEnvDecl (fvarId : FVarId) : TranslateEnvT LocalDecl :=
   | some d => return d
   | none   => throwEnvError "unknown fvar {reprStr fvarId}"
 
-def _root_.Lean.FVarId.getEnvValue? (fvarId : FVarId) : TranslateEnvT (Option Expr) :=
-  return (← fvarId.getEnvDecl).value?
+def _root_.Lean.FVarId.getEnvValue? (fvarId : FVarId) : TranslateEnvT (Option Expr) := do
+  let value := (← fvarId.getEnvDecl).value?
+  if value.isSome then recordContextUse (← get).optEnv.options.curCtx
+  return value
 
 def _root_.Lean.FVarId.getEnvType (fvarId : FVarId) : TranslateEnvT Expr :=
   return (← fvarId.getEnvDecl).type
@@ -1185,6 +1207,14 @@ def withLocalContext (f : TranslateEnvT α) : TranslateEnvT α := do
   modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, isStructureCache⟩ =>
                      ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, isStructureCache.insert n b⟩
 
+/-- Constructor-headed choice branches stay constructor-headed under capture-
+    avoiding substitution. Preserve that structural metadata when rebuilding
+    an application or lambda, so consumers can still push through the choice. -/
+@[noinline] def inheritCtorChoiceInfo (source target : Expr) : TranslateEnvT Unit := do
+  unless exprEq source target do
+    if (← get).optEnv.memCache.isCtorMatchPropCache.contains source then
+      updateCtorMatchPropCache target
+
 @[always_inline, inline]
 def updateContextReuseCache (e : Expr) (idx : USize) (s : CtxReuseScope) : TranslateEnvT Unit := do
   let key := mkInstKey e idx
@@ -1230,13 +1260,16 @@ def isOptimizeRecCall : TranslateEnvT Bool :=
 def findGlobalCache (a : Expr) (env : TranslateEnv) : IO Expr :=
   match env.optEnv.rewriteCache.get? 0 with
   | none => return instCacheMiss
-  | some refEntry => return (← refEntry.get).getD a instCacheMiss
+  | some refEntry => return ((← refEntry.get).get? a).map (·.value) |>.getD instCacheMiss
 
 @[always_inline, inline]
-def findLocalCache (a : Expr) (env : TranslateEnv) : IO Expr :=
-  match env.optEnv.rewriteCache.get? env.optEnv.options.curCtx with
-  | none => return instCacheMiss
-  | some refEntry => return (← refEntry.get).getD a instCacheMiss
+def findLocalCache (a : Expr) (env : TranslateEnv) : IO Expr := do
+  if let some refEntry := env.optEnv.rewriteCache.get? env.optEnv.options.curCtx then
+    if let some entry := (← refEntry.get).get? a then
+      if let some ref := env.optEnv.rewriteCache.dependencies then RewriteDependencies.replay ref entry
+      return entry.value
+  if let some ref := env.optEnv.rewriteCache.dependencies then
+    if let some entry ← RewriteDependencies.find? ref a env.optEnv.options.active then return entry.value
+  return instCacheMiss
 
 end Blaster.Optimize
-

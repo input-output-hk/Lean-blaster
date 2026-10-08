@@ -71,7 +71,10 @@ def validate_signatures (verifier_config : VerifierConfig) (signatories : List N
 
   all_mandatory_signed && threshold_met
 
-#blaster (gen-cex: 0) (solve-result: 2) (timeout: 3)
+-- No verifiers can satisfy a positive threshold. The kernel checks this witness.
+example : validate_signatures (VerifierConfig.mk [] 1) [] = false := by rfl
+
+#blaster (gen-cex: 0) (solve-result: 1) (timeout: 3)
   [∀ (transaction : List Nat) (n : Nat),
        validate_signatures (VerifierConfig.mk [] n) transaction = true]
 

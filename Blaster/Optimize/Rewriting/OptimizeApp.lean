@@ -25,7 +25,8 @@ namespace Blaster.Optimize
                 - return ⊥
           - Otherwise:
               - return none
-     - When `isRecursiveFun f ∧ ¬ isOpaqueFunExpr f #[x₁ ... xₙ] ∧ allExplicitParamsAreCtor f #[x₁ ... xₙ]
+     - When a known structural argument selects an equation, return that equation.
+     - Otherwise, when `isRecursiveFun f ∧ ¬ isOpaqueFunExpr f #[x₁ ... xₙ] ∧ allExplicitParamsAreCtor f #[x₁ ... xₙ]
          - When some body ← getFunBody f:
              - return `betaLambdaEnv body #[x₁ ... xₙ]`
          - Otherwise:
@@ -35,6 +36,9 @@ namespace Blaster.Optimize
 -/
 def reduceApp? (f : Expr) (args : Array Expr) : TranslateEnvT (Option BetaLambdaResult) := do
  if let some r ← isOpaqueRecReduction? f args then return r
+ -- (an uninterpreted recursive definition keeping its constructor equations
+ -- is reduced here and nowhere else)
+ if let some r ← reduceStructuralApp? f args then return r
  if (← isOpaqueFunExpr f args) then return none
  if let some r ← isFunRecReduction? f args then return r
  return none
@@ -51,15 +55,43 @@ def reduceApp? (f : Expr) (args : Array Expr) : TranslateEnvT (Option BetaLambda
    isFunRecReduction? (f : Expr) (args : Array Expr) : TranslateEnvT (Option BetaLambdaResult) := do
      let Expr.const n _ := f | return none
      if !(← isRecursiveFun n) then return none
-     if !(← allExplicitParamsAreCtor f args) then return none
+     unless (← allExplicitParamsAreCtor f args) do return none
      let some fbody ← getFunBody f
        | throwEnvError "reduceApp?: recursive function body expected for {reprStr f}"
      betaLambdaEnv fbody args
+
+/-- Normalize a direct call to a registered, lawful boolean equality to
+    `decide' (a = b)`. Check the actual instance field, not just the
+    function's signature. Closed instances keep this rewrite independent of
+    branch-local assumptions. Polymorphic/dependent implementations are left
+    to the existing class-application path. -/
+def normalizeNamedBEq? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
+  unless args.size == 2 && f.isConst && (← isOptimizeRecCall) do return none
+  if (← isUninterpreted f.constName!) then return none
+  let type ← inferTypeEnv f
+  let .forallE _ domain (.forallE _ domain' result _) _ := type | return none
+  unless domain == domain' && result.isConstOf ``Bool && !domain.hasFVar &&
+      !domain.hasMVar && !domain.hasLooseBVars do return none
+  -- Native scalar comparisons already have dedicated normalization rules.
+  if isCompatibleRelationalType domain then return none
+  let .sort (.succ level) ← inferTypeEnv domain | return none
+  let constraint ← mkAppExpr (← mkExpr (mkConst ``BEq [level])) domain
+  let some beqInstance ← trySynthConstraintInstance? constraint | return none
+  if beqInstance.hasFVar || beqInstance.hasMVar then return none
+  let value ← withLocalContext <| Lean.Meta.whnf beqInstance
+  unless value.isAppOfArity ``BEq.mk 2 && value.appArg! == f do return none
+  let lawful ← mkApp2Expr (← mkExpr (mkConst ``LawfulBEq [level])) domain beqInstance
+  let some proof ← trySynthConstraintInstance? lawful | return none
+  if proof.hasFVar || proof.hasMVar then return none
+  setRestart
+  let equality ← mkApp3Expr (← mkExpr (mkConst ``Eq [.succ level])) domain args[0]! args[1]!
+  return some (← mkAppExpr (← mkBlasterDecideConst) equality)
 
 /-- Perform constant propagation and apply simplification and normalization rules
     on application expressions.
 -/
 def optimizeAppAux (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
+  if let some e ← normalizeNamedBEq? f args then return e
   let args ← reorderOperands f args
   if let some e ← optimizePropNot? f args then return e
   if let some e ← optimizePropBinary? f args then return e
@@ -130,7 +162,8 @@ def finalizeRecApp
        if exprEq uf f then false
        else
          match f with
-         | Expr.const n _ => opaqueFuns.contains n || optRecFuns.contains n
+         | Expr.const n _ =>
+             opaqueFuns.contains n || optRecFuns.contains n
          | _ => false
      if isOpaqueRecFun f then
        return Sum.inl (.InitOptimizeExpr e :: xs)
@@ -154,6 +187,7 @@ def finalizeRecApp
 -/
 def normRecFun (uf : Expr) (uargs : Array Expr) (appExpr : Expr) (xs : List OptimizeStack) : TranslateEnvT OptimizeContinuity := do
  let Expr.const n _ := uf | return (← stackContinuity xs appExpr)
+ if ← isUninterpreted n then return ← stackContinuity xs appExpr
  let isOpaqueRec ← isOpaqueRecFun uf uargs
  if (← isRecursiveFun n) || isOpaqueRec
  then
@@ -247,7 +281,7 @@ def optimizeApp
        let (f', args') := getAppFnWithArgs e
        if let some r ← funPropagation? f' args' (← isAppArg) then return Sum.inl (r :: stack)
        -- try to reduce app if all params are constructors
-       if let some be ← reduceApp? f' args' then return Sum.inl (.InitOptimizeExpr be.betaReduced be.prevMVarIdDecls :: stack)
+       if let some be ← reduceApp? f' args' then return ← recursiveRewriteContinuity f' args' be stack
        normRecFun f' args' e stack
     else stackContinuity stack e -- proceed with continuity
 

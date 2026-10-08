@@ -14,7 +14,6 @@ namespace Blaster.Smt
 def funNameToSmtSymbol (funName : Name) : SmtSymbol :=
   mkNormalSymbol s!"@{funName}"
 
-
 /-- list of Lean operators expected to be fully applied at translation phase. -/
 def fullyAppliedConst : HashSet Name :=
   List.foldr (fun c s => s.insert c) HashSet.emptyWithCapacity
@@ -604,6 +603,10 @@ partial def translateRecFun
   let instApp ← getInstApp f params
   match (← get).smtEnv.funInstCache.get? instApp with
   | none =>
+      -- A referenced instance must have a normalized body. Other members of
+      -- its source-level mutual group may have become unreachable, however.
+      unless (← get).optEnv.recFunInstCache.contains instApp do
+        throwEnvError "translateRecFun: function body expected for {reprStr instApp}"
       let Expr.const n l := f
         | throwEnvError "translateRecFun: name expression expected but got {reprStr f}"
       let ConstantInfo.defnInfo dInfo ← getConstEnvInfo n
@@ -663,6 +666,12 @@ partial def translateRecFun
       -- add all rec fun instance to cache first
       for f in funs do
         let auxApp ← mkExpr (mkConst f us)
+        let instApp ← getInstApp auxApp params
+        -- Normalization can erase edges in a mutual recursion group (for
+        -- example, a recursive call in a statically false branch). Such dead
+        -- members were never normalized and must not be emitted. An actual
+        -- residual reference to a missing instance still fails at entry above.
+        unless env.optEnv.recFunInstCache.contains instApp do continue
         let smtId ← generateFunInst auxApp params
         finfos := finfos.push (auxApp, smtId)
       for i in [:finfos.size] do
@@ -757,6 +766,9 @@ def generateUndeclaredFun
       let st ← translateFunLambdaParamType decl.type termTranslator
       pargs := pargs.push st
       co_quantifiers := co_quantifiers.push (xsyms[i]!, st)
+    -- Translation registers the normalized type's membership predicate. Use
+    -- the same type for the codomain constraint, including nested aliases.
+    let retType ← removeTypeAbbrev retType
     let ret ← translateFunLambdaParamType retType termTranslator
     declareFun s pargs ret
     -- assert codomain constraint
@@ -921,7 +933,7 @@ def translateConst
       else termTranslator (← Optimize.etaExpand e) -- parameterized constructor case
 
     translateDefineFun? (n : Name) : TranslateEnvT (Option SmtTerm) := do
-      if (opaqueFuns.contains n) || (← isRecursiveFun n) then
+      if (opaqueFuns.contains n) || (← isUninterpreted n) || (← isRecursiveFun n) then
         termTranslator (← Optimize.etaExpand e)
       else return none
 
@@ -1129,12 +1141,13 @@ def translateApp
 
 
     isOpaqueAxiomOrUndeclFun (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT Bool := do
+      if ← isUninterpreted n then return true
       match ← getFunBody f with
       | none => isAxiomOrOpaque n
       | some fbody => isUndefinedClassFunApp (← betaLambdaShared fbody args)
 
     translateAxiomOrUndeclFun? (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
-      if (← isOpaqueFun n args) then return none
+      if !(← isUninterpreted n) && (← isOpaqueFun n args) then return none
       if !(← isOpaqueAxiomOrUndeclFun f n args) then return none
       let pInfo ← getFunEnvInfo f
       if pInfo.paramsInfo.size > args.size then

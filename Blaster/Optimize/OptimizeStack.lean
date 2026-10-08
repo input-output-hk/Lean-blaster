@@ -14,7 +14,8 @@ instance : Repr (Option MVarIdDecls) where
 
 inductive OptimizeStack where
  | InitOptimizeExpr (e : Expr) (mvarDecls : Option MVarIdDecls := none)
- | InitOptimizeReturn (e : Expr) (isGlobal : Bool) (mvarDecls : Option MVarIdDecls)
+ | InitOptimizeReturn (e : Expr) (isGlobal : Bool) (mvarDecls : Option MVarIdDecls) (dependencyStart : Nat)
+ | AlphaRewriteReturn (key : Expr) (variables : Array Expr) (dependencyStart : Nat)
  | RecFunDefWaitForStorage (args : Array Expr) (instApp : Expr)
                            (subsInts : Expr) (params : ImplicitParameters) (startCtxId : CtxId)
  | RecFunDefStorage (args : Array Expr) (instApp : Expr)
@@ -97,11 +98,21 @@ def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := 
   match stack with
   | [] => return Sum.inr optExpr
 
-  | .InitOptimizeReturn e isGlobal mvarDecls :: xs =>
+  | .AlphaRewriteReturn key variables dependencyStart :: xs =>
+       let ref ← getRewriteDependencies
+       let dependencies ← RewriteDependencies.since ref dependencyStart (← get).optEnv.options.active
+       if dependencies.isEmpty then
+         let value ← mkLambdaFVarsExpr variables (← instantiateSharedMVars optExpr)
+         unless value.hasFVar || value.hasMVar || value.hasLooseBVars do
+           ref.modify fun state => {state with alpha := state.alpha.insert key value}
+       stackContinuity xs optExpr
+
+  | .InitOptimizeReturn e isGlobal mvarDecls dependencyStart :: xs =>
        let optExpr ← isInEqualityMap optExpr isGlobal
        if !skipCache then
-         updateOptimizeEnvCache optExpr optExpr isGlobal
-         if !e.hasMVar && !exprEq e optExpr then updateOptimizeEnvCache e optExpr isGlobal
+         let dependencies ← RewriteDependencies.since (← getRewriteDependencies) dependencyStart (← get).optEnv.options.active
+         updateOptimizeEnvCache optExpr optExpr isGlobal dependencies
+         if !e.hasMVar && !exprEq e optExpr then updateOptimizeEnvCache e optExpr isGlobal dependencies
        restoreMVarDecls mvarDecls
        match xs with
        | [] => return Sum.inr optExpr
@@ -361,6 +372,33 @@ def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := 
       let pInfo ← getFunEnvInfo f
       normProof idx args optArg pInfo
 
+/-- Use the same renamed-call cache before and after argument normalization. -/
+def recursiveRewriteContinuity (f : Expr) (args : Array Expr)
+    (reduced : BetaLambdaResult) (stack : List OptimizeStack) :
+    TranslateEnvT OptimizeContinuity := do
+  if let some (key, variables) ← alphaRecursionKey? f args then
+    let ref ← getRewriteDependencies
+    if let some template := (← ref.get).alpha.get? key then
+      let result ← betaLambdaShared template variables
+      let relevant ← RewriteDependencies.hasRelevantFacts ref result (← get).optEnv.options.active
+      unless exprEq result (← mkAppNExpr f args) do
+        restoreMVarDecls reduced.prevMVarIdDecls
+        if relevant then
+          -- The template is unconditionally equivalent, but this branch may
+          -- know more. Refine its residual instead of re-running the original
+          -- recursive computation from scratch.
+          return .inl (.InitOptimizeExpr result :: stack)
+        else return ← stackContinuity stack result
+    let start := (← ref.get).clock
+    let canonical ← betaLambdaShared key variables
+    let mut body := reduced.betaReduced
+    unless exprEq canonical (← mkAppNExpr f args) do
+      if let some selected ← reduceStructuralApp? f canonical.getAppArgs then
+        body := selected.betaReduced
+    return .inl (.InitOptimizeExpr body reduced.prevMVarIdDecls ::
+      .AlphaRewriteReturn key variables start :: stack)
+  return .inl (.InitOptimizeExpr reduced.betaReduced reduced.prevMVarIdDecls :: stack)
+
 @[always_inline, inline]
 def mkOptimizeContinuity (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeContinuity := do
   if ← isRestart then
@@ -378,16 +416,16 @@ def optimizeIfThenElse? (f : Expr) (args : Array Expr) (stack : List OptimizeSta
 @[always_inline, inline]
 def isInOptimizeEnvCache (a : Expr) (stack : List OptimizeStack) (mvarDecls : Option MVarIdDecls) : TranslateEnvT (Sum (List OptimizeStack) OptimizeContinuity) := do
   let env ← get
-  -- NOTE: Always consider global context when `a` does not contain any FVar/MVar
-  let isGlobal := !(hasVar a) || isGlobalContext env
+  -- NOTE: A closed term can still be rewritten with the hypotheses of a local
+  -- context (e.g., to `True` under a hypothesis stating it). Its rewrite is
+  -- therefore only global in the global context.
+  let isGlobal := isGlobalContext env
   let useCache := !a.hasMVar
+  let start := (← (← getRewriteDependencies).get).clock
   if useCache then
     let cached := ← isInOptimizeCache? a isGlobal env
     if !exprEq cached instCacheMiss then Sum.inr <$> stackContinuity stack cached
-    else return Sum.inl (.InitOptimizeReturn a isGlobal mvarDecls :: stack)
-  else return Sum.inl (.InitOptimizeReturn a isGlobal mvarDecls :: stack)
-
-  where
-    hasVar (e : Expr) : Bool := e.hasFVar || e.hasMVar
+    else return Sum.inl (.InitOptimizeReturn a isGlobal mvarDecls start :: stack)
+  else return Sum.inl (.InitOptimizeReturn a isGlobal mvarDecls start :: stack)
 
 end Blaster.Optimize

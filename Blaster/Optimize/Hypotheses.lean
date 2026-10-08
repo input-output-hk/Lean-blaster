@@ -145,13 +145,14 @@ def leqZeroIntInHyps (e : Expr) : TranslateEnvT Bool := do
 
 @[always_inline, inline]
 def updateHypMap (e : Expr) (fv : Expr) (nextCtxId : CtxId) : TranslateEnvT Unit := do
- match (← get).optEnv.hypothesisContext.hypothesisMap.get? e with
+ RewriteDependencies.addFact (← getRewriteDependencies) nextCtxId e
+ match (← get).optEnv.hypothesisContext.hypothesisMap.find? e with
  | none =>
-    let refEntry ← IO.mkRef [(nextCtxId, fv)]
+    let refEntry ← IO.mkRef (ContextEntries.singleton nextCtxId fv)
     modifyOptEnv
       fun ⟨o1, o2, o3, o4, o5, o6, o7, ⟨hypothesisMap, equalityMap⟩, o9, o10, o11, o12, o13, o14⟩ =>
           ⟨o1, o2, o3, o4, o5, o6, o7, ⟨hypothesisMap.insert e refEntry, equalityMap⟩, o9, o10, o11, o12, o13, o14⟩
- | some refEntry => refEntry.modify (λ l => (nextCtxId, fv) :: l)
+ | some refEntry => refEntry.modify (·.insert nextCtxId fv)
 
 /-- Given proposition `e` referenced by hypothesis `h`, perform the following:
      - When `e := ¬ false = e`
@@ -210,19 +211,48 @@ def addDitePropFacts (e : Expr) (h : Expr) (nextCtxId : CtxId) : TranslateEnvT U
           let body ← mkAppExpr e (← mkBVarExpr 0)
           mkForallExpr (← Term.mkFreshBinderName) BinderInfo.default c body
 
+/-- `true` iff `needle` occurs as a (shared) subterm of `hay`.  Pointer-based
+    over maximally shared expressions. -/
+def containsSharedSubterm (hay needle : Expr) : Bool := Id.run do
+  let mut stk : Array Expr := #[hay]
+  let mut seen : Std.HashSet USize := {}
+  while !stk.isEmpty do
+    let e := stk.back!
+    stk := stk.pop
+    if exprEq e needle then return true
+    let addr := (unsafe (ptrAddrUnsafe e))
+    if seen.contains addr then continue
+    seen := seen.insert addr
+    match e with
+    | .app f a => stk := stk.push f |>.push a
+    | .lam _ t b _ | .forallE _ t b _ => stk := stk.push t |>.push b
+    | .letE _ t v b _ => stk := stk.push t |>.push v |>.push b
+    | .mdata _ b | .proj _ _ b => stk := stk.push b
+    | _ => pure ()
+  return false
+
+/-- Register `lhs ↦ rhs` unless the rewrite is self-referential (`rhs`
+    contains `lhs`), which can never terminate as a rewrite and arises
+    naturally from constructor-shape hypotheses over selector applications
+    (`e = C (sel e)`). -/
+@[always_inline, inline]
+def updateEqualityMapSafe (lhs : Expr) (rhs : Expr) (ctxId : CtxId) : TranslateEnvT Unit := do
+  unless containsSharedSubterm rhs lhs do
+    updateEqualityMap lhs rhs ctxId
+
 @[always_inline, inline]
 def addEqRewriteInMap (e : Expr) (nextCtxId : CtxId) : TranslateEnvT Unit := do
  if let some (_psort, a, b) := eq? e then
     if !(isBoolCtor a) then
       match a, b with
       | Expr.fvar _, Expr.fvar _ => pure ()
-      | Expr.lit _, _ => updateEqualityMap b a nextCtxId
-      | _, Expr.lit _ => updateEqualityMap a b nextCtxId
-      | Expr.fvar _, _ => updateEqualityMap a b nextCtxId
-      | _, Expr.fvar _ => updateEqualityMap b a nextCtxId
+      | Expr.lit _, _ => updateEqualityMapSafe b a nextCtxId
+      | _, Expr.lit _ => updateEqualityMapSafe a b nextCtxId
+      | Expr.fvar _, _ => updateEqualityMapSafe a b nextCtxId
+      | _, Expr.fvar _ => updateEqualityMapSafe b a nextCtxId
       | _, _ =>
-        if (← isCtorExpr a.getAppFn) then updateEqualityMap b a nextCtxId
-        else if (← isCtorExpr b.getAppFn) then updateEqualityMap a b nextCtxId
+        if (← isCtorExpr a.getAppFn) then updateEqualityMapSafe b a nextCtxId
+        else if (← isCtorExpr b.getAppFn) then updateEqualityMapSafe a b nextCtxId
         else pure ()
 
 /-- Perform the following actions:

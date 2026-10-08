@@ -263,6 +263,72 @@ def diteFactorize? (a : Expr) (t : Expr) (e : Expr) : TranslateEnvT (Option Expr
       else return none
   | _, _ => return none
 
+/-- Preserve a shared constructor while joining recursive arguments. This is
+    deliberately part of the early call join, not an inverse rewrite applied
+    to every normalized conditional. Inspection is bounded and stops at
+    dependent fields; no constructor alternatives are enumerated. -/
+private def joinArgument (condition notCondition type yes no : Expr)
+    (depth : Nat) : TranslateEnvT Expr := do
+  if exprEq yes no then return yes
+  let fallback : TranslateEnvT Expr := do
+    let choice ← mkExpr (mkConst ``Blaster.dite' [← withLocalContext (getLevel type)])
+    let lhs ← mkLambdaExpr `_h .default condition yes
+    let rhs ← mkLambdaExpr `_h .default notCondition no
+    mkApp4Expr choice type condition lhs rhs
+  match depth with
+  | 0 => fallback
+  | depth + 1 =>
+      let (f, yesArgs) := getAppFnWithArgs yes
+      let (g, noArgs) := getAppFnWithArgs no
+      unless exprEq f g && yesArgs.size == noArgs.size do return ← fallback
+      let .const name _ := f | return ← fallback
+      unless ← isCtorName name do return ← fallback
+      let mut ctorType ← inferTypeEnv f
+      let mut merged := yesArgs
+      for i in [:yesArgs.size] do
+        let .forallE _ domain body _ := ctorType | return ← fallback
+        unless exprEq yesArgs[i]! noArgs[i]! do
+          if body.hasLooseBVar 0 then return ← fallback
+          merged := merged.set! i
+            (← joinArgument condition notCondition domain yesArgs[i]! noArgs[i]! depth)
+        ctorType ← instantiateShared1 body merged[i]!
+      mkAppNExpr f merged
+
+/-- Join recursive continuations before optimizing either branch.
+    Both decreasing arguments must be the same known constructor; differing
+    arguments must not affect later argument types or the result type.
+    Immediately select the shared structural equation, so this cannot cycle
+    with the inverse function-propagation rule. -/
+private def joinRecursiveChoice? (condition yes no : Expr) :
+    TranslateEnvT (Option Expr) := do
+  let .lam _ _ yesBody _ := yes | return none
+  let .lam _ _ noBody _ := no | return none
+  let yesBody ← instantiateSharedMVars yesBody
+  let noBody ← instantiateSharedMVars noBody
+  if yesBody.hasLooseBVars || noBody.hasLooseBVars then return none
+  let (f, yesArgs) := getAppFnWithArgs yesBody
+  let (g, noArgs) := getAppFnWithArgs noBody
+  unless exprEq f g && yesArgs.size == noArgs.size do return none
+  let .const name _ := f | return none
+  unless ← isRecursiveFun name do return none
+  let some position ← getStructuralRecArgPos? name | return none
+  unless position < yesArgs.size do return none
+  unless exprEq yesArgs[position]! noArgs[position]! do return none
+  unless ← isNormConstructor yesArgs[position]! do return none
+  let mut type ← inferTypeEnv f
+  let mut merged := yesArgs
+  let notCondition ← mkAppExpr (← mkPropNotOp) condition
+  for i in [:yesArgs.size] do
+    let .forallE _ domain body _ := type | return none
+    unless exprEq yesArgs[i]! noArgs[i]! do
+      if body.hasLooseBVar 0 then return none
+      merged := merged.set! i
+        (← joinArgument condition notCondition domain yesArgs[i]! noArgs[i]! 16)
+    type ← instantiateShared1 body merged[i]!
+  let some reduced ← reduceStructuralApp? f merged | return none
+  freeRewriteCacheReuse yes 0
+  freeRewriteCacheReuse no 0
+  return some reduced.betaReduced
 
 @[always_inline, inline]
 def isCstPropMatch (p : Expr) : TranslateEnvT Bool := do
@@ -371,15 +437,23 @@ def optimizeDITEChoice (f : Expr) (args : Array Expr) : TranslateEnvT (Option Ex
  let c := args[1]!
  let t := args[2]!
  let e := args[3]!
- if let some r ← condReduction? c t e then return r
- if let some r ← diteReduce? c t e then return r
- if let some r ← diteReduce? (← optimizeAdvancedNot (← mkPropNotOp) #[c] (restart := false)) e t then return r
+ if let some r ← condReduction? c t e then
+   return r
+ if let some r ← diteReduce? c t e then
+   return r
+ if let some r ← diteReduce? (← optimizeAdvancedNot (← mkPropNotOp) #[c] (restart := false)) e t then
+   return r
  if let some r ← iteSimp? iteType c t e (inDiteChoice := true) then
     resetRestart
     return r
- if let some r ← constDITEPropagation? args then return r
- if let some r ← diteToPropExpr? iteType c t e then return r
- isITESwap? f iteType c t e
+ if let some r ← joinRecursiveChoice? c t e then return r
+ if let some r ← constDITEPropagation? args then
+   return r
+ if let some r ← diteToPropExpr? iteType c t e then
+   return r
+ if let some r ← isITESwap? f iteType c t e then
+   return some r
+ return none
 
  where
 

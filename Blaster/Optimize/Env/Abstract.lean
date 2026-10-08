@@ -6,7 +6,99 @@ open Lean Meta Blaster.Data.HashSet Blaster.Data.HashMap
 namespace Blaster.Optimize
 
 @[always_inline, inline]
+private def fvarUniqIdx (id : FVarId) : Nat :=
+  match id.name with
+  | .num _ n => n + 1
+  | _ => 0
+
+/-- Max fvar `_uniq` watermark of `e`: the largest `_uniq` index of an fvar in
+    `e`, `0` when fvar-free (memoized in `RewriteDependencies.fvarMax`). A
+    target fvar with a uniq index above it does not occur in `e` — an O(1)
+    occurs-check for the dominant "close a freshly introduced binder over an
+    old payload" pattern. Fvars whose id is not a `_uniq` numeral count as `0`
+    on the query side, which disables the skip for them. Iterative two-pass
+    walk; each distinct subtree is computed once per translation. -/
+private def maxFVarUniq (root : Expr) : TranslateEnvT Nat := do
+  if !root.hasFVar then return 0
+  -- `cache0` is a read-only snapshot; new results accumulate in the local
+  -- `fresh` map (exclusive, in-place) and are merged back with one `modify`.
+  let ref ← getRewriteDependencies
+  let cache0 := (← ref.get).fvarMax
+  if let some v := cache0.find? ⟨root⟩ then return v
+  let childrenOf : Expr → Array Expr := fun e =>
+    match e with
+    | .app f a => #[f, a]
+    | .lam _ t b _ | .forallE _ t b _ => #[t, b]
+    | .letE _ t v b _ => #[t, v, b]
+    | .mdata _ b | .proj _ _ b => #[b]
+    | _ => #[]
+  let known : Std.HashMap PtrExpr Nat → Expr → Option Nat := fun fresh e =>
+    match cache0.find? ⟨e⟩ with
+    | some v => some v
+    | none => fresh.get? ⟨e⟩
+  let mut fresh : Std.HashMap PtrExpr Nat := {}
+  let mut stk : Array Expr := #[root]
+  while !stk.isEmpty do
+    let e := stk.back!
+    if !e.hasFVar then
+      stk := stk.pop
+    else if (known fresh e).isSome then
+      stk := stk.pop
+    else if let .fvar id := e then
+      -- unknown-name fvars watermark as `1`: nonzero (present) but below any
+      -- `_uniq` numeral only when the query side is also unknown (idx 0),
+      -- where the skip is disabled anyway.
+      fresh := fresh.insert ⟨e⟩ (max 1 (fvarUniqIdx id))
+      stk := stk.pop
+    else
+      let cs := childrenOf e
+      let mut pending : Array Expr := #[]
+      for c in cs do
+        if c.hasFVar && (known fresh c).isNone then
+          pending := pending.push c
+      if pending.isEmpty then
+        let mut v := 0
+        for c in cs do
+          if c.hasFVar then
+            v := max v ((known fresh c).getD 0)
+        fresh := fresh.insert ⟨e⟩ v
+        stk := stk.pop
+      else
+        stk := stk ++ pending
+  let res := (fresh.get? ⟨root⟩).getD 0
+  ref.modify fun st => {st with fvarMax := fresh.fold (init := st.fvarMax) fun m k v => m.insert k v}
+  return res
+
+/-- Memoized `containsFVar`, with the watermark fast path: re-closing the same
+    (body, fvar) pair — which the optimizer does constantly — is O(1), and a
+    freshly created fvar is O(1)-absent from any older subtree. -/
+def containsFVarCached (e : Expr) (x : Expr) : TranslateEnvT Bool := do
+  if !e.hasFVar then return false
+  let xi := fvarUniqIdx x.fvarId!
+  if xi > 0 then
+    if (← maxFVarUniq e) < xi then return false
+  let ref ← getRewriteDependencies
+  let key := ((⟨e⟩ : PtrExpr), x.fvarId!)
+  match (← ref.get).fvarOccurs.find? key with
+  | some b => return b
+  | none =>
+      let b := containsFVar e x
+      ref.modify fun st => {st with fvarOccurs := st.fvarOccurs.insert key b}
+      return b
+
+@[always_inline, inline]
 private unsafe def abstractFVarsAux (e : Expr) (endIdx : USize) (xs : Array Expr) : TranslateEnvT Expr := do
+ -- Watermark for the whole target window: a subtree whose max fvar uniq index
+ -- is below the smallest target index cannot mention any target, so it is
+ -- returned unchanged without being walked.  `0` (an unknown-name target)
+ -- disables the skip.
+ let minTarget : Nat := Id.run do
+   let mut m := 0
+   for i in [0:endIdx.toNat+1] do
+     let ti := fvarUniqIdx xs[i]!.fvarId!
+     if ti == 0 then return 0
+     m := if m == 0 then ti else min m ti
+   return m
  let rec go (cur : Expr) (isResult : Bool) (offset : USize) (stk : Array InstantiateStack) (cache : InstCache) : TranslateEnvT Expr := do
   if isResult then
       let r := cur
@@ -19,6 +111,7 @@ private unsafe def abstractFVarsAux (e : Expr) (endIdx : USize) (xs : Array Expr
              go a false offset' stk cache
         | .WaitAppArg e f offset' =>
              let r' ← e.updateAppExpr! f r
+             inheritCtorChoiceInfo e r'
              go r' true offset stk.pop (cache.insert (mkInstKey e offset') r')
         | .WaitForallType e b offset' =>
              let stk := stk.uset topIdx (.WaitForallBody e r offset') lcProof
@@ -31,6 +124,7 @@ private unsafe def abstractFVarsAux (e : Expr) (endIdx : USize) (xs : Array Expr
              go b false (offset' + 1) stk cache
         | .WaitLambdaBody e t offset' =>
              let r' ← e.updateLambdaExpr! t r
+             inheritCtorChoiceInfo e r'
              go r' true offset stk.pop (cache.insert (mkInstKey e offset') r')
         | .WaitLetType e v b offset' =>
              let stk := stk.uset topIdx (.WaitLetValue e r b offset') lcProof
@@ -53,6 +147,9 @@ private unsafe def abstractFVarsAux (e : Expr) (endIdx : USize) (xs : Array Expr
       if e.hasFVar then
         let cached := cache.getD (mkInstKey e offset) instCacheMiss
         if !exprEq cached instCacheMiss then go cached true offset stk cache
+        else if minTarget > 0 && (← maxFVarUniq e) < minTarget then
+          -- provably mentions no target fvar: unchanged, subtree not walked
+          go e true offset stk (cache.insert (mkInstKey e offset) e)
         else
           match e with
           | .fvar _ =>
@@ -234,7 +331,7 @@ def mkLambdaFVarsExpr (xs : Array Expr) (e : Expr) (usedOnly := false) : Transla
 
 
 def mkLambdaFVarExpr (x : Expr) (e : Expr) : TranslateEnvT Expr := do
-  if containsFVar e x then
+  if ← containsFVarCached e x then
     mkLambdaFVarsExpr #[x] e
   else
     let decl ← x.fvarId!.getEnvDecl
@@ -256,7 +353,7 @@ def mkForallFVarsExpr (xs : Array Expr) (e : Expr) (usedOnly := false) : Transla
     mkForallExpr decl.userName decl.binderInfo type b
 
 def mkForallFVarExpr (x : Expr) (e : Expr) : TranslateEnvT Expr := do
-  if containsFVar e x then
+  if ← containsFVarCached e x then
     mkForallFVarsExpr #[x] e
   else
     let decl ← x.fvarId!.getEnvDecl

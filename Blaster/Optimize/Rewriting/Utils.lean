@@ -607,6 +607,147 @@ def getFunBody (f : Expr) : TranslateEnvT (Option Expr) := do
        updateFunBodyCache f body
        return body
 
+/-- Reduce a structural equation only when its outer match selects a branch.
+    A known decreasing argument is necessary but not sufficient: a joint match
+    may still need another symbolic argument. Do not introduce such a match
+    merely to normalize every alternative. Other arguments stay unevaluated
+    until the selected equation needs them. -/
+def reduceStructuralApp? (f : Expr) (args : Array Expr) :
+    TranslateEnvT (Option BetaLambdaResult) := do
+  let Expr.const name _ := f | return none
+  unless ← isRecursiveFun name do return none
+  -- an uninterpreted recursive definition may keep its constructor equations
+  if (← isOpaqueFunExpr f args) && !(← hasConstructorEquations name) then return none
+  let some position ← getStructuralRecArgPos? name | return none
+  unless position < args.size do return none
+  unless ← isNormConstructor args[position]! do return none
+  let some body ← getFunBody f | return none
+  let applied ← instantiateSharedMVars (← betaLambdaShared body args)
+  -- A matcher may consult mutable let-valued locals, but a closed equation
+  -- does not depend on whichever branch happens to surround it. Track actual
+  -- zeta-delta reads (with a fresh Meta cache), not the mere presence of a scope.
+  let (result, usedLocals) ← withLocalContext <| Lean.Meta.withTrackingZetaDelta do
+    let result ← Lean.Meta.reduceMatcher? applied
+    return (result, !(← Lean.Meta.getZetaDeltaFVarIds).isEmpty)
+  if usedLocals then recordContextUse (← get).optEnv.options.curCtx
+  let .reduced reduced := result
+    | return none
+  return some ⟨← hashcons reduced, none⟩
+
+private abbrev AlphaViewM := StateT (Nat × Std.HashMap Expr Expr) TranslateEnvT
+
+/-- A bounded, context-free view for renamed recursive cache keys. Reduce only
+    structure projections of explicit constructors. In particular, selecting a
+    closed field must not retain unrelated locals from the discarded fields.
+    Do not unfold definitions or consult branch assumptions here. -/
+private partial def alphaConstructorView? (e : Expr) : AlphaViewM (Option Expr) := do
+  if !e.hasFVar then return some e
+  let (budget, memo) ← get
+  if let some result := memo.get? e then return some result
+  if budget == 0 then return none
+  set (budget - 1, memo)
+  let result ← view e
+  if let some result := result then modify fun (budget, memo) => (budget, memo.insert e result)
+  return result
+where
+  view (e : Expr) : AlphaViewM (Option Expr) := do
+    if e.isFVar then return some e
+    let env ← getEnv
+    let projection? := match e with
+      | .proj structureName index major => some (structureName, index, major)
+      | _ => do
+        let .const name _ := e.getAppFn | none
+        let info ← env.getProjectionFnInfo? name
+        let args := e.getAppArgs
+        guard (args.size == info.numParams + 1)
+        let .ctorInfo ctor ← env.find? info.ctorName | none
+        some (ctor.induct, info.i, args[info.numParams]!)
+    if let some (structureName, index, major) := projection? then
+      -- Select an explicit field before visiting the constructor's other fields.
+      if let some field := selectField? env structureName index major then
+        return ← alphaConstructorView? field
+      let some major ← alphaConstructorView? major | return none
+      if let some field := selectField? env structureName index major then
+        return ← alphaConstructorView? field
+      -- Keep the existing representation of unresolved projection functions.
+      match e with
+      | .proj .. => return some (← liftM <| hashcons (.proj structureName index major))
+      | _ =>
+        let args := e.getAppArgs
+        return some (← liftM <| mkAppNExpr e.getAppFn (args.set! (args.size - 1) major))
+    match e with
+    | .app .. =>
+      let mut args := e.getAppArgs
+      for i in [:args.size] do
+        let some argument ← alphaConstructorView? args[i]! | return none
+        args := args.set! i argument
+      return some (← liftM <| mkAppNExpr e.getAppFn args)
+    | _ => return none
+
+  selectField? (env : Environment) (structureName : Name) (index : Nat)
+      (major : Expr) : Option Expr := do
+    let .const name _ := major.getAppFn | none
+    let .ctorInfo ctor ← env.find? name | none
+    guard (ctor.induct == structureName)
+    let args := major.getAppArgs
+    guard (args.size == ctor.numParams + ctor.numFields)
+    args[ctor.numParams + index]?
+
+/-- Close a recursive application over ordinary, independently typed locals.
+    Renaming fresh pattern variables must not force the same recursive work
+    to be repeated. Let-valued and dependent locals are deliberately excluded. -/
+def alphaRecursionKey? (f : Expr) (args : Array Expr) :
+    TranslateEnvT (Option (Expr × Array Expr)) := do
+  -- Preserve the constructor skeleton while renaming its ordinary locals.
+  -- Bound inspection before constructing or abstracting the application: large
+  -- payloads and arbitrary dynamic computations stay on the exact cache path.
+  let mut args := args
+  let mut viewState : Nat × Std.HashMap Expr Expr := (64, {})
+  for i in [:args.size] do
+    let argument := args[i]!
+    if argument.hasMVar || argument.hasLooseBVars then return none
+    let (some argument, nextState) ← (alphaConstructorView? argument).run viewState | return none
+    args := args.set! i argument
+    viewState := nextState
+  let mut variables := #[]
+  let mut pending := #[]
+  for argument in args do
+    if argument.hasFVar then pending := pending.push argument
+  let mut inspected := 0
+  let mut visited : Std.HashSet Expr := {}
+  while !pending.isEmpty do
+    let current := pending.back!
+    pending := pending.pop
+    if visited.contains current then continue
+    visited := visited.insert current
+    inspected := inspected + 1
+    if inspected > 64 then return none
+    if current.isFVar then
+      unless variables.contains current do
+        variables := variables.push current
+        if variables.size > 8 then return none
+    else if current.isProj then
+      pending := pending.push current.projExpr!
+    else
+      unless ← isCtorExpr current.getAppFn do return none
+      for field in current.getAppArgs do
+        if field.hasFVar then pending := pending.push field
+  if variables.isEmpty then return none
+  let .const name _ := f | return none
+  unless ← isRecursiveFun name do return none
+  for fv in variables do
+    let decl ← fv.fvarId!.getEnvDecl
+    if decl.isLet || decl.type.hasFVar || decl.type.hasMVar then return none
+    if ← isPropEnv decl.type then return none
+  let key ← closeAlphaRewrite variables (← mkAppNExpr f args)
+  return some (key, variables)
+where
+  closeAlphaRewrite (variables : Array Expr) (body : Expr) : TranslateEnvT Expr := do
+    let mut result ← abstractFVars body variables
+    for fv in variables.reverse do
+      result ← mkLambdaExpr `_alpha .default (← fv.fvarId!.getEnvType) result
+    return result
+
 /-- Return `true` if `e` corresponds to an undefined type class function application, s.t.:
       - `e := app (Expr.proj c _ _) ...`; and
       - `c` is the name of a type class in the given environment; and
@@ -661,7 +802,7 @@ def isNotFoldable
   (e : Expr) (args : Array Expr) : TranslateEnvT Bool := do
   match e with
   | Expr.const n _ =>
-      if opaqueFuns.contains n then return true
+      if opaqueFuns.contains n || (← isUninterpreted n) then return true
       else if (← (pure (args.size != 0)) <&&> (isOpaqueRelational n args)) then return true
       else isRecursiveFun n <||> isAxiomOrOpaque n
   | _ => return false

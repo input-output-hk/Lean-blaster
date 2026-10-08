@@ -651,60 +651,12 @@ elab "natSubSubUnchanged_4" : term => return natSubSubUnchanged_4
 #testOptimize [ "NatSubSunUnchanged_4" ] ∀ (x y : Nat), 100 - (10 - x) < y ===> natSubSubUnchanged_4
 
 
--- (100 + x) - 101 ===> (100 + x) - 101
--- Must remain unchanged
-def natSubSubUnchanged_5 : Expr :=
- Lean.Expr.forallE `x
-  (Lean.Expr.const `Nat [])
-  (Lean.Expr.forallE `y
-    (Lean.Expr.const `Nat [])
-    (Lean.Expr.app
-      (Lean.Expr.app
-        (Lean.Expr.app
-          (Lean.Expr.app (Lean.Expr.const `LT.lt [Lean.Level.zero]) (Lean.Expr.const `Nat []))
-          (Lean.Expr.const `instLTNat []))
-        (Lean.Expr.app
-          (Lean.Expr.app
-            (Lean.Expr.const `Nat.sub [])
-            (Lean.Expr.app
-              (Lean.Expr.app (Lean.Expr.const `Nat.add []) (Lean.Expr.lit (Lean.Literal.natVal 100)))
-              (Lean.Expr.bvar 1)))
-          (Lean.Expr.lit (Lean.Literal.natVal 101))))
-      (Lean.Expr.bvar 0))
-    (Lean.BinderInfo.default))
-  (Lean.BinderInfo.default)
+-- Cancellation respects truncated subtraction, including x below the remainder.
+#testOptimize [ "NatSubAddCancel_5" ] (norm-result: 1)
+  ∀ (x y : Nat), (100 + x) - 101 < y ===> ∀ (x y : Nat), Nat.sub x 1 < y
 
-elab "natSubSubUnchanged_5" : term => return natSubSubUnchanged_5
-
-#testOptimize [ "NatSubSunUnchanged_5" ] ∀ (x y : Nat), (100 + x) - 101 < y ===> natSubSubUnchanged_5
-
--- (100 + x) - 180 ===> (100 + x) - 180
--- Must remain unchanged
-def natSubSubUnchanged_6 : Expr :=
- Lean.Expr.forallE `x
-  (Lean.Expr.const `Nat [])
-  (Lean.Expr.forallE `y
-    (Lean.Expr.const `Nat [])
-    (Lean.Expr.app
-      (Lean.Expr.app
-        (Lean.Expr.app
-          (Lean.Expr.app (Lean.Expr.const `LT.lt [Lean.Level.zero]) (Lean.Expr.const `Nat []))
-          (Lean.Expr.const `instLTNat []))
-        (Lean.Expr.app
-          (Lean.Expr.app
-            (Lean.Expr.const `Nat.sub [])
-            (Lean.Expr.app
-              (Lean.Expr.app (Lean.Expr.const `Nat.add []) (Lean.Expr.lit (Lean.Literal.natVal 100)))
-              (Lean.Expr.bvar 1)))
-          (Lean.Expr.lit (Lean.Literal.natVal 180))))
-      (Lean.Expr.bvar 0))
-    (Lean.BinderInfo.default))
-  (Lean.BinderInfo.default)
-
-elab "natSubSubUnchanged_6" : term => return natSubSubUnchanged_6
-
-#testOptimize [ "NatSubSunUnchanged_6" ] ∀ (x y : Nat), (100 + x) - 180 < y ===> natSubSubUnchanged_6
-
+#testOptimize [ "NatSubAddCancel_6" ] (norm-result: 1)
+  ∀ (x y : Nat), (100 + x) - 180 < y ===> ∀ (x y : Nat), Nat.sub x 80 < y
 
 /-! Test cases to ensure that `Nat.sub` is preserved when expected and is not a commutative operator. -/
 
