@@ -5,7 +5,7 @@ open Lean Elab Command Term Meta Blaster.Syntax Blaster.Smt Blaster.Optimize Bla
 
 namespace Blaster.StateMachine
 
-/-- Given `smInst` an instance of `StateMachine`, perform the BMC strategy for counterexample detection up
+/-- Given `sm` an instance of `StateMachine`, perform the BMC strategy for counterexample detection up
     to Depth `maxDepth`. In particular, considering `k = maxDepth`, try to incrementally check
     if one of the following propositional formulae are satisfied:
       bmcStrategy(smInst) ≡
@@ -21,9 +21,12 @@ namespace Blaster.StateMachine
       inᵢ : set of input variables at step ᵢ
       stᵢ : set of state variables at step ᵢ
 
-    Trigger an error when `smInst` is not an instance of `StateMachine`.
+    Trigger an error when `sm` is not an instance of `StateMachine`.
 -/
-partial def bmcStrategy (smInst : Expr) : TranslateEnvT Unit := do
+partial def bmcStrategy (sm : Expr) : TranslateEnvT Unit := do
+  -- set start local context
+  updateLocalContext (← mkLocalContext)
+  let smInst ← hashcons sm
   let rec visit (prevState : Option Expr) : StateMachineEnvT Unit := do
     if (← maxDepthReached) then
       logNoCexAtDepth
@@ -31,12 +34,12 @@ partial def bmcStrategy (smInst : Expr) : TranslateEnvT Unit := do
       let env ← get
       withLocalDecl' (← nameAtDepth env.smName "input") BinderInfo.default env.inputType fun i => do
         logDepthProgress "BMC"
-        let nextState ← optimizeState i prevState
+        let nextState ← optimizeState smInst i prevState
         -- assert assumptions and check contradiction at step k
         if (← assertAssumptions smInst i nextState) then
           pure () -- contradictory context
         else
-          let res ← analysisAtDepth i nextState
+          let res ← analysisAtDepth smInst i nextState
           match res with
           | .Falsified _ => logCexAtDepth res
           | .Undetermined => logUndeterminedAtDepth
@@ -49,22 +52,22 @@ partial def bmcStrategy (smInst : Expr) : TranslateEnvT Unit := do
   discard $ visit none |>.run smEnv
 
   where
-    optimizeState (iVar : Expr) (pState : Option Expr) : StateMachineEnvT Expr := do
+    optimizeState (smInst : Expr) (iVar : Expr) (pState : Option Expr) : StateMachineEnvT Expr := do
      let env ← get
      profileTask s!"Optimizing state at Depth {← getCurrentDepth}"
       (do
         match pState with
         | none => -- depth 0
-            Optimize.main (mkApp4 (← mkInit) env.inputType env.stateType smInst iVar)
+            Optimize.mainAux (← mkApp4Expr (← mkInit) env.inputType env.stateType smInst iVar) (applyHashCons := false)
         | some state =>
-            Optimize.optimizeExpr' (mkApp5 (← mkNext) env.inputType env.stateType smInst iVar state)
+            Optimize.optimizeExpr (← mkApp5Expr (← mkNext) env.inputType env.stateType smInst iVar state)
       ) (verboseLevel := 2)
 
-    analysisAtDepth (iVar : Expr) (state : Expr) : StateMachineEnvT Result := do
+    analysisAtDepth (smInst : Expr) (iVar : Expr) (state : Expr) : StateMachineEnvT Result := do
      let env ← get
      --- check invariant at step k
      let currDepth ← getCurrentDepth
-     let invExpr := mkApp5 (← mkInvariants) env.inputType env.stateType smInst iVar state
+     let invExpr ← mkApp5Expr (← mkInvariants) env.inputType env.stateType smInst iVar state
      let optExpr ←
        profileTask
          s!"Optimizing invariants at Depth {currDepth}"
@@ -101,7 +104,7 @@ syntax (name := bmc) "#bmc" (solveOption)* solveTerm : command
 def bmcCommand (sOpts: BlasterOptions) (stx : Syntax) : TermElabM Unit :=
    elabTermAndSynthesize stx none >>= fun e => do
      let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
-     discard $ bmcStrategy e|>.run env
+     discard $ bmcStrategy e |>.run env
 
 @[command_elab bmc]
 def bmcImp : CommandElab := commandInvoker bmcCommand

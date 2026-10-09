@@ -13,20 +13,21 @@ def isZeroNat (e : Expr) : Bool :=
 
 /-- Given `ne` the operand for `Not` apply the following normalization rules:
      - When `ne := false = e`
-        - return `some (true = e)`
+        - return `some (true = e, e, false)`
      - When `ne := true = e`
-        - return `some (false = e)`
+        - return `some (false = e, e, true)`
      - Otherwise:
         - return `none`.
 -/
-def notEqSimp? (ne : Expr) : TranslateEnvT (Option Expr) := do
+@[always_inline, inline]
+def notEqSimp? (ne : Expr) : TranslateEnvT (Option (Expr × Expr × Bool)) := do
   match eq? ne with
   | some (eq_sort, op1, op2) =>
      match op1 with
      | Expr.const ``false _ =>
-         return (mkApp3 ne.getAppFn eq_sort (← mkBoolTrue) op2)
+         return (← mkApp3Expr ne.getAppFn eq_sort (← mkBoolTrue) op2, op2, false)
      | Expr.const ``true _ =>
-         return (mkApp3 ne.getAppFn eq_sort (← mkBoolFalse) op2)
+         return (← mkApp3Expr ne.getAppFn eq_sort (← mkBoolFalse) op2, op2, true)
      | _ => return none
   | none => return none
 
@@ -55,15 +56,15 @@ def notLTNumNorm? (ne : Expr) (restart := true) : TranslateEnvT (Option Expr) :=
    An error is triggered if args.size ≠ 1 (i.e., only fully applied `Not` expected at this stage)
    TODO: consider additional simplification rules
 -/
-def optimizeNot (f : Expr) (args : Array Expr) (cacheResult := true) : TranslateEnvT Expr := do
+def optimizeNot (f : Expr) (args : Array Expr) (restart := true) : TranslateEnvT Expr := do
  if args.size != 1 then throwEnvError "optimizeNot: exactly one argument expected"
  let e := args[0]!
  if let Expr.const ``False _ := e then return (← mkPropTrue)
  if let Expr.const ``True _ := e then return (← mkPropFalse)
  if let some op := propNot? e then return op
- if let some r ← notEqSimp? e then return r
- if let some r ← notLTNumNorm? e cacheResult then return r
- return (mkApp f e)
+ if let some (r, _) ← notEqSimp? e then return r
+ if let some r ← notLTNumNorm? e restart then return r
+ mkAppExpr f e
 
 
 /-- Given `ne` the operand for `Not` apply the following normalization rules:
@@ -74,7 +75,7 @@ def optimizeNot (f : Expr) (args : Array Expr) (cacheResult := true) : Translate
      - Otherwise:
         - return `none`.
 -/
-def notLogicalSimp? (ne : Expr) : TranslateEnvT (Option Expr) := do
+def notLogicalSimp? (ne : Expr) (restart := true) : TranslateEnvT (Option Expr) := do
   match propAnd? ne with
   | some (ne1, ne2) => notPropagation? ne1 ne2 (← mkPropOrOp)
   | _ =>
@@ -86,8 +87,8 @@ def notLogicalSimp? (ne : Expr) : TranslateEnvT (Option Expr) := do
    notPropagation? (ne1 : Expr) (ne2 : Expr) (op : Expr) : TranslateEnvT (Option Expr) := do
      match propNot? ne1, propNot? ne2 with
      | some e1, some e2 =>
-           setRestart
-           return mkApp2 op e1 e2
+           if restart then setRestart
+           mkApp2Expr op e1 e2
      | _, _ => return none
 
 /-- Call `optimizeNot f args` and apply the following simplification/normalization rules on `Not` :
@@ -96,10 +97,10 @@ def notLogicalSimp? (ne : Expr) : TranslateEnvT (Option Expr) := do
    Assume that f = Expr.const ``Not.
    An error is triggered if args.size ≠ 1 (i.e., only fully applied `Not` expected at this stage)
 -/
-def optimizeAdvancedNot (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
-  let e ← optimizeNot f args
+def optimizeAdvancedNot (f : Expr) (args : Array Expr) (restart := true) : TranslateEnvT Expr := do
+  let e ← optimizeNot f args restart
   let some ne := propNot? e | return e
-  if let some r ← notLogicalSimp? ne  then return r
+  if let some r ← notLogicalSimp? ne restart then return r
   return e
 
 

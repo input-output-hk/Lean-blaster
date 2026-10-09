@@ -144,7 +144,8 @@ def getSMTypes (smInst : Expr) : TranslateEnvT StateMachineEnv := do
   let Expr.const n _ := smInst.getAppFn' | throwEnvError "StateMachine instance name expression expected !!!"
   let ConstantInfo.defnInfo info ← getConstEnvInfo n
     | throwEnvError "StateMachine instance definition expected !!!"
-  let inst := if info.value.isLambda then betaLambda info.value smInst.getAppArgs else info.value
+  let v ← hashcons info.value
+  let inst ← if v.isLambda then betaLambdaShared v smInst.getAppArgs else pure v
   Expr.withApp inst fun f args => do
    let Expr.const `Blaster.StateMachine.StateMachine.mk _ := f
      | throwEnvError "StateMachine instance expected but got {reprStr f} !!!"
@@ -159,7 +160,7 @@ def assertAssumptions (smInst : Expr) (iVar : Expr) (state : Expr) : StateMachin
  let env ← get
  let currDepth ← getCurrentDepth
  translateAxioms currDepth
- let assumeExpr := mkApp5 (← mkAssumptions) env.inputType env.stateType smInst iVar state
+ let assumeExpr ← mkApp5Expr (← mkAssumptions) env.inputType env.stateType smInst iVar state
  let optExpr ←
    profileTask
      s!"Optimizing assumptions at Depth {currDepth}"
@@ -200,7 +201,7 @@ def assertAssumptions (smInst : Expr) (iVar : Expr) (state : Expr) : StateMachin
           s!"Translating axioms at Depth {currDepth}"
           ( axioms.forM
             (fun e => do
-              let st ← translateExpr (← Optimize.optimizeExpr e) (topLevel := false)
+              let st ← translateExpr (← Optimize.optimizeExpr (← hashcons e)) (topLevel := false)
               assertTerm st
             ) )
 

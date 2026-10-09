@@ -18,7 +18,7 @@ def optimizeDecideCore (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
   if let Expr.const ``False _ := p then return (← mkBoolFalse)
   if let Expr.const ``True _ := p then return (← mkBoolTrue)
   if let some r ← decideBoolEq? p then return r
-  return mkApp f p
+  mkAppExpr f p
 
 where
   /-- Return `some p` if `e := true = p`
@@ -27,8 +27,8 @@ where
   -/
   decideBoolEq? (e : Expr) : TranslateEnvT (Option Expr) := do
    match eq? e with
-   | some (_, Expr.const ``true _, p) => return (some p)
-   | some (_, Expr.const ``false _, p) => return (mkApp (← mkBoolNotOp) p)
+   | some (_, Expr.const ``true _, p) => return p
+   | some (_, Expr.const ``false _, p) => mkAppExpr (← mkBoolNotOp) p
    | _ => return none
 
 /-- Apply simplification/normalization rules on `Blaster.decide'`. -/

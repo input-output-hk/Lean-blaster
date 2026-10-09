@@ -70,6 +70,10 @@ def square (x : Nat) : Nat := x * x
 #blaster                    [∀ (x y z : Nat), x * z = y * x → x ≠ 0 → y = z]
 
 #blaster (only-optimize: 1) [∀ (x y z : Nat), x ≠ 0 → if x * z = y * x then y = z else true]
+#blaster (only-optimize: 1) [∀ (x y z : Nat), x ≠ 0 → if x * z = y * x then true else y ≠ z]
+#blaster (only-optimize: 1) [∀ (x y z : Nat), x ≠ 0 → if x * z = y * x then z = y else y ≠ z]
+#blaster (only-optimize: 1) [∀ (x y z : Nat), (x ≠ 0 → if x * z = y * x then z ≠ y else y = z) ↔ x = 0]
+
 -- NOTE: solve optimization "ordering"
 #blaster                    [∀ (x y z : Nat), x * z = y * x → if x = 0 then true else y = z]
 #blaster (only-optimize: 1) [∀ (a b c x y z : Nat) (p : Prop), p →

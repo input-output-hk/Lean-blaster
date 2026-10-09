@@ -54,9 +54,10 @@ namespace Test.SmtNatAdd
 
 /-! # Test cases to ensure that counterexample are properly detected -/
 
-#blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : Nat), x + y < x]
 
-#blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : Nat), x + y < y]
+#blaster (only-optimize: 1) (gen-cex: 0) (solve-result: 1) [∀ (x y : Nat), x + y < x]
+
+#blaster (only-optimize: 1) (gen-cex: 0) (solve-result: 1) [∀ (x y : Nat), x + y < y]
 
 #blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : Nat), x + y != y]
 

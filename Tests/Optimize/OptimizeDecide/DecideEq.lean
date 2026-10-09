@@ -211,9 +211,10 @@ inductive Color where
 -/
 
 -- ∀ (c a b : Bool), (if c then a else b) = true ===>
--- ∀ (c a b : Bool), (false = c → true = b) ∧ (true = c → true = a)
-#testOptimize [ "TrueEqIte_1" ] ∀ (c a b : Bool), (if c then a else b) = true ===>
-                                ∀ (c a b : Bool), (false = c → true = b) ∧ (true = c → true = a)
+-- ∀ (c a b : Bool), Blaster.dite' (true = c) (λ _ => true = a) (λ _ =>  true = b)
+#testOptimize [ "TrueEqIte_1" ]
+  ∀ (c a b : Bool), (if c then a else b) = true ===>
+  ∀ (c a b : Bool), Blaster.dite' (true = c) (λ _ => true = a) (λ _ =>  true = b)
 
 -- ∀ (a b : Bool), (if a then true else b) = true ===>
 -- ∀ (a b : Bool), false = a → true = b
@@ -246,9 +247,10 @@ inductive Color where
                                 ∀ (a b : Bool), true = (a && b)
 
 -- ∀ (c a b : Bool), (if !c then a else b) = true ===>
--- ∀ (c a b : Bool), (false = c → true = a) ∧ (true = c → true = b)
-#testOptimize [ "TrueEqIte_8" ] ∀ (c a b : Bool), (if !c then a else b) = true ===>
-                                ∀ (c a b : Bool), (false = c → true = a) ∧ (true = c → true = b)
+-- ∀ (c a b : Bool), Blaster.dite' (true = c) (λ _ => true = b) (λ _ => true = a)
+#testOptimize [ "TrueEqIte_8" ]
+  ∀ (c a b : Bool), (if !c then a else b) = true ===>
+  ∀ (c a b : Bool), Blaster.dite' (true = c) (λ _ => true = b) (λ _ => true = a)
 
 -- ∀ (c a b : Bool), (if c then a else b) = true → (false = c → true = b) ∧ (true = c → true = a) ===> True
 -- Test case to validate expression caching after rewriting
@@ -293,15 +295,16 @@ inductive Color where
 
 
 -- ∀ (a b c d : Bool), (if c = d then a else b) = true ===>
--- ∀ (a b c d : Bool), (¬ (c = d) → true = b) ∧ (c = d → true = a)
-#testOptimize [ "TrueEqIte_17" ] ∀ (a b c d : Bool), (if c = d then a else b) = true ===>
-                                 ∀ (a b c d : Bool), (¬ (c = d) → true = b) ∧ (c = d → true = a)
+-- ∀ (a b c d : Bool), Blaster.dite' (c = d) (λ _ => true = a) (λ _ => true = b)
+#testOptimize [ "TrueEqIte_17" ]
+  ∀ (a b c d : Bool), (if c = d then a else b) = true ===>
+  ∀ (a b c d : Bool), Blaster.dite' (c = d) (λ _ => true = a) (λ _ => true = b)
 
 -- ∀ (c : Prop) (a b : Bool), (if c then a else b) = true ===>
--- ∀ (c : Prop) (a b : Bool), (c → true = a) ∧ (¬ c → true = b)
+-- ∀ (c : Prop) (a b : Bool), Blaster.dite' c (λ _ => true = a) (λ _ => true = b)
 #testOptimize [ "TrueEqIte_18" ]
   ∀ (c : Prop) (a b : Bool), [Decidable c] → (if c then a else b) = true ===>
-  ∀ (c : Prop) (a b : Bool), (c → true = a) ∧ (¬ c → true = b)
+  ∀ (c : Prop) (a b : Bool), Blaster.dite' c (λ _ => true = a) (λ _ => true = b)
 
 -- ∀ (a b c : Bool), (if a = c then true else b) = true ===>
 -- ∀ (a b c : Bool), (¬ (a = c) → true = b)
@@ -324,62 +327,88 @@ inductive Color where
                                  ∀ (a b c : Bool), a = c ∧ true = b
 
 -- ∀ (x y : Int) (a b : Bool), (if x < y then a else b) = true ===>
--- ∀ (x y : Int) (a b : Bool), (¬ x < y → true = b) ∧ (x < y → true = a)
+-- ∀ (x y : Int) (a b : Bool), Blaster.dite' (x < y) (λ _ => true = a) (λ _ => true = b)
 #testOptimize [ "TrueEqIte_23" ]
   ∀ (x y : Int) (a b : Bool), (if x < y then a else b) = true ===>
-  ∀ (x y : Int) (a b : Bool), (¬ x < y → true = b) ∧ (x < y → true = a)
+  ∀ (x y : Int) (a b : Bool), Blaster.dite' (x < y) (λ _ => true = a) (λ _ => true = b)
 
 
 -- ∀ (x y : Int) (a b c d : Bool), (if x < y then if c then a else b else d) = true ===>
 -- ∀ (x y : Int) (a b c d : Bool),
---  (¬ x < y → true = d) ∧ (x < y → (false = c → true = b) ∧ (true = c → true = a))
+-- Blaster.dite' (x < y)
+--  (λ _ => Blaster.dite' (true = c) (λ _ => true = a) (λ _ => true = b))
+--  (λ _ => true = d)
 #testOptimize [ "TrueEqIte_24" ]
   ∀ (x y : Int) (a b c d : Bool), (if x < y then if c then a else b else d) = true ===>
   ∀ (x y : Int) (a b c d : Bool),
-   (¬ x < y → true = d) ∧ (x < y → (false = c → true = b) ∧ (true = c → true = a))
+   Blaster.dite' (x < y)
+    (λ _ => Blaster.dite' (true = c) (λ _ => true = a) (λ _ => true = b))
+    (λ _ => true = d)
 
 
 -- ∀ (x y : Int) (a b c d : Bool), (if x < y then d else if c then a else b) = true ===>
 -- ∀ (x y : Int) (a b c d : Bool),
---   (¬ x < y → (false = c → true = b) ∧ (true = c → true = a)) ∧ (x < y → true = d)
+-- Blaster.dite' (x < y)
+--   (λ _ =>  true = d)
+--   (λ _ => Blaster.dite' (true = c) (λ _ => true = a) (λ _ => true = b))
 #testOptimize [ "TrueEqIte_25" ]
   ∀ (x y : Int) (a b c d : Bool), (if x < y then d else if c then a else b) = true ===>
   ∀ (x y : Int) (a b c d : Bool),
-    (¬ x < y → (false = c → true = b) ∧ (true = c → true = a)) ∧ (x < y → true = d)
+    Blaster.dite' (x < y)
+      (λ _ =>  true = d)
+      (λ _ => Blaster.dite' (true = c) (λ _ => true = a) (λ _ => true = b))
 
 
 -- ∀ (x y z : Int) (a b c d : Bool),
 --  (if x < y then (if x < z then (if c then a else b) else d) else a) = true ===>
 -- ∀ (x y : Int) (a b c d : Bool),
---   (¬ x < y → true = a) ∧
---   (x < y → (¬ x < z → true = d) ∧ (x < z → (false = c → true = b) ∧ (true = c → true = a)))
+-- Blaster.dite' (x < y)
+--   (λ _ =>
+--     Blaster.dite' (x < z)
+--       (λ _ => Blaster.dite' (true = c) (λ _ => true = a) (λ _ => true = b))
+--       (λ _ => true = d))
+--   (λ _ => true = a)
 #testOptimize [ "TrueEqIte_26" ]
   ∀ (x y z : Int) (a b c d : Bool),
   (if x < y then (if x < z then (if c then a else b) else d) else a) = true ===>
   ∀ (x y z : Int) (a b c d : Bool),
-     (¬ x < y → true = a) ∧
-     (x < y → (¬ x < z → true = d) ∧ (x < z → (false = c → true = b) ∧ (true = c → true = a)))
+    Blaster.dite' (x < y)
+      (λ _ =>
+        Blaster.dite' (x < z)
+          (λ _ => Blaster.dite' (true = c) (λ _ => true = a) (λ _ => true = b))
+          (λ _ => true = d))
+      (λ _ => true = a)
 
 -- ∀ (x y z : Int) (a b c d : Bool),
 --   (if x < y then a else (if x < z then (if c then a else b) else d)) = true ===>
 -- ∀ (x y : Int) (a b c d : Bool),
---   (¬ x < y → (¬ x < z → true = d) ∧ (x < z → (false = c → true = b) ∧ (true = c → true = a))) ∧
---   (x < y → true = a)
+-- Blaster.dite' (x < y)
+--  (λ _ => true = a)
+--  (λ _ =>
+--    Blaster.dite' (x < z)
+--     (λ _ => Blaster.dite' (true = c) (λ _ => true = a) (λ _ => true = b))
+--     (λ _ => true = d))
 #testOptimize [ "TrueEqIte_27" ]
   ∀ (x y z : Int) (a b c d : Bool),
      (if x < y then a else (if x < z then (if c then a else b) else d)) = true ===>
   ∀ (x y z : Int) (a b c d : Bool),
-     (¬ x < y → (¬ x < z → true = d) ∧ (x < z → (false = c → true = b) ∧ (true = c → true = a))) ∧
-     (x < y → true = a)
+    Blaster.dite' (x < y)
+     (λ _ => true = a)
+     (λ _ =>
+       Blaster.dite' (x < z)
+        (λ _ => Blaster.dite' (true = c) (λ _ => true = a) (λ _ => true = b))
+        (λ _ => true = d))
 
 -- ∀ (c : Prop) (a b : Bool), [Decidable c] → (if c then a else b) = ((!c || a) && (c || b)) ===>
 -- ∀ (c : Prop) (a b : Bool),
---   ((c ∨ true = b) ∧ (¬ c ∨ true  = a)) = ((c → true = a) ∧ (¬ c → true = b))
+-- ((c ∨ true = b) ∧ (¬ c ∨ true = a)) =
+-- Blaster.dite' c (λ _ => true = a) (λ _ => true = b)
 -- NOTE: can be simplified to True with additional simplification rules
 #testOptimize [ "TrueEqIte_28" ]
   ∀ (c : Prop) (a b : Bool), [Decidable c] → (if c then a else b) = ((!c || a) && (c || b)) ===>
   ∀ (c : Prop) (a b : Bool),
-    ((c ∨ true = b) ∧ (¬ c ∨ true = a)) = ((c → true = a) ∧ (¬ c → true = b))
+    ((c ∨ true = b) ∧ (¬ c ∨ true = a)) =
+    Blaster.dite' c (λ _ => true = a) (λ _ => true = b)
 
 -- ∀ (a : Prop) (b : Bool), [Decidable a] → (if a then true else b) = (b || a) ===>
 -- ∀ (a : Prop) (b : Bool), (a ∨ true = b) = (¬ a → true = b)
@@ -425,21 +454,22 @@ inductive Color where
 
 -- ∀ (c : Prop) (a b : Bool), [Decidable c] → (if !c then a else b) = ((c || a) && (!c || b)) ===>
 -- ∀ (c : Prop) (a b : Bool),
---   ((c ∨ true = a) ∧ (¬ c ∨ true = b)) = ((c → true = b) ∧ (¬ c → true = a))
+--  ((c ∨ true = a) ∧ (¬ c ∨ true = b)) = Blaster.dite' c (λ _ => true = b) (λ _ => true = a)
 -- NOTE: can be simplified to True with additional simplification rules
 #testOptimize [ "TrueEqIte_35" ]
   ∀ (c : Prop) (a b : Bool), [Decidable c] → (if !c then a else b) = ((c || a) && (!c || b)) ===>
   ∀ (c : Prop) (a b : Bool),
-    ((c ∨ true = a) ∧ (¬ c ∨ true = b)) = ((c → true = b) ∧ (¬ c → true = a))
+    ((c ∨ true = a) ∧ (¬ c ∨ true = b)) = Blaster.dite' c (λ _ => true = b) (λ _ => true = a)
 
 /-! Test cases for simplification rule
      `false = if c then e1 else e2 ==> (c → false = e1) ∧ (¬ c → false = e2)`.
 -/
 
 -- ∀ (c a b : Bool), (if c then a else b) = false ===>
--- ∀ (c a b : Bool), (false = c → false = b) ∧ (true = c → false = a)
-#testOptimize [ "FalseEqIte_1" ] ∀ (c a b : Bool), (if c then a else b) = false ===>
-                                 ∀ (c a b : Bool), (false = c → false = b) ∧ (true = c → false = a)
+-- ∀ (c a b : Bool), Blaster.dite' (true = c) (λ _ => false = a) (λ _ => false = b)
+#testOptimize [ "FalseEqIte_1" ]
+  ∀ (c a b : Bool), (if c then a else b) = false ===>
+  ∀ (c a b : Bool), Blaster.dite' (true = c) (λ _ => false = a) (λ _ => false = b)
 
 -- ∀ (a b : Bool), (if a then true else b) = false ===>
 -- ∀ (a b : Bool), false = (a || b)
@@ -472,9 +502,10 @@ inductive Color where
                                  ∀ (a b : Bool), true = a → false = b
 
 -- ∀ (c a b : Bool), (if !c then a else b) = false ===>
--- ∀ (c a b : Bool), (false = c → false = a) ∧ (true = c → false = b)
-#testOptimize [ "FalseEqIte_8" ] ∀ (c a b : Bool), (if !c then a else b) = false ===>
-                                 ∀ (c a b : Bool), (false = c → false = a) ∧ (true = c → false = b)
+-- ∀ (c a b : Bool), Blaster.dite' (true = c) (λ _ => false = b) (λ _ => false = a)
+#testOptimize [ "FalseEqIte_8" ]
+  ∀ (c a b : Bool), (if !c then a else b) = false ===>
+  ∀ (c a b : Bool), Blaster.dite' (true = c) (λ _ => false = b) (λ _ => false = a)
 
 -- ∀ (c a b : Bool), (if c then a else b) = false →
 --  (false = c → false = b) ∧ (true = c → false = a) ===> True
@@ -527,15 +558,16 @@ inductive Color where
 
 
 -- ∀ (a b c d : Bool), (if c = d then a else b) = false ===>
--- ∀ (a b c d : Bool), (¬ (c = d) → false = b) ∧ (c = d → false = a)
-#testOptimize [ "FalseEqIte_17" ] ∀ (a b c d : Bool), (if c = d then a else b) = false ===>
-                                  ∀ (a b c d : Bool), (¬ (c = d) → false = b) ∧ (c = d → false = a)
+-- ∀ (a b c d : Bool), Blaster.dite' (c = d) (λ _ => false = a) (λ _ => false = b)
+#testOptimize [ "FalseEqIte_17" ]
+  ∀ (a b c d : Bool), (if c = d then a else b) = false ===>
+  ∀ (a b c d : Bool), Blaster.dite' (c = d) (λ _ => false = a) (λ _ => false = b)
 
 -- ∀ (c : Prop) (a b : Bool), (if c then a else b) = false ===>
--- ∀ (c : Prop) (a b : Bool), (c → false = a) ∧ (¬ c → false = b)
+-- ∀ (c : Prop) (a b : Bool), Blaster.dite' c (λ _ => false = a) (λ _ => false = b)
 #testOptimize [ "FalseEqIte_18" ]
   ∀ (c : Prop) (a b : Bool), [Decidable c] → (if c then a else b) = false ===>
-  ∀ (c : Prop) (a b : Bool), (c → false = a) ∧ (¬ c → false = b)
+  ∀ (c : Prop) (a b : Bool), Blaster.dite' c (λ _ => false = a) (λ _ => false = b)
 
 -- ∀ (a b c : Bool), (if a = c then true else b) = false ===>
 -- ∀ (a b c : Bool), ¬ (a = c) ∧ false = b
@@ -558,53 +590,76 @@ inductive Color where
                                   ∀ (a b c : Bool), a = c → false = b
 
 -- ∀ (x y : Int) (a b : Bool), (if x < y then a else b) = false ===>
--- ∀ (x y : Int) (a b: Bool), (¬ x < y → false = b) ∧ (x < y → false = a)
+-- ∀ (x y : Int) (a b: Bool), Blaster.dite' (x < y) (λ _ => false = a) (λ _ => false = b)
 #testOptimize [ "FalseEqIte_23" ]
   ∀ (x y : Int) (a b : Bool), (if x < y then a else b) = false ===>
-  ∀ (x y : Int) (a b: Bool), (¬ x < y → false = b) ∧ (x < y → false = a)
+  ∀ (x y : Int) (a b: Bool), Blaster.dite' (x < y) (λ _ => false = a) (λ _ => false = b)
 
 
 -- ∀ (x y : Int) (a b c d : Bool), (if x < y then if c then a else b else d) = false ===>
 -- ∀ (x y : Int) (a b c d : Bool),
---  (¬ x < y → false = d) ∧ (x < y → (false = c → false = b) ∧ (true = c → false = a))
+--  Blaster.dite' (x < y)
+--    (λ _ => Blaster.dite' (true = c) (λ _ => false = a) (λ _ => false = b))
+--    (λ _ => false = d)
 #testOptimize [ "FalseEqIte_24" ]
   ∀ (x y : Int) (a b c d : Bool), (if x < y then if c then a else b else d) = false ===>
   ∀ (x y : Int) (a b c d : Bool),
-    (¬ x < y → false = d) ∧ (x < y → (false = c → false = b) ∧ (true = c → false = a))
+    Blaster.dite' (x < y)
+      (λ _ => Blaster.dite' (true = c) (λ _ => false = a) (λ _ => false = b))
+      (λ _ => false = d)
 
 
 -- ∀ (x y : Int) (a b c d : Bool), (if x < y then d else if c then a else b) = false ===>
 -- ∀ (x y : Int) (a b c d : Bool),
---   (¬ x < y → (false = c → false = b) ∧ (true = c → false = a)) ∧ (x < y → false = d)
+--  Blaster.dite' (x < y)
+--   (λ _ => false = d)
+--   (λ _ => Blaster.dite' (true = c) (λ _ => false = a) (λ _ => false = b))
 #testOptimize [ "FalseEqIte_25" ]
   ∀ (x y : Int) (a b c d : Bool), (if x < y then d else if c then a else b) = false ===>
   ∀ (x y : Int) (a b c d : Bool),
-    (¬ x < y → (false = c → false = b) ∧ (true = c → false = a)) ∧ (x < y → false = d)
-
+    Blaster.dite' (x < y)
+      (λ _ => false = d)
+      (λ _ => Blaster.dite' (true = c) (λ _ => false = a) (λ _ => false = b))
 
 -- ∀ (x y z : Int) (a b c d : Bool),
 --  (if x < y then (if x < z then (if c then a else b) else d) else a) = false ===>
--- ∀ (x y : Int) (a b c d : Bool),
---   (¬ x < y → false = a) ∧
---   (x < y → (¬ x < z → false = d) ∧ (x < z → (false = c → false = b) ∧ (true = c → false = a)))
+-- ∀ (x y z : Int) (a b c d : Bool),
+--   Blaster.dite' (x < y)
+--     (λ _ =>
+--       Blaster.dite' (x < z)
+--         (λ _ => Blaster.dite' (true = c) (λ _ => false = a) (λ _ => false = b))
+--         (λ _ => false = d))
+--     (λ _ => false = a)
 #testOptimize [ "FalseEqIte_26" ]
   ∀ (x y z : Int) (a b c d : Bool),
   (if x < y then (if x < z then (if c then a else b) else d) else a) = false ===>
   ∀ (x y z : Int) (a b c d : Bool),
-     (¬ x < y → false = a) ∧
-     (x < y → (¬ x < z → false = d) ∧ (x < z → (false = c → false = b) ∧ (true = c → false = a)))
+    Blaster.dite' (x < y)
+      (λ _ =>
+        Blaster.dite' (x < z)
+          (λ _ => Blaster.dite' (true = c) (λ _ => false = a) (λ _ => false = b))
+          (λ _ => false = d))
+      (λ _ => false = a)
 
 -- ∀ (x y z : Int) (a b c d : Bool),
 --   (if x < y then a else (if x < z then (if c then a else b) else d)) = false ===>
--- ∀ (x y : Int) (a b c d : Bool),
---   (¬ x < y → (¬ x < z → false = d) ∧ (x < z → (false = c → false = b) ∧ (true = c → false = a))) ∧
---   (x < y → false = a)
+-- ∀ (x y z : Int) (a b c d : Bool),
+--    Blaster.dite' (x < y)
+--      (λ _ => false = a)
+--      (λ _ =>
+--        Blaster.dite' (x < z)
+--          (λ _ => Blaster.dite' (true = c) (λ _ => false = a) (λ _ => false = b))
+--          (λ _ => false = d))
 #testOptimize [ "FalseEqIte_27" ]
   ∀ (x y z : Int) (a b c d : Bool),
      (if x < y then a else (if x < z then (if c then a else b) else d)) = false ===>
   ∀ (x y z : Int) (a b c d : Bool),
-     (¬ x < y → (¬ x < z → false = d) ∧ (x < z → (false = c → false = b) ∧ (true = c → false = a))) ∧
-     (x < y → false = a)
+     Blaster.dite' (x < y)
+       (λ _ => false = a)
+       (λ _ =>
+         Blaster.dite' (x < z)
+           (λ _ => Blaster.dite' (true = c) (λ _ => false = a) (λ _ => false = b))
+           (λ _ => false = d))
 
 
 /-! Test cases to ensure that simplification rules
@@ -646,12 +701,16 @@ inductive Color where
 -- ∀ (c a b : Bool) (t : c → Bool → Bool) (f : ¬ c → Bool → Bool),
 --   (if h : c then t h a else f h b) = true ===>
 -- ∀ (c a b : Bool) (t : true = c → Bool → Bool) (f : false = c → Bool → Bool),
---   (∀ h : false = c, true = f h b) ∧ (∀ h : true = c, true = t h a)
+--  Blaster.dite' (true = c)
+--   (λ h : _ => true = t h a)
+--   (λ h : _ => true = f (Blaster.false_eq_of_not_true_eq h) b)
 #testOptimize [ "TrueEqDite_1" ]
   ∀ (c a b : Bool) (t : c → Bool → Bool) (f : ¬ c → Bool → Bool),
     (if h : c then t h a else f h b) = true ===>
   ∀ (c a b : Bool) (t : true = c → Bool → Bool) (f : false = c → Bool → Bool),
-    (∀ h : false = c, true = f h b) ∧ (∀ h : true = c, true = t h a)
+    Blaster.dite' (true = c)
+      (λ h : _ => true = t h a)
+      (λ h : _ => true = f (Blaster.false_eq_of_not_true_eq h) b)
 
 -- ∀ (a b : Bool) (f : ¬ a → Bool → Bool), (if h : a then true else f h b) = true ===>
 -- ∀ (a b : Bool) (f : false = a → Bool → Bool) (h : false = a), true = f h b
@@ -693,11 +752,15 @@ inductive Color where
 
 -- ∀ (c a b : Bool) (f : !c → Bool → Bool), (if h : !c then f h a else b) = true ===>
 -- ∀ (c a b : Bool) (f : false = c → Bool → Bool),
---   (∀ (h : false = c), true = f h a) ∧ (true = c → true = b)
+-- Blaster.dite' (true = c)
+--   (λ _ => true = b)
+--   (λ h : _ => true = f (Blaster.false_eq_of_not_true_eq h) a)
 #testOptimize [ "TrueEqDite_8" ]
   ∀ (c a b : Bool) (f : !c → Bool → Bool), (if h : !c then f h a else b) = true ===>
   ∀ (c a b : Bool) (f : false = c → Bool → Bool),
-    (∀ (h : false = c), true = f h a) ∧ (true = c → true = b)
+    Blaster.dite' (true = c)
+      (λ _ => true = b)
+      (λ h : _ => true = f (Blaster.false_eq_of_not_true_eq h) a)
 
 -- ∀ (c a b : Bool) (f : c → Bool → Bool),
 -- ((if h : c then f h a else b) = true) → (false = c → true = b) ∧ (forall (h : c), f h a) ===> True
@@ -748,32 +811,32 @@ inductive Color where
   ∀ (a b : Bool) (f : a → Bool → Bool),
     (if h : a then f h b else a) → true = a ∧ (∀ (h : a), f h b) ===> True
 
--- ∀ (c a b : Bool) (f : !c → Bool → Bool),
---   (if h : !c then f h a else b) → (∀ (h : !c), f h a) ∧ (true = c → true = b) ===> True
+-- ∀ (c : Prop) (a b : Bool) (f : ¬ c → Bool → Bool) [Decidable c],
+--   (if h : ¬ c then f h a else b) → (∀ (h : ¬ c), f h a) ∧ (true = c → true = b) ===> True
 -- Test case to validate expression caching after rewriting
 #testOptimize [ "TrueEqDite_16" ]
- ∀ (c a b : Bool) (f : !c → Bool → Bool),
-   (if h : !c then f h a else b) → (∀ (h : !c), f h a) ∧ (true = c → true = b) ===> True
+ ∀ (c : Prop) (a b : Bool) (f : ¬ c → Bool → Bool) [Decidable c],
+   (if h : ¬ c then f h a else b) → (∀ (h : ¬ c), f h a) ∧ (true = c → true = b) ===> True
 
 -- ∀ (a b c d : Bool) (f : c = d → Bool → Bool),
 --   (if h : c = d then f h a else b) = true ===>
 -- ∀ (a b c d : Bool) (f : c = d → Bool → Bool),
---   (¬ (c = d) → true = b) ∧ (∀ (h : c = d), true = f h a)
+--    Blaster.dite' (c = d) (λ h : _ => true = f h a) (λ _ => true = b)
 #testOptimize [ "TrueEqDite_17" ]
   ∀ (a b c d : Bool) (f : c = d → Bool → Bool),
     (if h : c = d then f h a else b) = true ===>
   ∀ (a b c d : Bool) (f : c = d → Bool → Bool),
-    (¬ (c = d) → true = b) ∧ (∀ (h : c = d), true = f h a)
+    Blaster.dite' (c = d) (λ h : _ => true = f h a) (λ _ => true = b)
 
 -- ∀ (c : Prop) (a b : Bool) (f : ¬ c → Bool → Bool), [Decidable c] →
 --   (if h : c then a else f h b) = true ===>
 -- ∀ (c : Prop) (a b : Bool) (f : ¬ c → Bool → Bool),
---   (c → true = a) ∧ (∀ (h : ¬ c), true = f h b)
+--   Blaster.dite' c (λ _ => true = a) (λ h : _ =>  true = f h b)
 #testOptimize [ "TrueEqDite_18" ]
   ∀ (c : Prop) (a b : Bool) (f : ¬ c → Bool → Bool), [Decidable c] →
     (if h : c then a else f h b) = true ===>
   ∀ (c : Prop) (a b : Bool) (f : ¬ c → Bool → Bool),
-    (c → true = a) ∧ (∀ (h : ¬ c), true = f h b)
+    Blaster.dite' c (λ _ => true = a) (λ h : _ =>  true = f h b)
 
 -- ∀ (a b c : Bool) (f : ¬ a = c → Bool → Bool),
 --    (if h : a = c then true else f h b) = true ===>
@@ -816,38 +879,42 @@ inductive Color where
 -- ∀ (x y : Int) (a b : Bool) (f : x < y → Bool → Bool),
 --   (if h : x < y then f h a else b) = true ===>
 -- ∀ (x y : Int) (a b: Bool) (f : x < y → Bool → Bool),
---   (¬ x < y → true = b) ∧ (∀ (h : x < y), true = f h a)
+--   Blaster.dite' (x < y) (λ h : _ => true = f h a) (λ _ => true = b)
 #testOptimize [ "TrueEqDite_23" ]
   ∀ (x y : Int) (a b : Bool) (f : x < y → Bool → Bool),
     (if h : x < y then f h a else b) = true ===>
   ∀ (x y : Int) (a b: Bool) (f : x < y → Bool → Bool),
-    (¬ x < y → true = b) ∧ (∀ (h : x < y), true = f h a)
+    Blaster.dite' (x < y) (λ h : _ => true = f h a) (λ _ => true = b)
 
 
 -- ∀ (x y : Int) (a b c d : Bool) (f : ¬ x < y → Bool → Bool) (g : c → Bool → Bool),
 --   (if h1 : x < y then if h2 : c then g h2 a else b else f h1 d) = true ===>
 -- ∀ (x y : Int) (a b c d : Bool) (f : ¬ x < y → Bool → Bool) (g : true = c → Bool → Bool),
---   (∀ (h1 : ¬ x < y), true = f h1 d) ∧ (x < y → (false = c → true = b) ∧
---   (∀ (h2 : true = c), true = g h2 a))
+--   Blaster.dite' (x < y)
+--     (λ _ => Blaster.dite' (true = c) (λ h2 : _ => true = g h2 a) (λ _ => true = b))
+--     (λ h1 : _ => true = f h1 d)
 #testOptimize [ "TrueEqDite_24" ]
   ∀ (x y : Int) (a b c d : Bool) (f : ¬ x < y → Bool → Bool) (g : c → Bool → Bool),
     (if h1 : x < y then if h2 : c then g h2 a else b else f h1 d) = true ===>
   ∀ (x y : Int) (a b c d : Bool) (f : ¬ x < y → Bool → Bool) (g : true = c → Bool → Bool),
-    (∀ (h1 : ¬ x < y), true = f h1 d) ∧ (x < y → (false = c → true = b) ∧
-    (∀ (h2 : true = c), true = g h2 a))
+    Blaster.dite' (x < y)
+      (λ _ => Blaster.dite' (true = c) (λ h2 : _ => true = g h2 a) (λ _ => true = b))
+      (λ h1 : _ => true = f h1 d)
 
 
 -- ∀ (x y : Int) (a b c d : Bool) (f : x < y → Bool → Bool) (g : c → Bool → Bool),
 --   (if h : x < y then f h d else if h2 : c then g h2 a else b) = true ===>
 -- ∀ (x y : Int) (a b c d : Bool) (f : x < y → Bool → Bool) (g : true = c → Bool → Bool),
---   (¬ x < y → (false = c → true = b) ∧ (∀ (h2 : true = c), true = g h2 a)) ∧
---   (∀ (h : x < y), true = f h d)
+--  Blaster.dite' (x < y)
+--   (λ h : _ => true = f h d)
+--   (λ _ => Blaster.dite' (true = c) (λ h2 : _ => true = g h2 a) (λ _ => true = b))
 #testOptimize [ "TrueEqDite_25" ]
   ∀ (x y : Int) (a b c d : Bool) (f : x < y → Bool → Bool) (g : c → Bool → Bool),
     (if h : x < y then f h d else if h2 : c then g h2 a else b) = true ===>
   ∀ (x y : Int) (a b c d : Bool) (f : x < y → Bool → Bool) (g : true = c → Bool → Bool),
-    (¬ x < y → (false = c → true = b) ∧ (∀ (h2 : true = c), true = g h2 a)) ∧
-    (∀ (h : x < y), true = f h d)
+    Blaster.dite' (x < y)
+      (λ h : _ => true = f h d)
+      (λ _ => Blaster.dite' (true = c) (λ h2 : _ => true = g h2 a) (λ _ => true = b))
 
 
 -- ∀ (x y z : Int) (a b c d : Bool)
@@ -855,34 +922,48 @@ inductive Color where
 --   (if h1 : x < y then (if h2 : x < z then (if h3 : c then t h3 a else b) else g h2 d) else f h1 a) = true ===>
 -- ∀ (x y z : Int) (a b c d : Bool)
 --   (f : ¬ x < y → Bool → Bool) (g : ¬ x < z → Bool → Bool) (t : true = c → Bool → Bool),
---    (∀ (h1 : ¬ x < y), true = f h1 a) ∧
---    (x < y → (∀ (h2 : ¬ x < z), true = g h2 d) ∧
---    (x < z → (false = c → true = b) ∧ (∀ (h3 : true = c), true = t h3 a)))
+--  Blaster.dite' (x < y)
+--   (λ _ =>
+--     Blaster.dite' (x < z)
+--       (λ _ => Blaster.dite' (true = c) (λ h3 : _ => true = t h3 a) (λ _ => true = b))
+--       (λ h2 : _ => true = g h2 d))
+--   (λ h1 : _ => true = f h1 a)
 #testOptimize [ "TrueEqDite_26" ]
   ∀ (x y z : Int) (a b c d : Bool)
     (f : ¬ x < y → Bool → Bool) (g : ¬ x < z → Bool → Bool) (t : c → Bool → Bool),
     (if h1 : x < y then (if h2 : x < z then (if h3 : c then t h3 a else b) else g h2 d) else f h1 a) = true ===>
   ∀ (x y z : Int) (a b c d : Bool)
     (f : ¬ x < y → Bool → Bool) (g : ¬ x < z → Bool → Bool) (t : true = c → Bool → Bool),
-     (∀ (h1 : ¬ x < y), true = f h1 a) ∧
-     (x < y → (∀ (h2 : ¬ x < z), true = g h2 d) ∧
-     (x < z → (false = c → true = b) ∧ (∀ (h3 : true = c), true = t h3 a)))
+     Blaster.dite' (x < y)
+      (λ _ =>
+        Blaster.dite' (x < z)
+          (λ _ => Blaster.dite' (true = c) (λ h3 : _ => true = t h3 a) (λ _ => true = b))
+          (λ h2 : _ => true = g h2 d))
+      (λ h1 : _ => true = f h1 a)
 
 -- ∀ (x y z : Int) (a b c d : Bool)
 --   (f : x < y → Bool → Bool) (g : ¬ x < z → Bool → Bool) (t : c → Bool → Bool),
 --    (if h1 : x < y then f h1 a else (if h2 : x < z then (if h3 : c then t h3 a else b) else g h2 d)) = true ===>
 -- ∀ (x y z : Int) (a b c d : Bool)
 --   (f : x < y → Bool → Bool) (g : ¬ x < z → Bool → Bool) (t : true = c → Bool → Bool),
---    (¬ x < y → (∀ (h2 : ¬ x < z), true = g h2 d) ∧ (x < z → (false = c → true = b) ∧
---    (∀ (h3 : true = c), true = t h3 a))) ∧ (∀ (h1 : x < y), true = f h1 a)
+--  Blaster.dite' (x < y)
+--   (λ h1 : _ => true = f h1 a)
+--   (λ _ =>
+--     Blaster.dite' (x < z)
+--       (λ _ => Blaster.dite' (true = c) (λ h3 : _ => true = t h3 a) (λ _ => true = b))
+--       (λ h2 : _ => true = g h2 d))
 #testOptimize [ "TrueEqDite_27" ]
   ∀ (x y z : Int) (a b c d : Bool)
     (f : x < y → Bool → Bool) (g : ¬ x < z → Bool → Bool) (t : c → Bool → Bool),
      (if h1 : x < y then f h1 a else (if h2 : x < z then (if h3 : c then t h3 a else b) else g h2 d)) = true ===>
   ∀ (x y z : Int) (a b c d : Bool)
     (f : x < y → Bool → Bool) (g : ¬ x < z → Bool → Bool) (t : true = c → Bool → Bool),
-     (¬ x < y → (∀ (h2 : ¬ x < z), true = g h2 d) ∧ (x < z → (false = c → true = b) ∧
-     (∀ (h3 : true = c), true = t h3 a))) ∧ (∀ (h1 : x < y), true = f h1 a)
+     Blaster.dite' (x < y)
+       (λ h1 : _ => true = f h1 a)
+       (λ _ =>
+         Blaster.dite' (x < z)
+           (λ _ => Blaster.dite' (true = c) (λ h3 : _ => true = t h3 a) (λ _ => true = b))
+           (λ h2 : _ => true = g h2 d))
 
 
 /-! Test cases for simplification rule
@@ -891,11 +972,11 @@ inductive Color where
 
 -- ∀ (c a b : Bool) (f : c → Bool → Bool), (if h : c then f h a else b) = false ===>
 -- ∀ (c a b : Bool) (f : true = c → Bool → Bool),
---   (false = c → false = b) ∧ (∀ (h : true = c), false = f h a)
+--   Blaster.dite' (true = c) (λ h : _ => false = f h a) (λ _ => false = b)
 #testOptimize [ "FalseEqDite_1" ]
   ∀ (c a b : Bool) (f : c → Bool → Bool), (if h : c then f h a else b) = false ===>
   ∀ (c a b : Bool) (f : true = c → Bool → Bool),
-    (false = c → false = b) ∧ (∀ (h : true = c), false = f h a)
+    Blaster.dite' (true = c) (λ h : _ => false = f h a) (λ _ => false = b)
 
 -- ∀ (a b : Bool) (f : ¬ a → Bool → Bool), (if h : a then true else f h b) = false ===>
 -- ∀ (a b : Bool) (f : false = a → Bool → Bool),
@@ -954,12 +1035,16 @@ inductive Color where
 -- ∀ (c a b : Bool) (f : !c → Bool → Bool),
 --   (if h : !c then f h a else b) = false ===>
 -- ∀ (c a b : Bool) (f : false = c → Bool → Bool),
---   (∀ (h : false = c), false = f h a) ∧ (true = c → false = b)
+--  Blaster.dite' (true = c)
+--   (λ _ => false = b)
+--   (λ h : _ => false = f (Blaster.false_eq_of_not_true_eq h) a)
 #testOptimize [ "FalseEqDite_8" ]
   ∀ (c a b : Bool) (f : !c → Bool → Bool),
     (if h : !c then f h a else b) = false ===>
   ∀ (c a b : Bool) (f : false = c → Bool → Bool),
-    (∀ (h : false = c), false = f h a) ∧ (true = c → false = b)
+    Blaster.dite' (true = c)
+      (λ _ => false = b)
+      (λ h : _ => false = f (Blaster.false_eq_of_not_true_eq h) a)
 
 -- ∀ (c a b : Bool) (f : c → Bool → Bool),
 --     (if h : c then f h a else b) = false →
@@ -1024,24 +1109,24 @@ inductive Color where
     (if h : a then f h b else a) = false →
      ∀ (h : a), false = f h b ===> True
 
- -- ∀ (c a b : Bool) (f : !c → Bool → Bool),
- --   (if h : !c then f h a else b) = false →
- --     (∀ (h : !c), false = f h a) ∧ (true = c → false = b) ===> True
+ -- ∀ (c : Prop) (a b : Bool) (f : ¬ c → Bool → Bool) [Decidable c],
+ --   (if h : ¬ c then f h a else b) = false →
+ --     (∀ (h : ¬ c), false = f h a) ∧ (true = c → false = b) ===> True
 #testOptimize [ "FalseEqDite_16" ]
- ∀ (c a b : Bool) (f : !c → Bool → Bool),
-   (if h : !c then f h a else b) = false →
-     (∀ (h : !c), false = f h a) ∧ (true = c → false = b) ===> True
+ ∀ (c : Prop) (a b : Bool) (f : ¬ c → Bool → Bool) [Decidable c],
+   (if h : ¬ c then f h a else b) = false →
+     (∀ (h : ¬ c), false = f h a) ∧ (true = c → false = b) ===> True
 
 
 -- ∀ (a b c d : Bool) (f : c = d → Bool → Bool),
 --   (if h : c = d then f h a else b) = false ===>
 -- ∀ (a b c d : Bool) (f : c = d → Bool → Bool),
---   (¬ (c = d) → false = b) ∧ (∀ (h : c = d), false = f h a)
+--   Blaster.dite' (c = d) (λ h : _ => false = f h a) (λ _ => false = b)
 #testOptimize [ "FalseEqDite_17" ]
   ∀ (a b c d : Bool) (f : c = d → Bool → Bool),
     (if h : c = d then f h a else b) = false ===>
   ∀ (a b c d : Bool) (f : c = d → Bool → Bool),
-    (¬ (c = d) → false = b) ∧ (∀ (h : c = d), false = f h a)
+    Blaster.dite' (c = d) (λ h : _ => false = f h a) (λ _ => false = b)
 
 -- ∀ (c : Prop) (a b : Bool) (f : c → Bool → Bool), [Decidable c] →
 --   (if h : c then f h a else b) = false ===>
@@ -1051,7 +1136,7 @@ inductive Color where
   ∀ (c : Prop) (a b : Bool) (f : c → Bool → Bool), [Decidable c] →
     (if h : c then f h a else b) = false ===>
   ∀ (c : Prop) (a b : Bool) (f : c → Bool → Bool),
-    (∀ (h : c), false = f h a) ∧ (¬ c → false = b)
+    Blaster.dite' c (λ h : _ => false = f h a) (λ _ => false = b)
 
 -- ∀ (a b c : Bool) (f : ¬ a = c → Bool → Bool),
 --   (if h : a = c then true else f h b) = false ===>
@@ -1096,28 +1181,30 @@ inductive Color where
 -- ∀ (x y : Int) (a b : Bool) (f : x < y → Bool → Bool),
 --   (if h : x < y then f h a else b) = false ===>
 -- ∀ (x y : Int) (a b: Bool) (f : x < y → Bool → Bool),
---   (¬ x < y → false = b) ∧ (∀ (h : x < y), false = f h a)
+--  Blaster.dite' (x < y) (λ h : _ => false = f h a) (λ _ => false = b)
 #testOptimize [ "FalseEqDite_23" ]
   ∀ (x y : Int) (a b : Bool) (f : x < y → Bool → Bool),
     (if h : x < y then f h a else b) = false ===>
   ∀ (x y : Int) (a b: Bool) (f : x < y → Bool → Bool),
-    (¬ x < y → false = b) ∧ (∀ (h : x < y), false = f h a)
+    Blaster.dite' (x < y) (λ h : _ => false = f h a) (λ _ => false = b)
 
 -- ∀ (x y : Int) (a b c d : Bool)
 --   (f : ¬ x < y → Bool → Bool) (g : c → Bool → Bool),
 --     (if h1 : x < y then if h2 : c then g h2 a else b else f h1 d) = false ===>
 -- ∀ (x y : Int) (a b c d : Bool)
 --   (f : ¬ x < y → Bool → Bool) (g : true = c → Bool → Bool),
---     (∀ (h1 : ¬ x < y), false = f h1 d) ∧ (x < y → (false = c → false = b) ∧
---     (∀ (h2 : true = c), false = g h2 a))
+--  Blaster.dite' (x < y)
+--   (λ _ => Blaster.dite' (true = c) (λ h2 : _ => false = g h2 a) (λ _ => false = b))
+--   (λ h1 : _ => false = f h1 d)
 #testOptimize [ "FalseEqDite_24" ]
   ∀ (x y : Int) (a b c d : Bool)
     (f : ¬ x < y → Bool → Bool) (g : c → Bool → Bool),
       (if h1 : x < y then if h2 : c then g h2 a else b else f h1 d) = false ===>
   ∀ (x y : Int) (a b c d : Bool)
     (f : ¬ x < y → Bool → Bool) (g : true = c → Bool → Bool),
-      (∀ (h1 : ¬ x < y), false = f h1 d) ∧ (x < y → (false = c → false = b) ∧
-      (∀ (h2 : true = c), false = g h2 a))
+     Blaster.dite' (x < y)
+       (λ _ => Blaster.dite' (true = c) (λ h2 : _ => false = g h2 a) (λ _ => false = b))
+       (λ h1 : _ => false = f h1 d)
 
 
 -- ∀ (x y : Int) (a b c d : Bool)
@@ -1125,16 +1212,19 @@ inductive Color where
 --     (if h1 : x < y then f h1 d else if h2 : c then g h2 a else b) = false ===>
 -- ∀ (x y : Int) (a b c d : Bool)
 --   (f : x < y → Bool → Bool) (g : true = c → Bool → Bool),
---   (¬ x < y → (false = c → false = b) ∧ (∀ (h2 : true = c), false = g h2 a)) ∧
---   (∀ (h1 : x < y), false = f h1 d)
+--  Blaster.dite' (x < y)
+--    (λ h1 : _ => false = f h1 d)
+--    (λ _ => Blaster.dite' (true = c) (λ h2 : _ => false = g h2 a) (λ _ => false = b))
 #testOptimize [ "FalseEqDite_25" ]
   ∀ (x y : Int) (a b c d : Bool)
     (f : x < y → Bool → Bool) (g : c → Bool → Bool),
       (if h1 : x < y then f h1 d else if h2 : c then g h2 a else b) = false ===>
   ∀ (x y : Int) (a b c d : Bool)
     (f : x < y → Bool → Bool) (g : true = c → Bool → Bool),
-    (¬ x < y → (false = c → false = b) ∧ (∀ (h2 : true = c), false = g h2 a)) ∧
-    (∀ (h1 : x < y), false = f h1 d)
+    Blaster.dite' (x < y)
+      (λ h1 : _ => false = f h1 d)
+      (λ _ => Blaster.dite' (true = c) (λ h2 : _ => false = g h2 a) (λ _ => false = b))
+
 
 
 -- ∀ (x y z : Int) (a b c d : Bool)
@@ -1142,40 +1232,48 @@ inductive Color where
 --     (if h1 : x < y then (if h2 : x < z then (if h3 : c then t h3 a else b) else g h2 d) else f h1 a) = false ===>
 -- ∀ (x y z : Int) (a b c d : Bool)
 --   (f : ¬ x < y → Bool → Bool) (g : ¬ x < z → Bool → Bool) (t : true = c → Bool → Bool),
---    (∀ (h1 : ¬ x < y), false = f h1 a) ∧
---    (x < y →
---      (∀ (h2 : ¬ x < z), false = g h2 d) ∧
---      (x < z → (false = c → false = b) ∧ (∀ (h3 : true = c), false = t h3 a)))
+--  Blaster.dite' (x < y)
+--   (λ _ =>
+--     Blaster.dite' (x < z)
+--       (λ _ => Blaster.dite' (true = c) (λ h3 : _ => false = t h3 a) (λ _ => false = b))
+--       (λ h2 : _ => false = g h2 d))
+--   (λ h1 : _ => false = f h1 a)
 #testOptimize [ "FalseEqDite_26" ]
   ∀ (x y z : Int) (a b c d : Bool)
     (f : ¬ x < y → Bool → Bool) (g : ¬ x < z → Bool → Bool) (t : c → Bool → Bool),
       (if h1 : x < y then (if h2 : x < z then (if h3 : c then t h3 a else b) else g h2 d) else f h1 a) = false ===>
   ∀ (x y z : Int) (a b c d : Bool)
     (f : ¬ x < y → Bool → Bool) (g : ¬ x < z → Bool → Bool) (t : true = c → Bool → Bool),
-     (∀ (h1 : ¬ x < y), false = f h1 a) ∧
-     (x < y →
-       (∀ (h2 : ¬ x < z), false = g h2 d) ∧
-       (x < z → (false = c → false = b) ∧ (∀ (h3 : true = c), false = t h3 a)))
+    Blaster.dite' (x < y)
+      (λ _ =>
+        Blaster.dite' (x < z)
+          (λ _ => Blaster.dite' (true = c) (λ h3 : _ => false = t h3 a) (λ _ => false = b))
+          (λ h2 : _ => false = g h2 d))
+      (λ h1 : _ => false = f h1 a)
 
 -- ∀ (x y z : Int) (a b c d : Bool)
 --   (f : x < y → Bool → Bool) (g : ¬ x < z → Bool → Bool) (t : c → Bool → Bool),
 --    (if h1 : x < y then f h1 a else (if h2 : x < z then (if h3 : c then t h3 a else b) else g h2 d)) = false ===>
 -- ∀ (x y z : Int) (a b c d : Bool)
 --   (f : x < y → Bool → Bool) (g : ¬ x < z → Bool → Bool) (t : true = c → Bool → Bool),
---    (¬ x < y →
---       (∀ (h2 : ¬ x < z), false = g h2 d) ∧
---       (x < z → (false = c → false = b) ∧ (∀ (h3 : true = c), false = t h3 a))) ∧
---    (∀ (h1 : x < y), false = f h1 a)
+--  Blaster.dite' (x < y)
+--   (λ h1 : _ => false = f h1 a)
+--   (λ _ =>
+--     Blaster.dite' (x < z)
+--       (λ _ => Blaster.dite' (true = c) (λ h3 : _ => false = t h3 a) (λ _ => false = b))
+--       (λ h2 : _ => false = g h2 d))
 #testOptimize [ "FalseEqDite_27" ]
   ∀ (x y z : Int) (a b c d : Bool)
     (f : x < y → Bool → Bool) (g : ¬ x < z → Bool → Bool) (t : c → Bool → Bool),
      (if h1 : x < y then f h1 a else (if h2 : x < z then (if h3 : c then t h3 a else b) else g h2 d)) = false ===>
   ∀ (x y z : Int) (a b c d : Bool)
     (f : x < y → Bool → Bool) (g : ¬ x < z → Bool → Bool) (t : true = c → Bool → Bool),
-     (¬ x < y →
-        (∀ (h2 : ¬ x < z), false = g h2 d) ∧
-        (x < z → (false = c → false = b) ∧ (∀ (h3 : true = c), false = t h3 a))) ∧
-     (∀ (h1 : x < y), false = f h1 a)
+    Blaster.dite' (x < y)
+      (λ h1 : _ => false = f h1 a)
+      (λ _ =>
+        Blaster.dite' (x < z)
+          (λ _ => Blaster.dite' (true = c) (λ h3 : _ => false = t h3 a) (λ _ => false = b))
+          (λ h2 : _ => false = g h2 d))
 
 
 /-! Test cases to ensure that simplification rules
@@ -1183,78 +1281,14 @@ inductive Color where
      - `false = dite c (fun h : c => e1) (fun h : ¬ c => e2) ==> (c → false = e1) ∧ (¬ c → false = e2)`.
     are not wrongly applied.
 -/
-
-def boolEqDIteUnchanged_1 : Expr :=
-Lean.Expr.forallE `c
-  (Lean.Expr.const `Bool [])
-  (Lean.Expr.forallE `a
-    (Lean.Expr.const `Bool [])
-    (Lean.Expr.forallE `b
-      (Lean.Expr.const `Bool [])
-      (Lean.Expr.forallE `d
-        (Lean.Expr.const `Bool [])
-        (Lean.Expr.forallE `f
-          (Lean.Expr.forallE
-            (Lean.Name.mkNum `a.Tests.Optimize.OptimizeDecide.DecideEq._hyg 14440)
-            (Lean.Expr.app
-              (Lean.Expr.app
-                (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Bool []))
-                (Lean.Expr.const `Bool.true []))
-              (Lean.Expr.bvar 3))
-            (Lean.Expr.forallE
-              (Lean.Name.mkNum `a.Tests.Optimize.OptimizeDecide.DecideEq._hyg 14442)
-              (Lean.Expr.const `Bool [])
-              (Lean.Expr.const `Bool [])
-              (Lean.BinderInfo.default))
-            (Lean.BinderInfo.default))
-          (Lean.Expr.app
-            (Lean.Expr.app
-              (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Bool []))
-              (Lean.Expr.bvar 1))
-            (Lean.Expr.app
-              (Lean.Expr.app
-                  (Lean.Expr.app
-                    (Lean.Expr.app
-                      (Lean.Expr.const `Blaster.dite' [Lean.Level.succ (Lean.Level.zero)])
-                      (Lean.Expr.const `Bool []))
-                    (Lean.Expr.app
-                      (Lean.Expr.app
-                        (Lean.Expr.app
-                          (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)])
-                          (Lean.Expr.const `Bool []))
-                        (Lean.Expr.const `Bool.true []))
-                      (Lean.Expr.bvar 4)))
-                (Lean.Expr.lam `h
-                  (Lean.Expr.app
-                    (Lean.Expr.app
-                      (Lean.Expr.app
-                        (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)])
-                        (Lean.Expr.const `Bool []))
-                      (Lean.Expr.const `Bool.true []))
-                    (Lean.Expr.bvar 4))
-                  (Lean.Expr.app (Lean.Expr.app (Lean.Expr.bvar 1) (Lean.Expr.bvar 0)) (Lean.Expr.bvar 4))
-                  (Lean.BinderInfo.default)))
-              (Lean.Expr.lam `h
-                (Lean.Expr.app
-                  (Lean.Expr.app
-                    (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Bool []))
-                    (Lean.Expr.const `Bool.false []))
-                  (Lean.Expr.bvar 4))
-                (Lean.Expr.bvar 3)
-                (Lean.BinderInfo.default))))
-          (Lean.BinderInfo.default))
-        (Lean.BinderInfo.default))
-      (Lean.BinderInfo.default))
-    (Lean.BinderInfo.default))
-  (Lean.BinderInfo.default)
-elab "boolEqDIteUnchanged_1" : term => return boolEqDIteUnchanged_1
-
 -- ∀ (c a b d : Bool) (f : c → Bool → Bool), d = (if h : c then f h a else b) ===>
 -- ∀ (c a b d : Bool) (f : true = c → Bool → Bool),
 --   d = Blaster.dite' (true = c) (fun h : true = c => f h a) (fun _ => b)
 #testOptimize [ "BoolEqDIteUnchanged_1" ]
   ∀ (c a b d : Bool) (f : c → Bool → Bool),
-    d = if h : c then f h a else b ===> boolEqDIteUnchanged_1
+    d = if h : c then f h a else b ===>
+  ∀ (c a b d : Bool) (f : true = c → Bool → Bool),
+    d = Blaster.dite' (true = c) (fun h : _ => f h a) (fun _ => b)
 
 
 -- ∀ (c a b d : Bool) (f : c → Bool → Bool), (if h : c then a else b) = d ===>
@@ -1262,7 +1296,10 @@ elab "boolEqDIteUnchanged_1" : term => return boolEqDIteUnchanged_1
 --   d = Blaster.dite' (true = c) (fun h : true = c => f h a) (fun _ => b)
 #testOptimize [ "BoolEqDIteUnchanged_2" ]
   ∀ (c a b d : Bool) (f : c → Bool → Bool),
-    (if h : c then f h a else b) = d ===> boolEqDIteUnchanged_1
+    (if h : c then f h a else b) = d ===>
+  ∀ (c a b d : Bool) (f : true = c → Bool → Bool),
+    d = Blaster.dite' (true = c) (fun h : _ => f h a) (fun _ => b)
+
 
 
 /-! Test cases for simplification rule `(B1 = a) = (B2 = b) ==> NOP(B1, a) = NOP(B2, b)`. -/

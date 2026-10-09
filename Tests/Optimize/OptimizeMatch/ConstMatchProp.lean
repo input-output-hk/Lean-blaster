@@ -70,8 +70,7 @@ def beqColor : Color → Color → Prop
 --    if b then Color.blue x else Color.black
 --  beqColor op1 op2 ===>
 -- ∀ (b c d : Bool) (x : Color),
---  (false = c → false = b) ∧
---  (true = c → true = (b && !d))
+--    Blaster.dite' (true = c) (λ _ => true = (b && !d)) (λ _ => false = b)
 #testOptimize [ "IteOverMatch_5" ]
   ∀ (b c d: Bool) (x : Color),
     let op1 :=
@@ -81,89 +80,79 @@ def beqColor : Color → Color → Prop
     let op2 := if b then Color.blue x else Color.black;
     beqColor op1 op2 ===>
   ∀ (b c d : Bool),
-    (false = c → false = b) ∧
-    (true = c → true = (b && !d))
+    Blaster.dite' (true = c) (λ _ => true = (b && !d)) (λ _ => false = b)
 
 /-! Test cases to validate when ite over match constant propagation must NOT be applied. -/
 
 -- ∀ (c : Prop) (x y : Color), [Decidable c] →
 --      beqColor (if c then Color.red x else y) (Color.blue x) ===>
 -- ∀ (c : Prop) (x y : Color),
---  beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
---  (Blaster.dite' c (fun _ : c => Color.red x) (fun _ : ¬ c => y)) (Color.blue x)
---  (fun (x : Color) (y : Color) => x = y)
---  (fun (x : Color) (y : Color) => x = y)
---  (fun (_ : Unit) => True)
---  (fun (_ : Unit) => True)
---  (fun (_ : Color) (_ : Color) => False)
+--  match (Blaster.dite' c (fun _ : c => Color.red x) (fun _ : ¬ c => y)), Color.blue x with
+--  | .red c1, .red c2 => c1 = c2
+--  | .blue c1, .blue _ => x = c1
+--  | .transparent, .transparent => True
+--  | .black, .black => True
+--  | _, _ => False
 #testOptimize [ "IteOverMatchUnchanged_1" ]
   ∀ (c : Prop) (x y : Color), [Decidable c] →
        beqColor (if c then Color.red x else y) (Color.blue x) ===>
   ∀ (c : Prop) (x y : Color),
-    beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
-    (Blaster.dite' c (fun _ : c => Color.red x) (fun _ : ¬ c => y)) (Color.blue x)
-    (fun (x : Color) (y : Color) => x = y)
-    (fun (x : Color) (y : Color) => x = y)
-    (fun (_ : Unit) => True)
-    (fun (_ : Unit) => True)
-    (fun (_ : Color) (_ : Color) => False)
+    match (Blaster.dite' c (fun _ : c => Color.red x) (fun _ : ¬ c => y)), Color.blue x with
+    | .red c1, .red c2 => c1 = c2
+    | .blue c1, .blue _ => x = c1
+    | .transparent, .transparent => True
+    | .black, .black => True
+    | _, _ => False
 
 -- ∀ (b c : Prop) (x y : Color), [Decidable b] → [Decidable c] →
 --   beqColor (if c then (if b then Color.red x else y) else Color.blue x) (Color.blue x) ===>
 -- ∀ (b c : Prop) (x y : Color),
---   beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
---    (Blaster.dite' c
---       (fun _ : c => Blaster.dite' b (fun _ : b => Color.red x) (fun _ : ¬ b => y))
---       (fun _ : ¬ c => Color.blue x))
---   (Color.blue x)
---   (fun (x : Color) (y : Color) => x = y)
---   (fun (x : Color) (y : Color) => x = y)
---   (fun (_ : Unit) => True)
---   (fun (_ : Unit) => True)
---   (fun (_ : Color) (_ : Color) => False)
+--  match (Blaster.dite' c
+--        (fun _ : c => Blaster.dite' b (fun _ : b => Color.red x) (fun _ : ¬ b => y))
+--        (fun _ : ¬ c => Color.blue x)), Color.blue x with
+--  | .red c1, .red c2 => c1 = c2
+--  | .blue c1, .blue _ => x = c1
+--  | .transparent, .transparent
+--  | .black, .black => True
+--  | _, _ => False
 #testOptimize [ "IteOverMatchUnchanged_2" ]
   ∀ (b c : Prop) (x y : Color), [Decidable b] → [Decidable c] →
     beqColor (if c then (if b then Color.red x else y) else Color.blue x) (Color.blue x) ===>
   ∀ (b c : Prop) (x y : Color),
-    beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
-     (Blaster.dite' c
-        (fun _ : c => Blaster.dite' b (fun _ : b => Color.red x) (fun _ : ¬ b => y))
-        (fun _ : ¬ c => Color.blue x))
-    (Color.blue x)
-    (fun (x : Color) (y : Color) => x = y)
-    (fun (x : Color) (y : Color) => x = y)
-    (fun (_ : Unit) => True)
-    (fun (_ : Unit) => True)
-    (fun (_ : Color) (_ : Color) => False)
+    match (Blaster.dite' c
+          (fun _ : c => Blaster.dite' b (fun _ : b => Color.red x) (fun _ : ¬ b => y))
+          (fun _ : ¬ c => Color.blue x)), Color.blue x with
+    | .red c1, .red c2 => c1 = c2
+    | .blue c1, .blue _ => x = c1
+    | .transparent, .transparent
+    | .black, .black => True
+    | _, _ => False
 
 -- ∀ (b c : Prop) (x y : Color), [Decidable b] → [Decidable c] →
 --   beqColor (if c then Color.blue x else (if b then Color.red x else y)) (Color.blue x) ===>
 -- ∀ (b c : Prop) (x y : Color),
---   beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
---   (Blaster.dite' c
---     (fun _ : c => Color.blue x)
---     (fun _ : ¬ c => Blaster.dite' b (fun _ : b => Color.red x) (fun _ : ¬ b => y)))
---   (Color.blue x)
---   (fun (x : Color) (y : Color) => x = y)
---   (fun (x : Color) (y : Color) => x = y)
---   (fun (_ : Unit) => True)
---   (fun (_ : Unit) => True)
---   (fun (_ : Color) (_ : Color) => False)
+--   match (Blaster.dite' c
+--          (fun _ : c => Color.blue x)
+--          (fun _ : ¬ c => Blaster.dite' b (fun _ : b => Color.red x) (fun _ : ¬ b => y))),
+--          Color.blue x with
+--   | .red c1, .red c2 => c1 = c2
+--   | .blue c1, .blue _ => x = c1
+--   | .transparent, .transparent
+--   | .black, .black => True
+--   | _, _ => False
 #testOptimize [ "IteOverMatchUnchanged_3" ]
   ∀ (b c : Prop) (x y : Color), [Decidable b] → [Decidable c] →
     beqColor (if c then Color.blue x else (if b then Color.red x else y)) (Color.blue x) ===>
   ∀ (b c : Prop) (x y : Color),
-    beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
-    (Blaster.dite' c
-      (fun _ : c => Color.blue x)
-      (fun _ : ¬ c => Blaster.dite' b (fun _ : b => Color.red x) (fun _ : ¬ b => y)))
-    (Color.blue x)
-    (fun (x : Color) (y : Color) => x = y)
-    (fun (x : Color) (y : Color) => x = y)
-    (fun (_ : Unit) => True)
-    (fun (_ : Unit) => True)
-    (fun (_ : Color) (_ : Color) => False)
-
+    match (Blaster.dite' c
+           (fun _ : c => Color.blue x)
+          (fun _ : ¬ c => Blaster.dite' b (fun _ : b => Color.red x) (fun _ : ¬ b => y))),
+          Color.blue x with
+    | .red c1, .red c2 => c1 = c2
+    | .blue c1, .blue _ => x = c1
+    | .transparent, .transparent
+    | .black, .black => True
+    | _, _ => False
 
 -- ∀ (b c d: Prop) (x y : Color), [Decidable b] → [Decidable c] → [Decidable d] →
 --   let op1 :=
@@ -172,18 +161,18 @@ def beqColor : Color → Color → Prop
 --     else if b then Color.red x else y;
 --   beqColor op1 (Color.blue x) ===>
 -- ∀ (b c d : Prop) (x y : Color),
---   beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
+-- match
 --   (Blaster.dite' c
---     (fun _ : c =>
---       Blaster.dite' d (fun _ : d => Color.transparent) (fun _ : ¬ d => Color.blue x))
---     (fun _ : ¬ c =>
---       Blaster.dite' b (fun _ : b => Color.red x) (fun _ : ¬ b => y)))
---    (Color.blue x)
---   (fun (x : Color) (y : Color) => x = y)
---   (fun (x : Color) (y : Color) => x = y)
---   (fun (_ : Unit) => True)
---   (fun (_ : Unit) => True)
---   (fun (_ : Color) (_ : Color) => False)
+--   (fun _ : c =>
+--     Blaster.dite' d (fun _ : d => Color.transparent) (fun _ : ¬ d => Color.blue x))
+--   (fun _ : ¬ c =>
+--     Blaster.dite' b (fun _ : b => Color.red x) (fun _ : ¬ b => y))),
+--   Color.blue x with
+-- | .red c1, .red c2 => c1 = c2
+-- | .blue c1, .blue _ => x = c1
+-- | .transparent, .transparent
+-- | .black, .black => True
+-- | _, _ => False
 #testOptimize [ "IteOverMatchUnchanged_4" ]
   ∀ (b c d: Prop) (x y : Color), [Decidable b] → [Decidable c] → [Decidable d] →
     let op1 :=
@@ -192,18 +181,18 @@ def beqColor : Color → Color → Prop
       else if b then Color.red x else y;
     beqColor op1 (Color.blue x) ===>
   ∀ (b c d : Prop) (x y : Color),
-    beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
-    (Blaster.dite' c
+    match
+      (Blaster.dite' c
       (fun _ : c =>
         Blaster.dite' d (fun _ : d => Color.transparent) (fun _ : ¬ d => Color.blue x))
       (fun _ : ¬ c =>
-        Blaster.dite' b (fun _ : b => Color.red x) (fun _ : ¬ b => y)))
-     (Color.blue x)
-    (fun (x : Color) (y : Color) => x = y)
-    (fun (x : Color) (y : Color) => x = y)
-    (fun (_ : Unit) => True)
-    (fun (_ : Unit) => True)
-    (fun (_ : Color) (_ : Color) => False)
+        Blaster.dite' b (fun _ : b => Color.red x) (fun _ : ¬ b => y))),
+      Color.blue x with
+    | .red c1, .red c2 => c1 = c2
+    | .blue c1, .blue _ => x = c1
+    | .transparent, .transparent
+    | .black, .black => True
+    | _, _ => False
 
 -- ∀ (b c d: Prop) (x y : Color), [Decidable b] → [Decidable c] → [Decidable d] →
 --   let op1 :=
@@ -312,11 +301,12 @@ def beqColor : Color → Color → Prop
 --   beqColor op1 op2 ===>
 -- ∀ (b c d : Bool) (x : Color)
 --   (g : false = d → Color → Color) (t : true = b → Color → Color),
---   (false = c → false = b) ∧
---   (true = c →
+--  Blaster.dite' (true = c)
+--   (λ _ =>
 --     false = d ∧
 --     (∀ (h2 : false = d),
---       true = b ∧ (∀ (h4 : true = b), g h2 x = t h4 x)))
+--        true = b ∧ (∀ (h4 : true = b), g h2 x = t h4 x)))
+--   (λ _ => false = b)
 #testOptimize [ "DIteOverMatch_5" ]
   ∀ (b c d: Bool) (x y : Color)
     (f : c → Color → Color) (g : ¬ d → Color → Color) (t : b → Color → Color),
@@ -328,37 +318,37 @@ def beqColor : Color → Color → Prop
     beqColor op1 op2 ===>
   ∀ (b c d : Bool) (x : Color)
     (g : false = d → Color → Color) (t : true = b → Color → Color),
-    (false = c → false = b) ∧
-    (true = c →
-      false = d ∧
-      (∀ (h2 : false = d),
-        true = b ∧ (∀ (h4 : true = b), g h2 x = t h4 x)))
+    Blaster.dite' (true = c)
+     (λ _ =>
+       false = d ∧
+       (∀ (h2 : false = d),
+          true = b ∧ (∀ (h4 : true = b), g h2 x = t h4 x)))
+    (λ _ => false = b)
+
 
 /-! Test cases to validate when dite over match constant propagation must NOT be applied. -/
 
 -- ∀ (c : Prop) (x y : Color) (f : c → Color → Color), [Decidable c] →
 --   beqColor (if h : c then Color.red (f h x) else y) (Color.blue x) ===>
 -- ∀ (c : Prop) (x y : Color) (f : c → Color → Color),
---    beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
---    (Blaster.dite' c (fun h : c => Color.red (f h x)) (fun _ : ¬ c => y))
---    (Color.blue x)
---    (fun (x : Color) (y : Color) => x = y)
---    (fun (x : Color) (y : Color) => x = y)
---    (fun (_ : Unit) => True)
---    (fun (_ : Unit) => True)
---    (fun (_ : Color) (_ : Color) => False)
+-- match (Blaster.dite' c (fun h : c => Color.red (f h x)) (fun _ : ¬ c => y)),
+--       Color.blue x with
+-- | .red c1, .red c2 => c1 = c2
+-- | .blue c1, .blue _ => x = c1
+-- | .transparent, .transparent
+-- | .black, .black => True
+-- | _, _ => False
 #testOptimize [ "DIteOverMatchUnchanged_1" ]
   ∀ (c : Prop) (x y : Color) (f : c → Color → Color), [Decidable c] →
     beqColor (if h : c then Color.red (f h x) else y) (Color.blue x) ===>
   ∀ (c : Prop) (x y : Color) (f : c → Color → Color),
-     beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
-     (Blaster.dite' c (fun h : c => Color.red (f h x)) (fun _ : ¬ c => y))
-     (Color.blue x)
-     (fun (x : Color) (y : Color) => x = y)
-     (fun (x : Color) (y : Color) => x = y)
-     (fun (_ : Unit) => True)
-     (fun (_ : Unit) => True)
-     (fun (_ : Color) (_ : Color) => False)
+     match (Blaster.dite' c (fun h : c => Color.red (f h x)) (fun _ : ¬ c => y)),
+           Color.blue x with
+     | .red c1, .red c2 => c1 = c2
+     | .blue c1, .blue _ => x = c1
+     | .transparent, .transparent
+     | .black, .black => True
+     | _, _ => False
 
 -- ∀ (b c : Prop) (x y : Color) (f : ¬ c → Color → Color) (g : b → Color → Color),
 --   [Decidable b] → [Decidable c] →
@@ -366,16 +356,16 @@ def beqColor : Color → Color → Prop
 --               then (if h2 : b then Color.red (g h2 x) else y)
 --               else Color.blue (f h1 x)) (Color.blue x) ===>
 -- ∀ (b c : Prop) (x y : Color) (f : ¬ c → Color → Color) (g : b → Color → Color),
---     beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
---     (Blaster.dite' c
---       (fun _ : c => Blaster.dite' b (fun h2 : b => Color.red (g h2 x)) (fun _ : ¬ b => y))
---       (fun h1 : ¬ c => Color.blue (f h1 x)))
---     (Color.blue x)
---    (fun (x : Color) (y : Color) => x = y)
---    (fun (x : Color) (y : Color) => x = y)
---    (fun (_ : Unit) => True)
---    (fun (_ : Unit) => True)
---    (fun (_ : Color) (_ : Color) => False)
+-- match
+--   (Blaster.dite' c
+--    (fun _ : c => Blaster.dite' b (fun h2 : b => Color.red (g h2 x)) (fun _ : ¬ b => y))
+--    (fun h1 : ¬ c => Color.blue (f h1 x))),
+--   Color.blue x with
+-- | .red c1, .red c2 => c1 = c2
+-- | .blue c1, .blue _ => x = c1
+-- | .transparent, .transparent
+-- | .black, .black => True
+-- | _, _ => False
 #testOptimize [ "DIteOverMatchUnchanged_2" ]
   ∀ (b c : Prop) (x y : Color) (f : ¬ c → Color → Color) (g : b → Color → Color),
     [Decidable b] → [Decidable c] →
@@ -383,16 +373,16 @@ def beqColor : Color → Color → Prop
                 then (if h2 : b then Color.red (g h2 x) else y)
                 else Color.blue (f h1 x)) (Color.blue x) ===>
   ∀ (b c : Prop) (x y : Color) (f : ¬ c → Color → Color) (g : b → Color → Color),
-      beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
-      (Blaster.dite' c
-        (fun _ : c => Blaster.dite' b (fun h2 : b => Color.red (g h2 x)) (fun _ : ¬ b => y))
-        (fun h1 : ¬ c => Color.blue (f h1 x)))
-      (Color.blue x)
-     (fun (x : Color) (y : Color) => x = y)
-     (fun (x : Color) (y : Color) => x = y)
-     (fun (_ : Unit) => True)
-     (fun (_ : Unit) => True)
-     (fun (_ : Color) (_ : Color) => False)
+      match
+        (Blaster.dite' c
+         (fun _ : c => Blaster.dite' b (fun h2 : b => Color.red (g h2 x)) (fun _ : ¬ b => y))
+         (fun h1 : ¬ c => Color.blue (f h1 x))),
+        Color.blue x with
+      | .red c1, .red c2 => c1 = c2
+      | .blue c1, .blue _ => x = c1
+      | .transparent, .transparent
+      | .black, .black => True
+      | _, _ => False
 
 -- ∀ (b c : Prop) (x y : Color) (f : c → Color → Color) (g : b → Color → Color),
 --   [Decidable b] → [Decidable c] →
@@ -400,16 +390,16 @@ def beqColor : Color → Color → Prop
 --               then Color.blue (f h1 x)
 --               else (if h2 : b then Color.red (g h2 x) else y)) (Color.blue x) ===>
 -- ∀ (b c : Prop) (x y : Color) (f : c → Color → Color) (g : b → Color → Color),
---     beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
---     (Blaster.dite' c
---       (fun h1 : c => Color.blue (f h1 x))
---       (fun _ : ¬ c => Blaster.dite' b (fun h2 : b => Color.red (g h2 x)) (fun _ : ¬ b => y)))
---     (Color.blue x)
---    (fun (x : Color) (y : Color) => x = y)
---    (fun (x : Color) (y : Color) => x = y)
---    (fun (_ : Unit) => True)
---    (fun (_ : Unit) => True)
---    (fun (_ : Color) (_ : Color) => False)
+-- match
+--    (Blaster.dite' c
+--      (fun h1 : c => Color.blue (f h1 x))
+--      (fun _ : ¬ c => Blaster.dite' b (fun h2 : b => Color.red (g h2 x)) (fun _ : ¬ b => y))),
+--    Color.blue x with
+--  | .red c1, .red c2 => c1 = c2
+--  | .blue c1, .blue _ => x = c1
+--  | .transparent, .transparent
+--  | .black, .black => True
+--  | _, _ => False
 #testOptimize [ "DIteOverMatchUnchanged_3" ]
   ∀ (b c : Prop) (x y : Color) (f : c → Color → Color) (g : b → Color → Color),
     [Decidable b] → [Decidable c] →
@@ -417,16 +407,16 @@ def beqColor : Color → Color → Prop
                 then Color.blue (f h1 x)
                 else (if h2 : b then Color.red (g h2 x) else y)) (Color.blue x) ===>
   ∀ (b c : Prop) (x y : Color) (f : c → Color → Color) (g : b → Color → Color),
-      beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
-      (Blaster.dite' c
-        (fun h1 : c => Color.blue (f h1 x))
-        (fun _ : ¬ c => Blaster.dite' b (fun h2 : b => Color.red (g h2 x)) (fun _ : ¬ b => y)))
-      (Color.blue x)
-     (fun (x : Color) (y : Color) => x = y)
-     (fun (x : Color) (y : Color) => x = y)
-     (fun (_ : Unit) => True)
-     (fun (_ : Unit) => True)
-     (fun (_ : Color) (_ : Color) => False)
+      match
+        (Blaster.dite' c
+          (fun h1 : c => Color.blue (f h1 x))
+          (fun _ : ¬ c => Blaster.dite' b (fun h2 : b => Color.red (g h2 x)) (fun _ : ¬ b => y))),
+        Color.blue x with
+      | .red c1, .red c2 => c1 = c2
+      | .blue c1, .blue _ => x = c1
+      | .transparent, .transparent
+      | .black, .black => True
+      | _, _ => False
 
 
 -- ∀ (b c d: Prop) (x y : Color)
@@ -439,22 +429,22 @@ def beqColor : Color → Color → Prop
 --   beqColor op1 (Color.blue x) ===>
 -- ∀ (b c d : Prop) (x y : Color)
 --   (f : ¬ c → Color → Color) (g : ¬ d → Color → Color) (t : b → Color → Color),
---     beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
---     (Blaster.dite' c
---       (fun _ : c =>
---          Blaster.dite' d
---           (fun _ : d => Color.transparent)
---           (fun h2 : ¬ d => Color.blue (g h2 x)))
---       (fun h1 : ¬ c =>
---          Blaster.dite' b
---            (fun h3 : b => Color.red (t h3 x))
---            (fun _ : ¬ b => (f h1 y))))
---     (Color.blue x)
---    (fun (x : Color) (y : Color) => x = y)
---    (fun (x : Color) (y : Color) => x = y)
---    (fun (_ : Unit) => True)
---    (fun (_ : Unit) => True)
---    (fun (_ : Color) (_ : Color) => False)
+-- match
+--   (Blaster.dite' c
+--   (fun _ : c =>
+--      Blaster.dite' d
+--       (fun _ : d => Color.transparent)
+--       (fun h2 : ¬ d => Color.blue (g h2 x)))
+--   (fun h1 : ¬ c =>
+--      Blaster.dite' b
+--        (fun h3 : b => Color.red (t h3 x))
+--        (fun _ : ¬ b => (f h1 y)))),
+--   Color.blue x with
+-- | .red c1, .red c2 => c1 = c2
+-- | .blue c1, .blue _ => x = c1
+-- | .transparent, .transparent
+-- | .black, .black => True
+-- | _, _ => False
 #testOptimize [ "DIteOverMatchUnchanged_4" ]
   ∀ (b c d: Prop) (x y : Color)
     (f : ¬ c → Color → Color) (g : ¬ d → Color → Color) (t : b → Color → Color),
@@ -466,8 +456,8 @@ def beqColor : Color → Color → Prop
     beqColor op1 (Color.blue x) ===>
   ∀ (b c d : Prop) (x y : Color)
     (f : ¬ c → Color → Color) (g : ¬ d → Color → Color) (t : b → Color → Color),
-      beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
-      (Blaster.dite' c
+      match
+        (Blaster.dite' c
         (fun _ : c =>
            Blaster.dite' d
             (fun _ : d => Color.transparent)
@@ -475,14 +465,13 @@ def beqColor : Color → Color → Prop
         (fun h1 : ¬ c =>
            Blaster.dite' b
              (fun h3 : b => Color.red (t h3 x))
-             (fun _ : ¬ b => (f h1 y))))
-      (Color.blue x)
-     (fun (x : Color) (y : Color) => x = y)
-     (fun (x : Color) (y : Color) => x = y)
-     (fun (_ : Unit) => True)
-     (fun (_ : Unit) => True)
-     (fun (_ : Color) (_ : Color) => False)
-
+             (fun _ : ¬ b => (f h1 y)))),
+        Color.blue x with
+      | .red c1, .red c2 => c1 = c2
+      | .blue c1, .blue _ => x = c1
+      | .transparent, .transparent
+      | .black, .black => True
+      | _, _ => False
 
 -- ∀ (b c d: Prop) (x y : Color)
 --   (f : ¬ c → Color → Color) (g : ¬ d → Color → Color) (t : b → Color → Color),

@@ -345,10 +345,10 @@ variable (c : Nat)
                                       ∀ (a b : Bool), true = a → true = b
 
 -- ∀ (a b c : Bool), if a then b else !a ===>
--- ∀ (a b c : Bool), (false = c → true = b) ∧ (true = c → false = a)
+-- ∀ (a b c : Bool), Blaster.dite' (true = c) (λ _ => false = a) (λ _ => true = b)
 #testOptimize [ "ForallUnchanged_7" ]
   ∀ (a b c : Bool), (if c then !a else b) = true ===>
-  ∀ (a b c : Bool), (false = c → true = b) ∧ (true = c → false = a)
+  ∀ (a b c : Bool), Blaster.dite' (true = c) (λ _ => false = a) (λ _ => true = b)
 
 
 -- ∀ (a b c : Prop), (a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∨ ((b ∧ a) ∧ ¬(a ∧ b))) ===> ∀ (a : Prop), a
@@ -447,12 +447,17 @@ variable (c : Nat)
 
 
 -- ∀ (c a b : Bool), true = ( if c then a else b ) → ( (!c || a) && (c || b) ) ===>
--- ∀ (c a b : Bool), ((false = c → true = b) ∧ (true = c → true = a)) → true = ( (c || b) && (a || !c) )
+-- ∀ (c a b : Bool), Blaster.dite' (true = c) (λ _ => true = a) (λ _ => true = b) → true = ( (c || b) && (a || !c) )
 -- NOTE: Can be reduced to True with additional simplification rules
 #testOptimize [ "ForallUnchanged_26" ]
   ∀ (c a b : Bool), true = (if c then a else b) → ( (!c || a) && (c || b) ) ===>
-  ∀ (c a b : Bool), ((false = c → true = b) ∧ (true = c → true = a)) → true = ( (c || b) && (a || !c) )
+  ∀ (c a b : Bool), Blaster.dite' (true = c) (λ _ => true = a) (λ _ => true = b) → true = ( (c || b) && (a || !c) )
 
+-- ∀ (a b : Bool), if a then !a else b ===>
+-- ∀ (a b : Bool), true = (b && !a)
+#testOptimize [ "ForallUnchanged_27" ]
+  ∀ (a b : Bool), (if a then !a else b) = true ===>
+  ∀ (a b : Bool), true = (b && !a)
 
 /-! Test cases for simplification rule `e → False ==> ¬ e`. -/
 

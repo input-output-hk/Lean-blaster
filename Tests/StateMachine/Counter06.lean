@@ -84,8 +84,8 @@ info: Counterexample to Induction:
 info:  - «Test.Counter06.counterStateMachine.input@0»: Test.Counter06.Request.Tr
 ---
 info:  - «Test.Counter06.counterStateMachine.state@0»: (Test.Counter06.CounterState.mk
-  Test.Counter06.State.Ready
-  2
+  Test.Counter06.State.Busy
+  0
   Test.Counter06.State.Busy
   Test.Counter06.Request.Tr
   3)

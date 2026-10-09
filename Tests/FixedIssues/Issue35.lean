@@ -88,12 +88,12 @@ def maxLeanChar : String := ⟨[Char.ofNat 0x10FFFF]⟩
 error: translateExpr: string literal holds the character with code point 196608, above the Smt string alphabet bound 196607
 -/
 #guard_msgs in
-#blaster [∀ s : String, s = firstUndenotable → s.length = 1]
+#blaster [∀ s : String, (s ++ firstUndenotable).length ≥ 1]
 
 /--
 error: translateExpr: string literal holds the character with code point 1114111, above the Smt string alphabet bound 196607
 -/
 #guard_msgs in
-#blaster [∀ s : String, s = maxLeanChar → s.length = 1]
+#blaster [∀ s : String, (s ++ maxLeanChar).length ≥ 1]
 
 end Tests.Issue35
