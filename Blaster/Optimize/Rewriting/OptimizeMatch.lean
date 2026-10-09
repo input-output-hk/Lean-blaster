@@ -710,7 +710,7 @@ partial def optimizeMatchAlt
   let currIdx := (altIdx - mInfo.getFirstAltPos).toUSize
   -- NOTE: We need to consider the generic type for context reuse.
   -- Otherwise, we might instantiate the rhs
-  let matchInst ← mkAppRangeExpr mInfo.nameExpr 0 mInfo.numParams args
+  let matchInst ← mkAppRangeExpr mInfo.nameExpr 0 mInfo.getFirstAltPos args
   match ← reuseContext? matchInst currIdx with
   | some reuse =>
        setAndCommitCtx reuse.scope
