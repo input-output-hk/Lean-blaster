@@ -84,6 +84,13 @@ def hasInhabitedInstance (n : Expr) : TranslateEnvT Bool := do
   let inhCstr ← mkAppExpr (← mkInhabitedConst) n
   return (← trySynthConstraintInstance? inhCstr).isSome
 
+/-- Return `true` only when an instance for `[Nonempty n]` can be found.
+    Assume that `n` is a name expression for an inductive datatype.
+-/
+@[always_inline, inline]
+def hasNonemptyInstance (n : Expr) : TranslateEnvT Bool := do
+  let instCstr ← mkAppExpr (← mkNonemptyConst) n
+  return (← trySynthConstraintInstance? instCstr).isSome
 
 /-- Return `true` only when an instance for `[LawfulBEq t beqInst]` can be found. -/
 @[always_inline, inline]

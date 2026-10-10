@@ -154,6 +154,7 @@ inductive SmtCommand where
   | evalTerm (t : SmtTerm)
   | setLogic (l : String)
   | setOption (opt : String) (value : String)
+  | setSimplifier (s : String)
 
 instance : Inhabited SmtCommand where
   default := .setLogic ""
@@ -323,6 +324,7 @@ instance : ToString SmtFunDecl where
  | .evalTerm t => s!"(eval {t})"
  | .setLogic l => s!"(set-logic {l})"
  | .setOption opt v => s!"(set-option {opt} {v})"
+ | .setSimplifier s => s!"(set-simplifier {s})"
 
 instance : ToString SmtCommand where
   toString := SmtCommand.toString

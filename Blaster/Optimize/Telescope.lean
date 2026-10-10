@@ -70,17 +70,17 @@ private def forallTelescopeAuxAux
     match type with
     | .forallE n t b bi =>
        if fvarsSizeLtMaxFVars fvars maxFVars? then
-         let t ← instantiateSharedRevRange t 0 fvars.size fvars
+         let t ← instantiateSharedRevRange t fvars.size fvars
          let fvarId ← mkFreshFVarId
          let fvar ← mkExpr (mkFVar fvarId)
          mkLocalDecl fvar n t bi
          let fvars := fvars.push fvar
          process b fvars
        else
-         let type ← instantiateSharedRevRange type 0 fvars.size fvars
+         let type ← instantiateSharedRevRange type fvars.size fvars
          k fvars type
     | _ =>
-      let type ← instantiateSharedRevRange type 0 fvars.size fvars
+      let type ← instantiateSharedRevRange type fvars.size fvars
       k fvars type
   process type (Array.emptyWithCapacity type.approxDepth.toNat)
 
@@ -124,15 +124,15 @@ where
        if fvarsSizeLtMaxFVars fvars maxFVars? then
          let fvarId ← mkFreshFVarId
          let fvar ← mkExpr (mkFVar fvarId)
-         let t ← instantiateSharedRevRange t 0 fvars.size fvars
+         let t ← instantiateSharedRevRange t fvars.size fvars
          mkLocalDecl fvar n t bi
          let fvars := fvars.push fvar
          process b fvars
        else
-         let e ← instantiateSharedRevRange e 0 fvars.size fvars
+         let e ← instantiateSharedRevRange e fvars.size fvars
          k fvars e
     | _ =>
-       let e ← instantiateSharedRevRange e 0 fvars.size fvars
+       let e ← instantiateSharedRevRange e fvars.size fvars
        k fvars e
 
 /--
@@ -186,12 +186,12 @@ def forallMetaTelescopeEnv (type : Expr) : TranslateEnvT ForallMeta := do
    process (type : Expr) (mvars : Array Expr) : TranslateEnvT ForallMeta := do
      match type with
      | .forallE _ t b _ =>
-          let t ← instantiateSharedRevRange t 0 mvars.size mvars
+          let t ← instantiateSharedRevRange t mvars.size mvars
           let mvar ← mkExpr (← mkFreshExprMVar t)
           let mvars := mvars.push mvar
           process b mvars
      | _ =>
-       return {instExpr := ← instantiateSharedRevRange type 0 mvars.size mvars, mvarArgs := mvars}
+       return {instExpr := ← instantiateSharedRevRange type mvars.size mvars, mvarArgs := mvars}
 
 /-- Helper function for withLocalDecl' -/
 @[always_inline, inline]
@@ -294,7 +294,7 @@ private def getLambdaBinderTypesImp (e : Expr) (maxTypes? : Option Nat) : Transl
       | .lam _ t b _ =>
            if fvarsSizeLtMaxFVars types maxTypes?
            then
-             let t ← instantiateSharedRevRange t 0 types.size types
+             let t ← instantiateSharedRevRange t types.size types
              loop b (types.push t)
            else return types
       | _ => return types
@@ -355,7 +355,7 @@ def getFunEnvInfo (f : Expr) : TranslateEnvT FunEnvInfo := do
 -/
 def inferAppType (t : Expr) (args : Array Expr) : TranslateEnvT Expr :=
   let rec visit (idx : Nat) (stop : Nat) (t : Expr) (types : Array Expr) : TranslateEnvT Expr := do
-    if idx == stop then instantiateSharedRevRange t 0 types.size types
+    if idx == stop then instantiateSharedRevRange t types.size types
     else
      match t with
      | Expr.forallE _n t b bi =>
@@ -366,7 +366,7 @@ def inferAppType (t : Expr) (args : Array Expr) : TranslateEnvT Expr :=
          else
            let types := types.push t
            visit (idx + 1) stop b types
-     | _ => instantiateSharedRevRange t 0 types.size types
+     | _ => instantiateSharedRevRange t types.size types
   visit 0 args.size t (Array.emptyWithCapacity args.size)
 
 /-- Given `t := ∀ α₀ → ∀ α₂ → ... → αₙ` corresponding to function type and `x₁ ... xₘ` the
@@ -382,7 +382,7 @@ def inferArgTypeAt (t : Expr) (args : Array Expr) (i : Nat) : TranslateEnvT Expr
      match t with
      | Expr.forallE _n t b _ =>
          if idx == i then
-           instantiateSharedRevRange t 0 types.size types
+           instantiateSharedRevRange t types.size types
          else
            let types := types.push args[idx]!
            visit (idx + 1) stop b types

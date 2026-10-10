@@ -107,20 +107,22 @@ private unsafe def instantiateSharedRevRangeAux (e : Expr) (offset s n : USize) 
 
 /--
 Similar to `Lean.Expr.instantiateRevRange` but assume the input is maximally shared and ensure
-that the result is also maximally shared.
-Assume `beginIdx ≤ endIdx` and `endIdx ≤ subst.size`
+that the result is also maximally shared and that beginIdx is always zero.
+Assume that `e` does not refer to any outer de bruijn index, i.e., outer indices have been
+replaced by free variables.
+The same assumption is considered for `subst`.
+Assume `0 ≤ endIdx` and `endIdx ≤ subst.size`
 -/
-def instantiateSharedRevRange (e : Expr) (beginIdx endIdx : Nat) (subst : Array Expr) : TranslateEnvT Expr :=
-  if _ : beginIdx > endIdx then unreachable! else
-  if _ : endIdx > subst.size then unreachable! else
-  let s := beginIdx.toUSize
-  let n := endIdx.toUSize - s
-  unsafe instantiateSharedRevRangeAux e 0 s n subst
+def instantiateSharedRevRange (e : Expr) (endIdx : Nat) (subst : Array Expr) : TranslateEnvT Expr :=
+  if _ : endIdx > subst.size then unreachable!
+  else if _ : 0 == endIdx then return e
+  else
+    unsafe instantiateSharedRevRangeAux e 0 0 endIdx.toUSize subst
 
 
 @[always_inline, inline]
 def instantiateShared1 (e : Expr) (subst : Expr) : TranslateEnvT Expr := do
-  if e.hasLooseBVars then instantiateSharedRevRange e 0 1 #[subst] else return e
+  if e.hasLooseBVars then instantiateSharedRevRange e 1 #[subst] else return e
 
 
 /-- Given a fun body `λ α₀ → ... λ αₙ → body` and `params` the implicit parameters info
@@ -157,7 +159,7 @@ partial def specializeLambda (fbody : Expr) (params : ImplicitParameters) : Tran
 partial def betaForAll (e : Expr) (args : Array Expr) : TranslateEnvT Expr :=
   let finish (e : Expr) (i : Nat) : TranslateEnvT Expr :=
     if !e.hasLooseBVars then return e
-    else instantiateSharedRevRange e 0 i args
+    else instantiateSharedRevRange e i args
   let rec visit (i : Nat) (e : Expr) : TranslateEnvT Expr := do
     if i < args.size then
        match e with
@@ -168,10 +170,10 @@ partial def betaForAll (e : Expr) (args : Array Expr) : TranslateEnvT Expr :=
 
 
 @[always_inline, inline]
-def betaLambdaSharedRange (e : Expr) (beginIdx : Nat) (endIdx : Nat) (args : Array Expr) : TranslateEnvT Expr :=
+def betaLambdaSharedRange (e : Expr) (endIdx : Nat) (args : Array Expr) : TranslateEnvT Expr :=
   let finish (e : Expr) (i : Nat) : TranslateEnvT Expr :=
     if !e.hasLooseBVars then return e
-    else instantiateSharedRevRange e 0 i args
+    else instantiateSharedRevRange e i args
   let rec visit (e : Expr) (i : Nat) : TranslateEnvT Expr := do
     if i < endIdx then
       match e with
@@ -179,11 +181,11 @@ def betaLambdaSharedRange (e : Expr) (beginIdx : Nat) (endIdx : Nat) (args : Arr
       | _ => mkAppRangeExpr (← finish e i) i endIdx args
     else finish e i
   if args.isEmpty then return e
-  else visit e beginIdx
+  else visit e 0
 
 @[always_inline, inline]
 def betaLambdaShared (e : Expr) (args : Array Expr) : TranslateEnvT Expr :=
-  betaLambdaSharedRange e 0 args.size args
+  betaLambdaSharedRange e args.size args
 
 /-- `(fun x => e) a` ==> `e[x/a]`. -/
 def headBetaShared (e : Expr) : TranslateEnvT Expr :=

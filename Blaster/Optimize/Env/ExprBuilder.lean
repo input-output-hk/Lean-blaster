@@ -308,6 +308,9 @@ def mkListDrop : TranslateEnvT Expr :=
 def mkListLength : TranslateEnvT Expr :=
   return (← get).optEnv.memCache.commonExpr.listLength
 
+/-- Return the `Nonempty` const expression  and cache result. -/
+def mkNonemptyConst : TranslateEnvT Expr :=
+  return (← get).optEnv.memCache.commonExpr.nonEmpty
 
 def assertShared (e : Expr) : TranslateEnvT Bool := do
   match (← get).optEnv.hashConsCache.get? e with

@@ -75,7 +75,7 @@ info:  - «Test.Counter06.counterStateMachine.state@0»: (Test.Counter06.Counter
 ---
 info:  - «Test.Counter06.counterStateMachine.input@1»: Test.Counter06.Request.Tr
 ---
-info:  - «Test.Counter06.counterStateMachine.input@2»: Test.Counter06.Request.Tr
+info:  - «Test.Counter06.counterStateMachine.input@2»: Test.Counter06.Request.Fa
 ---
 info: ⚠️ Induction failed at Depth 3
 ---
