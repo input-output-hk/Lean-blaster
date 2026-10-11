@@ -10,7 +10,7 @@ open Blaster.Smt Blaster.Options
     version-token extraction from solver banners (`parseVersionNumbers`),
     dotted-version comparison (`versionAtLeast`), the fail-closed banner
     check (`checkVersionBanner`) and the per-candidate acceptance policy
-    (`evalCandidateProbe`) shared by solver discovery and the `solvercheck`
+    (`evalCandidateProbe`) shared by solver discovery and the `SolverCheck.lean`
     executable. Probe outcomes are pure data (`ProbeOutcome`), so no process
     is spawned: the banners below are synthetic fixtures representing supported
     z3/cvc5 banner shapes. Rejection reasons are asserted by selected prefixes

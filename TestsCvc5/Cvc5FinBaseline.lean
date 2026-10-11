@@ -4,7 +4,7 @@ namespace Test.Cvc5FinBaseline
 
 /-! Finite-field plan S4 baseline, cvc5 side: selecting cvc5 does not change
     how `Fin 7` goals are handled, since the failure happens in the
-    solver-independent translation (see `Tests.Smt.SmtFinBaseline` and
+    solver-independent translation (see `TestsSolver/SmtFinBaseline.lean` and
     `docs/finite-fields/baseline-fin.md`). Closed goals never reach a solver. -/
 
 /-- error: Inductive datatype with instance parameters not supported: `Fin -/

@@ -6,7 +6,7 @@ open Blaster.Options Blaster.Smt
 
 /-! Live capability validation against the installed cvc5 executable.
     The pure acceptance policy (present / missing / absent capability) is
-    covered in `Tests.Smt.SolverVersion`; this module checks that the cvc5
+    covered in `TestsSolver/SolverVersion.lean`; this module checks that the cvc5
     found on PATH passes it, i.e. that `cvc5 --show-config` reports
     `cocoa : yes`, and that discovery accepts it. -/
 

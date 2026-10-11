@@ -47,7 +47,7 @@ lake env lean TestsCvc5/ConcurrentDump.lean
 ```
 
 `TestsCvc5/CounterexampleSpike.lean` remains directly runnable but is not
-imported by `TestsCvc5.lean`; stable assertions live in normal policy,
+run by `make test-cvc5`; stable assertions live in normal policy,
 lifecycle, reconstruction, and integration tests.
 
 ## Cases and classifications

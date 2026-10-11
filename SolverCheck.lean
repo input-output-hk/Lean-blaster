@@ -6,10 +6,10 @@
   from your system's PATH (see the instructions in the README); then, compile
   and execute this Lean code as follows:
 
-     lake build solvercheck
-     lake exe solvercheck          # checks every supported solver
-     lake exe solvercheck z3       # checks z3 only
-     lake exe solvercheck cvc5     # checks cvc5 only
+     lake build Blaster
+     lake env lean --run SolverCheck.lean        # checks every supported solver
+     lake env lean --run SolverCheck.lean z3     # checks z3 only
+     lake env lean --run SolverCheck.lean cvc5   # checks cvc5 only
 
   If a solver is installed correctly, you will see output like:
 

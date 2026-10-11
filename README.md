@@ -78,32 +78,27 @@ installation guidelines from the [Z3 GitHub repository](https://github.com/Z3Pro
 
 The cvc5 backend is optional for single-solver use: Blaster looks for `cvc5`
 when `(solver: cvc5)`, `BLASTER_SOLVER=cvc5`, or either concurrent solver mode
-is used. The test entry points preserve single-backend isolation:
+is used. The cvc5 executable must be built with CoCoA (`cvc5 --show-config`
+reports `cocoa : yes`); solver validation rejects other builds. Test entry points:
 
-- `make test-pure` runs parser, model-reconstruction, version-policy, launch-spec,
-  setup-command, and configuration-precedence tests without either solver;
-- `make test-z3` runs the default backend suite and requires only Z3;
-- `make test-cvc5` runs the cvc5 backend suite in strict result-conformance mode
-  and requires only cvc5;
-- `make test-all-solvers` checks every test module plus same-process backend
-  selection and requires both solvers;
-- `make test-cvc5-floor` requires exactly cvc5 1.2.1 and runs the focused
-  support-floor checks described below.
+- `make check_tests` (and CI) runs the `Tests` suite, which requires only Z3;
+- `make test-solver` runs the solver-infrastructure tests in `TestsSolver/`
+  (parser, model reconstruction, version and capability policy, setup
+  commands, configuration precedence, session lifecycle with fake solvers, and
+  the `Fin` baseline); it requires only Z3;
+- `make test-cvc5` runs the cvc5 tests in `TestsCvc5/` (support-floor smoke
+  checks, cvc5 queries, solver selection and the concurrent `first`/`agree`
+  modes); it requires both solvers. CI does not install cvc5 and does not run
+  these targets.
 
-`make check_tests` runs the pure and Z3 tiers. Linux CI mirrors this topology in
-separate Z3-only, cvc5-only, dual-solver, and cvc5-support-floor matrix legs.
-
-**Full-suite tested version:** cvc5 v1.3.4. Version 1.2.1 is the hard support
-floor enforced by Blaster's solver-version validation. A dedicated CI leg
-downloads the official cvc5 1.2.1 static binary and requires
-discovery/version validation, one satisfiable query, one unsatisfiable query,
-and one counterexample/model query to pass.
+Version 1.2.1 is the support floor enforced by Blaster's solver-version
+validation.
 
 Install a release binary from the [cvc5 GitHub repository](https://github.com/cvc5/cvc5/releases)
 and make sure it is available in your `PATH` as `cvc5`. You can check the setup with:
 
 ```bash
-lake exe solvercheck cvc5
+lake env lean --run SolverCheck.lean cvc5
 ```
 
 Solver executables are validated before use: a candidate whose version banner
@@ -434,7 +429,7 @@ Verdicts, evidence, and infrastructure status are separate:
 `verbose: 3` captures the Lean goal, optimized expression, complete labeled
 SMT transcript, solver name/version/invocation, `check-sat` response,
 `topLevelVars`, exact model command, raw response, parsed S-expression,
-Lean-facing rendering, and stderr stage. See `Tests/Smt/CounterexampleSpike.lean`.
+Lean-facing rendering, and stderr stage. See `TestsCvc5/CounterexampleSpike.lean`.
 
 #### State-Machine Formalization
 ```lean
@@ -598,8 +593,7 @@ from model-value normalization and display rendering:
   backend's `check-sat`/`check-sat-assuming` response, with a fixed 1 s grace
   for the native timeout response to reach the pipe. Expiry after that grace is
   `timedOut`, not `Undetermined`; the child is retired, killed, and reaped.
-  Suite-wide bounding via `BLASTER_TIMEOUT` is recommended for cvc5 runs. The
-  strict cvc5-only CI leg uses 120s; the local target defaults to 30s.
+  Suite-wide bounding via `BLASTER_TIMEOUT` is recommended for cvc5 runs.
 - **Function values**: Blaster encodes Lean function values as SMT `Array`s
   built with `lambda` and applied with `select`. z3 accepts this; cvc5 does not
   (its `lambda` has a function sort, and it is rejected under `(set-logic ALL)`),

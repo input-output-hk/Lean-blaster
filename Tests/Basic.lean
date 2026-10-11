@@ -1,2 +1,6 @@
+
+import Tests.FixedIssues
+import Tests.Optimize
 import Tests.Smt
-import Tests.Z3
+import Tests.StateMachine
+

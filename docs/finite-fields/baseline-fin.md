@@ -2,9 +2,10 @@
 
 This records how Blaster handles `Fin 7` ring goals **before** any finite-field
 support. Everything here was observed by running the commands below; nothing is
-inferred. The regression test that pins it is `Tests/Smt/SmtFinBaseline.lean`
-(Z3, part of the default `Tests` suite). Its cvc5 counterpart is
-`TestsCvc5/Cvc5FinBaseline.lean` (opt-in `TestsCvc5` library).
+inferred. The regression test that pins it is `TestsSolver/SmtFinBaseline.lean`
+(Z3, run by `make test-solver`). Its cvc5 counterpart is
+`TestsCvc5/Cvc5FinBaseline.lean` (run by `make test-cvc5`). The protected
+`Tests` tree is left unchanged, so neither file is part of `make check_tests`.
 
 ## Environment
 
@@ -99,7 +100,7 @@ when `n = p` is prime.
 
 ```bash
 # Base (Z3): every guard in the file must pass.
-lake env lean Tests/Smt/SmtFinBaseline.lean
+lake env lean TestsSolver/SmtFinBaseline.lean
 # cvc5 counterpart (needs cvc5 on PATH):
 lake env lean TestsCvc5/Cvc5FinBaseline.lean
 ```
