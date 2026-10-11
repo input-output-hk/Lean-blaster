@@ -104,11 +104,18 @@ instance : Coe Expr SharedExpr where
 
 
 /-- Cache key for the per-call instantiation/abstraction caches: the subterm's
-    47-bit user-space address and the binder offset packed as
-    `addr ||| (offset <<< 47)` — a 111-bit value (`BitVec 111` semantics: 47 bits
-    of address + up to 64 bits of offset) represented as `Nat`, which is exactly
-    `BitVec 111`'s runtime representation but skips its `% 2^111` normalizations.
-    For offsets < 2^16 the key fits in 62 bits, so it is an unboxed tagged
+    address and the binder offset packed as `(addr >>> 3) ||| (offset <<< 49)`
+    (see `packInstKey`), represented as `Nat`.
+
+    Lean objects are 8-byte aligned, so dropping the three low address bits is
+    lossless, and the remaining 49 bits cover every user-space address below
+    2^52. This includes 48-bit address spaces such as aarch64, where heap
+    addresses commonly have bit 47 set (`0xffff…`). An earlier packing
+    `addr ||| (offset <<< 47)` assumed 47-bit addresses and made distinct
+    `(addr, offset)` pairs collide on such machines, silently returning wrong
+    cached instantiations.
+
+    For offsets < 2^13 the key fits in 62 bits, so it is an unboxed tagged
     scalar: probes and inserts allocate nothing and map teardown never touches
     refcounts for keys. Larger offsets (deeply nested binders, e.g. huge
     unrolled functions) transparently become GMP bignum keys — slower, but
@@ -118,21 +125,28 @@ structure InstKey where
 
 instance : BEq InstKey := ⟨fun a b => a.packed == b.packed⟩
 /-- Hash of the key's low 64 bits: exact for scalar keys; bignum keys whose
-    offsets agree modulo 2^17 collide in hash (disambiguated by `BEq`), which is
-    acceptable because offsets ≥ 2^16 are rare. -/
+    offsets agree modulo 2^15 collide in hash (disambiguated by `BEq`), which is
+    acceptable because offsets ≥ 2^13 are rare. -/
 instance : Hashable InstKey := ⟨fun a => ptrAddrHash (USize.ofNat a.packed)⟩
 instance : Inhabited InstKey := ⟨⟨0⟩⟩
 
-/-- Offsets below this bound (2^16) keep `mkInstKey` on the packed-scalar fast path. -/
-private def scalarOffsetBound : USize := 65536
+/-- Offsets below this bound (2^13) keep `packInstKey` on the packed-scalar fast path. -/
+private def scalarOffsetBound : USize := 8192
+
+/-- Pack an 8-byte-aligned object address `addr` (below 2^52) and a binder
+    `offset` into an `InstKey`. Injective on such inputs: the address occupies
+    bits 0..48 and the offset bits 49 and up. -/
+@[always_inline, inline]
+def packInstKey (addr : USize) (offset : USize) : InstKey :=
+  if offset < scalarOffsetBound then
+    -- addr >>> 3 < 2^49, offset < 2^13 ⇒ packed < 2^62: `toNat` is a tag, not an allocation
+    ⟨((addr >>> 3) ||| (offset <<< 49)).toNat⟩
+  else
+    ⟨(addr >>> 3).toNat ||| (offset.toNat <<< 49)⟩
 
 @[always_inline, inline]
 unsafe def mkInstKeyAux (e : Expr) (offset : USize) : InstKey :=
-  if offset < scalarOffsetBound then
-    -- addr < 2^47, offset < 2^16 ⇒ packed < 2^63: `toNat` is a tag, not an allocation
-    ⟨(ptrAddrUnsafe e ||| (offset <<< 47)).toNat⟩
-  else
-    ⟨(ptrAddrUnsafe e).toNat ||| (offset.toNat <<< 47)⟩
+  packInstKey (ptrAddrUnsafe e) offset
 
 @[always_inline, inline]
 def mkInstKey (e : Expr) (offset : USize) : InstKey :=
