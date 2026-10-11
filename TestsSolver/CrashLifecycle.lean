@@ -446,6 +446,34 @@ private def testSingleTimeoutIsVisibleFailure : MetaM Unit := do
     throwError "single timeout left its child installed"
   assertStopped "single timed-out child" process
 
+-- A healthy solver may answer after its native limit: before concurrent
+-- solving, Blaster always waited for that answer. With a 2 s limit, a late
+-- answer at 3.5 s is past the old fixed `timeout + 1 s` deadline (3 s) but
+-- within `max(timeout + 1 s, 2 × timeout)` (4 s), so it is honored: `unknown`
+-- stays Undetermined and a decisive verdict is kept.
+private def testSingleLateUnknownIsUndetermined : MetaM Unit := do
+  let process ← spawnFakeChild "unknown" "3.5"
+  let env := environment .single #[{ solver := .z3, process }] false (some 2000)
+  let (result, finalEnv) ← (do
+    let result ← checkSat
+    discard exitSmt
+    return result).run env
+  unless result matches .Undetermined do
+    throwError "late native unknown was not Undetermined: {reprStr result}"
+  unless finalEnv.smtEnv.sessions.isEmpty do
+    throwError "late unknown left its child installed"
+  assertStopped "late unknown child" process
+
+private def testSingleLateVerdictIsKept : MetaM Unit := do
+  let process ← spawnFakeChild "unsat" "3.5"
+  let env := environment .single #[{ solver := .z3, process }] false (some 2000)
+  let (result, _) ← (do
+    let result ← checkSat
+    discard exitSmt
+    return result).run env
+  expectValid "late native verdict" result
+  assertStopped "late verdict child" process
+
 private def testProtocolFailureDoesNotBeatHealthySolver : MetaM Unit := do
   let z3 ← spawnFakeChild "not-a-verdict"
   let cvc5 ← spawnFakeChild "unsat" "0.05"
@@ -610,11 +638,21 @@ private def testAgreementFailureSavesArtifacts : MetaM Unit := do
 #eval testCvc5TimeoutDoesNotBeatZ3
 #eval withoutLoggedMessages testBothTimeoutsAreInfrastructureFailure
 #eval testSingleTimeoutIsVisibleFailure
+#eval testSingleLateUnknownIsUndetermined
+#eval testSingleLateVerdictIsKept
 #eval testProtocolFailureDoesNotBeatHealthySolver
 #eval withoutLoggedMessages testInfrastructurePlusUnknownIsNotUndetermined
 #eval testBothOrdinaryUnknownRemainUndetermined
 #eval testAgreementUsesCompletePeerEvidence
 #eval testAgreementTimeoutIsInfrastructureFailure
 #eval testAgreementFailureSavesArtifacts
+
+/-! Deadline boundaries: never earlier than `timeout + 1 s` nor `2 × timeout`. -/
+#guard checkResponseDeadlineMs 0 30 == 1030
+#guard checkResponseDeadlineMs 0 999 == 1999
+#guard checkResponseDeadlineMs 0 1000 == 2000
+#guard checkResponseDeadlineMs 0 1001 == 2002
+#guard checkResponseDeadlineMs 0 5000 == 10000
+#guard checkResponseDeadlineMs 700 2000 == 4700
 
 end Test.CrashLifecycle

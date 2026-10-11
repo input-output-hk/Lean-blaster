@@ -218,8 +218,10 @@ responses.
 
 The `timeout`/`BLASTER_TIMEOUT` value is translated to each backend's native
 option and enforced independently for each check. After that native deadline,
-Blaster allows a fixed 1 s response-drain grace so a backend's terminal
-`unknown` is not raced by process retirement. Expiry after the grace retires,
+Blaster allows a response grace of `max(1 s, timeout)` (so the deadline is at
+least `timeout + 1 s` and at least twice the timeout) so a backend's terminal
+`unknown`, which can overrun the native limit on a loaded machine, is not
+raced by process retirement. Expiry after the grace retires,
 kills, and reaps that session and produces a structured `timedOut` status. In
 `first` it cannot beat a healthy solver; in `agree` it is an infrastructure
 failure; in `single` it is a visible solver failure. A solver's ordinary
@@ -590,8 +592,9 @@ from model-value normalization and display rendering:
 
 - **Timeout behavior**: the `timeout:` option maps to cvc5's `tlimit-per`
   and z3's `timeout`. Blaster independently enforces that deadline around each
-  backend's `check-sat`/`check-sat-assuming` response, with a fixed 1 s grace
-  for the native timeout response to reach the pipe. Expiry after that grace is
+  backend's `check-sat`/`check-sat-assuming` response, with a grace of
+  `max(1 s, timeout)` for the native timeout response to reach the pipe.
+  Expiry after that grace is
   `timedOut`, not `Undetermined`; the child is retired, killed, and reaped.
   Suite-wide bounding via `BLASTER_TIMEOUT` is recommended for cvc5 runs.
 - **Function values**: Blaster encodes Lean function values as SMT `Array`s

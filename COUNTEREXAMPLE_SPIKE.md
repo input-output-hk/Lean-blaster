@@ -62,7 +62,7 @@ lifecycle, reconstruction, and integration tests.
 | Fake solver returns `sat`, then `(error "model unavailable")` | Raw model error retained; evidence status becomes `modelFailed` | get-model returned an SMT error | Remains `Falsified`; clear counterexample-unavailable warning |
 | Fake child closes stdout and writes stderr | Framing/read failure; child is retired, killed if live, reaped, and stderr retained | Response framing / solver process failure | Infrastructure failure, never `Undetermined` |
 | Cancellation during model extraction | Both sessions retired before interruption; both process groups terminated and reaped | Solver process interrupted during model retrieval | Cancellation propagated; no child remains |
-| Fake backend exceeds its Blaster deadline | Per-session response polling reaches the configured deadline plus the fixed 1 s response-drain grace; the child is retired, killed, and reaped | `timedOut`, distinct from solver `unknown` | Does not beat a healthy solver in `first`; infrastructure failure in `agree` |
+| Fake backend exceeds its Blaster deadline | Per-session response polling reaches the configured deadline plus the `max(1 s, timeout)` response-drain grace; the child is retired, killed, and reaped | `timedOut`, distinct from solver `unknown` | Does not beat a healthy solver in `first`; infrastructure failure in `agree` |
 
 No S-expression parser rewrite was indicated. Existing pure reconstruction cases for
 primitives, strings, quoted symbols, datatype constructors, multiline values,

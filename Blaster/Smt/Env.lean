@@ -1438,10 +1438,22 @@ private inductive PendingCompletion where
   | response (check : PendingCheck) (value : Except IO.Error String)
       (remaining : Array PendingCheck)
   | timedOut (check : PendingCheck) (remaining : Array PendingCheck)
-/-- Native solvers receive the configured limit themselves. Give their
-    terminal `unknown` response bounded scheduling and pipe-drain slack before
-    enforcing Blaster's hard process deadline. -/
-private def responseDeadlineGraceMs : Nat := 1000
+/-- Minimum slack after the configured limit (see `checkResponseDeadlineMs`). -/
+def minResponseDeadlineGraceMs : Nat := 1000
+
+/-- Blaster's hard deadline for a `check-sat` response started at `startedMs`
+    with the configured per-check limit `timeoutMs`.
+    Native solvers receive the configured limit themselves and answer
+    `unknown` when it expires, but they only check the limit at their own
+    poll points and the answer must still be scheduled and drained from the
+    pipe, so a healthy solver can overrun its limit, more so on a loaded
+    machine. Before concurrent solving there was no Blaster-side deadline at
+    all: such a late `unknown` (or a late verdict) was always honored. The
+    grace therefore scales with the limit, `max(1 s, timeoutMs)`, so the
+    deadline is never less than twice the limit; only a solver that ignores
+    its limit becomes `timedOut`. -/
+def checkResponseDeadlineMs (startedMs timeoutMs : Nat) : Nat :=
+  startedMs + timeoutMs + max minResponseDeadlineGraceMs timeoutMs
 
 
 /-- Exit code of `process` if it has terminated, polling briefly (at most
@@ -1471,7 +1483,7 @@ private def startCheck (solver : SmtSolver) (command : SmtCommand) : TranslateEn
       let response ← IO.asTask session.process.stdout.getLine Task.Priority.dedicated
       return .pending {
         solver, command := command.renderFor solver, startedMs, timeoutMs,
-        deadlineMs := timeoutMs.map (startedMs + · + responseDeadlineGraceMs), response
+        deadlineMs := timeoutMs.map (checkResponseDeadlineMs startedMs ·), response
       }
   | .error error =>
       -- A solver that already exited makes the write fail with a broken pipe
