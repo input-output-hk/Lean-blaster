@@ -1,0 +1,194 @@
+Finite fields, job #80: pass 3 report (step 1 complete)
+========================================================
+
+Branch:    agent/plan-lean-blaster-finite-fields (not pushed)
+Validated: 3c7c940c1092108eebdf528e711c8af6df8c6bf2 (clean tree)
+Previous:  0b849cf (pass 2). The three new commits fast-forward it. The
+           2df2e15 merge (parents ab82a3c, origin/feat/cvc5-concurrency
+           4131e46) is still an ancestor. Nothing was re-merged.
+
+  da30c8a Use exact InstKeys for addresses outside the packed range
+  ef6a8bc Render function values for cvc5 as higher-order terms
+  3c7c940 Scale the check response deadline with the timeout
+  (this report is committed on top)
+
+Environment: Lean 4.24.0; Z3 5.1.0 (hash ca39e58c, the pinned fork);
+cvc5 1.4.1 (git 2b2e844), `cvc5 --show-config` reports `cocoa : yes`.
+
+1. cvc5 function values (TestsCvc5/SmtSolverCvc5.lean:153)
+-----------------------------------------------------------
+Reproduced on 0b849cf with cvc5 1.4.1. The rejected command was:
+  (define-fun @canon_uniq.361 ((@f (Array  Int Int))) (Array  Int Int)
+    (lambda ((@x0 Int)) (ite (@isInt @x0) (select @f @x0) @default_codomain_uniq.361)))
+  -> (error "Parse Error: <stdin>:10.78: Expected SMT-LIBv2 qualified
+     indentifier, got `@x0` (SYMBOL).")
+Root cause: cvc5 parses `lambda` only under a higher-order logic. Under
+(set-logic ALL) the binder list is read as an application. Under HO_ALL a
+`lambda` has the function sort (-> A B), which cvc5 does not identify with
+(Array A B), unlike z3. The `@` prefix is not the cause.
+
+Fix: cvc5 now receives a higher-order rendering of the canonical query
+(SmtCommand.toHigherOrder in Blaster/Smt/Term.lean). It is applied when a
+command is sent to a cvc5 session, and also in dumps, diagnostics and
+agreement artifacts:
+  (Array A1 .. An B) -> (-> A1 .. An B)
+  (select f t1 .. tn) -> (@ f t1 .. tn)
+  lambda, =, everything else unchanged.
+Both forms denote total extensional functions and application, so the
+rendering preserves semantics. It covers canonicalization (@canon...),
+application, function equality and get-value on function terms. Z3 receives
+the canonical text byte for byte (pinned in
+TestsSolver/SmtHigherOrderRendering.lean). Z3 stays the default, and cvc5
+stays opt-in.
+
+Logic selection: cvc5 is much weaker on first-order quantified queries
+under HO_ALL. Measured on the pinned `l ≠ [1, 2]` query: ALL gives sat in
+7 ms, HO_ALL gives unknown after 56 s. Switching to HO_ALL globally broke that
+pinned test and the pinned cvc5 setup transcript
+(TestsSolver/SmtSetupCommands.lean). So cvc5 still starts with
+(set-logic ALL). At the first command containing a function value (an Array
+sort, select or lambda), each cvc5 session is retired gracefully and
+respawned under (set-logic HO_ALL), replaying the canonical query through the
+existing replay path. Recorded setup transcripts are updated the same way,
+including in only-smt-lib mode. The check is skipped when cvc5 is not
+configured.
+
+No fallback: a cvc5 rejection is still an error. Single mode throws; first
+mode defers the session; agree mode fails with artifacts. A respawn failure
+is handled the same way. A live negative test sends z3-only
+`(_ as-array g)` and expects
+"solver=cvc5; stage=command submission" (TestsCvc5/Cvc5FunctionValues.lean).
+
+Expectation kept: SmtSolverCvc5.lean:153 still says (solve-result: 1) and now
+gives "Expected Falsified" with counterexample
+f: (lambda ((BOUND_VARIABLE_7917 Int)) (ite (= BOUND_VARIABLE_7917 1) (- 1) 0)), x: 0.
+
+New regressions (each has a positive and a negative case):
+  TestsCvc5/Cvc5FunctionValues.lean (live cvc5):
+    canonicalization and application over Int and over the Nat domain;
+    multi-argument functions; function equality and extensionality; Lean
+    lambda arguments, including closures; function-typed structure fields;
+    polymorphic functions; solver-mode first and agree (Valid and
+    Falsified); #bmc with a function-valued input in single cvc5, first and
+    agree modes (the switch to HO_ALL happens mid-query); and the as-array
+    rejection.
+  TestsSolver/SmtHigherOrderRendering.lean (no solver):
+    pinned z3 text (identity) and cvc5 text; detection of function values
+    (positive, and negative for user symbols named select/Array); and logic
+    selection: first-order queries stay ALL, a function value switches to
+    HO_ALL keeping every option, and z3 never changes.
+
+2. timeout + 1 s deadline (compatibility with base)
+--------------------------------------------------
+Base: no Blaster-side deadline. Blaster waited for the native answer, so a
+late `unknown` was Undetermined and a late verdict was kept. The merged
+branch retired the solver at timeout + 1 s, and in single mode (the default)
+reported a solver failure. Measured with temporary instrumentation (since
+removed) on the five Tests files that use (timeout: N): z3 overran its limit
+by 3 to 81 ms unloaded, and by up to 589 ms with the CPU 2x oversubscribed.
+Fix: the grace is max(1 s, timeout), so the deadline is at least timeout + 1 s
+and at least 2 x timeout (checkResponseDeadlineMs). A solver that ignores its
+limit is still `timedOut`, so every existing lifecycle expectation, including
+testSingleTimeoutIsVisibleFailure, is unchanged. New tests in
+TestsSolver/CrashLifecycle.lean: a late `unknown` at 3.5 s with a 2 s limit
+gives Undetermined, a late `unsat` gives Valid, plus deadline boundary
+guards. With the old formula restored temporarily, both new tests failed
+with "stage=check timeout ... elapsed=3005ms" and so did the boundary
+guards. They pass with the fix.
+
+3. InstKey packing (e57c853) review
+-----------------------------------
+Assumptions found: a 64-bit USize, 8-byte alignment, and addresses below
+2^52. Nothing checked them. Two concrete silent collisions:
+(addr 2^52, offset 0) == (addr 0, offset 1) == 2^49, and unaligned addresses
+lost their low bits. A naive fallback `addr | offset << 64` would itself
+collide with the packed bignum path, e.g. (2^62, 0) vs (0, 2^13).
+Fix: three disjoint key ranges. Packed scalar keys (< 2^62) and packed
+bignum keys ([2^62, 2^113)) are unchanged. Any other address, or a non-64-bit
+platform with an unaligned address, uses 2^113 + addr + offset * 2^64, which
+is exact. On non-64-bit platforms aligned addresses use the packed layout
+computed on Nat. Bignum hashes now mix in bits >= 64. In the compiled C, the
+fast path adds one cached-flag load, one AND and one compare; scalar-key
+hashing adds one compare. This is a correctness fix, so no speed claim is
+made. Regressions are in TestsSolver/InstKeyPacking.lean: the boundary cases
+above, plus all pairs over 17 boundary addresses x 13 boundary offsets
+(221 keys) being distinct. The existing guards are unchanged.
+
+4. Commands and results (on 3c7c940, clean tree)
+------------------------------------------------
+  make check_blaster                                                    exit 0 (216 s)
+  LEAN_NUM_THREADS=5 ./scripts/check_lean_project_compilation.sh Tests  exit 0 (163 s)
+  make test-solver                                                      exit 0 (25 s)
+  make test-cvc5                                                        exit 0 (22 s)
+  make solvercheck                                                      exit 0 (z3 and cvc5 accepted)
+
+Acceptance-file inventory. Each file was run alone with `lake env lean`,
+and every one had rc=0 and 0 errors:
+  TestsCvc5: ConcurrentDump, ConcurrentSolvers, CounterexampleSpike (*),
+    Cvc5Capabilities, Cvc5FinBaseline, Cvc5Floor, Cvc5FunctionValues (new),
+    SmtSolverCvc5, SolverSelection
+  TestsSolver: Configuration, CrashLifecycle, InstKeyPacking,
+    ModelReconstruction, ResponseLifecycle, SmtFinBaseline,
+    SmtHigherOrderRendering (new), SmtSetupCommands, SolverModeConfiguration,
+    SolverOutcomePolicy, SolverVersion, StrictResultPolicy
+  (*) The Makefile deliberately excludes CounterexampleSpike from
+      `make test-cvc5` (it is a saved diagnostic spike). It was run
+      separately and passes.
+No fail-fast exit hid anything. The make test-cvc5 pipeline was re-run with
+a RUN/OK marker per file: all 8 files in its set printed RUN and OK, and
+xargs exited 0. That exit code also means every queued file ran.
+
+CoCoA:
+  cvc5 --show-config                    -> cocoa : yes
+  pure policy (TestsSolver/SolverVersion.lean): `cocoa : no`, a missing cocoa
+    line and any value other than `yes` are all rejected
+  live, with a fake cvc5 first on PATH that wraps the real one:
+    cocoa reported "no"  : SolverCheck cvc5 exit 1, "missing required cvc5
+                           build capability cocoa"; #blaster (solver: cvc5)
+                           fails at startup with the same reason
+    cocoa line missing   : same results as above
+  Goals closed by the optimizer start no solver, so no capability check
+  happens for them. This is pre-existing behavior.
+
+docs/finite-fields/baseline-fin.md vs the executed Fin 7 tests: they agree.
+Goals A, B and G give the `Fin` translation error. A' (only-optimize) is
+Undetermined. C, D, E and E' are Valid from the optimizer, and F is Falsified.
+On cvc5, A and B give the error, D is Valid and the Nat-representative
+identity is Valid. The one claim no test pins
+(∀ a : Nat, a < 7 → (a*a) % 7 ≠ 2 is falsified) was executed: z3 gives
+Falsified with a = 4, and cvc5 gives Falsified with a = 3.
+
+5. Review
+---------
+- No sorry, admit or axiom was added. No test, expectation or solve-result
+  was removed or changed. New checks only.
+- No diff against hillclimb-base or 0b849cf in lean-toolchain, lakefile.lean,
+  lake-manifest.json, .github/, Tests/, Tests.lean, scripts/ or Makefile.
+  README badges are unchanged.
+- Z3 is still the default (resolveSolverConfig is untouched). Z3's setup and
+  query text are unchanged (pinned).
+- Soundness: the cvc5 rendering only renames the sort constructor and the
+  application operator between two encodings of the same total function
+  space. The HO_ALL respawn replays exactly the canonical commands, which
+  are the only stateful commands sent. Verdict handling is untouched.
+
+6. Remaining work and known limits
+----------------------------------
+- In cvc5 1.4.1 models, values of function-typed fields nested inside
+  datatype values are unreliable. They can be self-referential, e.g.
+  (($0 (P.S.mk (P.S.mk.0 $0) 1)))
+  and in a manual SMT probe a closed value contradicted the selector's value.
+  This affects only the displayed counterexample, never the verdict, and is
+  documented in the README. Fixing it needs type-directed per-field
+  get-value queries.
+- Under HO_ALL, cvc5 can be Undetermined on goals that mix function values
+  with recursive datatypes. Example: ∀ (l : List Int) (f : Int → Int),
+  l ≠ [f 1, 2] is Undetermined within 10 s; before this change it was a
+  parse error. This is documented in the README.
+- Finite-field translation itself is later steps (not started). The Fin 7
+  baseline tests pin the current behavior and are meant to be updated on
+  purpose by those steps.
+
+Logs (sandbox, outside the repo): /workspace/validation/finite-fields-pass-3/
+  logs/summary.txt, inventory.txt, test_cvc5_marked.log, the per-command and
+  per-file logs, head.txt, status.txt; fake-cvc5-cocoa-{no,missing}.sh.
