@@ -2,18 +2,91 @@ import Lean
 import Blaster.Command.Options
 import Blaster.Optimize.Env
 import Blaster.Smt.EmitCommand
+import Blaster.Smt.Model
 
 open Lean Meta Blaster.Optimize Blaster.Options
 
 namespace Blaster.Smt
+
+private initialize agreementArtifactCounter : IO.Ref Nat ← IO.mkRef 0
 
 /-- Normalize solver output line endings: strip any `\r` so that downstream
     code only sees Unix-style `\n` terminators, regardless of platform. -/
 private def normalizeLine (s : String) : String :=
   s.replace "\r" ""
 
-/-- Minimal version of z3 we support -/
-private def minZ3Version : String := "4.15.2"
+/-- One executable launch candidate. `cmd` is exactly one executable name;
+    wrapper subcommands such as WSL's solver name belong in `prefixArgs`. -/
+structure SolverCandidate where
+  cmd : String
+  prefixArgs : Array String := #[]
+deriving Repr, BEq, Inhabited
+
+/-- Human-readable candidate spelling used only in diagnostics. -/
+def SolverCandidate.display (candidate : SolverCandidate) : String :=
+  String.intercalate " " (candidate.cmd :: candidate.prefixArgs.toList)
+
+/-- Static description of a supported backend solver executable. -/
+structure SolverDescriptor where
+  /-- Display name of the solver. -/
+  name : String
+  /-- Launch candidates probed in order (Windows support goes through WSL). -/
+  candidates : Array SolverCandidate
+  /-- Arguments used to probe the executable and query its version. -/
+  versionArgs : Array String
+  /-- Minimal version of the solver we support. -/
+  minVersion : String
+  /-- Arguments used to spawn the solver reading SMT-LIB commands from stdin. -/
+  spawnArgs : Array String
+  /-- Arguments printing the solver's build configuration as `name : yes|no`
+      lines (only consulted when `requiredCapabilities` is non-empty). -/
+  configArgs : Array String := #[]
+  /-- Build-configuration features that must be reported as `yes` for a
+      candidate to be accepted (see `checkConfigCapabilities`). -/
+  requiredCapabilities : Array String := #[]
+
+/-- Exact executable and argv used to probe a candidate's version. -/
+def SolverDescriptor.probeInvocation (desc : SolverDescriptor) (candidate : SolverCandidate) :
+    String × Array String :=
+  (candidate.cmd, candidate.prefixArgs ++ desc.versionArgs)
+
+/-- Exact executable and argv used to print a candidate's build configuration. -/
+def SolverDescriptor.configInvocation (desc : SolverDescriptor) (candidate : SolverCandidate) :
+    String × Array String :=
+  (candidate.cmd, candidate.prefixArgs ++ desc.configArgs)
+
+/-- Exact executable and argv used to start a candidate as an SMT process. -/
+def SolverDescriptor.spawnInvocation (desc : SolverDescriptor) (candidate : SolverCandidate) :
+    String × Array String :=
+  (candidate.cmd, candidate.prefixArgs ++ desc.spawnArgs)
+
+/-- Per-solver executable description.
+    NOTE: cvc5 is spawned with `--parsing-mode=lenient` because Blaster emits
+    `@`-prefixed symbols (e.g. `@isNat`), which strict SMT-LIB parsing reserves
+    for solver-internal use. `--incremental` is required for `check-sat-assuming`
+    based strategies (BMC/K-Induction). `--dt-nested-rec` enables (experimental)
+    support for nested recursive datatypes (e.g. a constructor taking a
+    `(List Term)` argument), which cvc5 rejects by default whereas z3 accepts.
+    NOTE: Blaster enforces and smoke-tests cvc5 1.2.1 as the minimum supported
+    version; the required spawn arguments and SMT-LIB options work there.
+    NOTE: cvc5 must also be built with CoCoA (`cvc5 --show-config` reports
+    `cocoa : yes`): cvc5's finite-field theory solver is only available in
+    such builds, and the finite-field encoding targets it. -/
+def _root_.Blaster.Options.SmtSolver.descriptor : SmtSolver → SolverDescriptor
+  | .z3 =>
+     { name := "z3",
+       candidates := #[{ cmd := "z3" }, { cmd := "wsl", prefixArgs := #["z3"] }],
+       versionArgs := #["-version"],
+       minVersion := "4.15.2",
+       spawnArgs := #["-in", "-smt2"] }
+  | .cvc5 =>
+     { name := "cvc5",
+       candidates := #[{ cmd := "cvc5" }, { cmd := "wsl", prefixArgs := #["cvc5"] }],
+       versionArgs := #["--version"],
+       minVersion := "1.2.1",
+       spawnArgs := #["--lang", "smt2", "--incremental", "--parsing-mode=lenient", "--dt-nested-rec"],
+       configArgs := #["--show-config"],
+       requiredCapabilities := #["cocoa"] }
 
 /-- Result of an Smt query. -/
 inductive Result where
@@ -21,6 +94,126 @@ inductive Result where
   | Falsified (cex : List String) : Result
   | Undetermined : Result
 deriving Repr
+
+/-- Solver truth value, independent of protocol, process, and model handling. -/
+inductive SolverVerdict where
+  | valid
+  | falsified
+  | undetermined
+deriving Repr, BEq, DecidableEq, Inhabited
+
+def SolverVerdict.isDecisive : SolverVerdict → Bool
+  | .valid | .falsified => true
+  | .undetermined => false
+
+/-- Lifecycle/protocol status for one solver check. A model failure is distinct
+    because the already-observed `sat` verdict remains authoritative. -/
+inductive SolverRunStatus where
+  | completed
+  | timedOut
+  | processFailed
+  | protocolFailed
+  | modelFailed
+deriving Repr, BEq, DecidableEq, Inhabited
+
+/-- Complete result of one backend check. Verdict, evidence, and
+    infrastructure state intentionally occupy separate fields. -/
+structure SolverOutcome where
+  solver : SmtSolver
+  verdict : Option SolverVerdict
+  status : SolverRunStatus
+  counterexample : Option (List String) := none
+  elapsedMs : Nat := 0
+  diagnostic : Option String := none
+deriving Repr
+
+inductive AgreementFailureKind where
+  | hardDisagreement
+  | incompleteDisagreement
+  | infrastructureFailure
+deriving Repr, BEq, DecidableEq
+
+structure AgreementFailure where
+  kind : AgreementFailureKind
+  diagnostic : String
+deriving Repr
+
+/-- Deterministic aggregate of two compatible solver outcomes. -/
+structure AgreementDecision where
+  verdict : SolverVerdict
+  status : SolverRunStatus
+  counterexample : Option (List String)
+  elapsedMs : Nat
+  diagnostic : Option String
+deriving Repr
+
+private def orderOutcomes (outcomes : List SolverOutcome) : List SolverOutcome :=
+  [SmtSolver.z3, SmtSolver.cvc5].filterMap fun solver =>
+    outcomes.find? (·.solver == solver)
+
+private def combineDiagnostics (outcomes : List SolverOutcome) : Option String :=
+  let lines := (orderOutcomes outcomes).filterMap fun outcome =>
+    outcome.diagnostic.map fun diagnostic => s!"{outcome.solver}: {diagnostic}"
+  if lines.isEmpty then none else some (String.intercalate "\n" lines)
+
+private def evidenceQuality (outcome : SolverOutcome) : Nat :=
+  match outcome.counterexample with
+  | some counterexample =>
+      if counterexample.isEmpty then 0
+      else if outcome.status == .completed then 2
+      else if outcome.status == .modelFailed then 1
+      else 0
+  | none => 0
+
+private def bestEvidence (outcomes : List SolverOutcome) : Option SolverOutcome :=
+  (orderOutcomes outcomes).foldl (init := none) fun best candidate =>
+    match best with
+    | none => some candidate
+    | some current =>
+        if evidenceQuality candidate > evidenceQuality current then some candidate
+        else some current
+
+/-- Compare verdicts independently from evidence. Infrastructure failures are
+    fatal; after matching `sat`, complete evidence outranks partial evidence,
+    with fixed Z3-then-cvc5 order only breaking equal-quality ties. -/
+def aggregateAgreement (a b : SolverOutcome) : Except AgreementFailure AgreementDecision := do
+  let ordered := orderOutcomes [a, b]
+  if let some failed := ordered.find? fun outcome =>
+      outcome.status != .completed && outcome.status != .modelFailed then
+    throw {
+      kind := .infrastructureFailure
+      diagnostic := s!"{failed.solver} ended with {reprStr failed.status}: {failed.diagnostic.getD "no diagnostic"}"
+    }
+  let some av := a.verdict
+    | throw { kind := .infrastructureFailure, diagnostic := s!"{a.solver} produced no verdict" }
+  let some bv := b.verdict
+    | throw { kind := .infrastructureFailure, diagnostic := s!"{b.solver} produced no verdict" }
+  let selected := bestEvidence ordered
+  let selectedQuality := selected.map evidenceQuality |>.getD 0
+  let decision (verdict : SolverVerdict) :=
+    let counterexample :=
+      if verdict == .falsified then selected.bind (·.counterexample) else none
+    let status :=
+      if verdict == .falsified && selectedQuality == 2 then .completed
+      else if ordered.any (·.status == .modelFailed) then .modelFailed
+      else .completed
+    { verdict, status, counterexample, elapsedMs := max a.elapsedMs b.elapsedMs,
+      diagnostic := combineDiagnostics ordered }
+  match av, bv with
+  | .valid, .valid => return decision .valid
+  | .falsified, .falsified => return decision .falsified
+  | .undetermined, .undetermined => return decision .undetermined
+  | .valid, .falsified
+  | .falsified, .valid =>
+      throw {
+        kind := .hardDisagreement
+        diagnostic := s!"Hard solver disagreement: {a.solver}={reprStr av}, {b.solver}={reprStr bv}"
+      }
+  | _, _ =>
+      throw {
+        kind := .incompleteDisagreement
+        diagnostic := s!"Incomplete solver disagreement: {a.solver}={reprStr av}, {b.solver}={reprStr bv}"
+      }
 
 def toResult (e : Expr) : Result :=
  match e with
@@ -48,10 +241,39 @@ def falsifiedError (r : Result) : String :=
   s!"Falsified result expected but got {reprStr r}"
 
 
+/-- Whether strict cvc5 test conformance was requested for this process. -/
+def strictCvc5ResultCheckingRequested : IO Bool := do
+  let some value ← IO.getEnv "BLASTER_STRICT_CVC5_RESULTS" | return false
+  if value == "" || value == "0" then return false
+  if value == "1" then return true
+  throw <| IO.userError
+    s!"❌ Invalid BLASTER_STRICT_CVC5_RESULTS value '{value}' (expected '0' or '1')."
+
+/-- How a declared result contract handles an `Undetermined` outcome. -/
+inductive UndeterminedAction where
+  | expected
+  | allowed
+  | strictError
+  | warning
+deriving Repr, BEq, DecidableEq
+
+/-- Decide `Undetermined` handling without logging or consulting process state. -/
+def undeterminedAction
+    (sOpts : BlasterOptions) (solver : Option SmtSolver) (strictRequested : Bool) :
+    UndeterminedAction :=
+  if isExpectedUndetermined sOpts.solveResult then .expected
+  else if sOpts.solverMode == .single && sOpts.allowCvc5Undetermined && solver == some .cvc5 then .allowed
+  else if sOpts.solverMode == .single && strictRequested && solver == some .cvc5 then .strictError
+  else if sOpts.solverMode == .agree then .strictError
+  else .warning
+
 def blankRef : TranslateEnvT Syntax := getRef
 
 def logResult (r : Result) (isCTI := false) (indLabel := "") (cexLabel := "Counterexample") : TranslateEnvT Unit := do
   let sOpts := (← get).optEnv.options.solverOptions
+  let policySolver := (← get).smtEnv.singleSolver
+  let action := undeterminedAction sOpts policySolver
+    (← strictCvc5ResultCheckingRequested)
   let ref ← blankRef
   match r with
   | .Valid =>
@@ -65,52 +287,242 @@ def logResult (r : Result) (isCTI := false) (indLabel := "") (cexLabel := "Count
            then dumpCex (logInfoAt ref) "✅ Expected Falsified" cex
            else dumpCex (logErrorAt ref) "❌ Falsified" cex
   | .Undetermined =>
-      if isExpectedUndetermined sOpts.solveResult
-      then logInfoAt ref "✅ Expected Undetermined"
-      else logWarningAt ref "⚠️ Undetermined"
+      match action with
+      | .expected => logInfoAt ref "✅ Expected Undetermined"
+      | .allowed => logInfoAt ref "✅ Allowed cvc5 Undetermined"
+      | .strictError => logErrorAt ref "❌ Unexpected Undetermined"
+      | .warning => logWarningAt ref "⚠️ Undetermined"
 
   where
     dumpCex (f : MessageData -> MetaM Unit) (failure : String) (cex : List String) : TranslateEnvT Unit := do
       if (← get).optEnv.options.solverOptions.generateCex then
          f failure
          f s!"{cexLabel}:"
-         cex.forM (λ s => f s!" - {s.dropRight 1}")
+         cex.forM (λ s => f s!" - {s.trimRight}")
       else f failure
 
-/-- Tries to find if z3 is natively present in PATH, if not checks wsl z3 -/
-private def findZ3CmdAndVersion : IO (String) := do
-  let candidates := #["z3", "wsl z3"]
-  -- We'll store a short log message for each candidate attempt
-  let mut attemptLogs := #[]
-  for candidate in candidates do
-    try
-      let out ← IO.Process.output { cmd := candidate, args := #["-version"] }
-      if out.exitCode == 0 then
-        -- Found a good candidate => Return immediately
-        return (candidate)
+/-- Numeric components of the first dotted version number (e.g. `4.15.2`)
+    occurring in a solver's version banner; `none` when no such token exists. -/
+def parseVersionNumbers (banner : String) : Option (List Nat) :=
+  ((banner.split Char.isWhitespace).filterMap versionToken).head?
+ where
+  versionToken (tok : String) : Option (List Nat) :=
+    let tok := tok.takeWhile (λ c => c.isDigit || c == '.')
+    if tok.isEmpty || !tok.contains '.' then none
+    else (tok.split (· == '.')).mapM String.toNat?
+
+/-- `a` is at least `b` where both are dotted-version components; missing
+    components count as zero (so `1.2` and `1.2.0` compare equal). -/
+def versionAtLeast : (a b : List Nat) → Bool
+  | _, [] => true
+  | [], b => b.all (· == 0)
+  | x :: xs, y :: ys => x > y || (x == y && versionAtLeast xs ys)
+
+/-- Verdict of checking a solver's version banner against the minimal
+    supported version. -/
+inductive VersionCheck where
+  | ok
+  /-- The banner parsed but the version is below the minimal supported one. -/
+  | tooOld (found : List Nat)
+  /-- No dotted version number could be found in the banner. -/
+  | unparseable
+deriving Repr, DecidableEq
+
+/-- Check a solver's version `banner` against `minVersion`.
+    Fails closed: a banner without a parseable version is rejected
+    (`.unparseable`) rather than accepted as an unknown solver build, since
+    accepting an executable whose version cannot be established risks
+    silently wrong solver behavior. Official z3/cvc5 banners — including dev
+    builds, whose `1.3.5-dev.105` style tokens parse up to the suffix — all
+    carry a parseable version.
+    An unparseable `minVersion` (a Blaster bug, not a user error) imposes no
+    lower bound instead of rejecting every solver. -/
+def checkVersionBanner (minVersion : String) (banner : String) : VersionCheck :=
+  let required := (parseVersionNumbers minVersion).getD []
+  match parseVersionNumbers banner with
+  | none => .unparseable
+  | some found => if versionAtLeast found required then .ok else .tooOld found
+
+/-- Outcome of probing one solver-executable candidate with its version
+    arguments. Pure data so that the acceptance policy can be unit-tested
+    without spawning processes (see `evalCandidateProbe`). -/
+inductive ProbeOutcome where
+  /-- The probe ran and exited with `exitCode`, producing `stdout`. -/
+  | ran (exitCode : UInt32) (stdout : String)
+  /-- The probe could not run at all (e.g. executable not found). -/
+  | failed (error : String)
+deriving Repr
+
+/-- First line of the probe's stdout (the solver's version banner). -/
+def ProbeOutcome.banner : ProbeOutcome → String
+  | .ran _ stdout => ((stdout.splitOn "\n").headD "").trimRight
+  | .failed _ => ""
+
+/-- Verdict for one candidate probe: accept the candidate, or produce the
+    human-readable rejection reason (one line of the discovery report).
+    This is the single acceptance-policy point shared by solver discovery
+    (`findSolverExecutable`) and `SolverCheck.lean`. -/
+def evalCandidateProbe (desc : SolverDescriptor) (candidate : SolverCandidate) :
+    ProbeOutcome → Except String Unit
+  | .failed err => .error s!"Candidate '{candidate.display}': IO error => {err}"
+  | outcome@(.ran exitCode _) =>
+      if exitCode != 0 then
+        .error s!"Candidate '{candidate.display}': exit code {exitCode}"
       else
-        attemptLogs := attemptLogs.push
-          s!"Candidate '{candidate}': exit code {out.exitCode}"
-    catch e =>
-      -- “No such file or directory” or other IO error
-      attemptLogs := attemptLogs.push
-        s!"Candidate '{candidate}': IO error => {e}"
+        match checkVersionBanner desc.minVersion outcome.banner with
+        | .ok => .ok ()
+        | .tooOld found =>
+            .error s!"Candidate '{candidate.display}': version {String.intercalate "." (found.map toString)} is older than the minimal supported {desc.minVersion}"
+        | .unparseable =>
+            .error s!"Candidate '{candidate.display}': could not parse a version from '{outcome.banner}' (unrecognized {desc.name} builds are rejected; version ≥ {desc.minVersion} is required)"
 
-  -- If we get here, no candidate succeeded
+/-- Value reported for build feature `name` in a solver configuration dump
+    made of `name : value` lines (e.g. the output of `cvc5 --show-config`).
+    Names are matched exactly after trimming; returns `none` when absent. -/
+def configCapability? (config : String) (name : String) : Option String :=
+  (config.splitOn "\n").findSome? fun line =>
+    match line.splitOn ":" with
+    | key :: rest =>
+        if key.trim == name then some (String.intercalate ":" rest).trim else none
+    | [] => none
+
+/-- Check that every feature in `required` is reported as `yes` in `config`.
+    Fails closed: a feature that is absent from the dump, or reported with any
+    value other than `yes`, is returned in the error array. -/
+def checkConfigCapabilities (required : Array String) (config : String) :
+    Except (Array String) Unit :=
+  let missing := required.filter fun name => configCapability? config name != some "yes"
+  if missing.isEmpty then .ok () else .error missing
+
+/-- Capability verdict for one candidate whose version was already accepted:
+    accept it, or produce the human-readable rejection reason. `outcome` is
+    the result of running `SolverDescriptor.configInvocation`. A descriptor
+    without `requiredCapabilities` accepts every candidate. -/
+def evalCapabilityProbe (desc : SolverDescriptor) (candidate : SolverCandidate)
+    (outcome : ProbeOutcome) : Except String Unit :=
+  if desc.requiredCapabilities.isEmpty then .ok () else
+  let required := String.intercalate ", " desc.requiredCapabilities.toList
+  match outcome with
+  | .failed err =>
+      .error s!"Candidate '{candidate.display}': could not query build configuration (required: {required}) => {err}"
+  | .ran exitCode stdout =>
+      if exitCode != 0 then
+        .error s!"Candidate '{candidate.display}': build configuration query exited with code {exitCode} (required: {required})"
+      else
+        match checkConfigCapabilities desc.requiredCapabilities stdout with
+        | .ok () => .ok ()
+        | .error missing =>
+            .error s!"Candidate '{candidate.display}': missing required {desc.name} build capability {String.intercalate ", " missing.toList} (`{String.intercalate " " (candidate.cmd :: (candidate.prefixArgs ++ desc.configArgs).toList)}` must report `<name> : yes`)"
+
+/-- Run one candidate's build-configuration probe (see `evalCapabilityProbe`),
+    capturing failures to spawn as data. Skipped (reported as accepted output)
+    when the descriptor requires no capability. -/
+def probeSolverCapabilities (desc : SolverDescriptor) (candidate : SolverCandidate) : IO ProbeOutcome := do
+  if desc.requiredCapabilities.isEmpty then return .ran 0 ""
+  let (cmd, args) := desc.configInvocation candidate
+  try
+    let out ← IO.Process.output { cmd := cmd, args := args }
+    return .ran out.exitCode out.stdout
+  catch e =>
+    return .failed (toString e)
+
+/-- Run one candidate's version probe, capturing failures to spawn (e.g.
+    executable not found) as data. -/
+def probeSolverCandidate (desc : SolverDescriptor) (candidate : SolverCandidate) : IO ProbeOutcome := do
+  let (cmd, args) := desc.probeInvocation candidate
+  try
+    let out ← IO.Process.output { cmd := cmd, args := args }
+    return .ran out.exitCode out.stdout
+  catch e =>
+    return .failed (toString e)
+
+/-- Full acceptance of one candidate: version policy (`evalCandidateProbe`)
+    first, then the build-capability policy (`evalCapabilityProbe`). Shared by
+    solver discovery and `SolverCheck.lean`. Returns the version
+    probe outcome (for its banner) on acceptance. -/
+def validateSolverCandidate (desc : SolverDescriptor) (candidate : SolverCandidate) :
+    IO (Except String ProbeOutcome) := do
+  let outcome ← probeSolverCandidate desc candidate
+  match evalCandidateProbe desc candidate outcome with
+  | .error log => return .error log
+  | .ok () =>
+    match evalCapabilityProbe desc candidate (← probeSolverCapabilities desc candidate) with
+    | .error log => return .error log
+    | .ok () => return .ok outcome
+
+/-- Resolved executable, version banner, and spawn argv for one backend. -/
+private structure SolverExecutable where
+  candidate : SolverCandidate
+  version : String
+
+/-- Find a usable solver launch specification: candidates are probed in order
+    (native executable first, then a best-effort WSL fallback) and the first
+    one passing the version and capability policies (see
+    `validateSolverCandidate`) wins. -/
+private def findSolverExecutable (solver : SmtSolver) : IO SolverExecutable := do
+  let desc := solver.descriptor
+  let mut attemptLogs := #[]
+  for candidate in desc.candidates do
+    match ← validateSolverCandidate desc candidate with
+    | .ok outcome => return { candidate, version := outcome.banner }
+    | .error log => attemptLogs := attemptLogs.push log
   let attemptsReport := String.join (attemptLogs.toList.map (fun x => x ++ "\n"))
-  throw <| IO.userError s!"❌ Could not find a working Z3 ≥ {minZ3Version}.\n\nTried:\n{attemptsReport}"
+  throw <| IO.userError s!"❌ Could not find a working {desc.name} ≥ {desc.minVersion}.\n\nTried:\n{attemptsReport}"
 
+/-- Resolve a solver from an explicit option and a supplied environment value.
+    Surrounding whitespace is ignored, but solver names are case-sensitive. -/
+def resolveSolverConfig
+    (sOpts : BlasterOptions) (envValue : Option String) : Except String SmtSolver := do
+  if let some solver := sOpts.solver then return solver
+  let some str := envValue | return .z3
+  let some solver := SmtSolver.ofString? str.trim
+    | throw s!"❌ Unknown BLASTER_SOLVER value '{str}' (expected 'z3' or 'cvc5')."
+  return solver
 
-/-- Spawn a z3 process w.r.t. the provided solver options. -/
-def createBlasterProcess : IO (IO.Process.Child ⟨.piped, .piped, .piped⟩) := do
-  let z3Cmd ← findZ3CmdAndVersion  -- ensures version is OK
-  IO.Process.spawn {
+/-- Resolve the backend solver to be used from the explicit option, then the
+    process environment, then the Z3 default. -/
+def resolveSolver (sOpts : BlasterOptions) : IO SmtSolver := do
+  match resolveSolverConfig sOpts (← IO.getEnv "BLASTER_SOLVER") with
+  | .ok solver => return solver
+  | .error message => throw <| IO.userError message
+
+/-- Resolve a timeout from an explicit option and a supplied environment value.
+    Surrounding whitespace is ignored; an unset or whitespace-only value means
+    no timeout, while any other value must be a natural number of seconds. -/
+def resolveTimeoutConfig
+    (sOpts : BlasterOptions) (envValue : Option String) : Except String (Option Nat) := do
+  if let some timeout := sOpts.timeout then return some timeout
+  let some str := envValue | return none
+  let value := str.trim
+  if value.isEmpty then return none
+  let some timeout := value.toNat?
+    | throw s!"❌ Invalid BLASTER_TIMEOUT value '{str}' (expected a number of seconds)."
+  return some timeout
+
+/-- Resolve the solving timeout from the explicit option, then the process
+    environment, then the unlimited default. -/
+def resolveTimeout (sOpts : BlasterOptions) : IO (Option Nat) := do
+  match resolveTimeoutConfig sOpts (← IO.getEnv "BLASTER_TIMEOUT") with
+  | .ok timeout => return timeout
+  | .error message => throw <| IO.userError message
+
+/-- Spawn one independently owned solver session and retain enough launch
+    metadata to reproduce the exact invocation. -/
+def createSolverSession (solver : SmtSolver) : IO (SolverSession × SolverRecord) := do
+  let desc := solver.descriptor
+  let executable ← findSolverExecutable solver
+  let (cmd, args) := desc.spawnInvocation executable.candidate
+  let process ← IO.Process.spawn {
     stdin  := .piped
     stdout := .piped
     stderr := .piped
-    cmd    := z3Cmd
-    args   := #["-in", "-smt2"]
+    cmd    := cmd
+    args   := args
   }
+  let commandLine := String.intercalate " " (cmd :: args.toList)
+  return (
+    { solver, process },
+    { solver, version := executable.version, commandLine, setupCommands := #[] })
 
 /-- Update translation cache with `a := b`.
 -/
@@ -133,29 +545,149 @@ def withTranslateEnvCache (a : Expr) (f : Unit → TranslateEnvT SmtTerm) : Tran
      updateTranslateCache a b
      return b
 
-/-- Check if cancel token has been triggered and kill corresponding running
-    Solver instance (if necessary).
--/
+/-- Update persistent diagnostic data for one backend. -/
+private def modifySolverRecord
+    (solver : SmtSolver) (f : SolverRecord → SolverRecord) : TranslateEnvT Unit :=
+  modify fun env =>
+    { env with smtEnv.solverRecords := env.smtEnv.solverRecords.map fun record =>
+        if record.solver == solver then f record else record }
+
+private def getSession? (solver : SmtSolver) : TranslateEnvT (Option SolverSession) :=
+  return (← get).smtEnv.sessions.find? (·.solver == solver)
+
+/-- Remove a session from state before performing any cleanup operation. -/
+private def retireSession? (solver : SmtSolver) : TranslateEnvT (Option SolverSession) := do
+  let sessions := (← get).smtEnv.sessions
+  let session := sessions.find? (·.solver == solver)
+  if session.isSome then
+    modify fun env =>
+      { env with smtEnv := {
+          env.smtEnv with
+          sessions := env.smtEnv.sessions.filter (fun active => active.solver != solver)
+          emitProc := none
+        } }
+  return session
+
+/-- Terminate (when requested), reap exactly once, and drain stderr from an
+    already-retired child. `tryWait = some` means the child was reaped there. -/
+private def cleanupOwnedSession (session : SolverSession) (hard : Bool) : TranslateEnvT String := do
+  let p := session.process
+  let alreadyExited ←
+    try p.tryWait
+    catch _ => pure none
+  if alreadyExited.isNone then
+    if hard then
+      try p.kill catch _ => pure ()
+      try discard p.wait catch _ => pure ()
+    else
+      try
+        p.stdin.putStr "(exit)\n"
+        p.stdin.flush
+        let (_, p) ← p.takeStdin
+        discard p.wait
+      catch _ =>
+        try p.kill catch _ => pure ()
+        try discard p.wait catch _ => pure ()
+  let stderr ←
+    try p.stderr.readToEnd
+    catch _ => pure ""
+  let stderr := stderr.trim
+  unless stderr.isEmpty do
+    modifySolverRecord session.solver fun record =>
+      { record with stderr := record.stderr.push stderr }
+  if (← get).optEnv.options.solverOptions.verbose ≥ 3 then
+    try
+      IO.println s!"[blaster diagnostic] solver={session.solver}; stage=session cleanup; stderr={if stderr.isEmpty then "<empty>" else stderr}"
+    catch _ => pure ()
+  return stderr
+
+private def retireAndCleanup (solver : SmtSolver) (hard : Bool) : TranslateEnvT String := do
+  let some session ← retireSession? solver | return ""
+  cleanupOwnedSession session hard
+
+private def retireAllSessions (hard : Bool) : TranslateEnvT Unit := do
+  let sessions := (← get).smtEnv.sessions
+  modify fun env => { env with smtEnv.sessions := #[], smtEnv.emitProc := none }
+  for session in sessions do
+    discard <| cleanupOwnedSession session hard
+
+/-- Unconditional owner boundary for every session created by `action`.
+    Cleanup is idempotent because ownership is retired before child handling;
+    the finalizer cannot consume an exception or Lean interruption from `action`. -/
+def withSmtSessionOwner (action : TranslateEnvT α) : TranslateEnvT α := do
+  try action
+  finally retireAllSessions true
+
+/-- Lean cancellation owns both active children: retire state first, then kill
+    and reap every session before raising the interrupt. -/
 def checkCancelTk? : TranslateEnvT Unit := do
-  let some p := (← get).smtEnv.smtProc | return ()
   if let some tk := (← readThe Core.Context).cancelTk? then
     if ← tk.isSet then
-      p.kill
-      discard $ p.wait
+      retireAllSessions true
       throwInterruptException
 
-/-- Retrieve model output from `h` when a counterexample is generated.
-    NOTE: A model output starts with "(" and ends with ")\n".
-    Line endings are normalized to handle both Unix (LF) and Windows (CRLF).
+/-- Render drained stderr for inclusion in an error message (empty when the
+    solver wrote nothing). -/
+private def stderrNote (stderr : String) : String :=
+  if stderr.isEmpty then "" else s!"\nSolver stderr:\n{stderr}"
+
+/-- State used when scanning a solver response for balanced parentheses.
+    Parentheses occurring inside string literals (`"…"`) and quoted symbols
+    (`|…|`) are not counted.
 -/
-partial def getOutputModel (h : IO.FS.Handle) (proof := false) : TranslateEnvT String := do
-  let rec loop (acc : String) : TranslateEnvT String := do
-    checkCancelTk?
+private structure SexpScanState where
+  depth : Int := 0
+  seenParen : Bool := false
+  inString : Bool := false
+  inQuotedSym : Bool := false
+
+/-- Feed one line of solver output to the parenthesis scanner.
+    NOTE: SMT-LIB escapes a quote inside a string literal by doubling it (`""`).
+    Treating the doubled quote as close-then-reopen leaves the scanner in the
+    correct state without lookahead.
+-/
+private def scanSexpLine (st : SexpScanState) (s : String) : SexpScanState :=
+  s.foldl (λ st c =>
+    if st.inString then
+      if c == '"' then { st with inString := false } else st
+    else if st.inQuotedSym then
+      if c == '|' then { st with inQuotedSym := false } else st
+    else match c with
+      | '"' => { st with inString := true }
+      | '|' => { st with inQuotedSym := true }
+      | '(' => { st with depth := st.depth + 1, seenParen := true }
+      | ')' => { st with depth := st.depth - 1 }
+      | _ => st) st
+
+private def SexpScanState.isBalanced (st : SexpScanState) : Bool :=
+  st.seenParen && st.depth == 0
+
+/-- Retrieve a model (or proof) response from `h`.
+    A model response (`(get-model)`) is a single S-expression, possibly
+    spanning several lines: reading stops when parentheses tally to zero
+    (parentheses inside string literals and quoted symbols are not counted),
+    so single-line responses — including `(error "…")` reports — terminate
+    instead of waiting for closing lines that will never come.
+    A proof response (z3) is terminated by an empty line instead.
+    Line endings are normalized to handle both Unix (LF) and Windows (CRLF).
+    NOTE: `getLine` returning the empty string means the solver closed its
+    output stream (e.g. it crashed mid-response): fail — surfacing the
+    solver's stderr — instead of spinning on a response that can never
+    complete.
+-/
+partial def getOutputModel (h : IO.FS.Handle) (proof := false) : IO String := do
+  let rec loop (acc : String) (st : SexpScanState) : IO String := do
     let line := normalizeLine (← h.getLine)
-    if (line == ")\n" && !proof) || (line == "\n" && proof) then
-      return acc
-    else loop (acc ++ line)
-  loop ""
+    if line.isEmpty then
+      throw <| IO.userError
+        "The solver closed its output stream while a model/proof response was pending."
+    if proof then
+      if line == "\n" then return acc else loop (acc ++ line) st
+    else
+      let st := scanSexpLine st line
+      let acc := acc ++ line
+      if st.isBalanced then return acc else loop acc st
+  loop "" {}
 
 /-- Retrieve proof output for an `unsat` result.
     NOTE: A proof output starts with "(proof" and ends with ")\n\n".
@@ -163,68 +695,343 @@ partial def getOutputModel (h : IO.FS.Handle) (proof := false) : TranslateEnvT S
 -/
 def getOutputProof := λ h => getOutputModel h true
 
-/-- Retrieve error msg from 'h'.
-    NOTE: An error msg starts with "(error" and ends with ")\n".
-    Line endings are normalized to handle both Unix (LF) and Windows (CRLF).
+/-- Retrieve a `get-value` response from `h` after executing `(get-value (t))`.
+    The response has the form `((t v))` and may span several lines when `v` is
+    an inductive datatype value. Reading stops when parentheses tally to zero.
+    NOTE: `getLine` returning the empty string means the solver closed its
+    output stream (e.g. it crashed mid-response): fail instead of spinning on
+    a response that can never complete.
 -/
-partial def getErrorMsg (h : IO.FS.Handle) : IO String := normalizeLine <$> h.getLine
-
-/-- Retrieve an `eval` output from `h` after execution `(eval t)`
-    NOTE: An eval output may either correspond to a scalar value
-    or to an inductive datatype one. In the latter case it's provided
-    within parenthesis. The number of opening and closing parenthesis
-    should tally to stop reading from `h`.
--/
-partial def getOutputEval (h : IO.FS.Handle) : IO String := do
+partial def getOutputGetValue (h : IO.FS.Handle) : IO String := do
   let line := normalizeLine (← h.getLine)
+  if line.isEmpty then throw eofError
   if line.get! 0 != '(' then return line
-  getIndValue line (tallyParenthesis line 0)
+  loop line (scanSexpLine {} line)
 
  where
-  tallyParenthesis (s : String) (tally : Int) : Int :=
-   s.foldr (λ c acc =>
-              match c with
-              | '(' => acc + 1
-              | ')' => acc - 1
-              | _ => acc) tally
-  getIndValue (acc : String) (tally : Int) : IO String := do
-    if tally == 0 then return acc
+  eofError : IO.Error := .userError
+    "❌ The solver closed its output stream while a get-value response was pending."
+
+  loop (acc : String) (st : SexpScanState) : IO String := do
+    if st.isBalanced then return acc
     else
       let line := normalizeLine (← h.getLine)
-      getIndValue (acc ++ line) (tallyParenthesis line tally)
+      if line.isEmpty then throw eofError
+      loop (acc ++ line) (scanSexpLine st line)
 
-/-- Push smt command `c` in the translation environment only when sOpts.dumpSmtLib is set -/
-def storeCommand (c : SmtCommand) : TranslateEnvT Unit := do
-  if (← get).optEnv.options.solverOptions.dumpSmtLib then
-    modify (fun env => { env with smtEnv.smtCommands := env.smtEnv.smtCommands.push c })
-  else pure ()
+/-- The canonical query is retained regardless of dumping, diagnostics, or
+    process presence. This is the single translation replayed to every solver. -/
+def storeCommand (c : SmtCommand) : TranslateEnvT Unit :=
+  modify fun env => { env with smtEnv.smtCommands := env.smtEnv.smtCommands.push c }
 
-/-- Return `true` when the smtProc has been initialized -/
-def isSmtProcSet : TranslateEnvT Bool :=
-  return (← get).smtEnv.smtProc.isSome
+private def orderedSolverRecords (records : Array SolverRecord) : List SolverRecord :=
+  [SmtSolver.z3, SmtSolver.cvc5].filterMap fun solver =>
+    records.find? (·.solver == solver)
 
-/-- Push smt command `c` in the translation environment only when sOpts.dumpSmtLib is set.
-    The command is piped to the backend solver if the corresponding process has been created.
-    An error is triggered when the `checkSuccess` flag is set and
-    not `success` output is produced.
-    NOTE: The `checkSuccess` is to be set only for Smt command that
-    are NOT expected to produce any output.
--/
+private def solverTranscript (record : SolverRecord) (canonical : Array SmtCommand) : String :=
+  let check :=
+    match record.checkCommand with
+    | some command => [toString (command.renderFor record.solver)]
+    | none => []
+  String.intercalate "\n" <|
+    record.setupCommands.toList.map toString ++
+    canonical.toList.map (toString ∘ (·.renderFor record.solver)) ++ check ++
+    record.modelCommands.toList ++ ["(exit)"]
+
+private def agreementSummary
+    (reason : String) (outcomes : Array SolverOutcome) : TranslateEnvT String := do
+  let env ← get
+  let query := String.intercalate "\n" (env.smtEnv.smtCommands.toList.map toString)
+  let records := String.intercalate "\n\n" <|
+    (orderedSolverRecords env.smtEnv.solverRecords).map fun record =>
+      let outcome := outcomes.find? (·.solver == record.solver)
+      let verdict := outcome.bind (·.verdict) |>.map reprStr |>.getD "<none>"
+      let status := outcome.map (reprStr ∘ (·.status)) |>.getD "<none>"
+      let elapsed := outcome.map (toString ∘ (·.elapsedMs)) |>.getD
+        (record.failureElapsedMs.map toString |>.getD "<none>")
+      s!"solver: {record.solver}\nversion: {record.version}\ncommand line: {record.commandLine}\nverdict: {verdict}\nstatus: {status}\nelapsed ms: {elapsed}\nconfigured timeout ms: {record.timeoutMs.map toString |>.getD "<none>"}\nfailed stage: {record.failedStage.getD "<none>"}\nfailed command: {record.failedCommand.getD "<none>"}\nfailure response: {record.failureResponse.getD "<none>"}\ncheck command: {record.checkCommand.map toString |>.getD "<none>"}\nstdout:\n{String.join record.stdout.toList}\nstderr:\n{String.intercalate "\n" record.stderr.toList}\nmodel commands:\n{String.intercalate "\n" record.modelCommands.toList}\nraw model responses:\n{String.intercalate "\n" record.modelResponses.toList}"
+  return s!"reason: {reason}\noutcomes: {reprStr (orderOutcomes outcomes.toList)}\n\nshared SMT query:\n{query}\n\n{records}\n"
+
+private def saveAgreementArtifacts
+    (reason : String) (outcomes : Array SolverOutcome) : TranslateEnvT (Option String) := do
+  let stamp ← IO.monoMsNow
+  let serial ← agreementArtifactCounter.modifyGet fun current => (current, current + 1)
+  let directory := s!".blaster/agreement-{stamp}-{serial}"
+  try
+    IO.FS.createDirAll directory
+    IO.FS.writeFile s!"{directory}/summary.txt" (← agreementSummary reason outcomes)
+    let canonical := (← get).smtEnv.smtCommands
+    for record in orderedSolverRecords (← get).smtEnv.solverRecords do
+      IO.FS.writeFile s!"{directory}/{record.solver}.smt2"
+        (solverTranscript record canonical ++ "\n")
+    return some directory
+  catch error =>
+    if error.isInterrupt || error.isRuntime then throw error
+    logWarningAt (← blankRef) m!"Failed to save agreement artifacts: {error.toMessageData}"
+    return none
+
+private def recordSessionFailure
+    (solver : SmtSolver) (stage : String) (command : SmtCommand)
+    (response : String) (elapsedMs : Nat) : TranslateEnvT Unit :=
+  modifySolverRecord solver fun record =>
+    { record with
+      failedStage := some stage
+      failedCommand := some (toString (command.renderFor solver))
+      failureResponse := some response
+      failureElapsedMs := some elapsedMs }
+
+private def retireFailedSession
+    (session : SolverSession) (stage : String) (command : SmtCommand)
+    (response : String) (startedMs : Nat) : TranslateEnvT String := do
+  let elapsedMs := (← IO.monoMsNow) - startedMs
+  recordSessionFailure session.solver stage command response elapsedMs
+  let stderr ← retireAndCleanup session.solver true
+  return s!"solver={session.solver}; stage={stage}; command={command.renderFor session.solver}; response={response}; elapsed={elapsedMs}ms{stderrNote stderr}"
+
+private def logDiagnostic (message : String) : TranslateEnvT Unit := do
+  if (← get).optEnv.options.solverOptions.verbose ≥ 3 then
+    IO.println s!"[blaster diagnostic] {message}"
+
+private def cancellationRequested : TranslateEnvT Bool := do
+  let some token := (← readThe Core.Context).cancelTk? | return false
+  token.isSet
+
+private partial def awaitTaskCancelable (task : Task α) : TranslateEnvT α := do
+  if ← cancellationRequested then
+    retireAllSessions true
+    let _ := task.get
+    throwInterruptException
+  if ← IO.hasFinished task then return task.get
+  IO.sleep 20
+  awaitTaskCancelable task
+
+private def withEmitProcess (process : PipedChild) (action : TranslateEnvT α) : TranslateEnvT α := do
+  modify fun env => { env with smtEnv.emitProc := some process }
+  try action
+  finally modify fun env => { env with smtEnv.emitProc := none }
+
+/-- Send one command to one session. Only I/O emission failures become data;
+    Lean interruption and unexpected exceptions propagate to the owner. -/
+private def sendCommandToSession
+    (session : SolverSession) (c : SmtCommand) (checkSuccess : Bool) :
+    TranslateEnvT (Except String Unit) := do
+  let c := c.renderFor session.solver
+  let emitted ←
+    try
+      withEmitProcess session.process c.emit
+      pure (.ok () : Except String Unit)
+    catch error =>
+      if error.isInterrupt || error.isRuntime then throw error
+      pure (.error s!"IO error while executing {c}: {← error.toMessageData.toString}")
+  if let .error error := emitted then return .error error
+  if !checkSuccess then return .ok ()
+  let responseTask ← IO.asTask session.process.stdout.getLine Task.Priority.dedicated
+  let response ← awaitTaskCancelable responseTask
+  match response with
+  | .error error => return .error s!"IO error while executing {c}: {error}"
+  | .ok raw =>
+      let out := normalizeLine raw
+      modifySolverRecord session.solver fun record =>
+        { record with stdout := record.stdout.push out }
+      match out with
+      | "success\n" => return .ok ()
+      | "" => return .error s!"solver closed stdout while executing {c}"
+      | err => return .error s!"unexpected response {err.trim} while executing {c}"
+
+private def throwSessionCommandError
+    (session : SolverSession) (stage : String) (command : SmtCommand)
+    (error : String) : TranslateEnvT α := do
+  let startedMs ← IO.monoMsNow
+  throwEnvError (← retireFailedSession session stage command error startedMs)
+
+private def beginCanonicalEpoch : TranslateEnvT Unit :=
+  modify fun env =>
+    { env with smtEnv.solverRecords := env.smtEnv.solverRecords.map fun record =>
+        if record.checkCommand.isSome then
+          { record with
+            checkCommand := none
+            stdout := #[]
+            modelCommands := #[]
+            modelResponses := #[]
+            failedStage := none
+            failedCommand := none
+            failureResponse := none
+            failureElapsedMs := none }
+        else record }
+
+/-- Backend-specific setup transcript. Logical declarations and assertions are
+    deliberately absent; they live in the canonical query. -/
+def solverSetupCommands
+    (solver : SmtSolver) (sOpts : BlasterOptions) (higherOrder := false) : Array SmtCommand :=
+  let common := #[
+    .setOption ":print-success" "true",
+    .setOption ":produce-models" "true",
+    .setOption ":produce-proofs" "true"
+  ]
+  let withSeed (commands : Array SmtCommand) (name : String) :=
+    match sOpts.randomSeed with
+    | some seed => commands.push (.setOption name (toString seed))
+    | none => commands
+  let withTimeout (commands : Array SmtCommand) (name : String) :=
+    match sOpts.timeout with
+    | some timeout => commands.push (.setOption name (toString (timeout * 1000)))
+    | none => commands
+  match solver with
+  | .z3 =>
+      -- NOTE: produce proof is incompatible for now with recfun-finder
+      -- we are therefore deactivating it for z3 until we provide a z3 patch to
+      -- handle proof reconstruction for our recfun-finder patch.
+      let commands := #[
+        .setOption ":print-success" "true",
+        .setOption ":produce-models" "true",
+        .setOption ":smt.pull-nested-quantifiers" "true",
+        .setOption ":smt.mbqi" "true",
+        .setOption ":auto_config" "false"
+      ]
+      let commands := withSeed commands ":smt.random-seed"
+      let commands := commands ++ #[
+        .setSimplifier "recfun-finder",
+        .setOption ":smt.macro_finder" "true",
+        -- NOTE: Set these parameters for now
+        .setOption ":smt.arith.nl.grobner_expand_terms" "false",
+        .setOption ":smt.arith.nl.reduce_pseudo_linear" "false",
+        .setOption ":smt.arith.nl.grobner_exp_delay" "false"
+      ]
+      withTimeout commands ":timeout"
+  | .cvc5 =>
+      let commands := common.push (.setOption ":mbqi" "true")
+      let commands := withSeed commands ":seed"
+      let commands := commands.push (.setOption ":macros-quant" "true")
+      let commands := withTimeout commands ":tlimit-per"
+      -- `HO_ALL` is `ALL` plus higher-order terms. cvc5 only parses the
+      -- `lambda` terms of Blaster's function-value encoding under a
+      -- higher-order logic (see `SmtCommand.toHigherOrder`), but it is
+      -- markedly weaker on first-order quantified queries under `HO_ALL`, so
+      -- it is only used once the query contains a function value.
+      commands.push (.setLogic (if higherOrder then "HO_ALL" else "ALL"))
+
+private def upsertSolverRecord (record : SolverRecord) : TranslateEnvT Unit :=
+  modify fun env =>
+    let found := env.smtEnv.solverRecords.any (·.solver == record.solver)
+    let records :=
+      if found then
+        env.smtEnv.solverRecords.map fun old =>
+          if old.solver == record.solver then
+            { old with
+              version := record.version
+              commandLine := record.commandLine
+              setupCommands := record.setupCommands
+              timeoutMs := record.timeoutMs }
+          else old
+      else env.smtEnv.solverRecords.push record
+    { env with smtEnv.solverRecords := records }
+
+/-- Spawn and initialize one missing backend. With `replay = true`, replay the
+    retained canonical query so incremental state-machine checks still compare
+    the same encoding after `first` retired a prior loser. -/
+private def spawnAndInitializeSolver
+    (solver : SmtSolver) (replay : Bool) : TranslateEnvT (Except String Unit) := do
+  try
+    let (session, record) ← createSolverSession solver
+    let sOpts := (← get).optEnv.options.solverOptions
+    let setup := solverSetupCommands solver sOpts (← get).smtEnv.higherOrder
+    modify fun env => { env with smtEnv.sessions := env.smtEnv.sessions.push session }
+    upsertSolverRecord {
+      record with
+      setupCommands := setup
+      timeoutMs := sOpts.timeout.map (· * 1000)
+    }
+    for command in setup do
+      let startedMs ← IO.monoMsNow
+      -- z3 does not acknowledge `set-simplifier` with `success` even when
+      -- `:print-success` is set, so no response is awaited for it.
+      let checkSuccess := !(command matches .setSimplifier _)
+      match ← sendCommandToSession session command checkSuccess with
+      | .ok () => pure ()
+      | .error error =>
+          return .error (← retireFailedSession session "solver setup" command error startedMs)
+    if replay then
+      for command in (← get).smtEnv.smtCommands do
+        let startedMs ← IO.monoMsNow
+        match ← sendCommandToSession session command true with
+        | .ok () => pure ()
+        | .error error =>
+            return .error (← retireFailedSession session "canonical query replay" command error startedMs)
+    logDiagnostic s!"solver={solver}; version={record.version}; command={record.commandLine}"
+    return .ok ()
+  catch error =>
+    if error.isInterrupt || error.isRuntime then throw error
+    let stderr ← retireAndCleanup solver true
+    return .error s!"solver={solver}; stage=process startup; response={← error.toMessageData.toString}{stderrNote stderr}"
+
+/-- Switch cvc5 to the higher-order logic `HO_ALL` once the canonical query
+    uses a function value (see `SmtCommand.toHigherOrder`). The logic of a
+    live cvc5 session cannot change, so each one is retired gracefully and
+    respawned with the `HO_ALL` setup, replaying the canonical query (which
+    already holds the triggering command). Recorded setup transcripts are
+    updated too, so dumps and artifacts stay runnable (also in
+    `only-smt-lib` mode). Returns the replay result of each respawned
+    session. A failed replay is reported like any other submission failure. -/
+private def enableHigherOrder : TranslateEnvT (Array (SmtSolver × Except String Unit)) := do
+  let sOpts := (← get).optEnv.options.solverOptions
+  modify fun env =>
+    { env with smtEnv.higherOrder := true
+               smtEnv.solverRecords := env.smtEnv.solverRecords.map fun record =>
+                 if record.solver == .cvc5
+                 then { record with setupCommands := solverSetupCommands .cvc5 sOpts true }
+                 else record }
+  let mut results := #[]
+  for session in (← get).smtEnv.sessions do
+    if session.solver == .cvc5 then
+      discard <| retireAndCleanup session.solver false
+      results := results.push (session.solver, ← spawnAndInitializeSolver session.solver true)
+  return results
+
+/-- Broadcast a canonical declaration/assertion once. `first` retires a failed
+    backend and continues with every healthy session; `agree` records an
+    infrastructure artifact and fails immediately. -/
 partial def trySubmitCommand! (c : SmtCommand) (checkSuccess := true) : TranslateEnvT Unit := do
+  beginCanonicalEpoch
   storeCommand c
-  if !(← isSmtProcSet) then return ()
-  c.emit
-  let h ← getProcStdOut
-  if !checkSuccess then return ()
-  let out := normalizeLine (← h.getLine)
-  match out with
-  | "success\n" => return ()
-  | err => throwEnvError s!"Unexpected smt error: {err} for {c}"
+  let mode := (← get).optEnv.options.solverOptions.solverMode
+  let mut failures : Array String := #[]
+  -- Sessions respawned under `HO_ALL` have already replayed `c`.
+  let mut replayed : Array SmtSolver := #[]
+  if !(← get).smtEnv.higherOrder && (← get).smtEnv.configuredSolvers.contains .cvc5 &&
+      c.usesFunctionValues then
+    for (solver, result) in ← enableHigherOrder do
+      match result with
+      | .ok () => replayed := replayed.push solver
+      | .error diagnostic =>
+          failures := failures.push diagnostic
+          handleFailure mode solver diagnostic
+  let sessions := (← get).smtEnv.sessions
+  for session in sessions do
+    if replayed.contains session.solver then continue
+    let startedMs ← IO.monoMsNow
+    match ← sendCommandToSession session c checkSuccess with
+    | .ok () => pure ()
+    | .error error =>
+        let diagnostic ← retireFailedSession session "command submission" c error startedMs
+        failures := failures.push diagnostic
+        handleFailure mode session.solver diagnostic
+  if mode == .first && !failures.isEmpty && (← get).smtEnv.sessions.isEmpty then
+    throwEnvError s!"No usable solver session remains after command submission:\n{String.intercalate "\n" failures.toList}"
+ where
+   handleFailure (mode : SolverMode) (solver : SmtSolver) (diagnostic : String) : TranslateEnvT Unit := do
+     match mode with
+     | .single => throwEnvError diagnostic
+     | .first =>
+         modify fun env =>
+           { env with smtEnv.deferredSessions :=
+               if env.smtEnv.deferredSessions.contains solver then
+                 env.smtEnv.deferredSessions
+               else env.smtEnv.deferredSessions.push solver }
+     | .agree =>
+         retireAllSessions true
+         let artifact ← saveAgreementArtifacts diagnostic #[]
+         throwEnvError s!"Agreement infrastructure failure: {diagnostic}\nAgreement artifacts: {artifact.getD "unavailable"}"
 
-/-- Same as trySubmitCommand! but with flag `checkSuccess` set to `false`.
--/
-def submitCommand (c : SmtCommand) : TranslateEnvT Unit := do
-  trySubmitCommand! c (checkSuccess := false)
 
 
 /-- Declare a free variable with name `id` and sort `t`. -/
@@ -490,234 +1297,666 @@ def defineInttoNat : TranslateEnvT Unit := do
   let fdef := iteSmt xGeqZero xId natZero
   defineFun toNatSymbol #[(xsym, intSort)] natSort fdef
 
-/-- Try to retrieve to evaluate term `t` when a `sat` result is obtained and dump result to stdout.
-    TODO: We need to define the Smt-lib syntax and term elaborator to parse produced value
-    and generate the corresponding Lean representation.
-    This will also be helpful when writing the test cases to validate the Smt-Lib translation.
-    Do nothing if the Smt process is not defined.
--/
-def evalTerm (t : SmtTerm) : TranslateEnvT String := do
-  let env ← get
-  let some p := env.smtEnv.smtProc | return ""
-  checkCancelTk?
-  submitCommand (.evalTerm t)
-  getOutputEval p.stdout
+/-- Counterexample evidence is allowed to fail without changing a `sat`
+    verdict. The diagnostic retains stage and raw-response information. -/
+private structure ModelEvidence where
+  counterexample : List String := []
+  diagnostic : Option String := none
 
-/-- Try to retrieve the model when a `sat` result is obtained and dump result to stdout.
-    Do nothing when:
-      - No solver instance is defined
-      - Option solverOptions.generateCex is set to `false`
-    TODO: We need to define the Smt-lib syntax and term elaborator to parse produced model
-    and generate the corresponding Lean representation.
-    This will also be helpful when writing the test cases to validate the Smt-Lib translation.
--/
-def getModel : TranslateEnvT (List String) := do
-  let env ← get
-  let some p := env.smtEnv.smtProc | return []
-  let topVars := env.smtEnv.topLevelVars
-  if !env.optEnv.options.solverOptions.generateCex then return []
-  checkCancelTk?
-  if topVars.isEmpty
-  then
-    submitCommand (.getModel)
-    let s ← getOutputModel p.stdout
-    return [s]
+/-- Limit each optional model response read to five seconds. This does not
+    limit command submission, parsing, or value expansion. -/
+private def modelResponseTimeoutMs : Nat := 5000
+
+private partial def awaitModelResponse
+    (task : Task (Except IO.Error String)) (deadlineMs : Nat) :
+    TranslateEnvT (Option (Except IO.Error String)) := do
+  if ← cancellationRequested then
+    retireAllSessions true
+    let _ := task.get
+    throwInterruptException
+  if ← IO.hasFinished task then return some task.get
+  if (← IO.monoMsNow) ≥ deadlineMs then return none
+  IO.sleep 20
+  awaitModelResponse task deadlineMs
+
+private def requestModelResponse
+    (session : SolverSession) (command : SmtCommand) (readResponse : IO String) :
+    TranslateEnvT (Except String String) := do
+  if (← getSession? session.solver).isNone then
+    return .error s!"solver={session.solver}; model evidence is unavailable after session retirement"
+  let startedMs ← IO.monoMsNow
+  let commandText := toString (command.renderFor session.solver)
+  modifySolverRecord session.solver fun record =>
+    { record with modelCommands := record.modelCommands.push commandText }
+  logDiagnostic s!"solver={session.solver}; model-command={commandText}"
+  match ← sendCommandToSession session command false with
+  | .error error =>
+      let diagnostic ←
+        retireFailedSession session "model command submission" command error startedMs
+      return .error diagnostic
+  | .ok () =>
+      let deadlineMs := (← IO.monoMsNow) + modelResponseTimeoutMs
+      let responseTask ← IO.asTask readResponse Task.Priority.dedicated
+      let some response ← awaitModelResponse responseTask deadlineMs
+        | let diagnostic ← retireFailedSession session "model response timeout" command
+            s!"response-read timeout={modelResponseTimeoutMs}ms" startedMs
+          -- Stop the child before joining the blocked reader. Do not leave a
+          -- reader task behind when optional evidence exceeds its limit.
+          let _ := responseTask.get
+          return .error diagnostic
+      match response with
+      | .error error =>
+          let diagnostic ←
+            retireFailedSession session "model response" command (toString error) startedMs
+          return .error diagnostic
+      | .ok response =>
+          modifySolverRecord session.solver fun record =>
+            { record with
+              modelResponses := record.modelResponses.push response
+              stdout := record.stdout.push response }
+          logDiagnostic s!"solver={session.solver}; raw-model-response=\n{response}"
+          return .ok response
+
+/-- Value `v` of the `get-value` response `((t v))` for `t`, unnormalized. -/
+private def requestValue
+    (session : SolverSession) (t : SmtTerm) : TranslateEnvT (Except String Sexp) := do
+  let command := SmtCommand.getValue t
+  match ← requestModelResponse session command (getOutputGetValue session.process.stdout) with
+  | .error diagnostic => return .error diagnostic
+  | .ok response =>
+      match Sexp.parseMany response with
+      | .error error =>
+          let diagnostic :=
+            s!"S-expression parsing failed for get-value response: {error}; raw response: {response.trim}"
+          logDiagnostic s!"solver={session.solver}; parsed-smt-value=error: {error}"
+          return .error diagnostic
+      | .ok parsed =>
+          logDiagnostic s!"solver={session.solver}; parsed-smt-value={reprStr parsed}"
+          match solverErrorMsg? response with
+          | some error =>
+              return .error s!"get-value returned an SMT error: {error}; raw response: {response.trim}"
+          | none =>
+              match parsed with
+              | #[.app #[.app #[_t, v]]] => return .ok v
+              | _ =>
+                  return .error s!"Response framing failed: expected ((term value)); raw response: {response.trim}"
+
+private def evalTermFor
+    (session : SolverSession) (t : SmtTerm) : TranslateEnvT (Option String × Option String) := do
+  match ← requestValue session t with
+  | .error diagnostic => return (none, some diagnostic)
+  | .ok value =>
+      let rendered := Sexp.reconstructSexp value
+      logDiagnostic s!"solver={session.solver}; lean-rendered-value={rendered}"
+      return (some rendered, none)
+
+/-- Maximum number of `get-value` requests for the type-directed retrieval of
+    one counterexample value (see `retrieveTypedValue`). -/
+private def typedValueRequestLimit : Nat := 256
+
+/-- Type-directed retrieval of the cvc5 model value of `t` of sort `s` (see
+    sorts of cvc5 model values holding function values):
+     - a value of a datatype sort holding function values is rebuilt from the
+       constructor of the value of `t` (confirmed by its tester when the sort
+       has several constructors) and the values of its selector terms, each
+       retrieved at its field sort;
+     - any other value is the `get-value` result for `t`.
+    Every retrieved leaf value must be closed: a declared or defined
+    constant or function occurring in it means that cvc5 did not evaluate it.
+    A function value containing a constructor of a datatype holding function
+    values (e.g. a function returning such a datatype) is rejected, since it
+    contains a function value in a datatype field that was not requested at
+    its own sort.
+    Each failure is an error naming the term and the raw value; no value is
+    guessed. `budget` is the number of `get-value` requests left; the
+    remaining budget is returned with the value. -/
+private partial def retrieveTypedValue
+    (session : SolverSession) (schema : ModelSchema) (t : SmtTerm) (s : SortExpr)
+    (budget : Nat) : TranslateEnvT (Except String (Sexp × Nat)) := do
+  if budget == 0 then
+    return .error s!"type-directed model retrieval exceeded {typedValueRequestLimit} get-value requests at {t.toHigherOrder}"
+  match ← requestValue session t with
+  | .error diagnostic => return .error diagnostic
+  | .ok value =>
+      let value := Sexp.normalizeValue value
+      let budget := budget - 1
+      let raw := Sexp.toRaw value
+      if schema.isFunctionSort s then
+        let ctors := schema.functionDatatypeConstructors s
+        let nested := (Sexp.freeSymbols value).filter ctors.contains
+        if !nested.isEmpty then
+          return .error s!"cvc5 returned a function value of {t.toHigherOrder} that contains datatype values holding function values ({String.intercalate ", " nested}), which cvc5 models do not evaluate reliably; raw value: {raw}"
+      let some ctors := (if schema.holdsFunctions s then schema.constructors? s else none)
+        | -- A leaf value: a function value or a value without function values.
+          let unevaluated := (Sexp.freeSymbols value).filter schema.symbols.contains
+          if !unevaluated.isEmpty then
+            return .error s!"cvc5 returned a value of {t.toHigherOrder} that refers to {String.intercalate ", " unevaluated} instead of a closed value; raw value: {raw}"
+          return .ok (value, budget)
+      -- Only the constructor of a datatype value holding function values is
+      -- used; its fields may not be evaluated.
+      let head : Option String := match value with
+        | .atom c => some c
+        | .app elems => match (elems[0]? : Option Sexp) with
+          | some (.atom c) => some c
+          | _ => none
+      let unquote (c : String) : String :=
+        if c.length ≥ 2 && c.startsWith "|" && c.endsWith "|" then (c.drop 1).dropRight 1 else c
+      let some (ctor, fields) := head.bind fun c => ctors.find? (·.1.name == unquote c)
+        | return .error s!"cvc5 returned a value of {t.toHigherOrder} without a constructor of its sort; raw value: {raw}"
+      let mut budget := budget
+      -- The constructor is confirmed with its tester when the sort has several.
+      if ctors.size > 1 then
+        if budget == 0 then
+          return .error s!"type-directed model retrieval exceeded {typedValueRequestLimit} get-value requests at {t.toHigherOrder}"
+        let tester := SmtTerm.AppTerm (.SimpleIdent (mkNormalSymbol s!"is-{ctor.name}")) #[t]
+        budget := budget - 1
+        match ← requestValue session tester with
+        | .error diagnostic => return .error diagnostic
+        | .ok (.atom "true") => pure ()
+        | .ok answer =>
+            return .error s!"cvc5 returned a value of {t.toHigherOrder} whose constructor {ctor.name} is not confirmed by {tester.toHigherOrder} = {Sexp.toRaw answer}; raw value: {raw}"
+      let mut args : Array Sexp := #[.atom (toString ctor)]
+      for (selector, fieldSort) in fields do
+        match ← retrieveTypedValue session schema (.AppTerm (.SimpleIdent selector) #[t]) fieldSort budget with
+        | .error diagnostic => return .error diagnostic
+        | .ok (field, rest) =>
+            args := args.push field
+            budget := rest
+      return .ok (if fields.isEmpty then args[0]! else .app args, budget)
+
+/-- Rendered value of the counterexample variable `v`. cvc5 values that can
+    hold function values are retrieved type-directed (see
+    `retrieveTypedValue`); all other values are retrieved with one
+    `get-value` request. -/
+private def evalEntry
+    (session : SolverSession) (schema : ModelSchema) (v : SmtSymbol) :
+    TranslateEnvT (Option String × Option String) := do
+  match schema.consts.get? v with
+  | some s =>
+      if session.solver == .cvc5 && schema.holdsFunctions s then
+        match ← retrieveTypedValue session schema (smtSimpleVarId v) s typedValueRequestLimit with
+        | .error diagnostic => return (none, some diagnostic)
+        | .ok (value, _) =>
+            let rendered := Sexp.reconstructSexp value
+            logDiagnostic s!"solver={session.solver}; type-directed-value={Sexp.toRaw value}"
+            logDiagnostic s!"solver={session.solver}; lean-rendered-value={rendered}"
+            return (some rendered, none)
+      else evalTermFor session (smtSimpleVarId v)
+  | none => evalTermFor session (smtSimpleVarId v)
+
+private def getModelFor (solver : SmtSolver) : TranslateEnvT ModelEvidence := do
+  let some session ← getSession? solver
+    | return { diagnostic := some s!"Solver process failed during model retrieval: {solver} session is unavailable" }
+  let topVars := (← get).smtEnv.topLevelVars
+  let topVarsText := String.intercalate "; " <| topVars.toList.map fun vars =>
+    s!"[{String.intercalate ", " (vars.map fun entry => s!"{entry.1}:{entry.2}")}]"
+  logDiagnostic s!"solver={solver}; topLevelVars={topVarsText}"
+  if topVars.isEmpty then
+    match ← requestModelResponse session .getModel (getOutputModel session.process.stdout) with
+    | .error diagnostic => return { diagnostic := some diagnostic }
+    | .ok response =>
+        match Sexp.parseMany response with
+        | .error error =>
+            return {
+              diagnostic := some s!"S-expression parsing failed for get-model response: {error}; raw response: {response.trim}"
+            }
+        | .ok parsed =>
+            logDiagnostic s!"solver={solver}; parsed-smt-model={reprStr parsed}"
+            match solverErrorMsg? response with
+            | some error =>
+                return {
+                  diagnostic := some s!"get-model returned an SMT error: {error}; raw response: {response.trim}"
+                }
+            | none => return { counterexample := [response] }
   else
-    -- Note: List is append when adding top level variables
-    -- We therefore need to traverse the list in reverse order to
-    -- properly display cex in the right order
-    let cexArray ← Array.foldlM (λ acc vars => genCexAtStep acc vars) #[] topVars
-    return cexArray.toList
+    let mut counterexample : Array String := #[]
+    let mut diagnostics : Array String := #[]
+    let schema := ModelSchema.ofCommands (← get).smtEnv.smtCommands
+    for vars in topVars do
+      for entry in vars.reverse do
+        let (rendered, diagnostic) ← evalEntry session schema entry.1
+        match rendered with
+        | some value => counterexample := counterexample.push s!"{entry.2}: {value}"
+        | none => counterexample := counterexample.push s!"{entry.2}: <counterexample unavailable>"
+        if let some diagnostic := diagnostic then
+          diagnostics := diagnostics.push s!"{entry.2}: {diagnostic}"
+    return {
+      counterexample := counterexample.toList
+      diagnostic := if diagnostics.isEmpty then none else some (String.intercalate "\n" diagnostics.toList)
+    }
 
-  where
-    genCexAtStep (cex : Array String) (vars : List (SmtSymbol × Name)) : TranslateEnvT (Array String) := do
-      List.foldrM (λ v acc => return acc.push (← getVarValue v)) cex vars
+private structure PendingCheck where
+  solver : SmtSolver
+  command : SmtCommand
+  startedMs : Nat
+  timeoutMs : Option Nat
+  deadlineMs : Option Nat
+  response : Task (Except IO.Error String)
 
-    getVarValue (v : SmtSymbol × Name) : TranslateEnvT String := do
-      return s!"{v.2}: {← evalTerm (smtSimpleVarId v.1)}"
+private inductive CheckStart where
+  | pending (check : PendingCheck)
+  | failed (outcome : SolverOutcome)
 
-/-- Retrieve sat result from `h`.
-    An error is triggered when an unexpected check-sat result is obtained.
-    Function can be called only after a check-sat
--/
-partial def getSatResult (p : IO.Process.Child ⟨.piped, .piped, .piped⟩) : TranslateEnvT Result := do
-  let res ← IO.asTask p.stdout.getLine -- only one line expected for checkSat result
-  waitForResult res
+private inductive PendingCompletion where
+  | response (check : PendingCheck) (value : Except IO.Error String)
+      (remaining : Array PendingCheck)
+  | timedOut (check : PendingCheck) (remaining : Array PendingCheck)
+/-- Minimum slack after the configured limit (see `checkResponseDeadlineMs`). -/
+def minResponseDeadlineGraceMs : Nat := 1000
 
+/-- Blaster's hard deadline for a `check-sat` response started at `startedMs`
+    with the configured per-check limit `timeoutMs`.
+    Native solvers receive the configured limit themselves and answer
+    `unknown` when it expires, but they only check the limit at their own
+    poll points and the answer must still be scheduled and drained from the
+    pipe, so a healthy solver can overrun its limit, more so on a loaded
+    machine. Before concurrent solving there was no Blaster-side deadline at
+    all: such a late `unknown` (or a late verdict) was always honored. The
+    grace therefore scales with the limit, `max(1 s, timeoutMs)`, so the
+    deadline is never less than twice the limit; only a solver that ignores
+    its limit becomes `timedOut`. -/
+def checkResponseDeadlineMs (startedMs timeoutMs : Nat) : Nat :=
+  startedMs + timeoutMs + max minResponseDeadlineGraceMs timeoutMs
+
+
+/-- Exit code of `process` if it has terminated, polling briefly (at most
+    ~200 ms) to cover the window between a child closing its pipes and being
+    reapable. Returns `none` for a child that is still running. -/
+private partial def exitedChildCode? (process : PipedChild) (attempts : Nat := 10) :
+    IO (Option UInt32) := do
+  match ← (try process.tryWait catch _ => pure none) with
+  | some code => return some code
+  | none =>
+    if attempts == 0 then return none
+    IO.sleep 20
+    exitedChildCode? process (attempts - 1)
+
+private def startCheck (solver : SmtSolver) (command : SmtCommand) : TranslateEnvT CheckStart := do
+  let submissionStartedMs ← IO.monoMsNow
+  let some session ← getSession? solver
+    | return .failed {
+        solver, verdict := none, status := .processFailed,
+        diagnostic := some s!"solver={solver}; stage=check startup; command={command}; solver session is unavailable"
+      }
+  let timeoutMs :=
+    (← get).smtEnv.solverRecords.find? (·.solver == solver) |>.bind (·.timeoutMs)
+  match ← sendCommandToSession session command false with
+  | .ok () =>
+      let startedMs ← IO.monoMsNow
+      let response ← IO.asTask session.process.stdout.getLine Task.Priority.dedicated
+      return .pending {
+        solver, command := command.renderFor solver, startedMs, timeoutMs,
+        deadlineMs := timeoutMs.map (checkResponseDeadlineMs startedMs ·), response
+      }
+  | .error error =>
+      -- A solver that already exited makes the write fail with a broken pipe
+      -- before any response can be read; report it like the closed-stdout path.
+      let response := match ← exitedChildCode? session.process with
+        | some code => s!"solver closed stdout and exited with code {code} before accepting the command ({error})"
+        | none => error
+      let diagnostic ←
+        retireFailedSession session "check submission" command response submissionStartedMs
+      return .failed {
+        solver, verdict := none, status := .processFailed,
+        elapsedMs := (← IO.monoMsNow) - submissionStartedMs, diagnostic := some diagnostic
+      }
+
+private def finishCheck
+    (pending : PendingCheck) (response : Except IO.Error String) : TranslateEnvT SolverOutcome := do
+  let elapsedMs := (← IO.monoMsNow) - pending.startedMs
+  match response with
+  | .error error =>
+      let response := toString error
+      recordSessionFailure pending.solver "check response" pending.command response elapsedMs
+      let stderr ← retireAndCleanup pending.solver true
+      return {
+        solver := pending.solver, verdict := none, status := .processFailed, elapsedMs,
+        diagnostic := some s!"solver={pending.solver}; stage=check response; command={pending.command}; response={response}; elapsed={elapsedMs}ms{stderrNote stderr}"
+      }
+  | .ok raw =>
+      let response := normalizeLine raw
+      modifySolverRecord pending.solver fun record =>
+        { record with stdout := record.stdout.push response }
+      logDiagnostic s!"solver={pending.solver}; check-sat-response={response.trim}"
+      match response with
+      | "sat\n" => return {
+          solver := pending.solver, verdict := some .falsified,
+          status := .completed, elapsedMs
+        }
+      | "unsat\n" => return {
+          solver := pending.solver, verdict := some .valid,
+          status := .completed, elapsedMs
+        }
+      | "unknown\n" => return {
+          solver := pending.solver, verdict := some .undetermined,
+          status := .completed, elapsedMs,
+          diagnostic := some "solver returned unknown"
+        }
+      | "" =>
+          recordSessionFailure pending.solver "check response" pending.command
+            "solver closed stdout before reporting a verdict" elapsedMs
+          let stderr ← retireAndCleanup pending.solver true
+          return {
+            solver := pending.solver, verdict := none, status := .processFailed, elapsedMs,
+            diagnostic := some s!"solver={pending.solver}; stage=check response; command={pending.command}; solver closed stdout before reporting a verdict; elapsed={elapsedMs}ms{stderrNote stderr}"
+          }
+      | unexpected =>
+          recordSessionFailure pending.solver "check protocol" pending.command unexpected.trim elapsedMs
+          let stderr ← retireAndCleanup pending.solver true
+          return {
+            solver := pending.solver, verdict := none, status := .protocolFailed, elapsedMs,
+            diagnostic := some s!"solver={pending.solver}; stage=check protocol; command={pending.command}; response={unexpected.trim}; elapsed={elapsedMs}ms{stderrNote stderr}"
+          }
+
+private def timeoutCheck (pending : PendingCheck) : TranslateEnvT SolverOutcome := do
+  let elapsedMs := (← IO.monoMsNow) - pending.startedMs
+  let configured := pending.timeoutMs.getD 0
+  let diagnostic :=
+    s!"solver={pending.solver}; stage=check timeout; command={pending.command}; configured timeout={configured}ms; elapsed={elapsedMs}ms"
+  recordSessionFailure pending.solver "check timeout" pending.command diagnostic elapsedMs
+  discard <| retireAndCleanup pending.solver true
+  let _ := pending.response.get
+  return {
+    solver := pending.solver, verdict := none, status := .timedOut, elapsedMs,
+    diagnostic := some diagnostic
+  }
+
+private def attachCounterexample (outcome : SolverOutcome) : TranslateEnvT SolverOutcome := do
+  if outcome.verdict != some .falsified ||
+      !(← get).optEnv.options.solverOptions.generateCex then
+    return outcome
+  let evidence ← getModelFor outcome.solver
+  match evidence.diagnostic with
+  | none => return { outcome with counterexample := some evidence.counterexample }
+  | some diagnostic =>
+      modifySolverRecord outcome.solver fun record =>
+        { record with
+          failedStage := some "model evidence"
+          failedCommand := record.modelCommands.back?
+          failureResponse := some diagnostic }
+      logWarningAt (← blankRef)
+        m!"Counterexample unavailable from {outcome.solver}; the Falsified verdict is preserved. {diagnostic}"
+      return {
+        solver := outcome.solver
+        verdict := outcome.verdict
+        status := .modelFailed
+        counterexample := if evidence.counterexample.isEmpty then none else some evidence.counterexample
+        elapsedMs := outcome.elapsedMs
+        diagnostic := some diagnostic
+      }
+
+private partial def waitFirstPending
+    (pending : Array PendingCheck) : TranslateEnvT PendingCompletion := do
+  if pending.isEmpty then
+    throwEnvError "internal error: attempted to wait for an empty solver set"
+  if ← cancellationRequested then
+    retireAllSessions true
+    for check in pending do
+      let _ := check.response.get
+    throwInterruptException
+  for check in pending do
+    if ← IO.hasFinished check.response then
+      return .response check check.response.get (pending.filter (·.solver != check.solver))
+  let now ← IO.monoMsNow
+  for check in pending do
+    if check.deadlineMs.any (· ≤ now) then
+      return .timedOut check (pending.filter (·.solver != check.solver))
+  IO.sleep 10
+  waitFirstPending pending
+
+private def deferredFailureOutcome (solver : SmtSolver) : TranslateEnvT SolverOutcome := do
+  let record := (← get).smtEnv.solverRecords.find? (·.solver == solver)
+  let diagnostic := record.bind (·.failureResponse) |>.getD
+    "session was retired after a command failure"
+  return {
+    solver, verdict := none, status := .processFailed,
+    elapsedMs := record.bind (·.failureElapsedMs) |>.getD 0,
+    diagnostic := some diagnostic
+  }
+
+private def ensureConfiguredSessions : TranslateEnvT (Array SolverOutcome) := do
+  let deferred := (← get).smtEnv.deferredSessions
+  let mut failures := #[]
+  for solver in (← get).smtEnv.configuredSolvers do
+    if (← getSession? solver).isNone then
+      if deferred.contains solver then
+        failures := failures.push (← deferredFailureOutcome solver)
+      else
+        let started ← IO.monoMsNow
+        match ← spawnAndInitializeSolver solver true with
+        | .ok () => pure ()
+        | .error diagnostic =>
+            failures := failures.push {
+              solver, verdict := none, status := .processFailed,
+              elapsedMs := (← IO.monoMsNow) - started, diagnostic := some diagnostic
+            }
+  modify fun env => { env with smtEnv.deferredSessions := #[] }
+  return failures
+
+private def beginConfiguredChecks
+    (command : SmtCommand) : TranslateEnvT (Array PendingCheck × Array SolverOutcome) := do
+  let mut failures ← ensureConfiguredSessions
+  let mut pending := #[]
+  for solver in (← get).smtEnv.configuredSolvers do
+    if !(failures.any (·.solver == solver)) then
+      match ← startCheck solver command with
+      | .pending check => pending := pending.push check
+      | .failed outcome => failures := failures.push outcome
+  return (pending, failures)
+
+private def outcomeToResult (outcome : SolverOutcome) : Result :=
+  match outcome.verdict with
+  | some .valid => .Valid
+  | some .falsified => .Falsified (outcome.counterexample.getD [])
+  | _ => .Undetermined
+
+private def logInfrastructureOutcomes (outcomes : Array SolverOutcome) : TranslateEnvT Unit := do
+  for outcome in orderOutcomes outcomes.toList do
+    if outcome.status != .completed && outcome.status != .modelFailed then
+      logErrorAt (← blankRef)
+        m!"{outcome.solver} infrastructure failure ({reprStr outcome.status}): {outcome.diagnostic.getD "no diagnostic"}"
+
+private def completedOutcome (completion : PendingCompletion) :
+    TranslateEnvT (SolverOutcome × Array PendingCheck) := do
+  match completion with
+  | .response check response remaining =>
+      return (← finishCheck check response, remaining)
+  | .timedOut check remaining =>
+      return (← timeoutCheck check, remaining)
+
+private def runSingleCheck (command : SmtCommand) : TranslateEnvT Result := do
+  let (pending, failures) ← beginConfiguredChecks command
+  if let some failure := failures[0]? then
+    throwEnvError s!"{failure.solver} solver failure: {failure.diagnostic.getD "no diagnostic"}"
+  let some _ := pending[0]?
+    | throwEnvError "single solver session produced no check task"
+  let (outcome, _) ← completedOutcome (← waitFirstPending pending)
+  if outcome.status != .completed then
+    throwEnvError s!"{outcome.solver} solver failure: {outcome.diagnostic.getD "no diagnostic"}"
+  outcomeToResult <$> attachCounterexample outcome
+
+private partial def runFirstCheck (command : SmtCommand) : TranslateEnvT Result := do
+  let (pending, initialOutcomes) ← beginConfiguredChecks command
+  loop pending initialOutcomes
  where
-   waitForResult (res : Task (Except IO.Error String)) : TranslateEnvT Result := do
-     checkCancelTk?
-     if ← IO.hasFinished res then
-       match normalizeLine (← IO.ofExcept res.get) with
-       | "sat\n"     => return (.Falsified (← getModel))
-       | "unsat\n"   => return .Valid
-       | "unknown\n" => return .Undetermined -- unknown is also return when timeout is set to stdin
-       | err => throwEnvError s!"checkSat: Unexpected check-sat result: {err}"
-     else
-       let sleepTimeMs := (20 : UInt32)
-       IO.sleep sleepTimeMs
-       waitForResult res
-
-/-- Check satisfiability of current Smt query and return the result.
-    An error is triggered when an unexpected check-sat result is obtained.
-    Return `Undetermined` when the Smt process is not defined.
--/
-def checkSat : TranslateEnvT Result := do
-  let env ← get
-  let some p := env.smtEnv.smtProc | return .Undetermined
-  submitCommand (.checkSat)
-  getSatResult p
-
-/-- Check satisfiability of current Smt query by assuming the provided terms
-    and return the result.
-    An error is triggered when an unexpected check-sat result is obtained.
-    Return `Undetermined` when the Smt process is not defined.
--/
-def checkSatAssuming (args : Array SmtTerm) : TranslateEnvT Result := do
-  let env ← get
-  let some p := env.smtEnv.smtProc | return .Undetermined
-  submitCommand (.checkSatAssuming args)
-  getSatResult p
+  loop (pending : Array PendingCheck) (outcomes : Array SolverOutcome) : TranslateEnvT Result := do
+    if pending.isEmpty then
+      let ordered := orderOutcomes outcomes.toList
+      let ordinaryUndetermined :=
+        !ordered.isEmpty && ordered.all fun outcome =>
+          outcome.status == .completed && outcome.verdict == some .undetermined
+      if ordinaryUndetermined then return .Undetermined
+      logInfrastructureOutcomes outcomes
+      let diagnostics := combineDiagnostics ordered |>.getD "no solver produced a verdict"
+      throwEnvError s!"First mode produced no decisive verdict because solver infrastructure failed:\n{diagnostics}"
+    let (outcome, remaining) ← completedOutcome (← waitFirstPending pending)
+    let outcomes := outcomes.push outcome
+    if outcome.verdict.any SolverVerdict.isDecisive then
+      -- The verdict wins immediately, but its evidence is secured before any
+      -- loser is retired so model latency cannot change the winner.
+      let outcome ← attachCounterexample outcome
+      for session in (← get).smtEnv.sessions do
+        if session.solver != outcome.solver then
+          discard <| retireAndCleanup session.solver true
+      for check in remaining do
+        let _ := check.response.get
+      if (← get).optEnv.options.solverOptions.verbose ≥ 2 then
+        IO.println s!"[blaster] first winner: {outcome.solver} ({outcome.elapsedMs}ms)"
+      return outcomeToResult outcome
+    loop remaining outcomes
 
 
-/-- Try to retrieve the proof artifact when a `unsat` result is obtained and dump result to stdout.
-    TODO: We need to define the Smt-lib syntax and term elaborator to parse and reconstruct
-    the proof in Lean.
-    This will also be helpful when writing the test cases to validate the Smt-Lib translation.
-    Do nothing if the Smt process is not defined.
--/
+private def collectAgreementOutcomes (command : SmtCommand) :
+    TranslateEnvT (Array SolverOutcome) := do
+  let (initialPending, initialOutcomes) ← beginConfiguredChecks command
+  let mut pending := initialPending
+  let mut outcomes := initialOutcomes
+  while true do
+    if let some failed := (orderOutcomes outcomes.toList).find? fun outcome =>
+        outcome.status != .completed && outcome.status != .modelFailed then
+      let diagnostic :=
+        s!"{failed.solver} ended with {reprStr failed.status}: {failed.diagnostic.getD "no diagnostic"}"
+      retireAllSessions true
+      for check in pending do
+        let _ := check.response.get
+      let artifact ← saveAgreementArtifacts diagnostic outcomes
+      throwEnvError s!"{diagnostic}\nAgreement artifacts: {artifact.getD "unavailable"}"
+    if pending.isEmpty then break
+    let (outcome, remaining) ← completedOutcome (← waitFirstPending pending)
+    outcomes := outcomes.push outcome
+    pending := remaining
+  return outcomes
+
+private def requireAgreement (z3 cvc5 : SolverOutcome) : TranslateEnvT AgreementDecision := do
+  match aggregateAgreement z3 cvc5 with
+  | .ok decision => return decision
+  | .error failure =>
+      retireAllSessions true
+      let artifact ← saveAgreementArtifacts failure.diagnostic #[z3, cvc5]
+      throwEnvError s!"{failure.diagnostic}\nAgreement artifacts: {artifact.getD "unavailable"}"
+
+private def runAgreementCheck (command : SmtCommand) : TranslateEnvT Result := do
+  let outcomes ← collectAgreementOutcomes command
+  let some z3 := outcomes.find? (·.solver == .z3)
+    | retireAllSessions true
+      let artifact ← saveAgreementArtifacts "Z3 produced no outcome" outcomes
+      throwEnvError s!"Agreement infrastructure failure: Z3 produced no outcome. Artifacts: {artifact.getD "unavailable"}"
+  let some cvc5 := outcomes.find? (·.solver == .cvc5)
+    | retireAllSessions true
+      let artifact ← saveAgreementArtifacts "cvc5 produced no outcome" outcomes
+      throwEnvError s!"Agreement infrastructure failure: cvc5 produced no outcome. Artifacts: {artifact.getD "unavailable"}"
+  -- A model cannot change either verdict. Reject disagreement before asking
+  -- for optional evidence, which can fail or take longer than the check.
+  discard <| requireAgreement z3 cvc5
+  let z3 ← attachCounterexample z3
+  let cvc5 ← attachCounterexample cvc5
+  let enriched := #[z3, cvc5]
+  let decision ← requireAgreement z3 cvc5
+  let incompleteModel := enriched.any (·.status == .modelFailed)
+  if decision.verdict == .undetermined || incompleteModel then
+    retireAllSessions true
+    let reason :=
+      if incompleteModel then "one or more model-evidence steps failed"
+      else "both solvers returned ordinary Undetermined"
+    let artifact ← saveAgreementArtifacts reason enriched
+    logWarningAt (← blankRef)
+      m!"Agreement diagnostics saved: {artifact.getD "unavailable"}"
+  match decision.verdict with
+  | .valid => return .Valid
+  | .falsified => return .Falsified (decision.counterexample.getD [])
+  | .undetermined => return .Undetermined
+
+private def checkSatWith (command : SmtCommand) : TranslateEnvT Result := do
+  let deferred := (← get).smtEnv.deferredSessions
+  modify fun env =>
+    { env with smtEnv.solverRecords := env.smtEnv.solverRecords.map fun record =>
+        { record with
+          checkCommand := some command
+          stdout := if deferred.contains record.solver then record.stdout else #[]
+          modelCommands := #[]
+          modelResponses := #[]
+          failedStage := if deferred.contains record.solver then record.failedStage else none
+          failedCommand := if deferred.contains record.solver then record.failedCommand else none
+          failureResponse := if deferred.contains record.solver then record.failureResponse else none
+          failureElapsedMs := if deferred.contains record.solver then record.failureElapsedMs else none } }
+  if (← get).optEnv.options.solverOptions.onlySmtLib then return .Undetermined
+  match (← get).optEnv.options.solverOptions.solverMode with
+  | .single => runSingleCheck command
+  | .first => runFirstCheck command
+  | .agree => runAgreementCheck command
+
+/-- Check satisfiability of the shared canonical query. -/
+def checkSat : TranslateEnvT Result :=
+  checkSatWith .checkSat
+
+/-- Incremental check over the same pair of sessions and shared assumptions. -/
+def checkSatAssuming (args : Array SmtTerm) : TranslateEnvT Result :=
+  checkSatWith (.checkSatAssuming args)
+
+/-- Proof retrieval remains a single-session operation. -/
 def getProof : TranslateEnvT String := do
-  let env ← get
-  let some p := env.smtEnv.smtProc | return ""
-  submitCommand (.getProof)
-  getOutputProof p.stdout
+  let some session := (← get).smtEnv.sessions[0]? | return ""
+  match ← sendCommandToSession session .getProof false with
+  | .error error => throwSessionCommandError session "proof retrieval" .getProof error
+  | .ok () =>
+      match ← awaitTaskCancelable
+          (← IO.asTask (getOutputProof session.process.stdout) Task.Priority.dedicated) with
+      | .ok proof => return proof
+      | .error error =>
+          throwSessionCommandError session "proof retrieval" .getProof (toString error)
 
-
-
-/-- Try to terminate the Smt process.
-    Do nothing if Smt process is not defined.
--/
+/-- Gracefully retire and reap every remaining solver session. -/
 def exitSmt : TranslateEnvT UInt32 := do
- let env ← get
- let some p := env.smtEnv.smtProc | return 0
- submitCommand (.exitSmt)
- let (_, p) ← p.takeStdin
- p.wait
+  retireAllSessions false
+  return 0
 
 
-/-- Set the Smt logic to `ALL`. -/
-def setLogicAll : TranslateEnvT Unit :=
-  trySubmitCommand! (.setLogic "ALL")
+/-- Validate option combinations before starting any child process. -/
+def validateSolverOptions (sOpts : BlasterOptions) : Except String Unit := do
+  if sOpts.solverMode != .single && sOpts.solver.isSome then
+    throw "❌ `solver` conflicts with `solver-mode: first` and `solver-mode: agree`; concurrent modes always run both Z3 and cvc5."
+  if sOpts.solverMode != .single && sOpts.onlySmtLib then
+    throw "❌ `only-smt-lib` cannot be combined with concurrent solver modes."
 
-/-- Set Smt `produce-proofs` option to `b`. -/
-def setProduceProofs (b : Bool) : TranslateEnvT Unit :=
-  trySubmitCommand! (.setOption ":produce-proofs" (toString b))
+private def configuredSolvers (sOpts : BlasterOptions) : IO (Array SmtSolver) := do
+  match sOpts.solverMode with
+  | .single => return #[← resolveSolver sOpts]
+  | .first | .agree => return #[.z3, .cvc5]
 
-/-- Set Smt `produce-models` option to `b`. -/
-def setProduceModels (b : Bool) : TranslateEnvT Unit :=
-  trySubmitCommand! (.setOption ":produce-models" (toString b))
-
-/-- Set Smt `smt.mbqi` option to `b`. -/
-def setMbqi (b : Bool) : TranslateEnvT Unit :=
-  trySubmitCommand! (.setOption ":smt.mbqi" (toString b))
-
-/-- Set Smt `smt.pull-nested-quantifiers` option to `b`. -/
-def setPullNestedQuantifiers (b : Bool) : TranslateEnvT Unit :=
-  trySubmitCommand! (.setOption ":smt.pull-nested-quantifiers" (toString b))
-
-/-- Set Smt `print-success` option to `b`. -/
-def setPrintSuccess (b : Bool) : TranslateEnvT Unit :=
-  trySubmitCommand! (.setOption ":print-success" (toString b))
-
-/-- Set Smt `smt.random-seed` option to `n` or none. -/
-def setRandomSeed (n : Option Nat) : TranslateEnvT Unit := do
-  match n with
-  | some n => trySubmitCommand! (.setOption ":smt.random-seed" (toString n))
-  | none => pure ()
-
-/-- Set Smt `auto_config` option to `b`. -/
-def setAutoConfig (b : Bool) : TranslateEnvT Unit :=
-  trySubmitCommand! (.setOption ":auto_config" (toString b))
-
-/-- Set Smt `smt.case_split` to `n`, with n ∈ [0..6]. -/
-def setCaseSplit (n : Nat) : TranslateEnvT Unit :=
-  trySubmitCommand! (.setOption ":smt.case_split" (toString n))
-
-/-- Set Smt `smt.qi.eager_threshold` to `n`. -/
-def setQiEagerThreshold (n : Nat) : TranslateEnvT Unit :=
-  trySubmitCommand! (.setOption ":smt.qi.eager_threshold" (toString n))
-
-
-/-- Set Smt `smt.delay_units` to `b`. -/
-def setDelayUnits (b : Bool) : TranslateEnvT Unit :=
-  trySubmitCommand! (.setOption ":smt.delay_units" (toString b))
-
-/-- Set Smt `smt.macro_finder` option to `b`. -/
-def setMacroFinder (b : Bool) : TranslateEnvT Unit :=
-  trySubmitCommand! (.setOption ":smt.macro_finder" (toString b))
-
-/-- Set Smt `smt.relevancy` option to `i`. -/
-def setRelevancy (n : Nat) : TranslateEnvT Unit :=
-  trySubmitCommand! (.setOption ":smt.relevancy" (toString n))
-
-/-- Set Smt `timeout` when option is specified. -/
-def setTimeout : TranslateEnvT Unit := do
-  let sOpts := (← get).optEnv.options.solverOptions
-  let some n := sOpts.timeout | return ()
-  -- need to convert timeout to milliseconds
-  trySubmitCommand! (.setOption ":timeout" (toString (n * 1000)))
-
-/-- Set simplifier option to `s`. -/
-def setSimplifier (s : String) : TranslateEnvT Unit := do
-  submitCommand (.setSimplifier s)
-
-/-- Set the default Smt options, i.e.:
-     - (set-option :print-success true)
-     - (set-option :produce-models true)
-     - (set-option :produce-proofs true)
-     - (set-option :smt-pull-nested-quantifiers true)
-     - (set-option :smt-mbqi true)
-     - (set-option :auto_config false)
-     - (set-option :smt.random-seed n) when `n` is provided in solver options
-     - (set-option :smt.macro_finder true)
-     - (set-option :smt.arith.nl.grobner_expand_terms false)
-     - (set-option :smt.arith.nl.reduce_pseudo_linear false)
-     - (set-option :smt.arith.nl.grobner_exp_delay false)
--/
-def setDefaultSmtOptions (sOpts : BlasterOptions) : TranslateEnvT Unit := do
- setPrintSuccess true
- setProduceModels true
- -- setProduceProofs true
- -- NOTE: produce proof is incompatible for now with recfun-finder
- -- we are therefore deactivating it until we provide a z3 patch to handle
- -- proof reconstruction for our recfun-finder patch.
- setPullNestedQuantifiers true
- setMbqi true
- setAutoConfig false
- setRandomSeed sOpts.randomSeed
- setSimplifier "recfun-finder"
- setMacroFinder true
- -- NOTE: Set these parameters for now
- trySubmitCommand! (.setOption ":smt.arith.nl.grobner_expand_terms" "false")
- trySubmitCommand! (.setOption ":smt.arith.nl.reduce_pseudo_linear" "false")
- trySubmitCommand! (.setOption ":smt.arith.nl.grobner_exp_delay" "false")
- setTimeout
-
-
-/-- Perform the following actions:
-     - when option `only-smt-lib` is set to `false`:
-       - Spawn the backend solver process and update TranslateEnv
-       - set the default smt solver options by emitting the corresponding commands
-     - when option `only-smt-lib` is set to `true`:
-       - only add the solver options to the list of smt commands.
--/
+/-- Resolve options, create independent sessions, and send only each backend's
+    setup transcript. Subsequent translation commands are broadcast once from
+    the canonical query path. -/
 def setBlasterProcess : TranslateEnvT Unit := do
-  let env ← get
-  let sOpts := env.optEnv.options.solverOptions
-  unless sOpts.onlySmtLib do
-    let proc ← createBlasterProcess
-    set { env with smtEnv.smtProc := proc }
-  setDefaultSmtOptions sOpts
+  let original := (← get).optEnv.options.solverOptions
+  match validateSolverOptions original with
+  | .error error => throwEnvError error
+  | .ok () => pure ()
+  let timeout ← resolveTimeout original
+  let sOpts := { original with timeout }
+  let solvers ← configuredSolvers sOpts
+  modify fun env =>
+    { env with
+      smtEnv.configuredSolvers := solvers,
+      smtEnv.singleSolver := if sOpts.solverMode == .single then solvers[0]? else none,
+      optEnv.options.solverOptions := sOpts }
+  if sOpts.onlySmtLib then
+    for solver in solvers do
+      let desc := solver.descriptor
+      let candidate := desc.candidates[0]!
+      let (cmd, args) := desc.spawnInvocation candidate
+      upsertSolverRecord {
+        solver,
+        version := "not probed (only-smt-lib)",
+        commandLine := String.intercalate " " (cmd :: args.toList),
+        setupCommands := solverSetupCommands solver sOpts,
+        timeoutMs := sOpts.timeout.map (· * 1000)
+      }
+  else
+    for solver in solvers do
+      match ← spawnAndInitializeSolver solver false with
+      | .ok () => pure ()
+      | .error error =>
+          throwEnvError s!"❌ Failed to initialize required {solver} solver: {error}"
 
 
 end Blaster.Smt

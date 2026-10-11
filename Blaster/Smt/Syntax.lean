@@ -151,7 +151,7 @@ inductive SmtCommand where
   | exitSmt
   | getModel
   | getProof
-  | evalTerm (t : SmtTerm)
+  | getValue (t : SmtTerm)
   | setLogic (l : String)
   | setOption (opt : String) (value : String)
   | setSimplifier (s : String)
@@ -321,7 +321,7 @@ instance : ToString SmtFunDecl where
  | .exitSmt => s!"(exit)"
  | .getModel => s!"(get-model)"
  | .getProof => s!"(get-proof)"
- | .evalTerm t => s!"(eval {t})"
+ | .getValue t => s!"(get-value ({t}))"
  | .setLogic l => s!"(set-logic {l})"
  | .setOption opt v => s!"(set-option {opt} {v})"
  | .setSimplifier s => s!"(set-simplifier {s})"

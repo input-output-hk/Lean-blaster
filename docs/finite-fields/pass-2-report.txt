@@ -1,0 +1,120 @@
+Finite fields, job #78: pass 2 report (partial step 1, INCOMPLETE)
+====================================================================
+
+Branch: agent/plan-lean-blaster-finite-fields
+HEAD:   f020b94eefa0cd1173d54eb1482937331df9ce83
+Base:   ab82a3cb647cbdecc198202244622554e2464e4d (hillclimb-base)
+
+Commits on top of the base (first parent):
+  2df2e15 Merge feat/cvc5-concurrency with opt-in cvc5 backend (parents ab82a3c, 4131e46)
+  d95b6bd Add Fin 7 baseline tests and documentation for finite fields
+  e57c853 Fix InstKey collisions on 48-bit address spaces
+  5370ae3 Report exited solvers on check submission failures
+  f020b94 Keep protected test files and lakefile identical to the base
+The merge keeps its ancestry: ab82a3c is the first parent and
+origin/feat/cvc5-concurrency (4131e46) is the second.
+
+Environment: Lean 4.24.0; Z3 5.1.0 (recfun-finder fork, hash ca39e58c);
+cvc5 1.4.1 (git 2b2e844), `cocoa : yes`.
+
+Commands run on f020b94 (clean tree)
+------------------------------------
+  make check_blaster                                                exit 0
+  LEAN_NUM_THREADS=5 ./scripts/check_lean_project_compilation.sh Tests  exit 0
+  make test-solver   (TestsSolver/*, z3 + pure)                     exit 0
+  make solvercheck   (z3 and cvc5 version + cocoa probe)            exit 0
+  make test-cvc5     (TestsCvc5/* except CounterexampleSpike)       exit 2  <- FAILS
+
+Each file run on its own with `lake env lean <file>`:
+  TestsCvc5/ConcurrentDump.lean       0
+  TestsCvc5/ConcurrentSolvers.lean    0
+  TestsCvc5/Cvc5Capabilities.lean     0
+  TestsCvc5/Cvc5FinBaseline.lean      0
+  TestsCvc5/Cvc5Floor.lean            0
+  TestsCvc5/SmtSolverCvc5.lean        1   (one error, line 153)
+  TestsCvc5/SolverSelection.lean      0
+  TestsSolver/SmtFinBaseline.lean     0
+
+Unresolved cvc5 failure
+-----------------------
+TestsCvc5/SmtSolverCvc5.lean:153
+  #blaster (solver: cvc5) ... [∀ (f : Int → Int) (x : Int), f x = f (x + 1)]
+  error: solver=cvc5; stage=command submission;
+    command=(define-fun @canon_uniq.740 ((@f (Array Int Int))) (Array Int Int)
+              (lambda ((@x0 Int)) (ite (@isInt @x0) (select @f @x0) @default_codomain_uniq.740)))
+    response=(error "Parse Error: <stdin>:10.78: Expected SMT-LIBv2 qualified
+              indentifier, got `@x0` (SYMBOL).")
+Blaster encodes Lean function values as SMT Arrays built with `lambda` and
+read with `select`. Z3 accepts this. cvc5 rejects it under (set-logic ALL).
+README calls this a known cvc5 limitation, but making function values work
+with cvc5 is still part of step-1 acceptance. It stays in scope even though the
+change is substantial (an encoding change, not a parser fix). It fails as a
+hard error, not as a wrong verdict.
+
+Runner fails on errors (negative control, temp file outside the repo)
+---------------------------------------------------------------------
+/tmp/negctl/Neg.lean contained a false #guard and a false #blaster goal. It went through the
+same xargs pipeline as test-solver/test-cvc5:
+  /tmp/negctl/Neg.lean:2:0: error: Expression decide (1 = 2) did not evaluate to `true`
+  /tmp/negctl/Neg.lean:3:10: error: ❌ Falsified
+  FAILED: /tmp/negctl/Neg.lean
+  xargs: sh: exited with status 255; aborting          (exit 124)
+Note: xargs stops at the first failing file. Files still queued at that point
+are not run, so the per-file results above were collected separately.
+
+Safety checks
+-------------
+- No sorry/admit/axiom added. The only match in added lines is a comment
+  ("quoted symbols admit parentheses and spaces").
+- No diff against the base in lean-toolchain, lakefile.lean,
+  lake-manifest.json, .github/, Tests/, Tests.lean or scripts/.
+  No expected result was changed. README badges are unchanged.
+- Z3 is still the default: resolveSolverConfig returns .z3 when neither
+  `solver:` nor BLASTER_SOLVER is set. The Z3 setup transcript matches the base
+  setDefaultSmtOptions in content and order (print-success, produce-models,
+  pull-nested-quantifiers, mbqi, auto_config false, random-seed,
+  recfun-finder, macro_finder, three nl options, timeout). Spawn args are still
+  `-in -smt2`.
+- Changes to default (Z3) behavior:
+  * Counterexamples are read with (get-value (t)) instead of (eval t), and
+    rendered through Smt/Model.lean. This affects display only.
+  * StateMachine.assertAssumptions: an Undetermined contradiction check now
+    logs Undetermined and stops. The base returned false and kept going. The new
+    behavior is more conservative.
+  * logSmtQuery now runs after check-sat, and also at verbose >= 3.
+- solver-mode `first` (opt-in) accepts whichever backend answers first, so it
+  trusts each solver alone, just as single mode does. `agree` raises an error on
+  a Valid/Falsified disagreement.
+
+InstKey packing (e57c853): platform assumptions
+-----------------------------------------------
+Key = (addr >>> 3) ||| (offset <<< 49). The fast path applies when offset < 2^13.
+Otherwise the key is built as a Nat bignum with the same layout.
+This assumes:
+  1. 64-bit USize. On a 32-bit target, `offset <<< 49` on USize shifts mod 32,
+     which breaks injectivity.
+  2. Objects are 8-byte aligned. This holds for Lean's allocator.
+  3. User-space addresses are below 2^52. Nothing checks this at runtime.
+     It can be broken by x86-64 LA57 with high mmap hints, aarch64 52-bit VA,
+     or top-byte pointer tags (TBI/MTE, e.g. Android heap tagging).
+If any assumption fails, keys collide silently. A cached instantiation for
+another subterm could then be returned, which means a wrong translation and
+possibly an unsound Valid. Suggested hardening (not done): if addr >= 2^52, use
+the bignum path with the offset at bit 64.
+TestsSolver/InstKeyPacking.lean has #guard checks for injectivity in the
+supported range and for the old collision.
+
+Measurements
+------------
+No before/after timings were taken. The InstKey change is a correctness fix,
+not an optimization, so no timing claim is made. docs/finite-fields/baseline-fin.md
+records behavior only (errors, verdicts, optimized expressions), with no timings.
+
+Remaining work (step 1)
+-----------------------
+- Make function-value encoding work with cvc5 (the SmtSolverCvc5.lean:153
+  failure). `make test-cvc5` must pass.
+- Optionally add a runtime guard or fallback for addresses >= 2^52 in
+  packInstKey.
+- Finite-field translation itself has not started. The Fin 7 baseline tests pin
+  current behavior and must be updated on purpose by later steps.

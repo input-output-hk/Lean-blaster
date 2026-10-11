@@ -1,0 +1,179 @@
+Finite fields, job #80: pass 4 report (cvc5 function values in models)
+=======================================================================
+
+Branch:    agent/plan-lean-blaster-finite-fields (not pushed)
+Validated: 3a99f4245d47ac960f2fa4b2fa1ea199447c616f (clean tree)
+Previous:  9d568b5 (pass 3 report). One new code commit fast-forwards it, and
+           this report is committed on top. Ancestry is unchanged.
+
+  3a99f42 Retrieve cvc5 function values in datatypes type-directed
+
+Environment: Lean 4.24.0; Z3 5.1.0 (hash ca39e58c, the pinned fork);
+cvc5 1.4.1 (git 2b2e844), `cvc5 --show-config` reports `cocoa : yes`.
+
+Correction to pass 3
+--------------------
+Pass 3 claimed step 1 complete, and listed as a display-only limitation
+that cvc5 values of function-typed datatype fields "are unreliable". That
+was wrong: Blaster displayed false counterexample values without saying so.
+Reproduced on 9d568b5:
+  ∀ (s : FunBox) (x : Int), s.fn x = x        (FunBox: fn : Int → Int, k : Int)
+  displayed  s: P.FunBox.mk (P.FunBox.mk.0 $0) 1
+The displayed value refers to s itself, with no warning. cvc5 printed
+"Could not evaluate (P.FunBox.mk (P.FunBox.mk.0 $0) 1) in getValue" on
+stderr. Option (Int → Int), (Int → Int) × Int and structures with two
+function fields showed the same problem. Closed values can be wrong too.
+Manual probe, same model, for ∀ (s : Outer) (x : Int), s.inner.fn x = x + s.b:
+  (get-value ($0))                          -> (Outer.mk (FunBox.mk (lambda .. 0) 0) 0)
+  (get-value ((FunBox.mk.1 (Outer.mk.0 $0)))) -> 1      (contradicts inner.k = 0)
+Requesting the selector term at function sort was consistent in every probe:
+  (get-value ((FunBox.mk.0 $0)))            -> (lambda ((B Int)) (ite (= B 2) 6 (ite (= B 1) 5 0)))
+  (get-value ((@ (FunBox.mk.0 $0) 1) ...))  -> 5, 6, 0, as the lambda gives.
+
+Fix (cvc5 only; z3, defaults and verdicts untouched)
+----------------------------------------------------
+- ModelSchema (Blaster/Smt/Term.lean) is built from the canonical commands.
+  It holds the constant sorts, datatype declarations (parametric ones are
+  instantiated), define-sort aliases, and the declared/defined symbol names.
+- retrieveTypedValue (Blaster/Smt/Env.lean) handles each cvc5 counterexample
+  variable whose sort can hold function values:
+    * datatype holding function values: the constructor comes from
+      (get-value (t)). It is confirmed with (get-value ((is-C t))) when the
+      sort has several constructors. Each field is then retrieved
+      recursively through (get-value ((sel t))), at the field's sort. The
+      fields inside the outer value are never used;
+    * function value: (get-value (t)) at its own function sort;
+    * other leaves: (get-value (t)).
+  Every leaf must be closed: it must not refer to a declared or defined
+  constant or function. A function value that contains constructors of
+  datatypes holding function values is rejected (e.g. f : Int → FunBox,
+  where cvc5's lambda contains (FunBox.mk (FunBox.mk.0 ($0 1)) ...)). A
+  budget of 256 get-value requests applies per variable.
+- Any failure: the variable shows `<counterexample unavailable>` and the
+  existing warning "Counterexample unavailable from cvc5; the Falsified
+  verdict is preserved. <var>: <reason>; raw value: <raw>" is logged. The
+  status is modelFailed, as before. The verdict cannot change, and agree
+  mode saves agreement artifacts. Nothing is invented or guessed.
+- z3, and cvc5 variables of first-order sorts, still use the previous
+  single get-value path. evalTermFor was refactored to share requestValue,
+  with identical messages.
+
+Higher-order rendering and replay review
+----------------------------------------
+- The selector, tester and function-sort get-value requests go through
+  renderFor like every other command. Only `select` becomes `@` and `Array`
+  becomes `->`, so z3 text is unchanged.
+- No get-value request can be the first function-valued command: an Array
+  sort in a datatype field or a constant sort switches cvc5 to HO_ALL at
+  declaration time (SmtCommand.usesFunctionValues). This holds for
+  parametric instances too, e.g. (declare-const $0 (@Option (Array Int Int))).
+- enableHigherOrder stores the triggering command before the respawn. The
+  replay therefore contains it, and the replayed session is skipped in the
+  broadcast loop, so the command is not sent twice. Sessions that are
+  respawned later (first mode) use the stored HO setup. #bmc through the
+  mid-query switch is exercised live in single, first and agree modes. No
+  defect was found, and nothing else was changed.
+
+New regressions
+---------------
+TestsCvc5/Cvc5FunctionModelValues.lean (live; in make test-cvc5). Each
+command runs with its messages captured, as #guard_msgs does. The displayed
+values are parsed and evaluated (lambda, ite, arithmetic, z3 store and
+const arrays, constructors). The falsified goal is then checked on those
+values, which pins evidence success, not only the verdict:
+  function inputs: f x ≠ f (x+1); f 1 = 5 ∧ f 2 = 6 ∧ f 3 ≠ 7;
+    h : FunBox → Int;
+  structure fields: FunBox (free and constrained), nested Outer, Two (two
+    function fields), Option (Int → Int);
+  unavailable: f : Int → FunBox shows "<counterexample unavailable>", with a
+    warning that keeps the raw value; the verdict is still Expected Falsified;
+  first: constrained FunBox (values checked); f : Int → FunBox (either
+    correct values or the explicit unavailable warning, whichever solver
+    wins);
+  agree: FunBox and Outer, no warnings (cvc5 evidence complete), z3 values
+    checked; f : Int → FunBox, cvc5 warning plus agreement artifacts, z3
+    values checked, Falsified;
+  #bmc with a function input (fails at depth 1 iff f 0 > 1) in single cvc5,
+    first and agree; f 0 > 1 is checked on the displayed input.
+Run against the pre-fix Blaster sources (logs/regression_before_fix.log),
+7 checks fail: unknown symbol $0/$1 (self-referential values) in 5 of them,
+"f is displayed", and "missing unavailable-evidence warning". The Outer
+check passes on the old code: there the wrong k value is unconstrained.
+TestsSolver/ModelSchema.lean (pure): holdsFunctions, constructors?
+(instantiation), functionDatatypeConstructors, alias unfolding, and the
+closedness check (bound variables and selectors allowed; $0, @d and @isBox
+flagged).
+TestsCvc5/Cvc5FunctionValues.lean: its doc comment wrongly said that
+solve-result: 1 asserts get-value success. It now points at the new file.
+No expectation was changed.
+
+Commands and results (on 3a99f42, clean tree before and after)
+--------------------------------------------------------------
+  make check_blaster                                                    exit 0 (215 s)
+  LEAN_NUM_THREADS=5 ./scripts/check_lean_project_compilation.sh Tests  exit 0 (161 s)
+  make test-solver                                                      exit 0 (26 s)
+  make test-cvc5                                                        exit 0 (34 s)
+  make solvercheck                                                      exit 0 (z3 5.1.0, cvc5 1.4.1)
+
+File inventory. Each file was run alone with `lake env lean`; every one had
+rc=0 and 0 errors:
+  TestsCvc5 (10): ConcurrentDump, ConcurrentSolvers, CounterexampleSpike (*),
+    Cvc5Capabilities, Cvc5FinBaseline, Cvc5Floor, Cvc5FunctionModelValues
+    (new), Cvc5FunctionValues, SmtSolverCvc5, SolverSelection
+  TestsSolver (13): Configuration, CrashLifecycle, InstKeyPacking,
+    ModelReconstruction, ModelSchema (new), ResponseLifecycle,
+    SmtFinBaseline, SmtHigherOrderRendering, SmtSetupCommands,
+    SolverModeConfiguration, SolverOutcomePolicy, SolverVersion,
+    StrictResultPolicy
+  (*) excluded from make test-cvc5 by the Makefile, as before; run separately.
+
+Capability (CoCoA): `cvc5 --show-config` -> cocoa : yes. A fake cvc5 first on
+PATH reporting "cocoa : no", or no cocoa line, gives SolverCheck cvc5 exit 1
+"missing required cvc5 build capability cocoa". #blaster (solver: cvc5) on
+∀ x : Int, x ≠ 3 fails at startup with the same reason. A goal closed by the
+optimizer starts no solver and is Valid; this is pre-existing behavior.
+Fin baseline: Cvc5FinBaseline and SmtFinBaseline pass, unchanged. The
+unpinned claim ∀ a : Nat, a < 7 → (a*a) % 7 ≠ 2 is Falsified: a = 4 on z3,
+a = 3 on cvc5.
+
+Review
+------
+- No sorry, admit or axiom was added. No test, expectation or solve-result
+  was removed or changed.
+- Nothing changed in lean-toolchain, lakefile.lean, lake-manifest.json,
+  .github/, Tests/, Tests.lean, scripts/, the Makefile or the README badges.
+  No finite-field translation work was done.
+
+Status and remaining limits
+---------------------------
+Step 1 is complete for model retrieval in this sense: cvc5 counterexample
+values of function and function-holding datatype sorts are either requested
+at their own sorts and checked to be closed, or explicitly reported as
+unavailable with the raw value. No known-wrong value is displayed silently.
+Remaining limits:
+- Function values whose codomain (or domain) holds datatypes with function
+  fields, e.g. f : Int → FunBox: cvc5 gives no usable value. The evidence is
+  explicitly unavailable for cvc5. In first and agree modes, z3's value is
+  shown when z3 provides it.
+- The leaf function values are cvc5's own lambdas for function-sorted
+  terms. They were consistent in every probe and are checked at the points
+  the tests use, but Blaster cannot verify them in general.
+- In agree mode the displayed counterexample is z3's when both are
+  complete (existing tie-break). cvc5's typed values appear only in the
+  level-3 diagnostics and in agreement artifacts.
+- Goals without top-level variables still fall back to a raw (get-model)
+  dump, which is labeled raw and is not type-directed.
+- Under HO_ALL, cvc5 can be Undetermined on goals that mix function values
+  with recursive datatypes (e.g. a List (Int → Int) goal is Undetermined in
+  10 s), so type-directed retrieval through recursive datatypes is covered
+  by the pure schema tests only, not live.
+- Finite-field translation itself is later work (not started).
+
+Logs (sandbox, outside the repo): /workspace/validation/finite-fields-pass-4/
+  logs/summary.txt, head.txt, status.txt, status_after.txt, inventory.txt,
+  check_blaster.log, check_tests.log, test_solver.log, test_cvc5.log,
+  solvercheck.log, file_*.log (23), regression_before_fix.log,
+  cocoa_{no,missing}_{solvercheck,blaster,blaster_solver}.log,
+  cocoa_config.log, fin_unpinned_claim.log;
+  scripts/validate.sh, fake-cvc5-cocoa-{no,missing}.sh;
+  probes/ (probe Lean files, SMT queries, pre-fix verbose output).
