@@ -21,7 +21,8 @@ def logPPExpr (msg : String) (e : Expr) : TranslateEnvT Unit := do
 
 /-- Print runnable SMT transcripts when dumping is requested, or as part of the
     level-3 diagnostic pipeline. Concurrent runs are labeled per backend and
-    combine backend setup with the one canonical logical query. -/
+    combine backend setup with the one canonical logical query, rendered as
+    submitted to each backend (see `SmtCommand.renderFor`). -/
 def logSmtQuery : TranslateEnvT Unit := do
   let env ← get
   let sOpts := env.optEnv.options.solverOptions
@@ -34,8 +35,8 @@ def logSmtQuery : TranslateEnvT Unit := do
     else
       IO.println s!"SMT Query [{record.solver}]:"
     record.setupCommands.forM (fun command => IO.println s!"{command}")
-    env.smtEnv.smtCommands.forM (fun command => IO.println s!"{command}")
-    if let some command := record.checkCommand then IO.println s!"{command}"
+    env.smtEnv.smtCommands.forM (fun command => IO.println s!"{command.renderFor record.solver}")
+    if let some command := record.checkCommand then IO.println s!"{command.renderFor record.solver}"
     record.modelCommands.forM (fun command => IO.println command)
     IO.println "(exit)"
 

@@ -731,11 +731,12 @@ private def orderedSolverRecords (records : Array SolverRecord) : List SolverRec
 private def solverTranscript (record : SolverRecord) (canonical : Array SmtCommand) : String :=
   let check :=
     match record.checkCommand with
-    | some command => [toString command]
+    | some command => [toString (command.renderFor record.solver)]
     | none => []
   String.intercalate "\n" <|
     record.setupCommands.toList.map toString ++
-    canonical.toList.map toString ++ check ++ record.modelCommands.toList ++ ["(exit)"]
+    canonical.toList.map (toString ∘ (·.renderFor record.solver)) ++ check ++
+    record.modelCommands.toList ++ ["(exit)"]
 
 private def agreementSummary
     (reason : String) (outcomes : Array SolverOutcome) : TranslateEnvT String := do
@@ -775,7 +776,7 @@ private def recordSessionFailure
   modifySolverRecord solver fun record =>
     { record with
       failedStage := some stage
-      failedCommand := some (toString command)
+      failedCommand := some (toString (command.renderFor solver))
       failureResponse := some response
       failureElapsedMs := some elapsedMs }
 
@@ -785,7 +786,7 @@ private def retireFailedSession
   let elapsedMs := (← IO.monoMsNow) - startedMs
   recordSessionFailure session.solver stage command response elapsedMs
   let stderr ← retireAndCleanup session.solver true
-  return s!"solver={session.solver}; stage={stage}; command={command}; response={response}; elapsed={elapsedMs}ms{stderrNote stderr}"
+  return s!"solver={session.solver}; stage={stage}; command={command.renderFor session.solver}; response={response}; elapsed={elapsedMs}ms{stderrNote stderr}"
 
 private def logDiagnostic (message : String) : TranslateEnvT Unit := do
   if (← get).optEnv.options.solverOptions.verbose ≥ 3 then
@@ -814,6 +815,7 @@ private def withEmitProcess (process : PipedChild) (action : TranslateEnvT α) :
 private def sendCommandToSession
     (session : SolverSession) (c : SmtCommand) (checkSuccess : Bool) :
     TranslateEnvT (Except String Unit) := do
+  let c := c.renderFor session.solver
   let emitted ←
     try
       withEmitProcess session.process c.emit
@@ -857,6 +859,134 @@ private def beginCanonicalEpoch : TranslateEnvT Unit :=
             failureElapsedMs := none }
         else record }
 
+/-- Backend-specific setup transcript. Logical declarations and assertions are
+    deliberately absent; they live in the canonical query. -/
+def solverSetupCommands
+    (solver : SmtSolver) (sOpts : BlasterOptions) (higherOrder := false) : Array SmtCommand :=
+  let common := #[
+    .setOption ":print-success" "true",
+    .setOption ":produce-models" "true",
+    .setOption ":produce-proofs" "true"
+  ]
+  let withSeed (commands : Array SmtCommand) (name : String) :=
+    match sOpts.randomSeed with
+    | some seed => commands.push (.setOption name (toString seed))
+    | none => commands
+  let withTimeout (commands : Array SmtCommand) (name : String) :=
+    match sOpts.timeout with
+    | some timeout => commands.push (.setOption name (toString (timeout * 1000)))
+    | none => commands
+  match solver with
+  | .z3 =>
+      -- NOTE: produce proof is incompatible for now with recfun-finder
+      -- we are therefore deactivating it for z3 until we provide a z3 patch to
+      -- handle proof reconstruction for our recfun-finder patch.
+      let commands := #[
+        .setOption ":print-success" "true",
+        .setOption ":produce-models" "true",
+        .setOption ":smt.pull-nested-quantifiers" "true",
+        .setOption ":smt.mbqi" "true",
+        .setOption ":auto_config" "false"
+      ]
+      let commands := withSeed commands ":smt.random-seed"
+      let commands := commands ++ #[
+        .setSimplifier "recfun-finder",
+        .setOption ":smt.macro_finder" "true",
+        -- NOTE: Set these parameters for now
+        .setOption ":smt.arith.nl.grobner_expand_terms" "false",
+        .setOption ":smt.arith.nl.reduce_pseudo_linear" "false",
+        .setOption ":smt.arith.nl.grobner_exp_delay" "false"
+      ]
+      withTimeout commands ":timeout"
+  | .cvc5 =>
+      let commands := common.push (.setOption ":mbqi" "true")
+      let commands := withSeed commands ":seed"
+      let commands := commands.push (.setOption ":macros-quant" "true")
+      let commands := withTimeout commands ":tlimit-per"
+      -- `HO_ALL` is `ALL` plus higher-order terms. cvc5 only parses the
+      -- `lambda` terms of Blaster's function-value encoding under a
+      -- higher-order logic (see `SmtCommand.toHigherOrder`), but it is
+      -- markedly weaker on first-order quantified queries under `HO_ALL`, so
+      -- it is only used once the query contains a function value.
+      commands.push (.setLogic (if higherOrder then "HO_ALL" else "ALL"))
+
+private def upsertSolverRecord (record : SolverRecord) : TranslateEnvT Unit :=
+  modify fun env =>
+    let found := env.smtEnv.solverRecords.any (·.solver == record.solver)
+    let records :=
+      if found then
+        env.smtEnv.solverRecords.map fun old =>
+          if old.solver == record.solver then
+            { old with
+              version := record.version
+              commandLine := record.commandLine
+              setupCommands := record.setupCommands
+              timeoutMs := record.timeoutMs }
+          else old
+      else env.smtEnv.solverRecords.push record
+    { env with smtEnv.solverRecords := records }
+
+/-- Spawn and initialize one missing backend. With `replay = true`, replay the
+    retained canonical query so incremental state-machine checks still compare
+    the same encoding after `first` retired a prior loser. -/
+private def spawnAndInitializeSolver
+    (solver : SmtSolver) (replay : Bool) : TranslateEnvT (Except String Unit) := do
+  try
+    let (session, record) ← createSolverSession solver
+    let sOpts := (← get).optEnv.options.solverOptions
+    let setup := solverSetupCommands solver sOpts (← get).smtEnv.higherOrder
+    modify fun env => { env with smtEnv.sessions := env.smtEnv.sessions.push session }
+    upsertSolverRecord {
+      record with
+      setupCommands := setup
+      timeoutMs := sOpts.timeout.map (· * 1000)
+    }
+    for command in setup do
+      let startedMs ← IO.monoMsNow
+      -- z3 does not acknowledge `set-simplifier` with `success` even when
+      -- `:print-success` is set, so no response is awaited for it.
+      let checkSuccess := !(command matches .setSimplifier _)
+      match ← sendCommandToSession session command checkSuccess with
+      | .ok () => pure ()
+      | .error error =>
+          return .error (← retireFailedSession session "solver setup" command error startedMs)
+    if replay then
+      for command in (← get).smtEnv.smtCommands do
+        let startedMs ← IO.monoMsNow
+        match ← sendCommandToSession session command true with
+        | .ok () => pure ()
+        | .error error =>
+            return .error (← retireFailedSession session "canonical query replay" command error startedMs)
+    logDiagnostic s!"solver={solver}; version={record.version}; command={record.commandLine}"
+    return .ok ()
+  catch error =>
+    if error.isInterrupt || error.isRuntime then throw error
+    let stderr ← retireAndCleanup solver true
+    return .error s!"solver={solver}; stage=process startup; response={← error.toMessageData.toString}{stderrNote stderr}"
+
+/-- Switch cvc5 to the higher-order logic `HO_ALL` once the canonical query
+    uses a function value (see `SmtCommand.toHigherOrder`). The logic of a
+    live cvc5 session cannot change, so each one is retired gracefully and
+    respawned with the `HO_ALL` setup, replaying the canonical query (which
+    already holds the triggering command). Recorded setup transcripts are
+    updated too, so dumps and artifacts stay runnable (also in
+    `only-smt-lib` mode). Returns the replay result of each respawned
+    session. A failed replay is reported like any other submission failure. -/
+private def enableHigherOrder : TranslateEnvT (Array (SmtSolver × Except String Unit)) := do
+  let sOpts := (← get).optEnv.options.solverOptions
+  modify fun env =>
+    { env with smtEnv.higherOrder := true
+               smtEnv.solverRecords := env.smtEnv.solverRecords.map fun record =>
+                 if record.solver == .cvc5
+                 then { record with setupCommands := solverSetupCommands .cvc5 sOpts true }
+                 else record }
+  let mut results := #[]
+  for session in (← get).smtEnv.sessions do
+    if session.solver == .cvc5 then
+      discard <| retireAndCleanup session.solver false
+      results := results.push (session.solver, ← spawnAndInitializeSolver session.solver true)
+  return results
+
 /-- Broadcast a canonical declaration/assertion once. `first` retires a failed
     backend and continues with every healthy session; `agree` records an
     infrastructure artifact and fails immediately. -/
@@ -864,29 +994,43 @@ partial def trySubmitCommand! (c : SmtCommand) (checkSuccess := true) : Translat
   beginCanonicalEpoch
   storeCommand c
   let mode := (← get).optEnv.options.solverOptions.solverMode
-  let sessions := (← get).smtEnv.sessions
   let mut failures : Array String := #[]
+  -- Sessions respawned under `HO_ALL` have already replayed `c`.
+  let mut replayed : Array SmtSolver := #[]
+  if !(← get).smtEnv.higherOrder && (← get).smtEnv.configuredSolvers.contains .cvc5 &&
+      c.usesFunctionValues then
+    for (solver, result) in ← enableHigherOrder do
+      match result with
+      | .ok () => replayed := replayed.push solver
+      | .error diagnostic =>
+          failures := failures.push diagnostic
+          handleFailure mode solver diagnostic
+  let sessions := (← get).smtEnv.sessions
   for session in sessions do
+    if replayed.contains session.solver then continue
     let startedMs ← IO.monoMsNow
     match ← sendCommandToSession session c checkSuccess with
     | .ok () => pure ()
     | .error error =>
         let diagnostic ← retireFailedSession session "command submission" c error startedMs
         failures := failures.push diagnostic
-        match mode with
-        | .single => throwEnvError diagnostic
-        | .first =>
-            modify fun env =>
-              { env with smtEnv.deferredSessions :=
-                  if env.smtEnv.deferredSessions.contains session.solver then
-                    env.smtEnv.deferredSessions
-                  else env.smtEnv.deferredSessions.push session.solver }
-        | .agree =>
-            retireAllSessions true
-            let artifact ← saveAgreementArtifacts diagnostic #[]
-            throwEnvError s!"Agreement infrastructure failure: {diagnostic}\nAgreement artifacts: {artifact.getD "unavailable"}"
+        handleFailure mode session.solver diagnostic
   if mode == .first && !failures.isEmpty && (← get).smtEnv.sessions.isEmpty then
     throwEnvError s!"No usable solver session remains after command submission:\n{String.intercalate "\n" failures.toList}"
+ where
+   handleFailure (mode : SolverMode) (solver : SmtSolver) (diagnostic : String) : TranslateEnvT Unit := do
+     match mode with
+     | .single => throwEnvError diagnostic
+     | .first =>
+         modify fun env =>
+           { env with smtEnv.deferredSessions :=
+               if env.smtEnv.deferredSessions.contains solver then
+                 env.smtEnv.deferredSessions
+               else env.smtEnv.deferredSessions.push solver }
+     | .agree =>
+         retireAllSessions true
+         let artifact ← saveAgreementArtifacts diagnostic #[]
+         throwEnvError s!"Agreement infrastructure failure: {diagnostic}\nAgreement artifacts: {artifact.getD "unavailable"}"
 
 
 
@@ -1153,105 +1297,6 @@ def defineInttoNat : TranslateEnvT Unit := do
   let fdef := iteSmt xGeqZero xId natZero
   defineFun toNatSymbol #[(xsym, intSort)] natSort fdef
 
-/-- Backend-specific setup transcript. Logical declarations and assertions are
-    deliberately absent; they live in the canonical query. -/
-def solverSetupCommands (solver : SmtSolver) (sOpts : BlasterOptions) : Array SmtCommand :=
-  let common := #[
-    .setOption ":print-success" "true",
-    .setOption ":produce-models" "true",
-    .setOption ":produce-proofs" "true"
-  ]
-  let withSeed (commands : Array SmtCommand) (name : String) :=
-    match sOpts.randomSeed with
-    | some seed => commands.push (.setOption name (toString seed))
-    | none => commands
-  let withTimeout (commands : Array SmtCommand) (name : String) :=
-    match sOpts.timeout with
-    | some timeout => commands.push (.setOption name (toString (timeout * 1000)))
-    | none => commands
-  match solver with
-  | .z3 =>
-      -- NOTE: produce proof is incompatible for now with recfun-finder
-      -- we are therefore deactivating it for z3 until we provide a z3 patch to
-      -- handle proof reconstruction for our recfun-finder patch.
-      let commands := #[
-        .setOption ":print-success" "true",
-        .setOption ":produce-models" "true",
-        .setOption ":smt.pull-nested-quantifiers" "true",
-        .setOption ":smt.mbqi" "true",
-        .setOption ":auto_config" "false"
-      ]
-      let commands := withSeed commands ":smt.random-seed"
-      let commands := commands ++ #[
-        .setSimplifier "recfun-finder",
-        .setOption ":smt.macro_finder" "true",
-        -- NOTE: Set these parameters for now
-        .setOption ":smt.arith.nl.grobner_expand_terms" "false",
-        .setOption ":smt.arith.nl.reduce_pseudo_linear" "false",
-        .setOption ":smt.arith.nl.grobner_exp_delay" "false"
-      ]
-      withTimeout commands ":timeout"
-  | .cvc5 =>
-      let commands := common.push (.setOption ":mbqi" "true")
-      let commands := withSeed commands ":seed"
-      let commands := commands.push (.setOption ":macros-quant" "true")
-      let commands := withTimeout commands ":tlimit-per"
-      commands.push (.setLogic "ALL")
-
-private def upsertSolverRecord (record : SolverRecord) : TranslateEnvT Unit :=
-  modify fun env =>
-    let found := env.smtEnv.solverRecords.any (·.solver == record.solver)
-    let records :=
-      if found then
-        env.smtEnv.solverRecords.map fun old =>
-          if old.solver == record.solver then
-            { old with
-              version := record.version
-              commandLine := record.commandLine
-              setupCommands := record.setupCommands
-              timeoutMs := record.timeoutMs }
-          else old
-      else env.smtEnv.solverRecords.push record
-    { env with smtEnv.solverRecords := records }
-
-/-- Spawn and initialize one missing backend. With `replay = true`, replay the
-    retained canonical query so incremental state-machine checks still compare
-    the same encoding after `first` retired a prior loser. -/
-private def spawnAndInitializeSolver
-    (solver : SmtSolver) (replay : Bool) : TranslateEnvT (Except String Unit) := do
-  try
-    let (session, record) ← createSolverSession solver
-    let sOpts := (← get).optEnv.options.solverOptions
-    let setup := solverSetupCommands solver sOpts
-    modify fun env => { env with smtEnv.sessions := env.smtEnv.sessions.push session }
-    upsertSolverRecord {
-      record with
-      setupCommands := setup
-      timeoutMs := sOpts.timeout.map (· * 1000)
-    }
-    for command in setup do
-      let startedMs ← IO.monoMsNow
-      -- z3 does not acknowledge `set-simplifier` with `success` even when
-      -- `:print-success` is set, so no response is awaited for it.
-      let checkSuccess := !(command matches .setSimplifier _)
-      match ← sendCommandToSession session command checkSuccess with
-      | .ok () => pure ()
-      | .error error =>
-          return .error (← retireFailedSession session "solver setup" command error startedMs)
-    if replay then
-      for command in (← get).smtEnv.smtCommands do
-        let startedMs ← IO.monoMsNow
-        match ← sendCommandToSession session command true with
-        | .ok () => pure ()
-        | .error error =>
-            return .error (← retireFailedSession session "canonical query replay" command error startedMs)
-    logDiagnostic s!"solver={solver}; version={record.version}; command={record.commandLine}"
-    return .ok ()
-  catch error =>
-    if error.isInterrupt || error.isRuntime then throw error
-    let stderr ← retireAndCleanup solver true
-    return .error s!"solver={solver}; stage=process startup; response={← error.toMessageData.toString}{stderrNote stderr}"
-
 /-- Counterexample evidence is allowed to fail without changing a `sat`
     verdict. The diagnostic retains stage and raw-response information. -/
 private structure ModelEvidence where
@@ -1280,7 +1325,7 @@ private def requestModelResponse
   if (← getSession? session.solver).isNone then
     return .error s!"solver={session.solver}; model evidence is unavailable after session retirement"
   let startedMs ← IO.monoMsNow
-  let commandText := toString command
+  let commandText := toString (command.renderFor session.solver)
   modifySolverRecord session.solver fun record =>
     { record with modelCommands := record.modelCommands.push commandText }
   logDiagnostic s!"solver={session.solver}; model-command={commandText}"
@@ -1425,7 +1470,7 @@ private def startCheck (solver : SmtSolver) (command : SmtCommand) : TranslateEn
       let startedMs ← IO.monoMsNow
       let response ← IO.asTask session.process.stdout.getLine Task.Priority.dedicated
       return .pending {
-        solver, command, startedMs, timeoutMs,
+        solver, command := command.renderFor solver, startedMs, timeoutMs,
         deadlineMs := timeoutMs.map (startedMs + · + responseDeadlineGraceMs), response
       }
   | .error error =>

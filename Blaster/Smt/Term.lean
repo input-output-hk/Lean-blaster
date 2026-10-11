@@ -612,4 +612,152 @@ def andCond (prev : SmtTerm) (next : SmtTerm) : SmtTerm :=
   | .BoolTerm true => next
   | _ => andSmt next prev
 
+/-! ## cvc5 higher-order rendering of function values
+
+    Blaster encodes a Lean function value as an SMT `Array` value: function
+    types become `(Array α₁ … αₙ β)`, function bodies become `lambda` terms
+    and applications become `select`. Z3 identifies arrays with functions and
+    accepts this encoding as is.
+
+    cvc5 only parses `lambda` under a higher-order logic (`HO_ALL`), where a
+    `lambda` has the function sort `(-> α₁ … αₙ β)`, not an `Array` sort. The
+    functions below therefore render a canonical command for cvc5 by:
+      - replacing every `(Array α₁ … αₙ β)` sort with `(-> α₁ … αₙ β)`;
+      - replacing every `(select f t₁ … tₙ)` with `(@ f t₁ … tₙ)` (cvc5's
+        higher-order application);
+      - keeping `lambda`, `=` and all other terms unchanged.
+    Both `Array` sorts and `->` sorts denote the full extensional space of
+    total functions from α₁ × … × αₙ to β, `select` and `@` both denote
+    application, and `=` is extensional for both. The rendering is therefore
+    semantics-preserving. Function-valued canonicalization (`@canon…`),
+    application, equality and `get-value` requests on function terms are all
+    covered, since they are built from these constructs.
+    Blaster emits `Array` sorts only for Lean function types (see `arraySort`)
+    and the reserved `select` symbol only for function application (see
+    `selectSmt`), so no genuine SMT array is affected. Z3 commands are never
+    rewritten.
+-/
+
+/-! cvc5 higher-order function sort symbol. -/
+def arrowSymbol : SmtSymbol := mkReservedSymbol "->"
+
+/-! cvc5 higher-order application symbol. -/
+def hoApplySymbol : SmtSymbol := mkReservedSymbol "@"
+
+/-! Render `Array` sorts as cvc5 function sorts (see cvc5 higher-order rendering). -/
+partial def SortExpr.toHigherOrder : SortExpr → SortExpr
+  | .SymbolSort nm => .SymbolSort nm
+  | .ParamSort nm ps =>
+      let ps := ps.map SortExpr.toHigherOrder
+      match nm with
+      | .ReservedSymbol "Array" => .ParamSort arrowSymbol ps
+      | _ => .ParamSort nm ps
+
+/-! Render sorted variables for cvc5 (see cvc5 higher-order rendering). -/
+def SortedVars.toHigherOrder (vs : SortedVars) : SortedVars :=
+  vs.map (λ (v, s) => (v, s.toHigherOrder))
+
+/-! Render qualified identifiers for cvc5 (see cvc5 higher-order rendering). -/
+def SmtQualifiedIdent.toHigherOrder : SmtQualifiedIdent → SmtQualifiedIdent
+  | .SimpleIdent nm => .SimpleIdent nm
+  | .QualifiedIdent nm t => .QualifiedIdent nm t.toHigherOrder
+
+mutual
+/-- Render attributes for cvc5 (see cvc5 higher-order rendering). -/
+partial def SmtAttribute.toHigherOrder : SmtAttribute → SmtAttribute
+  | .Pattern p => .Pattern (p.map SmtTerm.toHigherOrder)
+  | a => a
+
+/-- Render terms for cvc5 (see cvc5 higher-order rendering). -/
+partial def SmtTerm.toHigherOrder : SmtTerm → SmtTerm
+  | .SmtIdent nm => .SmtIdent nm.toHigherOrder
+  | .AppTerm (.SimpleIdent (.ReservedSymbol "select")) args =>
+      .AppTerm (.SimpleIdent hoApplySymbol) (args.map SmtTerm.toHigherOrder)
+  | .AppTerm nm args => .AppTerm nm.toHigherOrder (args.map SmtTerm.toHigherOrder)
+  | .LetTerm bs body => .LetTerm (bs.map (λ (v, t) => (v, t.toHigherOrder))) body.toHigherOrder
+  | .ForallTerm bs body => .ForallTerm bs.toHigherOrder body.toHigherOrder
+  | .ExistsTerm bs body => .ExistsTerm bs.toHigherOrder body.toHigherOrder
+  | .LambdaTerm bs body => .LambdaTerm bs.toHigherOrder body.toHigherOrder
+  | .AnnotatedTerm t annot => .AnnotatedTerm t.toHigherOrder (annot.map SmtAttribute.toHigherOrder)
+  | t => t
+end
+
+/-! Render datatype declarations for cvc5 (see cvc5 higher-order rendering). -/
+def SmtDatatypeDecl.toHigherOrder (d : SmtDatatypeDecl) : SmtDatatypeDecl :=
+  { d with ctors := d.ctors.map (λ (c, sels) => (c, sels.map (·.map (λ (s, t) => (s, t.toHigherOrder))))) }
+
+/-! Render function declarations for cvc5 (see cvc5 higher-order rendering). -/
+def SmtFunDecl.toHigherOrder (d : SmtFunDecl) : SmtFunDecl :=
+  { d with params := d.params.toHigherOrder, ret := d.ret.toHigherOrder }
+
+/-! Render a canonical (Z3-encoded) command for cvc5 (see cvc5 higher-order rendering). -/
+def SmtCommand.toHigherOrder : SmtCommand → SmtCommand
+  | .assertTerm t => .assertTerm t.toHigherOrder
+  | .checkSatAssuming args => .checkSatAssuming (args.map SmtTerm.toHigherOrder)
+  | .declareConst nm t => .declareConst nm t.toHigherOrder
+  | .declareDataType nm decl => .declareDataType nm decl.toHigherOrder
+  | .declareMutualDataTypes nms decls => .declareMutualDataTypes nms (decls.map SmtDatatypeDecl.toHigherOrder)
+  | .declareFun nm args rt => .declareFun nm (args.map SortExpr.toHigherOrder) rt.toHigherOrder
+  | .defineFun isRec nm args rt body => .defineFun isRec nm args.toHigherOrder rt.toHigherOrder body.toHigherOrder
+  | .defineFunsRec decls bodies =>
+      .defineFunsRec (decls.map SmtFunDecl.toHigherOrder) (bodies.map SmtTerm.toHigherOrder)
+  | .defineSort nm args body => .defineSort nm args body.toHigherOrder
+  | .getValue t => .getValue t.toHigherOrder
+  | c => c
+
+/-! Command actually submitted to `solver`: the canonical encoding for z3 and
+    its higher-order rendering for cvc5 (see cvc5 higher-order rendering). -/
+def SmtCommand.renderFor (solver : Blaster.Options.SmtSolver) (c : SmtCommand) : SmtCommand :=
+  match solver with
+  | .z3 => c
+  | .cvc5 => c.toHigherOrder
+
+/-! Whether `s` contains an `Array` sort, i.e., a function type (see cvc5 higher-order rendering). -/
+partial def SortExpr.usesFunctionValues : SortExpr → Bool
+  | .SymbolSort _ => false
+  | .ParamSort (.ReservedSymbol "Array") _ => true
+  | .ParamSort _ ps => ps.any SortExpr.usesFunctionValues
+
+mutual
+/-- Whether `a` contains a function value (see cvc5 higher-order rendering). -/
+partial def SmtAttribute.usesFunctionValues : SmtAttribute → Bool
+  | .Pattern p => p.any SmtTerm.usesFunctionValues
+  | _ => false
+
+/-- Whether `t` contains a function value, i.e., an `Array` sort, a `select`
+    or a `lambda` (see cvc5 higher-order rendering). -/
+partial def SmtTerm.usesFunctionValues : SmtTerm → Bool
+  | .SmtIdent (.QualifiedIdent _ t) => t.usesFunctionValues
+  | .AppTerm (.SimpleIdent (.ReservedSymbol "select")) _ => true
+  | .AppTerm nm args =>
+      (SmtTerm.SmtIdent nm).usesFunctionValues || args.any SmtTerm.usesFunctionValues
+  | .LetTerm bs body => bs.any (·.2.usesFunctionValues) || body.usesFunctionValues
+  | .ForallTerm bs body
+  | .ExistsTerm bs body => bs.any (·.2.usesFunctionValues) || body.usesFunctionValues
+  | .LambdaTerm _ _ => true
+  | .AnnotatedTerm t annot => t.usesFunctionValues || annot.any SmtAttribute.usesFunctionValues
+  | _ => false
+end
+
+/-! Whether `c` contains a function value. cvc5 needs the higher-order logic
+    `HO_ALL` for such commands (see cvc5 higher-order rendering). -/
+def SmtCommand.usesFunctionValues : SmtCommand → Bool
+  | .assertTerm t
+  | .getValue t => t.usesFunctionValues
+  | .checkSatAssuming args => args.any SmtTerm.usesFunctionValues
+  | .declareConst _ t => t.usesFunctionValues
+  | .declareDataType _ decl => usesInDecl decl
+  | .declareMutualDataTypes _ decls => decls.any usesInDecl
+  | .declareFun _ args rt => args.any SortExpr.usesFunctionValues || rt.usesFunctionValues
+  | .defineFun _ _ args rt body =>
+      args.any (·.2.usesFunctionValues) || rt.usesFunctionValues || body.usesFunctionValues
+  | .defineFunsRec decls bodies =>
+      decls.any (λ d => d.params.any (·.2.usesFunctionValues) || d.ret.usesFunctionValues) ||
+      bodies.any SmtTerm.usesFunctionValues
+  | .defineSort _ _ body => body.usesFunctionValues
+  | _ => false
+ where
+   usesInDecl (d : SmtDatatypeDecl) : Bool :=
+     d.ctors.any (λ (_, sels) => sels.any (·.any (·.2.usesFunctionValues)))
+
 end Blaster.Smt

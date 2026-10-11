@@ -724,6 +724,11 @@ structure SmtEnv where
       the imminent check, then eligible for replay on the next incremental check. -/
   deferredSessions : Array SmtSolver
 
+  /-- Set once a canonical command uses a function value (see
+      `SmtCommand.usesFunctionValues`). cvc5 sessions then run under the
+      higher-order logic `HO_ALL` instead of `ALL`. -/
+  higherOrder : Bool
+
   /-- Cache keeping track of visited inductive datatype during translation. -/
   indTypeVisited : HashSet Lean.Name
 
@@ -827,6 +832,7 @@ instance : Inhabited SmtEnv where
      singleSolver := none,
      solverRecords := #[],
      deferredSessions := #[],
+     higherOrder := false,
      indTypeVisited := HashSet.emptyWithCapacity,
      indTypeInstCache := HashMap.emptyWithCapacity,
      funInstCache := HashMap.emptyWithCapacity,

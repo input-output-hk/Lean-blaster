@@ -595,10 +595,21 @@ from model-value normalization and display rendering:
   `timedOut`, not `Undetermined`; the child is retired, killed, and reaped.
   Suite-wide bounding via `BLASTER_TIMEOUT` is recommended for cvc5 runs.
 - **Function values**: Blaster encodes Lean function values as SMT `Array`s
-  built with `lambda` and applied with `select`. z3 accepts this; cvc5 does not
-  (its `lambda` has a function sort, and it is rejected under `(set-logic ALL)`),
-  so goals whose translation emits such a `lambda` fail on cvc5 with a parse
-  error at command submission.
+  built with `lambda` and applied with `select`, which z3 receives unchanged.
+  cvc5 only parses `lambda` under a higher-order logic, where it has a
+  function sort, so cvc5 receives a higher-order rendering of the same query:
+  `(Array α β)` becomes `(-> α β)` and `(select f x)` becomes `(@ f x)`.
+  Both denote total extensional functions and application, so verdicts are
+  unchanged. cvc5 starts under `(set-logic ALL)` and is respawned under
+  `(set-logic HO_ALL)` (replaying the canonical query) at the first command
+  that contains a function value, because cvc5 is markedly weaker on
+  first-order quantified queries under `HO_ALL`. For the same reason, goals
+  mixing function values with recursive datatypes may be `Undetermined` on
+  cvc5 where z3 decides them. Function counterexample values are cvc5
+  `lambda` terms, displayed raw. Values of function-typed fields nested in
+  datatype values are not reliable in cvc5 1.4.1 models (they can be
+  self-referential, e.g. `(S.mk (S.fn $0) 1)` for `$0`); this only affects the
+  displayed counterexample, never the verdict.
 - **`unknown` yields no model**: an ordinary solver `unknown` remains
   `Undetermined` and is never inferred to be a timeout. Blaster does not query
   a model after `unknown`.
