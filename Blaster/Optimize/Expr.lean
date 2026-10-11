@@ -119,30 +119,53 @@ instance : Coe Expr SharedExpr where
     scalar: probes and inserts allocate nothing and map teardown never touches
     refcounts for keys. Larger offsets (deeply nested binders, e.g. huge
     unrolled functions) transparently become GMP bignum keys — slower, but
-    correct, with no hard depth limit. -/
+    correct, with no hard depth limit.
+
+    Addresses outside the packed layout (not 8-byte aligned, at or above
+    2^52, e.g. x86-64 LA57 or tagged aarch64 pointers) and non-64-bit
+    platforms use an exact fallback key `2^113 + addr + offset * 2^64`
+    instead of silently colliding (see `packInstKey`). -/
 structure InstKey where
   packed : Nat
 
 instance : BEq InstKey := ⟨fun a b => a.packed == b.packed⟩
-/-- Hash of the key's low 64 bits: exact for scalar keys; bignum keys whose
-    offsets agree modulo 2^15 collide in hash (disambiguated by `BEq`), which is
-    acceptable because offsets ≥ 2^13 are rare. -/
-instance : Hashable InstKey := ⟨fun a => ptrAddrHash (USize.ofNat a.packed)⟩
+/-- Hash of the key's low 64 bits, mixed with the higher bits for bignum keys
+    (e.g. fallback keys, whose low 64 bits are just the address). Scalar keys
+    keep the exact single-hash fast path. -/
+instance : Hashable InstKey := ⟨fun a =>
+  let low := ptrAddrHash (USize.ofNat a.packed)
+  if a.packed < 4611686018427387904 then low else mixHash low (hash (a.packed >>> 64))⟩
 instance : Inhabited InstKey := ⟨⟨0⟩⟩
 
 /-- Offsets below this bound (2^13) keep `packInstKey` on the packed-scalar fast path. -/
 private def scalarOffsetBound : USize := 8192
 
-/-- Pack an 8-byte-aligned object address `addr` (below 2^52) and a binder
-    `offset` into an `InstKey`. Injective on such inputs: the address occupies
-    bits 0..48 and the offset bits 49 and up. -/
+/-- Addresses whose bits outside 3..51 are set do not fit the packed layout:
+    they are either not 8-byte aligned or at/above 2^52. -/
+private def unpackableAddrMask : USize := 0xFFF0000000000007
+
+/-- Pack an object address `addr` and a binder `offset` into an `InstKey`.
+    Injective on all inputs, using three disjoint key ranges:
+      - packed scalar, `< 2^62`: 64-bit platform, 8-byte-aligned `addr < 2^52`,
+        `offset < 2^13`; the address occupies bits 0..48 and the offset bits
+        49 and up;
+      - packed bignum, `[2^62, 2^113)`: same layout for an aligned `addr < 2^52`
+        and `offset ≥ 2^13` (or any offset on a non-64-bit platform);
+      - fallback, `≥ 2^113`: `2^113 + addr + offset * 2^64` for any other
+        address. `addr < 2^64` and `offset < 2^64`, so this is exact. -/
 @[always_inline, inline]
 def packInstKey (addr : USize) (offset : USize) : InstKey :=
-  if offset < scalarOffsetBound then
-    -- addr >>> 3 < 2^49, offset < 2^13 ⇒ packed < 2^62: `toNat` is a tag, not an allocation
-    ⟨((addr >>> 3) ||| (offset <<< 49)).toNat⟩
-  else
+  if System.Platform.numBits == 64 && addr &&& unpackableAddrMask == 0 then
+    if offset < scalarOffsetBound then
+      -- addr >>> 3 < 2^49, offset < 2^13 ⇒ packed < 2^62: `toNat` is a tag, not an allocation
+      ⟨((addr >>> 3) ||| (offset <<< 49)).toNat⟩
+    else
+      ⟨(addr >>> 3).toNat ||| (offset.toNat <<< 49)⟩
+  else if addr.toNat < 2 ^ 52 && addr.toNat % 8 == 0 then
+    -- non-64-bit platform: same layout, computed on `Nat`
     ⟨(addr >>> 3).toNat ||| (offset.toNat <<< 49)⟩
+  else
+    ⟨2 ^ 113 + addr.toNat + offset.toNat * 2 ^ 64⟩
 
 @[always_inline, inline]
 unsafe def mkInstKeyAux (e : Expr) (offset : USize) : InstKey :=
