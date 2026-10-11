@@ -1,6 +1,11 @@
 Finite fields, job #80: pass 3 report (step 1 complete)
 ========================================================
 
+Correction (pass 4): the completion claim below was premature. The limit in
+section 6 about function-typed datatype fields was not display-only. Blaster
+displayed self-referential or wrong cvc5 values without any warning. See
+pass-4-report.txt for the fix (3a99f42) and the corrected status.
+
 Branch:    agent/plan-lean-blaster-finite-fields (not pushed)
 Validated: 3c7c940c1092108eebdf528e711c8af6df8c6bf2 (clean tree)
 Previous:  0b849cf (pass 2). The three new commits fast-forward it. The
