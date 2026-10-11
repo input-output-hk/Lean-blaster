@@ -1,5 +1,6 @@
 import Tests.Smt.Benchmarks
 import Tests.Smt.SmtEqArith
+import Tests.Smt.SmtFinBaseline
 import Tests.Smt.SmtInt
 import Tests.Smt.SmtList
 import Tests.Smt.SmtLtArith

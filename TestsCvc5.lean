@@ -3,6 +3,7 @@
 -- modules additionally need Z3. `CounterexampleSpike` is a diagnostic artifact
 -- and intentionally not imported (see `COUNTEREXAMPLE_SPIKE.md`).
 import TestsCvc5.Cvc5Capabilities
+import TestsCvc5.Cvc5FinBaseline
 import TestsCvc5.Cvc5Floor
 import TestsCvc5.SmtSolverCvc5
 import TestsCvc5.SolverSelection
