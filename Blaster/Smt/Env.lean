@@ -361,7 +361,7 @@ def ProbeOutcome.banner : ProbeOutcome → String
 /-- Verdict for one candidate probe: accept the candidate, or produce the
     human-readable rejection reason (one line of the discovery report).
     This is the single acceptance-policy point shared by solver discovery
-    (`findSolverExecutable`) and the `solvercheck` executable. -/
+    (`findSolverExecutable`) and `SolverCheck.lean`. -/
 def evalCandidateProbe (desc : SolverDescriptor) (candidate : SolverCandidate) :
     ProbeOutcome → Except String Unit
   | .failed err => .error s!"Candidate '{candidate.display}': IO error => {err}"
@@ -438,7 +438,7 @@ def probeSolverCandidate (desc : SolverDescriptor) (candidate : SolverCandidate)
 
 /-- Full acceptance of one candidate: version policy (`evalCandidateProbe`)
     first, then the build-capability policy (`evalCapabilityProbe`). Shared by
-    solver discovery and the `solvercheck` executable. Returns the version
+    solver discovery and `SolverCheck.lean`. Returns the version
     probe outcome (for its banner) on acceptance. -/
 def validateSolverCandidate (desc : SolverDescriptor) (candidate : SolverCandidate) :
     IO (Except String ProbeOutcome) := do
@@ -1399,6 +1399,18 @@ private inductive PendingCompletion where
 private def responseDeadlineGraceMs : Nat := 1000
 
 
+/-- Exit code of `process` if it has terminated, polling briefly (at most
+    ~200 ms) to cover the window between a child closing its pipes and being
+    reapable. Returns `none` for a child that is still running. -/
+private partial def exitedChildCode? (process : PipedChild) (attempts : Nat := 10) :
+    IO (Option UInt32) := do
+  match ← (try process.tryWait catch _ => pure none) with
+  | some code => return some code
+  | none =>
+    if attempts == 0 then return none
+    IO.sleep 20
+    exitedChildCode? process (attempts - 1)
+
 private def startCheck (solver : SmtSolver) (command : SmtCommand) : TranslateEnvT CheckStart := do
   let submissionStartedMs ← IO.monoMsNow
   let some session ← getSession? solver
@@ -1417,8 +1429,13 @@ private def startCheck (solver : SmtSolver) (command : SmtCommand) : TranslateEn
         deadlineMs := timeoutMs.map (startedMs + · + responseDeadlineGraceMs), response
       }
   | .error error =>
+      -- A solver that already exited makes the write fail with a broken pipe
+      -- before any response can be read; report it like the closed-stdout path.
+      let response := match ← exitedChildCode? session.process with
+        | some code => s!"solver closed stdout and exited with code {code} before accepting the command ({error})"
+        | none => error
       let diagnostic ←
-        retireFailedSession session "check submission" command error submissionStartedMs
+        retireFailedSession session "check submission" command response submissionStartedMs
       return .failed {
         solver, verdict := none, status := .processFailed,
         elapsedMs := (← IO.monoMsNow) - submissionStartedMs, diagnostic := some diagnostic
