@@ -24,8 +24,8 @@ open Blaster.Options Blaster.Optimize Blaster.Smt Blaster.StateMachine
      - incremental `check-sat-assuming` checks (`#bmc`) over a function-valued
        input, where cvc5 switches to `HO_ALL` in the middle of the query.
     Function counterexample values are solver-invented `lambda` terms, so they
-    are not pinned; `solve-result: 1` asserts the Falsified verdict and that
-    `get-value` on function terms succeeds.
+    are not pinned here; `solve-result: 1` only asserts the Falsified verdict.
+    The displayed values are checked in `Cvc5FunctionModelValues.lean`.
 
     The last section checks that cvc5 rejections are still reported as errors:
     the rendering does not hide or fall back on queries cvc5 cannot parse. -/

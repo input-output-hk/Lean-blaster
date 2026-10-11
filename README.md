@@ -609,10 +609,22 @@ from model-value normalization and display rendering:
   first-order quantified queries under `HO_ALL`. For the same reason, goals
   mixing function values with recursive datatypes may be `Undetermined` on
   cvc5 where z3 decides them. Function counterexample values are cvc5
-  `lambda` terms, displayed raw. Values of function-typed fields nested in
-  datatype values are not reliable in cvc5 1.4.1 models (they can be
-  self-referential, e.g. `(S.mk (S.fn $0) 1)` for `$0`); this only affects the
-  displayed counterexample, never the verdict.
+  `lambda` terms, displayed raw.
+- **Function values in counterexamples**: cvc5 1.4.1 does not evaluate
+  function values stored in datatype fields reliably in `get-value`
+  responses. The value of `s : S` can refer to `s` itself, e.g.
+  `(S.mk (S.mk.0 $0) 1)` for `$0`, and even a closed value can disagree with
+  the value of one of its own selector terms. Blaster therefore retrieves a
+  cvc5 value whose sort can hold function values type-directed: it takes the
+  constructor of the value (confirmed by its tester when the sort has
+  several), requests each field through its selector term
+  (e.g. `(get-value ((S.mk.0 $0)))`), so every function value is requested at
+  its own function sort, and checks that each such value is closed. When cvc5
+  provides no closed value, or only a function value containing datatype
+  values that hold function values (e.g. for `f : Int → S`), that variable is
+  displayed as `<counterexample unavailable>`. A warning keeps the raw value,
+  and the verdict is unchanged. z3 values are retrieved with one `get-value`
+  per variable, as before.
 - **`unknown` yields no model**: an ordinary solver `unknown` remains
   `Undetermined` and is never inferred to be a timeout. Blaster does not query
   a model after `unknown`.

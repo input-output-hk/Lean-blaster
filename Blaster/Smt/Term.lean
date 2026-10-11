@@ -760,4 +760,146 @@ def SmtCommand.usesFunctionValues : SmtCommand → Bool
    usesInDecl (d : SmtDatatypeDecl) : Bool :=
      d.ctors.any (λ (_, sels) => sels.any (·.any (·.2.usesFunctionValues)))
 
+/-! ## Sorts of cvc5 model values holding function values
+
+    cvc5 1.4.1 does not return reliable `get-value` results for function
+    values stored in datatype fields. The value of a datatype constant can
+    refer back to the constant itself (e.g. `(S.mk (S.mk.0 $0) 1)` for `$0`),
+    and even a closed value can disagree with the value of one of its own
+    selector terms in the same model. Function values of top-level function
+    terms (e.g. `(get-value ((S.mk.0 $0)))`) are returned as closed `lambda`
+    terms.
+
+    Model retrieval for cvc5 therefore follows the sort of each counterexample
+    term (see `retrieveTypedValue`): a datatype value holding function values
+    is rebuilt from its constructor (confirmed by its tester) and one
+    `get-value` request per selector term, so every function value is
+    requested at a function sort. A
+    `ModelSchema` gives the sorts that this requires. It is computed from the
+    canonical commands, which hold every declaration sent to the solver.
+-/
+
+/-! Name of `s` as declared (without SMT-LIB quoting). -/
+def SmtSymbol.name : SmtSymbol → String
+  | .ReservedSymbol s
+  | .NormalSymbol s => s
+
+/-- Sort information of the canonical query used to retrieve cvc5 model
+    values (see sorts of cvc5 model values holding function values). -/
+structure ModelSchema where
+  /-- Sort of each declared constant. -/
+  consts : Std.HashMap SmtSymbol SortExpr := {}
+  /-- Declaration of each datatype, by datatype name. -/
+  datatypes : Std.HashMap SmtSymbol SmtDatatypeDecl := {}
+  /-- Parameters and body of each `define-sort`, by sort name. -/
+  aliases : Std.HashMap SmtSymbol (Option (Array SmtSymbol) × SortExpr) := {}
+  /-- Names of declared constants and functions and of defined functions.
+      None of them can occur free in a model value. -/
+  symbols : Std.HashSet String := {}
+
+namespace ModelSchema
+
+/-! Add the declarations of `c` to `schema`. -/
+private def addCommand (schema : ModelSchema) (c : SmtCommand) : ModelSchema :=
+  match c with
+  | .declareConst nm t =>
+      { schema with consts := schema.consts.insert nm t, symbols := schema.symbols.insert nm.name }
+  | .declareFun nm _ _
+  | .defineFun _ nm _ _ _ => { schema with symbols := schema.symbols.insert nm.name }
+  | .defineFunsRec decls _ =>
+      { schema with symbols := decls.foldl (λ acc d => acc.insert d.name.name) schema.symbols }
+  | .declareDataType nm decl => { schema with datatypes := schema.datatypes.insert nm decl }
+  | .declareMutualDataTypes nms decls =>
+      (nms.zip decls).foldl (λ acc (nm, decl) =>
+        { acc with datatypes := acc.datatypes.insert nm.name decl }) schema
+  | .defineSort nm args body => { schema with aliases := schema.aliases.insert nm (args, body) }
+  | _ => schema
+
+/-! Schema of the canonical commands `cs`. -/
+def ofCommands (cs : Array SmtCommand) : ModelSchema :=
+  cs.foldl addCommand {}
+
+/-! Replace each parameter `params[i]` in `s` with `args[i]`. -/
+private partial def instantiate (params : Array SmtSymbol) (args : Array SortExpr) : SortExpr → SortExpr
+  | s@(.SymbolSort nm) =>
+      match params.idxOf? nm with
+      | some i => args[i]?.getD s
+      | none => s
+  | .ParamSort nm ps => .ParamSort nm (ps.map (instantiate params args))
+
+/-! Unfold the `define-sort` aliases at the head of `s` (at most `fuel` times). -/
+partial def unfold (schema : ModelSchema) (s : SortExpr) (fuel : Nat := 64) : SortExpr :=
+  if fuel == 0 then s else
+  let (nm, args) := match s with
+    | .SymbolSort nm => (nm, #[])
+    | .ParamSort nm ps => (nm, ps)
+  match schema.aliases.get? nm with
+  | some (params, body) =>
+      let params := params.getD #[]
+      if params.size == args.size
+      then schema.unfold (instantiate params args body) (fuel - 1)
+      else s
+  | none => s
+
+/-! Whether `s` is a function sort, i.e., an `Array` sort (see `arraySort`). -/
+def isFunctionSort (schema : ModelSchema) (s : SortExpr) : Bool :=
+  match schema.unfold s with
+  | .ParamSort (.ReservedSymbol "Array") _ => true
+  | _ => false
+
+/-! Constructors of datatype sort `s`, with each selector and its field sort
+    instantiated with the sort arguments of `s`; `none` when `s` is not a
+    declared datatype. -/
+def constructors? (schema : ModelSchema) (s : SortExpr) :
+    Option (Array (SmtSymbol × Array (SmtSymbol × SortExpr))) :=
+  let (nm, args) := match schema.unfold s with
+    | .SymbolSort nm => (nm, #[])
+    | .ParamSort nm ps => (nm, ps)
+  schema.datatypes.get? nm |>.map λ decl =>
+    let params := decl.params.getD #[]
+    decl.ctors.map λ (c, sels) =>
+      (c, (sels.getD #[]).map λ (sel, t) => (sel, instantiate params args t))
+
+/-! Sorts directly reachable from `s`: the components of a parametric sort
+    and, for a datatype, the sorts of its fields. -/
+private def components (schema : ModelSchema) (s : SortExpr) : Array SortExpr :=
+  let s := schema.unfold s
+  let params := match s with
+    | .SymbolSort _ => #[]
+    | .ParamSort _ ps => ps
+  match schema.constructors? s with
+  | some ctors => params ++ ctors.flatMap (·.2.map (·.2))
+  | none => params
+
+/-! Whether a value of sort `s` can contain a function value. -/
+partial def holdsFunctions (schema : ModelSchema) (s : SortExpr) : Bool :=
+  (go s {}).1
+ where
+   go (s : SortExpr) (visited : Std.HashSet SortExpr) : Bool × Std.HashSet SortExpr :=
+     if visited.contains s then (false, visited)
+     else if schema.isFunctionSort s then (true, visited)
+     else
+       (schema.components s).foldl (init := (false, visited.insert s)) λ (found, visited) c =>
+         if found then (true, visited) else go c visited
+
+/-! Names of the constructors of the datatype sorts holding function values
+    that a value of sort `s` can contain, including `s` itself. -/
+partial def functionDatatypeConstructors (schema : ModelSchema) (s : SortExpr) : Std.HashSet String :=
+  (go s {} {}).1
+ where
+   go (s : SortExpr) (found : Std.HashSet String) (visited : Std.HashSet SortExpr) :
+       Std.HashSet String × Std.HashSet SortExpr :=
+     if visited.contains s then (found, visited)
+     else
+       let found :=
+         match schema.constructors? s with
+         | some ctors =>
+             if schema.holdsFunctions s then ctors.foldl (λ acc (c, _) => acc.insert c.name) found
+             else found
+         | none => found
+       (schema.components s).foldl (init := (found, visited.insert s)) λ (found, visited) c =>
+         go c found visited
+
+end ModelSchema
+
 end Blaster.Smt

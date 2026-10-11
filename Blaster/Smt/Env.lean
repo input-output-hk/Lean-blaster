@@ -1357,30 +1357,132 @@ private def requestModelResponse
           logDiagnostic s!"solver={session.solver}; raw-model-response=\n{response}"
           return .ok response
 
-private def evalTermFor
-    (session : SolverSession) (t : SmtTerm) : TranslateEnvT (Option String × Option String) := do
+/-- Value `v` of the `get-value` response `((t v))` for `t`, unnormalized. -/
+private def requestValue
+    (session : SolverSession) (t : SmtTerm) : TranslateEnvT (Except String Sexp) := do
   let command := SmtCommand.getValue t
   match ← requestModelResponse session command (getOutputGetValue session.process.stdout) with
-  | .error diagnostic => return (none, some diagnostic)
+  | .error diagnostic => return .error diagnostic
   | .ok response =>
       match Sexp.parseMany response with
       | .error error =>
           let diagnostic :=
             s!"S-expression parsing failed for get-value response: {error}; raw response: {response.trim}"
           logDiagnostic s!"solver={session.solver}; parsed-smt-value=error: {error}"
-          return (none, some diagnostic)
+          return .error diagnostic
       | .ok parsed =>
           logDiagnostic s!"solver={session.solver}; parsed-smt-value={reprStr parsed}"
           match solverErrorMsg? response with
           | some error =>
-              return (none, some s!"get-value returned an SMT error: {error}; raw response: {response.trim}")
+              return .error s!"get-value returned an SMT error: {error}; raw response: {response.trim}"
           | none =>
-              match reconstructGetValue? response with
-              | some rendered =>
-                  logDiagnostic s!"solver={session.solver}; lean-rendered-value={rendered}"
-                  return (some rendered, none)
-              | none =>
-                  return (none, some s!"Response framing failed: expected ((term value)); raw response: {response.trim}")
+              match parsed with
+              | #[.app #[.app #[_t, v]]] => return .ok v
+              | _ =>
+                  return .error s!"Response framing failed: expected ((term value)); raw response: {response.trim}"
+
+private def evalTermFor
+    (session : SolverSession) (t : SmtTerm) : TranslateEnvT (Option String × Option String) := do
+  match ← requestValue session t with
+  | .error diagnostic => return (none, some diagnostic)
+  | .ok value =>
+      let rendered := Sexp.reconstructSexp value
+      logDiagnostic s!"solver={session.solver}; lean-rendered-value={rendered}"
+      return (some rendered, none)
+
+/-- Maximum number of `get-value` requests for the type-directed retrieval of
+    one counterexample value (see `retrieveTypedValue`). -/
+private def typedValueRequestLimit : Nat := 256
+
+/-- Type-directed retrieval of the cvc5 model value of `t` of sort `s` (see
+    sorts of cvc5 model values holding function values):
+     - a value of a datatype sort holding function values is rebuilt from the
+       constructor of the value of `t` (confirmed by its tester when the sort
+       has several constructors) and the values of its selector terms, each
+       retrieved at its field sort;
+     - any other value is the `get-value` result for `t`.
+    Every retrieved leaf value must be closed: a declared or defined
+    constant or function occurring in it means that cvc5 did not evaluate it.
+    A function value containing a constructor of a datatype holding function
+    values (e.g. a function returning such a datatype) is rejected, since it
+    contains a function value in a datatype field that was not requested at
+    its own sort.
+    Each failure is an error naming the term and the raw value; no value is
+    guessed. `budget` is the number of `get-value` requests left; the
+    remaining budget is returned with the value. -/
+private partial def retrieveTypedValue
+    (session : SolverSession) (schema : ModelSchema) (t : SmtTerm) (s : SortExpr)
+    (budget : Nat) : TranslateEnvT (Except String (Sexp × Nat)) := do
+  if budget == 0 then
+    return .error s!"type-directed model retrieval exceeded {typedValueRequestLimit} get-value requests at {t.toHigherOrder}"
+  match ← requestValue session t with
+  | .error diagnostic => return .error diagnostic
+  | .ok value =>
+      let value := Sexp.normalizeValue value
+      let budget := budget - 1
+      let raw := Sexp.toRaw value
+      if schema.isFunctionSort s then
+        let ctors := schema.functionDatatypeConstructors s
+        let nested := (Sexp.freeSymbols value).filter ctors.contains
+        if !nested.isEmpty then
+          return .error s!"cvc5 returned a function value of {t.toHigherOrder} that contains datatype values holding function values ({String.intercalate ", " nested}), which cvc5 models do not evaluate reliably; raw value: {raw}"
+      let some ctors := (if schema.holdsFunctions s then schema.constructors? s else none)
+        | -- A leaf value: a function value or a value without function values.
+          let unevaluated := (Sexp.freeSymbols value).filter schema.symbols.contains
+          if !unevaluated.isEmpty then
+            return .error s!"cvc5 returned a value of {t.toHigherOrder} that refers to {String.intercalate ", " unevaluated} instead of a closed value; raw value: {raw}"
+          return .ok (value, budget)
+      -- Only the constructor of a datatype value holding function values is
+      -- used; its fields may not be evaluated.
+      let head : Option String := match value with
+        | .atom c => some c
+        | .app elems => match (elems[0]? : Option Sexp) with
+          | some (.atom c) => some c
+          | _ => none
+      let unquote (c : String) : String :=
+        if c.length ≥ 2 && c.startsWith "|" && c.endsWith "|" then (c.drop 1).dropRight 1 else c
+      let some (ctor, fields) := head.bind fun c => ctors.find? (·.1.name == unquote c)
+        | return .error s!"cvc5 returned a value of {t.toHigherOrder} without a constructor of its sort; raw value: {raw}"
+      let mut budget := budget
+      -- The constructor is confirmed with its tester when the sort has several.
+      if ctors.size > 1 then
+        if budget == 0 then
+          return .error s!"type-directed model retrieval exceeded {typedValueRequestLimit} get-value requests at {t.toHigherOrder}"
+        let tester := SmtTerm.AppTerm (.SimpleIdent (mkNormalSymbol s!"is-{ctor.name}")) #[t]
+        budget := budget - 1
+        match ← requestValue session tester with
+        | .error diagnostic => return .error diagnostic
+        | .ok (.atom "true") => pure ()
+        | .ok answer =>
+            return .error s!"cvc5 returned a value of {t.toHigherOrder} whose constructor {ctor.name} is not confirmed by {tester.toHigherOrder} = {Sexp.toRaw answer}; raw value: {raw}"
+      let mut args : Array Sexp := #[.atom (toString ctor)]
+      for (selector, fieldSort) in fields do
+        match ← retrieveTypedValue session schema (.AppTerm (.SimpleIdent selector) #[t]) fieldSort budget with
+        | .error diagnostic => return .error diagnostic
+        | .ok (field, rest) =>
+            args := args.push field
+            budget := rest
+      return .ok (if fields.isEmpty then args[0]! else .app args, budget)
+
+/-- Rendered value of the counterexample variable `v`. cvc5 values that can
+    hold function values are retrieved type-directed (see
+    `retrieveTypedValue`); all other values are retrieved with one
+    `get-value` request. -/
+private def evalEntry
+    (session : SolverSession) (schema : ModelSchema) (v : SmtSymbol) :
+    TranslateEnvT (Option String × Option String) := do
+  match schema.consts.get? v with
+  | some s =>
+      if session.solver == .cvc5 && schema.holdsFunctions s then
+        match ← retrieveTypedValue session schema (smtSimpleVarId v) s typedValueRequestLimit with
+        | .error diagnostic => return (none, some diagnostic)
+        | .ok (value, _) =>
+            let rendered := Sexp.reconstructSexp value
+            logDiagnostic s!"solver={session.solver}; type-directed-value={Sexp.toRaw value}"
+            logDiagnostic s!"solver={session.solver}; lean-rendered-value={rendered}"
+            return (some rendered, none)
+      else evalTermFor session (smtSimpleVarId v)
+  | none => evalTermFor session (smtSimpleVarId v)
 
 private def getModelFor (solver : SmtSolver) : TranslateEnvT ModelEvidence := do
   let some session ← getSession? solver
@@ -1409,9 +1511,10 @@ private def getModelFor (solver : SmtSolver) : TranslateEnvT ModelEvidence := do
   else
     let mut counterexample : Array String := #[]
     let mut diagnostics : Array String := #[]
+    let schema := ModelSchema.ofCommands (← get).smtEnv.smtCommands
     for vars in topVars do
       for entry in vars.reverse do
-        let (rendered, diagnostic) ← evalTermFor session (smtSimpleVarId entry.1)
+        let (rendered, diagnostic) ← evalEntry session schema entry.1
         match rendered with
         | some value => counterexample := counterexample.push s!"{entry.2}: {value}"
         | none => counterexample := counterexample.push s!"{entry.2}: <counterexample unavailable>"

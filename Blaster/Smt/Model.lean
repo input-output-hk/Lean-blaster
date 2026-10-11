@@ -218,6 +218,13 @@ private partial def freeAtoms (e : Sexp)
           elems.foldl (init := ({} : Std.HashSet AtomIdentity)) fun free elem =>
             free.union (freeAtoms elem bound)
 
+/-- Names of the symbols occurring free in term positions of `e` (see
+    `freeAtoms`), without SMT-LIB quoting. -/
+def freeSymbols (e : Sexp) : List String :=
+  (freeAtoms e).toList.filterMap fun
+    | .symbol name => some name
+    | .other _ => none
+
 private partial def allAtoms : Sexp → Std.HashSet AtomIdentity
   | .atom name => ({} : Std.HashSet AtomIdentity).insert (atomIdentity name)
   | .app elems =>
