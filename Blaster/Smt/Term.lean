@@ -465,6 +465,21 @@ private def escapeSmtStringLit (s : String) : Except Char String :=
     else .error c
   )
 
+/-! Quote `s` as a complete Smt string literal using `escapeSmtStringLit`.
+    Characters above `maxSmtCodePoint` (which `strLitSmt` rejects) are emitted as
+    `\u{…}` escapes here so that the result is total; this helper is only used
+    for transcripts and model round-trips, never for translation.
+    The mirror decoding lives in `Blaster.Smt.Sexp.decodeStringLit?`. -/
+def quoteSmtString (s : String) : String :=
+  match escapeSmtStringLit s with
+  | .ok body => s!"\"{body}\""
+  | .error _ =>
+    s.foldl (init := "\"") (fun acc c =>
+      if c == '"' then acc ++ "\"\""
+      else if c == '\\' || c.toNat < 0x20 || c.toNat > 0x7e then
+        acc ++ s!"\\u\{{String.mk (Nat.toDigits 16 c.toNat)}}"
+      else acc.push c) ++ "\""
+
 /-! Convert a String literal to an Smt representation.
     Fails with the offending character when `s` holds one outside the Smt string alphabet. -/
 def strLitSmt (s : String) : Except Char SmtTerm :=

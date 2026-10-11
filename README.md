@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-Blaster provides an SMT backend for Z3 proofs. Blaster works by first aggressively optimizing the Lean expression of a theorem, sometimes up to a `True` goal, before sending the remaining goal and context to an SMT solver.
+Blaster provides an SMT backend for Lean4 proofs, supporting both the Z3 (default) and cvc5 solvers. Blaster works by first aggressively optimizing the Lean expression of a theorem, sometimes up to a `True` goal, before sending the remaining goal and context to an SMT solver.
 
 ## Table of Contents
 
@@ -14,6 +14,7 @@ Blaster provides an SMT backend for Z3 proofs. Blaster works by first aggressive
   - [Prerequisites](#prerequisites)
   - [Installing Lean4](#installing-lean4)
   - [Installing Z3](#installing-z3)
+  - [Installing cvc5](#installing-cvc5)
 - [How to use?](#how-to-use)
   - [Using lakefile.toml](#using-lakefiletoml)
   - [Using lakefile.lean](#using-lakefilelean)
@@ -45,10 +46,14 @@ Blaster provides an SMT backend for Z3 proofs. Blaster works by first aggressive
 
 ### Prerequisites
 
-Blaster is built with the philosophy that fewer dependencies mean better maintainability and more optimization opportunities. That said, Blaster requires:
+Blaster requires Lean. Invoking a solver additionally requires the selected
+backend executable; solver-independent translation and pure tests require neither:
 
-- **Lean4** v4.24.0 (or compatible version)
-- **Z3** with the `recfun-finder` simplifier; use the pinned build below.
+- **Lean4** v4.24.0 (or compatible version);
+- **Z3** with the `recfun-finder` simplifier; use the pinned build below. Z3 is
+  the default backend and is required for every concurrent solver mode;
+- **cvc5** v1.2.1 or later, built with CoCoA (`cvc5 --show-config` reports
+  `cocoa : yes`) — required only when selecting cvc5 or using `first` / `agree`.
 
 ### Installing Lean4
 
@@ -68,6 +73,46 @@ The section on [Installing the Z3 Solver](#installing-the-z3-solver)
 below explains how to get the right version of Z3 installed and check that
 Lean is using that version.  If you need more help, please see the official
 installation guidelines from the [Z3 GitHub repository](https://github.com/Z3Prover/z3).
+
+### Installing cvc5
+
+The cvc5 backend is optional for single-solver use: Blaster looks for `cvc5`
+when `(solver: cvc5)`, `BLASTER_SOLVER=cvc5`, or either concurrent solver mode
+is used. The test entry points preserve single-backend isolation:
+
+- `make test-pure` runs parser, model-reconstruction, version-policy, launch-spec,
+  setup-command, and configuration-precedence tests without either solver;
+- `make test-z3` runs the default backend suite and requires only Z3;
+- `make test-cvc5` runs the cvc5 backend suite in strict result-conformance mode
+  and requires only cvc5;
+- `make test-all-solvers` checks every test module plus same-process backend
+  selection and requires both solvers;
+- `make test-cvc5-floor` requires exactly cvc5 1.2.1 and runs the focused
+  support-floor checks described below.
+
+`make check_tests` runs the pure and Z3 tiers. Linux CI mirrors this topology in
+separate Z3-only, cvc5-only, dual-solver, and cvc5-support-floor matrix legs.
+
+**Full-suite tested version:** cvc5 v1.3.4. Version 1.2.1 is the hard support
+floor enforced by Blaster's solver-version validation. A dedicated CI leg
+downloads the official cvc5 1.2.1 static binary and requires
+discovery/version validation, one satisfiable query, one unsatisfiable query,
+and one counterexample/model query to pass.
+
+Install a release binary from the [cvc5 GitHub repository](https://github.com/cvc5/cvc5/releases)
+and make sure it is available in your `PATH` as `cvc5`. You can check the setup with:
+
+```bash
+lake exe solvercheck cvc5
+```
+
+Solver executables are validated before use: a candidate whose version banner
+cannot be parsed, or reports a version below the supported minimum, is
+rejected with a diagnostic listing every candidate tried (fail-closed; this
+also applies to `z3`). On Windows, Blaster makes a best-effort fallback by
+probing `wsl` with `z3` / `cvc5` as its first argument when no native solver
+is found. Automated Linux CI does not exercise this fallback, so it is not a
+tested Windows-support guarantee.
 
 ## How to use?
 
@@ -90,16 +135,117 @@ require «Blaster» from git
 ```
 
 ### Solver options
-  - `timeout`: specifying the timeout (in second) to be used for the backend smt solver (defaut: ∞)
+  - `timeout`: timeout in seconds for the backend solver. Precedence is the explicit
+               option, then `BLASTER_TIMEOUT`, then no timeout (∞). Surrounding
+               whitespace is ignored; an unset or blank environment value means ∞,
+               and any other environment value must be a natural number.
   - `verbose:` activating debug info (default: 0)
   - `only-smt-lib`: only translating unsolved goals to smt-lib without invoking the backend solver (default: 0)
   - `only-optimize`: only perform optimization on lean specification and do not translate to smt-lib (default: 0)
-  - `dump-smt-lib`: display the smt lib query to stdout (default: 0)
+  - `dump-smt-lib`: display the SMT-LIB query to stdout (default: 0). Concurrent
+                    modes emit separate labeled runnable Z3 and cvc5 transcripts.
   - `random-seed`: seed for the random number generator (default: none)
+  - `solver`: backend SMT solver (`z3` or `cvc5`). Precedence is the explicit option,
+              then `BLASTER_SOLVER`, then `z3`. Surrounding whitespace in the
+              environment value is ignored, but names are case-sensitive lowercase;
+              any other value is rejected with the valid choices.
+  - `solver-mode`: `single` (default), `first`, or `agree`; see
+                   [Concurrent solver modes](#concurrent-solver-modes).
   - `gen-cex`: generate counterexample for falsified theorems (default: 1)
   - `solve-result`: specify the expected result from the #blaster command, i.e.,
                     0 for 'Valid', 1 for 'Falsified' and 2 for 'Undetermined'. (default: 0)
+  - `cvc5-allow-undetermined`: permit an ordinary `Undetermined` result in
+    single-cvc5 mode (default: 0). This does not permit process failures.
+    It does not apply to concurrent modes.
 
+
+#### Concurrent solver modes
+
+`solver-mode` controls execution without changing the existing `solver`
+selection:
+
+| Configuration | Behavior |
+|---|---|
+| no `solver-mode`, or `(solver-mode: single)` | Use `(solver: ...)`, then `BLASTER_SOLVER`, then Z3 |
+| `(solver-mode: first)` | Run Z3 and cvc5 concurrently; first decisive verdict wins |
+| `(solver-mode: agree)` | Run both and require compatible verdicts |
+
+`first` treats only `Valid` and `Falsified` as decisive. `Undetermined`, a
+Blaster-side deadline, a process failure, or a protocol failure cannot beat a
+still-running solver. If a backend rejects a later declaration/assertion, that
+session is retired and the healthy backend remains usable; a later incremental
+check may recreate the retired session and replay the canonical query. When no
+backend decides, ordinary `Undetermined` is returned only if both backends
+returned `unknown`; infrastructure failures remain visible errors.
+
+After a winning `Falsified` verdict, Blaster retrieves that solver's
+counterexample while the loser is still alive, then kills and reaps the loser.
+Model retrieval failure does not erase `Falsified`; it emits a precise
+counterexample-unavailable diagnostic. The winning backend is printed only at
+maintenance verbosity (`verbose: 2` or higher).
+
+`agree` compares verdicts, not model text:
+
+| Z3 | cvc5 | Result |
+|---|---|---|
+| `Valid` | `Valid` | `Valid` |
+| `Falsified` | `Falsified` | `Falsified` |
+| `Undetermined` | `Undetermined` | `Undetermined` |
+| `Valid` | `Falsified` (or the reverse) | hard disagreement |
+| decisive | `Undetermined` (or the reverse) | incomplete/coverage disagreement |
+| any verdict | timeout, process failure, or protocol failure | infrastructure failure |
+
+Matching falsified results do not require identical counterexamples. Evidence
+is selected by quality: complete evidence from a completed model step, then
+partial evidence from a `modelFailed` step, then no evidence. Z3 precedes cvc5
+only as the tie-breaker between equal-quality candidates. A complete cvc5
+counterexample therefore outranks a partial Z3 counterexample; the Z3 model
+diagnostic is still retained.
+
+Blaster compares both verdicts before it requests model values. It does not
+request a model for a disagreement. If a check fails, `agree` stops the other
+session through the normal cleanup path. It does not wait for another verdict.
+Agreement does not add a checked-proof guarantee.
+
+Each optional `get-model` or `get-value` response read has a five-second limit.
+If that limit expires, Blaster stops the session and joins its response reader.
+It keeps `Falsified` and reports that counterexample details are incomplete.
+This limit starts after command submission. It does not limit submission,
+parsing, value expansion, or the total time for all model requests.
+Cleanup still uses the existing direct-child process handling.
+
+Every hard/incomplete disagreement, infrastructure failure, or incomplete
+model step writes `.blaster/agreement-*`. Each directory contains deterministic
+`z3.smt2` and `cvc5.smt2` transcripts for the exact current check plus
+`summary.txt` with solver version, invocation, verdict, status, elapsed time,
+configured timeout, failed stage/command, stdout, stderr, and raw model
+responses.
+
+The `timeout`/`BLASTER_TIMEOUT` value is translated to each backend's native
+option and enforced independently for each check. After that native deadline,
+Blaster allows a fixed 1 s response-drain grace so a backend's terminal
+`unknown` is not raced by process retirement. Expiry after the grace retires,
+kills, and reaps that session and produces a structured `timedOut` status. In
+`first` it cannot beat a healthy solver; in `agree` it is an infrastructure
+failure; in `single` it is a visible solver failure. A solver's ordinary
+`unknown` response remains `Undetermined` and is not inferred to be a timeout.
+
+Concurrent modes always require supported Z3 and cvc5 binaries at startup.
+There is no mode environment variable and no single-solver fallback. Combining
+an explicit `solver:` with `first`/`agree` is rejected, as is combining
+`only-smt-lib` with a concurrent mode. `only-optimize` starts no solver.
+Random-seed options are translated independently for both backends.
+`gen-cex: 0` skips model retrieval.
+
+Examples:
+
+```lean
+#blaster (solver-mode: first) [∀ (x y : Int), x + y = y + x]
+#blaster (solver-mode: agree) (solve-result: 1) [∀ (x : Int), x ≠ 3]
+
+example : ∀ (x y : Int), x + y = y + x := by
+  blaster (solver-mode: first)
+```
 ### Call to the solver
 
 #### Command
@@ -255,29 +401,41 @@ def sizeOfTerm (t : Term α) : Nat :=
 
 ❌ Falsified
 Counterexample:
- - x: (let ((a!1 (Test.SmtPredQualifier.Term.Annotated
-             (Test.SmtPredQualifier.Term.Annotated
-               (Test.SmtPredQualifier.Term.Annotated
-                 (Test.SmtPredQualifier.Term.Ident "!a!")
-                 (as List.nil (@List (@Test.SmtPredQualifier.Attribute @@Type))))
-               (as List.nil (@List (@Test.SmtPredQualifier.Attribute @@Type))))
-             (as List.nil (@List (@Test.SmtPredQualifier.Attribute @@Type))))))
-(let ((a!2 (Test.SmtPredQualifier.Term.Annotated
-             (Test.SmtPredQualifier.Term.Annotated
-               (Test.SmtPredQualifier.Term.Annotated
-                 (Test.SmtPredQualifier.Term.Annotated
-                   a!1
-                   (as List.nil
-                       (@List (@Test.SmtPredQualifier.Attribute @@Type))))
-                 (as List.nil (@List (@Test.SmtPredQualifier.Attribute @@Type))))
-               (as List.nil (@List (@Test.SmtPredQualifier.Attribute @@Type))))
-             (as List.nil (@List (@Test.SmtPredQualifier.Attribute @@Type))))))
-  (Test.SmtPredQualifier.Term.Annotated
-    (Test.SmtPredQualifier.Term.Annotated
-      a!2
-      (as List.nil (@List (@Test.SmtPredQualifier.Attribute @@Type))))
-    (as List.nil (@List (@Test.SmtPredQualifier.Attribute @@Type))))))
+ - x: Test.SmtPredQualifier.Term.Annotated (Test.SmtPredQualifier.Term.Annotated
+   (Test.SmtPredQualifier.Term.Annotated (... (Test.SmtPredQualifier.Term.Ident "!9!") []) ...) []) []
 ```
+(exact model values vary with the backend solver and its version)
+
+##### Counterexample display rendering
+
+Counterexample values are read back from the solver through `(get-value …)`
+and normalized into Lean-flavored display text; Blaster does not reconstruct
+typed Lean values. For supported value shapes, the renderer smooths
+backend-specific formatting differences: `let`-shared subterms are expanded,
+cvc5's `as` constructor qualifiers are dropped, negative integers are
+rendered `-n`, SMT-LIB string escapes are decoded back to Lean string
+literals, and `List`/`Prod` values use Lean's `[x, y]` and `(x, y)` notations.
+
+Verdicts, evidence, and infrastructure status are separate:
+
+- **The solver produced a value with no Lean counterpart** — e.g.
+  uninterpreted-sort elements or function values. Blaster displays the raw
+  SMT term. This is a rendering fallback, not a missing model.
+- **Model retrieval or rendering failed after `sat`** — the result remains
+  `Falsified`. Blaster reports that counterexample evidence is unavailable and
+  retains the exact model command and raw response in level-3 diagnostics
+  (and agreement artifacts). A per-variable failure is displayed as
+  `<counterexample unavailable>`.
+- **The solver answered `unknown`** — no model command is sent; the verdict is
+  `Undetermined`.
+- **The solver process or protocol failed** — this remains an infrastructure
+  failure and is never converted into an ordinary solver `unknown`.
+
+`verbose: 3` captures the Lean goal, optimized expression, complete labeled
+SMT transcript, solver name/version/invocation, `check-sat` response,
+`topLevelVars`, exact model command, raw response, parsed S-expression,
+Lean-facing rendering, and stderr stage. See `Tests/Smt/CounterexampleSpike.lean`.
+
 #### State-Machine Formalization
 ```lean
 instance counterStateMachine : StateMachine Request CounterState where
@@ -406,6 +564,69 @@ Blaster has been benchmarked against a variety of well-known benchmarks to evalu
 The evaluation can be found on this public repository: [Blaster-benchmarking](https://github.com/input-output-hk/Blaster-benchmarking)
 
 <details>
+<summary><b>Backend solver comparison (z3 vs cvc5)</b></summary>
+
+Historical measurement recorded when the cvc5 backend was introduced, using
+the then-current local builds: Z3 4.15.4 and cvc5 1.3.4. This table is retained
+as a historical snapshot; this branch's CI does not regenerate it. The
+measurement collected the 425 `#blaster` queries in the two suites below and
+ran each in batch mode through both solvers with a 15s wall clock; *match*
+means the solver's verdict agrees with the test's expected result
+(`solve-result:`).
+
+| Suite | Queries | z3 | cvc5 |
+|---|---|---|---|
+| Tests/FixedIssues | 71 | 69 | 59 |
+| Tests/Smt | 354 | 351 | 313 |
+| **Total** | **425** | **420 (98.8%)** | **372 (87.5%)** |
+
+The measurement records agreement with the expected result for 420 of 425
+queries under z3 and 372 of 425 under cvc5. The accompanying cvc5 result
+records include `Undetermined` outcomes with `unknown`/timeout diagnostics;
+neither the table nor those diagnostics establishes a solver-strategy cause.
+Successful `(get-value …)` responses from either backend pass through the same
+Lean-flavored text renderer (see
+[Counterexample display rendering](#counterexample-display-rendering)).
+
+##### Known cvc5 backend limitations
+
+These describe current backend-facing behavior visible to Blaster, separate
+from model-value normalization and display rendering:
+
+- **Timeout behavior**: the `timeout:` option maps to cvc5's `tlimit-per`
+  and z3's `timeout`. Blaster independently enforces that deadline around each
+  backend's `check-sat`/`check-sat-assuming` response, with a fixed 1 s grace
+  for the native timeout response to reach the pipe. Expiry after that grace is
+  `timedOut`, not `Undetermined`; the child is retired, killed, and reaped.
+  Suite-wide bounding via `BLASTER_TIMEOUT` is recommended for cvc5 runs. The
+  strict cvc5-only CI leg uses 120s; the local target defaults to 30s.
+- **Function values**: Blaster encodes Lean function values as SMT `Array`s
+  built with `lambda` and applied with `select`. z3 accepts this; cvc5 does not
+  (its `lambda` has a function sort, and it is rejected under `(set-logic ALL)`),
+  so goals whose translation emits such a `lambda` fail on cvc5 with a parse
+  error at command submission.
+- **`unknown` yields no model**: an ordinary solver `unknown` remains
+  `Undetermined` and is never inferred to be a timeout. Blaster does not query
+  a model after `unknown`.
+- **Nested recursive datatypes** rely on cvc5's experimental
+  `--dt-nested-rec` support (z3 accepts them natively).
+
+Known display-rendering limitations, common to both solvers:
+
+- goals without top-level quantified variables fall back to a raw
+  `(get-model)` dump; an error on that dump leaves the verdict `Falsified`
+  and reports unavailable counterexample evidence;
+- variables bound only by nested SMT quantifiers are not entries in
+  `topLevelVars`; their local witnesses cannot be queried with a top-level
+  `(get-value ...)` command and are currently absent from rendered evidence;
+- function-typed variables and abstracted `Type` parameters are modeled by
+  SMT arrays/lambdas and uninterpreted-sort elements, which have no Lean
+  counterpart and are displayed as raw solver terms
+  (e.g. z3's `U!val!0`, cvc5's `@U_0`).
+
+</details>
+
+<details>
 <summary><b>Lean Natural Number Game</b></summary>
   
 - **Repository:** [NNG4](https://github.com/leanprover-community/NNG4)
@@ -516,7 +737,7 @@ The translation step is handled in `Blaster/Smt/Translate.lean`. This process in
 
 ### Final step: SMT Solver Interaction
 
-Once an expression has been translated, Blaster interacts with an external SMT solver (i.e.,  Z3) to verify the SMT-LIB formula. This is done by asserting  the negation of the formula to determine its satisfiability. The results are interpreted as follows:
+Once an expression has been translated, Blaster interacts with an external SMT solver (Z3 by default, or cvc5 when selected through the `solver:` option) to verify the SMT-LIB formula. This is done by asserting  the negation of the formula to determine its satisfiability. The results are interpreted as follows:
 
 - **unsat**: The original expression is valid.
 - **sat**: The original expression is falsified, and a counterexample may be generated.

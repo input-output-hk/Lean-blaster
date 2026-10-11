@@ -48,32 +48,59 @@ partial def translateExpr (e : Expr) (topLevel := true) : TranslateEnvT SmtTerm 
      | Expr.sort _ => throwEnvError "translateExpr: unexpected sort type {reprStr e}" -- sort type are handled elsewhere
   visit e topLevel
 
-def Translate.main (e : Expr) (logUndetermined := true) : TranslateEnvT (Result × Expr) := do
-  -- set start local context
-  updateLocalContext (← mkLocalContext)
-  let e ← addAxioms (← toPropExpr e) (← findLocalAxioms)
-  let optExpr ← profileTask "Optimization" $ Optimize.mainAux e (applyHashCons := false)
-  trace[Translate.optExpr] "optimized expression: {← ppExpr optExpr}"
-  match (toResult optExpr) with
-  | res@(.Undetermined) =>
-      if (← get).optEnv.options.solverOptions.onlyOptimize then
-        if logUndetermined then logResult res
-        return (res, optExpr)
-      else
-        -- set backend solver
-        setBlasterProcess
-        let st ← profileTask "Translation" $ translateExpr optExpr
-        -- assert negation for check sat
-        profileTask "Submitting Smt Query" $ assertTerm (notSmt st)
-        -- dump smt commands submitted to backend solver when `dumpSmtLib` option is set.
-        logSmtQuery
-        let res ← profileTask "Solve" checkSat
-        if !isUndeterminedResult res || logUndetermined then logResult res
-        discard $ exitSmt
-        return (res, optExpr)
-  | res =>
-     logResult res
-     return (res, optExpr)
+private def shouldLogUndetermined (logOrdinary : Bool) : TranslateEnvT Bool := do
+  if logOrdinary then return true
+  let env ← get
+  let sOpts := env.optEnv.options.solverOptions
+  return undeterminedAction sOpts env.smtEnv.singleSolver
+    (← strictCvc5ResultCheckingRequested) == .strictError
+
+def Translate.main (e : Expr) (logUndetermined := true) : TranslateEnvT (Result × Expr) :=
+  withSmtSessionOwner do
+    let initialOptions := (← get).optEnv.options.solverOptions
+    match validateSolverOptions initialOptions with
+    | .ok () => pure ()
+    | .error error => throwEnvError error
+    let concurrentStarted :=
+      initialOptions.solverMode != .single && !initialOptions.onlyOptimize
+    if concurrentStarted then setBlasterProcess
+    -- set start local context
+    updateLocalContext (← mkLocalContext)
+    logPPExpr "Lean goal" e
+    let e ← addAxioms (← toPropExpr e) (← findLocalAxioms)
+    let optExpr ← profileTask "Optimization" $ Optimize.mainAux e (applyHashCons := false)
+    logPPExpr "Optimized Lean expression" optExpr
+    trace[Translate.optExpr] "optimized expression: {← ppExpr optExpr}"
+    match (toResult optExpr) with
+    | res@(.Undetermined) =>
+        if (← get).optEnv.options.solverOptions.onlyOptimize then
+          let sOpts := (← get).optEnv.options.solverOptions
+          let policySolver ←
+            if sOpts.solverMode == .single then some <$> resolveSolver sOpts else pure none
+          modify fun env => { env with smtEnv.singleSolver := policySolver }
+          if ← shouldLogUndetermined logUndetermined then logResult res
+          return (res, optExpr)
+        else
+          -- Single mode starts lazily to preserve existing behavior; concurrent
+          -- modes were started before optimization to require both binaries.
+          if !concurrentStarted then setBlasterProcess
+          let st ← profileTask "Translation" $ translateExpr optExpr
+          -- assert negation for check sat
+          profileTask "Submitting Smt Query" $ assertTerm (notSmt st)
+          let res ← profileTask "Solve" checkSat
+          -- The transcript is recorded after the check so it contains this
+          -- check's model commands and no stale commands from a prior epoch.
+          logSmtQuery
+          if isUndeterminedResult res then
+            if ← shouldLogUndetermined logUndetermined then logResult res
+          else
+            logResult res
+          discard $ exitSmt
+          return (res, optExpr)
+    | res =>
+       logResult res
+       if concurrentStarted then discard exitSmt
+       return (res, optExpr)
 
   where
     isTheoremExpr (e : Expr) : TranslateEnvT (Option Expr) := do
