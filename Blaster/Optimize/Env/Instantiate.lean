@@ -22,7 +22,7 @@ deriving Repr
 
 
 @[always_inline, inline]
-private unsafe def instantiateSharedRevRangeAux (e : Expr) (offset s n : USize) (subst : Array Expr) : TranslateEnvT Expr := do
+private unsafe def instantiateSharedRevRangeAux (e : Expr) (offset n : USize) (subst : Array Expr) : TranslateEnvT Expr := do
  let rec go (cur : Expr) (isResult : Bool) (offset : USize) (stk : Array InstantiateStack) (cache : InstCache) : TranslateEnvT Expr := do
   if isResult then
       let r := cur
@@ -66,8 +66,7 @@ private unsafe def instantiateSharedRevRangeAux (e : Expr) (offset s n : USize) 
       else return r
   else
       let e := cur
-      let s' := s + offset
-      if s'.toNat >= e.looseBVarRange
+      if offset.toNat >= e.looseBVarRange
       then go e true offset stk cache
       else
         let cached := cache.getD (mkInstKey e offset) instCacheMiss
@@ -76,7 +75,7 @@ private unsafe def instantiateSharedRevRangeAux (e : Expr) (offset s n : USize) 
            match e with
            | .bvar idx =>
                let idx' := idx.toUSize
-               if idx' >= s' then
+               if idx' >= offset then
                  if idx' < offset + n then
                     let r := subst.uget (n - (idx' - offset) - 1) lcProof
                     go r true offset stk (cache.insert (mkInstKey e offset) r)
@@ -117,7 +116,7 @@ def instantiateSharedRevRange (e : Expr) (endIdx : Nat) (subst : Array Expr) : T
   if _ : endIdx > subst.size then unreachable!
   else if _ : 0 == endIdx then return e
   else
-    unsafe instantiateSharedRevRangeAux e 0 0 endIdx.toUSize subst
+    unsafe instantiateSharedRevRangeAux e 0 endIdx.toUSize subst
 
 
 @[always_inline, inline]
