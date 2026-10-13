@@ -41,6 +41,9 @@ def fullyAppliedConst : NameHashSet :=
     ``Nat.div,
     ``Nat.mod,
     ``Nat.pow,
+    ``Nat.land,
+    ``Nat.lor,
+    ``Nat.xor,
     ``String.append,
     ``String.length,
     ``String.replace
@@ -250,6 +253,25 @@ def translateNatPow (f : Expr) : TranslateEnvT SmtQualifiedIdent := do
     return smtId
  | some smtId => return smtId
 
+/-- Perform the following actions:
+     - Return `SimpleIdent fsym` when entry `f := SimpleIdent fsym` exists in `funInstCache`
+     - Otherwise:
+        - define Nat sort (if necessary)
+        - define the bitwise Smt function `fsym` (i.e., see `defineNatBitwise`)
+        - add entry `f := SimpleIdent fsym` to `funInstCache`
+        - return `SimpleIdent fsym`
+  Assume that `f` is one of `Expr.const ``Nat.land []`, `Expr.const ``Nat.lor []` or
+  `Expr.const ``Nat.xor []` and that `fsym` is the corresponding Smt symbol.
+-/
+def translateNatBitwise (f : Expr) (fsym : SmtSymbol) : TranslateEnvT SmtQualifiedIdent := do
+ match (← get).smtEnv.funInstCache.get? f with
+ | none =>
+    discard $ translateNatType (← mkNatType)
+    defineNatBitwise fsym
+    let smtId ← updateFunInstCache f fsym
+    return smtId
+ | some smtId => return smtId
+
 
 /-- Perform the following actions:
      - Return `SimpleIdent "@Int.toNat"` when entry `n := SimpleIdent "@Int.toNat"` exists in `funInstCache`
@@ -329,6 +351,9 @@ def translateOpaqueFun (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT
   | ``Nat.mod => translateIntEMod f
   | ``Int.pow => translateIntPow f
   | ``Nat.pow => translateNatPow f
+  | ``Nat.land => translateNatBitwise f natLandSymbol
+  | ``Nat.lor => translateNatBitwise f natLorSymbol
+  | ``Nat.xor => translateNatBitwise f natXorSymbol
   | ``LE.le
   | ``Nat.ble => getOpaqueSmtEquivFun f leqSymbol
   | ``LT.lt =>

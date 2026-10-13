@@ -484,9 +484,21 @@ Arithmetic operations on natural numbers are optimized using a variety of algebr
   - And many more.
 - **Algebraic Simplifications**: More complex rules are applied, such as:
   - `(m * n) / m`, where `n` and `m` are expressions, simplifies to `n` if `m` is known to be non-zero in the current context.
-- **Normalization**: Arguments to commutative operators like `Nat.add` and `Nat.mul` are reordered to a canonical form, which helps in identifying further optimization opportunities.
+- **Normalization**: Arguments to commutative operators like `Nat.add`, `Nat.mul` and the bitwise operators are reordered to a canonical form, which helps in identifying further optimization opportunities.
 
 These are just a few examples of the many optimization rules that Blaster applies to simplify expressions before they are sent to the SMT solver. This pre-processing step is crucial for the tool's performance and allows it to handle more complex verification tasks.
+
+#### Bitwise Operators on Natural Numbers
+
+`Nat.land` (`&&&`), `Nat.lor` (`|||`) and `Nat.xor` (`^^^`) are kept opaque during optimization and translated to exact recursive SMT definitions when needed. Before that, a bit-support analysis (which bit positions an expression may set, computed from literals, `% 2^k`, `/ 2^k`, `* 2^k`, sums of parts with disjoint bits, and bounds `x < 2^k` among the hypotheses) drives the following rewrites, also in `Blaster/Optimize/Rewriting/OptimizeNat.lean`:
+
+- **Constant folding and identities**, e.g. `x &&& 0` simplifies to `0` and `x ^^^ x` to `0`.
+- **Masks**: `x &&& N` for a literal `N` becomes a sum of bit-range extracts, one per run of ones in `N`; e.g. `x &&& (2^k - 1)` simplifies to `x % 2^k`.
+- **Disjoint bits**: when the operands have disjoint bits, `|||` and `^^^` become `+`, and `&&&` becomes `0`.
+- **Bit fields**: `% 2^k` drops the addends of a sum that are multiples of `2^k`, `/ 2^k` divides them separately, and both vanish on expressions below `2^k`. Adjacent fields of the same value in a sum are merged into one.
+- **Bounded modulo**: `x % n` simplifies to `x` when `x < n` is a hypothesis.
+
+With these rules, packed data (several fields stored in one word and read back with masks and shifts) simplifies before reaching the solver.
 
 #### Control Flow and Pattern Matching
 

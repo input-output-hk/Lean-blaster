@@ -916,6 +916,24 @@ def natPow : Expr := mkConst ``Nat.pow
 /-- Create a `Nat.pow` operator expression and cache result. -/
 def mkNatPowOp : TranslateEnvT Expr := mkExpr natPow
 
+/-- Return `Nat.land` operator -/
+def natLand : Expr := mkConst ``Nat.land
+
+/-- Create a `Nat.land` operator expression and cache result. -/
+def mkNatLandOp : TranslateEnvT Expr := mkExpr natLand
+
+/-- Return `Nat.lor` operator -/
+def natLor : Expr := mkConst ``Nat.lor
+
+/-- Create a `Nat.lor` operator expression and cache result. -/
+def mkNatLorOp : TranslateEnvT Expr := mkExpr natLor
+
+/-- Return `Nat.xor` operator -/
+def natXor : Expr := mkConst ``Nat.xor
+
+/-- Create a `Nat.xor` operator expression and cache result. -/
+def mkNatXorOp : TranslateEnvT Expr := mkExpr natXor
+
 /-- Return `Nat.beq` operator -/
 def natBeq : Expr := mkConst ``Nat.beq
 

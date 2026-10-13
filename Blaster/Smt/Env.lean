@@ -465,6 +465,46 @@ def defineNatPow : TranslateEnvT Unit := do
   let fdef := λ xId yId => iteSmt (yEqZero yId) natOne (mulSmt xId (natPowSmt xId (natSubSmt yId natOne)))
   defineBinFun natPowSymbol natSort natSort natSort fdef (isRec := true)
 
+/-- Define the Nat bitwise Smt functions by recursion on the binary representation, i.e.,
+    (define-fun-rec @Nat.land ((@x Nat)(@y Nat)) Nat
+      (ite (or (= 0 @x) (= 0 @y)) 0
+        (+ (* 2 (@Nat.land (div @x 2) (div @y 2)))
+           (ite (and (= 1 (mod @x 2)) (= 1 (mod @y 2))) 1 0))))
+    (define-fun-rec @Nat.lor ((@x Nat)(@y Nat)) Nat
+      (ite (= 0 @x) @y (ite (= 0 @y) @x
+        (+ (* 2 (@Nat.lor (div @x 2) (div @y 2)))
+           (ite (or (= 1 (mod @x 2)) (= 1 (mod @y 2))) 1 0)))))
+    (define-fun-rec @Nat.xor ((@x Nat)(@y Nat)) Nat
+      (ite (= 0 @x) @y (ite (= 0 @y) @x
+        (+ (* 2 (@Nat.xor (div @x 2) (div @y 2)))
+           (ite (= (mod @x 2) (mod @y 2)) 0 1)))))
+    These definitions are exact for all natural numbers.
+-/
+def defineNatBitwise (fsym : SmtSymbol) : TranslateEnvT Unit := do
+  let zero := natLitSmt 0
+  let one := natLitSmt 1
+  let two := natLitSmt 2
+  let bit := λ t => modSmt t two
+  let half := λ t => divSmt t two
+  let recCall := λ xId yId => mulSmt two (natBitwiseSmt fsym (half xId) (half yId))
+  let fdef :=
+    if fsym == natLandSymbol then
+      λ xId yId =>
+        iteSmt (orSmt (eqSmt zero xId) (eqSmt zero yId)) zero
+          (addSmt (recCall xId yId)
+            (iteSmt (andSmt (eqSmt one (bit xId)) (eqSmt one (bit yId))) one zero))
+    else if fsym == natLorSymbol then
+      λ xId yId =>
+        iteSmt (eqSmt zero xId) yId (iteSmt (eqSmt zero yId) xId
+          (addSmt (recCall xId yId)
+            (iteSmt (orSmt (eqSmt one (bit xId)) (eqSmt one (bit yId))) one zero)))
+    else
+      λ xId yId =>
+        iteSmt (eqSmt zero xId) yId (iteSmt (eqSmt zero yId) xId
+          (addSmt (recCall xId yId)
+            (iteSmt (eqSmt (bit xId) (bit yId)) zero one)))
+  defineBinFun fsym natSort natSort natSort fdef (isRec := true)
+
 
 /-- Define Int.toNat Smt function, i.e.,
      Int.toNat x := (ite (<= 0 x) x else 0)

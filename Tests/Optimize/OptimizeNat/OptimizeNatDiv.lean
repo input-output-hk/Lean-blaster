@@ -495,7 +495,8 @@ elab "natMulDivCstUnchanged_4" : term => return natMulDivCstUnchanged_4
 
 #testOptimize [ "NatMulDivCstUnchanged_4" ] ∀ (x y : Nat), (6 - x) / 120 < y ===> natMulDivCstUnchanged_4
 
--- (16 + x) / 16 ===> (16 + x) / 16
+-- (16 + x) / 16 ===> 1 + x / 16
+-- (16 is a multiple of 2^4: the bit-field rule for `/ 2^k` divides it separately)
 def natMulDivCstUnchanged_5 : Expr :=
  Lean.Expr.forallE `x
   (Lean.Expr.const `Nat [])
@@ -507,12 +508,10 @@ def natMulDivCstUnchanged_5 : Expr :=
           (Lean.Expr.app (Lean.Expr.const `LT.lt [Lean.Level.zero]) (Lean.Expr.const `Nat []))
           (Lean.Expr.const `instLTNat []))
         (Lean.Expr.app
+          (Lean.Expr.app (Lean.Expr.const `Nat.add []) (Lean.Expr.lit (Lean.Literal.natVal 1)))
           (Lean.Expr.app
-            (Lean.Expr.const `Nat.div [])
-            (Lean.Expr.app
-              (Lean.Expr.app (Lean.Expr.const `Nat.add []) (Lean.Expr.lit (Lean.Literal.natVal 16)))
-              (Lean.Expr.bvar 1)))
-          (Lean.Expr.lit (Lean.Literal.natVal 16))))
+            (Lean.Expr.app (Lean.Expr.const `Nat.div []) (Lean.Expr.bvar 1))
+            (Lean.Expr.lit (Lean.Literal.natVal 16)))))
       (Lean.Expr.bvar 0))
     (Lean.BinderInfo.default))
   (Lean.BinderInfo.default)
