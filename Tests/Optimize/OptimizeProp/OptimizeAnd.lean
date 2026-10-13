@@ -323,6 +323,9 @@ namespace Test.OptimizeAnd
 -- ¬ b → (a ∧ b) = False
 #testOptimize [ "AndHyp_4", proof ] ∀ (a b : Prop), ¬ b → (a ∧ b) = False ===> True
 
+-- (True ∧ a) → (a ∧ b) = b
+#testOptimize [ "AndHyp_5", proof ] ∀ (a b : Prop), (True ∧ a) → (a ∧ b) = b ===> True
+
 
 /-! Test case for the commutative reorder on `And`: e1 ∧ e2 ==> e2 ∧ e1 (if e2 <ₒ e1). -/
 

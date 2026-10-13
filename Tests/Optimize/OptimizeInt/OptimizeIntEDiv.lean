@@ -45,4 +45,8 @@ namespace Test.OptimizeIntEDiv
 #testOptimize [ "IntMulEDivCancel_4", proof ]
   ∀ (x y : Int), y < 0 → (y * x) / y = x ===> True
 
+-- (x * y) / x = y  (with x ≠ 0)
+#testOptimize [ "IntMulEDivCancel_5", proof ]
+  ∀ (x y : Int), x ≠ 0 → (x * y) / x = y ===> True
+
 end Test.OptimizeIntEDiv
