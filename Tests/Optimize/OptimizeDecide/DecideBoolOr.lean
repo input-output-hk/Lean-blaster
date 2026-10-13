@@ -25,22 +25,22 @@ variable (z : Int)
   ∀ (x y z : Nat), x ≤ y || z ≥ y ===> ∀ (x y z : Nat), ¬ y < x ∨ ¬ z < y
 
 -- (x ≤ y || x ≤ y) = decide (x ≤ y) ===> True
-#testOptimize [ "DecideOrDecide_4" ] (x ≤ y || x ≤ y) = decide (x ≤ y) ===> True
+#testOptimize [ "DecideOrDecide_4", proof ] (x ≤ y || x ≤ y) = decide (x ≤ y) ===> True
 
 -- ∀ (x y : Nat), x ≤ y || x ≤ y ===> ∀ (x y : Nat), ¬ y < x
-#testOptimize [ "DecideOrDecide_5" ] ∀ (x y : Nat), x ≤ y || x ≤ y ===> ∀ (x y : Nat), ¬ y < x
+#testOptimize [ "DecideOrDecide_5", proof ] ∀ (x y : Nat), x ≤ y || x ≤ y ===> ∀ (x y : Nat), ¬ y < x
 
 -- ∀ (x y : Nat), !(x ≤ y) || x ≤ y ===> True
-#testOptimize [ "DecideOrDecide_6" ] ∀ (x y : Nat), !x ≤ y || x ≤ y ===> True
+#testOptimize [ "DecideOrDecide_6", proof ] ∀ (x y : Nat), !x ≤ y || x ≤ y ===> True
 
 -- ∀ (x y : Nat), (x = y) || (x ≠ y) ===> False
-#testOptimize [ "DecideOrDecide_7" ] ∀ (x y : Nat), x = y || x ≠ y ===> True
+#testOptimize [ "DecideOrDecide_7", proof ] ∀ (x y : Nat), x = y || x ≠ y ===> True
 
 -- ∀ (x y : Nat), !x = y || x ≠ y ===> ∀ (x y : Nat), ¬ (x = y)
-#testOptimize [ "DecideOrDecide_8" ] ∀ (x y : Nat), !x = y || x ≠ y ===> ∀ (x y : Nat), ¬ (x = y)
+#testOptimize [ "DecideOrDecide_8", proof ] ∀ (x y : Nat), !x = y || x ≠ y ===> ∀ (x y : Nat), ¬ (x = y)
 
 -- ∀ (x y z: Nat), !x = y || x ≠ y || z > y ===> ∀ (x y z : Nat), ¬ (x = y) ∨ y < z
-#testOptimize [ "DecideOrDecide_9" ] ∀ (x y z : Nat), !x = y || x ≠ y || z > y ===>
+#testOptimize [ "DecideOrDecide_9", proof ] ∀ (x y z : Nat), !x = y || x ≠ y || z > y ===>
                                      ∀ (x y z : Nat), ¬ (x = y) ∨ (y < z)
 
 -- ∀ (x y m n : Nat), (!x = y || n ≥ m) || (x ≠ y || m ≤ n) ===>
@@ -64,14 +64,14 @@ variable (z : Int)
 #testOptimize [ "DecideOrDecide_13" ] ∀ (x y z : Nat), (x ≤ y || z ≥ y) = (x ≤ y ∨ y ≤ z) ===> True
 
 -- ∀ (x y : Nat), (x ≤ y || y ≥ x) = x ≤ y ===> True
-#testOptimize [ "DecideOrDecide_14" ] ∀ (x y : Nat), (x ≤ y || y ≥ x) = (x ≤ y) ===> True
+#testOptimize [ "DecideOrDecide_14", proof ] ∀ (x y : Nat), (x ≤ y || y ≥ x) = (x ≤ y) ===> True
 
 -- ∀ (x y : Nat), (!x = y || x ≠ y) = ¬ (x = y) ===> True
-#testOptimize [ "DecideOrDecide_15" ] ∀ (x y : Nat), (!x = y || x ≠ y) = ¬ (x = y) ===> True
+#testOptimize [ "DecideOrDecide_15", proof ] ∀ (x y : Nat), (!x = y || x ≠ y) = ¬ (x = y) ===> True
 
 
 -- ∀ (x y z: Nat), (!x = y || x ≠ y || z > y) = (y < z ∨ ¬ (x = y)) ===> True
-#testOptimize [ "DecideOrDecide_16" ] ∀ (x y z: Nat),
+#testOptimize [ "DecideOrDecide_16", proof ] ∀ (x y z: Nat),
                                          (!x = y || x ≠ y || z > y) = (y < z ∨ ¬ (x = y)) ===> True
 
 -- ∀ (x y m n : Nat), ((!x = y || n ≥ m) || (x ≠ y || m ≤ n)) = (n ≥ m ∨ (x ≠ y)) ===> True
@@ -94,11 +94,11 @@ variable (z : Int)
 variable (w : Int)
 
 -- ((decide (x < y) || decide (x < z)) || decide (x < w)) = decide (((x < y) ∨ (x < z)) ∨ (x < w)) ===> True
-#testOptimize [ "DecideOrDecide_20" ]
+#testOptimize [ "DecideOrDecide_20", proof ]
   ((decide (x < y) || decide (x < z)) || decide (x < w)) = decide (((x < y) ∨ (x < z)) ∨ (x < w)) ===> True
 
 -- (decide (x < y) || (decide (x < z) || decide (x < w))) = decide ((x < y) ∨ (x < z) ∨ (x < w)) ===> True
-#testOptimize [ "DecideOrDecide_21" ]
+#testOptimize [ "DecideOrDecide_21", proof ]
   (decide (x < y) || (decide (x < z) || decide (x < w))) = decide ((x < y) ∨ (x < z) ∨ (x < w)) ===> True
 
 
@@ -107,13 +107,13 @@ variable (w : Int)
 variable (b : Bool)
 
 -- x ≤ y || b ===> Blaster.decide' (¬ y < x ∨ true = b)
-#testOptimize [ "DecideOrBool_1" ] x ≤ y || b ===> Blaster.decide' (¬ y < x ∨ true = b)
+#testOptimize [ "DecideOrBool_1", proof ] x ≤ y || b ===> Blaster.decide' (¬ y < x ∨ true = b)
 
 -- b || x ≤ y ===> Blaster.decide' (¬ y < x ∨ true = b)
-#testOptimize [ "DecideOrBool_2" ] b || x ≤ y ===> Blaster.decide' (¬ y < x ∨ true = b)
+#testOptimize [ "DecideOrBool_2", proof ] b || x ≤ y ===> Blaster.decide' (¬ y < x ∨ true = b)
 
 -- !b || x ≤ y ===> Blaster.decide' (¬ y < x ∨ false = b)
-#testOptimize [ "DecideOrBool_3" ] !b || x ≤ y ===> Blaster.decide' (¬ y < x ∨ false = b)
+#testOptimize [ "DecideOrBool_3", proof ] !b || x ≤ y ===> Blaster.decide' (¬ y < x ∨ false = b)
 
 -- ∀ (x y m n : Nat), x < y || (m == n) ===> ∀ (x y m n : Nat), m = n ∨ x < y
 #testOptimize [ "DecideOrBool_4" ] ∀ (x y m n : Nat), x < y || (m == n) ===>
@@ -139,7 +139,7 @@ variable (b : Bool)
 
 -- ∀ (a b : Prop) (c : Bool), [Decidable a] → [Decidable b] → (((a ∨ b) ∨ (b ∧ ¬ b)) || c) ===>
 -- ∀ (a b : Prop) (c : Bool), (a ∨ b) ∨ true = c
-#testOptimize [ "DecideOrBool_10" ]
+#testOptimize [ "DecideOrBool_10", proof ]
   ∀ (a b : Prop) (c : Bool), [Decidable a] → [Decidable b] → (((a ∨ b) ∨ (b ∧ ¬ b)) || c) ===>
   ∀ (a b : Prop) (c : Bool), (a ∨ b) ∨ true = c
 
@@ -202,7 +202,7 @@ variable (b : Bool)
 
 -- ∀ (a b : Prop) (c : Bool),
 --  [Decidable a] → [Decidable b] → (((a ∨ b) ∨ (b ∧ ¬ b)) || c) = (c ∨ (b ∨ a)) ===> True
-#testOptimize [ "DecideOrBool_22" ] ∀ (a b : Prop) (c : Bool), [Decidable a] → [Decidable b] →
+#testOptimize [ "DecideOrBool_22", proof ] ∀ (a b : Prop) (c : Bool), [Decidable a] → [Decidable b] →
                                       (((a ∨ b) ∨ (b ∧ ¬ b)) || c) = (c ∨ (b ∨ a)) ===> True
 
 -- ∀ (x y : Nat) (a b c : Bool),
