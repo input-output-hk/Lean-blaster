@@ -73,6 +73,9 @@ example : ∀ (n : Nat),
 -- Propositional equality: (∀ xs, P xs) = (∀ xs, Q xs)
 example : (∀ (n : Nat), 0 + n = n) = (∀ (n : Nat), n = n) := by blaster
 example : (∀ (m n : Nat), m + n = n + m) = (∀ (m n : Nat), n + m = n + m) := by blaster
+-- eliminated binders, one of them a `Decidable` instance
+example : (∀ (a : Prop) [Decidable a], false = decide a) = ∀ (a : Prop), ¬ a := by blaster
+example : (∀ (a : Prop) (_n : Nat), ¬ a) = ∀ (a : Prop), ¬ a := by blaster
 
 -- Optimized side is a top-level implication
 example : (∀ (a b : Prop), a ∨ (b → a)) = (∀ (a b : Prop), b → a) := by blaster
@@ -110,3 +113,19 @@ example : ∀ (p q : Prop), ¬¬p → (p ∧ q) = q := by blaster
 example : ∀ (a c : Prop), (a ∧ (a ∨ c)) → (a ∨ c) := by blaster
 example : ∀ (a b c d : Prop), (a ∧ (b ∨ c)) → b → (a ∧ d) = d ∧ (b ∨ c) := by blaster
 example : ∀ (x y : Nat), (x + 0 < y ∧ y < 10) → (x < y ∧ y < 10) = (y < 10) := by blaster
+
+-- Int literal folds and normalizations
+example : ∀ (x : Int), (x * 6) / 3 = x * 2 := by blaster
+example : ∀ (n : Int), ¬ ((4 * n) / 6 = (2 * n) / 3) ∨ n = n := by blaster
+example : ∀ (n : Nat), Int.toNat (-(Int.ofNat n)) = 0 := by blaster
+example : ∀ (n : Nat), Int.negSucc n = -(Int.ofNat (1 + n)) := by blaster
+example : ∀ (n : Nat), Int.toNat (Int.ofNat n) - n = 0 := by blaster
+example : ∀ (x y : Int), ((3 + x < 5) = (x < 2)) ∧ y - y = 0 := by blaster
+example : ∀ (x y : Int), Int.le x y = (x ≤ y) := by blaster
+
+-- Negated hypotheses
+example : ∀ (a b : Prop), a → ((¬ a ∨ b) = b) := by blaster
+
+-- `≠` in the goal
+example : ∀ (x y : Int), x ≠ 0 → y ≠ 0 → x * y ≠ 0 := by blaster
+example : ∀ (a : Nat), a + 1 ≠ 0 := by blaster

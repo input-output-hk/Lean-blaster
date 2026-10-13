@@ -53,7 +53,7 @@ variable (c : Nat)
 #testOptimize [ "DecideFalse_11", proof ] decide (List.nil = [a, b, c]) ===> false
 
 -- ∀ (x y z : Int), ([x, y] = [x, y, z]) = false ===> True
-#testOptimize [ "DecideFalse_12" ] ∀ (x y z : Int), ([x, y] = [x, y, z]) = false ===> True
+#testOptimize [ "DecideFalse_12", proof ] ∀ (x y z : Int), ([x, y] = [x, y, z]) = false ===> True
 
 -- ∀ (a b : Prop), [Decidable a] → [Decidable b] → (b ∧ ¬ b) && a ===> False
 -- NOTE: `(b ∧ ¬ b) && a` is represented as `decide (b ∧ ¬ b) && (decide a)`
@@ -243,7 +243,7 @@ variable (q : Bool)
 -- ∀ (a b : Prop), [Decidable a] → [Decidable b] → (a ∧ b) = false ===>
 -- ∀ (a b : Prop), ¬ (a ∧ b)
 -- NOTE: `false = decide p is normalized to `¬ p``
-#testOptimize [ "DecideUnchanged_4" ] ∀ (a b : Prop), [Decidable a] → [Decidable b] → (a ∧ b) = false ===>
+#testOptimize [ "DecideUnchanged_4", proof ] ∀ (a b : Prop), [Decidable a] → [Decidable b] → (a ∧ b) = false ===>
                                       ∀ (a b : Prop), ¬ (a ∧ b)
 
 -- ∀ (a b c : Prop), [Decidable a] → [Decidable b] → [Decidable c] → (b ∧ c) && a ===>

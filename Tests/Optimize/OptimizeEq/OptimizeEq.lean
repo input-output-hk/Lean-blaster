@@ -143,6 +143,9 @@ inductive Color where
 -- [z, y] = [x, y, z] ===> False
 #testOptimize [ "EqConstructor_15b", proof ] ∀ (α : Type) (x y z : α), [z, y] = [x, y, z] ===> False
 
+-- [x, y] ≠ [x, y, z] ===> True
+#testOptimize [ "NeConstructor_15", proof ] ∀ (α : Type) (x y z : α), [x, y] ≠ [x, y, z] ===> True
+
 -- [a + b, c] = [a + b, c, b] ===> False
 #testOptimize [ "EqConstructor_16", proof ] [a + b, c] = [a + b, c, b] ===> False
 
@@ -589,6 +592,10 @@ elab "eqStrConstructor_4" : term => return eqStrConstructor_4
 #testOptimize [ "ZeroIntMulEqInHyps_1", proof ]
   ∀ (x y : Int), (x ≠ 0 ∧ y ≠ 0) → (0 = x * y) = False ===> True
 
+-- ∀ (x y : Int), x ≠ 0 → y ≠ 0 → x * y ≠ 0 ===> True
+#testOptimize [ "ZeroIntMulNeInHyps_1", proof ]
+  ∀ (x y : Int), x ≠ 0 → y ≠ 0 → x * y ≠ 0 ===> True
+
 -- ∀ (x y : Int), (0 < x ∧ 0 < y) → (0 = (x * y)) = False ===> True
 #testOptimize [ "ZeroIntMulEqInHyps_2", proof ]
   ∀ (x y : Int), (0 < x ∧ 0 < y) → (0 = x * y) = False ===> True
@@ -624,6 +631,9 @@ elab "eqStrConstructor_4" : term => return eqStrConstructor_4
 -- ∀ (y : Nat), 0 < y → (0 = 5 + y) = False ===> True
 #testOptimize [ "ZeroNatAddEqLits_3", proof ]
   ∀ (y : Nat), 0 < y → (0 = 5 + y) = False ===> True
+
+-- ∀ (a : Nat), a + 1 ≠ 0 ===> True
+#testOptimize [ "ZeroNatAddNeLits_1", proof ] ∀ (a : Nat), a + 1 ≠ 0 ===> True
 
 -- ∀ (x y : Int), (x > 0 ∧ y > 0) → (0 = x + y) = False ===> True
 #testOptimize [ "ZeroIntAddEqInHyps_1", proof ]
@@ -664,6 +674,14 @@ elab "eqStrConstructor_4" : term => return eqStrConstructor_4
 #testOptimize [ "AddReduceNat_8", proof ]
   ∀ (x y z : Nat), (y + x = z + x)  ===> ∀ (y z : Nat), y = z
 
+-- ∀ (y x z : Nat), (y + x = x + z) = (y = z) ===> True
+#testOptimize [ "AddReduceNat_9", proof ]
+  ∀ (y x z : Nat), (y + x = x + z) = (y = z) ===> True
+
+-- ∀ (y z x : Nat), (y + x = z + x) = (y = z) ===> True
+#testOptimize [ "AddReduceNat_10", proof ]
+  ∀ (y z x : Nat), (y + x = z + x) = (y = z) ===> True
+
 -- ∀ (x y z : Int), (x + y = x + z) = (y = z) ===> True
 #testOptimize [ "AddReduceInt_1", proof ]
   ∀ (x y z : Int), (x + y = x + z) = (y = z) ===> True
@@ -696,6 +714,14 @@ elab "eqStrConstructor_4" : term => return eqStrConstructor_4
 #testOptimize [ "AddReduceInt_8", proof ]
   ∀ (x y z : Int), (y + x = z + x)  ===> ∀ (y z : Int), y = z
 
+-- ∀ (y x z : Int), (y + x = x + z) = (y = z) ===> True
+#testOptimize [ "AddReduceInt_9", proof ]
+  ∀ (y x z : Int), (y + x = x + z) = (y = z) ===> True
+
+-- ∀ (y z x : Int), (y + x = z + x) = (y = z) ===> True
+#testOptimize [ "AddReduceInt_10", proof ]
+  ∀ (y z x : Int), (y + x = z + x) = (y = z) ===> True
+
 -- ∀ (x y z : Nat) , (x ≠ 0) → (x * y = x * z) = (y = z) ===> True
 #testOptimize [ "MulReduceNat_1", proof ]
   ∀ (x y z : Nat) , (x ≠ 0) → (x * y = x * z) = (y = z) ===> True
@@ -712,6 +738,18 @@ elab "eqStrConstructor_4" : term => return eqStrConstructor_4
 #testOptimize [ "MulReduceNat_4", proof ]
   ∀ (x y z : Nat), (x ≠ 0) → (y * x = z * x) = (y = z) ===> True
 
+-- ∀ (x y : Nat), x ≠ 0 → (x * y = 3 * x) = (y = 3) ===> True
+#testOptimize [ "MulReduceNat_5", proof ]
+  ∀ (x y : Nat), x ≠ 0 → (x * y = 3 * x) = (y = 3) ===> True
+
+-- ∀ (y x z : Nat), x ≠ 0 → (y * x = x * z) = (y = z) ===> True
+#testOptimize [ "MulReduceNat_6", proof ]
+  ∀ (y x z : Nat), x ≠ 0 → (y * x = x * z) = (y = z) ===> True
+
+-- ∀ (y z x : Nat), x ≠ 0 → (y * x = z * x) = (y = z) ===> True
+#testOptimize [ "MulReduceNat_7", proof ]
+  ∀ (y z x : Nat), x ≠ 0 → (y * x = z * x) = (y = z) ===> True
+
 -- ∀ (x y z : Int) , (x ≠ 0) → (x * y = x * z) = (y = z) ===> True
 #testOptimize [ "MulReduceInt_1", proof ]
   ∀ (x y z : Int) , (x ≠ 0) → (x * y = x * z) = (y = z) ===> True
@@ -727,6 +765,18 @@ elab "eqStrConstructor_4" : term => return eqStrConstructor_4
 -- ∀ (x y z : Int), (x ≠ 0) → (y * x = z * x) = (y = z) ===> True
 #testOptimize [ "MulReduceInt_4", proof ]
   ∀ (x y z : Int), (x ≠ 0) → (y * x = z * x) = (y = z) ===> True
+
+-- ∀ (x y : Int), x ≠ 0 → (x * y = 3 * x) = (y = 3) ===> True
+#testOptimize [ "MulReduceInt_5", proof ]
+  ∀ (x y : Int), x ≠ 0 → (x * y = 3 * x) = (y = 3) ===> True
+
+-- ∀ (y x z : Int), x ≠ 0 → (y * x = x * z) = (y = z) ===> True
+#testOptimize [ "MulReduceInt_6", proof ]
+  ∀ (y x z : Int), x ≠ 0 → (y * x = x * z) = (y = z) ===> True
+
+-- ∀ (y z x : Int), x ≠ 0 → (y * x = z * x) = (y = z) ===> True
+#testOptimize [ "MulReduceInt_7", proof ]
+  ∀ (y z x : Int), x ≠ 0 → (y * x = z * x) = (y = z) ===> True
 
 -- ∀ (x : Nat), (5 + x = x) = False ===> True
 #testOptimize [ "AddEqNat_1", proof ]
@@ -751,6 +801,10 @@ elab "eqStrConstructor_4" : term => return eqStrConstructor_4
 -- ∀ (x y : Nat), (y ≠ 0) → (x = y + x) = False ===> True
 #testOptimize [ "AddEqNat_6", proof ]
   ∀ (x y : Nat), (y ≠ 0) → (x = y + x) = False ===> True
+
+-- ∀ (b a : Nat), b ≠ 0 → (b + a = a) = False ===> True
+#testOptimize [ "AddEqNat_7", proof ]
+  ∀ (b a : Nat), b ≠ 0 → (b + a = a) = False ===> True
 
 -- ∀ (x : Int), (5 + x = x) = False ===> True
 #testOptimize [ "AddEqInt_1", proof ]
@@ -783,6 +837,10 @@ elab "eqStrConstructor_4" : term => return eqStrConstructor_4
 -- ∀ (x y : Nat), (y ≠ 0) → (x = y + x) = False ===> True
 #testOptimize [ "AddEqInt_8", proof ]
   ∀ (x y : Int), (y ≠ 0) → (x = y + x) = False ===> True
+
+-- ∀ (b a : Int), b ≠ 0 → (b + a = a) = False ===> True
+#testOptimize [ "AddEqInt_9", proof ]
+  ∀ (b a : Int), b ≠ 0 → (b + a = a) = False ===> True
 
 -- ∀ (a : Nat), (2 = 5 + a) = False ===> True
 #testOptimize [ "EqAddNatLitFalse_1", proof ]

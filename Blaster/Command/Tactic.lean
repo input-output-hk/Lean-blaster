@@ -28,23 +28,33 @@ Example: `blaster (timeout: 10) (verbose: 1)`
 syntax (name := blasterTactic) "blaster" (solveOption)* : tactic
 
 /-- Convert core Nat/Int operators to their HAdd/HSub/HMul/Neg elaborated form
-    so that proof term LHS patterns structurally match goal expressions. -/
-def toElabForm (e : Expr) : MetaM Expr := do
+    so that proof term LHS patterns structurally match goal expressions.
+    `Int.ediv`/`Int.emod` are converted only when `divMod` holds. -/
+def toElabForm (e : Expr) (divMod : Bool := true) : MetaM Expr :=
+  go e
+where
+  go (e : Expr) : MetaM Expr := do
   match e with
   | Expr.app (Expr.app (Expr.const ``Nat.add _) a) b =>
-      mkAdd (← toElabForm a) (← toElabForm b)
+      mkAdd (← go a) (← go b)
   | Expr.app (Expr.app (Expr.const ``Nat.sub _) a) b =>
-      mkSub (← toElabForm a) (← toElabForm b)
+      mkSub (← go a) (← go b)
   | Expr.app (Expr.app (Expr.const ``Nat.mul _) a) b =>
-      mkMul (← toElabForm a) (← toElabForm b)
+      mkMul (← go a) (← go b)
   | Expr.app (Expr.app (Expr.const ``Int.add _) a) b =>
-      mkAdd (← toElabForm a) (← toElabForm b)
+      mkAdd (← go a) (← go b)
   | Expr.app (Expr.app (Expr.const ``Int.sub _) a) b =>
-      mkSub (← toElabForm a) (← toElabForm b)
+      mkSub (← go a) (← go b)
   | Expr.app (Expr.app (Expr.const ``Int.mul _) a) b =>
-      mkMul (← toElabForm a) (← toElabForm b)
+      mkMul (← go a) (← go b)
+  | Expr.app (Expr.app (Expr.const ``Int.ediv _) a) b =>
+      if divMod then mkAppM ``HDiv.hDiv #[← go a, ← go b]
+      else return mkApp2 (mkConst ``Int.ediv) (← go a) (← go b)
+  | Expr.app (Expr.app (Expr.const ``Int.emod _) a) b =>
+      if divMod then mkAppM ``HMod.hMod #[← go a, ← go b]
+      else return mkApp2 (mkConst ``Int.emod) (← go a) (← go b)
   | Expr.app (Expr.const ``Int.neg _) a =>
-      mkAppM ``Neg.neg #[← toElabForm a]
+      mkAppM ``Neg.neg #[← go a]
   | Expr.app (Expr.const ``Int.ofNat _) (a@(Expr.lit (Literal.natVal _))) =>
       mkAppOptM ``OfNat.ofNat #[mkConst ``Int, a, none]
   | Expr.app (Expr.const ``Int.negSucc _) (Expr.lit (Literal.natVal n)) =>
@@ -54,11 +64,11 @@ def toElabForm (e : Expr) : MetaM Expr := do
   --                  (not via HDiv.hDiv / HMod.hMod),
   -- but we normalize it here in case that changes, consistent with add/sub/mul.
   | Expr.app (Expr.app (Expr.const ``Nat.div _) a) b =>
-      mkAppM ``HDiv.hDiv #[← toElabForm a, ← toElabForm b]
+      mkAppM ``HDiv.hDiv #[← go a, ← go b]
   | Expr.app (Expr.app (Expr.const ``Nat.mod _) a) b =>
-      mkAppM ``HMod.hMod #[← toElabForm a, ← toElabForm b]
+      mkAppM ``HMod.hMod #[← go a, ← go b]
   | Expr.app f a =>
-      return mkApp (← toElabForm f) (← toElabForm a)
+      return mkApp (← go f) (← go a)
   | _ => return e
 
 /-- Replace optimizer-context FVarIds with goal-context FVarIds in proof steps. -/
@@ -105,6 +115,14 @@ private partial def hasLet : Expr → Bool
 private def isSilentAbbrev (n : Name) : Bool :=
   n == ``Ne || n == ``GE.ge || n == ``GT.gt
 
+/-- Beta reduce `e` after a rewrite by a constant step whose replacement side is a lambda,
+    since applied occurrences of the rewritten term become redexes. -/
+private def betaAfterLambdaStep (heq : Expr) (symm : Bool) (e : Expr) : MetaM Expr := do
+  let .const n _ := heq | return e
+  let some ci := (← getEnv).find? n | return e
+  let some (_, lhs, rhs) := ci.type.getForallBody.eq? | return e
+  if (if symm then lhs else rhs).isLambda then Core.betaReduce e else return e
+
 /-- Rewrite the intro'd Prop hypotheses with the recorded steps, so they reach the
     optimizer normal form that hypothesis-driven steps expect.
     Returns the new goal and the steps with the replaced hypothesis fvars renamed. -/
@@ -132,7 +150,8 @@ private def rewriteHypotheses (goal : MVarId) (steps : Array Blaster.Optimize.Pr
           try
             -- the rewrite runs on the delta expanded type, which is defeq to the declared one
             let r ← g.rewrite ty heq symm
-            let res ← g.replaceLocalDecl h r.eNew r.eqProof
+            let eNew ← betaAfterLambdaStep heq symm r.eNew
+            let res ← g.replaceLocalDecl h eNew r.eqProof
             -- the replaced hypothesis and every later local got fresh fvars
             let s := res.subst.insert h (mkFVar res.fvarId)
             steps := steps.map fun
@@ -141,24 +160,15 @@ private def rewriteHypotheses (goal : MVarId) (steps : Array Blaster.Optimize.Pr
             hs := hs.map fun f => (s.get f).fvarId!
             g := res.mvarId
             h := res.fvarId
-            ty := r.eNew
+            ty := eNew
             changed := true
           catch _ => pure ()
   return (g, steps)
 
-/-- Apply recorded proof stack rewrites to a goal.
-    Each rewrite step is attempted; steps that don't match are skipped.
-    `hyps` are the intro'd binders, rewritten first (see `rewriteHypotheses`). -/
-def applyProofStack (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep)
-    (hyps : Array FVarId := #[]) : MetaM MVarId := do
-  let goal ← goal.withContext do
-    let t ← goal.getType
-    if hasLet t then goal.change (← zetaReduce t) else pure goal
-  -- normalize proof terms once upfront
-  -- a step whose normalization fails is kept as is and skipped
-  let steps : Array Blaster.Optimize.ProofStep ← goal.withContext <| steps.mapM fun
-    | s@(.rewrite proof symm) => try return .rewrite (← toElabForm proof) symm catch _ => return s
-    | .exact proof => return .exact proof
+/-- Rewrite the hypotheses, then apply the steps to the target until none applies.
+    Steps that don't match are skipped. -/
+private def replaySteps (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep)
+    (hyps : Array FVarId) : MetaM MVarId := do
   let (goal, steps) ← rewriteHypotheses goal steps hyps
   /- trace[Optimize.expr] "proofStack ({steps.size} steps):" -/
   /- let mut idx : Nat := 0 -/
@@ -181,7 +191,7 @@ def applyProofStack (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep)
       | .rewrite heq symm =>
         try
           let r ← g.rewrite (← g.getType) heq symm
-          g ← g.replaceTargetEq r.eNew r.eqProof
+          g ← g.replaceTargetEq (← betaAfterLambdaStep heq symm r.eNew) r.eqProof
           changed := true
           /- trace[Optimize.expr] "  applied rewrite → {← g.getType}" -/
         catch _ => pure ()
@@ -196,6 +206,55 @@ def applyProofStack (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep)
   -- the target may have been reduced to a hypothesis
   unless ← g.isAssigned do
     try g.assumption catch _ => pure ()
+  return g
+
+/-- `true` iff `g` is assigned, `True` (then closed) or closed by `refl`. -/
+private def closeTrivially (g : MVarId) : MetaM Bool := do
+  if ← g.isAssigned then return true
+  if (← instantiateMVars (← g.getType)).isConstOf ``True then
+    g.assign (mkConst ``True.intro)
+    return true
+  try g.refl; return true catch _ => return false
+
+/-- Apply recorded proof stack rewrites to a goal.
+    `hyps` are the intro'd binders, rewritten first (see `rewriteHypotheses`).
+    With `unfoldTarget` and a target containing `Ne` or `GT.gt`, a replay that does not close
+    the original target is retried on the unfolded one. Then the goal may be returned closed
+    by `True.intro` or `refl`. -/
+def applyProofStack (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep)
+    (hyps : Array FVarId := #[]) (unfoldTarget := true) : MetaM MVarId := do
+  let goal ← goal.withContext do
+    let t ← goal.getType
+    if hasLet t then goal.change (← zetaReduce t) else pure goal
+  -- normalize proof terms once upfront
+  -- a step whose normalization fails is kept as is and skipped
+  let steps : Array Blaster.Optimize.ProofStep ← goal.withContext <| steps.flatMapM fun
+    | s@(.rewrite proof symm) => do
+      try
+        let p ← toElabForm proof
+        -- a goal written with core `Int.ediv`/`Int.emod` only matches the unconverted form
+        if (proof.find? fun e => e.isAppOfArity ``Int.ediv 2 || e.isAppOfArity ``Int.emod 2).isSome then
+          let alt ← toElabForm proof (divMod := false)
+          if alt != p then return #[.rewrite p symm, .rewrite alt symm]
+        return #[.rewrite p symm]
+      catch _ => return #[s]
+    | s => return #[s]
+  -- `GE.ge` is left out since the `ge_eq_le` step matches it
+  let isGoalAbbrev (n : Name) := n == ``Ne || n == ``GT.gt
+  unless unfoldTarget &&
+      ((← goal.getType).find? fun e => e.isConst && isGoalAbbrev e.constName!).isSome do
+    return ← replaySteps goal steps hyps
+  -- the original target is replayed first, so a goal that closes this way costs no more
+  let s ← saveState
+  let g ← replaySteps goal steps hyps
+  if ← closeTrivially g then return g
+  -- otherwise retry with `Ne` and `GT.gt` unfolded, as the optimizer sees them
+  let failed ← saveState
+  s.restore
+  let g' ← replaySteps (← goal.deltaTarget isGoalAbbrev) steps hyps
+  if ← closeTrivially g' then return g'
+  -- both failed, keep the original target for the gap message
+  failed.restore
   return g
 
 /-- Build a proof of `(∀ x₁…xₙ, P) = (∀ y₁…yₘ, Q)` when m < n (some binders eliminated),
@@ -215,7 +274,12 @@ private def liftForallEq (lhs rhs innerProof : Expr) : MetaM Expr := do
           keptFvars := keptFvars.push fvar
           rhsIdx := rhsIdx + 1
         else
-          let ty ← inferType fvar
+          -- the type may mention binders already replaced by a default
+          let ty := (← inferType fvar).replaceFVars (lhsFvars.extract 0 lhsArgs.size) lhsArgs
+          -- `Decidable p` has no `Inhabited` instance, any decision procedure fits
+          if ty.isAppOfArity ``Decidable 1 then
+            lhsArgs := lhsArgs.push (mkApp (mkConst ``Classical.propDecidable) ty.appArg!)
+            continue
           let u ← getLevel ty
           let inst ← synthInstance (mkApp (mkConst ``Inhabited [u]) ty)
           lhsArgs := lhsArgs.push (mkApp2 (mkConst ``Inhabited.default [u]) ty inst)
@@ -258,26 +322,33 @@ private def blasterAdmit (mvarId : MVarId) : MetaM Unit :=
     mvarId.assign (mkApp (mkConst ``blasterProven [u]) mvarType)
 
 /-- Prove a goal by introducing binders, applying the proof stack, then closing with refl.
-    On failure, admit via `blasterProven`.
+    On failure, admit via `blasterProven`, or throw when `admit` is false.
     Warn only when `optimizerClosed`, since then the optimizer proved it by rewriting and
     it should have reconstructed. -/
 private def proveByProofStack (goalType : Expr) (proofStack : Array Blaster.Optimize.ProofStep)
-    (optBinders : Array FVarId) (optimizerClosed : Bool) : MetaM Expr := do
+    (optBinders : Array FVarId) (optimizerClosed : Bool) (admit := true) : MetaM Expr := do
   let proofMVar ← mkFreshExprMVar goalType
   let numBinders ← forallTelescope goalType fun fvars _ => pure fvars.size
   let (goalFVarIds, g) ← proofMVar.mvarId!.introNP numBinders
   let proofStack := substProofStackFVars proofStack optBinders goalFVarIds
-  let g ← applyProofStack g proofStack goalFVarIds
-  unless ← g.isAssigned do
-    if (← instantiateMVars (← g.getType)).isConstOf ``True then
-      g.assign (mkConst ``True.intro)
-    else
-      try g.refl
-      catch _ =>
-        if optimizerClosed then
-          logWarning m!"blaster: reconstruction gap ({proofStack.size} steps), admitted via `blasterProven`\n{.ofGoal g}"
-        blasterAdmit g
-  return proofMVar
+  -- SMT-proved goals skip the unfolded pass
+  let g ← applyProofStack g proofStack goalFVarIds (unfoldTarget := optimizerClosed)
+  let closed ← closeTrivially g
+  unless closed do
+    unless admit do throwError "blaster: reconstruction gap"
+    if optimizerClosed then
+      logWarning m!"blaster: reconstruction gap ({proofStack.size} steps), admitted via `blasterProven`\n{.ofGoal g}"
+    blasterAdmit g
+  -- a step may carry an optimizer fvar the replay did not map, which the kernel would reject
+  let pf ← instantiateMVars proofMVar
+  let lctx ← getLCtx
+  unless pf.hasFVar && (collectFVars {} pf).fvarIds.any (!lctx.contains ·) do return proofMVar
+  unless admit do throwError "blaster: reconstruction gap"
+  if optimizerClosed && closed then
+    logWarning m!"blaster: reconstruction gap (unmapped free variable), admitted via `blasterProven`"
+  let m ← mkFreshExprMVar goalType
+  blasterAdmit m.mvarId!
+  return m
 
 @[tactic blasterTactic]
 def blasterTacticImp : Tactic := fun stx =>
@@ -310,17 +381,36 @@ def blasterTacticImp : Tactic := fun stx =>
             else if ← isProp lhs then
               let numBinders ← forallTelescope lhs fun fvars _ => pure fvars.size
               if numBinders > 0 then
-                -- Build pointwise equality goal: ∀ xs, body₁(xs) = body₂(xs)
-                let innerGoalType ← forallTelescope lhs fun inputFvars inputBody => do
-                  let optBody ←
-                    forallBoundedTelescope rhs (some inputFvars.size) fun optFvars optBody =>
-                      mapOptBodyToInputFVars optBody optFvars inputFvars
-                  let eq ← mkEq inputBody optBody
-                  mkForallFVars inputFvars eq
-                let innerProof ← proveByProofStack innerGoalType proofStack optBinders optimizerClosed
-                -- Lift: (∀ xs, body₁ = body₂) → (∀ xs, body₁) = (∀ xs, body₂)
-                let liftedProof ← liftForallEq lhs rhs innerProof
-                goal.assign liftedProof
+                -- Build pointwise equality goal: ∀ xs, body₁(xs) = body₂(xs), opening `k` rhs binders
+                let provePointwise (k : Nat) (admit : Bool) : MetaM Unit := do
+                  let innerGoalType ← forallTelescope lhs fun inputFvars inputBody => do
+                    let optBody ←
+                      forallBoundedTelescope rhs (some k) fun optFvars optBody =>
+                        mapOptBodyToInputFVars optBody optFvars inputFvars
+                    let eq ← mkEq inputBody optBody
+                    mkForallFVars inputFvars eq
+                  let innerProof ←
+                    proveByProofStack innerGoalType proofStack optBinders optimizerClosed admit
+                  -- Lift: (∀ xs, body₁ = body₂) → (∀ xs, body₁) = (∀ xs, body₂)
+                  let liftedProof ← liftForallEq lhs rhs innerProof
+                  goal.assign liftedProof
+                -- opening more binders than rhs shows can unfold its body (e.g. `¬ a`),
+                -- so its syntactic binders are tried first when they hold as many proofs as lhs
+                let kSyn := min numBinders rhs.getNumHeadForalls
+                -- `try` in TacticM restores the state on failure
+                let syntacticOk ← if kSyn < numBinders then
+                    try
+                      let trySyn ← forallTelescope lhs fun inputFvars _ =>
+                        forallBoundedTelescope rhs (some numBinders) fun optFvars _ => do
+                          -- nothing unfolded, both alignments give the same goal
+                          if optFvars.size == kSyn then return false
+                          let numProofs (xs : Array Expr) := return (← xs.filterM (isProof ·)).size
+                          return (← numProofs (optFvars.extract 0 kSyn)) == (← numProofs inputFvars)
+                      if trySyn then provePointwise kSyn false
+                      pure trySyn
+                    catch _ => pure false
+                  else pure false
+                unless syntacticOk do provePointwise numBinders true
                 pure true
               else pure false
             else pure false

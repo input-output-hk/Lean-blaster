@@ -307,6 +307,15 @@ namespace Tests.OptimizeOr
 -- ¬ b → (a ∨ b) = a
 #testOptimize [ "OrHyp_4", proof ] ∀ (a b : Prop), ¬ b → (a ∨ b) = a ===> True
 
+-- a → (¬ a ∨ b) = b
+#testOptimize [ "OrHyp_5", proof ] ∀ (a b : Prop), a → ((¬ a ∨ b) = b) ===> True
+
+-- x = true → ((false = x) ∨ b) = b
+#testOptimize [ "OrHyp_6", proof ] ∀ (x : Bool) (b : Prop), x = true → ((false = x) ∨ b) = b ===> True
+
+-- x = false → ((true = x) ∨ b) = b
+#testOptimize [ "OrHyp_7", proof ] ∀ (x : Bool) (b : Prop), x = false → ((true = x) ∨ b) = b ===> True
+
 
 /-! Test case for the commutative reorder on `Or`: e1 ∨ e2 ==> e2 ∨ e1 (if e2 <ₒ e1). -/
 

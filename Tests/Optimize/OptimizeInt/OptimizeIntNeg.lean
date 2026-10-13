@@ -34,4 +34,9 @@ elab "intNegCst_1" : term => return intNegCst_1
 
 #testOptimize ["IntNegNeg_3", proof] ∀ (x : Int), -(-(-x)) = -x ===> True
 
+/-! Test cases for normalization rule `Int.negSucc n ==> -(Int.ofNat (1 + n))` (n not a constant) -/
+
+-- ∀ (n : Nat), Int.negSucc n = -(Int.ofNat (1 + n)) ===> True
+#testOptimize ["IntNegSucc_1", proof] ∀ (n : Nat), Int.negSucc n = -(Int.ofNat (1 + n)) ===> True
+
 end Tests.OptimizeIntNeg

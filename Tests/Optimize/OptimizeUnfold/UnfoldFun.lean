@@ -150,7 +150,7 @@ def add_n_times (n : Nat) (a : Int) : Int :=
 
 -- ∀ (x : List Nat) (n : Nat), List.length x > n → List.drop n x ≠ List.nil ===>
 -- ∀ (x : List Nat) (n : Nat), List.length x < List.length (a : x)
-#testOptimize [ "RecFunNotUnfolded_2"  ]
+#testOptimize [ "RecFunNotUnfolded_2", proof ]
   ∀ (x : List Nat) (n : Nat), List.length x > n → List.drop n x ≠ List.nil ===>
   ∀ (x : List Nat) (n : Nat), n < List.length x → ¬ (List.nil = List.drop n x)
 

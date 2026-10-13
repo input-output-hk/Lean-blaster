@@ -238,6 +238,10 @@ namespace Test.OptimizeAnd
 #testOptimize [ "AndBridge_ff", proof ]
   ∀ (a b : Bool), false = a ∧ false = b ===> ∀ (a b : Bool), false = (a || b)
 
+-- ∀ (a c : Bool), (true = a ∧ (true = a → false = c)) = (true = (a && !c)) ===> True
+#testOptimize [ "AndBridge_tf_2", proof ]
+  ∀ (a c : Bool), (true = a ∧ (true = a → false = c)) = (true = (a && !c)) ===> True
+
 
 
 /-! Test cases for simplification rule `e1 ∧ e2 ==> e1 (if e1 =ₚₜᵣ e2)`. -/
@@ -325,6 +329,9 @@ namespace Test.OptimizeAnd
 
 -- (True ∧ a) → (a ∧ b) = b
 #testOptimize [ "AndHyp_5", proof ] ∀ (a b : Prop), (True ∧ a) → (a ∧ b) = b ===> True
+
+-- 0 = n → ((0 < n) ∧ b) = False
+#testOptimize [ "AndHyp_6", proof ] ∀ (n : Nat) (b : Prop), 0 = n → ((0 < n) ∧ b) = False ===> True
 
 
 /-! Test case for the commutative reorder on `And`: e1 ∧ e2 ==> e2 ∧ e1 (if e2 <ₒ e1). -/

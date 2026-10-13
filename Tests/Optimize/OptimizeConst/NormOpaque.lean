@@ -168,7 +168,7 @@ variable (t : String)
 #testOptimize [ "ConstOpaqueUnchanged_5" ] t ===> t
 
 -- z + n = 100 + z ===> 100 = n
-#testOptimize [ "ConstOpaqueUnchanged_6" ] (norm-result: 1) z + n = 100 + z ===> 100 = n
+#testOptimize [ "ConstOpaqueUnchanged_6", proof ] (norm-result: 1) z + n = 100 + z ===> 100 = n
 
 -- p + m = -45 + p ===> -45 = m
 def constOpaqueUnchanged_7 : Expr :=
@@ -178,7 +178,7 @@ def constOpaqueUnchanged_7 : Expr :=
     (Lean.Expr.app (Lean.Expr.const `Int.negSucc []) (Lean.Expr.lit (Lean.Literal.natVal 44))))
   (Lean.Expr.const `Test.NormOpaque.m [])
 elab "constOpaqueUnchanged_7" : term => return constOpaqueUnchanged_7
-#testOptimize [ "ConstOpaqueUnchanged_7" ] p + m = -45 + p ===> constOpaqueUnchanged_7
+#testOptimize [ "ConstOpaqueUnchanged_7", proof ] p + m = -45 + p ===> constOpaqueUnchanged_7
 
 -- List.length ys + List.length xs = 3 + List.length ys ===> 3 = List.length xs
 #testOptimize [ "ConstOpaqueUnchanged_8" ] (norm-result: 1)

@@ -113,7 +113,7 @@ def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeCo
          - Nat.ble ==> λ x y => Blaster.decide' (x ≤ y) (if isOptimizeRecCall)
          - Nat.beq ==> λ x y => x == y (if isOptimizeRecCall)
          - Int.negSucc ==> λ n => Int.neg (Int.ofNat (1 + n)) (if ¬ isInFunApp)
-         - Int.le ==> ≤
+         - Int.le ==> ≤    [proof: Blaster.int_le_eq_le]
          - ite ==> λ (α : Sort u) (p : Prop) [h : Decidable p] (t e : α) => Blaster.dite' α p (fun _ => t) (fun _ => e)
          - dite ==> λ (α : Sort u) (p : Prop) [h : Decidable p] (t : p → α) (e : ¬ p → α) => Blaster.dite' α p t e
          - Decidable.decide ==> λ (p : Prop) [h : Decidable p] => Blaster.decide' p
@@ -159,7 +159,9 @@ def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeCo
                stackContinuity stack (skipCache := true) (← mkExpr lam) -- don't catch
              else stackContinuity stack (skipCache := true) e -- don't catch
 
-     | ``Int.le => stackContinuity stack (← mkIntLeOp)
+     | ``Int.le =>
+             pushProofStep (.rewrite (mkConst ``Blaster.int_le_eq_le))
+             stackContinuity stack (← mkIntLeOp)
 
      | ``ite =>
           let hName ← Term.mkFreshBinderName

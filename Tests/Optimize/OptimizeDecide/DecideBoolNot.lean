@@ -14,7 +14,7 @@ namespace Test.DecideBoolNot
 
 -- ∀ (a : Prop), [Decidable a] → !(decide a) ===> ∀ (a : Prop), ¬ a
 -- NOTE: `true = decide e` is reduced to `e`
-#testOptimize [ "NotDecide_2" ] ∀ (a : Prop), [Decidable a] → !(decide a) ===> ∀ (a : Prop), ¬ a
+#testOptimize [ "NotDecide_2", proof ] ∀ (a : Prop), [Decidable a] → !(decide a) ===> ∀ (a : Prop), ¬ a
 
 -- ∀ (a : Prop), [Decidable a] → !(decide a) = decide (False = a) ===> True
 #testOptimize [ "NotDecide_3", proof ] ∀ (a : Prop), [Decidable a] → !(decide a) = decide (False = a) ===> True
@@ -45,7 +45,7 @@ namespace Test.DecideBoolNot
 -- ∀ (a : Prop) (b c : Bool), [Decidable a] → (¬ a || ((b || c) && !(c || b)) || ¬ a) ===>
 -- ∀ (a : Prop), ¬ a
 -- NOTE: `false = decide e` is reduced to `¬ e`
-#testOptimize [ "NotDecide_10" ] ∀ (a : Prop) (b c : Bool), [Decidable a] →
+#testOptimize [ "NotDecide_10", proof ] ∀ (a : Prop) (b c : Bool), [Decidable a] →
                                    (¬ a || ((b || c) && !(c || b)) || ¬ a) ===>
                                  ∀ (a : Prop), ¬ a
 
@@ -56,7 +56,7 @@ namespace Test.DecideBoolNot
 -- ∀ (a : Prop) (b c : Bool), [Decidable a] → (!a || ((b || c) && !(c || b)) || !a) ===>
 -- ∀ (a : Prop), ¬ a
 -- NOTE: `false = decide e` is reduced to `¬ e`
-#testOptimize [ "NotDecide_12" ] ∀ (a : Prop) (b c : Bool), [Decidable a] →
+#testOptimize [ "NotDecide_12", proof ] ∀ (a : Prop) (b c : Bool), [Decidable a] →
                                    (!a || ((b || c) && !(c || b)) || !a) ===>
                                  ∀ (a : Prop), ¬ a
 
@@ -103,7 +103,7 @@ namespace Test.DecideBoolNot
 -- ∀ (a : Prop), [Decidable a] → decide (¬ p) ===>
 -- ∀ (a : Prop), ¬ a
 -- NOTE: `true = decide e` is reduced to `e`
-#testOptimize [ "NotDecideUnchanged_2" ] ∀ (a : Prop), [Decidable a] → decide ¬ a ===>
+#testOptimize [ "NotDecideUnchanged_2", proof ] ∀ (a : Prop), [Decidable a] → decide ¬ a ===>
                                          ∀ (a : Prop), ¬ a
 
 -- ∀ (a : Prop), [Decidable a] → !(!(decide a)) ===> ∀ (a : Prop), a

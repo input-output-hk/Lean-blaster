@@ -1414,7 +1414,7 @@ elab "boolEqDIteUnchanged_1" : term => return boolEqDIteUnchanged_1
 
 variable (z : Int)
 -- true = decide (x ≤ y ∧ z ≥ y) ===> ¬ y < x ∧ ¬ z < y
-#testOptimize [ "DecideEqTrue_5"] true = decide (x ≤ y ∧ z ≥ y) ===> ¬ y < x ∧ ¬ z < y
+#testOptimize [ "DecideEqTrue_5", proof ] true = decide (x ≤ y ∧ z ≥ y) ===> ¬ y < x ∧ ¬ z < y
 
 -- ∀ (a b : Prop), ∀ (x y : Int),
 --  [Decidable a] → [Decidable b] →
@@ -1445,7 +1445,7 @@ variable (z : Int)
 #testOptimize [ "DecideEqTrue_11", proof ] (true = decide (x ≤ y)) = (x ≤ y) ===> True
 
 -- (true = decide (x ≤ y ∧ z ≥ y)) = (x ≤ y ∧ y ≤ z) ===> True
-#testOptimize [ "DecideEqTrue_12"] (true = decide (x ≤ y ∧ z ≥ y)) = (x ≤ y ∧ y ≤ z) ===> True
+#testOptimize [ "DecideEqTrue_12", proof ] (true = decide (x ≤ y ∧ z ≥ y)) = (x ≤ y ∧ y ≤ z) ===> True
 
 -- ∀ (a b : Prop), ∀ (x y : Int),
 --  [Decidable a] → [Decidable b] →
@@ -1476,19 +1476,19 @@ variable (z : Int)
 /-! Test cases for simplification rule `false = decide e ==> ¬ e`. -/
 
 -- ∀ (a : Prop), [Decidable a] → false = decide a ===> ∀ (a : Prop), ¬ a
-#testOptimize [ "DecideEqFalse_1"]
+#testOptimize [ "DecideEqFalse_1", proof ]
   ∀ (a : Prop), [Decidable a] → false = decide a ===> ∀ (a : Prop), ¬ a
 
 
 -- ∀ (a b : Prop), [Decidable a] → [Decidable b] → false = decide (a ∧ b) ===>
 -- ∀ (a b : Prop), ¬ a ∧ b
-#testOptimize [ "DecideEqFalse_2"]
+#testOptimize [ "DecideEqFalse_2", proof ]
   ∀ (a b : Prop), [Decidable a] → [Decidable b] → false = decide (a ∧ b) ===>
   ∀ (a b : Prop), ¬ (a ∧ b)
 
 -- ∀ (a b : Prop), [Decidable a] → [Decidable b] → false = decide (a ∨ b) ===>
 -- ∀ (a b : Prop), ¬ (a ∨ b)
-#testOptimize [ "DecideEqFalse_3"]
+#testOptimize [ "DecideEqFalse_3", proof ]
   ∀ (a b : Prop), [Decidable a] → [Decidable b] → false = decide (a ∨ b) ===>
   ∀ (a b : Prop), ¬ (a ∨ b)
 
@@ -1496,19 +1496,19 @@ variable (z : Int)
 #testOptimize [ "DecideEqFalse_4", proof ] false = decide (x ≤ y) ===> y < x
 
 -- false = decide (x ≤ y ∧ z ≥ y) ===> (y < x ∨ z < y)
-#testOptimize [ "DecideEqFalse_5"] false = decide (x ≤ y ∧ z ≥ y) ===> (y < x ∨ z < y)
+#testOptimize [ "DecideEqFalse_5", proof ] false = decide (x ≤ y ∧ z ≥ y) ===> (y < x ∨ z < y)
 
 -- ∀ (a b : Prop), ∀ (x y : Int),
 --  [Decidable a] → [Decidable b] →
 --  decide ((a ∧ ¬ a) ∨ (b ∧ ¬ b)) = (x < y) ===>
 -- ∀ (x y : Int), ¬ x < y
-#testOptimize [ "DecideEqFalse_6"]
+#testOptimize [ "DecideEqFalse_6", proof ]
   ∀ (a b : Prop) (x y : Int), [Decidable a] → [Decidable b] → decide ((a ∧ ¬ a) ∨ (b ∧ ¬ b)) = (x < y) ===>
   ∀ (x y : Int), ¬ x < y
 
 -- ∀ (x y : Nat) (a b c : Bool), ((a || ((b || c) && !(c || b))) && !a) = ¬ x ≤ y ===>
 -- ∀ (x y : Nat), ¬ y < x
-#testOptimize [ "DecideEqFalse_7"]
+#testOptimize [ "DecideEqFalse_7", proof ]
   ∀ (x y : Nat) (a b c : Bool), ((a || ((b || c) && !(c || b))) && !a) = ¬ x ≤ y ===>
   ∀ (x y : Nat), ¬ y < x
 
@@ -1536,7 +1536,7 @@ variable (z : Int)
 #testOptimize [ "DecideEqFalse_12", proof ] (false = decide (x ≤ y)) = ¬ x ≤ y ===> True
 
 -- (false = decide (x ≤ y ∧ z ≥ y)) = ¬ (x ≤ y ∧ y ≤ z) ===> True
-#testOptimize [ "DecideEqFalse_13"] (false = decide (x ≤ y ∧ z ≥ y)) = ¬ (x ≤ y ∧ y ≤ z) ===> True
+#testOptimize [ "DecideEqFalse_13", proof ] (false = decide (x ≤ y ∧ z ≥ y)) = ¬ (x ≤ y ∧ y ≤ z) ===> True
 
 -- ∀ (a b : Prop), ∀ (x y : Int),
 --  [Decidable a] → [Decidable b] →

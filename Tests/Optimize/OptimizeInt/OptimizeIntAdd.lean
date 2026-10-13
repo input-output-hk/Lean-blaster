@@ -74,4 +74,19 @@ elab "intAddCst_1" : term => return intAddCst_1
 -- n + (-n) = 0 ==> True
 #testOptimize ["IntAddNeg_1", proof] ∀ (n : Int), n + (-n) = 0 ===> True
 
+/-! Test cases for the constant fold `Int.toNat N ==> "Int.toNat" N` under a composed goal. -/
+
+#testOptimize ["IntToNatCst_1", proof]
+  ∀ (x : Nat) (y : Int), ((Int.toNat 5 + x) = (x + 5)) ∧ y - y = 0 ===> True
+
+/-! Test cases for simplification rule `Int.toNat (Int.ofNat e) ==> e` -/
+
+-- ∀ (n : Nat), Int.toNat (Int.ofNat n) - n = 0 ===> True
+#testOptimize ["IntToNatOfNat_1", proof] ∀ (n : Nat), Int.toNat (Int.ofNat n) - n = 0 ===> True
+
+/-! Test cases for the simplification rule `Int.toNat (-(Int.ofNat e)) ==> 0` -/
+
+-- ∀ (n : Nat), Int.toNat (-(Int.ofNat n)) = 0 ===> True
+#testOptimize ["IntToNatNegOfNat_1", proof] ∀ (n : Nat), Int.toNat (-(Int.ofNat n)) = 0 ===> True
+
 end Tests.OptimizeIntAdd

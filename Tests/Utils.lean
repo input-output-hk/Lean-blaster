@@ -151,7 +151,9 @@ partial def normNatLitAndLambdaBeta (e : Expr) : MetaM Expr := do
   visit e
 
 /-- Build the goal type and apply the proof stack.
-    Returns the root goal and the (possibly assigned) goal after the intros. -/
+    Returns the root goal and the (possibly assigned) goal after the intros.
+    Only the syntactic binders of `optimized` are opened when they have as many hypotheses as
+    the input binders, so that an eliminated hypothesis is not simply left in context. -/
 private def buildAndApplyProofStack (inputExpr : Expr) (optimized : Expr)
     (proofStack : Array Blaster.Optimize.ProofStep)
     (optBinders : Array FVarId) : TermElabM (MVarId × MVarId) := do
@@ -164,8 +166,14 @@ private def buildAndApplyProofStack (inputExpr : Expr) (optimized : Expr)
     else if isPropInput then
       let n ← forallTelescope inputExpr fun fvars _ => pure fvars.size
       let gt ← forallTelescope inputExpr fun inputFvars inputBody => do
+        let kSyn := min inputFvars.size optimized.getNumHeadForalls
+        let numHyps (xs : Array Expr) : MetaM Nat := xs.foldlM (fun c x => do
+          return if ← isProof x then c + 1 else c) 0
+        let sameHyps ← forallBoundedTelescope optimized (some kSyn) fun optFvars _ => do
+          return (← numHyps optFvars) == (← numHyps inputFvars)
+        let k := if sameHyps then kSyn else inputFvars.size
         let optBody ←
-          forallBoundedTelescope optimized (some inputFvars.size) fun optFvars optBody =>
+          forallBoundedTelescope optimized (some k) fun optFvars optBody =>
           mapOptBodyToInputFVars optBody optFvars inputFvars
         let eq ← mkEq inputBody optBody
         mkForallFVars inputFvars eq

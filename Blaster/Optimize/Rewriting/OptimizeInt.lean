@@ -202,7 +202,7 @@ inductive DivKind where
      - n / 0 ==> 0
      - n / 1 ==> n
      - 0 / n ==> 0
-     - N1 / N2 ==> N1 "/" N2
+     - N1 / N2 ==> N1 "/" N2    [proof: Eq.refl, see pushIntFoldStep]
      - n / n ==> 1
          (if 0 < n := _ ∈ hypothesisContext.hypothesisMap ∨
              ¬ (0 = n) := _ ∈ hypothesisContext.hypothesisMap ∨
@@ -234,10 +234,13 @@ def optimizeIntDivCommon (d: DivKind) (op1 : Expr) (op2 : Expr) : TranslateEnvT 
   | DivKind.fdiv => pushProofStep (.rewrite (mkConst ``Int.zero_fdiv))
   return op1
  | some n1, some n2 =>
-  match d with
-  | DivKind.ediv => evalBinIntOp Int.ediv n1 n2
-  | DivKind.tdiv => evalBinIntOp Int.tdiv n1 n2
-  | DivKind.fdiv => evalBinIntOp Int.fdiv n1 n2
+  let (fOp, g) := match d with
+    | DivKind.ediv => (Int.ediv, ``Int.ediv)
+    | DivKind.tdiv => (Int.tdiv, ``Int.tdiv)
+    | DivKind.fdiv => (Int.fdiv, ``Int.fdiv)
+  let r ← evalBinIntOp fOp n1 n2
+  pushIntFoldStep (mkApp2 (mkConst g) op1 op2) r
+  return r
  | _, _ =>
    if let some r ← intDivSelfReduce? op1 op2 then
      if let DivKind.ediv := d then emitEDivSelfProofStep op1
@@ -283,10 +286,14 @@ def cstCommonDivProp?
       | DivKind.ediv => (Int.ediv, ``Blaster.int_ediv_gcd_norm)
       | DivKind.tdiv => (Int.tdiv, ``Blaster.int_tdiv_gcd_norm)
       | DivKind.fdiv => (Int.fdiv, ``Blaster.int_fdiv_gcd_norm)
-    pushProofStep (.rewrite (mkApp3 (mkConst lemma) n op2 e1))
+    let m1 ← evalBinIntOp f_div n1 gcd
+    let m2 ← evalBinIntOp f_div n2 gcd
+    let refl1 := mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Int) m1
+    let refl2 := mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Int) m2
+    pushProofStep (.rewrite (mkAppN (mkConst lemma) #[n, op2, e1, m1, m2, refl1, refl2]))
     setRestart
-    let mulExpr := mkApp2 (← mkIntMulOp) (← evalBinIntOp f_div n1 gcd) e1
-    return (mulExpr, (← evalBinIntOp f_div n2 gcd))
+    let mulExpr := mkApp2 (← mkIntMulOp) m1 e1
+    return (mulExpr, m2)
  | _, _ => return none
 
 
@@ -294,7 +301,7 @@ def cstCommonDivProp?
      - n / 0 ==> 0                                              [proof: Int.ediv_zero]
      - n / 1 ==> n                                              [proof: Int.ediv_one]
      - 0 / n ==> 0                                              [proof: Int.zero_ediv]
-     - N1 / N2 ==> N1 "/ₑ" N2
+     - N1 / N2 ==> N1 "/ₑ" N2    [proof: Eq.refl, see pushIntFoldStep]
      - n / n ==> 1                                              [proof: Int.ediv_self]
          (if 0 < n := _ ∈ hypothesisContext.hypothesisMap ∨
              ¬ (0 = n) := _ ∈ hypothesisContext.hypothesisMap ∨
@@ -349,7 +356,7 @@ inductive ModKind where
      - n % 0 ==> n
      - n % 1 ==> 0
      - 0 % n ==> 0
-     - N1 % N2 ==> N1 "%" N2
+     - N1 % N2 ==> N1 "%" N2    [proof: Eq.refl, see pushIntFoldStep]
      - (N1 * n) % N2 ==> 0 (if N1 % N2 = 0)
      - n1 % n2 ==> 0 (if n1 =ₚₜᵣ n2)
      - (m * n) % m | (n * m) % m ==> 0
@@ -376,10 +383,13 @@ def optimizeIntModCommon (m : ModKind) (op1 : Expr) (op2 : Expr) : TranslateEnvT
   | ModKind.fmod => pushProofStep (.rewrite (mkConst ``Int.zero_fmod))
   return op1
  | some n1, some n2 =>
-  match m with
-  | ModKind.emod => evalBinIntOp Int.emod n1 n2
-  | ModKind.tmod => evalBinIntOp Int.tmod n1 n2
-  | ModKind.fmod => evalBinIntOp Int.fmod n1 n2
+  let (fOp, g) := match m with
+    | ModKind.emod => (Int.emod, ``Int.emod)
+    | ModKind.tmod => (Int.tmod, ``Int.tmod)
+    | ModKind.fmod => (Int.fmod, ``Int.fmod)
+  let r ← evalBinIntOp fOp n1 n2
+  pushIntFoldStep (mkApp2 (mkConst g) op1 op2) r
+  return r
  | _, nv2 =>
    if let some r ← cstModProp? op1 nv2 then
      emitModGcdZeroProofStep m op1 op2
@@ -432,7 +442,7 @@ def optimizeIntModCommon (m : ModKind) (op1 : Expr) (op2 : Expr) : TranslateEnvT
      - n % 0 ==> n                            [proof: Int.emod_zero]
      - n % 1 ==> 0                            [proof: Int.emod_one]
      - 0 % n ==> 0                            [proof: Int.zero_emod]
-     - N1 % N2 ==> N1 "%" N2
+     - N1 % N2 ==> N1 "%" N2    [proof: Eq.refl, see pushIntFoldStep]
      - (N1 * n) % N2 ==> 0 (if N1 % N2 = 0)
      - n1 % n2 ==> 0 (if n1 =ₚₜᵣ n2)          [proof: Int.emod_self]
      - (m * n) % m ==> 0                      [proof: Int.mul_emod_right]
@@ -452,7 +462,7 @@ def optimizeIntEMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      - n / 0 ==> 0                                              [proof: Int.tdiv_zero]
      - n / 1 ==> n                                              [proof: Int.tdiv_one]
      - 0 / n ==> 0                                              [proof: Int.zero_tdiv]
-     - N1 / N2 ==> N1 "/" N2
+     - N1 / N2 ==> N1 "/" N2    [proof: Eq.refl, see pushIntFoldStep]
      - n / n ==> 1
          (if 0 < n := _ ∈ hypothesisContext.hypothesisMap ∨
              ¬ (0 = n) := _ ∈ hypothesisContext.hypothesisMap ∨
@@ -492,7 +502,7 @@ def optimizeIntTDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      - n % 0 ==> n              [proof: Int.tmod_zero]
      - n % 1 ==> 0              [proof: Int.tmod_one]
      - 0 % n ==> 0              [proof: Int.zero_tmod]
-     - N1 % N2 ==> N1 "%" N2
+     - N1 % N2 ==> N1 "%" N2    [proof: Eq.refl, see pushIntFoldStep]
      - (N1 * n) % N2 ==> 0 (if N1 % N2 = 0)
      - n1 % n2 ==> 0 (if n1 =ₚₜᵣ n2)
      - (m * n) % m | (n * m) % m ==> 0
@@ -511,7 +521,7 @@ def optimizeIntTMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      - n / 0 ==> 0                                        [proof: Int.fdiv_zero]
      - n / 1 ==> n                                        [proof: Int.fdiv_one]
      - 0 / n ==> 0                                        [proof: Int.zero_fdiv]
-     - N1 / N2 ==> N1 "/" N2
+     - N1 / N2 ==> N1 "/" N2    [proof: Eq.refl, see pushIntFoldStep]
      - n / n ==> 1
          (if 0 < n := _ ∈ hypothesisContext.hypothesisMap ∨
              ¬ (0 = n) := _ ∈ hypothesisContext.hypothesisMap ∨
@@ -536,7 +546,7 @@ def optimizeIntFDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      - n % 0 ==> n                          [proof: Int.fmod_zero]
      - n % 1 ==> 0                          [proof: Int.fmod_one]
      - 0 % n ==> 0                          [proof: Int.zero_fmod]
-     - N1 % N2 ==> N1 "%" N2
+     - N1 % N2 ==> N1 "%" N2    [proof: Eq.refl, see pushIntFoldStep]
      - (N1 * n) % N2 ==> 0 (if N1 % N2 = 0)
      - n1 % n2 ==> 0 (if n1 =ₚₜᵣ n2)
      - (m * n) % m | (n * m) % m ==> 0
@@ -560,21 +570,32 @@ def intNegOfNat? (n : Expr) : Option Expr :=
   | none => none
 
 /-- Apply the following simplification rules on `Int.toNat` :
-     - Int.toNat N1 ===> "Int.toNat" N1
-     - Int.toNat (Int.ofNat e) ===> e
-     - Int.toNat (Int.neg (Int.ofNat e)) ===> 0
+     - Int.toNat N1 ===> "Int.toNat" N1    [proof: Eq.refl]
+     - Int.toNat (Int.ofNat e) ===> e    [proof: Eq.refl]
+     - Int.toNat (Int.neg (Int.ofNat e)) ===> 0    [proof: Blaster.int_toNat_neg_ofNat]
    Assume that f = Expr.const ``Int.toNat.
    An error is triggered if args.size ≠ 1.
 -/
 def optimizeIntToNat (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 1 then throwEnvError "optimizeIntToNat: only one argument expected"
  let op := args[0]!
- if let some n := isIntValue? op then return (← mkNatLitExpr (Int.toNat n))
- if let some e := op.app1? ``Int.ofNat then return e
- if let some .. := intNegOfNat? op then return (← mkNatLitExpr 0)
+ if let some n := isIntValue? op then
+   let r ← mkNatLitExpr (Int.toNat n)
+   pushProofStep (.rewrite (mkApp2 (mkConst ``id [levelZero])
+     (← mkNatEqExpr (mkApp f op) r) (mkApp2 (← mkEqRefl) (← mkNatType) r)))
+   return r
+ if let some e := op.app1? ``Int.ofNat then
+   -- both sides are defeq, so the step is `Eq.refl e` ascribed to `Int.toNat op = e`
+   pushProofStep (.rewrite (mkApp2 (mkConst ``id [levelZero])
+     (← mkNatEqExpr (mkApp f op) e) (mkApp2 (← mkEqRefl) (← mkNatType) e)))
+   return e
+ if let some e := intNegOfNat? op then
+   pushProofStep (.rewrite (mkApp (mkConst ``Blaster.int_toNat_neg_ofNat) e))
+   return (← mkNatLitExpr 0)
  return (mkApp f op)
 
 /-- Normalize `Int.negSucc n` to `Int.neg (Int.ofNat (1 + n))` only when `n` is not a constant value.
+    [proof: Blaster.int_negSucc_eq]
     An error is triggered if args.size ≠ 1.
     Assume that f = Expr.const ``Int.negSucc.
     NOTE: This rule is still required here to avoid normalizationg Int.negSucc when `n`
@@ -584,6 +605,7 @@ def optimizeIntNegSucc (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 1 then throwEnvError "optimizeIntNegSucc: only one argument expected"
  let op := args[0]!
  if isNatValue op then return (mkApp f op)
+ pushProofStep (.rewrite (mkApp (mkConst ``Blaster.int_negSucc_eq) op))
  setRestart
  let addExpr := mkApp2 (← mkNatAddOp) (← mkNatLitExpr 1) args[0]!
  let intExpr := mkApp (← mkIntOfNat) addExpr
