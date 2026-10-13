@@ -23,8 +23,12 @@ namespace Test.OptimizeIntEDiv
 #testOptimize [ "IntEDivSelf_3", proof ]
   ∀ (x : Int), x < 0 → x / x = 1 ===> True
 
+-- x / x = 1 (with 0 < x ∧ 0 < y)
+#testOptimize [ "IntEdivSelf_4", proof ]
+  ∀ (x y : Int), (0 < x ∧ 0 < y) → x / x = 1 ===> True
+
 -- (x + 0) / (x + 0) = 1  (operands reduced to the same fvar)
-#testOptimize [ "IntEDivSelf_4", proof ]
+#testOptimize [ "IntEDivSelf_5", proof ]
   ∀ (x : Int), 0 < x → (x + 0) / (x + 0) = 1 ===> True
 
 /-! `(m * n) / m ==> n` and `(n * m) / m ==> n`. -/
