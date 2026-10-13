@@ -14,8 +14,16 @@ def isZeroInt (e : Expr) : Bool :=
   | some (Int.ofNat 0) => true
   | _ => false
 
+/-- Push the constant fold step `e = r`, where `e` is a ground Int operation and `r` its
+    literal value. The proof is `Eq.refl r` ascribed to `e = r` via `id`, so the kernel
+    checks the fold by evaluation and emission needs no lemma nor instance synthesis. -/
+@[always_inline, inline]
+def pushIntFoldStep (e r : Expr) : TranslateEnvT Unit := do
+  pushProofStep (.rewrite (mkApp2 (mkConst ``id [levelZero])
+    (← mkIntEqExpr e r) (mkApp2 (← mkEqRefl) (← mkIntType) r)))
+
 /-- Apply the following simplification/normalization rules on `Int.neg` :
-     - - (N) ==> "-" N
+     - - (N) ==> "-" N    [proof: Eq.refl, see pushIntFoldStep, no step when N > 0]
      - - (- n) ==> n      [proof: Int.neg_neg]
    Assume that f = Expr.const ``Int.neg.
    An error is triggered if args.size ≠ 1 (i.e., only fully applied `Int.neg` expected at this stage)
@@ -24,7 +32,12 @@ def isZeroInt (e : Expr) : Bool :=
 def optimizeIntNeg (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 1 then throwEnvError "optimizeIntNeg: only one argument expected"
  let op := args[0]!
- if let some n1 := isIntValue? op then return (← mkIntLitExpr (Int.neg n1))
+ if let some n1 := isIntValue? op then
+  let r ← mkIntLitExpr (Int.neg n1)
+  -- `-(N+1)` folds to `Int.negSucc N`, whose elaborated form is the input itself:
+  -- a no-op rewrite would spin the replay's fixed point, so no step in that case.
+  unless n1 > 0 do pushIntFoldStep (mkApp f op) r
+  return r
  if let some e := intNeg? op then
   pushProofStep (.rewrite (mkConst ``Int.neg_neg))
   return e
@@ -33,9 +46,9 @@ def optimizeIntNeg (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 
 /-- Apply the following simplification/normalization rules on `Int.add` :
      - 0 + n ==> n                          [proof: Int.zero_add]
-     - N1 + N2 ==> N1 "+" N2
-     - N1 + (N2 + n) ==> (N1 "+" N2) + n    [proof: ← Int.add_assoc]
-     - N1 + -(N2 + n) ==> (N1 "-" N2) + -n  [proof: Blaster.int_add_neg_add]
+     - N1 + N2 ==> N1 "+" N2                [proof: Eq.refl, see pushIntFoldStep]
+     - N1 + (N2 + n) ==> (N1 "+" N2) + n    [proof: ← Int.add_assoc, then fold]
+     - N1 + -(N2 + n) ==> (N1 "-" N2) + -n  [proof: Blaster.int_add_neg_add, then fold]
      - n1 + (-n2) ==> 0 if (if n1 =ₚₜᵣ n2)   [proof: Int.add_right_neg]
      - n1 + n2 ==> n2 + n1 (if n2 <ₒ n1)    [proof: Int.add_comm, see reorderOperands]
    Assume that f = Expr.const ``Int.add.
@@ -52,7 +65,10 @@ def optimizeIntAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  | some (Int.ofNat 0), _ =>
   pushProofStep (.rewrite (mkConst ``Int.zero_add))
   return op2
- | some n1, some n2 => evalBinIntOp Int.add n1 n2
+ | some n1, some n2 =>
+  let r ← evalBinIntOp Int.add n1 n2
+  pushIntFoldStep (mkApp2 f op1 op2) r
+  return r
  | nv1, _ =>
    if let some r ← cstAddProp? nv1 op1 op2 then return r
    if isIntNegExprOf op2 op1 then
@@ -76,13 +92,18 @@ def optimizeIntAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
          let n2Expr := op2.appFn!.appArg!
          pushProofStep (.rewrite (mkApp3 (mkConst ``Int.add_assoc) op1 n2Expr e2) (symm := true))
          setRestart
-         return mkApp2 f (← evalBinIntOp Int.add n1 n2) e2
+         let r ← evalBinIntOp Int.add n1 n2
+         pushIntFoldStep (mkApp2 f op1 n2Expr) r
+         return mkApp2 f r e2
      | some (IntCstOpInfo.IntNegAddExpr n2 e2) =>
          -- `op2 := Int.neg (Int.add N2 n)`, so `op2.appArg!.appFn!.appArg!` is `N2`.
          let n2Expr := op2.appArg!.appFn!.appArg!
          pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.int_add_neg_add) op1 n2Expr e2))
          setRestart
-         return mkApp2 f (← evalBinIntOp Int.sub n1 n2) (mkApp (← mkIntNegOp) e2)
+         let r ← evalBinIntOp Int.sub n1 n2
+         -- the lemma leaves `N1 - N2` in the goal, so the fold is stated on `Int.sub`
+         pushIntFoldStep (mkApp2 (mkConst ``Int.sub) op1 n2Expr) r
+         return mkApp2 f r (mkApp (← mkIntNegOp) e2)
      | _ => return none
   | none => return none
 
@@ -90,8 +111,8 @@ def optimizeIntAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      - 0 * n ==> 0                          [proof: Int.zero_mul]
      - 1 * n ==> n                          [proof: Int.one_mul]
      - -1 * n ==> -n                        [proof: Int.neg_one_mul]
-     - N1 * N2 ==> N1 "*" N2
-     - N1 * (N2 * n) ==> (N1 "*" N2) * n    [proof: ← Int.mul_assoc]
+     - N1 * N2 ==> N1 "*" N2                [proof: Eq.refl, see pushIntFoldStep]
+     - N1 * (N2 * n) ==> (N1 "*" N2) * n    [proof: ← Int.mul_assoc, then fold]
      - n1 * n2 ==> n2 * n1 (if n2 <ₒ n1)    [proof: Int.mul_comm, see reorderOperands]
    Assume that f = Expr.const ``Int.mul.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Int.mul` expected at this stage)
@@ -111,7 +132,10 @@ def optimizeIntMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
       pushProofStep (.rewrite (mkConst ``Int.neg_one_mul))
       setRestart
       return mkApp (← mkIntNegOp) op2
- | some n1, some n2 => evalBinIntOp Int.mul n1 n2
+ | some n1, some n2 =>
+  let r ← evalBinIntOp Int.mul n1 n2
+  pushIntFoldStep (mkApp2 f op1 op2) r
+  return r
  | nv1, _ =>
    if let some r ← cstMulProp? nv1 op1 op2 then return r
    return (mkApp2 f op1 op2)
@@ -127,7 +151,9 @@ def optimizeIntMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
        -- `op2 := Int.mul N2 n`, so `op2.appFn!.appArg!` is the `N2` operand.
        let n2Expr := op2.appFn!.appArg!
        pushProofStep (.rewrite (mkApp3 (mkConst ``Int.mul_assoc) op1 n2Expr e2) (symm := true))
-       return (mkApp2 f (← evalBinIntOp Int.mul n1 n2) e2)
+       let r ← evalBinIntOp Int.mul n1 n2
+       pushIntFoldStep (mkApp2 f op1 n2Expr) r
+       return (mkApp2 f r e2)
     | _, _ => return none
 
 /-- Given `e1` and `e2` corresponding to the operands for `Int.ediv`, `Int.tdiv` and `Int.fdiv`,

@@ -76,6 +76,10 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
                else if f.isConstOf ``Decidable.decide && ras.size == 2 then
                  -- no operands: on replay they may be already rewritten or bound by an inner binder
                  pushProofStep (.rewrite (mkConst ``Blaster.decide_eq_decide'))
+               -- `Int.sub` is unfolded to `m + -n` by `normConst`, which the replay cannot see through.
+               -- Pushed bare: the operands may carry optimizer-local fvars under binders.
+               else if f.isConstOf ``Int.sub && ras.size == 2 then
+                 pushProofStep (.rewrite (mkConst ``Int.sub_eq_add_neg))
                -- set inFunApp flag before optimizing `f`
                setInFunApp true
                let i_stack' := .AppWaitForConst ras :: i_stack
