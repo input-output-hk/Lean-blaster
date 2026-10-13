@@ -141,54 +141,54 @@ variable (c : Nat)
 
 variable (p : Bool)
 -- decide (true = p) ===> p
-#testOptimize [ "DecideEqTrue_1" ] decide (true = p) ===> p
+#testOptimize [ "DecideEqTrue_1", proof ] decide (true = p) ===> p
 
 -- decide (p = true) ===> p
-#testOptimize [ "DecideEqTrue_2" ] decide (p = true) ===> p
+#testOptimize [ "DecideEqTrue_2", proof ] decide (p = true) ===> p
 
 -- decide (true = (! (!p))) ===> p
-#testOptimize [ "DecideEqTrue_3" ] decide (true = (! (!p))) ===> p
+#testOptimize [ "DecideEqTrue_3", proof ] decide (true = (! (!p))) ===> p
 
 -- decide (true = !(!(!(!p)))) ===> p
-#testOptimize [ "DecideEqTrue_4" ] decide (true = !(!(!(!p)))) ===> p
+#testOptimize [ "DecideEqTrue_4", proof ] decide (true = !(!(!(!p)))) ===> p
 
 -- decide (false = !p) ===> p
-#testOptimize [ "DecideEqTrue_5" ] decide (false = !p) ===> p
+#testOptimize [ "DecideEqTrue_5", proof ] decide (false = !p) ===> p
 
 -- decide (false = !(!(!p))) ===> p
-#testOptimize [ "DecideEqTrue_6" ] decide (false = !(!(!p))) ===> p
+#testOptimize [ "DecideEqTrue_6", proof ] decide (false = !(!(!p))) ===> p
 
 -- decide (p ∧ ((a < b) ∨ ¬ (b > a))) ===> p
-#testOptimize [ "DecideEqTrue_7" ] decide (p ∧ ((a < b) ∨ ¬ (b > a))) ===> p
+#testOptimize [ "DecideEqTrue_7", proof ] decide (p ∧ ((a < b) ∨ ¬ (b > a))) ===> p
 
 
 /-! Test cases for simplification rule `decide (false = p) ==> ! p`. -/
 
 -- decide (false = p) ===> ! p
-#testOptimize [ "DecideEqFalse_1" ] decide (false = p) ===> ! p
+#testOptimize [ "DecideEqFalse_1", proof ] decide (false = p) ===> ! p
 
 -- decide (p = false) ===> ! p
-#testOptimize [ "DecideEqFalse_2" ] decide (p = false) ===> ! p
+#testOptimize [ "DecideEqFalse_2", proof ] decide (p = false) ===> ! p
 
 -- decide (false = (! (!p))) ===> ! p
-#testOptimize [ "DecideEqFalse_3" ] decide (false = (! (!p))) ===> ! p
+#testOptimize [ "DecideEqFalse_3", proof ] decide (false = (! (!p))) ===> ! p
 
 -- decide (false = !(!(!(!p)))) ===> ! p
-#testOptimize [ "DecideEqFalse_4" ] decide (false = !(!(!(!p)))) ===> ! p
+#testOptimize [ "DecideEqFalse_4", proof ] decide (false = !(!(!(!p)))) ===> ! p
 
 -- decide (true = !p) ===> ! p
-#testOptimize [ "DecideEqFalse_5" ] decide (true = !p) ===> ! p
+#testOptimize [ "DecideEqFalse_5", proof ] decide (true = !p) ===> ! p
 
 -- decide (true = !(!(!p))) ===> ! p
-#testOptimize [ "DecideEqFalse_6" ] decide (true = !(!(!p))) ===> ! p
+#testOptimize [ "DecideEqFalse_6", proof ] decide (true = !(!(!p))) ===> ! p
 
 -- decide (¬ p) ===> ! p
-#testOptimize [ "DecideEqFalse_7" ] decide (¬ p) ===> ! p
+#testOptimize [ "DecideEqFalse_7", proof ] decide (¬ p) ===> ! p
 
 variable (q : Bool)
 
 -- decide (¬ (¬ (¬ p ∧ (a < b ∨ ¬ (b > a))) ∧ (¬ q v q))) ===> ! p
-#testOptimize [ "DecideEqFalse_8" ] decide (¬ (¬ (¬ p ∧ ((a < b) ∨ ¬ (b > a))) ∧ (¬ q ∨ q))) ===> ! p
+#testOptimize [ "DecideEqFalse_8", proof ] decide (¬ (¬ (¬ p ∧ ((a < b) ∨ ¬ (b > a))) ∧ (¬ q ∨ q))) ===> ! p
 
 
 /-! Test cases to validate proper update of Decidable instance in `decide` application. -/
