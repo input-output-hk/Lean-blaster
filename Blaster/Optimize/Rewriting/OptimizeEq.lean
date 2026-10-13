@@ -1,5 +1,6 @@
 import Lean
 import Blaster.Optimize.Hypotheses
+import Blaster.Optimize.Lemmas.LemmasDecide
 
 open Lean Meta
 namespace Blaster.Optimize
@@ -590,9 +591,12 @@ def optimizeDecideEq (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
    -/
    decideBoolEqSimp? (op1: Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
     match op1, decide'? op2 with
-    | Expr.const ``true _, some e => return some e -- no need to restart
+    | Expr.const ``true _, some e =>
+         pushProofStep (.rewrite (mkApp (mkConst ``Blaster.true_eq_decide') e))
+         return some e -- no need to restart
     | Expr.const ``false _, some e =>
          setRestart
+         pushProofStep (.rewrite (mkApp (mkConst ``Blaster.false_eq_decide') e))
          return mkApp (← mkPropNotOp) e
     | _, _ => return none
 
@@ -606,12 +610,15 @@ def optimizeDecideEq (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      match decide'? op1, decide'? op2 with
      | some e1, some e2 =>
           setRestart
+          pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.decide'_eq_decide') e1 e2))
           return mkApp3 f (← mkPropType) e1 e2
      | some e1, _ =>
           setRestart
+          pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.decide'_eq_bool) e1 op2))
           return mkApp3 f (← mkPropType) e1 (mkApp3 f (← mkBoolType) (← mkBoolTrue) op2)
      | _, some e1 =>
           setRestart
+          pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.bool_eq_decide') e1 op1))
           return mkApp3 f (← mkPropType) e1 (mkApp3 f (← mkBoolType) (← mkBoolTrue) op1)
      | _, _ => return none
 

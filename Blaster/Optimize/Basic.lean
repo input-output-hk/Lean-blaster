@@ -73,6 +73,9 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
                -- subsequent `LE.le` step has a matching subterm on replay.
                else if f.isConstOf ``GE.ge && ras.size == 4 then
                  pushProofStep (.rewrite (mkApp4 (mkConst ``Blaster.ge_eq_le f.constLevels!) ras[0]! ras[1]! ras[2]! ras[3]!))
+               else if f.isConstOf ``Decidable.decide && ras.size == 2 then
+                 -- no operands: on replay they may be already rewritten or bound by an inner binder
+                 pushProofStep (.rewrite (mkConst ``Blaster.decide_eq_decide'))
                -- set inFunApp flag before optimizing `f`
                setInFunApp true
                let i_stack' := .AppWaitForConst ras :: i_stack
