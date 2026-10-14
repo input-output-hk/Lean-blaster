@@ -265,6 +265,49 @@ protected theorem int_add_eq_false_of_lt (a b : Int) (h1 : a < 0) (h2:  b < 0) :
   simp only [iff_false]
   omega
 
+/-! ## Wrappers lemmas for `Int div theorems using normalized hypothesis -/
+protected theorem int_ediv_self (n : Int) (h : ¬ (0 = n)): n / n = 1 := by
+  have h1 : n ≠ 0 := Ne.symm h
+  exact Int.ediv_self h1
+
+protected theorem int_mul_ediv_cancel (a b : Int) (h : ¬ (0 = b)) :
+    a * b / b = a := by
+  have h1 : b ≠ 0 := Ne.symm h
+  exact Int.mul_ediv_cancel a h1
+
+protected theorem int_mul_ediv_cancel_left (a b : Int) (h : ¬ (0 = a)) :
+    a * b / a = b := by
+  have h1 : a ≠ 0 := Ne.symm h
+  exact Int.mul_ediv_cancel_left b h1
+
+protected theorem int_tdiv_self (n : Int) (h : ¬ (0 = n)): Int.tdiv n n = 1 := by
+  have h1 : n ≠ 0 := Ne.symm h
+  exact Int.tdiv_self h1
+
+protected theorem int_mul_tdiv_cancel (a b : Int) (h : ¬ (0 = b)) :
+    Int.tdiv (a * b) b = a := by
+  have h1 : b ≠ 0 := Ne.symm h
+  exact Int.mul_tdiv_cancel a h1
+
+protected theorem int_mul_tdiv_cancel_left (a b : Int) (h : ¬ (0 = a)) :
+    Int.tdiv (a * b) a = b := by
+  have h1 : a ≠ 0 := Ne.symm h
+  exact Int.mul_tdiv_cancel_left b h1
+
+protected theorem int_fdiv_self (n : Int) (h : ¬ (0 = n)): Int.fdiv n n = 1 := by
+  have h1 : n ≠ 0 := Ne.symm h
+  exact Int.fdiv_self h1
+
+protected theorem int_mul_fdiv_cancel (a b : Int) (h : ¬ (0 = b)) :
+    Int.fdiv (a * b) b = a := by
+  have h1 : b ≠ 0 := Ne.symm h
+  exact Int.mul_fdiv_cancel a h1
+
+protected theorem int_mul_fdiv_cancel_left (a b : Int) (h : ¬ (0 = a)) :
+    Int.fdiv (a * b) a = b := by
+  have h1 : a ≠ 0 := Ne.symm h
+  exact Int.mul_fdiv_cancel_left b h1
+
 /-! Lemma to validate simplification rule `(n /ₜ N1) /ₜ N2 ==> n /ₜ (N1 * N2)` -/
 protected theorem int_tdiv_mul_lit (n N1 N2 M: Int) (h: N1 * N2 = M) :
     Int.tdiv (Int.tdiv n N1) N2 = Int.tdiv n M := by

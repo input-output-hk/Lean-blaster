@@ -229,50 +229,44 @@ def optimizeIntDivCommon (d: DivKind) (op1 : Expr) (op2 : Expr) : TranslateEnvT 
    /-- Emit the proof step for n / n ==> 1 (requires n ≠ 0). -/
    emitEDivSelfProofStep (n : Expr) : TranslateEnvT Unit := do
      if let some h ← findNeZeroIntProof? n then
-       let h' ← mkAppM ``Ne.symm #[h]
-       pushProofStep (.rewrite (mkApp2 (mkConst ``Int.ediv_self) n h'))
+       pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.int_ediv_self) n h))
 
    /-- Emit the proof step for Int.fdiv n n ==> 1 (requires n ≠ 0) -/
    emitFdivSelfProofStep (n : Expr) : TranslateEnvT Unit := do
     if let some h ← findNeZeroIntProof? n then
-       let h' ← mkAppM ``Ne.symm #[h]
-       pushProofStep (.rewrite (mkApp2 (mkConst ``Int.fdiv_self) n h'))
+       pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.int_fdiv_self) n h))
 
    /-- Emit the proof step for Int.tdiv n n ==> 1 (requires n ≠ 0) -/
    emitTdivSelfProofStep (n : Expr) : TranslateEnvT Unit := do
     if let some h ← findNeZeroIntProof? n then
-       let h' ← mkAppM ``Ne.symm #[h]
-       pushProofStep (.rewrite (mkApp2 (mkConst ``Int.tdiv_self) n h'))
+       pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.int_tdiv_self) n h))
 
    /-- Emit the proof step for (m * n) / n ==> m or (n * m) / n ==> m (requires n ≠ 0). -/
    emitMulEDivProofStep (op1 op2 : Expr) : TranslateEnvT Unit := do
      let some (a, b) := intMul? op1 | return ()
      let some h ← findNeZeroIntProof? op2 | return ()
-     let h' ← mkAppM ``Ne.symm #[h]
      if exprEq b op2 then
-       pushProofStep (.rewrite (mkApp3 (mkConst ``Int.mul_ediv_cancel) a op2 h'))
+       pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.int_mul_ediv_cancel) a op2 h))
      else if exprEq a op2 then
-       pushProofStep (.rewrite (mkApp3 (mkConst ``Int.mul_ediv_cancel_left) op2 b h'))
+       pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.int_mul_ediv_cancel_left) op2 b h))
 
    /-- Emit the proof step for Int.fdiv (m * n) / n or (n * m) / n ==> m (requires n ≠ 0). -/
    emitMulFdivProofStep (op1 op2 : Expr) : TranslateEnvT Unit := do
      let some (a, b) := intMul? op1 | return ()
      let some h ← findNeZeroIntProof? op2 | return ()
-     let h' ← mkAppM ``Ne.symm #[h]
      if exprEq b op2 then
-       pushProofStep (.rewrite (mkApp3 (mkConst ``Int.mul_fdiv_cancel) a op2 h'))
+       pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.int_mul_fdiv_cancel) a op2 h))
      else if exprEq a op2 then
-       pushProofStep (.rewrite (mkApp3 (mkConst ``Int.mul_fdiv_cancel_left) op2 b h'))
+       pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.int_mul_fdiv_cancel_left) op2 b h))
 
    /-- Emit the proof step for Int.tdiv (m * n) / n or (n * m) / n ==> m (requires n ≠ 0). -/
    emitMulTdivProofStep (op1 op2 : Expr) : TranslateEnvT Unit := do
      let some (a, b) := intMul? op1 | return ()
      let some h ← findNeZeroIntProof? op2 | return ()
-     let h' ← mkAppM ``Ne.symm #[h]
      if exprEq b op2 then
-       pushProofStep (.rewrite (mkApp3 (mkConst ``Int.mul_tdiv_cancel) a op2 h'))
+       pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.int_mul_tdiv_cancel) a op2 h))
      else if exprEq a op2 then
-       pushProofStep (.rewrite (mkApp3 (mkConst ``Int.mul_tdiv_cancel_left) op2 b h'))
+       pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.int_mul_tdiv_cancel_left) op2 b h))
 
 /- Given `op1` and `op2` corresponding to the operands for `Int.ediv`, `Int.tdiv` and `Int.fdiv`,
    and `dk` the corresponding `DivKind` (yielding the divisor operator `f_div`),
@@ -305,12 +299,12 @@ def cstCommonDivProp?
      - n / 1 ==> n                                              [proof: Int.ediv_one]
      - 0 / n ==> 0                                              [proof: Int.zero_ediv]
      - N1 / N2 ==> N1 "/ₑ" N2
-     - n / n ==> 1                                              [proof: Int.ediv_self]
+     - n / n ==> 1                                              [proof: Blaster.int_ediv_self]
          (if 0 < n := _ ∈ hypothesisContext.hypothesisMap ∨
              ¬ (0 = n) := _ ∈ hypothesisContext.hypothesisMap ∨
              n < 0 := _ ∈ hypothesisContext.hypothesisMap )
-     - (m * n) / m ==> n                                        [proof: Int.mul_ediv_cancel]
-     - (n * m) / m ==> n                                        [proof: Int.mul_ediv_cancel_left]
+     - (m * n) / m ==> n                                        [proof: Blaster.int_mul_ediv_cancel]
+     - (n * m) / m ==> n                                        [proof: Blaster.int_mul_ediv_cancel_left]
          (if  0 < m := _ ∈ hypothesisContext.hypothesisMap ∨
               ¬ (0 = m) := _ ∈ hypothesisContext.hypothesisMap ∨
               m < 0 := _ ∈ hypothesisContext.hypothesisMap)
@@ -487,12 +481,12 @@ def optimizeIntEMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      - n / 1 ==> n                                              [proof: Int.tdiv_one]
      - 0 / n ==> 0                                              [proof: Int.zero_tdiv]
      - N1 / N2 ==> N1 "/" N2
-     - n / n ==> 1                                              [proof: Int.tdiv_self]
+     - n / n ==> 1                                              [proof: Blaster.int_tdiv_self]
          (if 0 < n := _ ∈ hypothesisContext.hypothesisMap ∨
              ¬ (0 = n) := _ ∈ hypothesisContext.hypothesisMap ∨
              n < 0 := _ ∈ hypothesisContext.hypothesisMap )
-     - (m * n) / m ==> n                                        [proof: Int.mul_tdiv_cancel]
-     - (n * m) / m ==> n                                        [proof: Int.mul_tdiv_cancel_left]
+     - (m * n) / m ==> n                                        [proof: Blaster.int_mul_tdiv_cancel]
+     - (n * m) / m ==> n                                        [proof: Blaster.int_mul_tdiv_cancel_left]
          (if  0 < m := _ ∈ hypothesisContext.hypothesisMap ∨
               ¬ (0 = m) := _ ∈ hypothesisContext.hypothesisMap ∨
               m < 0 := _ ∈ hypothesisContext.hypothesisMap)
@@ -552,12 +546,12 @@ def optimizeIntTMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      - n / 1 ==> n                                        [proof: Int.fdiv_one]
      - 0 / n ==> 0                                        [proof: Int.zero_fdiv]
      - N1 / N2 ==> N1 "/" N2
-     - n / n ==> 1                                        [proof: Int.fdiv_self]
+     - n / n ==> 1                                        [proof: Blaster.int_fdiv_self]
          (if 0 < n := _ ∈ hypothesisContext.hypothesisMap ∨
              ¬ (0 = n) := _ ∈ hypothesisContext.hypothesisMap ∨
              n < 0 := _ ∈ hypothesisContext.hypothesisMap )
-     - (m * n) / m ==> n                                  [proof: Int.mul_fdiv_cancel]
-     - (n * m) / m ==> n                                  [proof: Int.mul_fdiv_cancel_left]
+     - (m * n) / m ==> n                                  [proof: Blaster.int_mul_fdiv_cancel]
+     - (n * m) / m ==> n                                  [proof: Blaster.int_mul_fdiv_cancel_left]
          (if  0 < m := _ ∈ hypothesisContext.hypothesisMap ∨
               ¬ (0 = m) := _ ∈ hypothesisContext.hypothesisMap ∨
               m < 0 := _ ∈ hypothesisContext.hypothesisMap)
