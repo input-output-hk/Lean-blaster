@@ -206,6 +206,17 @@ namespace Tests.OptimizeNot
 -- c ∧ ¬ (¬ a ∧ ¬ b) ===> c ∧ (a ∨ b)
 #testOptimize [ "NotDeMorganAnd_2", proof ] ∀ (a b c : Prop), c ∧ ¬ (¬ a ∧ ¬ b) ===> ∀ (a b c : Prop), c ∧ (a ∨ b)
 
+-- ¬ (¬ (¬ a ∧ ¬ b) ∧ ¬ c) = ¬ (¬ c ∧ (a ∨ b)) ===> True
+#testOptimize [ "NotDeMorganAnd_3", proof ]
+  ∀ (a b c : Prop), (¬ (¬ (¬ a ∧ ¬ b) ∧ ¬ c)) = (¬ (¬ c ∧ (a ∨ b))) ===> True
+
+-- ¬ (¬ id a ∧ ¬ c) = (id a ∨ c) ===> True
+#testOptimize [ "NotDeMorganAnd_4", proof ] ∀ (a c : Prop), (¬ (¬ id a ∧ ¬ c)) = (id a ∨ c) ===> True
+
+-- ¬ (¬ a ∧ ¬ b) → ¬ (¬ c ∧ ¬ c) → (a ∨ b) ∧ c ===> True
+#testOptimize [ "NotDeMorganAnd_5", proof ]
+  ∀ (a b c : Prop), ¬ (¬ a ∧ ¬ b) → (¬ (¬ c ∧ ¬ c)) → (a ∨ b) ∧ c ===> True
+
 
 /-! Test cases for simplification rule `¬ (¬ e1 ∨ ¬ e2) ==> e1 ∧ e2`. -/
 
@@ -214,6 +225,13 @@ namespace Tests.OptimizeNot
 
 -- c ∧ ¬ (¬ a ∨ ¬ b) ===> c ∧ (a ∧ b)
 #testOptimize [ "NotDeMorganOr_2", proof ] ∀ (a b c : Prop), c ∧ ¬ (¬ a ∨ ¬ b) ===> ∀ (a b c : Prop), c ∧ (a ∧ b)
+
+-- ¬ (¬ (¬ a ∨ ¬ b) ∨ ¬ c) = ¬ (¬ c ∨ (a ∧ b)) ===> True
+#testOptimize [ "NotDeMorganOr_3", proof ]
+  ∀ (a b c : Prop), (¬ (¬ (¬ a ∨ ¬ b) ∨ ¬ c)) = (¬ (¬ c ∨ (a ∧ b))) ===> True
+
+-- ¬ (¬ id a ∨ ¬ c) = (id a ∧ c) ===> True
+#testOptimize [ "NotDeMorganOr_4", proof ] ∀ (a c : Prop), (¬ (¬ id a ∨ ¬ c)) = (id a ∧ c) ===> True
 
 
 /-! Test cases for normalization rule `¬ (0 < e) ==> 0 = e (if Type(e) = Nat)`. -/

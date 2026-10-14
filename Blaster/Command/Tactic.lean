@@ -110,18 +110,36 @@ private partial def hasLet : Expr → Bool
   | .proj _ _ s => hasLet s
   | _ => false
 
+/-- Instantiate every `let` and `have` of `e` with its value. -/
+private def zetaLets (e : Expr) : MetaM Expr :=
+  Core.transform e (pre := fun
+    | .letE _ _ v b _ => return .visit (b.instantiate1 v)
+    | _ => return .continue)
+
 /-- Notation abbreviations the optimizer unfolds without a proof step.
     Unfolded in hypotheses so that rewrite steps can match underneath them. -/
 private def isSilentAbbrev (n : Name) : Bool :=
   n == ``Ne || n == ``GE.ge || n == ``GT.gt
 
-/-- Beta reduce `e` after a rewrite by a constant step whose replacement side is a lambda,
-    since applied occurrences of the rewritten term become redexes. -/
+/-- Beta reduce in `e` the redexes headed by the replacement side of a constant step, when that
+    side is a lambda, since applied occurrences of the rewritten term become redexes. -/
 private def betaAfterLambdaStep (heq : Expr) (symm : Bool) (e : Expr) : MetaM Expr := do
-  let .const n _ := heq | return e
+  let .const n us := heq | return e
   let some ci := (← getEnv).find? n | return e
-  let some (_, lhs, rhs) := ci.type.getForallBody.eq? | return e
-  if (if symm then lhs else rhs).isLambda then Core.betaReduce e else return e
+  let some (_, lhs, rhs) := ci.type.eq? | return e
+  let lam := if symm then lhs else rhs
+  unless lam.isLambda do return e
+  let lam := lam.instantiateLevelParams ci.levelParams us
+  -- the user's own redexes are left alone, reducing them may blow up the term
+  Core.transform e (post := fun x => return if x.getAppFn == lam then .done x.headBeta else .continue)
+
+/-- Kernel check a step proof with free variables, since a hypothesis left out of normal form
+    by the replay makes a proof built on it ill-typed. A leftover metavariable also fails. -/
+private def checkHypStep (g : MVarId) (proof : Expr) : MetaM Unit := do
+  unless proof.hasFVar do return
+  g.withContext do
+    if let .error _ := Kernel.check (← getEnv) (← getLCtx) (← instantiateMVars proof) then
+      throwError "ill-typed proof step"
 
 /-- Rewrite the intro'd Prop hypotheses with the recorded steps, so they reach the
     optimizer normal form that hypothesis-driven steps expect.
@@ -150,6 +168,7 @@ private def rewriteHypotheses (goal : MVarId) (steps : Array Blaster.Optimize.Pr
           try
             -- the rewrite runs on the delta expanded type, which is defeq to the declared one
             let r ← g.rewrite ty heq symm
+            checkHypStep g heq
             let eNew ← betaAfterLambdaStep heq symm r.eNew
             let res ← g.replaceLocalDecl h eNew r.eqProof
             -- the replaced hypothesis and every later local got fresh fvars
@@ -166,9 +185,10 @@ private def rewriteHypotheses (goal : MVarId) (steps : Array Blaster.Optimize.Pr
   return (g, steps)
 
 /-- Rewrite the hypotheses, then apply the steps to the target until none applies.
-    Steps that don't match are skipped. -/
+    Steps that don't match are skipped.
+    Returns the new goal and the steps with the replaced hypothesis fvars renamed. -/
 private def replaySteps (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep)
-    (hyps : Array FVarId) : MetaM MVarId := do
+    (hyps : Array FVarId) : MetaM (MVarId × Array Blaster.Optimize.ProofStep) := do
   let (goal, steps) ← rewriteHypotheses goal steps hyps
   /- trace[Optimize.expr] "proofStack ({steps.size} steps):" -/
   /- let mut idx : Nat := 0 -/
@@ -190,23 +210,32 @@ private def replaySteps (goal : MVarId) (steps : Array Blaster.Optimize.ProofSte
       match step with
       | .rewrite heq symm =>
         try
-          let r ← g.rewrite (← g.getType) heq symm
+          let t ← g.getType
+          let r ← g.rewrite t heq symm
+          checkHypStep g heq
           g ← g.replaceTargetEq (← betaAfterLambdaStep heq symm r.eNew) r.eqProof
-          changed := true
+          -- a rewrite between defeq spellings may leave the target as is and must not loop
+          if (← g.getType) != t then changed := true
           /- trace[Optimize.expr] "  applied rewrite → {← g.getType}" -/
         catch _ => pure ()
       | .exact proof =>
-        try
-          if ← isDefEq (← inferType proof) (← g.getType) then
+        -- `isDefEq` may exceed the recursion depth on a term the optimizer evaluated
+        let s ← saveState
+        let closed ← tryCatchRuntimeEx
+          (g.withContext do
+            unless ← isDefEq (← inferType proof) (← g.getType) do return false
+            checkHypStep g proof
             g.assign proof
-            /- trace[Optimize.expr] "  applied exact, goal closed" -/
-            return g
-        catch _ => pure ()
+            return true)
+          fun _ => do s.restore; pure false
+        if closed then
+          /- trace[Optimize.expr] "  applied exact, goal closed" -/
+          return (g, steps)
   /- trace[Optimize.expr] "final goal: {← g.getType}" -/
   -- the target may have been reduced to a hypothesis
   unless ← g.isAssigned do
     try g.assumption catch _ => pure ()
-  return g
+  return (g, steps)
 
 /-- `true` iff `g` is assigned, `True` (then closed) or closed by `refl`. -/
 private def closeTrivially (g : MVarId) : MetaM Bool := do
@@ -216,16 +245,34 @@ private def closeTrivially (g : MVarId) : MetaM Bool := do
     return true
   try g.refl; return true catch _ => return false
 
+/-- `toElabForm e` with `((n : Nat) : Int)` first written `Int.ofNat n` and Nat numerals under
+    `Int.ofNat` raw literals, so that the user and optimizer spellings of a term agree. -/
+private def canonicalIntForm (e : Expr) : MetaM Expr := do
+  let ofNat (n : Expr) :=
+    if n.isAppOfArity ``OfNat.ofNat 3 && (n.getArg! 2).isAppOf ``instOfNatNat then
+      mkApp (mkConst ``Int.ofNat) (n.getArg! 1)
+    else mkApp (mkConst ``Int.ofNat) n
+  toElabForm (← Core.transform e (post := fun e => return .done <| match e with
+    | .app (.app (.app (.const ``Nat.cast _) _) (.const ``instNatCastInt _)) n => ofNat n
+    | .app (.const ``Int.ofNat _) n => ofNat n
+    | _ => e))
+
 /-- Apply recorded proof stack rewrites to a goal.
     `hyps` are the intro'd binders, rewritten first (see `rewriteHypotheses`).
-    With `unfoldTarget` and a target containing `Ne` or `GT.gt`, a replay that does not close
-    the original target is retried on the unfolded one. Then the goal may be returned closed
-    by `True.intro` or `refl`. -/
+    With `unfoldTarget`, a target left open is replayed again with `Ne` and `GT.gt` unfolded
+    and with target and steps in one Int spelling, when this changes the target.
+    Then the goal may be returned closed by `True.intro` or `refl`. -/
 def applyProofStack (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep)
     (hyps : Array FVarId := #[]) (unfoldTarget := true) : MetaM MVarId := do
   let goal ← goal.withContext do
     let t ← goal.getType
-    if hasLet t then goal.change (← zetaReduce t) else pure goal
+    if hasLet t then goal.change (← zetaLets t) else pure goal
+  -- a bare lemma pushed right after its instance only covers operands the user wrote in another
+  -- form, so it runs after the other steps and cannot rewrite an unrelated site first
+  let (late, steps) := steps.zipIdx.partition fun (s, i) => match s, steps[i - 1]? with
+    | .rewrite (.const n _) _, some (.rewrite heq _) => i > 0 && heq.isApp && heq.isAppOf n
+    | _, _ => false
+  let steps := (steps ++ late).map (·.1)
   -- normalize proof terms once upfront
   -- a step whose normalization fails is kept as is and skipped
   let steps : Array Blaster.Optimize.ProofStep ← goal.withContext <| steps.flatMapM fun
@@ -239,21 +286,24 @@ def applyProofStack (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep)
         return #[.rewrite p symm]
       catch _ => return #[s]
     | s => return #[s]
+  let (g, steps) ← replaySteps goal steps hyps
+  unless unfoldTarget do return g
+  if ← g.isAssigned then return g
   -- `GE.ge` is left out since the `ge_eq_le` step matches it
   let isGoalAbbrev (n : Name) := n == ``Ne || n == ``GT.gt
-  unless unfoldTarget &&
-      ((← goal.getType).find? fun e => e.isConst && isGoalAbbrev e.constName!).isSome do
-    return ← replaySteps goal steps hyps
-  -- the original target is replayed first, so a goal that closes this way costs no more
-  let s ← saveState
-  let g ← replaySteps goal steps hyps
+  let t ← g.getType
+  let t' ← g.withContext do canonicalIntForm (← deltaExpand t isGoalAbbrev)
+  if t' == t then return g
   if ← closeTrivially g then return g
-  -- otherwise retry with `Ne` and `GT.gt` unfolded, as the optimizer sees them
+  -- the target left is replayed again as the optimizer sees it, the hypotheses stay as they are
   let failed ← saveState
-  s.restore
-  let g' ← replaySteps (← goal.deltaTarget isGoalAbbrev) steps hyps
+  let steps ← g.withContext <| steps.mapM fun
+    | s@(.rewrite proof symm) => do
+      try return .rewrite (← canonicalIntForm proof) symm catch _ => return s
+    | s => return s
+  let (g', _) ← replaySteps (← g.replaceTargetDefEq t') steps #[]
   if ← closeTrivially g' then return g'
-  -- both failed, keep the original target for the gap message
+  -- keep the original spelling for the gap message
   failed.restore
   return g
 
@@ -366,7 +416,9 @@ def blasterTacticImp : Tactic := fun stx =>
    let optBinders := finalEnv.optEnv.optBinders
    match result with
    | .Valid =>
+        -- the optimizer sees the goal without its `let`s, so its binders are found below them
         let goalType ← goal.getType
+        let goalType ← if hasLet goalType then zetaLets goalType else pure goalType
         -- `optExpr == True` ⟹ proved by rewriting (no SMT)
         let optimizerClosed := optExpr.isConstOf ``True
         -- Try propositional equality path: (∀ xs, body₁) = (∀ xs, body₂)

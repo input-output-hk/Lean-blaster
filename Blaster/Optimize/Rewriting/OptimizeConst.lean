@@ -109,7 +109,7 @@ def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeCo
     /-- Apply the following normalization rules on opaque functions:
          - Nat.pred ==> λ n => n - 1
          - Nat.succ ==> λ n => 1 + n
-         - Nat.le ==> ≤
+         - Nat.le ==> ≤    [proof: Blaster.nat_le_eq_le]
          - Nat.ble ==> λ x y => Blaster.decide' (x ≤ y) (if isOptimizeRecCall)
          - Nat.beq ==> λ x y => x == y (if isOptimizeRecCall)
          - Int.negSucc ==> λ n => Int.neg (Int.ofNat (1 + n)) (if ¬ isInFunApp)
@@ -131,7 +131,9 @@ def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeCo
            let lam := mkLambda (← Term.mkFreshBinderName) BinderInfo.default (← mkNatType) body
            stackContinuity stack (← mkExpr lam)
 
-     | ``Nat.le => stackContinuity stack (← mkNatLeOp)
+     | ``Nat.le =>
+             pushProofStep (.rewrite (mkConst ``Blaster.nat_le_eq_le))
+             stackContinuity stack (← mkNatLeOp)
 
      | ``Nat.ble =>
            if (← isOptimizeRecCall) then

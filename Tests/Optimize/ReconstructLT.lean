@@ -192,6 +192,44 @@ namespace Test.ReconstructLT
 -- ∀ (x y : Int), x < 0 → y ≤ 0 → ((x + y < 0) = True) ===> True
 #testOptimize [ "SumLtZeroNegNonPosInt", proof ] ∀ (x y : Int), x < 0 → y ≤ 0 → ((x + y < 0) = True) ===> True
 
+/-! `e1 → e2 ==> True` when `e2` is found in the hypothesis context (impliesToTrue?). -/
+
+-- ∀ (x : Nat), x > 0 → x ≠ 0 ===> True
+#testOptimize [ "ImpliesToTrueNeNat", proof ] ∀ (x : Nat), x > 0 → x ≠ 0 ===> True
+
+-- ∀ (x y : Int), x > y → x ≠ y ===> True
+#testOptimize [ "ImpliesToTrueNeInt", proof ] ∀ (x y : Int), x > y → x ≠ y ===> True
+
+-- ∀ (x : Int), x < 0 → x ≠ 0 ===> True
+#testOptimize [ "ImpliesToTrueNeZeroInt", proof ] ∀ (x : Int), x < 0 → x ≠ 0 ===> True
+
+-- ∀ (x y : Int), x = y → ¬ (x < y) ===> True
+#testOptimize [ "ImpliesToTrueNotLtInt", proof ] ∀ (x y : Int), x = y → ¬ (x < y) ===> True
+
+-- ∀ (x y : Nat), y < x → ¬ (x < y) ===> True
+#testOptimize [ "ImpliesToTrueNotLtNat", proof ] ∀ (x y : Nat), y < x → ¬ (x < y) ===> True
+
+-- ∀ (x : Nat), x ≠ 0 → 0 < x ===> True
+#testOptimize [ "ImpliesToTrueZeroLtNat", proof ] ∀ (x : Nat), x ≠ 0 → 0 < x ===> True
+
+-- ∀ (a b : Prop), a ∧ b → b ===> True
+#testOptimize [ "ImpliesToTrueAnd", proof ] ∀ (a b : Prop), a ∧ b → b ===> True
+
+-- ∀ (a b c : Prop), a ∧ b → c → a ===> True
+#testOptimize [ "ImpliesToTrueOuterHyp", proof ] ∀ (a b c : Prop), a ∧ b → c → a ===> True
+
+-- ∀ (x : Nat), x > 0 → ∀ (y : Nat), y < 5 → x ≠ 0 ===> True
+#testOptimize [ "ImpliesToTrueOuterHypNat", proof ] ∀ (x : Nat), x > 0 → ∀ (y : Nat), y < 5 → x ≠ 0 ===> True
+
+-- ∀ (x : Nat), (x > 0 → x ≠ 0) = True ===> True
+#testOptimize [ "ImpliesToTrueSubtermNat", proof ] ∀ (x : Nat), (x > 0 → x ≠ 0) = True ===> True
+
+-- ∀ (a b : Prop), (a ∧ b → b) ∧ (a ∧ b → a) ===> True
+#testOptimize [ "ImpliesToTrueSubtermAnd", proof ] ∀ (a b : Prop), (a ∧ b → b) ∧ (a ∧ b → a) ===> True
+
+-- ∀ (a b c : Prop), a ∧ b → ((c → b) ∧ (c → a)) ===> True
+#testOptimize [ "ImpliesToTrueSubtermOuterHyp", proof ] ∀ (a b c : Prop), a ∧ b → ((c → b) ∧ (c → a)) ===> True
+
 /-! ## Relational `≤` reductions.
     `e1 ≤ e2 ==> ¬ (e2 < e1)` (lemmas `nat_le_eq_not_lt` / `int_le_eq_not_lt`). -/
 

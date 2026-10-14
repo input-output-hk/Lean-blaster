@@ -266,7 +266,7 @@ def bleNat (x : Nat) (y : Nat) : Bool :=
   else bleNat (Nat.pred x) (Nat.pred y)
 
 -- (∀ (x y : Nat), x = y → bleNat x y) → (∀ (n m : Nat), n = m → n ≤ m) ===> True
-#testOptimize [ "NormRecFun_26" ]
+#testOptimize [ "NormRecFun_26", proof ]
   (∀ (x y : Nat), x = y → bleNat x y) → (∀ (n m : Nat), n = m → n ≤ m) ===> True
 
 -- (∀ (x y : Nat), powerNat x y ≥ x) → (∀ (n m : Nat), n ^ m ≥ n) ===> True
