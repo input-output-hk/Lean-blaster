@@ -1,5 +1,6 @@
 import Lean
 import Blaster.Optimize.Rewriting.OptimizeForAll
+import Blaster.Optimize.Lemmas.LemmasITE
 
 open Lean Meta Elab
 namespace Blaster.Optimize
@@ -150,9 +151,9 @@ def diteFactorize? (a : Expr) (t : Expr) (e : Expr) : TranslateEnvT (Option Expr
   | _, _ => return none
 
 /-- Apply the following simplification/normalization rules on `Solve.dite'` in the given order only when args.size ≥ 4:
-     - sif h : True then e1 else e2 ==> applyExtraArgs e1 -- TODO: consider proof reconstruction
+     - sif h : True then e1 else e2 ==> applyExtraArgs e1    [proof: Blaster.dite'_true]
 
-     - sif h : False then e1 else e2 ==> applyExtraArgs e2 -- TODO: consider proof reconstruction
+     - sif h : False then e1 else e2 ==> applyExtraArgs e2    [proof: Blaster.dite'_false]
 
      - sif h : c then e1 else e2 ==> applyExtraArgs e1
            (if c := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ e1.hasLooseBVars)
@@ -194,8 +195,13 @@ def optimizeDITEChoice (f : Expr) (args : Array Expr) : TranslateEnvT (Option Ex
  let c := args[1]!
  let t := args[2]!
  let e := args[3]!
- if let Expr.const ``True _ := c then return applyExtraArgs (betaLambda t #[← mkTrueIntro])
- if let Expr.const ``False _ := c then return applyExtraArgs (betaLambda e #[← mkNotFalse])
+ -- the level of `f` is always one, the step needs the one of the branch type
+ if let Expr.const ``True _ := c then
+   pushProofStep (.rewrite (mkConst ``Blaster.dite'_true [← getLevel iteType]))
+   return applyExtraArgs (betaLambda t #[← mkTrueIntro])
+ if let Expr.const ``False _ := c then
+   pushProofStep (.rewrite (mkConst ``Blaster.dite'_false [← getLevel iteType]))
+   return applyExtraArgs (betaLambda e #[← mkNotFalse])
  if let some r ← diteReduce? c t then return applyExtraArgs r
  if let some r ← diteReduce? (← optimizeNot (← mkPropNotOp) #[c] (cacheResult := false)) e then
    return applyExtraArgs r
