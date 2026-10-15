@@ -199,4 +199,170 @@ namespace Tests.OptimizeNot
 #testOptimize [ "NotEqBoolCstUnchanged_2" ] ∀ (a b : Bool), ¬ ((!a) = b) ===> ∀ (a b : Bool), ¬ (b = !a)
 
 
+/-! Test cases for normalization rule `¬ (0 < e) ==> 0 = e` (with Type(e) = Nat). -/
+
+-- ¬ (0 < n) ===> 0 = n
+#testOptimize [ "NotZeroLt_1" ] (norm-result: 1) ∀ (n : Nat), ¬ (0 < n) ===> ∀ (n : Nat), 0 = n
+
+-- ¬ (n > 0) ===> 0 = n
+#testOptimize [ "NotZeroLt_2" ] (norm-result: 1) ∀ (n : Nat), ¬ (n > 0) ===> ∀ (n : Nat), 0 = n
+
+-- ¬ (0 < n + m) ===> 0 = Nat.add n m
+#testOptimize [ "NotZeroLt_3" ] (norm-result: 1) ∀ (n m : Nat), ¬ (0 < n + m) ===> ∀ (n m : Nat), 0 = Nat.add n m
+
+-- (¬ (0 < n)) = (0 = n) ===> True
+#testOptimize [ "NotZeroLt_4" ] ∀ (n : Nat), (¬ (0 < n)) = (0 = n) ===> True
+
+-- ¬ (0 < n) → n = 0 ===> True
+-- NOTE: the normalized hypothesis `0 = n` rewrites `n` to `0` in the conclusion
+#testOptimize [ "NotZeroLt_5" ] ∀ (n : Nat), ¬ (0 < n) → n = 0 ===> True
+
+-- ¬ (0 < n) → n + m = m ===> True
+#testOptimize [ "NotZeroLt_6" ] ∀ (n m : Nat), ¬ (0 < n) → n + m = m ===> True
+
+-- ¬ (0 < 5) ===> False
+#testOptimize [ "NotZeroLt_7" ] ¬ ((0 : Nat) < 5) ===> False
+
+-- ¬ (0 < 0) ===> True
+#testOptimize [ "NotZeroLt_8" ] ¬ ((0 : Nat) < 0) ===> True
+
+-- let x := n + 1; ¬ (0 < x) ===> False
+#testOptimize [ "NotZeroLt_9" ] ∀ (n : Nat), let x := n + 1; ¬ (0 < x) ===> False
+
+-- ¬ (¬ (0 < n)) ===> 0 < n
+#testOptimize [ "NotZeroLt_10" ] (norm-result: 1) ∀ (n : Nat), ¬ (¬ (0 < n)) ===> ∀ (n : Nat), 0 < n
+
+
+/-! Test cases for normalization rule `¬ (0 = e) ==> 0 < e` (with Type(e) = Nat). -/
+
+-- ¬ (0 = n) ===> 0 < n
+#testOptimize [ "NotZeroEq_1" ] (norm-result: 1) ∀ (n : Nat), ¬ (0 = n) ===> ∀ (n : Nat), 0 < n
+
+-- ¬ (n = 0) ===> 0 < n
+-- NOTE: reordering applied on commutative operators
+#testOptimize [ "NotZeroEq_2" ] (norm-result: 1) ∀ (n : Nat), ¬ (n = 0) ===> ∀ (n : Nat), 0 < n
+
+-- n ≠ 0 ===> 0 < n
+#testOptimize [ "NotZeroEq_3" ] (norm-result: 1) ∀ (n : Nat), n ≠ 0 ===> ∀ (n : Nat), 0 < n
+
+-- ¬ (n + m = 0) ===> 0 < Nat.add n m
+#testOptimize [ "NotZeroEq_4" ] (norm-result: 1) ∀ (n m : Nat), ¬ (n + m = 0) ===> ∀ (n m : Nat), 0 < Nat.add n m
+
+-- (¬ (0 = n)) = (0 < n) ===> True
+#testOptimize [ "NotZeroEq_5" ] ∀ (n : Nat), (¬ (0 = n)) = (0 < n) ===> True
+
+-- ¬ (0 = n) → 0 < n ===> True
+#testOptimize [ "NotZeroEq_6" ] ∀ (n : Nat), ¬ (0 = n) → 0 < n ===> True
+
+-- ¬ (0 = n) → ¬ (0 < n) ===> 0 = n
+-- NOTE: the normalized hypothesis `0 < n` reduces the conclusion to `False`,
+--       and `0 < n → False` is then normalized to `¬ (0 < n)` and finally to `0 = n`.
+#testOptimize [ "NotZeroEq_7" ] (norm-result: 1) ∀ (n : Nat), ¬ (0 = n) → ¬ (0 < n) ===> ∀ (n : Nat), 0 = n
+
+-- ¬ (0 = n) → n = 0 ===> 0 = n
+#testOptimize [ "NotZeroEq_8" ] (norm-result: 1) ∀ (n : Nat), ¬ (0 = n) → n = 0 ===> ∀ (n : Nat), 0 = n
+
+-- ¬ (0 = 5) ===> True
+#testOptimize [ "NotZeroEq_9" ] ¬ ((0 : Nat) = 5) ===> True
+
+-- ¬ (0 = 0) ===> False
+#testOptimize [ "NotZeroEq_10" ] ¬ ((0 : Nat) = 0) ===> False
+
+
+/-! Test cases to ensure that the following normalization rules are not applied wrongly:
+     - `¬ (0 < e) ==> 0 = e` (with Type(e) = Nat)
+     - `¬ (0 = e) ==> 0 < e` (with Type(e) = Nat)
+-/
+
+-- ¬ (1 < n) ===> ¬ (1 < n)
+#testOptimize [ "NotZeroNatUnchanged_1" ] (norm-result: 1) ∀ (n : Nat), ¬ (1 < n) ===> ∀ (n : Nat), ¬ (1 < n)
+
+-- ¬ (m < n) ===> ¬ (m < n)
+#testOptimize [ "NotZeroNatUnchanged_2" ] ∀ (n m : Nat), ¬ (m < n) ===> ∀ (n m : Nat), ¬ (m < n)
+
+-- ¬ (1 = n) ===> ¬ (1 = n)
+#testOptimize [ "NotZeroNatUnchanged_3" ] (norm-result: 1) ∀ (n : Nat), ¬ (1 = n) ===> ∀ (n : Nat), ¬ (1 = n)
+
+-- ¬ (n = m) ===> ¬ (n = m)
+#testOptimize [ "NotZeroNatUnchanged_4" ] ∀ (n m : Nat), ¬ (n = m) ===> ∀ (n m : Nat), ¬ (n = m)
+
+-- ¬ (0 < i) ===> ¬ (0 < i) (with Type(i) = Int)
+#testOptimize [ "NotZeroIntUnchanged_5" ] (norm-result: 1) ∀ (i : Int), ¬ (0 < i) ===> ∀ (i : Int), ¬ (0 < i)
+
+#testOptimize [ "NotZeroIntUnchanged_6" ] (norm-result: 1) ∀ (i : Int), ¬ (0 = i) ===> ∀ (i : Int), ¬ (0 = i)
+
+
+/-! Test cases for simplification rules:
+     - `¬ (¬ e1 ∧ ¬ e2) ==> e1 ∨ e2`
+     - `¬ (¬ e1 ∨ ¬ e2) ==> e1 ∧ e2`
+-/
+
+-- ¬ (¬ a ∧ ¬ b) ===> a ∨ b
+#testOptimize [ "NotDeMorgan_1" ] ∀ (a b : Prop), ¬ (¬ a ∧ ¬ b) ===> ∀ (a b : Prop), a ∨ b
+
+-- ¬ (¬ a ∨ ¬ b) ===> a ∧ b
+#testOptimize [ "NotDeMorgan_2" ] ∀ (a b : Prop), ¬ (¬ a ∨ ¬ b) ===> ∀ (a b : Prop), a ∧ b
+
+-- (¬ (¬ a ∧ ¬ b)) = (a ∨ b) ===> True
+#testOptimize [ "NotDeMorgan_3" ] ∀ (a b : Prop), (¬ (¬ a ∧ ¬ b)) = (a ∨ b) ===> True
+
+-- (¬ (¬ a ∨ ¬ b)) = (a ∧ b) ===> True
+#testOptimize [ "NotDeMorgan_4" ] ∀ (a b : Prop), (¬ (¬ a ∨ ¬ b)) = (a ∧ b) ===> True
+
+-- ¬ (¬ a ∧ ¬ a) ===> a
+#testOptimize [ "NotDeMorgan_5" ] ∀ (a : Prop), ¬ (¬ a ∧ ¬ a) ===> ∀ (a : Prop), a
+
+-- ¬ (¬ a ∨ ¬ a) ===> a
+#testOptimize [ "NotDeMorgan_6" ] ∀ (a : Prop), ¬ (¬ a ∨ ¬ a) ===> ∀ (a : Prop), a
+
+-- ¬ (¬ (a ∨ b) ∧ ¬ c) ===> c ∨ a ∨ b
+-- NOTE: reordering applied on commutative operators
+#testOptimize [ "NotDeMorgan_7" ] ∀ (a b c : Prop), ¬ (¬ (a ∨ b) ∧ ¬ c) ===> ∀ (a b c : Prop), c ∨ a ∨ b
+
+-- ¬ (¬ (¬ a ∧ ¬ b)) ===> ¬ (a ∨ b)
+#testOptimize [ "NotDeMorgan_8" ] ∀ (a b : Prop), ¬ (¬ (¬ a ∧ ¬ b)) ===> ∀ (a b : Prop), ¬ (a ∨ b)
+
+-- ¬ (¬ a ∧ ¬ b) → a ∨ b ===> True
+#testOptimize [ "NotDeMorgan_9" ] ∀ (a b : Prop), ¬ (¬ a ∧ ¬ b) → a ∨ b ===> True
+
+-- ¬ (¬ a ∨ ¬ b) → a ===> True
+#testOptimize [ "NotDeMorgan_10" ] ∀ (a b : Prop), ¬ (¬ a ∨ ¬ b) → a ===> True
+
+-- let x := ¬ a; let y := ¬ b; ¬ (x ∧ y) ===> a ∨ b
+#testOptimize [ "NotDeMorgan_11" ] ∀ (a b : Prop), let x := ¬ a; let y := ¬ b; ¬ (x ∧ y) ===> ∀ (a b : Prop), a ∨ b
+
+-- ¬ (¬ a ∧ ¬ b) ===> true = (a || b) (with Type(a) = Type(b) = Bool)
+#testOptimize [ "NotDeMorgan_12" ] ∀ (a b : Bool), ¬ (¬ a ∧ ¬ b) ===> ∀ (a b : Bool), true = (a || b)
+
+-- ¬ (¬ a ∨ ¬ b) ===> true = (a && b) (with Type(a) = Type(b) = Bool)
+#testOptimize [ "NotDeMorgan_13" ] ∀ (a b : Bool), ¬ (¬ a ∨ ¬ b) ===> ∀ (a b : Bool), true = (a && b)
+
+-- ¬ (¬ (1 < n) ∧ ¬ (1 < m)) ===> 1 < n ∨ 1 < m
+#testOptimize [ "NotDeMorgan_14" ] (norm-result: 1)
+  ∀ (n m : Nat), ¬ (¬ (1 < n) ∧ ¬ (1 < m)) ===> ∀ (n m : Nat), 1 < n ∨ 1 < m
+
+
+/-! Test cases to ensure that the following simplification rules are not applied wrongly:
+     - `¬ (¬ e1 ∧ ¬ e2) ==> e1 ∨ e2`
+     - `¬ (¬ e1 ∨ ¬ e2) ==> e1 ∧ e2`
+-/
+
+-- ¬ (a ∨ ¬ b) ===> ¬ (a ∨ ¬ b)
+#testOptimize [ "NotDeMorganUnchanged_1" ] ∀ (a b : Prop), ¬ (a ∨ ¬ b) ===> ∀ (a b : Prop), ¬ (a ∨ ¬ b)
+
+-- ¬ (¬ a → ¬ b) ===> ¬ (¬ a → ¬ b)
+#testOptimize [ "NotDeMorganUnchanged_2" ] ∀ (a b : Prop), ¬ (¬ a → ¬ b) ===> ∀ (a b : Prop), ¬ (¬ a → ¬ b)
+
+-- ¬ (¬ a ∧ ¬ b ∧ ¬ c) ===> ¬ (¬ a ∧ ¬ b ∧ ¬ c)
+-- NOTE: the rule only applies when both operands are negations (`¬ b ∧ ¬ c` is not)
+-- NOTE: test case can be reduced to `a ∨ b ∨ c` by extending the de-morgan rule
+#testOptimize [ "NotDeMorganUnchanged_3" ]
+  ∀ (a b c : Prop), ¬ (¬ a ∧ ¬ b ∧ ¬ c) ===> ∀ (a b c : Prop), ¬ (¬ a ∧ ¬ b ∧ ¬ c)
+
+-- ¬ (¬ (0 < n) ∨ ¬ (0 < m)) ===> ¬ (0 = n ∨ 0 = m)
+-- NOTE: `¬ (0 < e) ==> 0 = e` is applied on the operands first, hence the operands are no longer negations
+#testOptimize [ "NotDeMorganUnchanged_4" ] (norm-result: 1)
+  ∀ (n m : Nat), ¬ (¬ (0 < n) ∨ ¬ (0 < m)) ===> ∀ (n m : Nat), ¬ (0 = n ∨ 0 = m)
+
+
 end Tests.OptimizeNot

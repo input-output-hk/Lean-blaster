@@ -1,4 +1,6 @@
 
+import Tests.Optimize.DerivedFacts
+import Tests.Optimize.Extension
 import Tests.Optimize.FunPropagation
 import Tests.Optimize.NormChoiceApp
 import Tests.Optimize.OptimizeBEq

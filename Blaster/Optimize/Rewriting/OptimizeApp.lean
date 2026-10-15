@@ -10,6 +10,7 @@ import Blaster.Optimize.Rewriting.OptimizeITE
 import Blaster.Optimize.Rewriting.OptimizeNat
 import Blaster.Optimize.Rewriting.OptimizeString
 import Blaster.Optimize.Rewriting.OptimizeList
+import Blaster.Optimize.Rewriting.OptimizeOfNat
 import Blaster.Optimize.OptimizeStack
 
 open Lean Meta
@@ -34,6 +35,7 @@ namespace Blaster.Optimize
          - return none
 -/
 def reduceApp? (f : Expr) (args : Array Expr) : TranslateEnvT (Option BetaLambdaResult) := do
+ if ← isNormalizeOnly then return none
  if let some r ← isOpaqueRecReduction? f args then return r
  if (← isOpaqueFunExpr f args) then return none
  if let some r ← isFunRecReduction? f args then return r
@@ -73,7 +75,20 @@ def optimizeAppAux (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
   if let some e ← optimizeRelational? f args then return e
   if let some e ← optimizeString? f args then return e
   if let some e ← optimizeList? f args then return e
+  if let some e ← optimizeOfNat? f args then return e
   mkAppNExpr f args
+
+/-- Same as `optimizeAppAux` but call optimizeAppAux iteratively until a fixed-point is reached
+    Indeed, this function is to be called only by Blaster extension
+-/
+@[always_inline, inline]
+def optimizeAppExt (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
+  let mut r ← optimizeAppAux f args
+  while (← isRestart) do
+    resetRestart
+    let (f, args) := getAppFnWithArgs r
+    r ← optimizeAppAux f args
+  return r
 
  /-- Given `rf` a function application instance (see function `getInstApp`) and `params` its
        implicit parameter inffo (see function `getImplicitParameters`), perform the following:
@@ -155,7 +170,7 @@ def finalizeRecApp
 def normRecFun (uf : Expr) (uargs : Array Expr) (appExpr : Expr) (xs : List OptimizeStack) : TranslateEnvT OptimizeContinuity := do
  let Expr.const n _ := uf | return (← stackContinuity xs appExpr)
  let isOpaqueRec ← isOpaqueRecFun uf uargs
- if (← isRecursiveFun n) || isOpaqueRec
+ if !(← isNormalizeOnly) && ((← isRecursiveFun n) || isOpaqueRec)
  then
    -- trace[Optimize.recFun] "normalizing rec function {n}"
    let (f, args) ← resolveOpaque uf uargs isOpaqueRec
@@ -250,14 +265,6 @@ def optimizeApp
        if let some be ← reduceApp? f' args' then return Sum.inl (.InitOptimizeExpr be.betaReduced be.prevMVarIdDecls :: stack)
        normRecFun f' args' e stack
     else stackContinuity stack e -- proceed with continuity
-
-  where
-    @[always_inline, inline]
-    isFunPropagation? (e : Expr) : TranslateEnvT (Option OptimizeStack) := do
-      if e.isApp then
-        let (f', args') := getAppFnWithArgs e
-        funPropagation? f' args' (← isAppArg)
-      else return none
 
 /-- Given application `f x₁ ... xₙ`,
      - When `isFunITE f` (i.e., f is a Blaster.dite' that return a function)

@@ -2,6 +2,7 @@ import Lean
 import Lean.Util.MonadCache
 import Blaster.Command.Options
 import Blaster.Logging
+import Blaster.Optimize.Env.Extension
 import Blaster.Optimize.Rewriting.FunPropagation
 import Blaster.Optimize.Rewriting.OptimizeApp
 import Blaster.Optimize.Rewriting.OptimizeConst
@@ -80,7 +81,9 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
           | Expr.letE _n _t v b _ => optimizeExprAux (inlineLet v b i_stack) -- inline let expression
 
           | Expr.mdata d me =>
-              if (isTaggedRecursiveCall e) then
+              if (isTaggedRewriteLhs e) then
+                optimizeExprAux (.InitOptimizeExpr me :: .MDataRewriteLhslWaitForExpr d :: i_stack)
+              else if (isTaggedRecursiveCall e) then
                 setNormalizeFunCall false
                 optimizeExprAux (.InitOptimizeExpr me :: .MDataRecCallWaitForExpr d :: i_stack)
               else optimizeExprAux (.InitOptimizeExpr me :: i_stack)
@@ -110,6 +113,11 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
            -- We can safely removed named pattern as we resolve named pattern and its hypothesis in rhs
            -- (see isPatternMatch and unifyAndUpdateEqMap)
            optimizeExprAux (.InitOptimizeExpr args[2]! :: xs)
+         -- try to apply registered optimization to avoid unecessary parameter optimization
+         else if let some r ← applyExtension? f args xs then
+           match r with
+           | Sum.inr e' => return e'
+           | Sum.inl stack' => optimizeExprAux stack'
          else
            let prevInCtor ← isCtorArg
            setIsCtorArg (← isCtorExpr f)
@@ -126,9 +134,14 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
 
   | .AppOptimizeImplicitArgs f args idx startIdx stopIdx pInfo prevInApp :: xs =>
        if idx ≥ stopIdx then
+         -- try to apply registered optimization to avoid unecessary parameter optimization
+         if let some r ← applyExtension? f args xs then
+           match r with
+           | Sum.inr e' => return e'
+           | Sum.inl stack' => optimizeExprAux stack'
          -- normalizing ite/match function application first to
          -- avoid handling extra args in optimizeDITEChoice, matchReduction and funPropagation
-         if let some re ← normChoiceApplication? f args prevInApp then
+         else if let some re ← normChoiceApplication? f args prevInApp then
            -- trace[Optimize.normChoiceApp] "normalizing choice application {reprStr f} {reprStr args} => {reprStr re}"
            optimizeExprAux (re :: xs)
          else if isBlasterDiteConst f && args.size ≥ 2 then
@@ -162,8 +175,13 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
        if idx ≥ stopIdx then
          -- restore previous isAppArg flag
          setIsAppArg prevInApp
+         -- try to apply registered optimization first
+         if let some r ← applyExtension? f args xs then
+           match r with
+           | Sum.inr e' => return e'
+           | Sum.inl stack' => optimizeExprAux stack'
          -- apply match normalization rules
-         if let some argInfo := mInfo then
+         else if let some argInfo := mInfo then
            match (← optimizeMatch f args argInfo xs) with
            | Sum.inr e' => return e'
            | Sum.inl stack' => optimizeExprAux stack'
@@ -227,10 +245,20 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
   | _ => throwEnvError "optimizeExprAux: unexpected optimize stack continuity {reprStr stack} !!!"
 
   where
+
+    @[always_inline, inline]
+    applyExtension? (f : Expr) (args : Array Expr) (stack : List OptimizeStack) : TranslateEnvT (Option OptimizeContinuity) := do
+      if ← isNormalizeOnly then return none
+      else if let some e ← applyRegisteredOptFns f args then
+        if e.hasMVar then setRestart
+        mkOptimizeContinuity e stack
+      else return none
+
     @[always_inline, inline]
     finalizeNonFunApp (f : Expr) (args : Array Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeContinuity := do
-      if ← isCtorExpr f
-      then optimizeConstApp f args stack
+      -- try to apply registered optimization
+      if let some e ← applyExtension? f args stack then return e
+      else if ← isCtorExpr f then optimizeConstApp f args stack
       else stackContinuity stack (← mkAppNExpr f args)
 
     /-- Given `e := Expr.fVar fv` perform the following:
@@ -333,6 +361,17 @@ def Optimize.main (e : Expr) (applyHashCons := true) : TranslateEnvT Expr := do
   updateLocalContext (← mkLocalContext)
   Optimize.mainAux e applyHashCons
 
+/-- Similar to Optimize.main but is used only for normalizing expression for blaster extension, i.e.,
+     - function unfolding is NOT applied
+     - Recursive function body normalization is NOT applied and recFunInstCache is not populated
+     - function, ite and match propagation rules are NOT applied
+-/
+@[always_inline, inline]
+def normalizeExpr (e : Expr) : TranslateEnvT Expr := do
+  setNormalizeOnly true
+   -- set start local context
+  updateLocalContext (← mkLocalContext)
+  optimizeExpr (← hashcons e)
 
 /-- Optimize an expression using the given solver options.
     ### Parameters
@@ -347,6 +386,14 @@ def command (sOpts: BlasterOptions) (e : Expr) : MetaM (Expr × TranslateEnv) :=
   let res ← Optimize.main e|>.run env
   return res
 
+/-- Normalize a theorem tagged with the `blaster` attribute -/
+def normalizeThm (thm : Expr) : MetaM Expr := do
+    let e ← (normalizeExpr thm).run' default
+    return e
+
+initialize
+  -- install the normalization hook for Blaster extension
+  ThmOptFn.theoremNormalizerRef.set (some normalizeThm)
 
 initialize
   registerTraceClass `Optimize.expr

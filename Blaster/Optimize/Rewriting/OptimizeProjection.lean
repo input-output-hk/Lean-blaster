@@ -43,14 +43,15 @@ def optimizeProjection? (n : Name) (idx : Nat) (s : Expr) : TranslateEnvT (Optio
            mkLambdaExpr (← Term.mkFreshBinderName) BinderInfo.default ite_cond auxApp
 
     diteProj? (typeName : Name) (idx : Nat) (struct : Expr) : TranslateEnvT (Option Expr) := do
-      let some ( _psort, pcond, e1, e2) := dite'? struct | return none
+      let some (_u, _psort, pcond, e1, e2) := dite'? struct | return none
       let e1' ← updateDIteExprWithProj typeName idx pcond e1
       let e2' ← updateDIteExprWithProj typeName idx (← mkAppExpr (← mkPropNotOp) pcond) e2
       -- NOTE: we need to propagate the reuse context to the new then and else expressions
       propagateReuseContext e1 e1' 0
       propagateReuseContext e2 e2' 0
       let ptype ← inferTypeEnv (← mkProjExpr n idx s)
-      mkApp4Expr (← mkBlasterDIteOp) ptype pcond e1' e2'
+      let u ← getLevelEnv ptype
+      mkApp4Expr (← mkBlasterDIteOpLevel [u]) ptype pcond e1' e2'
 
     updateRhsWithProj (typeName : Name) (idx : Nat) (nbParams : Nat) (rhs : Expr) : TranslateEnvT Expr := do
       applyOnLambdaBoundedBody rhs nbParams (fun body => mkProjExpr typeName idx body)

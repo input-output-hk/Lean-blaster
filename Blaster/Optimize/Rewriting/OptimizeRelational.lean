@@ -295,7 +295,8 @@ def natZeroLtSumReduce? (op1 op2 : Expr) : TranslateEnvT (Option Expr) := do
    Do nothing if operator is partially applied (i.e., args.size < 4)
 -/
 def optimizeLT (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
- if !(← isOpaqueRelational f.constName args) then return ← mkAppNExpr f args
+ let Expr.const n u := f | throwEnvError "optimizeLT: named expression expected !!!"
+ if !(← isOpaqueRelational n u args) then return ← mkAppNExpr f args
  if args.size != 4 then return ← mkAppNExpr f args
  -- args[0] is sort parameter
  -- args[1] LT instance
@@ -393,7 +394,8 @@ def optimizeLT (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
    Assume that f = Expr.const ``LE.le.
 -/
 def optimizeLE (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
- if !(← isOpaqueRelational f.constName args) then return ← mkAppNExpr f args
+ let Expr.const n u := f | throwEnvError "optimizeLE: named expression expected !!!"
+ if !(← isOpaqueRelational n u args) then return ← mkAppNExpr f args
  if args.size == 4 then
    -- args[0] is sort parameter
    -- args[1] Le instance

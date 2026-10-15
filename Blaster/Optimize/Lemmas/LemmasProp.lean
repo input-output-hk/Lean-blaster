@@ -24,6 +24,16 @@ protected theorem dite_from_else_eq_false {a b : Prop} {c : Bool} (h1 : false = 
 
 protected theorem and_not_from_not_or {a b : Prop} (h : ¬ (a ∨ b)) : ¬ a ∧ ¬ b := by apply (not_or.1 h)
 
+protected theorem or_from_not_and_not {a b : Prop} (h : ¬ (¬ a ∧ ¬ b)) : a ∨ b := by
+  exact Classical.byContradiction fun hab =>
+    h ⟨fun ha => hab (Or.inl ha), fun hb => hab (Or.inr hb)⟩
+
+protected theorem and_from_not_or_not {a b : Prop} (h : ¬ (¬ a ∨ ¬ b)) : a ∧ b := by
+  exact ⟨Classical.byContradiction fun ha => h (Or.inl ha),
+         Classical.byContradiction fun hb => h (Or.inr hb)⟩
+
+protected theorem not_not_cancel {a : Prop} (h : ¬ (¬ a)) : a := by exact Classical.byContradiction h
+
 protected theorem false_eq_of_not_true_eq {c : Bool} (h : ¬ (true = c)) : false = c := by simp at h; rw [h]
 protected theorem true_eq_of_not_false_eq {c : Bool} (h : ¬ (false = c)) : true = c := by simp at h; rw [h]
 
@@ -54,13 +64,13 @@ def mkAndLeft : TranslateEnvT Expr := mkExpr (mkConst ``And.left)
 def mkAndRight : TranslateEnvT Expr := mkExpr (mkConst ``And.right)
 
 /-- Return `Blaster.dite_from_then` const expression and cache result. -/
-def mkBlasterDiteFromThen : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.dite_from_then)
+def mkBlaster_dite_from_then : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.dite_from_then)
 
 /-- Return `Blaster.dite_from_else` const expression and cache result. -/
-def mkBlasterDiteFromElse : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.dite_from_else)
+def mkBlaster_dite_from_else : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.dite_from_else)
 
 /-- Return `Blaster.dite_from_else_eq_false` const expression and cache result. -/
-def mkBlasterDiteFromElseEqFalse : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.dite_from_else_eq_false)
+def mkBlaster_dite_from_else_eq_false : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.dite_from_else_eq_false)
 
 /-- Return `And.intro` const expression and cache result. -/
 def mkAndIntro : TranslateEnvT Expr := mkExpr (mkConst ``And.intro)
@@ -72,18 +82,33 @@ def mkOrInl : TranslateEnvT Expr := mkExpr (mkConst ``Or.inl)
 def mkOrInr : TranslateEnvT Expr := mkExpr (mkConst ``Or.inr)
 
 /-- Return `Blaster.and_not_from_not_or` const expression and cache result. -/
-def mkBlasterAndNotFromNotOr : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.and_not_from_not_or)
+def mkBlaster_and_not_from_not_or : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.and_not_from_not_or)
+
+/-- Return `Blaster.or_from_not_and_not` const expression and cache result. -/
+def mkBlaster_or_from_not_and_not : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.or_from_not_and_not)
+
+/-- Return `Blaster.and_from_not_or_not` const expression and cache result. -/
+def mkBlaster_and_from_not_or_not : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.and_from_not_or_not)
+
+/-- Return `Blaster.not_not_cancel` const expression and cache result. -/
+def mkBlaster_not_not_cancel : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.not_not_cancel)
 
 /-- Return `Blaster.false_eq_of_not_true_eq` const expression and cache result. -/
-def mkBlasterFalseEqNotTrueEq : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.false_eq_of_not_true_eq)
+def mkBlaster_false_eq_of_not_true_eq : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.false_eq_of_not_true_eq)
 
 /-- Return `Blaster.true_eq_of_not_false_eq` const expression and cache result. -/
-def mkBlasterTrueEqNotFalseEq : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.true_eq_of_not_false_eq)
+def mkBlaster_true_eq_of_not_false_eq : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.true_eq_of_not_false_eq)
+
+/-- Return `Blaster.not_true_eq_of_false_eq` const expression and cache result. -/
+def mkBlaster_not_true_eq_of_false_eq : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.not_true_eq_of_false_eq)
+
+/-- Return `Blaster.not_false_eq_of_true_eq` const expression and cache result. -/
+def mkBlaster_not_false_eq_of_true_eq : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.not_false_eq_of_true_eq)
 
 /-- Return `Blaster.and_implies_from_dite` const expression and cache result. -/
-def mkBlasterAndImpliesOfDite : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.and_implies_from_dite)
+def mkBlaster_and_implies_from_dite : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.and_implies_from_dite)
 
 /-- Return `Blaster.false_eq_imp_of_not_true_imp` const expression and cache result. -/
-def mkBlasterFalseEqImpOfNotTrueImp : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.false_eq_imp_of_not_true_imp)
+def mkBlaster_false_eq_imp_of_not_true_imp : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.false_eq_imp_of_not_true_imp)
 
 end Blaster

@@ -429,6 +429,8 @@ def reorderPropOp (args: Array Expr) : (Expr × Expr) :=
 
 /-- Reorder operands for `Eq` operators by applying `reorderPropOp` first and followed by
     the rules:
+     - #[e1, e2] ==> args (if isTaggedRewriteLhs e1)
+     - #[e1, e2] ==> #[e2, e1] (if isTaggedRewriteLhs e2)
      - #[Expr.lit _, _] ===> args
      - #[e, Expr.lit l] ===> #[Expr.lit l, e]
      - #[e1, e2] ===> args (if isConstructor e1) -- already ordered by reorderPropOp
@@ -440,6 +442,8 @@ def reorderPropOp (args: Array Expr) : (Expr × Expr) :=
 @[always_inline, inline]
 def reorderEq (args : Array Expr) : TranslateEnvT (Expr × Expr) := do
  let r@(e1, e2) := reorderPropOp args
+ if isTaggedRewriteLhs e1 then return r
+ if isTaggedRewriteLhs e2 then return (e2, e1)
  match e1, e2 with
  | Expr.lit _, _ => return r
  | _, Expr.lit _ => return (e2, e1)
@@ -515,7 +519,7 @@ def reorderIntOp (args: Array Expr) : (Expr × Expr) :=
 
 /-- Reorder operands for commutative operators -/
 def reorderOperands (f : Expr) (args : Array Expr) : TranslateEnvT (Array Expr) := do
-  let Expr.const n _ := f | return args
+  let Expr.const n u := f | return args
   match n with
   | ``Nat.add
   | ``Nat.mul =>
@@ -535,7 +539,7 @@ def reorderOperands (f : Expr) (args : Array Expr) : TranslateEnvT (Array Expr) 
        return (args.set! 1 op1).set! 2 op2
 
   | ``BEq.beq =>
-      if !(← isOpaqueRelational n args) then return args
+      if !(← isOpaqueRelational n u args) then return args
       if args.size != 4 then return args
       let (op1, op2) := reorderBoolOp #[args[2]!, args[3]!]
       return (args.set! 2 op1).set! 3 op2
@@ -666,9 +670,9 @@ def isNotFun (e : Expr) : TranslateEnvT Bool := do
 def isNotFoldable
   (e : Expr) (args : Array Expr) : TranslateEnvT Bool := do
   match e with
-  | Expr.const n _ =>
+  | Expr.const n u =>
       if opaqueFuns.contains n then return true
-      else if (← (pure (args.size != 0)) <&&> (isOpaqueRelational n args)) then return true
+      else if (← (pure (args.size != 0)) <&&> (isUnfoldableFun n u args)) then return true
       else isRecursiveFun n <||> isAxiomOrOpaque n
   | _ => return false
 
@@ -682,6 +686,7 @@ def isNotFoldable
      - f is not a match application
 -/
 def getUnfoldFunDef? (f: Expr) (args: Array Expr) : TranslateEnvT (Option BetaLambdaResult) := do
+ if (← isNormalizeOnly) then return none
  if (← isNotFoldable f args) then return none
  match ← getFunBody f with
  | some fbody =>
@@ -732,10 +737,10 @@ partial def unfoldOpaqueFunDef (f : Expr) (args : Array Expr) : TranslateEnvT (O
 -/
 def isOpaqueRecFun (f : Expr) (args : Array Expr) : TranslateEnvT Bool := do
   match f with
-  | Expr.const n _ =>
+  | Expr.const n u =>
       if h : 2 ≤ args.size then
         -- check for recursive definition for opaque relational function
-        if (← (pure $ !(isCompatibleRelationalType args[0])) <&&> isOpaqueRelational n args) then
+        if (← (pure $ !(isCompatibleRelationalType args[0])) <&&> isOpaqueRelational n u args) then
           let some auxDef ← unfoldOpaqueFunDef f args | return false
           let Expr.const n' _  := (getLambdaBody auxDef).getAppFn' | return false
           return (← isRecursiveFun n')

@@ -1575,4 +1575,57 @@ namespace Test.OptimizeDITE
   ∀ (c : Bool) (x y : Nat) (f : true = c → Nat → Nat),
     x < Blaster.dite' (true = c) (fun h : _ => f h x) (fun _ => y)
 
+/-! ## Universe level of `Blaster.dite'`
+
+`@dite α c inst t e` is translated to `@Blaster.dite' α c t e`; the level of `Blaster.dite'.{u}` must
+be the level of `α` (the one of the original `dite.{u}`), not always `1` (see `OptimizeITE.lean`).
+-/
+
+-- ∀ (c : Bool) (x y : Type) (h : c → Type), (if hc : c then h hc else y) = x ===>
+-- ∀ (c : Bool) (x y : Type) (h : true = c → Type), x = Blaster.dite'.{2} (true = c) (fun hc => h hc) (fun _ => y)
+#testOptimize [ "DIteLevel_1" ]
+  ∀ (c : Bool) (x y : Type) (h : c → Type), (if hc : c then h hc else y) = x ===>
+  ∀ (c : Bool) (x y : Type) (h : true = c → Type), x = Blaster.dite' (true = c) (fun hc => h hc) (fun _ => y)
+
+-- ∀ (c : Bool) (α : Type 1) (y : α) (h : c → α) (f : α → Nat), f (if hc : c then h hc else y) = 0 ===>
+-- ∀ (c : Bool) (α : Type 1) (y : α) (h : true = c → α) (f : α → Nat),
+--   0 = f (Blaster.dite'.{2} (true = c) (fun hc => h hc) (fun _ => y))
+#testOptimize [ "DIteLevel_2" ] (norm-result: 1)
+  ∀ (c : Bool) (α : Type 1) (y : α) (h : c → α) (f : α → Nat), f (if hc : c then h hc else y) = 0 ===>
+  ∀ (c : Bool) (α : Type 1) (y : α) (h : true = c → α) (f : α → Nat),
+    0 = f (Blaster.dite' (true = c) (fun hc => h hc) (fun _ => y))
+
+-- ∀ (c : Bool) (x y : Type 1) (h : c → Type 1), (if hc : c then h hc else y) = x ===>
+-- ∀ (c : Bool) (x y : Type 1) (h : true = c → Type 1), x = Blaster.dite'.{3} (true = c) (fun hc => h hc) (fun _ => y)
+#testOptimize [ "DIteLevel_3" ]
+  ∀ (c : Bool) (x y : Type 1) (h : c → Type 1), (if hc : c then h hc else y) = x ===>
+  ∀ (c : Bool) (x y : Type 1) (h : true = c → Type 1), x = Blaster.dite' (true = c) (fun hc => h hc) (fun _ => y)
+
+-- ∀ (c : Prop) [Decidable c] (x y : Type) (h : c → Type), (if hc : c then h hc else y) = x ===>
+-- ∀ (c : Prop) (x y : Type) (h : c → Type), x = Blaster.dite'.{2} c (fun hc => h hc) (fun _ => y)
+#testOptimize [ "DIteLevel_4" ]
+  ∀ (c : Prop) [Decidable c] (x y : Type) (h : c → Type), (if hc : c then h hc else y) = x ===>
+  ∀ (c : Prop) (x y : Type) (h : c → Type), x = Blaster.dite' c (fun hc => h hc) (fun _ => y)
+
+-- ∀ (c : Bool) (x y : Nat → Type) (h : c → Nat → Type), (if hc : c then h hc else y) 0 = x 0 ===>
+-- ∀ (c : Bool) (x y : Nat → Type) (h : true = c → Nat → Type),
+--   x 0 = Blaster.dite'.{2} (true = c) (fun hc => h hc 0) (fun _ => y 0)
+#testOptimize [ "DIteLevel_5" ] (norm-result: 1)
+  ∀ (c : Bool) (x y : Nat → Type) (h : c → Nat → Type), (if hc : c then h hc else y) 0 = x 0 ===>
+  ∀ (c : Bool) (x y : Nat → Type) (h : true = c → Nat → Type),
+    x 0 = Blaster.dite' (true = c) (fun hc => h hc 0) (fun _ => y 0)
+
+-- level 1 (α := Prop): ∀ (c : Bool) (p q : Prop) (h : c → Prop), (if hc : c then h hc else q) = p ===>
+-- ∀ (c : Bool) (p q : Prop) (h : true = c → Prop), p = Blaster.dite'.{1} (true = c) (fun hc => h hc) (fun _ => q)
+#testOptimize [ "DIteLevel_6" ]
+  ∀ (c : Bool) (p q : Prop) (h : c → Prop), (if hc : c then h hc else q) = p ===>
+  ∀ (c : Bool) (p q : Prop) (h : true = c → Prop), p = Blaster.dite' (true = c) (fun hc => h hc) (fun _ => q)
+
+-- level 0 (α : Prop): the `dite` on proofs is eliminated by proof irrelevance
+-- ∀ (c : Bool) (p : Prop) (h1 : c → p) (h2 : p) (f : p → Nat), f (if hc : c then h1 hc else h2) = 0 ===>
+-- ∀ (c : Bool) (p : Prop) (_h1 : true = c → p) (h2 : p) (f : p → Nat), 0 = f h2
+#testOptimize [ "DIteLevel_7" ] (norm-result: 1)
+  ∀ (c : Bool) (p : Prop) (h1 : c → p) (h2 : p) (f : p → Nat), f (if hc : c then h1 hc else h2) = 0 ===>
+  ∀ (c : Bool) (p : Prop) (_h1 : true = c → p) (h2 : p) (f : p → Nat), 0 = f h2
+
 end Test.OptimizeDITE

@@ -15,6 +15,7 @@ def opaqueFuns : HashSet Name :=
   [
     -- structural equality
     ``Eq,
+    ``Ne,
     -- decide predicate on proposition (normalized to Blaster.decide')
     ``Decidable.decide,
     -- Prop operators
@@ -69,23 +70,23 @@ def opaqueFuns : HashSet Name :=
     ``String.length
   ]
 
-
-/-- list of non-opaque rec operators on which normalization rules and constant propagation are applied.
--/
+/-- list of non-opaque rec operators on which normalization rules and constant propagation are applied. -/
 def optRecFuns : HashSet Name :=
   List.foldr (fun c s => s.insert c) HashSet.emptyWithCapacity
   [ -- List operators
+    ``List.append,
     ``List.get?Internal,
     ``List.length,
     ``List.reverseAux,
     ``List.take,
-    ``List.drop
+    ``List.drop,
+    ``List.replicate
   ]
 
 /-- list of types for which:
      - LT instance is guaranteed to be irrelexive, anti-symmetric and transitive.
      - LE instance is guaranteed to be reflexive, symmetric and transitive.
-TODO: add other basic lean types (e.g., Char, etc)
+    NOTE: add other basic lean types (e.g., Char, etc)
 -/
 def relationalCompatibleTypes : HashSet Name :=
   List.foldr (fun c s => s.insert c) HashSet.emptyWithCapacity
@@ -95,11 +96,35 @@ def relationalCompatibleTypes : HashSet Name :=
     ``String
   ]
 
-/-- Return `true` is `e` corresponds to a sort in `relationalCompatibletypes`.
--/
+/-- Return `true` if `e` corresponds to a type in `relationalCompatibletypes`. -/
 def isCompatibleRelationalType (e : Expr) : Bool :=
-  match e with
+  match e.getAppFn with
   | Expr.const n _ => relationalCompatibleTypes.contains n
+  | _ => false
+
+/-- list of types for OfNat.ofNat for which we have a normalization rule. -/
+def ofNatTypes : HashSet Name :=
+  List.foldr (fun c s => s.insert c) HashSet.emptyWithCapacity
+  [ ``Nat,
+    ``Int,
+    ``UInt8,
+    ``UInt16,
+    ``UInt32,
+    ``UInt64,
+    ``USize,
+    ``Int8,
+    ``Int16,
+    ``Int32,
+    ``Int64,
+    ``ISize,
+    ``Fin,
+    ``BitVec,
+  ]
+
+/-- Return `true` if `e` corresponds to a type in `ofNatTypes`. -/
+def isOfNatType (e : Expr) : Bool :=
+  match e.getAppFn with
+  | Expr.const n _ => ofNatTypes.contains n
   | _ => false
 
 end Blaster.Optimize

@@ -15,7 +15,7 @@ partial def eraseMatchRhsRewriteCache (mInfo : MatchInfo) : TranslateEnvT Unit :
     else
       freeRewriteCacheReuse mInfo.nameExpr (idx - offset)
       visit (idx + 1) stop offset
-  let ⟨_, _, _, _, _, _, _, _, _, memCache, ⟨_, _, _, _, curCtx, _, _, _, _⟩, _, _, _⟩ := (← get).optEnv
+  let ⟨_, _, _, _, _, _, _, _, _, memCache, ⟨_, _, _, _, curCtx, _, _, _, _, _⟩, _, _, _⟩ := (← get).optEnv
   if (← memCache.contextReuseCache.findRaw mInfo.nameExpr 0 curCtx).isSome then
     let start := mInfo.getFirstAltPos.toUSize
     visit start mInfo.arity.toUSize start
@@ -394,7 +394,7 @@ def reduceMatch? (args : Array Expr) (mInfo : MatchInfo) (resolveArgs := false) 
      go mInfo.getFirstDiscrPos mInfo.getFirstAltPos
 
     resolveArgsWithEqualityStack (args : Array Expr) : TranslateEnvT (Array Expr) := do
-     let ⟨_, _, _, _, _, _, _, ⟨_, equalityMap⟩, _, _, ⟨_, _, _, _, _, _, active, _, _⟩, _, _, _⟩ := (← get).optEnv
+     let ⟨_, _, _, _, _, _, _, ⟨_, equalityMap⟩, _, _, ⟨_, _, _, _, _, _, active, _, _, _⟩, _, _, _⟩ := (← get).optEnv
      let rec visit (idx : Nat) (stop : Nat) (args : Array Expr) : TranslateEnvT (Array Expr) := do
        if idx ≥ stop then return args
        else
@@ -441,8 +441,8 @@ def reduceMatch? (args : Array Expr) (mInfo : MatchInfo) (resolveArgs := false) 
 def constMatchPropagation?
   (cm : Expr) (cargs : Array Expr) (mInfo : MatchInfo)
   (prevInApp : Bool) (resolveArgs := false) : TranslateEnvT (Option OptimizeStack) := do
-  if !(← allDiscrsAreCstMatch mInfo.getFirstDiscrPos mInfo.getFirstAltPos)
-  then return none
+  if ← isNormalizeOnly then return none
+  else if !(← allDiscrsAreCstMatch mInfo.getFirstDiscrPos mInfo.getFirstAltPos) then return none
   else loop mInfo.getFirstDiscrPos mInfo.getFirstAltPos
 
   where
@@ -477,7 +477,7 @@ def constMatchPropagation?
 
     @[always_inline, inline]
     isDiteArg (idx : Nat) : TranslateEnvT (Option OptimizeStack) := do
-      if let some (_psort, pcond, e1, e2) := dite'? cargs[idx]! then
+      if let some (_u, _psort, pcond, e1, e2) := dite'? cargs[idx]! then
         -- erase context
         eraseMatchRhsRewriteCache mInfo
         -- NOTE: we also need to set the sort type for the pulled dite to meet
@@ -488,7 +488,8 @@ def constMatchPropagation?
         -- NOTE: we need to propagate the reuse context to the new then and else expressions
         propagateReuseContext e1 e1' 0
         propagateReuseContext e2 e2' 0
-        let dite_op ← mkBlasterDIteOp
+        let u ← getLevelEnv retType
+        let dite_op ← mkBlasterDIteOpLevel [u]
         let pInfo ← getFunEnvInfo dite_op
         let dite_args := #[retType, pcond, e1', e2']
         setIsAppArg prevInApp
@@ -895,7 +896,7 @@ partial def optimizeMatchAlt
        return .InitOptimizeExpr body :: .MatchAltWaitForExpr reuse.fvars (some reuse.scope) currIdx matchInst :: stack
   | none =>
        let alts ← getMatchAlts args mInfo
-       let ⟨_, ⟨_, _, _, _, _, _, _, _, _,_, ⟨_, _, _, _, _, nextCtxId, _, _, _⟩, _, _, _⟩⟩ ← get
+       let ⟨_, ⟨_, _, _, _, _, _, _, _, _,_, ⟨_, _, _, _, _, nextCtxId, _, _, _, _⟩, _, _, _⟩⟩ ← get
        let updatedMCtx ← addNotEqPatternToContext args mInfo alts 0 currIdx nextCtxId false
        forallTelescope alts[currIdx]! fun xs b => do
          let lhs := b.getAppArgs
@@ -1004,7 +1005,7 @@ where
 
   @[always_inline, inline]
   lastPatternReduction? (mInfo : MatchInfo) (args : Array Expr) : TranslateEnvT (Option MatchElimResult) := do
-     let ⟨_, _, _, _, _, _, _, _, matchInContext, _, ⟨_, _, _, _, _, _, active, _, _⟩, _, _, _⟩ := (← get).optEnv
+     let ⟨_, _, _, _, _, _, _, _, matchInContext, _, ⟨_, _, _, _, _, _, active, _, _, _⟩, _, _, _⟩ := (← get).optEnv
      let h := (← get).optEnv.matchInContext
      let instCommonKey ← mkAppRangeExpr mInfo.instApp 0 mInfo.getFirstDiscrPos args
      let alts ← getMatchAltsAux instCommonKey args mInfo
