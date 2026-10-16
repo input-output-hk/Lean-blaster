@@ -89,4 +89,29 @@ elab "intAddCst_1" : term => return intAddCst_1
 -- ∀ (n : Nat), Int.toNat (-(Int.ofNat n)) = 0 ===> True
 #testOptimize ["IntToNatNegOfNat_1", proof] ∀ (n : Nat), Int.toNat (-(Int.ofNat n)) = 0 ===> True
 
+/-! Test cases for steps over `Int.ofNat`, written with a cast. -/
+
+-- ∀ (n : Nat), Int.toNat (-(n : Int)) = 0 ===> True
+#testOptimize ["IntToNatNegCast_1", proof] ∀ (n : Nat), Int.toNat (-(n : Int)) = 0 ===> True
+
+-- ∀ (n : Nat), Int.toNat (n : Int) - n = 0 ===> True
+#testOptimize ["IntToNatCast_1", proof] ∀ (n : Nat), Int.toNat (n : Int) - n = 0 ===> True
+
+abbrev castA (n : Nat) : Int := (n : Int)
+
+-- ∀ (n : Nat), castA n - (n : Int) = 0 ===> True
+#testOptimize ["IntCastAbbrev_1", proof] ∀ (n : Nat), castA n - (n : Int) = 0 ===> True
+
+-- ∀ (n : Nat), (fun (k : Nat) => (k : Int)) n - (n : Int) = 0 ===> True
+#testOptimize ["IntCastBeta_1", proof]
+  ∀ (n : Nat), (fun (k : Nat) => (k : Int)) n - (n : Int) = 0 ===> True
+
+-- ∀ (n : Nat), Int.toNat (n : Int) + Nat.succ (Int.toNat (n : Int)) = Int.toNat (n : Int) + (1 + n) ===> True
+#testOptimize ["IntCastSucc_1", proof]
+  ∀ (n : Nat), Int.toNat (n : Int) + Nat.succ (Int.toNat (n : Int)) = Int.toNat (n : Int) + (1 + n) ===> True
+
+-- ∀ (n : Nat), (n : Int) = (n : Int) ∧ Nat.succ (Int.toNat (n : Int)) = 1 + n ===> True
+#testOptimize ["IntCastSucc_2", proof]
+  ∀ (n : Nat), (n : Int) = (n : Int) ∧ Nat.succ (Int.toNat (n : Int)) = 1 + n ===> True
+
 end Tests.OptimizeIntAdd

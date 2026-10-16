@@ -99,6 +99,10 @@ def notLogicalSimp? (ne : Expr) : TranslateEnvT (Option Expr) := do
        TranslateEnvT (Option Expr) := do
      match propNot? ne1, propNot? ne2 with
      | some e1, some e2 =>
+           -- applied to the operands, so that replay rewrites this site and not an enclosing match
+           pushProofStep (.rewrite (mkApp2 (mkConst lemma) e1 e2))
+           -- the bare lemma covers operands the user wrote in another form
+           -- pushed right after its instance, it is replayed after all other steps
            pushProofStep (.rewrite (mkConst lemma))
            setRestart
            return mkApp2 op e1 e2
