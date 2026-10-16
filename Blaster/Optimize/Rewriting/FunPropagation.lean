@@ -145,7 +145,13 @@ def funPropagation?
     @[always_inline, inline]
     propagate (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT Bool := do
       if !(← hasMatchITEArgs args) then return false
-      else if (← isCtorName n) then return true
+      -- Do NOT lift choices out of constructor arguments: a constructor is
+      -- pure data, so hoisting a dite/match duplicates the whole surrounding
+      -- value per choice (exponential in the number of embedded selectors,
+      -- fatal for symbolic data with structural conditionals).  Downstream
+      -- consumers still see the constructor head; a field-level choice is
+      -- lifted only when a *function* actually consumes that field.
+      else if (← isCtorName n) then return false
       else if (← allExplicitParamsAreCtor f args (funPropagation := true)) then return true
       else
         match n with
