@@ -234,6 +234,14 @@ def addNatEqZeroReduce? (op1 op2 : Expr) : TranslateEnvT (Option Expr) := do
       return none
   | _ => return none
 
+/-- Natural subtraction saturates: `0 = n - k` iff `¬ k < n`.
+    Exposing the order test avoids retaining a truncated subtraction in guards. -/
+def subNatEqZeroReduce? (op1 op2 : Expr) : TranslateEnvT (Option Expr) := do
+  unless isZeroNat op1 do return none
+  let some (n, k) := natSub? op2 | return none
+  setRestart
+  return some (← mkAppExpr (← mkPropNotOp) (← mkNatLtExpr k n))
+
 /-- Given `op1` and `op2` corresponding to the operands for `Eq`:
       - return `some False` when `op1 := N1 ∧ op2 := N2 + a ∧ N1 < N2 ∧ Type(a) = Nat`:
       - return `some N1 "-" N2 = a` when `op1 := N1 ∧ op2 := N2 + a ∧ N1 ≥ N2 ∧ Type(a) = Nat`:
@@ -376,6 +384,7 @@ def optimizeEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
  if let some r ← natZeroEqMulReduce? op1 op2 then return r
  if let some r ← intZeroEqMulReduce? op1 op2 then return r
  if let some r ← addNatEqZeroReduce? op1 op2 then return r
+ if let some r ← subNatEqZeroReduce? op1 op2 then return r
  if let some r ← addIntEqZeroReduce? op1 op2 then return r
  if let some r ← arithEq? op1 op2 then return r
  if let some (e1, e2) ← natAddEqReduce? op1 op2 then return ← mkApp3Expr f eqType e1 e2
