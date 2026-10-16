@@ -122,7 +122,7 @@ def isTheorem (f : Name) : TranslateEnvT Bool := do
 
 /-- Return `true` if function name `f` is tagged as an opaque definition. -/
 def isOpaqueFun (f : Name) (args: Array Expr) : TranslateEnvT Bool :=
-  return (opaqueFuns.contains f || (← isOpaqueRelational f args))
+  return (opaqueFuns.contains f || (← isUninterpreted f) || (← isOpaqueRelational f args))
 
 /-- Given `f := Expr.const n _` return `true` only when `isOpaqueFun n`. -/
 def isOpaqueFunExpr (f : Expr) (args: Array Expr) : TranslateEnvT Bool :=
@@ -610,16 +610,24 @@ where
       - The polymorphic instance cache is updated with `f := body[mkAnnotation `_solver.recursivecall _'/_recFun α₁ ... αₖ x₁ ... xₙ]`
         (if required) for all cases. This is essential to avoid performing structural equivalence check again on an
         already handled recursive function.
+      - When `f` is an opaque alias, `implementation` retains the same normalized
+        body under the resolved recursive name for references from mutual siblings.
     Assumes that:
 
       - `f` is either a function name expression or a fully/partially instantiated polymorphic function (see `getInstApp`)
       - an entry exists for each opaque recursive function in `recFunMap` before optimization is performed
         (see function `cacheOpaqueRecFun`).
 -/
-partial def storeRecFunDef (f : Expr) (params : ImplicitParameters) (body : Expr) : TranslateEnvT Expr := do
+partial def storeRecFunDef (f : Expr) (params : ImplicitParameters) (body : Expr)
+    (implementation : Expr := f) : TranslateEnvT Expr := do
   let body' ← replaceShared body (replacePred (← internalRecFunExpr))
   -- update polymorphic instance cache
   updateRecFunInst f body'
+  -- An opaque operation (such as a lawful BEq instance) can use a mutually
+  -- recursive implementation. While normalizing it, sibling definitions may
+  -- retain calls to that implementation's own name. Keep its body available
+  -- under both names, even when the opaque operation is the canonical result.
+  unless exprEq implementation f do updateRecFunInst implementation body'
   match (← get).optEnv.recFunMap.get? body' with
   | some fb => return fb
   | none =>

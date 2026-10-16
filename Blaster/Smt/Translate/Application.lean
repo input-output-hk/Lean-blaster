@@ -14,7 +14,6 @@ namespace Blaster.Smt
 def funNameToSmtSymbol (funName : Name) : SmtSymbol :=
   mkNormalSymbol s!"@{funName}"
 
-
 /-- list of Lean operators expected to be fully applied at translation phase. -/
 def fullyAppliedConst : HashSet Name :=
   List.foldr (fun c s => s.insert c) HashSet.emptyWithCapacity
@@ -904,7 +903,7 @@ def translateConst
       else termTranslator (← Optimize.etaExpand e) -- parameterized constructor case
 
     translateDefineFun? (n : Name) : TranslateEnvT (Option SmtTerm) := do
-      if (opaqueFuns.contains n) || (← isRecursiveFun n) then
+      if (opaqueFuns.contains n) || (← isUninterpreted n) || (← isRecursiveFun n) then
         termTranslator (← Optimize.etaExpand e)
       else return none
 
@@ -1113,12 +1112,13 @@ def translateApp
 
 
     isOpaqueAxiomOrUndeclFun (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT Bool := do
+      if ← isUninterpreted n then return true
       match ← getFunBody f with
       | none => isAxiomOrOpaque n
       | some fbody => isUndefinedClassFunApp (← betaLambdaShared fbody args)
 
     translateAxiomOrUndeclFun? (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
-      if (← isOpaqueFun n args) then return none
+      if !(← isUninterpreted n) && (← isOpaqueFun n args) then return none
       if !(← isOpaqueAxiomOrUndeclFun f n args) then return none
       let pInfo ← getFunEnvInfo f
       if pInfo.paramsInfo.size > args.size then
