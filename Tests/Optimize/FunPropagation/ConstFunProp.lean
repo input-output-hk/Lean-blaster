@@ -23,30 +23,28 @@ namespace Tests.ConstFunProp
 -- ∀ (b c : Bool) (x y z : Int),
 --  (if c then (if b then some x else none) else some y) = some z ===>
 -- ∀ (b c : Bool) (x y z : Int),
---  (false = c → some y = some z) ∧
---  (true = c → (true = b ∧ some x = some z))
--- NOTE: Can be reduced to `(false = c → y = z) ∧ (true = c → (true = b ∧ x = z))`
+--  Blaster.dite' (true = c) (λ _ => true = b ∧ some x = some z) (λ _ => some y = some z)
+-- NOTE: Can be reduced to
+--  Blaster.dite' (true = c) (λ _ => true = b ∧ x = z) (λ _ => y = z)
 -- with additional simplification rules
 #testOptimize [ "IteOverFun_2" ]
   ∀ (b c : Bool) (x y z : Int),
     (if c then (if b then some x else none) else some y) = some z ===>
   ∀ (b c : Bool) (x y z : Int),
-    (false = c → some y = some z) ∧
-    (true = c → (true = b ∧ some x = some z))
+    Blaster.dite' (true = c) (λ _ => true = b ∧ some x = some z) (λ _ => some y = some z)
 
 -- ∀ (b c : Bool) (x y z : Int),
 --    (if c then some x else (if b then some y else none)) = some z ===>
 -- ∀ (b c : Bool) (xs : List (Option Int)) (x : Int),
---   (false = c → (true = b ∧ some y = some z)) ∧
---   (false = c → (true = b ∧ (true = b → some y = some z))) ∧
--- NOTE: Can be reduced to `(false = c → (true = b ∧ y = z)) ∧ (true = c → x = z)`
+--   Blaster.dite' (true = c) (λ _ => some x = some z) (λ _ => true = b ∧ some y = some z)
+-- NOTE: Can be reduced to
+--   Blaster.dite' (true = c) (λ _ => x = z) (λ _ => true = b ∧ y = z)
 -- with additional simplification rules
 #testOptimize [ "IteOverFun_3" ]
   ∀ (b c : Bool) (x y z : Int),
      (if c then some x else (if b then some y else none)) = some z ===>
   ∀ (b c : Bool) (x y z : Int),
-     (false = c → (true = b ∧ some y = some z)) ∧
-     (true = c → some x = some z)
+    Blaster.dite' (true = c) (λ _ => some x = some z) (λ _ => true = b ∧ some y = some z)
 
 
 -- ∀ (b c d : Bool) (x y z : Int),
@@ -56,11 +54,13 @@ namespace Tests.ConstFunProp
 --   else if b then some x else none;
 --  op1 = some z ===>
 -- ∀ (b c d : Bool) (x y z : Int),
---  (false = c → (true = b ∧ some x = some z)) ∧
---  (true = c → ((false = d → some y = some z) ∧ (true = d → some x = some z)))
+-- Blaster.dite' (true = c)
+--   (λ _ => Blaster.dite' (true = d) (λ _ => some x = some z) (λ _ => some y = some z))
+--   (λ _ => true = b ∧ some x = some z)
 -- NOTE: Can be reduced to
---  (false = c → (true = b ∧ x = z)) ∧
---  (true = c → ((false = d → y = z) ∧ (true = d → x = z)))
+-- Blaster.dite' (true = c)
+--   (λ _ => Blaster.dite' (true = d) (λ _ => x = z) (λ _ => y = z))
+--   (λ _ => true = b ∧ x = z)
 -- with additional simplification rules
 #testOptimize [ "IteOverFun_4" ]
 ∀ (b c d : Bool) (x y z : Int),
@@ -70,8 +70,9 @@ namespace Tests.ConstFunProp
     else if b then some x else none;
   op1 = some z ===>
 ∀ (b c d : Bool) (x y z : Int),
-  (false = c → (true = b ∧ some x = some z)) ∧
-  (true = c → ((false = d → some y = some z) ∧ (true = d → some x = some z)))
+  Blaster.dite' (true = c)
+    (λ _ => Blaster.dite' (true = d) (λ _ => some x = some z) (λ _ => some y = some z))
+    (λ _ => true = b ∧ some x = some z)
 
 
 -- ∀ (b c d : Bool) (x y z : Int),
@@ -82,15 +83,19 @@ namespace Tests.ConstFunProp
 -- let op2 := if b then some z else some y
 --  op1 = op2 ===>
 -- ∀ (b c d : Bool) (x y z : Int),
--- (false = b → true = c ∧ (true = d → some x = some y)) ∧
--- (true = b →
---     (false = c → some x = some z) ∧
---     (true = c → (false = d → some y = some z) ∧ (true = d → some x = some z)))
+-- Blaster.dite' (true = b)
+--   (λ _ =>
+--     Blaster.dite' (true = c)
+--     (λ _ => Blaster.dite' (true = d) (λ _ => some x = some z) (λ _ => some y = some z))
+--     (λ _ =>  some x = some z))
+--   (λ _ => true = c ∧ (true = d → some x = some y))
 -- NOTE: Can be reduced to
--- (false = b → true = c ∧ (true = d → x = y)) ∧
--- (true = b →
---     (false = c → x = z) ∧
---     (true = c → (false = d → y = z) ∧ (true = d → x = z)))
+-- Blaster.dite' (true = b)
+--   (λ _ =>
+--     Blaster.dite' (true = c)
+--     (λ _ => Blaster.dite' (true = d) (λ _ => x = z) (λ _ => y = z))
+--     (λ _ => x = z))
+--   (λ _ => true = c ∧ (true = d → x = y))
 -- with additional simplification rules
 #testOptimize [ "IteOverFun_5" ]
 ∀ (b c d : Bool) (x y z : Int),
@@ -100,10 +105,13 @@ namespace Tests.ConstFunProp
   let op2 := if b then some z else some y
   op1 = op2 ===>
 ∀ (b c d : Bool) (x y z : Int),
-   (false = b → true = c ∧ (true = d → some x = some y)) ∧
-   (true = b →
-       (false = c → some x = some z) ∧
-       (true = c → (false = d → some y = some z) ∧ (true = d → some x = some z)))
+   Blaster.dite' (true = b)
+     (λ _ =>
+       Blaster.dite' (true = c)
+       (λ _ => Blaster.dite' (true = d) (λ _ => some x = some z) (λ _ => some y = some z))
+       (λ _ =>  some x = some z))
+     (λ _ => true = c ∧ (true = d → some x = some y))
+
 
 -- ∀ (c : Bool) (w x y z : Int), List.length (if c then [w, x, y] else [y, z]) > 0 ===> True
 #testOptimize [ "IteOverFun_6" ]
@@ -113,57 +121,58 @@ namespace Tests.ConstFunProp
 --   List.length (if c then x :: xs else [w, x, y]) > 0 ===>
 -- ∀ (c : Prop) (xs : List Int),
 --   0 < Blaster.dite' c (fun _ => Nat.add 1 (List.length xs)) (fun _ => 3)
--- NOTE: Can be reduced to true with additional simplification rules on
--- relational operators and ite propagation rules.
 #testOptimize [ "IteOverFun_7" ] (norm-result: 1)
   ∀ (c : Prop) (xs : List Int) (w x y : Int), [Decidable c] →
-    List.length (if c then x :: xs else [w, x, y]) > 0 ===>
-  ∀ (c : Prop) (xs : List Int),
-    0 < Blaster.dite' c (fun _ => Nat.add 1 (List.length xs)) (fun _ => 3)
+    List.length (if c then x :: xs else [w, x, y]) > 0 ===> True
 
 -- ∀ (a b c : Bool), true = if c then a else b ===>
--- ∀ (a b c : Bool), (false = c → true = b) ∧ (true = c → true = a)
+-- ∀ (a b c : Bool), Blaster.dite' (true = c) (λ _ => true = a) (λ _ => true = b)
 -- NOTE: Test case to validate ite propagation on equality true
 #testOptimize [ "IteOverFun_8" ]
   ∀ (a b c : Bool), true = if c then a else b ===>
-  ∀ (a b c : Bool), (false = c → true = b) ∧ (true = c → true = a)
+  ∀ (a b c : Bool), Blaster.dite' (true = c) (λ _ => true = a) (λ _ => true = b)
 
 -- ∀ (a b c : Bool), false = if c then a else b ===>
--- ∀ (a b c : Bool), (false = c → false = b) ∧ (true = c → false = a)
+-- ∀ (a b c : Bool), Blaster.dite' (true = c) (λ _ => false = a) (λ _ => false = b)
 -- NOTE: Test case to validate ite propagation on equality false
 #testOptimize [ "IteOverFun_9" ]
   ∀ (a b c : Bool), false = if c then a else b ===>
-  ∀ (a b c : Bool), (false = c → false = b) ∧ (true = c → false = a)
+  ∀ (a b c : Bool), Blaster.dite' (true = c) (λ _ => false = a) (λ _ => false = b)
 
 --  ∀ (c : Bool) (x y z : Int),
 --   (if c then λ n => some (x + n) else λ n => some (x - n)) z = some y ===>
 -- ∀ (c : Bool) (x y z : Int),
---  (false = c → some y = some (Int.add x (Int.neg z))) ∧
---  (true = c → some y = some (Int.add x z))
+--  Blaster.dite' (true = c)
+--   (λ _ => some y = some (Int.add x z))
+--   (λ _ => some y = some (Int.add x (Int.neg z)))
 -- NOTE: Test cases to ensure that ite returning function are properly handled
 -- NOTE: Can be reduced to
---  (false = c → y = Int.add x (Int.neg z)) ∧
---  (true = c → y = Int.add x z)
+--  Blaster.dite' (true = c)
+--   (λ _ => y = Int.add x z)
+--   (λ _ => y = Int.add x (Int.neg z))
 -- with additional simplification rules
 #testOptimize [ "IteOverFun_10" ]
   ∀ (c : Bool) (x y z : Int),
     (if c then λ n => some (x + n) else λ n => some (x - n)) z = some y ===>
   ∀ (c : Bool) (x y z : Int),
-    (false = c → some y = some (Int.add x (Int.neg z))) ∧
-    (true = c → some y = some (Int.add x z))
+    Blaster.dite' (true = c)
+      (λ _ => some y = some (Int.add x z))
+      (λ _ => some y = some (Int.add x (Int.neg z)))
 
 -- ∀ (α : Type) (c : Bool) (w x y z : α) (lt : α → α → Bool), [BEq α] →
 --   List.lex (if c then [w, x, y] else [y, z]) [w, y, z] lt ===>
 -- ∀ (α : Type) (c : Bool) (w x y z : α) (lt : α → α → Bool), [BEq α] →
---   (false = c → true = (lt y w || (lt z y || z == y) && y == w)) ∧
---   (true = c → true = (lt w w || (lt x y || lt y z && x == y) && w == w))
+--  Blaster.dite' (true = c)
+--   (λ _ => true = (lt w w || (lt x y || lt y z && x == y) && w == w))
+--   (λ _ => true = (lt y w || (lt z y || z == y) && y == w))
 -- NOTE: Test case to consider implicit parameters
-#testOptimize [ "IteOverFun_10" ]
+#testOptimize [ "IteOverFun_11" ]
   ∀ (α : Type) (c : Bool) (w x y z : α) (lt : α → α → Bool), [BEq α] →
     List.lex (if c then [w, x, y] else [y, z]) [w, y, z] lt ===>
   ∀ (α : Type) (c : Bool) (w x y z : α) (lt : α → α → Bool), [BEq α] →
-    (false = c → true = (lt y w || (lt z y || z == y) && y == w)) ∧
-    (true = c → true = (lt w w || (lt x y || lt y z && x == y) && w == w))
+    Blaster.dite' (true = c)
+      (λ _ => true = (lt w w || (lt x y || lt y z && x == y) && w == w))
+      (λ _ => true = (lt y w || (lt z y || z == y) && y == w))
 
 /-! Test cases to validate when ite over function propagation must NOT be applied. -/
 
@@ -268,34 +277,40 @@ namespace Tests.ConstFunProp
 -- ∀ (b c : Bool) (x y z : Int) (f : ¬ c → Int → Int) (g : b → Int → Int),
 --   (if h1 : c then (if h2 : b then some (g h2 x) else none) else some (f h1 y)) = some z ===>
 -- ∀ (b c : Bool) (x y z : Int) (f : false = c → Int → Int) (g : true = b → Int → Int),
---   (∀ (h1 : false = c), some z = some (f h1 y)) ∧
---   (true = c → (true = b ∧ ∀ (h2 : true = b), some z = some (g h2 x)))
+--  Blaster.dite' (true = c)
+--    (fun _ => (true = b ∧ ∀ (h2 : true = b), some z = some (g h2 x)))
+--    (fun h1 : _ => some z = some (f (Blaster.false_eq_of_not_true_eq h1) y))
 -- NOTE: Can be reduced to
--- (∀ (h1 : false = c), z = f h1 y) ∧
--- (true = c → (true = b ∧ ∀ (h2 : true = b), z = g h2 x))
+--  Blaster.dite' (true = c)
+--    (fun _ => (true = b ∧ ∀ (h2 : true = b), z = g h2 x))
+--    (fun h1 : _ => z = f (Blaster.false_eq_of_not_true_eq h1) y)
 -- with additional simplification rules
 #testOptimize [ "DIteOverFun_2" ]
   ∀ (b c : Bool) (x y z : Int) (f : ¬ c → Int → Int) (g : b → Int → Int),
     (if h1 : c then (if h2 : b then some (g h2 x) else none) else some (f h1 y)) = some z ===>
   ∀ (b c : Bool) (x y z : Int) (f : false = c → Int → Int) (g : true = b → Int → Int),
-    (∀ (h1 : false = c), some z = some (f h1 y)) ∧
-    (true = c → (true = b ∧ ∀ (h2 : true = b), some z = some (g h2 x)))
+    Blaster.dite' (true = c)
+      (fun _ => (true = b ∧ ∀ (h2 : true = b), some z = some (g h2 x)))
+      (fun h1 : _ => some z = some (f (Blaster.false_eq_of_not_true_eq h1) y))
 
 -- ∀ (b c : Bool) (x y z : Int) (f : c → Int → Int) (g : b → Int → Int),
 --    (if h1 : c then some (f h1 x) else (if h2 : b then some (g h2 y) else none)) = some z ===>
 -- ∀ (b c : Bool) (x y z : Int) (f : true = c → Int → Int) (g : true = b → Int → Int),
---    (false = c → (true = b ∧ ∀ (h2 : true = b), some z = some (g h2 y))) ∧
---    (∀ (h1 : true = c), some z = some (f h1 x))
+--  Blaster.dite' (true = c)
+--   (λ h1 : _ => some z = some (f h1 x))
+--   (λ _ => true = b ∧ ∀ (h2 : true = b), some z = some (g h2 y))
 -- NOTE: Can be reduced to
---    (false = c → (true = b ∧ ∀ (h2 : true = b), z = g h2 y)) ∧
---    (∀ (h1 : true = c), z = f h1 x)
+--  Blaster.dite' (true = c)
+--   (λ h1 : _ => z = f h1 x)
+--   (λ _ => true = b ∧ ∀ (h2 : true = b), z = g h2 y)
 -- with additional simplification rules
 #testOptimize [ "DIteOverFun_3" ]
   ∀ (b c : Bool) (x y z : Int) (f : c → Int → Int) (g : b → Int → Int),
      (if h1 : c then some (f h1 x) else (if h2 : b then some (g h2 y) else none)) = some z ===>
   ∀ (b c : Bool) (x y z : Int) (f : true = c → Int → Int) (g : true = b → Int → Int),
-     (false = c → (true = b ∧ ∀ (h2 : true = b), some z = some (g h2 y))) ∧
-     (∀ (h1 : true = c), some z = some (f h1 x))
+     Blaster.dite' (true = c)
+       (λ h1 : _ => some z = some (f h1 x))
+       (λ _ => true = b ∧ ∀ (h2 : true = b), some z = some (g h2 y))
 
 -- ∀ (b c d : Bool) (x y z : Int)
 --   (f : c → Int → Int) (g : d → Int → Int) (t : b → Int → Int),
@@ -306,15 +321,19 @@ namespace Tests.ConstFunProp
 --   op1 = some z ===>
 -- ∀ (b c d : Bool) (x y z : Int)
 --   (f : true = c → Int → Int) (g : true = d → Int → Int) (t : true = b → Int → Int),
---   (false = c → (true = b ∧ ∀ (h3 : true = b), some z = some (t h3 x))) ∧
---   ∀ (h1 : true = c),
---     (false = d → some z = some (f h1 y)) ∧
---     ∀ (h2 : true = d), some z = some (g h2 x)
+--  Blaster.dite' (true = c)
+--   (λ h1 : _ =>
+--      Blaster.dite' (true = d)
+--        (λ h2 : _ => some z = some (g h2 x))
+--        (λ _ => some z = some (f h1 y)))
+--   (λ _ => true = b ∧ ∀ (h3 : true = b), some z = some (t h3 x))
 -- NOTE: Can be reduced to
---   (false = c → (true = b ∧ ∀ (h3 : true = b), z = t h3 x)) ∧
---   ∀ (h1 : true = c),
---     (false = d → z = f h1 y) ∧
---     ∀ (h2 : true = d), z = g h2 x
+--  Blaster.dite' (true = c)
+--   (λ h1 : _ =>
+--      Blaster.dite' (true = d)
+--        (λ h2 : _ => z = g h2 x)
+--        (λ _ => z = f h1 y))
+--   (λ _ => true = b ∧ ∀ (h3 : true = b), z = t h3 x)
 -- with additional simplification rules
 #testOptimize [ "DIteOverFun_4" ]
 ∀ (b c d : Bool) (x y z : Int)
@@ -326,10 +345,12 @@ namespace Tests.ConstFunProp
   op1 = some z ===>
 ∀ (b c d : Bool) (x y z : Int)
   (f : true = c → Int → Int) (g : true = d → Int → Int) (t : true = b → Int → Int),
-  (false = c → (true = b ∧ ∀ (h3 : true = b), some z = some (t h3 x))) ∧
-  ∀ (h1 : true = c),
-    (false = d → some z = some (f h1 y)) ∧
-    ∀ (h2 : true = d), some z = some (g h2 x)
+  Blaster.dite' (true = c)
+    (λ h1 : _ =>
+       Blaster.dite' (true = d)
+         (λ h2 : _ => some z = some (g h2 x))
+         (λ _ => some z = some (f h1 y)))
+    (λ _ => true = b ∧ ∀ (h3 : true = b), some z = some (t h3 x))
 
 
 -- ∀ (b c d : Bool) (x y z : Int)
@@ -341,23 +362,39 @@ namespace Tests.ConstFunProp
 --   op1 = op2 ===>
 -- ∀ (b c d : Bool) (x y z : Int)
 --   (f : true = c → Int → Int) (g : true = d → Int → Int) (t : true = b → Int → Int),
---   (false = b →
---       true = c ∧
---       ∀ (h1 : true = c), (false = d → some y = some (f h1 y)) ∧
---       ∀ (h2 : true = d), some y = some (g h2 x)) ∧
---    ∀ (h4 : true = b),
---      (false = c → some (t h4 x) = some (t h4 z)) ∧
---      ∀ (h1 : true = c), (false = d → some (f h1 y) = some (t h4 z)) ∧
---      ∀ (h2 : true = d), some (g h2 x) = some (t h4 z)
+-- Blaster.dite' (true = b)
+--  (λ h4 : _ =>
+--     Blaster.dite' (true = c)
+--      (λ h1 : _ =>
+--         Blaster.dite' (true = d)
+--           (λ h2 : _ => some (g h2 x) = some (t h4 z))
+--           (λ _ => some (f h1 y) = some (t h4 z))
+--      )
+--      (λ _ => some (t h4 x) = some (t h4 z))
+--  )
+--  (λ _ =>
+--    true = c ∧
+--    ∀ (h1 : true = c),
+--      Blaster.dite' (true = d)
+--        (λ h2 : _ => some y = some (g h2 x))
+--        (λ _ => some y = some (f h1 y)))
 -- NOTE: Can be reduced to
---   (false = b →
---       true = c ∧
---       ∀ (h1 : true = c), (false = d → y = f h1 y) ∧
---       ∀ (h2 : true = d), y = g h2 x) ∧
---    ∀ (h4 : true = b),
---      (false = c → (t h4 x) = t h4 z) ∧
---      ∀ (h1 : true = c), (false = d → (f h1 y) = t h4 z) ∧
---      ∀ (h2 : true = d), (g h2 x) = t h4 z
+-- Blaster.dite' (true = b)
+--  (λ h4 : _ =>
+--     Blaster.dite' (true = c)
+--      (λ h1 : _ =>
+--         Blaster.dite' (true = d)
+--           (λ h2 : _ => g h2 x = t h4 z)
+--           (λ _ => f h1 y = t h4 z)
+--      )
+--      (λ _ => t h4 x = t h4 z)
+--  )
+--  (λ _ =>
+--    true = c ∧
+--    ∀ (h1 : true = c),
+--      Blaster.dite' (true = d)
+--        (λ h2 : _ => y = g h2 x)
+--        (λ _ => y = f h1 y))
 -- with additional simplification rule
 #testOptimize [ "DIteOverFun_5" ]
 ∀ (b c d : Bool) (x y z : Int)
@@ -369,14 +406,23 @@ namespace Tests.ConstFunProp
   op1 = op2 ===>
 ∀ (b c d : Bool) (x y z : Int)
   (f : true = c → Int → Int) (g : true = d → Int → Int) (t : true = b → Int → Int),
-    (false = b →
-        true = c ∧
-          ∀ (h1 : true = c), (false = d → some y = some (f h1 y)) ∧
-          ∀ (h2 : true = d), some y = some (g h2 x)) ∧
-    ∀ (h4 : true = b),
-        (false = c → some (t h4 x) = some (t h4 z)) ∧
-        ∀ (h1 : true = c), (false = d → some (f h1 y) = some (t h4 z)) ∧
-        ∀ (h2 : true = d), some (g h2 x) = some (t h4 z)
+   Blaster.dite' (true = b)
+    (λ h4 : _ =>
+       Blaster.dite' (true = c)
+        (λ h1 : _ =>
+           Blaster.dite' (true = d)
+             (λ h2 : _ => some (g h2 x) = some (t h4 z))
+             (λ _ => some (f h1 y) = some (t h4 z))
+        )
+        (λ _ => some (t h4 x) = some (t h4 z))
+    )
+    (λ _ =>
+      true = c ∧
+      ∀ (h1 : true = c),
+        Blaster.dite' (true = d)
+          (λ h2 : _ => some y = some (g h2 x))
+          (λ _ => some y = some (f h1 y)))
+
 
 
 -- ∀ (c : Bool) (w x y z : Int) (f : c → Int → Int),
@@ -389,88 +435,85 @@ namespace Tests.ConstFunProp
 --   List.length (if h : c then x :: xs else [w, x, f h y]) > 0 ===>
 -- ∀ (c : Prop) (xs : List Int),
 --   0 < Blaster.dite' c (fun _ => Nat.add 1 (List.length xs)) (fun _ => 3)
--- NOTE: Can be reduced to true with additional simplification rules on
--- relational operators and ite propagation rules.
 #testOptimize [ "DIteOverFun_7" ] (norm-result: 1)
   ∀ (c : Prop) (xs : List Int) (w x y : Int) (f : ¬ c → Int → Int), [Decidable c] →
-    List.length (if h : c then x :: xs else [w, x, f h y]) > 0 ===>
-  ∀ (c : Prop) (xs : List Int),
-    0 < Blaster.dite' c (fun _ => Nat.add 1 (List.length xs)) (fun _ => 3)
+    List.length (if h : c then x :: xs else [w, x, f h y]) > 0 ===> True
 
 -- ∀ (a b c : Bool) (f : c → Bool → Bool), true = if h : c then f h a else b ===>
 -- ∀ (a b c : Bool) (f : true = c → Bool → Bool),
---   (false = c → true = b) ∧ (∀ (h : true = c),  true = f h a)
+--    Blaster.dite' (true = c) (λ h : _ => true = f h a) (λ _ => true = b)
 -- NOTE: Test case to validate dite propagation on equality true
 #testOptimize [ "DIteOverFun_8" ]
   ∀ (a b c : Bool) (f : c → Bool → Bool), true = if h : c then f h a else b ===>
   ∀ (a b c : Bool) (f : true = c → Bool → Bool),
-    (false = c → true = b) ∧ (∀ (h : true = c),  true = f h a)
+    Blaster.dite' (true = c) (λ h : _ => true = f h a) (λ _ => true = b)
 
 -- ∀ (a b c : Bool) (f : c → Bool → Bool), false = if h : c then f h a else b ===>
 -- ∀ (a b c : Bool) (f : true = c → Bool → Bool),
---   (false = c → false = b) ∧ (∀ (h : true = c), false = f h a)
+--    Blaster.dite' (true = c) (λ h : _ => false = f h a) (λ _ => false = b)
 -- NOTE: Test case to validate dite propagation on equality false
 #testOptimize [ "DIteOverFun_9" ]
   ∀ (a b c : Bool) (f : c → Bool → Bool), false = if h : c then f h a else b ===>
   ∀ (a b c : Bool) (f : true = c → Bool → Bool),
-    (false = c → false = b) ∧ (∀ (h : true = c), false = f h a)
+    Blaster.dite' (true = c) (λ h : _ => false = f h a) (λ _ => false = b)
 
 
 -- ∀ (c : Prop) (x y z : Int) (f : c → Int → Int), [Decidable c] →
 --   (if h : c then λ n => some ((f h x) + n) else λ n => some (x - n)) z = some y ===>
 -- ∀ (c : Prop) (x y z : Int) (f : c → Int → Int),
---   (∀ (h : c), some y = some (Int.add z (f h x))) ∧
---   (¬ c → some y = some (Int.add x (Int.neg z)))
+--   Blaster.dite' c
+--     (λ h : _ => some y = some (Int.add z (f h x)))
+--     (λ _ => some y = some (Int.add x (Int.neg z)))
 -- NOTE: Test cases to ensure that ite returning function are properly handled
 -- NOTE: Can be reduced to
---   (∀ (h : c), y = Int.add z (f h x)) ∧
---   (¬ c → y = Int.add x (Int.neg z))
+--   Blaster.dite' c
+--     (λ h : _ => y = Int.add z (f h x))
+--     (λ _ => y = Int.add x (Int.neg z))
 -- with additional simplification rules
 #testOptimize [ "DIteOverFun_10" ]
   ∀ (c : Prop) (x y z : Int) (f : c → Int → Int), [Decidable c] →
     (if h : c then λ n => some ((f h x) + n) else λ n => some (x - n)) z = some y ===>
   ∀ (c : Prop) (x y z : Int) (f : c → Int → Int),
-    (∀ (h : c), some y = some (Int.add z (f h x))) ∧
-    (¬ c → some y = some (Int.add x (Int.neg z)))
+    Blaster.dite' c
+      (λ h : _ => some y = some (Int.add z (f h x)))
+      (λ _ => some y = some (Int.add x (Int.neg z)))
 
 -- ∀ (c : Prop) (t : c → Bool) (e : ¬ c → Bool), [Decidable c] → true = (dite c t e) ===>
 -- ∀ (c : Prop) (t : c → Bool) (e : ¬ c → Bool),
---  (∀ (h : c), true = t h) ∧
---  (∀ (h : ¬ c), true = e h)
+--   Blaster.dite' c (λ h : _ => true = t h) (λ h : _ => true = e h)
 -- NOTE: Test cases to ensure that quantified functions passed to dite are properly handled.
 #testOptimize [ "DIteOverFun_11" ]
   ∀ (c : Prop) (t : c → Bool) (e : ¬ c → Bool), [Decidable c] → true = (dite c t e) ===>
   ∀ (c : Prop) (t : c → Bool) (e : ¬ c → Bool),
-    (∀ (h : c), true = t h) ∧
-    (∀ (h : ¬ c), true = e h)
+    Blaster.dite' c (λ h : _ => true = t h) (λ h : _ => true = e h)
 
 -- ∀ (c : Prop) (x : Int) (t : c → Int → Bool) (e : ¬ c → Int → Bool),
 --  [Decidable c] → true = dite c t e x ===>
 -- ∀ (c : Prop) (x : Int) (t : c → Int → Bool) (e : ¬ c → Int → Bool),
---  (∀ (h : c), true = t h x) ∧
---  (∀ (h : ¬ c), true = e h x)
+--    Blaster.dite' c (λ h : _ => true = t h x) (λ h : _ => true = e h x)
 -- NOTE: Test cases to ensure that quantified functions passed to dite are properly handled.
 #testOptimize [ "DIteOverFun_12" ]
   ∀ (c : Prop) (x : Int) (t : c → Int → Bool) (e : ¬ c → Int → Bool),
     [Decidable c] → true = dite c t e x ===>
   ∀ (c : Prop) (x : Int) (t : c → Int → Bool) (e : ¬ c → Int → Bool),
-    (∀ (h : c), true = t h x) ∧
-    (∀ (h : ¬ c), true = e h x)
+    Blaster.dite' c (λ h : _ => true = t h x) (λ h : _ => true = e h x)
 
 -- ∀ (α : Type) (c : Prop) (w x y z : α) (lt : α → α → Bool) (f : c → α → α),
 --   [Decidable c] → [BEq α] →
 --   List.lex (if h : c then [w, f h x, y] else [y, z]) [w, y, z] lt ===>
 -- ∀ (α : Type) (c : Prop) (w x y z : α) (lt : α → α → Bool) (f : c → α → α), [BEq α] →
---   (∀ (h : c), true = (lt w w || (lt (f h x) y || lt y z && (f h x) == y) && w == w)) ∧
---   (¬ c → true = (lt y w || (lt z y || z == y) && y == w))
+--  Blaster.dite' c
+--   (λ h : _ => true = (lt w w || (lt (f h x) y || lt y z && (f h x) == y) && w == w))
+--   (λ _ => true = (lt y w || (lt z y || z == y) && y == w))
 -- NOTE: Test case to consider implicit parameters
 #testOptimize [ "DIteOverFun_13" ]
   ∀ (α : Type) (c : Prop) (w x y z : α) (lt : α → α → Bool) (f : c → α → α),
     [Decidable c] → [BEq α] →
     List.lex (if h : c then [w, f h x, y] else [y, z]) [w, y, z] lt ===>
   ∀ (α : Type) (c : Prop) (w x y z : α) (lt : α → α → Bool) (f : c → α → α), [BEq α] →
-    (∀ (h : c), true = (lt w w || (lt (f h x) y || lt y z && (f h x) == y) && w == w)) ∧
-    (¬ c → true = (lt y w || (lt z y || z == y) && y == w))
+    Blaster.dite' c
+      (λ h : _ => true = (lt w w || (lt (f h x) y || lt y z && (f h x) == y) && w == w))
+      (λ _ => true = (lt y w || (lt z y || z == y) && y == w))
 
 -- ∀ (xs : Array Int) (i j : Nat) (z : Int),
 --   some z = if h1 : i < xs.1.length
@@ -479,12 +522,19 @@ namespace Tests.ConstFunProp
 --                 else some xs[i]
 --            else some 2 ===>
 -- ∀ (xs : Array Int) (i : Nat) (z : Int),
---   (¬ i < xs.1.length → some z = some 2) ∧
---   ∀ (h1 : i < xs.1.length), some z = some (List.get xs.1 ⟨i, h1⟩)
+-- Blaster.dite' (i < xs.1.length)
+--   (λ h1 : _ =>
+--     Blaster.dite' (i = j)
+--      (λ _ => j < xs.1.length ∧ ∀ (h2 : j < xs.1.length), some z = some (xs.1.get ⟨j, h2⟩))
+--      (λ _ => some z = some (xs.1.get ⟨i, h1⟩)))
+--   (λ _ => some z = some (Int.ofNat 2))
 -- NOTE: Test case can be reduced to the following with additional simplification rules:
--- ∀ (xs : Array Int) (i : Nat) (z : Int),
---   (¬ i < xs.1.length → z = 2) ∧
---   ∀ (h1 : i < xs.1.length), z = List.get xs.1 ⟨i, h1⟩
+-- Blaster.dite' (i < xs.1.length)
+--   (λ h1 : _ =>
+--     Blaster.dite' (i = j)
+--      (λ _ => j < xs.1.length ∧ ∀ (h2 : j < xs.1.length), z = xs.1.get ⟨j, h2⟩)
+--      (λ _ => z = xs.1.get ⟨i, h1⟩))
+--   (λ _ => z = Int.ofNat 2)
 #testOptimize [ "DIteOverFun_14" ] (norm-result: 1)
   ∀ (xs : Array Int) (i j : Nat) (z : Int),
     some z = if h1 : i < xs.1.length
@@ -493,10 +543,12 @@ namespace Tests.ConstFunProp
                   else some xs[i]
              else some 2 ===>
   ∀ (xs : Array Int) (i j : Nat) (z : Int),
-    (¬i < xs.1.length → some z = some (Int.ofNat 2)) ∧
-        ∀ (h1 : i < xs.1.length),
-          (¬i = j → some z = some (xs.1.get ⟨i, h1⟩)) ∧
-            (i = j → j < xs.1.length ∧ ∀ (h2 : j < xs.1.length), some z = some (xs.1.get ⟨j, h2⟩))
+    Blaster.dite' (i < xs.1.length)
+      (λ h1 : _ =>
+        Blaster.dite' (i = j)
+         (λ _ => j < xs.1.length ∧ ∀ (h2 : j < xs.1.length), some z = some (xs.1.get ⟨j, h2⟩))
+         (λ _ => some z = some (xs.1.get ⟨i, h1⟩)))
+      (λ _ => some z = some (Int.ofNat 2))
 
 /-! Test cases to validate when dite over function propagation must NOT be applied. -/
 
@@ -678,9 +730,10 @@ def toColorThree (x : Option Nat) : Color :=
 --    (fun (_ : Unit) => False)
 --    (fun (a : Nat) =>
 --      ¬ a < 10 ∧
---      ((¬ a < 100 → true = beqColor .transparent x) ∧
---      (a < 100 → true = beqColor .black x)))
--- NOTE: Lean4 already applied structural equivalence between toColorFour.match_1 and toColorOne.match_1
+--      Blaster.dite' (a < 100)
+--      (λ _ => true = beqColor .black x)
+--      (λ _ => true = beqColor .transparent x))
+-- NOTE: Lean4 already applied structural equivalence between toColorThree.match_1 and toColorOne.match_1
 -- NOTE: Test cases to ensure that simplification rule can transitively detect
 -- that all path reduce to constant values
 #testOptimize [ "MatchOverFun_3" ] (norm-result: 1)
@@ -693,8 +746,9 @@ def toColorThree (x : Option Nat) : Color :=
      (fun (_ : Unit) => False)
      (fun (a : Nat) =>
        ¬ a < 10 ∧
-       ((¬ a < 100 → true = beqColor .transparent x) ∧
-        (a < 100 → true = beqColor .black x)))
+       Blaster.dite' (a < 100)
+       (λ _ => true = beqColor .black x)
+       (λ _ => true = beqColor .transparent x))
 
 def beqColorDegree : Color → Color → (Nat → Bool)
 | .red x, .red y
@@ -705,22 +759,22 @@ def beqColorDegree : Color → Color → (Nat → Bool)
 
 -- ∀ (y : Nat) (x z : Color), beqColorDegree z (Color.blue x) y ===>
 -- ∀ (y : Nat) (x z : Color),
---  beqColor.match_1 (fun (_ : Color) (_ : Color) => Prop) z (.blue x)
---   (fun (n : Color) (m : Color) => ¬ 0 = y → true = beqColor n m)
---   (fun (n : Color) (m : Color) => ¬ 0 = y → true = beqColor n m)
---   (fun (_ : Unit) => True)
---   (fun (_ : Unit) => True)
---   (fun (_ : Color) (_ : Color) => False)
+--  match z, (Color.blue x) with
+--  | .red c1, .red c2 => ¬ 0 = y → true = beqColor c1 c2
+--  | .blue c1, .blue _ => ¬ 0 = y → true = beqColor c1 x
+--  | .transparent, .transparent => True
+--  | .black, .black => True
+--  | _, _ => False
 -- NOTE: Test cases to ensure that match returning function are properly handled
 #testOptimize [ "MatchOverFun_4" ] (norm-result: 1)
   ∀ (y : Nat) (x z : Color), beqColorDegree z (Color.blue x) y ===>
   ∀ (y : Nat) (x z : Color),
-    beqColor.match_1 (fun (_ : Color) (_ : Color) => Prop) z (.blue x)
-     (fun (n : Color) (m : Color) => ¬ 0 = y → true = beqColor n m)
-     (fun (n : Color) (m : Color) => ¬ 0 = y → true = beqColor n m)
-     (fun (_ : Unit) => True)
-     (fun (_ : Unit) => True)
-     (fun (_ : Color) (_ : Color) => False)
+    match z, (Color.blue x) with
+    | .red c1, .red c2 => ¬ 0 = y → true = beqColor c1 c2
+    | .blue c1, .blue _ => ¬ 0 = y → true = beqColor c1 x
+    | .transparent, .transparent => True
+    | .black, .black => True
+    | _, _ => False
 
 
 def colorToList (c : Color) (w x y z : α) : List α :=

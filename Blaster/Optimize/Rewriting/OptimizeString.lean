@@ -20,22 +20,20 @@ def isNullString (e : Expr) : Bool :=
 def normStringValue (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
   if args.size != 1 then throwEnvError "normStringValue: only one argument expected"
   let op := args[0]!
-  let some elms ← getListChars? op | return (mkApp f op)
-  return (mkStrLit (String.mk elms.toList))
+  let some elms := getListChars? op | return ← mkAppExpr f op
+  mkStrLitExpr (String.mk elms)
 
   where
-    getListChars? (e : Expr) : MetaM (Option (Array Char)) := do
-      let mut e := e
-      let mut chars := #[]
-      while true do
-        match_expr e with
-        | List.nil _ => break
-        | List.cons _ a as => do
-            let some c := isCharValue? a | return none
-            chars := chars.push c
-            e := as
-        | _ => return none
-      return some chars
+    getListChars? (e : Expr) : Option (List Char) :=
+      let rec visit (e : Expr) (acc : List Char) : Option (List Char) :=
+        match e with
+        | Expr.app (Expr.const ``List.nil _) _ => some (List.reverse acc)
+        | Expr.app (Expr.app (Expr.app (Expr.const ``List.cons _) _) a) as =>
+            if let some c := isCharValue? a
+            then visit as (c :: acc)
+            else none
+        | _ => none
+      visit e []
 
 
 /-- Apply the following simplification/normalization rules on `String.append` :
@@ -52,7 +50,7 @@ def optimizeStrAppend (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
  let op2 := args[1]!
  if let some r ← cstStrAppend? op1 op2 then return r
  if let some r ← appendNull? op1 op2 then return r
- return (mkApp2 f op1 op2)
+ mkApp2Expr f op1 op2
 
  where
    /-- Given `op1` and `op2` corresponding to the operands for `String.append`
@@ -83,7 +81,7 @@ def optimizeStrLength (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
  if args.size != 1 then throwEnvError "optimizeStrLength: exactly one arguments expected"
  let op := args[0]!
  if let some r ← cstStrLength? op then return r
- return (mkApp f op)
+ mkAppExpr f op
 
  where
    /-- Given `op` corresponding to the operand for `String.length`
@@ -113,7 +111,7 @@ def optimizeStrReplace (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
  if exprEq op2 op3 then return op1
  if let some r ← cstStrReplace? op1 op2 op3 then return r
  if isNullString op1 then return op1
- return (mkApp3 f op1 op2 op3)
+ mkApp3Expr f op1 op2 op3
 
  where
 
@@ -133,7 +131,6 @@ def optimizeStrReplace (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
 def optimizeString? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
  let Expr.const n _ := f | return none
  match n with
- | ``String.mk => normStringValue f args
  | ``String.append => optimizeStrAppend f args
  | ``String.length => optimizeStrLength f args
  | ``String.replace => optimizeStrReplace f args

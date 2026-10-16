@@ -68,10 +68,10 @@ namespace Tests.OptimizeBoolNot
 -- ! (a && b) ===> false = (a && b)
 #testOptimize [ "BoolNotUnchanged_4" ] ∀ (a b : Bool), ! (a && b) ===> ∀ (a b : Bool), false = (a && b)
 
--- if c then !a else b ===> (false = c → true = b) ∧ (true = c → false = a)
+-- if c then !a else b ===> Blaster.dite' (true = c) (λ _ => false = a) (λ _ => true = b)
 #testOptimize [ "BoolNotUnchanged_5" ]
   ∀ (c a b : Bool), true = (if c then !a else b) ===>
-  ∀ (c a b : Bool), (false = c → true = b) ∧ (true = c → false = a)
+  ∀ (c a b : Bool), Blaster.dite' (true = c) (λ _ => false = a) (λ _ => true = b)
 
 /-! Test cases to ensure that constant propagation is properly performed
     when `not operand is reduced to a constant value via optimization.

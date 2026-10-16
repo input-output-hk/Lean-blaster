@@ -8,10 +8,11 @@ namespace Tests.Issue32
 --             declare the recursive qualifier function.
 
 abbrev IdentName := String
+def Sequence (α : Type u) := List α
 
 inductive Term (α : Type u) where
  | Ident (s : IdentName)
- | Seq (x : List α)
+ | Seq (x : Sequence α)
  | App (nm : IdentName) (args : List (Term α))
  | Annotated (t : Term α) (annot : List (String))
 

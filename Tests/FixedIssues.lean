@@ -33,3 +33,10 @@ import Tests.FixedIssues.Issue33
 import Tests.FixedIssues.Issue34
 import Tests.FixedIssues.Issue35
 import Tests.FixedIssues.Issue36
+import Tests.FixedIssues.Issue143
+import Tests.FixedIssues.Issue152
+import Tests.FixedIssues.Issue227
+import Tests.FixedIssues.Issue262
+import Tests.FixedIssues.Issue287
+import Tests.FixedIssues.Issue331
+import Tests.FixedIssues.Issue348

@@ -48,7 +48,7 @@ Blaster provides an SMT backend for Z3 proofs. Blaster works by first aggressive
 Blaster is built with the philosophy that fewer dependencies mean better maintainability and more optimization opportunities. That said, Blaster requires:
 
 - **Lean4** v4.24.0 (or compatible version)
-- **Z3** v4.15.2 (or compatible version)
+- **Z3** `master` branch until official version > v5.1.0 is out. We submitted patches that were merged into `master`.
 
 ### Installing Lean4
 

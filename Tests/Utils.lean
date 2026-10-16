@@ -91,14 +91,19 @@ def removeAnnotations (e : Expr) : Expr :=
      - Normalize structure projection
 -/
 partial def normNatLitAndLambdaBeta (e : Expr) : MetaM Expr := do
-  let rec visit (e : Expr) : MetaM Expr := do
+  let rec visit (e : Expr) (skipLambdaType := false) : MetaM Expr := do
     match e with
     | Expr.const ``Nat.zero _ => return (mkRawNatLit 0)
     | Expr.app .. =>
        Expr.withApp e fun f args => do
         let mut margs := args
         for i in [:args.size] do
-          margs ← margs.modifyM i visit
+          if let some r ← getMatcherInfoExpr? f then
+             if i ≥ r.getFirstAltPos
+             then margs ← margs.modifyM i (λ m => visit m (skipLambdaType := true))
+             else margs ← margs.modifyM i visit
+          else
+            margs ← margs.modifyM i visit
         match f with
         | Expr.const n l =>
             match n with
@@ -120,15 +125,14 @@ partial def normNatLitAndLambdaBeta (e : Expr) : MetaM Expr := do
                   | _ => return mkAppN f margs
               | _ => return mkAppN f margs
 
-
         | _ =>
           if f.isLambda
           then return Expr.beta f args
           else return mkAppN f margs
     | Expr.lam n t b bi =>
-        let t' ← visit t
+        let t' ← if skipLambdaType then pure t else visit t
         withLocalDecl n bi t' fun x => do
-          mkLambdaFVars #[x] (← visit (b.instantiate1 x))
+          mkLambdaFVars #[x] (← visit (b.instantiate1 x) skipLambdaType)
     | Expr.forallE n t b bi =>
         withLocalDecl n bi (← visit t) fun x => do
           mkForallFVars #[x] (← visit (b.instantiate1 x))
@@ -143,6 +147,11 @@ partial def normNatLitAndLambdaBeta (e : Expr) : MetaM Expr := do
     | _ => return e
   visit e
 
+  where
+    getMatcherInfoExpr? (e : Expr) : MetaM (Option MatcherInfo) := do
+      let Expr.const n _ := e | return none
+      getMatcherInfo? n
+
 @[command_elab testOptimize]
 def testOptimizeImp : CommandElab := fun stx => do
  let name ← parseTestName ⟨stx[1]⟩
@@ -153,10 +162,10 @@ def testOptimizeImp : CommandElab := fun stx => do
    -- create a local declaration name for the test case
    let m ← getMainModule
    withDeclName (m ++ name.toName) $ do
-     let actual ← callOptimize sOpts t1
-     let expected' := removeAnnotations (← parseTerm t2)
      -- keep the current name generator and restore it afterwards
      let ngen ← getNGen
+     let actual ← callOptimize sOpts t1
+     let expected' := removeAnnotations (← parseTerm t2)
      let expected ← if normNatFlag then normNatLitAndLambdaBeta expected' else pure expected'
      -- restore name generator
      setNGen ngen

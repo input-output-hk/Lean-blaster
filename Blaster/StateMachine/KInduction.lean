@@ -1,3 +1,4 @@
+
 import Lean
 import Blaster.StateMachine.StateMachine
 
@@ -5,7 +6,7 @@ open Lean Elab Command Term Meta Blaster.Syntax Blaster.Smt Blaster.Optimize Bla
 
 namespace Blaster.StateMachine
 
-/-- Given `smInst` an instance of `StateMachine`, perform the k-induction strategy for invariant satisfaction
+/-- Given `sm` an instance of `StateMachine`, perform the k-induction strategy for invariant satisfaction
     up to to Depth `maxDepth`.
     In particular, considering `k = maxDepth`, try to incrementally check
     if the following propositional formulae are satisfied:
@@ -28,9 +29,12 @@ namespace Blaster.StateMachine
       inᵢ : set of input variables at step ᵢ
       stᵢ : set of state variables at step ᵢ
 
-    Trigger an error when `smInst` is not an instance of `StateMachine`.
+    Trigger an error when `sm` is not an instance of `StateMachine`.
 -/
-partial def kIndStrategy (smInst : Expr) : TranslateEnvT Unit := do
+partial def kIndStrategy (sm : Expr) : TranslateEnvT Unit := do
+  -- set start local context
+  updateLocalContext (← mkLocalContext)
+  let smInst ← hashcons sm
   let rec visit (prevState : Option Expr) : StateMachineEnvT Unit := do
     if (← maxDepthReached) then
       logNotInductiveAtDepth
@@ -38,12 +42,12 @@ partial def kIndStrategy (smInst : Expr) : TranslateEnvT Unit := do
       let env ← get
       withLocalDecl' (← nameAtDepth env.smName "input") BinderInfo.default env.inputType fun i => do
         logDepthProgress "KInd"
-        withDeclState i prevState fun nextState => do
+        withDeclState smInst i prevState fun nextState => do
           -- assert assumptions and check contradiction at step k
           if (← assertAssumptions smInst i nextState) then
             pure () -- contradictory context
           else
-            let invExpr ← invariantAtDepth i nextState
+            let invExpr ← invariantAtDepth smInst i nextState
             match (toResult invExpr) with
             | .Undetermined =>
                  let res ← analysisAtDepth invExpr
@@ -58,7 +62,6 @@ partial def kIndStrategy (smInst : Expr) : TranslateEnvT Unit := do
                 if isFalsifiedResult res then
                   logCexAtDepth res
                 else logResult res
-
   let smEnv ← getSMTypes smInst
   -- set backend solver
   setBlasterProcess
@@ -67,16 +70,16 @@ partial def kIndStrategy (smInst : Expr) : TranslateEnvT Unit := do
   where
 
     withDeclState
-      (iVar : Expr) (pState : Option Expr)
+      (smInst : Expr) (iVar : Expr) (pState : Option Expr)
       (f : Expr → StateMachineEnvT Unit) : StateMachineEnvT Unit := do
       let env ← get
       match pState with
       | none => -- depth 0
            withLocalDecl' (← nameAtDepth env.smName "state") BinderInfo.default env.stateType fun s => do
-             let initState := mkApp4 (← mkInit) env.inputType env.stateType smInst iVar
+             let initState ← mkApp4Expr (← mkInit) env.inputType env.stateType smInst iVar
              let initEq ←
                profileTask s!"Optimizing state at Depth {← getCurrentDepth}"
-                 (Optimize.main (mkApp3 (← mkEqOp) env.stateType s initState))
+                 (Optimize.mainAux (← mkApp3Expr (← mkEqOp) env.stateType s initState) (applyHashCons := false))
                  (verboseLevel := 2)
              let initSt ←
                 profileTask s!"Translate initialization constraint"
@@ -94,16 +97,16 @@ partial def kIndStrategy (smInst : Expr) : TranslateEnvT Unit := do
       | some state =>
           let state' ←
             profileTask s!"Optimizing state at Depth {← getCurrentDepth}"
-              (Optimize.optimizeExpr' (mkApp5 (← mkNext) env.inputType env.stateType smInst iVar state))
+              (Optimize.optimizeExpr (← mkApp5Expr (← mkNext) env.inputType env.stateType smInst iVar state))
               (verboseLevel := 2)
           f state'
 
     @[always_inline, inline]
-    invariantAtDepth (iVar : Expr) (state : Expr) : StateMachineEnvT Expr := do
+    invariantAtDepth (smInst : Expr) (iVar : Expr) (state : Expr) : StateMachineEnvT Expr := do
      let env ← get
      --- invariant at step k
      let currDepth ← getCurrentDepth
-     let invExpr := mkApp5 (← mkInvariants) env.inputType env.stateType smInst iVar state
+     let invExpr ← mkApp5Expr (← mkInvariants) env.inputType env.stateType smInst iVar state
      let optExpr ←
        profileTask
          s!"Optimizing invariants at Depth {currDepth}"

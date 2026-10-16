@@ -654,6 +654,10 @@ def setTimeout : TranslateEnvT Unit := do
   -- need to convert timeout to milliseconds
   trySubmitCommand! (.setOption ":timeout" (toString (n * 1000)))
 
+/-- Set simplifier option to `s`. -/
+def setSimplifier (s : String) : TranslateEnvT Unit := do
+  submitCommand (.setSimplifier s)
+
 /-- Set the default Smt options, i.e.:
      - (set-option :print-success true)
      - (set-option :produce-models true)
@@ -663,17 +667,29 @@ def setTimeout : TranslateEnvT Unit := do
      - (set-option :auto_config false)
      - (set-option :smt.random-seed n) when `n` is provided in solver options
      - (set-option :smt.macro_finder true)
+     - (set-option :smt.arith.nl.grobner_expand_terms false)
+     - (set-option :smt.arith.nl.reduce_pseudo_linear false)
+     - (set-option :smt.arith.nl.grobner_exp_delay false)
 -/
 def setDefaultSmtOptions (sOpts : BlasterOptions) : TranslateEnvT Unit := do
  setPrintSuccess true
  setProduceModels true
- setProduceProofs true
+ -- setProduceProofs true
+ -- NOTE: produce proof is incompatible for now with recfun-finder
+ -- we are therefore deactivating it until we provide a z3 patch to handle
+ -- proof reconstruction for our recfun-finder patch.
  setPullNestedQuantifiers true
  setMbqi true
  setAutoConfig false
  setRandomSeed sOpts.randomSeed
+ setSimplifier "recfun-finder"
  setMacroFinder true
+ -- NOTE: Set these parameters for now
+ trySubmitCommand! (.setOption ":smt.arith.nl.grobner_expand_terms" "false")
+ trySubmitCommand! (.setOption ":smt.arith.nl.reduce_pseudo_linear" "false")
+ trySubmitCommand! (.setOption ":smt.arith.nl.grobner_exp_delay" "false")
  setTimeout
+
 
 /-- Perform the following actions:
      - when option `only-smt-lib` is set to `false`:

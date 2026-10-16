@@ -47,19 +47,19 @@ namespace Tests.UnfoldDITE
 
 -- ∀ (a b c : Bool) (f : c → Bool → Bool), (if h : c then f h a else b) = true ===>
 -- ∀ (a b c : Bool) (f : true = c → Bool → Bool),
---   (false = c → true = b) ∧ (∀ (h : true = c), true = f h a)
+--   Blaster.dite' (true = c) (λ h : _ => true = f h a) (λ _ => true = b)
 #testOptimize [ "UnfoldDIte_7" ]
   ∀ (a b c : Bool) (f : c → Bool → Bool), (if h : c then f h a else b) = true ===>
   ∀ (a b c : Bool) (f : true = c → Bool → Bool),
-    (false = c → true = b) ∧ (∀ (h : true = c), true = f h a)
+    Blaster.dite' (true = c) (λ h : _ => true = f h a) (λ _ => true = b)
 
 -- ∀ (c : Bool) (p q : Prop) (f : c → Prop → Prop), if h : c then f h p else q ===>
 -- ∀ (c : Bool) (p q : Prop) (f : true = c → Prop → Prop),
---   (false = c → q) ∧ (∀ (h : true = c), f h p)
+--   Blaster.dite' (true = c) (λ h : _ => f h p) (λ _ => q)
 #testOptimize [ "UnfoldDIte_8" ]
   ∀ (c : Bool) (p q : Prop) (f : c → Prop → Prop), if h : c then f h p else q ===>
   ∀ (c : Bool) (p q : Prop) (f : true = c → Prop → Prop),
-    (false = c → q) ∧ (∀ (h : true = c), f h p)
+     Blaster.dite' (true = c) (λ h : _ => f h p) (λ _ => q)
 
 
 /-! Test cases to validate when `dite` expressions must not be unfolded -/

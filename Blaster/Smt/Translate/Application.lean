@@ -6,7 +6,7 @@ import Blaster.Smt.Translate.Match
 import Blaster.Smt.Translate.Quantifier
 
 
-open Lean Meta Blaster.Optimize
+open Lean Meta Blaster.Optimize Blaster.Data.HashSet
 
 namespace Blaster.Smt
 
@@ -16,8 +16,8 @@ def funNameToSmtSymbol (funName : Name) : SmtSymbol :=
 
 
 /-- list of Lean operators expected to be fully applied at translation phase. -/
-def fullyAppliedConst : NameHashSet :=
-  List.foldr (fun c s => s.insert c) Std.HashSet.emptyWithCapacity
+def fullyAppliedConst : HashSet Name :=
+  List.foldr (fun c s => s.insert c) HashSet.emptyWithCapacity
   [ ``And,
     ``Or,
     ``Not,
@@ -244,7 +244,7 @@ def translateIntPow (f : Expr) : TranslateEnvT SmtQualifiedIdent := do
 def translateNatPow (f : Expr) : TranslateEnvT SmtQualifiedIdent := do
  match (← get).smtEnv.funInstCache.get? f with
  | none =>
-    discard $ translateNatSub (mkConst ``Nat.sub)
+    discard $ translateNatSub (← mkNatSubOp)
     defineNatPow
     let smtId ← updateFunInstCache f natPowSymbol
     return smtId
@@ -351,18 +351,17 @@ def translateOpaqueFun (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT
      - return `∀ α'₀ → ∀ α'₁ ... → α'ₚ`
     TODO: change function to pure tail rec call using stack-based approach
 -/
-partial def inferFunType (t : Expr) (args : Array Expr) : Expr :=
-  let rec visit (idx : Nat) (e : Expr) : Expr :=
-    if idx ≥ args.size then e
+partial def inferFunType (t : Expr) (args : Array Expr) : TranslateEnvT Expr :=
+  let rec visit (idx : Nat) (e : Expr) : TranslateEnvT Expr := do
+    if idx ≥ args.size then return e
     else
       match e with
-      | Expr.forallE n t b bi =>
+      | Expr.forallE _ t b bi =>
           if !bi.isExplicit then
-            visit (idx + 1) (b.instantiate1 args[idx]!)
-          else Expr.forallE n t (visit (idx + 1) b) bi
-      | _ => e
+            visit (idx + 1) (← instantiateShared1 b args[idx]!)
+          else e.updateForallExpr! t (← visit (idx + 1) b)
+      | _ => return e
   visit 0 t
-
 
 def updateCoerceCache (fromSmtType toSmtType : SortExpr) (coeName : SmtSymbol) : TranslateEnvT Unit := do
   modify (fun env => { env with smtEnv.coerceCache := env.smtEnv.coerceCache.insert (fromSmtType, toSmtType) coeName })
@@ -411,7 +410,7 @@ def createAppNAux (pInfo : FunEnvInfo) (s : Sum SmtQualifiedIdent SmtTerm)
   (isHOF := false) : TranslateEnvT SmtTerm := do
   let nbSize := if args.size < pInfo.paramsInfo.size then args.size else pInfo.paramsInfo.size
   if isHOF then
-    let instType := inferFunType pInfo.type args
+    let instType ← inferFunType pInfo.type args
     withInstantiatedImplicitArgs pInfo.type fun polyType' => do
       let instArgTypes := retrieveArrowTypes instType
       let polyArgTypes := retrieveArrowTypes polyType'
@@ -540,20 +539,6 @@ def translateFunLambdaParamType
   (t : Expr) (termTranslator : Expr → TranslateEnvT SmtTerm) : TranslateEnvT SortExpr := do
   translateType termTranslator t
 
-structure FunctionDefinitions where
-  funDecls : Array SmtFunDecl
-  funBodies : Array SmtTerm
-  isRec : Bool
-deriving Inhabited
-
-abbrev FunctionGenEnv := StateRefT FunctionDefinitions TranslateEnvT
-
-def defineFunctions (defs : FunctionDefinitions) : TranslateEnvT Unit := do
- if defs.funDecls.size == 1 then
-   let funDecl := defs.funDecls[0]!
-   defineFun funDecl.name funDecl.params funDecl.ret defs.funBodies[0]! defs.isRec
- else defineMutualFuns defs.funDecls defs.funBodies
-
 /-- Given `f := Expr.const n _` corresponding to a function name and
     `params` its implicit parameter infos, perform the following actions:
       let instanceArgs := Array.filter (λ p => p.isInstance) params
@@ -605,11 +590,7 @@ partial def translateRecFun
   let instApp ← getInstApp f params
   match (← get).smtEnv.funInstCache.get? instApp with
   | none =>
-      let Expr.const n l := f
-        | throwEnvError "translateRecFun: name expression expected but got {reprStr f}"
-      let ConstantInfo.defnInfo dInfo ← getConstEnvInfo n
-        | throwEnvError "translateRecFun: no defnInfo for {n}"
-      generateRecFunDefinitions dInfo.all l params
+      generateRecFunDefinition f params instApp
       let some smtId := (← get).smtEnv.funInstCache.get? instApp
         | throwEnvError "translateRecFun: instance function name expected for {reprStr instApp}"
       createAppN f (Sum.inl smtId) args termTranslator
@@ -617,67 +598,59 @@ partial def translateRecFun
       createAppN f (Sum.inl smtId) args termTranslator
 
   where
-    updateFunDefinitions
-      (id : SmtQualifiedIdent) (fbody : Expr)
-      (defs : FunctionDefinitions) : TranslateEnvT FunctionDefinitions := do
+    replaceGenericRecFun (f : Expr) (params : ImplicitParameters) (e : Expr) : TranslateEnvT (Option Expr) :=
+      match e with
+      | Expr.app .. =>
+          Expr.withApp e fun x xargs => do
+            if exprEq x (← internalRecFunExpr) then
+              let mut pargs := #[]
+              let mut idxArg := 0
+              for i in [:params.size] do
+                let p := params[i]!
+                if !(p.isInstance) then
+                  pargs := pargs.push xargs[idxArg]!
+                else
+                  pargs := pargs.push params[i]!.effectiveArg
+                if p.isGeneric || !p.isInstance then
+                  idxArg := idxArg + 1
+              mkAppNExpr f pargs
+            else return none
+      | _ => return none
+
+    generateRecFunDefinition (f : Expr) (params : ImplicitParameters) (instApp : Expr) : TranslateEnvT Unit := do
+      let smtId ← generateFunInst f params
+      let some fbody := (← get).optEnv.recFunInstCache.get? instApp
+          | throwEnvError "translateRecFun: function body expected for {reprStr instApp}"
+      let fbody ← replaceShared fbody (replaceGenericRecFun f params)
+      -- apply polymorphic instances on body
+      let genFVars ← retrieveGenericFVars params
+      let fbody ← betaLambdaShared fbody genFVars
       let pInfo ← getFunEnvInfo fbody
       Optimize.lambdaTelescope fbody fun fvars b => do
         let mut params := (#[] : SortedVars)
         for h : i in [:fvars.size] do
           let fv := fvars[i]
-          let decl ← getFVarLocalDecl fv
+          let decl ← fv.fvarId!.getEnvDecl
           updateQuantifiedFVarsCache fv.fvarId! false
           if pInfo.paramsInfo[i]!.isExplicit then
-            let st ← translateFunLambdaParamType decl.type termTranslator
+            -- NOTE: We don't optimize proof at preprocessing phase
+            let ptype ← if ← isPropEnv decl.type then optimizeExpr decl.type else pure decl.type
+            let st ← translateFunLambdaParamType ptype termTranslator
             params := params.push (← fvarIdToSmtSymbol fv.fvarId!, st)
         let ret ← translateFunLambdaParamType (← inferTypeEnv b) termTranslator
-        let funDecl := {name := getSymbol id, params, ret}
+        let funName := getSymbol smtId
+        -- declare smt rec function
+        declareFun funName (params.map (λ s => s.2)) ret
+        -- define bridge rec definition
+        let bridgeName := appendSymbol funName "LRec"
         let sBody ← termTranslator b
-        return { defs with funDecls := defs.funDecls.push funDecl, funBodies := defs.funBodies.push sBody }
-
-    replaceGenericRecFun (f : Expr) (params : ImplicitParameters) (e : Expr) : Option Expr :=
-      match e with
-      | Expr.app .. =>
-          Expr.withApp e fun x xargs => do
-            match x with
-            | Expr.const n _ =>
-                if n == internalRecFun then
-                  let mut pargs := #[]
-                  let mut idxArg := 0
-                  for i in [:params.size] do
-                    let p := params[i]!
-                    if !(p.isInstance) then
-                      pargs := pargs.push xargs[idxArg]!
-                    else
-                      pargs := pargs.push params[i]!.effectiveArg
-                    if p.isGeneric || !p.isInstance then
-                      idxArg := idxArg + 1
-                  some (mkAppN f pargs)
-                else none
-            | _ => none
-      | _ => none
-
-    generateRecFunDefinitions
-      (funs : List Name) (us : List Level) (params : ImplicitParameters) : TranslateEnvT Unit := do
-      let env ← get
-      let mut funDefs := { (default : FunctionDefinitions) with isRec := true }
-      let mut finfos := #[]
-      -- add all rec fun instance to cache first
-      for f in funs do
-        let auxApp := mkConst f us
-        let smtId ← generateFunInst auxApp params
-        finfos := finfos.push (auxApp, smtId)
-      for i in [:finfos.size] do
-        let auxApp := finfos[i]!.1
-        let smtId := finfos[i]!.2
-        let instApp ← getInstApp auxApp params
-        let some fbody := env.optEnv.recFunInstCache.get? instApp
-          | throwEnvError "translateRecFun: function body expected for {reprStr instApp}"
-        let fbody' := fbody.replace (replaceGenericRecFun auxApp params)
-        -- apply polymorphic instances on body
-        let genFVars ← retrieveGenericFVars params
-        funDefs ← updateFunDefinitions smtId (Expr.beta fbody' genFVars) funDefs
-      defineFunctions funDefs
+        defineFun bridgeName params ret sBody
+        -- assert equality
+        let varIds := params.map (λ s => smtSimpleVarId s.1)
+        let appliedRec := mkSmtAppN smtId varIds
+        let appliedBridge := mkSimpleSmtAppN bridgeName varIds
+        let patterns := some #[mkPattern #[appliedRec]]
+        assertTerm (mkForallTerm none params (eqSmt appliedRec appliedBridge) patterns)
 
 /-- Return `true` only when `n` corresponds to a function/constructor name
     expected to be eliminated during optimization phase.
@@ -704,32 +677,26 @@ def isForbiddenConstExpr (e : Expr) : Bool :=
   | Expr.const n _ => isForbiddenConst n
   | _ => false
 
-@[always_inline, inline]
-def updateAxiomMap (n : Name) : TranslateEnvT SmtSymbol := do
-  let s := nameToSmtSymbol n
-  modify (fun env => { env with smtEnv.options.axiomMap := env.smtEnv.options.axiomMap.insert n s })
-  return s
-
-/-- Given `t := ∀ α₀ → ∀ α₁ ... → αₙ`, infer the instanitated type w.r.t. `params` such that:
-     - let S := [ αᵢ | i ∈ [0..n] ∧ ¬ params[i].isInstance ]
+/-- Given `ft := ∀ α₀ → ∀ α₁ ... → αₙ`, infer the instanitated type w.r.t. `params` such that:
+     - let S := [ removeTypeAbbrev αᵢ | i ∈ [0..n] ∧ ¬ params[i].isInstance ]
      - let R := [ params[i].effectiveArg | i ∈ [0..n] ∧ ¬ params[i].isInstance ]
      - let k := S.size-1
      - let [α'₀, ..., α'ₚ] := [ αᵢ [S[0]/R[0]] ... [S[k]/R[k]] | i ∈ [0..n] ∧ params[i].isInstance ]
      - return `∀ α'₀ → ∀ α'₁ ... → α'ₚ`
     TODO: change function to pure tail rec call using stack-based approach
 -/
-partial def inferUndeclFunType (t : Expr) (params : ImplicitParameters) : Expr :=
-  let rec visit (idx : Nat) (t : Expr) : Expr :=
-    if idx ≥ params.size then t
+partial def inferUndeclFunType (ft : Expr) (params : ImplicitParameters) : TranslateEnvT Expr := do
+  let rec visit (idx : Nat) (e : Expr) : TranslateEnvT Expr := do
+    if idx ≥ params.size then return e
     else
-      match t with
-      | Expr.forallE n t b bi =>
+      match e with
+      | Expr.forallE _ t b _ =>
            let p := params[idx]!
            if p.isInstance
-           then visit (idx + 1) (b.instantiate1 p.effectiveArg)
-           else Expr.forallE n t (visit (idx + 1) b) bi
-      | _ => t
-  visit 0 t
+           then visit (idx + 1) (← instantiateShared1 b p.effectiveArg)
+           else e.updateForallExpr! t (← visit (idx + 1) b)
+      | _ => return e
+  removeTypeAbbrev (← visit 0 ft)
 
 /-- Given `f` corresponding to either an undeclared class function, an axiom function or an opaque function
     `params` its corresponding implicit/explicit parameters and `s` its corresponding smt symbol,
@@ -737,8 +704,11 @@ partial def inferUndeclFunType (t : Expr) (params : ImplicitParameters) : Expr :
        - Let `∀ α₀ → ∀ α₁ ... → αₙ` := inferUndecFunType (← getFunEnvInfo f).type params
        - declare smt function `declare-fun s ((st₀) .. (stₙ₋₁)) stₙ)`
        - assert the following proposition to constraint the codomain value:
-          - `(assert (forall ((@x₀ st₀) ... (@xₙ₋₁ stₙ₋₁))
-              (! (@isTypeₙ (s @x₁ ... @xₙ₋₁))
+         - let V := {v | i ∈ [0..n] ∧ v ∈ getFVarsInExpr αᵢ ∧ isGenericParam αᵢ ∧ isTypeUniverse (← inferTypeEnv v)}
+         - let [gt₀ ... gtₘ] := [typeTranslator V[i] | i ∈ [0..V.size]]
+          - `(assert (forall ((@g₀ gt₀) ... (@gₘ gtₘ) (@x₀ st₀) ... (@xₙ₋₁ stₙ₋₁))
+              (! (=> (and (@isType₁ @x₁) ... (@isTypeₙ₋₁ @xₙ₋₁))
+                     (@isTypeₙ (s @x₁ ... @xₙ₋₁))))
                  :pattern ((s @x₁ ... @xₙ₋₁))) :qid s_cstr)`
 
      where ∀ i ∈ [0..n], αᵢ translates to Smt type stᵢ
@@ -747,30 +717,41 @@ def generateUndeclaredFun
   (f : Expr) (s : SmtSymbol) (params : ImplicitParameters)
   (termTranslator : Expr → TranslateEnvT SmtTerm) : TranslateEnvT Unit := do
   let pInfo ← getFunEnvInfo f
-  -- infer fun type and removing implicit arguments (i.e., even class constraints)
-  let funType := inferUndeclFunType pInfo.type params
-  Optimize.forallTelescope funType fun fvars rawRetType => do
-    let retType ← removeTypeAbbrev rawRetType
-    let xsyms := Array.ofFn (λ f : Fin fvars.size => mkReservedSymbol s!"@x{f.val}")
-    let mut pargs := (#[] : Array SortExpr)
-    let mut co_quantifiers := (#[] : SortedVars)
-    for h : i in [:fvars.size] do
-      let decl ← getFVarLocalDecl fvars[i]
-      let st ← translateFunLambdaParamType decl.type termTranslator
-      pargs := pargs.push st
-      co_quantifiers := co_quantifiers.push (xsyms[i]!, st)
-    let ret ← translateFunLambdaParamType retType termTranslator
-    declareFun s pargs ret
-    -- assert codomain constraint
-    if fvars.size > 0 then
-      let xIds := Array.map (λ v => smtSimpleVarId v) xsyms
-      let f_applyTerm := mkSimpleSmtAppN s xIds
-      let forallBody ← createPredQualifierAppAux f_applyTerm retType
-      let qidName := mkQid $ appendSymbol s "cstr"
-      let pattern := some #[mkPattern #[f_applyTerm], qidName]
-      assertTerm (mkForallTerm none co_quantifiers forallBody pattern)
-    else
-      assertTerm (← createPredQualifierAppAux (smtSimpleVarId s) retType)
+  -- infer fun type, resolve type abbreviation and remove implicit arguments  (i.e., even class constraints)
+  let arrowType ← inferUndeclFunType pInfo.type params
+  let funTypes := retrieveArrowTypes arrowType
+  let nbTypes := funTypes.size - 1
+  let retType := funTypes[nbTypes]!
+  let rtSmt ← translateFunLambdaParamType retType termTranslator
+  let xsyms := Array.ofFn (λ f : Fin nbTypes => mkReservedSymbol s!"@x{f.val}")
+  let xIds := Array.map (λ s => smtSimpleVarId s) xsyms
+  let mut pargs := (Array.emptyWithCapacity nbTypes)
+  let mut co_quantifiers ← genericArgsToSortedVars (← retrieveGenericArgs funTypes)
+  let mut predCond := trueSmt
+  for i in [:nbTypes] do
+    let st ← translateFunLambdaParamType funTypes[i]! termTranslator
+    let predAppX ← createPredQualifierAppAux xIds[i]! funTypes[i]!
+    pargs := pargs.push st
+    co_quantifiers := co_quantifiers.push (xsyms[i]!, st)
+    predCond := andCond predCond predAppX
+  declareFun s pargs rtSmt
+  -- assert codomain constraint
+  let f_applyTerm := if pargs.size > 0 then mkSimpleSmtAppN s xIds else (smtSimpleVarId s)
+  if co_quantifiers.size > 0 then
+     let predQualifier ← createPredQualifierAppAux f_applyTerm retType
+     let qidName := mkQid $ appendSymbol s "cstr"
+     let pattern := some #[mkPattern #[f_applyTerm], qidName]
+     let forallBody := if isTrueSmt predCond then predQualifier else impliesSmt predCond predQualifier
+     assertTerm (mkForallTerm none co_quantifiers forallBody pattern)
+  else
+    -- case when undeclared functions only has implicit parameters as input
+    assertTerm (← createPredQualifierAppAux f_applyTerm retType)
+
+  where
+    andCond (prevTerm : SmtTerm) (nextTerm : SmtTerm) : SmtTerm :=
+      if isTrueSmt prevTerm
+      then nextTerm
+      else andSmt prevTerm nextTerm
 
 
 def updateAbstractTypeCache (t : Expr) (abstName : SmtSymbol) : TranslateEnvT Unit := do
@@ -861,8 +842,8 @@ def translateIndTypeExpr? (t : Expr) (termTranslator : Expr → TranslateEnvT Sm
          - return ⊥
      - When `n` ∈ opaqueFuns ∨ isRecursiveFun `n`
          - return `termTranslator (← etaExpand e)`
-     - When `isTheorem n` ∧ `¬ hasSorryTheorem e` ∧ ¬ Type(e).isForAll
-         - return termTranslator (← optimizeExpr' Type(e))
+     - When `isTheorem n` ∧ ¬ Type(e).isForAll
+         - return termTranslator (← optimizeExpr Type(e))
      - When `isAxiom n ∨ some ConstantInfo.opaqueInfo _ ← getConstEnvInfo n`
          - When n := s ∈ axiomMap:
              - return `smtSimpleVarId s`
@@ -930,19 +911,19 @@ def translateConst
     translateTheorem? (n : Name) : TranslateEnvT (Option SmtTerm) := do
       if !(← isTheorem n) then return none
       let ConstantInfo.thmInfo info ← getConstEnvInfo n | return none
-      -- check if e has sorry theorem and trigger error if this is the case
-      hasSorryTheorem e "translateConst: Theorem {n} has `sorry` demonstration"
+      -- We now accept theorem concluded with sorry.
       if info.type.isForall then
         throwEnvError "translateConst: Fully applied theorem expected but got {reprStr info.type}"
-      termTranslator (← optimizeExpr' info.type)
+      termTranslator (← optimizeExpr (← hashcons info.type))
 
     getAxiomOpaqueType (n : Name) : TranslateEnvT (Option Expr) := do
        match ← getConstEnvInfo n with
        | ConstantInfo.axiomInfo info =>
-            if ← isPropEnv info.type then
+            let otype ← hashcons info.type
+            if ← isPropEnv otype then
               throwEnvError "translateConst: Unexpected Axiom of type Prop {n}"
-            return info.type
-       | ConstantInfo.opaqueInfo info => return info.type
+            return otype
+       | ConstantInfo.opaqueInfo info => hashcons info.type
        | _ => return none
 
     translateAxiomOrOpaque? (n : Name) : TranslateEnvT (Option SmtTerm) := do
@@ -953,7 +934,8 @@ def translateConst
            if ← isFunType t then
              termTranslator (← Optimize.etaExpand e)
            else
-             let smtSym ← updateAxiomMap n
+             let smtSym := nameToSmtSymbol n
+             updateAxiomMap n (nameToSmtSymbol n)
              let t' ← removeTypeAbbrev t
              let smtType ← translateTypeAux termTranslator t'
              -- declare free variable at top level
@@ -1039,7 +1021,7 @@ def translateApp
          if args.size == 1 then return (← termTranslator (← Optimize.etaExpand e))
          match args[1]! with
           | Expr.const ``true _ => termTranslator args[2]!
-          | Expr.const ``false _ => termTranslator (mkApp (← mkBoolNotOp) args[2]!)
+          | Expr.const ``false _ => termTranslator (← mkAppExpr (← mkBoolNotOp) args[2]!)
           | _ => createAppN f (← Sum.inl <$> translateOpaqueFun f n args) args termTranslator
        | _ => return none
 
@@ -1048,8 +1030,8 @@ def translateApp
        | ``Blaster.dite' =>
             if args.size != 4 then
                throwEnvError "translateDITE?: unexpected partially applied dite' got {reprStr args}"
-            let args := args.set! 2 (args[2]!.beta #[← mkOfDecideEqProof args[1]! true])
-            let args := args.set! 3 (args[3]!.beta #[← mkOfDecideEqProof args[1]! false])
+            let args := args.set! 2 (← betaLambdaShared args[2]! #[← mkOfDecideEqProof args[1]! true])
+            let args := args.set! 3 (← betaLambdaShared args[3]! #[← mkOfDecideEqProof args[1]! false])
             createAppN f (← Sum.inl <$> translateOpaqueFun f n args) args termTranslator
        | _ => return none
 
@@ -1086,7 +1068,7 @@ def translateApp
       Optimize.lambdaTelescope lambdaE fun fvars b => do
         for h : i in [:fvars.size] do
           let fv := fvars[i]
-          let decl ← getFVarLocalDecl fv
+          let decl ← fv.fvarId!.getEnvDecl
           translateQuantifier fv decl.type termTranslator
         let env ← get
         let mut ebody ← termTranslator b
@@ -1101,8 +1083,7 @@ def translateApp
       | ``Exists =>
           if args.size != 2 then
             throwEnvError "translateExists?: exactly two arguments expected but got {reprStr args}"
-          let (t, _) ← genExistsTerm args[1]! |>.run (initialQuantifierEnv false)
-          return t
+          genExistsTerm args[1]! |>.run' (initialQuantifierEnv false)
       | _ => return none
 
     translateRecFun? (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
@@ -1128,18 +1109,13 @@ def translateApp
     getUndeclFunAppInst (f : Expr) (params : ImplicitParameters) : TranslateEnvT Expr := do
       let instAux ← getInstApp f params
       let genericArgs ← retrieveGenericFVars params
-      mkLambdaFVars genericArgs instAux (usedOnly := true)
+      mkLambdaFVarsExpr genericArgs instAux (usedOnly := true)
 
 
     isOpaqueAxiomOrUndeclFun (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT Bool := do
       match ← getFunBody f with
-      | none =>
-         match (← getConstEnvInfo n) with
-         | ConstantInfo.axiomInfo _
-         | ConstantInfo.opaqueInfo _ => return true
-         | _ => return false
-
-      | some fbody => isUndefinedClassFunApp (Expr.beta fbody args)
+      | none => isAxiomOrOpaque n
+      | some fbody => isUndefinedClassFunApp (← betaLambdaShared fbody args)
 
     translateAxiomOrUndeclFun? (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
       if (← isOpaqueFun n args) then return none
@@ -1175,9 +1151,8 @@ def translateApp
     translateTheorem (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
       if !(← isTheorem n) then return none
       let ConstantInfo.thmInfo info ← getConstEnvInfo n | return none
-      -- check if e has sorry demonstration and trigger error if this is the case
-      hasSorryTheorem e "translateApp: Theorem {n} has `sorry` demonstration"
-      termTranslator (← optimizeExpr' (betaForAll info.type args))
+      -- We now accept theorem concluded with sorry
+      termTranslator (← optimizeExpr (← betaForAll (← hashcons info.type) args))
 
 /-- Given `e := λ (x₁ : t₁) → λ (xₙ : tₙ) => b`, perform the following:
      - let V := [ v | v ∈ getFVarsInExpr b ∧ ¬ isType v.type ∧ ¬ isClassConstraintExpr v.type ∧ ¬ isTopLevelFVar v ]
@@ -1219,7 +1194,7 @@ def translateLambda
    let mut svars := (#[] : SortedVars)
    for h1 : i in [:fvars.size] do
      let fv := fvars[i]
-     let decl ← getFVarLocalDecl fv
+     let decl ← fv.fvarId!.getEnvDecl
      updateQuantifiedFVarsCache fv.fvarId! false
      if pInfo.paramsInfo[i]!.isExplicit then
        let st ← translateFunLambdaParamType decl.type termTranslator
@@ -1228,7 +1203,7 @@ def translateLambda
    let rt ← translateFunLambdaParamType bodyType termTranslator
    let v ← mkFreshId
    let lambdaName := mkReservedSymbol s!"@lambda{v}"
-   let lamType ← Optimize.mkForallFVars' fvars bodyType
+   let lamType ← mkForallFVarsExpr fvars bodyType
    let arrowT ← declareArrowTypeSort (fvars.size + 1)
    let funArrowType := paramSort arrowT ((Array.map (λ s => s.2) svars).push rt)
    -- generate apply function with corresponding congruence assertions (or retrieving if already declared).
@@ -1252,13 +1227,13 @@ def translateLambda
     let mut gvars := (#[] : SortedVars)
     for h2 : i in [:lvars.size] do
      let fv := lvars[i]
-     let decl ← getFVarLocalDecl fv
-     let st ← translateFunLambdaParamType decl.type termTranslator
+     let ftype ← inferTypeEnv fv
+     let st ← translateFunLambdaParamType ftype termTranslator
      gvars := gvars.push (← fvarIdToSmtSymbol fv.fvarId!, st)
     let arrowT ← declareArrowTypeSort (lvars.size + 1)
     let globalArrowType := paramSort arrowT ((Array.map (λ s => s.2) gvars).push funArrowType)
     -- wrapping lamType within `outParam` to properly generate function instance
-    let globalType ← Optimize.mkForallFVars' lvars (mkApp (mkConst ``outParam) lamType)
+    let globalType ← mkForallFVarsExpr lvars (← mkAppExpr (← mkExpr (mkConst ``outParam)) lamType)
     -- generate apply function with corresponding congruence assertions for global lambda
     let globalDecl ← generateFunInstDeclAux globalType globalArrowType
     -- declare global lambda function `(declare-const @global_lambda{n} GlobalArrowType)`
@@ -1281,11 +1256,11 @@ def translateLambda
  where
    retrieveLocalFVars (b : Expr) : TranslateEnvT (Array Expr) := do
      -- Need to ensure that fvars are unique
-     let (fvars, _) ← updateGenericArgs b #[] Std.HashSet.emptyWithCapacity
+     let (fvars, _) ← updateGenericArgs b #[] HashSet.emptyWithCapacity
      let mut lvars := #[]
      for h : i in [:fvars.size] do
        let p := fvars[i]
-       let decl ← getFVarLocalDecl p
+       let decl ← p.fvarId!.getEnvDecl
        if !(← isTopLevelFVar p.fvarId!) && !(isTypeUniverse decl.type) && !(← isClassConstraintExpr decl.type) then
          lvars := lvars.push p
      return lvars
