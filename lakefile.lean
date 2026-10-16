@@ -2,6 +2,7 @@ import Lake
 open Lake DSL
 
 package «Blaster» where
+  weakLeanArgs := if System.Platform.isWindows then #["-s65536"] else #[]
   precompileModules := true
   moreLeancArgs := #["-O3"]
 
