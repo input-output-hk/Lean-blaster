@@ -2,6 +2,7 @@ import Tests.Proof.ClosedCache
 import Tests.Proof.Exploration
 import Tests.Proof.Fin
 import Tests.Proof.HigherOrder
+import Tests.Proof.Houdini
 import Tests.Proof.IntDivision
 import Tests.Proof.Library
 import Tests.Proof.Lists
