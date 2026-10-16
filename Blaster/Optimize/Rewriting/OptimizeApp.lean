@@ -25,7 +25,8 @@ namespace Blaster.Optimize
                 - return ⊥
           - Otherwise:
               - return none
-     - When `isRecursiveFun f ∧ ¬ isOpaqueFunExpr f #[x₁ ... xₙ] ∧ allExplicitParamsAreCtor f #[x₁ ... xₙ]
+     - When a known structural argument selects an equation, return that equation.
+     - Otherwise, when `isRecursiveFun f ∧ ¬ isOpaqueFunExpr f #[x₁ ... xₙ] ∧ allExplicitParamsAreCtor f #[x₁ ... xₙ]
          - When some body ← getFunBody f:
              - return `betaLambdaEnv body #[x₁ ... xₙ]`
          - Otherwise:
@@ -35,6 +36,9 @@ namespace Blaster.Optimize
 -/
 def reduceApp? (f : Expr) (args : Array Expr) : TranslateEnvT (Option BetaLambdaResult) := do
  if let some r ← isOpaqueRecReduction? f args then return r
+ -- (an uninterpreted recursive definition keeping its constructor equations
+ -- is reduced here and nowhere else)
+ if let some r ← reduceStructuralApp? f args then return r
  if (← isOpaqueFunExpr f args) then return none
  if let some r ← isFunRecReduction? f args then return r
  return none
@@ -154,6 +158,7 @@ def finalizeRecApp
 -/
 def normRecFun (uf : Expr) (uargs : Array Expr) (appExpr : Expr) (xs : List OptimizeStack) : TranslateEnvT OptimizeContinuity := do
  let Expr.const n _ := uf | return (← stackContinuity xs appExpr)
+ if ← isUninterpreted n then return ← stackContinuity xs appExpr
  let isOpaqueRec ← isOpaqueRecFun uf uargs
  if (← isRecursiveFun n) || isOpaqueRec
  then

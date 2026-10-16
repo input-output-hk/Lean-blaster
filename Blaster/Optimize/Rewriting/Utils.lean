@@ -607,6 +607,32 @@ def getFunBody (f : Expr) : TranslateEnvT (Option Expr) := do
        updateFunBodyCache f body
        return body
 
+/-- Reduce a structural equation only when its outer match selects a branch.
+    A known decreasing argument is necessary but not sufficient: a joint match
+    may still need another symbolic argument. Do not introduce such a match
+    merely to normalize every alternative. Other arguments stay unevaluated
+    until the selected equation needs them. -/
+def reduceStructuralApp? (f : Expr) (args : Array Expr) :
+    TranslateEnvT (Option BetaLambdaResult) := do
+  let Expr.const name _ := f | return none
+  unless ← isRecursiveFun name do return none
+  -- an uninterpreted recursive definition may keep its constructor equations
+  if (← isOpaqueFunExpr f args) && !(← hasConstructorEquations name) then return none
+  let some position ← getStructuralRecArgPos? name | return none
+  unless position < args.size do return none
+  unless ← isNormConstructor args[position]! do return none
+  let some body ← getFunBody f | return none
+  let applied ← instantiateSharedMVars (← betaLambdaShared body args)
+  -- A matcher may consult mutable let-valued locals, but a closed equation
+  -- does not depend on whichever branch happens to surround it. Track actual
+  -- zeta-delta reads (with a fresh Meta cache), not the mere presence of a scope.
+  let (result, _usedLocals) ← withLocalContext <| Lean.Meta.withTrackingZetaDelta do
+    let result ← Lean.Meta.reduceMatcher? applied
+    return (result, !(← Lean.Meta.getZetaDeltaFVarIds).isEmpty)
+  let .reduced reduced := result
+    | return none
+  return some ⟨← hashcons reduced, none⟩
+
 /-- Return `true` if `e` corresponds to an undefined type class function application, s.t.:
       - `e := app (Expr.proj c _ _) ...`; and
       - `c` is the name of a type class in the given environment; and
@@ -661,7 +687,7 @@ def isNotFoldable
   (e : Expr) (args : Array Expr) : TranslateEnvT Bool := do
   match e with
   | Expr.const n _ =>
-      if opaqueFuns.contains n then return true
+      if opaqueFuns.contains n || (← isUninterpreted n) then return true
       else if (← (pure (args.size != 0)) <&&> (isOpaqueRelational n args)) then return true
       else isRecursiveFun n <||> isAxiomOrOpaque n
   | _ => return false

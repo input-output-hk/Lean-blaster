@@ -1,4 +1,5 @@
 import Lean
+import Blaster.Optimize.Uninterpreted
 import Blaster.Optimize.Env.Types
 import Blaster.Data.HashSet
 import Blaster.Optimize.Decidable
