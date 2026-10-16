@@ -72,7 +72,7 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
                  pushProofStep (.rewrite (mkApp4 (mkConst ``Blaster.ge_eq_le f.constLevels!) ras[0]! ras[1]! ras[2]! ras[3]!))
                else if f.isConstOf ``Decidable.decide && ras.size == 2 then
                  -- no operands: on replay they may be already rewritten or bound by an inner binder
-                 pushProofStep (.rewrite (mkConst ``Blaster.decide_eq_decide'))
+                 pushProofStep (.rewrite (mkConst ``Blaster.decide'_equiv))
                -- `Int.sub` is unfolded to `m + -n` by `normConst`, which the replay cannot see through.
                -- Pushed bare: the operands may carry optimizer-local fvars under binders.
                else if f.isConstOf ``Int.sub && ras.size == 2 then
