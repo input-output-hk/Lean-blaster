@@ -72,7 +72,7 @@ jobs:
         id: resolve
         run: |
           if [ -n "${{ matrix.url }}" ]; then
-            commit=$(git ls-remote "${{ matrix.url }}" "refs/heads/${{ matrix.branch }}" | cut -c1-9)
+            commit=$(git ls-remote "${{ matrix.url }}" "refs/heads/${{ matrix.branch }}" | awk '{print $1}')
           else
             # repo-less baselines: identity is the newest stable mathlib release tag
             commit=$(git ls-remote --tags https://github.com/leanprover-community/mathlib4 \
