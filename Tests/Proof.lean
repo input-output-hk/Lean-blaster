@@ -4,10 +4,12 @@ import Tests.Proof.Fin
 import Tests.Proof.HigherOrder
 import Tests.Proof.Houdini
 import Tests.Proof.IntDivision
+import Tests.Proof.Kernel
 import Tests.Proof.Library
 import Tests.Proof.Lists
 import Tests.Proof.Machine
 import Tests.Proof.Normalization
+import Tests.Proof.Printer
 import Tests.Proof.Recursion
 import Tests.Proof.Replay
 import Tests.Proof.Summaries
