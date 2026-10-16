@@ -189,17 +189,21 @@ private def buildAndApplyProofStack (inputExpr : Expr) (optimized : Expr)
   -- the gate measures the steps alone
   return (goalId, ← applyProofStack g proofStack goalFVarIds (tryUnreplayed := false))
 
-/-- Return `true` if the expression contains `sorryAx` anywhere. -/
+/-- Return `true` if the expression contains `sorryAx` anywhere.
+    Tail recursive on a stack of pending subterms, so a deep `e` cannot overflow. -/
 private partial def containsSorry (e : Expr) : Bool :=
-  match e with
-  | .const ``sorryAx _ => true
-  | .app f a => containsSorry f || containsSorry a
-  | .lam _ t b _ => containsSorry t || containsSorry b
-  | .forallE _ t b _ => containsSorry t || containsSorry b
-  | .letE _ t v b _ => containsSorry t || containsSorry v || containsSorry b
-  | .mdata _ e => containsSorry e
-  | .proj _ _ e => containsSorry e
-  | _ => false
+  go [e]
+where
+  go : List Expr → Bool
+  | [] => false
+  | .const ``sorryAx _ :: _ => true
+  | .app f a :: es => go (f :: a :: es)
+  | .lam _ t b _ :: es => go (t :: b :: es)
+  | .forallE _ t b _ :: es => go (t :: b :: es)
+  | .letE _ t v b _ :: es => go (t :: v :: b :: es)
+  | .mdata _ e :: es => go (e :: es)
+  | .proj _ _ e :: es => go (e :: es)
+  | _ :: es => go es
 
 /-- Close the goal left by the proof stack (`True.intro` or `refl`), then accept only if
     the root proof term is complete, sorry-free, has no fvar outside the root context,

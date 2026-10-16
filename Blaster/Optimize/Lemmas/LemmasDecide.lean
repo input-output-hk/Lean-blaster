@@ -171,16 +171,6 @@ protected theorem decide'_false_eq (p : Bool) : Blaster.decide' (false = p) = ! 
   rw [Blaster.decide'_true, Bool.false_eq];
   exact Bool.coe_false_iff_true.mpr rfl
 
-/-! ## Lemma validating the nominal `Decidable.decide` to `Blaster.decide'` bridge:
-    - `decide p ==> decide' p`  (drops the concrete `Decidable` instance)
--/
-
-protected theorem decide_eq_decide' (p : Prop) [inst : Decidable p] :
-    decide p = Blaster.decide' p := by
-  cases h : Blaster.decide' p with
-  | true => have hp := (Blaster.decide'_true p).mp h; simp [hp]
-  | false => have hnp := (Blaster.decide'_false p).mp h; simp [hnp]
-
 /-! ## Lemmas validating the `Eq`-context `decide'` normalization rules:
     - `true = decide' p        ==> p`
     - `false = decide' p       ==> ¬ p`
