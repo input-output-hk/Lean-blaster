@@ -117,4 +117,27 @@ protected theorem bridge_or_ff (e1 e2 : Bool) :
   ((false = e1) ∨ (false = e2)) = (false = (e1 && e2)) := by
   cases e1 <;> cases e2 <;> exact propext (by decide)
 
+/-! ## Lemmas validating the decide Bool simplfications on `Eq` (boolEqToEq?):
+  - `(true = e1) = (true = e2)  ==> e1 = e2`
+  - `(true = e1) = (false = e2)  ==> e1 = !e2`
+  - `(false = e1) = (true = e2)  ==> !e1 = e2`
+  - `(false = e1) = (false = e2)  ==> !e1 = !e2`
+-/
+
+protected theorem bridge_eq_tt (e1 e2 : Bool) :
+  ((true = e1) = (true = e2)) = (e1 = e2) := by
+  cases e1 <;> cases e2 <;> exact propext (by decide)
+
+protected theorem bridge_eq_tf (e1 e2 : Bool) :
+  ((true = e1) = (false = e2)) = (e1 = Bool.not e2) := by
+  cases e1 <;> cases e2 <;> exact propext (by decide)
+
+protected theorem bridge_eq_ft (e1 e2 : Bool) :
+  ((false = e1) = (true = e2)) = (Bool.not e1 = e2) := by
+  cases e1 <;> cases e2 <;> exact propext (by decide)
+
+protected theorem bridge_eq_ff (e1 e2 : Bool) :
+  ((false = e1) = (false = e2)) = (Bool.not e1 = Bool.not e2) := by
+  cases e1 <;> cases e2 <;> exact propext (by decide)
+
 end Blaster

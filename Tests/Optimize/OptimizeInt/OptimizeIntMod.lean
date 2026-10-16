@@ -77,4 +77,20 @@ elab "intModCst_2" : term => return intModCst_2
 
 #testOptimize ["IntTmodGcd_1", proof] ∀ (x : Int), Int.tmod (6 * x) 3 = 0 ===> True
 
+/-! Test cases for the constant fold `N1 % N2 ==> N1 "%" N2` under a composed goal. -/
+
+#testOptimize ["IntModCst_4", proof] ∀ (x y : Int), (((-7) % 2 + x) = (x + 1)) ∧ y - y = 0 ===> True
+
+#testOptimize ["IntFmodCst_4", proof]
+  ∀ (x y : Int), ((Int.fmod 7 2 + x) = (x + 1)) ∧ y - y = 0 ===> True
+
+#testOptimize ["IntTmodCst_4", proof]
+  ∀ (x y : Int), ((Int.tmod 7 2 + x) = (x + 1)) ∧ y - y = 0 ===> True
+
+/-! Test cases for steps over `Int.emod`, written with `%` and with the core function. -/
+
+#testOptimize ["ElabModComm", proof] ∀ (x y : Int), x % 2 + y = y + x % 2 ===> True
+
+#testOptimize ["RawEModComm", proof] ∀ (x y : Int), Int.emod x 2 + y = y + Int.emod x 2 ===> True
+
 end Tests.OptimizeIntMod
