@@ -378,8 +378,8 @@ def optimizeIfThenElse? (f : Expr) (args : Array Expr) (stack : List OptimizeSta
 @[always_inline, inline]
 def isInOptimizeEnvCache (a : Expr) (stack : List OptimizeStack) (mvarDecls : Option MVarIdDecls) : TranslateEnvT (Sum (List OptimizeStack) OptimizeContinuity) := do
   let env ← get
-  -- NOTE: Always consider global context when `a` does not contain any FVar/MVar
-  let isGlobal := !(hasVar a) || isGlobalContext env
+  -- A closed expression can still be rewritten using local assumptions.
+  let isGlobal := isGlobalContext env
   let useCache := !a.hasMVar
   if useCache then
     let cached := ← isInOptimizeCache? a isGlobal env
@@ -387,7 +387,5 @@ def isInOptimizeEnvCache (a : Expr) (stack : List OptimizeStack) (mvarDecls : Op
     else return Sum.inl (.InitOptimizeReturn a isGlobal mvarDecls :: stack)
   else return Sum.inl (.InitOptimizeReturn a isGlobal mvarDecls :: stack)
 
-  where
-    hasVar (e : Expr) : Bool := e.hasFVar || e.hasMVar
 
 end Blaster.Optimize
