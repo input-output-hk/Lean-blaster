@@ -303,8 +303,8 @@ def cstCommonDivProp?
          (if 0 < n := _ ∈ hypothesisContext.hypothesisMap ∨
              ¬ (0 = n) := _ ∈ hypothesisContext.hypothesisMap ∨
              n < 0 := _ ∈ hypothesisContext.hypothesisMap )
-     - (m * n) / m ==> n                                        [proof: Blaster.int_mul_ediv_cancel]
-     - (n * m) / m ==> n                                        [proof: Blaster.int_mul_ediv_cancel_left]
+     - (m * n) / m ==> n                                        [proof: Blaster.int_mul_ediv_cancel_left]
+     - (n * m) / m ==> n                                        [proof: Blaster.int_mul_ediv_cancel]
          (if  0 < m := _ ∈ hypothesisContext.hypothesisMap ∨
               ¬ (0 = m) := _ ∈ hypothesisContext.hypothesisMap ∨
               m < 0 := _ ∈ hypothesisContext.hypothesisMap)
@@ -485,8 +485,8 @@ def optimizeIntEMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
          (if 0 < n := _ ∈ hypothesisContext.hypothesisMap ∨
              ¬ (0 = n) := _ ∈ hypothesisContext.hypothesisMap ∨
              n < 0 := _ ∈ hypothesisContext.hypothesisMap )
-     - (m * n) / m ==> n                                        [proof: Blaster.int_mul_tdiv_cancel]
-     - (n * m) / m ==> n                                        [proof: Blaster.int_mul_tdiv_cancel_left]
+     - (m * n) / m ==> n                                        [proof: Blaster.int_mul_tdiv_cancel_left]
+     - (n * m) / m ==> n                                        [proof: Blaster.int_mul_tdiv_cancel]
          (if  0 < m := _ ∈ hypothesisContext.hypothesisMap ∨
               ¬ (0 = m) := _ ∈ hypothesisContext.hypothesisMap ∨
               m < 0 := _ ∈ hypothesisContext.hypothesisMap)
@@ -528,8 +528,8 @@ def optimizeIntTDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      - N1 % N2 ==> N1 "%" N2
      - (N1 * n) % N2 ==> 0 (if N1 % N2 = 0)
      - n1 % n2 ==> 0 (if n1 =ₚₜᵣ n2) [proof: Int.tmod_self]
-     - (m * n) % m ==> 0            [proof: Int.tmod_right]
-     - (n * m) % m ==> 0            [proof: Int.tmod_left]
+     - (m * n) % m ==> 0            [proof: Int.mul_tmod_right]
+     - (n * m) % m ==> 0            [proof: Int.mul_tmod_left]
    Assume that f = Expr.const ``Int.tmod.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Int.tmod` expected at this stage)
 -/
@@ -550,8 +550,8 @@ def optimizeIntTMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
          (if 0 < n := _ ∈ hypothesisContext.hypothesisMap ∨
              ¬ (0 = n) := _ ∈ hypothesisContext.hypothesisMap ∨
              n < 0 := _ ∈ hypothesisContext.hypothesisMap )
-     - (m * n) / m ==> n                                  [proof: Blaster.int_mul_fdiv_cancel]
-     - (n * m) / m ==> n                                  [proof: Blaster.int_mul_fdiv_cancel_left]
+     - (m * n) / m ==> n                                  [proof: Blaster.int_mul_fdiv_cancel_left]
+     - (n * m) / m ==> n                                  [proof: Blaster.int_mul_fdiv_cancel]
          (if  0 < m := _ ∈ hypothesisContext.hypothesisMap ∨
               ¬ (0 = m) := _ ∈ hypothesisContext.hypothesisMap ∨
               m < 0 := _ ∈ hypothesisContext.hypothesisMap)
@@ -574,8 +574,8 @@ def optimizeIntFDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      - N1 % N2 ==> N1 "%" N2
      - (N1 * n) % N2 ==> 0 (if N1 % N2 = 0)
      - n1 % n2 ==> 0 (if n1 =ₚₜᵣ n2)         [proof: Int.fmod_self]
-     - (m * n) % m ==> 0                    [proof: Int.fmod_right]
-     - (n * m) % m ==> 0                    [proof: Int.fmod_left]
+     - (m * n) % m ==> 0                    [proof: Int.mul_fmod_right]
+     - (n * m) % m ==> 0                    [proof: Int.mul_fmod_left]
    Assume that f = Expr.const ``Int.fmod.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Int.fmod` expected at this stage)
 -/
