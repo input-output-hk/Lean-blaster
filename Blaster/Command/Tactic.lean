@@ -27,49 +27,73 @@ Example: `blaster (timeout: 10) (verbose: 1)`
 -/
 syntax (name := blasterTactic) "blaster" (solveOption)* : tactic
 
+/-- Work item of `toElabForm`: a subterm to visit, or how to combine the last results. -/
+private inductive ElabTask where
+  | visit (e : Expr)
+  | un (op : Expr → MetaM Expr)
+  | bin (op : Expr → Expr → MetaM Expr)
+  deriving Inhabited
+
 /-- Convert core Nat/Int operators to their HAdd/HSub/HMul/Neg elaborated form
     so that proof term LHS patterns structurally match goal expressions.
-    `Int.ediv`/`Int.emod` are converted only when `divMod` holds. -/
-def toElabForm (e : Expr) (divMod : Bool := true) : MetaM Expr :=
-  go e
+    `Int.ediv`/`Int.emod` are converted only when `divMod` holds.
+    Uses an explicit stack, so a deep `e` cannot overflow the native stack. -/
+def toElabForm (e : Expr) (divMod : Bool := true) : MetaM Expr := do
+  -- children are visited left to right, then combined, as a post-order recursion would
+  let mut todo : Array ElabTask := #[.visit e]
+  let mut done : Array Expr := #[]
+  while !todo.isEmpty do
+    let t := todo.back!
+    todo := todo.pop
+    match t with
+    | .visit e =>
+      match ← visit e with
+      | .inl r => done := done.push r
+      | .inr ts => todo := todo ++ ts
+    | .un op =>
+      let a := done.back!
+      done := done.pop.push (← op a)
+    | .bin op =>
+      let b := done.back!
+      let a := done.pop.back!
+      done := done.pop.pop.push (← op a b)
+  return done.back!
 where
-  go (e : Expr) : MetaM Expr := do
+  /-- Tasks that convert `a` with `op`, in reverse order since `todo` is a stack. -/
+  un (op : Expr → MetaM Expr) (a : Expr) : Array ElabTask := #[.un op, .visit a]
+  /-- Tasks that convert `a` and `b`, then combine them with `op`. -/
+  bin (op : Expr → Expr → MetaM Expr) (a b : Expr) : Array ElabTask := #[.bin op, .visit b, .visit a]
+  /-- The converted leaf `e`, or the tasks converting it. -/
+  visit (e : Expr) : MetaM (Expr ⊕ Array ElabTask) := do
   match e with
-  | Expr.app (Expr.app (Expr.const ``Nat.add _) a) b =>
-      mkAdd (← go a) (← go b)
-  | Expr.app (Expr.app (Expr.const ``Nat.sub _) a) b =>
-      mkSub (← go a) (← go b)
-  | Expr.app (Expr.app (Expr.const ``Nat.mul _) a) b =>
-      mkMul (← go a) (← go b)
-  | Expr.app (Expr.app (Expr.const ``Int.add _) a) b =>
-      mkAdd (← go a) (← go b)
-  | Expr.app (Expr.app (Expr.const ``Int.sub _) a) b =>
-      mkSub (← go a) (← go b)
-  | Expr.app (Expr.app (Expr.const ``Int.mul _) a) b =>
-      mkMul (← go a) (← go b)
+  | Expr.app (Expr.app (Expr.const ``Nat.add _) a) b => return .inr (bin mkAdd a b)
+  | Expr.app (Expr.app (Expr.const ``Nat.sub _) a) b => return .inr (bin mkSub a b)
+  | Expr.app (Expr.app (Expr.const ``Nat.mul _) a) b => return .inr (bin mkMul a b)
+  | Expr.app (Expr.app (Expr.const ``Int.add _) a) b => return .inr (bin mkAdd a b)
+  | Expr.app (Expr.app (Expr.const ``Int.sub _) a) b => return .inr (bin mkSub a b)
+  | Expr.app (Expr.app (Expr.const ``Int.mul _) a) b => return .inr (bin mkMul a b)
   | Expr.app (Expr.app (Expr.const ``Int.ediv _) a) b =>
-      if divMod then mkAppM ``HDiv.hDiv #[← go a, ← go b]
-      else return mkApp2 (mkConst ``Int.ediv) (← go a) (← go b)
+      if divMod then return .inr (bin (fun a b => mkAppM ``HDiv.hDiv #[a, b]) a b)
+      else return .inr (bin (fun a b => return mkApp2 (mkConst ``Int.ediv) a b) a b)
   | Expr.app (Expr.app (Expr.const ``Int.emod _) a) b =>
-      if divMod then mkAppM ``HMod.hMod #[← go a, ← go b]
-      else return mkApp2 (mkConst ``Int.emod) (← go a) (← go b)
+      if divMod then return .inr (bin (fun a b => mkAppM ``HMod.hMod #[a, b]) a b)
+      else return .inr (bin (fun a b => return mkApp2 (mkConst ``Int.emod) a b) a b)
   | Expr.app (Expr.const ``Int.neg _) a =>
-      mkAppM ``Neg.neg #[← go a]
+      return .inr (un (fun a => mkAppM ``Neg.neg #[a]) a)
   | Expr.app (Expr.const ``Int.ofNat _) (a@(Expr.lit (Literal.natVal _))) =>
-      mkAppOptM ``OfNat.ofNat #[mkConst ``Int, a, none]
+      return .inl (← mkAppOptM ``OfNat.ofNat #[mkConst ``Int, a, none])
   | Expr.app (Expr.const ``Int.negSucc _) (Expr.lit (Literal.natVal n)) =>
       -- `Int.negSucc n` denotes `-(n+1)`.
-      mkAppM ``Neg.neg #[← mkAppOptM ``OfNat.ofNat #[mkConst ``Int, mkNatLit (n + 1), none]]
+      return .inl (← mkAppM ``Neg.neg #[← mkAppOptM ``OfNat.ofNat #[mkConst ``Int, mkNatLit (n + 1), none]])
   -- Future-proofing: Nat.div /Nat.mod currently elaborates directly
   --                  (not via HDiv.hDiv / HMod.hMod),
   -- but we normalize it here in case that changes, consistent with add/sub/mul.
   | Expr.app (Expr.app (Expr.const ``Nat.div _) a) b =>
-      mkAppM ``HDiv.hDiv #[← go a, ← go b]
+      return .inr (bin (fun a b => mkAppM ``HDiv.hDiv #[a, b]) a b)
   | Expr.app (Expr.app (Expr.const ``Nat.mod _) a) b =>
-      mkAppM ``HMod.hMod #[← go a, ← go b]
-  | Expr.app f a =>
-      return mkApp (← go f) (← go a)
-  | _ => return e
+      return .inr (bin (fun a b => mkAppM ``HMod.hMod #[a, b]) a b)
+  | Expr.app f a => return .inr (bin (fun f a => return mkApp f a) f a)
+  | _ => return .inl e
 
 /-- Replace optimizer-context FVarIds with goal-context FVarIds in proof steps. -/
 def substProofStackFVars (steps : Array Blaster.Optimize.ProofStep)
@@ -100,15 +124,20 @@ def mapOptBodyToInputFVars (optBody : Expr) (optFvars inputFvars : Array Expr) :
       mapping := mapping.push optFvars[i]!
   return optBody.replaceFVars optFvars mapping
 
-/-- `true` iff `e` contains a `let` binding anywhere. -/
-private partial def hasLet : Expr → Bool
-  | .letE .. => true
-  | .app f a => hasLet f || hasLet a
-  | .lam _ t b _ => hasLet t || hasLet b
-  | .forallE _ t b _ => hasLet t || hasLet b
-  | .mdata _ e => hasLet e
-  | .proj _ _ s => hasLet s
-  | _ => false
+/-- `true` iff `e` contains a `let` binding anywhere.
+    Tail recursive on a stack of pending subterms, so a deep `e` cannot overflow. -/
+private partial def hasLet (e : Expr) : Bool :=
+  go [e]
+where
+  go : List Expr → Bool
+  | [] => false
+  | .letE .. :: _ => true
+  | .app f a :: es => go (f :: a :: es)
+  | .lam _ t b _ :: es => go (t :: b :: es)
+  | .forallE _ t b _ :: es => go (t :: b :: es)
+  | .mdata _ e :: es => go (e :: es)
+  | .proj _ _ s :: es => go (s :: es)
+  | _ :: es => go es
 
 /-- Notation abbreviations the optimizer unfolds without a proof step.
     Unfolded in hypotheses so that rewrite steps can match underneath them. -/
