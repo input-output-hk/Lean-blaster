@@ -309,8 +309,7 @@ def intEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
      if !(exprEq e2 op2) then return none
      let zero := mkIntLit 0
      let eqZero ← mkEq zero e1
-     let reflFalse := mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Bool) (mkConst ``Bool.false)
-     let hNe ← mkAppOptM ``of_decide_eq_false #[some eqZero, none, some reflFalse]
+     let hNe ← mkOfDecideEqProof eqZero false
      let commIff ← mkAppOptM ``eq_comm #[some (mkConst ``Int), some op2, some op1]
      let bridge ← mkAppM ``propext #[commIff]
      pushProofStep (.rewrite bridge)
@@ -347,8 +346,7 @@ def natEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
      if !(exprEq e2 op2) then return none
      let zero := mkNatLit 0
      let eqZero ← mkEq zero e1
-     let reflFalse := mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Bool) (mkConst ``Bool.false)
-     let hNe ← mkAppOptM ``of_decide_eq_false #[some eqZero, none, some reflFalse]
+     let hNe ← mkOfDecideEqProof eqZero false
      let commIff ← mkAppOptM ``eq_comm #[some (mkConst ``Nat), some op2, some op1]
      let bridge ← mkAppM ``propext #[commIff]
      pushProofStep (.rewrite bridge)
@@ -402,19 +400,11 @@ def addNatEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := d
  | some n1 =>
      if n1 < n2 then
       let lt ←  mkLt op1 e1
-      let reflTrue := mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Bool) (mkConst ``Bool.true)
-      let hLt ← mkAppOptM ``of_decide_eq_true #[some lt, none, some reflTrue]
-      let commIff ← mkAppOptM ``eq_comm #[some (mkConst ``Nat), some op2, some op1]
-      let bridge ← mkAppM ``propext #[commIff]
-      pushProofStep (.rewrite bridge)
+      let hLt ← mkOfDecideEqProof lt true
       pushProofStep (.rewrite (← mkAppM ``Blaster.nat_eq_add_false_if_lt #[e1, op1, e2, hLt]))
       return ← mkPropFalse
      let ge ← mkLe e1 op1
-     let reflTrue := mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Bool) (mkConst ``Bool.true)
-     let hGe ← mkAppOptM ``of_decide_eq_true #[some ge, none, some reflTrue]
-     let commIff ← mkAppOptM ``eq_comm #[some (mkConst ``Nat), some op2, some op1]
-     let bridge ← mkAppM ``propext #[commIff]
-     pushProofStep (.rewrite bridge)
+     let hGe ← mkOfDecideEqProof ge true
      pushProofStep (.rewrite (← mkAppM ``Blaster.nat_sub_eq_from_ge_add #[op1, e1, e2, hGe]))
      setRestart -- restart necessary
      mkNatEqExpr (← evalBinNatOp Nat.sub n1 n2) e2
@@ -429,12 +419,6 @@ def addNatEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := d
    let lit2 ← mkNatLitExpr rightValue
    let op1' := mkApp2 (← mkNatAddOp) lit1 p2
    let op2' := mkApp2 (← mkNatAddOp) lit2 e2
-   let commIff ← mkAppOptM ``eq_comm #[some (mkConst ``Nat), some op2, some op1]
-   let bridge ← mkAppM ``propext #[commIff]
-   pushProofStep (.rewrite bridge)
-   let commIff' ← mkAppOptM ``eq_comm #[some (mkConst ``Nat), some op2', some op1']
-   let bridge' ← mkAppM ``propext #[commIff']
-   pushProofStep (.rewrite bridge')
    let refl1 := mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Nat) lit1
    let refl2 := mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Nat) lit2
    pushProofStep (.rewrite (mkAppN (mkConst ``Blaster.nat_add_with_min)
@@ -512,9 +496,6 @@ def addIntEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := d
  let some n2 := isIntValue? e1 | return none
  match isIntValue? op1 with
  | some n1 =>
-     let commIff ← mkAppOptM ``eq_comm #[some (mkConst ``Int), some op2, some op1]
-     let bridge ← mkAppM ``propext #[commIff]
-     pushProofStep (.rewrite bridge)
      let m ← evalBinIntOp Int.sub n1 n2
      let refl := mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Int) m
      pushProofStep (.rewrite (← mkAppM ``Blaster.int_sub_of_eq_add #[op1, e1, e2, m, refl]))
@@ -531,12 +512,6 @@ def addIntEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := d
    let lit2 ← mkIntLitExpr rightValue
    let op1' := mkApp2 (← mkIntAddOp) lit1 p2
    let op2' := mkApp2 (← mkIntAddOp) lit2 e2
-   let commIff ← mkAppOptM ``eq_comm #[some (mkConst ``Int), some op2, some op1]
-   let bridge ← mkAppM ``propext #[commIff]
-   pushProofStep (.rewrite bridge)
-   let commIff' ← mkAppOptM ``eq_comm #[some (mkConst ``Int), some op2', some op1']
-   let bridge' ← mkAppM ``propext #[commIff']
-   pushProofStep (.rewrite bridge')
    let refl1 := mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Int) lit1
    let refl2 := mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Int) lit2
    pushProofStep (.rewrite (mkAppN (mkConst ``Blaster.int_add_with_min)
