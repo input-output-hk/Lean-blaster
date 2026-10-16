@@ -136,7 +136,8 @@ def funPropagation? (cf : Expr) (cargs : Array Expr) (skipPropCheck := false) (r
           -- The reorder steps describe a rewrite that only happens when the propagation applies.
           let size ← getProofStackSize
           let res ← loop 0 (← reorderOperands cf cargs)
-          if res.isNone && size != (← getProofStackSize) then shrinkProofStack size
+          if res.isNone then
+            if size != (← getProofStackSize) then shrinkProofStack size
           return res
         else loop 0 cargs
   | _ => return none
