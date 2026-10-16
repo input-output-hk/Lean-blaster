@@ -45,14 +45,17 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
               | Sum.inl stack' => optimizeExprAux stack'
 
           | Expr.forallE n t b bi =>
-              match ← reuseContext? e 0 with
-              | some reuse =>
-                   let x := reuse.fvars[0]!
-                   setAndCommitCtx reuse.scope
-                   let body ← instantiateShared1 b x
-                   optimizeExprAux (.InitOptimizeExpr body :: .ForallWaitForBody x t (some reuse.scope) true :: i_stack)
+              match ← forallToNatImage? e with
+              | some normalized => optimizeExprAux (.InitOptimizeExpr normalized :: i_stack)
+              | none =>
+                  match ← reuseContext? e 0 with
+                  | some reuse =>
+                       let x := reuse.fvars[0]!
+                       setAndCommitCtx reuse.scope
+                       let body ← instantiateShared1 b x
+                       optimizeExprAux (.InitOptimizeExpr body :: .ForallWaitForBody x t (some reuse.scope) true :: i_stack)
 
-              | none => optimizeExprAux (.InitOptimizeExpr t :: .ForallWaitForType n bi b :: i_stack)
+                  | none => optimizeExprAux (.InitOptimizeExpr t :: .ForallWaitForType n bi b :: i_stack)
 
           | Expr.app f a =>
              let f ← if f.isMVar then getMVarValue f else pure f
