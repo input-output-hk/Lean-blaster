@@ -96,6 +96,41 @@ def joinMatchResult (x : MatchResult) (y : MatchResult) : MatchResult :=
  | _, p@.PotentialMatch => p
  | _, _ => x
 
+/-- Reveal a constructor through a non-recursive definition without normalizing
+    its fields. A match only demands the fields present in its pattern; eagerly
+    normalizing the entire encoded record can evaluate discarded payloads. -/
+private def revealConstructor? (e : Expr) : TranslateEnvT (Option Expr) :=
+  go 12 e
+where
+  go : Nat → Expr → TranslateEnvT (Option Expr)
+    | 0, _ => return none
+    | depth + 1, e => do
+        if ← isNormConstructor e then return some e
+        let args := e.getAppArgs
+        match e.getAppFn with
+        | .const name _ =>
+            unless (← getConstEnvInfo name).isDefinition do return none
+            if ← isRecursiveFun name <||> isOpaqueFunExpr e.getAppFn args then return none
+            if (← getMatcherInfo? name).isSome then return none
+            let some body ← getFunBody e.getAppFn | return none
+            go depth (← betaLambdaShared body args)
+        | .proj _ index base =>
+            let some value ← go depth base | return none
+            let .const name _ := value.getAppFn | return none
+            let .ctorInfo ctor ← getConstEnvInfo name | return none
+            let fields := value.getAppArgs
+            let field := ctor.numParams + index
+            unless field < fields.size do return none
+            go depth (← mkAppNExpr fields[field]! args)
+        | .lam .. => go depth (← betaLambdaShared e.getAppFn args)
+        | .letE _ _ value body _ =>
+            go depth (← mkAppNExpr (← instantiateShared1 body value) args)
+        | .mdata _ body => go depth (← mkAppNExpr body args)
+        | .fvar id =>
+            let some value ← id.getEnvValue? | return none
+            go depth (← mkAppNExpr value args)
+        | _ => return none
+
 /-- Performs unification on lhs and rhs
      - Return `UnifyMatch` when both `lhs` and `rhs` can unify up to metavariable
      - Return `PotentialMatch` when `lhs` unifies with `rhs` before lhs reduces to a ground term (i.e., a unary constructor or a metavariable), e.g.,
@@ -105,6 +140,9 @@ def joinMatchResult (x : MatchResult) (y : MatchResult) : MatchResult :=
 partial def isPatternMatch (lhs : Expr) (rhs : Expr) : TranslateEnvT MatchResult := do
  if exprEq lhs rhs then return .UnifyMatch
  else
+  if (← isNormConstructor lhs) && !(← isNormConstructor rhs) then
+    if let some exposed ← revealConstructor? rhs then
+      return ← isPatternMatch lhs exposed
   match lhs with
   | Expr.mvar _ =>
       -- assign mvar with rhs
@@ -281,8 +319,14 @@ partial def instantiateUnifiedMVars (mvars : Array Expr) (margs : Array Expr) (m
     Assume that `normChoiceApplication` has already applied to push extra arguments in match rhs`
 -/
 def reduceMatch? (args : Array Expr) (mInfo : MatchInfo) (resolveArgs := false) : TranslateEnvT (Option BetaLambdaResult) := do
- let args ← resolveArgsWithEqualityStack args
- if !(← allMatchDiscrsAreCtor args) then return none
+ let mut args ← resolveArgsWithEqualityStack args
+ let discrsType ← getLambdaBinderTypes args[mInfo.getFirstDiscrPos - 1]!
+ for i in [mInfo.getFirstDiscrPos:mInfo.getFirstAltPos] do
+   -- Proof discriminators carry no runtime constructor information.
+   if ← isPropEnv discrsType[i - mInfo.getFirstDiscrPos]! then continue
+   unless ← isNormConstructor args[i]! (patternMatch := true) do
+     let some exposed ← revealConstructor? args[i]! | return none
+     args := args.set! i exposed
  let alts ← getMatchAlts args mInfo
  visit_alts? args alts mInfo.getFirstAltPos mInfo.arity false
 
@@ -301,15 +345,6 @@ def reduceMatch? (args : Array Expr) (mInfo : MatchInfo) (resolveArgs := false) 
           betaLambdaEnv args[idx]! (← instantiateUnifiedMVars mvarArgs args mInfo)
         else visit_alts? args alts (idx + 1) stop (isPrevPotentialMatch || isPotentialMatchResult matchHit)
 
-    allMatchDiscrsAreCtor (args : Array Expr) : TranslateEnvT Bool := do
-     let discrsType ← getLambdaBinderTypes args[mInfo.getFirstDiscrPos - 1]!
-     let rec go (idx : Nat) (stop : Nat) : TranslateEnvT Bool := do
-       if idx ≥ stop then return true
-       else if (← isNormConstructor args[idx]! (patternMatch := true) <||> isPropEnv discrsType[idx - mInfo.getFirstDiscrPos]!) then
-         -- We also accept proof as discriminators
-         go (idx + 1) stop
-       else return false
-     go mInfo.getFirstDiscrPos mInfo.getFirstAltPos
 
     resolveArgsWithEqualityStack (args : Array Expr) : TranslateEnvT (Array Expr) := do
      let ⟨_, _, _, _, _, _, _, ⟨_, equalityMap⟩, _, _, ⟨_, _, _, _, _, _, active, _⟩, _, _, _⟩ := (← get).optEnv
@@ -381,9 +416,22 @@ def constMatchPropagation?
 
 
     pushMatchInLambda (f : Expr) (args : Array Expr) (idxDiscr : Nat) (e : Expr) : TranslateEnvT Expr := do
-       -- NOTE: we can safely telescope as allDiscrsAreCstMatch guarantees match/ite are not functions
-       lambdaTelescope e fun fvars body => do
-         mkLambdaFVarsExpr fvars (← mkAppRangeExprWithSetAt f 0 args.size args idxDiscr body)
+       -- Keep the existing pattern binders. Opening and closing them traverses
+       -- the whole branch twice and replaces shared bound subterms with fresh
+       -- locals, even though only the consumer application is being inserted.
+       -- Lift the outside arguments, not the branch body, to avoid capture.
+       let rec go (depth : Nat) (current : Expr) : TranslateEnvT Expr := do
+         match current with
+         | .lam n t body bi =>
+             mkLambdaExpr n bi t (← go (depth + 1) body)
+         | body =>
+             let lift (arg : Expr) : TranslateEnvT Expr :=
+               if arg.hasLooseBVars then hashcons (arg.liftLooseBVars 0 depth)
+               else pure arg
+             let f ← lift f
+             let args ← args.mapM lift
+             mkAppRangeExprWithSetAt f 0 args.size args idxDiscr body
+       go 0 e
 
     pushMatchInDIteExpr (f : Expr) (args : Array Expr) (idxDiscr : Nat) (e : Expr) : TranslateEnvT Expr := do
       match e with
@@ -444,12 +492,61 @@ def constMatchPropagation?
                         argInfo.arity pInfo argInfo prevInApp)
       else return none
 
-/-- Given a match expression perform the following:
-    - try reduceMatch?
-    - try constMatchpropagation?.
-    - try normMatchExpr? only when flag matchToIte is set
--/
-@[always_inline, inline]
+/-- Preserve the element range when inspecting an indexed, mapped list.
+    Recognize only an exact length-preserving map equation, then commute the
+    drop to its input and expose one list cell. No recursive unfolding of the
+    input list is performed; all indices and elements may remain symbolic. -/
+private def indexedMapMatch? (consumer : Expr) (args : Array Expr)
+    (info : MatchInfo) : TranslateEnvT (Option Expr) := do
+  unless info.numDiscrs == 1 && args.size == info.arity do return none
+  let discrPos := info.getFirstDiscrPos
+  let discr := args[discrPos]!
+  unless discr.isAppOfArity ``List.drop 3 do return none
+  let dropArgs := discr.getAppArgs
+  let producer := dropArgs[2]!
+  let .const name _ := producer.getAppFn | return none
+  unless ← isRecursiveFun name do return none
+  let some position ← getStructuralRecArgPos? name | return none
+  let producerArgs := producer.getAppArgs
+  unless position < producerArgs.size do return none
+  let source := producerArgs[position]!
+  let sourceType ← inferTypeEnv source
+  unless sourceType.isAppOfArity ``List 1 do return none
+  let some definition ← getFunBody producer.getAppFn | return none
+  let equation ← betaLambdaShared definition producerArgs
+  let .const matcherName _ := equation.getAppFn | return none
+  let some matcher ← getMatcherInfo? matcherName | return none
+  unless matcher.numDiscrs == 1 && matcher.altNumParams == #[1, 2] do return none
+  let equationArgs := equation.getAppArgs
+  let equationDiscr := matcher.numParams + 1
+  unless equationArgs.size == equationDiscr + 3 do return none
+  unless exprEq equationArgs[equationDiscr]! source do return none
+  let nilAlt := equationArgs[equationDiscr + 1]!
+  let consAlt := equationArgs[equationDiscr + 2]!
+  let .lam _ _ nilBody _ := nilAlt | return none
+  unless nilBody.isAppOfArity ``List.nil 1 && !nilBody.hasLooseBVars do return none
+  let .lam _ _ (.lam _ _ consBody _) _ := consAlt | return none
+  unless consBody.isAppOfArity ``List.cons 3 do return none
+  let fields := consBody.getAppArgs
+  -- The element transform must not inspect the remaining input list.
+  if fields[1]!.hasLooseBVar 0 then return none
+  let expectedTail ← mkAppNExpr producer.getAppFn
+    (producerArgs.set! position (← mkBVarExpr 0))
+  unless fields[2]! == expectedTail do return none
+  let .lam _ _ resultType _ := args[discrPos - 1]! | return none
+  if resultType.hasLooseBVars then return none
+  let nilResult ← mkAppNExpr consumer (args.set! discrPos nilBody)
+  let elementType := sourceType.appArg!
+  let dropped ← withLocalContext <| mkAppM ``List.drop #[dropArgs[1]!, source]
+  let consResult ← withLocalDecl' `head .default elementType fun head =>
+    withLocalDecl' `tail .default sourceType fun tail => do
+      let cell ← betaLambdaShared consAlt #[head, tail]
+      mkLambdaFVarsExpr #[head, tail] (← mkAppNExpr consumer (args.set! discrPos cell))
+  let motive ← mkLambdaExpr `_xs .default sourceType resultType
+  let result ← withLocalContext <| mkAppOptM ``List.casesOn
+    #[some elementType, some motive, some dropped, some nilResult, some consResult]
+  return some (← hashcons (← instantiateMVars result))
+
 def matchReduction?
   (f : Expr) (args : Array Expr) (mInfo : MatchInfo) (prevInApp : Bool)
   (matchToIte := false) (resolveArgs := false) : TranslateEnvT (Option OptimizeStack) := do
@@ -457,12 +554,14 @@ def matchReduction?
     if let some r ← reduceMatch? args mInfo resolveArgs then
       return some (.InitOptimizeExpr r.betaReduced r.prevMVarIdDecls)
     -- try to apply match constant propagation rules
-    if let some r ← constMatchPropagation? f args mInfo prevInApp resolveArgs then return r
+    if let some r ← constMatchPropagation? f args mInfo prevInApp resolveArgs then
+      return r
+    if let some r ← indexedMapMatch? f args mInfo then
+      return some (.InitOptimizeExpr r)
     if matchToIte then
-      match ← normMatchExpr? args mInfo with
-      | none => return none
-      | some r => return some (.InitOptimizeExpr r)
-    else return none
+      if let some r ← normMatchExpr? args mInfo then
+        return some (.InitOptimizeExpr r)
+    return none
 
 @[always_inline, inline]
 private def addNotEqPatternInContext (nextCtxId : CtxId) (discr : Expr) (pattern : Expr) : TranslateEnvT Unit := do
