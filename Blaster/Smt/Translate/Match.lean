@@ -8,11 +8,53 @@ open Lean Meta Blaster.Optimize Blaster.Data.HashSet
 
 namespace Blaster.Smt
 
+abbrev MatchSubject := Expr ⊕ SmtTerm
+
+instance : Inhabited MatchSubject := ⟨.inr default⟩
+
 structure MatchResult where
-  /-- Translated match discriminators -/
-  discrTerms : Array SmtTerm
+  /-- Delay translation until a pattern needs an unknown value. Known wrapper
+      constructors need neither an SMT term nor a datatype declaration. -/
+  discrTerms : Array MatchSubject
   /-- Ite term generated when translating each match pattern -/
   iteTerm : Option SmtTerm
+
+/-- Constructors are emitted with a sort-qualified identifier. Only reduce a
+    selector/tester when the *same* constructor is explicitly present; a
+    selector of a different constructor remains uninterpreted off its guard. -/
+private def knownCtorArgs? (ctor : Name) (term : SmtTerm) : Option (Array SmtTerm) :=
+  match term with
+  | .AppTerm (.QualifiedIdent name _) args =>
+      if name == nameToSmtSymbol ctor then some args else none
+  | .SmtIdent (.QualifiedIdent name _) =>
+      if name == nameToSmtSymbol ctor then some #[] else none
+  | _ => none
+
+private def matchSelector (ctor : Name) (index : Nat) (term : SmtTerm) : SmtTerm :=
+  match knownCtorArgs? ctor term with
+  | some args => args[index]?.getD (mkSimpleSmtAppN (mkCtorSelectorSymbol ctor index) #[term])
+  | none => mkSimpleSmtAppN (mkCtorSelectorSymbol ctor index) #[term]
+
+private def subjectTerm (subject : MatchSubject)
+    (translate : Expr → TranslateEnvT SmtTerm) : TranslateEnvT SmtTerm :=
+  match subject with
+  | .inl source => translate source
+  | .inr term => pure term
+
+private def subjectSelector (ctor : Name) (index : Nat) (subject : MatchSubject)
+    (translate : Expr → TranslateEnvT SmtTerm) : TranslateEnvT MatchSubject := do
+  if let .inl source := subject then
+    if let some (name, args) ← isCtorPattern source then
+      if name == ctor then
+        if let some argument := args[index]? then return .inl argument
+  return .inr (matchSelector ctor index (← subjectTerm subject translate))
+
+private def subjectTester (ctor : Name) (subject : MatchSubject)
+    (translate : Expr → TranslateEnvT SmtTerm) : TranslateEnvT SmtTerm := do
+  if let .inl source := subject then
+    if let some (name, _) ← isCtorPattern source then return .BoolTerm (name == ctor)
+  let term ← subjectTerm subject translate
+  return if (knownCtorArgs? ctor term).isSome then .BoolTerm true else mkCtorTestorTerm ctor term
 
 mutual
 /-- Generate the necessary let expressions when translating a `match` to an smt if-then-else, such that:
@@ -51,49 +93,63 @@ mutual
 
 -/
 private partial def mkLet
-  (se : SmtTerm) (p : Expr) (rhs : SmtTerm)
+  (se : MatchSubject) (p : Expr) (rhs : SmtTerm)
+  (used : FVarIdSet)
+  (termTranslator : Expr → TranslateEnvT SmtTerm)
   (k : SmtTerm → TranslateEnvT SmtTerm) : TranslateEnvT SmtTerm := do
+  -- A literal branch has no pattern variables to bind. In particular, do not
+  -- retain a large boxed scrutinee merely to return false on a failed pattern.
+  match rhs with
+  | .BoolTerm _ | .NumTerm _ | .DecTerm _ | .StrTerm _ | .BinTerm _ | .HexTerm _ =>
+      return ← k rhs
+  | _ => pure ()
   if isCstLiteral p then return (← k rhs) -- case: isIntNatStrCst(p)
   match p with
   | Expr.fvar fv =>
+      -- Translating an unused value is not harmless: function values register
+      -- their complete higher-order encoding even when the resulting let is
+      -- dead. Check liveness before translating the scrutinee.
+      if !used.contains fv then return ← k rhs
       -- case: p = fv with sfv = fvarIdToSmtSymbol fv
-      k (mkLetTerm #[(← fvarIdToSmtSymbol fv, se)] rhs)
+      k (mkLetTerm #[(← fvarIdToSmtSymbol fv, ← subjectTerm se termTranslator)] rhs)
 
   | Expr.app (Expr.app (Expr.app (Expr.app (Expr.const ``namedPattern _) _t) (Expr.fvar fv)) e) _h =>
       -- case: p := namedPattern t n e h` with sn = fvarIdToSmtSymbol n
       let sn ← fvarIdToSmtSymbol fv
-      mkLet (smtSimpleVarId sn) e rhs
-        fun rhs'=> k (mkLetTerm #[(sn, se)] rhs')
+      mkLet (.inr (smtSimpleVarId sn)) e rhs used termTranslator
+        fun rhs'=> do k (mkLetTerm #[(sn, ← subjectTerm se termTranslator)] rhs')
 
   | Expr.app (Expr.app (Expr.const ``Nat.add _) (Expr.lit (Literal.natVal n))) a
   | Expr.app (Expr.const ``Int.ofNat _)
       (Expr.app (Expr.app (Expr.const ``Nat.add _) (Expr.lit (Literal.natVal n))) a) =>
       match a with
       | Expr.fvar fv =>
+          if !used.contains fv then return ← k rhs
           -- case: p = N + n ∧ Type(N) = Nat with sn = fvarIdToSmtSymbol n; or
           -- case: p = Int.ofNat (N + n) with sn = fvarIdToSmtSymbol n
-          k (mkLetTerm #[(← fvarIdToSmtSymbol fv, (subSmt se (natLitSmt n)))] rhs)
+          k (mkLetTerm #[(← fvarIdToSmtSymbol fv, (subSmt (← subjectTerm se termTranslator) (natLitSmt n)))] rhs)
 
       | Expr.app (Expr.app (Expr.app (Expr.app (Expr.const ``namedPattern _) _t) (Expr.fvar fv)) e) _h =>
           -- case: if p = N + (namedPattern t n e h) ∧ Type(N) = Nat with sn = fvarIdToSmtSymbol n
           -- case: if p = Int.ofNat (N + namedPattern t n e h) with sn = fvarIdToSmtSymbol n
           let sn ← fvarIdToSmtSymbol fv
-          mkLet (smtSimpleVarId sn) e rhs
-            fun rhs' => k (mkLetTerm #[(sn, (subSmt se (natLitSmt n)))] rhs')
+          mkLet (.inr (smtSimpleVarId sn)) e rhs used termTranslator
+            fun rhs' => do k (mkLetTerm #[(sn, (subSmt (← subjectTerm se termTranslator) (natLitSmt n)))] rhs')
 
       | _ => throwEnvError "mkLet: unexpected pattern expression: {reprStr p}"
 
   | Expr.app (Expr.const ``Int.ofNat _) a =>
        match a with
        | Expr.fvar fv =>
+            if !used.contains fv then return ← k rhs
             -- case:  p = Int.ofNat n with sn = fvarIdToSmtSymbol n
-            k (mkLetTerm #[(← fvarIdToSmtSymbol fv, se)] rhs)
+            k (mkLetTerm #[(← fvarIdToSmtSymbol fv, ← subjectTerm se termTranslator)] rhs)
 
        | Expr.app (Expr.app (Expr.app (Expr.app (Expr.const ``namedPattern _) _t) (Expr.fvar fv)) e) _h =>
             -- case: p = Int.ofNat (namedPattern t n e h) with sn = fvarIdToSmtSymbol n
             let sn ← fvarIdToSmtSymbol fv
-            mkLet (smtSimpleVarId sn) e rhs
-              fun rhs'=> k (mkLetTerm #[(sn, se)] rhs')
+            mkLet (.inr (smtSimpleVarId sn)) e rhs used termTranslator
+              fun rhs'=> do k (mkLetTerm #[(sn, ← subjectTerm se termTranslator)] rhs')
 
        | _ => throwEnvError "mkLet: unexpected pattern expression: {reprStr p}"
 
@@ -102,13 +158,14 @@ private partial def mkLet
         (Expr.app (Expr.app (Expr.const ``Nat.add _) (Expr.lit (Literal.natVal n))) a)) =>
       match a with
       | Expr.fvar fv =>
+           if !used.contains fv then return ← k rhs
            -- case: p' = Int.Neg (Int.ofNat (N + n)) with sn = fvarIdToSmtSymbol n
-           k (mkLetTerm #[(← fvarIdToSmtSymbol fv, negSmt (addSmt se (natLitSmt n)))] rhs)
+           k (mkLetTerm #[(← fvarIdToSmtSymbol fv, negSmt (addSmt (← subjectTerm se termTranslator) (natLitSmt n)))] rhs)
       | Expr.app (Expr.app (Expr.app (Expr.app (Expr.const ``namedPattern _) _t) (Expr.fvar fv)) e) _h =>
            -- case: p' = Int.Neg (Int.ofNat (N + namedPattern t n e h)) with sn = fvarIdToSmtSymbol n
            let sn ← fvarIdToSmtSymbol fv
-           mkLet (smtSimpleVarId sn) e rhs
-             fun rhs' => k (mkLetTerm #[(sn, negSmt (addSmt se (natLitSmt n)))] rhs')
+           mkLet (.inr (smtSimpleVarId sn)) e rhs used termTranslator
+             fun rhs' => do k (mkLetTerm #[(sn, negSmt (addSmt (← subjectTerm se termTranslator) (natLitSmt n)))] rhs')
       | _ => throwEnvError "mkLet: unexpected pattern expression: {reprStr p}"
 
   | _ =>
@@ -119,17 +176,19 @@ private partial def mkLet
        k rhs
      else
        -- case: p' = C x₁ ... xₖ
-       mkLetCtors n (args.size - 1) args se rhs k
+       mkLetCtors n (args.size - 1) args se rhs used termTranslator k
 
 private partial def mkLetCtors
-  (c : Name) (idx : Nat) (args : Array Expr) (se : SmtTerm) (rhs : SmtTerm)
+  (c : Name) (idx : Nat) (args : Array Expr) (se : MatchSubject) (rhs : SmtTerm)
+  (used : FVarIdSet)
+  (termTranslator : Expr → TranslateEnvT SmtTerm)
   (k : SmtTerm → TranslateEnvT SmtTerm) : TranslateEnvT SmtTerm := do
-  let selectorTerm := mkSimpleSmtAppN (mkCtorSelectorSymbol c idx) #[se]
+  let selectorTerm ← subjectSelector c idx se termTranslator
   if idx == 0 then
-    mkLet selectorTerm args[idx]! rhs k
+    mkLet selectorTerm args[idx]! rhs used termTranslator k
   else
-    mkLet selectorTerm args[idx]! rhs
-      fun rhs' => mkLetCtors c (idx - 1) args se rhs' k
+    mkLet selectorTerm args[idx]! rhs used termTranslator
+      fun rhs' => mkLetCtors c (idx - 1) args se rhs' used termTranslator k
 end
 
 /-- Generate the necessary ite condition expressions when translating a `match` to an smt if-then-else, such that:
@@ -148,40 +207,43 @@ end
       := ⊥              otherwise
 -/
 private partial def mkCond
-  (se : SmtTerm) (pp : Expr) (andTerms : Array SmtTerm)
+  (se : MatchSubject) (pp : Expr) (andTerms : Array SmtTerm)
   (termTranslator : Expr → TranslateEnvT SmtTerm) : TranslateEnvT (Array SmtTerm) := do
   let p' ← removeNamedPatternExpr pp
   if isCstLiteral p' || isBoolCtor p' then
     -- case: isIntNatStrCst p' ∨ isBoolCtor p'
-    return (andTerms.push (eqSmt (← termTranslator p') se))
+    return (andTerms.push (eqSmt (← termTranslator p') (← subjectTerm se termTranslator)))
   match p' with
   | Expr.fvar _ => return andTerms -- case: p' = fv
   | Expr.const c _ =>
       -- case: if p' = C (i.e., nullary constructor)
       if !(← isCtorName c) then
         throwEnvError "mkCond: nullary ctor expected but got {reprStr p'}"
-      return (andTerms.push (mkCtorTestorTerm c se))
+      let test ← subjectTester c se termTranslator
+      return if isTrueSmt test then andTerms else andTerms.push test
   | Expr.app (Expr.app (Expr.const ``Nat.add _) (Expr.lit (Literal.natVal n))) (Expr.fvar _fv)
   | Expr.app (Expr.const ``Int.ofNat _)
      (Expr.app (Expr.app (Expr.const ``Nat.add _) (Expr.lit (Literal.natVal n))) (Expr.fvar _fv)) =>
       -- case: p' = N + n ∧ Type(N) = Nat
       -- case: p' = Int.ofNat (N + n)
-      return (andTerms.push (leqSmt (natLitSmt n) se))
+      return (andTerms.push (leqSmt (natLitSmt n) (← subjectTerm se termTranslator)))
   | Expr.app (Expr.const ``Int.ofNat _) (Expr.fvar _fv) =>
       -- case: p' = Int.ofNat n
-      return (andTerms.push (leqSmt (natLitSmt 0) se))
+      return (andTerms.push (leqSmt (natLitSmt 0) (← subjectTerm se termTranslator)))
   | Expr.app (Expr.const ``Int.neg _)
     (Expr.app (Expr.const ``Int.ofNat _)
     (Expr.app (Expr.app (Expr.const ``Nat.add _) (Expr.lit (Literal.natVal n))) (Expr.fvar _fv))) =>
       -- case: p' = Int.Neg (Int.ofNat (N + n))
-      return (andTerms.push (leqSmt se (negSmt (natLitSmt n))))
+      return (andTerms.push (leqSmt (← subjectTerm se termTranslator) (negSmt (natLitSmt n))))
   | _ =>
      let some (n, args) ← isCtorPattern p'
        | throwEnvError "mkCond: unexpected pattern expression: {reprStr p'}"
      -- case: p' = C x₁ ... xₖ
-     let mut mand := andTerms.push (mkCtorTestorTerm n se)
+     let test ← subjectTester n se termTranslator
+     if let .BoolTerm false := test then return #[test]
+     let mut mand := if isTrueSmt test then andTerms else andTerms.push test
      for i in [:args.size] do
-       let selectorTerm := mkSimpleSmtAppN (mkCtorSelectorSymbol n i) #[se]
+       let selectorTerm ← subjectSelector n i se termTranslator
        mand ← mkCond selectorTerm args[i]! mand termTranslator
      return mand
 
@@ -196,10 +258,10 @@ def translateMatchAux?
   let rhs ← betaLambdaShared rhs params
   let hvars ← params.foldlM insertFVars .emptyWithCapacity
   if lastPattern then -- last pattern translated first
-    -- translate all discriminators and keep in MatchResult
-    let mut discrTerms := #[]
+    -- Delay each discriminator until a live branch actually needs its term.
+    let mut discrTerms : Array MatchSubject := #[]
     for i in mInfo.getDiscrRange do
-      discrTerms := discrTerms.push (← termTranslator margs[i]!)
+      discrTerms := discrTerms.push (.inl margs[i]!)
     let srhs ← withTranslatePattern hvars $ mkRhs discrTerms lhs rhs
     return some { discrTerms, iteTerm := some srhs }
   else
@@ -216,21 +278,35 @@ def translateMatchAux?
           | _ => return h.insert fv
       | _ => return h
 
-    mkRhs (discrTerms : Array SmtTerm) (lhs : Array Expr) (rhs : Expr) : TranslateEnvT SmtTerm := do
+    mkRhs (discrTerms : Array MatchSubject) (lhs : Array Expr) (rhs : Expr) : TranslateEnvT SmtTerm := do
+      -- Keep type dependencies as well: a variable absent from the term can
+      -- still index the type of a live variable. Named-pattern aliases are
+      -- retained separately by mkLet because nested selectors can use them.
+      let mut dependencies := collectFVars {} rhs
+      let mut next := 0
+      while next < dependencies.fvarIds.size do
+        let fv := dependencies.fvarIds[next]!
+        let decl ← fv.getEnvDecl
+        dependencies := collectFVars dependencies decl.type
+        if let some value := decl.value? then
+          dependencies := collectFVars dependencies value
+        next := next + 1
       let mut srhs ← termTranslator rhs
       let nbPatterns := lhs.size
       for i in [:nbPatterns] do
         let idx := nbPatterns - i - 1
-        srhs ← mkLet discrTerms[idx]! lhs[idx]! srhs (λ x => return x)
+        srhs ← mkLet discrTerms[idx]! lhs[idx]! srhs dependencies.fvarSet termTranslator (λ x => return x)
       return srhs
 
     mkIte (lhs : Array Expr) (rhs : Expr) (mres : MatchResult) : TranslateEnvT (Option MatchResult) := do
       let some elseTerm := mres.iteTerm
         | throwEnvError "mkIte: else term expected"
-      let thenTerm ← mkRhs mres.discrTerms lhs rhs
       let mut andTerms := (#[] : Array SmtTerm)
       for i in [:lhs.size] do
         andTerms ← mkCond mres.discrTerms[i]! lhs[i]! andTerms termTranslator
+      if andTerms.any (fun term => match term with | .BoolTerm false => true | _ => false) then
+        return some mres
+      let thenTerm ← mkRhs mres.discrTerms lhs rhs
       let nbCond := andTerms.size
       if nbCond == 0 then return some {mres with iteTerm := some thenTerm} -- case when else unreachable
       let mut condTerm := andTerms[nbCond-1]!
