@@ -345,20 +345,20 @@ elab "diteAbsorptionUnchanged_8" : term => return diteAbsorptionUnchanged_8
 
 -- ∀ (a b : Prop) (f : ¬ True → Prop → Prop),
 -- if h : True then a else f h b ===> ∀ (a : Prop), a
-#testOptimize [ "DIteTrueCond_1" ]
+#testOptimize [ "DIteTrueCond_1", proof ]
   ∀ (a b : Prop) (f : ¬ True → Prop → Prop),
   if h : True then a else f h b ===> ∀ (a : Prop), a
 
 -- ∀ (a b : Bool) (f : ¬ True → Bool → Bool), if h : True then !a else f h b ===>
 -- ∀ (a : Bool), false = a
-#testOptimize [ "DIteTrueCond_2" ]
+#testOptimize [ "DIteTrueCond_2", proof ]
   ∀ (a b : Bool) (f : ¬ True → Bool → Bool), if h : True then !a else f h b ===>
   ∀ (a : Bool), false = a
 
 -- ∀ (x y z : Nat) (f : ¬ True → Nat → Nat),
 --   (if h : True then (x + 40) - 40 else f h y) < z ===>
 -- ∀ (x z : Nat), x < z
-#testOptimize [ "DIteTrueCond_3" ]
+#testOptimize [ "DIteTrueCond_3", proof ]
   ∀ (x y z : Nat) (f : ¬ True → Nat → Nat),
     (if h : True then (x + 40) - 40 else f h y) < z ===>
   ∀ (x z : Nat), x < z
@@ -402,21 +402,21 @@ elab "diteAbsorptionUnchanged_8" : term => return diteAbsorptionUnchanged_8
 -- ∀ (a b : Prop) (f : ¬ True → Prop → Prop),
 --   (if h : True then a else f h b) = a ===> True
 -- Test case to validate expression caching after rewriting
-#testOptimize [ "DIteTrueCond_8" ]
+#testOptimize [ "DIteTrueCond_8", proof ]
   ∀ (a b : Prop) (f : ¬ True → Prop → Prop),
     (if h : True then a else f h b) = a ===> True
 
 -- ∀ (a b : Bool) (f : ¬ True → Bool → Bool),
 --   (if h : True then !a else f h b) = !a ===> True
 -- Test case to validate expression caching after rewriting
-#testOptimize [ "DIteTrueCond_9" ]
+#testOptimize [ "DIteTrueCond_9", proof ]
   ∀ (a b : Bool) (f : ¬ True → Bool → Bool),
     (if h : True then !a else f h b) = !a ===> True
 
 -- ∀ (x y z : Nat) (f : ¬ True → Nat → Nat),
 --   ((if h : True then (x + 40) - 40 else f h y) < z) = (x < z) ===> True
 -- Test case to validate expression caching after rewriting
-#testOptimize [ "DIteTrueCond_10" ]
+#testOptimize [ "DIteTrueCond_10", proof ]
   ∀ (x y z : Nat) (f : ¬ True → Nat → Nat),
     ((if h : True then (x + 40) - 40 else f h y) < z) = (x < z) ===> True
 
@@ -424,7 +424,7 @@ elab "diteAbsorptionUnchanged_8" : term => return diteAbsorptionUnchanged_8
 --   (if h : True then ∀ (x y : Int), x > y else ∀ (z y : Int), f h y > z) =
 --   ∀ (x y : Int), y < x ===> True
 -- Test case to validate expression caching after rewriting
-#testOptimize [ "DIteTrueCond_11" ]
+#testOptimize [ "DIteTrueCond_11", proof ]
   ∀ (f : ¬ True → Int → Int),
     (if h : True then ∀ (x y : Int), x > y else ∀ (z y : Int), f h y > z) =
     ∀ (x y : Int), y < x ===> True
@@ -459,20 +459,20 @@ elab "diteAbsorptionUnchanged_8" : term => return diteAbsorptionUnchanged_8
 
 -- ∀ (a b : Prop) (f : False → Prop → Prop),
 --   if h : False then f h a else b ===> ∀ (b : Prop), b
-#testOptimize [ "DIteFalseCond_1" ]
+#testOptimize [ "DIteFalseCond_1", proof ]
   ∀ (a b : Prop) (f : False → Prop → Prop),
     if h : False then f h a else b ===> ∀ (b : Prop), b
 
 -- ∀ (a b : Bool) (f : False → Bool → Bool),
 --   if h : False then f h !a else b ===>
 -- ∀ (b : Bool), true = b
-#testOptimize [ "DIteFalseCond_2" ]
+#testOptimize [ "DIteFalseCond_2", proof ]
   ∀ (a b : Bool) (f : False → Bool → Bool), if h : False then f h !a else b ===>
   ∀ (b : Bool), true = b
 
 -- ∀ (x y z : Nat) (f : False → Nat → Nat), (if h : False then (f h x + 40) - 40 else y) < z ===>
 -- ∀ (y z : Nat), y < z
-#testOptimize [ "DIteFalseCond_3" ]
+#testOptimize [ "DIteFalseCond_3", proof ]
   ∀ (x y z : Nat) (f : False → Nat → Nat), (if h : False then (f h x + 40) - 40 else y) < z ===>
   ∀ (y z : Nat), y < z
 
@@ -516,21 +516,21 @@ elab "diteAbsorptionUnchanged_8" : term => return diteAbsorptionUnchanged_8
 -- ∀ (a b : Prop) (f : False → Prop → Prop),
 --   (if h : False then f h a else b) = b ===> True
 -- Test case to validate expression caching after rewriting
-#testOptimize [ "DIteFalseCond_8" ]
+#testOptimize [ "DIteFalseCond_8", proof ]
   ∀ (a b : Prop) (f : False → Prop → Prop),
     (if h : False then f h a else b) = b ===> True
 
 -- ∀ (a b : Bool) (f : False → Bool → Bool),
 --   (if h : False then f h !a else b) = b ===> True
 -- Test case to validate expression caching after rewriting
-#testOptimize [ "DIteFalseCond_9" ]
+#testOptimize [ "DIteFalseCond_9", proof ]
   ∀ (a b : Bool) (f : False → Bool → Bool),
     (if h : False then f h !a else b) = b ===> True
 
 -- ∀ (x y z : Nat) (f : False → Nat → Nat),
 --   ((if h : False then (f h x + 40) - 40 else y) < z) = (y < z) ===> True
 -- Test case to validate expression caching after rewriting
-#testOptimize [ "DIteFalseCond_10" ]
+#testOptimize [ "DIteFalseCond_10", proof ]
   ∀ (x y z : Nat) (f : False → Nat → Nat),
     ((if h : False then (f h x + 40) - 40 else y) < z) = (y < z) ===> True
 
@@ -538,7 +538,7 @@ elab "diteAbsorptionUnchanged_8" : term => return diteAbsorptionUnchanged_8
 --   (if h : False then ∀ (x y : Int), f h x > y else ∀ (z y : Int), y > z) =
 --   ∀ (z y : Int), z < y ===> True
 -- Test case to validate expression caching after rewriting
-#testOptimize [ "DIteFalseCond_11" ]
+#testOptimize [ "DIteFalseCond_11", proof ]
   ∀ (f : False → Int → Int),
     (if h : False then ∀ (x y : Int), f h x > y else ∀ (z y : Int), y > z) =
     ∀ (z y : Int), z < y ===> True
@@ -1425,7 +1425,7 @@ elab "diteFalseEqCondUnchanged_3" : term => return diteFalseEqCondUnchanged_3
 --   (if h : a = b then f h x else y) > x ===>
 -- ∀ (a b : Bool) (x y : Nat) (f : a = b → Nat → Nat),
 --   x < Blaster.dite' (a = b) (fun h : _ => f h x) (fun _ => y)
-#testOptimize [ "DIteFalseEqCondUnchanged_7" ]
+#testOptimize [ "DIteFalseEqCondUnchanged_7", proof ]
   ∀ (a b : Bool) (x y : Nat) (f : a = b → Nat → Nat),
     (if h : a = b then f h x else y) > x ===>
   ∀ (a b : Bool) (x y : Nat) (f : a = b → Nat → Nat),
@@ -1990,7 +1990,7 @@ elab "diteFalseEqCondUnchanged_13" : term => return diteFalseEqCondUnchanged_13
 --   (if h : c then f h x else y) < z ===>
 -- ∀ (c : Prop) (x y z : Nat) (f : c → Nat → Nat),
 --   Blaster.dite' c (fun h : _ => f h x) (fun _ => y) < z
-#testOptimize [ "DIteToPropExprUnchanged_1" ]
+#testOptimize [ "DIteToPropExprUnchanged_1", proof ]
   ∀ (c : Prop) (x y z : Nat) (f : c → Nat → Nat), [Decidable c] →
     (if h : c then f h x else y) < z ===>
   ∀ (c : Prop) (x y z : Nat) (f : c → Nat → Nat),
@@ -2388,7 +2388,7 @@ elab "dIteToPropExprUnchanged_7" : term => return dIteToPropExprUnchanged_7
 
 -- ∀ (a : Prop) (c b : Bool) (f : c → Prop → Prop), [Decidable a] →
 --  (if h : c then f h a else b) = (if h : c then f h a else b) ===> True
-#testOptimize [ "DIteToPropExprUnchanged_9" ]
+#testOptimize [ "DIteToPropExprUnchanged_9", proof ]
   ∀ (a : Prop) (c b : Bool) (f : c → Prop → Prop), [Decidable a] →
    (if h : c then f h a else b) = (if h : c then f h a else b) ===> True
 

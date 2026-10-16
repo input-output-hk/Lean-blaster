@@ -39,13 +39,15 @@ partial def normLevel (l : Level) : TranslateEnvT Level := do
      - Nat.pred x ==> x - 1    [proof: Nat.pred_eq_sub_one]
      - Nat.ble x y ==> Blaster.decide' (x ≤ y) (if isOptimizeRecCall)    [proof: Blaster.nat_ble_eq_decide']
      - Decidable.decide p ==> Blaster.decide' p    [proof: Blaster.decide'_equiv]
+     - ite c t e ==> Blaster.dite' c (fun _ => t) (fun _ => e)    [proof: Blaster.ite_to_dite'_equiv]
+     - dite c t e ==> Blaster.dite' c t e    [proof: Blaster.dite_equiv]
      - Int.sub x y ==> x + -y    [proof: Int.sub_eq_add_neg]
     `Int.le` pushes its point-free step in the `isToNormOpaqueFun` arm of `normConst`.
     Other non-recursive definitions get an unfold step where they are unfolded (see `pushUnfoldProofStep`).
 -/
 @[always_inline, inline]
 def pushOpaqueFunProofStep (f : Expr) (ras : Array Expr) : TranslateEnvT Unit := do
-  let Expr.const n _ := f | return ()
+  let Expr.const n us := f | return ()
   match n with
   | ``Nat.succ =>
       if ras.size == 1 then
@@ -60,6 +62,9 @@ def pushOpaqueFunProofStep (f : Expr) (ras : Array Expr) : TranslateEnvT Unit :=
   | ``Decidable.decide =>
       if ras.size == 2 then
         pushProofStep (.rewrite (mkConst ``Blaster.decide'_equiv))
+  -- point-free steps, so no arity check
+  | ``ite => pushProofStep (.rewrite (mkConst ``Blaster.ite_to_dite'_equiv us))
+  | ``dite => pushProofStep (.rewrite (mkConst ``Blaster.dite_equiv us))
   | ``Int.sub =>
       -- not an unfold step since the goal shows `HSub.hSub`, whose instance hides `Int.sub`
       -- pushed bare since the operands may carry optimizer-local fvars under binders
@@ -152,7 +157,9 @@ def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeCo
          - Int.negSucc ==> λ n => Int.neg (Int.ofNat (1 + n)) (if ¬ isInFunApp)
          - Int.le ==> ≤    [proof: Blaster.int_le_eq_le]
          - ite ==> λ (α : Sort u) (p : Prop) [h : Decidable p] (t e : α) => Blaster.dite' α p (fun _ => t) (fun _ => e)
+             [proof: Blaster.ite_to_dite'_equiv, see `pushOpaqueFunProofStep`]
          - dite ==> λ (α : Sort u) (p : Prop) [h : Decidable p] (t : p → α) (e : ¬ p → α) => Blaster.dite' α p t e
+             [proof: Blaster.dite_equiv, see `pushOpaqueFunProofStep`]
          - Decidable.decide ==> λ (p : Prop) [h : Decidable p] => Blaster.decide' p
              [proof: Blaster.decide'_equiv, see `pushOpaqueFunProofStep`]
     -/
