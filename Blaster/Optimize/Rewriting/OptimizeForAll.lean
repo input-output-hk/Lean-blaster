@@ -4,6 +4,51 @@ import Blaster.Optimize.Hypotheses
 open Lean Meta Elab
 namespace Blaster.Optimize
 
+/-- Since `Int.toNat` is surjective, `∀ i : Int, p i.toNat` is equivalent to
+    `∀ n : Nat, p n`. Require EVERY occurrence of the integer binder to be
+    under that exact conversion; observing the integer itself invalidates the
+    rule. De Bruijn depth also accounts for nested binders and their types. -/
+private partial def replaceToNatImage (e : Expr) (depth : Nat) : Option (Expr × Bool) := do
+  if !e.hasLooseBVar depth then return (e, false)
+  if e.isAppOfArity ``Int.toNat 1 && e.appArg! == mkBVar depth then
+    return (mkBVar depth, true)
+  match e with
+  | .bvar index => if index == depth then none else some (e, false)
+  | .app f a =>
+      let (f, changedF) ← replaceToNatImage f depth
+      let (a, changedA) ← replaceToNatImage a depth
+      return (mkApp f a, changedF || changedA)
+  | .lam name type body info =>
+      let (type, changedT) ← replaceToNatImage type depth
+      let (body, changedB) ← replaceToNatImage body (depth + 1)
+      return (mkLambda name info type body, changedT || changedB)
+  | .forallE name type body info =>
+      let (type, changedT) ← replaceToNatImage type depth
+      let (body, changedB) ← replaceToNatImage body (depth + 1)
+      return (mkForall name info type body, changedT || changedB)
+  | .letE name type value body nondep =>
+      let (type, changedT) ← replaceToNatImage type depth
+      let (value, changedV) ← replaceToNatImage value depth
+      let (body, changedB) ← replaceToNatImage body (depth + 1)
+      return (.letE name type value body nondep, changedT || changedV || changedB)
+  | .mdata metadata body =>
+      let (body, changed) ← replaceToNatImage body depth
+      return (.mdata metadata body, changed)
+  | .proj name index body =>
+      let (body, changed) ← replaceToNatImage body depth
+      return (.proj name index body, changed)
+  | _ => none
+
+/-- Normalize a surjective binder image before arithmetic normalization loses
+    the conversion's syntactic boundary. Only propositions, never function
+    types or runtime lambdas, may change their quantified domain this way. -/
+def forallToNatImage? (e : Expr) : TranslateEnvT (Option Expr) := do
+  let .forallE name type body info := e | return none
+  unless type.isConstOf ``Int do return none
+  let some (body, true) := replaceToNatImage body 0 | return none
+  unless ← isPropEnv e do return none
+  return some (← hashcons (mkForall name info (mkConst ``Nat) body))
+
 /-- `mkImpliesExpr a b` return expression `a → b` without applying any normalization. -/
 def mkImpliesExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do
   mkForallExpr (← Term.mkFreshBinderName) BinderInfo.default a b
@@ -130,6 +175,9 @@ def optimizeForall (n : Expr) (t : Expr) (b : Expr) (s : Option CtxScope) (isPro
   if let some r ← impliesToTrue? t b then return r
   if let some r ← hypReduction? s n t b isProp then return r
   if (← (isSortOrInhabited t) <&&> (pure isProp) <&&> (pure !containsFVar b n)) then return b
+  if let some r ← forallToNatImage? imp then
+    setRestart
+    return r
   return imp
 
 end Blaster.Optimize
