@@ -7,5 +7,6 @@ import Tests.Proof.Library
 import Tests.Proof.Lists
 import Tests.Proof.Normalization
 import Tests.Proof.Recursion
+import Tests.Proof.Replay
 import Tests.Proof.Summaries
 import Tests.Proof.Support
