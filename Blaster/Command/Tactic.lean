@@ -106,6 +106,7 @@ def substProofStackFVars (steps : Array Blaster.Optimize.ProofStep)
     steps.map fun
       | .rewrite proof symm  => .rewrite (proof.replaceFVars from_ to_) symm
       | .exact proof => .exact (proof.replaceFVars from_ to_)
+      | s@(.unfold _) => s
 
 /-- Map optimized body fvars to input fvars when binder counts differ.
     Uses binder names to find the correct correspondence, since the
@@ -139,7 +140,7 @@ where
   | .proj _ _ s :: es => go (s :: es)
   | _ :: es => go es
 
-/-- Notation abbreviations the optimizer unfolds without a proof step.
+/-- Notation abbreviations the optimizer unfolds, `Ne` without an unfold step.
     Unfolded in hypotheses so that rewrite steps can match underneath them. -/
 private def isSilentAbbrev (n : Name) : Bool :=
   n == ``Ne || n == ``GE.ge || n == ``GT.gt
@@ -173,6 +174,14 @@ private def rewriteHypotheses (goal : MVarId) (steps : Array Blaster.Optimize.Pr
       changed := false
       -- index into the current `steps`, whose proofs are renamed after each replacement
       for j in [:steps.size] do
+        -- as on the target, so that a hypothesis and the target unfold alike
+        if let some (.unfold n) := steps[j]? then
+          let ty' ← deltaExpand ty (· == n)
+          if ty' != ty then
+            -- definitional, so the hypothesis keeps its fvar
+            g ← g.replaceLocalDeclDefEq h ty'
+            ty := ty'
+            changed := true
         if let some (.rewrite heq symm) := steps[j]? then
           -- a step built from this hypothesis or a later one cannot have normalized it
           if heq.hasAnyFVar (hs.extract i hs.size).contains then continue
@@ -186,6 +195,7 @@ private def rewriteHypotheses (goal : MVarId) (steps : Array Blaster.Optimize.Pr
             steps := steps.map fun
               | .rewrite proof symm => .rewrite (s.apply proof) symm
               | .exact proof => .exact (s.apply proof)
+              | s@(.unfold _) => s
             hs := hs.map fun f => (s.get f).fvarId!
             g := res.mvarId
             h := res.fvarId
@@ -219,9 +229,11 @@ private def replaySteps (goal : MVarId) (steps : Array Blaster.Optimize.ProofSte
       match step with
       | .rewrite heq symm =>
         try
-          let r ← g.rewrite (← g.getType) heq symm
+          let t ← g.getType
+          let r ← g.rewrite t heq symm
           g ← g.replaceTargetEq (← betaAfterLambdaStep heq symm r.eNew) r.eqProof
-          changed := true
+          -- a rewrite between defeq spellings may leave the target as is and must not loop
+          if (← g.getType) != t then changed := true
           /- trace[Optimize.expr] "  applied rewrite → {← g.getType}" -/
         catch _ => pure ()
       | .exact proof =>
@@ -231,6 +243,12 @@ private def replaySteps (goal : MVarId) (steps : Array Blaster.Optimize.ProofSte
             /- trace[Optimize.expr] "  applied exact, goal closed" -/
             return g
         catch _ => pure ()
+      | .unfold n =>
+        let g' ← g.deltaTarget (· == n)
+        -- a no-op unfolding is not a change, or the loop would never end
+        if g' != g then
+          g := g'
+          changed := true
   /- trace[Optimize.expr] "final goal: {← g.getType}" -/
   -- the target may have been reduced to a hypothesis
   unless ← g.isAssigned do
@@ -268,7 +286,7 @@ def applyProofStack (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep)
         return #[.rewrite p symm]
       catch _ => return #[s]
     | s => return #[s]
-  -- `GE.ge` is left out since the `ge_eq_le` step matches it
+  -- `GE.ge` is left out since its unfold step replays it
   let isGoalAbbrev (n : Name) := n == ``Ne || n == ``GT.gt
   unless unfoldTarget &&
       ((← goal.getType).find? fun e => e.isConst && isGoalAbbrev e.constName!).isSome do

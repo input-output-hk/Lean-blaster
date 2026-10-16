@@ -38,15 +38,14 @@ partial def normLevel (l : Level) : TranslateEnvT Level := do
      - Nat.succ x ==> 1 + x    [proof: Nat.succ_eq_one_add]
      - Nat.pred x ==> x - 1    [proof: Nat.pred_eq_sub_one]
      - Nat.ble x y ==> Blaster.decide' (x ≤ y) (if isOptimizeRecCall)    [proof: Blaster.nat_ble_eq_decide']
-     - Nat.blt x y ==> Nat.ble (Nat.succ x) y (if isOptimizeRecCall)    [proof: Blaster.nat_blt_eq_ble_succ]
-     - x ≥ y ==> y ≤ x    [proof: Blaster.ge_eq_le]
      - Decidable.decide p ==> Blaster.decide' p    [proof: Blaster.decide'_equiv]
      - Int.sub x y ==> x + -y    [proof: Int.sub_eq_add_neg]
     `Int.le` pushes its point-free step in the `isToNormOpaqueFun` arm of `normConst`.
+    Other non-recursive definitions get an unfold step where they are unfolded (see `pushUnfoldProofStep`).
 -/
 @[always_inline, inline]
 def pushOpaqueFunProofStep (f : Expr) (ras : Array Expr) : TranslateEnvT Unit := do
-  let Expr.const n l := f | return ()
+  let Expr.const n _ := f | return ()
   match n with
   | ``Nat.succ =>
       if ras.size == 1 then
@@ -58,19 +57,11 @@ def pushOpaqueFunProofStep (f : Expr) (ras : Array Expr) : TranslateEnvT Unit :=
       if ras.size == 2 then
         if (← isOptimizeRecCall) then
           pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.nat_ble_eq_decide') ras[0]! ras[1]!))
-  | ``Nat.blt =>
-      -- the `Nat.ble`/`Nat.succ` steps then have a matching subterm on replay
-      if ras.size == 2 then
-        if (← isOptimizeRecCall) then
-          pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.nat_blt_eq_ble_succ) ras[0]! ras[1]!))
-  | ``GE.ge =>
-      -- unfolded by `getUnfoldFunDef?`, the `LE.le` step then has a matching subterm on replay
-      if ras.size == 4 then
-        pushProofStep (.rewrite (mkApp4 (mkConst ``Blaster.ge_eq_le l) ras[0]! ras[1]! ras[2]! ras[3]!))
   | ``Decidable.decide =>
       if ras.size == 2 then
         pushProofStep (.rewrite (mkConst ``Blaster.decide'_equiv))
   | ``Int.sub =>
+      -- not an unfold step since the goal shows `HSub.hSub`, whose instance hides `Int.sub`
       -- pushed bare since the operands may carry optimizer-local fvars under binders
       if ras.size == 2 then
         pushProofStep (.rewrite (mkConst ``Int.sub_eq_add_neg))
@@ -116,10 +107,10 @@ def pushOpaqueFunProofStep (f : Expr) (ras : Array Expr) : TranslateEnvT Unit :=
              - When `isRecursiveFun n` (i.e., a recursive function passed as argument):
                  - return `(← normOpaqueAndRecFun e #[] optimizer)`
              - When `(← getFunBody e).isSome ∧ ¬ isRecursiveFun n ∧ ¬ isNotFoldable e`:
-                 - return `optimizer (← getFunBody e)`
+                 - return `optimizer (← getFunBody e)`    [proof: unfold step, see `pushUnfoldProofStep`]
 
      - When `(← isInFunApp) ∧ ¬ isNotFoldable e ∧ ¬ hasImplicitArgs e ∧ (← getFunBody e).isSome`:
-          - return `← getFunBody e`
+          - return `← getFunBody e`    [proof: unfold step, see `pushUnfoldProofStep`]
 
      - Otherwise:
          - When `isResolvebleType e` :
@@ -240,6 +231,7 @@ def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeCo
         if (← hasImplicitArgs e) then return none
         if (← isNotFoldable e #[]) then return none
         if let some fbody ← getFunBody e then
+          pushUnfoldProofStep e
           stackContinuity stack (skipCache := true) fbody -- don't catch
         else return none
       else
@@ -249,6 +241,7 @@ def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeCo
         if (← isNotFoldable e #[]) then return none
         -- non recursive function case
         if let some fbody ← getFunBody e then
+          pushUnfoldProofStep e
           return (some $ Sum.inl $ .InitOptimizeExpr fbody :: stack)
         else return none
 

@@ -188,6 +188,7 @@ private def closeInductionSubgoal (sg : MVarId)
       | .rewrite proof _ =>
         g ← tryRewriteStep g proof
       | .exact _ => pure ()
+      | .unfold n => g ← g.deltaTarget (· == n)
     return g
   if ← g.isAssigned then return
   -- rf local steps (both directions)
@@ -206,6 +207,7 @@ private def closeInductionSubgoal (sg : MVarId)
           g := g'
         catch _ => pure ()
       | .exact _ => pure ()
+      | .unfold n => g ← g.deltaTarget (· == n)
     return g
   if ← g.isAssigned then return
   try g.refl; return catch _ => pure ()
