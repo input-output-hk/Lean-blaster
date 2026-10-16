@@ -11,9 +11,6 @@ open Lean Elab Command Term Meta Blaster.Options
 
 namespace Blaster.Optimize
 
-theorem nat_succ_eq_one_add (n : Nat) : Nat.succ n = 1 + n := by
-  rw [Nat.succ_eq_add_one, Nat.add_comm]
-
 -- TODO: update formalization with inference rule style notation.
 partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr := do
   match stack with
@@ -56,30 +53,8 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
                -- perform beta reduction and apply optimization
                optimizeExprAux (.InitOptimizeExpr (betaLambda f ras) :: i_stack)
              else
-               -- emit proof steps before cache is consulted
-               if f.isConstOf ``Nat.succ && ras.size == 1 then
-                 pushProofStep (.rewrite (mkApp (mkConst ``nat_succ_eq_one_add) ras[0]!))
-               else if f.isConstOf ``Nat.pred && ras.size == 1 then
-                 pushProofStep (.rewrite (mkApp (mkConst ``Nat.pred_eq_sub_one) ras[0]!))
-               -- `Nat.ble x y` is normalized to `Blaster.decide' (x ≤ y)` (only when
-               -- `normalizeFunCall` is set). Record the bridging step for reconstruction.
-               else if f.isConstOf ``Nat.ble && ras.size == 2 && (← isOptimizeRecCall) then
-                 pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.nat_ble_eq_decide') ras[0]! ras[1]!))
-               -- `Nat.blt x y` unfolds to `Nat.ble (Nat.succ x) y`. Record the unfolding so the
-               -- subsequent `Nat.ble`/`Nat.succ` steps have a matching subterm on replay.
-               else if f.isConstOf ``Nat.blt && ras.size == 2 && (← isOptimizeRecCall) then
-                 pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.nat_blt_eq_ble_succ) ras[0]! ras[1]!))
-               -- `GE.ge x y` unfolds to `LE.le y x` via `getUnfoldFunDef?`. Record the fold so the
-               -- subsequent `LE.le` step has a matching subterm on replay.
-               else if f.isConstOf ``GE.ge && ras.size == 4 then
-                 pushProofStep (.rewrite (mkApp4 (mkConst ``Blaster.ge_eq_le f.constLevels!) ras[0]! ras[1]! ras[2]! ras[3]!))
-               else if f.isConstOf ``Decidable.decide && ras.size == 2 then
-                 -- no operands: on replay they may be already rewritten or bound by an inner binder
-                 pushProofStep (.rewrite (mkConst ``Blaster.decide_eq_decide'))
-               -- `Int.sub` is unfolded to `m + -n` by `normConst`, which the replay cannot see through.
-               -- Pushed bare: the operands may carry optimizer-local fvars under binders.
-               else if f.isConstOf ``Int.sub && ras.size == 2 then
-                 pushProofStep (.rewrite (mkConst ``Int.sub_eq_add_neg))
+               -- emit proof steps before `f` is optimized, whose normalization is cached
+               pushOpaqueFunProofStep f ras
                -- set inFunApp flag before optimizing `f`
                setInFunApp true
                let i_stack' := .AppWaitForConst ras :: i_stack

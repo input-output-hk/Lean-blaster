@@ -173,20 +173,20 @@ def mulAlias := mulNat
 -- ∀ (xs : List Bool), List.foldr and true xs = List.all xs id ===>
 -- ∀ (xs : List Bool), List.all xs (λ x => x) = List.foldr and true xs
 -- NOTE: May be resolved to true when specializing recursive function with fun arguments
-#testOptimize [ "ConstNonRecOpaqueFunArg_5" ]
+#testOptimize [ "ConstNonRecOpaqueFunArg_5", proof ]
   ∀ (xs : List Bool), List.foldr and true xs = List.all xs id ===>
   ∀ (xs : List Bool), List.all xs (λ x => x) = List.foldr and true xs
 
 -- ∀ (xs : List Bool), List.foldr or true xs = List.any xs id ===>
 -- ∀ (xs : List Bool), List.any xs (λ x => x) = List.foldr or true xs
 -- NOTE: May be resolved to true when specializing recursive function with fun arguments
-#testOptimize [ "ConstNonRecOpaqueFunArg_6" ]
+#testOptimize [ "ConstNonRecOpaqueFunArg_6", proof ]
   ∀ (xs : List Bool), List.foldr or true xs = List.any xs id ===>
   ∀ (xs : List Bool), List.any xs (λ x => x) = List.foldr or true xs
 
 -- ∀ (xs : List Bool), List.any xs id = !(List.any (List.map not xs) id) ===>
 -- ∀ (xs : List Bool), (!(List.any (List.map not xs) (λ x => x))) = List.any xs (λ x => x)
-#testOptimize [ "ConstNonRecOpaqueFunArg_7" ]
+#testOptimize [ "ConstNonRecOpaqueFunArg_7", proof ]
   ∀ (xs : List Bool), List.any xs id = !(List.any (List.map not xs) id) ===>
   ∀ (xs : List Bool), (!(List.any (List.map not xs) (λ x => x))) = List.any xs (λ x => x)
 
@@ -394,7 +394,7 @@ def mapOptionDefault (x : Nat) (y : Option Nat) : Nat :=
 --                      (λ (_ : Unit) => x)
 --                      (λ (a : Nat) => a)
 --                   ) (List.map Option.some xs)
-#testOptimize [ "ConstClassCtorArg_3" ]
+#testOptimize [ "ConstClassCtorArg_3", proof ]
   ∀ (x : Nat) (xs : List Nat), List.map (mapOptionDefault x) (List.map Option.some xs) = xs ===>
   ∀ (x : Nat) (xs : List Nat), xs = List.map (λ (y : Option Nat) =>
                                                 mapOptionDefault.match_1

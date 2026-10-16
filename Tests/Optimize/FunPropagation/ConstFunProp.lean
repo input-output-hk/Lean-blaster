@@ -759,7 +759,7 @@ def colorToList (c : Color) (w x y z : α) : List α :=
 --                    (fun (_ : Unit) =>.red .transparent)
 --                    (fun (_ : Unit) => .blue .black)
 --                    (fun (_ : Nat) => .blue .transparent)) x
-#testOptimize [ "MatchOverFunUnchanged_1" ]
+#testOptimize [ "MatchOverFunUnchanged_1", proof ]
   ∀ (n : Option Nat) (x : Color), beqColor (toColorOne n) x ===>
   ∀ (n : Option Nat) (x : Color),
       true = beqColor (toColorOne.match_1 (fun (_ : Option Nat) => Color) n
@@ -776,7 +776,7 @@ def colorToList (c : Color) (w x y z : α) : List α :=
 --            (fun (_ : Unit) => .black)
 --            (fun (_ : α) => .blue .transparent) ) x
 -- NOTE: Test case to ensure that generic type are also properly handled
-#testOptimize [ "MatchOverFunUnchanged_2" ]
+#testOptimize [ "MatchOverFunUnchanged_2", proof ]
   ∀ (α : Type) (n : Option α) (x : Color), beqColor (toColorTwo n) x ===>
   ∀ (α : Type) (n : Option α) (x : Color),
     true = beqColor

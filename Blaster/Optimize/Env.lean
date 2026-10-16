@@ -93,6 +93,9 @@ inductive MatchEntry where
 inductive ProofStep where
   | rewrite (proof : Expr) (symm : Bool := false)
   | exact (proof : Expr)
+  /-- Unfolding of the non-recursive definition `n`, replayed by delta on every occurrence
+      in the target and the hypotheses. -/
+  | unfold (n : Name)
 deriving Repr
 
 /-- Result of optimizing a recursive function body, storing both the
