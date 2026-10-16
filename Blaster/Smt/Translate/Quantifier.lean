@@ -968,6 +968,38 @@ def translateInductiveType
      ctorDecls := ctorDecls.push ctorDecl
    return ctorDecls
 
+/-- A closed, unindexed datatype built solely from native SMT domains needs no
+    recursive membership constraint. Inspect the entire constructor graph before
+    returning true: a cycle may also reach a constrained field such as Nat.
+    Proof fields, dependent/indexed types, functions and polymorphic domains
+    retain the existing encoding. The size bound is a conservative fallback. -/
+private def hasIntrinsicNativeDomain (root : Expr) : TranslateEnvT Bool :=
+  withLocalContext do
+    let mut pending := #[root]
+    let mut seen : Std.HashSet Expr := {}
+    while !pending.isEmpty do
+      let type ← Lean.Meta.whnf pending.back!
+      pending := pending.pop
+      if type.hasFVar || type.hasMVar || type.hasLooseBVars then return false
+      if seen.contains type then continue
+      seen := seen.insert type
+      if seen.size > 512 then return false
+      if type.isConstOf ``Bool || type.isConstOf ``Int || type.isConstOf ``String then continue
+      if type.isConstOf ``Nat || (← Lean.Meta.isProp type) then return false
+      let .const name levels := type.getAppFn | return false
+      let .inductInfo info ← Lean.getConstInfo name | return false
+      if info.numIndices != 0 || info.ctors.isEmpty then return false
+      let arguments := type.getAppArgs
+      unless arguments.size == info.numParams do return false
+      for constructor in info.ctors do
+        let signature ← Lean.Meta.inferType (mkAppN (mkConst constructor levels) arguments)
+        let fields ← Lean.Meta.forallTelescope signature fun fields _ =>
+          fields.mapM fun field => Lean.Meta.inferType field
+        for field in fields do
+          if field.hasFVar || field.hasMVar || (← Lean.Meta.isProp field) then return false
+          pending := pending.push field
+    return true
+
 /-- Given an instantiated inductive data type `t x₁ ... xₙ`, generate it's corresponding
     predicate qualifier predicate and propositional assertions when instance is not already
     in `indTypeInstCache`. In particular,
@@ -1018,7 +1050,7 @@ where
        | throwEnvError "declareIndInst: name expression expected but got {reprStr t}"
      let ConstantInfo.inductInfo indVal ← getConstEnvInfo indName
        | throwEnvError "declareIndInst: inductive info expected for {indName}"
-     if (← isEnumeration indVal) then
+     if (← hasIntrinsicNativeDomain (← mkAppNExpr t args)) || (← isEnumeration indVal) then
        -- only declare smt predicate
        -- NOTE: Inductive data types with no constructors are considered as not inhabited
        discard $ generateIndInstDecl t args (some !indVal.ctors.isEmpty) typeTranslator

@@ -145,13 +145,14 @@ def leqZeroIntInHyps (e : Expr) : TranslateEnvT Bool := do
 
 @[always_inline, inline]
 def updateHypMap (e : Expr) (fv : Expr) (nextCtxId : CtxId) : TranslateEnvT Unit := do
- match (← get).optEnv.hypothesisContext.hypothesisMap.get? e with
+ RewriteDependencies.addFact (← getRewriteDependencies) nextCtxId e
+ match (← get).optEnv.hypothesisContext.hypothesisMap.find? e with
  | none =>
-    let refEntry ← IO.mkRef [(nextCtxId, fv)]
+    let refEntry ← IO.mkRef (ContextEntries.singleton nextCtxId fv)
     modifyOptEnv
       fun ⟨o1, o2, o3, o4, o5, o6, o7, ⟨hypothesisMap, equalityMap⟩, o9, o10, o11, o12, o13, o14⟩ =>
           ⟨o1, o2, o3, o4, o5, o6, o7, ⟨hypothesisMap.insert e refEntry, equalityMap⟩, o9, o10, o11, o12, o13, o14⟩
- | some refEntry => refEntry.modify (λ l => (nextCtxId, fv) :: l)
+ | some refEntry => refEntry.modify (·.insert nextCtxId fv)
 
 /-- Given proposition `e` referenced by hypothesis `h`, perform the following:
      - When `e := ¬ false = e`

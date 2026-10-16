@@ -281,7 +281,7 @@ def optimizeApp
        let (f', args') := getAppFnWithArgs e
        if let some r ← funPropagation? f' args' (← isAppArg) then return Sum.inl (r :: stack)
        -- try to reduce app if all params are constructors
-       if let some be ← reduceApp? f' args' then return Sum.inl (.InitOptimizeExpr be.betaReduced be.prevMVarIdDecls :: stack)
+       if let some be ← reduceApp? f' args' then return ← recursiveRewriteContinuity f' args' be stack
        normRecFun f' args' e stack
     else stackContinuity stack e -- proceed with continuity
 

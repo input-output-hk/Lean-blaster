@@ -444,15 +444,35 @@ def getImplicitParameters (f : Expr) (args : Array Expr) : TranslateEnvT Implici
              - return `mkLambdaFVars genFVars f`
           - Otherwise:
              - return `mkLambdaFVars genFVars (specializeLambda (← etaExpand f) params)`
+
+    Results are memoized across calls (in `RewriteDependencies.instApps`):
+    `f` is maximally shared (for opaque recursive functions it is the whole
+    unfolded body, pointer-stable within the translation) and the effective
+    arguments are shared as well, so a pointer-wise key is exact. Without the
+    memo, every recursive application re-closes the generic binders over the
+    full body.
 -/
 def getInstApp (f : Expr) (params : ImplicitParameters) : TranslateEnvT Expr := do
  let instanceArgs := Array.filter (λ p => p.isInstance) params
  if instanceArgs.isEmpty then return f
  else
+  let ref ← getRewriteDependencies
+  let key : PtrExpr × Array (PtrExpr × Bool × Bool) :=
+    (⟨f⟩, params.map fun p => (⟨p.effectiveArg⟩, p.isInstance, p.isGeneric))
+  if let some cached := (← ref.get).instApps.find? key then return cached
   let genFVars ← retrieveGenericFVars params
-  if instanceArgs.size == params.size
-  then mkLambdaFVarsExpr genFVars f -- only implicit arguments provided
-  else mkLambdaFVarsExpr genFVars (← specializeLambda (← etaExpand f) params)
+  let result ←
+    if instanceArgs.size == params.size
+    then mkLambdaFVarsExpr genFVars f -- only implicit arguments provided
+    else mkLambdaFVarsExpr genFVars (← specializeLambda (← etaExpand f) params)
+  -- The instance application keys pointer-based caches of the translation
+  -- (`funInstCache`, `indTypeInstCache`). Calls of one instantiation at
+  -- different explicit arguments rebuild it; hash-consing makes the equal
+  -- keys one object, so an uninterpreted or recursive function gets one
+  -- solver symbol per instantiation rather than one per call site.
+  let result ← hashcons result
+  ref.modify fun st => {st with instApps := st.instApps.insert key result}
+  return result
 
 
 end Blaster.Optimize
