@@ -264,6 +264,21 @@ protected theorem int_add_eq_false_of_lt (a b : Int) (h1 : a < 0) (h2:  b < 0) :
   simp only [iff_false]
   omega
 
+/-! ## Wrappers lemmas for `Int div theorems using normalized hypothesis -/
+protected theorem int_ediv_self (n : Int) (h : ¬ (0 = n)): n / n = 1 := by
+  have h1 : n ≠ 0 := Ne.symm h
+  exact Int.ediv_self h1
+
+protected theorem int_mul_ediv_cancel (a b : Int) (h : ¬ (0 = b)) :
+    a * b / b = a := by
+  have h1 : b ≠ 0 := Ne.symm h
+  exact Int.mul_ediv_cancel a h1
+
+protected theorem int_mul_ediv_cancel_left (a b : Int) (h : ¬ (0 = a)) :
+    a * b / a = b := by
+  have h1 : a ≠ 0 := Ne.symm h
+  exact Int.mul_ediv_cancel_left b h1
+
 
 /-! ## Lemmas to validate simplification equality rules over `Int.add`:
   - `x + y = x + z ==> y = z`
