@@ -8,6 +8,3 @@ import Blaster.Smt
 import Blaster.StateMachine
 
 import Blaster.Proof.Tactic
-
-import Blaster.Proof.Export.Term
-import Blaster.Proof.Export.Print

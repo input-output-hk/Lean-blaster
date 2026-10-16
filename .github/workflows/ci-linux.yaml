@@ -98,9 +98,19 @@ jobs:
       - name: Execute and Validate Tests
         run: LEAN_NUM_THREADS=5 ./scripts/check_lean_project_compilation.sh Tests
 
+      - name: Export and recheck proofs
+        run: ./scripts/test_proof_exports.sh
+
       - name: Upload Tests log
         if: failure()
         uses: actions/upload-artifact@v6
         with:
           name: tests-build
           path: ./build.log
+
+      - name: Upload proof export logs
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: proof-exports
+          path: .lake/proof-exports.*/**/*.log
