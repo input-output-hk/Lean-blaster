@@ -31,6 +31,51 @@ partial def normLevel (l : Level) : TranslateEnvT Level := do
  | .imax l1 l2 => return .imax (← normLevel l1) (← normLevel l2)
  | _ => return l -- case for .param and .zero
 
+/-- Push the proof step of the application `f ras` when its head is unfolded or normalized.
+    Called before `f` is optimized, since the normalization of `f` is cached.
+    Repeated identical applications hit the application cache and get a single step,
+    which rewrites all their occurrences at once.
+     - Nat.succ x ==> 1 + x    [proof: Nat.succ_eq_one_add]
+     - Nat.pred x ==> x - 1    [proof: Nat.pred_eq_sub_one]
+     - Nat.ble x y ==> Blaster.decide' (x ≤ y) (if isOptimizeRecCall)    [proof: Blaster.nat_ble_eq_decide']
+     - Nat.blt x y ==> Nat.ble (Nat.succ x) y (if isOptimizeRecCall)    [proof: Blaster.nat_blt_eq_ble_succ]
+     - x ≥ y ==> y ≤ x    [proof: Blaster.ge_eq_le]
+     - Decidable.decide p ==> Blaster.decide' p    [proof: Blaster.decide'_equiv]
+     - Int.sub x y ==> x + -y    [proof: Int.sub_eq_add_neg]
+    `Int.le` pushes its point-free step in the `isToNormOpaqueFun` arm of `normConst`.
+-/
+@[always_inline, inline]
+def pushOpaqueFunProofStep (f : Expr) (ras : Array Expr) : TranslateEnvT Unit := do
+  let Expr.const n l := f | return ()
+  match n with
+  | ``Nat.succ =>
+      if ras.size == 1 then
+        pushProofStep (.rewrite (mkApp (mkConst ``Nat.succ_eq_one_add) ras[0]!))
+  | ``Nat.pred =>
+      if ras.size == 1 then
+        pushProofStep (.rewrite (mkApp (mkConst ``Nat.pred_eq_sub_one) ras[0]!))
+  | ``Nat.ble =>
+      if ras.size == 2 then
+        if (← isOptimizeRecCall) then
+          pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.nat_ble_eq_decide') ras[0]! ras[1]!))
+  | ``Nat.blt =>
+      -- the `Nat.ble`/`Nat.succ` steps then have a matching subterm on replay
+      if ras.size == 2 then
+        if (← isOptimizeRecCall) then
+          pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.nat_blt_eq_ble_succ) ras[0]! ras[1]!))
+  | ``GE.ge =>
+      -- unfolded by `getUnfoldFunDef?`, the `LE.le` step then has a matching subterm on replay
+      if ras.size == 4 then
+        pushProofStep (.rewrite (mkApp4 (mkConst ``Blaster.ge_eq_le l) ras[0]! ras[1]! ras[2]! ras[3]!))
+  | ``Decidable.decide =>
+      if ras.size == 2 then
+        pushProofStep (.rewrite (mkConst ``Blaster.decide'_equiv))
+  | ``Int.sub =>
+      -- pushed bare since the operands may carry optimizer-local fvars under binders
+      if ras.size == 2 then
+        pushProofStep (.rewrite (mkConst ``Int.sub_eq_add_neg))
+  | _ => return ()
+
 /-- Given `e := Expr.const n l, apply the following normalization rule:
      - When `n := Nat.zero` return `Expr.lit (Literal.natVal 0)`
 
@@ -107,16 +152,18 @@ def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeCo
       return Expr.const n (← xs.mapM normLevel)
 
     /-- Apply the following normalization rules on opaque functions:
-         - Nat.pred ==> λ n => n - 1
-         - Nat.succ ==> λ n => 1 + n
+         - Nat.pred ==> λ n => n - 1    [proof: Nat.pred_eq_sub_one, see `pushOpaqueFunProofStep`]
+         - Nat.succ ==> λ n => 1 + n    [proof: Nat.succ_eq_one_add, see `pushOpaqueFunProofStep`]
          - Nat.le ==> ≤
          - Nat.ble ==> λ x y => Blaster.decide' (x ≤ y) (if isOptimizeRecCall)
+             [proof: Blaster.nat_ble_eq_decide', see `pushOpaqueFunProofStep`]
          - Nat.beq ==> λ x y => x == y (if isOptimizeRecCall)
          - Int.negSucc ==> λ n => Int.neg (Int.ofNat (1 + n)) (if ¬ isInFunApp)
          - Int.le ==> ≤    [proof: Blaster.int_le_eq_le]
          - ite ==> λ (α : Sort u) (p : Prop) [h : Decidable p] (t e : α) => Blaster.dite' α p (fun _ => t) (fun _ => e)
          - dite ==> λ (α : Sort u) (p : Prop) [h : Decidable p] (t : p → α) (e : ¬ p → α) => Blaster.dite' α p t e
          - Decidable.decide ==> λ (p : Prop) [h : Decidable p] => Blaster.decide' p
+             [proof: Blaster.decide'_equiv, see `pushOpaqueFunProofStep`]
     -/
     @[always_inline, inline]
     isToNormOpaqueFun (n : Name) : TranslateEnvT (Option OptimizeContinuity) := do
