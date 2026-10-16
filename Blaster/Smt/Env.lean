@@ -109,7 +109,9 @@ def createBlasterProcess : IO (IO.Process.Child ⟨.piped, .piped, .piped⟩) :=
     stdout := .piped
     stderr := .piped
     cmd    := z3Cmd
-    args   := #["-in", "-smt2"]
+    -- a solver exhausting its memory answers `unknown` instead of taking the
+    -- memory of the machine
+    args   := #["-in", "-smt2", "-memory:3000"]
   }
 
 /-- Update translation cache with `a := b`.
