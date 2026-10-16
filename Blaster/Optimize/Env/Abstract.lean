@@ -19,6 +19,7 @@ private unsafe def abstractFVarsAux (e : Expr) (endIdx : USize) (xs : Array Expr
              go a false offset' stk cache
         | .WaitAppArg e f offset' =>
              let r' ← e.updateAppExpr! f r
+             inheritCtorChoiceInfo e r'
              go r' true offset stk.pop (cache.insert (mkInstKey e offset') r')
         | .WaitForallType e b offset' =>
              let stk := stk.uset topIdx (.WaitForallBody e r offset') lcProof
@@ -31,6 +32,7 @@ private unsafe def abstractFVarsAux (e : Expr) (endIdx : USize) (xs : Array Expr
              go b false (offset' + 1) stk cache
         | .WaitLambdaBody e t offset' =>
              let r' ← e.updateLambdaExpr! t r
+             inheritCtorChoiceInfo e r'
              go r' true offset stk.pop (cache.insert (mkInstKey e offset') r')
         | .WaitLetType e v b offset' =>
              let stk := stk.uset topIdx (.WaitLetValue e r b offset') lcProof

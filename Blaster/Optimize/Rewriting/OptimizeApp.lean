@@ -55,15 +55,43 @@ def reduceApp? (f : Expr) (args : Array Expr) : TranslateEnvT (Option BetaLambda
    isFunRecReduction? (f : Expr) (args : Array Expr) : TranslateEnvT (Option BetaLambdaResult) := do
      let Expr.const n _ := f | return none
      if !(← isRecursiveFun n) then return none
-     if !(← allExplicitParamsAreCtor f args) then return none
+     unless (← allExplicitParamsAreCtor f args) do return none
      let some fbody ← getFunBody f
        | throwEnvError "reduceApp?: recursive function body expected for {reprStr f}"
      betaLambdaEnv fbody args
+
+/-- Normalize a direct call to a registered, lawful boolean equality to
+    `decide' (a = b)`. Check the actual instance field, not just the
+    function's signature. Closed instances keep this rewrite independent of
+    branch-local assumptions. Polymorphic/dependent implementations are left
+    to the existing class-application path. -/
+def normalizeNamedBEq? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
+  unless args.size == 2 && f.isConst && (← isOptimizeRecCall) do return none
+  if (← isUninterpreted f.constName!) then return none
+  let type ← inferTypeEnv f
+  let .forallE _ domain (.forallE _ domain' result _) _ := type | return none
+  unless domain == domain' && result.isConstOf ``Bool && !domain.hasFVar &&
+      !domain.hasMVar && !domain.hasLooseBVars do return none
+  -- Native scalar comparisons already have dedicated normalization rules.
+  if isCompatibleRelationalType domain then return none
+  let .sort (.succ level) ← inferTypeEnv domain | return none
+  let constraint ← mkAppExpr (← mkExpr (mkConst ``BEq [level])) domain
+  let some beqInstance ← trySynthConstraintInstance? constraint | return none
+  if beqInstance.hasFVar || beqInstance.hasMVar then return none
+  let value ← withLocalContext <| Lean.Meta.whnf beqInstance
+  unless value.isAppOfArity ``BEq.mk 2 && value.appArg! == f do return none
+  let lawful ← mkApp2Expr (← mkExpr (mkConst ``LawfulBEq [level])) domain beqInstance
+  let some proof ← trySynthConstraintInstance? lawful | return none
+  if proof.hasFVar || proof.hasMVar then return none
+  setRestart
+  let equality ← mkApp3Expr (← mkExpr (mkConst ``Eq [.succ level])) domain args[0]! args[1]!
+  return some (← mkAppExpr (← mkBlasterDecideConst) equality)
 
 /-- Perform constant propagation and apply simplification and normalization rules
     on application expressions.
 -/
 def optimizeAppAux (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
+  if let some e ← normalizeNamedBEq? f args then return e
   let args ← reorderOperands f args
   if let some e ← optimizePropNot? f args then return e
   if let some e ← optimizePropBinary? f args then return e
@@ -134,7 +162,8 @@ def finalizeRecApp
        if exprEq uf f then false
        else
          match f with
-         | Expr.const n _ => opaqueFuns.contains n || optRecFuns.contains n
+         | Expr.const n _ =>
+             opaqueFuns.contains n || optRecFuns.contains n
          | _ => false
      if isOpaqueRecFun f then
        return Sum.inl (.InitOptimizeExpr e :: xs)

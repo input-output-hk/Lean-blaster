@@ -16,6 +16,37 @@ def isListCtor? (e : Expr) : Option (List Expr) :=
   | _ => none
  visit e []
 
+/-- Preserve the exact alternatives of a small, statically known lookup table.
+    Leaving the lookup opaque loses its range: a downstream match then explores
+    every constructor of the element type, not just the entries in the table.
+    Bound both inspection and expansion; long lists and symbolic spines remain
+    ordinary list operations. Elements themselves may be symbolic. -/
+private def smallStaticListGet? (sortType : Expr) (u : List Level)
+    (values index : Expr) : TranslateEnvT (Option Expr) := do
+  let mut cursor := values
+  let mut entries : Array Expr := #[]
+  for _ in [:9] do
+    match cursor with
+    | .app (.const ``List.nil _) _ =>
+        let resultType ← mkAppExpr (← mkExpr (mkConst ``Option u)) sortType
+        let choice ← mkExpr (mkConst ``Blaster.dite' [Level.succ (u.headD levelZero)])
+        let mut result ← mkOptionExpr sortType u none
+        for offset in [:entries.size] do
+          let i := entries.size - 1 - offset
+          let condition ← mkNatEqExpr (← mkNatLitExpr i) index
+          let selected ← mkOptionExpr sortType u (some entries[i]!)
+          let yes ← mkLambdaExpr `_h .default condition selected
+          let no ← mkLambdaExpr `_h .default
+            (← mkAppExpr (← mkPropNotOp) condition) result
+          result ← mkApp4Expr choice resultType condition yes no
+        setRestart
+        return some result
+    | .app (.app (.app (.const ``List.cons _) _) head) tail =>
+        entries := entries.push head
+        cursor := tail
+    | _ => return none
+  return none
+
 /-- Apply the following simplification/normalization rules on `List.get?Internal` :
      - List.get?Internal [e₁, e₂, ..., eₙ] N ===> [e₁, e₂, ..., eₙ][N]?
 
@@ -31,6 +62,7 @@ def optimizeListGet (f : Expr) (u : List Level) (args : Array Expr) : TranslateE
  let op2 := args[1]!
  let op3 := args[2]!
  if let some r ← cstListGet op1 op2 op3 then return r
+ if let some r ← smallStaticListGet? op1 u op2 op3 then return r
  mkApp3Expr f op1 op2 op3
 
  where
