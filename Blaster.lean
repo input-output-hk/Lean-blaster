@@ -9,5 +9,5 @@ import Blaster.StateMachine
 
 import Blaster.Proof.Tactic
 
-import Blaster.Proof.Explore.Proof
-import Blaster.Proof.Explore.Success
+import Blaster.Proof.Export.Term
+import Blaster.Proof.Export.Print
