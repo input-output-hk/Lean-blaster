@@ -52,8 +52,11 @@ structure IndTypeDeclaration where
  /-- unique @Instance_<UUID> sort generated for type universe. -/
  instInstanceSort : Option SortExpr
 
- /-- unique @apply function generated for each HOF/quantified function or lambda term. -/
- applyInstName : Option SmtSymbol
+ /-- unique default codomain value generated for each HOF/quantified function or lambda term. -/
+ defaultName : Option SmtSymbol
+
+ /-- unique canonic wrapper generated for quantified function / lambda term. -/
+ canonName : Option SmtSymbol
 
 deriving Inhabited
 
@@ -640,11 +643,6 @@ instance : Inhabited OptimizeEnv where
 
 
 structure TranslateOptions where
-  /-- Cache keeping track of ArrowTN already declared in Smt instance,
-      with `N` corresponding to the function arity.
-  -/
-  arrowTypeArities : HashMap Nat SmtSymbol
-
   /-- Set keeping track of all variables in matched terms, including named patterns.
       This set is provided only when translating matched terms and match rhs.
   -/
@@ -655,10 +653,12 @@ structure TranslateOptions where
   -/
   axiomMap : HashMap Name SmtSymbol
 
+  /-- Flag set to `true` only when translating recursive function definitions -/
+  inRecFun : Bool := false
+
 instance : Inhabited TranslateOptions where
-  default := {arrowTypeArities := .emptyWithCapacity,
-              inPatternMatching := .emptyWithCapacity,
-              axiomMap := .emptyWithCapacity
+  default := { inPatternMatching := .emptyWithCapacity,
+               axiomMap := .emptyWithCapacity
              }
 
 abbrev TopLevelVars := Array (List (SmtSymbol × Lean.Name))
