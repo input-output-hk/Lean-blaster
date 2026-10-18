@@ -351,8 +351,9 @@ def reduceMatch? (args : Array Expr) (mInfo : MatchInfo) (resolveArgs := false) 
      let rec visit (idx : Nat) (stop : Nat) (args : Array Expr) : TranslateEnvT (Array Expr) := do
        if idx ≥ stop then return args
        else
-         match (← ContextMap.findRaw equalityMap active args[idx]!) with
-         | some r => visit (idx + 1) stop (args.set! idx r)
+         match (← findContextValue? equalityMap active args[idx]!) with
+         | some r =>
+              visit (idx + 1) stop (args.set! idx r)
          | none => visit (idx + 1) stop args
      if resolveArgs then visit mInfo.getFirstDiscrPos mInfo.getFirstAltPos args
      else return args
@@ -565,24 +566,20 @@ def matchReduction?
 
 @[always_inline, inline]
 private def addNotEqPatternInContext (nextCtxId : CtxId) (discr : Expr) (pattern : Expr) : TranslateEnvT Unit := do
-  match (← get).optEnv.matchInContext.get? discr with
+  RewriteDependencies.addFact (← getRewriteDependencies) nextCtxId discr
+  match (← get).optEnv.matchInContext.find? discr with
   | none =>
        let pset ← IO.mkRef (HashSet.emptyWithCapacity.insert pattern : HashSet PtrExpr)
-       let refEntry ← IO.mkRef [(nextCtxId, pset)]
+       let refEntry ← IO.mkRef (ContextEntries.singleton nextCtxId pset)
        modifyOptEnv
          fun ⟨o1, o2, o3, o4, o5, o6, o7, o8, matchInContext, o10, o11, o12, o13, o14⟩ =>
           ⟨o1, o2, o3, o4, o5, o6, o7, o8, matchInContext.insert discr refEntry, o10, o11, o12, o13, o14⟩
   | some refEntry =>
-       let rec findAndUpdate (xs : List (ContextEntry (IO.Ref NotEqPatterns))) : TranslateEnvT Unit := do
-         match xs with
-         | [] =>
-              let pset ← IO.mkRef (HashSet.emptyWithCapacity.insert pattern : HashSet PtrExpr)
-              refEntry.modify (λ l => (nextCtxId, pset) :: l)
-         | (ctxId, refSet) :: xs' =>
-              if nextCtxId == ctxId then
-                refSet.modify (λ pset => pset.insert pattern)
-              else findAndUpdate xs'
-       findAndUpdate (← refEntry.get)
+       match (← refEntry.get).find? nextCtxId with
+       | none =>
+           let pset ← IO.mkRef (HashSet.emptyWithCapacity.insert pattern : HashSet PtrExpr)
+           refEntry.modify (·.insert nextCtxId pset)
+       | some refSet => refSet.modify (·.insert pattern)
 
 @[always_inline, inline]
 private def propagateNotEqPatternContext (discr : Expr) (nextCtxId : CtxId) : TranslateEnvT Unit := do
@@ -593,7 +590,25 @@ private def propagateNotEqPatternContext (discr : Expr) (nextCtxId : CtxId) : Tr
      match ← ContextMap.findRaw' matchInContext nextCtxId discr with
      | none => return ()
      | some pset =>
-        let refEntry ← IO.mkRef [(nextCtxId, pset)]
+        let pset ← do
+          let valueHead := v.getAppFn
+          if !(← isCtorExpr valueHead) then pure pset
+          else
+            let patterns ← pset.get
+            let mut relevant : HashSet PtrExpr := HashSet.emptyWithCapacity
+            for i in [:patterns.ctrl.size] do
+              if patterns.ctrl.get! i &&& 0x80 == 0 then continue
+              let pattern := patterns.data[i]!
+              let head := pattern.expr.getForallBody.getAppFn
+              -- `cons head tail ≠ nil` is true by constructor disjointness;
+              -- it adds no information about either field. Propagating it as
+              -- a field fact invalidates every independent recursive tail.
+              if (← isCtorExpr head) && head.constName! != valueHead.constName! then continue
+              relevant := relevant.insert pattern
+            IO.mkRef relevant
+        if (← pset.get).size == 0 then return ()
+        RewriteDependencies.addFact (← getRewriteDependencies) nextCtxId v
+        let refEntry ← IO.mkRef (ContextEntries.singleton nextCtxId pset)
         modifyOptEnv
           fun ⟨o1, o2, o3, o4, o5, o6, o7, o8, matchInContext, o10, o11, o12, o13, o14⟩ =>
               ⟨o1, o2, o3, o4, o5, o6, o7, o8, matchInContext.insert v refEntry, o10, o11, o12, o13, o14⟩
@@ -935,13 +950,13 @@ where
         let pattern ← removeNamedPatternExpr lhs[idxLhs]!
         if !pattern.isFVar then
           let patternExpr ← mkForallFVarsExpr xs pattern (usedOnly := true)
-          if let some pm ← ContextMap.findRaw h active args[j]! then
+          if let some pm ← findContextValue? h active args[j]! then
             if (← pm.get).contains patternExpr then return true
       return false
 
   @[always_inline, inline]
   lastPatternReduction? (mInfo : MatchInfo) (args : Array Expr) : TranslateEnvT (Option MatchElimResult) := do
-     let ⟨_, _, _, _, _, _, _, _, matchInContext, _, ⟨_, _, _, _, _, _, active, _⟩, _, _, _⟩ := (← get).optEnv
+     let ⟨_, _, _, _, _, _, _, _, matchInContext, _, ⟨_, _, _, _, curCtx, _, active, _⟩, _, _, _⟩ := (← get).optEnv
      let h := (← get).optEnv.matchInContext
      let alts ← getMatchAlts args mInfo
      for i in [:alts.size - 1] do

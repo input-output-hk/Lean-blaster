@@ -16,6 +16,51 @@ def isListCtor? (e : Expr) : Option (List Expr) :=
   | _ => none
  visit e []
 
+/-- `isListCtor?`, memoized per node (in `RewriteDependencies.listSpines`):
+    `some l` if the node is a concrete `List.cons`/`List.nil` chain, `none`
+    otherwise. Spine tails are shared between entries, so re-viewing a spine
+    that grew by one constructor costs O(1) instead of a full re-walk — the
+    full walk made every step of an accumulator-growing evaluation O(n),
+    quadratic overall. -/
+def isListCtorCached? (e : Expr) : TranslateEnvT (Option (List Expr)) := do
+  let ref ← getRewriteDependencies
+  let cache := (← ref.get).listSpines
+  let mut path : Array Expr := #[]
+  let mut heads : Array Expr := #[]
+  let mut cur := e
+  let mut base : Option (List Expr) := none
+  let mut deciding := true
+  while deciding do
+    match cache.find? ⟨cur⟩ with
+    | some v =>
+        base := v
+        deciding := false
+    | none =>
+        match cur with
+        | Expr.app (Expr.const ``List.nil _) _ =>
+            base := some []
+            deciding := false
+        | Expr.app (Expr.app (Expr.app (Expr.const ``List.cons _) _) a) as =>
+            path := path.push cur
+            heads := heads.push a
+            cur := as
+        | _ =>
+            base := none
+            deciding := false
+  let mut fresh : Array (PtrExpr × Option (List Expr)) := #[]
+  let mut acc := base
+  let mut i := path.size
+  while i > 0 do
+    i := i - 1
+    acc := match acc with
+           | some l => some (heads[i]! :: l)
+           | none => none
+    fresh := fresh.push (⟨path[i]!⟩, acc)
+  if fresh.size > 0 then
+    ref.modify fun st =>
+      {st with listSpines := fresh.foldl (init := st.listSpines) fun m kv => m.insert kv.1 kv.2}
+  return acc
+
 /-- Preserve the exact alternatives of a small, statically known lookup table.
     Leaving the lookup opaque loses its range: a downstream match then explores
     every constructor of the element type, not just the entries in the table.
@@ -49,6 +94,8 @@ private def smallStaticListGet? (sortType : Expr) (u : List Level)
 
 /-- Apply the following simplification/normalization rules on `List.get?Internal` :
      - List.get?Internal [e₁, e₂, ..., eₙ] N ===> [e₁, e₂, ..., eₙ][N]?
+     - With a symbolic index, a concrete list of at most eight entries becomes
+       a guarded selection of those entries, with `none` out of bounds.
 
    Assume that f = Expr.const ``List.get?Internal.
    Optimizations are not applied when args.size ≠ 3 (e.g., List.get as HOF)
@@ -71,9 +118,9 @@ def optimizeListGet (f : Expr) (u : List Level) (args : Array Expr) : TranslateE
         `return some `[e₁, e₂, ..., eₙ][N]?` when `op1 := [e₁, e₂, ..., eₙ] ∧ op2 := N`
    -/
    @[always_inline, inline]
-   cstListGet (sort_type : Expr) (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :=
+   cstListGet (sort_type : Expr) (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
      if let some n := isNatValue? op2 then
-       if let some l := isListCtor? op1 then
+       if let some l := (← isListCtorCached? op1) then
          mkOptionExpr sort_type u l[n]?
        else return none
      else return none
@@ -100,9 +147,9 @@ where
         `return some ``List.append` [e₁, e₂, ..., eₙ] [x₁, x₂, ..., xₙ]` when `op1 := [e₁, e₂, ..., eₙ] ∧ op2 := [x₁, x₂, ..., xₙ]`
    -/
    @[always_inline, inline]
-   cstListAppend (sort_type : Expr) (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :=
-     if let some l1 := isListCtor? op1 then
-       if let some l2 := isListCtor? op2 then
+   cstListAppend (sort_type : Expr) (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
+     if let some l1 := (← isListCtorCached? op1) then
+       if let some l2 := (← isListCtorCached? op2) then
          listToExpr (List.append l1 l2) u sort_type
        else return none
      else return none
@@ -129,9 +176,9 @@ where
         `return some ``List.reverseAux` [e₁, e₂, ..., eₙ] [x₁, x₂, ..., xₙ]` when `op1 := [e₁, e₂, ..., eₙ] ∧ op2 := [x₁, x₂, ..., xₙ]`
    -/
    @[always_inline, inline]
-   cstListReverse (sort_type : Expr) (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :=
-     if let some l1 := isListCtor? op1 then
-       if let some l2 := isListCtor? op2 then
+   cstListReverse (sort_type : Expr) (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
+     if let some l1 := (← isListCtorCached? op1) then
+       if let some l2 := (← isListCtorCached? op2) then
          listToExpr (List.reverseAux l1 l2) u sort_type
        else return none
      else return none
@@ -157,8 +204,8 @@ where
         `return some ``List.length` [e₁, e₂, ..., eₙ]` when `xs := [e₁, e₂, ..., eₙ]`
    -/
    @[always_inline, inline]
-   cstListLength (xs : Expr) : TranslateEnvT (Option Expr) :=
-     if let some l1 := isListCtor? xs
+   cstListLength (xs : Expr) : TranslateEnvT (Option Expr) := do
+     if let some l1 := (← isListCtorCached? xs)
      then mkNatLitExpr (List.length l1)
      else return none
 
@@ -184,9 +231,9 @@ where
         `return some ``List.take` N [e₁, e₂, ..., eₙ]` when `op1 := N ∧ op2 := [e₁, e₂, ..., eₙ]`
    -/
    @[always_inline, inline]
-   cstListTake (sort_type : Expr) (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :=
+   cstListTake (sort_type : Expr) (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
      if let some n := isNatValue? op1 then
-       if let some l := isListCtor? op2 then
+       if let some l := (← isListCtorCached? op2) then
          listToExpr (List.take n l) u sort_type
        else return none
      else return none
@@ -213,9 +260,9 @@ where
         `return some ``List.drop` N [e₁, e₂, ..., eₙ]` when `op1 := N ∧ op2 := [e₁, e₂, ..., eₙ]`
    -/
    @[always_inline, inline]
-   cstListDrop (sort_type : Expr) (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :=
+   cstListDrop (sort_type : Expr) (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
      if let some n := isNatValue? op1 then
-       if let some l := isListCtor? op2 then
+       if let some l := (← isListCtorCached? op2) then
          listToExpr (List.drop n l) u sort_type
        else return none
      else return none
@@ -243,7 +290,7 @@ def optimizeListReplicate (f : Expr) (u : List Level) (args : Array Expr) : Tran
         `return some `List.replicate N e` when `op1 := N`
    -/
    @[always_inline, inline]
-   cstListReplicate (sort_type : Expr) (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :=
+   cstListReplicate (sort_type : Expr) (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
      if let some n := isNatValue? op1
      then listToExpr (List.replicate n op2) u sort_type
      else return none

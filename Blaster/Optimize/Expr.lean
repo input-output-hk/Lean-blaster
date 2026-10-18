@@ -820,21 +820,21 @@ def removeOutParam : Expr → Expr
  | e => e
 
 
-/-- Returns all axioms only defined in current module. -/
+/-- Returns all axioms only defined in current module. Only the module's own
+    constants are visited (`map₂`): there are few, while the imported ones are
+    many and never count. -/
 def findLocalAxioms : MetaM (List Expr) := do
  let env ← getEnv
- (Environment.constants env).toList.filterMapM
-    (λ c : Name × ConstantInfo => do
-      if !Environment.isImportedConst env c.1
-      then
-        match c.2 with
-        | .axiomInfo info =>
-            if wasOriginallyTheorem env c.1 then return none
-            if ← isProp (info.type) then
-              return some info.type
-            else return none
-        | _ => return none
-      else return none
+ (Environment.constants env).map₂.foldlM (init := [])
+    (λ acc n c => do
+      if Environment.isImportedConst env n then return acc
+      match c with
+      | .axiomInfo info =>
+          if wasOriginallyTheorem env n then return acc
+          if ← isProp (info.type) then
+            return info.type :: acc
+          else return acc
+      | _ => return acc
     )
 
 end Blaster.Optimize

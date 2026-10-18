@@ -78,18 +78,22 @@ def isGlobalContext (env : TranslateEnv) : Bool := env.optEnv.options.curCtx == 
          - Add entry `a := b` to `localRewriteCache`
 -/
 @[always_inline, inline]
-def updateOptimizeEnvCache (a : Expr) (b : Expr) (isGlobal : Bool) : TranslateEnvT Unit := do
+def updateOptimizeEnvCache (a : Expr) (b : Expr) (isGlobal : Bool)
+    (dependencies : Array CtxId := #[]) : TranslateEnvT Unit := do
   -- trace[Optimize.cacheExpr] "cacheExpr {← ppExpr a} ===> {← ppExpr b}"
   if exprEq a b then
     if a.hasFVar then
       if isGlobal
       then updateGlobalRewriteCache a b (insertIfNew := true)
-      else updateLocalRewriteCache a b (insertIfNew := true)
+      else updateLocalRewriteCache a b (insertIfNew := true) (dependencies := dependencies)
     else updateGlobalRewriteCache a b (insertIfNew := true)
   else
     if isGlobal
     then updateGlobalRewriteCache a b
-    else updateLocalRewriteCache a b
+    else updateLocalRewriteCache a b (dependencies := dependencies)
+  if !isGlobal && !a.hasMVar && !b.hasMVar then
+    RewriteDependencies.publish (← getRewriteDependencies) a {value := b, dependencies}
+      (← get).optEnv.options.curCtx
 
 /-- Perform the following:
       - When isGlobal

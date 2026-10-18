@@ -144,15 +144,19 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
               -- only optimizing match return type and discriminators first
               setIsAppArg true
               optimizeExprAux (.MatchChoiceOptimizeDiscrs f args pInfo (mInfo.getFirstDiscrPos - 1) mInfo prevInApp :: xs)
-         -- Preserve lawful equality before exposing recursive implementation helpers.
+         -- Preserve a lawful equality before a constructor equation can
+         -- expose implementation-specific recursive helpers.
          else if let some comparison ← normalizeNamedBEq? f args then
            resetRestart
            setIsAppArg prevInApp
            optimizeExprAux (.InitOptimizeExpr comparison :: xs)
-         -- Select a constructor equation before evaluating discarded arguments.
+         -- Select a known recursive equation before normalizing arguments
+         -- that the equation may discard.
          else if let some reduced ← reduceStructuralApp? f args then
            setIsAppArg prevInApp
-           optimizeExprAux (.InitOptimizeExpr reduced.betaReduced reduced.prevMVarIdDecls :: xs)
+           match ← recursiveRewriteContinuity f args reduced xs with
+           | .inr result => return result
+           | .inl stack' => optimizeExprAux stack'
          -- try to apply funPropagation to avoid optimizing ite/match multiple times
          else if let some r ← funPropagation? f args (reorderArgs := true) (resolveArgs := true) prevInApp then
            optimizeExprAux (r :: xs)
