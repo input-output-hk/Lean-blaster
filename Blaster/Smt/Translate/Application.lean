@@ -973,6 +973,11 @@ def translateApp
   Expr.withApp e fun f args => do
     match f with
     | Expr.const n _ =>
+         if n == ``Fin.mk then
+           if args.size != 3 then
+             throwEnvError "translateApp: fully applied Fin.mk expected"
+           discard $ translateType termTranslator (← inferTypeEnv e)
+           return ← termTranslator args[1]!
          if let some r ← translateFullyApplied? f n args then return r
          if let some r ← translateEq? f n args then return r
          if let some r ← translateRelational? f n args then return r
@@ -1277,6 +1282,10 @@ def translateLambda
 def translateProj
   (n : Name) (idx : Nat) (p : Expr)
   (termTranslator : Expr → TranslateEnvT SmtTerm) : TranslateEnvT SmtTerm := do
+ if n == ``Fin then
+   if idx != 0 then throwEnvError "translateProj: unexpected Fin field {idx}"
+   discard $ translateType termTranslator (← inferTypeEnv p)
+   return ← termTranslator p
  let selectorSym := mkCtorSelectorSymbol (← getProjectionCtor n) idx
  return (mkSimpleSmtAppN selectorSym #[← termTranslator p])
 
