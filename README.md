@@ -21,6 +21,7 @@ Blaster provides an SMT backend for Z3 proofs. Blaster works by first aggressive
   - [Call to the solver](#call-to-the-solver)
     - [Command](#command)
     - [Tactic](#tactic)
+- [Automatic induction and library facts](PROOF_SUPPORT.md)
 - [Features](#features)
 - [Examples](#examples)
   - [Fixed Issues](#fixed-issues)
@@ -137,7 +138,10 @@ theorem length_set {as : List α} {i : Nat} {a : α} : (as.set i a).length = as.
 
 > [!NOTE]
 > The tool does not perform proof reconstruction right now.
-> - When the solver declares a goal as `Valid`, the tactic currently concludes the proof with an `admit`.
+> - When the solver declares a goal as `Valid`, the tactic uses the
+>   `Blaster.Tactic.blasterProven` axiom.
+> - [Automatic induction](PROOF_SUPPORT.md) reconstructs the induction structure
+>   and replays verification conditions; its SMT leaves retain that axiom.
 > - When the solver declares a goal as `Falsified`, the tactic fails and a counterexample is provided as witness.
 > No counterexample is provided when a goal is reduced to `False` at the optimization phase.
 > - When the solver returns `Undetermined` (i.e., the back-end solver was not able to prove/refute the goal),

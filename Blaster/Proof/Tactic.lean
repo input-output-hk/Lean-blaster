@@ -4,7 +4,7 @@ import Blaster.Proof.Verification.Solver
 import Blaster.Proof.Verification.Local
 import Blaster.Proof.Induction
 import Blaster.Proof.Explore.Frontend
-import Blaster.Proof.Export.Basic
+import Blaster.Proof.Export
 
 /-!
 # Summaries and automatic induction for `blaster`
@@ -194,8 +194,9 @@ def elabBlaster : Tactic := fun stx =>
     if induction then
       let summaries ← summaryTerms.mapM elabSummary
       let originalGoal ← getMainGoal
+      let start ← getEnv
       let canExplore := !sOpts.onlyOptimize && !sOpts.onlySmtLib && sOpts.solveResult == .ExpectedValid
-      let _ ← try
+      let replays ← try
         -- the explorer's provers: observer facts, links between observers, a
         -- quick first attempt at each verification condition, and the full one
         let explored ← if canExplore then
@@ -216,6 +217,11 @@ def elabBlaster : Tactic := fun stx =>
       if proof.getUsedConstants.contains ``Blaster.Tactic.blasterProven &&
           (← getOptions).getBool `warn.sorry true then
         logWarningAt stx "declaration uses 'blasterProven' (SMT-verified, no proof term)"
+      -- (a failed export is reported; the proof stands)
+      try Export.exportProof originalGoal proof start replays stx
+      catch ex =>
+        if ex.isInterrupt then throw ex
+        logException ex
       return
     -- summaries: add their instances at the calls of the goal, then solve as usual
     let (_, introduced) ← (← getMainGoal).intros
