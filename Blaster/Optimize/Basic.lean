@@ -98,7 +98,7 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
         -- clean-up rewrite cache
         freeRewriteCacheRange startCtxId (← get).optEnv.options.nextCtxId
         -- trace[Optimize.recFun] "optimized rec body for {reprStr subsInst} got {reprStr optDef}"
-        let fn' ← storeRecFunDef subsInst params optDef
+        let fn' ← storeRecFunDef subsInst params optDef instApp
         -- trace[Optimize.recFun] "rec function instance {reprStr subsInst} is equivalent to {reprStr fn'}"
         match (← finalizeRecApp subsInst fn' uargs params xs) with
         | Sum.inr e => return e
@@ -144,6 +144,10 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
               -- only optimizing match return type and discriminators first
               setIsAppArg true
               optimizeExprAux (.MatchChoiceOptimizeDiscrs f args pInfo (mInfo.getFirstDiscrPos - 1) mInfo prevInApp :: xs)
+         -- Select a constructor equation before evaluating discarded arguments.
+         else if let some reduced ← reduceStructuralApp? f args then
+           setIsAppArg prevInApp
+           optimizeExprAux (.InitOptimizeExpr reduced.betaReduced reduced.prevMVarIdDecls :: xs)
          -- try to apply funPropagation to avoid optimizing ite/match multiple times
          else if let some r ← funPropagation? f args (reorderArgs := true) (resolveArgs := true) prevInApp then
            optimizeExprAux (r :: xs)
