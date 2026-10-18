@@ -1194,6 +1194,14 @@ def withLocalContext (f : TranslateEnvT α) : TranslateEnvT α := do
   modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, isStructureCache⟩ =>
                      ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, isStructureCache.insert n b⟩
 
+/-- Constructor-headed choice branches stay constructor-headed under capture-
+    avoiding substitution. Preserve that structural metadata when rebuilding
+    an application or lambda, so consumers can still push through the choice. -/
+@[noinline] def inheritCtorChoiceInfo (source target : Expr) : TranslateEnvT Unit := do
+  unless exprEq source target do
+    if (← get).optEnv.memCache.isCtorMatchPropCache.contains source then
+      updateCtorMatchPropCache target
+
 @[always_inline, inline]
 def updateContextReuseCache (e : Expr) (idx : USize) (s : CtxReuseScope) : TranslateEnvT Unit := do
   let key := mkInstKey e idx
