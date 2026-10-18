@@ -995,10 +995,16 @@ def translateNatType (n : Expr) : TranslateEnvT SortExpr := do
 def translateFinType (fin : Expr) (args : Array Expr) : TranslateEnvT SortExpr := do
   unless args.size == 1 do
     throwEnvError "translateFinType: one bound expected for Fin"
-  let some bound := isNatValue? (← whnf args[0]!)
-    | throwEnvError "translateFinType: non-constant Fin bound is not supported: {reprStr args[0]!}"
   let instApp ← getIndInst fin args
   if let some decl := (← get).smtEnv.indTypeInstCache.get? instApp then return decl.instSort
+  let boundExpr ← optimizeExpr args[0]!
+  let bound? := match boundExpr with
+    -- The optimizer can leave an elaborated Nat numeral as the projection
+    -- `OfNat.ofNat (instOfNatNat n)` instead of a literal.
+    | Expr.proj ``OfNat 0 (Expr.app (Expr.const ``instOfNatNat _) n) => isNatValue? n
+    | e => isNatValue? e
+  let some bound := bound?
+    | throwEnvError "translateFinType: non-constant Fin bound is not supported: {reprStr args[0]!}"
   discard $ translateNatType (← mkNatType)
   let sym := mkReservedSymbol s!"Fin{(← get).smtEnv.indTypeInstCache.size}"
   let decl ← updateIndInstCache instApp sym natSort (isReservedSymbol := true)
