@@ -466,7 +466,7 @@ def relApp (rel : Nat) (args : Array Expr) : EncM Houdini.App := do
     let a' ← Smt.inMeta (unfoldObs a)
     modify fun (l : Smt.Local) => {l with splits := Smt.splitBudget - 16, allowSplit := true}
     let x ← match ← enc a' 24 with
-      | some x => pure x
+      | some x => pure (toString x)
       | none => pure "0"
     modify fun (l : Smt.Local) => {l with allowSplit := false}
     xs := xs.push x
@@ -962,7 +962,7 @@ def clause (prob : Problem) (c : Nat) (p : Path) (hyps goal : Expr) (σ : Subst)
     seen := seen.insert x
     conj := conj.push x
   let l ← get
-  let facts := (conj ++ l.side).foldl (init := (#[], ({} : Std.HashSet String)))
+  let facts := (conj ++ l.side.map toString).foldl (init := (#[], ({} : Std.HashSet String)))
     (fun (acc, seen) x => if seen.contains x then (acc, seen) else (acc.push x, seen.insert x)) |>.1
   return {vars := l.vars, premises, facts, head}
 
@@ -974,7 +974,7 @@ def entryClause (prob : Problem) (hyps : Expr) (rootCut : Nat) (σ : Subst) : En
   let head ← relApp rootCut args
   let h ← encProp hyps
   let l ← get
-  return {vars := l.vars, premises := #[], facts := #[h] ++ l.side, head := .app head}
+  return {vars := l.vars, premises := #[], facts := #[h] ++ l.side.map toString, head := .app head}
 
 /-! ## Solver interaction and model translation -/
 
@@ -1806,7 +1806,7 @@ private def search (prob : Problem) (hyps goal : Expr) (isRoot : FVarId → Bool
     let mut clauses := #[← entryClause prob hyps root plan.graph.rootSubst]
     for ((i, p), (σ, instances)) in cutPaths.zip prepared do
       clauses := clauses.push (← clause prob i p hyps goal σ instances)
-    return {preamble := "\n".intercalate (← getThe Smt.Global).commands.toList, relations, clauses}
+    return {preamble := "\n".intercalate ((← getThe Smt.Global).commands.toList.map toString), relations, clauses}
   let ((query, _), _) ← (go.run {}).run {}
   let report ← progressEnabled
   let log := fun s => if report then IO.eprintln s!"[chc] {s}" else pure ()

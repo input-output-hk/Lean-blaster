@@ -1,4 +1,5 @@
 import Blaster.Proof.Explore.Core
+import Blaster.Smt.Syntax
 
 /-!
 # Symbolic exploration: SMT-LIB encoding for invariant inference
@@ -21,6 +22,15 @@ conditions.
 -/
 namespace Blaster.Proof.Explore.Smt
 open Lean Meta
+abbrev Term := Blaster.Smt.SmtTerm
+abbrev Command := Blaster.Smt.SmtCommand
+
+private def symbol (s : String) : Blaster.Smt.SmtSymbol := .ReservedSymbol s
+private def ident (s : String) : Term := .SmtIdent (.SimpleIdent (symbol s))
+private def app (op : String) (args : Array Term) : Term :=
+  .AppTerm (.SimpleIdent (symbol op)) args
+private def sort (s : String) : Blaster.Smt.SortExpr := .SymbolSort (symbol s)
+private def render (t : Term) : String := toString t
 
 /-- An inductive type declared as an SMT datatype. -/
 structure DtInfo where
@@ -35,7 +45,7 @@ structure Global where
   /-- The datatypes among them. -/
   dts : Std.HashMap Expr DtInfo := {}
   /-- The declarations of the query, in order. -/
-  commands : Array String := #[]
+  commands : Array Command := #[]
   /-- For fresh SMT names. -/
   counter : Nat := 0
   /-- Projection-reduced forms of encoded expressions (memo). -/
@@ -50,16 +60,16 @@ structure Local where
   /-- The clause's variables and their sorts. -/
   vars : Array (String × String) := #[]
   /-- The variable of each abstracted term. -/
-  names : Std.HashMap Expr String := {}
+  names : Std.HashMap Expr Term := {}
   /-- Side conditions of the variables (`x ≥ 0` for a natural number). -/
-  side : Array String := #[]
+  side : Array Term := #[]
   /-- Constructor case splits used by this clause (bounded). -/
   splits : Nat := 0
   /-- Whether stuck matches may be case split here (facts: yes; observations: opt-in). -/
   allowSplit : Bool := false
   /-- Encodings of applications in this clause: one per term, whichever context
   encodes it first. -/
-  memo : Std.HashMap Expr String := {}
+  memo : Std.HashMap Expr Term := {}
 
 abbrev EncM := StateRefT Local (StateRefT Global ExM)
 
@@ -143,7 +153,7 @@ partial def uninterpreted (ty : Expr) : EncM (Option String) := do
   let s ← fresh "U"
   modifyThe Global fun g => {g with
     sorts := g.sorts.insert ty s
-    commands := g.commands.push s!"(declare-sort {s} 0)"}
+    commands := g.commands.push (.declareSort (symbol s) 0)}
   return some s
 
 /-- Field types of every constructor of an inductive instance. -/
@@ -208,23 +218,23 @@ partial def declareGroup (ty : Expr) : EncM (Option String) := do
   for t in group do
     let some fs ← fieldTypes t | return ← uninterpreted ty
     let mut ctors := #[]
-    let mut ctorDecls := #[]
+    let mut ctorDecls : Array Blaster.Smt.SmtConstructorDecl := #[]
     for (c, tys) in fs do
       let cs ← fresh "c"
       let mut sels := #[]
-      let mut selDecls := #[]
+      let mut selDecls : Array Blaster.Smt.SmtSelector := #[]
       for ft in tys do
         let some fs ← sortOf ft | return ← uninterpreted ty
         let sel ← fresh "s"
         sels := sels.push sel
-        selDecls := selDecls.push s!"({sel} {fs})"
+        selDecls := selDecls.push (symbol sel, sort fs)
       ctors := ctors.push (c, cs, sels)
-      ctorDecls := ctorDecls.push s!"({cs}{String.join (selDecls.toList.map (" " ++ ·))})"
+      ctorDecls := ctorDecls.push (symbol cs, some selDecls)
     modifyThe Global fun g => {g with dts := g.dts.insert t {ctors}}
-    decls := decls.push s!"({String.intercalate " " ctorDecls.toList})"
-  let header := String.intercalate " " (names.toList.map fun s => s!"({s} 0)")
+    decls := decls.push ({params := none, ctors := ctorDecls} : Blaster.Smt.SmtDatatypeDecl)
+  let header := names.map fun s => ({name := symbol s, arity := 0} : Blaster.Smt.SmtSortDecl)
   modifyThe Global fun g => {g with
-    commands := g.commands.push s!"(declare-datatypes ({header}) ({String.intercalate " " decls.toList}))"}
+    commands := g.commands.push (.declareMutualDataTypes header decls)}
   return (← getThe Global).sorts[ty]?
 
 end
@@ -232,13 +242,14 @@ end
 /-! ## Terms -/
 
 /-- The clause variable for `e` (of type `ty`), declared on first use. -/
-def declareVar (e : Expr) (ty : Expr) : EncM (Option String) := do
+def declareVar (e : Expr) (ty : Expr) : EncM (Option Term) := do
   if let some n := (← get).names[e]? then return some n
   let some s ← sortOf ty | return none
   let n ← fresh "x"
-  modify fun l => {l with vars := l.vars.push (n, s), names := l.names.insert e n}
-  if isNat (← inMeta (whnf ty)) then modify fun l => {l with side := l.side.push s!"(>= {n} 0)"}
-  return some n
+  let t := ident n
+  modify fun l => {l with vars := l.vars.push (n, s), names := l.names.insert e t}
+  if isNat (← inMeta (whnf ty)) then modify fun l => {l with side := l.side.push (app ">=" #[t, .NumTerm 0])}
+  return some t
 
 /-- A canonical key for an abstracted application: arguments that compute
 to constructors (`mkCons x r` ↦ `x :: r`) are normalized, so the same value
@@ -252,7 +263,7 @@ def canonKey (e : Expr) : MetaM Expr := do
   return mkAppN e.getAppFn args
 
 /-- `e` abstracted: one variable per term (up to `canonKey`). -/
-def abstract (e : Expr) : EncM (Option String) := do
+def abstract (e : Expr) : EncM (Option Term) := do
   let k ← inMeta (canonKey e)
   if let some n := (← get).names[k]? then return some n
   let r ← declareVar k (← inMeta (inferType e))
@@ -282,7 +293,8 @@ partial def intLit? (e : Expr) : Option Int :=
 def splitBudget : Nat := 40
 
 /-- An integer as an SMT-LIB term. -/
-def smtInt (i : Int) : String := if i < 0 then s!"(- {-i})" else s!"{i}"
+def smtInt (i : Int) : Term :=
+  if i < 0 then app "-" #[.NumTerm i.natAbs] else .NumTerm i.natAbs
 
 /-- Is the constant `f` (two arguments of one type `T`, result `Bool`)
 definitionally the `==` of a lawful `BEq T` instance (a derived structural
@@ -309,7 +321,7 @@ def isLawfulDecider (fn : Name) (f : Expr) : EncM Bool := do
 constructors and selectors the encoding knows, applied to the encodings of
 their arguments; other subterms abstracted (`abstract`); non-recursive
 definitions unfolded up to `depth` times. `none` when `e` has no SMT sort. -/
-partial def enc (e : Expr) (depth : Nat := 12) : EncM (Option String) := do
+partial def enc (e : Expr) (depth : Nat := 12) : EncM (Option Term) := do
   let e ← inMeta (instantiateMVars e)
   -- one term, one abstraction: `f {… field := x …}.field` and `f x` must share
   -- a variable (a hypothesis unfolded to `f x` and an observation of the same
@@ -325,8 +337,8 @@ partial def enc (e : Expr) (depth : Nat := 12) : EncM (Option String) := do
   if let some i := intLit? e then
     let ty ← inMeta (do whnf (← inferType e))
     if isInt ty || isNat ty then return some (smtInt i)
-  if e.isConstOf ``Bool.true || e.isConstOf ``True then return some "true"
-  if e.isConstOf ``Bool.false || e.isConstOf ``False then return some "false"
+  if e.isConstOf ``Bool.true || e.isConstOf ``True then return some (.BoolTerm true)
+  if e.isConstOf ``Bool.false || e.isConstOf ``False then return some (.BoolTerm false)
   match e with
   | .fvar _ => return ← declareVar e (← inMeta (inferType e))
   | .mdata _ b => return ← enc b depth
@@ -335,14 +347,14 @@ partial def enc (e : Expr) (depth : Nat := 12) : EncM (Option String) := do
     if !(← inMeta (isProp d)) then return ← abstractProp e
     let some a ← enc d depth | return ← abstractProp e
     let some c ← enc b depth | return ← abstractProp e
-    return some s!"(=> {a} {c})"
+    return some (app "=>" #[a, c])
   | .proj _ i s =>
     let sty ← inMeta (do whnf (← inferType s))
     discard <| sortOf sty
     if let some dt := (← getThe Global).dts[sty]? then
       if dt.ctors.size == 1 then
         if let some sel := dt.ctors[0]!.2.2[i]? then
-          if let some x ← enc s depth then return some s!"({sel} {x})"
+          if let some x ← enc s depth then return some (app sel #[x])
     return ← abstract e
   | .app .. => do
     if let some r := (← get).memo[e]? then return some r
@@ -353,14 +365,15 @@ partial def enc (e : Expr) (depth : Nat := 12) : EncM (Option String) := do
     -- one variable per literal, distinct from the clause's other literals
     let some srt ← sortOf (← inMeta (inferType e)) | return ← abstract e
     let n ← fresh "s"
-    let mut distinct : Array String := #[]
+    let t := ident n
+    let mut distinct : Array Term := #[]
     for (k, v) in (← get).names.toList do
-      if k.isStringLit then distinct := distinct.push ("(not (= " ++ n ++ " " ++ v ++ "))")
-    let names' := (← get).names.insert e n
+      if k.isStringLit then distinct := distinct.push (app "not" #[app "=" #[t, v]])
+    let names' := (← get).names.insert e t
     let vars' := (← get).vars.push (n, srt)
     let side' := (← get).side ++ distinct
     modify fun l => {l with vars := vars', names := names', side := side'}
-    return some n
+    return some t
   | .const fn _ =>
     -- a defined constant (`adaSymbol := ""`): its value, as the program's literal
     if depth > 0 then
@@ -371,18 +384,19 @@ partial def enc (e : Expr) (depth : Nat := 12) : EncM (Option String) := do
     abstract e
   | _ => abstract e
 where
-  abstractProp (e : Expr) : EncM (Option String) := do
+  abstractProp (e : Expr) : EncM (Option Term) := do
     if ← inMeta (isProp e) then
       if let some n := (← get).names[e]? then return some n
       let n ← fresh "b"
-      modify fun l => {l with vars := l.vars.push (n, "Bool"), names := l.names.insert e n}
-      return some n
+      let t := ident n
+      modify fun l => {l with vars := l.vars.push (n, "Bool"), names := l.names.insert e t}
+      return some t
     abstract e
-  bin (op : String) (a b : Expr) (depth : Nat) : EncM (Option String) := do
+  bin (op : String) (a b : Expr) (depth : Nat) : EncM (Option Term) := do
     let some x ← enc a depth | return none
     let some y ← enc b depth | return none
-    return some s!"({op} {x} {y})"
-  encApp (e : Expr) (depth : Nat) : EncM (Option String) := do
+    return some (app op #[x, y])
+  encApp (e : Expr) (depth : Nat) : EncM (Option Term) := do
     let args := e.getAppArgs
     let .const fn _ := e.getAppFn | return ← abstractProp e
     let ty ← inMeta (do whnf (← inferType e))
@@ -396,21 +410,22 @@ where
         let some y ← enc args[5]! depth | return ← abstract e
         if op == "*" && (intLit? args[4]!).isNone && (intLit? args[5]!).isNone then
           return ← abstract e
-        if op == "-" && isNat ty then return some s!"(ite (>= {x} {y}) (- {x} {y}) 0)"
-        return some s!"({op} {x} {y})"
+        if op == "-" && isNat ty then
+          return some (app "ite" #[app ">=" #[x, y], app "-" #[x, y], .NumTerm 0])
+        return some (app op #[x, y])
     if (fn == ``Int.add || fn == ``Nat.add) && args.size == 2 then return ← bin "+" args[0]! args[1]! depth
     if fn == ``Int.sub && args.size == 2 then return ← bin "-" args[0]! args[1]! depth
     if fn == ``Nat.succ && args.size == 1 then
       let some x ← enc args[0]! depth | return ← abstract e
-      return some s!"(+ {x} 1)"
+      return some (app "+" #[x, .NumTerm 1])
     if (fn == ``Neg.neg && args.size == 3) || (fn == ``Int.neg && args.size == 1) then
       if ← numeric ty then
         let some x ← enc args.back! depth | return ← abstract e
-        return some s!"(- {x})"
+        return some (app "-" #[x])
     if fn == ``Int.ofNat || fn == ``Nat.cast || fn == ``NatCast.natCast || fn == ``Int.toNat then
       if fn == ``Int.toNat then
         let some x ← enc args.back! depth | return ← abstract e
-        return some s!"(ite (>= {x} 0) {x} 0)"
+        return some (app "ite" #[app ">=" #[x, .NumTerm 0], x, .NumTerm 0])
       let some x ← enc args.back! depth | return ← abstract e
       return some x
     -- comparisons
@@ -424,11 +439,12 @@ where
           else if fn == ``GT.gt then ("lt", args[3]!, args[2]!)
           else if fn == ``LE.le then ("le", args[2]!, args[3]!) else ("le", args[3]!, args[2]!)
         let name := s!"{rel}_{srt}"
-        unless (← getThe Global).commands.contains s!"(declare-fun {name} ({srt} {srt}) Bool)" do
-          modifyThe Global fun g => {g with commands := g.commands.push s!"(declare-fun {name} ({srt} {srt}) Bool)"}
+        let decl := Blaster.Smt.SmtCommand.declareFun (symbol name) #[sort srt, sort srt] (sort "Bool")
+        unless (← getThe Global).commands.any (toString · == toString decl) do
+          modifyThe Global fun g => {g with commands := g.commands.push decl}
         if let some x ← enc a depth then
           if let some y ← enc b depth then
-            return some s!"({name} {x} {y})"
+            return some (app name #[x, y])
       return ← abstractProp e
     if (fn == ``Int.lt || fn == ``Nat.lt) && args.size == 2 then return ← bin "<" args[0]! args[1]! depth
     if (fn == ``Int.le || fn == ``Nat.le) && args.size == 2 then return ← bin "<=" args[0]! args[1]! depth
@@ -439,7 +455,7 @@ where
       return ← abstractProp e
     if fn == ``Ne && args.size == 3 then
       if (← sortOf args[0]!).isSome then
-        if let some r ← bin "=" args[1]! args[2]! depth then return some s!"(not {r})"
+        if let some r ← bin "=" args[1]! args[2]! depth then return some (app "not" #[r])
       return ← abstractProp e
     if fn == ``BEq.beq && args.size == 4 then
       if (← sortOf args[0]!).isSome then
@@ -452,7 +468,7 @@ where
           if let some r ← bin "=" args[0]! args[1]! depth then return some r
     if fn == ``bne && args.size == 4 then
       if (← sortOf args[0]!).isSome then
-        if let some r ← bin "=" args[2]! args[3]! depth then return some s!"(not {r})"
+        if let some r ← bin "=" args[2]! args[3]! depth then return some (app "not" #[r])
       return ← abstract e
     -- Boolean and propositional connectives
     if fn == ``Decidable.decide && args.size == 2 then return ← enc args[0]! depth
@@ -460,7 +476,7 @@ where
     if (fn == ``or || fn == ``Or) && args.size == 2 then return ← bin "or" args[0]! args[1]! depth
     if (fn == ``not || fn == ``Not) && args.size == 1 then
       let some x ← enc args[0]! depth | return ← abstractProp e
-      return some s!"(not {x})"
+      return some (app "not" #[x])
     if fn == ``Iff && args.size == 2 then return ← bin "=" args[0]! args[1]! depth
     if fn == ``xor && args.size == 2 then return ← bin "xor" args[0]! args[1]! depth
     -- casts along an equation (`h ▸ x`): the transported value
@@ -482,13 +498,13 @@ where
       let fB ← inMeta (whnfCore (fBr.beta #[hF]))
       let some y ← enc tB depth | return ← abstractProp e
       let some z ← enc fB depth | return ← abstractProp e
-      return some s!"(ite {x} {y} {z})"
+      return some (app "ite" #[x, y, z])
     if (fn == ``ite && args.size == 5) || (fn == ``cond && args.size == 4) then
       let (c, a, b) := if fn == ``ite then (args[1]!, args[3]!, args[4]!) else (args[1]!, args[2]!, args[3]!)
       let some x ← enc c depth | return ← abstract e
       let some y ← enc a depth | return ← abstract e
       let some z ← enc b depth | return ← abstract e
-      return some s!"(ite {x} {y} {z})"
+      return some (app "ite" #[x, y, z])
     -- constructors and projections
     if let some (.ctorInfo ci) := (← getEnv).find? fn then
       discard <| sortOf ty
@@ -496,12 +512,12 @@ where
         if let some (_, cs, _) := dt.ctors.find? (·.1 == fn) then
           let fields := args.extract ci.numParams args.size
           if fields.size != ci.numFields then return ← abstract e
-          if fields.isEmpty then return some cs
+          if fields.isEmpty then return some (ident cs)
           let mut xs := #[]
           for f in fields do
             let some x ← enc f depth | return ← abstract e
             xs := xs.push x
-          return some s!"({cs} {String.intercalate " " xs.toList})"
+          return some (app cs xs)
       return ← abstract e
     if let some info := (← getEnv).getProjectionFnInfo? fn then
       if args.size == info.numParams + 1 then
@@ -511,7 +527,7 @@ where
         if let some dt := (← getThe Global).dts[sty]? then
           if dt.ctors.size == 1 then
             if let some sel := dt.ctors[0]!.2.2[info.i]? then
-              if let some x ← enc s depth then return some s!"({sel} {x})"
+              if let some x ← enc s depth then return some (app sel #[x])
     -- a recursor used as a case analysis (`casesOn` after reduction: the
     -- induction hypotheses unused), stuck on a value of an encoded datatype
     if let some (.recInfo info) := (← getEnv).find? fn then
@@ -530,7 +546,7 @@ where
   /-- A match stuck on a value of an encoded datatype: a case split on its
   constructor testers, each alternative reduced with the constructor's fields
   read through the SMT selectors. -/
-  encMatch (e : Expr) (depth : Nat) : EncM (Option String) := do
+  encMatch (e : Expr) (depth : Nat) : EncM (Option Term) := do
     let some m ← inMeta (matchMatcherApp? e (alsoCasesOn := true)) | return none
     unless m.discrs.size == 1 do return none
     let d := m.discrs[0]!
@@ -556,7 +572,7 @@ where
     return none
   /-- The match `m` on discriminant `d` (a step of its original one); a match on
   an `if` is the `if` of the matches on its branches. -/
-  encMatchOn (m : MatcherApp) (d : Expr) (depth : Nat) : EncM (Option String) := do
+  encMatchOn (m : MatcherApp) (d : Expr) (depth : Nat) : EncM (Option Term) := do
     if depth == 0 then return none
     let rebuild := fun (x : Expr) => ({ m with discrs := #[x] } : MatcherApp).toExpr
     if d.isAppOfArity ``ite 5 || d.isAppOfArity ``cond 4 then
@@ -566,11 +582,11 @@ where
       let some x ← enc c depth | return none
       let some y ← enc (← inMeta (whnfCore (rebuild a))) (depth - 1) | return none
       let some z ← enc (← inMeta (whnfCore (rebuild b))) (depth - 1) | return none
-      return some s!"(ite {x} {y} {z})"
+      return some (app "ite" #[x, y, z])
     enc (← inMeta (whnfCore (rebuild d))) (depth - 1)
   /-- Case split of `e` on the constructors of `x` (an encoded datatype), each
   alternative reduced with the constructor's fields read through the selectors. -/
-  splitOn (e x : Expr) (depth : Nat) : EncM (Option String) := do
+  splitOn (e x : Expr) (depth : Nat) : EncM (Option Term) := do
     if depth < 4 then return none
     if (← get).splits ≥ splitBudget then return none
     let xty ← inMeta (do whnf (← inferType x))
@@ -591,10 +607,11 @@ where
       for i in [0:cinfo.numFields] do
         let .forallE n fty b _ := ty | return none
         let some sel := sels[i]? | return none
-        let v ← fieldVar s!"({sel} {xx})" n fty
+        let selector := app sel #[xx]
+        let v ← fieldVar (render selector) n fty
         fields := fields.push v
         ty := b.instantiate1 v
-        modify fun l => {l with names := l.names.insert v s!"({sel} {xx})"}
+        modify fun l => {l with names := l.names.insert v selector}
       let app := mkAppN (mkAppN (mkConst cn ls) params) fields
       let e' := if x.isFVar then e.replaceFVar x app else replaceTerm e x app
       let body ← inMeta (whnfCore e')
@@ -606,17 +623,17 @@ where
     -- a split no alternative reduces under (a structure the match does not
     -- inspect) is refused before its branches spend the budget
     unless progress do return none
-    let mut outs : Array (String × String) := #[]
+    let mut outs : Array (Term × Term) := #[]
     for (cs, body) in bodies do
       modify fun l => {l with splits := l.splits + 1}
       let some bx ← enc body (depth - 2) | return none
-      outs := outs.push (s!"((_ is {cs}) {xx})", bx)
+      outs := outs.push (app s!"(_ is {cs})" #[xx], bx)
     if outs.isEmpty then return none
     let mut out := outs.back!.2
     for (t, b) in outs.pop.reverse do
-      out := s!"(ite {t} {b} {out})"
+      out := app "ite" #[t, b, out]
     return some out
-  encRecCases (e : Expr) (info : RecursorVal) (depth : Nat) : EncM (Option String) := do
+  encRecCases (e : Expr) (info : RecursorVal) (depth : Nat) : EncM (Option Term) := do
     if info.numIndices != 0 then return none
     if depth < 4 then return none
     -- one motive, or a nested inductive's recursor (`Data` with its `List Data`
@@ -631,7 +648,7 @@ where
     discard <| sortOf xty
     let some dt := (← getThe Global).dts[xty]? | return none
     let some xx ← enc x depth | return none
-    let mut outs : Array (String × String) := #[]
+    let mut outs : Array (Term × Term) := #[]
     for i in [0:dt.ctors.size] do
       let (cn, cs, sels) := dt.ctors[i]!
       let some ci := info.rules.findIdx? (·.ctor == cn) | return none
@@ -645,8 +662,9 @@ where
       for j in [0:cinfo.numFields] do
         let .lam n fty b _ := body | return none
         let some sel := sels[j]? | return none
-        let v ← fieldVar s!"({sel} {xx})" n fty
-        modify fun l => {l with names := l.names.insert v s!"({sel} {xx})"}
+        let selector := app sel #[xx]
+        let v ← fieldVar (render selector) n fty
+        modify fun l => {l with names := l.names.insert v selector}
         let fw ← inMeta (whnf fty)
         -- a field of the block's type, directly or nested (`List Data`,
         -- `List (Data × Data)`), comes with an induction hypothesis
@@ -662,11 +680,11 @@ where
       if ihs.any (fun h => red.containsFVar h.fvarId!) then return none
       modify fun l => {l with splits := l.splits + 1}
       let some bx ← enc red (depth - 2) | return none
-      outs := outs.push (s!"((_ is {cs}) {xx})", bx)
+      outs := outs.push (app s!"(_ is {cs})" #[xx], bx)
     if outs.isEmpty then return none
     let mut out := outs.back!.2
     for (t, b) in outs.pop.reverse do
-      out := s!"(ite {t} {b} {out})"
+      out := app "ite" #[t, b, out]
     return some out
   /-- One non-recursive unfolding followed by structural reduction. -/
   unfoldOnce (e : Expr) : EncM (Option Expr) := do
@@ -723,8 +741,8 @@ where
 def encProp (p : Expr) : EncM String := do
   -- hypotheses and facts get a small case-split budget of their own
   modify fun l => {l with splits := splitBudget - 12, allowSplit := true}
-  let r := (← enc p 24).getD "true"
+  let r := (← enc p 24).getD (.BoolTerm true)
   modify fun l => {l with allowSplit := false}
-  return r
+  return render r
 
 end Blaster.Proof.Explore.Smt
