@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: write   # commit the README table (to main) and the report (to gh-pages)
+  contents: read
 
 env:
   BENCHMARKING_REPO: input-output-hk/Blaster-benchmarking
@@ -112,26 +112,17 @@ jobs:
           path: benchmarking/out
           if-no-files-found: warn
 
-  publish:
+  merge:
     needs: bench
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout lean-blaster (default branch, for README)
-        uses: actions/checkout@v6
-
       - name: Checkout benchmarking harness (merge script)
         uses: actions/checkout@v6
         with:
           repository: ${{ env.BENCHMARKING_REPO }}
           ref: main
           path: benchmarking
-
-      - name: Checkout gh-pages (for the hosted report)
-        uses: actions/checkout@v6
-        with:
-          ref: gh-pages
-          path: ghpages
 
       - name: Download all tool results
         uses: actions/download-artifact@v6
@@ -151,6 +142,38 @@ jobs:
         env:
           BENCH_REPORT_URL: ${{ env.REPORT_URL }}
         run: python3 benchmarking/latest/merge_results.py results
+
+      - name: Upload report and summary
+        uses: actions/upload-artifact@v6
+        with:
+          name: benchmark-report
+          path: |
+            results/report.html
+            results/summary.md
+          if-no-files-found: error
+
+  publish:
+    needs: merge
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # commit the README table (to main) and report (to gh-pages)
+    steps:
+      - name: Checkout lean-blaster (default branch, for README)
+        uses: actions/checkout@v6
+        with:
+          ref: main
+
+      - name: Checkout gh-pages (for the hosted report)
+        uses: actions/checkout@v6
+        with:
+          ref: gh-pages
+          path: ghpages
+
+      - name: Download report and summary
+        uses: actions/download-artifact@v6
+        with:
+          name: benchmark-report
+          path: results
 
       - name: Update README table
         run: |
@@ -176,7 +199,7 @@ jobs:
             echo "No README change."
           else
             git commit -m "chore(benchmark): weekly results update [skip ci]"
-            git push
+            git push origin HEAD:main
           fi
 
       - name: Publish report to gh-pages/benchmark/
