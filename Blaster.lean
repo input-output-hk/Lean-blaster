@@ -6,3 +6,6 @@ import Blaster.Logging
 import Blaster.Optimize
 import Blaster.Smt
 import Blaster.StateMachine
+
+import Blaster.Proof.Export.Term
+import Blaster.Proof.Export.Print
