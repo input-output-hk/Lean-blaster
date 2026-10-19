@@ -162,4 +162,11 @@ protected theorem or_right_neg_hyp_eq_left (a b : Prop) (h : ¬ b) :
   (a ∨ b) = a :=
   propext ⟨fun hab => hab.elim id (fun hb => absurd hb h), Or.inl⟩
 
+/-! ## Lemma validating the hypothesis-free `ForallE` reductions:
+  - `e1 → e2 ==> True (if e1 =ₚₜᵣ e2 ∧ Type(e1) = Prop)`
+-/
+protected theorem implies_self_eq_true (a : Prop) : (a → a) = True := by
+  apply propext
+  exact imp_self
+
 end Blaster
