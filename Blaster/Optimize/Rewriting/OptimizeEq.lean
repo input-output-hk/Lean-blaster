@@ -1,5 +1,6 @@
 import Lean
 import Blaster.Optimize.Hypotheses
+import Blaster.Optimize.Rewriting.OptimizeITE
 
 open Lean Meta
 namespace Blaster.Optimize
@@ -503,6 +504,7 @@ def optimizeDecideEq (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if let some r ← boolEqtoEq? op1 op2 then return r
  if let some r ← decideBoolEqSimp? op1 op2 then return r
  if let some r ← decideEqDecide? op1 op2 then return r
+ if let some r ← decideEqDITE? op1 op2 then return r
  return e
 
  where
@@ -565,7 +567,7 @@ def optimizeDecideEq (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
        - return `some ¬ e` when `op1 := false ∧ op2 := decide e`
       Otherwise `none`.
    -/
-   decideBoolEqSimp? (op1: Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
+   decideBoolEqSimp? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
     match op1, decide'? op2 with
     | Expr.const ``true _, some e => return some e -- no need to restart
     | Expr.const ``false _, some e =>
@@ -579,7 +581,7 @@ def optimizeDecideEq (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
        - return `some e1 = (true = e2)` when `op1 := e2 ∧ op2 := decide e1`
       Otherwise `none`.
    -/
-   decideEqDecide? (op1: Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
+   decideEqDecide? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
      match decide'? op1, decide'? op2 with
      | some e1, some e2 =>
           setRestart
@@ -590,6 +592,23 @@ def optimizeDecideEq (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      | _, some e1 =>
           setRestart
           return mkApp3 f (← mkPropType) e1 (mkApp3 f (← mkBoolType) (← mkBoolTrue) op1)
+     | _, _ => return none
+
+   /- Given `op1` and `op2` corresponding to the operands for `Eq`,
+       - return `some c = b` when `op1 := (if c then e1 else e2) ∧ op2 := (if b then e1 else e2) ∧ e1 ≠ e2`
+      Otherwise `none`.
+   -/
+   decideEqDITE? (op1 op2 : Expr) : TranslateEnvT (Option Expr) := do
+     match dite'? op1, dite'? op2 with
+     | some (sort, c, e1, e2), some (_, b, e3, e4) =>
+         let e1' ← extractDependentITEExpr e1
+         let e2' ← extractDependentITEExpr e2
+         let e3' ← extractDependentITEExpr e3
+         let e4' ← extractDependentITEExpr e4
+         if exprEq e1' e3' && exprEq e2' e4' && (← notEqInHyps sort e1' e2') then
+           setRestart
+           return mkApp3 (← mkEqOp) (← mkPropType) c b
+         return none
      | _, _ => return none
 
 

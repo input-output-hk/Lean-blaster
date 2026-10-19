@@ -324,4 +324,45 @@ namespace Test.SmtEqArith
 #blaster (gen-cex: 0) (solve-result: 1) [∀ (x y z : Int), x > 0 → z > 0 → 0 < x + y]
 #blaster (only-optimize: 1) [∀ (x y z : Int), x > 0 → z ≥ 0 → 0 < x + z]
 
+#blaster [∀ (c b : Prop) [Decidable b] [Decidable c] (e1 e2 : Nat), c = b → (if c then e1 else e2) = (if b then e1 else e2)]
+
+#blaster (only-optimize: 1) [∀ (c b : Prop) [Decidable b] [Decidable c], (if c then 1 else 0) = (if b then 1 else 0) → c = b]
+#blaster (only-optimize: 1) [∀ (c b : Prop) [Decidable b] [Decidable c], (if c then "a" else "b") = (if b then "a" else "b") → c = b]
+#blaster (only-optimize: 1) [∀ (c b : Prop) [Decidable b] [Decidable c], (if c then true else false) = (if b then true else false) → c = b]
+#blaster (only-optimize: 1) [∀ (c b : Prop) [Decidable b] [Decidable c], c = b → (if c then 1 else 0) = (if b then 1 else 0)]
+
+#blaster (only-optimize: 1) [∀ (c b : Prop) [Decidable b] [Decidable c] (e1 e2 : Nat), e1 ≠ e2 →
+  (if c then e1 else e2) = (if b then e1 else e2) → c = b]
+
+#blaster (only-optimize: 1) [∀ (c b : Prop) [Decidable b] [Decidable c] (e1 e2 : Nat), e2 ≠ e1 →
+  (if c then e1 else e2) = (if b then e1 else e2) → c = b]
+
+#blaster (only-optimize: 1) [∀ (c : Prop) [Decidable c] (e1 e2: Nat),
+  (if c then e1 else e2) = (if c then e1 else e2)]
+
+#blaster (only-optimize: 1) [∀ (c : Prop) [Decidable c] (e1 : Nat),
+  (if c then e1 else e1) = e1]
+
+#blaster (only-optimize: 1) [∀ (c b : Prop) [Decidable b] [Decidable c] (e1 e2 e3 : Nat), e1 ≠ e2 →
+  (if c then (if b then e1 else e1) else e2) = (if b then (if b then e1 else e1) else e2) → c = b]
+
+#blaster (only-optimize: 1) [∀ (c b : Prop) [Decidable c] [Decidable b] (e1 e2 : Int),
+  if e1 ≠ e2 then
+    (if c then e1 else e2) = (if b then e1 else e2) → c = b
+  else
+    true
+]
+
+#blaster (only-optimize: 1) [∀ (c b : Prop) [Decidable c] [Decidable b] (e1 e2 e3 e4 : Int),
+  if e1 ≠ e2 then
+    (if c then e1 else e2) = (if b then e1 else e2) → c = b
+  else
+    (if c then e1 else e1) = e1
+]
+
+#blaster (only-optimize: 1) [∀ (c : Prop) [Decidable c] (e1 e2 : Int), e1 ≠ e2 → (if c then e1 else e2) = (if c then e1 else e2)]
+#blaster (only-optimize: 1) [∀ (c : Prop) [Decidable c] (e1 e2 : Int), (if c then e1 else e2) = (if c then e1 else e2)]
+
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (c b : Prop) [Decidable b] [Decidable c] (e1 e2 : Nat), (if c then e1 else e2) = (if b then e1 else e2) → c = b]
+
 end Test.SmtEqArith
