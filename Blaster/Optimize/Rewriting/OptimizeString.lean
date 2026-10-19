@@ -40,7 +40,8 @@ def normStringValue (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 
 /-- Apply the following simplification/normalization rules on `String.append` :
      - S1 ++ S2 ==> S1 "++" S2
-     - "" ++ e | e ++ "" ==> e
+     - "" ++ e ==> e            [proof: String.empty_append]
+     - e ++ "" ==> e            [proof: String.append_empty]
    Assume that f = Expr.const ``String.append.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `String.append` expected at this stage)
 -/
@@ -70,8 +71,12 @@ def optimizeStrAppend (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
        Otherwise `none`.
    -/
    appendNull? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
-     if isNullString op1 then return op2
-     if isNullString op2 then return op1
+     if isNullString op1 then
+      pushProofStep (.rewrite (mkConst ``String.empty_append))
+      return op2
+     if isNullString op2 then
+      pushProofStep (.rewrite (mkConst ``String.append_empty))
+      return op1
      return none
 
 /-- Apply the following simplification/normalization rules on `String.length` :
