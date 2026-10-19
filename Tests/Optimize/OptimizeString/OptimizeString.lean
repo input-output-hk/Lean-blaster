@@ -11,11 +11,17 @@ namespace Tests.OptimizeString
   - `e ++ "" ==> e`
 -/
 
--- ∀ (e: String), "" ++ e = e ===> True
+-- ∀ (e : String), "" ++ e = e ===> True
 #testOptimize [ "StringAppend_1", proof ] ∀ (e : String), "" ++ e = e ===> True
 
--- ∀ (e: String), e ++ "" = e ===> True
+-- ∀ (e : String), e ++ "" = e ===> True
 #testOptimize [ "StringAppend_2", proof ] ∀ (e : String), e ++ "" = e ===> True
+
+-- ∀ (t s : String), t = "" ++ s ===> ∀ (t s : String), t = s
+#testOptimize [ "StringAppend_3", proof ] ∀ (t s : String), t = "" ++ s ===> ∀ (t s : String), t = s
+
+-- ∀ (t s : String), t = s ++ "" ===> ∀ (t s : String), t = s
+#testOptimize [ "StringAppend_4", proof ] ∀ (t s : String), t = s ++ "" ===> ∀ (t s : String), t = s
 
 /-! Test cases for normalization on `String.mk` -/
 -- String.mk ['a', 'b', 'c'] = "abc" ===> True
