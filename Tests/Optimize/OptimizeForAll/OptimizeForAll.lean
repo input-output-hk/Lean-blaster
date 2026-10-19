@@ -163,7 +163,7 @@ namespace Test.OptimizeForAll
 #testOptimize [ "ForallFalseImp_11" ] ∀ (_h : false), false ===> True
 
 -- ∀ (h : false), true ===> True
-#testOptimize [ "ForallFalseImp_12" ] ∀ (_h : false), true ===> True
+#testOptimize [ "ForallFalseImp_12", proof ] ∀ (_h : false), true ===> True
 
 -- ∀ (a : Prop) (h : false), a ===> True
 #testOptimize [ "ForallFalseImp_13" ]  ∀ (a : Prop) (_h : false), a ===> True

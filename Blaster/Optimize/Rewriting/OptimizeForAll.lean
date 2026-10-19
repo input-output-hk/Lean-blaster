@@ -28,10 +28,10 @@ def isCstImplies? (h : Expr) (a : Expr) (b : Expr) : TranslateEnvT (Option Expr)
      if fVarInExpr h.fvarId! b
      then return (← mkExpr $ Expr.replaceFVar b h (← mkTrueIntro))
      else
-      pushProofStep (.rewrite (← mkAppM ``true_implies #[b]))
+      pushProofStep (.rewrite (mkApp (mkConst ``true_implies) b))
       return b
  | Expr.const ``False _ =>
-   pushProofStep (.rewrite (← mkAppM ``false_implies #[b]))
+   pushProofStep (.rewrite (mkApp (mkConst ``false_implies) b))
    return (← mkPropTrue)
  | _ => return none
 
@@ -137,14 +137,14 @@ def hypReduction? (h : Expr) (a : Expr) (b : Expr) : TranslateEnvT (Option Expr)
 -/
 def optimizeForall (n : Expr) (t : Expr) (h : HypothesisMap) (b : Expr) : TranslateEnvT Expr := do
   if let Expr.const ``True _ := b then
-   pushProofStep (.rewrite (← mkAppM ``implies_true #[t]))
+   pushProofStep (.rewrite (mkApp (mkConst ``implies_true [← getLevel t]) t))
    pushProofStep (.exact (mkConst ``True.intro))
    return b
   if let some r ← isCstImplies? n t b then return r
   if let some r ← isNotDef? t b then return r
   if exprEq t b then
    if ← isPropEnv t then
-      pushProofStep (.rewrite (← mkAppM ``Blaster.implies_self_eq_true #[t]))
+      pushProofStep (.rewrite (mkApp (mkConst ``Blaster.implies_self_eq_true) t))
       return (← mkPropTrue)
   if (← impliesInHyp n b) then return (← mkPropTrue)
   if let some r ← impliesToNeg? t b h then return r
