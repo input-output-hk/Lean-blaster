@@ -152,24 +152,60 @@ jobs:
             results/summary.md
           if-no-files-found: error
 
-  publish:
+  publish_report:
     needs: merge
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # commit the README table (to main) and report (to gh-pages)
+      contents: write
+      pages: write
+    steps:
+      - name: Checkout gh-pages (for the hosted report)
+        uses: actions/checkout@v6
+        with:
+          ref: gh-pages
+
+      - name: Download report
+        uses: actions/download-artifact@v6
+        with:
+          name: benchmark-report
+          path: results
+
+      - name: Publish report to gh-pages/benchmark/
+        id: update
+        run: |
+          mkdir -p benchmark
+          cp results/report.html benchmark/index.html
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add benchmark/index.html
+          if git diff --cached --quiet; then
+            echo "No report change."
+          else
+            git commit -m "chore(benchmark): weekly report update [skip ci]"
+            git push origin HEAD:gh-pages
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # A push made with GITHUB_TOKEN does not start a legacy Pages build.
+      - name: Request Pages build
+        if: steps.update.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api --method POST "repos/${GITHUB_REPOSITORY}/pages/builds"
+
+  propose_readme:
+    needs: merge
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - name: Checkout lean-blaster (default branch, for README)
         uses: actions/checkout@v6
         with:
           ref: main
 
-      - name: Checkout gh-pages (for the hosted report)
-        uses: actions/checkout@v6
-        with:
-          ref: gh-pages
-          path: ghpages
-
-      - name: Download report and summary
+      - name: Download summary
         uses: actions/download-artifact@v6
         with:
           name: benchmark-report
@@ -190,30 +226,21 @@ jobs:
           print("README table updated")
           PY
 
-      - name: Commit README update (main)
+      - name: Open README update pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add README.md
-          if git diff --cached --quiet; then
+          if git diff --quiet -- README.md; then
             echo "No README change."
           else
-            git commit -m "chore(benchmark): weekly results update [skip ci]"
-            git push origin HEAD:main
-          fi
-
-      - name: Publish report to gh-pages/benchmark/
-        run: |
-          cp results/report.html ghpages/benchmark_index.html
-          cd ghpages
-          mkdir -p benchmark
-          mv benchmark_index.html benchmark/index.html
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add benchmark/index.html
-          if git diff --cached --quiet; then
-            echo "No report change."
-          else
-            git commit -m "chore(benchmark): weekly report update [skip ci]"
-            git push origin gh-pages
+            branch="benchmark-results-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            git switch -c "$branch"
+            git config user.name  "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add README.md
+            git commit -m "chore(benchmark): weekly results update"
+            git push origin "HEAD:refs/heads/$branch"
+            gh pr create --base main --head "$branch" \
+              --title "chore(benchmark): weekly results update" \
+              --body "Updates the benchmark table from [workflow run ${GITHUB_RUN_ID}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}). Reviewers must approve the generated PR and its CI run before merging."
           fi
