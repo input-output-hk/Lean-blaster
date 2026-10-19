@@ -147,11 +147,17 @@ def isNormConstructor (e : Expr) (patternMatch := false) : TranslateEnvT Bool :=
 def isConstant (e : Expr) : TranslateEnvT Bool :=
   isConstructor e <&&> (pure !(hasVars e))
 
+structure CstIteMatch where
+  /-- Result of isCstIteMatch, which is set to `true` when `e` is either a normalized constructor or a ctor ite/match. -/
+  res : Bool
+  /-- Set to `true` only when `e` is a normalized constructor -/
+  isConstructor : Bool
+
 /-- Return `true` only e is either a normalized ctor or is present in the isCtorMatchPropCache. -/
 @[always_inline, inline]
-def isCstIteMatch (e : Expr) : TranslateEnvT Bool := do
-  if (← isNormConstructor e) then return true
-  else return (← get).optEnv.memCache.isCtorMatchPropCache.contains e
+def isCstIteMatch (e : Expr) : TranslateEnvT CstIteMatch := do
+  if (← isNormConstructor e) then return ⟨true, true⟩
+  else return ⟨(← get).optEnv.memCache.isCtorMatchPropCache.contains e, false⟩
 
 /-- Return `true` only when e is either a normalized Blaster.dite/match expression. -/
 @[always_inline, inline]

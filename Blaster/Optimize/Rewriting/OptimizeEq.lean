@@ -319,6 +319,7 @@ def arithEq? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
   if let some r ← addIntEqReduce? op1 op2 then return r
   return none
 
+
 /-- Apply the following simplification/normalization rules on `Eq` :
      - False = e ==> ¬ e
      - True = e ==> e
@@ -333,6 +334,9 @@ def arithEq? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
      - 0 = (-e) ==> 0 = e (if Type(e) = Int)
      - Int.neg e1 = Int.neg e2 ==> e1 = e2
      - Int.ofNat e1 = Inf.ofNat e2 ==> e1 = e2
+     - Int.ofNat e1 = Int.neg (Int.ofNat e2) ==> False (if nonZeroNatInHyps e1 ∨ nonZeroNatInHyps e2 ∨ e2 := N + e ∧ N ≠ 0)
+     - Int.negSucc N = Int.neg (Int.ofNat e) ==> (N "+" 1) = e
+     - Int.negSucc N = Int.neg e ==> Int.ofNat (N "+" 1) = e
      - 0 = x * y ==> False (if Type(x) ∈ [Nat, Int] ∧ nonZeroInHyps x ∧ nonZeroInHyps y)
      - 0 = x + y ==> False (if Type (x) = Nat ∧ (nonZeroNatInHyps x ∨ nonZeroNatInHyps y))
      - 0 = x + y ==> False (if Type (x) = Int ∧ gtZeroIntInHyps x ∧ gtZeroIntInHyps y)
@@ -387,17 +391,42 @@ def optimizeEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
           - return `x = y`
       - When `op1 := Int.ofNat x` ∧ `op2 := Int.ofNat y`:
           - return `x = y`
+      - When `op1 := Int.ofNat x` ∧ `op2 := Int.neg (Int.ofNat y)` ∧ (nonZeroNat x ∨ nonZeroNat y):
+          - return `False`
+      - When `op1 := Int.negSucc N` ∧ `op2 := Int.neg (Int.ofNat y)`:
+          - return `(N "+" 1) = y`
+      - When `op1 := Int.negSucc N` ∧ `op2 := Int.neg y`:
+          - return `Int.ofNat (N "+" 1) = y`
       - Otherwise `none`.
+      with nonZeroNat e := nonZeroNatInHyps e ∨ (e := N + e' ∧ N ≠ 0)
    -/
    intCtorEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
-     match op1, op2 with
-     | Expr.app (Expr.const ``Int.neg _) e1, Expr.app (Expr.const ``Int.neg _) e2 =>
+     match op1 with
+     | Expr.app (Expr.const ``Int.neg _) e1 =>
+         let Expr.app (Expr.const ``Int.neg _) e2 := op2 | return none
          setRestart
          mkApp3Expr f (← mkIntType) e1 e2
-     | Expr.app (Expr.const ``Int.ofNat _) e1, Expr.app (Expr.const ``Int.ofNat _) e2 =>
+     | Expr.app (Expr.const ``Int.ofNat _) e1 =>
+          match op2 with
+          | Expr.app (Expr.const ``Int.ofNat _) e2 =>
+                 setRestart
+                 mkApp3Expr f (← mkNatType) e1 e2
+          | Expr.app (Expr.const ``Int.neg _) (Expr.app (Expr.const ``Int.ofNat _) e2) =>
+               if (← nonZeroNat e1 <||> nonZeroNat e2) then mkPropFalse else return none
+          | _ => return none
+     | Expr.app (Expr.const ``Int.negSucc _) (Expr.lit (Literal.natVal n)) =>
+          let Expr.app (Expr.const ``Int.neg _) e2 := op2 | return none
           setRestart
-          mkApp3Expr f (← mkNatType) e1 e2
-     | _, _ => return none
+          match e2 with
+          | Expr.app (Expr.const ``Int.ofNat _) e2' => mkApp3Expr f (← mkNatType) (← mkNatLitExpr (n + 1)) e2'
+          | _ => mkApp3Expr f (← mkIntType) (← mkAppExpr (← mkIntOfNat) (← mkNatLitExpr (n + 1))) e2
+     | _ => return none
+
+   /- Return `true` when `e` is a non-zero Nat, i.e., `nonZeroNatInHyps e` or `e := N + e'` with `N ≠ 0`. -/
+   nonZeroNat (e : Expr) : TranslateEnvT Bool := do
+     match natAdd? e with
+     | some (Expr.lit (Literal.natVal n), _) => return n != 0 -- condition is always true
+     | _ => nonZeroNatInHyps e
 
    /- Given `op1` and `op2` corresponding to the operands for `Eq`,
       - return `some (false, e)` when `op1 := true ∧ op2 := not e`

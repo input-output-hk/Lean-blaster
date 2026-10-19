@@ -56,8 +56,8 @@ partial def allExplicitParamsAreCtor (f : Expr) (args: Array Expr) (funPropagati
         then
           if funPropagation then
             let res ← isCstIteMatch e
-             if (← pure res <||> isPropFunType p e)
-             then loop (i+1) stop pInfoSize (atLeastOneExplicitCstr || res && (← isIteOrMatch e))
+             if (← pure res.res <||> isPropFunType p e)
+             then loop (i+1) stop pInfoSize (atLeastOneExplicitCstr || res.res && !res.isConstructor)
              else return false
           else
              let cstProp ← isNormConstructor e
@@ -184,13 +184,19 @@ partial def isPatternMatch (lhs : Expr) (rhs : Expr) : TranslateEnvT MatchResult
 
              | Expr.const ``Int.negSucc _, Expr.const ``Int.neg _ =>
                   match a2 with
-                  | Expr.app (Expr.const ``Int.ofNat _) n2 => isPatternMatch a1 n2
+                  | Expr.app (Expr.const ``Int.ofNat _) n2 =>
+                      match a1 with
+                      | Expr.lit (.natVal n1) => isPatternMatch (← mkNatLitExpr (n1 + 1)) n2
+                      | _ => return .NoMatch -- unreachable: Nat literal expected
                   | _ => return .PotentialMatch -- case when rhs is an expression
 
              | Expr.const ``Int.neg _, Expr.const ``Int.negSucc _ =>
                   match a1 with
-                  | Expr.app (Expr.const ``Int.ofNat _) n1 => isPatternMatch n1 a2
-                  | _ => return .NoMatch -- unreachable
+                  | Expr.app (Expr.const ``Int.ofNat _) n1 =>
+                      match a2 with
+                      | Expr.lit (.natVal n2) => isPatternMatch n1 (← mkNatLitExpr (n2 + 1))
+                      | _ => return .NoMatch -- rhs should be normalized for pattern reduction.
+                  | _ => return .NoMatch -- unreachable: normalized Int.negSucc expected
              | _, _=>
                 if exprEq f1 f2 then isPatternMatch a1 a2
                 else
@@ -369,8 +375,8 @@ def constMatchPropagation?
       else
         let p := cargs[idx]!
         let res ← isCstIteMatch p
-        if res then
-          allDiscrsAreCstMatch (idx + 1) stop (atLeastOneMatchITE || (← isIteOrMatch p))
+        if res.res then
+          allDiscrsAreCstMatch (idx + 1) stop (atLeastOneMatchITE || !res.isConstructor)
         else return false
 
 
@@ -419,7 +425,7 @@ def constMatchPropagation?
         eraseMatchRhsRewriteCache mInfo
         let mut pargs := cargs[idx]!.getAppArgs
         for i in [argInfo.getFirstAltPos : argInfo.arity] do
-          -- NOTE: No need to propagate reuse context as match name has not changed
+          -- NOTE: No need to propagate reuse context as match name and discriminators have not changed
           pargs ← pargs.modifyM i (pushMatchInLambda cm cargs idx)
         -- NOTE: we also need to set the return type for pulled over match
         -- to meet the return type of the embedded match.
@@ -637,7 +643,10 @@ partial def unifyAndUpdateEqMap (lhs : Expr) (rhs : Expr) (nextCtxId : CtxId) (u
 
               | Expr.const ``Int.negSucc _, Expr.const ``Int.neg _ =>
                   match a2 with
-                  | Expr.app (Expr.const ``Int.ofNat _) n2 => visit a1 n2 stk updatedCtx
+                  | Expr.app (Expr.const ``Int.ofNat _) n2 =>
+                       match a1 with
+                       | Expr.lit (.natVal n1) => visit (← mkNatLitExpr (n1 + 1)) n2 stk updatedCtx
+                       | _ => return updatedCtx -- unreachable: Nat literal expected
                   | _ => -- case when rhs is an expression
                      updateEqualityMap rhs (← removeNamedPatternExpr lhs) nextCtxId
                      match stk with
@@ -646,7 +655,10 @@ partial def unifyAndUpdateEqMap (lhs : Expr) (rhs : Expr) (nextCtxId : CtxId) (u
 
               | Expr.const ``Int.neg _, Expr.const ``Int.negSucc _ =>
                    match a1 with
-                   | Expr.app (Expr.const ``Int.ofNat _) n1 => visit n1 a2 stk updatedCtx
+                   | Expr.app (Expr.const ``Int.ofNat _) n1 =>
+                       match a2 with
+                       | Expr.lit (.natVal n2) => visit n1 (← mkNatLitExpr (n2 + 1)) stk updatedCtx
+                       | _ => return updatedCtx -- unreachable: rhs must be normalized at this stage
                    | _ => return updatedCtx -- unreachable
 
               | _, _ =>
@@ -709,8 +721,11 @@ partial def optimizeMatchAlt
   (stack : List OptimizeStack) : TranslateEnvT (List OptimizeStack) := do
   let currIdx := (altIdx - mInfo.getFirstAltPos).toUSize
   -- NOTE: We need to consider the generic type for context reuse.
-  -- Otherwise, we might instantiate the rhs
-  let matchInst ← mkAppRangeExpr mInfo.nameExpr 0 mInfo.numParams args
+  -- Otherwise, we might instantiate the rhs.
+  -- The reused context records the `discriminator = pattern` equalities and the disequalities
+  -- with the previous patterns: it is only valid for the same discriminators, but does not depend
+  -- on the match return type, which changes, e.g., when an application is pushed into the match rhs.
+  let matchInst ← mkAppRangeExpr (← mkAppRangeExpr mInfo.nameExpr 0 mInfo.numParams args) mInfo.getFirstDiscrPos mInfo.getFirstAltPos args
   match ← reuseContext? matchInst currIdx with
   | some reuse =>
        setAndCommitCtx reuse.scope

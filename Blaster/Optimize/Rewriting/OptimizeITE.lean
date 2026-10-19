@@ -264,68 +264,70 @@ def diteFactorize? (a : Expr) (t : Expr) (e : Expr) : TranslateEnvT (Option Expr
   | _, _ => return none
 
 
-@[always_inline, inline]
-def isCstPropMatch (p : Expr) : TranslateEnvT Bool := do
-  match p with
-  | Expr.app f (.lam ..) =>
-      if (← isMatcher? f.getAppFn).isSome then
-        return (← get).optEnv.memCache.isCtorMatchPropCache.contains p
-      else return false
-  | _ => return false
-
 /-- Given a `Solve.dite'` expression of the form `sif h : c then e1 else e2` apply the following constant
     propagation rule:
 
-    - When isCstPropMatch c ∧
+    - Let cst ← isCstIteMatch c
+    - When cst.res ∧
            c := match₂ f₁, ..., fₚ with
                 | p₍₁₎₍₁₎, ..., p₍₁₎₍ₚ₎ => t₁
                 ...
                 | p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₚ₎ => tₘ
-
-               ∀ k ∈ [1..m],
-                (i ≠ j → g₍ₖ₎₍ᵢ₎ = eᵢ) ∧ (i = j → g₍ₖ₎₍ᵢ₎ = tₖ)
        Return
          `match₂ f₁, ..., fₚ with
           | p₍₁₎₍₁₎, ..., p₍₁₎₍ₚ₎ => sif h : t₁ then e1 else e2
           ...
           | p₍ₘ₎₍₁₎, ..., p₍ₘ₎₍ₚ₎ => sif h : tₘ then e1 else e2`
 
+    - When cst.res ∧
+           c := sif hₒ : a then t₁ else t₂
+       Return
+         `sif : h₀ : a then sif h : t₁ then e1 else e2 else sif h : t₂ then e1 else e2`
+
+    Assume that `normChoiceApplication?` has already been applied.
+
 -/
-def constDITEPropagation? (dargs : Array Expr) : TranslateEnvT (Option Expr) := do
+def constDITEPropagation? (f : Expr) (dargs : Array Expr) : TranslateEnvT (Option Expr) := do
   let c := dargs[1]!
-  if !(← isCstPropMatch c) then return none
+  if !(← isCstIteMatch c).res then return none
   else
     let iteType := dargs[0]!
     let t := dargs[2]!
     let e := dargs[3]!
-    isMatchConst? c iteType t e
+    let r ← pushDite? c iteType t e
+    freeRewriteCacheReuse t 0
+    freeRewriteCacheReuse e 0
+    return r
 
   where
     @[always_inline, inline]
-    pushDiteInLambda (thn : Expr) (els : Expr) (rhs : Expr) : TranslateEnvT Expr := do
-       -- NOTE: we can safely telescope as isCstPropMatch guarantees match rhs are Prop literals
-       -- NOTE: we also push the extra arguments applied to the pushed ite
+    pushDiteInLambda (iteType : Expr) (thn : Expr) (els : Expr) (rhs : Expr) : TranslateEnvT Expr := do
+       -- NOTE: we can safely telescope as isCstPropMatch guarantees match/ite are not functions
        applyOnLambdaBody rhs (fun body => do
                                   match body with
-                                  | Expr.const ``True _ => mkAppRangeExpr (← mkAppExpr thn (← mkTrueIntro)) 4 dargs.size dargs
-                                  | _ => mkAppRangeExpr (← mkAppExpr els (← mkNotFalse)) 4 dargs.size dargs)
+                                  | Expr.const ``True _ => mkAppExpr thn (← mkTrueIntro)
+                                  | Expr.const ``False _ => mkAppExpr els (← mkNotFalse)
+                                  | _ => mkApp4Expr f iteType body thn els)
 
     @[always_inline, inline]
-    isMatchConst? (m : Expr) (iteType : Expr) (thn : Expr) (els : Expr) : TranslateEnvT (Option Expr) := do
+    pushDite? (m : Expr) (iteType : Expr) (thn : Expr) (els : Expr) : TranslateEnvT Expr := do
       if let some argInfo ← isMatcher? m.getAppFn then
-        -- NOTE: extra arguments are push within the ite expression.
         let mut pargs := m.getAppArgs
         for i in [argInfo.getFirstAltPos : argInfo.arity] do
-          -- NOTE: No need to propagate reuse context as match name has not changed
-          pargs ← pargs.modifyM i (pushDiteInLambda thn els)
-        freeRewriteCacheReuse thn 0
-        freeRewriteCacheReuse els 0
+          -- NOTE: No need to propagate reuse context as match name and discriminators have not changed
+          pargs ← pargs.modifyM i (pushDiteInLambda iteType thn els)
         -- NOTE: we also need to set the return type for pulled over match to meet the Dite type.
         let idxType := argInfo.getFirstDiscrPos - 1
-        let iteType := iteType.getForallBodyMaxDepth (dargs.size - 4)
         pargs ← pargs.modifyM idxType (updateMatchReturnType iteType)
         mkAppNExpr argInfo.nameExpr pargs
-      else return none
+      else if let some (_psort, pcond, e1, e2) := dite'? m then
+        let e1' ← pushDiteInLambda iteType thn els e1
+        let e2' ← pushDiteInLambda iteType thn els e2
+        -- NOTE: we need to propagate the reuse context to the new then and else expressions
+        propagateReuseContext e1 e1' 0
+        propagateReuseContext e2 e2' 0
+        mkApp4Expr f iteType pcond e1' e2'
+      else throwEnvError "constDITEPropagation: ite/match expected but got {reprStr m}"
 
 
 /-- Apply the following simplification/normalization rules on `Solve.dite'` in the given order only when args.size ≥ 4:
@@ -377,7 +379,7 @@ def optimizeDITEChoice (f : Expr) (args : Array Expr) : TranslateEnvT (Option Ex
  if let some r ← iteSimp? iteType c t e (inDiteChoice := true) then
     resetRestart
     return r
- if let some r ← constDITEPropagation? args then return r
+ if let some r ← constDITEPropagation? f args then return r
  if let some r ← diteToPropExpr? iteType c t e then return r
  isITESwap? f iteType c t e
 

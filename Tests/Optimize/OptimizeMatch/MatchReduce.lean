@@ -591,4 +591,205 @@ def namedPatternIntTwo (x : Int) (y : Int) : Nat :=
    (Int.ofNat (Nat.succ (Nat.succ (Nat.succ (Nat.succ ((Nat.succ n2))))))) ===>
      Blaster.dite' (n1 < 2) (fun _ => Nat.add 2 n1) (fun _ => (Nat.add 5 n2).add ((Nat.add 2 n1).sub 4))
 
+/-! ## Test cases on Nat/Int literal discriminators.
+     - literal patterns, offset patterns (`k + c`, `Int.ofNat (k + c)`, `Int.negSucc (k + c)`),
+       variable patterns and named patterns.
+     - `MatchReduce_26` .. `MatchReduce_73`: choice reduction must be applied.
+     - `MatchReduceUnchanged_18` .. `MatchReduceUnchanged_25`: choice reduction must NOT be applied,
+       but some discriminators unify with their pattern (equality map update). -/
+
+def natLit (x : Nat) : Nat :=
+  match x with
+  | 0 => 100
+  | 1 => 101
+  | 5 => 105
+  | k + 2 => k
+
+-- literal pattern hit
+#testOptimize [ "MatchReduce_26" ] natLit 0 = 100 ===> True
+#testOptimize [ "MatchReduce_27" ] natLit 1 = 101 ===> True
+#testOptimize [ "MatchReduce_28" ] natLit 5 = 105 ===> True
+-- offset pattern `k + 2`: literal ≥ offset binds `k := lit - 2`
+#testOptimize [ "MatchReduce_29" ] natLit 2 = 0 ===> True
+#testOptimize [ "MatchReduce_30" ] natLit 7 = 5 ===> True
+-- `Nat.succ` / `Nat.zero` spelled discriminators normalize to literals
+#testOptimize [ "MatchReduce_31" ] natLit (Nat.succ (Nat.succ (Nat.succ Nat.zero))) = 1 ===> True
+#testOptimize [ "MatchReduce_32" ] natLit Nat.zero = 100 ===> True
+-- off-by-one must be refuted
+#testOptimize [ "MatchReduce_33" ] natLit 7 = 6 ===> False
+#testOptimize [ "MatchReduce_34" ] natLit 5 = 3 ===> False
+
+-- named patterns on Nat: the alias must be bound to the normalized (literal) value
+def natNamed (x : Nat) : Nat :=
+  match x with
+  | m@0 => m + 50
+  | m@(k + 3) => m * k
+  | m@(k + 1) => m + k
+
+#testOptimize [ "MatchReduce_35" ] natNamed 0 = 50 ===> True
+#testOptimize [ "MatchReduce_36" ] natNamed 7 = 28 ===> True
+#testOptimize [ "MatchReduce_37" ] natNamed 3 = 0 ===> True
+#testOptimize [ "MatchReduce_38" ] natNamed 2 = 3 ===> True
+#testOptimize [ "MatchReduce_39" ] natNamed 1 = 1 ===> True
+#testOptimize [ "MatchReduce_40" ] natNamed 7 = 21 ===> False
+
+def intLit (x : Int) : Nat :=
+  match x with
+  | .ofNat 0 => 200
+  | .ofNat 3 => 203
+  | .negSucc 0 => 300
+  | .negSucc 4 => 304
+  | .ofNat (k + 1) => k
+  | .negSucc (k + 1) => 2 * k
+
+-- `Int.ofNat` literal patterns
+#testOptimize [ "MatchReduce_41" ] intLit 0 = 200 ===> True
+#testOptimize [ "MatchReduce_42" ] intLit 3 = 203 ===> True
+#testOptimize [ "MatchReduce_43" ] intLit (Int.ofNat 3) = 203 ===> True
+-- `Int.ofNat (k + 1)` offset pattern
+#testOptimize [ "MatchReduce_44" ] intLit 1 = 0 ===> True
+#testOptimize [ "MatchReduce_45" ] intLit 7 = 6 ===> True
+#testOptimize [ "MatchReduce_46" ] intLit (Int.ofNat 7) = 6 ===> True
+-- `Int.negSucc` literal patterns: `-1 = Int.negSucc 0`, `-5 = Int.negSucc 4`
+#testOptimize [ "MatchReduce_47" ] intLit (-1) = 300 ===> True
+#testOptimize [ "MatchReduce_48" ] intLit (-5) = 304 ===> True
+#testOptimize [ "MatchReduce_49" ] intLit (Int.negSucc 0) = 300 ===> True
+#testOptimize [ "MatchReduce_50" ] intLit (Int.negSucc 4) = 304 ===> True
+-- `Int.negSucc (k + 1)` offset pattern: `-7 = Int.negSucc 6`, so `k := 5`
+#testOptimize [ "MatchReduce_51" ] intLit (-2) = 0 ===> True
+#testOptimize [ "MatchReduce_52" ] intLit (-7) = 10 ===> True
+#testOptimize [ "MatchReduce_53" ] intLit (Int.negSucc 6) = 10 ===> True
+-- negative literal obtained through constant folding
+#testOptimize [ "MatchReduce_54" ] intLit (0 - 7) = 10 ===> True
+#testOptimize [ "MatchReduce_55" ] intLit (-0) = 200 ===> True
+-- off-by-one must be refuted
+#testOptimize [ "MatchReduce_56" ] intLit (-7) = 8 ===> False
+#testOptimize [ "MatchReduce_57" ] intLit (-5) = 6 ===> False
+#testOptimize [ "MatchReduce_58" ] intLit 7 = 7 ===> False
+
+-- named patterns on Int, on the whole discriminator and on the constructor argument
+def intNamed (x : Int) : Nat :=
+  match x with
+  | p@(.ofNat 2) => p.toNat + 10
+  | .ofNat m@(k + 3) => m * k
+  | p@(.ofNat m) => p.toNat + m
+  | p@(.negSucc 2) => p.natAbs + 20
+  | .negSucc m@(k + 2) => m * k
+  | p@(.negSucc m) => p.natAbs + m
+
+#testOptimize [ "MatchReduce_59" ] intNamed 2 = 12 ===> True
+#testOptimize [ "MatchReduce_60" ] intNamed 7 = 28 ===> True
+#testOptimize [ "MatchReduce_61" ] intNamed 3 = 0 ===> True
+#testOptimize [ "MatchReduce_62" ] intNamed 1 = 2 ===> True
+#testOptimize [ "MatchReduce_63" ] intNamed 0 = 0 ===> True
+#testOptimize [ "MatchReduce_64" ] intNamed (-3) = 23 ===> True
+#testOptimize [ "MatchReduce_65" ] intNamed (-7) = 24 ===> True
+#testOptimize [ "MatchReduce_66" ] intNamed (-4) = 3 ===> True
+#testOptimize [ "MatchReduce_67" ] intNamed (-2) = 3 ===> True
+#testOptimize [ "MatchReduce_68" ] intNamed (-1) = 1 ===> True
+#testOptimize [ "MatchReduce_69" ] intNamed (-7) = 30 ===> False
+#testOptimize [ "MatchReduce_70" ] intNamed (-2) = 2 ===> False
+
+-- several Nat/Int literal discriminators
+def mixedLit (x : Nat) (y : Int) : Nat :=
+  match x, y with
+  | 0, .negSucc 0 => 1
+  | k + 1, .negSucc m => k + m
+  | 2, .ofNat m => m
+  | k, .ofNat (m + 3) => k * m
+  | _, _ => 0
+
+#testOptimize [ "MatchReduce_71" ] mixedLit 0 (-1) = 1 ===> True
+#testOptimize [ "MatchReduce_72" ] mixedLit 3 (-7) = 8 ===> True
+#testOptimize [ "MatchReduce_73" ] mixedLit 2 5 = 5 ===> True
+#testOptimize [ "MatchReduce_74" ] mixedLit 4 10 = 28 ===> True
+-- `Int.ofNat 2` does not unify with `Int.ofNat (m + 3)` (literal < offset)
+#testOptimize [ "MatchReduce_75" ] mixedLit 1 2 = 0 ===> True
+-- `Int.negSucc 2` does not unify with `Int.negSucc 0` nor with `Int.ofNat _`
+#testOptimize [ "MatchReduce_76" ] mixedLit 0 (-3) = 0 ===> True
+#testOptimize [ "MatchReduce_77" ] mixedLit 3 (-7) = 9 ===> False
+
+-- named pattern `m@(k + 3)` unifies with the symbolic `Int.ofNat (3 + m)` (`m := 3 + m`, `k := m`)
+variable (m : Nat)
+#testOptimize [ "MatchReduce_78" ] (norm-result: 1)
+  intNamed (Int.ofNat (m + 3)) ===> Nat.mul m (Nat.add 3 m)
+
+/-! Choice reduction must NOT be applied, but discriminators unify with their pattern. -/
+
+-- intLit (Int.negSucc m) ===>
+--   Blaster.dite' (0 = m) (fun _ => 300) fun _ =>
+--     Blaster.dite' (4 = m) (fun _ => 304) fun _ =>
+--       Blaster.dite' (Int.neg (Int.ofNat (Nat.add 1 m)) < Int.ofNat 1)
+--         (fun _ => Nat.mul 2 (Nat.sub (Nat.add 1 m) 2)) fun _ => 0
+-- NOTE: `Int.negSucc m` is normalized to `Int.neg (Int.ofNat (1 + m))`; each `Int.negSucc` literal
+--       pattern potentially matches and binds `m` in its alternative (300 and 304), `Int.negSucc (k + 1)`
+--       binds `k := (1 + m) - 2`. The `Int.ofNat` literal alternatives are eliminated by the
+--       `Int.ofNat N = Int.neg (Int.ofNat (N' + e)) ==> False` equality rule and the `Int.negSucc`
+--       literal conditions are normalized by `Int.negSucc N = Int.neg (Int.ofNat e) ==> N + 1 = e`.
+#testOptimize [ "MatchReduceUnchanged_18" ] (norm-result: 1)
+  intLit (Int.negSucc m) ===>
+  Blaster.dite' (0 = m) (fun _ => 300) fun _ =>
+    Blaster.dite' (4 = m) (fun _ => 304) fun _ =>
+      Blaster.dite' (Int.neg (Int.ofNat (Nat.add 1 m)) < Int.ofNat 1)
+        (fun _ => Nat.mul 2 (Nat.sub (Nat.add 1 m) 2)) fun _ => 0
+
+-- natLit (m + 2) ===> Blaster.dite' (3 = m) (fun _ => 105) fun _ => m
+-- NOTE: `5` potentially matches `2 + m` (binding `m := 3`), `k + 2` unifies with `k := m`
+#testOptimize [ "MatchReduceUnchanged_19" ] (norm-result: 1)
+  natLit (m + 2) ===> Blaster.dite' (3 = m) (fun _ => 105) fun _ => m
+
+-- natNamed (m + 1) ===>
+--   Blaster.dite' (m < 2) (fun _ => Nat.add m (Nat.add 1 m)) fun _ => Nat.mul (Nat.add 1 m) (Nat.sub (Nat.add 1 m) 3)
+-- NOTE: named pattern aliases are bound through the equality map: `m@(k + 3)` gives `m := 1 + m`,
+--       `k := (1 + m) - 3` and `m@(k + 1)` gives `m := 1 + m`, `k := m`
+#testOptimize [ "MatchReduceUnchanged_20" ] (norm-result: 1)
+  natNamed (m + 1) ===>
+  Blaster.dite' (m < 2) (fun _ => Nat.add m (Nat.add 1 m)) fun _ => Nat.mul (Nat.add 1 m) (Nat.sub (Nat.add 1 m) 3)
+
+-- intNamed (Int.negSucc m) ===>
+--   Blaster.dite' (Int.neg (Int.ofNat (Nat.add 1 m)) < Int.ofNat 3)
+--     (fun _ =>
+--       Blaster.dite' (Int.neg (Int.ofNat (Nat.add 1 m)) < Int.ofNat 0)
+--         (fun _ =>
+--           Blaster.dite' (2 = m) (fun _ => 23) fun _ =>
+--             Blaster.dite' (Int.negSucc 2 < Int.neg (Int.ofNat (Nat.add 1 m)))
+--               (fun _ => Nat.add m (Nat.add 1 m)) fun _ => Nat.mul m (Nat.sub m 2))
+--         fun _ => 0)
+--     fun _ => 0
+-- NOTE: `p@(.negSucc 2)` binds `p := Int.negSucc 2` (23), `.negSucc m@(k + 2)` binds `m := m`,
+--       `k := m - 2` and `p@(.negSucc m)` binds `p := Int.neg (Int.ofNat (1 + m))`.
+--       The `p@(.ofNat 2)` alternative is eliminated by the `Int.ofNat N = Int.neg (Int.ofNat (N' + e)) ==> False` rule.
+#testOptimize [ "MatchReduceUnchanged_21" ] (norm-result: 1)
+  intNamed (Int.negSucc m) ===>
+  Blaster.dite' (Int.neg (Int.ofNat (Nat.add 1 m)) < Int.ofNat 3)
+    (fun _ =>
+      Blaster.dite' (Int.neg (Int.ofNat (Nat.add 1 m)) < Int.ofNat 0)
+        (fun _ =>
+          Blaster.dite' (2 = m) (fun _ => 23) fun _ =>
+            Blaster.dite' (Int.negSucc 2 < Int.neg (Int.ofNat (Nat.add 1 m)))
+              (fun _ => Nat.add m (Nat.add 1 m)) fun _ => Nat.mul m (Nat.sub m 2))
+        fun _ => 0)
+    fun _ => 0
+
+-- mixedLit 3 w ===>
+--   Blaster.dite' (Int.negSucc 0 < w)
+--     (fun _ => Blaster.dite' (w < Int.ofNat 3) (fun _ => 0) fun _ => Nat.mul 3 (Nat.sub (Int.toNat w) 3))
+--     fun _ => Nat.add 2 (Nat.sub (Int.toNat (Int.neg w)) 1)
+-- NOTE: the Nat literal discriminator unifies with `k + 1` (`k := 2`) and `k` (`k := 3`)
+#testOptimize [ "MatchReduceUnchanged_22" ] (norm-result: 1)
+  mixedLit 3 w ===>
+  Blaster.dite' (Int.negSucc 0 < w)
+    (fun _ => Blaster.dite' (w < Int.ofNat 3) (fun _ => 0) fun _ => Nat.mul 3 (Nat.sub (Int.toNat w) 3))
+    fun _ => Nat.add 2 (Nat.sub (Int.toNat (Int.neg w)) 1)
+
+-- mixedLit n (-7) ===> Blaster.dite' (0 = n) (fun _ => 0) fun _ => Nat.add 6 (Nat.sub n 1)
+-- NOTE: `-7 = Int.negSucc 6` unifies with `.negSucc m` (`m := 6`) and refutes `.negSucc 0` and `.ofNat _`
+#testOptimize [ "MatchReduceUnchanged_23" ] (norm-result: 1)
+  mixedLit n (-7) ===> Blaster.dite' (0 = n) (fun _ => 0) fun _ => Nat.add 6 (Nat.sub n 1)
+
+-- mixedLit n 10 ===> Blaster.dite' (2 = n) (fun _ => 10) fun _ => Nat.mul 7 n
+-- NOTE: `10` unifies with `.ofNat m` (`m := 10`) and `.ofNat (m + 3)` (`m := 7`)
+#testOptimize [ "MatchReduceUnchanged_24" ] (norm-result: 1)
+  mixedLit n 10 ===> Blaster.dite' (2 = n) (fun _ => 10) fun _ => Nat.mul 7 n
+
 end Tests.MatchReduce
