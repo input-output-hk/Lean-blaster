@@ -14,6 +14,7 @@ import Tests.Optimize.OptimizeLet
 import Tests.Optimize.OptimizeMatch
 import Tests.Optimize.OptimizeNat
 import Tests.Optimize.OptimizeProp
+import Tests.Optimize.OptimizeProjection
 import Tests.Optimize.OptimizeRecFun
 import Tests.Optimize.OptimizeUnfold
 import Tests.Optimize.ReconstructLT
