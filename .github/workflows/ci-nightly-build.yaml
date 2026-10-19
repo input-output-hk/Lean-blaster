@@ -10,10 +10,6 @@ permissions:
   contents: read
   issues: write
 
-env:
-  Z3_VERSION: "4.15.2"
-  GLIBC_Z3: "2.39"
-
 jobs:
   test-nightly-lean:
     runs-on: ubuntu-latest
@@ -40,14 +36,22 @@ jobs:
       - name: Get Lake
         run: lake --version || true
 
-      - name: Install Z3
+      - name: Restore pinned solver
+        id: solver-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/assurance-z3
+          key: assurance-z3-${{ runner.os }}-${{ hashFiles('scripts/build-assurance-z3.sh') }}
+
+      - name: Build pinned solver
+        if: steps.solver-cache.outputs.cache-hit != 'true'
+        run: bash scripts/build-assurance-z3.sh "$RUNNER_TEMP/assurance-z3"
+
+      - name: Select and check solver
         run: |
-          cd /home/runner/
-          wget -q https://github.com/Z3Prover/z3/releases/download/z3-${{ env.Z3_VERSION }}/z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}.zip
-          unzip -q z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}.zip
-          chmod +x z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}.zip
-          echo "/home/runner/z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}/bin" >> $GITHUB_PATH
-      
+          echo "$RUNNER_TEMP/assurance-z3/bin" >> "$GITHUB_PATH"
+          PATH="$RUNNER_TEMP/assurance-z3/bin:$PATH" lake env lean --run Z3Check.lean
+
       - name: Build Blaster
         id: build
         continue-on-error: true
