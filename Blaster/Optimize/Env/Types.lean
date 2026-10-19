@@ -661,7 +661,13 @@ instance : Inhabited TranslateOptions where
               axiomMap := .emptyWithCapacity
              }
 
-abbrev TopLevelVars := Array (List (SmtSymbol × Lean.Name))
+/-- A top-level solver variable with its Lean name and type. -/
+structure TopLevelVar where
+  symbol : SmtSymbol
+  userName : Lean.Name
+  type : Expr
+
+abbrev TopLevelVars := Array (List TopLevelVar)
 
 abbrev ConversionFunCache := HashMap (SortExpr × SortExpr) SmtSymbol
 abbrev AbstractTypeCache := HashMap PtrExpr SmtSymbol

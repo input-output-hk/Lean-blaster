@@ -517,11 +517,11 @@ def getModel : TranslateEnvT (List String) := do
     return cexArray.toList
 
   where
-    genCexAtStep (cex : Array String) (vars : List (SmtSymbol × Name)) : TranslateEnvT (Array String) := do
+    genCexAtStep (cex : Array String) (vars : List TopLevelVar) : TranslateEnvT (Array String) := do
       List.foldrM (λ v acc => return acc.push (← getVarValue v)) cex vars
 
-    getVarValue (v : SmtSymbol × Name) : TranslateEnvT String := do
-      return s!"{v.2}: {← evalTerm (smtSimpleVarId v.1)}"
+    getVarValue (v : TopLevelVar) : TranslateEnvT String := do
+      return s!"{v.userName}: {← evalTerm (smtSimpleVarId v.symbol)}"
 
 /-- Retrieve sat result from `h`.
     An error is triggered when an unexpected check-sat result is obtained.
