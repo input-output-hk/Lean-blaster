@@ -124,6 +124,12 @@ jobs:
           ref: main
           path: benchmarking
 
+      - name: Checkout previous published benchmark
+        uses: actions/checkout@v6
+        with:
+          ref: gh-pages
+          path: previous-report
+
       - name: Download all tool results
         uses: actions/download-artifact@v6
         with:
@@ -141,7 +147,12 @@ jobs:
       - name: Merge results + render report/summary
         env:
           BENCH_REPORT_URL: ${{ env.REPORT_URL }}
-        run: python3 benchmarking/latest/merge_results.py results
+        run: |
+          previous=previous-report/benchmark/snapshot.json
+          if [ ! -f "$previous" ]; then
+            previous=benchmarking/latest/baseline-39269776186.json.gz
+          fi
+          python3 benchmarking/latest/merge_results.py results "$previous"
 
       - name: Upload report and summary
         uses: actions/upload-artifact@v6
@@ -150,6 +161,7 @@ jobs:
           path: |
             results/report.html
             results/summary.md
+            results/snapshot.json
           if-no-files-found: error
 
   publish_report:
@@ -175,9 +187,10 @@ jobs:
         run: |
           mkdir -p benchmark
           cp results/report.html benchmark/index.html
+          cp results/snapshot.json benchmark/snapshot.json
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add benchmark/index.html
+          git add benchmark/index.html benchmark/snapshot.json
           if git diff --cached --quiet; then
             echo "No report change."
           else
