@@ -113,14 +113,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - shard: uplc-width
-            suites: UPLCWidth
-          - shard: uplc-depth
-            suites: UPLCDepth
-          - shard: classic
-            suites: NNG4,STG4,ITL4,MiniF2F,Verina
-          - shard: home
-            suites: BlasterHome,SmtHome,AutoHome,AesopHome,HammerHome
+          - shard: mini-f2f
+            suites: MiniF2F
+          - shard: verina-uplc
+            suites: Verina,UPLCDepth,UPLCWidth
+          - shard: nng-logic
+            suites: NNG4,STG4,ITL4,AutoHome
+          - shard: home-rest
+            suites: BlasterHome,SmtHome,AesopHome,HammerHome
     permissions:
       contents: read
     env:
