@@ -293,6 +293,30 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
 def optimizeExpr (e : Expr) : TranslateEnvT Expr :=
   optimizeExprAux [.InitOptimizeExpr e]
 
+/-- Normalize a closed Nat modulus using the existing optimizer and memoize only
+    successful numeral results. The environment must already be initialized by
+    `Optimize.main`/`mainAux`, as for `optimizeExpr`.
+
+    Reject free variables, metavariables and loose bound variables before looking
+    in the cache: a modulus must not depend on a local hypothesis or assignment.
+    This accepts zero, one and composites; field admissibility and proof
+    reconstruction are separate obligations. Optimizer errors are not suppressed.
+-/
+def getNatModulus? (e : Expr) : TranslateEnvT (Option Nat) := do
+  if e.hasFVar || e.hasMVar || e.hasLooseBVars then return none
+  if let some n := isNatValue? e then return some n
+  let key ← hashcons e
+  if let some n := (← get).natModulusCache.get? key then return some n
+  unless isNatType (← inferTypeEnv key) do return none
+  let normalized ← optimizeExpr key
+  let value := match normalized with
+    -- Closed Nat numerals can retain this elaborated projection (see #334).
+    | Expr.proj ``OfNat 0 (Expr.app (Expr.const ``instOfNatNat _) n) => isNatValue? n
+    | n => isNatValue? n
+  if let some n := value then
+    modify fun env => { env with natModulusCache := env.natModulusCache.insert key n }
+  return value
+
 /-- Populate the `recFunInstCache` with opaque recursive function definition.
     This function need to be call before performing optimization on a lean expression.
     NOTE: This function need to be updated each time we are opacifying a new recursive function.

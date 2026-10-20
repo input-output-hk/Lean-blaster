@@ -521,7 +521,7 @@ private def addNotEqPatternInContext (nextCtxId : CtxId) (discr : Expr) (pattern
 
 @[always_inline, inline]
 private def propagateNotEqPatternContext (discr : Expr) (nextCtxId : CtxId) : TranslateEnvT Unit := do
-  let ⟨_, ⟨_, _, _, _, _, _, _, ⟨_, equalityMap⟩, matchInContext, _, _, _, _, _⟩⟩ ← get
+  let ⟨_, ⟨_, _, _, _, _, _, _, ⟨_, equalityMap⟩, matchInContext, _, _, _, _, _⟩, _⟩ ← get
   match ← ContextMap.findRaw' equalityMap nextCtxId discr with
   | none => return ()
   | some v =>
@@ -758,7 +758,7 @@ partial def optimizeMatchAlt
        return .InitOptimizeExpr body :: .MatchAltWaitForExpr reuse.fvars (some reuse.scope) currIdx matchInst :: stack
   | none =>
        let alts ← getMatchAlts args mInfo
-       let ⟨_, ⟨_, _, _, _, _, _, _, _, _,_, ⟨_, _, _, _, _, nextCtxId, _, _⟩, _, _, _⟩⟩ ← get
+       let ⟨_, ⟨_, _, _, _, _, _, _, _, _,_, ⟨_, _, _, _, _, nextCtxId, _, _⟩, _, _, _⟩, _⟩ ← get
        let updatedMCtx ← addNotEqPatternToContext args mInfo alts 0 currIdx nextCtxId false
        forallTelescope alts[currIdx]! fun xs b => do
          let lhs := b.getAppArgs

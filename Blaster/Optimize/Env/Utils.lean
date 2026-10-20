@@ -677,7 +677,7 @@ where
     An error is triggered if no corresponding entry can be found in `recFunMap`.
 -/
 def hasRecFunInst? (instApp : Expr) : TranslateEnvT (Option Expr) := do
-  let ⟨_, ⟨_, _, _, _, recFunInstCache,_,recFunMap, _, _, _, _, _, _, _⟩⟩ ← get
+  let ⟨_, ⟨_, _, _, _, recFunInstCache,_,recFunMap, _, _, _, _, _, _, _⟩, _⟩ ← get
   match recFunInstCache.get? instApp with
   | some fbody =>
      -- retrieve function application from recFunMap

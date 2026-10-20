@@ -854,6 +854,12 @@ structure TranslateEnv where
   /-- Environment used when optimization a lean expression. -/
   optEnv : OptimizeEnv
 
+  /-- Successful closed Nat modulus normalization, keyed by the hash-consed input.
+      Zero and composite values are retained; this cache does not certify primality
+      or provide a proof of normalization. It belongs to this translation only.
+  -/
+  natModulusCache : HashMap PtrExpr Nat := HashMap.emptyWithCapacity
+
 instance : Inhabited TranslateEnv where
   default :=
     { smtEnv := default,
@@ -923,7 +929,7 @@ macro_rules
   | `(throwEnvError $msg:term)            => `(Blaster.Optimize.throwEnvError $msg)
 
 @[inline] def modifyOptEnv (f : OptimizeEnv → OptimizeEnv) : TranslateEnvT Unit :=
-  modify fun ⟨s, o⟩ => ⟨s, f o⟩
+  modify fun ⟨s, o, moduli⟩ => ⟨s, f o, moduli⟩
 
 /-- Update global rewrite cache with `a := b`. -/
 @[inline] def updateHashConsCache (a : SharedExpr) : TranslateEnvT Unit := do
@@ -1189,8 +1195,8 @@ def withLocalContext (f : TranslateEnvT α) : TranslateEnvT α := do
   withLCtx ctx.ctx ctx.localInsts $ do f
 
 @[inline] def modifyMemCache (f : MemoizeEnv → MemoizeEnv) : TranslateEnvT Unit :=
-  modify fun ⟨s, ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14⟩⟩ =>
-             ⟨s, ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, f o10, o11, o12, o13, o14⟩⟩
+  modify fun ⟨s, ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14⟩, moduli⟩ =>
+             ⟨s, ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, f o10, o11, o12, o13, o14⟩, moduli⟩
 
 @[inline] def updateConstInfoCache (n : Name) (info : ConstantInfo) : TranslateEnvT Unit :=
   modifyMemCache fun ⟨m1, m2, m3, m4, getConstInfoCache, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩ =>
