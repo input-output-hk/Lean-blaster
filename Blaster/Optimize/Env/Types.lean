@@ -929,11 +929,13 @@ def hypMapContains (e : Expr) : TranslateEnvT Bool :=
 /-- Allocate a fresh context id and make it current. -/
 @[always_inline, inline]
 def newCtx : TranslateEnvT CtxScope := do
- modifyGet fun env =>
+ let scope ← modifyGet fun env =>
    let current := env.optEnv.options.nextCtxId
    let parent := env.optEnv.options.curCtx
    (⟨parent, current⟩, {env with optEnv.options.nextCtxId := current + 1, optEnv.options.curCtx := current
                                  optEnv.options.active := env.optEnv.options.active.insert current })
+ trace[Optimize.context] "context {scope.current} parent={scope.parent}"
+ return scope
 
 @[always_inline, inline]
 def setAndCommitCtx (s : CtxScope) : TranslateEnvT Unit :=
@@ -1246,6 +1248,8 @@ def findLocalCache (a : Expr) (env : TranslateEnv) : IO Expr :=
   match env.optEnv.rewriteCache.get? env.optEnv.options.curCtx with
   | none => return instCacheMiss
   | some refEntry => return (← refEntry.get).getD a instCacheMiss
+
+initialize registerTraceClass `Optimize.context
 
 end Blaster.Optimize
 
