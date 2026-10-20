@@ -87,6 +87,24 @@ jobs:
             --input comment.json --jq .id)
           echo "comment_id=$id" >> "$GITHUB_OUTPUT"
 
+  status_start:
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+    steps:
+      - name: Show benchmark in PR checks
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_HEAD_SHA: ${{ needs.prepare.outputs.sha }}
+        run: |
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/statuses/${PR_HEAD_SHA}" \
+            -f state=pending \
+            -f context=benchmark/weekly-comparison \
+            -f description='Benchmarking against the latest weekly snapshot' \
+            -f target_url="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            --jq .url
+
   bench:
     needs: prepare
     runs-on: ubuntu-latest
@@ -222,3 +240,30 @@ jobs:
             gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
               --input comment.json --jq .html_url
           fi
+
+  status_finish:
+    needs: [prepare, bench]
+    if: always() && needs.prepare.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+    steps:
+      - name: Update PR benchmark check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_HEAD_SHA: ${{ needs.prepare.outputs.sha }}
+          BENCH_RESULT: ${{ needs.bench.result }}
+        run: |
+          if [ "$BENCH_RESULT" = success ]; then
+            state=success
+            description='Benchmark comparison completed; see run and artifact'
+          else
+            state=failure
+            description='Benchmark did not complete; inspect the run logs'
+          fi
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/statuses/${PR_HEAD_SHA}" \
+            -f state="$state" \
+            -f context=benchmark/weekly-comparison \
+            -f description="$description" \
+            -f target_url="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            --jq .url
