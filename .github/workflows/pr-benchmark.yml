@@ -50,6 +50,35 @@ jobs:
           echo "repo_url=$repo_url" >> "$GITHUB_OUTPUT"
           echo "Benchmarking PR #$PR_NUMBER at $sha from $repo_url"
 
+  acknowledge:
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    outputs:
+      comment_id: ${{ steps.post.outputs.comment_id }}
+    steps:
+      - name: Post run link on PR
+        id: post
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ needs.prepare.outputs.number }}
+          PR_HEAD_SHA: ${{ needs.prepare.outputs.sha }}
+        run: |
+          python3 - <<'PY' > comment.json
+          import json
+          import os
+          body = (f"Benchmarking PR #{os.environ['PR_NUMBER']} at "
+                  f"`{os.environ['PR_HEAD_SHA'][:12]}` against the latest committed "
+                  f"weekly run. [Follow the run](https://github.com/"
+                  f"{os.environ['GITHUB_REPOSITORY']}/actions/runs/"
+                  f"{os.environ['GITHUB_RUN_ID']}). This comment will show the comparison when it finishes.")
+          print(json.dumps({"body": body}))
+          PY
+          id=$(gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
+            --input comment.json --jq .id)
+          echo "comment_id=$id" >> "$GITHUB_OUTPUT"
+
   bench:
     needs: prepare
     runs-on: ubuntu-latest
@@ -140,7 +169,7 @@ jobs:
           if-no-files-found: warn
 
   comment:
-    needs: [prepare, bench]
+    needs: [prepare, acknowledge, bench]
     if: always() && needs.prepare.result == 'success'
     runs-on: ubuntu-latest
     permissions:
@@ -159,6 +188,7 @@ jobs:
           PR_NUMBER: ${{ needs.prepare.outputs.number }}
           PR_HEAD_SHA: ${{ needs.prepare.outputs.sha }}
           BENCH_RESULT: ${{ needs.bench.result }}
+          ACK_COMMENT_ID: ${{ needs.acknowledge.outputs.comment_id }}
         run: |
           if [ "$BENCH_RESULT" = success ] && [ -f result/comparison.md ]; then
             cp result/comparison.md comment.md
@@ -171,5 +201,10 @@ jobs:
           from pathlib import Path
           print(json.dumps({"body": Path("comment.md").read_text(encoding="utf-8")}))
           PY
-          gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
-            --input comment.json --jq .html_url
+          if [ -n "$ACK_COMMENT_ID" ]; then
+            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${ACK_COMMENT_ID}" \
+              --input comment.json --jq .html_url
+          else
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
+              --input comment.json --jq .html_url
+          fi
