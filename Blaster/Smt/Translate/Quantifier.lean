@@ -924,11 +924,20 @@ def translateInductiveType
     else declareMutualDataTypes sortDecls typeDecls
 
   genIndParams (indVal : InductiveVal) : TranslateEnvT (Option (Array SmtSymbol)) := do
+   -- Constructor field sorts are translated from CONSTRUCTOR telescopes, so
+   -- the `par` binder names must come from the same source.  The inductive
+   -- header's binders can carry different (e.g. hygienic) names than the
+   -- constructor signatures, which previously produced datatype declarations
+   -- whose parameter list and field sorts disagreed (unknown sort '@α').
+   let src ←
+     match indVal.ctors with
+     | c :: _ => do pure (← getConstEnvInfo c).type
+     | [] => pure indVal.type
    let params ←
-     Optimize.forallTelescope (← hashcons indVal.type) fun fvars _ => do
+     Optimize.forallTelescope (← hashcons src) fun fvars _ => do
         let mut polyParams := #[]
-        for h : i in [: fvars.size] do
-          let arg := fvars[i]
+        for _h : i in [: min indVal.numParams fvars.size] do
+          let arg := fvars[i]!
           let ftype ← inferTypeEnv arg
           if !(← isClassConstraintExpr ftype) then -- ignore class constraints
             let Expr.fvar v := arg
@@ -1459,6 +1468,14 @@ def translateFreeVar
  let t ← inferTypeEnv f
  if ← (isInQuantifiedFVarsCache v) <||> (isPatternMatchFVar v)
  then
+   -- Match scrutinees are translated on demand. A live function-valued
+   -- pattern variable can therefore be applied before its scrutinee registers
+   -- the arrow type's predicate and @apply function. Register the type here
+   -- without forcing translation of the scrutinee or unused pattern values.
+   if ← isPatternMatchFVar v then
+     if ← isFunType t then
+       if (← getPredicateDeclaration t).isNone then
+         discard <| translateType termTranslator t
    if isTypeUniverse t
    then smtSimpleVarId <$> typeParamNameToSmtSymbol v -- case when polymorphic types are used in expression (see, Issue31.lean)
    else fvarIdToSmtTerm v
