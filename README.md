@@ -411,6 +411,8 @@ The evaluation can be found on this public repository: [Blaster-benchmarking](ht
 
 Each tactic is benchmarked on **its own latest default branch and that branch's Lean toolchain** (tracked live), so the comparison is fair even when the tools target different Lean versions. Auto-updated weekly by the [`weekly-benchmark`](.github/workflows/benchmark.yml) workflow.
 
+Users with repository write access can comment `/benchmark` on an open PR to run both Blaster variants at that PR's exact head commit. The [PR benchmark workflow](.github/workflows/pr-benchmark.yml) compares matching goals with the latest snapshot committed by the weekly run and posts gains, regressions, and raw results back on the PR. It does not change the published weekly report.
+
 <!-- BENCH:START -->
 | Tactic | Version | ITL4 | MiniF2F | NNG4 | STG4 | UPLCDepth | UPLCWidth | Verina | **Solved** |
 |:--|:--|--:|--:|--:|--:|--:|--:|--:|--:|

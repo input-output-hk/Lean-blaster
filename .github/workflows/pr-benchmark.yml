@@ -1,0 +1,175 @@
+name: PR benchmark
+
+# Comment /benchmark on an open PR to compare its exact head commit with the
+# snapshot committed by the latest weekly run. Only users with repository write access may
+# start the expensive job. PR code executes solely in a read-only job.
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: pr-benchmark-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  prepare:
+    if: >-
+      github.event.issue.pull_request &&
+      github.event.comment.body == '/benchmark'
+    runs-on: ubuntu-latest
+    outputs:
+      number: ${{ steps.pr.outputs.number }}
+      sha: ${{ steps.pr.outputs.sha }}
+      repo_url: ${{ steps.pr.outputs.repo_url }}
+    steps:
+      - name: Resolve PR head
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          COMMENT_AUTHOR: ${{ github.event.comment.user.login }}
+        run: |
+          permission=$(gh api "repos/${GITHUB_REPOSITORY}/collaborators/${COMMENT_AUTHOR}/permission" --jq .permission)
+          case "$permission" in
+            admin|write) ;;
+            *) echo "Only users with repository write access may run /benchmark." >&2; exit 1 ;;
+          esac
+          pr=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")
+          test "$(jq -r .state <<< "$pr")" = open
+          test "$(jq -r .base.ref <<< "$pr")" = main
+          sha=$(jq -r .head.sha <<< "$pr")
+          repo_url=$(jq -r .head.repo.clone_url <<< "$pr")
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$repo_url" =~ ^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(\.git)?$ ]]
+          echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "repo_url=$repo_url" >> "$GITHUB_OUTPUT"
+          echo "Benchmarking PR #$PR_NUMBER at $sha from $repo_url"
+
+  bench:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    permissions:
+      contents: read
+    env:
+      Z3_VERSION: "4.15.2"
+      GLIBC_Z3: "2.39"
+    steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /opt/hostedtoolcache/CodeQL /usr/local/share/boost || true
+          df -h /
+
+      - name: Checkout benchmarking harness
+        uses: actions/checkout@v6
+        with:
+          repository: input-output-hk/Blaster-benchmarking
+          ref: main
+          path: benchmarking
+          persist-credentials: false
+
+      - name: Checkout committed weekly snapshot
+        uses: actions/checkout@v6
+        with:
+          ref: gh-pages
+          path: weekly
+          persist-credentials: false
+
+      - name: Record baseline commit
+        run: |
+          test -f weekly/benchmark/snapshot.json
+          echo "BASELINE_COMMIT=$(git -C weekly rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Setup Lean (elan)
+        run: |
+          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf \
+            | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Install Z3
+        run: |
+          cd "$HOME"
+          wget -q "https://github.com/Z3Prover/z3/releases/download/z3-${Z3_VERSION}/z3-${Z3_VERSION}-x64-glibc-${GLIBC_Z3}.zip"
+          unzip -q "z3-${Z3_VERSION}-x64-glibc-${GLIBC_Z3}.zip"
+          echo "$HOME/z3-${Z3_VERSION}-x64-glibc-${GLIBC_Z3}/bin" >> "$GITHUB_PATH"
+
+      - name: Restore result cache
+        uses: actions/cache@v4
+        with:
+          path: benchmarking/latest/results_cache
+          key: pr-benchmark-v4-${{ needs.prepare.outputs.sha }}-${{ github.run_id }}
+          restore-keys: |
+            pr-benchmark-v4-${{ needs.prepare.outputs.sha }}-
+
+      - name: Run Blaster from the PR head
+        working-directory: benchmarking
+        env:
+          BLASTER_REPO_URL: ${{ needs.prepare.outputs.repo_url }}
+          BLASTER_REF: ${{ needs.prepare.outputs.sha }}
+        run: bash latest/run_latest.sh blaster
+
+      - name: Compare with the weekly run
+        env:
+          PR_NUMBER: ${{ needs.prepare.outputs.number }}
+          PR_HEAD_SHA: ${{ needs.prepare.outputs.sha }}
+        run: |
+          python3 benchmarking/latest/compare_pr.py \
+            benchmarking/latest/results \
+            weekly/benchmark/snapshot.json comparison.md
+          cat comparison.md
+
+      - name: Upload comparison and raw results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: pr-benchmark-${{ needs.prepare.outputs.number }}
+          path: |
+            comparison.md
+            benchmarking/latest/results/blaster/*_results.csv
+            benchmarking/latest/results/manifest.tsv
+            benchmarking/latest/projects/blaster/update.log
+            benchmarking/latest/projects/blaster/cache.log
+            benchmarking/latest/projects/blaster/build.log
+            benchmarking/latest/projects/blaster/bench.log
+          if-no-files-found: warn
+
+  comment:
+    needs: [prepare, bench]
+    if: always() && needs.prepare.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Download comparison
+        if: needs.bench.result == 'success'
+        uses: actions/download-artifact@v6
+        with:
+          name: pr-benchmark-${{ needs.prepare.outputs.number }}
+          path: result
+
+      - name: Post result on PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ needs.prepare.outputs.number }}
+          PR_HEAD_SHA: ${{ needs.prepare.outputs.sha }}
+          BENCH_RESULT: ${{ needs.bench.result }}
+        run: |
+          if [ "$BENCH_RESULT" = success ] && [ -f result/comparison.md ]; then
+            cp result/comparison.md comment.md
+          else
+            printf 'Benchmark for PR #%s (`%.12s`) did not complete. [Inspect the run and logs](https://github.com/%s/actions/runs/%s).\n' \
+              "$PR_NUMBER" "$PR_HEAD_SHA" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > comment.md
+          fi
+          python3 - <<'PY' > comment.json
+          import json
+          from pathlib import Path
+          print(json.dumps({"body": Path("comment.md").read_text(encoding="utf-8")}))
+          PY
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
+            --input comment.json --jq .html_url
