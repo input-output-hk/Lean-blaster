@@ -414,19 +414,35 @@ Each tactic is benchmarked on **its own latest default branch and that branch's 
 Users with repository write access can comment `/benchmark` on an open PR to run both Blaster variants at that PR's exact head commit. The [PR benchmark workflow](.github/workflows/pr-benchmark.yml) compares matching goals with the latest snapshot committed by the weekly run and posts gains, regressions, and raw results back on the PR. It does not change the published weekly report.
 
 <!-- BENCH:START -->
-| Tactic | Version | ITL4 | MiniF2F | NNG4 | STG4 | UPLCDepth | UPLCWidth | Verina | **Solved** |
+### Shared benchmarks
+
+| Tactic | Version | ITL4 | MiniF2F | NNG4 | STG4 | UPLCDepth | UPLCWidth | Verina | **Shared solved** |
 |:--|:--|--:|--:|--:|--:|--:|--:|--:|--:|
-| `blaster` | `v4.24.0` @ `5ba8fcd2e` | 44/44 | 54/96 | 103/108 | 49/52 | 6/7 | 6/6 | 26/108 | **288/421** |
 | `hammer` | `v4.34.0` @ `93734d624` | 44/44 | 40/96 | 103/108 | 47/52 | 6/7 | 6/6 | 7/108 | **253/421** |
+| `blaster` | `v4.24.0` @ `b729d1014` | 44/44 | 54/96 | 103/108 | 49/52 | 6/7 | 6/6 | 26/108 | **288/421** |
 | `grind` | `v4.35.0` @ `(core)` | 44/44 | 35/96 | 93/108 | 41/52 | 0/7 | 0/6 | 1/108 | **214/421** |
 | `auto` | `v4.34.1` @ `6544cf60e` | 44/44 | 32/96 | 100/108 | 4/52 | 0/7 | 6/6 | 4/108 | **190/421** |
 | `aesop` | `v4.35.0` @ `(via mathlib)` | 44/44 | 23/96 | 67/108 | 35/52 | 7/7 | 6/6 | 2/108 | **184/421** |
-| `blaster (only-optimize: 1)` | `v4.24.0` @ `5ba8fcd2e` | 26/44 | 17/96 | 59/108 | 13/52 | 6/7 | 6/6 | 11/108 | **138/421** |
+| `blaster (only-optimize: 1)` | `v4.24.0` @ `b729d1014` | 26/44 | 17/96 | 59/108 | 13/52 | 6/7 | 6/6 | 11/108 | **138/421** |
 | `simp` | `v4.35.0` @ `(core)` | 5/44 | 17/96 | 37/108 | 15/52 | 0/7 | 0/6 | 0/108 | **74/421** |
-| `omega` | `v4.35.0` @ `(core)` | 1/44 | 30/96 | 7/108 | 1/52 | 0/7 | 0/6 | 1/108 | **40/421** |
 | `smt +model` | `v4.34.0` @ `79ef7b3d5` | 6/44 | 9/96 | 17/108 | 0/52 | 0/7 | 0/6 | 1/108 | **33/421** |
+| `omega` | `v4.35.0` @ `(core)` | 1/44 | 30/96 | 7/108 | 1/52 | 0/7 | 0/6 | 1/108 | **40/421** |
 
-_Each tactic runs in an isolated Lake project on its **latest default branch** and that branch's own Lean toolchain (tracked live). Cells show theorems **solved / total**; cross-version numbers can shift with mathlib changes, not only tactic quality._
+### Home turf · 50 goals per source
+
+| Tactic | Aesop | lean-auto | Blaster | LeanHammer + Duper | lean-smt | **Home solved** | **All solved** |
+|:--|--:|--:|--:|--:|--:|--:|--:|
+| `hammer` | 47/50 | 46/50 | 48/50 | 45/50 | 47/50 | **233/250** | **486/671** |
+| `blaster` | 28/50 | 36/50 | 47/50 | 37/50 | 41/50 | **189/250** | **477/671** |
+| `grind` | 44/50 | 38/50 | 37/50 | 34/50 | 42/50 | **195/250** | **409/671** |
+| `auto` | 28/50 | 46/50 | 37/50 | 38/50 | 39/50 | **188/250** | **378/671** |
+| `aesop` | 40/50 | 40/50 | 38/50 | 36/50 | 39/50 | **193/250** | **377/671** |
+| `blaster (only-optimize: 1)` | 10/50 | 23/50 | 25/50 | 33/50 | 23/50 | **114/250** | **252/671** |
+| `simp` | 13/50 | 25/50 | 25/50 | 10/50 | 17/50 | **90/250** | **164/671** |
+| `smt +model` | 5/50 | 14/50 | 17/50 | 5/50 | 40/50 | **81/250** | **114/671** |
+| `omega` | 6/50 | 12/50 | 17/50 | 0/50 | 5/50 | **40/250** | **80/671** |
+
+_Each tactic runs in an isolated Lake project on its **latest default branch** and that branch's own Lean toolchain (tracked live). Cells show theorems **solved / total**; cross-version numbers can shift with mathlib changes, not only tactic quality. Home turf goals come from the tactic repositories; Hammer's category includes Duper dependency tests. The report gives source links and per-goal results._
 
 **[Full interactive report →](https://input-output-hk.github.io/Lean-blaster/benchmark/)**
 <!-- BENCH:END -->
