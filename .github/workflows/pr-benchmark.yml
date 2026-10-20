@@ -58,6 +58,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       issues: write
+      pull-requests: write
     outputs:
       comment_id: ${{ steps.post.outputs.comment_id }}
     steps:
@@ -181,6 +182,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       issues: write
+      pull-requests: write
     steps:
       - name: Download comparison
         if: needs.bench.result == 'success'
