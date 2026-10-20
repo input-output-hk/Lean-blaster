@@ -1,3 +1,6 @@
 .venv/
 .lake/
 build.log
+# CI evidence and Python test caches
+.ci-results/
+**/__pycache__/

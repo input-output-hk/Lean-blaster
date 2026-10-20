@@ -1,0 +1,151 @@
+name: Blaster downstream compatibility
+
+on:
+  schedule:
+    - cron: '0 3 * * 2'
+  workflow_dispatch:
+    inputs:
+      blaster_sha:
+        description: Full Blaster candidate SHA (defaults to this workflow's commit)
+        type: string
+        required: false
+      plutus_sha:
+        description: Full PlutusCoreBlaster revision
+        type: string
+        required: true
+        default: '41fe7eadf460dc66bef22b85656bc36408638bdc'
+      ledger_sha:
+        description: Full CardanoLedgerApiBlaster revision
+        type: string
+        required: true
+        default: '9938562fd452351655fe2f6b63e583c62422687c'
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: ecosystem-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      blaster: ${{ steps.revisions.outputs.blaster }}
+      plutus: ${{ steps.revisions.outputs.plutus }}
+      ledger: ${{ steps.revisions.outputs.ledger }}
+      z3: ${{ steps.solver.outputs.sha }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Resolve one Z3 master snapshot for the matrix
+        id: solver
+        run: |
+          revision=$(bash scripts/ci/resolve-z3.sh)
+          echo "sha=$revision" >> "$GITHUB_OUTPUT"
+      - name: Validate full commit revisions
+        id: revisions
+        env:
+          BLASTER: ${{ inputs.blaster_sha || github.sha }}
+          PLUTUS: ${{ inputs.plutus_sha || '41fe7eadf460dc66bef22b85656bc36408638bdc' }}
+          LEDGER: ${{ inputs.ledger_sha || '9938562fd452351655fe2f6b63e583c62422687c' }}
+        run: |
+          for revision in "$BLASTER" "$PLUTUS" "$LEDGER"; do
+            if [[ ! "$revision" =~ ^[0-9a-fA-F]{40}$ ]]; then
+              echo '::error::Every revision must be a full commit SHA'
+              exit 2
+            fi
+          done
+          {
+            echo "blaster=${BLASTER,,}"
+            echo "plutus=${PLUTUS,,}"
+            echo "ledger=${LEDGER,,}"
+          } >> "$GITHUB_OUTPUT"
+
+  downstream:
+    needs: resolve
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      Z3_COMMIT: ${{ needs.resolve.outputs.z3 }}
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [PlutusCoreBlaster, CardanoLedgerApiBlaster]
+    steps:
+      - name: Checkout CI helpers
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          path: ci
+          persist-credentials: false
+      - name: Checkout exact downstream revision
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: input-output-hk/${{ matrix.project }}
+          ref: ${{ matrix.project == 'PlutusCoreBlaster' && needs.resolve.outputs.plutus || needs.resolve.outputs.ledger }}
+          path: downstream
+          persist-credentials: false
+      - name: Overlay the candidate dependency
+        working-directory: downstream
+        env:
+          BLASTER: ${{ needs.resolve.outputs.blaster }}
+          PLUTUS: ${{ needs.resolve.outputs.plutus }}
+          PROJECT: ${{ matrix.project }}
+        run: |
+          if [[ "$PROJECT" == 'CardanoLedgerApiBlaster' ]]; then
+            python3 ../ci/scripts/ci/prepare_downstream.py --blaster "$BLASTER" --plutus "$PLUTUS"
+          else
+            python3 ../ci/scripts/ci/prepare_downstream.py --blaster "$BLASTER"
+          fi
+          mkdir -p .ci-results
+          git diff -- lakefile.lean > .ci-results/dependency-overlay.patch
+      - name: Setup downstream Lean and Z3 master
+        working-directory: downstream
+        run: bash ../ci/scripts/ci/setup-tools.sh
+      - name: Resolve and verify exact dependencies
+        working-directory: downstream
+        env:
+          BLASTER: ${{ needs.resolve.outputs.blaster }}
+          PLUTUS: ${{ needs.resolve.outputs.plutus }}
+          PROJECT: ${{ matrix.project }}
+        run: |
+          lake update 2>&1 | tee .ci-results/dependency-resolution.log
+          if [[ "$PROJECT" == 'CardanoLedgerApiBlaster' ]]; then
+            python3 ../ci/scripts/ci/prepare_downstream.py --verify --blaster "$BLASTER" --plutus "$PLUTUS"
+          else
+            python3 ../ci/scripts/ci/prepare_downstream.py --verify --blaster "$BLASTER"
+          fi
+      - name: Build downstream libraries and tests
+        working-directory: downstream
+        env:
+          PROJECT: ${{ matrix.project }}
+          LEAN_NUM_THREADS: '5'
+        run: |
+          checker=../ci/scripts/check_lean_project_compilation.sh
+          if [[ "$PROJECT" == 'PlutusCoreBlaster' ]]; then
+            "$checker" PlutusCore
+            "$checker" Cryptograph
+            "$checker" Lemmas
+            "$checker" Tests Tests Tests/Conformance
+          else
+            "$checker" CardanoLedgerApi
+            "$checker" Tests
+          fi
+      - name: Record environment and dependency revisions
+        if: always()
+        working-directory: downstream
+        run: python3 ../ci/scripts/ci/record_environment.py
+      - name: Upload downstream evidence
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: ecosystem-${{ matrix.project }}-${{ github.run_attempt }}
+          path: downstream/.ci-results/
+          include-hidden-files: true
+          retention-days: 14
