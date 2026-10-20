@@ -109,6 +109,18 @@ jobs:
     needs: prepare
     runs-on: ubuntu-latest
     timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: uplc-width
+            suites: UPLCWidth
+          - shard: uplc-depth
+            suites: UPLCDepth
+          - shard: classic
+            suites: NNG4,STG4,ITL4,MiniF2F,Verina
+          - shard: home
+            suites: BlasterHome,SmtHome,AutoHome,AesopHome,HammerHome
     permissions:
       contents: read
     env:
@@ -129,18 +141,6 @@ jobs:
           path: benchmarking
           persist-credentials: false
 
-      - name: Checkout committed weekly snapshot
-        uses: actions/checkout@v6
-        with:
-          ref: gh-pages
-          path: weekly
-          persist-credentials: false
-
-      - name: Record baseline commit
-        run: |
-          test -f weekly/benchmark/snapshot.json
-          echo "BASELINE_COMMIT=$(git -C weekly rev-parse HEAD)" >> "$GITHUB_ENV"
-
       - name: Setup Lean (elan)
         run: |
           curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf \
@@ -158,16 +158,74 @@ jobs:
         uses: actions/cache@v4
         with:
           path: benchmarking/latest/results_cache
-          key: pr-benchmark-v4-${{ needs.prepare.outputs.sha }}-${{ github.run_id }}
+          key: pr-benchmark-v5-${{ needs.prepare.outputs.sha }}-${{ matrix.shard }}-${{ github.run_id }}
           restore-keys: |
-            pr-benchmark-v4-${{ needs.prepare.outputs.sha }}-
+            pr-benchmark-v5-${{ needs.prepare.outputs.sha }}-${{ matrix.shard }}-
 
       - name: Run Blaster from the PR head
         working-directory: benchmarking
         env:
           BLASTER_REPO_URL: ${{ needs.prepare.outputs.repo_url }}
           BLASTER_REF: ${{ needs.prepare.outputs.sha }}
+          BENCHMARK_SUITES: ${{ matrix.suites }}
         run: bash latest/run_latest.sh blaster
+
+      - name: Upload shard results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: pr-benchmark-shard-${{ needs.prepare.outputs.number }}-${{ matrix.shard }}
+          path: benchmarking/latest/results/
+          if-no-files-found: warn
+
+      - name: Upload shard logs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: pr-benchmark-logs-${{ needs.prepare.outputs.number }}-${{ matrix.shard }}
+          path: |
+            benchmarking/latest/projects/blaster/update.log
+            benchmarking/latest/projects/blaster/cache.log
+            benchmarking/latest/projects/blaster/build.log
+            benchmarking/latest/projects/blaster/bench.log
+          if-no-files-found: warn
+
+  compare:
+    needs: [prepare, bench]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout comparison script
+        uses: actions/checkout@v6
+        with:
+          repository: input-output-hk/Blaster-benchmarking
+          ref: main
+          path: benchmarking
+          persist-credentials: false
+
+      - name: Checkout committed weekly snapshot
+        uses: actions/checkout@v6
+        with:
+          ref: gh-pages
+          path: weekly
+          persist-credentials: false
+
+      - name: Record baseline commit
+        run: |
+          test -f weekly/benchmark/snapshot.json
+          echo "BASELINE_COMMIT=$(git -C weekly rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Download all shard results
+        uses: actions/download-artifact@v6
+        with:
+          pattern: pr-benchmark-shard-${{ needs.prepare.outputs.number }}-*
+          path: shards
+
+      - name: Combine and validate shard results
+        env:
+          PR_NUMBER: ${{ needs.prepare.outputs.number }}
+        run: python3 benchmarking/latest/merge_pr_shards.py shards combined "$PR_NUMBER"
 
       - name: Compare with the weekly run
         env:
@@ -175,8 +233,7 @@ jobs:
           PR_HEAD_SHA: ${{ needs.prepare.outputs.sha }}
         run: |
           python3 benchmarking/latest/compare_pr.py \
-            benchmarking/latest/results \
-            weekly/benchmark/snapshot.json comparison.md
+            combined weekly/benchmark/snapshot.json comparison.md
           cat comparison.md
 
       - name: Upload comparison and raw results
@@ -186,16 +243,12 @@ jobs:
           name: pr-benchmark-${{ needs.prepare.outputs.number }}
           path: |
             comparison.md
-            benchmarking/latest/results/blaster/*_results.csv
-            benchmarking/latest/results/manifest.tsv
-            benchmarking/latest/projects/blaster/update.log
-            benchmarking/latest/projects/blaster/cache.log
-            benchmarking/latest/projects/blaster/build.log
-            benchmarking/latest/projects/blaster/bench.log
+            combined/blaster/*_results.csv
+            combined/manifest.tsv
           if-no-files-found: warn
 
   comment:
-    needs: [prepare, acknowledge, bench]
+    needs: [prepare, acknowledge, compare]
     if: always() && needs.prepare.result == 'success'
     runs-on: ubuntu-latest
     permissions:
@@ -203,7 +256,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Download comparison
-        if: needs.bench.result == 'success'
+        if: needs.compare.result == 'success'
         uses: actions/download-artifact@v6
         with:
           name: pr-benchmark-${{ needs.prepare.outputs.number }}
@@ -215,7 +268,7 @@ jobs:
           PR_NUMBER: ${{ needs.prepare.outputs.number }}
           PR_HEAD_SHA: ${{ needs.prepare.outputs.sha }}
           PR_BASE_REF: ${{ needs.prepare.outputs.base_ref }}
-          BENCH_RESULT: ${{ needs.bench.result }}
+          BENCH_RESULT: ${{ needs.compare.result }}
           ACK_COMMENT_ID: ${{ needs.acknowledge.outputs.comment_id }}
         run: |
           if [ "$BENCH_RESULT" = success ] && [ -f result/comparison.md ]; then
@@ -242,7 +295,7 @@ jobs:
           fi
 
   status_finish:
-    needs: [prepare, bench]
+    needs: [prepare, compare]
     if: always() && needs.prepare.result == 'success'
     runs-on: ubuntu-latest
     permissions:
@@ -252,7 +305,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PR_HEAD_SHA: ${{ needs.prepare.outputs.sha }}
-          BENCH_RESULT: ${{ needs.bench.result }}
+          BENCH_RESULT: ${{ needs.compare.result }}
         run: |
           if [ "$BENCH_RESULT" = success ]; then
             state=success
