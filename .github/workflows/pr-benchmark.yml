@@ -25,6 +25,7 @@ jobs:
       number: ${{ steps.pr.outputs.number }}
       sha: ${{ steps.pr.outputs.sha }}
       repo_url: ${{ steps.pr.outputs.repo_url }}
+      base_ref: ${{ steps.pr.outputs.base_ref }}
     steps:
       - name: Resolve PR head
         id: pr
@@ -40,14 +41,16 @@ jobs:
           esac
           pr=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")
           test "$(jq -r .state <<< "$pr")" = open
-          test "$(jq -r .base.ref <<< "$pr")" = main
+          base_ref=$(jq -r .base.ref <<< "$pr")
           sha=$(jq -r .head.sha <<< "$pr")
           repo_url=$(jq -r .head.repo.clone_url <<< "$pr")
+          [[ "$base_ref" =~ ^[A-Za-z0-9_./-]+$ ]]
           [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
           [[ "$repo_url" =~ ^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(\.git)?$ ]]
           echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           echo "repo_url=$repo_url" >> "$GITHUB_OUTPUT"
+          echo "base_ref=$base_ref" >> "$GITHUB_OUTPUT"
           echo "Benchmarking PR #$PR_NUMBER at $sha from $repo_url"
 
   acknowledge:
@@ -64,6 +67,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ needs.prepare.outputs.number }}
           PR_HEAD_SHA: ${{ needs.prepare.outputs.sha }}
+          PR_BASE_REF: ${{ needs.prepare.outputs.base_ref }}
         run: |
           python3 - <<'PY' > comment.json
           import json
@@ -73,6 +77,9 @@ jobs:
                   f"weekly run. [Follow the run](https://github.com/"
                   f"{os.environ['GITHUB_REPOSITORY']}/actions/runs/"
                   f"{os.environ['GITHUB_RUN_ID']}). This comment will show the comparison when it finishes.")
+          if os.environ['PR_BASE_REF'] != 'main':
+              body += (f" This PR targets `{os.environ['PR_BASE_REF']}`; differences "
+                       "from weekly `main` include changes on that base branch.")
           print(json.dumps({"body": body}))
           PY
           id=$(gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
@@ -187,11 +194,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ needs.prepare.outputs.number }}
           PR_HEAD_SHA: ${{ needs.prepare.outputs.sha }}
+          PR_BASE_REF: ${{ needs.prepare.outputs.base_ref }}
           BENCH_RESULT: ${{ needs.bench.result }}
           ACK_COMMENT_ID: ${{ needs.acknowledge.outputs.comment_id }}
         run: |
           if [ "$BENCH_RESULT" = success ] && [ -f result/comparison.md ]; then
             cp result/comparison.md comment.md
+            if [ "$PR_BASE_REF" != main ]; then
+              printf '\nThis PR targets `%s`; differences from weekly `main` include changes on that base branch.\n' \
+                "$PR_BASE_REF" >> comment.md
+            fi
           else
             printf 'Benchmark for PR #%s (`%.12s`) did not complete. [Inspect the run and logs](https://github.com/%s/actions/runs/%s).\n' \
               "$PR_NUMBER" "$PR_HEAD_SHA" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > comment.md
