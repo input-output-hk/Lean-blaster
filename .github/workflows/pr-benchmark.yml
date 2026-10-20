@@ -53,39 +53,24 @@ jobs:
           echo "base_ref=$base_ref" >> "$GITHUB_OUTPUT"
           echo "Benchmarking PR #$PR_NUMBER at $sha from $repo_url"
 
-  acknowledge:
-    needs: prepare
-    runs-on: ubuntu-latest
-    permissions:
-      issues: write
-      pull-requests: write
-    outputs:
-      comment_id: ${{ steps.post.outputs.comment_id }}
-    steps:
-      - name: Post run link on PR
-        id: post
+      - name: Save validated PR details for the publisher
         env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ needs.prepare.outputs.number }}
-          PR_HEAD_SHA: ${{ needs.prepare.outputs.sha }}
-          PR_BASE_REF: ${{ needs.prepare.outputs.base_ref }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          PR_HEAD_SHA: ${{ steps.pr.outputs.sha }}
+          PR_BASE_REF: ${{ steps.pr.outputs.base_ref }}
         run: |
-          python3 - <<'PY' > comment.json
-          import json
-          import os
-          body = (f"Benchmarking PR #{os.environ['PR_NUMBER']} at "
-                  f"`{os.environ['PR_HEAD_SHA'][:12]}` against the latest committed "
-                  f"weekly run. [Follow the run](https://github.com/"
-                  f"{os.environ['GITHUB_REPOSITORY']}/actions/runs/"
-                  f"{os.environ['GITHUB_RUN_ID']}). This comment will show the comparison when it finishes.")
-          if os.environ['PR_BASE_REF'] != 'main':
-              body += (f" This PR targets `{os.environ['PR_BASE_REF']}`; differences "
-                       "from weekly `main` include changes on that base branch.")
-          print(json.dumps({"body": body}))
-          PY
-          id=$(gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
-            --input comment.json --jq .id)
-          echo "comment_id=$id" >> "$GITHUB_OUTPUT"
+          jq -n \
+            --argjson number "$PR_NUMBER" \
+            --arg sha "$PR_HEAD_SHA" \
+            --arg base_ref "$PR_BASE_REF" \
+            '{number: $number, sha: $sha, base_ref: $base_ref}' > pr-metadata.json
+
+      - name: Upload validated PR details
+        uses: actions/upload-artifact@v6
+        with:
+          name: pr-benchmark-metadata
+          path: pr-metadata.json
+          if-no-files-found: error
 
   status_start:
     needs: prepare
@@ -94,6 +79,7 @@ jobs:
       statuses: write
     steps:
       - name: Show benchmark in PR checks
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           PR_HEAD_SHA: ${{ needs.prepare.outputs.sha }}
@@ -246,77 +232,3 @@ jobs:
             combined/blaster/*_results.csv
             combined/manifest.tsv
           if-no-files-found: warn
-
-  comment:
-    needs: [prepare, acknowledge, compare]
-    if: always() && needs.prepare.result == 'success'
-    runs-on: ubuntu-latest
-    permissions:
-      issues: write
-      pull-requests: write
-    steps:
-      - name: Download comparison
-        if: needs.compare.result == 'success'
-        uses: actions/download-artifact@v6
-        with:
-          name: pr-benchmark-${{ needs.prepare.outputs.number }}
-          path: result
-
-      - name: Post result on PR
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ needs.prepare.outputs.number }}
-          PR_HEAD_SHA: ${{ needs.prepare.outputs.sha }}
-          PR_BASE_REF: ${{ needs.prepare.outputs.base_ref }}
-          BENCH_RESULT: ${{ needs.compare.result }}
-          ACK_COMMENT_ID: ${{ needs.acknowledge.outputs.comment_id }}
-        run: |
-          if [ "$BENCH_RESULT" = success ] && [ -f result/comparison.md ]; then
-            cp result/comparison.md comment.md
-            if [ "$PR_BASE_REF" != main ]; then
-              printf '\nThis PR targets `%s`; differences from weekly `main` include changes on that base branch.\n' \
-                "$PR_BASE_REF" >> comment.md
-            fi
-          else
-            printf 'Benchmark for PR #%s (`%.12s`) did not complete. [Inspect the run and logs](https://github.com/%s/actions/runs/%s).\n' \
-              "$PR_NUMBER" "$PR_HEAD_SHA" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > comment.md
-          fi
-          python3 - <<'PY' > comment.json
-          import json
-          from pathlib import Path
-          print(json.dumps({"body": Path("comment.md").read_text(encoding="utf-8")}))
-          PY
-          if [ -n "$ACK_COMMENT_ID" ]; then
-            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${ACK_COMMENT_ID}" \
-              --input comment.json --jq .html_url
-          else
-            gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
-              --input comment.json --jq .html_url
-          fi
-
-  status_finish:
-    needs: [prepare, compare]
-    if: always() && needs.prepare.result == 'success'
-    runs-on: ubuntu-latest
-    permissions:
-      statuses: write
-    steps:
-      - name: Update PR benchmark check
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_HEAD_SHA: ${{ needs.prepare.outputs.sha }}
-          BENCH_RESULT: ${{ needs.compare.result }}
-        run: |
-          if [ "$BENCH_RESULT" = success ]; then
-            state=success
-            description='Benchmark comparison completed; see run and artifact'
-          else
-            state=failure
-            description='Benchmark did not complete; inspect the run logs'
-          fi
-          gh api --method POST "repos/${GITHUB_REPOSITORY}/statuses/${PR_HEAD_SHA}" \
-            -f state="$state" \
-            -f context=benchmark/weekly-comparison \
-            -f description="$description" \
-            -f target_url="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
-            --jq .url
