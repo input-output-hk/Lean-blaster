@@ -15,6 +15,7 @@ Options:
   - `verbose:` activating debug info (default: 0)
   - `only-smt-lib`: only translating unsolved goals to smt-lib without invoking the backend solver (default: 0)
   - `only-optimize`: only perform optimization on lean specification and do not translate to smt-lib (default: 0)
+  - `preserve-constructor-choices`: experimental; keep matches in constructor fields (default: 0)
   - `dump-smt-lib`: display the smt lib query to stdout (default: 0)
   - `random-seed`: seed for the random number generator (default: none)
   - `gen-cex`: generate counterexample for falsified theorems (default: 1)
@@ -33,6 +34,7 @@ syntax "(timeout:" num ")" : solveOption
 syntax "(verbose:" num ")" : solveOption
 syntax "(only-smt-lib:" num ")" : solveOption
 syntax "(only-optimize:" num ")" : solveOption
+syntax "(preserve-constructor-choices:" num ")" : solveOption
 syntax "(dump-smt-lib:" num ")" : solveOption
 syntax "(gen-cex:" num ")" : solveOption
 syntax "(solve-result:" num ")" : solveOption
@@ -79,6 +81,14 @@ def parseOptimize (sOpts : BlasterOptions) : TSyntax `solveOption → m BlasterO
       | _ => throwUnsupportedSyntax
   | _ => return sOpts
 
+def parsePreserveConstructorChoices (sOpts : BlasterOptions) : TSyntax `solveOption → m BlasterOptions
+  | `(solveOption| (preserve-constructor-choices: $n:num)) =>
+      match n.getNat with
+      | 0 => return { sOpts with preserveConstructorChoices := false }
+      | 1 => return { sOpts with preserveConstructorChoices := true }
+      | _ => throwUnsupportedSyntax
+  | _ => return sOpts
+
 def parseDumpSmt (sOpts : BlasterOptions) : TSyntax `solveOption → m BlasterOptions
   | `(solveOption| (dump-smt-lib: $n:num)) =>
       match n.getNat with
@@ -118,6 +128,7 @@ def parseSolveOption (sOpts : BlasterOptions) (opt : TSyntax `solveOption) : m B
   let sOpts ← parseVerbose sOpts opt
   let sOpts ← parseSmtLib sOpts opt
   let sOpts ← parseOptimize sOpts opt
+  let sOpts ← parsePreserveConstructorChoices sOpts opt
   let sOpts ← parseDumpSmt sOpts opt
   let sOpts ← parseGenCex sOpts opt
   let sOpts ← parseSolveResult sOpts opt
