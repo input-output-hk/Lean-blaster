@@ -11,7 +11,7 @@ namespace Blaster.StateMachine
       bmcStrategy(smInst) ≡
        - cex(k) ≡
           st₀ = init in₀ ∧
-          (∀ i ∈ [0, k-1], assumptions inᵢ stᵢ ∧ stᵢ₊₁ = next inᵢ stᵢ) ∧
+          (∀ i ∈ [0, k-1], assumptions inᵢ stᵢ ∧ stᵢ₊₁ = next inᵢ₊₁ stᵢ) ∧
           assumptions inₖ stₖ ∧
           ¬ invariants inₖ stₖ -- counterexample detection
        - contradiction(k) =
