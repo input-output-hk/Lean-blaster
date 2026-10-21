@@ -1,3 +1,4 @@
+
 import Lean
 import Blaster.Optimize.Env.Abstract
 import Blaster.Optimize.Env.Instantiate
@@ -30,6 +31,12 @@ def isCtorExpr (e : Expr) : TranslateEnvT Bool := do
  match e with
  | Expr.const n _ => return (← getConstEnvInfo n).isCtor
  | _ => return false
+
+/-- Return `Some numParams` only when 'c' corresponds to a constructor`. -/
+@[always_inline, inline]
+def getCtorIndParams (c : Name) : TranslateEnvT (Option Nat) := do
+  let ConstantInfo.ctorInfo info ← getConstEnvInfo c | return none
+  return info.numParams
 
 /-- Return `true` if `n` correspond to a structure ctor. The result is memoized. -/
 @[inline] def isStructureCtorEnv (n : Name) : TranslateEnvT Bool := do

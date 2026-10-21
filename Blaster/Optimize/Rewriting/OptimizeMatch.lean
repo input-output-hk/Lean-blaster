@@ -126,11 +126,6 @@ partial def isPatternMatch (lhs : Expr) (rhs : Expr) : TranslateEnvT MatchResult
             | _ => return .NoMatch -- unreachable case
         | _ => return .PotentialMatch -- case when rhs is an expression
 
-  | Expr.fvar _ =>
-       -- NOTE: fvar in pattern match can only correspond to polymorphic types
-       -- Rhs is expected to be the same fvar (captured by physical equality)
-       return .NoMatch
-
   | Expr.const _ _ =>
        match rhs with
        | Expr.const n2 _ =>
@@ -138,7 +133,7 @@ partial def isPatternMatch (lhs : Expr) (rhs : Expr) : TranslateEnvT MatchResult
             if (← isCtorName n2) then return .NoMatch
             else return .PotentialMatch -- case when rhs is an expression
        | _ =>
-           if ← isCtorExpr rhs.getAppFn
+           if ← isCtorExpr rhs.getAppFn'
            then return .NoMatch
            else return .PotentialMatch -- case when rhs is an expression
 
@@ -160,10 +155,12 @@ partial def isPatternMatch (lhs : Expr) (rhs : Expr) : TranslateEnvT MatchResult
                    then return .NoMatch
                    else isPatternMatch a1 (← mkNatLitExpr (Nat.sub n2 n1))
              | _ => return .NoMatch -- unreachable: Nat constructor expected
+
         | Expr.lit (.strVal s) =>
              match f1 with
              | Expr.const ``String.mk _ => isPatternMatch lhs (← stringToCtor s)
              | _ => return .NoMatch -- unreachable: String constructor expected
+
         | Expr.const n _ =>
            if (← isCtorName n)
            then return .NoMatch
@@ -204,16 +201,32 @@ partial def isPatternMatch (lhs : Expr) (rhs : Expr) : TranslateEnvT MatchResult
              | _, _=>
                 if exprEq f1 f2 then isPatternMatch a1 a2
                 else
-                  let p ← isPatternMatch f1 f2
-                  match p with
-                  | .UnifyMatch => isPatternMatch a1 a2
-                  | .PotentialMatch => return joinMatchResult p (← isPatternMatch a1 a2)
-                  | .NoMatch => return p
+                  let f2' := f2.getAppFn
+                  if let some nbParams ← getNormCtorIndParams f2' then
+                    if exprEq f1.getAppFn f2' then
+                      if f2.getAppNumArgs == nbParams then
+                        -- skip inductive params
+                        isPatternMatch a1 a2
+                      else
+                        let p ← isPatternMatch f1 f2
+                        match p with
+                        | .UnifyMatch => isPatternMatch a1 a2
+                        | .PotentialMatch => return joinMatchResult p (← isPatternMatch a1 a2)
+                        | .NoMatch => return p
+                    else return .NoMatch -- no same ctor
+                  else return .PotentialMatch -- case when rhs is an expression
 
         | _ => return .PotentialMatch -- case when rhs is an fvar/mvar/let/forallE
 
-  | _ => return .NoMatch -- unreachable: only const, app, mvar, fvar and lit expected as pattern match
+  | _ => return .NoMatch -- unreachable: only const, app, mvar and lit expected as pattern match
 
+ where
+   getNormCtorIndParams (e : Expr) : TranslateEnvT (Option Nat) := do
+     match e with
+     | Expr.const ``Int.neg _
+     | Expr.const ``Nat.add _ => return (0 : Nat)
+     | Expr.const n _ => getCtorIndParams n
+     | _ => return none
 
 @[always_inline, inline]
 def isNoMatchResult (x : MatchResult) : Bool :=

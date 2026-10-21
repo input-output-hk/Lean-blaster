@@ -24,7 +24,8 @@ inductive OptimizeStack where
  | ForallWaitForBody (x : Expr) (t : Expr) (hctx : HypsStackContext) (isProp : Bool)
  | AppWaitForConst (args : Array Expr)
  | OptimizeMatchInfoWaitForInst (f : Expr) (args : Array Expr)
-                                (startArgIdx : Nat) (pInfo : FunEnvInfo) (mInfo : MatcherRecInfo)
+                                (startArgIdx : Nat) (pInfo : FunEnvInfo)
+                                (mInfo : MatcherRecInfo) (prevNormMatch : Bool)
  | AppOptimizeImplicitArgs (f : Expr) (args : Array Expr) (idx : Nat)
                            (startArgIdx : Nat) (stopIdx : Nat)
                            (pInfo : FunEnvInfo) (prevInApp : Bool)
@@ -175,18 +176,19 @@ def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := 
               match instApp with
               | Expr.lam n t b bi =>
                     -- set option normalizeMatchInfo to avoid removing namedPatterns
+                    let prevNormMatch ← isInNormalizeMatchInfo
                     setNormalizeMatchInfo true
-                    let mWait := .OptimizeMatchInfoWaitForInst rf args extraArgs.size pInfo mInfo :: xs
+                    let mWait := .OptimizeMatchInfoWaitForInst rf args extraArgs.size pInfo mInfo prevNormMatch :: xs
                     -- NOTE: we only optimize the lhs forall body and not the types.
                     return Sum.inl (.MatchLhsSkipForallType t :: .MatchRhsLambdaWaitForType n bi b :: mWait)
               | _ => throwEnvError "stackContinuity: lambda expected for match instance but got {reprStr instApp}"
 
 
-  | .OptimizeMatchInfoWaitForInst f args startArgIdx pInfo mInfo :: xs =>
+  | .OptimizeMatchInfoWaitForInst f args startArgIdx pInfo mInfo prevNormMatch :: xs =>
        -- optExpr corresponds to optimized match generic instance
        -- update cache isMatcherCache
        -- reset option normalizeMatchInfo
-       setNormalizeMatchInfo false
+       setNormalizeMatchInfo prevNormMatch
        if let Expr.const n _ := f then
          let argInfo := ({ name := n, nameExpr := f, instApp := optExpr, recInfo := mInfo } : MatchInfo)
          updateIsMatcherCache n argInfo
@@ -355,7 +357,8 @@ def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := 
     @[always_inline, inline]
     normProof (idx : Nat) (args : Array Expr) (optArg : Expr) (pInfo : FunEnvInfo) : TranslateEnvT Expr := do
      if idx ≥ pInfo.paramsInfo.size then return optArg
-     else if pInfo.paramsInfo[idx]!.isProp then
+     else if pInfo.paramsInfo[idx]!.isProp && !(← isInNormalizeMatchInfo) then
+       -- Note: we don't resolve proof in match pattern as we must preserve mvar for match reduction.
        let argType ← inferArgTypeAt pInfo.type args idx
        match (← inHypMap argType) with
        | some p => return p

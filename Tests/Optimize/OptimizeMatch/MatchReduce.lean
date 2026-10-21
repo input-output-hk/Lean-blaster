@@ -714,6 +714,26 @@ variable (m : Nat)
 #testOptimize [ "MatchReduce_78" ] (norm-result: 1)
   intNamed (Int.ofNat (m + 3)) ===> Nat.mul m (Nat.add 3 m)
 
+def getOr (l : List Nat) (i : Nat) : Nat := if h : i < l.length then l.get ⟨i, h⟩ else 1
+def getOrIdx (l : List Nat) (i : Nat) : Nat := if h : i < l.length then l[i] else 1
+
+-- NOTE: Test case handling proof and inductive params in match reduction
+#testOptimize ["MatchReduce_79"]
+  ∀ (a : Nat) (l : List Nat), getOr (a :: l) 1 = getOr l 0 ===> True
+
+-- NOTE: Test case handling proof and inductive params in match reduction
+#testOptimize ["MatchReduce_80"]
+  ∀ (a b : Nat), getOr [a, b] 1 = b ===> True
+
+-- NOTE: Test case handling proof and inductive params in match reduction
+#testOptimize ["MatchReduce_81"]
+  ∀ (a b : Nat), getOrIdx [a, b] 1 = b ===> True
+
+-- NOTE: Test case handling proof and inductive params in match reduction
+#testOptimize ["MatchReduce_82"]
+  ∀ (a : Nat) (l : List Nat), getOr (a :: l) 0 = a ===> True
+
+
 /-! Choice reduction must NOT be applied, but discriminators unify with their pattern. -/
 
 -- intLit (Int.negSucc m) ===>
@@ -793,3 +813,6 @@ variable (m : Nat)
   mixedLit n 10 ===> Blaster.dite' (2 = n) (fun _ => 10) fun _ => Nat.mul 7 n
 
 end Tests.MatchReduce
+
+-- add patch in backward proof for 0 < 1 + e (always true)
+-- add patch in backward proof for N < N + e (always true)
