@@ -71,8 +71,9 @@ def validate_signatures (verifier_config : VerifierConfig) (signatories : List N
 
   all_mandatory_signed && threshold_met
 
-#blaster (gen-cex: 0) (solve-result: 2) (timeout: 3)
-  [∀ (transaction : List Nat) (n : Nat),
-       validate_signatures (VerifierConfig.mk [] n) transaction = true]
+def cex_validate_signatures : Prop :=
+  ∀ (transaction : List Nat) (n : Nat), validate_signatures (VerifierConfig.mk [] n) transaction = true
+
+#blaster (gen-cex: 0) (solve-result: 1) [cex_validate_signatures]
 
 end Tests.Issue33
