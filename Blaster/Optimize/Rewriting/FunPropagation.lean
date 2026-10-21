@@ -145,7 +145,8 @@ def funPropagation?
     @[always_inline, inline]
     propagate (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT Bool := do
       if !(← hasMatchITEArgs args) then return false
-      else if (← isCtorName n) then return true
+      else if (← isCtorName n) then
+        return !(← get).optEnv.options.solverOptions.preserveConstructorChoices
       else if (← allExplicitParamsAreCtor f args (funPropagation := true)) then return true
       else
         match n with
