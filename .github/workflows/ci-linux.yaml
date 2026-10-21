@@ -93,7 +93,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: blaster-build
-          path: ./Blaster/build.log
+          path: ./build.log
 
       - name: Execute and Validate Tests
         run: LEAN_NUM_THREADS=5 ./scripts/check_lean_project_compilation.sh Tests
@@ -103,4 +103,4 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: tests-build
-          path: ./Tests/build.log
+          path: ./build.log
