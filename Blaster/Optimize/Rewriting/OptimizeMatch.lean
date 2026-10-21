@@ -96,6 +96,13 @@ def joinMatchResult (x : MatchResult) (y : MatchResult) : MatchResult :=
  | _, p@.PotentialMatch => p
  | _, _ => x
 
+private def getNormCtorIndParams (e : Expr) : TranslateEnvT (Option Nat) := do
+ match e with
+ | Expr.const ``Int.neg _
+ | Expr.const ``Nat.add _ => return (0 : Nat)
+ | Expr.const n _ => getCtorIndParams n
+ | _ => return none
+
 /-- Performs unification on lhs and rhs
      - Return `UnifyMatch` when both `lhs` and `rhs` can unify up to metavariable
      - Return `PotentialMatch` when `lhs` unifies with `rhs` before lhs reduces to a ground term (i.e., a unary constructor or a metavariable), e.g.,
@@ -213,20 +220,12 @@ partial def isPatternMatch (lhs : Expr) (rhs : Expr) : TranslateEnvT MatchResult
                         | .UnifyMatch => isPatternMatch a1 a2
                         | .PotentialMatch => return joinMatchResult p (← isPatternMatch a1 a2)
                         | .NoMatch => return p
-                    else return .NoMatch -- no same ctor
+                    else return .NoMatch -- not same ctor
                   else return .PotentialMatch -- case when rhs is an expression
 
         | _ => return .PotentialMatch -- case when rhs is an fvar/mvar/let/forallE
 
   | _ => return .NoMatch -- unreachable: only const, app, mvar and lit expected as pattern match
-
- where
-   getNormCtorIndParams (e : Expr) : TranslateEnvT (Option Nat) := do
-     match e with
-     | Expr.const ``Int.neg _
-     | Expr.const ``Nat.add _ => return (0 : Nat)
-     | Expr.const n _ => getCtorIndParams n
-     | _ => return none
 
 @[always_inline, inline]
 def isNoMatchResult (x : MatchResult) : Bool :=
@@ -688,18 +687,23 @@ partial def unifyAndUpdateEqMap (lhs : Expr) (rhs : Expr) (nextCtxId : CtxId) (u
                    | _ => return updatedCtx -- unreachable
 
               | _, _ =>
-                if ← (pure $ exprEq f1 f2) <||> isCtorExpr f2.getAppFn then
-                   visit f1 f2 ((a1, a2) :: stk) updatedCtx
-                else if !(← isInductiveTypeExpr rhs) then
-                  -- case when rhs is an expression
-                  updateEqualityMap rhs (← removeNamedPatternExpr lhs) nextCtxId
-                  match stk with
-                  | [] => return true
-                  | (lhs', rhs') :: xs => visit lhs' rhs' xs true
+                if exprEq f1 f2 then
+                   visit a1 a2 stk updatedCtx
                 else
-                  match stk with
-                  | [] => return updatedCtx
-                  | (lhs', rhs') :: xs => visit lhs' rhs' xs updatedCtx
+                  let f2' := f2.getAppFn
+                  if let some nbParams ← getNormCtorIndParams f2' then
+                    if exprEq f1.getAppFn f2' then
+                      if f2.getAppNumArgs == nbParams then
+                        -- skip inductive params
+                        visit a1 a2 stk updatedCtx
+                      else visit f1 f2 ((a1, a2) :: stk) updatedCtx
+                    else return updatedCtx -- not same ctor
+                  else
+                    -- case when rhs is an expression
+                    updateEqualityMap rhs (← removeNamedPatternExpr lhs) nextCtxId
+                    match stk with
+                    | [] => return true
+                    | (lhs', rhs') :: xs => visit lhs' rhs' xs true
           | _ =>
              -- case when rhs is an expression
              updateEqualityMap rhs (← removeNamedPatternExpr lhs) nextCtxId
