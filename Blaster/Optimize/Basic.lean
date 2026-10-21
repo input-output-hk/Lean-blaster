@@ -61,6 +61,18 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
                  pushProofStep (.rewrite (mkApp (mkConst ``nat_succ_eq_one_add) ras[0]!))
                else if f.isConstOf ``Nat.pred && ras.size == 1 then
                  pushProofStep (.rewrite (mkApp (mkConst ``Nat.pred_eq_sub_one) ras[0]!))
+               -- `Nat.ble x y` is normalized to `Blaster.decide' (x ≤ y)` (only when
+               -- `normalizeFunCall` is set). Record the bridging step for reconstruction.
+               else if f.isConstOf ``Nat.ble && ras.size == 2 && (← isOptimizeRecCall) then
+                 pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.nat_ble_eq_decide') ras[0]! ras[1]!))
+               -- `Nat.blt x y` unfolds to `Nat.ble (Nat.succ x) y`. Record the unfolding so the
+               -- subsequent `Nat.ble`/`Nat.succ` steps have a matching subterm on replay.
+               else if f.isConstOf ``Nat.blt && ras.size == 2 && (← isOptimizeRecCall) then
+                 pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.nat_blt_eq_ble_succ) ras[0]! ras[1]!))
+               -- `GE.ge x y` unfolds to `LE.le y x` via `getUnfoldFunDef?`. Record the fold so the
+               -- subsequent `LE.le` step has a matching subterm on replay.
+               else if f.isConstOf ``GE.ge && ras.size == 4 then
+                 pushProofStep (.rewrite (mkApp4 (mkConst ``Blaster.ge_eq_le f.constLevels!) ras[0]! ras[1]! ras[2]! ras[3]!))
                -- set inFunApp flag before optimizing `f`
                setInFunApp true
                let i_stack' := .AppWaitForConst ras :: i_stack
