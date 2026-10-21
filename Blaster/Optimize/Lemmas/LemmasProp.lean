@@ -162,4 +162,7 @@ protected theorem or_right_neg_hyp_eq_left (a b : Prop) (h : ¬ b) :
   (a ∨ b) = a :=
   propext ⟨fun hab => hab.elim id (fun hb => absurd hb h), Or.inl⟩
 
+/-! ## Lemma validating the unfolding of `GE.ge`: `x ≥ y ==> y ≤ x` -/
+protected theorem ge_eq_le.{u} {α : Type u} [LE α] (x y : α) : (x ≥ y) = (y ≤ x) := rfl
+
 end Blaster

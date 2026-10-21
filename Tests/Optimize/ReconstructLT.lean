@@ -161,4 +161,13 @@ namespace Test.ReconstructLT
 -- ∀ (x y : Int), x < 0 → y < 0 → ((x + y < 0) = True) ===> True
 #testOptimize [ "SumLtZeroNegInt", proof ] ∀ (x y : Int), x < 0 → y < 0 → ((x + y < 0) = True) ===> True
 
+/-! ## Relational `≤` reductions.
+    `e1 ≤ e2 ==> ¬ (e2 < e1)` (lemmas `nat_le_eq_not_lt` / `int_le_eq_not_lt`). -/
+
+-- ∀ (a b : Nat), a ≤ b ===> ∀ (a b : Nat), ¬ (b < a)
+#testOptimize [ "LeNotLtNat", proof ] ∀ (a b : Nat), a ≤ b ===> ∀ (a b : Nat), ¬ (b < a)
+
+-- ∀ (a b : Int), a ≤ b ===> ∀ (a b : Int), ¬ (b < a)
+#testOptimize [ "LeNotLtInt", proof ] ∀ (a b : Int), a ≤ b ===> ∀ (a b : Int), ¬ (b < a)
+
 end Test.ReconstructLT
