@@ -16,74 +16,74 @@ namespace Tests.UnfoldRelationalOp
 /-! Test cases to validate when relational operators must not be unfolded -/
 
 -- ∀ (x y : Int), x ≤ y ===> ∀ (x y : Int), ¬ y < x
-#testOptimize ["RelOpNotUnfolded_1"] ∀ (x y : Int), x ≤ y ===> ∀ (x y : Int), ¬ y < x
+#testOptimize [ "RelOpNotUnfolded_1", proof ] ∀ (x y : Int), x ≤ y ===> ∀ (x y : Int), ¬ y < x
 
 -- ∀ (x y : Int), x ≥ y ===> ∀ (x y : Int), ¬ x < y
-#testOptimize ["RelOpNotUnfolded_2"] ∀ (x y : Int), x ≥ y ===> ∀ (x y : Int), ¬ x < y
+#testOptimize [ "RelOpNotUnfolded_2" ] ∀ (x y : Int), x ≥ y ===> ∀ (x y : Int), ¬ x < y
 
 -- ∀ (x y : Nat), x ≤ y ===> ∀ (x y : Nat), ¬ y < x
-#testOptimize ["RelOpNotUnfolded_3"] ∀ (x y : Nat), x ≤ y ===> ∀ (x y : Nat), ¬ y < x
+#testOptimize [ "RelOpNotUnfolded_3", proof ] ∀ (x y : Nat), x ≤ y ===> ∀ (x y : Nat), ¬ y < x
 
 -- ∀ (x y : Nat), x ≥ y ===> ∀ (x y : Nat), ¬ x < y
-#testOptimize ["RelOpNotUnfolded_4"] ∀ (x y : Nat), x ≥ y ===> ∀ (x y : Nat), ¬ x < y
+#testOptimize [ "RelOpNotUnfolded_4" ] ∀ (x y : Nat), x ≥ y ===> ∀ (x y : Nat), ¬ x < y
 
 -- ∀ (a b : Bool), a ≤ b ===> ∀ (a b : Bool), ¬ b < a
-#testOptimize ["RelOpNotUnfolded_5"] ∀ (a b : Bool), a ≤ b ===> ∀ (a b : Bool), ¬ b < a
+#testOptimize [ "RelOpNotUnfolded_5" ] ∀ (a b : Bool), a ≤ b ===> ∀ (a b : Bool), ¬ b < a
 
 -- ∀ (a b : Bool), a ≥ b ===> ∀ (a b : Bool), ¬ a < b
 #testOptimize ["RelOpNotUnfolded_6"] ∀ (a b : Bool), a ≥ b ===> ∀ (a b : Bool), ¬ a < b
 
 -- ∀ (α : Type) (x y : α), [LE α] → x ≤ y ===> ∀ (α : Type) (x y : α), [LE α] → x ≤ y
-#testOptimize [ "RelOpNotUnfolded_7" ]  ∀ (α : Type) (x y : α), [LE α] → x ≤ y ===> ∀ (α : Type) (x y : α), [LE α] → x ≤ y
+#testOptimize [ "RelOpNotUnfolded_7", proof ]  ∀ (α : Type) (x y : α), [LE α] → x ≤ y ===> ∀ (α : Type) (x y : α), [LE α] → x ≤ y
 
 -- ∀ (α : Type) (x y : α), [LE α] → x ≥ y ===> ∀ (α : Type) (x y : α), [LE α] → y ≤ x
-#testOptimize [ "RelOpNotUnfolded_8" ]  ∀ (α : Type) (x y : α), [LE α] → x ≥ y ===> ∀ (α : Type) (x y : α), [LE α] → y ≤ x
+#testOptimize [ "RelOpNotUnfolded_8", proof ]  ∀ (α : Type) (x y : α), [LE α] → x ≥ y ===> ∀ (α : Type) (x y : α), [LE α] → y ≤ x
 
 -- ∀ (α : Type) (x y : List α), [LT α] → x ≤ y ===>
 -- ∀ (α : Type) (x y : List α), [LT α] → ¬ List.Lex (λ a b => LT.lt a b) y x
-#testOptimize [ "RelOpNotUnfolded_9" ]
+#testOptimize [ "RelOpNotUnfolded_9", proof ]
   ∀ (α : Type) (x y : List α), [LT α] → x ≤ y ===>
   ∀ (α : Type) (x y : List α), [LT α] → ¬ List.Lex (λ a b => LT.lt a b) y x
 
 -- ∀ (α : Type) (x y : List α), [LT α] → x ≥ y ===>
 -- ∀ (α : Type) (x y : List α), [LT α] → ¬ List.Lex (λ a b => LT.lt a b) x y
-#testOptimize [ "RelOpNotUnfolded_10" ]
+#testOptimize [ "RelOpNotUnfolded_10", proof ]
   ∀ (α : Type) (x y : List α), [LT α] → x ≥ y ===>
   ∀ (α : Type) (x y : List α), [LT α] → ¬ List.Lex (λ a b => LT.lt a b) x y
 
 -- ∀ (x y : Int), x < y ===> ∀ (x y : Int), x < y
-#testOptimize ["RelOpNotUnfolded_11"] ∀ (x y : Int), x < y ===> ∀ (x y : Int), x < y
+#testOptimize ["RelOpNotUnfolded_11", proof] ∀ (x y : Int), x < y ===> ∀ (x y : Int), x < y
 
 -- ∀ (x y : Int), x > y ===> ∀ (x y : Int), y < x
-#testOptimize ["RelOpNotUnfolded_12"] ∀ (x y : Int), x > y ===> ∀ (x y : Int), y < x
+#testOptimize [ "RelOpNotUnfolded_12", proof ] ∀ (x y : Int), x > y ===> ∀ (x y : Int), y < x
 
 -- ∀ (x y : Nat), x < y ===> ∀ (x y : Nat), x < y
-#testOptimize ["RelOpNotUnfolded_13"] ∀ (x y : Nat), x < y ===> ∀ (x y : Nat), x < y
+#testOptimize [ "RelOpNotUnfolded_13", proof ] ∀ (x y : Nat), x < y ===> ∀ (x y : Nat), x < y
 
 -- ∀ (x y : Nat), x > y ===> ∀ (x y : Nat), y < x
-#testOptimize ["RelOpNotUnfolded_14"] ∀ (x y : Nat), x > y ===> ∀ (x y : Nat), y < x
+#testOptimize [ "RelOpNotUnfolded_14", proof ] ∀ (x y : Nat), x > y ===> ∀ (x y : Nat), y < x
 
 -- ∀ (a b : Bool), a < b ===> ∀ (a b : Bool), a < b
-#testOptimize ["RelOpNotUnfolded_15"] ∀ (a b : Bool), a < b ===> ∀ (a b : Bool), a < b
+#testOptimize [ "RelOpNotUnfolded_15", proof ] ∀ (a b : Bool), a < b ===> ∀ (a b : Bool), a < b
 
 -- ∀ (a b : Bool), a > b ===> ∀ (a b : Bool), b < a
-#testOptimize ["RelOpNotUnfolded_16"] ∀ (a b : Bool), a > b ===> ∀ (a b : Bool), b < a
+#testOptimize [ "RelOpNotUnfolded_16", proof ] ∀ (a b : Bool), a > b ===> ∀ (a b : Bool), b < a
 
 -- ∀ (α : Type) (x y : α), [LT α] → x < y ===> ∀ (α : Type) (x y : α), [LT α] → x < y
-#testOptimize [ "RelOpNotUnfolded_17" ]  ∀ (α : Type) (x y : α), [LT α] → x < y ===> ∀ (α : Type) (x y : α), [LT α] → x < y
+#testOptimize [ "RelOpNotUnfolded_17", proof ]  ∀ (α : Type) (x y : α), [LT α] → x < y ===> ∀ (α : Type) (x y : α), [LT α] → x < y
 
 -- ∀ (α : Type) (x y : α), [LT α] → x > y ===> ∀ (α : Type) (x y : α), [LT α] → y < x
-#testOptimize [ "RelOpNotUnfolded_18" ]  ∀ (α : Type) (x y : α), [LT α] → x > y ===> ∀ (α : Type) (x y : α), [LT α] → y < x
+#testOptimize [ "RelOpNotUnfolded_18", proof ]  ∀ (α : Type) (x y : α), [LT α] → x > y ===> ∀ (α : Type) (x y : α), [LT α] → y < x
 
 -- ∀ (α : Type) (x y : List α), [LT α] → x < y ===>
 -- ∀ (α : Type) (x y : List α), [LT α] → List.Lex (λ a b => LT.lt a b) x y
-#testOptimize [ "RelOpNotUnfolded_19" ]
+#testOptimize [ "RelOpNotUnfolded_19", proof ]
   ∀ (α : Type) (x y : List α), [LT α] → x < y ===>
   ∀ (α : Type) (x y : List α), [LT α] → List.Lex (λ a b => LT.lt a b) x y
 
 -- ∀ (α : Type) (x y : List α), [LT α] → x > y ===>
 -- ∀ (α : Type) (x y : List α), [LT α] → List.Lex (λ a b => LT.lt a b) y x
-#testOptimize [ "RelOpNotUnfolded_20" ]
+#testOptimize [ "RelOpNotUnfolded_20", proof ]
   ∀ (α : Type) (x y : List α), [LT α] → x > y ===>
   ∀ (α : Type) (x y : List α), [LT α] → List.Lex (λ a b => LT.lt a b) y x
 
