@@ -263,22 +263,13 @@ private def closeTrivially (g : MVarId) : MetaM Bool := do
     return true
   try g.refl; return true catch _ => return false
 
-/-- Run `x` within a small budget of `1000 * 1000` raw heartbeats, as `maxHeartbeats 1000` would.
-    Any exception except an interrupt, timeout included, counts as `false`. -/
-private def withSmallBudget (x : MetaM Bool) : MetaM Bool := do
-  let s ← saveState
-  tryCatchRuntimeEx
-    (withTheReader Core.Context ({ · with maxHeartbeats := 1000 * 1000 }) (withCurrHeartbeats x))
-    fun _ => do s.restore; return false
-
 /-- Apply recorded proof stack rewrites to a goal.
     `hyps` are the intro'd binders, rewritten first (see `rewriteHypotheses`).
     With `unfoldTarget` and a target containing `Ne` or `GT.gt`, a replay that does not close
     the original target is retried on the unfolded one. Then the goal may be returned closed
-    by `True.intro` or `refl`. With `tryUnreplayed`, a goal the replay leaves open is also tried
-    on the original target without any step. -/
+    by `True.intro` or `refl`. -/
 def applyProofStack (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep)
-    (hyps : Array FVarId := #[]) (unfoldTarget := true) (tryUnreplayed := true) : MetaM MVarId := do
+    (hyps : Array FVarId := #[]) (unfoldTarget := true) : MetaM MVarId := do
   let goal ← goal.withContext do
     let t ← goal.getType
     if hasLet t then goal.change (← zetaReduce t) else pure goal
@@ -297,23 +288,11 @@ def applyProofStack (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep)
     | s => return #[s]
   -- `GE.ge` is left out since its unfold step replays it
   let isGoalAbbrev (n : Name) := n == ``Ne || n == ``GT.gt
-  let s ← saveState
-  -- a goal left open by the replay is tried without any step within a small budget,
-  -- e.g. when a rewritten `ite` no longer reduces by defeq
-  let orUnreplayed (g : MVarId) : MetaM MVarId := do
-    unless tryUnreplayed do return g
-    let failed ← saveState
-    s.restore
-    if ← withSmallBudget (closeTrivially goal <||> (do goal.assumption; pure true)) then return goal
-    failed.restore
-    return g
   unless unfoldTarget &&
       ((← goal.getType).find? fun e => e.isConst && isGoalAbbrev e.constName!).isSome do
-    let g ← replaySteps goal steps hyps
-    unless tryUnreplayed do return g
-    if ← withSmallBudget (closeTrivially g) then return g
-    return ← orUnreplayed g
+    return ← replaySteps goal steps hyps
   -- the original target is replayed first, so a goal that closes this way costs no more
+  let s ← saveState
   let g ← replaySteps goal steps hyps
   if ← closeTrivially g then return g
   -- otherwise retry with `Ne` and `GT.gt` unfolded, as the optimizer sees them
@@ -323,7 +302,7 @@ def applyProofStack (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep)
   if ← closeTrivially g' then return g'
   -- both failed, keep the original target for the gap message
   failed.restore
-  orUnreplayed g
+  return g
 
 /-- Build a proof of `(∀ x₁…xₙ, P) = (∀ y₁…yₘ, Q)` when m < n (some binders eliminated),
     given `innerProof : ∀ x₁…xₙ, P(x₁…xₙ) = Q(kept(x₁…xₙ))`. -/

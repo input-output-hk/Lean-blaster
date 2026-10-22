@@ -186,8 +186,7 @@ private def buildAndApplyProofStack (inputExpr : Expr) (optimized : Expr)
   let goalId := goal.mvarId!
   let (goalFVarIds, g) ← goalId.introNP numBinders
   let proofStack := substProofStackFVars proofStack optBinders goalFVarIds
-  -- the gate measures the steps alone
-  return (goalId, ← applyProofStack g proofStack goalFVarIds (tryUnreplayed := false))
+  return (goalId, ← applyProofStack g proofStack goalFVarIds)
 
 /-- Return `true` if the expression contains `sorryAx` anywhere.
     Tail recursive on a stack of pending subterms, so a deep `e` cannot overflow. -/
