@@ -456,8 +456,7 @@ Verdicts, evidence, and infrastructure status are separate:
 
 `verbose: 3` captures the Lean goal, optimized expression, complete labeled
 SMT transcript, solver name/version/invocation, `check-sat` response,
-`topLevelVars`, exact model command, raw response, and stderr stage. See
-`Tests/Smt/CounterexampleSpike.lean`.
+`topLevelVars`, exact model command, raw response, and stderr stage.
 
 #### State-Machine Formalization
 ```lean

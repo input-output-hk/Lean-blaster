@@ -3,9 +3,6 @@
 set -o pipefail
 
 exec_found=0
-# Space-separated diagnostic/spike modules intentionally kept out of an
-# aggregate target while the remaining source tree stays coverage-checked.
-EXCLUDED_MODULES=${LEAN_PROJECT_EXCLUDE_MODULES:-}
 if [[ $# -ge 1 && $# -le 2 ]]
 then
   PROJECT_NAME=$1
@@ -34,7 +31,7 @@ then
   do
    LEAN_MODULE=`echo $i | sed 's/\.\///g' | sed 's/\//./g' | sed 's/.lean//g'`
    RES=`grep -F "Built $LEAN_MODULE (" build.log`
-   for j in $EXEC_FILES $EXCLUDED_MODULES
+   for j in $EXEC_FILES
     do
      if [[ $LEAN_MODULE = $j ]]
      then
