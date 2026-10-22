@@ -1287,7 +1287,13 @@ private def evalTermFor
   | .ok response =>
       match solverErrorResponse? response with
       | some error => return (none, some s!"get-value returned an SMT error: {error}")
-      | none => return (some (unwrapGetValueOutput response), none)
+      | none =>
+          -- `unwrapGetValueOutput` returns an unrecognized response unchanged;
+          -- a successful unwrap always drops the `((t …))` wrapper.
+          let value := unwrapGetValueOutput response
+          if value == response.trim then
+            return (none, some s!"Response framing failed: expected ((term value)); raw response: {response.trim}")
+          return (some value, none)
 
 private def getModelFor (solver : SmtSolver) : TranslateEnvT ModelEvidence := do
   let some session ← getSession? solver
