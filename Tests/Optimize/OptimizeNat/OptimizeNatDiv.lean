@@ -694,4 +694,8 @@ elab "natDivReduce_2" : term => return natDivReduce_2
 #testOptimize [ "NatDivSelf_3", proof ] (norm-result: 1)
   ∀ (x : Nat), 0 < x → (x + 0) / (x + 0) = 1 ===> True
 
+-- x / x ===> 1 (with x ≠ 0)
+#testOptimize [ "NatDivSelf_4", proof ] (norm-result: 1)
+  ∀ (x : Nat), x ≠ 0 → x / x = 1 ===> True
+
 end Test.OptimizeNatDiv

@@ -27,6 +27,13 @@ elab "intMulCst_2" : term => return intMulCst_2
 
 #testOptimize [ "IntMulCst_2", proof] (1: Int) * 5 ===> intMulCst_2
 
+/-! Test cases for the constant fold `N1 * N2 ==> N1 "*" N2` -/
+
+-- the fold feeds `Int.zero_mul`, so its step must be in the stack
+#testOptimize ["IntMulCst_3", proof] ∀ (n : Int), 2 * 0 * n = 0 ===> True
+
+#testOptimize ["IntMulCst_4", proof] ∀ (n : Int), 2 * 3 * n = 6 * n ===> True
+
 /-! Tests cases for simplification rule 0 * n = 0 -/
 #testOptimize ["IntMulZero_1", proof] ∀ (n : Int), 0 * n = 0 ===> True
 
@@ -47,6 +54,9 @@ variable (x : Int)
 
 -- nested operand carries a core `Int.mul`, exercising `toElabForm`'s Int branch
 #testOptimize ["IntMulAssoc_2", proof] ∀ (a b : Int), 2 * (3 * (a * b)) = 6 * (a * b) ===> True
+
+-- the folded `6` must match the `6 * n` operand of `Int.add_right_neg`
+#testOptimize ["IntMulAssoc_3", proof] ∀ (n : Int), 2 * (3 * n) + -(6 * n) = 0 ===> True
 
 /-! Tests cases for the commutative reorder `n1 * n2 ==> n2 * n1` -/
 #testOptimize ["IntMulComm_1", proof] ∀ (n : Int), n * 3 = 3 * n ===> True

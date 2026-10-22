@@ -30,10 +30,13 @@ protected theorem sub_min_int_of_eq (N1 N2 a b : Int) (h : N1 + a = N2 + b) :
     N1 - min N1 N2 + a = N2 - min N1 N2 + b := by
     by_cases h : N1 ≤ N2 <;> simp [Int.min_def, h] <;> omega
 
-protected theorem int_ediv_gcd_norm (N1 N2 x : Int) :
-    N1 * x / N2 = N1 / ↑(N1.gcd N2) * x / (N2 / ↑(N1.gcd N2)) := by
+protected theorem int_ediv_gcd_norm (N1 N2 x M1 M2 : Int)
+    (h1 : N1 / ↑(N1.gcd N2) = M1) (h2 : N2 / ↑(N1.gcd N2) = M2) :
+    N1 * x / N2 = M1 * x / M2 := by
+  subst h1 h2
   rcases Nat.eq_zero_or_pos (N1.gcd N2) with h0 | hpos
-  · rw [Int.gcd_eq_zero_iff] at h0; obtain ⟨rfl, rfl⟩ := h0; simp
+  · rw [Int.gcd_eq_zero_iff] at h0; obtain ⟨rfl, rfl⟩ := h0
+    simp only [Int.zero_mul, Int.ediv_zero, Int.gcd_self, Int.natAbs_zero, Int.cast_ofNat_Int]
   · have hg : 0 < (↑(N1.gcd N2) : Int) := by exact_mod_cast hpos
     have h1 : (↑(N1.gcd N2) : Int) ∣ N1 := Int.gcd_dvd_left N1 N2
     have h2 : (↑(N1.gcd N2) : Int) ∣ N2 := Int.gcd_dvd_right N1 N2
@@ -43,10 +46,13 @@ protected theorem int_ediv_gcd_norm (N1 N2 x : Int) :
     rw [Int.mul_ediv_cancel_left _ hg0, Int.mul_ediv_cancel_left _ hg0,
         Int.mul_assoc, Int.mul_ediv_mul_of_pos _ _ hg]
 
-protected theorem int_tdiv_gcd_norm (N1 N2 x : Int) :
-    (N1 * x).tdiv N2 = (N1.tdiv ↑(N1.gcd N2) * x).tdiv (N2.tdiv ↑(N1.gcd N2)) := by
+protected theorem int_tdiv_gcd_norm (N1 N2 x M1 M2 : Int)
+    (h1 : N1.tdiv ↑(N1.gcd N2) = M1) (h2 : N2.tdiv ↑(N1.gcd N2) = M2) :
+    (N1 * x).tdiv N2 = (M1 * x).tdiv M2 := by
+  subst h1 h2
   rcases Nat.eq_zero_or_pos (N1.gcd N2) with h0 | hpos
-  · rw [Int.gcd_eq_zero_iff] at h0; obtain ⟨rfl, rfl⟩ := h0; simp
+  · rw [Int.gcd_eq_zero_iff] at h0; obtain ⟨rfl, rfl⟩ := h0
+    simp only [Int.zero_mul, Int.tdiv_zero, Int.gcd_self, Int.natAbs_zero, Int.cast_ofNat_Int]
   · have hg : 0 < (↑(N1.gcd N2) : Int) := by exact_mod_cast hpos
     have h1 : (↑(N1.gcd N2) : Int) ∣ N1 := Int.gcd_dvd_left N1 N2
     have h2 : (↑(N1.gcd N2) : Int) ∣ N2 := Int.gcd_dvd_right N1 N2
@@ -56,10 +62,13 @@ protected theorem int_tdiv_gcd_norm (N1 N2 x : Int) :
     rw [Int.mul_tdiv_cancel_left _ hg0, Int.mul_tdiv_cancel_left _ hg0,
         Int.mul_assoc, Int.mul_tdiv_mul_of_pos _ _ hg]
 
-protected theorem int_fdiv_gcd_norm (N1 N2 x : Int) :
-    (N1 * x).fdiv N2 = (N1.fdiv ↑(N1.gcd N2) * x).fdiv (N2.fdiv ↑(N1.gcd N2)) := by
+protected theorem int_fdiv_gcd_norm (N1 N2 x M1 M2 : Int)
+    (h1 : N1.fdiv ↑(N1.gcd N2) = M1) (h2 : N2.fdiv ↑(N1.gcd N2) = M2) :
+    (N1 * x).fdiv N2 = (M1 * x).fdiv M2 := by
+  subst h1 h2
   rcases Nat.eq_zero_or_pos (N1.gcd N2) with h0 | hpos
-  · rw [Int.gcd_eq_zero_iff] at h0; obtain ⟨rfl, rfl⟩ := h0; simp
+  · rw [Int.gcd_eq_zero_iff] at h0; obtain ⟨rfl, rfl⟩ := h0
+    simp only [Int.zero_mul, Int.fdiv_zero, Int.gcd_self, Int.natAbs_zero, Int.cast_ofNat_Int]
   · have hg : 0 < (↑(N1.gcd N2) : Int) := by exact_mod_cast hpos
     have h1 : (↑(N1.gcd N2) : Int) ∣ N1 := Int.gcd_dvd_left N1 N2
     have h2 : (↑(N1.gcd N2) : Int) ∣ N2 := Int.gcd_dvd_right N1 N2
@@ -85,13 +94,25 @@ protected theorem int_fmod_mul_zero (N1 N2 x : Int) (h : N1 % N2 = 0) : (N1 * x)
 protected theorem int_le_eq_not_lt (a b : Int) : (a ≤ b) = (¬ (b < a)) :=
   propext ⟨fun h hlt => absurd (Int.lt_of_lt_of_le hlt h) (Int.lt_irrefl b), Int.not_lt.mp⟩
 
+/-! Lemma to validate normalization rule `LE.le ==> λ x y => ¬ (y < x) (if Type(x) = Int)`. -/
+protected theorem int_le_fun_eq : (LE.le : Int → Int → Prop) = fun x y => ¬ (y < x) :=
+  funext fun a => funext fun b => Blaster.int_le_eq_not_lt a b
+
+/-! Lemma to validate normalization rule `Int.le ==> ≤`. -/
+protected theorem int_le_eq_le : Int.le = (LE.le : Int → Int → Prop) := rfl
+
+/-! Lemma to validate simplification rule `Int.toNat (Int.neg (Int.ofNat e)) ===> 0`. -/
+protected theorem int_toNat_neg_ofNat (n : Nat) : Int.toNat (-(Int.ofNat n)) = 0 :=
+  match n with
+  | 0 => rfl
+  | _ + 1 => rfl
+
+/-! Lemma to validate normalization rule `Int.negSucc n ==> Int.neg (Int.ofNat (1 + n))`. -/
+protected theorem int_negSucc_eq (n : Nat) : Int.negSucc n = -(Int.ofNat (1 + n)) :=
+  Nat.add_comm n 1 ▸ rfl
+
 /-! Lemma to validate simplification rule `N1 + -(N2 + n) ==> (N1 "-" N2) + -n`. -/
 protected theorem int_add_neg_add (a b c : Int) : a + -(b + c) = (a - b) + -c := by omega
-
-/-! Helpers turning a strict sign hypothesis into `n ≠ 0`. -/
-protected theorem int_ne_zero_of_zero_lt {n : Int} (h : 0 < n) : n ≠ 0 := by omega
-protected theorem int_ne_zero_of_lt_zero {n : Int} (h : n < 0) : n ≠ 0 := by omega
-protected theorem int_ne_zero_of_not_zero_eq {n : Int} (h : ¬ (0 = n)) : n ≠ 0 := by omega
 
 /-! ## Lemmas validating the `optimizeLT` simplification and normalization rules on `Int` -/
 
@@ -135,12 +156,16 @@ protected theorem int_lt_add_neg_eq_false (a n : Int) (h : decide (n < 0) = true
   exact propext ⟨fun h => by omega, False.elim⟩
 
 /-! Lemma to validate simplification rule `N1 + a < N2 ==> a < N2 "-" N1`. -/
-protected theorem int_add_const_lt_eq_lt_sub (a n1 n2 : Int) :
-    (n1 + a < n2) = (a < n2 - n1) := propext (by omega)
+protected theorem int_add_const_lt_eq_lt_sub (a n1 n2 m : Int) (h : n2 - n1 = m) :
+    (n1 + a < n2) = (a < m) := by
+  subst h
+  exact propext (by omega)
 
 /-! Lemma to validate simplification rule `N1 < N2 + a ==> N1 "-" N2 < a`. -/
-protected theorem int_const_lt_add_eq_sub_lt (a n1 n2 : Int) :
-    (n1 < n2 + a) = (n1 - n2 < a) := propext (by omega)
+protected theorem int_const_lt_add_eq_sub_lt (a n1 n2 m : Int) (h : n1 - n2 = m) :
+    (n1 < n2 + a) = (m < a) := by
+  subst h
+  exact propext (by omega)
 
 /-! Lemma to validate simplification rule
     `N1 + a < N2 + b ==> N1 "-" min(N1, N2) + a < N2 "-" min(N1, N2) + b`.
@@ -235,6 +260,116 @@ protected theorem int_add_lt_zero_eq_true_of_neg_nonpos (x y : Int) (hx : x < 0)
 /-! Lemma to validate simplification rule `N < e ==> False (if ¬ (N - 1 < e))`. -/
 protected theorem int_lt_false_of_not_pred_lt (n e : Int) (h : ¬ (n - 1 < e)) :
     (n < e) = False := propext ⟨fun hlt => by omega, False.elim⟩
+
+/-! ## Lemmas validating the simplification rules on equality negation rules:
+  - `0 = -e ==> 0 = e`
+  - `-e1 = -e2 ==> e1 = e2`
+  - `0 = x * y ==> False (if x ≠ 0 ∧ y ≠ 0 in hyps)`
+  - `0 = x + y ==> False (same-sign x , y)`
+-/
+protected theorem zero_eq_int (e : Int) : (0 = -e) = (0 = e) := by
+  apply propext
+  rw [← Int.neg_zero, Int.neg_inj]
+  exact Eq.to_iff rfl
+
+protected theorem int_neg_eq (a b : Int) : (-a = -b) = (a = b) := by
+  apply propext
+  exact Int.neg_inj
+
+protected theorem int_mul_eq_false_of_ne (a b : Int) (h1 : ¬ (0 = a)) (h2 : ¬ (0 = b)) :
+  (0 = a * b) = False := by
+  apply propext
+  rw [iff_false, ← ne_eq]
+  have h1 : a ≠ 0 := Ne.symm h1
+  have h2 : b ≠ 0 := Ne.symm h2
+  exact (Int.mul_ne_zero h1 h2).symm
+
+protected theorem int_add_eq_false_of_gt (a b : Int) (h1 : 0 < a) (h2 : 0 < b) : (0 = a + b) = False := by
+  apply propext
+  simp only [iff_false]
+  omega
+
+protected theorem int_add_eq_false_of_lt (a b : Int) (h1 : a < 0) (h2:  b < 0) : (0 = a + b) = False := by
+  apply propext
+  simp only [iff_false]
+  omega
+
+
+/-! ## Lemmas to validate simplification equality rules over `Int.add`:
+  - `x + y = x + z ==> y = z`
+  - `x + y = z + x ==> y = z`
+  - `y + x = x + z ==> y = z`
+  - `y + x = z + x ==> y = z`
+  - `N + e = e ==> False (if N ≠ 0)`
+  - `x + y = x ==> False (if y ≠ 0)`
+  - `N1 = N2 + a ==> N1 - N2 = a`
+  - `N1 + a = N2 + b ==> N1 - min(N1, N2) + a = N2 - min(N1, N2) + B`
+-/
+protected theorem int_add_eq_add_rgt (x y z : Int) : (x + y = x + z) = (y = z) := by
+  simp only [Int.add_right_inj]
+
+protected theorem int_add_eq_add_lft (x y z : Int) : (x + y = z + x) = (y = z) := by
+  simp only [eq_iff_iff]
+  omega
+
+protected theorem int_add_lft_eq_add (x y z: Int) : (y + x = x + z) = (y = z) := by
+  simp only [eq_iff_iff]
+  omega
+
+protected theorem int_add_lft_eq_add_lft (x y z: Int) : (y + x = z + x) = (y = z) := by
+  simp only [Int.add_left_inj]
+
+protected theorem  int_add_left_eq_false (e N : Int) (h : ¬ (0 = N)) : (N + e = e) = False := by
+  apply propext
+  rw [iff_false]
+  omega
+
+protected theorem int_add_right_eq_false (x y : Int) (h : ¬ (0 = y)) : (x + y = x) = False := by
+  apply propext
+  rw [iff_false]
+  omega
+
+protected theorem int_sub_of_eq_add (N1 N2 a M: Int) (h : N1 - N2 = M) :
+  (N1 = N2 + a) = (M = a) := by
+  subst h
+  apply propext
+  omega
+
+protected theorem int_add_with_min (N1 N2 a b M1 M2 : Int)
+  (h1: N1 - min N1 N2 = M1) (h2 : N2 - min N1 N2 = M2) :
+  (N1 + a = N2 + b) = (M1 + a = M2 + b) := by
+  subst h1 h2
+  apply propext
+  omega
+
+/-! ## Lemmas to valiate simplification equality rules over `Int.mul`:
+  - `x * y = x * z ==> y = z (if x ≠ 0)`
+  - `y * x = z * x ==> y = z (if x ≠ 0)`
+  - `x * y = z * x ==> y = z (if x ≠ 0)`
+  - `y * x = x * z ==> y = z (if x ≠ 0)`
+-/
+
+protected theorem int_mul_eq_mul_rgt (x y z : Int) (h : ¬ (0 = x)) : (x * y = x * z) = (y = z) := by
+  apply propext
+  have h : x ≠ 0 := Ne.symm h
+  exact Int.mul_eq_mul_left_iff h
+
+protected theorem int_mul_lft_eq_mul_lft (x y z : Int) (h : ¬ (0 = x)) : (y * x = z * x) = (y = z) := by
+  apply propext
+  have h : x ≠ 0 := Ne.symm h
+  exact Int.mul_eq_mul_right_iff h
+
+protected theorem int_mul_eq_mul_lft (x y z : Int) (h : ¬ (0 = x)) : (x * y = z * x) = (y = z) := by
+  apply propext
+  rw [Int.mul_comm]
+  have h : x ≠ 0 := Ne.symm h
+  exact Int.mul_eq_mul_right_iff h
+
+protected theorem int_mul_lft_eq_mul (x y z : Int) (h : ¬ (0 = x)) : (y * x = x * z) = (y = z) := by
+  apply propext
+  rw [Int.mul_comm]
+  have h : x ≠ 0 := Ne.symm h
+  exact Int.mul_eq_mul_left_iff h
 
 def mkInt_lt_asymm : TranslateEnvT Expr := mkExpr (mkConst ``Int.lt_asymm)
 

@@ -602,6 +602,15 @@ def isNotFoldable
   | _ => return false
 
 
+/-- Push the proof step of unfolding the constant `f`. Skipped for `Int.sub`,
+    which has its own step (see `pushOpaqueFunProofStep`).
+-/
+@[always_inline, inline]
+def pushUnfoldProofStep (f : Expr) : TranslateEnvT Unit := do
+  let Expr.const n _ := f | return ()
+  if n == ``Int.sub then return ()
+  pushProofStep (.unfold n)
+
 /-- Unfold fuction `f` w.r.t. the effective parameters `args` only when:
      - f is not a constructor
      - f is not tagged as an opaque definition
@@ -609,6 +618,7 @@ def isNotFoldable
      - f is not a class constraint
      - f is not an undefined type class function
      - f is not a match application
+    [proof: unfold step, see `pushUnfoldProofStep`, none for an instance class function]
 -/
 def getUnfoldFunDef? (f: Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := withLocalContext $ do
  if (← isNotFoldable f args) then return none
@@ -624,7 +634,9 @@ def getUnfoldFunDef? (f: Expr) (args: Array Expr) : TranslateEnvT (Option Expr) 
         match ← getFunBody f' with
         | some fbody' => return betaLambda fbody' reduced.getAppArgs
         | none => return reduced -- structure projection case
-      else return reduced
+      else
+        pushUnfoldProofStep f
+        return reduced
  | none => return none
 
 

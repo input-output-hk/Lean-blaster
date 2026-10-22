@@ -383,11 +383,33 @@ def inHypMap (e : Expr) (h : HypothesisMap) : TranslateEnvT (Option Expr) := do
 
 /-- Given `e` and hypothesis map `h` perform the following:
      - When `some p := inHypMap (← optimizeNot (¬ e)) h`
-       - return `some p`
+       - return `some p'` with `p'` the proof of `¬ e` obtained from `p`
 -/
 @[always_inline, inline]
 def notInHypMap (e : Expr) (h : HypothesisMap) : TranslateEnvT (Option Expr) := do
-  let not_e ← optimizeNot (← mkPropNotOp) (cacheResult := false) #[e]
-  inHypMap not_e h
+  let notOp ← mkPropNotOp
+  let not_e ← optimizeNot notOp (cacheResult := false) #[e]
+  let some p ← inHypMap not_e h | return none
+  -- `p` proves the normal form `not_e`, so transport it back to `¬ e`
+  match notNormEq? e with
+  | some heq => return some (mkApp4 (mkConst ``Eq.mpr [levelZero]) (mkApp notOp e) not_e heq p)
+  | none => return some p
+
+ where
+   /-- The equation `(¬ e) = not_e` of the `optimizeNot` rule applied on `¬ e`, if any. -/
+   notNormEq? (e : Expr) : Option Expr :=
+     match e with
+     | Expr.const ``False _ => some (mkConst ``not_false_eq_true)
+     | Expr.const ``True _ => some (mkConst ``not_true_eq_false)
+     | _ =>
+       if let some x := propNot? e then some (mkApp (mkConst ``Blaster.double_not_classical) x) else
+       match eq? e with
+       | some (_, Expr.const ``false _, b) => some (mkApp (mkConst ``Blaster.not_false_is_true) b)
+       | some (_, Expr.const ``true _, b) => some (mkApp (mkConst ``Blaster.not_true_is_false) b)
+       | _ =>
+         match lt? e with
+         | some (_, _, a, b) =>
+             if isZeroNat a then some (mkApp (mkConst ``Blaster.nat_not_zero_lt_eq_zero_eq) b) else none
+         | none => none
 
 end Blaster.Optimize
