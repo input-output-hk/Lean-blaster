@@ -53,4 +53,10 @@ namespace Test.OptimizeIntEDiv
 #testOptimize [ "IntMulEDivCancel_5", proof ]
   ∀ (x y : Int), x ≠ 0 → (x * y) / x = y ===> True
 
+-- a definition written with core `Int.ediv`, put in the replay spelling once unfolded
+def halfI (x : Int) : Int := Int.ediv x 2
+
+#testOptimize [ "IntEDivUnfold_1", proof ]
+  ∀ (x y : Int), halfI x + y = y + x / 2 ===> True
+
 end Test.OptimizeIntEDiv

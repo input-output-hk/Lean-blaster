@@ -575,135 +575,87 @@ def arithEq? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
   if let some r ← addIntEqReduce? op1 op2 then return r
   return none
 
-/-- Ground literal value, used to compare literal operands syntactically. -/
-private inductive GroundLit where
-  | nat  (n : Nat)
-  | int  (i : Int)
-  | str  (s : String)
-  | bool (b : Bool)
- deriving BEq
-
-/-- Recognize the literal forms produced by the optimizer: raw `Nat`/`String` literals,
-    `OfNat.ofNat` numerals at `Nat`/`Int`, `Int.ofNat`/`Int.negSucc`/`Neg.neg` of a literal and
-    `Bool.true`/`Bool.false`. -/
-private partial def groundLit? (e : Expr) : Option GroundLit :=
-  match e with
-  | .lit (.natVal n) => some (.nat n)
-  | .lit (.strVal s) => some (.str s)
-  | .const ``Bool.true _ => some (.bool true)
-  | .const ``Bool.false _ => some (.bool false)
-  | _ =>
-    match e.getAppFnArgs with
-    | (``OfNat.ofNat, #[t, v, _]) =>
-        match groundLit? v with
-        | some (.nat n) =>
-            if t.isConstOf ``Nat then some (.nat n)
-            else if t.isConstOf ``Int then some (.int (Int.ofNat n))
-            else none
-        | _ => none
-    | (``Int.ofNat, #[v]) =>
-        match groundLit? v with
-        | some (.nat n) => some (.int (Int.ofNat n))
-        | _ => none
-    | (``Int.negSucc, #[v]) =>
-        match groundLit? v with
-        | some (.nat n) => some (.int (Int.negSucc n))
-        | _ => none
-    | (``Neg.neg, #[t, _, v]) =>
-        if t.isConstOf ``Int then
-          match groundLit? v with
-          | some (.int i) => some (.int (-i))
-          | some (.nat n) => some (.int (-(Int.ofNat n)))
-          | _ => none
-        else none
-    | _ => none
-
-/-- Return `true` when `a` and `b` are closed literals of the same kind with different values.
-    Closedness matters: the kernel must be able to evaluate `decide (a = b)` at replay. -/
-private def isDistinctGroundLit (a b : Expr) : Bool :=
-  if a.hasFVar || a.hasMVar || b.hasFVar || b.hasMVar then false
-  else
-    match groundLit? a, groundLit? b with
-    | some la, some lb => la != lb
-    | _, _ => false
-
-/-- Depth budget for `injectTarget`: bounds the nesting of the constructor mismatch, not the
-    size of the local context. -/
-private def injectMaxDepth : Nat := 64
-
-/-- Run `Lean.Meta.injection`, returning `none` when it does not apply. -/
-private def tryInjection? (g : MVarId) (fv : FVarId) : MetaM (Option InjectionResult) :=
-  try commitIfNoEx do return some (← Lean.Meta.injection g fv)
-  catch _ => return none
-
-/-- Directed injection: start from the introduced hypothesis and recurse only into the
-    equalities that `injection` produces, never into the optimizer's local context (an fvar from
-    there could not be mapped by `substProofStackFVars`). Return `none` when the equality is
-    refuted, otherwise the remaining goal and the leaves on which `injection` did not apply. -/
-private partial def injectTarget (depth : Nat) (g : MVarId) (todo : List FVarId)
-    (leaves : Array FVarId) : MetaM (Option (MVarId × Array FVarId)) := do
-  match depth, todo with
-  | 0, _ => return some (g, leaves ++ todo.toArray)
-  | _, [] => return some (g, leaves)
-  | d + 1, fv :: rest =>
-    -- Literal pairs are leaves: `injection` would unfold them into a `Nat.succ` tower.
-    let isLeaf ← g.withContext do
-      match (← fv.getType).eq? with
-      | some (_, a, b) => return (groundLit? a).isSome && (groundLit? b).isSome
-      | none => return false
-    if isLeaf then
-      injectTarget (d + 1) g rest (leaves.push fv)
-    else
-      match ← tryInjection? g fv with
-      | none => injectTarget (d + 1) g rest (leaves.push fv)
-      | some .solved => return none
-      | some (.subgoal g' newEqs _) =>
-          g'.withContext <| injectTarget d g' (newEqs.toList ++ rest) leaves
-
-/-- Build a proof of `¬ (op1 = op2)` for structurally distinct constructor applications by
-    introducing the equality and chasing the mismatch with `injectTarget`. If the descent ends on
-    a literal mismatch, close it with `of_decide_eq_false` built with raw
-    `mkApp`, so the kernel evaluates `decide` at replay. Return `none` when no proof is found.
-    The metavariable context is restored on exit, otherwise the assigned mvars left behind
-    collide with fresh ones later. -/
-def mkStructDiseqProof? (op1 op2 : Expr) : TranslateEnvT (Option Expr) := do
-  let mctx ← getMCtx
-  try
-    let target ← mkArrow (← mkEq op1 op2) (mkConst ``False)
-    let mvar ← mkFreshExprMVar target
-    let (fv, g) ← mvar.mvarId!.intro1
-    let r ←
-      match ← injectTarget injectMaxDepth g [fv] #[] with
-      | none => mkProof? mvar
-      | some (g, leaves) =>
-          if ← closeByGroundLitDiseq g leaves then mkProof? mvar else pure none
-    setMCtx mctx
-    return r
-  catch _ =>
-    setMCtx mctx
-    return none
+/-- Try to prove `op1 = op2 → False`, assuming `structEq? op1 op2 = some false`.
+    Descend through constructor fields towards a mismatch that `noConfusion` can carry, in a loop
+    so that deep terms do not exhaust the stack. Return `none` when the descent finds no such
+    mismatch. -/
+def structNeProof? (op1 op2 : Expr) : TranslateEnvT (Option Expr) := do
+  let mut a := op1
+  let mut b := op2
+  -- Constructor applications crossed by the descent, with their mismatching fields.
+  let mut frames : Array (Expr × Expr × Expr × Expr) := #[]
+  repeat
+    if exprEq a b then return none
+    match a, b with
+    | .lit (.natVal n1), .lit (.natVal n2) =>
+        if n1 == n2 then return none
+        return ← fold frames (← mkOfDecideEqProof (← mkExpr (mkApp3 (← mkEqOp) (← mkNatType) a b)) false)
+    | .lit (.strVal s1), .lit (.strVal s2) =>
+        if s1 == s2 then return none
+        let strType ← mkExpr (mkConst ``String)
+        return ← fold frames (← mkOfDecideEqProof (← mkExpr (mkApp3 (← mkEqOp) strType a b)) false)
+    | _, _ =>
+      let some (c1, as1) ← ctorApp? a | return none
+      let some (c2, as2) ← ctorApp? b | return none
+      if c1.name != c2.name then return ← fold frames (← ctorNe a b)
+      if as1.size == c1.numParams then return none
+      -- Take the first mismatching field that is not a proof, since `noConfusion` omits proofs.
+      -- Otherwise take the last field, which keeps lists linear but may not be a mismatch.
+      let mut i := as1.size - 1
+      for j in [c1.numParams:as1.size - 1] do
+        if (← structEq? as1[j]! as2[j]!) == some false then
+          unless ← isPropEnv (← inferTypeEnv as1[j]!) do
+            i := j
+            break
+      frames := frames.push (a, b, as1[i]!, as2[i]!)
+      a := as1[i]!
+      b := as2[i]!
+  return none
  where
-   mkProof? (mvar : Expr) : TranslateEnvT (Option Expr) := do
-     let proof ← instantiateMVars mvar
-     if proof.hasExprMVar then return none
-     return some proof
+   /-- Inductives in `Prop` have no `noConfusion`, so `mkNoConfusion` would build a term the
+       kernel rejects. -/
+   ctorApp? (e : Expr) : MetaM (Option (ConstructorVal × Array Expr)) := do
+     let some (ci, as) ← constructorApp? e | return none
+     unless (← getEnv).contains (ci.induct.str "noConfusion") do return none
+     return some (ci, as)
 
-   /-- Close the `False` subgoal with a leaf `h : a = b` where `a`, `b` are distinct closed
-       literals. -/
-   closeByGroundLitDiseq (g : MVarId) (leaves : Array FVarId) : TranslateEnvT Bool :=
-     g.withContext do
-       unless (← g.getType).isConstOf ``False do return false
-       for fv in leaves do
-         let some ty ← (try pure (some (← fv.getType)) catch _ => pure none) | continue
-         let some (_, a, b) := ty.eq? | continue
-         unless isDistinctGroundLit a b do continue
-         let some inst ← (try pure (some (← synthInstance (mkApp (mkConst ``Decidable) ty)))
-                          catch _ => pure none) | continue
-         let reflFalse := mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Bool) (mkConst ``Bool.false)
-         let notEq := mkApp3 (mkConst ``of_decide_eq_false) ty inst reflFalse
-         g.assign (mkApp notEq (mkFVar fv))
-         return true
-       return false
+   /-- Proof of `a = b → False` for distinct constructors. -/
+   ctorNe (a b : Expr) : MetaM Expr := do
+     withLocalDeclD `h (← mkEq a b) fun h => do
+       mkLambdaFVars #[h] (← mkNoConfusion (mkConst ``False) h)
+
+   /-- `fun q h => nc (fun premises => q e)` lifting `q : fa = fb → False` to `a = b → False`,
+       with `fa`, `fb` fields of `a`, `b`. -/
+   fieldNe (a b fa fb : Expr) : MetaM (Option Expr) := do
+     withLocalDeclD `q (← mkArrow (← mkEq fa fb) (mkConst ``False)) fun q => do
+       withLocalDeclD `h (← mkEq a b) fun h => do
+         let nc ← mkNoConfusion (mkConst ``False) h
+         -- `nc : (premises → False) → False`. Premises are found by type since `noConfusion`
+         -- omits `Prop` fields.
+         let .forallE _ k _ _ ← whnf (← inferType nc) | return none
+         let pk? ← forallTelescopeReducing k fun es _ => do
+           for e in es do
+             let ty ← inferType e
+             if let some (_, x, y) := ty.eq? then
+               if x == fa && y == fb then
+                 return some (← mkLambdaFVars es (mkApp q e))
+             if let some (α, x, β, y) := ty.heq? then
+               if α == β && x == fa && y == fb then
+                 let e' := mkApp4 (mkConst ``eq_of_heq ty.getAppFn.constLevels!) α x y e
+                 return some (← mkLambdaFVars es (mkApp q e'))
+           return none
+         let some pk := pk? | return none
+         return some (← mkLambdaFVars #[q, h] (mkApp nc pk))
+
+   /-- Fold the frames from the innermost outwards. Each frame is applied to the inner proof
+       without beta reduction, so that the inner proof is neither traversed again nor nested
+       under the binders of the frame, which keeps the proof size linear. -/
+   fold (frames : Array (Expr × Expr × Expr × Expr)) (leaf : Expr) : MetaM (Option Expr) := do
+     let mut p := leaf
+     for (a, b, fa, fb) in frames.reverse do
+       let some f ← fieldNe a b fa fb | return none
+       p := mkApp f p
+     return some p
 
 /-- Apply the following simplification/normalization rules on `Eq` :
      - False = e ==> ¬ e                          [proof: Blaster.false_prop_is_neg]
@@ -712,7 +664,7 @@ def mkStructDiseqProof? (op1 op2 : Expr) : TranslateEnvT (Option Expr) := do
      - e = not e ==> False                        [proof: Blaster.eq_not_is_false]
      - e1 = e2 ==> True (if e1 =ₚₜᵣ e2)            [proof: eq_self]
      - e1 = e2 ==> False (if structEq? e1 e2 = some false) (NOTE: `some true` case already handled by =ₚₜᵣ)
-                         [proof: eq_false ∘ mkStructDiseqProof?]
+                         [proof: eq_false ∘ structNeProof?]
      - true = not e ==> false = e                 [proof: Blaster.true_eq_not_is_false_eq]
      - false = not e ==> true = e                 [proof: Blaster.false_eq_not_is_true_eq]
      - ¬ e1 = ¬ e2 ==> e1 = e2 (require classical)[proof: Blaster.neg_eq_neg_is_eq]
@@ -767,7 +719,7 @@ def optimizeEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
   return ← mkPropTrue
  if let some false ← structEq? op1 op2 then
    -- Only this operand order: `reorderOperands` already pushed `eq_comm` when it flipped the sides.
-   if let some notEq ← mkStructDiseqProof? op1 op2 then
+   if let some notEq ← structNeProof? op1 op2 then
      pushProofStep (.rewrite (mkApp2 (mkConst ``eq_false) (← mkEq op1 op2) notEq))
    return ← mkPropFalse
  if let some (e1, e2) ← notNegEqSimp? op1 op2 then return mkApp3 f eqType e1 e2
