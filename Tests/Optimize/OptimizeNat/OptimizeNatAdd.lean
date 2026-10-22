@@ -369,4 +369,10 @@ elab "natAddReduce_2" : term => return natAddReduce_2
 #testOptimize [ "NatAddReduce_2", proof ]
   (100 + ((180 - (x + 40)) - 150)) + (((20 - y) - 50) + 24)  ===> natAddReduce_2
 
+-- `Nat.add` over a synonym of `Nat`, in the hypothesis that proves the conclusion
+def NatSyn := Nat
+
+#testOptimize [ "NatAddSynonym_1", proof ]
+  ∀ (a b c : NatSyn), @Nat.add a b = c → @Nat.add b a = c ===> True
+
 end Test.OptimizeNatAdd
