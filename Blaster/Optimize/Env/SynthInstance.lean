@@ -147,7 +147,13 @@ def isOpaqueRelational (f : Name) (args : Array Expr) : TranslateEnvT Bool := do
   | `LT.lt
   | `LE.le =>
       if args.size < 2 then throwEnvError "isOpaqueRelational: implicit arguments expected"
-      return (isCompatibleRelationalType args[0]!)
+      if !(isCompatibleRelationalType args[0]!) then return false
+      -- NOTE: only the canonical instance is the relation of the SMT theory: another instance (e.g., a definition
+      -- `⟨fun a b => b < a⟩ : LT Nat` passed explicitly) is unfolded instead
+      let cls := if f == `LT.lt then ``LT else ``LE
+      let some inst ← trySynthConstraintInstance? (mkApp (mkConst cls [levelZero]) args[0]!) | return false
+      if exprEq inst args[1]! then return true
+      withReducibleAndInstances (isDefEq inst args[1]!)
   | _ => return false
 
 end Blaster.Optimize
