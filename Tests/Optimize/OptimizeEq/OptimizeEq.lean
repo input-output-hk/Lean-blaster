@@ -188,6 +188,20 @@ inductive Color where
                                        [a, b] = [a, b, b] ===>
                                      ∀ (p : Nat → Prop), ¬ ∀ (x : Nat), p x → p (Nat.add 1 x)
 
+-- ⟨x, [x, 1]⟩ = ⟨x, [x, 2]⟩ ===> False
+#testOptimize [ "EqConstructor_26", proof ] ∀ (x : Nat), (⟨x, [x, 1]⟩ : (_ : Nat) × List Nat) = ⟨x, [x, 2]⟩ ===> False
+
+inductive Two : Prop where
+  | a : Two
+  | b : Two
+
+structure PropFirst where
+  p : Two
+  n : Nat
+
+-- PropFirst.mk Two.a 1 = PropFirst.mk Two.b 2 ===> False (the proof field is not the mismatch)
+#testOptimize [ "EqConstructor_27", proof ] PropFirst.mk Two.a 1 = PropFirst.mk Two.b 2 ===> False
+
 -- (10 : Nat) = 10 ===> True
 #testOptimize [ "EqNatConstructor_1", proof ] (10 : Nat) = 10 ===> True
 

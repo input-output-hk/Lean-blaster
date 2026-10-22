@@ -602,15 +602,13 @@ def isNotFoldable
   | _ => return false
 
 
-/-- Push the proof step of unfolding the constant `f`. Skipped for:
-     - `Int.sub`, which has its own step (see `pushOpaqueFunProofStep`)
-     - `Ne`, which the replay unfolds in a retry pass only, since a hypothesis under a `let`
-       may match the folded target by defeq alone
+/-- Push the proof step of unfolding the constant `f`. Skipped for `Int.sub`,
+    which has its own step (see `pushOpaqueFunProofStep`).
 -/
 @[always_inline, inline]
 def pushUnfoldProofStep (f : Expr) : TranslateEnvT Unit := do
   let Expr.const n _ := f | return ()
-  if n == ``Int.sub || n == ``Ne then return ()
+  if n == ``Int.sub then return ()
   pushProofStep (.unfold n)
 
 /-- Unfold fuction `f` w.r.t. the effective parameters `args` only when:

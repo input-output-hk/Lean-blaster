@@ -27,73 +27,77 @@ Example: `blaster (timeout: 10) (verbose: 1)`
 -/
 syntax (name := blasterTactic) "blaster" (solveOption)* : tactic
 
-/-- Work item of `toElabForm`: a subterm to visit, or how to combine the last results. -/
+/-- Work item of `toElabForm`: a subterm to visit, or how to combine the last results
+    into the conversion of `e`. -/
 private inductive ElabTask where
   | visit (e : Expr)
-  | un (op : Expr → MetaM Expr)
-  | bin (op : Expr → Expr → MetaM Expr)
+  | un (e : Expr) (op : Expr → Expr)
+  | bin (e : Expr) (op : Expr → Expr → Expr)
   deriving Inhabited
 
-/-- Convert core Nat/Int operators to their HAdd/HSub/HMul/Neg elaborated form
+/-- Convert core Nat/Int operators and the raw Int literals `Int.ofNat n`, `Int.negSucc n` to their
+    elaborated form, `HAdd.hAdd`, `HSub.hSub`, `HMul.hMul`, `HDiv.hDiv`, `HMod.hMod`, `Neg.neg`
+    and `OfNat.ofNat`,
     so that proof term LHS patterns structurally match goal expressions.
-    `Int.ediv`/`Int.emod` are converted only when `divMod` holds.
+    The operator fixes the instances, so the result is definitional whatever the operand type.
+    `cache` maps the subterms converted so far to their result and is returned extended,
+    so each subterm is converted once, also when shared (up to binder names).
     Uses an explicit stack, so a deep `e` cannot overflow the native stack. -/
-def toElabForm (e : Expr) (divMod : Bool := true) : MetaM Expr := do
+def toElabForm (e : Expr) (cache : Std.HashMap Expr Expr) : Expr × Std.HashMap Expr Expr := Id.run do
   -- children are visited left to right, then combined, as a post-order recursion would
   let mut todo : Array ElabTask := #[.visit e]
   let mut done : Array Expr := #[]
+  let mut cache := cache
   while !todo.isEmpty do
     let t := todo.back!
     todo := todo.pop
     match t with
     | .visit e =>
-      match ← visit e with
-      | .inl r => done := done.push r
-      | .inr ts => todo := todo ++ ts
-    | .un op =>
-      let a := done.back!
-      done := done.pop.push (← op a)
-    | .bin op =>
-      let b := done.back!
-      let a := done.pop.back!
-      done := done.pop.pop.push (← op a b)
-  return done.back!
+      if let some r := cache[e]? then done := done.push r
+      else match visit e with
+        | .inl r => done := done.push r
+        | .inr ts => todo := todo ++ ts
+    | .un e op =>
+      let r := op done.back!
+      cache := cache.insert e r
+      done := done.pop.push r
+    | .bin e op =>
+      let r := op done.pop.back! done.back!
+      cache := cache.insert e r
+      done := done.pop.pop.push r
+  return (done.back!, cache)
 where
   /-- Tasks that convert `a` with `op`, in reverse order since `todo` is a stack. -/
-  un (op : Expr → MetaM Expr) (a : Expr) : Array ElabTask := #[.un op, .visit a]
+  un (e : Expr) (op : Expr → Expr) (a : Expr) : Array ElabTask := #[.un e op, .visit a]
   /-- Tasks that convert `a` and `b`, then combine them with `op`. -/
-  bin (op : Expr → Expr → MetaM Expr) (a b : Expr) : Array ElabTask := #[.bin op, .visit b, .visit a]
+  bin (e : Expr) (op : Expr → Expr → Expr) (a b : Expr) : Array ElabTask :=
+    #[.bin e op, .visit b, .visit a]
   /-- The converted leaf `e`, or the tasks converting it. -/
-  visit (e : Expr) : MetaM (Expr ⊕ Array ElabTask) := do
+  visit (e : Expr) : Expr ⊕ Array ElabTask :=
   match e with
-  | Expr.app (Expr.app (Expr.const ``Nat.add _) a) b => return .inr (bin mkAdd a b)
-  | Expr.app (Expr.app (Expr.const ``Nat.sub _) a) b => return .inr (bin mkSub a b)
-  | Expr.app (Expr.app (Expr.const ``Nat.mul _) a) b => return .inr (bin mkMul a b)
-  | Expr.app (Expr.app (Expr.const ``Int.add _) a) b => return .inr (bin mkAdd a b)
-  | Expr.app (Expr.app (Expr.const ``Int.sub _) a) b => return .inr (bin mkSub a b)
-  | Expr.app (Expr.app (Expr.const ``Int.mul _) a) b => return .inr (bin mkMul a b)
-  | Expr.app (Expr.app (Expr.const ``Int.ediv _) a) b =>
-      if divMod then return .inr (bin (fun a b => mkAppM ``HDiv.hDiv #[a, b]) a b)
-      else return .inr (bin (fun a b => return mkApp2 (mkConst ``Int.ediv) a b) a b)
-  | Expr.app (Expr.app (Expr.const ``Int.emod _) a) b =>
-      if divMod then return .inr (bin (fun a b => mkAppM ``HMod.hMod #[a, b]) a b)
-      else return .inr (bin (fun a b => return mkApp2 (mkConst ``Int.emod) a b) a b)
-  | Expr.app (Expr.const ``Int.neg _) a =>
-      return .inr (un (fun a => mkAppM ``Neg.neg #[a]) a)
-  | Expr.app (Expr.const ``Int.ofNat _) (a@(Expr.lit (Literal.natVal _))) =>
-      return .inl (← mkAppOptM ``OfNat.ofNat #[mkConst ``Int, a, none])
-  | Expr.app (Expr.const ``Int.negSucc _) (Expr.lit (Literal.natVal n)) =>
-      -- `Int.negSucc n` denotes `-(n+1)`.
-      return .inl (← mkAppM ``Neg.neg #[← mkAppOptM ``OfNat.ofNat #[mkConst ``Int, mkNatLit (n + 1), none]])
-  -- Future-proofing: Nat.div /Nat.mod currently elaborates directly
-  --                  (not via HDiv.hDiv / HMod.hMod),
-  -- but we normalize it here in case that changes, consistent with add/sub/mul.
+  | Expr.app (Expr.app (Expr.const ``Nat.add _) a) b => .inr (bin e mkNatAdd a b)
+  | Expr.app (Expr.app (Expr.const ``Nat.sub _) a) b => .inr (bin e mkNatSub a b)
+  | Expr.app (Expr.app (Expr.const ``Nat.mul _) a) b => .inr (bin e mkNatMul a b)
+  | Expr.app (Expr.app (Expr.const ``Int.add _) a) b => .inr (bin e mkIntAdd a b)
+  | Expr.app (Expr.app (Expr.const ``Int.sub _) a) b => .inr (bin e mkIntSub a b)
+  | Expr.app (Expr.app (Expr.const ``Int.mul _) a) b => .inr (bin e mkIntMul a b)
+  | Expr.app (Expr.app (Expr.const ``Int.ediv _) a) b => .inr (bin e mkIntDiv a b)
+  | Expr.app (Expr.app (Expr.const ``Int.emod _) a) b => .inr (bin e mkIntMod a b)
+  | Expr.app (Expr.const ``Int.neg _) a => .inr (un e mkIntNeg a)
+  | Expr.app (Expr.const ``Int.ofNat _) (Expr.lit (Literal.natVal n)) => .inl (mkIntLit n)
+  -- `Int.negSucc n` denotes `-(n+1)`.
+  | Expr.app (Expr.const ``Int.negSucc _) (Expr.lit (Literal.natVal n)) => .inl (mkIntLit (.negSucc n))
+  -- `/` and `%` on Nat elaborate to `HDiv.hDiv`/`HMod.hMod`, the raw forms come from the optimizer
+  -- or an unfold step
   | Expr.app (Expr.app (Expr.const ``Nat.div _) a) b =>
-      return .inr (bin (fun a b => mkAppM ``HDiv.hDiv #[a, b]) a b)
+      .inr (bin e (mkApp2 (mkApp4 (mkConst ``HDiv.hDiv [0, 0, 0]) Nat.mkType Nat.mkType Nat.mkType
+        Nat.mkInstHDiv)) a b)
   | Expr.app (Expr.app (Expr.const ``Nat.mod _) a) b =>
-      return .inr (bin (fun a b => mkAppM ``HMod.hMod #[a, b]) a b)
-  | Expr.app f a => return .inr (bin (fun f a => return mkApp f a) f a)
-  | _ => return .inl e
+      .inr (bin e (mkApp2 (mkApp4 (mkConst ``HMod.hMod [0, 0, 0]) Nat.mkType Nat.mkType Nat.mkType
+        Nat.mkInstHMod)) a b)
+  -- an unchanged application is kept, so that the result shares the subterms of `e`
+  | Expr.app f a => .inr (bin e e.updateApp! f a)
+  | _ => .inl e
 
 /-- Replace optimizer-context FVarIds with goal-context FVarIds in proof steps. -/
 def substProofStackFVars (steps : Array Blaster.Optimize.ProofStep)
@@ -126,19 +130,33 @@ def mapOptBodyToInputFVars (optBody : Expr) (optFvars inputFvars : Array Expr) :
   return optBody.replaceFVars optFvars mapping
 
 /-- `true` iff `e` contains a `let` binding anywhere.
+    `noLet` holds subterms known to have no `let`, which are skipped, and is returned extended,
+    so each subterm is visited once, also when shared (up to binder names).
     Tail recursive on a stack of pending subterms, so a deep `e` cannot overflow. -/
-private partial def hasLet (e : Expr) : Bool :=
-  go [e]
+private partial def hasLet (e : Expr) (noLet : Std.HashSet Expr) : Bool × Std.HashSet Expr :=
+  go [(e, false)] noLet
 where
-  go : List Expr → Bool
-  | [] => false
-  | .letE .. :: _ => true
-  | .app f a :: es => go (f :: a :: es)
-  | .lam _ t b _ :: es => go (t :: b :: es)
-  | .forallE _ t b _ :: es => go (t :: b :: es)
-  | .mdata _ e :: es => go (e :: es)
-  | .proj _ _ s :: es => go (s :: es)
-  | _ :: es => go es
+  -- `(e, true)` marks `e` as explored, once all its subterms were
+  go : List (Expr × Bool) → Std.HashSet Expr → Bool × Std.HashSet Expr
+  | [], noLet => (false, noLet)
+  | (e, true) :: es, noLet => go es (noLet.insert e)
+  | (e, false) :: es, noLet =>
+    if noLet.contains e then go es noLet else
+    match e with
+    | .letE .. => (true, noLet)
+    | .app f a => go ((f, false) :: (a, false) :: (e, true) :: es) noLet
+    | .lam _ t b _ => go ((t, false) :: (b, false) :: (e, true) :: es) noLet
+    | .forallE _ t b _ => go ((t, false) :: (b, false) :: (e, true) :: es) noLet
+    | .mdata _ b => go ((b, false) :: (e, true) :: es) noLet
+    | .proj _ _ b => go ((b, false) :: (e, true) :: es) noLet
+    | _ => go es noLet
+
+/-- Memo of `toElabForm` and `hasLet` over one replay, shared by every `canonicalForm` call. -/
+private structure CanonCache where
+  /-- `toElabForm` of the subterms converted so far. -/
+  converted : Std.HashMap Expr Expr := {}
+  /-- The subterms known to have no `let`. -/
+  noLet : Std.HashSet Expr := {}
 
 /-- Instantiate every `let` and `have` of `e` with its value. -/
 private def zetaLets (e : Expr) : MetaM Expr :=
@@ -146,10 +164,15 @@ private def zetaLets (e : Expr) : MetaM Expr :=
     | .letE _ _ v b _ => return .visit (b.instantiate1 v)
     | _ => return .continue)
 
-/-- Notation abbreviations the optimizer unfolds, `Ne` without an unfold step.
-    Unfolded in hypotheses so that rewrite steps can match underneath them. -/
-private def isSilentAbbrev (n : Name) : Bool :=
-  n == ``Ne || n == ``GE.ge || n == ``GT.gt
+/-- The one spelling of the replay, the `toElabForm` one without the `let`s the optimizer
+    does not see. -/
+private def canonicalForm (cache : IO.Ref CanonCache) (e : Expr) : MetaM Expr := do
+  -- taken out of the ref, so that the maps are updated in place
+  let { converted, noLet } ← cache.swap {}
+  let (l, noLet) := hasLet e noLet
+  let (e, converted) := toElabForm (← if l then zetaLets e else pure e) converted
+  cache.set { converted, noLet }
+  return e
 
 /-- Beta reduce in `e` the redexes headed by the replacement side of a constant step, when that
     side is a lambda, since applied occurrences of the rewritten term become redexes. -/
@@ -175,7 +198,8 @@ private def checkHypStep (g : MVarId) (proof : Expr) : MetaM Unit := do
     optimizer normal form that hypothesis-driven steps expect.
     Returns the new goal and the steps with the replaced hypothesis fvars renamed. -/
 private def rewriteHypotheses (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep)
-    (hyps : Array FVarId) : MetaM (MVarId × Array Blaster.Optimize.ProofStep) := do
+    (hyps : Array FVarId) (cache : IO.Ref CanonCache) :
+    MetaM (MVarId × Array Blaster.Optimize.ProofStep) := do
   let mut g := goal
   let mut steps := steps
   let mut hs := hyps
@@ -183,7 +207,6 @@ private def rewriteHypotheses (goal : MVarId) (steps : Array Blaster.Optimize.Pr
     let mut h := hs[i]!
     let mut ty ← g.withContext do instantiateMVars (← h.getType)
     unless ← g.withContext (isProp ty) do continue
-    ty ← deltaExpand ty isSilentAbbrev
     -- bounded fixed point, so a pair of steps undoing each other cannot loop
     let mut fuel := steps.size + 1
     let mut changed := true
@@ -196,6 +219,7 @@ private def rewriteHypotheses (goal : MVarId) (steps : Array Blaster.Optimize.Pr
         if let some (.unfold n) := steps[j]? then
           let ty' ← deltaExpand ty (· == n)
           if ty' != ty then
+            let ty' ← g.withContext (canonicalForm cache ty')
             -- definitional, so the hypothesis keeps its fvar
             g ← g.replaceLocalDeclDefEq h ty'
             ty := ty'
@@ -204,7 +228,6 @@ private def rewriteHypotheses (goal : MVarId) (steps : Array Blaster.Optimize.Pr
           -- a step built from this hypothesis or a later one cannot have normalized it
           if heq.hasAnyFVar (hs.extract i hs.size).contains then continue
           try
-            -- the rewrite runs on the delta expanded type, which is defeq to the declared one
             let r ← g.rewrite ty heq symm
             checkHypStep g heq
             let eNew ← betaAfterLambdaStep heq symm r.eNew
@@ -227,8 +250,9 @@ private def rewriteHypotheses (goal : MVarId) (steps : Array Blaster.Optimize.Pr
     Steps that don't match are skipped.
     Returns the new goal and the steps with the replaced hypothesis fvars renamed. -/
 private def replaySteps (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep)
-    (hyps : Array FVarId) : MetaM (MVarId × Array Blaster.Optimize.ProofStep) := do
-  let (goal, steps) ← rewriteHypotheses goal steps hyps
+    (hyps : Array FVarId) (cache : IO.Ref CanonCache) :
+    MetaM (MVarId × Array Blaster.Optimize.ProofStep) := do
+  let (goal, steps) ← rewriteHypotheses goal steps hyps cache
   /- trace[Optimize.expr] "proofStack ({steps.size} steps):" -/
   /- let mut idx : Nat := 0 -/
   /- for step in steps do -/
@@ -271,10 +295,12 @@ private def replaySteps (goal : MVarId) (steps : Array Blaster.Optimize.ProofSte
           /- trace[Optimize.expr] "  applied exact, goal closed" -/
           return (g, steps)
       | .unfold n =>
-        let g' ← g.deltaTarget (· == n)
+        let t ← g.getType
+        let t' ← deltaExpand t (· == n)
         -- a no-op unfolding is not a change, or the loop would never end
-        if g' != g then
-          g := g'
+        if t' != t then
+          -- the unfolded body is user code, put in the replay spelling
+          g ← g.replaceTargetDefEq (← g.withContext (canonicalForm cache t'))
           changed := true
   /- trace[Optimize.expr] "final goal: {← g.getType}" -/
   -- the target may have been reduced to a hypothesis
@@ -297,12 +323,12 @@ private def canonicalIntForm (e : Expr) : MetaM Expr := do
     if n.isAppOfArity ``OfNat.ofNat 3 && (n.getArg! 2).isAppOf ``instOfNatNat then
       mkApp (mkConst ``Int.ofNat) (n.getArg! 1)
     else mkApp (mkConst ``Int.ofNat) n
-  toElabForm (← Core.transform e (post := fun e => return .done <| match e with
+  return (toElabForm (← Core.transform e (post := fun e => return .done <| match e with
     | .app (.app (.app (.const ``Nat.cast _) _) (.const ``instNatCastInt _)) n => ofNat n
     -- the spelling left by the unfold step of `Nat.cast`
     | .app (.app (.app (.const ``NatCast.natCast _) _) (.const ``instNatCastInt _)) n => ofNat n
     | .app (.const ``Int.ofNat _) n => ofNat n
-    | _ => e))
+    | _ => e)) {}).1
 
 /-- Apply recorded proof stack rewrites to a goal.
     `hyps` are the intro'd binders, rewritten first (see `rewriteHypotheses`).
@@ -311,29 +337,27 @@ private def canonicalIntForm (e : Expr) : MetaM Expr := do
     Then the goal may be returned closed by `True.intro` or `refl`. -/
 def applyProofStack (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep)
     (hyps : Array FVarId := #[]) (unfoldTarget := true) : MetaM MVarId := do
+  -- the hypotheses, the target and the steps are put once in one spelling
+  let cache ← IO.mkRef {}
+  let goal ← hyps.foldlM (init := goal) fun g h => g.withContext do
+    let ty ← instantiateMVars (← h.getType)
+    let ty' ← canonicalForm cache ty
+    if ty' != ty then g.replaceLocalDeclDefEq h ty' else pure g
   let goal ← goal.withContext do
-    let t ← goal.getType
-    if hasLet t then goal.change (← zetaLets t) else pure goal
+    let t ← instantiateMVars (← goal.getType)
+    let t' ← canonicalForm cache t
+    if t' != t then goal.replaceTargetDefEq t' else pure goal
   -- a bare lemma pushed right after its instance only covers operands the user wrote in another
   -- form, so it runs after the other steps and cannot rewrite an unrelated site first
   let (late, steps) := steps.zipIdx.partition fun (s, i) => match s, steps[i - 1]? with
     | .rewrite (.const n _) _, some (.rewrite heq _) => i > 0 && heq.isApp && heq.isAppOf n
     | _, _ => false
   let steps := (steps ++ late).map (·.1)
-  -- normalize proof terms once upfront
-  -- a step whose normalization fails is kept as is and skipped
-  let steps : Array Blaster.Optimize.ProofStep ← goal.withContext <| steps.flatMapM fun
-    | s@(.rewrite proof symm) => do
-      try
-        let p ← toElabForm proof
-        -- a goal written with core `Int.ediv`/`Int.emod` only matches the unconverted form
-        if (proof.find? fun e => e.isAppOfArity ``Int.ediv 2 || e.isAppOfArity ``Int.emod 2).isSome then
-          let alt ← toElabForm proof (divMod := false)
-          if alt != p then return #[.rewrite p symm, .rewrite alt symm]
-        return #[.rewrite p symm]
-      catch _ => return #[s]
-    | s => return #[s]
-  let (g, steps) ← replaySteps goal steps hyps
+  let steps : Array Blaster.Optimize.ProofStep ← goal.withContext <| steps.mapM fun
+    | .rewrite proof symm => return .rewrite (← canonicalForm cache proof) symm
+    | .exact proof => return .exact (← canonicalForm cache proof)
+    | s => return s
+  let (g, steps) ← replaySteps goal steps hyps cache
   unless unfoldTarget do return g
   if ← g.isAssigned then return g
   -- `GE.ge` is left out since its unfold step replays it
@@ -348,7 +372,7 @@ def applyProofStack (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep)
     | s@(.rewrite proof symm) => do
       try return .rewrite (← canonicalIntForm proof) symm catch _ => return s
     | s => return s
-  let (g', _) ← replaySteps (← g.replaceTargetDefEq t') steps #[]
+  let (g', _) ← replaySteps (← g.replaceTargetDefEq t') steps #[] cache
   if ← closeTrivially g' then return g'
   -- keep the original spelling for the gap message
   failed.restore
@@ -465,7 +489,7 @@ def blasterTacticImp : Tactic := fun stx =>
    | .Valid =>
         -- the optimizer sees the goal without its `let`s, so its binders are found below them
         let goalType ← goal.getType
-        let goalType ← if hasLet goalType then zetaLets goalType else pure goalType
+        let goalType ← if (hasLet goalType {}).1 then zetaLets goalType else pure goalType
         -- `optExpr == True` ⟹ proved by rewriting (no SMT)
         let optimizerClosed := optExpr.isConstOf ``True
         -- Try propositional equality path: (∀ xs, body₁) = (∀ xs, body₂)
