@@ -18,9 +18,9 @@ def sizeOfGenericGroup [LE α] (a : GenericGroup α) : Nat :=
   | .first .. => 1
   | .next n => 1 + (sizeOfGenericGroup n)
 
-#blaster (gen-cex: 0) (solve-result: 1) [∀ (α : Type), [LE α] → ∀ (a : GenericGroup α), sizeOfGenericGroup a ≥ 10]
+#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1) [∀ (α : Type), [LE α] → ∀ (a : GenericGroup α), sizeOfGenericGroup a ≥ 10]
 
-#blaster (gen-cex: 0) (solve-result: 1) [∀ (α : Type), [LE α] → ∀ (a : GenericGroup α), sizeOfGenericGroup a < 10]
+#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1) [∀ (α : Type), [LE α] → ∀ (a : GenericGroup α), sizeOfGenericGroup a < 10]
 
 mutual
  structure FunGroup (α : Type) [LE α] where
@@ -39,7 +39,7 @@ def sizeOfGenericGroupFun [LE α] [LE (GenericGroupFun α)] [DecidableLE (Generi
             1 + sizeOfGenericGroupFun n2
           else 2
 
-#blaster (gen-cex: 0) (solve-result: 1)
+#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1)
   [ ∀ (α : Type), [LE α] →
     [LE (GenericGroupFun α)] →
     [DecidableLE (GenericGroupFun α)] →

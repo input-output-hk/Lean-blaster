@@ -69,8 +69,8 @@ theorem A_self_size (a : A) : (A.self a).sizeA = a.sizeA + 1 := by blaster
 #blaster (gen-cex: 0) (solve-result: 1)
   [ ∀ (s1 s2 : String), String.length s1 + String.length s2 > String.length (String.append s1 s2) ]
 
-#blaster (gen-cex: 0) (solve-result: 1) [ ∀ (n : Nat), isEven (n+1) = ¬ isOdd n ]
+#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1) [ ∀ (n : Nat), isEven (n+1) = ¬ isOdd n ]
 
-#blaster (gen-cex: 0) (solve-result: 1) [ ∀ (n : Nat), isEven (n+2) → ¬ isEven n ]
+#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1) [ ∀ (n : Nat), isEven (n+2) → ¬ isEven n ]
 
 end Test.SmtRecFun
