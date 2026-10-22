@@ -132,8 +132,13 @@ def funPropagation? (cf : Expr) (cargs : Array Expr) (skipPropCheck := false) (r
       else
         if n == ``Blaster.dite' || (← isNotFun cf) then return none
         if !(← propagate cf n cargs) then return none
-        if reorderArgs
-        then loop 0 (← reorderOperands cf cargs)
+        if reorderArgs then
+          -- The reorder steps describe a rewrite that only happens when the propagation applies.
+          let size ← getProofStackSize
+          let res ← loop 0 (← reorderOperands cf cargs)
+          if res.isNone then
+            if size != (← getProofStackSize) then shrinkProofStack size
+          return res
         else loop 0 cargs
   | _ => return none
 

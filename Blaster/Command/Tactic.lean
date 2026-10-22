@@ -158,23 +158,52 @@ private structure CanonCache where
   /-- The subterms known to have no `let`. -/
   noLet : Std.HashSet Expr := {}
 
-/-- The one spelling of the replay, the `toElabForm` one without the `let`s the optimizer
-    does not see. -/
+/-- Instantiate every `let` and `have` of `e` with its value. -/
+private def zetaLets (e : Expr) : MetaM Expr :=
+  Core.transform e (pre := fun
+    | .letE _ _ v b _ => return .visit (b.instantiate1 v)
+    | _ => return .continue)
+
+/-- The one spelling of the replay, so that the user and optimizer spellings of a term agree:
+    no `let`, `((n : Nat) : Int)` written `Int.ofNat n`, Nat numerals under `Int.ofNat` raw
+    literals, then `toElabForm`. -/
 private def canonicalForm (cache : IO.Ref CanonCache) (e : Expr) : MetaM Expr := do
   -- taken out of the ref, so that the maps are updated in place
   let { converted, noLet } ← cache.swap {}
   let (l, noLet) := hasLet e noLet
-  let (e, converted) := toElabForm (← if l then zetaReduce e else pure e) converted
+  let e ← if l then zetaLets e else pure e
+  let ofNat (n : Expr) :=
+    if n.isAppOfArity ``OfNat.ofNat 3 && (n.getArg! 2).isAppOf ``instOfNatNat then
+      mkApp (mkConst ``Int.ofNat) (n.getArg! 1)
+    else mkApp (mkConst ``Int.ofNat) n
+  let (e, converted) := toElabForm (← Core.transform e (post := fun e => return .done <| match e with
+    | .app (.app (.app (.const ``Nat.cast _) _) (.const ``instNatCastInt _)) n => ofNat n
+    -- the spelling left by the unfold step of `Nat.cast`
+    | .app (.app (.app (.const ``NatCast.natCast _) _) (.const ``instNatCastInt _)) n => ofNat n
+    | .app (.const ``Int.ofNat _) n => ofNat n
+    | _ => e)) converted
   cache.set { converted, noLet }
   return e
 
-/-- Beta reduce `e` after a rewrite by a constant step whose replacement side is a lambda,
-    since applied occurrences of the rewritten term become redexes. -/
+/-- Beta reduce in `e` the redexes headed by the replacement side of a constant step, when that
+    side is a lambda, since applied occurrences of the rewritten term become redexes. -/
 private def betaAfterLambdaStep (heq : Expr) (symm : Bool) (e : Expr) : MetaM Expr := do
-  let .const n _ := heq | return e
+  let .const n us := heq | return e
   let some ci := (← getEnv).find? n | return e
-  let some (_, lhs, rhs) := ci.type.getForallBody.eq? | return e
-  if (if symm then lhs else rhs).isLambda then Core.betaReduce e else return e
+  let some (_, lhs, rhs) := ci.type.eq? | return e
+  let lam := if symm then lhs else rhs
+  unless lam.isLambda do return e
+  let lam := lam.instantiateLevelParams ci.levelParams us
+  -- the user's own redexes are left alone, reducing them may blow up the term
+  Core.transform e (post := fun x => return if x.getAppFn == lam then .done x.headBeta else .continue)
+
+/-- Kernel check a step proof with free variables, since a hypothesis left out of normal form
+    by the replay makes a proof built on it ill-typed. A leftover metavariable also fails. -/
+private def checkHypStep (g : MVarId) (proof : Expr) : MetaM Unit := do
+  unless proof.hasFVar do return
+  g.withContext do
+    if let .error _ := Kernel.check (← getEnv) (← getLCtx) (← instantiateMVars proof) then
+      throwError "ill-typed proof step"
 
 /-- Rewrite the intro'd Prop hypotheses with the recorded steps, so they reach the
     optimizer normal form that hypothesis-driven steps expect.
@@ -211,6 +240,7 @@ private def rewriteHypotheses (goal : MVarId) (steps : Array Blaster.Optimize.Pr
           if heq.hasAnyFVar (hs.extract i hs.size).contains then continue
           try
             let r ← g.rewrite ty heq symm
+            checkHypStep g heq
             let eNew ← betaAfterLambdaStep heq symm r.eNew
             let res ← g.replaceLocalDecl h eNew r.eqProof
             -- the replaced hypothesis and every later local got fresh fvars
@@ -254,6 +284,7 @@ private def replaySteps (goal : MVarId) (steps : Array Blaster.Optimize.ProofSte
         try
           let t ← g.getType
           let r ← g.rewrite t heq symm
+          checkHypStep g heq
           g ← g.replaceTargetEq (← betaAfterLambdaStep heq symm r.eNew) r.eqProof
           -- a rewrite between defeq spellings may leave the target as is and must not loop
           if (← g.getType) != t then changed := true
@@ -261,7 +292,9 @@ private def replaySteps (goal : MVarId) (steps : Array Blaster.Optimize.ProofSte
         catch _ => pure ()
       | .exact proof =>
         try
-          if ← isDefEq (← inferType proof) (← g.getType) then
+          -- both sides are in the replay spelling, so a recursive target is not unfolded
+          if ← g.withContext do withReducibleAndInstances <| isDefEq (← inferType proof) (← g.getType) then
+            checkHypStep g proof
             g.assign proof
             /- trace[Optimize.expr] "  applied exact, goal closed" -/
             return g
@@ -416,7 +449,9 @@ def blasterTacticImp : Tactic := fun stx =>
    let optBinders := finalEnv.optEnv.optBinders
    match result with
    | .Valid =>
+        -- the optimizer sees the goal without its `let`s, so its binders are found below them
         let goalType ← goal.getType
+        let goalType ← if (hasLet goalType {}).1 then zetaLets goalType else pure goalType
         -- `optExpr == True` ⟹ proved by rewriting (no SMT)
         let optimizerClosed := optExpr.isConstOf ``True
         -- Try propositional equality path: (∀ xs, body₁) = (∀ xs, body₂)

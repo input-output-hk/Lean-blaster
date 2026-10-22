@@ -40,7 +40,7 @@ partial def normLevel (l : Level) : TranslateEnvT Level := do
      - Nat.ble x y ==> Blaster.decide' (x ≤ y) (if isOptimizeRecCall)    [proof: Blaster.nat_ble_eq_decide']
      - Decidable.decide p ==> Blaster.decide' p    [proof: Blaster.decide'_equiv]
      - Int.sub x y ==> x + -y    [proof: Int.sub_eq_add_neg]
-    `Int.le` pushes its point-free step in the `isToNormOpaqueFun` arm of `normConst`.
+    `Nat.le` and `Int.le` push their point-free steps in their `isToNormOpaqueFun` arms of `normConst`.
     Other non-recursive definitions get an unfold step where they are unfolded (see `pushUnfoldProofStep`).
 -/
 @[always_inline, inline]
@@ -145,7 +145,7 @@ def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeCo
     /-- Apply the following normalization rules on opaque functions:
          - Nat.pred ==> λ n => n - 1    [proof: Nat.pred_eq_sub_one, see `pushOpaqueFunProofStep`]
          - Nat.succ ==> λ n => 1 + n    [proof: Nat.succ_eq_one_add, see `pushOpaqueFunProofStep`]
-         - Nat.le ==> ≤
+         - Nat.le ==> ≤    [proof: Blaster.nat_le_eq_le]
          - Nat.ble ==> λ x y => Blaster.decide' (x ≤ y) (if isOptimizeRecCall)
              [proof: Blaster.nat_ble_eq_decide', see `pushOpaqueFunProofStep`]
          - Nat.beq ==> λ x y => x == y (if isOptimizeRecCall)
@@ -169,7 +169,9 @@ def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeCo
            let lam := mkLambda (← Term.mkFreshBinderName) BinderInfo.default (← mkNatType) body
            stackContinuity stack (← mkExpr lam)
 
-     | ``Nat.le => stackContinuity stack (← mkNatLeOp)
+     | ``Nat.le =>
+             pushProofStep (.rewrite (mkConst ``Blaster.nat_le_eq_le))
+             stackContinuity stack (← mkNatLeOp)
 
      | ``Nat.ble =>
            if (← isOptimizeRecCall) then

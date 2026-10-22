@@ -64,7 +64,14 @@ def isCstImplies? (h : Expr) (a : Expr) (b : Expr) : TranslateEnvT (Option Expr)
     return mkApp notOp a
   return none
 
- /-- Given `a → b`, apply the simplification rules:
+ /-- Given `p : b` and `n : a`, push the steps closing `a → b`: `p` itself when the replay
+     introduced `n`, and `(a → b) = True` when the implication is left in a sub-term. -/
+ def pushImpliesTrueSteps (n a b p : Expr) : TranslateEnvT Unit := do
+  pushProofStep (.exact p)
+  let imp := mkForall `h .default a (b.abstract #[n])
+  pushProofStep (.rewrite (mkApp2 (mkConst ``eq_true) imp (mkLambda `h .default a (p.abstract #[n]))))
+
+ /-- Given `n : a` and `a → b`, apply the simplification rules:
      - When ∃ e := _ ∈ h, e = b
         - return `some True`
      - When ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = b
@@ -74,10 +81,14 @@ def isCstImplies? (h : Expr) (a : Expr) (b : Expr) : TranslateEnvT (Option Expr)
      - Otherwise:
         - return `none`
  -/
- def impliesToTrue? (a : Expr) (b : Expr) (h : HypothesisMap) : TranslateEnvT (Option Expr) := do
-  if (← inHypMap b h).isSome then return ← mkPropTrue
+ def impliesToTrue? (n : Expr) (a : Expr) (b : Expr) (h : HypothesisMap) : TranslateEnvT (Option Expr) := do
+  if let some p ← inHypMap b h then
+    pushImpliesTrueSteps n a b p
+    return ← mkPropTrue
   let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
-  if (← inHypMap b hyps).isSome then return ← mkPropTrue
+  if let some p ← inHypMap b hyps then
+    pushImpliesTrueSteps n a b p
+    return ← mkPropTrue
   if !(← isPropEnv b) then return none
   if (← notInHypMap a hyps).isSome then return ← mkPropTrue
   return none
@@ -122,8 +133,8 @@ def hypReduction? (h : Expr) (a : Expr) (b : Expr) : TranslateEnvT (Option Expr)
       - e1 → e2 ==> True (if ∃ e1 → e2 := _ ∈ hypothesisContext.hypothesisMap)
       - e1 → e2 ==> ¬ e1 (if ∃ e := _ ∈ h, e = ¬ e2)
       - e1 → e2 ==> ¬ e1 (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = ¬ e2)
-      - e1 → e2 ==> True (if e2 := _ ∈ h)
-      - e1 → e2 ==> True (if e2 := _ ∈ hypothesisContext.hypothesisMap)
+      - e1 → e2 ==> True (if e2 := _ ∈ h)                                  [proof: the proof of e2 found, eq_true]
+      - e1 → e2 ==> True (if e2 := _ ∈ hypothesisContext.hypothesisMap)  [proof: the proof of e2 found, eq_true]
       - e1 → e2 ==> True (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = ¬ e1 ∧ Type(e2) = Prop)
       - h : e1 → e2 ==> e2 (if e1 := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ fVarInExpr h.fvarId! e2 ∧ Type(e2) = Prop)
       - h : e1 → e2 ==> e2[h/h'] (if e1 := h' ∈ hypothesisContext.hypothesisMap ∧ fVarInExpr h.fvarId! e2 ∧ Type(e2) = Prop )
@@ -138,7 +149,7 @@ def optimizeForall (n : Expr) (t : Expr) (h : HypothesisMap) (b : Expr) : Transl
   if exprEq t b then if ← isPropEnv t then return (← mkPropTrue)
   if (← impliesInHyp n b) then return (← mkPropTrue)
   if let some r ← impliesToNeg? t b h then return r
-  if let some r ← impliesToTrue? t b h then return r
+  if let some r ← impliesToTrue? n t b h then return r
   if let some r ← hypReduction? n t b then return r
   if (← (isSortOrInhabited t) <&&> (isPropEnv b) <&&> (pure !fVarInExpr n.fvarId! b)) then return b
   mkForallFVar n b
