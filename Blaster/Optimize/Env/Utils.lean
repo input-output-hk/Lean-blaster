@@ -32,11 +32,14 @@ def isCtorExpr (e : Expr) : TranslateEnvT Bool := do
  | Expr.const n _ => return (← getConstEnvInfo n).isCtor
  | _ => return false
 
-/-- Return `Some numParams` only when 'c' corresponds to a constructor`. -/
+/-- Return `Some numParams` only when 'c' corresponds to a constructor expression`. -/
 @[always_inline, inline]
-def getCtorIndParams (c : Name) : TranslateEnvT (Option Nat) := do
-  let ConstantInfo.ctorInfo info ← getConstEnvInfo c | return none
-  return info.numParams
+def getCtorIndParams (c : Expr) : TranslateEnvT (Option Nat) := do
+  match c with
+  | Expr.const n _ =>
+       let ConstantInfo.ctorInfo info ← getConstEnvInfo n | return none
+       return info.numParams
+  | _ => return none
 
 /-- Return `true` if `n` correspond to a structure ctor. The result is memoized. -/
 @[inline] def isStructureCtorEnv (n : Name) : TranslateEnvT Bool := do

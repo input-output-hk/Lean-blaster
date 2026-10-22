@@ -617,11 +617,27 @@ private unsafe def backwardProofAux (expectedProof : Expr) : TranslateEnvT (Opti
 
 
 
-/-- Given expected proof `p` perform backward proof reconstruction w.r.t. hypothesis map -/
-def backwardProof (p : Expr) : TranslateEnvT Expr := do
-  if let some r ← unsafe backwardProofAux p then return r
-  -- Add sorry proof for now when we can't perform proof reconstruction
-  hashcons (← mkSorry p false)
+/-- Given expected proof `p` and actual proof `a` perform backward proof reconstruction w.r.t. hypothesis map -/
+def backwardProof (p a : Expr) : TranslateEnvT Expr := do
+  if exprEq p a -- case for trivial proof (e.g., Eq.refl)
+  then return a
+  else
+   let a' ← inferTypeEnv a
+   if exprEq a' p then return a
+   else if ← isLambdaEq p a' then return a
+   else if let some r ← unsafe backwardProofAux p then return r
+   else
+     -- Add sorry proof for now when we can't perform proof reconstruction
+     hashcons (← mkSorry p false)
 
-
+ where
+   /-- Return `true` only when the following conditions are satisfied
+        - p := (fun x₁ ... xₙ => P x₁ ... xₙ) a₁ ... aₙ
+        - a := P a₁ ... aₙ
+   -/
+   isLambdaEq (p a : Expr) : TranslateEnvT Bool := do
+     let f := p.getAppFn'
+     match f with
+     | Expr.lam .. => return exprEq (← betaLambdaShared f p.getAppArgs) a
+     | _ => return false
 end Blaster.Optimize

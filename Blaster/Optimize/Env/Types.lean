@@ -264,6 +264,8 @@ structure CommonExpr where
   ofDecideEqTrue : Expr
   ofDecideEqFalse : Expr
   nonEmpty : Expr
+  charOfNat : Expr
+  charToNat : Expr
 
 
 /-- A saved optimization-context scope: the parent context id to restore on exit
@@ -448,6 +450,8 @@ private def mkCommonExpr : CommonExpr :=
   , ofDecideEqTrue := mkConst ``of_decide_eq_true
   , ofDecideEqFalse := mkConst ``of_decide_eq_false
   , nonEmpty := mkConst ``Nonempty [levelOne]
+  , charOfNat := mkConst ``Char.ofNat
+  , charToNat := mkConst ``Char.toNat
   }
 
 instance : Inhabited MemoizeEnv where
@@ -631,6 +635,8 @@ instance : Inhabited OptimizeEnv where
      , memCache.commonExpr.ofDecideEqTrue
      , memCache.commonExpr.ofDecideEqFalse
      , memCache.commonExpr.nonEmpty
+     , memCache.commonExpr.charOfNat
+     , memCache.commonExpr.charToNat
      ]
    { hashConsCache,
      rewriteCache := HashMap.emptyWithCapacity 1024

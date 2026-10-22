@@ -362,12 +362,7 @@ def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := 
        let argType ← inferArgTypeAt pInfo.type args idx
        match (← inHypMap argType) with
        | some p => return p
-       | none =>
-           if exprEq optArg argType -- case for trivial proof (e.g., Eq.refl)
-           then return optArg
-           else if exprEq (← inferTypeEnv optArg) argType
-           then return optArg
-           else backwardProof argType
+       | none => backwardProof argType optArg
      else return optArg
 
     @[always_inline, inline]

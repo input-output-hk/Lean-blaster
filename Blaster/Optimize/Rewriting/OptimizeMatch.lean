@@ -96,13 +96,6 @@ def joinMatchResult (x : MatchResult) (y : MatchResult) : MatchResult :=
  | _, p@.PotentialMatch => p
  | _, _ => x
 
-private def getNormCtorIndParams (e : Expr) : TranslateEnvT (Option Nat) := do
- match e with
- | Expr.const ``Int.neg _
- | Expr.const ``Nat.add _ => return (0 : Nat)
- | Expr.const n _ => getCtorIndParams n
- | _ => return none
-
 /-- Performs unification on lhs and rhs
      - Return `UnifyMatch` when both `lhs` and `rhs` can unify up to metavariable
      - Return `PotentialMatch` when `lhs` unifies with `rhs` before lhs reduces to a ground term (i.e., a unary constructor or a metavariable), e.g.,
@@ -161,6 +154,7 @@ partial def isPatternMatch (lhs : Expr) (rhs : Expr) : TranslateEnvT MatchResult
                    if n2 < n1
                    then return .NoMatch
                    else isPatternMatch a1 (← mkNatLitExpr (Nat.sub n2 n1))
+             | Expr.const ``UInt32.toNat _ => return .PotentialMatch -- recursive case for Char.mk unification
              | _ => return .NoMatch -- unreachable: Nat constructor expected
 
         | Expr.lit (.strVal s) =>
@@ -174,42 +168,88 @@ partial def isPatternMatch (lhs : Expr) (rhs : Expr) : TranslateEnvT MatchResult
            else return .PotentialMatch -- case when rhs is an expression
 
         | Expr.app f2 a2 =>
-             match f1, f2 with
-             | Expr.app (Expr.const ``Nat.add _) (Expr.lit (Literal.natVal n1)),
-               Expr.app (Expr.const ``Nat.add _) (Expr.lit (Literal.natVal n2)) =>
-                if n1 < n2 then
-                  isPatternMatch a1 (← mkApp2Expr (← mkNatAddOp) (← mkNatLitExpr (Nat.sub n2 n1)) a2)
-                else if n1 == n2 then
-                  isPatternMatch a1 a2
-                else isPatternMatch (← mkApp2Expr (← mkNatAddOp) (← mkNatLitExpr (Nat.sub n1 n2)) a1) a2
+             match f1 with
+             | Expr.app (Expr.const ``Nat.add _) (Expr.lit (Literal.natVal n1)) =>
+                match f2 with
+                | Expr.app (Expr.const ``Nat.add _) (Expr.lit (Literal.natVal n2)) =>
+                    if n1 < n2 then
+                      isPatternMatch a1 (← mkApp2Expr (← mkNatAddOp) (← mkNatLitExpr (Nat.sub n2 n1)) a2)
+                    else if n1 == n2 then
+                      isPatternMatch a1 a2
+                    else isPatternMatch (← mkApp2Expr (← mkNatAddOp) (← mkNatLitExpr (Nat.sub n1 n2)) a1) a2
+                | _ => return .PotentialMatch -- case when rhs is an expression
 
-             | Expr.const ``Int.ofNat _, Expr.const ``Int.neg _ =>
-                  match a2 with
-                  | Expr.app (Expr.const ``Int.ofNat _) _ => return .NoMatch
-                  | _ => return .PotentialMatch -- case when rhs is an expression
-
-             | Expr.const ``Int.neg _, Expr.const ``Int.ofNat _ => return .NoMatch
-
-             | Expr.const ``Int.negSucc _, Expr.const ``Int.neg _ =>
-                  match a2 with
-                  | Expr.app (Expr.const ``Int.ofNat _) n2 =>
-                      match a1 with
-                      | Expr.lit (.natVal n1) => isPatternMatch (← mkNatLitExpr (n1 + 1)) n2
-                      | _ => return .NoMatch -- unreachable: Nat literal expected
-                  | _ => return .PotentialMatch -- case when rhs is an expression
-
-             | Expr.const ``Int.neg _, Expr.const ``Int.negSucc _ =>
-                  match a1 with
-                  | Expr.app (Expr.const ``Int.ofNat _) n1 =>
+             | Expr.const ``Int.ofNat _ =>
+                  match f2 with
+                  | Expr.const ``Int.neg _ =>
                       match a2 with
-                      | Expr.lit (.natVal n2) => isPatternMatch n1 (← mkNatLitExpr (n2 + 1))
-                      | _ => return .NoMatch -- rhs should be normalized for pattern reduction.
-                  | _ => return .NoMatch -- unreachable: normalized Int.negSucc expected
-             | _, _=>
+                      | Expr.app (Expr.const ``Int.ofNat _) e =>
+                          match e with
+                          | Expr.app (Expr.app (Expr.const ``Nat.add _) (Expr.lit (Literal.natVal ne))) _ =>
+                              if ne ≥ 1 then return .NoMatch
+                              else return .PotentialMatch
+                          | _ =>
+                              -- need to check if a1 unifies with zero
+                              match (← isPatternMatch a1 (← mkNatLitExpr 0)) with
+                              | .UnifyMatch => return .PotentialMatch
+                              | _ => return .NoMatch
+                      | _ => return .PotentialMatch -- case when rhs is an expression
+
+                  | Expr.const ``Int.ofNat _ => isPatternMatch a1 a2
+
+                  | Expr.const ``Int.negSucc _ => return .NoMatch
+
+                  | _ => return .PotentialMatch -- case when rhs is an expression
+
+             | Expr.const ``Int.neg _ =>
+                 match f2 with
+                 | Expr.const ``Int.ofNat _ =>
+                      -- NOTE: no symmetric case here as a1 is expected to be `Int.ofNat (1 + n)`
+                      return .NoMatch
+
+                 | Expr.const ``Int.negSucc _ =>
+                       match a1 with
+                       | Expr.app (Expr.const ``Int.ofNat _) n1 =>
+                            match a2 with
+                            | Expr.lit (.natVal n2) => isPatternMatch n1 (← mkNatLitExpr (n2 + 1))
+                            | _ => return .PotentialMatch -- rhs should be normalized for pattern reduction.
+                       | _ => return .NoMatch -- unreachable: normalized Int.negSucc expected
+
+                 | Expr.const ``Int.neg _ => isPatternMatch a1 a2
+
+                 | _ => return .PotentialMatch -- case when rhs is an expression
+
+             | Expr.const ``Int.negSucc _ =>
+                  match f2 with
+                  | Expr.const ``Int.neg _ =>
+                      match a2 with
+                      | Expr.app (Expr.const ``Int.ofNat _) n2 =>
+                           match a1 with
+                           | Expr.lit (.natVal n1) => isPatternMatch (← mkNatLitExpr (n1 + 1)) n2
+                           | _ => return .NoMatch -- unreachable: Nat literal expected
+                      | _ => return .PotentialMatch -- case when rhs is an expression
+
+                  | Expr.const ``Int.negSucc _ => isPatternMatch a1 a2
+
+                  | Expr.const ``Int.ofNat _ => return .NoMatch
+
+                  | _ => return .PotentialMatch -- case when rhs is an expression
+
+             | Expr.app (Expr.const ``Char.mk _) val1 =>
+                  match f2 with
+                  | Expr.app (Expr.const ``Char.mk _) val2 =>
+                        -- skip proof
+                        isPatternMatch val1 val2
+                  | _ =>
+                    match isUInt32Value? val1 with
+                    | some n => isPatternMatch (← mkAppExpr (← mkCharOfNat) (← mkNatLitExpr n)) rhs
+                    | none => isPatternMatch (← mkAppExpr (← mkCharOfNat) (← mkAppExpr (← mkUInt32ToNat) val1)) rhs
+
+             | _ =>
                 if exprEq f1 f2 then isPatternMatch a1 a2
                 else
                   let f2' := f2.getAppFn
-                  if let some nbParams ← getNormCtorIndParams f2' then
+                  if let some nbParams ← getCtorIndParams f2' then
                     if exprEq f1.getAppFn f2' then
                       if f2.getAppNumArgs == nbParams then
                         -- skip inductive params
@@ -629,6 +669,14 @@ partial def unifyAndUpdateEqMap (lhs : Expr) (rhs : Expr) (nextCtxId : CtxId) (u
                     if n2 < n1
                     then return updatedCtx
                     else visit a1 (← mkNatLitExpr (Nat.sub n2 n1)) stk updatedCtx
+               | Expr.const ``UInt32.toNat _ =>
+                   -- recursive case for Char.mk unification
+                   -- NOTE: normUINt32ToNat to be removed if we opacify UInt32
+                   updateEqualityMap (← normUInt32ToNat (← removeNamedPatternExpr a1)) rhs nextCtxId
+                   match stk with
+                   | [] => return true
+                   | (lhs', rhs') :: xs => visit lhs' rhs' xs true
+
                | _ => return updatedCtx -- unreachable: Nat constructor expected
 
           | Expr.lit (.strVal s) =>
@@ -646,52 +694,110 @@ partial def unifyAndUpdateEqMap (lhs : Expr) (rhs : Expr) (nextCtxId : CtxId) (u
                  | (lhs', rhs') :: xs => visit lhs' rhs' xs true
 
           | Expr.app f2 a2 =>
-              match f1, f2 with
-              | Expr.app (Expr.const ``Nat.add _) (Expr.lit (Literal.natVal n1)),
-                Expr.app (Expr.const ``Nat.add _) (Expr.lit (Literal.natVal n2)) =>
-                  if n1 < n2 then
-                    visit a1 (← mkApp2Expr (← mkNatAddOp) (← mkNatLitExpr (Nat.sub n2 n1)) a2) stk updatedCtx
-                  else if n1 == n2 then
-                    visit a1 a2 stk updatedCtx
-                  else visit (← mkApp2Expr (← mkNatAddOp) (← mkNatLitExpr (Nat.sub n1 n2)) a1) a2 stk updatedCtx
-
-              | Expr.const ``Int.ofNat _, Expr.const ``Int.neg _ =>
-                    match a2 with
-                    | Expr.app (Expr.const ``Int.ofNat _) _ => return updatedCtx
-                    | _ => -- case when rhs is an expression
-                      updateEqualityMap rhs (← removeNamedPatternExpr lhs) nextCtxId
-                      match stk with
-                      | [] => return true
-                      | (lhs', rhs') :: xs => visit lhs' rhs' xs true
-
-              | Expr.const ``Int.neg _, Expr.const ``Int.ofNat _ => return updatedCtx
-
-              | Expr.const ``Int.negSucc _, Expr.const ``Int.neg _ =>
-                  match a2 with
-                  | Expr.app (Expr.const ``Int.ofNat _) n2 =>
-                       match a1 with
-                       | Expr.lit (.natVal n1) => visit (← mkNatLitExpr (n1 + 1)) n2 stk updatedCtx
-                       | _ => return updatedCtx -- unreachable: Nat literal expected
-                  | _ => -- case when rhs is an expression
+              match f1 with
+              | Expr.app (Expr.const ``Nat.add _) (Expr.lit (Literal.natVal n1)) =>
+                 match f2 with
+                 | Expr.app (Expr.const ``Nat.add _) (Expr.lit (Literal.natVal n2)) =>
+                     if n1 < n2 then
+                       visit a1 (← mkApp2Expr (← mkNatAddOp) (← mkNatLitExpr (Nat.sub n2 n1)) a2) stk updatedCtx
+                     else if n1 == n2 then
+                       visit a1 a2 stk updatedCtx
+                     else visit (← mkApp2Expr (← mkNatAddOp) (← mkNatLitExpr (Nat.sub n1 n2)) a1) a2 stk updatedCtx
+                 | _ =>
+                     -- case when rhs is an expression
                      updateEqualityMap rhs (← removeNamedPatternExpr lhs) nextCtxId
                      match stk with
                      | [] => return true
                      | (lhs', rhs') :: xs => visit lhs' rhs' xs true
 
-              | Expr.const ``Int.neg _, Expr.const ``Int.negSucc _ =>
-                   match a1 with
-                   | Expr.app (Expr.const ``Int.ofNat _) n1 =>
-                       match a2 with
-                       | Expr.lit (.natVal n2) => visit n1 (← mkNatLitExpr (n2 + 1)) stk updatedCtx
-                       | _ => return updatedCtx -- unreachable: rhs must be normalized at this stage
-                   | _ => return updatedCtx -- unreachable
+              | Expr.const ``Int.ofNat _ =>
+                   match f2 with
+                   | Expr.const ``Int.neg _ =>
+                        match a2 with
+                        | Expr.app (Expr.const ``Int.ofNat _) e =>
+                             match e with
+                             | Expr.app (Expr.app (Expr.const ``Nat.add _) (Expr.lit (Literal.natVal _ne))) _  =>
+                                   -- Note: At this stage it's guaranteed that ne > 0
+                                   return updatedCtx
+                             | _ =>
+                                -- unify a1 must unify with zero
+                               let a1' ← removeNamedPatternExpr a1
+                                match a1' with
+                                | Expr.lit (Literal.natVal 0)
+                                | Expr.fvar _ =>
+                                    -- unify e with zero in rhs
+                                    let zeroNat ← mkNatLitExpr 0
+                                    updateEqualityMap e zeroNat nextCtxId
+                                    -- we need to call visit on a1 to also unify any potential named pattern
+                                    visit a1 (← mkNatLitExpr 0) stk true
+                                | _ => return updatedCtx
+                        | _ => -- case when rhs is an expression
+                          updateEqualityMap rhs (← removeNamedPatternExpr lhs) nextCtxId
+                          match stk with
+                          | [] => return true
+                          | (lhs', rhs') :: xs => visit lhs' rhs' xs true
+                   | Expr.const ``Int.ofNat _ => visit a1 a2 stk updatedCtx
+                   | Expr.const ``Int.negSucc _ => return updatedCtx
+                   | _ => -- case when rhs is an expression
+                       updateEqualityMap rhs (← removeNamedPatternExpr lhs) nextCtxId
+                       match stk with
+                       | [] => return true
+                       | (lhs', rhs') :: xs => visit lhs' rhs' xs true
 
-              | _, _ =>
+              | Expr.const ``Int.neg _ =>
+                    match f2 with
+                    | Expr.const ``Int.ofNat _ => return updatedCtx
+                    | Expr.const ``Int.negSucc _ =>
+                         match a1 with
+                         | Expr.app (Expr.const ``Int.ofNat _) n1 =>
+                             match a2 with
+                             | Expr.lit (.natVal n2) => visit n1 (← mkNatLitExpr (n2 + 1)) stk updatedCtx
+                             | _ => return updatedCtx -- unreachable: rhs must be normalized at this stage
+                         | _ => return updatedCtx -- unreachable
+                    | Expr.const ``Int.neg _ => visit a1 a2 stk updatedCtx
+                    | _ => -- case when rhs is an expression
+                       updateEqualityMap rhs (← removeNamedPatternExpr lhs) nextCtxId
+                       match stk with
+                       | [] => return true
+                       | (lhs', rhs') :: xs => visit lhs' rhs' xs true
+
+              | Expr.const ``Int.negSucc _ =>
+                    match f2 with
+                    | Expr.const ``Int.neg _ =>
+                        match a2 with
+                        | Expr.app (Expr.const ``Int.ofNat _) n2 =>
+                             match a1 with
+                             | Expr.lit (.natVal n1) => visit (← mkNatLitExpr (n1 + 1)) n2 stk updatedCtx
+                             | _ => return updatedCtx -- unreachable: Nat literal expected
+                        | _ => -- case when rhs is an expression
+                          updateEqualityMap rhs (← removeNamedPatternExpr lhs) nextCtxId
+                          match stk with
+                          | [] => return true
+                          | (lhs', rhs') :: xs => visit lhs' rhs' xs true
+                    | Expr.const ``Int.negSucc _ => visit a1 a2 stk updatedCtx
+                    | Expr.const ``Int.ofNat _ => return updatedCtx
+                    | _ => -- case when rhs is an expression
+                       updateEqualityMap rhs (← removeNamedPatternExpr lhs) nextCtxId
+                       match stk with
+                       | [] => return true
+                       | (lhs', rhs') :: xs => visit lhs' rhs' xs true
+
+              | Expr.app (Expr.const ``Char.mk _) val1 =>
+                     match f2 with
+                     | Expr.app (Expr.const ``Char.mk _) val2 =>
+                          -- skip proof
+                          visit val1 val2 stk updatedCtx
+                     | _ =>
+                        match isUInt32Value? val1 with
+                        | some n => visit (← mkAppExpr (← mkCharOfNat) (← mkNatLitExpr n)) rhs stk updatedCtx
+                        | none => visit (← mkAppExpr (← mkCharOfNat) (← mkAppExpr (← mkUInt32ToNat) val1)) rhs stk updatedCtx
+
+              | _ =>
                 if exprEq f1 f2 then
                    visit a1 a2 stk updatedCtx
                 else
                   let f2' := f2.getAppFn
-                  if let some nbParams ← getNormCtorIndParams f2' then
+                  if let some nbParams ← getCtorIndParams f2' then
                     if exprEq f1.getAppFn f2' then
                       if f2.getAppNumArgs == nbParams then
                         -- skip inductive params

@@ -16,11 +16,13 @@ namespace Tests.UnifyPattern
      and at least one pattern is a constructor application with free variables of a user-defined
      inductive type so that the match is not normalized to `ite`.
 
-     NOTE: The named pattern hypothesis section covers the hypothesis of a named pattern (`p@hp:pat`),
+     NOTE: The named pattern hypothesis sections cover the hypothesis of a named pattern (`p@hp:pat`),
      which is instantiated with `Eq.refl` both when the match is reduced and when it is not.
-     The last section (`UnifyPattern_63` and `UnifyPattern_64`) documents a known issue with the
-     hypothesis of a named pattern containing a nested named pattern: these test cases encode the
-     expected result and currently FAIL.
+
+     NOTE: The last sections cover constructors with inductive parameters and proof fields, cascades
+     of named patterns, discriminators containing a `forallE` or a lambda, string and character
+     literal patterns vs the different string/character representations, and `Int.ofNat` patterns
+     vs negated `Int.ofNat` discriminators.
 
 -/
 
@@ -1011,7 +1013,7 @@ def opaqueDiscr (g : Value → Nat) (x : Value) : Nat :=
 --   | .int (.negSucc 2) => Nat.add 300 (gi (Int.ofNat 3))
 --   | .int (.ofNat (k + 1)) => Nat.add k (gi (Int.ofNat (h n)))
 --   | .int (.negSucc (k + 1)) => Nat.add (gi (Int.ofNat (Nat.add 2 k))) (Nat.mul 2 k)
---   | .int (.ofNat k) => Nat.add (gi (Int.ofNat (h n))) (Nat.mul 3 k)
+--   | .int (.ofNat _k) => gi (Int.ofNat 0)
 --   | .int (.negSucc k) => Nat.add (gi (Int.ofNat (Nat.add 1 k))) (Nat.mul 4 k)
 --   | _ => 0
 -- NOTE: `Int.neg (Int.ofNat (h n))` discriminator: the `Int.negSucc` patterns unify through `Int.neg` and
@@ -1024,7 +1026,7 @@ def opaqueDiscr (g : Value → Nat) (x : Value) : Nat :=
     | .int (.negSucc 2) => Nat.add 300 (gi (Int.ofNat 3))
     | .int (.ofNat (k + 1)) => Nat.add k (gi (Int.ofNat (h n)))
     | .int (.negSucc (k + 1)) => Nat.add (gi (Int.ofNat (Nat.add 2 k))) (Nat.mul 2 k)
-    | .int (.ofNat k) => Nat.add (gi (Int.ofNat (h n))) (Nat.mul 3 k)
+    | .int (.ofNat _k) => gi (Int.ofNat 0)
     | .int (.negSucc k) => Nat.add (gi (Int.ofNat (Nat.add 1 k))) (Nat.mul 4 k)
     | _ => 0
 
@@ -1486,5 +1488,918 @@ def nestedAliasGen (g : Value → Nat) (x : Value) (y : Value) : Nat :=
         (fun (_x : Value) (_j : Nat) (_h : Value.nat _j = Value.nat k) => Nat.add k (Nat.add k (g (Value.nat k))))
         (fun (_x _p : Value) (_h : _p = Value.nat k) => 0)
     | _ => 0
+
+/-! ### Constructors with a proof field and inductive parameters -/
+
+variable (P : Nat → Prop) (PV : Value → Prop)
+variable (qP : ∀ {x : Nat}, P x → Nat) (pn : P (h n)) (qV : ∀ {x : Value}, PV x → Nat) (pv : PV (Value.nat (h m)))
+
+structure Tagged (R : Nat → Prop) (b : Nat) where
+  val : Nat
+  ok : R val
+
+def tagged (P : Nat → Prop) (b : Nat) (q : ∀ {x : Nat}, P x → Nat) (y : Nat) (s : Tagged P (b + 0)) : Nat :=
+  match y, s with
+  | 5, _ => 100
+  | _, ⟨x, hx⟩ => q hx + x
+
+-- tagged P n qP m ⟨h n, pn⟩ ===>
+--   tagged.match_1 P n (fun y (s : Tagged P n) => Nat) m (Tagged.mk (h n) pn)
+--     (fun (x : Tagged P (n + 0)) => 100)
+--     (fun x x (hx : P x) => Nat.add (h n) (qP pn))
+-- NOTE: the inductive parameters of the constructor are skipped by the unification: the parameter
+--       `b + 0` of the pattern (taken from the type of the matcher) differs from the normalized
+--       parameter `n` of the discriminator, the value field binds `x := h n` and the proof field
+--       binds `hx := pn`. The expected result is written as an explicit matcher application because
+--       the motive of the optimized match mentions the normalized parameter `Tagged P n`.
+#testOptimize [ "UnifyPattern_70" ] (norm-result: 1)
+  tagged P n qP m ⟨h n, pn⟩ ===>
+    tagged.match_1 P n (fun (_y : Nat) (_s : Tagged P n) => Nat) m (@Tagged.mk P n (h n) pn)
+      (fun (_x : Tagged P (n + 0)) => 100)
+      (fun (_y _x : Nat) (_hx : P _x) => Nat.add (h n) (qP pn))
+
+structure TaggedV (R : Value → Prop) where
+  val : Value
+  ok : R val
+
+def taggedNested (PV : Value → Prop) (q : ∀ {x : Value}, PV x → Nat) (y : Nat) (s : TaggedV PV) : Nat :=
+  match y, s with
+  | 5, _ => 100
+  | _, ⟨.nat k, hx⟩ => q hx + k
+  | _, _ => 0
+
+-- taggedNested PV qV n ⟨.nat (h m), pv⟩ ===>
+--   match n, TaggedV.mk (Value.nat (h m)) pv with
+--   | 5, _ => 100
+--   | _, ⟨.nat k, hx⟩ => Nat.add (h m) (qV pv)
+--   | _, _ => 0
+-- NOTE: nested constructor pattern inside a constructor with a proof field: the parameter `PV` is
+--       the same in the pattern and in the discriminator, the nested pattern binds `k := h m` and
+--       the proof field binds `hx := pv`
+#testOptimize [ "UnifyPattern_71" ] (norm-result: 1)
+  taggedNested PV qV n ⟨.nat (h m), pv⟩ ===>
+    match n, (⟨.nat (h m), pv⟩ : TaggedV PV) with
+    | 5, _ => 100
+    | _, ⟨.nat _k, _hx⟩ => Nat.add (h m) (qV pv)
+    | _, _ => 0
+
+/-! ### Cascade of named patterns -/
+
+variable (qn : ∀ {a b : Nat}, a = b → Nat)
+
+def cascade (x : Nat) (y : Value) : Nat :=
+  match x, y with
+  | _, .nat 5 => 100
+  | p@(.succ (q@(.succ (r@(.succ n))))), .wrap _ j => (p + 3) + q + r + n + j
+  | _, _ => 0
+
+-- cascade (h m) v ===>
+--   match h m, v with
+--   | _, .nat 5 => 100
+--   | p@(.succ (q@(.succ (r@(.succ n))))), .wrap _ j =>
+--       Nat.add j (Nat.add n (Nat.add (Nat.add (Nat.add 2 n) (Nat.add 6 n)) (Nat.add 1 n)))
+--   | _, _ => 0
+-- NOTE: cascade of named patterns vs function application discriminator: `h m := 3 + n` and the
+--       aliases are bound to their (normalized) pattern, `p := 3 + n`, `q := 2 + n`, `r := 1 + n`
+--       (`p + 3` is folded to `6 + n`)
+#testOptimize [ "UnifyPattern_72" ] (norm-result: 1)
+  cascade (h m) v ===>
+    match h m, v with
+    | _, .nat 5 => 100
+    | _p@(.succ (_q@(.succ (_r@(.succ n))))), .wrap _ j =>
+        Nat.add j (Nat.add n (Nat.add (Nat.add (Nat.add 2 n) (Nat.add 6 n)) (Nat.add 1 n)))
+    | _, _ => 0
+
+-- cascade (m + 7) v ===>
+--   match Nat.add 7 m, v with
+--   | _, .nat 5 => 100
+--   | p@(.succ (q@(.succ (r@(.succ n))))), .wrap _ j =>
+--       Nat.add j (Nat.add (Nat.add (Nat.add (Nat.add 6 m) (Nat.add 10 m)) (Nat.add 5 m)) (Nat.add 4 m))
+--   | _, _ => 0
+-- NOTE: cascade of named patterns vs offset discriminator: `n := 4 + m` and every alias is
+--       re-optimized w.r.t. this binding, `r := 5 + m`, `q := 6 + m`, `p := 7 + m` (`p + 3 := 10 + m`)
+#testOptimize [ "UnifyPattern_73" ] (norm-result: 1)
+  cascade (m + 7) v ===>
+    match Nat.add 7 m, v with
+    | _, .nat 5 => 100
+    | _p@(.succ (_q@(.succ (_r@(.succ _n))))), .wrap _ j =>
+        Nat.add j (Nat.add (Nat.add (Nat.add (Nat.add 6 m) (Nat.add 10 m)) (Nat.add 5 m)) (Nat.add 4 m))
+    | _, _ => 0
+
+-- cascade 7 v ===>
+--   match 7, v with
+--   | _, .nat 5 => 100
+--   | p@(.succ (q@(.succ (r@(.succ n))))), .wrap _ j => Nat.add 25 j
+--   | _, _ => 0
+-- NOTE: cascade of named patterns vs literal discriminator: `n := 4`, `r := 5`, `q := 6`, `p := 7`
+#testOptimize [ "UnifyPattern_74" ] (norm-result: 1)
+  cascade 7 v ===>
+    match 7, v with
+    | _, .nat 5 => 100
+    | _p@(.succ (_q@(.succ (_r@(.succ _n))))), .wrap _ j => Nat.add 25 j
+    | _, _ => 0
+
+def cascadeHyp (q : ∀ {a b : Nat}, a = b → Nat) (x : Nat) (y : Value) : Nat :=
+  match x, y with
+  | _, .nat 5 => 100
+  | p@hp:(.succ (q'@hq:(.succ n))), .wrap _ j => q hp + q hq + p + q' + n + j
+  | _, _ => 0
+
+-- cascadeHyp qn (m + 7) v ===>
+--   match Nat.add 7 m, v with
+--   | _, .nat 5 => 100
+--   | p@hp:(.succ (q'@hq:(.succ n))), .wrap _ j =>
+--       Nat.add j (Nat.add (Nat.add (Nat.add (Nat.add (qn (Eq.refl (Nat.add 6 m))) (qn (Eq.refl (Nat.add 7 m))))
+--                                   (Nat.add 7 m)) (Nat.add 6 m)) (Nat.add 5 m))
+--   | _, _ => 0
+-- NOTE: cascade of named patterns with hypotheses vs offset discriminator: the hypotheses follow
+--       the re-optimization of their alias, `hp := Eq.refl (7 + m)` and `hq := Eq.refl (6 + m)`
+#testOptimize [ "UnifyPattern_75" ] (norm-result: 1)
+  cascadeHyp qn (m + 7) v ===>
+    match Nat.add 7 m, v with
+    | _, .nat 5 => 100
+    | _p@_hp:(.succ (_q@_hq:(.succ _n))), .wrap _ j =>
+        Nat.add j (Nat.add (Nat.add (Nat.add (Nat.add (qn (Eq.refl (Nat.add 6 m))) (qn (Eq.refl (Nat.add 7 m))))
+                                    (Nat.add 7 m)) (Nat.add 6 m)) (Nat.add 5 m))
+    | _, _ => 0
+
+-- cascadeHyp qn (h m) v ===>
+--   match h m, v with
+--   | _, .nat 5 => 100
+--   | p@hp:(.succ (q'@hq:(.succ n))), .wrap _ j =>
+--       Nat.add j (Nat.add n (Nat.add (Nat.add (Nat.add (qn (Eq.refl (Nat.add 1 n))) (qn (Eq.refl (Nat.add 2 n))))
+--                                     (Nat.add 2 n)) (Nat.add 1 n)))
+--   | _, _ => 0
+-- NOTE: cascade of named patterns with hypotheses vs function application discriminator:
+--       `hp := Eq.refl (2 + n)` and `hq := Eq.refl (1 + n)`
+#testOptimize [ "UnifyPattern_76" ] (norm-result: 1)
+  cascadeHyp qn (h m) v ===>
+    match h m, v with
+    | _, .nat 5 => 100
+    | _p@_hp:(.succ (_q@_hq:(.succ n))), .wrap _ j =>
+        Nat.add j (Nat.add n (Nat.add (Nat.add (Nat.add (qn (Eq.refl (Nat.add 1 n))) (qn (Eq.refl (Nat.add 2 n))))
+                                      (Nat.add 2 n)) (Nat.add 1 n)))
+    | _, _ => 0
+
+/-! ### Discriminators containing a `forallE` (Prop field) -/
+
+structure Pk where
+  p : Prop
+  n : Nat
+
+def propField (s : Pk) : Prop :=
+  match s with
+  | ⟨_, 5⟩ => True
+  | ⟨p, k⟩ => p ∧ k = 2
+
+-- propField ⟨∀ x, P x, h m⟩ ===>
+--   match Pk.mk (∀ x, P x) (h m) with
+--   | ⟨_, 5⟩ => True
+--   | ⟨p, k⟩ => 2 = h m ∧ ∀ x, P x
+-- NOTE: variable pattern vs `forallE` discriminator binds `p := ∀ x, P x`, which is propagated in
+--       the rhs (`k := h m`)
+#testOptimize [ "UnifyPattern_77" ] (norm-result: 1)
+  propField ⟨∀ x, P x, h m⟩ ===>
+    match Pk.mk (∀ x, P x) (h m) with
+    | ⟨_, 5⟩ => True
+    | ⟨_p, _k⟩ => 2 = h m ∧ ∀ x, P x
+
+-- propField ⟨P m → P n, h m⟩ ===>
+--   match Pk.mk (P m → P n) (h m) with
+--   | ⟨_, 5⟩ => True
+--   | ⟨p, k⟩ => 2 = h m ∧ (P m → P n)
+-- NOTE: variable pattern vs implication (non-dependent `forallE`) discriminator binds `p := P m → P n`
+#testOptimize [ "UnifyPattern_78" ] (norm-result: 1)
+  propField ⟨P m → P n, h m⟩ ===>
+    match Pk.mk (P m → P n) (h m) with
+    | ⟨_, 5⟩ => True
+    | ⟨_p, _k⟩ => 2 = h m ∧ (P m → P n)
+
+/-! ### Lambda discriminators -/
+
+inductive Fn where
+  | mk : (Nat → Nat) → Fn
+  | none : Fn
+
+def lamField (x : Fn) (z : Nat) : Nat :=
+  match x, z with
+  | _, 5 => 100
+  | .mk f, k => f k + f 1
+  | _, _ => 0
+
+-- lamField (.mk (fun x => x + m)) (h n) ===>
+--   match Fn.mk (fun x => Nat.add m x), h n with
+--   | _, 5 => 100
+--   | .mk f, k => Nat.add (Nat.add m (h n)) (Nat.add 1 m)
+--   | _, _ => 0
+-- NOTE: variable pattern vs lambda discriminator binds `f := fun x => m + x`, the applications of
+--       `f` in the rhs are beta-reduced (`f k := m + h n` with `k := h n`, `f 1 := 1 + m`)
+#testOptimize [ "UnifyPattern_79" ] (norm-result: 1)
+  lamField (.mk (fun x => x + m)) (h n) ===>
+    match Fn.mk (fun x => Nat.add m x), h n with
+    | _, 5 => 100
+    | .mk _f, _k => Nat.add (Nat.add m (h n)) (Nat.add 1 m)
+    | _, _ => 0
+
+-- lamField (.mk (fun _ => 7)) (h n) ===>
+--   match Fn.mk (fun x => 7), h n with
+--   | _, 5 => 100
+--   | .mk f, k => 14
+--   | _, _ => 0
+-- NOTE: constant lambda discriminator, `f k + f 1 := 7 + 7`
+#testOptimize [ "UnifyPattern_80" ] (norm-result: 1)
+  lamField (.mk (fun _ => 7)) (h n) ===>
+    match Fn.mk (fun _ => 7), h n with
+    | _, 5 => 100
+    | .mk _f, _k => 14
+    | _, _ => 0
+
+-- lamField (.mk h) (h n) ===>
+--   match Fn.mk h, h n with
+--   | _, 5 => 100
+--   | .mk f, k => Nat.add (h (h n)) (h 1)
+--   | _, _ => 0
+-- NOTE: variable pattern vs free function variable discriminator binds `f := h`
+#testOptimize [ "UnifyPattern_81" ] (norm-result: 1)
+  lamField (.mk h) (h n) ===>
+    match Fn.mk h, h n with
+    | _, 5 => 100
+    | .mk _f, _k => Nat.add (h (h n)) (h 1)
+    | _, _ => 0
+
+def lamNamed (x : Fn) (z : Nat) : Nat :=
+  match x, z with
+  | _, 5 => 100
+  | p@(.mk f), k => f k + (match p with | .mk g => g 2 | _ => 0)
+  | _, _ => 0
+
+-- lamNamed (.mk (fun x => x + m)) (h n) ===>
+--   match Fn.mk (fun x => Nat.add m x), h n with
+--   | _, 5 => 100
+--   | p@(.mk f), k => Nat.add (Nat.add m (h n)) (Nat.add 2 m)
+--   | _, _ => 0
+-- NOTE: named pattern on a constructor with a lambda argument: the alias `p := Fn.mk (fun x => m + x)`
+--       reduces the nested match on `p` (`g 2 := 2 + m`)
+#testOptimize [ "UnifyPattern_82" ] (norm-result: 1)
+  lamNamed (.mk (fun x => x + m)) (h n) ===>
+    match Fn.mk (fun x => Nat.add m x), h n with
+    | _, 5 => 100
+    | _p@(.mk _f), _k => Nat.add (Nat.add m (h n)) (Nat.add 2 m)
+    | _, _ => 0
+
+/-! ### String patterns: list of characters vs string literal and `String.mk` discriminators -/
+
+variable (gc : Char → Nat) (gl : List Char → Nat)
+
+def strCons (gc : Char → Nat) (gl : List Char → Nat) (x : Value) (z : String) : Nat :=
+  match x with
+  | .wrap _ 5 => z.length + 100
+  | .wrap (.str ⟨c :: xs⟩) j => gc c + gl xs + z.length + j
+  | _ => 0
+
+-- strCons gc gl (.wrap (.str "ab") m) "ab" ===>
+--   match Value.wrap (Value.str "ab") m with
+--   | .wrap _ 5 => 102
+--   | .wrap (.str ⟨c :: xs⟩) j => Nat.add m (Nat.add 2 (Nat.add (gc 'a') (gl ['b'])))
+--   | _ => 0
+-- NOTE: `String.mk` pattern with a `List.cons` argument vs string literal discriminator: the literal
+--       is converted to a list of characters and unified with the pattern (`c := 'a'`, `xs := ['b']`)
+#testOptimize [ "UnifyPattern_83" ] (norm-result: 1)
+  strCons gc gl (.wrap (.str "ab") m) "ab" ===>
+    match Value.wrap (Value.str "ab") m with
+    | .wrap _ 5 => 102
+    | .wrap (.str ⟨_c :: _xs⟩) _j => Nat.add m (Nat.add 2 (Nat.add (gc 'a') (gl ['b'])))
+    | _ => 0
+
+-- strCons gc gl (.wrap (.str (String.mk (c1 :: cs))) m) (String.mk (c1 :: cs)) ===>
+--   match Value.wrap (Value.str (String.mk (c1 :: cs))) m with
+--   | .wrap _ 5 => Nat.add 100 (String.length (String.mk (c1 :: cs)))
+--   | .wrap (.str ⟨c :: xs⟩) j =>
+--       Nat.add m (Nat.add (String.length (String.mk (c1 :: cs))) (Nat.add (gc c1) (gl cs)))
+--   | _ => 0
+-- NOTE: `String.mk` pattern vs `String.mk` discriminator with a `List.cons` argument (`c := c1`, `xs := cs`)
+#testOptimize [ "UnifyPattern_84" ] (norm-result: 1)
+  strCons gc gl (.wrap (.str (String.mk (c1 :: cs))) m) (String.mk (c1 :: cs)) ===>
+    match Value.wrap (Value.str (String.mk (c1 :: cs))) m with
+    | .wrap _ 5 => Nat.add 100 (String.length (String.mk (c1 :: cs)))
+    | .wrap (.str ⟨_c :: _xs⟩) _j =>
+        Nat.add m (Nat.add (String.length (String.mk (c1 :: cs))) (Nat.add (gc c1) (gl cs)))
+    | _ => 0
+
+-- strCons gc gl (.wrap (.str (String.mk [c1, c2])) m) (String.mk [c1, c2]) ===>
+--   match Value.wrap (Value.str (String.mk [c1, c2])) m with
+--   | .wrap _ 5 => Nat.add 100 (String.length (String.mk [c1, c2]))
+--   | .wrap (.str ⟨c :: xs⟩) j =>
+--       Nat.add m (Nat.add (String.length (String.mk [c1, c2])) (Nat.add (gc c1) (gl [c2])))
+--   | _ => 0
+-- NOTE: `String.mk` pattern vs `String.mk` discriminator with an explicit list (`c := c1`, `xs := [c2]`)
+#testOptimize [ "UnifyPattern_85" ] (norm-result: 1)
+  strCons gc gl (.wrap (.str (String.mk [c1, c2])) m) (String.mk [c1, c2]) ===>
+    match Value.wrap (Value.str (String.mk [c1, c2])) m with
+    | .wrap _ 5 => Nat.add 100 (String.length (String.mk [c1, c2]))
+    | .wrap (.str ⟨_c :: _xs⟩) _j =>
+        Nat.add m (Nat.add (String.length (String.mk [c1, c2])) (Nat.add (gc c1) (gl [c2])))
+    | _ => 0
+
+-- strCons gc gl (.wrap (.str s) m) s ===>
+--   match Value.wrap (Value.str s) m with
+--   | .wrap _ 5 => Nat.add 100 (String.length s)
+--   | .wrap (.str ⟨c :: xs⟩) j =>
+--       Nat.add m (Nat.add (String.length (String.mk (c :: xs))) (Nat.add (gc c) (gl xs)))
+--   | _ => 0
+-- NOTE: `String.mk` pattern vs free variable discriminator binds `s := String.mk (c :: xs)`
+#testOptimize [ "UnifyPattern_86" ] (norm-result: 1)
+  strCons gc gl (.wrap (.str s) m) s ===>
+    match Value.wrap (Value.str s) m with
+    | .wrap _ 5 => Nat.add 100 (String.length s)
+    | .wrap (.str ⟨c :: xs⟩) _j =>
+        Nat.add m (Nat.add (String.length (String.mk (c :: xs))) (Nat.add (gc c) (gl xs)))
+    | _ => 0
+
+def strCharCons (gl : List Char → Nat) (x : Value) (z : String) : Nat :=
+  match x with
+  | .wrap _ 5 => z.length + 100
+  | .wrap (.str ⟨'a' :: xs⟩) j => gl xs + z.length + j
+  | _ => 0
+
+-- strCharCons gl (.wrap (.str "ab") m) "ab" ===>
+--   match Value.wrap (Value.str "ab") m with
+--   | .wrap _ 5 => 102
+--   | .wrap (.str ⟨'a' :: xs⟩) j => Nat.add m (Nat.add 2 (gl ['b']))
+--   | _ => 0
+-- NOTE: `String.mk` pattern with a character literal vs string literal discriminator (`xs := ['b']`)
+#testOptimize [ "UnifyPattern_87" ] (norm-result: 1)
+  strCharCons gl (.wrap (.str "ab") m) "ab" ===>
+    match Value.wrap (Value.str "ab") m with
+    | .wrap _ 5 => 102
+    | .wrap (.str ⟨'a' :: _xs⟩) _j => Nat.add m (Nat.add 2 (gl ['b']))
+    | _ => 0
+
+def strTwo (gc : Char → Nat) (x : Value) (z : String) : Nat :=
+  match x with
+  | .wrap _ 5 => z.length + 100
+  | .wrap (.str ⟨[c, d]⟩) j => gc c + gc d + z.length + j
+  | _ => 0
+
+-- strTwo gc (.wrap (.str "ab") m) "ab" ===>
+--   match Value.wrap (Value.str "ab") m with
+--   | .wrap _ 5 => 102
+--   | .wrap (.str ⟨[c, d]⟩) j => Nat.add m (Nat.add 2 (Nat.add (gc 'a') (gc 'b')))
+--   | _ => 0
+-- NOTE: `String.mk` pattern with an explicit list vs string literal discriminator (`c := 'a'`, `d := 'b'`)
+#testOptimize [ "UnifyPattern_88" ] (norm-result: 1)
+  strTwo gc (.wrap (.str "ab") m) "ab" ===>
+    match Value.wrap (Value.str "ab") m with
+    | .wrap _ 5 => 102
+    | .wrap (.str ⟨[_c, _d]⟩) _j => Nat.add m (Nat.add 2 (Nat.add (gc 'a') (gc 'b')))
+    | _ => 0
+
+-- strTwo gc (.wrap (.str (String.mk (c1 :: cs))) m) (String.mk (c1 :: cs)) ===>
+--   match Value.wrap (Value.str (String.mk (c1 :: cs))) m with
+--   | .wrap _ 5 => Nat.add 100 (String.length (String.mk (c1 :: cs)))
+--   | .wrap (.str ⟨[c, d]⟩) j =>
+--       Nat.add m (Nat.add (String.length (String.mk [c1, d])) (Nat.add (gc c1) (gc d)))
+--   | _ => 0
+-- NOTE: explicit list pattern vs `List.cons` discriminator: `c := c1` and the tail binds the other way,
+--       `cs := [d]`
+#testOptimize [ "UnifyPattern_89" ] (norm-result: 1)
+  strTwo gc (.wrap (.str (String.mk (c1 :: cs))) m) (String.mk (c1 :: cs)) ===>
+    match Value.wrap (Value.str (String.mk (c1 :: cs))) m with
+    | .wrap _ 5 => Nat.add 100 (String.length (String.mk (c1 :: cs)))
+    | .wrap (.str ⟨[_c, d]⟩) _j =>
+        Nat.add m (Nat.add (String.length (String.mk [c1, d])) (Nat.add (gc c1) (gc d)))
+    | _ => 0
+
+def strLitP (x : Value) (z : String) : Nat :=
+  match x with
+  | .wrap _ 5 => z.length + 100
+  | .wrap (.str "ab") j => z.length + j
+  | _ => 0
+
+-- strLitP (.wrap (.str (String.mk (c1 :: cs))) m) (String.mk (c1 :: cs)) ===>
+--   match Value.wrap (Value.str (String.mk (c1 :: cs))) m with
+--   | .wrap _ 5 => Nat.add 100 (String.length (String.mk (c1 :: cs)))
+--   | .wrap (.str "ab") j => Nat.add m (String.length (String.mk ['a', 'b']))
+--   | _ => 0
+-- NOTE: string literal pattern vs `String.mk` discriminator with a `List.cons` argument
+--       (`c1 := 'a'`, `cs := ['b']`)
+#testOptimize [ "UnifyPattern_90" ] (norm-result: 1)
+  strLitP (.wrap (.str (String.mk (c1 :: cs))) m) (String.mk (c1 :: cs)) ===>
+    match Value.wrap (Value.str (String.mk (c1 :: cs))) m with
+    | .wrap _ 5 => Nat.add 100 (String.length (String.mk (c1 :: cs)))
+    | .wrap (.str "ab") _j => Nat.add m (String.length (String.mk ['a', 'b']))
+    | _ => 0
+
+-- strLitP (.wrap (.str (String.mk [c1, c2, c1])) m) (String.mk [c1, c2, c1]) ===>
+--   match Value.wrap (Value.str (String.mk [c1, c2, c1])) m with
+--   | .wrap _ 5 => Nat.add 100 (String.length (String.mk [c1, c2, c1]))
+--   | .wrap (.str "ab") j => Nat.add j (String.length (String.mk ['a', 'b', 'a']))
+--   | _ => 0
+-- NOTE: string literal pattern vs `String.mk` discriminator with a longer list: the characters are
+--       unified up to the end of the literal (`c1 := 'a'`, `c2 := 'b'`), then `List.nil` vs `List.cons`
+--       stops the unification (`j` is left unbound)
+#testOptimize [ "UnifyPattern_91" ] (norm-result: 1)
+  strLitP (.wrap (.str (String.mk [c1, c2, c1])) m) (String.mk [c1, c2, c1]) ===>
+    match Value.wrap (Value.str (String.mk [c1, c2, c1])) m with
+    | .wrap _ 5 => Nat.add 100 (String.length (String.mk [c1, c2, c1]))
+    | .wrap (.str "ab") j => Nat.add j (String.length (String.mk ['a', 'b', 'a']))
+    | _ => 0
+
+-- strCons gc gl (.wrap (.str "") m) "" ===>
+--   match Value.wrap (Value.str "") m with
+--   | .wrap _ 5 => 100
+--   | .wrap (.str ⟨c :: xs⟩) j => Nat.add j (Nat.add (gc c) (gl xs))
+--   | _ => 0
+-- NOTE: `List.cons` pattern vs empty string literal (`List.nil`): the alternative cannot match and no
+--       unification is performed (`j` is left unbound)
+#testOptimize [ "UnifyPattern_92" ] (norm-result: 1)
+  strCons gc gl (.wrap (.str "") m) "" ===>
+    match Value.wrap (Value.str "") m with
+    | .wrap _ 5 => 100
+    | .wrap (.str ⟨c :: xs⟩) j => Nat.add j (Nat.add (gc c) (gl xs))
+    | _ => 0
+
+/-! ### Nat offset patterns vs non-literal sums -/
+
+-- natOffset (.nat (h n + m)) m ===>
+--   match Value.nat (Nat.add m (h n)) with
+--   | .nat 5 => Nat.add 100 m
+--   | .nat (k + 2) => Nat.add m k
+--   | .nat k => Nat.mul m (Nat.add m (h n))
+--   | _ => 0
+-- NOTE: offset pattern vs a sum whose first argument is not a literal: the discriminator is an
+--       expression, the whole sum is bound to the pattern (`h n + m := 2 + k`) and `k` is left unbound
+--       (the sum must not be decomposed argument-wise, `m := 2` and `k := h n` would be wrong, e.g.,
+--       `h n = 0` and `m = 5` match with `k = 3`)
+#testOptimize [ "UnifyPattern_93" ] (norm-result: 1)
+  natOffset (.nat (h n + m)) m ===>
+    match Value.nat (Nat.add m (h n)) with
+    | .nat 5 => Nat.add 100 m
+    | .nat (k + 2) => Nat.add m k
+    | .nat _k => Nat.mul m (Nat.add m (h n))
+    | _ => 0
+
+-- natOffset (.nat (h n + (m + 3))) m ===>
+--   match Value.nat (Nat.add (h n) (Nat.add 3 m)) with
+--   | .nat 5 => Nat.add 100 m
+--   | .nat (k + 2) => Nat.add m k
+--   | .nat k => Nat.mul m (Nat.add (h n) (Nat.add 3 m))
+--   | _ => 0
+-- NOTE: same as above with a nested offset in the sum: the whole sum is bound to the pattern and `k`
+--       is left unbound (`h n := 2` and `k := 3 + m` would be wrong)
+#testOptimize [ "UnifyPattern_94" ] (norm-result: 1)
+  natOffset (.nat (h n + (m + 3))) m ===>
+    match Value.nat (Nat.add (h n) (Nat.add 3 m)) with
+    | .nat 5 => Nat.add 100 m
+    | .nat (k + 2) => Nat.add m k
+    | .nat _k => Nat.mul m (Nat.add (h n) (Nat.add 3 m))
+    | _ => 0
+
+/-! ### Character literal patterns vs string literal discriminators
+
+     The characters of a string literal discriminator are built by `stringToCtor` as `Char.ofNat n`,
+     whereas a character literal in a pattern is elaborated in constructor form (`Char.mk ..`).
+     When the discriminator is not a `Char.mk` application, `isPatternMatch` and `unifyAndUpdateEqMap`
+     convert the pattern to `Char.ofNat n` (through `isUInt32Value?`) so that both representations
+     unify: a mismatch is decided and a match is reduced. -/
+
+def strCharRed (x : Value) (z : String) : Nat :=
+  match x with
+  | .nat 5 => z.length + 100
+  | .wrap (.str ⟨'a' :: xs⟩) j => xs.length + z.length + j
+  | _ => 0
+
+-- strCharRed (.wrap (.str "bc") m) "bc" ===> 0
+-- NOTE: `'a'` vs `'b'` cannot match, the match is reduced to the last alternative
+#testOptimize [ "UnifyPattern_95" ] (norm-result: 1)
+  strCharRed (.wrap (.str "bc") m) "bc" ===> 0
+
+-- strCharRed (.wrap (.str "ab") m) "ab" ===> Nat.add 3 m
+-- NOTE: `'a'` vs `'a'` matches, the match is reduced to the second alternative with `xs := ['b']`
+--       and `j := m`
+#testOptimize [ "UnifyPattern_96" ] (norm-result: 1)
+  strCharRed (.wrap (.str "ab") m) "ab" ===> Nat.add 3 m
+
+-- strCharCons gl (.wrap (.str "bc") m) "bc" ===>
+--   match Value.wrap (Value.str "bc") m with
+--   | .wrap _ 5 => 102
+--   | .wrap (.str ⟨'a' :: xs⟩) j => Nat.add j (Nat.add 2 (gl xs))
+--   | _ => 0
+-- NOTE: non reduced match (`.wrap _ 5` vs `m`): `'a'` vs `'b'` cannot match, so no unification is
+--       performed on the second alternative (`xs` and `j` left unbound, as in `UnifyPattern_92`)
+#testOptimize [ "UnifyPattern_97" ] (norm-result: 1)
+  strCharCons gl (.wrap (.str "bc") m) "bc" ===>
+    match Value.wrap (Value.str "bc") m with
+    | .wrap _ 5 => 102
+    | .wrap (.str ⟨'a' :: xs⟩) j => Nat.add j (Nat.add 2 (gl xs))
+    | _ => 0
+
+/-! ### Proof field of a `Subtype` constructor
+
+     For `{x : Nat // P x}` the type expected for the proof argument of `Subtype.mk` is the beta-redex
+     `(fun x => P x) (h m)`, which is not structurally equal to the type `P (h m)` of the proof `pm`:
+     `backwardProof` beta-reduces the expected type before comparing it with the type of the proof,
+     so the proof is preserved (compare with `UnifyPattern_70` where the proof field of a structure
+     with a non-lambda predicate is preserved by structural equality). -/
+
+variable (pm : P (h m))
+
+def subProof (P : Nat → Prop) (q : ∀ {x : Nat}, P x → Nat) (y : Nat) (s : {x : Nat // P x}) : Nat :=
+  match y, s with
+  | 5, _ => 100
+  | _, ⟨x, hx⟩ => q hx + x
+
+-- subProof P qP n ⟨h m, pm⟩ ===>
+--   match n, Subtype.mk (h m) pm with
+--   | 5, _ => 100
+--   | _, ⟨x, hx⟩ => Nat.add (h m) (qP pm)
+-- NOTE: the value field binds `x := h m` and the proof field binds `hx := pm`, the proof is
+--       preserved in the discriminator and in the rhs
+#testOptimize [ "UnifyPattern_98" ] (norm-result: 1)
+  subProof P qP n ⟨h m, pm⟩ ===>
+    match n, (⟨h m, pm⟩ : {x : Nat // P x}) with
+    | 5, _ => 100
+    | _, ⟨_x, _hx⟩ => Nat.add (h m) (qP pm)
+
+-- subProof P qP 7 ⟨h m, pm⟩ ===> Nat.add (h m) (qP pm)
+-- NOTE: reduced match, the proof `pm` is preserved in the rhs
+#testOptimize [ "UnifyPattern_118" ] (norm-result: 1)
+  subProof P qP 7 ⟨h m, pm⟩ ===> Nat.add (h m) (qP pm)
+
+def subNested (PV : Value → Prop) (q : ∀ {x : Value}, PV x → Nat) (y : Nat) (s : {x : Value // PV x}) : Nat :=
+  match y, s with
+  | 5, _ => 100
+  | _, ⟨.nat k, hx⟩ => q hx + k
+  | _, _ => 0
+
+-- subNested PV qV n ⟨.nat (h m), pv⟩ ===>
+--   match n, Subtype.mk (Value.nat (h m)) pv with
+--   | 5, _ => 100
+--   | _, ⟨.nat k, hx⟩ => Nat.add (h m) (qV pv)
+--   | _, _ => 0
+-- NOTE: nested constructor pattern in the value field of a `Subtype`: `k := h m` and `hx := pv`,
+--       the proof is preserved (compare with `UnifyPattern_71`)
+#testOptimize [ "UnifyPattern_119" ] (norm-result: 1)
+  subNested PV qV n ⟨.nat (h m), pv⟩ ===>
+    match n, (⟨.nat (h m), pv⟩ : {x : Value // PV x}) with
+    | 5, _ => 100
+    | _, ⟨.nat _k, _hx⟩ => Nat.add (h m) (qV pv)
+    | _, _ => 0
+
+/-! ### `Int.ofNat` patterns vs negated `Int.ofNat` discriminators
+
+     An `Int.ofNat` pattern vs an `Int.neg (Int.ofNat e)` discriminator is a mismatch only when the
+     pattern is a positive literal or an offset `k + c` (`c ≥ 1`), or when `e` is an offset `c + x`
+     (`c ≥ 1`): for the literal `0` and for a variable `k`, `-(Int.ofNat e) = Int.ofNat 0` when
+     `e = 0`, so the alternative is a potential match and the unification records `e := 0` (and
+     `k := 0`). `UnifyPattern_102` and `UnifyPattern_103` cover the offset boundary where the
+     mismatch is decided. -/
+
+def intZeroRed (x : Value) : Nat :=
+  match x with
+  | .int 0 => 1
+  | .wrap _ j => j
+  | _ => 0
+
+-- intZeroRed (.int (-(Int.ofNat (h n)))) ===>
+--   match Value.int (Int.neg (Int.ofNat (h n))) with
+--   | .int 0 => 1
+--   | .wrap _ j => j
+--   | _ => 0
+-- NOTE: literal `0` vs `-(Int.ofNat (h n))` is a potential match (`h n = 0`), the match is kept
+#testOptimize [ "UnifyPattern_99" ] (norm-result: 1)
+  intZeroRed (.int (-(Int.ofNat (h n)))) ===>
+    match Value.int (Int.neg (Int.ofNat (h n))) with
+    | .int 0 => 1
+    | .wrap _ j => j
+    | _ => 0
+
+def intOfNatRed (x : Value) : Nat :=
+  match x with
+  | .int (.ofNat k) => k + 1
+  | .wrap _ j => j
+  | _ => 0
+
+-- intOfNatRed (.int (-(Int.ofNat (h n)))) ===>
+--   match Value.int (Int.neg (Int.ofNat (h n))) with
+--   | .int (.ofNat k) => 1
+--   | .wrap _ j => j
+--   | _ => 0
+-- NOTE: `Int.ofNat k` vs `-(Int.ofNat (h n))` is a potential match with `k := 0` (and `h n := 0`),
+--       the match is kept and the rhs optimized to `1`
+#testOptimize [ "UnifyPattern_100" ] (norm-result: 1)
+  intOfNatRed (.int (-(Int.ofNat (h n)))) ===>
+    match Value.int (Int.neg (Int.ofNat (h n))) with
+    | .int (.ofNat _k) => 1
+    | .wrap _ j => j
+    | _ => 0
+
+def intNegZero (gi : Int → Nat) (x : Value) (z : Int) : Nat :=
+  match x with
+  | .wrap _ 5 => 100
+  | .wrap (.int 0) j => gi z + j + 100
+  | .wrap (.int (.ofNat k)) j => gi z + 3 * k + j
+  | .wrap (.int (.negSucc k)) j => gi z + 4 * k + j
+  | _ => 0
+
+-- intNegZero gi (.wrap (.int (-(Int.ofNat (h n)))) m) (Int.ofNat (h n)) ===>
+--   match Value.wrap (Value.int (Int.neg (Int.ofNat (h n)))) m with
+--   | .wrap _ 5 => 100
+--   | .wrap (.int 0) j => Nat.add 100 (Nat.add m (gi (Int.ofNat 0)))
+--   | .wrap (.int (.ofNat k)) j => Nat.add m (gi (Int.ofNat 0))
+--   | .wrap (.int (.negSucc k)) j => Nat.add m (Nat.add (gi (Int.ofNat (Nat.add 1 k))) (Nat.mul 4 k))
+--   | _ => 0
+-- NOTE: non reduced match: the `0` and `Int.ofNat k` alternatives bind `h n := 0` (and `k := 0`)
+--       so that `gi z` becomes `gi (Int.ofNat 0)`, and `j := m`. The `Int.negSucc k` alternative
+--       binds `h n := 1 + k` as before.
+#testOptimize [ "UnifyPattern_101" ] (norm-result: 1)
+  intNegZero gi (.wrap (.int (-(Int.ofNat (h n)))) m) (Int.ofNat (h n)) ===>
+    match Value.wrap (Value.int (Int.neg (Int.ofNat (h n)))) m with
+    | .wrap _ 5 => 100
+    | .wrap (.int 0) _j => Nat.add 100 (Nat.add m (gi (Int.ofNat 0)))
+    | .wrap (.int (.ofNat _k)) _j => Nat.add m (gi (Int.ofNat 0))
+    | .wrap (.int (.negSucc k)) _j => Nat.add m (Nat.add (gi (Int.ofNat (Nat.add 1 k))) (Nat.mul 4 k))
+    | _ => 0
+
+-- intOfNatRed (.int (-(Int.ofNat (h n + 1)))) ===> 0
+-- NOTE: `Int.ofNat k` vs `-(Int.ofNat (1 + h n))` cannot match (the discriminator is strictly negative),
+--       the match is reduced to the last alternative
+#testOptimize [ "UnifyPattern_102" ] (norm-result: 1)
+  intOfNatRed (.int (-(Int.ofNat (h n + 1)))) ===> 0
+
+-- intNegZero gi (.wrap (.int (-(Int.ofNat (h n + 1)))) m) (Int.ofNat (h n + 1)) ===>
+--   match Value.wrap (Value.int (Int.neg (Int.ofNat (Nat.add 1 (h n))))) m with
+--   | .wrap _ 5 => 100
+--   | .wrap (.int 0) j => Nat.add 100 (Nat.add j (gi (Int.ofNat (Nat.add 1 (h n)))))
+--   | .wrap (.int (.ofNat k)) j => Nat.add j (Nat.add (gi (Int.ofNat (Nat.add 1 (h n)))) (Nat.mul 3 k))
+--   | .wrap (.int (.negSucc k)) j => Nat.add m (Nat.add (gi (Int.ofNat (Nat.add 1 (h n)))) (Nat.mul 4 (h n)))
+--   | _ => 0
+-- NOTE: with a strictly negative discriminator the `0` and `Int.ofNat k` alternatives cannot match
+--       (no unification, `j` and `k` left unbound), the `Int.negSucc k` alternative binds `k := h n`
+#testOptimize [ "UnifyPattern_103" ] (norm-result: 1)
+  intNegZero gi (.wrap (.int (-(Int.ofNat (h n + 1)))) m) (Int.ofNat (h n + 1)) ===>
+    match Value.wrap (Value.int (Int.neg (Int.ofNat (Nat.add 1 (h n))))) m with
+    | .wrap _ 5 => 100
+    | .wrap (.int 0) j => Nat.add 100 (Nat.add j (gi (Int.ofNat (Nat.add 1 (h n)))))
+    | .wrap (.int (.ofNat k)) j => Nat.add j (Nat.add (gi (Int.ofNat (Nat.add 1 (h n)))) (Nat.mul 3 k))
+    | .wrap (.int (.negSucc _k)) _j => Nat.add m (Nat.add (gi (Int.ofNat (Nat.add 1 (h n)))) (Nat.mul 4 (h n)))
+    | _ => 0
+
+/-! ### Named patterns, variables and sums under a negated `Int.ofNat` discriminator
+
+     For an `Int.ofNat` pattern vs an `Int.neg (Int.ofNat e)` discriminator, `e := 0` is recorded and
+     the Nat argument of the pattern is then unified with `0`, so a named pattern under (or around)
+     the `Int.ofNat` pattern is bound as well. `e` may be a variable or a sum whose first argument is
+     not a literal, in which case the whole sum is bound to `0`. -/
+
+def intNamedIn (x : Value) (z : Nat) : Nat :=
+  match x with
+  | .wrap _ 5 => 100
+  | .int (.ofNat (p@k)) => p + k + z + 1
+  | .wrap _ j => j
+  | _ => 0
+
+-- intNamedIn (.int (-(Int.ofNat (h n)))) (h n) ===>
+--   match Value.int (Int.neg (Int.ofNat (h n))) with
+--   | .wrap _ 5 => 100
+--   | .int (.ofNat (p@k)) => 1
+--   | .wrap _ j => j
+--   | _ => 0
+-- NOTE: non reduced match: the named pattern under `Int.ofNat` binds `p := 0` and `k := 0`, and
+--       `h n := 0` is recorded, so `p + k + z + 1` becomes `1`
+#testOptimize [ "UnifyPattern_104" ] (norm-result: 1)
+  intNamedIn (.int (-(Int.ofNat (h n)))) (h n) ===>
+    match Value.int (Int.neg (Int.ofNat (h n))) with
+    | .wrap _ 5 => 100
+    | .int (.ofNat (_p@_k)) => 1
+    | .wrap _ j => j
+    | _ => 0
+
+def intNamedOut (gi : Int → Nat) (x : Value) (z : Int) : Nat :=
+  match x with
+  | .wrap _ 5 => 100
+  | .int (p@(.ofNat k)) => gi p + gi z + k + 1
+  | .wrap _ j => j
+  | _ => 0
+
+-- intNamedOut gi (.int (-(Int.ofNat (h n)))) (-(Int.ofNat (h n))) ===>
+--   match Value.int (Int.neg (Int.ofNat (h n))) with
+--   | .wrap _ 5 => 100
+--   | .int (p@(.ofNat k)) => Nat.add 1 (Nat.add (gi (Int.ofNat 0)) (gi (Int.ofNat 0)))
+--   | .wrap _ j => j
+--   | _ => 0
+-- NOTE: non reduced match: the named pattern around `Int.ofNat` binds `p := -(Int.ofNat (h n))`,
+--       `k := 0` and `h n := 0`, so both `gi p` and `gi z` become `gi (Int.ofNat 0)`
+#testOptimize [ "UnifyPattern_105" ] (norm-result: 1)
+  intNamedOut gi (.int (-(Int.ofNat (h n)))) (-(Int.ofNat (h n))) ===>
+    match Value.int (Int.neg (Int.ofNat (h n))) with
+    | .wrap _ 5 => 100
+    | .int (_p@(.ofNat _k)) => Nat.add 1 (Nat.add (gi (Int.ofNat 0)) (gi (Int.ofNat 0)))
+    | .wrap _ j => j
+    | _ => 0
+
+-- intNamedOut gi (.int (-(Int.ofNat (h n + 1)))) (-(Int.ofNat (h n + 1))) ===> 0
+-- NOTE: `-(Int.ofNat (1 + h n))` is never `Int.ofNat k`, the named alternative is discarded
+#testOptimize [ "UnifyPattern_106" ] (norm-result: 1)
+  intNamedOut gi (.int (-(Int.ofNat (h n + 1)))) (-(Int.ofNat (h n + 1))) ===> 0
+
+def intZeroZ (x : Value) (z : Nat) : Nat :=
+  match x with
+  | .wrap _ 5 => 100
+  | .int 0 => z + 1
+  | .wrap _ j => j
+  | _ => 0
+
+-- intZeroZ (.int (-(Int.ofNat m))) m ===>
+--   match Value.int (Int.neg (Int.ofNat m)) with
+--   | .wrap _ 5 => 100
+--   | .int 0 => 1
+--   | .wrap _ j => j
+--   | _ => 0
+-- NOTE: non reduced match: `0` vs `-(Int.ofNat m)` with a variable `m` records `m := 0`
+#testOptimize [ "UnifyPattern_107" ] (norm-result: 1)
+  intZeroZ (.int (-(Int.ofNat m))) m ===>
+    match Value.int (Int.neg (Int.ofNat m)) with
+    | .wrap _ 5 => 100
+    | .int 0 => 1
+    | .wrap _ j => j
+    | _ => 0
+
+-- intZeroZ (.int (-(Int.ofNat (h n + m)))) (h n + m) ===>
+--   match Value.int (Int.neg (Int.ofNat (Nat.add m (h n)))) with
+--   | .wrap _ 5 => 100
+--   | .int 0 => 1
+--   | .wrap _ j => j
+--   | _ => 0
+-- NOTE: non reduced match: `0` vs `-(Int.ofNat (h n + m))` where the sum is not an offset records
+--       `h n + m := 0` (the sum is not decomposed argument-wise)
+#testOptimize [ "UnifyPattern_108" ] (norm-result: 1)
+  intZeroZ (.int (-(Int.ofNat (h n + m)))) (h n + m) ===>
+    match Value.int (Int.neg (Int.ofNat (Nat.add m (h n)))) with
+    | .wrap _ 5 => 100
+    | .int 0 => 1
+    | .wrap _ j => j
+    | _ => 0
+
+/-! ### Literal `0` pattern as first alternative vs a negated `Int.ofNat` discriminator
+
+     For the literal pattern `0` vs `Int.neg (Int.ofNat e)`, `unifyAndUpdateEqMap` records `e := 0`
+     and must report that the context was updated even though the recursive unification of `0`
+     with `0` binds nothing: when no previous alternative has added a disequality (first
+     alternative), the new context is only created from this flag. Otherwise the binding is not
+     applied to the rhs of the alternative and the entry recorded under the pending context
+     identifier leaks into the context created for the next alternative. -/
+
+def intZeroFirst (x : Value) (z : Nat) : Nat :=
+  match x with
+  | .int 0 => z + 1
+  | .int _ => z + 7
+  | _ => 0
+
+-- intZeroFirst (.int (-(Int.ofNat (h n)))) (h n) ===>
+--   match Value.int (Int.neg (Int.ofNat (h n))) with
+--   | .int 0 => 1
+--   | .int _ => Nat.add 7 (h n)
+--   | _ => 0
+-- NOTE: the first alternative records `h n := 0`, so its rhs becomes `1`; the second alternative
+--       must not use this binding (`Nat.add 7 (h n)`, e.g., for `h n = 3` it yields `10`)
+#testOptimize [ "UnifyPattern_109" ] (norm-result: 1)
+  intZeroFirst (.int (-(Int.ofNat (h n)))) (h n) ===>
+    match Value.int (Int.neg (Int.ofNat (h n))) with
+    | .int 0 => 1
+    | .int _ => Nat.add 7 (h n)
+    | _ => 0
+
+def intZeroFirstWrap (x : Value) (z : Nat) : Nat :=
+  match x with
+  | .int 0 => z + 1
+  | .wrap _ j => z + j
+  | _ => 0
+
+-- intZeroFirstWrap (.int (-(Int.ofNat (h n)))) (h n) ===>
+--   match Value.int (Int.neg (Int.ofNat (h n))) with
+--   | .int 0 => 1
+--   | .wrap _ j => Nat.add j (h n)
+--   | _ => 0
+-- NOTE: same as above with a `.wrap` second alternative (`j` is bound, `h n` is not)
+#testOptimize [ "UnifyPattern_110" ] (norm-result: 1)
+  intZeroFirstWrap (.int (-(Int.ofNat (h n)))) (h n) ===>
+    match Value.int (Int.neg (Int.ofNat (h n))) with
+    | .int 0 => 1
+    | .wrap _ j => Nat.add j (h n)
+    | _ => 0
+
+/-! ### Character literal patterns vs character discriminators
+
+     A character literal pattern (`Char.mk ..`) is unified value-wise with a `Char.mk` discriminator
+     (the validity proof is skipped), so a mismatch is decided and a match is reduced. A character
+     variable discriminator is bound to the pattern in constructor form. -/
+
+variable (c : Char)
+
+def charRed (x : Value) (c : Char) : Nat :=
+  match x, c with
+  | .nat 5, _ => 100
+  | .wrap _ j, 'a' => j + 1
+  | _, _ => 0
+
+-- charRed (.wrap v m) 'a' ===> Nat.add 1 m
+-- NOTE: `'a'` vs `'a'` matches, the match is reduced to the second alternative with `j := m`
+#testOptimize [ "UnifyPattern_111" ] (norm-result: 1)
+  charRed (.wrap v m) 'a' ===> Nat.add 1 m
+
+-- charRed (.wrap v m) 'b' ===> 0
+-- NOTE: `'a'` vs `'b'` cannot match, the match is reduced to the last alternative
+#testOptimize [ "UnifyPattern_112" ] (norm-result: 1)
+  charRed (.wrap v m) 'b' ===> 0
+
+-- charRed (.wrap v m) c ===>
+--   match Value.wrap v m, c with
+--   | .nat 5, _ => 100
+--   | .wrap _ j, 'a' => Nat.add 1 m
+--   | _, _ => 0
+-- NOTE: non reduced match (`'a'` vs the variable `c`): `j := m` and `c := 'a'` (in constructor form,
+--       which cannot be written in an expected term, so the rhs does not use `c`)
+#testOptimize [ "UnifyPattern_113" ] (norm-result: 1)
+  charRed (.wrap v m) c ===>
+    match Value.wrap v m, c with
+    | .nat 5, _ => 100
+    | .wrap _ _j, 'a' => Nat.add 1 m
+    | _, _ => 0
+
+def charCons (gl : List Char → Nat) (x : Value) (z : List Char) : Nat :=
+  match x, z with
+  | .wrap _ 5, _ => 100
+  | .wrap _ j, 'a' :: xs => gl xs + j
+  | _, _ => 0
+
+-- charCons gl (.wrap v m) (c1 :: cs) ===>
+--   match Value.wrap v m, c1 :: cs with
+--   | .wrap _ 5, _ => 100
+--   | .wrap _ j, 'a' :: xs => Nat.add m (gl cs)
+--   | _, _ => 0
+-- NOTE: non reduced match (`.wrap _ 5` vs `m`): `c1 := 'a'` (in constructor form), `xs := cs` and
+--       `j := m`. A character literal discriminator (e.g., `['a', c1]`) is normalized to the same
+--       constructor form as the pattern, which cannot be written in an expected term.
+#testOptimize [ "UnifyPattern_114" ] (norm-result: 1)
+  charCons gl (.wrap v m) (c1 :: cs) ===>
+    match Value.wrap v m, c1 :: cs with
+    | .wrap _ 5, _ => 100
+    | .wrap _ _j, 'a' :: _xs => Nat.add m (gl cs)
+    | _, _ => 0
+
+/-! ### `Char.mk` pattern with a variable value
+
+     A `Char.mk v _` pattern whose value is not a literal (`isUInt32Value?` answers `none`) is
+     converted to `Char.ofNat (UInt32.toNat v)` when the discriminator is not a `Char.mk`
+     application: for the `Char.ofNat n` built by `stringToCtor`, `UInt32.toNat v` is unified with
+     the literal `n` and `v.toNat := n` is recorded (in projection form). Against a `Char.mk`
+     discriminator (character literal), the values are unified directly. -/
+
+def charMkVar (x : Value) (z : String) : Nat :=
+  match x, z with
+  | .wrap _ 5, _ => 100
+  | .wrap _ j, ⟨[⟨vv, _⟩]⟩ => vv.toNat + j
+  | _, _ => 0
+
+-- charMkVar (.wrap v m) "a" ===>
+--   match Value.wrap v m, "a" with
+--   | .wrap _ 5, _ => 100
+--   | .wrap _ j, ⟨[⟨vv, _⟩]⟩ => Nat.add 97 m
+--   | _, _ => 0
+-- NOTE: non reduced match (`.wrap _ 5` vs `m`): `vv.toNat := 97` and `j := m`, so `vv.toNat + j`
+--       becomes `97 + m`
+#testOptimize [ "UnifyPattern_115" ] (norm-result: 1)
+  charMkVar (.wrap v m) "a" ===>
+    match Value.wrap v m, "a" with
+    | .wrap _ 5, _ => 100
+    | .wrap _ _j, ⟨[⟨_vv, _⟩]⟩ => Nat.add 97 m
+    | _, _ => 0
+
+-- charMkVar (.wrap v m) "ab" ===>
+--   match Value.wrap v m, "ab" with
+--   | .wrap _ 5, _ => 100
+--   | .wrap _ j, ⟨[⟨vv, _⟩]⟩ => Nat.add 97 m
+--   | _, _ => 0
+-- NOTE: non reduced match: `vv.toNat := 97` and `j := m` are recorded before the unification stops
+--       at `[]` vs `['b']` (as in `UnifyPattern_91`, the alternative is unreachable)
+#testOptimize [ "UnifyPattern_116" ] (norm-result: 1)
+  charMkVar (.wrap v m) "ab" ===>
+    match Value.wrap v m, "ab" with
+    | .wrap _ 5, _ => 100
+    | .wrap _ _j, ⟨[⟨_vv, _⟩]⟩ => Nat.add 97 m
+    | _, _ => 0
+
+def charMkRed (x : Value) (c : Char) : Nat :=
+  match x, c with
+  | .nat 5, _ => 100
+  | .wrap _ j, ⟨vv, _⟩ => vv.toNat + j
+  | _, _ => 0
+
+-- charMkRed (.wrap v m) 'a' ===> Nat.add 97 m
+-- NOTE: `Char.mk vv _` vs the character literal `'a'` (in constructor form) unifies value-wise with
+--       `vv := 97`, the match is reduced to the second alternative and `vv.toNat` folds to `97`
+#testOptimize [ "UnifyPattern_117" ] (norm-result: 1)
+  charMkRed (.wrap v m) 'a' ===> Nat.add 97 m
 
 end Tests.UnifyPattern
