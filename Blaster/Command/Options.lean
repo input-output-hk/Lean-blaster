@@ -40,6 +40,27 @@ def SmtSolver.ofString? : String → Option SmtSolver
   | "cvc5" => some .cvc5
   | _ => none
 
+/-- How Blaster uses the configured SMT backends. `single` preserves the
+    selected-backend behavior; `first` races Z3 and cvc5; `agree` requires
+    both backends to return compatible verdicts. -/
+inductive SolverMode where
+  | single
+  | first
+  | agree
+deriving Repr, DecidableEq
+
+instance : ToString SolverMode where
+  toString
+    | .single => "single"
+    | .first => "first"
+    | .agree => "agree"
+
+def SolverMode.ofString? : String → Option SolverMode
+  | "single" => some .single
+  | "first" => some .first
+  | "agree" => some .agree
+  | _ => none
+
 /-- Type introducing the options passed on to the solver. -/
 structure BlasterOptions where
   /-- The number of unfolding steps to be considered when
@@ -62,7 +83,7 @@ structure BlasterOptions where
            - Description: In addition to Level 1, displays solving statistics provided by the backend SMT solver.
            - Usage: This level is useful only for the tool maintainer.
         - Verbosity Level 3
-           - Description: In addition to Level 2, displays the rewriting rules applied on the theorems to be solved.
+           - Description: In addition to Level 2, displays rewriting rules and the full SMT/model diagnostic pipeline.
            - Usage: This level is to be used mainly for debugging purposes.
    TODO: This description will be updated as new functionalities are introduced.
   -/
@@ -89,6 +110,10 @@ structure BlasterOptions where
       When set to `none` (the default), the solver is taken from the
       `BLASTER_SOLVER` environment variable if defined, and defaults to `z3` otherwise. -/
   solver : Option SmtSolver := none
+
+  /-- Solver execution policy. Concurrent modes always use both Z3 and cvc5;
+      there is deliberately no environment-variable override for this field. -/
+  solverMode : SolverMode := .single
 
   /-- When set to `true`, trigger an error if the #solve command does not return a Falsified status. -/
   solveResult : ExpectedResult := .ExpectedValid
