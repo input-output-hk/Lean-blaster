@@ -9,7 +9,7 @@ namespace Test.BEqList
 /-! Test cases for `reduceApp` rule on ``BEq.beq. -/
 
 -- List.nil : List α == List.nil ===> True
-#testOptimize [ "BEqListCst_1" ] ∀ (α : Type), [BEq α] → (List.nil : List α) == List.nil ===> True
+#testOptimize [ "BEqListCst_1", proof ] ∀ (α : Type), [BEq α] → (List.nil : List α) == List.nil ===> True
 
 -- List.nil == [x, y, z] ===> False (with Type(x) = α)
 #testOptimize [ "BEqListCst_2" ] ∀ (α : Type) (x y z : α), [BEq α] → List.nil == [x, y, z] ===> False

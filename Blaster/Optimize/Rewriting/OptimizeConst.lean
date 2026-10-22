@@ -40,7 +40,7 @@ partial def normLevel (l : Level) : TranslateEnvT Level := do
      - Nat.ble x y ==> Blaster.decide' (x ≤ y) (if isOptimizeRecCall)    [proof: Blaster.nat_ble_eq_decide']
      - Decidable.decide p ==> Blaster.decide' p    [proof: Blaster.decide'_equiv]
      - Int.sub x y ==> x + -y    [proof: Int.sub_eq_add_neg]
-    `Nat.le` and `Int.le` push their point-free steps in their `isToNormOpaqueFun` arms of `normConst`.
+    `Nat.le`, `Int.le` and `Nat.beq` push their point-free steps in their `isToNormOpaqueFun` arms of `normConst`.
     Other non-recursive definitions get an unfold step where they are unfolded (see `pushUnfoldProofStep`).
 -/
 @[always_inline, inline]
@@ -148,7 +148,7 @@ def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeCo
          - Nat.le ==> ≤    [proof: Blaster.nat_le_eq_le]
          - Nat.ble ==> λ x y => Blaster.decide' (x ≤ y) (if isOptimizeRecCall)
              [proof: Blaster.nat_ble_eq_decide', see `pushOpaqueFunProofStep`]
-         - Nat.beq ==> λ x y => x == y (if isOptimizeRecCall)
+         - Nat.beq ==> λ x y => x == y (if isOptimizeRecCall)    [proof: Blaster.nat_beq_eq_beq]
          - Int.negSucc ==> λ n => Int.neg (Int.ofNat (1 + n)) (if ¬ isInFunApp)
          - Int.le ==> ≤    [proof: Blaster.int_le_eq_le]
          - ite ==> λ (α : Sort u) (p : Prop) [h : Decidable p] (t e : α) => Blaster.dite' α p (fun _ => t) (fun _ => e)
@@ -184,6 +184,7 @@ def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeCo
 
      | ``Nat.beq =>
            if (← isOptimizeRecCall) then
+             pushProofStep (.rewrite (mkConst ``Blaster.nat_beq_eq_beq))
              let body ← mkExpr $ mkApp2 (← mkNatBEqOp) (mkBVar 1) (mkBVar 0)
              let lam1 ← mkExpr $ mkLambda (← Term.mkFreshBinderName) BinderInfo.default (← mkNatType) body
              let lam2 := mkLambda (← Term.mkFreshBinderName) BinderInfo.default (← mkNatType) lam1
