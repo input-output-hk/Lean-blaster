@@ -429,22 +429,17 @@ private def testAgreementTimeoutIsInfrastructureFailure : MetaM Unit := do
     finally
       IO.Process.setCurrentDir original
 
-private def testSingleTimeoutIsVisibleFailure : MetaM Unit := do
-  let process ← spawnFakeChild "unsat" "10"
+private def testSingleTimeoutDefersToSolver : MetaM Unit := do
+  -- The solver answers well after the configured limit plus grace; single
+  -- mode must still report the solver's own verdict rather than kill it.
+  let process ← spawnFakeChild "unsat" "1.50"
   let env := environment .single #[{ solver := .z3, process }] false (some 30)
-  let (message, finalEnv) ← (do
-    let message ←
-      try
-        discard checkSat
-        pure "single timeout unexpectedly returned a verdict"
-      catch error : Exception => error.toMessageData.toString
+  let (result, _) ← (do
+    let result ← checkSat
     discard exitSmt
-    return message).run env
-  unless contains message "configured timeout=30ms" do
-    throwError "single timeout was hidden or imprecise: {message}"
-  unless finalEnv.smtEnv.sessions.isEmpty do
-    throwError "single timeout left its child installed"
-  assertStopped "single timed-out child" process
+    return result).run env
+  expectValid "single solver past its timeout" result
+  assertStopped "single child after its verdict" process
 
 private def testProtocolFailureDoesNotBeatHealthySolver : MetaM Unit := do
   let z3 ← spawnFakeChild "not-a-verdict"
@@ -609,7 +604,7 @@ private def testAgreementFailureSavesArtifacts : MetaM Unit := do
 #eval testZ3TimeoutDoesNotBeatCvc5
 #eval testCvc5TimeoutDoesNotBeatZ3
 #eval withoutLoggedMessages testBothTimeoutsAreInfrastructureFailure
-#eval testSingleTimeoutIsVisibleFailure
+#eval testSingleTimeoutDefersToSolver
 #eval testProtocolFailureDoesNotBeatHealthySolver
 #eval withoutLoggedMessages testInfrastructurePlusUnknownIsNotUndetermined
 #eval testBothOrdinaryUnknownRemainUndetermined

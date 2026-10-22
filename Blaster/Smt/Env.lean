@@ -1356,13 +1356,19 @@ private def startCheck (solver : SmtSolver) (command : SmtCommand) : TranslateEn
       }
   let timeoutMs :=
     (← get).smtEnv.solverRecords.find? (·.solver == solver) |>.bind (·.timeoutMs)
+  -- Single mode waits for the solver's own verdict (`unknown` on its timeout),
+  -- as before concurrency. Only concurrent modes need a hard deadline so a
+  -- stalled backend cannot block its peer.
+  let concurrent := (← get).optEnv.options.solverOptions.solverMode != .single
   match ← sendCommandToSession session command false with
   | .ok () =>
       let startedMs ← IO.monoMsNow
       let response ← IO.asTask session.process.stdout.getLine Task.Priority.dedicated
       return .pending {
         solver, command, startedMs, timeoutMs,
-        deadlineMs := timeoutMs.map (startedMs + · + responseDeadlineGraceMs), response
+        deadlineMs :=
+          if concurrent then timeoutMs.map (startedMs + · + responseDeadlineGraceMs) else none,
+        response
       }
   | .error error =>
       let diagnostic ←

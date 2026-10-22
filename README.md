@@ -225,12 +225,14 @@ configured timeout, failed stage/command, stdout, stderr, and raw model
 responses.
 
 The `timeout`/`BLASTER_TIMEOUT` value is translated to each backend's native
-option and enforced independently for each check. After that native deadline,
-Blaster allows a fixed 1 s response-drain grace so a backend's terminal
+option. In `single` mode Blaster waits for the backend's own response, so a
+native timeout yields `unknown` and `Undetermined`. In the concurrent modes
+the limit is also enforced independently for each check: after the native
+deadline, Blaster allows a fixed 1 s response-drain grace so a backend's terminal
 `unknown` is not raced by process retirement. Expiry after the grace retires,
 kills, and reaps that session and produces a structured `timedOut` status. In
 `first` it cannot beat a healthy solver; in `agree` it is an infrastructure
-failure; in `single` it is a visible solver failure. A solver's ordinary
+failure. A solver's ordinary
 `unknown` response remains `Undetermined` and is not inferred to be a timeout.
 
 Concurrent modes always require supported Z3 and cvc5 binaries at startup.
@@ -638,7 +640,8 @@ Counterexample values from either backend are displayed in raw SMT-LIB form
 Current cvc5 behavior visible to Blaster includes:
 
 - **Timeout behavior**: the `timeout:` option maps to cvc5's `tlimit-per`
-  and z3's `timeout`. Blaster independently enforces that deadline around each
+  and z3's `timeout`. In the concurrent modes, Blaster independently enforces
+  that deadline around each
   backend's `check-sat`/`check-sat-assuming` response, with a fixed 1 s grace
   for the native timeout response to reach the pipe. Expiry after that grace is
   `timedOut`, not `Undetermined`; the child is retired, killed, and reaped.

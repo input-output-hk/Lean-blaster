@@ -33,20 +33,17 @@ info:  - x: 3
 
 /--
 info: ✅ Expected Falsified
----
-info: Counterexample:
----
-info:  - value: Option.some 5
 -/
 #guard_msgs in
-#blaster (solver-mode: first) (solve-result: 1) [∀ (value : Option Int), value ≠ some 5]
+-- Either backend may win, and their raw SMT-LIB values differ.
+#blaster (solver-mode: first) (gen-cex: 0) (solve-result: 1) [∀ (value : Option Int), value ≠ some 5]
 
 /--
 info: ✅ Expected Falsified
 ---
 info: Counterexample:
 ---
-info:  - value: Option.some 5
+info:  - value: (Option.some 5)
 -/
 #guard_msgs in
 #blaster (solver-mode: agree) (solve-result: 1) [∀ (value : Option Int), value ≠ some 5]
