@@ -23,25 +23,25 @@ namespace Tests.UnfoldDITE
 
 -- ∀ (p q : Prop) (f : True → Prop → Prop), if h : True then f h p else q ===>
 -- ∀ (p : Prop) (f : True → Prop → Prop), f True.intro p
-#testOptimize [ "UnfoldDIte_3" ]
+#testOptimize [ "UnfoldDIte_3", proof ]
   ∀ (p q : Prop) (f : True → Prop → Prop), if h : True then f h p else q ===>
   ∀ (p : Prop) (f : True → Prop → Prop), f True.intro p
 
 -- ∀ (x y z : Int) (f : True → Int → Int), (if h : True then f h x else y) < z ===>
 -- ∀ (x z : Int) (f : True → Int → Int), f True.intro x < z
-#testOptimize [ "UnfoldDIte_4" ]
+#testOptimize [ "UnfoldDIte_4", proof ]
   ∀ (x y z : Int) (f : True → Int → Int), (if h : True then f h x else y) < z ===>
   ∀ (x z : Int) (f : True → Int → Int), f True.intro x < z
 
 -- ∀ (p q : Prop) (f : False → Prop → Prop), if h : False then f h p else q ===>
 -- ∀ (q : Prop), q
-#testOptimize [ "UnfoldDIte_5" ]
+#testOptimize [ "UnfoldDIte_5", proof ]
   ∀ (p q : Prop) (f : False → Prop → Prop), if h : False then f h p else q ===>
   ∀ (q : Prop), q
 
 -- ∀ (x y z : Int) (f : False → Int → Int), (if h : False then f h x else y) < z ===>
 -- ∀ (y z : Int), y < z
-#testOptimize [ "UnfoldDIte_6" ]
+#testOptimize [ "UnfoldDIte_6", proof ]
   ∀ (x y z : Int) (f : False → Int → Int), (if h : False then f h x else y) < z ===>
   ∀ (y z : Int), y < z
 
@@ -67,7 +67,7 @@ namespace Tests.UnfoldDITE
 -- ∀ (x y : Int) (t : x = y → Int) (e : ¬ x = y → Int), (if h : x = y then t h else e h) = y ===>
 -- ∀ (x y : Int) (t : x = y → Int) (e : ¬ x = y → Int),
 --   y = Blaster.dite' (x = y) (fun h : x = y => t h) (fun h : ¬ x = y => e h)
-#testOptimize [ "DIteNotUnfolded_1" ]
+#testOptimize [ "DIteNotUnfolded_1", proof ]
   ∀ (x y : Int) (t : x = y → Int) (e : ¬ x = y → Int), (if h : x = y then t h else e h) = y ===>
   ∀ (x y : Int) (t : x = y → Int) (e : ¬ x = y → Int),
     y = Blaster.dite' (x = y) (fun h : x = y => t h) (fun h : ¬ x = y => e h)
@@ -76,7 +76,7 @@ namespace Tests.UnfoldDITE
 --   (if h : a = b then t h x else e h y) > x ===>
 -- ∀ (a b : Bool) (x y : Int) (t : a = b → Int → Int) (e : ¬ a = b → Int → Int),
 --   x < Blaster.dite' (a = b) (fun h : a = b => t h x) (fun h : ¬ a = b => e h y)
-#testOptimize [ "DIteNotUnfolded_2" ]
+#testOptimize [ "DIteNotUnfolded_2", proof ]
   ∀ (a b : Bool) (x y : Int) (t : a = b → Int → Int) (e : ¬ a = b → Int → Int),
       (if h : a = b then t h x else e h y) > x ===>
   ∀ (a b : Bool) (x y : Int) (t : a = b → Int → Int) (e : ¬ a = b → Int → Int),
@@ -86,7 +86,7 @@ namespace Tests.UnfoldDITE
 --   [Decidable c] → (if h : c then t h x else e h y) > x ===>
 -- ∀ (x y : Int) (c : Prop) (t : c → Int → Int) (e : ¬ c → Int → Int),
 --   x < Blaster.dite' c (fun h : c => t h x) (fun h : ¬ c => e h y)
-#testOptimize [ "DIteNotUnfolded_3" ]
+#testOptimize [ "DIteNotUnfolded_3", proof ]
   ∀ (x y : Int) (c : Prop) (t : c → Int → Int) (e : ¬ c → Int → Int),
     [Decidable c] → (if h : c then t h x else e h y) > x ===>
   ∀ (x y : Int) (c : Prop) (t : c → Int → Int) (e : ¬ c → Int → Int),
@@ -96,7 +96,7 @@ namespace Tests.UnfoldDITE
 --   [DecidableEq α] → (if h : x = y then t h x else e h y) = y ===>
 -- ∀ (α : Type) (x y : List α) (t : x = y → List α → List α) (e : ¬ x = y → List α → List α),
 --   y = Blaster.dite' (x = y) (fun h : x = y => t h x) (fun h : ¬ x = y => e h y)
-#testOptimize [ "DIteNotUnfolded_4" ]
+#testOptimize [ "DIteNotUnfolded_4", proof ]
   ∀ (α : Type) (x y : List α) (t : x = y → List α → List α) (e : ¬ x = y → List α → List α),
     [DecidableEq α] → (if h : x = y then t h x else e h y) = y ===>
   ∀ (α : Type) (x y : List α) (t : x = y → List α → List α) (e : ¬ x = y → List α → List α),
