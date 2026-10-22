@@ -1,5 +1,6 @@
 import Lean
 import Blaster.Optimize.Telescope
+import Blaster.Optimize.Lemmas.LemmasBool
 
 open Lean Meta Declaration
 
@@ -397,9 +398,10 @@ def reorderIntOp (args: Array Expr) : (Expr × Expr) :=
      - Int.mul: n * 1 ==> 1 * n              [proof: Int.mul_one]
      - And: e1 ∧ e2 ==> e2 ∧ e1              [proof: and_comm]
      - Or:  e1 ∨ e2 ==> e2 ∨ e1              [proof: or_comm]
+     - BEq.beq: e1 == e2 ==> e2 == e1        [proof: Blaster.beq_comm]
 -/
 def reorderOperands (f : Expr) (args : Array Expr) : TranslateEnvT (Array Expr) := do
-  let Expr.const n _ := f | return args
+  let Expr.const n us := f | return args
   match n with
   | ``Nat.add
   | ``Nat.mul =>
@@ -445,6 +447,8 @@ def reorderOperands (f : Expr) (args : Array Expr) : TranslateEnvT (Array Expr) 
       if !(← isOpaqueRelational n args) then return args
       if args.size != 4 then return args
       let (op1, op2) := reorderBoolOp #[args[2]!, args[3]!]
+      if !exprEq op1 args[2]! then
+        pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.beq_comm us) args[0]! args[2]! args[3]!))
       return (args.set! 2 op1).set! 3 op2
 
   | ``and

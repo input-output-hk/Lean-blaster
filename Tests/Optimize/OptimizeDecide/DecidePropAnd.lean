@@ -177,7 +177,7 @@ variable (d : Bool)
 --  (((a = c) ∧ true = d) ∧ ((b = c) ∧ true = a)) =
 --  (true = ((a && b == c) && (d && a == c)))
 -- NOTE: can be simplified to `True`. See list of TODO in OptimizeBoolPropBinary.
-#testOptimize [ "EqBoolAndEqBoolUnchanged_5" ] ∀ (a b c d : Bool),
+#testOptimize [ "EqBoolAndEqBoolUnchanged_5", proof ] ∀ (a b c d : Bool),
                                                  (true = ((a && b == c) && (c == a && d))) =
                                                  (((a = c) ∧ d) ∧ ((b = c) ∧ a)) ===>
                                                ∀ (a b c d : Bool),
@@ -192,7 +192,7 @@ variable (d : Bool)
 --  (true = ((a && !(b == c)) && (d && !(a == c))))
 
 -- NOTE: can be simplified to `True`. See list of TODO in OptimizeBoolPropBinary and OptimizeEq.
-#testOptimize [ "EqBoolAndEqBoolUnchanged_6" ] ∀ (a b c d : Bool),
+#testOptimize [ "EqBoolAndEqBoolUnchanged_6", proof ] ∀ (a b c d : Bool),
                                                  (true = ((a && !(b == c)) && (!(c == a) && d))) =
                                                  ((¬ (a = c) ∧ d) ∧ (¬ (b = c) ∧ a)) ===>
                                                ∀ (a b c d : Bool),
@@ -202,7 +202,7 @@ variable (d : Bool)
 -- ∀ (a b c : Bool), (false = (a == b && c == b)) = ¬ (b = a ∧ c = b) ===>
 -- ∀ (a b c : Bool), (¬ (a = b ∧ b = c)) = (false = (a == b && b == c))
 -- NOTE: can be simplified to `True`. See list of TODO in OptimizeBoolPropBinary and OptimizeEq.
-#testOptimize [ "EqBoolAndEqBoolUnchanged_7" ] ∀ (a b c : Bool),
+#testOptimize [ "EqBoolAndEqBoolUnchanged_7", proof ] ∀ (a b c : Bool),
                                                   (!(a == b && c == b)) = ¬ (b = a ∧ c = b) ===>
                                                ∀ (a b c : Bool),
                                                   (¬ (a = b ∧ b = c)) = (false = (a == b && b == c))
@@ -213,7 +213,7 @@ variable (d : Bool)
 --  (¬ ((¬ (a = c) ∧ true = d) ∧ (¬ (b = c) ∧ true = a))) =
 --  (false = ((a && !(b == c)) && (d && !(a == c))))
 -- NOTE: can be simplified to `True`. See list of TODO in OptimizeBoolPropBinary and OptimizeEq.
-#testOptimize [ "EqBoolAndEqBoolUnchanged_8" ] ∀ (a b c d : Bool),
+#testOptimize [ "EqBoolAndEqBoolUnchanged_8", proof ] ∀ (a b c d : Bool),
                                                  (!((a && !(b == c)) && (!(c == a) && d))) =
                                                  ¬ ((¬ (a = c) ∧ d) ∧ (¬ (b = c) ∧ a)) ===>
                                                ∀ (a b c d : Bool),
@@ -223,7 +223,7 @@ variable (d : Bool)
 -- ∀ (a b c : Bool), (!(!(a == b) && c == b)) = ¬ (c = b ∧ ¬ (b = a)) ===>
 -- ∀ (a b c : Bool), (¬ (¬ (a = b) ∧ b = c)) = (false = (!(a == b) && b == c))
 -- NOTE: can be simplified to `True`. See list of TODO in OptimizeBoolPropBinary and OptimizeEq.
-#testOptimize [ "EqBoolAndEqBoolUnchanged_9" ] ∀ (a b c : Bool),
+#testOptimize [ "EqBoolAndEqBoolUnchanged_9", proof ] ∀ (a b c : Bool),
                                                   (!(!(a == b) && c == b)) = ¬ (c = b ∧ ¬ (b = a)) ===>
                                                ∀ (a b c : Bool),
                                                  (¬ (¬ (a = b) ∧ b = c)) = (false = (!(a == b) && b == c))

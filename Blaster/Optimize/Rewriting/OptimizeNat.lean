@@ -433,12 +433,14 @@ def optimizeNatMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
     | _, _ => return none
 
 /-- Normalize `Nat.beq x y` to `x == y` only when option normalizeFunCall is set to `true`.
+    [proof: Blaster.nat_beq_eq_beq]
     Assume that f = Expr.const ``Nat.beq
     NOTE: This normalization rule is still required here mainly
     to properly handle the case where another rec function is equivalent to `Nat.beq`
 --/
 def optimizeNatBeq (f : Expr) (b_args : Array Expr) : TranslateEnvT Expr := do
   if !(← isOptimizeRecCall) then return mkAppN f b_args
+  pushProofStep (.rewrite (mkConst ``Blaster.nat_beq_eq_beq))
   setRestart
   return mkAppN (← mkNatBEqOp) b_args
 

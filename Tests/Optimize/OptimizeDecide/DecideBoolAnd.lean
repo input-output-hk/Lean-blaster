@@ -116,11 +116,11 @@ variable (b : Bool)
 #testOptimize [ "DecideAndBool_3", proof ] !b && x ≤ y ===> Blaster.decide' (¬ y < x ∧ false = b)
 
 -- ∀ (x y m n : Nat), x < y && (m == n) ===> ∀ (x y m n : Nat), m = n ∧ x < y
-#testOptimize [ "DecideAndBool_4" ] ∀ (x y m n : Nat), x < y && (m == n) ===>
+#testOptimize [ "DecideAndBool_4", proof ] ∀ (x y m n : Nat), x < y && (m == n) ===>
                                     ∀ (x y m n : Nat), m = n ∧ x < y
 
 -- ∀ (m n : Nat), (m = n) && (m == n) ===> ∀ (m n : Nat), m = n
-#testOptimize [ "DecideAndBool_5" ] ∀ (m n : Nat), (m = n) && (m == n) ===>
+#testOptimize [ "DecideAndBool_5", proof ] ∀ (m n : Nat), (m = n) && (m == n) ===>
                                     ∀ (m n : Nat), m = n
 
 -- ∀ (x y m n : Nat), x < y && (m != n) ===> ∀ (x y m n : Nat), ¬ m = n ∧ x < y
@@ -131,7 +131,7 @@ variable (b : Bool)
 #testOptimize [ "DecideAndBool_7" ] ∀ (m n : Nat), (m = n) && (m != n) ===> False
 
 -- ∀ (m n : Nat), (m ≠ n) && (m == n) ===> False
-#testOptimize [ "DecideAndBool_8" ] ∀ (m n : Nat), (m ≠ n) && (m == n) ===> False
+#testOptimize [ "DecideAndBool_8", proof ] ∀ (m n : Nat), (m ≠ n) && (m == n) ===> False
 
 -- ∀ (m n : Nat), (m ≠ n) && (m != n) ===> ∀ (m n : Nat), ¬ m = n
 #testOptimize [ "DecideAndBool_9" ] ∀ (m n : Nat), (m ≠ n) && (m != n) ===>
@@ -187,10 +187,10 @@ variable (b : Bool)
 #testOptimize [ "DecideAndBool_17", proof ] (!b && x ≤ y) = decide (y ≥ x ∧ false = b) ===> True
 
 --  ∀ (x y m n : Nat), (x < y && (m == n)) = (n = m ∧ y > x) ===> True
-#testOptimize [ "DecideAndBool_18" ] ∀ (x y m n : Nat), (x < y && (m == n)) = (n = m ∧ y > x) ===> True
+#testOptimize [ "DecideAndBool_18", proof ] ∀ (x y m n : Nat), (x < y && (m == n)) = (n = m ∧ y > x) ===> True
 
 -- ∀ (m n : Nat), ((m = n) && (n == m)) = (n = m) ===> True
-#testOptimize [ "DecideAndBool_19" ] ∀ (m n : Nat), ((m = n) && (n == m)) = (n = m) ===> True
+#testOptimize [ "DecideAndBool_19", proof ] ∀ (m n : Nat), ((m = n) && (n == m)) = (n = m) ===> True
 
 -- ∀ (x y m n : Nat), (x < y && (m != n)) = (n ≠ m ∧ y > x) ===> True
 #testOptimize [ "DecideAndBool_20" ] ∀ (x y m n : Nat), (x < y && (m != n)) = (n ≠ m ∧ y > x) ===> True

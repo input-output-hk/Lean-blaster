@@ -9,35 +9,35 @@ namespace Test.BEqInt
 /-! Test cases for `reduceApp` rule on ``BEq.beq. -/
 
 -- (430 : Int) == 430  ===> true
-#testOptimize [ "BEqIntCst_1" ] (430 : Int) == 430 ===> true
+#testOptimize [ "BEqIntCst_1", proof ] (430 : Int) == 430 ===> true
 
 -- (40 : Int) == 2300 ===> false
-#testOptimize [ "BEqIntCst_2" ] (40 : Int) == 2300 ===> false
+#testOptimize [ "BEqIntCst_2", proof ] (40 : Int) == 2300 ===> false
 
 -- (-53 : Int) == -53 ===> true
-#testOptimize [ "BEqIntCst_3" ] (-53 : Int) == -53 ===> true
+#testOptimize [ "BEqIntCst_3", proof ] (-53 : Int) == -53 ===> true
 
 -- (-430 : Int) == 430 ===> false
-#testOptimize [ "BEqIntCst_4" ] (-430 : Int) == 430 ===> false
+#testOptimize [ "BEqIntCst_4", proof ] (-430 : Int) == 430 ===> false
 
 -- (-430 : Int) + 100 == -330 ===> true
-#testOptimize [ "BEqIntCst_5" ] (-430 : Int) + 100 == -330 ===> true
+#testOptimize [ "BEqIntCst_5", proof ] (-430 : Int) + 100 == -330 ===> true
 
 -- (-430 : Int) + 200 == 115 * -2 ===> true
-#testOptimize [ "BEqIntCst_6" ] (-430 : Int) + 200 == 115 * -2 ===> true
+#testOptimize [ "BEqIntCst_6", proof ] (-430 : Int) + 200 == 115 * -2 ===> true
 
 -- (List.nil : List Int) == List.nil ===> True
-#testOptimize [ "BEqIntCst_7" ] (List.nil : List Int) == List.nil ===> true
+#testOptimize [ "BEqIntCst_7", proof ] (List.nil : List Int) == List.nil ===> true
 
 -- List.nil == [(1 : Int), 2, 3, 4] ===> false
-#testOptimize [ "BEqIntCst_8" ] List.nil == [(1 : Int), 2, 3, 4] ===> false
+#testOptimize [ "BEqIntCst_8", proof ] List.nil == [(1 : Int), 2, 3, 4] ===> false
 
 variable (x : Int)
 variable (y : Int)
 variable (z : Int)
 
 -- List.nil == [a, b, c] ===> false
-#testOptimize [ "BEqIntCst_9" ] List.nil == [x, y, z] ===> false
+#testOptimize [ "BEqIntCst_9", proof ] List.nil == [x, y, z] ===> false
 
 -- ∀ (x y z : Int), (List.nil == [x, y, z]) ===> False
 #testOptimize [ "BEqIntCst_10" ] ∀ (x y z : Int), (List.nil == [x, y, z]) ===> False
@@ -49,42 +49,42 @@ variable (z : Int)
 
 -- [y, x, z] == [y, x, z] ===> true
 -- NOTE: Reduce to true via `reduceApp` rule, which is also applicable on recursive functions.
-#testOptimize [ "BEqIntCst_12" ] [y, x, z] == [y, x, z] ===> true
+#testOptimize [ "BEqIntCst_12", proof ] [y, x, z] == [y, x, z] ===> true
 
 
 -- ∀ (x y z : Int), [x, y, z] == [x, y, z] ===> True
 -- NOTE: Reduce to True via `reduceApp` rule, which is also applicable on recursive functions.
-#testOptimize [ "BEqIntCst_13" ] ∀ (x y z : Int), [x, y, z] == [x, y, z] ===> True
+#testOptimize [ "BEqIntCst_13", proof ] ∀ (x y z : Int), [x, y, z] == [x, y, z] ===> True
 
 
 /-! Test cases for simplification rule `e1 == e2 ==> true (if e1 =ₚₜᵣ e2)`. -/
 
 -- x == x ===> True
-#testOptimize [ "BEqIntReflexive_1" ] ∀ (x : Int), (x == x) ===> True
+#testOptimize [ "BEqIntReflexive_1", proof ] ∀ (x : Int), (x == x) ===> True
 
 -- x == (x + 0) ===> True
-#testOptimize [ "BEqIntReflexive_2" ] ∀ (x : Int), x == x + 0 ===> True
+#testOptimize [ "BEqIntReflexive_2", proof ] ∀ (x : Int), x == x + 0 ===> True
 
 -- (10 + (x + 30)) == ((x + 15) + 25) ===> True
-#testOptimize [ "BEqIntReflexive_3" ] ∀ (x : Int), (10 + (x + 30)) == ((x + 15) + 25) ===> True
+#testOptimize [ "BEqIntReflexive_3", proof ] ∀ (x : Int), (10 + (x + 30)) == ((x + 15) + 25) ===> True
 
 -- (100 + ((50 - x) - 70)) + y == (y + (80 - x)) ===> True
-#testOptimize [ "BEqIntReflexive_4" ] ∀ (x y : Int), (100 + ((50 - x) - 70)) + y == (y + (80 - x)) ===> True
+#testOptimize [ "BEqIntReflexive_4", proof ] ∀ (x y : Int), (100 + ((50 - x) - 70)) + y == (y + (80 - x)) ===> True
 
 -- x + y == (y + x) ===> True
-#testOptimize [ "BEqIntReflexive_5" ] ∀ (x y : Int), (x + y) == (y + x) ===> True
+#testOptimize [ "BEqIntReflexive_5", proof ] ∀ (x y : Int), (x + y) == (y + x) ===> True
 
 -- (x + y) + z == z + (y + x) ===> True
-#testOptimize [ "BEqIntReflexive_6" ] ∀ (x y z : Int), (x + y) + z == z + (y + x) ===> True
+#testOptimize [ "BEqIntReflexive_6", proof ] ∀ (x y z : Int), (x + y) + z == z + (y + x) ===> True
 
 -- (x - x) = (x + -x) ===> True
-#testOptimize [ "BEqIntReflexive_7" ] ∀ (x : Int), (x - x) = (x + -x) ===> True
+#testOptimize [ "BEqIntReflexive_7", proof ] ∀ (x : Int), (x - x) = (x + -x) ===> True
 
 -- (x * 1) - (x + 0) + y = y ===> True
-#testOptimize [ "BEqIntReflexive_8" ] ∀ (x y : Int), (x * 1) - (x + 0) + y = y ===> True
+#testOptimize [ "BEqIntReflexive_8", proof ] ∀ (x y : Int), (x * 1) - (x + 0) + y = y ===> True
 
 -- ∀ (x : List Int), x == x ===> True
-#testOptimize [ "BEqIntReflexive_9" ] ∀ (x : List Int), x == x ===> True
+#testOptimize [ "BEqIntReflexive_9", proof ] ∀ (x : List Int), x == x ===> True
 
 -- TODO: uncomment test cases when introducing simplification rules on Int.div and Int.mod
 -- TODO: Add additional test cases to cover all div and mod functions.
@@ -97,15 +97,15 @@ variable (z : Int)
 
 -- x == y ===> x = y
 -- NOTE: `true = (a == b)` is reduce to `a = b` when `isCompatibleBeqType Type(a)`
-#testOptimize [ "BEqIntUnchanged_1" ] ∀ (x y : Int), x == y ===> ∀ (x y : Int), x = y
+#testOptimize [ "BEqIntUnchanged_1", proof ] ∀ (x y : Int), x == y ===> ∀ (x y : Int), x = y
 
 -- x == (y + z) ===> x = (y + z)
 -- NOTE: `true = (a == b)` is reduce to `a = b` when `isCompatibleBeqType Type(a)`
-#testOptimize [ "BEqIntUnchanged_2" ] ∀ (x y z : Int), x == (y + z) ===> ∀ (x y z : Int), x = (Int.add y z)
+#testOptimize [ "BEqIntUnchanged_2", proof ] ∀ (x y z : Int), x == (y + z) ===> ∀ (x y z : Int), x = (Int.add y z)
 
 -- (y + z) == x ===> x = (y + z)
 -- NOTE: `true = (a == b)` is reduce to `a = b` when `isCompatibleBeqType Type(a)`
-#testOptimize [ "BEqIntUnchanged_3" ] ∀ (x y z : Int), (y + z) == x ===> ∀ (x y z : Int), x = (Int.add y z)
+#testOptimize [ "BEqIntUnchanged_3", proof ] ∀ (x y z : Int), (y + z) == x ===> ∀ (x y z : Int), x = (Int.add y z)
 
 -- [y, x, z] == [x, y, z] ===> x == y
 -- NOTE: Reduction via `reduceApp` rule
@@ -139,7 +139,7 @@ def beqIntUnchanged_7 : Expr :=
 
 elab "beqIntUnchanged_7" : term => return beqIntUnchanged_7
 
-#testOptimize [ "BEqIntUnchanged_7" ] ∀ (x : Int), (x == 1234) ===> beqIntUnchanged_7
+#testOptimize [ "BEqIntUnchanged_7", proof ] ∀ (x : Int), (x == 1234) ===> beqIntUnchanged_7
 
 -- ∀ (x : Int), (x = -453) ===> ∀ (x : Int), (x = -453)
 -- NOTE: We here provide the internal representation to ensure that -453 is
@@ -156,32 +156,32 @@ def beqIntUnchanged_8 : Expr :=
 
 elab "beqIntUnchanged_8" : term => return beqIntUnchanged_8
 
-#testOptimize [ "BEqIntUnchanged_8" ] ∀ (x : Int), x == -453 ===> beqIntUnchanged_8
+#testOptimize [ "BEqIntUnchanged_8", proof ] ∀ (x : Int), x == -453 ===> beqIntUnchanged_8
 
 
 /-! Test cases for simplification rule `e1 == e2 ==> e2 == e1 (if e2 <ₒ e1)`. -/
 
 -- x == y = x == y ===> True
-#testOptimize [ "BEqIntCommut_1" ] ∀ (x y : Int), (x == y) = (x == y) ===> True
+#testOptimize [ "BEqIntCommut_1", proof ] ∀ (x y : Int), (x == y) = (x == y) ===> True
 
 -- x == y = y == x ===> True
-#testOptimize [ "BEqIntCommut_2" ] ∀ (x y : Int), (x == y) = (y == x) ===> True
+#testOptimize [ "BEqIntCommut_2", proof ] ∀ (x y : Int), (x == y) = (y == x) ===> True
 
 -- y == x ===> x == y (when `x` declared first)
 -- NOTE: `true = (a == b)` is reduce to `a = b` when `isCompatibleBeqType Type(a)`
-#testOptimize [ "BEqIntCommut_3" ] ∀ (x y : Int), (y == x) ===> ∀ (x y : Int), x = y
+#testOptimize [ "BEqIntCommut_3", proof ] ∀ (x y : Int), (y == x) ===> ∀ (x y : Int), x = y
 
 -- ((x + y) == z) = (z == (x + y)) ===> True
-#testOptimize [ "BEqIntCommut_4" ] ∀ (x y z : Int), ((x + y) == z) = (z == (x + y)) ===> True
+#testOptimize [ "BEqIntCommut_4", proof ] ∀ (x y z : Int), ((x + y) == z) = (z == (x + y)) ===> True
 
 -- ((x * y) == (y + z)) = ((y + z) == (x * y)) ===> True
-#testOptimize [ "BEqIntCommut_5" ] ∀ (x y z : Int), ((x * y) == (y + z)) = ((y + z) == (x * y)) ===> True
+#testOptimize [ "BEqIntCommut_5", proof ] ∀ (x y z : Int), ((x * y) == (y + z)) = ((y + z) == (x * y)) ===> True
 
 -- ((x + y) == z) = (z == (y + x)) ===> True
-#testOptimize [ "BEqIntCommut_6" ] ∀ (x y z : Int), ((x + y) == z) = (z == (y + x)) ===> True
+#testOptimize [ "BEqIntCommut_6", proof ] ∀ (x y z : Int), ((x + y) == z) = (z == (y + x)) ===> True
 
 -- ((x * y) == (y + z)) = ((z + y) == (x * y)) ===> True
-#testOptimize [ "BEqIntCommut_7" ] ∀ (x y z : Int), ((x * y) == (y + z)) = ((z + y) == (x * y)) ===> True
+#testOptimize [ "BEqIntCommut_7", proof ] ∀ (x y z : Int), ((x * y) == (y + z)) = ((z + y) == (x * y)) ===> True
 
 
 /-! Test cases to ensure that constant propagation is properly performed
@@ -189,16 +189,16 @@ elab "beqIntUnchanged_8" : term => return beqIntUnchanged_8
 -/
 
 -- 0 == (0 - x) + x ===> true
-#testOptimize [ "BEqIntReduce_1"] (0 == (0 - x) + x) ===> true
+#testOptimize [ "BEqIntReduce_1", proof ] (0 == (0 - x) + x) ===> true
 
 -- 100 + ((40 - x) - 50) == 100 ===> true
-#testOptimize [ "BEqIntReduce_2"] 100 + (((40 - x) - 40) + x) == 100 ===> true
+#testOptimize [ "BEqIntReduce_2", proof ] 100 + (((40 - x) - 40) + x) == 100 ===> true
 
 -- (((x - 100) - 45) + 145) - x == (125 + (100 - (225 - y))) - y ===> true
-#testOptimize [ "BEqIntReduce_3"] (((x - 100) - 45) + 145) - x == (125 + (100 - (225 - y))) - y ===> true
+#testOptimize [ "BEqIntReduce_3", proof ] (((x - 100) - 45) + 145) - x == (125 + (100 - (225 - y))) - y ===> true
 
 -- ((((x - 100) - 45) + 145) - x) * y == (125 + (100 - (225 - y))) - y ===> true
-#testOptimize [ "BEqIntReduce_4"] ((((x - 100) - 45) + 145) - x) * y == (125 + (100 - (225 - y))) - y ===> true
+#testOptimize [ "BEqIntReduce_4", proof ] ((((x - 100) - 45) + 145) - x) * y == (125 + (100 - (225 - y))) - y ===> true
 
 -- TODO: uncomment test case when simplifications on Int.div and Int.mod functions are introduced
 -- (y % ((((x - 100) - 45) + 145) - x)) - y == (125 + (100 - (225 - y))) - y ===> true
