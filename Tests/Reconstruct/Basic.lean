@@ -82,6 +82,10 @@ example : (∀ (x : Nat), 0 * x = 0) = True := by blaster
 example : (∀ (m n : Nat), m + n = n + m) = True := by blaster
 example : (0 + 0 = 0) = True := by blaster
 
+-- Propositional equality whose forall has a function-typed binder
+example : (∀ (f : Nat → Nat → Nat) (x y : Nat), f x y + x = x + f x y) =
+          (∀ (f : Nat → Nat → Nat) (x y : Nat), x + f x y = x + f x y) := by blaster
+
 -- Hypothesis-dependent rewrites
 example : ∀ (n : Nat), 0 < n → n / n = 1 := by blaster
 example : ∀ (x y : Nat), 0 < y → (x * y) / y = x := by blaster

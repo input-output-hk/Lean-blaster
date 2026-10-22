@@ -319,6 +319,88 @@ def arithEq? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
   if let some r ← addIntEqReduce? op1 op2 then return r
   return none
 
+/-- Try to prove `op1 = op2 → False`, assuming `structEq? op1 op2 = some false`.
+    Descend through constructor fields towards a mismatch that `noConfusion` can carry, in a loop
+    so that deep terms do not exhaust the stack. Return `none` when the descent finds no such
+    mismatch. -/
+def structNeProof? (op1 op2 : Expr) : TranslateEnvT (Option Expr) := do
+  let mut a := op1
+  let mut b := op2
+  -- Constructor applications crossed by the descent, with their mismatching fields.
+  let mut frames : Array (Expr × Expr × Expr × Expr) := #[]
+  repeat
+    if exprEq a b then return none
+    match a, b with
+    | .lit (.natVal n1), .lit (.natVal n2) =>
+        if n1 == n2 then return none
+        return ← fold frames (← mkOfDecideEqProof (← mkExpr (mkApp3 (← mkEqOp) (← mkNatType) a b)) false)
+    | .lit (.strVal s1), .lit (.strVal s2) =>
+        if s1 == s2 then return none
+        let strType ← mkExpr (mkConst ``String)
+        return ← fold frames (← mkOfDecideEqProof (← mkExpr (mkApp3 (← mkEqOp) strType a b)) false)
+    | _, _ =>
+      let some (c1, as1) ← ctorApp? a | return none
+      let some (c2, as2) ← ctorApp? b | return none
+      if c1.name != c2.name then return ← fold frames (← ctorNe a b)
+      if as1.size == c1.numParams then return none
+      -- Take the first mismatching field that is not a proof, since `noConfusion` omits proofs.
+      -- Otherwise take the last field, which keeps lists linear but may not be a mismatch.
+      let mut i := as1.size - 1
+      for j in [c1.numParams:as1.size - 1] do
+        if (← structEq? as1[j]! as2[j]!) == some false then
+          unless ← isPropEnv (← inferTypeEnv as1[j]!) do
+            i := j
+            break
+      frames := frames.push (a, b, as1[i]!, as2[i]!)
+      a := as1[i]!
+      b := as2[i]!
+  return none
+ where
+   /-- Inductives in `Prop` have no `noConfusion`, so `mkNoConfusion` would build a term the
+       kernel rejects. -/
+   ctorApp? (e : Expr) : MetaM (Option (ConstructorVal × Array Expr)) := do
+     let some (ci, as) ← constructorApp? e | return none
+     unless (← getEnv).contains (ci.induct.str "noConfusion") do return none
+     return some (ci, as)
+
+   /-- Proof of `a = b → False` for distinct constructors. -/
+   ctorNe (a b : Expr) : MetaM Expr := do
+     withLocalDeclD `h (← mkEq a b) fun h => do
+       mkLambdaFVars #[h] (← mkNoConfusion (mkConst ``False) h)
+
+   /-- `fun q h => nc (fun premises => q e)` lifting `q : fa = fb → False` to `a = b → False`,
+       with `fa`, `fb` fields of `a`, `b`. -/
+   fieldNe (a b fa fb : Expr) : MetaM (Option Expr) := do
+     withLocalDeclD `q (← mkArrow (← mkEq fa fb) (mkConst ``False)) fun q => do
+       withLocalDeclD `h (← mkEq a b) fun h => do
+         let nc ← mkNoConfusion (mkConst ``False) h
+         -- `nc : (premises → False) → False`. Premises are found by type since `noConfusion`
+         -- omits `Prop` fields.
+         let .forallE _ k _ _ ← whnf (← inferType nc) | return none
+         let pk? ← forallTelescopeReducing k fun es _ => do
+           for e in es do
+             let ty ← inferType e
+             if let some (_, x, y) := ty.eq? then
+               if x == fa && y == fb then
+                 return some (← mkLambdaFVars es (mkApp q e))
+             if let some (α, x, β, y) := ty.heq? then
+               if α == β && x == fa && y == fb then
+                 let e' := mkApp4 (mkConst ``eq_of_heq ty.getAppFn.constLevels!) α x y e
+                 return some (← mkLambdaFVars es (mkApp q e'))
+           return none
+         let some pk := pk? | return none
+         return some (← mkLambdaFVars #[q, h] (mkApp nc pk))
+
+   /-- Fold the frames from the innermost outwards. Each frame is applied to the inner proof
+       without beta reduction, so that the inner proof is neither traversed again nor nested
+       under the binders of the frame, which keeps the proof size linear. -/
+   fold (frames : Array (Expr × Expr × Expr × Expr)) (leaf : Expr) : MetaM (Option Expr) := do
+     let mut p := leaf
+     for (a, b, fa, fb) in frames.reverse do
+       let some f ← fieldNe a b fa fb | return none
+       p := mkApp f p
+     return some p
+
 /-- Apply the following simplification/normalization rules on `Eq` :
      - False = e ==> ¬ e                  [proof: Blaster.false_prop_is_neg]
      - True = e ==> e                     [proof: Blaster.true_prop_is_idem]
@@ -326,6 +408,7 @@ def arithEq? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
      - e = not e ==> False                [proof: Blaster.eq_not_is_false]
      - e1 = e2 ==> True (if e1 =ₚₜᵣ e2)
      - e1 = e2 ==> False (if structEq? e1 e2 = some false) (NOTE: `some true` case already handled by =ₚₜᵣ)
+                         [proof: eq_false ∘ structNeProof?]
      - true = not e ==> false = e
      - false = not e ==> true = e
      - ¬ e1 = ¬ e2 ==> e1 = e2 (require classical)
@@ -379,10 +462,9 @@ def optimizeEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
   pushProofStep (.exact (mkConst ``True.intro))
   return ← mkPropTrue
  if let some false ← structEq? op1 op2 then
-   try
-     let notEq ← mkDecideProof (mkApp (mkConst ``Not) (← mkEq op1 op2))
-     pushProofStep (.rewrite (← mkAppM ``eq_false #[notEq]))
-   catch _ => pure ()
+   -- Only this operand order: `reorderOperands` already pushed `eq_comm` when it flipped the sides.
+   if let some notEq ← structNeProof? op1 op2 then
+     pushProofStep (.rewrite (mkApp2 (mkConst ``eq_false) (← mkEq op1 op2) notEq))
    return ← mkPropFalse
  if let some (e1, e2) ← notNegEqSimp? op1 op2 then return mkApp3 f eqType e1 e2
  if let some r ← zeroEqNegReduce? op1 op2 eqType then return r
