@@ -12,7 +12,7 @@
   If Z3 is installed correctly, you will see
 
      Successfully ran z3:
-     Z3 version 4.15.2 - 64 bit
+     Z3 version 5.3.1 - 64 bit
 
   otherwise, it will print an error message.
 -/
