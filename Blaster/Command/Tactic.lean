@@ -164,13 +164,24 @@ private def zetaLets (e : Expr) : MetaM Expr :=
     | .letE _ _ v b _ => return .visit (b.instantiate1 v)
     | _ => return .continue)
 
-/-- The one spelling of the replay, the `toElabForm` one without the `let`s the optimizer
-    does not see. -/
+/-- The one spelling of the replay, so that the user and optimizer spellings of a term agree:
+    no `let`, `((n : Nat) : Int)` written `Int.ofNat n`, Nat numerals under `Int.ofNat` raw
+    literals, then `toElabForm`. -/
 private def canonicalForm (cache : IO.Ref CanonCache) (e : Expr) : MetaM Expr := do
   -- taken out of the ref, so that the maps are updated in place
   let { converted, noLet } ← cache.swap {}
   let (l, noLet) := hasLet e noLet
-  let (e, converted) := toElabForm (← if l then zetaLets e else pure e) converted
+  let e ← if l then zetaLets e else pure e
+  let ofNat (n : Expr) :=
+    if n.isAppOfArity ``OfNat.ofNat 3 && (n.getArg! 2).isAppOf ``instOfNatNat then
+      mkApp (mkConst ``Int.ofNat) (n.getArg! 1)
+    else mkApp (mkConst ``Int.ofNat) n
+  let (e, converted) := toElabForm (← Core.transform e (post := fun e => return .done <| match e with
+    | .app (.app (.app (.const ``Nat.cast _) _) (.const ``instNatCastInt _)) n => ofNat n
+    -- the spelling left by the unfold step of `Nat.cast`
+    | .app (.app (.app (.const ``NatCast.natCast _) _) (.const ``instNatCastInt _)) n => ofNat n
+    | .app (.const ``Int.ofNat _) n => ofNat n
+    | _ => e)) converted
   cache.set { converted, noLet }
   return e
 
@@ -247,11 +258,9 @@ private def rewriteHypotheses (goal : MVarId) (steps : Array Blaster.Optimize.Pr
   return (g, steps)
 
 /-- Rewrite the hypotheses, then apply the steps to the target until none applies.
-    Steps that don't match are skipped.
-    Returns the new goal and the steps with the replaced hypothesis fvars renamed. -/
+    Steps that don't match are skipped. -/
 private def replaySteps (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep)
-    (hyps : Array FVarId) (cache : IO.Ref CanonCache) :
-    MetaM (MVarId × Array Blaster.Optimize.ProofStep) := do
+    (hyps : Array FVarId) (cache : IO.Ref CanonCache) : MetaM MVarId := do
   let (goal, steps) ← rewriteHypotheses goal steps hyps cache
   /- trace[Optimize.expr] "proofStack ({steps.size} steps):" -/
   /- let mut idx : Nat := 0 -/
@@ -282,18 +291,14 @@ private def replaySteps (goal : MVarId) (steps : Array Blaster.Optimize.ProofSte
           /- trace[Optimize.expr] "  applied rewrite → {← g.getType}" -/
         catch _ => pure ()
       | .exact proof =>
-        -- `isDefEq` may exceed the recursion depth on a term the optimizer evaluated
-        let s ← saveState
-        let closed ← tryCatchRuntimeEx
-          (g.withContext do
-            unless ← isDefEq (← inferType proof) (← g.getType) do return false
+        try
+          -- both sides are in the replay spelling, so a recursive target is not unfolded
+          if ← g.withContext do withReducibleAndInstances <| isDefEq (← inferType proof) (← g.getType) then
             checkHypStep g proof
             g.assign proof
-            return true)
-          fun _ => do s.restore; pure false
-        if closed then
-          /- trace[Optimize.expr] "  applied exact, goal closed" -/
-          return (g, steps)
+            /- trace[Optimize.expr] "  applied exact, goal closed" -/
+            return g
+        catch _ => pure ()
       | .unfold n =>
         let t ← g.getType
         let t' ← deltaExpand t (· == n)
@@ -306,7 +311,7 @@ private def replaySteps (goal : MVarId) (steps : Array Blaster.Optimize.ProofSte
   -- the target may have been reduced to a hypothesis
   unless ← g.isAssigned do
     try g.assumption catch _ => pure ()
-  return (g, steps)
+  return g
 
 /-- `true` iff `g` is assigned, `True` (then closed) or closed by `refl`. -/
 private def closeTrivially (g : MVarId) : MetaM Bool := do
@@ -316,27 +321,10 @@ private def closeTrivially (g : MVarId) : MetaM Bool := do
     return true
   try g.refl; return true catch _ => return false
 
-/-- `toElabForm e` with `((n : Nat) : Int)` first written `Int.ofNat n` and Nat numerals under
-    `Int.ofNat` raw literals, so that the user and optimizer spellings of a term agree. -/
-private def canonicalIntForm (e : Expr) : MetaM Expr := do
-  let ofNat (n : Expr) :=
-    if n.isAppOfArity ``OfNat.ofNat 3 && (n.getArg! 2).isAppOf ``instOfNatNat then
-      mkApp (mkConst ``Int.ofNat) (n.getArg! 1)
-    else mkApp (mkConst ``Int.ofNat) n
-  return (toElabForm (← Core.transform e (post := fun e => return .done <| match e with
-    | .app (.app (.app (.const ``Nat.cast _) _) (.const ``instNatCastInt _)) n => ofNat n
-    -- the spelling left by the unfold step of `Nat.cast`
-    | .app (.app (.app (.const ``NatCast.natCast _) _) (.const ``instNatCastInt _)) n => ofNat n
-    | .app (.const ``Int.ofNat _) n => ofNat n
-    | _ => e)) {}).1
-
 /-- Apply recorded proof stack rewrites to a goal.
-    `hyps` are the intro'd binders, rewritten first (see `rewriteHypotheses`).
-    With `unfoldTarget`, a target left open is replayed again with `Ne` and `GT.gt` unfolded
-    and with target and steps in one Int spelling, when this changes the target.
-    Then the goal may be returned closed by `True.intro` or `refl`. -/
+    `hyps` are the intro'd binders, rewritten first (see `rewriteHypotheses`). -/
 def applyProofStack (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep)
-    (hyps : Array FVarId := #[]) (unfoldTarget := true) : MetaM MVarId := do
+    (hyps : Array FVarId := #[]) : MetaM MVarId := do
   -- the hypotheses, the target and the steps are put once in one spelling
   let cache ← IO.mkRef {}
   let goal ← hyps.foldlM (init := goal) fun g h => g.withContext do
@@ -347,36 +335,11 @@ def applyProofStack (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep)
     let t ← instantiateMVars (← goal.getType)
     let t' ← canonicalForm cache t
     if t' != t then goal.replaceTargetDefEq t' else pure goal
-  -- a bare lemma pushed right after its instance only covers operands the user wrote in another
-  -- form, so it runs after the other steps and cannot rewrite an unrelated site first
-  let (late, steps) := steps.zipIdx.partition fun (s, i) => match s, steps[i - 1]? with
-    | .rewrite (.const n _) _, some (.rewrite heq _) => i > 0 && heq.isApp && heq.isAppOf n
-    | _, _ => false
-  let steps := (steps ++ late).map (·.1)
   let steps : Array Blaster.Optimize.ProofStep ← goal.withContext <| steps.mapM fun
     | .rewrite proof symm => return .rewrite (← canonicalForm cache proof) symm
     | .exact proof => return .exact (← canonicalForm cache proof)
     | s => return s
-  let (g, steps) ← replaySteps goal steps hyps cache
-  unless unfoldTarget do return g
-  if ← g.isAssigned then return g
-  -- `GE.ge` is left out since its unfold step replays it
-  let isGoalAbbrev (n : Name) := n == ``Ne || n == ``GT.gt
-  let t ← g.getType
-  let t' ← g.withContext do canonicalIntForm (← deltaExpand t isGoalAbbrev)
-  if t' == t then return g
-  if ← closeTrivially g then return g
-  -- the target left is replayed again as the optimizer sees it, the hypotheses stay as they are
-  let failed ← saveState
-  let steps ← g.withContext <| steps.mapM fun
-    | s@(.rewrite proof symm) => do
-      try return .rewrite (← canonicalIntForm proof) symm catch _ => return s
-    | s => return s
-  let (g', _) ← replaySteps (← g.replaceTargetDefEq t') steps #[] cache
-  if ← closeTrivially g' then return g'
-  -- keep the original spelling for the gap message
-  failed.restore
-  return g
+  replaySteps goal steps hyps cache
 
 /-- Build a proof of `(∀ x₁…xₙ, P) = (∀ y₁…yₘ, Q)` when m < n (some binders eliminated),
     given `innerProof : ∀ x₁…xₙ, P(x₁…xₙ) = Q(kept(x₁…xₙ))`. -/
@@ -452,8 +415,7 @@ private def proveByProofStack (goalType : Expr) (proofStack : Array Blaster.Opti
   let numBinders ← forallTelescope goalType fun fvars _ => pure fvars.size
   let (goalFVarIds, g) ← proofMVar.mvarId!.introNP numBinders
   let proofStack := substProofStackFVars proofStack optBinders goalFVarIds
-  -- SMT-proved goals skip the unfolded pass
-  let g ← applyProofStack g proofStack goalFVarIds (unfoldTarget := optimizerClosed)
+  let g ← applyProofStack g proofStack goalFVarIds
   let closed ← closeTrivially g
   unless closed do
     unless admit do throwError "blaster: reconstruction gap"
