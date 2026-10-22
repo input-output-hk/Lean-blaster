@@ -334,7 +334,7 @@ def arithEq? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
      - 0 = (-e) ==> 0 = e (if Type(e) = Int)
      - Int.neg e1 = Int.neg e2 ==> e1 = e2
      - Int.ofNat e1 = Inf.ofNat e2 ==> e1 = e2
-     - Int.ofNat e1 = Int.neg (Int.ofNat e2) ==> False (if nonZeroNatInHyps e1 ∨ nonZeroNatInHyps e2 ∨ e2 := N + e ∧ N ≠ 0)
+     - Int.ofNat e1 = Int.neg (Int.ofNat e2) ==> 0 = e1 ∧ 0 = e2 (restart)
      - Int.negSucc N = Int.neg (Int.ofNat e) ==> (N "+" 1) = e
      - Int.negSucc N = Int.neg e ==> Int.ofNat (N "+" 1) = e
      - 0 = x * y ==> False (if Type(x) ∈ [Nat, Int] ∧ nonZeroInHyps x ∧ nonZeroInHyps y)
@@ -391,8 +391,8 @@ def optimizeEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
           - return `x = y`
       - When `op1 := Int.ofNat x` ∧ `op2 := Int.ofNat y`:
           - return `x = y`
-      - When `op1 := Int.ofNat x` ∧ `op2 := Int.neg (Int.ofNat y)` ∧ (nonZeroNat x ∨ nonZeroNat y):
-          - return `False`
+      - When `op1 := Int.ofNat x` ∧ `op2 := Int.neg (Int.ofNat y)`:
+          - return `0 = x ∧ 0 = y`
       - When `op1 := Int.negSucc N` ∧ `op2 := Int.neg (Int.ofNat y)`:
           - return `(N "+" 1) = y`
       - When `op1 := Int.negSucc N` ∧ `op2 := Int.neg y`:
@@ -409,10 +409,14 @@ def optimizeEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
      | Expr.app (Expr.const ``Int.ofNat _) e1 =>
           match op2 with
           | Expr.app (Expr.const ``Int.ofNat _) e2 =>
-                 setRestart
-                 mkApp3Expr f (← mkNatType) e1 e2
+               setRestart
+               mkApp3Expr f (← mkNatType) e1 e2
           | Expr.app (Expr.const ``Int.neg _) (Expr.app (Expr.const ``Int.ofNat _) e2) =>
-               if (← nonZeroNat e1 <||> nonZeroNat e2) then mkPropFalse else return none
+               setRestart
+               let zeroNat ← mkNatLitExpr 0
+               let eq1 ← mkNatEqExpr zeroNat e1
+               let eq2 ← mkNatEqExpr zeroNat e2
+               mkApp2Expr (← mkPropAndOp) eq1 eq2
           | _ => return none
      | Expr.app (Expr.const ``Int.negSucc _) (Expr.lit (Literal.natVal n)) =>
           let Expr.app (Expr.const ``Int.neg _) e2 := op2 | return none

@@ -813,6 +813,3 @@ def getOrIdx (l : List Nat) (i : Nat) : Nat := if h : i < l.length then l[i] els
   mixedLit n 10 ===> Blaster.dite' (2 = n) (fun _ => 10) fun _ => Nat.mul 7 n
 
 end Tests.MatchReduce
-
--- add patch in backward proof for 0 < 1 + e (always true)
--- add patch in backward proof for N < N + e (always true)
