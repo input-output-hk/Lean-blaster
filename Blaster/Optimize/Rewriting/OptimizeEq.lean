@@ -4,19 +4,26 @@ import Blaster.Optimize.Hypotheses
 open Lean Meta
 namespace Blaster.Optimize
 
-/-- Return `some true` if op1 and op2 are constructors that are structurally equivalent modulo
-    variable name/function equivalence
-    Return `some false` if op1 and op2 are constructors that are NOT structurally equivalent.
-    Return `none` otherwise.
+/-- Return `some true` for shared expressions or structurally equal constructor values,
+    allowing equivalent universe levels on constructor constants.
+    Return `some false` only for distinct literals, distinct constructor names, or
+    constructor applications with a provably unequal argument. A failed pointer or
+    universe-equivalence check is not evidence of disequality; return `none` when
+    structural comparison cannot decide.
     Assume that memoization is performed on expressions.
 -/
 partial def structEq? (op1 : Expr) (op2: Expr) : TranslateEnvT (Option Bool) := do
  let rec visit (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Bool) := do
    match op1, op2 with
     | Expr.lit _, Expr.lit _ => return exprEq op1 op2
-    | Expr.const n1 _, Expr.const n2 _ =>
+    | Expr.const n1 ls1, Expr.const n2 ls2 =>
        if (← (isCtorName n1) <&&> (isCtorName n2))
-       then return exprEq op1 op2
+       then
+         if n1 != n2 then return false
+         -- `Level.isEquiv` is sound but incomplete. In particular, syntactically
+         -- different levels (and hence different pointers) can denote the same universe.
+         if ls1.isEqv ls2 Level.isEquiv then return true
+         return none
        else return none -- function case not structurally equivalent
     | Expr.app .., Expr.app .. =>
         Expr.withApp op1 fun f1 as1 =>
@@ -26,7 +33,8 @@ partial def structEq? (op1 : Expr) (op2: Expr) : TranslateEnvT (Option Bool) := 
           -- Case when f1 and f2 are equal is handled when first calling structEq? (e.g., f x = f x)
           match (← visit f1 f2) with
           | some b =>
-              if b && as1.size == as2.size then
+              if !b then return false
+              if as1.size == as2.size then
                 -- lattice to handle arguments
                 -- some false -> some none -> some true
                 let mut lat := some true
@@ -34,10 +42,14 @@ partial def structEq? (op1 : Expr) (op2: Expr) : TranslateEnvT (Option Bool) := 
                   lat := updateLattice lat (← structEq? as1[i] as2[i]!)
                   unless (!isTop lat) do return lat -- break if false
                 return lat
-              else return false
+              else return none
           | none => return none
      | Expr.app .., Expr.const ..
-     | Expr.const .., Expr.app .. => visit op1.getAppFn' op2.getAppFn'
+     | Expr.const .., Expr.app .. =>
+         -- Only distinct constructor heads decide applications with different arities.
+         match (← visit op1.getAppFn' op2.getAppFn') with
+         | some false => return false
+         | _ => return none
      | _, _ =>
        -- return `none` for all other cases if physically equality fails
        pure none
@@ -325,7 +337,7 @@ def arithEq? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
      - e = ¬ e ==> False
      - e = not e ==> False
      - e1 = e2 ==> True (if e1 =ₚₜᵣ e2)
-     - e1 = e2 ==> False (if structEq? e1 e2 = some false) (NOTE: `some true` case already handled by =ₚₜᵣ)
+     - e1 = e2 ==> True/False (if structEq? e1 e2 = some true/false)
      - true = not e ==> false = e
      - false = not e ==> true = e
      - ¬ e1 = ¬ e2 ==> e1 = e2 (require classical)
@@ -364,7 +376,8 @@ def optimizeEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
  if let Expr.const ``True _ := op1 then return op2
  if isNotExprOf op2 op1 || isBoolNotExprOf op2 op1 then return ← mkPropFalse
  if exprEq op1 op2 then return ← mkPropTrue
- if let some false ← structEq? op1 op2 then return ← mkPropFalse
+ if let some equal ← structEq? op1 op2 then
+   return ← if equal then mkPropTrue else mkPropFalse
  if let some (e1, e2) ← notNegEqSimp? op1 op2 then return mkApp3 f eqType e1 e2
  if let some r ← zeroEqNegReduce? op1 op2 eqType then return r
  if let some (e1, e2) ← intNegEqReduce? op1 op2 then return mkApp3 f eqType e1 e2
@@ -423,7 +436,7 @@ def optimizeEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
      - true == e ==> e
      - e == not e ==> false
      - e1 == e2 ==> true (if e1 =ₚₜᵣ e2)
-     - e1 = e2 ==> false (if structEq? e1 e2 = some false) (NOTE: `some true` case already handled by =ₚₜᵣ)
+     - e1 == e2 ==> false (if structEq? e1 e2 = some false)
      - not e1 == not e2 ==> e1 == e2
      - e1 == e2 ==> e2 == e1 (if e2 <ₒ e1)
 
