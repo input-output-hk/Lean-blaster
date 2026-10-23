@@ -60,6 +60,15 @@ def isTaggedCtorSelector (e : Expr) : Bool :=
 def mkCtorSelectorSymbol (ctor : Name) (idx : Nat) : SmtSymbol :=
   mkNormalSymbol s!"{ctor}.{idx}"
 
+/-- A `Fin` is represented by its value, so matching on `Fin.mk` needs no SMT
+    datatype selectors. Its second field is a proof and has no data content. -/
+def mkCtorSelectorTerm (ctor : Name) (idx : Nat) (arg : SmtTerm) : TranslateEnvT SmtTerm := do
+  if ctor == ``Fin.mk then
+    if idx == 0 then return arg
+    if idx == 1 then return trueSmt
+    throwEnvError "mkCtorSelectorTerm: unexpected Fin field {idx}"
+  return mkSimpleSmtAppN (mkCtorSelectorSymbol ctor idx) #[arg]
+
 
 /-- Given `ctor` a constructor name and `idx` corresponding to the index for
     one of the ctor's arguments and `arg` the current ctor arg and `t` its corresponding type,
@@ -84,7 +93,8 @@ def mkCtorSelectorExpr (ctor : Name) (idx : Nat) (arg : Expr) (type : Expr) : Tr
     create the smt term application `is-ctor s`.
 -/
 def mkCtorTestorTerm (ctor : Name) (s : SmtTerm) : SmtTerm :=
-  mkSimpleSmtAppN (mkNormalSymbol s!"is-{ctor}") #[s]
+   if ctor == ``Fin.mk then trueSmt
+   else mkSimpleSmtAppN (mkNormalSymbol s!"is-{ctor}") #[s]
 
 /-- Given `ctor` a constructor name, create the smt term `is-ctor x`. -/
 def mkGenericCtorTestorTerm (ctor : Name) : SmtTerm :=
@@ -968,6 +978,42 @@ def translateInductiveType
      ctorDecls := ctorDecls.push ctorDecl
    return ctorDecls
 
+/-- Translate `Nat` to the SMT integer sort with the qualifier `0 ≤ x`. -/
+def translateNatType (n : Expr) : TranslateEnvT SortExpr := do
+ match (← get).smtEnv.indTypeInstCache.get? n with
+ | none =>
+    let decl ← updateIndInstCache n natSymbol natSort (isReservedSymbol := true)
+    defineNatSort decl.instName
+    return natSort
+ | some decl => return decl.instSort
+
+/-- Represent `Fin n` by the same integer sort as `Nat`, with the exact domain
+    predicate `0 ≤ x ∧ x < n`. Like `Nat`, this predicate qualifies quantified
+    and free variables, as well as fields of other datatypes. The bound must
+    reduce to a numeral: a predicate defined for a symbolic bound would need
+    that bound as an additional SMT argument. -/
+def translateFinType (fin : Expr) (args : Array Expr) : TranslateEnvT SortExpr := do
+  unless args.size == 1 do
+    throwEnvError "translateFinType: one bound expected for Fin"
+  let instApp ← getIndInst fin args
+  if let some decl := (← get).smtEnv.indTypeInstCache.get? instApp then return decl.instSort
+  let boundExpr ← optimizeExpr args[0]!
+  let bound? := match boundExpr with
+    -- The optimizer can leave an elaborated Nat numeral as the projection
+    -- `OfNat.ofNat (instOfNatNat n)` instead of a literal.
+    | Expr.proj ``OfNat 0 (Expr.app (Expr.const ``instOfNatNat _) n) => isNatValue? n
+    | e => isNatValue? e
+  let some bound := bound?
+    | throwEnvError "translateFinType: non-constant Fin bound is not supported: {reprStr args[0]!}"
+  discard $ translateNatType (← mkNatType)
+  let sym := mkReservedSymbol s!"Fin{(← get).smtEnv.indTypeInstCache.size}"
+  let decl ← updateIndInstCache instApp sym natSort (isReservedSymbol := true)
+  let xsym := mkReservedSymbol "@x"
+  let x := smtSimpleVarId xsym
+  defineFun decl.instName #[(xsym, natSort)] boolSort
+    (andSmt (leqSmt (natLitSmt 0) x) (ltSmt x (natLitSmt bound)))
+  return decl.instSort
+
 /-- Given an instantiated inductive data type `t x₁ ... xₙ`, generate it's corresponding
     predicate qualifier predicate and propositional assertions when instance is not already
     in `indTypeInstCache`. In particular,
@@ -995,6 +1041,9 @@ partial def defineInstPredicateQualifier
     (typeTranslator : Expr → TranslateEnvT SortExpr)
     (termTranslator : Expr → TranslateEnvT SmtTerm)
     (t : Expr) (args : Array Expr) : TranslateEnvT Unit := do
+ if t.isConstOf ``Fin then
+   discard <| translateFinType t args
+   return
  -- get inst application
  let instApp ← getIndInst t args
  unless ((← get).smtEnv.indTypeInstCache.get? instApp).isSome do
@@ -1181,25 +1230,6 @@ def translateSmtEquivType (n : Expr) (s : SmtSymbol) (t : SortExpr) : TranslateE
 
 
 /-- Perform the following actions:
-     - When entry `n := "Nat"` exists in `indTypeInstCache` return #[natSort]
-     - Otherwise:
-        - add entry `n := {@isNat, natSort}` in `indTypeInstCache`
-        - define smt sort `(define-sort Nat () Int)`
-        - define smt predicate `(define-fun @isNat ((@x Nat)) Bool (<= 0 @x))`
-        - return `natSort`
-  Assume that `n := Expr.const ``Nat []`.
-
--/
-def translateNatType (n : Expr) : TranslateEnvT SortExpr := do
- match (← get).smtEnv.indTypeInstCache.get? n with
- | none =>
-    let decl ← updateIndInstCache n natSymbol natSort (isReservedSymbol := true)
-    defineNatSort decl.instName
-    return natSort
- | some decl => return decl.instSort
-
-
-/-- Perform the following actions:
      - When entry `n := "Empty"` exists in `indTypeInstCache`
         - return `emptySort`
      - Otherwise:
@@ -1281,6 +1311,7 @@ partial def translateTypeAux
    let e := t.getAppFn
    match e with
    | Expr.const .. =>
+      if e.isConstOf ``Fin then return ← translateFinType e t.getAppArgs
       if let some r ← translateAxiomAndDeclaredOpaqueType e then return r
       if let some r ← translateOpaqueType e then return r
       translateNonOpaqueType e t.getAppArgs
