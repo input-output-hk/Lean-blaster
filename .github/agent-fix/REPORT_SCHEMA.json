@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Issue fix report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status",
+    "title",
+    "summary",
+    "root_cause",
+    "generality",
+    "regression_path",
+    "tests",
+    "limitations",
+    "patch"
+  ],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "fixed",
+        "needs-information",
+        "out-of-scope",
+        "unable-to-fix"
+      ]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 3000
+    },
+    "root_cause": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 3000
+    },
+    "generality": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 3000
+    },
+    "regression_path": {
+      "type": ["string", "null"],
+      "maxLength": 500
+    },
+    "tests": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["command", "result", "evidence"],
+        "properties": {
+          "command": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "result": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1500
+          }
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+        "type": "string",
+        "maxLength": 1000
+      }
+    },
+    "patch": {
+      "type": "string",
+      "maxLength": 65536
+    }
+  }
+}
