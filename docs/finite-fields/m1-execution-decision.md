@@ -24,12 +24,12 @@ Observed on 2026-10-23 against the named public repository:
 | Item | Exact observation |
 | --- | --- |
 | Reviewed base | `a69c5c266864a90064884519a5d208f5321cf379` |
-| Remote `refs/heads/agent/feat-cvc5-ff` | `1e1262b9d3ee346f41ed4e6882bda2067a2002f7` |
+| Remote `refs/heads/agent/feat-cvc5-ff` | `5e9bc4471bc49525c067a29ba38b79a92f197154` |
 | Remote `refs/heads/feat/cvc5-concurrency` | `a69c5c266864a90064884519a5d208f5321cf379` |
-| Supplied checkout `HEAD` | Synthetic root `8b96d3f4d24260959febb9947c423800bbf37b46` (`base`), on `master` |
+| Supplied checkout `HEAD` | Synthetic root `92ed7b6a4ab2909161ae65a73339253bea8da3b3` (`base`), on `master` |
 | Configured remotes / required tracking ref | No configured remote; `refs/remotes/origin/agent/feat-cvc5-ff` absent |
 | Reviewed base tree | `ff2ccaa64af5e6334cbf96d35e3c6e60be134f84` |
-| Integration tip and supplied snapshot tree | Both `42999850e24ca4f3a8eeee1e9076d17fe3543428` before this refresh |
+| Integration tip and supplied snapshot tree | Both `4eac1470b9a409864600ece55335679bd8835704` before this refresh |
 
 Commands establishing the remote evidence:
 
@@ -42,25 +42,27 @@ git merge-base --is-ancestor a69c5c266864a90064884519a5d208f5321cf379 FETCH_HEAD
 git log --format='%H %s' a69c5c266864a90064884519a5d208f5321cf379..FETCH_HEAD
 git diff --stat a69c5c266864a90064884519a5d208f5321cf379 FETCH_HEAD
 git diff --stat FETCH_HEAD HEAD
-git log --max-count=1 --format='%H %P %s' HEAD
+git log -5 --format=fuller
 ```
 
 All commands above succeeded. Fetch populated only `FETCH_HEAD`, not a fabricated
-`origin` tracking ref. Left/right commit counts are `0 / 2`, and the reviewed base
+`origin` tracking ref. Left/right commit counts are `0 / 3`, and the reviewed base
 is an ancestor of the remote integration tip. The added commits, oldest first:
 
 - `9635c22f6a9ef3a40ca9373915c4de5fc38d0ff9`
   (`docs: record M1 finite-field execution contract and baseline blockers`).
 - `1e1262b9d3ee346f41ed4e6882bda2067a2002f7`
   (`docs: refresh M1 execution evidence and baseline blockers`).
+- `5e9bc4471bc49525c067a29ba38b79a92f197154`
+  (`docs: refresh finite-field M1 validation and checkout blockers`).
 
 Their cumulative difference from the reviewed base is only this decision
-document, added with 260 lines; executable source, tests, scripts, CI and
+document, added with 272 lines; executable source, tests, scripts, CI and
 toolchain are unchanged. The supplied snapshot has an empty tree diff against
 that integration tip, but **tree identity is not Git ancestry**: its synthetic
 root has no parents and does not descend from the reviewed base.
 
-The inherited record observed the remote at `9635c22f6a9ef3a40ca9373915c4de5fc38d0ff9`
+The inherited record observed the remote at `1e1262b9d3ee346f41ed4e6882bda2067a2002f7`
 on 2026-10-23. This refresh observes another documentation-only advance, not a
 base rewrite. No remote rewrite requiring a replacement plan was observed. The
 execution comparison is refreshed here; the existing baseline/dispatch blockers
@@ -213,6 +215,7 @@ executable sources. They remain unresolved evidence, not current passing gates:
 | `LEAN_NUM_THREADS=5 lake test` | Runner deadlines at 3,600 seconds (2026-10-22) and 600 seconds (earlier 2026-10-23 job), each last reporting 625/651 jobs; neither completed successfully. |
 | `make check_blaster` | Exit 0; 171 jobs in both earlier jobs. These were not the explicitly PATH-selected CI commands below. |
 | `LEAN_NUM_THREADS=5 ./scripts/check_lean_project_compilation.sh Tests` | `Tests/StateMachine/Counter06Z3.lean:59:0` reported a `#guard_msgs` mismatch and Lean exit 1; overall commands then hit the respective 3,600-/600-second deadlines. |
+| CI-pinned `make check_blaster` / `make check_tests` (exact PATH-selected commands below) | The immediately preceding report records exit 0 for both: 171 build jobs; 200 pure-tier and 611 Z3-tier jobs. Its default-driver attempt still timed out at 600 seconds. |
 
 The earlier reports did not establish the cause of the mismatch or timeouts.
 This refresh does not change that protected test or waive its expected outcome.
@@ -223,10 +226,10 @@ replacement for the supplied `make check_tests` repository gate.
 
 | Exact command | Observed outcome |
 | --- | --- |
-| `lake build Blaster` | Pass, exit 0; 171 jobs, 89.32 seconds. |
+| `lake build Blaster` | Pass, exit 0; 171 jobs, 91.31 seconds. |
 | `LEAN_NUM_THREADS=5 lake test` | Not green: runner deadline at 600 seconds (600.06 seconds observed), last reported progress 625/651 jobs; no successful suite completion. Used the default preinstalled solver environment, not the CI PATH below. |
-| `PATH="$(dirname "$(readlink -f /usr/local/bin/z3-4.15.2)"):/home/agent/.elan/bin:/usr/bin:/bin"; command -v z3 && z3 --version && make check_blaster` | Pass, exit 0; selected `/opt/z3-4.15.2-arm64-glibc-2.34/bin/z3`, version 4.15.2; clean compilation, 171 jobs, 90.34 seconds. |
-| `PATH="$(dirname "$(readlink -f /usr/local/bin/z3-4.15.2)"):/home/agent/.elan/bin:/usr/bin:/bin"; command -v z3 && z3 --version && make check_tests` | Pass, exit 0; same Z3 4.15.2; pure tier completed 200 jobs and Z3 tier completed 611 jobs; 180.99 seconds total. |
+| `PATH="$(dirname "$(readlink -f /usr/local/bin/z3-4.15.2)"):/home/agent/.elan/bin:/usr/bin:/bin"; command -v z3 && z3 --version && make check_blaster` | Pass, exit 0; selected `/opt/z3-4.15.2-arm64-glibc-2.34/bin/z3`, version 4.15.2; clean compilation, 171 jobs, 87.79 seconds. |
+| `PATH="$(dirname "$(readlink -f /usr/local/bin/z3-4.15.2)"):/home/agent/.elan/bin:/usr/bin:/bin"; command -v z3 && z3 --version && make check_tests` | Pass, exit 0; same Z3 4.15.2; pure tier completed 200 jobs and Z3 tier completed 611 jobs; 172.76 seconds total. |
 | `git diff --check` | Pass, exit 0; checked after the evidence/report refresh. |
 | `git rev-parse --verify refs/remotes/origin/agent/feat-cvc5-ff^{commit}` | Fail, exit 128: `fatal: Needed a single revision`; no remote or tracking ref is configured in this snapshot. |
 | `git merge-base --is-ancestor a69c5c266864a90064884519a5d208f5321cf379 HEAD` | Fail, exit 1 after fetching the public integration head; the supplied synthetic root is not a descendant. The separate check against `FETCH_HEAD` passed. |
@@ -241,8 +244,9 @@ The separate CI-pinned checks passed without changing code or tests.
 `Tests.StateMachine.Counter06Z3` built successfully in the Z3 4.15.2 tier; this
 does not establish the cause of the earlier default-environment message mismatch
 or make the incomplete default-driver gate pass. The successful test run emitted
-lifecycle diagnostic warnings and an `Undetermined` warning at
-`Tests/Smt/SmtNat/SmtNatMod.lean:41:56`; no warnings or expectations were suppressed.
+lifecycle diagnostic warnings; no warnings or expectations were suppressed.
+`Tests/Smt/SmtNat/SmtNatMod.lean:41:56` reported `Valid` in this run, unlike the
+preceding report's `Undetermined` warning; no source or expected result changed.
 No cvc5/support-floor/all-solvers lane or remote CI run is claimed. No solver
 environment repair, test expectation change or baseline waiver is part of this
 documentation job.
@@ -265,8 +269,14 @@ or maintainer approval occurred in this job. The separate FF workflow, FFM-02
 toolchain decisions and FFM-03 profile staging remain their own scoped work;
 production verified reconstruction remains post-merge M2.
 
-The inherited report records a failed local commit attempt because no Git author
-identity was configured. Both earlier reports are now present on the public
-integration lineage, as established above; that historical local failure is not
-evidence of absent publication. This refresh does not invent an author identity
-or claim a coordinator publication.
+The inherited report records a failed historical local commit attempt because no
+Git author identity was configured. The three earlier documentation commits are
+now present on the public integration lineage, as established above; that
+historical local failure is not evidence of absent publication. This refresh
+does not invent an author identity or claim a coordinator publication.
+
+Current local commit attempt:
+`git add docs/finite-fields/m1-execution-decision.md && git commit -m "Refresh M1 execution branch evidence and validation"`
+failed with exit 128, `Author identity unknown`. No author identity was invented
+or configured. The updated decision and report remain staged for the stack's
+owner-attributed commit; this job has not created a commit or published it.
