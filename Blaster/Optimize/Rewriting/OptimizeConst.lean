@@ -5,31 +5,39 @@ open Lean Meta Elab
 
 namespace Blaster.Optimize
 
-/-- Perform the following normalization on `l`
-    - When `l := .mvar m`
-       - When `some l := getLevelMVarAssignmentExp (← getMCtx) m`
-          - return l
-       - Otherwise
-          - return ⊥
-    - When `l := .succ l'`
-        - return .succ (← normLevel l')
-    - When `l := .max l1 l2`
-        - return .max (← normLevel l1) (← normLevel l2)
-    - When `l := .imax l1 l2`
-        - return .imax (← normLevel l1) (← normLevel l2)
-    - Otherwise
-        - return `l`
+/-- Perform the following instantiation on `l`:
+    - When `l := .mvar m`:
+       - When `some l' := getLevelMVarAssignmentExp (← getMCtx) m`:
+          - return `instantiateLevel l'`
+       - Otherwise:
+          - throw an error for the unresolved universe metavariable.
+    - When `l := .succ l'`:
+        - return `.succ (← instantiateLevel l')`
+    - When `l := .max l1 l2`:
+        - return `.max (← instantiateLevel l1) (← instantiateLevel l2)`
+    - When `l := .imax l1 l2`:
+        - return `.imax (← instantiateLevel l1) (← instantiateLevel l2)`
+    - Otherwise (`.param` or `.zero`):
+        - return `l`.
 -/
-partial def normLevel (l : Level) : TranslateEnvT Level := do
+private partial def instantiateLevel (l : Level) : TranslateEnvT Level := do
  match l with
  | .mvar m =>
       let some l := getLevelMVarAssignmentExp (← getMCtx) m
         | throwEnvError "normLevel: level assignment expected for meta variables {reprStr m}"
-      normLevel l
- | .succ l' => return .succ (← normLevel l')
- | .max l1 l2 => return .max (← normLevel l1) (← normLevel l2)
- | .imax l1 l2 => return .imax (← normLevel l1) (← normLevel l2)
+      instantiateLevel l
+ | .succ l' => return .succ (← instantiateLevel l')
+ | .max l1 l2 => return .max (← instantiateLevel l1) (← instantiateLevel l2)
+ | .imax l1 l2 => return .imax (← instantiateLevel l1) (← instantiateLevel l2)
  | _ => return l -- case for .param and .zero
+
+/-- Instantiate universe metavariables and normalize levels before sharing constants
+    and sorts. Equivalent spellings such as `max u v` and `max v u` should share the
+    same expression. Lean's normalization is incomplete, so a remaining structural
+    difference must still not be interpreted as semantic disequality.
+-/
+def normLevel (l : Level) : TranslateEnvT Level := do
+  return (← instantiateLevel l).normalize
 
 /-- Given `e := Expr.const n l, apply the following normalization rule:
      - When `n := Nat.zero` return `Expr.lit (Literal.natVal 0)`
