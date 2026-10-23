@@ -3,15 +3,16 @@
 A maintainer adds `agent:fix` to an open issue containing a fenced minimal
 reproducer. The bot reproduces the failure, looks for a general fix, preserves the
 original regression, documents relevant specifications, and opens a draft PR.
-It never merges. An Actions **Run workflow** entry point also accepts an issue
-number, from the default branch only.
+It never merges. The pilot starts from the issue's label menu; it has no separate
+manual Actions entry point.
 
 The report's **Target Branch** field selects both the implementation to test and
 the PR destination. If blank, an unambiguous legacy branch statement such as
 `Branch: release/foo` is recognized; otherwise the repository default is used.
 Code fences and hidden HTML comments do not select branches. Conflicting or
-unknown branches produce an issue diagnostic before model usage. The manual
-entry point has a maintainer override for the target branch.
+unknown branches produce an issue diagnostic before model usage. Maintainers can
+correct the issue's field and apply the label again. The reusable workflow also
+accepts an explicit `target-branch` input from trusted callers.
 
 At the start, the runner resolves the selected same-repository branch to an
 immutable commit. Baseline reproduction, the patch, and validation all use that
@@ -97,7 +98,7 @@ compiler crash is valid evidence when the reported bug itself is a crash.
 The portable skill, runner, report schema, and reusable workflow initially live
 in Lean-blaster. Each adopting repository needs:
 
-- `.github/workflows/agent-fix.yml`: its small label/manual trigger calling the
+- `.github/workflows/agent-fix.yml`: its small issue-label trigger calling the
   shared workflow.
 - `.github/agent-fix/config.json`: its trusted setup/test commands, editable and
   production paths, source extensions, regression naming and import convention,
@@ -116,9 +117,8 @@ For example, replace the `uses` and `with` portion of the local caller job with:
 ```yaml
 uses: input-output-hk/Lean-blaster/.github/workflows/agent-fix-run.yml@<reviewed-commit-sha>
 with:
-  issue-number: ${{ github.event.issue.number && format('{0}', github.event.issue.number) || inputs.issue-number }}
+  issue-number: ${{ format('{0}', github.event.issue.number) }}
   automation-ref: <reviewed-commit-sha>
-  target-branch: ${{ inputs.target-branch || '' }}
   model: ${{ vars.AGENT_FIX_MODEL || '' }}
 secrets:
   OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
