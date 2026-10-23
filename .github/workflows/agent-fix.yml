@@ -1,0 +1,35 @@
+name: Fix a small issue
+
+on:
+  issues:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      issue-number:
+        description: Open issue number with a minimal reproducer
+        required: true
+        type: string
+      target-branch:
+        description: Optional maintainer override of the issue's Target Branch
+        required: false
+        type: string
+
+permissions: {}
+
+jobs:
+  fix:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (!github.event.issue.pull_request && github.event.label.name == 'agent:fix')
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    uses: ./.github/workflows/agent-fix-run.yml
+    with:
+      issue-number: ${{ github.event.issue.number && format('{0}', github.event.issue.number) || inputs.issue-number }}
+      automation-ref: ${{ github.sha }}
+      target-branch: ${{ inputs.target-branch || '' }}
+      model: ${{ vars.AGENT_FIX_MODEL || '' }}
+    secrets:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

@@ -1,0 +1,221 @@
+name: Reusable small-issue fixer
+
+on:
+  workflow_call:
+    inputs:
+      issue-number:
+        required: true
+        type: string
+      automation-ref:
+        description: Reviewed commit SHA of the Lean-blaster automation helpers
+        required: true
+        type: string
+      model:
+        description: Optional organization-approved model; empty uses the Codex default
+        required: false
+        default: ''
+        type: string
+      target-branch:
+        description: Optional explicit maintainer override; otherwise read the issue's branch field
+        required: false
+        default: ''
+        type: string
+    secrets:
+      OPENAI_API_KEY:
+        required: true
+
+permissions: {}
+
+env:
+  AGENT_FIX_POLICY_ROOT: ${{ github.workspace }}/policy
+  AGENT_FIX_TARGET_ROOT: ${{ github.workspace }}/target
+
+concurrency:
+  group: agent-fix-${{ github.repository }}-${{ inputs.issue-number }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    outputs:
+      snapshot: ${{ steps.issue.outputs.snapshot }}
+      base_sha: ${{ steps.issue.outputs.base_sha }}
+      policy_sha: ${{ steps.issue.outputs.policy_sha }}
+      number: ${{ steps.issue.outputs.number }}
+    steps:
+      - name: Checkout trusted automation
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: input-output-hk/Lean-blaster
+          ref: ${{ inputs.automation-ref }}
+          path: automation
+          persist-credentials: false
+
+      - name: Authorize maintainer and freeze issue/base
+        id: issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          ISSUE_NUMBER: ${{ inputs.issue-number }}
+          AUTOMATION_REF: ${{ inputs.automation-ref }}
+          TARGET_BRANCH: ${{ inputs.target-branch }}
+        run: python3 automation/.github/agent-fix/bot.py prepare
+
+  agent:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    outputs:
+      report: ${{ steps.codex.outputs.final-message }}
+    steps:
+      - name: Checkout trusted automation
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: input-output-hk/Lean-blaster
+          ref: ${{ inputs.automation-ref }}
+          path: automation
+          persist-credentials: false
+
+      - name: Checkout target at the frozen base
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.prepare.outputs.base_sha }}
+          path: target
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout trusted repository policy
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.prepare.outputs.policy_sha }}
+          path: policy
+          persist-credentials: false
+
+      - name: Check API configuration
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "Configure OPENAI_API_KEY as a repository or organization Actions secret." >&2
+            exit 1
+          fi
+
+      - name: Materialize input and prepare toolchain
+        working-directory: target
+        env:
+          ISSUE_SNAPSHOT: ${{ needs.prepare.outputs.snapshot }}
+        run: |
+          python3 ../automation/.github/agent-fix/bot.py initialize
+          python3 ../automation/.github/agent-fix/bot.py setup
+
+      # Keep Codex last. Only its bounded JSON final-message crosses to other jobs;
+      # no subsequent agent-job shell or artifact-upload step inherits its state.
+      - name: Find a generic fix
+        id: codex
+        uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675 # v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          codex-version: '0.164.0'
+          working-directory: ${{ github.workspace }}/target
+          prompt-file: ${{ github.workspace }}/automation/.github/agent-fix/prompt.md
+          output-schema-file: ${{ github.workspace }}/automation/.github/agent-fix/REPORT_SCHEMA.json
+          permission-profile: ':workspace'
+          safety-strategy: drop-sudo
+          model: ${{ inputs.model }}
+          codex-args: '["--ephemeral"]'
+
+  validate:
+    needs: [prepare, agent]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    outputs:
+      checks: ${{ steps.check.outputs.checks }}
+    steps:
+      - name: Checkout trusted automation
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: input-output-hk/Lean-blaster
+          ref: ${{ inputs.automation-ref }}
+          path: automation
+          persist-credentials: false
+
+      - name: Checkout clean target base
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.prepare.outputs.base_sha }}
+          path: target
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout trusted repository policy
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.prepare.outputs.policy_sha }}
+          path: policy
+          persist-credentials: false
+
+      - name: Prepare the trusted base toolchain
+        if: ${{ fromJSON(needs.agent.outputs.report).status == 'fixed' }}
+        working-directory: target
+        run: python3 ../automation/.github/agent-fix/bot.py setup
+
+      - name: Replay original regression and validation
+        id: check
+        working-directory: target
+        env:
+          ISSUE_SNAPSHOT: ${{ needs.prepare.outputs.snapshot }}
+          MODEL_REPORT: ${{ needs.agent.outputs.report }}
+        run: python3 ../automation/.github/agent-fix/bot.py validate
+
+  publish:
+    needs: [prepare, agent, validate]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Checkout trusted automation
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: input-output-hk/Lean-blaster
+          ref: ${{ inputs.automation-ref }}
+          path: automation
+          persist-credentials: false
+
+      - name: Checkout clean publication base
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.prepare.outputs.base_sha }}
+          path: target
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout trusted repository policy
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.prepare.outputs.policy_sha }}
+          path: policy
+          persist-credentials: false
+
+      # This job applies/commits data and calls GitHub. It never compiles or
+      # executes the generated patch, its tests, or the model's reported commands.
+      - name: Publish a draft or diagnostic
+        working-directory: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          ISSUE_SNAPSHOT: ${{ needs.prepare.outputs.snapshot }}
+          MODEL_REPORT: ${{ needs.agent.outputs.report }}
+          VALIDATION_CHECKS: ${{ needs.validate.outputs.checks }}
+        run: python3 ../automation/.github/agent-fix/bot.py publish
