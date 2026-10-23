@@ -19,16 +19,17 @@ features (FFM-22).
 
 ## Branch evidence and dispatch limitation
 
-Observed on 2026-10-22 against the named public repository:
+Observed on 2026-10-23 against the named public repository:
 
 | Item | Exact observation |
 | --- | --- |
 | Reviewed base | `a69c5c266864a90064884519a5d208f5321cf379` |
-| Remote `refs/heads/agent/feat-cvc5-ff` | `a69c5c266864a90064884519a5d208f5321cf379` |
+| Remote `refs/heads/agent/feat-cvc5-ff` | `9635c22f6a9ef3a40ca9373915c4de5fc38d0ff9` |
 | Remote `refs/heads/feat/cvc5-concurrency` | `a69c5c266864a90064884519a5d208f5321cf379` |
-| Supplied checkout `HEAD` | Synthetic root `487f79daaf391868d0335f74fc795164ab0739bb` (`base`), on `master` |
+| Supplied checkout `HEAD` | Synthetic root `d87acb12e8a32ede279cb76eb9679f38f35173ea` (`base`), on `master` |
 | Configured remotes / required tracking ref | No configured remote; `refs/remotes/origin/agent/feat-cvc5-ff` absent |
-| Reviewed base and supplied snapshot tree | Both `ff2ccaa64af5e6334cbf96d35e3c6e60be134f84` |
+| Reviewed base tree | `ff2ccaa64af5e6334cbf96d35e3c6e60be134f84` |
+| Integration tip and supplied snapshot tree | Both `de0d84f234ab37ba6b6ba2fbb472b99b429ee215` before this refresh |
 
 Commands establishing the remote evidence:
 
@@ -36,18 +37,30 @@ Commands establishing the remote evidence:
 git ls-remote https://github.com/input-output-hk/lean-blaster.git refs/heads/agent/feat-cvc5-ff refs/heads/feat/cvc5-concurrency
 git fetch --no-tags https://github.com/input-output-hk/lean-blaster.git refs/heads/agent/feat-cvc5-ff
 git rev-parse FETCH_HEAD HEAD^{tree} a69c5c266864a90064884519a5d208f5321cf379^{tree}
-git diff --stat a69c5c266864a90064884519a5d208f5321cf379 HEAD
 git rev-list --left-right --count a69c5c266864a90064884519a5d208f5321cf379...FETCH_HEAD
 git merge-base --is-ancestor a69c5c266864a90064884519a5d208f5321cf379 FETCH_HEAD
+git log --format='%H %s' a69c5c266864a90064884519a5d208f5321cf379..FETCH_HEAD
+git diff --stat a69c5c266864a90064884519a5d208f5321cf379 FETCH_HEAD
+git diff --stat FETCH_HEAD HEAD
+git log --max-count=1 --format='%H %P %s' HEAD
 ```
 
-All six commands succeeded. Fetch populated only `FETCH_HEAD`, not a fabricated
-`origin` tracking ref. The remote integration tip equals the reviewed base:
-left/right commit counts are `0 / 0`, ancestry holds, and there are no source,
-test, script, CI, toolchain or documentation differences at that tip. No remote
-base rewrite was observed. The local snapshot also has an empty tree diff, but
-**tree identity is not Git ancestry**: the supplied synthetic root does not
-descend from the reviewed base.
+All commands above succeeded. Fetch populated only `FETCH_HEAD`, not a fabricated
+`origin` tracking ref. Left/right commit counts are `0 / 1`, and the reviewed base
+is an ancestor of the remote integration tip. The sole added commit is
+`9635c22f6a9ef3a40ca9373915c4de5fc38d0ff9`
+(`docs: record M1 finite-field execution contract and baseline blockers`).
+Its only difference from the reviewed base is this decision document, added with
+224 lines; executable source, tests, scripts, CI and toolchain are unchanged.
+The supplied snapshot has an empty tree diff against that integration tip, but
+**tree identity is not Git ancestry**: its synthetic root has no parents and does
+not descend from the reviewed base.
+
+The previous record observed the remote at the reviewed base on 2026-10-22.
+This refresh observes a one-commit documentation-only advance, not a base
+rewrite. No remote rewrite requiring a replacement plan was observed. The
+execution comparison is refreshed here; the existing baseline/dispatch blockers
+are not resolved by publication of the earlier report.
 
 The user-created branch's existence is a dispatch precondition, satisfied on
 the public remote but not by this clone's required tracking-ref/ancestry checks.
@@ -165,19 +178,21 @@ A newly required escape outside the approved exception is a stop condition.
 
 ## FFM-01 ticket report and job summary
 
-Change: documentation only, in this decision record. It fixes the execution
-topology, dependency-join rule, branch evidence, project boundary and stop
-conditions. No executable source, tests, scripts, workflow, PROJECT, solver pin
-or toolchain was changed. The report is retained in this same committed artifact.
+Change: documentation only, refreshing this existing decision record's remote
+head, ancestry comparison, checkout identity and validation report. The execution
+topology, dependency-join rule, project boundary and stop conditions remain the
+owner-supplied contract. No executable source, tests, scripts, workflow, PROJECT,
+solver pin or toolchain was changed. This section is the ticket report and job
+summary retained in the same artifact for the stack's owner-attributed commit.
 
-Observed setup: `lake --version` exited 0, reporting Lake
+Observed setup on 2026-10-23: `lake --version` exited 0, reporting Lake
 `5.0.0-src+797c613` / Lean `4.24.0`. `z3 --version` exited 0, reporting `5.1.0`
 (build `ca39e58c525c5b03c2484f118ade2b92fae31215`); `cvc5 --version` exited 0,
 reporting `1.4.1`, git `2b2e844`. These are observed preinstalled binaries, not
 changes to the CI pins or proof of FF-profile qualification. No solver was
 replaced or downloaded.
 
-### Local validation outcomes
+### Previous validation (2026-10-22; retained evidence, not current runs)
 
 | Exact command | Observed outcome |
 | --- | --- |
@@ -185,9 +200,9 @@ replaced or downloaded.
 | `LEAN_NUM_THREADS=5 lake test` | Not green: the command runner terminated the run at its 3,600-second deadline (3,600.11 seconds observed). Last reported progress was 625/651 jobs; no successful completion was observed. |
 | `make check_blaster` | Pass, exit 0; clean compilation check, 171 jobs, 86.69 seconds. |
 | `LEAN_NUM_THREADS=5 ./scripts/check_lean_project_compilation.sh Tests` | Not green: `Tests.StateMachine.Counter06Z3` reported a `#guard_msgs` mismatch and Lean exit 1; the overall command subsequently hit the 3,600-second runner deadline (3,600.11 seconds observed), last reported progress 625/651 jobs. |
-| `git diff --check` | Pass, exit 0; the final staged document is additionally checked with `git diff --cached --check`. |
+| `git diff --check` | Pass, exit 0; the previous staged document also passed `git diff --cached --check`. |
 | `git rev-parse --verify refs/remotes/origin/agent/feat-cvc5-ff^{commit}` | Fail, exit 128: `fatal: Needed a single revision`; the tracking ref is absent. Remote branch existence was independently established above. |
-| `git merge-base --is-ancestor a69c5c266864a90064884519a5d208f5321cf379 HEAD` | Fail, exit 1 after fetching the public base object: the local synthetic root has no such ancestry. Before fetching, the same command reported an invalid commit name. |
+| `git merge-base --is-ancestor a69c5c266864a90064884519a5d208f5321cf379 HEAD` | Fail, exit 1 after fetching the public base object: the previous synthetic root had no such ancestry. Before fetching, the same command reported an invalid commit name. |
 | `test -s docs/finite-fields/m1-execution-decision.md` | Pass, exit 0. |
 
 The executable tree was unchanged from the reviewed base during these checks.
@@ -198,6 +213,27 @@ does not match the generated induction-failure/counterexample messages. The
 underlying cause of that mismatch and of the overall timeouts was not established
 by this documentation job. No test, expected outcome, timeout setting in the
 repository or solver was altered; neither baseline gate is waived.
+
+### Current validation (2026-10-23)
+
+| Exact command | Observed outcome |
+| --- | --- |
+| `lake build Blaster` | Pass, exit 0; 171 jobs, 86.39 seconds. |
+| `LEAN_NUM_THREADS=5 lake test` | Not green: runner deadline at 600 seconds (600.13 seconds observed), last reported progress 625/651 jobs; no successful suite completion. |
+| `make check_blaster` | Pass, exit 0; clean compilation check, 171 jobs, 86.64 seconds. |
+| `LEAN_NUM_THREADS=5 ./scripts/check_lean_project_compilation.sh Tests` | Not green: `Tests/StateMachine/Counter06Z3.lean:59:0` reported a `#guard_msgs` mismatch and Lean exit 1; the overall command then hit its 600-second runner deadline (600.12 seconds observed), last progress 625/651 jobs. |
+| `git diff --check` | Pass, exit 0; checked after the evidence/report refresh. |
+| `git rev-parse --verify refs/remotes/origin/agent/feat-cvc5-ff^{commit}` | Fail, exit 128: `fatal: Needed a single revision`; no remote or tracking ref is configured in this snapshot. |
+| `git merge-base --is-ancestor a69c5c266864a90064884519a5d208f5321cf379 HEAD` | Fail, exit 1 after fetching the public integration head; the supplied synthetic root is not a descendant. The separate check against `FETCH_HEAD` passed. |
+| `test -s docs/finite-fields/m1-execution-decision.md` | Pass, exit 0. |
+
+Both current test commands ran unchanged against unchanged executable sources.
+Their 600-second command-runner deadlines bound these validation attempts; they
+are not a new test timeout policy or a replacement for full green gates. The
+earlier 3,600-second failures remain recorded above. The current compilation
+log again reports the existing `Counter06Z3` message mismatch; this job does not
+establish its cause. No solver environment repair, test expectation change or
+baseline waiver is part of this documentation job.
 
 ### Remaining work and publication status
 
@@ -216,9 +252,9 @@ or maintainer approval occurred in this job. The separate FF workflow, FFM-02
 toolchain decisions and FFM-03 profile staging remain their own scoped work;
 production verified reconstruction remains post-merge M2.
 
-Local commit attempt:
-`git commit -m "Record M1 integration execution contract" -- docs/finite-fields/m1-execution-decision.md`
-exited 128 because no Git author identity is configured. The decision/report is
-staged for the stack's owner-attributed commit; no identity was invented or
-configured and no local commit was created. The preceding `git diff --check`,
-`git diff --cached --check` and document-presence checks all exited 0.
+The previous job's local commit attempt,
+`git commit -m "Record M1 integration execution contract" -- docs/finite-fields/m1-execution-decision.md`,
+reported exit 128 because no Git author identity was configured. That historical
+local failure is not evidence that publication never happened: the current public
+integration tip now contains the earlier report, as established above. This
+refresh does not invent an author identity or claim a coordinator publication.
