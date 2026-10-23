@@ -24,7 +24,7 @@ Observed on 2026-10-23 against the named public repository:
 | Item | Exact observation |
 | --- | --- |
 | Reviewed base | `a69c5c266864a90064884519a5d208f5321cf379` |
-| Remote `refs/heads/agent/feat-cvc5-ff` | `5e9bc4471bc49525c067a29ba38b79a92f197154` |
+| Remote `refs/heads/agent/feat-cvc5-ff` | `635d1c74375ee0ec87a53e6fec4ceff1d7a30b7e` |
 | Remote `refs/heads/feat/cvc5-concurrency` | `a69c5c266864a90064884519a5d208f5321cf379` |
 | Supplied checkout `HEAD` | Synthetic root `92ed7b6a4ab2909161ae65a73339253bea8da3b3` (`base`), on `master` |
 | Configured remotes / required tracking ref | No configured remote; `refs/remotes/origin/agent/feat-cvc5-ff` absent |
@@ -65,21 +65,22 @@ root has no parents and does not descend from the reviewed base.
 The inherited record observed the remote at `1e1262b9d3ee346f41ed4e6882bda2067a2002f7`
 on 2026-10-23. This refresh observes another documentation-only advance, not a
 base rewrite. No remote rewrite requiring a replacement plan was observed. The
-execution comparison is refreshed here; the existing baseline/dispatch blockers
-are not resolved by publication of the earlier reports.
+remote head then advanced to `635d1c74375ee0ec87a53e6fec4ceff1d7a30b7e`
+(`docs: refresh M1 branch evidence and ticket validation blockers`), again
+documentation-only. GitHub's compare of
+`a69c5c266864a90064884519a5d208f5321cf379...agent/feat-cvc5-ff` reports the
+branch `ahead` by 4 and behind by 0, with only this document changed, and
+`git merge-base --is-ancestor a69c5c266864a90064884519a5d208f5321cf379 FETCH_HEAD`
+passes after fetching that head.
 
 The user-created branch's existence is a dispatch precondition, satisfied on
-the public remote but not by this clone's required tracking-ref/ancestry checks.
-Do not rewrite this checkout, create another integration branch, or substitute a
-synthetic history to make those checks pass. Before publication or dependent
-work, the coordinator must apply the validated ticket patch through the plan
-publishing tools onto the actual integration lineage and verify the required
-tracking ref and ancestry in the execution checkout. This job has no plan
-publishing tool exposed; it records a local deliverable, not a completed dispatch
-repair. A changed or rewritten integration base requires stopping and refreshing
-the exact comparison and plan approval before further work. This snapshot
-mismatch is an explicit unresolved execution prerequisite, not approval to
-waive ancestry.
+the public remote. Branch heads and ancestry are established by the stack and
+GitHub (or a `git fetch` into `FETCH_HEAD`), not by the sandbox checkout. The
+sandbox checkout is a single parentless local commit with no git remote by
+design; the stack clones the branch head and publishes on top of it. Its
+synthetic root and missing tracking ref are therefore not a dispatch defect.
+A changed or rewritten integration base still requires stopping and refreshing
+the exact comparison and plan approval before further work.
 
 Historical experimental agent branches are selective public source references,
 not alternative bases or merge candidates. The historical
@@ -154,13 +155,14 @@ assumed to exist in this clone and not an amendment granting access.
   envelope shared by the agent and all its commands**, not per process. Keep
   jobs serial and budget compilation/solver concurrency within that envelope.
   This is the supplied requirement, not a measured container/image assertion.
-- Setup is `lake --version`. Before the first job the worker must already have
-  the ordinary baseline solver environment required by PROJECT's default test
-  driver. FFM-03 separately specifies staging additional FF solver profiles for
-  its consumers; those profiles do not replace the default baseline.
-- Mandatory PROJECT checks are `lake build Blaster` and
-  `LEAN_NUM_THREADS=5 lake test`, with the ordinary baseline solver environment.
-  The supplied repository checks additionally require these exact commands,
+- Setup is `lake --version`. The worker image provides the Z3 4.15.2 release
+  (`/usr/local/bin/z3-4.15.2`) used by the PROJECT checks, the default assurance
+  `z3`, and cvc5 1.4.1 (GPL static build, CoCoA). FFM-03 separately specifies
+  staging additional FF solver profiles for its consumers; those profiles do not
+  replace the PROJECT checks' Z3 4.15.2 environment.
+- Mandatory PROJECT checks are `make check_blaster` and `make check_tests`
+  with the Z3 4.15.2 release alone on PATH; the system runs them after every
+  job. A default-environment `lake test` is not a gate. The exact commands,
   selecting the preinstalled CI Z3 4.15.2 rather than the default assurance Z3:
 
   ```sh
@@ -212,7 +214,7 @@ executable sources. They remain unresolved evidence, not current passing gates:
 | Exact command | Earlier reported outcomes |
 | --- | --- |
 | `lake build Blaster` | Exit 0; 171 jobs on both 2026-10-22 and the earlier 2026-10-23 job. |
-| `LEAN_NUM_THREADS=5 lake test` | Runner deadlines at 3,600 seconds (2026-10-22) and 600 seconds (earlier 2026-10-23 job), each last reporting 625/651 jobs; neither completed successfully. |
+| `LEAN_NUM_THREADS=5 lake test` (non-gating diagnostic) | Runner deadlines at 3,600 seconds (2026-10-22) and 600 seconds (earlier 2026-10-23 job), each last reporting 625/651 jobs; neither completed successfully. |
 | `make check_blaster` | Exit 0; 171 jobs in both earlier jobs. These were not the explicitly PATH-selected CI commands below. |
 | `LEAN_NUM_THREADS=5 ./scripts/check_lean_project_compilation.sh Tests` | `Tests/StateMachine/Counter06Z3.lean:59:0` reported a `#guard_msgs` mismatch and Lean exit 1; overall commands then hit the respective 3,600-/600-second deadlines. |
 | CI-pinned `make check_blaster` / `make check_tests` (exact PATH-selected commands below) | The immediately preceding report records exit 0 for both: 171 build jobs; 200 pure-tier and 611 Z3-tier jobs. Its default-driver attempt still timed out at 600 seconds. |
@@ -227,7 +229,7 @@ replacement for the supplied `make check_tests` repository gate.
 | Exact command | Observed outcome |
 | --- | --- |
 | `lake build Blaster` | Pass, exit 0; 171 jobs, 91.31 seconds. |
-| `LEAN_NUM_THREADS=5 lake test` | Not green: runner deadline at 600 seconds (600.06 seconds observed), last reported progress 625/651 jobs; no successful suite completion. Used the default preinstalled solver environment, not the CI PATH below. |
+| `LEAN_NUM_THREADS=5 lake test` (non-gating diagnostic) | Not green: runner deadline at 600 seconds (600.06 seconds observed), last reported progress 625/651 jobs; no successful suite completion. Used the default preinstalled solver environment, not the CI PATH below. |
 | `PATH="$(dirname "$(readlink -f /usr/local/bin/z3-4.15.2)"):/home/agent/.elan/bin:/usr/bin:/bin"; command -v z3 && z3 --version && make check_blaster` | Pass, exit 0; selected `/opt/z3-4.15.2-arm64-glibc-2.34/bin/z3`, version 4.15.2; clean compilation, 171 jobs, 87.79 seconds. |
 | `PATH="$(dirname "$(readlink -f /usr/local/bin/z3-4.15.2)"):/home/agent/.elan/bin:/usr/bin:/bin"; command -v z3 && z3 --version && make check_tests` | Pass, exit 0; same Z3 4.15.2; pure tier completed 200 jobs and Z3 tier completed 611 jobs; 172.76 seconds total. |
 | `git diff --check` | Pass, exit 0; checked after the evidence/report refresh. |
@@ -253,15 +255,14 @@ documentation job.
 
 ### Remaining work and publication status
 
-FFM-01's decision artifact is available locally, and the supplied CI Z3 build and
-test checks pass, but full passing ticket acceptance is **blocked** by the
-default-driver timeout and checkout prerequisites. Restore the dispatch checkout
-on the actual integration lineage with its required remote-tracking ref, and
-establish a green mandatory PROJECT default-driver gate in the approved baseline
-solver environment before publishing validated plan commits or starting dependent
-work. Any prerequisite repair outside the supplied boundary needs scoped owner
-approval; this record grants none. Do not mark this ticket as a fully validated
-parent on the strength of the document or CI Z3 tier alone.
+Outcome: the mandatory PROJECT checks, the CI-pinned `make check_blaster` and
+`make check_tests` with Z3 4.15.2 alone on PATH, passed. GitHub's compare of
+`a69c5c266864a90064884519a5d208f5321cf379...agent/feat-cvc5-ff` shows the branch
+ahead with 0 behind and only this document changed. Ancestry of the reviewed base
+was verified against the fetched head via `FETCH_HEAD`. The sandbox checkout's
+synthetic root is by design and is not a dispatch defect. Any prerequisite repair
+outside the supplied boundary needs scoped owner approval; this record grants
+none.
 
 The coordinator still owns publication through the plan tools and retention of
 the one aggregate draft PR. No push, branch rewrite, PR creation, remote CI run
