@@ -25,6 +25,8 @@ on:
         required: true
 
 permissions: {}
+# GitHub enforces this on scoped cache tokens, including code run during validation.
+cache-mode: none
 
 env:
   AGENT_FIX_POLICY_ROOT: ${{ github.workspace }}/policy

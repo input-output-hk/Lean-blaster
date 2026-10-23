@@ -17,6 +17,7 @@ on:
 
 permissions:
   contents: read
+cache-mode: none
 
 jobs:
   check:

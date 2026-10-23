@@ -124,7 +124,10 @@ secrets:
   OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 ```
 
-Retain the caller's event filter and declared permissions. Do not simply copy a
+Retain the caller's event filter, declared permissions, and `cache-mode: none`.
+GitHub enforces the cache restriction on scoped tokens; these runs cannot read
+or save Actions caches, including from target code executed during validation.
+Do not simply copy a
 Lean profile into Python, Rust, or other repositories: use the native regression
 path, test runner, comment syntax, and setup. The regression command runs the
 committed issue-specific file; the original command runs only its extracted
@@ -144,6 +147,8 @@ The preflight job checks maintainer permissions and can post a missing-reproduce
 or branch-selection diagnostic; it never executes target-branch code. The agent job has no repository write credentials. It uses the Codex action's
 protected API proxy, `drop-sudo`, and workspace permission profile; Codex is its
 last step. The final bounded JSON report contains the complete unified patch.
+Both workflows disable cache access with `cache-mode: none`; environment
+filtering alone is not the cache security boundary.
 The validation job starts from the selected branch's clean pinned base and reruns the configured
 commands without write credentials. The publisher starts from another clean base,
 rechecks the issue fingerprint and label, applies the constrained patch as data,
@@ -177,9 +182,13 @@ model outcomes produce a diagnostic on the issue.
 ```sh
 python3 -B -m unittest discover -s scripts -p 'test_agent_fix.py'
 bash -n .github/agent-fix/setup.sh
-actionlint .github/workflows/agent-fix.yml .github/workflows/agent-fix-run.yml .github/workflows/agent-fix-check.yml
+actionlint -ignore 'unexpected key "cache-mode" for "workflow" section' .github/workflows/agent-fix.yml .github/workflows/agent-fix-run.yml .github/workflows/agent-fix-check.yml
 git diff --check
 ```
+
+The narrow lint exception is for actionlint 1.7.12, which does not yet recognize
+GitHub's documented `cache-mode` key. Keep its value `none`; GitHub validates
+and enforces that setting. Remove the exception when actionlint supports it.
 
 These test the deterministic runner and workflow syntax. An end-to-end trial still
 requires a configured API project, GitHub permissions, a merged workflow, and a
