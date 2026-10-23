@@ -24,19 +24,19 @@ Observed on 2026-10-23 against the named public repository:
 | Item | Exact observation |
 | --- | --- |
 | Reviewed base | `a69c5c266864a90064884519a5d208f5321cf379` |
-| Remote `refs/heads/agent/feat-cvc5-ff` | `9635c22f6a9ef3a40ca9373915c4de5fc38d0ff9` |
+| Remote `refs/heads/agent/feat-cvc5-ff` | `1e1262b9d3ee346f41ed4e6882bda2067a2002f7` |
 | Remote `refs/heads/feat/cvc5-concurrency` | `a69c5c266864a90064884519a5d208f5321cf379` |
-| Supplied checkout `HEAD` | Synthetic root `d87acb12e8a32ede279cb76eb9679f38f35173ea` (`base`), on `master` |
+| Supplied checkout `HEAD` | Synthetic root `8b96d3f4d24260959febb9947c423800bbf37b46` (`base`), on `master` |
 | Configured remotes / required tracking ref | No configured remote; `refs/remotes/origin/agent/feat-cvc5-ff` absent |
 | Reviewed base tree | `ff2ccaa64af5e6334cbf96d35e3c6e60be134f84` |
-| Integration tip and supplied snapshot tree | Both `de0d84f234ab37ba6b6ba2fbb472b99b429ee215` before this refresh |
+| Integration tip and supplied snapshot tree | Both `42999850e24ca4f3a8eeee1e9076d17fe3543428` before this refresh |
 
 Commands establishing the remote evidence:
 
 ```sh
 git ls-remote https://github.com/input-output-hk/lean-blaster.git refs/heads/agent/feat-cvc5-ff refs/heads/feat/cvc5-concurrency
 git fetch --no-tags https://github.com/input-output-hk/lean-blaster.git refs/heads/agent/feat-cvc5-ff
-git rev-parse FETCH_HEAD HEAD^{tree} a69c5c266864a90064884519a5d208f5321cf379^{tree}
+git rev-parse FETCH_HEAD HEAD^{tree} FETCH_HEAD^{tree} a69c5c266864a90064884519a5d208f5321cf379^{tree}
 git rev-list --left-right --count a69c5c266864a90064884519a5d208f5321cf379...FETCH_HEAD
 git merge-base --is-ancestor a69c5c266864a90064884519a5d208f5321cf379 FETCH_HEAD
 git log --format='%H %s' a69c5c266864a90064884519a5d208f5321cf379..FETCH_HEAD
@@ -46,21 +46,25 @@ git log --max-count=1 --format='%H %P %s' HEAD
 ```
 
 All commands above succeeded. Fetch populated only `FETCH_HEAD`, not a fabricated
-`origin` tracking ref. Left/right commit counts are `0 / 1`, and the reviewed base
-is an ancestor of the remote integration tip. The sole added commit is
-`9635c22f6a9ef3a40ca9373915c4de5fc38d0ff9`
-(`docs: record M1 finite-field execution contract and baseline blockers`).
-Its only difference from the reviewed base is this decision document, added with
-224 lines; executable source, tests, scripts, CI and toolchain are unchanged.
-The supplied snapshot has an empty tree diff against that integration tip, but
-**tree identity is not Git ancestry**: its synthetic root has no parents and does
-not descend from the reviewed base.
+`origin` tracking ref. Left/right commit counts are `0 / 2`, and the reviewed base
+is an ancestor of the remote integration tip. The added commits, oldest first:
 
-The previous record observed the remote at the reviewed base on 2026-10-22.
-This refresh observes a one-commit documentation-only advance, not a base
-rewrite. No remote rewrite requiring a replacement plan was observed. The
+- `9635c22f6a9ef3a40ca9373915c4de5fc38d0ff9`
+  (`docs: record M1 finite-field execution contract and baseline blockers`).
+- `1e1262b9d3ee346f41ed4e6882bda2067a2002f7`
+  (`docs: refresh M1 execution evidence and baseline blockers`).
+
+Their cumulative difference from the reviewed base is only this decision
+document, added with 260 lines; executable source, tests, scripts, CI and
+toolchain are unchanged. The supplied snapshot has an empty tree diff against
+that integration tip, but **tree identity is not Git ancestry**: its synthetic
+root has no parents and does not descend from the reviewed base.
+
+The inherited record observed the remote at `9635c22f6a9ef3a40ca9373915c4de5fc38d0ff9`
+on 2026-10-23. This refresh observes another documentation-only advance, not a
+base rewrite. No remote rewrite requiring a replacement plan was observed. The
 execution comparison is refreshed here; the existing baseline/dispatch blockers
-are not resolved by publication of the earlier report.
+are not resolved by publication of the earlier reports.
 
 The user-created branch's existence is a dispatch precondition, satisfied on
 the public remote but not by this clone's required tracking-ref/ancestry checks.
@@ -153,12 +157,18 @@ assumed to exist in this clone and not an amendment granting access.
   driver. FFM-03 separately specifies staging additional FF solver profiles for
   its consumers; those profiles do not replace the default baseline.
 - Mandatory PROJECT checks are `lake build Blaster` and
-  `LEAN_NUM_THREADS=5 lake test`. Repository instructions additionally require
-  `make check_blaster`, then
-  `LEAN_NUM_THREADS=5 ./scripts/check_lean_project_compilation.sh Tests`.
-  Preserve those commands and their checks. The current inspected CI uses its
-  tiered solver commands as described above; the default driver alone is not
-  proof that all CI solver lanes passed.
+  `LEAN_NUM_THREADS=5 lake test`, with the ordinary baseline solver environment.
+  The supplied repository checks additionally require these exact commands,
+  selecting the preinstalled CI Z3 4.15.2 rather than the default assurance Z3:
+
+  ```sh
+  PATH="$(dirname "$(readlink -f /usr/local/bin/z3-4.15.2)"):/home/agent/.elan/bin:/usr/bin:/bin"; command -v z3 && z3 --version && make check_blaster
+  PATH="$(dirname "$(readlink -f /usr/local/bin/z3-4.15.2)"):/home/agent/.elan/bin:/usr/bin:/bin"; command -v z3 && z3 --version && make check_tests
+  ```
+
+  Preserve those commands and their checks. `make check_tests` runs the pure and
+  Z3 tiers; it does not run the cvc5, support-floor or all-solvers CI lanes. The
+  default driver alone is likewise not proof that all CI solver lanes passed.
 
 ## Stop conditions and trust boundary
 
@@ -192,59 +202,62 @@ reporting `1.4.1`, git `2b2e844`. These are observed preinstalled binaries, not
 changes to the CI pins or proof of FF-profile qualification. No solver was
 replaced or downloaded.
 
-### Previous validation (2026-10-22; retained evidence, not current runs)
+### Inherited baseline evidence (not runs from this refresh)
+
+The incoming decision record reports these earlier attempts against unchanged
+executable sources. They remain unresolved evidence, not current passing gates:
+
+| Exact command | Earlier reported outcomes |
+| --- | --- |
+| `lake build Blaster` | Exit 0; 171 jobs on both 2026-10-22 and the earlier 2026-10-23 job. |
+| `LEAN_NUM_THREADS=5 lake test` | Runner deadlines at 3,600 seconds (2026-10-22) and 600 seconds (earlier 2026-10-23 job), each last reporting 625/651 jobs; neither completed successfully. |
+| `make check_blaster` | Exit 0; 171 jobs in both earlier jobs. These were not the explicitly PATH-selected CI commands below. |
+| `LEAN_NUM_THREADS=5 ./scripts/check_lean_project_compilation.sh Tests` | `Tests/StateMachine/Counter06Z3.lean:59:0` reported a `#guard_msgs` mismatch and Lean exit 1; overall commands then hit the respective 3,600-/600-second deadlines. |
+
+The earlier reports did not establish the cause of the mismatch or timeouts.
+This refresh does not change that protected test or waive its expected outcome.
+The previously used Tests compilation command is historical evidence, not a
+replacement for the supplied `make check_tests` repository gate.
+
+### Current refresh validation (2026-10-23)
 
 | Exact command | Observed outcome |
 | --- | --- |
-| `lake build Blaster` | Pass, exit 0; 171 jobs, 87.77 seconds. |
-| `LEAN_NUM_THREADS=5 lake test` | Not green: the command runner terminated the run at its 3,600-second deadline (3,600.11 seconds observed). Last reported progress was 625/651 jobs; no successful completion was observed. |
-| `make check_blaster` | Pass, exit 0; clean compilation check, 171 jobs, 86.69 seconds. |
-| `LEAN_NUM_THREADS=5 ./scripts/check_lean_project_compilation.sh Tests` | Not green: `Tests.StateMachine.Counter06Z3` reported a `#guard_msgs` mismatch and Lean exit 1; the overall command subsequently hit the 3,600-second runner deadline (3,600.11 seconds observed), last reported progress 625/651 jobs. |
-| `git diff --check` | Pass, exit 0; the previous staged document also passed `git diff --cached --check`. |
-| `git rev-parse --verify refs/remotes/origin/agent/feat-cvc5-ff^{commit}` | Fail, exit 128: `fatal: Needed a single revision`; the tracking ref is absent. Remote branch existence was independently established above. |
-| `git merge-base --is-ancestor a69c5c266864a90064884519a5d208f5321cf379 HEAD` | Fail, exit 1 after fetching the public base object: the previous synthetic root had no such ancestry. Before fetching, the same command reported an invalid commit name. |
-| `test -s docs/finite-fields/m1-execution-decision.md` | Pass, exit 0. |
-
-The executable tree was unchanged from the reviewed base during these checks.
-The default test run's timeout is an unresolved baseline validation failure, not
-a passing test suite. The subsequent Tests compilation gate's `build.log`
-identifies `Tests/StateMachine/Counter06Z3.lean:59:0`: the `#guard_msgs` docstring
-does not match the generated induction-failure/counterexample messages. The
-underlying cause of that mismatch and of the overall timeouts was not established
-by this documentation job. No test, expected outcome, timeout setting in the
-repository or solver was altered; neither baseline gate is waived.
-
-### Current validation (2026-10-23)
-
-| Exact command | Observed outcome |
-| --- | --- |
-| `lake build Blaster` | Pass, exit 0; 171 jobs, 86.39 seconds. |
-| `LEAN_NUM_THREADS=5 lake test` | Not green: runner deadline at 600 seconds (600.13 seconds observed), last reported progress 625/651 jobs; no successful suite completion. |
-| `make check_blaster` | Pass, exit 0; clean compilation check, 171 jobs, 86.64 seconds. |
-| `LEAN_NUM_THREADS=5 ./scripts/check_lean_project_compilation.sh Tests` | Not green: `Tests/StateMachine/Counter06Z3.lean:59:0` reported a `#guard_msgs` mismatch and Lean exit 1; the overall command then hit its 600-second runner deadline (600.12 seconds observed), last progress 625/651 jobs. |
+| `lake build Blaster` | Pass, exit 0; 171 jobs, 89.32 seconds. |
+| `LEAN_NUM_THREADS=5 lake test` | Not green: runner deadline at 600 seconds (600.06 seconds observed), last reported progress 625/651 jobs; no successful suite completion. Used the default preinstalled solver environment, not the CI PATH below. |
+| `PATH="$(dirname "$(readlink -f /usr/local/bin/z3-4.15.2)"):/home/agent/.elan/bin:/usr/bin:/bin"; command -v z3 && z3 --version && make check_blaster` | Pass, exit 0; selected `/opt/z3-4.15.2-arm64-glibc-2.34/bin/z3`, version 4.15.2; clean compilation, 171 jobs, 90.34 seconds. |
+| `PATH="$(dirname "$(readlink -f /usr/local/bin/z3-4.15.2)"):/home/agent/.elan/bin:/usr/bin:/bin"; command -v z3 && z3 --version && make check_tests` | Pass, exit 0; same Z3 4.15.2; pure tier completed 200 jobs and Z3 tier completed 611 jobs; 180.99 seconds total. |
 | `git diff --check` | Pass, exit 0; checked after the evidence/report refresh. |
 | `git rev-parse --verify refs/remotes/origin/agent/feat-cvc5-ff^{commit}` | Fail, exit 128: `fatal: Needed a single revision`; no remote or tracking ref is configured in this snapshot. |
 | `git merge-base --is-ancestor a69c5c266864a90064884519a5d208f5321cf379 HEAD` | Fail, exit 1 after fetching the public integration head; the supplied synthetic root is not a descendant. The separate check against `FETCH_HEAD` passed. |
 | `test -s docs/finite-fields/m1-execution-decision.md` | Pass, exit 0. |
 
-Both current test commands ran unchanged against unchanged executable sources.
-Their 600-second command-runner deadlines bound these validation attempts; they
-are not a new test timeout policy or a replacement for full green gates. The
-earlier 3,600-second failures remain recorded above. The current compilation
-log again reports the existing `Counter06Z3` message mismatch; this job does not
-establish its cause. No solver environment repair, test expectation change or
-baseline waiver is part of this documentation job.
+The default-driver attempt used unchanged executable sources and the ordinary
+preinstalled solver environment. Its 600-second command-runner deadline is a
+bounded validation attempt, not a new repository timeout policy or a green gate.
+The inherited longer default-environment timeout remains unresolved.
+
+The separate CI-pinned checks passed without changing code or tests.
+`Tests.StateMachine.Counter06Z3` built successfully in the Z3 4.15.2 tier; this
+does not establish the cause of the earlier default-environment message mismatch
+or make the incomplete default-driver gate pass. The successful test run emitted
+lifecycle diagnostic warnings and an `Undetermined` warning at
+`Tests/Smt/SmtNat/SmtNatMod.lean:41:56`; no warnings or expectations were suppressed.
+No cvc5/support-floor/all-solvers lane or remote CI run is claimed. No solver
+environment repair, test expectation change or baseline waiver is part of this
+documentation job.
 
 ### Remaining work and publication status
 
-FFM-01's decision artifact is available locally, but its full passing validation
-acceptance is **blocked**. Restore the dispatch checkout on the actual integration
-lineage with its required remote-tracking ref, and establish green applicable
-baseline test/compilation gates in the approved solver environment before
-publishing validated plan commits or starting dependent work. Any prerequisite repair
-outside the supplied boundary needs scoped owner approval; this record grants
-none. Do not mark this ticket as a fully validated parent on the strength of the
-document alone.
+FFM-01's decision artifact is available locally, and the supplied CI Z3 build and
+test checks pass, but full passing ticket acceptance is **blocked** by the
+default-driver timeout and checkout prerequisites. Restore the dispatch checkout
+on the actual integration lineage with its required remote-tracking ref, and
+establish a green mandatory PROJECT default-driver gate in the approved baseline
+solver environment before publishing validated plan commits or starting dependent
+work. Any prerequisite repair outside the supplied boundary needs scoped owner
+approval; this record grants none. Do not mark this ticket as a fully validated
+parent on the strength of the document or CI Z3 tier alone.
 
 The coordinator still owns publication through the plan tools and retention of
 the one aggregate draft PR. No push, branch rewrite, PR creation, remote CI run
@@ -252,9 +265,8 @@ or maintainer approval occurred in this job. The separate FF workflow, FFM-02
 toolchain decisions and FFM-03 profile staging remain their own scoped work;
 production verified reconstruction remains post-merge M2.
 
-The previous job's local commit attempt,
-`git commit -m "Record M1 integration execution contract" -- docs/finite-fields/m1-execution-decision.md`,
-reported exit 128 because no Git author identity was configured. That historical
-local failure is not evidence that publication never happened: the current public
-integration tip now contains the earlier report, as established above. This
-refresh does not invent an author identity or claim a coordinator publication.
+The inherited report records a failed local commit attempt because no Git author
+identity was configured. Both earlier reports are now present on the public
+integration lineage, as established above; that historical local failure is not
+evidence of absent publication. This refresh does not invent an author identity
+or claim a coordinator publication.
