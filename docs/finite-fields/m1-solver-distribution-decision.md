@@ -44,10 +44,21 @@ approve exact artifact rows and immutable image digest/acquisition-stage scope.
 A rejection requires a revised distribution decision, not silently using another
 binary. This job neither contacts maintainers nor publishes artifacts.
 
+Approval must be recorded here with the maintainer's decision reference/date,
+accepted operator and build-owner names, exact approved artifact rows, supported
+execution platforms, and provisioning route/image digest. A successful check,
+publication of this document, or serial integration-branch append is not that
+approval. Until then the approved artifact set and approved provisioning routes
+are **empty**; the commands below are a concrete proposal, not authorization.
+FFM-09/FFM-10 must remain blocked even if this documentation's PROJECT checks pass.
+
 ## Evidence and comparison
 
-Observed on 2026-10-23. Public references were read and release archives fetched;
-**no external repository was cloned or built**.
+The incoming record reports the following observations on 2026-10-23 from
+public references and downloaded release archives; **no external repository
+was cloned or built**. Binary execution and executable hashes below are inherited
+evidence, not fresh runs in this refresh. Current metadata checks and repository
+validation are recorded separately in the ticket report.
 
 - The [ordinary workflow](../../.github/workflows/ci-linux.yaml) retains
   cvc5 **1.3.4**, support floor **1.2.1**, and Z3 **4.15.2**, including the
@@ -213,8 +224,29 @@ hash from the failed download or choose another release automatically.
   cp -a /opt/finite-fields .artifacts/finite-fields
   ```
 
-  Recheck both SHA-256 values using the commands above against this copied tree.
-  No global `cvc5` symlink or PATH replacement is part of provisioning.
+  For the proposed Linux x86_64 pair, the exact offline recheck from the checkout
+  root is:
+
+  ```sh
+  set -eu
+  printf '%s  %s\n' \
+    3428c8b4f125f17ac9dbd901e1ebb33d002619e7b67d34143b2bf44e801b37c5 \
+    .artifacts/finite-fields/solve/linux-x86_64/archive.zip \
+    278058af5c6fc5ca42d79217b3b2096eb1f4ba9efd5b92345434f781a1d8773a \
+    .artifacts/finite-fields/solve/linux-x86_64/payload/cvc5-Linux-x86_64-static-gpl/bin/cvc5 \
+    918361fcee2e1d3c64be5d20eb62156aaee73943df3ae7aa62d58f199b6785dc \
+    .artifacts/finite-fields/proof/linux-x86_64/archive.zip \
+    514ccdaea9e4a5a0eb7d3be2e89b9d6fc893e3560d0f536cbe5e122ef6376a61 \
+    .artifacts/finite-fields/proof/linux-x86_64/payload/cvc5-Linux-x86_64-static/bin/cvc5 \
+    | sha256sum --check --strict -
+  test -x .artifacts/finite-fields/solve/linux-x86_64/payload/cvc5-Linux-x86_64-static-gpl/bin/cvc5
+  test -x .artifacts/finite-fields/proof/linux-x86_64/payload/cvc5-Linux-x86_64-static/bin/cvc5
+  ```
+
+  These checks read only the copied tree and do not reacquire missing artifacts.
+  They verify bytes/permissions, not execution-platform or proof capability.
+  ARM solving uses its separate row above; it still needs an approved proof
+  execution route. No global `cvc5` symlink or PATH replacement is permitted.
 - **First FFM-09 sandbox:** image/operator stages bytes and the approved identity
   inventory first, without relying on FFM-09 code or a not-yet-created manifest.
   The job then implements manifests/probes against those preexisting inputs.
@@ -277,15 +309,16 @@ dependencies, or claim the mutable `clean-wip` source reproduces `b1f8abb` here.
 
 ## FFM-03 ticket report and job summary
 
-Change: add this decision record only. It compares tested existing-version GPL
-assets against an independently pinned proof candidate, rejects the unusable
-fork ARM asset, records policy/ownership blockers and defines the initial
-provisioning and profile-relative consumer contract. No manifests, protocol
-scripts, workflows, Lean code, tests, pins or protected files are changed.
+Change in this refresh: clarify the approval/dispatch gate, add exact offline
+hash/permission checks for the proposed x86 pair, and separate inherited binary
+evidence from current metadata and repository validation. The existing record's
+candidate choices, rejected fork ARM asset and profile-relative contract are
+retained. No manifests, protocol scripts, workflows, Lean code, tests, pins or
+protected files are changed.
 This section is the ticket report and job summary retained for the stack's
 commit; no publication, maintainer consent or completed FFM-09 gate is claimed.
 
-### Reproduction commands and observed outcomes
+### Inherited reproduction commands and observed outcomes
 
 Research used `.artifacts/ffm03-research` temporarily, not the approved consumer
 tree. Four downloads used `curl -fL --retry 2 -o <archive> <exact URL above>`;
@@ -345,10 +378,11 @@ The proposed operator staging commands were documented, **not executed as
 approved provisioning**. Temporary research downloads/inputs are removed after
 inspection; no binaries or experimental manifests enter the commit.
 
-### Repository validation
+### Inherited repository validation
 
-Commands from the repository root, using the prescribed CI Z3 PATH rather than
-the default assurance solver:
+The incoming record reports these earlier commands from the repository root,
+using the prescribed CI Z3 PATH rather than the default assurance solver.
+These are historical results, not this refresh's runs:
 
 | Exact command | Outcome |
 | --- | --- |
@@ -363,6 +397,36 @@ to the ticket's `rg -n` predicate). It matched Z3 4.15.2 at line 16, cvc5 1.3.4
 at line 18, and floor 1.2.1 at line 19, plus the floor lane references. The
 workflow was not edited. No default-environment `lake test` was run. Local
 PROJECT checks do not run remote CI or the ordinary cvc5/floor/all-solvers lanes.
+
+### Current refresh evidence
+
+The HTTPS reader retrieved the two release APIs linked above, the upstream
+[x86 asset API](https://api.github.com/repos/cvc5/cvc5/releases/assets/414514204),
+and the fork tag API. Release IDs, mutable-release status, the three proposed
+archive names/IDs/digests/download URLs, and the rejected ARM archive metadata
+still match this record. The fork tag still resolves to `f011843...`, not the
+proof executable's reported `b1f8abb...` revision. Metadata does not establish
+executable hashes, provenance or capability.
+
+The filesystem lookup `.artifacts/**` found no `.artifacts` directory in this
+refresh. Neither profile is staged here. No archive was downloaded, no solver
+smoke was rerun, and no source build or approved provisioning was performed.
+The inherited failure of the fork ARM binary remains a rejection, not a reason
+to rerun or waive that capability check.
+
+Current validation, run from the repository root on 2026-10-23:
+
+| Exact command / check | Observed outcome |
+| --- | --- |
+| `PATH="$(dirname "$(readlink -f /usr/local/bin/z3-4.15.2)"):/home/agent/.elan/bin:/usr/bin:/bin"; command -v z3 && z3 --version && make check_blaster` | Pass; selected `/opt/z3-4.15.2-arm64-glibc-2.34/bin/z3`, version 4.15.2; 171 jobs, 86.83 seconds. |
+| `PATH="$(dirname "$(readlink -f /usr/local/bin/z3-4.15.2)"):/home/agent/.elan/bin:/usr/bin:/bin"; command -v z3 && z3 --version && make check_tests` | Pass; same Z3 4.15.2; pure tier 200 jobs and Z3 tier 611 jobs, 172.36 seconds total. Lifecycle model-response warnings were emitted; no check or expectation was changed. |
+| `git diff --check && test -s docs/finite-fields/m1-solver-distribution-decision.md` | Pass, exit 0. |
+| `bash -n`, each of this document's five `sh` fenced blocks supplied separately on stdin | Pass, all five exited 0. Syntax only: acquisition, copy and offline verification were not executed against staged profiles. |
+| Repository search, pattern `1\.3\.4\|1\.2\.1\|4\.15\.2` with regex alternatives (unescaped pipes), path `.github/workflows/ci-linux.yaml` | Matches at lines 16, 18, 19, 41, 138 and 139; ordinary pins remain unchanged. This uses the search tool rather than shell `rg`. |
+
+No default-environment `lake test`, remote CI, ordinary cvc5/floor/all-solvers
+lane, or new FF capability run is claimed. The passing PROJECT checks validate
+the unchanged core and pure/Z3 tiers, not the proposed distribution's approval.
 
 ### Remaining prerequisites
 
