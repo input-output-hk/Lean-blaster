@@ -28,3 +28,5 @@ lean_lib BlasterCliPlatform where
 
 lean_exe «lean-blaster» where
   root := `BlasterCli
+  -- Source elaboration interprets initializers, macros, tactics, and #eval.
+  supportInterpreter := true

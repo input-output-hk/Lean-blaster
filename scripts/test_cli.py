@@ -148,6 +148,16 @@ for line in sys.stdin:
         file = self.source('#eval IO.println "source output"\n#blaster [True]\n')
         self.report("check", file)
 
+    def test_interpreted_source_can_call_native_lean_functions(self):
+        file = self.source('#eval do\n'
+                           '  let bytes ← IO.getRandomBytes 16\n'
+                           '  unless bytes.size == 16 do\n'
+                           '    throw (IO.userError "unexpected random byte count")\n'
+                           '#blaster [True]\n')
+        data = self.report("check", file)
+        self.assertEqual(data["results"][0]["status"], "valid")
+        self.assertFalse(any(d["severity"] == "error" for d in data["diagnostics"]))
+
     @unittest.skipIf(os.name == "nt", "Uses a POSIX subprocess")
     def test_source_subprocess_stdout_cannot_pollute_json(self):
         file = self.source('#eval do\n'
