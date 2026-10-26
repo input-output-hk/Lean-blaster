@@ -195,9 +195,10 @@ def Renderer.finish (r : Renderer) (report : Report) : IO Unit := do
         r.err.putStrLn s!"    {location.file}:{location.line}:{location.column}"
     let count (status : String) := report.results.filter (·.status == status) |>.size
     let errors := count "error" + (report.diagnostics.filter (·.severity == "error")).size
+    let errorWord := if errors == 1 then "error" else "errors"
     let completion := if report.interrupted then "I stopped" else "We're done"
     let skipped := if count "skipped" == 0 then "" else s!", {count "skipped"} not checked"
-    r.out.putStrLn s!"\n  {completion}: {count "valid"} valid, {count "falsified"} falsified, {count "undetermined"} undetermined, {errors} errors{skipped}"
+    r.out.putStrLn s!"\n  {completion}: {count "valid"} valid, {count "falsified"} falsified, {count "undetermined"} undetermined, {errors} {errorWord}{skipped}"
     if count "valid" > 0 then
       r.out.putStrLn s!"  {r.tintOut "warning" "warning"}: {report.trust}"
    r.out.flush

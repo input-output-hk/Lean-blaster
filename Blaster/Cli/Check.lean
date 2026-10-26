@@ -45,7 +45,7 @@ def checkFile (cfg : Config) (renderer : Renderer) : IO Report := do
   if !messages.hasErrors && !moduleHeader.imports.isEmpty && cfg.declarations.isEmpty &&
       (input.extract parserState.pos input.endPos).trim.isEmpty then
     return { diagnostics := #[{ severity := "error", message :=
-      "I found only imports in this file, so there are no checks for me to report here. Check a leaf file containing '#blaster' or 'by blaster', or run 'lake test' for the imported test suite." }] }
+      "I found only imports in this file, so I have no direct checks to report.\n\n  Check a leaf file with '#blaster' or 'by blaster'.\n  To run the imported test suite, use 'lake test'." }] }
   let setup : Option ModuleSetup ← if messages.hasErrors then pure none else
     prepareImports cfg moduleHeader renderer.setStage renderer.buildOutput
   if let some setup := setup then setup.dynlibs.forM Lean.loadDynlib
