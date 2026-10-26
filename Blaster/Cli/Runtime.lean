@@ -112,6 +112,33 @@ def prepareImports (cfg : Config) (header : ModuleHeader)
   onStage "I'm elaborating the Lean file"
   return some setup
 
+/-- Lake may ask us to load the project's Blaster plugin even though this executable
+    already contains Blaster. Only reuse the executable's native code when every
+    imported Blaster module is byte-for-byte the same as its installed artifact. -/
+def reconcileBlasterPlugin (setup : ModuleSetup) : IO ModuleSetup := do
+  let isBlasterPlugin (path : System.FilePath) : Bool :=
+    ["libBlaster.dylib", "libBlaster.so", "Blaster.dll"].contains (path.fileName.getD "")
+  unless setup.plugins.any isBlasterPlugin do return setup
+  let bin ← Smt.installationBin
+  let ownLib := bin / ".." / "lib" / "lean"
+  let mut found := false
+  for (name, arts) in setup.importArts.toList do
+    let moduleName := name.toString
+    if moduleName == "Blaster" || moduleName.startsWith "Blaster." then
+      found := true
+      let projectOlean ← match arts.olean? with
+        | some path => pure path
+        | none => throw (IO.userError s!"I couldn't identify the compiled artifact for {moduleName} in this project's Blaster dependency.")
+      let ownOlean := ownLib / s!"{moduleName.replace "." "/"}.olean"
+      let identical ← if ← ownOlean.pathExists then do
+        pure ((← IO.FS.readBinFile ownOlean) == (← IO.FS.readBinFile projectOlean))
+      else pure false
+      unless identical do
+        throw <| IO.userError s!"This project uses a different Blaster build ({projectOlean}). I can't load it alongside my own Blaster code. Point the project's Blaster dependency at the revision used to install lean-blaster, rebuild its dependencies, and try again."
+  unless found do
+    throw <| IO.userError "Lake selected a Blaster plugin without matching module artifacts. I can't safely load it alongside my own Blaster code."
+  return { setup with plugins := setup.plugins.filter (!isBlasterPlugin ·) }
+
 def initLibraries (cfg : Config) : IO Unit := do
   let bin ← Smt.installationBin
   let ownLib := bin / ".." / "lib" / "lean"

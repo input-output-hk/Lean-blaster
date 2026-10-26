@@ -42,6 +42,14 @@ says "I'm preparing your dependencies"; build logs go to stderr. The selected so
 is not compiled first and then checked a second time. `--no-build` uses existing
 compiled imports and reports a recovery action when they are missing.
 
+If a project also declares Blaster as a Lake dependency, its compiled Blaster modules
+must match those bundled with the installed executable. Lean cannot initialize two
+different builds of the same module in one process. The CLI checks the imported
+Blaster artifacts before loading the project's native plugin; for matching builds it
+uses its own already initialized code. For a mismatch, update the project's Blaster
+dependency to the revision used for the CLI installation and rebuild the project's
+dependencies, or install a CLI built from the project's Blaster revision.
+
 Try `check examples/Properties.lean` for a valid tactic result, a counterexample,
 and an unresolved optimizer-only check. This demonstration intentionally exits 1
 because one property is false. Select just the valid example with

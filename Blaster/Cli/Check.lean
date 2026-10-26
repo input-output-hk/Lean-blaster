@@ -86,6 +86,7 @@ private partial def checkSource (cfg : Config) (renderer : Renderer)
     return report
   let setup : Option ModuleSetup ← if messages.hasErrors then pure none else
     prepareImports cfg moduleHeader renderer.setStage renderer.buildOutput
+  let setup ← setup.mapM reconcileBlasterPlugin
   if let some setup := setup then setup.dynlibs.forM Lean.loadDynlib
   let opts := (setup.map (fun setup => setup.options.toOptions) |>.getD ({} : Lean.Options))
     |>.setBool `blaster.cli.capture true
