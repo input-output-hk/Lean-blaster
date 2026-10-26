@@ -39,8 +39,15 @@ def checkFile (cfg : Config) (renderer : Renderer) : IO Report := do
   let input ← IO.FS.readFile file
   let inputCtx := Parser.mkInputContext input file
   let (header, parserState, messages) ← Parser.parseHeader inputCtx
+  let moduleHeader := HeaderSyntax.toModuleHeader header
+  -- An import-only umbrella has no direct checks to report. Avoid compiling its
+  -- entire import graph merely to discover that fact after the build.
+  if !messages.hasErrors && !moduleHeader.imports.isEmpty && cfg.declarations.isEmpty &&
+      (input.extract parserState.pos input.endPos).trim.isEmpty then
+    return { diagnostics := #[{ severity := "error", message :=
+      "I found only imports in this file, so there are no checks for me to report here. Check a leaf file containing '#blaster' or 'by blaster', or run 'lake test' for the imported test suite." }] }
   let setup : Option ModuleSetup ← if messages.hasErrors then pure none else
-    prepareImports cfg (HeaderSyntax.toModuleHeader header) renderer.setStage renderer.buildOutput
+    prepareImports cfg moduleHeader renderer.setStage renderer.buildOutput
   if let some setup := setup then setup.dynlibs.forM Lean.loadDynlib
   let opts := (setup.map (fun setup => setup.options.toOptions) |>.getD ({} : Lean.Options))
     |>.setBool `blaster.cli.capture true

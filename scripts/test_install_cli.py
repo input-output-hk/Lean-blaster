@@ -102,6 +102,30 @@ class InstalledCli(unittest.TestCase):
         data = self.run_report("check", source, expected=4)
         self.assertTrue(any("couldn't prepare this file's imports" in d["message"] for d in data["diagnostics"]))
 
+    def test_import_only_file_does_not_build_suite_and_build_logs_stay_quiet(self):
+        project = self.directory / "umbrella project"
+        project.mkdir()
+        (project / "lakefile.toml").write_text('name = "umbrella"\n[[lean_lib]]\nname = "App"\n')
+        (project / "lean-toolchain").write_text("leanprover/lean4:v4.24.0\n")
+        (project / "App.lean").write_text('#eval ("dependency marker" : String)\n'
+                                            'def projectValue : Nat := 42\n')
+        umbrella = project / "Umbrella.lean"
+        umbrella.write_text("import App\n")
+        compiled = project / ".lake/build/lib/lean/App.olean"
+        empty = self.run_report("check", umbrella, expected=4)
+        self.assertTrue(any("only imports" in d["message"] for d in empty["diagnostics"]))
+        self.assertFalse(compiled.exists())
+
+        source = project / "Properties.lean"
+        source.write_text("import Blaster\nimport App\n#blaster [projectValue = 42]\n")
+        process = subprocess.run([str(self.command), "check", str(source)],
+                                 cwd=self.directory, env=self.environment,
+                                 text=True, capture_output=True, timeout=60)
+        self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
+        self.assertTrue(compiled.exists())
+        self.assertIn("Valid", process.stdout)
+        self.assertNotIn("dependency marker", process.stdout + process.stderr)
+
     @unittest.skipIf(os.name == "nt", "Uses POSIX process-group cancellation")
     def test_interrupt_during_dependency_build(self):
         project = self.directory / "interrupted dependency project"

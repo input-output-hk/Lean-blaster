@@ -99,12 +99,13 @@ State-machine commands retain their existing diagnostics; structured BMC and
 k-induction reporting is outside this milestone. A file with no captured or selected
 checks exits unsuccessfully rather than reporting a vacuous success.
 
-An umbrella such as `Tests/Smt/SmtNat.lean` imports test modules. Preparing those
-imports can execute their build-time checks when compilation is needed, but loading
-cached modules does not rerun their checks or add their results to this file's CLI
-report. Use a leaf file such as `Tests/Smt/SmtNat/SmtNatAdd.lean` for a CLI report,
-or `lake test` for the project's test suite. Files with no direct checks receive a
-message explaining this distinction.
+An umbrella such as `Tests/Smt/SmtNat.lean` only imports test modules. With no
+`--decl` selection, the CLI detects that case before building imports and explains
+how to check a leaf file such as `Tests/Smt/SmtNat/SmtNatAdd.lean`, or run `lake test`
+for the project's test suite. For a file that does contain checks, missing or stale
+imports are compiled first because Lean needs their declarations. That compilation
+can run their build-time checks, but Lake's successful build logs stay quiet and
+imported results are not replayed or added to the selected file's CLI report.
 Repository test files can also contain deliberately false or unresolved properties
 with expected-result annotations. The CLI reports their actual verification
 outcomes; `lake test` checks those annotations as a test suite.

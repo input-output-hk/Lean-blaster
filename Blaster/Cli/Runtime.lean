@@ -85,10 +85,12 @@ def prepareImports (cfg : Config) (header : ModuleHeader)
     let solver := bin / ".." / "libexec" / "lean-blaster" /
       (if System.Platform.isWindows then "z3.exe" else "z3")
     if ← solver.pathExists then buildEnv := buildEnv.push ("BLASTER_SOLVER", some solver.toString)
-  onStage "I'm preparing your dependencies"
+  onStage "I'm compiling imported Lean modules"
   let output ← Smt.commandOutput {
     cmd := lake.toString
-    args := #["--no-ansi", "setup-file", file.toString, (toJson header).compress]
+    -- Lake still reports failing jobs, while successful proof logs stay out of
+    -- the CLI report and no longer flood the terminal before the selected check.
+    args := #["--quiet", "--no-ansi", "setup-file", file.toString, (toJson header).compress]
     cwd := some project
     env := buildEnv } onOutput
   unless output.exitCode == 0 do
