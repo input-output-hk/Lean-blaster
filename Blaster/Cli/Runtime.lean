@@ -97,17 +97,20 @@ def prepareImports (cfg : Config) (header : ModuleHeader)
   onStage "I'm compiling imported Lean modules"
   let output ← Smt.commandOutput {
     cmd := lake.toString
-    -- Lake still reports failing jobs, while successful proof logs stay out of
-    -- the CLI report and no longer flood the terminal before the selected check.
+    -- Buffer Lake's stderr so warnings from successful dependency builds do not
+    -- appear as results for the selected file. Expose it with --debug.
     args := #["--quiet", "--no-ansi", "setup-file", file.toString, (toJson header).compress]
     cwd := some project
-    env := buildEnv } onOutput
+    env := buildEnv } (if cfg.debug then onOutput else fun _ => pure ())
   unless output.exitCode == 0 do
-    throw <| IO.userError s!"I couldn't prepare this file's imports.\n{output.stderr.trim}\nFix the dependency build errors and try again. Use '--no-build' to manage builds yourself."
+    let details := "\n".intercalate <|
+      [output.stderr.trim, output.stdout.trim].filter (!·.isEmpty)
+    throw <| IO.userError s!"I couldn't prepare this file's imports.\n{details}\nFix the dependency build errors and try again. Use '--no-build' to manage builds yourself."
   -- Configurations may print their own messages; only the final setup JSON is protocol data.
   let lines := output.stdout.trim.splitOn "\n"
   let setupText := lines.getLast?.getD ""
-  for line in lines.dropLast do onOutput (line ++ "\n")
+  if cfg.debug then
+    for line in lines.dropLast do onOutput (line ++ "\n")
   let setup ← IO.ofExcept <| Json.parse setupText >>= fromJson? (α := ModuleSetup)
   onStage "I'm elaborating the Lean file"
   return some setup

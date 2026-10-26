@@ -38,7 +38,9 @@ automatically from the input file's location, falling back to the current direct
 You do not need to prefix commands with `lake env` or point into `.lake/build/bin`.
 Projects must use a compatible Lean toolchain. Missing or stale imports are prepared
 automatically with Lake before the selected file is elaborated. The progress stage
-says "I'm preparing your dependencies"; build logs go to stderr. The selected source
+says "I'm preparing your dependencies"; successful dependency build logs and warnings
+stay out of the normal report. `--debug` shows Lake's raw build output, and build
+failures still include their diagnostics. The selected source
 is not compiled first and then checked a second time. `--no-build` uses existing
 compiled imports and reports a recovery action when they are missing.
 
