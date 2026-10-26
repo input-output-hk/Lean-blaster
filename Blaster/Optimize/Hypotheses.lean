@@ -580,14 +580,19 @@ private unsafe def backwardProofAux (expectedProof : Expr) : TranslateEnvT (Opti
      else if let some r ← isDecidableLt? p then return r
      else isDecidableLe? p
 
-   /-- Return some `Eq.refl a` only when p := a = a. -/
+   /-- Perform the following:
+        - return some `Eq.refl a` when `p := a = a`.
+        - return some `Eq.refl Decidable.decide True` when `p := Decidable.decide True = true`
+        - return some `Eq.refl Decidable.decide True` when `p := true = Decidable.decide True`
+   -/
    @[always_inline, inline]
    isReflEq? (p : Expr) : TranslateEnvT (Option Expr) := do
      match eq? p with
      | some (psort, e1, e2) =>
-          if exprEq e1 e2 then
-            let lvl ← getLevelEnv psort
-            mkApp2Expr (← mkEqRefl [lvl]) psort e1
+         let lvl ← getLevelEnv psort
+          if exprEq e1 e2 then mkApp2Expr (← mkEqRefl [lvl]) psort e1
+          else if isBoolTrue e1 && isDecideTrue e2 then mkApp2Expr (← mkEqRefl [lvl]) psort e2
+          else if isBoolTrue e2 && isDecideTrue e1 then mkApp2Expr (← mkEqRefl [lvl]) psort e1
           else return none
      | _ => return none
 
@@ -615,8 +620,6 @@ private unsafe def backwardProofAux (expectedProof : Expr) : TranslateEnvT (Opti
       else return none
     else return none
 
-
-
 /-- Given expected proof `p` and actual proof `a` perform backward proof reconstruction w.r.t. hypothesis map -/
 def backwardProof (p a : Expr) : TranslateEnvT Expr := do
   if exprEq p a -- case for trivial proof (e.g., Eq.refl)
@@ -626,11 +629,17 @@ def backwardProof (p a : Expr) : TranslateEnvT Expr := do
    if exprEq a' p then return a
    else if ← isLambdaEq p a' then return a
    else if let some r ← unsafe backwardProofAux p then return r
+   else if let some r ← isDecidable p then return r
    else
      -- Add sorry proof for now when we can't perform proof reconstruction
      hashcons (← mkSorry p false)
 
  where
+
+   isDecidable (p : Expr) : TranslateEnvT (Option Expr) := do
+     if p.hasFVar then return none
+     else mkOfDecideEqProof? p true
+
    /-- Return `true` only when the following conditions are satisfied
         - p := (fun x₁ ... xₙ => P x₁ ... xₙ) a₁ ... aₙ
         - a := P a₁ ... aₙ

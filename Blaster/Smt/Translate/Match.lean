@@ -190,7 +190,7 @@ private partial def mkCond
 -/
 def translateMatchAux?
   (termTranslator : Expr → TranslateEnvT SmtTerm)
-  (lastPattern : Bool) (mInfo : MatchInfo) (margs : Array Expr)
+  (lastPattern : Bool) (common : CommonMatchRewriterParams)
   (lhs : Array Expr) (rhs : Expr) (params : Array Expr)
   (acc : Option MatchResult) : TranslateEnvT (Option MatchResult) := do
   let rhs ← betaLambdaShared rhs params
@@ -198,8 +198,8 @@ def translateMatchAux?
   if lastPattern then -- last pattern translated first
     -- translate all discriminators and keep in MatchResult
     let mut discrTerms := #[]
-    for i in mInfo.getDiscrRange do
-      discrTerms := discrTerms.push (← termTranslator margs[i]!)
+    for i in common.mInfo.getDiscrRange do
+      discrTerms := discrTerms.push (← termTranslator common.margs[i]!)
     let srhs ← withTranslatePattern hvars $ mkRhs discrTerms lhs rhs
     return some { discrTerms, iteTerm := some srhs }
   else

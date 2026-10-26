@@ -362,6 +362,9 @@ structure MemoizeEnv where
   /-- Cache memoizing the isStructure result -/
   isStructureCache : HashMap PtrName Bool
 
+  /-- Cache memoizing instantiateMatchType result -/
+  matchTypeCache : HashMap PtrExpr Expr
+
 
 private def mkCommonExpr : CommonExpr :=
   let le := mkConst ``LE.le [levelZero]
@@ -469,14 +472,15 @@ instance : Inhabited MemoizeEnv where
     isPropCache := HashMap.emptyWithCapacity 1024,
     isMatchToIte := HashMap.emptyWithCapacity 123,
     isNotFunCache := HashMap.emptyWithCapacity 1024,
-    matchAltsCache := HashMap.emptyWithCapacity,
+    matchAltsCache := HashMap.emptyWithCapacity 123,
     betaLambdaCache := HashMap.emptyWithCapacity 1024,
     forallMetaCache := HashMap.emptyWithCapacity 1024,
     commonExpr := mkCommonExpr,
     genericMatchCache := HashMap.emptyWithCapacity 123,
     contextReuseCache := HashMap.emptyWithCapacity 1024,
     isCtorMatchPropCache := HashSet.emptyWithCapacity 1024
-    isStructureCache := HashMap.emptyWithCapacity 1024
+    isStructureCache := HashMap.emptyWithCapacity 1024,
+    matchTypeCache := HashMap.emptyWithCapacity 123
   }
 
 structure LocalDeclContext where
@@ -1145,82 +1149,87 @@ def withLocalContext (f : TranslateEnvT α) : TranslateEnvT α := do
              ⟨s, ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, f o10, o11, o12, o13, o14⟩⟩
 
 @[inline] def updateConstInfoCache (n : Name) (info : ConstantInfo) : TranslateEnvT Unit :=
-  modifyMemCache fun ⟨m1, m2, m3, m4, getConstInfoCache, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩ =>
-                     ⟨m1, m2, m3, m4, getConstInfoCache.insert n info, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩
+  modifyMemCache fun ⟨m1, m2, m3, m4, getConstInfoCache, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, m22⟩ =>
+                     ⟨m1, m2, m3, m4, getConstInfoCache.insert n info, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, m22⟩
 
 @[inline] def updateBetaLambdaCache (key : InstKey) (decl : BetaLambda) : TranslateEnvT Unit := do
-  unsafe modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, betaLambdaCache, m16, m17, m18, m19, m20, m21⟩ =>
+  unsafe modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, betaLambdaCache, m16, m17, m18, m19, m20, m21, m22⟩ =>
                             ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14,
-                             betaLambdaCache.insert key decl, m16, m17, m18, m19, m20, m21⟩
+                             betaLambdaCache.insert key decl, m16, m17, m18, m19, m20, m21, m22⟩
 
 @[inline] def updateForallMetaCache (t : Expr) (inst : ForallMeta) : TranslateEnvT Unit := do
-  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, forallMetaCache, m17, m18, m19, m20, m21⟩ =>
-                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, forallMetaCache.insert t inst, m17, m18, m19, m20, m21⟩
+  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, forallMetaCache, m17, m18, m19, m20, m21, m22⟩ =>
+                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, forallMetaCache.insert t inst, m17, m18, m19, m20, m21, m22⟩
 
 @[inline] def updateInstanceCache (f : Name) (b : Bool) : TranslateEnvT Unit :=
-  modifyMemCache fun ⟨m1, isInstanceCache, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩ =>
-                     ⟨m1, isInstanceCache.insert f b, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩
+  modifyMemCache fun ⟨m1, isInstanceCache, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, m22⟩ =>
+                     ⟨m1, isInstanceCache.insert f b, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, m22⟩
 
 @[inline] def updateIsRecFunCache (f : Name) (b : Bool) : TranslateEnvT Unit :=
-  modifyMemCache fun ⟨isRecFunCache, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩ =>
-                     ⟨isRecFunCache.insert f b, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩
+  modifyMemCache fun ⟨isRecFunCache, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, m22⟩ =>
+                     ⟨isRecFunCache.insert f b, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, m22⟩
 
 @[inline] def updateIsClassCache (n : Name) (b : Bool) : TranslateEnvT Unit :=
-  modifyMemCache fun ⟨m1, m2, isClassCache, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩ =>
-                     ⟨m1, m2, isClassCache.insert n b, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩
+  modifyMemCache fun ⟨m1, m2, isClassCache, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, m22⟩ =>
+                     ⟨m1, m2, isClassCache.insert n b, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, m22⟩
 
 @[inline] def updateMatcherCache (n : Name) (m : Option MatcherRecInfo) : TranslateEnvT Unit :=
-  modifyMemCache fun ⟨m1, m2, m3, getMatcherCache, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩ =>
-                     ⟨m1, m2, m3, getMatcherCache.insert n m, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩
+  modifyMemCache fun ⟨m1, m2, m3, getMatcherCache, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, m22⟩ =>
+                     ⟨m1, m2, m3, getMatcherCache.insert n m, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, m22⟩
 
 @[inline] def updateIsMatcherCache (n : Name) (mInfo : MatchInfo) : TranslateEnvT Unit := do
-  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, isMatcherCache, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩ =>
-                     ⟨m1, m2, m3, m4, m5, m6, isMatcherCache.insert n mInfo, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩
+  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, isMatcherCache, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, m22⟩ =>
+                     ⟨m1, m2, m3, m4, m5, m6, isMatcherCache.insert n mInfo, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, m22⟩
 
 @[inline] def updateIsPartialCache (n : Name) (b : Bool) : TranslateEnvT Unit := do
-  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, isPartialCache, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩ =>
-                     ⟨m1, m2, m3, m4, m5, m6, m7, isPartialCache.insert n b, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩
+  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, isPartialCache, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, m22⟩ =>
+                     ⟨m1, m2, m3, m4, m5, m6, m7, isPartialCache.insert n b, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, m22⟩
 
 @[inline] def updateInferTypeCache (e : Expr) (t : Expr) : TranslateEnvT Unit := do
-  modifyMemCache fun ⟨m1, m2, m3, m4, m5, inferTypeCache, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩ =>
-                     ⟨m1, m2, m3, m4, m5, inferTypeCache.insert e t, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩
+  modifyMemCache fun ⟨m1, m2, m3, m4, m5, inferTypeCache, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, m22⟩ =>
+                     ⟨m1, m2, m3, m4, m5, inferTypeCache.insert e t, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, m22⟩
 
 @[inline] def updatePropCache (e : Expr) (b : Bool) : TranslateEnvT Unit := do
-  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, isPropCache, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩ =>
-                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, isPropCache.insert e b, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩
+  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, isPropCache, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, m22⟩ =>
+                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, isPropCache.insert e b, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, m22⟩
 
 @[inline] def updateFunInfoCache (f : Expr) (info : FunEnvInfo) : TranslateEnvT Unit := do
-  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, getFunEnvInfoCache, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩ =>
-                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, getFunEnvInfoCache.insert f info, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩
+  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, getFunEnvInfoCache, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, m22⟩ =>
+                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, getFunEnvInfoCache.insert f info, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, m22⟩
 
 @[inline] def updateFunBodyCache (f : Expr) (body : Option Expr) : TranslateEnvT Unit := do
-  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, getFunBodyCache, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩ =>
-                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, getFunBodyCache.insert f body, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩
+  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, getFunBodyCache, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, m22⟩ =>
+                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, getFunBodyCache.insert f body, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, m22⟩
 
 @[inline] def updateIsNotFunCache (e : Expr) (b : Bool) : TranslateEnvT Unit := do
-  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, isNotFunCache, m14, m15, m16, m17, m18, m19, m20, m21⟩ =>
-                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, isNotFunCache.insert e b, m14, m15, m16, m17, m18, m19, m20, m21⟩
+  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, isNotFunCache, m14, m15, m16, m17, m18, m19, m20, m21, m22⟩ =>
+                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, isNotFunCache.insert e b, m14, m15, m16, m17, m18, m19, m20, m21, m22⟩
 
 @[inline] def updateMatchAltsCache (genApp : Expr) (alts : Array Expr) : TranslateEnvT Unit := do
-  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, matchAltsCache, m15, m16, m17, m18, m19, m20, m21⟩ =>
-                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, matchAltsCache.insert genApp alts, m15, m16, m17, m18, m19, m20, m21⟩
+  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, matchAltsCache, m15, m16, m17, m18, m19, m20, m21, m22⟩ =>
+                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, matchAltsCache.insert genApp alts, m15, m16, m17, m18, m19, m20, m21, m22⟩
 
 @[inline] def updateMatchToIteCache (n : Name) (b : Bool) : TranslateEnvT Unit := do
-  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, isMatchToIte, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩ =>
-                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, isMatchToIte.insert n b, m13, m14, m15, m16, m17, m18, m19, m20, m21⟩
+  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, isMatchToIte, m13, m14, m15, m16, m17, m18, m19, m20, m21, m22⟩ =>
+                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, isMatchToIte.insert n b, m13, m14, m15, m16, m17, m18, m19, m20, m21, m22⟩
 
 @[inline] def updateGenericMatchCache (genType : Expr) (g : GenericMatchResult) : TranslateEnvT Unit := do
-  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, genericMatchCache, m19, m20, m21⟩ =>
-                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, genericMatchCache.insert genType g, m19, m20, m21⟩
+  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, genericMatchCache, m19, m20, m21, m22⟩ =>
+                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, genericMatchCache.insert genType g, m19, m20, m21, m22⟩
 
 @[inline] def updateCtorMatchPropCache (e : Expr) : TranslateEnvT Unit :=
   modifyMemCache fun
-    ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, isCtorMatchPropCache, m20⟩ =>
-    ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, isCtorMatchPropCache.insert e, m20⟩
+    ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, isCtorMatchPropCache, m21, m22⟩ =>
+    ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, isCtorMatchPropCache.insert e, m21, m22⟩
 
 @[inline] def updateIsStructureCache (n : Name) (b : Bool) : TranslateEnvT Unit :=
-  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, isStructureCache⟩ =>
-                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, isStructureCache.insert n b⟩
+  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, isStructureCache, m22⟩ =>
+                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, isStructureCache.insert n b, m22⟩
+
+@[inline] def updateMatchTypeCache (instMatch : Expr) (insType : Expr) : TranslateEnvT Unit :=
+  modifyMemCache fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, matchTypeCache⟩ =>
+                     ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15,
+                      m16, m17, m18, m19, m20, m21, matchTypeCache.insert instMatch insType⟩
 
 @[always_inline, inline]
 def updateContextReuseCache (e : Expr) (idx : USize) (s : CtxReuseScope) : TranslateEnvT Unit := do
@@ -1229,9 +1238,9 @@ def updateContextReuseCache (e : Expr) (idx : USize) (s : CtxReuseScope) : Trans
   | none =>
       let refEntry ← IO.mkRef (HashMap.emptyWithCapacity.insert s.scope.parent s)
       modifyMemCache
-        fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, contextReuseCache, m20, m21⟩ =>
+        fun ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, contextReuseCache, m20, m21, m22⟩ =>
             ⟨m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16,
-             m17, m18, contextReuseCache.insert key refEntry, m20, m21⟩
+             m17, m18, contextReuseCache.insert key refEntry, m20, m21, m22⟩
   | some refEntry => refEntry.modify (λ h => h.insert s.scope.parent s)
 
 

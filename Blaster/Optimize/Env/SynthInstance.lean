@@ -44,6 +44,7 @@ def withSynthInstanceCache (a : Expr) (f: Unit → TranslateEnvT (Option Expr)) 
 def trySynthConstraintInstance? (cstr : Expr) : TranslateEnvT (Option Expr) := do
   withSynthInstanceCache cstr $ fun _ =>
     try
+      IO.setNumHeartbeats 0
       match (← withConfig (λ c => {c with iota := false, proj := .no}) $ trySynthInstance cstr) with
       | LOption.some d => hashcons d
       | _ => return none

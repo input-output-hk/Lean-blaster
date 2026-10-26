@@ -259,6 +259,14 @@ def isClassConstraintExpr (e : Expr) : TranslateEnvT Bool := do
 @[always_inline, inline]
 def isInductiveType (f : Name) : TranslateEnvT Bool := return (← getConstEnvInfo f).isInductive
 
+/-- Return `true` if `t` is a type expression corresponds to an indexed inductive type. -/
+@[always_inline, inline]
+def isIndexedInductiveType (t : Expr) : TranslateEnvT Bool := do
+  let Expr.const n _ := t.getAppFn' | return false
+  match (← getConstEnvInfo n) with
+  | .inductInfo info => return info.numIndices > 0
+  | _ => return false
+
 /-- Return `true` if `f` corresponds to an axiom/opaque definition. -/
 @[always_inline, inline]
 def isAxiomOrOpaque (f : Name) : TranslateEnvT Bool := do

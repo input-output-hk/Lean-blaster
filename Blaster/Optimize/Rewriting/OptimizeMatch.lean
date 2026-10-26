@@ -96,6 +96,14 @@ def joinMatchResult (x : MatchResult) (y : MatchResult) : MatchResult :=
  | _, p@.PotentialMatch => p
  | _, _ => x
 
+def isProofPattern (f : Expr) (idx : Nat) (e : Expr) : TranslateEnvT Bool := do
+  match e with
+  | Expr.fvar _
+  | Expr.mvar _ => return false -- we return false as we want to unify proof with discriminator proof
+  | _ =>
+     let pInfo ← getFunEnvInfo f
+     return pInfo.paramsInfo[idx]!.isProp
+
 /-- Performs unification on lhs and rhs
      - Return `UnifyMatch` when both `lhs` and `rhs` can unify up to metavariable
      - Return `PotentialMatch` when `lhs` unifies with `rhs` before lhs reduces to a ground term (i.e., a unary constructor or a metavariable), e.g.,
@@ -245,25 +253,48 @@ partial def isPatternMatch (lhs : Expr) (rhs : Expr) : TranslateEnvT MatchResult
                     | some n => isPatternMatch (← mkAppExpr (← mkCharOfNat) (← mkNatLitExpr n)) rhs
                     | none => isPatternMatch (← mkAppExpr (← mkCharOfNat) (← mkAppExpr (← mkUInt32ToNat) val1)) rhs
 
+             | Expr.const ``Char.ofNat _ =>
+                 match f2 with
+                 | Expr.app (Expr.const ``Char.mk _) val2 =>
+                     match isUInt32Value? val2 with
+                     | some n => isPatternMatch a1 (← mkNatLitExpr n)
+                     | none => return .PotentialMatch
+                 | Expr.const ``Char.ofNat _ => isPatternMatch a1 a2
+                 | _ => return .PotentialMatch -- case when rhs is an expression
+
              | _ =>
-                if exprEq f1 f2 then isPatternMatch a1 a2
+                if exprEq f1 f2 then
+                  if ← isProofPattern f1.getAppFn f1.getAppNumArgs a1
+                  then return .UnifyMatch -- proofs always unify
+                  else isPatternMatch a1 a2
                 else
                   let f2' := f2.getAppFn
                   if let some nbParams ← getCtorIndParams f2' then
                     if exprEq f1.getAppFn f2' then
-                      if f2.getAppNumArgs == nbParams then
+                      let nbArgs := f2.getAppNumArgs
+                      let isProofArg := isProofPattern f2' nbArgs a1
+                      if nbArgs == nbParams then
                         -- skip inductive params
-                        isPatternMatch a1 a2
+                        if ← isProofArg then return .UnifyMatch -- proofs always unify
+                        else isPatternMatch a1 a2 -- a1 might also be an mvar proof holder
                       else
                         let p ← isPatternMatch f1 f2
                         match p with
-                        | .UnifyMatch => isPatternMatch a1 a2
-                        | .PotentialMatch => return joinMatchResult p (← isPatternMatch a1 a2)
+                        | .UnifyMatch => if ← isProofArg then return .UnifyMatch else isPatternMatch a1 a2
+                        | .PotentialMatch =>
+                             if ← isProofArg
+                             then return p
+                             else return joinMatchResult p (← isPatternMatch a1 a2)
                         | .NoMatch => return p
                     else return .NoMatch -- not same ctor
                   else return .PotentialMatch -- case when rhs is an expression
 
         | _ => return .PotentialMatch -- case when rhs is an fvar/mvar/let/forallE
+
+  | Expr.lam .. =>
+     -- lambda term can appear due to indexed inductive datatype
+     if exprEq lhs rhs then return .UnifyMatch
+     else return .PotentialMatch -- case when rhs is an fvar/has not yet been normalized
 
   | _ => return .NoMatch -- unreachable: only const, app, mvar and lit expected as pattern match
 
@@ -305,12 +336,14 @@ def patternMatchDiscrs (alt : Expr) (args : Array Expr) (mInfo : MatchInfo) : Tr
 
 
 @[always_inline, inline]
-partial def instantiateUnifiedMVars (mvars : Array Expr) (margs : Array Expr) (mInfo : MatchInfo) : TranslateEnvT (Array Expr) := do
+partial def instantiateUnifiedMVars
+  (mvars : Array Expr) (margs : Array Expr)
+  (discrsType : Array Expr) (mInfo : MatchInfo) : TranslateEnvT (Array Expr) := do
  let mAssignments := (← get).optEnv.mAssignments
  let rec visit (idx : Nat) (stop : Nat) (mvars : Array Expr) : TranslateEnvT (Array Expr) := do
     if idx ≥ stop then
       -- traverse discrs in reverse order to properly set heq
-      assignEqRefl mInfo mvars margs
+      assignEqRefl mInfo mvars margs discrsType
     else
       let val := mAssignments.getD mvars[idx]! instCacheMiss
       if !exprEq val instCacheMiss then
@@ -338,14 +371,16 @@ partial def instantiateUnifiedMVars (mvars : Array Expr) (margs : Array Expr) (m
 -/
 def reduceMatch? (args : Array Expr) (mInfo : MatchInfo) (resolveArgs := false) : TranslateEnvT (Option BetaLambdaResult) := do
  let args ← resolveArgsWithEqualityStack args
- if !(← allMatchDiscrsAreCtor args) then return none
- let alts ← getMatchAlts args mInfo
- visit_alts? args alts mInfo.getFirstAltPos mInfo.arity false
+ let instKey ← mkAppRangeExpr mInfo.instApp 0 mInfo.getFirstAltPos args
+ let discrsType ← getDiscrsType mInfo args instKey
+ if !(← allMatchDiscrsAreCtor args discrsType) then return none
+ let alts ← getMatchAltsAux instKey args mInfo
+ visit_alts? args alts discrsType mInfo.getFirstAltPos mInfo.arity false
 
    where
 
     visit_alts?
-      (args : Array Expr) (alts : Array Expr)
+      (args : Array Expr) (alts : Array Expr) (discrsType : Array Expr)
       (idx : Nat) (stop : Nat) (isPrevPotentialMatch : Bool) : TranslateEnvT (Option BetaLambdaResult) := do
       if idx ≥ stop then return none
       else
@@ -354,17 +389,19 @@ def reduceMatch? (args : Array Expr) (mInfo : MatchInfo) (resolveArgs := false) 
         if isUnifyMatchResult matchHit && !isPrevPotentialMatch then
           -- erase context
           eraseMatchRhsRewriteCache mInfo
-          betaLambdaEnv args[idx]! (← instantiateUnifiedMVars mvarArgs args mInfo)
-        else visit_alts? args alts (idx + 1) stop (isPrevPotentialMatch || isPotentialMatchResult matchHit)
+          betaLambdaEnv args[idx]! (← instantiateUnifiedMVars mvarArgs args discrsType mInfo)
+        else visit_alts? args alts discrsType (idx + 1) stop (isPrevPotentialMatch || isPotentialMatchResult matchHit)
 
-    allMatchDiscrsAreCtor (args : Array Expr) : TranslateEnvT Bool := do
-     let discrsType ← getLambdaBinderTypes args[mInfo.getFirstDiscrPos - 1]!
+    allMatchDiscrsAreCtor (args : Array Expr) (discrsType : Array Expr) : TranslateEnvT Bool := do
      let rec go (idx : Nat) (stop : Nat) : TranslateEnvT Bool := do
        if idx ≥ stop then return true
-       else if (← isNormConstructor args[idx]! (patternMatch := true) <||> isPropEnv discrsType[idx - mInfo.getFirstDiscrPos]!) then
-         -- We also accept proof as discriminators
-         go (idx + 1) stop
-       else return false
+       else
+         if (← isNormConstructor args[idx]! (patternMatch := true)
+             <||> pure args[idx]!.isLambda
+             <||> isPropEnv discrsType[idx - mInfo.getFirstDiscrPos]!) then
+          -- We also accept lambda and proof as discriminators
+          go (idx + 1) stop
+         else return false
      go mInfo.getFirstDiscrPos mInfo.getFirstAltPos
 
     resolveArgsWithEqualityStack (args : Array Expr) : TranslateEnvT (Array Expr) := do
@@ -583,15 +620,18 @@ def addNamedPatternToEqualityMap (p : Expr) (nextCtxId : CtxId) (updatedCtx : Bo
 
 @[always_inline, inline]
 partial def unifyAndUpdateEqMap (lhs : Expr) (rhs : Expr) (nextCtxId : CtxId) (updatedCtx : Bool) : TranslateEnvT Bool := do
-  let rec visit (lhs : Expr) (rhs : Expr) (stk : List (Expr × Expr)) (updatedCtx : Bool) : TranslateEnvT Bool := do
+ let rec visit (lhs : Expr) (rhs : Expr) (isResult : Bool) (stk : List (Expr × Expr)) (updatedCtx : Bool) : TranslateEnvT Bool := do
+  if isResult then
+    match stk with
+    | [] => return updatedCtx
+    | (lhs', rhs') :: xs => visit lhs' rhs' false xs updatedCtx
+  else
     match lhs with
     | Expr.lit l =>
           match rhs with
           | Expr.lit _ =>
-               if exprEq lhs rhs then
-                 match stk with
-                 | [] => return updatedCtx
-                 | (lhs', rhs') :: xs => visit lhs' rhs' xs updatedCtx
+               if exprEq lhs rhs
+               then visit lhs rhs true stk updatedCtx
                else return updatedCtx
 
           | Expr.app (Expr.app (Expr.const ``Nat.add _) (Expr.lit (Literal.natVal n2))) pn =>
@@ -601,22 +641,18 @@ partial def unifyAndUpdateEqMap (lhs : Expr) (rhs : Expr) (nextCtxId : CtxId) (u
                      then return updatedCtx
                      else
                        updateEqualityMap pn (← mkNatLitExpr (Nat.sub n1 n2)) nextCtxId
-                       match stk with
-                       | [] => return true
-                       | (lhs', rhs') :: xs => visit lhs' rhs' xs true
+                       visit lhs rhs true stk true
                | _ => return updatedCtx -- unreachable case
 
           | Expr.app (Expr.const ``String.mk _) _ =>
                match l with
-               | .strVal s => visit (← stringToCtor s) rhs stk updatedCtx
+               | .strVal s => visit (← stringToCtor s) rhs false stk updatedCtx
                | _ => return updatedCtx -- unreachable case
 
           | _ =>
               -- case when rhs is an expression/fvar
               updateEqualityMap rhs lhs nextCtxId
-              match stk with
-              | [] => return true
-              | (lhs', rhs') :: xs => visit lhs' rhs' xs true
+              visit lhs rhs true stk true
 
     | Expr.fvar _ =>
           match rhs with
@@ -625,41 +661,32 @@ partial def unifyAndUpdateEqMap (lhs : Expr) (rhs : Expr) (nextCtxId : CtxId) (u
                let updatedCtx := updatedCtx || isNotEq
                if isNotEq then -- polymorphic type case when exprEq is satisfied
                  updateEqualityMap lhs rhs nextCtxId
-               match stk with
-               | [] => return updatedCtx
-               | (lhs', rhs') :: xs => visit lhs' rhs' xs updatedCtx
+               visit lhs rhs true stk updatedCtx
+
           | _ =>
              updateEqualityMap lhs rhs nextCtxId
-             match stk with
-             | [] => return true
-             | (lhs', rhs') :: xs => visit lhs' rhs' xs true
+             visit lhs rhs true stk true
 
     | Expr.const n1 _ =>
          match rhs with
          | Expr.const n2 _ =>
             if exprEq lhs rhs then
-              match stk with
-              | [] => return updatedCtx
-              | (lhs', rhs') :: xs => visit lhs' rhs' xs updatedCtx
+              visit lhs rhs true stk updatedCtx
             else if (← isCtorName n1) && !(← isCtorName n2) then
               updateEqualityMap rhs lhs nextCtxId
-              match stk with
-              | [] => return true
-              | (lhs', rhs') :: xs => visit lhs' rhs' xs true
+              visit lhs rhs true stk true
             else return updatedCtx
          | _ =>
            if ← isCtorExpr rhs.getAppFn
            then return updatedCtx
            else
-              -- case when rhs is an expression/fvar
-              updateEqualityMap rhs lhs nextCtxId
-              match stk with
-              | [] => return true
-              | (lhs', rhs') :: xs => visit lhs' rhs' xs true
+             -- case when rhs is an expression/fvar
+             updateEqualityMap rhs lhs nextCtxId
+             visit lhs rhs true stk true
 
     | Expr.app (Expr.app (Expr.app (Expr.app (Expr.const ``namedPattern _) t) pn) pe) ph =>
         updateEqMapWithNamedPattern t pn pe ph nextCtxId
-        visit pe rhs stk true
+        visit pe rhs false stk true
 
     | Expr.app f1 a1 =>
           match rhs with
@@ -668,20 +695,17 @@ partial def unifyAndUpdateEqMap (lhs : Expr) (rhs : Expr) (nextCtxId : CtxId) (u
                | Expr.app (Expr.const ``Nat.add _) (Expr.lit (Literal.natVal n1)) =>
                     if n2 < n1
                     then return updatedCtx
-                    else visit a1 (← mkNatLitExpr (Nat.sub n2 n1)) stk updatedCtx
+                    else visit a1 (← mkNatLitExpr (Nat.sub n2 n1)) false stk updatedCtx
                | Expr.const ``UInt32.toNat _ =>
                    -- recursive case for Char.mk unification
                    -- NOTE: normUINt32ToNat to be removed if we opacify UInt32
                    updateEqualityMap (← normUInt32ToNat (← removeNamedPatternExpr a1)) rhs nextCtxId
-                   match stk with
-                   | [] => return true
-                   | (lhs', rhs') :: xs => visit lhs' rhs' xs true
-
+                   visit lhs rhs true stk true
                | _ => return updatedCtx -- unreachable: Nat constructor expected
 
           | Expr.lit (.strVal s) =>
                match f1 with
-               | Expr.const ``String.mk _ => visit lhs (← stringToCtor s) stk updatedCtx
+               | Expr.const ``String.mk _ => visit lhs (← stringToCtor s) false stk updatedCtx
                | _ => return updatedCtx -- unreachable: String constructor expected
 
           | Expr.const n _ =>
@@ -689,9 +713,7 @@ partial def unifyAndUpdateEqMap (lhs : Expr) (rhs : Expr) (nextCtxId : CtxId) (u
                  return updatedCtx
                else
                  updateEqualityMap rhs (← removeNamedPatternExpr lhs) nextCtxId
-                 match stk with
-                 | [] => return true
-                 | (lhs', rhs') :: xs => visit lhs' rhs' xs true
+                 visit lhs rhs true stk true
 
           | Expr.app f2 a2 =>
               match f1 with
@@ -699,16 +721,14 @@ partial def unifyAndUpdateEqMap (lhs : Expr) (rhs : Expr) (nextCtxId : CtxId) (u
                  match f2 with
                  | Expr.app (Expr.const ``Nat.add _) (Expr.lit (Literal.natVal n2)) =>
                      if n1 < n2 then
-                       visit a1 (← mkApp2Expr (← mkNatAddOp) (← mkNatLitExpr (Nat.sub n2 n1)) a2) stk updatedCtx
+                       visit a1 (← mkApp2Expr (← mkNatAddOp) (← mkNatLitExpr (Nat.sub n2 n1)) a2) false stk updatedCtx
                      else if n1 == n2 then
-                       visit a1 a2 stk updatedCtx
-                     else visit (← mkApp2Expr (← mkNatAddOp) (← mkNatLitExpr (Nat.sub n1 n2)) a1) a2 stk updatedCtx
+                       visit a1 a2 false stk updatedCtx
+                     else visit (← mkApp2Expr (← mkNatAddOp) (← mkNatLitExpr (Nat.sub n1 n2)) a1) a2 false stk updatedCtx
                  | _ =>
                      -- case when rhs is an expression
                      updateEqualityMap rhs (← removeNamedPatternExpr lhs) nextCtxId
-                     match stk with
-                     | [] => return true
-                     | (lhs', rhs') :: xs => visit lhs' rhs' xs true
+                     visit lhs rhs true stk true
 
               | Expr.const ``Int.ofNat _ =>
                    match f2 with
@@ -729,20 +749,16 @@ partial def unifyAndUpdateEqMap (lhs : Expr) (rhs : Expr) (nextCtxId : CtxId) (u
                                     let zeroNat ← mkNatLitExpr 0
                                     updateEqualityMap e zeroNat nextCtxId
                                     -- we need to call visit on a1 to also unify any potential named pattern
-                                    visit a1 (← mkNatLitExpr 0) stk true
+                                    visit a1 (← mkNatLitExpr 0) false stk true
                                 | _ => return updatedCtx
                         | _ => -- case when rhs is an expression
                           updateEqualityMap rhs (← removeNamedPatternExpr lhs) nextCtxId
-                          match stk with
-                          | [] => return true
-                          | (lhs', rhs') :: xs => visit lhs' rhs' xs true
-                   | Expr.const ``Int.ofNat _ => visit a1 a2 stk updatedCtx
+                          visit lhs rhs true stk true
+                   | Expr.const ``Int.ofNat _ => visit a1 a2 false stk updatedCtx
                    | Expr.const ``Int.negSucc _ => return updatedCtx
                    | _ => -- case when rhs is an expression
                        updateEqualityMap rhs (← removeNamedPatternExpr lhs) nextCtxId
-                       match stk with
-                       | [] => return true
-                       | (lhs', rhs') :: xs => visit lhs' rhs' xs true
+                       visit lhs rhs true stk true
 
               | Expr.const ``Int.neg _ =>
                     match f2 with
@@ -751,15 +767,13 @@ partial def unifyAndUpdateEqMap (lhs : Expr) (rhs : Expr) (nextCtxId : CtxId) (u
                          match a1 with
                          | Expr.app (Expr.const ``Int.ofNat _) n1 =>
                              match a2 with
-                             | Expr.lit (.natVal n2) => visit n1 (← mkNatLitExpr (n2 + 1)) stk updatedCtx
+                             | Expr.lit (.natVal n2) => visit n1 (← mkNatLitExpr (n2 + 1)) false stk updatedCtx
                              | _ => return updatedCtx -- unreachable: rhs must be normalized at this stage
                          | _ => return updatedCtx -- unreachable
-                    | Expr.const ``Int.neg _ => visit a1 a2 stk updatedCtx
+                    | Expr.const ``Int.neg _ => visit a1 a2 false stk updatedCtx
                     | _ => -- case when rhs is an expression
                        updateEqualityMap rhs (← removeNamedPatternExpr lhs) nextCtxId
-                       match stk with
-                       | [] => return true
-                       | (lhs', rhs') :: xs => visit lhs' rhs' xs true
+                       visit lhs rhs true stk true
 
               | Expr.const ``Int.negSucc _ =>
                     match f2 with
@@ -767,58 +781,81 @@ partial def unifyAndUpdateEqMap (lhs : Expr) (rhs : Expr) (nextCtxId : CtxId) (u
                         match a2 with
                         | Expr.app (Expr.const ``Int.ofNat _) n2 =>
                              match a1 with
-                             | Expr.lit (.natVal n1) => visit (← mkNatLitExpr (n1 + 1)) n2 stk updatedCtx
+                             | Expr.lit (.natVal n1) => visit (← mkNatLitExpr (n1 + 1)) n2 false stk updatedCtx
                              | _ => return updatedCtx -- unreachable: Nat literal expected
                         | _ => -- case when rhs is an expression
                           updateEqualityMap rhs (← removeNamedPatternExpr lhs) nextCtxId
-                          match stk with
-                          | [] => return true
-                          | (lhs', rhs') :: xs => visit lhs' rhs' xs true
-                    | Expr.const ``Int.negSucc _ => visit a1 a2 stk updatedCtx
+                          visit lhs rhs true stk true
+                    | Expr.const ``Int.negSucc _ => visit a1 a2 false stk updatedCtx
                     | Expr.const ``Int.ofNat _ => return updatedCtx
                     | _ => -- case when rhs is an expression
                        updateEqualityMap rhs (← removeNamedPatternExpr lhs) nextCtxId
-                       match stk with
-                       | [] => return true
-                       | (lhs', rhs') :: xs => visit lhs' rhs' xs true
+                       visit lhs rhs true stk true
 
               | Expr.app (Expr.const ``Char.mk _) val1 =>
                      match f2 with
                      | Expr.app (Expr.const ``Char.mk _) val2 =>
                           -- skip proof
-                          visit val1 val2 stk updatedCtx
+                          visit val1 val2 false stk updatedCtx
                      | _ =>
                         match isUInt32Value? val1 with
-                        | some n => visit (← mkAppExpr (← mkCharOfNat) (← mkNatLitExpr n)) rhs stk updatedCtx
-                        | none => visit (← mkAppExpr (← mkCharOfNat) (← mkAppExpr (← mkUInt32ToNat) val1)) rhs stk updatedCtx
+                        | some n => visit (← mkAppExpr (← mkCharOfNat) (← mkNatLitExpr n)) rhs false stk updatedCtx
+                        | none => visit (← mkAppExpr (← mkCharOfNat) (← mkAppExpr (← mkUInt32ToNat) val1)) rhs false stk updatedCtx
+
+              | Expr.const ``Char.ofNat _ =>
+                    -- NOTE: This case will be redundant when `Char.mk` will be normalized to `Char.ofNat`
+                    match f2 with
+                    | Expr.app (Expr.const ``Char.mk _) val2 =>
+                         match isUInt32Value? val2 with
+                         | some n => visit a1 (← mkNatLitExpr n) false stk updatedCtx
+                         | none =>
+                             -- case when rhs is an expression
+                             updateEqualityMap rhs (← removeNamedPatternExpr lhs) nextCtxId
+                             visit lhs rhs true stk true
+
+                    | Expr.const ``Char.ofNat _ => visit a1 a2 false stk updatedCtx
+                    | _ =>
+                       -- case when rhs is an expression
+                       updateEqualityMap rhs (← removeNamedPatternExpr lhs) nextCtxId
+                       visit lhs rhs true stk true
 
               | _ =>
                 if exprEq f1 f2 then
-                   visit a1 a2 stk updatedCtx
+                   if ← isProofPattern f1.getAppFn f1.getAppNumArgs a1
+                   then visit lhs rhs true stk updatedCtx -- skip proofs
+                   else visit a1 a2 false stk updatedCtx
                 else
                   let f2' := f2.getAppFn
                   if let some nbParams ← getCtorIndParams f2' then
+                    let nbArgs := f2.getAppNumArgs
+                    let isProofArg := isProofPattern f2' nbArgs a1
                     if exprEq f1.getAppFn f2' then
-                      if f2.getAppNumArgs == nbParams then
+                      if nbArgs == nbParams then
                         -- skip inductive params
-                        visit a1 a2 stk updatedCtx
-                      else visit f1 f2 ((a1, a2) :: stk) updatedCtx
+                        if ← isProofArg then visit lhs rhs true stk updatedCtx -- skip proofs
+                        else visit a1 a2 false stk updatedCtx
+                      else
+                        if ← isProofArg then visit f1 f2 false stk updatedCtx
+                        else visit f1 f2 false ((a1, a2) :: stk) updatedCtx
                     else return updatedCtx -- not same ctor
                   else
                     -- case when rhs is an expression
                     updateEqualityMap rhs (← removeNamedPatternExpr lhs) nextCtxId
-                    match stk with
-                    | [] => return true
-                    | (lhs', rhs') :: xs => visit lhs' rhs' xs true
+                    visit lhs rhs true stk true
           | _ =>
              -- case when rhs is an expression
              updateEqualityMap rhs (← removeNamedPatternExpr lhs) nextCtxId
-             match stk with
-             | [] => return true
-             | (lhs', rhs') :: xs => visit lhs' rhs' xs true
+             visit lhs rhs true stk true
+
+    | Expr.lam .. =>
+         if exprEq lhs rhs then visit lhs rhs true stk updatedCtx
+         else
+          -- case when rhs is an expression
+          updateEqualityMap rhs lhs nextCtxId
+          visit lhs rhs true stk true
 
     | _ => return updatedCtx -- unreachable: only const, app, fvar and lit expected as pattern match
-  visit lhs rhs [] updatedCtx
+ visit lhs rhs false [] updatedCtx
 
 @[always_inline, inline]
 def updateEqMap
@@ -980,7 +1017,8 @@ where
   lastPatternReduction? (mInfo : MatchInfo) (args : Array Expr) : TranslateEnvT (Option MatchElimResult) := do
      let ⟨_, _, _, _, _, _, _, _, matchInContext, _, ⟨_, _, _, _, _, _, active, _, _⟩, _, _, _⟩ := (← get).optEnv
      let h := (← get).optEnv.matchInContext
-     let alts ← getMatchAlts args mInfo
+     let instKey ← mkAppRangeExpr mInfo.instApp 0 mInfo.getFirstAltPos args
+     let alts ← getMatchAltsAux instKey args mInfo
      for i in [:alts.size - 1] do
        if !(← existsNotEqPattern mInfo args alts[i]! matchInContext active) then
          return none
@@ -988,7 +1026,8 @@ where
      if isUnifyMatchResult matchHit then
        -- erase context
        eraseMatchRhsRewriteCache mInfo
-       return some $ Sum.inr (← betaLambdaShared args[mInfo.arity - 1]! (← instantiateUnifiedMVars mvarArgs args mInfo))
+       let discrsType ← getDiscrsType mInfo args instKey
+       return some $ Sum.inr (← betaLambdaShared args[mInfo.arity - 1]! (← instantiateUnifiedMVars mvarArgs args discrsType mInfo))
      else return none
 
 

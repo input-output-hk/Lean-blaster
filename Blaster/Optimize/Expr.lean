@@ -426,11 +426,36 @@ def isTrueExpr (e : Expr) : Bool :=
  | Expr.const ``True _ => true
  | _ => false
 
-
 @[always_inline, inline]
 def isFalseExpr (e : Expr) : Bool :=
  match e with
  | Expr.const ``False _ => true
+ | _ => false
+
+
+@[always_inline, inline]
+
+def isBoolTrue (e : Expr) : Bool :=
+ match e with
+ | Expr.const ``true _ => true
+ | _ => false
+
+@[always_inline, inline]
+def isBoolFalse (e : Expr) : Bool :=
+ match e with
+ | Expr.const ``false _ => true
+ | _ => false
+
+@[always_inline, inline]
+def isDecideTrue (e : Expr) : Bool :=
+  match e with
+  | Expr.app (Expr.app (Expr.const ``Decidable.decide _) (Expr.const ``True _)) _ => true
+  | _ => false
+
+@[always_inline, inline]
+def isTrueIntro (e : Expr) : Bool :=
+ match e with
+ | Expr.const ``True.intro _ => true
  | _ => false
 
 
@@ -819,6 +844,11 @@ def isIntValue? (e : Expr) : Option Int :=
         | _ => none
     | none => none
   | _ => none
+
+def isDependentLambda (e : Expr) : Bool :=
+  match e with
+  | .lam _ t b _ => t.hasLooseBVars || isDependentLambda b
+  | b => b.hasLooseBVars
 
 /-- Remove `outParam` application if encountered. -/
 def removeOutParam : Expr → Expr

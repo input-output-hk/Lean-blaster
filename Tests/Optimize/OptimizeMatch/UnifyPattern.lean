@@ -2402,4 +2402,239 @@ def charMkRed (x : Value) (c : Char) : Nat :=
 #testOptimize [ "UnifyPattern_117" ] (norm-result: 1)
   charMkRed (.wrap v m) 'a' ===> Nat.add 97 m
 
+
+/-! ### String literal patterns vs `Char.mk`/function application characters in a `String.mk` discriminator
+
+     The characters of a string literal pattern are built by `stringToCtor` as `Char.ofNat n`. Against a
+     `Char.mk v _` discriminator whose value is not a literal, or against an expression of type `Char`,
+     the discriminator character is bound to the pattern character (`Char.mk vv hv := 'a'`, `fc n := 'a'`).
+     Against a `Char.mk` discriminator with a literal value (character literal in the discriminator),
+     the values are compared: a mismatch is decided and the match is reduced. The potential match case
+     (`"ab"` vs `'a' :: cs`) keeps the match with the normalized character literal in the discriminator,
+     which cannot be written in an expected term (see `MatchReduce_109`). -/
+
+variable (vv : UInt32) (hv : vv.isValidChar) (fc : Nat → Char)
+
+-- strLit (.str (String.mk [Char.mk vv hv, c2])) (String.mk [Char.mk vv hv, c2]) ===>
+--   match Value.str (String.mk [Char.mk vv hv, c2]) with
+--   | .str "ab" => Nat.add 100 (String.length (String.mk ['a', 'b']))
+--   | .str _ => String.length (String.mk [Char.mk vv hv, c2])
+--   | _ => 0
+-- NOTE: `Char.ofNat 97` pattern vs `Char.mk vv hv` discriminator binds `Char.mk vv hv := 'a'`, then
+--       `c2 := 'b'`
+#testOptimize [ "UnifyPattern_120" ] (norm-result: 1)
+  strLit (.str (String.mk [Char.mk vv hv, c2])) (String.mk [Char.mk vv hv, c2]) ===>
+    match Value.str (String.mk [Char.mk vv hv, c2]) with
+    | .str "ab" => Nat.add 100 (String.length (String.mk ['a', 'b']))
+    | .str _ => String.length (String.mk [Char.mk vv hv, c2])
+    | _ => 0
+
+-- strLit (.str (String.mk [fc n, c2])) (String.mk [fc n, c2]) ===>
+--   match Value.str (String.mk [fc n, c2]) with
+--   | .str "ab" => Nat.add 100 (String.length (String.mk ['a', 'b']))
+--   | .str _ => String.length (String.mk [fc n, c2])
+--   | _ => 0
+-- NOTE: `Char.ofNat 97` pattern vs the function application `fc n` binds `fc n := 'a'`
+#testOptimize [ "UnifyPattern_121" ] (norm-result: 1)
+  strLit (.str (String.mk [fc n, c2])) (String.mk [fc n, c2]) ===>
+    match Value.str (String.mk [fc n, c2]) with
+    | .str "ab" => Nat.add 100 (String.length (String.mk ['a', 'b']))
+    | .str _ => String.length (String.mk [fc n, c2])
+    | _ => 0
+
+def strLitK (x : Value) : Nat :=
+  match x with
+  | .str "ab" => 1
+  | .str _ => 2
+  | _ => 0
+
+-- strLitK (.str (String.mk ('x' :: cs))) ===> 2
+-- NOTE: `'a'` (`Char.ofNat 97`) vs the character literal `'x'` (`Char.mk` with a literal value) cannot
+--       match, the match is reduced to the second alternative
+#testOptimize [ "UnifyPattern_122" ] (norm-result: 1) strLitK (.str (String.mk ('x' :: cs))) ===> 2
+
+-- strLitK (.str (String.mk ('a' :: 'c' :: cs))) ===> 2
+-- NOTE: `'a'` matches, `'b'` vs `'c'` cannot match, the match is reduced to the second alternative
+#testOptimize [ "UnifyPattern_123" ] (norm-result: 1) strLitK (.str (String.mk ('a' :: 'c' :: cs))) ===> 2
+
+/-! ### Proof argument of a literal pattern followed by other pattern variables
+
+     A `Fin` literal pattern (`3 : Fin 5`, i.e., `Fin.mk 3 _`) is unified value-wise with a `Fin.mk`
+     discriminator and its proof argument is skipped. The pattern variables that follow the literal in
+     the constructor (pending unification pairs) must still be unified after the proof is skipped. -/
+
+variable (hf : 3 < 5)
+
+inductive FV where
+  | mk : Fin 5 → Nat → FV
+  | nil : FV
+
+def finPair (x : FV) : Nat :=
+  match x with
+  | .mk _ 5 => 100
+  | .mk 3 j => j + 1
+  | _ => 0
+
+-- finPair (.mk 3 m) ===>
+--   match FV.mk (Fin.mk 3 _) m with
+--   | .mk _ 5 => 100
+--   | .mk 3 j => Nat.add 1 m
+--   | _ => 0
+-- NOTE: non reduced match (`5` vs `m`): the `Fin` literal discriminator is normalized to `Fin.mk 3 p`
+--       with the same proof `p` as the pattern (`Fin.ofNat._proof_1`), so the pattern and the
+--       discriminator are structurally equal up to `j` and `j := m` is bound
+#testOptimize [ "UnifyPattern_124" ] (norm-result: 1)
+  finPair (.mk 3 m) ===>
+    match FV.mk ⟨3, @Fin.ofNat._proof_1 5 (@Nat.instNeZeroSucc 4) 3⟩ m with
+    | .mk _ 5 => 100
+    | .mk 3 _j => Nat.add 1 m
+    | _ => 0
+
+-- finPair (.mk ⟨3, hf⟩ m) ===>
+--   match FV.mk (Fin.mk 3 (of_decide_eq_true rfl)) m with
+--   | .mk _ 5 => 100
+--   | .mk 3 j => Nat.add 1 m
+--   | _ => 0
+-- NOTE: the proof `hf` of the discriminator is replaced by a decidable proof, which differs from the
+--       proof of the pattern: the proof argument is skipped by the unification and `j := m` must
+--       still be bound (currently FAILS: `unifyAndUpdateEqMap` returns when it skips the proof
+--       argument instead of continuing with the pending pair `(j, m)`, so the rhs is left as
+--       `Nat.add 1 j`)
+#testOptimize [ "UnifyPattern_125" ] (norm-result: 1)
+  finPair (.mk ⟨3, hf⟩ m) ===>
+    match FV.mk ⟨3, @of_decide_eq_true (3 < 5) (Nat.decLt 3 5) (@rfl Bool (@decide (3 < 5) (Nat.decLt 3 5)))⟩ m with
+    | .mk _ 5 => 100
+    | .mk 3 _j => Nat.add 1 m
+    | _ => 0
+
+-- finPair (.mk ⟨3, hf⟩ 7) = 8 ===> True
+-- NOTE: reduced match, the proof argument is skipped (`UnifyMatch`) and `j := 7`
+#testOptimize [ "UnifyPattern_126" ] finPair (.mk ⟨3, hf⟩ 7) = 8 ===> True
+
+inductive CV where
+  | mk : Char → Nat → CV
+  | nil : CV
+
+def chPair (x : CV) : Nat :=
+  match x with
+  | .mk _ 5 => 100
+  | .mk 'a' j => j + 1
+  | _ => 0
+
+-- chPair (.mk c1 m) ===>
+--   match CV.mk c1 m with
+--   | .mk _ 5 => 100
+--   | .mk 'a' j => Nat.add 1 m
+--   | _ => 0
+-- NOTE: non reduced match (`5` vs `m`): `c1 := 'a'` (in constructor form) and the pending pair binds
+--       `j := m`
+#testOptimize [ "UnifyPattern_127" ] (norm-result: 1)
+  chPair (.mk c1 m) ===>
+    match CV.mk c1 m with
+    | .mk _ 5 => 100
+    | .mk 'a' _j => Nat.add 1 m
+    | _ => 0
+
+
+/-! ### Inaccessible patterns of an inductive family (`Nat` index)
+
+     The index pattern `.(0)`/`.(2)` is a closed literal unified with the index discriminator, and the
+     constructor pattern is unified with the family discriminator. With a payload constructor the match
+     is not normalized to `ite` (pattern variable of a non `Nat`/`Int` type) and is kept, so the
+     bindings can be observed in the rhs: `k := 0` in the first alternative (`n + 1` becomes `1`),
+     `k := 2` and `j := ..` in the last one. An unreachable alternative (`.(0)` vs the literal `2`) is
+     kept with its rhs computed from the discriminator (`n := 2`). -/
+
+inductive FnIdx : Nat → Type where
+  | z : FnIdx 0
+  | c : Nat → FnIdx 2
+
+def fnPay (n : Nat) (v : FnIdx n) : Nat :=
+  match n, v with
+  | .(0), .z => n + 1
+  | .(2), .c 5 => 100
+  | .(2), .c j => j + n
+
+variable (k : Nat) (w : FnIdx k)
+
+-- fnPay k w ===>
+--   match k, w with
+--   | .(0), .z => 1
+--   | .(2), .c 5 => 100
+--   | .(2), .c j => Nat.add 2 j
+-- NOTE: symbolic index and family discriminators: `k := 0` and `w := .z` in the first alternative,
+--       `k := 2` and `w := .c j` in the last one
+#testOptimize [ "UnifyPattern_128" ] (norm-result: 1)
+  fnPay k w ===>
+    match k, w with
+    | .(0), .z => 1
+    | .(2), .c 5 => 100
+    | .(2), .c j => Nat.add 2 j
+
+-- fnPay 2 (.c m) ===>
+--   match 2, FnIdx.c m with
+--   | .(0), .z => 3
+--   | .(2), .c 5 => 100
+--   | .(2), .c j => Nat.add 2 m
+-- NOTE: non reduced match (`5` vs `m`): `j := m` in the last alternative
+#testOptimize [ "UnifyPattern_129" ] (norm-result: 1)
+  fnPay 2 (.c m) ===>
+    match 2, FnIdx.c m with
+    | .(0), .z => 3
+    | .(2), .c 5 => 100
+    | .(2), .c _j => Nat.add 2 m
+
+-- fnPay 2 (.c (m + 5)) ===>
+--   match 2, FnIdx.c (Nat.add 5 m) with
+--   | .(0), .z => 3
+--   | .(2), .c 5 => 100
+--   | .(2), .c j => Nat.add 7 m
+-- NOTE: non reduced match (`5` vs `5 + m`, `m := 0`): `j := 5 + m` in the last alternative
+#testOptimize [ "UnifyPattern_130" ] (norm-result: 1)
+  fnPay 2 (.c (m + 5)) ===>
+    match 2, FnIdx.c (Nat.add 5 m) with
+    | .(0), .z => 3
+    | .(2), .c 5 => 100
+    | .(2), .c _j => Nat.add 7 m
+
+-- fnPay 2 (.c (h m)) ===>
+--   match 2, FnIdx.c (h m) with
+--   | .(0), .z => 3
+--   | .(2), .c 5 => 100
+--   | .(2), .c j => Nat.add 2 (h m)
+-- NOTE: non reduced match (`5` vs `h m`): `j := h m` in the last alternative
+#testOptimize [ "UnifyPattern_131" ] (norm-result: 1)
+  fnPay 2 (.c (h m)) ===>
+    match 2, FnIdx.c (h m) with
+    | .(0), .z => 3
+    | .(2), .c 5 => 100
+    | .(2), .c _j => Nat.add 2 (h m)
+
+def fnPay2 (n : Nat) (v : FnIdx n) (q : Nat) : Nat :=
+  match n, v, q with
+  | .(2), .c j, 5 => j + n
+  | _, _, _ => 7
+
+-- fnPay2 k w m ===>
+--   match k, w, m with
+--   | .(2), .c j, 5 => Nat.add 2 j
+--   | _, _, _ => 7
+-- NOTE: non reduced match (`5` vs `m`): `k := 2` and `w := .c j` in the first alternative
+#testOptimize [ "UnifyPattern_132" ] (norm-result: 1)
+  fnPay2 k w m ===>
+    match k, w, m with
+    | .(2), .c j, 5 => Nat.add 2 j
+    | _, _, _ => 7
+
+-- fnPay2 2 (.c (h m)) n ===>
+--   match 2, FnIdx.c (h m), n with
+--   | .(2), .c j, 5 => Nat.add 2 (h m)
+--   | _, _, _ => 7
+-- NOTE: non reduced match (`5` vs `n`): `j := h m` in the first alternative
+#testOptimize [ "UnifyPattern_133" ] (norm-result: 1)
+  fnPay2 2 (.c (h m)) n ===>
+    match 2, FnIdx.c (h m), n with
+    | .(2), .c _j, 5 => Nat.add 2 (h m)
+    | _, _, _ => 7
+
 end Tests.UnifyPattern
