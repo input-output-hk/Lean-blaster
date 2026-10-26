@@ -2,6 +2,7 @@ import Lean
 import Blaster.Command.Options
 import Blaster.Optimize.Env
 import Blaster.Smt.EmitCommand
+import Blaster.Smt.Solver
 
 open Lean Meta Blaster.Optimize Blaster.Options
 
@@ -11,9 +12,6 @@ namespace Blaster.Smt
     code only sees Unix-style `\n` terminators, regardless of platform. -/
 private def normalizeLine (s : String) : String :=
   s.replace "\r" ""
-
-/-- Minimal version of z3 we support -/
-private def minZ3Version : String := "5.3.1"
 
 /-- Result of an Smt query. -/
 inductive Result where
@@ -77,33 +75,9 @@ def logResult (r : Result) (isCTI := false) (indLabel := "") (cexLabel := "Count
          cex.forM (λ s => f s!" - {s.dropRight 1}")
       else f failure
 
-/-- Tries to find if z3 is natively present in PATH, if not checks wsl z3 -/
-private def findZ3CmdAndVersion : IO (String) := do
-  let candidates := #["z3", "wsl z3"]
-  -- We'll store a short log message for each candidate attempt
-  let mut attemptLogs := #[]
-  for candidate in candidates do
-    try
-      let out ← IO.Process.output { cmd := candidate, args := #["-version"] }
-      if out.exitCode == 0 then
-        -- Found a good candidate => Return immediately
-        return (candidate)
-      else
-        attemptLogs := attemptLogs.push
-          s!"Candidate '{candidate}': exit code {out.exitCode}"
-    catch e =>
-      -- “No such file or directory” or other IO error
-      attemptLogs := attemptLogs.push
-        s!"Candidate '{candidate}': IO error => {e}"
-
-  -- If we get here, no candidate succeeded
-  let attemptsReport := String.join (attemptLogs.toList.map (fun x => x ++ "\n"))
-  throw <| IO.userError s!"❌ Could not find a working Z3 ≥ {minZ3Version}.\n\nTried:\n{attemptsReport}"
-
-
 /-- Spawn a z3 process w.r.t. the provided solver options. -/
-def createBlasterProcess : IO (IO.Process.Child ⟨.piped, .piped, .piped⟩) := do
-  let z3Cmd ← findZ3CmdAndVersion  -- ensures version is OK
+def createBlasterProcess (solverPath : Option String := none) : IO (IO.Process.Child ⟨.piped, .piped, .piped⟩) := do
+  let z3Cmd := (← resolveSolver solverPath).path
   IO.Process.spawn {
     stdin  := .piped
     stdout := .piped
@@ -702,7 +676,7 @@ def setBlasterProcess : TranslateEnvT Unit := do
   let env ← get
   let sOpts := env.optEnv.options.solverOptions
   unless sOpts.onlySmtLib do
-    let proc ← createBlasterProcess
+    let proc ← createBlasterProcess sOpts.solverPath
     set { env with smtEnv.smtProc := proc }
   setDefaultSmtOptions sOpts
 

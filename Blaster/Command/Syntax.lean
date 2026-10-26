@@ -1,6 +1,7 @@
 import Lean
 import Blaster.Command.Options
 import Blaster.Smt.Translate
+import Blaster.Command.Report
 open Lean Elab Command Term Meta Blaster.Options
 
 namespace Blaster.Syntax
@@ -137,11 +138,10 @@ def parseTerm : TSyntax `Blaster.solveTerm -> m Syntax
 
 
 def commandInvoker (f : BlasterOptions → Syntax → TermElabM Unit) : CommandElab := fun stx => do
-  let some cancelTk := (← read).cancelTk? | unreachable!
   let opts := stx[1].getArgs
   let sOpts ← parseSolveOptions opts default  -- Process all options dynamically
   let tr ← parseTerm ⟨stx[2]⟩
-  let act ← wrapAsyncAsSnapshot (cancelTk? := cancelTk) fun _ =>
+  let elaborate : CommandElabM Unit :=
     withoutModifyingEnv $ runTermElabM fun _ =>
     -- NOTE: We need to set maxRecDepth to 0 as the term elaborator function is triggering
     -- "maximum recursion depth has been reached".
@@ -155,12 +155,29 @@ def commandInvoker (f : BlasterOptions → Syntax → TermElabM Unit) : CommandE
     -- to zero will still be required. Unless, we have a new implementation for these functions.
       withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0, maxRecDepth := 0 }) $
         withRef stx[2] $ f sOpts tr
-  let task ← BaseIO.asTask (prio := Task.Priority.dedicated) (act ())
-  logSnapshotTask { stx? := some stx[2], task, cancelTk? := cancelTk }
+  if blaster.cli.capture.get (← getOptions) then
+    -- The executable uses one active check for source-ordered output and truthful progress.
+    elaborate
+  else
+    let some cancelTk := (← read).cancelTk? | unreachable!
+    let act ← wrapAsyncAsSnapshot (cancelTk? := cancelTk) fun _ => elaborate
+    let task ← BaseIO.asTask (prio := Task.Priority.dedicated) (act ())
+    logSnapshotTask { stx? := some stx[2], task, cancelTk? := cancelTk }
 
 
 /-! ### Implementation of solve command -/
 @[command_elab solve]
-def solveImp : CommandElab := commandInvoker Blaster.Smt.command
+def solveImp : CommandElab := commandInvoker fun options stx => do
+  if !(← Blaster.Cli.capturing) then
+    Blaster.Smt.command options stx
+  else
+    withRef stx do
+      let e ← instantiateMVars (← withSynthesize (postpone := .partial) <| elabTerm stx none)
+      let pos := (← getFileMap).toPosition (stx.getPos?.getD 0)
+      let property := match e.getAppFn with
+        | .const name _ => name.toString
+        | _ => s!"#blaster at line {pos.line}"
+      if Blaster.Cli.selected (← Blaster.Cli.captureSession.get).config property then
+        discard <| Blaster.Cli.runCaptured e options property "command"
 
 end Blaster.Syntax

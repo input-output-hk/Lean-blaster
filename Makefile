@@ -1,6 +1,7 @@
 .PHONY: usage
 
 usage:
+	@echo " - install: Install lean-blaster and bundled Z3 for your user."
 	@echo " - build_blaster: Build Blaster."
 	@echo " - clean_blaster: Clean compiled lean files for Blaster."
 	@echo " - check_blaster: Same as build_blaster but also checks that each lean file"
@@ -10,6 +11,10 @@ usage:
 	@echo " - build_all: Blaster, and Tests."
 	@echo " - clean_all: Blaster, and Tests."
 	@echo " - check_all: Blaster, and Tests."
+
+.PHONY: install
+install:
+	python3 scripts/install_cli.py
 
 .PHONY: build_blaster
 build_blaster:

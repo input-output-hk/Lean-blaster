@@ -48,31 +48,42 @@ partial def translateExpr (e : Expr) (topLevel := true) : TranslateEnvT SmtTerm 
      | Expr.sort _ => throwEnvError "translateExpr: unexpected sort type {reprStr e}" -- sort type are handled elsewhere
   visit e topLevel
 
-def Translate.main (e : Expr) (logUndetermined := true) : TranslateEnvT (Result × Expr) := do
+def Translate.main (e : Expr) (logUndetermined := true) (logResults := true)
+    (onStage : String → IO Unit := fun _ => pure ()) : TranslateEnvT (Result × Expr) := do
   -- set start local context
   updateLocalContext (← mkLocalContext)
   let e ← addAxioms (← toPropExpr e) (← findLocalAxioms)
+  onStage "optimizing"
   let optExpr ← profileTask "Optimization" $ Optimize.mainAux e (applyHashCons := false)
   trace[Translate.optExpr] "optimized expression: {← ppExpr optExpr}"
   match (toResult optExpr) with
   | res@(.Undetermined) =>
       if (← get).optEnv.options.solverOptions.onlyOptimize then
-        if logUndetermined then logResult res
+        if logResults && logUndetermined then logResult res
         return (res, optExpr)
       else
         -- set backend solver
-        setBlasterProcess
-        let st ← profileTask "Translation" $ translateExpr optExpr
-        -- assert negation for check sat
-        profileTask "Submitting Smt Query" $ assertTerm (notSmt st)
-        -- dump smt commands submitted to backend solver when `dumpSmtLib` option is set.
-        logSmtQuery
-        let res ← profileTask "Solve" checkSat
-        if !isUndeterminedResult res || logUndetermined then logResult res
-        discard $ exitSmt
-        return (res, optExpr)
+        try
+          onStage "translating"
+          setBlasterProcess
+          let st ← profileTask "Translation" $ translateExpr optExpr
+          -- assert negation for check sat
+          profileTask "Submitting Smt Query" $ assertTerm (notSmt st)
+          logSmtQuery
+          onStage "solving"
+          let res ← profileTask "Solve" checkSat
+          if logResults && (!isUndeterminedResult res || logUndetermined) then logResult res
+          return (res, optExpr)
+        finally
+          -- Reap the child on translation failures as well as successful queries.
+          if let some p := (← get).smtEnv.smtProc then
+            try
+              discard $ exitSmt
+            catch _ =>
+              try p.kill catch _ => pure ()
+              try discard $ p.wait catch _ => pure ()
   | res =>
-     logResult res
+     if logResults then logResult res
      return (res, optExpr)
 
   where

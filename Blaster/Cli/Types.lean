@@ -1,0 +1,74 @@
+import Lean
+import Blaster.Command.Options
+
+namespace Blaster.Cli
+
+/-- Presentation-independent command configuration. Optional fields override source options. -/
+structure Config where
+  command : String := "help"
+  file : Option String := none
+  declarations : Array String := #[]
+  timeout : Option (Option Nat) := none
+  solver : Option String := none
+  seed : Option Nat := none
+  counterexamples : Bool := true
+  verbose : Bool := false
+  debug : Bool := false
+  json : Bool := false
+  noProgress : Bool := false
+  color : String := "auto"
+  ascii : Bool := false
+  help : Bool := false
+  version : Bool := false
+  deriving Inhabited
+
+structure Location where
+  file : String
+  line : Nat
+  column : Nat
+  deriving Lean.ToJson
+
+/-- A check result is data, independent of Lean's human-readable diagnostics. -/
+structure CheckResult where
+  property : String
+  invocation : String := "command"
+  status : String
+  origin : String
+  location : Location
+  elapsedMs : Nat
+  solverTimeoutSeconds : Option Nat
+  goal : Option String := none
+  counterexample : Array String := #[]
+  reason : Option String := none
+  deriving Lean.ToJson
+
+structure Diagnostic where
+  severity : String
+  message : String
+  location : Option Location := none
+  deriving Lean.ToJson
+
+structure Report where
+  schemaVersion : Nat := 1
+  results : Array CheckResult := #[]
+  diagnostics : Array Diagnostic := #[]
+  trust : String := "Blaster does not reconstruct Lean proofs. Tactic success uses Blaster.Tactic.blasterProven."
+  deriving Lean.ToJson
+
+def Report.exitCode (r : Report) : UInt32 :=
+  if r.diagnostics.any (·.severity == "error") || r.results.any (·.status == "error") then 4
+  else if r.results.any (·.status == "falsified") then 1
+  else if r.results.any (·.status == "undetermined") then 3
+  else 0
+
+def Config.solverOptions (cfg : Config) (base : Options.BlasterOptions := {}) : Options.BlasterOptions :=
+  { base with
+    solverPath := cfg.solver.or base.solverPath
+    timeout := cfg.timeout.getD base.timeout
+    randomSeed := cfg.seed.or base.randomSeed
+    generateCex := cfg.counterexamples && base.generateCex
+    -- CLI rendering owns output, including progress. Library logging writes to stdout.
+    verbose := 0
+    dumpSmtLib := false }
+
+end Blaster.Cli

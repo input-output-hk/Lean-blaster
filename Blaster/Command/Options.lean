@@ -24,6 +24,8 @@ def isExpectedUndetermined : ExpectedResult -> Bool
 
 /-- Type introducing the options passed on to the solver. -/
 structure BlasterOptions where
+  /-- Explicit solver executable. `none` retains automatic discovery. -/
+  solverPath : Option String := none
   /-- The number of unfolding steps to be considered when
       unfolding a recursive function. It is set to 100 by default. -/
   unfoldDepth : Nat := 100

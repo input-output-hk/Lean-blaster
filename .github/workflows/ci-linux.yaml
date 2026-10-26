@@ -14,7 +14,7 @@ concurrency:
 
 env:
   LEAN_VERSION: "4.24.0"
-  Z3_VERSION: "5.3.1"
+  Z3_VERSION: "5.3.2"
   GLIBC_Z3: "2.39"
 
 jobs:
@@ -97,6 +97,13 @@ jobs:
 
       - name: Execute and Validate Tests
         run: LEAN_NUM_THREADS=5 ./scripts/check_lean_project_compilation.sh Tests
+
+      - name: Validate executable and bundled solver
+        run: |
+          lake build lean-blaster
+          python3 scripts/fetch_z3.py
+          python3 scripts/test_cli.py
+          python3 scripts/test_install_cli.py
 
       - name: Upload Tests log
         if: failure()
