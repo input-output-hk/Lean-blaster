@@ -78,7 +78,7 @@ def logResult (r : Result) (isCTI := false) (indLabel := "") (cexLabel := "Count
 /-- Spawn a z3 process w.r.t. the provided solver options. -/
 def createBlasterProcess (solverPath : Option String := none) : IO (IO.Process.Child ⟨.piped, .piped, .piped⟩) := do
   let z3Cmd := (← resolveSolver solverPath).path
-  IO.Process.spawn {
+  spawnSolver {
     stdin  := .piped
     stdout := .piped
     stderr := .piped
@@ -115,7 +115,7 @@ def checkCancelTk? : TranslateEnvT Unit := do
   if let some tk := (← readThe Core.Context).cancelTk? then
     if ← tk.isSet then
       p.kill
-      discard $ p.wait
+      discard $ waitSolver p
       throwInterruptException
 
 /-- Retrieve model output from `h` when a counterexample is generated.
@@ -563,7 +563,7 @@ def exitSmt : TranslateEnvT UInt32 := do
  let some p := env.smtEnv.smtProc | return 0
  submitCommand (.exitSmt)
  let (_, p) ← p.takeStdin
- p.wait
+ waitSolver p
 
 
 /-- Set the Smt logic to `ALL`. -/

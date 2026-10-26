@@ -4,9 +4,11 @@
 import json
 import os
 from pathlib import Path
+import signal
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 
@@ -62,18 +64,93 @@ class InstalledCli(unittest.TestCase):
         (project / "lean-toolchain").write_text("leanprover/lean4:v4.24.0\n")
         (project / "App.lean").write_text("def projectValue : Nat := 42\n")
         compiled = project / ".lake/build/lib/lean/App.olean"
-        compiled.parent.mkdir(parents=True)
-        subprocess.run([str(self.sysroot / "bin/lean"), "App.lean", "-o", str(compiled)],
-                       cwd=project, env=self.environment, check=True, capture_output=True)
+        self.assertFalse(compiled.exists())
         source = project / "Properties.lean"
         source.write_text("import Blaster\nimport App\n"
                           "theorem fromProject : projectValue = 42 := by blaster\n")
+        missing = self.run_report("check", source, "--no-build", expected=4)
+        self.assertTrue(any("--no-build" in d["message"] for d in missing["diagnostics"]))
+        self.assertFalse(compiled.exists())
         data = self.run_report("check", source)
+        self.assertTrue(compiled.exists())
         self.assertEqual(data["results"][0]["property"], "fromProject")
         self.assertEqual(data["results"][0]["status"], "valid")
+        # A stale import is refreshed, while the selected source is elaborated only once.
+        (project / "App.lean").write_text("def projectValue : Nat := 43\n")
+        marker = project / "selected-runs"
+        source.write_text("import Blaster\nimport App\n"
+                          "#eval show IO Unit from do\n"
+                          f"  let path : System.FilePath := {json.dumps(str(marker))}\n"
+                          "  let previous ← if ← path.pathExists then IO.FS.readFile path else pure \"\"\n"
+                          "  IO.FS.writeFile path (previous ++ \"checked\\n\")\n"
+                          "theorem fromProject : projectValue = 43 := by blaster\n")
+        refreshed = self.run_report("check", source)
+        self.assertEqual(refreshed["results"][0]["status"], "valid")
+        self.assertEqual(marker.read_text(), "checked\n")
         (project / "lean-toolchain").write_text("leanprover/lean4:v0.0.0\n")
         error = self.run_report("check", source, expected=4)
         self.assertTrue(any("built with Lean" in d["message"] for d in error["diagnostics"]))
+
+    def test_dependency_build_failure_preserves_json_and_explains_recovery(self):
+        project = self.directory / "broken dependency project"
+        project.mkdir()
+        (project / "lakefile.toml").write_text('name = "broken"\n[[lean_lib]]\nname = "App"\n')
+        (project / "lean-toolchain").write_text("leanprover/lean4:v4.24.0\n")
+        (project / "App.lean").write_text("def broken : Nat := true\n")
+        source = project / "Properties.lean"
+        source.write_text("import Blaster\nimport App\n#blaster [True]\n")
+        data = self.run_report("check", source, expected=4)
+        self.assertTrue(any("couldn't prepare this file's imports" in d["message"] for d in data["diagnostics"]))
+
+    @unittest.skipIf(os.name == "nt", "Uses POSIX process-group cancellation")
+    def test_interrupt_during_dependency_build(self):
+        project = self.directory / "interrupted dependency project"
+        project.mkdir()
+        (project / "lakefile.toml").write_text('name = "interrupted"\n[[lean_lib]]\nname = "App"\n')
+        (project / "lean-toolchain").write_text("leanprover/lean4:v4.24.0\n")
+        ready = project / "compiler-pid"
+        (project / "App.lean").write_text(
+            "#eval show IO Unit from do\n"
+            '  let child ← IO.Process.output { cmd := "/bin/sh", args := #["-c", "echo $PPID"] }\n'
+            f"  IO.FS.writeFile {json.dumps(str(ready))} child.stdout\n"
+            "  IO.sleep 45000\n"
+            "def projectValue : Nat := 42\n")
+        source = project / "Properties.lean"
+        source.write_text("import Blaster\nimport App\n#blaster [True]\n")
+        process = subprocess.Popen([str(self.command), "check", str(source), "--json"],
+                                   cwd=self.directory, env=self.environment, text=True,
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+        compiler_pid = None
+        try:
+            deadline = time.monotonic() + 15
+            while time.monotonic() < deadline and process.poll() is None and not ready.exists():
+                time.sleep(0.02)
+            self.assertTrue(ready.exists(), "The dependency compiler didn't reach the interruption point")
+            compiler_pid = int(ready.read_text())
+            process.send_signal(signal.SIGINT)
+            stdout, stderr = process.communicate(timeout=5)
+            self.assertEqual(process.returncode, 130, stdout + stderr)
+            self.assertTrue(json.loads(stdout)["interrupted"])
+            # Grandchildren are reaped by the OS, asynchronously on macOS. The CLI
+            # directly reaps Lake; give the compiler's exiting state a bounded window.
+            deadline = time.monotonic() + 3
+            status = ""
+            while time.monotonic() < deadline:
+                status = subprocess.run(["/bin/ps", "-o", "stat=", "-p", str(compiler_pid)],
+                                        text=True, capture_output=True).stdout.strip()
+                if not status or status.startswith("Z"):
+                    break
+                time.sleep(0.02)
+            self.assertTrue(not status or status.startswith("Z"), status)
+        finally:
+            if process.poll() is None:
+                os.killpg(process.pid, signal.SIGKILL)
+                process.communicate(timeout=5)
+            if compiler_pid:
+                try:
+                    os.kill(compiler_pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
 
     def test_installer_preserves_unrelated_command(self):
         binary_dir = self.directory / "unrelated bin"

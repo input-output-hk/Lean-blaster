@@ -59,7 +59,7 @@ def blasterTacticImp : Tactic := fun stx =>
 
    | .Falsified cex =>
       if ← Blaster.Cli.capturing then
-        if Blaster.Cli.selected (← Blaster.Cli.captureSession.get).config property then
+        if Blaster.Cli.selected (← Blaster.Cli.readCapture).config property then
           throwError (MessageData.tagged `Blaster.Cli.falsified m!"I found a counterexample to this goal")
         else
           throwError "I couldn't elaborate '{property}': Blaster found a counterexample in this unselected proof"

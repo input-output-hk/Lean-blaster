@@ -46,7 +46,7 @@ private def projectPaths (cfg : Config) (sysroot : System.FilePath) : IO SearchP
     if requested.startsWith "leanprover/lean4:" && requested != s!"leanprover/lean4:v{Lean.versionString}" then
       throw <| IO.userError s!"This project uses '{requested}', but I was built with Lean {Lean.versionString}. Use a matching lean-blaster installation."
   let lake := sysroot / "bin" / (if System.Platform.isWindows then "lake.exe" else "lake")
-  let output ← IO.Process.output {
+  let output ← Smt.commandOutput {
     cmd := lake.toString
     args := #["env"]
     cwd := some project
@@ -58,6 +58,48 @@ private def projectPaths (cfg : Config) (sysroot : System.FilePath) : IO SearchP
       return (System.SearchPath.parse (line.drop 10)).map fun path =>
         if path.isAbsolute then path else project / path
   throw <| IO.userError "Lake didn't provide this project's dependency paths. Run 'lean-blaster doctor' to check the installation."
+
+/-- Lake prepares imports and native dependencies without elaborating the selected file. -/
+def prepareImports (cfg : Config) (header : ModuleHeader)
+    (onStage onOutput : String → IO Unit) : IO (Option ModuleSetup) := do
+  if cfg.noBuild then return none
+  let some project ← projectFor cfg.file | return none
+  let file : System.FilePath := cfg.file.getD ""
+  let cwd ← IO.currentDir
+  let file := if file.isAbsolute then file else cwd / file
+  let sysroot ← runtimeSysroot (← Smt.installationBin)
+  let lake := sysroot / "bin" / (if System.Platform.isWindows then "lake.exe" else "lake")
+  -- Blaster itself comes from this executable's matching installation, including in projects
+  -- which do not declare Blaster as a Lake dependency. Other imports are prepared by Lake.
+  let header := { header with imports := header.imports.filter fun imp =>
+    let name := imp.module.toString
+    name != "Blaster" && !name.startsWith "Blaster." }
+  let mut buildEnv := #[("LEAN_SYSROOT", some sysroot.toString)]
+  if let some selected := cfg.solver then
+    let path : System.FilePath := selected
+    let selected := if !path.isAbsolute && (selected.contains '/' || selected.contains '\\') then
+      (cwd / path).toString else selected
+    buildEnv := buildEnv.push ("BLASTER_SOLVER", some selected)
+  else if (← IO.getEnv "BLASTER_SOLVER").getD "" |>.isEmpty then
+    let bin ← Smt.installationBin
+    let solver := bin / ".." / "libexec" / "lean-blaster" /
+      (if System.Platform.isWindows then "z3.exe" else "z3")
+    if ← solver.pathExists then buildEnv := buildEnv.push ("BLASTER_SOLVER", some solver.toString)
+  onStage "I'm preparing your dependencies"
+  let output ← Smt.commandOutput {
+    cmd := lake.toString
+    args := #["--no-ansi", "setup-file", file.toString, (toJson header).compress]
+    cwd := some project
+    env := buildEnv } onOutput
+  unless output.exitCode == 0 do
+    throw <| IO.userError s!"I couldn't prepare this file's imports.\n{output.stderr.trim}\nFix the dependency build errors and try again. Use '--no-build' to manage builds yourself."
+  -- Configurations may print their own messages; only the final setup JSON is protocol data.
+  let lines := output.stdout.trim.splitOn "\n"
+  let setupText := lines.getLast?.getD ""
+  for line in lines.dropLast do onOutput (line ++ "\n")
+  let setup ← IO.ofExcept <| Json.parse setupText >>= fromJson? (α := ModuleSetup)
+  onStage "I'm elaborating the Lean file"
+  return some setup
 
 def initLibraries (cfg : Config) : IO Unit := do
   let bin ← Smt.installationBin

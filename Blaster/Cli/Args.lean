@@ -18,10 +18,10 @@ private def duration (value : String) : Except String (Option Nat) := do
   return some (n * multiplier)
 
 private def valueFlags : List String :=
-  ["--decl", "--solver-timeout", "--solver", "--seed", "--color"]
+  ["--decl", "--solver-timeout", "--solver", "--seed", "--color", "--theme"]
 
 private def knownFlags : List String := valueFlags ++
-  ["--no-counterexample", "--verbose", "--debug", "--json", "--no-progress", "--ascii", "--help", "--version"]
+  ["--no-counterexample", "--verbose", "--debug", "--json", "--no-progress", "--no-build", "--ascii", "--help", "--version"]
 
 private def unknownFlag (flag : String) : String := Id.run do
   let mut hint := ""
@@ -43,6 +43,10 @@ private def applyValue (cfg : Config) (flag value : String) : Except String Conf
     unless ["auto", "always", "never"].contains value do
       throw s!"'--color' expects auto, always, or never; received '{value}'"
     return { cfg with color := value }
+  | "--theme" =>
+    unless ["auto", "dark", "light"].contains value do
+      throw s!"'--theme' expects auto, dark, or light; received '{value}'"
+    return { cfg with theme := value }
   | _ => throw (unknownFlag flag)
 
 private def positional (cfg : Config) (arg : String) (literal : Bool) : Except String Config := do
@@ -65,6 +69,7 @@ private def parseLoop : List String → Config → Bool → Except String Config
     | "--debug" => parseLoop rest { cfg with debug := true, verbose := true } false
     | "--json" => parseLoop rest { cfg with json := true } false
     | "--no-progress" => parseLoop rest { cfg with noProgress := true } false
+    | "--no-build" => parseLoop rest { cfg with noBuild := true } false
     | "--no-counterexample" => parseLoop rest { cfg with counterexamples := false } false
     | "--ascii" => parseLoop rest { cfg with ascii := true } false
     | _ =>
@@ -87,19 +92,22 @@ def parseArgs (args : List String) : Except String Config := do
   if cfg.command == "check" && cfg.file.isNone then
     throw "I need a Lean file to check.\n\n  lean-blaster check Properties.lean"
   if cfg.command != "check" && (!cfg.declarations.isEmpty || cfg.timeout.isSome ||
-      cfg.seed.isSome || !cfg.counterexamples) then
+      cfg.seed.isSome || !cfg.counterexamples || cfg.noBuild) then
     throw "Property selection and solver options belong to 'lean-blaster check'"
   if cfg.json && cfg.color == "always" then
     throw "'--json' and '--color always' cannot be combined; JSON contains unstyled data"
   return cfg
 
+private def outputHelp : String :=
+  "\n\nOutput options:\n  -v, --verbose         Show stages and elapsed time\n  --debug               Include additional diagnostic context\n  --json                Write a versioned JSON report to stdout\n  --color MODE          auto, always, never [default: auto]\n  --theme MODE          auto, dark, light [default: auto]\n  --no-progress         Disable live progress\n  --ascii               Use ASCII status symbols\n  -h, --help            Show help\n  --version             Show the executable and Lean version\n"
+
 def helpText (command : String) : String :=
-  let intro := if command == "check" then
-    "Check #blaster commands and 'by blaster' tactic calls, or select named properties with --decl.\n\nUsage: lean-blaster check FILE.lean [OPTIONS]"
-  else if command == "doctor" then
-    "I'll check access to Lean's compiled libraries and Z3.\n\nUsage: lean-blaster doctor [--solver PATH] [--json]"
+  if command == "doctor" then
+    "I'll check access to Lean's compiled libraries and Z3.\n\nUsage: lean-blaster doctor [OPTIONS]\n\nExamples:\n  lean-blaster doctor\n  lean-blaster doctor --solver /path/to/z3\n  lean-blaster doctor --json\n\nSolver option:\n  --solver PATH         Select a Z3 executable" ++ outputHelp
+  else if command == "check" then
+    "Check #blaster commands and 'by blaster' tactic calls, or select named properties with --decl.\n\nUsage: lean-blaster check FILE.lean [OPTIONS]\n\nExamples:\n  lean-blaster check Properties.lean\n  lean-blaster check Properties.lean --decl balance_nonnegative --solver-timeout 30s\n  lean-blaster check Properties.lean --json\n\nCheck options:\n  --decl NAME           Select a fully qualified property (repeatable)\n  --solver-timeout TIME  Per-query solver limit: 30s, 2m, none\n  --solver PATH         Select a Z3 executable\n  --seed N              Set the solver seed (including zero)\n  --no-counterexample   Skip counterexample retrieval\n  --no-build            Use existing compiled imports without building" ++ outputHelp ++
+    "\nRun 'lean-blaster doctor' to check your installation.\nValid results are not reconstructed as Lean proofs.\n"
   else
-    "lean-blaster · a verification assistant for Lean\n\nUsage: lean-blaster COMMAND [OPTIONS]\n\nCommands:\n  check FILE.lean   Check properties with Blaster\n  doctor            Check Lean and solver setup"
-  intro ++ "\n\nExamples:\n  lean-blaster check Properties.lean\n  lean-blaster check Properties.lean --decl balance_nonnegative --solver-timeout 30s\n  lean-blaster check Properties.lean --json\n\nCheck options:\n  --decl NAME           Select a fully qualified property (repeatable)\n  --solver-timeout TIME  Per-property solver limit: 30s, 2m, none\n  --solver PATH         Select a Z3 executable\n  --seed N              Set the solver seed (including zero)\n  --no-counterexample   Skip counterexample retrieval\n\nOutput options:\n  -v, --verbose         Show stage timings\n  --debug               Include additional diagnostic context\n  --json                Write a versioned JSON report to stdout\n  --color MODE          auto, always, never [default: auto]\n  --no-progress         Disable live progress\n  --ascii               Use ASCII status symbols\n  -h, --help            Show help\n  --version             Show the executable and Lean version\n\nRun 'lean-blaster doctor' to check your installation.\nValid results are not reconstructed as Lean proofs.\n"
+    "lean-blaster · a verification assistant for Lean\n\nUsage: lean-blaster COMMAND [OPTIONS]\n\nCommands:\n  check FILE.lean   Check properties with Blaster\n  doctor            Check Lean and solver setup\n\nExamples:\n  lean-blaster check Properties.lean\n  lean-blaster check Properties.lean --json\n  lean-blaster doctor\n\nRun 'lean-blaster COMMAND --help' for command options.\nValid results are not reconstructed as Lean proofs.\n"
 
 end Blaster.Cli

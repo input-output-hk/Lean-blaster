@@ -177,7 +177,7 @@ def solveImp : CommandElab := commandInvoker fun options stx => do
       let property := match e.getAppFn with
         | .const name _ => name.toString
         | _ => s!"#blaster at line {pos.line}"
-      if Blaster.Cli.selected (← Blaster.Cli.captureSession.get).config property then
+      if Blaster.Cli.selected (← Blaster.Cli.readCapture).config property then
         discard <| Blaster.Cli.runCaptured e options property "command"
 
 end Blaster.Syntax

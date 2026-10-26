@@ -81,7 +81,7 @@ def Translate.main (e : Expr) (logUndetermined := true) (logResults := true)
               discard $ exitSmt
             catch _ =>
               try p.kill catch _ => pure ()
-              try discard $ p.wait catch _ => pure ()
+              try discard $ waitSolver p catch _ => pure ()
   | res =>
      if logResults then logResult res
      return (res, optExpr)

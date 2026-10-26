@@ -1,4 +1,4 @@
-import Lean
+import Blaster.Smt.Process
 
 namespace Blaster.Smt
 
@@ -14,7 +14,7 @@ def installationBin : IO System.FilePath := do
 
 /-- An explicit selection never falls back silently to a different solver. -/
 def probeSolver (path source : String) : IO SolverInfo := do
-  let out ← IO.Process.output { cmd := path, args := #["-version"] }
+  let out ← solverOutput path #["-version"]
   unless out.exitCode == 0 do
     throw <| IO.userError s!"I couldn't run Z3 at '{path}': {out.stderr.trim}"
   unless out.stdout.startsWith "Z3 version " do
@@ -24,6 +24,8 @@ def probeSolver (path source : String) : IO SolverInfo := do
 /-- Release bundles put Z3 under libexec; a sibling binary also supports portable layouts. -/
 def resolveSolver (explicit : Option String := none) : IO SolverInfo := do
   if let some path := explicit then return ← probeSolver path "explicit"
+  if let some path ← IO.getEnv "BLASTER_SOLVER" then
+    unless path.isEmpty do return ← probeSolver path "environment"
   let bin ← installationBin
   let name := if System.Platform.isWindows then "z3.exe" else "z3"
   for candidate in #[bin / ".." / "libexec" / "lean-blaster" / name, bin / name] do

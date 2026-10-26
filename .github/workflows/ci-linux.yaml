@@ -98,16 +98,36 @@ jobs:
       - name: Execute and Validate Tests
         run: LEAN_NUM_THREADS=5 ./scripts/check_lean_project_compilation.sh Tests
 
-      - name: Validate executable and bundled solver
-        run: |
-          lake build lean-blaster
-          python3 scripts/fetch_z3.py
-          python3 scripts/test_cli.py
-          python3 scripts/test_install_cli.py
-
       - name: Upload Tests log
         if: failure()
         uses: actions/upload-artifact@v6
         with:
           name: tests-build
           path: ./Tests/build.log
+
+  cli:
+    name: CLI (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Lean
+        shell: bash
+        run: |
+          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Build executable
+        run: lake build lean-blaster
+
+      - name: Install pinned private solver
+        run: python3 scripts/fetch_z3.py
+
+      - name: Validate CLI and installation
+        run: |
+          python3 scripts/test_cli.py
+          python3 scripts/test_install_cli.py

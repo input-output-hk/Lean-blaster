@@ -21,6 +21,9 @@ installer tells you if it is missing. Shell profiles are not edited. A custom pr
 is available through `python3 scripts/install_cli.py --prefix /your/install/location`.
 An existing unrelated command is preserved. Reinstalling switches the command to a
 finished release directory and preserves resources used by already-running processes.
+Source builds require a C compiler (`cc`), in addition to the pinned Lean toolchain,
+for the executable's small OS adapter. That adapter is linked into the installed
+command and adds no separate native library installation step.
 
 The command locates the installed files through its resolved executable path, so
 launching it through the PATH symlink works from other directories. It remembers
@@ -28,7 +31,11 @@ the matching Lean toolchain instead of using whichever Lean happens to be active
 in the current shell. For a Lake project, it discovers compiled dependencies
 automatically from the input file's location, falling back to the current directory.
 You do not need to prefix commands with `lake env` or point into `.lake/build/bin`.
-Projects must have their dependencies built and use a compatible Lean toolchain.
+Projects must use a compatible Lean toolchain. Missing or stale imports are prepared
+automatically with Lake before the selected file is elaborated. The progress stage
+says "I'm preparing your dependencies"; build logs go to stderr. The selected source
+is not compiled first and then checked a second time. `--no-build` uses existing
+compiled imports and reports a recovery action when they are missing.
 
 Try `check examples/Properties.lean` for a valid tactic result, a counterexample,
 and an unresolved optimizer-only check. This demonstration intentionally exits 1
@@ -41,9 +48,13 @@ The fetch script installs the pinned official **Z3 5.3.2** release privately und
 The archive's MIT license is retained alongside the solver. The script does not
 replace the system's Z3 installation or modify shell configuration.
 
-Solver selection is `--solver PATH`, then the installation's private solver, then
+Solver selection is `--solver PATH`, then nonempty `BLASTER_SOLVER`, then the installation's private solver, then
 `z3` on `PATH`. A broken explicit or bundled solver is reported rather than silently
 switching versions. `doctor` reports the selected path, source, and actual version.
+Dependency builds inherit the selected solver through `BLASTER_SOLVER`, so they can
+use the private bundle without a system Z3 installation. Source options govern
+checks executed while compiling imported modules; CLI timeout/seed options govern
+the checks captured from the selected file.
 
 The installer keeps private releases under `~/.local/share/lean-blaster/releases/`.
 Each contains `bin/lean-blaster`, compiled Blaster modules in `lib/lean/`, and the
@@ -52,8 +63,7 @@ solver and required runtime libraries in `libexec/lean-blaster/`, including
 pinned for macOS, Linux, and Windows on arm64 and x64; the Linux archives require
 their named glibc version. Only the host platform has been exercised locally.
 
-This milestone still uses an installed Lean toolchain and compiled project
-dependencies. A fully relocatable release that also packages Lean's runtime
+This milestone still uses an installed Lean toolchain. A fully relocatable release that also packages Lean's runtime
 libraries and module artifacts is subsequent work. Normal invocations already use
 the short `lean-blaster` command.
 
@@ -89,6 +99,16 @@ State-machine commands retain their existing diagnostics; structured BMC and
 k-induction reporting is outside this milestone. A file with no captured or selected
 checks exits unsuccessfully rather than reporting a vacuous success.
 
+An umbrella such as `Tests/Smt/SmtNat.lean` imports test modules. Preparing those
+imports can execute their build-time checks when compilation is needed, but loading
+cached modules does not rerun their checks or add their results to this file's CLI
+report. Use a leaf file such as `Tests/Smt/SmtNat/SmtNatAdd.lean` for a CLI report,
+or `lake test` for the project's test suite. Files with no direct checks receive a
+message explaining this distinction.
+Repository test files can also contain deliberately false or unresolved properties
+with expected-result annotations. The CLI reports their actual verification
+outcomes; `lake test` checks those annotations as a test suite.
+
 ## Options and precedence
 
 ```sh
@@ -121,16 +141,30 @@ The voice follows the first-person compiler tradition exemplified by
 - Keep status rows compact. Avoid jokes, blame, canned apologies, and random copy variants.
 - Never claim a timeout solely because an unknown result had a time limit configured.
 
-Identity uses the terminal's magenta role; green denotes valid, red denotes falsified
-or operational failure, and yellow denotes undetermined or warning. Text and symbols
-carry the same information without color. ANSI roles inherit the user's light/dark
-terminal palette. The proposed lilac/cyan truecolor palette remains a future preset.
+`--theme dark|light` selects the agreed truecolor palette:
+
+| Role | Dark | Light |
+| --- | --- | --- |
+| Identity / progress | `#C4B5FD` | `#6D28D9` |
+| Source location / action | `#67E8F9` | `#0E7490` |
+| Valid | `#86EFAC` | `#166534` |
+| Undetermined / warning | `#FCD34D` | `#92400E` |
+| Falsified / error | `#FDA4AF` | `#BE123C` |
+| Secondary information | `#A1A1AA` | `#52525B` |
+
+`--theme auto` uses truecolor when `COLORTERM` advertises it and `COLORFGBG` identifies
+the background; otherwise it uses the terminal's semantic ANSI palette. Explicit
+themes opt into truecolor. Text and symbols carry the same information without
+color. Status columns align, with locations accented and timing/stage details muted.
 
 `--color auto|always|never` is independent of progress. Auto mode honors nonempty
 `NO_COLOR`, non-TTY output, and `TERM=dumb`; explicit `always` overrides color
 detection. `--no-progress` removes live updates, `--ascii` replaces status symbols.
 Redirected output is static. Progress appears on stderr and results on stdout.
 The CLI never changes the terminal's background or font.
+Live frames use the actual stderr terminal width, refreshed while running, with
+`COLUMNS` as a fallback. Unicode display widths are respected. A shared output lock
+keeps progress from interrupting completed result blocks.
 
 ## Structured output and exit codes
 
@@ -138,11 +172,12 @@ The CLI never changes the terminal's background or font.
 progress frames. Source output remains on stderr. The result array contains:
 
 - `property`, `invocation` (`command`, `tactic`, `declaration`), and source `location`;
-- `status` (`valid`, `falsified`, `undetermined`, `error`) and `origin`;
+- `status` (`valid`, `falsified`, `undetermined`, `error`, `skipped`) and `origin`;
 - `elapsedMs`, `solverTimeoutSeconds`, the input `goal`, raw `counterexample` strings,
-  and optional `reason`.
+  and optional `reason`. `skipped` denotes an explicitly selected declaration that
+  could not safely be checked after elaboration failed.
 
-Reports also include `diagnostics`, `trust`, and `exitCode`. Consumers should tolerate
+Reports also include `diagnostics`, `trust`, `interrupted`, `signal`, and `exitCode`. Consumers should tolerate
 additional fields. Doctor reports contain `leanVersion`, selected `solver`, and
 diagnostics. Usage errors also produce JSON when `--json` is requested. Help and
 version requests intentionally print text.
@@ -154,11 +189,25 @@ version requests intentionally print text.
 | 2 | Invalid invocation or options |
 | 3 | At least one undetermined result, with none falsified |
 | 4 | File, Lean elaboration, translation, or solver failure |
+| 130 | Interrupted with SIGINT (Ctrl-C) |
+| 143 | Interrupted with SIGTERM |
 
 Operational/source errors take precedence over falsification, which takes precedence
 over undetermined. A falsified tactic has a typed diagnostic tag and is classified
 as falsification. A tactic leaving an incomplete Lean proof still produces Lean's
 source error; capturing its unknown result does not admit or repair the proof.
+
+SIGINT and SIGTERM preserve completed results and produce one final JSON object in
+JSON mode, with `interrupted: true` and the signal number. The CLI freezes reporting,
+stops and reaps supervised solvers, and exits promptly even during blocking source
+IO. On POSIX, supervised commands use separate process groups so cancelling a Lake
+dependency build also stops its solver descendants. The native adapter redirects
+OS stdout as well as Lean's stream, keeping inherited subprocess output on stderr.
+
+If elaboration fails, selections which were not reached are explicitly marked
+`skipped` ("Not checked"), and missing declaration names are diagnosed. The CLI does
+not solve new declarations using Lean's error-recovery environment. Skipped
+selections produce exit 4 rather than silently disappearing from a batch report.
 
 Valid results are **not reconstructed Lean proofs**. The existing tactic uses
 `Blaster.Tactic.blasterProven`, including optimizer-only success. The report retains
@@ -184,17 +233,21 @@ including dependency discovery in a separate Lake project and preservation of an
 unrelated existing command.
 
 Local validation on macOS arm64 with Lean 4.24.0 and Z3 5.3.2 passed the executable
-build, all 16 CLI integration checks, and all four installation checks. The clean
-library check also passed. The full test build was stopped at 724/738 jobs after
-the existing `Tests/Smt/SmtNat/SmtNatMod.lean` module spent more than five minutes
+build, all 22 CLI integration checks, and all six installation checks. Coverage
+includes inherited subprocess output, SIGINT/SIGTERM, blocking source IO, narrow
+Unicode terminals, light/dark palettes, missing/stale imports, single elaboration
+of the selected file, and cancellation during a dependency build. Linux and macOS
+CLI CI jobs run independently of the full SMT suite.
+The clean library check also passed. The full test build was stopped at 733/747 jobs after
+the existing `Tests/Smt/SmtNat/SmtNatMod.lean` module spent more than six minutes
 solving nonlinear modulo queries without a timeout. The full suite therefore
 remains incomplete; this does not establish a regression from the base branch.
 Keep the solver outside `.lake/build` for `make check_all`, which cleans that directory.
 
 ## Following milestones
 
-1. Richer reason-unknown reporting, cancellation, and progress coordination.
-2. `inspect` and `export`, shell completion, and the truecolor palette preset.
+1. Richer reason-unknown reporting.
+2. `inspect` and `export`, and shell completion.
 3. Structured BMC and k-induction results with explicit analysis bounds.
 4. Relocatable release bundles including required Lean runtime/module artifacts,
    followed by signed platform packages and release automation.

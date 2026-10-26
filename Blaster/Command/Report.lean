@@ -1,5 +1,6 @@
 import Blaster.Cli.Types
 import Blaster.Smt.Translate
+import Std.Sync.Mutex
 
 open Lean Meta Blaster.Optimize Blaster.Smt
 
@@ -9,8 +10,7 @@ register_option blaster.cli.capture : Bool := {
 
 namespace Blaster.Cli
 
-/-- One executable invocation owns the session. Normal Lean elaboration never enables capture.
-    Ref updates are atomic because command/tactic elaboration may use worker threads. -/
+/-- One executable invocation owns the session. Normal Lean elaboration never enables capture. -/
 structure CaptureSession where
   config : Config := {}
   report : Report := {}
@@ -19,7 +19,33 @@ structure CaptureSession where
 
 instance : Inhabited CaptureSession := ⟨{}⟩
 
-initialize captureSession : IO.Ref CaptureSession ← IO.mkRef {}
+private initialize captureSession : IO.Ref (Option (Std.Mutex CaptureSession)) ← do
+  IO.mkRef (some (← Std.Mutex.new {}))
+
+private def captureLock : IO (Std.Mutex CaptureSession) := do
+  let some lock ← captureSession.get | throw <| IO.userError "The CLI capture session wasn't initialized"
+  return lock
+
+def readCapture : IO CaptureSession := do (← captureLock).atomically get
+
+def resetCapture (session : CaptureSession) : IO Unit := do (← captureLock).atomically (set session)
+
+/-- A signal freezes the report before the worker can append cancellation errors or late results. -/
+def modifyCapture (f : CaptureSession → CaptureSession) : IO Unit := do
+  (← captureLock).atomically do
+    unless (← get).report.interrupted do modify f
+
+def interruptCapture (signal : Nat) : IO Report := do
+  (← captureLock).atomically do
+    let state ← get
+    let report := { state.report with
+      interrupted := true
+      signal := some signal
+      diagnostics := state.report.diagnostics.push {
+        severity := "interrupted"
+        message := "I stopped the check. Completed results are preserved; remaining work was not checked." } }
+    set { state with report }
+    return report
 
 def capturing : CoreM Bool := return blaster.cli.capture.get (← getOptions)
 
@@ -30,7 +56,7 @@ def selected (cfg : Config) (property : String) : Bool :=
 def runCaptured (e : Expr) (options : Options.BlasterOptions) (property invocation : String)
     (logUndetermined := true) (locationOverride : Option Location := none) : MetaM ((Result × Expr) × TranslateEnv) := do
   let enabled ← capturing
-  let session ← captureSession.get
+  let session ← readCapture
   let opts := if enabled then session.config.solverOptions options else options
   let env := { (default : TranslateEnv) with optEnv.options.solverOptions := opts }
   if !enabled then
@@ -77,8 +103,8 @@ def runCaptured (e : Expr) (options : Options.BlasterOptions) (property invocati
         goal := goalText
         counterexample := cex
         reason := reason }
-      captureSession.modify fun s => { s with report.results := s.report.results.push record }
-      session.onResult record
+      modifyCapture fun s => { s with report.results := s.report.results.push record }
+      unless (← readCapture).report.interrupted do session.onResult record
     return answer
   catch ex =>
     if reportThis then
@@ -87,10 +113,10 @@ def runCaptured (e : Expr) (options : Options.BlasterOptions) (property invocati
         location := location, elapsedMs := (← IO.monoMsNow) - start, solverTimeoutSeconds := opts.timeout
         goal := goalText
         reason := some (← ex.toMessageData.toString) }
-      captureSession.modify fun s => { s with report.results := s.report.results.push record }
-      session.onResult record
+      modifyCapture fun s => { s with report.results := s.report.results.push record }
+      unless (← readCapture).report.interrupted do session.onResult record
     throw ex
   finally
-    if reportThis then session.onStage "I'm elaborating the Lean file"
+    if reportThis && !(← readCapture).report.interrupted then session.onStage "I'm elaborating the Lean file"
 
 end Blaster.Cli

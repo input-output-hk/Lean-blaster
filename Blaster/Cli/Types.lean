@@ -16,7 +16,9 @@ structure Config where
   debug : Bool := false
   json : Bool := false
   noProgress : Bool := false
+  noBuild : Bool := false
   color : String := "auto"
+  theme : String := "auto"
   ascii : Bool := false
   help : Bool := false
   version : Bool := false
@@ -52,11 +54,15 @@ structure Report where
   schemaVersion : Nat := 1
   results : Array CheckResult := #[]
   diagnostics : Array Diagnostic := #[]
+  interrupted : Bool := false
+  signal : Option Nat := none
   trust : String := "Blaster does not reconstruct Lean proofs. Tactic success uses Blaster.Tactic.blasterProven."
   deriving Lean.ToJson
 
 def Report.exitCode (r : Report) : UInt32 :=
-  if r.diagnostics.any (·.severity == "error") || r.results.any (·.status == "error") then 4
+  if r.interrupted then (128 + r.signal.getD 2).toUInt32
+  else if r.diagnostics.any (·.severity == "error") ||
+      r.results.any (fun result => result.status == "error" || result.status == "skipped") then 4
   else if r.results.any (·.status == "falsified") then 1
   else if r.results.any (·.status == "undetermined") then 3
   else 0

@@ -4,10 +4,12 @@
 import json
 import os
 from pathlib import Path
+import signal
 import subprocess
 import tempfile
 import time
 import unittest
+import unicodedata
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -145,6 +147,194 @@ for line in sys.stdin:
     def test_source_stdout_cannot_pollute_json(self):
         file = self.source('#eval IO.println "source output"\n#blaster [True]\n')
         self.report("check", file)
+
+    @unittest.skipIf(os.name == "nt", "Uses a POSIX subprocess")
+    def test_source_subprocess_stdout_cannot_pollute_json(self):
+        file = self.source('#eval do\n'
+                           '  let child ← IO.Process.spawn { cmd := "/bin/sh", args := #["-c", "echo child-output"] }\n'
+                           '  discard child.wait\n#blaster [True]\n')
+        process = self.invoke("check", file, "--json")
+        self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
+        self.assertEqual(json.loads(process.stdout)["results"][0]["status"], "valid")
+        self.assertNotIn("child-output", process.stdout)
+        self.assertIn("child-output", process.stderr)
+
+    def test_failed_tactic_accounts_for_remaining_selections(self):
+        file = self.source("theorem wrong : False := by blaster\n"
+                           "def other : Prop := ∀ a b : Nat, a + b = b + a\n")
+        data = self.report("check", file, "--decl", "wrong", "--decl", "other", expected=4)
+        self.assertEqual([(r["property"], r["status"]) for r in data["results"]],
+                         [("wrong", "falsified"), ("other", "skipped")])
+        self.assertIn("earlier errors", data["results"][1]["reason"])
+        missing = self.report("check", file, "--decl", "wrong", "--decl", "missing", expected=4)
+        self.assertTrue(any("couldn't find declaration 'missing'" in d["message"] for d in missing["diagnostics"]))
+
+    def test_help_is_contextual_and_theme_is_explicit(self):
+        doctor = self.invoke("doctor", "--help")
+        self.assertEqual(doctor.returncode, 0)
+        self.assertIn("--solver PATH", doctor.stdout)
+        self.assertNotIn("--decl", doctor.stdout)
+        self.assertNotIn("check Properties.lean", doctor.stdout)
+        self.assertLess(len(self.invoke().stdout), 700)
+        file = self.source("#blaster [True]\n")
+        for theme, identity in [("dark", "196;181;253"), ("light", "109;40;217")]:
+            process = self.invoke("check", file, "--color=always", "--theme", theme)
+            self.assertEqual(process.returncode, 0)
+            self.assertIn("\x1b[38;2;" + identity + "m", process.stdout)
+        for background, identity in [("0;15", "109;40;217"), ("15;0", "196;181;253")]:
+            environment = {**os.environ, "COLORTERM": "truecolor", "COLORFGBG": background}
+            process = self.invoke("check", file, "--color=always", env=environment)
+            self.assertIn("\x1b[38;2;" + identity + "m", process.stdout)
+        environment = {**os.environ, "COLORTERM": "truecolor", "COLORFGBG": "15;235"}
+        fallback = self.invoke("check", file, "--color=always", env=environment)
+        self.assertNotIn("\x1b[38;2;", fallback.stdout)
+        self.report("check", file, "--theme", "invalid", expected=2)
+
+    def slow_solver(self, seconds=45):
+        solver = self.directory / "slow z3"
+        ready = self.directory / "solver-ready"
+        pidfile = self.directory / "solver-pid"
+        solver.write_text('''#!/usr/bin/env python3
+import os, signal, sys, time
+from pathlib import Path
+if "-version" in sys.argv:
+    print("Z3 version slow-regression")
+    raise SystemExit(0)
+signal.signal(signal.SIGTERM, signal.SIG_IGN)
+Path(PIDFILE).write_text(str(os.getpid()))
+command = ""
+depth = 0
+for line in sys.stdin:
+    command += line
+    depth += line.count("(") - line.count(")")
+    if depth:
+        continue
+    text = command.strip()
+    command = ""
+    if text == "(check-sat)":
+        Path(READYFILE).touch()
+        time.sleep(SECONDS)
+        print("unsat", flush=True)
+    elif text == "(exit)":
+        break
+    elif text and not text.startswith("(set-simplifier "):
+        print("success", flush=True)
+'''.replace("PIDFILE", repr(str(pidfile))).replace("READYFILE", repr(str(ready))).replace("SECONDS", str(seconds)))
+        solver.chmod(0o755)
+        return solver, ready, pidfile
+
+    def wait_until_ready(self, process, ready):
+        deadline = time.monotonic() + 15
+        while time.monotonic() < deadline and process.poll() is None:
+            if ready.exists():
+                return
+            time.sleep(0.02)
+        self.fail("The command didn't reach the interruption point")
+
+    @unittest.skipIf(os.name == "nt", "Uses POSIX signal delivery")
+    def test_interrupt_preserves_completed_results_and_reaps_solver(self):
+        solver, ready, pidfile = self.slow_solver()
+        file = self.source("#blaster [True]\n"
+                           "#blaster [∀ a b c : Nat, a < b → b < c → a < c]\n")
+        for interrupt in [signal.SIGINT, signal.SIGTERM]:
+            with self.subTest(signal=interrupt):
+                ready.unlink(missing_ok=True)
+                process = subprocess.Popen([str(BINARY), "check", str(file), "--solver", str(solver), "--json"],
+                                           cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                           start_new_session=True)
+                solver_pid = None
+                try:
+                    self.wait_until_ready(process, ready)
+                    solver_pid = int(pidfile.read_text())
+                    process.send_signal(interrupt)
+                    stdout, stderr = process.communicate(timeout=5)
+                    self.assertEqual(process.returncode, 128 + interrupt, stdout + stderr)
+                    data = json.loads(stdout)
+                    self.assertTrue(data["interrupted"])
+                    self.assertEqual(data["signal"], interrupt)
+                    self.assertEqual(len(data["results"]), 1)
+                    self.assertEqual(data["results"][0]["status"], "valid")
+                    with self.assertRaises(ProcessLookupError):
+                        os.kill(solver_pid, 0)
+                finally:
+                    if process.poll() is None:
+                        os.killpg(process.pid, signal.SIGKILL)
+                        process.communicate(timeout=5)
+                    if solver_pid:
+                        try:
+                            os.kill(solver_pid, signal.SIGKILL)
+                        except ProcessLookupError:
+                            pass
+
+    @unittest.skipIf(os.name == "nt", "Uses POSIX signal delivery")
+    def test_interrupt_during_blocking_source_io(self):
+        ready = self.directory / "source-ready"
+        file = self.source("#blaster [True]\n#eval do\n"
+                           f"  IO.FS.writeFile {json.dumps(str(ready))} \"ready\"\n"
+                           "  IO.sleep 45000\n")
+        process = subprocess.Popen([str(BINARY), "check", str(file), "--json"], cwd=ROOT,
+                                   text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                   start_new_session=True)
+        try:
+            self.wait_until_ready(process, ready)
+            process.send_signal(signal.SIGINT)
+            stdout, stderr = process.communicate(timeout=5)
+            self.assertEqual(process.returncode, 130, stdout + stderr)
+            data = json.loads(stdout)
+            self.assertTrue(data["interrupted"])
+            self.assertEqual(len(data["results"]), 1)
+        finally:
+            if process.poll() is None:
+                os.killpg(process.pid, signal.SIGKILL)
+                process.communicate(timeout=5)
+
+    @unittest.skipIf(os.name == "nt", "Uses Unix terminal size reporting")
+    def test_progress_uses_actual_terminal_width_and_display_cells(self):
+        import fcntl
+        import pty
+        import re
+        import select
+        import struct
+        import termios
+
+        solver, _, _ = self.slow_solver(seconds=0.6)
+        file = self.source("def «界界界界界界界界界界界界界界界界界界界界界界界界» : Prop :=\n"
+                           "  ∀ a b c : Nat, a < b → b < c → a < c\n"
+                           "#blaster [«界界界界界界界界界界界界界界界界界界界界界界界界»]\n")
+        master, slave = pty.openpty()
+        fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 24, 20, 0, 0))
+        environment = {**os.environ, "NO_COLOR": "1", "TERM": "xterm-256color"}
+        environment.pop("COLUMNS", None)
+        process = subprocess.Popen([str(BINARY), "check", str(file), "--solver", str(solver)],
+                                   cwd=ROOT, env=environment, stdout=slave, stderr=slave,
+                                   start_new_session=True)
+        os.close(slave)
+        output = bytearray()
+        try:
+            deadline = time.monotonic() + 15
+            while time.monotonic() < deadline:
+                if select.select([master], [], [], 0.1)[0]:
+                    try:
+                        chunk = os.read(master, 65536)
+                    except OSError:
+                        break
+                    if not chunk:
+                        break
+                    output.extend(chunk)
+                elif process.poll() is not None:
+                    break
+            self.assertEqual(process.wait(timeout=3), 0, output.decode())
+        finally:
+            if process.poll() is None:
+                os.killpg(process.pid, signal.SIGKILL)
+                process.wait()
+            os.close(master)
+        frames = [frame for frame in re.findall(r"\x1b\[2K([^\r\n]*)", output.decode()) if frame.startswith("  ◌")]
+        self.assertTrue(frames)
+        self.assertTrue(any("界" in frame for frame in frames), frames)
+        for frame in frames:
+            width = sum(0 if unicodedata.combining(c) else 2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in frame)
+            self.assertLessEqual(width, 19, repr(frame))
 
     def test_no_checks_and_lean_errors_fail(self):
         empty = self.source("def answer := 42\n", "Empty.lean")

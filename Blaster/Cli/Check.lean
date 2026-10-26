@@ -1,5 +1,6 @@
 import Blaster.Command
 import Blaster.Cli.Render
+import Blaster.Cli.Runtime
 import Lean.Elab.Frontend
 
 open Lean Elab Meta
@@ -35,19 +36,26 @@ private def collectDiagnostics (messages : MessageLog) : IO (Array Diagnostic) :
 
 def checkFile (cfg : Config) (renderer : Renderer) : IO Report := do
   let file := cfg.file.getD ""
-  captureSession.set {
-    config := cfg
-    onStage := renderer.setStage, onResult := renderer.result }
   let input ← IO.FS.readFile file
   let inputCtx := Parser.mkInputContext input file
-  let opts := ({} : Lean.Options)
+  let (header, parserState, messages) ← Parser.parseHeader inputCtx
+  let setup : Option ModuleSetup ← if messages.hasErrors then pure none else
+    prepareImports cfg (HeaderSyntax.toModuleHeader header) renderer.setStage renderer.buildOutput
+  if let some setup := setup then setup.dynlibs.forM Lean.loadDynlib
+  let opts := (setup.map (fun setup => setup.options.toOptions) |>.getD ({} : Lean.Options))
     |>.setBool `blaster.cli.capture true
     |>.setBool `Elab.async false
-  let (header, parserState, messages) ← Parser.parseHeader inputCtx
-  let (env, messages) ← processHeader header opts messages inputCtx
-    (mainModule := `BlasterCliInput)
+  let isModule := HeaderSyntax.isModule header || (setup.map (·.isModule) |>.getD false)
+  let (env, messages) ← processHeaderCore (HeaderSyntax.startPos header) (HeaderSyntax.imports header) isModule
+    opts messages inputCtx (mainModule := setup.map (·.name) |>.getD `BlasterCliInput)
+    (arts := setup.map (·.importArts) |>.getD {})
+    (plugins := setup.map (·.plugins) |>.getD #[])
   if messages.hasErrors then
-    return { diagnostics := ← collectDiagnostics messages }
+    let mut diagnostics ← collectDiagnostics messages
+    if cfg.noBuild then
+      diagnostics := diagnostics.push { severity := "info", message :=
+        "Automatic dependency builds are disabled. Run again without '--no-build' to prepare missing imports." }
+    return { diagnostics }
   let state ← Lean.Elab.IO.processCommands inputCtx parserState (Command.mkState env messages opts)
   let mut diagnostics ← collectDiagnostics state.commandState.messages
   -- Tactics have already run during ordinary elaboration. Reuse their records;
@@ -55,22 +63,37 @@ def checkFile (cfg : Config) (renderer : Renderer) : IO Report := do
   unless state.commandState.messages.hasErrors do
     let action : Frontend.FrontendM Unit := do
       for name in cfg.declarations do
-        unless (← captureSession.get).report.results.any (·.property == name) do
+        unless (← readCapture).report.results.any (·.property == name) do
           try
             Frontend.runCommandElabM <| selectDeclaration name file
           catch ex =>
-            captureSession.modify fun s => { s with
+            modifyCapture fun s => { s with
               report.diagnostics := s.report.diagnostics.push
                 { severity := "error", message := ex.toString } }
     let (_, finalState) ← (action.run { inputCtx }).run state
     diagnostics := diagnostics ++ (← collectDiagnostics finalState.commandState.messages).filter
       (fun d => !diagnostics.any (fun old => old.message == d.message && old.severity == d.severity))
-  let report := (← captureSession.get).report
-  let report := { report with diagnostics := report.diagnostics ++ diagnostics }
+  let report := (← readCapture).report
+  let mut report := { report with diagnostics := report.diagnostics ++ diagnostics }
+  -- A rejected tactic is still an elaboration error, even when classified as falsification.
+  -- Never solve new declarations in that environment: Lean may have inserted recovery sorries.
+  -- Instead, validate names and explicitly account for every remaining request.
+  if state.commandState.messages.hasErrors then
+    for name in cfg.declarations do
+      unless report.results.any (·.property == name) do
+        if (state.commandState.env.find? name.toName).isNone then
+          report := { report with diagnostics := report.diagnostics.push {
+            severity := "error", message := s!"I couldn't find declaration '{name}'. Use its fully qualified name." } }
+        let record : CheckResult := {
+          property := name, invocation := "declaration", status := "skipped", origin := "elaboration"
+          location := { file, line := 1, column := 1 }, elapsedMs := 0, solverTimeoutSeconds := none
+          reason := some "I couldn't check this selection because the file didn't elaborate successfully. Fix the earlier errors and run the check again." }
+        report := { report with results := report.results.push record }
+        renderer.result record
   if report.results.isEmpty && !report.diagnostics.any (·.severity == "error") then
     return { report with diagnostics := report.diagnostics.push {
       severity := "error",
-      message := "I didn't find any checks. Add '#blaster [property]', use 'by blaster', or select a property with '--decl NAME'." } }
+      message := "I didn't find checks in this file. Imported modules are loaded from compiled libraries; their Blaster commands and tactic proofs aren't rerun here. Check a file containing '#blaster' or 'by blaster', select a property with '--decl NAME', or run 'lake test' for the project's test suite." } }
   return report
 
 end Blaster.Cli
