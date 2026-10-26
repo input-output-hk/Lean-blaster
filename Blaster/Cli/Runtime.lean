@@ -119,4 +119,11 @@ def initLibraries (cfg : Config) : IO Unit := do
   let project ← projectPaths cfg sysroot
   initSearchPath sysroot (ownLib :: project)
 
+/-- Discovery only needs the executable's own parser, not project builds or solver setup. -/
+def initDiscoveryLibraries : IO Unit := do
+  let bin ← Smt.installationBin
+  let ownLib := bin / ".." / "lib" / "lean"
+  let sysroot ← runtimeSysroot bin
+  initSearchPath sysroot [ownLib]
+
 end Blaster.Cli

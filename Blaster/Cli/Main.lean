@@ -1,5 +1,6 @@
 import Blaster.Cli.Args
 import Blaster.Cli.Check
+import Blaster.Cli.Discover
 import Blaster.Smt.Solver
 import Blaster.Cli.Runtime
 
@@ -65,6 +66,70 @@ private def finishReport (renderer : Renderer) (report : Report) : IO UInt32 := 
   if report.interrupted then IO.Process.exit report.exitCode.toUInt8
   return report.exitCode
 
+private def runDiscover (cfg : Config) (renderer : Renderer) : IO UInt32 := do
+  let depth ← IO.mkRef 0
+  let found ← IO.mkRef (#[] : Array DiscoveryItem)
+  unless cfg.machineOutput do
+    renderer.out.putStrLn s!"\n  {renderer.tintOut "identity" "blaster"} · discover {cfg.file.getD ""}\n"
+  let onModuleStart := fun (label : String) => do
+    if cfg.json then
+      renderer.emitJsonLine <| Json.mkObj [
+        ("schemaVersion", toJson (1 : Nat)), ("event", toJson "moduleStart"),
+        ("module", toJson label)]
+    else unless cfg.jsonReport do
+      let indent := String.join (List.replicate (← depth.get) "  ")
+      renderer.out.putStrLn s!"  {indent}{renderer.tintOut "action" label}"
+    depth.modify (· + 1)
+  let onItem := fun (item : DiscoveryItem) => do
+    found.modify (·.push item)
+    if cfg.json then
+      renderer.emitJsonLine <| Json.mkObj [
+        ("schemaVersion", toJson (1 : Nat)), ("event", toJson "discovery"),
+        ("item", toJson item)]
+    else unless cfg.jsonReport do
+      let indent := String.join (List.replicate (← depth.get) "  ")
+      let label := item.name.getD (if item.kind == "command" then "#blaster" else "<anonymous proof>")
+      let pos := item.invocationRange.start
+      renderer.out.putStrLn s!"  {indent}{renderer.tintOut "action" label} · {pos.file}:{pos.line}:{pos.column}"
+      for line in item.body.splitOn "\n" do
+        renderer.out.putStrLn s!"    {indent}{line}"
+  let onModuleComplete := fun (label : String) (count : Nat) => do
+    depth.modify (· - 1)
+    if cfg.json then
+      renderer.emitJsonLine <| Json.mkObj [
+        ("schemaVersion", toJson (1 : Nat)), ("event", toJson "moduleComplete"),
+        ("module", toJson label), ("discoveryCount", toJson count)]
+    else unless cfg.jsonReport do
+      let indent := String.join (List.replicate (← depth.get) "  ")
+      renderer.out.putStrLn s!"  {indent}{count} discovered\n"
+  let diagnostics ← try
+    let (_, issues) ← discoverFile cfg onModuleStart onItem onModuleComplete
+    pure issues
+  catch ex =>
+    pure #[{ severity := "error", message := s!"I couldn't discover Blaster sites: {ex}" }]
+  let items ← found.get
+  let code : UInt32 := if diagnostics.any (·.severity == "error") then 4 else 0
+  if cfg.json then
+    for diagnostic in diagnostics do
+      renderer.emitJsonLine <| Json.mkObj [
+        ("schemaVersion", toJson (1 : Nat)), ("event", toJson "diagnostic"),
+        ("diagnostic", toJson diagnostic)]
+    renderer.emitJsonLine <| Json.mkObj [
+      ("schemaVersion", toJson (1 : Nat)), ("event", toJson "complete"),
+      ("exitCode", toJson code.toNat), ("discoveryCount", toJson items.size),
+      ("diagnosticCount", toJson diagnostics.size),
+      ("elapsedMs", toJson ((← IO.monoMsNow) - renderer.started))]
+  else if cfg.jsonReport then
+    renderer.out.putStrLn <| Json.compress <| Json.mkObj [
+      ("schemaVersion", toJson (1 : Nat)), ("command", toJson "discover"),
+      ("discoveries", toJson items), ("diagnostics", toJson diagnostics),
+      ("exitCode", toJson code.toNat)]
+  else
+    for diagnostic in diagnostics do
+      renderer.err.putStrLn s!"\n  {diagnostic.severity}: {diagnostic.message}"
+    renderer.out.putStrLn s!"\n  I found {items.size} Blaster sites."
+  return code
+
 def run (args : List String) (platform : Platform := {}) : IO UInt32 := do
   match parseArgs args with
   | .error message =>
@@ -85,14 +150,22 @@ def run (args : List String) (platform : Platform := {}) : IO UInt32 := do
           ("undetermined", toJson (0 : Nat)), ("error", toJson (0 : Nat)),
           ("skipped", toJson (0 : Nat))]),
         ("diagnosticCount", toJson (1 : Nat)), ("interrupted", toJson false),
+        ("discoveryCount", toJson (0 : Nat)),
         ("signal", toJson (none : Option Nat)),
         ("elapsedMs", toJson ((← IO.monoMsNow) - renderer.started)),
         ("trust", toJson ({} : Report).trust)]
     else if cfg.jsonReport then
-      renderer.out.putStrLn <| Json.compress <| Json.mkObj [
-        ("schemaVersion", toJson (1 : Nat)), ("results", toJson (#[] : Array CheckResult)),
-        ("diagnostics", toJson #[{ severity := "error", message : Diagnostic }]),
-        ("exitCode", toJson (2 : Nat))]
+      if options.contains "discover" then
+        renderer.out.putStrLn <| Json.compress <| Json.mkObj [
+          ("schemaVersion", toJson (1 : Nat)), ("command", toJson "discover"),
+          ("discoveries", toJson (#[] : Array DiscoveryItem)),
+          ("diagnostics", toJson #[{ severity := "error", message : Diagnostic }]),
+          ("exitCode", toJson (2 : Nat))]
+      else
+        renderer.out.putStrLn <| Json.compress <| Json.mkObj [
+          ("schemaVersion", toJson (1 : Nat)), ("results", toJson (#[] : Array CheckResult)),
+          ("diagnostics", toJson #[{ severity := "error", message : Diagnostic }]),
+          ("exitCode", toJson (2 : Nat))]
     else renderer.err.putStrLn s!"\n  error: {message}\n"
     return 2
   | .ok cfg =>
@@ -108,6 +181,8 @@ def run (args : List String) (platform : Platform := {}) : IO UInt32 := do
         ("schemaVersion", toJson (1 : Nat)), ("event", toJson "start"),
         ("command", toJson cfg.command), ("file", toJson cfg.file)]
     try
+      if cfg.command == "discover" then
+        return ← runDiscover cfg renderer
       Smt.superviseSolvers platform.forceKill
       resetCapture {
         config := cfg

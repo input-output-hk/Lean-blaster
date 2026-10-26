@@ -35,6 +35,21 @@ structure Location where
   column : Nat
   deriving Lean.ToJson
 
+/-- A source span uses one-based lines and columns and an exclusive end. -/
+structure SourceRange where
+  start : Location
+  stop : Location
+  deriving Lean.ToJson
+
+/-- A syntactic Blaster site found without elaborating or invoking the solver. -/
+structure DiscoveryItem where
+  kind : String
+  name : Option String := none
+  body : String
+  invocationRange : SourceRange
+  bodyRange : SourceRange
+  deriving Lean.ToJson
+
 /-- A check result is data, independent of Lean's human-readable diagnostics. -/
 structure CheckResult where
   property : String

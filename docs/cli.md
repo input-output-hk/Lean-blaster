@@ -13,6 +13,7 @@ make install
 lean-blaster
 lean-blaster doctor
 lean-blaster check Properties.lean
+lean-blaster discover Properties.lean
 ```
 
 `make install` builds the executable, installs its own compiled Blaster libraries and
@@ -119,6 +120,28 @@ results. These still have falsified or undetermined actual status and retain the
 exit-code meaning in `lean-blaster check`; the expected count is shown separately.
 `lake test` validates the repository's expected-result annotations as a test suite.
 
+## Discover source sites
+
+`lean-blaster discover FILE.lean` lists direct `#blaster` commands and `blaster`
+tactic sites without elaborating the file, building project imports, or running Z3.
+For an import-only umbrella it walks local source imports once, just as `check`
+does by default. An empty discovery succeeds and reports zero sites.
+
+Each site has a `kind` (`command` or `tactic`), optional source-qualified declaration
+`name`, and the exact source `body`. For a tactic, `body` is its enclosing theorem,
+example, or other declaration; for a command, it is the complete `#blaster`
+command. `invocationRange` identifies the call and `bodyRange` identifies the
+returned source text. Both ranges contain `start` and exclusive `stop` locations
+with one-based line and column numbers.
+
+`discover --json` emits `start`, optional `moduleStart` and `moduleComplete`, one
+`discovery` event per site, diagnostics if parsing fails, and `complete` with
+`discoveryCount` and `exitCode`. `discover --json-report` emits one object with a
+`discoveries` array. This is a source scan: macro expansion, custom syntax defined
+inside the file, conditional tactics, and elaboration can change which invocations
+actually run. Use `check --json` for executed calls and their outcomes. Discovery
+does not accept solver or `--decl` selection options.
+
 ## Options and precedence
 
 ```sh
@@ -188,10 +211,11 @@ working. The event stream contains:
 | `start` | `command` and optional `file` |
 | `moduleStart` | Imported source module about to be checked |
 | `result` | One `result` object for each Blaster invocation |
-| `moduleComplete` | Imported module name, elapsed time, and its outcome counts |
+| `discovery` | One `item` with source text and spans, for `discover --json` |
+| `moduleComplete` | Imported module name and its outcome counts for `check`, or `discoveryCount` for `discover` |
 | `diagnostic` | One `diagnostic` object for each reported diagnostic |
 | `doctor` | Lean version and selected solver, for `doctor --json` |
-| `complete` | Final `exitCode`, outcome `counts`, `diagnosticCount`, elapsed time, interruption state, signal, and trust note |
+| `complete` | Final `exitCode` and elapsed time; `check` adds outcome counts and interruption fields, while `discover` adds `discoveryCount` |
 
 Every event has `schemaVersion: 1`. The stream ends with exactly one `complete`
 event after normal completion, source errors, invalid arguments, or handled
