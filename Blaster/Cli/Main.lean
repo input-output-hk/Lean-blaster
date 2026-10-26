@@ -25,11 +25,16 @@ private def doctorData (cfg : Config) : IO (Array Diagnostic × Option Smt.Solve
 private def renderDoctor (cfg : Config) (renderer : Renderer)
     (diagnostics : Array Diagnostic) (solver : Option Smt.SolverInfo) : IO UInt32 := do
   let code : UInt32 := if diagnostics.isEmpty then 0 else 4
-  if cfg.json then
+  if cfg.jsonReport then
     renderer.out.putStrLn <| Json.compress <| Json.mkObj [
       ("schemaVersion", toJson (1 : Nat)), ("command", toJson "doctor"),
       ("leanVersion", toJson Lean.versionString), ("solver", toJson solver),
       ("diagnostics", toJson diagnostics), ("exitCode", toJson code.toNat)]
+  else if cfg.json then
+    renderer.emitJsonLine <| Json.mkObj [
+      ("schemaVersion", toJson (1 : Nat)), ("event", toJson "doctor"),
+      ("leanVersion", toJson Lean.versionString), ("solver", toJson solver)]
+    renderer.finish { diagnostics := diagnostics }
   else
     renderer.out.putStrLn s!"\n  {renderer.tintOut "identity" "blaster"} · setup\n\n  Lean {Lean.versionString}"
     if let some selectedSolver := solver then
@@ -63,9 +68,27 @@ private def finishReport (renderer : Renderer) (report : Report) : IO UInt32 := 
 def run (args : List String) (platform : Platform := {}) : IO UInt32 := do
   match parseArgs args with
   | .error message =>
-    let cfg : Config := { json := args.contains "--json" }
+    let options := args.takeWhile (· != "--")
+    let cfg : Config := { json := options.contains "--json", jsonReport := options.contains "--json-report" }
     let renderer ← Renderer.create cfg platform
     if cfg.json then
+      renderer.emitJsonLine <| Json.mkObj [
+        ("schemaVersion", toJson (1 : Nat)), ("event", toJson "start"),
+        ("command", toJson "parse")]
+      renderer.emitJsonLine <| Json.mkObj [
+        ("schemaVersion", toJson (1 : Nat)), ("event", toJson "diagnostic"),
+        ("diagnostic", toJson ({ severity := "error", message := message } : Diagnostic))]
+      renderer.emitJsonLine <| Json.mkObj [
+        ("schemaVersion", toJson (1 : Nat)), ("event", toJson "complete"),
+        ("exitCode", toJson (2 : Nat)), ("counts", Json.mkObj [
+          ("valid", toJson (0 : Nat)), ("falsified", toJson (0 : Nat)),
+          ("undetermined", toJson (0 : Nat)), ("error", toJson (0 : Nat)),
+          ("skipped", toJson (0 : Nat))]),
+        ("diagnosticCount", toJson (1 : Nat)), ("interrupted", toJson false),
+        ("signal", toJson (none : Option Nat)),
+        ("elapsedMs", toJson ((← IO.monoMsNow) - renderer.started)),
+        ("trust", toJson ({} : Report).trust)]
+    else if cfg.jsonReport then
       renderer.out.putStrLn <| Json.compress <| Json.mkObj [
         ("schemaVersion", toJson (1 : Nat)), ("results", toJson (#[] : Array CheckResult)),
         ("diagnostics", toJson #[{ severity := "error", message : Diagnostic }]),
@@ -80,6 +103,10 @@ def run (args : List String) (platform : Platform := {}) : IO UInt32 := do
     if cfg.help || cfg.command == "help" then
       renderer.out.putStr (helpText cfg.command)
       return 0
+    if cfg.json then
+      renderer.emitJsonLine <| Json.mkObj [
+        ("schemaVersion", toJson (1 : Nat)), ("event", toJson "start"),
+        ("command", toJson cfg.command), ("file", toJson cfg.file)]
     try
       Smt.superviseSolvers platform.forceKill
       resetCapture {
@@ -92,7 +119,7 @@ def run (args : List String) (platform : Platform := {}) : IO UInt32 := do
         match ← awaitTask renderer task with
         | .ok (diagnostics, solver) => return ← renderDoctor cfg renderer diagnostics solver
         | .error report => return ← finishReport renderer report
-      unless cfg.json do
+      unless cfg.machineOutput do
         renderer.out.putStrLn s!"\n  {renderer.tintOut "identity" "blaster"} · {cfg.file.getD ""}\n\n  I'm checking your properties.\n"
         renderer.out.flush
       let animation ← if renderer.live then

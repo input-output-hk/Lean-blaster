@@ -178,8 +178,30 @@ keeps progress from interrupting completed result blocks.
 
 ## Structured output and exit codes
 
-`--json` produces one versioned JSON object on stdout, with no ANSI escapes or
-progress frames. Source output remains on stderr. The result array contains:
+`--json` writes newline-delimited JSON events on stdout. Each event is one complete
+JSON object followed by `\n`, and is flushed before the next check starts. This
+lets a JSON-RPC server or editor extension consume results while Lean is still
+working. The event stream contains:
+
+| `event` | Contents |
+| --- | --- |
+| `start` | `command` and optional `file` |
+| `moduleStart` | Imported source module about to be checked |
+| `result` | One `result` object for each Blaster invocation |
+| `moduleComplete` | Imported module name, elapsed time, and its outcome counts |
+| `diagnostic` | One `diagnostic` object for each reported diagnostic |
+| `doctor` | Lean version and selected solver, for `doctor --json` |
+| `complete` | Final `exitCode`, outcome `counts`, `diagnosticCount`, elapsed time, interruption state, signal, and trust note |
+
+Every event has `schemaVersion: 1`. The stream ends with exactly one `complete`
+event after normal completion, source errors, invalid arguments, or handled
+interruption. A process crash can end the stream without `complete`; consumers
+should treat that as an incomplete run. Results already emitted remain usable.
+`moduleComplete` counts include nested modules, so consumers should use `result`
+events or the final `complete` counts for run-wide totals.
+`--json-report` preserves the previous single-object report after completion.
+Neither mode writes ANSI escapes or progress frames to stdout; source and build
+output remains on stderr. A `result` object contains:
 
 - `property`, `invocation` (`command`, `tactic`, `declaration`), and source `location`;
 - `status` (`valid`, `falsified`, `undetermined`, `error`, `skipped`), `origin`,
@@ -188,10 +210,10 @@ progress frames. Source output remains on stderr. The result array contains:
   and optional `reason`. `skipped` denotes an explicitly selected declaration that
   could not safely be checked after elaboration failed.
 
-Reports also include `diagnostics`, `trust`, `interrupted`, `signal`, and `exitCode`. Consumers should tolerate
-additional fields. Doctor reports contain `leanVersion`, selected `solver`, and
-diagnostics. Usage errors also produce JSON when `--json` is requested. Help and
-version requests intentionally print text.
+Single-object reports also include `diagnostics`, `trust`, `interrupted`, `signal`,
+and `exitCode`. Consumers should tolerate additional fields. Usage errors produce
+stream events with `--json` and one report with `--json-report`. Help and version
+requests intentionally print text.
 
 | Exit | Meaning |
 | --- | --- |
@@ -208,8 +230,9 @@ over undetermined. A falsified tactic has a typed diagnostic tag and is classifi
 as falsification. A tactic leaving an incomplete Lean proof still produces Lean's
 source error; capturing its unknown result does not admit or repair the proof.
 
-SIGINT and SIGTERM preserve completed results and produce one final JSON object in
-JSON mode, with `interrupted: true` and the signal number. The CLI freezes reporting,
+SIGINT and SIGTERM preserve completed results and produce a final `complete` event
+in streaming mode, or one report with `--json-report`, with `interrupted: true` and
+the signal number. The CLI freezes reporting,
 stops and reaps supervised solvers, and exits promptly even during blocking source
 IO. On POSIX, supervised commands use separate process groups so cancelling a Lake
 dependency build also stops its solver descendants. The native adapter redirects

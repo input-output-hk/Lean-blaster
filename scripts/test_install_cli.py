@@ -36,7 +36,7 @@ class InstalledCli(unittest.TestCase):
         cls.temp.cleanup()
 
     def run_report(self, *args, expected=0):
-        result = subprocess.run([str(self.command), *map(str, args), "--json"],
+        result = subprocess.run([str(self.command), *map(str, args), "--json-report"],
                                 cwd=self.directory, env=self.environment,
                                 text=True, capture_output=True, timeout=60)
         self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
@@ -158,7 +158,7 @@ class InstalledCli(unittest.TestCase):
             "def projectValue : Nat := 42\n")
         source = project / "Properties.lean"
         source.write_text("import Blaster\nimport App\n#blaster [True]\n")
-        process = subprocess.Popen([str(self.command), "check", str(source), "--json"],
+        process = subprocess.Popen([str(self.command), "check", str(source), "--json-report"],
                                    cwd=self.directory, env=self.environment, text=True,
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
         compiler_pid = None

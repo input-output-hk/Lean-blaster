@@ -32,7 +32,7 @@ class CliIntegration(unittest.TestCase):
                               text=True, capture_output=True, timeout=60, env=env)
 
     def report(self, *args, expected=0):
-        process = self.invoke(*args, "--json")
+        process = self.invoke(*args, "--json-report")
         self.assertEqual(process.returncode, expected, process.stdout + process.stderr)
         data = json.loads(process.stdout)
         self.assertEqual(data["schemaVersion"], 1)
@@ -135,9 +135,9 @@ for line in sys.stdin:
         self.assertEqual(lines, sorted(lines))
 
     def test_literal_filename_after_option_terminator(self):
-        file = self.source("#blaster [True]\n", "--json")
+        file = self.source("#blaster [True]\n", "--json-report")
         sysroot = subprocess.check_output(["lake", "env", "lean", "--print-prefix"], cwd=ROOT, text=True).strip()
-        process = subprocess.run([str(BINARY), "--json", "check", "--", file.name],
+        process = subprocess.run([str(BINARY), "--json-report", "check", "--", file.name],
                                  cwd=self.directory, env={**os.environ, "LEAN_SYSROOT": sysroot},
                                  text=True, capture_output=True, timeout=60)
         self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
@@ -165,7 +165,12 @@ for line in sys.stdin:
                            '  discard child.wait\n#blaster [True]\n')
         process = self.invoke("check", file, "--json")
         self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
-        self.assertEqual(json.loads(process.stdout)["results"][0]["status"], "valid")
+        events = [json.loads(line) for line in process.stdout.splitlines()]
+        self.assertEqual(events[0]["event"], "start")
+        self.assertEqual(events[-1]["event"], "complete")
+        self.assertEqual([event["result"]["status"] for event in events
+                          if event["event"] == "result"], ["valid"])
+        self.assertEqual(events[-1]["exitCode"], 0)
         self.assertNotIn("child-output", process.stdout)
         self.assertIn("child-output", process.stderr)
 
@@ -249,7 +254,7 @@ for line in sys.stdin:
         for interrupt in [signal.SIGINT, signal.SIGTERM]:
             with self.subTest(signal=interrupt):
                 ready.unlink(missing_ok=True)
-                process = subprocess.Popen([str(BINARY), "check", str(file), "--solver", str(solver), "--json"],
+                process = subprocess.Popen([str(BINARY), "check", str(file), "--solver", str(solver), "--json-report"],
                                            cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                            start_new_session=True)
                 solver_pid = None
@@ -282,7 +287,7 @@ for line in sys.stdin:
         file = self.source("#blaster [True]\n#eval do\n"
                            f"  IO.FS.writeFile {json.dumps(str(ready))} \"ready\"\n"
                            "  IO.sleep 45000\n")
-        process = subprocess.Popen([str(BINARY), "check", str(file), "--json"], cwd=ROOT,
+        process = subprocess.Popen([str(BINARY), "check", str(file), "--json-report"], cwd=ROOT,
                                    text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                    start_new_session=True)
         try:
@@ -356,7 +361,7 @@ for line in sys.stdin:
     def test_flags_are_validated_before_work(self):
         for flags in [("--timout", "30s"), ("--solver-timeout", "fast"),
                       ("--solver-timeout", "0s"), ("--color", "rainbow"),
-                      ("--json", "--color", "always")]:
+                      ("--json-report", "--color", "always")]:
             self.report("check", "Missing.lean", *flags, expected=2)
         self.assertIn("--solver-timeout", self.invoke("check", "Missing.lean", "--timout").stderr)
 

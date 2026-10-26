@@ -21,7 +21,7 @@ private def valueFlags : List String :=
   ["--decl", "--solver-timeout", "--solver", "--seed", "--color", "--theme"]
 
 private def knownFlags : List String := valueFlags ++
-  ["--no-counterexample", "--verbose", "--debug", "--json", "--no-progress", "--no-build", "--ascii", "--help", "--version"]
+  ["--no-counterexample", "--verbose", "--debug", "--json", "--json-report", "--no-progress", "--no-build", "--ascii", "--help", "--version"]
 
 private def unknownFlag (flag : String) : String := Id.run do
   let mut hint := ""
@@ -68,6 +68,7 @@ private def parseLoop : List String → Config → Bool → Except String Config
     | "-v" | "--verbose" => parseLoop rest { cfg with verbose := true } false
     | "--debug" => parseLoop rest { cfg with debug := true, verbose := true } false
     | "--json" => parseLoop rest { cfg with json := true } false
+    | "--json-report" => parseLoop rest { cfg with jsonReport := true } false
     | "--no-progress" => parseLoop rest { cfg with noProgress := true } false
     | "--no-build" => parseLoop rest { cfg with noBuild := true } false
     | "--no-counterexample" => parseLoop rest { cfg with counterexamples := false } false
@@ -94,12 +95,14 @@ def parseArgs (args : List String) : Except String Config := do
   if cfg.command != "check" && (!cfg.declarations.isEmpty || cfg.timeout.isSome ||
       cfg.seed.isSome || !cfg.counterexamples || cfg.noBuild) then
     throw "Property selection and solver options belong to 'lean-blaster check'"
-  if cfg.json && cfg.color == "always" then
-    throw "'--json' and '--color always' cannot be combined; JSON contains unstyled data"
+  if cfg.json && cfg.jsonReport then
+    throw "Choose either '--json' (streaming events) or '--json-report' (one report)"
+  if cfg.machineOutput && cfg.color == "always" then
+    throw "JSON output and '--color always' cannot be combined; JSON contains unstyled data"
   return cfg
 
 private def outputHelp : String :=
-  "\n\nOutput options:\n  -v, --verbose         Show stages and elapsed time\n  --debug               Include additional diagnostic context\n  --json                Write a versioned JSON report to stdout\n  --color MODE          auto, always, never [default: auto]\n  --theme MODE          auto, dark, light [default: auto]\n  --no-progress         Disable live progress\n  --ascii               Use ASCII status symbols\n  -h, --help            Show help\n  --version             Show the executable and Lean version\n"
+  "\n\nOutput options:\n  -v, --verbose         Show stages and elapsed time\n  --debug               Include additional diagnostic context\n  --json                Stream one JSON event per line to stdout\n  --json-report         Write one JSON report after completion\n  --color MODE          auto, always, never [default: auto]\n  --theme MODE          auto, dark, light [default: auto]\n  --no-progress         Disable live progress\n  --ascii               Use ASCII status symbols\n  -h, --help            Show help\n  --version             Show the executable and Lean version\n"
 
 def helpText (command : String) : String :=
   if command == "doctor" then

@@ -14,13 +14,14 @@ structure Renderer where
   stage : IO.Ref String
   started : Nat
   stop : IO.Ref Bool
+  emittedResults : IO.Ref Nat
   groupPrefix : IO.Ref (Option String)
   platform : Platform
   palette : String
   outputLock : Std.Mutex Unit
 
 private def canColor (cfg : Config) (stream : IO.FS.Stream) : IO Bool := do
-  if cfg.json || cfg.color == "never" then return false
+  if cfg.machineOutput || cfg.color == "never" then return false
   if cfg.color == "always" then return true
   if (← IO.getEnv "TERM") == some "dumb" then return false
   if let some value ← IO.getEnv "NO_COLOR" then
@@ -50,10 +51,11 @@ def Renderer.create (cfg : Config) (platform : Platform := {}) : IO Renderer := 
     platform := platform
     palette := ← paletteFor cfg
     outputLock := ← Std.Mutex.new ()
-    live := !cfg.json && !cfg.noProgress && (← err.isTty) && (← IO.getEnv "TERM") != some "dumb"
+    live := !cfg.machineOutput && !cfg.noProgress && (← err.isTty) && (← IO.getEnv "TERM") != some "dumb"
     stage := ← IO.mkRef "I'm elaborating the Lean file"
     started := ← IO.monoMsNow
     stop := ← IO.mkRef false
+    emittedResults := ← IO.mkRef 0
     groupPrefix := ← IO.mkRef none }
 
 /-- ANSI roles inherit the user's terminal palette and remain readable on light backgrounds. -/
@@ -111,7 +113,7 @@ def Renderer.clear (r : Renderer) : IO Unit :=
 
 def Renderer.setStage (r : Renderer) (stage : String) : IO Unit := do
   r.stage.set stage
-  if r.config.verbose && !r.live && !r.config.json then
+  if r.config.verbose && !r.live && !r.config.machineOutput then
     r.outputLock.atomically <| r.err.putStrLn s!"  {stage} · {(← IO.monoMsNow) - r.started}ms elapsed"
 
 def Renderer.buildOutput (r : Renderer) (text : String) : IO Unit :=
@@ -137,6 +139,14 @@ partial def Renderer.animate (r : Renderer) : IO Unit := do
     IO.sleep 100
     r.animate
 
+/-- Write one complete JSON record and flush it for streaming consumers. -/
+private def writeJsonLine (r : Renderer) (value : Lean.Json) : IO Unit := do
+  r.out.putStrLn value.compress
+  r.out.flush
+
+def Renderer.emitJsonLine (r : Renderer) (value : Lean.Json) : IO Unit :=
+  r.outputLock.atomically <| writeJsonLine r value
+
 /-- Open a source section. The returned guide restores its parent after nested imports. -/
 def Renderer.beginImported (r : Renderer) (label : String) : IO (Option String) := do
   let parent ← r.groupPrefix.get
@@ -144,14 +154,18 @@ def Renderer.beginImported (r : Renderer) (label : String) : IO (Option String) 
   let branch := if r.config.ascii then "+-- " else "╭─ "
   r.outputLock.atomically do
     clearLine r
-    unless r.config.json || (← r.stop.get) do
+    if r.config.json && !(← r.stop.get) then
+      writeJsonLine r <| Lean.Json.mkObj [
+        ("schemaVersion", Lean.toJson (1 : Nat)), ("event", Lean.toJson "moduleStart"),
+        ("module", Lean.toJson label)]
+    else unless r.config.machineOutput || (← r.stop.get) do
       r.out.putStrLn s!"{guide}{r.tintOut "muted" branch}{r.tintOut "action" label}"
       r.out.flush
   r.groupPrefix.set (some <| guide ++ if r.config.ascii then "|  " else "│  ")
   return parent
 
 /-- Close a source section with counts from checks captured since it opened. -/
-def Renderer.endImported (r : Renderer) (parent : Option String)
+def Renderer.endImported (r : Renderer) (label : String) (parent : Option String)
     (report : Report) (firstResult started : Nat) : IO Unit := do
   let guide := parent.getD "  "
   let results := report.results.toList.drop firstResult
@@ -174,17 +188,36 @@ def Renderer.endImported (r : Renderer) (parent : Option String)
     parts := parts.push <| r.tintOut "error" s!"{count "error"} errors"
   if count "skipped" > 0 then
     parts := parts.push <| r.tintOut "warning" s!"{count "skipped"} not checked"
-  let duration := elapsed ((← IO.monoMsNow) - started)
+  let elapsedMs := (← IO.monoMsNow) - started
+  let duration := elapsed elapsedMs
   let branch := if r.config.ascii then "+-- " else "╰─ "
   r.outputLock.atomically do
     clearLine r
-    unless r.config.json || (← r.stop.get) do
+    if r.config.json && !(← r.stop.get) then
+      writeJsonLine r <| Lean.Json.mkObj [
+        ("schemaVersion", Lean.toJson (1 : Nat)), ("event", Lean.toJson "moduleComplete"),
+        ("module", Lean.toJson label), ("elapsedMs", Lean.toJson elapsedMs),
+        ("counts", Lean.Json.mkObj [
+          ("valid", Lean.toJson (count "valid")),
+          ("falsified", Lean.toJson (count "falsified")),
+          ("undetermined", Lean.toJson (count "undetermined")),
+          ("error", Lean.toJson (count "error")),
+          ("skipped", Lean.toJson (count "skipped"))])]
+    else unless r.config.machineOutput || (← r.stop.get) do
       r.out.putStrLn s!"{guide}{r.tintOut "muted" branch}{" · ".intercalate parts.toList} {r.tintOut "muted" s!"· {duration}"}"
       r.out.flush
   r.groupPrefix.set parent
 
 def Renderer.result (r : Renderer) (result : CheckResult) : IO Unit := do
-  if r.config.json || (← r.stop.get) then return
+  if r.config.json then
+    r.outputLock.atomically do
+      unless ← r.stop.get do
+        writeJsonLine r <| Lean.Json.mkObj [
+          ("schemaVersion", Lean.toJson (1 : Nat)), ("event", Lean.toJson "result"),
+          ("result", Lean.toJson result)]
+        r.emittedResults.modify (· + 1)
+    return
+  if r.config.jsonReport || (← r.stop.get) then return
   if let some guide ← r.groupPrefix.get then
     r.outputLock.atomically do
       clearLine r
@@ -264,7 +297,7 @@ def Renderer.result (r : Renderer) (result : CheckResult) : IO Unit := do
 def Renderer.finish (r : Renderer) (report : Report) : IO Unit := do
   r.outputLock.atomically do
    clearLine r
-   if r.config.json then
+   if r.config.jsonReport then
     r.out.putStrLn <| Lean.Json.compress <| Lean.Json.mkObj [
       ("schemaVersion", Lean.toJson report.schemaVersion),
       ("results", Lean.toJson report.results),
@@ -273,6 +306,32 @@ def Renderer.finish (r : Renderer) (report : Report) : IO Unit := do
       ("interrupted", Lean.toJson report.interrupted),
       ("signal", Lean.toJson report.signal),
       ("exitCode", Lean.toJson report.exitCode.toNat)]
+   else if r.config.json then
+    -- An interrupted worker can append a result before its callback sees the signal.
+    -- Emit those captured results before the terminal completion record.
+    let emitted ← r.emittedResults.get
+    for result in report.results.toList.drop emitted do
+      writeJsonLine r <| Lean.Json.mkObj [
+        ("schemaVersion", Lean.toJson report.schemaVersion), ("event", Lean.toJson "result"),
+        ("result", Lean.toJson result)]
+    for diagnostic in report.diagnostics do
+      writeJsonLine r <| Lean.Json.mkObj [
+        ("schemaVersion", Lean.toJson report.schemaVersion), ("event", Lean.toJson "diagnostic"),
+        ("diagnostic", Lean.toJson diagnostic)]
+    let count (status : String) := report.results.filter (·.status == status) |>.size
+    writeJsonLine r <| Lean.Json.mkObj [
+      ("schemaVersion", Lean.toJson report.schemaVersion), ("event", Lean.toJson "complete"),
+      ("exitCode", Lean.toJson report.exitCode.toNat),
+      ("counts", Lean.Json.mkObj [
+        ("valid", Lean.toJson (count "valid")),
+        ("falsified", Lean.toJson (count "falsified")),
+        ("undetermined", Lean.toJson (count "undetermined")),
+        ("error", Lean.toJson (count "error")),
+        ("skipped", Lean.toJson (count "skipped"))]),
+      ("diagnosticCount", Lean.toJson report.diagnostics.size),
+      ("elapsedMs", Lean.toJson ((← IO.monoMsNow) - r.started)),
+      ("interrupted", Lean.toJson report.interrupted),
+      ("signal", Lean.toJson report.signal), ("trust", Lean.toJson report.trust)]
    else
     for diag in report.diagnostics do
       let role := if diag.severity == "error" then "error" else "warning"

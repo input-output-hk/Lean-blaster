@@ -14,7 +14,10 @@ structure Config where
   counterexamples : Bool := true
   verbose : Bool := false
   debug : Bool := false
+  /-- Stream newline-delimited JSON events. -/
   json : Bool := false
+  /-- Emit the legacy single JSON report after completion. -/
+  jsonReport : Bool := false
   noProgress : Bool := false
   noBuild : Bool := false
   color : String := "auto"
@@ -23,6 +26,8 @@ structure Config where
   help : Bool := false
   version : Bool := false
   deriving Inhabited
+
+def Config.machineOutput (cfg : Config) : Bool := cfg.json || cfg.jsonReport
 
 structure Location where
   file : String
