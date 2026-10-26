@@ -14,6 +14,7 @@ structure Renderer where
   stage : IO.Ref String
   started : Nat
   stop : IO.Ref Bool
+  groupPrefix : IO.Ref (Option String)
   platform : Platform
   palette : String
   outputLock : Std.Mutex Unit
@@ -52,7 +53,8 @@ def Renderer.create (cfg : Config) (platform : Platform := {}) : IO Renderer := 
     live := !cfg.json && !cfg.noProgress && (← err.isTty) && (← IO.getEnv "TERM") != some "dumb"
     stage := ← IO.mkRef "I'm elaborating the Lean file"
     started := ← IO.monoMsNow
-    stop := ← IO.mkRef false }
+    stop := ← IO.mkRef false
+    groupPrefix := ← IO.mkRef none }
 
 /-- ANSI roles inherit the user's terminal palette and remain readable on light backgrounds. -/
 def styled (enabled : Bool) (role text : String) : String :=
@@ -135,8 +137,79 @@ partial def Renderer.animate (r : Renderer) : IO Unit := do
     IO.sleep 100
     r.animate
 
+/-- Open a source section. The returned guide restores its parent after nested imports. -/
+def Renderer.beginImported (r : Renderer) (label : String) : IO (Option String) := do
+  let parent ← r.groupPrefix.get
+  let guide := parent.getD "  "
+  let branch := if r.config.ascii then "+-- " else "╭─ "
+  r.outputLock.atomically do
+    clearLine r
+    unless r.config.json || (← r.stop.get) do
+      r.out.putStrLn s!"{guide}{r.tintOut "muted" branch}{r.tintOut "action" label}"
+      r.out.flush
+  r.groupPrefix.set (some <| guide ++ if r.config.ascii then "|  " else "│  ")
+  return parent
+
+/-- Close a source section with counts from checks captured since it opened. -/
+def Renderer.endImported (r : Renderer) (parent : Option String)
+    (report : Report) (firstResult started : Nat) : IO Unit := do
+  let guide := parent.getD "  "
+  let results := report.results.toList.drop firstResult
+  let count (status : String) := (results.filter (·.status == status)).length
+  let total := results.length
+  let mut parts := #[s!"{total} {if total == 1 then "check" else "checks"}"]
+  for (status, role, word) in
+      #[ ("valid", "valid", "valid"), ("falsified", "error", "falsified"),
+         ("undetermined", "warning", "undetermined"), ("error", "error", "errors"),
+         ("skipped", "warning", "not checked") ] do
+    if count status > 0 then
+      parts := parts.push <| r.tintOut role s!"{count status} {word}"
+  let duration := elapsed ((← IO.monoMsNow) - started)
+  let branch := if r.config.ascii then "+-- " else "╰─ "
+  r.outputLock.atomically do
+    clearLine r
+    unless r.config.json || (← r.stop.get) do
+      r.out.putStrLn s!"{guide}{r.tintOut "muted" branch}{" · ".intercalate parts.toList} {r.tintOut "muted" s!"· {duration}"}"
+      r.out.flush
+  r.groupPrefix.set parent
+
 def Renderer.result (r : Renderer) (result : CheckResult) : IO Unit := do
-  unless r.config.json || (← r.stop.get) do r.outputLock.atomically do
+  if r.config.json || (← r.stop.get) then return
+  if let some guide ← r.groupPrefix.get then
+    if result.status == "valid" && !r.config.verbose then return
+    r.outputLock.atomically do
+      clearLine r
+      let label := match result.status with
+        | "valid" => "Valid"
+        | "falsified" => "Falsified"
+        | "undetermined" => "Undetermined"
+        | "skipped" => "Not checked"
+        | _ => "Could not check"
+      let property := if result.invocation == "command" && result.property.startsWith "#blaster" then
+        "#blaster" else result.property
+      let status := r.tintOut (statusRole result.status) s!"{symbol r.config result.status} {label}"
+      r.out.putStrLn s!"{guide}{status} · {property} at {result.location.line}:{result.location.column} {r.tintOut "muted" s!"· {elapsed result.elapsedMs}"}"
+      if result.invocation == "tactic" && result.status != "valid" then
+        if let some goal := result.goal then r.out.putStrLn s!"{guide}  Goal: {goal}"
+      if r.config.debug then
+        let limit := result.solverTimeoutSeconds.map (fun n => s!"{n}s") |>.getD "unlimited"
+        r.err.putStrLn s!"{guide}  debug: per-query solver limit {limit}; result captured directly from {result.invocation}"
+      match result.status with
+      | "falsified" =>
+        let subject := if result.invocation == "tactic" then "goal" else "property"
+        if result.counterexample.isEmpty then
+          r.out.putStrLn s!"{guide}  I found this {subject} false; no counterexample values are available"
+        else
+          r.out.putStrLn s!"{guide}  I found a counterexample (raw solver values):"
+          for value in result.counterexample do
+            for line in value.trim.splitOn "\n" do
+              r.out.putStrLn s!"{guide}    {line}"
+      | "undetermined" | "error" | "skipped" =>
+        if let some reason := result.reason then r.out.putStrLn s!"{guide}  {reason}"
+      | _ => pure ()
+      r.out.flush
+    return
+  r.outputLock.atomically do
     clearLine r
     let label := match result.status with
       | "valid" => "Valid"

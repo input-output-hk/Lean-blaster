@@ -57,7 +57,11 @@ private partial def checkSource (cfg : Config) (renderer : Renderer)
         unless (← seen.get).contains imp.module do
           seen.modify (·.push imp.module)
           renderer.setStage s!"I'm checking imported module {imp.module}"
+          let before := (← readCapture).report.results.size
+          let started ← IO.monoMsNow
+          let parent ← renderer.beginImported s!"{imp.module.toString.replace "." "/"}.lean"
           let report ← checkSource { cfg with file := some source.toString } renderer seen true
+          renderer.endImported parent report before started
           if report.exitCode == 4 then return report
       else
         let name := imp.module.toString

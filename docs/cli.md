@@ -107,6 +107,10 @@ warns about nonstandard imports without local source files; they are not travers
 An imported source may still be compiled as a dependency of another source when Lean needs
 its declarations.
 Successful Lake build logs stay quiet; failing build jobs remain visible.
+Terminal output nests imported source sections. Each section ends with outcome counts;
+falsified, undetermined, and errored checks appear inside it with their line numbers.
+Successful checks are summarized by default, and `--verbose` lists them individually.
+JSON retains individual results and source locations without presentation grouping.
 
 The aggregate report shows actual `valid`, `falsified`, and `undetermined` outcomes.
 Test files may annotate deliberately false or unresolved properties with expected
