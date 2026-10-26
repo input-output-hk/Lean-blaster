@@ -30,3 +30,5 @@ lean_exe «lean-blaster» where
   root := `BlasterCli
   -- Source elaboration interprets initializers, macros, tactics, and #eval.
   supportInterpreter := true
+  -- Leave room for the installer to add the matching Lean toolchain's macOS runpath.
+  moreLinkArgs := if System.Platform.isOSX then #["-Wl,-headerpad_max_install_names"] else #[]

@@ -35,6 +35,21 @@ def owned_link(link, prefix):
     return link.resolve().is_relative_to(prefix.resolve())
 
 
+def configure_macos_runpath(binary, sysroot):
+    """Let project dylibs resolve Lean's own shared libraries when loaded by us."""
+    if sys.platform != "darwin":
+        return
+    lean_lib = sysroot / "lib/lean"
+    if not (lean_lib / "libLake_shared.dylib").is_file():
+        raise SystemExit(f"I couldn't find Lean's libLake_shared.dylib at {lean_lib}")
+    load_commands = subprocess.check_output(["otool", "-l", str(binary)], text=True)
+    if f"path {lean_lib} (offset" not in load_commands:
+        subprocess.run(["install_name_tool", "-add_rpath", str(lean_lib), str(binary)], check=True)
+        # Editing a Mach-O binary invalidates its linker-generated ad-hoc signature.
+        subprocess.run(["codesign", "--force", "--sign", "-", str(binary)],
+                       check=True, capture_output=True, text=True)
+
+
 def install(prefix, bin_dir, skip_build=False):
     if os.name == "nt":
         raise SystemExit("This source installer currently supports macOS and Linux")
@@ -68,6 +83,7 @@ def install(prefix, bin_dir, skip_build=False):
         stage = Path(temporary) / "payload"
         (stage / "bin").mkdir(parents=True)
         shutil.copy2(binary, stage / "bin/lean-blaster")
+        configure_macos_runpath(stage / "bin/lean-blaster", sysroot)
         installed_lib = stage / "lib/lean"
         installed_lib.mkdir(parents=True)
         # Install runtime module artifacts, excluding Tests and build-system caches.

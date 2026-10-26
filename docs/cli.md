@@ -25,6 +25,10 @@ finished release directory and preserves resources used by already-running proce
 Source builds require a C compiler (`cc`), in addition to the pinned Lean toolchain,
 for the executable's small OS adapter. That adapter is linked into the installed
 command and adds no separate native library installation step.
+On macOS, the installer adds the matching Lean toolchain's `lib/lean` directory
+to the executable's runpaths. This lets native libraries loaded from a caller's
+Lake project resolve Lean's shared libraries, including `libLake_shared.dylib`.
+The caller's native libraries remain in their own project or package directories.
 
 The command locates the installed files through its resolved executable path, so
 launching it through the PATH symlink works from other directories. It remembers
