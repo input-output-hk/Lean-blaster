@@ -100,15 +100,18 @@ k-induction reporting is outside this milestone. A file with no captured or sele
 checks exits unsuccessfully rather than reporting a vacuous success.
 
 An umbrella such as `Tests/Smt/SmtNat.lean` only imports test modules. With no
-`--decl` selection, the CLI detects that case before building imports and explains
-how to check a leaf file such as `Tests/Smt/SmtNat/SmtNatAdd.lean`, or run `lake test`
-for the project's test suite. For a file that does contain checks, missing or stale
-imports are compiled first because Lean needs their declarations. That compilation
-can run their build-time checks, but Lake's successful build logs stay quiet and
-imported results are not replayed or added to the selected file's CLI report.
-Repository test files can also contain deliberately false or unresolved properties
-with expected-result annotations. The CLI reports their actual verification
-outcomes; `lake test` checks those annotations as a test suite.
+`--decl` selection, the CLI walks local source imports, checks each leaf source,
+and combines their results. It does not compile the umbrella before doing this.
+Each local source is selected once, including through nested umbrellas. The report
+warns about nonstandard imports without local source files; they are not traversed.
+An imported source may still be compiled as a dependency of another source when Lean needs
+its declarations.
+Successful Lake build logs stay quiet; failing build jobs remain visible.
+
+The aggregate report shows actual `valid`, `falsified`, and `undetermined` outcomes.
+Test files may annotate deliberately false or unresolved properties with expected
+results. These still count as falsified or undetermined in `lean-blaster check`;
+`lake test` validates the repository's expected-result annotations as a test suite.
 
 ## Options and precedence
 

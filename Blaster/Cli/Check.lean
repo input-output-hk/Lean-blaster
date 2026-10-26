@@ -34,18 +34,51 @@ private def collectDiagnostics (messages : MessageLog) : IO (Array Diagnostic) :
       location := some { file := msg.fileName, line := msg.pos.line, column := msg.pos.column + 1 } }
   return result
 
-def checkFile (cfg : Config) (renderer : Renderer) : IO Report := do
+private partial def checkSource (cfg : Config) (renderer : Renderer)
+    (seen : IO.Ref (Array Name)) (partOfUmbrella : Bool) : IO Report := do
+  let firstResult := (← readCapture).report.results.size
   let file := cfg.file.getD ""
   let input ← IO.FS.readFile file
   let inputCtx := Parser.mkInputContext input file
   let (header, parserState, messages) ← Parser.parseHeader inputCtx
   let moduleHeader := HeaderSyntax.toModuleHeader header
-  -- An import-only umbrella has no direct checks to report. Avoid compiling its
-  -- entire import graph merely to discover that fact after the build.
-  if !messages.hasErrors && !moduleHeader.imports.isEmpty && cfg.declarations.isEmpty &&
-      (input.extract parserState.pos input.endPos).trim.isEmpty then
-    return { diagnostics := #[{ severity := "error", message :=
-      "I found only imports in this file, so I have no direct checks to report.\n\n  Check a leaf file with '#blaster' or 'by blaster'.\n  To run the imported test suite, use 'lake test'." }] }
+  let explicitImports := HeaderSyntax.imports header false
+  let emptyEnv ← mkEmptyEnvironment
+  let (nextCommand, _, trailingMessages) :=
+    Parser.parseCommand inputCtx { env := emptyEnv, options := {} } parserState messages
+  -- Check local sources named by an import-only umbrella directly. Building the
+  -- umbrella first would execute their checks once during compilation and then
+  -- require another elaboration to capture a structured CLI report.
+  if !trailingMessages.hasErrors && !explicitImports.isEmpty && cfg.declarations.isEmpty &&
+      Parser.isTerminalCommand nextCommand then
+    let mut missingSources : Array String := #[]
+    for imp in explicitImports do
+      if let some source ← localSourceFor cfg imp.module then
+        unless (← seen.get).contains imp.module do
+          seen.modify (·.push imp.module)
+          renderer.setStage s!"I'm checking imported module {imp.module}"
+          let report ← checkSource { cfg with file := some source.toString } renderer seen true
+          if report.exitCode == 4 then return report
+      else
+        let name := imp.module.toString
+        unless name == "Blaster" || name.startsWith "Blaster." ||
+            name == "Init" || name.startsWith "Init." ||
+            name == "Lean" || name.startsWith "Lean." ||
+            name == "Lake" || name.startsWith "Lake." do
+          missingSources := missingSources.push name
+    let mut report := (← readCapture).report
+    if !missingSources.isEmpty then
+      let names := ", ".intercalate missingSources.toList
+      report := { report with diagnostics := report.diagnostics.push {
+        severity := "warning", message :=
+          s!"I couldn't find local source for {names}; I didn't check those imports." } }
+    if !partOfUmbrella && report.results.size == firstResult &&
+        !report.diagnostics.any (·.severity == "error") then
+      report := { report with diagnostics := report.diagnostics.push {
+        severity := "error", message :=
+          "I found no checks in the local source imports of this file. Check a source module directly or run 'lake test' for the project's test suite." } }
+    modifyCapture fun s => { s with report }
+    return report
   let setup : Option ModuleSetup ← if messages.hasErrors then pure none else
     prepareImports cfg moduleHeader renderer.setStage renderer.buildOutput
   if let some setup := setup then setup.dynlibs.forM Lean.loadDynlib
@@ -62,7 +95,10 @@ def checkFile (cfg : Config) (renderer : Renderer) : IO Report := do
     if cfg.noBuild then
       diagnostics := diagnostics.push { severity := "info", message :=
         "Automatic dependency builds are disabled. Run again without '--no-build' to prepare missing imports." }
-    return { diagnostics }
+    let prior := (← readCapture).report
+    let report := { prior with diagnostics := prior.diagnostics ++ diagnostics }
+    modifyCapture fun s => { s with report }
+    return report
   let state ← Lean.Elab.IO.processCommands inputCtx parserState (Command.mkState env messages opts)
   let mut diagnostics ← collectDiagnostics state.commandState.messages
   -- Tactics have already run during ordinary elaboration. Reuse their records;
@@ -97,10 +133,16 @@ def checkFile (cfg : Config) (renderer : Renderer) : IO Report := do
           reason := some "I couldn't check this selection because the file didn't elaborate successfully. Fix the earlier errors and run the check again." }
         report := { report with results := report.results.push record }
         renderer.result record
-  if report.results.isEmpty && !report.diagnostics.any (·.severity == "error") then
-    return { report with diagnostics := report.diagnostics.push {
+  if report.results.size == firstResult && !partOfUmbrella &&
+      !report.diagnostics.any (·.severity == "error") then
+    report := { report with diagnostics := report.diagnostics.push {
       severity := "error",
-      message := "I didn't find checks in this file. Imported modules are loaded from compiled libraries; their Blaster commands and tactic proofs aren't rerun here. Check a file containing '#blaster' or 'by blaster', select a property with '--decl NAME', or run 'lake test' for the project's test suite." } }
+      message := "I didn't find checks in this file. Check a file containing '#blaster' or 'by blaster', select a property with '--decl NAME', or run 'lake test' for the project's test suite." } }
+  modifyCapture fun s => { s with report }
   return report
+
+def checkFile (cfg : Config) (renderer : Renderer) : IO Report := do
+  let seen ← IO.mkRef (#[] : Array Name)
+  checkSource cfg renderer seen false
 
 end Blaster.Cli

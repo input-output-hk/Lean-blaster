@@ -21,6 +21,15 @@ private def projectFor (file : Option String) : IO (Option System.FilePath) := d
     if let some project ← findProject (path.parent.getD cwd) then return some project
   findProject cwd
 
+/-- Find source imports belonging to the caller's project, without building them. -/
+def localSourceFor (cfg : Config) (moduleName : Name) : IO (Option System.FilePath) := do
+  let name := moduleName.toString
+  if name == "Blaster" || name.startsWith "Blaster." then return none
+  let some project ← projectFor cfg.file | return none
+  let source := project / s!"{name.replace "." "/"}.lean"
+  if ← source.pathExists then return some source
+  return none
+
 /-- Installed commands use their recorded toolchain, independent of the caller's shell. -/
 private def runtimeSysroot (bin : System.FilePath) : IO System.FilePath := do
   let metadata := bin / ".." / "libexec" / "lean-blaster" / "runtime.json"
