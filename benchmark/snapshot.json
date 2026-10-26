@@ -1,8 +1,8 @@
 {
   "run": {
-    "id": "39302372441",
-    "time": "2026-10-19T19:57:29+00:00",
-    "url": "https://github.com/input-output-hk/Lean-blaster/actions/runs/39302372441"
+    "id": "40277988753",
+    "time": "2026-10-26T07:35:21+00:00",
+    "url": "https://github.com/input-output-hk/Lean-blaster/actions/runs/40277988753"
   },
   "schema_version": 1,
   "statements": {
@@ -5460,13 +5460,13 @@
         "nat_exists_l3_2": "OK",
         "nat_forall_l3": "OK",
         "nat_neqzero_l3": "FAIL",
-        "rat_linarith_l63": "FAIL",
+        "rat_linarith_l63": "OK",
         "resolution": "OK",
         "unit_embedding_l32": "OK",
         "unit_int_l19": "OK",
         "unit_normalize_l28": "OK",
         "unit_quant_l6": "OK",
-        "unit_rat_l63": "FAIL"
+        "unit_rat_l63": "OK"
       },
       "blaster": {
         "auto_l6": "OK",
@@ -6986,7 +6986,7 @@
   "versions": {
     "aesop": {
       "branch": "stable",
-      "build_status": "OK",
+      "build_status": "CACHED",
       "resolved_commit": "(via mathlib)",
       "tactic": "aesop",
       "tool": "aesop",
@@ -6995,7 +6995,7 @@
     "auto": {
       "branch": "main",
       "build_status": "OK",
-      "resolved_commit": "6544cf60e",
+      "resolved_commit": "8073db802",
       "tactic": "auto",
       "tool": "auto",
       "toolchain": "leanprover/lean4:v4.34.1"
@@ -7003,7 +7003,7 @@
     "blaster": {
       "branch": "main",
       "build_status": "OK",
-      "resolved_commit": "b729d1014",
+      "resolved_commit": "6c27ff9fa",
       "tactic": "blaster",
       "tool": "blaster",
       "toolchain": "leanprover/lean4:v4.24.0"
@@ -7011,14 +7011,14 @@
     "blaster (only-optimize: 1)": {
       "branch": "main",
       "build_status": "OK",
-      "resolved_commit": "b729d1014",
+      "resolved_commit": "6c27ff9fa",
       "tactic": "blaster (only-optimize: 1)",
       "tool": "blaster",
       "toolchain": "leanprover/lean4:v4.24.0"
     },
     "grind": {
       "branch": "stable",
-      "build_status": "OK",
+      "build_status": "CACHED",
       "resolved_commit": "(core)",
       "tactic": "grind",
       "tool": "baselines",
@@ -7026,7 +7026,7 @@
     },
     "hammer": {
       "branch": "main",
-      "build_status": "OK",
+      "build_status": "CACHED",
       "resolved_commit": "93734d624",
       "tactic": "hammer",
       "tool": "hammer",
@@ -7034,7 +7034,7 @@
     },
     "omega": {
       "branch": "stable",
-      "build_status": "OK",
+      "build_status": "CACHED",
       "resolved_commit": "(core)",
       "tactic": "omega",
       "tool": "baselines",
@@ -7042,7 +7042,7 @@
     },
     "simp": {
       "branch": "stable",
-      "build_status": "OK",
+      "build_status": "CACHED",
       "resolved_commit": "(core)",
       "tactic": "simp",
       "tool": "baselines",
@@ -7051,7 +7051,7 @@
     "smt +model": {
       "branch": "main",
       "build_status": "OK",
-      "resolved_commit": "79ef7b3d5",
+      "resolved_commit": "db545bebe",
       "tactic": "smt +model",
       "tool": "smt",
       "toolchain": "leanprover/lean4:v4.34.0"
