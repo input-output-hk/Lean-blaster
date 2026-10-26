@@ -156,14 +156,24 @@ def Renderer.endImported (r : Renderer) (parent : Option String)
   let guide := parent.getD "  "
   let results := report.results.toList.drop firstResult
   let count (status : String) := (results.filter (·.status == status)).length
+  let expected (status : String) :=
+    (results.filter (fun result => result.status == status && result.expectedStatus == some status)).length
   let total := results.length
-  let mut parts := #[s!"{total} {if total == 1 then "check" else "checks"}"]
-  for (status, role, word) in
-      #[ ("valid", "valid", "valid"), ("falsified", "error", "falsified"),
-         ("undetermined", "warning", "undetermined"), ("error", "error", "errors"),
-         ("skipped", "warning", "not checked") ] do
-    if count status > 0 then
-      parts := parts.push <| r.tintOut role s!"{count status} {word}"
+  let mut parts := #[s!"{total} {if total == 1 then "call" else "calls"}"]
+  if count "valid" > 0 then
+    parts := parts.push <| r.tintOut "valid" s!"{count "valid"} valid"
+  if expected "falsified" > 0 then
+    parts := parts.push <| r.tintOut "muted" s!"{expected "falsified"} expected falsified"
+  if count "falsified" > expected "falsified" then
+    parts := parts.push <| r.tintOut "error" s!"{count "falsified" - expected "falsified"} falsified"
+  if expected "undetermined" > 0 then
+    parts := parts.push <| r.tintOut "muted" s!"{expected "undetermined"} expected undetermined"
+  if count "undetermined" > expected "undetermined" then
+    parts := parts.push <| r.tintOut "warning" s!"{count "undetermined" - expected "undetermined"} undetermined"
+  if count "error" > 0 then
+    parts := parts.push <| r.tintOut "error" s!"{count "error"} errors"
+  if count "skipped" > 0 then
+    parts := parts.push <| r.tintOut "warning" s!"{count "skipped"} not checked"
   let duration := elapsed ((← IO.monoMsNow) - started)
   let branch := if r.config.ascii then "+-- " else "╰─ "
   r.outputLock.atomically do
@@ -176,7 +186,6 @@ def Renderer.endImported (r : Renderer) (parent : Option String)
 def Renderer.result (r : Renderer) (result : CheckResult) : IO Unit := do
   if r.config.json || (← r.stop.get) then return
   if let some guide ← r.groupPrefix.get then
-    if result.status == "valid" && !r.config.verbose then return
     r.outputLock.atomically do
       clearLine r
       let label := match result.status with
@@ -187,7 +196,9 @@ def Renderer.result (r : Renderer) (result : CheckResult) : IO Unit := do
         | _ => "Could not check"
       let property := if result.invocation == "command" && result.property.startsWith "#blaster" then
         "#blaster" else result.property
-      let status := r.tintOut (statusRole result.status) s!"{symbol r.config result.status} {label}"
+      let expectation := if result.expectedStatus == some result.status then " (expected)"
+        else result.expectedStatus.map (fun status => s!" (expected {status})") |>.getD ""
+      let status := r.tintOut (statusRole result.status) s!"{symbol r.config result.status} {label}{expectation}"
       r.out.putStrLn s!"{guide}{status} · {property} at {result.location.line}:{result.location.column} {r.tintOut "muted" s!"· {elapsed result.elapsedMs}"}"
       if result.invocation == "tactic" && result.status != "valid" then
         if let some goal := result.goal then r.out.putStrLn s!"{guide}  Goal: {goal}"
@@ -198,7 +209,8 @@ def Renderer.result (r : Renderer) (result : CheckResult) : IO Unit := do
       | "falsified" =>
         let subject := if result.invocation == "tactic" then "goal" else "property"
         if result.counterexample.isEmpty then
-          r.out.putStrLn s!"{guide}  I found this {subject} false; no counterexample values are available"
+          unless result.expectedStatus == some "falsified" do
+            r.out.putStrLn s!"{guide}  I found this {subject} false; no counterexample values are available"
         else
           r.out.putStrLn s!"{guide}  I found a counterexample (raw solver values):"
           for value in result.counterexample do
@@ -218,6 +230,8 @@ def Renderer.result (r : Renderer) (result : CheckResult) : IO Unit := do
       | "skipped" => "Not checked"
       | _ => "Could not check"
     let label := if result.invocation == "tactic" then label ++ " goal" else label
+    let label := if result.expectedStatus == some result.status then label ++ " (expected)"
+      else label ++ (result.expectedStatus.map (fun status => s!" (expected {status})") |>.getD "")
     let subject := if result.invocation == "tactic" then "goal" else "property"
     let plain := s!"{symbol r.config result.status} {label}"
     let padding := String.mk (List.replicate (20 - plain.length) ' ')
@@ -267,11 +281,15 @@ def Renderer.finish (r : Renderer) (report : Report) : IO Unit := do
       if let some location := diag.location then
         r.err.putStrLn s!"    {location.file}:{location.line}:{location.column}"
     let count (status : String) := report.results.filter (·.status == status) |>.size
+    let expected (status : String) :=
+      report.results.filter (fun result => result.status == status && result.expectedStatus == some status) |>.size
     let errors := count "error" + (report.diagnostics.filter (·.severity == "error")).size
     let errorWord := if errors == 1 then "error" else "errors"
     let completion := if report.interrupted then "I stopped" else "We're done"
     let skipped := if count "skipped" == 0 then "" else s!", {count "skipped"} not checked"
-    r.out.putStrLn s!"\n  {completion}: {count "valid"} valid, {count "falsified"} falsified, {count "undetermined"} undetermined, {errors} {errorWord}{skipped}"
+    let expectedFalse := if expected "falsified" == 0 then "" else s!" ({expected "falsified"} expected)"
+    let expectedUnknown := if expected "undetermined" == 0 then "" else s!" ({expected "undetermined"} expected)"
+    r.out.putStrLn s!"\n  {completion}: {report.results.size} calls · {count "valid"} valid, {count "falsified"} falsified{expectedFalse}, {count "undetermined"} undetermined{expectedUnknown}, {errors} {errorWord}{skipped}"
     if count "valid" > 0 then
       r.out.putStrLn s!"  {r.tintOut "warning" "warning"}: {report.trust}"
    r.out.flush

@@ -107,14 +107,16 @@ warns about nonstandard imports without local source files; they are not travers
 An imported source may still be compiled as a dependency of another source when Lean needs
 its declarations.
 Successful Lake build logs stay quiet; failing build jobs remain visible.
-Terminal output nests imported source sections. Each section ends with outcome counts;
-falsified, undetermined, and errored checks appear inside it with their line numbers.
-Successful checks are summarized by default, and `--verbose` lists them individually.
-JSON retains individual results and source locations without presentation grouping.
+Terminal output nests imported source sections. Every Blaster invocation appears inside
+its source section, including valid results. Section totals count invocations rather
+than declarations: one proof may call `blaster` more than once. Source annotations
+such as `(solve-result: 1)` mark falsifications as expected in the display. JSON
+retains individual actual results and source locations without presentation grouping.
 
 The aggregate report shows actual `valid`, `falsified`, and `undetermined` outcomes.
 Test files may annotate deliberately false or unresolved properties with expected
-results. These still count as falsified or undetermined in `lean-blaster check`;
+results. These still have falsified or undetermined actual status and retain their
+exit-code meaning in `lean-blaster check`; the expected count is shown separately.
 `lake test` validates the repository's expected-result annotations as a test suite.
 
 ## Options and precedence
@@ -180,7 +182,8 @@ keeps progress from interrupting completed result blocks.
 progress frames. Source output remains on stderr. The result array contains:
 
 - `property`, `invocation` (`command`, `tactic`, `declaration`), and source `location`;
-- `status` (`valid`, `falsified`, `undetermined`, `error`, `skipped`) and `origin`;
+- `status` (`valid`, `falsified`, `undetermined`, `error`, `skipped`), `origin`,
+  and `expectedStatus` when the source requests falsified or undetermined;
 - `elapsedMs`, `solverTimeoutSeconds`, the input `goal`, raw `counterexample` strings,
   and optional `reason`. `skipped` denotes an explicitly selected declaration that
   could not safely be checked after elaboration failed.

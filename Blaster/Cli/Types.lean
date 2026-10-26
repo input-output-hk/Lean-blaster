@@ -35,6 +35,8 @@ structure CheckResult where
   property : String
   invocation : String := "command"
   status : String
+  /-- Nondefault source expectation from `(solve-result: 1|2)`, if present. -/
+  expectedStatus : Option String := none
   origin : String
   location : Location
   elapsedMs : Nat

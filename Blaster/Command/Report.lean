@@ -84,6 +84,10 @@ def runCaptured (e : Expr) (options : Options.BlasterOptions) (property invocati
         | .Valid => "valid"
         | .Falsified _ => "falsified"
         | .Undetermined => "undetermined"
+      let expectedStatus := match opts.solveResult with
+        | .ExpectedValid => none
+        | .ExpectedFalsified => some "falsified"
+        | .ExpectedUndetermined => some "undetermined"
       let cex := match result with
         | .Falsified values => values.toArray
         | _ => #[]
@@ -96,6 +100,7 @@ def runCaptured (e : Expr) (options : Options.BlasterOptions) (property invocati
         property := property
         invocation := invocation
         status := status
+        expectedStatus := expectedStatus
         origin := origin
         location := location
         elapsedMs := (← IO.monoMsNow) - start
