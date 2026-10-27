@@ -35,3 +35,6 @@ import Tests.FixedIssues.Issue35
 import Tests.FixedIssues.Issue36
 import Tests.FiniteField.Interfaces
 import Tests.FiniteField.FinBaseline
+import Tests.FiniteField.Prototype
+import Tests.FiniteField.PolynormDecide
+import Tests.FiniteField.PolynormGrind
