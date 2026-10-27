@@ -110,7 +110,6 @@ def normChoiceApplication?
 
     with:
       propagate fn e₁ ... eₙ :=
-        isCtorExpr fn ∨
         allExplicitParamsAreCtor fn e₁ ... eₙ (funPropagation := true) ∨
         (fn = `Eq` ∧ n = 3 ∧ (isBoolValue? e₂).isSome )
 
@@ -120,7 +119,8 @@ def normChoiceApplication?
 
     NOTE: reorderArgs is set to `true` only when funPropagation? is called before optimizeApp.
 
-    Assume that `fn` is a function (i.e., does not satisfy predicate isNotFun) or `fn` is a Ctor.
+    Assume that `fn` is a function (i.e., `¬ isNotFun fn`)
+    NOTE: `fn` may be an opaque or axiom function, i.e., `¬ isNotFun fn` should be satisfied.
 -/
 def funPropagation?
   (cf : Expr) (cargs : Array Expr) (prevInApp : Bool)
@@ -158,7 +158,6 @@ def funPropagation?
     @[always_inline, inline]
     propagate (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT Bool := do
       if !(← hasMatchITEArgs args) then return false
-      else if (← isCtorName n) then return true
       else if (← allExplicitParamsAreCtor f args (funPropagation := true)) then return true
       else
         match n with
