@@ -53,7 +53,8 @@ jobs:
         continue-on-error: true
         run: |
           lake update
-          lake build Solver
+          lake build Blaster
+          LEAN_NUM_THREADS=5 lake test
           
       - name: Check build status
         run: |

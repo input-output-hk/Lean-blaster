@@ -13,7 +13,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  LEAN_VERSION: "4.24.0"
   Z3_VERSION: "5.3.1"
   GLIBC_Z3: "2.39"
 
@@ -22,16 +21,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
       - name: Setup Lean
         run: |
           curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
           echo "/home/runner/.elan/bin" >> $GITHUB_PATH
           chmod +x /home/runner/.elan/bin/*
 
-      - name: Fix Elan version
-        run: |
-          elan toolchain install ${{ env.LEAN_VERSION }}
-          elan default ${{ env.LEAN_VERSION }}
+      - name: Install project toolchain
+        run: elan toolchain install "$(cat lean-toolchain)"
 
       - name: Install Z3 (release)
         if: env.Z3_VERSION != 'master'
@@ -82,9 +82,6 @@ jobs:
           lean --version
           z3 --version
 
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
       - name: Build and Validate Blaster
         run: make check_blaster
 
@@ -93,7 +90,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: blaster-build
-          path: ./Blaster/build.log
+          path: ./build.log
 
       - name: Execute and Validate Tests
         run: LEAN_NUM_THREADS=5 ./scripts/check_lean_project_compilation.sh Tests
@@ -103,4 +100,4 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: tests-build
-          path: ./Tests/build.log
+          path: ./build.log
