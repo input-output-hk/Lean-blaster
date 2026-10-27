@@ -583,13 +583,13 @@ def namedPatternIntTwo (x : Int) (y : Int) : Nat :=
 --    namedPatternIntTwo
 --     (Int.ofNat (Nat.succ (Nat.succ n1)))
 --     (Int.ofNat (Nat.succ (Nat.succ (Nat.succ (Nat.succ ((Nat.succ n2))))))) ===>
---  Blaster.dite' (n1 < 2) (fun _ => Nat.add 2 n1) (fun _ => (Nat.add 5 n2).add ((Nat.add 2 n1).sub 4))
+--  Blaster.dite' (n1 < 2) (fun _ => Nat.add 2 n1) (fun _ => (Nat.add 5 n2).add (Nat.sub n1 2))
 -- NOTE: Normalized and simplified via match to ite, eq and relational rules
 #testOptimize [ "MatchReduceUnchanged_17" ] (norm-result: 1)
   namedPatternIntTwo
    (Int.ofNat (Nat.succ (Nat.succ n1)))
    (Int.ofNat (Nat.succ (Nat.succ (Nat.succ (Nat.succ ((Nat.succ n2))))))) ===>
-     Blaster.dite' (n1 < 2) (fun _ => Nat.add 2 n1) (fun _ => (Nat.add 5 n2).add ((Nat.add 2 n1).sub 4))
+     Blaster.dite' (n1 < 2) (fun _ => Nat.add 2 n1) (fun _ => (Nat.add 5 n2).add (Nat.sub n1 2))
 
 /-! ## Test cases on Nat/Int literal discriminators.
      - literal patterns, offset patterns (`k + c`, `Int.ofNat (k + c)`, `Int.negSucc (k + c)`),
@@ -740,7 +740,7 @@ def getOrIdx (l : List Nat) (i : Nat) : Nat := if h : i < l.length then l[i] els
 --   Blaster.dite' (0 = m) (fun _ => 300) fun _ =>
 --     Blaster.dite' (4 = m) (fun _ => 304) fun _ =>
 --       Blaster.dite' (Int.neg (Int.ofNat (Nat.add 1 m)) < Int.ofNat 1)
---         (fun _ => Nat.mul 2 (Nat.sub (Nat.add 1 m) 2)) fun _ => 0
+--         (fun _ => Nat.mul 2 (Nat.sub m 1)) fun _ => 0
 -- NOTE: `Int.negSucc m` is normalized to `Int.neg (Int.ofNat (1 + m))`; each `Int.negSucc` literal
 --       pattern potentially matches and binds `m` in its alternative (300 and 304), `Int.negSucc (k + 1)`
 --       binds `k := (1 + m) - 2`. The `Int.ofNat` literal alternatives are eliminated by the
@@ -751,7 +751,7 @@ def getOrIdx (l : List Nat) (i : Nat) : Nat := if h : i < l.length then l[i] els
   Blaster.dite' (0 = m) (fun _ => 300) fun _ =>
     Blaster.dite' (4 = m) (fun _ => 304) fun _ =>
       Blaster.dite' (Int.neg (Int.ofNat (Nat.add 1 m)) < Int.ofNat 1)
-        (fun _ => Nat.mul 2 (Nat.sub (Nat.add 1 m) 2)) fun _ => 0
+        (fun _ => Nat.mul 2 (Nat.sub m 1)) fun _ => 0
 
 -- natLit (m + 2) ===> Blaster.dite' (3 = m) (fun _ => 105) fun _ => m
 -- NOTE: `5` potentially matches `2 + m` (binding `m := 3`), `k + 2` unifies with `k := m`
@@ -759,12 +759,12 @@ def getOrIdx (l : List Nat) (i : Nat) : Nat := if h : i < l.length then l[i] els
   natLit (m + 2) ===> Blaster.dite' (3 = m) (fun _ => 105) fun _ => m
 
 -- natNamed (m + 1) ===>
---   Blaster.dite' (m < 2) (fun _ => Nat.add m (Nat.add 1 m)) fun _ => Nat.mul (Nat.add 1 m) (Nat.sub (Nat.add 1 m) 3)
+--   Blaster.dite' (m < 2) (fun _ => Nat.add m (Nat.add 1 m)) fun _ => Nat.mul (Nat.add 1 m) (Nat.sub m 2)
 -- NOTE: named pattern aliases are bound through the equality map: `m@(k + 3)` gives `m := 1 + m`,
 --       `k := (1 + m) - 3` and `m@(k + 1)` gives `m := 1 + m`, `k := m`
 #testOptimize [ "MatchReduceUnchanged_20" ] (norm-result: 1)
   natNamed (m + 1) ===>
-  Blaster.dite' (m < 2) (fun _ => Nat.add m (Nat.add 1 m)) fun _ => Nat.mul (Nat.add 1 m) (Nat.sub (Nat.add 1 m) 3)
+  Blaster.dite' (m < 2) (fun _ => Nat.add m (Nat.add 1 m)) fun _ => Nat.mul (Nat.add 1 m) (Nat.sub m 2)
 
 -- intNamed (Int.negSucc m) ===>
 --   Blaster.dite' (Int.neg (Int.ofNat (Nat.add 1 m)) < Int.ofNat 3)

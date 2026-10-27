@@ -166,9 +166,10 @@ def mulAlias := mulNat
 -- ∀ (x : Int) (xs : List Int), List.foldr Nat.add (Int.toNat x) (List.map Int.toNat xs) ≤ (Int.toNat x) ===>
 -- ∀ (x : Int) (xs : List Int), ¬ Int.toNat x < List.foldr Nat.add (Int.toNat x) (List.map Int.toNat xs)
 -- NOTE: Int.toNat is not a recursive function.
+-- The initial accumulator appears only through Int.toNat, a surjective image.
 #testOptimize [ "ConstNonRecOpaqueFunArg_4" ]
   ∀ (x : Int) (xs : List Int), List.foldr Nat.add (Int.toNat x) (List.map Int.toNat xs) ≤ (Int.toNat x) ===>
-  ∀ (x : Int) (xs : List Int), ¬ Int.toNat x < List.foldr Nat.add (Int.toNat x) (List.map Int.toNat xs)
+  ∀ (x : Nat) (xs : List Int), ¬ x < List.foldr Nat.add x (List.map Int.toNat xs)
 
 -- ∀ (xs : List Bool), List.foldr and true xs = List.all xs id ===>
 -- ∀ (xs : List Bool), List.all xs (λ x => x) = List.foldr and true xs

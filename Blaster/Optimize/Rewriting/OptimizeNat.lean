@@ -46,6 +46,7 @@ def optimizeNatAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      - (N1 - n) - N2 ==> (N1 "-" N2) - n
      - (n - N1) - N2 ==> n - (N1 "+" N2)
      - (N1 + n) - N2 ==> (N1 "-" N2) + n (if N1 ≥ N2)
+     - (N1 + n) - N2 ==> n - (N2 "-" N1) (if N1 < N2)
    Assume that f = Expr.const ``Nat.sub.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Nat.sub` expected at this stage)
 -/
@@ -78,6 +79,7 @@ def optimizeNatSub (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
        - return `some ((N1 "-" N2) - n)` when `op1 := (N1 - n) ∧ mv2 := some N2`
        - return `some (n - (N1 "+" N2))` when `op1 := (n - N1) ∧ mv2 := some N2`
        - return `some ((N1 "-" N2) + n)` when `op1 := N1 + n ∧ mv2 := some N2 ∧ N1 ≥ N2`
+       - return `some (n - (N2 "-" N1))` when `op1 := N1 + n ∧ mv2 := some N2 ∧ N1 < N2`
       Otherwise `none`
    -/
    cstSubPropLeft? (op1 : Expr) (mv2 : Option Nat) : TranslateEnvT (Option Expr) := do
@@ -94,7 +96,11 @@ def optimizeNatSub (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
               if Nat.ble n2 n1 then
                 setRestart
                 mkApp2Expr (← mkNatAddOp) (← evalBinNatOp Nat.sub n1 n2) e1
-              else return none
+              else
+                -- Saturation is preserved even when e1 is smaller than the
+                -- remaining offset. Restart to combine nested subtractions.
+                setRestart
+                mkApp2Expr f e1 (← evalBinNatOp Nat.sub n2 n1)
           | _ => return none
      | _ => return none
 
