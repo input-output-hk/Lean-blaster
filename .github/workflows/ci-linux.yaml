@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  LEAN_VERSION: "4.24.0"
+  LEAN_VERSION: "4.35.0"
   Z3_VERSION: "5.3.1"
   GLIBC_Z3: "2.39"
 
