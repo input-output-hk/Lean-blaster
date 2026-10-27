@@ -295,6 +295,11 @@ structure OptimizeEnv where
   /-- local declaration context -/
   ctx : LocalDeclContext
 
+  /-- Successful closed nonliteral Nat modulus lookups, keyed by the original expression.
+      Numeric recognition is not primality or proof evidence.
+  -/
+  modulusCache : Std.HashMap Lean.Expr Nat
+
 instance : Inhabited OptimizeEnv where
   default :=
    { globalRewriteCache := Std.HashMap.emptyWithCapacity,
@@ -310,7 +315,8 @@ instance : Inhabited OptimizeEnv where
      memCache := default,
      options := default,
      restart := false,
-     ctx := default
+     ctx := default,
+     modulusCache := Std.HashMap.emptyWithCapacity
    }
 
 
@@ -747,7 +753,7 @@ def mkExpr (a : Expr) (cacheResult := true) : TranslateEnvT Expr := do
 /-- Return `true` only when both hypothesisMap and matchInContext are empty and isRefHyp flag is not set -/
 @[always_inline, inline]
 def isGlobalContext : TranslateEnvT Bool := do
-  let ⟨_, ⟨_, _, _, _, _, _, _, _, hypothesisContext, matchInContext, _, _, _, _⟩⟩ ← get
+  let ⟨_, ⟨_, _, _, _, _, _, _, _, hypothesisContext, matchInContext, _, _, _, _, _⟩⟩ ← get
   return hypothesisContext.hypothesisMap.size == 0 && matchInContext.size == 0
 
 /-- Perform the following:

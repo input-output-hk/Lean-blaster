@@ -258,6 +258,29 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
 def optimizeExpr (e : Expr) : TranslateEnvT Expr :=
   optimizeExprAux [.InitOptimizeExpr e]
 
+/-- Recognize a closed Nat modulus in an environment already initialized by
+    `Optimize.main`. Reject open expressions before normalization or cache lookup,
+    including assigned metavariables until the caller explicitly instantiates them.
+    Cache only successful nonliteral results under the original structural `Expr`
+    key; `mkExpr` is a rewrite-cache lookup, not a hashcons operation.
+
+    Zero, one and composites are numeric results too. This is neither field
+    admission nor proof evidence, and optimizer errors propagate to the caller.
+-/
+def getNatModulus? (e : Expr) : TranslateEnvT (Option Nat) := do
+  if e.hasFVar || e.hasMVar || e.hasLooseBVars then return none
+  if let some n := isNatValue? e then return some n
+  if let some n := (← get).optEnv.modulusCache.get? e then return some n
+  unless isNatType (← inferTypeEnv e) do return none
+  let normalized ← optimizeExpr e
+  let value := match normalized with
+    -- Closed numerals can retain the elaborated OfNat projection (issue #334).
+    | Expr.proj ``OfNat 0 (Expr.app (Expr.const ``instOfNatNat _) n) => isNatValue? n
+    | n => isNatValue? n
+  if let some n := value then
+    modify fun env => { env with optEnv.modulusCache := env.optEnv.modulusCache.insert e n }
+  return value
+
 /-- Same as optimizeExpr but updates local context before optimizing expression -/
 @[always_inline, inline]
 def optimizeExpr' (e : Expr) : TranslateEnvT Expr := do

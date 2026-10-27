@@ -1256,11 +1256,13 @@ def translatePEmptyType (n : Expr) : TranslateEnvT SortExpr := do
  | some decl => return decl.instSort
 
 
-/-- Translate opaque sorts to their Smt counterpart.
-    An error is triggered when `e` does not correspond to a name expression.
+/-- Translate opaque sorts from the full applied type, preserving its arguments
+    for indexed-sort dispatch. Existing non-indexed sorts retain bare-head cache
+    keys. An error is triggered when the application head is not a constant.
     TODO: update function when opacifying other Lean inductive types (e.g., BitVector, Char, etc).
 -/
-def translateOpaqueType (e : Expr) : TranslateEnvT (Option SortExpr) := do
+def translateOpaqueType (t : Expr) : TranslateEnvT (Option SortExpr) := do
+ let e := t.getAppFn
  match e with
  | Expr.const n _ =>
     match n with
@@ -1281,7 +1283,7 @@ partial def translateTypeAux
    let e := t.getAppFn
    match e with
    | Expr.const .. =>
-      if let some r ← translateOpaqueType e then return r
+      if let some r ← translateOpaqueType t then return r
       translateNonOpaqueType e t.getAppArgs
         (λ a b => translateTypeAux termTranslator a b)
         termTranslator topts

@@ -1,0 +1,254 @@
+# FFM-07: Ticket report and job summary
+
+## Implementation and remaining acceptance prerequisite
+
+Implemented the current-base modulus interface, successful-result cache,
+full applied-type opaque dispatch, and selective Fin/interface regressions.
+The historical closed Fin baseline required a related constructor-equality
+correction; its original Valid/Falsified expectations were preserved.
+
+**Acceptance is not fully complete:** the standalone baseline passes with the
+installed cvc5 1.4.1 GPL/CoCoA build, but the required execution on ordinary
+**non-CoCoA** cvc5 remains unperformed. This is not a passing non-CoCoA check.
+No binary was downloaded, replaced or relabeled to hide that distinction.
+
+Parent inputs consumed:
+[m1-execution-decision.md](m1-execution-decision.md) and
+[m1-toolchain-decision.md](m1-toolchain-decision.md). The exact supplied root,
+public integration tip, matching input trees, historical source links and solver
+identities are recorded in [baseline-fin.md](baseline-fin.md). Historical
+sources were read only; no historical branch was merged, built or rerun.
+
+## Changes
+
+- `Blaster/Optimize/Basic.lean`: `getNatModulus?` rejects open syntax before
+  lookup/normalization, recognizes raw Nat literals without insertion, checks
+  Nat type, uses `optimizeExpr` in an already initialized environment, recognizes
+  the supported residual `OfNat` projection, and caches only successful
+  nonliteral results. Errors propagate; numeric results are not proof evidence.
+- `Blaster/Optimize/Env.lean`: `optEnv.modulusCache : Std.HashMap Lean.Expr Nat`
+  uses the original structural input as key and existing default initialization.
+  Updated the affected positional environment pattern. The recursive-cache
+  pattern's existing trailing wildcards already cover the extended structure.
+  No split environment, PtrExpr or hashcons infrastructure was imported.
+- `Blaster/Optimize/OptimizeStack.lean`: updated both positional patterns for
+  hypothesis/match stack context handling. Record updates preserve the cache.
+- `Blaster/Smt/Translate/Quantifier.lean`: `translateTypeAux` passes the full
+  applied type; `translateOpaqueType` derives the bare head internally for the
+  six existing non-indexed sort implementations and their existing cache keys.
+- `Blaster/Optimize/Rewriting/OptimizeEq.lean`: constructor comparison respects
+  proof irrelevance using existing parameter metadata; `optimizeEq` consumes
+  both `some true` and `some false`. This is the narrow compatibility fix
+  required by the failing closed Fin examples, not a historical optimizer port.
+  All non-proof fields still contribute to the existing comparison lattice.
+- New `Tests/FiniteField/Interfaces.lean`: raw/elaborated numerals, aliases,
+  projections, large values, successful-only caching, distinct/repeated keys,
+  rejected types/open expressions, explicitly instantiated assignments,
+  environment updates, optimizer-error propagation and opaque sort behavior.
+  Uncomputable closed Nat coverage uses a defined `opaque`, not a new axiom.
+- New `Tests/FiniteField/FinBaseline.lean`: three pure translation rejections,
+  quantified optimizer-only Undetermined, four closed Valid cases and the false
+  field-division interpretation. Original Fin goals and outcomes are retained.
+- `Tests/FixedIssues.lean`: only two end-appended individual imports for those
+  new modules. Both new modules import `Tests.Pure`; no existing import changed.
+- New `ff-tests/OrdinaryCvc5Baseline.lean`: imports only `Blaster`; two Fin
+  rejections, closed division, and bounded-Nat distributivity modulo 7. It is
+  not registered in the ordinary Tests tree and has no child-package dependency.
+- New `baseline-fin.md`: current observations, exact revisions, historical/new
+  evidence separation, test ownership, semantics and reproduction commands.
+
+No existing protected test, script, workflow, Lake declaration or toolchain was
+rewritten. No expected result was weakened, and no new axiom, admission, solver
+fallback or change to `blasterProven` was introduced.
+
+## Direct validation and initial failures
+
+Commands ran from the repository root on 2026-10-27.
+
+```sh
+lake --version && lake env lean --version && z3 --version && cvc5 --version
+command -v cvc5 && readlink -f /usr/local/bin/cvc5 && cvc5 --show-config
+lake build Blaster
+make test-pure
+env -u BLASTER_SOLVER -u BLASTER_TIMEOUT -u BLASTER_STRICT_CVC5_RESULTS lake env lean Tests/FiniteField/Interfaces.lean
+env -u BLASTER_SOLVER -u BLASTER_TIMEOUT -u BLASTER_STRICT_CVC5_RESULTS lake env lean Tests/FiniteField/FinBaseline.lean
+BLASTER_SOLVER=cvc5 BLASTER_TIMEOUT=120 BLASTER_STRICT_CVC5_RESULTS=1 lake env lean ff-tests/OrdinaryCvc5Baseline.lean
+```
+
+- Version/configuration commands exited 0. cvc5 resolves to the installed GPL
+  static binary and explicitly reports `cocoa: yes`.
+- Initial `lake build Blaster` passed, 171 jobs, 89.25 seconds.
+- `make test-pure` passed, 200 jobs, with existing lifecycle diagnostic warnings.
+- The initial interface run failed its raw-literal cache expectation. Inspection
+  demonstrated that Lean's `mkNatLit 0` is an `OfNat.ofNat` application, whereas
+  `mkRawNatLit 0` is `Expr.lit`. Corrected the new test's literal construction;
+  retained a separate elaborated-numeral caching assertion. The helper's cache
+  policy did not change to accommodate the test.
+- The first direct Fin baseline run failed four positive guards: arithmetic
+  reduced, but distinct constructor proof terms left the equalities
+  Undetermined. The run exited 1 in 1.41 seconds. The existing comparator neither
+  skipped proof parameters nor consumed `some true` in `optimizeEq`. Skipping
+  proof parameters alone still failed; the completed correction addresses both.
+  The false `1 / 2 = 4` guard and quantified rejections already passed.
+- After the correction, `lake build Tests.Pure` followed by the three direct
+  commands above passed as one `&&` chain, exit 0, 51.78 seconds total including
+  rebuilding affected modules and lifecycle tests. The direct guarded files
+  emitted no unexpected messages. Every numeric/cache/open-input guard, every
+  pure Fin guard and every standalone cvc5 guard passed.
+
+### Live smoke scenarios
+
+Ran `lake env lean --stdin` with an input importing only `Blaster`. A private
+`modulus : Nat := 7 * 11` was looked up twice after one `Optimize.main`
+initialization; opaque dispatch was called on the applied `Fin 77`; the original
+closed `(1 : Fin 7) / 2 = 0` was executed with `only-optimize`. Final output:
+
+```text
+modulus=some (77); repeat=some (77); cached=1; Fin dispatch=true
+Valid
+```
+
+Exit 0. The Boolean `Fin dispatch=true` means the opaque recognizer returned
+`none`, not that Fin is supported. Before the constructor correction, the same
+closed goal printed Undetermined; afterward it printed Valid.
+
+A second `lake env lean --stdin`, with
+`BLASTER_SOLVER=cvc5 BLASTER_TIMEOUT=120 BLASTER_STRICT_CVC5_RESULTS=1`, ran:
+
+```lean
+import Blaster
+#blaster (solver: cvc5) (dump-smt-lib: 1)
+  [∀ (a b c : Nat), a < 7 → b < 7 → c < 7 →
+     (a * ((b + c) % 7)) % 7 = ((a * b) % 7 + (a * c) % 7) % 7]
+```
+
+Exit 0, Valid. The emitted query defined `Nat` as `Int`, used integer arithmetic
+and `mod`, and issued `check-sat`; it contained neither `FiniteField` nor field
+literals. This verifies ordinary arithmetic execution on the available binary,
+not execution on a binary built without CoCoA. Stdin smoke inputs left no
+throwaway source files in the repository.
+
+### Protected content verification
+
+An inline Python check read `git archive HEAD Tests scripts .github lakefile.lean
+lean-toolchain`, compared each archived file's bytes with the working file, and
+required the aggregate's bytes to equal the original plus exactly:
+
+```lean
+import Tests.FiniteField.Interfaces
+import Tests.FiniteField.FinBaseline
+```
+
+Passed: 178 protected baseline files; only those two appended imports differ.
+New test files are additions, not modifications of prior test content.
+
+## Required PROJECT checks
+
+Both exact commands passed with Z3 4.15.2 alone on the prescribed PATH:
+
+```sh
+PATH="$(dirname "$(readlink -f /usr/local/bin/z3-4.15.2)"):/home/agent/.elan/bin:/usr/bin:/bin"; command -v z3 && z3 --version && make check_blaster
+PATH="$(dirname "$(readlink -f /usr/local/bin/z3-4.15.2)"):/home/agent/.elan/bin:/usr/bin:/bin"; command -v z3 && z3 --version && make check_tests
+```
+
+| Check | Outcome |
+| --- | --- |
+| `make check_blaster` | Exit 0; clean build, 171 jobs; 88.55 seconds. |
+| `make check_tests` | Exit 0; pure tier 200 jobs and Z3 tier 647 jobs; 192.69 seconds total. |
+| `make test-pure` / `make test-z3` | Both executed and passed as the exact subcommands of `make check_tests`. |
+
+The Z3 tier built both new finite-field test modules through the appended
+imports. Existing lifecycle tests emitted their model-response diagnostics.
+`Tests/Smt/SmtNat/SmtNatMod.lean:37:27` emitted an Undetermined warning;
+line 41:56 reported Valid. No warning, test or expected result was suppressed.
+
+An additional stdin smoke defined a structure with a `True` proof field
+**before** its Nat data field and two distinct theorem proofs. Equal data
+reported Valid, unequal data Expected Falsified, and independently quantified
+data Expected Undetermined, all in optimizer-only mode. All three guards
+passed, exit 0. This checks that skipping a proof does not skip subsequent
+data or collapse unknown data comparisons.
+
+Direct Fin-file wall time was 1.41 seconds before the fix (four failed positive
+guards) and 1.33 seconds after it (all guards pass), including Lean startup.
+These single runs are correctness observations, not a performance benchmark.
+The final timing used Python `time.monotonic` around the exact direct
+`env -u ... lake env lean Tests/FiniteField/FinBaseline.lean` command.
+An attempted `/usr/bin/time -f 'FinBaseline elapsed: %e s'` wrapper exited 127
+because `/usr/bin/time` is absent; it did not execute Lean.
+
+## Outstanding checks and scope limits
+
+- **Required non-CoCoA baseline:** not run. Directory inspection and
+  hidden/ignored-inclusive executable searches under `/opt`, `/usr/local/bin`,
+  `/usr/bin`, `/workspace`, `/cache`, `/home/agent`, `/tmp` and `.artifacts` found
+  only the installed GPL/CoCoA executable (no staged `.artifacts` tree).
+  Required prerequisite: provision a non-CoCoA ordinary cvc5 executable, or
+  grant scoped acquisition approval for the base ordinary cvc5 version/platform.
+  Then put that binary first on PATH, record `--version` and `--show-config`
+  with `cocoa: no`, and rerun the standalone command above. The protected CI
+  ordinary pin remains 1.3.4; this job does not silently substitute a new pin.
+- No cvc5 support-floor, full cvc5/all-solvers lane or remote CI run is claimed.
+  No default-environment `lake test` was run.
+- No native FF sort/operation translation, prime checking, field admission,
+  nominal Residue API, FF proof reconstruction, child Lake package, dedicated
+  target or new workflow is implemented; those remain their named later tickets.
+- Normalization is an interface result, not a kernel proof or primality witness.
+  The constructor fix relies on Lean proof irrelevance within the existing
+  optimizer; it does not introduce a new trust mode or broaden `blasterProven`.
+- This report and code are repository deliverables for the stack's
+  owner-attributed commit. No push, aggregate PR change or maintainer signoff is
+  claimed. Acceptance remains incomplete until the non-CoCoA run is supplied.
+
+## Job summary
+
+Delivered the selective helper/cache/dispatch adaptation, preserved Fin baseline
+outcomes with the necessary proof-irrelevant constructor comparison correction,
+added the three requested regression files, and retained all existing protected
+content except the two permitted end-appended imports. Both exact PROJECT checks,
+the two direct pure files, live smoke scenarios and the standalone baseline on
+the installed cvc5 passed. Documentation local links, fenced-block pairing and
+trailing-whitespace validation also passed.
+
+One acceptance prerequisite remains: execution of the standalone file with an
+ordinary non-CoCoA binary. The available binary reports CoCoA enabled. Provision
+that executable or approve its scoped acquisition before claiming full FFM-07
+completion; the available-binary result is supplementary evidence only.
+
+## Final validation refresh
+
+The implementation and regression files were already present in the working
+tree when this validation refresh began. They were preserved, not replaced.
+The pinned historical helper and test cases were compared with the adaptation;
+no additional executable change was needed. Earlier failure observations and
+timings above belong to the initial implementation run, not this refresh.
+
+Fresh executions on the same supplied root:
+
+| Exact command | Outcome |
+| --- | --- |
+| `PATH="$(dirname "$(readlink -f /usr/local/bin/z3-4.15.2)"):/home/agent/.elan/bin:/usr/bin:/bin"; command -v z3 && z3 --version && make check_blaster` | Pass; Z3 4.15.2, 171 jobs, 95.65 seconds. |
+| `PATH="$(dirname "$(readlink -f /usr/local/bin/z3-4.15.2)"):/home/agent/.elan/bin:/usr/bin:/bin"; command -v z3 && z3 --version && make check_tests` | Pass; `make test-pure` (200 jobs) and `make test-z3` (647 jobs), 177.46 seconds total. |
+| `env -u BLASTER_SOLVER -u BLASTER_TIMEOUT -u BLASTER_STRICT_CVC5_RESULTS lake env lean Tests/FiniteField/Interfaces.lean` | Pass, no unexpected messages. |
+| `env -u BLASTER_SOLVER -u BLASTER_TIMEOUT -u BLASTER_STRICT_CVC5_RESULTS lake env lean Tests/FiniteField/FinBaseline.lean` | Pass, no unexpected messages; the two direct pure commands took 2.82 seconds together. |
+| `BLASTER_SOLVER=cvc5 BLASTER_TIMEOUT=120 BLASTER_STRICT_CVC5_RESULTS=1 lake env lean ff-tests/OrdinaryCvc5Baseline.lean` | Pass on installed GPL/CoCoA cvc5 only, 1.67 seconds. |
+| `cvc5 --version && cvc5 --show-config` | Exit 0; 1.4.1, revision `2b2e844`, `cocoa: yes`. |
+
+The lifecycle diagnostic warnings remained visible. In this refresh,
+`Tests/Smt/SmtNat/SmtNatMod.lean:37:27` reported Valid rather than the earlier
+Undetermined warning; no source or expectation was changed between these runs.
+
+Fresh `lake env lean --stdin` smoke execution returned `some (77)` twice with
+one cache entry and rejected applied `Fin 77` at opaque dispatch. Optimizer-only
+`1 / 2 = 0` and `3 / 0 = 0` over `Fin 7` reported Valid; `1 / 2 = 4` reported
+Expected Falsified. A second stdin execution, under the standalone command's
+cvc5 environment, returned Valid for bounded-Nat distributivity and emitted an
+integer/modulo query with `check-sat` and no finite-field sort. Both exited 0.
+
+The byte comparison against `git archive HEAD Tests scripts .github
+lakefile.lean lean-toolchain` again passed for all 178 protected base files,
+allowing exactly the two end-appended imports. No smoke files were created.
+Installation/staging searches again found no non-CoCoA executable. The sole
+remaining acceptance prerequisite is unchanged: provision ordinary non-CoCoA
+cvc5, or approve its scoped acquisition, then run the standalone baseline.
+These successful checks do not close that prerequisite or claim full acceptance.

@@ -33,3 +33,5 @@ import Tests.FixedIssues.Issue33
 import Tests.FixedIssues.Issue34
 import Tests.FixedIssues.Issue35
 import Tests.FixedIssues.Issue36
+import Tests.FiniteField.Interfaces
+import Tests.FiniteField.FinBaseline
