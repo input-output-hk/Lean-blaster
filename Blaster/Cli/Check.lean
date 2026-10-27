@@ -36,7 +36,8 @@ private def collectDiagnostics (messages : MessageLog) : IO (Array Diagnostic) :
   return result
 
 private partial def checkSource (cfg : Config) (renderer : Renderer)
-    (seen : IO.Ref (Array Name)) (partOfUmbrella : Bool) : IO Report := do
+    (seen : IO.Ref (Array Name)) (partOfUmbrella : Bool)
+    (followImports : Bool := true) : IO Report := do
   let firstResult := (← readCapture).report.results.size
   let file := cfg.file.getD ""
   let input ← IO.FS.readFile file
@@ -47,10 +48,13 @@ private partial def checkSource (cfg : Config) (renderer : Renderer)
   let emptyEnv ← mkEmptyEnvironment
   let (nextCommand, _, trailingMessages) :=
     Parser.parseCommand inputCtx { env := emptyEnv, options := {} } parserState messages
+  if !followImports && !trailingMessages.hasErrors && !explicitImports.isEmpty &&
+      Parser.isTerminalCommand nextCommand then
+    return (← readCapture).report
   -- Check local sources named by an import-only umbrella directly. Building the
   -- umbrella first would execute their checks once during compilation and then
   -- require another elaboration to capture a structured CLI report.
-  if !trailingMessages.hasErrors && !explicitImports.isEmpty && cfg.declarations.isEmpty &&
+  if followImports && !trailingMessages.hasErrors && !explicitImports.isEmpty && cfg.declarations.isEmpty &&
       Parser.isTerminalCommand nextCommand then
     let mut missingSources : Array String := #[]
     for imp in explicitImports do
@@ -62,7 +66,7 @@ private partial def checkSource (cfg : Config) (renderer : Renderer)
           let started ← IO.monoMsNow
           let label := s!"{imp.module.toString.replace "." "/"}.lean"
           let parent ← renderer.beginImported label
-          let report ← checkSource { cfg with file := some source.toString } renderer seen true
+          let report ← checkSource { cfg with file := some source.toString } renderer seen true followImports
           renderer.endImported label parent report before started
           if report.exitCode == 4 then return report
       else
@@ -151,5 +155,32 @@ private partial def checkSource (cfg : Config) (renderer : Renderer)
 def checkFile (cfg : Config) (renderer : Renderer) : IO Report := do
   let seen ← IO.mkRef (#[] : Array Name)
   checkSource cfg renderer seen false
+
+/-- Each source in the directory inventory is selected once. Import-only umbrellas
+    never schedule their children; the inventory already includes those files. -/
+def checkDirectory (cfg : Config) (renderer : Renderer) : IO Report := do
+  let files ← sourceFiles (cfg.file.getD "")
+  let root ← Lean.realPathNormalized (cfg.file.getD "")
+  let seen ← IO.mkRef (#[] : Array Name)
+  for source in files do
+    let label := sourceLabel root source
+    let firstResult := (← readCapture).report.results.size
+    let started ← IO.monoMsNow
+    let parent ← renderer.beginImported label
+    let report ← try
+      checkSource { cfg with file := some source.toString } renderer seen true false
+    catch ex =>
+      let report := (← readCapture).report
+      let report := { report with diagnostics := report.diagnostics.push {
+        severity := "error", message := s!"I couldn't check '{label}': {ex}" } }
+      modifyCapture fun s => { s with report }
+      pure report
+    renderer.endImported label parent report firstResult started
+  let mut report := (← readCapture).report
+  if report.results.isEmpty && !report.diagnostics.any (·.severity == "error") then
+    report := { report with diagnostics := report.diagnostics.push {
+      severity := "error", message := "I found no Blaster checks in this directory." } }
+    modifyCapture fun s => { s with report }
+  return report
 
 end Blaster.Cli

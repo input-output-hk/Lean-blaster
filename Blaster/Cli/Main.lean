@@ -103,7 +103,11 @@ private def runDiscover (cfg : Config) (renderer : Renderer) : IO UInt32 := do
       let indent := String.join (List.replicate (← depth.get) "  ")
       renderer.out.putStrLn s!"  {indent}{count} discovered\n"
   let diagnostics ← try
-    let (_, issues) ← discoverFile cfg onModuleStart onItem onModuleComplete
+    let path : System.FilePath := cfg.file.getD ""
+    let (_, issues) ← if ← path.isDir then
+      discoverDirectory cfg onModuleStart onItem onModuleComplete
+    else
+      discoverFile cfg onModuleStart onItem onModuleComplete
     pure issues
   catch ex =>
     pure #[{ severity := "error", message := s!"I couldn't discover Blaster sites: {ex}" }]
@@ -176,6 +180,7 @@ def run (args : List String) (platform : Platform := {}) : IO UInt32 := do
     if cfg.help || cfg.command == "help" then
       renderer.out.putStr (helpText cfg.command)
       return 0
+    let target : System.FilePath := cfg.file.getD ""
     if cfg.json then
       renderer.emitJsonLine <| Json.mkObj [
         ("schemaVersion", toJson (1 : Nat)), ("event", toJson "start"),
@@ -183,6 +188,11 @@ def run (args : List String) (platform : Platform := {}) : IO UInt32 := do
     try
       if cfg.command == "discover" then
         return ← runDiscover cfg renderer
+      if cfg.command == "check" && (← target.isDir) && !cfg.declarations.isEmpty then
+        let report : Report := { diagnostics := #[{
+          severity := "error",
+          message := "'--decl' selects declarations in one file. Pass a .lean file when using it." }] }
+        return ← finishReport renderer report
       Smt.superviseSolvers platform.forceKill
       resetCapture {
         config := cfg
@@ -203,7 +213,8 @@ def run (args : List String) (platform : Platform := {}) : IO UInt32 := do
         let task ← IO.asTask do
           initLibraries cfg
           -- The executable also redirects OS stdout, covering inherited subprocess output.
-          IO.withStdout renderer.err <| checkFile cfg renderer
+          IO.withStdout renderer.err <|
+            if ← target.isDir then checkDirectory cfg renderer else checkFile cfg renderer
         match ← awaitTask renderer task with
         | .ok report => pure report
         | .error report => pure report

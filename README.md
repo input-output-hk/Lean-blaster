@@ -10,7 +10,8 @@ Blaster provides an SMT backend for Z3 proofs. Blaster works by first aggressive
 The [lean-blaster executable](docs/cli.md) checks `#blaster` commands and `by blaster`
 tactics with first-person diagnostics, structured JSON output, and an optional bundled Z3.
 `lean-blaster discover FILE.lean --json` lists source sites, declaration names, bodies,
-and ranges for editor integrations without running the solver.
+and ranges for editor integrations without running the solver. Both `discover` and
+`check` also accept a directory and scan its Lean sources recursively.
 
 ## Table of Contents
 

@@ -81,7 +81,8 @@ private def parseDiagnostics (messages : MessageLog) : IO (Array Diagnostic) := 
 
 private partial def discoverSource (cfg : Config) (env : Environment) (seen : IO.Ref (Array Name))
     (onModuleStart : String → IO Unit) (onItem : DiscoveryItem → IO Unit)
-    (onModuleComplete : String → Nat → IO Unit) : IO (Array DiscoveryItem × Array Diagnostic) := do
+    (onModuleComplete : String → Nat → IO Unit) (followImports : Bool := true) :
+    IO (Array DiscoveryItem × Array Diagnostic) := do
   let file := cfg.file.getD ""
   let input ← IO.FS.readFile file
   let inputCtx := Parser.mkInputContext input file
@@ -89,7 +90,7 @@ private partial def discoverSource (cfg : Config) (env : Environment) (seen : IO
   let imports := HeaderSyntax.imports header false
   let (first, firstState, firstMessages) :=
     Parser.parseCommand inputCtx { env, options := {} } parserState messages
-  if !firstMessages.hasErrors && !imports.isEmpty && Parser.isTerminalCommand first then
+  if followImports && !firstMessages.hasErrors && !imports.isEmpty && Parser.isTerminalCommand first then
     let mut items := #[]
     let mut diagnostics := #[]
     for imp in imports do
@@ -99,7 +100,7 @@ private partial def discoverSource (cfg : Config) (env : Environment) (seen : IO
           let label := s!"{imp.module.toString.replace "." "/"}.lean"
           onModuleStart label
           let (found, issues) ← discoverSource { cfg with file := some source.toString }
-            env seen onModuleStart onItem onModuleComplete
+            env seen onModuleStart onItem onModuleComplete followImports
           items := items ++ found
           diagnostics := diagnostics ++ issues
           onModuleComplete label found.size
@@ -136,5 +137,31 @@ def discoverFile (cfg : Config) (onModuleStart : String → IO Unit)
   let env ← importModules #[{ module := `Blaster.Command }] {} (loadExts := true)
   let seen ← IO.mkRef (#[] : Array Name)
   discoverSource cfg env seen onModuleStart onItem onModuleComplete
+
+/-- A directory is an inventory of source files, not an import graph. An umbrella
+    contributes no sites; its leaves are visited directly, once each. -/
+def discoverDirectory (cfg : Config) (onModuleStart : String → IO Unit)
+    (onItem : DiscoveryItem → IO Unit) (onModuleComplete : String → Nat → IO Unit) :
+    IO (Array DiscoveryItem × Array Diagnostic) := do
+  initDiscoveryLibraries
+  let env ← importModules #[{ module := `Blaster.Command }] {} (loadExts := true)
+  let seen ← IO.mkRef (#[] : Array Name)
+  let mut items := #[]
+  let mut diagnostics := #[]
+  let root ← Lean.realPathNormalized (cfg.file.getD "")
+  for source in (← sourceFiles (cfg.file.getD "")) do
+    let label := sourceLabel root source
+    onModuleStart label
+    try
+      let (found, issues) ← discoverSource { cfg with file := some source.toString }
+        env seen onModuleStart onItem onModuleComplete false
+      items := items ++ found
+      diagnostics := diagnostics ++ issues
+      onModuleComplete label found.size
+    catch ex =>
+      diagnostics := diagnostics.push {
+        severity := "error", message := s!"I couldn't inspect '{label}': {ex}" }
+      onModuleComplete label 0
+  return (items, diagnostics)
 
 end Blaster.Cli

@@ -55,7 +55,7 @@ private def positional (cfg : Config) (arg : String) (literal : Bool) : Except S
     throw s!"I don't recognize the command '{arg}'.\n\n  Try 'lean-blaster check FILE.lean', 'lean-blaster discover FILE.lean', or 'lean-blaster doctor'"
   if cfg.command != "check" && cfg.command != "discover" then
     throw s!"'{cfg.command}' doesn't accept a file argument"
-  if cfg.file.isSome then throw "I can check one file at a time; received more than one file"
+  if cfg.file.isSome then throw "I accept one file or directory at a time; received more than one path"
   return { cfg with file := some arg }
 
 private def parseLoop : List String → Config → Bool → Except String Config
@@ -92,7 +92,7 @@ def parseArgs (args : List String) : Except String Config := do
   let cfg ← parseLoop args {} false
   if cfg.help || cfg.version then return cfg
   if (cfg.command == "check" || cfg.command == "discover") && cfg.file.isNone then
-    throw s!"I need a Lean file to {cfg.command}.\n\n  lean-blaster {cfg.command} Properties.lean"
+    throw s!"I need a Lean file or directory to {cfg.command}.\n\n  lean-blaster {cfg.command} Properties.lean"
   if cfg.command != "check" && (!cfg.declarations.isEmpty || cfg.timeout.isSome ||
       cfg.seed.isSome || !cfg.counterexamples || cfg.noBuild) then
     throw "Property selection and solver options belong to 'lean-blaster check'"
@@ -111,11 +111,11 @@ def helpText (command : String) : String :=
   if command == "doctor" then
     "I'll check access to Lean's compiled libraries and Z3.\n\nUsage: lean-blaster doctor [OPTIONS]\n\nExamples:\n  lean-blaster doctor\n  lean-blaster doctor --solver /path/to/z3\n  lean-blaster doctor --json\n\nSolver option:\n  --solver PATH         Select a Z3 executable" ++ outputHelp
   else if command == "discover" then
-    "I'll find direct '#blaster' commands and 'blaster' tactics in source, without elaboration or solver work.\n\nUsage: lean-blaster discover FILE.lean [OPTIONS]\n\nExamples:\n  lean-blaster discover Properties.lean\n  lean-blaster discover Properties.lean --json\n\nDiscovery is syntactic; macros and elaboration may change which checks execute." ++ outputHelp
+    "I'll find direct '#blaster' commands and 'blaster' tactics in source, without elaboration or solver work.\n\nUsage: lean-blaster discover FILE.lean|DIRECTORY [OPTIONS]\n\nExamples:\n  lean-blaster discover Properties.lean\n  lean-blaster discover Properties.lean --json\n\nDirectories are scanned recursively. Each source is read once; import-only umbrellas don't repeat their children. Discovery is syntactic; macros and elaboration may change which checks execute." ++ outputHelp
   else if command == "check" then
-    "Check #blaster commands and 'by blaster' tactic calls, or select named properties with --decl.\n\nUsage: lean-blaster check FILE.lean [OPTIONS]\n\nExamples:\n  lean-blaster check Properties.lean\n  lean-blaster check Properties.lean --decl balance_nonnegative --solver-timeout 30s\n  lean-blaster check Properties.lean --json\n\nCheck options:\n  --decl NAME           Select a fully qualified property (repeatable)\n  --solver-timeout TIME  Per-query solver limit: 30s, 2m, none\n  --solver PATH         Select a Z3 executable\n  --seed N              Set the solver seed (including zero)\n  --no-counterexample   Skip counterexample retrieval\n  --no-build            Use existing compiled imports without building" ++ outputHelp ++
+    "Check #blaster commands and 'by blaster' tactic calls, or select named properties with --decl.\n\nUsage: lean-blaster check FILE.lean|DIRECTORY [OPTIONS]\n\nExamples:\n  lean-blaster check Properties.lean\n  lean-blaster check Properties.lean --decl balance_nonnegative --solver-timeout 30s\n  lean-blaster check Properties.lean --json\n\nDirectories are scanned recursively; import-only umbrellas don't schedule their children again.\n\nCheck options:\n  --decl NAME           Select a fully qualified property (repeatable)\n  --solver-timeout TIME  Per-query solver limit: 30s, 2m, none\n  --solver PATH         Select a Z3 executable\n  --seed N              Set the solver seed (including zero)\n  --no-counterexample   Skip counterexample retrieval\n  --no-build            Use existing compiled imports without building" ++ outputHelp ++
     "\nRun 'lean-blaster doctor' to check your installation.\nValid results are not reconstructed as Lean proofs.\n"
   else
-    "lean-blaster · a verification assistant for Lean\n\nUsage: lean-blaster COMMAND [OPTIONS]\n\nCommands:\n  check FILE.lean      Check properties with Blaster\n  discover FILE.lean   Find Blaster sites in source\n  doctor               Check Lean and solver setup\n\nExamples:\n  lean-blaster check Properties.lean\n  lean-blaster discover Properties.lean --json\n  lean-blaster doctor\n\nRun 'lean-blaster COMMAND --help' for command options.\nValid results are not reconstructed as Lean proofs.\n"
+    "lean-blaster · a verification assistant for Lean\n\nUsage: lean-blaster COMMAND [OPTIONS]\n\nCommands:\n  check FILE|DIRECTORY      Check properties with Blaster\n  discover FILE|DIRECTORY   Find Blaster sites in source\n  doctor               Check Lean and solver setup\n\nExamples:\n  lean-blaster check Properties.lean\n  lean-blaster discover Properties.lean --json\n  lean-blaster doctor\n\nRun 'lean-blaster COMMAND --help' for command options.\nValid results are not reconstructed as Lean proofs.\n"
 
 end Blaster.Cli

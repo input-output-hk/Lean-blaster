@@ -14,6 +14,8 @@ lean-blaster
 lean-blaster doctor
 lean-blaster check Properties.lean
 lean-blaster discover Properties.lean
+lean-blaster check Tests/Smt
+lean-blaster discover Tests/Smt --json
 ```
 
 `make install` builds the executable, installs its own compiled Blaster libraries and
@@ -121,6 +123,16 @@ Each local source is selected once, including through nested umbrellas. The repo
 warns about nonstandard imports without local source files; they are not traversed.
 An imported source may still be compiled as a dependency of another source when Lean needs
 its declarations.
+
+`check DIRECTORY` and `discover DIRECTORY` recursively enumerate `.lean` sources in
+stable path order. They canonicalize paths so a linked file is visited once, skip
+linked directories, `.lake`/`.git`, and `lakefile.lean`; they do not follow imports while selecting
+files. Thus an import-only umbrella and another umbrella that names the same leaf
+do not schedule that leaf twice in one invocation. `check` elaborates each selected source directly
+and combines its results; files with no direct checks do not cause individual
+errors. An empty directory check exits with an error. `--decl` requires a single
+file. Lake may still compile a source as a dependency of another source on a cold
+build; that compilation is separate from the CLI's selected-source pass.
 Successful Lake build logs stay quiet; failing build jobs remain visible.
 Terminal output nests imported source sections. Every Blaster invocation appears inside
 its source section, including valid results. Section totals count invocations rather
@@ -140,6 +152,8 @@ exit-code meaning in `lean-blaster check`; the expected count is shown separatel
 tactic sites without elaborating the file, building project imports, or running Z3.
 For an import-only umbrella it walks local source imports once, just as `check`
 does by default. An empty discovery succeeds and reports zero sites.
+`discover DIRECTORY` parses each source in the directory inventory once and emits
+each site's location once per invocation, even when several umbrellas import that source.
 
 Each site has a `kind` (`command` or `tactic`), optional source-qualified declaration
 `name`, and the exact source `body`. For a tactic, `body` is its enclosing theorem,
