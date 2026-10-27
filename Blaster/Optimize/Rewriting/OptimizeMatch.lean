@@ -359,10 +359,11 @@ partial def instantiateUnifiedMVars
 -/
 def reduceMatch? (args : Array Expr) (mInfo : MatchInfo) (resolveArgs := false) : TranslateEnvT (Option BetaLambdaResult) := do
  let args ← resolveArgsWithEqualityStack args
- let instKey ← mkAppRangeExpr mInfo.instApp 0 mInfo.getFirstAltPos args
+ let instCommonKey ← mkAppRangeExpr mInfo.instApp 0 mInfo.getFirstDiscrPos args
+ let instKey ← mkAppRangeExpr instCommonKey mInfo.getFirstDiscrPos mInfo.getFirstAltPos args
  let discrsType ← getDiscrsType mInfo args instKey
  if !(← allMatchDiscrsAreCtor args discrsType) then return none
- let alts ← getMatchAltsAux instKey args mInfo
+ let alts ← getMatchAltsAux instCommonKey args mInfo
  visit_alts? args alts discrsType mInfo.getFirstAltPos mInfo.arity false
 
    where
@@ -1005,8 +1006,8 @@ where
   lastPatternReduction? (mInfo : MatchInfo) (args : Array Expr) : TranslateEnvT (Option MatchElimResult) := do
      let ⟨_, _, _, _, _, _, _, _, matchInContext, _, ⟨_, _, _, _, _, _, active, _, _⟩, _, _, _⟩ := (← get).optEnv
      let h := (← get).optEnv.matchInContext
-     let instKey ← mkAppRangeExpr mInfo.instApp 0 mInfo.getFirstAltPos args
-     let alts ← getMatchAltsAux instKey args mInfo
+     let instCommonKey ← mkAppRangeExpr mInfo.instApp 0 mInfo.getFirstDiscrPos args
+     let alts ← getMatchAltsAux instCommonKey args mInfo
      for i in [:alts.size - 1] do
        if !(← existsNotEqPattern mInfo args alts[i]! matchInContext active) then
          return none
@@ -1014,6 +1015,7 @@ where
      if isUnifyMatchResult matchHit then
        -- erase context
        eraseMatchRhsRewriteCache mInfo
+       let instKey ← mkAppRangeExpr instCommonKey mInfo.getFirstDiscrPos mInfo.getFirstAltPos args
        let discrsType ← getDiscrsType mInfo args instKey
        return some $ Sum.inr (← betaLambdaShared args[mInfo.arity - 1]! (← instantiateUnifiedMVars mvarArgs args discrsType mInfo))
      else return none

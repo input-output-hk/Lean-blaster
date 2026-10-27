@@ -535,8 +535,9 @@ def matchExprRewriter
     (rewriter : (lastPattern : Bool) → CommonMatchRewriterParams →
                 (lhs : Array Expr) → (rhs : Expr) → (params : Array Expr) → (acc : Option α) → TranslateEnvT (Option α)) :
     TranslateEnvT (Option α) := do
-    let instKey ← mkAppRangeExpr mInfo.instApp 0 mInfo.getFirstAltPos args
-    let alts ← getMatchAltsAux instKey args mInfo
+    let instCommonKey ← mkAppRangeExpr mInfo.instApp 0 mInfo.getFirstDiscrPos args
+    let alts ← getMatchAltsAux instCommonKey args mInfo
+    let instKey ← mkAppRangeExpr instCommonKey mInfo.getFirstDiscrPos mInfo.getFirstAltPos args
     let matchType ← instantiateMatchType mInfo args (instKey? := some instKey)
     let discrsType ← getLambdaBinderTypes matchType
     let retType := getLambdaBody matchType
