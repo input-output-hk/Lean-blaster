@@ -273,7 +273,9 @@ private def Renderer.falsification (r : Renderer) (result : CheckResult)
       "I couldn't extract witness values from the solver result."
     r.out.putStrLn s!"{guide}  {r.tintOut "muted" explanation}"
     return
-  r.out.putStrLn s!"{guide}  {r.tintOut "action" "Counterexample"}"
+  let heading := if r.config.counterexampleView == "raw" then
+    "Counterexample · raw solver values" else "Counterexample"
+  r.out.putStrLn s!"{guide}  {r.tintOut "action" heading}"
   if r.config.counterexampleView == "raw" then
     for value in result.counterexample do
       for line in value.trim.splitOn "\n" do

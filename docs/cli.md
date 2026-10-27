@@ -156,8 +156,8 @@ Illustrative presentation (the solver may choose different witness values):
 ```
 
 `--counterexample=summary|full|raw|none` controls terminal detail. `summary` is the
-default; `full` prints every witness value without clipping, `raw` retains the
-solver's original text, and `none` skips model retrieval. `--no-counterexample` is
+default; `full` prints every witness value without clipping, `raw` labels and prints
+the original solver values, and `none` skips model retrieval. `--no-counterexample` is
 an alias for `none`. The last counterexample option on the command line wins.
 JSON output keeps the existing raw `counterexample` array regardless of the
 terminal presentation mode, except when retrieval is disabled. Complex SMT values
