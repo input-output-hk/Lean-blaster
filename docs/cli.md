@@ -16,6 +16,7 @@ lean-blaster check Properties.lean
 lean-blaster discover Properties.lean
 lean-blaster check Tests/Smt
 lean-blaster discover Tests/Smt --json
+lean-blaster check Properties.lean --llm blaster-report.md
 ```
 
 `make install` builds the executable, installs its own compiled Blaster libraries and
@@ -169,6 +170,25 @@ with one-based line and column numbers.
 inside the file, conditional tactics, and elaboration can change which invocations
 actually run. Use `check --json` for executed calls and their outcomes. Discovery
 does not accept solver or `--decl` selection options.
+
+## Agent report
+
+`lean-blaster check FILE.lean --llm report.md` writes a Markdown snapshot for coding
+agents. The path is relative to the current directory unless absolute. It may be
+combined with `--json` or `--json-report`; those stdout formats keep their existing
+meaning. The report is written through a temporary file and replaced only when
+complete. A write failure is reported as a check error. The flag is available only
+for `check`, and `.lean` output paths are rejected to protect source files.
+
+The snapshot records the project root, Git revision and dirty state when available,
+Lean and Z3 versions, effective CLI overrides, exit status, selected source count,
+recorded call counts, trust statement, and a compact index of every result. Each
+non-valid result includes its location, source excerpt, elaborated goal when
+available, reason, raw counterexample values when available, and matching Lean
+diagnostics. Routine unused-variable warnings are counted but omitted from detail.
+Syntactic discovery counts and executions that occur inside Lake dependency builds
+are not claimed as captured check results. The report is evidence for an agent to
+inspect, not a reconstructed Lean proof or an automatically generated fix.
 
 ## Options and precedence
 

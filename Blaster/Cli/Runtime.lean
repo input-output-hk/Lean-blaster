@@ -40,7 +40,7 @@ private partial def findProject (directory : System.FilePath) : IO (Option Syste
   if parent == directory then return none
   findProject parent
 
-private def projectFor (file : Option String) : IO (Option System.FilePath) := do
+def projectFor (file : Option String) : IO (Option System.FilePath) := do
   let cwd ← IO.currentDir
   if let some file := file then
     let path : System.FilePath := file

@@ -18,6 +18,8 @@ structure Config where
   json : Bool := false
   /-- Emit the legacy single JSON report after completion. -/
   jsonReport : Bool := false
+  /-- Write a Markdown handoff report for coding agents. -/
+  llmReport : Option String := none
   noProgress : Bool := false
   noBuild : Bool := false
   color : String := "auto"
@@ -76,6 +78,8 @@ structure Diagnostic where
 
 structure Report where
   schemaVersion : Nat := 1
+  /-- Source files selected by this invocation, including import-only umbrellas. -/
+  selectedSources : Array String := #[]
   results : Array CheckResult := #[]
   diagnostics : Array Diagnostic := #[]
   interrupted : Bool := false

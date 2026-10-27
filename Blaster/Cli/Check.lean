@@ -41,6 +41,10 @@ private partial def checkSource (cfg : Config) (renderer : Renderer)
   let firstResult := (← readCapture).report.results.size
   let file := cfg.file.getD ""
   let input ← IO.FS.readFile file
+  let source ← Lean.realPathNormalized file
+  modifyCapture fun s => { s with report.selectedSources :=
+    if s.report.selectedSources.contains source.toString then s.report.selectedSources
+    else s.report.selectedSources.push source.toString }
   let inputCtx := Parser.mkInputContext input file
   let (header, parserState, messages) ← Parser.parseHeader inputCtx
   let moduleHeader := HeaderSyntax.toModuleHeader header

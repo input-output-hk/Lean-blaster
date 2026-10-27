@@ -1,6 +1,7 @@
 import Blaster.Cli.Args
 import Blaster.Cli.Check
 import Blaster.Cli.Discover
+import Blaster.Cli.Llm
 import Blaster.Smt.Solver
 import Blaster.Cli.Runtime
 
@@ -65,6 +66,21 @@ private def finishReport (renderer : Renderer) (report : Report) : IO UInt32 := 
   -- exiting here prevents abandoned worker threads from delaying an interrupted command.
   if report.interrupted then IO.Process.exit report.exitCode.toUInt8
   return report.exitCode
+
+private def finishCheckReport (cfg : Config) (renderer : Renderer) (report : Report) : IO UInt32 := do
+  let mut report := report
+  let mut written := false
+  if cfg.llmReport.isSome then
+    try
+      writeLlmReport cfg report
+      written := true
+    catch ex =>
+      report := { report with diagnostics := report.diagnostics.push {
+        severity := "error", message := s!"I couldn't write the agent report: {ex}" } }
+  let code ← finishReport renderer report
+  if written && !cfg.machineOutput then
+    renderer.out.putStrLn s!"  I wrote the agent report to {cfg.llmReport.getD ""}"
+  return code
 
 private def runDiscover (cfg : Config) (renderer : Renderer) : IO UInt32 := do
   let depth ← IO.mkRef 0
@@ -192,7 +208,7 @@ def run (args : List String) (platform : Platform := {}) : IO UInt32 := do
         let report : Report := { diagnostics := #[{
           severity := "error",
           message := "'--decl' selects declarations in one file. Pass a .lean file when using it." }] }
-        return ← finishReport renderer report
+        return ← finishCheckReport cfg renderer report
       Smt.superviseSolvers platform.forceKill
       resetCapture {
         config := cfg
@@ -226,11 +242,10 @@ def run (args : List String) (platform : Platform := {}) : IO UInt32 := do
         renderer.stop.set true
         if let some task := animation then discard <| IO.ofExcept task.get
         renderer.clear
-      finishReport renderer report
+      finishCheckReport cfg renderer report
     catch ex =>
       let report : Report := {
         diagnostics := #[{ severity := "error", message := s!"I couldn't initialize Blaster: {ex}" }] }
-      renderer.finish report
-      return 4
+      return ← finishCheckReport cfg renderer report
 
 end Blaster.Cli

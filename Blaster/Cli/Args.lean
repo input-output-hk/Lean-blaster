@@ -18,7 +18,7 @@ private def duration (value : String) : Except String (Option Nat) := do
   return some (n * multiplier)
 
 private def valueFlags : List String :=
-  ["--decl", "--solver-timeout", "--solver", "--seed", "--color", "--theme"]
+  ["--decl", "--solver-timeout", "--solver", "--seed", "--color", "--theme", "--llm"]
 
 private def knownFlags : List String := valueFlags ++
   ["--no-counterexample", "--verbose", "--debug", "--json", "--json-report", "--no-progress", "--no-build", "--ascii", "--help", "--version"]
@@ -39,6 +39,7 @@ private def applyValue (cfg : Config) (flag value : String) : Except String Conf
   | "--solver-timeout" => return { cfg with timeout := some (← duration value) }
   | "--solver" => return { cfg with solver := some value }
   | "--seed" => return { cfg with seed := some (← natural flag value) }
+  | "--llm" => return { cfg with llmReport := some value }
   | "--color" =>
     unless ["auto", "always", "never"].contains value do
       throw s!"'--color' expects auto, always, or never; received '{value}'"
@@ -98,6 +99,8 @@ def parseArgs (args : List String) : Except String Config := do
     throw "Property selection and solver options belong to 'lean-blaster check'"
   if cfg.command == "discover" && cfg.solver.isSome then
     throw "'discover' reads source without running Z3, so it doesn't accept '--solver'"
+  if cfg.command != "check" && cfg.llmReport.isSome then
+    throw "'--llm' writes a report of executed checks, so use it with 'lean-blaster check'"
   if cfg.json && cfg.jsonReport then
     throw "Choose either '--json' (streaming events) or '--json-report' (one report)"
   if cfg.machineOutput && cfg.color == "always" then
@@ -105,7 +108,7 @@ def parseArgs (args : List String) : Except String Config := do
   return cfg
 
 private def outputHelp : String :=
-  "\n\nOutput options:\n  -v, --verbose         Show stages and elapsed time\n  --debug               Include additional diagnostic context\n  --json                Stream one JSON event per line to stdout\n  --json-report         Write one JSON report after completion\n  --color MODE          auto, always, never [default: auto]\n  --theme MODE          auto, dark, light [default: auto]\n  --no-progress         Disable live progress\n  --ascii               Use ASCII status symbols\n  -h, --help            Show help\n  --version             Show the executable and Lean version\n"
+  "\n\nOutput options:\n  -v, --verbose         Show stages and elapsed time\n  --debug               Include additional diagnostic context\n  --json                Stream one JSON event per line to stdout\n  --json-report         Write one JSON report after completion\n  --llm FILE            Write a Markdown report for coding agents (check only)\n  --color MODE          auto, always, never [default: auto]\n  --theme MODE          auto, dark, light [default: auto]\n  --no-progress         Disable live progress\n  --ascii               Use ASCII status symbols\n  -h, --help            Show help\n  --version             Show the executable and Lean version\n"
 
 def helpText (command : String) : String :=
   if command == "doctor" then
