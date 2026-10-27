@@ -163,6 +163,11 @@ example : ∀ (n : Int), ¬ (Int.ediv (4 * n) 6 = Int.ediv (2 * n) 3) ∨ n = n 
 example : ∀ (x : Int), Int.ediv (x * 6) 3 = 2 * x := by blaster
 example : ∀ (x y : Int), ((Int.ofNat 7 * 2 + x) = (x + 14)) ∧ y - y = 0 := by blaster
 
+-- String `++` and core `String.append` spellings
+example : ∀ (s t u v : String), ((s ++ t ++ u) == v) = (v == (s ++ t ++ u)) := by blaster
+example : ∀ (s t v : String), ((s ++ t) = v) = (v = (s ++ t)) := by blaster
+example : ∀ (s : String), String.append s "" = s := by blaster
+
 -- Core `Nat.add` spelling
 example : ∀ (x : Nat), Nat.add (Nat.succ x) 1 = x + 2 := by blaster
 
