@@ -109,9 +109,6 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
            -- We can safely removed named pattern as we resolve named pattern and its hypothesis in rhs
            -- (see isPatternMatch and unifyAndUpdateEqMap)
            optimizeExprAux (.InitOptimizeExpr args[2]! :: xs)
-         -- try to apply funPropagation to avoid optimizing ite/match multiple times
-         else if let some r ← funPropagation? f args (resolveArgs := true) (← isAppArg) then
-           optimizeExprAux (r :: xs)
          else
            let prevInCtor ← isCtorArg
            setIsCtorArg (← isCtorExpr f)

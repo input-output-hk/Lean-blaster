@@ -381,4 +381,54 @@ def listMap (x : List α) (a : β) (b : β) : Nat → Nat → β :=
            (fun (_ : List α) =>
              Blaster.dite' (Nat.mul x x < y) (fun _ => a) (fun _ => b))
 
+/-! Test cases to validate normalization of a match application when the match type is a dependent
+    lambda (indexed inductive datatype in the discriminators and/or in the return type). The pushed
+    match must keep the binder types of the original motive (`v : FnIdx n`) and, when the return type
+    depends on a discriminator (`Nat → FnIdx n`), the new return type must refer to the motive's own
+    binder. -/
+
+inductive FnIdx : Nat → Type where
+  | z : FnIdx 0
+  | s : FnIdx 1
+
+def fnFun (n : Nat) (v : FnIdx n) : Nat → Nat :=
+  match n, v with
+  | .(0), .z => fun x => x + 1
+  | .(1), .s => fun x => x * 2
+
+def fnOutF (n : Nat) (v : FnIdx n) : Nat → FnIdx n :=
+  match n, v with
+  | .(0), .z => fun _ => .z
+  | .(1), .s => fun _ => .s
+
+-- ∀ (k : Nat) (w : FnIdx k) (m : Nat), fnFun k w m = m ===>
+-- ∀ (k : Nat) (w : FnIdx k) (m : Nat),
+--   m = fnFun.match_1 (fun (n : Nat) (_ : FnIdx n) => Nat) k w
+--       (fun (_ : Unit) => Nat.add 1 m)
+--       (fun (_ : Unit) => Nat.mul 2 m)
+-- NOTE: Test case to validate that the match type with a dependent binder (`v : FnIdx n`) is kept
+-- when the extra argument is pushed in the alternatives (the return type `Nat → Nat` is closed).
+#testOptimize [ "NormChoiceAppMatch_6" ] (norm-result: 1)
+  ∀ (k : Nat) (w : FnIdx k) (m : Nat), fnFun k w m = m ===>
+  ∀ (k : Nat) (w : FnIdx k) (m : Nat),
+    m = match k, w with
+        | .(0), .z => Nat.add 1 m
+        | .(1), .s => Nat.mul 2 m
+
+-- ∀ (k : Nat) (w : FnIdx k) (m : Nat), fnOutF k w m = w ===>
+-- ∀ (k : Nat) (w : FnIdx k) (m : Nat),
+--   w = fnFun.match_1 (fun (n : Nat) (_ : FnIdx n) => FnIdx n) k w
+--       (fun (_ : Unit) => FnIdx.z)
+--       (fun (_ : Unit) => FnIdx.s)
+-- NOTE: Test case to validate that the return type of the match (`Nat → FnIdx n`, which depends on
+-- the first discriminator) is properly updated to `FnIdx n` when the extra argument is pushed in the
+-- alternatives: the discriminator `k` instantiating the index is abstracted again by the motive's
+-- own binder `n` (as done by Lean's `match` elaborator with `kabstract`).
+#testOptimize [ "NormChoiceAppMatch_7" ]
+  ∀ (k : Nat) (w : FnIdx k) (m : Nat), fnOutF k w m = w ===>
+  ∀ (k : Nat) (w : FnIdx k),
+    w = match k, w with
+        | .(0), .z => FnIdx.z
+        | .(1), .s => FnIdx.s
+
 end Test.NormChoiceApp

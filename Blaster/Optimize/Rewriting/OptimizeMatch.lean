@@ -21,18 +21,6 @@ partial def eraseMatchRhsRewriteCache (mInfo : MatchInfo) : TranslateEnvT Unit :
     visit start mInfo.arity.toUSize start
   else return ()
 
-/-- Given,
-     - `t := λ β₁ => ... => βₘ => ∀ α₁ → ∀ α₂ → ... → αₙ` corresponding to a match expression
-        returning functions as rhs; and
-     - `nbArgs ∈ [0..n]` corresponding to the number of extra arguments applied to the match expression; and
-     - α'₁, ..., α'ₘ := [ αᵢ | i ∈ [nbArgs, n] ]
-    Return:
-      - ∀ α'₁ → ∀ α'₂ → ... → α'ₘ
-    Note that the returned type will correspond to αₙ when nbArgs = n.
--/
-def getAppliedMatchType (t : Expr) (nbArgs : Nat) : Expr :=
-  (getLambdaBody t).getForallBodyMaxDepth nbArgs
-
 /-- Given `f x₁ ... xₙ` return `true` when the following conditions are satisfied:
      -  ∃ i ∈ [1..n], isExplicit xᵢ ∧
      -  ∀ i ∈ [1..n], isExplicit xᵢ → isCstProp xᵢ ∨ isPropFunType f xₓ
@@ -493,7 +481,7 @@ def constMatchPropagation?
         eraseMatchRhsRewriteCache mInfo
         -- NOTE: we also need to set the sort type for the pulled dite to meet
         -- the return type of the embedded match
-        let retType := getAppliedMatchType cargs[mInfo.getFirstDiscrPos - 1]! 0
+        let retType := getLambdaBody (← instantiateMatchType mInfo cargs)
         let e1' ← pushMatchInDIteExpr cm cargs idx e1
         let e2' ← pushMatchInDIteExpr cm cargs idx e2
         -- NOTE: we need to propagate the reuse context to the new then and else expressions
@@ -523,8 +511,8 @@ def constMatchPropagation?
         -- NOTE: we also need to set the return type for pulled over match
         -- to meet the return type of the embedded match.
         let idxType := argInfo.getFirstDiscrPos - 1
-        let retType := getAppliedMatchType cargs[mInfo.getFirstDiscrPos - 1]! 0
-        pargs ← pargs.modifyM idxType (updateMatchReturnType retType)
+        let retType := getLambdaBody (← instantiateMatchType mInfo cargs)
+        pargs ← pargs.modifyM idxType (updateMatchReturnType argInfo pargs retType)
         let pInfo ← getFunEnvInfo argInfo.nameExpr
         setIsAppArg prevInApp
         if resolveArgs

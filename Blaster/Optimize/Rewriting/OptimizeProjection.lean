@@ -69,7 +69,7 @@ def optimizeProjection? (n : Name) (idx : Nat) (s : Expr) : TranslateEnvT (Optio
           pargs ← pargs.modifyM i (updateRhsWithProj typeName idx alts[altIdx]!.getNumHeadForalls)
         -- update ret type for pulled over match
         let ptype ← inferTypeEnv (← mkProjExpr n idx s)
-        pargs ← pargs.modifyM idxType (updateMatchReturnType ptype)
+        pargs ← pargs.modifyM idxType (updateMatchReturnType argInfo pargs ptype)
         mkAppNExpr argInfo.nameExpr pargs
       | _ => return none
 
