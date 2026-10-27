@@ -12,6 +12,8 @@ structure Config where
   solver : Option String := none
   seed : Option Nat := none
   counterexamples : Bool := true
+  /-- Terminal presentation of solver witnesses; JSON always preserves raw values. -/
+  counterexampleView : String := "summary"
   verbose : Bool := false
   debug : Bool := false
   /-- Stream newline-delimited JSON events. -/
