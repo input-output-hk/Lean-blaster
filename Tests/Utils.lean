@@ -21,7 +21,8 @@ def callOptimize (sOpts : BlasterOptions) (stx : Syntax) : TermElabM Expr :=
     with options:
      - verbose: activate debug info
      - norm-result: apply nat literal normalization, beta reduction on lambda application
-                    and structure projection normalization on expected result.
+                    and structure projection normalization on expected result;
+                    compare closed characters on both sides by kernel-checked scalar value.
 
     E.g.
      #testOptimize [ "AndSubsumption" ] ∀ (a : Prop), a ∧ a ==> ∀ (a : Prop), a
@@ -85,6 +86,19 @@ def removeAnnotations (e : Expr) : Expr :=
    | _ => k e
   visit e id
 
+/-- Compare closed character literals by their kernel-computed scalar value.
+    Lean's character notation and normalized constructors can use different,
+    proof-irrelevant validity witnesses. Other proof terms remain compared exactly. -/
+def normClosedChars (e : Expr) : MetaM Expr :=
+  Meta.transform e (pre := fun e => do
+    if (e.isAppOfArity ``Char.ofNat 1 || e.isAppOfArity ``Char.mk 2) &&
+        !e.hasFVar && !e.hasLooseBVars && !e.hasMVar then
+      check e
+      let value ← whnf (mkApp (mkConst ``Char.toNat) e)
+      if let .lit (.natVal n) := value then
+        return .done (mkApp (mkConst ``Char.ofNat) (mkRawNatLit n))
+    return .continue)
+
 /-- Apply the following normalization on expected result:
      - normalize Nat literals in `e`
      - Beta reduced lambda application.
@@ -112,6 +126,10 @@ partial def normNatLitAndLambdaBeta (e : Expr) : MetaM Expr := do
                  | throwError "normNatLit: defnInfo expected for OfNat.ofNat"
                let fbody ← instantiateValueLevelParams cInfo l
                visit (Expr.beta fbody margs)
+            -- `decide` is now a structure projection. Keep its named form just
+            -- as the optimizer's proof builders do, rather than unfolding only
+            -- the expected proof to `Expr.proj Decidable 0`.
+            | ``Decidable.decide => return mkAppN f margs
             | _ =>
               match ← getConstInfo n with
               | cInfo@(ConstantInfo.defnInfo _) =>
@@ -119,7 +137,8 @@ partial def normNatLitAndLambdaBeta (e : Expr) : MetaM Expr := do
                   let reduced := Expr.beta fbody margs
                   match reduced with
                   | Expr.proj n _idx _s =>
-                     if isStructureLike (← getEnv) n
+                     if let some (.inductInfo { isRec := false, ctors := [_], numIndices := 0, .. }) :=
+                         (← getEnv).find? n
                      then return reduced
                      else return mkAppN f margs
                   | _ => return mkAppN f margs
@@ -165,12 +184,13 @@ def testOptimizeImp : CommandElab := fun stx => do
      -- keep the current name generator and restore it afterwards
      let ngen ← getNGen
      let actual ← callOptimize sOpts t1
+     let actual ← if normNatFlag then normClosedChars actual else pure actual
      let expected' := removeAnnotations (← parseTerm t2)
-     let expected ← if normNatFlag then normNatLitAndLambdaBeta expected' else pure expected'
+     let expected ← if normNatFlag then normClosedChars (← normNatLitAndLambdaBeta expected') else pure expected'
      -- restore name generator
      setNGen ngen
      if actual == expected
      then logInfo f!"{name} ✅ Success!"
-     else logError f!"{name} ❌ Failure! : expecting {reprStr expected} \nbut got {reprStr actual}"
+     else logError m!"{name} ❌ Failure!\nExpected: {expected}\nActual: {actual}"
 
 end Tests

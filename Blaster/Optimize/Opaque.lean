@@ -69,6 +69,15 @@ def opaqueFuns : HashSet Name :=
     ``String.length
   ]
 
+/-- Keep literal character conversions opaque for constant folding, so unfolding
+    cannot rewrite their dependent validity proofs. Symbolic conversions unfold
+    normally. -/
+def isOpaqueCharConversion (f : Name) (args : Array Expr) : Bool :=
+  match f, args with
+  | ``Char.ofNat, #[.lit (.natVal _)]
+  | ``Char.ofNatAux, #[.lit (.natVal _), _] => true
+  | _, _ => false
+
 
 /-- list of non-opaque rec operators on which normalization rules and constant propagation are applied.
 -/

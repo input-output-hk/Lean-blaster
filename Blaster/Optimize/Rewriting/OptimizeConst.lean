@@ -146,6 +146,9 @@ def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeCo
     @[always_inline, inline]
     isToNormOpaqueFun (n : Name) : TranslateEnvT (Option OptimizeContinuity) := do
      match n with
+     | ``Char.ofNat
+     | ``Char.ofNatAux => stackContinuity stack e
+
      | ``Nat.pred =>
            let body ← mkApp2Expr (← mkNatSubOp) (← mkBVarExpr 0) (← mkNatLitExpr 1)
            let lam ← mkLambdaExpr (← Term.mkFreshBinderName) BinderInfo.default (← mkNatType) body

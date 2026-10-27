@@ -2,6 +2,7 @@ import Lean
 import Blaster.Optimize.Rewriting.FunPropagation
 import Blaster.Optimize.Rewriting.OptimizeBoolNot
 import Blaster.Optimize.Rewriting.OptimizeBoolPropBinary
+import Blaster.Optimize.Rewriting.OptimizeChar
 import Blaster.Optimize.Rewriting.OptimizeDecide
 import Blaster.Optimize.Rewriting.OptimizeDecideBoolBinary
 import Blaster.Optimize.Rewriting.OptimizeExists
@@ -68,6 +69,7 @@ def optimizeAppAux (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
   if let some e ← optimizeEquality? f args then return e
   if let some e ← optimizeNat? f args then return e
   if let some e ← optimizeInt? f args then return e
+  if let some e ← optimizeChar? f args then return e
   if let some e ← optimizeExists? f args then return e
   if let some e ← optimizeDecide? f args then return e
   if let some e ← optimizeRelational? f args then return e

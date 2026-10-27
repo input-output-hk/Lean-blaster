@@ -620,6 +620,23 @@ private unsafe def backwardProofAux (expectedProof : Expr) : TranslateEnvT (Opti
       else return none
     else return none
 
+/-- Restore the original type of a closed pattern proof after proposition
+    simplification. Open proofs stay available for unification. Reuse the original
+    witness when it still has the required type; otherwise require a kernel-checked
+    decision proof. This path never uses backwardProof's admitted-proof fallback. -/
+def restorePatternProof (expected original optimized : Expr) : TranslateEnvT Expr := do
+  if !isClosed expected || !isClosed optimized then return optimized
+  if ← isDefEq (← inferType optimized) expected then return optimized
+  let proof ←
+    if isClosed original then do
+      if ← isDefEq (← inferType original) expected then pure original
+      else mkDecideProof expected
+    else mkDecideProof expected
+  -- Prevent subsequent rewriting inside a dependent decision instance.
+  hashcons (← mkAuxTheorem expected proof (kind? := some `blaster_pattern_proof))
+where
+  isClosed (e : Expr) : Bool := !e.hasFVar && !e.hasMVar && !e.hasLooseBVars
+
 /-- Given expected proof `p` and actual proof `a` perform backward proof reconstruction w.r.t. hypothesis map -/
 def backwardProof (p a : Expr) : TranslateEnvT Expr := do
   if exprEq p a -- case for trivial proof (e.g., Eq.refl)
