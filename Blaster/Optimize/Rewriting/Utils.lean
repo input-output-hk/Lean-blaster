@@ -107,23 +107,27 @@ def isStructureCtorExpr (e : Expr) : TranslateEnvT Bool := do
 -/
 @[always_inline, inline]
 partial def isFullyAppliedStructure (e : Expr) : TranslateEnvT Bool := do
-  let pInfo ← getFunEnvInfo e.getAppFn'
   let rec go (xs : List (Expr × ParamInfo)) : TranslateEnvT Bool := do
     match xs with
     | [] => return true
     | (cur, p) :: xs' =>
-      if (← isStructureCtorExpr cur <&&> isFullyAppliedConst e) then
-        let pInfo' ← getFunEnvInfo cur.getAppFn'
-        go (getArgs cur (pInfo'.paramsInfo.size - 1) pInfo'.paramsInfo xs')
+      if (← isStructureCtorExpr cur <&&> isFullyAppliedConst cur) then
+        go (← prependFields cur xs')
       else if ← isNormConstructorBase cur <||> pure p.isProp <||> isFunExpr cur then go xs'
       else return false
-  go (getArgs e (pInfo.paramsInfo.size - 1) pInfo.paramsInfo [])
+  go (← prependFields e [])
 
 where
-  getArgs (e : Expr) (idx : Nat) (paramsInfo : Array ParamInfo) (acc : List (Expr × ParamInfo)) : List (Expr × ParamInfo) :=
-    match e with
-    | Expr.app f a => getArgs f (idx - 1) paramsInfo ((a, paramsInfo[idx]!) :: acc)
-    | _ => acc
+  /-- Only value fields participate in structure reduction. Inductive parameters
+      select the type; Array.mk's element type, for example, is not a field. -/
+  prependFields (e : Expr) (acc : List (Expr × ParamInfo)) : TranslateEnvT (List (Expr × ParamInfo)) := do
+    let some numParams ← getCtorIndParams e.getAppFn'
+      | throwEnvError "isFullyAppliedStructure: constructor expected"
+    let paramsInfo := (← getFunEnvInfo e.getAppFn').paramsInfo
+    let args := e.getAppArgs
+    unless args.size == paramsInfo.size do
+      throwEnvError "isFullyAppliedStructure: fully applied constructor expected"
+    return (args.zip paramsInfo).toList.drop numParams ++ acc
 
   @[always_inline, inline]
   isNormConstructorBase (e : Expr)  : TranslateEnvT Bool := do
