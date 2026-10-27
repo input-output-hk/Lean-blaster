@@ -56,7 +56,8 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
 
           | Expr.app f a =>
              let f ← if f.isMVar then getMVarValue f else pure f
-             let (f, ras) := getAppFnWithArgs (mkApp f a)
+             let (f, ras) := getAppFnWithArgs f
+             let ras := ras.push a
              -- check if f is a lambda term
              if f.isLambda then
                -- perform beta reduction and apply optimization

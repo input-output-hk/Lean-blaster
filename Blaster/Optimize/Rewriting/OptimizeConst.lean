@@ -1,3 +1,4 @@
+
 import Lean
 import Blaster.Optimize.Rewriting.OptimizeApp
 
@@ -190,7 +191,7 @@ def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeCo
              else stackContinuity stack (skipCache := true) (← mkIntNegSucc) -- don't catch
 
      | ``Int.le =>
-          let ltExpr ← mkApp2Expr (← mkIntLtOp) (← mkBVarExpr 0) (← mkBVarExpr 1)
+          let ltExpr ← mkIntLtExpr (← mkBVarExpr 0) (← mkBVarExpr 1)
           let notExpr ← mkAppExpr (← mkPropNotOp) ltExpr
           let lam1 ← mkLambdaExpr `y BinderInfo.default (← mkIntType) notExpr
           let lam2 ← mkLambdaExpr `x BinderInfo.default (← mkIntType) lam1
