@@ -1,446 +1,346 @@
 # FFM-03: Finite-field solver distribution and ownership
 
-## Decision status: proposed; consuming artifact/CI work blocked
+## Decision: solving approved; proof production deferred to M2
 
-Select **separate profiles**, not a replacement ordinary solver:
+Select **upstream cvc5 1.3.4 static GPL/CoCoA** as the M1 `solve` profile for
+**Linux x86_64 and Linux arm64**, with the exact archive/executable pairs below.
+This is an independently hash-pinned FF distribution of the existing ordinary
+version, not a replacement for ordinary cvc5. A newer FF-only version is not
+needed on the observed solving evidence.
 
-- **`solve` (proposed):** upstream cvc5 **1.3.4 static GPL**, Linux x86_64
-  and Linux arm64, with the archive and executable identities below. The
-  existing-version GPL asset demonstrably solves the small FF examples below;
-  a newer solving pin is not needed on that evidence.
-- **`proof` (proposed):** the independently pinned Linux x86_64 fork executable
-  reporting **`1.3.3.dev+clean_WIP@b1f8abb`**, using CPC output. Select its
-  content hashes, not the mutable `clean-wip` tag, as artifact identity. Its
-  observed source identifier resolves to
-  `b1f8abb80021d687df7547fedc41882c4416d981`. This is a proof-production candidate,
-  not a verified Lean proof backend or evidence of complete CPC coverage.
-- **Provisioning route:** propose the user-specified **worker-image route**.
-  The image owner stages both approved profiles before the first protocol job
-  starts. `lake --version` is setup, **not provisioning**. No protocol script
-  exists yet; initial acquisition must use the independent commands below.
+**Decision authority:** Riley's maintainer decisions supplied with FFM-03,
+2026-10-27. These supersede this record's previous proposed/blocked policy,
+unnamed ownership and two-profile M1 provisioning requirements.
 
-**No artifact is approved for consuming jobs by this record.** The supplied
-PROJECT grants repository work, not GPL-linked CI consent, platform commitments
-or distribution ownership. No maintainer answer to those decisions is present
-in the supplied inputs or the preceding local decisions. The selections above
-remain proposed until the maintainer records the approvals below. FFM-09 live
-validation and FFM-10 acquisition/CI work must not treat this document as a green
-parent output. Missing profiles are a setup failure, never a skipped test.
+| Decision | Approved scope / accountable owner |
+| --- | --- |
+| GPL-linked CI policy | Riley permits separate-process execution of the hash-pinned GPLv3/CoCoA cvc5 binaries in workers and the dedicated FF CI lane. They are never linked into Blaster. License notices and corresponding-source availability must be reviewed before any public hosting or image redistribution. Execution approval is not a claim that this review has occurred or blanket distribution consent. |
+| Distribution and immutable identities | Riley is the accountable distribution owner and maintainer of the URL/source/hash inventory, platform scope, replacements and requalification. Upstream `cvc5/cvc5` hosts the selected release; it has no newly assigned project support obligation. |
+| Image operations | Riley is the iog worker-image operator: acquisition, hash verification, retention of archives/licenses/source evidence, platform qualification, image publication and startup handoff. No external build owner is needed for M1. |
+| Platforms | Linux x86_64 and Linux arm64 for solving. No macOS, Windows or cross-architecture execution guarantee is selected. |
+| Provisioning and CI acquisition | The approved route is the **iog worker image**, including the dedicated FF CI consumer. Its build fetches the approved hosted assets before jobs start. FFM-10 implements the CI image/tree handoff, not a replacement ordinary solver lane. |
+| Image digest | Riley records the immutable digest when the image containing the approved solving artifacts is built. That future digest is **not a prerequisite for completing this distribution decision**; it is required for reproducible consuming jobs. `agentstack-worker-iog:latest` alone is not an immutable identity. |
+| Proof production | Deferred to M2. The fork below is a bookmark only: not approved, staged, forked or built in M1. |
 
-### Maintainer policy and ownership decision required
+The [ordinary workflow](../../.github/workflows/ci-linux.yaml) remains required:
+cvc5 **1.3.4**, cvc5 support-floor **1.2.1**, Z3 **4.15.2**, and the all-solvers
+lane. Its ordinary cvc5 download is the non-`-gpl` asset. No ordinary binary,
+PATH, pin, check or workflow is changed. The GPL asset has a separate identity
+and explicit executable path even though its version matches the ordinary lane.
 
-| Decision | Proposed choice / responsibility | Approval status |
-| --- | --- | --- |
-| GPL-linked CI executable policy | Permit separate-process execution of the hash-pinned GPLv3/CoCoA binaries in the dedicated FF lane; do not link them into Blaster. Require license notices and corresponding-source/build availability review before hosting or image redistribution. This is not legal advice or distribution consent. | **Unanswered; blocking.** Maintainer must explicitly accept or reject, with scope and decision reference/date. Preinstallation of GPL cvc5 1.4.1 does not answer it. |
-| Accountable distribution owner | Riley/project maintainer approves immutable identities, replacements and platform scope, and names the operational owner. | **Proposed, not an accepted assignment.** |
-| Acquisition, hosting and image operations | Named iog worker-image operator fetches/verifies hosted assets, retains archives, licenses, source/build evidence, publishes an image by digest and makes profiles available at job start. Upstream `cvc5/cvc5` and `psaccomani15/cvc5` currently host the candidate assets; neither is assigned project support obligations. | **Operator not named/accepted; blocking.** No new project hosting URL or image digest is approved. |
-| External builds | A named distribution build owner supplies the recipe, dependency locks, build logs and hashed archive/executable pair for any unavailable platform. Builds happen outside this checkout under separately authorized source/dependency access. | **Owner not named/accepted; blocking where a new build is needed.** |
-| Platforms | Linux x86_64 for both profiles; Linux arm64 for solving only until proof execution is qualified as described below. macOS and Windows are not selected despite release assets existing. | **Proposed; maintainer must accept platform scope and ARM proof route.** |
-| CI acquisition | A separately network-enabled, owner-approved FF acquisition stage executes the same hash checks and provides the profile tree to offline consumers. An image-based CI runner may instead supply the same approved tree. | **Proposed; FFM-10 owns implementation and filename approval.** |
+## Selected hosted artifacts and evidence
 
-Required policy response: approve/reject GPL execution and redistribution scope;
-name accepting operational/build owners; approve platforms and ARM proof route;
-approve exact artifact rows and immutable image digest/acquisition-stage scope.
-A rejection requires a revised distribution decision, not silently using another
-binary. This job neither contacts maintainers nor publishes artifacts.
+Release: [cvc5-1.3.4](https://github.com/cvc5/cvc5/releases/tag/cvc5-1.3.4),
+[API release 319022075](https://api.github.com/repos/cvc5/cvc5/releases/tags/cvc5-1.3.4).
+The release reports `immutable: false`; URLs and asset IDs are locators, not
+content guarantees. Both hashes are mandatory on every acquisition.
 
-Approval must be recorded here with the maintainer's decision reference/date,
-accepted operator and build-owner names, exact approved artifact rows, supported
-execution platforms, and provisioning route/image digest. A successful check,
-publication of this document, or serial integration-branch append is not that
-approval. Until then the approved artifact set and approved provisioning routes
-are **empty**; the commands below are a concrete proposal, not authorization.
-FFM-09/FFM-10 must remain blocked even if this documentation's PROJECT checks pass.
-
-## Evidence and comparison
-
-The incoming record reports the following observations on 2026-10-23 from
-public references and downloaded release archives; **no external repository
-was cloned or built**. Binary execution and executable hashes below are inherited
-evidence, not fresh runs in this refresh. Current metadata checks and repository
-validation are recorded separately in the ticket report.
-
-- The [ordinary workflow](../../.github/workflows/ci-linux.yaml) retains
-  cvc5 **1.3.4**, support floor **1.2.1**, and Z3 **4.15.2**, including the
-  all-solvers lane. It downloads the ordinary non-`-gpl` cvc5 asset. Selecting
-  the GPL asset for `solve` does not change that lane's binary, PATH or checks.
-  All ordinary lanes remain required. No workflow or protected file is edited.
-- The pinned [lean-cvc5 lakefile](https://github.com/abdoo8080/lean-cvc5/blob/4733baf0722c870a5a449f132afa690947e00e2a/lakefile.lean)
-  selects `clean-wip` and platform-dependent assets without a content pin.
-  Do not reuse that mutable selection as a reproducible source identity.
-- The [upstream tag API](https://api.github.com/repos/cvc5/cvc5/git/ref/tags/cvc5-1.3.4)
-  resolves to `f3b21c4483d3b88dc63cb7cd3e5eb092eee5e341`.
-  Both tested upstream executables report `1.3.4`, `git f3b21c4`, GPLv3,
-  `cocoa: yes`, `poly: yes`, `cln: yes`, `gmp: no`, `assertions: no`.
-  GCC 11.4.0 build times: ARM May 7 2026 15:32:17; x86 May 7 2026 15:35:15.
-- The [fork tag API](https://api.github.com/repos/psaccomani15/cvc5/git/ref/tags/clean-wip)
-  resolves to **`f011843845a37ddeb555d04a8b07c68641810c52`**, not either
-  tested binary revision. The x86 asset reports `b1f8abb`, GPLv3, `cocoa: yes`,
-  `poly: yes`, `gmp: yes`, `cln: no`, `assertions: no`, Clang 18.1.3,
-  Apr 24 2026 00:37:10. Its version string is evidence of its claimed revision,
-  not independently verified build provenance.
-- The fork ARM asset reports `1.3.3.dev+clean_WIP@73ef63c`, resolving through the
-  [commit API](https://api.github.com/repos/psaccomani15/cvc5/commits/73ef63c)
-  to `73ef63c4a77cdd53c277496982b496d946cb5529`; Clang 18.1.3,
-  Mar 18 2026 18:39:09, `cocoa: no`, BSD banner. It rejects field problems:
-  `cvc5 can't solve field problems since it was not configured with --cocoa`.
-  **Reject this ARM asset for both profiles.** A shared tag does not imply
-  cross-platform source, feature or license equivalence.
-- The preinstalled `/usr/local/bin/cvc5` resolves to
-  `/opt/cvc5-Linux-arm64-static-gpl/bin/cvc5`, reports `1.4.1`, `git 2b2e844`,
-  GPLv3/CoCoA and executable SHA-256
-  `b0dd6483a078269251618cf7e354c675120f8a659990111c5bfc785e91057d86`.
-  It solves the same examples, but its proof also contains a trust step.
-  It is not selected: preinstallation alone provides neither an approved
-  archive/source pin nor an advantage for this proof-production requirement.
-
-### Exact candidate identities
-
-Hosted releases: [upstream 1.3.4](https://github.com/cvc5/cvc5/releases/tag/cvc5-1.3.4)
-([API](https://api.github.com/repos/cvc5/cvc5/releases/tags/cvc5-1.3.4), release
-319022075) and [fork clean-wip](https://github.com/psaccomani15/cvc5/releases/tag/clean-wip)
-([API](https://api.github.com/repos/psaccomani15/cvc5/releases/tags/clean-wip), release
-274645891). Both APIs report `immutable: false`. Asset IDs aid audit; **hashes
-are mandatory** even if URLs/IDs remain unchanged. All four archive hashes below
-were computed after downloading and matched the API digests; executable hashes
-were computed from the extracted bytes.
-
-| Profile / platform | Asset ID; archive name | Archive SHA-256 | Executable SHA-256 |
+| Platform / profile | Asset ID and archive | Archive SHA-256 | Executable SHA-256 |
 | --- | --- | --- | --- |
-| Proposed solve / Linux arm64 | 414511647; `cvc5-Linux-arm64-static-gpl.zip` | `92fe9fba961a6e4808939a4ac4c97dead4a8a862a5bd5b40f0a316515d185889` | `d8fcf8886803b9cec6ff94906f20fb0499582c2ea8b5c86d9d617d2564421cb9` |
-| Proposed solve / Linux x86_64 | 414514204; `cvc5-Linux-x86_64-static-gpl.zip` | `3428c8b4f125f17ac9dbd901e1ebb33d002619e7b67d34143b2bf44e801b37c5` | `278058af5c6fc5ca42d79217b3b2096eb1f4ba9efd5b92345434f781a1d8773a` |
-| Proposed proof / Linux x86_64 | 408363254; `cvc5-Linux-x86_64-static.zip` | `918361fcee2e1d3c64be5d20eb62156aaee73943df3ae7aa62d58f199b6785dc` | `514ccdaea9e4a5a0eb7d3be2e89b9d6fc893e3560d0f536cbe5e122ef6376a61` |
-| Rejected fork / Linux arm64 | 377257754; `cvc5-Linux-arm64-static.zip` | `583869b742529eab238c802d9dffd6386e3c258b5c83c1bb250aeb642df30f3a` | `65222271b95f52c495f5ff9483b7cfbd9c047170719efa9a4108469ec21caf10` |
+| Linux arm64 / `solve` | 414511647; `cvc5-Linux-arm64-static-gpl.zip` | `92fe9fba961a6e4808939a4ac4c97dead4a8a862a5bd5b40f0a316515d185889` | `d8fcf8886803b9cec6ff94906f20fb0499582c2ea8b5c86d9d617d2564421cb9` |
+| Linux x86_64 / `solve` | 414514204; `cvc5-Linux-x86_64-static-gpl.zip` | `3428c8b4f125f17ac9dbd901e1ebb33d002619e7b67d34143b2bf44e801b37c5` | `278058af5c6fc5ca42d79217b3b2096eb1f4ba9efd5b92345434f781a1d8773a` |
 
-Download URL is exactly the corresponding release prefix plus archive name:
+Exact download URLs:
 
-- `https://github.com/cvc5/cvc5/releases/download/cvc5-1.3.4/`
-- `https://github.com/psaccomani15/cvc5/releases/download/clean-wip/`
+- <https://github.com/cvc5/cvc5/releases/download/cvc5-1.3.4/cvc5-Linux-arm64-static-gpl.zip>
+- <https://github.com/cvc5/cvc5/releases/download/cvc5-1.3.4/cvc5-Linux-x86_64-static-gpl.zip>
 
-Executable member is `<archive name without .zip>/bin/cvc5` in every row.
-Source references for selected profiles are respectively
-[`f3b21c4483d3b88dc63cb7cd3e5eb092eee5e341`](https://github.com/cvc5/cvc5/tree/f3b21c4483d3b88dc63cb7cd3e5eb092eee5e341)
-and [`b1f8abb80021d687df7547fedc41882c4416d981`](https://github.com/psaccomani15/cvc5/tree/b1f8abb80021d687df7547fedc41882c4416d981).
-Do not use the fork release tag as the source-build revision.
+Executable archive member: `<archive name without .zip>/bin/cvc5`.
+The [upstream tag](https://api.github.com/repos/cvc5/cvc5/git/ref/tags/cvc5-1.3.4)
+resolves to source commit
+[`f3b21c4483d3b88dc63cb7cd3e5eb092eee5e341`](https://github.com/cvc5/cvc5/tree/f3b21c4483d3b88dc63cb7cd3e5eb092eee5e341).
+This is the selected source reference, consistent with the binaries' short
+revision; it is not independent source-to-binary reproducibility evidence.
+No external repository was cloned or built.
 
-### Solving is not proof qualification
+### Current executable qualification (2026-10-27)
 
-The smoke inputs use F5: `x*x = 4` is SAT (model `x = #f3m5` observed);
-`x*x = 2` is UNSAT because the squares are 0, 1 and 4. The proof input adds
-`:produce-proofs true` and `(get-proof)` to that nonlinear contradiction.
+Both release archives were freshly downloaded. Archive hashes matched the
+pinned values and GitHub API digests; extracted executable hashes matched the
+selected rows. `file` identified static ELF aarch64 and x86-64 respectively.
+Both executables returned exit 0 for `--version` and `--show-config`:
 
-| Executable | SAT/model and UNSAT | Proof production |
+| Evidence | Linux arm64 | Linux x86_64 |
 | --- | --- | --- |
-| Upstream 1.3.4 GPL, ARM and x86 | Both exit 0 with expected answers | Exit 0, but CPC includes `trust TRUST THEORY_LEMMA` and `:rule trust`; not selected for FF proof production. |
-| Fork x86 `b1f8abb` | Both exit 0 with expected answers | Exit 0, CPC contains `ff_ideal_generator`, `ff_poly_norm`, `ff_poly_norm_eq`, `ff_poly_conversion`, `ff_root_branch`; explicit `--proof-format-mode=cpc` also exercised. |
-| Fork ARM `73ef63c` | Both exit 1, missing CoCoA | Exit 1, same missing-CoCoA error. |
-| Installed ARM 1.4.1 GPL | Both exit 0 with expected answers | Exit 0 with the same trust-step limitation as upstream 1.3.4. |
+| Version / revision | `1.3.4`, `git f3b21c4 on branch HEAD` | Same |
+| Compiler / build time | GCC 11.4.0; May 7 2026 15:32:17 | GCC 11.4.0; May 7 2026 15:35:15 |
+| License banner | GPL version 3; linked CoCoALib, CLN, glpk-cut-log | Same |
+| Configuration | `cocoa: yes`, `poly: yes`, `cln: yes`, `glpk: yes`, `gmp: no`, `assertions: no` | Same |
+| F5 `x*x = 4`, model requested | Exit 0; `sat`, `((x #f3m5))` | Same |
+| F5 `x*x = 2` | Exit 0; `unsat` | Same |
 
-The x86 ELF binaries executed successfully in this ARM-hosted sandbox. This is
-**not a native x86 runner qualification or a portable emulation guarantee**.
-For both-profile support on ARM workers, the image owner must either explicitly
-qualify and approve the x86 execution facility (record its implementation,
-version/configuration and image digest), or supply a CoCoA-enabled ARM build of
-the selected proof source with new archive/executable hashes and native evidence.
-No such ARM proof build or execution-facility approval exists in this record.
-There is no fallback to the rejected ARM asset or to ordinary PATH `cvc5`.
+These are native ARM and successful x86 executable runs in an ARM-hosted worker,
+**not native x86 runner qualification or approval of an emulation facility**.
+The image operator must qualify each native image platform before its consumers
+run. The decision supports those two target architectures; the present smoke
+only establishes the execution environments actually exercised.
 
-FFM-09 must separately test each selected executable's version/config, FF
-SAT/model, FF UNSAT, requested proof format, and proof output on each approved
-execution platform. These tiny examples do not establish all FF operations,
-proof formats or proof completeness. No CPC parser, independent proof checker,
-or Lean reconstruction was exercised. Rule names above are output observations,
-**not checked Lean proof coverage**; FFM-19 owns that distinction. No trusted
-axiom or widening of `blasterProven` is authorized.
+### Existing-version GPL versus a separate newer FF version
 
-## Provisioning and consumer contract
+- **Selected: 1.3.4 GPL.** Hosted assets exist for both target platforms, exact
+  bytes are verified, and the nonlinear SAT/model and UNSAT cases pass. This
+  avoids a needless version divergence while keeping FF acquisition separate.
+- **Not selected: installed 1.4.1 GPL/CoCoA.** Freshly observed at
+  `/opt/cvc5-Linux-arm64-static-gpl/bin/cvc5`, revision `2b2e844`, executable
+  SHA-256 `b0dd6483a078269251618cf7e354c675120f8a659990111c5bfc785e91057d86`.
+  Its `--version`, `--show-config` and the same two solving cases exit 0, with
+  the same model and answers. This demonstrates an alternative solving version,
+  not a reason to select it: no additional needed capability is established,
+  and this decision does not pin its full two-platform archive/source set.
+  Preinstallation is not approval to substitute it for `solve`.
 
-### Initial acquisition, independent of the future protocol script
+SAT/UNSAT and model success establish only the exercised solving cases. They
+establish neither proof-format support nor proof completeness. No proof format
+is selected for M1, and no proof-production probe was run in this refresh.
+FFM-09 owns broader solving protocol qualification; FFM-19 must not equate
+printed proof-rule names with Lean-checked coverage. No axiom, `sorry`, `admit`
+or widening of `blasterProven` is authorized.
 
-The following are exact **proposed operator commands**, runnable in an approved
-network-enabled image build/acquisition stage **after policy approval**. They
-stage the three proposed artifact rows without a source checkout. They are not
-installed scripts, manifests, or an invocation of a nonexistent FFM-09 script.
-Use a fresh staging root; never overwrite an existing identity in place.
+## M2 proof-production bookmark: not an approved artifact
+
+Retain the supplied candidate identity solely for a future M2 decision:
+
+- Repository/release: [psaccomani15/cvc5, clean-wip](https://github.com/psaccomani15/cvc5/releases/tag/clean-wip).
+- Executable version: `1.3.3.dev+clean_WIP@b1f8abb`.
+- Reported source: [`b1f8abb80021d687df7547fedc41882c4416d981`](https://github.com/psaccomani15/cvc5/tree/b1f8abb80021d687df7547fedc41882c4416d981).
+- Linux x86_64 archive URL: <https://github.com/psaccomani15/cvc5/releases/download/clean-wip/cvc5-Linux-x86_64-static.zip>.
+- Archive SHA-256: `918361fcee2e1d3c64be5d20eb62156aaee73943df3ae7aa62d58f199b6785dc`.
+- Executable member: `cvc5-Linux-x86_64-static/bin/cvc5`.
+- Executable SHA-256: `514ccdaea9e4a5a0eb7d3be2e89b9d6fc893e3560d0f536cbe5e122ef6376a61`.
+
+Inherited evidence reports the mutable release tag at
+`f011843845a37ddeb555d04a8b07c68641810c52`, different from the tested executable's
+source identifier. The pinned [lean-cvc5 lakefile](https://github.com/abdoo8080/lean-cvc5/blob/4733baf0722c870a5a449f132afa690947e00e2a/lakefile.lean)
+selects mutable `clean-wip` assets; that selection is not a reproducible identity.
+These fork facts are supplied/inherited, not freshly executed or requalified here.
+
+Do not download/stage this bookmark, create a `proof` manifest, adopt/fork/build
+its source, or require its presence in M1 workers. M2 must separately approve
+its distribution, platforms, source provenance and proof-format qualification.
+The previous requirement that FFM-09 run “both selected profiles” is superseded:
+**M1 has one selected profile (`solve`), with two platform artifacts, and no
+selected proof-production profile.** Missing solving artifacts remain setup
+failures; absent M2 proof artifacts are intentional, not skipped M1 tests.
+
+## Initial acquisition and offline consumer contract
+
+### Image-build acquisition, independent of FFM-09
+
+Riley runs the following in a network-enabled **iog image build**, using a fresh
+staging root. It uses release archives, not source checkouts, and does not invoke
+a nonexistent protocol script. Both platform payloads are retained so the same
+inventory can service both image architectures. These are operator instructions,
+not an implementation of FFM-09 or FFM-10.
 
 ```sh
 set -eu
 ROOT="$PWD/.artifacts/finite-fields"
 acquire() {
-  profile=$1 platform=$2 prefix=$3 name=$4 archive_sha=$5 executable_sha=$6
-  d="$ROOT/$profile/$platform"
+  platform=$1 name=$2 archive_sha=$3 executable_sha=$4
+  d="$ROOT/solve/$platform"
   test ! -e "$d"
   mkdir -p "$d"
   curl --fail --location --proto '=https' --proto-redir '=https' \
-    "$prefix/$name.zip" --output "$d/archive.zip"
+    "https://github.com/cvc5/cvc5/releases/download/cvc5-1.3.4/$name.zip" \
+    --output "$d/archive.zip"
   printf '%s  %s\n' "$archive_sha" "$d/archive.zip" | sha256sum --check --strict -
   unzip -q "$d/archive.zip" -d "$d/payload"
   exe="$d/payload/$name/bin/cvc5"
   printf '%s  %s\n' "$executable_sha" "$exe" | sha256sum --check --strict -
   test -x "$exe"
 }
-acquire solve linux-arm64 \
-  https://github.com/cvc5/cvc5/releases/download/cvc5-1.3.4 \
-  cvc5-Linux-arm64-static-gpl \
+acquire linux-arm64 cvc5-Linux-arm64-static-gpl \
   92fe9fba961a6e4808939a4ac4c97dead4a8a862a5bd5b40f0a316515d185889 \
   d8fcf8886803b9cec6ff94906f20fb0499582c2ea8b5c86d9d617d2564421cb9
-acquire solve linux-x86_64 \
-  https://github.com/cvc5/cvc5/releases/download/cvc5-1.3.4 \
-  cvc5-Linux-x86_64-static-gpl \
+acquire linux-x86_64 cvc5-Linux-x86_64-static-gpl \
   3428c8b4f125f17ac9dbd901e1ebb33d002619e7b67d34143b2bf44e801b37c5 \
   278058af5c6fc5ca42d79217b3b2096eb1f4ba9efd5b92345434f781a1d8773a
-acquire proof linux-x86_64 \
-  https://github.com/psaccomani15/cvc5/releases/download/clean-wip \
-  cvc5-Linux-x86_64-static \
-  918361fcee2e1d3c64be5d20eb62156aaee73943df3ae7aa62d58f199b6785dc \
-  514ccdaea9e4a5a0eb7d3be2e89b9d6fc893e3560d0f536cbe5e122ef6376a61
 ```
 
-On each approved execution platform, set `d` and `exe` to the matching row
-above and retain the complete outputs and exit codes, not just a version line:
+After the license/corresponding-source review, the image operator retains this
+tree at `/opt/finite-fields`, including the archives and complete payloads
+(license files included), this approved inventory and qualification evidence.
+The operator records the built image digest and per-platform execution results;
+no image build, redistribution review or publication is claimed by this ticket.
+
+At every job startup, before offline checks, the image operator's entrypoint or
+runner integration copies the tree into the checkout, failing on a stale target:
 
 ```sh
-"$exe" --version > "$d/version.txt"
-"$exe" --show-config > "$d/config.txt"
+set -eu
+test ! -e .artifacts/finite-fields
+mkdir -p .artifacts
+cp -a /opt/finite-fields .artifacts/finite-fields
 ```
 
-The owner checks the expected revision, GPL banner and `cocoa: yes`, then runs
-both solving cases; the proof profile additionally runs the explicit CPC case
-below. A digest mismatch, missing executable, wrong architecture/configuration,
-failed run or absent required proof profile stops provisioning. Never refresh a
-hash from the failed download or choose another release automatically.
+Setup containing only `lake --version` is **not provisioning**. Neither an
+installed PATH `cvc5` nor that setup command supplies the approved archives.
+The first FFM-09 sandbox must receive these bytes and the decision inventory
+from the image before it starts; it cannot bootstrap itself using the protocol
+script or manifests it has yet to implement.
 
-### Handoff to first protocol job, later workers and CI
+### Exact offline verification and solving smoke
 
-- Image operator retains `archive.zip`, extracted payload (including licensing
-  files), identity inventory and version/config evidence at
-  `/opt/finite-fields/<profile>/<platform>/` in an **approved image digest**.
-  Record the digest separately from mutable `agentstack-worker-iog:latest`.
-  At job startup the operator runs, before offline checks:
+Run from the checkout root after startup handoff. Hash checks cover both
+artifacts; execution uses only the matching native platform. A mismatch, missing
+file, unsupported host, wrong configuration or wrong solving result stops the
+consumer. Never replace a failing hash with the downloaded hash or fall back to
+PATH `cvc5`. Retain full version/config output and smoke results with exit codes.
 
-  ```sh
-  test ! -e .artifacts/finite-fields
-  mkdir -p .artifacts
-  cp -a /opt/finite-fields .artifacts/finite-fields
-  ```
-
-  For the proposed Linux x86_64 pair, the exact offline recheck from the checkout
-  root is:
-
-  ```sh
-  set -eu
-  printf '%s  %s\n' \
-    3428c8b4f125f17ac9dbd901e1ebb33d002619e7b67d34143b2bf44e801b37c5 \
-    .artifacts/finite-fields/solve/linux-x86_64/archive.zip \
-    278058af5c6fc5ca42d79217b3b2096eb1f4ba9efd5b92345434f781a1d8773a \
-    .artifacts/finite-fields/solve/linux-x86_64/payload/cvc5-Linux-x86_64-static-gpl/bin/cvc5 \
-    918361fcee2e1d3c64be5d20eb62156aaee73943df3ae7aa62d58f199b6785dc \
-    .artifacts/finite-fields/proof/linux-x86_64/archive.zip \
-    514ccdaea9e4a5a0eb7d3be2e89b9d6fc893e3560d0f536cbe5e122ef6376a61 \
-    .artifacts/finite-fields/proof/linux-x86_64/payload/cvc5-Linux-x86_64-static/bin/cvc5 \
-    | sha256sum --check --strict -
-  test -x .artifacts/finite-fields/solve/linux-x86_64/payload/cvc5-Linux-x86_64-static-gpl/bin/cvc5
-  test -x .artifacts/finite-fields/proof/linux-x86_64/payload/cvc5-Linux-x86_64-static/bin/cvc5
-  ```
-
-  These checks read only the copied tree and do not reacquire missing artifacts.
-  They verify bytes/permissions, not execution-platform or proof capability.
-  ARM solving uses its separate row above; it still needs an approved proof
-  execution route. No global `cvc5` symlink or PATH replacement is permitted.
-- **First FFM-09 sandbox:** image/operator stages bytes and the approved identity
-  inventory first, without relying on FFM-09 code or a not-yet-created manifest.
-  The job then implements manifests/probes against those preexisting inputs.
-  It cannot declare live validation complete until both selected profiles run.
-- **Manifest interface reserved for FFM-09:**
-  `.artifacts/finite-fields/solve/<platform>/manifest.json` and
-  `.artifacts/finite-fields/proof/<platform>/manifest.json`. All artifact/evidence
-  paths in each manifest are relative to its containing profile/platform
-  directory: `archive.zip`, `payload/<name>/bin/cvc5`, `version.txt`,
-  `config.txt`. No absolute sandbox paths, cross-profile `..` paths or inferred
-  PATH executable. FFM-09 owns the schema, not this ticket.
-- Each manifest must bind profile purpose, platform and execution requirements,
-  approved policy/owner decision, URL/release/asset ID, archive and executable
-  SHA-256, source commit and provenance status, version/config evidence,
-  explicit solver arguments, license/build-recipe reference and execution
-  status, and independent solve/proof qualification results. An unsupported
-  platform has no valid manifest; absence is an error, not permission to reuse
-  another row. Hashes are required separately for every platform/build.
-- **Later offline workers:** the image supplies both profiles plus the
-  owner-reviewed FFM-09 manifests. Offline checks verify them, never download or
-  build missing artifacts. The image operator and distribution owner maintain
-  the inventory/manifests together; changing bytes requires a reviewed new
-  identity and requalification, never an in-place hash update.
-- **CI:** FFM-10 implements the approved network acquisition stage using the
-  same immutable inventory and exports `.artifacts/finite-fields` with both
-  profiles/manifests to the consuming job, which verifies again offline. Retain
-  license/source obligations on exported artifacts and caches. Ordinary solver
-  jobs keep their current acquisition and pins. No CI implementation is added.
-- An explicitly approved **operator-provided archive/executable pair** may
-  replace a network transfer, but must match both pinned hashes, extraction
-  member and evidence above. An unpinned executable alone is insufficient.
-  Network access or an operator archive is an alternative requiring explicit
-  approval, not a hidden bootstrap assumption for offline workers.
-
-## External source-build recipe requirement
-
-**Recipe status:** requirement specified; complete reproducible owner recipe
-not yet supplied. **Execution status:** **not run**; neither candidate rebuilt.
-Downloaded-byte verification and smoke success do not establish reproducibility
-from source or bit-for-bit correspondence to the claimed source revision.
-
-The distribution owner must retain a recipe for each approved build, including
-host/target triples, base OS/container digest, compiler/linker/CMake versions,
-full source commit and source archive hash, all dependency URLs/hashes and
-patches (especially patched CoCoA), configure flags, build/test/package commands,
-licenses/corresponding source, final archive/executable hashes and qualification
-outputs. Store recipe availability separately from execution status (`not run`,
-`failed`, or `passed` with platform, date and logs). New externally built ARM
-proof artifacts require an executed recipe and their own identity row.
-
-The pinned [fork INSTALL.rst](https://github.com/psaccomani15/cvc5/blob/b1f8abb80021d687df7547fedc41882c4416d981/INSTALL.rst)
-documents `--cocoa --gpl` and recommends `--auto-download` for patched CoCoA.
-An owner recipe must lock those downloads; an unchecked `--auto-download` run
-is not reproducible. Starting configure/build commands for an externally
-provided, verified source tree are `./configure.sh --static --cocoa --gpl`,
-`make -C build`, and `make -C build check`, with exact dependency paths/options
-and packaging supplied by the owner. These are **not an executed or complete
-recipe**. Do not clone the referenced repository, install unapproved native
-dependencies, or claim the mutable `clean-wip` source reproduces `b1f8abb` here.
-
-## FFM-03 ticket report and job summary
-
-Change in this refresh: clarify the approval/dispatch gate, add exact offline
-hash/permission checks for the proposed x86 pair, and separate inherited binary
-evidence from current metadata and repository validation. The existing record's
-candidate choices, rejected fork ARM asset and profile-relative contract are
-retained. No manifests, protocol scripts, workflows, Lean code, tests, pins or
-protected files are changed.
-This section is the ticket report and job summary retained for the stack's
-commit; no publication, maintainer consent or completed FFM-09 gate is claimed.
-
-### Inherited reproduction commands and observed outcomes
-
-Research used `.artifacts/ffm03-research` temporarily, not the approved consumer
-tree. Four downloads used `curl -fL --retry 2 -o <archive> <exact URL above>`;
-local archive names were `upstream-arm64.zip`, `upstream-x86_64.zip`,
-`fork-arm64.zip`, `fork-x86_64.zip`. All exited 0. For each archive:
-`sha256sum <archive>`; `unzip -q <archive> -d <same basename without .zip>`;
-`sha256sum <extraction directory>/<archive member>` all exited 0 with the
-identities recorded above. Each candidate's `--version`/`--show-config` was
-observed (the fork's `--show-config` includes its full version banner).
-The x86 `file` command identified both as statically linked ELF x86-64.
-
-The temporary files contained exactly:
-
-```smt2
-; sat.smt2
+```sh
+set -eu
+ROOT="$PWD/.artifacts/finite-fields"
+printf '%s  %s\n' \
+  92fe9fba961a6e4808939a4ac4c97dead4a8a862a5bd5b40f0a316515d185889 \
+  "$ROOT/solve/linux-arm64/archive.zip" \
+  d8fcf8886803b9cec6ff94906f20fb0499582c2ea8b5c86d9d617d2564421cb9 \
+  "$ROOT/solve/linux-arm64/payload/cvc5-Linux-arm64-static-gpl/bin/cvc5" \
+  3428c8b4f125f17ac9dbd901e1ebb33d002619e7b67d34143b2bf44e801b37c5 \
+  "$ROOT/solve/linux-x86_64/archive.zip" \
+  278058af5c6fc5ca42d79217b3b2096eb1f4ba9efd5b92345434f781a1d8773a \
+  "$ROOT/solve/linux-x86_64/payload/cvc5-Linux-x86_64-static-gpl/bin/cvc5" \
+  | sha256sum --check --strict -
+test "$(uname -s)" = Linux
+case "$(uname -m)" in
+  aarch64|arm64) arch=arm64 ;;
+  x86_64) arch=x86_64 ;;
+  *) echo 'Unsupported FF solving platform' >&2; exit 1 ;;
+esac
+d="$ROOT/solve/linux-$arch"
+exe="$d/payload/cvc5-Linux-$arch-static-gpl/bin/cvc5"
+test -x "$exe"
+"$exe" --version > "$d/version.txt"
+"$exe" --show-config > "$d/config.txt"
+grep -F 'cvc5 1.3.4 [git f3b21c4 on branch HEAD]' "$d/version.txt"
+grep -F 'GNU General Public License (GPL) version 3' "$d/version.txt"
+grep -E '^cocoa[[:space:]]*:[[:space:]]*yes$' "$d/config.txt"
+timeout 20 "$exe" --lang=smt2 > "$d/sat.txt" <<'SMT'
 (set-logic QF_FF)
 (set-option :produce-models true)
 (declare-fun x () (_ FiniteField 5))
 (assert (= (ff.mul x x) #f4m5))
 (check-sat)
 (get-value (x))
-```
-
-```smt2
-; unsat.smt2
+SMT
+# Either square root is valid; do not pin a solver's incidental model choice.
+test "$(cat "$d/sat.txt")" = "$(printf 'sat\n((x #f3m5))')" || \
+  test "$(cat "$d/sat.txt")" = "$(printf 'sat\n((x #f2m5))')"
+timeout 20 "$exe" --lang=smt2 > "$d/unsat.txt" <<'SMT'
 (set-logic QF_FF)
 (declare-fun x () (_ FiniteField 5))
 (assert (= (ff.mul x x) #f2m5))
 (check-sat)
+SMT
+test "$(cat "$d/unsat.txt")" = unsat
 ```
 
-```smt2
-; proof.smt2
-(set-logic QF_FF)
-(set-option :produce-proofs true)
-(declare-fun x () (_ FiniteField 5))
-(assert (= (ff.mul x x) #f2m5))
-(check-sat)
-(get-proof)
-```
+F5 squares are 0, 1 and 4, so these cases have independently known answers.
+The command block is a bootstrap verification recipe, not the broader protocol
+implementation. It deliberately does not request proofs.
 
-For each of the four extracted executables and `/usr/local/bin/cvc5`, each
-input was run as `timeout 20 "$solver" --lang=smt2
-".artifacts/ffm03-research/$input.smt2"`. Per-process exit codes and answers are
-in the comparison table; none timed out. Additional exact invocation:
+### Manifests, subsequent workers and CI
 
-```sh
-timeout 20 .artifacts/ffm03-research/fork-x86_64/cvc5-Linux-x86_64-static/bin/cvc5 --lang=smt2 --proof-format-mode=cpc .artifacts/ffm03-research/proof.smt2
-```
+- FFM-09 creates `.artifacts/finite-fields/solve/<platform>/manifest.json`
+  against the prestaged bytes. Artifact/evidence paths are relative to that
+  manifest's containing profile/platform directory: `archive.zip`,
+  `payload/<name>/bin/cvc5`, `version.txt`, `config.txt`, `sat.txt`, `unsat.txt`.
+  No absolute sandbox paths, cross-profile `..` paths or PATH discovery.
+- The manifest binds profile purpose, platform/execution requirements, this
+  policy/owner decision, release/asset/source identities, both SHA-256 values,
+  provenance status, version/config evidence, explicit arguments, image digest,
+  license/build-recipe reference, separate recipe execution status, and solving
+  qualification results. Proof qualification is `deferred to M2`, not `passed`.
+  FFM-09 owns the schema. No manifest is created by this ticket.
+- Later offline workers receive the same image tree plus owner-reviewed FFM-09
+  manifests. They verify, never download or build missing inputs. Riley maintains
+  inventory/manifests together; any byte change requires a reviewed new identity
+  and requalification, not an in-place hash refresh.
+- FFM-10 must use the approved image digest and startup handoff for its dedicated
+  FF CI lane, then verify offline. Ordinary lanes retain their own acquisition
+  and pins. CI implementation and filename authorization remain FFM-10 work.
+- A separate network acquisition job or an operator-provided archive/executable
+  pair is **not the selected route**. Switching routes requires an explicit
+  owner decision with the same immutable hashes; offline workers must not assume
+  either alternative is available.
 
-This exited 0 with the FF-specific CPC steps recorded above.
-`--proof-format-mode=help` printed `cpc (default)` and the other format choices
-but exited 1; it was an informational query, not a passing capability check.
-A Python HTTPS metadata attempt failed with DNS resolution error; shell `curl`
-and HTTPS reader requests subsequently succeeded. No source checkout resulted.
-The proposed operator staging commands were documented, **not executed as
-approved provisioning**. Temporary research downloads/inputs are removed after
-inspection; no binaries or experimental manifests enter the commit.
+## Source-build recipe requirement and execution status
 
-### Inherited repository validation
-
-The incoming record reports these earlier commands from the repository root,
-using the prescribed CI Z3 PATH rather than the default assurance solver.
-These are historical results, not this refresh's runs:
-
-| Exact command | Outcome |
+| Field | Status |
 | --- | --- |
-| `PATH="$(dirname "$(readlink -f /usr/local/bin/z3-4.15.2)"):/home/agent/.elan/bin:/usr/bin:/bin"; command -v z3 && z3 --version && make check_blaster` | Pass, exit 0; `/opt/z3-4.15.2-arm64-glibc-2.34/bin/z3`, Z3 4.15.2; 171 jobs, 89.94 seconds. |
-| `PATH="$(dirname "$(readlink -f /usr/local/bin/z3-4.15.2)"):/home/agent/.elan/bin:/usr/bin:/bin"; command -v z3 && z3 --version && make check_tests` | Pass; same Z3 4.15.2; pure tier completed 200 jobs, Z3 tier completed 611 jobs; 197.56 seconds total. Lifecycle model-response and arithmetic Undetermined warnings were emitted; no checks or expectations changed. |
-| `git add --intent-to-add docs/finite-fields/m1-solver-distribution-decision.md && git diff --check && test -s docs/finite-fields/m1-solver-distribution-decision.md` | Pass, exit 0; includes the new document in the whitespace check. |
-| `git diff --check && test -s docs/finite-fields/m1-solver-distribution-decision.md` | Pass, exit 0 after the final report update. |
+| Selected distribution | Upstream hosted binaries; no externally supplied M1 build required. |
+| Recipe availability | Requirement specified here; a complete reproducible owner recipe/dependency lock is not supplied by this decision. Riley retains it with distribution evidence. |
+| Source-build execution | **Not run** on either platform. No source checkout or dependency build was performed. |
+| Source-to-binary correspondence | Release tag plus matching reported short revision, not independently reproduced or attested. |
+| Redistribution review | Required before public hosting or image redistribution; not performed here. |
 
-The requested pin search was performed with the repository search tool, pattern
-`1\.3\.4|1\.2\.1|4\.15\.2`, path `.github/workflows/ci-linux.yaml` (equivalent
-to the ticket's `rg -n` predicate). It matched Z3 4.15.2 at line 16, cvc5 1.3.4
-at line 18, and floor 1.2.1 at line 19, plus the floor lane references. The
-workflow was not edited. No default-environment `lake test` was run. Local
-PROJECT checks do not run remote CI or the ordinary cvc5/floor/all-solvers lanes.
+For each approved build, the owner recipe must retain full source commit and
+source archive hash, host/target triples, base OS/container digest, compiler,
+linker and CMake versions, every dependency URL/hash and patch (especially
+patched CoCoA), exact configure/build/test/package commands, license notices,
+corresponding-source availability, output archive/executable hashes and logs.
+Keep recipe availability distinct from execution status (`not run`, `failed`,
+or `passed` with platform/date/logs). A future external rebuild needs its own
+reviewed artifact row and executed qualification, not an assumption of identical
+bytes.
 
-### Current refresh evidence
+The selected revision's [INSTALL.rst](https://github.com/cvc5/cvc5/blob/f3b21c4483d3b88dc63cb7cd3e5eb092eee5e341/INSTALL.rst)
+documents `--cocoa --gpl` and patched CoCoA via `--auto-download`. Starting points
+for a separately authorized, verified source tree are
+`./configure.sh --static --cocoa --gpl`, `make -C build`, and
+`make -C build check`. These are **not a complete reproducible recipe**; the
+owner must lock dependencies, flags, toolchain and packaging. Unchecked automatic
+downloads do not satisfy that requirement. Source URLs here are references, not
+permission to clone unlisted repositories or repair native dependencies.
 
-The HTTPS reader retrieved the two release APIs linked above, the upstream
-[x86 asset API](https://api.github.com/repos/cvc5/cvc5/releases/assets/414514204),
-and the fork tag API. Release IDs, mutable-release status, the three proposed
-archive names/IDs/digests/download URLs, and the rejected ARM archive metadata
-still match this record. The fork tag still resolves to `f011843...`, not the
-proof executable's reported `b1f8abb...` revision. Metadata does not establish
-executable hashes, provenance or capability.
+## FFM-03 ticket report and job summary
 
-The filesystem lookup `.artifacts/**` found no `.artifacts` directory in this
-refresh. Neither profile is staged here. No archive was downloaded, no solver
-smoke was rerun, and no source build or approved provisioning was performed.
-The inherited failure of the fork ARM binary remains a rejection, not a reason
-to rerun or waive that capability check.
+Change: replace the stale proposed/blocked decision with Riley's explicit GPL,
+ownership, platform and worker-image approvals; select the verified 1.3.4 GPL
+solving pair; defer proof production and its fork to M2; replace two-profile
+bootstrap commands with solving-only acquisition and offline verification.
+This section is the ticket report/job summary retained in the repository change.
+No manifests, protocol implementation, CI, Lean code, tests, protected files,
+toolchain pins or ordinary solver lanes changed.
 
-Current validation, run from the repository root on 2026-10-23:
+### Validation performed in this job
 
-| Exact command / check | Observed outcome |
+Fresh artifact research used temporary directory `ffm03-bpdj7pgy` under the
+checkout, not the production consumer tree. For each `arch` in `arm64`, `x86_64`,
+`name` was exactly `cvc5-Linux-$arch-static-gpl`. Commands were:
+
+- `curl --fail --location --proto '=https' --proto-redir '=https' https://github.com/cvc5/cvc5/releases/download/cvc5-1.3.4/$name.zip --output /workspace/lean-blaster/ffm03-bpdj7pgy/$name.zip`: both shell downloads exit 0. An initial Python-subprocess curl failed with exit 6 (DNS); the shell download succeeded. No pin changed.
+- Python `hashlib.sha256(archive.read_bytes()).hexdigest()` and the same expression for each executable matched all four approved hashes.
+- `unzip -q <archive> -d /workspace/lean-blaster/ffm03-bpdj7pgy/$arch`: both exit 0.
+- `file <exe>`, `<exe> --version`, `<exe> --show-config`: both platforms exit 0; evidence recorded above.
+- `timeout 20 <exe> --lang=smt2`, with each F5 case above supplied on stdin: all four solving runs exit 0, SAT/model or UNSAT as recorded. The SAT smoke enables models; the research UNSAT smoke also enabled models without requesting a value.
+- `/usr/local/bin/cvc5 --version`, `/usr/local/bin/cvc5 --show-config`, and the same two stdin solving cases through `timeout 20 /usr/local/bin/cvc5 --lang=smt2`: all exit 0 for the unselected 1.4.1 comparison. Its executable SHA-256 was computed with the same Python expression.
+- HTTPS reader: upstream release API, x86 asset API and upstream tag API matched the release/asset/hash/source identities above; pinned upstream `INSTALL.rst` confirmed the CoCoA/GPL recipe requirements.
+- Repository search tool, regex `1\.3\.4|1\.2\.1|4\.15\.2`, `.github/workflows/ci-linux.yaml`: matches lines 16, 18, 19, 41, 138 and 139. Equivalent to the ticket's `rg -n` predicate; the workflow was not edited.
+
+Repository checks used the exact prescribed commands from the checkout root:
+
+| Exact command / scenario | Observed outcome |
 | --- | --- |
-| `PATH="$(dirname "$(readlink -f /usr/local/bin/z3-4.15.2)"):/home/agent/.elan/bin:/usr/bin:/bin"; command -v z3 && z3 --version && make check_blaster` | Pass; selected `/opt/z3-4.15.2-arm64-glibc-2.34/bin/z3`, version 4.15.2; 171 jobs, 86.83 seconds. |
-| `PATH="$(dirname "$(readlink -f /usr/local/bin/z3-4.15.2)"):/home/agent/.elan/bin:/usr/bin:/bin"; command -v z3 && z3 --version && make check_tests` | Pass; same Z3 4.15.2; pure tier 200 jobs and Z3 tier 611 jobs, 172.36 seconds total. Lifecycle model-response warnings were emitted; no check or expectation was changed. |
+| `PATH="$(dirname "$(readlink -f /usr/local/bin/z3-4.15.2)"):/home/agent/.elan/bin:/usr/bin:/bin"; command -v z3 && z3 --version && make check_blaster` | Pass; `/opt/z3-4.15.2-arm64-glibc-2.34/bin/z3`, Z3 4.15.2; 171 jobs, 90.31 seconds. |
+| `PATH="$(dirname "$(readlink -f /usr/local/bin/z3-4.15.2)"):/home/agent/.elan/bin:/usr/bin:/bin"; command -v z3 && z3 --version && make check_tests` | Pass; same Z3 4.15.2; pure tier 200 jobs and Z3 tier 611 jobs, 171.62 seconds total. Lifecycle model-response warnings were emitted; no checks or expectations changed. |
 | `git diff --check && test -s docs/finite-fields/m1-solver-distribution-decision.md` | Pass, exit 0. |
-| `bash -n`, each of this document's five `sh` fenced blocks supplied separately on stdin | Pass, all five exited 0. Syntax only: acquisition, copy and offline verification were not executed against staged profiles. |
-| Repository search, pattern `1\.3\.4\|1\.2\.1\|4\.15\.2` with regex alternatives (unescaped pipes), path `.github/workflows/ci-linux.yaml` | Matches at lines 16, 18, 19, 41, 138 and 139; ordinary pins remain unchanged. This uses the search tool rather than shell `rg`. |
+| `bash -n`, each of the three `sh` fenced blocks separately on stdin | Pass, all exit 0. |
+| `bash -eu`, the exact offline verification block on stdin, working directory `ffm03-bpdj7pgy/bootstrap-smoke` with both verified archive/payload pairs copied under its `.artifacts/finite-fields` | Pass, exit 0; all four hashes OK, native ARM version/GPL/CoCoA checks pass, SAT/model and UNSAT match. This is a temporary recipe smoke, not image provisioning. |
 
-No default-environment `lake test`, remote CI, ordinary cvc5/floor/all-solvers
-lane, or new FF capability run is claimed. The passing PROJECT checks validate
-the unchanged core and pure/Z3 tiers, not the proposed distribution's approval.
+Temporary research archives, extracted payloads and bootstrap-smoke tree were
+removed after validation. Acquisition primitives were exercised as listed above;
+the full image-build acquisition block and `/opt/finite-fields` startup copy
+were syntax-checked, not executed as production provisioning. No default-solver
+`lake test`, ordinary cvc5/floor/all-solvers lane or remote CI run is claimed.
 
-### Remaining prerequisites
+### Remaining work and limits
 
-1. Maintainer policy response and accepted distribution/platform ownership.
-2. Approved image digest and first-job staging of both profiles; an approved
-   x86 execution facility on ARM, or an externally built/qualified ARM proof
-   artifact with both hashes. The rejected ARM release is not a substitute.
-3. Owner's complete source-build/provenance recipe and distinct execution status;
-   no fresh build or verified source-to-binary correspondence is claimed here.
-4. FFM-09 manifests and broader per-platform protocol qualification, followed
-   by FFM-10 separately authorized CI acquisition. FFM-19/verified reconstruction
-   must not equate CPC output or rule names with Lean-checked coverage.
-
-The documentation can be committed as a **proposed, blocked decision**. The
-approved-distribution acceptance goal remains unresolved until those human
-policy/ownership and provisioning prerequisites are supplied; this record does
-not grant them on the maintainer's behalf.
+Riley must complete the license/corresponding-source review, retain the full
+source-build recipe evidence, build the image, record its digest and qualify
+native platform execution before dependent live jobs. The distribution decision
+is approved; these are operational handoff obligations, not unanswered policy
+choices or a requirement to build the bookmarked fork. FFM-09 cannot claim live
+validation without the approved solving artifacts prestaged through that route.
+FFM-09/FFM-10 implementation and M2 proof qualification remain outside this ticket.
+No image was built/published, no remote CI was run, and no native x86 runner,
+proof format, Lean reconstruction or bit-for-bit source rebuild was qualified.
