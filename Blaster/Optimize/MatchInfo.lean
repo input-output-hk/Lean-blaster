@@ -33,7 +33,7 @@ def MatchInfo.numParams (minfo : MatchInfo) : Nat :=
 
 @[always_inline, inline]
 def MatchInfo.numAlts (minfo : MatchInfo) : Nat :=
-  minfo.recInfo.mInfo.altNumParams.size
+  minfo.recInfo.mInfo.altInfos.size
 
 @[always_inline, inline]
 def MatchInfo.numDiscrs (minfo : MatchInfo) : Nat :=
@@ -48,8 +48,8 @@ def MatchInfo.getFirstDiscrPos (info : MatchInfo) : Nat :=
   info.numParams + 1
 
 @[always_inline, inline]
-def MatchInfo.getDiscrRange (info : MatchInfo) : Std.Range :=
-  [info.getFirstDiscrPos : info.getFirstDiscrPos + info.numDiscrs]
+def MatchInfo.getDiscrRange (info : MatchInfo) : Std.Rco Nat :=
+  info.recInfo.mInfo.getDiscrRange
 
 @[always_inline, inline]
 def MatchInfo.getFirstAltPos (info : MatchInfo) : Nat :=

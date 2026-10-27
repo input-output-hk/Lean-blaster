@@ -11,17 +11,18 @@ def isNullString (e : Expr) : Bool :=
   | Expr.lit (Literal.strVal "") => true
   | _ => false
 
-/-- Normalize `String.mk (List.cons c₁ (.. (List.cons cₙ List.nil)))` to `Expr.lit (Literal.strVal s)`
+/-- Normalize `String.ofList (List.cons c₁ (.. (List.cons cₙ List.nil)))` to `Expr.lit (Literal.strVal s)`
     only when the list of chars are constant values.
     Otherwise return `(mkApp f args[0]!)`.
-    Assume that `f := Expr.const ``String.mk.
+    Assume that `f := Expr.const ``String.ofList.
     An error is triggered when args.size ≠ 1.
 -/
 def normStringValue (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
   if args.size != 1 then throwEnvError "normStringValue: only one argument expected"
   let op := args[0]!
+  if let Expr.app (Expr.const ``String.toList _) str := op then return str
   let some elms := getListChars? op | return ← mkAppExpr f op
-  mkStrLitExpr (String.mk elms)
+  mkStrLitExpr (String.ofList elms)
 
   where
     getListChars? (e : Expr) : Option (List Char) :=
@@ -80,6 +81,9 @@ def optimizeStrAppend (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
 def optimizeStrLength (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
  if args.size != 1 then throwEnvError "optimizeStrLength: exactly one arguments expected"
  let op := args[0]!
+ if let Expr.app (Expr.const ``String.ofList _) chars := op then
+   setRestart
+   return ← mkApp2Expr (← mkExpr (mkConst ``List.length [Level.zero])) (← mkCharType) chars
  if let some r ← cstStrLength? op then return r
  mkAppExpr f op
 
@@ -93,47 +97,45 @@ def optimizeStrLength (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
     | Expr.lit (Literal.strVal s) => mkNatLitExpr (String.length s)
     | _ => return none
 
-/-- Apply the following simplification/normalization rules on `String.replace` :
-     - String.replace e1 e2 e3 ==> e1 (if e2 =ₚₜᵣ e3)
-     - String.replace S1 S2 S3 ==> "String.replace" S1 S2 S3
-     - String.replace "" e2 e3 ==> ""
-   Assume that f = Expr.const ``String.replace.
-   An error is triggered when args.size ≠ 3 (i.e., only fully applied `String.replace` expected at this stage)
--/
-def optimizeStrReplace (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
- if args.size != 2 then throwEnvError "optimizeStrReplace: exactly three arguments expected"
- -- args[0] string to which replace is applied
- -- args[1] pattern argument for replacement
- -- args[2] replacement argument
- let op1 := args[0]!
- let op2 := args[1]!
- let op3 := args[3]!
- if exprEq op2 op3 then return op1
- if let some r ← cstStrReplace? op1 op2 op3 then return r
- if isNullString op1 then return op1
- mkApp3Expr f op1 op2 op3
+/-- Observe constant slices through their copied string without replacing the slice
+    structure itself: structural Slice equality and copied-text equality differ. -/
+def sliceString? (e : Expr) : Option String :=
+  match e with
+  | .app (.const ``String.toSlice _) (.lit (.strVal s)) => some s
+  | .app (.app (.const ``String.take _) (.lit (.strVal s))) (.lit (.natVal n)) =>
+      some (s.take n).copy
+  | .app (.app (.const ``String.drop _) (.lit (.strVal s))) (.lit (.natVal n)) =>
+      some (s.drop n).copy
+  | _ => none
 
- where
+def optimizeSliceCopy (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
+  let #[slice] := args | throwEnvError "Slice.copy: exactly one argument expected"
+  if let some s := sliceString? slice then return ← mkStrLitExpr s
+  mkAppExpr f slice
 
-   /-- Given `op1`, `op2` and `op3` corresponding to the operands for `String.replace`
-       return `some ("String.replace" S1 S2 S3)` when `op1 := S1 ∧ op2 := S2 ∧ op3 := S3`.
-       Otherwise `none`.
-   -/
-   cstStrReplace? (op1 : Expr) (op2 : Expr) (op3 : Expr) : TranslateEnvT (Option Expr) :=
-    match op1, op2, op3 with
-    | Expr.lit (Literal.strVal s1),
-      Expr.lit (Literal.strVal s2),
-      Expr.lit (Literal.strVal s3) => mkStrLitExpr (String.replace s1 s2 s3)
-    | _, _, _  => return none
+def optimizeSliceBeq (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
+  let #[left, right] := args | throwEnvError "Slice.beq: exactly two arguments expected"
+  match sliceString? left, sliceString? right with
+  | some s, some t => mkBoolLit (s == t)
+  | _, _ => mkApp2Expr f left right
 
+/-- Normalize the public list view, using `String.toList_ofList` and literals.
+    These rewrites preserve Unicode scalar values rather than exposing UTF-8 bytes. -/
+def optimizeStrToList (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
+  if args.size != 1 then throwEnvError "optimizeStrToList: exactly one argument expected"
+  if let some chars ← stringListView? args[0]! then return chars
+  mkAppExpr f args[0]!
 
 /-- Apply simplification/normalization rules on `String` operators. -/
 def optimizeString? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
  let Expr.const n _ := f | return none
  match n with
+ | ``String.ofList => normStringValue f args
+ | ``String.toList => optimizeStrToList f args
  | ``String.append => optimizeStrAppend f args
  | ``String.length => optimizeStrLength f args
- | ``String.replace => optimizeStrReplace f args
+ | ``String.Slice.copy => optimizeSliceCopy f args
+ | ``String.Slice.beq => optimizeSliceBeq f args
  | _ => return none
 
 end Blaster.Optimize

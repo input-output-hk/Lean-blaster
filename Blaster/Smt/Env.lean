@@ -74,7 +74,7 @@ def logResult (r : Result) (isCTI := false) (indLabel := "") (cexLabel := "Count
       if (← get).optEnv.options.solverOptions.generateCex then
          f failure
          f s!"{cexLabel}:"
-         cex.forM (λ s => f s!" - {s.dropRight 1}")
+         cex.forM (λ s => f s!" - {(s.dropEnd 1).copy}")
       else f failure
 
 /-- Tries to find if z3 is natively present in PATH, if not checks wsl z3 -/

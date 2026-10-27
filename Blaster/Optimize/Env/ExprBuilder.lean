@@ -553,9 +553,9 @@ def mkStrLitExpr (s : String) : TranslateEnvT Expr :=
 def mkDecidableConstraint (e : Expr) : TranslateEnvT Expr := do
   mkAppExpr (← mkDecidableConst) e
 
-/-- Return cached `String.mk` const expression. -/
-def mkStringMk : TranslateEnvT Expr :=
-  return (← get).optEnv.memCache.commonExpr.stringMk
+/-- Return cached `String.ofList` const expression. -/
+def mkStringOfList : TranslateEnvT Expr :=
+  return (← get).optEnv.memCache.commonExpr.stringOfList
 
 /-- Return cached `String` type. -/
 def mkStringType : TranslateEnvT Expr :=
@@ -597,15 +597,20 @@ def listToExpr (xs : List Expr) (u : List Level) (t : Expr) : TranslateEnvT Expr
    | x :: xs' => mkApp2Expr consExpr x (← go xs')
  go xs
 
-/-- Convert a string to a list of char expression. -/
-def stringToCtor (s : String) : TranslateEnvT Expr := do
-  let consExpr ← mkAppExpr (← mkExpr (mkConst ``List.cons [levelZero])) (← mkCharType)
-  let nilExpr ← mkAppExpr (← mkExpr (mkConst ``List.nil [levelZero])) (← mkCharType)
-  let rec go (xs : List Char) : TranslateEnvT Expr := do
-    match xs with
-    | [] => return nilExpr
-    | x :: xs' => mkApp2Expr consExpr (← mkCharExpr x) (← go xs')
-  mkAppExpr (← mkStringMk) (← go s.toList)
+/-- Build the shared character-list expression for a string literal. -/
+def stringToListExpr (s : String) : TranslateEnvT Expr := do
+  listToExpr (← s.toList.mapM mkCharExpr) [Level.zero] (← mkCharType)
+
+/-- Express a string literal through its public character-list factory. -/
+def stringToOfList (s : String) : TranslateEnvT Expr := do
+  mkAppExpr (← mkStringOfList) (← stringToListExpr s)
+
+/-- Expose a known public character-list view without unfolding UTF-8 internals. -/
+def stringListView? (e : Expr) : TranslateEnvT (Option Expr) := do
+  match e with
+  | .app (.const ``String.ofList _) chars => return some chars
+  | .lit (.strVal s) => return some (← stringToListExpr s)
+  | _ => return none
 
 
 /-- Given `m` an Option value and `t` the option sort return an Option expression. -/
