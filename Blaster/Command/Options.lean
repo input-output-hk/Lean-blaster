@@ -54,6 +54,10 @@ structure BlasterOptions where
   /-- When set to `true`, only perform optimization on the lean specification and do not translate to smt-lib. -/
   onlyOptimize : Bool := false
 
+  /-- Experimental: retain matches inside constructor arguments until a consumer
+      needs them. The default preserves the current normal form. -/
+  preserveConstructorChoices : Bool := false
+
   /-- When set to `true`, dump the smt query to stdout. -/
   dumpSmtLib : Bool := false
 
