@@ -349,8 +349,14 @@ structure SmtEnv where
   /-- Smt-Lib commands emitted to the backend solver. -/
   smtCommands : Array SmtCommand
 
-  /-- Backend solver process. -/
+  /-- Backend solver process, if one has been spawned. This remains `none` on
+      optimizer-only and `only-smt-lib` paths. -/
   smtProc : Option (IO.Process.Child ⟨.piped, .piped, .piped⟩)
+
+  /-- Selected backend solver. It defaults to Z3 and is resolved/stored when an
+      `Undetermined` optimizer-only result needs backend policy or during solver
+      setup; `smtProc` may remain `none` when no process is spawned. -/
+  solver : SmtSolver
 
   /-- Cache keeping track of visited inductive datatype during translation. -/
   indTypeVisited : Std.HashSet Lean.Name
@@ -450,6 +456,7 @@ instance : Inhabited SmtEnv where
    { translateCache := Std.HashMap.emptyWithCapacity,
      smtCommands := Array.mkEmpty 1023,
      smtProc := default,
+     solver := .z3,
      indTypeVisited := Std.HashSet.emptyWithCapacity,
      indTypeInstCache := Std.HashMap.emptyWithCapacity,
      funInstCache := Std.HashMap.emptyWithCapacity,
