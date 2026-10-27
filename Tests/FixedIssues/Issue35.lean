@@ -73,7 +73,7 @@ namespace Tests.Issue35
        refuses the literal instead. -/
 
 -- U+2FFFF is the last denotable code point.
-def lastDenotable : String := ⟨[Char.ofNat 0x2FFFF]⟩
+def lastDenotable : String := String.ofList [Char.ofNat 0x2FFFF]
 #blaster [∀ s : String, s = lastDenotable → s.length = 1]
 
 -- An emoji is well inside the bound (U+1F600).
@@ -81,8 +81,8 @@ def lastDenotable : String := ⟨[Char.ofNat 0x2FFFF]⟩
 #blaster (gen-cex: 0) (solve-result: 1) [∀ s : String, s = "😀" → s.length = 2]
 
 -- One past the bound, and the top of Lean's Char range, are both rejected outright.
-def firstUndenotable : String := ⟨[Char.ofNat 0x30000]⟩
-def maxLeanChar : String := ⟨[Char.ofNat 0x10FFFF]⟩
+def firstUndenotable : String := String.ofList [Char.ofNat 0x30000]
+def maxLeanChar : String := String.ofList [Char.ofNat 0x10FFFF]
 
 /--
 error: translateExpr: string literal holds the character with code point 196608, above the Smt string alphabet bound 196607

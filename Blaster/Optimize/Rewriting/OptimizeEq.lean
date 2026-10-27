@@ -42,6 +42,12 @@ partial def structEq? (op1 : Expr) (op2: Expr) : TranslateEnvT (Option Bool) := 
        -- return `none` for all other cases if physically equality fails
        pure none
  if exprEq op1 op2 then return true
+ -- `String.ofList` is injective, but is no longer a kernel constructor.
+ -- Compare its public character-list view without inspecting UTF-8 bytes.
+ if let some xs ← stringListView? op1 then
+   if let some ys ← stringListView? op2 then return ← structEq? xs ys
+ if let some c1 := isCharValue? op1 then
+   if let some c2 := isCharValue? op2 then return some (c1 == c2)
  visit op1 op2
 
  where

@@ -11,17 +11,18 @@ def isNullString (e : Expr) : Bool :=
   | Expr.lit (Literal.strVal "") => true
   | _ => false
 
-/-- Normalize `String.mk (List.cons c₁ (.. (List.cons cₙ List.nil)))` to `Expr.lit (Literal.strVal s)`
+/-- Normalize `String.ofList (List.cons c₁ (.. (List.cons cₙ List.nil)))` to `Expr.lit (Literal.strVal s)`
     only when the list of chars are constant values.
     Otherwise return `(mkApp f args[0]!)`.
-    Assume that `f := Expr.const ``String.mk.
+    Assume that `f := Expr.const ``String.ofList.
     An error is triggered when args.size ≠ 1.
 -/
 def normStringValue (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
   if args.size != 1 then throwEnvError "normStringValue: only one argument expected"
   let op := args[0]!
+  if let Expr.app (Expr.const ``String.toList _) str := op then return str
   let some elms := getListChars? op | return ← mkAppExpr f op
-  mkStrLitExpr (String.mk elms)
+  mkStrLitExpr (String.ofList elms)
 
   where
     getListChars? (e : Expr) : Option (List Char) :=
@@ -80,6 +81,9 @@ def optimizeStrAppend (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
 def optimizeStrLength (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
  if args.size != 1 then throwEnvError "optimizeStrLength: exactly one arguments expected"
  let op := args[0]!
+ if let Expr.app (Expr.const ``String.ofList _) chars := op then
+   setRestart
+   return ← mkApp2Expr (← mkExpr (mkConst ``List.length [Level.zero])) (← mkCharType) chars
  if let some r ← cstStrLength? op then return r
  mkAppExpr f op
 
@@ -127,10 +131,19 @@ def optimizeStrReplace (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
     | _, _, _  => return none
 
 
+/-- Normalize the public list view, using `String.toList_ofList` and literals.
+    These rewrites preserve Unicode scalar values rather than exposing UTF-8 bytes. -/
+def optimizeStrToList (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
+  if args.size != 1 then throwEnvError "optimizeStrToList: exactly one argument expected"
+  if let some chars ← stringListView? args[0]! then return chars
+  mkAppExpr f args[0]!
+
 /-- Apply simplification/normalization rules on `String` operators. -/
 def optimizeString? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
  let Expr.const n _ := f | return none
  match n with
+ | ``String.ofList => normStringValue f args
+ | ``String.toList => optimizeStrToList f args
  | ``String.append => optimizeStrAppend f args
  | ``String.length => optimizeStrLength f args
  | ``String.replace => optimizeStrReplace f args

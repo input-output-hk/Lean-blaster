@@ -146,6 +146,8 @@ def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeCo
     @[always_inline, inline]
     isToNormOpaqueFun (n : Name) : TranslateEnvT (Option OptimizeContinuity) := do
      match n with
+     | ``String.mk => stackContinuity stack (← mkStringOfList)
+
      | ``Nat.pred =>
            let body ← mkApp2Expr (← mkNatSubOp) (← mkBVarExpr 0) (← mkNatLitExpr 1)
            let lam ← mkLambdaExpr (← Term.mkFreshBinderName) BinderInfo.default (← mkNatType) body
@@ -277,7 +279,6 @@ def optimizeConstApp (f : Expr) (args : Array Expr) (stack : List OptimizeStack)
     applyConstAppRules (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
       match f with
       | Expr.const ``Int.negSucc _ => optimizeIntNegSucc f args
-      | Expr.const ``String.mk _ => normStringValue f args
       | _ => mkAppNExpr f args
 
 end Blaster.Optimize
