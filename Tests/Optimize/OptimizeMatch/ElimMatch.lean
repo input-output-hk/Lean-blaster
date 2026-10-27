@@ -698,4 +698,84 @@ axiom optOf : Nat → Option Nat
   ∀ (s : String) (r : Nat), r = match s with | "a" => 1 | _ => match s with | "a" => 2 | _ => 3 ===>
   ∀ (s : String) (r : Nat), r = Blaster.dite' ("a" = s) (fun _ => 1) (fun _ => 3)
 
+
+/-! Cascade of named patterns: `matchInContext` records and looks up patterns with the named patterns
+    removed (`removeNamedPatternExpr`), hence named patterns in the outer or inner match do not prevent
+    the elimination of the inner match. -/
+
+-- ∀ (x : Color) (r : Nat), r = match x with | p@(.red q@(.blue _)) => colorRank p + colorRank q | _ => match x with | .red (.blue _) => 2 | _ => 3 ===>
+-- ∀ (x : Color) (r : Nat), r = match x with | _p@(.red _q@(.blue _)) => 5 | _ => 3
+-- NOTE: the pattern recorded for `x` is `.red (.blue _)`.
+#testOptimize [ "ElimMatch_37" ] (norm-result: 1)
+  ∀ (x : Color) (r : Nat), r = match x with | p@(.red q@(.blue _)) => colorRank p + colorRank q | _ => match x with | .red (.blue _) => 2 | _ => 3 ===>
+  ∀ (x : Color) (r : Nat), r = match x with | _p@(.red _q@(.blue _)) => 5 | _ => 3
+
+-- ∀ (x : Color) (r : Nat), r = match x with | p@(.red q@(.blue _)) => colorRank p + colorRank q | _ => match x with | a@(.red b@(.blue _)) => colorRank a + colorRank b | _ => 3 ===>
+-- ∀ (x : Color) (r : Nat), r = match x with | _p@(.red _q@(.blue _)) => 5 | _ => 3
+-- NOTE: named patterns in both the outer and inner match.
+#testOptimize [ "ElimMatch_38" ] (norm-result: 1)
+  ∀ (x : Color) (r : Nat), r = match x with | p@(.red q@(.blue _)) => colorRank p + colorRank q | _ => match x with | a@(.red b@(.blue _)) => colorRank a + colorRank b | _ => 3 ===>
+  ∀ (x : Color) (r : Nat), r = match x with | _p@(.red _q@(.blue _)) => 5 | _ => 3
+
+-- ∀ (x : Color) (r : Nat), r = match x with | p@(.red q@(.blue w@(.red _))) => colorRank p + colorRank q + colorRank w | _ => match x with | .red (.blue (.red _)) => 2 | _ => 3 ===>
+-- ∀ (x : Color) (r : Nat), r = match x with | _p@(.red _q@(.blue _w@(.red _))) => 8 | _ => 3
+#testOptimize [ "ElimMatch_39" ] (norm-result: 1)
+  ∀ (x : Color) (r : Nat), r = match x with | p@(.red q@(.blue w@(.red _))) => colorRank p + colorRank q + colorRank w | _ => match x with | .red (.blue (.red _)) => 2 | _ => 3 ===>
+  ∀ (x : Color) (r : Nat), r = match x with | _p@(.red _q@(.blue _w@(.red _))) => 8 | _ => 3
+
+-- ∀ (x : Color) (r : Nat), r = match x with | .red q@(.blue _) => colorRank q | _ => match x with | .red (.blue _) => 2 | _ => 3 ===>
+-- ∀ (x : Color) (r : Nat), r = match x with | .red _q@(.blue _) => 2 | _ => 3
+-- NOTE: named pattern nested in a constructor pattern.
+#testOptimize [ "ElimMatch_40" ] (norm-result: 1)
+  ∀ (x : Color) (r : Nat), r = match x with | .red q@(.blue _) => colorRank q | _ => match x with | .red (.blue _) => 2 | _ => 3 ===>
+  ∀ (x : Color) (r : Nat), r = match x with | .red _q@(.blue _) => 2 | _ => 3
+
+-- ∀ (x : Color) (r : Nat), r = match x with | _p@(.red q@(.blue _)) => colorRank q | _ => match x with | _a@(.red _) => 2 | _ => 3 ===>
+-- ∀ (x : Color) (r : Nat), r = match x with | _p@(.red _q@(.blue _)) => 2 | _ => match x with | _a@(.red _) => 2 | _ => 3
+-- NOTE: no elimination as the inner pattern `.red _` is more general than the recorded `.red (.blue _)` (see `ElimMatch_18`).
+#testOptimize [ "ElimMatch_41" ] (norm-result: 1)
+  ∀ (x : Color) (r : Nat), r = match x with | _p@(.red q@(.blue _)) => colorRank q | _ => match x with | _a@(.red _) => 2 | _ => 3 ===>
+  ∀ (x : Color) (r : Nat), r = match x with | _p@(.red _q@(.blue _)) => 2 | _ => match x with | _a@(.red _) => 2 | _ => 3
+
+-- ∀ (x : Color) (n r : Nat), r = match x, n with | p@(.red _), q@k => colorRank p + q + k | _, _ => match x with | .red _ => 2 | _ => 3 ===>
+-- ∀ (x : Color) (n r : Nat), r = match x, n with | _p@(.red _), _q@_k => Nat.add n (Nat.add 3 n) | _, _ => 3
+-- NOTE: `q@k` is a named variable pattern: the first alternative still has exactly one constructor pattern
+-- (`.red _` is recorded for `x`).
+#testOptimize [ "ElimMatch_42" ] (norm-result: 1)
+  ∀ (x : Color) (n r : Nat), r = match x, n with | p@(.red _), q@k => colorRank p + q + k | _, _ => match x with | .red _ => 2 | _ => 3 ===>
+  ∀ (x : Color) (n r : Nat), r = match x, n with | _p@(.red _), _q@_k => Nat.add n (Nat.add 3 n) | _, _ => 3
+
+-- ∀ (x : Color) (r : Nat), r = match x with | _p@(.red q@(.blue _)) => colorRank q | p@(.red y) => (match x with | .red (.blue _) => 2 | _ => colorRank p + colorRank y) | _ => 3 ===>
+-- ∀ (x : Color) (r : Nat),
+--   r = match x with
+--       | _p@(.red _q@(.blue _)) => 2
+--       | _p@(.red y) => (match y with | .black => 3 | .transparent => 4 | .blue _ => 5 | .red _ => 6)
+--       | _ => 3
+-- NOTE: in the second alternative, `x := .red y` (named pattern removed) is added to the equality map and the
+-- recorded pattern `.red (.blue _)` is propagated to `.red y` (see `ElimMatch_28`); `p` is also rewritten to `.red y`.
+-- The expected inner match is written with `generalizing := false` as the named pattern hypothesis `h : x = .red y`
+-- would otherwise be generalized by Lean's elaborator (its type depends on `y`).
+#testOptimize [ "ElimMatch_43" ] (norm-result: 1)
+  ∀ (x : Color) (r : Nat), r = match x with | _p@(.red q@(.blue _)) => colorRank q | p@(.red y) => (match x with | .red (.blue _) => 2 | _ => colorRank p + colorRank y) | _ => 3 ===>
+  ∀ (x : Color) (r : Nat),
+    r = match x with
+        | _p@(.red _q@(.blue _)) => 2
+        | _p@(.red y) => (match (generalizing := false) y with | .black => 3 | .transparent => 4 | .blue _ => 5 | .red _ => 6)
+        | _ => 3
+
+-- ∀ (x : Color) (r : Nat), r = match x with | _p@(.red q@(.blue _)) => colorRank q | p@(.red y) => (match p with | .red (.blue _) => 2 | _ => colorRank y) | _ => 3 ===>
+-- ∀ (x : Color) (r : Nat),
+--   r = match x with
+--       | _p@(.red _q@(.blue _)) => 2
+--       | _p@(.red y) => (match y with | .black => 0 | .transparent => 1 | .blue _ => 2 | .red _ => 3)
+--       | _ => 3
+-- NOTE: the inner discriminator is the named pattern variable `p`, rewritten to `.red y` through the equality map.
+#testOptimize [ "ElimMatch_44" ] (norm-result: 1)
+  ∀ (x : Color) (r : Nat), r = match x with | _p@(.red q@(.blue _)) => colorRank q | p@(.red y) => (match p with | .red (.blue _) => 2 | _ => colorRank y) | _ => 3 ===>
+  ∀ (x : Color) (r : Nat),
+    r = match x with
+        | _p@(.red _q@(.blue _)) => 2
+        | _p@(.red y) => (match (generalizing := false) y with | .black => 0 | .transparent => 1 | .blue _ => 2 | .red _ => 3)
+        | _ => 3
+
 end Tests.ElimMatch
