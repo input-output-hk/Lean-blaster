@@ -71,7 +71,15 @@ def validate_signatures (verifier_config : VerifierConfig) (signatories : List N
 
   all_mandatory_signed && threshold_met
 
-#blaster (gen-cex: 0) (solve-result: 2) (timeout: 3)
+-- Constructor-field reduction exposes a concrete counterexample.
+-- Check independently in the kernel that the universal statement is false.
+example : ¬ (∀ (transaction : List Nat) (n : Nat),
+    validate_signatures (VerifierConfig.mk [] n) transaction = true) := by
+  intro h
+  have impossible : false = true := h [] 1
+  cases impossible
+
+#blaster (gen-cex: 0) (solve-result: 1) (timeout: 3)
   [∀ (transaction : List Nat) (n : Nat),
        validate_signatures (VerifierConfig.mk [] n) transaction = true]
 
