@@ -1,4 +1,3 @@
-
 import Lean
 import Blaster.Optimize.Env.Abstract
 import Blaster.Optimize.Env.Instantiate

@@ -179,4 +179,19 @@ def instantiateSharedMVars' (e : Expr) (assign : MVarAssignments) : TranslateEnv
   unsafe instantiateSharedMVarsAux' e false (Array.emptyWithCapacity e.approxDepth.toNat)
          (HashMap.emptyWithCapacity 64) assign
 
+/-- Same as the default inferType in the Lean codebase but perform hashconsing and cache the result. -/
+@[always_inline, inline]
+def inferTypeEnv (e : Expr) : TranslateEnvT Expr := do
+  let e ← if e.hasMVar then instantiateSharedMVars e else pure e
+  let cached := (← get).optEnv.memCache.inferTypeCache.getD e instCacheMiss
+  if !exprEq cached instCacheMiss then return cached
+  else
+    let t ← withLocalContext $ do
+       IO.setNumHeartbeats 0
+       let t ← inferType e
+       if t.hasMVar then instantiateMVars t else pure t
+    let t ← hashcons t
+    updateInferTypeCache e t
+    return t
+
 end Blaster.Optimize

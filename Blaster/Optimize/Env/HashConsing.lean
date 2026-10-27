@@ -131,20 +131,6 @@ private unsafe def cleanHashConsAux (stk : Array Expr) : TranslateEnvT Unit := d
 def cleanHashCons (e : Expr) : TranslateEnvT Unit :=
   unsafe cleanHashConsAux ((Array.emptyWithCapacity e.approxDepth.toNat)|>.push e)
 
-/-- Same as the default inferType in the Lean codebase but perform hashconsing and cache the result. -/
-@[always_inline, inline]
-def inferTypeEnv (e : Expr) : TranslateEnvT Expr := do
-  let cached := (← get).optEnv.memCache.inferTypeCache.getD e instCacheMiss
-  if !exprEq cached instCacheMiss then return cached
-  else
-    let t ← withLocalContext $ do
-       IO.setNumHeartbeats 0
-       let t ← inferType e
-       if t.hasMVar then instantiateMVars t else pure t
-    let t ← hashcons t
-    updateInferTypeCache e t
-    return t
-
 @[always_inline, inline]
 def getMVarAssignment! (mvar : Expr) : TranslateEnvT Expr := do
  match ← getExprMVarAssignment? mvar.mvarId! with
