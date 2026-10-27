@@ -291,14 +291,29 @@ private def replaySteps (goal : MVarId) (steps : Array Blaster.Optimize.ProofSte
           /- trace[Optimize.expr] "  applied rewrite → {← g.getType}" -/
         catch _ => pure ()
       | .exact proof =>
+        let s ← saveState
         try
           -- both sides are in the replay spelling, so a recursive target is not unfolded
-          if ← g.withContext do withReducibleAndInstances <| isDefEq (← inferType proof) (← g.getType) then
-            checkHypStep g proof
-            g.assign proof
+          -- the proof's extra binders are the ones the replay introduced, found by assumption
+          let closed ← g.withContext do withReducibleAndInstances do
+            let pt ← inferType proof
+            let target ← g.getType
+            -- as `MVarId.apply`, the fewest binders whose conclusion matches the target, at the replay's transparency
+            for k in [:(← forallTelescopeReducing pt fun xs _ => pure xs.size) + 1] do
+              let (xs, _, body) ← forallMetaBoundedTelescope pt k
+              unless ← isDefEq body target do continue
+              checkHypStep g proof
+              g.assign (mkAppN proof xs)
+              -- last first, so a premise fixes the binders its type depends on
+              for x in xs.reverse do
+                unless ← x.mvarId!.isAssigned do x.mvarId!.assumption
+              return !(← instantiateMVars (mkMVar g)).hasMVar
+            return false
+          if closed then
             /- trace[Optimize.expr] "  applied exact, goal closed" -/
             return g
-        catch _ => pure ()
+          s.restore
+        catch _ => s.restore
       | .unfold n =>
         let t ← g.getType
         let t' ← deltaExpand t (· == n)
