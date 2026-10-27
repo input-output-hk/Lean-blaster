@@ -357,9 +357,11 @@ def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := 
     @[always_inline, inline]
     normProof (idx : Nat) (args : Array Expr) (optArg : Expr) (pInfo : FunEnvInfo) : TranslateEnvT Expr := do
      if idx ≥ pInfo.paramsInfo.size then return optArg
-     else if pInfo.paramsInfo[idx]!.isProp && !(← isInNormalizeMatchInfo) then
-       -- Note: we don't resolve proof in match pattern as we must preserve mvar for match reduction.
+     else if pInfo.paramsInfo[idx]!.isProp then
+       let inPattern ← isInNormalizeMatchInfo
+       if inPattern && (optArg.hasMVar || optArg.hasFVar) then return optArg
        let argType ← inferArgTypeAt pInfo.type args idx
+       if inPattern then return ← restorePatternProof argType args[idx]! optArg
        match (← inHypMap argType) with
        | some p => return p
        | none => backwardProof argType optArg

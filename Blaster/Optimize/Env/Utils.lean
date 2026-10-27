@@ -124,9 +124,9 @@ def isTheorem (f : Name) : TranslateEnvT Bool := do
   | ConstantInfo.thmInfo _ => pure true
   | _ => pure false
 
-/-- Return `true` if function name `f` is tagged as an opaque definition. -/
+/-- Return `true` if the application must remain opaque during reduction. -/
 def isOpaqueFun (f : Name) (args: Array Expr) : TranslateEnvT Bool :=
-  return (opaqueFuns.contains f || (← isOpaqueRelational f args))
+  return (opaqueFuns.contains f || isOpaqueCharConversion f args || (← isOpaqueRelational f args))
 
 /-- Given `f := Expr.const n _` return `true` only when `isOpaqueFun n`. -/
 def isOpaqueFunExpr (f : Expr) (args: Array Expr) : TranslateEnvT Bool :=
