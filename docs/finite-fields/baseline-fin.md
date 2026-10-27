@@ -19,7 +19,7 @@ Initial implementation inputs recorded on 2026-10-27 (inherited evidence):
 | Lake | `5.0.0-src+797c613` |
 | PROJECT Z3 | 4.15.2, `/opt/z3-4.15.2-arm64-glibc-2.34/bin/z3` |
 | Default Z3, version inspection only | 5.1.0, `ca39e58c525c5b03c2484f118ade2b92fae31215` |
-| Installed cvc5 used for supplementary execution | 1.4.1, revision `2b2e844`, `/opt/cvc5-Linux-arm64-static-gpl/bin/cvc5`; `cocoa: yes` |
+| Installed cvc5 used for ordinary-arithmetic execution | 1.4.1, revision `2b2e844`, `/opt/cvc5-Linux-arm64-static-gpl/bin/cvc5`; `cocoa: yes` |
 
 Tree identity is not local ancestry. The stack owns integration publication.
 The [execution](m1-execution-decision.md) and
@@ -28,22 +28,21 @@ The [execution](m1-execution-decision.md) and
 ### Supplied snapshot for this validation
 
 This job received synthetic root
-`efe012c60a7b628b3e94a7d5620634d2794e5aca`, tree
-`3c821aff3798d4d2303da1a57d4b45e9a80c7206`. The helper, cache, applied-type
+`cbce4b6cd82c648ec3419a8e05070bcdb307b082`, tree
+`dc1304fc2c935ded7b7c3913cc0167af2065a832`. The helper, cache, applied-type
 dispatch, all three regression files and their two aggregate imports were
 already present. They are retained unchanged; this job does not claim to have
 introduced them. The earlier source/base identities above remain historical
 evidence, not a newly observed remote integration tip.
 
-The installed compiler still reports Lean 4.24.0 at
+The installed compiler reports Lean 4.24.0 at
 `797c613eb9b6d4ec95db23e3e00af9ac6657f24b`; Lake reports
 `5.0.0-src+797c613`. cvc5 reports 1.4.1, revision `2b2e844`, and `cocoa: yes`.
-An ignored/hidden-inclusive search for cvc5 artifacts under `/opt`,
-`/usr/local`, `/usr/bin`, `/workspace`, `/cache`, `/home/agent` and `/tmp`
-found only the installed GPL distribution and its launcher, not an ordinary
-non-CoCoA executable. The FFM-03/FFM-09 distribution decisions select GPL/CoCoA
-artifacts; they do not supply the missing non-CoCoA prerequisite. No solver was
-downloaded, replaced or reclassified.
+Under the owner's 2026-10-27 scope clarification, this binary is accepted for
+FFM-07's ordinary-arithmetic baseline. CoCoA backs finite-field theory and is
+not reached by queries without finite-field sorts. No solver was downloaded,
+replaced or reclassified. Execution with non-CoCoA cvc5 belongs to the existing
+ci-linux cvc5 lane through FFM-10, not this worker ticket.
 
 ### Pinned historical inputs: read, not rerun
 
@@ -64,9 +63,9 @@ cvc5 1.4.1 with CoCoA. Its later copy changes ownership from
 baseline observations. Division by zero was added after that historical base
 run. Those reports are imported provenance, **not executions in this job**.
 
-## Newly executed current-base observations
+## Adapted current-base behavior
 
-The first current-base run exposed a compatibility gap: the four true closed
+The inherited initial implementation report records a compatibility gap: the four true closed
 `Fin` equalities reduced their values but retained distinct proof terms, leaving
 constructor equalities such as `⟨0, …⟩ = ⟨0, …⟩` and reporting `Undetermined`.
 The false field-division claim already reduced to `False`. Expectations were
@@ -149,31 +148,154 @@ All three commands exited 0 after the correction. The cvc5 file preserved the
 two quantified Fin rejections, closed `1 / 2 = 0`, and bounded-Nat distributivity
 modulo 7. It contains no native FF operation or CoCoA-specific query.
 
-**Uncompleted acceptance check:** that cvc5 execution used the installed
-GPL/CoCoA binary, not ordinary non-CoCoA cvc5. Version/configuration inspection
-and installation/staging searches found no non-CoCoA executable. Successful
-ordinary arithmetic on a CoCoA-enabled binary does not establish execution
-without CoCoA. A separately provisioned non-CoCoA binary, or scoped owner
-approval to acquire one, is required to run the same command with its `bin`
-directory first on PATH. No solver installation, pin or CI configuration was
-changed to hide this distinction.
+**Worker scope:** the installed GPL/CoCoA cvc5 is the required binary for this
+ticket. Its enabled CoCoA capability is recorded, not treated as a failed check.
+The query dump below establishes that the only solver-reaching adapted case
+uses integer arithmetic, not the finite-field theory. No non-CoCoA execution
+is claimed; FFM-10 owns that run via ci-linux's existing cvc5 lane.
 
 See [the ticket report](ffm-07-ticket-report.md) for exact PROJECT checks,
 smoke evidence, initial failures and remaining validation limits. No native FF
 solving, checked primality, new trust axiom, proof reconstruction, child-package
 harness or remote CI execution is claimed here.
 
-Validation on supplied snapshot `efe012c6` passed both direct pure files,
-both exact PROJECT checks (including `make test-pure` and `make test-z3`),
-and the standalone file on the installed GPL/CoCoA binary. Fresh stdin smoke
-runs reproduced the cache, truncating-division and ordinary integer-query
-observations. The
-[current ticket report](ffm-07-ticket-report.md#validation-of-supplied-snapshot-efe012c6)
-records the commands and outcomes separately from inherited implementation
-results. The required execution without CoCoA remains outstanding.
+Earlier validations on synthetic snapshot `efe012c6` are inherited evidence
+in the ticket report. The current snapshot's executions and complete solver
+query are recorded separately below; none of those historical runs is counted
+as a fresh execution.
 
-The [retained-implementation verification](ffm-07-ticket-report.md#retained-implementation-verification)
-records another execution against the supplied implementation: clean build
-91.18 seconds, pure/Z3 project checks 195.74 seconds, both direct pure files
-passing, and standalone GPL/CoCoA cvc5 passing. No executable files changed.
-This evidence still does not satisfy the required non-CoCoA execution.
+## Fresh worker evidence on cbce4b6c
+
+Commands below ran from the repository root on 2026-10-27, against the supplied
+snapshot identified above. No historical branch or source file was executed.
+
+### Binary identity and configuration
+
+```sh
+lake --version && lake env lean --version && lake env lean --githash
+command -v cvc5 && readlink -f /usr/local/bin/cvc5
+cvc5 --version && cvc5 --show-config
+```
+
+All exited 0. The cvc5 launcher is `/usr/local/bin/cvc5`, resolving to
+`/opt/cvc5-Linux-arm64-static-gpl/bin/cvc5`. The `--version` banner was:
+
+```text
+cvc5 1.4.1 [git 2b2e844 on branch HEAD]
+compiled as a unrestricted build with GCC version 11.4.0 on Sep 25 2026 20:39:58
+```
+
+The remaining version output identifies the GPLv3 build and its linked
+libraries, including CoCoALib. Complete `--show-config` output:
+
+```text
+package       : cvc5
+version       : 1.4.1
+scm           : git 2b2e844 on branch HEAD
+
+safe-mode     : no
+stable-mode   : no
+debug code    : no
+statistics    : yes
+tracing       : no
+muzzled       : no
+assertions    : no
+coverage      : no
+profiling     : no
+asan          : no
+ubsan         : no
+tsan          : no
+competition   : no
+portfolio     : yes
+
+cln           : yes
+glpk          : yes
+cryptominisat : no
+gmp           : no
+kissat        : no
+poly          : yes
+cocoa         : yes
+normaliz      : yes
+editline      : yes
+```
+
+### Complete solver-reaching baseline dump
+
+Ran the following stdin input with:
+
+```sh
+BLASTER_SOLVER=cvc5 BLASTER_TIMEOUT=120 BLASTER_STRICT_CVC5_RESULTS=1 lake env lean --stdin
+```
+
+```lean
+import Blaster
+/-- error: Inductive datatype with instance parameters not supported: `Fin -/
+#guard_msgs in
+#blaster (solver: cvc5) (dump-smt-lib: 1)
+  [∀ (a b c : Fin 7), a * (b + c) = a * b + a * c]
+/-- error: Inductive datatype with instance parameters not supported: `Fin -/
+#guard_msgs in
+#blaster (solver: cvc5) (dump-smt-lib: 1) [∀ (a : Fin 7), a * a ≠ 2]
+#blaster (solver: cvc5) (dump-smt-lib: 1) [(1 : Fin 7) / 2 = 0]
+#blaster (solver: cvc5) (dump-smt-lib: 1)
+  [∀ (a b c : Nat), a < 7 → b < 7 → c < 7 →
+     (a * ((b + c) % 7)) % 7 = ((a * b) % 7 + (a * c) % 7) % 7]
+```
+
+Exit 0, 1.52 seconds. Both rejection guards passed, the two positive cases
+reported Valid, and exactly one `Smt Query:` / `(check-sat)` was emitted.
+The entire emitted query was:
+
+```smt2
+(set-option :print-success true)
+(set-option :produce-models true)
+(set-option :produce-proofs true)
+(set-option :mbqi true)
+(set-option :macros-quant true)
+(set-option :tlimit-per 120000)
+(set-logic ALL)
+(define-sort Nat () Int)
+(define-fun @isNat ((@x Nat)) Bool (<= 0 @x))
+(declare-const $0 Nat)
+(declare-const $1 Nat)
+(declare-const $2 Nat)
+(define-fun @Int.emod ((@x Int)(@y Int)) Int (ite (= 0 @y) @x (mod @x @y))
+)
+(assert (not (=> (@isNat $0) (=> (@isNat $1) (=> (@isNat $2) (=> (< $0 7) (=> (< $1 7) (=> (< $2 7) (= (@Int.emod (+ (@Int.emod (* $0 $1) 7) (@Int.emod (* $0 $2) 7)) 7) (@Int.emod (* $0 (@Int.emod (+ $1 $2) 7)) 7))))))))))
+(check-sat)
+(exit)
+```
+
+This covers **every solver-reaching case in the adapted baseline**: bounded-Nat
+distributivity is the only one. Both standalone quantified Fin cases abort
+during translation; the closed standalone division case is optimized to True.
+All cases in `FinBaseline.lean` use `only-smt-lib` rejection or `only-optimize`,
+so none executes a solver. The historical document's additional Z3
+Nat-counterexample observation is imported history, not an additional case in
+these adapted files or a newly executed result.
+
+The dump defines Nat as Int and contains only integer arithmetic and `mod`.
+Inspection and an executable output assertion found no `FiniteField` sort or
+`#f` field literal and exactly one `(check-sat)`. This is ordinary arithmetic
+on a CoCoA-enabled binary, not native finite-field support or a non-CoCoA run.
+
+### Fresh regression and project results
+
+The three direct commands in “Test ownership and reproduction” all exited 0
+on this snapshot: both pure files passed in 2.57 seconds together, and the
+standalone cvc5 file passed in 5.46 seconds. Thus the Fin behavior table above
+was reproduced, including division by zero and rejection of the field-division
+interpretation. The interface guards passed for all numeric values, rejected
+inputs, cache transitions and six existing opaque sorts.
+
+The prescribed Z3-4.15.2-only PROJECT commands also passed: `make check_blaster`
+completed 171 jobs in 85.72 seconds; `make check_tests` completed its exact
+`make test-pure` (200 jobs) and `make test-z3` (647 jobs) subcommands in
+194.58 seconds. Lifecycle diagnostic warnings and the unchanged
+`SmtNatMod.lean:37:27` Undetermined warning remained visible. No expectation
+or check was changed. Exact commands, smoke results and limitations are in the
+[current ticket report](ffm-07-ticket-report.md#current-validation-cbce4b6c).
+
+FFM-07's revised worker acceptance is satisfied; non-CoCoA execution remains
+FFM-10's ci-linux responsibility. No full cvc5/support-floor/all-solvers lane,
+remote CI, native-field support, publication or maintainer signoff is claimed.

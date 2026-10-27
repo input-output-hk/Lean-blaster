@@ -1,16 +1,26 @@
 # FFM-07: Ticket report and job summary
 
-## Implementation and remaining acceptance prerequisite
+## Current scope and retained implementation
 
-Implemented the current-base modulus interface, successful-result cache,
-full applied-type opaque dispatch, and selective Fin/interface regressions.
-The historical closed Fin baseline required a related constructor-equality
-correction; its original Valid/Falsified expectations were preserved.
+The supplied snapshot already implements the current-base modulus interface,
+successful-result cache, full applied-type opaque dispatch, and selective
+Fin/interface regressions. This job preserves those executable files and updates
+the baseline evidence and ticket report. The fresh validation record below is
+separate from the inherited implementation history.
 
-**Acceptance is not fully complete:** the standalone baseline passes with the
-installed cvc5 1.4.1 GPL/CoCoA build, but the required execution on ordinary
-**non-CoCoA** cvc5 remains unperformed. This is not a passing non-CoCoA check.
-No binary was downloaded, replaced or relabeled to hide that distinction.
+The owner's 2026-10-27 clarification accepts the worker's **cvc5 1.4.1
+GPL/CoCoA** binary for FFM-07. Non-CoCoA execution is owned by the ci-linux
+cvc5 lane through FFM-10; it is neither a prerequisite nor an acquisition task
+for this job. Earlier statements below calling it an FFM-07 blocker describe
+the superseded scope, not the current acceptance status.
+
+## Inherited implementation and validation history
+
+Everything in this history, through “Retained-implementation verification,”
+was present in the supplied snapshot. Failures, fixes, timings, source/base
+identities and solver runs in those sections are imported evidence, not fresh
+work or executions in this job. The historical constructor-equality correction
+preserved the original Valid/Falsified expectations.
 
 Parent inputs consumed:
 [m1-execution-decision.md](m1-execution-decision.md) and
@@ -360,3 +370,107 @@ distribution and launcher. No acquisition permission was found in the consumed
 decisions or solver distribution artifacts. Provision ordinary non-CoCoA cvc5
 1.3.4 for Linux arm64, or approve scoped acquisition, before claiming full
 acceptance. No native-field support, remote CI run or publication is claimed.
+
+## Current validation: cbce4b6c
+
+### Completed changes and input identity
+
+This job received synthetic root
+`cbce4b6cd82c648ec3419a8e05070bcdb307b082`, tree
+`dc1304fc2c935ded7b7c3913cc0167af2065a832`, as observed with
+`git rev-parse HEAD HEAD^{tree}`. Stack/GitHub establish branch ancestry; this
+record does not infer a new remote integration revision from the local root.
+The reviewed concurrency base and pinned historical source revisions remain
+listed in [baseline-fin.md](baseline-fin.md#scope-and-revisions).
+
+Both required parent decisions were present and read. The pinned historical
+helper at `724e32c3`, cache at `075fc923`, three historical regression files at
+`724e32c3`, and baseline documents at `d95b6bd0` and `724e32c3` were read only.
+The two historical baseline documents agree on behavior and differ in test
+ownership/layout. None was executed or merged.
+
+The implementation was already complete in this supplied snapshot:
+
+- `getNatModulus?` rejects open syntax before normalization/cache access,
+  recognizes literals, reducible aliases and the supported OfNat projection,
+  and caches only successful nonliteral results. It calls `optimizeExpr` in
+  the initialized environment and propagates optimizer errors.
+- `OptimizeEnv.modulusCache` uses `Std.HashMap Lean.Expr Nat`; defaults and
+  positional patterns in `Env.lean` and `OptimizeStack.lean` account for it.
+  No PtrExpr/hashcons infrastructure is imported or `mkExpr` misused.
+- Full applied types reach `translateOpaqueType`; the six existing sorts
+  still use bare-head keys internally.
+- The two pure regression files and standalone cvc5 file retain all their
+  guards, imports and registration boundaries. The supplied constructor-proof
+  comparison correction is retained, not introduced or broadened here.
+
+**This job changes only the baseline document and this ticket report.** It
+records the current source identity, actual solver configuration, the complete
+solver-reaching SMT dump, fresh check results and the corrected CoCoA scope.
+No executable source, existing protected test, script, workflow, toolchain,
+solver pin or expected outcome changes.
+
+### Exact validation commands and outcomes
+
+All commands ran from the repository root on 2026-10-27.
+
+| Exact command | Outcome |
+| --- | --- |
+| `lake --version && lake env lean --version && lake env lean --githash && command -v cvc5 && readlink -f /usr/local/bin/cvc5 && cvc5 --version && cvc5 --show-config && git rev-parse HEAD HEAD^{tree}` | Exit 0. Lean 4.24.0 / `797c613eb9b6d4ec95db23e3e00af9ac6657f24b`, Lake `5.0.0-src+797c613`, cvc5 1.4.1 / `2b2e844`, GPL static path, `cocoa: yes`; root/tree as above. |
+| `PATH="$(dirname "$(readlink -f /usr/local/bin/z3-4.15.2)"):/home/agent/.elan/bin:/usr/bin:/bin"; command -v z3 && z3 --version && make check_blaster` | Exit 0; Z3 4.15.2; clean build, 171 jobs, 85.72 seconds. |
+| `PATH="$(dirname "$(readlink -f /usr/local/bin/z3-4.15.2)"):/home/agent/.elan/bin:/usr/bin:/bin"; command -v z3 && z3 --version && make check_tests` | Exit 0; Z3 4.15.2; 194.58 seconds. Its exact `make test-pure` and `make test-z3` subcommands both passed, 200 and 647 jobs respectively. |
+| `env -u BLASTER_SOLVER -u BLASTER_TIMEOUT -u BLASTER_STRICT_CVC5_RESULTS lake env lean Tests/FiniteField/Interfaces.lean` | Exit 0; all numeric/cache/open-input, error-propagation and sort guards pass; no unexpected messages. |
+| `env -u BLASTER_SOLVER -u BLASTER_TIMEOUT -u BLASTER_STRICT_CVC5_RESULTS lake env lean Tests/FiniteField/FinBaseline.lean` | Exit 0; all Fin guards pass; no unexpected messages. Both direct pure commands ran in an `&&` chain, 2.57 seconds total. |
+| `BLASTER_SOLVER=cvc5 BLASTER_TIMEOUT=120 BLASTER_STRICT_CVC5_RESULTS=1 lake env lean ff-tests/OrdinaryCvc5Baseline.lean` | Exit 0; all standalone guards pass on installed cvc5 1.4.1, 5.46 seconds. |
+| `BLASTER_SOLVER=cvc5 BLASTER_TIMEOUT=120 BLASTER_STRICT_CVC5_RESULTS=1 lake env lean --stdin` | Exit 0, 1.52 seconds; ran all four standalone cases with `dump-smt-lib`. Input and complete query are in the baseline document. Exactly one `check-sat`; no `FiniteField` sort or `#f` field literal. |
+
+The project tests retained lifecycle model-response warnings, including the
+deliberate model-error/timeout/framing diagnostics. The unchanged
+`Tests/Smt/SmtNat/SmtNatMod.lean:37:27` reported Undetermined in this execution;
+line 41:56 reported Valid. The project gate passed; no warning was suppressed,
+test weakened or result changed. Both finite-field modules were built by the
+Z3 aggregate.
+
+A second `lake env lean --stdin` smoke, with `BLASTER_SOLVER`,
+`BLASTER_TIMEOUT` and `BLASTER_STRICT_CVC5_RESULTS` unset, imported only
+`Blaster`. After one `Optimize.main` initialization it looked up a private
+`Nat := 7 * 11` twice and called opaque dispatch on applied `Fin 77`. It
+asserted both results were 77, the cache size was one, and dispatch returned
+none. Output:
+
+```text
+modulus=some (77); repeat=some (77); cached=1; Fin rejected=true
+```
+
+The same smoke executed optimizer-only `1 / 2 = 0`, `3 / 0 = 0`, and
+`1 / 2 = 4` over `Fin 7`: Valid, Valid, Expected Falsified. Exit 0.
+All smoke inputs were passed through stdin; no throwaway source files remain.
+
+A Python byte comparison read
+`git archive HEAD Tests scripts .github lakefile.lean lean-toolchain` and
+compared every archived file with its working-tree bytes. **All 180 protected
+files were unchanged**, including both existing FiniteField modules and
+`Tests/FixedIssues.lean`. Its two final individual imports were already present;
+this job did not append duplicates or alter any earlier import.
+
+### Remaining limitations and current job summary
+
+**FFM-07's revised worker acceptance is satisfied.** The supplied implementation
+passes both prescribed PROJECT checks, both direct pure files, the standalone
+cvc5 baseline and live interface/dump smoke scenarios. The baseline records
+the actual binary's version/configuration and the complete query for its only
+solver-reaching case. Historical and fresh results are explicitly separated.
+
+- The worker run uses cvc5 1.4.1 with CoCoA enabled. Non-CoCoA execution was
+  not performed or provisioned; it belongs to ci-linux through FFM-10 under
+  the owner's clarified scope, not an outstanding FFM-07 prerequisite.
+- The full cvc5, 1.2.1 support-floor and all-solvers lanes, remote CI and
+  maintainer signoff were not executed here. No default-environment `lake test`
+  was run and no publication or aggregate PR change is claimed.
+- No native finite-field support, Residue API, primality/admission check,
+  reconstruction, child package, dedicated target or workflow is added.
+  Normalization remains numeric recognition, not proof or primality evidence.
+- There is no new optimization in this job; the old before/after observations
+  above are inherited correctness timings, not a fresh performance claim.
+
+Final review, aggregate publication and completion signoff remain with Riley.
