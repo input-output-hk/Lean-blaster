@@ -257,7 +257,6 @@ def normPartialCtorApp? (f : Expr) (args : Array Expr) : TranslateEnvT (Option E
 
 /-- Given a ctor application `C x₁ ... xₙ`,
       - try to normalize partially applied Ctor and add result on continuation stack
-      - try to push ctor application within ite/match via funPropagation rule and add result on continuation stack
       - try to apply ctor normalization
          - When restart flag is set:
              - add optimized application on continuation stack
@@ -266,7 +265,6 @@ def normPartialCtorApp? (f : Expr) (args : Array Expr) : TranslateEnvT (Option E
 -/
 def optimizeConstApp (f : Expr) (args : Array Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeContinuity := do
   if let some r ← normPartialCtorApp? f args then return Sum.inl (.InitOptimizeExpr r :: stack)
-  if let some r ← funPropagation? f args (← isAppArg) then return Sum.inl (r :: stack)
   let e ← applyConstAppRules f args
   if ← isRestart then
     resetRestart
