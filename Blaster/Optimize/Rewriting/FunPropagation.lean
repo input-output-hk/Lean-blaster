@@ -71,11 +71,12 @@ def normChoiceApplication?
       let some argInfo ← isMatcher? f | return none
       if args.size ≤ argInfo.arity then return none
       let idxType := argInfo.getFirstDiscrPos - 1
-      let instKey ← mkAppRangeExpr argInfo.instApp 0 argInfo.getFirstAltPos args
+      let instCommonKey ← mkAppRangeExpr argInfo.instApp 0 argInfo.getFirstDiscrPos args
+      let instKey ← mkAppRangeExpr instCommonKey argInfo.getFirstDiscrPos argInfo.getFirstAltPos args
       -- NOTE: We expect that the match sort is of form λ β₁ => ... => βₘ => ∀ α₁ → ... → αₙ to
       -- avoid type inference, which is costly.
       let retType := getAppliedMatchType (← instantiateMatchType argInfo args (instKey? := some instKey)) (args.size - argInfo.arity)
-      let alts ← getMatchAltsAux instKey args argInfo
+      let alts ← getMatchAltsAux instCommonKey args argInfo
       let mut margs := args.take argInfo.arity
       for i in [argInfo.getFirstAltPos : argInfo.arity] do
         let altIdx := i - argInfo.getFirstAltPos
