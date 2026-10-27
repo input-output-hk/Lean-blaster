@@ -42,7 +42,8 @@ def fullyAppliedConst : HashSet Name :=
     ``Nat.mod,
     ``Nat.pow,
     ``String.append,
-    ``String.length
+    ``String.length,
+    ``Blaster.stringReplace
   ]
 
 /-- Return `true` when `e` corresponds to one of the following:
@@ -278,6 +279,12 @@ def getOpaqueSmtEquivFun (f : Expr) (s : SmtSymbol) : TranslateEnvT SmtQualified
   | none => updateFunInstCache f s
   | some smtId => return smtId
 
+/-- Define and cache the SMT counterpart of standard Lean string replacement. -/
+def translateStringReplace (f : Expr) : TranslateEnvT SmtQualifiedIdent := do
+  if let some id := (← get).smtEnv.funInstCache.get? f then return id
+  defineStringReplace
+  updateFunInstCache f leanStringReplaceSymbol
+
 /-- Given `f` a name expression for which a corresponding smt operator exists and `n`
     its corresponding name, and `args` the effective parameters for `f`,
     perform the following actions:
@@ -338,6 +345,7 @@ def translateOpaqueFun (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT
   | ``Nat.sub => translateNatSub f
   | ``String.append => getOpaqueSmtEquivFun f strAppendSymbol
   | ``String.length => getOpaqueSmtEquivFun f strLengthSymbol
+  | ``Blaster.stringReplace => translateStringReplace f
   | _ => throwEnvError "translateOpaqueFun: unexpected opaque operator {n}"
 
 

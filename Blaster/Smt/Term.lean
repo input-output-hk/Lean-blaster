@@ -217,6 +217,18 @@ def strReplaceSymbol : SmtSymbol := mkReservedSymbol "str.replace"
 /-! replace all Smt symbol for String. -/
 def strReplaceAllSymbol : SmtSymbol := mkReservedSymbol "str.replace_all"
 
+/-- Lean replacement, including insertion at every boundary for an empty pattern. -/
+def leanStringReplaceSymbol : SmtSymbol := mkNormalSymbol "@Blaster.stringReplace"
+
+/-- Auxiliary recursion used by Lean's empty-pattern replacement. -/
+def strInsertAtBoundariesSymbol : SmtSymbol := mkNormalSymbol "@Blaster.insertAtBoundaries"
+
+/-- SMT character-at-position symbol. -/
+def strAtSymbol : SmtSymbol := mkReservedSymbol "str.at"
+
+/-- SMT substring symbol. -/
+def strSubstrSymbol : SmtSymbol := mkReservedSymbol "str.substr"
+
 /-! length Smt symbol for String. -/
 def strLengthSymbol : SmtSymbol := mkReservedSymbol "str.len"
 
@@ -368,6 +380,14 @@ def strReplaceSmt (s : SmtTerm) (src : SmtTerm) (dst : SmtTerm) : SmtTerm :=
 /-! Create a String replace all Smt application. -/
 def strReplaceAllSmt (s : SmtTerm) (src : SmtTerm) (dst : SmtTerm) : SmtTerm :=
   mkSimpleSmtAppN strReplaceAllSymbol #[s, src, dst]
+
+/-- Character at the given SMT string position, or the empty string out of bounds. -/
+def strAtSmt (s position : SmtTerm) : SmtTerm :=
+  mkSimpleSmtAppN strAtSymbol #[s, position]
+
+/-- Substring beginning at `start` and containing at most `length` characters. -/
+def strSubstrSmt (s start length : SmtTerm) : SmtTerm :=
+  mkSimpleSmtAppN strSubstrSymbol #[s, start, length]
 
 /-! Create a String length Smt application. -/
 def strLengthSmt (s : SmtTerm) : SmtTerm :=
