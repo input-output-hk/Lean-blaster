@@ -373,6 +373,29 @@ private def defineBinFun
   let yId := smtSimpleVarId ysym
   defineFun fname #[(xsym, top1), (ysym, top2)] ret (fdef xId yId) isRec
 
+/-- Define Lean's standard string replacement. The non-empty-pattern branch uses
+    the SMT primitive. For an empty pattern, the suffix recursion inserts the
+    replacement before each character and once at the end; each step removes one
+    character. All operations stay in the existing SMT string alphabet. -/
+def defineStringReplace : TranslateEnvT Unit := do
+  let sn := mkReservedSymbol "@s"
+  let pn := mkReservedSymbol "@p"
+  let rn := mkReservedSymbol "@r"
+  let source := smtSimpleVarId sn
+  let pattern := smtSimpleVarId pn
+  let replacement := smtSimpleVarId rn
+  let empty : SmtTerm := .StrTerm "\"\""
+  let first := strAtSmt source (natLitSmt 0)
+  let rest := strSubstrSmt source (natLitSmt 1) (subSmt (strLengthSmt source) (natLitSmt 1))
+  let recur := mkSimpleSmtAppN strInsertAtBoundariesSymbol #[rest, replacement]
+  defineFun strInsertAtBoundariesSymbol #[(sn, stringSort), (rn, stringSort)] stringSort
+    (iteSmt (eqSmt source empty) replacement
+      (strAppendSmt replacement (strAppendSmt first recur))) (isRec := true)
+  defineFun leanStringReplaceSymbol #[(sn, stringSort), (pn, stringSort), (rn, stringSort)] stringSort
+    (iteSmt (eqSmt pattern empty)
+      (mkSimpleSmtAppN strInsertAtBoundariesSymbol #[source, replacement])
+      (strReplaceAllSmt source pattern replacement))
+
 /-- Define Nat.sub Smt function, i.e.,
      @Nat.sub x y := (ite (< x y) 0 (- x y))
 -/

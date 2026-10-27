@@ -34,6 +34,7 @@ import Tests.FixedIssues.Issue34
 import Tests.FixedIssues.Issue35
 import Tests.FixedIssues.Issue36
 import Tests.FixedIssues.Issue126
+import Tests.FixedIssues.Issue126StringAPI
 import Tests.FixedIssues.Issue126Structures
 import Tests.FixedIssues.Issue126Chars
 import Tests.FixedIssues.Issue143

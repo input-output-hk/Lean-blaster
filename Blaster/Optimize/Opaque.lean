@@ -1,6 +1,7 @@
 import Lean
 import Blaster.Optimize.Env.Types
 import Blaster.Data.HashSet
+import Blaster.Optimize.String
 import Blaster.Optimize.Decidable
 
 open Lean Meta Blaster.Data.HashSet
@@ -69,8 +70,10 @@ def opaqueFuns : HashSet Name :=
     ``String.toSlice,
     ``String.Slice.copy,
     ``String.Slice.beq,
+    ``Blaster.stringReplace,
     -- String operators
     ``String.append,
+    ``String.replace,
     ``String.length
   ]
 

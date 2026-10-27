@@ -97,6 +97,41 @@ def optimizeStrLength (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
     | Expr.lit (Literal.strVal s) => mkNatLitExpr (String.length s)
     | _ => return none
 
+/-- Specialize only the standard String-pattern/String-replacement searcher.
+    All implicit parameters are compared with the native wrapper, so user-supplied
+    iterator/searcher instances cannot silently acquire standard SMT semantics. -/
+def normStringReplace (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
+  let params := (← getFunEnvInfo f).paramsInfo
+  unless args.size == params.size do
+    throwEnvError "String.replace: fully applied standard string replacement expected"
+  let explicitArgs := (args.zip params).filterMap fun (arg, param) =>
+    if param.isExplicit then some arg else none
+  let #[source, pattern, replacement] := explicitArgs
+    | throwEnvError "String.replace: expected source, pattern and replacement arguments"
+  let .defnInfo info ← getConstEnvInfo ``Blaster.stringReplace
+    | throwEnvError "String.replace: standard wrapper definition expected"
+  let canonical := info.value.beta explicitArgs
+  let expected := canonical.getAppArgs
+  unless canonical.getAppFn' == f && expected.size == args.size do
+    throwEnvError "String.replace: only the standard String pattern and String replacement instances are supported"
+  for ((actual, standard), param) in (args.zip expected).zip params do
+    if !param.isExplicit then
+      unless ← isDefEq actual standard do
+        throwEnvError "String.replace: only the standard String pattern and String replacement instances are supported"
+  setRestart
+  mkApp3Expr (← mkExpr (mkConst ``Blaster.stringReplace)) source pattern replacement
+
+/-- Constant propagation for the monomorphic standard replacement wrapper.
+    Unlike SMT str.replace_all, Lean inserts the replacement at character boundaries
+    for an empty pattern. Translation handles that branch separately. -/
+def optimizeStrReplace (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
+  let #[s, pattern, replacement] := args
+    | throwEnvError "optimizeStrReplace: exactly three arguments expected"
+  if exprEq pattern replacement then return s
+  match isStrValue? s, isStrValue? pattern, isStrValue? replacement with
+  | some source, some pattern, some replacement => mkStrLitExpr (source.replace pattern replacement)
+  | _, _, _ => mkApp3Expr f s pattern replacement
+
 /-- Observe constant slices through their copied string without replacing the slice
     structure itself: structural Slice equality and copied-text equality differ. -/
 def sliceString? (e : Expr) : Option String :=
@@ -134,6 +169,8 @@ def optimizeString? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr)
  | ``String.toList => optimizeStrToList f args
  | ``String.append => optimizeStrAppend f args
  | ``String.length => optimizeStrLength f args
+ | ``String.replace => normStringReplace f args
+ | ``Blaster.stringReplace => optimizeStrReplace f args
  | ``String.Slice.copy => optimizeSliceCopy f args
  | ``String.Slice.beq => optimizeSliceBeq f args
  | _ => return none
