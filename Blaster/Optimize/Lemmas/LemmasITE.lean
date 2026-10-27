@@ -14,4 +14,37 @@ protected theorem dite'_false {α : Sort u} : @Blaster.dite' α False = fun _ e 
   funext fun t => funext fun e =>
     (congrFun (congrFun (congrFun (congrFun (congrFun Blaster.dite_equiv.{u} α) False) instDecidableFalse) t) e).symm
 
+/-! ## Lemmas validating the `Blaster.dite'` reductions
+  - `sif h : c then e1 else e2 ==> e1   (e1 =ₚₜᵣ e2)`
+  - `(sif h : ¬ c then e1 else e2) x₁ … xₙ ==> (sif h : c then e2 else e1) x₁ … xₙ`
+  - `(sif h : false = c then e1 else e2) x₁ … xₙ  ==> (sif h : true = c then e2 else e1) x₁ … xₙ`
+  - `sif h : c then e1 else e2 ==> (h : c → e1) ∧ (h : ¬ c → e2)   (Type(e1) = Prop)`
+-/
+protected theorem dite'_abs {α : Sort u} {c : Prop} [Decidable c] (a : α) :
+  @Blaster.dite' α c (fun _ : c => a) (fun _ : ¬ c => a) = a := by
+  unfold Blaster.dite'
+  split <;> rfl
+
+protected theorem dite'_prop_iff {c : Prop} [Decidable c] (t : c → Prop) (e : ¬ c → Prop) :
+    @Blaster.dite' Prop c t e ↔ ((∀ h : c, t h) ∧ (∀ h : ¬ c, e h)) := by
+  unfold Blaster.dite'
+  split <;> rename_i hdec
+  · have hc : c := (Blaster.decide'_true c).mp hdec
+    exact ⟨fun h => ⟨fun h' => Eq.mp (congrArg t (Subsingleton.elim hc h')) h,
+                      fun h' => (h' hc).elim⟩,
+           fun h => h.1 hc⟩
+  · have hnc : ¬ c := (Blaster.decide'_false c).mp hdec
+    exact ⟨fun h => ⟨fun h' => (hnc h').elim,
+                      fun h' => Eq.mp (congrArg e (Subsingleton.elim hnc h')) h⟩,
+           fun h => h.2 hnc⟩
+
+protected theorem dite'_prop_eq {c : Prop} [Decidable c] (t : c → Prop) (e : ¬ c → Prop) :
+    @Blaster.dite' Prop c t e = ((∀ h : c, t h) ∧ (∀ h : ¬ c, e h)) :=
+  propext (Blaster.dite'_prop_iff t e)
+
+protected theorem dite'_not_swap {α : Sort u} {c : Prop} [Decidable c]
+    (t : ¬ c → α) (e : ¬ ¬ c → α) :
+    @Blaster.dite' α (¬ c) t e =
+      @Blaster.dite' α c (fun h : c => e (not_not_intro h)) t := by
+  sorry
 end Blaster

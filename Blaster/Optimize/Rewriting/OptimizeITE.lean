@@ -18,6 +18,7 @@ namespace Blaster.Optimize
 -/
 def diteToPropExpr? (iteType: Expr) (cond : Expr) (thn : Expr) (els : Expr) : TranslateEnvT (Option Expr) := do
   if !iteType.isProp then return none
+  pushProofStep (.rewrite (← mkAppM ``Blaster.dite'_prop_eq #[thn, els]))
   let leftAnd ← toImpliesExpr thn cond
   let rightAnd ← toImpliesExpr els (mkApp (← mkPropNotOp) cond)
   return mkApp2 (← mkPropAndOp) leftAnd rightAnd
@@ -283,7 +284,9 @@ def optimizeDITE (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let e := args[3]!
  let thenExpr ← extractDependentITEExpr t
  let elseExpr ← extractDependentITEExpr e
- if exprEq thenExpr elseExpr then return betaLambda t #[← mkOfDecideEqProof c true]
+ if exprEq thenExpr elseExpr then
+  pushProofStep (.rewrite (← mkAppOptM ``Blaster.dite'_abs #[some iteType, some c, none, some thenExpr]))
+  return betaLambda t #[← mkOfDecideEqProof c true]
  if let some r ← diteFactorize? c t e then return r
  return mkApp4 f iteType c t e
 

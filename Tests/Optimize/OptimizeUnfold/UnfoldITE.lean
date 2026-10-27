@@ -13,7 +13,7 @@ namespace Tests.UnfoldITE
 #testOptimize [ "UnfoldIte_1" ] ∀ (c : Bool) (p : Prop), if c then p else p ===> ∀ (p : Prop), p
 
 -- ∀ (c : Bool) (x y : Int), (if c then x else x) < y ===> ∀ (x y : Int), x < y
-#testOptimize [ "UnfoldIte_2" ] ∀ (c : Bool) (x y : Int), (if c then x else x) < y ===>
+#testOptimize [ "UnfoldIte_2", proof ] ∀ (c : Bool) (x y : Int), (if c then x else x) < y ===>
                                 ∀ (x y : Int), x < y
 
 -- ∀ (p q : Prop), if True then p else q ===> ∀ (p : Prop), p

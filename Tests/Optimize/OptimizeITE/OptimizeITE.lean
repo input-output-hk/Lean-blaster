@@ -14,7 +14,7 @@ namespace Test.OptimizeITE
                                     ∀ (a : Prop), a
 
 -- ∀ (c a : Prop), if c then a else a ===> ∀ (a : Prop), a
-#testOptimize [ "IteAbsorption_2" ] ∀ (c a : Prop), [Decidable c] → if c then a else a ===>
+#testOptimize [ "IteAbsorption_2", proof ] ∀ (c a : Prop), [Decidable c] → if c then a else a ===>
                                     ∀ (a : Prop), a
 
 -- ∀ (c : Bool) (a b : Prop), if c then a ∧ b else b ∧ a ===> ∀ (a b : Prop), a ∧ b
@@ -44,7 +44,7 @@ namespace Test.OptimizeITE
 
 -- ∀ (c : Bool) (x y : Nat), (if c then (40 + x) - 40 else x) < y ===>
 -- ∀ (x y : Nat), x < y
-#testOptimize [ "IteAbsorption_8" ] ∀ (c : Bool) (x y : Nat), (if c then (40 + x) - 40 else x) < y ===>
+#testOptimize [ "IteAbsorption_8", proof ] ∀ (c : Bool) (x y : Nat), (if c then (40 + x) - 40 else x) < y ===>
                                     ∀ (x y : Nat), x < y
 
 -- ∀ (c : Bool), if c then ∀ (x y : Int), x > y else ∀ (z y : Int), y < z ===>
@@ -98,7 +98,7 @@ namespace Test.OptimizeITE
 
 -- ∀ (c : Bool) (x y : Nat), ((if c then (40 + x) - 40 else x) < y) = (x < y) ===> True
 -- Test case to validate expression caching after rewriting
-#testOptimize [ "IteAbsorption_18" ] ∀ (c : Bool) (x y : Nat),
+#testOptimize [ "IteAbsorption_18", proof ] ∀ (c : Bool) (x y : Nat),
                                        ((if c then (40 + x) - 40  else x) < y) = (x < y) ===> True
 
 -- ∀ (c : Bool), (if c then ∀ (x y : Int), x > y else ∀ (z y : Int), y < z) = ∀ (x y : Int), y < x ===> True
