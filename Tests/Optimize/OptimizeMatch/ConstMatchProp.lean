@@ -837,7 +837,88 @@ def beqColorDegree : Color → Color → (Nat → Prop)
     (fun (_ : Unit) => True)
     (fun (_ : Color) (_ : Color) => False)
 
+/-! Test cases to validate ite/match over match constant propagation when the match type of the
+    embedded match is a dependent lambda (indexed inductive datatype in the discriminators and/or in
+    the return type). The pulled ite/match must get the return type of the embedded match. -/
+
+inductive FnIdx : Nat → Type where
+  | z : FnIdx 0
+  | s : FnIdx 1
+
+def fnVal (n : Nat) (v : FnIdx n) : Nat :=
+  match n, v with
+  | .(0), .z => 1
+  | .(1), .s => 2
+
+def fnOut (n : Nat) (v : FnIdx n) : FnIdx n :=
+  match n, v with
+  | .(0), .z => .z
+  | .(1), .s => .s
+
+def mkFn : (b : Bool) → FnIdx (cond b 0 1)
+  | true => .z
+  | false => .s
+
+def idxO : Option Nat → Nat
+  | none => 0
+  | some _ => 1
+
+def mkFnO : (o : Option Nat) → FnIdx (idxO o)
+  | none => .z
+  | some _ => .s
+
+-- ∀ (b : Bool), fnVal (cond b 0 1) (mkFn b) = 1 ===> ∀ (b : Bool), true = b
+-- NOTE: both discriminators are normalized to `dite'` (`cond b 0 1` and `mkFn b`); the pulled `dite'`
+-- gets the closed return type `Nat` of the embedded match and the match is reduced in each branch.
+#testOptimize [ "IteOverMatch_6" ]
+  ∀ (b : Bool), fnVal (cond b 0 1) (mkFn b) = 1 ===> ∀ (b : Bool), true = b
+
+-- ∀ (b : Bool) (m : Nat), fnVal (cond b 0 1) (mkFn b) = m ===>
+-- ∀ (b : Bool) (m : Nat), m = Blaster.dite' (true = b) (fun _ => 1) (fun _ => 2)
+#testOptimize [ "IteOverMatch_7" ] (norm-result: 1)
+  ∀ (b : Bool) (m : Nat), fnVal (cond b 0 1) (mkFn b) = m ===>
+  ∀ (b : Bool) (m : Nat), m = Blaster.dite' (true = b) (fun _ => 1) (fun _ => 2)
+
+-- ∀ (b : Bool), fnOut (cond b 0 1) (mkFn b) = mkFn b ===> True
+-- NOTE: Test case to validate the sort of the pulled `dite'` when the return type of the embedded
+-- match depends on a discriminator (`FnIdx n`): the sort is the return type instantiated with the
+-- discriminators of the embedded match (`FnIdx (cond b 0 1)`), and the match is reduced in each branch.
+#testOptimize [ "IteOverMatch_8" ]
+  ∀ (b : Bool), fnOut (cond b 0 1) (mkFn b) = mkFn b ===> True
+
+-- ∀ (o : Option Nat) (m : Nat), fnVal (idxO o) (mkFnO o) = m ===>
+-- ∀ (o : Option Nat) (m : Nat),
+--   m = idxO.match_1 (fun (_ : Option Nat) => Nat) o (fun (_ : Unit) => 1) (fun (_ : Nat) => 2)
+-- NOTE: both discriminators are matches on `o` kept as matches (`some _` pattern); the pulled match
+-- gets the closed return type `Nat` of the embedded match and the match is reduced in each alternative.
+#testOptimize [ "MatchOverMatch_7" ] (norm-result: 1)
+  ∀ (o : Option Nat) (m : Nat), fnVal (idxO o) (mkFnO o) = m ===>
+  ∀ (o : Option Nat) (m : Nat),
+    m = match o with
+        | none => 1
+        | some _ => 2
+
+-- ∀ (o : Option Nat), fnOut (idxO o) (mkFnO o) = mkFnO o ===> True
+-- NOTE: the return type of the embedded match depends on a discriminator (`FnIdx n`); the result is
+-- correct as the pulled match is reduced in each alternative and the equality is reduced to `True`.
+#testOptimize [ "MatchOverMatch_8" ]
+  ∀ (o : Option Nat), fnOut (idxO o) (mkFnO o) = mkFnO o ===> True
+
+-- ∀ (o : Option Nat) (y : FnIdx (idxO o)), fnOut (idxO o) (mkFnO o) = y ===>
+-- ∀ (o : Option Nat) (y : FnIdx (idxO.match_1 (fun (_ : Option Nat) => Nat) o (fun _ => 0) (fun _ => 1))),
+--   y = idxO.match_1 (fun (o : Option Nat) => FnIdx (idxO.match_1 (fun _ => Nat) o (fun _ => 0) (fun _ => 1))) o
+--       (fun (_ : Unit) => FnIdx.z)
+--       (fun (_ : Nat) => FnIdx.s)
+-- NOTE: Test case to validate the return type of the pulled match when the return type of the
+-- embedded match depends on a discriminator (`FnIdx n` with `n := idxO o`). The expected motive is
+-- the one elaborated by Lean: the return type of the embedded match is instantiated with its
+-- discriminators (`FnIdx (idxO o)`) and the discriminator `o` of the pulled match is then abstracted
+-- by the motive's own binder.
+#testOptimize [ "MatchOverMatch_9" ] (norm-result: 1)
+  ∀ (o : Option Nat) (y : FnIdx (idxO o)), fnOut (idxO o) (mkFnO o) = y ===>
+  ∀ (o : Option Nat) (y : FnIdx (match o with | none => 0 | some _ => 1)),
+    y = match (generalizing := false) o with
+        | none => FnIdx.z
+        | some _ => FnIdx.s
+
 end Tests.ConstMatchProp
-
-
-

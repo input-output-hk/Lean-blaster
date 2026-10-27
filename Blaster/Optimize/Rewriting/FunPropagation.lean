@@ -5,6 +5,18 @@ import Blaster.Optimize.Rewriting.OptimizeMatch
 open Lean Meta Elab
 namespace Blaster.Optimize
 
+/-- Given,
+     - `t := ∀ α₁ → ∀ α₂ → ... → αₙ` corresponding to a match expression
+        returning functions as rhs; and
+     - `nbArgs ∈ [0..n]` corresponding to the number of extra arguments applied to the match expression; and
+     - α'₁, ..., α'ₘ := [ αᵢ | i ∈ [nbArgs, n] ]
+    Return:
+      - `∀ α'₁ → ∀ α'₂ → ... → α'ₘ
+    Note that the returned type will correspond to αₙ when nbArgs = n.
+-/
+def getAppliedMatchType (t : Expr) (nbArgs : Nat) : Expr :=
+  (getLambdaBody t).getForallBodyMaxDepth nbArgs
+
 /-- Given application `f x₁ ... xₙ`, apply the following normalization rules:
      - When `f := Blaster.dite' c (fun h : c => t₁) (fun h : ¬ c => t₂)`
        Return
@@ -59,16 +71,17 @@ def normChoiceApplication?
       let some argInfo ← isMatcher? f | return none
       if args.size ≤ argInfo.arity then return none
       let idxType := argInfo.getFirstDiscrPos - 1
+      let instKey ← mkAppRangeExpr argInfo.instApp 0 argInfo.getFirstAltPos args
       -- NOTE: We expect that the match sort is of form λ β₁ => ... => βₘ => ∀ α₁ → ... → αₙ to
       -- avoid type inference, which is costly.
-      let retType := getAppliedMatchType args[idxType]! (args.size - argInfo.arity)
-      let alts ← getMatchAlts args argInfo
+      let retType := getAppliedMatchType (← instantiateMatchType argInfo args (instKey? := some instKey)) (args.size - argInfo.arity)
+      let alts ← getMatchAltsAux instKey args argInfo
       let mut margs := args.take argInfo.arity
       for i in [argInfo.getFirstAltPos : argInfo.arity] do
         let altIdx := i - argInfo.getFirstAltPos
         margs ← margs.modifyM i (mkAppInRhs args argInfo.arity args.size alts[altIdx]!.getNumHeadForalls)
       -- update match return type
-      margs ← margs.modifyM idxType (updateMatchReturnType retType)
+      margs ← margs.modifyM idxType (updateMatchReturnType argInfo margs retType)
       return some (.AppOptimizeImplicitArgs f margs argInfo.arity 0 argInfo.arity (← getFunEnvInfo f) prevInApp)
 
 /-- Apply the following propagation rules on any function application `fn e₁ ... eₙ`
@@ -216,7 +229,7 @@ def funPropagation?
           let retType ← inferAppType pInfo.type args
           let alts ← getMatchAlts pargs argInfo
           -- NOTE: we also need to set the return type for pulled over match to meet the function's return type
-          let mut pargs ← pargs.modifyM idxType (updateMatchReturnType retType)
+          let mut pargs ← pargs.modifyM idxType (updateMatchReturnType argInfo pargs retType)
           for i in [argInfo.getFirstAltPos : argInfo.arity] do
             let altIdx := i - argInfo.getFirstAltPos
             -- NOTE: No need to propagate the reuse context as match name has not changed

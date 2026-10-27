@@ -22,87 +22,85 @@ deriving Repr
 
 
 @[always_inline, inline]
-private unsafe def instantiateSharedRevRangeAux (e : Expr) (offset n : USize) (subst : Array Expr) : TranslateEnvT Expr := do
+private unsafe def instantiateSharedRevRangeAux (ie : Expr) (offset n : USize) (subst : Array Expr) : TranslateEnvT Expr := do
  let rec go (cur : Expr) (isResult : Bool) (offset : USize) (stk : Array InstantiateStack) (cache : InstCache) : TranslateEnvT Expr := do
   if isResult then
-      let r := cur
-      if stk.usize > 0 then
-        let topIdx := stk.usize - 1
-        let next := stk.uget topIdx lcProof
-        match next with
-        | .WaitAppFun e a offset' =>
-             let stk := stk.uset topIdx (.WaitAppArg e r offset') lcProof
-             go a false offset' stk cache
-        | .WaitAppArg e f offset' =>
-             let r' ← e.updateAppExpr! f r
-             go r' true offset stk.pop (cache.insert (mkInstKey e offset') r')
-        | .WaitForallType e b offset' =>
-             let stk := stk.uset topIdx (.WaitForallBody e r offset') lcProof
-             go b false (offset' + 1) stk cache
-        | .WaitForallBody e t offset' =>
-             let r' ← e.updateForallExpr! t r
-             go r' true offset stk.pop (cache.insert (mkInstKey e offset') r')
-        | .WaitLambdaType e b offset' =>
-             let stk := stk.uset topIdx (.WaitLambdaBody e r offset') lcProof
-             go b false (offset' + 1) stk cache
-        | .WaitLambdaBody e t offset' =>
-             let r' ← e.updateLambdaExpr! t r
-             go r' true offset stk.pop (cache.insert (mkInstKey e offset') r')
-        | .WaitLetType e v b offset' =>
-             let stk := stk.uset topIdx (.WaitLetValue e r b offset') lcProof
-             go v false offset' stk cache
-        | .WaitLetValue e t b offset' =>
-             let stk := stk.uset topIdx (.WaitLetBody e t r offset') lcProof
-             go b false (offset' + 1) stk cache
-        | .WaitLetBody e t v offset' =>
-             let r' ← e.updateLetExpr! t v r
-             go r' true offset stk.pop (cache.insert (mkInstKey e offset') r')
-        | .WaitMData e offset' =>
-             let r' ← e.updateMDataExpr! r
-             go r' true offset stk.pop (cache.insert (mkInstKey e offset') r')
-        | .WaitProjExpr e offset' =>
-             let r' ← e.updateProjExpr! r
-             go r' true offset stk.pop (cache.insert (mkInstKey e offset') r')
-      else return r
+    if stk.usize > 0 then
+      let topIdx := stk.usize - 1
+      let next := stk.uget topIdx lcProof
+      match next with
+      | .WaitAppFun e a offset' =>
+           let stk := stk.uset topIdx (.WaitAppArg e cur offset') lcProof
+           go a false offset' stk cache
+      | .WaitAppArg e f offset' =>
+           let r' ← e.updateAppExpr! f cur
+           go r' true offset stk.pop (cache.insert (mkInstKey e offset') r')
+      | .WaitForallType e b offset' =>
+           let stk := stk.uset topIdx (.WaitForallBody e cur offset') lcProof
+           go b false (offset' + 1) stk cache
+      | .WaitForallBody e t offset' =>
+           let r' ← e.updateForallExpr! t cur
+           go r' true offset stk.pop (cache.insert (mkInstKey e offset') r')
+      | .WaitLambdaType e b offset' =>
+           let stk := stk.uset topIdx (.WaitLambdaBody e cur offset') lcProof
+           go b false (offset' + 1) stk cache
+      | .WaitLambdaBody e t offset' =>
+           let r' ← e.updateLambdaExpr! t cur
+           go r' true offset stk.pop (cache.insert (mkInstKey e offset') r')
+      | .WaitLetType e v b offset' =>
+           let stk := stk.uset topIdx (.WaitLetValue e cur b offset') lcProof
+           go v false offset' stk cache
+      | .WaitLetValue e t b offset' =>
+           let stk := stk.uset topIdx (.WaitLetBody e t cur offset') lcProof
+           go b false (offset' + 1) stk cache
+      | .WaitLetBody e t v offset' =>
+           let r' ← e.updateLetExpr! t v cur
+           go r' true offset stk.pop (cache.insert (mkInstKey e offset') r')
+      | .WaitMData e offset' =>
+           let r' ← e.updateMDataExpr! cur
+           go r' true offset stk.pop (cache.insert (mkInstKey e offset') r')
+      | .WaitProjExpr e offset' =>
+           let r' ← e.updateProjExpr! cur
+           go r' true offset stk.pop (cache.insert (mkInstKey e offset') r')
+    else return cur
   else
-      let e := cur
-      if offset.toNat >= e.looseBVarRange
-      then go e true offset stk cache
+    if offset.toNat >= cur.looseBVarRange
+    then go cur true offset stk cache
+    else
+      let cached := cache.getD (mkInstKey cur offset) instCacheMiss
+      if !exprEq cached instCacheMiss then go cached true offset stk cache
       else
-        let cached := cache.getD (mkInstKey e offset) instCacheMiss
-        if !exprEq cached instCacheMiss then go cached true offset stk cache
-        else
-           match e with
-           | .bvar idx =>
-               let idx' := idx.toUSize
-               if idx' >= offset then
-                 if idx' < offset + n then
-                    let r := subst.uget (n - (idx' - offset) - 1) lcProof
-                    go r true offset stk (cache.insert (mkInstKey e offset) r)
-                 else
-                   let r ← mkBVarExpr (idx - n.toNat)
-                   go r true offset stk (cache.insert (mkInstKey e offset) r)
-               else go e true offset stk (cache.insert (mkInstKey e offset) e)
-           | .app f a =>
-                let stk := stk.push (.WaitAppFun e a offset)
-                go f false offset stk cache
-           | .letE _ t v b _ =>
-                let stk := stk.push (.WaitLetType e v b offset)
-                go t false offset stk cache
-           | .forallE _ t b _ =>
-                let stk := stk.push (.WaitForallType e b offset)
-                go t false offset stk cache
-           | .lam _ t b _ =>
-                let stk := stk.push (.WaitLambdaType e b offset)
-                go t false offset stk cache
-           | .mdata _ b =>
-                let stk := stk.push (.WaitMData e offset)
-                go b false offset stk cache
-           | .proj _ _ b =>
-                let stk := stk.push (.WaitProjExpr e offset)
-                go b false offset stk cache
-           | _ => unreachable! -- const/fvar/mvar/sort/lit are unreachable
- go e false offset (Array.emptyWithCapacity (e.approxDepth.toNat + 16)) (HashMap.emptyWithCapacity 64)
+         match cur with
+         | .bvar idx =>
+             let idx' := idx.toUSize
+             if idx' >= offset then
+               if idx' < offset + n then
+                  let r := subst.uget (n - (idx' - offset) - 1) lcProof
+                  go r true offset stk (cache.insert (mkInstKey cur offset) r)
+               else
+                 let r ← mkBVarExpr (idx - n.toNat)
+                 go r true offset stk (cache.insert (mkInstKey cur offset) r)
+             else go cur true offset stk (cache.insert (mkInstKey cur offset) cur)
+         | .app f a =>
+              let stk := stk.push (.WaitAppFun cur a offset)
+              go f false offset stk cache
+         | .letE _ t v b _ =>
+              let stk := stk.push (.WaitLetType cur v b offset)
+              go t false offset stk cache
+         | .forallE _ t b _ =>
+              let stk := stk.push (.WaitForallType cur b offset)
+              go t false offset stk cache
+         | .lam _ t b _ =>
+              let stk := stk.push (.WaitLambdaType cur b offset)
+              go t false offset stk cache
+         | .mdata _ b =>
+              let stk := stk.push (.WaitMData cur offset)
+              go b false offset stk cache
+         | .proj _ _ b =>
+              let stk := stk.push (.WaitProjExpr cur offset)
+              go b false offset stk cache
+         | _ => unreachable! -- const/fvar/mvar/sort/lit are unreachable
+ go ie false offset (Array.emptyWithCapacity (ie.approxDepth.toNat + 16)) (HashMap.emptyWithCapacity 64)
 
 /--
 Similar to `Lean.Expr.instantiateRevRange` but assume the input is maximally shared and ensure

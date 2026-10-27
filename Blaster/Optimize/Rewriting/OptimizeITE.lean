@@ -318,7 +318,7 @@ def constDITEPropagation? (f : Expr) (dargs : Array Expr) : TranslateEnvT (Optio
           pargs ← pargs.modifyM i (pushDiteInLambda iteType thn els)
         -- NOTE: we also need to set the return type for pulled over match to meet the Dite type.
         let idxType := argInfo.getFirstDiscrPos - 1
-        pargs ← pargs.modifyM idxType (updateMatchReturnType iteType)
+        pargs ← pargs.modifyM idxType (updateMatchReturnType argInfo pargs iteType)
         mkAppNExpr argInfo.nameExpr pargs
       else if let some (_psort, pcond, e1, e2) := dite'? m then
         let e1' ← pushDiteInLambda iteType thn els e1

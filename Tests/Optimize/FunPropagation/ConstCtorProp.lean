@@ -811,4 +811,51 @@ def beqColorDegree : Color → Color → (Nat → Bool)
                  (fun _ => [.red .black, .red .black])
                  (fun _ => [.red .transparent, .red .transparent]))) )
 
+/-! Test cases to validate match over constructor propagation when the match type is a dependent
+    lambda (indexed inductive datatype in the discriminators and/or in the return type). -/
+
+inductive FnIdx : Nat → Type where
+  | z : FnIdx 0
+  | s : FnIdx 1
+
+def fnVal (n : Nat) (v : FnIdx n) : Nat :=
+  match n, v with
+  | .(0), .z => 1
+  | .(1), .s => 2
+
+def fnOut (n : Nat) (v : FnIdx n) : FnIdx n :=
+  match n, v with
+  | .(0), .z => .z
+  | .(1), .s => .s
+
+-- ∀ (k : Nat) (w : FnIdx k) (x : Option Nat), some (fnVal k w) = x ===>
+-- ∀ (k : Nat) (w : FnIdx k) (x : Option Nat),
+--   x = fnVal.match_1 (fun (n : Nat) (_ : FnIdx n) => Option Nat) k w
+--       (fun (_ : Unit) => some 1)
+--       (fun (_ : Unit) => some 2)
+-- NOTE: Test case to validate that the match type with a dependent binder (`v : FnIdx n`) is kept
+-- when the constructor is pushed in the alternatives (the return type `Nat` is closed).
+#testOptimize [ "MatchOverCtor_7" ] (norm-result: 1)
+  ∀ (k : Nat) (w : FnIdx k) (x : Option Nat), some (fnVal k w) = x ===>
+  ∀ (k : Nat) (w : FnIdx k) (x : Option Nat),
+    x = match k, w with
+        | .(0), .z => some 1
+        | .(1), .s => some 2
+
+-- ∀ (k : Nat) (w : FnIdx k) (y : Option (FnIdx k)), some (fnOut k w) = y ===>
+-- ∀ (k : Nat) (w : FnIdx k) (y : Option (FnIdx k)),
+--   y = fnVal.match_1 (fun (n : Nat) (_ : FnIdx n) => Option (FnIdx n)) k w
+--       (fun (_ : Unit) => some FnIdx.z)
+--       (fun (_ : Unit) => some FnIdx.s)
+-- NOTE: Test case to validate the return type of the pushed match when the return type of the
+-- original match depends on a discriminator (`FnIdx n`). The expected motive is the one elaborated
+-- by Lean (`Option (FnIdx n)`, which is the only well-typed one as `some FnIdx.z : Option (FnIdx 0)`):
+-- the discriminator `k` is abstracted in the return type `Option (FnIdx k)` of the constructor application.
+#testOptimize [ "MatchOverCtor_8" ] (norm-result: 1)
+  ∀ (k : Nat) (w : FnIdx k) (y : Option (FnIdx k)), some (fnOut k w) = y ===>
+  ∀ (k : Nat) (w : FnIdx k) (y : Option (FnIdx k)),
+    y = match (generalizing := false) k, w with
+        | .(0), .z => some FnIdx.z
+        | .(1), .s => some FnIdx.s
+
 end Tests.ConstCtorProp
