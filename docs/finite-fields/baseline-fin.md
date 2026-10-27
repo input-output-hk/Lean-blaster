@@ -7,7 +7,7 @@ layout. Numeric modulus recognition and full applied-type opaque dispatch do
 **not** add native finite-field support. `Fin n` remains unsupported as a
 quantified SMT sort, and `Fin.div` remains truncating natural-number division.
 
-Inputs observed on 2026-10-27:
+Initial implementation inputs recorded on 2026-10-27 (inherited evidence):
 
 | Input | Revision / identity |
 | --- | --- |
@@ -24,6 +24,26 @@ Inputs observed on 2026-10-27:
 Tree identity is not local ancestry. The stack owns integration publication.
 The [execution](m1-execution-decision.md) and
 [toolchain](m1-toolchain-decision.md) parent decisions are retained unchanged.
+
+### Supplied snapshot for this validation
+
+This job received synthetic root
+`efe012c60a7b628b3e94a7d5620634d2794e5aca`, tree
+`3c821aff3798d4d2303da1a57d4b45e9a80c7206`. The helper, cache, applied-type
+dispatch, all three regression files and their two aggregate imports were
+already present. They are retained unchanged; this job does not claim to have
+introduced them. The earlier source/base identities above remain historical
+evidence, not a newly observed remote integration tip.
+
+The installed compiler still reports Lean 4.24.0 at
+`797c613eb9b6d4ec95db23e3e00af9ac6657f24b`; Lake reports
+`5.0.0-src+797c613`. cvc5 reports 1.4.1, revision `2b2e844`, and `cocoa: yes`.
+An ignored/hidden-inclusive search for cvc5 artifacts under `/opt`,
+`/usr/local`, `/usr/bin`, `/workspace`, `/cache`, `/home/agent` and `/tmp`
+found only the installed GPL distribution and its launcher, not an ordinary
+non-CoCoA executable. The FFM-03/FFM-09 distribution decisions select GPL/CoCoA
+artifacts; they do not supply the missing non-CoCoA prerequisite. No solver was
+downloaded, replaced or reclassified.
 
 ### Pinned historical inputs: read, not rerun
 
@@ -143,10 +163,17 @@ smoke evidence, initial failures and remaining validation limits. No native FF
 solving, checked primality, new trust axiom, proof reconstruction, child-package
 harness or remote CI execution is claimed here.
 
-The final validation refresh again passed both direct pure files, both exact
-PROJECT checks (including `make test-pure` and `make test-z3`), and the standalone
-file on the installed GPL/CoCoA binary. Fresh stdin smoke runs reproduced the
-cache, truncating-division and ordinary integer-query observations. The
-[ticket report's final validation refresh](ffm-07-ticket-report.md#final-validation-refresh)
-records the commands and timings separately from the initial implementation
-run. The required execution without CoCoA remains outstanding.
+Validation on supplied snapshot `efe012c6` passed both direct pure files,
+both exact PROJECT checks (including `make test-pure` and `make test-z3`),
+and the standalone file on the installed GPL/CoCoA binary. Fresh stdin smoke
+runs reproduced the cache, truncating-division and ordinary integer-query
+observations. The
+[current ticket report](ffm-07-ticket-report.md#validation-of-supplied-snapshot-efe012c6)
+records the commands and outcomes separately from inherited implementation
+results. The required execution without CoCoA remains outstanding.
+
+The [retained-implementation verification](ffm-07-ticket-report.md#retained-implementation-verification)
+records another execution against the supplied implementation: clean build
+91.18 seconds, pure/Z3 project checks 195.74 seconds, both direct pure files
+passing, and standalone GPL/CoCoA cvc5 passing. No executable files changed.
+This evidence still does not satisfy the required non-CoCoA execution.

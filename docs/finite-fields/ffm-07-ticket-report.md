@@ -252,3 +252,111 @@ Installation/staging searches again found no non-CoCoA executable. The sole
 remaining acceptance prerequisite is unchanged: provision ordinary non-CoCoA
 cvc5, or approve its scoped acquisition, then run the standalone baseline.
 These successful checks do not close that prerequisite or claim full acceptance.
+
+## Validation of supplied snapshot efe012c6
+
+This job received synthetic root
+`efe012c60a7b628b3e94a7d5620634d2794e5aca`, tree
+`3c821aff3798d4d2303da1a57d4b45e9a80c7206`, as reported by
+`git rev-parse HEAD HEAD^{tree}`. All executable FFM-07 changes and regression
+registrations described above were already present. This job changes only this
+report and `baseline-fin.md`; no Lean source, existing test, script, workflow,
+solver manifest or toolchain pin is changed.
+
+The parent decisions remain present. Inspection confirmed the structural
+`Expr` success cache, pre-normalization open-input rejection, one-time optimizer
+initialization in the interface tests, and full applied-type opaque dispatch.
+The three historical regression sources at `724e32c3` were read, not executed.
+The initial failures and before/after measurements above are inherited records,
+not failures reproduced or fixes introduced in this job.
+
+### Fresh commands and outcomes
+
+| Exact command | Outcome |
+| --- | --- |
+| `lake --version && lean --version && cvc5 --version && cvc5 --show-config` | Exit 0; Lake `5.0.0-src+797c613`, Lean 4.24.0 / `797c613eb9b6d4ec95db23e3e00af9ac6657f24b`, cvc5 1.4.1 / `2b2e844`, `cocoa: yes`. |
+| `readlink -f /usr/local/bin/cvc5` | Exit 0; `/opt/cvc5-Linux-arm64-static-gpl/bin/cvc5`. |
+| `PATH="$(dirname "$(readlink -f /usr/local/bin/z3-4.15.2)"):/home/agent/.elan/bin:/usr/bin:/bin"; command -v z3 && z3 --version && make check_blaster` | Pass; Z3 4.15.2, 171 jobs, 93.03 seconds. |
+| `PATH="$(dirname "$(readlink -f /usr/local/bin/z3-4.15.2)"):/home/agent/.elan/bin:/usr/bin:/bin"; command -v z3 && z3 --version && make check_tests` | Pass; 191.64 seconds. Its exact `make test-pure` and `make test-z3` subcommands passed, 200 and 647 jobs respectively. |
+| `env -u BLASTER_SOLVER -u BLASTER_TIMEOUT -u BLASTER_STRICT_CVC5_RESULTS lake env lean Tests/FiniteField/Interfaces.lean` | Pass; no unexpected messages. |
+| `env -u BLASTER_SOLVER -u BLASTER_TIMEOUT -u BLASTER_STRICT_CVC5_RESULTS lake env lean Tests/FiniteField/FinBaseline.lean` | Pass; no unexpected messages. The two direct pure commands ran in an `&&` chain, 2.65 seconds total. |
+| `BLASTER_SOLVER=cvc5 BLASTER_TIMEOUT=120 BLASTER_STRICT_CVC5_RESULTS=1 lake env lean ff-tests/OrdinaryCvc5Baseline.lean` | Pass; 1.66 seconds, on the installed GPL/CoCoA binary only. |
+
+The test gate retained the lifecycle model-response warnings. In this run,
+`Tests/Smt/SmtNat/SmtNatMod.lean:37:27` reported Valid. Both finite-field
+regression modules were built by the Z3 aggregate. No default-environment
+`lake test` was run.
+
+Two fresh `lake env lean --stdin` smoke executions also exited 0:
+
+- With the three `BLASTER_*` variables unset, a private `Nat := 7 * 11`
+  definition was looked up twice after one `Optimize.main` initialization.
+  Output was `modulus=some (77); repeat=some (77); cached=1; Fin rejected=true`.
+  Applied `Fin 77` returned `none` from opaque dispatch. The optimizer-only
+  goals `(1 : Fin 7) / 2 = 0` and `(3 : Fin 7) / 0 = 0` reported Valid;
+  `(1 : Fin 7) / 2 = 4` reported Expected Falsified.
+- With `BLASTER_SOLVER=cvc5 BLASTER_TIMEOUT=120 BLASTER_STRICT_CVC5_RESULTS=1`,
+  the bounded-Nat distributivity goal from the standalone file ran with
+  `(dump-smt-lib: 1)` and reported Valid. Its emitted query defined Nat as Int,
+  used integer multiplication and `mod`, and issued `check-sat`; no native
+  finite-field sort appeared.
+
+Both smoke inputs were passed through stdin; no throwaway source files remain.
+
+### Remaining prerequisite and job summary
+
+**FFM-07 acceptance remains incomplete solely on the required non-CoCoA
+execution.** Hidden/ignored-inclusive artifact searches under `/opt`,
+`/usr/local`, `/usr/bin`, `/workspace`, `/cache`, `/home/agent` and `/tmp`
+found only the installed GPL distribution and its launcher. Inspection of the
+FFM-03 distribution decision and FFM-09 manifest found GPL/CoCoA profiles, not
+an ordinary non-CoCoA executable or a scoped approval to acquire one here.
+
+Required owner action: provision ordinary non-CoCoA cvc5 for Linux arm64
+(preserving the ordinary 1.3.4 pin), or approve its scoped acquisition.
+Then verify `--version` and `--show-config` (`cocoa: no`) and run the exact
+standalone baseline command with that binary's directory first on PATH.
+The available CoCoA result cannot substitute for this check.
+
+This job preserved the supplied implementation and protected test content,
+refreshed actual snapshot identity and validation evidence, and passed every
+locally runnable requested command. It adds no native-field support and claims
+no cvc5 support-floor/all-solvers lane, remote CI, publication or maintainer
+signoff. The remaining prerequisite is not waived by the successful PROJECT
+checks.
+
+## Retained-implementation verification
+
+The supplied `efe012c6` checkout already contained the executable adaptation and
+all three regression files, plus working-tree edits to this report and
+`baseline-fin.md`. This verification preserves that work. No executable or
+protected file was edited; the only additions are these documentation notes.
+The historical helper and three regression sources at `724e32c3`, and both
+pinned historical baseline documents, were read rather than executed.
+
+Fresh executions from the repository root:
+
+| Exact command | Outcome |
+| --- | --- |
+| `PATH="$(dirname "$(readlink -f /usr/local/bin/z3-4.15.2)"):/home/agent/.elan/bin:/usr/bin:/bin"; command -v z3 && z3 --version && make check_blaster` | Pass; Z3 4.15.2, 171 jobs, 91.18 seconds. |
+| `PATH="$(dirname "$(readlink -f /usr/local/bin/z3-4.15.2)"):/home/agent/.elan/bin:/usr/bin:/bin"; command -v z3 && z3 --version && make check_tests` | Pass; 195.74 seconds; its `make test-pure` and `make test-z3` subcommands passed, 200 and 647 jobs respectively. |
+| `env -u BLASTER_SOLVER -u BLASTER_TIMEOUT -u BLASTER_STRICT_CVC5_RESULTS lake env lean Tests/FiniteField/Interfaces.lean` | Pass; no unexpected messages. |
+| `env -u BLASTER_SOLVER -u BLASTER_TIMEOUT -u BLASTER_STRICT_CVC5_RESULTS lake env lean Tests/FiniteField/FinBaseline.lean` | Pass; no unexpected messages. The two direct pure commands took 3.06 seconds in an `&&` chain. |
+| `BLASTER_SOLVER=cvc5 BLASTER_TIMEOUT=120 BLASTER_STRICT_CVC5_RESULTS=1 lake env lean ff-tests/OrdinaryCvc5Baseline.lean` | Pass on GPL/CoCoA cvc5 only; 1.69 seconds. |
+| `lake --version && lean --version && command -v cvc5 && readlink -f /usr/local/bin/cvc5 && cvc5 --version && cvc5 --show-config` | Pass; Lean 4.24.0, Lake `5.0.0-src+797c613`, cvc5 1.4.1 / `2b2e844`, installed GPL path, `cocoa: yes`. |
+
+The project tests retained the lifecycle model-response warnings;
+`SmtNatMod.lean:37:27` reported Valid. Two `lake env lean --stdin` smoke runs
+also passed: the first returned modulus 77 twice with one cache entry, rejected
+applied `Fin 77` in opaque dispatch, and reported Valid/Valid/Expected Falsified
+for the three division cases described above. The second, using the standalone
+cvc5 environment, reported Valid and emitted integer/modulo SMT with `check-sat`
+for bounded-Nat distributivity. No smoke source files were created.
+
+**Job summary:** the retained implementation passes every locally available
+requested check. Non-CoCoA execution remains blocked: renewed hidden/ignored-
+inclusive searches in the locations listed above found only the installed GPL
+distribution and launcher. No acquisition permission was found in the consumed
+decisions or solver distribution artifacts. Provision ordinary non-CoCoA cvc5
+1.3.4 for Linux arm64, or approve scoped acquisition, before claiming full
+acceptance. No native-field support, remote CI run or publication is claimed.
