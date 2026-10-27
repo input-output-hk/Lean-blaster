@@ -70,6 +70,8 @@ structure Diagnostic where
   severity : String
   message : String
   location : Option Location := none
+  /-- Stable category for consumers that want to distinguish routine Lean lint. -/
+  code : Option String := none
   deriving Lean.ToJson
 
 structure Report where

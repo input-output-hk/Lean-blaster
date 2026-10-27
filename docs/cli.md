@@ -172,9 +172,12 @@ each solver query, not elaboration or optimization. Unsupported precision is rej
 Zero is a valid random seed. Counterexample retrieval is enabled unless disabled in
 the source or through `--no-counterexample`.
 
-`-v`/`--verbose` shows actual stages and timing; `--debug` enables additional
-diagnostic context. The CLI owns progress and result rendering, so it suppresses the
-library's stdout-based profiling and SMT dumping. Use existing Lean options directly
+`-v`/`--verbose` shows actual stages, timing, and Lean's unused-variable linter
+warnings. The normal terminal report omits those routine linter warnings; JSON
+output retains them with code `lean.unusedVariables`. Other Lean warnings remain
+visible. `--debug` enables additional diagnostic context. The CLI owns progress and
+result rendering, so it suppresses the library's stdout-based profiling and SMT
+dumping. Use existing Lean options directly
 for raw SMT-query inspection until `inspect` and `export` are implemented.
 
 ## Voice and presentation

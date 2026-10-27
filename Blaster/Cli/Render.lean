@@ -334,11 +334,12 @@ def Renderer.finish (r : Renderer) (report : Report) : IO Unit := do
       ("signal", Lean.toJson report.signal), ("trust", Lean.toJson report.trust)]
    else
     for diag in report.diagnostics do
-      let role := if diag.severity == "error" then "error" else "warning"
-      let label := r.tintErr role diag.severity
-      r.err.putStrLn s!"\n  {label}: {diag.message}"
-      if let some location := diag.location then
-        r.err.putStrLn s!"    {location.file}:{location.line}:{location.column}"
+      unless diag.code == some "lean.unusedVariables" && !r.config.verbose do
+        let role := if diag.severity == "error" then "error" else "warning"
+        let label := r.tintErr role diag.severity
+        r.err.putStrLn s!"\n  {label}: {diag.message}"
+        if let some location := diag.location then
+          r.err.putStrLn s!"    {location.file}:{location.line}:{location.column}"
     let count (status : String) := report.results.filter (·.status == status) |>.size
     let expected (status : String) :=
       report.results.filter (fun result => result.status == status && result.expectedStatus == some status) |>.size

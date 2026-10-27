@@ -31,7 +31,8 @@ private def collectDiagnostics (messages : MessageLog) : IO (Array Diagnostic) :
       | .information => "info"
     result := result.push {
       severity := severity, message := ← msg.data.toString
-      location := some { file := msg.fileName, line := msg.pos.line, column := msg.pos.column + 1 } }
+      location := some { file := msg.fileName, line := msg.pos.line, column := msg.pos.column + 1 }
+      code := if msg.data.isUnusedVariableWarning then some "lean.unusedVariables" else none }
   return result
 
 private partial def checkSource (cfg : Config) (renderer : Renderer)
