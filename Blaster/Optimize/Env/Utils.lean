@@ -193,9 +193,11 @@ private def getMatcherRecInfoAux? (n : Name) (l : List Level) : TranslateEnvT (O
    if let ConstantInfo.inductInfo info ← getConstEnvInfo indName then
      let mInfo := { numParams := info.numParams,
                     numDiscrs := info.numIndices + 1,
-                    altNumParams := ← updateAltNumParams info.ctors #[]
+                    altInfos := (← updateAltNumParams info.ctors #[]).map fun n =>
+                      { numFields := n, numOverlaps := 0, hasUnitThunk := false }
                     uElimPos? := if info.levelParams.length == l.length then none else some 0
                     discrInfos := Array.replicate (info.numIndices + 1) {}
+                    overlaps := {}
                   }
      return some { mInfo, isCasesOn := true}
    else return none

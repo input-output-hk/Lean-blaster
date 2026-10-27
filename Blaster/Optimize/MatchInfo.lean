@@ -48,8 +48,8 @@ def MatchInfo.getFirstDiscrPos (info : MatchInfo) : Nat :=
   info.numParams + 1
 
 @[always_inline, inline]
-def MatchInfo.getDiscrRange (info : MatchInfo) : Std.Range :=
-  [info.getFirstDiscrPos : info.getFirstDiscrPos + info.numDiscrs]
+def MatchInfo.getDiscrRange (info : MatchInfo) : Std.Rco Nat :=
+  info.getFirstDiscrPos...(info.getFirstDiscrPos + info.numDiscrs)
 
 @[always_inline, inline]
 def MatchInfo.getFirstAltPos (info : MatchInfo) : Nat :=

@@ -174,8 +174,8 @@ opaque validSimpleChars : String :=
       -- characters in `validSimpleChars` that -- does not start with a digit.
       if str.isEmpty then "||"
       else
-        let fstChar := str.get 0
-        if (fstChar ≥ '0' && fstChar ≤ '9') || str.any (λ c => !(validSimpleChars.contains c))
+        let fstChar := String.Pos.Raw.get str 0
+        if (fstChar ≥ '0' && fstChar ≤ '9') || str.toList.any (λ c => !(validSimpleChars.contains c))
         then s!"|{str}|" -- create quoted smt symbol
         else str
 
