@@ -194,15 +194,15 @@ def filterStringOne (s : String) : Nat :=
 variable (c1 c2 c3 : Char)
 
 variable (c4 c5 : Char)
--- filterString (String.mk [c1, c2, c3, c4, c5])  ===> 5
+-- filterString (String.ofList [c1, c2, c3, c4, c5])  ===> 5
 #testOptimize [ "MatchReduce_16" ] (norm-result: 1)
-  filterStringOne (String.mk [c1, c2, c3, c4, c5])  ===> 5
+  filterStringOne (String.ofList [c1, c2, c3, c4, c5])  ===> 5
 
 def filterStringTwo (s : String) : Nat :=
-  match s with
-  | String.mk [s1, s2, s3] => s1.toNat + s2.toNat + s3.toNat
-  | String.mk [s1, s2] => s1.toNat + s2.toNat
-  | String.mk [s1, s2, s3, s4] => s1.toNat + s2.toNat + s3.toNat + s4.toNat
+  match s.toList with
+  | [s1, s2, s3] => s1.toNat + s2.toNat + s3.toNat
+  | [s1, s2] => s1.toNat + s2.toNat
+  | [s1, s2, s3, s4] => s1.toNat + s2.toNat + s3.toNat + s4.toNat
   | _ => 5
 
 -- filterStringTwo "abc" ===> 294
@@ -214,12 +214,10 @@ def filterStringTwo (s : String) : Nat :=
   filterStringTwo "abcd" ===> 394
 
 def filterStringThree (s : String) : Nat :=
-  match s with
-  | String.mk x =>
-       match x with
-       | [s1] => s1.toNat
-       | [s1, s2, s3] => s1.toNat + s2.toNat + s3.toNat
-       | _ => 200
+  match s.toList with
+  | [s1] => s1.toNat
+  | [s1, s2, s3] => s1.toNat + s2.toNat + s3.toNat
+  | _ => 200
 
 -- filterStringThree "" ===> 200
 #testOptimize [ "MatchReduce_19" ] (norm-result: 1)
@@ -233,9 +231,9 @@ def filterStringThree (s : String) : Nat :=
 #testOptimize [ "MatchReduce_21" ] (norm-result: 1)
   filterStringThree "abc" ===> 294
 
--- filterStringThree (String.mk [c1, c2, c3]) = Nat.add (Nat.add c1.toNat c2.toNat) c3.toNat ===> True
+-- filterStringThree (String.ofList [c1, c2, c3]) = Nat.add (Nat.add c1.toNat c2.toNat) c3.toNat ===> True
 #testOptimize [ "MatchReduce_22" ] (norm-result: 1)
-  filterStringThree (String.mk [c1, c2, c3]) = Nat.add (Nat.add c1.toNat c2.toNat) c3.toNat ===> True
+  filterStringThree (String.ofList [c1, c2, c3]) = Nat.add (Nat.add c1.toNat c2.toNat) c3.toNat ===> True
 
 
 def heqMatchOne (x : List Int) (y : List Nat) (f : (x : List Int) → ¬ [] = x → Nat) (g : (y : List Nat) → ¬ [] = y → Nat) : Nat :=
@@ -529,21 +527,18 @@ variable (s : String)
                 (fun _ => 3)
                 (fun _ => Blaster.dite' ("dddd" = s ) (fun _ => 4) (fun _ => 5))))
 
--- filterStringOne (String.mk [c1, c2, c3])  ===>
---  Blaster.dite' ("a" = String.mk [c1, c2, c3]) (fun _ => 1) fun _ =>
---     Blaster.dite' ("bb" = String.mk [c1, c2, c3]) (fun _ => 2) fun _ =>
---       Blaster.dite' ("ccc" = String.mk [c1, c2, c3]) (fun _ => 3) fun _ =>
---         Blaster.dite' ("dddd" = String.mk [c1, c2, c3]) (fun _ => 4) fun _ => 5
+-- filterStringOne (String.ofList [c1, c2, c3])  ===>
+--  Blaster.dite' ("a" = String.ofList [c1, c2, c3]) (fun _ => 1) fun _ =>
+--     Blaster.dite' ("bb" = String.ofList [c1, c2, c3]) (fun _ => 2) fun _ =>
+--       Blaster.dite' ("ccc" = String.ofList [c1, c2, c3]) (fun _ => 3) fun _ =>
+--         Blaster.dite' ("dddd" = String.ofList [c1, c2, c3]) (fun _ => 4) fun _ => 5
 -- NOTE: Normalized and simplified via match to ite rule
 -- NOTE: Can be reduced to
---     Blaster.dite' ("ccc" = String.mk [c1, c2, c3]) (fun _ => 3) (fun _ => 5)
+--     Blaster.dite' ("ccc" = String.ofList [c1, c2, c3]) (fun _ => 3) (fun _ => 5)
 -- with const equality rule.
 #testOptimize [ "MatchReduceUnchanged_14" ] (norm-result: 1)
-  filterStringOne (String.mk [c1, c2, c3])  ===>
-   Blaster.dite' ("a" = String.mk [c1, c2, c3]) (fun _ => 1) fun _ =>
-      Blaster.dite' ("bb" = String.mk [c1, c2, c3]) (fun _ => 2) fun _ =>
-        Blaster.dite' ("ccc" = String.mk [c1, c2, c3]) (fun _ => 3) fun _ =>
-          Blaster.dite' ("dddd" = String.mk [c1, c2, c3]) (fun _ => 4) fun _ => 5
+  filterStringOne (String.ofList [c1, c2, c3]) ===>
+    Blaster.dite' ("ccc" = String.ofList [c1, c2, c3]) (fun _ => 3) (fun _ => 5)
 
 
 variable (n1 : Nat)
@@ -843,7 +838,7 @@ def strLitRed (x : Option String) : Nat :=
 -- string literal patterns nested in a constructor: literal discriminator, and a list of character
 -- literals (folded to the string literal `"bb"`)
 #testOptimize [ "MatchReduce_84" ] strLitRed (some "bb") = 2 ===> True
-#testOptimize [ "MatchReduce_85" ] strLitRed (some (String.mk ['b', 'b'])) = 2 ===> True
+#testOptimize [ "MatchReduce_85" ] strLitRed (some (String.ofList ['b', 'b'])) = 2 ===> True
 
 -- `UInt8` and `Fin` literal patterns: constructor chains ending with a proof argument
 def u8 (x : UInt8) : Nat :=
@@ -1001,11 +996,11 @@ def namedNested (x : Nat) (y : Option Nat) : Nat :=
     | some _ => 5
     | none => 0
 
--- strLitRed (some (String.mk [c])) ===> match some (String.mk [c]) with | some "a" => 1 | ...
--- NOTE: `"a"` potentially matches `String.mk [c]` (`c := 'a'`), `"bb"` and `"ccc"` are refuted
+-- strLitRed (some (String.ofList [c])) ===> match some (String.ofList [c]) with | some "a" => 1 | ...
+-- NOTE: `"a"` potentially matches `String.ofList [c]` (`c := 'a'`), `"bb"` and `"ccc"` are refuted
 #testOptimize [ "MatchReduceUnchanged_29" ] (norm-result: 1)
-  strLitRed (some (String.mk [c])) ===>
-    match some (String.mk [c]) with
+  strLitRed (some (String.ofList [c])) ===>
+    match some (String.ofList [c]) with
     | some "a" => 1
     | some "bb" => 2
     | some "ccc" => 3
@@ -1033,8 +1028,8 @@ def namedNested (x : Nat) (y : Option Nat) : Nat :=
   natOff (m + 1) ===> Blaster.dite' (0 = m) (fun _ => 7) fun _ => Nat.sub (Nat.add 1 m) 2
 
 
---   strLitRed (some (String.mk ('c' :: cs))) = 3 ===>
---     match some (String.mk ('c' :: cs)) with
+--   strLitRed (some (String.ofList ('c' :: cs))) = 3 ===>
+--     match some (String.ofList ('c' :: cs)) with
 --     | some "a" => 1
 --     | some "bb" => 2
 --     | some "ccc" => 3
@@ -1042,8 +1037,8 @@ def namedNested (x : Nat) (y : Option Nat) : Nat :=
 --     | none => 0
 -- NOTE: Uncomment test case once Char.ofNat has been opacified.
 -- #testOptimize [ "MatchReduce_109" ] (norm-result: 1)
---   strLitRed (some (String.mk ('c' :: cs))) = 3 ===>
---     match some (String.mk ('c' :: cs)) with
+--   strLitRed (some (String.ofList ('c' :: cs))) = 3 ===>
+--     match some (String.ofList ('c' :: cs)) with
 --     | some "a" => 1
 --     | some "bb" => 2
 --     | some "ccc" => 3
@@ -1055,8 +1050,8 @@ def namedNested (x : Nat) (y : Option Nat) : Nat :=
 #testOptimize [ "MatchReduce_110" ] charLitWrap (some (Char.ofNat 98)) = 2 ===> True
 
 def charMkStr (z : String) (y : Nat) : Nat :=
-  match z, y with
-  | ⟨[⟨vv, _⟩]⟩, _ => vv.toNat + y
+  match z.toList, y with
+  | [⟨vv, _⟩], _ => vv.toNat + y
   | _, _ => 0
 
 -- charMkStr "a" m = m + 97 ===>
@@ -1065,8 +1060,8 @@ def charMkStr (z : String) (y : Nat) : Nat :=
 -- | _, _ => 0
 -- NOTE: Match reduction cannot occur as all arguments are not constructors
 #testOptimize [ "MatchReduceUnchanged_33" ] (norm-result: 1) charMkStr "a" m ===>
-  match "a", m with
-  | ⟨[⟨_vv, _⟩]⟩, _ => Nat.add 97 m
+  match ['a'], m with
+  | [⟨_vv, _⟩], _ => Nat.add 97 m
   | _, _ => 0
 
 def charLit (c : Char) : Nat :=

@@ -42,8 +42,7 @@ def fullyAppliedConst : HashSet Name :=
     ``Nat.mod,
     ``Nat.pow,
     ``String.append,
-    ``String.length,
-    ``String.replace
+    ``String.length
   ]
 
 /-- Return `true` when `e` corresponds to one of the following:
@@ -339,7 +338,6 @@ def translateOpaqueFun (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT
   | ``Nat.sub => translateNatSub f
   | ``String.append => getOpaqueSmtEquivFun f strAppendSymbol
   | ``String.length => getOpaqueSmtEquivFun f strLengthSymbol
-  | ``String.replace => getOpaqueSmtEquivFun f strReplaceAllSymbol
   | _ => throwEnvError "translateOpaqueFun: unexpected opaque operator {n}"
 
 

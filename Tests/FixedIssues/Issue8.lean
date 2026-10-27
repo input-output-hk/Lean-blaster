@@ -16,10 +16,10 @@ error: translate: ∀ (x : Int), x < sorry is not well-formed
 
 
 /--
-error: failed to synthesize
+error: failed to synthesize instance of type class
   LT α
 
-Hint: Additional diagnostic information may be available using the `set_option diagnostics true` command.
+Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.
 ---
 error: translate: (α : Type) → α → α → sorry is not well-formed
 -/

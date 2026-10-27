@@ -632,13 +632,13 @@ def isUInt32Value? (e : Expr) : Option Nat :=
   | _ => none
 
 
-/-- Determine if `e` is a `Char` literal expression `Char.mk (UInt32.mk (Fin.mk UInt32.size n isLt)`
-    and return `some Char.ofNat n)` only when `Nat.isValidChar n`.
-    Otherwise return `none`
--/
+/-- Recognize a valid scalar literal in `Char.ofNat` or the normalized `Char.mk`
+    representation. Invalid scalar arguments are not character values. -/
 @[always_inline, inline]
 def isCharValue? (e : Expr) : Option Char :=
   match e with
+  | .app (.const ``Char.ofNat _) (.lit (.natVal n)) =>
+      if Nat.isValidChar n then some (Char.ofNat n) else none
   | Expr.app (Expr.app (Expr.const ``Char.mk _) ui) _ =>
       match isUInt32Value? ui with
       | some n => if Nat.isValidChar n then some (Char.ofNat n) else none

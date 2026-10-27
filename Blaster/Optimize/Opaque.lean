@@ -7,9 +7,7 @@ open Lean Meta Blaster.Data.HashSet
 
 namespace Blaster.Optimize
 
-/-- list of operators that must not be unfolded, i.e., they will directly be
-translated to their corresponding SMT counterpart.
--/
+/-- Operators retained for dedicated rewrite rules or SMT translation. -/
 def opaqueFuns : HashSet Name :=
   List.foldr (fun c s => s.insert c) HashSet.emptyWithCapacity
   [
@@ -63,9 +61,16 @@ def opaqueFuns : HashSet Name :=
     ``Blaster.decide', -- decide predicate that ignores decidable instance
     ``Blaster.dite', -- dependent ite that ignores decidable instance
     -- Note: ite is normalized to Blaster.dite'
+    -- Preserve the public character-list view instead of unfolding UTF-8 internals.
+    ``String.ofList,
+    ``String.toList,
+    ``String.take,
+    ``String.drop,
+    ``String.toSlice,
+    ``String.Slice.copy,
+    ``String.Slice.beq,
     -- String operators
     ``String.append,
-    ``String.replace,
     ``String.length
   ]
 

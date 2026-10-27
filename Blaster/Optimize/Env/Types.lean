@@ -252,7 +252,7 @@ structure CommonExpr where
   propOr : Expr
   propTrue : Expr
   propType : Expr
-  stringMk : Expr
+  stringOfList : Expr
   stringType : Expr
   trueIntro : Expr
   listDrop : Expr
@@ -441,7 +441,7 @@ private def mkCommonExpr : CommonExpr :=
   , propOr := mkConst ``Or
   , propTrue := mkConst ``True
   , propType := mkSort levelZero
-  , stringMk := mkConst ``String.mk
+  , stringOfList := mkConst ``String.ofList
   , stringType := mkConst ``String
   , trueIntro := mkConst ``True.intro
   , listDrop := mkConst ``List.drop [levelZero]
@@ -627,7 +627,7 @@ instance : Inhabited OptimizeEnv where
      , memCache.commonExpr.propOr
      , memCache.commonExpr.propTrue
      , memCache.commonExpr.propType
-     , memCache.commonExpr.stringMk
+     , memCache.commonExpr.stringOfList
      , memCache.commonExpr.stringType
      , memCache.commonExpr.trueIntro
      , memCache.commonExpr.listDrop

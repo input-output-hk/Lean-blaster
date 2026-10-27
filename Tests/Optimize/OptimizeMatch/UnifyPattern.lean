@@ -30,6 +30,7 @@ inductive Value where
   | nat : Nat → Value
   | int : Int → Value
   | str : String → Value
+  | chars : List Char → Value
   | pair : Nat → Nat → Value
   | wrap : Value → Nat → Value
   | unit : Value
@@ -566,7 +567,12 @@ def intLit (gi : Int → Nat) (x : Value) (z : Int) : Nat :=
     | .wrap (.int (.negSucc _k)) _j => Nat.add m (gi (Int.negSucc 0))
     | _ => 0
 
-/-! ### String patterns (literals and `String.mk`) -/
+/-! ### Native String literal patterns and public String.ofList factories.
+
+Constructor-list pattern coverage below uses Value.chars: Lean 4.35 String is no
+longer a List Char constructor. Literal inputs use String.toList to exercise the
+public view conversion before unification. Native string matching remains covered
+by strLit, strLitP, strLitK and the issue 126 public-view regressions. -/
 
 def strLit (x : Value) (z : String) : Nat :=
   match x with
@@ -587,76 +593,76 @@ def strLit (x : Value) (z : String) : Nat :=
     | .str _ => String.length s
     | _ => 0
 
--- strLit (.str (String.mk [c1, c2])) (String.mk [c1, c2]) ===>
---   match Value.str (String.mk [c1, c2]) with
---   | .str "ab" => Nat.add 100 (String.length (String.mk ['a', 'b']))
---   | .str _ => String.length (String.mk [c1, c2])
+-- strLit (.str (String.ofList [c1, c2])) (String.ofList [c1, c2]) ===>
+--   match Value.str (String.ofList [c1, c2]) with
+--   | .str "ab" => 102
+--   | .str _ => 2
 --   | _ => 0
--- NOTE: string literal pattern vs `String.mk` discriminator is unified as a list of characters
+-- NOTE: string literal pattern vs `String.ofList` discriminator is unified as a list of characters
 --       (`c1 := 'a'`, `c2 := 'b'`)
 #testOptimize [ "UnifyPattern_26" ] (norm-result: 1)
-  strLit (.str (String.mk [c1, c2])) (String.mk [c1, c2]) ===>
-    match Value.str (String.mk [c1, c2]) with
-    | .str "ab" => Nat.add 100 (String.length (String.mk ['a', 'b']))
-    | .str _ => String.length (String.mk [c1, c2])
+  strLit (.str (String.ofList [c1, c2])) (String.ofList [c1, c2]) ===>
+    match Value.str (String.ofList [c1, c2]) with
+    | .str "ab" => 102
+    | .str _ => 2
     | _ => 0
 
--- strLit (.str (String.mk cs)) (String.mk cs) ===>
---   match Value.str (String.mk cs) with
---   | .str "ab" => Nat.add 100 (String.length (String.mk ['a', 'b']))
---   | .str _ => String.length (String.mk cs)
+-- strLit (.str (String.ofList cs)) (String.ofList cs) ===>
+--   match Value.str (String.ofList cs) with
+--   | .str "ab" => 102
+--   | .str _ => (List.length cs)
 --   | _ => 0
--- NOTE: string literal pattern vs `String.mk cs` discriminator binds `cs := ['a', 'b']`
+-- NOTE: string literal pattern vs `String.ofList cs` discriminator binds `cs := ['a', 'b']`
 #testOptimize [ "UnifyPattern_27" ] (norm-result: 1)
-  strLit (.str (String.mk cs)) (String.mk cs) ===>
-    match Value.str (String.mk cs) with
-    | .str "ab" => Nat.add 100 (String.length (String.mk ['a', 'b']))
-    | .str _ => String.length (String.mk cs)
+  strLit (.str (String.ofList cs)) (String.ofList cs) ===>
+    match Value.str (String.ofList cs) with
+    | .str "ab" => 102
+    | .str _ => (List.length cs)
     | _ => 0
 
 def strCtor (x : Value) (z : String) : Nat :=
   match x with
   | .wrap _ 5 => z.length + 100
-  | .wrap (.str ⟨cs⟩) j => cs.length + z.length + j
+  | .wrap (.chars cs) j => cs.length + z.length + j
   | _ => 0
 
--- strCtor (.wrap (.str s) m) s ===>
---   match Value.wrap (Value.str s) m with
---   | .wrap _ 5 => Nat.add 100 (String.length s)
---   | .wrap (.str ⟨cs⟩) j => Nat.add m (Nat.add (String.length (String.mk cs)) (List.length cs))
+-- strCtor (.wrap (.chars cs) m) (String.ofList cs) ===>
+--   match Value.wrap (Value.chars cs) m with
+--   | .wrap _ 5 => Nat.add 100 (List.length cs)
+--   | .wrap (.chars cs) j => Nat.add m (Nat.add (List.length cs) (List.length cs))
 --   | _ => 0
--- NOTE: `String.mk cs` pattern vs free variable discriminator binds `s := String.mk cs`
+-- NOTE: the character-list pattern binds its list field to the variable `cs`.
 #testOptimize [ "UnifyPattern_28" ] (norm-result: 1)
-  strCtor (.wrap (.str s) m) s ===>
-    match Value.wrap (Value.str s) m with
-    | .wrap _ 5 => Nat.add 100 (String.length s)
-    | .wrap (.str ⟨cs⟩) _j => Nat.add m (Nat.add (String.length (String.mk cs)) (List.length cs))
+  strCtor (.wrap (.chars cs) m) (String.ofList cs) ===>
+    match Value.wrap (Value.chars cs) m with
+    | .wrap _ 5 => Nat.add 100 (List.length cs)
+    | .wrap (.chars _cs) _j => Nat.add m (Nat.add (List.length cs) (List.length cs))
     | _ => 0
 
--- strCtor (.wrap (.str (String.mk [c1, c2])) m) (String.mk [c1, c2]) ===>
---   match Value.wrap (Value.str (String.mk [c1, c2])) m with
---   | .wrap _ 5 => Nat.add 100 (String.length (String.mk [c1, c2]))
---   | .wrap (.str ⟨cs⟩) j => Nat.add m (Nat.add 2 (String.length (String.mk [c1, c2])))
---   | _ => 0
--- NOTE: `String.mk cs` pattern vs `String.mk [c1, c2]` discriminator binds `cs := [c1, c2]`
-#testOptimize [ "UnifyPattern_29" ] (norm-result: 1)
-  strCtor (.wrap (.str (String.mk [c1, c2])) m) (String.mk [c1, c2]) ===>
-    match Value.wrap (Value.str (String.mk [c1, c2])) m with
-    | .wrap _ 5 => Nat.add 100 (String.length (String.mk [c1, c2]))
-    | .wrap (.str ⟨_cs⟩) _j => Nat.add m (Nat.add 2 (String.length (String.mk [c1, c2])))
-    | _ => 0
-
--- strCtor (.wrap (.str "ab") m) "ab" ===>
---   match Value.wrap (Value.str "ab") m with
+-- strCtor (.wrap (.chars [c1, c2]) m) (String.ofList [c1, c2]) ===>
+--   match Value.wrap (Value.chars [c1, c2]) m with
 --   | .wrap _ 5 => 102
---   | .wrap (.str ⟨cs⟩) j => Nat.add 4 m
+--   | .wrap (.chars cs) j => Nat.add 4 m
 --   | _ => 0
--- NOTE: `String.mk cs` pattern vs string literal discriminator binds `cs := ['a', 'b']`
-#testOptimize [ "UnifyPattern_30" ] (norm-result: 1)
-  strCtor (.wrap (.str "ab") m) "ab" ===>
-    match Value.wrap (Value.str "ab") m with
+-- NOTE: character-list pattern vs explicit character-list discriminator binds `cs := [c1, c2]`
+#testOptimize [ "UnifyPattern_29" ] (norm-result: 1)
+  strCtor (.wrap (.chars [c1, c2]) m) (String.ofList [c1, c2]) ===>
+    match Value.wrap (Value.chars [c1, c2]) m with
     | .wrap _ 5 => 102
-    | .wrap (.str ⟨_cs⟩) _j => Nat.add 4 m
+    | .wrap (.chars _cs) _j => Nat.add 4 m
+    | _ => 0
+
+-- strCtor (.wrap (.chars "ab".toList) m) "ab" ===>
+--   match Value.wrap (Value.chars ['a', 'b']) m with
+--   | .wrap _ 5 => 102
+--   | .wrap (.chars cs) j => Nat.add 4 m
+--   | _ => 0
+-- NOTE: character-list pattern vs public String.toList discriminator binds `cs := ['a', 'b']`
+#testOptimize [ "UnifyPattern_30" ] (norm-result: 1)
+  strCtor (.wrap (.chars "ab".toList) m) "ab" ===>
+    match Value.wrap (Value.chars ['a', 'b']) m with
+    | .wrap _ 5 => 102
+    | .wrap (.chars _cs) _j => Nat.add 4 m
     | _ => 0
 
 /-! ### Constructor constants, opaque constants and function applications as discriminators -/
@@ -1747,127 +1753,127 @@ def lamNamed (x : Fn) (z : Nat) : Nat :=
     | _p@(.mk _f), _k => Nat.add (Nat.add m (h n)) (Nat.add 2 m)
     | _, _ => 0
 
-/-! ### String patterns: list of characters vs string literal and `String.mk` discriminators -/
+/-! ### Character-list patterns over public String views and explicit lists -/
 
 variable (gc : Char → Nat) (gl : List Char → Nat)
 
 def strCons (gc : Char → Nat) (gl : List Char → Nat) (x : Value) (z : String) : Nat :=
   match x with
   | .wrap _ 5 => z.length + 100
-  | .wrap (.str ⟨c :: xs⟩) j => gc c + gl xs + z.length + j
+  | .wrap (.chars (c :: xs)) j => gc c + gl xs + z.length + j
   | _ => 0
 
--- strCons gc gl (.wrap (.str "ab") m) "ab" ===>
---   match Value.wrap (Value.str "ab") m with
+-- strCons gc gl (.wrap (.chars "ab".toList) m) "ab" ===>
+--   match Value.wrap (Value.chars ['a', 'b']) m with
 --   | .wrap _ 5 => 102
---   | .wrap (.str ⟨c :: xs⟩) j => Nat.add m (Nat.add 2 (Nat.add (gc 'a') (gl ['b'])))
+--   | .wrap (.chars (c :: xs)) j => Nat.add m (Nat.add 2 (Nat.add (gc 'a') (gl ['b'])))
 --   | _ => 0
--- NOTE: `String.mk` pattern with a `List.cons` argument vs string literal discriminator: the literal
+-- NOTE: `Value.chars` list pattern with a `List.cons` argument vs public String.toList discriminator: the literal
 --       is converted to a list of characters and unified with the pattern (`c := 'a'`, `xs := ['b']`)
 #testOptimize [ "UnifyPattern_83" ] (norm-result: 1)
-  strCons gc gl (.wrap (.str "ab") m) "ab" ===>
-    match Value.wrap (Value.str "ab") m with
+  strCons gc gl (.wrap (.chars "ab".toList) m) "ab" ===>
+    match Value.wrap (Value.chars ['a', 'b']) m with
     | .wrap _ 5 => 102
-    | .wrap (.str ⟨_c :: _xs⟩) _j => Nat.add m (Nat.add 2 (Nat.add (gc 'a') (gl ['b'])))
+    | .wrap (.chars (_c :: _xs)) _j => Nat.add m (Nat.add 2 (Nat.add (gc 'a') (gl ['b'])))
     | _ => 0
 
--- strCons gc gl (.wrap (.str (String.mk (c1 :: cs))) m) (String.mk (c1 :: cs)) ===>
---   match Value.wrap (Value.str (String.mk (c1 :: cs))) m with
---   | .wrap _ 5 => Nat.add 100 (String.length (String.mk (c1 :: cs)))
---   | .wrap (.str ⟨c :: xs⟩) j =>
---       Nat.add m (Nat.add (String.length (String.mk (c1 :: cs))) (Nat.add (gc c1) (gl cs)))
+-- strCons gc gl (.wrap (.chars (c1 :: cs)) m) (String.ofList (c1 :: cs)) ===>
+--   match Value.wrap (Value.chars (c1 :: cs)) m with
+--   | .wrap _ 5 => Nat.add 101 (List.length cs)
+--   | .wrap (.chars (c :: xs)) j =>
+--       Nat.add m (Nat.add (Nat.add (gc c1) (gl cs)) (Nat.add 1 (List.length cs)))
 --   | _ => 0
--- NOTE: `String.mk` pattern vs `String.mk` discriminator with a `List.cons` argument (`c := c1`, `xs := cs`)
+-- NOTE: `Value.chars` list pattern vs explicit character-list discriminator with a `List.cons` argument (`c := c1`, `xs := cs`)
 #testOptimize [ "UnifyPattern_84" ] (norm-result: 1)
-  strCons gc gl (.wrap (.str (String.mk (c1 :: cs))) m) (String.mk (c1 :: cs)) ===>
-    match Value.wrap (Value.str (String.mk (c1 :: cs))) m with
-    | .wrap _ 5 => Nat.add 100 (String.length (String.mk (c1 :: cs)))
-    | .wrap (.str ⟨_c :: _xs⟩) _j =>
-        Nat.add m (Nat.add (String.length (String.mk (c1 :: cs))) (Nat.add (gc c1) (gl cs)))
+  strCons gc gl (.wrap (.chars (c1 :: cs)) m) (String.ofList (c1 :: cs)) ===>
+    match Value.wrap (Value.chars (c1 :: cs)) m with
+    | .wrap _ 5 => Nat.add 101 (List.length cs)
+    | .wrap (.chars (_c :: _xs)) _j =>
+        Nat.add m (Nat.add (Nat.add (gc c1) (gl cs)) (Nat.add 1 (List.length cs)))
     | _ => 0
 
--- strCons gc gl (.wrap (.str (String.mk [c1, c2])) m) (String.mk [c1, c2]) ===>
---   match Value.wrap (Value.str (String.mk [c1, c2])) m with
---   | .wrap _ 5 => Nat.add 100 (String.length (String.mk [c1, c2]))
---   | .wrap (.str ⟨c :: xs⟩) j =>
---       Nat.add m (Nat.add (String.length (String.mk [c1, c2])) (Nat.add (gc c1) (gl [c2])))
+-- strCons gc gl (.wrap (.chars [c1, c2]) m) (String.ofList [c1, c2]) ===>
+--   match Value.wrap (Value.chars [c1, c2]) m with
+--   | .wrap _ 5 => 102
+--   | .wrap (.chars (c :: xs)) j =>
+--       Nat.add m (Nat.add 2 (Nat.add (gc c1) (gl [c2])))
 --   | _ => 0
--- NOTE: `String.mk` pattern vs `String.mk` discriminator with an explicit list (`c := c1`, `xs := [c2]`)
+-- NOTE: `Value.chars` list pattern vs explicit character-list discriminator with an explicit list (`c := c1`, `xs := [c2]`)
 #testOptimize [ "UnifyPattern_85" ] (norm-result: 1)
-  strCons gc gl (.wrap (.str (String.mk [c1, c2])) m) (String.mk [c1, c2]) ===>
-    match Value.wrap (Value.str (String.mk [c1, c2])) m with
-    | .wrap _ 5 => Nat.add 100 (String.length (String.mk [c1, c2]))
-    | .wrap (.str ⟨_c :: _xs⟩) _j =>
-        Nat.add m (Nat.add (String.length (String.mk [c1, c2])) (Nat.add (gc c1) (gl [c2])))
+  strCons gc gl (.wrap (.chars [c1, c2]) m) (String.ofList [c1, c2]) ===>
+    match Value.wrap (Value.chars [c1, c2]) m with
+    | .wrap _ 5 => 102
+    | .wrap (.chars (_c :: _xs)) _j =>
+        Nat.add m (Nat.add 2 (Nat.add (gc c1) (gl [c2])))
     | _ => 0
 
--- strCons gc gl (.wrap (.str s) m) s ===>
---   match Value.wrap (Value.str s) m with
---   | .wrap _ 5 => Nat.add 100 (String.length s)
---   | .wrap (.str ⟨c :: xs⟩) j =>
---       Nat.add m (Nat.add (String.length (String.mk (c :: xs))) (Nat.add (gc c) (gl xs)))
+-- strCons gc gl (.wrap (.chars cs) m) (String.ofList cs) ===>
+--   match Value.wrap (Value.chars cs) m with
+--   | .wrap _ 5 => Nat.add 100 (List.length cs)
+--   | .wrap (.chars (c :: xs)) j =>
+--       Nat.add m (Nat.add (Nat.add (gc c) (gl xs)) (Nat.add 1 (List.length xs)))
 --   | _ => 0
--- NOTE: `String.mk` pattern vs free variable discriminator binds `s := String.mk (c :: xs)`
+-- NOTE: `Value.chars` list pattern vs free variable discriminator binds `cs := c :: xs`
 #testOptimize [ "UnifyPattern_86" ] (norm-result: 1)
-  strCons gc gl (.wrap (.str s) m) s ===>
-    match Value.wrap (Value.str s) m with
-    | .wrap _ 5 => Nat.add 100 (String.length s)
-    | .wrap (.str ⟨c :: xs⟩) _j =>
-        Nat.add m (Nat.add (String.length (String.mk (c :: xs))) (Nat.add (gc c) (gl xs)))
+  strCons gc gl (.wrap (.chars cs) m) (String.ofList cs) ===>
+    match Value.wrap (Value.chars cs) m with
+    | .wrap _ 5 => Nat.add 100 (List.length cs)
+    | .wrap (.chars (c :: xs)) _j =>
+        Nat.add m (Nat.add (Nat.add (gc c) (gl xs)) (Nat.add 1 (List.length xs)))
     | _ => 0
 
 def strCharCons (gl : List Char → Nat) (x : Value) (z : String) : Nat :=
   match x with
   | .wrap _ 5 => z.length + 100
-  | .wrap (.str ⟨'a' :: xs⟩) j => gl xs + z.length + j
+  | .wrap (.chars ('a' :: xs)) j => gl xs + z.length + j
   | _ => 0
 
--- strCharCons gl (.wrap (.str "ab") m) "ab" ===>
---   match Value.wrap (Value.str "ab") m with
+-- strCharCons gl (.wrap (.chars "ab".toList) m) "ab" ===>
+--   match Value.wrap (Value.chars ['a', 'b']) m with
 --   | .wrap _ 5 => 102
---   | .wrap (.str ⟨'a' :: xs⟩) j => Nat.add m (Nat.add 2 (gl ['b']))
+--   | .wrap (.chars ('a' :: xs)) j => Nat.add m (Nat.add 2 (gl ['b']))
 --   | _ => 0
--- NOTE: `String.mk` pattern with a character literal vs string literal discriminator (`xs := ['b']`)
+-- NOTE: `Value.chars` list pattern with a character literal vs public String.toList discriminator (`xs := ['b']`)
 #testOptimize [ "UnifyPattern_87" ] (norm-result: 1)
-  strCharCons gl (.wrap (.str "ab") m) "ab" ===>
-    match Value.wrap (Value.str "ab") m with
+  strCharCons gl (.wrap (.chars "ab".toList) m) "ab" ===>
+    match Value.wrap (Value.chars ['a', 'b']) m with
     | .wrap _ 5 => 102
-    | .wrap (.str ⟨'a' :: _xs⟩) _j => Nat.add m (Nat.add 2 (gl ['b']))
+    | .wrap (.chars ('a' :: _xs)) _j => Nat.add m (Nat.add 2 (gl ['b']))
     | _ => 0
 
 def strTwo (gc : Char → Nat) (x : Value) (z : String) : Nat :=
   match x with
   | .wrap _ 5 => z.length + 100
-  | .wrap (.str ⟨[c, d]⟩) j => gc c + gc d + z.length + j
+  | .wrap (.chars [c, d]) j => gc c + gc d + z.length + j
   | _ => 0
 
--- strTwo gc (.wrap (.str "ab") m) "ab" ===>
---   match Value.wrap (Value.str "ab") m with
+-- strTwo gc (.wrap (.chars "ab".toList) m) "ab" ===>
+--   match Value.wrap (Value.chars ['a', 'b']) m with
 --   | .wrap _ 5 => 102
---   | .wrap (.str ⟨[c, d]⟩) j => Nat.add m (Nat.add 2 (Nat.add (gc 'a') (gc 'b')))
+--   | .wrap (.chars [c, d]) j => Nat.add m (Nat.add 2 (Nat.add (gc 'a') (gc 'b')))
 --   | _ => 0
--- NOTE: `String.mk` pattern with an explicit list vs string literal discriminator (`c := 'a'`, `d := 'b'`)
+-- NOTE: `Value.chars` list pattern with an explicit list vs public String.toList discriminator (`c := 'a'`, `d := 'b'`)
 #testOptimize [ "UnifyPattern_88" ] (norm-result: 1)
-  strTwo gc (.wrap (.str "ab") m) "ab" ===>
-    match Value.wrap (Value.str "ab") m with
+  strTwo gc (.wrap (.chars "ab".toList) m) "ab" ===>
+    match Value.wrap (Value.chars ['a', 'b']) m with
     | .wrap _ 5 => 102
-    | .wrap (.str ⟨[_c, _d]⟩) _j => Nat.add m (Nat.add 2 (Nat.add (gc 'a') (gc 'b')))
+    | .wrap (.chars [_c, _d]) _j => Nat.add m (Nat.add 2 (Nat.add (gc 'a') (gc 'b')))
     | _ => 0
 
--- strTwo gc (.wrap (.str (String.mk (c1 :: cs))) m) (String.mk (c1 :: cs)) ===>
---   match Value.wrap (Value.str (String.mk (c1 :: cs))) m with
---   | .wrap _ 5 => Nat.add 100 (String.length (String.mk (c1 :: cs)))
---   | .wrap (.str ⟨[c, d]⟩) j =>
---       Nat.add m (Nat.add (String.length (String.mk [c1, d])) (Nat.add (gc c1) (gc d)))
+-- strTwo gc (.wrap (.chars (c1 :: cs)) m) (String.ofList (c1 :: cs)) ===>
+--   match Value.wrap (Value.chars (c1 :: cs)) m with
+--   | .wrap _ 5 => Nat.add 101 (List.length cs)
+--   | .wrap (.chars [c, d]) j =>
+--       Nat.add m (Nat.add 2 (Nat.add (gc c1) (gc d)))
 --   | _ => 0
 -- NOTE: explicit list pattern vs `List.cons` discriminator: `c := c1` and the tail binds the other way,
 --       `cs := [d]`
 #testOptimize [ "UnifyPattern_89" ] (norm-result: 1)
-  strTwo gc (.wrap (.str (String.mk (c1 :: cs))) m) (String.mk (c1 :: cs)) ===>
-    match Value.wrap (Value.str (String.mk (c1 :: cs))) m with
-    | .wrap _ 5 => Nat.add 100 (String.length (String.mk (c1 :: cs)))
-    | .wrap (.str ⟨[_c, d]⟩) _j =>
-        Nat.add m (Nat.add (String.length (String.mk [c1, d])) (Nat.add (gc c1) (gc d)))
+  strTwo gc (.wrap (.chars (c1 :: cs)) m) (String.ofList (c1 :: cs)) ===>
+    match Value.wrap (Value.chars (c1 :: cs)) m with
+    | .wrap _ 5 => Nat.add 101 (List.length cs)
+    | .wrap (.chars [_c, d]) _j =>
+        Nat.add m (Nat.add 2 (Nat.add (gc c1) (gc d)))
     | _ => 0
 
 def strLitP (x : Value) (z : String) : Nat :=
@@ -1876,47 +1882,47 @@ def strLitP (x : Value) (z : String) : Nat :=
   | .wrap (.str "ab") j => z.length + j
   | _ => 0
 
--- strLitP (.wrap (.str (String.mk (c1 :: cs))) m) (String.mk (c1 :: cs)) ===>
---   match Value.wrap (Value.str (String.mk (c1 :: cs))) m with
---   | .wrap _ 5 => Nat.add 100 (String.length (String.mk (c1 :: cs)))
---   | .wrap (.str "ab") j => Nat.add m (String.length (String.mk ['a', 'b']))
+-- strLitP (.wrap (.str (String.ofList (c1 :: cs))) m) (String.ofList (c1 :: cs)) ===>
+--   match Value.wrap (Value.str (String.ofList (c1 :: cs))) m with
+--   | .wrap _ 5 => Nat.add 101 (List.length cs)
+--   | .wrap (.str "ab") j => Nat.add 2 m
 --   | _ => 0
--- NOTE: string literal pattern vs `String.mk` discriminator with a `List.cons` argument
+-- NOTE: string literal pattern vs `String.ofList` discriminator with a `List.cons` argument
 --       (`c1 := 'a'`, `cs := ['b']`)
 #testOptimize [ "UnifyPattern_90" ] (norm-result: 1)
-  strLitP (.wrap (.str (String.mk (c1 :: cs))) m) (String.mk (c1 :: cs)) ===>
-    match Value.wrap (Value.str (String.mk (c1 :: cs))) m with
-    | .wrap _ 5 => Nat.add 100 (String.length (String.mk (c1 :: cs)))
-    | .wrap (.str "ab") _j => Nat.add m (String.length (String.mk ['a', 'b']))
+  strLitP (.wrap (.str (String.ofList (c1 :: cs))) m) (String.ofList (c1 :: cs)) ===>
+    match Value.wrap (Value.str (String.ofList (c1 :: cs))) m with
+    | .wrap _ 5 => Nat.add 101 (List.length cs)
+    | .wrap (.str "ab") _j => Nat.add 2 m
     | _ => 0
 
--- strLitP (.wrap (.str (String.mk [c1, c2, c1])) m) (String.mk [c1, c2, c1]) ===>
---   match Value.wrap (Value.str (String.mk [c1, c2, c1])) m with
---   | .wrap _ 5 => Nat.add 100 (String.length (String.mk [c1, c2, c1]))
---   | .wrap (.str "ab") j => Nat.add j (String.length (String.mk ['a', 'b', 'a']))
+-- strLitP (.wrap (.str (String.ofList [c1, c2, c1])) m) (String.ofList [c1, c2, c1]) ===>
+--   match Value.wrap (Value.str (String.ofList [c1, c2, c1])) m with
+--   | .wrap _ 5 => 103
+--   | .wrap (.str "ab") j => Nat.add 3 j
 --   | _ => 0
--- NOTE: string literal pattern vs `String.mk` discriminator with a longer list: the characters are
+-- NOTE: string literal pattern vs `String.ofList` discriminator with a longer list: the characters are
 --       unified up to the end of the literal (`c1 := 'a'`, `c2 := 'b'`), then `List.nil` vs `List.cons`
 --       stops the unification (`j` is left unbound)
 #testOptimize [ "UnifyPattern_91" ] (norm-result: 1)
-  strLitP (.wrap (.str (String.mk [c1, c2, c1])) m) (String.mk [c1, c2, c1]) ===>
-    match Value.wrap (Value.str (String.mk [c1, c2, c1])) m with
-    | .wrap _ 5 => Nat.add 100 (String.length (String.mk [c1, c2, c1]))
-    | .wrap (.str "ab") j => Nat.add j (String.length (String.mk ['a', 'b', 'a']))
+  strLitP (.wrap (.str (String.ofList [c1, c2, c1])) m) (String.ofList [c1, c2, c1]) ===>
+    match Value.wrap (Value.str (String.ofList [c1, c2, c1])) m with
+    | .wrap _ 5 => 103
+    | .wrap (.str "ab") j => Nat.add 3 j
     | _ => 0
 
--- strCons gc gl (.wrap (.str "") m) "" ===>
---   match Value.wrap (Value.str "") m with
+-- strCons gc gl (.wrap (.chars "".toList) m) "" ===>
+--   match Value.wrap (Value.chars []) m with
 --   | .wrap _ 5 => 100
---   | .wrap (.str ⟨c :: xs⟩) j => Nat.add j (Nat.add (gc c) (gl xs))
+--   | .wrap (.chars (c :: xs)) j => Nat.add j (Nat.add (gc c) (gl xs))
 --   | _ => 0
 -- NOTE: `List.cons` pattern vs empty string literal (`List.nil`): the alternative cannot match and no
 --       unification is performed (`j` is left unbound)
 #testOptimize [ "UnifyPattern_92" ] (norm-result: 1)
-  strCons gc gl (.wrap (.str "") m) "" ===>
-    match Value.wrap (Value.str "") m with
+  strCons gc gl (.wrap (.chars "".toList) m) "" ===>
+    match Value.wrap (Value.chars []) m with
     | .wrap _ 5 => 100
-    | .wrap (.str ⟨c :: xs⟩) j => Nat.add j (Nat.add (gc c) (gl xs))
+    | .wrap (.chars (c :: xs)) j => Nat.add j (Nat.add (gc c) (gl xs))
     | _ => 0
 
 /-! ### Nat offset patterns vs non-literal sums -/
@@ -1957,7 +1963,7 @@ def strLitP (x : Value) (z : String) : Nat :=
 
 /-! ### Character literal patterns vs string literal discriminators
 
-     The characters of a string literal discriminator are built by `stringToCtor` as `Char.ofNat n`,
+     The characters of a string literal discriminator are built by `stringToOfList` as `Char.ofNat n`,
      whereas a character literal in a pattern is elaborated in constructor form (`Char.mk ..`).
      When the discriminator is not a `Char.mk` application, `isPatternMatch` and `unifyAndUpdateEqMap`
      convert the pattern to `Char.ofNat n` (through `isUInt32Value?`) so that both representations
@@ -1966,32 +1972,32 @@ def strLitP (x : Value) (z : String) : Nat :=
 def strCharRed (x : Value) (z : String) : Nat :=
   match x with
   | .nat 5 => z.length + 100
-  | .wrap (.str ⟨'a' :: xs⟩) j => xs.length + z.length + j
+  | .wrap (.chars ('a' :: xs)) j => xs.length + z.length + j
   | _ => 0
 
--- strCharRed (.wrap (.str "bc") m) "bc" ===> 0
+-- strCharRed (.wrap (.chars "bc".toList) m) "bc" ===> 0
 -- NOTE: `'a'` vs `'b'` cannot match, the match is reduced to the last alternative
 #testOptimize [ "UnifyPattern_95" ] (norm-result: 1)
-  strCharRed (.wrap (.str "bc") m) "bc" ===> 0
+  strCharRed (.wrap (.chars "bc".toList) m) "bc" ===> 0
 
--- strCharRed (.wrap (.str "ab") m) "ab" ===> Nat.add 3 m
+-- strCharRed (.wrap (.chars "ab".toList) m) "ab" ===> Nat.add 3 m
 -- NOTE: `'a'` vs `'a'` matches, the match is reduced to the second alternative with `xs := ['b']`
 --       and `j := m`
 #testOptimize [ "UnifyPattern_96" ] (norm-result: 1)
-  strCharRed (.wrap (.str "ab") m) "ab" ===> Nat.add 3 m
+  strCharRed (.wrap (.chars "ab".toList) m) "ab" ===> Nat.add 3 m
 
--- strCharCons gl (.wrap (.str "bc") m) "bc" ===>
---   match Value.wrap (Value.str "bc") m with
+-- strCharCons gl (.wrap (.chars "bc".toList) m) "bc" ===>
+--   match Value.wrap (Value.chars ['b', 'c']) m with
 --   | .wrap _ 5 => 102
---   | .wrap (.str ⟨'a' :: xs⟩) j => Nat.add j (Nat.add 2 (gl xs))
+--   | .wrap (.chars ('a' :: xs)) j => Nat.add j (Nat.add 2 (gl xs))
 --   | _ => 0
 -- NOTE: non reduced match (`.wrap _ 5` vs `m`): `'a'` vs `'b'` cannot match, so no unification is
 --       performed on the second alternative (`xs` and `j` left unbound, as in `UnifyPattern_92`)
 #testOptimize [ "UnifyPattern_97" ] (norm-result: 1)
-  strCharCons gl (.wrap (.str "bc") m) "bc" ===>
-    match Value.wrap (Value.str "bc") m with
+  strCharCons gl (.wrap (.chars "bc".toList) m) "bc" ===>
+    match Value.wrap (Value.chars ['b', 'c']) m with
     | .wrap _ 5 => 102
-    | .wrap (.str ⟨'a' :: xs⟩) j => Nat.add j (Nat.add 2 (gl xs))
+    | .wrap (.chars ('a' :: xs)) j => Nat.add j (Nat.add 2 (gl xs))
     | _ => 0
 
 /-! ### Proof field of a `Subtype` constructor
@@ -2352,42 +2358,42 @@ def charCons (gl : List Char → Nat) (x : Value) (z : List Char) : Nat :=
 
      A `Char.mk v _` pattern whose value is not a literal (`isUInt32Value?` answers `none`) is
      converted to `Char.ofNat (UInt32.toNat v)` when the discriminator is not a `Char.mk`
-     application: for the `Char.ofNat n` built by `stringToCtor`, `UInt32.toNat v` is unified with
+     application: for the `Char.ofNat n` built by `stringToOfList`, `UInt32.toNat v` is unified with
      the literal `n` and `v.toNat := n` is recorded (in projection form). Against a `Char.mk`
      discriminator (character literal), the values are unified directly. -/
 
 def charMkVar (x : Value) (z : String) : Nat :=
-  match x, z with
+  match x, z.toList with
   | .wrap _ 5, _ => 100
-  | .wrap _ j, ⟨[⟨vv, _⟩]⟩ => vv.toNat + j
+  | .wrap _ j, [⟨vv, _⟩] => vv.toNat + j
   | _, _ => 0
 
 -- charMkVar (.wrap v m) "a" ===>
---   match Value.wrap v m, "a" with
+--   match Value.wrap v m, ['a'] with
 --   | .wrap _ 5, _ => 100
---   | .wrap _ j, ⟨[⟨vv, _⟩]⟩ => Nat.add 97 m
+--   | .wrap _ j, [⟨vv, _⟩] => Nat.add 97 m
 --   | _, _ => 0
 -- NOTE: non reduced match (`.wrap _ 5` vs `m`): `vv.toNat := 97` and `j := m`, so `vv.toNat + j`
 --       becomes `97 + m`
 #testOptimize [ "UnifyPattern_115" ] (norm-result: 1)
   charMkVar (.wrap v m) "a" ===>
-    match Value.wrap v m, "a" with
+    match Value.wrap v m, ['a'] with
     | .wrap _ 5, _ => 100
-    | .wrap _ _j, ⟨[⟨_vv, _⟩]⟩ => Nat.add 97 m
+    | .wrap _ _j, [⟨_vv, _⟩] => Nat.add 97 m
     | _, _ => 0
 
 -- charMkVar (.wrap v m) "ab" ===>
---   match Value.wrap v m, "ab" with
+--   match Value.wrap v m, ['a', 'b'] with
 --   | .wrap _ 5, _ => 100
---   | .wrap _ j, ⟨[⟨vv, _⟩]⟩ => Nat.add 97 m
+--   | .wrap _ j, [⟨vv, _⟩] => Nat.add 97 m
 --   | _, _ => 0
 -- NOTE: non reduced match: `vv.toNat := 97` and `j := m` are recorded before the unification stops
 --       at `[]` vs `['b']` (as in `UnifyPattern_91`, the alternative is unreachable)
 #testOptimize [ "UnifyPattern_116" ] (norm-result: 1)
   charMkVar (.wrap v m) "ab" ===>
-    match Value.wrap v m, "ab" with
+    match Value.wrap v m, ['a', 'b'] with
     | .wrap _ 5, _ => 100
-    | .wrap _ _j, ⟨[⟨_vv, _⟩]⟩ => Nat.add 97 m
+    | .wrap _ _j, [⟨_vv, _⟩] => Nat.add 97 m
     | _, _ => 0
 
 def charMkRed (x : Value) (c : Char) : Nat :=
@@ -2403,9 +2409,9 @@ def charMkRed (x : Value) (c : Char) : Nat :=
   charMkRed (.wrap v m) 'a' ===> Nat.add 97 m
 
 
-/-! ### String literal patterns vs `Char.mk`/function application characters in a `String.mk` discriminator
+/-! ### String literal patterns vs `Char.mk`/function application characters in a `String.ofList` discriminator
 
-     The characters of a string literal pattern are built by `stringToCtor` as `Char.ofNat n`. Against a
+     The characters of a string literal pattern are built by `stringToOfList` as `Char.ofNat n`. Against a
      `Char.mk v _` discriminator whose value is not a literal, or against an expression of type `Char`,
      the discriminator character is bound to the pattern character (`Char.mk vv hv := 'a'`, `fc n := 'a'`).
      Against a `Char.mk` discriminator with a literal value (character literal in the discriminator),
@@ -2415,31 +2421,31 @@ def charMkRed (x : Value) (c : Char) : Nat :=
 
 variable (vv : UInt32) (hv : vv.isValidChar) (fc : Nat → Char)
 
--- strLit (.str (String.mk [Char.mk vv hv, c2])) (String.mk [Char.mk vv hv, c2]) ===>
---   match Value.str (String.mk [Char.mk vv hv, c2]) with
---   | .str "ab" => Nat.add 100 (String.length (String.mk ['a', 'b']))
---   | .str _ => String.length (String.mk [Char.mk vv hv, c2])
+-- strLit (.str (String.ofList [Char.mk vv hv, c2])) (String.ofList [Char.mk vv hv, c2]) ===>
+--   match Value.str (String.ofList [Char.mk vv hv, c2]) with
+--   | .str "ab" => 102
+--   | .str _ => 2
 --   | _ => 0
 -- NOTE: `Char.ofNat 97` pattern vs `Char.mk vv hv` discriminator binds `Char.mk vv hv := 'a'`, then
 --       `c2 := 'b'`
 #testOptimize [ "UnifyPattern_120" ] (norm-result: 1)
-  strLit (.str (String.mk [Char.mk vv hv, c2])) (String.mk [Char.mk vv hv, c2]) ===>
-    match Value.str (String.mk [Char.mk vv hv, c2]) with
-    | .str "ab" => Nat.add 100 (String.length (String.mk ['a', 'b']))
-    | .str _ => String.length (String.mk [Char.mk vv hv, c2])
+  strLit (.str (String.ofList [Char.mk vv hv, c2])) (String.ofList [Char.mk vv hv, c2]) ===>
+    match Value.str (String.ofList [Char.mk vv hv, c2]) with
+    | .str "ab" => 102
+    | .str _ => 2
     | _ => 0
 
--- strLit (.str (String.mk [fc n, c2])) (String.mk [fc n, c2]) ===>
---   match Value.str (String.mk [fc n, c2]) with
---   | .str "ab" => Nat.add 100 (String.length (String.mk ['a', 'b']))
---   | .str _ => String.length (String.mk [fc n, c2])
+-- strLit (.str (String.ofList [fc n, c2])) (String.ofList [fc n, c2]) ===>
+--   match Value.str (String.ofList [fc n, c2]) with
+--   | .str "ab" => 102
+--   | .str _ => 2
 --   | _ => 0
 -- NOTE: `Char.ofNat 97` pattern vs the function application `fc n` binds `fc n := 'a'`
 #testOptimize [ "UnifyPattern_121" ] (norm-result: 1)
-  strLit (.str (String.mk [fc n, c2])) (String.mk [fc n, c2]) ===>
-    match Value.str (String.mk [fc n, c2]) with
-    | .str "ab" => Nat.add 100 (String.length (String.mk ['a', 'b']))
-    | .str _ => String.length (String.mk [fc n, c2])
+  strLit (.str (String.ofList [fc n, c2])) (String.ofList [fc n, c2]) ===>
+    match Value.str (String.ofList [fc n, c2]) with
+    | .str "ab" => 102
+    | .str _ => 2
     | _ => 0
 
 def strLitK (x : Value) : Nat :=
@@ -2448,14 +2454,14 @@ def strLitK (x : Value) : Nat :=
   | .str _ => 2
   | _ => 0
 
--- strLitK (.str (String.mk ('x' :: cs))) ===> 2
+-- strLitK (.str (String.ofList ('x' :: cs))) ===> 2
 -- NOTE: `'a'` (`Char.ofNat 97`) vs the character literal `'x'` (`Char.mk` with a literal value) cannot
 --       match, the match is reduced to the second alternative
-#testOptimize [ "UnifyPattern_122" ] (norm-result: 1) strLitK (.str (String.mk ('x' :: cs))) ===> 2
+#testOptimize [ "UnifyPattern_122" ] (norm-result: 1) strLitK (.str (String.ofList ('x' :: cs))) ===> 2
 
--- strLitK (.str (String.mk ('a' :: 'c' :: cs))) ===> 2
+-- strLitK (.str (String.ofList ('a' :: 'c' :: cs))) ===> 2
 -- NOTE: `'a'` matches, `'b'` vs `'c'` cannot match, the match is reduced to the second alternative
-#testOptimize [ "UnifyPattern_123" ] (norm-result: 1) strLitK (.str (String.mk ('a' :: 'c' :: cs))) ===> 2
+#testOptimize [ "UnifyPattern_123" ] (norm-result: 1) strLitK (.str (String.ofList ('a' :: 'c' :: cs))) ===> 2
 
 /-! ### Proof argument of a literal pattern followed by other pattern variables
 

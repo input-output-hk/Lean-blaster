@@ -128,9 +128,9 @@ partial def isPatternMatch (lhs : Expr) (rhs : Expr) : TranslateEnvT MatchResult
                             then return .NoMatch
                             else return .PotentialMatch
             | _ => return .NoMatch -- unreachable case
-        | Expr.app (Expr.const ``String.mk _) _ =>
+        | Expr.app (Expr.const ``String.ofList _) _ =>
             match l with
-            | .strVal s => isPatternMatch (← stringToCtor s) rhs
+            | .strVal s => isPatternMatch (← stringToOfList s) rhs
             | _ => return .NoMatch -- unreachable case
         | _ => return .PotentialMatch -- case when rhs is an expression
 
@@ -167,7 +167,7 @@ partial def isPatternMatch (lhs : Expr) (rhs : Expr) : TranslateEnvT MatchResult
 
         | Expr.lit (.strVal s) =>
              match f1 with
-             | Expr.const ``String.mk _ => isPatternMatch lhs (← stringToCtor s)
+             | Expr.const ``String.ofList _ => isPatternMatch lhs (← stringToOfList s)
              | _ => return .NoMatch -- unreachable: String constructor expected
 
         | Expr.const n _ =>
@@ -644,9 +644,9 @@ partial def unifyAndUpdateEqMap (lhs : Expr) (rhs : Expr) (nextCtxId : CtxId) (u
                        visit lhs rhs true stk true
                | _ => return updatedCtx -- unreachable case
 
-          | Expr.app (Expr.const ``String.mk _) _ =>
+          | Expr.app (Expr.const ``String.ofList _) _ =>
                match l with
-               | .strVal s => visit (← stringToCtor s) rhs false stk updatedCtx
+               | .strVal s => visit (← stringToOfList s) rhs false stk updatedCtx
                | _ => return updatedCtx -- unreachable case
 
           | _ =>
@@ -705,7 +705,7 @@ partial def unifyAndUpdateEqMap (lhs : Expr) (rhs : Expr) (nextCtxId : CtxId) (u
 
           | Expr.lit (.strVal s) =>
                match f1 with
-               | Expr.const ``String.mk _ => visit lhs (← stringToCtor s) false stk updatedCtx
+               | Expr.const ``String.ofList _ => visit lhs (← stringToOfList s) false stk updatedCtx
                | _ => return updatedCtx -- unreachable: String constructor expected
 
           | Expr.const n _ =>
