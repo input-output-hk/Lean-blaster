@@ -753,15 +753,9 @@ def beqColorDegree : Color → Color → (Nat → Bool)
 --   toColorTwo n :: op = xs ===>
 -- ∀ (α : Type) (n : Option α) (xs : List Color) (c : Prop),
 -- xs =
--- Blaster.dite' c
---   (fun _ =>
---    toColorTwo.match_1 (fun (_ : Option α) => List Color) n
---      (fun (_ : Unit) => [Color.black])
---      (fun _ => [Color.transparent.blue] ))
---   (fun _ =>
---      toColorTwo.match_1 (fun (_ : Option α) => List Color) n
---      (fun (_ : Unit) => [Color.black, Color.transparent])
---      (fun _ => [Color.transparent.blue, Color.transparent]))
+--  toColorTwo.match_1 (fun (_ : Option α) => List Color) n
+--   (fun (_ : Unit) => Blaster.dite' c (fun _ => [Color.black]) (fun _ => [Color.black, Color.transparent]))
+--   (fun _ => Blaster.dite' c (fun _ => [Color.transparent.blue]) (fun _ => [Color.transparent.blue, Color.transparent]))
 -- NOTE: Test case to ensure that generic type are also properly handled
 #testOptimize [ "MatchOverCtor_5" ] (norm-result: 1)
   ∀ (α : Type) (n : Option α) (xs : List Color) (c : Prop), [Decidable c] →
@@ -769,15 +763,9 @@ def beqColorDegree : Color → Color → (Nat → Bool)
     toColorTwo n :: op = xs ===>
   ∀ (α : Type) (n : Option α) (xs : List Color) (c : Prop),
     xs =
-     Blaster.dite' c
-       (fun _ =>
-        toColorTwo.match_1 (fun (_ : Option α) => List Color) n
-          (fun (_ : Unit) => [Color.black])
-          (fun _ => [Color.transparent.blue] ))
-       (fun _ =>
-          toColorTwo.match_1 (fun (_ : Option α) => List Color) n
-          (fun (_ : Unit) => [Color.black, Color.transparent])
-          (fun _ => [Color.transparent.blue, Color.transparent]))
+     toColorTwo.match_1 (fun (_ : Option α) => List Color) n
+      (fun (_ : Unit) => Blaster.dite' c (fun _ => [Color.black]) (fun _ => [Color.black, Color.transparent]))
+      (fun _ => Blaster.dite' c (fun _ => [Color.transparent.blue]) (fun _ => [Color.transparent.blue, Color.transparent]))
 
 -- ∀ (n : Option Nat) (xs : List Color), toColorThree n :: [] = xs ===>
 -- ∀ (n : Option Nat) (xs : List Color),
