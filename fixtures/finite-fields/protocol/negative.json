@@ -1,0 +1,236 @@
+[
+  {
+    "id": "zero-cases",
+    "operation": "manifest",
+    "path": ["profiles", "solving", "cases"],
+    "value": [],
+    "expected_category": "schema"
+  },
+  {
+    "id": "staged-profile-mismatch",
+    "operation": "metadata",
+    "field": "profile",
+    "value": "different-profile",
+    "expected_category": "profile"
+  },
+  {
+    "id": "staged-platform-mismatch",
+    "operation": "metadata",
+    "field": "platform",
+    "value": "different-platform",
+    "expected_category": "platform"
+  },
+  {
+    "id": "staged-configuration-mismatch",
+    "operation": "metadata",
+    "field": "required_config",
+    "value": {"cocoa": "no"},
+    "expected_category": "artifact"
+  },
+  {
+    "id": "wrong-version",
+    "operation": "version",
+    "stdout": "cvc5 1.3.4 [git 2b2e844 on branch HEAD]\n",
+    "expected": {"version": "1.4.1", "revision": "2b2e844"},
+    "expected_category": "config"
+  },
+  {
+    "id": "wrong-revision",
+    "operation": "version",
+    "stdout": "cvc5 1.4.1 [git f3b21c4 on branch HEAD]\n",
+    "expected": {"version": "1.4.1", "revision": "2b2e844"},
+    "expected_category": "config"
+  },
+  {
+    "id": "missing-get-value-response",
+    "operation": "response",
+    "stdout": "sat\n",
+    "expected": ["sat", [["x", {"finite_field": {"residue": 6, "modulus": 7}}]]],
+    "expected_category": "response"
+  },
+  {
+    "id": "wrong-finite-field-residue",
+    "operation": "response",
+    "stdout": "sat\n((x #f5m7))\n",
+    "expected": ["sat", [["x", {"finite_field": {"residue": 6, "modulus": 7}}]]],
+    "expected_category": "response"
+  },
+  {
+    "id": "schema-version-is-not-an-integer",
+    "operation": "manifest",
+    "path": ["schema_version"],
+    "value": true,
+    "expected_category": "schema"
+  },
+  {
+    "id": "malformed-pinned-archive-checksum",
+    "operation": "manifest",
+    "path": ["profiles", "solving", "platforms", "linux-arm64", "archive_sha256"],
+    "value": "not-a-sha256",
+    "expected_category": "checksum"
+  },
+  {
+    "id": "unknown-profile",
+    "operation": "profile",
+    "name": "not-a-declared-profile",
+    "expected_category": "profile"
+  },
+  {
+    "id": "unknown-platform",
+    "operation": "platform",
+    "name": "not-a-declared-platform",
+    "expected_category": "platform"
+  },
+  {
+    "id": "cocoa-disabled",
+    "operation": "config",
+    "stdout": "cocoa: no\npoly: yes\n",
+    "required": {"cocoa": "yes"},
+    "expected_category": "config"
+  },
+  {
+    "id": "duplicate-cocoa-config",
+    "operation": "config",
+    "stdout": "cocoa: no\ncocoa: yes\n",
+    "required": {"cocoa": "yes"},
+    "expected_category": "config"
+  },
+  {
+    "id": "malformed-response",
+    "operation": "response",
+    "stdout": "sat)\n",
+    "expected": ["sat"],
+    "expected_category": "malformed"
+  },
+  {
+    "id": "truncated-response",
+    "operation": "response",
+    "stdout": "sat\n((x #f6m7)\n",
+    "expected": ["sat", [["x", {"finite_field": {"residue": 6, "modulus": 7}}]]],
+    "expected_category": "truncated"
+  },
+  {
+    "id": "truncated-error-string",
+    "operation": "response",
+    "stdout": "(error \"unfinished",
+    "expected": ["sat"],
+    "expected_category": "truncated"
+  },
+  {
+    "id": "oversized-response",
+    "operation": "response",
+    "stdout": "success success success success",
+    "max_bytes": 16,
+    "expected": ["success"],
+    "expected_category": "oversized"
+  },
+  {
+    "id": "excessive-response-nesting",
+    "operation": "response",
+    "stdout": "((((sat))))",
+    "max_depth": 3,
+    "expected": ["sat"],
+    "expected_category": "oversized"
+  },
+  {
+    "id": "extra-response",
+    "operation": "response",
+    "stdout": "sat\nsuccess\n",
+    "expected": ["sat"],
+    "expected_category": "response"
+  },
+  {
+    "id": "wrong-solving-result",
+    "operation": "response",
+    "stdout": "sat\n",
+    "expected": ["unsat"],
+    "expected_category": "response"
+  },
+  {
+    "id": "wrong-finite-field-modulus",
+    "operation": "response",
+    "stdout": "sat\n((x #f6m11))\n",
+    "expected": ["sat", [["x", {"finite_field": {"residue": 6, "modulus": 7}}]]],
+    "expected_category": "response"
+  },
+  {
+    "id": "wrong-typed-finite-field-modulus",
+    "operation": "response",
+    "stdout": "sat\n((x (as ff6 (_ FiniteField 11))))\n",
+    "expected": ["sat", [["x", {"finite_field": {"residue": 6, "modulus": 7}}]]],
+    "expected_category": "response"
+  },
+  {
+    "id": "solver-error-with-success-exit",
+    "operation": "response",
+    "stdout": "(error \"unsupported option\")\nsat\n",
+    "returncode": 0,
+    "expected": ["sat"],
+    "expected_category": "response"
+  },
+  {
+    "id": "failed-exit-with-plausible-result",
+    "operation": "response",
+    "stdout": "sat\n",
+    "returncode": 1,
+    "expected": ["sat"],
+    "expected_category": "response"
+  },
+  {
+    "id": "unexpected-stderr",
+    "operation": "response",
+    "stdout": "sat\n",
+    "stderr": "solver error\n",
+    "expected": ["sat"],
+    "expected_category": "response"
+  },
+  {
+    "id": "archive-parent-traversal",
+    "operation": "archive",
+    "members": [{"name": "../outside", "content": "unsafe"}],
+    "expected_category": "archive"
+  },
+  {
+    "id": "archive-absolute-path",
+    "operation": "archive",
+    "members": [{"name": "/outside", "content": "unsafe"}],
+    "expected_category": "archive"
+  },
+  {
+    "id": "archive-backslash-path",
+    "operation": "archive",
+    "members": [{"name": "payload\\outside", "content": "unsafe"}],
+    "expected_category": "archive"
+  },
+  {
+    "id": "archive-drive-path",
+    "operation": "archive",
+    "members": [{"name": "C:/outside", "content": "unsafe"}],
+    "expected_category": "archive"
+  },
+  {
+    "id": "archive-symlink",
+    "operation": "archive",
+    "members": [{"name": "payload/link", "mode": 41471, "content": "../outside"}],
+    "expected_category": "archive"
+  },
+  {
+    "id": "archive-path-conflict",
+    "operation": "archive",
+    "members": [{"name": "payload/file", "content": "file"}, {"name": "payload/file/child", "content": "unsafe"}],
+    "expected_category": "archive"
+  },
+  {
+    "id": "missing-artifact",
+    "operation": "missing",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "expected_category": "artifact"
+  },
+  {
+    "id": "wrong-executable-bytes",
+    "operation": "checksum",
+    "content": "not the pinned executable",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "expected_category": "checksum"
+  }
+]
