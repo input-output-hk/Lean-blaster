@@ -11,7 +11,7 @@ permissions:
   issues: write
 
 env:
-  Z3_VERSION: "4.15.2"
+  Z3_VERSION: "5.3.1"
   GLIBC_Z3: "2.39"
 
 jobs:

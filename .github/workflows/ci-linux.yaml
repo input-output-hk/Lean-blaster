@@ -13,6 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  LEAN_VERSION: "4.24.0"
   Z3_VERSION: "5.3.1"
   GLIBC_Z3: "2.39"
 
@@ -30,8 +31,10 @@ jobs:
           echo "/home/runner/.elan/bin" >> $GITHUB_PATH
           chmod +x /home/runner/.elan/bin/*
 
-      - name: Install project toolchain
-        run: elan toolchain install "$(cat lean-toolchain)"
+      - name: Install supported Lean version
+        run: |
+          test "$(cat lean-toolchain)" = "leanprover/lean4:v${{ env.LEAN_VERSION }}"
+          elan toolchain install "leanprover/lean4:v${{ env.LEAN_VERSION }}"
 
       - name: Install Z3 (release)
         if: env.Z3_VERSION != 'master'
