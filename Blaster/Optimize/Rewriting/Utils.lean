@@ -582,14 +582,22 @@ def getFunBodyAux? (f : Expr) : TranslateEnvT (Option Expr) := do
   | Expr.const n l =>
       if (← isRecursiveFun n)
       then
-        let some eqThm ← getUnfoldEqnFor? n
+        let sourceName := (← Canonical.modelName? n).getD n
+        let some eqThm ← getUnfoldEqnFor? sourceName
           | throwEnvError "getFunBody: equation theorem expected for {n}"
         Meta.forallTelescope ((← getConstEnvInfo eqThm).type) fun xs eqn => do
           let some (_, _, fbody) := eq? eqn
             | throwEnvError "getFunBody: equation expected but got {reprStr eqn}"
           let auxApp ← mkLambdaFVars xs fbody
-          let cinfo ← getConstEnvInfo n
-          hashcons (auxApp.instantiateLevelParams cinfo.levelParams l)
+          let cinfo ← getConstEnvInfo sourceName
+          let body := auxApp.instantiateLevelParams cinfo.levelParams l
+          -- Keep the original recursive identity and instance-cache keys. The
+          -- model theorems justify this substitution for every type-class instance.
+          let body := if sourceName == n then body else body.replace fun e =>
+            match e with
+            | .const name levels => if name == sourceName then some (.const n levels) else none
+            | _ => none
+          hashcons body
       else
         if let cInfo@(ConstantInfo.defnInfo _) ← getConstEnvInfo n
         then hashcons (← instantiateValueLevelParams cInfo l)

@@ -1,5 +1,6 @@
 
 import Lean
+import Blaster.Optimize.Canonical
 import Blaster.Optimize.Env.Abstract
 import Blaster.Optimize.Env.Instantiate
 import Blaster.Optimize.Env.InstantiateMVars
@@ -156,7 +157,8 @@ def isRecursiveFun (f : Name) : TranslateEnvT Bool := do
         match (← get).optEnv.memCache.isRecFunCache.get? f with
         | some b => return b
         | none =>
-            let b ← isRecursiveDefinition f
+            let source := (← Canonical.modelName? f).getD f
+            let b ← isRecursiveDefinition source
             updateIsRecFunCache f b
             return b
   | _ => return false
