@@ -191,26 +191,22 @@ private def getMatcherRecInfoAux? (n : Name) (l : List Level) : TranslateEnvT (O
  else
    let indName := n.getPrefix
    if let ConstantInfo.inductInfo info ← getConstEnvInfo indName then
+     -- Match Lean's casesOn metadata: constructor alternatives have neither
+     -- overlaps nor an artificial Unit thunk.
+     let altInfos ← info.ctors.toArray.mapM fun ctor => do
+       let .ctorInfo ctorInfo ← getConstEnvInfo ctor
+         | throwEnvError "getMatcherRecInfo: constructor info expected for {ctor}"
+       return { numFields := ctorInfo.numFields, numOverlaps := 0,
+                hasUnitThunk := false : Match.AltParamInfo }
      let mInfo := { numParams := info.numParams,
                     numDiscrs := info.numIndices + 1,
-                    altInfos := (← updateAltNumParams info.ctors #[]).map fun n =>
-                      { numFields := n, numOverlaps := 0, hasUnitThunk := false }
+                    altInfos := altInfos
                     uElimPos? := if info.levelParams.length == l.length then none else some 0
                     discrInfos := Array.replicate (info.numIndices + 1) {}
                     overlaps := {}
                   }
      return some { mInfo, isCasesOn := true}
    else return none
-
- where
-   updateAltNumParams (ctors : List Name) (altNumParams : Array Nat) : TranslateEnvT (Array Nat) := do
-     match ctors with
-     | [] => return altNumParams
-     | ctor :: xs =>
-         match (← getConstEnvInfo ctor) with
-         | ConstantInfo.ctorInfo ctorInfo =>
-             updateAltNumParams xs (altNumParams.push ctorInfo.numFields)
-         | _ => throwEnvError "updateAltNumParams: ctor info expected for {reprStr ctor} !!!"
 
 /-- Same as the default `getMatcherInfo` in the Lean library but also handles casesOn recursor application. -/
 @[always_inline, inline]

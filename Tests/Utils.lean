@@ -119,7 +119,8 @@ partial def normNatLitAndLambdaBeta (e : Expr) : MetaM Expr := do
                   let reduced := Expr.beta fbody margs
                   match reduced with
                   | Expr.proj n _idx _s =>
-                     if isStructureLike (← getEnv) n
+                     if let some (.inductInfo { isRec := false, ctors := [_], numIndices := 0, .. }) :=
+                         (← getEnv).find? n
                      then return reduced
                      else return mkAppN f margs
                   | _ => return mkAppN f margs
