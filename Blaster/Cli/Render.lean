@@ -413,7 +413,8 @@ def Renderer.finish (r : Renderer) (report : Report) : IO Unit := do
       ("signal", Lean.toJson report.signal), ("trust", Lean.toJson report.trust)]
    else
     for diag in report.diagnostics do
-      unless diag.code == some "lean.unusedVariables" && !r.config.verbose do
+      unless !r.config.verbose &&
+          [some "lean.unusedVariables", some "blaster.falsified", some "blaster.trust"].contains diag.code do
         let role := if diag.severity == "error" then "error" else "warning"
         let label := r.tintErr role diag.severity
         r.err.putStrLn s!"\n  {label}: {diag.message}"
@@ -430,7 +431,7 @@ def Renderer.finish (r : Renderer) (report : Report) : IO Unit := do
     let expectedUnknown := if expected "undetermined" == 0 then "" else s!" ({expected "undetermined"} expected)"
     r.out.putStrLn s!"\n  {completion}: {report.results.size} calls · {count "valid"} valid, {count "falsified"} falsified{expectedFalse}, {count "undetermined"} undetermined{expectedUnknown}, {errors} {errorWord}{skipped}"
     if count "valid" > 0 then
-      r.out.putStrLn s!"  {r.tintOut "warning" "warning"}: {report.trust}"
+      r.out.putStrLn s!"  {r.tintOut "muted" "note"}: {report.trust}"
    r.out.flush
 
 end Blaster.Cli

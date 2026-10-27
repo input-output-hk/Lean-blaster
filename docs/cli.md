@@ -212,11 +212,14 @@ the source or through `--no-counterexample`.
 
 `-v`/`--verbose` shows actual stages, timing, and Lean's unused-variable linter
 warnings. The normal terminal report omits those routine linter warnings; JSON
-output retains them with code `lean.unusedVariables`. Other Lean warnings remain
-visible. `--debug` enables additional diagnostic context. The CLI owns progress and
-result rendering, so it suppresses the library's stdout-based profiling and SMT
-dumping. Use existing Lean options directly
-for raw SMT-query inspection until `inspect` and `export` are implemented.
+output retains them with code `lean.unusedVariables`. The normal report also omits
+the tactic's duplicate falsification diagnostic and per-tactic `blasterProven`
+warning. JSON retains them as `blaster.falsified` and `blaster.trust`; verbose mode
+shows them. A single trust note remains at the end of reports containing valid
+results. Other Lean warnings remain visible. `--debug` enables additional
+diagnostic context. The CLI owns progress and result rendering, so it suppresses
+the library's stdout-based profiling and SMT dumping. Use existing Lean options
+directly for raw SMT-query inspection until `inspect` and `export` are implemented.
 
 ## Voice and presentation
 
@@ -324,8 +327,8 @@ selections produce exit 4 rather than silently disappearing from a batch report.
 
 Valid results are **not reconstructed Lean proofs**. The existing tactic uses
 `Blaster.Tactic.blasterProven`, including optimizer-only success. The report retains
-that trust boundary and the tactic's existing warning. Raw solver values are not
-claimed to be decoded Lean values. No new axioms or admissions are introduced.
+that trust boundary as a terminal note and structured warning. Raw solver values
+are not claimed to be decoded Lean values. No new axioms or admissions are introduced.
 
 ## Validation
 
