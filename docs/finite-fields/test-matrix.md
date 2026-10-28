@@ -83,9 +83,9 @@ uses the ordinary Make timeout convention.
 
 ## Workflow handoff and CI ownership
 
-`finite-fields.workflow.yaml` in this directory is the only workflow proposal.
-Riley must review and copy it to `.github/workflows/finite-fields.yaml`; this ticket
-creates nothing under `.github/`. It proposes native Linux arm64 and x86_64 jobs,
+`.github/workflows/finite-fields.yaml` is the dedicated finite-field workflow.
+Plan jobs cannot push workflows, so FFM-10 proposed it under this directory and
+Riley reviewed and installed it by hand. It runs native Linux arm64 and x86_64 jobs,
 solver-free pure execution before acquisition, `make ff-stage` in network-enabled
 setup, and offline `make test-cvc5-ff`. Build and clearing steps are sequential.
 Both architectures use the unchanged root toolchain and pinned host-specific

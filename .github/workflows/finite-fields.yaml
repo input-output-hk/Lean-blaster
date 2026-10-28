@@ -1,4 +1,3 @@
-# Proposal only: Riley installs this as .github/workflows/finite-fields.yaml.
 # No ordinary cvc5, cvc5 1.2.1 floor, or Z3 installation is replaced here.
 name: finite-fields
 
@@ -8,7 +7,7 @@ permissions:
 on:
   pull_request:
   push:
-    branches: [agent/feat-cvc5-ff, staging, main]
+    branches: [staging, main]
   workflow_dispatch:
 
 concurrency:
