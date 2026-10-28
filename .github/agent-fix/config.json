@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "setup_command": "bash .github/agent-fix/setup.sh",
+  "prepare_command": "lake build Blaster +Tests.Utils",
+  "full_test_command": "make check_all",
+  "regression_path": "Tests/FixedIssues/Issue{issue}.lean",
+  "regression_command": "lake env lean {regression}",
+  "umbrella_path": "Tests/FixedIssues.lean",
+  "umbrella_import": "import Tests.FixedIssues.Issue{issue}",
+  "original_start": "-- BEGIN ORIGINAL REPRODUCER",
+  "original_end": "-- END ORIGINAL REPRODUCER",
+  "original_prelude": "import Tests.Utils\n",
+  "original_command": "lake env lean {original}",
+  "editable_paths": ["Blaster/", "Tests/", "Blaster.lean", "Tests.lean"],
+  "production_paths": ["Blaster/", "Blaster.lean"],
+  "source_extensions": [".lean"],
+  "max_files": 12,
+  "max_changed_lines": 600,
+  "command_timeout_seconds": 1200
+}

@@ -6,7 +6,8 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to report a bug! Please fill out the information below to help us resolve the issue.
+        Include a complete minimal Lean reproducer and the expected and actual outcomes.
+        A maintainer can add the agent:fix label to request a generic fix and draft PR.
 
   - type: textarea
     id: description
@@ -21,12 +22,30 @@ body:
     id: reproduction
     attributes:
       label: Steps to Reproduce
-      description: Provide a minimal example that reproduces the issue
-      placeholder: All the necessary information to reproduce your bug
-      value: |
+      description: Paste a complete minimal example in a fenced Lean code block, including imports and declarations.
+      placeholder: |
         ```lean
-        -- Your minimal reproducible example here
+        import Blaster
+        -- Minimal example demonstrating the bug
         ```
+    validations:
+      required: true
+
+  - type: input
+    id: target-branch
+    attributes:
+      label: Target Branch
+      description: Branch containing the bug and intended PR destination. Leave blank for the repository default branch.
+      placeholder: main
+    validations:
+      required: false
+
+  - type: input
+    id: reproduction-command
+    attributes:
+      label: Reproduction Command
+      description: The exact command used to run the example.
+      placeholder: lake env lean Repro.lean
     validations:
       required: true
 
