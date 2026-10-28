@@ -1,4 +1,4 @@
-import Blaster.FF04.Nominal
+import Tests.FF04.Nominal
 import Lean
 
 /-!

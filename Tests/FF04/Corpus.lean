@@ -1,5 +1,5 @@
 import Blaster.FiniteField.Residue
-import Blaster.FF04.Polynorm
+import Tests.FF04.Polynorm
 
 /-!
 FF-04 bounded, explicitly reified certificate corpus. Both comparison files use

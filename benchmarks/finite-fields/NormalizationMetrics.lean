@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 -/
 import fixtures.«finite-fields».audit.Semantic
 import fixtures.«finite-fields».audit.Circuits
-import Blaster.FF04.Corpus
+import Tests.FF04.Corpus
 
 /- FFM-20 measurement support. Original reflected definitions are imported, never
    copied. This helper is compiled once outside measured invocations. -/

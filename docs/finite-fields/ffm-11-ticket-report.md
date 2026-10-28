@@ -21,7 +21,7 @@ confirmation, integration-branch publication, or final signoff.
   **not** supply a ring, numeral, or inhabitant at modulus zero. Modulus one is
   the one-element ring; nonzero composite moduli remain rings. No `Inv`, `Div`,
   or `Field` instance is introduced.
-- `Blaster/FF04/Nominal.lean` now imports the public carrier and provides the
+- `Tests/FF04/Nominal.lean` now imports the public carrier and provides the
   expressly permitted reducible compatibility alias, with `mk`, `rep`, `ext`,
   and `mk.injEq` forwards. It contains no duplicate ring instances. Corpus and
   replay implementation references use the canonical public carrier. The

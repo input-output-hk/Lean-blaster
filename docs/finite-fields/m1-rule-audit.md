@@ -52,7 +52,7 @@ All links below identify source snapshots, not observed executable behavior:
 - **Historical FF-04 report**, lean-blaster `724e32c377b5c6bfdecaf200984203b21c75355b`:
   [ff-04-reconstruction.md](https://github.com/input-output-hk/lean-blaster/blob/724e32c377b5c6bfdecaf200984203b21c75355b/docs/finite-fields/ff-04-reconstruction.md).
 - **Selective normalizer port**, the same lean-blaster snapshot:
-  [Blaster/FF04/Polynorm.lean](https://github.com/input-output-hk/lean-blaster/blob/724e32c377b5c6bfdecaf200984203b21c75355b/Blaster/FF04/Polynorm.lean).
+  [Tests/FF04/Polynorm.lean](https://github.com/input-output-hk/lean-blaster/blob/724e32c377b5c6bfdecaf200984203b21c75355b/Tests/FF04/Polynorm.lean).
 - **Fork checker**, `b1f8abb80021d687df7547fedc41882c4416d981`:
   [src/theory/ff/proof_checker.cpp](https://github.com/psaccomani15/cvc5/blob/b1f8abb80021d687df7547fedc41882c4416d981/src/theory/ff/proof_checker.cpp).
 - **Fork printer**, the same fork snapshot:
@@ -79,7 +79,7 @@ fork capabilities to the approved M1 solving binaries.
 
 In namespace `Blaster.FF04.Polynorm`, `Context R := Nat → R` and `Expr R`
 contains `val`, `var`, `neg`, `add`, `sub`, `mul` and natural-exponent `pow`.
-The [local implementation](../../Blaster/FF04/Polynorm.lean) supplies these
+The [local implementation](../../Tests/FF04/Polynorm.lean) supplies these
 interfaces, with `{R : Type u}`, `[Lean.Grind.CommRing R]`, `[DecidableEq R]`
 and `ctx : Context R`:
 

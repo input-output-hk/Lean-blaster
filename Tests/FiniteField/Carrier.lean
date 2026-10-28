@@ -2,9 +2,9 @@ import Tests.Pure
 import Blaster.FiniteField.Basic
 import Blaster.FiniteField.Residue
 import Blaster.FiniteField
-import Blaster.FF04.Nominal
-import Blaster.FF04.Corpus
-import Blaster.FF04.Replay
+import Tests.FF04.Nominal
+import Tests.FF04.Corpus
+import Tests.FF04.Replay
 
 namespace Test.FiniteFieldCarrier
 

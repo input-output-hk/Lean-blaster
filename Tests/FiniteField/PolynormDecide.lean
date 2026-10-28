@@ -1,5 +1,5 @@
 import Tests.Pure
-import Blaster.FF04.Corpus
+import Tests.FF04.Corpus
 
 /-! FF-04 reconstruction benchmark; see the shared corpus for scope and limits.
 Run with `lake env lean -Dprofiler=true -Dprofiler.threshold=0` and this path.

@@ -1,5 +1,5 @@
 import Tests.Pure
-import Blaster.FF04.Replay
+import Tests.FF04.Replay
 
 namespace Blaster.FF04.Tests
 open Replay

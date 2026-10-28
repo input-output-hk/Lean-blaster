@@ -33,7 +33,7 @@ not reopened.
   Re-exporting the algebra umbrella from the root fits that existing convention
   without a new build target, coverage exclusion or protected-file edit.
 - The pinned public
-  [FF-04 nominal source](https://github.com/input-output-hk/lean-blaster/blob/724e32c377b5c6bfdecaf200984203b21c75355b/Blaster/FF04/Nominal.lean)
+  [FF-04 nominal source](https://github.com/input-output-hk/lean-blaster/blob/724e32c377b5c6bfdecaf200984203b21c75355b/Tests/FF04/Nominal.lean)
   defines `Blaster.FF04.Residue p` as a structure with `rep : Fin p`, deriving
   `DecidableEq` and `Repr`. Under `[NeZero p]` it supplies modular operations,
   `Lean.Grind.CommRing` and `Lean.Grind.IsCharP`, but no inverse or division.
@@ -41,7 +41,7 @@ not reopened.
   [FF-04 reconstruction record](https://github.com/input-output-hk/lean-blaster/blob/724e32c377b5c6bfdecaf200984203b21c75355b/docs/finite-fields/ff-04-reconstruction.md)
   retains a nominal ring and separately checked primality for field reasoning.
   Its experiment and timings are historical evidence, not results rerun here.
-  `Blaster/FF04/` is absent from this checkout; those public files were read over
+  `Tests/FF04/` is absent from this checkout; those public files were read over
   HTTPS, not imported, merged or compiled.
 
 The tradeoff is that the main import gains the algebra declarations and their
@@ -120,7 +120,7 @@ name, automatic prime search, or a populated global instance registry.
 ## FF-04 compatibility and migration
 
 Retain the compatibility module **`Blaster.FF04.Nominal`** at
-`Blaster/FF04/Nominal.lean` when the experiment is brought forward. It imports
+`Tests/FF04/Nominal.lean` when the experiment is brought forward. It imports
 `Blaster.FiniteField.Residue` and exposes **`Blaster.FF04.Residue` as a reducible
 alias of `Blaster.FiniteField.Residue`**, not another structure, wrapper or
 coercion bridge. The original experimental structure declaration and duplicated

@@ -9,7 +9,7 @@ onto the selected Lean 4.24.0 base. The required
 [toolchain](m1-toolchain-decision.md) parent artifacts are present and were read.
 This is a selective source port, not an upstream checkout/build or merge.
 
-- Added `Blaster/FF04/Nominal.lean`, `Polynorm.lean`, `Corpus.lean` and
+- Added `Tests/FF04/Nominal.lean`, `Polynorm.lean`, `Corpus.lean` and
   `Replay.lean` with no changes to the pinned definitions, proofs, normalization
   algorithm, replay isolation or namespace conventions. The source already
   targets Lean 4.24.0; no compatibility proof repair was needed.

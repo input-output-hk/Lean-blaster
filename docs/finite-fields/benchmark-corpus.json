@@ -147,9 +147,9 @@
     }
   },
   "input_pins": {
-    "Blaster/FF04/Corpus.lean": "5125cd12b15c14f0035eb4a32ffae5eb3ce40c1f97a38a43556ec03db7007b2c",
-    "Blaster/FF04/Polynorm.lean": "4e0f253f75a9e0a131463b0070c14b56cef8f22ba304836a406357424c7b8f92",
-    "Blaster/FF04/Replay.lean": "f4e8821b9f522941048122edf1010104f54cb2d4f7f2b8fa90609051c82b97b1",
+    "Tests/FF04/Corpus.lean": "5125cd12b15c14f0035eb4a32ffae5eb3ce40c1f97a38a43556ec03db7007b2c",
+    "Tests/FF04/Polynorm.lean": "4e0f253f75a9e0a131463b0070c14b56cef8f22ba304836a406357424c7b8f92",
+    "Tests/FF04/Replay.lean": "f4e8821b9f522941048122edf1010104f54cb2d4f7f2b8fa90609051c82b97b1",
     "Blaster/FiniteField/Admission.lean": "cf5db3ab85d3b8ba36a47b2c7f329ccf558560fc6f238e2a51c753ffa5a44824",
     "Blaster/FiniteField/Basic.lean": "8cdc644c4627306ab99c451efc22743bb4a5260c21943358e0e60b4ff8bd1e02",
     "Blaster/FiniteField/DivisionEncoding.lean": "290ef132d3519fbccf0739dff29c126f3cec922b3f415e7cf01a75d69d2a1d2b",
@@ -198,7 +198,7 @@
       "source": "ff04-preserved",
       "modulus": "65537",
       "input_files": [
-        "Blaster/FF04/Corpus.lean",
+        "Tests/FF04/Corpus.lean",
         "Tests/FiniteField/PolynormDecide.lean"
       ],
       "proposition": "(x+y)*z=x*z+y*z over Residue 65537",
@@ -239,7 +239,7 @@
         "ordinary-decide"
       ],
       "content_sha256": {
-        "Blaster/FF04/Corpus.lean": "5125cd12b15c14f0035eb4a32ffae5eb3ce40c1f97a38a43556ec03db7007b2c",
+        "Tests/FF04/Corpus.lean": "5125cd12b15c14f0035eb4a32ffae5eb3ce40c1f97a38a43556ec03db7007b2c",
         "Tests/FiniteField/PolynormDecide.lean": "7acf6d62c025e48e65ef53f6d3585ba06208d248dcf227b6d0a8c0e2c5cd4147"
       },
       "source_revision": "4cf0ce952db0d95bb4f15497bf67fc9c918da5c4",
@@ -252,7 +252,7 @@
       "source": "ff04-preserved",
       "modulus": "65537",
       "input_files": [
-        "Blaster/FF04/Corpus.lean",
+        "Tests/FF04/Corpus.lean",
         "Tests/FiniteField/PolynormDecide.lean"
       ],
       "proposition": "65536*x+x+y=y over Residue 65537",
@@ -293,7 +293,7 @@
         "ordinary-decide"
       ],
       "content_sha256": {
-        "Blaster/FF04/Corpus.lean": "5125cd12b15c14f0035eb4a32ffae5eb3ce40c1f97a38a43556ec03db7007b2c",
+        "Tests/FF04/Corpus.lean": "5125cd12b15c14f0035eb4a32ffae5eb3ce40c1f97a38a43556ec03db7007b2c",
         "Tests/FiniteField/PolynormDecide.lean": "7acf6d62c025e48e65ef53f6d3585ba06208d248dcf227b6d0a8c0e2c5cd4147"
       },
       "source_revision": "4cf0ce952db0d95bb4f15497bf67fc9c918da5c4",
@@ -306,7 +306,7 @@
       "source": "ff04-preserved",
       "modulus": "65537",
       "input_files": [
-        "Blaster/FF04/Corpus.lean",
+        "Tests/FF04/Corpus.lean",
         "Tests/FiniteField/PolynormDecide.lean"
       ],
       "proposition": "(x+y)^4=x^4+4*x^3*y+6*x^2*y^2+4*x*y^3+y^4 over Residue 65537",
@@ -347,7 +347,7 @@
         "ordinary-decide"
       ],
       "content_sha256": {
-        "Blaster/FF04/Corpus.lean": "5125cd12b15c14f0035eb4a32ffae5eb3ce40c1f97a38a43556ec03db7007b2c",
+        "Tests/FF04/Corpus.lean": "5125cd12b15c14f0035eb4a32ffae5eb3ce40c1f97a38a43556ec03db7007b2c",
         "Tests/FiniteField/PolynormDecide.lean": "7acf6d62c025e48e65ef53f6d3585ba06208d248dcf227b6d0a8c0e2c5cd4147"
       },
       "source_revision": "4cf0ce952db0d95bb4f15497bf67fc9c918da5c4",
@@ -360,7 +360,7 @@
       "source": "ff04-preserved",
       "modulus": "65537",
       "input_files": [
-        "Blaster/FF04/Corpus.lean",
+        "Tests/FF04/Corpus.lean",
         "Tests/FiniteField/PolynormDecide.lean"
       ],
       "proposition": "(123456789*x+987654321*y)*(7654321*x+1234567*y)=(123456789*7654321)*x^2+(123456789*1234567+987654321*7654321)*x*y+(987654321*1234567)*y^2 over Residue 65537",
@@ -401,7 +401,7 @@
         "ordinary-decide"
       ],
       "content_sha256": {
-        "Blaster/FF04/Corpus.lean": "5125cd12b15c14f0035eb4a32ffae5eb3ce40c1f97a38a43556ec03db7007b2c",
+        "Tests/FF04/Corpus.lean": "5125cd12b15c14f0035eb4a32ffae5eb3ce40c1f97a38a43556ec03db7007b2c",
         "Tests/FiniteField/PolynormDecide.lean": "7acf6d62c025e48e65ef53f6d3585ba06208d248dcf227b6d0a8c0e2c5cd4147"
       },
       "source_revision": "4cf0ce952db0d95bb4f15497bf67fc9c918da5c4",
@@ -417,7 +417,7 @@
         "65537"
       ],
       "input_files": [
-        "Blaster/FF04/Corpus.lean"
+        "Tests/FF04/Corpus.lean"
       ],
       "proposition": "Over Residue 6, (2*x)*(3*x)=0 although the normal forms differ; over Residue 65537 the x=x+1 certificate is rejected and distribution is accepted.",
       "reflection": {
@@ -459,7 +459,7 @@
           "lake",
           "env",
           "lean",
-          "Blaster/FF04/Corpus.lean"
+          "Tests/FF04/Corpus.lean"
         ],
         "timeout_seconds": 60
       },
@@ -474,7 +474,7 @@
       ],
       "limitations": "Different normal forms mean failure to certify, not semantic inequality.",
       "content_sha256": {
-        "Blaster/FF04/Corpus.lean": "5125cd12b15c14f0035eb4a32ffae5eb3ce40c1f97a38a43556ec03db7007b2c"
+        "Tests/FF04/Corpus.lean": "5125cd12b15c14f0035eb4a32ffae5eb3ce40c1f97a38a43556ec03db7007b2c"
       },
       "source_revision": "4cf0ce952db0d95bb4f15497bf67fc9c918da5c4",
       "license": "Apache-2.0"

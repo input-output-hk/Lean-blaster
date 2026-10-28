@@ -46,7 +46,7 @@ not implementations or probes of solver proof rules.
   distinct declared invocation once and checks the declared outcomes. It does
   not time tactics, regenerate fixtures, fetch binaries or contact maintainers.
 
-The imported `Blaster/FF04/Corpus.lean`, its ordinary-decide comparison module
+The imported `Tests/FF04/Corpus.lean`, its ordinary-decide comparison module
 and replay are unchanged. Five manifest entries retain the four historical
 normalization pairs plus the false-certificate/composite-ring boundary. The
 historical report's timings are not presented as new measurements.
@@ -184,7 +184,7 @@ Lean invocations were:
 
 ```sh
 lake env lean Tests/FiniteField/PolynormDecide.lean
-lake env lean Blaster/FF04/Corpus.lean
+lake env lean Tests/FF04/Corpus.lean
 lake env lean fixtures/finite-fields/audit/Semantic.lean
 lake env lean fixtures/finite-fields/audit/Circuits.lean
 ```

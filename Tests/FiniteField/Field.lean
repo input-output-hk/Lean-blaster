@@ -1,5 +1,5 @@
 import Blaster.FiniteField.InverseGraph
-import Blaster.FF04.Nominal
+import Tests.FF04.Nominal
 
 namespace Test.FiniteFieldField
 

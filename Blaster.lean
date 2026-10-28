@@ -7,5 +7,3 @@ import Blaster.Logging
 import Blaster.Optimize
 import Blaster.Smt
 import Blaster.StateMachine
-import Blaster.FF04.Corpus
-import Blaster.FF04.Replay

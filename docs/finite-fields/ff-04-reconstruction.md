@@ -28,7 +28,7 @@ a core dependency.
 
 ## Exact compatibility edits
 
-- `Blaster/FF04/Nominal.lean`, `Polynorm.lean`, `Corpus.lean` and `Replay.lean`
+- `Tests/FF04/Nominal.lean`, `Polynorm.lean`, `Corpus.lean` and `Replay.lean`
   retain the pinned source without algebra, algorithm, proof or parser changes.
   No Lean API compatibility fix was necessary: the source already targets the
   selected toolchain. The nominal type, normalizer and replay stay under

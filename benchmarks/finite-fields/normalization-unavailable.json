@@ -7,7 +7,7 @@
     "argv": null,
     "reason": "The pinned Blaster.FF04.Polynorm.Expr has no inv constructor. No reflected inv input or normalization theorem can be run without changing the committed grammar; no runnable surrogate is supplied.",
     "input_files": [
-      "Blaster/FF04/Polynorm.lean",
+      "Tests/FF04/Polynorm.lean",
       "docs/finite-fields/benchmark-corpus.json"
     ]
   },
@@ -19,7 +19,7 @@
     "argv": null,
     "reason": "The pinned Blaster.FF04.Polynorm.Expr has no div constructor. No reflected div input or normalization theorem can be run without changing the committed grammar; no runnable surrogate is supplied.",
     "input_files": [
-      "Blaster/FF04/Polynorm.lean",
+      "Tests/FF04/Polynorm.lean",
       "docs/finite-fields/benchmark-corpus.json"
     ]
   }
