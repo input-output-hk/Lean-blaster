@@ -1,0 +1,1473 @@
+[
+  {
+    "id": "normalization-f7-square-decide",
+    "corpus_ids": [
+      "f7-square"
+    ],
+    "category": "normalization",
+    "method": "decide",
+    "argv": [
+      "env",
+      "LEAN_PATH=.",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "-o",
+      "benchmarks/finite-fields/normalization-f7-square-decide.olean",
+      "benchmarks/finite-fields/normalization-f7-square-decide.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "input_files": [
+      "benchmarks/finite-fields/NormalizationMetrics.lean",
+      "fixtures/finite-fields/audit/Semantic.lean",
+      "fixtures/finite-fields/audit/Circuits.lean",
+      "Blaster/FF04/Corpus.lean",
+      "Blaster/FF04/Polynorm.lean",
+      "Blaster/FiniteField/Basic.lean",
+      "Tests/FiniteField/LargePrime.lean",
+      "lean-toolchain",
+      "lakefile.lean",
+      "lake-manifest.json",
+      "benchmarks/finite-fields/normalization-f7-square-decide.lean"
+    ],
+    "output_files": [
+      "benchmarks/finite-fields/normalization-f7-square-decide.olean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+    "grind_config": null,
+    "required_markers": [
+      "FFM20_METRIC "
+    ]
+  },
+  {
+    "id": "normalization-f7-square-grind",
+    "corpus_ids": [
+      "f7-square"
+    ],
+    "category": "normalization",
+    "method": "grind",
+    "argv": [
+      "env",
+      "LEAN_PATH=.",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "-o",
+      "benchmarks/finite-fields/normalization-f7-square-grind.olean",
+      "benchmarks/finite-fields/normalization-f7-square-grind.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "input_files": [
+      "benchmarks/finite-fields/NormalizationMetrics.lean",
+      "fixtures/finite-fields/audit/Semantic.lean",
+      "fixtures/finite-fields/audit/Circuits.lean",
+      "Blaster/FF04/Corpus.lean",
+      "Blaster/FF04/Polynorm.lean",
+      "Blaster/FiniteField/Basic.lean",
+      "Tests/FiniteField/LargePrime.lean",
+      "lean-toolchain",
+      "lakefile.lean",
+      "lake-manifest.json",
+      "benchmarks/finite-fields/normalization-f7-square-grind.lean"
+    ],
+    "output_files": [
+      "benchmarks/finite-fields/normalization-f7-square-grind.olean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+    "grind_config": "grind (ematch := 0)",
+    "required_markers": [
+      "FFM20_METRIC "
+    ]
+  },
+  {
+    "id": "normalization-f7-constants-decide",
+    "corpus_ids": [
+      "f7-constants"
+    ],
+    "category": "normalization",
+    "method": "decide",
+    "argv": [
+      "env",
+      "LEAN_PATH=.",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "-o",
+      "benchmarks/finite-fields/normalization-f7-constants-decide.olean",
+      "benchmarks/finite-fields/normalization-f7-constants-decide.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "input_files": [
+      "benchmarks/finite-fields/NormalizationMetrics.lean",
+      "fixtures/finite-fields/audit/Semantic.lean",
+      "fixtures/finite-fields/audit/Circuits.lean",
+      "Blaster/FF04/Corpus.lean",
+      "Blaster/FF04/Polynorm.lean",
+      "Blaster/FiniteField/Basic.lean",
+      "Tests/FiniteField/LargePrime.lean",
+      "lean-toolchain",
+      "lakefile.lean",
+      "lake-manifest.json",
+      "benchmarks/finite-fields/normalization-f7-constants-decide.lean"
+    ],
+    "output_files": [
+      "benchmarks/finite-fields/normalization-f7-constants-decide.olean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+    "grind_config": null,
+    "required_markers": [
+      "FFM20_METRIC "
+    ]
+  },
+  {
+    "id": "normalization-f7-constants-grind",
+    "corpus_ids": [
+      "f7-constants"
+    ],
+    "category": "normalization",
+    "method": "grind",
+    "argv": [
+      "env",
+      "LEAN_PATH=.",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "-o",
+      "benchmarks/finite-fields/normalization-f7-constants-grind.olean",
+      "benchmarks/finite-fields/normalization-f7-constants-grind.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "input_files": [
+      "benchmarks/finite-fields/NormalizationMetrics.lean",
+      "fixtures/finite-fields/audit/Semantic.lean",
+      "fixtures/finite-fields/audit/Circuits.lean",
+      "Blaster/FF04/Corpus.lean",
+      "Blaster/FF04/Polynorm.lean",
+      "Blaster/FiniteField/Basic.lean",
+      "Tests/FiniteField/LargePrime.lean",
+      "lean-toolchain",
+      "lakefile.lean",
+      "lake-manifest.json",
+      "benchmarks/finite-fields/normalization-f7-constants-grind.lean"
+    ],
+    "output_files": [
+      "benchmarks/finite-fields/normalization-f7-constants-grind.olean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+    "grind_config": "grind (ematch := 0)",
+    "required_markers": [
+      "FFM20_METRIC "
+    ]
+  },
+  {
+    "id": "normalization-f7-characteristic-decide",
+    "corpus_ids": [
+      "f7-characteristic"
+    ],
+    "category": "normalization",
+    "method": "decide",
+    "argv": [
+      "env",
+      "LEAN_PATH=.",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "-o",
+      "benchmarks/finite-fields/normalization-f7-characteristic-decide.olean",
+      "benchmarks/finite-fields/normalization-f7-characteristic-decide.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "input_files": [
+      "benchmarks/finite-fields/NormalizationMetrics.lean",
+      "fixtures/finite-fields/audit/Semantic.lean",
+      "fixtures/finite-fields/audit/Circuits.lean",
+      "Blaster/FF04/Corpus.lean",
+      "Blaster/FF04/Polynorm.lean",
+      "Blaster/FiniteField/Basic.lean",
+      "Tests/FiniteField/LargePrime.lean",
+      "lean-toolchain",
+      "lakefile.lean",
+      "lake-manifest.json",
+      "benchmarks/finite-fields/normalization-f7-characteristic-decide.lean"
+    ],
+    "output_files": [
+      "benchmarks/finite-fields/normalization-f7-characteristic-decide.olean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+    "grind_config": null,
+    "required_markers": [
+      "FFM20_METRIC "
+    ]
+  },
+  {
+    "id": "normalization-f7-characteristic-grind",
+    "corpus_ids": [
+      "f7-characteristic"
+    ],
+    "category": "normalization",
+    "method": "grind",
+    "argv": [
+      "env",
+      "LEAN_PATH=.",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "-o",
+      "benchmarks/finite-fields/normalization-f7-characteristic-grind.olean",
+      "benchmarks/finite-fields/normalization-f7-characteristic-grind.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "input_files": [
+      "benchmarks/finite-fields/NormalizationMetrics.lean",
+      "fixtures/finite-fields/audit/Semantic.lean",
+      "fixtures/finite-fields/audit/Circuits.lean",
+      "Blaster/FF04/Corpus.lean",
+      "Blaster/FF04/Polynorm.lean",
+      "Blaster/FiniteField/Basic.lean",
+      "Tests/FiniteField/LargePrime.lean",
+      "lean-toolchain",
+      "lakefile.lean",
+      "lake-manifest.json",
+      "benchmarks/finite-fields/normalization-f7-characteristic-grind.lean"
+    ],
+    "output_files": [
+      "benchmarks/finite-fields/normalization-f7-characteristic-grind.olean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+    "grind_config": "grind (ematch := 0)",
+    "required_markers": [
+      "FFM20_METRIC "
+    ]
+  },
+  {
+    "id": "normalization-f7-recursive-sum-decide",
+    "corpus_ids": [
+      "f7-recursive-sum"
+    ],
+    "category": "normalization",
+    "method": "decide",
+    "argv": [
+      "env",
+      "LEAN_PATH=.",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "-o",
+      "benchmarks/finite-fields/normalization-f7-recursive-sum-decide.olean",
+      "benchmarks/finite-fields/normalization-f7-recursive-sum-decide.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "input_files": [
+      "benchmarks/finite-fields/NormalizationMetrics.lean",
+      "fixtures/finite-fields/audit/Semantic.lean",
+      "fixtures/finite-fields/audit/Circuits.lean",
+      "Blaster/FF04/Corpus.lean",
+      "Blaster/FF04/Polynorm.lean",
+      "Blaster/FiniteField/Basic.lean",
+      "Tests/FiniteField/LargePrime.lean",
+      "lean-toolchain",
+      "lakefile.lean",
+      "lake-manifest.json",
+      "benchmarks/finite-fields/normalization-f7-recursive-sum-decide.lean"
+    ],
+    "output_files": [
+      "benchmarks/finite-fields/normalization-f7-recursive-sum-decide.olean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+    "grind_config": null,
+    "required_markers": [
+      "FFM20_METRIC "
+    ]
+  },
+  {
+    "id": "normalization-f7-recursive-sum-grind",
+    "corpus_ids": [
+      "f7-recursive-sum"
+    ],
+    "category": "normalization",
+    "method": "grind",
+    "argv": [
+      "env",
+      "LEAN_PATH=.",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "-o",
+      "benchmarks/finite-fields/normalization-f7-recursive-sum-grind.olean",
+      "benchmarks/finite-fields/normalization-f7-recursive-sum-grind.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "input_files": [
+      "benchmarks/finite-fields/NormalizationMetrics.lean",
+      "fixtures/finite-fields/audit/Semantic.lean",
+      "fixtures/finite-fields/audit/Circuits.lean",
+      "Blaster/FF04/Corpus.lean",
+      "Blaster/FF04/Polynorm.lean",
+      "Blaster/FiniteField/Basic.lean",
+      "Tests/FiniteField/LargePrime.lean",
+      "lean-toolchain",
+      "lakefile.lean",
+      "lake-manifest.json",
+      "benchmarks/finite-fields/normalization-f7-recursive-sum-grind.lean"
+    ],
+    "output_files": [
+      "benchmarks/finite-fields/normalization-f7-recursive-sum-grind.olean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+    "grind_config": "grind (ematch := 0)",
+    "required_markers": [
+      "FFM20_METRIC "
+    ]
+  },
+  {
+    "id": "normalization-curve25519-identity-decide",
+    "corpus_ids": [
+      "curve25519-identity"
+    ],
+    "category": "normalization",
+    "method": "decide",
+    "argv": [
+      "env",
+      "LEAN_PATH=.",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "-o",
+      "benchmarks/finite-fields/normalization-curve25519-identity-decide.olean",
+      "benchmarks/finite-fields/normalization-curve25519-identity-decide.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "input_files": [
+      "benchmarks/finite-fields/NormalizationMetrics.lean",
+      "fixtures/finite-fields/audit/Semantic.lean",
+      "fixtures/finite-fields/audit/Circuits.lean",
+      "Blaster/FF04/Corpus.lean",
+      "Blaster/FF04/Polynorm.lean",
+      "Blaster/FiniteField/Basic.lean",
+      "Tests/FiniteField/LargePrime.lean",
+      "lean-toolchain",
+      "lakefile.lean",
+      "lake-manifest.json",
+      "benchmarks/finite-fields/normalization-curve25519-identity-decide.lean"
+    ],
+    "output_files": [
+      "benchmarks/finite-fields/normalization-curve25519-identity-decide.olean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+    "grind_config": null,
+    "required_markers": [
+      "FFM20_METRIC "
+    ]
+  },
+  {
+    "id": "normalization-curve25519-identity-grind",
+    "corpus_ids": [
+      "curve25519-identity"
+    ],
+    "category": "normalization",
+    "method": "grind",
+    "argv": [
+      "env",
+      "LEAN_PATH=.",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "-o",
+      "benchmarks/finite-fields/normalization-curve25519-identity-grind.olean",
+      "benchmarks/finite-fields/normalization-curve25519-identity-grind.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "input_files": [
+      "benchmarks/finite-fields/NormalizationMetrics.lean",
+      "fixtures/finite-fields/audit/Semantic.lean",
+      "fixtures/finite-fields/audit/Circuits.lean",
+      "Blaster/FF04/Corpus.lean",
+      "Blaster/FF04/Polynorm.lean",
+      "Blaster/FiniteField/Basic.lean",
+      "Tests/FiniteField/LargePrime.lean",
+      "lean-toolchain",
+      "lakefile.lean",
+      "lake-manifest.json",
+      "benchmarks/finite-fields/normalization-curve25519-identity-grind.lean"
+    ],
+    "output_files": [
+      "benchmarks/finite-fields/normalization-curve25519-identity-grind.olean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+    "grind_config": "grind (ematch := 0)",
+    "required_markers": [
+      "FFM20_METRIC "
+    ]
+  },
+  {
+    "id": "normalization-curve25519-implication-decide",
+    "corpus_ids": [
+      "curve25519-implication"
+    ],
+    "category": "normalization",
+    "method": "decide",
+    "argv": [
+      "env",
+      "LEAN_PATH=.",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "-o",
+      "benchmarks/finite-fields/normalization-curve25519-implication-decide.olean",
+      "benchmarks/finite-fields/normalization-curve25519-implication-decide.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "input_files": [
+      "benchmarks/finite-fields/NormalizationMetrics.lean",
+      "fixtures/finite-fields/audit/Semantic.lean",
+      "fixtures/finite-fields/audit/Circuits.lean",
+      "Blaster/FF04/Corpus.lean",
+      "Blaster/FF04/Polynorm.lean",
+      "Blaster/FiniteField/Basic.lean",
+      "Tests/FiniteField/LargePrime.lean",
+      "lean-toolchain",
+      "lakefile.lean",
+      "lake-manifest.json",
+      "benchmarks/finite-fields/normalization-curve25519-implication-decide.lean"
+    ],
+    "output_files": [
+      "benchmarks/finite-fields/normalization-curve25519-implication-decide.olean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time. Measures the unconditional certificate identity, not the separately proved constraint-to-zero connection or final implication; no hypotheses are added or dropped from this reflected identity.",
+    "grind_config": null,
+    "required_markers": [
+      "FFM20_METRIC "
+    ]
+  },
+  {
+    "id": "normalization-curve25519-implication-grind",
+    "corpus_ids": [
+      "curve25519-implication"
+    ],
+    "category": "normalization",
+    "method": "grind",
+    "argv": [
+      "env",
+      "LEAN_PATH=.",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "-o",
+      "benchmarks/finite-fields/normalization-curve25519-implication-grind.olean",
+      "benchmarks/finite-fields/normalization-curve25519-implication-grind.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "input_files": [
+      "benchmarks/finite-fields/NormalizationMetrics.lean",
+      "fixtures/finite-fields/audit/Semantic.lean",
+      "fixtures/finite-fields/audit/Circuits.lean",
+      "Blaster/FF04/Corpus.lean",
+      "Blaster/FF04/Polynorm.lean",
+      "Blaster/FiniteField/Basic.lean",
+      "Tests/FiniteField/LargePrime.lean",
+      "lean-toolchain",
+      "lakefile.lean",
+      "lake-manifest.json",
+      "benchmarks/finite-fields/normalization-curve25519-implication-grind.lean"
+    ],
+    "output_files": [
+      "benchmarks/finite-fields/normalization-curve25519-implication-grind.olean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time. Measures the unconditional certificate identity, not the separately proved constraint-to-zero connection or final implication; no hypotheses are added or dropped from this reflected identity.",
+    "grind_config": "grind (ematch := 0)",
+    "required_markers": [
+      "FFM20_METRIC "
+    ]
+  },
+  {
+    "id": "normalization-f7-circuit-decide",
+    "corpus_ids": [
+      "f7-circuit"
+    ],
+    "category": "normalization",
+    "method": "decide",
+    "argv": [
+      "env",
+      "LEAN_PATH=.",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "-o",
+      "benchmarks/finite-fields/normalization-f7-circuit-decide.olean",
+      "benchmarks/finite-fields/normalization-f7-circuit-decide.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "input_files": [
+      "benchmarks/finite-fields/NormalizationMetrics.lean",
+      "fixtures/finite-fields/audit/Semantic.lean",
+      "fixtures/finite-fields/audit/Circuits.lean",
+      "Blaster/FF04/Corpus.lean",
+      "Blaster/FF04/Polynorm.lean",
+      "Blaster/FiniteField/Basic.lean",
+      "Tests/FiniteField/LargePrime.lean",
+      "lean-toolchain",
+      "lakefile.lean",
+      "lake-manifest.json",
+      "benchmarks/finite-fields/normalization-f7-circuit-decide.lean"
+    ],
+    "output_files": [
+      "benchmarks/finite-fields/normalization-f7-circuit-decide.olean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time. Measures the unconditional certificate identity, not the separately proved constraint-to-zero connection or final implication; no hypotheses are added or dropped from this reflected identity.",
+    "grind_config": null,
+    "required_markers": [
+      "FFM20_METRIC "
+    ]
+  },
+  {
+    "id": "normalization-f7-circuit-grind",
+    "corpus_ids": [
+      "f7-circuit"
+    ],
+    "category": "normalization",
+    "method": "grind",
+    "argv": [
+      "env",
+      "LEAN_PATH=.",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "-o",
+      "benchmarks/finite-fields/normalization-f7-circuit-grind.olean",
+      "benchmarks/finite-fields/normalization-f7-circuit-grind.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "input_files": [
+      "benchmarks/finite-fields/NormalizationMetrics.lean",
+      "fixtures/finite-fields/audit/Semantic.lean",
+      "fixtures/finite-fields/audit/Circuits.lean",
+      "Blaster/FF04/Corpus.lean",
+      "Blaster/FF04/Polynorm.lean",
+      "Blaster/FiniteField/Basic.lean",
+      "Tests/FiniteField/LargePrime.lean",
+      "lean-toolchain",
+      "lakefile.lean",
+      "lake-manifest.json",
+      "benchmarks/finite-fields/normalization-f7-circuit-grind.lean"
+    ],
+    "output_files": [
+      "benchmarks/finite-fields/normalization-f7-circuit-grind.olean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time. Measures the unconditional certificate identity, not the separately proved constraint-to-zero connection or final implication; no hypotheses are added or dropped from this reflected identity.",
+    "grind_config": "grind (ematch := 0)",
+    "required_markers": [
+      "FFM20_METRIC "
+    ]
+  },
+  {
+    "id": "normalization-curve25519-circuit-decide",
+    "corpus_ids": [
+      "curve25519-circuit"
+    ],
+    "category": "normalization",
+    "method": "decide",
+    "argv": [
+      "env",
+      "LEAN_PATH=.",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "-o",
+      "benchmarks/finite-fields/normalization-curve25519-circuit-decide.olean",
+      "benchmarks/finite-fields/normalization-curve25519-circuit-decide.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "input_files": [
+      "benchmarks/finite-fields/NormalizationMetrics.lean",
+      "fixtures/finite-fields/audit/Semantic.lean",
+      "fixtures/finite-fields/audit/Circuits.lean",
+      "Blaster/FF04/Corpus.lean",
+      "Blaster/FF04/Polynorm.lean",
+      "Blaster/FiniteField/Basic.lean",
+      "Tests/FiniteField/LargePrime.lean",
+      "lean-toolchain",
+      "lakefile.lean",
+      "lake-manifest.json",
+      "benchmarks/finite-fields/normalization-curve25519-circuit-decide.lean"
+    ],
+    "output_files": [
+      "benchmarks/finite-fields/normalization-curve25519-circuit-decide.olean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time. Measures the unconditional certificate identity, not the separately proved constraint-to-zero connection or final implication; no hypotheses are added or dropped from this reflected identity.",
+    "grind_config": null,
+    "required_markers": [
+      "FFM20_METRIC "
+    ]
+  },
+  {
+    "id": "normalization-curve25519-circuit-grind",
+    "corpus_ids": [
+      "curve25519-circuit"
+    ],
+    "category": "normalization",
+    "method": "grind",
+    "argv": [
+      "env",
+      "LEAN_PATH=.",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "-o",
+      "benchmarks/finite-fields/normalization-curve25519-circuit-grind.olean",
+      "benchmarks/finite-fields/normalization-curve25519-circuit-grind.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "input_files": [
+      "benchmarks/finite-fields/NormalizationMetrics.lean",
+      "fixtures/finite-fields/audit/Semantic.lean",
+      "fixtures/finite-fields/audit/Circuits.lean",
+      "Blaster/FF04/Corpus.lean",
+      "Blaster/FF04/Polynorm.lean",
+      "Blaster/FiniteField/Basic.lean",
+      "Tests/FiniteField/LargePrime.lean",
+      "lean-toolchain",
+      "lakefile.lean",
+      "lake-manifest.json",
+      "benchmarks/finite-fields/normalization-curve25519-circuit-grind.lean"
+    ],
+    "output_files": [
+      "benchmarks/finite-fields/normalization-curve25519-circuit-grind.olean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time. Measures the unconditional certificate identity, not the separately proved constraint-to-zero connection or final implication; no hypotheses are added or dropped from this reflected identity.",
+    "grind_config": "grind (ematch := 0)",
+    "required_markers": [
+      "FFM20_METRIC "
+    ]
+  },
+  {
+    "id": "normalization-ff04-distribution-decide",
+    "corpus_ids": [
+      "ff04-distribution"
+    ],
+    "category": "normalization",
+    "method": "decide",
+    "argv": [
+      "env",
+      "LEAN_PATH=.",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "-o",
+      "benchmarks/finite-fields/normalization-ff04-distribution-decide.olean",
+      "benchmarks/finite-fields/normalization-ff04-distribution-decide.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "input_files": [
+      "benchmarks/finite-fields/NormalizationMetrics.lean",
+      "fixtures/finite-fields/audit/Semantic.lean",
+      "fixtures/finite-fields/audit/Circuits.lean",
+      "Blaster/FF04/Corpus.lean",
+      "Blaster/FF04/Polynorm.lean",
+      "Blaster/FiniteField/Basic.lean",
+      "Tests/FiniteField/LargePrime.lean",
+      "lean-toolchain",
+      "lakefile.lean",
+      "lake-manifest.json",
+      "benchmarks/finite-fields/normalization-ff04-distribution-decide.lean"
+    ],
+    "output_files": [
+      "benchmarks/finite-fields/normalization-ff04-distribution-decide.olean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+    "grind_config": null,
+    "required_markers": [
+      "FFM20_METRIC "
+    ]
+  },
+  {
+    "id": "normalization-ff04-distribution-grind",
+    "corpus_ids": [
+      "ff04-distribution"
+    ],
+    "category": "normalization",
+    "method": "grind",
+    "argv": [
+      "env",
+      "LEAN_PATH=.",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "-o",
+      "benchmarks/finite-fields/normalization-ff04-distribution-grind.olean",
+      "benchmarks/finite-fields/normalization-ff04-distribution-grind.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "input_files": [
+      "benchmarks/finite-fields/NormalizationMetrics.lean",
+      "fixtures/finite-fields/audit/Semantic.lean",
+      "fixtures/finite-fields/audit/Circuits.lean",
+      "Blaster/FF04/Corpus.lean",
+      "Blaster/FF04/Polynorm.lean",
+      "Blaster/FiniteField/Basic.lean",
+      "Tests/FiniteField/LargePrime.lean",
+      "lean-toolchain",
+      "lakefile.lean",
+      "lake-manifest.json",
+      "benchmarks/finite-fields/normalization-ff04-distribution-grind.lean"
+    ],
+    "output_files": [
+      "benchmarks/finite-fields/normalization-ff04-distribution-grind.olean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+    "grind_config": "grind (ematch := 0)",
+    "required_markers": [
+      "FFM20_METRIC "
+    ]
+  },
+  {
+    "id": "normalization-ff04-characteristic-decide",
+    "corpus_ids": [
+      "ff04-characteristic"
+    ],
+    "category": "normalization",
+    "method": "decide",
+    "argv": [
+      "env",
+      "LEAN_PATH=.",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "-o",
+      "benchmarks/finite-fields/normalization-ff04-characteristic-decide.olean",
+      "benchmarks/finite-fields/normalization-ff04-characteristic-decide.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "input_files": [
+      "benchmarks/finite-fields/NormalizationMetrics.lean",
+      "fixtures/finite-fields/audit/Semantic.lean",
+      "fixtures/finite-fields/audit/Circuits.lean",
+      "Blaster/FF04/Corpus.lean",
+      "Blaster/FF04/Polynorm.lean",
+      "Blaster/FiniteField/Basic.lean",
+      "Tests/FiniteField/LargePrime.lean",
+      "lean-toolchain",
+      "lakefile.lean",
+      "lake-manifest.json",
+      "benchmarks/finite-fields/normalization-ff04-characteristic-decide.lean"
+    ],
+    "output_files": [
+      "benchmarks/finite-fields/normalization-ff04-characteristic-decide.olean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+    "grind_config": null,
+    "required_markers": [
+      "FFM20_METRIC "
+    ]
+  },
+  {
+    "id": "normalization-ff04-characteristic-grind",
+    "corpus_ids": [
+      "ff04-characteristic"
+    ],
+    "category": "normalization",
+    "method": "grind",
+    "argv": [
+      "env",
+      "LEAN_PATH=.",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "-o",
+      "benchmarks/finite-fields/normalization-ff04-characteristic-grind.olean",
+      "benchmarks/finite-fields/normalization-ff04-characteristic-grind.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "input_files": [
+      "benchmarks/finite-fields/NormalizationMetrics.lean",
+      "fixtures/finite-fields/audit/Semantic.lean",
+      "fixtures/finite-fields/audit/Circuits.lean",
+      "Blaster/FF04/Corpus.lean",
+      "Blaster/FF04/Polynorm.lean",
+      "Blaster/FiniteField/Basic.lean",
+      "Tests/FiniteField/LargePrime.lean",
+      "lean-toolchain",
+      "lakefile.lean",
+      "lake-manifest.json",
+      "benchmarks/finite-fields/normalization-ff04-characteristic-grind.lean"
+    ],
+    "output_files": [
+      "benchmarks/finite-fields/normalization-ff04-characteristic-grind.olean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+    "grind_config": "grind (ematch := 0)",
+    "required_markers": [
+      "FFM20_METRIC "
+    ]
+  },
+  {
+    "id": "normalization-ff04-fourth-power-decide",
+    "corpus_ids": [
+      "ff04-fourth-power"
+    ],
+    "category": "normalization",
+    "method": "decide",
+    "argv": [
+      "env",
+      "LEAN_PATH=.",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "-o",
+      "benchmarks/finite-fields/normalization-ff04-fourth-power-decide.olean",
+      "benchmarks/finite-fields/normalization-ff04-fourth-power-decide.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "input_files": [
+      "benchmarks/finite-fields/NormalizationMetrics.lean",
+      "fixtures/finite-fields/audit/Semantic.lean",
+      "fixtures/finite-fields/audit/Circuits.lean",
+      "Blaster/FF04/Corpus.lean",
+      "Blaster/FF04/Polynorm.lean",
+      "Blaster/FiniteField/Basic.lean",
+      "Tests/FiniteField/LargePrime.lean",
+      "lean-toolchain",
+      "lakefile.lean",
+      "lake-manifest.json",
+      "benchmarks/finite-fields/normalization-ff04-fourth-power-decide.lean"
+    ],
+    "output_files": [
+      "benchmarks/finite-fields/normalization-ff04-fourth-power-decide.olean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+    "grind_config": null,
+    "required_markers": [
+      "FFM20_METRIC "
+    ]
+  },
+  {
+    "id": "normalization-ff04-fourth-power-grind",
+    "corpus_ids": [
+      "ff04-fourth-power"
+    ],
+    "category": "normalization",
+    "method": "grind",
+    "argv": [
+      "env",
+      "LEAN_PATH=.",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "-o",
+      "benchmarks/finite-fields/normalization-ff04-fourth-power-grind.olean",
+      "benchmarks/finite-fields/normalization-ff04-fourth-power-grind.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "input_files": [
+      "benchmarks/finite-fields/NormalizationMetrics.lean",
+      "fixtures/finite-fields/audit/Semantic.lean",
+      "fixtures/finite-fields/audit/Circuits.lean",
+      "Blaster/FF04/Corpus.lean",
+      "Blaster/FF04/Polynorm.lean",
+      "Blaster/FiniteField/Basic.lean",
+      "Tests/FiniteField/LargePrime.lean",
+      "lean-toolchain",
+      "lakefile.lean",
+      "lake-manifest.json",
+      "benchmarks/finite-fields/normalization-ff04-fourth-power-grind.lean"
+    ],
+    "output_files": [
+      "benchmarks/finite-fields/normalization-ff04-fourth-power-grind.olean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+    "grind_config": "grind (ematch := 0)",
+    "required_markers": [
+      "FFM20_METRIC "
+    ]
+  },
+  {
+    "id": "normalization-ff04-large-coefficients-decide",
+    "corpus_ids": [
+      "ff04-large-coefficients"
+    ],
+    "category": "normalization",
+    "method": "decide",
+    "argv": [
+      "env",
+      "LEAN_PATH=.",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "-o",
+      "benchmarks/finite-fields/normalization-ff04-large-coefficients-decide.olean",
+      "benchmarks/finite-fields/normalization-ff04-large-coefficients-decide.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "input_files": [
+      "benchmarks/finite-fields/NormalizationMetrics.lean",
+      "fixtures/finite-fields/audit/Semantic.lean",
+      "fixtures/finite-fields/audit/Circuits.lean",
+      "Blaster/FF04/Corpus.lean",
+      "Blaster/FF04/Polynorm.lean",
+      "Blaster/FiniteField/Basic.lean",
+      "Tests/FiniteField/LargePrime.lean",
+      "lean-toolchain",
+      "lakefile.lean",
+      "lake-manifest.json",
+      "benchmarks/finite-fields/normalization-ff04-large-coefficients-decide.lean"
+    ],
+    "output_files": [
+      "benchmarks/finite-fields/normalization-ff04-large-coefficients-decide.olean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+    "grind_config": null,
+    "required_markers": [
+      "FFM20_METRIC "
+    ]
+  },
+  {
+    "id": "normalization-ff04-large-coefficients-grind",
+    "corpus_ids": [
+      "ff04-large-coefficients"
+    ],
+    "category": "normalization",
+    "method": "grind",
+    "argv": [
+      "env",
+      "LEAN_PATH=.",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "-o",
+      "benchmarks/finite-fields/normalization-ff04-large-coefficients-grind.olean",
+      "benchmarks/finite-fields/normalization-ff04-large-coefficients-grind.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "input_files": [
+      "benchmarks/finite-fields/NormalizationMetrics.lean",
+      "fixtures/finite-fields/audit/Semantic.lean",
+      "fixtures/finite-fields/audit/Circuits.lean",
+      "Blaster/FF04/Corpus.lean",
+      "Blaster/FF04/Polynorm.lean",
+      "Blaster/FiniteField/Basic.lean",
+      "Tests/FiniteField/LargePrime.lean",
+      "lean-toolchain",
+      "lakefile.lean",
+      "lake-manifest.json",
+      "benchmarks/finite-fields/normalization-ff04-large-coefficients-grind.lean"
+    ],
+    "output_files": [
+      "benchmarks/finite-fields/normalization-ff04-large-coefficients-grind.olean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+    "grind_config": "grind (ematch := 0)",
+    "required_markers": [
+      "FFM20_METRIC "
+    ]
+  },
+  {
+    "id": "normalization-false-goal-decide",
+    "corpus_ids": [
+      "f7-false-certificate"
+    ],
+    "category": "normalization",
+    "method": "decide",
+    "argv": [
+      "env",
+      "LEAN_PATH=.",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "-o",
+      "benchmarks/finite-fields/normalization-false-goal-decide.olean",
+      "benchmarks/finite-fields/normalization-false-goal-decide.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "input_files": [
+      "benchmarks/finite-fields/NormalizationMetrics.lean",
+      "fixtures/finite-fields/audit/Semantic.lean",
+      "fixtures/finite-fields/audit/Circuits.lean",
+      "Blaster/FF04/Corpus.lean",
+      "Blaster/FF04/Polynorm.lean",
+      "Blaster/FiniteField/Basic.lean",
+      "Tests/FiniteField/LargePrime.lean",
+      "lean-toolchain",
+      "lakefile.lean",
+      "lake-manifest.json",
+      "benchmarks/finite-fields/normalization-false-goal-decide.lean"
+    ],
+    "output_files": [
+      "benchmarks/finite-fields/normalization-false-goal-decide.olean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "notes": "Deliberate failure: preserve the actual Lean error log and classify as command_failure; no successful proof metric is emitted. Expected exit_code remains the runner success criterion 0, not an assertion that the failing Lean command succeeds.",
+    "grind_config": null,
+    "required_markers": []
+  },
+  {
+    "id": "normalization-false-goal-grind",
+    "corpus_ids": [
+      "f7-false-certificate"
+    ],
+    "category": "normalization",
+    "method": "grind",
+    "argv": [
+      "env",
+      "LEAN_PATH=.",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "-o",
+      "benchmarks/finite-fields/normalization-false-goal-grind.olean",
+      "benchmarks/finite-fields/normalization-false-goal-grind.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "input_files": [
+      "benchmarks/finite-fields/NormalizationMetrics.lean",
+      "fixtures/finite-fields/audit/Semantic.lean",
+      "fixtures/finite-fields/audit/Circuits.lean",
+      "Blaster/FF04/Corpus.lean",
+      "Blaster/FF04/Polynorm.lean",
+      "Blaster/FiniteField/Basic.lean",
+      "Tests/FiniteField/LargePrime.lean",
+      "lean-toolchain",
+      "lakefile.lean",
+      "lake-manifest.json",
+      "benchmarks/finite-fields/normalization-false-goal-grind.lean"
+    ],
+    "output_files": [
+      "benchmarks/finite-fields/normalization-false-goal-grind.olean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "notes": "Deliberate failure: preserve the actual Lean error log and classify as command_failure; no successful proof metric is emitted. Expected exit_code remains the runner success criterion 0, not an assertion that the failing Lean command succeeds.",
+    "grind_config": "grind (ematch := 0)",
+    "required_markers": []
+  },
+  {
+    "id": "normalization-composite-zero-product-decide",
+    "corpus_ids": [
+      "ff04-composite-and-rejection"
+    ],
+    "category": "normalization",
+    "method": "decide",
+    "argv": [
+      "env",
+      "LEAN_PATH=.",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "-o",
+      "benchmarks/finite-fields/normalization-composite-zero-product-decide.olean",
+      "benchmarks/finite-fields/normalization-composite-zero-product-decide.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "input_files": [
+      "benchmarks/finite-fields/NormalizationMetrics.lean",
+      "fixtures/finite-fields/audit/Semantic.lean",
+      "fixtures/finite-fields/audit/Circuits.lean",
+      "Blaster/FF04/Corpus.lean",
+      "Blaster/FF04/Polynorm.lean",
+      "Blaster/FiniteField/Basic.lean",
+      "Tests/FiniteField/LargePrime.lean",
+      "lean-toolchain",
+      "lakefile.lean",
+      "lake-manifest.json",
+      "benchmarks/finite-fields/normalization-composite-zero-product-decide.lean"
+    ],
+    "output_files": [
+      "benchmarks/finite-fields/normalization-composite-zero-product-decide.olean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "notes": "Deliberate failure: preserve the actual Lean error log and classify as command_failure; no successful proof metric is emitted. Expected exit_code remains the runner success criterion 0, not an assertion that the failing Lean command succeeds.",
+    "grind_config": null,
+    "required_markers": []
+  },
+  {
+    "id": "normalization-composite-zero-product-grind",
+    "corpus_ids": [
+      "ff04-composite-and-rejection"
+    ],
+    "category": "normalization",
+    "method": "grind",
+    "argv": [
+      "env",
+      "LEAN_PATH=.",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "-o",
+      "benchmarks/finite-fields/normalization-composite-zero-product-grind.olean",
+      "benchmarks/finite-fields/normalization-composite-zero-product-grind.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "input_files": [
+      "benchmarks/finite-fields/NormalizationMetrics.lean",
+      "fixtures/finite-fields/audit/Semantic.lean",
+      "fixtures/finite-fields/audit/Circuits.lean",
+      "Blaster/FF04/Corpus.lean",
+      "Blaster/FF04/Polynorm.lean",
+      "Blaster/FiniteField/Basic.lean",
+      "Tests/FiniteField/LargePrime.lean",
+      "lean-toolchain",
+      "lakefile.lean",
+      "lake-manifest.json",
+      "benchmarks/finite-fields/normalization-composite-zero-product-grind.lean"
+    ],
+    "output_files": [
+      "benchmarks/finite-fields/normalization-composite-zero-product-grind.olean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "notes": "Semantic success despite noncanonical normalizer zero-coefficient monomial; composite ring, not a field.",
+    "grind_config": "grind (ematch := 0)",
+    "required_markers": [
+      "FFM20_METRIC "
+    ]
+  },
+  {
+    "id": "normalization-curve25519-circuit-decide-low-heartbeat",
+    "corpus_ids": [
+      "curve25519-circuit"
+    ],
+    "category": "normalization",
+    "method": "decide",
+    "argv": [
+      "env",
+      "LEAN_PATH=.",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=1",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "-o",
+      "benchmarks/finite-fields/normalization-curve25519-circuit-decide.olean",
+      "benchmarks/finite-fields/normalization-curve25519-circuit-decide.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "input_files": [
+      "benchmarks/finite-fields/NormalizationMetrics.lean",
+      "fixtures/finite-fields/audit/Semantic.lean",
+      "fixtures/finite-fields/audit/Circuits.lean",
+      "Blaster/FF04/Corpus.lean",
+      "Blaster/FF04/Polynorm.lean",
+      "Blaster/FiniteField/Basic.lean",
+      "Tests/FiniteField/LargePrime.lean",
+      "lean-toolchain",
+      "lakefile.lean",
+      "lake-manifest.json",
+      "benchmarks/finite-fields/normalization-curve25519-circuit-decide.lean"
+    ],
+    "output_files": [
+      "benchmarks/finite-fields/normalization-curve25519-circuit-decide.olean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 1
+    },
+    "notes": "Deliberate resource failure: same eight-gate degree-five Curve25519 theorem and same ordinary decide proof, maxHeartbeats=1 instead of 200000. Preserve actual diagnostics and classify heartbeat_limit when observed. No harness set_option resets this limit; imported modules are compiled in setup. A failure is not recorded as proof success.",
+    "grind_config": null,
+    "required_markers": []
+  }
+]

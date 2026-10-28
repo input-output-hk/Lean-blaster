@@ -1,0 +1,3983 @@
+{
+  "schema_version": 1,
+  "ticket": "FFM-20",
+  "corpus_path": "docs/finite-fields/benchmark-corpus.json",
+  "corpus_sha256": "62dc069a61c5f5d7fe2af100f547d709eccac16e14c9156515d0f2767f98a3cf",
+  "input_pins": {
+    "Blaster/FF04/Corpus.lean": "5125cd12b15c14f0035eb4a32ffae5eb3ce40c1f97a38a43556ec03db7007b2c",
+    "Blaster/FF04/Polynorm.lean": "4e0f253f75a9e0a131463b0070c14b56cef8f22ba304836a406357424c7b8f92",
+    "Blaster/FF04/Replay.lean": "f4e8821b9f522941048122edf1010104f54cb2d4f7f2b8fa90609051c82b97b1",
+    "Blaster/FiniteField/Admission.lean": "cf5db3ab85d3b8ba36a47b2c7f329ccf558560fc6f238e2a51c753ffa5a44824",
+    "Blaster/FiniteField/Basic.lean": "8cdc644c4627306ab99c451efc22743bb4a5260c21943358e0e60b4ff8bd1e02",
+    "Blaster/FiniteField/DivisionEncoding.lean": "290ef132d3519fbccf0739dff29c126f3cec922b3f415e7cf01a75d69d2a1d2b",
+    "Blaster/FiniteField/Field.lean": "ce7d89960c068088e371d758806f0ef4d04587a5e6f8c81c38989eab32400dfe",
+    "Blaster/FiniteField/InverseGraph.lean": "5a0960aff63fd8c6bbc71b95449b29d06ce66b9fd9829849eb396259b166a0c2",
+    "Blaster/FiniteField/Pow.lean": "655caf83a6d7dca47a79e3d36464978f54399edde06f1ae5d304a7c3b33cff9d",
+    "Blaster/FiniteField/Prime.lean": "d1a018c21c11af05a57cecca25ac57e81571c39f8bec7975a900830f329600be",
+    "Blaster/FiniteField/PrimeBLS.lean": "4e22a89d14708980f92a361fce8eafba0178a5e13469761ff346338ba1b22975",
+    "Blaster/FiniteField/PrimeFermat.lean": "35c6ee478e413ba5ac159b726010a93259c44f502ff8cf8d0c1f04a8ab8b1479",
+    "Blaster/FiniteField/PrimeOrder.lean": "ed55e74870824ca4c24642b06dfa2f136170b3834836fcfa09767c5f095d30e2",
+    "Blaster/FiniteField/PrimePower.lean": "4a2e52bac8cea16c5abf9433117c5ef76867d2efee7c6d00d5ab0adb189add9a",
+    "Blaster/FiniteField/Recognize.lean": "386e7b5f9d5aff84f5119ef127b5458a1c3210de5c9f269ee248318db2d63f6e",
+    "Blaster/FiniteField/Residue.lean": "77e379314c694b566b166363766452daae50252c72ebd4e26dc620087200cb80",
+    "Blaster/FiniteField/Structural.lean": "961dd571a79f4ea72678e5cfd0678eccecb9caf25ff769f6dcbbb76d8b7d4f53",
+    "LICENSE": "7f023c3b5c1a6a30e2d989acbfba725393c4dea2eb4e5e546d841584a6037809",
+    "Tests/FiniteField/LargePrime.lean": "b17c0db8c2bba6b764036fc0df13e12c1a38366e3a36d8fb39c3f24560263828",
+    "Tests/FiniteField/PolynormDecide.lean": "7acf6d62c025e48e65ef53f6d3585ba06208d248dcf227b6d0a8c0e2c5cd4147",
+    "docs/finite-fields/large-prime-fixture.md": "2cc40c8d63e01128c26974fd30eac4d502d61521d2ae5951092494fab7030df2",
+    "docs/finite-fields/m1-large-prime-decision.md": "122b131ab142102c6a6bd17a8f73865b1f68ae6a48ed850c26da4ff4fcbb6ed8",
+    "docs/finite-fields/m1-solver-distribution-decision.md": "1ae4147888dec52262760bfe0d3cf1e21be306d5cbceb5e1fb05020ab0cfbb87",
+    "docs/finite-fields/solver-manifest.json": "282a9e47f405e121e78f68de33e4f8a094dc83cd0e135a1c4a6862ea88e5fec7",
+    "fixtures/finite-fields/audit/Circuits.lean": "baeded9d65e4c97b9e3651016c1d9a1857b131679e5cff88fd96ab5ac31a8926",
+    "fixtures/finite-fields/audit/Semantic.lean": "d522a09a641300b851a7fecc42554df099c5bd87825ec5c77bf4bc7870cf2795",
+    "fixtures/finite-fields/audit/f2-guarded-fermat-zero.smt2": "8ed1d8b30eac25789f15062c54fef78016ebde8b6b3a00830edf922e43f3e0ce",
+    "fixtures/finite-fields/audit/f2-unguarded-fermat-zero.smt2": "1a162fbfa667ec983d43db9cd0d033e651e46e841e94841808383d6fefc108dd",
+    "fixtures/finite-fields/audit/f3-enumeration.smt2": "be6a157d0dc17992af86eeecbb0d5171996a7afc7b78922dbac2d0a6f218a058",
+    "fixtures/finite-fields/audit/f3-no-root-field-hint.smt2": "025da4d4206656ebd73d7927e994979934f6e2c104f91eb1d0c2127b52908803",
+    "fixtures/finite-fields/audit/f3-no-root.smt2": "4d65f8837181539027ca9c6506a1ca2b31bf0df69a52b927696d9886a266e604",
+    "fixtures/finite-fields/audit/f394357-linear.smt2": "7e766deac3591efd75bc34cc011e5b81fbbf2e5b561b8cbe110ce994ef2b9772",
+    "fixtures/finite-fields/audit/f7-false-goal.smt2": "eaa64dfc02a33b613ae54e4c1ae31e7aaf1dc44b769ee139c1bb84ebc0c149e6",
+    "fixtures/finite-fields/audit/f7-no-root-field-hint.smt2": "e7116df0cc601ce910ac9ea899f71fa563f44f1640f26807a7f430dae3a5eeae",
+    "fixtures/finite-fields/audit/f7-no-root.smt2": "63bc55cd2f500c4f0cbbf02f2f2222943764bf0d7e568befbc31372037c220cc",
+    "fixtures/finite-fields/audit/f7-square-implies-nonzero.smt2": "93485df0f19fe5ea15c0e7f6085cc7fe194052dd1c7efff85f4150aaaead3f68",
+    "fixtures/finite-fields/audit/f7-zero-product-witness.smt2": "70b3bd3d87b9c6cfaf1b3449cea38a6c7a0d59c0f79e155a8d14c267e1f5c407",
+    "fixtures/finite-fields/audit/f7-zero-product.smt2": "a0ef165f16f12604001cfac907db87eaef960d4cdfcf3a132beda4249322bdd3",
+    "fixtures/finite-fields/audit/run_corpus.py": "ddd606e2b4fb7048ff4dabd889b80a5f5a45325121bf263f97d643f626c9d424",
+    "lake-manifest.json": "e6129c330eb0c8cf49523ae8560565b04cb0c7c7ac92594d2be2a09b7d893f82",
+    "lakefile.lean": "b0576652f89863ff8830ca6f70b7f5bb602829b0a8677057bd8e6f9d49a7ae2c",
+    "lean-toolchain": "42779d67b81608af8a12aa4328d2ab47ca201925b3b2bd68369587b5340bb434",
+    "Blaster.lean": "2b3be2d254b4f57d6aca31e5cec9b7503c31ba1a68c29ce9928a6f95623e906c",
+    "Blaster/Command.lean": "3f4b1d1101edb8e8c946e5fd5feb5e6cd10c81b127cb40bb0715e76da9fcf20e",
+    "Blaster/Command/Options.lean": "918c5ec31138c2e580598f3fcccd1ba445052031ec681b704b268bfffd4e3e13",
+    "Blaster/Command/Syntax.lean": "276b64c311f9ab6b7f6d0400aca9330f4d5e10a30dea752ff3b7dfe6c09790a3",
+    "Blaster/Command/Tactic.lean": "674c7c016424b573718c54356534a06d3bab51c4ca62ddad542baa9826287b16",
+    "Blaster/FF04/Nominal.lean": "82e757f1507646d56b4fb14dcc25c5caa2f56431a2c67f5316f62e000769d97d",
+    "Blaster/FiniteField.lean": "77d9cc4f6c6ede65360f9e9212ebe422f3ae2266b5d0b07a19e381d753945061",
+    "Blaster/Logging.lean": "59d454793e6a972a7f236b6585e16c623c97c12a7dee57c53cfb094773463b0f",
+    "Blaster/Logging/Basic.lean": "b040bcb3e91c613bba8ee57ae8c4739fbdc96b7ad632e44244070d67827c9377",
+    "Blaster/Optimize.lean": "cf2b106e5f1672740cbc1c2b119a47521afff0d6c68592ccd3a0b54eb20907d3",
+    "Blaster/Optimize/Basic.lean": "530743fe07d75b8c6a00507447830790f3127b97572e4b15e7a7ace41c54d87a",
+    "Blaster/Optimize/Decidable.lean": "2db0a4b215a75b5f36b16a8c5554a3f4a55a107647d4fd031e5aa4e2f8d44c0e",
+    "Blaster/Optimize/Env.lean": "869f1a39ba56c7727f0894e2c03143272ce51317fb600a76b304d71d356805b3",
+    "Blaster/Optimize/Expr.lean": "90e344165ea6593fa8ad9ba7c23098abffde471e17a27b16c2febe502ce41bd9",
+    "Blaster/Optimize/Hypotheses.lean": "6193a9ce23d609a0d98e4039d9f207a65639b5a1e973ac06444f4bc945a06a31",
+    "Blaster/Optimize/Lemmas.lean": "87ef4426eb9912f53a3e129c49ae95cf750534b3b176dad2e7dd7179b144aa89",
+    "Blaster/Optimize/Lemmas/LemmasDecide.lean": "c55d1b2ca9d45efe5faa217195c2b0ad16e96ef244e36e065d2281b9edad28f4",
+    "Blaster/Optimize/Lemmas/LemmasInt.lean": "8b035263a62616ecddefed108ae598c8185a1149d01d187d7c8e52fcea27b8d6",
+    "Blaster/Optimize/Lemmas/LemmasNat.lean": "24d2b718db9a899ea4a13e602bd3db1b72438ffa1915689f545fd602f23ac11b",
+    "Blaster/Optimize/Lemmas/LemmasProp.lean": "c194403a8bf5d2a2bde81a09e14fcd7416db43a08849bf904f6a30c0fa826bb3",
+    "Blaster/Optimize/MatchInfo.lean": "1b3781f577c3a8f3b59832d2e140062935c78aea1734ddabcea0f5681a2d119c",
+    "Blaster/Optimize/Opaque.lean": "9bdd06c3602a7d11f1e212df8a7e2358146819ecc547a446a61a1b085bba15b8",
+    "Blaster/Optimize/OptimizeStack.lean": "0c8b0c6a07b991420ed1ba4c153d63125284270eecb8717890291d389db01288",
+    "Blaster/Optimize/Rewriting/FunPropagation.lean": "2460fe0d99b0724782e2533c657f4dce0841893073fc1c3ff58c151077b95c21",
+    "Blaster/Optimize/Rewriting/NormalizeMatch.lean": "2066dacacccc1ce39175f85e7305cc21453b6ed7f583ec12aea07daa07256b99",
+    "Blaster/Optimize/Rewriting/OptimizeApp.lean": "966f9079f0aab173eb5d7a1335285c99e4216407f09752b9ec75eb7fb495a7eb",
+    "Blaster/Optimize/Rewriting/OptimizeBoolBinary.lean": "5ef50caf6bd7bf401a83cff6db63fb54e08e46760dec88f5ea1c642d47ab6a1d",
+    "Blaster/Optimize/Rewriting/OptimizeBoolNot.lean": "7c14bd1bd889d00b3f2ae23abd60d623642c62ee430a23877836d65f9ae84602",
+    "Blaster/Optimize/Rewriting/OptimizeBoolPropBinary.lean": "eefaba2a77d93a19448021c10e889488bea114ef84144832a99e0f73b16a0dbb",
+    "Blaster/Optimize/Rewriting/OptimizeConst.lean": "c187b4c373231603f5a9e15192ed7dbf174d906b23e6b786db88755868fb53fe",
+    "Blaster/Optimize/Rewriting/OptimizeDecide.lean": "61d2f89252b34a339e3073c4856f6d4f52c69b73a509b64bf1bfda4bded0c8c1",
+    "Blaster/Optimize/Rewriting/OptimizeDecideBoolBinary.lean": "788b77b18867f9745faca18240831f283fd78a822529db1c62727049cf8da041",
+    "Blaster/Optimize/Rewriting/OptimizeEq.lean": "93158d46f8356f70b72e5988cf276efcbe37ad99ff5657357ba78464d411cc03",
+    "Blaster/Optimize/Rewriting/OptimizeExists.lean": "ff0f4d549217e3cce6c07409459f34c140418181c6a927132df2a801fa3afa64",
+    "Blaster/Optimize/Rewriting/OptimizeForAll.lean": "295d9b9196b19f3ad43d7619ae8fde34bfd26f98ecb84d7079764d63a241857d",
+    "Blaster/Optimize/Rewriting/OptimizeITE.lean": "c4f3933bb96944bc6b0a488549fdbb2872deb88137714f54a10b5aa036904963",
+    "Blaster/Optimize/Rewriting/OptimizeInt.lean": "74fd5867349b9cd88e6b5dab95859cbeab3e1eef6e03b97f2fe685bae056bccb",
+    "Blaster/Optimize/Rewriting/OptimizeMatch.lean": "fab056b128f9b093e28053dd36db8e5c8f858f8297bd469f473c8f3a09334b75",
+    "Blaster/Optimize/Rewriting/OptimizeNat.lean": "9c64059b1af2616538101775d8745d570af04acff602259b9df5f834122be429",
+    "Blaster/Optimize/Rewriting/OptimizeProjection.lean": "c9d8b39fdf42f384aba35f03c2718941de7d5a0dcc14083370e615b5475fbbfa",
+    "Blaster/Optimize/Rewriting/OptimizePropBinary.lean": "bc3efe0b48f2649213b0a2504e0b3e791da5fabfa7088eb317a09c62af39990b",
+    "Blaster/Optimize/Rewriting/OptimizePropNot.lean": "55dbcf30432904824ffe737c1ea42174f881e6a9ad49c0cb8f82e65d3fb7c06f",
+    "Blaster/Optimize/Rewriting/OptimizeRelational.lean": "eafa2d16289a428365ea7276172cf6548df56dd095b2776625d682f9b52f4a1f",
+    "Blaster/Optimize/Rewriting/OptimizeString.lean": "89c963c5a2cea840155f86971b363b3e1e8fcf03ff04a092c58fb5edc64752b1",
+    "Blaster/Optimize/Rewriting/Utils.lean": "93adade9e3b50f193a14e0ea2621a7fe59ecb2be613f9987bca70558dff2967e",
+    "Blaster/Optimize/Telescope.lean": "d3109969478ef69a480527607ea1d0f733394291c1879427d17d73b80b24aa4f",
+    "Blaster/Smt.lean": "e641df7091ff72ebb5e3289e04523740773b34a0a1bb4e557d8d018c98925f68",
+    "Blaster/Smt/EmitCommand.lean": "690b07d637211bc78d0dc4f514d404d250f79ab82c93b14313e44680109687c6",
+    "Blaster/Smt/Env.lean": "9e16b7d2d752e24fd53710624a0af56c5f14e1c72bfa08d42e1f274d235834fb",
+    "Blaster/Smt/FiniteFieldCapability.lean": "889fbd76c2eaf60fff9eb48d10121b03be1402bb4e9f1b3d8b81c4761e54309e",
+    "Blaster/Smt/FiniteFieldMetadata.lean": "bb3ba285b9e7d6fb5bf68153003b4f0835976c1658f01725a64417bb2cbb221a",
+    "Blaster/Smt/FiniteFieldModel.lean": "c7dcbd52cb2ce6ea22f1b3cb182c2f16e07b071a1e0a276ab6aa7cdd204f0361",
+    "Blaster/Smt/FiniteFieldPreflight.lean": "6422006b2326ea6fdb95f4909ba85cd0fe55421409ee63896452064377d9b501",
+    "Blaster/Smt/FiniteFieldSyntax.lean": "80c6d4cd5592106906bf7612ff7d5875b18ebc99d91504bb8cdf3969a4d1a029",
+    "Blaster/Smt/Syntax.lean": "429ec6fe80ed21c0f250ac121a4d5e85d1c9778f30daa700126960f252628da1",
+    "Blaster/Smt/Term.lean": "5eb58c78dcaed849272b99eb901aab3e123c9f952e77494829a65b3609890d0b",
+    "Blaster/Smt/Translate.lean": "db79025074e322edafc23e7765ea2e93d4d1d945379abcd46961f8ac128d781d",
+    "Blaster/Smt/Translate/Application.lean": "c9a7d01d9f11b4099df8c720d81bd8ec5a52077ae3e47a6b80ce892e794c7a07",
+    "Blaster/Smt/Translate/FiniteField.lean": "27d40677e110de2793bb6853c47396b319d245d932494126adfd844b4ae8346e",
+    "Blaster/Smt/Translate/Match.lean": "b82608d899553a6982869e06e1e5bd45cdc30f229dcf85fea4b0411239f379a4",
+    "Blaster/Smt/Translate/Quantifier.lean": "cbd0c8fc575617ca38c5c171bcf65428f0ad96e57594a0d6b04628c2dc9edb14",
+    "Blaster/StateMachine.lean": "156ea6920099f4494509177f543d6306c4b72a4df9b05d893233fe1b074b0bbf",
+    "Blaster/StateMachine/BMC.lean": "e7f4ee439cc06a3a27c11030cf2739f89c595c2d6fec1ec1352d93a51b25fad4",
+    "Blaster/StateMachine/KInduction.lean": "2f425e7c40026acabd4541fab2b2e4a2f613696f053a75cd5f0b73e79d907daa",
+    "Blaster/StateMachine/StateMachine.lean": "77ff519bd85a9ea8a62d2f272f0153ef936bb69fc563ebfafa6ea011b596efef",
+    "Tests/AllSolvers.lean": "342ae0f09a4f60a24fb9c4d84341c53b23a0b3d053be1c09bedfdfc5e6022b17",
+    "Tests/Backend.lean": "c712d1743544bdb1e5af1a0ce57d6dea48c559ff94d07447cd197ba868fd76a4",
+    "Tests/Basic.lean": "152366b28fd8d82d906d0e1db9b29915a10ebb23ae035e361efc2cf9ff05c520",
+    "Tests/Cvc5.lean": "6da7dab2b34187eec9788ddfc80cc7169c23c452f65ee5def7004bd9ede974ba",
+    "Tests/FiniteField/AxiomAudit.lean": "9d045b3033adb319af9077d3471fb197f3711898f1577746a4fc8e96579955cf",
+    "Tests/FiniteField/Carrier.lean": "dbfab15356303b6de869ef62f80ed31a59cfb28b545d549899101f6e36358e7c",
+    "Tests/FiniteField/DivisionEncoding.lean": "c3c127a023c14d16e52667b98e22dcb5768eb67666a04e1406c7695da8b2cab8",
+    "Tests/FiniteField/Field.lean": "d63dd0ab9a5a3e59342d5bf2ba172184504f1381374b85a4cee7e245eb243201",
+    "Tests/FiniteField/FinBaseline.lean": "bb5f71d278b85d72b897681c7e6f3c85d3efc11f1bfd2b4caa09fd52a43eb7f1",
+    "Tests/FiniteField/Interfaces.lean": "7d779d72ddea8f1f2d1d5ac8c149df1eb18ce2ef65466b859b3b524661cf6c01",
+    "Tests/FiniteField/Model.lean": "c157702e739dbe8bd889d2187aad9b1a37885b7c1e602715b52799b23c19bd26",
+    "Tests/FiniteField/Opaque.lean": "032fd0a91ee84ec1daaf3b13cb661ca578a5a8d8eabc6d49fee90f501088a0f1",
+    "Tests/FiniteField/PolynormGrind.lean": "d565b15faf217f288c08ff3fc974b0d8965f55b3a164e42c68e563c75b89c0d2",
+    "Tests/FiniteField/Primality.lean": "645e5242a604efedfa0a8256ac37802438278cc47753d76b8fee34c807c8ff92",
+    "Tests/FiniteField/Prototype.lean": "8fdae868fc03afb4cd0f1e796bf65bddf7458870b4b3291791ee3f42af454017",
+    "Tests/FiniteField/Routing.lean": "626a42c10a8f5cd0a76a480f2542824f25c9f5753d87f55674ea6e2d72aabaa3",
+    "Tests/FiniteField/RoutingLifecycle.lean": "266f981e87e86a8bee52d1bb655254d7d327486c35ea0a11dcffa1a40266a9a6",
+    "Tests/FiniteField/Syntax.lean": "2991129e222eb3bb7759ebe2389e0a89fb7a236dc727e6e01a5b256d23a489e7",
+    "Tests/FiniteField/Translation.lean": "90f85f85d1b4af9049649fbad7330c7e2fb28057d0523acee7aadbd9f3f0cd51",
+    "Tests/FixedIssues.lean": "ba34c10895b25bfa81fce90d5328bc67bc143577ec83d5f02b1b555dd55dceb8",
+    "Tests/FixedIssues/Issue1.lean": "2782e5b71c80560fea2d540cf3b710a985d835cd5314a54e26feacfe50334e09",
+    "Tests/FixedIssues/Issue10.lean": "df7d168986db6719a6a31304369d7f5e5b47fd6ec54b8ef899b327cf2d15ba51",
+    "Tests/FixedIssues/Issue11.lean": "c5a390751e2fe01b6e988773fef0068edf7d7632ec34e5ad13f7cf310fc0df36",
+    "Tests/FixedIssues/Issue12.lean": "4475815e520c60669003a88c0c10a674cb982b26976bdb7b548de7c9ffc6e6b1",
+    "Tests/FixedIssues/Issue14.lean": "fd7a6989b028542b36009971d128cc79c4b1a74b97dcbc506629d369ea518a1a",
+    "Tests/FixedIssues/Issue15.lean": "241bb01c00ff8c0993bde26d8df888e425bacf5ceb00c1752a7229c26560e122",
+    "Tests/FixedIssues/Issue16.lean": "dd3f5abe6711de84c20542be34f63d0799fd15218bb5ddfa370416b9628460ca",
+    "Tests/FixedIssues/Issue17.lean": "8d8565da132f42d1d3169b2803a0b5433307939ac9e9001e43f3b5f3031c0c56",
+    "Tests/FixedIssues/Issue18.lean": "d100c5042bf341580a931b141a2ce05ea686a07853663615a925dd88802c71ac",
+    "Tests/FixedIssues/Issue19.lean": "87f06480747c9b897f2a53df2b0988e9661673ce749a54fc999da77532bfc5af",
+    "Tests/FixedIssues/Issue2.lean": "cf4e31bcbd7460b7c6f6eb1dc33e8545d9800cc0aff87cdb13c588871f120217",
+    "Tests/FixedIssues/Issue20.lean": "9b3d0b4ccff454da16c74db5720e22b7d4de3468d0ca1e5b30eed9a296cb077f",
+    "Tests/FixedIssues/Issue21.lean": "b2f448884f42177962f7911cc1fb7e04b01a3b59f71a7c8acc1561749bd4ad12",
+    "Tests/FixedIssues/Issue22.lean": "877533c47257de5393dad44989817aa18cf01613089da67f13ca902ff77cba88",
+    "Tests/FixedIssues/Issue23.lean": "12bb1db98d4aab078b75996981f759e7717df0bdd550c5e3f4bcb4f51fbb3153",
+    "Tests/FixedIssues/Issue24.lean": "45d7fb838c74d2936a8bf8c69b3f9d192dff5f41c91acbff31441b3ff23355e4",
+    "Tests/FixedIssues/Issue25.lean": "7c0ea9c4afc5cd6630956c36917fb37fbfe35a3e9838b415d408505f7108e839",
+    "Tests/FixedIssues/Issue26.lean": "3f05620a955d8b8b66cc62ea1734840f8904a2d1b357b147636cbaa59f3a42d4",
+    "Tests/FixedIssues/Issue27.lean": "25cf1613cffabb5dfafb525d0e2e38d4b101cfe8a94d47cf40bf36c092ebb011",
+    "Tests/FixedIssues/Issue28.lean": "fa1b853d30f17cecf14e688461e6cf673997c1a6e8df599fe73e21e80317196b",
+    "Tests/FixedIssues/Issue29.lean": "29c2f0df3a38ddce700b6686c1d6c03d0d1c54ec8113288966e7e7faf8ffc164",
+    "Tests/FixedIssues/Issue3.lean": "796dbad039bd64373bb4abfb67e313f9197859d72013f36fef438d1f5349d76a",
+    "Tests/FixedIssues/Issue30.lean": "936dc49eecc1a01e79a66dff49ef9cd69453aaee7431e26dc78061ae2054c020",
+    "Tests/FixedIssues/Issue31.lean": "e48080d93b32c71871108f0a57e3460059382b79af47cce3d620615843f93d93",
+    "Tests/FixedIssues/Issue32.lean": "68ae965bf9f8139d7ab2e4e85c3920d78499c647052f86557030dbe06a93090d",
+    "Tests/FixedIssues/Issue33.lean": "9b7b751bd69c6d9bbec7f7e6fcee64614324f8164d1229e5f8eaef4af65c4c69",
+    "Tests/FixedIssues/Issue34.lean": "05866c611a4b67946bc9b2f9ad8874153cbf135364abacd5d0c97c96d50e0127",
+    "Tests/FixedIssues/Issue35.lean": "d99535d3eecaeb4d3944b688eed5c87ff1096473355ad12ef5765d451cf431b7",
+    "Tests/FixedIssues/Issue36.lean": "cba147b442befee238c0a3e4be745c30746bb2488a62be180168217268e675d2",
+    "Tests/FixedIssues/Issue4.lean": "525d97b3a062093f34e302ec07ad67b91e317cf74a37ff658ebc8e2c4fe37f0b",
+    "Tests/FixedIssues/Issue5.lean": "968b9098a635fe4171b49fbbfd12e4da1584ad04e292154eca353d95c74a9f5a",
+    "Tests/FixedIssues/Issue6.lean": "38461f4c176a3e081adbe2b6ef6b8f7ac4b85f1d143a5a5fc502fbbf019f17cd",
+    "Tests/FixedIssues/Issue7.lean": "9e8547b68c42ebce92fb436ded7983a8c08b57b1145e1f9933bddc4ed1f608f7",
+    "Tests/FixedIssues/Issue8.lean": "b4c4c64a77fe21ee9919a36df1805d545298b45f50ae75afbb51e9814e80b0f5",
+    "Tests/FixedIssues/Issue9.lean": "274305736cfec7a880c85abd9a726f83b7284a5ee06872ffcf6f90941289255d",
+    "Tests/Optimize.lean": "8b17fc2c0fe73d0a1ebfc46b4741f911d1c0bec537d62e6681eb5e27fabcb147",
+    "Tests/Optimize/FunPropagation.lean": "1b7d7245e09fc268bebbf40824f98f2c5c83ce099753fcb625f3753663f8002f",
+    "Tests/Optimize/FunPropagation/ConstCtorProp.lean": "edc4a43bbfde519b0af86b2bcd495b9b2bc5abc436bc86d689d58e5cfc385226",
+    "Tests/Optimize/FunPropagation/ConstFunProp.lean": "e047664ae5a5737db6216676ca1a02d69ae236f429b5be98212c391665dbd742",
+    "Tests/Optimize/NormChoiceApp.lean": "231001eb790b384ddb0646048f89aa1b85dd80d47c086932f3f50f0a1dc9c3d4",
+    "Tests/Optimize/OptimizeBEq.lean": "573b9e81cbd2278cd4711d579936c071701fa567ae1b204eb1fa97289ccbf8d5",
+    "Tests/Optimize/OptimizeBEq/BEqBool.lean": "91ea128a1d1c2b1a1756f756cd4fc6ea43fc98e707c6b17064143cf4012508f9",
+    "Tests/Optimize/OptimizeBEq/BEqInt.lean": "c0a70231425d781987bf453c5eaf6cd253f9552cb9ad00e10d3c47ee0934fc12",
+    "Tests/Optimize/OptimizeBEq/BEqLawful.lean": "d5c18f276990fdbf3d32db2afc20c145267d3780f5e5563b95d50c211c773862",
+    "Tests/Optimize/OptimizeBEq/BEqList.lean": "403637744896f1affb45d7f22e08387c080a3e2b149ebe22984bd01e37957de9",
+    "Tests/Optimize/OptimizeBEq/BEqNat.lean": "9f98b30fd28937133102c4020f96ac2badb60cec4e29e41028aa764e4f66e6a3",
+    "Tests/Optimize/OptimizeBEq/BEqString.lean": "05a648c7b5d25125b628cd2df9d0a4b9818fdc9a48708b8cbdd9e3ab69eba928",
+    "Tests/Optimize/OptimizeBEq/BEqWrong.lean": "5fdcd6f955e73264296139a6e0291e6f71ad40e88e805b4aebd3b300185e3462",
+    "Tests/Optimize/OptimizeBool.lean": "66e8e5e817914834c97b5d3ae31a612332b48ebd5b36dd32a563cc284f49eb4a",
+    "Tests/Optimize/OptimizeBool/OptimizeBoolAnd.lean": "bd293c766376f519b955bbf2e935522795e7a1959eeaed68d9d1d55225aa13d3",
+    "Tests/Optimize/OptimizeBool/OptimizeBoolNot.lean": "6feda04a4c4904bac4e377a4e4f9f7000e1e17d4810ddcbcc401da52deef8a63",
+    "Tests/Optimize/OptimizeBool/OptimizeBoolOr.lean": "ff1f56fe2123728177eb65d9ba5e4e183513dbee91a159772329791b82b02944",
+    "Tests/Optimize/OptimizeConst.lean": "97106130baad8c2af0eff6565c2cd335c9eafa9e67170fc80f670d3182be9389",
+    "Tests/Optimize/OptimizeConst/NormBneConst.lean": "0d8a8b4be40569e663aef159628d83e14e22c9dee8f7f832a7a0aec65d45a31d",
+    "Tests/Optimize/OptimizeConst/NormHOF.lean": "243c022afbd71ae92543c3b1d9f709ef5351cae12cdf8e5b2802f38a1b0d5575",
+    "Tests/Optimize/OptimizeConst/NormLEConst.lean": "55e7a59f303b5bd507e3ae7b7616f51e38c4129a788a29ff310524de87a7209d",
+    "Tests/Optimize/OptimizeConst/NormLTConst.lean": "91aac8db99e9fed1cb43e3c7807231fb986e84d9be13cb0fd801c7606099602e",
+    "Tests/Optimize/OptimizeConst/NormNatZero.lean": "a565c10e1b28e93e6c9acc96266f043cd545b5c765bf9d9778c4f568b4337002",
+    "Tests/Optimize/OptimizeConst/NormNeConst.lean": "a880fa91dfa9cc962758340d32481b1c8e22871f1dbaa554bcdd36d098472c36",
+    "Tests/Optimize/OptimizeConst/NormOpaque.lean": "efb1f9519281a26babef54c9102b1ddaaba39df05d72a9c5f5da3f9a308905b8",
+    "Tests/Optimize/OptimizeDecide.lean": "6b2f26271bfee3ba15f6001781103db1061b63d39ba9f6527b44d9c2338429ea",
+    "Tests/Optimize/OptimizeDecide/DecideBoolAnd.lean": "7978de88dce9105097821c9b8b11c61775911e2792746a1167fdb66a04307bd8",
+    "Tests/Optimize/OptimizeDecide/DecideBoolNot.lean": "12bcaa8406a1b781b338c3147e3bdba56146a54c5da2f6652e6153793881136b",
+    "Tests/Optimize/OptimizeDecide/DecideBoolOr.lean": "b6ec6dcd5e2c28cb8ba3606ab5e28ccf2953e6f33ab15f793cded43f31ab35fa",
+    "Tests/Optimize/OptimizeDecide/DecideEq.lean": "cb16e8b4473e9611c83e09afa7425219dbe1c10035255be591b9fd66fb198a1f",
+    "Tests/Optimize/OptimizeDecide/DecidePropAnd.lean": "a24010a654959af6681ebd5ba0a1ad76c3867de57bb72f0a69fbfa61e1ef15b3",
+    "Tests/Optimize/OptimizeDecide/DecidePropOr.lean": "1f17fc3b57cd42193a1fbd9b859d5f5f12371fa74a2a5f98a998cf6ff681ecc9",
+    "Tests/Optimize/OptimizeDecide/NominalDecide.lean": "5c178adb6f005d30788c9b9ab79b0408825f94efbc0b0eb1d6c8ad3e05de6d85",
+    "Tests/Optimize/OptimizeEq.lean": "3fcd22a6d7497786ed8c69e9c6629018fc737eccddc37d2c4b65d117d0f572ac",
+    "Tests/Optimize/OptimizeEq/OptimizeEq.lean": "dc62bc77a965a40ebf476167c78c813fd299db67648e7c6693bc6946a6169a19",
+    "Tests/Optimize/OptimizeExists.lean": "f44048d43b9a3dc467e7d8448a2d3d2b4539b642a6aee99ad373463ceb0a579c",
+    "Tests/Optimize/OptimizeExists/COIExists.lean": "406fc54398810a71811742d2e0d1cd06cbe507d8e6a0612e6d4193785ee57283",
+    "Tests/Optimize/OptimizeForAll.lean": "7d1f61af520c4c324553b09af7283841f77a65686aeb8a0886494e9b72dc9c88",
+    "Tests/Optimize/OptimizeForAll/COIForAll.lean": "c8d2c0b7dfd09208098483a5ec1c74ebf7981530a74822c172d8bda3f62cd714",
+    "Tests/Optimize/OptimizeForAll/ImpliesInHyp.lean": "d9faac6d3ecf3a3528c946c1cda46c0d28d1c7ccf91a2c4ddcfc096b7506a5a5",
+    "Tests/Optimize/OptimizeForAll/OptimizeForAll.lean": "133a142879989af0c3aca00f4c0dbc74ef32b4643bf8bcbfb42ff029e74f7b7f",
+    "Tests/Optimize/OptimizeITE.lean": "6c813d9cccd227fab1ecdccdd371bcacbfe692c9112c0c53ef7fb7bfc6ba1748",
+    "Tests/Optimize/OptimizeITE/OptimizeDITE.lean": "1faf39949f2947743bbe74441a334c8879f1644dc1a5205f944bb8b6f7a45472",
+    "Tests/Optimize/OptimizeITE/OptimizeITE.lean": "815d5318b733f37f4bf1f241bc5562b34fdc4d72bc25fcacb0331e66978c5934",
+    "Tests/Optimize/OptimizeITE/ReduceDITE.lean": "9cd6f5540c50c618388c1137caf0215b58243192df2c5e4e33fa4c21dcc4989d",
+    "Tests/Optimize/OptimizeITE/ReduceITE.lean": "791584852d4d8c964b0ecf7d82da3902fef83f31447fe8a0b68474f6deef071e",
+    "Tests/Optimize/OptimizeLet.lean": "2521c4c55edd75b6de2f034fe8646aa3400469b9f96b4657082f2a10e3732937",
+    "Tests/Optimize/OptimizeMatch.lean": "149f4ecb4324c441220735ac230469810e7dce3067591ae2c236105786bacd2d",
+    "Tests/Optimize/OptimizeMatch/ConstMatchProp.lean": "4863c36cac086fc427d600fbf0274018cc17972412e8d19eb5fd8a4fbbbdf9c2",
+    "Tests/Optimize/OptimizeMatch/MatchReduce.lean": "58e151319d28d2e964cef29ff39717b74098e9ba9ce9e5eb1eb474d7ef06bb22",
+    "Tests/Optimize/OptimizeMatch/MatchToITE.lean": "37f6d39647dd69e5f82659caa536018b89dddffc1eecf833282ffe888cb13946",
+    "Tests/Optimize/OptimizeMatch/StructEqMatch.lean": "67186d3fb9f4688747b7c9823b323b7542d7eb65053b8a062a1491ebdd2ad83f",
+    "Tests/Optimize/OptimizeNat.lean": "dcfd82e07476e2f8752fe4ddae72d462945c485e62faecc89226e1d64585244b",
+    "Tests/Optimize/OptimizeNat/OptimizeNatAdd.lean": "8230c6a6a9d35eb38b78f08d40b94decce866a67c2882f438fb09d4ae7bd87c2",
+    "Tests/Optimize/OptimizeNat/OptimizeNatDiv.lean": "21c4d9a911b4beb0af43af09e52de8b8427103f74d31e38d2c94922502ed386e",
+    "Tests/Optimize/OptimizeNat/OptimizeNatMod.lean": "193914431534e71f2676b3c61a0ceb628d3d92ee4ec51bf84755f4e54ea1381b",
+    "Tests/Optimize/OptimizeNat/OptimizeNatMul.lean": "882c6c8e3921bf4e5b54c44d60f62c86468cb947905e136565d28c2953027c78",
+    "Tests/Optimize/OptimizeNat/OptimizeNatPred.lean": "80176e416099543c7c3123a06a902661b349faa48d4d181df20e1ce5be7693b1",
+    "Tests/Optimize/OptimizeNat/OptimizeNatSub.lean": "1fcd8d4d469d2a18c9706524429a22dad099da0082afad121dc41f5152935c08",
+    "Tests/Optimize/OptimizeNat/OptimizeNatSucc.lean": "70fbf8720fdac1f82565072fef0eea43bce2f4564d844f4f4cad37803f5f8113",
+    "Tests/Optimize/OptimizeProp.lean": "a00fcc58227049b557f9db901df886d2a072adf441511b9759c6852688a3c68b",
+    "Tests/Optimize/OptimizeProp/OptimizeAnd.lean": "00e0bb8e2d81c88fc65945530a906bc50dec9c8b1c7010f691d56e7ff4dc8566",
+    "Tests/Optimize/OptimizeProp/OptimizeNot.lean": "8217cd427d4095f830fff0cee57aa8cd6e226a22d978f52eb02d6320b8c3fc14",
+    "Tests/Optimize/OptimizeProp/OptimizeOr.lean": "7e7217ae4925ffdae286d11509dbaaf60450e4dd14ec34492b7480eddc27bed7",
+    "Tests/Optimize/OptimizeRecFun.lean": "84d56d0f3372cff1223b843269017c573ccc4f7b696abb98c4e265db0a715665",
+    "Tests/Optimize/OptimizeUnfold.lean": "f65e72b320d1db757e4949c09275478360aeec18985812aa66350509b8acd724",
+    "Tests/Optimize/OptimizeUnfold/UnfoldBEq.lean": "4dacc7895e1f9bfdf5cb2536dd1110e3c1ce9b7ee9bfd52f109e0afe3eac0b17",
+    "Tests/Optimize/OptimizeUnfold/UnfoldBoolOp.lean": "2a1f4294325d4fe13021f11e2dad2c7c2fc6fac2c83689f4de9bb23f9898a0ac",
+    "Tests/Optimize/OptimizeUnfold/UnfoldDITE.lean": "d69afbc7e3ae78d020544a046d7944874faa30af686073a8198eebdadd4e826d",
+    "Tests/Optimize/OptimizeUnfold/UnfoldEq.lean": "a645261e9ad79ed5fa0ae1d183d2d3d3c4004a1ae0fc11c0bc8c0a0e6cadb624",
+    "Tests/Optimize/OptimizeUnfold/UnfoldExists.lean": "f1f08cd407f8ad00012518e4faf4195cc61d4fbd40203b238c45e0fa05dc8f2a",
+    "Tests/Optimize/OptimizeUnfold/UnfoldFun.lean": "cb4701c3ede9c35c6e9da172af63eee3a576869484a224e6c5168161a172fbdc",
+    "Tests/Optimize/OptimizeUnfold/UnfoldITE.lean": "3e870635e417249548804cda19e8c8c104cd7b9f2bfc95020811244921b987e1",
+    "Tests/Optimize/OptimizeUnfold/UnfoldIntOp.lean": "99bce93d7fb456ccfe01f64896e7d5f6ab1e2b6fc6da0d1884476c5d4ee9d4ec",
+    "Tests/Optimize/OptimizeUnfold/UnfoldNatOp.lean": "b2e0001b148d810fd49f62733991e3fbbaf98371cb18f9c8024757a7e99d982b",
+    "Tests/Optimize/OptimizeUnfold/UnfoldProp.lean": "587179db2c81791b90626c0490c5be9178d694a603b7eb2c532c1acd73a59632",
+    "Tests/Optimize/OptimizeUnfold/UnfoldRelationalOp.lean": "f3ee0d6b456dd83e931914e6c97993626ee676c8b487cdb241627af878275977",
+    "Tests/Pure.lean": "ae902ff412c828f7de78121cf5f86e1dd78e2eb20a00ee8cba23a861ba751035",
+    "Tests/Smt.lean": "cf6b5b1db6af475a4a78f8686cfcd193fa7ee397719cbba92bf7ed8e95f3fce2",
+    "Tests/Smt/Backend.lean": "c5f77154657b79aa5ec0578c8aaae6f74f0ad8b42f9f8118d9fa8787a405977d",
+    "Tests/Smt/Benchmarks.lean": "2547dab4749fafd11cc6a7819752521f19b0f8af877632da61cb9754d318669c",
+    "Tests/Smt/Benchmarks/ValidatorsExamples/HelloWorld.lean": "926ac0491c7738ce7500c55e7fe21c0c7ed76ac2fad3f4220e7694c1674b345d",
+    "Tests/Smt/Benchmarks/ValidatorsExamples/HelloWorld/HelloWorld.lean": "870bf46c80c4198c24906041b55f64d11522d17b190d7e3be2225deecfee4ea1",
+    "Tests/Smt/Benchmarks/ValidatorsExamples/HelloWorld/Types.lean": "3e31eae914cd3bb2d52c4c4304f200d21070fa670e261512037c9f719f2eea7a",
+    "Tests/Smt/Benchmarks/ValidatorsExamples/PlutusLedgerAPI/VDummy.lean": "c8dfad4ae03ec00dad6c372cd4ee8b2ccecdae91fcdcc6bfb2f4e334f99a1d36",
+    "Tests/Smt/Benchmarks/ValidatorsExamples/Vesting.lean": "7f31ed0bb1df8c74482b0032651af0bf3d16f7003dcab8ea8a2e7d4106f8d6c9",
+    "Tests/Smt/Benchmarks/ValidatorsExamples/Vesting/Types.lean": "b00e427ee32c7c6967443891ed7f9f5f1add632674f356453f1597f30d825941",
+    "Tests/Smt/Benchmarks/ValidatorsExamples/Vesting/Vesting.lean": "9162a662bcdc052b9c1b6ae63479eb59840a114549ea00a53c54bff663d2548b",
+    "Tests/Smt/ConcurrentDump.lean": "abc44b8bb9469f88bfeb73ce54e6731764be328dad461a2ad0fb66f69f6d32f5",
+    "Tests/Smt/ConcurrentSolvers.lean": "a5aa5a1b1f26302096e63de4c52a22210ff9e1593c84c4f71ab150a253cafe82",
+    "Tests/Smt/Configuration.lean": "ced0ad2b99f67f5dc19cbc5b7d3f1a5f63c17c6266bcabab6d671b4343252aed",
+    "Tests/Smt/CrashLifecycle.lean": "8cb6db851f4773265d473b5ed0af8429725b2c4e24b787a8196c3628b5ccf471",
+    "Tests/Smt/Cvc5Floor.lean": "cbdc3a916c180844eddeda12e995cb2a20f507d4fbcadf58f9388b5629cac7d8",
+    "Tests/Smt/ResponseLifecycle.lean": "64548d97275670667f0ac9a3d7b6adf106a5aa31aadf27c3dbda662b446d810a",
+    "Tests/Smt/SmtEqArith.lean": "c573ada332560e754b06a03d2eecbab82940309ce34f08e82ac72bf6599fe1e0",
+    "Tests/Smt/SmtLtArith.lean": "a9371dca033663ca8a73a46adbfa8ca2aaf367f9d669fe3975d892613bd72cfd",
+    "Tests/Smt/SmtMatch.lean": "ec8965aaf42086cd854a4a8904b6b55fc1f5af4d0af5cf0bff97df3c97de119e",
+    "Tests/Smt/SmtNat.lean": "e2f4dea09e001303a69a8dc9ca8f7d8b47572a325d5b9b076222ba2f57a24da8",
+    "Tests/Smt/SmtNat/SmtNatAdd.lean": "da14dcd245190f1335f0604d9b5b0088a34c9731d8dc88e99cf02717b5b40ce9",
+    "Tests/Smt/SmtNat/SmtNatDiv.lean": "9682bac87969f6a4385c57e7e6ce30f9a2d8984261969b6810db8952d27ab45f",
+    "Tests/Smt/SmtNat/SmtNatMod.lean": "bd3f82d370bd0e16caa354c3c1f703c046d94bcbaefa20ebb8d4d9e61e8c7dd1",
+    "Tests/Smt/SmtNat/SmtNatMul.lean": "6294c70bb7f637877692fa8ecbc00683587207d55c7540c21dddb75a78c7b32d",
+    "Tests/Smt/SmtNat/SmtNatPow.lean": "25092d5f7e9aec5d669792916d3e1038f97f48acfe893c05410e4cbbfaa7ea5f",
+    "Tests/Smt/SmtNat/SmtNatSub.lean": "63c79d961dbf087984e9f1a4c69c72d3c3bfc0009864ee076334f45d38704243",
+    "Tests/Smt/SmtPredQualifier.lean": "0929d7e550699d72d6a19a1f50c0ac0be193e5e40534e8250429816f1cc31856",
+    "Tests/Smt/SmtRecFun.lean": "d7fe31db43524ece09d5a270d09b9c379d4d8cf6f3f601895fb84842ad71d965",
+    "Tests/Smt/SmtSetupCommands.lean": "a0d8edaab5aec33273108ae2e661ac28dc8c74f1401632e53532f35380526919",
+    "Tests/Smt/SmtSolverCvc5.lean": "0b3e2523bb038662b90648f24d4dacd3e3e7d2ac10579e3fe895c2615cc5a869",
+    "Tests/Smt/SolverModeConfiguration.lean": "c8e8e1508131fee397d0bea7c9979eca16b92df7c4857d91a94e0bcef41a12ab",
+    "Tests/Smt/SolverOutcomePolicy.lean": "da118e4391fb373a84c114b8384b04be0a24635fd3d84894a96b49e9267aaafd",
+    "Tests/Smt/SolverResponses.lean": "01e3838cb9fe89398f8f7129a8283fea53da1d5da6883deb1d8d588b817a5872",
+    "Tests/Smt/SolverSelection.lean": "e5ff002695d0f5fdddc5e6dea3ef0673fcfc20f6421b44a58b4b39edb7089a63",
+    "Tests/Smt/SolverVersion.lean": "d8f25a1731678bfe93628dd3bb027ea6f7d289933ddf5552d99144ba2873a796",
+    "Tests/Smt/StrictResultPolicy.lean": "e6407deef9cd40b3a862045694fe105489f9418f602dc8bd1fb09274f5f0ad64",
+    "Tests/StateMachine.lean": "e4f13aca84bcbecdbcfedc7e30d7fdfe22023067ecac739b38a79779a306ddab",
+    "Tests/StateMachine/BoolFlip.lean": "6dd853d96159b67e97d30d8237ec3eff5352066fcf79e90ee10395b97650d857",
+    "Tests/StateMachine/Counter01.lean": "070026b87176620e7d3b5360efaea2ff8e96a1b16078a6880a5f7b09eb03b6ea",
+    "Tests/StateMachine/Counter02.lean": "818f5c8e37493eed85d3a6a0504a0b505c616c072126cd33a54acb9da43c19cc",
+    "Tests/StateMachine/Counter03.lean": "fe1799e5ba5bf1234ca6abd4e4c30adbd2aa58cd3b70fce8ea1e309d8e73e043",
+    "Tests/StateMachine/Counter04.lean": "5494c6e4eb10f9d0ea0c3b980750c3e22c42dfe35cd198788b4235b9e6dfa021",
+    "Tests/StateMachine/Counter05.lean": "ac920bf0ca0d866fdd18be09fa01782743fc43ce1365510fe790b6ef0ca01276",
+    "Tests/StateMachine/Counter06.lean": "e485bc7e3ba3b51f9978fcfb0cb4a90366066d54f0f162df626d5fa046eb97ca",
+    "Tests/StateMachine/Counter06Z3.lean": "85b962302610334caf9770c5979e7a2b73190079b180ca6add585ea397f70fb8",
+    "Tests/StateMachine/Counter07.lean": "733c481a5d1333711c71f7e1fb897e169eeac79db8398e66a491545830bdf775",
+    "Tests/Utils.lean": "666dcf49138fc4cebe3012850e690f421fbaf2da1221d61b03a2b3b899d9c320",
+    "Tests/Z3.lean": "f4d7e409d85383487a2db7eb82457f6dd6399845a2dcacb88e0f578c180d3229",
+    "benchmarks/finite-fields/Native.lean": "edd1d569eb27f37c9362c33791e6698f7eb04b5008e77659055347246b56511d",
+    "benchmarks/finite-fields/NormalizationMetrics.lean": "c42c2dca003abf51c48a670c53ac00a534a89c7c7c1fcb72274b503729116e46",
+    "benchmarks/finite-fields/native-cases.json": "02c47bb78b57300858260eb90f45a63aa86a9efddd3ace5cde9030b94e3800eb",
+    "benchmarks/finite-fields/normalization-cases.json": "f9decc3fdf332cdfead291bf449dc4495511c78f1b4c47a0b8d99e54cbb13f98",
+    "benchmarks/finite-fields/normalization-composite-zero-product-decide.lean": "cdeb87388b8278d4338c191d197cde9412b38ad0bf7d222e606a71b8f3a68e85",
+    "benchmarks/finite-fields/normalization-composite-zero-product-grind.lean": "a0c0c0aaa687cce8bf485c3deb1e101059d0980e070a4c2ab12ede0a8899039d",
+    "benchmarks/finite-fields/normalization-curve25519-circuit-decide.lean": "bf64a18e0fa1fa1eb3249a046b494eeefe7e790474e0c648c0fbe8ae0a0ddcd0",
+    "benchmarks/finite-fields/normalization-curve25519-circuit-grind.lean": "2b23645d98ec80b9efa3c97ed7a8c9ae18c9fb3d5207489fdf3ad57df00a403d",
+    "benchmarks/finite-fields/normalization-curve25519-identity-decide.lean": "f962399da087546b75aae22d430c613110f33c3b700ce525d8faa473d4a9e39e",
+    "benchmarks/finite-fields/normalization-curve25519-identity-grind.lean": "d7a40f63b25d5937ce5e64bd5a6240f6a6b358d65bc8aafdf3df3e9e6207fdc6",
+    "benchmarks/finite-fields/normalization-curve25519-implication-decide.lean": "bdd306418da3b02f6b771f41112fddf915585867c13422068eb4ae23f5c90df8",
+    "benchmarks/finite-fields/normalization-curve25519-implication-grind.lean": "8e99e1b74e4dfb0f81d9f05381fcef3f1bc7aec4d2303877f8fe5bc256d40227",
+    "benchmarks/finite-fields/normalization-f7-characteristic-decide.lean": "3bbcb069537c42a11bdf8af24630e2ec1b6c51d04d79942cbe090eb8e4d2229f",
+    "benchmarks/finite-fields/normalization-f7-characteristic-grind.lean": "3896e617919e880daa0f08ae789d7c712dcd574e877db140c7faf59bd45829db",
+    "benchmarks/finite-fields/normalization-f7-circuit-decide.lean": "67d296634287612c57e1a07170b9f770c8f9727a1d93d1141995befc11796ab6",
+    "benchmarks/finite-fields/normalization-f7-circuit-grind.lean": "2bd4f76a4f7e0630cce279d30d378b0f7d92e2661e5218935bf0fe21989c154f",
+    "benchmarks/finite-fields/normalization-f7-constants-decide.lean": "edcaef566a2ccb42aed9f1aabff6167c474f714a1f779a2e139d6d3e25e3dc6e",
+    "benchmarks/finite-fields/normalization-f7-constants-grind.lean": "b8076c8c13f7f9e66637448bec0e6813e4cc9775a457b284d65146fe31f1ff4c",
+    "benchmarks/finite-fields/normalization-f7-recursive-sum-decide.lean": "dc927fdd0bb6a4662bbe78cca4a0817dc99b1ae3a2c82caaabf397cf917e8f4c",
+    "benchmarks/finite-fields/normalization-f7-recursive-sum-grind.lean": "e9c89d14a238a344189f7490ff17dc223ef8e9889798d97fbe3ec6c4bb8474ba",
+    "benchmarks/finite-fields/normalization-f7-square-decide.lean": "0a033481ec6e6f03a2f6f8e40781c586137353ec0244c6e45d6deace198ef0ef",
+    "benchmarks/finite-fields/normalization-f7-square-grind.lean": "1277ea24d9494798c5ba0c0db1bf3e336952328f9124742b72e2ac2caf241b09",
+    "benchmarks/finite-fields/normalization-false-goal-decide.lean": "03565b587ba4625511a5616e5e5c35be7c0456e4b39dea7082f7fbfa610ceb09",
+    "benchmarks/finite-fields/normalization-false-goal-grind.lean": "197a8aeea06a58086e5cb909b47deec6ae0973d9f442833da8e4130d98c4ed2b",
+    "benchmarks/finite-fields/normalization-ff04-characteristic-decide.lean": "8259ef2ab18a9c2bccd34066c34778ae57e3da19d657e534fccab497c346033a",
+    "benchmarks/finite-fields/normalization-ff04-characteristic-grind.lean": "4efdf5756d89900d16dc415f7b06912e4e5ac476878878382782513a56fd65f0",
+    "benchmarks/finite-fields/normalization-ff04-distribution-decide.lean": "d4d6a0c75e7d52bb0f3703ac1c919a2bfd64f8f8e7d6f9d8bb631e02ff34c7be",
+    "benchmarks/finite-fields/normalization-ff04-distribution-grind.lean": "7c7664ab5d4ed98fe4d96c7418ea44c3304610d57b4c906eb99daff08971a6f5",
+    "benchmarks/finite-fields/normalization-ff04-fourth-power-decide.lean": "7ce7ff8dc8b3252308712af260604e216d61f0ad945a72a98af4ae3f3857b17c",
+    "benchmarks/finite-fields/normalization-ff04-fourth-power-grind.lean": "baf2f821e92464695fef6afe6a52014eab594f70c9cb66830462186f86280850",
+    "benchmarks/finite-fields/normalization-ff04-large-coefficients-decide.lean": "565cb0d36f007568e60c69f542f78a6e3e40c6704affaf3bd48c278c9b4f9d44",
+    "benchmarks/finite-fields/normalization-ff04-large-coefficients-grind.lean": "913284a999396f7894342e13ff407ceade35cc7cda1a3896db62b09ee8781dd0",
+    "benchmarks/finite-fields/normalization-unavailable.json": "03319b5f5428578e07a4e6443f424b014c87fcb7cadc4c0a47d7130c429a17d9",
+    "docs/finite-fields/benchmark-corpus.json": "62dc069a61c5f5d7fe2af100f547d709eccac16e14c9156515d0f2767f98a3cf",
+    "docs/finite-fields/m1-rule-audit.md": "dff4487dee902f495defdf490fc8b7a5d43f6701d862b824bf06a8c296e6de79",
+    "ff-tests/DivisionSource.lean": "9d28b1242781237dfd001cbfc444a598e85472895d8e55431d9623b673daeb66",
+    "ff-tests/ModelSource.lean": "2f3476a11c6585c710bb6d1939b34947050df8b57a1035502798a0a869b405b3",
+    "ff-tests/OrdinaryCvc5Baseline.lean": "60fbfd9701f5ff68c625317d3cc2c49664151eefe4270cb45442d162e1dd7e8a",
+    "ff-tests/PolynomialSource.lean": "5fa1122cefb0a9d3c03c53b6bf791a23fd9c4fa8f1d3ce05a7fc75e90aacef7c",
+    "ff-tests/TestsFF.lean": "fb40628b41c37cc82aacd54116fa3a53d5a5525c35077c968f6e20b70f4185ad",
+    "ff-tests/TestsFF/Capability.lean": "e7a64f1ecfd4556761613ae5bf58c3acb291a7912efd076aaeee36d25708510e",
+    "ff-tests/TestsFF/Division.lean": "f09777da24037f542e1b409be6ff1ce39dc2b7290ef5b4aa9b77077bb93ee2ac",
+    "ff-tests/TestsFF/Model.lean": "5dd9326b147ba3dfb7bf562edead83ab699f0881e8b8042ed02860f026b08712",
+    "ff-tests/TestsFF/Polynomial.lean": "737f6ae74525553a6197729030742241574de7dafa0e9d79cde87e4fc27a6ded",
+    "ff-tests/lakefile.lean": "90b8e44012ad7c9cd7ea6f94fd935017494c3ea0ae63b9b8329e611e00485516",
+    "scripts/finite_fields/benchmark.py": "6fe7baa3c462423ef90249c6ba5d30a84cb0908ca9a190607e7cf2278881e2d0",
+    "scripts/finite_fields/check_benchmark_results.py": "b6a33dd9fa85563445decfe2c285d2b5f84df046bdcd62625ee5c6c4be7a413c",
+    "scripts/finite_fields/check_manifest.py": "5bee5f6dc10e03f0ff5a94343435aab273890d1bd70bb6cadd664fb7ab3ac115",
+    "scripts/finite_fields/probe_solver.py": "7c8d147e39f6be8c3b9f9116de274b52b09a12780a0ce80497c917b25aa9e261",
+    "docs/finite-fields/ff-04-reconstruction.md": "e7f31201372562a1cede1d0b26e05a6482d3488a28a33eba2bdb15b6345c3356",
+    "benchmarks/finite-fields/isolated-cases.json": "975cf8fb0f2fce2b9e91baf5e5b68d360b40f3315769b502336614743802668d"
+  },
+  "tool_pins": {
+    "/home/agent/.elan/toolchains/leanprover--lean4---v4.24.0/bin/lake": "dbee956d5384bf3c50a257fae065c74cf9336da75c9ec25e3ecd4207d058735d",
+    "/home/agent/.elan/toolchains/leanprover--lean4---v4.24.0/bin/lean": "e215cbe9eab0914b49761e9e486d388e2e701cf876d1079d1ba733c48edb2d7b",
+    "/home/agent/.elan/toolchains/leanprover--lean4---v4.24.0/lib/lean/libInit_shared.so": "49028ac4dc953820ccbc09d2b7ae869b57d775e93e56861755e478a0b2058d1b",
+    "/home/agent/.elan/toolchains/leanprover--lean4---v4.24.0/lib/lean/libLake_shared.so": "80d9a0439572c2d9c2bd737b488aa275098922ac47c36493f3e17effd37d7cab",
+    "/home/agent/.elan/toolchains/leanprover--lean4---v4.24.0/lib/lean/libleanshared.so": "f5b309bcfacee7fd3cd63659f28e90d10c4c1ae38197cf1d27753df7f977a303",
+    "/home/agent/.elan/toolchains/leanprover--lean4---v4.24.0/lib/lean/libleanshared_1.so": "49028ac4dc953820ccbc09d2b7ae869b57d775e93e56861755e478a0b2058d1b",
+    "/home/agent/.elan/toolchains/leanprover--lean4---v4.24.0/lib/lean/libleanshared_2.so": "49028ac4dc953820ccbc09d2b7ae869b57d775e93e56861755e478a0b2058d1b",
+    "/usr/bin/env": "a1a366aeec990c18d7ff97358e523925e449e2df224029fe048fc3ae35a97720",
+    "/usr/bin/python3.13": "273cb29e073b748379ba546affa562283ed795f84ff230349e12ce610e60975c",
+    "/workspace/lean-blaster/.artifacts/finite-fields/solving/bin/cvc5": "b0dd6483a078269251618cf7e354c675120f8a659990111c5bfc785e91057d86",
+    "/home/agent/.elan/toolchains/leanprover--lean4---v4.24.0/src/lean/Lean/Util/Profile.lean": "274e75bf02a9d59a0ca2094eee0cb54d4fb451731d4e9758ac45c6c28910ae5f",
+    "/home/agent/.elan/toolchains/leanprover--lean4---v4.24.0/src/lean/Lean/AddDecl.lean": "17af5543269c0861a7d53c9414efed4fe212c50c1f82fc4901098c94238de77a"
+  },
+  "resolved_tools": {
+    "python3": "/usr/bin/python3.13",
+    "lake": "/home/agent/.elan/toolchains/leanprover--lean4---v4.24.0/bin/lake",
+    "lean": "/home/agent/.elan/toolchains/leanprover--lean4---v4.24.0/bin/lean",
+    "cvc5": "/workspace/lean-blaster/.artifacts/finite-fields/solving/bin/cvc5",
+    "env": "/usr/bin/env"
+  },
+  "warmups": 1,
+  "repetitions": 3,
+  "concurrency": 1,
+  "probe_argv": [
+    "python3",
+    "scripts/finite_fields/probe_solver.py",
+    "--manifest",
+    "docs/finite-fields/solver-manifest.json",
+    "--artifact-root",
+    ".artifacts/finite-fields",
+    "--profile",
+    "solving",
+    "--offline",
+    "--check"
+  ],
+  "setup_commands": [
+    [
+      "lake",
+      "env",
+      "lean",
+      "--version"
+    ],
+    [
+      "/workspace/lean-blaster/.artifacts/finite-fields/solving/bin/cvc5",
+      "--version"
+    ],
+    [
+      "lake",
+      "build",
+      "Blaster",
+      "Tests.Pure",
+      "Tests.FiniteField.LargePrime"
+    ],
+    [
+      "env",
+      "LEAN_PATH=.",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-o",
+      "fixtures/finite-fields/audit/Semantic.olean",
+      "fixtures/finite-fields/audit/Semantic.lean"
+    ],
+    [
+      "env",
+      "LEAN_PATH=.",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-o",
+      "fixtures/finite-fields/audit/Circuits.olean",
+      "fixtures/finite-fields/audit/Circuits.lean"
+    ],
+    [
+      "env",
+      "LEAN_PATH=.",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-o",
+      "benchmarks/finite-fields/NormalizationMetrics.olean",
+      "benchmarks/finite-fields/NormalizationMetrics.lean"
+    ]
+  ],
+  "setup_limits": {
+    "wall_seconds": 120,
+    "cpu_seconds": 120,
+    "memory_mib": 4096,
+    "tree_memory_mib": 3072,
+    "heartbeats": 200000,
+    "output_bytes": 1048576
+  },
+  "setup": {
+    "machine": "aarch64",
+    "system": "Linux",
+    "worker_memory_bytes": "8589934592",
+    "worker_budget": "Serial process groups: 4 GiB virtual address-space per process, 3 GiB aggregate sampled RSS ceiling. Virtual mappings are not resident memory. Leave 5 GiB resident budget for runner, agent and tools. No concurrent build during measured runs.",
+    "cache": "Warm imports and filesystem cache; every theorem file elaborated afresh. Warmup is retained, excluded from summaries.",
+    "toolchain": "Lean 4.24.0 / 797c613eb9b6d4ec95db23e3e00af9ac6657f24b",
+    "solver": {
+      "manifest": "docs/finite-fields/solver-manifest.json",
+      "profile": "solving",
+      "source_revision": "2b2e84419f70817ec919a784a48806e79f677240",
+      "version": "1.4.1",
+      "platform": "linux-arm64",
+      "executable_sha256": "b0dd6483a078269251618cf7e354c675120f8a659990111c5bfc785e91057d86",
+      "observed_executable": "/usr/local/bin/cvc5",
+      "license": "GPL-3.0; existing separately executed binary, not copied or staged by FFM-19.",
+      "options": {
+        "ff-solver": "gb",
+        "ff-field-polys": false,
+        "produce-proofs": false
+      },
+      "qualification_limit": "The consumed FFM-09 manifest selects 1.4.1 solving, while FFM-03 text selects 1.3.4 solve. This handoff follows the explicitly consumed FFM-09 executable hash, records the inherited discrepancy, and changes neither pin nor decision. No 1.3.4 or x86_64 rerun claimed."
+    },
+    "instrumentation": "time.monotonic_ns around fork/exec/wait4; process tree sampled every selector cycle (~10 ms plus /proc scan). Wall time includes launcher, imports, emission, logging and monitoring overhead. Lean cumulative profiler gives exclusive whole-file elaboration, type-checking (kernel), tactic and import components when enabled; not isolated theorem costs."
+  },
+  "environment": {
+    "PATH": "/workspace/lean-blaster/.artifacts/finite-fields/solving/bin:/home/agent/.elan/toolchains/leanprover--lean4---v4.24.0/bin:/usr/bin:/bin",
+    "HOME": "/home/agent",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LEAN_NUM_THREADS": "1",
+    "LEAN_PATH": ".",
+    "BLASTER_FF_CVC5": "/workspace/lean-blaster/.artifacts/finite-fields/solving/bin/cvc5"
+  },
+  "units": {
+    "elapsed_seconds": "s, whole-file/process wall time including launch and wait observation",
+    "user_seconds": "s, wait4 user CPU including waited descendants",
+    "system_seconds": "s, wait4 system CPU including waited descendants",
+    "wait4_maxrss_kib": "KiB, largest individual-process resident-set high-water mark, not sum of tree peaks",
+    "sampled_peak_tree_rss_bytes": "bytes, sampled sum of RSS in process group; includes shared pages repeatedly, may miss short peaks",
+    "proof_expr_nodes": "recursive Lean.Expr tree node count including binder types and repeated occurrences; referenced constant declarations not unfolded",
+    "compiled_artifact_bytes": "bytes in newly emitted .olean; NOT proof-term size",
+    "production_stage_seconds": "s, existing profileTask wall timer with 1ms resolution; zero means sub-ms rounded stage, not zero-duration successful run",
+    "lean_profiler_seconds": "s, converted from the cumulative exclusive Lean component profiler; elaboration excludes separately labelled tactic/typeclass work; kernel is new-declaration type checking, excludes imports"
+  },
+  "required_corpus_ids": [
+    "ff04-distribution",
+    "ff04-characteristic",
+    "ff04-fourth-power",
+    "ff04-large-coefficients",
+    "ff04-composite-and-rejection",
+    "f7-square",
+    "f7-constants",
+    "f7-characteristic",
+    "f7-recursive-sum",
+    "curve25519-identity",
+    "curve25519-implication",
+    "f7-false-certificate",
+    "f7-circuit",
+    "curve25519-circuit",
+    "f3-no-root",
+    "f3-no-root-field-hint",
+    "f7-no-root",
+    "f7-no-root-field-hint",
+    "f7-zero-product",
+    "f7-zero-product-witness",
+    "f7-square-implies-nonzero",
+    "f394357-linear",
+    "f3-enumeration",
+    "f7-false-goal",
+    "f2-guarded-fermat-zero",
+    "f2-unguarded-fermat-zero"
+  ],
+  "catalogue": [
+    {
+      "id": "historical-f7-square",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "(x+y)^2=x^2+2*x*y+y^2 over F7",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "The ticket supplies the mathematical candidate, but no recoverable original input/revision or redistribution license. No historical artifact copied; related entries, when present, are newly authored equivalents.",
+      "related_runnable_entries": [
+        "f7-square"
+      ],
+      "tags": []
+    },
+    {
+      "id": "historical-f7-constants",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "5+3=1 over F7",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "The ticket supplies the mathematical candidate, but no recoverable original input/revision or redistribution license. No historical artifact copied; related entries, when present, are newly authored equivalents.",
+      "related_runnable_entries": [
+        "f7-constants"
+      ],
+      "tags": []
+    },
+    {
+      "id": "historical-f7-characteristic",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "7*x=0 over F7",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "The ticket supplies the mathematical candidate, but no recoverable original input/revision or redistribution license. No historical artifact copied; related entries, when present, are newly authored equivalents.",
+      "related_runnable_entries": [
+        "f7-characteristic"
+      ],
+      "tags": []
+    },
+    {
+      "id": "historical-nethermind-f41",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "Four constraints imply f-d=0 over F41",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "Exact four constraints, source revision, and redistribution basis were not supplied and were not found in the consumed FF-04 report or local docs/modules. Cannot reconstruct the constraints from the conclusion; not reproducible.",
+      "related_runnable_entries": [],
+      "tags": []
+    },
+    {
+      "id": "historical-f394357",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "(1-a)*2=0 -> a=1 over modulus 394357",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "The ticket supplies the mathematical candidate, but no recoverable original input/revision or redistribution license. No historical artifact copied; related entries, when present, are newly authored equivalents.",
+      "related_runnable_entries": [
+        "f394357-linear"
+      ],
+      "tags": []
+    },
+    {
+      "id": "historical-large-identity",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "Identity at the selected large-prime size",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "Original identity unspecified. New square identity uses exactly the consumed Curve25519 base modulus and proof provenance, not an invented recovery.",
+      "related_runnable_entries": [
+        "curve25519-identity"
+      ],
+      "tags": []
+    },
+    {
+      "id": "historical-large-implication",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "Small implication at the selected large-prime size",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "Original implication unspecified. New implication is independently authored at the selected modulus.",
+      "related_runnable_entries": [
+        "curve25519-implication"
+      ],
+      "tags": []
+    },
+    {
+      "id": "historical-val-order",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "Representative .val/order cases",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "Exact expressions and source/license absent. Representation/order semantics are outside native M1 unless separately proved; polynomial equality does not preserve order.",
+      "related_runnable_entries": [],
+      "tags": [
+        "representation",
+        "outside-native-m1"
+      ]
+    },
+    {
+      "id": "historical-no-wrap",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "Representative no-wrap cases",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "Exact bounds and source/license absent. Need explicit integer/range/no-wrap proof before translating modular equality to an integer equality.",
+      "related_runnable_entries": [],
+      "tags": [
+        "representation",
+        "outside-native-m1"
+      ]
+    },
+    {
+      "id": "historical-bit-weighted-sum",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "Bit-constrained weighted sum",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "Weights, bit constraints, target, modulus, source revision and license absent. Do not invent omitted constraints. Bitness/representation bridge is outside native M1 unless separately proved.",
+      "related_runnable_entries": [],
+      "tags": [
+        "bitness",
+        "outside-native-m1"
+      ]
+    },
+    {
+      "id": "historical-recursive-sum",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "sumF [a,b,-a]=b",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "The ticket supplies the mathematical candidate, but no recoverable original input/revision or redistribution license. No historical artifact copied; related entries, when present, are newly authored equivalents.",
+      "related_runnable_entries": [
+        "f7-recursive-sum"
+      ],
+      "tags": [
+        "recursive-definition",
+        "explicit-unfolding-required"
+      ]
+    },
+    {
+      "id": "historical-zero-product",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "x*y=0 -> x!=0 -> y=0",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "The ticket supplies the mathematical candidate, but no recoverable original input/revision or redistribution license. No historical artifact copied; related entries, when present, are newly authored equivalents.",
+      "related_runnable_entries": [
+        "f7-zero-product"
+      ],
+      "tags": []
+    },
+    {
+      "id": "historical-zero-product-witness",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "x*y=0 -> x*u=1 -> y=0",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "The ticket supplies the mathematical candidate, but no recoverable original input/revision or redistribution license. No historical artifact copied; related entries, when present, are newly authored equivalents.",
+      "related_runnable_entries": [
+        "f7-zero-product-witness"
+      ],
+      "tags": []
+    },
+    {
+      "id": "historical-self-division",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "x!=0 -> x/x=1",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "Historical input/modulus/revision/license missing. Ordinary polynomial Expr has no inv/div; a native division invocation or a proved inverse lowering is needed. No tautological witness encoding is substituted.",
+      "related_runnable_entries": [],
+      "tags": []
+    },
+    {
+      "id": "historical-square-nonzero",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "x*x+1=0 -> x!=0",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "The ticket supplies the mathematical candidate, but no recoverable original input/revision or redistribution license. No historical artifact copied; related entries, when present, are newly authored equivalents.",
+      "related_runnable_entries": [
+        "f7-square-implies-nonzero"
+      ],
+      "tags": []
+    },
+    {
+      "id": "historical-five-constraint-f7",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "Five-constraint F7 circuit contradiction",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "Exact historical constraints and license/revision absent. The separately named authored F7 circuit is reproducible, but is not a recovery of this circuit.",
+      "related_runnable_entries": [
+        "f7-circuit"
+      ],
+      "tags": []
+    },
+    {
+      "id": "historical-f3-no-root",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "x*x+1=0 -> False over F3, without an explicit field-polynomial fact",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "The ticket supplies the mathematical candidate, but no recoverable original input/revision or redistribution license. No historical artifact copied; related entries, when present, are newly authored equivalents.",
+      "related_runnable_entries": [
+        "f3-no-root"
+      ],
+      "tags": [
+        "finite-domain"
+      ]
+    },
+    {
+      "id": "historical-f3-no-root-field-hint",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "x*x+1=0 -> False over F3, with explicit x^3=x",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "The ticket supplies the mathematical candidate, but no recoverable original input/revision or redistribution license. No historical artifact copied; related entries, when present, are newly authored equivalents.",
+      "related_runnable_entries": [
+        "f3-no-root-field-hint"
+      ],
+      "tags": [
+        "finite-domain"
+      ]
+    },
+    {
+      "id": "historical-f7-no-root",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "x*x+1=0 -> False over F7, without an explicit field-polynomial fact",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "The ticket supplies the mathematical candidate, but no recoverable original input/revision or redistribution license. No historical artifact copied; related entries, when present, are newly authored equivalents.",
+      "related_runnable_entries": [
+        "f7-no-root"
+      ],
+      "tags": [
+        "finite-domain"
+      ]
+    },
+    {
+      "id": "historical-f7-no-root-field-hint",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "x*x+1=0 -> False over F7, with explicit x^7=x",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "The ticket supplies the mathematical candidate, but no recoverable original input/revision or redistribution license. No historical artifact copied; related entries, when present, are newly authored equivalents.",
+      "related_runnable_entries": [
+        "f7-no-root-field-hint"
+      ],
+      "tags": [
+        "finite-domain"
+      ]
+    },
+    {
+      "id": "historical-f3-enumeration",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "Tiny F3 enumeration",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "The ticket supplies the mathematical candidate, but no recoverable original input/revision or redistribution license. No historical artifact copied; related entries, when present, are newly authored equivalents.",
+      "related_runnable_entries": [
+        "f3-enumeration"
+      ],
+      "tags": [
+        "finite-domain"
+      ]
+    },
+    {
+      "id": "historical-cyclic5",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "cyclic-5 without field-polynomial hints",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "Exact cyclic equations, modulus, queried conclusion, historical source revision and license not recovered. A conventional cyclic-system name is insufficient to pin this particular input; no constraints invented.",
+      "related_runnable_entries": [],
+      "tags": [
+        "finite-domain",
+        "circuit"
+      ]
+    },
+    {
+      "id": "historical-cyclic5-field-hints",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "cyclic-5 with field-polynomial hints",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "Exact cyclic equations, modulus, queried conclusion, historical source revision and license not recovered. A conventional cyclic-system name is insufficient to pin this particular input; no constraints invented.",
+      "related_runnable_entries": [],
+      "tags": [
+        "finite-domain",
+        "circuit"
+      ]
+    },
+    {
+      "id": "historical-false-goal",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "A false goal",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "Historical goal unspecified. New x=x+1 over F7 has a concrete counterexample; tactic failure is never used to infer falsity.",
+      "related_runnable_entries": [
+        "f7-false-goal",
+        "f7-false-certificate"
+      ],
+      "tags": []
+    }
+  ],
+  "normalization_unavailable": [
+    {
+      "id": "normalization-expr-inv-unavailable",
+      "category": "normalization",
+      "status": "unavailable",
+      "corpus_ids": [],
+      "argv": null,
+      "reason": "The pinned Blaster.FF04.Polynorm.Expr has no inv constructor. No reflected inv input or normalization theorem can be run without changing the committed grammar; no runnable surrogate is supplied.",
+      "input_files": [
+        "Blaster/FF04/Polynorm.lean",
+        "docs/finite-fields/benchmark-corpus.json"
+      ]
+    },
+    {
+      "id": "normalization-expr-div-unavailable",
+      "category": "normalization",
+      "status": "unavailable",
+      "corpus_ids": [],
+      "argv": null,
+      "reason": "The pinned Blaster.FF04.Polynorm.Expr has no div constructor. No reflected div input or normalization theorem can be run without changing the committed grammar; no runnable surrogate is supplied.",
+      "input_files": [
+        "Blaster/FF04/Polynorm.lean",
+        "docs/finite-fields/benchmark-corpus.json"
+      ]
+    }
+  ],
+  "grammars": {
+    "lean-polynomial-expr": {
+      "type": "Blaster.FF04.Polynorm.Expr (Blaster.FiniteField.Residue p)",
+      "constructors": [
+        "val",
+        "var",
+        "neg",
+        "add",
+        "sub",
+        "mul",
+        "pow (Nat exponent)"
+      ],
+      "context": "Nat -> Residue p; slots explicitly mapped per entry",
+      "soundness": "Expr.eval_toPolynomial and Expr.denote_eq_from_toPolynomial_eq",
+      "unsupported": [
+        "automatic reification",
+        "nativeEqTrue-dependent proof paths",
+        "inv/div in Expr",
+        "order/.val/bitness/no-wrap transport",
+        "finite-domain exhaustion or root completeness from polynomial normalization"
+      ],
+      "instances": [
+        "Lean.Grind.CommRing R",
+        "DecidableEq R",
+        "NeZero p for Residue p"
+      ]
+    },
+    "smt-qf-ff": {
+      "logic": "QF_FF",
+      "terms": [
+        "(_ FiniteField p) for fixed numeric p",
+        "#fNmP canonical literals",
+        "ff.add",
+        "ff.mul",
+        "equality",
+        "not",
+        "ite for the explicitly labelled F2 guarded alternative"
+      ],
+      "powers": "Expanded finite ff.mul trees; exponent zero is literal one.",
+      "commands": [
+        "set-logic",
+        "set-option",
+        "declare-fun (zero arity)",
+        "assert",
+        "check-sat"
+      ],
+      "unsupported": [
+        "get-proof",
+        "proof rules",
+        "model-to-Lean reconstruction"
+      ],
+      "proof_status": "Solver statuses only, not kernel-checked certificates."
+    }
+  },
+  "provenance": {
+    "ffm19-authored": {
+      "origin": "Original mathematical fixtures authored for this public lean-blaster ticket; no third-party circuit text copied.",
+      "license": "Apache-2.0",
+      "license_file": "LICENSE",
+      "redistribution_basis": "Project-authored contributions released under the repository Apache-2.0 license; Lean and SMT inputs carry notices.",
+      "revision": "Exact per-input content SHA-256 recorded in each runnable entry."
+    },
+    "ff04-preserved": {
+      "repository": "https://github.com/input-output-hk/lean-blaster",
+      "upstream_revision": "724e32c377b5c6bfdecaf200984203b21c75355b",
+      "local_revision": "4cf0ce952db0d95bb4f15497bf67fc9c918da5c4",
+      "report": "https://github.com/input-output-hk/lean-blaster/blob/724e32c377b5c6bfdecaf200984203b21c75355b/docs/finite-fields/ff-04-reconstruction.md",
+      "license": "Apache-2.0",
+      "license_file": "LICENSE",
+      "provenance": "Consumed FFM-08 port, now using the current nominal Residue. Existing small corpus and test modules remain byte-for-byte unchanged. Historical timings are not new measurements.",
+      "normalizer_origin": {
+        "repository": "https://github.com/ufmg-smite/lean-smt",
+        "revision": "9b314968f6405395ecbc030c4d3f9b35e4974aa1",
+        "path": "Smt/Reconstruct/ZMod/Polynorm.lean",
+        "license": "Apache-2.0",
+        "notice": "Existing local Polynorm.lean preserves Abdalrhman Mohamed and Harun Khan authorship/license header; no new upstream code copied."
+      }
+    },
+    "historical-discovery-candidates": {
+      "origin": "The FFM-19 ticket candidate list, not a supplied executable source artifact.",
+      "revision": null,
+      "license": null,
+      "redistribution_basis": "No original artifact is redistributed. Statements are catalogued; exact external constraints are not invented.",
+      "recovery_scope": "Inspected consumed local docs/modules/fixtures and frozen FF-04 report. Exact Nethermind/cyclic-5/historical five-constraint inputs and their source/license were absent.",
+      "outreach": "No automatic maintainer/researcher contact; future voluntary outreach is nonblocking context."
+    }
+  },
+  "large_prime": {
+    "field": "Curve25519 base/coordinate field, NOT scalar field",
+    "expression": "2^255-19",
+    "modulus": "57896044618658097711785492504343953926634992332820282019728792003956564819949",
+    "bits": 255,
+    "decision": "docs/finite-fields/m1-large-prime-decision.md",
+    "local_proof": "Tests/FiniteField/LargePrime.lean",
+    "local_symbols": [
+      "Test.FiniteFieldLargePrime.curve25519",
+      "Test.FiniteFieldLargePrime.curve25519_eq",
+      "Test.FiniteFieldLargePrime.curve25519_prime"
+    ],
+    "upstream": {
+      "repository": "https://github.com/leanprover/hex-primality",
+      "revision": "e89daa43f1c6f2038a59674598e2a5097e64c3df",
+      "path": "HexPrimality/Examples/Curve25519.lean",
+      "git_blob": "ea15e2a4b1e735e74be2a34834877d187abf8c0e",
+      "theorem": "Hex.Nat.curve25519_prime",
+      "certificate": "curve25519Cert",
+      "license": "Apache-2.0",
+      "notice": "Lean FRO, LLC; Kim Morrison; preserved by the existing FFM-12 source port."
+    },
+    "proof_dependencies": "docs/finite-fields/large-prime-fixture.md",
+    "scope": "New ring certificates require NeZero, not primality. Both modules separately expose selectedPrime and audit its transitive axioms, retaining the consumed exact prime provenance."
+  },
+  "case_descriptors": [
+    "benchmarks/finite-fields/normalization-cases.json",
+    "benchmarks/finite-fields/native-cases.json",
+    "benchmarks/finite-fields/isolated-cases.json"
+  ],
+  "cases": [
+    {
+      "id": "corpus-ff04-distribution",
+      "category": "parent-corpus",
+      "corpus_ids": [
+        "ff04-distribution",
+        "ff04-characteristic",
+        "ff04-fourth-power",
+        "ff04-large-coefficients"
+      ],
+      "argv": [
+        "lake",
+        "env",
+        "lean",
+        "Tests/FiniteField/PolynormDecide.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "input_files": [
+        "Blaster/FF04/Corpus.lean",
+        "Tests/FiniteField/PolynormDecide.lean"
+      ],
+      "limits": {
+        "wall_seconds": 60,
+        "cpu_seconds": 60,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "notes": "Unchanged parent invocation; shared module runs cover every assigned entry. SMT observations are solver statuses, not reconstructed proofs."
+    },
+    {
+      "id": "corpus-ff04-composite-and-rejection",
+      "category": "parent-corpus",
+      "corpus_ids": [
+        "ff04-composite-and-rejection"
+      ],
+      "argv": [
+        "lake",
+        "env",
+        "lean",
+        "Blaster/FF04/Corpus.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "input_files": [
+        "Blaster/FF04/Corpus.lean"
+      ],
+      "limits": {
+        "wall_seconds": 60,
+        "cpu_seconds": 60,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "notes": "Unchanged parent invocation; shared module runs cover every assigned entry. SMT observations are solver statuses, not reconstructed proofs."
+    },
+    {
+      "id": "corpus-f7-square",
+      "category": "parent-corpus",
+      "corpus_ids": [
+        "f7-square",
+        "f7-constants",
+        "f7-characteristic",
+        "f7-recursive-sum",
+        "curve25519-identity",
+        "curve25519-implication",
+        "f7-false-certificate"
+      ],
+      "argv": [
+        "lake",
+        "env",
+        "lean",
+        "fixtures/finite-fields/audit/Semantic.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "input_files": [
+        "Tests/FiniteField/LargePrime.lean",
+        "fixtures/finite-fields/audit/Semantic.lean"
+      ],
+      "limits": {
+        "wall_seconds": 60,
+        "cpu_seconds": 60,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "notes": "Unchanged parent invocation; shared module runs cover every assigned entry. SMT observations are solver statuses, not reconstructed proofs."
+    },
+    {
+      "id": "corpus-f7-circuit",
+      "category": "parent-corpus",
+      "corpus_ids": [
+        "f7-circuit",
+        "curve25519-circuit"
+      ],
+      "argv": [
+        "lake",
+        "env",
+        "lean",
+        "fixtures/finite-fields/audit/Circuits.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "input_files": [
+        "Tests/FiniteField/LargePrime.lean",
+        "fixtures/finite-fields/audit/Circuits.lean"
+      ],
+      "limits": {
+        "wall_seconds": 60,
+        "cpu_seconds": 60,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "notes": "Unchanged parent invocation; shared module runs cover every assigned entry. SMT observations are solver statuses, not reconstructed proofs."
+    },
+    {
+      "id": "corpus-f3-no-root",
+      "category": "parent-corpus",
+      "corpus_ids": [
+        "f3-no-root"
+      ],
+      "argv": [
+        "cvc5",
+        "--lang",
+        "smt2",
+        "fixtures/finite-fields/audit/f3-no-root.smt2"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0,
+        "stdout": "unsat\n",
+        "stderr": ""
+      },
+      "input_files": [
+        "fixtures/finite-fields/audit/f3-no-root.smt2"
+      ],
+      "limits": {
+        "wall_seconds": 20,
+        "cpu_seconds": 20,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": null,
+        "output_bytes": 1048576
+      },
+      "notes": "Unchanged parent invocation; shared module runs cover every assigned entry. SMT observations are solver statuses, not reconstructed proofs."
+    },
+    {
+      "id": "corpus-f3-no-root-field-hint",
+      "category": "parent-corpus",
+      "corpus_ids": [
+        "f3-no-root-field-hint"
+      ],
+      "argv": [
+        "cvc5",
+        "--lang",
+        "smt2",
+        "fixtures/finite-fields/audit/f3-no-root-field-hint.smt2"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0,
+        "stdout": "unsat\n",
+        "stderr": ""
+      },
+      "input_files": [
+        "fixtures/finite-fields/audit/f3-no-root-field-hint.smt2"
+      ],
+      "limits": {
+        "wall_seconds": 20,
+        "cpu_seconds": 20,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": null,
+        "output_bytes": 1048576
+      },
+      "notes": "Unchanged parent invocation; shared module runs cover every assigned entry. SMT observations are solver statuses, not reconstructed proofs."
+    },
+    {
+      "id": "corpus-f7-no-root",
+      "category": "parent-corpus",
+      "corpus_ids": [
+        "f7-no-root"
+      ],
+      "argv": [
+        "cvc5",
+        "--lang",
+        "smt2",
+        "fixtures/finite-fields/audit/f7-no-root.smt2"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0,
+        "stdout": "unsat\n",
+        "stderr": ""
+      },
+      "input_files": [
+        "fixtures/finite-fields/audit/f7-no-root.smt2"
+      ],
+      "limits": {
+        "wall_seconds": 20,
+        "cpu_seconds": 20,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": null,
+        "output_bytes": 1048576
+      },
+      "notes": "Unchanged parent invocation; shared module runs cover every assigned entry. SMT observations are solver statuses, not reconstructed proofs."
+    },
+    {
+      "id": "corpus-f7-no-root-field-hint",
+      "category": "parent-corpus",
+      "corpus_ids": [
+        "f7-no-root-field-hint"
+      ],
+      "argv": [
+        "cvc5",
+        "--lang",
+        "smt2",
+        "fixtures/finite-fields/audit/f7-no-root-field-hint.smt2"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0,
+        "stdout": "unsat\n",
+        "stderr": ""
+      },
+      "input_files": [
+        "fixtures/finite-fields/audit/f7-no-root-field-hint.smt2"
+      ],
+      "limits": {
+        "wall_seconds": 20,
+        "cpu_seconds": 20,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": null,
+        "output_bytes": 1048576
+      },
+      "notes": "Unchanged parent invocation; shared module runs cover every assigned entry. SMT observations are solver statuses, not reconstructed proofs."
+    },
+    {
+      "id": "corpus-f7-zero-product",
+      "category": "parent-corpus",
+      "corpus_ids": [
+        "f7-zero-product"
+      ],
+      "argv": [
+        "cvc5",
+        "--lang",
+        "smt2",
+        "fixtures/finite-fields/audit/f7-zero-product.smt2"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0,
+        "stdout": "unsat\n",
+        "stderr": ""
+      },
+      "input_files": [
+        "fixtures/finite-fields/audit/f7-zero-product.smt2"
+      ],
+      "limits": {
+        "wall_seconds": 20,
+        "cpu_seconds": 20,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": null,
+        "output_bytes": 1048576
+      },
+      "notes": "Unchanged parent invocation; shared module runs cover every assigned entry. SMT observations are solver statuses, not reconstructed proofs."
+    },
+    {
+      "id": "corpus-f7-zero-product-witness",
+      "category": "parent-corpus",
+      "corpus_ids": [
+        "f7-zero-product-witness"
+      ],
+      "argv": [
+        "cvc5",
+        "--lang",
+        "smt2",
+        "fixtures/finite-fields/audit/f7-zero-product-witness.smt2"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0,
+        "stdout": "unsat\n",
+        "stderr": ""
+      },
+      "input_files": [
+        "fixtures/finite-fields/audit/f7-zero-product-witness.smt2"
+      ],
+      "limits": {
+        "wall_seconds": 20,
+        "cpu_seconds": 20,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": null,
+        "output_bytes": 1048576
+      },
+      "notes": "Unchanged parent invocation; shared module runs cover every assigned entry. SMT observations are solver statuses, not reconstructed proofs."
+    },
+    {
+      "id": "corpus-f7-square-implies-nonzero",
+      "category": "parent-corpus",
+      "corpus_ids": [
+        "f7-square-implies-nonzero"
+      ],
+      "argv": [
+        "cvc5",
+        "--lang",
+        "smt2",
+        "fixtures/finite-fields/audit/f7-square-implies-nonzero.smt2"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0,
+        "stdout": "unsat\n",
+        "stderr": ""
+      },
+      "input_files": [
+        "fixtures/finite-fields/audit/f7-square-implies-nonzero.smt2"
+      ],
+      "limits": {
+        "wall_seconds": 20,
+        "cpu_seconds": 20,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": null,
+        "output_bytes": 1048576
+      },
+      "notes": "Unchanged parent invocation; shared module runs cover every assigned entry. SMT observations are solver statuses, not reconstructed proofs."
+    },
+    {
+      "id": "corpus-f394357-linear",
+      "category": "parent-corpus",
+      "corpus_ids": [
+        "f394357-linear"
+      ],
+      "argv": [
+        "cvc5",
+        "--lang",
+        "smt2",
+        "fixtures/finite-fields/audit/f394357-linear.smt2"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0,
+        "stdout": "unsat\n",
+        "stderr": ""
+      },
+      "input_files": [
+        "fixtures/finite-fields/audit/f394357-linear.smt2"
+      ],
+      "limits": {
+        "wall_seconds": 20,
+        "cpu_seconds": 20,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": null,
+        "output_bytes": 1048576
+      },
+      "notes": "Unchanged parent invocation; shared module runs cover every assigned entry. SMT observations are solver statuses, not reconstructed proofs."
+    },
+    {
+      "id": "corpus-f3-enumeration",
+      "category": "parent-corpus",
+      "corpus_ids": [
+        "f3-enumeration"
+      ],
+      "argv": [
+        "cvc5",
+        "--lang",
+        "smt2",
+        "fixtures/finite-fields/audit/f3-enumeration.smt2"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0,
+        "stdout": "unsat\n",
+        "stderr": ""
+      },
+      "input_files": [
+        "fixtures/finite-fields/audit/f3-enumeration.smt2"
+      ],
+      "limits": {
+        "wall_seconds": 20,
+        "cpu_seconds": 20,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": null,
+        "output_bytes": 1048576
+      },
+      "notes": "Unchanged parent invocation; shared module runs cover every assigned entry. SMT observations are solver statuses, not reconstructed proofs."
+    },
+    {
+      "id": "corpus-f7-false-goal",
+      "category": "parent-corpus",
+      "corpus_ids": [
+        "f7-false-goal"
+      ],
+      "argv": [
+        "cvc5",
+        "--lang",
+        "smt2",
+        "fixtures/finite-fields/audit/f7-false-goal.smt2"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0,
+        "stdout": "sat\n",
+        "stderr": ""
+      },
+      "input_files": [
+        "fixtures/finite-fields/audit/f7-false-goal.smt2"
+      ],
+      "limits": {
+        "wall_seconds": 20,
+        "cpu_seconds": 20,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": null,
+        "output_bytes": 1048576
+      },
+      "notes": "Unchanged parent invocation; shared module runs cover every assigned entry. SMT observations are solver statuses, not reconstructed proofs."
+    },
+    {
+      "id": "corpus-f2-guarded-fermat-zero",
+      "category": "parent-corpus",
+      "corpus_ids": [
+        "f2-guarded-fermat-zero"
+      ],
+      "argv": [
+        "cvc5",
+        "--lang",
+        "smt2",
+        "fixtures/finite-fields/audit/f2-guarded-fermat-zero.smt2"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0,
+        "stdout": "unsat\n",
+        "stderr": ""
+      },
+      "input_files": [
+        "fixtures/finite-fields/audit/f2-guarded-fermat-zero.smt2"
+      ],
+      "limits": {
+        "wall_seconds": 20,
+        "cpu_seconds": 20,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": null,
+        "output_bytes": 1048576
+      },
+      "notes": "Unchanged parent invocation; shared module runs cover every assigned entry. SMT observations are solver statuses, not reconstructed proofs."
+    },
+    {
+      "id": "corpus-f2-unguarded-fermat-zero",
+      "category": "parent-corpus",
+      "corpus_ids": [
+        "f2-unguarded-fermat-zero"
+      ],
+      "argv": [
+        "cvc5",
+        "--lang",
+        "smt2",
+        "fixtures/finite-fields/audit/f2-unguarded-fermat-zero.smt2"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0,
+        "stdout": "sat\n",
+        "stderr": ""
+      },
+      "input_files": [
+        "fixtures/finite-fields/audit/f2-unguarded-fermat-zero.smt2"
+      ],
+      "limits": {
+        "wall_seconds": 20,
+        "cpu_seconds": 20,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": null,
+        "output_bytes": 1048576
+      },
+      "notes": "Unchanged parent invocation; shared module runs cover every assigned entry. SMT observations are solver statuses, not reconstructed proofs."
+    },
+    {
+      "id": "normalization-f7-square-decide",
+      "corpus_ids": [
+        "f7-square"
+      ],
+      "category": "normalization",
+      "method": "decide",
+      "argv": [
+        "env",
+        "LEAN_PATH=.",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "-o",
+        "benchmarks/finite-fields/normalization-f7-square-decide.olean",
+        "benchmarks/finite-fields/normalization-f7-square-decide.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_files": [
+        "benchmarks/finite-fields/NormalizationMetrics.lean",
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "fixtures/finite-fields/audit/Circuits.lean",
+        "Blaster/FF04/Corpus.lean",
+        "Blaster/FF04/Polynorm.lean",
+        "Blaster/FiniteField/Basic.lean",
+        "Tests/FiniteField/LargePrime.lean",
+        "lean-toolchain",
+        "lakefile.lean",
+        "lake-manifest.json",
+        "benchmarks/finite-fields/normalization-f7-square-decide.lean"
+      ],
+      "output_files": [
+        "benchmarks/finite-fields/normalization-f7-square-decide.olean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+      "grind_config": null,
+      "required_markers": [
+        "FFM20_METRIC "
+      ]
+    },
+    {
+      "id": "normalization-f7-square-grind",
+      "corpus_ids": [
+        "f7-square"
+      ],
+      "category": "normalization",
+      "method": "grind",
+      "argv": [
+        "env",
+        "LEAN_PATH=.",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "-o",
+        "benchmarks/finite-fields/normalization-f7-square-grind.olean",
+        "benchmarks/finite-fields/normalization-f7-square-grind.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_files": [
+        "benchmarks/finite-fields/NormalizationMetrics.lean",
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "fixtures/finite-fields/audit/Circuits.lean",
+        "Blaster/FF04/Corpus.lean",
+        "Blaster/FF04/Polynorm.lean",
+        "Blaster/FiniteField/Basic.lean",
+        "Tests/FiniteField/LargePrime.lean",
+        "lean-toolchain",
+        "lakefile.lean",
+        "lake-manifest.json",
+        "benchmarks/finite-fields/normalization-f7-square-grind.lean"
+      ],
+      "output_files": [
+        "benchmarks/finite-fields/normalization-f7-square-grind.olean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+      "grind_config": "grind (ematch := 0)",
+      "required_markers": [
+        "FFM20_METRIC "
+      ]
+    },
+    {
+      "id": "normalization-f7-constants-decide",
+      "corpus_ids": [
+        "f7-constants"
+      ],
+      "category": "normalization",
+      "method": "decide",
+      "argv": [
+        "env",
+        "LEAN_PATH=.",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "-o",
+        "benchmarks/finite-fields/normalization-f7-constants-decide.olean",
+        "benchmarks/finite-fields/normalization-f7-constants-decide.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_files": [
+        "benchmarks/finite-fields/NormalizationMetrics.lean",
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "fixtures/finite-fields/audit/Circuits.lean",
+        "Blaster/FF04/Corpus.lean",
+        "Blaster/FF04/Polynorm.lean",
+        "Blaster/FiniteField/Basic.lean",
+        "Tests/FiniteField/LargePrime.lean",
+        "lean-toolchain",
+        "lakefile.lean",
+        "lake-manifest.json",
+        "benchmarks/finite-fields/normalization-f7-constants-decide.lean"
+      ],
+      "output_files": [
+        "benchmarks/finite-fields/normalization-f7-constants-decide.olean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+      "grind_config": null,
+      "required_markers": [
+        "FFM20_METRIC "
+      ]
+    },
+    {
+      "id": "normalization-f7-constants-grind",
+      "corpus_ids": [
+        "f7-constants"
+      ],
+      "category": "normalization",
+      "method": "grind",
+      "argv": [
+        "env",
+        "LEAN_PATH=.",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "-o",
+        "benchmarks/finite-fields/normalization-f7-constants-grind.olean",
+        "benchmarks/finite-fields/normalization-f7-constants-grind.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_files": [
+        "benchmarks/finite-fields/NormalizationMetrics.lean",
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "fixtures/finite-fields/audit/Circuits.lean",
+        "Blaster/FF04/Corpus.lean",
+        "Blaster/FF04/Polynorm.lean",
+        "Blaster/FiniteField/Basic.lean",
+        "Tests/FiniteField/LargePrime.lean",
+        "lean-toolchain",
+        "lakefile.lean",
+        "lake-manifest.json",
+        "benchmarks/finite-fields/normalization-f7-constants-grind.lean"
+      ],
+      "output_files": [
+        "benchmarks/finite-fields/normalization-f7-constants-grind.olean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+      "grind_config": "grind (ematch := 0)",
+      "required_markers": [
+        "FFM20_METRIC "
+      ]
+    },
+    {
+      "id": "normalization-f7-characteristic-decide",
+      "corpus_ids": [
+        "f7-characteristic"
+      ],
+      "category": "normalization",
+      "method": "decide",
+      "argv": [
+        "env",
+        "LEAN_PATH=.",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "-o",
+        "benchmarks/finite-fields/normalization-f7-characteristic-decide.olean",
+        "benchmarks/finite-fields/normalization-f7-characteristic-decide.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_files": [
+        "benchmarks/finite-fields/NormalizationMetrics.lean",
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "fixtures/finite-fields/audit/Circuits.lean",
+        "Blaster/FF04/Corpus.lean",
+        "Blaster/FF04/Polynorm.lean",
+        "Blaster/FiniteField/Basic.lean",
+        "Tests/FiniteField/LargePrime.lean",
+        "lean-toolchain",
+        "lakefile.lean",
+        "lake-manifest.json",
+        "benchmarks/finite-fields/normalization-f7-characteristic-decide.lean"
+      ],
+      "output_files": [
+        "benchmarks/finite-fields/normalization-f7-characteristic-decide.olean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+      "grind_config": null,
+      "required_markers": [
+        "FFM20_METRIC "
+      ]
+    },
+    {
+      "id": "normalization-f7-characteristic-grind",
+      "corpus_ids": [
+        "f7-characteristic"
+      ],
+      "category": "normalization",
+      "method": "grind",
+      "argv": [
+        "env",
+        "LEAN_PATH=.",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "-o",
+        "benchmarks/finite-fields/normalization-f7-characteristic-grind.olean",
+        "benchmarks/finite-fields/normalization-f7-characteristic-grind.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_files": [
+        "benchmarks/finite-fields/NormalizationMetrics.lean",
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "fixtures/finite-fields/audit/Circuits.lean",
+        "Blaster/FF04/Corpus.lean",
+        "Blaster/FF04/Polynorm.lean",
+        "Blaster/FiniteField/Basic.lean",
+        "Tests/FiniteField/LargePrime.lean",
+        "lean-toolchain",
+        "lakefile.lean",
+        "lake-manifest.json",
+        "benchmarks/finite-fields/normalization-f7-characteristic-grind.lean"
+      ],
+      "output_files": [
+        "benchmarks/finite-fields/normalization-f7-characteristic-grind.olean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+      "grind_config": "grind (ematch := 0)",
+      "required_markers": [
+        "FFM20_METRIC "
+      ]
+    },
+    {
+      "id": "normalization-f7-recursive-sum-decide",
+      "corpus_ids": [
+        "f7-recursive-sum"
+      ],
+      "category": "normalization",
+      "method": "decide",
+      "argv": [
+        "env",
+        "LEAN_PATH=.",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "-o",
+        "benchmarks/finite-fields/normalization-f7-recursive-sum-decide.olean",
+        "benchmarks/finite-fields/normalization-f7-recursive-sum-decide.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_files": [
+        "benchmarks/finite-fields/NormalizationMetrics.lean",
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "fixtures/finite-fields/audit/Circuits.lean",
+        "Blaster/FF04/Corpus.lean",
+        "Blaster/FF04/Polynorm.lean",
+        "Blaster/FiniteField/Basic.lean",
+        "Tests/FiniteField/LargePrime.lean",
+        "lean-toolchain",
+        "lakefile.lean",
+        "lake-manifest.json",
+        "benchmarks/finite-fields/normalization-f7-recursive-sum-decide.lean"
+      ],
+      "output_files": [
+        "benchmarks/finite-fields/normalization-f7-recursive-sum-decide.olean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+      "grind_config": null,
+      "required_markers": [
+        "FFM20_METRIC "
+      ]
+    },
+    {
+      "id": "normalization-f7-recursive-sum-grind",
+      "corpus_ids": [
+        "f7-recursive-sum"
+      ],
+      "category": "normalization",
+      "method": "grind",
+      "argv": [
+        "env",
+        "LEAN_PATH=.",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "-o",
+        "benchmarks/finite-fields/normalization-f7-recursive-sum-grind.olean",
+        "benchmarks/finite-fields/normalization-f7-recursive-sum-grind.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_files": [
+        "benchmarks/finite-fields/NormalizationMetrics.lean",
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "fixtures/finite-fields/audit/Circuits.lean",
+        "Blaster/FF04/Corpus.lean",
+        "Blaster/FF04/Polynorm.lean",
+        "Blaster/FiniteField/Basic.lean",
+        "Tests/FiniteField/LargePrime.lean",
+        "lean-toolchain",
+        "lakefile.lean",
+        "lake-manifest.json",
+        "benchmarks/finite-fields/normalization-f7-recursive-sum-grind.lean"
+      ],
+      "output_files": [
+        "benchmarks/finite-fields/normalization-f7-recursive-sum-grind.olean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+      "grind_config": "grind (ematch := 0)",
+      "required_markers": [
+        "FFM20_METRIC "
+      ]
+    },
+    {
+      "id": "normalization-curve25519-identity-decide",
+      "corpus_ids": [
+        "curve25519-identity"
+      ],
+      "category": "normalization",
+      "method": "decide",
+      "argv": [
+        "env",
+        "LEAN_PATH=.",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "-o",
+        "benchmarks/finite-fields/normalization-curve25519-identity-decide.olean",
+        "benchmarks/finite-fields/normalization-curve25519-identity-decide.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_files": [
+        "benchmarks/finite-fields/NormalizationMetrics.lean",
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "fixtures/finite-fields/audit/Circuits.lean",
+        "Blaster/FF04/Corpus.lean",
+        "Blaster/FF04/Polynorm.lean",
+        "Blaster/FiniteField/Basic.lean",
+        "Tests/FiniteField/LargePrime.lean",
+        "lean-toolchain",
+        "lakefile.lean",
+        "lake-manifest.json",
+        "benchmarks/finite-fields/normalization-curve25519-identity-decide.lean"
+      ],
+      "output_files": [
+        "benchmarks/finite-fields/normalization-curve25519-identity-decide.olean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+      "grind_config": null,
+      "required_markers": [
+        "FFM20_METRIC "
+      ]
+    },
+    {
+      "id": "normalization-curve25519-identity-grind",
+      "corpus_ids": [
+        "curve25519-identity"
+      ],
+      "category": "normalization",
+      "method": "grind",
+      "argv": [
+        "env",
+        "LEAN_PATH=.",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "-o",
+        "benchmarks/finite-fields/normalization-curve25519-identity-grind.olean",
+        "benchmarks/finite-fields/normalization-curve25519-identity-grind.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_files": [
+        "benchmarks/finite-fields/NormalizationMetrics.lean",
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "fixtures/finite-fields/audit/Circuits.lean",
+        "Blaster/FF04/Corpus.lean",
+        "Blaster/FF04/Polynorm.lean",
+        "Blaster/FiniteField/Basic.lean",
+        "Tests/FiniteField/LargePrime.lean",
+        "lean-toolchain",
+        "lakefile.lean",
+        "lake-manifest.json",
+        "benchmarks/finite-fields/normalization-curve25519-identity-grind.lean"
+      ],
+      "output_files": [
+        "benchmarks/finite-fields/normalization-curve25519-identity-grind.olean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+      "grind_config": "grind (ematch := 0)",
+      "required_markers": [
+        "FFM20_METRIC "
+      ]
+    },
+    {
+      "id": "normalization-curve25519-implication-decide",
+      "corpus_ids": [
+        "curve25519-implication"
+      ],
+      "category": "normalization",
+      "method": "decide",
+      "argv": [
+        "env",
+        "LEAN_PATH=.",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "-o",
+        "benchmarks/finite-fields/normalization-curve25519-implication-decide.olean",
+        "benchmarks/finite-fields/normalization-curve25519-implication-decide.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_files": [
+        "benchmarks/finite-fields/NormalizationMetrics.lean",
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "fixtures/finite-fields/audit/Circuits.lean",
+        "Blaster/FF04/Corpus.lean",
+        "Blaster/FF04/Polynorm.lean",
+        "Blaster/FiniteField/Basic.lean",
+        "Tests/FiniteField/LargePrime.lean",
+        "lean-toolchain",
+        "lakefile.lean",
+        "lake-manifest.json",
+        "benchmarks/finite-fields/normalization-curve25519-implication-decide.lean"
+      ],
+      "output_files": [
+        "benchmarks/finite-fields/normalization-curve25519-implication-decide.olean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time. Measures the unconditional certificate identity, not the separately proved constraint-to-zero connection or final implication; no hypotheses are added or dropped from this reflected identity.",
+      "grind_config": null,
+      "required_markers": [
+        "FFM20_METRIC "
+      ]
+    },
+    {
+      "id": "normalization-curve25519-implication-grind",
+      "corpus_ids": [
+        "curve25519-implication"
+      ],
+      "category": "normalization",
+      "method": "grind",
+      "argv": [
+        "env",
+        "LEAN_PATH=.",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "-o",
+        "benchmarks/finite-fields/normalization-curve25519-implication-grind.olean",
+        "benchmarks/finite-fields/normalization-curve25519-implication-grind.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_files": [
+        "benchmarks/finite-fields/NormalizationMetrics.lean",
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "fixtures/finite-fields/audit/Circuits.lean",
+        "Blaster/FF04/Corpus.lean",
+        "Blaster/FF04/Polynorm.lean",
+        "Blaster/FiniteField/Basic.lean",
+        "Tests/FiniteField/LargePrime.lean",
+        "lean-toolchain",
+        "lakefile.lean",
+        "lake-manifest.json",
+        "benchmarks/finite-fields/normalization-curve25519-implication-grind.lean"
+      ],
+      "output_files": [
+        "benchmarks/finite-fields/normalization-curve25519-implication-grind.olean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time. Measures the unconditional certificate identity, not the separately proved constraint-to-zero connection or final implication; no hypotheses are added or dropped from this reflected identity.",
+      "grind_config": "grind (ematch := 0)",
+      "required_markers": [
+        "FFM20_METRIC "
+      ]
+    },
+    {
+      "id": "normalization-f7-circuit-decide",
+      "corpus_ids": [
+        "f7-circuit"
+      ],
+      "category": "normalization",
+      "method": "decide",
+      "argv": [
+        "env",
+        "LEAN_PATH=.",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "-o",
+        "benchmarks/finite-fields/normalization-f7-circuit-decide.olean",
+        "benchmarks/finite-fields/normalization-f7-circuit-decide.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_files": [
+        "benchmarks/finite-fields/NormalizationMetrics.lean",
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "fixtures/finite-fields/audit/Circuits.lean",
+        "Blaster/FF04/Corpus.lean",
+        "Blaster/FF04/Polynorm.lean",
+        "Blaster/FiniteField/Basic.lean",
+        "Tests/FiniteField/LargePrime.lean",
+        "lean-toolchain",
+        "lakefile.lean",
+        "lake-manifest.json",
+        "benchmarks/finite-fields/normalization-f7-circuit-decide.lean"
+      ],
+      "output_files": [
+        "benchmarks/finite-fields/normalization-f7-circuit-decide.olean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time. Measures the unconditional certificate identity, not the separately proved constraint-to-zero connection or final implication; no hypotheses are added or dropped from this reflected identity.",
+      "grind_config": null,
+      "required_markers": [
+        "FFM20_METRIC "
+      ]
+    },
+    {
+      "id": "normalization-f7-circuit-grind",
+      "corpus_ids": [
+        "f7-circuit"
+      ],
+      "category": "normalization",
+      "method": "grind",
+      "argv": [
+        "env",
+        "LEAN_PATH=.",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "-o",
+        "benchmarks/finite-fields/normalization-f7-circuit-grind.olean",
+        "benchmarks/finite-fields/normalization-f7-circuit-grind.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_files": [
+        "benchmarks/finite-fields/NormalizationMetrics.lean",
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "fixtures/finite-fields/audit/Circuits.lean",
+        "Blaster/FF04/Corpus.lean",
+        "Blaster/FF04/Polynorm.lean",
+        "Blaster/FiniteField/Basic.lean",
+        "Tests/FiniteField/LargePrime.lean",
+        "lean-toolchain",
+        "lakefile.lean",
+        "lake-manifest.json",
+        "benchmarks/finite-fields/normalization-f7-circuit-grind.lean"
+      ],
+      "output_files": [
+        "benchmarks/finite-fields/normalization-f7-circuit-grind.olean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time. Measures the unconditional certificate identity, not the separately proved constraint-to-zero connection or final implication; no hypotheses are added or dropped from this reflected identity.",
+      "grind_config": "grind (ematch := 0)",
+      "required_markers": [
+        "FFM20_METRIC "
+      ]
+    },
+    {
+      "id": "normalization-curve25519-circuit-decide",
+      "corpus_ids": [
+        "curve25519-circuit"
+      ],
+      "category": "normalization",
+      "method": "decide",
+      "argv": [
+        "env",
+        "LEAN_PATH=.",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "-o",
+        "benchmarks/finite-fields/normalization-curve25519-circuit-decide.olean",
+        "benchmarks/finite-fields/normalization-curve25519-circuit-decide.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_files": [
+        "benchmarks/finite-fields/NormalizationMetrics.lean",
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "fixtures/finite-fields/audit/Circuits.lean",
+        "Blaster/FF04/Corpus.lean",
+        "Blaster/FF04/Polynorm.lean",
+        "Blaster/FiniteField/Basic.lean",
+        "Tests/FiniteField/LargePrime.lean",
+        "lean-toolchain",
+        "lakefile.lean",
+        "lake-manifest.json",
+        "benchmarks/finite-fields/normalization-curve25519-circuit-decide.lean"
+      ],
+      "output_files": [
+        "benchmarks/finite-fields/normalization-curve25519-circuit-decide.olean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time. Measures the unconditional certificate identity, not the separately proved constraint-to-zero connection or final implication; no hypotheses are added or dropped from this reflected identity.",
+      "grind_config": null,
+      "required_markers": [
+        "FFM20_METRIC "
+      ]
+    },
+    {
+      "id": "normalization-curve25519-circuit-grind",
+      "corpus_ids": [
+        "curve25519-circuit"
+      ],
+      "category": "normalization",
+      "method": "grind",
+      "argv": [
+        "env",
+        "LEAN_PATH=.",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "-o",
+        "benchmarks/finite-fields/normalization-curve25519-circuit-grind.olean",
+        "benchmarks/finite-fields/normalization-curve25519-circuit-grind.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_files": [
+        "benchmarks/finite-fields/NormalizationMetrics.lean",
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "fixtures/finite-fields/audit/Circuits.lean",
+        "Blaster/FF04/Corpus.lean",
+        "Blaster/FF04/Polynorm.lean",
+        "Blaster/FiniteField/Basic.lean",
+        "Tests/FiniteField/LargePrime.lean",
+        "lean-toolchain",
+        "lakefile.lean",
+        "lake-manifest.json",
+        "benchmarks/finite-fields/normalization-curve25519-circuit-grind.lean"
+      ],
+      "output_files": [
+        "benchmarks/finite-fields/normalization-curve25519-circuit-grind.olean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time. Measures the unconditional certificate identity, not the separately proved constraint-to-zero connection or final implication; no hypotheses are added or dropped from this reflected identity.",
+      "grind_config": "grind (ematch := 0)",
+      "required_markers": [
+        "FFM20_METRIC "
+      ]
+    },
+    {
+      "id": "normalization-ff04-distribution-decide",
+      "corpus_ids": [
+        "ff04-distribution"
+      ],
+      "category": "normalization",
+      "method": "decide",
+      "argv": [
+        "env",
+        "LEAN_PATH=.",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "-o",
+        "benchmarks/finite-fields/normalization-ff04-distribution-decide.olean",
+        "benchmarks/finite-fields/normalization-ff04-distribution-decide.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_files": [
+        "benchmarks/finite-fields/NormalizationMetrics.lean",
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "fixtures/finite-fields/audit/Circuits.lean",
+        "Blaster/FF04/Corpus.lean",
+        "Blaster/FF04/Polynorm.lean",
+        "Blaster/FiniteField/Basic.lean",
+        "Tests/FiniteField/LargePrime.lean",
+        "lean-toolchain",
+        "lakefile.lean",
+        "lake-manifest.json",
+        "benchmarks/finite-fields/normalization-ff04-distribution-decide.lean"
+      ],
+      "output_files": [
+        "benchmarks/finite-fields/normalization-ff04-distribution-decide.olean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+      "grind_config": null,
+      "required_markers": [
+        "FFM20_METRIC "
+      ]
+    },
+    {
+      "id": "normalization-ff04-distribution-grind",
+      "corpus_ids": [
+        "ff04-distribution"
+      ],
+      "category": "normalization",
+      "method": "grind",
+      "argv": [
+        "env",
+        "LEAN_PATH=.",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "-o",
+        "benchmarks/finite-fields/normalization-ff04-distribution-grind.olean",
+        "benchmarks/finite-fields/normalization-ff04-distribution-grind.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_files": [
+        "benchmarks/finite-fields/NormalizationMetrics.lean",
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "fixtures/finite-fields/audit/Circuits.lean",
+        "Blaster/FF04/Corpus.lean",
+        "Blaster/FF04/Polynorm.lean",
+        "Blaster/FiniteField/Basic.lean",
+        "Tests/FiniteField/LargePrime.lean",
+        "lean-toolchain",
+        "lakefile.lean",
+        "lake-manifest.json",
+        "benchmarks/finite-fields/normalization-ff04-distribution-grind.lean"
+      ],
+      "output_files": [
+        "benchmarks/finite-fields/normalization-ff04-distribution-grind.olean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+      "grind_config": "grind (ematch := 0)",
+      "required_markers": [
+        "FFM20_METRIC "
+      ]
+    },
+    {
+      "id": "normalization-ff04-characteristic-decide",
+      "corpus_ids": [
+        "ff04-characteristic"
+      ],
+      "category": "normalization",
+      "method": "decide",
+      "argv": [
+        "env",
+        "LEAN_PATH=.",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "-o",
+        "benchmarks/finite-fields/normalization-ff04-characteristic-decide.olean",
+        "benchmarks/finite-fields/normalization-ff04-characteristic-decide.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_files": [
+        "benchmarks/finite-fields/NormalizationMetrics.lean",
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "fixtures/finite-fields/audit/Circuits.lean",
+        "Blaster/FF04/Corpus.lean",
+        "Blaster/FF04/Polynorm.lean",
+        "Blaster/FiniteField/Basic.lean",
+        "Tests/FiniteField/LargePrime.lean",
+        "lean-toolchain",
+        "lakefile.lean",
+        "lake-manifest.json",
+        "benchmarks/finite-fields/normalization-ff04-characteristic-decide.lean"
+      ],
+      "output_files": [
+        "benchmarks/finite-fields/normalization-ff04-characteristic-decide.olean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+      "grind_config": null,
+      "required_markers": [
+        "FFM20_METRIC "
+      ]
+    },
+    {
+      "id": "normalization-ff04-characteristic-grind",
+      "corpus_ids": [
+        "ff04-characteristic"
+      ],
+      "category": "normalization",
+      "method": "grind",
+      "argv": [
+        "env",
+        "LEAN_PATH=.",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "-o",
+        "benchmarks/finite-fields/normalization-ff04-characteristic-grind.olean",
+        "benchmarks/finite-fields/normalization-ff04-characteristic-grind.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_files": [
+        "benchmarks/finite-fields/NormalizationMetrics.lean",
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "fixtures/finite-fields/audit/Circuits.lean",
+        "Blaster/FF04/Corpus.lean",
+        "Blaster/FF04/Polynorm.lean",
+        "Blaster/FiniteField/Basic.lean",
+        "Tests/FiniteField/LargePrime.lean",
+        "lean-toolchain",
+        "lakefile.lean",
+        "lake-manifest.json",
+        "benchmarks/finite-fields/normalization-ff04-characteristic-grind.lean"
+      ],
+      "output_files": [
+        "benchmarks/finite-fields/normalization-ff04-characteristic-grind.olean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+      "grind_config": "grind (ematch := 0)",
+      "required_markers": [
+        "FFM20_METRIC "
+      ]
+    },
+    {
+      "id": "normalization-ff04-fourth-power-decide",
+      "corpus_ids": [
+        "ff04-fourth-power"
+      ],
+      "category": "normalization",
+      "method": "decide",
+      "argv": [
+        "env",
+        "LEAN_PATH=.",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "-o",
+        "benchmarks/finite-fields/normalization-ff04-fourth-power-decide.olean",
+        "benchmarks/finite-fields/normalization-ff04-fourth-power-decide.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_files": [
+        "benchmarks/finite-fields/NormalizationMetrics.lean",
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "fixtures/finite-fields/audit/Circuits.lean",
+        "Blaster/FF04/Corpus.lean",
+        "Blaster/FF04/Polynorm.lean",
+        "Blaster/FiniteField/Basic.lean",
+        "Tests/FiniteField/LargePrime.lean",
+        "lean-toolchain",
+        "lakefile.lean",
+        "lake-manifest.json",
+        "benchmarks/finite-fields/normalization-ff04-fourth-power-decide.lean"
+      ],
+      "output_files": [
+        "benchmarks/finite-fields/normalization-ff04-fourth-power-decide.olean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+      "grind_config": null,
+      "required_markers": [
+        "FFM20_METRIC "
+      ]
+    },
+    {
+      "id": "normalization-ff04-fourth-power-grind",
+      "corpus_ids": [
+        "ff04-fourth-power"
+      ],
+      "category": "normalization",
+      "method": "grind",
+      "argv": [
+        "env",
+        "LEAN_PATH=.",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "-o",
+        "benchmarks/finite-fields/normalization-ff04-fourth-power-grind.olean",
+        "benchmarks/finite-fields/normalization-ff04-fourth-power-grind.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_files": [
+        "benchmarks/finite-fields/NormalizationMetrics.lean",
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "fixtures/finite-fields/audit/Circuits.lean",
+        "Blaster/FF04/Corpus.lean",
+        "Blaster/FF04/Polynorm.lean",
+        "Blaster/FiniteField/Basic.lean",
+        "Tests/FiniteField/LargePrime.lean",
+        "lean-toolchain",
+        "lakefile.lean",
+        "lake-manifest.json",
+        "benchmarks/finite-fields/normalization-ff04-fourth-power-grind.lean"
+      ],
+      "output_files": [
+        "benchmarks/finite-fields/normalization-ff04-fourth-power-grind.olean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+      "grind_config": "grind (ematch := 0)",
+      "required_markers": [
+        "FFM20_METRIC "
+      ]
+    },
+    {
+      "id": "normalization-ff04-large-coefficients-decide",
+      "corpus_ids": [
+        "ff04-large-coefficients"
+      ],
+      "category": "normalization",
+      "method": "decide",
+      "argv": [
+        "env",
+        "LEAN_PATH=.",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "-o",
+        "benchmarks/finite-fields/normalization-ff04-large-coefficients-decide.olean",
+        "benchmarks/finite-fields/normalization-ff04-large-coefficients-decide.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_files": [
+        "benchmarks/finite-fields/NormalizationMetrics.lean",
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "fixtures/finite-fields/audit/Circuits.lean",
+        "Blaster/FF04/Corpus.lean",
+        "Blaster/FF04/Polynorm.lean",
+        "Blaster/FiniteField/Basic.lean",
+        "Tests/FiniteField/LargePrime.lean",
+        "lean-toolchain",
+        "lakefile.lean",
+        "lake-manifest.json",
+        "benchmarks/finite-fields/normalization-ff04-large-coefficients-decide.lean"
+      ],
+      "output_files": [
+        "benchmarks/finite-fields/normalization-ff04-large-coefficients-decide.olean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+      "grind_config": null,
+      "required_markers": [
+        "FFM20_METRIC "
+      ]
+    },
+    {
+      "id": "normalization-ff04-large-coefficients-grind",
+      "corpus_ids": [
+        "ff04-large-coefficients"
+      ],
+      "category": "normalization",
+      "method": "grind",
+      "argv": [
+        "env",
+        "LEAN_PATH=.",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "-o",
+        "benchmarks/finite-fields/normalization-ff04-large-coefficients-grind.olean",
+        "benchmarks/finite-fields/normalization-ff04-large-coefficients-grind.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_files": [
+        "benchmarks/finite-fields/NormalizationMetrics.lean",
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "fixtures/finite-fields/audit/Circuits.lean",
+        "Blaster/FF04/Corpus.lean",
+        "Blaster/FF04/Polynorm.lean",
+        "Blaster/FiniteField/Basic.lean",
+        "Tests/FiniteField/LargePrime.lean",
+        "lean-toolchain",
+        "lakefile.lean",
+        "lake-manifest.json",
+        "benchmarks/finite-fields/normalization-ff04-large-coefficients-grind.lean"
+      ],
+      "output_files": [
+        "benchmarks/finite-fields/normalization-ff04-large-coefficients-grind.olean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "notes": "Imports the exact parent reflected expressions. Same unconditional lhs.eval ctx = rhs.eval ctx for both methods. No imported equality certificate is reused. Ring-only: no assumed field laws. Profiler records exclusive whole-file components, not isolated theorem kernel time.",
+      "grind_config": "grind (ematch := 0)",
+      "required_markers": [
+        "FFM20_METRIC "
+      ]
+    },
+    {
+      "id": "normalization-false-goal-decide",
+      "corpus_ids": [
+        "f7-false-certificate"
+      ],
+      "category": "normalization",
+      "method": "decide",
+      "argv": [
+        "env",
+        "LEAN_PATH=.",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "-o",
+        "benchmarks/finite-fields/normalization-false-goal-decide.olean",
+        "benchmarks/finite-fields/normalization-false-goal-decide.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_files": [
+        "benchmarks/finite-fields/NormalizationMetrics.lean",
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "fixtures/finite-fields/audit/Circuits.lean",
+        "Blaster/FF04/Corpus.lean",
+        "Blaster/FF04/Polynorm.lean",
+        "Blaster/FiniteField/Basic.lean",
+        "Tests/FiniteField/LargePrime.lean",
+        "lean-toolchain",
+        "lakefile.lean",
+        "lake-manifest.json",
+        "benchmarks/finite-fields/normalization-false-goal-decide.lean"
+      ],
+      "output_files": [
+        "benchmarks/finite-fields/normalization-false-goal-decide.olean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "notes": "Deliberate failure: preserve the actual Lean error log and classify as command_failure; no successful proof metric is emitted. Expected exit_code remains the runner success criterion 0, not an assertion that the failing Lean command succeeds.",
+      "grind_config": null,
+      "required_markers": []
+    },
+    {
+      "id": "normalization-false-goal-grind",
+      "corpus_ids": [
+        "f7-false-certificate"
+      ],
+      "category": "normalization",
+      "method": "grind",
+      "argv": [
+        "env",
+        "LEAN_PATH=.",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "-o",
+        "benchmarks/finite-fields/normalization-false-goal-grind.olean",
+        "benchmarks/finite-fields/normalization-false-goal-grind.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_files": [
+        "benchmarks/finite-fields/NormalizationMetrics.lean",
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "fixtures/finite-fields/audit/Circuits.lean",
+        "Blaster/FF04/Corpus.lean",
+        "Blaster/FF04/Polynorm.lean",
+        "Blaster/FiniteField/Basic.lean",
+        "Tests/FiniteField/LargePrime.lean",
+        "lean-toolchain",
+        "lakefile.lean",
+        "lake-manifest.json",
+        "benchmarks/finite-fields/normalization-false-goal-grind.lean"
+      ],
+      "output_files": [
+        "benchmarks/finite-fields/normalization-false-goal-grind.olean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "notes": "Deliberate failure: preserve the actual Lean error log and classify as command_failure; no successful proof metric is emitted. Expected exit_code remains the runner success criterion 0, not an assertion that the failing Lean command succeeds.",
+      "grind_config": "grind (ematch := 0)",
+      "required_markers": []
+    },
+    {
+      "id": "normalization-composite-zero-product-decide",
+      "corpus_ids": [
+        "ff04-composite-and-rejection"
+      ],
+      "category": "normalization",
+      "method": "decide",
+      "argv": [
+        "env",
+        "LEAN_PATH=.",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "-o",
+        "benchmarks/finite-fields/normalization-composite-zero-product-decide.olean",
+        "benchmarks/finite-fields/normalization-composite-zero-product-decide.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_files": [
+        "benchmarks/finite-fields/NormalizationMetrics.lean",
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "fixtures/finite-fields/audit/Circuits.lean",
+        "Blaster/FF04/Corpus.lean",
+        "Blaster/FF04/Polynorm.lean",
+        "Blaster/FiniteField/Basic.lean",
+        "Tests/FiniteField/LargePrime.lean",
+        "lean-toolchain",
+        "lakefile.lean",
+        "lake-manifest.json",
+        "benchmarks/finite-fields/normalization-composite-zero-product-decide.lean"
+      ],
+      "output_files": [
+        "benchmarks/finite-fields/normalization-composite-zero-product-decide.olean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "notes": "Deliberate failure: preserve the actual Lean error log and classify as command_failure; no successful proof metric is emitted. Expected exit_code remains the runner success criterion 0, not an assertion that the failing Lean command succeeds.",
+      "grind_config": null,
+      "required_markers": []
+    },
+    {
+      "id": "normalization-composite-zero-product-grind",
+      "corpus_ids": [
+        "ff04-composite-and-rejection"
+      ],
+      "category": "normalization",
+      "method": "grind",
+      "argv": [
+        "env",
+        "LEAN_PATH=.",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "-o",
+        "benchmarks/finite-fields/normalization-composite-zero-product-grind.olean",
+        "benchmarks/finite-fields/normalization-composite-zero-product-grind.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_files": [
+        "benchmarks/finite-fields/NormalizationMetrics.lean",
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "fixtures/finite-fields/audit/Circuits.lean",
+        "Blaster/FF04/Corpus.lean",
+        "Blaster/FF04/Polynorm.lean",
+        "Blaster/FiniteField/Basic.lean",
+        "Tests/FiniteField/LargePrime.lean",
+        "lean-toolchain",
+        "lakefile.lean",
+        "lake-manifest.json",
+        "benchmarks/finite-fields/normalization-composite-zero-product-grind.lean"
+      ],
+      "output_files": [
+        "benchmarks/finite-fields/normalization-composite-zero-product-grind.olean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "notes": "Semantic success despite noncanonical normalizer zero-coefficient monomial; composite ring, not a field.",
+      "grind_config": "grind (ematch := 0)",
+      "required_markers": [
+        "FFM20_METRIC "
+      ]
+    },
+    {
+      "id": "normalization-curve25519-circuit-decide-low-heartbeat",
+      "corpus_ids": [
+        "curve25519-circuit"
+      ],
+      "category": "normalization",
+      "method": "decide",
+      "argv": [
+        "env",
+        "LEAN_PATH=.",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=1",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "-o",
+        "benchmarks/finite-fields/normalization-curve25519-circuit-decide.olean",
+        "benchmarks/finite-fields/normalization-curve25519-circuit-decide.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_files": [
+        "benchmarks/finite-fields/NormalizationMetrics.lean",
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "fixtures/finite-fields/audit/Circuits.lean",
+        "Blaster/FF04/Corpus.lean",
+        "Blaster/FF04/Polynorm.lean",
+        "Blaster/FiniteField/Basic.lean",
+        "Tests/FiniteField/LargePrime.lean",
+        "lean-toolchain",
+        "lakefile.lean",
+        "lake-manifest.json",
+        "benchmarks/finite-fields/normalization-curve25519-circuit-decide.lean"
+      ],
+      "output_files": [
+        "benchmarks/finite-fields/normalization-curve25519-circuit-decide.olean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 1,
+        "output_bytes": 1048576
+      },
+      "notes": "Deliberate resource failure: same eight-gate degree-five Curve25519 theorem and same ordinary decide proof, maxHeartbeats=1 instead of 200000. Preserve actual diagnostics and classify heartbeat_limit when observed. No harness set_option resets this limit; imported modules are compiled in setup. A failure is not recorded as proof success.",
+      "grind_config": null,
+      "required_markers": []
+    },
+    {
+      "id": "native-f7-square",
+      "corpus_ids": [
+        "f7-square"
+      ],
+      "category": "native-pipeline",
+      "argv": [
+        "env",
+        "FFM20_NATIVE_CASE=native-f7-square",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "benchmarks/finite-fields/Native.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "required_markers": [
+        "FFM20_METRIC ",
+        "native-f7-square",
+        "[End]: Optimization",
+        "FFM20_NATIVE_CHECK native-f7-square",
+        "[End]: Translation",
+        "[End]: Solve",
+        "(_ FiniteField "
+      ],
+      "input_files": [
+        "benchmarks/finite-fields/Native.lean",
+        "docs/finite-fields/benchmark-corpus.json",
+        "Tests/FiniteField/LargePrime.lean",
+        "Blaster/Smt/Translate.lean",
+        "Blaster/Smt/FiniteFieldPreflight.lean",
+        "Blaster/Smt/Translate/FiniteField.lean",
+        "Blaster/Logging/Basic.lean",
+        "ff-tests/PolynomialSource.lean",
+        "ff-tests/DivisionSource.lean",
+        "docs/finite-fields/solver-manifest.json",
+        "fixtures/finite-fields/audit/Semantic.lean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "stages": {
+        "optimization": {
+          "source": "stdout profileTask",
+          "label": "Optimization",
+          "resolution_ms": 1
+        },
+        "translation": {
+          "source": "stdout profileTask",
+          "label": "Translation",
+          "unavailable_if": "optimizer-only or unsupported rejection; no successful End trace"
+        },
+        "submission": {
+          "source": "stdout profileTask",
+          "label": "Submitting Smt Query",
+          "unavailable_if": "no native query submitted"
+        },
+        "solving": {
+          "source": "stdout profileTask",
+          "label": "Solve",
+          "scope": "checkSat including solver protocol and optional model extraction; excludes preflight/setup and final display",
+          "unavailable_if": "optimizer-only or unsupported"
+        },
+        "value_display": {
+          "seconds": null,
+          "reason": "No separate production timer; model extraction included in Solve, rendering outside Solve."
+        },
+        "solver_only": {
+          "seconds": null,
+          "reason": "No separate retained successful check timer."
+        },
+        "preflight": {
+          "seconds": null,
+          "reason": "No independent production timer."
+        },
+        "proof_reading": {
+          "seconds": null,
+          "reason": "Production native proof reading unavailable."
+        },
+        "proof_checking": {
+          "seconds": null,
+          "reason": "Solver verdict is not a reconstructed Lean proof."
+        },
+        "verified_transport": {
+          "seconds": null,
+          "reason": "No verified native result-to-theorem transport."
+        }
+      },
+      "notes": "square identity, Context slots 0/1 replaced by universally quantified nominal F7 variables. Expected route: native-cvc5. Requires parent environment BLASTER_FF_CVC5 set to the absolute staged .artifacts/finite-fields/solving/bin/cvc5; production performs offline capability qualification. No PATH fallback. Existing verbosity instrumentation and exact retained solver transcript are observations only. Proof size is null, not compiled artifact bytes. Imports and common checked source declarations are included in parent whole-file timing; stage traces isolate only production profileTask scopes. Lean profiler enabled for exclusive whole-file elaboration/kernel components; profiler stderr is retained, not required to be empty."
+    },
+    {
+      "id": "native-f7-false",
+      "corpus_ids": [
+        "f7-false-goal",
+        "f7-false-certificate"
+      ],
+      "category": "native-pipeline",
+      "argv": [
+        "env",
+        "FFM20_NATIVE_CASE=native-f7-false",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "benchmarks/finite-fields/Native.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "required_markers": [
+        "FFM20_METRIC ",
+        "native-f7-false",
+        "[End]: Optimization",
+        "FFM20_NATIVE_CHECK native-f7-false",
+        "[End]: Translation",
+        "[End]: Solve",
+        "(_ FiniteField "
+      ],
+      "input_files": [
+        "benchmarks/finite-fields/Native.lean",
+        "docs/finite-fields/benchmark-corpus.json",
+        "Tests/FiniteField/LargePrime.lean",
+        "Blaster/Smt/Translate.lean",
+        "Blaster/Smt/FiniteFieldPreflight.lean",
+        "Blaster/Smt/Translate/FiniteField.lean",
+        "Blaster/Logging/Basic.lean",
+        "ff-tests/PolynomialSource.lean",
+        "ff-tests/DivisionSource.lean",
+        "docs/finite-fields/solver-manifest.json",
+        "fixtures/finite-fields/audit/Semantic.lean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "stages": {
+        "optimization": {
+          "source": "stdout profileTask",
+          "label": "Optimization",
+          "resolution_ms": 1
+        },
+        "translation": {
+          "source": "stdout profileTask",
+          "label": "Translation",
+          "unavailable_if": "optimizer-only or unsupported rejection; no successful End trace"
+        },
+        "submission": {
+          "source": "stdout profileTask",
+          "label": "Submitting Smt Query",
+          "unavailable_if": "no native query submitted"
+        },
+        "solving": {
+          "source": "stdout profileTask",
+          "label": "Solve",
+          "scope": "checkSat including solver protocol and optional model extraction; excludes preflight/setup and final display",
+          "unavailable_if": "optimizer-only or unsupported"
+        },
+        "value_display": {
+          "seconds": null,
+          "reason": "No separate production timer; model extraction included in Solve, rendering outside Solve."
+        },
+        "solver_only": {
+          "seconds": null,
+          "reason": "No separate retained successful check timer."
+        },
+        "preflight": {
+          "seconds": null,
+          "reason": "No independent production timer."
+        },
+        "proof_reading": {
+          "seconds": null,
+          "reason": "Production native proof reading unavailable."
+        },
+        "proof_checking": {
+          "seconds": null,
+          "reason": "Solver verdict is not a reconstructed Lean proof."
+        },
+        "verified_transport": {
+          "seconds": null,
+          "reason": "No verified native result-to-theorem transport."
+        }
+      },
+      "notes": "false x=x+1 goal; requests and retains actual get-value evidence. Expected route: native-cvc5. Requires parent environment BLASTER_FF_CVC5 set to the absolute staged .artifacts/finite-fields/solving/bin/cvc5; production performs offline capability qualification. No PATH fallback. Existing verbosity instrumentation and exact retained solver transcript are observations only. Proof size is null, not compiled artifact bytes. Imports and common checked source declarations are included in parent whole-file timing; stage traces isolate only production profileTask scopes. Lean profiler enabled for exclusive whole-file elaboration/kernel components; profiler stderr is retained, not required to be empty."
+    },
+    {
+      "id": "native-curve25519-identity",
+      "corpus_ids": [
+        "curve25519-identity"
+      ],
+      "category": "native-pipeline",
+      "argv": [
+        "env",
+        "FFM20_NATIVE_CASE=native-curve25519-identity",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "benchmarks/finite-fields/Native.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "required_markers": [
+        "FFM20_METRIC ",
+        "native-curve25519-identity",
+        "[End]: Optimization",
+        "FFM20_NATIVE_CHECK native-curve25519-identity",
+        "[End]: Translation",
+        "[End]: Solve",
+        "(_ FiniteField "
+      ],
+      "input_files": [
+        "benchmarks/finite-fields/Native.lean",
+        "docs/finite-fields/benchmark-corpus.json",
+        "Tests/FiniteField/LargePrime.lean",
+        "Blaster/Smt/Translate.lean",
+        "Blaster/Smt/FiniteFieldPreflight.lean",
+        "Blaster/Smt/Translate/FiniteField.lean",
+        "Blaster/Logging/Basic.lean",
+        "ff-tests/PolynomialSource.lean",
+        "ff-tests/DivisionSource.lean",
+        "docs/finite-fields/solver-manifest.json",
+        "fixtures/finite-fields/audit/Semantic.lean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "stages": {
+        "optimization": {
+          "source": "stdout profileTask",
+          "label": "Optimization",
+          "resolution_ms": 1
+        },
+        "translation": {
+          "source": "stdout profileTask",
+          "label": "Translation",
+          "unavailable_if": "optimizer-only or unsupported rejection; no successful End trace"
+        },
+        "submission": {
+          "source": "stdout profileTask",
+          "label": "Submitting Smt Query",
+          "unavailable_if": "no native query submitted"
+        },
+        "solving": {
+          "source": "stdout profileTask",
+          "label": "Solve",
+          "scope": "checkSat including solver protocol and optional model extraction; excludes preflight/setup and final display",
+          "unavailable_if": "optimizer-only or unsupported"
+        },
+        "value_display": {
+          "seconds": null,
+          "reason": "No separate production timer; model extraction included in Solve, rendering outside Solve."
+        },
+        "solver_only": {
+          "seconds": null,
+          "reason": "No separate retained successful check timer."
+        },
+        "preflight": {
+          "seconds": null,
+          "reason": "No independent production timer."
+        },
+        "proof_reading": {
+          "seconds": null,
+          "reason": "Production native proof reading unavailable."
+        },
+        "proof_checking": {
+          "seconds": null,
+          "reason": "Solver verdict is not a reconstructed Lean proof."
+        },
+        "verified_transport": {
+          "seconds": null,
+          "reason": "No verified native result-to-theorem transport."
+        }
+      },
+      "notes": "(x+1)*(x-1)=x^2-1 over the exact checked selected prime. Expected route: native-cvc5. Requires parent environment BLASTER_FF_CVC5 set to the absolute staged .artifacts/finite-fields/solving/bin/cvc5; production performs offline capability qualification. No PATH fallback. Existing verbosity instrumentation and exact retained solver transcript are observations only. Proof size is null, not compiled artifact bytes. Imports and common checked source declarations are included in parent whole-file timing; stage traces isolate only production profileTask scopes. Lean profiler enabled for exclusive whole-file elaboration/kernel components; profiler stderr is retained, not required to be empty."
+    },
+    {
+      "id": "native-f7-circuit",
+      "corpus_ids": [
+        "f7-circuit"
+      ],
+      "category": "native-pipeline",
+      "argv": [
+        "env",
+        "FFM20_NATIVE_CASE=native-f7-circuit",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "benchmarks/finite-fields/Native.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "required_markers": [
+        "FFM20_METRIC ",
+        "native-f7-circuit",
+        "[End]: Optimization"
+      ],
+      "input_files": [
+        "benchmarks/finite-fields/Native.lean",
+        "docs/finite-fields/benchmark-corpus.json",
+        "Tests/FiniteField/LargePrime.lean",
+        "Blaster/Smt/Translate.lean",
+        "Blaster/Smt/FiniteFieldPreflight.lean",
+        "Blaster/Smt/Translate/FiniteField.lean",
+        "Blaster/Logging/Basic.lean",
+        "ff-tests/PolynomialSource.lean",
+        "ff-tests/DivisionSource.lean",
+        "docs/finite-fields/solver-manifest.json",
+        "fixtures/finite-fields/audit/Circuits.lean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "stages": {
+        "optimization": {
+          "source": "stdout profileTask",
+          "label": "Optimization",
+          "resolution_ms": 1
+        },
+        "translation": {
+          "source": "stdout profileTask",
+          "label": "Translation",
+          "unavailable_if": "optimizer-only or unsupported rejection; no successful End trace"
+        },
+        "submission": {
+          "source": "stdout profileTask",
+          "label": "Submitting Smt Query",
+          "unavailable_if": "no native query submitted"
+        },
+        "solving": {
+          "source": "stdout profileTask",
+          "label": "Solve",
+          "scope": "checkSat including solver protocol and optional model extraction; excludes preflight/setup and final display",
+          "unavailable_if": "optimizer-only or unsupported"
+        },
+        "value_display": {
+          "seconds": null,
+          "reason": "No separate production timer; model extraction included in Solve, rendering outside Solve."
+        },
+        "solver_only": {
+          "seconds": null,
+          "reason": "No separate retained successful check timer."
+        },
+        "preflight": {
+          "seconds": null,
+          "reason": "No independent production timer."
+        },
+        "proof_reading": {
+          "seconds": null,
+          "reason": "Production native proof reading unavailable."
+        },
+        "proof_checking": {
+          "seconds": null,
+          "reason": "Solver verdict is not a reconstructed Lean proof."
+        },
+        "verified_transport": {
+          "seconds": null,
+          "reason": "No verified native result-to-theorem transport."
+        }
+      },
+      "notes": "same five constraints with four direct nominal variables; optimizer discharge is explicitly recorded, not counted as native solving. Expected route: native-or-optimizer. Requires parent environment BLASTER_FF_CVC5 set to the absolute staged .artifacts/finite-fields/solving/bin/cvc5; production performs offline capability qualification. No PATH fallback. Existing verbosity instrumentation and exact retained solver transcript are observations only. Proof size is null, not compiled artifact bytes. Imports and common checked source declarations are included in parent whole-file timing; stage traces isolate only production profileTask scopes. Lean profiler enabled for exclusive whole-file elaboration/kernel components; profiler stderr is retained, not required to be empty."
+    },
+    {
+      "id": "native-curve25519-circuit",
+      "corpus_ids": [
+        "curve25519-circuit"
+      ],
+      "category": "native-pipeline",
+      "argv": [
+        "env",
+        "FFM20_NATIVE_CASE=native-curve25519-circuit",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "benchmarks/finite-fields/Native.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "required_markers": [
+        "FFM20_METRIC ",
+        "native-curve25519-circuit",
+        "[End]: Optimization"
+      ],
+      "input_files": [
+        "benchmarks/finite-fields/Native.lean",
+        "docs/finite-fields/benchmark-corpus.json",
+        "Tests/FiniteField/LargePrime.lean",
+        "Blaster/Smt/Translate.lean",
+        "Blaster/Smt/FiniteFieldPreflight.lean",
+        "Blaster/Smt/Translate/FiniteField.lean",
+        "Blaster/Logging/Basic.lean",
+        "ff-tests/PolynomialSource.lean",
+        "ff-tests/DivisionSource.lean",
+        "docs/finite-fields/solver-manifest.json",
+        "fixtures/finite-fields/audit/Circuits.lean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "stages": {
+        "optimization": {
+          "source": "stdout profileTask",
+          "label": "Optimization",
+          "resolution_ms": 1
+        },
+        "translation": {
+          "source": "stdout profileTask",
+          "label": "Translation",
+          "unavailable_if": "optimizer-only or unsupported rejection; no successful End trace"
+        },
+        "submission": {
+          "source": "stdout profileTask",
+          "label": "Submitting Smt Query",
+          "unavailable_if": "no native query submitted"
+        },
+        "solving": {
+          "source": "stdout profileTask",
+          "label": "Solve",
+          "scope": "checkSat including solver protocol and optional model extraction; excludes preflight/setup and final display",
+          "unavailable_if": "optimizer-only or unsupported"
+        },
+        "value_display": {
+          "seconds": null,
+          "reason": "No separate production timer; model extraction included in Solve, rendering outside Solve."
+        },
+        "solver_only": {
+          "seconds": null,
+          "reason": "No separate retained successful check timer."
+        },
+        "preflight": {
+          "seconds": null,
+          "reason": "No independent production timer."
+        },
+        "proof_reading": {
+          "seconds": null,
+          "reason": "Production native proof reading unavailable."
+        },
+        "proof_checking": {
+          "seconds": null,
+          "reason": "Solver verdict is not a reconstructed Lean proof."
+        },
+        "verified_transport": {
+          "seconds": null,
+          "reason": "No verified native result-to-theorem transport."
+        }
+      },
+      "notes": "same eight-gate chain with ten direct nominal variables; optimizer discharge if observed is explicitly recorded. Expected route: native-or-optimizer. Requires parent environment BLASTER_FF_CVC5 set to the absolute staged .artifacts/finite-fields/solving/bin/cvc5; production performs offline capability qualification. No PATH fallback. Existing verbosity instrumentation and exact retained solver transcript are observations only. Proof size is null, not compiled artifact bytes. Imports and common checked source declarations are included in parent whole-file timing; stage traces isolate only production profileTask scopes. Lean profiler enabled for exclusive whole-file elaboration/kernel components; profiler stderr is retained, not required to be empty."
+    },
+    {
+      "id": "native-f7-self-division",
+      "corpus_ids": [
+        "historical-self-division"
+      ],
+      "category": "native-pipeline",
+      "argv": [
+        "env",
+        "FFM20_NATIVE_CASE=native-f7-self-division",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "benchmarks/finite-fields/Native.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "required_markers": [
+        "FFM20_METRIC ",
+        "native-f7-self-division",
+        "[End]: Optimization",
+        "FFM20_NATIVE_CHECK native-f7-self-division",
+        "[End]: Translation",
+        "[End]: Solve",
+        "(_ FiniteField "
+      ],
+      "input_files": [
+        "benchmarks/finite-fields/Native.lean",
+        "docs/finite-fields/benchmark-corpus.json",
+        "Tests/FiniteField/LargePrime.lean",
+        "Blaster/Smt/Translate.lean",
+        "Blaster/Smt/FiniteFieldPreflight.lean",
+        "Blaster/Smt/Translate/FiniteField.lean",
+        "Blaster/Logging/Basic.lean",
+        "ff-tests/PolynomialSource.lean",
+        "ff-tests/DivisionSource.lean",
+        "docs/finite-fields/solver-manifest.json",
+        "fixtures/finite-fields/audit/Semantic.lean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "stages": {
+        "optimization": {
+          "source": "stdout profileTask",
+          "label": "Optimization",
+          "resolution_ms": 1
+        },
+        "translation": {
+          "source": "stdout profileTask",
+          "label": "Translation",
+          "unavailable_if": "optimizer-only or unsupported rejection; no successful End trace"
+        },
+        "submission": {
+          "source": "stdout profileTask",
+          "label": "Submitting Smt Query",
+          "unavailable_if": "no native query submitted"
+        },
+        "solving": {
+          "source": "stdout profileTask",
+          "label": "Solve",
+          "scope": "checkSat including solver protocol and optional model extraction; excludes preflight/setup and final display",
+          "unavailable_if": "optimizer-only or unsupported"
+        },
+        "value_display": {
+          "seconds": null,
+          "reason": "No separate production timer; model extraction included in Solve, rendering outside Solve."
+        },
+        "solver_only": {
+          "seconds": null,
+          "reason": "No separate retained successful check timer."
+        },
+        "preflight": {
+          "seconds": null,
+          "reason": "No independent production timer."
+        },
+        "proof_reading": {
+          "seconds": null,
+          "reason": "Production native proof reading unavailable."
+        },
+        "proof_checking": {
+          "seconds": null,
+          "reason": "Solver verdict is not a reconstructed Lean proof."
+        },
+        "verified_transport": {
+          "seconds": null,
+          "reason": "No verified native result-to-theorem transport."
+        }
+      },
+      "notes": "NEW nominal F7 analogue of catalogue proposition; historical modulus/input/revision remain unavailable. Actual proved PrimeModulus instance; independently proved sourceSelfDivision is not solver reconstruction. Expected route: native-cvc5. Requires parent environment BLASTER_FF_CVC5 set to the absolute staged .artifacts/finite-fields/solving/bin/cvc5; production performs offline capability qualification. No PATH fallback. Existing verbosity instrumentation and exact retained solver transcript are observations only. Proof size is null, not compiled artifact bytes. Imports and common checked source declarations are included in parent whole-file timing; stage traces isolate only production profileTask scopes. Lean profiler enabled for exclusive whole-file elaboration/kernel components; profiler stderr is retained, not required to be empty."
+    },
+    {
+      "id": "native-unsupported-representation",
+      "corpus_ids": [
+        "historical-val-order"
+      ],
+      "category": "native-pipeline",
+      "argv": [
+        "env",
+        "FFM20_NATIVE_CASE=native-unsupported-representation",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "benchmarks/finite-fields/Native.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "required_markers": [
+        "FFM20_METRIC ",
+        "native-unsupported-representation",
+        "[Start]: Optimization",
+        "FFM20_UNSUPPORTED native-unsupported-representation",
+        "unsupported"
+      ],
+      "input_files": [
+        "benchmarks/finite-fields/Native.lean",
+        "docs/finite-fields/benchmark-corpus.json",
+        "Tests/FiniteField/LargePrime.lean",
+        "Blaster/Smt/Translate.lean",
+        "Blaster/Smt/FiniteFieldPreflight.lean",
+        "Blaster/Smt/Translate/FiniteField.lean",
+        "Blaster/Logging/Basic.lean",
+        "ff-tests/PolynomialSource.lean",
+        "ff-tests/DivisionSource.lean",
+        "docs/finite-fields/solver-manifest.json",
+        "fixtures/finite-fields/audit/Semantic.lean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "stages": {
+        "optimization": {
+          "source": "stdout profileTask",
+          "label": "Optimization",
+          "resolution_ms": 1,
+          "unavailable_if": "Admission rejects before completed Optimization trace"
+        },
+        "translation": {
+          "source": "stdout profileTask",
+          "label": "Translation",
+          "unavailable_if": "optimizer-only or unsupported rejection; no successful End trace"
+        },
+        "submission": {
+          "source": "stdout profileTask",
+          "label": "Submitting Smt Query",
+          "unavailable_if": "no native query submitted"
+        },
+        "solving": {
+          "source": "stdout profileTask",
+          "label": "Solve",
+          "scope": "checkSat including solver protocol and optional model extraction; excludes preflight/setup and final display",
+          "unavailable_if": "optimizer-only or unsupported"
+        },
+        "value_display": {
+          "seconds": null,
+          "reason": "No separate production timer; model extraction included in Solve, rendering outside Solve."
+        },
+        "solver_only": {
+          "seconds": null,
+          "reason": "No separate retained successful check timer."
+        },
+        "preflight": {
+          "seconds": null,
+          "reason": "No independent production timer."
+        },
+        "proof_reading": {
+          "seconds": null,
+          "reason": "Production native proof reading unavailable."
+        },
+        "proof_checking": {
+          "seconds": null,
+          "reason": "Solver verdict is not a reconstructed Lean proof."
+        },
+        "verified_transport": {
+          "seconds": null,
+          "reason": "No verified native result-to-theorem transport."
+        }
+      },
+      "notes": "NEW nominal F7 representation/order probe x.rep.val<3, not a recovered historical expression; requires explicit unsupported rejection before query assertion/check-sat. Expected route: unsupported. Requires parent environment BLASTER_FF_CVC5 set to the absolute staged .artifacts/finite-fields/solving/bin/cvc5; production performs offline capability qualification. No PATH fallback. Existing verbosity instrumentation and exact retained solver transcript are observations only. Proof size is null, not compiled artifact bytes. Imports and common checked source declarations are included in parent whole-file timing; stage traces isolate only production profileTask scopes. Lean profiler enabled for exclusive whole-file elaboration/kernel components; profiler stderr is retained, not required to be empty."
+    },
+    {
+      "id": "native-f7-closed-wrap",
+      "corpus_ids": [
+        "f7-constants"
+      ],
+      "category": "native-pipeline",
+      "argv": [
+        "env",
+        "FFM20_NATIVE_CASE=native-f7-closed-wrap",
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "benchmarks/finite-fields/Native.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "required_markers": [
+        "FFM20_METRIC ",
+        "native-f7-closed-wrap",
+        "[End]: Optimization"
+      ],
+      "input_files": [
+        "benchmarks/finite-fields/Native.lean",
+        "docs/finite-fields/benchmark-corpus.json",
+        "Tests/FiniteField/LargePrime.lean",
+        "Blaster/Smt/Translate.lean",
+        "Blaster/Smt/FiniteFieldPreflight.lean",
+        "Blaster/Smt/Translate/FiniteField.lean",
+        "Blaster/Logging/Basic.lean",
+        "ff-tests/PolynomialSource.lean",
+        "ff-tests/DivisionSource.lean",
+        "docs/finite-fields/solver-manifest.json",
+        "fixtures/finite-fields/audit/Semantic.lean"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "stages": {
+        "optimization": {
+          "source": "stdout profileTask",
+          "label": "Optimization",
+          "resolution_ms": 1
+        },
+        "translation": {
+          "source": "stdout profileTask",
+          "label": "Translation",
+          "unavailable_if": "optimizer-only or unsupported rejection; no successful End trace"
+        },
+        "submission": {
+          "source": "stdout profileTask",
+          "label": "Submitting Smt Query",
+          "unavailable_if": "no native query submitted"
+        },
+        "solving": {
+          "source": "stdout profileTask",
+          "label": "Solve",
+          "scope": "checkSat including solver protocol and optional model extraction; excludes preflight/setup and final display",
+          "unavailable_if": "optimizer-only or unsupported"
+        },
+        "value_display": {
+          "seconds": null,
+          "reason": "No separate production timer; model extraction included in Solve, rendering outside Solve."
+        },
+        "solver_only": {
+          "seconds": null,
+          "reason": "No separate retained successful check timer."
+        },
+        "preflight": {
+          "seconds": null,
+          "reason": "No independent production timer."
+        },
+        "proof_reading": {
+          "seconds": null,
+          "reason": "Production native proof reading unavailable."
+        },
+        "proof_checking": {
+          "seconds": null,
+          "reason": "Solver verdict is not a reconstructed Lean proof."
+        },
+        "verified_transport": {
+          "seconds": null,
+          "reason": "No verified native result-to-theorem transport."
+        }
+      },
+      "notes": "closed (5:Residue 7)+3=1 control; optimizer-only is explicitly distinguished from native execution. Expected route: native-or-optimizer. Requires parent environment BLASTER_FF_CVC5 set to the absolute staged .artifacts/finite-fields/solving/bin/cvc5; production performs offline capability qualification. No PATH fallback. Existing verbosity instrumentation and exact retained solver transcript are observations only. Proof size is null, not compiled artifact bytes. Imports and common checked source declarations are included in parent whole-file timing; stage traces isolate only production profileTask scopes. Lean profiler enabled for exclusive whole-file elaboration/kernel components; profiler stderr is retained, not required to be empty."
+    },
+    {
+      "id": "isolated-ff04-checked-replay",
+      "corpus_ids": [],
+      "category": "isolated-checked-fixture",
+      "argv": [
+        "lake",
+        "env",
+        "lean",
+        "-DmaxHeartbeats=200000",
+        "-Dprofiler=true",
+        "-Dprofiler.threshold=0",
+        "Tests/FiniteField/Prototype.lean"
+      ],
+      "cwd": ".",
+      "expected": {
+        "exit_code": 0
+      },
+      "required_markers": [
+        "Blaster.FF04.Tests.originalGoal",
+        "depends on axioms"
+      ],
+      "input_files": [
+        "Tests/FiniteField/Prototype.lean",
+        "Blaster/FF04/Replay.lean",
+        "docs/finite-fields/ff-04-reconstruction.md"
+      ],
+      "limits": {
+        "wall_seconds": 30,
+        "cpu_seconds": 30,
+        "memory_mib": 4096,
+        "tree_memory_mib": 3072,
+        "heartbeats": 200000,
+        "output_bytes": 1048576
+      },
+      "notes": "Supplemental preserved fixed-text FF04 replay, not a parent corpus replacement. Re-elaborates originalGoal and five rejection checks with nominal instances and executable transitive axiom audit. Whole-file measurement only; includes parsing, reproving explicit conclusions and final fixed-fixture transport, without a stage decomposition. This is NOT production native proof reading/checking/transport and requests no solver proof. Provenance: unchanged consumed FF04 fixture, Apache-2.0."
+    }
+  ],
+  "production_m2_stages": {
+    "proof_reading": {
+      "status": "not_available",
+      "seconds": null,
+      "reason": "Production M2 stage does not exist at M1"
+    },
+    "proof_checking": {
+      "status": "not_available",
+      "seconds": null,
+      "reason": "Production M2 stage does not exist at M1"
+    },
+    "verified_transport": {
+      "status": "not_available",
+      "seconds": null,
+      "reason": "Production M2 stage does not exist at M1"
+    }
+  },
+  "summary_policy": "All measured statuses counted; all-run and success-only sample min/max/median/mean/sample-stdev recorded separately. Warmups excluded; no speedup/winner claim.",
+  "hardware_identity": {
+    "system": "Linux",
+    "kernel": "7.2.12-orbstack-00394-gbecdd6130068",
+    "machine": "aarch64",
+    "exposed_cpu_count": 16,
+    "cpu_quota": "200000 100000",
+    "memory_ceiling": "8589934592",
+    "cpu_identifiers": [
+      "CPU architecture: 8",
+      "CPU implementer\t: 0x61",
+      "CPU part\t: 0x000",
+      "CPU variant\t: 0x0"
+    ]
+  }
+}
