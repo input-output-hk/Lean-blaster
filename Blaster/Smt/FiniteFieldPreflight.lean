@@ -5,9 +5,13 @@ open Lean Meta Blaster.Optimize Blaster.Options Blaster.FiniteField
 
 namespace Blaster.Smt
 
+/-- Fields found in each visited subterm, so shared subterms of the optimized
+DAG are walked once instead of once per path. -/
+private abbrev FieldCache := IO.Ref (Std.HashMap Expr (Array ResidueDescriptor))
+
 /-- Collect exact nominal carriers from the residual syntax and variable types,
 without unfolding term definitions or admitting fields in a nested scope. -/
-private partial def collectNativeFields (e : Expr)
+private partial def collectNativeFieldsAux (cache : FieldCache) (e : Expr)
     (fields : Array ResidueDescriptor) : TranslateEnvT (Array ResidueDescriptor) := do
   let type ← inferType e
   let carrier := if type.isSort then e else type
@@ -24,50 +28,70 @@ private partial def collectNativeFields (e : Expr)
   -- Instantiated result types can contain a field even when no application
   -- argument exposes it (for example an opaque constant of `List (Residue p)`).
   if !type.isSort && !native then
-    fields ← collectNativeFields type fields
+    fields ← visit cache type fields
   match e with
   | .app .. =>
       let args := e.getAppArgs
       if e.getAppFn.isConstOf ``ite && args.size == 5 then
-        fields ← collectNativeFields args[1]! fields
-        fields ← collectNativeFields args[3]! fields
-        return ← collectNativeFields args[4]! fields
+        fields ← visit cache args[1]! fields
+        fields ← visit cache args[3]! fields
+        return ← visit cache args[4]! fields
       if e.getAppFn.isConstOf ``Blaster.dite' && args.size == 4 then
-        fields ← collectNativeFields args[1]! fields
+        fields ← visit cache args[1]! fields
         for branch in #[args[2]!, args[3]!] do
           let .lam _ _ body _ := branch
             | throwEnvError "native finite-field ite requires normalized branches"
           if body.hasLooseBVars then
             throwEnvError "native finite-field ite does not support proof-dependent branches"
-          fields ← collectNativeFields body fields
+          fields ← visit cache body fields
         return fields
       for arg in e.getAppArgs do
-        fields ← collectNativeFields arg fields
+        fields ← visit cache arg fields
       return fields
   | .fvar .. => return fields
-  | .mdata _ body => collectNativeFields body fields
-  | .proj _ _ body => collectNativeFields body fields
+  | .mdata _ body => visit cache body fields
+  | .proj _ _ body => visit cache body fields
   | .forallE _ domain body _ =>
       if (← isProp domain) && !body.hasLooseBVars then
-        fields ← collectNativeFields domain fields
-        return ← collectNativeFields body fields
-      let nested ← collectNativeFields domain #[]
+        fields ← visit cache domain fields
+        return ← visit cache body fields
+      let nested ← visit cache domain #[]
       let nested ← withLocalDeclD `x domain fun x =>
-        collectNativeFields (body.instantiate1 x) nested
+        visit cache (body.instantiate1 x) nested
       unless nested.isEmpty do
         throwEnvError "native finite-field routing does not support residual quantified or higher-order FF queries; only top-level theorem parameters are permitted"
       return fields
   | .lam name domain body bi =>
-      let nested ← collectNativeFields domain #[]
+      let nested ← visit cache domain #[]
       let nested ← withLocalDecl name bi domain fun x =>
-        collectNativeFields (body.instantiate1 x) nested
+        visit cache (body.instantiate1 x) nested
       unless nested.isEmpty do
         throwEnvError "native finite-field routing does not support residual quantified or higher-order FF queries; only top-level theorem parameters are permitted"
       return fields
   | .letE name type value body _ =>
-      let valueFields ← collectNativeFields value fields
-      withLetDecl name type value fun x => collectNativeFields (body.instantiate1 x) valueFields
+      let valueFields ← visit cache value fields
+      withLetDecl name type value fun x => visit cache (body.instantiate1 x) valueFields
   | _ => return fields
+
+where
+  /-- Add the fields of `e`'s subtree to `fields`. A cached subtree contributes
+  the same fields, in the same order, as a fresh walk would, so binder checks
+  that start from `#[]` still see every field below them. -/
+  visit (cache : FieldCache) (e : Expr) (fields : Array ResidueDescriptor) :
+      TranslateEnvT (Array ResidueDescriptor) := do
+    let sub ← match (← cache.get).get? e with
+      | some sub => pure sub
+      | none =>
+          let sub ← collectNativeFieldsAux cache e #[]
+          cache.modify (·.insert e sub)
+          pure sub
+    return sub.foldl (init := fields) fun acc d =>
+      if acc.any (·.type == d.type) then acc else acc.push d
+
+/-- Collect the native carriers of `e`, appending to `fields`. -/
+private def collectNativeFields (e : Expr) (fields : Array ResidueDescriptor) :
+    TranslateEnvT (Array ResidueDescriptor) := do
+  collectNativeFieldsAux.visit (← IO.mkRef {}) e fields
 
 /-- Inspect the optimized residual only. Top-level theorem parameters and their
 matching primality hypotheses stay in scope for admission and the continuation.

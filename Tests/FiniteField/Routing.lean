@@ -203,4 +203,28 @@ private def testBinaryFreeEnvironment : IO Unit :=
 
 #eval testBinaryFreeEnvironment
 
+-- Preflight runs on every query, so it must walk shared subterms once. This DAG
+-- has 32 distinct nodes but about 2^32 paths; a per-path walk never finishes,
+-- and heartbeat limits do not interrupt it, so a regression hangs this file.
+run_meta do
+  withLocalDeclD `x (mkConst ``Nat) fun x => do
+    let mut t := x
+    for _ in [:32] do
+      t ← mkAppM ``HAdd.hAdd #[← mkAppM ``HMul.hMul #[t, t], t]
+    let query ← mkEq t x
+    let check : TranslateEnvT Unit :=
+      withNativeFieldRequirements query fun fields => do
+        unless fields.isEmpty do throwError "Nat query reported a native field"
+    discard <| check.run (options .cvc5 true)
+
+-- `Residue 7` is first seen at the top level, so the nested quantifier's domain
+-- is a cached subterm. The cache must still report the field below the binder.
+private def sharedNested : Prop := ∀ x : Residue 7, x = x ∧ ∀ y : Residue 7, y = y
+
+run_meta do
+  let .defnInfo info ← getConstInfo ``sharedNested | throwError "missing shared fixture"
+  let check : TranslateEnvT Unit :=
+    rejects "residual quantified" (preflightFiniteFields info.value noProbe)
+  discard <| check.run (options .cvc5 true)
+
 end Test.FiniteFieldRouting
