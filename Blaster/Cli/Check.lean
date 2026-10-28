@@ -108,8 +108,10 @@ private partial def checkSource (cfg : Config) (renderer : Renderer)
   if messages.hasErrors then
     let mut diagnostics ← collectDiagnostics messages
     if cfg.noBuild then
-      diagnostics := diagnostics.push { severity := "info", message :=
-        "Automatic dependency builds are disabled. Run again without '--no-build' to prepare missing imports." }
+      diagnostics := diagnostics.push {
+        severity := "info"
+        code := some "cli.noBuildHint"
+        message := "Automatic dependency builds are disabled. Run again without '--no-build' to prepare missing imports." }
     let prior := (← readCapture).report
     let report := { prior with diagnostics := prior.diagnostics ++ diagnostics }
     modifyCapture fun s => { s with report }

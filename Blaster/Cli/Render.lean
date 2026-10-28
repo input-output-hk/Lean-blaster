@@ -334,8 +334,11 @@ def Renderer.finish (r : Renderer) (report : Report) : IO Unit := do
       ("signal", Lean.toJson report.signal), ("trust", Lean.toJson report.trust)]
    else
     for diag in report.diagnostics do
-      unless diag.code == some "lean.unusedVariables" && !r.config.verbose do
-        let role := if diag.severity == "error" then "error" else "warning"
+      unless !r.config.verbose &&
+          (diag.code == some "lean.unusedVariables" ||
+            (diag.severity == "info" && diag.code != some "cli.noBuildHint")) do
+        let role := if diag.severity == "error" then "error"
+          else if diag.severity == "info" then "muted" else "warning"
         let label := r.tintErr role diag.severity
         r.err.putStrLn s!"\n  {label}: {diag.message}"
         if let some location := diag.location then
