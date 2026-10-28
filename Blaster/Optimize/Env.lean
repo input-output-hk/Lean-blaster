@@ -3,6 +3,7 @@ import Blaster.Optimize.Expr
 import Blaster.Optimize.MatchInfo
 import Blaster.Optimize.Opaque
 import Blaster.Smt.Term
+import Blaster.Smt.FiniteFieldMetadata
 import Blaster.Command.Options
 
 open Lean Meta Blaster.Smt Blaster.Options
@@ -295,6 +296,11 @@ structure OptimizeEnv where
   /-- local declaration context -/
   ctx : LocalDeclContext
 
+  /-- Successful closed nonliteral Nat modulus lookups, keyed by the original expression.
+      Numeric recognition is not primality or proof evidence.
+  -/
+  modulusCache : Std.HashMap Lean.Expr Nat
+
 instance : Inhabited OptimizeEnv where
   default :=
    { globalRewriteCache := Std.HashMap.emptyWithCapacity,
@@ -310,7 +316,8 @@ instance : Inhabited OptimizeEnv where
      memCache := default,
      options := default,
      restart := false,
-     ctx := default
+     ctx := default,
+     modulusCache := Std.HashMap.emptyWithCapacity
    }
 
 
@@ -336,12 +343,38 @@ instance : Inhabited TranslateOptions where
               axiomMap := .emptyWithCapacity
              }
 
+/-- Model-display index, retaining the solver symbol and user-facing name only.
+    Typed source provenance is stored separately in `SmtEnv.sourceAssociations`. -/
 abbrev TopLevelVars := Array (List (SmtSymbol × Lean.Name))
 
 abbrev ConversionFunCache := Std.HashMap (SortExpr × SortExpr) SmtSymbol
 
 /-- Child-process shape used by every SMT backend session. -/
 abbrev PipedChild := IO.Process.Child ⟨.piped, .piped, .piped⟩
+
+/-- Signal `p` until the signal is delivered. Returns `false` when the child was
+    found already exited (and was reaped by `tryWait`), `true` otherwise.
+    Sessions are spawned with `setsid`, so `Child.kill` signals the child's
+    process group, which exists only once the child has run `setsid`. A kill
+    issued before that fails with ESRCH and leaves the child running. -/
+private partial def killUntilDelivered (p : PipedChild) (deadlineMs : Nat) : IO Bool := do
+  let delivered ←
+    try
+      p.kill
+      pure true
+    catch _ => pure false
+  if delivered then return true
+  if (← try p.tryWait catch _ => pure none).isSome then return false
+  if (← IO.monoMsNow) ≥ deadlineMs then return true
+  IO.sleep 5
+  killUntilDelivered p deadlineMs
+
+/-- Terminate and reap `p` exactly once. Waiting after a kill that never landed
+    would block for as long as the child runs, which for a solver waiting on
+    stdin is forever. -/
+def killAndReap (p : PipedChild) : IO Unit := do
+  if ← killUntilDelivered p ((← IO.monoMsNow) + 10000) then
+    try discard p.wait catch _ => pure ()
 
 /-- One independently owned solver process. Removing a session from
     `SmtEnv.sessions` transfers sole cleanup responsibility to the remover. -/
@@ -452,13 +485,19 @@ structure SmtEnv where
   -/
   quantifiedFVars : Std.HashMap FVarId Bool
 
-  /-- Array list keeping track of globally declared variables and the ones in
-      the top level forall quantifier.
-      This list is used exclusively when retrieving counterexample after a `sat` result
-      is obtained from the backend smt solver.
-      The Array index indicates the analysis step at which the variables where introduced.
+  /-- Display-only index of globally declared variables and top-level forall
+      variables, used to retrieve counterexamples after `sat`. The array index
+      is the analysis step at which the variables were introduced. This is not
+      source provenance; use `sourceAssociations` for typed Lean metadata.
   -/
   topLevelVars : TopLevelVars
+
+  /-- Typed source provenance, including symbols that are not model-display
+      entries, with the local scope retained at registration time. -/
+  sourceAssociations : Array SourceAssociation
+
+  /-- Set only by successful native preflight; scoped to this query environment. -/
+  nativeFieldQualified : Bool := false
 
   /-- Cache memoizing the string representation for an Smt Symbol -/
   symbolStrCache : Std.HashMap SmtSymbol String
@@ -509,6 +548,7 @@ instance : Inhabited SmtEnv where
      fvarsCache := Std.HashMap.emptyWithCapacity,
      quantifiedFVars := Std.HashMap.emptyWithCapacity,
      topLevelVars := Array.mkEmpty 3,
+     sourceAssociations := #[],
      symbolStrCache := Std.HashMap.emptyWithCapacity,
      funCtorCache := Std.HashMap.emptyWithCapacity,
      coerceCache := Std.HashMap.emptyWithCapacity,
@@ -550,9 +590,7 @@ protected def throwEnvError (msg : MessageData) : TranslateEnvT α := do
     let alreadyExited ←
       try p.tryWait
       catch _ => pure none
-    if alreadyExited.isNone then
-      try p.kill catch _ => pure ()
-      try discard p.wait catch _ => pure ()
+    if alreadyExited.isNone then killAndReap p
     let stderr ←
       try p.stderr.readToEnd
       catch _ => pure ""
@@ -747,7 +785,7 @@ def mkExpr (a : Expr) (cacheResult := true) : TranslateEnvT Expr := do
 /-- Return `true` only when both hypothesisMap and matchInContext are empty and isRefHyp flag is not set -/
 @[always_inline, inline]
 def isGlobalContext : TranslateEnvT Bool := do
-  let ⟨_, ⟨_, _, _, _, _, _, _, _, hypothesisContext, matchInContext, _, _, _, _⟩⟩ ← get
+  let ⟨_, ⟨_, _, _, _, _, _, _, _, hypothesisContext, matchInContext, _, _, _, _, _⟩⟩ ← get
   return hypothesisContext.hypothesisMap.size == 0 && matchInContext.size == 0
 
 /-- Perform the following:
@@ -1284,7 +1322,8 @@ def isOpaqueRelational (f : Name) (args : Array Expr) : TranslateEnvT Bool := do
 
 /-- Return `true` if function name `f` is tagged as an opaque definition. -/
 def isOpaqueFun (f : Name) (args: Array Expr) : TranslateEnvT Bool :=
-  return (opaqueFuns.contains f || (← isOpaqueRelational f args))
+  return (opaqueFuns.contains f || (← withLocalContext (isOpaqueResidueOperation f args)) ||
+    (← isOpaqueRelational f args))
 
 /-- Same as `isOpaqueFun` expect that `f` is an expression. -/
 def isOpaqueFunExpr (f : Expr) (args: Array Expr) : TranslateEnvT Bool :=

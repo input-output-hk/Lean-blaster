@@ -1,0 +1,2201 @@
+{
+  "schema_version": 1,
+  "ticket": "FFM-19",
+  "purpose": "Executable licensed corpus handoff and historical discovery catalogue; not a proof-rule audit or FFM-20 performance comparison.",
+  "baseline_revision": "4cf0ce952db0d95bb4f15497bf67fc9c918da5c4",
+  "revision_policy": "Existing local sources are pinned to the supplied immutable baseline and exact SHA-256. Newly authored inputs have content-addressed source revisions; their Git commit is assigned when the stack publishes this change. No historical source revision or license is invented.",
+  "execution": {
+    "cwd": "repository root",
+    "prepare": [
+      "Run the required PROJECT build and tests, which build Tests.FiniteField.LargePrime and the historical modules."
+    ],
+    "argv": [
+      "python3",
+      "fixtures/finite-fields/audit/run_corpus.py"
+    ],
+    "grouping": "Entries sharing an identical argv/cwd execute once; all their theorems and certificate guards are elaborated in that module.",
+    "measurement_policy": "Correctness/availability checks only. No normalizer-versus-grind timings, no production pipeline measurements, no proof traces.",
+    "lean_version": "4.24.0",
+    "external_packages": []
+  },
+  "sources": {
+    "ffm19-authored": {
+      "origin": "Original mathematical fixtures authored for this public lean-blaster ticket; no third-party circuit text copied.",
+      "license": "Apache-2.0",
+      "license_file": "LICENSE",
+      "redistribution_basis": "Project-authored contributions released under the repository Apache-2.0 license; Lean and SMT inputs carry notices.",
+      "revision": "Exact per-input content SHA-256 recorded in each runnable entry."
+    },
+    "ff04-preserved": {
+      "repository": "https://github.com/input-output-hk/lean-blaster",
+      "upstream_revision": "724e32c377b5c6bfdecaf200984203b21c75355b",
+      "local_revision": "4cf0ce952db0d95bb4f15497bf67fc9c918da5c4",
+      "report": "https://github.com/input-output-hk/lean-blaster/blob/724e32c377b5c6bfdecaf200984203b21c75355b/docs/finite-fields/ff-04-reconstruction.md",
+      "license": "Apache-2.0",
+      "license_file": "LICENSE",
+      "provenance": "Consumed FFM-08 port, now using the current nominal Residue. Existing small corpus and test modules remain byte-for-byte unchanged. Historical timings are not new measurements.",
+      "normalizer_origin": {
+        "repository": "https://github.com/ufmg-smite/lean-smt",
+        "revision": "9b314968f6405395ecbc030c4d3f9b35e4974aa1",
+        "path": "Smt/Reconstruct/ZMod/Polynorm.lean",
+        "license": "Apache-2.0",
+        "notice": "Existing local Polynorm.lean preserves Abdalrhman Mohamed and Harun Khan authorship/license header; no new upstream code copied."
+      }
+    },
+    "historical-discovery-candidates": {
+      "origin": "The FFM-19 ticket candidate list, not a supplied executable source artifact.",
+      "revision": null,
+      "license": null,
+      "redistribution_basis": "No original artifact is redistributed. Statements are catalogued; exact external constraints are not invented.",
+      "recovery_scope": "Inspected consumed local docs/modules/fixtures and frozen FF-04 report. Exact Nethermind/cyclic-5/historical five-constraint inputs and their source/license were absent.",
+      "outreach": "No automatic maintainer/researcher contact; future voluntary outreach is nonblocking context."
+    }
+  },
+  "large_prime": {
+    "field": "Curve25519 base/coordinate field, NOT scalar field",
+    "expression": "2^255-19",
+    "modulus": "57896044618658097711785492504343953926634992332820282019728792003956564819949",
+    "bits": 255,
+    "decision": "docs/finite-fields/m1-large-prime-decision.md",
+    "local_proof": "Tests/FiniteField/LargePrime.lean",
+    "local_symbols": [
+      "Test.FiniteFieldLargePrime.curve25519",
+      "Test.FiniteFieldLargePrime.curve25519_eq",
+      "Test.FiniteFieldLargePrime.curve25519_prime"
+    ],
+    "upstream": {
+      "repository": "https://github.com/leanprover/hex-primality",
+      "revision": "e89daa43f1c6f2038a59674598e2a5097e64c3df",
+      "path": "HexPrimality/Examples/Curve25519.lean",
+      "git_blob": "ea15e2a4b1e735e74be2a34834877d187abf8c0e",
+      "theorem": "Hex.Nat.curve25519_prime",
+      "certificate": "curve25519Cert",
+      "license": "Apache-2.0",
+      "notice": "Lean FRO, LLC; Kim Morrison; preserved by the existing FFM-12 source port."
+    },
+    "proof_dependencies": "docs/finite-fields/large-prime-fixture.md",
+    "scope": "New ring certificates require NeZero, not primality. Both modules separately expose selectedPrime and audit its transitive axioms, retaining the consumed exact prime provenance."
+  },
+  "solver": {
+    "manifest": "docs/finite-fields/solver-manifest.json",
+    "profile": "solving",
+    "source_revision": "2b2e84419f70817ec919a784a48806e79f677240",
+    "version": "1.4.1",
+    "platform": "linux-arm64",
+    "executable_sha256": "b0dd6483a078269251618cf7e354c675120f8a659990111c5bfc785e91057d86",
+    "observed_executable": "/usr/local/bin/cvc5",
+    "license": "GPL-3.0; existing separately executed binary, not copied or staged by FFM-19.",
+    "options": {
+      "ff-solver": "gb",
+      "ff-field-polys": false,
+      "produce-proofs": false
+    },
+    "qualification_limit": "The consumed FFM-09 manifest selects 1.4.1 solving, while FFM-03 text selects 1.3.4 solve. This handoff follows the explicitly consumed FFM-09 executable hash, records the inherited discrepancy, and changes neither pin nor decision. No 1.3.4 or x86_64 rerun claimed."
+  },
+  "grammars": {
+    "lean-polynomial-expr": {
+      "type": "Blaster.FF04.Polynorm.Expr (Blaster.FiniteField.Residue p)",
+      "constructors": [
+        "val",
+        "var",
+        "neg",
+        "add",
+        "sub",
+        "mul",
+        "pow (Nat exponent)"
+      ],
+      "context": "Nat -> Residue p; slots explicitly mapped per entry",
+      "soundness": "Expr.eval_toPolynomial and Expr.denote_eq_from_toPolynomial_eq",
+      "unsupported": [
+        "automatic reification",
+        "nativeEqTrue-dependent proof paths",
+        "inv/div in Expr",
+        "order/.val/bitness/no-wrap transport",
+        "finite-domain exhaustion or root completeness from polynomial normalization"
+      ],
+      "instances": [
+        "Lean.Grind.CommRing R",
+        "DecidableEq R",
+        "NeZero p for Residue p"
+      ]
+    },
+    "smt-qf-ff": {
+      "logic": "QF_FF",
+      "terms": [
+        "(_ FiniteField p) for fixed numeric p",
+        "#fNmP canonical literals",
+        "ff.add",
+        "ff.mul",
+        "equality",
+        "not",
+        "ite for the explicitly labelled F2 guarded alternative"
+      ],
+      "powers": "Expanded finite ff.mul trees; exponent zero is literal one.",
+      "commands": [
+        "set-logic",
+        "set-option",
+        "declare-fun (zero arity)",
+        "assert",
+        "check-sat"
+      ],
+      "unsupported": [
+        "get-proof",
+        "proof rules",
+        "model-to-Lean reconstruction"
+      ],
+      "proof_status": "Solver statuses only, not kernel-checked certificates."
+    }
+  },
+  "input_pins": {
+    "Tests/FF04/Corpus.lean": "5125cd12b15c14f0035eb4a32ffae5eb3ce40c1f97a38a43556ec03db7007b2c",
+    "Tests/FF04/Polynorm.lean": "4e0f253f75a9e0a131463b0070c14b56cef8f22ba304836a406357424c7b8f92",
+    "Tests/FF04/Replay.lean": "f4e8821b9f522941048122edf1010104f54cb2d4f7f2b8fa90609051c82b97b1",
+    "Blaster/FiniteField/Admission.lean": "cf5db3ab85d3b8ba36a47b2c7f329ccf558560fc6f238e2a51c753ffa5a44824",
+    "Blaster/FiniteField/Basic.lean": "8cdc644c4627306ab99c451efc22743bb4a5260c21943358e0e60b4ff8bd1e02",
+    "Blaster/FiniteField/DivisionEncoding.lean": "290ef132d3519fbccf0739dff29c126f3cec922b3f415e7cf01a75d69d2a1d2b",
+    "Blaster/FiniteField/Field.lean": "ce7d89960c068088e371d758806f0ef4d04587a5e6f8c81c38989eab32400dfe",
+    "Blaster/FiniteField/InverseGraph.lean": "5a0960aff63fd8c6bbc71b95449b29d06ce66b9fd9829849eb396259b166a0c2",
+    "Blaster/FiniteField/Pow.lean": "655caf83a6d7dca47a79e3d36464978f54399edde06f1ae5d304a7c3b33cff9d",
+    "Blaster/FiniteField/Prime.lean": "d1a018c21c11af05a57cecca25ac57e81571c39f8bec7975a900830f329600be",
+    "Blaster/FiniteField/PrimeBLS.lean": "4e22a89d14708980f92a361fce8eafba0178a5e13469761ff346338ba1b22975",
+    "Blaster/FiniteField/PrimeFermat.lean": "35c6ee478e413ba5ac159b726010a93259c44f502ff8cf8d0c1f04a8ab8b1479",
+    "Blaster/FiniteField/PrimeOrder.lean": "ed55e74870824ca4c24642b06dfa2f136170b3834836fcfa09767c5f095d30e2",
+    "Blaster/FiniteField/PrimePower.lean": "4a2e52bac8cea16c5abf9433117c5ef76867d2efee7c6d00d5ab0adb189add9a",
+    "Blaster/FiniteField/Recognize.lean": "386e7b5f9d5aff84f5119ef127b5458a1c3210de5c9f269ee248318db2d63f6e",
+    "Blaster/FiniteField/Residue.lean": "77e379314c694b566b166363766452daae50252c72ebd4e26dc620087200cb80",
+    "Blaster/FiniteField/Structural.lean": "961dd571a79f4ea72678e5cfd0678eccecb9caf25ff769f6dcbbb76d8b7d4f53",
+    "LICENSE": "7f023c3b5c1a6a30e2d989acbfba725393c4dea2eb4e5e546d841584a6037809",
+    "Tests/FiniteField/LargePrime.lean": "b17c0db8c2bba6b764036fc0df13e12c1a38366e3a36d8fb39c3f24560263828",
+    "Tests/FiniteField/PolynormDecide.lean": "7acf6d62c025e48e65ef53f6d3585ba06208d248dcf227b6d0a8c0e2c5cd4147",
+    "docs/finite-fields/large-prime-fixture.md": "2cc40c8d63e01128c26974fd30eac4d502d61521d2ae5951092494fab7030df2",
+    "docs/finite-fields/m1-large-prime-decision.md": "122b131ab142102c6a6bd17a8f73865b1f68ae6a48ed850c26da4ff4fcbb6ed8",
+    "docs/finite-fields/m1-solver-distribution-decision.md": "1ae4147888dec52262760bfe0d3cf1e21be306d5cbceb5e1fb05020ab0cfbb87",
+    "docs/finite-fields/solver-manifest.json": "282a9e47f405e121e78f68de33e4f8a094dc83cd0e135a1c4a6862ea88e5fec7",
+    "fixtures/finite-fields/audit/Circuits.lean": "baeded9d65e4c97b9e3651016c1d9a1857b131679e5cff88fd96ab5ac31a8926",
+    "fixtures/finite-fields/audit/Semantic.lean": "d522a09a641300b851a7fecc42554df099c5bd87825ec5c77bf4bc7870cf2795",
+    "fixtures/finite-fields/audit/f2-guarded-fermat-zero.smt2": "8ed1d8b30eac25789f15062c54fef78016ebde8b6b3a00830edf922e43f3e0ce",
+    "fixtures/finite-fields/audit/f2-unguarded-fermat-zero.smt2": "1a162fbfa667ec983d43db9cd0d033e651e46e841e94841808383d6fefc108dd",
+    "fixtures/finite-fields/audit/f3-enumeration.smt2": "be6a157d0dc17992af86eeecbb0d5171996a7afc7b78922dbac2d0a6f218a058",
+    "fixtures/finite-fields/audit/f3-no-root-field-hint.smt2": "025da4d4206656ebd73d7927e994979934f6e2c104f91eb1d0c2127b52908803",
+    "fixtures/finite-fields/audit/f3-no-root.smt2": "4d65f8837181539027ca9c6506a1ca2b31bf0df69a52b927696d9886a266e604",
+    "fixtures/finite-fields/audit/f394357-linear.smt2": "7e766deac3591efd75bc34cc011e5b81fbbf2e5b561b8cbe110ce994ef2b9772",
+    "fixtures/finite-fields/audit/f7-false-goal.smt2": "eaa64dfc02a33b613ae54e4c1ae31e7aaf1dc44b769ee139c1bb84ebc0c149e6",
+    "fixtures/finite-fields/audit/f7-no-root-field-hint.smt2": "e7116df0cc601ce910ac9ea899f71fa563f44f1640f26807a7f430dae3a5eeae",
+    "fixtures/finite-fields/audit/f7-no-root.smt2": "63bc55cd2f500c4f0cbbf02f2f2222943764bf0d7e568befbc31372037c220cc",
+    "fixtures/finite-fields/audit/f7-square-implies-nonzero.smt2": "93485df0f19fe5ea15c0e7f6085cc7fe194052dd1c7efff85f4150aaaead3f68",
+    "fixtures/finite-fields/audit/f7-zero-product-witness.smt2": "70b3bd3d87b9c6cfaf1b3449cea38a6c7a0d59c0f79e155a8d14c267e1f5c407",
+    "fixtures/finite-fields/audit/f7-zero-product.smt2": "a0ef165f16f12604001cfac907db87eaef960d4cdfcf3a132beda4249322bdd3",
+    "fixtures/finite-fields/audit/run_corpus.py": "ddd606e2b4fb7048ff4dabd889b80a5f5a45325121bf263f97d643f626c9d424",
+    "lake-manifest.json": "e6129c330eb0c8cf49523ae8560565b04cb0c7c7ac92594d2be2a09b7d893f82",
+    "lakefile.lean": "b0576652f89863ff8830ca6f70b7f5bb602829b0a8677057bd8e6f9d49a7ae2c",
+    "lean-toolchain": "42779d67b81608af8a12aa4328d2ab47ca201925b3b2bd68369587b5340bb434"
+  },
+  "entries": [
+    {
+      "id": "ff04-distribution",
+      "status": "runnable",
+      "kind": "preserved-normalization",
+      "source": "ff04-preserved",
+      "modulus": "65537",
+      "input_files": [
+        "Tests/FF04/Corpus.lean",
+        "Tests/FiniteField/PolynormDecide.lean"
+      ],
+      "proposition": "(x+y)*z=x*z+y*z over Residue 65537",
+      "reflection": {
+        "namespace": "Test.FiniteFieldPolynorm",
+        "lhs": "distributeL",
+        "rhs": "distributeR",
+        "context": {
+          "0": "x",
+          "1": "y",
+          "2": "z"
+        },
+        "theorem": "distributeDecide",
+        "relation": "The theorem proves lhs.eval ctx = rhs.eval ctx for every ctx."
+      },
+      "grammar": "lean-polynomial-expr",
+      "required_instances": [
+        "NeZero 65537",
+        "Lean.Grind.CommRing (Residue 65537)",
+        "DecidableEq (Residue 65537)"
+      ],
+      "invocation": {
+        "cwd": ".",
+        "argv": [
+          "lake",
+          "env",
+          "lean",
+          "Tests/FiniteField/PolynormDecide.lean"
+        ],
+        "timeout_seconds": 60
+      },
+      "expected": {
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "tags": [
+        "historical-preserved",
+        "ordinary-decide"
+      ],
+      "content_sha256": {
+        "Tests/FF04/Corpus.lean": "5125cd12b15c14f0035eb4a32ffae5eb3ce40c1f97a38a43556ec03db7007b2c",
+        "Tests/FiniteField/PolynormDecide.lean": "7acf6d62c025e48e65ef53f6d3585ba06208d248dcf227b6d0a8c0e2c5cd4147"
+      },
+      "source_revision": "4cf0ce952db0d95bb4f15497bf67fc9c918da5c4",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "ff04-characteristic",
+      "status": "runnable",
+      "kind": "preserved-normalization",
+      "source": "ff04-preserved",
+      "modulus": "65537",
+      "input_files": [
+        "Tests/FF04/Corpus.lean",
+        "Tests/FiniteField/PolynormDecide.lean"
+      ],
+      "proposition": "65536*x+x+y=y over Residue 65537",
+      "reflection": {
+        "namespace": "Test.FiniteFieldPolynorm",
+        "lhs": "characteristicL",
+        "rhs": "characteristicR",
+        "context": {
+          "0": "x",
+          "1": "y",
+          "2": "z"
+        },
+        "theorem": "characteristicDecide",
+        "relation": "The theorem proves lhs.eval ctx = rhs.eval ctx for every ctx."
+      },
+      "grammar": "lean-polynomial-expr",
+      "required_instances": [
+        "NeZero 65537",
+        "Lean.Grind.CommRing (Residue 65537)",
+        "DecidableEq (Residue 65537)"
+      ],
+      "invocation": {
+        "cwd": ".",
+        "argv": [
+          "lake",
+          "env",
+          "lean",
+          "Tests/FiniteField/PolynormDecide.lean"
+        ],
+        "timeout_seconds": 60
+      },
+      "expected": {
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "tags": [
+        "historical-preserved",
+        "ordinary-decide"
+      ],
+      "content_sha256": {
+        "Tests/FF04/Corpus.lean": "5125cd12b15c14f0035eb4a32ffae5eb3ce40c1f97a38a43556ec03db7007b2c",
+        "Tests/FiniteField/PolynormDecide.lean": "7acf6d62c025e48e65ef53f6d3585ba06208d248dcf227b6d0a8c0e2c5cd4147"
+      },
+      "source_revision": "4cf0ce952db0d95bb4f15497bf67fc9c918da5c4",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "ff04-fourth-power",
+      "status": "runnable",
+      "kind": "preserved-normalization",
+      "source": "ff04-preserved",
+      "modulus": "65537",
+      "input_files": [
+        "Tests/FF04/Corpus.lean",
+        "Tests/FiniteField/PolynormDecide.lean"
+      ],
+      "proposition": "(x+y)^4=x^4+4*x^3*y+6*x^2*y^2+4*x*y^3+y^4 over Residue 65537",
+      "reflection": {
+        "namespace": "Test.FiniteFieldPolynorm",
+        "lhs": "nestedL",
+        "rhs": "nestedR",
+        "context": {
+          "0": "x",
+          "1": "y",
+          "2": "z"
+        },
+        "theorem": "nestedDecide",
+        "relation": "The theorem proves lhs.eval ctx = rhs.eval ctx for every ctx."
+      },
+      "grammar": "lean-polynomial-expr",
+      "required_instances": [
+        "NeZero 65537",
+        "Lean.Grind.CommRing (Residue 65537)",
+        "DecidableEq (Residue 65537)"
+      ],
+      "invocation": {
+        "cwd": ".",
+        "argv": [
+          "lake",
+          "env",
+          "lean",
+          "Tests/FiniteField/PolynormDecide.lean"
+        ],
+        "timeout_seconds": 60
+      },
+      "expected": {
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "tags": [
+        "historical-preserved",
+        "ordinary-decide"
+      ],
+      "content_sha256": {
+        "Tests/FF04/Corpus.lean": "5125cd12b15c14f0035eb4a32ffae5eb3ce40c1f97a38a43556ec03db7007b2c",
+        "Tests/FiniteField/PolynormDecide.lean": "7acf6d62c025e48e65ef53f6d3585ba06208d248dcf227b6d0a8c0e2c5cd4147"
+      },
+      "source_revision": "4cf0ce952db0d95bb4f15497bf67fc9c918da5c4",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "ff04-large-coefficients",
+      "status": "runnable",
+      "kind": "preserved-normalization",
+      "source": "ff04-preserved",
+      "modulus": "65537",
+      "input_files": [
+        "Tests/FF04/Corpus.lean",
+        "Tests/FiniteField/PolynormDecide.lean"
+      ],
+      "proposition": "(123456789*x+987654321*y)*(7654321*x+1234567*y)=(123456789*7654321)*x^2+(123456789*1234567+987654321*7654321)*x*y+(987654321*1234567)*y^2 over Residue 65537",
+      "reflection": {
+        "namespace": "Test.FiniteFieldPolynorm",
+        "lhs": "coefficientsL",
+        "rhs": "coefficientsR",
+        "context": {
+          "0": "x",
+          "1": "y",
+          "2": "z"
+        },
+        "theorem": "coefficientsDecide",
+        "relation": "The theorem proves lhs.eval ctx = rhs.eval ctx for every ctx."
+      },
+      "grammar": "lean-polynomial-expr",
+      "required_instances": [
+        "NeZero 65537",
+        "Lean.Grind.CommRing (Residue 65537)",
+        "DecidableEq (Residue 65537)"
+      ],
+      "invocation": {
+        "cwd": ".",
+        "argv": [
+          "lake",
+          "env",
+          "lean",
+          "Tests/FiniteField/PolynormDecide.lean"
+        ],
+        "timeout_seconds": 60
+      },
+      "expected": {
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "tags": [
+        "historical-preserved",
+        "ordinary-decide"
+      ],
+      "content_sha256": {
+        "Tests/FF04/Corpus.lean": "5125cd12b15c14f0035eb4a32ffae5eb3ce40c1f97a38a43556ec03db7007b2c",
+        "Tests/FiniteField/PolynormDecide.lean": "7acf6d62c025e48e65ef53f6d3585ba06208d248dcf227b6d0a8c0e2c5cd4147"
+      },
+      "source_revision": "4cf0ce952db0d95bb4f15497bf67fc9c918da5c4",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "ff04-composite-and-rejection",
+      "status": "runnable",
+      "kind": "preserved-semantic-boundary",
+      "source": "ff04-preserved",
+      "modulus": [
+        "6",
+        "65537"
+      ],
+      "input_files": [
+        "Tests/FF04/Corpus.lean"
+      ],
+      "proposition": "Over Residue 6, (2*x)*(3*x)=0 although the normal forms differ; over Residue 65537 the x=x+1 certificate is rejected and distribution is accepted.",
+      "reflection": {
+        "namespace": "Test.FiniteFieldPolynorm",
+        "pairs": [
+          {
+            "lhs": "zeroProduct",
+            "rhs": "Expr.val (0 : Residue 6)"
+          },
+          {
+            "lhs": "Expr.var 0 : E",
+            "rhs": "Expr.add (.var 0) (.val 1) : E"
+          },
+          {
+            "lhs": "distributeL",
+            "rhs": "distributeR"
+          }
+        ],
+        "context": {
+          "0": "x"
+        },
+        "theorems": [
+          "zeroProductNotCanonical",
+          "zeroProductSemanticallyZero",
+          "rejectsFalseCertificate",
+          "acceptsTrueCertificate"
+        ]
+      },
+      "grammar": "lean-polynomial-expr",
+      "required_instances": [
+        "NeZero 6",
+        "NeZero 65537",
+        "Lean.Grind.CommRing (Residue p)",
+        "DecidableEq (Residue p)"
+      ],
+      "invocation": {
+        "cwd": ".",
+        "argv": [
+          "lake",
+          "env",
+          "lean",
+          "Tests/FF04/Corpus.lean"
+        ],
+        "timeout_seconds": 60
+      },
+      "expected": {
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "tags": [
+        "historical-preserved",
+        "incompleteness",
+        "not-a-field-at-modulus-6"
+      ],
+      "limitations": "Different normal forms mean failure to certify, not semantic inequality.",
+      "content_sha256": {
+        "Tests/FF04/Corpus.lean": "5125cd12b15c14f0035eb4a32ffae5eb3ce40c1f97a38a43556ec03db7007b2c"
+      },
+      "source_revision": "4cf0ce952db0d95bb4f15497bf67fc9c918da5c4",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "f7-square",
+      "status": "runnable",
+      "kind": "normalization",
+      "source": "ffm19-authored",
+      "modulus": "7",
+      "input_files": [
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "Tests/FiniteField/LargePrime.lean"
+      ],
+      "proposition": "forall ctx, (ctx 0+ctx 1)^2=(ctx 0)^2+2*(ctx 0*ctx 1)+(ctx 1)^2",
+      "reflection": {
+        "namespace": "FFM19.Semantic",
+        "lhs": "squareL",
+        "rhs": "squareR",
+        "context": {
+          "0": "x",
+          "1": "y"
+        },
+        "certificate": "squareCertificate",
+        "theorem": "square",
+        "relation": "Certificate proves equal normal forms; semantic theorem transports the pair and, for implications, discharges explicit residuals from the stated hypotheses."
+      },
+      "grammar": "lean-polynomial-expr",
+      "required_instances": [
+        "NeZero 7",
+        "Lean.Grind.CommRing (Residue 7)",
+        "DecidableEq (Residue 7)"
+      ],
+      "invocation": {
+        "cwd": ".",
+        "argv": [
+          "lake",
+          "env",
+          "lean",
+          "fixtures/finite-fields/audit/Semantic.lean"
+        ],
+        "timeout_seconds": 60
+      },
+      "expected": {
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "tags": [
+        "project-authored",
+        "ordinary-decide",
+        "axiom-allowlist"
+      ],
+      "limits": {
+        "max_heartbeats": 200000,
+        "automatic_budget_escalation": false
+      },
+      "content_sha256": {
+        "fixtures/finite-fields/audit/Semantic.lean": "d522a09a641300b851a7fecc42554df099c5bd87825ec5c77bf4bc7870cf2795",
+        "Tests/FiniteField/LargePrime.lean": "b17c0db8c2bba6b764036fc0df13e12c1a38366e3a36d8fb39c3f24560263828"
+      },
+      "source_revision": {
+        "kind": "new-content-addressed-source",
+        "sha256": "d522a09a641300b851a7fecc42554df099c5bd87825ec5c77bf4bc7870cf2795",
+        "baseline_revision": "4cf0ce952db0d95bb4f15497bf67fc9c918da5c4"
+      },
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "f7-constants",
+      "status": "runnable",
+      "kind": "normalization",
+      "source": "ffm19-authored",
+      "modulus": "7",
+      "input_files": [
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "Tests/FiniteField/LargePrime.lean"
+      ],
+      "proposition": "(5 : Residue 7)+3=1",
+      "reflection": {
+        "namespace": "FFM19.Semantic",
+        "lhs": "wrapL",
+        "rhs": "wrapR",
+        "context": {
+          "all": "0 (closed terms)"
+        },
+        "certificate": "wrapCertificate",
+        "theorem": "wrap",
+        "relation": "Certificate proves equal normal forms; semantic theorem transports the pair and, for implications, discharges explicit residuals from the stated hypotheses."
+      },
+      "grammar": "lean-polynomial-expr",
+      "required_instances": [
+        "NeZero 7",
+        "Lean.Grind.CommRing (Residue 7)",
+        "DecidableEq (Residue 7)"
+      ],
+      "invocation": {
+        "cwd": ".",
+        "argv": [
+          "lake",
+          "env",
+          "lean",
+          "fixtures/finite-fields/audit/Semantic.lean"
+        ],
+        "timeout_seconds": 60
+      },
+      "expected": {
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "tags": [
+        "project-authored",
+        "ordinary-decide",
+        "axiom-allowlist"
+      ],
+      "limits": {
+        "max_heartbeats": 200000,
+        "automatic_budget_escalation": false
+      },
+      "content_sha256": {
+        "fixtures/finite-fields/audit/Semantic.lean": "d522a09a641300b851a7fecc42554df099c5bd87825ec5c77bf4bc7870cf2795",
+        "Tests/FiniteField/LargePrime.lean": "b17c0db8c2bba6b764036fc0df13e12c1a38366e3a36d8fb39c3f24560263828"
+      },
+      "source_revision": {
+        "kind": "new-content-addressed-source",
+        "sha256": "d522a09a641300b851a7fecc42554df099c5bd87825ec5c77bf4bc7870cf2795",
+        "baseline_revision": "4cf0ce952db0d95bb4f15497bf67fc9c918da5c4"
+      },
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "f7-characteristic",
+      "status": "runnable",
+      "kind": "normalization",
+      "source": "ffm19-authored",
+      "modulus": "7",
+      "input_files": [
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "Tests/FiniteField/LargePrime.lean"
+      ],
+      "proposition": "forall ctx, (7 : Residue 7)*ctx 0=0",
+      "reflection": {
+        "namespace": "FFM19.Semantic",
+        "lhs": "characteristicL",
+        "rhs": "characteristicR",
+        "context": {
+          "0": "x"
+        },
+        "certificate": "characteristicCertificate",
+        "theorem": "characteristic",
+        "relation": "Certificate proves equal normal forms; semantic theorem transports the pair and, for implications, discharges explicit residuals from the stated hypotheses."
+      },
+      "grammar": "lean-polynomial-expr",
+      "required_instances": [
+        "NeZero 7",
+        "Lean.Grind.CommRing (Residue 7)",
+        "DecidableEq (Residue 7)"
+      ],
+      "invocation": {
+        "cwd": ".",
+        "argv": [
+          "lake",
+          "env",
+          "lean",
+          "fixtures/finite-fields/audit/Semantic.lean"
+        ],
+        "timeout_seconds": 60
+      },
+      "expected": {
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "tags": [
+        "project-authored",
+        "ordinary-decide",
+        "axiom-allowlist"
+      ],
+      "limits": {
+        "max_heartbeats": 200000,
+        "automatic_budget_escalation": false
+      },
+      "content_sha256": {
+        "fixtures/finite-fields/audit/Semantic.lean": "d522a09a641300b851a7fecc42554df099c5bd87825ec5c77bf4bc7870cf2795",
+        "Tests/FiniteField/LargePrime.lean": "b17c0db8c2bba6b764036fc0df13e12c1a38366e3a36d8fb39c3f24560263828"
+      },
+      "source_revision": {
+        "kind": "new-content-addressed-source",
+        "sha256": "d522a09a641300b851a7fecc42554df099c5bd87825ec5c77bf4bc7870cf2795",
+        "baseline_revision": "4cf0ce952db0d95bb4f15497bf67fc9c918da5c4"
+      },
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "f7-recursive-sum",
+      "status": "runnable",
+      "kind": "normalization",
+      "source": "ffm19-authored",
+      "modulus": "7",
+      "input_files": [
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "Tests/FiniteField/LargePrime.lean"
+      ],
+      "proposition": "forall ctx, sumF [ctx 0,ctx 1,-ctx 0]=ctx 1",
+      "reflection": {
+        "namespace": "FFM19.Semantic",
+        "lhs": "sumL",
+        "rhs": "sumR",
+        "context": {
+          "0": "x",
+          "1": "y"
+        },
+        "certificate": "sumCertificate",
+        "theorem": "sumCancellation",
+        "relation": "Certificate proves equal normal forms; semantic theorem transports the pair and, for implications, discharges explicit residuals from the stated hypotheses."
+      },
+      "grammar": "lean-polynomial-expr",
+      "required_instances": [
+        "NeZero 7",
+        "Lean.Grind.CommRing (Residue 7)",
+        "DecidableEq (Residue 7)"
+      ],
+      "invocation": {
+        "cwd": ".",
+        "argv": [
+          "lake",
+          "env",
+          "lean",
+          "fixtures/finite-fields/audit/Semantic.lean"
+        ],
+        "timeout_seconds": 60
+      },
+      "expected": {
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "tags": [
+        "project-authored",
+        "ordinary-decide",
+        "axiom-allowlist"
+      ],
+      "limits": {
+        "max_heartbeats": 200000,
+        "automatic_budget_escalation": false
+      },
+      "limitations": "sumF is explicitly unfolded at this fixed list; no recursive-function reifier is implemented.",
+      "content_sha256": {
+        "fixtures/finite-fields/audit/Semantic.lean": "d522a09a641300b851a7fecc42554df099c5bd87825ec5c77bf4bc7870cf2795",
+        "Tests/FiniteField/LargePrime.lean": "b17c0db8c2bba6b764036fc0df13e12c1a38366e3a36d8fb39c3f24560263828"
+      },
+      "source_revision": {
+        "kind": "new-content-addressed-source",
+        "sha256": "d522a09a641300b851a7fecc42554df099c5bd87825ec5c77bf4bc7870cf2795",
+        "baseline_revision": "4cf0ce952db0d95bb4f15497bf67fc9c918da5c4"
+      },
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "curve25519-identity",
+      "status": "runnable",
+      "kind": "normalization",
+      "source": "ffm19-authored",
+      "modulus": "57896044618658097711785492504343953926634992332820282019728792003956564819949",
+      "input_files": [
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "Tests/FiniteField/LargePrime.lean"
+      ],
+      "proposition": "forall ctx, (ctx 0+1)*(ctx 0-1)=(ctx 0)^2-1",
+      "reflection": {
+        "namespace": "FFM19.Semantic",
+        "lhs": "largeL",
+        "rhs": "largeR",
+        "context": {
+          "0": "x"
+        },
+        "certificate": "largeCertificate",
+        "theorem": "largeIdentity",
+        "relation": "Certificate proves equal normal forms; semantic theorem transports the pair and, for implications, discharges explicit residuals from the stated hypotheses."
+      },
+      "grammar": "lean-polynomial-expr",
+      "required_instances": [
+        "NeZero 57896044618658097711785492504343953926634992332820282019728792003956564819949",
+        "Lean.Grind.CommRing (Residue 57896044618658097711785492504343953926634992332820282019728792003956564819949)",
+        "DecidableEq (Residue 57896044618658097711785492504343953926634992332820282019728792003956564819949)"
+      ],
+      "invocation": {
+        "cwd": ".",
+        "argv": [
+          "lake",
+          "env",
+          "lean",
+          "fixtures/finite-fields/audit/Semantic.lean"
+        ],
+        "timeout_seconds": 60
+      },
+      "expected": {
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "tags": [
+        "project-authored",
+        "ordinary-decide",
+        "axiom-allowlist"
+      ],
+      "limits": {
+        "max_heartbeats": 200000,
+        "automatic_budget_escalation": false
+      },
+      "content_sha256": {
+        "fixtures/finite-fields/audit/Semantic.lean": "d522a09a641300b851a7fecc42554df099c5bd87825ec5c77bf4bc7870cf2795",
+        "Tests/FiniteField/LargePrime.lean": "b17c0db8c2bba6b764036fc0df13e12c1a38366e3a36d8fb39c3f24560263828"
+      },
+      "source_revision": {
+        "kind": "new-content-addressed-source",
+        "sha256": "d522a09a641300b851a7fecc42554df099c5bd87825ec5c77bf4bc7870cf2795",
+        "baseline_revision": "4cf0ce952db0d95bb4f15497bf67fc9c918da5c4"
+      },
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "curve25519-implication",
+      "status": "runnable",
+      "kind": "residual-certificate",
+      "source": "ffm19-authored",
+      "modulus": "57896044618658097711785492504343953926634992332820282019728792003956564819949",
+      "input_files": [
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "Tests/FiniteField/LargePrime.lean"
+      ],
+      "proposition": "forall ctx, ctx 0=ctx 1 -> (ctx 0)^2+3*ctx 0=(ctx 1)^2+3*ctx 1",
+      "reflection": {
+        "namespace": "FFM19.Semantic",
+        "lhs": "implicationL",
+        "rhs": "implicationR",
+        "context": {
+          "0": "x",
+          "1": "y"
+        },
+        "certificate": "implicationCertificate",
+        "theorem": "largeImplication",
+        "relation": "Certificate proves equal normal forms; semantic theorem transports the pair and, for implications, discharges explicit residuals from the stated hypotheses."
+      },
+      "grammar": "lean-polynomial-expr",
+      "required_instances": [
+        "NeZero 57896044618658097711785492504343953926634992332820282019728792003956564819949",
+        "Lean.Grind.CommRing (Residue 57896044618658097711785492504343953926634992332820282019728792003956564819949)",
+        "DecidableEq (Residue 57896044618658097711785492504343953926634992332820282019728792003956564819949)"
+      ],
+      "invocation": {
+        "cwd": ".",
+        "argv": [
+          "lake",
+          "env",
+          "lean",
+          "fixtures/finite-fields/audit/Semantic.lean"
+        ],
+        "timeout_seconds": 60
+      },
+      "expected": {
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "tags": [
+        "project-authored",
+        "ordinary-decide",
+        "axiom-allowlist"
+      ],
+      "limits": {
+        "max_heartbeats": 200000,
+        "automatic_budget_escalation": false
+      },
+      "residual_connection": "implicationResidualZero: x=y implies (x-y)*(x+y+3)=0.",
+      "content_sha256": {
+        "fixtures/finite-fields/audit/Semantic.lean": "d522a09a641300b851a7fecc42554df099c5bd87825ec5c77bf4bc7870cf2795",
+        "Tests/FiniteField/LargePrime.lean": "b17c0db8c2bba6b764036fc0df13e12c1a38366e3a36d8fb39c3f24560263828"
+      },
+      "source_revision": {
+        "kind": "new-content-addressed-source",
+        "sha256": "d522a09a641300b851a7fecc42554df099c5bd87825ec5c77bf4bc7870cf2795",
+        "baseline_revision": "4cf0ce952db0d95bb4f15497bf67fc9c918da5c4"
+      },
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "f7-false-certificate",
+      "status": "runnable",
+      "kind": "negative",
+      "source": "ffm19-authored",
+      "modulus": "7",
+      "input_files": [
+        "fixtures/finite-fields/audit/Semantic.lean",
+        "Tests/FiniteField/LargePrime.lean"
+      ],
+      "proposition": "not (forall ctx : Context (Residue 7), ctx 0=ctx 0+1); counterexample ctx := fun _ => 0",
+      "reflection": {
+        "namespace": "FFM19.Semantic",
+        "lhs": "falseL",
+        "rhs": "falseR",
+        "context": {
+          "all": "0 for falseCounterexample"
+        },
+        "certificate": "rejectsFalseCertificate",
+        "theorem": "falseUniversal",
+        "relation": "Negative normal-form certificate plus an independently checked concrete semantic counterexample."
+      },
+      "grammar": "lean-polynomial-expr",
+      "required_instances": [
+        "NeZero 7",
+        "Lean.Grind.CommRing (Residue 7)",
+        "DecidableEq (Residue 7)"
+      ],
+      "invocation": {
+        "cwd": ".",
+        "argv": [
+          "lake",
+          "env",
+          "lean",
+          "fixtures/finite-fields/audit/Semantic.lean"
+        ],
+        "timeout_seconds": 60
+      },
+      "expected": {
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "tags": [
+        "project-authored",
+        "ordinary-decide",
+        "axiom-allowlist"
+      ],
+      "limits": {
+        "max_heartbeats": 200000,
+        "automatic_budget_escalation": false
+      },
+      "reflection_note": "Here the certificate explicitly proves decide(normal-form equality)=false, and falseCounterexample independently proves semantic inequality. No equality proof is claimed.",
+      "content_sha256": {
+        "fixtures/finite-fields/audit/Semantic.lean": "d522a09a641300b851a7fecc42554df099c5bd87825ec5c77bf4bc7870cf2795",
+        "Tests/FiniteField/LargePrime.lean": "b17c0db8c2bba6b764036fc0df13e12c1a38366e3a36d8fb39c3f24560263828"
+      },
+      "source_revision": {
+        "kind": "new-content-addressed-source",
+        "sha256": "d522a09a641300b851a7fecc42554df099c5bd87825ec5c77bf4bc7870cf2795",
+        "baseline_revision": "4cf0ce952db0d95bb4f15497bf67fc9c918da5c4"
+      },
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "f7-circuit",
+      "status": "runnable",
+      "kind": "circuit-certificate",
+      "source": "ffm19-authored",
+      "modulus": "7",
+      "input_files": [
+        "fixtures/finite-fields/audit/Circuits.lean",
+        "Tests/FiniteField/LargePrime.lean"
+      ],
+      "proposition": "forall ctx, not (x=2 and y=3 and m=x*y and s=m+x and s=0)",
+      "reflection": {
+        "namespace": "FFM19.Circuits",
+        "lhs": "fiveL",
+        "rhs": "fiveR",
+        "context": {
+          "0": "x",
+          "1": "y",
+          "2": "m",
+          "3": "s"
+        },
+        "certificate": "fiveCertificate",
+        "theorem": "fiveContradiction",
+        "relation": "Certificate proves equal normal forms; semantic theorem transports the pair and, for implications, discharges explicit residuals from the stated hypotheses."
+      },
+      "grammar": "lean-polynomial-expr",
+      "required_instances": [
+        "NeZero 7",
+        "Lean.Grind.CommRing (Residue 7)",
+        "DecidableEq (Residue 7)"
+      ],
+      "invocation": {
+        "cwd": ".",
+        "argv": [
+          "lake",
+          "env",
+          "lean",
+          "fixtures/finite-fields/audit/Circuits.lean"
+        ],
+        "timeout_seconds": 60
+      },
+      "expected": {
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "tags": [
+        "project-authored",
+        "ordinary-decide",
+        "axiom-allowlist"
+      ],
+      "limits": {
+        "max_heartbeats": 200000,
+        "automatic_budget_escalation": false
+      },
+      "constraints": [
+        "x=2",
+        "y=3",
+        "m=x*y",
+        "s=m+x",
+        "s=0"
+      ],
+      "residuals": [
+        "r0=x-2",
+        "r1=y-3",
+        "r2=m-x*y",
+        "r3=s-(m+x)",
+        "r4=s"
+      ],
+      "certificate_identity": "r4-r3-r2-(y+1)*r0-2*r1=1 over F7",
+      "residual_connection": [
+        "FiveConstraints",
+        "fiveResidualsZero",
+        "fiveCombinationZero",
+        "fiveIdentity"
+      ],
+      "limitations": "New fully specified five-constraint representative, not the unrecovered historical F7 circuit.",
+      "content_sha256": {
+        "fixtures/finite-fields/audit/Circuits.lean": "baeded9d65e4c97b9e3651016c1d9a1857b131679e5cff88fd96ab5ac31a8926",
+        "Tests/FiniteField/LargePrime.lean": "b17c0db8c2bba6b764036fc0df13e12c1a38366e3a36d8fb39c3f24560263828"
+      },
+      "source_revision": {
+        "kind": "new-content-addressed-source",
+        "sha256": "baeded9d65e4c97b9e3651016c1d9a1857b131679e5cff88fd96ab5ac31a8926",
+        "baseline_revision": "4cf0ce952db0d95bb4f15497bf67fc9c918da5c4"
+      },
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "curve25519-circuit",
+      "status": "runnable",
+      "kind": "circuit-certificate",
+      "source": "ffm19-authored",
+      "modulus": "57896044618658097711785492504343953926634992332820282019728792003956564819949",
+      "input_files": [
+        "fixtures/finite-fields/audit/Circuits.lean",
+        "Tests/FiniteField/LargePrime.lean"
+      ],
+      "proposition": "forall ctx, ChainConstraints ctx -> out=x^5+x^4*y+x^3*y+x^2*y+x*y",
+      "reflection": {
+        "namespace": "FFM19.Circuits",
+        "lhs": "chainL",
+        "rhs": "chainR",
+        "context": {
+          "0": "x",
+          "1": "y",
+          "2": "u",
+          "3": "v",
+          "4": "w",
+          "5": "t",
+          "6": "z",
+          "7": "a",
+          "8": "b",
+          "9": "out"
+        },
+        "certificate": "chainCertificate",
+        "theorem": "chainConclusion",
+        "relation": "Certificate proves equal normal forms; semantic theorem transports the pair and, for implications, discharges explicit residuals from the stated hypotheses."
+      },
+      "grammar": "lean-polynomial-expr",
+      "required_instances": [
+        "NeZero 57896044618658097711785492504343953926634992332820282019728792003956564819949",
+        "Lean.Grind.CommRing (Residue 57896044618658097711785492504343953926634992332820282019728792003956564819949)",
+        "DecidableEq (Residue 57896044618658097711785492504343953926634992332820282019728792003956564819949)"
+      ],
+      "invocation": {
+        "cwd": ".",
+        "argv": [
+          "lake",
+          "env",
+          "lean",
+          "fixtures/finite-fields/audit/Circuits.lean"
+        ],
+        "timeout_seconds": 60
+      },
+      "expected": {
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "tags": [
+        "project-authored",
+        "ordinary-decide",
+        "axiom-allowlist"
+      ],
+      "limits": {
+        "max_heartbeats": 200000,
+        "automatic_budget_escalation": false,
+        "gates": 8,
+        "context_slots": 10,
+        "degree": 5
+      },
+      "constraints": [
+        "u=x+y",
+        "v=u*x",
+        "w=v+y",
+        "t=w*x",
+        "z=t+y",
+        "a=z*x",
+        "b=a+y",
+        "out=b*x"
+      ],
+      "residuals": [
+        "r0=u-(x+y)",
+        "r1=v-u*x",
+        "r2=w-(v+y)",
+        "r3=t-w*x",
+        "r4=z-(t+y)",
+        "r5=a-z*x",
+        "r6=b-(a+y)",
+        "r7=out-b*x"
+      ],
+      "certificate_identity": "x^4*r0+x^3*(r1+r2)+x^2*(r3+r4)+x*(r5+r6)+r7=out-(x^5+x^4*y+x^3*y+x^2*y+x*y)",
+      "residual_connection": [
+        "ChainConstraints",
+        "chainResidualsZero",
+        "chainCombinationZero",
+        "chainIdentity"
+      ],
+      "limitations": "Authored straight-line arithmetic circuit, not a recovered external or production cryptographic circuit. Scaling evidence belongs to FFM-20.",
+      "content_sha256": {
+        "fixtures/finite-fields/audit/Circuits.lean": "baeded9d65e4c97b9e3651016c1d9a1857b131679e5cff88fd96ab5ac31a8926",
+        "Tests/FiniteField/LargePrime.lean": "b17c0db8c2bba6b764036fc0df13e12c1a38366e3a36d8fb39c3f24560263828"
+      },
+      "source_revision": {
+        "kind": "new-content-addressed-source",
+        "sha256": "baeded9d65e4c97b9e3651016c1d9a1857b131679e5cff88fd96ab5ac31a8926",
+        "baseline_revision": "4cf0ce952db0d95bb4f15497bf67fc9c918da5c4"
+      },
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "f3-no-root",
+      "status": "runnable",
+      "kind": "solver-semantic",
+      "input_files": [
+        "fixtures/finite-fields/audit/f3-no-root.smt2"
+      ],
+      "source": "ffm19-authored",
+      "modulus": "3",
+      "proposition": "forall x : Residue 3, x*x+1=0 -> False",
+      "reflection": {
+        "language": "SMT-LIB QF_FF",
+        "variables": {
+          "x": "Residue 3"
+        },
+        "assertions": [
+          "(= (ff.add (ff.mul x x) #f1m3) #f0m3)"
+        ],
+        "relation": "Assertions are the hypotheses and negated conclusion, or the stated satisfiability problem."
+      },
+      "grammar": "smt-qf-ff",
+      "required_instances": [],
+      "requirements": [
+        "Pinned cvc5 solving profile; no Lean proof/instances claimed."
+      ],
+      "invocation": {
+        "cwd": ".",
+        "argv": [
+          "cvc5",
+          "--lang",
+          "smt2",
+          "fixtures/finite-fields/audit/f3-no-root.smt2"
+        ],
+        "timeout_seconds": 20
+      },
+      "expected": {
+        "exit_code": 0,
+        "stdout": "unsat\n",
+        "stderr": ""
+      },
+      "tags": [
+        "finite-domain",
+        "no-field-polynomial-hint"
+      ],
+      "limitations": "Solver UNSAT is not a Lean proof; finite-domain reconstruction remains M2.",
+      "content_sha256": {
+        "fixtures/finite-fields/audit/f3-no-root.smt2": "4d65f8837181539027ca9c6506a1ca2b31bf0df69a52b927696d9886a266e604"
+      },
+      "source_revision": {
+        "kind": "new-content-addressed-source",
+        "sha256": "4d65f8837181539027ca9c6506a1ca2b31bf0df69a52b927696d9886a266e604",
+        "baseline_revision": "4cf0ce952db0d95bb4f15497bf67fc9c918da5c4"
+      },
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "f3-no-root-field-hint",
+      "status": "runnable",
+      "kind": "solver-semantic",
+      "input_files": [
+        "fixtures/finite-fields/audit/f3-no-root-field-hint.smt2"
+      ],
+      "source": "ffm19-authored",
+      "modulus": "3",
+      "proposition": "forall x : Residue 3, x^3=x -> x*x+1=0 -> False",
+      "reflection": {
+        "language": "SMT-LIB QF_FF",
+        "variables": {
+          "x": "Residue 3"
+        },
+        "assertions": [
+          "(= (ff.add (ff.mul x x) #f1m3) #f0m3)",
+          "(= (ff.mul x (ff.mul x x)) x)"
+        ],
+        "relation": "Assertions are the hypotheses and negated conclusion, or the stated satisfiability problem."
+      },
+      "grammar": "smt-qf-ff",
+      "required_instances": [],
+      "requirements": [
+        "Pinned cvc5 solving profile; no Lean proof/instances claimed."
+      ],
+      "invocation": {
+        "cwd": ".",
+        "argv": [
+          "cvc5",
+          "--lang",
+          "smt2",
+          "fixtures/finite-fields/audit/f3-no-root-field-hint.smt2"
+        ],
+        "timeout_seconds": 20
+      },
+      "expected": {
+        "exit_code": 0,
+        "stdout": "unsat\n",
+        "stderr": ""
+      },
+      "tags": [
+        "finite-domain",
+        "explicit-field-polynomial"
+      ],
+      "limitations": "Solver UNSAT is not a Lean proof; finite-domain reconstruction remains M2.",
+      "content_sha256": {
+        "fixtures/finite-fields/audit/f3-no-root-field-hint.smt2": "025da4d4206656ebd73d7927e994979934f6e2c104f91eb1d0c2127b52908803"
+      },
+      "source_revision": {
+        "kind": "new-content-addressed-source",
+        "sha256": "025da4d4206656ebd73d7927e994979934f6e2c104f91eb1d0c2127b52908803",
+        "baseline_revision": "4cf0ce952db0d95bb4f15497bf67fc9c918da5c4"
+      },
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "f7-no-root",
+      "status": "runnable",
+      "kind": "solver-semantic",
+      "input_files": [
+        "fixtures/finite-fields/audit/f7-no-root.smt2"
+      ],
+      "source": "ffm19-authored",
+      "modulus": "7",
+      "proposition": "forall x : Residue 7, x*x+1=0 -> False",
+      "reflection": {
+        "language": "SMT-LIB QF_FF",
+        "variables": {
+          "x": "Residue 7"
+        },
+        "assertions": [
+          "(= (ff.add (ff.mul x x) #f1m7) #f0m7)"
+        ],
+        "relation": "Assertions are the hypotheses and negated conclusion, or the stated satisfiability problem."
+      },
+      "grammar": "smt-qf-ff",
+      "required_instances": [],
+      "requirements": [
+        "Pinned cvc5 solving profile; no Lean proof/instances claimed."
+      ],
+      "invocation": {
+        "cwd": ".",
+        "argv": [
+          "cvc5",
+          "--lang",
+          "smt2",
+          "fixtures/finite-fields/audit/f7-no-root.smt2"
+        ],
+        "timeout_seconds": 20
+      },
+      "expected": {
+        "exit_code": 0,
+        "stdout": "unsat\n",
+        "stderr": ""
+      },
+      "tags": [
+        "finite-domain",
+        "no-field-polynomial-hint"
+      ],
+      "limitations": "Solver UNSAT is not a Lean proof; finite-domain reconstruction remains M2.",
+      "content_sha256": {
+        "fixtures/finite-fields/audit/f7-no-root.smt2": "63bc55cd2f500c4f0cbbf02f2f2222943764bf0d7e568befbc31372037c220cc"
+      },
+      "source_revision": {
+        "kind": "new-content-addressed-source",
+        "sha256": "63bc55cd2f500c4f0cbbf02f2f2222943764bf0d7e568befbc31372037c220cc",
+        "baseline_revision": "4cf0ce952db0d95bb4f15497bf67fc9c918da5c4"
+      },
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "f7-no-root-field-hint",
+      "status": "runnable",
+      "kind": "solver-semantic",
+      "input_files": [
+        "fixtures/finite-fields/audit/f7-no-root-field-hint.smt2"
+      ],
+      "source": "ffm19-authored",
+      "modulus": "7",
+      "proposition": "forall x : Residue 7, x^7=x -> x*x+1=0 -> False",
+      "reflection": {
+        "language": "SMT-LIB QF_FF",
+        "variables": {
+          "x": "Residue 7"
+        },
+        "assertions": [
+          "(= (ff.add (ff.mul x x) #f1m7) #f0m7)",
+          "(= (ff.mul x (ff.mul x (ff.mul x (ff.mul x (ff.mul x (ff.mul x x)))))) x)"
+        ],
+        "relation": "Assertions are the hypotheses and negated conclusion, or the stated satisfiability problem."
+      },
+      "grammar": "smt-qf-ff",
+      "required_instances": [],
+      "requirements": [
+        "Pinned cvc5 solving profile; no Lean proof/instances claimed."
+      ],
+      "invocation": {
+        "cwd": ".",
+        "argv": [
+          "cvc5",
+          "--lang",
+          "smt2",
+          "fixtures/finite-fields/audit/f7-no-root-field-hint.smt2"
+        ],
+        "timeout_seconds": 20
+      },
+      "expected": {
+        "exit_code": 0,
+        "stdout": "unsat\n",
+        "stderr": ""
+      },
+      "tags": [
+        "finite-domain",
+        "explicit-field-polynomial"
+      ],
+      "limitations": "Solver UNSAT is not a Lean proof; finite-domain reconstruction remains M2.",
+      "content_sha256": {
+        "fixtures/finite-fields/audit/f7-no-root-field-hint.smt2": "e7116df0cc601ce910ac9ea899f71fa563f44f1640f26807a7f430dae3a5eeae"
+      },
+      "source_revision": {
+        "kind": "new-content-addressed-source",
+        "sha256": "e7116df0cc601ce910ac9ea899f71fa563f44f1640f26807a7f430dae3a5eeae",
+        "baseline_revision": "4cf0ce952db0d95bb4f15497bf67fc9c918da5c4"
+      },
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "f7-zero-product",
+      "status": "runnable",
+      "kind": "solver-semantic",
+      "input_files": [
+        "fixtures/finite-fields/audit/f7-zero-product.smt2"
+      ],
+      "source": "ffm19-authored",
+      "modulus": "7",
+      "proposition": "forall x y : Residue 7, x*y=0 -> x!=0 -> y=0",
+      "reflection": {
+        "language": "SMT-LIB QF_FF",
+        "variables": {
+          "x": "Residue 7",
+          "y": "Residue 7"
+        },
+        "assertions": [
+          "(= (ff.mul x y) #f0m7)",
+          "(not (= x #f0m7))",
+          "(not (= y #f0m7))"
+        ],
+        "relation": "Assertions are the hypotheses and negated conclusion, or the stated satisfiability problem."
+      },
+      "grammar": "smt-qf-ff",
+      "required_instances": [],
+      "requirements": [
+        "Pinned cvc5 solving profile; no Lean proof/instances claimed."
+      ],
+      "invocation": {
+        "cwd": ".",
+        "argv": [
+          "cvc5",
+          "--lang",
+          "smt2",
+          "fixtures/finite-fields/audit/f7-zero-product.smt2"
+        ],
+        "timeout_seconds": 20
+      },
+      "expected": {
+        "exit_code": 0,
+        "stdout": "unsat\n",
+        "stderr": ""
+      },
+      "tags": [
+        "field-cancellation"
+      ],
+      "limitations": "",
+      "content_sha256": {
+        "fixtures/finite-fields/audit/f7-zero-product.smt2": "a0ef165f16f12604001cfac907db87eaef960d4cdfcf3a132beda4249322bdd3"
+      },
+      "source_revision": {
+        "kind": "new-content-addressed-source",
+        "sha256": "a0ef165f16f12604001cfac907db87eaef960d4cdfcf3a132beda4249322bdd3",
+        "baseline_revision": "4cf0ce952db0d95bb4f15497bf67fc9c918da5c4"
+      },
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "f7-zero-product-witness",
+      "status": "runnable",
+      "kind": "solver-semantic",
+      "input_files": [
+        "fixtures/finite-fields/audit/f7-zero-product-witness.smt2"
+      ],
+      "source": "ffm19-authored",
+      "modulus": "7",
+      "proposition": "forall x y u : Residue 7, x*y=0 -> x*u=1 -> y=0",
+      "reflection": {
+        "language": "SMT-LIB QF_FF",
+        "variables": {
+          "x": "Residue 7",
+          "y": "Residue 7",
+          "u": "Residue 7"
+        },
+        "assertions": [
+          "(= (ff.mul x y) #f0m7)",
+          "(= (ff.mul x u) #f1m7)",
+          "(not (= y #f0m7))"
+        ],
+        "relation": "Assertions are the hypotheses and negated conclusion, or the stated satisfiability problem."
+      },
+      "grammar": "smt-qf-ff",
+      "required_instances": [],
+      "requirements": [
+        "Pinned cvc5 solving profile; no Lean proof/instances claimed."
+      ],
+      "invocation": {
+        "cwd": ".",
+        "argv": [
+          "cvc5",
+          "--lang",
+          "smt2",
+          "fixtures/finite-fields/audit/f7-zero-product-witness.smt2"
+        ],
+        "timeout_seconds": 20
+      },
+      "expected": {
+        "exit_code": 0,
+        "stdout": "unsat\n",
+        "stderr": ""
+      },
+      "tags": [
+        "inverse-witness",
+        "ring-certificate"
+      ],
+      "limitations": "",
+      "content_sha256": {
+        "fixtures/finite-fields/audit/f7-zero-product-witness.smt2": "70b3bd3d87b9c6cfaf1b3449cea38a6c7a0d59c0f79e155a8d14c267e1f5c407"
+      },
+      "source_revision": {
+        "kind": "new-content-addressed-source",
+        "sha256": "70b3bd3d87b9c6cfaf1b3449cea38a6c7a0d59c0f79e155a8d14c267e1f5c407",
+        "baseline_revision": "4cf0ce952db0d95bb4f15497bf67fc9c918da5c4"
+      },
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "f7-square-implies-nonzero",
+      "status": "runnable",
+      "kind": "solver-semantic",
+      "input_files": [
+        "fixtures/finite-fields/audit/f7-square-implies-nonzero.smt2"
+      ],
+      "source": "ffm19-authored",
+      "modulus": "7",
+      "proposition": "forall x : Residue 7, x*x+1=0 -> x!=0",
+      "reflection": {
+        "language": "SMT-LIB QF_FF",
+        "variables": {
+          "x": "Residue 7"
+        },
+        "assertions": [
+          "(= (ff.add (ff.mul x x) #f1m7) #f0m7)",
+          "(= x #f0m7)"
+        ],
+        "relation": "Assertions are the hypotheses and negated conclusion, or the stated satisfiability problem."
+      },
+      "grammar": "smt-qf-ff",
+      "required_instances": [],
+      "requirements": [
+        "Pinned cvc5 solving profile; no Lean proof/instances claimed."
+      ],
+      "invocation": {
+        "cwd": ".",
+        "argv": [
+          "cvc5",
+          "--lang",
+          "smt2",
+          "fixtures/finite-fields/audit/f7-square-implies-nonzero.smt2"
+        ],
+        "timeout_seconds": 20
+      },
+      "expected": {
+        "exit_code": 0,
+        "stdout": "unsat\n",
+        "stderr": ""
+      },
+      "tags": [
+        "ring-implication"
+      ],
+      "limitations": "This implication does not certify completeness of the root list.",
+      "content_sha256": {
+        "fixtures/finite-fields/audit/f7-square-implies-nonzero.smt2": "93485df0f19fe5ea15c0e7f6085cc7fe194052dd1c7efff85f4150aaaead3f68"
+      },
+      "source_revision": {
+        "kind": "new-content-addressed-source",
+        "sha256": "93485df0f19fe5ea15c0e7f6085cc7fe194052dd1c7efff85f4150aaaead3f68",
+        "baseline_revision": "4cf0ce952db0d95bb4f15497bf67fc9c918da5c4"
+      },
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "f394357-linear",
+      "status": "runnable",
+      "kind": "solver-semantic",
+      "input_files": [
+        "fixtures/finite-fields/audit/f394357-linear.smt2"
+      ],
+      "source": "ffm19-authored",
+      "modulus": "394357",
+      "proposition": "forall a : Residue 394357, (1-a)*2=0 -> a=1",
+      "reflection": {
+        "language": "SMT-LIB QF_FF",
+        "variables": {
+          "a": "Residue 394357"
+        },
+        "assertions": [
+          "(= (ff.mul (ff.add #f1m394357 (ff.mul #f394356m394357 a)) #f2m394357) #f0m394357)",
+          "(not (= a #f1m394357))"
+        ],
+        "relation": "Assertions are the hypotheses and negated conclusion, or the stated satisfiability problem."
+      },
+      "grammar": "smt-qf-ff",
+      "required_instances": [],
+      "requirements": [
+        "Pinned cvc5 solving profile; no Lean proof/instances claimed."
+      ],
+      "invocation": {
+        "cwd": ".",
+        "argv": [
+          "cvc5",
+          "--lang",
+          "smt2",
+          "fixtures/finite-fields/audit/f394357-linear.smt2"
+        ],
+        "timeout_seconds": 20
+      },
+      "expected": {
+        "exit_code": 0,
+        "stdout": "unsat\n",
+        "stderr": ""
+      },
+      "tags": [
+        "linear-implication"
+      ],
+      "limitations": "SMT field declaration is not local Lean primality evidence for 394357.",
+      "content_sha256": {
+        "fixtures/finite-fields/audit/f394357-linear.smt2": "7e766deac3591efd75bc34cc011e5b81fbbf2e5b561b8cbe110ce994ef2b9772"
+      },
+      "source_revision": {
+        "kind": "new-content-addressed-source",
+        "sha256": "7e766deac3591efd75bc34cc011e5b81fbbf2e5b561b8cbe110ce994ef2b9772",
+        "baseline_revision": "4cf0ce952db0d95bb4f15497bf67fc9c918da5c4"
+      },
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "f3-enumeration",
+      "status": "runnable",
+      "kind": "solver-semantic",
+      "input_files": [
+        "fixtures/finite-fields/audit/f3-enumeration.smt2"
+      ],
+      "source": "ffm19-authored",
+      "modulus": "3",
+      "proposition": "forall x : Residue 3, x=0 or x=1 or x=2",
+      "reflection": {
+        "language": "SMT-LIB QF_FF",
+        "variables": {
+          "x": "Residue 3"
+        },
+        "assertions": [
+          "(not (= x #f0m3))",
+          "(not (= x #f1m3))",
+          "(not (= x #f2m3))"
+        ],
+        "relation": "Assertions are the hypotheses and negated conclusion, or the stated satisfiability problem."
+      },
+      "grammar": "smt-qf-ff",
+      "required_instances": [],
+      "requirements": [
+        "Pinned cvc5 solving profile; no Lean proof/instances claimed."
+      ],
+      "invocation": {
+        "cwd": ".",
+        "argv": [
+          "cvc5",
+          "--lang",
+          "smt2",
+          "fixtures/finite-fields/audit/f3-enumeration.smt2"
+        ],
+        "timeout_seconds": 20
+      },
+      "expected": {
+        "exit_code": 0,
+        "stdout": "unsat\n",
+        "stderr": ""
+      },
+      "tags": [
+        "finite-domain",
+        "enumeration"
+      ],
+      "limitations": "",
+      "content_sha256": {
+        "fixtures/finite-fields/audit/f3-enumeration.smt2": "be6a157d0dc17992af86eeecbb0d5171996a7afc7b78922dbac2d0a6f218a058"
+      },
+      "source_revision": {
+        "kind": "new-content-addressed-source",
+        "sha256": "be6a157d0dc17992af86eeecbb0d5171996a7afc7b78922dbac2d0a6f218a058",
+        "baseline_revision": "4cf0ce952db0d95bb4f15497bf67fc9c918da5c4"
+      },
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "f7-false-goal",
+      "status": "runnable",
+      "kind": "solver-semantic",
+      "input_files": [
+        "fixtures/finite-fields/audit/f7-false-goal.smt2"
+      ],
+      "source": "ffm19-authored",
+      "modulus": "7",
+      "proposition": "forall x : Residue 7, x=x+1 (false; x=0 is a counterexample)",
+      "reflection": {
+        "language": "SMT-LIB QF_FF",
+        "variables": {
+          "x": "Residue 7"
+        },
+        "assertions": [
+          "(not (= x (ff.add x #f1m7)))"
+        ],
+        "relation": "Assertions are the hypotheses and negated conclusion, or the stated satisfiability problem."
+      },
+      "grammar": "smt-qf-ff",
+      "required_instances": [],
+      "requirements": [
+        "Pinned cvc5 solving profile; no Lean proof/instances claimed."
+      ],
+      "invocation": {
+        "cwd": ".",
+        "argv": [
+          "cvc5",
+          "--lang",
+          "smt2",
+          "fixtures/finite-fields/audit/f7-false-goal.smt2"
+        ],
+        "timeout_seconds": 20
+      },
+      "expected": {
+        "exit_code": 0,
+        "stdout": "sat\n",
+        "stderr": ""
+      },
+      "tags": [
+        "negative"
+      ],
+      "limitations": "SAT is expected; falsity is established by the concrete 0 != 1 counterexample in Semantic.lean, not by failed normalization.",
+      "content_sha256": {
+        "fixtures/finite-fields/audit/f7-false-goal.smt2": "eaa64dfc02a33b613ae54e4c1ae31e7aaf1dc44b769ee139c1bb84ebc0c149e6"
+      },
+      "source_revision": {
+        "kind": "new-content-addressed-source",
+        "sha256": "eaa64dfc02a33b613ae54e4c1ae31e7aaf1dc44b769ee139c1bb84ebc0c149e6",
+        "baseline_revision": "4cf0ce952db0d95bb4f15497bf67fc9c918da5c4"
+      },
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "f2-guarded-fermat-zero",
+      "status": "runnable",
+      "kind": "solver-semantic",
+      "input_files": [
+        "fixtures/finite-fields/audit/f2-guarded-fermat-zero.smt2"
+      ],
+      "source": "ffm19-authored",
+      "modulus": "2",
+      "proposition": "x=0 -> (if x=0 then 0 else x^(2-2))=0 over Residue 2",
+      "reflection": {
+        "language": "SMT-LIB QF_FF",
+        "variables": {
+          "x": "Residue 2"
+        },
+        "assertions": [
+          "(= x #f0m2)",
+          "(not (= (ite (= x #f0m2) #f0m2 #f1m2) #f0m2))"
+        ],
+        "relation": "Assertions are the hypotheses and negated conclusion, or the stated satisfiability problem."
+      },
+      "grammar": "smt-qf-ff",
+      "required_instances": [],
+      "requirements": [
+        "Pinned cvc5 solving profile; no Lean proof/instances claimed."
+      ],
+      "invocation": {
+        "cwd": ".",
+        "argv": [
+          "cvc5",
+          "--lang",
+          "smt2",
+          "fixtures/finite-fields/audit/f2-guarded-fermat-zero.smt2"
+        ],
+        "timeout_seconds": 20
+      },
+      "expected": {
+        "exit_code": 0,
+        "stdout": "unsat\n",
+        "stderr": ""
+      },
+      "tags": [
+        "measured-alternative-only",
+        "zero-guard",
+        "not-native-m1"
+      ],
+      "limitations": "Guarded Fermat encoding is explicit only; never enabled as a default inverse lowering.",
+      "content_sha256": {
+        "fixtures/finite-fields/audit/f2-guarded-fermat-zero.smt2": "8ed1d8b30eac25789f15062c54fef78016ebde8b6b3a00830edf922e43f3e0ce"
+      },
+      "source_revision": {
+        "kind": "new-content-addressed-source",
+        "sha256": "8ed1d8b30eac25789f15062c54fef78016ebde8b6b3a00830edf922e43f3e0ce",
+        "baseline_revision": "4cf0ce952db0d95bb4f15497bf67fc9c918da5c4"
+      },
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "f2-unguarded-fermat-zero",
+      "status": "runnable",
+      "kind": "solver-semantic",
+      "input_files": [
+        "fixtures/finite-fields/audit/f2-unguarded-fermat-zero.smt2"
+      ],
+      "source": "ffm19-authored",
+      "modulus": "2",
+      "proposition": "x=0 -> x^(2-2)=0 over Residue 2 (false)",
+      "reflection": {
+        "language": "SMT-LIB QF_FF",
+        "variables": {
+          "x": "Residue 2"
+        },
+        "assertions": [
+          "(= x #f0m2)",
+          "(not (= #f1m2 #f0m2))"
+        ],
+        "relation": "Assertions are the hypotheses and negated conclusion, or the stated satisfiability problem."
+      },
+      "grammar": "smt-qf-ff",
+      "required_instances": [],
+      "requirements": [
+        "Pinned cvc5 solving profile; no Lean proof/instances claimed."
+      ],
+      "invocation": {
+        "cwd": ".",
+        "argv": [
+          "cvc5",
+          "--lang",
+          "smt2",
+          "fixtures/finite-fields/audit/f2-unguarded-fermat-zero.smt2"
+        ],
+        "timeout_seconds": 20
+      },
+      "expected": {
+        "exit_code": 0,
+        "stdout": "sat\n",
+        "stderr": ""
+      },
+      "tags": [
+        "measured-alternative-only",
+        "zero-guard",
+        "negative",
+        "not-native-m1"
+      ],
+      "limitations": "At p=2 exponent is zero, so unguarded 0^0=1. This alternative must retain the zero guard.",
+      "content_sha256": {
+        "fixtures/finite-fields/audit/f2-unguarded-fermat-zero.smt2": "1a162fbfa667ec983d43db9cd0d033e651e46e841e94841808383d6fefc108dd"
+      },
+      "source_revision": {
+        "kind": "new-content-addressed-source",
+        "sha256": "1a162fbfa667ec983d43db9cd0d033e651e46e841e94841808383d6fefc108dd",
+        "baseline_revision": "4cf0ce952db0d95bb4f15497bf67fc9c918da5c4"
+      },
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "historical-f7-square",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "(x+y)^2=x^2+2*x*y+y^2 over F7",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "The ticket supplies the mathematical candidate, but no recoverable original input/revision or redistribution license. No historical artifact copied; related entries, when present, are newly authored equivalents.",
+      "related_runnable_entries": [
+        "f7-square"
+      ],
+      "tags": []
+    },
+    {
+      "id": "historical-f7-constants",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "5+3=1 over F7",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "The ticket supplies the mathematical candidate, but no recoverable original input/revision or redistribution license. No historical artifact copied; related entries, when present, are newly authored equivalents.",
+      "related_runnable_entries": [
+        "f7-constants"
+      ],
+      "tags": []
+    },
+    {
+      "id": "historical-f7-characteristic",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "7*x=0 over F7",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "The ticket supplies the mathematical candidate, but no recoverable original input/revision or redistribution license. No historical artifact copied; related entries, when present, are newly authored equivalents.",
+      "related_runnable_entries": [
+        "f7-characteristic"
+      ],
+      "tags": []
+    },
+    {
+      "id": "historical-nethermind-f41",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "Four constraints imply f-d=0 over F41",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "Exact four constraints, source revision, and redistribution basis were not supplied and were not found in the consumed FF-04 report or local docs/modules. Cannot reconstruct the constraints from the conclusion; not reproducible.",
+      "related_runnable_entries": [],
+      "tags": []
+    },
+    {
+      "id": "historical-f394357",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "(1-a)*2=0 -> a=1 over modulus 394357",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "The ticket supplies the mathematical candidate, but no recoverable original input/revision or redistribution license. No historical artifact copied; related entries, when present, are newly authored equivalents.",
+      "related_runnable_entries": [
+        "f394357-linear"
+      ],
+      "tags": []
+    },
+    {
+      "id": "historical-large-identity",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "Identity at the selected large-prime size",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "Original identity unspecified. New square identity uses exactly the consumed Curve25519 base modulus and proof provenance, not an invented recovery.",
+      "related_runnable_entries": [
+        "curve25519-identity"
+      ],
+      "tags": []
+    },
+    {
+      "id": "historical-large-implication",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "Small implication at the selected large-prime size",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "Original implication unspecified. New implication is independently authored at the selected modulus.",
+      "related_runnable_entries": [
+        "curve25519-implication"
+      ],
+      "tags": []
+    },
+    {
+      "id": "historical-val-order",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "Representative .val/order cases",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "Exact expressions and source/license absent. Representation/order semantics are outside native M1 unless separately proved; polynomial equality does not preserve order.",
+      "related_runnable_entries": [],
+      "tags": [
+        "representation",
+        "outside-native-m1"
+      ]
+    },
+    {
+      "id": "historical-no-wrap",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "Representative no-wrap cases",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "Exact bounds and source/license absent. Need explicit integer/range/no-wrap proof before translating modular equality to an integer equality.",
+      "related_runnable_entries": [],
+      "tags": [
+        "representation",
+        "outside-native-m1"
+      ]
+    },
+    {
+      "id": "historical-bit-weighted-sum",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "Bit-constrained weighted sum",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "Weights, bit constraints, target, modulus, source revision and license absent. Do not invent omitted constraints. Bitness/representation bridge is outside native M1 unless separately proved.",
+      "related_runnable_entries": [],
+      "tags": [
+        "bitness",
+        "outside-native-m1"
+      ]
+    },
+    {
+      "id": "historical-recursive-sum",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "sumF [a,b,-a]=b",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "The ticket supplies the mathematical candidate, but no recoverable original input/revision or redistribution license. No historical artifact copied; related entries, when present, are newly authored equivalents.",
+      "related_runnable_entries": [
+        "f7-recursive-sum"
+      ],
+      "tags": [
+        "recursive-definition",
+        "explicit-unfolding-required"
+      ]
+    },
+    {
+      "id": "historical-zero-product",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "x*y=0 -> x!=0 -> y=0",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "The ticket supplies the mathematical candidate, but no recoverable original input/revision or redistribution license. No historical artifact copied; related entries, when present, are newly authored equivalents.",
+      "related_runnable_entries": [
+        "f7-zero-product"
+      ],
+      "tags": []
+    },
+    {
+      "id": "historical-zero-product-witness",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "x*y=0 -> x*u=1 -> y=0",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "The ticket supplies the mathematical candidate, but no recoverable original input/revision or redistribution license. No historical artifact copied; related entries, when present, are newly authored equivalents.",
+      "related_runnable_entries": [
+        "f7-zero-product-witness"
+      ],
+      "tags": []
+    },
+    {
+      "id": "historical-self-division",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "x!=0 -> x/x=1",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "Historical input/modulus/revision/license missing. Ordinary polynomial Expr has no inv/div; a native division invocation or a proved inverse lowering is needed. No tautological witness encoding is substituted.",
+      "related_runnable_entries": [],
+      "tags": []
+    },
+    {
+      "id": "historical-square-nonzero",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "x*x+1=0 -> x!=0",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "The ticket supplies the mathematical candidate, but no recoverable original input/revision or redistribution license. No historical artifact copied; related entries, when present, are newly authored equivalents.",
+      "related_runnable_entries": [
+        "f7-square-implies-nonzero"
+      ],
+      "tags": []
+    },
+    {
+      "id": "historical-five-constraint-f7",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "Five-constraint F7 circuit contradiction",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "Exact historical constraints and license/revision absent. The separately named authored F7 circuit is reproducible, but is not a recovery of this circuit.",
+      "related_runnable_entries": [
+        "f7-circuit"
+      ],
+      "tags": []
+    },
+    {
+      "id": "historical-f3-no-root",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "x*x+1=0 -> False over F3, without an explicit field-polynomial fact",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "The ticket supplies the mathematical candidate, but no recoverable original input/revision or redistribution license. No historical artifact copied; related entries, when present, are newly authored equivalents.",
+      "related_runnable_entries": [
+        "f3-no-root"
+      ],
+      "tags": [
+        "finite-domain"
+      ]
+    },
+    {
+      "id": "historical-f3-no-root-field-hint",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "x*x+1=0 -> False over F3, with explicit x^3=x",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "The ticket supplies the mathematical candidate, but no recoverable original input/revision or redistribution license. No historical artifact copied; related entries, when present, are newly authored equivalents.",
+      "related_runnable_entries": [
+        "f3-no-root-field-hint"
+      ],
+      "tags": [
+        "finite-domain"
+      ]
+    },
+    {
+      "id": "historical-f7-no-root",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "x*x+1=0 -> False over F7, without an explicit field-polynomial fact",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "The ticket supplies the mathematical candidate, but no recoverable original input/revision or redistribution license. No historical artifact copied; related entries, when present, are newly authored equivalents.",
+      "related_runnable_entries": [
+        "f7-no-root"
+      ],
+      "tags": [
+        "finite-domain"
+      ]
+    },
+    {
+      "id": "historical-f7-no-root-field-hint",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "x*x+1=0 -> False over F7, with explicit x^7=x",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "The ticket supplies the mathematical candidate, but no recoverable original input/revision or redistribution license. No historical artifact copied; related entries, when present, are newly authored equivalents.",
+      "related_runnable_entries": [
+        "f7-no-root-field-hint"
+      ],
+      "tags": [
+        "finite-domain"
+      ]
+    },
+    {
+      "id": "historical-f3-enumeration",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "Tiny F3 enumeration",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "The ticket supplies the mathematical candidate, but no recoverable original input/revision or redistribution license. No historical artifact copied; related entries, when present, are newly authored equivalents.",
+      "related_runnable_entries": [
+        "f3-enumeration"
+      ],
+      "tags": [
+        "finite-domain"
+      ]
+    },
+    {
+      "id": "historical-cyclic5",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "cyclic-5 without field-polynomial hints",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "Exact cyclic equations, modulus, queried conclusion, historical source revision and license not recovered. A conventional cyclic-system name is insufficient to pin this particular input; no constraints invented.",
+      "related_runnable_entries": [],
+      "tags": [
+        "finite-domain",
+        "circuit"
+      ]
+    },
+    {
+      "id": "historical-cyclic5-field-hints",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "cyclic-5 with field-polynomial hints",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "Exact cyclic equations, modulus, queried conclusion, historical source revision and license not recovered. A conventional cyclic-system name is insufficient to pin this particular input; no constraints invented.",
+      "related_runnable_entries": [],
+      "tags": [
+        "finite-domain",
+        "circuit"
+      ]
+    },
+    {
+      "id": "historical-false-goal",
+      "status": "catalogue-only",
+      "runnable": false,
+      "source": "historical-discovery-candidates",
+      "proposition": "A false goal",
+      "input_files": [],
+      "content_sha256": null,
+      "invocation": null,
+      "expected": null,
+      "missing_reason": "Historical goal unspecified. New x=x+1 over F7 has a concrete counterexample; tactic failure is never used to infer falsity.",
+      "related_runnable_entries": [
+        "f7-false-goal",
+        "f7-false-certificate"
+      ],
+      "tags": []
+    }
+  ],
+  "handoff_limits": [
+    "M2 owns the deferred proof-rule audit, original-goal reconstruction and finite-domain obligations.",
+    "Representation/bitness/order/no-wrap catalogue cases remain outside native M1 unless separately proved.",
+    "Guarded Fermat is an explicit measured alternative only; its zero guard remains required at p=2 and is not silently enabled.",
+    "Missing historical circuit content/license blocks measurements of those exact historical cases, not the separately committed authored representatives.",
+    "Representative circuits here are bounded synthetic arithmetic circuits; no production-circuit scalability claim."
+  ]
+}

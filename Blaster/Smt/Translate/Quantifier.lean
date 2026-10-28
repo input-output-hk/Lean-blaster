@@ -1,6 +1,7 @@
 import Lean
 import Blaster.Smt.Env
 import Blaster.Optimize.Basic
+import Blaster.FiniteField.Recognize
 
 open Lean Meta Blaster.Optimize
 
@@ -202,24 +203,34 @@ private partial def updateTopLevelVars (step : Nat) (vars : TopLevelVars) (s : S
 /-- Perform the following:
       - add `v` to `quantifierFvars` cache
       - add `v` to `topLevelVars` only when topLevel is set to `true` and `¬ isTypeUniverse (← inferTypeEnv (mkFVar v))`.
+      - retain typed source metadata for non-universe variables, including the
+        opened local scope and the polarity of the negated goal assertion.
 -/
 def updateQuantifiedFVarsCache (v : FVarId) (topLevel : Bool) : TranslateEnvT Unit := do
   let s ← fvarIdToSmtSymbol v
   let t ← inferTypeEnv (mkFVar v)
   let uname ← v.getUserName
-  let idx ← getCurrentDepth
-  modify
-    (fun env =>
-      let updatedVars := env.smtEnv.quantifiedFVars.insert v topLevel
-      if topLevel && !(isTypeUniverse t)
-      then
-        { env with
-              smtEnv.quantifiedFVars := updatedVars,
-              smtEnv.topLevelVars := updateTopLevelVars idx env.smtEnv.topLevelVars s uname
-        }
-      else
-        { env with smtEnv.quantifiedFVars := updatedVars }
-    )
+  modify fun env =>
+    { env with smtEnv.quantifiedFVars := env.smtEnv.quantifiedFVars.insert v topLevel }
+  unless isTypeUniverse t do
+    let descriptor ← Blaster.FiniteField.getResidueDescriptor? t
+    let association : SourceAssociation := {
+      symbol := s
+      userName := uname
+      source := mkFVar v
+      type := t
+      modulus := descriptor.map (·.modulusValue)
+      polarity := .negated
+      localContext := ← getLCtx
+      localInstances := ← getLocalInstances
+    }
+    let idx ← getCurrentDepth
+    modify fun env =>
+      { env with
+        smtEnv.sourceAssociations := env.smtEnv.sourceAssociations.push association
+        smtEnv.topLevelVars :=
+          if topLevel then updateTopLevelVars idx env.smtEnv.topLevelVars s uname
+          else env.smtEnv.topLevelVars }
 
 /-- Return `true` if `v` is in the quantified fvars cache. -/
 def isInQuantifiedFVarsCache (v : FVarId) : TranslateEnvT Bool := do
@@ -1256,11 +1267,22 @@ def translatePEmptyType (n : Expr) : TranslateEnvT SortExpr := do
  | some decl => return decl.instSort
 
 
-/-- Translate opaque sorts to their Smt counterpart.
-    An error is triggered when `e` does not correspond to a name expression.
+/-- Translate opaque sorts from the full applied type, preserving its arguments
+    for indexed-sort dispatch. Existing non-indexed sorts retain bare-head cache
+    keys. An error is triggered when the application head is not a constant.
     TODO: update function when opacifying other Lean inductive types (e.g., BitVector, Char, etc).
 -/
-def translateOpaqueType (e : Expr) : TranslateEnvT (Option SortExpr) := do
+def translateOpaqueType (t : Expr) : TranslateEnvT (Option SortExpr) := do
+ -- Inspect the complete applied type before splitting its head and arguments.
+ -- Recognition alone does not authorize emission: native polynomial queries
+ -- dispatch through Translate.main after preflight and scoped admission.
+ -- Never encode the nominal carrier as Fin or an ordinary datatype here.
+ if (← Blaster.FiniteField.getResidueModulus? t).isSome then
+   let descriptor ← Blaster.FiniteField.getResidueDescriptor? t
+   if let some d := descriptor then
+     throwEnvError "translateOpaqueType: Residue modulus {d.modulusValue} requires the admitted native polynomial query path in Translate.main: {reprStr d.type}"
+   throwEnvError "translateOpaqueType: unsupported Residue SMT translation with nonconcrete modulus: {reprStr t}"
+ let e := t.getAppFn
  match e with
  | Expr.const n _ =>
     match n with
@@ -1281,7 +1303,7 @@ partial def translateTypeAux
    let e := t.getAppFn
    match e with
    | Expr.const .. =>
-      if let some r ← translateOpaqueType e then return r
+      if let some r ← translateOpaqueType t then return r
       translateNonOpaqueType e t.getAppArgs
         (λ a b => translateTypeAux termTranslator a b)
         termTranslator topts

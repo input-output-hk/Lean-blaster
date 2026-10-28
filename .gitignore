@@ -2,3 +2,5 @@
 .lake/
 build.log
 .blaster/
+.artifacts/
+scripts/finite_fields/__pycache__/

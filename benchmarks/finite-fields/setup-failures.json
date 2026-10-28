@@ -1,0 +1,213 @@
+{
+  "attempts": [
+    {
+      "config_sha256": "bdf465142724d4fc147394058666401ae4d4f5dd29590ad3a81e50c5d55d07c0",
+      "corpus_sha256": "62dc069a61c5f5d7fe2af100f547d709eccac16e14c9156515d0f2767f98a3cf",
+      "environment": {
+        "BLASTER_FF_CVC5": "/workspace/lean-blaster/.artifacts/finite-fields/solving/bin/cvc5",
+        "HOME": "/home/agent",
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "LEAN_NUM_THREADS": "1",
+        "LEAN_PATH": ".",
+        "PATH": "/workspace/lean-blaster/.artifacts/finite-fields/solving/bin:/home/agent/.elan/toolchains/leanprover--lean4---v4.24.0/bin:/usr/bin:/bin"
+      },
+      "hardware": {
+        "cgroup_cpu_max": "200000 100000",
+        "cgroup_memory_max_bytes": "8589934592",
+        "cpu_count": 16,
+        "cpuinfo": "processor\t: 0\nBogoMIPS\t: 48.00\nFeatures\t: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm jscvt fcma lrcpc dcpop sha3 asimddp sha512 asimdfhm dit uscat ilrcpc flagm sb dcpodp flagm2 frint i8mm bf16 ecv afp\nCPU implementer\t: 0x61\nCPU architecture: 8\nCPU variant\t: 0x0\nCPU part\t: 0x000\nCPU revision\t: 0\n\nprocessor\t: 1\nBogoMIPS\t: 48.00\nFeatures\t: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm jscvt fcma lrcpc dcpop sha3 asimddp sha512 asimdfhm dit uscat ilrcpc flagm sb dcpodp flagm2 frint i8mm bf16 ecv afp\nCPU implementer\t: 0x61\nCPU architecture: 8\nCPU variant\t: 0x0\nCPU part\t: 0x000\nCPU revision\t: 0\n\nprocessor\t: 2\nBogoMIPS\t: 48.00\nFeatures\t: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm jscvt fcma lrcpc dcpop sha3 asimddp sha512 asimdfhm dit uscat ilrcpc flagm sb dcpodp flagm2 frint i8mm bf16 ecv afp\nCPU implementer\t: 0x61\nCPU architecture: 8\nCPU variant\t: 0x0\nCPU part\t: 0x000\nCPU revision\t: 0\n\nprocessor\t: 3\nBogoMIPS\t: 48.00\nFeatures\t: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm jscvt fcma lrcpc dcpop sha3 asimddp sha512 asimdfhm dit uscat ilrcpc flagm sb dcpodp flagm2 frint i8mm bf16 ecv afp\nCPU implementer\t: 0x61\nCPU architecture: 8\nCPU variant\t: 0x0\nCPU part\t: 0x000\nCPU revision\t: 0\n\nprocessor\t: 4\nBogoMIPS\t: 48.00\nFeatures\t: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm jscvt fcma lrcpc dcpop sha3 asimddp sha512 asimdfhm dit uscat ilrcpc flagm sb dcpodp flagm2 frint i8mm bf16 ecv afp\nCPU implementer\t: 0x61\nCPU architecture: 8\nCPU variant\t: 0x0\nCPU part\t: 0x000\nCPU revision\t: 0\n\nprocessor\t: 5\nBogoMIPS\t: 48.00\nFeatures\t: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm jscvt fcma lrcpc dcpop sha3 asimddp sha512 asimdfhm dit uscat ilrcpc flagm sb dcpodp flagm2 frint i8mm bf16 ecv afp\nCPU implementer\t: 0x61\nCPU architecture: 8\nCPU variant\t: 0x0\nCPU part\t: 0x000\nCPU revision\t: 0\n\nprocessor\t: 6\nBogoMIPS\t: 48.00\nFeatures\t: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm jscvt fcma lrcpc dcpop sha3 asimddp sha512 asimdfhm dit uscat ilrcpc flagm sb dcpodp flagm2 frint i8mm bf16 ecv afp\nCPU implementer\t: 0x61\nCPU architecture: 8\nCPU variant\t: 0x0\nCPU part\t: 0x000\nCPU revision\t: 0\n\nprocessor\t: 7\nBogoMIPS\t: 48.00\nFeatures\t: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm jscvt fcma lrcpc dcpop sha3 asimddp sha512 asimdfhm dit uscat ilrcpc flagm sb dcpodp flagm2 frint i8mm bf16 ecv afp\nCPU implementer\t: 0x61\nCPU architecture: 8\nCPU variant\t: 0x0\nCPU part\t: 0x000\nCPU revision\t: 0\n\nprocessor\t: 8\nBogoMIPS\t: 48.00\nFeatures\t: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm jscvt fcma lrcpc dcpop sha3 asimddp sha512 asimdfhm dit uscat ilrcpc flagm sb dcpodp flagm2 frint i8mm bf16 ecv afp\nCPU implementer\t: 0x61\nCPU architecture: 8\nCPU variant\t: 0x0\nCPU part\t: 0x000\nCPU revision\t: 0\n\nprocessor\t: 9\nBogoMIPS\t: 48.00\nFeatures\t: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm jscvt fcma lrcpc dcpop sha3 asimddp sha512 asimdfhm dit uscat ilrcpc flagm sb dcpodp flagm2 frint i8mm bf16 ecv afp\nCPU implementer\t: 0x61\nCPU architecture: 8\nCPU variant\t: 0x0\nCPU part\t: 0x000\nCPU revision\t: 0\n\nprocessor\t: 10\nBogoMIPS\t: 48.00\nFeatures\t: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm jscvt fcma lrcpc dcpop sha3 asimddp sha512 asimdfhm dit uscat ilrcpc flagm sb dcpodp flagm2 frint i8mm bf16 ecv afp\nCPU implementer\t: 0x61\nCPU architecture: 8\nCPU variant\t: 0x0\nCPU part\t: 0x000\nCPU revision\t: 0\n\nprocessor\t: 11\nBogoMIPS\t: 48.00\nFeatures\t: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm jscvt fcma lrcpc dcpop sha3 asimddp sha512 asimdfhm dit uscat ilrcpc flagm sb dcpodp flagm2 frint i8mm bf16 ecv afp\nCPU implementer\t: 0x61\nCPU architecture: 8\nCPU variant\t: 0x0\nCPU part\t: 0x000\nCPU revision\t: 0\n\nprocessor\t: 12\nBogoMIPS\t: 48.00\nFeatures\t: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm jscvt fcma lrcpc dcpop sha3 asimddp sha512 asimdfhm dit uscat ilrcpc flagm sb dcpodp flagm2 frint i8mm bf16 ecv afp\nCPU implementer\t: 0x61\nCPU architecture: 8\nCPU variant\t: 0x0\nCPU part\t: 0x000\nCPU revision\t: 0\n\nprocessor\t: 13\nBogoMIPS\t: 48.00\nFeatures\t: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm jscvt fcma lrcpc dcpop sha3 asimddp sha512 asimdfhm dit uscat ilrcpc flagm sb dcpodp flagm2 frint i8mm bf16 ecv afp\nCPU implementer\t: 0x61\nCPU architecture: 8\nCPU variant\t: 0x0\nCPU part\t: 0x000\nCPU revision\t: 0\n\nprocessor\t: 14\nBogoMIPS\t: 48.00\nFeatures\t: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm jscvt fcma lrcpc dcpop sha3 asimddp sha512 asimdfhm dit uscat ilrcpc flagm sb dcpodp flagm2 frint i8mm bf16 ecv afp\nCPU implementer\t: 0x61\nCPU architecture: 8\nCPU variant\t: 0x0\nCPU part\t: 0x000\nCPU revision\t: 0\n\nprocessor\t: 15\nBogoMIPS\t: 48.00\nFeatures\t: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm jscvt fcma lrcpc dcpop sha3 asimddp sha512 asimdfhm dit uscat ilrcpc flagm sb dcpodp flagm2 frint i8mm bf16 ecv afp\nCPU implementer\t: 0x61\nCPU architecture: 8\nCPU variant\t: 0x0\nCPU part\t: 0x000\nCPU revision\t: 0",
+        "meminfo": "MemTotal:       32881500 kB\nMemFree:        28699376 kB\nMemAvailable:   30424096 kB\nBuffers:             112 kB\nCached:          1710692 kB\nSwapCached:            0 kB\nActive:           996876 kB\nInactive:        2281732 kB\nActive(anon):     897916 kB\nInactive(anon):   692732 kB\nActive(file):      98960 kB\nInactive(file):  1589000 kB\nUnevictable:           0 kB\nMlocked:               0 kB\nSwapTotal:      33930068 kB\nSwapFree:       33930068 kB\nDirty:              6764 kB\nWriteback:             0 kB\nAnonPages:       1491596 kB\nMapped:           140304 kB\nShmem:             22664 kB\nKReclaimable:     424048 kB\nSlab:             602112 kB\nSReclaimable:     424048 kB\nSUnreclaim:       178064 kB\nKernelStack:        9184 kB\nPageTables:        11420 kB\nSecPageTables:         0 kB\nNFS_Unstable:          0 kB\nBounce:                0 kB\nWritebackTmp:          0 kB\nCommitLimit:    50370816 kB\nCommitted_AS:    3282880 kB\nVmallocTotal:   135288315904 kB\nVmallocUsed:      135692 kB\nVmallocChunk:          0 kB\nPercpu:             7232 kB\nAnonHugePages:         0 kB\nShmemHugePages:        0 kB\nShmemPmdMapped:        0 kB\nFileHugePages:         0 kB\nFilePmdMapped:         0 kB\nBalloon:               0 kB\nGPUActive:             0 kB\nGPUReclaim:            0 kB",
+        "platform": "Linux-7.2.12-orbstack-00394-gbecdd6130068-aarch64-with-glibc2.41",
+        "python": "3.13.5 (main, Aug 10 2026, 12:06:59) [GCC 14.2.0]",
+        "uname": [
+          "Linux",
+          "67c04ca0f78f",
+          "7.2.12-orbstack-00394-gbecdd6130068",
+          "#1 SMP PREEMPT Thu Oct 22 22:17:17 UTC 2026",
+          "aarch64",
+          ""
+        ]
+      },
+      "production_m2_stages": {
+        "proof_checking": {
+          "reason": "Production M2 stage does not exist at M1",
+          "seconds": null,
+          "status": "not_available"
+        },
+        "proof_reading": {
+          "reason": "Production M2 stage does not exist at M1",
+          "seconds": null,
+          "status": "not_available"
+        },
+        "verified_transport": {
+          "reason": "Production M2 stage does not exist at M1",
+          "seconds": null,
+          "status": "not_available"
+        }
+      },
+      "runs": [],
+      "schema_version": 1,
+      "setup_error": "Setup command failed: ['env', 'LEAN_PATH=.', 'lake', 'env', 'lean', '-DmaxHeartbeats=200000', '-o', 'fixtures/finite-fields/audit/Semantic.olean', 'fixtures/finite-fields/audit/Semantic.lean']",
+      "setup_observations": [
+        {
+          "argv": [
+            "python3",
+            "scripts/finite_fields/probe_solver.py",
+            "--manifest",
+            "docs/finite-fields/solver-manifest.json",
+            "--artifact-root",
+            ".artifacts/finite-fields",
+            "--profile",
+            "solving",
+            "--offline",
+            "--check"
+          ],
+          "cwd": "/workspace/lean-blaster",
+          "elapsed_seconds": 0.541862664,
+          "exit_code": 0,
+          "limits": {
+            "cpu_seconds": 120,
+            "heartbeats": 200000,
+            "memory_mib": 2048,
+            "output_bytes": 1048576,
+            "tree_memory_mib": 3072,
+            "wall_seconds": 120
+          },
+          "output_bytes": 994,
+          "sampled_peak_tree_rss_bytes": 23392256,
+          "stderr": "",
+          "stdout": "{\n  \"capabilities\": {\n    \"model\": {\n      \"passed\": true,\n      \"required\": true,\n      \"status\": \"passed\"\n    },\n    \"proof_export\": {\n      \"passed\": false,\n      \"required\": false,\n      \"status\": \"deferred to M2\"\n    },\n    \"setup\": {\n      \"passed\": true,\n      \"required\": true,\n      \"status\": \"passed\"\n    },\n    \"solving\": {\n      \"passed\": true,\n      \"required\": true,\n      \"status\": \"passed\"\n    }\n  },\n  \"cases\": {\n    \"f3-square-unsat\": {\n      \"passed\": true\n    },\n    \"f7-linear-model\": {\n      \"passed\": true\n    },\n    \"f7-linear-model-typed\": {\n      \"passed\": true\n    },\n    \"f7-product-unsat\": {\n      \"passed\": true\n    }\n  },\n  \"configuration\": {\n    \"config\": {\n      \"passed\": true\n    },\n    \"version\": {\n      \"passed\": true\n    }\n  },\n  \"evidence\": \"/workspace/lean-blaster/.artifacts/finite-fields/solving/evidence/run-20261028T175107Z-8b0419b6dc524bda8a433d1554a60eed\",\n  \"failures\": [],\n  \"passed\": true,\n  \"platform\": \"linux-arm64\",\n  \"profile\": \"solving\"\n}\n",
+          "system_seconds": 0.054626,
+          "termination_reason": null,
+          "user_seconds": 0.153284,
+          "wait4_maxrss_kib": 30516
+        },
+        {
+          "argv": [
+            "lake",
+            "env",
+            "lean",
+            "--version"
+          ],
+          "cwd": "/workspace/lean-blaster",
+          "elapsed_seconds": 0.24313976,
+          "exit_code": 0,
+          "limits": {
+            "cpu_seconds": 120,
+            "heartbeats": 200000,
+            "memory_mib": 2048,
+            "output_bytes": 1048576,
+            "tree_memory_mib": 3072,
+            "wall_seconds": 120
+          },
+          "output_bytes": 107,
+          "sampled_peak_tree_rss_bytes": 782385152,
+          "stderr": "",
+          "stdout": "Lean (version 4.24.0, aarch64-unknown-linux-gnu, commit 797c613eb9b6d4ec95db23e3e00af9ac6657f24b, Release)\n",
+          "system_seconds": 0.072767,
+          "termination_reason": null,
+          "user_seconds": 0.15786,
+          "wait4_maxrss_kib": 691740
+        },
+        {
+          "argv": [
+            "/workspace/lean-blaster/.artifacts/finite-fields/solving/bin/cvc5",
+            "--version"
+          ],
+          "cwd": "/workspace/lean-blaster",
+          "elapsed_seconds": 0.014261368,
+          "exit_code": 0,
+          "limits": {
+            "cpu_seconds": 120,
+            "heartbeats": 200000,
+            "memory_mib": 2048,
+            "output_bytes": 1048576,
+            "tree_memory_mib": 3072,
+            "wall_seconds": 120
+          },
+          "output_bytes": 2325,
+          "sampled_peak_tree_rss_bytes": 978944,
+          "stderr": "",
+          "stdout": "cvc5 1.4.1 [git 2b2e844 on branch HEAD]\ncompiled as a unrestricted build with GCC version 11.4.0 on Sep 25 2026 20:39:58\n\nCopyright (c) 2009-2026 by the authors and their institutional\naffiliations listed at https://cvc5.github.io/people.html\n\nThis build of cvc5 uses GPLed libraries, and is thus covered by\nthe GNU General Public License (GPL) version 3.  Versions of cvc5\nare available that are covered by the (modified) BSD license. If\nyou want to license cvc5 under this license, please configure cvc5\nwith the \"--no-gpl\" option before building from sources.\n\nTHIS SOFTWARE IS PROVIDED AS-IS, WITHOUT ANY WARRANTIES.\nUSE AT YOUR OWN RISK.\n\nThis version of cvc5 is linked against the following non-(L)GPL'ed\nthird party libraries.\n\n  CaDiCaL - Simplified Satisfiability Solver\n  See https://github.com/arminbiere/cadical for copyright information.\n\n  Editline Library\n  See https://thrysoee.dk/editline\n  for copyright information.\n\n  SymFPU - The Symbolic Floating Point Unit\n  See https://github.com/martin-cs/symfpu/tree/main for copyright information.\n\nThis version of cvc5 is linked against the following third party\nlibraries covered by the LGPLv3 license.\nSee licenses/lgpl-3.0.txt for more information.\n\n  LibPoly polynomial library\n  See https://github.com/SRI-CSL/libpoly for copyright and\n  licensing information.\n\ncvc5 is statically linked against these libraries. To recompile\nthis version of cvc5 with different versions of these libraries\nfollow the instructions on https://github.com/cvc5/cvc5/blob/main/INSTALL.md\n\nThis version of cvc5 is linked against the following third party\nlibraries covered by the GPLv3 license.\nSee licenses/gpl-3.0.txt for more information.\n\n  CLN - Class Library for Numbers\n  See http://www.ginac.de/CLN for copyright information.\n\n  glpk-cut-log - a modified version of GPLK, the GNU Linear Programming Kit\n  See http://github.com/timothy-king/glpk-cut-log for copyright information\n\n  CoCoALib - a computer algebra library\n  See https://cocoa.dima.unige.it/cocoa/cocoalib/index.shtml for copyright information\n\n  Normaliz - a rational cones library\n  See https://github.com/Normaliz/Normaliz for copyright information\n\nSee the file COPYING (distributed with the source code, and with\nall binaries) for the full cvc5 copyright, licensing, and (lack of)\nwarranty information.\n\n",
+          "system_seconds": 0.0,
+          "termination_reason": null,
+          "user_seconds": 0.0012159999999999999,
+          "wait4_maxrss_kib": 19688
+        },
+        {
+          "argv": [
+            "lake",
+            "build",
+            "Blaster",
+            "Tests.Pure",
+            "Tests.FiniteField.LargePrime"
+          ],
+          "cwd": "/workspace/lean-blaster",
+          "elapsed_seconds": 0.27818581,
+          "exit_code": 0,
+          "limits": {
+            "cpu_seconds": 120,
+            "heartbeats": 200000,
+            "memory_mib": 2048,
+            "output_bytes": 1048576,
+            "tree_memory_mib": 3072,
+            "wall_seconds": 120
+          },
+          "output_bytes": 3286,
+          "sampled_peak_tree_rss_bytes": 709455872,
+          "stderr": "",
+          "stdout": "\u2139 [228/279] Replayed Blaster.FF04.Corpus\ninfo: Blaster/FF04/Corpus.lean:65:0: 'Blaster.FF04.Polynorm.Expr.denote_eq_from_toPolynomial_eq' depends on axioms: [propext, Quot.sound]\ninfo: Blaster/FF04/Corpus.lean:66:0: 'Test.FiniteFieldPolynorm.rejectsFalseCertificate' depends on axioms: [propext, Quot.sound]\ninfo: Blaster/FF04/Corpus.lean:67:0: 'Test.FiniteFieldPolynorm.acceptsTrueCertificate' depends on axioms: [propext, Quot.sound]\ninfo: Blaster/FF04/Corpus.lean:68:0: 'Test.FiniteFieldPolynorm.zeroProductNotCanonical' depends on axioms: [propext, Quot.sound]\ninfo: Blaster/FF04/Corpus.lean:69:0: 'Test.FiniteFieldPolynorm.zeroProductSemanticallyZero' depends on axioms: [propext, Classical.choice, Quot.sound]\n\u26a0 [250/279] Replayed Tests.Smt.CrashLifecycle\nwarning: Tests/Smt/CrashLifecycle.lean:636:0: Counterexample unavailable from z3; the Falsified verdict is preserved. get-model returned an SMT error: (error \"model unavailable\")\nwarning: Tests/Smt/CrashLifecycle.lean:649:0: Counterexample unavailable from z3; the Falsified verdict is preserved. get-model returned an SMT error: (error \"z3 model unavailable\")\nwarning: Tests/Smt/CrashLifecycle.lean:649:0: Agreement diagnostics saved: .blaster/agreement-443634681-1\n\u26a0 [251/279] Replayed Tests.Smt.ResponseLifecycle\nwarning: Tests/Smt/ResponseLifecycle.lean:158:0: Counterexample unavailable from z3; the Falsified verdict is preserved. solver=z3; stage=model response timeout; command=(get-model); response=response-read timeout=5000ms; elapsed=5019ms\nwarning: Tests/Smt/ResponseLifecycle.lean:159:0: Counterexample unavailable from cvc5; the Falsified verdict is preserved. x: solver=cvc5; stage=model response timeout; command=(get-value (x)); response=response-read timeout=5000ms; elapsed=5009ms\nwarning: Tests/Smt/ResponseLifecycle.lean:160:0: Counterexample unavailable from z3; the Falsified verdict is preserved. solver=z3; stage=model response; command=(get-model); response=The solver closed its output stream while a model/proof response was pending.; elapsed=25ms\nSolver stderr:\nMODEL_FAILURE\nwarning: Tests/Smt/ResponseLifecycle.lean:161:0: Counterexample unavailable from cvc5; the Falsified verdict is preserved. x: Response framing failed: expected ((term value)); raw response: not-a-value\nwarning: Tests/Smt/ResponseLifecycle.lean:162:0: Counterexample unavailable from z3; the Falsified verdict is preserved. x: solver=z3; stage=model response timeout; command=(get-value (x)); response=response-read timeout=5000ms; elapsed=5009ms\nwarning: Tests/Smt/ResponseLifecycle.lean:162:0: Agreement diagnostics saved: .blaster/agreement-443638372-4\nwarning: Tests/Smt/ResponseLifecycle.lean:163:0: Counterexample unavailable from cvc5; the Falsified verdict is preserved. x: solver=cvc5; stage=model response timeout; command=(get-value (x)); response=response-read timeout=5000ms; elapsed=5002ms\nwarning: Tests/Smt/ResponseLifecycle.lean:163:0: Agreement diagnostics saved: .blaster/agreement-443643731-5\n\u2139 [257/279] Replayed Tests.Smt.SolverModeConfiguration\ninfo: Tests/Smt/SolverModeConfiguration.lean:20:50: \u2705 Valid\ninfo: Tests/Smt/SolverModeConfiguration.lean:21:66: \u2705 Valid\ninfo: Tests/Smt/SolverModeConfiguration.lean:24:61: \u2705 Expected Undetermined\nBuild completed successfully (279 jobs).\n",
+          "system_seconds": 0.090289,
+          "termination_reason": null,
+          "user_seconds": 0.14496199999999998,
+          "wait4_maxrss_kib": 693968
+        },
+        {
+          "argv": [
+            "env",
+            "LEAN_PATH=.",
+            "lake",
+            "env",
+            "lean",
+            "-DmaxHeartbeats=200000",
+            "-o",
+            "fixtures/finite-fields/audit/Semantic.olean",
+            "fixtures/finite-fields/audit/Semantic.lean"
+          ],
+          "cwd": "/workspace/lean-blaster",
+          "elapsed_seconds": 0.26043478,
+          "exit_code": 139,
+          "limits": {
+            "cpu_seconds": 120,
+            "heartbeats": 200000,
+            "memory_mib": 2048,
+            "output_bytes": 1048576,
+            "tree_memory_mib": 3072,
+            "wall_seconds": 120
+          },
+          "output_bytes": 0,
+          "sampled_peak_tree_rss_bytes": 968032256,
+          "stderr": "",
+          "stdout": "",
+          "system_seconds": 0.08512199999999999,
+          "termination_reason": null,
+          "user_seconds": 0.16314299999999998,
+          "wait4_maxrss_kib": 692600
+        }
+      ],
+      "started_utc": "2026-10-28T17:51:06Z",
+      "status": "invalid_setup",
+      "units": {
+        "compiled_artifact_bytes": "bytes in newly emitted .olean; NOT proof-term size",
+        "elapsed_seconds": "s, whole-file/process wall time including launch and wait observation",
+        "production_stage_seconds": "s, existing profileTask wall timer with 1ms resolution; zero means sub-ms rounded stage, not zero-duration successful run",
+        "proof_expr_nodes": "recursive Lean.Expr tree node count including binder types and repeated occurrences; referenced constant declarations not unfolded",
+        "sampled_peak_tree_rss_bytes": "bytes, sampled sum of RSS in process group; includes shared pages repeatedly, may miss short peaks",
+        "system_seconds": "s, wait4 system CPU including waited descendants",
+        "user_seconds": "s, wait4 user CPU including waited descendants",
+        "wait4_maxrss_kib": "KiB, largest individual-process resident-set high-water mark, not sum of tree peaks"
+      }
+    }
+  ]
+}

@@ -53,6 +53,7 @@ jobs:
         # The toolchain is pinned by the repo's `lean-toolchain` file (single
         # source of truth); elan is installed without a default toolchain to
         # avoid downloading an unpinned "stable" release.
+        timeout-minutes: 10
         run: |
           curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y --default-toolchain none
           echo "/home/runner/.elan/bin" >> $GITHUB_PATH
@@ -60,11 +61,13 @@ jobs:
 
       - name: Install Lean toolchain
         # The toolchain download is a large GitHub-release fetch; retry
-        # transient failures before giving up.
+        # transient failures before giving up. A stalled download never
+        # returns, so each attempt gets its own time limit.
+        timeout-minutes: 35
         run: |
           TOOLCHAIN="$(cat lean-toolchain)"
           for attempt in 1 2 3; do
-            /home/runner/.elan/bin/elan toolchain install "$TOOLCHAIN" && break
+            timeout --kill-after=30 600 /home/runner/.elan/bin/elan toolchain install "$TOOLCHAIN" && break
             if [ "$attempt" = 3 ]; then
               echo "::error::Failed to install Lean toolchain $TOOLCHAIN after 3 attempts"
               exit 1

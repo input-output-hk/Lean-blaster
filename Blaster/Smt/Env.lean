@@ -2,6 +2,8 @@ import Lean
 import Blaster.Command.Options
 import Blaster.Optimize.Env
 import Blaster.Smt.EmitCommand
+import Blaster.Smt.FiniteFieldModel
+import Blaster.FiniteField.Recognize
 
 open Lean Meta Blaster.Optimize Blaster.Options
 
@@ -19,6 +21,9 @@ private def normalizeLine (s : String) : String :=
 structure SolverCandidate where
   cmd : String
   prefixArgs : Array String := #[]
+  /-- Exact argv qualified by an offline capability probe. When present, replaces
+      descriptor spawn arguments; ordinary candidates keep their existing argv. -/
+  spawnArgs? : Option (Array String) := none
 deriving Repr, BEq, Inhabited
 
 /-- Human-readable candidate spelling used only in diagnostics. -/
@@ -46,7 +51,9 @@ def SolverDescriptor.probeInvocation (desc : SolverDescriptor) (candidate : Solv
 /-- Exact executable and argv used to start a candidate as an SMT process. -/
 def SolverDescriptor.spawnInvocation (desc : SolverDescriptor) (candidate : SolverCandidate) :
     String × Array String :=
-  (candidate.cmd, candidate.prefixArgs ++ desc.spawnArgs)
+  (candidate.cmd, match candidate.spawnArgs? with
+    | some args => args
+    | none => candidate.prefixArgs ++ desc.spawnArgs)
 
 /-- Per-solver executable description.
     NOTE: cvc5 is spawned with `--parsing-mode=lenient` because Blaster emits
@@ -426,10 +433,14 @@ def resolveTimeout (sOpts : BlasterOptions) : IO (Option Nat) := do
   | .error message => throw <| IO.userError message
 
 /-- Spawn one independently owned solver session and retain enough launch
-    metadata to reproduce the exact invocation. -/
-def createSolverSession (solver : SmtSolver) : IO (SolverSession × SolverRecord) := do
+    metadata to reproduce the exact invocation. A preflight-approved candidate
+    is used verbatim, without executable discovery or another version probe. -/
+def createSolverSession (solver : SmtSolver) (candidate? : Option SolverCandidate := none) :
+    IO (SolverSession × SolverRecord) := do
   let desc := solver.descriptor
-  let executable ← findSolverExecutable solver
+  let executable ← match candidate? with
+    | some candidate => pure { candidate, version := "offline capability-qualified" }
+    | none => findSolverExecutable solver
   let (cmd, args) := desc.spawnInvocation executable.candidate
   let process ← IO.Process.spawn {
     stdin  := .piped
@@ -496,8 +507,7 @@ private def cleanupOwnedSession (session : SolverSession) (hard : Bool) : Transl
     catch _ => pure none
   if alreadyExited.isNone then
     if hard then
-      try p.kill catch _ => pure ()
-      try discard p.wait catch _ => pure ()
+      killAndReap p
     else
       try
         p.stdin.putStr "(exit)\n"
@@ -505,8 +515,7 @@ private def cleanupOwnedSession (session : SolverSession) (hard : Bool) : Transl
         let (_, p) ← p.takeStdin
         discard p.wait
       catch _ =>
-        try p.kill catch _ => pure ()
-        try discard p.wait catch _ => pure ()
+        killAndReap p
   let stderr ←
     try p.stderr.readToEnd
     catch _ => pure ""
@@ -526,7 +535,12 @@ private def retireAndCleanup (solver : SmtSolver) (hard : Bool) : TranslateEnvT 
 
 private def retireAllSessions (hard : Bool) : TranslateEnvT Unit := do
   let sessions := (← get).smtEnv.sessions
-  modify fun env => { env with smtEnv.sessions := #[], smtEnv.emitProc := none }
+  modify fun env =>
+    { env with
+      smtEnv.sessions := #[]
+      smtEnv.deferredSessions := #[]
+      smtEnv.emitProc := none
+      smtEnv.nativeFieldQualified := false }
   for session in sessions do
     discard <| cleanupOwnedSession session hard
 
@@ -1188,9 +1202,10 @@ private def upsertSolverRecord (record : SolverRecord) : TranslateEnvT Unit :=
     retained canonical query so incremental state-machine checks still compare
     the same encoding after `first` retired a prior loser. -/
 private def spawnAndInitializeSolver
-    (solver : SmtSolver) (replay : Bool) : TranslateEnvT (Except String Unit) := do
+    (solver : SmtSolver) (replay : Bool) (candidate? : Option SolverCandidate := none) :
+    TranslateEnvT (Except String Unit) := do
   try
-    let (session, record) ← createSolverSession solver
+    let (session, record) ← createSolverSession solver candidate?
     let sOpts := (← get).optEnv.options.solverOptions
     let setup := solverSetupCommands solver sOpts
     modify fun env => { env with smtEnv.sessions := env.smtEnv.sessions.push session }
@@ -1244,8 +1259,10 @@ private partial def awaitModelResponse
 private def requestModelResponse
     (session : SolverSession) (command : SmtCommand) (readResponse : IO String) :
     TranslateEnvT (Except String String) := do
-  if (← getSession? session.solver).isNone then
-    return .error s!"solver={session.solver}; model evidence is unavailable after session retirement"
+  let some current ← getSession? session.solver
+    | return .error s!"solver={session.solver}; model evidence is unavailable after session retirement"
+  if current.process.pid != session.process.pid then
+    return .error s!"solver={session.solver}; model evidence belongs to a retired session"
   let startedMs ← IO.monoMsNow
   let commandText := toString command
   modifySolverRecord session.solver fun record =>
@@ -1295,6 +1312,60 @@ private def evalTermFor
             return (none, some s!"Response framing failed: expected ((term value)); raw response: {response.trim}")
           return (some value, none)
 
+/-- Native model evidence uses the retained source scope, never the printed
+    variable name as a type witness. A non-residue in a native mixed Boolean
+    query keeps the ordinary raw-value path. No Lean value/proof is constructed. -/
+private def modelModulusFor (symbol : SmtSymbol) (name : Name) :
+    TranslateEnvT (Except String (Option Nat)) := do
+  let mut association := none
+  for entry in (← get).smtEnv.sourceAssociations do
+    if entry.symbol == symbol then
+      if association.isSome then
+        return .error "finite-field source association is ambiguous"
+      association := some entry
+  let some entry := association
+    | return .error "finite-field source association is missing"
+  try
+    withLCtx entry.localContext entry.localInstances do
+      unless entry.userName == name && entry.source.isFVar do
+        return .error "finite-field source variable does not match its declaration"
+      unless ← isDefEq (← inferType entry.source) entry.type do
+        return .error "finite-field source type does not match its declaration"
+      let descriptor ← Blaster.FiniteField.getResidueDescriptor? entry.type
+      match descriptor, entry.modulus with
+      | none, none => return .ok none
+      | some descriptor, some modulus =>
+          if descriptor.modulusValue == modulus && modulus ≥ 2 then
+            return .ok (some modulus)
+          return .error "finite-field source modulus does not match its type"
+      | _, _ => return .error "finite-field source type/modulus metadata is inconsistent"
+  catch error =>
+    if error.isInterrupt || error.isRuntime then throw error
+    return .error "finite-field source type could not be validated"
+
+/-- Decode only native residue variables, with bounded framing and literal
+    checks before display. Retire a failed evidence stream rather than letting a
+    malformed response become the next variable's value. SAT remains unchanged. -/
+private def evalModelVariableFor (session : SolverSession) (symbol : SmtSymbol) (name : Name) :
+    TranslateEnvT (Option String × Option String) := do
+  let term := smtSimpleVarId symbol
+  if !(← get).smtEnv.nativeFieldQualified then return ← evalTermFor session term
+  let unavailable (diagnostic : String) : TranslateEnvT (Option String × Option String) := do
+    discard <| retireAndCleanup session.solver true
+    return (none, some diagnostic)
+  match ← modelModulusFor symbol name with
+  | .error diagnostic => unavailable diagnostic
+  | .ok none => evalTermFor session term
+  | .ok (some modulus) =>
+      match ← requestModelResponse session (.getValue term)
+          (FiniteFieldModel.readResponse session.process.stdout) with
+      | .error _ => unavailable "finite-field model response unavailable (read, timeout, or session failure)"
+      | .ok response =>
+          match FiniteFieldModel.decodeResponse (toString symbol) modulus response with
+          | .error diagnostic => unavailable diagnostic
+          | .ok value =>
+              return (some s!"({value} : Blaster.FiniteField.Residue {modulus}) [#f{value}m{modulus}]", none)
+
 private def getModelFor (solver : SmtSolver) : TranslateEnvT ModelEvidence := do
   let some session ← getSession? solver
     | return { diagnostic := some s!"Solver process failed during model retrieval: {solver} session is unavailable" }
@@ -1314,7 +1385,7 @@ private def getModelFor (solver : SmtSolver) : TranslateEnvT ModelEvidence := do
     let mut diagnostics : Array String := #[]
     for vars in topVars do
       for entry in vars.reverse do
-        let (rendered, diagnostic) ← evalTermFor session (smtSimpleVarId entry.1)
+        let (rendered, diagnostic) ← evalModelVariableFor session entry.1 entry.2
         match rendered with
         | some value => counterexample := counterexample.push s!"{entry.2}: {value}"
         | none => counterexample := counterexample.push s!"{entry.2}: <counterexample unavailable>"
@@ -1702,8 +1773,10 @@ private def configuredSolvers (sOpts : BlasterOptions) : IO (Array SmtSolver) :=
 
 /-- Resolve options, create independent sessions, and send only each backend's
     setup transcript. Subsequent translation commands are broadcast once from
-    the canonical query path. -/
-def setBlasterProcess : TranslateEnvT Unit := do
+    the canonical query path. `candidate?` supplies the exact offline-qualified
+    executable and argv for single-cvc5 finite-field preflight; it never changes
+    session ownership, and omission preserves ordinary solver discovery. -/
+def setBlasterProcess (candidate? : Option SolverCandidate := none) : TranslateEnvT Unit := do
   let original := (← get).optEnv.options.solverOptions
   match validateSolverOptions original with
   | .error error => throwEnvError error
@@ -1711,6 +1784,8 @@ def setBlasterProcess : TranslateEnvT Unit := do
   let timeout ← resolveTimeout original
   let sOpts := { original with timeout }
   let solvers ← configuredSolvers sOpts
+  if candidate?.isSome && (sOpts.solverMode != .single || solvers != #[.cvc5]) then
+    throwEnvError "An offline-qualified finite-field candidate requires single-cvc5 solver mode."
   modify fun env =>
     { env with
       smtEnv.configuredSolvers := solvers,
@@ -1730,7 +1805,7 @@ def setBlasterProcess : TranslateEnvT Unit := do
       }
   else
     for solver in solvers do
-      match ← spawnAndInitializeSolver solver false with
+      match ← spawnAndInitializeSolver solver false candidate? with
       | .ok () => pure ()
       | .error error =>
           throwEnvError s!"❌ Failed to initialize required {solver} solver: {error}"

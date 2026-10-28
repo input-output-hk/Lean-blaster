@@ -1,0 +1,766 @@
+[
+  {
+    "id": "native-f7-square",
+    "corpus_ids": [
+      "f7-square"
+    ],
+    "category": "native-pipeline",
+    "argv": [
+      "env",
+      "FFM20_NATIVE_CASE=native-f7-square",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "benchmarks/finite-fields/Native.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "required_markers": [
+      "FFM20_METRIC ",
+      "native-f7-square",
+      "[End]: Optimization",
+      "FFM20_NATIVE_CHECK native-f7-square",
+      "[End]: Translation",
+      "[End]: Solve",
+      "(_ FiniteField "
+    ],
+    "input_files": [
+      "benchmarks/finite-fields/Native.lean",
+      "docs/finite-fields/benchmark-corpus.json",
+      "Tests/FiniteField/LargePrime.lean",
+      "Blaster/Smt/Translate.lean",
+      "Blaster/Smt/FiniteFieldPreflight.lean",
+      "Blaster/Smt/Translate/FiniteField.lean",
+      "Blaster/Logging/Basic.lean",
+      "ff-tests/PolynomialSource.lean",
+      "ff-tests/DivisionSource.lean",
+      "docs/finite-fields/solver-manifest.json",
+      "fixtures/finite-fields/audit/Semantic.lean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "stages": {
+      "optimization": {
+        "source": "stdout profileTask",
+        "label": "Optimization",
+        "resolution_ms": 1
+      },
+      "translation": {
+        "source": "stdout profileTask",
+        "label": "Translation",
+        "unavailable_if": "optimizer-only or unsupported rejection; no successful End trace"
+      },
+      "submission": {
+        "source": "stdout profileTask",
+        "label": "Submitting Smt Query",
+        "unavailable_if": "no native query submitted"
+      },
+      "solving": {
+        "source": "stdout profileTask",
+        "label": "Solve",
+        "scope": "checkSat including solver protocol and optional model extraction; excludes preflight/setup and final display",
+        "unavailable_if": "optimizer-only or unsupported"
+      },
+      "value_display": {
+        "seconds": null,
+        "reason": "No separate production timer; model extraction included in Solve, rendering outside Solve."
+      },
+      "solver_only": {
+        "seconds": null,
+        "reason": "No separate retained successful check timer."
+      },
+      "preflight": {
+        "seconds": null,
+        "reason": "No independent production timer."
+      },
+      "proof_reading": {
+        "seconds": null,
+        "reason": "Production native proof reading unavailable."
+      },
+      "proof_checking": {
+        "seconds": null,
+        "reason": "Solver verdict is not a reconstructed Lean proof."
+      },
+      "verified_transport": {
+        "seconds": null,
+        "reason": "No verified native result-to-theorem transport."
+      }
+    },
+    "notes": "square identity, Context slots 0/1 replaced by universally quantified nominal F7 variables. Expected route: native-cvc5. Requires parent environment BLASTER_FF_CVC5 set to the absolute staged .artifacts/finite-fields/solving/bin/cvc5; production performs offline capability qualification. No PATH fallback. Existing verbosity instrumentation and exact retained solver transcript are observations only. Proof size is null, not compiled artifact bytes. Imports and common checked source declarations are included in parent whole-file timing; stage traces isolate only production profileTask scopes. Lean profiler enabled for exclusive whole-file elaboration/kernel components; profiler stderr is retained, not required to be empty."
+  },
+  {
+    "id": "native-f7-false",
+    "corpus_ids": [
+      "f7-false-goal",
+      "f7-false-certificate"
+    ],
+    "category": "native-pipeline",
+    "argv": [
+      "env",
+      "FFM20_NATIVE_CASE=native-f7-false",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "benchmarks/finite-fields/Native.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "required_markers": [
+      "FFM20_METRIC ",
+      "native-f7-false",
+      "[End]: Optimization",
+      "FFM20_NATIVE_CHECK native-f7-false",
+      "[End]: Translation",
+      "[End]: Solve",
+      "(_ FiniteField "
+    ],
+    "input_files": [
+      "benchmarks/finite-fields/Native.lean",
+      "docs/finite-fields/benchmark-corpus.json",
+      "Tests/FiniteField/LargePrime.lean",
+      "Blaster/Smt/Translate.lean",
+      "Blaster/Smt/FiniteFieldPreflight.lean",
+      "Blaster/Smt/Translate/FiniteField.lean",
+      "Blaster/Logging/Basic.lean",
+      "ff-tests/PolynomialSource.lean",
+      "ff-tests/DivisionSource.lean",
+      "docs/finite-fields/solver-manifest.json",
+      "fixtures/finite-fields/audit/Semantic.lean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "stages": {
+      "optimization": {
+        "source": "stdout profileTask",
+        "label": "Optimization",
+        "resolution_ms": 1
+      },
+      "translation": {
+        "source": "stdout profileTask",
+        "label": "Translation",
+        "unavailable_if": "optimizer-only or unsupported rejection; no successful End trace"
+      },
+      "submission": {
+        "source": "stdout profileTask",
+        "label": "Submitting Smt Query",
+        "unavailable_if": "no native query submitted"
+      },
+      "solving": {
+        "source": "stdout profileTask",
+        "label": "Solve",
+        "scope": "checkSat including solver protocol and optional model extraction; excludes preflight/setup and final display",
+        "unavailable_if": "optimizer-only or unsupported"
+      },
+      "value_display": {
+        "seconds": null,
+        "reason": "No separate production timer; model extraction included in Solve, rendering outside Solve."
+      },
+      "solver_only": {
+        "seconds": null,
+        "reason": "No separate retained successful check timer."
+      },
+      "preflight": {
+        "seconds": null,
+        "reason": "No independent production timer."
+      },
+      "proof_reading": {
+        "seconds": null,
+        "reason": "Production native proof reading unavailable."
+      },
+      "proof_checking": {
+        "seconds": null,
+        "reason": "Solver verdict is not a reconstructed Lean proof."
+      },
+      "verified_transport": {
+        "seconds": null,
+        "reason": "No verified native result-to-theorem transport."
+      }
+    },
+    "notes": "false x=x+1 goal; requests and retains actual get-value evidence. Expected route: native-cvc5. Requires parent environment BLASTER_FF_CVC5 set to the absolute staged .artifacts/finite-fields/solving/bin/cvc5; production performs offline capability qualification. No PATH fallback. Existing verbosity instrumentation and exact retained solver transcript are observations only. Proof size is null, not compiled artifact bytes. Imports and common checked source declarations are included in parent whole-file timing; stage traces isolate only production profileTask scopes. Lean profiler enabled for exclusive whole-file elaboration/kernel components; profiler stderr is retained, not required to be empty."
+  },
+  {
+    "id": "native-curve25519-identity",
+    "corpus_ids": [
+      "curve25519-identity"
+    ],
+    "category": "native-pipeline",
+    "argv": [
+      "env",
+      "FFM20_NATIVE_CASE=native-curve25519-identity",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "benchmarks/finite-fields/Native.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "required_markers": [
+      "FFM20_METRIC ",
+      "native-curve25519-identity",
+      "[End]: Optimization",
+      "FFM20_NATIVE_CHECK native-curve25519-identity",
+      "[End]: Translation",
+      "[End]: Solve",
+      "(_ FiniteField "
+    ],
+    "input_files": [
+      "benchmarks/finite-fields/Native.lean",
+      "docs/finite-fields/benchmark-corpus.json",
+      "Tests/FiniteField/LargePrime.lean",
+      "Blaster/Smt/Translate.lean",
+      "Blaster/Smt/FiniteFieldPreflight.lean",
+      "Blaster/Smt/Translate/FiniteField.lean",
+      "Blaster/Logging/Basic.lean",
+      "ff-tests/PolynomialSource.lean",
+      "ff-tests/DivisionSource.lean",
+      "docs/finite-fields/solver-manifest.json",
+      "fixtures/finite-fields/audit/Semantic.lean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "stages": {
+      "optimization": {
+        "source": "stdout profileTask",
+        "label": "Optimization",
+        "resolution_ms": 1
+      },
+      "translation": {
+        "source": "stdout profileTask",
+        "label": "Translation",
+        "unavailable_if": "optimizer-only or unsupported rejection; no successful End trace"
+      },
+      "submission": {
+        "source": "stdout profileTask",
+        "label": "Submitting Smt Query",
+        "unavailable_if": "no native query submitted"
+      },
+      "solving": {
+        "source": "stdout profileTask",
+        "label": "Solve",
+        "scope": "checkSat including solver protocol and optional model extraction; excludes preflight/setup and final display",
+        "unavailable_if": "optimizer-only or unsupported"
+      },
+      "value_display": {
+        "seconds": null,
+        "reason": "No separate production timer; model extraction included in Solve, rendering outside Solve."
+      },
+      "solver_only": {
+        "seconds": null,
+        "reason": "No separate retained successful check timer."
+      },
+      "preflight": {
+        "seconds": null,
+        "reason": "No independent production timer."
+      },
+      "proof_reading": {
+        "seconds": null,
+        "reason": "Production native proof reading unavailable."
+      },
+      "proof_checking": {
+        "seconds": null,
+        "reason": "Solver verdict is not a reconstructed Lean proof."
+      },
+      "verified_transport": {
+        "seconds": null,
+        "reason": "No verified native result-to-theorem transport."
+      }
+    },
+    "notes": "(x+1)*(x-1)=x^2-1 over the exact checked selected prime. Expected route: native-cvc5. Requires parent environment BLASTER_FF_CVC5 set to the absolute staged .artifacts/finite-fields/solving/bin/cvc5; production performs offline capability qualification. No PATH fallback. Existing verbosity instrumentation and exact retained solver transcript are observations only. Proof size is null, not compiled artifact bytes. Imports and common checked source declarations are included in parent whole-file timing; stage traces isolate only production profileTask scopes. Lean profiler enabled for exclusive whole-file elaboration/kernel components; profiler stderr is retained, not required to be empty."
+  },
+  {
+    "id": "native-f7-circuit",
+    "corpus_ids": [
+      "f7-circuit"
+    ],
+    "category": "native-pipeline",
+    "argv": [
+      "env",
+      "FFM20_NATIVE_CASE=native-f7-circuit",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "benchmarks/finite-fields/Native.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "required_markers": [
+      "FFM20_METRIC ",
+      "native-f7-circuit",
+      "[End]: Optimization"
+    ],
+    "input_files": [
+      "benchmarks/finite-fields/Native.lean",
+      "docs/finite-fields/benchmark-corpus.json",
+      "Tests/FiniteField/LargePrime.lean",
+      "Blaster/Smt/Translate.lean",
+      "Blaster/Smt/FiniteFieldPreflight.lean",
+      "Blaster/Smt/Translate/FiniteField.lean",
+      "Blaster/Logging/Basic.lean",
+      "ff-tests/PolynomialSource.lean",
+      "ff-tests/DivisionSource.lean",
+      "docs/finite-fields/solver-manifest.json",
+      "fixtures/finite-fields/audit/Circuits.lean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "stages": {
+      "optimization": {
+        "source": "stdout profileTask",
+        "label": "Optimization",
+        "resolution_ms": 1
+      },
+      "translation": {
+        "source": "stdout profileTask",
+        "label": "Translation",
+        "unavailable_if": "optimizer-only or unsupported rejection; no successful End trace"
+      },
+      "submission": {
+        "source": "stdout profileTask",
+        "label": "Submitting Smt Query",
+        "unavailable_if": "no native query submitted"
+      },
+      "solving": {
+        "source": "stdout profileTask",
+        "label": "Solve",
+        "scope": "checkSat including solver protocol and optional model extraction; excludes preflight/setup and final display",
+        "unavailable_if": "optimizer-only or unsupported"
+      },
+      "value_display": {
+        "seconds": null,
+        "reason": "No separate production timer; model extraction included in Solve, rendering outside Solve."
+      },
+      "solver_only": {
+        "seconds": null,
+        "reason": "No separate retained successful check timer."
+      },
+      "preflight": {
+        "seconds": null,
+        "reason": "No independent production timer."
+      },
+      "proof_reading": {
+        "seconds": null,
+        "reason": "Production native proof reading unavailable."
+      },
+      "proof_checking": {
+        "seconds": null,
+        "reason": "Solver verdict is not a reconstructed Lean proof."
+      },
+      "verified_transport": {
+        "seconds": null,
+        "reason": "No verified native result-to-theorem transport."
+      }
+    },
+    "notes": "same five constraints with four direct nominal variables; optimizer discharge is explicitly recorded, not counted as native solving. Expected route: native-or-optimizer. Requires parent environment BLASTER_FF_CVC5 set to the absolute staged .artifacts/finite-fields/solving/bin/cvc5; production performs offline capability qualification. No PATH fallback. Existing verbosity instrumentation and exact retained solver transcript are observations only. Proof size is null, not compiled artifact bytes. Imports and common checked source declarations are included in parent whole-file timing; stage traces isolate only production profileTask scopes. Lean profiler enabled for exclusive whole-file elaboration/kernel components; profiler stderr is retained, not required to be empty."
+  },
+  {
+    "id": "native-curve25519-circuit",
+    "corpus_ids": [
+      "curve25519-circuit"
+    ],
+    "category": "native-pipeline",
+    "argv": [
+      "env",
+      "FFM20_NATIVE_CASE=native-curve25519-circuit",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "benchmarks/finite-fields/Native.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "required_markers": [
+      "FFM20_METRIC ",
+      "native-curve25519-circuit",
+      "[End]: Optimization"
+    ],
+    "input_files": [
+      "benchmarks/finite-fields/Native.lean",
+      "docs/finite-fields/benchmark-corpus.json",
+      "Tests/FiniteField/LargePrime.lean",
+      "Blaster/Smt/Translate.lean",
+      "Blaster/Smt/FiniteFieldPreflight.lean",
+      "Blaster/Smt/Translate/FiniteField.lean",
+      "Blaster/Logging/Basic.lean",
+      "ff-tests/PolynomialSource.lean",
+      "ff-tests/DivisionSource.lean",
+      "docs/finite-fields/solver-manifest.json",
+      "fixtures/finite-fields/audit/Circuits.lean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "stages": {
+      "optimization": {
+        "source": "stdout profileTask",
+        "label": "Optimization",
+        "resolution_ms": 1
+      },
+      "translation": {
+        "source": "stdout profileTask",
+        "label": "Translation",
+        "unavailable_if": "optimizer-only or unsupported rejection; no successful End trace"
+      },
+      "submission": {
+        "source": "stdout profileTask",
+        "label": "Submitting Smt Query",
+        "unavailable_if": "no native query submitted"
+      },
+      "solving": {
+        "source": "stdout profileTask",
+        "label": "Solve",
+        "scope": "checkSat including solver protocol and optional model extraction; excludes preflight/setup and final display",
+        "unavailable_if": "optimizer-only or unsupported"
+      },
+      "value_display": {
+        "seconds": null,
+        "reason": "No separate production timer; model extraction included in Solve, rendering outside Solve."
+      },
+      "solver_only": {
+        "seconds": null,
+        "reason": "No separate retained successful check timer."
+      },
+      "preflight": {
+        "seconds": null,
+        "reason": "No independent production timer."
+      },
+      "proof_reading": {
+        "seconds": null,
+        "reason": "Production native proof reading unavailable."
+      },
+      "proof_checking": {
+        "seconds": null,
+        "reason": "Solver verdict is not a reconstructed Lean proof."
+      },
+      "verified_transport": {
+        "seconds": null,
+        "reason": "No verified native result-to-theorem transport."
+      }
+    },
+    "notes": "same eight-gate chain with ten direct nominal variables; optimizer discharge if observed is explicitly recorded. Expected route: native-or-optimizer. Requires parent environment BLASTER_FF_CVC5 set to the absolute staged .artifacts/finite-fields/solving/bin/cvc5; production performs offline capability qualification. No PATH fallback. Existing verbosity instrumentation and exact retained solver transcript are observations only. Proof size is null, not compiled artifact bytes. Imports and common checked source declarations are included in parent whole-file timing; stage traces isolate only production profileTask scopes. Lean profiler enabled for exclusive whole-file elaboration/kernel components; profiler stderr is retained, not required to be empty."
+  },
+  {
+    "id": "native-f7-self-division",
+    "corpus_ids": [
+      "historical-self-division"
+    ],
+    "category": "native-pipeline",
+    "argv": [
+      "env",
+      "FFM20_NATIVE_CASE=native-f7-self-division",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "benchmarks/finite-fields/Native.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "required_markers": [
+      "FFM20_METRIC ",
+      "native-f7-self-division",
+      "[End]: Optimization",
+      "FFM20_NATIVE_CHECK native-f7-self-division",
+      "[End]: Translation",
+      "[End]: Solve",
+      "(_ FiniteField "
+    ],
+    "input_files": [
+      "benchmarks/finite-fields/Native.lean",
+      "docs/finite-fields/benchmark-corpus.json",
+      "Tests/FiniteField/LargePrime.lean",
+      "Blaster/Smt/Translate.lean",
+      "Blaster/Smt/FiniteFieldPreflight.lean",
+      "Blaster/Smt/Translate/FiniteField.lean",
+      "Blaster/Logging/Basic.lean",
+      "ff-tests/PolynomialSource.lean",
+      "ff-tests/DivisionSource.lean",
+      "docs/finite-fields/solver-manifest.json",
+      "fixtures/finite-fields/audit/Semantic.lean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "stages": {
+      "optimization": {
+        "source": "stdout profileTask",
+        "label": "Optimization",
+        "resolution_ms": 1
+      },
+      "translation": {
+        "source": "stdout profileTask",
+        "label": "Translation",
+        "unavailable_if": "optimizer-only or unsupported rejection; no successful End trace"
+      },
+      "submission": {
+        "source": "stdout profileTask",
+        "label": "Submitting Smt Query",
+        "unavailable_if": "no native query submitted"
+      },
+      "solving": {
+        "source": "stdout profileTask",
+        "label": "Solve",
+        "scope": "checkSat including solver protocol and optional model extraction; excludes preflight/setup and final display",
+        "unavailable_if": "optimizer-only or unsupported"
+      },
+      "value_display": {
+        "seconds": null,
+        "reason": "No separate production timer; model extraction included in Solve, rendering outside Solve."
+      },
+      "solver_only": {
+        "seconds": null,
+        "reason": "No separate retained successful check timer."
+      },
+      "preflight": {
+        "seconds": null,
+        "reason": "No independent production timer."
+      },
+      "proof_reading": {
+        "seconds": null,
+        "reason": "Production native proof reading unavailable."
+      },
+      "proof_checking": {
+        "seconds": null,
+        "reason": "Solver verdict is not a reconstructed Lean proof."
+      },
+      "verified_transport": {
+        "seconds": null,
+        "reason": "No verified native result-to-theorem transport."
+      }
+    },
+    "notes": "NEW nominal F7 analogue of catalogue proposition; historical modulus/input/revision remain unavailable. Actual proved PrimeModulus instance; independently proved sourceSelfDivision is not solver reconstruction. Expected route: native-cvc5. Requires parent environment BLASTER_FF_CVC5 set to the absolute staged .artifacts/finite-fields/solving/bin/cvc5; production performs offline capability qualification. No PATH fallback. Existing verbosity instrumentation and exact retained solver transcript are observations only. Proof size is null, not compiled artifact bytes. Imports and common checked source declarations are included in parent whole-file timing; stage traces isolate only production profileTask scopes. Lean profiler enabled for exclusive whole-file elaboration/kernel components; profiler stderr is retained, not required to be empty."
+  },
+  {
+    "id": "native-unsupported-representation",
+    "corpus_ids": [
+      "historical-val-order"
+    ],
+    "category": "native-pipeline",
+    "argv": [
+      "env",
+      "FFM20_NATIVE_CASE=native-unsupported-representation",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "benchmarks/finite-fields/Native.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "required_markers": [
+      "FFM20_METRIC ",
+      "native-unsupported-representation",
+      "[Start]: Optimization",
+      "FFM20_UNSUPPORTED native-unsupported-representation",
+      "unsupported"
+    ],
+    "input_files": [
+      "benchmarks/finite-fields/Native.lean",
+      "docs/finite-fields/benchmark-corpus.json",
+      "Tests/FiniteField/LargePrime.lean",
+      "Blaster/Smt/Translate.lean",
+      "Blaster/Smt/FiniteFieldPreflight.lean",
+      "Blaster/Smt/Translate/FiniteField.lean",
+      "Blaster/Logging/Basic.lean",
+      "ff-tests/PolynomialSource.lean",
+      "ff-tests/DivisionSource.lean",
+      "docs/finite-fields/solver-manifest.json",
+      "fixtures/finite-fields/audit/Semantic.lean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "stages": {
+      "optimization": {
+        "source": "stdout profileTask",
+        "label": "Optimization",
+        "resolution_ms": 1,
+        "unavailable_if": "Admission rejects before completed Optimization trace"
+      },
+      "translation": {
+        "source": "stdout profileTask",
+        "label": "Translation",
+        "unavailable_if": "optimizer-only or unsupported rejection; no successful End trace"
+      },
+      "submission": {
+        "source": "stdout profileTask",
+        "label": "Submitting Smt Query",
+        "unavailable_if": "no native query submitted"
+      },
+      "solving": {
+        "source": "stdout profileTask",
+        "label": "Solve",
+        "scope": "checkSat including solver protocol and optional model extraction; excludes preflight/setup and final display",
+        "unavailable_if": "optimizer-only or unsupported"
+      },
+      "value_display": {
+        "seconds": null,
+        "reason": "No separate production timer; model extraction included in Solve, rendering outside Solve."
+      },
+      "solver_only": {
+        "seconds": null,
+        "reason": "No separate retained successful check timer."
+      },
+      "preflight": {
+        "seconds": null,
+        "reason": "No independent production timer."
+      },
+      "proof_reading": {
+        "seconds": null,
+        "reason": "Production native proof reading unavailable."
+      },
+      "proof_checking": {
+        "seconds": null,
+        "reason": "Solver verdict is not a reconstructed Lean proof."
+      },
+      "verified_transport": {
+        "seconds": null,
+        "reason": "No verified native result-to-theorem transport."
+      }
+    },
+    "notes": "NEW nominal F7 representation/order probe x.rep.val<3, not a recovered historical expression; requires explicit unsupported rejection before query assertion/check-sat. Expected route: unsupported. Requires parent environment BLASTER_FF_CVC5 set to the absolute staged .artifacts/finite-fields/solving/bin/cvc5; production performs offline capability qualification. No PATH fallback. Existing verbosity instrumentation and exact retained solver transcript are observations only. Proof size is null, not compiled artifact bytes. Imports and common checked source declarations are included in parent whole-file timing; stage traces isolate only production profileTask scopes. Lean profiler enabled for exclusive whole-file elaboration/kernel components; profiler stderr is retained, not required to be empty."
+  },
+  {
+    "id": "native-f7-closed-wrap",
+    "corpus_ids": [
+      "f7-constants"
+    ],
+    "category": "native-pipeline",
+    "argv": [
+      "env",
+      "FFM20_NATIVE_CASE=native-f7-closed-wrap",
+      "lake",
+      "env",
+      "lean",
+      "-DmaxHeartbeats=200000",
+      "-Dprofiler=true",
+      "-Dprofiler.threshold=0",
+      "benchmarks/finite-fields/Native.lean"
+    ],
+    "cwd": ".",
+    "expected": {
+      "exit_code": 0
+    },
+    "required_markers": [
+      "FFM20_METRIC ",
+      "native-f7-closed-wrap",
+      "[End]: Optimization"
+    ],
+    "input_files": [
+      "benchmarks/finite-fields/Native.lean",
+      "docs/finite-fields/benchmark-corpus.json",
+      "Tests/FiniteField/LargePrime.lean",
+      "Blaster/Smt/Translate.lean",
+      "Blaster/Smt/FiniteFieldPreflight.lean",
+      "Blaster/Smt/Translate/FiniteField.lean",
+      "Blaster/Logging/Basic.lean",
+      "ff-tests/PolynomialSource.lean",
+      "ff-tests/DivisionSource.lean",
+      "docs/finite-fields/solver-manifest.json",
+      "fixtures/finite-fields/audit/Semantic.lean"
+    ],
+    "limits": {
+      "wall_seconds": 30,
+      "memory_mib": 4096,
+      "heartbeats": 200000
+    },
+    "stages": {
+      "optimization": {
+        "source": "stdout profileTask",
+        "label": "Optimization",
+        "resolution_ms": 1
+      },
+      "translation": {
+        "source": "stdout profileTask",
+        "label": "Translation",
+        "unavailable_if": "optimizer-only or unsupported rejection; no successful End trace"
+      },
+      "submission": {
+        "source": "stdout profileTask",
+        "label": "Submitting Smt Query",
+        "unavailable_if": "no native query submitted"
+      },
+      "solving": {
+        "source": "stdout profileTask",
+        "label": "Solve",
+        "scope": "checkSat including solver protocol and optional model extraction; excludes preflight/setup and final display",
+        "unavailable_if": "optimizer-only or unsupported"
+      },
+      "value_display": {
+        "seconds": null,
+        "reason": "No separate production timer; model extraction included in Solve, rendering outside Solve."
+      },
+      "solver_only": {
+        "seconds": null,
+        "reason": "No separate retained successful check timer."
+      },
+      "preflight": {
+        "seconds": null,
+        "reason": "No independent production timer."
+      },
+      "proof_reading": {
+        "seconds": null,
+        "reason": "Production native proof reading unavailable."
+      },
+      "proof_checking": {
+        "seconds": null,
+        "reason": "Solver verdict is not a reconstructed Lean proof."
+      },
+      "verified_transport": {
+        "seconds": null,
+        "reason": "No verified native result-to-theorem transport."
+      }
+    },
+    "notes": "closed (5:Residue 7)+3=1 control; optimizer-only is explicitly distinguished from native execution. Expected route: native-or-optimizer. Requires parent environment BLASTER_FF_CVC5 set to the absolute staged .artifacts/finite-fields/solving/bin/cvc5; production performs offline capability qualification. No PATH fallback. Existing verbosity instrumentation and exact retained solver transcript are observations only. Proof size is null, not compiled artifact bytes. Imports and common checked source declarations are included in parent whole-file timing; stage traces isolate only production profileTask scopes. Lean profiler enabled for exclusive whole-file elaboration/kernel components; profiler stderr is retained, not required to be empty."
+  }
+]

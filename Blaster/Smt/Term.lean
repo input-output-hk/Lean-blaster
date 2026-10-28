@@ -567,7 +567,7 @@ def notSmt? (t : SmtTerm) : Option SmtTerm :=
 def isParamSort (t : SortExpr) (sName : SmtSymbol) : Bool :=
   match t with
   | .ParamSort nm _ => nm == sName
-  | .SymbolSort _ => false
+  | .SymbolSort _ | .IndexedSort .. => false
 
 /-! Return the smt symbol associated to the given Smt qualified identifier.
 -/

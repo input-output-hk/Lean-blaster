@@ -303,6 +303,8 @@ def getOpaqueSmtEquivFun (f : Expr) (s : SmtSymbol) : TranslateEnvT SmtQualified
 
 -/
 def translateOpaqueFun (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT SmtQualifiedIdent := do
+  if ← isOpaqueResidueOperation n args then
+    throwEnvError "translateOpaqueFun: Residue requires the admitted native polynomial query path in Translate.main: {reprStr (mkAppN f args)}"
   match n with
   | ``Eq
   | ``BEq.beq => getOpaqueSmtEquivFun f eqSymbol
@@ -991,6 +993,11 @@ def translateApp
   Expr.withApp e fun f args => do
     match f with
     | Expr.const n _ =>
+         -- Residue queries use the bounded translator after native preflight.
+         -- Never let generic dispatch bypass admission or lose the canonical
+         -- dictionary/modulus through arbitrary-UF or integer encoding.
+         if ← isOpaqueResidueOperation n args then
+           throwEnvError "translateApp: Residue requires the admitted native polynomial query path in Translate.main: {reprStr e}"
          if let some r ← translateFullyApplied? f n args then return r
          if let some r ← translateEq? f n args then return r
          if let some r ← translateRelational? f n args then return r

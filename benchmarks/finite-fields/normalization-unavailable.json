@@ -1,0 +1,26 @@
+[
+  {
+    "id": "normalization-expr-inv-unavailable",
+    "category": "normalization",
+    "status": "unavailable",
+    "corpus_ids": [],
+    "argv": null,
+    "reason": "The pinned Blaster.FF04.Polynorm.Expr has no inv constructor. No reflected inv input or normalization theorem can be run without changing the committed grammar; no runnable surrogate is supplied.",
+    "input_files": [
+      "Tests/FF04/Polynorm.lean",
+      "docs/finite-fields/benchmark-corpus.json"
+    ]
+  },
+  {
+    "id": "normalization-expr-div-unavailable",
+    "category": "normalization",
+    "status": "unavailable",
+    "corpus_ids": [],
+    "argv": null,
+    "reason": "The pinned Blaster.FF04.Polynorm.Expr has no div constructor. No reflected div input or normalization theorem can be run without changing the committed grammar; no runnable surrogate is supplied.",
+    "input_files": [
+      "Tests/FF04/Polynorm.lean",
+      "docs/finite-fields/benchmark-corpus.json"
+    ]
+  }
+]

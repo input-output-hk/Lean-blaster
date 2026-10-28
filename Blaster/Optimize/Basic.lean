@@ -49,6 +49,22 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
 
           | Expr.app .. =>
              let (f, ras) := getAppFnWithArgs e
+             -- Preserve the canonical dictionary and indexed carrier before
+             -- generic implicit-argument normalization can reduce projections
+             -- such as OfNat.ofNat into the representation. Explicit operands
+             -- still traverse the ordinary optimizer, including nested calls.
+             if let Expr.const name _ := f then
+               if name == ``HPow.hPow && ras.size ≥ 2 then
+                 if (← Blaster.FiniteField.getResidueModulus? ras[0]!).isSome &&
+                     !(← isDefEq ras[1]! (mkConst ``Nat)) then
+                   throwEnvError "native finite-field polynomial fragment: integer exponents are unsupported; use literal natural powers"
+               if name == ``Blaster.FiniteField.Residue.rep ||
+                   name == ``Blaster.FiniteField.Residue.mk then
+                 throwEnvError "native finite-field polynomial fragment: .val/.rep and representation casts are unsupported; keep arithmetic in the nominal Residue carrier"
+               if ← withLocalContext (isOpaqueResidueOperation name ras) then
+                 let pInfo ← getFunEnvInfo f
+                 return ← optimizeExprAux
+                   (.AppOptimizeExplicitArgs f ras 0 ras.size pInfo none :: i_stack)
              -- check if f is a lambda term
              if f.isLambda then
                -- perform beta reduction and apply optimization
@@ -70,6 +86,8 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
               else optimizeExprAux (.InitOptimizeExpr me :: i_stack)
 
           | Expr.proj n idx s =>
+              if n == ``Blaster.FiniteField.Residue then
+                throwEnvError "native finite-field polynomial fragment: .val/.rep and representation casts are unsupported; keep arithmetic in the nominal Residue carrier"
               let i_stack' := .ProjWaitForExpr n idx :: i_stack
               optimizeExprAux (.InitOptimizeExpr s :: i_stack')
 
@@ -257,6 +275,29 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
 @[always_inline, inline]
 def optimizeExpr (e : Expr) : TranslateEnvT Expr :=
   optimizeExprAux [.InitOptimizeExpr e]
+
+/-- Recognize a closed Nat modulus in an environment already initialized by
+    `Optimize.main`. Reject open expressions before normalization or cache lookup,
+    including assigned metavariables until the caller explicitly instantiates them.
+    Cache only successful nonliteral results under the original structural `Expr`
+    key; `mkExpr` is a rewrite-cache lookup, not a hashcons operation.
+
+    Zero, one and composites are numeric results too. This is neither field
+    admission nor proof evidence, and optimizer errors propagate to the caller.
+-/
+def getNatModulus? (e : Expr) : TranslateEnvT (Option Nat) := do
+  if e.hasFVar || e.hasMVar || e.hasLooseBVars then return none
+  if let some n := isNatValue? e then return some n
+  if let some n := (← get).optEnv.modulusCache.get? e then return some n
+  unless isNatType (← inferTypeEnv e) do return none
+  let normalized ← optimizeExpr e
+  let value := match normalized with
+    -- Closed numerals can retain the elaborated OfNat projection (issue #334).
+    | Expr.proj ``OfNat 0 (Expr.app (Expr.const ``instOfNatNat _) n) => isNatValue? n
+    | n => isNatValue? n
+  if let some n := value then
+    modify fun env => { env with optEnv.modulusCache := env.optEnv.modulusCache.insert e n }
+  return value
 
 /-- Same as optimizeExpr but updates local context before optimizing expression -/
 @[always_inline, inline]

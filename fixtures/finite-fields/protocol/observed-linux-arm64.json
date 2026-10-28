@@ -1,0 +1,185 @@
+{
+  "date": "2026-10-27",
+  "profile": "solving",
+  "platform": "linux-arm64",
+  "source_commit": "2b2e84419f70817ec919a784a48806e79f677240",
+  "archive_sha256": "e6cac10f5b80177b21ef56660ea580120fb8b614ceacc8ba8907c0fcfd9a1e7c",
+  "executable_sha256": "b0dd6483a078269251618cf7e354c675120f8a659990111c5bfc785e91057d86",
+  "summary": {
+    "capabilities": {
+      "model": {
+        "passed": true,
+        "required": true,
+        "status": "passed"
+      },
+      "proof_export": {
+        "passed": false,
+        "required": false,
+        "status": "deferred to M2"
+      },
+      "setup": {
+        "passed": true,
+        "required": true,
+        "status": "passed"
+      },
+      "solving": {
+        "passed": true,
+        "required": true,
+        "status": "passed"
+      }
+    },
+    "cases": {
+      "f3-square-unsat": {
+        "passed": true
+      },
+      "f7-linear-model": {
+        "passed": true
+      },
+      "f7-linear-model-typed": {
+        "passed": true
+      },
+      "f7-product-unsat": {
+        "passed": true
+      }
+    },
+    "configuration": {
+      "config": {
+        "passed": true
+      },
+      "version": {
+        "passed": true
+      }
+    },
+    "evidence": "/workspace/lean-blaster/.artifacts/finite-fields/solving/evidence/run-20261027T192546Z-8d758a78d28e4a0d8fa5ba67d1a1667f",
+    "failures": [],
+    "passed": true,
+    "platform": "linux-arm64",
+    "profile": "solving"
+  },
+  "executions": {
+    "version": {
+      "argv": [
+        "/workspace/lean-blaster/.artifacts/finite-fields/solving/bin/cvc5",
+        "--version"
+      ],
+      "command_line": "/workspace/lean-blaster/.artifacts/finite-fields/solving/bin/cvc5 --version\n",
+      "stdin": "",
+      "stdout": "cvc5 1.4.1 [git 2b2e844 on branch HEAD]\ncompiled as a unrestricted build with GCC version 11.4.0 on Sep 25 2026 20:39:58\n\nCopyright (c) 2009-2026 by the authors and their institutional\naffiliations listed at https://cvc5.github.io/people.html\n\nThis build of cvc5 uses GPLed libraries, and is thus covered by\nthe GNU General Public License (GPL) version 3.  Versions of cvc5\nare available that are covered by the (modified) BSD license. If\nyou want to license cvc5 under this license, please configure cvc5\nwith the \"--no-gpl\" option before building from sources.\n\nTHIS SOFTWARE IS PROVIDED AS-IS, WITHOUT ANY WARRANTIES.\nUSE AT YOUR OWN RISK.\n\nThis version of cvc5 is linked against the following non-(L)GPL'ed\nthird party libraries.\n\n  CaDiCaL - Simplified Satisfiability Solver\n  See https://github.com/arminbiere/cadical for copyright information.\n\n  Editline Library\n  See https://thrysoee.dk/editline\n  for copyright information.\n\n  SymFPU - The Symbolic Floating Point Unit\n  See https://github.com/martin-cs/symfpu/tree/main for copyright information.\n\nThis version of cvc5 is linked against the following third party\nlibraries covered by the LGPLv3 license.\nSee licenses/lgpl-3.0.txt for more information.\n\n  LibPoly polynomial library\n  See https://github.com/SRI-CSL/libpoly for copyright and\n  licensing information.\n\ncvc5 is statically linked against these libraries. To recompile\nthis version of cvc5 with different versions of these libraries\nfollow the instructions on https://github.com/cvc5/cvc5/blob/main/INSTALL.md\n\nThis version of cvc5 is linked against the following third party\nlibraries covered by the GPLv3 license.\nSee licenses/gpl-3.0.txt for more information.\n\n  CLN - Class Library for Numbers\n  See http://www.ginac.de/CLN for copyright information.\n\n  glpk-cut-log - a modified version of GPLK, the GNU Linear Programming Kit\n  See http://github.com/timothy-king/glpk-cut-log for copyright information\n\n  CoCoALib - a computer algebra library\n  See https://cocoa.dima.unige.it/cocoa/cocoalib/index.shtml for copyright information\n\n  Normaliz - a rational cones library\n  See https://github.com/Normaliz/Normaliz for copyright information\n\nSee the file COPYING (distributed with the source code, and with\nall binaries) for the full cvc5 copyright, licensing, and (lack of)\nwarranty information.\n\n",
+      "stderr": "",
+      "status": {
+        "elapsed_seconds": 0.055333,
+        "failure": null,
+        "returncode": 0,
+        "stderr_bytes": 0,
+        "stdout_bytes": 2325,
+        "truncated": false
+      }
+    },
+    "config": {
+      "argv": [
+        "/workspace/lean-blaster/.artifacts/finite-fields/solving/bin/cvc5",
+        "--show-config"
+      ],
+      "command_line": "/workspace/lean-blaster/.artifacts/finite-fields/solving/bin/cvc5 --show-config\n",
+      "stdin": "",
+      "stdout": "package       : cvc5\nversion       : 1.4.1\nscm           : git 2b2e844 on branch HEAD\n\nsafe-mode     : no\nstable-mode   : no\ndebug code    : no\nstatistics    : yes\ntracing       : no\nmuzzled       : no\nassertions    : no\ncoverage      : no\nprofiling     : no\nasan          : no\nubsan         : no\ntsan          : no\ncompetition   : no\nportfolio     : yes\n\ncln           : yes\nglpk          : yes\ncryptominisat : no\ngmp           : no\nkissat        : no\npoly          : yes\ncocoa         : yes\nnormaliz      : yes\neditline      : yes\n",
+      "stderr": "",
+      "status": {
+        "elapsed_seconds": 0.054009,
+        "failure": null,
+        "returncode": 0,
+        "stderr_bytes": 0,
+        "stdout_bytes": 533,
+        "truncated": false
+      }
+    },
+    "case-f7-product-unsat": {
+      "argv": [
+        "/workspace/lean-blaster/.artifacts/finite-fields/solving/bin/cvc5",
+        "--lang",
+        "smt2",
+        "--incremental",
+        "--parsing-mode=lenient",
+        "--dt-nested-rec"
+      ],
+      "command_line": "/workspace/lean-blaster/.artifacts/finite-fields/solving/bin/cvc5 --lang smt2 --incremental --parsing-mode=lenient --dt-nested-rec\n",
+      "stdin": "(set-option :print-success true)\n(set-option :produce-models true)\n(set-option :produce-proofs true)\n(set-option :mbqi true)\n(set-option :macros-quant true)\n(set-logic ALL)\n(get-option :ff-field-polys)\n(get-option :ff-solver)\n(declare-fun x () (_ FiniteField 7))\n(declare-fun y () (_ FiniteField 7))\n(assert (= (ff.mul x y) #f0m7))\n(assert (not (= x #f0m7)))\n(assert (not (= y #f0m7)))\n(check-sat)\n",
+      "stdout": "success\nsuccess\nsuccess\nsuccess\nsuccess\nsuccess\nfalse\ngb\nsuccess\nsuccess\nsuccess\nsuccess\nsuccess\nunsat\n",
+      "stderr": "",
+      "status": {
+        "elapsed_seconds": 0.068017,
+        "failure": null,
+        "returncode": 0,
+        "stderr_bytes": 0,
+        "stdout_bytes": 103,
+        "truncated": false
+      }
+    },
+    "case-f3-square-unsat": {
+      "argv": [
+        "/workspace/lean-blaster/.artifacts/finite-fields/solving/bin/cvc5",
+        "--lang",
+        "smt2",
+        "--incremental",
+        "--parsing-mode=lenient",
+        "--dt-nested-rec"
+      ],
+      "command_line": "/workspace/lean-blaster/.artifacts/finite-fields/solving/bin/cvc5 --lang smt2 --incremental --parsing-mode=lenient --dt-nested-rec\n",
+      "stdin": "(set-option :print-success true)\n(set-option :produce-models true)\n(set-option :produce-proofs true)\n(set-option :mbqi true)\n(set-option :macros-quant true)\n(set-logic ALL)\n(get-option :ff-field-polys)\n(get-option :ff-solver)\n(declare-fun x () (_ FiniteField 3))\n(assert (= (ff.add (ff.mul x x) #f1m3) #f0m3))\n(check-sat)\n",
+      "stdout": "success\nsuccess\nsuccess\nsuccess\nsuccess\nsuccess\nfalse\ngb\nsuccess\nsuccess\nunsat\n",
+      "stderr": "",
+      "status": {
+        "elapsed_seconds": 0.068979,
+        "failure": null,
+        "returncode": 0,
+        "stderr_bytes": 0,
+        "stdout_bytes": 79,
+        "truncated": false
+      }
+    },
+    "case-f7-linear-model": {
+      "argv": [
+        "/workspace/lean-blaster/.artifacts/finite-fields/solving/bin/cvc5",
+        "--lang",
+        "smt2",
+        "--incremental",
+        "--parsing-mode=lenient",
+        "--dt-nested-rec"
+      ],
+      "command_line": "/workspace/lean-blaster/.artifacts/finite-fields/solving/bin/cvc5 --lang smt2 --incremental --parsing-mode=lenient --dt-nested-rec\n",
+      "stdin": "(set-option :print-success true)\n(set-option :produce-models true)\n(set-option :produce-proofs true)\n(set-option :mbqi true)\n(set-option :macros-quant true)\n(set-logic ALL)\n(get-option :ff-field-polys)\n(get-option :ff-solver)\n(declare-fun x () (_ FiniteField 7))\n(assert (= (ff.add x #f1m7) #f0m7))\n(check-sat)\n(get-value (x))\n",
+      "stdout": "success\nsuccess\nsuccess\nsuccess\nsuccess\nsuccess\nfalse\ngb\nsuccess\nsuccess\nsat\n((x #f6m7))\n",
+      "stderr": "",
+      "status": {
+        "elapsed_seconds": 0.067767,
+        "failure": null,
+        "returncode": 0,
+        "stderr_bytes": 0,
+        "stdout_bytes": 89,
+        "truncated": false
+      }
+    },
+    "case-f7-linear-model-typed": {
+      "argv": [
+        "/workspace/lean-blaster/.artifacts/finite-fields/solving/bin/cvc5",
+        "--lang",
+        "smt2",
+        "--incremental",
+        "--parsing-mode=lenient",
+        "--dt-nested-rec"
+      ],
+      "command_line": "/workspace/lean-blaster/.artifacts/finite-fields/solving/bin/cvc5 --lang smt2 --incremental --parsing-mode=lenient --dt-nested-rec\n",
+      "stdin": "(set-option :print-success true)\n(set-option :produce-models true)\n(set-option :produce-proofs true)\n(set-option :mbqi true)\n(set-option :macros-quant true)\n(set-logic ALL)\n(get-option :ff-field-polys)\n(get-option :ff-solver)\n(declare-fun x () (_ FiniteField 7))\n(assert (= (ff.add x (as ff1 (_ FiniteField 7))) (as ff0 (_ FiniteField 7))))\n(check-sat)\n(get-value (x))\n",
+      "stdout": "success\nsuccess\nsuccess\nsuccess\nsuccess\nsuccess\nfalse\ngb\nsuccess\nsuccess\nsat\n((x #f6m7))\n",
+      "stderr": "",
+      "status": {
+        "elapsed_seconds": 0.072227,
+        "failure": null,
+        "returncode": 0,
+        "stderr_bytes": 0,
+        "stdout_bytes": 89,
+        "truncated": false
+      }
+    }
+  }
+}

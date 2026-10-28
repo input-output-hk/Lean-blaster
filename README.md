@@ -8,6 +8,11 @@
 
 Blaster provides an SMT backend for Lean4 proofs, supporting both the Z3 (default) and cvc5 solvers. Blaster works by first aggressively optimizing the Lean expression of a theorem, sometimes up to a `True` goal, before sending the remaining goal and context to an SMT solver.
 
+For native prime-field solving, see the [finite-field usage guide](docs/finite-fields/native-support.md)
+and [M1 trust-boundary handoff](docs/finite-fields/m1-completion.md). This path requires
+checked modulus evidence and a qualified cvc5 build; native results are not
+kernel-checked proof reconstruction, and the tactic retains `blasterProven`.
+
 ## Table of Contents
 
 - [Table of Contents](#table-of-contents)

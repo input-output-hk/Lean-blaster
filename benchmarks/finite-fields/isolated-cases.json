@@ -1,0 +1,14 @@
+[
+  {
+    "id": "isolated-ff04-checked-replay",
+    "corpus_ids": [],
+    "category": "isolated-checked-fixture",
+    "argv": ["lake", "env", "lean", "-DmaxHeartbeats=200000", "-Dprofiler=true", "-Dprofiler.threshold=0", "Tests/FiniteField/Prototype.lean"],
+    "cwd": ".",
+    "expected": {"exit_code": 0},
+    "required_markers": ["Blaster.FF04.Tests.originalGoal", "depends on axioms"],
+    "input_files": ["Tests/FiniteField/Prototype.lean", "Tests/FF04/Replay.lean", "docs/finite-fields/ff-04-reconstruction.md"],
+    "limits": {"wall_seconds": 30, "memory_mib": 4096, "heartbeats": 200000},
+    "notes": "Supplemental preserved fixed-text FF04 replay, not a parent corpus replacement. Re-elaborates originalGoal and five rejection checks with nominal instances and executable transitive axiom audit. Whole-file measurement only; includes parsing, reproving explicit conclusions and final fixed-fixture transport, without a stage decomposition. This is NOT production native proof reading/checking/transport and requests no solver proof. Provenance: unchanged consumed FF04 fixture, Apache-2.0."
+  }
+]

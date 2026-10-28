@@ -42,6 +42,13 @@ partial def SortExpr.emit (e : SortExpr) : TranslateEnvT Unit := do
          h.putStr " "
          a.emit) ps
        h.putStr ")"
+  | .IndexedSort nm indices =>
+       h.putStr "(_ "
+       nm.emit
+       for i in indices do
+         h.putStr " "
+         h.putStr (toString i)
+       h.putStr ")"
 
 def SortedVars.emit (sv : SortedVars) : TranslateEnvT Unit := do
   let h ← getProcStdIn
@@ -322,6 +329,7 @@ def SmtCommand.emit (c : SmtCommand) : TranslateEnvT Unit := do
      | .defineSort nm nargs body =>
           h.putStr "(define-sort "
           nm.emit
+          h.putStr " "
           sortArgsEmit h nargs
           h.putStr " "
           body.emit

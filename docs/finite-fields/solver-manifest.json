@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "decision": "FFM-09: separately staged cvc5 1.4.1 GPL/CoCoA solving artifacts; full production protocol, offline execution, and deferred proof export",
+  "owner": "Riley",
+  "proof_production": "deferred to M2",
+  "fixture_root": "fixtures/finite-fields/protocol",
+  "negative_fixtures": "fixtures/finite-fields/protocol/negative.json",
+  "profiles": {
+    "solving": {
+      "purpose": "Pinned finite-field solving and model extraction only; ordinary solver installations and CI lanes remain unchanged.",
+      "source": {
+        "repository": "https://github.com/cvc5/cvc5",
+        "commit": "2b2e84419f70817ec919a784a48806e79f677240"
+      },
+      "release": {
+        "url": "https://github.com/cvc5/cvc5/releases/tag/cvc5-1.4.1",
+        "api_id": 396904860,
+        "immutable": false
+      },
+      "provenance": "Upstream hosted cvc5 1.4.1 static GPL release assets, pinned independently by release/asset API IDs, source commit, archive SHA-256 and executable SHA-256. The upstream release is not marked immutable; hashes, not mutable URLs alone, define accepted bytes. No local source build is claimed.",
+      "license": "GNU GPL version 3; GPL-linked CoCoALib, CLN and glpk-cut-log build. Retain the complete upstream archive and extracted payload, including license notices. Separate-process worker execution is approved by Riley; public redistribution and corresponding-source review are not claimed.",
+      "executable_name": "cvc5",
+      "staging": {
+        "executable": "bin/cvc5",
+        "archive": "archive.zip",
+        "metadata": "metadata.json",
+        "payload": "payload",
+        "evidence": "evidence"
+      },
+      "expected_version": {
+        "version": "1.4.1",
+        "revision": "2b2e844"
+      },
+      "required_config": {
+        "cocoa": "yes",
+        "poly": "yes",
+        "cln": "yes",
+        "glpk": "yes",
+        "gmp": "no",
+        "assertions": "no"
+      },
+      "argv": ["--lang", "smt2", "--incremental", "--parsing-mode=lenient", "--dt-nested-rec"],
+      "limits": {
+        "wall_seconds": 20,
+        "cpu_seconds": 15,
+        "memory_bytes": 1073741824,
+        "output_bytes": 1048576,
+        "archive_bytes": 268435456,
+        "extracted_bytes": 1073741824,
+        "archive_members": 10000,
+        "sexpr_depth": 128
+      },
+      "capabilities": {
+        "setup": {
+          "required": true,
+          "cases": ["f7-product-unsat", "f3-square-unsat", "f7-linear-model", "f7-linear-model-typed"]
+        },
+        "solving": {
+          "required": true,
+          "cases": ["f7-product-unsat", "f3-square-unsat", "f7-linear-model", "f7-linear-model-typed"]
+        },
+        "model": {
+          "required": true,
+          "cases": ["f7-linear-model", "f7-linear-model-typed"]
+        },
+        "proof_export": {
+          "required": false,
+          "status": "deferred to M2"
+        }
+      },
+      "platforms": {
+        "linux-arm64": {
+          "os": "Linux",
+          "machine": "aarch64",
+          "archive_url": "https://github.com/cvc5/cvc5/releases/download/cvc5-1.4.1/cvc5-Linux-arm64-static-gpl.zip",
+          "asset_id": 589210773,
+          "archive_sha256": "e6cac10f5b80177b21ef56660ea580120fb8b614ceacc8ba8907c0fcfd9a1e7c",
+          "executable_member": "cvc5-Linux-arm64-static-gpl/bin/cvc5",
+          "executable_sha256": "b0dd6483a078269251618cf7e354c675120f8a659990111c5bfc785e91057d86",
+          "qualification": {
+            "status": "passed",
+            "scope": "Native Linux arm64: both artifact hashes verified; cvc5 1.4.1/2b2e844, CoCoA/configuration, full production setup, two UNSAT cases and canonical/typed SAT get-value cases passed with ff-field-polys=false and ff-solver=gb. No split or proof export qualification.",
+            "date": "2026-10-27",
+            "evidence": "fixtures/finite-fields/protocol/observed-linux-arm64.json",
+            "capabilities": {
+              "setup": "passed",
+              "solving": "passed",
+              "model": "passed",
+              "proof_export": "deferred to M2"
+            }
+          }
+        },
+        "linux-x86_64": {
+          "os": "Linux",
+          "machine": "x86_64",
+          "archive_url": "https://github.com/cvc5/cvc5/releases/download/cvc5-1.4.1/cvc5-Linux-x86_64-static-gpl.zip",
+          "asset_id": 589228193,
+          "archive_sha256": "d0b54324ec2129697975da8753767fd255309947b87832917d32a78da7d16666",
+          "executable_member": "cvc5-Linux-x86_64-static-gpl/bin/cvc5",
+          "executable_sha256": "b265759b80da81b51df0eac26f6289630860617ed7cdce86f93352e4ce84e59f",
+          "qualification": {
+            "status": "not run",
+            "scope": "Archive and executable hashes verified by --fetch-only on an arm64 worker. No x86_64 executable was run; native version/configuration, setup, solving and model qualification remain unexercised. No split or proof export qualification.",
+            "date": "2026-10-27",
+            "capabilities": {
+              "setup": "not run",
+              "solving": "not run",
+              "model": "not run",
+              "proof_export": "deferred to M2"
+            }
+          }
+        }
+      },
+      "cases": [
+        {
+          "id": "f7-product-unsat",
+          "input": "fixtures/finite-fields/protocol/f7-product-unsat.smt2",
+          "expected": ["success", "success", "success", "success", "success", "success", "false", "gb", "success", "success", "success", "success", "success", "unsat"],
+          "expected_exit": 0,
+          "expected_stderr": ""
+        },
+        {
+          "id": "f3-square-unsat",
+          "input": "fixtures/finite-fields/protocol/f3-square-unsat.smt2",
+          "expected": ["success", "success", "success", "success", "success", "success", "false", "gb", "success", "success", "unsat"],
+          "expected_exit": 0,
+          "expected_stderr": ""
+        },
+        {
+          "id": "f7-linear-model",
+          "input": "fixtures/finite-fields/protocol/f7-linear-model.smt2",
+          "expected": ["success", "success", "success", "success", "success", "success", "false", "gb", "success", "success", "sat", [["x", {"finite_field": {"residue": 6, "modulus": 7}}]]],
+          "expected_exit": 0,
+          "expected_stderr": ""
+        },
+        {
+          "id": "f7-linear-model-typed",
+          "input": "fixtures/finite-fields/protocol/f7-linear-model-typed.smt2",
+          "expected": ["success", "success", "success", "success", "success", "success", "false", "gb", "success", "success", "sat", [["x", {"finite_field": {"residue": 6, "modulus": 7}}]]],
+          "expected_exit": 0,
+          "expected_stderr": ""
+        }
+      ]
+    }
+  }
+}

@@ -5,7 +5,9 @@ open Lean Meta
 namespace Blaster.Optimize
 
 /-- Return `some true` if op1 and op2 are constructors that are structurally equivalent modulo
-    variable name/function equivalence
+    variable name/function equivalence and proof irrelevance. Constructor proof
+    arguments do not distinguish values; all non-proof arguments still contribute
+    to the comparison lattice.
     Return `some false` if op1 and op2 are constructors that are NOT structurally equivalent.
     Return `none` otherwise.
     Assume that memoization is performed on expressions.
@@ -30,7 +32,9 @@ partial def structEq? (op1 : Expr) (op2: Expr) : TranslateEnvT (Option Bool) := 
                 -- lattice to handle arguments
                 -- some false -> some none -> some true
                 let mut lat := some true
+                let pInfo ← getFunEnvInfo f1
                 for h : i in [:as1.size] do
+                  if i < pInfo.paramsInfo.size && pInfo.paramsInfo[i]!.isProp then continue
                   lat := updateLattice lat (← structEq? as1[i] as2[i]!)
                   unless (!isTop lat) do return lat -- break if false
                 return lat
@@ -325,7 +329,7 @@ def arithEq? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
      - e = ¬ e ==> False
      - e = not e ==> False
      - e1 = e2 ==> True (if e1 =ₚₜᵣ e2)
-     - e1 = e2 ==> False (if structEq? e1 e2 = some false) (NOTE: `some true` case already handled by =ₚₜᵣ)
+     - e1 = e2 ==> b (if structEq? e1 e2 = some b, including proof-irrelevant constructor equality)
      - true = not e ==> false = e
      - false = not e ==> true = e
      - ¬ e1 = ¬ e2 ==> e1 = e2 (require classical)
@@ -364,7 +368,7 @@ def optimizeEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
  if let Expr.const ``True _ := op1 then return op2
  if isNotExprOf op2 op1 || isBoolNotExprOf op2 op1 then return ← mkPropFalse
  if exprEq op1 op2 then return ← mkPropTrue
- if let some false ← structEq? op1 op2 then return ← mkPropFalse
+ if let some b ← structEq? op1 op2 then return ← mkPropLit b
  if let some (e1, e2) ← notNegEqSimp? op1 op2 then return mkApp3 f eqType e1 e2
  if let some r ← zeroEqNegReduce? op1 op2 eqType then return r
  if let some (e1, e2) ← intNegEqReduce? op1 op2 then return mkApp3 f eqType e1 e2

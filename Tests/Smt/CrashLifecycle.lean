@@ -265,10 +265,46 @@ private def testAlreadyExitedChildIsHandled : MetaM Unit := do
   let usefulStderr := "FAKE_DEAD_CHILD: deliberate stderr"
   let dead ← spawnDeadChild usefulStderr
   let (message, cleared) ← observeSingleCrash dead
-  unless contains message "closed stdout" && contains message usefulStderr do
+  -- The child exits without reading stdin, so submitting check-sat races its
+  -- exit: either the write fails (check submission) or the read sees EOF
+  -- (check response). Both are the same process failure.
+  let reported :=
+    contains message "stage=check submission" ||
+      (contains message "stage=check response" && contains message "closed stdout")
+  unless reported && contains message usefulStderr do
     throwError "already-exited solver diagnostics were lost: {message}"
   unless cleared do throwError "already-exited solver remained in session state"
   assertStopped "already-exited child" dead
+
+private def testExitBeforeSubmissionIsHandled : MetaM Unit := do
+  let usefulStderr := "FAKE_EXITED_BEFORE_SUBMISSION: deliberate stderr"
+  let dead ← spawnDeadChild usefulStderr
+  -- Let the child exit (unreaped) so the submission write fails deterministically.
+  IO.sleep 500
+  let (message, cleared) ← observeSingleCrash dead
+  unless contains message "stage=check submission" && contains message usefulStderr do
+    throwError "exited-before-submission diagnostics were lost: {message}"
+  unless cleared do throwError "exited-before-submission solver remained in session state"
+  assertStopped "exited-before-submission child" dead
+
+-- `Child.kill` signals the setsid process group, which does not exist until the
+-- child has run. A kill issued immediately after spawning must still land
+-- instead of leaving `wait` to block for the child's whole lifetime.
+private def testImmediateKillTerminatesChild : MetaM Unit := do
+  for attempt in [0:20] do
+    let child ← IO.Process.spawn {
+      cmd := "/bin/sh"
+      args := #["-c", "sleep 5"]
+      stdin := .piped
+      stdout := .piped
+      stderr := .piped
+      setsid := true
+    }
+    let startedMs ← IO.monoMsNow
+    killAndReap child
+    let elapsedMs := (← IO.monoMsNow) - startedMs
+    if elapsedMs ≥ 2000 then
+      throwError "immediate kill attempt {attempt} did not terminate the child ({elapsedMs}ms)"
 
 private def testModelFailurePreservesSatVerdict : MetaM Unit := do
   let process ← spawnFakeChild "sat" "0" "0" "" false "(error \"model unavailable\")"
@@ -595,6 +631,8 @@ private def testAgreementFailureSavesArtifacts : MetaM Unit := do
 #eval testAgreeRejectsDeclarationWithArtifacts
 #eval testCrashPreservesStderrWithoutDuplicateCleanup
 #eval testAlreadyExitedChildIsHandled
+#eval testExitBeforeSubmissionIsHandled
+#eval testImmediateKillTerminatesChild
 #eval testModelFailurePreservesSatVerdict
 #eval testOwnerCleansUnexpectedPrecheckException
 #eval testCancellationBeforeSolving

@@ -1,0 +1,81 @@
+# No ordinary cvc5, cvc5 1.2.1 floor, or Z3 installation is replaced here.
+name: finite-fields
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+  push:
+    branches: [staging, main]
+  workflow_dispatch:
+
+concurrency:
+  group: finite-fields-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  solving:
+    name: finite-field solving (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x86_64
+            runner: ubuntu-24.04
+          - platform: linux-arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    env:
+      LEAN_NUM_THREADS: "5"
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install the unchanged root Lean toolchain
+        # A stalled toolchain download never returns, so each attempt gets its
+        # own time limit, as in ci-linux.yaml.
+        timeout-minutes: 40
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+          TOOLCHAIN="$(cat lean-toolchain)"
+          for attempt in 1 2 3; do
+            timeout --kill-after=30 600 "$HOME/.elan/bin/elan" toolchain install "$TOOLCHAIN" && break
+            if [ "$attempt" = 3 ]; then
+              echo "::error::Failed to install Lean toolchain $TOOLCHAIN after 3 attempts"
+              exit 1
+            fi
+            echo "elan toolchain install failed (attempt $attempt), retrying in 15s..."
+            sleep 15
+          done
+      - name: Build the local Blaster dependency
+        run: |
+          lake --version
+          lake build Blaster
+      - name: Solver-independent tests before artifact acquisition
+        shell: bash
+        run: |
+          set -euo pipefail
+          if command -v cvc5 || command -v z3; then
+            echo 'Pure lane requires a solver-free PATH' >&2
+            exit 1
+          fi
+          make test-pure
+      - name: Network-enabled approved artifact setup
+        # This is the only FF artifact acquisition step. The manifest pins bytes.
+        run: make ff-stage
+      - name: Offline native finite-field solving and complete source coverage
+        # Never add the staged executable to GITHUB_PATH or ordinary solver lanes.
+        run: make test-cvc5-ff
+      - name: Retain protocol evidence and failed compilation log
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: finite-fields-${{ matrix.platform }}
+          include-hidden-files: true
+          path: |
+            .artifacts/finite-fields/solving/evidence/
+            ff-tests/build.log
+          if-no-files-found: error

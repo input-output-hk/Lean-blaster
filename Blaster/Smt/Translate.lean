@@ -2,8 +2,10 @@ import Lean
 import Blaster.Command.Options
 import Blaster.Optimize.Basic
 import Blaster.Smt.Env
+import Blaster.Smt.FiniteFieldPreflight
 import Blaster.Smt.Term
 import Blaster.Smt.Translate.Application
+import Blaster.Smt.Translate.FiniteField
 
 open Lean Elab Command Term Meta Blaster.Optimize Blaster.Options
 
@@ -79,10 +81,14 @@ def Translate.main (e : Expr) (logUndetermined := true) : TranslateEnvT (Result 
           if ← shouldLogUndetermined logUndetermined then logResult res
           return (res, optExpr)
         else
+          let candidate ← preflightFiniteFields optExpr
           -- Single mode starts lazily to preserve existing behavior; concurrent
           -- modes were started before optimization to require both binaries.
-          if !concurrentStarted then setBlasterProcess
-          let st ← profileTask "Translation" $ translateExpr optExpr
+          if !concurrentStarted then setBlasterProcess candidate
+          let st ← profileTask "Translation" do
+            match ← translatePolynomial optExpr with
+            | some term => pure term
+            | none => translateExpr optExpr
           -- assert negation for check sat
           profileTask "Submitting Smt Query" $ assertTerm (notSmt st)
           let res ← profileTask "Solve" checkSat
