@@ -10,6 +10,14 @@ inductive AssertionPolarity where
   | negated
   deriving Inhabited, BEq, Repr
 
+/-- Identity of an auxiliary inverse graph in one opened query scope. The
+denominator is interpreted in the association's retained local context. Its
+graph is asserted positively; the enclosing source query is negated. -/
+structure InverseGraphWitness where
+  scope : Lean.Name
+  denominator : Lean.Expr
+  graphPolarity : AssertionPolarity := .positive
+
 /-- A solver symbol's typed Lean source association. The retained context and
     local instances include opened theorem parameters, so `source` and `type`
     remain meaningful after the translation telescope closes. `modulus` is the
@@ -24,5 +32,6 @@ structure SourceAssociation where
   polarity : AssertionPolarity
   localContext : Lean.LocalContext
   localInstances : Lean.LocalInstances
+  inverseGraph : Option InverseGraphWitness := none
 
 end Blaster.Smt

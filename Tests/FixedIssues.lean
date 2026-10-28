@@ -49,3 +49,4 @@ import Tests.FiniteField.Translation
 import Tests.FiniteField.Field
 import Tests.FiniteField.AxiomAudit
 import Tests.FiniteField.Model
+import Tests.FiniteField.DivisionEncoding

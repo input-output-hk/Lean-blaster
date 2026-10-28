@@ -5,3 +5,4 @@ import Blaster.FiniteField.PrimeBLS
 import Blaster.FiniteField.PrimePower
 import Blaster.FiniteField.Field
 import Blaster.FiniteField.InverseGraph
+import Blaster.FiniteField.DivisionEncoding

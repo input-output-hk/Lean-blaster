@@ -13,19 +13,23 @@ private structure PolynomialState where
   sorts : Std.HashMap Nat SortExpr := {}
   operations : Std.HashSet (Nat × String) := {}
   terms : Std.HashMap Expr SmtTerm := {}
+  scope : Name := .anonymous
+  inverses : Std.HashMap (Nat × Expr) SmtTerm := {}
+  graphs : Array SmtTerm := #[]
 
 private abbrev PolynomialM := StateT PolynomialState TranslateEnvT
 
 private def unsupported (e : Expr) : PolynomialM α :=
-  throwError "native finite-field polynomial fragment: unsupported expression {e}; use canonical Residue addition, multiplication, negation, subtraction, literal natural powers, equality and Boolean/ite expressions; variable/integer exponents, .val/.rep, order, representation casts, residual quantifiers/lambdas and mixed theories are not supported"
+  throwError "native finite-field polynomial fragment: unsupported expression {e}; use canonical Residue addition, multiplication, negation, subtraction, inverse, division, literal natural powers, equality and Boolean/ite expressions; variable/integer exponents, .val/.rep, order, representation casts, residual quantifiers/lambdas and mixed theories are not supported"
 
 private def associate (symbol : SmtSymbol) (source type : Expr) (modulus : Option Nat)
-    (modelVariable := false) : PolynomialM Unit := do
+    (modelVariable := false) (inverseGraph : Option InverseGraphWitness := none) :
+    PolynomialM Unit := do
   let userName ← if source.isFVar then pure (← source.fvarId!.getDecl).userName
     else pure source.getAppFn.constName!
   let entry : SourceAssociation := {
     symbol, userName, source, type, modulus, polarity := .negated,
-    localContext := ← getLCtx, localInstances := ← getLocalInstances }
+    localContext := ← getLCtx, localInstances := ← getLocalInstances, inverseGraph }
   modifyThe TranslateEnv fun env => { env with
     smtEnv.sourceAssociations := env.smtEnv.sourceAssociations.push entry
     smtEnv.topLevelVars := if modelVariable then
@@ -55,6 +59,40 @@ private def fieldSort (type : Expr) : PolynomialM (Nat × SortExpr) := do
 private def literal (p : Nat) (n : Int) : PolynomialM SmtTerm := do
   let some term := finiteFieldLit n p | throwError "native field literal requires admitted positive modulus"
   return term
+
+/-- Encode the total inverse graph, not just the nonzero reciprocal equation.
+The caller asserts this obligation positively, outside all Boolean occurrences
+of the witness and alongside the negated residual query. -/
+def translateInverseGraph (p : Nat) (denominator witness : SmtTerm) : Option SmtTerm := do
+  let zero ← finiteFieldLit 0 p
+  let one ← finiteFieldLit 1 p
+  return orSmt (andSmt (eqSmt denominator zero) (eqSmt witness zero))
+    (eqSmt (mkSimpleSmtAppN (mkReservedSymbol "ff.mul") #[denominator, witness]) one)
+
+/-- A denominator has one typed witness per normalized modulus and exact source
+expression in this opened query. No recursive translation opens binders, and
+this cache is discarded before the telescope closes. In particular no local
+dependent inverse becomes a global function or a cross-query declaration. -/
+private def inverseWitness (p : Nat) (sort : SortExpr) (denominator : Expr)
+    (term : SmtTerm) : PolynomialM SmtTerm := do
+  if let some witness := (← get).inverses[(p, denominator)]? then return witness
+  let type ← inferType denominator
+  let some admission := (← get).admissions[type]?
+    | throwError "inverse graph requires the denominator's scoped field admission"
+  let dictionary := mkApp2 (mkConst ``Residue.instInv)
+    admission.residue.modulus admission.evidence
+  let source := mkApp3 (mkConst ``Inv.inv [levelZero]) type dictionary denominator
+  let symbol := mkReservedSymbol s!"@ffinv{← mkFreshId}"
+  let witness := smtSimpleVarId symbol
+  let some graph := translateInverseGraph p term witness
+    | throwError "inverse graph requires an admitted positive modulus"
+  declareConst symbol sort
+  associate symbol source type (some p) false
+    (some { scope := (← get).scope, denominator })
+  modify fun state => { state with
+    inverses := state.inverses.insert (p, denominator) witness
+    graphs := state.graphs.push graph }
+  return witness
 
 /-- Typed semantic wrappers are keyed by normalized modulus, never the printed
 source carrier. Subtraction is addition of the additive inverse. -/
@@ -163,6 +201,15 @@ where
               let some n ← getNatModulus? args.back! | unsupported e
               let op ← power p sort n e
               return mkSimpleSmtAppN op #[← polynomialTerm args[args.size - 2]!]
+          | ``Inv.inv =>
+              let denominator := args.back!
+              return ← inverseWitness p sort denominator (← polynomialTerm denominator)
+          | ``HDiv.hDiv | ``Div.div =>
+              let numerator ← polynomialTerm args[args.size - 2]!
+              let denominator := args.back!
+              let witness ← inverseWitness p sort denominator (← polynomialTerm denominator)
+              let op ← operation p sort "mul" e
+              return mkSimpleSmtAppN op #[numerator, witness]
           | ``Neg.neg =>
               if let .const coefficientName _ := args.back!.getAppFn then
                 if ← isOpaqueResidueOperation coefficientName args.back!.getAppArgs then
@@ -204,7 +251,9 @@ where
 /-- Translate an optimized native query while its opened theorem parameters and
 checked prime evidence are in scope. Returns none only for a non-native query.
 Preflight must have selected the approved session (or cvc5 transcript route).
-The resulting term is the positive goal; the caller asserts its negation. -/
+The resulting term is the positive goal; the caller asserts its negation.
+All graph obligations are separate positive assertions, hence conjoined with
+that negation, never inserted under an occurrence's Boolean polarity. -/
 def translatePolynomial (e : Expr) : TranslateEnvT (Option SmtTerm) :=
   withNativeFieldQuery e fun parameters body fields => do
     if fields.isEmpty then return none
@@ -226,9 +275,10 @@ def translatePolynomial (e : Expr) : TranslateEnvT (Option SmtTerm) :=
           discard <| polynomialTerm parameter
       let mut result ← polynomialTerm body
       for premise in premises.reverse do result := impliesSmt premise result
+      for graph in (← get).graphs do assertTerm graph
       return result
     let admissions := fields.foldl (fun cache field =>
       cache.insert field.residue.type field) ({} : Std.HashMap Expr NativeFieldAdmission)
-    return some (← action.run' { admissions })
+    return some (← action.run' { admissions, scope := ← mkFreshId })
 
 end Blaster.Smt

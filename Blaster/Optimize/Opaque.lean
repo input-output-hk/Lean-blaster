@@ -1,6 +1,7 @@
 import Lean
 import Blaster.Optimize.Decidable
 import Blaster.FiniteField.Structural
+import Blaster.FiniteField.Field
 
 open Lean Meta
 
@@ -17,10 +18,13 @@ def isOpaqueResidueOperation (f : Name) (args : Array Expr) : MetaM Bool := do
     | ``HAdd.hAdd => pure (``Blaster.FiniteField.Residue.instAdd, 3, some ``instHAdd)
     | ``HMul.hMul => pure (``Blaster.FiniteField.Residue.instMul, 3, some ``instHMul)
     | ``HSub.hSub => pure (``Blaster.FiniteField.Residue.instSub, 3, some ``instHSub)
+    | ``HDiv.hDiv => pure (``Blaster.FiniteField.Residue.instDiv, 3, some ``instHDiv)
     | ``Add.add => pure (``Blaster.FiniteField.Residue.instAdd, 1, none)
     | ``Mul.mul => pure (``Blaster.FiniteField.Residue.instMul, 1, none)
     | ``Sub.sub => pure (``Blaster.FiniteField.Residue.instSub, 1, none)
     | ``Neg.neg => pure (``Blaster.FiniteField.Residue.instNeg, 1, none)
+    | ``Inv.inv => pure (``Blaster.FiniteField.Residue.instInv, 1, none)
+    | ``Div.div => pure (``Blaster.FiniteField.Residue.instDiv, 1, none)
     | ``OfNat.ofNat => pure (``Blaster.FiniteField.Residue.instOfNat, 2, none)
     | ``Nat.cast
     | ``NatCast.natCast => pure (``Blaster.FiniteField.Residue.instNatCast, 1, none)

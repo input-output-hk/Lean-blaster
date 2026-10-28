@@ -61,7 +61,7 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
                if name == ``Blaster.FiniteField.Residue.rep ||
                    name == ``Blaster.FiniteField.Residue.mk then
                  throwEnvError "native finite-field polynomial fragment: .val/.rep and representation casts are unsupported; keep arithmetic in the nominal Residue carrier"
-               if ← isOpaqueResidueOperation name ras then
+               if ← withLocalContext (isOpaqueResidueOperation name ras) then
                  let pInfo ← getFunEnvInfo f
                  return ← optimizeExprAux
                    (.AppOptimizeExplicitArgs f ras 0 ras.size pInfo none :: i_stack)
