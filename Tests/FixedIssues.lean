@@ -42,3 +42,4 @@ import Tests.FiniteField.Carrier
 import Tests.FiniteField.Opaque
 import Tests.FiniteField.Primality
 import Tests.FiniteField.LargePrime
+import Tests.FiniteField.Syntax

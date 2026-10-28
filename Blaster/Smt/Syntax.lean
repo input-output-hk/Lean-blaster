@@ -28,6 +28,8 @@ instance : Hashable SmtSymbol := ⟨SmtSymbol.hash⟩
 inductive SortExpr where
  | SymbolSort (nm : SmtSymbol)
  | ParamSort (nm : SmtSymbol) (ps : Array SortExpr)
+ /-- A sort identifier with structural numeral indices, e.g. `(_ FiniteField 7)`. -/
+ | IndexedSort (nm : SmtSymbol) (indices : Array Nat)
 
 instance : Inhabited SortExpr where
   default := .SymbolSort default
@@ -36,6 +38,7 @@ mutual
   private partial def SortExpr.beq (x y : SortExpr) : Bool :=
     match x, y with
     | .SymbolSort s1, .SymbolSort s2 => s1 == s2
+    | .IndexedSort s1 is1, .IndexedSort s2 is2 => s1 == s2 && is1 == is2
     | .ParamSort s1 ps1, .ParamSort s2 ps2 =>
          if s1 == s2 && ps1.size == ps2.size
          then beqArraySortExpr 0 ps1 ps2
@@ -55,6 +58,7 @@ instance : BEq SortExpr where
 private def SortExpr.hash : SortExpr → UInt64
   | .SymbolSort s => mixHash 17 s.hash
   | .ParamSort s ps => mixHash 19 (Array.foldl (λ acc se => mixHash acc se.hash) s.hash ps)
+  | .IndexedSort s indices => mixHash 23 (Array.foldl (λ acc i => mixHash acc (Hashable.hash i)) s.hash indices)
 
 instance : Hashable SortExpr := ⟨SortExpr.hash⟩
 
@@ -186,7 +190,10 @@ instance : ToString SmtSymbol where
   | .SymbolSort nm => nm.toString
   | .ParamSort nm ps =>
       let sps := Array.foldl (fun acc a => s!"{acc} {SortExpr.toString a}") "" ps
-      s!"({nm} {sps})"
+      s!"({nm}{sps})"
+  | .IndexedSort nm indices =>
+      let sis := Array.foldl (fun acc i => s!"{acc} {i}") "" indices
+      s!"(_ {nm}{sis})"
 
 instance : ToString SortExpr where
   toString := SortExpr.toString
