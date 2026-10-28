@@ -11,13 +11,16 @@ The only source-controlled change in this job is this report's validation
 update. The implementation and earlier investigation described below are
 inherited history, not changes or command executions performed by this job.
 
-The inherited investigation identifies two unresolved baseline validation
-issues: an exit/submission race in `Tests/Smt/CrashLifecycle.lean` and a strict
-transcript expectation mismatch in `Tests/FiniteField/Translation.lean`.
-Neither authorizes changing protected fixtures, weakening strict diagnostics,
-or claiming a green all-solvers signoff. The latest session's commands and
-outcomes are recorded at the end of this report; earlier passes do not supersede
-these failures.
+The earlier validation sessions below are historical evidence, not current
+blockers. The supplied base includes the later solver-lifecycle and strict
+transcript fixes. This job revalidates the inherited implementation from fresh
+runs; its final validation section supersedes earlier incomplete outcomes.
+No protected fixture, strict diagnostic, expected result, or trust boundary is
+changed to obtain a passing result.
+
+The fresh worker validation is green, including both exact PROJECT gates and
+the detached all-solvers run (exit 0, 797 jobs). See the current validation
+session at the end for exact commands, timings, CI evidence, and M1 limits.
 
 ## Changes and invariants
 
@@ -470,7 +473,7 @@ lifecycle race. No test or production diagnostic was changed to conceal it.
 updated. All targeted division checks and both required PROJECT checks passed.
 All-solvers validation remains incomplete; no green overall acceptance is claimed.
 
-## Current validation session — 2026-10-28, staging at 14:37 UTC
+## Prior validation session — 2026-10-28, staging at 14:37 UTC
 
 ### Change scope and job summary
 
@@ -555,6 +558,146 @@ is claimed. The report is supplied for the stack's owner-authored publication
 commit. Trusted M1 closure remains unchanged; these results do not establish
 verified SMT reconstruction, residual-quantifier support, or M2 proof export.
 
-**Current job result:** inherited implementation preserved; report updated.
+**Prior job result:** inherited implementation preserved; report updated.
 Both required PROJECT gates and targeted pure/axiom/live division checks pass.
 All-solvers validation and overall ticket signoff remain incomplete.
+
+## Current validation session — 2026-10-28, staging at 16:54 UTC
+
+### Change scope and acceptance review
+
+This job preserves the already-present FFM-18 implementation and changes only
+this report. No production code, protected test, script, workflow, Lake file,
+toolchain pin, expected outcome, or aggregate import was changed.
+
+Source review found no acceptance gap in:
+
+- Typed inverse witnesses and numerator-times-denominator-witness lowering.
+- Per-query cache lifetime, exact denominator identity, normalized modulus,
+  retained local context/instances, and distinct scope identities.
+- Positive graph assertions alongside the negated residual implication,
+  including witness-dependent assumptions and nested Boolean occurrences.
+- Canonical Inv/Div opacity, raw Fin division separation, bounded-fragment
+  diagnostics, and unchanged routing/preflight and trusted M1 closure.
+- All six kernel-checked correspondence lemmas and their executable transitive
+  axiom guards in DivisionEncoding, without modifying the earlier AxiomAudit.
+- Automatic discovery of the pure module and live child-package division module.
+
+### Fresh worker commands and outcomes
+
+Validation targets were serialized because they clear shared build outputs.
+`make ff-stage` was the only artifact-download step. Subsequent finite-field
+solver runs used the staged profile through the existing offline target.
+
+| Command | Observed outcome |
+| --- | --- |
+| `make ff-stage` | Exit 0, 3.82 seconds. Hash-verified linux-arm64 solving profile staged; offline setup, solving, model, configuration, and all four capability cases passed. |
+| `cvc5 --show-config` | Exit 0. Image cvc5 1.4.1, commit `2b2e844`; `cocoa: yes`, `poly: yes`, `cln: yes`, `gmp: no`. No other ordinary cvc5 was provisioned. |
+| `lake build Tests.FiniteField.DivisionEncoding Tests.FiniteField.AxiomAudit` | Exit 0, 149.59 seconds, 282 jobs. Both regression modules freshly compiled. |
+| `python3 scripts/finite_fields/run_pure_tests.py` | Exit 0, 298 jobs; all 17 discovered modules freshly compiled, including DivisionEncoding and the unchanged AxiomAudit. |
+| `make test-cvc5-ff` | Exit 0, 254 jobs; offline probe and complete child-package coverage passed. Division executed 9 SAT / 13 UNSAT cases; Polynomial 5 SAT / 10 UNSAT; Model 5 SAT; Capability 4 cases. |
+
+The pure and live commands ran as
+`python3 scripts/finite_fields/run_pure_tests.py && make test-cvc5-ff`
+in 48.20 seconds combined. The live division harness exercised the actual
+translator and staged solver. Counterexamples included zero for unguarded
+self-division in characteristics 7 and 2, and distinct numerator/denominator
+values in asymmetric division cases.
+
+The axiom audits emitted their existing scoped negative-control `sorryAx`
+warnings; their guards passed. No production admitted proof or axiom was added.
+
+### Latest completed public CI evidence
+
+Observed through the public GitHub API during this job, for
+[PR #412](https://github.com/input-output-hk/Lean-blaster/pull/412).
+Every result below ran on head
+`2b140a7c3bde1f52534605bc628ebdf52dfb13d4`; these are completed results for that
+head, not claims about CI on this report's eventual publication commit.
+
+| Lane | Latest completed result | Evidence |
+| --- | --- | --- |
+| Ordinary non-CoCoA cvc5 1.3.4, Linux x86_64 | Success | [solver tests (cvc5)](https://github.com/input-output-hk/Lean-blaster/actions/runs/40726797938/job/122952125046) |
+| cvc5 1.2.1 support floor, Linux x86_64 | Success | [solver tests (cvc5-1.2.1)](https://github.com/input-output-hk/Lean-blaster/actions/runs/40726797938/job/122952125682) |
+| Z3, Linux x86_64 | Success | [solver tests (z3)](https://github.com/input-output-hk/Lean-blaster/actions/runs/40726797938/job/122952125583) |
+| All-solvers, Linux x86_64 | Success | [solver tests (all-solvers)](https://github.com/input-output-hk/Lean-blaster/actions/runs/40726797938/job/122952125659) |
+| Finite-fields workflow, Linux x86_64 | Success | [finite-field solving (linux-x86_64)](https://github.com/input-output-hk/Lean-blaster/actions/runs/40726798068/job/122952124888) |
+| Finite-fields workflow, Linux arm64 | Success | [finite-field solving (linux-arm64)](https://github.com/input-output-hk/Lean-blaster/actions/runs/40726798068/job/122952125596) |
+
+The ordinary workflow installs the non-GPL static cvc5 distribution at 1.3.4
+and the separate 1.2.1 floor. Those binaries/platforms were not downloaded or
+substituted for the worker's image cvc5 1.4.1. All listed lanes are green; there
+is no red-lane failing test to report. CI was neither rerun nor awaited.
+
+### Required PROJECT checks
+
+Run exactly as configured:
+
+```sh
+PATH="$(dirname "$(readlink -f /usr/local/bin/z3-4.15.2)"):/home/agent/.elan/bin:/usr/bin:/bin"; command -v z3 && z3 --version && make check_blaster
+PATH="$(dirname "$(readlink -f /usr/local/bin/z3-4.15.2)"):/home/agent/.elan/bin:/usr/bin:/bin"; command -v z3 && z3 --version && make check_tests
+```
+
+Both selected `/opt/z3-4.15.2-arm64-glibc-2.34/bin/z3`, version 4.15.2.
+
+| Command | Observed outcome |
+| --- | --- |
+| Exact PROJECT `make check_blaster` above | Exit 0, 115.22 seconds, 246 jobs; clean production build and complete source coverage. |
+| Exact PROJECT `make check_tests` above | Exit 0, 252.46 seconds; FF discovery 17/17 freshly compiled (298 jobs), Tests.Pure (275 jobs), and Tests.Z3 (767 jobs). |
+| `make test-z3` | Executed successfully by the unchanged `make check_tests` recipe, with release Z3 4.15.2 alone on PATH. No separate default-assurance-Z3 run is claimed. |
+
+Existing lifecycle negative controls emitted model-response warnings.
+`Tests/Smt/SmtNat/SmtNatMod.lean:41` emitted an Undetermined warning;
+the configured PROJECT gate passed without changing that expected behavior.
+
+### Detached all-solvers completion
+
+The process was launched with `subprocess.Popen`, `start_new_session=True`,
+stdin disconnected, and stdout/stderr directed to
+`.artifacts/ffm18-validation/all-solvers.log`. The executed argv was
+`["nohup", "make", "test-all-solvers"]`, working directory the repository root.
+Its PATH was:
+
+```text
+/opt/z3-4.15.2-arm64-glibc-2.34/bin:/home/agent/.elan/bin:/usr/local/bin:/usr/bin:/bin
+```
+
+Equivalent shell launch:
+
+```sh
+PATH="/opt/z3-4.15.2-arm64-glibc-2.34/bin:/home/agent/.elan/bin:/usr/local/bin:/usr/bin:/bin" nohup make test-all-solvers > .artifacts/ffm18-validation/all-solvers.log 2>&1 &
+```
+
+An independent supervisor waited for the real child exit status, checked log
+progress every 60 seconds, and enforced the requested 20-minute no-output hang
+threshold. There was no command deadline and no hang. **Exit 0, 182.75 seconds,
+797 jobs**, including the ordinary cvc5 baseline and complete Tests source
+coverage. DivisionEncoding, AxiomAudit, Translation, CrashLifecycle,
+ConcurrentSolvers, and ConcurrentDump all freshly compiled in this strict run.
+The log ends with `Build completed successfully (797 jobs).`
+
+The earlier strict Translation mismatch and CrashLifecycle hang did not recur.
+They are not current blockers; this run supersedes the historical incomplete
+all-solvers claims above. No retry, test weakening, protected-file edit, or
+replacement solver was used.
+
+### Current job result and remaining limits
+
+All requested worker validation completed successfully. The inherited FFM-18
+implementation meets the scoped encoding acceptance criteria; no further code
+change was necessary. The only committed deliverable from this job is the
+updated ticket report, including this job summary and fresh validation evidence.
+Protected test-tree writes in this job: none.
+
+No worker check remains incomplete. Non-CoCoA cvc5 1.3.4, cvc5 1.2.1, and x86_64
+were not reproduced locally; their latest completed public CI results are
+recorded above with the exact head SHA. CI for the eventual publication commit
+is not claimed, and maintainer completion signoff remains with Riley.
+
+Trusted M1 closure is unchanged. The correspondence lemmas are kernel-checked
+source semantics, not verified solver-proof reconstruction or original-goal
+transport. Residual quantifiers, variable/integer exponent translation, and
+representation-level/mixed encodings remain intentionally unsupported.
+Proof export remains the staged manifest's M2 deferral, not a failed required
+probe. No new optimizer rewrite, production axiom, or widening of
+`blasterProven` was introduced.
