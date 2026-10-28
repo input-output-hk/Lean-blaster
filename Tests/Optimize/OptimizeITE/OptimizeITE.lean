@@ -14,7 +14,7 @@ namespace Test.OptimizeITE
                                     ∀ (a : Prop), a
 
 -- ∀ (c a : Prop), if c then a else a ===> ∀ (a : Prop), a
-#testOptimize [ "IteAbsorption_2", proof ] ∀ (c a : Prop), [Decidable c] → if c then a else a ===>
+#testOptimize [ "IteAbsorption_2" ] ∀ (c a : Prop), [Decidable c] → if c then a else a ===>
                                     ∀ (a : Prop), a
 
 -- ∀ (c : Bool) (a b : Prop), if c then a ∧ b else b ∧ a ===> ∀ (a b : Prop), a ∧ b
