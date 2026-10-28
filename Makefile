@@ -89,3 +89,30 @@ clean_all:
 check_all:
 	$(MAKE) check_blaster
 	$(MAKE) check_tests
+
+# Finite-field gates are additive; ordinary recipes and solver installations stay separate.
+# These suites clear shared outputs. Serialize even when invoked together with make -j.
+.NOTPARALLEL:
+
+.PHONY: ff-stage test-ff-pure test-cvc5-fin-baseline test-cvc5-ff
+
+ff-stage:
+	python3 scripts/finite_fields/probe_solver.py --manifest docs/finite-fields/solver-manifest.json --artifact-root .artifacts/finite-fields --profile solving --fetch-only
+	python3 scripts/finite_fields/probe_solver.py --manifest docs/finite-fields/solver-manifest.json --artifact-root .artifacts/finite-fields --profile solving --offline --check
+
+test-pure: test-ff-pure
+test-cvc5: test-cvc5-fin-baseline
+test-all-solvers: test-cvc5-fin-baseline
+
+test-ff-pure:
+	python3 scripts/finite_fields/run_pure_tests.py
+
+test-cvc5-fin-baseline:
+	lake build Blaster
+	BLASTER_SOLVER=cvc5 BLASTER_TIMEOUT=$(BLASTER_TIMEOUT) BLASTER_STRICT_CVC5_RESULTS=1 lake env lean ff-tests/OrdinaryCvc5Baseline.lean
+
+test-cvc5-ff:
+	python3 scripts/finite_fields/probe_solver.py --manifest docs/finite-fields/solver-manifest.json --artifact-root .artifacts/finite-fields --profile solving --offline --check
+	test -f ff-tests/TestsFF.lean
+	rm -rf ff-tests/.lake/build/lib/lean/TestsFF ff-tests/.lake/build/lib/lean/TestsFF.* ff-tests/.lake/build/ir/TestsFF ff-tests/.lake/build/ir/TestsFF.*
+	cd ff-tests && env -u BLASTER_SOLVER -u BLASTER_TIMEOUT -u BLASTER_STRICT_CVC5_RESULTS BLASTER_FF_CVC5="$(CURDIR)/.artifacts/finite-fields/solving/bin/cvc5" LEAN_NUM_THREADS=5 ../scripts/check_lean_project_compilation.sh TestsFF TestsFF

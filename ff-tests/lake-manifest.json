@@ -1,0 +1,12 @@
+{"version": "1.1.0",
+ "packagesDir": ".lake/packages",
+ "packages":
+ [{"type": "path",
+   "scope": "",
+   "name": "Blaster",
+   "manifestFile": "lake-manifest.json",
+   "inherited": false,
+   "dir": "..",
+   "configFile": "lakefile.lean"}],
+ "name": "BlasterFFTests",
+ "lakeDir": ".lake"}
