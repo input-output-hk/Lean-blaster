@@ -2,6 +2,8 @@ import Lean
 import Blaster.Command.Options
 import Blaster.Optimize.Env
 import Blaster.Smt.EmitCommand
+import Blaster.Smt.FiniteFieldModel
+import Blaster.FiniteField.Recognize
 
 open Lean Meta Blaster.Optimize Blaster.Options
 
@@ -1259,8 +1261,10 @@ private partial def awaitModelResponse
 private def requestModelResponse
     (session : SolverSession) (command : SmtCommand) (readResponse : IO String) :
     TranslateEnvT (Except String String) := do
-  if (← getSession? session.solver).isNone then
-    return .error s!"solver={session.solver}; model evidence is unavailable after session retirement"
+  let some current ← getSession? session.solver
+    | return .error s!"solver={session.solver}; model evidence is unavailable after session retirement"
+  if current.process.pid != session.process.pid then
+    return .error s!"solver={session.solver}; model evidence belongs to a retired session"
   let startedMs ← IO.monoMsNow
   let commandText := toString command
   modifySolverRecord session.solver fun record =>
@@ -1310,6 +1314,60 @@ private def evalTermFor
             return (none, some s!"Response framing failed: expected ((term value)); raw response: {response.trim}")
           return (some value, none)
 
+/-- Native model evidence uses the retained source scope, never the printed
+    variable name as a type witness. A non-residue in a native mixed Boolean
+    query keeps the ordinary raw-value path. No Lean value/proof is constructed. -/
+private def modelModulusFor (symbol : SmtSymbol) (name : Name) :
+    TranslateEnvT (Except String (Option Nat)) := do
+  let mut association := none
+  for entry in (← get).smtEnv.sourceAssociations do
+    if entry.symbol == symbol then
+      if association.isSome then
+        return .error "finite-field source association is ambiguous"
+      association := some entry
+  let some entry := association
+    | return .error "finite-field source association is missing"
+  try
+    withLCtx entry.localContext entry.localInstances do
+      unless entry.userName == name && entry.source.isFVar do
+        return .error "finite-field source variable does not match its declaration"
+      unless ← isDefEq (← inferType entry.source) entry.type do
+        return .error "finite-field source type does not match its declaration"
+      let descriptor ← Blaster.FiniteField.getResidueDescriptor? entry.type
+      match descriptor, entry.modulus with
+      | none, none => return .ok none
+      | some descriptor, some modulus =>
+          if descriptor.modulusValue == modulus && modulus ≥ 2 then
+            return .ok (some modulus)
+          return .error "finite-field source modulus does not match its type"
+      | _, _ => return .error "finite-field source type/modulus metadata is inconsistent"
+  catch error =>
+    if error.isInterrupt || error.isRuntime then throw error
+    return .error "finite-field source type could not be validated"
+
+/-- Decode only native residue variables, with bounded framing and literal
+    checks before display. Retire a failed evidence stream rather than letting a
+    malformed response become the next variable's value. SAT remains unchanged. -/
+private def evalModelVariableFor (session : SolverSession) (symbol : SmtSymbol) (name : Name) :
+    TranslateEnvT (Option String × Option String) := do
+  let term := smtSimpleVarId symbol
+  if !(← get).smtEnv.nativeFieldQualified then return ← evalTermFor session term
+  let unavailable (diagnostic : String) : TranslateEnvT (Option String × Option String) := do
+    discard <| retireAndCleanup session.solver true
+    return (none, some diagnostic)
+  match ← modelModulusFor symbol name with
+  | .error diagnostic => unavailable diagnostic
+  | .ok none => evalTermFor session term
+  | .ok (some modulus) =>
+      match ← requestModelResponse session (.getValue term)
+          (FiniteFieldModel.readResponse session.process.stdout) with
+      | .error _ => unavailable "finite-field model response unavailable (read, timeout, or session failure)"
+      | .ok response =>
+          match FiniteFieldModel.decodeResponse (toString symbol) modulus response with
+          | .error diagnostic => unavailable diagnostic
+          | .ok value =>
+              return (some s!"({value} : Blaster.FiniteField.Residue {modulus}) [#f{value}m{modulus}]", none)
+
 private def getModelFor (solver : SmtSolver) : TranslateEnvT ModelEvidence := do
   let some session ← getSession? solver
     | return { diagnostic := some s!"Solver process failed during model retrieval: {solver} session is unavailable" }
@@ -1329,7 +1387,7 @@ private def getModelFor (solver : SmtSolver) : TranslateEnvT ModelEvidence := do
     let mut diagnostics : Array String := #[]
     for vars in topVars do
       for entry in vars.reverse do
-        let (rendered, diagnostic) ← evalTermFor session (smtSimpleVarId entry.1)
+        let (rendered, diagnostic) ← evalModelVariableFor session entry.1 entry.2
         match rendered with
         | some value => counterexample := counterexample.push s!"{entry.2}: {value}"
         | none => counterexample := counterexample.push s!"{entry.2}: <counterexample unavailable>"
