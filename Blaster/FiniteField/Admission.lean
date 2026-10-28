@@ -63,11 +63,15 @@ def admitNativeField (residue : ResidueDescriptor) (evidence? : Option Expr := n
   let mut candidate := evidence?
   if candidate.isNone then
     for declaration in lctx do
+      -- Implementation details include the auxiliary declaration of the
+      -- theorem being elaborated; `theorem t : PrimeModulus 15 := by ...`
+      -- must not admit `t` as evidence for its own statement.
+      if declaration.isImplementationDetail then continue
       if Kernel.isDefEqGuarded env lctx declaration.type expected then
         candidate := some declaration.toExpr
         break
   let some proof := candidate
-    | throwError "native field admission: missing checked PrimeModulus {actual.modulusValue} evidence; supply a proof explicitly or in the current local context (composite Residue rings remain usable without native admission)"
+    | throwError "native field admission: missing checked PrimeModulus {actual.modulusValue} evidence; supply a proof explicitly or in the current local context; a theorem's own statement is not evidence"
   if proof.hasMVar || proof.hasLooseBVars then
     throwError "native field admission: evidence contains unresolved metavariables or loose bound variables"
   let proofType ← match Kernel.check env lctx proof with

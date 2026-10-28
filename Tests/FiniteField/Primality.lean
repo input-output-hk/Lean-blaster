@@ -137,6 +137,10 @@ run_meta do
     withLetDecl `hp expected (mkConst ``evidence7) fun _ => do
       discard <| accepts d7
     rejects "missing checked PrimeModulus" (admitNativeField d7)
+    -- Inside `theorem t : PrimeModulus 7 := by ...` the local context holds an
+    -- auxiliary declaration for `t` itself. Using it would be circular evidence.
+    withAuxDecl `self expected `Test.FiniteFieldPrimality.self fun _ => do
+      rejects "missing checked PrimeModulus" (admitNativeField d7)
     unless (← get).smtEnv.smtCommands.isEmpty && (← get).smtEnv.sessions.isEmpty do
       throwError "pure admission emitted solver commands or created a solver session"
   discard <| check.run (default : TranslateEnv)
