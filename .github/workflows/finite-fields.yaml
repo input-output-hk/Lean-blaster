@@ -32,12 +32,24 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Install the unchanged root Lean toolchain
+        # A stalled toolchain download never returns, so each attempt gets its
+        # own time limit, as in ci-linux.yaml.
+        timeout-minutes: 40
         shell: bash
         run: |
           set -euo pipefail
           curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
-          "$HOME/.elan/bin/elan" toolchain install "$(cat lean-toolchain)"
+          TOOLCHAIN="$(cat lean-toolchain)"
+          for attempt in 1 2 3; do
+            timeout --kill-after=30 600 "$HOME/.elan/bin/elan" toolchain install "$TOOLCHAIN" && break
+            if [ "$attempt" = 3 ]; then
+              echo "::error::Failed to install Lean toolchain $TOOLCHAIN after 3 attempts"
+              exit 1
+            fi
+            echo "elan toolchain install failed (attempt $attempt), retrying in 15s..."
+            sleep 15
+          done
       - name: Build the local Blaster dependency
         run: |
           lake --version
