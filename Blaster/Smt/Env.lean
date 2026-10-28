@@ -507,8 +507,7 @@ private def cleanupOwnedSession (session : SolverSession) (hard : Bool) : Transl
     catch _ => pure none
   if alreadyExited.isNone then
     if hard then
-      try p.kill catch _ => pure ()
-      try discard p.wait catch _ => pure ()
+      killAndReap p
     else
       try
         p.stdin.putStr "(exit)\n"
@@ -516,8 +515,7 @@ private def cleanupOwnedSession (session : SolverSession) (hard : Bool) : Transl
         let (_, p) ← p.takeStdin
         discard p.wait
       catch _ =>
-        try p.kill catch _ => pure ()
-        try discard p.wait catch _ => pure ()
+        killAndReap p
   let stderr ←
     try p.stderr.readToEnd
     catch _ => pure ""

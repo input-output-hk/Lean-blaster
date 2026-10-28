@@ -287,6 +287,25 @@ private def testExitBeforeSubmissionIsHandled : MetaM Unit := do
   unless cleared do throwError "exited-before-submission solver remained in session state"
   assertStopped "exited-before-submission child" dead
 
+-- `Child.kill` signals the setsid process group, which does not exist until the
+-- child has run. A kill issued immediately after spawning must still land
+-- instead of leaving `wait` to block for the child's whole lifetime.
+private def testImmediateKillTerminatesChild : MetaM Unit := do
+  for attempt in [0:20] do
+    let child ← IO.Process.spawn {
+      cmd := "/bin/sh"
+      args := #["-c", "sleep 5"]
+      stdin := .piped
+      stdout := .piped
+      stderr := .piped
+      setsid := true
+    }
+    let startedMs ← IO.monoMsNow
+    killAndReap child
+    let elapsedMs := (← IO.monoMsNow) - startedMs
+    if elapsedMs ≥ 2000 then
+      throwError "immediate kill attempt {attempt} did not terminate the child ({elapsedMs}ms)"
+
 private def testModelFailurePreservesSatVerdict : MetaM Unit := do
   let process ← spawnFakeChild "sat" "0" "0" "" false "(error \"model unavailable\")"
   let env := environment .single #[{ solver := .z3, process }] true
@@ -613,6 +632,7 @@ private def testAgreementFailureSavesArtifacts : MetaM Unit := do
 #eval testCrashPreservesStderrWithoutDuplicateCleanup
 #eval testAlreadyExitedChildIsHandled
 #eval testExitBeforeSubmissionIsHandled
+#eval testImmediateKillTerminatesChild
 #eval testModelFailurePreservesSatVerdict
 #eval testOwnerCleansUnexpectedPrecheckException
 #eval testCancellationBeforeSolving

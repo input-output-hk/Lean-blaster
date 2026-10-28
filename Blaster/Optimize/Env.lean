@@ -352,6 +352,30 @@ abbrev ConversionFunCache := Std.HashMap (SortExpr × SortExpr) SmtSymbol
 /-- Child-process shape used by every SMT backend session. -/
 abbrev PipedChild := IO.Process.Child ⟨.piped, .piped, .piped⟩
 
+/-- Signal `p` until the signal is delivered. Returns `false` when the child was
+    found already exited (and was reaped by `tryWait`), `true` otherwise.
+    Sessions are spawned with `setsid`, so `Child.kill` signals the child's
+    process group, which exists only once the child has run `setsid`. A kill
+    issued before that fails with ESRCH and leaves the child running. -/
+private partial def killUntilDelivered (p : PipedChild) (deadlineMs : Nat) : IO Bool := do
+  let delivered ←
+    try
+      p.kill
+      pure true
+    catch _ => pure false
+  if delivered then return true
+  if (← try p.tryWait catch _ => pure none).isSome then return false
+  if (← IO.monoMsNow) ≥ deadlineMs then return true
+  IO.sleep 5
+  killUntilDelivered p deadlineMs
+
+/-- Terminate and reap `p` exactly once. Waiting after a kill that never landed
+    would block for as long as the child runs, which for a solver waiting on
+    stdin is forever. -/
+def killAndReap (p : PipedChild) : IO Unit := do
+  if ← killUntilDelivered p ((← IO.monoMsNow) + 10000) then
+    try discard p.wait catch _ => pure ()
+
 /-- One independently owned solver process. Removing a session from
     `SmtEnv.sessions` transfers sole cleanup responsibility to the remover. -/
 structure SolverSession where
@@ -566,9 +590,7 @@ protected def throwEnvError (msg : MessageData) : TranslateEnvT α := do
     let alreadyExited ←
       try p.tryWait
       catch _ => pure none
-    if alreadyExited.isNone then
-      try p.kill catch _ => pure ()
-      try discard p.wait catch _ => pure ()
+    if alreadyExited.isNone then killAndReap p
     let stderr ←
       try p.stderr.readToEnd
       catch _ => pure ""
