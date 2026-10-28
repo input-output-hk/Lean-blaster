@@ -40,3 +40,5 @@ import Tests.FiniteField.PolynormDecide
 import Tests.FiniteField.PolynormGrind
 import Tests.FiniteField.Carrier
 import Tests.FiniteField.Opaque
+import Tests.FiniteField.Primality
+import Tests.FiniteField.LargePrime
