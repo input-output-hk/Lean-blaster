@@ -46,3 +46,5 @@ import Tests.FiniteField.Syntax
 import Tests.FiniteField.Routing
 import Tests.FiniteField.RoutingLifecycle
 import Tests.FiniteField.Translation
+import Tests.FiniteField.Field
+import Tests.FiniteField.AxiomAudit
