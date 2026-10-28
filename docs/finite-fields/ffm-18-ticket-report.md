@@ -1,26 +1,22 @@
 # FFM-18: Scoped inverse and division graph witnesses
 
-## Job summary
+## Current job summary
 
-Implemented total inverse/division lowering in the bounded native polynomial
-translator. Graph obligations are positive query-level assertions; the existing
-caller separately asserts the negated residual implication, retaining its
-assumptions. Six source-level correspondence lemmas kernel-check. The new live
-source run executed 9 SAT and 13 UNSAT cases with the staged backend.
-The implementation is present, but this ticket is **not fully validated**.
-The independent PROJECT tests check failed in unchanged
-`Tests/Smt/CrashLifecycle.lean:597`: the already-exited child produced
-`stage=check submission` / `broken pipe` rather than the fixture's required
-`closed stdout` wording. Earlier local passes below do not supersede that
-independent failure. Full `test-all-solvers` validation also remains blocked by
-the unchanged strict transcript expectation in
-`Tests/FiniteField/Translation.lean:222`. No protected baseline file or strict
-production policy was altered to conceal either failure.
-Fresh PROJECT build and tests checks both pass locally, but deterministic
-exit-before-submission on the immutable base reproduces the independent
-lifecycle diagnostic mismatch. The baseline strict transcript check also
-fails. These remain unresolved validation blockers, not FFM-18 production
-changes or permission to weaken tests.
+The supplied clean checkout already contains the FFM-18 translator, typed
+witness metadata, six scoped correspondence lemmas, optimizer preservation,
+`Tests/FiniteField/DivisionEncoding.lean`, its `Tests/FixedIssues.lean` import,
+and the automatically discovered live division suite. This job preserves that
+implementation; it does not re-add or rewrite existing protected files.
+The only source-controlled change in this job is this report's validation
+update. The implementation and earlier investigation described below are
+inherited history, not changes or command executions performed by this job.
+
+The inherited investigation identifies two unresolved baseline validation
+issues: an exit/submission race in `Tests/Smt/CrashLifecycle.lean` and a strict
+transcript expectation mismatch in `Tests/FiniteField/Translation.lean`.
+Neither authorizes changing protected fixtures, weakening strict diagnostics,
+or claiming a green all-solvers signoff. Current validation is recorded in the
+dated section below; earlier passes do not supersede these failures.
 
 ## Changes and invariants
 
@@ -282,3 +278,98 @@ There is no permission here to change either existing test, weaken strict
 policy, or treat their failures as passing. CI-only lanes remain pending for
 ordinary cvc5 without CoCoA, cvc5 1.2.1, x86_64, and the finite-fields workflow
 at this ticket's eventual published head.
+
+## Current checkout validation — 2026-10-28
+
+This run started with a clean worktree containing all the implementation and
+regression files listed above. No production code, tests, scripts, workflows,
+Lake configuration, toolchain pins, or aggregate imports were changed. In
+particular, DivisionEncoding is already a protected existing test in this
+checkout, not a newly writable file. The historical staging and commit remarks
+above describe previous work only.
+
+Inspection confirmed the scoped cache is allocated inside `withNativeFieldQuery`
+and discarded when its telescope closes. Graphs are asserted only after the
+residual and its premises have translated successfully. Their positive
+assertion polarity is separate from the source query's negated polarity.
+The six correspondence proofs use the public totality/functionality laws;
+the current production import includes their module. The pure suite checks
+the exact denominator, ordered multiplication, graph placement, normalized
+moduli, independent calls, retained local contexts, unsupported syntax, raw
+Fin behavior, and transitive axiom boundaries. The child package's existing
+`.andSubmodules` glob includes the live Division module without aggregate edits.
+
+### Commands executed in this run
+
+The required PROJECT commands were executed verbatim:
+
+```sh
+PATH="$(dirname "$(readlink -f /usr/local/bin/z3-4.15.2)"):/home/agent/.elan/bin:/usr/bin:/bin"; command -v z3 && z3 --version && make check_blaster
+PATH="$(dirname "$(readlink -f /usr/local/bin/z3-4.15.2)"):/home/agent/.elan/bin:/usr/bin:/bin"; command -v z3 && z3 --version && make check_tests
+```
+
+Both select `/opt/z3-4.15.2-arm64-glibc-2.34/bin/z3`, version 4.15.2.
+The toolchain reports Lake `5.0.0-src+797c613`, Lean `4.24.0`.
+
+| Command | Current observed outcome |
+| --- | --- |
+| `make ff-stage` | Passed, exit 0, 3.80 seconds. Staged the hash-verified linux-arm64 solving profile; offline setup, solving, model, and all four capability cases passed. Proof export remains deferred to M2. This was the only artifact staging command. |
+| `cvc5 --show-config` | Passed, exit 0. Image cvc5 1.4.1, commit `2b2e844`; `cocoa: yes`, `poly: yes`, `cln: yes`, `gmp: no`. No additional ordinary cvc5 was provisioned. |
+| Exact PROJECT `make check_blaster` command above | Passed, exit 0, 110.52 seconds, 246 jobs. Clean production build and complete source coverage, including the translator and correspondence module. |
+| Exact PROJECT `make check_tests` command above | Passed, exit 0, 255.37 seconds. Fresh FF discovery passed (17/17 modules, 298 jobs), followed by Tests.Pure (275 jobs) and Tests.Z3 (767 jobs). This pass does not establish that the historically observed lifecycle race is repaired. |
+| `python3 scripts/finite_fields/run_pure_tests.py` | Executed by the unchanged PROJECT test target; passed with all 17 discovered modules freshly compiled, including DivisionEncoding and AxiomAudit. |
+| `make test-z3` | Executed by the unchanged PROJECT test target with Z3 4.15.2 alone on PATH; passed, 767 jobs. No default-assurance-Z3 test run is claimed. |
+| `lake build Tests.FiniteField.DivisionEncoding Tests.FiniteField.AxiomAudit` | Passed, exit 0, 282 jobs; reused modules freshly compiled during the PROJECT test gate. |
+| `make test-cvc5-ff` | Passed, exit 0, 254 jobs with complete child-package source coverage. Offline capability probe passed. Fresh live execution: Division 9 SAT / 13 UNSAT; Polynomial 5 SAT / 10 UNSAT; Model 5 SAT; Capability 4 cases. The targeted build and this target were run sequentially with `&&`, taking 28.23 seconds combined. |
+
+The ordinary all-solvers command uses release Z3 and the image's ordinary cvc5,
+not the staged FF executable:
+
+```sh
+PATH="$(dirname "$(readlink -f /usr/local/bin/z3-4.15.2)"):/home/agent/.elan/bin:/usr/local/bin:/usr/bin:/bin"; command -v z3 && z3 --version && command -v cvc5 && make test-all-solvers
+```
+
+The live division run exercised the actual translation/solver/model path.
+In particular, unguarded self-division returned the zero counterexample in
+characteristics 7 and 2, and the nested implication case returned zero rather
+than becoming spuriously valid through incorrect graph polarity. Pure command
+checks and source proofs also passed. The axiom-audit warnings about `sorryAx`
+come from the existing scoped forbidden-dependency negative controls, not
+from an admitted production correspondence theorem.
+
+**All-solvers outcome:** failed, exit 2, 184.43 seconds. The ordinary cvc5
+baseline passed. The only failed Lean target was
+`Tests.FiniteField.Translation`, with two
+`Tests/FiniteField/Translation.lean:222:0: Unexpected Undetermined` errors.
+Its existing transcript options set `onlySmtLib := true` without declaring
+an expected Undetermined result; the run at line 222 explicitly requires
+Undetermined, but the lane's strict result policy rejects the unspecified
+expectation. DivisionEncoding and AxiomAudit both freshly compiled successfully
+under the same strict lane. CrashLifecycle also completed in this invocation;
+no fix for its inherited race is claimed.
+
+### Remaining limitations and signoff
+
+- Full all-solvers/source-coverage acceptance remains blocked by the protected
+  Translation fixture. A narrowly scoped owner gate or executable semantic
+  validator must bind the immutable approved base, exact proposed test patch,
+  named tests, old/new outcomes, and required risk/G6 evidence before changing
+  it. This job neither changes that fixture nor suppresses strict diagnostics.
+- The inherited lifecycle race remains a known risk despite this run's passing
+  PROJECT checks. No isolated re-reproduction or unrelated production change
+  was made in this job.
+- CI-only lanes for this job's eventual published head are **pending**:
+  ordinary cvc5 without CoCoA, cvc5 1.2.1 floor, x86_64, and the finite-fields
+  workflow on [PR #412](https://github.com/input-output-hk/Lean-blaster/pull/412).
+  No current-head CI result is claimed. Running the Cvc5Floor module with image
+  cvc5 1.4.1 during all-solvers is not a substitute for the 1.2.1 version lane.
+- Trusted M1 closure, preflight/routing, `blasterProven`, and all existing
+  operation semantics are unchanged. These checks do not establish verified
+  SMT reconstruction or residual-quantifier support.
+- The report is updated for the stack's publication commit. No local commit,
+  push, remote CI completion, or maintainer signoff is claimed.
+
+**Job result:** the already-present FFM-18 implementation passes the targeted
+pure/axiom and staged live checks, and both required PROJECT checks pass.
+Only this report changed. Overall ticket signoff is not green because the
+required all-solvers lane still fails in the existing protected fixture.
