@@ -1,4 +1,5 @@
 import Blaster.FF04.Nominal
+import Lean
 
 /-!
 # FF-04 checked text-proof slice
@@ -73,7 +74,7 @@ private partial def term (modulus : Nat) (xs : Bindings) : SExpr → TacticM Exp
   | .list [.atom "ff.value", .atom p, .atom n] => do
     unless p.toNat? == some modulus do throwError "CPC literal modulus mismatch"
     let some n := n.toNat? | throwError "invalid CPC numeral"
-    mkAppOptM ``OfNat.ofNat #[some (mkApp (mkConst ``Residue) (mkNatLit modulus)),
+    mkAppOptM ``OfNat.ofNat #[some (mkApp (mkConst ``Blaster.FiniteField.Residue) (mkNatLit modulus)),
       some (mkNatLit n), none]
   | .list [.atom "=", a, b] => do mkEq (← term modulus xs a) (← term modulus xs b)
   | .list [.atom "not", a] => do mkAppM ``Not #[← term modulus xs a]
@@ -156,7 +157,7 @@ def replay (text : String) : TacticM Unit := withMainContext do
           unless previous == p do throwError "mixed CPC moduli"
         modulus := some p
         let v ← localNamed name
-        unless ← isDefEq (← inferType v) (mkApp (mkConst ``Residue) (mkNatLit p)) do
+        unless ← isDefEq (← inferType v) (mkApp (mkConst ``Blaster.FiniteField.Residue) (mkNatLit p)) do
           throwError "CPC variable type does not match original Lean local"
         terms := (name, v) :: terms
         vars := vars.push v

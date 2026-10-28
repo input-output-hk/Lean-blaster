@@ -303,6 +303,8 @@ def getOpaqueSmtEquivFun (f : Expr) (s : SmtSymbol) : TranslateEnvT SmtQualified
 
 -/
 def translateOpaqueFun (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT SmtQualifiedIdent := do
+  if ← isOpaqueResidueOperation n args then
+    throwEnvError "translateOpaqueFun: unsupported Residue arithmetic SMT translation: {reprStr (mkAppN f args)}"
   match n with
   | ``Eq
   | ``BEq.beq => getOpaqueSmtEquivFun f eqSymbol
@@ -991,6 +993,11 @@ def translateApp
   Expr.withApp e fun f args => do
     match f with
     | Expr.const n _ =>
+         -- Canonical residue operations are intentionally opaque to rewriting,
+         -- but have no SMT encoding yet. Never fall through to arbitrary-UF or
+         -- name-only arithmetic dispatch, losing the dictionary or modulus.
+         if ← isOpaqueResidueOperation n args then
+           throwEnvError "translateApp: unsupported Residue arithmetic SMT translation: {reprStr e}"
          if let some r ← translateFullyApplied? f n args then return r
          if let some r ← translateEq? f n args then return r
          if let some r ← translateRelational? f n args then return r

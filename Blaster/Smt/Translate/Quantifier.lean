@@ -1,6 +1,7 @@
 import Lean
 import Blaster.Smt.Env
 import Blaster.Optimize.Basic
+import Blaster.FiniteField.Recognize
 
 open Lean Meta Blaster.Optimize
 
@@ -1262,6 +1263,15 @@ def translatePEmptyType (n : Expr) : TranslateEnvT SortExpr := do
     TODO: update function when opacifying other Lean inductive types (e.g., BitVector, Char, etc).
 -/
 def translateOpaqueType (t : Expr) : TranslateEnvT (Option SortExpr) := do
+ -- Inspect the complete applied type before splitting its head and arguments.
+ -- Recognition is not primality admission, and this milestone supplies no SMT
+ -- residue sort. In particular, do not encode the nominal carrier as Fin or an
+ -- ordinary datatype, nor merge different moduli under the bare carrier name.
+ if (← Blaster.FiniteField.getResidueModulus? t).isSome then
+   let descriptor ← Blaster.FiniteField.getResidueDescriptor? t
+   if let some d := descriptor then
+     throwEnvError "translateOpaqueType: unsupported Residue SMT translation (modulus {d.modulusValue}): {reprStr d.type}"
+   throwEnvError "translateOpaqueType: unsupported Residue SMT translation with nonconcrete modulus: {reprStr t}"
  let e := t.getAppFn
  match e with
  | Expr.const n _ =>

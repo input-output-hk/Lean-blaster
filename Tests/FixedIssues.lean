@@ -38,3 +38,5 @@ import Tests.FiniteField.FinBaseline
 import Tests.FiniteField.Prototype
 import Tests.FiniteField.PolynormDecide
 import Tests.FiniteField.PolynormGrind
+import Tests.FiniteField.Carrier
+import Tests.FiniteField.Opaque

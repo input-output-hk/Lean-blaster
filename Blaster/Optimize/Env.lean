@@ -1290,7 +1290,8 @@ def isOpaqueRelational (f : Name) (args : Array Expr) : TranslateEnvT Bool := do
 
 /-- Return `true` if function name `f` is tagged as an opaque definition. -/
 def isOpaqueFun (f : Name) (args: Array Expr) : TranslateEnvT Bool :=
-  return (opaqueFuns.contains f || (← isOpaqueRelational f args))
+  return (opaqueFuns.contains f || (← isOpaqueResidueOperation f args) ||
+    (← isOpaqueRelational f args))
 
 /-- Same as `isOpaqueFun` expect that `f` is an expression. -/
 def isOpaqueFunExpr (f : Expr) (args: Array Expr) : TranslateEnvT Bool :=

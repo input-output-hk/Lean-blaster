@@ -552,6 +552,7 @@ def isNotFoldable
   match e with
   | Expr.const n _ =>
       if opaqueFuns.contains n then return true
+      else if (← isOpaqueResidueOperation n args) then return true
       else if (← (pure (args.size != 0)) <&&> (isOpaqueRelational n args)) then return true
       else if (← isRecursiveFun n) then return true
       else isNotFun e

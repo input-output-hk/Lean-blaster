@@ -1,4 +1,4 @@
-import Blaster.FF04.Nominal
+import Blaster.FiniteField.Residue
 import Blaster.FF04.Polynorm
 
 /-!
@@ -9,7 +9,7 @@ The algorithm is the core-only adaptation, not a build of upstream lean-smt.
 -/
 namespace Test.FiniteFieldPolynorm
 
-open Blaster.FF04 Blaster.FF04.Polynorm
+open Blaster.FiniteField Blaster.FF04.Polynorm
 
 abbrev F := Residue 65537
 abbrev E := Expr F

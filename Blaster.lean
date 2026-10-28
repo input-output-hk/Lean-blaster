@@ -2,6 +2,7 @@
 -- Import modules here that should be built as part of the library.
 
 import Blaster.Command
+import Blaster.FiniteField
 import Blaster.Logging
 import Blaster.Optimize
 import Blaster.Smt

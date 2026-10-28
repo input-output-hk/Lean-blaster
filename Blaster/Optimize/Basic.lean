@@ -49,6 +49,15 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
 
           | Expr.app .. =>
              let (f, ras) := getAppFnWithArgs e
+             -- Preserve the canonical dictionary and indexed carrier before
+             -- generic implicit-argument normalization can reduce projections
+             -- such as OfNat.ofNat into the representation. Explicit operands
+             -- still traverse the ordinary optimizer, including nested calls.
+             if let Expr.const name _ := f then
+               if ← isOpaqueResidueOperation name ras then
+                 let pInfo ← getFunEnvInfo f
+                 return ← optimizeExprAux
+                   (.AppOptimizeExplicitArgs f ras 0 ras.size pInfo none :: i_stack)
              -- check if f is a lambda term
              if f.isLambda then
                -- perform beta reduction and apply optimization
