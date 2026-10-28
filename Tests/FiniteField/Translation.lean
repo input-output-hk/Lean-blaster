@@ -14,7 +14,8 @@ private def options : TranslateEnv :=
     optEnv.options.solverOptions := {
       solver := some .cvc5
       onlySmtLib := true
-      timeout := some 1 } }
+      timeout := some 1
+      solveResult := .ExpectedUndetermined } }
 
 private def body (name : Name) : MetaM Expr := do
   let .defnInfo info ← getConstInfo name | throwError "missing query definition {name}"
