@@ -19,6 +19,9 @@ private def normalizeLine (s : String) : String :=
 structure SolverCandidate where
   cmd : String
   prefixArgs : Array String := #[]
+  /-- Exact argv qualified by an offline capability probe. When present, replaces
+      descriptor spawn arguments; ordinary candidates keep their existing argv. -/
+  spawnArgs? : Option (Array String) := none
 deriving Repr, BEq, Inhabited
 
 /-- Human-readable candidate spelling used only in diagnostics. -/
@@ -46,7 +49,9 @@ def SolverDescriptor.probeInvocation (desc : SolverDescriptor) (candidate : Solv
 /-- Exact executable and argv used to start a candidate as an SMT process. -/
 def SolverDescriptor.spawnInvocation (desc : SolverDescriptor) (candidate : SolverCandidate) :
     String × Array String :=
-  (candidate.cmd, candidate.prefixArgs ++ desc.spawnArgs)
+  (candidate.cmd, match candidate.spawnArgs? with
+    | some args => args
+    | none => candidate.prefixArgs ++ desc.spawnArgs)
 
 /-- Per-solver executable description.
     NOTE: cvc5 is spawned with `--parsing-mode=lenient` because Blaster emits
@@ -426,10 +431,14 @@ def resolveTimeout (sOpts : BlasterOptions) : IO (Option Nat) := do
   | .error message => throw <| IO.userError message
 
 /-- Spawn one independently owned solver session and retain enough launch
-    metadata to reproduce the exact invocation. -/
-def createSolverSession (solver : SmtSolver) : IO (SolverSession × SolverRecord) := do
+    metadata to reproduce the exact invocation. A preflight-approved candidate
+    is used verbatim, without executable discovery or another version probe. -/
+def createSolverSession (solver : SmtSolver) (candidate? : Option SolverCandidate := none) :
+    IO (SolverSession × SolverRecord) := do
   let desc := solver.descriptor
-  let executable ← findSolverExecutable solver
+  let executable ← match candidate? with
+    | some candidate => pure { candidate, version := "offline capability-qualified" }
+    | none => findSolverExecutable solver
   let (cmd, args) := desc.spawnInvocation executable.candidate
   let process ← IO.Process.spawn {
     stdin  := .piped
@@ -526,7 +535,8 @@ private def retireAndCleanup (solver : SmtSolver) (hard : Bool) : TranslateEnvT 
 
 private def retireAllSessions (hard : Bool) : TranslateEnvT Unit := do
   let sessions := (← get).smtEnv.sessions
-  modify fun env => { env with smtEnv.sessions := #[], smtEnv.emitProc := none }
+  modify fun env =>
+    { env with smtEnv.sessions := #[], smtEnv.deferredSessions := #[], smtEnv.emitProc := none }
   for session in sessions do
     discard <| cleanupOwnedSession session hard
 
@@ -1188,9 +1198,10 @@ private def upsertSolverRecord (record : SolverRecord) : TranslateEnvT Unit :=
     retained canonical query so incremental state-machine checks still compare
     the same encoding after `first` retired a prior loser. -/
 private def spawnAndInitializeSolver
-    (solver : SmtSolver) (replay : Bool) : TranslateEnvT (Except String Unit) := do
+    (solver : SmtSolver) (replay : Bool) (candidate? : Option SolverCandidate := none) :
+    TranslateEnvT (Except String Unit) := do
   try
-    let (session, record) ← createSolverSession solver
+    let (session, record) ← createSolverSession solver candidate?
     let sOpts := (← get).optEnv.options.solverOptions
     let setup := solverSetupCommands solver sOpts
     modify fun env => { env with smtEnv.sessions := env.smtEnv.sessions.push session }
@@ -1702,8 +1713,10 @@ private def configuredSolvers (sOpts : BlasterOptions) : IO (Array SmtSolver) :=
 
 /-- Resolve options, create independent sessions, and send only each backend's
     setup transcript. Subsequent translation commands are broadcast once from
-    the canonical query path. -/
-def setBlasterProcess : TranslateEnvT Unit := do
+    the canonical query path. `candidate?` supplies the exact offline-qualified
+    executable and argv for single-cvc5 finite-field preflight; it never changes
+    session ownership, and omission preserves ordinary solver discovery. -/
+def setBlasterProcess (candidate? : Option SolverCandidate := none) : TranslateEnvT Unit := do
   let original := (← get).optEnv.options.solverOptions
   match validateSolverOptions original with
   | .error error => throwEnvError error
@@ -1711,6 +1724,8 @@ def setBlasterProcess : TranslateEnvT Unit := do
   let timeout ← resolveTimeout original
   let sOpts := { original with timeout }
   let solvers ← configuredSolvers sOpts
+  if candidate?.isSome && (sOpts.solverMode != .single || solvers != #[.cvc5]) then
+    throwEnvError "An offline-qualified finite-field candidate requires single-cvc5 solver mode."
   modify fun env =>
     { env with
       smtEnv.configuredSolvers := solvers,
@@ -1730,7 +1745,7 @@ def setBlasterProcess : TranslateEnvT Unit := do
       }
   else
     for solver in solvers do
-      match ← spawnAndInitializeSolver solver false with
+      match ← spawnAndInitializeSolver solver false candidate? with
       | .ok () => pure ()
       | .error error =>
           throwEnvError s!"❌ Failed to initialize required {solver} solver: {error}"
