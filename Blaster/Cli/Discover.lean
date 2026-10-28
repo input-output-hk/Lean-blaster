@@ -75,11 +75,29 @@ private def parseDiagnostics (messages : MessageLog) : IO (Array Diagnostic) := 
         file := msg.fileName, line := msg.pos.line, column := msg.pos.column + 1 }
       diagnostics := diagnostics.push {
         severity := "error"
+        code := some "discovery.parse"
         message := s!"I couldn't fully parse this source without elaboration: {detail}"
         location := some location }
   return diagnostics
 
-private partial def discoverSource (cfg : Config) (env : Environment) (seen : IO.Ref (Array Name))
+/-- Parser extensions live in imported oleans. Reuse environments for identical
+    import headers while scanning a directory; no source is elaborated here. -/
+private def parserEnvFor (baseEnv : Environment)
+    (cache : IO.Ref (Array (Array Import × Environment)))
+    (imports : Array Import) : IO (Environment × Option String) := do
+  if imports.isEmpty then return (baseEnv, none)
+  if let some (_, cached) := (← cache.get).find? (fun entry => entry.1 == imports) then
+    return (cached, none)
+  try
+    let env ← importModules (#[{ module := `Blaster.Command }] ++ imports) {}
+      (loadExts := true)
+    cache.modify (·.push (imports, env))
+    return (env, none)
+  catch ex =>
+    return (baseEnv, some ex.toString)
+
+private partial def discoverSource (cfg : Config) (baseEnv : Environment)
+    (cache : IO.Ref (Array (Array Import × Environment))) (seen : IO.Ref (Array Name))
     (onModuleStart : String → IO Unit) (onItem : DiscoveryItem → IO Unit)
     (onModuleComplete : String → Nat → IO Unit) (followImports : Bool := true) :
     IO (Array DiscoveryItem × Array Diagnostic) := do
@@ -89,7 +107,7 @@ private partial def discoverSource (cfg : Config) (env : Environment) (seen : IO
   let (header, parserState, messages) ← Parser.parseHeader inputCtx
   let imports := HeaderSyntax.imports header false
   let (first, firstState, firstMessages) :=
-    Parser.parseCommand inputCtx { env, options := {} } parserState messages
+    Parser.parseCommand inputCtx { env := baseEnv, options := {} } parserState messages
   if followImports && !firstMessages.hasErrors && !imports.isEmpty && Parser.isTerminalCommand first then
     let mut items := #[]
     let mut diagnostics := #[]
@@ -100,11 +118,14 @@ private partial def discoverSource (cfg : Config) (env : Environment) (seen : IO
           let label := s!"{imp.module.toString.replace "." "/"}.lean"
           onModuleStart label
           let (found, issues) ← discoverSource { cfg with file := some source.toString }
-            env seen onModuleStart onItem onModuleComplete followImports
+            baseEnv cache seen onModuleStart onItem onModuleComplete followImports
           items := items ++ found
           diagnostics := diagnostics ++ issues
           onModuleComplete label found.size
     return (items, diagnostics)
+  let (env, importIssue) ← parserEnvFor baseEnv cache imports
+  let (first, firstState, firstMessages) :=
+    Parser.parseCommand inputCtx { env, options := {} } parserState messages
   let mut state := firstState
   let mut messages := firstMessages
   let mut command := first
@@ -127,24 +148,31 @@ private partial def discoverSource (cfg : Config) (env : Environment) (seen : IO
     command := next
     state := nextState
     messages := nextMessages
-  return (items, ← parseDiagnostics messages)
+  let mut diagnostics ← parseDiagnostics messages
+  if let some issue := importIssue then
+    diagnostics := diagnostics.push {
+      severity := "warning", code := some "discovery.importSyntax",
+      message := s!"I couldn't load syntax from this file's compiled imports; discovery may be incomplete. {issue}" }
+  return (items, diagnostics)
 
 /-- Discover direct Blaster syntax without elaboration, dependency builds, or solver work. -/
 def discoverFile (cfg : Config) (onModuleStart : String → IO Unit)
     (onItem : DiscoveryItem → IO Unit) (onModuleComplete : String → Nat → IO Unit) :
     IO (Array DiscoveryItem × Array Diagnostic) := do
-  initDiscoveryLibraries
+  initDiscoveryLibraries cfg
   let env ← importModules #[{ module := `Blaster.Command }] {} (loadExts := true)
+  let cache ← IO.mkRef (#[] : Array (Array Import × Environment))
   let seen ← IO.mkRef (#[] : Array Name)
-  discoverSource cfg env seen onModuleStart onItem onModuleComplete
+  discoverSource cfg env cache seen onModuleStart onItem onModuleComplete
 
 /-- A directory is an inventory of source files, not an import graph. An umbrella
     contributes no sites; its leaves are visited directly, once each. -/
 def discoverDirectory (cfg : Config) (onModuleStart : String → IO Unit)
     (onItem : DiscoveryItem → IO Unit) (onModuleComplete : String → Nat → IO Unit) :
     IO (Array DiscoveryItem × Array Diagnostic) := do
-  initDiscoveryLibraries
+  initDiscoveryLibraries cfg
   let env ← importModules #[{ module := `Blaster.Command }] {} (loadExts := true)
+  let cache ← IO.mkRef (#[] : Array (Array Import × Environment))
   let seen ← IO.mkRef (#[] : Array Name)
   let mut items := #[]
   let mut diagnostics := #[]
@@ -154,7 +182,7 @@ def discoverDirectory (cfg : Config) (onModuleStart : String → IO Unit)
     onModuleStart label
     try
       let (found, issues) ← discoverSource { cfg with file := some source.toString }
-        env seen onModuleStart onItem onModuleComplete false
+        env cache seen onModuleStart onItem onModuleComplete false
       items := items ++ found
       diagnostics := diagnostics ++ issues
       onModuleComplete label found.size

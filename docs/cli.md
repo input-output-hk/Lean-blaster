@@ -151,6 +151,12 @@ exit-code meaning in `lean-blaster check`; the expected count is shown separatel
 
 `lean-blaster discover FILE.lean` lists direct `#blaster` commands and `blaster`
 tactic sites without elaborating the file, building project imports, or running Z3.
+It loads parser syntax from already compiled imports when available, so project
+notations such as `Recursor.any` can be parsed. Import syntax is cached across
+files with the same import header. If compiled imports are unavailable, discovery
+continues with Blaster's grammar and marks the partial result with
+`discovery.importSyntax` warnings or `discovery.parse` errors. Build the missing
+imports and retry for a complete inventory.
 For an import-only umbrella it walks local source imports once, just as `check`
 does by default. An empty discovery succeeds and reports zero sites.
 `discover DIRECTORY` parses each source in the directory inventory once and emits

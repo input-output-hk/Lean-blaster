@@ -75,7 +75,7 @@ private def runtimeSysroot (bin : System.FilePath) : IO System.FilePath := do
 
 /-- Ask Lake for dependency paths internally; never expose its environment in CLI output. -/
 private def projectPaths (cfg : Config) (sysroot : System.FilePath) : IO SearchPath := do
-  if cfg.command != "check" then return []
+  if cfg.command != "check" && cfg.command != "discover" then return []
   let some project ← projectFor cfg.file | return []
   let toolchain := project / "lean-toolchain"
   if ← toolchain.pathExists then
@@ -177,11 +177,14 @@ def initLibraries (cfg : Config) : IO Unit := do
   let project ← projectPaths cfg sysroot
   initSearchPath sysroot (ownLib :: project)
 
-/-- Discovery only needs the executable's own parser, not project builds or solver setup. -/
-def initDiscoveryLibraries : IO Unit := do
+/-- Discovery reads existing project artifacts for imported syntax, without building
+    source modules or starting the solver. It can still scan with bundled syntax
+    when the project's Lake environment is unavailable. -/
+def initDiscoveryLibraries (cfg : Config) : IO Unit := do
   let bin ← Smt.installationBin
   let ownLib := bin / ".." / "lib" / "lean"
   let sysroot ← runtimeSysroot bin
-  initSearchPath sysroot [ownLib]
+  let project ← try projectPaths cfg sysroot catch _ => pure []
+  initSearchPath sysroot (ownLib :: project)
 
 end Blaster.Cli
