@@ -50,3 +50,4 @@ import Tests.FiniteField.Field
 import Tests.FiniteField.AxiomAudit
 import Tests.FiniteField.Model
 import Tests.FiniteField.DivisionEncoding
+import Tests.FiniteField.OutcomeIntegration
