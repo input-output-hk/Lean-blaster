@@ -14,6 +14,9 @@ lean-blaster
 lean-blaster doctor
 lean-blaster check Properties.lean
 lean-blaster discover Properties.lean
+lean-blaster check Tests/Smt
+lean-blaster discover Tests/Smt --json
+lean-blaster check Properties.lean --llm blaster-report.md
 ```
 
 `make install` builds the executable, installs its own compiled Blaster libraries and
@@ -121,6 +124,16 @@ Each local source is selected once, including through nested umbrellas. The repo
 warns about nonstandard imports without local source files; they are not traversed.
 An imported source may still be compiled as a dependency of another source when Lean needs
 its declarations.
+
+`check DIRECTORY` and `discover DIRECTORY` recursively enumerate `.lean` sources in
+stable path order. They canonicalize paths so a linked file is visited once, skip
+linked directories, `.lake`/`.git`, and `lakefile.lean`; they do not follow imports while selecting
+files. Thus an import-only umbrella and another umbrella that names the same leaf
+do not schedule that leaf twice in one invocation. `check` elaborates each selected source directly
+and combines its results; files with no direct checks do not cause individual
+errors. An empty directory check exits with an error. `--decl` requires a single
+file. Lake may still compile a source as a dependency of another source on a cold
+build; that compilation is separate from the CLI's selected-source pass.
 Successful Lake build logs stay quiet; failing build jobs remain visible.
 Terminal output nests imported source sections. Every Blaster invocation appears inside
 its source section, including valid results. Section totals count invocations rather
@@ -176,8 +189,16 @@ exit-code meaning in `lean-blaster check`; the expected count is shown separatel
 
 `lean-blaster discover FILE.lean` lists direct `#blaster` commands and `blaster`
 tactic sites without elaborating the file, building project imports, or running Z3.
+It loads parser syntax from already compiled imports when available, so project
+notations such as `Recursor.any` can be parsed. Import syntax is cached across
+files with the same import header. If compiled imports are unavailable, discovery
+continues with Blaster's grammar and marks the partial result with
+`discovery.importSyntax` warnings or `discovery.parse` errors. Build the missing
+imports and retry for a complete inventory.
 For an import-only umbrella it walks local source imports once, just as `check`
 does by default. An empty discovery succeeds and reports zero sites.
+`discover DIRECTORY` parses each source in the directory inventory once and emits
+each site's location once per invocation, even when several umbrellas import that source.
 
 Each site has a `kind` (`command` or `tactic`), optional source-qualified declaration
 `name`, and the exact source `body`. For a tactic, `body` is its enclosing theorem,
@@ -193,6 +214,25 @@ with one-based line and column numbers.
 inside the file, conditional tactics, and elaboration can change which invocations
 actually run. Use `check --json` for executed calls and their outcomes. Discovery
 does not accept solver or `--decl` selection options.
+
+## Agent report
+
+`lean-blaster check FILE.lean --llm report.md` writes a Markdown snapshot for coding
+agents. The path is relative to the current directory unless absolute. It may be
+combined with `--json` or `--json-report`; those stdout formats keep their existing
+meaning. The report is written through a temporary file and replaced only when
+complete. A write failure is reported as a check error. The flag is available only
+for `check`, and `.lean` output paths are rejected to protect source files.
+
+The snapshot records the project root, Git revision and dirty state when available,
+Lean and Z3 versions, effective CLI overrides, exit status, selected source count,
+recorded call counts, trust statement, and a compact index of every result. Each
+non-valid result includes its location, source excerpt, elaborated goal when
+available, reason, raw counterexample values when available, and matching Lean
+diagnostics. Routine unused-variable warnings are counted but omitted from detail.
+Syntactic discovery counts and executions that occur inside Lake dependency builds
+are not claimed as captured check results. The report is evidence for an agent to
+inspect, not a reconstructed Lean proof or an automatically generated fix.
 
 ## Options and precedence
 
@@ -210,15 +250,16 @@ each solver query, not elaboration or optimization. Unsupported precision is rej
 Zero is a valid random seed. Counterexample retrieval is enabled unless disabled in
 the source or through `--no-counterexample`.
 
-`-v`/`--verbose` shows actual stages, timing, and Lean's unused-variable linter
-warnings. The normal terminal report omits those routine linter warnings; JSON
-output retains them with code `lean.unusedVariables`. The normal report also omits
-the tactic's duplicate falsification diagnostic and per-tactic `blasterProven`
-warning. JSON retains them as `blaster.falsified` and `blaster.trust`; verbose mode
-shows them. A single trust note remains at the end of reports containing valid
-results. Other Lean warnings remain visible. `--debug` enables additional
-diagnostic context. The CLI owns progress and result rendering, so it suppresses
-the library's stdout-based profiling and SMT dumping. Use existing Lean options
+`-v`/`--verbose` shows actual stages, timing, Lean information messages, and
+unused-variable linter warnings. The normal terminal report omits routine Lean
+information messages and unused-variable warnings; JSON output retains them.
+The normal report also omits the tactic's duplicate falsification diagnostic
+and per-tactic `blasterProven` warning. JSON retains them as `blaster.falsified`
+and `blaster.trust`; verbose mode shows them. A single trust note remains at the
+end of reports containing valid results. Other Lean warnings remain visible.
+`--debug` enables additional diagnostic context. The CLI owns progress and
+result rendering, so it suppresses the library's stdout-based profiling and SMT
+dumping. Use existing Lean options
 directly for raw SMT-query inspection until `inspect` and `export` are implemented.
 
 ## Voice and presentation

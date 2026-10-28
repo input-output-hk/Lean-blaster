@@ -759,7 +759,12 @@ partial def hasSorryTheorem (e : Expr) (msg : MessageData) : TranslateEnvT Unit 
 /-- Given `pType := λ α₁ → .. → λ αₙ → t` returns `λ α₁ → .. → λ αₙ → eType`
     This function is expected to be used only when updating a match return type
 -/
-def updateMatchReturnType (eType : Expr) (pType : Expr) : TranslateEnvT Expr := do
-  lambdaTelescope pType fun params _body => mkLambdaFVarsExpr params eType
+def updateMatchReturnType (mInfo : MatchInfo) (margs : Array Expr) (eType : Expr) (pType : Expr) : TranslateEnvT Expr := do
+    lambdaTelescope pType fun params _body => do
+       let eType ← replaceShared eType fun a => do
+         for i in [mInfo.getFirstDiscrPos:mInfo.getFirstAltPos] do
+           if exprEq a margs[i]! then return some params[i - mInfo.getFirstDiscrPos]!
+         return none
+       mkLambdaFVarsExpr params eType
 
 end Blaster.Optimize

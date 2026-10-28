@@ -21,18 +21,6 @@ partial def eraseMatchRhsRewriteCache (mInfo : MatchInfo) : TranslateEnvT Unit :
     visit start mInfo.arity.toUSize start
   else return ()
 
-/-- Given,
-     - `t := λ β₁ => ... => βₘ => ∀ α₁ → ∀ α₂ → ... → αₙ` corresponding to a match expression
-        returning functions as rhs; and
-     - `nbArgs ∈ [0..n]` corresponding to the number of extra arguments applied to the match expression; and
-     - α'₁, ..., α'ₘ := [ αᵢ | i ∈ [nbArgs, n] ]
-    Return:
-      - ∀ α'₁ → ∀ α'₂ → ... → α'ₘ
-    Note that the returned type will correspond to αₙ when nbArgs = n.
--/
-def getAppliedMatchType (t : Expr) (nbArgs : Nat) : Expr :=
-  (getLambdaBody t).getForallBodyMaxDepth nbArgs
-
 /-- Given `f x₁ ... xₙ` return `true` when the following conditions are satisfied:
      -  ∃ i ∈ [1..n], isExplicit xᵢ ∧
      -  ∀ i ∈ [1..n], isExplicit xᵢ → isCstProp xᵢ ∨ isPropFunType f xₓ
@@ -371,10 +359,11 @@ partial def instantiateUnifiedMVars
 -/
 def reduceMatch? (args : Array Expr) (mInfo : MatchInfo) (resolveArgs := false) : TranslateEnvT (Option BetaLambdaResult) := do
  let args ← resolveArgsWithEqualityStack args
- let instKey ← mkAppRangeExpr mInfo.instApp 0 mInfo.getFirstAltPos args
+ let instCommonKey ← mkAppRangeExpr mInfo.instApp 0 mInfo.getFirstDiscrPos args
+ let instKey ← mkAppRangeExpr instCommonKey mInfo.getFirstDiscrPos mInfo.getFirstAltPos args
  let discrsType ← getDiscrsType mInfo args instKey
  if !(← allMatchDiscrsAreCtor args discrsType) then return none
- let alts ← getMatchAltsAux instKey args mInfo
+ let alts ← getMatchAltsAux instCommonKey args mInfo
  visit_alts? args alts discrsType mInfo.getFirstAltPos mInfo.arity false
 
    where
@@ -493,7 +482,7 @@ def constMatchPropagation?
         eraseMatchRhsRewriteCache mInfo
         -- NOTE: we also need to set the sort type for the pulled dite to meet
         -- the return type of the embedded match
-        let retType := getAppliedMatchType cargs[mInfo.getFirstDiscrPos - 1]! 0
+        let retType := getLambdaBody (← instantiateMatchType mInfo cargs)
         let e1' ← pushMatchInDIteExpr cm cargs idx e1
         let e2' ← pushMatchInDIteExpr cm cargs idx e2
         -- NOTE: we need to propagate the reuse context to the new then and else expressions
@@ -523,8 +512,8 @@ def constMatchPropagation?
         -- NOTE: we also need to set the return type for pulled over match
         -- to meet the return type of the embedded match.
         let idxType := argInfo.getFirstDiscrPos - 1
-        let retType := getAppliedMatchType cargs[mInfo.getFirstDiscrPos - 1]! 0
-        pargs ← pargs.modifyM idxType (updateMatchReturnType retType)
+        let retType := getLambdaBody (← instantiateMatchType mInfo cargs)
+        pargs ← pargs.modifyM idxType (updateMatchReturnType argInfo pargs retType)
         let pInfo ← getFunEnvInfo argInfo.nameExpr
         setIsAppArg prevInApp
         if resolveArgs
@@ -1017,8 +1006,8 @@ where
   lastPatternReduction? (mInfo : MatchInfo) (args : Array Expr) : TranslateEnvT (Option MatchElimResult) := do
      let ⟨_, _, _, _, _, _, _, _, matchInContext, _, ⟨_, _, _, _, _, _, active, _, _⟩, _, _, _⟩ := (← get).optEnv
      let h := (← get).optEnv.matchInContext
-     let instKey ← mkAppRangeExpr mInfo.instApp 0 mInfo.getFirstAltPos args
-     let alts ← getMatchAltsAux instKey args mInfo
+     let instCommonKey ← mkAppRangeExpr mInfo.instApp 0 mInfo.getFirstDiscrPos args
+     let alts ← getMatchAltsAux instCommonKey args mInfo
      for i in [:alts.size - 1] do
        if !(← existsNotEqPattern mInfo args alts[i]! matchInContext active) then
          return none
@@ -1026,6 +1015,7 @@ where
      if isUnifyMatchResult matchHit then
        -- erase context
        eraseMatchRhsRewriteCache mInfo
+       let instKey ← mkAppRangeExpr instCommonKey mInfo.getFirstDiscrPos mInfo.getFirstAltPos args
        let discrsType ← getDiscrsType mInfo args instKey
        return some $ Sum.inr (← betaLambdaShared args[mInfo.arity - 1]! (← instantiateUnifiedMVars mvarArgs args discrsType mInfo))
      else return none

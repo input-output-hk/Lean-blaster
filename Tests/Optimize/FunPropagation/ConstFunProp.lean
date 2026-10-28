@@ -838,4 +838,68 @@ def colorToList (c : Color) (w x y z : α) : List α :=
              (fun (_ : Unit) => .black)
              (fun (_ : α) => .blue .transparent) ) x
 
+/-! Test cases to validate match over function propagation when the match type is a dependent
+    lambda (indexed inductive datatype in the discriminators and/or in the return type). -/
+
+inductive FnIdx : Nat → Type where
+  | z : FnIdx 0
+  | s : FnIdx 1
+
+def fnVal (n : Nat) (v : FnIdx n) : Nat :=
+  match n, v with
+  | .(0), .z => 1
+  | .(1), .s => 2
+
+def fnOut (n : Nat) (v : FnIdx n) : FnIdx n :=
+  match n, v with
+  | .(0), .z => .z
+  | .(1), .s => .s
+
+axiom useFn {n : Nat} (x : FnIdx n) : Nat
+axiom dupFn {n : Nat} (x : FnIdx n) : FnIdx n
+
+-- ∀ (k : Nat) (w : FnIdx k) (m : Nat), Nat.add (fnVal k w) 1 = m ===>
+-- ∀ (k : Nat) (w : FnIdx k) (m : Nat),
+--   m = fnVal.match_1 (fun (n : Nat) (_ : FnIdx n) => Nat) k w
+--       (fun (_ : Unit) => 2)
+--       (fun (_ : Unit) => 3)
+-- NOTE: Test case to validate that the match type with a dependent binder (`v : FnIdx n`) is kept
+-- when the function is pushed in the alternatives (the return type `Nat` is closed).
+#testOptimize [ "MatchOverFun_6" ] (norm-result: 1)
+  ∀ (k : Nat) (w : FnIdx k) (m : Nat), Nat.add (fnVal k w) 1 = m ===>
+  ∀ (k : Nat) (w : FnIdx k) (m : Nat),
+    m = match k, w with
+        | .(0), .z => 2
+        | .(1), .s => 3
+
+-- ∀ (k : Nat) (w : FnIdx k) (m : Nat), useFn (fnOut k w) = m ===>
+-- ∀ (k : Nat) (w : FnIdx k) (m : Nat),
+--   m = fnVal.match_1 (fun (n : Nat) (_ : FnIdx n) => Nat) k w
+--       (fun (_ : Unit) => useFn FnIdx.z)
+--       (fun (_ : Unit) => useFn FnIdx.s)
+-- NOTE: Test case to validate that a match returning an indexed inductive datatype (`FnIdx n`) is
+-- pushed in a function whose return type (`Nat`) does not depend on the match.
+#testOptimize [ "MatchOverFun_7" ] (norm-result: 1)
+  ∀ (k : Nat) (w : FnIdx k) (m : Nat), useFn (fnOut k w) = m ===>
+  ∀ (k : Nat) (w : FnIdx k) (m : Nat),
+    m = match k, w with
+        | .(0), .z => useFn FnIdx.z
+        | .(1), .s => useFn FnIdx.s
+
+-- ∀ (k : Nat) (w : FnIdx k), dupFn (fnOut k w) = w ===>
+-- ∀ (k : Nat) (w : FnIdx k),
+--   w = fnVal.match_1 (fun (n : Nat) (_ : FnIdx n) => FnIdx n) k w
+--       (fun (_ : Unit) => dupFn FnIdx.z)
+--       (fun (_ : Unit) => dupFn FnIdx.s)
+-- NOTE: Test case to validate the return type of the pushed match when the return type of the
+-- function depends on the match (`dupFn (fnOut k w) : FnIdx k`). The expected motive is the one
+-- elaborated by Lean (`FnIdx n`, which is the only well-typed one as `dupFn FnIdx.z : FnIdx 0`):
+-- the discriminator `k` is abstracted in the return type `FnIdx k` of the function application.
+#testOptimize [ "MatchOverFun_8" ] (norm-result: 1)
+  ∀ (k : Nat) (w : FnIdx k), dupFn (fnOut k w) = w ===>
+  ∀ (k : Nat) (w : FnIdx k),
+    w = match (generalizing := false) k, w with
+        | .(0), .z => dupFn FnIdx.z
+        | .(1), .s => dupFn FnIdx.s
+
 end Tests.ConstFunProp

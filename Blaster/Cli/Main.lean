@@ -1,6 +1,7 @@
 import Blaster.Cli.Args
 import Blaster.Cli.Check
 import Blaster.Cli.Discover
+import Blaster.Cli.Llm
 import Blaster.Smt.Solver
 import Blaster.Cli.Runtime
 
@@ -66,6 +67,21 @@ private def finishReport (renderer : Renderer) (report : Report) : IO UInt32 := 
   if report.interrupted then IO.Process.exit report.exitCode.toUInt8
   return report.exitCode
 
+private def finishCheckReport (cfg : Config) (renderer : Renderer) (report : Report) : IO UInt32 := do
+  let mut report := report
+  let mut written := false
+  if cfg.llmReport.isSome then
+    try
+      writeLlmReport cfg report
+      written := true
+    catch ex =>
+      report := { report with diagnostics := report.diagnostics.push {
+        severity := "error", message := s!"I couldn't write the agent report: {ex}" } }
+  let code ← finishReport renderer report
+  if written && !cfg.machineOutput then
+    renderer.out.putStrLn s!"  I wrote the agent report to {cfg.llmReport.getD ""}"
+  return code
+
 private def runDiscover (cfg : Config) (renderer : Renderer) : IO UInt32 := do
   let depth ← IO.mkRef 0
   let found ← IO.mkRef (#[] : Array DiscoveryItem)
@@ -103,7 +119,11 @@ private def runDiscover (cfg : Config) (renderer : Renderer) : IO UInt32 := do
       let indent := String.join (List.replicate (← depth.get) "  ")
       renderer.out.putStrLn s!"  {indent}{count} discovered\n"
   let diagnostics ← try
-    let (_, issues) ← discoverFile cfg onModuleStart onItem onModuleComplete
+    let path : System.FilePath := cfg.file.getD ""
+    let (_, issues) ← if ← path.isDir then
+      discoverDirectory cfg onModuleStart onItem onModuleComplete
+    else
+      discoverFile cfg onModuleStart onItem onModuleComplete
     pure issues
   catch ex =>
     pure #[{ severity := "error", message := s!"I couldn't discover Blaster sites: {ex}" }]
@@ -176,6 +196,7 @@ def run (args : List String) (platform : Platform := {}) : IO UInt32 := do
     if cfg.help || cfg.command == "help" then
       renderer.out.putStr (helpText cfg.command)
       return 0
+    let target : System.FilePath := cfg.file.getD ""
     if cfg.json then
       renderer.emitJsonLine <| Json.mkObj [
         ("schemaVersion", toJson (1 : Nat)), ("event", toJson "start"),
@@ -183,6 +204,11 @@ def run (args : List String) (platform : Platform := {}) : IO UInt32 := do
     try
       if cfg.command == "discover" then
         return ← runDiscover cfg renderer
+      if cfg.command == "check" && (← target.isDir) && !cfg.declarations.isEmpty then
+        let report : Report := { diagnostics := #[{
+          severity := "error",
+          message := "'--decl' selects declarations in one file. Pass a .lean file when using it." }] }
+        return ← finishCheckReport cfg renderer report
       Smt.superviseSolvers platform.forceKill
       resetCapture {
         config := cfg
@@ -203,7 +229,8 @@ def run (args : List String) (platform : Platform := {}) : IO UInt32 := do
         let task ← IO.asTask do
           initLibraries cfg
           -- The executable also redirects OS stdout, covering inherited subprocess output.
-          IO.withStdout renderer.err <| checkFile cfg renderer
+          IO.withStdout renderer.err <|
+            if ← target.isDir then checkDirectory cfg renderer else checkFile cfg renderer
         match ← awaitTask renderer task with
         | .ok report => pure report
         | .error report => pure report
@@ -215,11 +242,10 @@ def run (args : List String) (platform : Platform := {}) : IO UInt32 := do
         renderer.stop.set true
         if let some task := animation then discard <| IO.ofExcept task.get
         renderer.clear
-      finishReport renderer report
+      finishCheckReport cfg renderer report
     catch ex =>
       let report : Report := {
         diagnostics := #[{ severity := "error", message := s!"I couldn't initialize Blaster: {ex}" }] }
-      renderer.finish report
-      return 4
+      return ← finishCheckReport cfg renderer report
 
 end Blaster.Cli

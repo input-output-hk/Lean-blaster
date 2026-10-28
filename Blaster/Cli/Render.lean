@@ -416,8 +416,10 @@ def Renderer.finish (r : Renderer) (report : Report) : IO Unit := do
    else
     for diag in report.diagnostics do
       unless !r.config.verbose &&
-          [some "lean.unusedVariables", some "blaster.falsified", some "blaster.trust"].contains diag.code do
-        let role := if diag.severity == "error" then "error" else "warning"
+          ([some "lean.unusedVariables", some "blaster.falsified", some "blaster.trust"].contains diag.code ||
+            (diag.severity == "info" && diag.code != some "cli.noBuildHint")) do
+        let role := if diag.severity == "error" then "error"
+          else if diag.severity == "info" then "muted" else "warning"
         let label := r.tintErr role diag.severity
         r.err.putStrLn s!"\n  {label}: {diag.message}"
         if let some location := diag.location then

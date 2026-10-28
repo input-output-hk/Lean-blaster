@@ -56,7 +56,8 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
 
           | Expr.app f a =>
              let f ← if f.isMVar then getMVarValue f else pure f
-             let (f, ras) := getAppFnWithArgs (mkApp f a)
+             let (f, ras) := getAppFnWithArgs f
+             let ras := ras.push a
              -- check if f is a lambda term
              if f.isLambda then
                -- perform beta reduction and apply optimization
@@ -109,9 +110,6 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
            -- We can safely removed named pattern as we resolve named pattern and its hypothesis in rhs
            -- (see isPatternMatch and unifyAndUpdateEqMap)
            optimizeExprAux (.InitOptimizeExpr args[2]! :: xs)
-         -- try to apply funPropagation to avoid optimizing ite/match multiple times
-         else if let some r ← funPropagation? f args (resolveArgs := true) (← isAppArg) then
-           optimizeExprAux (r :: xs)
          else
            let prevInCtor ← isCtorArg
            setIsCtorArg (← isCtorExpr f)

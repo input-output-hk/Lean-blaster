@@ -5,6 +5,33 @@ open Lean
 
 namespace Blaster.Cli
 
+/-- Enumerate each physical Lean source once, in a stable order. Directory links are
+    not traversed, so a linked tree cannot take an invocation outside its root. -/
+private partial def collectSourceFiles (directory : System.FilePath)
+    (seen : IO.Ref (Array System.FilePath)) : IO Unit := do
+  let entries ← directory.readDir
+  for entry in entries do
+    let path := entry.path
+    unless [".lake", ".git", "lakefile.lean"].contains entry.fileName do
+      let metadata ← path.symlinkMetadata
+      if metadata.type == .dir then
+        collectSourceFiles path seen
+      else if path.extension == some "lean" &&
+          (metadata.type == .file || (metadata.type == .symlink && !(← path.isDir))) then
+        let canonical ← Lean.realPathNormalized path
+        unless (← seen.get).contains canonical do
+          seen.modify (·.push canonical)
+
+def sourceFiles (directory : System.FilePath) : IO (Array System.FilePath) := do
+  let seen ← IO.mkRef (#[] : Array System.FilePath)
+  collectSourceFiles directory seen
+  return ((← seen.get).toList.mergeSort (fun a b => a.toString ≤ b.toString)).toArray
+
+def sourceLabel (canonicalDirectory source : System.FilePath) : String := Id.run do
+  let pathPrefix := canonicalDirectory.toString ++ "/"
+  return if source.toString.startsWith pathPrefix then
+    source.toString.drop pathPrefix.length else source.toString
+
 private partial def findProject (directory : System.FilePath) : IO (Option System.FilePath) := do
   if (← (directory / "lakefile.lean").pathExists) ||
       (← (directory / "lakefile.toml").pathExists) then
@@ -13,12 +40,13 @@ private partial def findProject (directory : System.FilePath) : IO (Option Syste
   if parent == directory then return none
   findProject parent
 
-private def projectFor (file : Option String) : IO (Option System.FilePath) := do
+def projectFor (file : Option String) : IO (Option System.FilePath) := do
   let cwd ← IO.currentDir
   if let some file := file then
     let path : System.FilePath := file
     let path := if path.isAbsolute then path else cwd / path
-    if let some project ← findProject (path.parent.getD cwd) then return some project
+    let searchFrom ← if ← path.isDir then pure path else pure (path.parent.getD cwd)
+    if let some project ← findProject searchFrom then return some project
   findProject cwd
 
 /-- Find source imports belonging to the caller's project, without building them. -/
@@ -47,7 +75,7 @@ private def runtimeSysroot (bin : System.FilePath) : IO System.FilePath := do
 
 /-- Ask Lake for dependency paths internally; never expose its environment in CLI output. -/
 private def projectPaths (cfg : Config) (sysroot : System.FilePath) : IO SearchPath := do
-  if cfg.command != "check" then return []
+  if cfg.command != "check" && cfg.command != "discover" then return []
   let some project ← projectFor cfg.file | return []
   let toolchain := project / "lean-toolchain"
   if ← toolchain.pathExists then
@@ -149,11 +177,14 @@ def initLibraries (cfg : Config) : IO Unit := do
   let project ← projectPaths cfg sysroot
   initSearchPath sysroot (ownLib :: project)
 
-/-- Discovery only needs the executable's own parser, not project builds or solver setup. -/
-def initDiscoveryLibraries : IO Unit := do
+/-- Discovery reads existing project artifacts for imported syntax, without building
+    source modules or starting the solver. It can still scan with bundled syntax
+    when the project's Lake environment is unavailable. -/
+def initDiscoveryLibraries (cfg : Config) : IO Unit := do
   let bin ← Smt.installationBin
   let ownLib := bin / ".." / "lib" / "lean"
   let sysroot ← runtimeSysroot bin
-  initSearchPath sysroot [ownLib]
+  let project ← try projectPaths cfg sysroot catch _ => pure []
+  initSearchPath sysroot (ownLib :: project)
 
 end Blaster.Cli
