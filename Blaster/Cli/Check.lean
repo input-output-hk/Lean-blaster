@@ -25,14 +25,18 @@ private def collectDiagnostics (messages : MessageLog) : IO (Array Diagnostic) :
   let mut result := #[]
   for msg in messages.toList do
     let verificationFailure := msg.data.hasTag (· == `Blaster.Cli.falsified)
+    let detail ← msg.data.toString
     let severity := if verificationFailure then "verification" else match msg.severity with
       | .error => "error"
       | .warning => "warning"
       | .information => "info"
     result := result.push {
-      severity := severity, message := ← msg.data.toString
+      severity := severity, message := detail
       location := some { file := msg.fileName, line := msg.pos.line, column := msg.pos.column + 1 }
-      code := if msg.data.isUnusedVariableWarning then some "lean.unusedVariables" else none }
+      code := if verificationFailure then some "blaster.falsified"
+        else if detail.startsWith "declaration uses 'blasterProven'" then some "blaster.trust"
+        else if msg.data.isUnusedVariableWarning then some "lean.unusedVariables"
+        else none }
   return result
 
 private partial def checkSource (cfg : Config) (renderer : Renderer)

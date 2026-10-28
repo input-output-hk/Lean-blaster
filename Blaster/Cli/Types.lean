@@ -12,6 +12,8 @@ structure Config where
   solver : Option String := none
   seed : Option Nat := none
   counterexamples : Bool := true
+  /-- Terminal presentation of solver witnesses; JSON always preserves raw values. -/
+  counterexampleView : String := "summary"
   verbose : Bool := false
   debug : Bool := false
   /-- Stream newline-delimited JSON events. -/
@@ -84,7 +86,7 @@ structure Report where
   diagnostics : Array Diagnostic := #[]
   interrupted : Bool := false
   signal : Option Nat := none
-  trust : String := "Blaster does not reconstruct Lean proofs. Tactic success uses Blaster.Tactic.blasterProven."
+  trust : String := "I don't reconstruct Lean proofs yet; valid tactic goals use the Blaster.Tactic.blasterProven axiom."
   deriving Lean.ToJson
 
 def Report.exitCode (r : Report) : UInt32 :=
