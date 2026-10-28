@@ -45,3 +45,4 @@ import Tests.FiniteField.LargePrime
 import Tests.FiniteField.Syntax
 import Tests.FiniteField.Routing
 import Tests.FiniteField.RoutingLifecycle
+import Tests.FiniteField.Translation

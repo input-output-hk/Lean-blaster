@@ -536,7 +536,11 @@ private def retireAndCleanup (solver : SmtSolver) (hard : Bool) : TranslateEnvT 
 private def retireAllSessions (hard : Bool) : TranslateEnvT Unit := do
   let sessions := (← get).smtEnv.sessions
   modify fun env =>
-    { env with smtEnv.sessions := #[], smtEnv.deferredSessions := #[], smtEnv.emitProc := none }
+    { env with
+      smtEnv.sessions := #[]
+      smtEnv.deferredSessions := #[]
+      smtEnv.emitProc := none
+      smtEnv.nativeFieldQualified := false }
   for session in sessions do
     discard <| cleanupOwnedSession session hard
 

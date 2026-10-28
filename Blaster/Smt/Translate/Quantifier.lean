@@ -203,24 +203,34 @@ private partial def updateTopLevelVars (step : Nat) (vars : TopLevelVars) (s : S
 /-- Perform the following:
       - add `v` to `quantifierFvars` cache
       - add `v` to `topLevelVars` only when topLevel is set to `true` and `¬ isTypeUniverse (← inferTypeEnv (mkFVar v))`.
+      - retain typed source metadata for non-universe variables, including the
+        opened local scope and the polarity of the negated goal assertion.
 -/
 def updateQuantifiedFVarsCache (v : FVarId) (topLevel : Bool) : TranslateEnvT Unit := do
   let s ← fvarIdToSmtSymbol v
   let t ← inferTypeEnv (mkFVar v)
   let uname ← v.getUserName
-  let idx ← getCurrentDepth
-  modify
-    (fun env =>
-      let updatedVars := env.smtEnv.quantifiedFVars.insert v topLevel
-      if topLevel && !(isTypeUniverse t)
-      then
-        { env with
-              smtEnv.quantifiedFVars := updatedVars,
-              smtEnv.topLevelVars := updateTopLevelVars idx env.smtEnv.topLevelVars s uname
-        }
-      else
-        { env with smtEnv.quantifiedFVars := updatedVars }
-    )
+  modify fun env =>
+    { env with smtEnv.quantifiedFVars := env.smtEnv.quantifiedFVars.insert v topLevel }
+  unless isTypeUniverse t do
+    let descriptor ← Blaster.FiniteField.getResidueDescriptor? t
+    let association : SourceAssociation := {
+      symbol := s
+      userName := uname
+      source := mkFVar v
+      type := t
+      modulus := descriptor.map (·.modulusValue)
+      polarity := .negated
+      localContext := ← getLCtx
+      localInstances := ← getLocalInstances
+    }
+    let idx ← getCurrentDepth
+    modify fun env =>
+      { env with
+        smtEnv.sourceAssociations := env.smtEnv.sourceAssociations.push association
+        smtEnv.topLevelVars :=
+          if topLevel then updateTopLevelVars idx env.smtEnv.topLevelVars s uname
+          else env.smtEnv.topLevelVars }
 
 /-- Return `true` if `v` is in the quantified fvars cache. -/
 def isInQuantifiedFVarsCache (v : FVarId) : TranslateEnvT Bool := do
@@ -1264,13 +1274,13 @@ def translatePEmptyType (n : Expr) : TranslateEnvT SortExpr := do
 -/
 def translateOpaqueType (t : Expr) : TranslateEnvT (Option SortExpr) := do
  -- Inspect the complete applied type before splitting its head and arguments.
- -- Recognition is not primality admission, and this milestone supplies no SMT
- -- residue sort. In particular, do not encode the nominal carrier as Fin or an
- -- ordinary datatype, nor merge different moduli under the bare carrier name.
+ -- Recognition alone does not authorize emission: native polynomial queries
+ -- dispatch through Translate.main after preflight and scoped admission.
+ -- Never encode the nominal carrier as Fin or an ordinary datatype here.
  if (← Blaster.FiniteField.getResidueModulus? t).isSome then
    let descriptor ← Blaster.FiniteField.getResidueDescriptor? t
    if let some d := descriptor then
-     throwEnvError "translateOpaqueType: unsupported Residue SMT translation (modulus {d.modulusValue}): {reprStr d.type}"
+     throwEnvError "translateOpaqueType: Residue modulus {d.modulusValue} requires the admitted native polynomial query path in Translate.main: {reprStr d.type}"
    throwEnvError "translateOpaqueType: unsupported Residue SMT translation with nonconcrete modulus: {reprStr t}"
  let e := t.getAppFn
  match e with

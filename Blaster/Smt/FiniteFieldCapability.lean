@@ -61,6 +61,18 @@ summary['argv'] = profile['argv']
 print(json.dumps(summary))
 "
 
+/-- Resolve the repository-owned profile from a working directory inside the
+checkout, including the isolated child test package. Never search PATH for a
+replacement manifest or solver. -/
+private partial def finiteFieldProfileRoot (directory : System.FilePath) : IO System.FilePath := do
+  if ← (directory / "docs/finite-fields/solver-manifest.json").pathExists then
+    return directory
+  match directory.parent with
+  | some parent =>
+      if parent != directory then finiteFieldProfileRoot parent
+      else throw <| IO.userError "Finite-field profile manifest not found in this checkout; run from the staged repository"
+  | none => throw <| IO.userError "Finite-field profile manifest not found in this checkout; run from the staged repository"
+
 /-- Qualify the separately staged `.artifacts/finite-fields/solving` inventory
     offline and return its exact cvc5 launch candidate. Uses the existing pinned
     manifest/probe contract, never downloads or falls back to ordinary cvc5.
@@ -68,11 +80,13 @@ print(json.dumps(summary))
     this function. Failure is reported before the production SMT session starts.
     Successful setup/solving/model probes do not imply native proof checking. -/
 def probeFiniteFieldSolver : IO SolverCandidate := do
+  let root ← finiteFieldProfileRoot (← IO.currentDir)
   let result ← try
       IO.Process.output {
         cmd := "python3"
         args := #["-c", finiteFieldOfflineAdapter, "scripts/finite_fields",
           "docs/finite-fields/solver-manifest.json", ".artifacts/finite-fields"]
+        cwd := some root
       }
     catch error =>
       throw <| IO.userError s!"Finite-field offline capability probe could not run: {error}"

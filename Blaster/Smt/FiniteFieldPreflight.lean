@@ -27,13 +27,37 @@ private partial def collectNativeFields (e : Expr)
     fields ← collectNativeFields type fields
   match e with
   | .app .. =>
+      let args := e.getAppArgs
+      if e.getAppFn.isConstOf ``ite && args.size == 5 then
+        fields ← collectNativeFields args[1]! fields
+        fields ← collectNativeFields args[3]! fields
+        return ← collectNativeFields args[4]! fields
+      if e.getAppFn.isConstOf ``Blaster.dite' && args.size == 4 then
+        fields ← collectNativeFields args[1]! fields
+        for branch in #[args[2]!, args[3]!] do
+          let .lam _ _ body _ := branch
+            | throwEnvError "native finite-field ite requires normalized branches"
+          if body.hasLooseBVars then
+            throwEnvError "native finite-field ite does not support proof-dependent branches"
+          fields ← collectNativeFields body fields
+        return fields
       for arg in e.getAppArgs do
         fields ← collectNativeFields arg fields
       return fields
   | .fvar .. => return fields
   | .mdata _ body => collectNativeFields body fields
   | .proj _ _ body => collectNativeFields body fields
-  | .forallE name domain body bi | .lam name domain body bi =>
+  | .forallE _ domain body _ =>
+      if (← isProp domain) && !body.hasLooseBVars then
+        fields ← collectNativeFields domain fields
+        return ← collectNativeFields body fields
+      let nested ← collectNativeFields domain #[]
+      let nested ← withLocalDeclD `x domain fun x =>
+        collectNativeFields (body.instantiate1 x) nested
+      unless nested.isEmpty do
+        throwEnvError "native finite-field routing does not support residual quantified or higher-order FF queries; only top-level theorem parameters are permitted"
+      return fields
+  | .lam name domain body bi =>
       let nested ← collectNativeFields domain #[]
       let nested ← withLocalDecl name bi domain fun x =>
         collectNativeFields (body.instantiate1 x) nested
@@ -48,8 +72,8 @@ private partial def collectNativeFields (e : Expr)
 /-- Inspect the optimized residual only. Top-level theorem parameters and their
 matching primality hypotheses stay in scope for admission and the continuation.
 Admission evidence must not escape this callback or be cached across queries. -/
-def withNativeFieldRequirements (e : Expr)
-    (k : Array NativeFieldAdmission → TranslateEnvT α) : TranslateEnvT α :=
+def withNativeFieldQuery (e : Expr)
+    (k : Array Expr → Expr → Array NativeFieldAdmission → TranslateEnvT α) : TranslateEnvT α :=
   Optimize.forallTelescope e fun parameters body => do
     let mut fields := #[]
     for parameter in parameters do
@@ -58,7 +82,12 @@ def withNativeFieldRequirements (e : Expr)
     let mut admitted := #[]
     for field in fields do
       admitted := admitted.push (← admitNativeField field)
-    k admitted
+    k parameters body admitted
+
+/-- Inspect native requirements while retaining the opened parameter scope. -/
+def withNativeFieldRequirements (e : Expr)
+    (k : Array NativeFieldAdmission → TranslateEnvT α) : TranslateEnvT α :=
+  withNativeFieldQuery e fun _ _ fields => k fields
 
 /-- Backend policy uses the ordinary explicit-option/environment resolution.
 Query theory requirements do not imply any per-executable capability. -/
@@ -81,6 +110,7 @@ raising the policy diagnostic. Dry runs do not discover or probe executables;
 def preflightFiniteFields (e : Expr)
     (probe : IO SolverCandidate := probeFiniteFieldSolver) :
     TranslateEnvT (Option SolverCandidate) := do
+  modify fun env => { env with smtEnv.nativeFieldQualified := false }
   let options := (← get).optEnv.options.solverOptions
   match validateSolverOptions options with
   | .error message => throwEnvError message
@@ -92,9 +122,13 @@ def preflightFiniteFields (e : Expr)
         discard exitSmt
         throwEnvError message
     | .ok _ => pure ()
-    if options.onlySmtLib then return none
+    if options.onlySmtLib then
+      modify fun env => { env with smtEnv.nativeFieldQualified := true }
+      return none
     try
-      return some (← probe)
+      let candidate ← probe
+      modify fun env => { env with smtEnv.nativeFieldQualified := true }
+      return some candidate
     catch error : Exception =>
       throwEnvError m!"native finite-field solving capability preflight failed: {error.toMessageData}"
 

@@ -54,6 +54,13 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
              -- such as OfNat.ofNat into the representation. Explicit operands
              -- still traverse the ordinary optimizer, including nested calls.
              if let Expr.const name _ := f then
+               if name == ``HPow.hPow && ras.size ≥ 2 then
+                 if (← Blaster.FiniteField.getResidueModulus? ras[0]!).isSome &&
+                     !(← isDefEq ras[1]! (mkConst ``Nat)) then
+                   throwEnvError "native finite-field polynomial fragment: integer exponents are unsupported; use literal natural powers"
+               if name == ``Blaster.FiniteField.Residue.rep ||
+                   name == ``Blaster.FiniteField.Residue.mk then
+                 throwEnvError "native finite-field polynomial fragment: .val/.rep and representation casts are unsupported; keep arithmetic in the nominal Residue carrier"
                if ← isOpaqueResidueOperation name ras then
                  let pInfo ← getFunEnvInfo f
                  return ← optimizeExprAux
@@ -79,6 +86,8 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
               else optimizeExprAux (.InitOptimizeExpr me :: i_stack)
 
           | Expr.proj n idx s =>
+              if n == ``Blaster.FiniteField.Residue then
+                throwEnvError "native finite-field polynomial fragment: .val/.rep and representation casts are unsupported; keep arithmetic in the nominal Residue carrier"
               let i_stack' := .ProjWaitForExpr n idx :: i_stack
               optimizeExprAux (.InitOptimizeExpr s :: i_stack')
 

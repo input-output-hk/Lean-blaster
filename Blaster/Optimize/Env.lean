@@ -3,6 +3,7 @@ import Blaster.Optimize.Expr
 import Blaster.Optimize.MatchInfo
 import Blaster.Optimize.Opaque
 import Blaster.Smt.Term
+import Blaster.Smt.FiniteFieldMetadata
 import Blaster.Command.Options
 
 open Lean Meta Blaster.Smt Blaster.Options
@@ -342,6 +343,8 @@ instance : Inhabited TranslateOptions where
               axiomMap := .emptyWithCapacity
              }
 
+/-- Model-display index, retaining the solver symbol and user-facing name only.
+    Typed source provenance is stored separately in `SmtEnv.sourceAssociations`. -/
 abbrev TopLevelVars := Array (List (SmtSymbol × Lean.Name))
 
 abbrev ConversionFunCache := Std.HashMap (SortExpr × SortExpr) SmtSymbol
@@ -458,13 +461,19 @@ structure SmtEnv where
   -/
   quantifiedFVars : Std.HashMap FVarId Bool
 
-  /-- Array list keeping track of globally declared variables and the ones in
-      the top level forall quantifier.
-      This list is used exclusively when retrieving counterexample after a `sat` result
-      is obtained from the backend smt solver.
-      The Array index indicates the analysis step at which the variables where introduced.
+  /-- Display-only index of globally declared variables and top-level forall
+      variables, used to retrieve counterexamples after `sat`. The array index
+      is the analysis step at which the variables were introduced. This is not
+      source provenance; use `sourceAssociations` for typed Lean metadata.
   -/
   topLevelVars : TopLevelVars
+
+  /-- Typed source provenance, including symbols that are not model-display
+      entries, with the local scope retained at registration time. -/
+  sourceAssociations : Array SourceAssociation
+
+  /-- Set only by successful native preflight; scoped to this query environment. -/
+  nativeFieldQualified : Bool := false
 
   /-- Cache memoizing the string representation for an Smt Symbol -/
   symbolStrCache : Std.HashMap SmtSymbol String
@@ -515,6 +524,7 @@ instance : Inhabited SmtEnv where
      fvarsCache := Std.HashMap.emptyWithCapacity,
      quantifiedFVars := Std.HashMap.emptyWithCapacity,
      topLevelVars := Array.mkEmpty 3,
+     sourceAssociations := #[],
      symbolStrCache := Std.HashMap.emptyWithCapacity,
      funCtorCache := Std.HashMap.emptyWithCapacity,
      coerceCache := Std.HashMap.emptyWithCapacity,
