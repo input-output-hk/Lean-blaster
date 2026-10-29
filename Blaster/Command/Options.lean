@@ -61,6 +61,12 @@ structure BlasterOptions where
   the backend SMT solver is invoked. -/
   generateCex : Bool := true
 
+  /-- Reconstruct proof-valued arguments after optimization. Disable for SMT-only
+      clients that do not need reconstructed Lean proofs. Existing proofs are
+      still reused when their types match; otherwise the optimizer uses its
+      typed sorry fallback. Computational Decidable instances are unaffected. -/
+  reconstructProofs : Bool := true
+
   /-- Seed for the random number generator used in the solver.
       It is set to `none` by default (i.e., no seed). -/
    randomSeed : Option Nat := none
