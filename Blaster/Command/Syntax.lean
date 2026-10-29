@@ -17,6 +17,7 @@ Options:
   - `only-optimize`: only perform optimization on lean specification and do not translate to smt-lib (default: 0)
   - `dump-smt-lib`: display the smt lib query to stdout (default: 0)
   - `random-seed`: seed for the random number generator (default: none)
+  - `reconstruct-proofs`: reconstruct optimizer proof arguments (default: 1; use 0 for SMT-only clients)
   - `gen-cex`: generate counterexample for falsified theorems (default: 1)
   - `solve-result`: specify the expected result from the #blaster command, i.e.,
                     0 for 'Valid', 1 for 'Falsified' and 2 for 'Undetermined'. (default: 0)
@@ -35,6 +36,7 @@ syntax "(only-smt-lib:" num ")" : solveOption
 syntax "(only-optimize:" num ")" : solveOption
 syntax "(dump-smt-lib:" num ")" : solveOption
 syntax "(gen-cex:" num ")" : solveOption
+syntax "(reconstruct-proofs:" num ")" : solveOption
 syntax "(solve-result:" num ")" : solveOption
 syntax "(max-depth:" num ")" : solveOption
 syntax "(random-seed:" num ")" : solveOption
@@ -95,6 +97,14 @@ def parseGenCex (sOpts : BlasterOptions) : TSyntax `solveOption → m BlasterOpt
       | _ => throwUnsupportedSyntax
   | _ => return sOpts
 
+def parseReconstructProofs (sOpts : BlasterOptions) : TSyntax `solveOption → m BlasterOptions
+  | `(solveOption| (reconstruct-proofs: $n:num)) =>
+      match n.getNat with
+      | 0 => return { sOpts with reconstructProofs := false }
+      | 1 => return { sOpts with reconstructProofs := true }
+      | _ => throwUnsupportedSyntax
+  | _ => return sOpts
+
 def parseRandomSeed (sOpts : BlasterOptions) : TSyntax `solveOption → m BlasterOptions
   | `(solveOption| (random-seed: $n:num)) =>
       match n.getNat with
@@ -120,6 +130,7 @@ def parseSolveOption (sOpts : BlasterOptions) (opt : TSyntax `solveOption) : m B
   let sOpts ← parseOptimize sOpts opt
   let sOpts ← parseDumpSmt sOpts opt
   let sOpts ← parseGenCex sOpts opt
+  let sOpts ← parseReconstructProofs sOpts opt
   let sOpts ← parseSolveResult sOpts opt
   let sOpts ← parseMaxDepth sOpts opt
   let sOpts ← parseRandomSeed sOpts opt

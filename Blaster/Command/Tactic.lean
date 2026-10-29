@@ -18,6 +18,7 @@ Options:
   - `only-smt-lib`: only translating unsolved goals to smt-lib without invoking the backend solver (default: 0)
   - `only-optimize`: only perform optimization on lean specification and do not translate to smt-lib (default: 0)
   - `dump-smt-lib`: display the smt lib query to stdout (default: 0)
+  - `reconstruct-proofs`: reconstruct optimizer proof arguments (default: 1; use 0 for SMT-only clients)
   - `gen-cex`: generate counterexample for falsified theorems (default: 1)
   - `unfold-depth`: specifying the number of unfolding to be performed on recursive functions (default: 100)
   - `random-seed`: seed for the random number generator (default: none)
