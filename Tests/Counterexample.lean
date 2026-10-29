@@ -97,3 +97,8 @@ run_cmd liftTermElabM do
   let some b := model.bindings[0]? | throwError "missing binding"
   unless b.error.isNone && b.value.isSome do throwError "record model decode failed"
   logInfo "PASS actual solver record model with parentheses inside a string"
+
+-- Codec failure must propagate through encoded source representations.
+#guard (Blaster.Counterexample.Value.encoded "SourceType" "wire-format"
+  (.list [.integer 7, .unavailable "unsupported byte"])).error? == some "unsupported byte"
+#guard (Blaster.Counterexample.Value.encoded "SourceType" "wire-format" (.integer 7)).error? == none

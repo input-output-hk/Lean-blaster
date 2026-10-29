@@ -13,6 +13,9 @@ inductive Value where
   | string (value : String)
   | bytes (hex : String)
   | unit
+  /-- A domain codec supplies a lossless representation and a source type hint. -/
+  | encoded (typeName encoding : String) (value : Value)
+  | unavailable (reason : String)
   | list (values : List Value)
   | constructor (typeName name : String) (fields : List (String × Value))
   deriving Repr, Inhabited
@@ -42,10 +45,21 @@ partial def Value.toJson : Value → Json
   | .string s => Json.mkObj [("kind", Lean.toJson "string"), ("value", Lean.toJson s)]
   | .bytes h => Json.mkObj [("kind", Lean.toJson "bytes"), ("hex", Lean.toJson h)]
   | .unit => Json.mkObj [("kind", Lean.toJson "unit")]
+  | .encoded t e v => Json.mkObj [("kind", Lean.toJson "encoded"),
+      ("type", Lean.toJson t), ("encoding", Lean.toJson e), ("value", v.toJson)]
+  | .unavailable reason => Json.mkObj [("kind", Lean.toJson "unavailable"), ("reason", Lean.toJson reason)]
   | .list xs => Json.mkObj [("kind", Lean.toJson "list"), ("values", Lean.toJson (xs.map Value.toJson))]
   | .constructor t n fs => Json.mkObj [("kind", Lean.toJson "constructor"), ("type", Lean.toJson t),
       ("constructor", Lean.toJson n), ("fields", Lean.toJson (fs.map fun (n, v) =>
         Json.mkObj [("name", Lean.toJson n), ("value", v.toJson)]))]
+
+/-- An unsupported leaf makes the export incomplete, including inside containers. -/
+partial def Value.error? : Value → Option String
+  | .unavailable reason => some reason
+  | .encoded _ _ v => v.error?
+  | .list vs => vs.findSome? Value.error?
+  | .constructor _ _ fs => fs.findSome? (fun (_, v) => v.error?)
+  | _ => none
 
 /-- Identity is independent of the display name; identical names can be shadowed.
     Expressions are internal only and are never deserialized from a report. -/
@@ -79,6 +93,9 @@ unsafe def Binding.toJson (b : Binding) : MetaM Json := do
     catch e =>
       if e.isInterrupt then throw e
       exportError := some s!"ToCEX export failed: {← e.toMessageData.toString}"
+  if let some reason := tree.bind Value.error? then exportError := some reason
+  if tree.isNone && exportError.isNone then
+    exportError := some "No ToCEX instance or structural representation is available"
   return Json.mkObj [("id", Lean.toJson b.id.toString), ("name", Lean.toJson b.name.toString),
     ("leanType", Lean.toJson (← ppExpr b.type).pretty), ("raw", Lean.toJson b.raw.trim),
     ("value", tree.map Value.toJson |>.getD Json.null),
