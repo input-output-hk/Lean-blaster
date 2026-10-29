@@ -666,6 +666,7 @@ def setSimplifier (s : String) : TranslateEnvT Unit := do
      - (set-option :smt-mbqi true)
      - (set-option :auto_config false)
      - (set-option :smt.random-seed n) when `n` is provided in solver options
+     - (set-simplifier recfun-finder)
      - (set-option :smt.macro_finder true)
      - (set-option :smt.arith.nl.grobner_expand_terms false)
      - (set-option :smt.arith.nl.reduce_pseudo_linear false)
@@ -684,6 +685,8 @@ def setDefaultSmtOptions (sOpts : BlasterOptions) : TranslateEnvT Unit := do
  setRandomSeed sOpts.randomSeed
  setSimplifier "recfun-finder"
  setMacroFinder true
+ -- option required for quantifier patch
+ trySubmitCommand! (.setOption ":smt.qi.persist_instances" "true")
  -- NOTE: Set these parameters for now
  trySubmitCommand! (.setOption ":smt.arith.nl.grobner_expand_terms" "false")
  trySubmitCommand! (.setOption ":smt.arith.nl.reduce_pseudo_linear" "false")
