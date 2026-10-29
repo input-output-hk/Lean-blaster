@@ -628,10 +628,12 @@ def backwardProof (p a : Expr) : TranslateEnvT Expr := do
    let a' ← inferTypeEnv a
    if exprEq a' p then return a
    else if ← isLambdaEq p a' then return a
-   else if let some r ← unsafe backwardProofAux p then return r
-   else if let some r ← isDecidable p then return r
    else
-     -- Add sorry proof for now when we can't perform proof reconstruction
+     if (← get).optEnv.options.solverOptions.reconstructProofs then
+       if let some r ← unsafe backwardProofAux p then return r
+       if let some r ← isDecidable p then return r
+     -- SMT-only clients may skip reconstruction; failed reconstruction also
+     -- uses this existing typed placeholder.
      hashcons (← mkSorry p false)
 
  where
