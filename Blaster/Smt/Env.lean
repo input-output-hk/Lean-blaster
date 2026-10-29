@@ -1,4 +1,5 @@
 import Lean
+import Blaster.Counterexample.Decode
 import Blaster.Command.Options
 import Blaster.Optimize.Env
 import Blaster.Smt.EmitCommand
@@ -18,14 +19,14 @@ private def minZ3Version : String := "4.15.2"
 /-- Result of an Smt query. -/
 inductive Result where
   | Valid  : Result
-  | Falsified (cex : List String) : Result
+  | Falsified (cex : Counterexample.Model) : Result
   | Undetermined : Result
 deriving Repr
 
 def toResult (e : Expr) : Result :=
  match e with
  | Expr.const ``True _  => Result.Valid
- | Expr.const ``False _  => Result.Falsified []
+ | Expr.const ``False _  => Result.Falsified {}
  | _ => Result.Undetermined
 
 
@@ -60,10 +61,10 @@ def logResult (r : Result) (isCTI := false) (indLabel := "") (cexLabel := "Count
       else logErrorAt ref "❌ Unexpected Valid"
   | .Falsified cex =>
       if isCTI
-      then dumpCex (logInfoAt ref) indLabel cex
+      then dumpCex (logInfoAt ref) indLabel cex.messages
       else if isExpectedFalsified sOpts.solveResult
-           then dumpCex (logInfoAt ref) "✅ Expected Falsified" cex
-           else dumpCex (logErrorAt ref) "❌ Falsified" cex
+           then dumpCex (logInfoAt ref) "✅ Expected Falsified" cex.messages
+           else dumpCex (logErrorAt ref) "❌ Falsified" cex.messages
   | .Undetermined =>
       if isExpectedUndetermined sOpts.solveResult
       then logInfoAt ref "✅ Expected Undetermined"
@@ -172,26 +173,18 @@ partial def getErrorMsg (h : IO.FS.Handle) : IO String := normalizeLine <$> h.ge
 /-- Retrieve an `eval` output from `h` after execution `(eval t)`
     NOTE: An eval output may either correspond to a scalar value
     or to an inductive datatype one. In the latter case it's provided
-    within parenthesis. The number of opening and closing parenthesis
-    should tally to stop reading from `h`.
+    within parentheses. Delimiters inside strings/quoted symbols are ignored;
+    a complete response is required before decoding.
 -/
 partial def getOutputEval (h : IO.FS.Handle) : IO String := do
-  let line := normalizeLine (← h.getLine)
-  if line.get! 0 != '(' then return line
-  getIndValue line (tallyParenthesis line 0)
-
- where
-  tallyParenthesis (s : String) (tally : Int) : Int :=
-   s.foldr (λ c acc =>
-              match c with
-              | '(' => acc + 1
-              | ')' => acc - 1
-              | _ => acc) tally
-  getIndValue (acc : String) (tally : Int) : IO String := do
-    if tally == 0 then return acc
-    else
-      let line := normalizeLine (← h.getLine)
-      getIndValue (acc ++ line) (tallyParenthesis line tally)
+  readValue ""
+where
+  readValue (acc : String) : IO String := do
+    let line := normalizeLine (← h.getLine)
+    if line.isEmpty then throw (IO.userError "unexpected EOF while reading SMT value")
+    let acc := acc ++ line
+    if Counterexample.responseComplete acc then return acc
+    readValue acc
 
 /-- Push smt command `c` in the translation environment only when sOpts.dumpSmtLib is set -/
 def storeCommand (c : SmtCommand) : TranslateEnvT Unit := do
@@ -494,34 +487,28 @@ def evalTerm (t : SmtTerm) : TranslateEnvT String := do
     Do nothing when:
       - No solver instance is defined
       - Option solverOptions.generateCex is set to `false`
-    TODO: We need to define the Smt-lib syntax and term elaborator to parse produced model
-    and generate the corresponding Lean representation.
-    This will also be helpful when writing the test cases to validate the Smt-Lib translation.
+    Top-level assignments retain their type/identity and are reconstructed as
+    type-checked Lean values. Unsupported values retain raw text and an error.
+    When no binders survive optimization only the raw model is available.
 -/
-def getModel : TranslateEnvT (List String) := do
+def getModel : TranslateEnvT Counterexample.Model := do
   let env ← get
-  let some p := env.smtEnv.smtProc | return []
-  let topVars := env.smtEnv.topLevelVars
-  if !env.optEnv.options.solverOptions.generateCex then return []
+  let some _ := env.smtEnv.smtProc | return {}
+  if !env.optEnv.options.solverOptions.generateCex then return {}
   checkCancelTk?
-  if topVars.isEmpty
-  then
+  if env.smtEnv.topLevelVars.isEmpty then
     submitCommand (.getModel)
-    let s ← getOutputModel p.stdout
-    return [s]
-  else
-    -- Note: List is append when adding top level variables
-    -- We therefore need to traverse the list in reverse order to
-    -- properly display cex in the right order
-    let cexArray ← Array.foldlM (λ acc vars => genCexAtStep acc vars) #[] topVars
-    return cexArray.toList
-
-  where
-    genCexAtStep (cex : Array String) (vars : List (SmtSymbol × Name)) : TranslateEnvT (Array String) := do
-      List.foldrM (λ v acc => return acc.push (← getVarValue v)) cex vars
-
-    getVarValue (v : SmtSymbol × Name) : TranslateEnvT String := do
-      return s!"{v.2}: {← evalTerm (smtSimpleVarId v.1)}"
+    let some p := env.smtEnv.smtProc | return {}
+    return { messages := [← getOutputModel p.stdout] }
+  let mut bindings := #[]
+  let mut messages := []
+  for vars in env.smtEnv.topLevelVars do
+    for v in vars.reverse do
+      let raw ← evalTerm (smtSimpleVarId v.symbol)
+      let b ← Counterexample.decode v.id.name v.name v.type raw
+      bindings := bindings.push b
+      messages := messages ++ [s!"{v.name}: {raw}"]
+  return { bindings, messages }
 
 /-- Retrieve sat result from `h`.
     An error is triggered when an unexpected check-sat result is obtained.
