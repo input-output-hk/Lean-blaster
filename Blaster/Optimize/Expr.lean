@@ -604,6 +604,14 @@ def isNatValue? (e : Expr) : Option Nat :=
   | Expr.lit (Literal.natVal n) => some n
   | _ => none
 
+
+/-- Return `true` when `e` corresponds to the zero nat literal. -/
+@[always_inline, inline]
+def isZeroNat (e : Expr) : Bool :=
+  match isNatValue? e with
+  | some 0 => true
+  | _ => false
+
 /-- Determine if `e` is a `String` literal expression `Expr.lit (Literal.strVal s)`
     and return `some s` as result. Otherwise return `none`.
 -/

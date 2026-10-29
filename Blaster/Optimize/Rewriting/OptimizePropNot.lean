@@ -4,13 +4,6 @@ import Blaster.Optimize.Rewriting.Utils
 open Lean Meta
 namespace Blaster.Optimize
 
-/-- Return `true` when `e` corresponds to the zero nat literal. -/
-@[always_inline, inline]
-def isZeroNat (e : Expr) : Bool :=
-  match isNatValue? e with
-  | some 0 => true
-  | _ => false
-
 /-- Given `ne` the operand for `Not` apply the following normalization rules:
      - When `ne := false = e`
         - return `some (true = e, e, false)`
