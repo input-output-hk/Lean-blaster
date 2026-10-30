@@ -681,7 +681,13 @@ instance : Inhabited TranslateOptions where
               axiomMap := .emptyWithCapacity
              }
 
-abbrev TopLevelVars := Array (List (SmtSymbol × Lean.Name))
+structure ModelVariable where
+  symbol : SmtSymbol
+  name : Lean.Name
+  id : FVarId
+  type : Expr
+
+abbrev TopLevelVars := Array (List ModelVariable)
 
 abbrev ConversionFunCache := HashMap (SortExpr × SortExpr) SmtSymbol
 abbrev AbstractTypeCache := HashMap PtrExpr SmtSymbol

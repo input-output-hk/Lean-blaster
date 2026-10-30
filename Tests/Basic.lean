@@ -1,3 +1,4 @@
+import Tests.Counterexample
 
 import Tests.FixedIssues
 import Tests.Optimize
