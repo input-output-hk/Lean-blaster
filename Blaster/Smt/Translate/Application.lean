@@ -363,9 +363,6 @@ partial def inferFunType (t : Expr) (args : Array Expr) : TranslateEnvT Expr :=
       | _ => return e
   visit 0 t
 
-def updateCoerceCache (fromSmtType toSmtType : SortExpr) (coeName : SmtSymbol) : TranslateEnvT Unit := do
-  modify (fun env => { env with smtEnv.coerceCache := env.smtEnv.coerceCache.insert (fromSmtType, toSmtType) coeName })
-
 /-- Given two smt types `fromSmtType` and `toSmtType` and optional coDomainType corresponding to the Lean4 type of toSmtType,
     perform the following:
      - When (fromSmtType, toSmtType) := coeInst ∈ coerceCache
@@ -462,12 +459,11 @@ def createAppNAux (pInfo : FunEnvInfo) (s : Sum SmtQualifiedIdent SmtTerm)
 
     genApplied (id : Sum SmtQualifiedIdent SmtTerm) (sargs : Array SmtTerm) (coeReturn : Option SmtSymbol) : TranslateEnvT SmtTerm := do
       if isHOF then
-        let applyInst ← getApplyInstName pInfo.type
         let fApp :=
           match id with
           | Sum.inl qi => .SmtIdent qi
           | Sum.inr st => st -- case when f corresponds to a function in a ctor argument.
-        let smtApp := mkSimpleSmtAppN applyInst (#[fApp] ++ sargs)
+        let smtApp := selectSmt fApp sargs
         match coeReturn with
         | some coerceInst => return mkSimpleSmtAppN coerceInst #[smtApp]
         | none => return smtApp
@@ -508,9 +504,9 @@ def createAppNAux (pInfo : FunEnvInfo) (s : Sum SmtQualifiedIdent SmtTerm)
               - let applyInst ← getApplyInstName pInfo.type
               - When taₖ = tpₖ
                    - When `isSmtQualifiedIdent s`
-                        - return `mkSimpleSmtAppN applyInst (#[.SmtIdent s] ++ B)`
+                        - return `selectSmt (.SmtIdent s) B`
                    - Otherwise:
-                        - return `mkSimpleSmtAppN applyInst (#[s] ++ B)`
+                        - return `selectSmt s B`
                - Otherwise
                    - let coeInst ← getConversionFunction tpₖ taₖ (some taₖ)
                    - When `isSmtQualifiedIdent s`
@@ -643,7 +639,7 @@ partial def translateRecFun
         declareFun funName (params.map (λ s => s.2)) ret
         -- define bridge rec definition
         let bridgeName := appendSymbol funName "LRec"
-        let sBody ← termTranslator b
+        let sBody ← withTranslateRecBody $ do termTranslator b
         defineFun bridgeName params ret sBody
         -- assert equality
         let varIds := params.map (λ s => smtSimpleVarId s.1)
@@ -746,16 +742,6 @@ def generateUndeclaredFun
   else
     -- case when undeclared functions only has implicit parameters as input
     assertTerm (← createPredQualifierAppAux f_applyTerm retType)
-
-  where
-    andCond (prevTerm : SmtTerm) (nextTerm : SmtTerm) : SmtTerm :=
-      if isTrueSmt prevTerm
-      then nextTerm
-      else andSmt prevTerm nextTerm
-
-
-def updateAbstractTypeCache (t : Expr) (abstName : SmtSymbol) : TranslateEnvT Unit := do
-  modify (fun env => { env with smtEnv.abstractTypeCache := env.smtEnv.abstractTypeCache.insert t abstName })
 
 /-- Given `t` a potential type expression, perform the following:
      - When isInductiveTypeExpr t
@@ -990,9 +976,8 @@ def translateApp
          throwEnvError "translateApp: unexpected application {reprStr e}"
 
     | Expr.fvar _ => -- case for HOF
-         let .SmtIdent smtId ← translateFreeVar f termTranslator
-           | throwEnvError "translateApp: SmtIdent expected for {reprStr f}"
-         createAppN f (Sum.inl smtId) args termTranslator (isHOF := true)
+         let fsmt ← translateFreeVar f termTranslator
+         createAppN f (Sum.inr fsmt) args termTranslator (isHOF := true)
 
     | Expr.mdata .. => -- case when f is defined as a ctor argument and is used in a ctor proposition
         match toTaggedCtorSelector? f with
@@ -1155,115 +1140,49 @@ def translateApp
       termTranslator (← optimizeExpr (← betaForAll (← hashcons info.type) args))
 
 /-- Given `e := λ (x₁ : t₁) → λ (xₙ : tₙ) => b`, perform the following:
-     - let V := [ v | v ∈ getFVarsInExpr b ∧ ¬ isType v.type ∧ ¬ isClassConstraintExpr v.type ∧ ¬ isTopLevelFVar v ]
      - let A := [x₁, ..., xₙ]
      - let (x₁, st₁) ... (xₘ, stₘ) := [(A[i], translateFunLambdaParamType tᵢ termTranslator) | i ∈ [0..n] ∧ isExplicit A[i]]
      - let rt ← translateFunLambdaParamType (← inferTypEnv b) termTranslator
-     - let n ← mkFreshId
-     - let FunArrowType := ArrowTN st₁ ... stₘ rt
-     - let decl ← generateFunInstDeclAux (← inferTypeEnv e) FunArrowType
-     - let some @apply{k} := decl.applyInstName
+     - let funArrayType := Array st₁ ... stₘ rt
+     - let decl ← generateFunInstDeclAux (← inferTypeEnv e) funArrayType
+     - let some defaultName := decl.defaultName
+     - let defaultNameTerm ← generateDefaultCodomain defaultName bodyType rt
      - let sb := termTranslator b
-     - When V = ∅
-        - declare smt function `(declare-const @lambda{n} FunArrowType)`
-        - assert the following proposition to properly constrain @lambda{n}:
-          `(assert (forall ((x₁ st₁) ... (xₘ stₘ))
-             (! (= (@apply{k} @lambda{n} x₁ ... xₘ) sb)
-               :pattern ((@apply{k} @lambda{n} x₁ ... xₘ))
-               :qid @lambda{n]_def_cstr)))`
-        - return `smtSimpleVarId @lambda{n}`
-     - When V ≠ ∅
-        - let (y₁, yt₁) ... (yₖ, ytₖ) := [(V[i], translateFunLambdaParamType V[i].type termTranslator) | i ∈ [0..V.size-1]]
-        - let GlobalArrowType := ArrowTN yt₁ ... ytₖ FunArrowType
-        - let [v₁, ..., vₖ] = V
-        - let globalType ← ∀ v₁ → ... ∀ vₖ → outParam (← inferTypeEnv e)
-        - let globalDecl ← generateFunInstDeclAux globalType GlobalArrowType
-        - let some @apply{n} := globalDecl.applyInstName
-        - declare smt function `(declare-const @global_lambda{n} GlobalArrowType)`
-        - assert the following proposition to properly constrain @global_lambda{n}!
-           - `(assert (forall ((y₁, yt₁) ... (yₖ, ytₖ) (x₁, st₁) ... (xₘ, stₘ))
-               (! (= (@apply{k} (@apply{n} @global_lambda{n} y₁ ... yₖ) x₁ ... xₘ) sb)
-                  :pattern ((@apply{k} (@apply{n} @global_lambda{n} y₁ ... yₖ) x₁ ... xₘ))
-                  :qid @global_lambda{n}_def_cstr)))`
-       - return `(@apply{n} @global_lambda{n} y₁ ... yₖ)`
+
+     - When isInRecFun:
+         - return `(lambda (x₁, st₁) ... (xₘ, stₘ) sb)`
+       Otherwise: (i.e., need to add canonicity)
+         - return `(lambda (x₁, st₁) ... (xₘ, stₘ) (ite (and (@isType₁ @x₁) ... (@isType₁ @xₘ)) sb defaultNameTerm))`
 -/
 def translateLambda
   (e : Expr) (termTranslator : Expr → TranslateEnvT SmtTerm) : TranslateEnvT SmtTerm := do
  let pInfo ← getFunEnvInfo e
  Optimize.lambdaTelescope e fun fvars b => do
-   let mut svars := (#[] : SortedVars)
+   let mut svars := (Array.emptyWithCapacity fvars.size : SortedVars)
+   let mut iteCond := trueSmt
    for h1 : i in [:fvars.size] do
      let fv := fvars[i]
      let decl ← fv.fvarId!.getEnvDecl
      updateQuantifiedFVarsCache fv.fvarId! false
      if pInfo.paramsInfo[i]!.isExplicit then
        let st ← translateFunLambdaParamType decl.type termTranslator
-       svars := svars.push (← fvarIdToSmtSymbol fv.fvarId!, st)
+       let fvIds ← fvarIdToSmtSymbol fv.fvarId!
+       svars := svars.push (fvIds, st)
+       let predAppFV ← createPredQualifierAppAux (smtSimpleVarId fvIds) decl.type
+       iteCond := andCond iteCond predAppFV
    let bodyType ← inferTypeEnv b
    let rt ← translateFunLambdaParamType bodyType termTranslator
-   let v ← mkFreshId
-   let lambdaName := mkReservedSymbol s!"@lambda{v}"
    let lamType ← mkForallFVarsExpr fvars bodyType
-   let arrowT ← declareArrowTypeSort (fvars.size + 1)
-   let funArrowType := paramSort arrowT ((Array.map (λ s => s.2) svars).push rt)
-   -- generate apply function with corresponding congruence assertions (or retrieving if already declared).
-   let decl ← generateFunInstDeclAux lamType funArrowType
-   let some applyName := decl.applyInstName
-       | throwEnvError "translateLambda: @apply instance function expected !!!"
-   let lvars ← retrieveLocalFVars (getLambdaBody e)
+   let funArrayType := arraySort ((svars.map (λ s => s.2)).push rt)
+   -- generate isFun predicate and corresponding default codomain value (or retrieving if already declared).
+   let decl ← generateFunInstDeclAux lamType funArrayType
+   let some defaultName := decl.defaultName
+    | throwEnvError "translateLambda: default codomain value instance expected !!!"
+   -- generate default codomain value
    let sb ← termTranslator b
-   if lvars.isEmpty then
-     -- declare lambda function
-     declareConst lambdaName funArrowType
-     -- asserting lambda definition
-     let qidName := appendSymbol lambdaName "def_cstr"
-     let lamId := smtSimpleVarId lambdaName
-     let applyArgs := Array.foldl (λ acc s => acc.push (smtSimpleVarId s.1)) #[lamId] svars
-     let applyTerm := mkSimpleSmtAppN applyName applyArgs
-     let forallBody := eqSmt applyTerm sb
-     assertTerm (mkForallTerm none svars forallBody (some #[mkPattern #[applyTerm], mkQid qidName]))
-     return lamId
-   else
-    let mut gvars := (#[] : SortedVars)
-    for h2 : i in [:lvars.size] do
-     let fv := lvars[i]
-     let ftype ← inferTypeEnv fv
-     let st ← translateFunLambdaParamType ftype termTranslator
-     gvars := gvars.push (← fvarIdToSmtSymbol fv.fvarId!, st)
-    let arrowT ← declareArrowTypeSort (lvars.size + 1)
-    let globalArrowType := paramSort arrowT ((Array.map (λ s => s.2) gvars).push funArrowType)
-    -- wrapping lamType within `outParam` to properly generate function instance
-    let globalType ← mkForallFVarsExpr lvars (← mkAppExpr (← mkExpr (mkConst ``outParam)) lamType)
-    -- generate apply function with corresponding congruence assertions for global lambda
-    let globalDecl ← generateFunInstDeclAux globalType globalArrowType
-    -- declare global lambda function `(declare-const @global_lambda{n} GlobalArrowType)`
-    let globalName := mkReservedSymbol s!"@global_lambda{v}"
-    let globalId := smtSimpleVarId globalName
-    declareConst globalName globalArrowType
-    -- asserting global lambda definition
-    let some globalApplyName := globalDecl.applyInstName
-        | throwEnvError "translateLambda: @apply instance function expected !!!"
-    let gArgs := Array.foldl (λ acc s => acc.push (smtSimpleVarId s.1)) #[globalId] gvars
-    let globalAppTerm  := mkSimpleSmtAppN globalApplyName gArgs
-    let applyArgs := Array.foldl (λ acc s => acc.push (smtSimpleVarId s.1)) #[globalAppTerm] svars
-    let applyTerm := mkSimpleSmtAppN applyName applyArgs
-    let qidName := appendSymbol globalName "def_cstr"
-    let g_patterns := some #[mkPattern #[applyTerm], mkQid qidName]
-    gvars := Array.foldl (λ acc s => acc.push s) gvars svars
-    assertTerm (mkForallTerm none gvars (eqSmt applyTerm sb) g_patterns)
-    return globalAppTerm
-
- where
-   retrieveLocalFVars (b : Expr) : TranslateEnvT (Array Expr) := do
-     -- Need to ensure that fvars are unique
-     let (fvars, _) ← updateGenericArgs b #[] HashSet.emptyWithCapacity
-     let mut lvars := #[]
-     for h : i in [:fvars.size] do
-       let p := fvars[i]
-       let decl ← p.fvarId!.getEnvDecl
-       if !(← isTopLevelFVar p.fvarId!) && !(isTypeUniverse decl.type) && !(← isClassConstraintExpr decl.type) then
-         lvars := lvars.push p
-     return lvars
+   if ← isInRecFun
+   then return mkLambdaTerm svars sb
+   else return mkLambdaTerm svars (iteSmt iteCond sb (smtSimpleVarId defaultName))
 
 /-- Given `n` a projection name, `idx` a projection and `p` the projection application term,
     perform the following:
