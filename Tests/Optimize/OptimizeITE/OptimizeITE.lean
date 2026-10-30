@@ -14,7 +14,7 @@ namespace Test.OptimizeITE
                                     ∀ (a : Prop), a
 
 -- ∀ (c a : Prop), if c then a else a ===> ∀ (a : Prop), a
-#testOptimize [ "IteAbsorption_2" ] ∀ (c a : Prop), [Decidable c] → if c then a else a ===>
+#testOptimize [ "IteAbsorption_2", proof ] ∀ (c a : Prop), [Decidable c] → if c then a else a ===>
                                     ∀ (a : Prop), a
 
 -- ∀ (c : Bool) (a b : Prop), if c then a ∧ b else b ∧ a ===> ∀ (a b : Prop), a ∧ b
@@ -922,7 +922,7 @@ elab "iteFalseEqCondUnchanged_9" : term => return iteFalseEqCondUnchanged_9
 /-! Test cases for simplification rule `if c then e1 else e2 ==> (c → e1) ∧ (¬ c → e2) (if Type(e1) = Prop)`. -/
 
 -- ∀ (c p q : Prop), if c then p else q ===> ∀ (c p q : Prop), (c → p) ∧ (¬ c → q)
-#testOptimize [ "IteToPropExpr_1" ] ∀ (c p q : Prop), [Decidable c] → if c then p else q ===>
+#testOptimize [ "IteToPropExpr_1", proof ] ∀ (c p q : Prop), [Decidable c] → if c then p else q ===>
                                     ∀ (c p q : Prop), (c → p) ∧ (¬ c → q)
 
 -- ∀ (c p : Prop), if c then True else p ===> ∀ (c p : Prop), ¬ c → p
@@ -936,7 +936,7 @@ elab "iteFalseEqCondUnchanged_9" : term => return iteFalseEqCondUnchanged_9
 
 -- ∀ (c p : Prop), if c then False else p ===>
 -- ∀ (c p : Prop), p ∧ ¬ c
-#testOptimize [ "IteToPropExpr_4" ] ∀ (c p : Prop), [Decidable c] → if c then False else p ===>
+#testOptimize [ "IteToPropExpr_4", proof ] ∀ (c p : Prop), [Decidable c] → if c then False else p ===>
                                     ∀ (c p : Prop), p ∧ ¬ c
 
 -- ∀ (c p : Prop), if c then p else False ===>
@@ -966,13 +966,13 @@ elab "iteFalseEqCondUnchanged_9" : term => return iteFalseEqCondUnchanged_9
 
 -- ∀ (c p q : Prop), if ¬ c then p else q ===>
 -- ∀ (c p q : Prop), (c → q) ∧ (¬ c → p)
-#testOptimize [ "IteToPropExpr_10" ] ∀ (c p q : Prop), [Decidable c] → if ¬ c then p else q ===>
+#testOptimize [ "IteToPropExpr_10", proof ] ∀ (c p q : Prop), [Decidable c] → if ¬ c then p else q ===>
                                      ∀ (c p q : Prop), (c → q) ∧ (¬ c → p)
 
 
 -- ∀ (c : Bool) (p q : Prop), if c then p else q ===>
 -- ∀ (c : Bool) (p q : Prop), (false = c → q) ∧ (true = c → p)
-#testOptimize [ "IteToPropExpr_11" ] ∀ (c : Bool) (p q : Prop), if c then p else q ===>
+#testOptimize [ "IteToPropExpr_11", proof ] ∀ (c : Bool) (p q : Prop), if c then p else q ===>
                                      ∀ (c : Bool) (p q : Prop), (false = c → q) ∧ (true = c → p)
 
 -- ∀ (c : Bool) (p : Prop), if c then True else p ===>
