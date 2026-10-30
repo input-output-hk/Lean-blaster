@@ -38,19 +38,48 @@ protected theorem dite'_prop_iff {c : Prop} (t : c → Prop) (e : ¬ c → Prop)
                       fun h' => Eq.mp (congrArg e (Subsingleton.elim hnc h')) h⟩,
            fun h => h.2 hnc⟩
 
-protected theorem dite'_prop_eq {c : Prop} (t : c → Prop) (e : ¬ c → Prop) :
-    @Blaster.dite' Prop c t e = ((∀ h : c, t h) ∧ (∀ h : ¬ c, e h)) :=
-  propext (Blaster.dite'_prop_iff t e)
+protected theorem dite'_prop_eq {c : Prop} :
+    @Blaster.dite' Prop c =
+      (fun (t : c → Prop) (e : ¬ c → Prop) => (∀ h : c, t h) ∧ (∀ h : ¬ c, e h)) := by
+  funext t e
+  exact propext (Blaster.dite'_prop_iff t e)
 
-protected theorem dite'_not_swap {α : Sort u} {c : Prop}
-    (t : ¬ c → α) (e : ¬ ¬ c → α) :
-    @Blaster.dite' α (¬ c) t e =
-      @Blaster.dite' α c (fun h : c => e (not_not_intro h)) t := by
+protected theorem dite'_not_swap {α : Sort u} {c : Prop} :
+    @Blaster.dite' α (¬ c) =
+      (fun (t : ¬ c → α) (e : ¬ ¬ c → α) =>
+        @Blaster.dite' α c (fun h : c => e (not_not_intro h)) t) := by
+  funext t e
   unfold Blaster.dite'
   split <;> rename_i hL <;> split <;> rename_i hR
   · exact absurd ((Blaster.decide'_true c).mp hR) ((Blaster.decide'_true (¬ c)).mp hL)
   · congr 1
   · congr 1
   · exact absurd ((Blaster.decide'_false c).mp hR) ((Blaster.decide'_false (¬ c)).mp hL)
+
+protected theorem not_false_eq_of_true_eq {c : Bool} (h : true = c) : ¬ (false = c) :=
+  fun hf => Bool.false_ne_true (hf.trans h.symm)
+
+protected theorem false_eq_of_not_true_eq {c : Bool} (h : ¬ (true = c)) : false = c :=
+  (Bool.eq_false_iff.mpr (fun hc => h hc.symm)).symm
+
+protected theorem dite'_bool_swap {α : Sort u} {c : Bool} :
+    @Blaster.dite' α (false = c) =
+      (fun (t : (false = c) → α) (e : ¬ (false = c) → α) =>
+        @Blaster.dite' α (true = c)
+          (fun h : true = c => e (Blaster.not_false_eq_of_true_eq h))
+          (fun h : ¬ (true = c) => t (Blaster.false_eq_of_not_true_eq h))) := by
+  funext t e
+  unfold Blaster.dite'
+  split <;> rename_i hL <;> split <;> rename_i hR
+  · exact (Bool.false_ne_true (((Blaster.decide'_true (false = c)).mp hL).trans
+      (((Blaster.decide'_true (true = c)).mp hR).symm))).elim
+  · congr 1
+  · congr 1
+  · exfalso
+    have hnf : ¬ (false = c) := (Blaster.decide'_false (false = c)).mp hL
+    have hnt : ¬ (true = c) := (Blaster.decide'_false (true = c)).mp hR
+    cases c
+    · exact hnf rfl
+    · exact hnt rfl
 
 end Blaster

@@ -171,9 +171,12 @@ private def canonicalForm (cache : IO.Ref CanonCache) (e : Expr) : MetaM Expr :=
 /-- Beta reduce `e` after a rewrite by a constant step whose replacement side is a lambda,
     since applied occurrences of the rewritten term become redexes. -/
 private def betaAfterLambdaStep (heq : Expr) (symm : Bool) (e : Expr) : MetaM Expr := do
-  let .const n _ := heq | return e
+  let .const n _ := heq.getAppFn | return e
   let some ci := (← getEnv).find? n | return e
-  let some (_, lhs, rhs) := ci.type.getForallBody.eq? | return e
+  let rec strip : Expr → Expr
+    | .forallE _ _ b _ => strip b
+    | e => e
+  let some (_, lhs, rhs) := (strip ci.type).eq? | return e
   if (if symm then lhs else rhs).isLambda then Core.betaReduce e else return e
 
 /-- Rewrite the intro'd Prop hypotheses with the recorded steps, so they reach the
