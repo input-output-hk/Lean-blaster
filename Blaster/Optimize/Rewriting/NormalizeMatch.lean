@@ -1,5 +1,6 @@
 import Lean
 import Blaster.Optimize.Rewriting.Utils
+import Blaster.Optimize.Rewriting.MatchPlan
 import Blaster.Optimize.Rewriting.OptimizeNat
 import Blaster.Optimize.Rewriting.OptimizeInt
 
@@ -95,6 +96,18 @@ partial def removeNamedPatternExpr (p : Expr) : TranslateEnvT Expr := do
       | _ => throwEnvError "removeNamedPatternExpr: const expression expected but got {reprStr f}"
  | _ => throwEnvError "removeNamedPatternExpr: unexpected pattern expression: {reprStr p}"
 
+/-- Query the active match context without changing it. Shared by early specialization
+    and late alternative elimination, so both honor the same excluded patterns. -/
+def isExcludedMatchPattern (patterns discrs params : Array Expr) : TranslateEnvT Bool := do
+  let env := (← get).optEnv
+  for i in [:patterns.size] do
+    let pattern ← removeNamedPatternExpr patterns[i]!
+    if !pattern.isFVar then
+      if let some excluded ← ContextMap.findRaw env.matchInContext env.options.active discrs[i]! then
+        let pattern ← mkForallFVarsExpr params pattern (usedOnly := true)
+        if (← excluded.get).contains pattern then return true
+  return false
+
 /-- Assign `fv` to `v` in the local context s.t.,
      - When fv has a lambda free variable declaration (i.e., LocalDecl.cdecl)
          - replace it with a let free variable declaration (i.e., LocalDecl.ldecl with value set to `v`)
@@ -111,20 +124,6 @@ def modifyFVarValue (fv : FVarId) (v : Expr) : TranslateEnvT Unit :=
         LocalDecl.ldecl idx fvarId userName type v false kind
      | LocalDecl.ldecl idx fvarId userName type _v nonDep kind =>
         LocalDecl.ldecl idx fvarId userName type v nonDep kind
-
-/-- Return `some (C, #[xₖ, ..., xₙ])` when p := `C x₁ ... xₙ` such that:
-     - C is a ctor name.
-     - x₁ ... xₖ₋₁ correspond to the polymorphic parameters of the corresponding inductive datatype.
--/
-def isCtorPattern (p : Expr) : TranslateEnvT (Option (Name × Array Expr)) := do
- match p.getAppFn' with
- | Expr.const n _ =>
-     match (← getConstEnvInfo n) with
-     | ConstantInfo.ctorInfo info =>
-         let args := p.getAppArgs
-         return (n, args[info.numParams:args.size].toArray)
-     | _ => return none
- | _ => return none
 
 mutual
 /-- Special let expression case for parameterized constructors when normalizing a `match` to ite, s.t.,
@@ -561,6 +560,33 @@ def matchExprRewriter
       return accExpr
 
 
+/-- Specialize patterns before visiting bodies. This depends on the discriminator values,
+    so it must not read or populate the matcher-name-only `isMatchToIte` cache. -/
+def specializeMatchExpr? (args : Array Expr) (mInfo : MatchInfo) : TranslateEnvT (Option Expr) := do
+  if isDependentLambda args[mInfo.getFirstDiscrPos - 1]! then return none
+  if mInfo.discrInfos.any (fun d => d.hName?.isSome) then return none
+  let discrs := args[mInfo.getFirstDiscrPos:mInfo.getFirstAltPos].toArray
+  -- Leave entirely symbolic matches to the existing general normalizer.
+  let mut hasStructure := false
+  for discr in discrs do
+    if let some (_, fields) ← isCtorPattern discr then
+      if !fields.isEmpty then hasStructure := true
+  if !hasStructure then return none
+  let planned : Option (Array MatchAlternativePlan) ← matchExprRewriter mInfo args (fun _ common lhs rhs params acc => do
+    for type in common.discrsType do
+      if ← isIndexedInductiveType type then return none
+    if ← isExcludedMatchPattern lhs discrs params then return some (acc.getD #[])
+    match ← planMatchPatterns lhs discrs params with
+    | .unsupported => return none
+    | .impossible => return some (acc.getD #[])
+    | .residual tests bindings =>
+        let rhs ← betaLambdaShared rhs bindings
+        if params.any (containsFVar rhs) then return none
+        return some ((acc.getD #[]).push { tests, rhs : MatchAlternativePlan }))
+  let some alts := planned | return none
+  let matchType ← instantiateMatchType mInfo args
+  emitMatchPlan (getLambdaBody matchType) alts.reverse
+
 /-- Normalize a `match` expression to `if-then-else` only when each match pattern is either
       - an constructor application that does not contain any free variables (e.g., `Nat.zero`, `some Nat.zero`, `List.const 0 (List.nil)`); or
       - a `Nat`, `Int` or `String` literal; or
@@ -666,6 +692,7 @@ def matchExprRewriter
            := ⊥  otherwise
 -/
 def normMatchExpr? (args : Array Expr) (mInfo : MatchInfo) : TranslateEnvT (Option Expr) := do
+  if let some result ← specializeMatchExpr? args mInfo then return some result
   match (← get).optEnv.memCache.isMatchToIte.get? mInfo.name with
   | some b => if b then matchExprRewriter mInfo args normMatchExprAux?
                    else return none
