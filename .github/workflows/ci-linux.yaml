@@ -14,7 +14,7 @@ concurrency:
 
 env:
   LEAN_VERSION: "4.24.0"
-  Z3_VERSION: "5.3.1"
+  Z3_VERSION: "5.3.2"
   GLIBC_Z3: "2.39"
 
 jobs:
@@ -104,3 +104,30 @@ jobs:
         with:
           name: tests-build
           path: ./Tests/build.log
+
+  cli:
+    name: CLI (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Lean
+        shell: bash
+        run: |
+          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Build executable
+        run: lake build lean-blaster
+
+      - name: Install pinned private solver
+        run: python3 scripts/fetch_z3.py
+
+      - name: Validate CLI and installation
+        run: |
+          python3 scripts/test_cli.py
+          python3 scripts/test_install_cli.py

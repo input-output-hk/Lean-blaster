@@ -1,0 +1,1 @@
+import Blaster.Cli.Main
