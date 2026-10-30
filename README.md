@@ -1,7 +1,7 @@
 # Blaster - An SMT Backend for Lean4
 
 [![Lean Version](https://img.shields.io/badge/Lean-v4.24.0-blue.svg)](https://github.com/leanprover/lean4)
-[![Z3 Capability](https://img.shields.io/badge/Z3-recfun--finder-green.svg)](https://github.com/RSoulatIOHK/z3)
+[![Z3 Capability](https://img.shields.io/badge/Z3-recfun--finder-green.svg)](https://github.com/Z3Prover/z3)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
@@ -60,7 +60,7 @@ Please follow the official installation guidelines from the [Lean4 GitHub reposi
 
 ### Installing Z3
 
-The tested assurance baseline reports Z3 5.1.0 and is pinned by source revision.
+Use the official Z3 5.3.1 release, as in Linux and nightly CI, or the source build pinned below.
 A version number alone does not establish compatibility: `z3check` probes the
 required `recfun-finder` simplifier.
 
@@ -528,11 +528,12 @@ Once an expression has been translated, Blaster interacts with an external SMT s
 
 ### Build a solver with the required capability
 
-This branch emits `(set-simplifier recfun-finder)`. A solver that prints a version
-successfully can still be incompatible. The reproducible assurance baseline is
-[RSoulatIOHK/z3 at ca39e58](https://github.com/RSoulatIOHK/z3/commit/ca39e58c525c5b03c2484f118ade2b92fae31215),
-which reports 5.1.0 and includes the required simplifier. This is a pinned fork,
-not a claim that every stock Z3 5.1.0 build supports it.
+Blaster emits `(set-simplifier recfun-finder)`. Use the official
+[Z3 5.3.1 release](https://github.com/Z3Prover/z3/releases/tag/z3-5.3.1),
+as Linux and nightly CI do. The optional source build below pins that release to
+[commit ac9156f](https://github.com/Z3Prover/z3/commit/ac9156f97cb44e56472e1c841f7a2beb1e976b24).
+A successful version query alone does not establish solver compatibility;
+`z3check` also probes the required simplifier.
 
 With Git, CMake, Python 3 and a C++ toolchain installed:
 
@@ -543,7 +544,7 @@ PATH="$PWD/.tools/z3/bin:$PATH" lake exe z3check
 
 The script installs only into the requested directory. Use that PATH for the
 subsequent `lake` commands; it does not replace the system solver. CI uses the
-same pinned source and probes the capability before running proofs.
+matching official release and probes the capability before running proofs.
 
 `z3check` exits nonzero if the solver is missing, rejects the simplifier, emits an
 error, or fails the satisfiability probe. Its success message includes the actual

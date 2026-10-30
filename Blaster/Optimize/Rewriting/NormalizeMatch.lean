@@ -7,18 +7,54 @@ import Blaster.Optimize.Rewriting.OptimizeInt
 open Lean Meta Elab
 namespace Blaster.Optimize
 
+def instantiateMatchType (mInfo : MatchInfo) (args : Array Expr) (instKey? : Option Expr := none) : TranslateEnvT Expr := do
+  let motive := args[mInfo.getFirstDiscrPos - 1]!
+  if !isDependentLambda motive then return motive
+  else
+    let instKey ← mkInstKey instKey?
+    let matchType := (← get).optEnv.memCache.matchTypeCache.getD instKey instCacheMiss
+    if exprEq matchType instCacheMiss then
+      let matchType ← visit motive mInfo.getFirstDiscrPos mInfo.getFirstAltPos (Array.emptyWithCapacity mInfo.numDiscrs)
+      updateMatchTypeCache instKey matchType
+      return matchType
+    else return matchType
+
+  where
+   mkInstKey (instKey? : Option Expr) : TranslateEnvT Expr :=
+     match instKey? with
+     | some key => return key
+     | none => mkAppRangeExpr mInfo.instApp 0 mInfo.getFirstAltPos args
+
+   visit (e : Expr) (idx : Nat) (stop : Nat) (discrs : Array Expr) : TranslateEnvT Expr := do
+     match e with
+     | .lam _ t b _ =>
+         if idx < stop then
+           let t' ← if t.hasLooseBVars then instantiateSharedRevRange t discrs.size discrs else pure t
+           let discrs := discrs.push args[idx]!
+           e.updateLambdaExpr! t' (← visit b (idx + 1) stop discrs)
+         else return e
+     | b => if b.hasLooseBVars then instantiateSharedRevRange b discrs.size discrs else pure b
 
 @[always_inline, inline]
-def getMatchAlts (args : Array Expr) (mInfo : MatchInfo) : TranslateEnvT (Array Expr) := do
- let genApp ← mkAppRangeExpr mInfo.instApp 0 mInfo.getFirstDiscrPos args
- match (← get).optEnv.memCache.matchAltsCache.get? genApp with
+def getDiscrsType (mInfo : MatchInfo) (args : Array Expr) (instKey : Expr) : TranslateEnvT (Array Expr) := do
+  let matchType ← instantiateMatchType mInfo args (instKey? := some instKey)
+  getLambdaBinderTypes matchType
+
+@[always_inline, inline]
+def getMatchAltsAux (instKey : Expr) (args : Array Expr) (mInfo : MatchInfo) : TranslateEnvT (Array Expr) := do
+ match (← get).optEnv.memCache.matchAltsCache.get? instKey with
  | some alts => return alts
  | none =>
     let auxApp ← betaLambdaSharedRange mInfo.instApp mInfo.getFirstAltPos args
     let alts ← getLambdaBoundedBinderTypes auxApp mInfo.numAlts
     -- update cache
-    updateMatchAltsCache genApp alts
+    updateMatchAltsCache instKey alts
     return alts
+
+@[always_inline, inline]
+def getMatchAlts (args : Array Expr) (mInfo : MatchInfo) : TranslateEnvT (Array Expr) := do
+ let genApp ← mkAppRangeExpr mInfo.instApp 0 mInfo.getFirstDiscrPos args
+ getMatchAltsAux genApp args mInfo
 
 /-- Return `true` is p is a nat, integer or string literal expression. -/
 def isCstLiteral (p : Expr) : Bool :=
@@ -33,12 +69,13 @@ def optimizePattern (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
   | Expr.const ``Int.neg _ => optimizeIntNeg f args
   | _ => mkAppNExpr f args
 
+
 /-- Remove all namedPattern expression in `p` and apply optimizePattern whenever necessary.
     TODO: change function to pure tail rec call using stack-based approach
 -/
 partial def removeNamedPatternExpr (p : Expr) : TranslateEnvT Expr := do
  match p with
- | Expr.const .. | Expr.lit .. | Expr.fvar .. => return p
+ | Expr.const .. | Expr.lit .. | Expr.fvar .. | Expr.lam .. => return p
  | Expr.app .. =>
       let (f, args) := getAppFnWithArgs p
       match f with
@@ -97,8 +134,12 @@ mutual
       mkCstLet e t :
        := t             if e = C
        := t             if isIntNatStrCst(e)
-       := let n := removeNamedPatternExpr pe in (mkCstLet pe t) if e = namedPattern t n pe h
-       := let n := removeNamedPatternExpr pe in (mkCstLet pe t) if e = N + (namedPattern t n pe h) ∧ Type(N) = Nat
+       := let pn := removeNamedPatternExpr pe in
+          let ph := Eq.Refl (← getLevelEnv pt) pt (removeNamedPatternExpr pe)) in
+          (mkCstLet pe t)  if e = namedPattern pt pn pe ph
+       := let pn := removeNamedPatternExpr pe in
+          let ph := Eq.Refl (← getLevelEnv pt) pt (removeNamedPatternExpr pe)) in
+          (mkCstLet pe t)  if e = N + (namedPattern pt pn pe ph) ∧ Type(N) = Nat
        := (mkCstLet pe t)  if e = Int.ofNat pe
        := (mkCstLet pe t)  if e = Int.neg pe
        := (mkCstLet x₁ (.. (mkCstLet xₖ₋₁ (mkCstLet xₙ t)))) if e = C x₁ ... xₖ
@@ -117,15 +158,18 @@ private partial def mkCstLet
    (e : Expr) (t : Expr) (k : Expr → TranslateEnvT Expr) := do
    if isCstLiteral e then return (← k t) -- case: isIntNatStrCst(e)
    match e with
-   | Expr.app (Expr.app (Expr.app (Expr.app (Expr.const ``namedPattern _) _t) np@(Expr.fvar fv)) pe) _h
+   | Expr.app (Expr.app (Expr.app (Expr.app (Expr.const ``namedPattern _) pt) pn) pe) ph
    | Expr.app (Expr.app (Expr.const ``Nat.add _) (Expr.lit (Literal.natVal _)))
-      (Expr.app (Expr.app (Expr.app (Expr.app (Expr.const ``namedPattern _) _t) np@(Expr.fvar fv)) pe) _h) =>
+      (Expr.app (Expr.app (Expr.app (Expr.app (Expr.const ``namedPattern _) pt) pn) pe) ph) =>
       -- case: e = namedPattern t n pe h
       -- case: e = N + (namedPattern t n pe h) ∧ Type(N) = Nat
       mkCstLet pe t
         fun t' => do
-          modifyFVarValue fv (← removeNamedPatternExpr pe)
-          k (← mkLetFVarsExpr #[np] t')
+          let pe' ← removeNamedPatternExpr pe
+          modifyFVarValue pn.fvarId! pe'
+          let lvl ← getLevelEnv pt
+          modifyFVarValue ph.fvarId! (← mkApp2Expr (← mkEqRefl [lvl]) pt pe')
+          k (← mkLetFVarsExpr #[pn] (← mkLetFVarsExpr #[ph] t'))
 
    | Expr.app (Expr.const ``Int.ofNat _) pe
    | Expr.app (Expr.const ``Int.neg _) pe =>
@@ -148,15 +192,25 @@ end
        := let v := e in t  if p = v
        := t                if p = C (i.e., nullary constructor)
        := t                if isIntNatStrCst(p)
-       := let n := e in (mkLet n pe t)  if p = namedPattern s n pe h
+       := let pn := e in
+          let ph := Eq.refl (← getLevelEnv pt) pt e in
+          (mkLet pn pe t)  if p = namedPattern pt pn pe ph
        := let n := e - N in t  if p = N + n ∧ Type(N) = Nat
-       := let n := e - N in (mkLet n pe t)  if p = N + (namedPattern s n pe h) ∧ Type(N) = Nat
+       := let pn := e - N in
+          let ph := Eq.refl (← getLevelEnv pt) pt (e - N) in
+          (mkLet pn pe t) if p = N + (namedPattern pt pn pe ph) ∧ Type(N) = Nat
        := let n := Int.toNat e in t         if p = Int.ofNat n
-       := let n := Int.toNat e in (mkLet n pe t)  if p = Int.ofNat (namedPattern s n pe t)
+       := let pn := Int.toNat e in
+          let ph := Eq.refl (← getLevelEnv pt) pt (Int.toNat e) in
+          (mkLet pn pe t) if p = Int.ofNat (namedPattern pt pn pe ph)
        := let n := Int.toNat e - N in t  if p = Int.ofNat (N + n)
-       := let n := Int.toNat e - N in (mkLet n pe t)  if p = Int.ofNat (N + namedPattern s n pe h)
+       := let pn := Int.toNat e - N in
+          let ph := Eq.refl (← getLevelEnv pt) pt (Int.toNat e - N) in
+          (mkLet pn pe t) if p = Int.ofNat (N + namedPattern pt pn pe ph)
        := let n := (Int.toNat (Int.neg e)) - N in t   if p = Int.neg (Int.ofNat (N + n))
-       := let n := (Int.toNat (Int.neg e)) - N in (mkLet n pe t)  if p = Int.neg (Int.ofNat (N + namedPattern s n pe h))
+       := let pn := (Int.toNat (Int.neg e)) - N in
+          let ph := Eq.refl (← getLevelEnv pt) pt (Int.toNat (Int.neg e)) - N in
+          (mkLet pn pe t)  if p = Int.neg (Int.ofNat (N + namedPattern pt pn pe ph))
        := (mkCstLet x₁ (.. (mkCstLet xₖ₋₁ (mkCstLet xₙ t)))) if p = C x₁ ... xₖ
        := ⊥  otherwise
 -/
@@ -170,14 +224,17 @@ private partial def mkLet
       modifyFVarValue fv e
       k (← mkLetFVarsExpr #[p] t)
 
-  | Expr.app (Expr.app (Expr.app (Expr.app (Expr.const ``namedPattern _) _s) np@(Expr.fvar fv)) pe) _h =>
-      -- case: p := namedPattern s n pe h
-      mkLet np pe t
+  | Expr.app (Expr.app (Expr.app (Expr.app (Expr.const ``namedPattern _) pt) pn) pe) ph =>
+      -- case: p := namedPattern pt pn pe ph
+      mkLet pn pe t
        fun t' => do
-         modifyFVarValue fv e
-         k (← mkLetFVarsExpr #[np] t')
+         modifyFVarValue pn.fvarId! e
+         let lvl ← getLevelEnv pt
+         modifyFVarValue ph.fvarId! (← mkApp2Expr (← mkEqRefl [lvl]) pt e)
+         k (← mkLetFVarsExpr #[pn] (← mkLetFVarsExpr #[ph] t'))
 
-  | Expr.app (Expr.app (Expr.const ``Nat.add _) n@(Expr.lit (Literal.natVal _))) a =>
+  | Expr.app (Expr.app (Expr.const ``Nat.add _) n) a =>
+      if !(isNatValue n) then throwEnvError "mkLet: unexpected pattern expression: {reprStr p}"
       let v ← mkApp2Expr (← mkNatSubOp) e n
       match a with
       | Expr.fvar fv =>
@@ -185,11 +242,13 @@ private partial def mkLet
           modifyFVarValue fv v
           k (← mkLetFVarsExpr #[a] t)
 
-      | Expr.app (Expr.app (Expr.app (Expr.app (Expr.const ``namedPattern _) _s) np@(Expr.fvar fv)) pe) _h =>
-          mkLet np pe t
+      | Expr.app (Expr.app (Expr.app (Expr.app (Expr.const ``namedPattern _) pt) pn) pe) ph =>
+          mkLet pn pe t
             fun t' => do
-              modifyFVarValue fv v
-              k (← mkLetFVarsExpr #[np] t')
+              modifyFVarValue pn.fvarId! v
+              let lvl ← getLevelEnv pt
+              modifyFVarValue ph.fvarId! (← mkApp2Expr (← mkEqRefl [lvl]) pt v)
+              k (← mkLetFVarsExpr #[pn] (← mkLetFVarsExpr #[ph] t'))
 
       | _ => throwEnvError "mkLet: unexpected pattern expression: {reprStr p}"
 
@@ -201,14 +260,17 @@ private partial def mkLet
             modifyFVarValue fv v
             k (← mkLetFVarsExpr #[a] t)
 
-       | Expr.app (Expr.app (Expr.app (Expr.app (Expr.const ``namedPattern _) _t) np@(Expr.fvar fv)) pe) _h =>
+       | Expr.app (Expr.app (Expr.app (Expr.app (Expr.const ``namedPattern _) pt) pn) pe) ph =>
             -- case: p = Int.ofNat (namedPattern s n pe t)
-            mkLet np pe t
+            mkLet pn pe t
               fun t' => do
-                modifyFVarValue fv v
-                k (← mkLetFVarsExpr #[np] t')
+                modifyFVarValue pn.fvarId! v
+                let lvl ← getLevelEnv pt
+                modifyFVarValue ph.fvarId! (← mkApp2Expr (← mkEqRefl [lvl]) pt v)
+                k (← mkLetFVarsExpr #[pn] (← mkLetFVarsExpr #[ph] t'))
 
-       | Expr.app (Expr.app (Expr.const ``Nat.add _) n@(Expr.lit (Literal.natVal _))) b =>
+       | Expr.app (Expr.app (Expr.const ``Nat.add _) n) b =>
+           if !(isNatValue n) then throwEnvError "mkLet: unexpected pattern expression: {reprStr p}"
            let bv ← mkApp2Expr (← mkNatSubOp) (← mkAppExpr (← mkIntToNatOp) e) n
            match b with
            | Expr.fvar fv =>
@@ -216,12 +278,14 @@ private partial def mkLet
                modifyFVarValue fv bv
                k (← mkLetFVarsExpr #[b] t)
 
-           | Expr.app (Expr.app (Expr.app (Expr.app (Expr.const ``namedPattern _) _s) np@(Expr.fvar fv)) pe) _h =>
+           | Expr.app (Expr.app (Expr.app (Expr.app (Expr.const ``namedPattern _) pt) pn) pe) ph =>
                -- case: p = Int.ofNat (N + namedPattern s n pe h)
-                mkLet np pe t
+                mkLet pn pe t
                   fun t' => do
-                    modifyFVarValue fv bv
-                    k (← mkLetFVarsExpr #[np] t')
+                    modifyFVarValue pn.fvarId! bv
+                    let lvl ← getLevelEnv pt
+                    modifyFVarValue ph.fvarId! (← mkApp2Expr (← mkEqRefl [lvl]) pt bv)
+                    k (← mkLetFVarsExpr #[pn] (← mkLetFVarsExpr #[ph] t'))
 
            | _ => throwEnvError "mkLet: unexpected pattern expression: {reprStr p}"
 
@@ -229,7 +293,8 @@ private partial def mkLet
 
   | Expr.app (Expr.const ``Int.neg _)
       (Expr.app (Expr.const ``Int.ofNat _)
-        (Expr.app (Expr.app (Expr.const ``Nat.add _) n@(Expr.lit (Literal.natVal _))) a)) =>
+        (Expr.app (Expr.app (Expr.const ``Nat.add _) n) a)) =>
+      if !(isNatValue n) then throwEnvError "mkLet: unexpected pattern expression: {reprStr p}"
       let v ← mkApp2Expr (← mkNatSubOp) (← mkAppExpr (← mkIntToNatOp) (← mkAppExpr (← mkIntNegOp) e)) n
       match a with
       | Expr.fvar fv =>
@@ -237,12 +302,14 @@ private partial def mkLet
            modifyFVarValue fv v
            k (← mkLetFVarsExpr #[a] t)
 
-      | Expr.app (Expr.app (Expr.app (Expr.app (Expr.const ``namedPattern _) _s) np@(Expr.fvar fv)) pe) _h =>
+      | Expr.app (Expr.app (Expr.app (Expr.app (Expr.const ``namedPattern _) pt) pn) pe) ph =>
            -- case: p = Int.neg (Int.ofNat (N + namedPattern s n pe h))
-           mkLet np pe t
+           mkLet pn pe t
              fun t' => do
-               modifyFVarValue fv v
-               k (← mkLetFVarsExpr #[np] t')
+               modifyFVarValue pn.fvarId! v
+               let lvl ← getLevelEnv pt
+               modifyFVarValue ph.fvarId! (← mkApp2Expr (← mkEqRefl [lvl]) pt v)
+               k (← mkLetFVarsExpr #[pn] (← mkLetFVarsExpr #[ph] t'))
 
       | _ => throwEnvError "mkLet: unexpected pattern expression: {reprStr p}"
 
@@ -275,18 +342,20 @@ private def mkCond (e : Expr) (p : Expr) (eType : Expr) (andTerms : Array Expr) 
   match p with
   | Expr.fvar _ => return andTerms -- case: p = v
 
-  | Expr.app (Expr.app (Expr.const ``Nat.add _) n@(Expr.lit (Literal.natVal _))) (Expr.fvar _fv) =>
+  | Expr.app (Expr.app (Expr.const ``Nat.add _) n) (Expr.fvar _fv) =>
      -- case: p = N + n ∧ Type(N) = Nat
-     return andTerms.push (← mkAppExpr (← mkPropNotOp) (← mkApp2Expr (← mkNatLtOp) e n))
+     if !(isNatValue n) then throwEnvError "mkCond: unexpected pattern: {reprStr p}"
+     else return andTerms.push (← mkAppExpr (← mkPropNotOp) (← mkApp2Expr (← mkNatLtOp) e n))
 
   | Expr.app (Expr.const ``Int.ofNat _) (Expr.fvar _fv) =>
       -- case: p = Int.ofNat n
       return andTerms.push (← mkAppExpr (← mkPropNotOp) (← mkApp2Expr (← mkIntLtOp) e (← mkIntLitExpr (Int.ofNat 0))))
 
   | Expr.app (Expr.const ``Int.ofNat _)
-     (Expr.app (Expr.app (Expr.const ``Nat.add _) n@(Expr.lit (Literal.natVal _))) (Expr.fvar _fv)) =>
+     (Expr.app (Expr.app (Expr.const ``Nat.add _) n) (Expr.fvar _fv)) =>
       -- case: p = Int.ofNat (N + n)
-      return andTerms.push (← mkAppExpr (← mkPropNotOp) (← mkApp2Expr (← mkIntLtOp) e (← mkAppExpr (← mkIntOfNat) n)))
+      if !(isNatValue n) then throwEnvError "mkCond: unexpected pattern: {reprStr p}"
+      else return andTerms.push (← mkAppExpr (← mkPropNotOp) (← mkApp2Expr (← mkIntLtOp) e (← mkAppExpr (← mkIntOfNat) n)))
 
   | Expr.app (Expr.const ``Int.neg _)
     (Expr.app (Expr.const ``Int.ofNat _)
@@ -310,13 +379,14 @@ def isIntNatPatternExpr (e : Expr) : TranslateEnvT Bool := do
        return (isNatType t || isIntType t)
  | _ => return false
 
-partial def patternHasFVar (p : Expr) : TranslateEnvT Bool := do
+partial def patternHasFVarOrProof (p : Expr) : TranslateEnvT Bool := do
  let rec visit (e : Expr) : TranslateEnvT Bool := do
    match e with
    | Expr.fvar .. => return true
    | Expr.app .. =>
       let (f, args) := getAppFnWithArgs e
-      match e.getAppFn with
+      let pInfo ← getFunEnvInfo f
+      match f with
       | Expr.const n _ =>
          -- constructor application
          match (← getConstEnvInfo n) with
@@ -325,26 +395,37 @@ partial def patternHasFVar (p : Expr) : TranslateEnvT Bool := do
              let args := e.getAppArgs
              let ctorArgs := args[info.numParams:args.size]
              for h : i in [:ctorArgs.size] do
+               if pInfo.paramsInfo[i]!.isProp then return true
                if ← visit ctorArgs[i] then return true
              return false
          | _ =>
              for h : i in [:args.size] do
+               if pInfo.paramsInfo[i]!.isProp then return true
                if ← visit args[i] then return true
              return false
       | _ => throwEnvError "retrieveAltsArgs: const expression expected but got {reprStr f}"
    | _ => return false
  visit p
 
+structure CommonMatchRewriterParams where
+  /-- Match info for current match -/
+  mInfo : MatchInfo
+  /-- Match arguments -/
+  margs : Array Expr
+  /-- Match discriminators's type -/
+  discrsType : Array Expr
+  /-- Match return type -/
+  retType : Expr
+
 /-- Is the accumulator `rewriter` function to be used with `matchExprRewriter` when attempting
     to normalize a `match` expression to `if-then-else` (see `normMatchExpr?`).
     Asssumes that matchType := λ β₁ => ... => βₘ
 -/
 def normMatchExprAux?
-  (lastPattern : Bool) (mInfo : MatchInfo) (margs : Array Expr)
-  (lhs : Array Expr) (rhs : Expr) (params : Array Expr)
-  (acc : Option Expr) : TranslateEnvT (Option Expr) := do
+  (lastPattern : Bool) (common : CommonMatchRewriterParams)
+  (lhs : Array Expr) (rhs : Expr) (params : Array Expr) (acc : Option Expr) : TranslateEnvT (Option Expr) := do
   let plhs ← removeNamedPatterns lhs
-  if !(← isItePattern plhs) then return none
+  if !(← isItePattern plhs common.discrsType) then return none
   let rhs ← betaLambdaShared rhs params
   if lastPattern then return some (← mkRhs lhs rhs (lastPattern := true)) -- last pattern
   let some elseExpr := acc | return acc
@@ -359,12 +440,15 @@ def normMatchExprAux?
      return plhs
 
    /-- Return `true` only when the "match" normalization condition is satisfied, i.e,:
-        - ∀ i ∈ [1..m], ∀ j ∈ [1..n], ( NoFreeVar(p₍ᵢ₎₍ⱼ₎) ∨ p₍ᵢ₎₍ⱼ₎ = v ∨ isIntNatStrCst(p₍ᵢ₎₍ⱼ₎) ∨ Type(eⱼ) ∈ {Nat, Int} )
+        - ∀ i ∈ [1..m], ∀ j ∈ [1..n],
+           ¬ isIndexedInductiveType (Type eᵢ) ∧
+           ((NoProof (p₍ᵢ₎₍ⱼ₎) ∧ NoFreeVar(p₍ᵢ₎₍ⱼ₎)) ∨ p₍ᵢ₎₍ⱼ₎ = v ∨ isIntNatStrCst(p₍ᵢ₎₍ⱼ₎) ∨ Type(eⱼ) ∈ {Nat, Int} )
    -/
-   isItePattern (plhs : Array Expr) : TranslateEnvT Bool := do
+   isItePattern (plhs : Array Expr) (discrsType : Array Expr) : TranslateEnvT Bool := do
      for h : i in [:plhs.size] do
        let p := plhs[i]
-       if (← patternHasFVar p) && !p.isFVar && !(isCstLiteral p) && !(← isIntNatPatternExpr p)
+       if ← isIndexedInductiveType discrsType[i]! then return false
+       if (← patternHasFVarOrProof p) && !p.isFVar && !(isCstLiteral p) && !(← isIntNatPatternExpr p)
        then return false
      return true
 
@@ -382,18 +466,16 @@ def normMatchExprAux?
     for i in [:nbPatterns] do
       let idx := nbPatterns - i - 1
       let pattern := lhs[idx]!
-      let discr := margs[mInfo.getFirstDiscrPos + idx]!
+      let discr := common.margs[common.mInfo.getFirstDiscrPos + idx]!
       mrhs ← replaceDiscrInLastRhs lastPattern discr pattern mrhs
       mrhs ← mkLet discr lhs[idx]! mrhs (λ x => return x)
     return mrhs
 
    mkIte (lhs : Array Expr) (plhs: Array Expr) (rhs : Expr) (elseExpr : Expr) : TranslateEnvT (Option Expr) := do
-     let matchType := margs[mInfo.getFirstDiscrPos - 1]!
-     let discrsType ← getLambdaBinderTypes matchType
      let thenExpr ← mkRhs lhs rhs
      let mut andTerms := (#[] : Array Expr)
      for h : i in [:plhs.size] do
-       andTerms ← mkCond margs[mInfo.getFirstDiscrPos + i]! plhs[i] discrsType[i]! andTerms
+       andTerms ← mkCond common.margs[common.mInfo.getFirstDiscrPos + i]! plhs[i] common.discrsType[i]! andTerms
      let nbCond := andTerms.size
      if nbCond == 0 then return thenExpr -- case when else unreachable (i.e., renaming pattern redundant)
      let mut condTerm := andTerms[nbCond-1]!
@@ -405,11 +487,12 @@ def normMatchExprAux?
      let lam1 ← mkLambdaExpr hName BinderInfo.default condTerm thenExpr
      let notCond ← mkAppExpr (← mkPropNotOp) condTerm
      let lam2 ← mkLambdaExpr hName BinderInfo.default notCond elseExpr
-     mkApp4Expr (← mkBlasterDIteOp) (getLambdaBody matchType) condTerm lam1 lam2
+     mkApp4Expr (← mkBlasterDIteOp) (common.retType) condTerm lam1 lam2
 
 /-- Instantiating Heq match equation in provided rhs parameters  -/
-partial def assignEqRefl (mInfo : MatchInfo) (rhs_params : Array Expr) (margs : Array Expr) : TranslateEnvT (Array Expr) := do
-  let discrsType ← getLambdaBinderTypes margs[mInfo.getFirstDiscrPos - 1]!
+partial def assignEqRefl
+  (mInfo : MatchInfo) (rhs_params : Array Expr)
+  (margs : Array Expr) (discrsType : Array Expr) : TranslateEnvT (Array Expr) := do
   let rec visit (idx : Nat) (stop : Nat) (nbHeq : Nat) (xs : Array Expr) : TranslateEnvT (Array Expr) := do
     if idx < stop then return xs
     else
@@ -449,12 +532,19 @@ partial def assignEqRefl (mInfo : MatchInfo) (rhs_params : Array Expr) (margs : 
 @[specialize]
 def matchExprRewriter
     (mInfo : MatchInfo) (args : Array Expr)
-    (rewriter : Bool → MatchInfo → Array Expr → Array Expr → Expr → Array Expr → Option α → TranslateEnvT (Option α)) :
+    (rewriter : (lastPattern : Bool) → CommonMatchRewriterParams →
+                (lhs : Array Expr) → (rhs : Expr) → (params : Array Expr) → (acc : Option α) → TranslateEnvT (Option α)) :
     TranslateEnvT (Option α) := do
-    commonMatchRewriter args (← getMatchAlts args mInfo)
+    let instCommonKey ← mkAppRangeExpr mInfo.instApp 0 mInfo.getFirstDiscrPos args
+    let alts ← getMatchAltsAux instCommonKey args mInfo
+    let instKey ← mkAppRangeExpr instCommonKey mInfo.getFirstDiscrPos mInfo.getFirstAltPos args
+    let matchType ← instantiateMatchType mInfo args (instKey? := some instKey)
+    let discrsType ← getLambdaBinderTypes matchType
+    let retType := getLambdaBody matchType
+    commonMatchRewriter ⟨mInfo, args, discrsType, retType⟩ alts
 
   where
-    commonMatchRewriter (margs : Array Expr) (alts : Array Expr) : TranslateEnvT (Option α) := do
+    commonMatchRewriter (common : CommonMatchRewriterParams) (alts : Array Expr) : TranslateEnvT (Option α) := do
       let mut accExpr := (none : Option α)
       -- traverse in reverse order to handle last pattern first
       let nbAlts := alts.size
@@ -465,8 +555,8 @@ def matchExprRewriter
             let mut lhs := b.getAppArgs
             -- trace[Optimize.normMatch.pattern] "match patterns to optimize {reprStr lhs}"
             -- NOTE: lhs is now implicitly normalized when computing MatchInfo
-            let xs ← assignEqRefl mInfo xs margs
-            rewriter (i == 0) mInfo margs lhs args[mInfo.getFirstAltPos + idx]! xs accExpr
+            let xs ← assignEqRefl mInfo xs common.margs common.discrsType
+            rewriter (i == 0) common lhs args[mInfo.getFirstAltPos + idx]! xs accExpr
         unless (accExpr.isSome) do return accExpr -- break if accExpr is still none
       return accExpr
 
@@ -489,7 +579,9 @@ def matchExprRewriter
        else (mkRhs [e₁ ... eₙ] [p₍ₘ₎₍₁₎ ... p₍ₘ₎₍ₙ₎] tₘ)
      when:
        - ∀ i ∈ [1..m], ∀ j ∈ [1..n],
-           ( NoFreeVar(p₍ᵢ₎₍ⱼ₎) ∨ p₍ᵢ₎₍ⱼ₎ = v ∨ isIntNatStrCst(p₍ᵢ₎₍ⱼ₎) ∨ Type(eⱼ) ∈ {Nat, Int} )
+          ¬ isIndexedInductiveType (Type eᵢ) ∧
+           ( (NoProof (p₍ᵢ₎₍ⱼ₎) ∧ NoFreeVar(p₍ᵢ₎₍ⱼ₎)) ∨
+              p₍ᵢ₎₍ⱼ₎ = v ∨ isIntNatStrCst(p₍ᵢ₎₍ⱼ₎) ∨ Type(eⱼ) ∈ {Nat, Int} )
      with:
        - mkCond e p :
           let p' ← removeNamedPatternExpr p;
@@ -510,41 +602,64 @@ def matchExprRewriter
            := let v := e in t'  if p = v
            := t'                if p = C (i.e., nullary constructor)
            := t'                if isIntNatStrCst(p)
-           := let n := e in (mkLet n pe t')  if p = namedPattern t n pe h ∧ ¬ isIntNatStrCst(pe') ∧
-                                               ( Type(eⱼ) ∈ {Nat, Int} ∨ ¬ isCtorPattern pe' )
-                                             with pe' ← (removeNamedPatternExpr pe)
-           := let n := pe' in (mkCstLet pe t')  if p = namedPattern t n pe h ∧
-                                                   (isIntNatStrCst(pe') ∨ (Type(eⱼ) ∉ {Nat, Int} ∧ isCtorPattern pe'))
-                                                with pe' ← (removeNamedPatternExpr pe)
+           := let pn := e in
+              let ph := Eq.refl (← getLevelEnv pt) pt e in
+              (mkLet pn pe t') if p = namedPattern pt pn pe ph ∧ ¬ isIntNatStrCst(pe') ∧
+                                  ( Type(eⱼ) ∈ {Nat, Int} ∨ ¬ isCtorPattern pe' )
+                               with pe' ← (removeNamedPatternExpr pe)
+           := let pn := pe' in
+              let ph := Eq.refl (← getLevelEnv pt) pt e in
+              (mkCstLet pe t') if p = namedPattern pt pn pe ph ∧
+                                      (isIntNatStrCst(pe') ∨ (Type(eⱼ) ∉ {Nat, Int} ∧ isCtorPattern pe'))
+                                      with pe' ← (removeNamedPatternExpr pe)
            := let n := e - N in t'  if p = N + n ∧ Type(N) = Nat
-           := let n := e - N in (mkLet n pe t')  if p = N + (namedPattern t n pe h) ∧ Type(N) = Nat ∧ ¬ isIntNatStrCst(pe')
-                                                 with pe' ← (removeNamedPatternExpr pe)
-           := let n := pe' in (mkCstLet pe t')  if p = N + (namedPattern t n pe h) ∧ Type(N) = Nat ∧ isIntNatStrCst(pe')
-                                                with pe' ← (removeNamedPatternExpr pe)
+           := let pn := e - N in
+              let ph := Eq.refl (← getLevelEnv pt) pt (e - N) in
+              (mkLet pn pe t')  if p = N + (namedPattern pt pn pe ph) ∧ Type(N) = Nat ∧ ¬ isIntNatStrCst(pe')
+                                with pe' ← (removeNamedPatternExpr pe)
+           := let pn := pe' in
+              let ph := Eq.refl (← getLevelEnv pt) pt pe' in
+              (mkCstLet pe t')  if p = N + (namedPattern pt pn pe ph) ∧ Type(N) = Nat ∧ isIntNatStrCst(pe')
+                                with pe' ← (removeNamedPatternExpr pe)
            := let n := Int.toNat e in t'        if p = Int.ofNat n
-           := let n := Int.toNat e in (mkLet n pe t')  if p = Int.ofNat (namedPattern t n pe t) ∧ ¬ isIntNatStrCst(pe')
-                                                       with pe' ← (removeNamedPatternExpr pe)
-           := let n := pe' in (mkCstLet pe t')  if p = Int.ofNat (namedPattern t n pe t) ∧ isIntNatStrCst(pe')
-                                                with pe' ← (removeNamedPatternExpr pe)
+           := let pn := Int.toNat e in
+              let ph := Eq.refl (← getLevelEnv pt) pt (Int.toNat e) in
+              (mkLet pn pe t')  if p = Int.ofNat (namedPattern pt pn pe ph) ∧ ¬ isIntNatStrCst(pe')
+                               with pe' ← (removeNamedPatternExpr pe)
+           := let pn := pe' in
+              let ph := Eq.refl (← getLevelEnv pt) pt pe' in
+              (mkCstLet pe t')  if p = Int.ofNat (namedPattern pt pn pe ph) ∧ isIntNatStrCst(pe')
+                                with pe' ← (removeNamedPatternExpr pe)
            := let n := Int.toNat e - N in t'  if p = Int.ofNat (N + n)
-           := let n := Int.toNat e - N in (mkLet n pe t')  if p = Int.ofNat (N + namedPattern t n pe h) ∧ ¬ isIntNatStrCst(pe')
-                                                           with pe' ← (removeNamedPatternExpr pe)
-           := let n := pe' in (mkCstLet pe t')  if p = Int.ofNat (N + namedPattern t n pe h) ∧ isIntNatStrCst(pe')
-                                                with pe' ← (removeNamedPatternExpr pe)
+           := let pn := Int.toNat e - N in
+              let ph := Eq.refl (← getLevelEnv pt) pt (Int.toNat e - N) in
+              (mkLet pn pe t')  if p = Int.ofNat (N + namedPattern pt pn pe ph) ∧ ¬ isIntNatStrCst(pe')
+                                with pe' ← (removeNamedPatternExpr pe)
+           := let pn := pe' in
+              let ph := Eq.refl (← getLevelEnv pt) pt pe' in
+              (mkCstLet pe t')  if p = Int.ofNat (N + namedPattern pt pn pe ph) ∧ isIntNatStrCst(pe')
+                                with pe' ← (removeNamedPatternExpr pe)
            := let n := (Int.toNat (Int.neg e)) - N in t'   if p = Int.neg (Int.ofNat (N + n))
-           := let n := (Int.toNat (Int.neg e)) - N in (mkLet n pe t')  if p = Int.neg (Int.ofNat (N + namedPattern t n pe h)) ∧
-                                                                          ¬ isIntNatStrCst(pe')
-                                                                       with pe' ← (removeNamedPatternExpr pe)
-           := let n := pe' in (mkCstLet n pe t')  if p = Int.neg (Int.ofNat (N + namedPattern t n pe h)) ∧ isIntNatStrCst(pe')
-                                                  with pe' ← (removeNamedPatternExpr pe)
+           := let pn := (Int.toNat (Int.neg e)) - N in
+              let ph := Eq.refl (← getLevelEnv pt) pt (Int.toNat (Int.neg e)) - N in
+              (mkLet pn pe t')  if p = Int.neg (Int.ofNat (N + namedPattern pt pn pe ph)) ∧ ¬ isIntNatStrCst(pe')
+                                with pe' ← (removeNamedPatternExpr pe)
+           := let pn := pe' in
+              let ph := Eq.refl (← getLevelEnv pt) pt pe' in
+              (mkCstLet n pe t')  if p = Int.neg (Int.ofNat (N + namedPattern pt pn pe ph)) ∧ isIntNatStrCst(pe')
+                                  with pe' ← (removeNamedPatternExpr pe)
            := (mkCstLet x₁ (.. (mkCstLet xₖ₋₁ (mkCstLet xₙ t')))) if p = C x₁ ... xₖ
            := ⊥  otherwise
 
        - mkCstLet e t :
            := t             if e = C
            := t             if isIntNatStrCst(e)
-           := let n := removeNamedPatternExpr pe in (mkCstLet pe t) if e = namedPattern t n pe h
-           := let n := removeNamedPatternExpr pe in (mkCstLet pe t) if e = N + (namedPattern t n pe h) ∧ Type(N) = Nat
+           := let pn := removeNamedPatternExpr pe in
+              let ph := Eq.Refl (← getLevelEnv pt) pt (removeNamedPatternExpr pe)) in
+              (mkCstLet pe t)    if e = namedPattern pt pn pe ph
+           := let n := removeNamedPatternExpr pe in
+              let ph := Eq.Refl (← getLevelEnv pt) pt (removeNamedPatternExpr pe)) in
+              (mkCstLet pe t) if e = N + (namedPattern pt pn pe ph) ∧ Type(N) = Nat
            := (mkCstLet pe t)  if e = Int.ofNat pe
            := (mkCstLet pe t)  if e = Int.neg pe
            := (mkCstLet x₁ (.. (mkCstLet xₖ₋₁ (mkCstLet xₙ t)))) if e = C x₁ ... xₖ

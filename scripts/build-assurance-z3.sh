@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# Build the solver revision used by the compiled-assurance conformance suite.
+# Build official Z3 5.3.1 at an immutable source revision.
 set -euo pipefail
 prefix="${1:?Usage: build-assurance-z3.sh ABSOLUTE_INSTALL_DIRECTORY}"
 case "$prefix" in /*) ;; *) echo 'Install directory must be absolute' >&2; exit 2;; esac
-revision=ca39e58c525c5b03c2484f118ade2b92fae31215
+revision=ac9156f97cb44e56472e1c841f7a2beb1e976b24
 source_dir="$prefix-source"
 mkdir -p "$source_dir"
 if [ ! -d "$source_dir/.git" ]; then
   git -C "$source_dir" init
 fi
-git -C "$source_dir" fetch --depth 1 https://github.com/RSoulatIOHK/z3.git "$revision"
+git -C "$source_dir" fetch --depth 1 https://github.com/Z3Prover/z3.git "$revision"
 git -C "$source_dir" checkout --detach "$revision"
 cmake -S "$source_dir" -B "$source_dir/build" \
   -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$prefix" \

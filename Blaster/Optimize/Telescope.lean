@@ -377,7 +377,7 @@ def inferAppType (t : Expr) (args : Array Expr) : TranslateEnvT Expr :=
 -/
 def inferArgTypeAt (t : Expr) (args : Array Expr) (i : Nat) : TranslateEnvT Expr :=
   let rec visit (idx : Nat) (stop : Nat) (t : Expr) (types : Array Expr) : TranslateEnvT Expr := do
-    if idx ≥ stop then panic! "inferArgTypeAt: i expected to be greater than args.size"
+    if idx ≥ stop then throwEnvError "inferArgTypeAt: i expected to be greater than args.size"
     else
      match t with
      | Expr.forallE _n t b _ =>
@@ -386,7 +386,7 @@ def inferArgTypeAt (t : Expr) (args : Array Expr) (i : Nat) : TranslateEnvT Expr
          else
            let types := types.push args[idx]!
            visit (idx + 1) stop b types
-     | _ => panic! "inferArgTypeAt: i expected to be greater than args.size"
+     | _ => throwEnvError "inferArgTypeAt: i expected to be greater than args.size"
   visit 0 args.size t (Array.emptyWithCapacity args.size)
 
 /-- Given a `f : Expr.const n l` a function name expression,

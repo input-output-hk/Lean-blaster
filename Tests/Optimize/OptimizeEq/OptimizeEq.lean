@@ -1,3 +1,4 @@
+
 import Lean
 import Tests.Utils
 
@@ -391,8 +392,7 @@ elab "eqIntConstructor_6" : term => return eqIntConstructor_6
 
 #testOptimize [ "EqIntConstructor_6" ] ∀ (x : Int), x = -453 ===> eqIntConstructor_6
 
-/-! Int.ofNat e1 = Int.neg (Int.ofNat e2) ==> False (if nonZeroNatInHyps e1 ∨ nonZeroNatInHyps e2 ∨ e2 := N + e ∧ N ≠ 0)
-    NOTE: `Int.ofNat e1 = Int.neg (Int.ofNat e2)` holds iff `e1 = 0 ∧ e2 = 0`. -/
+/-! Int.ofNat e1 = Int.neg (Int.ofNat e2) ==> 0 = e1 ∧ 0 = e2. -/
 
 -- ∀ (m : Nat), Int.ofNat 3 = - Int.ofNat m ===> False
 #testOptimize [ "EqIntOfNatNegOfNat_1" ] ∀ (m : Nat), Int.ofNat 3 = - Int.ofNat m ===> False
@@ -417,16 +417,44 @@ elab "eqIntConstructor_6" : term => return eqIntConstructor_6
 #testOptimize [ "EqIntOfNatNegOfNat_6" ] (norm-result: 1)
   ∀ (m : Nat), (0 : Int) = - Int.ofNat m ===> ∀ (m : Nat), 0 = m
 
--- ∀ (m k : Nat), Int.ofNat k = - Int.ofNat m ===> ∀ (m k : Nat), Int.ofNat k = Int.neg (Int.ofNat m)
+-- ∀ (m k : Nat), Int.ofNat k = - Int.ofNat m ===> ∀ (m k : Nat), 0 = m ∧ 0 = k
 -- NOTE: no reduction to False: both operands can be zero
 #testOptimize [ "EqIntOfNatNegOfNat_7" ] (norm-result: 1)
-  ∀ (m k : Nat), Int.ofNat k = - Int.ofNat m ===> ∀ (m k : Nat), Int.ofNat k = Int.neg (Int.ofNat m)
+  ∀ (m k : Nat), Int.ofNat k = - Int.ofNat m ===> ∀ (m k : Nat), 0 = m ∧ 0 = k
 
 -- ∀ (m k : Nat), 0 < k → Int.ofNat k = - Int.ofNat m ===> ∀ (k : Nat), 0 = k
 -- NOTE: `k` is known to be non-zero from the hypothesis, hence the equality reduces to `False`
 --       and `0 < k → False` is normalized to `0 = k`.
 #testOptimize [ "EqIntOfNatNegOfNat_8" ] (norm-result: 1)
   ∀ (m k : Nat), 0 < k → Int.ofNat k = - Int.ofNat m ===> ∀ (k : Nat), 0 = k
+
+-- ∀ (m k : Nat), Int.ofNat (m + 1) = - Int.ofNat k ===> False
+-- NOTE: `0 = 1 + m` is refuted by the arithmetic rules, hence the conjunction reduces to `False`
+#testOptimize [ "EqIntOfNatNegOfNat_9" ] ∀ (m k : Nat), Int.ofNat (m + 1) = - Int.ofNat k ===> False
+
+-- ∀ (m k : Nat), 0 < m → Int.ofNat k = - Int.ofNat m ===> ∀ (m : Nat), 0 = m
+-- NOTE: symmetric of `EqIntOfNatNegOfNat_8`: `m` is known to be non-zero from the hypothesis
+#testOptimize [ "EqIntOfNatNegOfNat_10" ] (norm-result: 1)
+  ∀ (m k : Nat), 0 < m → Int.ofNat k = - Int.ofNat m ===> ∀ (m : Nat), 0 = m
+
+-- ∀ (m : Nat), Int.ofNat m = - Int.ofNat m ===> ∀ (m : Nat), 0 = m
+-- NOTE: `0 = m ∧ 0 = m` is reduced to `0 = m`
+#testOptimize [ "EqIntOfNatNegOfNat_11" ] (norm-result: 1)
+  ∀ (m : Nat), Int.ofNat m = - Int.ofNat m ===> ∀ (m : Nat), 0 = m
+
+-- ∀ (m k : Nat), 0 = k → Int.ofNat k = - Int.ofNat m ===> ∀ (m k : Nat), 0 = k → 0 = m
+-- NOTE: `0 = k` holds by hypothesis, only `0 = m` remains
+#testOptimize [ "EqIntOfNatNegOfNat_12" ] (norm-result: 1)
+  ∀ (m k : Nat), 0 = k → Int.ofNat k = - Int.ofNat m ===> ∀ (m k : Nat), 0 = k → 0 = m
+
+-- ∀ (m k : Nat), Int.ofNat k = - Int.ofNat m → k + m = 0 ===> True
+-- NOTE: the conclusion follows from the hypotheses `0 = k` and `0 = m`
+#testOptimize [ "EqIntOfNatNegOfNat_13" ]
+  ∀ (m k : Nat), Int.ofNat k = - Int.ofNat m → k + m = 0 ===> True
+
+-- ∀ (m k : Nat), ¬ (Int.ofNat k = - Int.ofNat m) ===> ∀ (m k : Nat), ¬ (0 = m ∧ 0 = k)
+#testOptimize [ "EqIntOfNatNegOfNat_14" ] (norm-result: 1)
+  ∀ (m k : Nat), ¬ (Int.ofNat k = - Int.ofNat m) ===> ∀ (m k : Nat), ¬ (0 = m ∧ 0 = k)
 
 /-! Int.negSucc N = Int.neg (Int.ofNat e) ==> (N "+" 1) = e
     Int.negSucc N = Int.neg e ==> Int.ofNat (N "+" 1) = e

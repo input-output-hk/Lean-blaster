@@ -24,9 +24,28 @@ private def SmtSymbol.hash : SmtSymbol → UInt64
 instance : Hashable SmtSymbol := ⟨SmtSymbol.hash⟩
 
 
+inductive SmtIndex where
+  | NumeralIndex (n : UInt32)
+  | SymbolIndex (s : SmtSymbol)
+
+instance : Inhabited SmtIndex where
+  default := .NumeralIndex 0
+
+instance : BEq SmtIndex where
+  beq | .NumeralIndex n1, .NumeralIndex n2 => n1 == n2
+      | .SymbolIndex s1, .SymbolIndex s2 => s1 == s2
+      | _, _ => false
+
+private def SmtIndex.hash : SmtIndex → UInt64
+  | .NumeralIndex n => mixHash 17 (Hashable.hash n)
+  | .SymbolIndex str => mixHash 19 str.hash
+
+instance : Hashable SmtIndex := ⟨SmtIndex.hash⟩
+
 /-- Smt-Lib V2 sort expression. -/
 inductive SortExpr where
  | SymbolSort (nm : SmtSymbol)
+ | IndexSort (nm : SmtSymbol) (ps : Array SmtIndex)
  | ParamSort (nm : SmtSymbol) (ps : Array SortExpr)
 
 instance : Inhabited SortExpr where
@@ -36,6 +55,10 @@ mutual
   private partial def SortExpr.beq (x y : SortExpr) : Bool :=
     match x, y with
     | .SymbolSort s1, .SymbolSort s2 => s1 == s2
+
+    | .IndexSort s1 ps1, .IndexSort s2 ps2 =>
+          if s1 == s2 then beqArraySmtIndex 0 ps1 ps2
+          else false
     | .ParamSort s1 ps1, .ParamSort s2 ps2 =>
          if s1 == s2 && ps1.size == ps2.size
          then beqArraySortExpr 0 ps1 ps2
@@ -47,14 +70,21 @@ mutual
     else if SortExpr.beq ps1[idx]! ps2[idx]!
          then beqArraySortExpr (idx + 1) ps1 ps2
          else false
+
+  private partial def beqArraySmtIndex (idx : Nat) (ps1 : Array SmtIndex) (ps2 : Array SmtIndex) : Bool :=
+    if idx ≥ ps1.size then true
+    else if ps1[idx]! == ps2[idx]!
+         then beqArraySmtIndex (idx + 1) ps1 ps2
+         else false
 end
 
 instance : BEq SortExpr where
   beq := SortExpr.beq
 
 private def SortExpr.hash : SortExpr → UInt64
-  | .SymbolSort s => mixHash 17 s.hash
-  | .ParamSort s ps => mixHash 19 (Array.foldl (λ acc se => mixHash acc se.hash) s.hash ps)
+  | .SymbolSort s => mixHash 23 s.hash
+  | .IndexSort s ps => mixHash 29 (Array.foldl (λ acc se => mixHash acc se.hash) s.hash ps)
+  | .ParamSort s ps => mixHash 31 (Array.foldl (λ acc se => mixHash acc se.hash) s.hash ps)
 
 instance : Hashable SortExpr := ⟨SortExpr.hash⟩
 
@@ -182,9 +212,17 @@ opaque validSimpleChars : String :=
 instance : ToString SmtSymbol where
   toString := SmtSymbol.toString
 
+@[inline] def SmtIndex.toString (si : SmtIndex) : String :=
+  match si with
+  | .NumeralIndex n => s!"{n}"
+  | .SymbolIndex s => s.toString
+
 @[inline] private partial def SortExpr.toString (e : SortExpr) : String :=
   match e with
   | .SymbolSort nm => nm.toString
+  | .IndexSort nm ps =>
+      let sps := Array.foldl (fun acc a => s!"{acc} {SmtIndex.toString a}") "" ps
+      s!"(_ {nm} {sps})"
   | .ParamSort nm ps =>
       let sps := Array.foldl (fun acc a => s!"{acc} {SortExpr.toString a}") "" ps
       s!"({nm} {sps})"

@@ -24,7 +24,8 @@ inductive OptimizeStack where
  | ForallWaitForBody (x : Expr) (t : Expr) (hctx : HypsStackContext) (isProp : Bool)
  | AppWaitForConst (args : Array Expr)
  | OptimizeMatchInfoWaitForInst (f : Expr) (args : Array Expr)
-                                (startArgIdx : Nat) (pInfo : FunEnvInfo) (mInfo : MatcherRecInfo)
+                                (startArgIdx : Nat) (pInfo : FunEnvInfo)
+                                (mInfo : MatcherRecInfo) (prevNormMatch : Bool)
  | AppOptimizeImplicitArgs (f : Expr) (args : Array Expr) (idx : Nat)
                            (startArgIdx : Nat) (stopIdx : Nat)
                            (pInfo : FunEnvInfo) (prevInApp : Bool)
@@ -65,8 +66,8 @@ def resetChoiceContext (h : HypsStackContext) (fvars : Array Expr) (lam : Expr) 
   | some scope =>
        updateContextReuseCache lam idx ⟨scope, fvars⟩
        modifyOptEnv
-         fun ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, ⟨s1, s2, s3, s4, _, s6, active, s7⟩, o12, o13, o14⟩ =>
-             ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, ⟨s1, s2, s3, s4, scope.parent, s6, active.erase scope.current, s7⟩, o12, o13, o14⟩
+         fun ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, ⟨s1, s2, s3, s4, _, s6, active, s7, s8⟩, o12, o13, o14⟩ =>
+             ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, ⟨s1, s2, s3, s4, scope.parent, s6, active.erase scope.current, s7, s8⟩, o12, o13, o14⟩
   | none => return ()
 
 def restoreMVarDecls (optDecls : Option MVarIdDecls) : TranslateEnvT Unit :=
@@ -86,11 +87,12 @@ def restoreMVarDecls (optDecls : Option MVarIdDecls) : TranslateEnvT Unit :=
           let mAssignments := updateAssignments 0 mdecls.size mdecls mAssignments
           ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, mAssignments⟩
 
-def isInEqualityMap (e : Expr) (isGlobal : Bool) : TranslateEnvT Expr := do
-  if isGlobal then return e
+@[always_inline, inline]
+def isInEqualityMap (e : Expr) (isGlobal : Bool) : TranslateEnvT EqualityEntry := do
+  if isGlobal then return ⟨e, false⟩
   else
     match (← eqMapFind? e) with
-    | none => return e
+    | none => return ⟨e, false⟩
     | some b => return b
 
 def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := false) : TranslateEnvT OptimizeContinuity := do
@@ -98,14 +100,18 @@ def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := 
   | [] => return Sum.inr optExpr
 
   | .InitOptimizeReturn e isGlobal mvarDecls :: xs =>
-       let optExpr ← isInEqualityMap optExpr isGlobal
-       if !skipCache then
-         updateOptimizeEnvCache optExpr optExpr isGlobal
-         if !e.hasMVar && !exprEq e optExpr then updateOptimizeEnvCache e optExpr isGlobal
-       restoreMVarDecls mvarDecls
-       match xs with
-       | [] => return Sum.inr optExpr
-       | _ => stackContinuity xs optExpr
+       let ⟨optExpr, restart⟩ ← isInEqualityMap optExpr isGlobal
+       if restart then
+         -- restart flag set in equality entry
+         return Sum.inl (.InitOptimizeExpr optExpr :: stack)
+       else
+         if !skipCache then
+           updateOptimizeEnvCache optExpr optExpr isGlobal
+           if !e.hasMVar && !exprEq e optExpr then updateOptimizeEnvCache e optExpr isGlobal
+         restoreMVarDecls mvarDecls
+         match xs with
+         | [] => return Sum.inr optExpr
+         | _ => stackContinuity xs optExpr
 
   | .RecFunDefWaitForStorage args instApp subsInst params startCtxId :: xs =>
        -- optExpr corresponds to optimized rec fun body
@@ -169,15 +175,20 @@ def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := 
               -- correspond to the match lhs.
               match instApp with
               | Expr.lam n t b bi =>
-                    let mWait := .OptimizeMatchInfoWaitForInst rf args extraArgs.size pInfo mInfo :: xs
+                    -- set option normalizeMatchInfo to avoid removing namedPatterns
+                    let prevNormMatch ← isInNormalizeMatchInfo
+                    setNormalizeMatchInfo true
+                    let mWait := .OptimizeMatchInfoWaitForInst rf args extraArgs.size pInfo mInfo prevNormMatch :: xs
                     -- NOTE: we only optimize the lhs forall body and not the types.
                     return Sum.inl (.MatchLhsSkipForallType t :: .MatchRhsLambdaWaitForType n bi b :: mWait)
               | _ => throwEnvError "stackContinuity: lambda expected for match instance but got {reprStr instApp}"
 
 
-  | .OptimizeMatchInfoWaitForInst f args startArgIdx pInfo mInfo :: xs =>
+  | .OptimizeMatchInfoWaitForInst f args startArgIdx pInfo mInfo prevNormMatch :: xs =>
        -- optExpr corresponds to optimized match generic instance
        -- update cache isMatcherCache
+       -- reset option normalizeMatchInfo
+       setNormalizeMatchInfo prevNormMatch
        if let Expr.const n _ := f then
          let argInfo := ({ name := n, nameExpr := f, instApp := optExpr, recInfo := mInfo } : MatchInfo)
          updateIsMatcherCache n argInfo
@@ -346,14 +357,12 @@ def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := 
     @[always_inline, inline]
     normProof (idx : Nat) (args : Array Expr) (optArg : Expr) (pInfo : FunEnvInfo) : TranslateEnvT Expr := do
      if idx ≥ pInfo.paramsInfo.size then return optArg
-     else if pInfo.paramsInfo[idx]!.isProp then
+     else if pInfo.paramsInfo[idx]!.isProp && !(← isInNormalizeMatchInfo) then
+       -- Note: we don't resolve proof in match pattern as we must preserve mvar for match reduction.
        let argType ← inferArgTypeAt pInfo.type args idx
        match (← inHypMap argType) with
        | some p => return p
-       | none =>
-         if exprEq (← inferTypeEnv optArg) argType
-         then return optArg
-         else backwardProof argType
+       | none => backwardProof argType optArg
      else return optArg
 
     @[always_inline, inline]

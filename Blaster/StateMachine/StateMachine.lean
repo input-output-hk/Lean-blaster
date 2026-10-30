@@ -20,18 +20,31 @@ structure Invariant (α : Type) (β : Type) where
 /-- Internal state machine representation where:
       - α : specifies the input type
       - β : specifies the state type
+
+    Given a sequence of inputs in₀, in₁, ..., the corresponding sequence of states st₀, st₁, ...
+    is defined as follows:
+      st₀ = init in₀
+      stᵢ₊₁ = next inᵢ₊₁ stᵢ
+    i.e., the current state is derived from the current input and the previous state.
+    Both `assumptions` and `invariants` are evaluated on the input and the state at the same step,
+    i.e., `assumptions inᵢ stᵢ` and `invariants inᵢ stᵢ`.
+    The previous input is not passed to `next`: if needed, it must be kept in the state.
 -/
 class StateMachine (α : Type) (β : Type) where
-  /-- function to define the initial state -/
+  /-- function to define the initial state from the first input, i.e., `st₀ = init in₀` -/
   init : α → β
 
-  /-- function to define the next state -/
+  /-- function to define the current state from the current input and the previous state,
+      i.e., `stᵢ₊₁ = next inᵢ₊₁ stᵢ`
+  -/
   next : α → β → β
 
-  /-- function to define any assumption about the input events and state -/
+  /-- function to define any assumption about the input events and state at each step,
+      i.e., `assumptions inᵢ stᵢ`
+  -/
   assumptions: α → β → Prop
 
-  /-- function to define any properties to be satisfied -/
+  /-- function to define any properties to be satisfied at each step, i.e., `invariants inᵢ stᵢ` -/
   invariants : α → β → Prop
 
 open StateMachine

@@ -561,8 +561,23 @@ def mkStringMk : TranslateEnvT Expr :=
 def mkStringType : TranslateEnvT Expr :=
   return (← get).optEnv.memCache.commonExpr.stringType
 
-/-- Return `Char.ofNat` const expression and cache result. -/
-def mkCharOfNat : TranslateEnvT Expr := mkExpr (mkConst ``Char.ofNat)
+/-- Return cached `Char.ofNat` expression. -/
+def mkCharOfNat : TranslateEnvT Expr :=
+  return (← get).optEnv.memCache.commonExpr.charOfNat
+
+/-- Return cached `Char.toNat` expression. -/
+def mkCharToNat : TranslateEnvT Expr :=
+  return (← get).optEnv.memCache.commonExpr.charToNat
+
+/-- Return `UInt32.toNat` const expression and cache result. -/
+def mkUInt32ToNat : TranslateEnvT Expr :=
+  mkExpr (mkConst ``UInt32.toNat)
+
+/-- Given `e` the operand for `UInt32.toNat` returns the normalized application
+    form for `Uint32.toNat e`.
+-/
+def normUInt32ToNat (e : Expr) : TranslateEnvT Expr := do
+  mkProjExpr ``Fin 0 (← mkProjExpr ``BitVec 0 (← mkProjExpr ``UInt32 0 e))
 
 /-- Construct a Char expression from `c` and cache result. -/
 def mkCharExpr (c : Char) : TranslateEnvT Expr := do

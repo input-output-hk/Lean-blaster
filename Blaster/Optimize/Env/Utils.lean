@@ -31,6 +31,15 @@ def isCtorExpr (e : Expr) : TranslateEnvT Bool := do
  | Expr.const n _ => return (← getConstEnvInfo n).isCtor
  | _ => return false
 
+/-- Return `Some numParams` only when 'c' corresponds to a constructor expression`. -/
+@[always_inline, inline]
+def getCtorIndParams (c : Expr) : TranslateEnvT (Option Nat) := do
+  match c with
+  | Expr.const n _ =>
+       let ConstantInfo.ctorInfo info ← getConstEnvInfo n | return none
+       return info.numParams
+  | _ => return none
+
 /-- Return `true` if `n` correspond to a structure ctor. The result is memoized. -/
 @[inline] def isStructureCtorEnv (n : Name) : TranslateEnvT Bool := do
   match (← get).optEnv.memCache.isStructureCache.get? n with
@@ -248,6 +257,14 @@ def isClassConstraintExpr (e : Expr) : TranslateEnvT Bool := do
 /-- Return `true` if `f` corresponds to an inductive type. -/
 @[always_inline, inline]
 def isInductiveType (f : Name) : TranslateEnvT Bool := return (← getConstEnvInfo f).isInductive
+
+/-- Return `true` if `t` is a type expression corresponds to an indexed inductive type. -/
+@[always_inline, inline]
+def isIndexedInductiveType (t : Expr) : TranslateEnvT Bool := do
+  let Expr.const n _ := t.getAppFn' | return false
+  match (← getConstEnvInfo n) with
+  | .inductInfo info => return info.numIndices > 0
+  | _ => return false
 
 /-- Return `true` if `f` corresponds to an axiom/opaque definition. -/
 @[always_inline, inline]

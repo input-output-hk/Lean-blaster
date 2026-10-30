@@ -37,6 +37,9 @@ def emptySymbol : SmtSymbol := mkReservedSymbol "Empty"
 /-! Smt PEmpty symbol. -/
 def pemptySymbol : SmtSymbol := mkReservedSymbol "PEmpty"
 
+/-! Smt BitVec symbol. -/
+def bitVecSymbol : SmtSymbol := mkReservedSymbol "BitVec"
+
 /-! ## Builtin Smt sorts. -/
 
 /-! Smt Int Sort. -/
@@ -80,6 +83,9 @@ def emptySort : SortExpr := .SymbolSort emptySymbol
     (see function `definePEmptySort`)
 -/
 def pemptySort : SortExpr := .SymbolSort pemptySymbol
+
+/-! Smt BitVec Sort of size n -/
+def bitVecSort (n : UInt32) : SortExpr := .IndexSort bitVecSymbol #[.NumeralIndex n]
 
 -- TODO: add other sort once supported, e.g., BitVec, Unicode (for char), Seq, etc
 
@@ -219,6 +225,106 @@ def strReplaceAllSymbol : SmtSymbol := mkReservedSymbol "str.replace_all"
 
 /-! length Smt symbol for String. -/
 def strLengthSymbol : SmtSymbol := mkReservedSymbol "str.len"
+
+/-! BitVec addition Smt symbol. -/
+def bvaddSymbol : SmtSymbol := mkReservedSymbol "bvadd"
+
+/-! BitVec subtraction Smt symbol. -/
+def bvsubSymbol : SmtSymbol := mkReservedSymbol "bvsub"
+
+/-! BitVec unary minus Smt symbol. -/
+def bvnegSymbol : SmtSymbol := mkReservedSymbol "bvneg"
+
+/-! BitVec multiplication Smt symbol. -/
+def bvmulSymbol : SmtSymbol := mkReservedSymbol "bvmul"
+
+/-! BitVec unsigned division Smt symbol. -/
+def bvudivSymbol : SmtSymbol := mkReservedSymbol "bvudiv"
+
+/-! BitVec signed division Smt symbol. -/
+def bvsdivSymbol : SmtSymbol := mkReservedSymbol "bvsdiv"
+
+/-! BitVec unsigned remainder Smt symbol. -/
+def bvuremSymbol : SmtSymbol := mkReservedSymbol "bvurem"
+
+/-! BitVec signed remainder Smt symbol. -/
+def bvsremSymbol : SmtSymbol := mkReservedSymbol "bvsrem"
+
+/-! BitVec signed modulo Smt symbol. -/
+def bvsmodSymbol : SmtSymbol := mkReservedSymbol "bvsmod"
+
+/-! BitVec shift left Smt symbol. -/
+def bvshlSymbol : SmtSymbol := mkReservedSymbol "bvshl"
+
+/-! BitVec unsigned (logical) shift right Smt symbol. -/
+def bvlshrSymbol : SmtSymbol := mkReservedSymbol "bvlshr"
+
+/-! BitVec signed (arithmetic) shift right Smt symbol. -/
+def bvashrSymbol : SmtSymbol := mkReservedSymbol "bvashr"
+
+/-! BitVec bitwise or Smt symbol. -/
+def bvorSymbol : SmtSymbol := mkReservedSymbol "bvor"
+
+/-! BitVec bitwise and Smt symbol. -/
+def bvandSymbol : SmtSymbol := mkReservedSymbol "bvand"
+
+/-! BitVec bitwise not Smt symbol. -/
+def bvnotSymbol : SmtSymbol := mkReservedSymbol "bvnot"
+
+/-! BitVec bitwise nand Smt symbol. -/
+def bvnandSymbol : SmtSymbol := mkReservedSymbol "bvnand"
+
+/-! BitVec bitwise nor Smt symbol. -/
+def bvnorSymbol : SmtSymbol := mkReservedSymbol "bvnor"
+
+/-! BitVec bitwise xnor Smt symbol. -/
+def bvxnorSymbol : SmtSymbol := mkReservedSymbol "bvxnor"
+
+/-! BitVec concat Smt symbol. -/
+def bvconcatSymbol : SmtSymbol := mkReservedSymbol "concat"
+
+/-! BitVec zero extend Smt symbol. -/
+def zeroExtendSymbol : SmtSymbol := mkReservedSymbol "zero_extend"
+
+/-! BitVec sign extend Smt symbol. -/
+def signExtendSymbol : SmtSymbol := mkReservedSymbol "sign_extend"
+
+/-! BitVec rotate left Smt symbol. -/
+def rotateLeftSymbol : SmtSymbol := mkReservedSymbol "rotate_left"
+
+/-! BitVec rotate right Smt symbol. -/
+def rotateRightSymbol : SmtSymbol := mkReservedSymbol "rotate_right"
+
+/-! BitVec repeat Smt symbol. -/
+def repeatSymbol : SmtSymbol := mkReservedSymbol "repeat"
+
+/-! BitVec unsigned less or equal Smt symbol. -/
+def bvuleSymbol : SmtSymbol := mkReservedSymbol "bvule"
+
+/-! BitVec unsigned less than Smt symbol. -/
+def bvultSymbol : SmtSymbol := mkReservedSymbol "bvult"
+
+/-! BitVec unsigned greater or equal Smt symbol. -/
+def bvugeSymbol : SmtSymbol := mkReservedSymbol "bvuge"
+
+/-! BitVec unsigned greater than Smt symbol. -/
+def bvugtSymbol : SmtSymbol := mkReservedSymbol "bvugt"
+
+/-! BitVec signed less or equal Smt symbol. -/
+def bvsleSymbol : SmtSymbol := mkReservedSymbol "bvsle"
+
+/-! BitVec signed less than Smt symbol. -/
+def bvsltSymbol : SmtSymbol := mkReservedSymbol "bvslt"
+
+/-! BitVec signed greater or equal Smt symbol. -/
+def bvsgeSymbol : SmtSymbol := mkReservedSymbol "bvsge"
+
+/-! BitVec signed greater than Smt symbol. -/
+def bvsgtSymbol : SmtSymbol := mkReservedSymbol "bvsgt"
+
+/-! Integer to BitVec Smt symbol. -/
+def int2bvSymbol : SmtSymbol := mkReservedSymbol "int2bv"
+
 
 /-! ## Builtin Smt functions. -/
 
@@ -567,6 +673,7 @@ def notSmt? (t : SmtTerm) : Option SmtTerm :=
 def isParamSort (t : SortExpr) (sName : SmtSymbol) : Bool :=
   match t with
   | .ParamSort nm _ => nm == sName
+  | .IndexSort ..
   | .SymbolSort _ => false
 
 /-! Return the smt symbol associated to the given Smt qualified identifier.

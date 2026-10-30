@@ -714,6 +714,26 @@ variable (m : Nat)
 #testOptimize [ "MatchReduce_78" ] (norm-result: 1)
   intNamed (Int.ofNat (m + 3)) ===> Nat.mul m (Nat.add 3 m)
 
+def getOr (l : List Nat) (i : Nat) : Nat := if h : i < l.length then l.get ⟨i, h⟩ else 1
+def getOrIdx (l : List Nat) (i : Nat) : Nat := if h : i < l.length then l[i] else 1
+
+-- NOTE: Test case handling proof and inductive params in match reduction
+#testOptimize ["MatchReduce_79"]
+  ∀ (a : Nat) (l : List Nat), getOr (a :: l) 1 = getOr l 0 ===> True
+
+-- NOTE: Test case handling proof and inductive params in match reduction
+#testOptimize ["MatchReduce_80"]
+  ∀ (a b : Nat), getOr [a, b] 1 = b ===> True
+
+-- NOTE: Test case handling proof and inductive params in match reduction
+#testOptimize ["MatchReduce_81"]
+  ∀ (a b : Nat), getOrIdx [a, b] 1 = b ===> True
+
+-- NOTE: Test case handling proof and inductive params in match reduction
+#testOptimize ["MatchReduce_82"]
+  ∀ (a : Nat) (l : List Nat), getOr (a :: l) 0 = a ===> True
+
+
 /-! Choice reduction must NOT be applied, but discriminators unify with their pattern. -/
 
 -- intLit (Int.negSucc m) ===>
@@ -791,5 +811,347 @@ variable (m : Nat)
 -- NOTE: `10` unifies with `.ofNat m` (`m := 10`) and `.ofNat (m + 3)` (`m := 7`)
 #testOptimize [ "MatchReduceUnchanged_24" ] (norm-result: 1)
   mixedLit n 10 ===> Blaster.dite' (2 = n) (fun _ => 10) fun _ => Nat.mul 7 n
+
+/-! ## Test cases on further discriminator and pattern shapes.
+     - `MatchReduce_83` .. `MatchReduce_108`: choice reduction must be applied (nullary constructor
+       discriminators, string/character literals, `UInt8`/`Fin` literals, lambda discriminators,
+       proof discriminators, negated `Int.ofNat` offsets, hypothesis-resolved discriminators, named
+       patterns with hypotheses, aliases of aliases and nested matches on an alias).
+     - `MatchReduceUnchanged_25` .. `MatchReduceUnchanged_32`: choice reduction must NOT be applied
+       (discriminators that are not normalized constructors, or whose nested arguments are
+       expressions/variables that potentially match a literal pattern).
+     - `MatchReduce_109`: known issue, encodes the expected result of a case that currently FAILS
+       (unwritable normalized character literal in the discriminator).
+     - `MatchReduce_110` .. `MatchReduce_117`, `MatchReduceUnchanged_33` .. `MatchReduceUnchanged_37`:
+       character patterns, inaccessible patterns of inductive families (`Nat` and lambda indices);
+       a match with a discriminator of an indexed inductive type is kept, never normalized to `ite`. -/
+
+variable (h : Nat → Nat) (hc : Color → Option Color) (cs : List Char) (c : Char)
+variable (P : Nat → Prop) (pn : P n) (pm : P m) (qP : ∀ {x : Nat}, P x → Nat)
+
+-- constructor application pattern vs a nullary constructor discriminator (`some (.red _)` vs `none`)
+#testOptimize [ "MatchReduce_83" ] isSomeRed none = none ===> True
+
+def strLitRed (x : Option String) : Nat :=
+  match x with
+  | some "a" => 1
+  | some "bb" => 2
+  | some "ccc" => 3
+  | some _ => 5
+  | none => 0
+
+-- string literal patterns nested in a constructor: literal discriminator, and a list of character
+-- literals (folded to the string literal `"bb"`)
+#testOptimize [ "MatchReduce_84" ] strLitRed (some "bb") = 2 ===> True
+#testOptimize [ "MatchReduce_85" ] strLitRed (some (String.mk ['b', 'b'])) = 2 ===> True
+
+-- `UInt8` and `Fin` literal patterns: constructor chains ending with a proof argument
+def u8 (x : UInt8) : Nat :=
+  match x with
+  | 3 => 1
+  | 7 => 2
+  | _ => 0
+
+def fin5 (x : Fin 5) : Nat :=
+  match x with
+  | 3 => 1
+  | 4 => 2
+  | _ => 0
+
+#testOptimize [ "MatchReduce_86" ] u8 3 = 1 ===> True
+#testOptimize [ "MatchReduce_87" ] u8 9 = 0 ===> True
+#testOptimize [ "MatchReduce_88" ] fin5 4 = 2 ===> True
+#testOptimize [ "MatchReduce_89" ] fin5 1 = 0 ===> True
+
+-- character literal patterns nested in a constructor (`Char.mk` vs `Char.mk`, proof skipped)
+def charLitWrap (x : Option Char) : Nat :=
+  match x with
+  | some 'a' => 1
+  | some 'b' => 2
+  | some _ => 3
+  | none => 0
+
+#testOptimize [ "MatchReduce_90" ] charLitWrap (some 'b') = 2 ===> True
+#testOptimize [ "MatchReduce_91" ] charLitWrap (some 'z') = 3 ===> True
+
+-- lambda terms as discriminators: a variable pattern binds the lambda, which is then applied in the rhs
+inductive Fn where
+  | mk : (Nat → Nat) → Fn
+  | none : Fn
+
+def lamField (x : Fn) (z : Nat) : Nat :=
+  match x, z with
+  | .mk f, 0 => f 1
+  | .mk f, k => f k + f 1
+  | _, _ => 0
+
+def applyF (f : Nat → Nat) : Nat :=
+  match f with
+  | g => g 1
+
+#testOptimize [ "MatchReduce_92" ] lamField (.mk (fun x => x + m)) 3 = (m + 1) + (m + 3) ===> True
+#testOptimize [ "MatchReduce_93" ] lamField (.mk h) 0 = h 1 ===> True
+#testOptimize [ "MatchReduce_94" ] applyF (fun x => x + m) = m + 1 ===> True
+
+-- proof discriminator (`And.intro`), the proof fields are bound to the pattern variables
+def andProof (P : Nat → Prop) (n m : Nat) (q : ∀ {x : Nat}, P x → Nat) (hpq : P n ∧ P m) : Nat :=
+  match hpq with
+  | ⟨a, b⟩ => q a + q b
+
+#testOptimize [ "MatchReduce_95" ] andProof P n m qP ⟨pn, pm⟩ = qP pn + qP pm ===> True
+
+-- `Int.neg (Int.ofNat (c + m))` discriminators: refuted by the `Int.ofNat` and `Int.negSucc 0`
+-- patterns (`1 < 2`), and unified with `Int.negSucc m` (`m := 1 + m`)
+#testOptimize [ "MatchReduce_96" ] mixedLit 0 (-(Int.ofNat (m + 2))) = 0 ===> True
+#testOptimize [ "MatchReduce_97" ] mixedLit 3 (-(Int.ofNat (m + 2))) = m + 3 ===> True
+
+-- offset pattern vs a larger offset discriminator (`k + 2` vs `3 + m` binds `k := 1 + m`)
+def natOff (x : Nat) : Nat :=
+  match x with
+  | 0 => 100
+  | k + 2 => k
+  | _ => 7
+
+#testOptimize [ "MatchReduce_98" ] natOff (m + 3) = m + 1 ===> True
+
+-- nested literal pattern refuted by a larger offset (`5` vs `6 + m`), the variable pattern unifies
+def someLit (x : Option Nat) : Nat :=
+  match x with
+  | some 5 => 1
+  | some _ => 2
+  | none => 3
+
+#testOptimize [ "MatchReduce_99" ] someLit (some (m + 6)) = 2 ===> True
+
+-- discriminators resolved through the hypotheses (equality map) before reduction
+#testOptimize [ "MatchReduce_100" ]
+  ∀ (x : Option Color) (y : Color), x = some (.red y) → isSomeRed x = some y ===> True
+#testOptimize [ "MatchReduce_101" ]
+  ∀ (x : Option Color) (y : Color), some (.red y) = x → isSomeRed x = some y ===> True
+
+/-! Named patterns with hypotheses, aliases of aliases and nested matches on an alias. -/
+
+def namedHyp (q : ∀ {a b : Nat}, a = b → Nat) (x : Nat) (y : Option Nat) : Nat :=
+  match x, y with
+  | p@hp:(k + 2), some (r@hr:(j + 1)) => q hp + q hr + p + k + r + j
+  | _, _ => 0
+
+-- `q hp = 7 + 7`, `q hr = 4 + 4`, `p = 7`, `k = 5`, `r = 4`, `j = 3`
+#testOptimize [ "MatchReduce_102" ] namedHyp (fun {a b} _ => a + b) 7 (some 4) = 41 ===> True
+-- symbolic discriminators: `p := 5 + m`, `k := 3 + m`, `r := 3 + n`, `j := 2 + n`
+#testOptimize [ "MatchReduce_103" ]
+  namedHyp (fun {a b} _ => a + b) (m + 5) (some (n + 3)) =
+    ((n + 3) + (n + 3)) + ((m + 5) + (m + 5)) + (m + 5) + (m + 3) + (n + 3) + (n + 2) ===> True
+
+def aliasAlias (x : Nat) (y : Option Nat) : Nat :=
+  match x, y with
+  | p@(q@(k + 1)), some _ => p + q + k
+  | _, _ => 0
+
+#testOptimize [ "MatchReduce_104" ] aliasAlias 4 (some n) = 11 ===> True
+#testOptimize [ "MatchReduce_105" ] aliasAlias (m + 2) (some n) = ((m + 2) + (m + 2)) + (m + 1) ===> True
+
+def namedNested (x : Nat) (y : Option Nat) : Nat :=
+  match x, y with
+  | p@(k + 1), some _ =>
+      (match p with | 0 => 100 | q + 1 => q + k) + (match k with | 0 => 7 | _ => p)
+  | _, _ => 0
+
+-- the alias `p` and the pattern variable `k` are substituted in the nested matches, which reduce
+#testOptimize [ "MatchReduce_106" ] namedNested 5 (some n) = 13 ===> True
+#testOptimize [ "MatchReduce_107" ] namedNested 1 (some n) = 7 ===> True
+#testOptimize [ "MatchReduce_108" ] namedNested (m + 2) (some n) = ((m + 1) + (m + 1)) + (m + 2) ===> True
+
+/-! Choice reduction must NOT be applied: discriminators that are not normalized constructors, or
+    nested arguments that potentially match. -/
+
+-- isSomeRed (hc x) ===> match hc x with | some (.red y) => some y | _ => none
+-- NOTE: the discriminator is a function application, not a constructor
+#testOptimize [ "MatchReduceUnchanged_25" ]
+  isSomeRed (hc x) ===>
+    match hc x with
+    | some (.red y) => some y
+    | _ => none
+
+-- someLit (some (h n)) ===> match some (h n) with | some 5 => 1 | some _ => 2 | none => 3
+-- NOTE: `5` potentially matches the expression `h n`, the following alternative is not selected
+#testOptimize [ "MatchReduceUnchanged_26" ] (norm-result: 1)
+  someLit (some (h n)) ===>
+    match some (h n) with
+    | some 5 => 1
+    | some _ => 2
+    | none => 3
+
+-- someLit (some (m + 2)) ===> match some (Nat.add 2 m) with | some 5 => 1 | some _ => 2 | none => 3
+-- NOTE: `5` potentially matches `2 + m` (`m := 3`)
+#testOptimize [ "MatchReduceUnchanged_27" ] (norm-result: 1)
+  someLit (some (m + 2)) ===>
+    match some (Nat.add 2 m) with
+    | some 5 => 1
+    | some _ => 2
+    | none => 3
+
+-- strLitRed (some s) ===> match some s with | some "a" => 1 | ... | some _ => 5 | none => 0
+#testOptimize [ "MatchReduceUnchanged_28" ] (norm-result: 1)
+  strLitRed (some s) ===>
+    match some s with
+    | some "a" => 1
+    | some "bb" => 2
+    | some "ccc" => 3
+    | some _ => 5
+    | none => 0
+
+-- strLitRed (some (String.mk [c])) ===> match some (String.mk [c]) with | some "a" => 1 | ...
+-- NOTE: `"a"` potentially matches `String.mk [c]` (`c := 'a'`), `"bb"` and `"ccc"` are refuted
+#testOptimize [ "MatchReduceUnchanged_29" ] (norm-result: 1)
+  strLitRed (some (String.mk [c])) ===>
+    match some (String.mk [c]) with
+    | some "a" => 1
+    | some "bb" => 2
+    | some "ccc" => 3
+    | some _ => 5
+    | none => 0
+
+-- charLitWrap (some c) ===> match some c with | some 'a' => 1 | some 'b' => 2 | some _ => 3 | none => 0
+#testOptimize [ "MatchReduceUnchanged_30" ] (norm-result: 1)
+  charLitWrap (some c) ===>
+    match some c with
+    | some 'a' => 1
+    | some 'b' => 2
+    | some _ => 3
+    | none => 0
+
+-- mixedLit 0 (-(Int.ofNat (m + 1))) ===> Blaster.dite' (0 = m) (fun _ => 1) fun _ => 0
+-- NOTE: `Int.negSucc 0` potentially matches `Int.neg (Int.ofNat (1 + m))` (`m := 0`), the other
+--       alternatives are refuted; normalized via match to ite rule
+#testOptimize [ "MatchReduceUnchanged_31" ] (norm-result: 1)
+  mixedLit 0 (-(Int.ofNat (m + 1))) ===> Blaster.dite' (0 = m) (fun _ => 1) fun _ => 0
+
+-- natOff (m + 1) ===> Blaster.dite' (0 = m) (fun _ => 7) fun _ => Nat.sub (Nat.add 1 m) 2
+-- NOTE: `k + 2` vs `1 + m` leaves `k + 1` vs `m` (potential match, `k := (1 + m) - 2`), `0` is refuted
+#testOptimize [ "MatchReduceUnchanged_32" ] (norm-result: 1)
+  natOff (m + 1) ===> Blaster.dite' (0 = m) (fun _ => 7) fun _ => Nat.sub (Nat.add 1 m) 2
+
+
+--   strLitRed (some (String.mk ('c' :: cs))) = 3 ===>
+--     match some (String.mk ('c' :: cs)) with
+--     | some "a" => 1
+--     | some "bb" => 2
+--     | some "ccc" => 3
+--     | some _ => 5
+--     | none => 0
+-- NOTE: Uncomment test case once Char.ofNat has been opacified.
+-- #testOptimize [ "MatchReduce_109" ] (norm-result: 1)
+--   strLitRed (some (String.mk ('c' :: cs))) = 3 ===>
+--     match some (String.mk ('c' :: cs)) with
+--     | some "a" => 1
+--     | some "bb" => 2
+--     | some "ccc" => 3
+--     | some _ => 5
+--     | none => 0
+
+-- charLitWrap (some (Char.ofNat 98)) = 2 ===> True
+-- NOTE: `Char.ofNat 98` is normalized to `'b'` in constructor form and unifies with the literal pattern
+#testOptimize [ "MatchReduce_110" ] charLitWrap (some (Char.ofNat 98)) = 2 ===> True
+
+def charMkStr (z : String) (y : Nat) : Nat :=
+  match z, y with
+  | ⟨[⟨vv, _⟩]⟩, _ => vv.toNat + y
+  | _, _ => 0
+
+-- charMkStr "a" m = m + 97 ===>
+-- match "a", m with
+-- | ⟨[⟨_vv, _⟩]⟩, _ => Nat.add 97 m
+-- | _, _ => 0
+-- NOTE: Match reduction cannot occur as all arguments are not constructors
+#testOptimize [ "MatchReduceUnchanged_33" ] (norm-result: 1) charMkStr "a" m ===>
+  match "a", m with
+  | ⟨[⟨_vv, _⟩]⟩, _ => Nat.add 97 m
+  | _, _ => 0
+
+def charLit (c : Char) : Nat :=
+  match c with
+  | 'a' => 1
+  | 'b' => 2
+  | _ => 3
+
+-- ∀ (c : Char), charLit c ≤ 3 ===> True
+-- NOTE: reduced to True via elimMatch rules
+#testOptimize [ "MatchReduceUnchanged_34" ]
+  ∀ (c : Char), charLit c ≤ 3 ===> True
+
+/-! Inaccessible patterns of an inductive family with a `Nat` index: the index pattern is closed and
+    proof-free, so the match is reduced when the index and the constructor are concrete. When the
+    discriminators are variables the match is kept: a match with a discriminator of an indexed
+    inductive type is never normalized to `ite` (the condition `FnIdx.z = w` would be ill-typed since
+    `FnIdx.z : FnIdx 0` and `w : FnIdx k`). -/
+
+inductive FnIdx : Nat → Type where
+  | z : FnIdx 0
+  | s : FnIdx 1
+
+def fnVal (n : Nat) (v : FnIdx n) : Nat :=
+  match n, v with
+  | .(0), .z => 1
+  | .(1), .s => 2
+
+def fnVal2 (n : Nat) (v : FnIdx n) : Nat :=
+  match n, v with
+  | .(1), .s => 2
+  | _, _ => 7
+
+#testOptimize [ "MatchReduce_114" ] fnVal 0 .z = 1 ===> True
+#testOptimize [ "MatchReduce_115" ] fnVal 1 .s = 2 ===> True
+#testOptimize [ "MatchReduce_116" ] fnVal2 0 .z = 7 ===> True
+#testOptimize [ "MatchReduce_117" ] fnVal2 1 .s = 2 ===> True
+
+-- ∀ (k : Nat) (w : FnIdx k), fnVal k w ≤ 2 ===> True
+-- NOTE: normalized to `ite` on the index and the constructor, then reduced to True
+#testOptimize [ "MatchReduceUnchanged_35" ]
+  ∀ (k : Nat) (w : FnIdx k), fnVal k w ≤ 2 ===> True
+
+variable (k : Nat) (fw : FnIdx k)
+
+-- fnVal k fw ===>
+--  match k, fw with
+--  | .(0), .z => 1
+--  | .(1), .s => 2
+-- NOTE: Test case to ensure that match on indexed datatype are not normalized to ite.
+#testOptimize [ "MatchReduceUnchanged_36" ] (norm-result: 1)
+  fnVal k fw ===>
+    match k, fw with
+    | .(0), .z => 1
+    | .(1), .s => 2
+
+-- fnVal2 k fw ===>
+--  match k, fw with
+--  | .(1), .s => 2
+--  | _, _ => 7
+-- NOTE: Test case to ensure that match on indexed datatype are not normalized to ite.
+#testOptimize [ "MatchReduceUnchanged_37" ] (norm-result: 1)
+  fnVal2 k fw ===>
+    match k, fw with
+    | .(1), .s => 2
+    | _, _ => 7
+
+inductive Fx : (Nat → Nat) → Type where
+  | idf : Fx (fun x => x)
+  | sucf : Fx (fun x => x + 1)
+
+def fxVal (f : Nat → Nat) (v : Fx f) : Nat :=
+  match f, v with
+  | .(fun x => x), .idf => 1
+  | .(fun x => x + 1), .sucf => 2
+
+def fxVal2 (f : Nat → Nat) (v : Fx f) : Nat :=
+  match f, v with
+  | .(fun x => x + 1), .sucf => 2
+  | _, _ => 7
+
+-- NOTE: the lambda is an inaccessible pattern determined by the constructor pattern; a lambda pattern
+--       unifies only with a structurally equal discriminator (`fun x => x`) and otherwise answers
+--       `PotentialMatch`
+#testOptimize [ "MatchReduce_112" ] fxVal (fun x => x) .idf = 1 ===> True
+#testOptimize [ "MatchReduce_113" ] fxVal2 (fun x => x) .idf = 7 ===> True
 
 end Tests.MatchReduce

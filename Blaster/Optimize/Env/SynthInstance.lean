@@ -25,8 +25,8 @@ def withSynthInstanceCache (a : Expr) (f: Unit → TranslateEnvT (Option Expr)) 
   -- allocation-free probe: `getD` with a sentinel instead of `get?`'s `Option` box
   match (← get).optEnv.synthInstanceCache.getD a synthCacheMiss with
   | none => return none
-  | v@(some d) =>
-      if !exprEq d instCacheMiss then return v
+  | some d =>
+      if !exprEq d instCacheMiss then return d
       else
         let b ← withLocalContext $ do f ()
         updateSynthCache a b
@@ -44,6 +44,7 @@ def withSynthInstanceCache (a : Expr) (f: Unit → TranslateEnvT (Option Expr)) 
 def trySynthConstraintInstance? (cstr : Expr) : TranslateEnvT (Option Expr) := do
   withSynthInstanceCache cstr $ fun _ =>
     try
+      IO.setNumHeartbeats 0
       match (← withConfig (λ c => {c with iota := false, proj := .no}) $ trySynthInstance cstr) with
       | LOption.some d => hashcons d
       | _ => return none

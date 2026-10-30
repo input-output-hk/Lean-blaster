@@ -13,14 +13,14 @@ namespace Blaster.StateMachine
       kIndStrategy(smInst) ≡
         - base(k) =
             st₀ = init in₀ →
-            (∀ i ∈ [0, k-1], assumptions inᵢ stᵢ ∧ stᵢ₊₁ = next inᵢ stᵢ) →
+            (∀ i ∈ [0, k-1], assumptions inᵢ stᵢ ∧ stᵢ₊₁ = next inᵢ₊₁ stᵢ) →
             assumptions inₖ stₖ →
             invariants inₖ stₖ -- base case satisfied
         - contradiction(k)
             - ∀ i ∈ [0, k], ¬ assumptions inᵢ stᵢ -- absence of contradiction
 
         - step(k) =
-           (∀ i ∈ [0, k-1], assumptions inᵢ stᵢ ∧ stᵢ₊₁ = next inᵢ stᵢ ∧ invariants inᵢ stᵢ) →
+           (∀ i ∈ [0, k-1], assumptions inᵢ stᵢ ∧ stᵢ₊₁ = next inᵢ₊₁ stᵢ ∧ invariants inᵢ stᵢ) →
            assumptions inₖ stₖ →
            invariants inₖ stₖ -- induction step
     - A counterexample to induction is generated when step(k) is not satisfied for a given depth k
