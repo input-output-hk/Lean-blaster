@@ -988,28 +988,13 @@ where
      return true
 
   @[always_inline, inline]
-  existsNotEqPattern
-    (mInfo : MatchInfo) (args : Array Expr)
-    (alt : Expr) (h : MatchNotEqPatternMap) (active : HashSet CtxId) : TranslateEnvT Bool := do
-    forallTelescope alt fun xs b => do
-      let lhs := b.getAppArgs
-      for j in mInfo.getDiscrRange do
-        let idxLhs := j - mInfo.getFirstDiscrPos
-        let pattern ← removeNamedPatternExpr lhs[idxLhs]!
-        if !pattern.isFVar then
-          let patternExpr ← mkForallFVarsExpr xs pattern (usedOnly := true)
-          if let some pm ← ContextMap.findRaw h active args[j]! then
-            if (← pm.get).contains patternExpr then return true
-      return false
-
-  @[always_inline, inline]
   lastPatternReduction? (mInfo : MatchInfo) (args : Array Expr) : TranslateEnvT (Option MatchElimResult) := do
-     let ⟨_, _, _, _, _, _, _, _, matchInContext, _, ⟨_, _, _, _, _, _, active, _, _⟩, _, _, _⟩ := (← get).optEnv
-     let h := (← get).optEnv.matchInContext
      let instCommonKey ← mkAppRangeExpr mInfo.instApp 0 mInfo.getFirstDiscrPos args
      let alts ← getMatchAltsAux instCommonKey args mInfo
+     let discrs := args[mInfo.getFirstDiscrPos:mInfo.getFirstAltPos].toArray
      for i in [:alts.size - 1] do
-       if !(← existsNotEqPattern mInfo args alts[i]! matchInContext active) then
+       let excluded ← forallTelescope alts[i]! fun xs b => isExcludedMatchPattern b.getAppArgs discrs xs
+       if !excluded then
          return none
      let (mvarArgs, matchHit) ← patternMatchDiscrs alts[alts.size - 1]! args mInfo
      if isUnifyMatchResult matchHit then
