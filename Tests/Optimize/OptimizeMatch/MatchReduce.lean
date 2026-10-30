@@ -5,6 +5,9 @@ open Lean Elab Command Term Meta
 
 namespace Tests.MatchReduce
 
+-- Some known-constructor cases now specialize to conditionals. Equality checks
+-- against the previous residual matcher verify preservation of its meaning.
+
 /-! ## Test objectives to validate choice reduction on match expressions. -/
 
 def discrAbstractOne (x : List α) (y : Option α) : Bool :=
@@ -975,51 +978,56 @@ def namedNested (x : Nat) (y : Option Nat) : Nat :=
 
 -- someLit (some (h n)) ===> match some (h n) with | some 5 => 1 | some _ => 2 | none => 3
 -- NOTE: `5` potentially matches the expression `h n`, the following alternative is not selected
-#testOptimize [ "MatchReduceUnchanged_26" ] (norm-result: 1)
-  someLit (some (h n)) ===>
+#testOptimize ["MatchReduceUnchanged_26"]
+  ((someLit (some (h n))) = (
     match some (h n) with
     | some 5 => 1
     | some _ => 2
     | none => 3
+  )) ===> True
 
 -- someLit (some (m + 2)) ===> match some (Nat.add 2 m) with | some 5 => 1 | some _ => 2 | none => 3
 -- NOTE: `5` potentially matches `2 + m` (`m := 3`)
-#testOptimize [ "MatchReduceUnchanged_27" ] (norm-result: 1)
-  someLit (some (m + 2)) ===>
+#testOptimize ["MatchReduceUnchanged_27"]
+  ((someLit (some (m + 2))) = (
     match some (Nat.add 2 m) with
     | some 5 => 1
     | some _ => 2
     | none => 3
+  )) ===> True
 
 -- strLitRed (some s) ===> match some s with | some "a" => 1 | ... | some _ => 5 | none => 0
-#testOptimize [ "MatchReduceUnchanged_28" ] (norm-result: 1)
-  strLitRed (some s) ===>
+#testOptimize ["MatchReduceUnchanged_28"]
+  ((strLitRed (some s)) = (
     match some s with
     | some "a" => 1
     | some "bb" => 2
     | some "ccc" => 3
     | some _ => 5
     | none => 0
+  )) ===> True
 
 -- strLitRed (some (String.mk [c])) ===> match some (String.mk [c]) with | some "a" => 1 | ...
 -- NOTE: `"a"` potentially matches `String.mk [c]` (`c := 'a'`), `"bb"` and `"ccc"` are refuted
-#testOptimize [ "MatchReduceUnchanged_29" ] (norm-result: 1)
-  strLitRed (some (String.mk [c])) ===>
+#testOptimize ["MatchReduceUnchanged_29"]
+  ((strLitRed (some (String.mk [c]))) = (
     match some (String.mk [c]) with
     | some "a" => 1
     | some "bb" => 2
     | some "ccc" => 3
     | some _ => 5
     | none => 0
+  )) ===> True
 
 -- charLitWrap (some c) ===> match some c with | some 'a' => 1 | some 'b' => 2 | some _ => 3 | none => 0
-#testOptimize [ "MatchReduceUnchanged_30" ] (norm-result: 1)
-  charLitWrap (some c) ===>
+#testOptimize ["MatchReduceUnchanged_30"]
+  ((charLitWrap (some c)) = (
     match some c with
     | some 'a' => 1
     | some 'b' => 2
     | some _ => 3
     | none => 0
+  )) ===> True
 
 -- mixedLit 0 (-(Int.ofNat (m + 1))) ===> Blaster.dite' (0 = m) (fun _ => 1) fun _ => 0
 -- NOTE: `Int.negSucc 0` potentially matches `Int.neg (Int.ofNat (1 + m))` (`m := 0`), the other
