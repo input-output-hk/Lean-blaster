@@ -84,7 +84,7 @@ instance : Inhabited (HashMap α β) := ⟨∅⟩
 @[inline] def contains (m : HashMap α β) (a : α) : Bool :=
   unsafe containsImpl m a
 
-@[specialize] private unsafe def getDImpl (m : HashMap α β) (a : α) (fallback : β) : β :=
+@[always_inline, inline, specialize] private unsafe def getDImpl (m : HashMap α β) (a : α) (fallback : β) : β :=
   let h := scramble (hash a)
   let frag := fragOf h
   let mask := m.ctrl.usize - 1
@@ -101,18 +101,6 @@ instance : Inhabited (HashMap α β) := ⟨∅⟩
     else
       go ((i + 1) &&& mask)
   go (h.toUSize &&& mask)
-
-/-- Value for `a`, or `fallback` if absent. `O(1)` expected and
-    allocation-free (unlike `get?`, which boxes the result in `some`).
-
-    Declared via `@[implemented_by]` because the `unsafe` term wrapper
-    requires `Nonempty` of the closed function type, which is not
-    synthesizable for a bare `β` result. Safe code cannot decode the
-    untyped slots, so no faithful safe model exists either; the model
-    body is a stub and only `getDImpl` is ever executed. -/
-@[implemented_by getDImpl]
-def getD (_m : HashMap α β) (_a : α) (fallback : β) : β :=
-  fallback
 
 @[always_inline, inline, specialize] private unsafe def get?Impl (m : HashMap α β) (a : α) : Option β :=
   let h := scramble (hash a)
@@ -133,6 +121,20 @@ def getD (_m : HashMap α β) (_a : α) (fallback : β) : β :=
 /-- Value for `a`, if present. `O(1)` expected. -/
 @[always_inline, inline] def get? (m : HashMap α β) (a : α) : Option β :=
   unsafe get?Impl m a
+
+/-- Value for `a`, or `fallback` if absent. `O(1)` expected and
+    allocation-free (unlike `get?`, which boxes the result in `some`).
+
+    Declared via `@[implemented_by]` because the `unsafe` term wrapper
+    requires `Nonempty` of the closed function type, which is not
+    synthesizable for a bare `β` result. Safe code cannot decode the
+    untyped slots, so no faithful safe model exists either; the model
+    body is a stub and only `getDImpl` is ever executed. -/
+@[implemented_by getDImpl]
+def getD (m : HashMap α β) (a : α) (fallback : β) : β :=
+  match (get? m a) with
+  | some b => b
+  | _ => fallback
 
 /-! ## `insert` -/
 
