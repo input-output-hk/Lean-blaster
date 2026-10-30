@@ -4,3 +4,4 @@ import Tests.Optimize.OptimizeMatch.MatchReduce
 import Tests.Optimize.OptimizeMatch.MatchToITE
 import Tests.Optimize.OptimizeMatch.StructEqMatch
 import Tests.Optimize.OptimizeMatch.UnifyPattern
+import Tests.Optimize.OptimizeMatch.SpecializeMatch

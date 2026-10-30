@@ -657,30 +657,25 @@ axiom colorOf : Nat → Color
                      | _ => match y with | .black => 0 | .transparent => 1 | .blue _ => 2 | .red _ => 3)
         | _ => 3
 
-/-! Literal patterns: the inner match is normalized to an ite before `elimMatch?` is applied. -/
+/-! Literal patterns: specialization honors context exclusions before emitting an ite. -/
 
 axiom optOf : Nat → Option Nat
 
 -- ∀ (n r : Nat), r = match optOf n with | some 0 => 1 | some k => (match optOf n with | some 0 => 2 | _ => k) | none => 3 ===>
--- ∀ (n r : Nat), r = match optOf n with | some 0 => 1 | some k => Blaster.dite' (some k = some 0) (fun _ => 2) (fun _ => k) | none => 3
--- NOTE: `optOf n := some k` is added to the equality map and the pattern `some 0` recorded for `optOf n` is
--- propagated to `some k`. However, the inner match (rewritten to `match some k with ...`) is normalized to
--- an ite before `elimMatch?` is applied, hence the propagated pattern is not exploited. It can be simplified
--- further with additional simplification rules (e.g., constructor injectivity `some k = some 0 ==> k = 0`
--- together with the recorded patterns) to:
 -- ∀ (n r : Nat), r = match optOf n with | some 0 => 1 | some k => k | none => 3
+-- NOTE: `optOf n := some k` is added to the equality map and the pattern `some 0` recorded for `optOf n` is
+-- propagated to `some k`. Specialization discards the excluded `some 0` alternative before
+-- optimizing its body or constructing an equality guard.
 #testOptimize [ "ElimMatch_33" ] (norm-result: 1)
   ∀ (n r : Nat), r = match optOf n with | some 0 => 1 | some k => (match optOf n with | some 0 => 2 | _ => k) | none => 3 ===>
-  ∀ (n r : Nat), r = match optOf n with | some 0 => 1 | some k => Blaster.dite' (some k = some 0) (fun _ => 2) (fun _ => k) | none => 3
+  ∀ (n r : Nat), r = match optOf n with | some 0 => 1 | some k => k | none => 3
 
 -- ∀ (o : Option Nat) (r : Nat), r = match o with | some 0 => 1 | some k => (match o with | some 0 => 2 | _ => k) | none => 3 ===>
--- ∀ (o : Option Nat) (r : Nat), r = match o with | some 0 => 1 | some k => Blaster.dite' (some k = some 0) (fun _ => 2) (fun _ => k) | none => 3
--- NOTE: same as `ElimMatch_33` with a variable discriminator (`o := some k`). It can be simplified further
--- with additional simplification rules to:
 -- ∀ (o : Option Nat) (r : Nat), r = match o with | some 0 => 1 | some k => k | none => 3
+-- NOTE: same as `ElimMatch_33` with a variable discriminator (`o := some k`).
 #testOptimize [ "ElimMatch_34" ] (norm-result: 1)
   ∀ (o : Option Nat) (r : Nat), r = match o with | some 0 => 1 | some k => (match o with | some 0 => 2 | _ => k) | none => 3 ===>
-  ∀ (o : Option Nat) (r : Nat), r = match o with | some 0 => 1 | some k => Blaster.dite' (some k = some 0) (fun _ => 2) (fun _ => k) | none => 3
+  ∀ (o : Option Nat) (r : Nat), r = match o with | some 0 => 1 | some k => k | none => 3
 
 -- ∀ (n r : Nat), r = match n with | 0 => 1 | 1 => 2 | _ => match n with | 0 => 3 | 1 => 4 | _ => 5 ===>
 -- ∀ (n r : Nat), r = Blaster.dite' (0 = n) (fun _ => 1) (fun _ => Blaster.dite' (1 = n) (fun _ => 2) (fun _ => 5))
