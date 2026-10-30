@@ -55,7 +55,7 @@ namespace Test.ImpliesInHyp
 -- ∀ (c : Bool) (a b : Prop) (g : ¬ c → Prop → Prop),
 --   (if h : c then a else g h b) → ∀ (h : ¬ c), g h b ===> True
 #testOptimize [ "ImpliesInHyp_11" ]
- ∀ (c : Bool) (a b : Prop) (g : ¬ c → Prop → Prop),
+ ∀ (c : Prop) (a b : Prop) (g : ¬ c → Prop → Prop) [Decidable c],
    (if h : c then a else g h b) → ∀ (h : ¬ c), g h b ===> True
 
 -- ∀ (c : Bool) (a b : Prop) (f : c → Prop → Prop),
@@ -67,15 +67,14 @@ namespace Test.ImpliesInHyp
 -- ∀ (c : Bool) (a b : Prop) (g : ¬ c → Prop → Prop),
 --   (if h : c then a else g h b) → (true = c → a) ∧ ∀ (h : ¬ c), g h b ===> True
 #testOptimize [ "ImpliesInHyp_13" ]
- ∀ (c : Bool) (a b : Prop) (g : ¬ c → Prop → Prop),
+ ∀ (c : Prop) (a b : Prop) (g : ¬ c → Prop → Prop) [Decidable c],
    (if h : c then a else g h b) → (true = c → a) ∧ ∀ (h : ¬ c), g h b ===> True
 
 -- ∀ (c : Bool) (a b : Prop) (f : c → Prop → Prop) (g : ¬ c → Prop → Prop),
---   (if h : c then f h a else g h b) → ∀ (h : c), f h a ∧ ∀ (h : ¬ c), g h b ===> True
+--   (if h : c then f h a else g h b) → (∀ (h : c), f h a) ∧ ∀ (h : ¬ c), g h b ===> True
 #testOptimize [ "ImpliesInHyp_14" ]
- ∀ (c : Bool) (a b : Prop) (f : c → Prop → Prop) (g : ¬ c → Prop → Prop),
-   (if h : c then f h a else g h b) → ∀ (h : c), f h a ∧ ∀ (h : ¬ c), g h b ===> True
-
+ ∀ (c : Prop) (a b : Prop) (f : c → Prop → Prop) (g : ¬ c → Prop → Prop) [Decidable c],
+   (if h : c then f h a else g h b) → (∀ (h : c), f h a) ∧ ∀ (h : ¬ c), g h b ===> True
 
 -- ∀ (a b c : Prop), (a → b) → (a → c) → (a → b) ===> True
 #testOptimize [ "ImpliesInHyp_15" ]
@@ -89,6 +88,25 @@ namespace Test.ImpliesInHyp
 #testOptimize [ "ImpliesInHyp_17" ]
   ∀ (p q : Prop), (∀ (c d : Prop), c → d) → (p → q) → ∀ (a b : Prop), a → b ===> True
 
+-- ∀ (c : Bool) (a b : Prop) (f : (!c → b) → Prop),
+--   (if c then a else b) → ∀ h : (!c → b), f h ===>
+-- ∀ (c : Bool) (a b : Prop) (f : (false = c → b) → Prop)
+--   (h : Blaster.dite' (true = c) (λ _ => a) (λ _ => b)), f (And.right (Blaster.and_implies_from_dite_bool_cond h))
+#testOptimize [ "ImpliesInHyp_18" ]
+ ∀ (c : Bool) (a b : Prop) (f : (!c → b) → Prop),
+   (if c then a else b) → ∀ h : (!c → b), f h ===>
+ ∀ (c : Bool) (a b : Prop) (f : (false = c → b) → Prop)
+   (h : Blaster.dite' (true = c) (λ _ => a) (λ _ => b)), f (Blaster.false_eq_imp_of_not_true_imp (And.right (Blaster.and_implies_from_dite h)))
+
+#testOptimize [ "ImpliesInHyp_19" ]
+ ∀ (a b c : Prop) (g : ¬ c → Prop → Prop) (f : (c → a) → Prop) [Decidable c],
+   (if h : c then a else g h b) → ∀ (h : (c → a)), f h ===>
+ ∀ (a b c : Prop) (g : ¬ c → Prop → Prop) (f : (c → a) → Prop)
+   (ht : Blaster.dite' c (λ _ => a) (λ h : _ => g h b)), f (And.left (Blaster.and_implies_from_dite ht))
+
+#testOptimize [ "ImpliesInHyp_13" ]
+ ∀ (c : Prop) (a b : Prop) (g : ¬ c → Prop → Prop) [Decidable c],
+   (if h : c then a else g h b) → (true = c → a) ∧ ∀ (h : ¬ c), g h b ===> True
 
 /-! Test cases to ensure that the rule is not properly applied. -/
 
@@ -111,42 +129,42 @@ namespace Test.ImpliesInHyp
   ∀ (a b c d : Prop), d ∧ (a → c) → (a → b)
 
 -- ∀ (c : Bool) (a b d : Prop), (if c then a else b) → (true = c → d) ===>
--- ∀ (c : Bool) (a b d : Prop), (false = c → b) ∧ (true = c → a) → (true = c → d)
+-- ∀ (c : Bool) (a b d : Prop), Blaster.dite' (true = c) (λ _ => a) (λ _ => b) → (true = c → d)
 #testOptimize [ "ImpliesInHypUnchanged_4" ]
  ∀ (c : Bool) (a b d : Prop), (if c then a else b) → (true = c → d) ===>
- ∀ (c : Bool) (a b d : Prop), (false = c → b) ∧ (true = c → a) → (true = c → d)
+ ∀ (c : Bool) (a b d : Prop), Blaster.dite' (true = c) (λ _ => a) (λ _ => b) → (true = c → d)
 
 -- ∀ (c : Bool) (a b d : Prop), (if c then a else d) → (false = c → b) ===>
--- ∀ (c : Bool) (a b d : Prop), (false = c → d) ∧ (true = c → a) → (false = c → b)
+-- ∀ (c : Bool) (a b d : Prop), Blaster.dite' (true = c) (λ _ => a) (λ _=> d) → (false = c → b)
 #testOptimize [ "ImpliesInHypUnchanged_5" ]
  ∀ (c : Bool) (a b d : Prop), (if c then a else d) → (false = c → b) ===>
- ∀ (c : Bool) (a b d : Prop), (false = c → d) ∧ (true = c → a) → (false = c → b)
+ ∀ (c : Bool) (a b d : Prop), Blaster.dite' (true = c) (λ _ => a) (λ _=> d) → (false = c → b)
 
 -- ∀ (c : Bool) (a b d : Prop), (if c then a else d) → (true = c → a) ∧ (false = c → b) ===>
 -- ∀ (c : Bool) (a b d : Prop), (false = c → d) ∧ (true = c → a) → (false = c → b)
 #testOptimize [ "ImpliesInHypUnchanged_6" ]
  ∀ (c : Bool) (a b d : Prop), (if c then a else d) → (true = c → a) ∧ (false = c → b) ===>
- ∀ (c : Bool) (a b d : Prop), (false = c → d) ∧ (true = c → a) → (false = c → b)
+ ∀ (c : Bool) (a b d : Prop), Blaster.dite' (true = c) (λ _ => a) (λ _ => d) → (false = c → b)
 
 
 -- ∀ (c : Bool) (a b d : Prop) (f : c → Prop → Prop),
 --   (if h : c then f h d else b) → ∀ (h : c), f h a ===>
 -- ∀ (c : Bool) (a b d : Prop) (f : true = c → Prop → Prop),
---   ((false = c → b) ∧ ∀ (h : true = c), f h d) → ∀ (h : true = c), f h a
+--  Blaster.dite' (true = c) (λ h : _ => f h d) (λ _ => b) → ∀ (h : true = c), f h a
 #testOptimize [ "ImpliesInHypUnchanged_7" ]
  ∀ (c : Bool) (a b d : Prop) (f : c → Prop → Prop),
    (if h : c then f h d else b) → ∀ (h : c), f h a ===>
  ∀ (c : Bool) (a b d : Prop) (f : true = c → Prop → Prop),
-   ((false = c → b) ∧ ∀ (h : true = c), f h d) → ∀ (h : true = c), f h a
+   Blaster.dite' (true = c) (λ h : _ => f h d) (λ _ => b) → ∀ (h : true = c), f h a
 
 -- ∀ (c : Bool) (a b d : Prop) (g : ¬ c → Prop → Prop),
 --   (if h : c then a else g h d) → ∀ (h : ¬ c), g h b ===>
 -- ∀ (c : Bool) (a b d : Prop) (g : false = c → Prop → Prop),
---   (∀ (h : false = c), g h d) ∧ (true = c → a) → ∀ (h : false = c), g h b
+--  Blaster.dite' (true = c) (λ _ => a) (λ h : _ => g (Blaster.false_eq_of_not_true_eq h) d) → ∀ (h : false = c), g h b
 #testOptimize [ "ImpliesInHypUnchanged_8" ]
  ∀ (c : Bool) (a b d : Prop) (g : ¬ c → Prop → Prop),
    (if h : c then a else g h d) → ∀ (h : ¬ c), g h b ===>
  ∀ (c : Bool) (a b d : Prop) (g : false = c → Prop → Prop),
-   (∀ (h : false = c), g h d) ∧ (true = c → a) → ∀ (h : false = c), g h b
+   Blaster.dite' (true = c) (λ _ => a) (λ h : _ => g (Blaster.false_eq_of_not_true_eq h) d) → ∀ (h : false = c), g h b
 
 end Test.ImpliesInHyp

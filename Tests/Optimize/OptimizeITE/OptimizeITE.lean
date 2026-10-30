@@ -55,12 +55,13 @@ namespace Test.OptimizeITE
 -- let x := if ¬ (p = q) then a else b in
 -- let y := if q = p then b else a in
 -- ∀ (c p q : Bool) (a b : Prop), if c then x else y ===>
--- ∀ (p q : Bool) (a b : Prop), (¬ (p = q) → a) ∧ ((p = q) → b)
-#testOptimize [ "IteAbsorption_10" ] ∀ (c p q : Bool) (a b : Prop),
-                                      let x := if ¬ (p = q) then a else b;
-                                      let y := if (q = p) then b else a;
-                                      if c then x else y ===>
-                                    ∀ (p q : Bool) (a b : Prop), (¬ (p = q) → a) ∧ ((p = q) → b)
+-- ∀ (p q : Bool) (a b : Prop), Blaster.dite' (p = q) (λ _ => b) (λ _ => a)
+#testOptimize [ "IteAbsorption_10" ]
+  ∀ (c p q : Bool) (a b : Prop),
+   let x := if ¬ (p = q) then a else b;
+   let y := if (q = p) then b else a;
+   if c then x else y ===>
+  ∀ (p q : Bool) (a b : Prop), Blaster.dite' (p = q) (λ _ => b) (λ _ => a)
 
 
 --  ∀ (c : Bool) (a : Prop), (if c then a else a) = a ===> True
@@ -120,58 +121,64 @@ namespace Test.OptimizeITE
 /-! Test cases to ensure that simplification rule `if c then e1 else e2 ==> e1 (if e1 =ₚₜᵣ e2)` is not applied wrongly. -/
 
 --  ∀ (c : Bool) (a b : Prop), if c then a else b ===>
---  ∀ (c : Bool) (a b : Prop), (false = c → b) ∧ (true = c → a)
-#testOptimize [ "IteAbsorptionUnchanged_1" ] ∀ (c : Bool) (a b : Prop), if c then a else b ===>
-                                             ∀ (c : Bool) (a b : Prop), (false = c → b) ∧ (true = c → a)
+--  ∀ (c : Bool) (a b : Prop), Blaster.dite' (true = c) (λ _ => a) (λ _=> b)
+#testOptimize [ "IteAbsorptionUnchanged_1" ]
+  ∀ (c : Bool) (a b : Prop), if c then a else b ===>
+  ∀ (c : Bool) (a b : Prop), Blaster.dite' (true = c) (λ _ => a) (λ _=> b)
 
 -- ∀ (c a b : Prop), if c then a else b ===>
--- ∀ (c a b : Prop), (¬ c → b) ∧ (c → a)
-#testOptimize [ "IteAbsorptionUnchanged_2" ] ∀ (c a b : Prop), [Decidable c] → if c then a else b ===>
-                                             ∀ (c a b : Prop), (c → a) ∧ (¬ c → b)
+-- ∀ (c a b : Prop), Blaster.dite' c (λ _ => a) (λ _ => b)
+#testOptimize [ "IteAbsorptionUnchanged_2" ]
+  ∀ (c a b : Prop), [Decidable c] → if c then a else b ===>
+  ∀ (c a b : Prop), Blaster.dite' c (λ _ => a) (λ _ => b)
 
 -- ∀ (c : Bool) (a b : Prop), if c then a ∧ b else ¬ a ∧ ¬ b ===>
--- ∀ (c : Bool) (a b : Prop), (false = c → ¬ a ∧ ¬ b) ∧ (true = c → a ∧ b)
-#testOptimize [ "IteAbsorptionUnchanged_3" ] ∀ (c : Bool) (a b : Prop), if c then a ∧ b else ¬ a ∧ ¬ b ===>
-                                             ∀ (c : Bool) (a b : Prop), (false = c → ¬ a ∧ ¬ b) ∧ (true = c → a ∧ b)
+-- ∀ (c : Bool) (a b : Prop), Blaster.dite' (true = c) (λ _ => a ∧ b) (λ _ =>  ¬ a ∧ ¬ b)
+#testOptimize [ "IteAbsorptionUnchanged_3" ]
+  ∀ (c : Bool) (a b : Prop), if c then a ∧ b else ¬ a ∧ ¬ b ===>
+  ∀ (c : Bool) (a b : Prop), Blaster.dite' (true = c) (λ _ => a ∧ b) (λ _ =>  ¬ a ∧ ¬ b)
 
 -- ∀ (c : Bool) (a b : Prop), if c then ¬ (¬ a) else b ===>
--- ∀ (c : Bool) (a b : Prop), (false = c → b) ∧ (true = c → a)
-#testOptimize [ "IteAbsorptionUnchanged_4" ] ∀ (c : Bool) (a b : Prop), if c then ¬ (¬ a) else b ===>
-                                             ∀ (c : Bool) (a b : Prop), (false = c → b) ∧ (true = c → a)
+-- ∀ (c : Bool) (a b : Prop), Blaster.dite' (true = c) (λ _ => a) (λ _ => b)
+#testOptimize [ "IteAbsorptionUnchanged_4" ]
+  ∀ (c : Bool) (a b : Prop), if c then ¬ (¬ a) else b ===>
+  ∀ (c : Bool) (a b : Prop), Blaster.dite' (true = c) (λ _ => a) (λ _ => b)
 
 -- let x := ¬ a ∧ ¬ b in
 -- let y := (¬ (¬ a)) ∧ b in
 -- ∀ (c : Bool) (a b : Prop), if c then x else y ===>
--- ∀ (c : Bool) (a b : Prop), (false = c → a ∧ b) ∧ (true = c → ¬ a ∧ ¬ b)
-#testOptimize [ "IteAbsorptionUnchanged_5" ] ∀ (c : Bool) (a b : Prop), let x := ¬ a ∧ ¬ b;
-                                               let y := (¬ (¬ a)) ∧ b;
-                                               if c then x else y ===>
-                                             ∀ (c : Bool) (a b : Prop),
-                                               (false = c → a ∧ b) ∧ (true = c → ¬ a ∧ ¬ b)
+-- ∀ (c : Bool) (a b : Prop), Blaster.dite' (true = c) (λ _ => ¬ a ∧ ¬ b) (λ _ => a ∧ b)
+#testOptimize [ "IteAbsorptionUnchanged_5" ]
+  ∀ (c : Bool) (a b : Prop), let x := ¬ a ∧ ¬ b;
+    let y := (¬ (¬ a)) ∧ b;
+    if c then x else y ===>
+  ∀ (c : Bool) (a b : Prop),
+    Blaster.dite' (true = c) (λ _ => ¬ a ∧ ¬ b) (λ _ => a ∧ b)
 
 -- ∀ (a b c : Bool), (if c then ! (!a) else b) = true ===>
--- ∀ (a b c : Bool), (false = c → true = b) ∧ (true = c → true = a)
+-- ∀ (a b c : Bool), Blaster.dite' (true = c) (λ _ => true = a) (λ _ => true = b)
 #testOptimize [ "IteAbsorptionUnchanged_6" ]
   ∀ (a b c : Bool), (if c then !(! a) else b) = true ===>
-  ∀ (a b c : Bool), (false = c → true = b) ∧ (true = c → true = a)
+  ∀ (a b c : Bool), Blaster.dite' (true = c) (λ _ => true = a) (λ _ => true = b)
 
 
 -- ∀ (a b c d : Bool), if c then (!(!a)) = !(!(!b)) else b = !d ===>
--- ∀ (a b c d : Bool), (false = c → b = !d) ∧ (true = c → a = !b)
-#testOptimize [ "IteAbsorptionUnchanged_7" ] ∀ (a b c d: Bool), if c then (!(!a)) = !(!(!b)) else b = !d ===>
-                                             ∀ (a b c d : Bool), (false = c → b = !d) ∧ (true = c → a = !b)
+-- ∀ (a b c d : Bool), Blaster.dite' (true = c) (λ _ => a = !b) (λ _ => b = !d)
+#testOptimize [ "IteAbsorptionUnchanged_7" ]
+  ∀ (a b c d: Bool), if c then (!(!a)) = !(!(!b)) else b = !d ===>
+  ∀ (a b c d : Bool), Blaster.dite' (true = c) (λ _ => a = !b) (λ _ => b = !d)
 
 -- ∀ (c : Prop) (x y z : Nat), [Decidable c] → (if c then (40 + x) - 40 else y) < z ===>
--- ∀ (c : Prop) (x y z : Nat), Blaster.dite' c (fun _ => x) (fun _ => y) < z
+-- ∀ (c : Prop) (x y z : Nat), Blaster.dite' c (λ _ => x) (λ _ => y) < z
 #testOptimize [ "IteAbsorptionUnchanged_8" ]
   ∀ (c : Prop) (x y z : Nat), [Decidable c] → (if c then (40 + x) - 40 else y) < z ===>
-  ∀ (c : Prop) (x y z : Nat), Blaster.dite' c (fun _ => x) (fun _ => y) < z
+  ∀ (c : Prop) (x y z : Nat), Blaster.dite' c (λ _ => x) (λ _ => y) < z
 
 -- ∀ (c : Bool), if c then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z ===>
--- ∀ (c : Bool), (false = c → ∀ (z y : Int), z < y) ∧ (true = c → ∀ (x y : Int), y < x)
+-- ∀ (c : Bool), Blaster.dite' (true = c) (λ _ =>  ∀ (x y : Int), y < x) (λ _ => ∀ (z y : Int), z < y)
 #testOptimize [ "IteAbsorptionUnchanged_9" ]
   ∀ (c : Bool), if c then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z ===>
-  ∀ (c : Bool), (false = c → ∀ (z y : Int), z < y) ∧ (true = c → ∀ (x y : Int), y < x)
+  ∀ (c : Bool), Blaster.dite' (true = c) (λ _ =>  ∀ (x y : Int), y < x) (λ _ => ∀ (z y : Int), z < y)
 
 
 /-! Test cases for simplification rule `if True then e1 else e2 ==> e1`. -/
@@ -308,89 +315,92 @@ namespace Test.OptimizeITE
  -/
 
 -- ∀ (a b : Bool) (p q : Prop), if (! a || a) && b then p else q ===>
--- ∀ (b : Bool) (p q : Prop), (false = b → q) ∧ (true = b → p)
-#testOptimize [ "IteCondUnchanged_1" ] ∀ (a b : Bool) (p q : Prop), if (! a || a) && b then p else q ===>
-                                       ∀ (b : Bool) (p q : Prop), (false = b → q) ∧ (true = b → p)
+-- ∀ (b : Bool) (p q : Prop), Blaster.dite' (true = b) (λ _ => p) (λ _ => q)
+#testOptimize [ "IteCondUnchanged_1" ]
+  ∀ (a b : Bool) (p q : Prop), if (! a || a) && b then p else q ===>
+  ∀ (b : Bool) (p q : Prop), Blaster.dite' (true = b) (λ _ => p) (λ _ => q)
 
 -- ∀ (a b c d : Bool), (if (b && !b) || a then c else d) = true ===>
--- ∀ (a c d : Bool), (false = a → true = d) ∧ (true = a → true = c)
+-- ∀ (a c d : Bool), Blaster.dite' (true = a) (λ _ => true = c) (λ _ => true = d)
 #testOptimize [ "IteCondUnchanged_2" ]
   ∀ (a b c d : Bool), (if (b && !b) || a then c else d) = true ===>
-  ∀ (a c d : Bool), (false = a → true = d) ∧ (true = a → true = c)
+  ∀ (a c d : Bool), Blaster.dite' (true = a) (λ _ => true = c) (λ _ => true = d)
 
 -- ∀ (a : Bool) (b : Prop) (x y z : Nat), [Decidable b] →
 --   (if b && (a || !a) then (x + 40) - 40 else y) < z ===>
--- ∀ (b : Prop) (x y z : Nat), Blaster.dite' b (fun _ => x) (fun _ => y) < z
+-- ∀ (b : Prop) (x y z : Nat), Blaster.dite' b (λ _ => x) (λ _ => y) < z
 #testOptimize [ "IteCondUnchanged_3" ]
   ∀ (a : Bool) (b : Prop) (x y z : Nat), [Decidable b] →
     (if b && (a || !a) then (x + 40) - 40 else y) < z ===>
-  ∀ (b : Prop) (x y z : Nat), Blaster.dite' b (fun _ => x) (fun _ => y) < z
+  ∀ (b : Prop) (x y z : Nat), Blaster.dite' b (λ _ => x) (λ _ => y) < z
 
 -- ∀ (a b : Prop) (p q : Prop), if (¬ a ∨ a) ∧ b then p else q ===>
--- ∀ (b : Prop) (p q : Prop), (b → p) ∧ (¬ b → q)
-#testOptimize [ "IteCondUnchanged_4" ] ∀ (a b : Prop) (p q : Prop),
-                                         [Decidable a] → [Decidable b] → if (¬ a ∨ a) ∧ b then p else q ===>
-                                       ∀ (b : Prop) (p q : Prop), (b → p) ∧ (¬ b → q)
+-- ∀ (b : Prop) (p q : Prop), Blaster.dite' b (λ _ => p) (λ _ => q)
+#testOptimize [ "IteCondUnchanged_4" ]
+  ∀ (a b : Prop) (p q : Prop), [Decidable a] → [Decidable b] → if (¬ a ∨ a) ∧ b then p else q ===>
+  ∀ (b : Prop) (p q : Prop), Blaster.dite' b (λ _ => p) (λ _ => q)
 
 -- ∀ (a b : Prop) (c d : Bool), (if (b ∧ ¬ b) ∨ a then c else d) = true ===>
--- ∀ (a : Prop) (c d : Bool), (a → true = c) ∧ (¬ a → true = d)
+-- ∀ (a : Prop) (c d : Bool), Blaster.dite' a (λ _ => true = c) (λ _ => true = d)
 #testOptimize [ "IteCondUnchanged_5" ]
   ∀ (a b : Prop) (c d : Bool),
     [Decidable a] → [Decidable b] → (if (b ∧ ¬ b) ∨ a then c else d) = true ===>
-  ∀ (a : Prop) (c d : Bool), (a → true = c) ∧ (¬ a → true = d)
+  ∀ (a : Prop) (c d : Bool), Blaster.dite' a (λ _ => true = c) (λ _ => true = d)
 
 -- ∀ (a b : Prop) (x y z : Nat), [Decidable a] → [Decidable b] →
 --   (if b ∧ (a ∨ ¬ a) then (x + 40) - 40 else y) < z ===>
--- ∀ (b : Prop) (x y z : Nat), Blaster.dite' b (fun _ => x) (fun _ => y) < z
+-- ∀ (b : Prop) (x y z : Nat), Blaster.dite' b (λ _ => x) (λ _ => y) < z
 #testOptimize [ "IteCondUnchanged_6" ]
   ∀ (a b : Prop) (x y z : Nat), [Decidable a] → [Decidable b] →
     (if b ∧ (a ∨ ¬ a) then (x + 40) - 40 else y) < z ===>
-  ∀ (b : Prop) (x y z : Nat), Blaster.dite' b (fun _ => x) (fun _ => y) < z
+  ∀ (b : Prop) (x y z : Nat), Blaster.dite' b (λ _ => x) (λ _ => y) < z
 
 
 /-! Test cases for simplification rule `if c then e1 else e2 ==> if c' then e2 else e1 (if c := ¬ c')`. -/
 
 -- ∀ (a b c : Prop), if ¬ c then a else b ===>
--- ∀ (a b c : Prop), (c → b) ∧ (¬ c → a)
-#testOptimize [ "IteNegCond_1" ] ∀ (a b c : Prop), [Decidable c] → if ¬ c then a else b ===>
-                                 ∀ (a b c : Prop), (c → b) ∧ (¬ c → a)
+-- ∀ (a b c : Prop), Blaster.dite' c (λ _ => b) (λ _ => a)
+#testOptimize [ "IteNegCond_1" ]
+  ∀ (a b c : Prop), [Decidable c] → if ¬ c then a else b ===>
+  ∀ (a b c : Prop), Blaster.dite' c (λ _ => b) (λ _ => a)
 
 -- ∀ (c : Prop) (a b : Bool), (if ¬ c then a else b) = true ===>
--- ∀ (c : Prop) (a b : Bool), (c → true = b) ∧ (¬ c → true = a)
+-- ∀ (c : Prop) (a b : Bool), Blaster.dite' c (λ _ => true = b) (λ _ => true = a)
 #testOptimize [ "IteNegCond_2" ]
   ∀ (c : Prop) (a b : Bool), [Decidable c] → (if ¬ c then a else b) = true ===>
-  ∀ (c : Prop) (a b : Bool), (c → true = b) ∧ (¬ c → true = a)
+  ∀ (c : Prop) (a b : Bool), Blaster.dite' c (λ _ => true = b) (λ _ => true = a)
 
 -- ∀ (c : Prop) (x y z : Nat), [Decidable c] → (if ¬ c then x else y) < z ===>
--- ∀ (c : Prop) (x y z : Nat), Blaster.dite' c (fun _ => y) (fun _ => x) < z
+-- ∀ (c : Prop) (x y z : Nat), Blaster.dite' c (λ _ => y) (λ _ => x) < z
 #testOptimize [ "IteNegCond_3" ]
   ∀ (c : Prop) (x y z : Nat), [Decidable c] → (if ¬ c then x else y) < z ===>
-  ∀ (c : Prop) (x y z : Nat), Blaster.dite' c (fun _ => y) (fun _ => x) < z
+  ∀ (c : Prop) (x y z : Nat), Blaster.dite' c (λ _ => y) (λ _ => x) < z
 
 -- ∀ (c : Prop), if ¬ c then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z ===>
--- ∀ (c : Prop), (c → ∀ (z y : Int), z < y) ∧ (¬ c → ∀ (x y : Int), y < x)
-#testOptimize [ "IteNegCond_4" ] ∀ (c : Prop), [Decidable c] → if ¬ c then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z ===>
-                                 ∀ (c : Prop), (c → ∀ (z y : Int), z < y) ∧ (¬ c → ∀ (x y : Int), y < x)
+-- ∀ (c : Prop), Blaster.dite' c (λ _ => ∀ (z y : Int), z < y) (λ _ => ∀ (x y : Int), y < x)
+#testOptimize [ "IteNegCond_4" ]
+  ∀ (c : Prop), [Decidable c] → if ¬ c then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z ===>
+  ∀ (c : Prop), Blaster.dite' c (λ _ => ∀ (z y : Int), z < y) (λ _ => ∀ (x y : Int), y < x)
 
 -- ∀ (c : Prop) (x y : Int), [Decidable c] → (if c = False then x else y) > x ===>
--- ∀ (c : Prop) (x y : Int), x < Blaster.dite' c (fun _ => y) (fun _ => x)
+-- ∀ (c : Prop) (x y : Int), x < Blaster.dite' c (λ _ => y) (λ _ => x)
 #testOptimize [ "IteNegCond_5" ]
   ∀ (c : Prop) (x y : Int), [Decidable c] → (if c = False then x else y) > x ===>
-  ∀ (c : Prop) (x y : Int), x < Blaster.dite' c (fun _ => y) (fun _ => x)
+  ∀ (c : Prop) (x y : Int), x < Blaster.dite' c (λ _ => y) (λ _ => x)
 
 -- ∀ (a b : Prop) (x y : Int), [Decidable a] → [Decidable b] →
 --   (if ¬ (a = b) then x else y) > x ===>
--- ∀ (a b : Prop) (x y : Int), x <Blaster.dite' (a = b) (fun _ => y) (fun _ => x)
+-- ∀ (a b : Prop) (x y : Int), x <Blaster.dite' (a = b) (λ _ => y) (λ _ => x)
 #testOptimize [ "IteNegCond_6" ]
   ∀ (a b : Prop) (x y : Int), [Decidable a] → [Decidable b] →
     (if ¬ (a = b) then x else y) > x ===>
-  ∀ (a b : Prop) (x y : Int), x <Blaster.dite' (a = b) (fun _ => y) (fun _ => x)
+  ∀ (a b : Prop) (x y : Int), x <Blaster.dite' (a = b) (λ _ => y) (λ _ => x)
 
 -- ∀ (c : Prop) (x y z : Nat), [Decidable c] → (if ¬ (¬ (¬ c)) then x else y) < z ===>
--- ∀ (c : Prop) (x y z : Nat), Blaster.dite' c (fun _ => y) (fun _ => x) < z
+-- ∀ (c : Prop) (x y z : Nat), Blaster.dite' c (λ _ => y) (λ _ => x) < z
 #testOptimize [ "IteNegCond_7" ]
   ∀ (c : Prop) (x y z : Nat), [Decidable c] → (if ¬ (¬ (¬ c)) then x else y) < z ===>
-  ∀ (c : Prop) (x y z : Nat), Blaster.dite' c (fun _ => y) (fun _ => x) < z
+  ∀ (c : Prop) (x y z : Nat), Blaster.dite' c (λ _ => y) (λ _ => x) < z
 
 -- ∀ (a b c : Prop), [Decidable c] → (if ¬ c then a else b) = if c then b else a ===> True
 -- Test case to validate expression caching after rewriting
@@ -441,196 +451,111 @@ namespace Test.OptimizeITE
 -/
 
 -- ∀ (a b c : Prop), if ¬ (¬ c) then a else b ===>
--- ∀ (a b c : Prop), (c → a) ∧ (¬ c → b)
+-- ∀ (a b c : Prop), Blaster.dite' c (λ _ => a) (λ _ => b)
 #testOptimize [ "IteNegCondUnchanged_1" ]
   ∀ (a b c : Prop), [Decidable c] → if ¬ (¬ c) then a else b ===>
-  ∀ (a b c : Prop), (c → a) ∧ (¬ c → b)
+  ∀ (a b c : Prop), Blaster.dite' c (λ _ => a) (λ _ => b)
 
 -- ∀ (c : Prop) (a b : Bool), (if ¬ (¬ c) then a else b) = true ===>
--- ∀ (c : Prop) (a b : Bool), (c → true = a) ∧ (¬ c → true = b)
+-- ∀ (c : Prop) (a b : Bool), Blaster.dite' c (λ _ => true = a) (λ _ => true = b)
 #testOptimize [ "IteNegCondUnchanged_2" ]
   ∀ (c : Prop) (a b : Bool), [Decidable c] → (if ¬ (¬ c) then a else b) = true ===>
-  ∀ (c : Prop) (a b : Bool), (c → true = a) ∧ (¬ c → true = b)
+  ∀ (c : Prop) (a b : Bool), Blaster.dite' c (λ _ => true = a) (λ _ => true = b)
 
 -- ∀ (c : Prop) (x y z : Nat), [Decidable c] → (if ¬ (¬ c) then x else y) < z ===>
--- ∀ (c : Prop) (x y z : Nat), Blaster.dite' c (fun _ => x) (fun _ => y) < z
+-- ∀ (c : Prop) (x y z : Nat), Blaster.dite' c (λ _ => x) (λ _ => y) < z
 #testOptimize [ "IteNegCondUnchanged_3" ]
   ∀ (c : Prop) (x y z : Nat), [Decidable c] → (if ¬ (¬ c) then x else y) < z ===>
-  ∀ (c : Prop) (x y z : Nat), Blaster.dite' c (fun _ => x) (fun _ => y) < z
+  ∀ (c : Prop) (x y z : Nat), Blaster.dite' c (λ _ => x) (λ _ => y) < z
 
 -- ∀ (c : Prop), [Decidable c] → if ¬ (¬ c) then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z ===>
--- ∀ (c : Prop), (c → ∀ (x y : Int), y < x) ∧ (¬ c → ∀ (z y : Int), z < y)
+-- ∀ (c : Prop), Blaster.dite' c (λ _ => ∀ (x y : Int), y < x) (λ _ => ∀ (z y : Int), z < y)
 #testOptimize [ "IteNegCondUnchanged_4" ]
   ∀ (c : Prop), [Decidable c] → if ¬ (¬ c) then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z ===>
-  ∀ (c : Prop), (c → ∀ (x y : Int), y < x) ∧ (¬ c → ∀ (z y : Int), z < y)
+  ∀ (c : Prop), Blaster.dite' c (λ _ => ∀ (x y : Int), y < x) (λ _ => ∀ (z y : Int), z < y)
 
 -- ∀ (c : Prop) (x y : Int), [Decidable c] → (if c = True then x else y) > x ===>
--- ∀ (c : Prop) (x y : Int), x < Blaster.dite' c (fun _ => x) (fun _ => y)
+-- ∀ (c : Prop) (x y : Int), x < Blaster.dite' c (λ _ => x) (λ _ => y)
 #testOptimize [ "IteNegCondUnchanged_5" ]
   ∀ (c : Prop) (x y : Int), [Decidable c] → (if c = True then x else y) > x ===>
-  ∀ (c : Prop) (x y : Int), x < Blaster.dite' c (fun _ => x) (fun _ => y)
+  ∀ (c : Prop) (x y : Int), x < Blaster.dite' c (λ _ => x) (λ _ => y)
 
 -- ∀ (a b : Prop) (x y : Int), [Decidable a] → [Decidable b] → (if ¬ (¬ (a = b)) then x else y) > x ===>
--- ∀ (a b : Prop) (x y : Int), x < Blaster.dite' (a = b) (fun _ => x) (fun _ => y)
+-- ∀ (a b : Prop) (x y : Int), x < Blaster.dite' (a = b) (λ _ => x) (λ _ => y)
 #testOptimize [ "IteNegCondUnchanged_6" ]
   ∀ (a b : Prop) (x y : Int), [Decidable a] → [Decidable b] → (if ¬ (¬ (a = b)) then x else y) > x ===>
-  ∀ (a b : Prop) (x y : Int), x < Blaster.dite' (a = b) (fun _ => x) (fun _ => y)
+  ∀ (a b : Prop) (x y : Int), x < Blaster.dite' (a = b) (λ _ => x) (λ _ => y)
 
 -- ∀ (c : Prop) (x y z : Nat), [Decidable c] → (if ¬ (¬ (¬ (¬ c))) then x else y) < z ===>
--- ∀ (c : Prop) (x y z : Nat), Blaster.dite' c (fun _ => x) (fun _ => y) < z
+-- ∀ (c : Prop) (x y z : Nat), Blaster.dite' c (λ _ => x) (λ _ => y) < z
 #testOptimize [ "IteNegCondUnchanged_7" ]
   ∀ (c : Prop) (x y z : Nat), [Decidable c] → (if ¬ (¬ (¬ (¬ c))) then x else y) < z ===>
-  ∀ (c : Prop) (x y z : Nat), Blaster.dite' c (fun _ => x) (fun _ => y) < z
+  ∀ (c : Prop) (x y z : Nat), Blaster.dite' c (λ _ => x) (λ _ => y) < z
 
 
 
 /-! Test cases for simplification rule `if c then e1 else e2 ==> if true = c' then e2 else e1 (if c := false = c')`. -/
 
 -- ∀ (c : Bool) (p q : Prop), (if c = false then p else q) ===>
--- ∀ (c : Bool) (p q : Prop), (false = c → p) ∧ (true = c → q)
+-- ∀ (c : Bool) (p q : Prop), Blaster.dite' (true = c) (λ _ => q) (λ _ => p)
 #testOptimize [ "IteFalseEqCond_1" ]
   ∀ (c : Bool) (p q : Prop), (if c = false then p else q) ===>
-  ∀ (c : Bool) (p q : Prop), (false = c → p) ∧ (true = c → q)
+  ∀ (c : Bool) (p q : Prop), Blaster.dite' (true = c) (λ _ => q) (λ _ => p)
 
 -- ∀ (a b c : Bool), (if c = false then a else b) = true ===>
--- ∀ (a b c : Bool), (false = c → true = a) ∧ (true = c → true = b)
+-- ∀ (a b c : Bool), Blaster.dite' (true = c) (λ _ => true = b) (λ _ => true = a)
 #testOptimize [ "IteFalseEqCond_2" ]
   ∀ (a b c : Bool), (if c = false then a else b) = true ===>
-  ∀ (a b c : Bool), (false = c → true = a) ∧ (true = c → true = b)
+  ∀ (a b c : Bool), Blaster.dite' (true = c) (λ _ => true = b) (λ _ => true = a)
 
 -- ∀ (c : Bool) (x y : Nat), (if c = false then x else y) > x ===>
--- ∀ (c : Bool) (x y : Nat), x < Blaster.dite' (true = c) (fun _ => y) (fun _ => x)
-def iteFalseEqCond_3 : Expr :=
-Lean.Expr.forallE `c
-  (Lean.Expr.const `Bool [])
-  (Lean.Expr.forallE `x
-    (Lean.Expr.const `Nat [])
-    (Lean.Expr.forallE `y
-      (Lean.Expr.const `Nat [])
-      (Lean.Expr.app
-        (Lean.Expr.app
-          (Lean.Expr.app
-            (Lean.Expr.app (Lean.Expr.const `LT.lt [Lean.Level.zero]) (Lean.Expr.const `Nat []))
-            (Lean.Expr.const `instLTNat []))
-          (Lean.Expr.bvar 1))
-        (Lean.Expr.app
-          (Lean.Expr.app
-            (Lean.Expr.app
-              (Lean.Expr.app
-                (Lean.Expr.const `Blaster.dite' [Lean.Level.succ (Lean.Level.zero)])
-                (Lean.Expr.const `Nat []))
-              (Lean.Expr.app
-                (Lean.Expr.app
-                  (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Bool []))
-                  (Lean.Expr.const `Bool.true []))
-                (Lean.Expr.bvar 2)))
-            (Lean.Expr.lam `h
-              (Lean.Expr.app
-                (Lean.Expr.app
-                  (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Bool []))
-                  (Lean.Expr.const `Bool.true []))
-                (Lean.Expr.bvar 2))
-              (Lean.Expr.bvar 1)
-              (Lean.BinderInfo.default)))
-          (Lean.Expr.lam `h
-            (Lean.Expr.app
-              (Lean.Expr.app
-                (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Bool []))
-                (Lean.Expr.const `Bool.false []))
-              (Lean.Expr.bvar 2))
-            (Lean.Expr.bvar 2)
-            (Lean.BinderInfo.default))))
-      (Lean.BinderInfo.default))
-    (Lean.BinderInfo.default))
-    Lean.BinderInfo.default
-
-elab "iteFalseEqCond_3" : term => return iteFalseEqCond_3
-
+-- ∀ (c : Bool) (x y : Nat), x < Blaster.dite' (true = c) (λ _ => y) (λ _ => x)
 #testOptimize [ "IteFalseEqCond_3" ]
-  ∀ (c : Bool) (x y : Nat), (if c = false then x else y) > x ===> iteFalseEqCond_3
+  ∀ (c : Bool) (x y : Nat), (if c = false then x else y) > x ===>
+  ∀ (c : Bool) (x y : Nat),
+    x < Blaster.dite' (true = c) (λ _ => y) (λ _ => x)
 
 
 -- ∀ (c : Bool), if c = false then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z ===>
--- ∀ (c : Bool), (false = c → ∀ (x y : Int), y < x) ∧ (true = c → ∀ (z y : Int), z < y)
+-- ∀ (c : Bool), Blaster.dite' (true = c) (λ _ => ∀ (z y : Int), z < y) (λ _ => ∀ (x y : Int), y < x)
 #testOptimize [ "IteFalseEqCond_4" ]
   ∀ (c : Bool), if c = false then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z ===>
-  ∀ (c : Bool), (false = c → ∀ (x y : Int), y < x) ∧ (true = c → ∀ (z y : Int), z < y)
+  ∀ (c : Bool), Blaster.dite' (true = c) (λ _ => ∀ (z y : Int), z < y) (λ _ => ∀ (x y : Int), y < x)
 
 
 -- ∀ (c : Bool) (x y : Int), (if !c then x else y) > x ===>
--- ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (fun _ => y) (fun _ => x)
-def iteFalseEqCond_5 : Expr :=
-Lean.Expr.forallE `c
-  (Lean.Expr.const `Bool [])
-  (Lean.Expr.forallE `x
-    (Lean.Expr.const `Int [])
-    (Lean.Expr.forallE `y
-      (Lean.Expr.const `Int [])
-      (Lean.Expr.app
-        (Lean.Expr.app
-          (Lean.Expr.app
-            (Lean.Expr.app (Lean.Expr.const `LT.lt [Lean.Level.zero]) (Lean.Expr.const `Int []))
-            (Lean.Expr.const `Int.instLTInt []))
-          (Lean.Expr.bvar 1))
-        (Lean.Expr.app
-          (Lean.Expr.app
-            (Lean.Expr.app
-              (Lean.Expr.app
-                (Lean.Expr.const `Blaster.dite' [Lean.Level.succ (Lean.Level.zero)])
-                (Lean.Expr.const `Int []))
-              (Lean.Expr.app
-                (Lean.Expr.app
-                  (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Bool []))
-                  (Lean.Expr.const `Bool.true []))
-                (Lean.Expr.bvar 2)))
-            (Lean.Expr.lam `h
-              (Lean.Expr.app
-                (Lean.Expr.app
-                  (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Bool []))
-                  (Lean.Expr.const `Bool.true []))
-                (Lean.Expr.bvar 2))
-              (Lean.Expr.bvar 1)
-              (Lean.BinderInfo.default)))
-          (Lean.Expr.lam `h
-            (Lean.Expr.app
-              (Lean.Expr.app
-                (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Bool []))
-                (Lean.Expr.const `Bool.false []))
-              (Lean.Expr.bvar 2))
-            (Lean.Expr.bvar 2)
-            (Lean.BinderInfo.default))))
-      (Lean.BinderInfo.default))
-    (Lean.BinderInfo.default))
-    Lean.BinderInfo.default
-
-elab "iteFalseEqCond_5" : term => return iteFalseEqCond_5
-
+-- ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => y) (λ _ => x)
 #testOptimize [ "IteFalseEqCond_5" ]
-  ∀ (c : Bool) (x y : Int), (if !c then x else y) > x ===> iteFalseEqCond_5
+  ∀ (c : Bool) (x y : Int), (if !c then x else y) > x ===>
+  ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => y) (λ _ => x)
 
 -- ∀ (c : Bool) (x y : Int), (if c == false then x else y) > x ===>
--- ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (fun _ => y) (fun _ => x)
+-- ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => y) (λ _ => x)
 #testOptimize [ "IteFalseEqCond_6" ]
-  ∀ (c : Bool) (x y : Int), (if c == false then x else y) > x ===> iteFalseEqCond_5
+  ∀ (c : Bool) (x y : Int), (if c == false then x else y) > x ===>
+  ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => y) (λ _ => x)
 
 
 -- ∀ (c : Bool) (x y : Int), (if !(! (! c)) then x else y) > x ===>
--- ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (fun _ => y) (fun _ => x)
+-- ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => y) (λ _ => x)
 #testOptimize [ "IteFalseEqCond_7" ]
-  ∀ (c : Bool) (x y : Int), (if ! (! (! c)) then x else y) > x ===> iteFalseEqCond_5
+  ∀ (c : Bool) (x y : Int), (if ! (! (! c)) then x else y) > x ===>
+  ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => y) (λ _ => x)
 
 -- ∀ (a b : Bool) (x y : Int), (if a = (! b && b ) then x else y) > x ===>
--- ∀ (a : Bool) (x y : Int), x < Blaster.dite' (true = a) (fun _ => y) (fun _ => x)
+-- ∀ (a : Bool) (x y : Int), x < Blaster.dite' (true = a) (λ _ => y) (λ _ => x)
 #testOptimize [ "IteFalseEqCond_8" ]
-  ∀ (a b : Bool) (x y : Int), (if a = (! b && b) then x else y) > x ===> iteFalseEqCond_5
+  ∀ (a b : Bool) (x y : Int), (if a = (! b && b) then x else y) > x ===>
+  ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => y) (λ _ => x)
 
 -- let x := a || a in
 -- let y := ! a || ! x in
 -- ∀ (a : Bool) (m n : Int), (if y then m else n) > m ===>
--- ∀ (a : Bool) (m n : Int), m < Blaster.dite' (true = a) (fun _ => n) (fun _ => m)
+-- ∀ (a : Bool) (m n : Int), m < Blaster.dite' (true = a) (λ _ => n) (λ _ => m)
 #testOptimize [ "IteFalseEqCond_9" ]
   ∀ (a : Bool) (m n : Int), let x := a || a; let y := ! a || ! x;
-    (if y then m else n) > m ===> iteFalseEqCond_5
+    (if y then m else n) > m ===>
+  ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => y) (λ _ => x)
 
 
 -- ∀ (c : Bool) (p q : Prop), (if c = false then p else q) = (if c then q else p) ===> True
@@ -698,236 +623,106 @@ elab "iteFalseEqCond_5" : term => return iteFalseEqCond_5
 -/
 
 -- ∀ (c : Bool) (p q : Prop), (if c = true then p else q) ===>
--- ∀ (c : Bool) (p q : Prop), (false = c → q) ∧ (true = c → p)
+-- ∀ (c : Bool) (p q : Prop), Blaster.dite' (true = c) (λ _ => p) (λ _ => q)
 #testOptimize [ "IteFalseEqCondUnchanged_1" ]
   ∀ (c : Bool) (p q : Prop), (if c = true then p else q) ===>
-  ∀ (c : Bool) (p q : Prop), (false = c → q) ∧ (true = c → p)
+  ∀ (c : Bool) (p q : Prop), Blaster.dite' (true = c) (λ _ => p) (λ _ => q)
 
 -- ∀ (a b c : Bool), (if c = true then a else b) = true ===>
--- ∀ (a b c : Bool), (false = c → true = b) ∧ (true = c → true = a)
+-- ∀ (a b c : Bool), Blaster.dite' (true = c) (λ _ => true = a) (λ _ => true = b)
 #testOptimize [ "IteFalseEqCondUnchanged_2" ]
   ∀ (a b c : Bool), (if c = true then a else b) = true ===>
-  ∀ (a b c : Bool), (false = c → true = b) ∧ (true = c → true = a)
+  ∀ (a b c : Bool), Blaster.dite' (true = c) (λ _ => true = a) (λ _ => true = b)
 
 -- ∀ (c : Bool) (x y : Nat), (if c = true then x else y) > x ===>
--- ∀ (c : Bool) (x y : Nat), x < Blaster.dite' (true = c) (fun _ => x) (fun _ => y)
-def iteFalseEqCondUnchanged_3 : Expr :=
-Lean.Expr.forallE `c
-  (Lean.Expr.const `Bool [])
-  (Lean.Expr.forallE `x
-    (Lean.Expr.const `Nat [])
-    (Lean.Expr.forallE `y
-      (Lean.Expr.const `Nat [])
-      (Lean.Expr.app
-        (Lean.Expr.app
-          (Lean.Expr.app
-            (Lean.Expr.app (Lean.Expr.const `LT.lt [Lean.Level.zero]) (Lean.Expr.const `Nat []))
-            (Lean.Expr.const `instLTNat []))
-          (Lean.Expr.bvar 1))
-        (Lean.Expr.app
-          (Lean.Expr.app
-            (Lean.Expr.app
-              (Lean.Expr.app
-                (Lean.Expr.const `Blaster.dite' [Lean.Level.succ (Lean.Level.zero)])
-                (Lean.Expr.const `Nat []))
-              (Lean.Expr.app
-                (Lean.Expr.app
-                  (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Bool []))
-                  (Lean.Expr.const `Bool.true []))
-                (Lean.Expr.bvar 2)))
-            (Lean.Expr.lam `h
-              (Lean.Expr.app
-                (Lean.Expr.app
-                  (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Bool []))
-                  (Lean.Expr.const `Bool.true []))
-                (Lean.Expr.bvar 2))
-              (Lean.Expr.bvar 2)
-              (Lean.BinderInfo.default)))
-          (Lean.Expr.lam `h
-            (Lean.Expr.app
-              (Lean.Expr.app
-                (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Bool []))
-                (Lean.Expr.const `Bool.false []))
-              (Lean.Expr.bvar 2))
-            (Lean.Expr.bvar 1)
-            (Lean.BinderInfo.default))))
-      (Lean.BinderInfo.default))
-    (Lean.BinderInfo.default))
-    Lean.BinderInfo.default
-
-elab "iteFalseEqCondUnchanged_3" : term => return iteFalseEqCondUnchanged_3
-
+-- ∀ (c : Bool) (x y : Nat), x < Blaster.dite' (true = c) (λ _ => x) (λ _ => y)
 #testOptimize [ "IteFalseEqCondUnchanged_3" ]
-  ∀ (c : Bool) (x y : Nat), (if c = true then x else y) > x ===> iteFalseEqCondUnchanged_3
+  ∀ (c : Bool) (x y : Nat), (if c = true then x else y) > x ===>
+  ∀ (c : Bool) (x y : Nat), x < Blaster.dite' (true = c) (λ _ => x) (λ _ => y)
 
 -- ∀ (c : Bool), if c = true then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z ===>
--- ∀ (c : Bool), (false = c → ∀ (z y : Int), z < y) ∧ (true = c → ∀ (x y : Int), y < x)
+-- ∀ (c : Bool), Blaster.dite' (true = c) (λ _ => ∀ (x y : Int), y < x) (λ _ => ∀ (z y : Int), z < y)
 #testOptimize [ "IteFalseEqCondUnchanged_4" ]
   ∀ (c : Bool), if c = true then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z ===>
-  ∀ (c : Bool), (false = c → ∀ (z y : Int), z < y) ∧ (true = c → ∀ (x y : Int), y < x)
+  ∀ (c : Bool), Blaster.dite' (true = c) (λ _ => ∀ (x y : Int), y < x) (λ _ => ∀ (z y : Int), z < y)
 
 -- ∀ (a b : Bool) (p q : Prop), (if a = b then p else q) ===>
--- ∀ (a b : Bool) (p q : Prop), (¬ (a = b) → q) ∧ ((a = b) → p)
+-- ∀ (a b : Bool) (p q : Prop), Blaster.dite' (a = b) (λ _ => p) (λ _ => q)
 #testOptimize [ "IteFalseEqCondUnchanged_5" ]
   ∀ (a b : Bool) (p q : Prop), (if a = b then p else q) ===>
-  ∀ (a b : Bool) (p q : Prop), (¬ (a = b) → q) ∧ ((a = b) → p)
+  ∀ (a b : Bool) (p q : Prop), Blaster.dite' (a = b) (λ _ => p) (λ _ => q)
 
 -- ∀ (a b c d : Bool), (if a = b then c else d) = true ===>
--- ∀ (a b c d : Bool), (¬ (a = b) → true = d) ∧ ((a = b) → true = c)
+-- ∀ (a b c d : Bool), Blaster.dite' (a = b) (λ _ => true = c) (λ _ => true = d)
 #testOptimize [ "IteFalseEqCondUnchanged_6" ]
   ∀ (a b c d : Bool), (if a = b then c else d) = true ===>
-  ∀ (a b c d : Bool), (¬ (a = b) → true = d) ∧ ((a = b) → true = c)
+  ∀ (a b c d : Bool), Blaster.dite' (a = b) (λ _ => true = c) (λ _ => true = d)
 
 -- ∀ (a b : Bool) (x y : Nat), (if a = b then x else y) > x ===>
--- ∀ (a b : Bool) (x y : Nat), x < Blaster.dite' (a = b) (fun _ => x) (fun _ => y)
-def iteFalseEqCondUnchanged_7 : Expr :=
-Lean.Expr.forallE `a
-  (Lean.Expr.const `Bool [])
-  (Lean.Expr.forallE `b
-    (Lean.Expr.const `Bool [])
-    (Lean.Expr.forallE `x
-      (Lean.Expr.const `Nat [])
-      (Lean.Expr.forallE `y
-        (Lean.Expr.const `Nat [])
-        (Lean.Expr.app
-          (Lean.Expr.app
-            (Lean.Expr.app
-              (Lean.Expr.app (Lean.Expr.const `LT.lt [Lean.Level.zero]) (Lean.Expr.const `Nat []))
-              (Lean.Expr.const `instLTNat []))
-            (Lean.Expr.bvar 1))
-          (Lean.Expr.app
-            (Lean.Expr.app
-              (Lean.Expr.app
-                (Lean.Expr.app
-                  (Lean.Expr.const `Blaster.dite' [Lean.Level.succ (Lean.Level.zero)])
-                  (Lean.Expr.const `Nat []))
-                (Lean.Expr.app
-                  (Lean.Expr.app
-                    (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Bool []))
-                    (Lean.Expr.bvar 3))
-                  (Lean.Expr.bvar 2)))
-              (Lean.Expr.lam `h
-                (Lean.Expr.app
-                  (Lean.Expr.app
-                    (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Bool []))
-                    (Lean.Expr.bvar 3))
-                  (Lean.Expr.bvar 2))
-                (Lean.Expr.bvar 2)
-                (Lean.BinderInfo.default)))
-            (Lean.Expr.lam `h
-              (Lean.Expr.app
-                (Lean.Expr.const `Not [])
-                (Lean.Expr.app
-                  (Lean.Expr.app
-                    (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Bool []))
-                    (Lean.Expr.bvar 3))
-                  (Lean.Expr.bvar 2)))
-              (Lean.Expr.bvar 1)
-              (Lean.BinderInfo.default))))
-        (Lean.BinderInfo.default))
-      (Lean.BinderInfo.default))
-    (Lean.BinderInfo.default))
-  Lean.BinderInfo.default
-
-elab "iteFalseEqCondUnchanged_7" : term => return iteFalseEqCondUnchanged_7
-
+-- ∀ (a b : Bool) (x y : Nat), x < Blaster.dite' (a = b) (λ _ => x) (λ _ => y)
 #testOptimize [ "IteFalseEqCondUnchanged_7" ]
-  ∀ (a b : Bool) (x y : Nat), (if a = b then x else y) > x ===> iteFalseEqCondUnchanged_7
+  ∀ (a b : Bool) (x y : Nat), (if a = b then x else y) > x ===>
+  ∀ (a b : Bool) (x y : Nat), x < Blaster.dite' (a = b) (λ _ => x) (λ _ => y)
 
 -- ∀ (c : Bool), if c = true then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z ===>
--- ∀ (c : Bool), (false = c → ∀ (z y : Int), z < y) ∧ (true = c → ∀ (x y : Int), y < x)
+-- ∀ (c : Bool), Blaster.dite' (true = c) (λ _ => ∀ (x y : Int), y < x) (λ _ => ∀ (z y : Int), z < y)
 #testOptimize [ "IteFalseEqCondUnchanged_8" ]
   ∀ (c : Bool), if c = true then ∀ (x y : Int), x > y else ∀ (z y : Int), y > z ===>
-  ∀ (c : Bool), (false = c → ∀ (z y : Int), z < y) ∧ (true = c → ∀ (x y : Int), y < x)
+  ∀ (c : Bool), Blaster.dite' (true = c) (λ _ => ∀ (x y : Int), y < x) (λ _ => ∀ (z y : Int), z < y)
 
 
 -- ∀ (c : Bool) (x y : Int), (if !(!c) then x else y) > x ===>
--- ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (fun _ => x) (fun _ => y)
-def iteFalseEqCondUnchanged_9 : Expr :=
-Lean.Expr.forallE `c
-  (Lean.Expr.const `Bool [])
-  (Lean.Expr.forallE `x
-    (Lean.Expr.const `Int [])
-    (Lean.Expr.forallE `y
-      (Lean.Expr.const `Int [])
-      (Lean.Expr.app
-        (Lean.Expr.app
-          (Lean.Expr.app
-            (Lean.Expr.app (Lean.Expr.const `LT.lt [Lean.Level.zero]) (Lean.Expr.const `Int []))
-            (Lean.Expr.const `Int.instLTInt []))
-          (Lean.Expr.bvar 1))
-        (Lean.Expr.app
-          (Lean.Expr.app
-            (Lean.Expr.app
-              (Lean.Expr.app
-                (Lean.Expr.const `Blaster.dite' [Lean.Level.succ (Lean.Level.zero)])
-                (Lean.Expr.const `Int []))
-              (Lean.Expr.app
-                (Lean.Expr.app
-                  (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Bool []))
-                  (Lean.Expr.const `Bool.true []))
-                (Lean.Expr.bvar 2)))
-            (Lean.Expr.lam `h
-              (Lean.Expr.app
-                (Lean.Expr.app
-                  (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Bool []))
-                  (Lean.Expr.const `Bool.true []))
-                (Lean.Expr.bvar 2))
-              (Lean.Expr.bvar 2)
-              (Lean.BinderInfo.default)))
-          (Lean.Expr.lam `h
-            (Lean.Expr.app
-              (Lean.Expr.app
-                (Lean.Expr.app (Lean.Expr.const `Eq [Lean.Level.succ (Lean.Level.zero)]) (Lean.Expr.const `Bool []))
-                (Lean.Expr.const `Bool.false []))
-              (Lean.Expr.bvar 2))
-            (Lean.Expr.bvar 1)
-            (Lean.BinderInfo.default))))
-      (Lean.BinderInfo.default))
-    (Lean.BinderInfo.default))
-    Lean.BinderInfo.default
-
-elab "iteFalseEqCondUnchanged_9" : term => return iteFalseEqCondUnchanged_9
-
+-- ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => x) (λ _ => y)
 #testOptimize [ "IteFalseEqCondUnchanged_9" ]
-  ∀ (c : Bool) (x y : Int), (if !(!c) then x else y) > x ===> iteFalseEqCondUnchanged_9
+  ∀ (c : Bool) (x y : Int), (if !(!c) then x else y) > x ===>
+  ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => x) (λ _ => y)
 
 -- ∀ (c : Bool) (x y : Int), (if c == true then x else y) > x ===>
--- ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (fun _ => x) (fun _ => y)
+-- ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => x) (λ _ => y)
 #testOptimize [ "IteFalseEqCondUnchanged_10" ]
-  ∀ (c : Bool) (x y : Int), (if c == true then x else y) > x ===> iteFalseEqCondUnchanged_9
+  ∀ (c : Bool) (x y : Int), (if c == true then x else y) > x ===>
+  ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => x) (λ _ => y)
 
 -- ∀ (c : Bool) (x y : Int), (if !(!(! (! c))) then x else y) > x ===>
--- ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (fun _ => x) (fun _ => y)
+-- ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => x) (λ _ => y)
 #testOptimize [ "IteFalseEqCondUnchanged_11" ]
-  ∀ (c : Bool) (x y : Int), (if !(! (! (! c))) then x else y) > x ===> iteFalseEqCondUnchanged_9
+  ∀ (c : Bool) (x y : Int), (if !(! (! (! c))) then x else y) > x ===>
+  ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => x) (λ _ => y)
 
 
 -- ∀ (a b : Bool) (x y : Int), (if a = (! b || b ) then x else y) > x ===>
--- ∀ (a : Bool) (x y : Int), x < Blaster.dite' (true = a) (fun _ => x) (fun _ => y)
+-- ∀ (a : Bool) (x y : Int), x < Blaster.dite' (true = a) (λ _ => x) (λ _ => y)
 -- TODO: remove unused quantifiers when COI performed on forall
 #testOptimize [ "IteFalseEqCondUnchanged_12" ]
-  ∀ (a b : Bool) (x y : Int), (if a = (! b || b) then x else y) > x ===> iteFalseEqCondUnchanged_9
+  ∀ (a b : Bool) (x y : Int), (if a = (! b || b) then x else y) > x ===>
+  ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => x) (λ _ => y)
 
 -- let x := a && a in
 -- let y := a || x in
 -- ∀ (a : Bool) (m n : Int), (if y then m else n) > m ===>
--- ∀ (a : Bool) (m n : Int), m < Blaster.dite' (true = a) (fun _ => m) (fun _ => n)
+-- ∀ (a : Bool) (m n : Int), m < Blaster.dite' (true = a) (λ _ => m) (λ _ => n)
 #testOptimize [ "IteFalseEqCondUnchanged_13" ]
   ∀ (a : Bool) (m n : Int), let x := a && a; let y := a || x;
-      (if y then m else n) > m ===> iteFalseEqCondUnchanged_9
+      (if y then m else n) > m ===>
+  ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => x) (λ _ => y)
 
 
 
-/-! Test cases for simplification rule `if c then e1 else e2 ==> (c → e1) ∧ (¬ c → e2) (if Type(e1) = Prop)`. -/
+/-! Test cases for simplification rule `if c then e1 else e2 ==> (c → e1) ∧ (¬ c → e2) (if Type(e1) = Prop)`.
+    NOTE: No more applicable. We keep ite to reduce complexity.
+    NOTE: Additional simplification will be handled via the implementation of by_cases in Blaster.
+-/
 
--- ∀ (c p q : Prop), if c then p else q ===> ∀ (c p q : Prop), (c → p) ∧ (¬ c → q)
-#testOptimize [ "IteToPropExpr_1" ] ∀ (c p q : Prop), [Decidable c] → if c then p else q ===>
-                                    ∀ (c p q : Prop), (c → p) ∧ (¬ c → q)
+-- ∀ (c p q : Prop), if c then p else q ===>
+-- ∀ (c p q : Prop), Blaster.dite' c (λ _ => p) (λ _ => q)
+#testOptimize [ "IteToPropExpr_1" ]
+  ∀ (c p q : Prop), [Decidable c] → if c then p else q ===>
+  ∀ (c p q : Prop), Blaster.dite' c (λ _ => p) (λ _ => q)
 
 -- ∀ (c p : Prop), if c then True else p ===> ∀ (c p : Prop), ¬ c → p
-#testOptimize [ "IteToPropExpr_2" ] ∀ (c p : Prop), [Decidable c] → if c then True else p ===>
-                                    ∀ (c p : Prop),  (¬ c) → p
+#testOptimize [ "IteToPropExpr_2" ]
+  ∀ (c p : Prop), [Decidable c] → if c then True else p ===>
+  ∀ (c p : Prop),  (¬ c) → p
 
 -- ∀ (c p : Prop), if c then p else True ===> ∀ (c p : Prop), c → p
 #testOptimize [ "IteToPropExpr_3" ] ∀ (c p : Prop), [Decidable c] → if c then p else True ===>
@@ -965,15 +760,17 @@ elab "iteFalseEqCondUnchanged_9" : term => return iteFalseEqCondUnchanged_9
                                     ∀ (c p : Prop), c → p
 
 -- ∀ (c p q : Prop), if ¬ c then p else q ===>
--- ∀ (c p q : Prop), (c → q) ∧ (¬ c → p)
-#testOptimize [ "IteToPropExpr_10" ] ∀ (c p q : Prop), [Decidable c] → if ¬ c then p else q ===>
-                                     ∀ (c p q : Prop), (c → q) ∧ (¬ c → p)
+-- ∀ (c p q : Prop), Blaster.dite' c (λ _ => q) (λ _ => p)
+#testOptimize [ "IteToPropExpr_10" ]
+  ∀ (c p q : Prop), [Decidable c] → if ¬ c then p else q ===>
+  ∀ (c p q : Prop), Blaster.dite' c (λ _ => q) (λ _ => p)
 
 
 -- ∀ (c : Bool) (p q : Prop), if c then p else q ===>
--- ∀ (c : Bool) (p q : Prop), (false = c → q) ∧ (true = c → p)
-#testOptimize [ "IteToPropExpr_11" ] ∀ (c : Bool) (p q : Prop), if c then p else q ===>
-                                     ∀ (c : Bool) (p q : Prop), (false = c → q) ∧ (true = c → p)
+-- ∀ (c : Bool) (p q : Prop), Blaster.dite' (true = c) (λ _ => p) (λ _ => q)
+#testOptimize [ "IteToPropExpr_11" ]
+  ∀ (c : Bool) (p q : Prop), if c then p else q ===>
+  ∀ (c : Bool) (p q : Prop), Blaster.dite' (true = c) (λ _ => p) (λ _ => q)
 
 -- ∀ (c : Bool) (p : Prop), if c then True else p ===>
 -- ∀ (c p : Prop), false = c → p
@@ -1017,15 +814,16 @@ elab "iteFalseEqCondUnchanged_9" : term => return iteFalseEqCondUnchanged_9
                                      ∀ (c : Bool) (p : Prop), true = c → p
 
 -- ∀ (c : Bool) (p q : Prop), (if !c then p else q) ===>
--- ∀ (c : Bool) (p q : Prop), (false = c → p) ∧ (true = c → q)
-#testOptimize [ "IteToPropExpr_20" ] ∀ (c : Bool) (p q : Prop), if !c then p else q ===>
-                                     ∀ (c : Bool) (p q : Prop), (false = c → p) ∧ (true = c → q)
+-- ∀ (c : Bool) (p q : Prop), Blaster.dite' (true = c) (λ _ => q) (λ _ => p)
+#testOptimize [ "IteToPropExpr_20" ]
+  ∀ (c : Bool) (p q : Prop), if !c then p else q ===>
+  ∀ (c : Bool) (p q : Prop), Blaster.dite' (true = c) (λ _ => q) (λ _ => p)
 
 
--- ∀ (c p q : Prop), (if c then p else q) = ((c → p) ∧ (¬ c → q)) ===> True
+-- ∀ (c p q : Prop), (if c then p else q) → ((c → p) ∧ (¬ c → q)) ===> True
 -- Test case to validate expression caching after rewriting
 #testOptimize [ "IteToPropExpr_21" ]
-  ∀ (c p q : Prop), [Decidable c] → (if c then p else q) = ((c → p) ∧ (¬ c → q)) ===> True
+  ∀ (c p q : Prop), [Decidable c] → (if c then p else q) → ((c → p) ∧ (¬ c → q)) ===> True
 
 -- ∀ (c p : Prop), (if c then True else p) = (¬ c → p) ===> True
 -- Test case to validate expression caching after rewriting
@@ -1067,15 +865,15 @@ elab "iteFalseEqCondUnchanged_9" : term => return iteFalseEqCondUnchanged_9
 #testOptimize [ "IteToPropExpr_29" ]
   ∀ (c p : Prop), [Decidable c] → (if c then p else ¬ c) = (c → p) ===> True
 
--- ∀ (c p q : Prop), (if ¬ c then p else q) = ((¬ c → p) ∧ (c → q)) ===> True
+-- ∀ (c p q : Prop), (if ¬ c then p else q) → ((¬ c → p) ∧ (c → q)) ===> True
 -- Test case to validate expression caching after rewriting
 #testOptimize [ "IteToPropExpr_30" ]
-  ∀ (c p q : Prop), [Decidable c] → (if ¬ c then p else q) = ((¬ c → p) ∧ (c → q)) ===> True
+  ∀ (c p q : Prop), [Decidable c] → (if ¬ c then p else q) → ((¬ c → p) ∧ (c → q)) ===> True
 
--- ∀ (c : Bool) (p q : Prop), (if c then p else q) = ((true = c → p) ∧ (false = c → q)) ===> True
+-- ∀ (c : Bool) (p q : Prop), (if c then p else q) → ((true = c → p) ∧ (false = c → q)) ===> True
 -- Test case to validate expression caching after rewriting
 #testOptimize [ "IteToPropExpr_31" ]
-  ∀ (c : Bool) (p q : Prop), (if c then p else q) = ((true = c → p) ∧ (false = c → q)) ===> True
+  ∀ (c : Bool) (p q : Prop), (if c then p else q) → ((true = c → p) ∧ (false = c → q)) ===> True
 
 -- ∀ (c : Bool) (p : Prop), (if c then True else p) = (false = c → p) ===> True
 -- Test case to validate expression caching after rewriting
@@ -1118,9 +916,9 @@ elab "iteFalseEqCondUnchanged_9" : term => return iteFalseEqCondUnchanged_9
 #testOptimize [ "IteToPropExpr_39" ]
   ∀ (c : Bool) (p : Prop), (if c then p else true = !c) = (true = c → p) ===> True
 
--- ∀ (c : Bool) (p q : Prop), (if !c then p else q) = ((false = c → p) ∧ (true = c → q)) ===> True
+-- ∀ (c : Bool) (p q : Prop), (if !c then p else q) → ((false = c → p) ∧ (true = c → q)) ===> True
 #testOptimize [ "IteToPropExpr_40" ]
-  ∀ (c : Bool) (p q : Prop), (if !c then p else q) = ((true = c → q) ∧ (false = c → p)) ===> True
+  ∀ (c : Bool) (p q : Prop), (if !c then p else q) → ((true = c → q) ∧ (false = c → p)) ===> True
 
 /-! Test cases to ensure that simplification rule `if c then e1 else e2 ==> (c → e1) ∧ (¬ c → e2) (if Type(e1) = Prop)`
     is not applied wrongly.
@@ -1128,59 +926,59 @@ elab "iteFalseEqCondUnchanged_9" : term => return iteFalseEqCondUnchanged_9
 
 
 -- ∀ (c : Prop) (x y z : Nat), [Decidable c] → (if c then x else y) < z ===>
--- ∀ (c : Prop) (x y z : Nat), Blaster.dite' c (fun _ => x) (fun _ => y) < z
+-- ∀ (c : Prop) (x y z : Nat), Blaster.dite' c (λ _ => x) (λ _ => y) < z
 #testOptimize [ "IteToPropExprUnchanged_1" ]
   ∀ (c : Prop) (x y z : Nat), [Decidable c] → (if c then x else y) < z ===>
-  ∀ (c : Prop) (x y z : Nat), Blaster.dite' c (fun _ => x) (fun _ => y) < z
+  ∀ (c : Prop) (x y z : Nat), Blaster.dite' c (λ _ => x) (λ _ => y) < z
 
 -- ∀ (a b : Bool) (x y z : Nat), (if a = b then x else y) < z ===>
--- ∀ (a b : Bool) (x y z : Nat), Blaster.dite' (a = b) (fun _ => x) (fun _ => y) < z
+-- ∀ (a b : Bool) (x y z : Nat), Blaster.dite' (a = b) (λ _ => x) (λ _ => y) < z
 #testOptimize [ "IteToPropExprUnchanged_2" ]
   ∀ (a b : Bool) (x y z : Nat), (if a = b then x else y) < z ===>
-  ∀ (a b : Bool) (x y z : Nat), Blaster.dite' (a = b) (fun _ => x) (fun _ => y) < z
+  ∀ (a b : Bool) (x y z : Nat), Blaster.dite' (a = b) (λ _ => x) (λ _ => y) < z
 
 
 -- ∀ (c : Prop) (x y z : Nat), [Decidable c] → (if ¬ c then x else y) < z ===>
--- ∀ (c : Prop) (x y z : Nat), Blaster.dite' c (fun _ => y) (fun _ => x) < z
+-- ∀ (c : Prop) (x y z : Nat), Blaster.dite' c (λ _ => y) (λ _ => x) < z
 #testOptimize [ "IteToPropExprUnchanged_3" ]
   ∀ (c : Prop) (x y z : Nat), [Decidable c] → (if ¬ c then x else y) < z ===>
-  ∀ (c : Prop) (x y z : Nat), Blaster.dite' c (fun _ => y) (fun _ => x) < z
+  ∀ (c : Prop) (x y z : Nat), Blaster.dite' c (λ _ => y) (λ _ => x) < z
 
 -- ∀ (a b : Bool) (x y z : Nat), (if !(a == b) then x else y) < z ===>
--- ∀ (a b : Bool) (x y z : Nat), Blaster.dite' (a = b) (fun _ => y) (fun _ => x) < z
+-- ∀ (a b : Bool) (x y z : Nat), Blaster.dite' (a = b) (λ _ => y) (λ _ => x) < z
 #testOptimize [ "IteToPropExprUnchanged_4" ]
   ∀ (a b : Bool) (x y z : Nat), (if !(a == b) then x else y) < z ===>
-  ∀ (a b : Bool) (x y z : Nat), Blaster.dite' (a = b) (fun _ => y) (fun _ => x) < z
+  ∀ (a b : Bool) (x y z : Nat), Blaster.dite' (a = b) (λ _ => y) (λ _ => x) < z
 
 -- ∀ (a b : Bool) (x y : Int), (if a = b then -x else x) > y ===>
--- ∀ (a b : Bool) (x y : Int), y < Blaster.dite' (a = b) (fun _ => Int.neg x) (fun _ => x)
+-- ∀ (a b : Bool) (x y : Int), y < Blaster.dite' (a = b) (λ _ => Int.neg x) (λ _ => x)
 #testOptimize [ "IteToPropExprUnchanged_5" ]
   ∀ (a b : Bool) (x y : Int), (if a = b then -x else x) > y ===>
-  ∀ (a b : Bool) (x y : Int), y < Blaster.dite' (a = b) (fun _ => Int.neg x) (fun _ => x)
+  ∀ (a b : Bool) (x y : Int), y < Blaster.dite' (a = b) (λ _ => Int.neg x) (λ _ => x)
 
 -- ∀ (a b : Bool) (x y : Int), let p := x + y; let q := x - y;
 --   (if a = b then p else q) > x ===>
 -- ∀ (a b : Bool) (x y : Int),
---   x < Blaster.dite' (a = b) (fun _ => Int.add x y) (fun _ => Int.add x (Int.neg y))
+--   x < Blaster.dite' (a = b) (λ _ => Int.add x y) (λ _ => Int.add x (Int.neg y))
 #testOptimize [ "IteToPropExprUnchanged_6" ]
   ∀ (a b : Bool) (x y : Int), let p := x + y; let q := x - y;
     (if a = b then p else q) > x ===>
   ∀ (a b : Bool) (x y : Int),
-    x < Blaster.dite' (a = b) (fun _ => Int.add x y) (fun _ => Int.add x (Int.neg y))
+    x < Blaster.dite' (a = b) (λ _ => Int.add x y) (λ _ => Int.add x (Int.neg y))
 
 -- ∀ (a b c : Bool) (x y : Int), (if c = ((! a) || b) then x else y) > x ===>
--- ∀ (a b c : Bool) (x y : Int), x < Blaster.dite' (c = ( b || !a)) (fun _ => x) (fun _ => y)
+-- ∀ (a b c : Bool) (x y : Int), x < Blaster.dite' (c = ( b || !a)) (λ _ => x) (λ _ => y)
 #testOptimize [ "IteToPropExprUnchanged_7" ]
   ∀ (a b c : Bool) (x y : Int), (if c = ((! a) || b) then x else y) > x ===>
-  ∀ (a b c : Bool) (x y : Int), x < Blaster.dite' (c = ( b || !a)) (fun _ => x) (fun _ => y)
+  ∀ (a b c : Bool) (x y : Int), x < Blaster.dite' (c = ( b || !a)) (λ _ => x) (λ _ => y)
 
 -- ∀ (a b : Prop) (x y : Int), [Decidable a] → [Decidable b] →
 --   (if (¬ a ∨ b) then x else y) > x ===>
--- ∀ (a b : Prop) (x y : Int), x < Blaster.dite' (b ∨ ¬ a) (fun _ => x) (fun _ => y)
+-- ∀ (a b : Prop) (x y : Int), x < Blaster.dite' (b ∨ ¬ a) (λ _ => x) (λ _ => y)
 #testOptimize [ "IteToPropExprUnchanged_8" ]
   ∀ (a b : Prop) (x y : Int), [Decidable a] → [Decidable b] →
     (if (¬ a ∨ b) then x else y) > x ===>
-  ∀ (a b : Prop) (x y : Int), x < Blaster.dite' (b ∨ ¬ a) (fun _ => x) (fun _ => y)
+  ∀ (a b : Prop) (x y : Int), x < Blaster.dite' (b ∨ ¬ a) (λ _ => x) (λ _ => y)
 
 -- ∀ (a : Prop) (c b : Bool), [Decidable a] → (if c then a else b) = (if c then decide a else b) ===> True
 #testOptimize [ "IteToPropExprUnchanged_9" ]
@@ -1188,21 +986,23 @@ elab "iteFalseEqCondUnchanged_9" : term => return iteFalseEqCondUnchanged_9
 
 
 -- ∀ (c : Bool) (x y : Nat), (if c then x else y) > x ===>
--- ∀ (c : Bool) (x y : Nat), x < Blaster.dite' (true = c) (fun _ => x) (fun _ => y)
+-- ∀ (c : Bool) (x y : Nat), x < Blaster.dite' (true = c) (λ _ => x) (λ _ => y)
 #testOptimize [ "IteToPropExprUnchanged_10" ]
-  ∀ (c : Bool) (x y : Nat), (if c then x else y) > x ===> iteFalseEqCondUnchanged_3
+  ∀ (c : Bool) (x y : Nat), (if c then x else y) > x ===>
+  ∀ (c : Bool) (x y : Nat), x < Blaster.dite' (true = c) (λ _ => x) (λ _ => y)
 
 -- ∀ (c : Bool) (x y : Int), (if c then x else y) > x ===>
--- ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (fun _ => x) (fun _ => y)
+-- ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => x) (λ _ => y)
 #testOptimize [ "IteToPropExprUnchanged_11" ]
-  ∀ (c : Bool) (x y : Int), (if c then x else y) > x ===> iteFalseEqCondUnchanged_9
+  ∀ (c : Bool) (x y : Int), (if c then x else y) > x ===>
+  ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => x) (λ _ => y)
 
 
 -- ∀ (a b : Bool) (s t : String), (if a = b then s else t) > s ===>
--- ∀ (a b : Bool) (s t : String), s < Blaster.dite' (a = b) (fun _ => s) (fun _ => t)
+-- ∀ (a b : Bool) (s t : String), s < Blaster.dite' (a = b) (λ _ => s) (λ _ => t)
 #testOptimize [ "IteToPropExprUnchanged_12" ]
   ∀ (a b : Bool) (s t : String), (if a = b then s else t) > s ===>
-  ∀ (a b : Bool) (s t : String), s < Blaster.dite' (a = b) (fun _ => s) (fun _ => t)
+  ∀ (a b : Bool) (s t : String), s < Blaster.dite' (a = b) (λ _ => s) (λ _ => t)
 
 
 end Test.OptimizeITE

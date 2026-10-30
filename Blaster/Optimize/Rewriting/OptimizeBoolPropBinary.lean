@@ -28,12 +28,12 @@ def propExprToBoolExpr?
            let e1 ← toBoolNotExpr bv1 a_op2
            let e2 ← toBoolNotExpr bv2 b_op2
            let boolOp ← if isBoolAnd? then mkBoolAndOp else mkBoolOrOp
-           let binExpr := mkApp2 boolOp e1 e2
-           return mkApp3 (← mkEqOp) (← mkBoolType) (← mkBoolTrue) binExpr
+           let binExpr ← mkApp2Expr boolOp e1 e2
+           mkApp3Expr (← mkEqOp) (← mkBoolType) (← mkBoolTrue) binExpr
          else
            let boolOp ← if isBoolAnd? then mkBoolOrOp else mkBoolAndOp
-           let binExpr := mkApp2 boolOp a_op2 b_op2
-           return mkApp3 (← mkEqOp) (← mkBoolType) (← mkBoolFalse) binExpr
+           let binExpr ← mkApp2Expr boolOp a_op2 b_op2
+           mkApp3Expr (← mkEqOp) (← mkBoolType) (← mkBoolFalse) binExpr
      | _, _ => return none
   | _, _ => return none
 
