@@ -101,36 +101,6 @@ private unsafe def hashconsAux (cur : Expr) (isResult : Bool) (stk : Array HashC
 def hashcons (e : Expr) : TranslateEnvT Expr :=
   unsafe hashconsAux e false (Array.emptyWithCapacity e.approxDepth.toNat)
 
-
-private unsafe def cleanHashConsAux (stk : Array Expr) : TranslateEnvT Unit := do
-  if stk.usize > 0 then
-    let topIdx := stk.usize - 1
-    let e := stk.uget topIdx lcProof
-    removeFromHashConsCache e
-    match e with
-    | .bvar .. | .mvar .. | .const .. | .fvar .. | .sort .. | .lit .. =>
-        cleanHashConsAux stk
-    | .app f a =>
-         let stk := stk.push f|>.push a
-         cleanHashConsAux stk
-    | .letE _ t v b _ =>
-         let stk := stk.push t|>.push v|>.push b
-         cleanHashConsAux stk
-    | .forallE _ t b _
-    | .lam _ t b _ =>
-         let stk := stk.push t|>.push b
-         cleanHashConsAux stk
-    | .mdata _ b
-    | .proj _ _ b =>
-         let stk := stk.push b
-         cleanHashConsAux stk
-  else return ()
-
-/-- Clean hash cons map with expression. -/
-@[always_inline, inline]
-def cleanHashCons (e : Expr) : TranslateEnvT Unit :=
-  unsafe cleanHashConsAux ((Array.emptyWithCapacity e.approxDepth.toNat)|>.push e)
-
 @[always_inline, inline]
 def getMVarAssignment! (mvar : Expr) : TranslateEnvT Expr := do
  match ← getExprMVarAssignment? mvar.mvarId! with
