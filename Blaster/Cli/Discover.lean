@@ -83,21 +83,23 @@ private def parseDiagnostics (messages : MessageLog) : IO (Array Diagnostic) := 
 /-- Parser extensions live in imported oleans. Reuse environments for identical
     import headers while scanning a directory; no source is elaborated here. -/
 private def parserEnvFor (baseEnv : Environment)
-    (cache : IO.Ref (Array (Array Import × Environment)))
+    (cache : IO.Ref (Array (Array Import × Environment × Option String)))
     (imports : Array Import) : IO (Environment × Option String) := do
   if imports.isEmpty then return (baseEnv, none)
-  if let some (_, cached) := (← cache.get).find? (fun entry => entry.1 == imports) then
-    return (cached, none)
+  if let some (_, cached, issue) := (← cache.get).find? (fun entry => entry.1 == imports) then
+    return (cached, issue)
   try
     let env ← importModules (#[{ module := `Blaster.Command }] ++ imports) {}
       (loadExts := true)
-    cache.modify (·.push (imports, env))
+    cache.modify (·.push (imports, env, none))
     return (env, none)
   catch ex =>
-    return (baseEnv, some ex.toString)
+    let issue := some ex.toString
+    cache.modify (·.push (imports, baseEnv, issue))
+    return (baseEnv, issue)
 
 private partial def discoverSource (cfg : Config) (baseEnv : Environment)
-    (cache : IO.Ref (Array (Array Import × Environment))) (seen : IO.Ref (Array Name))
+    (cache : IO.Ref (Array (Array Import × Environment × Option String))) (seen : IO.Ref (Array Name))
     (onModuleStart : String → IO Unit) (onItem : DiscoveryItem → IO Unit)
     (onModuleComplete : String → Nat → IO Unit) (followImports : Bool := true) :
     IO (Array DiscoveryItem × Array Diagnostic) := do
@@ -123,31 +125,38 @@ private partial def discoverSource (cfg : Config) (baseEnv : Environment)
           diagnostics := diagnostics ++ issues
           onModuleComplete label found.size
     return (items, diagnostics)
-  let (env, importIssue) ← parserEnvFor baseEnv cache imports
-  let (first, firstState, firstMessages) :=
-    Parser.parseCommand inputCtx { env, options := {} } parserState messages
-  let mut state := firstState
-  let mut messages := firstMessages
-  let mut command := first
-  let mut scope : Array (Option String) := #[]
-  let mut items := #[]
-  repeat
-    if command.isOfKind ``Lean.Parser.Command.eoi then break
-    if command.isOfKind ``Lean.Parser.Command.namespace then
-      scope := scope.push (some command[1].getId.toString)
-    else if command.isOfKind ``Lean.Parser.Command.section then
-      scope := scope.push none
-    else if command.isOfKind ``Lean.Parser.Command.end then
-      if !scope.isEmpty then scope := scope.pop
-    else
-      let found := collectSites inputCtx file scope command
-      for item in found do onItem item
-      items := items ++ found
-    let (next, nextState, nextMessages) :=
-      Parser.parseCommand inputCtx { env, options := {} } state messages
-    command := next
-    state := nextState
-    messages := nextMessages
+  let parse (env : Environment) : Array DiscoveryItem × MessageLog := Id.run do
+    let (first, firstState, firstMessages) :=
+      Parser.parseCommand inputCtx { env, options := {} } parserState messages
+    let mut state := firstState
+    let mut messages := firstMessages
+    let mut command := first
+    let mut scope : Array (Option String) := #[]
+    let mut items := #[]
+    repeat
+      if command.isOfKind ``Lean.Parser.Command.eoi then break
+      if command.isOfKind ``Lean.Parser.Command.namespace then
+        scope := scope.push (some command[1].getId.toString)
+      else if command.isOfKind ``Lean.Parser.Command.section then
+        scope := scope.push none
+      else if command.isOfKind ``Lean.Parser.Command.end then
+        if !scope.isEmpty then scope := scope.pop
+      else
+        items := items ++ collectSites inputCtx file scope command
+      let (next, nextState, nextMessages) :=
+        Parser.parseCommand inputCtx { env, options := {} } state messages
+      command := next
+      state := nextState
+      messages := nextMessages
+    return (items, messages)
+  let (items, parsedMessages) := parse baseEnv
+  let (items, messages, importIssue) ← if parsedMessages.hasErrors then do
+    let (env, issue) ← parserEnvFor baseEnv cache imports
+    let (items, messages) := if issue.isSome then (items, parsedMessages) else parse env
+    pure (items, messages, issue)
+  else
+    pure (items, parsedMessages, none)
+  for item in items do onItem item
   let mut diagnostics ← parseDiagnostics messages
   if let some issue := importIssue then
     diagnostics := diagnostics.push {
@@ -161,7 +170,7 @@ def discoverFile (cfg : Config) (onModuleStart : String → IO Unit)
     IO (Array DiscoveryItem × Array Diagnostic) := do
   initDiscoveryLibraries cfg
   let env ← importModules #[{ module := `Blaster.Command }] {} (loadExts := true)
-  let cache ← IO.mkRef (#[] : Array (Array Import × Environment))
+  let cache ← IO.mkRef (#[] : Array (Array Import × Environment × Option String))
   let seen ← IO.mkRef (#[] : Array Name)
   discoverSource cfg env cache seen onModuleStart onItem onModuleComplete
 
@@ -172,7 +181,7 @@ def discoverDirectory (cfg : Config) (onModuleStart : String → IO Unit)
     IO (Array DiscoveryItem × Array Diagnostic) := do
   initDiscoveryLibraries cfg
   let env ← importModules #[{ module := `Blaster.Command }] {} (loadExts := true)
-  let cache ← IO.mkRef (#[] : Array (Array Import × Environment))
+  let cache ← IO.mkRef (#[] : Array (Array Import × Environment × Option String))
   let seen ← IO.mkRef (#[] : Array Name)
   let mut items := #[]
   let mut diagnostics := #[]
