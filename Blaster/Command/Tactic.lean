@@ -46,18 +46,24 @@ def blasterTacticImp : Tactic := fun stx =>
    let opts := stx[1].getArgs
    let sOpts ← parseSolveOptions opts default
    let goal ← revertHypotheses (← getMainGoal)
-   let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
+   let property := (← Term.getDeclName?).map Name.toString |>.getD "<anonymous tactic>"
    let ((result, optExpr), _) ←
      withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0 }) $ do
        IO.setNumHeartbeats 0
-       Translate.main (← goal.getType) (logUndetermined := false) |>.run env
+       Blaster.Cli.runCaptured (← goal.getType) sOpts property "tactic" (logUndetermined := false)
    match result with
    | .Valid =>
       blasterAdmit goal
       if (← getOptions).getBool `warn.sorry true then
         logWarningAt stx "declaration uses 'blasterProven' (SMT-verified, no proof term)" -- TODO: replace with proof reconstruction
 
-   | .Falsified cex => throwTacticEx `blaster goal "Goal was falsified (see counterexample above)"
+   | .Falsified cex =>
+      if ← Blaster.Cli.capturing then
+        if Blaster.Cli.selected (← Blaster.Cli.readCapture).config property then
+          throwError (MessageData.tagged `Blaster.Cli.falsified m!"I found a counterexample to this goal")
+        else
+          throwError "I couldn't elaborate '{property}': Blaster found a counterexample in this unselected proof"
+      else throwTacticEx `blaster goal "Goal was falsified (see counterexample above)"
    | .Undetermined =>
         -- Replace the goal with the optimized expression
         let newGoal ← goal.replaceTargetDefEq optExpr

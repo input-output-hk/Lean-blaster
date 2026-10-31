@@ -1,3 +1,5 @@
 .venv/
 .lake/
 build.log
+__pycache__/
+*.pyc

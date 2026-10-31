@@ -1,11 +1,19 @@
 # Blaster - An SMT Backend for Lean4
 
 [![Lean Version](https://img.shields.io/badge/Lean-v4.24.0-blue.svg)](https://github.com/leanprover/lean4)
-[![Z3 Version](https://img.shields.io/badge/Z3-v4.15.2-green.svg)](https://github.com/Z3Prover/z3)
+[![Z3 Version](https://img.shields.io/badge/Z3-v5.3.2-green.svg)](https://github.com/Z3Prover/z3)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 Blaster provides an SMT backend for Z3 proofs. Blaster works by first aggressively optimizing the Lean expression of a theorem, sometimes up to a `True` goal, before sending the remaining goal and context to an SMT solver.
+
+The [lean-blaster executable](docs/cli.md) checks `#blaster` commands and `by blaster`
+tactics with first-person diagnostics, structured JSON output, and an optional bundled Z3.
+`lean-blaster discover FILE.lean --json` lists source sites, declaration names, bodies,
+and ranges for editor integrations without running the solver. Both `discover` and
+`check` also accept a directory and scan its Lean sources recursively.
+`lean-blaster check Properties.lean --llm report.md` writes a readable handoff for
+coding agents with compact results and detailed non-valid findings.
 
 ## Table of Contents
 
@@ -48,7 +56,7 @@ Blaster provides an SMT backend for Z3 proofs. Blaster works by first aggressive
 Blaster is built with the philosophy that fewer dependencies mean better maintainability and more optimization opportunities. That said, Blaster requires:
 
 - **Lean4** v4.24.0 (or compatible version)
-- **Z3** v5.3.1 (or latest version).
+- **Z3** v5.3.2 (or compatible version).
 
 ### Installing Lean4
 
@@ -62,7 +70,7 @@ Please follow the official installation guidelines from the [Lean4 GitHub reposi
 
 We do our best to stay updated with the latest release of Z3. However, regressions can occur and often require extensive research and resolution, so Blaster might be slightly behind the latest version.
 
-**Currently supported version:** Z3 v5.3.1
+**Currently supported version:** Z3 v5.3.2
 
 > **Note:** Blaster should work with later releases, though no guarantees are made.
 
