@@ -39,7 +39,7 @@ jobs:
           cd /home/runner/
           wget -q https://github.com/Z3Prover/z3/releases/download/z3-${{ env.Z3_VERSION }}/z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}.zip
           unzip -q z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}.zip
-          chmod +x z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}.zip
+          chmod +x z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}/bin/z3
           echo "/home/runner/z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}/bin" >> $GITHUB_PATH
 
       - name: Resolve Z3 master commit
@@ -84,6 +84,9 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@v6
+
+      - name: Validate solver capability
+        run: lake env lean --run Z3Check.lean
 
       - name: Build and Validate Blaster
         run: make check_blaster
