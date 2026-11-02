@@ -1,8 +1,8 @@
 {
   "run": {
-    "id": "40277988753",
-    "time": "2026-10-26T07:35:21+00:00",
-    "url": "https://github.com/input-output-hk/Lean-blaster/actions/runs/40277988753"
+    "id": "41397793998",
+    "time": "2026-11-02T07:23:59+00:00",
+    "url": "https://github.com/input-output-hk/Lean-blaster/actions/runs/41397793998"
   },
   "schema_version": 1,
   "statements": {
@@ -5855,7 +5855,7 @@
       "blaster": {
         "d_sum_1024": "OK",
         "d_sum_16": "OK",
-        "d_sum_16384": "TIMEOUT",
+        "d_sum_16384": "OK",
         "d_sum_256": "OK",
         "d_sum_4": "OK",
         "d_sum_4096": "OK",
@@ -5864,7 +5864,7 @@
       "blaster (only-optimize: 1)": {
         "d_sum_1024": "OK",
         "d_sum_16": "OK",
-        "d_sum_16384": "TIMEOUT",
+        "d_sum_16384": "OK",
         "d_sum_256": "OK",
         "d_sum_4": "OK",
         "d_sum_4096": "OK",
@@ -6995,15 +6995,15 @@
     "auto": {
       "branch": "main",
       "build_status": "OK",
-      "resolved_commit": "8073db802",
+      "resolved_commit": "30f46ddb9",
       "tactic": "auto",
       "tool": "auto",
-      "toolchain": "leanprover/lean4:v4.34.1"
+      "toolchain": "leanprover/lean4:v4.35.0"
     },
     "blaster": {
       "branch": "main",
       "build_status": "OK",
-      "resolved_commit": "6c27ff9fa",
+      "resolved_commit": "a16614e5e",
       "tactic": "blaster",
       "tool": "blaster",
       "toolchain": "leanprover/lean4:v4.24.0"
@@ -7011,7 +7011,7 @@
     "blaster (only-optimize: 1)": {
       "branch": "main",
       "build_status": "OK",
-      "resolved_commit": "6c27ff9fa",
+      "resolved_commit": "a16614e5e",
       "tactic": "blaster (only-optimize: 1)",
       "tool": "blaster",
       "toolchain": "leanprover/lean4:v4.24.0"
@@ -7050,7 +7050,7 @@
     },
     "smt +model": {
       "branch": "main",
-      "build_status": "OK",
+      "build_status": "CACHED",
       "resolved_commit": "db545bebe",
       "tactic": "smt +model",
       "tool": "smt",
