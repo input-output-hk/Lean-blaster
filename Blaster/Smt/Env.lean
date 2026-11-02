@@ -315,12 +315,15 @@ def definePredQualifier (s : SmtSymbol) (t : Array SortExpr) (assertFlag : Optio
      - Declare smt instance sort `(declare-sort instSym 0)`
      - let instSort := .SymbolSort instSym
      - Declare smt predicate `(declare-fun decl.instName ((instSort) (decl.instSort)) Bool)`
+    Assume that decl.instSort = .SymbolSort typeSm
 -/
-def defineTypeSort (typeSym : SmtSymbol) (instSym : SmtSymbol) (decl: IndTypeDeclaration) : TranslateEnvT Unit := do
-  declareSort typeSym 0
-  declareSort instSym 0
-  declareFun decl.instName #[.SymbolSort instSym, decl.instSort] boolSort
-
+def defineTypeSort
+  (typeSym : SmtSymbol) (instSym : SmtSymbol)
+  (decl: IndTypeDeclaration) : TranslateEnvT Unit := do
+    declareSort typeSym 0
+    declareSort instSym 0
+    let instanceSort := .SymbolSort instSym
+    declareFun decl.instName #[instanceSort, decl.instSort] boolSort
 
 /-- Perform the following actions:
      - Declare Empty sort in Smt Lib
@@ -340,6 +343,16 @@ def definePEmptySort (isPEmptySym : SmtSymbol) : TranslateEnvT Unit := do
   declareSort pemptySymbol 0
   definePredQualifier isPEmptySym #[pemptySort] (some false)
 
+
+/-- Perform the following actions:
+     - Define PUnit datatype in smt lib
+        `(declare-datatype PUnit ((PUnit.unit)))`
+     - Define smt predicate `(define-fun @isPUnit ((@x PUnit) Bool true)`
+    Assume `isPUnitSym := @isPUnit`
+-/
+def definePUnitType (isPUnitSym : SmtSymbol) : TranslateEnvT Unit := do
+  declareDataType punitSymbol ⟨none, #[(punitCtorSymbol, none)]⟩
+  definePredQualifier isPUnitSym #[punitSort] (some true)
 
 /-- Perform the following actions:
      - Define Prop sort in Smt Lib, which is an alias to Bool Smt Sort

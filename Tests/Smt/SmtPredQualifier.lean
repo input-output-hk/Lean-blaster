@@ -85,12 +85,12 @@ mutual
 end
 
 #blaster [ (∀ (β : Type) (x : Term (List β)) (f : Term (List β) → Nat), f x > 10) →
-         (∀ (α : Type) (x y : Term (List α)) (f : Term (List α) → Nat), f x + f y > 20)
-       ]
+           (∀ (α : Type) (x y : Term (List α)) (f : Term (List α) → Nat), f x + f y > 20)
+         ]
 
 #blaster [ (∀ (β : Type) (x : Term (List β)) (g : Term (List β) → Nat), g x > 10) →
-         (∀ (α : Type) (x y : Term (List α)) (f : Term (List α) → Nat), f x + f y > 20)
-       ]
+           (∀ (α : Type) (x y : Term (List α)) (f : Term (List α) → Nat), f x + f y > 20)
+         ]
 
 inductive Either (α : Type u) (β : Type v) where
  | Left : α -> Either α β
