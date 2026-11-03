@@ -226,7 +226,7 @@ def translateIntFMod (n : Expr) : TranslateEnvT SmtQualifiedIdent := do
 def translateIntPow (f : Expr) : TranslateEnvT SmtQualifiedIdent := do
  match (← get).smtEnv.funInstCache.get? f with
  | none =>
-    discard $ translateNatSub (mkConst ``Nat.sub)
+    discard $ translateNatSub (← mkNatSubOp)
     defineIntPow
     let smtId ← updateFunInstCache f intPowSymbol
     return smtId
