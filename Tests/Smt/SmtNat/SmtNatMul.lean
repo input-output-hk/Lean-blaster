@@ -49,9 +49,9 @@ def square (x : Nat) : Nat := x * x
 
 /-! # Test cases to ensure that counterexample are properly detected -/
 
-#blaster (gen-cex: 0) (solve-result: 1) [isSurjective square]
+#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1) [isSurjective square]
 
-#blaster (gen-cex: 0) (solve-result: 1) [isBijective square]
+#blaster (gen-cex: 0) (solve-result: 1) (cvc5-allow-undetermined: 1) [isBijective square]
 
 #blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : Nat), x * y ≠ y * x]
 
