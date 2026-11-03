@@ -925,7 +925,9 @@ def translateInductiveType
 
   genIndParams (indVal : InductiveVal) : TranslateEnvT (Option (Array SmtSymbol)) := do
    let params ←
-     Optimize.forallTelescope (← hashcons indVal.type) fun fvars _ => do
+     -- Not hash-consed: sharing ignores binder names, and the parameters' names must be
+     -- this inductive's own, the ones its constructors' field types refer to.
+     Optimize.forallTelescope indVal.type fun fvars _ => do
         let mut polyParams := #[]
         for h : i in [: fvars.size] do
           let arg := fvars[i]
