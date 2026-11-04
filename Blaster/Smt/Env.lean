@@ -668,6 +668,8 @@ def setSimplifier (s : String) : TranslateEnvT Unit := do
      - (set-option :smt.random-seed n) when `n` is provided in solver options
      - (set-simplifier recfun-finder)
      - (set-option :smt.macro_finder true)
+     - (set-option :smt.case_split_relevant_first true)
+     - (set-option :smt.qi.persist_instances true)
      - (set-option :smt.arith.nl.grobner_expand_terms false)
      - (set-option :smt.arith.nl.reduce_pseudo_linear false)
      - (set-option :smt.arith.nl.grobner_exp_delay false)
