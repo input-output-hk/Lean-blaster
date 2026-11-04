@@ -11,14 +11,16 @@ namespace Tests.MatchToITE
 /-! Test cases to validate when match expression must be normalized to "ite". -/
 
 -- ∀ (a b c : Bool), cond c a b = true ===>
--- ∀ (a b c : Bool), (false = c → true = b) ∧ (true = c → true = a)
-#testOptimize ["MatchToITE_1"] ∀ (a b c : Bool), cond c a b = true ===>
-                               ∀ (a b c : Bool), (false = c → true = b) ∧ (true = c → true = a)
+-- ∀ (a b c : Bool), Blaster.dite' (true = c) (λ _ => true = a) (λ _ =>  true = b)
+#testOptimize ["MatchToITE_1"]
+  ∀ (a b c : Bool), cond c a b = true ===>
+  ∀ (a b c : Bool), Blaster.dite' (true = c) (λ _ => true = a) (λ _ =>  true = b)
 
 -- ∀ (a b c : Bool), cond c a b ===>
--- ∀ (a b c : Bool), (false = c → true = b) ∧ (true = c → true = a)
-#testOptimize ["MatchToITE_2"] ∀ (a b c : Bool), cond c a b ===>
-                               ∀ (a b c : Bool), (false = c → true = b) ∧ (true = c → true = a)
+-- ∀ (a b c : Bool), Blaster.dite' (true = c) (λ _ => true = a) (λ _ => true = b)
+#testOptimize ["MatchToITE_2"]
+  ∀ (a b c : Bool), cond c a b ===>
+  ∀ (a b c : Bool), Blaster.dite' (true = c) (λ _ => true = a) (λ _ => true = b)
 
 
 def isNilOne (x : List Nat) : Bool :=
@@ -247,9 +249,9 @@ def namedPatternNat (x : Nat) (y : Nat) : Nat :=
 
 def iteNamedPatternNat (x : Nat) (y : Nat) : Nat :=
   if x = 0 then 0
-  else if y = 0 then 1
+  else if y = 0 then 1 + y
   else if x = 1 then y + 1
-  else if y = 1 then x + 1
+  else if y = 1 then x + y
   else if x ≥ 4 then y + (x + (((x - 2) + (x - 4)) + (x - 1)))
   else if x ≥ 2 ∧ y ≥ 5 then (((x + (x - 2)) * (y - 5)) * (y - 2)) * (y - 1)
   else (x * (x - 2)) * 6
@@ -317,7 +319,7 @@ def iteNamedPatternList (x : List Int) (y : List Nat) : Nat :=
  else if x = [-4, -6, 3] then List.length y + 3
  else List.length x + List.length y + 8
 
--- ∀ (x : List Int) (y : List Nat), matchDiscrList x y = iteDiscrList x y ===> True
+-- ∀ (x : List Int) (y : List Nat), namedPatternList x y = iteNamedPatternList x y ===> True
 #testOptimize ["MatchToITE_16"] ∀ (x : List Int) (y : List Nat), namedPatternList x y = iteNamedPatternList x y ===> True
 
 
@@ -339,6 +341,90 @@ def iteReducedMatchCons (x : List Int) (y : List Nat) : Nat :=
   ∀ (m n : Nat) (y : List Nat), namedPatternList [m, n] y = iteReducedMatchCons [m, n] y ===> True
 
 
+inductive Color where
+  | red : Color
+  | transparent : Color
+  | blue : Color
+  | black : Color
+
+def colorRank (x : Color) : Nat :=
+ match x with
+ | .black => 0
+ | .transparent => 1
+ | .blue  => 2
+ | .red  => 3
+
+def toColorDegreeOne (x : Color) : Nat :=
+  match x with
+  | .red => 2 * colorRank x
+  | .blue  => 4 * colorRank x
+  | .black => colorRank x
+  | .transparent => colorRank x
+
+def iteColorDegreeOne [DecidableEq Color] (x : Color) : Nat :=
+  if x = .red then 6
+  else if x = .blue then 8
+  else if x = .black then 0
+  else 1
+
+-- ∀ (x : Color), toColorDegreeOne x = iteColorDegreeOne x ===> True
+-- NOTE: Test cases considering mvars in last pattern
+-- Uncomment when hashconsing in place
+#testOptimize ["MatchToITE_19"]
+  ∀ (x : Color) [DecidableEq Color], toColorDegreeOne x = iteColorDegreeOne x ===> True
+
+
+def heqNamedPatternNat (x : Nat) (y : Nat) (g : (x : Nat) → x = 2 → Nat) (f : (y : Nat) → y = 1 → Nat) : Nat :=
+ match heq1 : x, heq2 : y with
+ | Nat.zero, _ => x
+ | _, Nat.zero => y + 1
+ | Nat.succ Nat.zero, _ => y + x
+ | Nat.succ (Nat.succ Nat.zero) , Nat.succ Nat.zero => g x heq1 + f y heq2
+ | r@(Nat.succ q@(Nat.succ p@(Nat.succ (Nat.succ n)))), z => n + p + q + r + z
+ | r@(Nat.succ (Nat.succ n1)), Nat.succ q@(Nat.succ p@(Nat.succ (Nat.succ ((Nat.succ n2))))) => (r + n1) * n2 * p * q
+ | q@(Nat.succ (Nat.succ n)), _ => q * n * 6
+
+
+def iteHeqNamedPatternNat (x : Nat) (y : Nat) (g : (x : Nat) → x = 2 → Nat) (f : (y : Nat) → y = 1 → Nat) : Nat :=
+  if x = 0 then 0
+  else if y = 0 then 1 + y
+  else if x = 1 then y + 1
+  else if h : x = 2 ∧ y = 1 then g x (And.left h) + f y (And.right h)
+  else if x ≥ 4 then y + (x + (((x - 2) + (x - 4)) + (x - 1)))
+  else if x ≥ 2 ∧ y ≥ 5 then (((x + (x - 2)) * (y - 5)) * (y - 2)) * (y - 1)
+  else (x * (x - 2)) * 6
+
+-- ∀ (x y z : Nat) (g : (x : Nat) → x = 2 → Nat) (f : (y : Nat) → y = 1 → Nat),
+--  heqNamedPatternNat x y g f = iteHeqNamedPatternNat x y g f ===> true
+#testOptimize ["MatchToITE_20"]
+  ∀ (x y : Nat) (g : (x : Nat) → x = 2 → Nat) (f : (y : Nat) → y = 1 → Nat),
+    heqNamedPatternNat x y g f = iteHeqNamedPatternNat x y g f ===> True
+
+-- ∀ (x y z : Nat) (g : (x : Nat) → x = 2 → Nat) (f : (y : Nat) → y = 1 → Nat), z < heqNamedPatternNat x y ===>
+#testOptimize ["MatchToITE_21"] (norm-result: 1)
+  ∀ (x y z : Nat) (g : (x : Nat) → x = 2 → Nat) (f : (y : Nat) → y = 1 → Nat),
+      z < heqNamedPatternNat x y g f ===>
+  ∀ (x y z : Nat) (g : (x : Nat) → 2 = x → Nat) (f : (y : Nat) → 1 = y → Nat),
+    z < Blaster.dite' (0 = x)
+    (λ _ => 0)
+    (λ _ =>
+      Blaster.dite' (0 = y)
+      (λ _ => 1)
+      (λ _ =>
+        Blaster.dite' (1 = x)
+        (λ _ => Nat.add 1 y)
+        (λ _ =>
+          Blaster.dite' (1 = y ∧ 2 = x)
+          (λ _ => Nat.add (g 2 (by rfl)) (f 1 (by rfl)))
+          (λ _ =>
+            Blaster.dite' (x < 4)
+            (λ _ =>
+              Blaster.dite' ((¬ x < 2) ∧ (¬ y < 5))
+              (λ _ => Nat.mul (Nat.mul (Nat.mul (Nat.add x (Nat.sub x 2)) (Nat.sub y 5)) (Nat.sub y 2)) (Nat.sub y 1))
+              (λ _ => Nat.mul 6 (Nat.mul x (Nat.sub x 2)))
+            )
+            (λ _ => Nat.add y (Nat.add x (Nat.add (Nat.add (Nat.sub x 2) (Nat.sub x 4)) (Nat.sub x 1))))))))
+
 /-! Test cases to validate when match expression must NOT be normalized to "ite". -/
 
 def condUnchanged (a : Option Bool) (b : Bool) (c : Bool) : Bool :=
@@ -348,15 +434,15 @@ def condUnchanged (a : Option Bool) (b : Bool) (c : Bool) : Bool :=
 
 -- ∀ (a : Option Bool) (b c : Bool), condUnchanged a b c ===>
 -- ∀ (a : Option Bool) (b c : Bool),
---  condUnchanged.match_1 (fun (_ : Option Bool) => Prop) a
---  (fun (_ : Unit) => False)
---  (fun (d : Bool) => (false = d → true = c) ∧ (true = d → true = b))
+--  match a with
+--  | none => False
+--  | some d => Blaster.dite' (true = d) (λ _ => true = b) (λ _ => true = c)
 #testOptimize ["MatchToITEUnchanged_1"]
   ∀ (a : Option Bool) ( b c : Bool), condUnchanged a b c ===>
   ∀ (a : Option Bool) ( b c : Bool),
-    condUnchanged.match_1 (fun (_ : Option Bool) => Prop) a
-    (fun (_ : Unit) => False)
-    (fun (d : Bool) => (false = d → true = c) ∧ (true = d → true = b))
+    match a with
+    | none => False
+    | some d => Blaster.dite' (true = d) (λ _ => true = b) (λ _ => true = c)
 
 def isNilUnchanged (x : List Nat) : Bool :=
   match x with

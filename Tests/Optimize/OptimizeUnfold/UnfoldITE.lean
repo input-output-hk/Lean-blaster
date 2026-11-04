@@ -31,13 +31,16 @@ namespace Tests.UnfoldITE
                                 ∀ (y z : Int), y < z
 
 -- ∀ (a b c : Bool), (if c then a else b) = true ===>
--- ∀ (a b c : Bool), (false = c → true = b) ∧ (true = c → true = a)
-#testOptimize [ "UnfoldIte_7" ] ∀ (a b c : Bool), (if c then a else b) = true ===>
-                                ∀ (a b c : Bool), (false = c → true = b) ∧ (true = c → true = a)
+-- ∀ (a b c : Bool), Blaster.dite' (true = c) (λ _ => true = a) (λ _ => true = b)
+#testOptimize [ "UnfoldIte_7" ]
+  ∀ (a b c : Bool), (if c then a else b) = true ===>
+  ∀ (a b c : Bool), Blaster.dite' (true = c) (λ _ => true = a) (λ _ => true = b)
 
--- ∀ (c : Bool) (p q : Prop), if c then p else q ===> ∀ (c : Bool) (p q : Prop), (false = c → q) ∧ (true = c → p)
-#testOptimize [ "UnfoldIte_8" ] ∀ (c : Bool) (p q : Prop), if c then p else q ===>
-                                ∀ (c : Bool) (p q : Prop), (false = c → q) ∧ (true = c → p)
+-- ∀ (c : Bool) (p q : Prop), if c then p else q ===>
+-- ∀ (c : Bool) (p q : Prop), Blaster.dite' (true = c) (λ _ => p) (λ _ => q)
+#testOptimize [ "UnfoldIte_8" ]
+  ∀ (c : Bool) (p q : Prop), if c then p else q ===>
+  ∀ (c : Bool) (p q : Prop), Blaster.dite' (true = c) (λ _ => p) (λ _ => q)
 
 
 /-! Test cases to validate when `ite` expressions must not be unfolded -/

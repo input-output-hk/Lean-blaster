@@ -16,7 +16,7 @@ def coiExists (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
   match args[1]! with
   | Expr.lam _n t e _bi =>
       if (← (isSortOrInhabited t (existsQuantifier := true)) <&&> (pure !(e.hasLooseBVar 0))) then return e
-      return mkAppN f args
+      mkAppNExpr f args
   | _ => throwEnvError "coiExists: lambda expression expected but got {reprStr args[1]!}"
 
 

@@ -14,17 +14,17 @@ namespace Blaster.Optimize
 -/
 def decideOpDecide?
   (op1 : Expr) (op2 : Expr)
-  (mkOpExpr : Expr → Expr → Expr) : TranslateEnvT (Option Expr) := do
+  (mkOpExpr : Expr → Expr → TranslateEnvT Expr) : TranslateEnvT (Option Expr) := do
   match decide'? op1, decide'? op2 with
   | some e1, some e2 =>
       setRestart
-      return mkApp (← mkBlasterDecideConst) (mkOpExpr e1 e2)
+      mkAppExpr (← mkBlasterDecideConst) (← mkOpExpr e1 e2)
   | some e1, _ =>
       setRestart
-      return mkApp (← mkBlasterDecideConst) (mkOpExpr e1 (mkApp3 (← mkEqOp) (← mkBoolType) (← mkBoolTrue) op2))
+      mkAppExpr (← mkBlasterDecideConst) (← mkOpExpr e1 (← mkApp3Expr (← mkEqOp) (← mkBoolType) (← mkBoolTrue) op2))
   | _, some e1 =>
       setRestart
-      return mkApp (← mkBlasterDecideConst) (mkOpExpr e1 (mkApp3 (← mkEqOp) (← mkBoolType) (← mkBoolTrue) op1))
+      mkAppExpr (← mkBlasterDecideConst) (← mkOpExpr e1 (← mkApp3Expr (← mkEqOp) (← mkBoolType) (← mkBoolTrue) op1))
   | _, _ => return none
 
 
@@ -42,7 +42,7 @@ def decideOpDecide?
 def optimizeDecideBoolAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let e ← optimizeBoolAnd f args
  let some (op1, op2) := boolAnd? e | return e
- if let some r ← decideOpDecide? op1 op2 (mkApp2 (← mkPropAndOp)) then return r
+ if let some r ← decideOpDecide? op1 op2 (mkApp2Expr (← mkPropAndOp)) then return r
  return e
 
 /-- Call `optimizeBoolOr f args` and apply the following `decide` simplification/normalization
@@ -61,7 +61,7 @@ def optimizeDecideBoolAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr :=
 def optimizeDecideBoolOr (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let e ← optimizeBoolOr f args
  let some (op1, op2) := boolOr? e | return e
- if let some r ← decideOpDecide? op1 op2 (mkApp2 (← mkPropOrOp)) then return r
+ if let some r ← decideOpDecide? op1 op2 (mkApp2Expr (← mkPropOrOp)) then return r
  return e
 
 

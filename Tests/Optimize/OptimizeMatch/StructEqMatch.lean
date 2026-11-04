@@ -174,16 +174,12 @@ def BuiltinArg.decEq (x y : BuiltinArg) : Decidable (Eq x y) :=
 instance : DecidableEq BuiltinArg := BuiltinArg.decEq
 
 -- ∀ (x : Nat) (l : BuiltinArg), ifArgVOtherwiseError x l ≠ ifArgQOtherwiseError x l ===>
--- ∀ (x : Nat) (l : BuiltinArg),
---  ¬ ( (¬ BuiltinArg.ArgQ = l → ¬ BuiltinArg.ArgV = l) ∧
---      (BuiltinArg.ArgQ = l → BuiltinArg.ArgV = l) )
+-- ∀ (l : BuiltinArg), (BuiltinArg.ArgQ = l ∨ BuiltinArg.ArgV = l)
 -- Test case to ensure that we are not wrongly performing structural equivalence on match
 -- NOTE: Reduction due to ite over function propagation rule
 #testOptimize [ "MatchStructEqUnchanged_1" ]
   ∀ (x : Nat) (l : BuiltinArg), ifArgVOtherwiseError x l ≠ ifArgQOtherwiseError x l ===>
-  ∀ (l : BuiltinArg),
-    ¬ ( (¬ BuiltinArg.ArgQ = l → ¬ BuiltinArg.ArgV = l) ∧
-        (BuiltinArg.ArgQ = l → BuiltinArg.ArgV = l) )
+  ∀ (l : BuiltinArg), (BuiltinArg.ArgQ = l ∨ BuiltinArg.ArgV = l)
 
 
 def discrAbstractInversedOne (x : List α) (y : Option α) : Bool :=
@@ -208,34 +204,34 @@ def discrAbstractInversedTwo (x : List α) (y : Option α) : Bool :=
 
 -- ∀ (α : Type) (x : List α) (y : Option α), discrAbstractTwo x y ≠ discrAbstractInversedTwo x y ===>
 -- ∀ (α : Type) (x : List α) (y : Option α),
---   ¬  ( discrAbstractInversedTwo.match_1 (fun (_ : List α) (_ : Option α) => Prop) x y
---        (fun (_ : List α) =>
---          ( discrAbstractTwo.match_1 (fun (_ : List α) (_ : Option α) => Prop) x y
---            (fun (_ : α) => False)
---            (fun (_ : List α) => True)
---            (fun (_ : List α) (_ : Option α) => False)))
---        (fun (_ : α) => True)
---        (fun (_ : List α) (_ : Option α) =>
---          ( discrAbstractTwo.match_1 (fun (_ : List α) (_ : Option α) => Prop) x y
---            (fun (_ : α) => True)
---            (fun (_ : List α) => False)
---            (fun (_ : List α) (_ : Option α) => True))))
+--   ( discrAbstractInversedTwo.match_1 (fun (_ : List α) (_ : Option α) => Prop) x y
+--       (fun (_ : List α) =>
+--         ( discrAbstractTwo.match_1 (fun (_ : List α) (_ : Option α) => Prop) x none
+--           (fun (_ : α) => True)
+--           (fun (_ : List α) => False)
+--           (fun (_ : List α) (_ : Option α) => True)))
+--       (fun (_ : α) => False)
+--       (fun (_ : List α) (_ : Option α) =>
+--         ( discrAbstractTwo.match_1 (fun (_ : List α) (_ : Option α) => Prop) x y
+--           (fun (_ : α) => False)
+--           (fun (_ : List α) => True)
+--           (fun (_ : List α) (_ : Option α) => False))))
 -- Test case to ensure that we are not wrongly performing structural equivalence on match
 -- NOTE: some match cases reduce to True due to elimMatch optimization rules.
 #testOptimize [ "MatchStructEqUnchanged_3" ]
   ∀ (α : Type) (x : List α) (y : Option α), discrAbstractTwo x y ≠ discrAbstractInversedTwo x y ===>
   ∀ (α : Type) (x : List α) (y : Option α),
-    ¬  ( discrAbstractInversedTwo.match_1 (fun (_ : List α) (_ : Option α) => Prop) x y
-         (fun (_ : List α) =>
-           ( discrAbstractTwo.match_1 (fun (_ : List α) (_ : Option α) => Prop) x y
-             (fun (_ : α) => False)
-             (fun (_ : List α) => True)
-             (fun (_ : List α) (_ : Option α) => False)))
-         (fun (_ : α) => True)
-         (fun (_ : List α) (_ : Option α) =>
-           ( discrAbstractTwo.match_1 (fun (_ : List α) (_ : Option α) => Prop) x y
-             (fun (_ : α) => True)
-             (fun (_ : List α) => False)
-             (fun (_ : List α) (_ : Option α) => True))))
+    ( discrAbstractInversedTwo.match_1 (fun (_ : List α) (_ : Option α) => Prop) x y
+        (fun (_ : List α) =>
+          ( discrAbstractTwo.match_1 (fun (_ : List α) (_ : Option α) => Prop) x none
+            (fun (_ : α) => True)
+            (fun (_ : List α) => False)
+            (fun (_ : List α) (_ : Option α) => True)))
+        (fun (_ : α) => False)
+        (fun (_ : List α) (_ : Option α) =>
+          ( discrAbstractTwo.match_1 (fun (_ : List α) (_ : Option α) => Prop) x y
+            (fun (_ : α) => False)
+            (fun (_ : List α) => True)
+            (fun (_ : List α) (_ : Option α) => False))))
 
 end Tests.StructEqMatch

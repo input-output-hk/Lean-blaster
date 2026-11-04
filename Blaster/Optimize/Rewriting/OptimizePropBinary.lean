@@ -17,11 +17,10 @@ namespace Blaster.Optimize
         - return `none`
  -/
  def andPropReduction? (a : Expr) (b : Expr) : TranslateEnvT (Option Expr) := do
-  let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
-  if (← inHypMap a hyps).isSome then return b
-  if (← inHypMap b hyps).isSome then return a
-  if (← notInHypMap a hyps).isSome then return (← mkPropFalse)
-  if (← notInHypMap b hyps).isSome then return (← mkPropFalse)
+  if (← inHypMap a).isSome then return b
+  if (← inHypMap b).isSome then return a
+  if (← notInHypMap a).isSome then return (← mkPropFalse)
+  if (← notInHypMap b).isSome then return (← mkPropFalse)
   return none
 
 
@@ -55,7 +54,7 @@ def optimizeAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if let some r ← andImpliesReduce? op1 op2 then return r
  if let some r ← andPropReduction? op1 op2 then return r
  -- no caching at this level as optimizeAnd is called by optimizeBoolPropAnd
- return mkApp2 f op1 op2
+ mkApp2Expr f op1 op2
 
  where
    /-- Given `a` and `b` the operands for `And`, apply the simplification rules:
@@ -73,13 +72,13 @@ def optimizeAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      | Expr.forallE _ t1 c1 _ =>
          if exprEq t1 a && !(c1.hasLooseBVars) then
            setRestart
-           return mkApp2 f a c1
+           return ← mkApp2Expr f a c1
          if exprEq c1 a then return a -- no need to restart here
          match a with
          | Expr.forallE _ t2 c2 _ =>
             if !(exprEq c1 c2) then return none
-            let not_t2 ← optimizeNot (← mkPropNotOp) (cacheResult := false) #[t2]
-            if t1 == not_t2 then return c1 -- no need to restart here
+            let not_t2 ← optimizeAdvancedNot (← mkPropNotOp) (restart := false) #[t2]
+            if exprEq t1 not_t2 then return c1 -- no need to restart here
             else return none
          | _ => return none
      | _ => return none
@@ -97,11 +96,10 @@ def optimizeAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
         - return `none`
  -/
  def orPropReduction? (a : Expr) (b : Expr) : TranslateEnvT (Option Expr) := do
-  let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
-  if (← inHypMap a hyps).isSome then return (← mkPropTrue)
-  if (← inHypMap b hyps).isSome then return (← mkPropTrue)
-  if (← notInHypMap a hyps).isSome then return b
-  if (← notInHypMap b hyps).isSome then return a
+  if (← inHypMap a).isSome then return (← mkPropTrue)
+  if (← inHypMap b).isSome then return (← mkPropTrue)
+  if (← notInHypMap a).isSome then return b
+  if (← notInHypMap b).isSome then return a
   return none
 
 
@@ -150,7 +148,7 @@ def optimizeOr (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if let some r ← orImpliesReduce? op1 op2 then return r
  if let some r ← orPropReduction? op1 op2 then return r
  -- no caching at this level as optimizeOr is called by optimizeBoolPropOr
- return mkApp2 f op1 op2
+ mkApp2Expr f op1 op2
 
 
 /-- Normalize `p ↔ p` to `p → q ∧ p → q`
@@ -161,6 +159,6 @@ def optimizeIff (args : Array Expr) : TranslateEnvT Expr := do
  let op1 := args[0]!
  let op2 := args[1]!
  setRestart
- return mkApp2 (← mkPropAndOp) (← mkImpliesExpr op1 op2) (← mkImpliesExpr op2 op1)
+ mkApp2Expr (← mkPropAndOp) (← mkImpliesExpr op1 op2) (← mkImpliesExpr op2 op1)
 
 end Blaster.Optimize

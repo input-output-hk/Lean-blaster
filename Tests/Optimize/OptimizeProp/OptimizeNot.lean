@@ -98,9 +98,10 @@ namespace Tests.OptimizeNot
 -- ¬ (a → b) ===> ¬ (a → b)
 #testOptimize [ "NotUnchanged_4" ] ∀ (a b : Prop), ¬ (a → b) ===> ∀ (a b : Prop), ¬ (a → b)
 
--- ¬ (if c then a else b) ===> ¬ ((false = c → b) ∧ (true = c → a))
-#testOptimize [ "NotUnchanged_5" ] ∀ (c : Bool) (a b : Prop), ¬ (if c then a else b) ===>
-                                   ∀ (c : Bool) (a b : Prop), ¬ ((false = c → b) ∧ (true = c → a))
+-- ¬ (if c then a else b) ===> ¬ (Blaster.dite' (true = c) (λ _ => a) (λ _ => b))
+#testOptimize [ "NotUnchanged_5" ]
+  ∀ (c : Bool) (a b : Prop), ¬ (if c then a else b) ===>
+  ∀ (c : Bool) (a b : Prop), ¬ (Blaster.dite' (true = c) (λ _ => a) (λ _ => b))
 
 -- ¬ ((¬ a) ∧ b) ===> ¬ ((¬ a) ∧ b)
 -- NOTE: reordering applied on commutative operators
