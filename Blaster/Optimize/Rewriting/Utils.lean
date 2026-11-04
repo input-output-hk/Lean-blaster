@@ -388,7 +388,10 @@ def reorderOperands (f : Expr) (args : Array Expr) : TranslateEnvT (Array Expr) 
   let Expr.const n _ := f | return args
   match n with
   | ``Nat.add
-  | ``Nat.mul =>
+  | ``Nat.mul
+  | ``Nat.land
+  | ``Nat.lor
+  | ``Nat.xor =>
        if args.size != 2 then return args
        let (op1, op2) := reorderNatOp args
        return #[op1, op2]
