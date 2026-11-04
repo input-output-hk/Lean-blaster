@@ -187,4 +187,14 @@ protected theorem implies_self_eq_true (a : Prop) : (a → a) = True := by
   apply propext
   exact imp_self
 
+/-! ## Lemmas validating the COI reductions on quantifiers:
+  - `∀ (n : t), e ==> e (if isSortOrInhabited t ∧ Type(e) = Prop ∧ ¬ fVarInExpr n.fvarId! e)`
+  - `∃ (n : t), e ==> e (if isSortOrInhabited t ∧ ¬ e.hasLooseBVar 0)`
+-/
+protected theorem forall_coi.{u} (α : Sort u) (b : Prop) [Nonempty α] : (α → b) = b :=
+  propext (forall_const α)
+
+protected theorem exists_coi.{u} (α : Sort u) (b : Prop) [Nonempty α] : (∃ _ : α, b) = b :=
+  propext (exists_const α)
+
 end Blaster

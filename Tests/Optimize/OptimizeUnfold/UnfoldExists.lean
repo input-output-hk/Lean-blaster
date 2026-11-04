@@ -15,11 +15,11 @@ namespace Tests.UnfoldExists
 /-! Test cases to validate when `Exists must not be unfolded -/
 
 -- ∀ (x : Int), ∃ (y z : Int), y > x ∧ z > y ===> ∀ (x : Int), ∃ (y z : Int), x < y ∧ y < z
-#testOptimize [ "ExistsNotUnfolded_1" ] ∀ (x : Int), ∃ (y z : Int), y > x ∧ z > y ===>
+#testOptimize [ "ExistsNotUnfolded_1", proof ] ∀ (x : Int), ∃ (y z : Int), y > x ∧ z > y ===>
                                         ∀ (x : Int), ∃ (y z : Int), x < y ∧ y < z
 
 -- ∀ (x : Nat), ∃ (y z : Nat), y > x ∧ z > y ===> ∀ (x : Nat), ∃ (y z : Nat), x < y ∧ y < z
-#testOptimize [ "ExistsNotUnfolded_2" ] ∀ (x : Nat), ∃ (y z : Nat), y > x ∧ z > y ===>
+#testOptimize [ "ExistsNotUnfolded_2", proof ] ∀ (x : Nat), ∃ (y z : Nat), y > x ∧ z > y ===>
                                         ∀ (x : Nat), ∃ (y z : Nat), x < y ∧ y < z
 
 
