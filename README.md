@@ -1,3 +1,4 @@
+
 # Blaster - An SMT Backend for Lean4
 
 [![Lean Version](https://img.shields.io/badge/Lean-v4.24.0-blue.svg)](https://github.com/leanprover/lean4)
@@ -48,7 +49,7 @@ Blaster provides an SMT backend for Z3 proofs. Blaster works by first aggressive
 Blaster is built with the philosophy that fewer dependencies mean better maintainability and more optimization opportunities. That said, Blaster requires:
 
 - **Lean4** v4.24.0 (or compatible version)
-- **Z3** v5.3.1 (or latest version).
+- **Z3** master branch for now until official release v5.3.4 is out.
 
 ### Installing Lean4
 
@@ -62,7 +63,7 @@ Please follow the official installation guidelines from the [Lean4 GitHub reposi
 
 We do our best to stay updated with the latest release of Z3. However, regressions can occur and often require extensive research and resolution, so Blaster might be slightly behind the latest version.
 
-**Currently supported version:** Z3 v5.3.1
+**Currently supported version:** Z3 master branch
 
 > **Note:** Blaster should work with later releases, though no guarantees are made.
 
