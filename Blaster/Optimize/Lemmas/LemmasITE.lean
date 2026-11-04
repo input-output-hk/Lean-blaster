@@ -14,4 +14,15 @@ protected theorem dite'_false {α : Sort u} : @Blaster.dite' α False = fun _ e 
   funext fun t => funext fun e =>
     (congrFun (congrFun (congrFun (congrFun (congrFun Blaster.dite_equiv.{u} α) False) instDecidableFalse) t) e).symm
 
+/-- Validates moving a context `g` into the branches of a `Blaster.dite'`: a function applied to it,
+    extra arguments applied to it, or a projection of it.
+    The branches stay quantified, so the replay takes them from the goal. -/
+protected theorem apply_dite' {α : Sort u} {β : Sort v} (g : α → β) (c : Prop) (t : c → α) (e : ¬ c → α) :
+    g (Blaster.dite' c t e) = Blaster.dite' c (fun h => g (t h)) (fun h => g (e h)) :=
+  (congrArg g (congrFun (congrFun (congrFun (congrFun (congrFun Blaster.dite_equiv.{u} α) c)
+      (Classical.propDecidable c)) t) e).symm).trans
+    ((@apply_dite α β g c (Classical.propDecidable c) t e).trans
+      (congrFun (congrFun (congrFun (congrFun (congrFun Blaster.dite_equiv.{v} β) c)
+        (Classical.propDecidable c)) _) _))
+
 end Blaster
