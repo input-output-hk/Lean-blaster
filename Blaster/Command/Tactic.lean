@@ -185,17 +185,35 @@ private def canonicalForm (cache : IO.Ref CanonCache) (e : Expr) : MetaM Expr :=
   cache.set { converted, noLet }
   return e
 
-/-- Beta reduce in `e` the redexes headed by the replacement side of a constant step, when that
-    side is a lambda, since applied occurrences of the rewritten term become redexes. -/
-private def betaAfterLambdaStep (heq : Expr) (symm : Bool) (e : Expr) : MetaM Expr := do
-  let .const n us := heq | return e
-  let some ci := (← getEnv).find? n | return e
-  let some (_, lhs, rhs) := ci.type.eq? | return e
-  let lam := if symm then lhs else rhs
-  unless lam.isLambda do return e
-  let lam := lam.instantiateLevelParams ci.levelParams us
-  -- the user's own redexes are left alone, reducing them may blow up the term
-  Core.transform e (post := fun x => return if x.getAppFn == lam then .done x.headBeta else .continue)
+/-- Beta reduce the redexes headed by the term the rewrite `r` inserted, since the optimizer
+    keeps applied lambdas reduced. Reducing one also reduces the redexes that substituting a
+    lambda argument creates. -/
+private def betaAfterLambdaStep (r : RewriteResult) : MetaM Expr := do
+  -- the rewrite proof is `congrArg α β lhs rhs motive heq`, and `rhs` is the inserted term
+  let_expr congrArg _ _ _ rhs _ _ := r.eqProof | return r.eNew
+  let rhs ← instantiateMVars rhs
+  unless rhs.isLambda do return r.eNew
+  -- `eNew` was built before the rewrite assigned the instance arguments
+  let eNew ← instantiateMVars r.eNew
+  -- a user redex is reduced only when its head is the inserted term itself
+  Core.transform eNew (post := fun x =>
+    return if x.getAppFn == rhs then .done (betaCreated rhs x.getAppArgs) else .continue)
+where
+  /-- `f args` reduced at the head while it stays a redex, with the redexes that substituting a
+      lambda argument creates reduced one level deep. -/
+  betaCreated (f : Expr) (args : Array Expr) : Expr := Id.run do
+    let mut f := f
+    let mut args := args
+    while f.isLambda && !args.isEmpty do
+      let mut b := f
+      let mut k := 0
+      while k < args.size do
+        let .lam _ _ body _ := b | break
+        b := body
+        k := k + 1
+      f := b.instantiateBetaRevRange 0 k args
+      args := args.extract k args.size
+    return mkAppN f args
 
 /-- Kernel check a step proof with free variables, since a hypothesis left out of normal form
     by the replay makes a proof built on it ill-typed. A leftover metavariable also fails. -/
@@ -241,7 +259,7 @@ private def rewriteHypotheses (goal : MVarId) (steps : Array Blaster.Optimize.Pr
           try
             let r ← g.rewrite ty heq symm
             checkHypStep g heq
-            let eNew ← betaAfterLambdaStep heq symm r.eNew
+            let eNew ← betaAfterLambdaStep r
             let res ← g.replaceLocalDecl h eNew r.eqProof
             -- the replaced hypothesis and every later local got fresh fvars
             let s := res.subst.insert h (mkFVar res.fvarId)
@@ -285,7 +303,7 @@ private def replaySteps (goal : MVarId) (steps : Array Blaster.Optimize.ProofSte
           let t ← g.getType
           let r ← g.rewrite t heq symm
           checkHypStep g heq
-          g ← g.replaceTargetEq (← betaAfterLambdaStep heq symm r.eNew) r.eqProof
+          g ← g.replaceTargetEq (← betaAfterLambdaStep r) r.eqProof
           -- a rewrite between defeq spellings may leave the target as is and must not loop
           if (← g.getType) != t then changed := true
           /- trace[Optimize.expr] "  applied rewrite → {← g.getType}" -/
