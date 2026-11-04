@@ -334,7 +334,7 @@ namespace Test.OptimizeITE
 
 -- ∀ (a b : Prop) (c d : Bool), (if (b ∧ ¬ b) ∨ a then c else d) = true ===>
 -- ∀ (a : Prop) (c d : Bool), (a → true = c) ∧ (¬ a → true = d)
-#testOptimize [ "IteCondUnchanged_5" ]
+#testOptimize [ "IteCondUnchanged_5", proof ]
   ∀ (a b : Prop) (c d : Bool),
     [Decidable a] → [Decidable b] → (if (b ∧ ¬ b) ∨ a then c else d) = true ===>
   ∀ (a : Prop) (c d : Bool), (a → true = c) ∧ (¬ a → true = d)
@@ -357,7 +357,7 @@ namespace Test.OptimizeITE
 
 -- ∀ (c : Prop) (a b : Bool), (if ¬ c then a else b) = true ===>
 -- ∀ (c : Prop) (a b : Bool), (c → true = b) ∧ (¬ c → true = a)
-#testOptimize [ "IteNegCond_2" ]
+#testOptimize [ "IteNegCond_2", proof ]
   ∀ (c : Prop) (a b : Bool), [Decidable c] → (if ¬ c then a else b) = true ===>
   ∀ (c : Prop) (a b : Bool), (c → true = b) ∧ (¬ c → true = a)
 
@@ -448,7 +448,7 @@ namespace Test.OptimizeITE
 
 -- ∀ (c : Prop) (a b : Bool), (if ¬ (¬ c) then a else b) = true ===>
 -- ∀ (c : Prop) (a b : Bool), (c → true = a) ∧ (¬ c → true = b)
-#testOptimize [ "IteNegCondUnchanged_2" ]
+#testOptimize [ "IteNegCondUnchanged_2", proof ]
   ∀ (c : Prop) (a b : Bool), [Decidable c] → (if ¬ (¬ c) then a else b) = true ===>
   ∀ (c : Prop) (a b : Bool), (c → true = a) ∧ (¬ c → true = b)
 
@@ -774,7 +774,7 @@ elab "iteFalseEqCondUnchanged_3" : term => return iteFalseEqCondUnchanged_3
 
 -- ∀ (a b c d : Bool), (if a = b then c else d) = true ===>
 -- ∀ (a b c d : Bool), (¬ (a = b) → true = d) ∧ ((a = b) → true = c)
-#testOptimize [ "IteFalseEqCondUnchanged_6" ]
+#testOptimize [ "IteFalseEqCondUnchanged_6", proof ]
   ∀ (a b c d : Bool), (if a = b then c else d) = true ===>
   ∀ (a b c d : Bool), (¬ (a = b) → true = d) ∧ ((a = b) → true = c)
 
