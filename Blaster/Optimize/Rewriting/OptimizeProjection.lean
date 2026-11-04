@@ -9,7 +9,7 @@ namespace Blaster.Optimize
          - return `some re`
      - Otherwise
          - When `a := Blaster.dite' c (fun h : c => t₁) (fun h : ¬ c => t₂)`
-             - return `some Blaster.dite' c (fun h : c => t₁.i ) (fun h : ¬ c => t₂.i)`
+             - return `some Blaster.dite' c (fun h : c => t₁.i ) (fun h : ¬ c => t₂.i)`    [proof: Blaster.apply_dite']
          - when `a := match₁ e₁, ..., eₙ with
                   | p₍₁₎₍₁₎, ..., p₍₁₎₍ₙ₎ => t₁
                   ...
@@ -44,10 +44,23 @@ def optimizeProjection? (n : Name) (idx : Nat) (s : Expr) : TranslateEnvT (Optio
              mkLambdaFVars #[x] (mkProj typeName idx (ite_e.beta #[x]))
 
     diteProj? (typeName : Name) (idx : Nat) (struct : Expr) : TranslateEnvT (Option Expr) := do
-      let some (_psort, pcond, e1, e2) := dite'? struct | return none
+      let some (psort, pcond, e1, e2) := dite'? struct | return none
       let retType ← inferTypeEnv (mkProj n idx s)
       let e1' ← updateDIteExprWithProj typeName idx pcond e1
       let e2' ← updateDIteExprWithProj typeName idx (mkApp (← mkPropNotOp) pcond) e2
+      -- the step exists only for a non-dependent context,
+      -- i.e., the type of the projected field mentions no earlier field
+      let env ← getEnv
+      let nonDep := Id.run do
+        -- the one constructor of the structure, also when it is recursive
+        let some (.inductInfo { ctors := [ctorName], .. }) := env.find? typeName | return false
+        let some (.ctorInfo cv) := env.find? ctorName | return false
+        let .forallE _ fieldType _ _ := cv.type.getForallBodyMaxDepth (cv.numParams + idx) | return false
+        return (List.range idx).all (!typeHasLooseBVar fieldType ·)
+      if nonDep then
+        -- the context is the projection, the branches are taken from the goal
+        let ctx := Expr.lam `x psort (mkProj typeName idx (mkBVar 0)) .default
+        pushApplyDIteStep psort retType ctx pcond
       return mkApp4 (← mkBlasterDIteOp) retType pcond e1' e2'
 
     updateRhsWithProj (typeName : Name) (idx : Nat) (lhs : Array Expr) (rhs : Expr) : TranslateEnvT Expr := do

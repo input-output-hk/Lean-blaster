@@ -1,4 +1,5 @@
 import Lean
+import Blaster.Optimize.Lemmas.LemmasITE
 import Blaster.Optimize.Telescope
 
 open Lean Meta Declaration
@@ -611,6 +612,27 @@ def pushUnfoldProofStep (f : Expr) : TranslateEnvT Unit := do
   if n == ``Int.sub then return ()
   pushProofStep (.unfold n)
 
+/-- Push the step moving the context `g : α → β` into the branches of a `Blaster.dite'` on `c`
+    (see `Blaster.apply_dite'`). `α` and `β` must be closed types.
+-/
+def pushApplyDIteStep (α β g c : Expr) : TranslateEnvT Unit := do
+  -- the level of an optimizer `dite'` is always one, the step needs the ones of `α` and `β`
+  pushProofStep (.rewrite (mkApp4 (mkConst ``Blaster.apply_dite' [← getLevel α, ← getLevel β]) α β g c))
+
+/-- `true` iff the type `t` mentions the bound variable `i`, up to type annotations
+    (e.g., an `optParam` default) and a head redex.
+-/
+def typeHasLooseBVar (t : Expr) (i : Nat) : Bool :=
+  t.cleanupAnnotations.headBeta.hasLooseBVar i
+
+/-- `true` iff the forall telescope `t` mentions the bound variable `i`,
+    in a binder type or in its body (see `typeHasLooseBVar`).
+-/
+def telescopeHasLooseBVar (t : Expr) (i : Nat) : Bool :=
+  match t with
+  | .forallE _ d b _ => typeHasLooseBVar d i || telescopeHasLooseBVar b (i + 1)
+  | _ => typeHasLooseBVar t i
+
 /-- Unfold fuction `f` w.r.t. the effective parameters `args` only when:
      - f is not a constructor
      - f is not tagged as an opaque definition
@@ -633,7 +655,10 @@ def getUnfoldFunDef? (f: Expr) (args: Array Expr) : TranslateEnvT (Option Expr) 
       if Expr.isProj f' then
         match ← getFunBody f' with
         | some fbody' => return betaLambda fbody' reduced.getAppArgs
-        | none => return reduced -- structure projection case
+        | none =>
+            -- structure projection case, a class one is excluded by `isUndefinedClassFunApp`
+            pushUnfoldProofStep f
+            return reduced
       else
         pushUnfoldProofStep f
         return reduced
