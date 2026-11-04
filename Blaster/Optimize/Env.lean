@@ -664,6 +664,23 @@ def pushProofStep (step : ProofStep) : TranslateEnvT Unit :=
     else
       { env with optEnv.proofStack := env.optEnv.proofStack.push step }
 
+/-- Return the size of the proof stack targeted by `pushProofStep`. -/
+@[always_inline, inline]
+def getProofStackSize : TranslateEnvT Nat := do
+  let env ← get
+  if env.optEnv.options.optimizeRecFunBody
+  then return env.optEnv.localProofStack.size
+  else return env.optEnv.proofStack.size
+
+/-- Drop the steps pushed after the proof stack targeted by `pushProofStep` had size `n`. -/
+@[always_inline, inline]
+def shrinkProofStack (n : Nat) : TranslateEnvT Unit :=
+  modify fun env =>
+    if env.optEnv.options.optimizeRecFunBody then
+      { env with optEnv.localProofStack := env.optEnv.localProofStack.shrink n }
+    else
+      { env with optEnv.proofStack := env.optEnv.proofStack.shrink n }
+
 /-- Set the `optimizeRecFunBody` flag. -/
 @[always_inline, inline]
 def setOptimizeRecFunBody (b : Bool) : TranslateEnvT Unit :=

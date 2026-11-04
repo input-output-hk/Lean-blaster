@@ -44,8 +44,11 @@ partial def translateExpr (e : Expr) (topLevel := true) : TranslateEnvT SmtTerm 
   visit e topLevel
 
 def Translate.main (e : Expr) (logUndetermined := true) : TranslateEnvT (Result × Expr) := do
-    let e' ← addAxioms (← toPropExpr e) (← findLocalAxioms)
+    let axioms ← findLocalAxioms
+    let e' ← addAxioms (← toPropExpr e) axioms
     let optExpr ← profileTask "Optimization" $ Optimize.main e'
+    -- the prepended axioms are not binders of the goal the proof steps are replayed on
+    modify fun env => { env with optEnv.optBinders := env.optEnv.optBinders.extract axioms.length }
     trace[Translate.optExpr] "optimized expression: {← ppExpr optExpr}"
     match (toResult optExpr) with
     | res@(.Undetermined) =>
