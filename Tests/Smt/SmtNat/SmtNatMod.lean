@@ -34,7 +34,7 @@ namespace Test.SmtNatMod
 
 #blaster [∀ (x y : Nat), (x + y) % y = x % y]
 
-#blaster (random-seed: 6) (timeout: 10) [∀ (x y z : Nat), (x + y * z) % y = x % y]
+#blaster (random-seed: 10) (timeout: 10) [∀ (x y z : Nat), (x + y * z) % y = x % y]
 
 #blaster [∀ (x y : Nat), (x * y) % x = 0]
 
