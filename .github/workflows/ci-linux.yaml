@@ -52,10 +52,10 @@ jobs:
       - name: Restore cached Z3 master build
         if: env.Z3_VERSION == 'master'
         id: z3-master-cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: /home/runner/z3-master
-          key: z3-master-${{ runner.os }}-${{ steps.z3-master.outputs.sha }}
+          key: z3-master-${{ runner.os }}-${{ env.ImageOS }}-${{ steps.z3-master.outputs.sha }}
 
       - name: Build Z3 from master
         if: env.Z3_VERSION == 'master' && steps.z3-master-cache.outputs.cache-hit != 'true'
@@ -70,6 +70,13 @@ jobs:
             -DCMAKE_INSTALL_PREFIX=/home/runner/z3-master
           cmake --build z3-src/build -j"$(nproc)"
           cmake --install z3-src/build
+
+      - name: Save Z3 master build
+        if: env.Z3_VERSION == 'master' && steps.z3-master-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: /home/runner/z3-master
+          key: ${{ steps.z3-master-cache.outputs.cache-primary-key }}
 
       - name: Add Z3 master to PATH
         if: env.Z3_VERSION == 'master'
