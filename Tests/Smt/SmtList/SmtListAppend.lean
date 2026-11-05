@@ -32,4 +32,7 @@ def cex_2 : Prop := List.append ["aa", "bb", "cc", "dd", "ee"] [] = ["bb", "cc",
 def cex_3 : Prop := List.append ["aa", "bb", "cc", "dd", "ee"] ["ee"] = ["aa", "bb", "cc", "dd", "ee"]
 #blaster (gen-cex: 0) (solve-result: 1) (only-optimize: 1) [cex_3]
 
+def cex_4 : Prop := ∀ (xs : List Nat) (f : List Nat → Nat), f ((0 :: xs) ++ [1]) = 0
+#blaster (gen-cex: 0) (solve-result: 1) [cex_4]
+
 end Test.SmtListAppend

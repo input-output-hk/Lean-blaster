@@ -26,4 +26,8 @@ def cex_2 : Prop := List.length ["aa", "bb", "cc", "dd", "ee"] = 3
 def cex_3 : Prop := List.length ["aa", "bb", "cc", "dd", "ee"] = 0
 #blaster (gen-cex: 0) (solve-result: 1) (only-optimize: 1) [cex_3]
 
+def cex_4 : Prop := ∀ (xs : List Nat) (f : Nat → Nat), f ((0 :: xs).length) = 0
+#blaster (gen-cex: 0) (solve-result: 1) [cex_4]
+
+
 end Test.SmtListLength

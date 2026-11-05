@@ -40,7 +40,11 @@ def isListNCtor? (f lsort slist idx : Expr) : TranslateEnvT (Option Expr) :=
   | Expr.app (Expr.app (Expr.app (Expr.const ``List.cons u) lsort) a) as =>
       if n == 0 then mkOptionExpr lsort u (some a)
       else visit as (n - 1) start
-  | _ => if n == start then return none else mkApp3Expr f lsort e (← mkNatLitExpr n)
+  | _ => if n == start
+         then return none
+         else
+           setRestart
+           mkApp3Expr f lsort e (← mkNatLitExpr n)
  match isNatValue? idx with
  | some n => visit slist n n
  | none => return none
@@ -120,7 +124,9 @@ def cstListAppend? (f lsort list1 list2 : Expr) : TranslateEnvT (Option Expr) :=
       visit as fun e' => do
          k (← mkApp2Expr (← mkListCons u lsort) a e')
   | _ => if exprEq e list1 then return none
-         else k (← mkApp3Expr f lsort e list2)
+         else
+           setRestart
+           k (← mkApp3Expr f lsort e list2)
  visit list1 (λ e => return e)
 
 /-- Apply the following simplification/normalization rules on `List.append` :
@@ -163,7 +169,9 @@ def cstListReverse? (f lsort slist alist : Expr): TranslateEnvT (Option Expr) :=
   | Expr.app (Expr.app (Expr.app (Expr.const ``List.cons u) lsort) a) as =>
        visit as (← mkApp2Expr (← mkListCons u lsort) a alist)
   | _ => if exprEq rlist slist then return none
-         else mkApp3Expr f lsort rlist alist
+         else
+          setRestart
+          mkApp3Expr f lsort rlist alist
  visit slist alist
 
 /-- Apply the following simplification/normalization rules on `List.reverseAux` :
@@ -204,7 +212,9 @@ def cstListLength? (f lsort slist : Expr): TranslateEnvT (Option Expr) := do
   | Expr.app (Expr.app (Expr.app (Expr.const ``List.cons _) _) _a) as =>
        visit as (nbElem + 1)
   | _ => if nbElem == 0 then return none
-         else mkApp2Expr (← mkNatAddOp) (← mkNatLitExpr nbElem) (← mkApp2Expr f lsort rlist)
+         else
+           setRestart
+           mkApp2Expr (← mkNatAddOp) (← mkNatLitExpr nbElem) (← mkApp2Expr f lsort rlist)
  visit slist 0
 
 /-- Apply the following simplification/normalization rules on `List.length` :
@@ -249,7 +259,9 @@ def cstListTake? (f lsort idx slist : Expr) (u : List Level) : TranslateEnvT (Op
             k (← mkApp2Expr (← mkListCons u lsort) a e')
   | _ => if n == start then return none
          else if n == 0 then k (← mkListNil u lsort)
-         else k (← mkApp3Expr f lsort (← mkNatLitExpr n) e)
+         else
+           setRestart
+           k (← mkApp3Expr f lsort (← mkNatLitExpr n) e)
  match isNatValue? idx with
  | some n => visit slist n n (λ e => return e)
  | none => return none
@@ -302,7 +314,9 @@ def cstListDrop? (f lsort idx slist : Expr) : TranslateEnvT (Option Expr) := do
       else visit as (n - 1) start
   | _ => if n == start then return none
          else if n == 0 then return e
-         else mkApp3Expr f lsort (← mkNatLitExpr n) e
+         else
+           setRestart
+           mkApp3Expr f lsort (← mkNatLitExpr n) e
  match isNatValue? idx with
  | some n => visit slist n n
  | none => return none
@@ -349,6 +363,7 @@ def cstListReplicate? (f lsort n a : Expr) (u : List Level) : TranslateEnvT (Opt
  match n with
  | Expr.lit (Literal.natVal nb) => visit nb (← mkListNil u lsort)
  | Expr.app (Expr.app (Expr.const ``Nat.add _) (Expr.lit (Literal.natVal nb))) e =>
+      setRestart
       visit nb (← mkApp3Expr f lsort e a)
  | _ => return none
 

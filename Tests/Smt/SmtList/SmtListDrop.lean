@@ -50,4 +50,7 @@ def cex_3 : Prop := List.drop 2 ["aa", "bb", "cc", "dd", "ee"] = ["bb", "cc", "d
 def cex_4 : Prop := List.drop 10 ["aa", "bb", "cc", "dd", "ee"] = ["ee"]
 #blaster (gen-cex: 0) (solve-result: 1) (only-optimize: 1) [cex_4]
 
+def cex_5 : Prop := ∀ (xs : List Nat) (f : List Nat → Nat), f (List.drop 2 (0 :: xs)) = 0
+#blaster (gen-cex: 0) (solve-result: 1) [cex_5]
+
 end Test.SmtListDrop
