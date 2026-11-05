@@ -153,7 +153,7 @@ inductive Color where
 -- Must remain unchanged
 -- NOTE: reordering applied on operands
 -- NOTE: resolving + to Nat.add
-#testOptimize [ "EqConstructor_17" ] [b + a, c] = [a + c, c] ===> [Nat.add a b, c] = [Nat.add a c, c]
+#testOptimize [ "EqConstructor_17", proof ] [b + a, c] = [a + c, c] ===> [Nat.add a b, c] = [Nat.add a c, c]
 
 -- [f x, y] = [f x, y, z] ==> False
 #testOptimize [ "EqConstructor_18", proof ] ∀ (α : Type) (f : α -> α) (x y z : α), [f x, y] = [f x, y, z] ===> False
@@ -164,7 +164,10 @@ inductive Color where
                                      ∀ (α : Type) (f : α -> α) (x y z : α), [f x, z] = [f y, z]
 
 -- [b + a, c] = [a + c, c, b] ===> False
-#testOptimize [ "EqConstructor_20" ] [b + a, c] = [a + c, c, b] ===> False
+#testOptimize [ "EqConstructor_20", proof ] [b + a, c] = [a + c, c, b] ===> False
+
+-- [x + 0, y] = [x, y, y] ===> False
+#testOptimize [ "EqConstructor_20b", proof ] ∀ (x y : Nat), [x + 0, y] = [x, y, y] ===> False
 
 -- [x, Color.red] = [x, Color.blue] ===> False
 #testOptimize [ "EqConstructor_21", proof ] ∀ (x : Color), [x, Color.red] = [x, Color.blue] ===> False

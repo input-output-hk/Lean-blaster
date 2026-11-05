@@ -45,6 +45,9 @@ protected theorem nat_le_eq_not_lt (a b : Nat) : (a ≤ b) = (¬ (b < a)) :=
   propext ⟨fun h hlt => Nat.lt_irrefl b (Nat.lt_of_lt_of_le hlt h),
            Nat.le_of_not_lt⟩
 
+/-! Lemma to validate normalization rule `Nat.le ==> ≤`. -/
+protected theorem nat_le_eq_le : Nat.le = (LE.le : Nat → Nat → Prop) := rfl
+
 /-! Lemma to validate normalization rule `¬ (0 < e) ==> 0 = e (if Type(e) = Nat)`. -/
 protected theorem nat_not_zero_lt_eq_zero_eq (a : Nat) : (¬ (0 < a)) = (0 = a) :=
   propext (by omega)

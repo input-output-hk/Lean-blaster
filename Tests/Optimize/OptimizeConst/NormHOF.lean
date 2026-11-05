@@ -520,6 +520,9 @@ def boolWapper (f : Nat → Nat → Bool) (x : Nat) (y : Nat) := f x y
 -- ∀ (x y : Int), Int.le x y = (x ≤ y) ===> True
 #testOptimize [ "ConstNormOpaqueFunArg_16", proof ] ∀ (x y : Int), Int.le x y = (x ≤ y) ===> True
 
+-- ∀ (x y : Nat), Nat.le x y = (x ≤ y) ===> True
+#testOptimize [ "ConstNormOpaqueFunArg_16b", proof ] ∀ (x y : Nat), Nat.le x y = (x ≤ y) ===> True
+
 -- (LE.le : Int → Int → Prop) = (λ x y => ¬ (y < x)) ===> True
 #testOptimize [ "ConstNormOpaqueFunArg_17", proof ] (LE.le : Int → Int → Prop) = (fun x y => ¬ (y < x)) ===> True
 
