@@ -38,7 +38,7 @@ namespace Test.OptimizeEq
 #testOptimize [ "EqReflexive_4", proof ] ∀ (a b : Prop), ((b ∧ ¬ b) ∨ a) = a ===> True
 
 -- (if c then a else b) = if c then a else b ===> True
-#testOptimize [ "EqReflexive_5" ] ∀ (c : Bool) (a b : Prop), (if c then a else b) = if c then a else b ===> True
+#testOptimize [ "EqReflexive_5", proof ] ∀ (c : Bool) (a b : Prop), (if c then a else b) = if c then a else b ===> True
 
 -- a = ¬ a ===> False
 #testOptimize [ "EqNeq_1" , proof] ∀ (a : Prop), (a = ¬ a) ===> False
@@ -47,17 +47,17 @@ namespace Test.OptimizeEq
 #testOptimize [ "EqNeq_2", proof ] ∀ (a : Prop), (¬ a = a) ===> False
 
 -- a = (¬ (¬ a)) ===> True
-#testOptimize [ "EqNeq_3" ] ∀ (a : Prop), (a = ¬ (¬ a)) ===> True
+#testOptimize [ "EqNeq_3", proof ] ∀ (a : Prop), (a = ¬ (¬ a)) ===> True
 
 -- a = (¬ (¬ (¬ a))) ===> False
-#testOptimize [ "EqNeq_4" ] ∀ (a : Prop), (a = ¬ (¬ (¬ a))) ===> False
+#testOptimize [ "EqNeq_4", proof ] ∀ (a : Prop), (a = ¬ (¬ (¬ a))) ===> False
 
 -- a = ¬ b ===> a = ¬ b
-#testOptimize [ "EqNeq_5" ] ∀ (a b : Prop), a = (¬ b) ===> ∀ (a b : Prop), a = (¬ b)
+#testOptimize [ "EqNeq_5", proof ] ∀ (a b : Prop), a = (¬ b) ===> ∀ (a b : Prop), a = (¬ b)
 
 -- ¬ b = a ===> ¬ b = a
 -- NOTE: reordering applied on operands
-#testOptimize [ "EqNeq_6" ] ∀ (a b : Prop), (¬ b) = a ===> ∀ (a b : Prop), a = (¬ b)
+#testOptimize [ "EqNeq_6", proof ] ∀ (a b : Prop), (¬ b) = a ===> ∀ (a b : Prop), a = (¬ b)
 
 -- a = !a ===> False
 #testOptimize [ "EqNot_1", proof ] ∀ (a : Bool), a = !a ===> False
@@ -69,82 +69,85 @@ namespace Test.OptimizeEq
 #testOptimize [ "EqNot_3", proof ] ∀ (a : Bool), a = ! (!a) ===> True
 
 -- a = (! (! (! a))) ===> False
-#testOptimize [ "EqNot_4" ] ∀ (a : Bool), (a = ! (! (! a))) ===> False
+#testOptimize [ "EqNot_4", proof ] ∀ (a : Bool), (a = ! (! (! a))) ===> False
 
 -- a = ! b ===> a = ! b
-#testOptimize [ "EqNot_5" ] ∀ (a b : Bool), a = !b ===> ∀ (a b : Bool), a = !b
+#testOptimize [ "EqNot_5", proof ] ∀ (a b : Bool), a = !b ===> ∀ (a b : Bool), a = !b
 
 -- ! b = a ===> ! b = a
 -- NOTE: reordering applied on operands
-#testOptimize [ "EqNot_6" ] ∀ (a b : Bool), (!b) = a ===> ∀ (a b : Bool), a = !b
+#testOptimize [ "EqNot_6", proof ] ∀ (a b : Bool), (!b) = a ===> ∀ (a b : Bool), a = !b
 
 
 -- a = b ===> a = b
-#testOptimize [ "EqDiff_1" ] ∀ (a b : Prop), a = b ===> ∀ (a b : Prop), a = b
+#testOptimize [ "EqDiff_1", proof ] ∀ (a b : Prop), a = b ===> ∀ (a b : Prop), a = b
 
 -- a = (a ∧ b) ===> a = (a ∧ b)
-#testOptimize [ "EqDiff_2" ] ∀ (a b : Prop), a = (a ∧ b) ===> ∀ (a b : Prop), a = (a ∧ b)
+#testOptimize [ "EqDiff_2", proof ] ∀ (a b : Prop), a = (a ∧ b) ===> ∀ (a b : Prop), a = (a ∧ b)
 
 -- (a ∧ b) = a ===> a = (a ∧ b)
-#testOptimize [ "EqDiff_3" ] ∀ (a b : Prop), (a ∧ b) = a ===> ∀ (a b : Prop), a = (a ∧ b)
+#testOptimize [ "EqDiff_3", proof ] ∀ (a b : Prop), (a ∧ b) = a ===> ∀ (a b : Prop), a = (a ∧ b)
 
 
 -- true = false ===> False
-#testOptimize [ "EqConstructor_1" ] true = false ===> False
+#testOptimize [ "EqConstructor_1", proof ] true = false ===> False
 
 -- true = true ===> True
-#testOptimize [ "EqConstructor_2" ] true = true ===> True
+#testOptimize [ "EqConstructor_2", proof ] true = true ===> True
 
 -- List.nil = List.nil ===> True
-#testOptimize [ "EqConstructor_3" ] ∀ (α : Type), (List.nil : List α) = List.nil ===> True
+#testOptimize [ "EqConstructor_3", proof ] ∀ (α : Type), (List.nil : List α) = List.nil ===> True
 
 -- List.nil = [1, 2, 3, 4] ===> False
-#testOptimize [ "EqConstructor_4" ] List.nil = [1, 2, 3, 4] ===> False
+#testOptimize [ "EqConstructor_4", proof ] List.nil = [1, 2, 3, 4] ===> False
 
 variable (a : Nat)
 variable (b : Nat)
 variable (c : Nat)
 -- List.nil = [a, b, c] ===> False
-#testOptimize [ "EqConstructor_5" ] List.nil = [a, b, c] ===> False
+#testOptimize [ "EqConstructor_5", proof ] List.nil = [a, b, c] ===> False
 
 -- [b, a, c] = [a, b, c] ===> [b, a, c] = [a, b, c]
 -- Must remain uchanged as we don't know if a = b
 -- NOTE: reordering applied on operands
-#testOptimize [ "EqConstructor_6" ] [b, a, c] = [a, b, c] ===> [a, b, c] = [b, a, c]
+#testOptimize [ "EqConstructor_6", proof ] [b, a, c] = [a, b, c] ===> [a, b, c] = [b, a, c]
 
 -- [b, a, c] = [a, b] ===> False
-#testOptimize [ "EqConstructor_7" ] [b, a, c] = [a, b] ===> False
+#testOptimize [ "EqConstructor_7", proof ] [b, a, c] = [a, b] ===> False
 
 -- [b, a, c] = [b, a, c] ===> True
-#testOptimize [ "EqConstructor_8" ] [b, a, c] = [b, a, c] ===> True
+#testOptimize [ "EqConstructor_8", proof ] [b, a, c] = [b, a, c] ===> True
 
 inductive Color where
   | red : Color
   | blue : Color
   | yellow : Color
 
-#testOptimize [ "EqConstructor_9" ] Color.red = Color.red ===> True
-#testOptimize [ "EqConstructor_10" ] Color.red = Color.blue ===> False
-#testOptimize [ "EqConstructor_11" ] Color.red = Color.yellow ===> False
+#testOptimize [ "EqConstructor_9", proof ] Color.red = Color.red ===> True
+#testOptimize [ "EqConstructor_10", proof ] Color.red = Color.blue ===> False
+#testOptimize [ "EqConstructor_11", proof ] Color.red = Color.yellow ===> False
 
 -- x = Color.red ===> x = Color.red
 -- NOTE: reordering applied on operands
-#testOptimize [ "EqConstructor_12" ] ∀ (x : Color), x = Color.red ===> ∀ (x : Color), Color.red = x
+#testOptimize [ "EqConstructor_12", proof ] ∀ (x : Color), x = Color.red ===> ∀ (x : Color), Color.red = x
 
 -- List.nil : List α = List.nil : List α ===> True
-#testOptimize [ "EqConstructor_13" ] ∀ (α : Type), (List.nil : List α) = (List.nil : List α) ===> True
+#testOptimize [ "EqConstructor_13", proof ] ∀ (α : Type), (List.nil : List α) = (List.nil : List α) ===> True
 
 -- List.nil = [x, y, z] ===> False
-#testOptimize [ "EqConstructor_14" ] ∀ (α : Type) (x y z : α), List.nil = [x, y, z] ===> False
+#testOptimize [ "EqConstructor_14", proof ] ∀ (α : Type) (x y z : α), List.nil = [x, y, z] ===> False
 
 -- [x, y] = [x, y, z] ===> False
-#testOptimize [ "EqConstructor_15" ] ∀ (α : Type) (x y z : α), [x, y] = [x, y, z] ===> False
+#testOptimize [ "EqConstructor_15", proof ] ∀ (α : Type) (x y z : α), [x, y] = [x, y, z] ===> False
 
 -- [z, y] = [x, y, z] ===> False
-#testOptimize [ "EqConstructor_15" ] ∀ (α : Type) (x y z : α), [z, y] = [x, y, z] ===> False
+#testOptimize [ "EqConstructor_15b", proof ] ∀ (α : Type) (x y z : α), [z, y] = [x, y, z] ===> False
+
+-- [x, y] ≠ [x, y, z] ===> True
+#testOptimize [ "NeConstructor_15", proof ] ∀ (α : Type) (x y z : α), [x, y] ≠ [x, y, z] ===> True
 
 -- [a + b, c] = [a + b, c, b] ===> False
-#testOptimize [ "EqConstructor_16" ] [a + b, c] = [a + b, c, b] ===> False
+#testOptimize [ "EqConstructor_16", proof ] [a + b, c] = [a + b, c, b] ===> False
 
 -- [b + a, c] = [a + c, c] ===> [Nat.add b a, c] = [Nat.add a c, c]
 -- Must remain unchanged
@@ -153,22 +156,54 @@ inductive Color where
 #testOptimize [ "EqConstructor_17" ] [b + a, c] = [a + c, c] ===> [Nat.add a b, c] = [Nat.add a c, c]
 
 -- [f x, y] = [f x, y, z] ==> False
-#testOptimize [ "EqConstructor_18" ] ∀ (α : Type) (f : α -> α) (x y z : α), [f x, y] = [f x, y, z] ===> False
+#testOptimize [ "EqConstructor_18", proof ] ∀ (α : Type) (f : α -> α) (x y z : α), [f x, y] = [f x, y, z] ===> False
 
 -- [f x, z] = [f y, z] ==> [f x, z] = [f y, z]
 -- Must remain unchanged
-#testOptimize [ "EqConstructor_19" ] ∀ (α : Type) (f : α -> α) (x y z : α), [f x, z] = [f y, z] ===>
+#testOptimize [ "EqConstructor_19", proof ] ∀ (α : Type) (f : α -> α) (x y z : α), [f x, z] = [f y, z] ===>
                                      ∀ (α : Type) (f : α -> α) (x y z : α), [f x, z] = [f y, z]
 
 -- [b + a, c] = [a + c, c, b] ===> False
--- Must remain unchanged
 #testOptimize [ "EqConstructor_20" ] [b + a, c] = [a + c, c, b] ===> False
 
+-- [x, Color.red] = [x, Color.blue] ===> False
+#testOptimize [ "EqConstructor_21", proof ] ∀ (x : Color), [x, Color.red] = [x, Color.blue] ===> False
+
+-- [f x y, z] = [f x y, z, x] ===> False
+#testOptimize [ "EqConstructor_22", proof ] ∀ (f : Nat → Nat → Nat) (x y z : Nat), [f x y, z] = [f x y, z, x] ===> False
+
+-- [f x y, z] = [f x y, z, x] ===> False (polymorphic variant)
+#testOptimize [ "EqConstructor_23", proof ] ∀ (α : Type) (f : α → α → α) (x y z : α), [f x y, z] = [f x y, z, x] ===> False
+
+-- [x, 1] = [x, 2] ===> False
+#testOptimize [ "EqConstructor_24", proof ] ∀ (x : Nat), [x, 1] = [x, 2] ===> False
+
+-- ∀ (p : Nat → Prop) (_h : ∀ x, p x → p (x + 1)) (a b : Nat), [a, b] = [a, b, b] ===>
+--   ∀ (p : Nat → Prop), ¬ ∀ (x : Nat), p x → p (Nat.add 1 x)
+#testOptimize [ "EqConstructor_25", proof ] (norm-result: 1)
+                                     ∀ (p : Nat → Prop) (_h : ∀ x, p x → p (x + 1)) (a b : Nat),
+                                       [a, b] = [a, b, b] ===>
+                                     ∀ (p : Nat → Prop), ¬ ∀ (x : Nat), p x → p (Nat.add 1 x)
+
+-- ⟨x, [x, 1]⟩ = ⟨x, [x, 2]⟩ ===> False
+#testOptimize [ "EqConstructor_26", proof ] ∀ (x : Nat), (⟨x, [x, 1]⟩ : (_ : Nat) × List Nat) = ⟨x, [x, 2]⟩ ===> False
+
+inductive Two : Prop where
+  | a : Two
+  | b : Two
+
+structure PropFirst where
+  p : Two
+  n : Nat
+
+-- PropFirst.mk Two.a 1 = PropFirst.mk Two.b 2 ===> False (the proof field is not the mismatch)
+#testOptimize [ "EqConstructor_27", proof ] PropFirst.mk Two.a 1 = PropFirst.mk Two.b 2 ===> False
+
 -- (10 : Nat) = 10 ===> True
-#testOptimize [ "EqNatConstructor_1" ] (10 : Nat) = 10 ===> True
+#testOptimize [ "EqNatConstructor_1", proof ] (10 : Nat) = 10 ===> True
 
 -- 10 = 100 ===> False
-#testOptimize [ "EqNatConstructor_2" ] (10 : Nat) = 100 ===> False
+#testOptimize [ "EqNatConstructor_2", proof ] (10 : Nat) = 100 ===> False
 
 -- ∀ (x : Nat), (x = 234) ===> ∀ (x : Nat), (x = 234)
 -- NOTE: We here provide the internal representation to ensure that 234 is properly reduced to `Expr.lit (Literal.natVal 234)`
@@ -222,7 +257,7 @@ Lean.Expr.forallE `n
   (Lean.BinderInfo.default)
 elab "eqNatConstructor_4" : term => return eqNatConstructor_4
 
-#testOptimize [ "EqNatConstructor_4" ] ∀ (n m : Nat), [50 - n, m] = [10 - n, m] ===> eqNatConstructor_4
+#testOptimize [ "EqNatConstructor_4", proof ] ∀ (n m : Nat), [50 - n, m] = [10 - n, m] ===> eqNatConstructor_4
 
 -- ∀ (n m : Nat), [n * 50, m] = [10 * n, m] ===> ∀ (n m : Nat), [Nat.mul 50 n, m] = [Nat.mul 10 n, m]
 -- Must remain unchanged
@@ -262,7 +297,7 @@ Lean.Expr.forallE `n
   (Lean.BinderInfo.default)
 elab "eqNatConstructor_5" : term => return eqNatConstructor_5
 
-#testOptimize [ "EqNatConstructor_5" ] ∀ (n m : Nat), [50 * n, m] = [10 * n, m] ===> eqNatConstructor_5
+#testOptimize [ "EqNatConstructor_5", proof ] ∀ (n m : Nat), [50 * n, m] = [10 * n, m] ===> eqNatConstructor_5
 
 -- ∀ (n m : Nat), [n / 50, m] = [n / 10, m] ===> ∀ (n m : Nat), [Nat.div n 50, m] = [Nat.div n 10, m]
 -- Must remain unchanged
@@ -302,7 +337,7 @@ def eqNatConstructor_6 : Expr :=
   (Lean.BinderInfo.default)
 elab "eqNatConstructor_6" : term => return eqNatConstructor_6
 
-#testOptimize [ "EqNatConstructor_6" ] ∀ (n m : Nat), [n / 50, m] = [n / 10, m] ===> eqNatConstructor_6
+#testOptimize [ "EqNatConstructor_6", proof ] ∀ (n m : Nat), [n / 50, m] = [n / 10, m] ===> eqNatConstructor_6
 
 -- ∀ (n m : Nat), [n + 50, m] = [n + 10, m] ===> ∀ (n m : Nat), [Nat.add 50 n, m] = [Nat.add 10 n, m]
 -- NOTE: Unlike Nat.sub, Nat.mul and Nat.div, we should be able to state that equality
@@ -345,19 +380,19 @@ def eqNatConstructor_7 : Expr :=
 
 elab "eqNatConstructor_7" : term => return eqNatConstructor_7
 
-#testOptimize [ "EqNatConstructor_7" ] ∀ (n m : Nat), [n + 50, m] = [n + 10, m] ===> eqNatConstructor_7
+#testOptimize [ "EqNatConstructor_7", proof ] ∀ (n m : Nat), [n + 50, m] = [n + 10, m] ===> eqNatConstructor_7
 
 -- 430 : Int = 430 : Int ===> True
-#testOptimize [ "EqIntConstructor_1" ] (430 : Int) = 430 ===> True
+#testOptimize [ "EqIntConstructor_1", proof ] (430 : Int) = 430 ===> True
 
 -- 40 = 2300 ===> False
-#testOptimize [ "EqIntConstructor_2" ] (40 : Int) = 2300 ===> False
+#testOptimize [ "EqIntConstructor_2", proof ] (40 : Int) = 2300 ===> False
 
 -- -53 = -53 ===> True
-#testOptimize [ "EqIntConstructor_3" ] (-53 : Int) = -53 ===> True
+#testOptimize [ "EqIntConstructor_3", proof ] (-53 : Int) = -53 ===> True
 
 -- -430 = 430 ===> False
-#testOptimize [ "EqIntConstructor_4" ] (-430 : Int) = 430 ===> False
+#testOptimize [ "EqIntConstructor_4", proof ] (-430 : Int) = 430 ===> False
 
 -- ∀ (x : Int), (x = 1234) ===> ∀ (x : Int), (x = 1234)
 -- NOTE: We here provide the internal representation to ensure that 1234 is properly reduced to `Int.ofNat (Expr.lit (Literal.natVal 1234))`
@@ -373,7 +408,7 @@ def eqIntConstructor_5 : Expr :=
 
 elab "eqIntConstructor_5" : term => return eqIntConstructor_5
 
-#testOptimize [ "EqIntConstructor_5" ] ∀ (x : Int), (x = 1234) ===> eqIntConstructor_5
+#testOptimize [ "EqIntConstructor_5", proof ] ∀ (x : Int), (x = 1234) ===> eqIntConstructor_5
 
 -- ∀ (x : Int), (x = -453) ===> ∀ (x : Int), (x = -453)
 -- NOTE: We here provide the internal representation to ensure that -453 is properly reduced to `Int.negSucc (Expr.lit (Literal.natVal 452))`
@@ -389,16 +424,16 @@ def eqIntConstructor_6 : Expr :=
 
 elab "eqIntConstructor_6" : term => return eqIntConstructor_6
 
-#testOptimize [ "EqIntConstructor_6" ] ∀ (x : Int), x = -453 ===> eqIntConstructor_6
+#testOptimize [ "EqIntConstructor_6", proof ] ∀ (x : Int), x = -453 ===> eqIntConstructor_6
 
 -- "xyz" = "xyz" ===> True
-#testOptimize [ "EqStrConstructor_1" ] "xyz" = "xyz" ===> True
+#testOptimize [ "EqStrConstructor_1", proof ] "xyz" = "xyz" ===> True
 
 -- "xyz" = "zxyz" ===> False
-#testOptimize [ "EqStrConstructor_2" ] "xyz" = "zxyz" ===> False
+#testOptimize [ "EqStrConstructor_2", proof ] "xyz" = "zxyz" ===> False
 
 -- "xyz" = "xyza" ===> False
-#testOptimize [ "EqStrConstructor_3" ] "xyz" = "xyzz" ===> False
+#testOptimize [ "EqStrConstructor_3", proof ] "xyz" = "xyzz" ===> False
 
 -- ∀ (x : String), (x = "xyz") ===> ∀ (x : String), (x = "xyz")
 -- NOTE: We here provide the internal representation to ensure that "xyz" is properly reduced to `Expr.lit (Literal.strVal "xyz")`
@@ -414,24 +449,24 @@ def eqStrConstructor_4 : Expr :=
 
 elab "eqStrConstructor_4" : term => return eqStrConstructor_4
 
-#testOptimize [ "EqStrConstructor_3" ] ∀ (x : String), x = "xyz" ===> eqStrConstructor_4
+#testOptimize [ "EqStrConstructor_4", proof ] ∀ (x : String), x = "xyz" ===> eqStrConstructor_4
 
 
 -- true = not a ===> false = a
 #testOptimize [ "TrueEqNot_1", proof ] ∀ (a : Bool), true = not a ===> ∀ (a : Bool), false = a
 
 -- true = (not (not a) ===> true = a
-#testOptimize [ "TrueEqNot_2" ] ∀ (a : Bool), true = (not (not a)) ===> ∀ (a : Bool), true = a
+#testOptimize [ "TrueEqNot_2", proof ] ∀ (a : Bool), true = (not (not a)) ===> ∀ (a : Bool), true = a
 
 -- true = (not (not (not a)) ===> false = a
-#testOptimize [ "TrueEqNot_3" ] ∀ (a : Bool), true = (not (not (not a))) ===> ∀ (a : Bool), false = a
+#testOptimize [ "TrueEqNot_3", proof ] ∀ (a : Bool), true = (not (not (not a))) ===> ∀ (a : Bool), false = a
 
 -- true = e ===> true = e
-#testOptimize [ "TrueEqUnchanged_1" ] ∀ (a : Bool), true = a ===> ∀ (a : Bool), true = a
+#testOptimize [ "TrueEqUnchanged_1", proof ] ∀ (a : Bool), true = a ===> ∀ (a : Bool), true = a
 
 -- a = true ===> true = a
 -- NOTE: reordering applied on operands
-#testOptimize [ "TrueEqUnchanged_2" ] ∀ (a : Bool), a = true ===> ∀ (a : Bool), true = a
+#testOptimize [ "TrueEqUnchanged_2", proof ] ∀ (a : Bool), a = true ===> ∀ (a : Bool), true = a
 
 
 -- false = not a ===> true = a
@@ -441,21 +476,21 @@ elab "eqStrConstructor_4" : term => return eqStrConstructor_4
 #testOptimize [ "FalseEqNot_2", proof ] ∀ (a : Bool), false = (not (not a)) ===> ∀ (a : Bool), false = a
 
 -- false = (not (not (not a)) ===> true = a
-#testOptimize [ "FalseEqNot_3" ] ∀ (a : Bool), false = (not (not (not a))) ===> ∀ (a : Bool), true = a
+#testOptimize [ "FalseEqNot_3", proof ] ∀ (a : Bool), false = (not (not (not a))) ===> ∀ (a : Bool), true = a
 
 -- false = e ===> false = e
-#testOptimize [ "FalseEqUnchanged_1" ] ∀ (a : Bool), false = a ===> ∀ (a : Bool), false = a
+#testOptimize [ "FalseEqUnchanged_1", proof ] ∀ (a : Bool), false = a ===> ∀ (a : Bool), false = a
 
 -- a = false ===> false = a
 -- NOTE: reordering applied on operands
-#testOptimize [ "FalseEqUnchanged_2" ] ∀ (a : Bool), a = false ===> ∀ (a : Bool), false = a
+#testOptimize [ "FalseEqUnchanged_2", proof ] ∀ (a : Bool), a = false ===> ∀ (a : Bool), false = a
 
 -- not a = not b ===> a = b
 #testOptimize [ "NotEqNot_1", proof ] ∀ (a b : Bool), not a = not b ===> ∀ (a b : Bool), a = b
 
 -- not a = not (not b) ===> not a = b
 -- NOTE: reordering applied on operands
-#testOptimize [ "NotEqNot_2" ] ∀ (a b : Bool), not a = not (not b) ===> ∀ (a b : Bool), b = not a
+#testOptimize [ "NotEqNot_2", proof ] ∀ (a b : Bool), not a = not (not b) ===> ∀ (a b : Bool), b = not a
 
 -- not a = not (not (not b)) ===> a = b
 #testOptimize [ "NotEqNot_3", proof ] ∀ (a b : Bool), not a = not (not (not b)) ===> ∀ (a b : Bool), a = b
@@ -469,14 +504,14 @@ elab "eqStrConstructor_4" : term => return eqStrConstructor_4
 
 -- not (not (not a)) = b ===> not a = b
 -- NOTE: reordering applied on operands
-#testOptimize [ "NotEqNot_6" ] ∀ (a b : Bool), not (not (not a)) = b ===> ∀ (a b : Bool), b = not a
+#testOptimize [ "NotEqNot_6", proof ] ∀ (a b : Bool), not (not (not a)) = b ===> ∀ (a b : Bool), b = not a
 
 -- not a = b ===> not a = b
 -- NOTE: reordering applied on operands
-#testOptimize [ "NotEqUnchanged_1" ] ∀ (a b : Bool), not a = b ===> ∀ (a b : Bool), b = not a
+#testOptimize [ "NotEqUnchanged_1", proof ] ∀ (a b : Bool), not a = b ===> ∀ (a b : Bool), b = not a
 
 -- a = not b ===> a = not b
-#testOptimize [ "NotEqUnchanged_2" ] ∀ (a b : Bool), a = not b ===> ∀ (a b : Bool), a = not b
+#testOptimize [ "NotEqUnchanged_2", proof ] ∀ (a b : Bool), a = not b ===> ∀ (a b : Bool), a = not b
 
 
 -- (¬ a) = ¬ b ===> a = b
@@ -497,42 +532,388 @@ elab "eqStrConstructor_4" : term => return eqStrConstructor_4
 
 -- (¬ (¬ (¬ a))) = b ===> ¬ a = b
 -- NOTE: reordering applied on operands
-#testOptimize [ "NegEqNeg_6" ] ∀ (a b : Prop), (¬ (¬ (¬ a))) = b ===> ∀ (a b : Prop), b = ¬ a
+#testOptimize [ "NegEqNeg_6", proof ] ∀ (a b : Prop), (¬ (¬ (¬ a))) = b ===> ∀ (a b : Prop), b = ¬ a
 
 -- (¬ a) = b ===> (¬ a) = b
 -- NOTE: reordering applied on operands
-#testOptimize [ "NegEqUnchanged_1" ] ∀ (a b : Prop), (¬ a) = b ===> ∀ (a b : Prop), b = ¬ a
+#testOptimize [ "NegEqUnchanged_1", proof ] ∀ (a b : Prop), (¬ a) = b ===> ∀ (a b : Prop), b = ¬ a
 
 -- a = ¬ b ===> a = ¬ b
-#testOptimize [ "NegEqUnchanged_2" ] ∀ (a b : Prop), a = ¬ b ===> ∀ (a b : Prop), a = ¬ b
+#testOptimize [ "NegEqUnchanged_2", proof ] ∀ (a b : Prop), a = ¬ b ===> ∀ (a b : Prop), a = ¬ b
 
 -- ((∀ (x : Int), x > 10)) = (∀ (x : Int), x > 10) ===> True
-#testOptimize [ "ForallEq_1" ] (∀ (x : Int), x > 10) = (∀ (x : Int), x > 10) ===> True
+#testOptimize [ "ForallEq_1", proof ] (∀ (x : Int), x > 10) = (∀ (x : Int), x > 10) ===> True
 
 -- ((∀ (x : Int), x > 10)) = (∀ (z : Int), z > 10) ===> True
-#testOptimize [ "ForallEq_2" ] (∀ (x : Int), x > 10) = (∀ (z : Int), z > 10) ===> True
+#testOptimize [ "ForallEq_2", proof ] (∀ (x : Int), x > 10) = (∀ (z : Int), z > 10) ===> True
 
 -- (∀ (y x : Int), x > y) = (∀ (x y: Int), x < y) ===> True
-#testOptimize [ "ForallEq_3" ] (∀ (y x : Int), x > y) = (∀ (x y : Int), x < y) ===> True
+#testOptimize [ "ForallEq_3", proof ] (∀ (y x : Int), x > y) = (∀ (x y : Int), x < y) ===> True
 
 -- (∀ (x y : Int), x > y) = (∀ (x y: Int), x < y) ===>
 -- (∀ (x y : Int), y < x) = (∀ (x y : Int), x < y)
-#testOptimize [ "ForallEq_4" ] (∀ (x y : Int), x > y) = (∀ (x y : Int), x < y) ===>
+#testOptimize [ "ForallEq_4", proof ] (∀ (x y : Int), x > y) = (∀ (x y : Int), x < y) ===>
                                (∀ (x y : Int), y < x) = (∀ (x y : Int), x < y)
 
 -- (∀ (y x : Int), x > y) = (∀ (x y: Int), x > y) ===>
 -- (∀ (y x : Int), y < x) = (∀ (x y: Int), y < x)
-#testOptimize [ "ForallEq_5" ] (∀ (y x : Int), x > y) = (∀ (x y : Int), x > y) ===>
+#testOptimize [ "ForallEq_5", proof ] (∀ (y x : Int), x > y) = (∀ (x y : Int), x > y) ===>
                                (∀ (x y : Int), y < x) = (∀ (y x : Int), y < x)
 
 -- (∀ (x : Int), fun (h : Int) => x > 10 = fun (h : Int) => x > 10) ===> True
-#testOptimize [ "LambdaEq_1" ] ∀ (x : Int), (fun (_h : Int) => x > 10) = (fun (_h : Int) => x > 10) ===> True
+#testOptimize [ "LambdaEq_1", proof ] ∀ (x : Int), (fun (_h : Int) => x > 10) = (fun (_h : Int) => x > 10) ===> True
 
 -- (∀ (x : Int), fun (h1 : Int) => x > 10 = fun (h2 : Int) => x > 10) ===> True
 -- NOTE: beq on Forall ignores quantifier name
-#testOptimize [ "LambdaEq_2" ] (∀ (x : Int), fun (_h1 : Int) => x > 10 = fun (_h2 : Int) => x > 10) ===> True
+#testOptimize [ "LambdaEq_2", proof ] (∀ (x : Int), fun (_h1 : Int) => x > 10 = fun (_h2 : Int) => x > 10) ===> True
 
 -- (∀ (x : Int), fun y => x > x = fun z => x > x) ===> True
-#testOptimize [ "LambdaEq_3" ] ∀ (x : Int), (fun (y : Int) => x > y) = (fun z => x > z) ===> True
+#testOptimize [ "LambdaEq_3", proof ] ∀ (x : Int), (fun (y : Int) => x > y) = (fun z => x > z) ===> True
+
+-- ∀ (x : Int), (0 = -x) = (0 = x) ===> True
+#testOptimize [ "ZeroIntEq_1", proof ]
+  ∀ (x : Int), (0 = -x) = (0 = x) ===> True
+
+-- ∀ (x y : Int), (-x = -y) = (x = y) ===> True
+#testOptimize [ "ZeroIntEq_2", proof ]
+  ∀ (x y : Int), (-x = -y) = (x = y) ===> True
+
+-- ∀ (x y : Int), (-x = -y) ===> ∀ (x y : Int), (x = y)
+#testOptimize [ "ZeroIntEq_3", proof ]
+  ∀ (x y : Int), (-x = -y) ===> ∀ (x y : Int), (x = y)
+
+-- ∀ (x y : Nat), (x ≠ 0 ∧ y ≠ 0) → (0 = (x * y)) = False ===> True
+#testOptimize [ "ZeroNatMulEqInHyps_1", proof ]
+  ∀ (x y : Nat), (x ≠ 0 ∧ y ≠ 0) → (0 = (x * y)) = False ===> True
+
+-- ∀ (x y : Nat), (0 < x ∧ 0 < y) → (0 = (x * y)) = False ===> True
+#testOptimize [ "ZeroNatMulEqInHyps_2", proof ]
+  ∀ (x y : Nat), (0 < x ∧ 0 < y) → (0 = (x * y)) = False ===> True
+
+-- (0 = 5 * 3) = False ===> True
+#testOptimize [ "ZeroNatMulEqLit_1", proof ]
+  (0 = 5 * 3) = False ===> True
+
+-- ∀ (y : Nat), 0 < y → (0 = 5 * y) = False ===> True
+#testOptimize [ "ZeroNatMulEqLit_2", proof ]
+  ∀ (y : Nat), 0 < y → (0 = 5 * y) = False ===> True
+
+-- ∀ (x : Nat), (x ≠ 0) → (0 = x * 3) = False ===> True
+#testOptimize [ "ZeroNatMulEqLit_3", proof ]
+  ∀ (x : Nat), (x ≠ 0) → (0 = x * 3) = False ===> True
+
+-- ∀ (x y : Int), (x ≠ 0 ∧ y ≠ 0) → (0 = (x * y)) = False ===> True
+#testOptimize [ "ZeroIntMulEqInHyps_1", proof ]
+  ∀ (x y : Int), (x ≠ 0 ∧ y ≠ 0) → (0 = x * y) = False ===> True
+
+-- ∀ (x y : Int), x ≠ 0 → y ≠ 0 → x * y ≠ 0 ===> True
+#testOptimize [ "ZeroIntMulNeInHyps_1", proof ]
+  ∀ (x y : Int), x ≠ 0 → y ≠ 0 → x * y ≠ 0 ===> True
+
+-- ∀ (x y : Int), (0 < x ∧ 0 < y) → (0 = (x * y)) = False ===> True
+#testOptimize [ "ZeroIntMulEqInHyps_2", proof ]
+  ∀ (x y : Int), (0 < x ∧ 0 < y) → (0 = x * y) = False ===> True
+
+-- ∀ (x y : Int), (x > 0 ∧ y > 0) → (0 = (x * y)) = False ===> True
+#testOptimize [ "ZeroIntMulEqInHyps_3", proof ]
+  ∀ (x y : Int), (x > 0 ∧ y > 0) → (0 = x * y) = False ===> True
+
+-- ∀ (y : Int), y ≠ 0 → (0 = 5 * y) = False ===> True
+#testOptimize [ "ZeroIntMulEqLit_1", proof ]
+  ∀ (y : Int), y ≠ 0 → (0 = 5 * y) = False ===> True
+
+-- ∀ (y : Int), 0 < y → (0 = 5 * y) = False ===> True
+#testOptimize [ "ZeroIntMulEqLit_2", proof ]
+  ∀ (y : Int), 0 < y → (0 = 5 * y) = False ===> True
+
+-- ∀ (x y : Nat), (x > 0) → (0 = x + y) = False ===> True
+#testOptimize [ "ZeroNatAddEqInHyps_1", proof ]
+  ∀ (x y : Nat), (x > 0) → (0 = x + y) = False ===> True
+
+-- ∀ (x y : Nat), (y > 0) → (0 = x + y) = False ===> True
+#testOptimize [ "ZeroNatAddEqInHyps_2", proof ]
+  ∀ (x y : Nat), (y > 0) → (0 = x + y) = False ===> True
+
+-- (0 = 5 + 3) = False ===> True
+#testOptimize [ "ZeroNatAddEqLits_1", proof ]
+  (0 = 5 + 3) = False ===> True
+
+-- ∀ (y : Nat), y ≠ 0 → (0 = 5 + y) = False ===> True
+#testOptimize [ "ZeroNatAddEqLits_2", proof ]
+  ∀ (y : Nat), y ≠ 0 → (0 = 5 + y) = False ===> True
+
+-- ∀ (y : Nat), 0 < y → (0 = 5 + y) = False ===> True
+#testOptimize [ "ZeroNatAddEqLits_3", proof ]
+  ∀ (y : Nat), 0 < y → (0 = 5 + y) = False ===> True
+
+-- ∀ (a : Nat), a + 1 ≠ 0 ===> True
+#testOptimize [ "ZeroNatAddNeLits_1", proof ] ∀ (a : Nat), a + 1 ≠ 0 ===> True
+
+-- ∀ (x y : Int), (x > 0 ∧ y > 0) → (0 = x + y) = False ===> True
+#testOptimize [ "ZeroIntAddEqInHyps_1", proof ]
+  ∀ (x y : Int), (0 < x ∧ 0 < y) → (0 = x + y) = False ===> True
+
+-- ∀ (x y : Int), (x < 0 ∧ y < 0) → (0 = x + y) = False ===> True
+#testOptimize [ "ZeroIntAddEqInHyps_2", proof ]
+  ∀ (x y : Int), (x < 0 ∧ y < 0) → (0 = x + y) = False ===> True
+-- ∀ (x y z : Nat), (x + y = x + z) = (y = z) ===> True
+#testOptimize [ "AddReduceNat_1", proof ]
+  ∀ (x y z : Nat), (x + y = x + z) = (y = z) ===> True
+
+-- ∀ (x y z : Nat), (x + y = x + z)  ===> ∀ (y z : Nat), y = z
+#testOptimize [ "AddReduceNat_2", proof ]
+  ∀ (x y z : Nat), (x + y = x + z)  ===> ∀ (y z : Nat), y = z
+
+-- ∀ (x y z : Nat), (x + y = z + x) = (y = z) ===> True
+#testOptimize [ "AddReduceNat_3", proof ]
+  ∀ (x y z : Nat), (x + y = z + x) = (y = z) ===> True
+
+-- ∀ (x y z : Nat), (x + y = z + x)  ===> ∀ (y z : Nat), y = z
+#testOptimize [ "AddReduceNat_4", proof ]
+  ∀ (x y z : Nat), (x + y = z + x)  ===> ∀ (y z : Nat), y = z
+
+-- ∀ (x y z : Nat), (y + x = x + z) = (y = z) ===> True
+#testOptimize [ "AddReduceNat_5", proof ]
+  ∀ (x y z : Nat), (y + x = x + z) = (y = z) ===> True
+
+-- ∀ (x y z : Nat), (y + x = x + z)  ===> ∀ (y z : Nat), y = z
+#testOptimize [ "AddReduceNat_6", proof ]
+  ∀ (x y z : Nat), (y + x = x + z)  ===> ∀ (y z : Nat), y = z
+
+-- ∀ (x y z : Nat), (y + x = z + x) = (y = z) ===> True
+#testOptimize [ "AddReduceNat_7", proof ]
+  ∀ (x y z : Nat), (y + x = z + x) = (y = z) ===> True
+
+-- ∀ (x y z : Nat), (y + x = z + x)  ===> ∀ (y z : Nat), y = z
+#testOptimize [ "AddReduceNat_8", proof ]
+  ∀ (x y z : Nat), (y + x = z + x)  ===> ∀ (y z : Nat), y = z
+
+-- ∀ (y x z : Nat), (y + x = x + z) = (y = z) ===> True
+#testOptimize [ "AddReduceNat_9", proof ]
+  ∀ (y x z : Nat), (y + x = x + z) = (y = z) ===> True
+
+-- ∀ (y z x : Nat), (y + x = z + x) = (y = z) ===> True
+#testOptimize [ "AddReduceNat_10", proof ]
+  ∀ (y z x : Nat), (y + x = z + x) = (y = z) ===> True
+
+-- ∀ (x y z : Int), (x + y = x + z) = (y = z) ===> True
+#testOptimize [ "AddReduceInt_1", proof ]
+  ∀ (x y z : Int), (x + y = x + z) = (y = z) ===> True
+
+-- ∀ (x y z : Int), (x + y = x + z)  ===> ∀ (y z : Int), y = z
+#testOptimize [ "AddReduceInt_2", proof ]
+  ∀ (x y z : Int), (x + y = x + z)  ===> ∀ (y z : Int), y = z
+
+-- ∀ (x y z : Int), (x + y = z + x) = (y = z) ===> True
+#testOptimize [ "AddReduceInt_3", proof ]
+  ∀ (x y z : Int), (x + y = z + x) = (y = z) ===> True
+
+-- ∀ (x y z : Int), (x + y = z + x)  ===> ∀ (y z : Int), y = z
+#testOptimize [ "AddReduceInt_4", proof ]
+  ∀ (x y z : Int), (x + y = z + x)  ===> ∀ (y z : Int), y = z
+
+-- ∀ (x y z : Int), (y + x = x + z) = (y = z) ===> True
+#testOptimize [ "AddReduceInt_5", proof ]
+  ∀ (x y z : Int), (y + x = x + z) = (y = z) ===> True
+
+-- ∀ (x y z : Int), (y + x = x + z)  ===> ∀ (y z : Int), y = z
+#testOptimize [ "AddReduceInt_6", proof ]
+  ∀ (x y z : Int), (y + x = x + z)  ===> ∀ (y z : Int), y = z
+
+-- ∀ (x y z : Int), (y + x = z + x) = (y = z) ===> True
+#testOptimize [ "AddReduceInt_7", proof ]
+  ∀ (x y z : Int), (y + x = z + x) = (y = z) ===> True
+
+-- ∀ (x y z : Int), (y + x = z + x)  ===> ∀ (y z : Int), y = z
+#testOptimize [ "AddReduceInt_8", proof ]
+  ∀ (x y z : Int), (y + x = z + x)  ===> ∀ (y z : Int), y = z
+
+-- ∀ (y x z : Int), (y + x = x + z) = (y = z) ===> True
+#testOptimize [ "AddReduceInt_9", proof ]
+  ∀ (y x z : Int), (y + x = x + z) = (y = z) ===> True
+
+-- ∀ (y z x : Int), (y + x = z + x) = (y = z) ===> True
+#testOptimize [ "AddReduceInt_10", proof ]
+  ∀ (y z x : Int), (y + x = z + x) = (y = z) ===> True
+
+-- ∀ (x y z : Nat) , (x ≠ 0) → (x * y = x * z) = (y = z) ===> True
+#testOptimize [ "MulReduceNat_1", proof ]
+  ∀ (x y z : Nat) , (x ≠ 0) → (x * y = x * z) = (y = z) ===> True
+
+-- ∀ (x y z : Nat), (x ≠ 0) → (x * y = z * x) = (y = z) ===> True
+#testOptimize [ "MulReduceNat_2", proof ]
+  ∀ (x y z : Nat), (x ≠ 0) → (x * y = z * x) = (y = z) ===> True
+
+-- ∀ (x y z : Nat), (x ≠ 0) → (y * x = x * z) = (y = z) ===> True
+#testOptimize [ "MulReduceNat_3", proof ]
+  ∀ (x y z : Nat), (x ≠ 0) → (y * x = x * z) = (y = z) ===> True
+
+-- ∀ (x y z : Nat), (x ≠ 0) → (y * x = z * x) = (y = z) ===> True
+#testOptimize [ "MulReduceNat_4", proof ]
+  ∀ (x y z : Nat), (x ≠ 0) → (y * x = z * x) = (y = z) ===> True
+
+-- ∀ (x y : Nat), x ≠ 0 → (x * y = 3 * x) = (y = 3) ===> True
+#testOptimize [ "MulReduceNat_5", proof ]
+  ∀ (x y : Nat), x ≠ 0 → (x * y = 3 * x) = (y = 3) ===> True
+
+-- ∀ (y x z : Nat), x ≠ 0 → (y * x = x * z) = (y = z) ===> True
+#testOptimize [ "MulReduceNat_6", proof ]
+  ∀ (y x z : Nat), x ≠ 0 → (y * x = x * z) = (y = z) ===> True
+
+-- ∀ (y z x : Nat), x ≠ 0 → (y * x = z * x) = (y = z) ===> True
+#testOptimize [ "MulReduceNat_7", proof ]
+  ∀ (y z x : Nat), x ≠ 0 → (y * x = z * x) = (y = z) ===> True
+
+-- ∀ (x y z : Int) , (x ≠ 0) → (x * y = x * z) = (y = z) ===> True
+#testOptimize [ "MulReduceInt_1", proof ]
+  ∀ (x y z : Int) , (x ≠ 0) → (x * y = x * z) = (y = z) ===> True
+
+-- ∀ (x y z : Int), (x ≠ 0) → (x * y = z * x) = (y = z) ===> True
+#testOptimize [ "MulReduceInt_2", proof ]
+  ∀ (x y z : Int), (x ≠ 0) → (x * y = z * x) = (y = z) ===> True
+
+-- ∀ (x y z : Int), (x ≠ 0) → (y * x = x * z) = (y = z) ===> True
+#testOptimize [ "MulReduceInt_3", proof ]
+  ∀ (x y z : Int), (x ≠ 0) → (y * x = x * z) = (y = z) ===> True
+
+-- ∀ (x y z : Int), (x ≠ 0) → (y * x = z * x) = (y = z) ===> True
+#testOptimize [ "MulReduceInt_4", proof ]
+  ∀ (x y z : Int), (x ≠ 0) → (y * x = z * x) = (y = z) ===> True
+
+-- ∀ (x y : Int), x ≠ 0 → (x * y = 3 * x) = (y = 3) ===> True
+#testOptimize [ "MulReduceInt_5", proof ]
+  ∀ (x y : Int), x ≠ 0 → (x * y = 3 * x) = (y = 3) ===> True
+
+-- ∀ (y x z : Int), x ≠ 0 → (y * x = x * z) = (y = z) ===> True
+#testOptimize [ "MulReduceInt_6", proof ]
+  ∀ (y x z : Int), x ≠ 0 → (y * x = x * z) = (y = z) ===> True
+
+-- ∀ (y z x : Int), x ≠ 0 → (y * x = z * x) = (y = z) ===> True
+#testOptimize [ "MulReduceInt_7", proof ]
+  ∀ (y z x : Int), x ≠ 0 → (y * x = z * x) = (y = z) ===> True
+
+-- ∀ (x : Nat), (5 + x = x) = False ===> True
+#testOptimize [ "AddEqNat_1", proof ]
+  ∀ (x : Nat), (5 + x = x) = False ===> True
+
+-- ∀ (x : Nat), (x = 5 + x) = False ===> True
+#testOptimize [ "AddEqNat_2", proof ]
+  ∀ (x : Nat), (x = 5 + x) = False ===> True
+
+-- ∀ (x y : Nat), (y ≠ 0) → (x + y = x) = False ===> True
+#testOptimize [ "AddEqNat_3", proof ]
+  ∀ (x y : Nat), (y ≠ 0) → (x + y = x) = False ===> True
+
+-- ∀ (x y : Nat), (y ≠ 0) → (y + x = x) = False ===> True
+#testOptimize [ "AddEqNat_4", proof ]
+  ∀ (x y: Nat), (y ≠ 0) → (y + x = x) = False ===> True
+
+-- ∀ (x y : Nat), (y ≠ 0) → (x = x + y) = False ===> True
+#testOptimize [ "AddEqNat_5", proof ]
+  ∀ (x y : Nat), (y ≠ 0) → (x = x + y) = False ===> True
+
+-- ∀ (x y : Nat), (y ≠ 0) → (x = y + x) = False ===> True
+#testOptimize [ "AddEqNat_6", proof ]
+  ∀ (x y : Nat), (y ≠ 0) → (x = y + x) = False ===> True
+
+-- ∀ (b a : Nat), b ≠ 0 → (b + a = a) = False ===> True
+#testOptimize [ "AddEqNat_7", proof ]
+  ∀ (b a : Nat), b ≠ 0 → (b + a = a) = False ===> True
+
+-- ∀ (x : Int), (5 + x = x) = False ===> True
+#testOptimize [ "AddEqInt_1", proof ]
+  ∀ (x : Int), (5 + x = x) = False ===> True
+
+-- ∀ (x : Int), (-3 + x = x) = False ===> True
+#testOptimize [ "AddEqInt_2", proof ]
+  ∀ (x : Int), (-3 + x = x) = False ===> True
+
+-- ∀ (x : Int), (x = 5 + x) = False ===> True
+#testOptimize [ "AddEqInt_3", proof ]
+  ∀ (x : Int), (x = 5 + x) = False ===> True
+
+-- ∀ (x : Int), (x = -3 + x) = False ===> True
+#testOptimize [ "AddEqInt_4", proof ]
+  ∀ (x : Int), (x = -3 + x) = False ===> True
+
+-- ∀ (x y : Nat), (y ≠ 0) → (x + y = x) = False ===> True
+#testOptimize [ "AddEqInt_5", proof ]
+  ∀ (x y : Int), (y ≠ 0) → (x + y = x) = False ===> True
+
+-- ∀ (x y : Nat), (y ≠ 0) → (y + x = x) = False ===> True
+#testOptimize [ "AddEqInt_6", proof ]
+  ∀ (x y: Int), (y ≠ 0) → (y + x = x) = False ===> True
+
+-- ∀ (x y : Nat), (y ≠ 0) → (x = x + y) = False ===> True
+#testOptimize [ "AddEqInt_7", proof ]
+  ∀ (x y : Int), (y ≠ 0) → (x = x + y) = False ===> True
+
+-- ∀ (x y : Nat), (y ≠ 0) → (x = y + x) = False ===> True
+#testOptimize [ "AddEqInt_8", proof ]
+  ∀ (x y : Int), (y ≠ 0) → (x = y + x) = False ===> True
+
+-- ∀ (b a : Int), b ≠ 0 → (b + a = a) = False ===> True
+#testOptimize [ "AddEqInt_9", proof ]
+  ∀ (b a : Int), b ≠ 0 → (b + a = a) = False ===> True
+
+-- ∀ (a : Nat), (2 = 5 + a) = False ===> True
+#testOptimize [ "EqAddNatLitFalse_1", proof ]
+  ∀ (a : Nat), (2 = 5 + a) = False ===> True
+
+-- ∀ (a : Nat), (5 = 2 + a) = (5 - 2 = a) ===> True
+#testOptimize [ "EqAddNatLit_1", proof ]
+  ∀ (a : Nat), (5 = 2 + a) = (5 - 2 = a) ===> True
+
+-- ∀ (a : Nat), (5 = 2 + a) = (3 = a) ===> True
+#testOptimize [ "EqAddNatLit_2", proof ]
+  ∀ (a : Nat), (5 = 2 + a) = (3 = a) ===> True
+
+-- ∀ (a : Nat), ¬ (5 = 2 + a) ∨  (a = 3) ===> True
+#testOptimize [ "EqAddNatLit_3", proof ]
+  ∀ (a : Nat), ¬ (5 = 2 + a) ∨  (a = 3) ===> True
+
+-- ∀ (a b : Nat), (5 + a = 2 + b) = (5 - 2 + a = 2 - 2 + b) ===> True
+#testOptimize [ "EqAddNatLit_4", proof ]
+  ∀ (a b : Nat), (5 + a = 2 + b) = (5 - 2 + a = 2 - 2 + b) ===> True
+
+-- ∀ (a b : Nat), (2 + a = 5 + b) = (2 - 2 + a = 5 - 2 + b) ===> True
+#testOptimize [ "EqAddNatLit_5", proof]
+  ∀ (a b : Nat), (2 + a = 5 + b) = (2 - 2 + a = 5 - 2 + b) ===> True
+
+-- ∀ (a : Int), (5 = 2 + a) = (5 - 2 = a) ===> True
+#testOptimize [ "EqAddIntLit_1", proof ]
+  ∀ (a : Int), (5 = 2 + a) = (5 - 2 = a) ===> True
+
+-- ∀ (a : Int), (5 = 7 + a) = (5 - 7 = a) ===> True
+#testOptimize [ "EqAddIntLit_2", proof]
+  ∀ (a : Int), (5 = 7 + a) = (5 - 7 = a) ===> True
+
+-- ∀ (a b : Int), (5 + a = 2 + b) = (5 - 2 + a = 2 - 2 + b) ===> True
+#testOptimize [ "EqAddIntLit_3", proof ]
+  ∀ (a b : Int), (5 + a = 2 + b) = (3 + a = 0 + b) ===> True
+
+-- ∀ (a b : Int), (-1 + a = 5 + b) = (-1 + 1 + a = 5 + 1 + b) ===> True
+#testOptimize [ "EqAddIntLit_4", proof]
+  ∀ (a b : Int), (-1 + a = 5 + b) = (0 + a = 6 + b) ===> True
+
+-- ∀ (a : Int), ¬ (5 = 2 + a) ∨ a = 3 ===> True
+#testOptimize [ "EqAddIntLit_5", proof]
+  ∀ (a : Int), ¬ (5 = 2 + a) ∨ a = 3 ===> True
+
+-- ∀ (y : Int), 0 < y → (0 = 5 + y) = False ===> True
+#testOptimize [ "ZeroIntAddEqLits_1", proof ]
+  ∀ (y : Int), 0 < y → (0 = 5 + y) = False ===> True
+
+-- ∀ (y : Int), y < 0 → (0 = -3 + y) = False ===> True
+#testOptimize [ "ZeroIntAddEqLits_2", proof ]
+  ∀ (y : Int), y < 0 → (0 = -3 + y) = False ===> True
+
+-- ∀ (x y : Nat), 2 * x = y * 2 → x = y ===> True
+#testOptimize [ "EqNatMulLit_1", proof ]
+  ∀ (x y : Nat), (2 * x = y * 2) = (x = y) ===> True
+
+-- ∀ (x y : Int), 2 * x = y * 2 → x = y ===> True
+#testOptimize [ "EqIntMulLit_1", proof ]
+  ∀ (x y : Int), (2 * x = y * 2) = (x = y) ===> True
 
 end Test.OptimizeEq
