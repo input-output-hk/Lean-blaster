@@ -589,11 +589,10 @@ def structNeProof? (op1 op2 : Expr) : TranslateEnvT (Option Expr) := do
     match a, b with
     | .lit (.natVal n1), .lit (.natVal n2) =>
         if n1 == n2 then return none
-        return ← fold frames (← mkOfDecideEqProof (← mkExpr (mkApp3 (← mkEqOp) (← mkNatType) a b)) false)
+        return ← fold frames (litNe (mkConst ``Nat) (mkConst ``instDecidableEqNat) a b)
     | .lit (.strVal s1), .lit (.strVal s2) =>
         if s1 == s2 then return none
-        let strType ← mkExpr (mkConst ``String)
-        return ← fold frames (← mkOfDecideEqProof (← mkExpr (mkApp3 (← mkEqOp) strType a b)) false)
+        return ← fold frames (litNe (mkConst ``String) (mkConst ``instDecidableEqString) a b)
     | _, _ =>
       let some (c1, as1) ← ctorApp? a | return none
       let some (c2, as2) ← ctorApp? b | return none
@@ -618,6 +617,12 @@ def structNeProof? (op1 op2 : Expr) : TranslateEnvT (Option Expr) := do
      let some (ci, as) ← constructorApp? e | return none
      unless (← getEnv).contains (ci.induct.str "noConfusion") do return none
      return some (ci, as)
+
+   /-- Proof of `¬ a = b` for distinct literals. Built raw so that the optimizer caches stay
+       untouched. -/
+   litNe (ty inst a b : Expr) : Expr :=
+     mkApp3 (mkConst ``of_decide_eq_false) (mkApp3 (mkConst ``Eq [levelOne]) ty a b) (mkApp2 inst a b)
+       (mkApp2 (mkConst ``Eq.refl [levelOne]) (mkConst ``Bool) (mkConst ``Bool.false))
 
    /-- Proof of `a = b → False` for distinct constructors. -/
    ctorNe (a b : Expr) : MetaM Expr := do
