@@ -21,7 +21,7 @@ def getAppliedMatchType (t : Expr) (nbArgs : Nat) : Expr :=
 /-- Given application `f x₁ ... xₙ`, apply the following normalization rules:
      - When `f := Blaster.dite' c (fun h : c => t₁) (fun h : ¬ c => t₂)`
        Return
-         Blaster.dite' c (fun h : c => t₁ x₁ ... xₙ) (fun h : ¬ c => t₂ x₁ ... xₙ)
+         Blaster.dite' c (fun h : c => t₁ x₁ ... xₙ) (fun h : ¬ c => t₂ x₁ ... xₙ)    [proof: Blaster.apply_dite']
 
      - When `f := match₁ e₁, ..., eₙ with
                   | p₍₁₎₍₁₎, ..., p₍₁₎₍ₙ₎ => t₁
@@ -58,6 +58,11 @@ def normChoiceApplication?
       let extra_args := args.extract 4 args.size
       let e1 ← mkAppInDIteExpr extra_args args[1]! args[2]!
       let e2 ← mkAppInDIteExpr extra_args (mkApp (← mkPropNotOp) args[1]!) args[3]!
+      -- the context applies the extra arguments, the branches are taken from the goal
+      let ctx := Expr.lam `x args[0]! (mkAppN (mkBVar 0) extra_args) .default
+      -- closed, unlike the sort of the result when the codomain is dependent
+      let β := (args[0]!.getForallBodyMaxDepth extra_args.size).instantiateRev extra_args
+      pushApplyDIteStep args[0]! β ctx args[1]!
       let dite_args := args.take 4
       let dite_args := dite_args.set! 2 e1
       let dite_args := dite_args.set! 3 e2
@@ -99,7 +104,7 @@ def normChoiceApplication?
                 (i ≠ j → gⱼ = eⱼ) ∧ (i = j → gⱼ = d₁) ∧
                 (i ≠ j → hⱼ = eⱼ) ∧ (i = j → hⱼ = d₂)
       Return
-         `Blaster.dite' c then (fun h : c => fn g₁ ... gₙ) (fun h : ¬ c => fn h₁ ... hₙ)`
+         `Blaster.dite' c then (fun h : c => fn g₁ ... gₙ) (fun h : ¬ c => fn h₁ ... hₙ)`    [proof: Blaster.apply_dite']
 
     - When ∃ i ∈ [1..n],
              eᵢ := match₂ f₁, ..., fₚ with
@@ -178,7 +183,7 @@ def funPropagation? (cf : Expr) (cargs : Array Expr) (skipPropCheck := false) (r
     /-- Implements dite over ctor rule -/
     diteCstProp? (f : Expr) (args : Array Expr) (idxArg : Nat) : TranslateEnvT (Option Expr) := do
       -- NOTE: can't be an applied dite' function (e.g., applied to more than 4 arguments)
-      if let some (_psort, pcond, e1, e2) := dite'? args[idxArg]! then
+      if let some (psort, pcond, e1, e2) := dite'? args[idxArg]! then
         let pInfo ← getFunEnvInfo f
         -- NOTE: We here prefer to instantiate the generic type kept in FunEnvInfo instead
         -- of calling inferTypeEnv as the latter is costly.
@@ -186,6 +191,15 @@ def funPropagation? (cf : Expr) (cargs : Array Expr) (skipPropCheck := false) (r
         let retType := inferAppType pInfo.type args
         let e1' ← pushFunInDIteExpr f args idxArg pcond e1
         let e2' ← pushFunInDIteExpr f args idxArg (mkApp (← mkPropNotOp) pcond) e2
+        -- the step exists only for a non-dependent context,
+        -- i.e., no later parameter type nor the result type mentions the `dite'` parameter
+        if let .forallE _ _ rest _ := pInfo.type.getForallBodyMaxDepth idxArg then
+          if !telescopeHasLooseBVar rest 0 then
+            -- the context is `f` with the other arguments, the branches are taken from the goal
+            let ctx := Expr.lam `x psort (mkAppN f (args.set! idxArg (mkBVar 0))) .default
+            -- closed, unlike `retType` when the result type depends on another explicit argument
+            let β := (pInfo.type.getForallBodyMaxDepth args.size).instantiateRev args
+            pushApplyDIteStep psort β ctx pcond
         -- NOTE: we also need to set the sort type for the pulled dite' to meet the function's return type
         return (mkApp4 (← mkBlasterDIteOp) retType pcond e1' e2')
       else return none

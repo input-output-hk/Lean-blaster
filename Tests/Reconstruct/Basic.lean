@@ -130,6 +130,12 @@ example : ∀ (a b : Prop), a → ((¬ a ∨ b) = b) := by blaster
 example : ∀ (x y : Int), x ≠ 0 → y ≠ 0 → x * y ≠ 0 := by blaster
 example : ∀ (a : Nat), a + 1 ≠ 0 := by blaster
 
+-- `ite` and `dite` with a condition reduced to `True` or `False`
+example : ∀ (c : Prop) [Decidable c] (x y : Nat), (if c ∨ ¬ c then x else y) = x := by blaster
+example : ∀ (c : Prop) [Decidable c] (x y : Nat), (if c ∧ ¬ c then x else y) = y := by blaster
+example : ∀ (c : Prop) [Decidable c] (x y : Nat), (if _h : c ∨ ¬ c then x else y) = x := by blaster
+example : ∀ (c : Prop) [Decidable c] (x y : Nat), (if _h : c ∧ ¬ c then x else y) = y := by blaster
+
 -- Constructor equalities whose operands still simplify
 example : ∀ (x y : Nat), ([x + 0, y] = [x, y, y]) = False := by blaster
 example : ∀ (a b c : Nat), ([b + a, c] = [a + c, c, b]) = False := by blaster
