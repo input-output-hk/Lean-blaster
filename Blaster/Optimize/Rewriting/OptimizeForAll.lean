@@ -27,8 +27,13 @@ def isCstImplies? (h : Expr) (a : Expr) (b : Expr) : TranslateEnvT (Option Expr)
  | Expr.const ``True _ =>
      if fVarInExpr h.fvarId! b
      then return (← mkExpr $ Expr.replaceFVar b h (← mkTrueIntro))
-     else return b
- | Expr.const ``False _ => return (← mkPropTrue)
+     else
+      pushProofStep (.rewrite (mkApp (mkConst ``true_implies) b))
+      return b
+ | Expr.const ``False _ =>
+   pushProofStep (.exact (mkApp2 (mkConst ``False.elim [levelZero]) b h))
+   pushProofStep (.rewrite (mkApp (mkConst ``false_implies) b))
+   return (← mkPropTrue)
  | _ => return none
 
  /-- Given `a → b`, apply the following normalization rule:
@@ -90,16 +95,18 @@ def isCstImplies? (h : Expr) (a : Expr) (b : Expr) : TranslateEnvT (Option Expr)
     pushImpliesTrueSteps n a b p
     return ← mkPropTrue
   if !(← isPropEnv b) then return none
-  if (← notInHypMap a hyps).isSome then return ← mkPropTrue
+  if let some q ← notInHypMap a hyps then
+    pushImpliesTrueSteps n a b (mkApp4 (mkConst ``absurd [levelZero]) a b n q)
+    return ← mkPropTrue
   return none
 
 
-/-- Given `h : a → b` returns `true` only when the following condition is satisfied:
-     - ∃ h : a → b := _ ∈ hypothesisContext.hypothesisMap,
+/-- Given `h : a → b` returns `some p` only when the following condition is satisfied:
+     - ∃ h : a → b := p ∈ hypothesisContext.hypothesisMap,
 -/
-def impliesInHyp (h : Expr) (b : Expr) : TranslateEnvT Bool := do
+def impliesInHyp (h : Expr) (b : Expr) : TranslateEnvT (Option Expr) := do
   let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
-  return hyps.contains (← mkForallFVar h b)
+  return hyps.get? (← mkForallFVar h b)
 
 /-- Given `h : a → b`, apply the simplification rules:
     - When a := p ∈ hypothesisContext.hypothesisMap ∧ Type(b) = Prop
@@ -123,19 +130,19 @@ def hypReduction? (h : Expr) (a : Expr) (b : Expr) : TranslateEnvT (Option Expr)
 /-- Apply the following simplification/normalized rules on `forallE`.
     Note that implication `a → b` is internally represented as `forallE _ a b bi`.
     The simplification/normalization rules applied are:
-      - ∀ (n : t), True | e → True ==> True
-      - False → e ==> True (if Type(e) = Prop)
-      - h : True → e ==> e (if Type(e) = Prop ∧ ¬ fVarInExpr h.fvarId! e)
+      - ∀ (n : t), True | e → True ==> True                               [proof: implies_true]
+      - False → e ==> True (if Type(e) = Prop)                            [proof: False.elim, false_implies]
+      - h : True → e ==> e (if Type(e) = Prop ∧ ¬ fVarInExpr h.fvarId! e) [proof: true_implies]
       - h : True → e ==> e[h/True.intro] (if Type(e) = Prop ∧ fVarInExpr h.fvarId! e)
             TODO: replace True.intro with proper proof
       - e → False ==> ¬ e
-      - e1 → e2 ==> True (if e1 =ₚₜᵣ e2 ∧ Type(e1) = Prop)
-      - e1 → e2 ==> True (if ∃ e1 → e2 := _ ∈ hypothesisContext.hypothesisMap)
+      - e1 → e2 ==> True (if e1 =ₚₜᵣ e2 ∧ Type(e1) = Prop)                 [proof: the premise, Blaster.implies_self_eq_true]
+      - e1 → e2 ==> True (if ∃ e1 → e2 := _ ∈ hypothesisContext.hypothesisMap) [proof: the proof found applied to e1, eq_true]
       - e1 → e2 ==> ¬ e1 (if ∃ e := _ ∈ h, e = ¬ e2)
       - e1 → e2 ==> ¬ e1 (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = ¬ e2)
       - e1 → e2 ==> True (if e2 := _ ∈ h)                                  [proof: the proof of e2 found, eq_true]
       - e1 → e2 ==> True (if e2 := _ ∈ hypothesisContext.hypothesisMap)  [proof: the proof of e2 found, eq_true]
-      - e1 → e2 ==> True (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = ¬ e1 ∧ Type(e2) = Prop)
+      - e1 → e2 ==> True (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = ¬ e1 ∧ Type(e2) = Prop) [proof: absurd, eq_true]
       - h : e1 → e2 ==> e2 (if e1 := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ fVarInExpr h.fvarId! e2 ∧ Type(e2) = Prop)
       - h : e1 → e2 ==> e2[h/h'] (if e1 := h' ∈ hypothesisContext.hypothesisMap ∧ fVarInExpr h.fvarId! e2 ∧ Type(e2) = Prop )
       - ∀ (n : t), e ===> e (if isSortOrInhabited t ∧ Type(e) = Prop ∧ ¬ fVarInExpr n.fvarId! e)
@@ -143,11 +150,20 @@ def hypReduction? (h : Expr) (a : Expr) (b : Expr) : TranslateEnvT (Option Expr)
   Assume that `h` corresponds to the hypothesis map updated with hypotheses in `t`.
 -/
 def optimizeForall (n : Expr) (t : Expr) (h : HypothesisMap) (b : Expr) : TranslateEnvT Expr := do
-  if let Expr.const ``True _ := b then return b
+  if let Expr.const ``True _ := b then
+   pushProofStep (.rewrite (mkApp (mkConst ``implies_true [← getLevel t]) t))
+   pushProofStep (.exact (mkConst ``True.intro))
+   return b
   if let some r ← isCstImplies? n t b then return r
   if let some r ← isNotDef? t b then return r
-  if exprEq t b then if ← isPropEnv t then return (← mkPropTrue)
-  if (← impliesInHyp n b) then return (← mkPropTrue)
+  if exprEq t b then
+   if ← isPropEnv t then
+      pushProofStep (.exact n)
+      pushProofStep (.rewrite (mkApp (mkConst ``Blaster.implies_self_eq_true) t))
+      return (← mkPropTrue)
+  if let some p ← impliesInHyp n b then
+    pushImpliesTrueSteps n t b (mkApp p n)
+    return (← mkPropTrue)
   if let some r ← impliesToNeg? t b h then return r
   if let some r ← impliesToTrue? n t b h then return r
   if let some r ← hypReduction? n t b then return r
