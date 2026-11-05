@@ -172,12 +172,12 @@ def diteFactorize? (a : Expr) (t : Expr) (e : Expr) : TranslateEnvT (Option Expr
      - sif h : c then e1 else e2 ==> applyExtraArgs e2[h/h']
           (if ∃ e := h' ∈ hypothesisContext.hypothesisMap ∧ e2.hasLooseBVars ∧ e = ¬ c)
 
-     - sif h : c then e1 else e2 ==> (h : c → e1) ∧ (h : ¬ c → e2) (if Type(e1) = Prop)
+     - sif h : c then e1 else e2 ==> (h : c → e1) ∧ (h : ¬ c → e2) (if Type(e1) = Prop)                           [proof: Blaster.dite'_prop_eq]
          -- TO BE REMOVED: when performing normalization at the implication level
 
-     - (sif h : c then e1 else e2) x₁ ... xₙ  ==> (sif h : c' then e2 else e1) x₁ ... xₙ (if c = ¬ c')
+     - (sif h : c then e1 else e2) x₁ ... xₙ  ==> (sif h : c' then e2 else e1) x₁ ... xₙ (if c = ¬ c')              [proof: Blaster.dite'_not_swap]
 
-     - (sif h : c then e1 else e2) x₁ ... xₙ ==> (sif h : true = c' then e2 else e1) x₁ ... xₙ (if c := false = c')
+     - (sif h : c then e1 else e2) x₁ ... xₙ ==> (sif h : true = c' then e2 else e1) x₁ ... xₙ (if c := false = c') [proof: Blaster.dite'_bool_swap]
 
     with
       applyExtraArgs e :=
@@ -255,7 +255,7 @@ def optimizeDITEChoice (f : Expr) (args : Array Expr) : TranslateEnvT (Option Ex
     is annotated as `sif h : c then th else eh` to facilitate comprehension.
 
     The simplifcation/normalization rules applied are:
-     - sif h : c then e1 else e2 ==> e1  (if e1 =ₚₜᵣ e2)
+     - sif h : c then e1 else e2 ==> e1  (if e1 =ₚₜᵣ e2)  [proof: Blaster.dite'_abs]
 
      - sif h1 : a then (sif h2 : c1 then e1 else e2) else (sif h3 : c2 then e1 else e2) ==>
           sif h1 : (a ∧ c1) ∨ (¬ a ∧ c2) then e1 else e2 (if ¬ c1.hasLooseBVars ∧ ¬ c2.hasLooseBVars)
