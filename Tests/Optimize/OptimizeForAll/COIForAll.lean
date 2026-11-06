@@ -36,7 +36,7 @@ inductive Color where
 --  (if cond then x else y) = z ===>
 --  ∀ (x z : Color), x = z
 -- Test case: COI reduction applies when inductive type has at least one nullary constructor.
-#testOptimize [ "ForallCOI_5" ]
+#testOptimize [ "ForallCOI_5", proof ]
   ∀ (a b c : Bool) (x y z : Color),
     let cond := ((!a || ((b || c) && !(c || b))) || a) && (!(b && a) || (a && b));
     (if cond then x else y) = z ===>
@@ -88,7 +88,7 @@ inductive Color where
 --  (if cond then f x else y) = z ===>
 -- ∀ (β : Type) (y z : β), y = z
 -- Test case: COI reduction rules removes unused quantified functions.
-#testOptimize [ "ForallCOI_10" ]
+#testOptimize [ "ForallCOI_10", proof ]
   ∀ (α : Type) (β : Type) (f : α → β) (x : α) (y z : β) (a b c : Bool),
     let cond := !((!a || ((b || c) && !(c || b))) || a); (if cond then f x else y) = z ===>
   ∀ (β : Type) (y z : β), y = z
@@ -184,7 +184,7 @@ inductive ColorDegree (α : Type u) where
 --  (if cond then x else y) = z ===>
 -- ∀ (α : Type) (x y z : ColorDegree α), x = z
 -- Test case: COI reduction rules not applicable when inductive type does not have at least one nullary constructor.
-#testOptimize [ "ForallCOIUnchanged_7" ]
+#testOptimize [ "ForallCOIUnchanged_7", proof ]
   ∀ (α : Type) (a b c : Bool) (x y z : ColorDegree α),
     let cond := ((!a || ((b || c) && !(c || b))) || a) && (!(b && a) || (a && b));
     (if cond then x else y) = z ===>
@@ -200,7 +200,7 @@ inductive NoInstance where
 -- ∀ (x y z : NoInstance), x = z
 -- Test case: COI reduction rules not applicable when inductive type does not have at least one nullary constructor
 -- or an appropriate Inhabited instance.
-#testOptimize [ "ForallCOIUnchanged_8" ]
+#testOptimize [ "ForallCOIUnchanged_8", proof ]
   ∀ (a b c : Bool) (x y z : NoInstance),
     let cond := ((!a || ((b || c) && !(c || b))) || a) && (!(b && a) || (a && b));
     (if cond then x else y) = z ===>
