@@ -39,5 +39,7 @@ def cex_2 : Prop := ["aa", "bb", "cc", "dd", "ee"][4]? = some "aa"
 def cex_3 : Prop := ["aa", "bb", "cc", "dd", "ee"][5]? = some "bb"
 #blaster (gen-cex: 0) (solve-result: 1) (only-optimize: 1) [cex_3]
 
+def cex_4 : Prop := ∀ (i : Nat), [1, 2][i]? = some 1
+#blaster (gen-cex: 0) (solve-result: 1) [cex_4]
 
 end Test.SmtListGet

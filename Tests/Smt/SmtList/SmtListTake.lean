@@ -43,4 +43,7 @@ def cex_3 : Prop := List.take 0 ["aa", "bb", "cc", "dd", "ee"] = ["aa", "bb", "c
 def cex_4 : Prop := List.take 10 ["aa", "bb", "cc", "dd", "ee"] = []
 #blaster (gen-cex: 0) (solve-result: 1) (only-optimize: 1) [cex_4]
 
+def cex_5 : Prop := ∀ (xs : List Nat) (f : List Nat → Nat), f (List.take 2 (0 :: xs)) = 0
+#blaster (gen-cex: 0) (solve-result: 1) [cex_5]
+
 end Test.SmtListTake

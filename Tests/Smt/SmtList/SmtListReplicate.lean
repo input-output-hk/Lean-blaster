@@ -35,5 +35,7 @@ def cex_2 : Prop := List.replicate 1 "s" = []
 def cex_3 : Prop := List.replicate 2 "s" = ["s", "s", "s"]
 #blaster (gen-cex: 0) (solve-result: 1) (only-optimize: 1) [cex_3]
 
+def cex_4 : Prop := ∀ (n : Nat) (f : List Nat → Nat), f (List.replicate (n + 1) 0) = 0
+#blaster (gen-cex: 0) (solve-result: 1) [cex_4]
 
 end Test.SmtListReplicate

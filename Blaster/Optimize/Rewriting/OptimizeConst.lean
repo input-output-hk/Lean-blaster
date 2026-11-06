@@ -1,4 +1,3 @@
-
 import Lean
 import Blaster.Optimize.Rewriting.OptimizeApp
 
