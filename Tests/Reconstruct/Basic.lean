@@ -1,5 +1,8 @@
 import Blaster
 
+-- a reconstruction gap is a warning, so it fails the build
+set_option warningAsError true
+
 /-! ## Tests that `blaster` closes goals with valid proof certificates (no sorry). -/
 
 -- Eliminative rewrites
@@ -76,6 +79,34 @@ example : (∀ (m n : Nat), m + n = n + m) = (∀ (m n : Nat), n + m = n + m) :=
 -- eliminated binders, one of them a `Decidable` instance
 example : (∀ (a : Prop) [Decidable a], false = decide a) = ∀ (a : Prop), ¬ a := by blaster
 example : (∀ (a : Prop) (_n : Nat), ¬ a) = ∀ (a : Prop), ¬ a := by blaster
+-- a kept binder whose type is rewritten
+example : (∀ (a b : Bool), a → !b) = (∀ (a b : Bool), true = a → false = b) := by blaster
+-- a hypothesis rewritten to `True`
+example : (∀ (a b : Prop), (¬ (¬ a)) = a → b) = (∀ (b : Prop), b) := by blaster
+example : (∀ (a : Bool) (b : Prop), (!a || a) → b) = (∀ (b : Prop), b) := by blaster
+-- eliminated binders of a type without `Inhabited` instance, or of a sort
+inductive Color where
+  | red : Color
+  | blue : Color
+example : (∀ (x : Color), [x, Color.red] = [x, Color.blue]) = False := by blaster
+example : (∀ (α : Type) (x y z : α), ([] : List α) = [x, y, z]) = False := by blaster
+-- renamed binders next to an eliminated one
+example : (∀ (x y _z : Nat), 0 + x < y) = (∀ (a b : Nat), a < b) := by blaster
+example : (∀ (α : Type) (a : Bool) (x y z : List α), (if a && !a then x else y) = z) =
+  (∀ (α : Type) (_x _y z : List α), _y = z) := by blaster
+-- an anonymous instance binder on both sides
+example : (∀ (α : Type) [Inhabited α] (x : α), x = x ∧ x = default) =
+  (∀ (α : Type) [Inhabited α] (x : α), x = default) := by blaster
+-- the same unused binder on both sides, which the optimizer eliminates on each,
+-- through the pointwise path
+example : (∀ (_x : Nat) (n : Nat), 0 + n < 3) = (∀ (_x : Nat) (n : Nat), n < 3) := by blaster
+example : (∀ (α : Type) [Inhabited α] (x y : α), x = y ∧ True) =
+  (∀ (α : Type) [Inhabited α] (x y : α), x = y) := by blaster
+-- an unused binder whose type only a later instance binder inhabits, so it is kept
+structure Foo where
+  n : Nat
+example : (∀ (_x : Foo) [Inhabited Foo] (n : Nat), 0 + n < (default : Foo).n) =
+  (∀ (_x : Foo) [Inhabited Foo] (n : Nat), n < (default : Foo).n) := by blaster
 
 -- Optimized side is a top-level implication
 example : (∀ (a b : Prop), a ∨ (b → a)) = (∀ (a b : Prop), b → a) := by blaster

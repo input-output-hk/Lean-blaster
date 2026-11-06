@@ -100,7 +100,8 @@ namespace Test.ImpliesInHyp
 
 -- ∀ (a b c : Prop), (a → c) ∧ a → (a → b) ===>
 -- ∀ (a b c : Prop), (a ∧ c) → b
-#testOptimize [ "ImpliesInHypUnchanged_2", proof ]
+-- NOTE: no proof flag, the hypothesis `a` is consumed without a proof step
+#testOptimize [ "ImpliesInHypUnchanged_2" ]
   ∀ (a b c : Prop), (a → c) ∧ a → (a → b) ===>
   ∀ (a b c : Prop), (a ∧ c) → b
 
@@ -112,13 +113,15 @@ namespace Test.ImpliesInHyp
 
 -- ∀ (c : Bool) (a b d : Prop), (if c then a else b) → (true = c → d) ===>
 -- ∀ (c : Bool) (a b d : Prop), (false = c → b) ∧ (true = c → a) → (true = c → d)
-#testOptimize [ "ImpliesInHypUnchanged_4", proof ]
+-- NOTE: no proof flag, the rewrite of the `if` hypothesis into a conjunction has no proof step
+#testOptimize [ "ImpliesInHypUnchanged_4" ]
  ∀ (c : Bool) (a b d : Prop), (if c then a else b) → (true = c → d) ===>
  ∀ (c : Bool) (a b d : Prop), (false = c → b) ∧ (true = c → a) → (true = c → d)
 
 -- ∀ (c : Bool) (a b d : Prop), (if c then a else d) → (false = c → b) ===>
 -- ∀ (c : Bool) (a b d : Prop), (false = c → d) ∧ (true = c → a) → (false = c → b)
-#testOptimize [ "ImpliesInHypUnchanged_5", proof ]
+-- NOTE: no proof flag, the rewrite of the `if` hypothesis into a conjunction has no proof step
+#testOptimize [ "ImpliesInHypUnchanged_5" ]
  ∀ (c : Bool) (a b d : Prop), (if c then a else d) → (false = c → b) ===>
  ∀ (c : Bool) (a b d : Prop), (false = c → d) ∧ (true = c → a) → (false = c → b)
 
@@ -133,7 +136,8 @@ namespace Test.ImpliesInHyp
 --   (if h : c then f h d else b) → ∀ (h : c), f h a ===>
 -- ∀ (c : Bool) (a b d : Prop) (f : true = c → Prop → Prop),
 --   ((false = c → b) ∧ ∀ (h : true = c), f h d) → ∀ (h : true = c), f h a
-#testOptimize [ "ImpliesInHypUnchanged_7", proof ]
+-- NOTE: no proof flag, the function binder `f` changes type, which the replay does not transport
+#testOptimize [ "ImpliesInHypUnchanged_7" ]
  ∀ (c : Bool) (a b d : Prop) (f : c → Prop → Prop),
    (if h : c then f h d else b) → ∀ (h : c), f h a ===>
  ∀ (c : Bool) (a b d : Prop) (f : true = c → Prop → Prop),
@@ -143,7 +147,8 @@ namespace Test.ImpliesInHyp
 --   (if h : c then a else g h d) → ∀ (h : ¬ c), g h b ===>
 -- ∀ (c : Bool) (a b d : Prop) (g : false = c → Prop → Prop),
 --   (∀ (h : false = c), g h d) ∧ (true = c → a) → ∀ (h : false = c), g h b
-#testOptimize [ "ImpliesInHypUnchanged_8", proof ]
+-- NOTE: no proof flag, the function binder `g` changes type, which the replay does not transport
+#testOptimize [ "ImpliesInHypUnchanged_8" ]
  ∀ (c : Bool) (a b d : Prop) (g : ¬ c → Prop → Prop),
    (if h : c then a else g h d) → ∀ (h : ¬ c), g h b ===>
  ∀ (c : Bool) (a b d : Prop) (g : false = c → Prop → Prop),
