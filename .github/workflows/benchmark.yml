@@ -30,7 +30,7 @@ env:
 jobs:
   bench:
     name: bench (${{ matrix.tool }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -48,6 +48,13 @@ jobs:
                       /opt/hostedtoolcache/CodeQL /usr/local/share/boost || true
           df -h /
 
+      - name: Checkout result validator
+        uses: actions/checkout@v6
+        with:
+          path: workflow
+          sparse-checkout: scripts
+          persist-credentials: false
+
       - name: Checkout benchmarking harness
         uses: actions/checkout@v6
         with:
@@ -55,17 +62,35 @@ jobs:
           ref: main
           path: benchmarking
 
+      # cvc5's FFI explicitly uses clang -stdlib=libc++, including via LeanHammer.
+      - name: Install C++ runtime headers
+        if: matrix.tool == 'smt' || matrix.tool == 'hammer'
+        run: |
+          sudo apt-get -o Acquire::Retries=3 update
+          sudo apt-get -o Acquire::Retries=3 install -y --no-install-recommends libc++-dev libc++abi-dev
+          printf '#include <cstdint>\nint main() { return 0; }\n' | \
+            clang++ -x c++ -std=c++17 -stdlib=libc++ - -lc++abi -o /tmp/libcxx-smoke
+          /tmp/libcxx-smoke
+
       - name: Setup Lean (elan)
         run: |
-          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf \
-            | sh -s -- -y --default-toolchain none
+          curl --fail --show-error --location --retry 4 --retry-all-errors \
+            --connect-timeout 20 --max-time 180 --retry-max-time 600 \
+            https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            -o "$RUNNER_TEMP/elan-init.sh"
+          sh "$RUNNER_TEMP/elan-init.sh" -y --default-toolchain none
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
 
       - name: Install Z3
+        if: matrix.tool != 'aesop' && matrix.tool != 'baselines'
         run: |
           cd "$HOME"
-          wget -q "https://github.com/Z3Prover/z3/releases/download/z3-${Z3_VERSION}/z3-${Z3_VERSION}-x64-glibc-${GLIBC_Z3}.zip"
-          unzip -q "z3-${Z3_VERSION}-x64-glibc-${GLIBC_Z3}.zip"
+          archive="z3-${Z3_VERSION}-x64-glibc-${GLIBC_Z3}.zip"
+          curl --fail --show-error --location --retry 4 --retry-all-errors \
+            --connect-timeout 20 --max-time 180 --retry-max-time 600 \
+            "https://github.com/Z3Prover/z3/releases/download/z3-${Z3_VERSION}/${archive}" \
+            -o "$archive"
+          unzip -q "$archive"
           echo "$HOME/z3-${Z3_VERSION}-x64-glibc-${GLIBC_Z3}/bin" >> "$GITHUB_PATH"
 
       - name: Resolve tool commit (for cache key)
@@ -90,22 +115,40 @@ jobs:
             bench-v4-${{ matrix.tool }}-${{ steps.resolve.outputs.commit }}-
 
       - name: Tool versions
-        run: elan --version; z3 --version || true
+        run: |
+          elan --version
+          if [[ "${{ matrix.tool }}" != aesop && "${{ matrix.tool }}" != baselines ]]; then
+            z3 --version
+          fi
 
       - name: Run benchmark for ${{ matrix.tool }}
         working-directory: benchmarking
         run: bash latest/run_latest.sh ${{ matrix.tool }}
 
+      - name: Validate benchmark results
+        run: |
+          source benchmarking/benchmarks/benchmark_config.sh
+          printf '%s\n' "${BENCHMARK_FILES[@]}" | cut -d: -f3 > suites.txt
+          python3 workflow/scripts/validate_benchmark_results.py \
+            benchmarking/latest/results "${{ matrix.tool }}" \
+            --manifest benchmarking/latest/results/manifest.tsv --suites suites.txt
+
       - name: Stage artifact
+        if: always()
         working-directory: benchmarking
         run: |
           mkdir -p out/${{ matrix.tool }}
           cp latest/results/${{ matrix.tool }}/*_results.csv out/${{ matrix.tool }}/ 2>/dev/null || \
             echo "no CSVs for ${{ matrix.tool }} (build may have failed)"
           cp latest/results/${{ matrix.tool }}/env_errors.tsv out/${{ matrix.tool }}/ 2>/dev/null || true
-          cp latest/results/manifest.tsv out/manifest-${{ matrix.tool }}.tsv
+          if [[ -f latest/results/manifest.tsv ]]; then
+            cp latest/results/manifest.tsv out/manifest-${{ matrix.tool }}.tsv
+          fi
+          mkdir -p out/${{ matrix.tool }}/logs
+          cp latest/projects/${{ matrix.tool }}/*.log out/${{ matrix.tool }}/logs/ 2>/dev/null || true
 
       - name: Upload results
+        if: always()
         uses: actions/upload-artifact@v6
         with:
           name: bench-${{ matrix.tool }}
@@ -117,6 +160,13 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout result validator
+        uses: actions/checkout@v6
+        with:
+          path: workflow
+          sparse-checkout: scripts
+          persist-credentials: false
+
       - name: Checkout benchmarking harness (merge script)
         uses: actions/checkout@v6
         with:
@@ -136,6 +186,16 @@ jobs:
           pattern: bench-*
           path: results
           merge-multiple: true
+
+      # Defense in depth: a green matrix job is not proof that its CSVs are valid.
+      - name: Validate all tools before report generation
+        run: |
+          source benchmarking/benchmarks/benchmark_config.sh
+          printf '%s\n' "${BENCHMARK_FILES[@]}" | cut -d: -f3 > suites.txt
+          for tool in blaster smt hammer auto aesop baselines; do
+            python3 workflow/scripts/validate_benchmark_results.py results "$tool" \
+              --manifest "results/manifest-${tool}.tsv" --suites suites.txt
+          done
 
       - name: Assemble manifest
         run: |
@@ -165,7 +225,8 @@ jobs:
           if-no-files-found: error
 
   publish_report:
-    needs: merge
+    needs: [bench, merge]
+    if: needs.bench.result == 'success' && needs.merge.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -207,7 +268,8 @@ jobs:
         run: gh api --method POST "repos/${GITHUB_REPOSITORY}/pages/builds"
 
   propose_readme:
-    needs: merge
+    needs: [bench, merge]
+    if: needs.bench.result == 'success' && needs.merge.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
