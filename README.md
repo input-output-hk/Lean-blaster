@@ -2,7 +2,7 @@
 # Blaster - An SMT Backend for Lean4
 
 [![Lean Version](https://img.shields.io/badge/Lean-v4.24.0-blue.svg)](https://github.com/leanprover/lean4)
-[![Z3 Version](https://img.shields.io/badge/Z3-v4.15.2-green.svg)](https://github.com/Z3Prover/z3)
+[![Z3 Version](https://img.shields.io/badge/Z3-v5.4.0-green.svg)](https://github.com/Z3Prover/z3)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
@@ -49,7 +49,7 @@ Blaster provides an SMT backend for Z3 proofs. Blaster works by first aggressive
 Blaster is built with the philosophy that fewer dependencies mean better maintainability and more optimization opportunities. That said, Blaster requires:
 
 - **Lean4** v4.24.0 (or compatible version)
-- **Z3** master branch for now until official release v5.3.4 is out.
+- **Z3** v5.4.0 (or compatible version).
 
 ### Installing Lean4
 
@@ -574,9 +574,9 @@ Once an expression has been translated, Blaster interacts with an external SMT s
 
 ## Installing the Z3 Solver
 
-Blaster requires Z3 version 4.15.2.  To install that, you need to
+Blaster requires Z3 version 5.4.0.  To install that, you need to
 
-1. **Check out** the 4.15.2 tagged branch of the Z3 repo;
+1. **Check out** the 5.4.0 tagged branch of the Z3 repo;
 2. **Install** Z3 in a location that doesn't conflict with possible existing versions
    on your machine (e.g., in `/usr/bin/z3`)
 3. **Ensure** Lean 4 is using the right version of Z3.
@@ -584,9 +584,9 @@ Blaster requires Z3 version 4.15.2.  To install that, you need to
 Below are instructions for accomplishing these objectives.  (They are aimed at
 .deb-based Linux, but the same or similar steps should work on other platforms.)
 
-### 1. Build and install Z3 v4.15.2 from source
+### 1. Build and install Z3 v5.4.0 from source
 
-Z3 releases are tagged on GitHub; the tag you want is `z3-4.15.2`.
+Z3 releases are tagged on GitHub; the tag you want is `z3-5.4.0`.
 
 **1.1 Install build dependencies**
 
@@ -595,16 +595,16 @@ sudo apt update
 sudo apt install -y build-essential python3 git
 ```
 
-**1.2 Clone the 4.15.2 tag**
+**1.2 Clone the 5.4.0 tag**
 
-Do **not** clone the `master` branch; it will give you a newer version (e.g., 4.15.4) that we do not yet fully support. Instead:
+Do **not** clone the `master` branch; it will give you a newer version that we do not yet fully support. Instead:
 
 ```bash
-# Shallow clone just the 4.15.2 tag, into a directory named z3-4.15.2
-git clone --branch z3-4.15.2 --depth 1 https://github.com/Z3Prover/z3.git z3-4.15.2
-cd z3-4.15.2
+# Shallow clone just the 5.4.0 tag, into a directory named z3-5.4.0
+git clone --branch z3-5.4.0 --depth 1 https://github.com/Z3Prover/z3.git z3-5.4.0
+cd z3-5.4.0
 
-# Sanity check: this should print something like "z3-4.15.2"
+# Sanity check: this should print something like "z3-5.4.0"
 git describe --tags
 ```
 
@@ -627,7 +627,7 @@ This installs
 +  libraries to `/usr/local/lib`
 +  header files to `/usr/local/include`
 
-### 2. Make sure **4.15.2** comes first in your `PATH`
+### 2. Make sure **5.4.0** comes first in your `PATH`
 
 Check which `z3` you’re actually picking up:
 
@@ -637,7 +637,7 @@ z3 --version
 ```
 
 Ideally you will see
-`/usr/local/bin/z3` and `Z3 version 4.15.2 - 64 bit`.
+`/usr/local/bin/z3` and `Z3 version 5.4.0 - 64 bit`.
 
 If `which z3` shows something else, e.g., `/usr/bin/z3`, then `/usr/local/bin` isn’t ahead
 of `/usr/bin` in your `PATH`; fix this by either removing the version of `z3` that's
@@ -656,7 +656,7 @@ Lean just calls `z3` as an external process (via `IO.Process` or tactics that us
 
 It doesn’t have its own embedded Z3. So:
 
-**If the shell you run `lake` from sees `/usr/local/bin/z3` (4.15.2), then Lean will also use 4.15.2.**
+**If the shell you run `lake` from sees `/usr/local/bin/z3` (5.4.0), then Lean will also use 5.4.0.**
 
 Just to be sure, you can run the simple test we provide in this repository, as follows:
 
@@ -669,7 +669,7 @@ If Z3 is installed correctly, you should see the following output:
 
 ```
 Successfully ran z3:
-Z3 version 4.15.2 - 64 bit
+Z3 version 5.4.0 - 64 bit
 ```
 
 ---
