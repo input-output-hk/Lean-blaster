@@ -255,7 +255,7 @@ def divNat (x : Nat) (y : Nat) : Nat :=
   (∀ (x y : Nat), 0 < y → ¬ x < divNat x y) → (∀ (n m : Nat), 0 < m → ¬ n < Nat.div n m)
 
 -- (∀ (x y : Nat), x = y → eqNat x y) → (∀ (n m : Nat), n = m → n == m) ===> True
-#testOptimize [ "NormRecFun_25" ]
+#testOptimize [ "NormRecFun_25", proof ]
   (∀ (x y : Nat), x = y → eqNat x y) → (∀ (n m : Nat), n = m → n == m) ===> True
 
 
@@ -401,7 +401,7 @@ def listNatBeqInverse (xs : List Nat) (ys : List Nat) : Bool :=
 -- ∀ (xs ys : List Nat), xs == ys = listNatRevertBeq xs ys ===>
 -- ∀ (xs ys : List Nat), (true = listNatBeqInverse xs ys) = (xs = ys)
 -- NOTE: Test cases to ensure that structural equivalence no match are not wrongly applied
-#testOptimize [ "NormRecUnchanged_3" ]
+#testOptimize [ "NormRecUnchanged_3", proof ]
   ∀ (xs ys : List Nat), (xs == ys) = listNatBeqInverse xs ys ===>
   ∀ (xs ys : List Nat), (true = listNatBeqInverse xs ys) = (xs = ys)
 
