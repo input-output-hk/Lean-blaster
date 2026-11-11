@@ -24,23 +24,24 @@ env:
   # Existing Pages site is served from the gh-pages branch; we publish the report to
   # a benchmark/ subpath so the current site root is left untouched.
   REPORT_URL: https://input-output-hk.github.io/Lean-blaster/benchmark/
-  Z3_VERSION: "4.15.2"
   GLIBC_Z3: "2.39"
 
 jobs:
   bench:
     name: bench (${{ matrix.tool }})
     runs-on: ubuntu-24.04
+    env:
+      Z3_VERSION: ${{ matrix.z3_version }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { tool: blaster, url: "https://github.com/input-output-hk/Lean-blaster",        branch: main }
-          - { tool: smt,     url: "https://github.com/ufmg-smite/lean-smt.git",             branch: main }
-          - { tool: hammer,  url: "https://github.com/JOSHCLUNE/LeanHammer.git",            branch: main }
-          - { tool: auto,    url: "https://github.com/leanprover-community/lean-auto.git",  branch: main }
-          - { tool: aesop,   url: "", branch: "" }   # via mathlib (aesop is a mathlib dep)
-          - { tool: baselines, url: "", branch: "" }   # repo-less: omega/grind/simp on latest stable Lean
+          - { tool: blaster, url: "https://github.com/input-output-hk/Lean-blaster",        branch: main, z3_version: "5.4.0" }
+          - { tool: smt,     url: "https://github.com/ufmg-smite/lean-smt.git",             branch: main, z3_version: "4.15.2" }
+          - { tool: hammer,  url: "https://github.com/JOSHCLUNE/LeanHammer.git",            branch: main, z3_version: "4.15.2" }
+          - { tool: auto,    url: "https://github.com/leanprover-community/lean-auto.git",  branch: main, z3_version: "4.15.2" }
+          - { tool: aesop,   url: "", branch: "", z3_version: "none" }   # via mathlib (aesop is a mathlib dep)
+          - { tool: baselines, url: "", branch: "", z3_version: "none" }   # repo-less: omega/grind/simp on latest stable Lean
     steps:
       - name: Free disk space
         run: |
@@ -82,7 +83,7 @@ jobs:
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
 
       - name: Install Z3
-        if: matrix.tool != 'aesop' && matrix.tool != 'baselines'
+        if: env.Z3_VERSION != 'none'
         run: |
           cd "$HOME"
           archive="z3-${Z3_VERSION}-x64-glibc-${GLIBC_Z3}.zip"
@@ -92,6 +93,10 @@ jobs:
             -o "$archive"
           unzip -q "$archive"
           echo "$HOME/z3-${Z3_VERSION}-x64-glibc-${GLIBC_Z3}/bin" >> "$GITHUB_PATH"
+
+      - name: Verify selected solver version
+        id: solver
+        run: python3 workflow/scripts/verify_benchmark_solver.py "$Z3_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Resolve tool commit (for cache key)
         id: resolve
@@ -110,9 +115,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: benchmarking/latest/results_cache
-          key: bench-v4-${{ matrix.tool }}-${{ steps.resolve.outputs.commit }}-${{ github.run_id }}
+          key: bench-v5-${{ matrix.tool }}-${{ steps.resolve.outputs.commit }}-${{ steps.solver.outputs.solver_id }}-${{ github.run_id }}
           restore-keys: |
-            bench-v4-${{ matrix.tool }}-${{ steps.resolve.outputs.commit }}-
+            bench-v5-${{ matrix.tool }}-${{ steps.resolve.outputs.commit }}-${{ steps.solver.outputs.solver_id }}-
 
       - name: Tool versions
         run: |
@@ -123,6 +128,8 @@ jobs:
 
       - name: Run benchmark for ${{ matrix.tool }}
         working-directory: benchmarking
+        env:
+          BENCH_SOLVER_ID: ${{ steps.solver.outputs.solver_id }}
         run: bash latest/run_latest.sh ${{ matrix.tool }}
 
       - name: Validate benchmark results
@@ -141,6 +148,7 @@ jobs:
           cp latest/results/${{ matrix.tool }}/*_results.csv out/${{ matrix.tool }}/ 2>/dev/null || \
             echo "no CSVs for ${{ matrix.tool }} (build may have failed)"
           cp latest/results/${{ matrix.tool }}/env_errors.tsv out/${{ matrix.tool }}/ 2>/dev/null || true
+          cp latest/results/${{ matrix.tool }}/solver_environment.json out/${{ matrix.tool }}/ 2>/dev/null || true
           if [[ -f latest/results/manifest.tsv ]]; then
             cp latest/results/manifest.tsv out/manifest-${{ matrix.tool }}.tsv
           fi
