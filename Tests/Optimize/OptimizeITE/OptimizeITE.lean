@@ -1204,23 +1204,28 @@ elab "iteFalseEqCondUnchanged_9" : term => return iteFalseEqCondUnchanged_9
   ∀ (a b : Bool) (s t : String), (if a = b then s else t) > s ===>
   ∀ (a b : Bool) (s t : String), s < Blaster.dite' (a = b) (fun _ => s) (fun _ => t)
 
-/-! Test cases for the simplification rule `if a then (if  c then e1 else e2) else (if c then e1 else e3) ==> if c then e1 else (if a then e2 else e3)`
+/-! Test cases for the simplification rule
+  `if a then (if c then e1 else e2) else (if c then e1 else e3)` ==>
+  `if c then e1 else (if a then e2 else e3)`
 -/
 
--- ∀ (a c : Prop) (x y w : Nat), [Decidable a] → [Decidable c] →
---   (if a then (if c then x else y) else (if c then w else y)) = (if c then (if a then x else w) else y) ===> True
+-- ∀ (a c : Prop) [Decidable a] [Decidable c] (x y w : Nat),
+--   (if a then (if c then x else y) else (if c then x else w)) = (if c then x else (if a then y else w)) ===> True
 #testOptimize [ "IteFactorizeThen_1", proof ]
   ∀ (a c : Prop) [Decidable a] [Decidable c] (x y w : Nat),
     (if a then (if c then x else y) else (if c then x else w)) =
     (if c then x else (if a then y else w)) ===> True
 
-/-! Test cases for the simplification rule `if a then (if c then e1 else e2) else (if c then e3 else e2) ==> if c then (if a then e1 else e3) else e2`
+/-! Test cases for the simplification rule
+  `if a then (if c then e1 else e2) else (if c then e3 else e2)` ==>
+  `if c then (if a then e1 else e3) else e2`
 -/
 
--- ∀ (a c : Prop) (x y w : Nat), [Decidable a] → [Decidable c] →
+-- ∀ (a c : Prop) [Decidable a] [Decidable c] (x y w : Nat), →
 --   (if a then (if c then x else y) else (if c then w else y)) = (if c then (if a then x else w) else y) ===> True
 #testOptimize [ "IteFactorizeElse_1", proof ]
   ∀ (a c : Prop) [Decidable a] [Decidable c] (x y w : Nat),
     (if a then (if c then x else y) else (if c then w else y)) =
     (if c then (if a then x else w) else y) ===> True
+
 end Test.OptimizeITE
