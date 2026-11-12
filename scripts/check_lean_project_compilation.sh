@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# Preserve Lake failures through tee so CI cannot accept a failed build.
+set -o pipefail
+
 exec_found=0
 if [[ $# -eq 1 ]]
 then

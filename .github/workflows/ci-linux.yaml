@@ -22,16 +22,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
       - name: Setup Lean
         run: |
           curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
           echo "/home/runner/.elan/bin" >> $GITHUB_PATH
           chmod +x /home/runner/.elan/bin/*
 
-      - name: Fix Elan version
+      - name: Install supported Lean version
         run: |
-          elan toolchain install ${{ env.LEAN_VERSION }}
-          elan default ${{ env.LEAN_VERSION }}
+          test "$(cat lean-toolchain)" = "leanprover/lean4:v${{ env.LEAN_VERSION }}"
+          elan toolchain install "leanprover/lean4:v${{ env.LEAN_VERSION }}"
 
       - name: Install Z3 (release)
         if: env.Z3_VERSION != 'master'
@@ -82,9 +85,6 @@ jobs:
           lean --version
           z3 --version
 
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
       - name: Build and Validate Blaster
         run: make check_blaster
 
@@ -93,7 +93,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: blaster-build
-          path: ./Blaster/build.log
+          path: ./build.log
 
       - name: Execute and Validate Tests
         run: LEAN_NUM_THREADS=5 ./scripts/check_lean_project_compilation.sh Tests
@@ -103,4 +103,4 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: tests-build
-          path: ./Tests/build.log
+          path: ./build.log
