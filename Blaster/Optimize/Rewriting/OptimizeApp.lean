@@ -281,11 +281,16 @@ def normPartialFun? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr)
  if isFunITE f then return none
  let pInfo ← getFunEnvInfo f
  if pInfo.paramsInfo.size <= args.size then return none
- let nbImplicits := pInfo.paramsInfo.foldl (fun acc p => if !p.isExplicit then acc + 1 else acc) 0
- if nbImplicits == args.size then return none
- etaExpand (← mkAppNExpr f args)
+ if hasAtLeastOneExplicit pInfo
+ then etaExpand (← mkAppNExpr f args)
+ else return none
 
  where
+   hasAtLeastOneExplicit (pInfo : FunEnvInfo) : Bool := Id.run $ do
+     for i in [:args.size] do
+       if pInfo.paramsInfo[i]!.isExplicit then return true
+     return false
+
    isFunITE (e : Expr) : Bool :=
      match e with
      | Expr.const ``Blaster.dite' _ => args.size > 4
