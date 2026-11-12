@@ -1,0 +1,88 @@
+name: Publish PR benchmark
+
+# The benchmark runs PR code with a read-only token. This separate workflow
+# handles only validated metadata and output artifacts, never a PR checkout.
+on:
+  workflow_run:
+    workflows: [PR benchmark]
+    types: [completed]
+
+permissions:
+  actions: read
+  issues: write
+  pull-requests: write
+  statuses: write
+
+jobs:
+  publish:
+    if: >-
+      github.event.workflow_run.event == 'issue_comment' &&
+      github.event.workflow_run.repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download validated PR details
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          if ! gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}/artifacts" \
+            --jq '.artifacts[].name' | grep -Fxq pr-benchmark-metadata; then
+            echo 'No validated PR metadata: the command was rejected or preparation failed.'
+            echo 'PUBLISH=false' >> "$GITHUB_ENV"
+            exit 0
+          fi
+          gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name pr-benchmark-metadata --dir metadata
+          number=$(jq -er '.number | select(type == "number" and . > 0)' metadata/pr-metadata.json)
+          sha=$(jq -er '.sha | select(type == "string" and test("^[0-9a-f]{40}$"))' metadata/pr-metadata.json)
+          base_ref=$(jq -er '.base_ref | select(type == "string" and test("^[A-Za-z0-9_./-]+$"))' metadata/pr-metadata.json)
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${number}" --jq .number >/dev/null
+          echo "PUBLISH=true" >> "$GITHUB_ENV"
+          echo "PR_NUMBER=$number" >> "$GITHUB_ENV"
+          echo "PR_HEAD_SHA=$sha" >> "$GITHUB_ENV"
+          echo "PR_BASE_REF=$base_ref" >> "$GITHUB_ENV"
+
+      - name: Download comparison if available
+        if: env.PUBLISH == 'true' && github.event.workflow_run.conclusion == 'success'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name "pr-benchmark-${PR_NUMBER}" --dir result
+
+      - name: Publish result and PR check
+        if: env.PUBLISH == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+          SOURCE_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+        run: |
+          if [ "$SOURCE_CONCLUSION" = success ] && [ -f result/comparison.md ]; then
+            cp result/comparison.md comment.md
+            if [ "$PR_BASE_REF" != main ]; then
+              printf '\nThis PR targets `%s`; differences from weekly `main` include changes on that base branch.\n' \
+                "$PR_BASE_REF" >> comment.md
+            fi
+            state=success
+            description='Benchmark comparison completed; see run and artifact'
+          else
+            printf 'Benchmark for PR #%s (`%.12s`) did not complete. [Inspect the run and logs](https://github.com/%s/actions/runs/%s).\n' \
+              "$PR_NUMBER" "$PR_HEAD_SHA" "$GITHUB_REPOSITORY" "$SOURCE_RUN_ID" > comment.md
+            state=failure
+            description='Benchmark did not complete; inspect the run logs'
+          fi
+          python3 - <<'PY' > comment.json
+          import json
+          from pathlib import Path
+          print(json.dumps({"body": Path("comment.md").read_text(encoding="utf-8")}))
+          PY
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
+            --input comment.json --jq .html_url
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/statuses/${PR_HEAD_SHA}" \
+            -f state="$state" \
+            -f context=benchmark/weekly-comparison \
+            -f description="$description" \
+            -f target_url="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}" \
+            --jq .url
