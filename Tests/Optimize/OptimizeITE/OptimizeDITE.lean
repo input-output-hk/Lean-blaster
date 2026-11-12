@@ -2400,4 +2400,32 @@ elab "dIteToPropExprUnchanged_7" : term => return dIteToPropExprUnchanged_7
   ∀ (c : Bool) (x y : Nat) (f : c → Nat → Nat),
     (if h : c then f h x else y) > x ===> diteFalseEqCondUnchanged_3
 
+
+/-! Test cases for the simplification rule
+  `dite a (fun h1 : a => dite c (fun h2 : c => e1) (fun _ => e2)) (fun _ => dite c (fun h2 : c => e1) (fun _ => e3))` ==>
+  `dite c (fun h2 : c => e1) (fun _ => dite a (fun h1 : a => e2) (fun _ => e3))`
+
+-/
+
+-- ∀ (a c : Prop) [Decidable a] [Decidable c] (x y w : Nat) (f : ¬ a → Nat → Nat) (g : c → Nat → Nat),
+--     (if h1 : a then (if  h2 : c then g h2 x else y) else (if h2 : c then g h2 x else f h1 w)) =
+--     (if h2 : c then g h2 x else (if h1 : a then y else f h1 w)) ===> True
+#testOptimize [ "DIteFactorizeThen_1", proof ]
+  ∀ (a c : Prop) [Decidable a] [Decidable c] (x y w : Nat) (f : ¬ a → Nat → Nat) (g : c → Nat → Nat),
+    (if h1 : a then (if  h2 : c then g h2 x else y) else (if h2 : c then g h2 x else f h1 w)) =
+    (if h2 : c then g h2 x else (if h1 : a then y else f h1 w)) ===> True
+
+/-! Test cases for the simplification rule
+  `dite a (fun h1 : a => dite c (fun _ => e1) (fun h2 : ¬ c => e2)) (fun _ => dite c (fun _ => e3) (fun h2 : ¬ c => e2))` ==>
+  `dite c (fun _ => dite a (fun h1 : a => e1) (fun _ => e3)) (fun h2 : ¬ c => e2)`
+-/
+
+-- ∀ (a c : Prop) [Decidable a] [Decidable c] (x y w : Nat) (f : a → Nat → Nat) (g : ¬ c → Nat → Nat),
+--   (if h1 : a then (if h2 : c then f h1 x else g h2 y) else (if h2 : c then w else g h2 y)) =
+--   (if h2 : c then (if h1 : a then f h1 x else w) else g h2 y) ===> True
+#testOptimize [ "DIteFactorizeElse_1", proof ]
+  ∀ (a c : Prop) [Decidable a] [Decidable c] (x y w : Nat) (f : a → Nat → Nat) (g : ¬ c → Nat → Nat),
+    (if h1 : a then (if h2 : c then f h1 x else g h2 y) else (if h2 : c then w else g h2 y)) =
+    (if h2 : c then (if h1 : a then f h1 x else w) else g h2 y) ===> True
+
 end Test.OptimizeDITE
