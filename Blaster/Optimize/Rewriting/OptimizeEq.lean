@@ -654,7 +654,7 @@ def optimizeNe (u : List Level) (args : Array Expr) : TranslateEnvT Expr := do
    -- λ e1 e2 => ¬ (e1 = e2)
    let neq_sort := args[0]!
    let body ← mkApp3Expr (← mkEqOpLevel u) neq_sort (← mkBVarExpr 0) (← mkBVarExpr 1)
-   let lam1 ← mkLambdaExpr `y BinderInfo.default neq_sort body
+   let lam1 ← mkLambdaExpr `y BinderInfo.default neq_sort (← mkAppExpr (← mkPropNotOp) body)
    mkLambdaExpr `x BinderInfo.default neq_sort lam1
  else throwEnvError "optimizeNe: at least 1 argument expected but got {reprStr args}"
 
