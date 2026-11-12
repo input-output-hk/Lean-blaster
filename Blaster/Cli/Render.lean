@@ -16,6 +16,7 @@ structure Renderer where
   stop : IO.Ref Bool
   emittedResults : IO.Ref Nat
   groupPrefix : IO.Ref (Option String)
+  sourceCache : IO.Ref (Std.HashMap String (Array String))
   platform : Platform
   palette : String
   outputLock : Std.Mutex Unit
@@ -56,7 +57,8 @@ def Renderer.create (cfg : Config) (platform : Platform := {}) : IO Renderer := 
     started := ← IO.monoMsNow
     stop := ← IO.mkRef false
     emittedResults := ← IO.mkRef 0
-    groupPrefix := ← IO.mkRef none }
+    groupPrefix := ← IO.mkRef none
+    sourceCache := ← IO.mkRef {} }
 
 /-- ANSI roles inherit the user's terminal palette and remain readable on light backgrounds. -/
 def styled (enabled : Bool) (role text : String) : String :=
@@ -208,6 +210,102 @@ def Renderer.endImported (r : Renderer) (label : String) (parent : Option String
       r.out.flush
   r.groupPrefix.set parent
 
+/-- Keep one diagnostic readable when a theorem or solver value spans many lines. -/
+private def preview (value : String) (limit : Nat) : String :=
+  let first := (value.trim.splitOn "\n").head!.trim
+  if first.length > limit then String.mk (first.toList.take limit) ++ "…"
+  else if value.trim.contains '\n' then first ++ " …"
+  else first
+
+private def witnessAssignment? (value : String) : Option (String × String) := do
+  let parts := value.trim.splitOn ":"
+  let name := parts.head?.getD "" |>.trim
+  let answer := ":".intercalate (parts.drop 1) |>.trim
+  if parts.length < 2 || name.isEmpty || answer.isEmpty ||
+      name.toList.any (fun c => c == ' ' || c == '\n' || c == '(' || c == ')') then none
+  else some (name, answer)
+
+private def Renderer.sourceLines? (r : Renderer) (file : String) : IO (Option (Array String)) := do
+  if let some lines := (← r.sourceCache.get)[file]? then return some lines
+  try
+    let lines := ((← IO.FS.readFile file).splitOn "\n").toArray
+    r.sourceCache.modify (·.insert file lines)
+    return some lines
+  catch _ => return none
+
+private def Renderer.sourceFrame (r : Renderer) (result : CheckResult) (guide : String) : IO Unit := do
+  let some lines ← r.sourceLines? result.location.file | return ()
+  let target := result.location.line
+  unless target > 0 && target <= lines.size do return
+  let first := max 1 (target - 1)
+  let last := min lines.size (target + 1)
+  let bar := if r.config.ascii then "|" else "│"
+  r.out.putStrLn guide
+  for number in [first:last + 1] do
+    let marker := if number == target then r.tintOut "action" ">" else " "
+    let raw := lines[number - 1]!.replace "\r" ""
+    let offset := if number == target && result.location.column > 72 then
+      result.location.column - 72 else 0
+    let excerpt := raw.toList.drop offset
+    let source := (if offset > 0 then "…" else "") ++ String.mk (excerpt.take 110) ++
+      (if excerpt.length > 110 then "…" else "")
+    r.out.putStrLn s!"{guide}  {marker} {number} {r.tintOut "muted" bar} {source}"
+
+private def Renderer.falsification (r : Renderer) (result : CheckResult)
+    (guide : String) : IO Unit := do
+  if result.expectedStatus == some "falsified" && result.counterexample.isEmpty &&
+      !r.config.verbose then return
+  let subject := if result.invocation == "tactic" then "goal" else "property"
+  r.out.putStrLn s!"{guide}  I found this {subject} false."
+  r.sourceFrame result guide
+  if let some goal := result.goal then
+    if r.config.counterexampleView == "full" || r.config.counterexampleView == "raw" then
+      r.out.putStrLn s!"{guide}  Goal:"
+      for line in goal.splitOn "\n" do r.out.putStrLn s!"{guide}    {line}"
+    else
+      r.out.putStrLn s!"{guide}  Goal: {preview goal 120}"
+  if result.counterexample.isEmpty then
+    let explanation := if result.origin == "optimization" then
+      "I reduced it to false during optimization; there is no solver model."
+    else if !r.config.counterexamples then
+      "Counterexample retrieval is off. Use --counterexample=summary to request values."
+    else
+      "I couldn't extract witness values from the solver result."
+    r.out.putStrLn s!"{guide}  {r.tintOut "muted" explanation}"
+    return
+  let heading := if r.config.counterexampleView == "raw" then
+    "Counterexample · raw solver values" else "Counterexample"
+  r.out.putStrLn s!"{guide}  {r.tintOut "action" heading}"
+  if r.config.counterexampleView == "raw" then
+    for value in result.counterexample do
+      for line in value.trim.splitOn "\n" do
+        r.out.putStrLn s!"{guide}    {line}"
+    return
+  let limit := if r.config.counterexampleView == "full" then result.counterexample.size else 6
+  let mut complex := false
+  for value in result.counterexample.toList.take limit do
+    if let some (name, answer) := witnessAssignment? value then
+      if r.config.counterexampleView == "full" then
+        let lines := answer.splitOn "\n"
+        r.out.putStrLn s!"{guide}    {name} = {lines.head!}"
+        for line in lines.drop 1 do r.out.putStrLn s!"{guide}        {line}"
+      else
+        let isComplex := answer.contains '\n' || answer.length > 88 || answer.startsWith "(let "
+        if isComplex then complex := true
+        let suffix := if isComplex then r.tintOut "muted" " · solver syntax" else ""
+        r.out.putStrLn s!"{guide}    {name} = {preview answer 88}{suffix}"
+    else
+      complex := true
+      if r.config.counterexampleView == "full" then
+        for line in value.trim.splitOn "\n" do r.out.putStrLn s!"{guide}    {line}"
+      else
+        r.out.putStrLn s!"{guide}    I have a solver model, but can't map it to named inputs yet."
+  if result.counterexample.size > limit then
+    r.out.putStrLn s!"{guide}    … {result.counterexample.size - limit} more values"
+  if r.config.counterexampleView == "summary" &&
+      (complex || result.counterexample.size > limit) then
+    r.out.putStrLn s!"{guide}  {r.tintOut "muted" "Use --counterexample=full for every value, or raw for solver syntax."}"
+
 def Renderer.result (r : Renderer) (result : CheckResult) : IO Unit := do
   if r.config.json then
     r.outputLock.atomically do
@@ -233,22 +331,13 @@ def Renderer.result (r : Renderer) (result : CheckResult) : IO Unit := do
         else result.expectedStatus.map (fun status => s!" (expected {status})") |>.getD ""
       let status := r.tintOut (statusRole result.status) s!"{symbol r.config result.status} {label}{expectation}"
       r.out.putStrLn s!"{guide}{status} · {property} at {result.location.line}:{result.location.column} {r.tintOut "muted" s!"· {elapsed result.elapsedMs}"}"
-      if result.invocation == "tactic" && result.status != "valid" then
-        if let some goal := result.goal then r.out.putStrLn s!"{guide}  Goal: {goal}"
+      if result.status == "undetermined" && result.invocation == "tactic" then
+        if let some goal := result.goal then r.out.putStrLn s!"{guide}  Goal: {preview goal 120}"
       if r.config.debug then
         let limit := result.solverTimeoutSeconds.map (fun n => s!"{n}s") |>.getD "unlimited"
         r.err.putStrLn s!"{guide}  debug: per-query solver limit {limit}; result captured directly from {result.invocation}"
       match result.status with
-      | "falsified" =>
-        let subject := if result.invocation == "tactic" then "goal" else "property"
-        if result.counterexample.isEmpty then
-          unless result.expectedStatus == some "falsified" do
-            r.out.putStrLn s!"{guide}  I found this {subject} false; no counterexample values are available"
-        else
-          r.out.putStrLn s!"{guide}  I found a counterexample (raw solver values):"
-          for value in result.counterexample do
-            for line in value.trim.splitOn "\n" do
-              r.out.putStrLn s!"{guide}    {line}"
+      | "falsified" => r.falsification result guide
       | "undetermined" | "error" | "skipped" =>
         if let some reason := result.reason then r.out.putStrLn s!"{guide}  {reason}"
       | _ => pure ()
@@ -265,27 +354,19 @@ def Renderer.result (r : Renderer) (result : CheckResult) : IO Unit := do
     let label := if result.invocation == "tactic" then label ++ " goal" else label
     let label := if result.expectedStatus == some result.status then label ++ " (expected)"
       else label ++ (result.expectedStatus.map (fun status => s!" (expected {status})") |>.getD "")
-    let subject := if result.invocation == "tactic" then "goal" else "property"
     let plain := s!"{symbol r.config result.status} {label}"
     let padding := String.mk (List.replicate (20 - plain.length) ' ')
     let status := r.tintOut (statusRole result.status) plain
     r.out.putStrLn s!"  {status}{padding}{result.property}  {r.tintOut "muted" s!"· {elapsed result.elapsedMs}"}"
     let location := r.tintOut "action" s!"{result.location.file}:{result.location.line}:{result.location.column}"
     r.out.putStrLn s!"    {location} {r.tintOut "muted" s!"· {result.invocation} · {result.origin}"}"
-    if result.invocation == "tactic" && result.status != "valid" then
-      if let some goal := result.goal then r.out.putStrLn s!"    Goal: {goal}"
+    if result.status == "undetermined" && result.invocation == "tactic" then
+      if let some goal := result.goal then r.out.putStrLn s!"    Goal: {preview goal 120}"
     if r.config.debug then
       let limit := result.solverTimeoutSeconds.map (fun n => s!"{n}s") |>.getD "unlimited"
       r.err.putStrLn s!"    debug: per-query solver limit {limit}; result captured directly from {result.invocation}"
     match result.status with
-    | "falsified" =>
-      if result.counterexample.isEmpty then
-        r.out.putStrLn s!"    I found this {subject} false; no counterexample values are available"
-      else
-        r.out.putStrLn "    I found a counterexample (raw solver values):"
-        for value in result.counterexample do
-          for line in value.trim.splitOn "\n" do
-            r.out.putStrLn s!"      {line}"
+    | "falsified" => r.falsification result "    "
     | "undetermined" | "error" | "skipped" =>
       if let some reason := result.reason then r.out.putStrLn s!"    {reason}"
     | _ =>
@@ -335,7 +416,7 @@ def Renderer.finish (r : Renderer) (report : Report) : IO Unit := do
    else
     for diag in report.diagnostics do
       unless !r.config.verbose &&
-          (diag.code == some "lean.unusedVariables" ||
+          ([some "lean.unusedVariables", some "blaster.falsified", some "blaster.trust"].contains diag.code ||
             (diag.severity == "info" && diag.code != some "cli.noBuildHint")) do
         let role := if diag.severity == "error" then "error"
           else if diag.severity == "info" then "muted" else "warning"
@@ -354,7 +435,7 @@ def Renderer.finish (r : Renderer) (report : Report) : IO Unit := do
     let expectedUnknown := if expected "undetermined" == 0 then "" else s!" ({expected "undetermined"} expected)"
     r.out.putStrLn s!"\n  {completion}: {report.results.size} calls · {count "valid"} valid, {count "falsified"} falsified{expectedFalse}, {count "undetermined"} undetermined{expectedUnknown}, {errors} {errorWord}{skipped}"
     if count "valid" > 0 then
-      r.out.putStrLn s!"  {r.tintOut "warning" "warning"}: {report.trust}"
+      r.out.putStrLn s!"  {r.tintOut "muted" "note"}: {report.trust}"
    r.out.flush
 
 end Blaster.Cli

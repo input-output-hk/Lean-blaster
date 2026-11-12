@@ -141,6 +141,44 @@ than declarations: one proof may call `blaster` more than once. Source annotatio
 such as `(solve-result: 1)` mark falsifications as expected in the display. JSON
 retains individual actual results and source locations without presentation grouping.
 
+### Counterexample diagnostics
+
+For a falsified check, the terminal report shows the check's source line with one
+line of context on either side, a compact goal, and up to six named witness values.
+Long source lines scroll to keep the invocation column visible and are clipped to
+keep reports readable for large declarations. Source frames come from the checked
+file; if that file is unavailable, the location and goal remain in the result.
+The frame points to the reported `#blaster` goal or tactic site, which may be
+separate from the definition of a named property. For a deeply nested proof, the
+frame remains three lines long and its highlighted line follows the reported column
+on a long source line.
+
+Illustrative presentation (the solver may choose different witness values):
+
+```text
+│  × Falsified · CliDemo.subtractionRoundTrip at 12:1 · 42ms
+│    I found this property false.
+│
+│      11 │
+│    > 12 │ #blaster (solve-result: 1) [subtractionRoundTrip]
+│      13 │
+│    Goal: ∀ (a b : Nat), a - b + b = a
+│    Counterexample
+│      a = 0
+│      b = 1
+```
+
+`--counterexample=summary|full|raw|none` controls terminal detail. `summary` is the
+default; `full` prints every witness value without clipping, `raw` labels and prints
+the original solver values, and `none` skips model retrieval. `--no-counterexample` is
+an alias for `none`. The last counterexample option on the command line wins.
+JSON output keeps the existing raw `counterexample` array regardless of the
+terminal presentation mode, except when retrieval is disabled. Complex SMT values
+are shown as previews and identified as solver syntax in summary mode. The CLI does not
+claim a Lean evaluation of the proposition from these strings. When optimization
+reduces a property to `False`, it reports that there is no solver model; when model
+retrieval is disabled or produces no usable values, it says so separately.
+
 The aggregate report shows actual `valid`, `falsified`, and `undetermined` outcomes.
 Test files may annotate deliberately false or unresolved properties with expected
 results. These still have falsified or undetermined actual status and retain their
@@ -215,9 +253,13 @@ the source or through `--no-counterexample`.
 `-v`/`--verbose` shows actual stages, timing, Lean information messages, and
 unused-variable linter warnings. The normal terminal report omits routine Lean
 information messages and unused-variable warnings; JSON output retains them.
-Other Lean warnings remain visible. `--debug` enables additional diagnostic
-context. The CLI owns progress and result rendering, so it suppresses the
-library's stdout-based profiling and SMT dumping. Use existing Lean options
+The normal report also omits the tactic's duplicate falsification diagnostic
+and per-tactic `blasterProven` warning. JSON retains them as `blaster.falsified`
+and `blaster.trust`; verbose mode shows them. A single trust note remains at the
+end of reports containing valid results. Other Lean warnings remain visible.
+`--debug` enables additional diagnostic context. The CLI owns progress and
+result rendering, so it suppresses the library's stdout-based profiling and SMT
+dumping. Use existing Lean options
 directly for raw SMT-query inspection until `inspect` and `export` are implemented.
 
 ## Voice and presentation
@@ -326,8 +368,8 @@ selections produce exit 4 rather than silently disappearing from a batch report.
 
 Valid results are **not reconstructed Lean proofs**. The existing tactic uses
 `Blaster.Tactic.blasterProven`, including optimizer-only success. The report retains
-that trust boundary and the tactic's existing warning. Raw solver values are not
-claimed to be decoded Lean values. No new axioms or admissions are introduced.
+that trust boundary as a terminal note and structured warning. Raw solver values
+are not claimed to be decoded Lean values. No new axioms or admissions are introduced.
 
 ## Validation
 
