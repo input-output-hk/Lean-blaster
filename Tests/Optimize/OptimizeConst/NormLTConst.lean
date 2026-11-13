@@ -14,28 +14,28 @@ namespace Test.NormLTConst
 -/
 
 -- ∀ (x y : Int), x > y ===> ∀ (x y : Int), y < x
-#testOptimize [ "ConstGT_1" ] ∀ (x y : Int), x > y ===> ∀ (x y : Int), y < x
+#testOptimize [ "ConstGT_1", proof ] ∀ (x y : Int), x > y ===> ∀ (x y : Int), y < x
 
 -- ∀ (α : Type) (x y : α), [LT α] → x > y ===> ∀ (α : Type) (x y : α), [LT α] → y < x
-#testOptimize [ "ConstGT_2" ] ∀ (α : Type) (x y : α), [LT α] → x > y ===> ∀ (α : Type) (x y : α), [LT α] → y < x
+#testOptimize [ "ConstGT_2", proof ] ∀ (α : Type) (x y : α), [LT α] → x > y ===> ∀ (α : Type) (x y : α), [LT α] → y < x
 
 -- ∀ (α : Type) (x y : List α), [LT α] → x > y ===>
 -- ∀ (α : Type) (x y : List α), [LT α] → List.Lex (λ a b => LT.lt a b) y x
-#testOptimize [ "ConstGT_3" ]
+#testOptimize [ "ConstGT_3", proof ]
   ∀ (α : Type) (x y : List α), [LT α] → x > y ===>
   ∀ (α : Type) (x y : List α), [LT α] → List.Lex (λ a b => LT.lt a b) y x
 
 -- ∀ (x y : Int), (x > y) = (y < x) ===> True
 -- Test case to validate expression caching after rewriting
-#testOptimize [ "ConstGT_4" ] ∀ (x y : Int), (x > y) = (y < x) ===> True
+#testOptimize [ "ConstGT_4", proof ] ∀ (x y : Int), (x > y) = (y < x) ===> True
 
 -- ∀ (α : Type) (x y : α), [LT α] → (x > y) = (y < x) ===> True
 -- Test case to validate expression caching after rewriting
-#testOptimize [ "ConstGT_5" ] ∀ (α : Type) (x y : α), [LT α] → (x > y) = (y < x) ===> True
+#testOptimize [ "ConstGT_5", proof ] ∀ (α : Type) (x y : α), [LT α] → (x > y) = (y < x) ===> True
 
 -- ∀ (α : Type) (x y : List α), [LT α] → (x > y) = (y < x) ===> True
 -- Test case to validate expression caching after rewriting
-#testOptimize [ "ConstGT_6" ] ∀ (α : Type) (x y : List α), [LT α] → (x > y) = (y < x) ===> True
+#testOptimize [ "ConstGT_6", proof ] ∀ (α : Type) (x y : List α), [LT α] → (x > y) = (y < x) ===> True
 
 
 /-! Test cases to ensure that normalization is not wrongly applied on nominal `LT.lt` expressions.
@@ -43,16 +43,16 @@ namespace Test.NormLTConst
 
 -- ∀ (x y : Int), x < y ===> ∀ (x y : Int), x < y
 -- LT remains unchanged
-#testOptimize [ "ConstLT_1" ] ∀ (x y : Int), x < y ===> ∀ (x y : Int), x < y
+#testOptimize [ "ConstLT_1", proof ] ∀ (x y : Int), x < y ===> ∀ (x y : Int), x < y
 
 -- ∀ (α : Type) (x y : α), [LT α] → x < y ===> ∀ (α : Type) (x y : α), [LT α] → x < y
 -- LT remains unchanged
-#testOptimize [ "ConstLT_2" ] ∀ (α : Type) (x y : α), [LT α] → x < y ===> ∀ (α : Type) (x y : α), [LT α] → x < y
+#testOptimize [ "ConstLT_2", proof ] ∀ (α : Type) (x y : α), [LT α] → x < y ===> ∀ (α : Type) (x y : α), [LT α] → x < y
 
 -- ∀ (α : Type) (x y : List α), [LT α] → x < y ===>
 -- ∀ (α : Type) (x y : List α), [LT α] → List.Lex (λ a b => LT.lt a b) x y
 -- LT remains unchanged
-#testOptimize [ "ConstLT_3" ]
+#testOptimize [ "ConstLT_3", proof ]
   ∀ (α : Type) (x y : List α), [LT α] → x < y ===>
   ∀ (α : Type) (x y : List α), [LT α] → List.Lex (λ a b => LT.lt a b) x y
 
