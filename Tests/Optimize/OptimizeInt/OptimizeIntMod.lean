@@ -92,5 +92,29 @@ elab "intModCst_2" : term => return intModCst_2
 #testOptimize ["ElabModComm", proof] ∀ (x y : Int), x % 2 + y = y + x % 2 ===> True
 
 #testOptimize ["RawEModComm", proof] ∀ (x y : Int), Int.emod x 2 + y = y + Int.emod x 2 ===> True
+/-! Test cases for the normalization `n % n ===> 0` (fmod and tmod case) -/
+
+#testOptimize ["IntTmodSelf_1", proof] ∀ (x : Int), Int.tmod x x = 0 ===> True
+
+#testOptimize ["IntTmodSelf_2", proof] ∀ (x : Int), Int.tmod (x + 0) (x + 0) = 0 ===> True
+
+#testOptimize ["IntFmodSelf_1", proof] ∀ (x : Int), Int.fmod x x = 0 ===> True
+
+#testOptimize ["IntFmodSelf_2", proof] ∀ (x : Int), Int.fmod (x + 0) (x + 0) = 0 ===> True
+
+/-! Test cases for the normalization `(m * n) % m or (n * m) % m ===> 0` (fmod and tmod cases) -/
+
+#testOptimize ["IntMulTmodCancel_1", proof]
+  ∀ (m n : Int), Int.tmod (m * n) m = 0 ===> True
+
+#testOptimize ["IntMulTmodCancel_2", proof]
+  ∀ (m n : Int), Int.tmod (n * m) m = 0 ===> True
+
+#testOptimize ["IntMulFmodCancel_1", proof]
+  ∀ (m n : Int), Int.fmod (m * n) m = 0 ===> True
+
+#testOptimize ["IntMulFmodCancel_2", proof]
+  ∀ (m n : Int), Int.fmod (n * m) m = 0 ===> True
+
 
 end Tests.OptimizeIntMod
