@@ -1,0 +1,16 @@
+[
+  {"name": "linear_transport", "goal": "∀ (x y : Int), -(-x) ≤ y → x + 1 ≤ y + 1"},
+  {"name": "int_square", "goal": "∀ (x : Int), 0 ≤ x * x"},
+  {"name": "int_shifted_square", "goal": "∀ (x : Int), 0 ≤ (x + 1) * (x + 1)"},
+  {"name": "nat_mul_mono", "goal": "∀ (w x y z : Nat), w ≤ x → y ≤ z → w * y ≤ x * z"},
+  {"name": "nat_square_injective", "goal": "∀ (x y : Nat), x * x = y * y → x = y"},
+  {"name": "nat_square_injective_named", "definitions": "def square (x : Nat) : Nat := x * x\ndef isInjective (f : Nat → Nat) : Prop := ∀ x y, f x = f y → x = y", "goal": "isInjective square"},
+  {"name": "nat_distributive", "goal": "∀ (x y z : Nat), (x + y) * z = x * z + y * z"},
+  {"name": "nat_succ_exists", "goal": "∀ (x : Nat), x ≠ 0 → ∃ (y : Nat), x = Nat.succ y"},
+  {"name": "nat_div", "goal": "∀ (x y : Nat), x / (y + 1) ≤ x"},
+  {"name": "nat_mod_lt", "goal": "∀ (x y : Nat), y > 0 → x % y < y"},
+  {"name": "nat_mod_add_mul", "goal": "∀ (x y z : Nat), (x + y * z) % y = x % y"},
+  {"name": "nat_mod_mul_factor", "goal": "∀ (x y z : Nat), (z * x) % (z * y) = z * (x % y)"},
+  {"name": "poly_option", "goal": "∀ (α : Type) (x : Option α), x.isSome = true → x ≠ none"},
+  {"name": "string_assoc", "goal": "∀ (s t u : String), (s ++ t) ++ u = s ++ (t ++ u)"}
+]
