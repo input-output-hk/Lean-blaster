@@ -242,9 +242,13 @@ def optimizeIntDivCommon (d: DivKind) (op1 : Expr) (op2 : Expr) : TranslateEnvT 
  | _, _ =>
    if let some r ← intDivSelfReduce? op1 op2 then
      if let DivKind.ediv := d then emitEDivSelfProofStep op1
+     else if let DivKind.fdiv := d then emitFdivSelfProofStep op1
+     else emitTdivSelfProofStep op1
      return r
    if let some r ← mulIntDivReduceExpr? op1 op2 then
      if let DivKind.ediv := d then emitMulEDivProofStep op1 op2
+     else if let DivKind.fdiv := d then emitMulFdivProofStep op1 op2
+     else emitMulTdivProofStep op1 op2
      return r
    return none
 
@@ -254,6 +258,16 @@ def optimizeIntDivCommon (d: DivKind) (op1 : Expr) (op2 : Expr) : TranslateEnvT 
      if let some h ← findNeZeroIntProof? n then
        pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.int_ediv_self) n h))
 
+   /-- Emit the proof step for Int.fdiv n n ==> 1 (requires n ≠ 0) -/
+   emitFdivSelfProofStep (n : Expr) : TranslateEnvT Unit := do
+    if let some h ← findNeZeroIntProof? n then
+       pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.int_fdiv_self) n h))
+
+   /-- Emit the proof step for Int.tdiv n n ==> 1 (requires n ≠ 0) -/
+   emitTdivSelfProofStep (n : Expr) : TranslateEnvT Unit := do
+    if let some h ← findNeZeroIntProof? n then
+       pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.int_tdiv_self) n h))
+
    /-- Emit the proof step for (m * n) / n ==> m or (n * m) / n ==> m (requires n ≠ 0). -/
    emitMulEDivProofStep (op1 op2 : Expr) : TranslateEnvT Unit := do
      let some (a, b) := intMul? op1 | return ()
@@ -262,6 +276,24 @@ def optimizeIntDivCommon (d: DivKind) (op1 : Expr) (op2 : Expr) : TranslateEnvT 
        pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.int_mul_ediv_cancel) a op2 h))
      else if exprEq a op2 then
        pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.int_mul_ediv_cancel_left) op2 b h))
+
+   /-- Emit the proof step for Int.fdiv (m * n) / n or (n * m) / n ==> m (requires n ≠ 0). -/
+   emitMulFdivProofStep (op1 op2 : Expr) : TranslateEnvT Unit := do
+     let some (a, b) := intMul? op1 | return ()
+     let some h ← findNeZeroIntProof? op2 | return ()
+     if exprEq b op2 then
+       pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.int_mul_fdiv_cancel) a op2 h))
+     else if exprEq a op2 then
+       pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.int_mul_fdiv_cancel_left) op2 b h))
+
+   /-- Emit the proof step for Int.tdiv (m * n) / n or (n * m) / n ==> m (requires n ≠ 0). -/
+   emitMulTdivProofStep (op1 op2 : Expr) : TranslateEnvT Unit := do
+     let some (a, b) := intMul? op1 | return ()
+     let some h ← findNeZeroIntProof? op2 | return ()
+     if exprEq b op2 then
+       pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.int_mul_tdiv_cancel) a op2 h))
+     else if exprEq a op2 then
+       pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.int_mul_tdiv_cancel_left) op2 b h))
 
 /- Given `op1` and `op2` corresponding to the operands for `Int.ediv`, `Int.tdiv` and `Int.fdiv`,
    and `dk` the corresponding `DivKind` (yielding the divisor operator `f_div`),
@@ -298,12 +330,12 @@ def cstCommonDivProp?
      - n / 1 ==> n                                              [proof: Int.ediv_one]
      - 0 / n ==> 0                                              [proof: Int.zero_ediv]
      - N1 / N2 ==> N1 "/ₑ" N2    [proof: Eq.refl, see pushIntFoldStep]
-     - n / n ==> 1                                              [proof: Int.ediv_self]
+     - n / n ==> 1                                              [proof: Blaster.int_ediv_self]
          (if 0 < n := _ ∈ hypothesisContext.hypothesisMap ∨
              ¬ (0 = n) := _ ∈ hypothesisContext.hypothesisMap ∨
              n < 0 := _ ∈ hypothesisContext.hypothesisMap )
-     - (m * n) / m ==> n                                        [proof: Int.mul_ediv_cancel_left]
-     - (n * m) / m ==> n                                        [proof: Int.mul_ediv_cancel]
+     - (m * n) / m ==> n                                        [proof: Blaster.int_mul_ediv_cancel_left]
+     - (n * m) / m ==> n                                        [proof: Blaster.int_mul_ediv_cancel]
          (if  0 < m := _ ∈ hypothesisContext.hypothesisMap ∨
               ¬ (0 = m) := _ ∈ hypothesisContext.hypothesisMap ∨
               m < 0 := _ ∈ hypothesisContext.hypothesisMap)
@@ -392,6 +424,8 @@ def optimizeIntModCommon (m : ModKind) (op1 : Expr) (op2 : Expr) : TranslateEnvT
      return r
    if let some r ← intModToZeroExpr? op1 op2 then
      if let ModKind.emod := m then emitEModToZeroProofStep op1 op2
+     else if let ModKind.tmod := m then emitTModToZeroProofStep op1 op2
+     else emitFmodToZeroProofStep op1 op2
      return r
    return none
 
@@ -406,6 +440,28 @@ def optimizeIntModCommon (m : ModKind) (op1 : Expr) (op2 : Expr) : TranslateEnvT
          pushProofStep (.rewrite (mkConst ``Int.mul_emod_right))
        else if exprEq b op2 then
          pushProofStep (.rewrite (mkConst ``Int.mul_emod_left))
+
+   /-- Emit the proof step for Int.tmod n n ==> 0, Int.tmod (m * n) m ==> 0, or Int.tmod (n * m) m ==> 0. -/
+   emitTModToZeroProofStep (op1 op2 : Expr) : TranslateEnvT Unit := do
+     if exprEq op1 op2 then
+      pushProofStep (.rewrite (mkConst ``Int.tmod_self))
+     else
+       let some (a, b) := intMul? op1 | return ()
+       if exprEq a op2 then
+         pushProofStep (.rewrite (mkConst ``Int.mul_tmod_right))
+       else if exprEq b op2 then
+         pushProofStep (.rewrite (mkConst ``Int.mul_tmod_left))
+
+   /-- Emit the proof step for Int.fmod n n ==> 0, Int.fmod (m * n) m ==> 0, or Int.fmod (n * m) m ==> 0. -/
+   emitFmodToZeroProofStep (op1 op2 : Expr) : TranslateEnvT Unit := do
+     if exprEq op1 op2 then
+       pushProofStep (.rewrite (mkConst ``Int.fmod_self))
+     else
+       let some (a, b) := intMul? op1 | return ()
+       if exprEq a op2 then
+         pushProofStep (.rewrite (mkConst ``Int.mul_fmod_right))
+       else if exprEq b op2 then
+         pushProofStep (.rewrite (mkConst ``Int.mul_fmod_left))
 
    /-- Emit the proof step for (N1 * n) % N2 ==> 0 (when N1 % N2 = 0). The `N1 % N2 = 0`
        hypothesis holds by reflexivity on the constant operands. -/
@@ -459,15 +515,16 @@ def optimizeIntEMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      - n / 1 ==> n                                              [proof: Int.tdiv_one]
      - 0 / n ==> 0                                              [proof: Int.zero_tdiv]
      - N1 / N2 ==> N1 "/" N2    [proof: Eq.refl, see pushIntFoldStep]
-     - n / n ==> 1
+     - n / n ==> 1                                              [proof: Blaster.int_tdiv_self]
          (if 0 < n := _ ∈ hypothesisContext.hypothesisMap ∨
              ¬ (0 = n) := _ ∈ hypothesisContext.hypothesisMap ∨
              n < 0 := _ ∈ hypothesisContext.hypothesisMap )
-     - (m * n) / m | (n * m) / m ==> n
+     - (m * n) / m ==> n                                        [proof: Blaster.int_mul_tdiv_cancel_left]
+     - (n * m) / m ==> n                                        [proof: Blaster.int_mul_tdiv_cancel]
          (if  0 < m := _ ∈ hypothesisContext.hypothesisMap ∨
               ¬ (0 = m) := _ ∈ hypothesisContext.hypothesisMap ∨
               m < 0 := _ ∈ hypothesisContext.hypothesisMap)
-     - (n / N1) / N2 ==> n / (N1 "*" N2) (only valid for Int.tdiv)
+     - (n / N1) / N2 ==> n / (N1 "*" N2) (only valid for Int.tdiv) [proof: Blaster.int_tdiv_mul_lit]
      - (N1 * n) / N2 ===> ((N1 "/" Int.gcd N1 N2) * n) / (N2 "/" Int.gcd N1 N2) (if N2 ≠ 0 ∧ Int.gcd N1 N2 ≠ 1)
    Assume that f = Expr.const ``Int.tdiv.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Int.tdiv` expected at this stage)
@@ -491,7 +548,11 @@ def optimizeIntTDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
    cstTDivProp? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
      let some (e1, n) := intTDiv? op1 | return none
      match isIntValue? n, isIntValue? op2 with
-     | some n1, some n2 => return (mkApp2 f e1 (← evalBinIntOp Int.mul n1 n2))
+     | some n1, some n2 =>
+       let M ← evalBinIntOp Int.mul n1 n2
+       let refl := mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Int) M
+       pushProofStep (.rewrite (← mkAppM  ``Blaster.int_tdiv_mul_lit #[e1, n, op2, M , refl]))
+       return (mkApp2 f e1 M)
      | _, _ => return none
 
 /-- Apply the following simplification/normalization rules on `Int.tmod` :
@@ -500,8 +561,9 @@ def optimizeIntTDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      - 0 % n ==> 0              [proof: Int.zero_tmod]
      - N1 % N2 ==> N1 "%" N2    [proof: Eq.refl, see pushIntFoldStep]
      - (N1 * n) % N2 ==> 0 (if N1 % N2 = 0)
-     - n1 % n2 ==> 0 (if n1 =ₚₜᵣ n2)
-     - (m * n) % m | (n * m) % m ==> 0
+     - n1 % n2 ==> 0 (if n1 =ₚₜᵣ n2) [proof: Int.tmod_self]
+     - (m * n) % m ==> 0            [proof: Int.mul_tmod_right]
+     - (n * m) % m ==> 0            [proof: Int.mul_tmod_left]
    Assume that f = Expr.const ``Int.tmod.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Int.tmod` expected at this stage)
 -/
@@ -518,11 +580,12 @@ def optimizeIntTMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      - n / 1 ==> n                                        [proof: Int.fdiv_one]
      - 0 / n ==> 0                                        [proof: Int.zero_fdiv]
      - N1 / N2 ==> N1 "/" N2    [proof: Eq.refl, see pushIntFoldStep]
-     - n / n ==> 1
+     - n / n ==> 1                                        [proof: Blaster.int_fdiv_self]
          (if 0 < n := _ ∈ hypothesisContext.hypothesisMap ∨
              ¬ (0 = n) := _ ∈ hypothesisContext.hypothesisMap ∨
              n < 0 := _ ∈ hypothesisContext.hypothesisMap )
-     - (m * n) / m | (n * m) / m ==> n
+     - (m * n) / m ==> n                                  [proof: Blaster.int_mul_fdiv_cancel_left]
+     - (n * m) / m ==> n                                  [proof: Blaster.int_mul_fdiv_cancel]
          (if  0 < m := _ ∈ hypothesisContext.hypothesisMap ∨
               ¬ (0 = m) := _ ∈ hypothesisContext.hypothesisMap ∨
               m < 0 := _ ∈ hypothesisContext.hypothesisMap)
@@ -544,8 +607,9 @@ def optimizeIntFDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      - 0 % n ==> 0                          [proof: Int.zero_fmod]
      - N1 % N2 ==> N1 "%" N2    [proof: Eq.refl, see pushIntFoldStep]
      - (N1 * n) % N2 ==> 0 (if N1 % N2 = 0)
-     - n1 % n2 ==> 0 (if n1 =ₚₜᵣ n2)
-     - (m * n) % m | (n * m) % m ==> 0
+     - n1 % n2 ==> 0 (if n1 =ₚₜᵣ n2)         [proof: Int.fmod_self]
+     - (m * n) % m ==> 0                    [proof: Int.mul_fmod_right]
+     - (n * m) % m ==> 0                    [proof: Int.mul_fmod_left]
    Assume that f = Expr.const ``Int.fmod.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Int.fmod` expected at this stage)
 -/

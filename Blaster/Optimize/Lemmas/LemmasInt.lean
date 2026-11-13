@@ -261,6 +261,7 @@ protected theorem int_add_lt_zero_eq_true_of_neg_nonpos (x y : Int) (hx : x < 0)
 protected theorem int_lt_false_of_not_pred_lt (n e : Int) (h : ¬ (n - 1 < e)) :
     (n < e) = False := propext ⟨fun hlt => by omega, False.elim⟩
 
+
 /-! ## Lemmas validating the simplification rules on equality negation rules:
   - `0 = -e ==> 0 = e`
   - `-e1 = -e2 ==> e1 = e2`
@@ -309,6 +310,45 @@ protected theorem int_mul_ediv_cancel_left (a b : Int) (h : ¬ (0 = a)) :
   have h1 : a ≠ 0 := Ne.symm h
   exact Int.mul_ediv_cancel_left b h1
 
+protected theorem int_tdiv_self (n : Int) (h : ¬ (0 = n)): Int.tdiv n n = 1 := by
+  have h1 : n ≠ 0 := Ne.symm h
+  exact Int.tdiv_self h1
+
+protected theorem int_mul_tdiv_cancel (a b : Int) (h : ¬ (0 = b)) :
+    Int.tdiv (a * b) b = a := by
+  have h1 : b ≠ 0 := Ne.symm h
+  exact Int.mul_tdiv_cancel a h1
+
+protected theorem int_mul_tdiv_cancel_left (a b : Int) (h : ¬ (0 = a)) :
+    Int.tdiv (a * b) a = b := by
+  have h1 : a ≠ 0 := Ne.symm h
+  exact Int.mul_tdiv_cancel_left b h1
+
+protected theorem int_fdiv_self (n : Int) (h : ¬ (0 = n)): Int.fdiv n n = 1 := by
+  have h1 : n ≠ 0 := Ne.symm h
+  exact Int.fdiv_self h1
+
+protected theorem int_mul_fdiv_cancel (a b : Int) (h : ¬ (0 = b)) :
+    Int.fdiv (a * b) b = a := by
+  have h1 : b ≠ 0 := Ne.symm h
+  exact Int.mul_fdiv_cancel a h1
+
+protected theorem int_mul_fdiv_cancel_left (a b : Int) (h : ¬ (0 = a)) :
+    Int.fdiv (a * b) a = b := by
+  have h1 : a ≠ 0 := Ne.symm h
+  exact Int.mul_fdiv_cancel_left b h1
+
+/-! Lemma to validate simplification rule `(n /ₜ N1) /ₜ N2 ==> n /ₜ (N1 * N2)` -/
+protected theorem int_tdiv_mul_lit (n N1 N2 M: Int) (h: N1 * N2 = M) :
+    Int.tdiv (Int.tdiv n N1) N2 = Int.tdiv n M := by
+  subst h
+  rcases Int.eq_nat_or_neg n with ⟨a, ha | ha⟩ <;>
+  rcases Int.eq_nat_or_neg N1 with ⟨b, hb | hb⟩ <;>
+  rcases Int.eq_nat_or_neg N2 with ⟨c, hc | hc⟩ <;>
+  rw [ha, hb, hc] <;>
+  simp only [Int.neg_tdiv, Int.tdiv_neg, Int.neg_mul, Int.mul_neg, Int.neg_neg,
+    ← Int.natCast_ediv, Int.natCast_tdiv_eq_ediv, ← Int.natCast_mul,
+    Nat.div_div_eq_div_mul]
 
 /-! ## Lemmas to validate simplification equality rules over `Int.add`:
   - `x + y = x + z ==> y = z`
