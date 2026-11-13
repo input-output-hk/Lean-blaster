@@ -131,6 +131,9 @@ def command (sOpts : BlasterOptions) (stx : Syntax) : TermElabM Unit := do
     | _ => pure e
   let env := {(default : TranslateEnv) with optEnv.options.solverOptions := sOpts}
   let ((result, optExpr), finalEnv) ← Blaster.Smt.Translate.main goal |>.run env
+  if result matches .Undetermined then
+    if sOpts.reconstruct ≥ 2 && isExpectedValid sOpts.solveResult && !sOpts.onlySmtLib then
+      throwError "blaster: strict reconstruction requires a valid result; got Undetermined"
   if result matches .Valid then
     match ← reconstructGoal goal finalEnv.optEnv.proofStack finalEnv.optEnv.optBinders
         (optExpr.isConstOf ``True) sOpts with

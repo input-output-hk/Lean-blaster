@@ -53,6 +53,12 @@ theorem poly_option (α : Type) (x : Option α) : x.isSome = true → x ≠ none
 #blaster (gen-proof: 1) (timeout: 5) [∀ x : Int, 0 ≤ x * x]
 #blaster (gen-proof: 1) (reconstruct: 0) (timeout: 5) [∀ x : Int, 0 ≤ x * x]
 
+-- A strict command must not silently succeed without producing a proof.
+/-- error: blaster: strict reconstruction requires a valid result; got Undetermined -/
+#guard_msgs (error, drop warning) in
+set_option warningAsError false in
+#blaster (gen-proof: 1) (only-optimize: 1) [∀ x : Int, 0 ≤ x * x]
+
 -- False claims and an optimizer-only run that leaves a residual are rejected.
 example : True := by
   fail_if_success

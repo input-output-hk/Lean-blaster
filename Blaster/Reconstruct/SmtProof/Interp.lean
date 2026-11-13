@@ -74,6 +74,9 @@ def caseDefKey? (idx : Array STerm) : Option String :=
 
 structure InterpCtx where
   table : SymTable
+  /-- Case guards may refer back to the same predicate. Detect those cycles
+      instead of recursing until the Lean process exhausts its native stack. -/
+  activeCases : Std.HashSet (String × Array USize) := {}
   /-- bound variables (quantifiers, `proof-bind`, fresh definitions) -/
   locals : Std.HashMap String Expr := {}
   /-- interpretation of the (closed) terms already interpreted, on term object addresses: terms are
@@ -870,6 +873,10 @@ partial def interpApp (f : String) (args : Array STerm) : InterpM Expr := do
     chosen (see `RecFun.lean`). -/
 partial def interpCaseDef (idx args : Array STerm) : InterpM Expr := do
   let some key := caseDefKey? idx | throwError "smt proof: ill-formed case predicate {idx.map toString}"
+  let call := (key, args.map termAddr)
+  if (← read).activeCases.contains call then
+    throwError "smt proof: cyclic guard of recursive-function case predicate {key}"
+  withReader (fun ctx => { ctx with activeCases := ctx.activeCases.insert call }) do
   let vals ← args.mapM interp
   let mut guards : Array Expr := #[]
   for (as, g) in (← read).table.caseGuards.getD key #[] do

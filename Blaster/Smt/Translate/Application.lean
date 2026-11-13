@@ -1004,7 +1004,13 @@ def translateApp
          if let some r ← translateTheorem n args then return r
          if let some r ← translateInductivePredicate? f n args then return r
          if let some r ← translateIndTypeExpr? e termTranslator then return r
-         throwEnvError "translateApp: unexpected application {reprStr e}"
+         -- Certificate replay may leave a transparent definition in the residual
+         -- even when the verdict expression used its unfolded body. Delta
+         -- reduction preserves the proposition; the reconstruction bridge still
+         -- has to prove the correspondence with the resulting SMT expression.
+         if let some unfolded ← unfoldDefinition? e then
+           if unfolded != e then return (← termTranslator unfolded)
+         throwEnvError "translateApp: unsupported application of {n}:\n{← ppExpr e}"
 
     | Expr.fvar _ => -- case for HOF
          let .SmtIdent smtId ← translateFreeVar f termTranslator
@@ -1027,11 +1033,17 @@ def translateApp
            | throwEnvError "translateApp (proj): FunEnvInfo expected for {reprStr sctor}"
          createAppNAux pInfo (← Sum.inr <$> termTranslator f) args termTranslator (isHOF := true)
 
-    | _ => throwEnvError "translateApp: unexpected application {reprStr e}"
+    | _ => throwEnvError "translateApp: unsupported function application:\n{← ppExpr e}"
 
   where
     translateEq? (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
       match n with
+       | ``Iff =>
+         -- The residual may precede the optimizer's propositional rewrites.
+         -- The proof bridge justifies Iff against Boolean equality.
+         if args.size != 2 then
+           throwEnvError "translateEq?: fully applied Iff expected, got {reprStr args}"
+         return eqSmt (← termTranslator args[0]!) (← termTranslator args[1]!)
        | ``Eq =>
          if args.size == 2 then
            throwEnvError "translateEq?: unexpected partially applied Eq got {reprStr args}"
@@ -1044,6 +1056,14 @@ def translateApp
 
     translateDITE? (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
       match n with
+       | ``ite =>
+            -- Optimizer certificate replay can retain the original Lean conditional.
+            -- Its Decidable argument is erased; the reconstruction bridge checks
+            -- the correspondence with this native SMT conditional.
+            if args.size != 5 then
+               throwEnvError "translateDITE?: unexpected partially applied ite got {reprStr args}"
+            return iteSmt (← termTranslator args[1]!)
+              (← termTranslator args[3]!) (← termTranslator args[4]!)
        | ``Blaster.dite' =>
             if args.size != 4 then
                throwEnvError "translateDITE?: unexpected partially applied dite' got {reprStr args}"
