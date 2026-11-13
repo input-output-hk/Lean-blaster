@@ -138,7 +138,7 @@ def mkBoolTrue (b : Expr) : Expr :=
   | _ => mkApp3 (mkConst ``Eq [levelOne]) (mkConst ``Bool) b (mkConst ``Bool.true)
 
 /-- Coerce `e : actual` to `expected` (Nat ↔ Int, Bool ↔ Prop). -/
-partial def coerce (e actual expected : Expr) : MetaM Expr := do
+partial def coerce (e actual expected : Expr) : MetaM Expr := withIncRecDepth do
   if ← isDefEq actual expected then return e
   let actual ← whnfR actual
   let expected' ← whnfR expected
@@ -643,7 +643,7 @@ def withSortHints (x : InterpM α) : InterpM α := do
 
 mutual
 /-- Interpret the SMT term `t` as a Lean term. -/
-partial def interp (t : STerm) : InterpM Expr := do
+partial def interp (t : STerm) : InterpM Expr := withIncRecDepth do
   let ctx ← read
   -- NOTE: terms are memoized when no local variable is in scope (closed terms)
   -- NOTE: the memos keep the terms alive (see `TermMemo`), such that their addresses aren't reused by other terms

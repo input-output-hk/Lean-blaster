@@ -89,4 +89,18 @@ example : True := by
       blaster (gen-proof: 1) (only-optimize: 1)
   trivial
 
+-- A cyclic SMT macro must become a failed replay, rather than an unbounded
+-- interpreter/native recursion. It is not a certificate of any proposition.
+open Lean Meta Elab Command Blaster.Reconstruct.SmtProof in
+run_cmd liftTermElabM do
+  let body := STerm.app "cycle" #[]
+  let syms := ({} : Std.HashMap String SymInterp).insert "cycle" (SymInterp.macro #[] body)
+  let table : SymTable := { syms }
+  let rejected ← withOptions (fun o => o.setNat `maxRecDepth 64) do
+    tryCatchRuntimeEx (do
+      discard <| (interp (.app "cycle" #[])).run { table }
+      pure false) fun ex => do
+        return ((← ex.toMessageData.toString).splitOn "maximum recursion depth").length > 1
+  unless rejected do throwError "cyclic SMT macro was not rejected at the recursion limit"
+
 end Tests.Reconstruct.Z3
