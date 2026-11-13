@@ -243,6 +243,15 @@ def backendFor (n : String) (cmds : Array SExpr) (timeout : Nat) :
   if n == "z3rec" && recQuery.isNone then return none
   let backend ← match n with
     | "z3" => pure (z3Backend ((← IO.getEnv "BLASTER_SMTPROOF_Z3").getD "z3") timeout)
+    | "z3arith2" =>
+        let b := z3Backend ((← IO.getEnv "BLASTER_SMTPROOF_Z3").getD "z3") timeout
+        let drop := fun c => b.dropCommand c || (match c with
+          | .list #[.atom "set-option", .atom ":smt.arith.solver", _] => true
+          | _ => false)
+        pure { b with
+          name := "z3arith2"
+          dropCommand := drop
+          preamble := b.preamble.push "(set-option :smt.arith.solver 2)" }
     | "z3+" => pure (z3Backend ((← IO.getEnv "BLASTER_SMTPROOF_Z3").getD "z3") timeout (simplifiers := true))
     | "z3rec" => pure { z3Backend ((← IO.getEnv "BLASTER_SMTPROOF_Z3").getD "z3") timeout with name := "z3rec" }
     | b => throwError "unknown proof backend {b}"
@@ -314,7 +323,8 @@ partial def proveBySmtProof (e : Expr) (sOpts : BlasterOptions) (poly? : Option 
     -- NOTE: the parallel kernel checks of the auxiliary theorems of the proof (see `startKernelChecks`) are recorded in
     -- `kernelChecks`, such that the caller can interrupt them when the replay fails afterwards
     let replayWith (backend : Backend) (sproof : Proof) (recPairs : Array RecFun.Pair)
-        (eqTasks : Array (Expr × Task (Except Exception (Option Expr)))) (kernelChecks : IO.Ref KernelChecks) :
+        (eqTasks : Array (Expr × Task (Except Exception (Option Expr)))) (kernelChecks : IO.Ref KernelChecks)
+        (replayLimit : Option Nat := none) :
         TermElabM SmtProofResult := do
       clearLocalCache
       let sorryFree ← IO.mkRef (#[] : Array (Name × Expr))
@@ -379,6 +389,12 @@ partial def proveBySmtProof (e : Expr) (sOpts : BlasterOptions) (poly? : Option 
       let pf ← withLocalDeclD `hneg (mkNot body) fun hneg => do
         let cfg : ReplayConfig := {
           proveDirect := fun c => do
+            -- Nat membership assertions are emitted separately from the
+            -- negated goal. Use their structural nonnegativity proof before
+            -- trying definition/bridge tactics on the entire goal context.
+            if c.isAppOfArity ``LE.le 4 && (c.getArg! 0).isConstOf ``Int then
+              if (← getIntValue? (c.getArg! 2)) == some 0 then
+                if let some p ← NlArith.nonnegProof? (c.getArg! 3) then return some p
             if ← traceSlow "asserted: reducible defeq" (withReducible (isDefEq c (mkNot body))) then
               return some (← mkExpectedTypeHint hneg c)
             -- e.g., projections vs. case analyses, casts of literals (with a budget)
@@ -426,7 +442,8 @@ partial def proveBySmtProof (e : Expr) (sOpts : BlasterOptions) (poly? : Option 
         let cache ← IO.mkRef {}
         -- NOTE: the replay of the proofs of large goals takes minutes (e.g., about 5 minutes for the validators of
         -- CardanoLedgerApiBlaster's Governance); seconds (environment variable `BLASTER_SMTPROOF_DEADLINE`)
-        let deadline := (← IO.monoMsNow) + 1000 * ((← IO.getEnv "BLASTER_SMTPROOF_DEADLINE").bind String.toNat? |>.getD 1800)
+        let seconds := (← IO.getEnv "BLASTER_SMTPROOF_DEADLINE").bind String.toNat? |>.getD 1800
+        let deadline := (← IO.monoMsNow) + 1000 * (replayLimit.map (min seconds)).getD seconds
         let global := (scopedSteps sproof).map (!·)
         -- the instances of the constructor applications that their arguments don't determine (see `SortInfer`)
         let t0 ← IO.monoMsNow
@@ -558,9 +575,15 @@ partial def proveBySmtProof (e : Expr) (sOpts : BlasterOptions) (poly? : Option 
     -- the CEK evaluation of validators), but may time out where `z3` succeeds; the next backends are tried when the
     -- replay of a proof fails
     let (names, timeout) ← proofBackends sOpts
+    -- A short attempt with the legacy arithmetic engine avoids the very coarse
+    -- nonlinear certificates of the current engine on small arithmetic goals.
+    -- Explicit backend selections keep their exact order and budgets.
+    let autoArith := (← IO.getEnv "BLASTER_SMTPROOF_BACKENDS").isNone && preferArithmetic2 cmds
+    let names := if autoArith then "z3arith2" :: names else names
     let mut errors := #[]
     for n in names do
-      let some (backend, query, pairs, seeds, delayMs) ← backendFor n cmds timeout | continue
+      let budget := if autoArith && n == "z3arith2" then min timeout 2 else timeout
+      let some (backend, query, pairs, seeds, delayMs) ← backendFor n cmds budget | continue
       -- the proofs of the definitional equations of the recursive functions, started before the search of the backend
       let eqTasks ← if pairs.isEmpty then pure #[] else
         traceTimed "definitional equations started"
@@ -573,7 +596,8 @@ partial def proveBySmtProof (e : Expr) (sOpts : BlasterOptions) (poly? : Option 
               -- NOTE: the next backends are tried when the replay fails (e.g., `z3rec` after `z3`)
               let s ← saveState
               let kernelChecks ← IO.mkRef ({} : KernelChecks)
-              let r ← tryCatchRuntimeEx (Except.ok <$> replayWith backend p pairs eqTasks kernelChecks) fun ex => do
+              let replayLimit := if autoArith && n == "z3arith2" then some 10 else none
+              let r ← tryCatchRuntimeEx (Except.ok <$> replayWith backend p pairs eqTasks kernelChecks replayLimit) fun ex => do
                 (← kernelChecks.get).cancel
                 s.restore
                 return .error s!"{backend.name}: {← ex.toMessageData.toString}"

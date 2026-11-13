@@ -27,6 +27,9 @@ def lowerOperators (e : Expr) : MetaM Expr :=
       if ty.isConstOf ``Int then return some (mkApp2 (mkConst int) args[4]! args[5]!)
       return none
     match t.getAppFn.constName? with
+    | some ``Nat.succ =>
+        if args.size == 1 then candidate := mkApp2 (mkConst ``Nat.add) args[0]! (mkNatLit 1)
+    | some ``Nat.zero => candidate := mkNatLit 0
     | some ``OfNat.ofNat =>
         if args.size == 3 then
           if ty.isConstOf ``Nat then candidate := args[1]!
@@ -53,7 +56,18 @@ def lowerOperators (e : Expr) : MetaM Expr :=
         if args.size == 2 then candidate ← mkAppM ``LE.le args
     | some ``Int.lt | some ``Nat.lt =>
         if args.size == 2 then candidate ← mkAppM ``LT.lt args
-    | _ => pure ()
+    | _ =>
+        -- Type aliases (e.g. `abbrev ℕ := Nat`) also occur in instance
+        -- arguments. Normalize them before inspecting the enclosing operator.
+        if t.isConst then
+          if let some (.defnInfo info) := (← getEnv).find? t.constName! then
+            if info.type.isSort then
+              let u ← withReducible (whnf t)
+              if u.isConstOf ``Nat || u.isConstOf ``Int || u.isConstOf ``String then candidate := u
+    -- A concrete typeclass dictionary can expose an applied kernel projection
+    -- during certificate replay. Reduce the projection itself, retaining the
+    -- native operation instead of translating a field of `HMul.mk`/`LE.mk`.
+    if let some u ← reduceProj? t then candidate := u
     if candidate != t && (← withDefault <| isDefEq t candidate) then return .visit candidate
     return .done t)
 
@@ -72,11 +86,13 @@ def proveLeaf (g : MVarId) (sOpts : BlasterOptions) : TermElabM Unit := g.withCo
   let closed ← lowerOperators original
   unless ← withDefault <| isDefEq original closed do
     throwError "SMT operator lowering changed the residual proposition"
+  let start ← IO.monoMsNow
   let result ← SmtProof.proveBySmtProof closed sOpts
   let r ← match result with
     | .ok r => pure r
     | .error msg => throwError "Z3 proof replay failed: {msg}"
   try
+    let checkStart ← IO.monoMsNow
     if let some msg ← SmtProof.awaitKernelChecks r.kernelChecks then throwError msg
     let checked ← IO.mkRef r.sorryFree
     let proof ← match ← checkedProof checked closed r.proof with
@@ -87,9 +103,15 @@ def proveLeaf (g : MVarId) (sOpts : BlasterOptions) : TermElabM Unit := g.withCo
       let handle ← IO.FS.Handle.mk file .append
       let map ← getFileMap
       let line := ((← getRef).getPos?.map fun pos => (map.toPosition pos).line).getD 0
+      let methods := r.stats.byRule.toList.map fun (rule, counts) =>
+        (rule, Json.mkObj (counts.toList.map fun (method, n) => (method, toJson n)))
       handle.putStrLn (Json.compress (Json.mkObj
         [("kind", toJson "residual"), ("ok", toJson true), ("backend", toJson r.backend),
-         ("steps", toJson r.steps), ("file", toJson (← getFileName)), ("line", toJson line)]))
+         ("steps", toJson r.steps), ("file", toJson (← getFileName)), ("line", toJson line),
+         ("elapsed_ms", toJson ((← IO.monoMsNow) - start)),
+         ("check_ms", toJson ((← IO.monoMsNow) - checkStart)),
+         ("methods", Json.mkObj methods),
+         ("time_by_rule_ms", Json.mkObj (r.stats.msByRule.toList.map fun (rule, n) => (rule, toJson n)))]))
     if sOpts.verbose > 0 then logInfo m!"Z3 proof replay: {r.backend}, {r.steps} steps"
   catch ex =>
     r.kernelChecks.cancel
@@ -102,9 +124,13 @@ def reconstructGoal (goal : Expr) (steps : Array ProofStep) (binders : Array FVa
   tryCatchRuntimeEx (do
     let proof ← Blaster.Tactic.proveGoalByProofStack goal steps binders optimizerClosed
       (admit := false) (allowHoles := true)
-    let pending ← getMVars (← instantiateMVars proof)
+    -- `intro`/`revert` leave delayed assignments connecting the original goal to
+    -- its residual. Assigning those wrappers directly bypasses the certificate
+    -- chain and repeats replay on intermediate propositions. Solve only their
+    -- actual pending goals; Lean then instantiates the wrappers itself.
+    let pending ← getMVarsNoDelayed (← instantiateMVars proof)
     for hole in pending do
-      unless ← hole.isAssigned do proveLeaf hole sOpts
+      unless ← hole.isAssignedOrDelayedAssigned do proveLeaf hole sOpts
     let proof ← instantiateMVars proof
     if proof.hasMVar then throwError "the combined proof has unresolved metavariables"
     if ← dependsOnSorry proof then throwError "the combined proof depends on sorryAx"

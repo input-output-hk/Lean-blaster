@@ -45,6 +45,27 @@ theorem nat_div (x y : Nat) : x / (y + 1) ≤ x := by
   blaster (gen-proof: 1) (timeout: 5)
 #standard_axioms nat_div
 
+-- Existential bodies retain Nat constructors after optimization. They must be
+-- lowered before SMT translation, rather than emitted as undeclared functions.
+theorem nat_successor : ∀ x : Nat, x ≠ 0 → ∃ y, x = Nat.succ y := by
+  blaster (gen-proof: 1) (timeout: 5)
+#standard_axioms nat_successor
+
+-- Several delayed assignments connect this goal to the normalized residual.
+-- Both the optimizer certificates and the residual proof must be used.
+theorem nat_mul_mono : ∀ (w x y z : Nat), w ≤ x → y ≤ z → w * y ≤ x * z := by
+  blaster (gen-proof: 1) (timeout: 5)
+#standard_axioms nat_mul_mono
+
+abbrev Natural := Nat
+theorem nat_alias_mono (x y z : Natural) (h : x ≤ y) : x * z ≤ y * z := by
+  blaster (gen-proof: 1) (timeout: 5)
+#standard_axioms nat_alias_mono
+
+theorem nat_alias_zero (x y : Natural) (h : x * y = 0) : x = 0 ∨ y = 0 := by
+  blaster (gen-proof: 1) (timeout: 5)
+#standard_axioms nat_alias_zero
+
 theorem poly_option (α : Type) (x : Option α) : x.isSome = true → x ≠ none := by
   blaster (gen-proof: 1) (timeout: 5)
 #standard_axioms poly_option

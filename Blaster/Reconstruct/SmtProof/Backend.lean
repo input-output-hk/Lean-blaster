@@ -52,6 +52,27 @@ def z3Backend (cmd : String) (timeoutSec : Nat) (simplifiers := false) : Backend
   dropCommand := if simplifiers then isZ3PreambleCommand else isZ3SpecificCommand
   parseProof := Z3.parseProof
 
+/-- The legacy arithmetic solver often gives much smaller proofs of quantifier-free
+    nonlinear arithmetic. Do not spend its extra attempt on quantified/recursive
+    queries, where the usual solver and the recursive-function profile are needed. -/
+def preferArithmetic2 (cmds : Array SExpr) : Bool := Id.run do
+  let numeral : SExpr → Bool
+    | .atom n => n.toInt?.isSome
+    | .list #[.atom "-", .atom n] => n.toInt?.isSome
+    | _ => false
+  let mut todo := cmds
+  let mut nonlinear := false
+  while !todo.isEmpty do
+    let e := todo.back!
+    todo := todo.pop
+    if let SExpr.list xs := e then
+      if let some (SExpr.atom head) := xs[0]? then
+        if ["forall", "exists", "lambda", "define-fun-rec", "define-funs-rec"].contains head then return false
+        if head == "*" && ((xs.extract 1 xs.size).filter (!numeral ·)).size ≥ 2 then
+          nonlinear := true
+      todo := todo ++ xs
+  return nonlinear
+
 /-- Guard the top-level universally quantified assertions over `Nat` (e.g., the definitions of recursive
     functions `∀ x, f x = f_LRec x`) with `0 ≤ x`, such that they hold for the interpretation of `Nat`
     functions in Lean (see `Interp.lean`). This only weakens the query. -/
