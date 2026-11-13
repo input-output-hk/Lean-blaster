@@ -101,7 +101,7 @@ def isITESwap? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := d
             `e := sif h2 : c then e2 else e1`
         - return `some $ sif h3 : a = c then e1 else e2`
 -/
-def diteFactorize? (a : Expr) (t : Expr) (e : Expr) : TranslateEnvT (Option Expr) := do
+def diteFactorize? (iteType : Expr) (a : Expr) (t : Expr) (e : Expr) : TranslateEnvT (Option Expr) := do
   match t, e with
   | Expr.lam n1 dc1 thn bi1, Expr.lam n2 dc2 els bi2 =>
       let some (sort1, c1, t1, e1) := dite'? thn | return none
@@ -121,6 +121,11 @@ def diteFactorize? (a : Expr) (t : Expr) (e : Expr) : TranslateEnvT (Option Expr
           else return none
       if exprEq c1 c2 then
         if exprEq t1 t2 then
+          let f := mkLambda n1 bi1 dc1 e1
+          let g := mkLambda n2 bi2 dc2 e2
+          pushProofStep (.rewrite (mkAppN
+            (mkConst ``Blaster.dite'_factorize_thn [← getLevel iteType])
+            #[iteType, a , c1, t1, f, g]))
           withLocalDecl' n1 bi1 dc1 fun n1' => do
             withLocalDecl' n2 bi2 dc2 fun n2' => do
               match instantiate1' e1 n1', instantiate1' e2 n2' with
@@ -133,6 +138,11 @@ def diteFactorize? (a : Expr) (t : Expr) (e : Expr) : TranslateEnvT (Option Expr
                     return mkApp4 (← mkBlasterDIteOp) sort1 c1 t1 dite
               |_, _ => return none
         else if exprEq e1 e2 then
+           let f := mkLambda n1 bi1 dc1 t1
+           let g := mkLambda n2 bi2 dc2 t2
+           pushProofStep (.rewrite (mkAppN
+            (mkConst ``Blaster.dite'_factorize_els [← getLevel iteType])
+            #[iteType, a , c1, e1, f, g]))
            withLocalDecl' n1 bi1 dc1 fun n1' => do
             withLocalDecl' n2 bi2 dc2 fun n2' => do
               match instantiate1' t1 n1', instantiate1' t2 n2' with
@@ -262,11 +272,11 @@ def optimizeDITEChoice (f : Expr) (args : Array Expr) : TranslateEnvT (Option Ex
         -- NOTE: rule is sound as h1, h2 and h3 can't be referenced in e1 and e2.
 
      - sif h1 : a then (sif h2 : c then e1 else e2) else (sif h2 : c then e1 else e3) ==>
-          sif h2 : c then e1 else (sif h1 : a then e2 else e3)
+          sif h2 : c then e1 else (sif h1 : a then e2 else e3)  [proof: Blaster.dite'_factorize_thn]
         -- NOTE: rule is sound as h1 can't be referenced in c and e1 but h1 and h2 can be referenced in e2 and e3.
 
      - sif h1 : a then (sif h2 : c then e1 else e2) else (sif h2 : c then e3 else e2) ==>
-          sif h2 : c then (sif h1 : a then e1 else e3) else e2
+          sif h2 : c then (sif h1 : a then e1 else e3) else e2  [proof: Blaster.dite'_factorize_els]
         -- NOTE: rule is sound as h1 can't be referenced in c and e2 but h1 and h2 can be referenced in e1 and e3.
 
      - sif h1 : a then (sif h2 : c then e1 else e2) else (if h2 : c then e2 else e1) ==>
@@ -291,7 +301,7 @@ def optimizeDITE (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if exprEq thenExpr elseExpr then
   pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.dite'_abs [← getLevel iteType]) iteType c thenExpr))
   return betaLambda t #[← mkOfDecideEqProof c true]
- if let some r ← diteFactorize? c t e then return r
+ if let some r ← diteFactorize? iteType c t e then return r
  return mkApp4 f iteType c t e
 
 end Blaster.Optimize
