@@ -3,6 +3,7 @@ import Blaster.Reconstruct.SmtProof.IR
 import Blaster.Reconstruct.SmtProof.Interp
 import Blaster.Reconstruct.SmtProof.Prop
 import Blaster.Reconstruct.SmtProof.Local
+import Blaster.Reconstruct.SmtProof.Farkas
 import Blaster.Optimize.Expr
 
 /-!
@@ -39,6 +40,10 @@ def ReplayStats.addTime (s : ReplayStats) (rule : String) (ms : Nat) : ReplaySta
   { s with msByRule := s.msByRule.insert rule (s.msByRule.getD rule 0 + ms) }
 
 structure ReplayConfig where
+  /-- Experimental certificate-directed arithmetic, enabled explicitly by the driver. -/
+  certificates : Bool := false
+  /-- Input assertions whose proofs were certified before the solver call. -/
+  inputAssertions : Array (Expr × Expr) := #[]
   /-- tactic proving a closed formula directly (used for asserted formulas and as fallback);
       returns `none` when the formula can't be proved. -/
   proveDirect : Expr → TermElabM (Option Expr)
@@ -1152,6 +1157,10 @@ partial def replayRule (step : Step) (concl : Expr) : ReplayM Expr := do
   let ctx ← read
   match step.rule with
   | "asserted" | "goal" | "assume" =>
+      for (formula, proof) in ctx.cfg.inputAssertions do
+        if ← propEq formula concl then
+          record step.rule "encoding-contract"
+          return proof
       let some p ← ctx.cfg.proveDirect concl | throwError "asserted formula not proved"
       record step.rule "bridge"
       return p
@@ -1591,6 +1600,10 @@ partial def replayRup (step : Step) (concl : Expr) : ReplayM Expr := do
 /-- Prove `p₁ → ... → pₙ → c` with tactics and apply it to the premise proofs. -/
 partial def replayByTactic (step : Step) (concl : Expr) : ReplayM Expr := do
   let cfg := (← read).cfg
+  if cfg.certificates && step.rule == "th-lemma" && step.attrs[1]? == some (.atom "farkas") then
+    if let some p ← Farkas.replay? step (← premises step) concl then
+      record step.rule "certificate-farkas"
+      return p
   -- unfoldings of recursive functions by cases (Z3)
   if step.rule == "th-lemma" && step.premises.isEmpty && step.attrs[0]? == some (.atom "recfun") then
     if let some p ← timed "recfun" (cfg.proveRecFun concl step.clauseSize) then

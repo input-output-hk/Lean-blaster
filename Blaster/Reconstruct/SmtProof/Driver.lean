@@ -7,6 +7,7 @@ import Blaster.Reconstruct.SmtProof.Tactics
 import Blaster.Reconstruct.SmtProof.Replay
 import Blaster.Reconstruct.SmtProof.Bridge
 import Blaster.Reconstruct.SmtProof.RecFun
+import Blaster.Reconstruct.SmtProof.Encoding
 
 /-!
 # Proof reconstruction from SMT proofs
@@ -320,6 +321,29 @@ partial def proveBySmtProof (e : Expr) (sOpts : BlasterOptions) (poly? : Option 
       if lctx.contains v then consts := consts.insert s!"${idx}" (mkFVar v)
     let baseTbl ← if poly then polyBuildSymTable cmds tenv consts sortVars
       else buildSymTable cmds tenv consts sortVars[0]?
+    let certificates := (← IO.getEnv "BLASTER_SMTPROOF_CERTIFICATES") == some "1"
+    -- Both the pre-solver encoding contract and replay use this interpretation
+    -- registry. Solver-local definitions are only added for replay afterwards.
+    let bridgeConfig (tbl : SymTable) : TermElabM Bridge.Cfg := do
+      let mut insts : Std.HashMap Name Expr := {}
+      for (k, v) in tenv.optEnv.memCache.isMatcherCache.toList do insts := insts.insert k v.instApp
+      let mut macros : Std.HashMap Name (Array (String × SExpr) × STerm) := {}
+      for (k, v) in tenv.smtEnv.funInstCache.toList do
+        let nm := match v with
+          | .SimpleIdent s => toString s
+          | .QualifiedIdent s _ => toString s
+        if let .const n _ := k then
+          if let some (.macro params body) := tbl.syms.get? nm then macros := macros.insert n (params, body)
+      let macroOf (n : Name) : Option (Array Expr → MetaM Expr) := (macros.get? n).map fun (params, body) vals => do
+        let locals := (params.zip vals).foldl (fun m ((x, _), v) => m.insert x v) {}
+        (interp body).run { table := tbl, locals }
+      let macroTacs ← macroTactics
+      return {
+        matchInst := insts.get?, macroOf, polyWorld := poly
+        proveLemma := fun stmt => do return (← portfolio macroTacs stmt "macro").map (·.1) }
+    let encoding? ← if certificates then
+      prepareGoalEncoding? body goalTerm cmds baseTbl (← bridgeConfig baseTbl)
+      else pure none
     -- NOTE: the parallel kernel checks of the auxiliary theorems of the proof (see `startKernelChecks`) are recorded in
     -- `kernelChecks`, such that the caller can interrupt them when the replay fails afterwards
     let replayWith (backend : Backend) (sproof : Proof) (recPairs : Array RecFun.Pair)
@@ -336,24 +360,7 @@ partial def proveBySmtProof (e : Expr) (sOpts : BlasterOptions) (poly? : Option 
       -- axioms of the polymorphic encoding (see `Poly`)
       let polyTac := #[("poly", ← `(tactic| blaster_poly))]
       let bridge := if poly then polyTac ++ bridge else bridge
-      -- matcher instances optimized by Blaster (whose patterns are the translated ones)
-      let mut insts : Std.HashMap Name Expr := {}
-      for (k, v) in tenv.optEnv.memCache.isMatcherCache.toList do insts := insts.insert k v.instApp
-      -- SMT macros of Lean functions (e.g., `@Nat.sub`), expanded by the backends in asserted formulas
-      let mut macros : Std.HashMap Name (Array (String × SExpr) × STerm) := {}
-      for (k, v) in tenv.smtEnv.funInstCache.toList do
-        let nm := match v with
-          | .SimpleIdent s => toString s
-          | .QualifiedIdent s _ => toString s
-        if let .const n _ := k then
-          if let some (.macro params body) := tbl.syms.get? nm then macros := macros.insert n (params, body)
-      let macroOf (n : Name) : Option (Array Expr → MetaM Expr) := (macros.get? n).map fun (params, body) vals => do
-        let locals := (params.zip vals).foldl (fun m ((x, _), v) => m.insert x v) {}
-        (interp body).run { table := tbl, locals }
-      let macroTacs ← macroTactics
-      let bcfg : Bridge.Cfg := {
-        matchInst := insts.get?, macroOf, polyWorld := poly
-        proveLemma := fun stmt => do return (← portfolio macroTacs stmt "macro").map (·.1) }
+      let bcfg ← bridgeConfig tbl
       let tacCache : IO.Ref (Std.HashMap String (Array (String × TSyntax `tactic))) ← IO.mkRef {}
       -- the tactics on the statement `stmt` of a step of rule `rule`
       let tacticsFor (rule : String) (stmt : Expr) : TermElabM (Array (String × TSyntax `tactic)) := do
@@ -388,6 +395,8 @@ partial def proveBySmtProof (e : Expr) (sOpts : BlasterOptions) (poly? : Option 
       let recCache : IO.Ref (Std.HashMap Expr (Option Expr)) ← IO.mkRef {}
       let pf ← withLocalDeclD `hneg (mkNot body) fun hneg => do
         let cfg : ReplayConfig := {
+          certificates
+          inputAssertions := encoding?.toArray.map fun e => (e.proposition, mkApp e.transport hneg)
           proveDirect := fun c => do
             -- Nat membership assertions are emitted separately from the
             -- negated goal. Use their structural nonnegativity proof before

@@ -33,6 +33,7 @@ def main():
     parser.add_argument("--solver-timeout", type=int, default=10)
     parser.add_argument("--backends", default="auto", help="auto or an explicit comma-separated portfolio")
     parser.add_argument("--execution", choices=["native", "interpreted"], default="native")
+    parser.add_argument("--certificates", action="store_true", help="enable the experimental encoding contract and Farkas checker")
     parser.add_argument("--cases", nargs="*")
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
@@ -50,6 +51,8 @@ def main():
     env.update(BLASTER_SMTPROOF_SEEDS="1", LEAN_NUM_THREADS="2", BLASTER_SMTPROOF_DEADLINE=str(args.limit))
     if args.backends != "auto":
         env["BLASTER_SMTPROOF_BACKENDS"] = args.backends
+    if args.certificates:
+        env["BLASTER_SMTPROOF_CERTIFICATES"] = "1"
     native = None
     if args.execution == "native":
         native = next(p for p in (ROOT / ".lake/build/lib").glob("libBlaster.*") if p.suffix in (".dylib", ".so"))

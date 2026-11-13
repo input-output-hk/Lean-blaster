@@ -72,6 +72,7 @@ def main():
     p.add_argument("--suites", help="Comma-separated suite allowlist")
     p.add_argument("--goals", nargs="+", help="Individual Suite/name identifiers")
     p.add_argument("--modes", default="trusted,strict")
+    p.add_argument("--certificates", action="store_true", help="enable the experimental certificate replay")
     args = p.parse_args()
     corpus = args.corpus.resolve()
     project = (args.mathlib_project or corpus / "reconstruction/rebase-project").resolve()
@@ -92,6 +93,8 @@ def main():
     modes = args.modes.split(",")
     assert set(modes) <= {"trusted", "strict"} and args.workers > 0
     env = {k: v for k, v in os.environ.items() if not k.startswith("BLASTER_")}
+    if args.certificates:
+        env["BLASTER_SMTPROOF_CERTIFICATES"] = "1"
     paths = command("lake", "env", "printenv", "LEAN_PATH", cwd=project).split(os.pathsep)
     paths = [str((project / path).resolve()) for path in paths if path]
     env.update(LEAN_NUM_THREADS="2", LEAN_PATH=os.pathsep.join([str(ROOT / ".lake/build/lib/lean"), *paths]))
@@ -104,7 +107,9 @@ def main():
                     runner_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                     native_sha256=hashlib.sha256(native.read_bytes()).hexdigest(),
                     modes=modes, cases=cases, workers=args.workers, threads_per_process=2,
-                    memory_limit_mib=8192, environment_overrides="none", solver_seeds="backend default")
+                    memory_limit_mib=8192,
+                    environment_overrides={"BLASTER_SMTPROOF_CERTIFICATES": "1"} if args.certificates else {},
+                    solver_seeds="backend default")
     manifest = out / "manifest.json"
     if manifest.exists():
         assert json.loads(manifest.read_text()) == metadata, "Use a new output directory for a changed configuration"

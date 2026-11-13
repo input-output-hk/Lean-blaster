@@ -42,6 +42,8 @@ For replay diagnostics, `BLASTER_SMTPROOF_LOG=/path/to/log.jsonl` records accept
 
 The latest [benchmark report](txpipe-z3-benchmarks.md) records 426 checked successes out of 466 trusted successes across 671 corpus goals, the 40 remaining losses, proof sizes and native source-suite outcomes. The full suite still has failures. Earlier integration validation is retained in [txpipe-z3-validation.md](txpipe-z3-validation.md). No PR is opened for this branch.
 
+An opt-in [certificate-directed prototype](Z3CertificatePrototype.md) additionally tests a checked input-encoding contract and a standalone Farkas checker, including a comparison with the official Z3 Lean exporter. It has not established a performance improvement; the default reconstruction path remains unchanged.
+
 ## Inspecting a proof and measuring its size
 
 Use a named theorem rather than `#blaster` when you want to inspect the resulting term:

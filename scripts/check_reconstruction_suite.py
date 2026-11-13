@@ -25,6 +25,7 @@ if a.mode=='strict':env['BLASTER_GEN_PROOF']='1'
 if a.mode=='checked':env['BLASTER_RECONSTRUCT']='2'
 meta=dict(commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(),diff_sha256=hashlib.sha256(subprocess.check_output(['git','diff','--binary','--','Blaster','Tests'],cwd=root)).hexdigest(),proof_backends=env.get('BLASTER_SMTPROOF_BACKENDS','automatic arithmetic profile; z3,z3rec,z3+ fallback'),proof_timeout=env.get('BLASTER_SMTPROOF_TIMEOUT','per option, default 20s'),seeds=env.get('BLASTER_SMTPROOF_SEEDS','backend default'))
 meta.update(execution='fresh Lean with the compiled Blaster library',native_sha256=hashlib.sha256(native.read_bytes()).hexdigest())
+meta['certificate_replay']=env.get('BLASTER_SMTPROOF_CERTIFICATES','0')
 (out/'metadata.json').write_text(json.dumps(meta,indent=2))
 # Use the branch's default proof-producing portfolio and timeout.
 def run(path):
