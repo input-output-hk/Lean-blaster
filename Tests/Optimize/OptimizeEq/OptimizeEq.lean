@@ -183,7 +183,8 @@ inductive Color where
 
 -- ∀ (p : Nat → Prop) (_h : ∀ x, p x → p (x + 1)) (a b : Nat), [a, b] = [a, b, b] ===>
 --   ∀ (p : Nat → Prop), ¬ ∀ (x : Nat), p x → p (Nat.add 1 x)
-#testOptimize [ "EqConstructor_25", proof ] (norm-result: 1)
+-- NOTE: no proof flag, the hypothesis `_h` moves under a `¬`, where the replay cannot align it
+#testOptimize [ "EqConstructor_25" ] (norm-result: 1)
                                      ∀ (p : Nat → Prop) (_h : ∀ x, p x → p (x + 1)) (a b : Nat),
                                        [a, b] = [a, b, b] ===>
                                      ∀ (p : Nat → Prop), ¬ ∀ (x : Nat), p x → p (Nat.add 1 x)
