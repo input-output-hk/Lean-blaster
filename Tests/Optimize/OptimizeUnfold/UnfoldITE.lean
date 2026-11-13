@@ -10,10 +10,10 @@ namespace Tests.UnfoldITE
 /-! Test cases to validate unfolding of `ite` expressions only when reduced via rewriting. -/
 
 -- ∀ (c : Bool) (p : Prop), if c then p else p ===> ∀ (p : Prop), p
-#testOptimize [ "UnfoldIte_1" ] ∀ (c : Bool) (p : Prop), if c then p else p ===> ∀ (p : Prop), p
+#testOptimize [ "UnfoldIte_1", proof ] ∀ (c : Bool) (p : Prop), if c then p else p ===> ∀ (p : Prop), p
 
 -- ∀ (c : Bool) (x y : Int), (if c then x else x) < y ===> ∀ (x y : Int), x < y
-#testOptimize [ "UnfoldIte_2" ] ∀ (c : Bool) (x y : Int), (if c then x else x) < y ===>
+#testOptimize [ "UnfoldIte_2", proof ] ∀ (c : Bool) (x y : Int), (if c then x else x) < y ===>
                                 ∀ (x y : Int), x < y
 
 -- ∀ (p q : Prop), if True then p else q ===> ∀ (p : Prop), p
@@ -36,7 +36,7 @@ namespace Tests.UnfoldITE
                                 ∀ (a b c : Bool), (false = c → true = b) ∧ (true = c → true = a)
 
 -- ∀ (c : Bool) (p q : Prop), if c then p else q ===> ∀ (c : Bool) (p q : Prop), (false = c → q) ∧ (true = c → p)
-#testOptimize [ "UnfoldIte_8" ] ∀ (c : Bool) (p q : Prop), if c then p else q ===>
+#testOptimize [ "UnfoldIte_8", proof ] ∀ (c : Bool) (p q : Prop), if c then p else q ===>
                                 ∀ (c : Bool) (p q : Prop), (false = c → q) ∧ (true = c → p)
 
 

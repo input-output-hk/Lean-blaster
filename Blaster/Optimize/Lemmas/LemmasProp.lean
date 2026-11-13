@@ -75,7 +75,7 @@ protected theorem not_or_not_eq_and (a b : Prop) :
     - `p ↔ q ==> (p → q) ∧ (q → p)`
     - `e1 ∧ (e1 → e2) ==> e1 ∧ e2`
     - `e1 ∧ (e2 → e1) ==> e1`
-    - `(e1 → e2) ∧ (¬ e1 → e2) ==> e2`
+    - `(e1 → e2) ∧ (¬ e1 → e2) ==> e2`, also with `¬ e1` in normal form
     - `e1 ∨ (e1 → e2) ==> True`
     - `e1 ∨ (e2 → e1) ==> (e2 → e1)`
 -/
@@ -94,6 +94,10 @@ protected theorem and_imp_right_eq_left (p q : Prop) :
 protected theorem and_imp_not_imp_eq (p q : Prop) :
   ((p → q) ∧ (¬ p → q)) = q :=
   propext (imp_and_neg_imp_iff p)
+
+protected theorem and_imp_not_norm_imp_eq (p np : Prop) (h : (¬ p) = np) (q : Prop) :
+  ((p → q) ∧ (np → q)) = q :=
+  h ▸ Blaster.and_imp_not_imp_eq p q
 
 protected theorem or_imp_self_eq_true (p q : Prop) :
   (p ∨ (p → q)) = True :=
@@ -175,5 +179,12 @@ protected theorem or_left_neg_hyp_eq_right (a b : Prop) (h : ¬ a) :
 protected theorem or_right_neg_hyp_eq_left (a b : Prop) (h : ¬ b) :
   (a ∨ b) = a :=
   propext ⟨fun hab => hab.elim id (fun hb => absurd hb h), Or.inl⟩
+
+/-! ## Lemma validating the hypothesis-free `ForallE` reductions:
+  - `e1 → e2 ==> True (if e1 =ₚₜᵣ e2 ∧ Type(e1) = Prop)`
+-/
+protected theorem implies_self_eq_true (a : Prop) : (a → a) = True := by
+  apply propext
+  exact imp_self
 
 end Blaster

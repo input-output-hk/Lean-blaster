@@ -18,6 +18,7 @@ namespace Blaster.Optimize
 -/
 def diteToPropExpr? (iteType: Expr) (cond : Expr) (thn : Expr) (els : Expr) : TranslateEnvT (Option Expr) := do
   if !iteType.isProp then return none
+  pushProofStep (.rewrite (mkApp (mkConst ``Blaster.dite'_prop_eq) cond))
   let leftAnd ← toImpliesExpr thn cond
   let rightAnd ← toImpliesExpr els (mkApp (← mkPropNotOp) cond)
   return mkApp2 (← mkPropAndOp) leftAnd rightAnd
@@ -69,10 +70,14 @@ def extractDependentITEExpr (e : Expr) : TranslateEnvT Expr := do
 
 -/
 def isITESwap? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
+ let iteType := args[0]!
  let c := args[1]!
  if let Expr.app (Expr.const ``Not _) ne := c then
+    pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.dite'_not_swap [← getLevel iteType]) iteType ne))
     return mkAppN f ((args.set! 1 ne).swapIfInBounds 2 3)
  if let some c' ← (isITEBoolSwap? c) then
+    let some (_, _, b) := c'.eq? | return none
+    pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.dite'_bool_swap [← getLevel iteType]) iteType b))
     return mkAppN f ((args.set! 1 c').swapIfInBounds 2 3)
  return none
 
@@ -167,12 +172,12 @@ def diteFactorize? (a : Expr) (t : Expr) (e : Expr) : TranslateEnvT (Option Expr
      - sif h : c then e1 else e2 ==> applyExtraArgs e2[h/h']
           (if ∃ e := h' ∈ hypothesisContext.hypothesisMap ∧ e2.hasLooseBVars ∧ e = ¬ c)
 
-     - sif h : c then e1 else e2 ==> (h : c → e1) ∧ (h : ¬ c → e2) (if Type(e1) = Prop)
+     - sif h : c then e1 else e2 ==> (h : c → e1) ∧ (h : ¬ c → e2) (if Type(e1) = Prop)                           [proof: Blaster.dite'_prop_eq]
          -- TO BE REMOVED: when performing normalization at the implication level
 
-     - (sif h : c then e1 else e2) x₁ ... xₙ  ==> (sif h : c' then e2 else e1) x₁ ... xₙ (if c = ¬ c')
+     - (sif h : c then e1 else e2) x₁ ... xₙ  ==> (sif h : c' then e2 else e1) x₁ ... xₙ (if c = ¬ c')              [proof: Blaster.dite'_not_swap]
 
-     - (sif h : c then e1 else e2) x₁ ... xₙ ==> (sif h : true = c' then e2 else e1) x₁ ... xₙ (if c := false = c')
+     - (sif h : c then e1 else e2) x₁ ... xₙ ==> (sif h : true = c' then e2 else e1) x₁ ... xₙ (if c := false = c') [proof: Blaster.dite'_bool_swap]
 
     with
       applyExtraArgs e :=
@@ -250,7 +255,7 @@ def optimizeDITEChoice (f : Expr) (args : Array Expr) : TranslateEnvT (Option Ex
     is annotated as `sif h : c then th else eh` to facilitate comprehension.
 
     The simplifcation/normalization rules applied are:
-     - sif h : c then e1 else e2 ==> e1  (if e1 =ₚₜᵣ e2)
+     - sif h : c then e1 else e2 ==> e1  (if e1 =ₚₜᵣ e2)  [proof: Blaster.dite'_abs]
 
      - sif h1 : a then (sif h2 : c1 then e1 else e2) else (sif h3 : c2 then e1 else e2) ==>
           sif h1 : (a ∧ c1) ∨ (¬ a ∧ c2) then e1 else e2 (if ¬ c1.hasLooseBVars ∧ ¬ c2.hasLooseBVars)
@@ -283,7 +288,9 @@ def optimizeDITE (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let e := args[3]!
  let thenExpr ← extractDependentITEExpr t
  let elseExpr ← extractDependentITEExpr e
- if exprEq thenExpr elseExpr then return betaLambda t #[← mkOfDecideEqProof c true]
+ if exprEq thenExpr elseExpr then
+  pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.dite'_abs [← getLevel iteType]) iteType c thenExpr))
+  return betaLambda t #[← mkOfDecideEqProof c true]
  if let some r ← diteFactorize? c t e then return r
  return mkApp4 f iteType c t e
 

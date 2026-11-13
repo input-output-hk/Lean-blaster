@@ -42,7 +42,7 @@ namespace Blaster.Optimize
      - true = e ∧ false = e ==> False                       [proof: Blaster.true_and_false_is_false]
      - e1 ∧ (e1 → e2) ==> e1 ∧ e2 (if ¬ e2.hasLooseBVars)
      - e1 ∧ (e2 → e1) ==> e1
-     - (e1 → e2) ∧ (¬ e1 → e2) ==> e2
+     - (e1 → e2) ∧ (¬ e1 → e2) ==> e2                       [proof: Blaster.and_imp_not_imp_eq, Blaster.and_imp_not_norm_imp_eq]
      - e1 ∧ e2 ==> e2 (if e1 := _ ∈ hypothesisContext.hypothesisMap)                  [proof: Blaster.and_left_hyp_eq_right]
      - e1 ∧ e2 ==> e1 (if e2 := _ ∈ hypothesisContext.hypothesisMap)                  [proof: Blaster.and_right_hyp_eq_left]
      - e1 ∧ e2 ==> False (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = ¬ e1)    [proof: Blaster.and_left_neg_hyp_eq_false]
@@ -103,7 +103,11 @@ def optimizeAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
             if !(exprEq c1 c2) then return none
             let not_t2 ← optimizeNot (← mkPropNotOp) (cacheResult := false) #[t2]
             if t1 == not_t2 then
-              pushProofStep (.rewrite (mkConst ``Blaster.and_imp_not_imp_eq))
+              -- `not_t2` may be the normal form of `¬ t2`, e.g., `false = x` for `¬ (true = x)`
+              match notInHypMap.notNormEq? t2 with
+              | some heq =>
+                  pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.and_imp_not_norm_imp_eq) t2 t1 heq))
+              | none => pushProofStep (.rewrite (mkConst ``Blaster.and_imp_not_imp_eq))
               return c1 -- no need to restart here
             else return none
          | _ => return none
