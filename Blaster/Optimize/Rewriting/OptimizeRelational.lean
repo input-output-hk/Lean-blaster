@@ -218,7 +218,11 @@ def cstLTProp? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
    then pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.nat_lt_eq_true) op1 op2 boolTrueRefl))
    else pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.nat_lt_eq_false) op1 op2 boolFalseRefl))
    mkPropLit (Nat.blt n1 n2)
- | Expr.lit (Literal.strVal s1), Expr.lit (Literal.strVal s2) => mkPropLit (s1 < s2)
+ | Expr.lit (Literal.strVal s1), Expr.lit (Literal.strVal s2) =>
+   if s1 < s2
+   then pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.string_lt_eq_true) op1 op2 boolTrueRefl))
+   else pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.string_lt_eq_false) op1 op2 boolFalseRefl))
+   mkPropLit (s1 < s2)
  | _, _ =>
    match isIntValue? op1, isIntValue? op2 with
    | some n1, some n2 =>
@@ -418,10 +422,11 @@ def predCstLTInHyp (op1 : Expr) (op2 : Expr) : TranslateEnvT Bool := do
     return false
 
 /-- Apply the following simplification/normalization rules on `LT.lt` :
-     - e1 < e2 ==> False (if e1 =ₚₜᵣ e2)    [proof: Blaster.{nat,int}_lt_self_eq_false]
+     - e1 < e2 ==> False (if e1 =ₚₜᵣ e2)    [proof: Blaster.{nat,int,string}_lt_self_eq_false]
      - e < 0 ==> False (if Type(e) = Nat)   [proof: Blaster.nat_lt_zero_eq_false]
      - 0 < -e ==> e < 0 (if Type(e) = Int   [proof: Blaster.int_zero_lt_neg_eq_lt_zero]
      - N1 < N2 ==> N1 "<" N2    [proof: Blaster.{nat,int}_lt_eq_{true,false}]
+     - S1 < S2 ==> S1 "<" S2    [proof: Blaster.string_lt_eq_{true,false}]
      - N < e ==> False (if ¬ (N - 1 < e) := _ ∈ hypothesisContext.hypothesisMap ∧ Type(e) ∈ [Nat, Int])    [proof: Blaster.{nat,int}_lt_false_of_not_pred_lt]
      - e < 1 ==> 0 = e (if Type(e) = Nat)    [proof: Blaster.nat_lt_one_eq_zero_eq]
      - a + b < a | b + a < a ==> False (if Type(a) = Nat)    [proof: Blaster.nat_add_lt_self{,_right}_eq_false]
@@ -470,6 +475,8 @@ def optimizeLT (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
      pushProofStep (.rewrite (mkApp (mkConst ``Blaster.nat_lt_self_eq_false) op1))
    else if lt_type.isConstOf ``Int then
      pushProofStep (.rewrite (mkApp (mkConst ``Blaster.int_lt_self_eq_false) op1))
+   else if lt_type.isConstOf ``String then
+     pushProofStep (.rewrite (mkApp (mkConst ``Blaster.string_lt_self_eq_false) op1))
    return (← mkPropFalse)
  if (isZeroNat op2) then
    pushProofStep (.rewrite (mkConst ``Blaster.nat_lt_zero_eq_false))
@@ -548,7 +555,9 @@ def optimizeLT (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
 /-- Apply the following normalization rule on `LE.le` :
      - e1 ≤ e2 ==> ¬ (e2 < e1) (if Type(e1) = Nat)   [proof: Blaster.nat_le_eq_not_lt]
      - e1 ≤ e2 ==> ¬ (e2 < e1) (if Type(e1) = Int)   [proof: Blaster.int_le_eq_not_lt]
+     - e1 ≤ e2 ==> ¬ (e2 < e1) (if Type(e1) = String)   [proof: Blaster.string_le_eq_not_lt]
      - LE.le ==> λ x y => ¬ (y < x) (if Type(x) = Int)   [proof: Blaster.int_le_fun_eq]
+     - LE.le ==> λ x y => ¬ (y < x) (if Type(x) = String)   [proof: Blaster.string_le_fun_eq]
 
    This normalization rule is applied only when isOpaqueRelational predicate is satisfied
    Assume that f = Expr.const ``LE.le.
@@ -567,6 +576,8 @@ def optimizeLE (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
      pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.nat_le_eq_not_lt) op1 op2))
    else if le_type.isConstOf ``Int then
      pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.int_le_eq_not_lt) op1 op2))
+   else if le_type.isConstOf ``String then
+     pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.string_le_eq_not_lt) op1 op2))
    setRestart
    mkNotLtExpr le_type op2 op1
  else if args.size == 2 then
@@ -576,6 +587,8 @@ def optimizeLE (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
    let le_type := args[0]!
    if le_type.isConstOf ``Int then
      pushProofStep (.rewrite (mkConst ``Blaster.int_le_fun_eq))
+   else if le_type.isConstOf ``String then
+     pushProofStep (.rewrite (mkConst ``Blaster.string_le_fun_eq))
    let body ← mkNotLtExpr le_type (mkBVar 0) (mkBVar 1)
    let lam1 := mkLambda `y BinderInfo.default le_type body
    return mkLambda `x BinderInfo.default le_type lam1

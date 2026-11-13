@@ -987,6 +987,14 @@ def mkOfDecideEqFalse : TranslateEnvT Expr := mkExpr (mkConst ``of_decide_eq_fal
 /-- Return `Eq.refl` const expression and cache result. -/
 def mkEqRefl : TranslateEnvT Expr := mkExpr (mkConst ``Eq.refl [levelOne])
 
+/-- Push the step `e = r` of type `t` when both sides are defeq, as in a constant fold where `r`
+    is the literal value of the ground operation `e`. The proof is `Eq.refl r` ascribed to `e = r`
+    via `id`, so the kernel checks it by evaluation and emission needs no lemma nor instance synthesis. -/
+@[always_inline, inline]
+def pushFoldStep (t e r : Expr) : TranslateEnvT Unit := do
+  pushProofStep (.rewrite (mkApp2 (mkConst ``id [levelZero])
+    (mkApp3 (← mkEqOp) t e r) (mkApp2 (← mkEqRefl) t r)))
+
 /-- Return `Nat` Type and cache result. -/
 def mkNatType : TranslateEnvT Expr := mkExpr (mkConst ``Nat)
 

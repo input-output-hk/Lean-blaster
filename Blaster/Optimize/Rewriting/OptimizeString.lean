@@ -39,7 +39,7 @@ def normStringValue (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 
 
 /-- Apply the following simplification/normalization rules on `String.append` :
-     - S1 ++ S2 ==> S1 "++" S2
+     - S1 ++ S2 ==> S1 "++" S2  [proof: Eq.refl, see pushFoldStep]
      - "" ++ e ==> e            [proof: String.empty_append]
      - e ++ "" ==> e            [proof: String.append_empty]
    Assume that f = Expr.const ``String.append.
@@ -62,7 +62,10 @@ def optimizeStrAppend (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
    -/
    cstStrAppend? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :=
     match op1, op2 with
-    | Expr.lit (Literal.strVal s1), Expr.lit (Literal.strVal s2) => mkStrLitExpr (s1 ++ s2)
+    | Expr.lit (Literal.strVal s1), Expr.lit (Literal.strVal s2) => do
+      let r ← mkStrLitExpr (s1 ++ s2)
+      pushFoldStep (mkConst ``String) (mkApp2 (mkConst ``String.append) op1 op2) r
+      return r
     | _, _ => return none
 
    /-- Given `op1` and `op2` corresponding to the operands for `String.append`,
@@ -80,7 +83,7 @@ def optimizeStrAppend (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
      return none
 
 /-- Apply the following simplification/normalization rules on `String.length` :
-     - String.length S ==> "String.length" S
+     - String.length S ==> "String.length" S    [proof: Eq.refl, see pushFoldStep]
    Assume that f = Expr.const ``String.length.
    An error is triggered when args.size ≠ 1 (i.e., only fully applied `String.length` expected at this stage)
 -/
@@ -97,7 +100,10 @@ def optimizeStrLength (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
    -/
    cstStrLength? (op : Expr) : TranslateEnvT (Option Expr) := do
     match op with
-    | Expr.lit (Literal.strVal s) => mkNatLitExpr (String.length s)
+    | Expr.lit (Literal.strVal s) =>
+      let r ← mkNatLitExpr (String.length s)
+      pushFoldStep (← mkNatType) (mkApp (mkConst ``String.length) op) r
+      return r
     | _ => return none
 
 /-- Apply the following simplification/normalization rules on `String.replace` :
