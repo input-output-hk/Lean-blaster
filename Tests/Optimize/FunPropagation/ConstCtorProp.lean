@@ -13,7 +13,7 @@ namespace Tests.ConstCtorProp
 --   (if c then some x else none) :: [] = xs ===>
 -- ∀ (c : Prop) (xs : List (Option Int)) (x : Int),
 --     xs = Blaster.dite' c (fun _ => some x :: []) (fun _ => none :: [])
-#testOptimize [ "IteOverCtor_1" ]
+#testOptimize [ "IteOverCtor_1", proof ]
   ∀ (c : Prop) (xs : List (Option Int)) (x : Int), [Decidable c] →
     (if c then some x else none) :: [] = xs ===>
   ∀ (c : Prop) (xs : List (Option Int)) (x : Int),
@@ -25,7 +25,7 @@ namespace Tests.ConstCtorProp
 --   xs = Blaster.dite' c
 --        (fun _ => Blaster.dite' b (fun _ => some x :: []) (fun _ => none :: []))
 --        (fun _ => none :: [])
-#testOptimize [ "IteOverCtor_2" ]
+#testOptimize [ "IteOverCtor_2", proof ]
   ∀ (b c : Prop) (xs : List (Option Int)) (x : Int), [Decidable b] → [Decidable c] →
     (if c then (if b then some x else none) else none) :: [] = xs ===>
   ∀ (b c : Prop) (xs : List (Option Int)) (x : Int),
@@ -39,7 +39,7 @@ namespace Tests.ConstCtorProp
 --   xs = Blaster.dite' c
 --        (fun _ => some x :: [])
 --        (fun _ => Blaster.dite' b (fun _ => some x :: []) (fun _ => none :: []))
-#testOptimize [ "IteOverCtor_3" ]
+#testOptimize [ "IteOverCtor_3", proof ]
   ∀ (b c : Prop) (xs : List (Option Int)) (x : Int), [Decidable b] → [Decidable c] →
     (if c then some x else (if b then some x else none)) :: [] = xs ===>
   ∀ (b c : Prop) (xs : List (Option Int)) (x : Int),
@@ -59,7 +59,7 @@ namespace Tests.ConstCtorProp
 --   Blaster.dite' c
 --   (fun _ => Blaster.dite' d (fun _ => some x :: []) (fun _ => some y :: []))
 --   (fun _ => Blaster.dite' b (fun _ => some x :: []) (fun _ => none :: []))
-#testOptimize [ "IteOverCtor_4" ]
+#testOptimize [ "IteOverCtor_4", proof ]
 ∀ (b c d : Prop) (xs : List (Option Int)) (x y : Int),
   [Decidable b] → [Decidable c] → [Decidable d] →
   let op1 :=
@@ -125,7 +125,7 @@ namespace Tests.ConstCtorProp
 -- ∀ (c : Bool) (xs : List (Option Int)) (x : Option Int),
 --   xs = if true = c then x :: [] else none :: []
 -- NOTE: Test cases to ensure that even non constant ite are propagated
-#testOptimize [ "IteOverCtor_7" ]
+#testOptimize [ "IteOverCtor_7", proof ]
   ∀ (c : Prop) (xs : List (Option Int)) (x : Option Int), [Decidable c] →
     (if c then x else none) :: [] = xs ===>
   ∀ (c : Prop) (xs : List (Option Int)) (x : Option Int),
@@ -139,7 +139,7 @@ namespace Tests.ConstCtorProp
 --        (fun _ => (Blaster.dite' b (fun _ => x :: []) (fun _ => none :: [])))
 --        (fun _ => none :: [])
 -- NOTE: Test cases to ensure that even non constant ite are also propagated
-#testOptimize [ "IteOverCtor_8" ]
+#testOptimize [ "IteOverCtor_8", proof ]
   ∀ (b c : Prop) (xs : List (Option Int)) (x : Option Int),
     [Decidable b] → [Decidable c] →
     (if c then (if b then x else none) else none) :: [] = xs ===>
@@ -156,7 +156,7 @@ namespace Tests.ConstCtorProp
 --        (fun _ => some x :: [])
 --        (fun _ => Blaster.dite' b (fun _ => p :: []) (fun _ => none :: []))
 -- NOTE: Test cases to ensure that even non constant ite are propagated
-#testOptimize [ "IteOverCtor_9" ]
+#testOptimize [ "IteOverCtor_9", proof ]
   ∀ (b c : Prop) (xs : List (Option Int)) (x : Int) (p : Option Int),
     [Decidable b] → [Decidable c] →
       (if c then some x else (if b then p else none)) :: [] = xs ===>
@@ -177,7 +177,7 @@ namespace Tests.ConstCtorProp
 --         (fun _ => Blaster.dite' d (fun _ => some x :: []) (fun _ => p :: []))
 --         (fun _ => Blaster.dite' b (fun _ => some x :: []) (fun _ => none :: []))
 -- NOTE: Test cases to ensure that even non constant ite are propagated
-#testOptimize [ "IteOverCtor_10" ]
+#testOptimize [ "IteOverCtor_10", proof ]
 ∀ (b c d : Prop) (xs : List (Option Int)) (x : Int) (p : Option Int),
   [Decidable b] → [Decidable c] → [Decidable d] →
   let op1 :=
@@ -238,6 +238,30 @@ namespace Tests.ConstCtorProp
     (false = c → some y = some (Int.add x (Int.neg z))) ∧
     (true = c → some y = some (Int.add x z))
 
+structure TBox where
+  T : Type
+  v : Nat
+
+opaque fT : TBox → Nat
+
+-- ∀ (c : Prop) (T : Type) (z : Nat), [Decidable c] → fT (TBox.mk T (if c then 1 else 2)) = z ===>
+-- ∀ (c : Prop) (T : Type) (z : Nat),
+--   z = Blaster.dite' c (fun _ => fT (TBox.mk T 1)) (fun _ => fT (TBox.mk T 2))
+-- NOTE: Test case to validate the universe levels of the proof step for a constructor in `Type 1`.
+#testOptimize [ "IteOverCtor_13", proof ] (norm-result: 1)
+  ∀ (c : Prop) (T : Type) (z : Nat), [Decidable c] → fT (TBox.mk T (if c then 1 else 2)) = z ===>
+  ∀ (c : Prop) (T : Type) (z : Nat),
+    z = Blaster.dite' c (fun _ => fT (TBox.mk T 1)) (fun _ => fT (TBox.mk T 2))
+
+structure NB (n : Nat) where
+  v : Nat
+
+-- ∀ (c : Prop), [Decidable c] → (NB.mk (n := if c then 1 else 2) 5).v = 5 ===> True
+-- NOTE: Test case to validate that no proof step is emitted when the constructor type
+-- depends on the ite argument.
+#testOptimize [ "IteOverCtor_14", proof ]
+  ∀ (c : Prop), [Decidable c] → (NB.mk (n := if c then 1 else 2) 5).v = 5 ===> True
+
 
 /-! Test cases to validate when dite over constructor constant propagation must be applied. -/
 
@@ -245,7 +269,7 @@ namespace Tests.ConstCtorProp
 --   (if h : c then t h x else none) :: [] = xs ===>
 -- ∀ (c : Prop) (xs : List (Option Int)) (x : Int) (t : c → Int → Option Int),
 --   xs = Blaster.dite' c (fun h : c => t h x :: []) (fun _ => none :: [])
-#testOptimize [ "DIteOverCtor_1" ]
+#testOptimize [ "DIteOverCtor_1", proof ]
   ∀ (c : Prop) (xs : List (Option Int)) (x : Int) (t : c → Int → Option Int), [Decidable c] →
     (if h : c then t h x else none) :: [] = xs ===>
   ∀ (c : Prop) (xs : List (Option Int)) (x : Int) (t : c → Int → Option Int),
@@ -260,7 +284,7 @@ namespace Tests.ConstCtorProp
 --     xs = Blaster.dite' c
 --          (fun _ => Blaster.dite' b (fun h2 : _ => t h2 x :: []) (fun _ => none :: []))
 --          (fun h1 : _ => f h1 none :: [])
-#testOptimize [ "DIteOverCtor_2" ]
+#testOptimize [ "DIteOverCtor_2", proof ]
  ∀ (b c : Prop) (xs : List (Option Int)) (x : Int)
    (t : b → Int → Option Int) (f : ¬ c → Option Int → Option Int),
    [Decidable b] → [Decidable c] →
@@ -279,7 +303,7 @@ namespace Tests.ConstCtorProp
 --     xs = Blaster.dite' c
 --          (fun h1 : _ => t h1 x :: [])
 --          (fun _ => Blaster.dite' b (fun h2 : _ => f h2 x :: []) (fun _ => none :: []))
-#testOptimize [ "DIteOverCtor_3" ]
+#testOptimize [ "DIteOverCtor_3", proof ]
   ∀ (b c : Prop) (xs : List (Option Int)) (x : Int)
     (t : c → Int → Option Int) (f : b → Int → Option Int), [Decidable b] → [Decidable c] →
       (if h1 : c then t h1 x else (if h2 : b then f h2 x else none)) :: [] = xs ===>
@@ -387,7 +411,7 @@ namespace Tests.ConstCtorProp
 -- ∀ (c : Prop) (xs : List (Option Int)) (x : Int) (t : c → Int → Option Int),
 --    xs = Blaster.dite' c (fun h : _ => t h x :: []) (fun _ => none :: [])
 -- NOTE: Test cases to ensure that even non constant ite are propagated
-#testOptimize [ "DIteOverCtor_7" ]
+#testOptimize [ "DIteOverCtor_7", proof ]
   ∀ (c : Prop) (xs : List (Option Int)) (x : Int) (t : c → Int → Option Int), [Decidable c] →
      (if h : c then t h x else none) :: [] = xs ===>
   ∀ (c : Prop) (xs : List (Option Int)) (x : Int) (t : c → Int → Option Int),
@@ -402,7 +426,7 @@ namespace Tests.ConstCtorProp
 --          (fun _ => Blaster.dite' b (fun h2 : _ => some (t h2 x) :: []) (fun _ => none :: []))
 --          (fun h1 : _ => f h1 x :: [])
 -- NOTE: Test cases to ensure that even non constant ite are propagated
-#testOptimize [ "DIteOverCtor_8" ]
+#testOptimize [ "DIteOverCtor_8", proof ]
   ∀ (b c : Prop) (xs : List (Option Int)) (x : Int)
     (t : b → Int → Int) (f : ¬ c → Int → Option Int), [Decidable b] → [Decidable c] →
       (if h1 : c then (if h2 : b then some (t h2 x) else none) else f h1 x) :: [] = xs ===>
@@ -421,7 +445,7 @@ namespace Tests.ConstCtorProp
 --         (fun h1 : _ => t h1 x :: [])
 --         (fun _ => Blaster.dite' b (fun h2 : _ => f h2 p :: []) (fun _ => none :: []))
 -- NOTE: Test cases to ensure that even non constant ite are propagated
-#testOptimize [ "DIteOverCtor_9" ]
+#testOptimize [ "DIteOverCtor_9", proof ]
   ∀ (b c : Prop) (xs : List (Option Int)) (x : Int) (p : Int)
     (t : c → Int → Option Int) (f : b → Int → Option Int), [Decidable b] → [Decidable c] →
       (if h1 : c then t h1 x else (if h2 : b then f h2 p else none)) :: [] = xs ===>
@@ -531,7 +555,7 @@ namespace Tests.ConstCtorProp
 -- ∀ (c : Prop) (r : Option Bool) (t : c → Bool) (e : ¬ c → Bool),
 --   r = Blaster.dite' c (fun h : _ => some (t h)) (fun h : _ => some (e h))
 -- NOTE: Test cases to ensure that quantified functions passed to dite are properly handled.
-#testOptimize [ "DIteOverCtor_14" ]
+#testOptimize [ "DIteOverCtor_14", proof ]
   ∀ (c : Prop) (r : Option Bool) (t : c → Bool) (e : ¬ c → Bool), [Decidable c] →
     r = some (dite c t e) ===>
   ∀ (c : Prop) (r : Option Bool) (t : c → Bool) (e : ¬ c → Bool),
@@ -542,7 +566,7 @@ namespace Tests.ConstCtorProp
 -- ∀ (c : Prop) (r : Option (Int → Bool)) (t : c → Int → Bool) (e : ¬ c → Int → Bool),
 --   r = Blaster.dite' c (fun h : _ => some (λ x => t h x)) (fun h : _ => some (λ x => e h x))
 -- NOTE: Test cases to ensure that quantified functions passed to dite are properly handled.
-#testOptimize [ "DIteOverCtor_15" ]
+#testOptimize [ "DIteOverCtor_15", proof ]
   ∀ (c : Prop) (r : Option (Int → Bool)) (t : c → Int → Bool) (e : ¬ c → Int → Bool),
     [Decidable c] → r = some (dite c t e) ===>
   ∀ (c : Prop) (r : Option (Int → Bool)) (t : c → Int → Bool) (e : ¬ c → Int → Bool),
