@@ -41,6 +41,8 @@ protected theorem true_or_false_is_true (a : Bool) :
   - `¬ (¬ e) ==> e`
   - `¬ (false = e) ==> true = e`
   - `¬ (true = e) ==> false = e`
+  - `¬ (¬ a ∧ ¬ b) ==> a ∨ b`
+  - `¬ (¬ a ∨ ¬ b) ==> a ∧ b`
 -/
 protected theorem double_not_classical (p : Prop) : (¬ (¬ p)) = p := by
   apply propext;
@@ -57,11 +59,23 @@ protected theorem not_true_is_false (e : Bool):
   apply propext;
   rw [Bool.true_eq, Bool.not_eq_true, Bool.false_eq]
 
+protected theorem not_and_not_eq_or (a b : Prop) :
+  (¬ (¬ a ∧ ¬ b)) = (a ∨ b) :=
+  propext ⟨fun h => Classical.byContradiction fun hn =>
+             h ⟨fun ha => hn (Or.inl ha), fun hb => hn (Or.inr hb)⟩,
+           fun h hn => h.elim hn.1 hn.2⟩
+
+protected theorem not_or_not_eq_and (a b : Prop) :
+  (¬ (¬ a ∨ ¬ b)) = (a ∧ b) :=
+  propext ⟨fun h => ⟨Classical.byContradiction fun ha => h (Or.inl ha),
+                     Classical.byContradiction fun hb => h (Or.inr hb)⟩,
+           fun h hn => hn.elim (fun ha => ha h.1) (fun hb => hb h.2)⟩
+
 /-! ## Lemmas validating the `Iff` expansion and the And/Or implicative reductions:
     - `p ↔ q ==> (p → q) ∧ (q → p)`
     - `e1 ∧ (e1 → e2) ==> e1 ∧ e2`
     - `e1 ∧ (e2 → e1) ==> e1`
-    - `(e1 → e2) ∧ (¬ e1 → e2) ==> e2`
+    - `(e1 → e2) ∧ (¬ e1 → e2) ==> e2`, also with `¬ e1` in normal form
     - `e1 ∨ (e1 → e2) ==> True`
     - `e1 ∨ (e2 → e1) ==> (e2 → e1)`
 -/
@@ -80,6 +94,10 @@ protected theorem and_imp_right_eq_left (p q : Prop) :
 protected theorem and_imp_not_imp_eq (p q : Prop) :
   ((p → q) ∧ (¬ p → q)) = q :=
   propext (imp_and_neg_imp_iff p)
+
+protected theorem and_imp_not_norm_imp_eq (p np : Prop) (h : (¬ p) = np) (q : Prop) :
+  ((p → q) ∧ (np → q)) = q :=
+  h ▸ Blaster.and_imp_not_imp_eq p q
 
 protected theorem or_imp_self_eq_true (p q : Prop) :
   (p ∨ (p → q)) = True :=

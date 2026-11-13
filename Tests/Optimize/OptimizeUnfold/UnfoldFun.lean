@@ -17,23 +17,44 @@ def f (a: Nat) (b : Nat) : Nat := a + b
 
 def g (a : Nat) (b : Nat) : Nat := b + a
 -- f x y = g y x ===> True
-#testOptimize [ "UnfoldNonRecFun_2" ] ∀ (x y : Nat), f x y = g x y ===> True
+#testOptimize [ "UnfoldNonRecFun_2", proof ] ∀ (x y : Nat), f x y = g x y ===> True
 
 
 def h (a : Nat) (b : Nat) (c : Nat) := c * g a b
 -- h x y z ===> Nat.mul z * Nat.add x y
-#testOptimize [ "UnfoldNonRecFun_3" ] ∀ (x y z n : Nat), h x y z < n ===>
+#testOptimize [ "UnfoldNonRecFun_3", proof ] ∀ (x y z n : Nat), h x y z < n ===>
                                       ∀ (x y z n : Nat), Nat.mul z (Nat.add x y) < n
 
 def predNotAnd (a : Bool) (b : Bool) : Bool := ! (a && b)
 def predAnd (a : Bool) (b : Bool) (c : Bool) := a && b && predNotAnd b a && c
 -- predAnd a b c ===> False
-#testOptimize [ "UnfoldNonRecFun_4" ] ∀ (a b c : Bool), predAnd a b c ===> False
+#testOptimize [ "UnfoldNonRecFun_4", proof ] ∀ (a b c : Bool), predAnd a b c ===> False
 
 
 def arith (a: Int) (b : Int) : Int := if a > 0 then a + b else a - b
 -- arith x y = if x > 0 then x + y else x - y ===> True
 #testOptimize [ "UnfoldNonRecFun_5" ] ∀ (x y : Int), (arith x y > x) → (if x > 0 then x + y else x - y) > x ===> True
+
+
+/-! Test cases to validate unfolding of non-recursive functions in hypotheses. -/
+
+-- f x y = 4 → f x y = 4 ===> True
+#testOptimize [ "UnfoldNonRecFunHyp_1", proof ] ∀ (x y : Nat), f x y = 4 → f x y = 4 ===> True
+
+-- h x y z < 10 → h x y z < 10 ===> True
+#testOptimize [ "UnfoldNonRecFunHyp_2", proof ] ∀ (x y z : Nat), h x y z < 10 → h x y z < 10 ===> True
+
+-- predNotAnd a b = true → predNotAnd a b = true ===> True
+#testOptimize [ "UnfoldNonRecFunHyp_3", proof ]
+  ∀ (a b : Bool), predNotAnd a b = true → predNotAnd a b = true ===> True
+
+def sqGeOne (x : Int) : Prop := x * x ≥ 1
+-- sqGeOne x → x * x ≥ 1 ===> True
+#testOptimize [ "UnfoldNonRecFunHyp_4", proof ] ∀ (x : Int), sqGeOne x → x * x ≥ 1 ===> True
+
+def natGe (x y : Nat) : Prop := x ≥ y
+-- natGe x y → x ≥ y ===> True
+#testOptimize [ "UnfoldNonRecFunHyp_5", proof ] ∀ (x y : Nat), natGe x y → x ≥ y ===> True
 
 
 /-! Test cases to validate unfolding of recursive functions only when reduced to a constant value. -/
@@ -150,7 +171,7 @@ def add_n_times (n : Nat) (a : Int) : Int :=
 
 -- ∀ (x : List Nat) (n : Nat), List.length x > n → List.drop n x ≠ List.nil ===>
 -- ∀ (x : List Nat) (n : Nat), List.length x < List.length (a : x)
-#testOptimize [ "RecFunNotUnfolded_2"  ]
+#testOptimize [ "RecFunNotUnfolded_2", proof ]
   ∀ (x : List Nat) (n : Nat), List.length x > n → List.drop n x ≠ List.nil ===>
   ∀ (x : List Nat) (n : Nat), n < List.length x → ¬ (List.nil = List.drop n x)
 

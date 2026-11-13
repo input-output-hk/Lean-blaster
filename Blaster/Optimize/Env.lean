@@ -93,6 +93,9 @@ inductive MatchEntry where
 inductive ProofStep where
   | rewrite (proof : Expr) (symm : Bool := false)
   | exact (proof : Expr)
+  /-- Unfolding of the non-recursive definition `n`, replayed by delta on every occurrence
+      in the target and the hypotheses. -/
+  | unfold (n : Name)
 deriving Repr
 
 /-- Result of optimizing a recursive function body, storing both the
@@ -660,6 +663,23 @@ def pushProofStep (step : ProofStep) : TranslateEnvT Unit :=
       { env with optEnv.localProofStack := env.optEnv.localProofStack.push step }
     else
       { env with optEnv.proofStack := env.optEnv.proofStack.push step }
+
+/-- Return the size of the proof stack targeted by `pushProofStep`. -/
+@[always_inline, inline]
+def getProofStackSize : TranslateEnvT Nat := do
+  let env ← get
+  if env.optEnv.options.optimizeRecFunBody
+  then return env.optEnv.localProofStack.size
+  else return env.optEnv.proofStack.size
+
+/-- Drop the steps pushed after the proof stack targeted by `pushProofStep` had size `n`. -/
+@[always_inline, inline]
+def shrinkProofStack (n : Nat) : TranslateEnvT Unit :=
+  modify fun env =>
+    if env.optEnv.options.optimizeRecFunBody then
+      { env with optEnv.localProofStack := env.optEnv.localProofStack.shrink n }
+    else
+      { env with optEnv.proofStack := env.optEnv.proofStack.shrink n }
 
 /-- Set the `optimizeRecFunBody` flag. -/
 @[always_inline, inline]

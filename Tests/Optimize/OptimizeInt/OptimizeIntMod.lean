@@ -77,4 +77,52 @@ elab "intModCst_2" : term => return intModCst_2
 
 #testOptimize ["IntTmodGcd_1", proof] ∀ (x : Int), Int.tmod (6 * x) 3 = 0 ===> True
 
+/-! Test cases for the constant fold `N1 % N2 ==> N1 "%" N2` under a composed goal. -/
+
+#testOptimize ["IntModCst_4", proof] ∀ (x y : Int), (((-7) % 2 + x) = (x + 1)) ∧ y - y = 0 ===> True
+
+#testOptimize ["IntFmodCst_4", proof]
+  ∀ (x y : Int), ((Int.fmod 7 2 + x) = (x + 1)) ∧ y - y = 0 ===> True
+
+#testOptimize ["IntTmodCst_4", proof]
+  ∀ (x y : Int), ((Int.tmod 7 2 + x) = (x + 1)) ∧ y - y = 0 ===> True
+
+/-! Test cases for steps over `Int.emod`, written with `%` and with the core function. -/
+
+#testOptimize ["ElabModComm", proof] ∀ (x y : Int), x % 2 + y = y + x % 2 ===> True
+
+#testOptimize ["RawEModComm", proof] ∀ (x y : Int), Int.emod x 2 + y = y + Int.emod x 2 ===> True
+/-! Test cases for the normalization `n % n ===> 0` (fmod and tmod case) -/
+
+#testOptimize ["IntTmodSelf_1", proof] ∀ (x : Int), Int.tmod x x = 0 ===> True
+
+#testOptimize ["IntTmodSelf_2", proof] ∀ (x : Int), Int.tmod (x + 0) (x + 0) = 0 ===> True
+
+#testOptimize ["IntFmodSelf_1", proof] ∀ (x : Int), Int.fmod x x = 0 ===> True
+
+#testOptimize ["IntFmodSelf_2", proof] ∀ (x : Int), Int.fmod (x + 0) (x + 0) = 0 ===> True
+
+/-! Test cases for the normalization `(m * n) % m or (n * m) % m ===> 0` (fmod and tmod cases) -/
+
+#testOptimize ["IntMulTmodCancel_1", proof]
+  ∀ (m n : Int), Int.tmod (m * n) m = 0 ===> True
+
+#testOptimize ["IntMulTmodCancel_2", proof]
+  ∀ (m n : Int), Int.tmod (n * m) m = 0 ===> True
+
+#testOptimize ["IntMulFmodCancel_1", proof]
+  ∀ (m n : Int), Int.fmod (m * n) m = 0 ===> True
+
+#testOptimize ["IntMulFmodCancel_2", proof]
+  ∀ (m n : Int), Int.fmod (n * m) m = 0 ===> True
+
+
+-- ∀ (x y z : Int), (x % 3 + y = y + Int.emod x 3) ∧ z - z = 0 ===> True
+#testOptimize ["MixedEModComm", proof]
+  ∀ (x y z : Int), (x % 3 + y = y + Int.emod x 3) ∧ z - z = 0 ===> True
+
+-- ∀ (x y : Int), Int.emod (x / 2) 3 + y = y + Int.emod (x / 2) 3 ===> True
+#testOptimize ["MixedEModNested", proof]
+  ∀ (x y : Int), Int.emod (x / 2) 3 + y = y + Int.emod (x / 2) 3 ===> True
+
 end Tests.OptimizeIntMod
