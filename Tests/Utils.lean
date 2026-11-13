@@ -150,10 +150,13 @@ partial def normNatLitAndLambdaBeta (e : Expr) : MetaM Expr := do
     | _ => return e
   visit e
 
-/-- Build the goal type and apply the proof stack. Returns the (possibly assigned) goal. -/
+/-- Build the goal type and apply the proof stack.
+    Returns the root goal and the (possibly assigned) goal after the intros.
+    Only the syntactic binders of `optimized` are opened when they have as many hypotheses as
+    the input binders, so that an eliminated hypothesis is not simply left in context. -/
 private def buildAndApplyProofStack (inputExpr : Expr) (optimized : Expr)
     (proofStack : Array Blaster.Optimize.ProofStep)
-    (optBinders : Array FVarId) : TermElabM MVarId := do
+    (optBinders : Array FVarId) : TermElabM (MVarId × MVarId) := do
   let isPropInput ← isProp inputExpr
   let isOptTrue := optimized.isConstOf ``True
   let (goalType, numBinders) ←
@@ -163,8 +166,14 @@ private def buildAndApplyProofStack (inputExpr : Expr) (optimized : Expr)
     else if isPropInput then
       let n ← forallTelescope inputExpr fun fvars _ => pure fvars.size
       let gt ← forallTelescope inputExpr fun inputFvars inputBody => do
+        let kSyn := min inputFvars.size optimized.getNumHeadForalls
+        let numHyps (xs : Array Expr) : MetaM Nat := xs.foldlM (fun c x => do
+          return if ← isProof x then c + 1 else c) 0
+        let sameHyps ← forallBoundedTelescope optimized (some kSyn) fun optFvars _ => do
+          return (← numHyps optFvars) == (← numHyps inputFvars)
+        let k := if sameHyps then kSyn else inputFvars.size
         let optBody ←
-          forallBoundedTelescope optimized (some inputFvars.size) fun optFvars optBody =>
+          forallBoundedTelescope optimized (some k) fun optFvars optBody =>
           mapOptBodyToInputFVars optBody optFvars inputFvars
         let eq ← mkEq inputBody optBody
         mkForallFVars inputFvars eq
@@ -177,42 +186,61 @@ private def buildAndApplyProofStack (inputExpr : Expr) (optimized : Expr)
   let goalId := goal.mvarId!
   let (goalFVarIds, g) ← goalId.introNP numBinders
   let proofStack := substProofStackFVars proofStack optBinders goalFVarIds
-  applyProofStack g proofStack
+  return (goalId, ← applyProofStack g proofStack goalFVarIds)
 
-/-- Return `true` if the expression contains `sorryAx` anywhere. -/
+/-- Return `true` if the expression contains `sorryAx` anywhere.
+    Tail recursive on a stack of pending subterms, so a deep `e` cannot overflow. -/
 private partial def containsSorry (e : Expr) : Bool :=
-  match e with
-  | .const ``sorryAx _ => true
-  | .app f a => containsSorry f || containsSorry a
-  | .lam _ t b _ => containsSorry t || containsSorry b
-  | .forallE _ t b _ => containsSorry t || containsSorry b
-  | .letE _ t v b _ => containsSorry t || containsSorry v || containsSorry b
-  | .mdata _ e => containsSorry e
-  | .proj _ _ e => containsSorry e
-  | _ => false
+  go [e]
+where
+  go : List Expr → Bool
+  | [] => false
+  | .const ``sorryAx _ :: _ => true
+  | .app f a :: es => go (f :: a :: es)
+  | .lam _ t b _ :: es => go (t :: b :: es)
+  | .forallE _ t b _ :: es => go (t :: b :: es)
+  | .letE _ t v b _ :: es => go (t :: v :: b :: es)
+  | .mdata _ e :: es => go (e :: es)
+  | .proj _ _ e :: es => go (e :: es)
+  | _ :: es => go es
+
+/-- Close the goal left by the proof stack (`True.intro` or `refl`), then accept only if
+    the root proof term is complete, sorry-free, has no fvar outside the root context,
+    passes `Meta.check` and has the root goal type. Returns the failure reason, if any. -/
+private def closeAndCheckProof (root g : MVarId) : TermElabM (Option MessageData) := do
+  unless ← g.isAssigned do
+    if (← instantiateMVars (← g.getType)).isConstOf ``True then
+      g.assign (mkConst ``True.intro)
+    else
+      try g.refl
+      catch _ => return some (← g.withContext (ppExpr (← g.getType)))
+  let pf ← instantiateMVars (mkMVar root)
+  if pf.hasMVar then return some "goal closed by proof stack but the term has unassigned metavariables"
+  if containsSorry pf then return some "goal closed by proof stack but the term contains sorry"
+  let lctx := (← root.getDecl).lctx
+  if (collectFVars {} pf).fvarIds.any (fun f => !lctx.contains f) then
+    return some "goal closed by proof stack but the term has loose free variables"
+  try
+    root.withContext do
+      check pf
+      unless ← isDefEq (← inferType pf) (← root.getType) do
+        throwError "type {← inferType pf} does not match the goal {← root.getType}"
+    return none
+  catch ex => return some m!"goal closed by proof stack but the term fails to check: {ex.toMessageData}"
 
 private def replayProofStack (inputExpr : Expr) (optimized : Expr)
     (proofStack : Array Blaster.Optimize.ProofStep)
     (optBinders : Array FVarId) : TermElabM Bool := do
-  let g ← buildAndApplyProofStack inputExpr optimized proofStack optBinders
-  if ← g.isAssigned then
-    -- Check that no proof step contains sorry
-    for step in proofStack do
-      let p := match step with
-        | .rewrite e _ => e
-        | .exact e => e
-      let p ← instantiateMVars p
-      if containsSorry p then return false
-    return true
-  try g.refl; return true
-  catch _ => return false
+  let (root, g) ← buildAndApplyProofStack inputExpr optimized proofStack optBinders
+  return (← closeAndCheckProof root g).isNone
 
 private def showRemainingGoal (inputExpr : Expr) (optimized : Expr)
     (proofStack : Array Blaster.Optimize.ProofStep)
     (optBinders : Array FVarId) : TermElabM MessageData := do
-  let g ← buildAndApplyProofStack inputExpr optimized proofStack optBinders
-  if ← g.isAssigned then return "goal closed by proof stack"
-  g.withContext (ppExpr (← g.getType))
+  let (root, g) ← buildAndApplyProofStack inputExpr optimized proofStack optBinders
+  match ← closeAndCheckProof root g with
+  | some msg => return msg
+  | none => return "goal closed by proof stack"
 
 @[command_elab testOptimize]
 def testOptimizeImp : CommandElab := fun stx => do

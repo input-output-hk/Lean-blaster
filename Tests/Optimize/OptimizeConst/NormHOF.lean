@@ -173,20 +173,20 @@ def mulAlias := mulNat
 -- ∀ (xs : List Bool), List.foldr and true xs = List.all xs id ===>
 -- ∀ (xs : List Bool), List.all xs (λ x => x) = List.foldr and true xs
 -- NOTE: May be resolved to true when specializing recursive function with fun arguments
-#testOptimize [ "ConstNonRecOpaqueFunArg_5" ]
+#testOptimize [ "ConstNonRecOpaqueFunArg_5", proof ]
   ∀ (xs : List Bool), List.foldr and true xs = List.all xs id ===>
   ∀ (xs : List Bool), List.all xs (λ x => x) = List.foldr and true xs
 
 -- ∀ (xs : List Bool), List.foldr or true xs = List.any xs id ===>
 -- ∀ (xs : List Bool), List.any xs (λ x => x) = List.foldr or true xs
 -- NOTE: May be resolved to true when specializing recursive function with fun arguments
-#testOptimize [ "ConstNonRecOpaqueFunArg_6" ]
+#testOptimize [ "ConstNonRecOpaqueFunArg_6", proof ]
   ∀ (xs : List Bool), List.foldr or true xs = List.any xs id ===>
   ∀ (xs : List Bool), List.any xs (λ x => x) = List.foldr or true xs
 
 -- ∀ (xs : List Bool), List.any xs id = !(List.any (List.map not xs) id) ===>
 -- ∀ (xs : List Bool), (!(List.any (List.map not xs) (λ x => x))) = List.any xs (λ x => x)
-#testOptimize [ "ConstNonRecOpaqueFunArg_7" ]
+#testOptimize [ "ConstNonRecOpaqueFunArg_7", proof ]
   ∀ (xs : List Bool), List.any xs id = !(List.any (List.map not xs) id) ===>
   ∀ (xs : List Bool), (!(List.any (List.map not xs) (λ x => x))) = List.any xs (λ x => x)
 
@@ -394,7 +394,7 @@ def mapOptionDefault (x : Nat) (y : Option Nat) : Nat :=
 --                      (λ (_ : Unit) => x)
 --                      (λ (a : Nat) => a)
 --                   ) (List.map Option.some xs)
-#testOptimize [ "ConstClassCtorArg_3" ]
+#testOptimize [ "ConstClassCtorArg_3", proof ]
   ∀ (x : Nat) (xs : List Nat), List.map (mapOptionDefault x) (List.map Option.some xs) = xs ===>
   ∀ (x : Nat) (xs : List Nat), xs = List.map (λ (y : Option Nat) =>
                                                 mapOptionDefault.match_1
@@ -493,7 +493,7 @@ def boolWapper (f : Nat → Nat → Bool) (x : Nat) (y : Nat) := f x y
 #testOptimize [ "ConstNormOpaqueFunArg_8" ] Nat.le = LE.le ===> True
 
 -- Int.le = LE.le ===> True
-#testOptimize [ "ConstNormOpaqueFunArg_9" ] Int.le = LE.le ===> True
+#testOptimize [ "ConstNormOpaqueFunArg_9", proof ] Int.le = LE.le ===> True
 
 -- Nat.lt = (λ x y => (Nat.add 1 x) ≤ y) ===> True
 #testOptimize [ "ConstNormOpaqueFunArg_10" ] Nat.lt = (λ x y => (Nat.add 1 x) ≤ y) ===> True
@@ -516,5 +516,15 @@ def boolWapper (f : Nat → Nat → Bool) (x : Nat) (y : Nat) := f x y
 -- ∀ (x : List Nat) (xs : List (List Nat)), List.any (λ a => a == x) xs = List.any xs (. List.beq x)  ===> True
 #testOptimize [ "ConstNormOpaqueFunArg_15" ]
   ∀ (x : List Nat) (xs : List (List Nat)), List.any xs (. == x) = List.any xs (List.beq x) ===> True
+
+-- ∀ (x y : Int), Int.le x y = (x ≤ y) ===> True
+#testOptimize [ "ConstNormOpaqueFunArg_16", proof ] ∀ (x y : Int), Int.le x y = (x ≤ y) ===> True
+
+-- (LE.le : Int → Int → Prop) = (λ x y => ¬ (y < x)) ===> True
+#testOptimize [ "ConstNormOpaqueFunArg_17", proof ] (LE.le : Int → Int → Prop) = (fun x y => ¬ (y < x)) ===> True
+
+-- ∀ (a : Int) (l : List Int), List.Pairwise LE.le l → 1 + a ≤ 2 + a ===> True
+#testOptimize [ "ConstNormOpaqueFunArg_18", proof ]
+  ∀ (a : Int) (l : List Int), List.Pairwise LE.le l → 1 + a ≤ 2 + a ===> True
 
 end Test.NormHOF

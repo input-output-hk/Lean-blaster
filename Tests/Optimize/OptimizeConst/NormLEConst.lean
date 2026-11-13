@@ -14,7 +14,7 @@ namespace Test.NormLEConst
 -/
 
 -- ∀ (x y : Int), x ≥ y ===> ∀ (x y : Int), ¬ x < y
-#testOptimize [ "ConstGE_1" ] ∀ (x y : Int), x ≥ y ===> ∀ (x y : Int), ¬ x < y
+#testOptimize [ "ConstGE_1", proof ] ∀ (x y : Int), x ≥ y ===> ∀ (x y : Int), ¬ x < y
 
 -- ∀ (α : Type) (x y : α), [LE α] → x ≥ y ===> ∀ (α : Type) (x y : α), [LE α] → y ≤ x
 #testOptimize [ "ConstGE_2" ] ∀ (α : Type) (x y : α), [LE α] → x ≥ y ===> ∀ (α : Type) (x y : α), [LE α] → y ≤ x
@@ -27,7 +27,7 @@ namespace Test.NormLEConst
 
 -- ∀ (x y : Int), (x ≥ y) = (y ≤ x) ===> True
 -- Test case to validate expression caching after rewriting
-#testOptimize [ "ConstGE_4" ] ∀ (x y : Int), (x ≥ y) = (y ≤ x) ===> True
+#testOptimize [ "ConstGE_4", proof ] ∀ (x y : Int), (x ≥ y) = (y ≤ x) ===> True
 
 -- ∀ (α : Type) (x y : α), [LE α] → (x ≥ y) = (y ≤ x) ===> True
 -- Test case to validate expression caching after rewriting

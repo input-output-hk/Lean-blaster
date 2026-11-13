@@ -90,10 +90,17 @@ namespace Test.ReconstructLT
 -- ∀ (a : Int), 3 + a < 5 ===> ∀ (a : Int), a < 2
 #testOptimize [ "AddConstLtSubInt", proof ] (norm-result: 1) ∀ (a : Int), 3 + a < 5 ===> ∀ (a : Int), a < 2
 
+-- the folded literal must match the steps of the other conjunct
+#testOptimize [ "AddConstLtSubIntCtx", proof ]
+  ∀ (x y : Int), ((3 + x < 5) = (x < 2)) ∧ y - y = 0 ===> True
+
 /-! Simplification rule `N1 < N2 + a ==> N1 "-" N2 < a` (Int). -/
 
 -- ∀ (a : Int), 5 < 3 + a ===> ∀ (a : Int), 2 < a
 #testOptimize [ "ConstLtAddSubInt", proof ] (norm-result: 1) ∀ (a : Int), 5 < 3 + a ===> ∀ (a : Int), 2 < a
+
+#testOptimize [ "ConstLtAddSubIntCtx", proof ]
+  ∀ (x y : Int), ((5 < 3 + x) = (2 < x)) ∧ y - y = 0 ===> True
 
 /-! Simplification rule
     `N1 + a < N2 + b ==> N1 "-" min(N1,N2) + a < N2 "-" min(N1,N2) + b`. -/
@@ -121,6 +128,12 @@ namespace Test.ReconstructLT
 -- ∀ (a b : Int), b < 0 → ((a + b < a) = True) ===> True
 #testOptimize [ "AddLtSelfNegInt", proof ] ∀ (a b : Int), b < 0 → ((a + b < a) = True) ===> True
 
+-- ∀ (b a : Int), 0 < b → ((b + a < a) = False) ===> True
+#testOptimize [ "AddLtSelfNonNegIntComm", proof ] ∀ (b a : Int), 0 < b → ((b + a < a) = False) ===> True
+
+-- ∀ (b a : Int), b < 0 → ((b + a < a) = True) ===> True
+#testOptimize [ "AddLtSelfNegIntComm", proof ] ∀ (b a : Int), b < 0 → ((b + a < a) = True) ===> True
+
 /-! `a < a + b ==> False (if b ≤ 0)` / `==> True (if 0 < b)` (Int, intRelRightReduce?). -/
 
 -- ∀ (a b : Int), b < 0 → ((a < a + b) = False) ===> True
@@ -128,6 +141,12 @@ namespace Test.ReconstructLT
 
 -- ∀ (a b : Int), 0 < b → ((a < a + b) = True) ===> True
 #testOptimize [ "LtAddSelfPosInt", proof ] ∀ (a b : Int), 0 < b → ((a < a + b) = True) ===> True
+
+-- ∀ (b a : Int), b < 0 → ((a < b + a) = False) ===> True
+#testOptimize [ "LtAddSelfNonPosIntComm", proof ] ∀ (b a : Int), b < 0 → ((a < b + a) = False) ===> True
+
+-- ∀ (b a : Int), 0 < b → ((a < b + a) = True) ===> True
+#testOptimize [ "LtAddSelfPosIntComm", proof ] ∀ (b a : Int), 0 < b → ((a < b + a) = True) ===> True
 
 /-! `a < a + b ==> False (if 0 = b)` / `==> True (if 0 < b)` (Nat, natRelRightReduce?). -/
 
@@ -145,6 +164,12 @@ namespace Test.ReconstructLT
 -- ∀ (x y : Int), x < 0 → y < 0 → ((0 < x + y) = False) ===> True
 #testOptimize [ "ZeroLtSumNegInt", proof ] ∀ (x y : Int), x < 0 → y < 0 → ((0 < x + y) = False) ===> True
 
+-- ∀ (x y : Int), 0 < x → 0 ≤ y → ((0 < x + y) = True) ===> True
+#testOptimize [ "ZeroLtSumPosNonNegInt", proof ] ∀ (x y : Int), 0 < x → 0 ≤ y → ((0 < x + y) = True) ===> True
+
+-- ∀ (x y : Int), x < 0 → y ≤ 0 → ((0 < x + y) = False) ===> True
+#testOptimize [ "ZeroLtSumNegNonPosInt", proof ] ∀ (x y : Int), x < 0 → y ≤ 0 → ((0 < x + y) = False) ===> True
+
 /-! `N < e ==> False (if ¬ (N - 1 < e))` (predCstLTInHyp). -/
 
 -- ∀ (e : Nat), ¬ (4 < e) → ((5 < e) = False) ===> True
@@ -160,5 +185,25 @@ namespace Test.ReconstructLT
 
 -- ∀ (x y : Int), x < 0 → y < 0 → ((x + y < 0) = True) ===> True
 #testOptimize [ "SumLtZeroNegInt", proof ] ∀ (x y : Int), x < 0 → y < 0 → ((x + y < 0) = True) ===> True
+
+-- ∀ (x y : Int), 0 < x → 0 ≤ y → ((x + y < 0) = False) ===> True
+#testOptimize [ "SumLtZeroPosNonNegInt", proof ] ∀ (x y : Int), 0 < x → 0 ≤ y → ((x + y < 0) = False) ===> True
+
+-- ∀ (x y : Int), x < 0 → y ≤ 0 → ((x + y < 0) = True) ===> True
+#testOptimize [ "SumLtZeroNegNonPosInt", proof ] ∀ (x y : Int), x < 0 → y ≤ 0 → ((x + y < 0) = True) ===> True
+
+/-! ## Relational `≤` reductions.
+    `e1 ≤ e2 ==> ¬ (e2 < e1)` (lemmas `nat_le_eq_not_lt` / `int_le_eq_not_lt`). -/
+
+-- ∀ (a b : Nat), a ≤ b ===> ∀ (a b : Nat), ¬ (b < a)
+#testOptimize [ "LeNotLtNat", proof ] ∀ (a b : Nat), a ≤ b ===> ∀ (a b : Nat), ¬ (b < a)
+
+-- ∀ (a b : Int), a ≤ b ===> ∀ (a b : Int), ¬ (b < a)
+#testOptimize [ "LeNotLtInt", proof ] ∀ (a b : Int), a ≤ b ===> ∀ (a b : Int), ¬ (b < a)
+
+/-! `GT.gt` in the goal, unfolded by the optimizer without a proof step. -/
+
+-- ∀ (x : Nat), x + 1 > 0 ===> True
+#testOptimize [ "GtGoalNat", proof ] ∀ (x : Nat), x + 1 > 0 ===> True
 
 end Test.ReconstructLT

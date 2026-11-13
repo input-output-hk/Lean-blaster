@@ -85,4 +85,36 @@ elab "intDivCst_2" : term => return intDivCst_2
 
 #testOptimize[ "IntTdivGcd_1", proof] ∀ (x : Int), Int.tdiv (6 * x) 4 = Int.tdiv (3 * x) 2 ===> True
 
+-- the reduced literals must match the steps of the other disjunct
+#testOptimize[ "IntTdivGcd_2", proof]
+  ∀ (n : Int), ¬ (Int.tdiv (4 * n) 6 = Int.tdiv (2 * n) 3) ∨ n = n ===> True
+
+#testOptimize[ "IntEDivGcd_3", proof] ∀ (n : Int), ¬ ((4 * n) / 6 = (2 * n) / 3) ∨ n = n ===> True
+
+#testOptimize[ "IntFdivGcd_2", proof]
+  ∀ (n : Int), ¬ (Int.fdiv (4 * n) 6 = Int.fdiv (2 * n) 3) ∨ n = n ===> True
+
+-- the gcd reduces the divisor to 1
+#testOptimize[ "IntEDivGcd_4", proof] ∀ (x : Int), (x * 6) / 3 = 2 * x ===> True
+
+/-! Test cases for the constant fold `N1 / N2 ==> N1 "/" N2` under a composed goal. -/
+
+#testOptimize[ "IntDivCst_4", proof] ∀ (x y : Int), ((7 / 2 + x) = (x + 3)) ∧ y - y = 0 ===> True
+
+#testOptimize[ "IntFdivCst_4", proof]
+  ∀ (x y : Int), ((Int.fdiv 7 2 + x) = (x + 3)) ∧ y - y = 0 ===> True
+
+#testOptimize[ "IntTdivCst_4", proof]
+  ∀ (x y : Int), ((Int.tdiv (-7) 2 + x) = (x + (-3))) ∧ y - y = 0 ===> True
+
+-- the fold is replayed under a hypothesis-driven cancellation
+#testOptimize[ "IntDivCst_5", proof]
+  ∀ (x y : Int), y ≠ 0 → (x * y) / y + 7 / 2 = x + 3 ===> True
+
+/-! Test cases for steps over `Int.ediv`, written with `/` and with the core function. -/
+
+#testOptimize[ "ElabDivComm", proof] ∀ (x y : Int), x / 2 + y = y + x / 2 ===> True
+
+#testOptimize[ "RawEDivComm", proof] ∀ (x y : Int), Int.ediv x 2 + y = y + Int.ediv x 2 ===> True
+
 end Tests.OptimizeIntDiv
