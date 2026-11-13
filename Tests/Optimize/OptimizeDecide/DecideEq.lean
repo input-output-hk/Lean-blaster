@@ -14,37 +14,37 @@ variable (p : Bool)
 variable (q : Bool)
 
 -- true = (p == q) ===> p = q (with Type(p) = Bool)
-#testOptimize [ "EqTrueBeq_1"] true = (p == q) ===> p = q
+#testOptimize [ "EqTrueBeq_1", proof ] true = (p == q) ===> p = q
 
 variable (n : Nat)
 variable (m : Nat)
 
 -- true = (n == m) ===> n = m (with Type(n) = Nat)
-#testOptimize [ "EqTrueBeq_2"] true = (n == m) ===> n = m
+#testOptimize [ "EqTrueBeq_2", proof ] true = (n == m) ===> n = m
 
 variable (x : Int)
 variable (y : Int)
 
 -- true = (x == y) ===> x = y (with Type(x) = Int)
-#testOptimize [ "EqTrueBeq_3"] true = (x == y) ===> x = y
+#testOptimize [ "EqTrueBeq_3", proof ] true = (x == y) ===> x = y
 
 variable (s : String)
 variable (t : String)
 
 -- true = (s == t) ===> s = t (with Type(s) = String)
-#testOptimize [ "EqTrueBeq_4"] true = (s == t) ===> s = t
+#testOptimize [ "EqTrueBeq_4", proof ] true = (s == t) ===> s = t
 
 -- (true = (p == q)) = (p = q) ===> True (with Type(p) = Bool)
-#testOptimize [ "EqTrueBeq_5"] (true = (p == q)) = (p = q) ===> True
+#testOptimize [ "EqTrueBeq_5", proof ] (true = (p == q)) = (p = q) ===> True
 
 -- (true = (n == m)) = (n = m) ===> True (with Type(n) = Nat)
-#testOptimize [ "EqTrueBeq_6"] (true = (n == m)) = (n = m) ===> True
+#testOptimize [ "EqTrueBeq_6", proof ] (true = (n == m)) = (n = m) ===> True
 
 -- (true = (x == y)) = (x = y) ===> True (with Type(x) = Int)
-#testOptimize [ "EqTrueBeq_7"] (true = (x == y)) = (x = y) ===> True
+#testOptimize [ "EqTrueBeq_7", proof ] (true = (x == y)) = (x = y) ===> True
 
 -- (true = (s == t)) = (s = t) ===> True (with Type(s) = String)
-#testOptimize [ "EqTrueBeq_8"] (true = (s == t)) = (s = t) ===> True
+#testOptimize [ "EqTrueBeq_8", proof ] (true = (s == t)) = (s = t) ===> True
 
 
 /-! Test cases to ensure that simplification rule `true = (a == b) ==> (a = b) (if hasLawFulBEqInstance Type(a))`
@@ -72,28 +72,28 @@ inductive Color where
 /-! Test cases for simplification rule `false = (a == b) ==> ¬ (a = b) (if hasLawFulBEqInstance Type(a))`. -/
 
 -- false = (p == q) ===> ¬ (p = q) (with Type(p) = Bool)
-#testOptimize [ "EqFalseBeq_1"] false = (p == q) ===> ¬ (p = q)
+#testOptimize [ "EqFalseBeq_1", proof ] false = (p == q) ===> ¬ (p = q)
 
 -- false = (n == m) ===> ¬ (n = m) (with Type(n) = Nat)
-#testOptimize [ "EqFalseBeq_2"] false = (n == m) ===> ¬ (n = m)
+#testOptimize [ "EqFalseBeq_2", proof ] false = (n == m) ===> ¬ (n = m)
 
 -- false = (x == y) ===> ¬ (x = y) (with Type(x) = Int)
-#testOptimize [ "EqFalseBeq_3"] false = (x == y) ===> ¬ (x = y)
+#testOptimize [ "EqFalseBeq_3", proof ] false = (x == y) ===> ¬ (x = y)
 
 -- false = (s == t) ===> ¬ (s = t) (with Type(s) = String)
-#testOptimize [ "EqFalseBeq_4"] false = (s == t) ===> ¬ (s = t)
+#testOptimize [ "EqFalseBeq_4", proof ] false = (s == t) ===> ¬ (s = t)
 
 -- (false = (p == q)) = ¬ (p = q) ===> True (with Type(p) = Bool)
-#testOptimize [ "EqFalseBeq_5"] (false = (p == q)) = ¬ (p = q) ===> True
+#testOptimize [ "EqFalseBeq_5", proof ] (false = (p == q)) = ¬ (p = q) ===> True
 
 -- (false = (n == m)) = ¬ (n = m) ===> True (with Type(n) = Nat)
-#testOptimize [ "EqFalseBeq_6"] (false = (n == m)) = ¬ (n = m) ===> True
+#testOptimize [ "EqFalseBeq_6", proof ] (false = (n == m)) = ¬ (n = m) ===> True
 
 -- (false = (x == y)) = ¬ (x = y) ===> True (with Type(x) = Int)
-#testOptimize [ "EqFalseBeq_7"] (false = (x == y)) = ¬ (x = y) ===> True
+#testOptimize [ "EqFalseBeq_7", proof ] (false = (x == y)) = ¬ (x = y) ===> True
 
 -- (false = (s == t)) = ¬ (s = t) ===> True (with Type(s) = String)
-#testOptimize [ "EqFalseBeq_8"] (false = (s == t)) = ¬ (s = t) ===> True
+#testOptimize [ "EqFalseBeq_8", proof ] (false = (s == t)) = ¬ (s = t) ===> True
 
 
 /-! Test cases to ensure that simplification rule `false = (a == b) ==> ¬ (a = b) (if hasLawFulBEqInstance Type(a))`
@@ -116,73 +116,73 @@ inductive Color where
 -/
 
 -- p = m == n ===> (true = p) = (n = m)
-#testOptimize [ "EqBoolBeq_1" ] p = (m == n) ===> (true = p) = (n = m)
+#testOptimize [ "EqBoolBeq_1", proof ] p = (m == n) ===> (true = p) = (n = m)
 
 -- p = m == n ===> (true = p) = (n = m)
-#testOptimize [ "EqBoolBeq_2" ] (m == n) = p ===> (true = p) = (n = m)
+#testOptimize [ "EqBoolBeq_2", proof ] (m == n) = p ===> (true = p) = (n = m)
 
 -- (!p) = (m == n) ===> (false = p) = (n = m)
-#testOptimize [ "EqBoolBeq_3" ] (!p) = (m == n) ===> (false = p) = (n = m)
+#testOptimize [ "EqBoolBeq_3", proof ] (!p) = (m == n) ===> (false = p) = (n = m)
 
 -- (m == n) = !p ===> (false = p) = (n = m)
-#testOptimize [ "EqBoolBeq_4" ] (m == n) = !p ===> (false = p) = (n = m)
+#testOptimize [ "EqBoolBeq_4", proof ] (m == n) = !p ===> (false = p) = (n = m)
 
 -- (x == y) = (m == n) ===> (x = y) = (n = m)
-#testOptimize [ "EqBoolBeq_5" ] (x == y) = (m == n) ===> (x = y) = (n = m)
+#testOptimize [ "EqBoolBeq_5", proof ] (x == y) = (m == n) ===> (x = y) = (n = m)
 
 -- (x != y) = (m == n) ===> (¬ (x = y)) = (n = m)
-#testOptimize [ "EqBoolBeq_6" ] (x != y) = (m == n) ===> (¬ (x = y)) = (n = m)
+#testOptimize [ "EqBoolBeq_6", proof ] (x != y) = (m == n) ===> (¬ (x = y)) = (n = m)
 
 -- (m == n) = (x != y) ===> (¬ (x = y)) = (n = m)
-#testOptimize [ "EqBoolBeq_7" ] (m == n) = (x != y) ===> (¬ (x = y)) = (n = m)
+#testOptimize [ "EqBoolBeq_7", proof ] (m == n) = (x != y) ===> (¬ (x = y)) = (n = m)
 
 -- (m == n) = (n != m) ===> False
-#testOptimize [ "EqBoolBeq_8" ] (m == n) = (n != m) ===> False
+#testOptimize [ "EqBoolBeq_8", proof ] (m == n) = (n != m) ===> False
 
 -- (n != m) = (m == n) ===> False
-#testOptimize [ "EqBoolBeq_9" ] (n != m) = (m == n) ===> False
+#testOptimize [ "EqBoolBeq_9", proof ] (n != m) = (m == n) ===> False
 
 -- (n != m) = (m = n) ===> False
-#testOptimize [ "EqBoolBeq_10" ] (n != m) = (m = n) ===> False
+#testOptimize [ "EqBoolBeq_10", proof ] (n != m) = (m = n) ===> False
 
 -- (n ≠ m) = (m == n) ===> False
-#testOptimize [ "EqBoolBeq_11" ] (n ≠ m) = (m == n) ===> False
+#testOptimize [ "EqBoolBeq_11", proof ] (n ≠ m) = (m == n) ===> False
 
 -- (n = m) = (m == n) ===> True
-#testOptimize [ "EqBoolBeq_12" ] (n = m) = (m == n) ===> True
+#testOptimize [ "EqBoolBeq_12", proof ] (n = m) = (m == n) ===> True
 
 -- (n ≠ m) = (m != n) ===> True
-#testOptimize [ "EqBoolBeq_13" ] (n ≠ m) = (m != n) ===> True
+#testOptimize [ "EqBoolBeq_13", proof ] (n ≠ m) = (m != n) ===> True
 
 -- ((x ≠ y) = (m != n)) = (p == q) ===> ((x = y) = (n = m)) = (p = q)
-#testOptimize [ "EqBoolBeq_14" ] ((x ≠ y) = (m != n)) = (p == q) ===> ((x = y) = (n = m)) = (p = q)
+#testOptimize [ "EqBoolBeq_14", proof ] ((x ≠ y) = (m != n)) = (p == q) ===> ((x = y) = (n = m)) = (p = q)
 
 
 -- (p = (m == n)) = ((n = m) = p) ===> True
-#testOptimize [ "EqBoolBeq_15" ] (p = (m == n)) = ((n = m) = p) ===> True
+#testOptimize [ "EqBoolBeq_15", proof ] (p = (m == n)) = ((n = m) = p) ===> True
 
 -- ((!p) = (m == n)) = ((n = m) = (false = p)) ===> True
-#testOptimize [ "EqBoolBeq_16" ] ((!p) = (m == n)) = ((n = m) = (false = p)) ===> True
+#testOptimize [ "EqBoolBeq_16", proof ] ((!p) = (m == n)) = ((n = m) = (false = p)) ===> True
 
 -- ((x == y) = (m == n)) = ((n = m) = (y = x)) ===> True
-#testOptimize [ "EqBoolBeq_17" ] ((x == y) = (m == n)) = ((n = m) = (y = x)) ===> True
+#testOptimize [ "EqBoolBeq_17", proof ] ((x == y) = (m == n)) = ((n = m) = (y = x)) ===> True
 
 -- ((x != y) = (m == n)) = ((n = m) = (x ≠ y)) ===> True
-#testOptimize [ "EqBoolBeq_18" ] ((x != y) = (m == n)) = ((n = m) = (x ≠ y)) ===> True
+#testOptimize [ "EqBoolBeq_18", proof ] ((x != y) = (m == n)) = ((n = m) = (x ≠ y)) ===> True
 
 -- ((m == n) = (x != y)) =((x ≠ y) = (n = m)) ===> True
-#testOptimize [ "EqBoolBeq_19" ] ((m == n) = (x != y)) =((x ≠ y) = (n = m)) ===> True
+#testOptimize [ "EqBoolBeq_19", proof ] ((m == n) = (x != y)) =((x ≠ y) = (n = m)) ===> True
 
 -- (((x ≠ y) = (m != n)) = (p == q)) = ((q = p) = ((n = m) = (y = x))) ===> True
-#testOptimize [ "EqBoolBeq_20" ] (((x ≠ y) = (m != n)) = (p == q)) = ((q = p) = ((n = m) = (y = x))) ===> True
+#testOptimize [ "EqBoolBeq_20", proof ] (((x ≠ y) = (m != n)) = (p == q)) = ((q = p) = ((n = m) = (y = x))) ===> True
 
 -- ∀ (x y : Int) (b c : Bool), ((x < y) == b) = c ===>
 -- ∀ (x y : Int) (b c : Bool), ((true = b) = (x < y)) = (true = c)
-#testOptimize [ "EqBoolBeq_21"] ∀ (x y : Int) (b c : Bool), ((x < y) == b) = c ===>
+#testOptimize [ "EqBoolBeq_21", proof ] ∀ (x y : Int) (b c : Bool), ((x < y) == b) = c ===>
                                 ∀ (x y : Int) (b c : Bool), ((true = b) = (x < y)) = (true = c)
 
 -- ∀ (x y : Int) (b c : Bool), (((x < y) == b) = c) = (((x < y) = b) = c) ===> True
-#testOptimize [ "EqBoolBeq_22"] ∀ (x y : Int) (b c : Bool),
+#testOptimize [ "EqBoolBeq_22", proof ] ∀ (x y : Int) (b c : Bool),
                                   (((x < y) == b) = c) = (((x < y) = b) = c) ===> True
 
 
@@ -1304,10 +1304,10 @@ elab "boolEqDIteUnchanged_1" : term => return boolEqDIteUnchanged_1
 #testOptimize [ "EqBoolEqBool_12", proof ] p = (true = p) ===> True
 
 -- (true = (p == q)) = (true = (x == y)) ===> (p = q) = (x = y)
-#testOptimize [ "EqBoolEqBool_13"] (true = (p == q)) = (true = (x == y)) ===> (p = q) = (x = y)
+#testOptimize [ "EqBoolEqBool_13", proof ] (true = (p == q)) = (true = (x == y)) ===> (p = q) = (x = y)
 
 -- (true = (p == q)) = (p ≠ q) ===> False
-#testOptimize [ "EqBoolEqBool_14"] (true = (p == q)) = (p ≠ q) ===> False
+#testOptimize [ "EqBoolEqBool_14", proof ] (true = (p == q)) = (p ≠ q) ===> False
 
 -- (p ∧ ((x < y) ∨ ¬ (y > x))) = ¬ p ===> False
 #testOptimize [ "EqBoolEqBool_15", proof ] (p ∧ ((x < y) ∨ ¬ (y > x))) = ¬ p ===> False
@@ -1345,7 +1345,7 @@ elab "boolEqDIteUnchanged_1" : term => return boolEqDIteUnchanged_1
 #testOptimize [ "EqBoolEqBool_25", proof ] (¬ p = true = q) = (q = !p) ===> True
 
 -- ((true = (p == q)) = (true = (x == y))) = ((y = x) = (q = p)) ===> True
-#testOptimize [ "EqBoolEqBool_26"] ((true = (p == q)) = (true = (x == y))) = ((y = x) = (q = p)) ===> True
+#testOptimize [ "EqBoolEqBool_26", proof ] ((true = (p == q)) = (true = (x == y))) = ((y = x) = (q = p)) ===> True
 
 -- ((¬ (p ∧ ((x < y) ∨ ¬ (y > x)))) = ¬ q) = (q = p) ===> True
 #testOptimize [ "EqBoolEqBool_27", proof ] ((¬ (p ∧ ((x < y) ∨ ¬ (y > x)))) = ¬ q) = (q = p) ===> True
@@ -1688,12 +1688,12 @@ variable (z : Int)
 
 -- ∀ (x y : Int) (a b c : Bool), ((!c ∧ (x ≤ y ∧ (b ∧ !b))) || (a && !a)) = (c == b && (a || !a)) ===>
 -- ∀ (c : Bool), ¬ b = c
-#testOptimize [ "DecideEqBool_7" ] ∀ (x y : Int) (a b c : Bool),
+#testOptimize [ "DecideEqBool_7", proof ] ∀ (x y : Int) (a b c : Bool),
                                     ((!c ∧ (x ≤ y ∧ (b ∧ !b))) || (a && !a)) = (c == b && (a || !a)) ===>
                                    ∀ (b c : Bool), ¬ b = c
 
 -- ∀ (x y : Int) (a b c : Bool), (b == c ∨ (x ≤ y ∧ (b ∧ !b))) = (c == b && (a || !a)) ===> True
-#testOptimize [ "DecideEqBool_8" ] ∀ (x y : Int) (a b c : Bool),
+#testOptimize [ "DecideEqBool_8", proof ] ∀ (x y : Int) (a b c : Bool),
                                      (b == c ∨ (x ≤ y ∧ (b ∧ !b))) = (c == b && (a || !a)) ===> True
 
 
@@ -1721,7 +1721,7 @@ variable (z : Int)
 
 -- ∀ (x y : Int) (a b c : Bool),
 --  (((!c ∧ (x ≤ y ∧ (b ∧ !b))) || (a && !a)) = (c == b && (a || !a))) = (¬ b = c) ===> True
-#testOptimize [ "DecideEqBool_13" ] ∀ (x y : Int) (a b c : Bool),
+#testOptimize [ "DecideEqBool_13", proof ] ∀ (x y : Int) (a b c : Bool),
                                       (((!c ∧ (x ≤ y ∧ (b ∧ !b))) || (a && !a)) = (c == b && (a || !a))) =
                                       (¬ b = c) ===> True
 
@@ -1736,11 +1736,11 @@ variable (z : Int)
 
 -- ∀ (x y : Int) (b : Bool), (x < y) == b ==>
 -- ∀ (x y : Int) (b : Bool), (true = b) = (x < y)
-#testOptimize [ "DecideEqBool_16" ] ∀ (x y : Int) (b : Bool), (x < y) == b ===>
+#testOptimize [ "DecideEqBool_16", proof ] ∀ (x y : Int) (b : Bool), (x < y) == b ===>
                                     ∀ (x y : Int) (b : Bool), (true = b) = (x < y)
 
 -- ∀ (x y : Int) (b : Bool), ((x < y) == b) = ((x < y) = b) ===> True
-#testOptimize [ "DecideEqBool_17" ] ∀ (x y : Int) (b : Bool), ((x < y) == b) = ((x < y) = b) ===> True
+#testOptimize [ "DecideEqBool_17", proof ] ∀ (x y : Int) (b : Bool), ((x < y) == b) = ((x < y) = b) ===> True
 
 
 -- ∀ (x y z : Int) (b c : Bool), (if ((x < y) && c) == b then x else y) < z ===>

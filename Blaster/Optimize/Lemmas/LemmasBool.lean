@@ -140,4 +140,24 @@ protected theorem bridge_eq_ff (e1 e2 : Bool) :
   ((false = e1) = (false = e2)) = (Bool.not e1 = Bool.not e2) := by
   cases e1 <;> cases e2 <;> exact propext (by decide)
 
+/-! ## Lemmas validating the `BEq.beq` reductions rules:
+  - `e1 == e2 ==> e2 == e1`
+  - `not e1 == not e2 ==> e1 == e2`
+  - `Nat.beq ==> λ x y => x == y`
+  The operands come before the instances, so that a step gives them and the replay
+  synthesizes the instances.
+-/
+
+universe u
+
+protected theorem beq_comm {α : Type u} (a b : α) [BEq α] [LawfulBEq α] :
+  (a == b) = (b == a) := Bool.beq_comm
+
+protected theorem not_beq_not (a b : Bool) : ((!a) == (!b)) = (a == b) := by
+  cases a <;> cases b <;> rfl
+
+protected theorem nat_beq_eq_beq : Nat.beq = (fun x y : Nat => x == y) :=
+  funext fun x => funext fun y =>
+    Bool.eq_iff_iff.mpr (Iff.of_eq (Nat.beq_eq.trans (Nat.beq_eq_true_eq x y).symm))
+
 end Blaster
