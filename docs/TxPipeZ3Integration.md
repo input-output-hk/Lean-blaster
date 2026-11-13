@@ -42,3 +42,30 @@ lake test
 For replay diagnostics, `BLASTER_SMTPROOF_LOG=/path/to/log.jsonl` records accepted residual replays with their backend, step count and source location. `BLASTER_SMTPROOF_BACKENDS` selects Z3 variants (default `z3,z3rec,z3+`); the optional simplifier-preserving variant remains subject to the solver's proof support. `BLASTER_SMTPROOF_TIMEOUT` overrides the proof-backend timeout.
 
 The full-suite outcome is recorded in [txpipe-z3-validation.md](txpipe-z3-validation.md). No PR is opened for this branch.
+
+## Inspecting a proof and measuring its size
+
+Use a named theorem rather than `#blaster` when you want to inspect the resulting term:
+
+```lean
+theorem testProof (x y : Nat) (h : 0 < y) : x % y < y := by
+  blaster (gen-proof: 1) (timeout: 10)
+
+#print axioms testProof
+```
+
+`set_option pp.proofs true in #print testProof` displays the proof, often as a reference to generated auxiliary lemmas. The following counts the proof with those lemmas expanded, without printing the potentially very large term:
+
+```lean
+open Lean Meta Elab Command in
+run_cmd liftTermElabM do
+  let root := ``testProof
+  let info ← getConstInfo root
+  let proof ← deltaExpand info.value! (fun n => root.isPrefixOf n)
+  let (nodes, _) := Blaster.Reconstruct.SmtProof.dagStats proof
+  logInfo m!"Proof: {nodes} distinct nodes"
+```
+
+This counts distinct Lean expression objects, preserving sharing, including the generated helpers under the theorem's name. Existing library lemmas remain references. It is not a measurement of printed text, allocated bytes or `.olean` file size. Counting only the outer `id (id testProof._proof_...)` would miss the certificate.
+
+The checked `isInjective square` example on `Nat` produced 9,667 distinct nodes in one run. Reconstruction is not optimized for a short human proof; the expanded display repeats shared subterms and can be much larger. `Tests/Smt/SmtNat/SmtNatMod.lean` contains a named `mod_lt` example that prints only its node count.

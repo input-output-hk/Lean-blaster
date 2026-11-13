@@ -1,0 +1,162 @@
+file,default_status,strict_status,default_checked_proofs,strict_checked_proofs,strict_first_diagnostic
+Tests.lean,dependency-blocked,dependency-blocked,0,0,object file '.lake/build/lib/lean/Tests/Basic.olean' of module Tests.Basic does not exist
+Tests/Basic.lean,dependency-blocked,dependency-blocked,0,0,object file '.lake/build/lib/lean/Tests/Optimize.olean' of module Tests.Optimize does not exist
+Tests/FixedIssues.lean,passed,passed,0,0,
+Tests/FixedIssues/Issue1.lean,passed,passed,0,0,
+Tests/FixedIssues/Issue10.lean,passed,failed,0,0,Z3 proof replay failed: Inductive datatype with instance parameters not supported: `OfNat
+Tests/FixedIssues/Issue11.lean,passed,passed,0,1,
+Tests/FixedIssues/Issue12.lean,passed,failed,0,0,Z3 proof replay failed: translateApp: unsupported application of Decidable.rec:
+Tests/FixedIssues/Issue14.lean,passed,passed,0,1,
+Tests/FixedIssues/Issue15.lean,passed,failed,0,2,Z3 proof replay failed: no proof: [z3: smt proof: could not replay step 72 (unit-resolution) concluding false; first failures: [step 0 (quant-inst): (or (not (forall (($2 @Instance_uniq.2272) ($3 @Instance_uniq.2272)) (! (or (@LT.lt._uniq.2331 (@apply_uniq.2314 (Tests.Issue15.FunRelTwo.mk.0 $1) $2) (@apply_uniq.2314 (Tests.Issue15.FunRelTwo.mk.0 $1
+Tests/FixedIssues/Issue16.lean,passed,passed,0,0,
+Tests/FixedIssues/Issue17.lean,passed,crashed,0,1,crashed
+Tests/FixedIssues/Issue18.lean,passed,failed,0,0,Z3 proof replay failed: translateRecFun: function body expected for Lean.Expr.lam
+Tests/FixedIssues/Issue19.lean,passed,passed,0,1,
+Tests/FixedIssues/Issue2.lean,passed,passed,0,0,
+Tests/FixedIssues/Issue20.lean,passed,passed,0,3,
+Tests/FixedIssues/Issue21.lean,passed,failed,0,0,"Tactic `blaster` failed: Z3 proof replay failed: no proof: [z3: (error ""line 14 column 10: proof is not available""),"
+Tests/FixedIssues/Issue22.lean,passed,failed,0,0,"Tactic `blaster` failed: Z3 proof replay failed: no proof: [z3: (error ""line 14 column 10: proof is not available""),"
+Tests/FixedIssues/Issue23.lean,passed,passed,0,0,
+Tests/FixedIssues/Issue24.lean,passed,failed,0,0,"Z3 proof replay failed: no proof: [z3: (error ""line 13 column 10: proof is not available""),"
+Tests/FixedIssues/Issue25.lean,passed,failed,0,0,"Z3 proof replay failed: no proof: [z3: (error ""line 17 column 10: proof is not available""),"
+Tests/FixedIssues/Issue26.lean,passed,crashed,0,0,crashed
+Tests/FixedIssues/Issue27.lean,passed,crashed,0,0,crashed
+Tests/FixedIssues/Issue28.lean,passed,passed,0,6,
+Tests/FixedIssues/Issue29.lean,passed,failed,0,0,Tactic `blaster` failed: Z3 proof replay failed: no proof: [z3: smt proof: could not replay step 31 (th-lemma) concluding false; first failures: [step 0 (quant-inst): (or (not (forall ((@x0 @Instance_uniq.941)) (! (>= (@Tests.Issue29.ToNat.toNat._uniq.945 @x0) 0) :pattern ((@Tests.Issue29.ToNat.toNat._uniq.945 @x0)) :qid @Tests.Issue29.ToNat.toNat.
+Tests/FixedIssues/Issue3.lean,passed,failed,0,1,Z3 proof replay failed: translateApp (proj): FunEnvInfo expected for Lean.Name.mkNum `BEq.mk 0
+Tests/FixedIssues/Issue30.lean,passed,passed,0,0,
+Tests/FixedIssues/Issue31.lean,passed,passed,0,10,
+Tests/FixedIssues/Issue32.lean,passed,failed,0,0,Z3 proof replay failed: no proof: [z3: smt proof: could not replay step 59 (th-lemma) concluding false; first failures: [step 0 (quant-inst): (or (not (forall ((|@β_uniq.3195| @Type_uniq.2954) ($5 (@Tests.Issue32.Term (@List @Instance_uniq.2954))) ($6 (@@ArrowT2 (@Tests.Issue32.Term (@List @Instance_uniq.2954)) Int))) (! (or (not (@isFun_uniq.3191 
+Tests/FixedIssues/Issue33.lean,passed,passed,0,0,
+Tests/FixedIssues/Issue34.lean,passed,passed,0,4,
+Tests/FixedIssues/Issue4.lean,passed,failed,0,0,Z3 proof replay failed: translateApp (proj): FunEnvInfo expected for Lean.Name.mkNum `LT.mk 0
+Tests/FixedIssues/Issue5.lean,passed,failed,0,2,Z3 proof replay failed: translateRecFun: function body expected for Lean.Expr.lam
+Tests/FixedIssues/Issue6.lean,passed,failed,0,0,Z3 proof replay failed: translateApp: unsupported application of Decidable.rec:
+Tests/FixedIssues/Issue7.lean,passed,passed,0,2,
+Tests/FixedIssues/Issue8.lean,passed,passed,0,0,
+Tests/FixedIssues/Issue9.lean,passed,failed,0,0,Z3 proof replay failed: translateApp (proj): FunEnvInfo expected for Lean.Name.mkNum `BEq.mk 0; with the other interpretation of the polymorphic encoding: translateApp (proj): FunEnvInfo expected for Lean.Name.mkNum `BEq.mk 0
+Tests/Optimize.lean,dependency-blocked,dependency-blocked,0,0,object file '.lake/build/lib/lean/Tests/Optimize/NormChoiceApp.olean' of module Tests.Optimize.NormChoiceApp does not exist
+Tests/Optimize/FunPropagation.lean,passed,passed,0,0,
+Tests/Optimize/FunPropagation/ConstCtorProp.lean,passed,passed,0,0,
+Tests/Optimize/FunPropagation/ConstFunProp.lean,passed,passed,0,0,
+Tests/Optimize/NormChoiceApp.lean,failed,failed,0,0,NormChoiceAppDite_10 ❌ Failure! : proof reconstruction failed
+Tests/Optimize/OptimizeBEq.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeBEq/BEqBool.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeBEq/BEqInt.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeBEq/BEqLawful.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeBEq/BEqList.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeBEq/BEqNat.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeBEq/BEqString.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeBEq/BEqWrong.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeBool.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeBool/OptimizeBoolAnd.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeBool/OptimizeBoolNot.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeBool/OptimizeBoolOr.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeConst.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeConst/NormBneConst.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeConst/NormHOF.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeConst/NormLEConst.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeConst/NormLTConst.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeConst/NormNatZero.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeConst/NormNeConst.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeConst/NormOpaque.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeDecide.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeDecide/DecideBoolAnd.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeDecide/DecideBoolNot.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeDecide/DecideBoolOr.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeDecide/DecideEq.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeDecide/DecidePropAnd.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeDecide/DecidePropOr.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeDecide/NominalDecide.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeEq.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeEq/OptimizeEq.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeExists.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeExists/COIExists.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeForAll.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeForAll/COIForAll.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeForAll/ImpliesInHyp.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeForAll/OptimizeForAll.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeITE.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeITE/OptimizeDITE.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeITE/OptimizeITE.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeITE/ReduceDITE.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeITE/ReduceITE.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeInt.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeInt/OptimizeIntAdd.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeInt/OptimizeIntDiv.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeInt/OptimizeIntEDiv.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeInt/OptimizeIntEMod.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeInt/OptimizeIntMod.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeInt/OptimizeIntMul.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeInt/OptimizeIntNeg.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeLet.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeMatch.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeMatch/ConstMatchProp.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeMatch/MatchReduce.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeMatch/MatchToITE.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeMatch/StructEqMatch.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeNat.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeNat/OptimizeNatAdd.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeNat/OptimizeNatDiv.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeNat/OptimizeNatMod.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeNat/OptimizeNatMul.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeNat/OptimizeNatPow.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeNat/OptimizeNatPred.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeNat/OptimizeNatSub.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeNat/OptimizeNatSucc.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeProjection.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeProjection/OptimizeProjection.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeProp.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeProp/OptimizeAnd.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeProp/OptimizeIff.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeProp/OptimizeNot.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeProp/OptimizeOr.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeRecFun.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeString.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeString/OptimizeString.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeUnfold.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeUnfold/UnfoldBEq.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeUnfold/UnfoldBoolOp.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeUnfold/UnfoldDITE.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeUnfold/UnfoldEq.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeUnfold/UnfoldExists.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeUnfold/UnfoldFun.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeUnfold/UnfoldITE.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeUnfold/UnfoldIntOp.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeUnfold/UnfoldNatOp.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeUnfold/UnfoldProp.lean,passed,passed,0,0,
+Tests/Optimize/OptimizeUnfold/UnfoldRelationalOp.lean,passed,passed,0,0,
+Tests/Optimize/ReconstructLT.lean,passed,passed,0,0,
+Tests/Reconstruct/Basic.lean,passed,passed,0,140,
+Tests/Reconstruct/Z3.lean,passed,passed,11,11,
+Tests/Smt.lean,dependency-blocked,dependency-blocked,0,0,object file '.lake/build/lib/lean/Tests/Smt/SmtNat.olean' of module Tests.Smt.SmtNat does not exist
+Tests/Smt/Benchmarks.lean,passed,passed,0,0,
+Tests/Smt/Benchmarks/ValidatorsExamples/HelloWorld.lean,passed,passed,0,0,
+Tests/Smt/Benchmarks/ValidatorsExamples/HelloWorld/HelloWorld.lean,passed,passed,0,1,
+Tests/Smt/Benchmarks/ValidatorsExamples/HelloWorld/Types.lean,passed,passed,0,0,
+Tests/Smt/Benchmarks/ValidatorsExamples/PlutusLedgerAPI/VDummy.lean,passed,passed,0,0,
+Tests/Smt/Benchmarks/ValidatorsExamples/Vesting.lean,passed,passed,0,0,
+Tests/Smt/Benchmarks/ValidatorsExamples/Vesting/Types.lean,passed,passed,0,0,
+Tests/Smt/Benchmarks/ValidatorsExamples/Vesting/Vesting.lean,passed,failed,0,0,Z3 proof replay failed: translateExpr: unexpected let expression Lean.Expr.letE
+Tests/Smt/SmtEqArith.lean,passed,failed,0,126,Z3 proof replay failed: translateApp: unsupported application of Decidable.rec:
+Tests/Smt/SmtLtArith.lean,passed,passed,0,43,
+Tests/Smt/SmtMatch.lean,passed,crashed,0,0,Z3 proof replay failed: translateApp (proj): FunEnvInfo expected for Lean.Name.mkNum `HAdd.mk 0
+Tests/Smt/SmtNat.lean,dependency-blocked,dependency-blocked,0,0,object file '.lake/build/lib/lean/Tests/Smt/SmtNat/SmtNatMod.olean' of module Tests.Smt.SmtNat.SmtNatMod does not exist
+Tests/Smt/SmtNat/SmtNatAdd.lean,passed,failed,0,20,"Z3 proof replay failed: no proof: [z3: (error ""line 12 column 40: unknown constant Nat.succ (Int) Int "") (error ""line 14 column 10: proof is not available""),"
+Tests/Smt/SmtNat/SmtNatDiv.lean,passed,passed,0,23,
+Tests/Smt/SmtNat/SmtNatMod.lean,failed,failed,15,16,blaster: strict reconstruction requires a valid result; got Undetermined
+Tests/Smt/SmtNat/SmtNatMul.lean,passed,timeout,0,0,timeout
+Tests/Smt/SmtNat/SmtNatPow.lean,passed,failed,0,5,"Z3 proof replay failed: no proof: [z3: (error ""line 14 column 50: unknown constant Nat.succ (Int) Int "") (error ""line 16 column 10: proof is not available""),"
+Tests/Smt/SmtNat/SmtNatSub.lean,passed,failed,0,22,"Z3 proof replay failed: no proof: [z3: (error ""line 13 column 65: unknown constant Nat.succ (Int) Int "") (error ""line 15 column 10: proof is not available""),"
+Tests/Smt/SmtPredQualifier.lean,timeout,timeout,0,2,Z3 proof replay failed: translateConst: only inductive type/opaque/recursive functions and theorems expected but got Lean.Expr.const `Int.instInhabited []
+Tests/Smt/SmtRecFun.lean,passed,crashed,0,0,crashed
+Tests/StateMachine.lean,dependency-blocked,dependency-blocked,0,0,object file '.lake/build/lib/lean/Tests/StateMachine/Counter06.olean' of module Tests.StateMachine.Counter06 does not exist
+Tests/StateMachine/BoolFlip.lean,passed,passed,0,0,
+Tests/StateMachine/Counter01.lean,passed,passed,0,0,
+Tests/StateMachine/Counter02.lean,passed,passed,0,0,
+Tests/StateMachine/Counter03.lean,passed,passed,0,0,
+Tests/StateMachine/Counter04.lean,passed,passed,0,0,
+Tests/StateMachine/Counter05.lean,passed,passed,0,0,
+Tests/StateMachine/Counter06.lean,failed,failed,0,0,❌️ Docstring on `#guard_msgs` does not match generated message:
+Tests/StateMachine/Counter07.lean,passed,passed,0,0,
+Tests/Utils.lean,passed,passed,0,0,
