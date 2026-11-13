@@ -6,7 +6,8 @@ namespace Tests.Reconstruct.Z3
 
 open Lean Elab Command in
 elab "#standard_axioms " n:ident : command => do
-  let axioms ← liftCoreM (collectAxioms n.getId)
+  let decl ← resolveGlobalConstNoOverload n
+  let axioms ← liftCoreM (collectAxioms decl)
   let forbidden := axioms.filter fun a => ![``propext, ``Classical.choice, ``Quot.sound].contains a
   unless forbidden.isEmpty do throwError "unexpected axioms: {forbidden.toList}"
 
@@ -131,5 +132,15 @@ run_cmd liftTermElabM do
       pure false) fun ex => do
         return ((← ex.toMessageData.toString).splitOn "maximum recursion depth").length > 1
   unless rejected do throwError "cyclic SMT macro was not rejected at the recursion limit"
+
+-- The audit must resolve private names inside namespaces. An unresolved name
+-- would otherwise silently produce an empty axiom set in `collectAxioms`.
+namespace AuditGuard
+set_option warn.sorry false in
+private theorem forbidden : True := @sorryAx True false
+/-- error: unexpected axioms: [sorryAx] -/
+#guard_msgs in
+#standard_axioms forbidden
+end AuditGuard
 
 end Tests.Reconstruct.Z3
