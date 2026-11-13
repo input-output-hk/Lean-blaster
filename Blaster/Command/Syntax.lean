@@ -1,6 +1,7 @@
 import Lean
 import Blaster.Command.Options
 import Blaster.Smt.Translate
+import Blaster.Reconstruct.Main
 open Lean Elab Command Term Meta Blaster.Options
 
 namespace Blaster.Syntax
@@ -18,6 +19,9 @@ Options:
   - `dump-smt-lib`: display the smt lib query to stdout (default: 0)
   - `random-seed`: seed for the random number generator (default: none)
   - `gen-cex`: generate counterexample for falsified theorems (default: 1)
+  - `reconstruct`: 0 for the existing behavior, 1 for best-effort Z3 proof replay,
+                   2 to require a kernel-checked proof (default: 0)
+  - `gen-proof`: require a kernel-checked proof using only Lean's standard axioms (default: 0)
   - `solve-result`: specify the expected result from the #blaster command, i.e.,
                     0 for 'Valid', 1 for 'Falsified' and 2 for 'Undetermined'. (default: 0)
 
@@ -38,6 +42,8 @@ syntax "(gen-cex:" num ")" : solveOption
 syntax "(solve-result:" num ")" : solveOption
 syntax "(max-depth:" num ")" : solveOption
 syntax "(random-seed:" num ")" : solveOption
+syntax "(reconstruct:" num ")" : solveOption
+syntax "(gen-proof:" num ")" : solveOption
 
 -- NOTE: Limited to one term for the time being
 syntax solveTerm := "[" term "]"
@@ -111,6 +117,17 @@ def parseSolveResult (sOpts : BlasterOptions) : TSyntax `solveOption → m Blast
       | _ => throwUnsupportedSyntax
   | _ => return sOpts
 
+def parseReconstruction (sOpts : BlasterOptions) : TSyntax `solveOption → m BlasterOptions
+  | `(solveOption| (reconstruct: $n:num)) =>
+      if n.getNat ≤ 2 then return { sOpts with reconstruct := n.getNat }
+      else throwUnsupportedSyntax
+  | `(solveOption| (gen-proof: $n:num)) =>
+      match n.getNat with
+      | 0 => return { sOpts with genProof := false }
+      | 1 => return { sOpts with genProof := true, reconstruct := 2 }
+      | _ => throwUnsupportedSyntax
+  | _ => return sOpts
+
 /-! ### Generic Parser for All Options -/
 def parseSolveOption (sOpts : BlasterOptions) (opt : TSyntax `solveOption) : m BlasterOptions := do
   let sOpts ← parseUnfoldDepth sOpts opt
@@ -123,13 +140,16 @@ def parseSolveOption (sOpts : BlasterOptions) (opt : TSyntax `solveOption) : m B
   let sOpts ← parseSolveResult sOpts opt
   let sOpts ← parseMaxDepth sOpts opt
   let sOpts ← parseRandomSeed sOpts opt
+  let sOpts ← parseReconstruction sOpts opt
   return sOpts
 
 /-! ### Process Multiple Options -/
 def parseSolveOptions (opts : Array Syntax) (sOpts : BlasterOptions) : m BlasterOptions :=
-  opts.foldlM (init := sOpts) fun acc opt => do
+  do
+  let result ← opts.foldlM (init := sOpts) fun acc opt => do
     let opt' : TSyntax `solveOption := ⟨opt⟩
     parseSolveOption acc opt'
+  return if result.genProof then { result with reconstruct := 2 } else result
 
 def parseTerm : TSyntax `Blaster.solveTerm -> m Syntax
   |`(solveTerm| [ $th ]) => pure th.raw
@@ -139,7 +159,7 @@ def parseTerm : TSyntax `Blaster.solveTerm -> m Syntax
 def commandInvoker (f : BlasterOptions → Syntax → TermElabM Unit) : CommandElab := fun stx => do
   let some cancelTk := (← read).cancelTk? | unreachable!
   let opts := stx[1].getArgs
-  let sOpts ← parseSolveOptions opts default  -- Process all options dynamically
+  let sOpts ← parseSolveOptions opts (← BlasterOptions.fromEnv)
   let tr ← parseTerm ⟨stx[2]⟩
   let act ← wrapAsyncAsSnapshot (cancelTk? := cancelTk) fun _ =>
     withoutModifyingEnv $ runTermElabM fun _ =>
@@ -161,6 +181,8 @@ def commandInvoker (f : BlasterOptions → Syntax → TermElabM Unit) : CommandE
 
 /-! ### Implementation of solve command -/
 @[command_elab solve]
-def solveImp : CommandElab := commandInvoker Blaster.Smt.command
+def solveImp : CommandElab := commandInvoker fun opts stx =>
+  if opts.reconstruct > 0 then Blaster.Reconstruct.command opts stx
+  else Blaster.Smt.command opts stx
 
 end Blaster.Syntax

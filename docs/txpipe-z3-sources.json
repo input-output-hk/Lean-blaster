@@ -1,0 +1,184 @@
+{
+  "branch": "codex/txpipe-z3-reconstruction",
+  "snapshot_date": "2026-11-13",
+  "txpipe_union": "2ee3bd3c5b9e66e76ebca7ebae712c4a44dc7078",
+  "txpipe_base": "1f29a78859bf0ba0e5e2a29ff6ca55be7aec8b5f",
+  "seungheon_original": "8bcd4f6abd54c3f0e137062f84db9e1a9048ed44",
+  "z3_port_source": "76ee5ddeca3c268185f2228768758ce4bc25890f",
+  "prs": [
+    {
+      "number": 220,
+      "title": "180 eq hardening int negation and zero equals reductions",
+      "head": "08d87f4648dd7ee6bb0f5cf1061791185691e565",
+      "url": "https://github.com/input-output-hk/Lean-blaster/pull/220"
+    },
+    {
+      "number": 221,
+      "title": "Bool binary, Prop connectives, and relational LE",
+      "head": "3a1c0b348aa11f7966b141e6d932943e80a5d7b1",
+      "url": "https://github.com/input-output-hk/Lean-blaster/pull/221"
+    },
+    {
+      "number": 222,
+      "title": "Emit proof steps for the Bool-not/decide bridge and nominal decide re\u2026",
+      "head": "f9e15f84c6af263dac64c4e368596997f43bbc79",
+      "url": "https://github.com/input-output-hk/Lean-blaster/pull/222"
+    },
+    {
+      "number": 252,
+      "title": "Emit proof steps for constructor Eq reductions",
+      "head": "6f6fd40d0a8a99cea6ef9358aea66823dbf6207d",
+      "url": "https://github.com/input-output-hk/Lean-blaster/pull/252"
+    },
+    {
+      "number": 258,
+      "title": "181 eq hardening additivemultiplicative cancellation reductions",
+      "head": "f2e9904974b2af33680b4d92290160ec29afe5cb",
+      "url": "https://github.com/input-output-hk/Lean-blaster/pull/258"
+    },
+    {
+      "number": 261,
+      "title": "Kernel-check the reconstruction gate and rewrite hypotheses on replay",
+      "head": "0698a5fb7be5bea7d5e4519e6afec1ef149806aa",
+      "url": "https://github.com/input-output-hk/Lean-blaster/pull/261"
+    },
+    {
+      "number": 269,
+      "title": "Emit proof steps for the residual Prop-negation reductions",
+      "head": "f38570d3df3e30ed7b51e84405a25791710a25e9",
+      "url": "https://github.com/input-output-hk/Lean-blaster/pull/269"
+    },
+    {
+      "number": 270,
+      "title": "Emit proof steps for Int constant folding",
+      "head": "4d4801b4cf7f7ceeac299d50d90b441302e306bd",
+      "url": "https://github.com/input-output-hk/Lean-blaster/pull/270"
+    },
+    {
+      "number": 271,
+      "title": "265 emit proof steps for the tdivfdivtmodfmod cancellation reductions",
+      "head": "13a633cda8b74e3fed706bac7832a867b08e2ee8",
+      "url": "https://github.com/input-output-hk/Lean-blaster/pull/271"
+    },
+    {
+      "number": 272,
+      "title": "Emit proof steps for decide equality rules on Bool",
+      "head": "97c741889f9cad5701eef37bf5ea7b857c4ef39d",
+      "url": "https://github.com/input-output-hk/Lean-blaster/pull/272"
+    },
+    {
+      "number": 274,
+      "title": "DecideBoolBinary: DecideBoolAnd / DecideBoolOr",
+      "head": "05a906a77ad7fbfa510c6deb7862fa8a4d67a00b",
+      "url": "https://github.com/input-output-hk/Lean-blaster/pull/274"
+    },
+    {
+      "number": 275,
+      "title": "Emit proof steps for the decide-of-equality reductions",
+      "head": "0ae7e7488383390eeb26263868d784895dab3c45",
+      "url": "https://github.com/input-output-hk/Lean-blaster/pull/275"
+    },
+    {
+      "number": 286,
+      "title": "279 emit proof steps for the hypothesis free implication rules of optimizeforall",
+      "head": "f95240225f9da9a5a8eac0ed781c2863c326811d",
+      "url": "https://github.com/input-output-hk/Lean-blaster/pull/286"
+    },
+    {
+      "number": 289,
+      "title": "Emit proof steps for the empty string append rules",
+      "head": "ca912e69a3cc6b7c84cf7cb1982321ebee31c713",
+      "url": "https://github.com/input-output-hk/Lean-blaster/pull/289"
+    },
+    {
+      "number": 324,
+      "title": "add proof reconstruction tests for projection reductions",
+      "head": "f7f5f9f1c7fc3345222805f76894941c26ce55fa",
+      "url": "https://github.com/input-output-hk/Lean-blaster/pull/324"
+    },
+    {
+      "number": 325,
+      "title": "218 reconstruction module audit",
+      "head": "25f56e930a91a50ea160e791937e1f7b310841c2",
+      "url": "https://github.com/input-output-hk/Lean-blaster/pull/325"
+    },
+    {
+      "number": 327,
+      "title": "326 close the m1 reconstruction gaps",
+      "head": "2b012a4973c23c1c0c1efdebb01e29e78ffe5c9c",
+      "url": "https://github.com/input-output-hk/Lean-blaster/pull/327"
+    },
+    {
+      "number": 328,
+      "title": "Emit proof steps for the ite and dite bridge to dite'",
+      "head": "072dbf9099b187f6937f38fd274154e5b0d27aa9",
+      "url": "https://github.com/input-output-hk/Lean-blaster/pull/328"
+    },
+    {
+      "number": 408,
+      "title": "352 elaborate the testoptimize input once so the proof gate maps anonymous instance binders",
+      "head": "2bd95f25c1f414c9e9447f43c3faa29cfed7be59",
+      "url": "https://github.com/input-output-hk/Lean-blaster/pull/408"
+    },
+    {
+      "number": 411,
+      "title": "Emit proof steps for the BEq rules and the BEq to Eq bridge",
+      "head": "f0ca4d2a6558f8e6ec725c54b82ce0bc7c98b8de",
+      "url": "https://github.com/input-output-hk/Lean-blaster/pull/411"
+    },
+    {
+      "number": 442,
+      "title": "Replay String.append steps in their ++ spelling",
+      "head": "d3ea2c07d8d688b2c7e2ae8c9fcc1444e5ab8885",
+      "url": "https://github.com/input-output-hk/Lean-blaster/pull/442"
+    },
+    {
+      "number": 443,
+      "title": "Emit the premise proofs of the forall rules that reduce to True",
+      "head": "fac87f068449057263febb5b6d08b00f80c30fa8",
+      "url": "https://github.com/input-output-hk/Lean-blaster/pull/443"
+    },
+    {
+      "number": 444,
+      "title": "Emit proof steps for the String literal folds and order rules",
+      "head": "f79eb13de9757c62d5072f381e46600d1c7a7c16",
+      "url": "https://github.com/input-output-hk/Lean-blaster/pull/444"
+    },
+    {
+      "number": 457,
+      "title": "Emit proof steps for moving a context into the branches of a dite'",
+      "head": "301ee91e45da638353ea840964940e3b22db3d12",
+      "url": "https://github.com/input-output-hk/Lean-blaster/pull/457"
+    },
+    {
+      "number": 458,
+      "title": "Emit proof steps for the COI reductions of \u2200 and \u2203",
+      "head": "b6c55f62f3af752f74c0ac6ce7519993205a11ea",
+      "url": "https://github.com/input-output-hk/Lean-blaster/pull/458"
+    },
+    {
+      "number": 459,
+      "title": "Emit proof steps for the dite absorption the swaps of a negated or false condition and the prop branch split",
+      "head": "8bedf109f3affe873b3854f1c7d0de30065aab4c",
+      "url": "https://github.com/input-output-hk/Lean-blaster/pull/459"
+    },
+    {
+      "number": 460,
+      "title": "Reconstruct equalities of foralls whose binders are rewritten or eliminated",
+      "head": "b6afb5111d3c64812278764fe9fcf45fc6b02fd6",
+      "url": "https://github.com/input-output-hk/Lean-blaster/pull/460"
+    },
+    {
+      "number": 461,
+      "title": "Emit proof steps for the hypothesis driven implication rules",
+      "head": "772ca771ca56e0fe38edbf5eaf389e0d9557b4b8",
+      "url": "https://github.com/input-output-hk/Lean-blaster/pull/461"
+    },
+    {
+      "number": 473,
+      "title": "Emit proof steps for the dite factorization rules",
+      "head": "0161270749cc4f70a827f76b333a319087bbdea7",
+      "url": "https://github.com/input-output-hk/Lean-blaster/pull/473"
+    }
+  ]
+}

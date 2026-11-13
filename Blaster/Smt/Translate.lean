@@ -27,7 +27,10 @@ partial def translateExpr (e : Expr) (topLevel := true) : TranslateEnvT SmtTerm 
          let (t, _) ← translateForAll e visit |>.run qtyEnv
          trace[Translate.forAll] "translate forall {reprStr e} ==> {t}"
          return t
-     | Expr.app .. => translateApp e visit
+     | Expr.app .. =>
+         -- Certificate replay can expose beta redexes already contracted in the
+         -- optimizer's verdict expression. Their reduction is definitional.
+         if e.isHeadBetaTarget then visit e.headBeta topLevel else translateApp e visit
      | Expr.lam .. => translateLambda e visit
      | Expr.mdata _d me =>
         match toTaggedCtorSelector? e with

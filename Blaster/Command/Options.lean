@@ -71,9 +71,26 @@ structure BlasterOptions where
   /-- Maximum analysis depth to be considered when performing BMC and K-Induction.
       It is set to 10 by default. -/
   maxDepth : Nat := 10
+
+  /-- 0 keeps the existing trusted SMT behavior; 1 attempts checked Z3 replay;
+      2 requires a complete kernel-checked proof. -/
+  reconstruct : Nat := 0
+
+  /-- Require a complete proof using only Lean's standard axioms. -/
+  genProof : Bool := false
  deriving Repr
 
 instance : Inhabited BlasterOptions where
   default := {}
+
+/-- Defaults for running existing benchmark sources without editing their tactic calls. -/
+def BlasterOptions.fromEnv : IO BlasterOptions := do
+  let mut opts : BlasterOptions := {}
+  if let some value ← IO.getEnv "BLASTER_RECONSTRUCT" then
+    if let some level := value.toNat? then
+      if level ≤ 2 then opts := { opts with reconstruct := level }
+  if (← IO.getEnv "BLASTER_GEN_PROOF") == some "1" then
+    opts := { opts with genProof := true, reconstruct := 2 }
+  return opts
 
 end Blaster.Options
