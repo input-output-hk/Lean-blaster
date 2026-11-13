@@ -1,0 +1,4 @@
+case,pairs,baseline_wall_s_median,baseline_generation_ms_median,baseline_expanded_dag_nodes_median,baseline_stored_forest_nodes_median,baseline_replay_calls_median,baseline_z3_steps_median,baseline_root_recheck_ms_median,baseline_olean_bytes_median,baseline_peak_rss_bytes_median,final_wall_s_median,final_generation_ms_median,final_expanded_dag_nodes_median,final_stored_forest_nodes_median,final_replay_calls_median,final_z3_steps_median,final_root_recheck_ms_median,final_olean_bytes_median,final_peak_rss_bytes_median
+nat_div,3,3.315,1889,39928,40141,2,187,0,1183832,1111244800,2.287,959,35330,35390,1,94,1,976168,1092976640
+nat_mul_mono,3,9.094,7646,49998,51524,5,602,0,2433064,1356283904,1.761,365,6478,6532,1,48,0,630096,1047412736
+nat_square_injective_named,3,2.01,659,21674,21851,1,52,0,759872,1074151424,1.805,487,12031,12059,1,33,0,663848,1061994496

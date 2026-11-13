@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Compile every test source afresh, with bounded per-file process groups.
 
-Run `lake build Blaster` first. This checks source files rather than replaying
+Run `lake build Blaster:shared` first. This checks source files rather than replaying
 cached Lake messages. Aggregate modules can be blocked by missing test oleans;
 those are recorded separately from reconstruction failures.
 """

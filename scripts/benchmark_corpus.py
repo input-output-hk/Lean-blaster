@@ -70,6 +70,7 @@ def main():
     p.add_argument("--workers", type=int, default=3)
     p.add_argument("--limit", type=int, help="First N goals per suite (smoke test)")
     p.add_argument("--suites", help="Comma-separated suite allowlist")
+    p.add_argument("--goals", nargs="+", help="Individual Suite/name identifiers")
     p.add_argument("--modes", default="trusted,strict")
     args = p.parse_args()
     corpus = args.corpus.resolve()
@@ -81,6 +82,10 @@ def main():
         suites = set(args.suites.split(","))
         assert suites <= {c["suite"] for c in cases}
         cases = [c for c in cases if c["suite"] in suites]
+    if args.goals:
+        identifiers = {f'{c["suite"]}/{c["name"]}' for c in cases}
+        assert set(args.goals) <= identifiers, "Unknown Suite/name identifier"
+        cases = [c for c in cases if f'{c["suite"]}/{c["name"]}' in args.goals]
     if args.limit:
         counts = Counter()
         cases = [c for c in cases if (counts.update([c["suite"]]) or counts[c["suite"]] <= args.limit)]

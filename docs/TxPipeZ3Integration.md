@@ -25,23 +25,22 @@ example (x : Int) : 0 ≤ -(-x) * -(-x) := by
 - Both `blaster` and `#blaster` support these options. The command validates a proof; this port does not add the separate theorem-export API.
 - `BLASTER_RECONSTRUCT=2` or `BLASTER_GEN_PROOF=1` supplies defaults for running existing benchmark sources without editing their tactic calls. Explicit options can override defaults, except that an enabled `gen-proof` always requires strict reconstruction.
 
-The integration preserves the actual residual metavariables left by TxPipe certificate replay. It closes each residual over its local context, lowers supported operators only after a definitional-equality check, and invokes the Z3 driver. Local lets and dependent hypotheses retain their context; elaborator implementation details are included only when the input depends on them. The combined proof is kernel-checked and its axioms are audited. Pending auxiliary kernel checks are awaited before acceptance. Checked failures never use the trusted-result axiom.
+The integration preserves the actual residual metavariables left by TxPipe certificate replay, excluding assigned and delayed-assigned wrappers. It closes each residual over its local context and lowers supported operators only after a definitional-equality check. Before invoking the Z3 driver, it exposes predicate aliases and heads definitionally, and replaces function equalities by pointwise equalities using an explicit extensionality proof, including inside hypotheses. The SMT proof is transported back to the original residual. Local lets and dependent hypotheses retain their context; elaborator implementation details are included only when the input depends on them. The combined proof is kernel-checked and its axioms are audited. Pending auxiliary kernel checks are awaited before acceptance. Checked failures never use the trusted-result axiom.
 
 The optimizer-only `#testOptimize [..., proof]` gate remains independent of Z3. A small improvement closes already definitionally true String computations before replay unfolds them into noncomputable conditionals; this repairs the four String proof flags that failed on the original assembled review tree. The remaining `NormChoiceAppDite_10` optimizer proof gap is retained as a failing test rather than weakening its proof expectation.
 
 The port adapts the Z3 driver to the TxPipe translation environment and initializes translation caches without assuming that the optimizer's new result equals the actual replay residual. The translator also contracts beta redexes exposed by proof replay. This is an integration branch, not a claim that every solver-valid example is reconstructible.
 
-Validation uses Lean 4.24.0 and Z3 5.4.0. The focused [Z3 suite](../Tests/Reconstruct/Z3.lean) covers arithmetic, local lets, hypothesis transport, leading binders, optimizer-only closure, String associativity, natural powers/division, polymorphic Option values, checked commands, option ordering and rejection of false/incomplete proofs. Each named positive theorem is audited for standard axioms.
+The latest benchmarks use Lean 4.24.0 and Z3 5.3.3; the earlier integration validation used Z3 5.4.0. The focused [Z3 suite](../Tests/Reconstruct/Z3.lean) covers arithmetic, local lets, hypothesis transport, leading binders, optimizer-only closure, String associativity, natural powers/division, scalar and predicate aliases, pointwise equality in goals and hypotheses, polymorphic Option values, checked commands, option ordering and rejection of false/incomplete proofs and cyclic macros. Each of its 16 named positive theorems is audited for standard axioms. A private negative fixture checks that forbidden axioms are detected even for namespace-relative names.
 
 ```sh
-lake build Blaster
-BLASTER_SMTPROOF_BACKENDS=z3 BLASTER_SMTPROOF_SEEDS=1 lake build Tests.Reconstruct.Z3
-lake test
+lake build Blaster Tests.Reconstruct.Z3 Blaster:shared
+python3 scripts/check_reconstruction_suite.py --mode strict --out /tmp/blaster-tests
 ```
 
-For replay diagnostics, `BLASTER_SMTPROOF_LOG=/path/to/log.jsonl` records accepted residual replays with their backend, step count and source location. `BLASTER_SMTPROOF_BACKENDS` selects Z3 variants (default `z3,z3rec,z3+`); the optional simplifier-preserving variant remains subject to the solver's proof support. `BLASTER_SMTPROOF_TIMEOUT` overrides the proof-backend timeout.
+For replay diagnostics, `BLASTER_SMTPROOF_LOG=/path/to/log.jsonl` records accepted residual replays with their backend, step count, source location, elapsed/check time, and per-rule methods/timings. By default, quantifier-free nonlinear queries first try `z3arith2` with a two-second solver cap and a ten-second replay deadline checked between steps; the fallback is `z3,z3rec,z3+`. `BLASTER_SMTPROOF_BACKENDS` selects an explicit ordered portfolio with the requested budgets. The optional simplifier-preserving variant remains subject to the solver's proof support. `BLASTER_SMTPROOF_TIMEOUT` overrides the proof-backend timeout.
 
-The full-suite outcome is recorded in [txpipe-z3-validation.md](txpipe-z3-validation.md). No PR is opened for this branch.
+The latest [benchmark report](txpipe-z3-benchmarks.md) records 426 checked successes out of 466 trusted successes across 671 corpus goals, the 40 remaining losses, proof sizes and native source-suite outcomes. The full suite still has failures. Earlier integration validation is retained in [txpipe-z3-validation.md](txpipe-z3-validation.md). No PR is opened for this branch.
 
 ## Inspecting a proof and measuring its size
 
@@ -54,7 +53,7 @@ theorem testProof (x y : Nat) (h : 0 < y) : x % y < y := by
 #print axioms testProof
 ```
 
-`set_option pp.proofs true in #print testProof` displays the proof, often as a reference to generated auxiliary lemmas. The following counts the proof with those lemmas expanded, without printing the potentially very large term:
+`set_option pp.proofs true in #print testProof` displays the proof, often as a reference to generated auxiliary lemmas. The following counts the proof with helpers under the theorem's namespace expanded, without printing the potentially very large term:
 
 ```lean
 open Lean Meta Elab Command in
@@ -66,6 +65,6 @@ run_cmd liftTermElabM do
   logInfo m!"Proof: {nodes} distinct nodes"
 ```
 
-This counts distinct Lean expression objects, preserving sharing, including the generated helpers under the theorem's name. Existing library lemmas remain references. It is not a measurement of printed text, allocated bytes or `.olean` file size. Counting only the outer `id (id testProof._proof_...)` would miss the certificate.
+This counts distinct Lean expression objects, preserving sharing, including generated helpers under the theorem's name. Helpers under other names and existing library lemmas remain references. It is not a measurement of printed text, allocated bytes or `.olean` file size. Counting only the outer `id (id testProof._proof_...)` would miss the certificate. For comparisons that expand **all reachable newly generated helpers**, use `scripts/benchmark_reconstruction.py`; its environment-based expansion is broader than the quick namespace filter above.
 
-The checked `isInjective square` example on `Nat` produced 9,667 distinct nodes in one run. Reconstruction is not optimized for a short human proof; the expanded display repeats shared subterms and can be much larger. `Tests/Smt/SmtNat/SmtNatMod.lean` contains a named `mod_lt` example that prints only its node count.
+The latest checked `isInjective square` benchmark on `Nat` has a median of 12,031 expanded DAG nodes across three paired measurements with the full harness. An earlier 9,667-node count used the narrower namespace filter and is not directly comparable. Reconstruction is not optimized for a short human proof; the expanded display repeats shared subterms and can be much larger. `Tests/Smt/SmtNat/SmtNatMod.lean` contains a named `mod_lt` example that prints only its node count.

@@ -1,0 +1,17 @@
+case,before_successes,before_attempts,before_wall_s_median,before_generation_ms_median,before_expanded_dag_nodes_median,before_stored_forest_nodes_median,before_replay_calls_median,before_z3_steps_median,before_root_recheck_ms_median,before_olean_bytes_median,before_peak_rss_bytes_median,after_successes,after_attempts,after_wall_s_median,after_generation_ms_median,after_expanded_dag_nodes_median,after_stored_forest_nodes_median,after_replay_calls_median,after_z3_steps_median,after_root_recheck_ms_median,after_olean_bytes_median,after_peak_rss_bytes_median
+int_shifted_square,3,3,2.347,589,4782,4840,2,45,1,600552,1050148864,3,3,2.133,454,4417,4442,1,23,0,588512,1043988480
+int_square,3,3,2.059,314,952,993,2,28,0,560016,1038286848,3,3,2.136,313,1169,1191,1,17,0,557664,1036664832
+linear_transport,3,3,2.489,187,224,233,0,0,1,539664,1020542976,3,3,2.024,153,224,233,0,0,1,539664,1020837888
+nat_distributive,3,3,2.104,381,1646,1710,2,38,0,578056,1035075584,3,3,1.841,257,1254,1287,1,17,0,564088,1034780672
+nat_div,3,3,4.636,2715,41564,41777,2,187,0,1198192,1110376448,3,3,3.599,1290,37545,37605,1,94,0,984840,1088847872
+nat_mod_add_mul,0,3,,,,,,,,,,0,3,,,,,,,,,
+nat_mod_lt,3,3,2.829,914,9628,9716,2,72,0,690120,1060782080,3,3,2.061,561,10494,10587,1,36,0,673600,1056833536
+nat_mod_mul_factor,0,3,,,,,,,,,,0,3,,,,,,,,,
+nat_mul_mono,3,3,11.015,9163,50361,51887,5,602,0,2444416,1365229568,3,3,2.079,484,6478,6532,1,48,1,630096,1048379392
+nat_square_injective,3,3,4.045,2003,22488,22670,2,104,0,896976,1087029248,3,3,2.319,545,12681,12714,1,33,0,664144,1061715968
+nat_square_injective_named,3,3,2.515,843,21891,22068,1,52,0,759872,1073201152,3,3,2.018,538,12031,12059,1,33,0,663816,1064091648
+nat_succ_exists,0,3,,,,,,,,,,3,3,1.958,422,7753,7792,1,79,1,656920,1051492352
+poly_option,3,3,2.651,519,1297,1361,3,70,0,634376,1028325376,3,3,2.281,277,1587,1668,1,21,1,583912,1029718016
+predicate_distributivity,0,3,,,,,,,,,,3,3,2.313,255,3165,3261,1,63,0,638920,1035730944
+predicate_equality_hypothesis,0,3,,,,,,,,,,3,3,2.153,233,3266,3332,1,60,1,635440,1037680640
+string_assoc,3,3,4.422,559,391,441,2,18,1,547600,1031323648,3,3,2.118,233,430,461,1,9,1,543504,1030438912

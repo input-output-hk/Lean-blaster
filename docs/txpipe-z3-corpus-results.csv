@@ -1,0 +1,672 @@
+suite,name,source,budget_s,source_theorems,trusted_status,strict_status,trusted_ms,strict_ms,strict_replays,strict_first_diagnostic
+AesopHome,aesop_l43,BlasterBenchmarks/Home/Aesop/aesop_l43.lean,20,1,passed,passed,834,880,0,
+AesopHome,aesop_l80,BlasterBenchmarks/Home/Aesop/aesop_l80.lean,20,1,passed,passed,881,1050,1,
+AesopHome,auxdecl_l32,BlasterBenchmarks/Home/Aesop/auxdecl_l32.lean,20,1,failed,failed,896,892,0,Inductive datatype with instance parameters not supported: `BitVec
+AesopHome,bigstep_l62,BlasterBenchmarks/Home/Aesop/bigstep_l62.lean,20,1,passed,passed,879,943,1,
+AesopHome,case_10_l12,BlasterBenchmarks/Home/Aesop/case_10_l12.lean,20,1,failed,failed,882,1005,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `List.Mem [Lean.Level.param `u_1]
+AesopHome,case_126_l9,BlasterBenchmarks/Home/Aesop/case_126_l9.lean,20,1,failed,failed,1000,941,0,translateApp: unsupported application of False.rec:
+AesopHome,constructorequations_l14,BlasterBenchmarks/Home/Aesop/constructorequations_l14.lean,20,1,passed,passed,883,938,0,
+AesopHome,constructorequations_l17,BlasterBenchmarks/Home/Aesop/constructorequations_l17.lean,20,1,passed,passed,891,951,0,
+AesopHome,constructorequations_l20,BlasterBenchmarks/Home/Aesop/constructorequations_l20.lean,20,1,passed,passed,953,5922,1,
+AesopHome,destructproducts_l48,BlasterBenchmarks/Home/Aesop/destructproducts_l48.lean,20,1,passed,passed,839,839,0,
+AesopHome,equality_chain,BlasterBenchmarks/Home/Aesop/equality_chain.lean,20,1,passed,passed,946,1000,1,
+AesopHome,erasesimp_l12,BlasterBenchmarks/Home/Aesop/erasesimp_l12.lean,20,1,passed,passed,946,891,0,
+AesopHome,ext_l12,BlasterBenchmarks/Home/Aesop/ext_l12.lean,20,1,passed,passed,889,957,1,
+AesopHome,ext_l9,BlasterBenchmarks/Home/Aesop/ext_l9.lean,20,1,passed,passed,895,951,1,
+AesopHome,indent_l13,BlasterBenchmarks/Home/Aesop/indent_l13.lean,20,1,timeout,timeout,20035,20031,0,
+AesopHome,list_l194,BlasterBenchmarks/Home/Aesop/list_l194.lean,20,1,passed,passed,836,836,0,
+AesopHome,list_l198,BlasterBenchmarks/Home/Aesop/list_l198.lean,20,1,timeout,timeout,20032,20035,0,
+AesopHome,list_l202,BlasterBenchmarks/Home/Aesop/list_l202.lean,20,1,passed,passed,838,945,1,
+AesopHome,list_l207,BlasterBenchmarks/Home/Aesop/list_l207.lean,20,1,passed,passed,899,938,1,
+AesopHome,list_l215,BlasterBenchmarks/Home/Aesop/list_l215.lean,20,1,passed,passed,894,1002,1,
+AesopHome,list_l219,BlasterBenchmarks/Home/Aesop/list_l219.lean,20,1,failed,failed,897,949,0,❌ Falsified
+AesopHome,list_l231,BlasterBenchmarks/Home/Aesop/list_l231.lean,20,1,failed,failed,946,943,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `List.Mem [Lean.Level.param `u_1]
+AesopHome,list_l235,BlasterBenchmarks/Home/Aesop/list_l235.lean,20,1,failed,failed,939,953,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `List.Mem [Lean.Level.param `u_1]
+AesopHome,list_l239,BlasterBenchmarks/Home/Aesop/list_l239.lean,20,1,failed,failed,940,942,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `List.Mem [Lean.Level.param `u_1]
+AesopHome,list_l243,BlasterBenchmarks/Home/Aesop/list_l243.lean,20,1,failed,failed,886,943,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `List.Mem [Lean.Level.param `u_1]
+AesopHome,list_l253,BlasterBenchmarks/Home/Aesop/list_l253.lean,20,1,failed,failed,886,946,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `List.Mem [Lean.Level.param `u_1]
+AesopHome,list_l258,BlasterBenchmarks/Home/Aesop/list_l258.lean,20,1,failed,failed,945,988,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `List.Mem [Lean.Level.param `u_1]
+AesopHome,list_l262,BlasterBenchmarks/Home/Aesop/list_l262.lean,20,1,failed,failed,942,941,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `List.Mem [Lean.Level.param `u_1]
+AesopHome,list_l270,BlasterBenchmarks/Home/Aesop/list_l270.lean,20,1,failed,failed,942,945,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `List.Mem [Lean.Level.param `u_1]
+AesopHome,list_l274,BlasterBenchmarks/Home/Aesop/list_l274.lean,20,1,failed,failed,892,897,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `List.Mem [Lean.Level.param `u_1]
+AesopHome,list_l278,BlasterBenchmarks/Home/Aesop/list_l278.lean,20,1,failed,failed,836,942,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `List.Mem [Lean.Level.param `u_1]
+AesopHome,list_l282,BlasterBenchmarks/Home/Aesop/list_l282.lean,20,1,failed,failed,944,988,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `List.Mem [Lean.Level.param `u_1]
+AesopHome,list_l286,BlasterBenchmarks/Home/Aesop/list_l286.lean,20,1,failed,failed,939,940,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `List.Mem [Lean.Level.param `u_1]
+AesopHome,list_l411,BlasterBenchmarks/Home/Aesop/list_l411.lean,20,1,timeout,timeout,20035,20034,0,
+AesopHome,list_l89,BlasterBenchmarks/Home/Aesop/list_l89.lean,20,1,passed,passed,952,890,1,
+AesopHome,list_l93,BlasterBenchmarks/Home/Aesop/list_l93.lean,20,1,passed,passed,877,883,1,
+AesopHome,metas_l14,BlasterBenchmarks/Home/Aesop/metas_l14.lean,20,1,passed,passed,996,1154,1,
+AesopHome,metas_l23,BlasterBenchmarks/Home/Aesop/metas_l23.lean,20,1,passed,passed,830,989,1,
+AesopHome,metas_l26,BlasterBenchmarks/Home/Aesop/metas_l26.lean,20,1,passed,passed,934,1050,1,
+AesopHome,metas_l34,BlasterBenchmarks/Home/Aesop/metas_l34.lean,20,1,passed,passed,891,1048,1,
+AesopHome,mvarsininitialgoal_l11,BlasterBenchmarks/Home/Aesop/mvarsininitialgoal_l11.lean,20,1,passed,passed,986,1166,1,
+AesopHome,nonormsimp_l19,BlasterBenchmarks/Home/Aesop/nonormsimp_l19.lean,20,1,passed,passed,887,833,0,
+AesopHome,relation_chain,BlasterBenchmarks/Home/Aesop/relation_chain.lean,20,1,passed,passed,894,951,1,
+AesopHome,seqcalcprover_l27,BlasterBenchmarks/Home/Aesop/seqcalcprover_l27.lean,20,1,failed,failed,886,884,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `List.Mem [Lean.Level.param `u_1]
+AesopHome,seqcalcprover_l30,BlasterBenchmarks/Home/Aesop/seqcalcprover_l30.lean,20,1,failed,failed,887,882,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `List.Mem [Lean.Level.param `u_1]
+AesopHome,subst_l49,BlasterBenchmarks/Home/Aesop/subst_l49.lean,20,1,passed,passed,833,894,0,
+AesopHome,subst_l81,BlasterBenchmarks/Home/Aesop/subst_l81.lean,20,1,failed,failed,873,885,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `HEq [Lean.Level.param `u_1]
+AesopHome,tacgen_l6,BlasterBenchmarks/Home/Aesop/tacgen_l6.lean,20,1,passed,passed,879,999,1,
+AesopHome,tauto_l12,BlasterBenchmarks/Home/Aesop/tauto_l12.lean,20,1,passed,passed,988,1096,1,
+AesopHome,witness,BlasterBenchmarks/Home/Aesop/witness.lean,20,1,passed,passed,955,1001,1,
+AutoHome,add_reorder,BlasterBenchmarks/Home/Auto/add_reorder.lean,20,1,passed,passed,1000,1112,1,
+AutoHome,excluded_middle_variant,BlasterBenchmarks/Home/Auto/excluded_middle_variant.lean,20,1,passed,passed,942,947,1,
+AutoHome,nested_identity,BlasterBenchmarks/Home/Auto/nested_identity.lean,20,1,passed,passed,947,1159,1,
+AutoHome,smttranslation_bitvec_l12,BlasterBenchmarks/Home/Auto/smttranslation_bitvec_l12.lean,20,1,passed,passed,885,837,0,
+AutoHome,smttranslation_bitvec_l15,BlasterBenchmarks/Home/Auto/smttranslation_bitvec_l15.lean,20,1,passed,passed,833,839,0,
+AutoHome,smttranslation_bitvec_l18,BlasterBenchmarks/Home/Auto/smttranslation_bitvec_l18.lean,20,1,passed,failed,839,832,0,Tactic `blaster` failed: Z3 proof replay failed: translateApp (proj): FunEnvInfo expected for Lean.Name.mkNum `HAdd.mk 0
+AutoHome,smttranslation_bitvec_l21,BlasterBenchmarks/Home/Auto/smttranslation_bitvec_l21.lean,20,1,failed,failed,895,890,0,Inductive datatype with instance parameters not supported: `BitVec
+AutoHome,smttranslation_bitvec_l24,BlasterBenchmarks/Home/Auto/smttranslation_bitvec_l24.lean,20,1,failed,failed,893,894,0,Inductive datatype with instance parameters not supported: `BitVec
+AutoHome,smttranslation_bitvec_l27,BlasterBenchmarks/Home/Auto/smttranslation_bitvec_l27.lean,20,1,failed,failed,887,881,0,Inductive datatype with instance parameters not supported: `BitVec
+AutoHome,smttranslation_bitvec_l30,BlasterBenchmarks/Home/Auto/smttranslation_bitvec_l30.lean,20,1,failed,failed,902,892,0,Inductive datatype with instance parameters not supported: `BitVec
+AutoHome,smttranslation_bitvec_l36,BlasterBenchmarks/Home/Auto/smttranslation_bitvec_l36.lean,20,1,failed,failed,941,896,0,Inductive datatype with instance parameters not supported: `BitVec
+AutoHome,smttranslation_bitvec_l42,BlasterBenchmarks/Home/Auto/smttranslation_bitvec_l42.lean,20,1,failed,failed,891,889,0,Inductive datatype with instance parameters not supported: `BitVec
+AutoHome,smttranslation_bitvec_l46,BlasterBenchmarks/Home/Auto/smttranslation_bitvec_l46.lean,20,1,failed,failed,940,887,0,Inductive datatype with instance parameters not supported: `BitVec
+AutoHome,smttranslation_boolnatint_l10,BlasterBenchmarks/Home/Auto/smttranslation_boolnatint_l10.lean,20,1,passed,passed,888,881,0,
+AutoHome,smttranslation_boolnatint_l12,BlasterBenchmarks/Home/Auto/smttranslation_boolnatint_l12.lean,20,1,passed,passed,890,887,0,
+AutoHome,smttranslation_boolnatint_l14,BlasterBenchmarks/Home/Auto/smttranslation_boolnatint_l14.lean,20,1,passed,failed,882,935,0,Tactic `blaster` failed: Z3 proof replay failed: translateApp (proj): FunEnvInfo expected for Lean.Name.mkNum `Max.mk 0
+AutoHome,smttranslation_boolnatint_l16,BlasterBenchmarks/Home/Auto/smttranslation_boolnatint_l16.lean,20,1,passed,passed,944,892,0,
+AutoHome,smttranslation_boolnatint_l18,BlasterBenchmarks/Home/Auto/smttranslation_boolnatint_l18.lean,20,1,passed,failed,894,939,0,Tactic `blaster` failed: Z3 proof replay failed: translateApp (proj): FunEnvInfo expected for Lean.Name.mkNum `Max.mk 0
+AutoHome,smttranslation_boolnatint_l20,BlasterBenchmarks/Home/Auto/smttranslation_boolnatint_l20.lean,20,1,passed,passed,891,887,0,
+AutoHome,smttranslation_boolnatint_l23,BlasterBenchmarks/Home/Auto/smttranslation_boolnatint_l23.lean,20,1,passed,passed,879,945,0,
+AutoHome,smttranslation_boolnatint_l26,BlasterBenchmarks/Home/Auto/smttranslation_boolnatint_l26.lean,20,1,passed,passed,940,1215,1,
+AutoHome,smttranslation_boolnatint_l28,BlasterBenchmarks/Home/Auto/smttranslation_boolnatint_l28.lean,20,1,passed,passed,892,894,0,
+AutoHome,smttranslation_boolnatint_l30,BlasterBenchmarks/Home/Auto/smttranslation_boolnatint_l30.lean,20,1,passed,passed,890,944,0,
+AutoHome,smttranslation_inductive_l113,BlasterBenchmarks/Home/Auto/smttranslation_inductive_l113.lean,20,1,passed,passed,942,945,0,
+AutoHome,smttranslation_inductive_l12,BlasterBenchmarks/Home/Auto/smttranslation_inductive_l12.lean,20,1,passed,passed,1001,993,1,
+AutoHome,smttranslation_inductive_l14,BlasterBenchmarks/Home/Auto/smttranslation_inductive_l14.lean,20,1,passed,passed,1006,1003,1,
+AutoHome,smttranslation_inductive_l16,BlasterBenchmarks/Home/Auto/smttranslation_inductive_l16.lean,20,1,passed,passed,938,1004,1,
+AutoHome,smttranslation_inductive_l23,BlasterBenchmarks/Home/Auto/smttranslation_inductive_l23.lean,20,1,failed,failed,1000,1001,0,❌ Falsified
+AutoHome,smttranslation_inductive_l53,BlasterBenchmarks/Home/Auto/smttranslation_inductive_l53.lean,20,1,passed,passed,995,1001,1,
+AutoHome,smttranslation_inductive_l58,BlasterBenchmarks/Home/Auto/smttranslation_inductive_l58.lean,20,1,passed,failed,992,1004,0,Tactic `blaster` failed: Z3 proof replay failed: createPredQualifierAppAux: predicate declaration expected for Lean.Expr.const `Unit []; with the other interpretation of the polymorphic encoding: createPredQualifierAppAux: predicate declaration expected for Lean.Expr.const `Unit []
+AutoHome,smttranslation_inductive_l61,BlasterBenchmarks/Home/Auto/smttranslation_inductive_l61.lean,20,1,passed,passed,992,934,0,
+AutoHome,smttranslation_inductive_l64,BlasterBenchmarks/Home/Auto/smttranslation_inductive_l64.lean,20,1,passed,passed,1004,1065,1,
+AutoHome,smttranslation_inductive_l74,BlasterBenchmarks/Home/Auto/smttranslation_inductive_l74.lean,20,1,passed,passed,944,892,0,
+AutoHome,smttranslation_names_l15,BlasterBenchmarks/Home/Auto/smttranslation_names_l15.lean,20,1,passed,passed,949,952,0,
+AutoHome,smttranslation_string_l11,BlasterBenchmarks/Home/Auto/smttranslation_string_l11.lean,20,1,passed,passed,943,899,0,
+AutoHome,smttranslation_string_l13,BlasterBenchmarks/Home/Auto/smttranslation_string_l13.lean,20,1,passed,passed,991,1046,1,
+AutoHome,smttranslation_string_l16,BlasterBenchmarks/Home/Auto/smttranslation_string_l16.lean,20,1,timeout,timeout,20038,20046,0,
+AutoHome,smttranslation_string_l22,BlasterBenchmarks/Home/Auto/smttranslation_string_l22.lean,20,1,passed,failed,888,894,0,Tactic `blaster` failed: Z3 proof replay failed: translateRecFun: function body expected for Lean.Expr.const `String.utf8ByteSize.go []
+AutoHome,smttranslation_string_l25,BlasterBenchmarks/Home/Auto/smttranslation_string_l25.lean,20,1,failed,failed,833,830,0,optimizeStrReplace: exactly three arguments expected
+AutoHome,smttranslation_string_l9,BlasterBenchmarks/Home/Auto/smttranslation_string_l9.lean,20,1,passed,passed,784,835,0,
+AutoHome,test_regression_l35,BlasterBenchmarks/Home/Auto/test_regression_l35.lean,20,1,passed,passed,832,837,0,
+AutoHome,test_regression_l45,BlasterBenchmarks/Home/Auto/test_regression_l45.lean,20,1,passed,passed,884,890,1,
+AutoHome,test_regression_l63,BlasterBenchmarks/Home/Auto/test_regression_l63.lean,20,1,failed,failed,891,891,0,❌ Falsified
+AutoHome,test_regression_l66,BlasterBenchmarks/Home/Auto/test_regression_l66.lean,20,1,failed,failed,833,833,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `Nonempty [Lean.Level.param `u_1]
+AutoHome,test_regression_l69,BlasterBenchmarks/Home/Auto/test_regression_l69.lean,20,1,passed,passed,831,894,1,
+AutoHome,test_regression_l72,BlasterBenchmarks/Home/Auto/test_regression_l72.lean,20,1,failed,failed,890,893,0,❌ Falsified
+AutoHome,test_regression_l76,BlasterBenchmarks/Home/Auto/test_regression_l76.lean,20,1,failed,failed,890,887,0,❌ Falsified
+AutoHome,test_regression_l79,BlasterBenchmarks/Home/Auto/test_regression_l79.lean,20,1,passed,timeout,832,20031,0,
+AutoHome,test_regression_l83,BlasterBenchmarks/Home/Auto/test_regression_l83.lean,20,1,passed,passed,831,825,0,
+AutoHome,test_regression_l89,BlasterBenchmarks/Home/Auto/test_regression_l89.lean,20,1,passed,passed,784,838,0,
+BlasterHome,fixedissues_issue12_l9,BlasterBenchmarks/Home/Blaster/fixedissues_issue12_l9.lean,20,1,passed,failed,842,944,0,Tactic `blaster` failed: Z3 proof replay failed: Inductive datatype with instance parameters not supported: `Eq
+BlasterHome,fixedissues_issue14_l12,BlasterBenchmarks/Home/Blaster/fixedissues_issue14_l12.lean,20,1,passed,passed,941,996,1,
+BlasterHome,fixedissues_issue17_l11,BlasterBenchmarks/Home/Blaster/fixedissues_issue17_l11.lean,20,1,passed,passed,946,1000,1,
+BlasterHome,fixedissues_issue18_l13,BlasterBenchmarks/Home/Blaster/fixedissues_issue18_l13.lean,20,1,passed,failed,941,1104,0,Tactic `blaster` failed: Z3 proof replay failed: translateFullyApplied?: fully applied function expected for Lean.Expr.const `Nat.add []
+BlasterHome,fixedissues_issue20_l18,BlasterBenchmarks/Home/Blaster/fixedissues_issue20_l18.lean,20,1,passed,passed,1050,1055,1,
+BlasterHome,fixedissues_issue20_l26,BlasterBenchmarks/Home/Blaster/fixedissues_issue20_l26.lean,20,1,passed,passed,1002,1104,1,
+BlasterHome,fixedissues_issue26_l41,BlasterBenchmarks/Home/Blaster/fixedissues_issue26_l41.lean,20,1,timeout,timeout,20039,20035,0,
+BlasterHome,fixedissues_issue26_l49,BlasterBenchmarks/Home/Blaster/fixedissues_issue26_l49.lean,20,1,timeout,timeout,20039,20042,0,
+BlasterHome,fixedissues_issue28_l12,BlasterBenchmarks/Home/Blaster/fixedissues_issue28_l12.lean,20,1,passed,passed,953,940,0,
+BlasterHome,fixedissues_issue28_l13,BlasterBenchmarks/Home/Blaster/fixedissues_issue28_l13.lean,20,1,passed,passed,887,945,0,
+BlasterHome,fixedissues_issue31_l12,BlasterBenchmarks/Home/Blaster/fixedissues_issue31_l12.lean,20,1,passed,passed,999,999,0,
+BlasterHome,fixedissues_issue31_l30,BlasterBenchmarks/Home/Blaster/fixedissues_issue31_l30.lean,20,1,passed,passed,931,887,0,
+BlasterHome,fixedissues_issue31_l57,BlasterBenchmarks/Home/Blaster/fixedissues_issue31_l57.lean,20,1,passed,passed,988,985,0,
+BlasterHome,fixedissues_issue34_l14,BlasterBenchmarks/Home/Blaster/fixedissues_issue34_l14.lean,20,1,passed,passed,936,891,0,
+BlasterHome,fixedissues_issue34_l18,BlasterBenchmarks/Home/Blaster/fixedissues_issue34_l18.lean,20,1,passed,passed,1000,988,0,
+BlasterHome,fixedissues_issue35_l29,BlasterBenchmarks/Home/Blaster/fixedissues_issue35_l29.lean,20,1,failed,failed,1002,887,0,"Unexpected smt error: (error ""line 10 column 42: unknown constant b"")"
+BlasterHome,fixedissues_issue35_l35,BlasterBenchmarks/Home/Blaster/fixedissues_issue35_l35.lean,20,1,failed,failed,948,996,0,❌ Falsified
+BlasterHome,fixedissues_issue35_l42,BlasterBenchmarks/Home/Blaster/fixedissues_issue35_l42.lean,20,1,failed,failed,996,952,0,❌ Falsified
+BlasterHome,fixedissues_issue5_l18,BlasterBenchmarks/Home/Blaster/fixedissues_issue5_l18.lean,20,1,passed,passed,947,1110,1,
+BlasterHome,fixedissues_issue6_l11,BlasterBenchmarks/Home/Blaster/fixedissues_issue6_l11.lean,20,1,passed,passed,945,875,0,
+BlasterHome,fixedissues_issue6_l14,BlasterBenchmarks/Home/Blaster/fixedissues_issue6_l14.lean,20,1,passed,passed,890,992,0,
+BlasterHome,fixedissues_issue7_l10,BlasterBenchmarks/Home/Blaster/fixedissues_issue7_l10.lean,20,1,passed,passed,989,945,0,
+BlasterHome,fixedissues_issue7_l11,BlasterBenchmarks/Home/Blaster/fixedissues_issue7_l11.lean,20,1,passed,passed,839,997,0,
+BlasterHome,fixedissues_issue9_l10,BlasterBenchmarks/Home/Blaster/fixedissues_issue9_l10.lean,20,1,passed,failed,1055,1067,0,Tactic `blaster` failed: Z3 proof replay failed: translateApp (proj): FunEnvInfo expected for Lean.Name.mkNum `BEq.mk 0; with the other interpretation of the polymorphic encoding: translateApp (proj): FunEnvInfo expected for Lean.Name.mkNum `BEq.mk 0
+BlasterHome,funext_poly,BlasterBenchmarks/Home/Blaster/funext_poly.lean,20,1,passed,passed,928,1051,1,
+BlasterHome,int_neg_positive,BlasterBenchmarks/Home/Blaster/int_neg_positive.lean,20,1,passed,passed,995,1044,0,
+BlasterHome,list_set_length,BlasterBenchmarks/Home/Blaster/list_set_length.lean,20,1,timeout,timeout,20043,20048,0,
+BlasterHome,smt_smteqarith_l12,BlasterBenchmarks/Home/Blaster/smt_smteqarith_l12.lean,20,1,passed,passed,1042,1155,1,
+BlasterHome,smt_smteqarith_l13,BlasterBenchmarks/Home/Blaster/smt_smteqarith_l13.lean,20,1,passed,passed,933,981,1,
+BlasterHome,smt_smteqarith_l14,BlasterBenchmarks/Home/Blaster/smt_smteqarith_l14.lean,20,1,passed,passed,884,1254,1,
+BlasterHome,smt_smtltarith_l6,BlasterBenchmarks/Home/Blaster/smt_smtltarith_l6.lean,20,1,passed,passed,881,947,1,
+BlasterHome,smt_smtltarith_l7,BlasterBenchmarks/Home/Blaster/smt_smtltarith_l7.lean,20,1,passed,passed,895,943,1,
+BlasterHome,smt_smtltarith_l9,BlasterBenchmarks/Home/Blaster/smt_smtltarith_l9.lean,20,1,passed,passed,890,925,0,
+BlasterHome,smt_smtpredqualifier_l8,BlasterBenchmarks/Home/Blaster/smt_smtpredqualifier_l8.lean,20,1,passed,failed,934,946,0,Tactic `blaster` failed: Z3 proof replay failed: translateConst: only inductive type/opaque/recursive functions and theorems expected but got Lean.Expr.const `Int.instInhabited []
+BlasterHome,smt_smtrecfun_l11,BlasterBenchmarks/Home/Blaster/smt_smtrecfun_l11.lean,20,1,passed,failed,847,996,0,Tactic `blaster` failed: Z3 proof replay failed: no proof: [z3: maximum recursion depth has been reached
+BlasterHome,smt_smtrecfun_l9,BlasterBenchmarks/Home/Blaster/smt_smtrecfun_l9.lean,20,1,passed,failed,886,949,0,Tactic `blaster` failed: Z3 proof replay failed: no proof: [z3: maximum recursion depth has been reached
+BlasterHome,smtnat_smtnatadd_l11,BlasterBenchmarks/Home/Blaster/smtnat_smtnatadd_l11.lean,20,1,passed,passed,887,942,0,
+BlasterHome,smtnat_smtnatadd_l16,BlasterBenchmarks/Home/Blaster/smtnat_smtnatadd_l16.lean,20,1,passed,passed,939,999,0,
+BlasterHome,smtnat_smtnatadd_l9,BlasterBenchmarks/Home/Blaster/smtnat_smtnatadd_l9.lean,20,1,passed,passed,937,949,0,
+BlasterHome,smtnat_smtnatdiv_l11,BlasterBenchmarks/Home/Blaster/smtnat_smtnatdiv_l11.lean,20,1,passed,passed,933,1808,1,
+BlasterHome,smtnat_smtnatdiv_l13,BlasterBenchmarks/Home/Blaster/smtnat_smtnatdiv_l13.lean,20,1,passed,passed,938,1420,1,
+BlasterHome,smtnat_smtnatdiv_l9,BlasterBenchmarks/Home/Blaster/smtnat_smtnatdiv_l9.lean,20,1,passed,passed,882,2444,1,
+BlasterHome,smtnat_smtnatmod_l11,BlasterBenchmarks/Home/Blaster/smtnat_smtnatmod_l11.lean,20,1,passed,passed,936,946,0,
+BlasterHome,smtnat_smtnatmod_l9,BlasterBenchmarks/Home/Blaster/smtnat_smtnatmod_l9.lean,20,1,passed,passed,1153,7585,1,
+BlasterHome,smtnat_smtnatmul_l11,BlasterBenchmarks/Home/Blaster/smtnat_smtnatmul_l11.lean,20,1,passed,passed,888,939,0,
+BlasterHome,smtnat_smtnatmul_l9,BlasterBenchmarks/Home/Blaster/smtnat_smtnatmul_l9.lean,20,1,passed,passed,1087,1171,0,
+BlasterHome,smtnat_smtnatpow_l11,BlasterBenchmarks/Home/Blaster/smtnat_smtnatpow_l11.lean,20,1,passed,passed,1125,2832,1,
+BlasterHome,smtnat_smtnatpow_l9,BlasterBenchmarks/Home/Blaster/smtnat_smtnatpow_l9.lean,20,1,passed,passed,941,894,0,
+BlasterHome,smtnat_smtnatsub_l11,BlasterBenchmarks/Home/Blaster/smtnat_smtnatsub_l11.lean,20,1,passed,passed,992,1218,1,
+BlasterHome,smtnat_smtnatsub_l9,BlasterBenchmarks/Home/Blaster/smtnat_smtnatsub_l9.lean,20,1,passed,passed,937,898,0,
+HammerHome,fluidsuptests_l13,BlasterBenchmarks/Home/Hammer/fluidsuptests_l13.lean,20,1,failed,failed,1003,1066,0,❌ Falsified
+HammerHome,fluidsuptests_l19,BlasterBenchmarks/Home/Hammer/fluidsuptests_l19.lean,20,1,failed,failed,1064,946,0,❌ Falsified
+HammerHome,fluidsuptests_l9,BlasterBenchmarks/Home/Hammer/fluidsuptests_l9.lean,20,1,failed,failed,940,946,0,❌ Falsified
+HammerHome,temp2_l101,BlasterBenchmarks/Home/Hammer/temp2_l101.lean,20,1,failed,failed,995,944,0,❌ Falsified
+HammerHome,temp2_l104,BlasterBenchmarks/Home/Hammer/temp2_l104.lean,20,1,failed,failed,949,991,0,❌ Falsified
+HammerHome,temp2_l108,BlasterBenchmarks/Home/Hammer/temp2_l108.lean,20,1,passed,passed,1000,1052,1,
+HammerHome,temp2_l111,BlasterBenchmarks/Home/Hammer/temp2_l111.lean,20,1,passed,failed,952,939,0,Tactic `blaster` failed: Z3 proof replay failed: translateType: sort type expected but got Lean.Expr.forallE
+HammerHome,temp2_l116,BlasterBenchmarks/Home/Hammer/temp2_l116.lean,20,1,failed,failed,1000,1001,0,translateType: sort type expected but got Lean.Expr.sort (Lean.Level.zero)
+HammerHome,temp2_l131,BlasterBenchmarks/Home/Hammer/temp2_l131.lean,20,1,passed,passed,1002,1006,1,
+HammerHome,temp2_l53,BlasterBenchmarks/Home/Hammer/temp2_l53.lean,20,1,timeout,timeout,20031,20032,0,
+HammerHome,temp2_l77,BlasterBenchmarks/Home/Hammer/temp2_l77.lean,20,1,passed,passed,944,894,0,
+HammerHome,temp2_l82,BlasterBenchmarks/Home/Hammer/temp2_l82.lean,20,1,passed,passed,889,831,0,
+HammerHome,temp2_l90,BlasterBenchmarks/Home/Hammer/temp2_l90.lean,20,1,passed,passed,885,996,1,
+HammerHome,temp2_l94,BlasterBenchmarks/Home/Hammer/temp2_l94.lean,20,1,passed,passed,888,1103,1,
+HammerHome,temp_l29,BlasterBenchmarks/Home/Hammer/temp_l29.lean,20,1,failed,failed,893,940,0,Inductive datatype with instance parameters not supported: `Fin
+HammerHome,test_boolsimp_l10,BlasterBenchmarks/Home/Hammer/test_boolsimp_l10.lean,20,1,passed,passed,947,1023,0,
+HammerHome,test_boolsimp_l13,BlasterBenchmarks/Home/Hammer/test_boolsimp_l13.lean,20,1,passed,passed,1049,1006,0,
+HammerHome,test_boolsimp_l16,BlasterBenchmarks/Home/Hammer/test_boolsimp_l16.lean,20,1,passed,passed,1051,958,0,
+HammerHome,test_boolsimp_l19,BlasterBenchmarks/Home/Hammer/test_boolsimp_l19.lean,20,1,passed,passed,890,938,0,
+HammerHome,test_boolsimp_l22,BlasterBenchmarks/Home/Hammer/test_boolsimp_l22.lean,20,1,passed,passed,887,942,0,
+HammerHome,test_boolsimp_l25,BlasterBenchmarks/Home/Hammer/test_boolsimp_l25.lean,20,1,passed,passed,944,996,0,
+HammerHome,test_boolsimp_l28,BlasterBenchmarks/Home/Hammer/test_boolsimp_l28.lean,20,1,passed,passed,989,999,0,
+HammerHome,test_boolsimp_l31,BlasterBenchmarks/Home/Hammer/test_boolsimp_l31.lean,20,1,passed,passed,996,1002,0,
+HammerHome,test_boolsimp_l34,BlasterBenchmarks/Home/Hammer/test_boolsimp_l34.lean,20,1,passed,passed,994,945,0,
+HammerHome,test_boolsimp_l37,BlasterBenchmarks/Home/Hammer/test_boolsimp_l37.lean,20,1,passed,passed,943,935,0,
+HammerHome,test_boolsimp_l40,BlasterBenchmarks/Home/Hammer/test_boolsimp_l40.lean,20,1,passed,passed,934,948,0,
+HammerHome,test_boolsimp_l43,BlasterBenchmarks/Home/Hammer/test_boolsimp_l43.lean,20,1,passed,passed,947,950,0,
+HammerHome,test_boolsimp_l46,BlasterBenchmarks/Home/Hammer/test_boolsimp_l46.lean,20,1,passed,passed,941,947,0,
+HammerHome,test_boolsimp_l49,BlasterBenchmarks/Home/Hammer/test_boolsimp_l49.lean,20,1,passed,passed,892,886,0,
+HammerHome,test_boolsimp_l52,BlasterBenchmarks/Home/Hammer/test_boolsimp_l52.lean,20,1,passed,passed,892,878,0,
+HammerHome,test_boolsimp_l55,BlasterBenchmarks/Home/Hammer/test_boolsimp_l55.lean,20,1,passed,passed,891,996,0,
+HammerHome,test_boolsimp_l58,BlasterBenchmarks/Home/Hammer/test_boolsimp_l58.lean,20,1,passed,passed,996,1054,0,
+HammerHome,test_boolsimp_l61,BlasterBenchmarks/Home/Hammer/test_boolsimp_l61.lean,20,1,passed,passed,994,995,0,
+HammerHome,test_boolsimp_l64,BlasterBenchmarks/Home/Hammer/test_boolsimp_l64.lean,20,1,passed,passed,983,995,0,
+HammerHome,test_boolsimp_l67,BlasterBenchmarks/Home/Hammer/test_boolsimp_l67.lean,20,1,passed,passed,948,995,0,
+HammerHome,test_boolsimp_l7,BlasterBenchmarks/Home/Hammer/test_boolsimp_l7.lean,20,1,passed,passed,994,1044,0,
+HammerHome,test_boolsimp_l70,BlasterBenchmarks/Home/Hammer/test_boolsimp_l70.lean,20,1,passed,passed,1048,998,0,
+HammerHome,test_boolsimp_l73,BlasterBenchmarks/Home/Hammer/test_boolsimp_l73.lean,20,1,passed,passed,1000,1000,0,
+HammerHome,test_higher_order_l16,BlasterBenchmarks/Home/Hammer/test_higher_order_l16.lean,20,1,timeout,timeout,20031,20036,0,
+HammerHome,test_higher_order_l29,BlasterBenchmarks/Home/Hammer/test_higher_order_l29.lean,20,1,failed,failed,1000,948,0,❌ Falsified
+HammerHome,test_inhabitationreasoning_l11,BlasterBenchmarks/Home/Hammer/test_inhabitationreasoning_l11.lean,20,1,passed,passed,892,884,0,
+HammerHome,test_inhabitationreasoning_l15,BlasterBenchmarks/Home/Hammer/test_inhabitationreasoning_l15.lean,20,1,failed,failed,894,887,0,Inductive datatype with instance parameters not supported: `Fin
+HammerHome,test_inhabitationreasoning_l21,BlasterBenchmarks/Home/Hammer/test_inhabitationreasoning_l21.lean,20,1,failed,failed,939,939,0,Inductive datatype with instance parameters not supported: `Fin
+HammerHome,test_inhabitationreasoning_l27,BlasterBenchmarks/Home/Hammer/test_inhabitationreasoning_l27.lean,20,1,failed,failed,939,890,0,Inductive datatype with instance parameters not supported: `Fin
+HammerHome,test_inhabitationreasoning_l33,BlasterBenchmarks/Home/Hammer/test_inhabitationreasoning_l33.lean,20,1,passed,passed,996,1103,1,
+HammerHome,test_inhabitationreasoning_l37,BlasterBenchmarks/Home/Hammer/test_inhabitationreasoning_l37.lean,20,1,passed,passed,884,938,1,
+HammerHome,test_inhabitationreasoning_l54,BlasterBenchmarks/Home/Hammer/test_inhabitationreasoning_l54.lean,20,1,passed,passed,841,872,0,
+HammerHome,test_inhabitationreasoning_l7,BlasterBenchmarks/Home/Hammer/test_inhabitationreasoning_l7.lean,20,1,passed,passed,889,835,0,
+HammerHome,test_inhabitationreasoning_l9,BlasterBenchmarks/Home/Hammer/test_inhabitationreasoning_l9.lean,20,1,passed,passed,830,837,0,
+HammerHome,true_smoke,BlasterBenchmarks/Home/Hammer/true_smoke.lean,20,1,passed,passed,888,886,0,
+ITL4,AndIntro_01,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1206,1101,0,
+ITL4,AndIntro_02,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1104,1119,0,
+ITL4,AndIntro_03,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1148,1324,0,
+ITL4,AndIntro_04,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1306,1232,0,
+ITL4,AndIntro_05,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1205,1231,0,
+ITL4,AndIntro_06,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1322,1400,0,
+ITL4,AndIntro_07,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1367,1378,0,
+ITL4,AndIntro_08,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1365,1396,0,
+ITL4,IffIntro_01,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1279,1041,0,
+ITL4,IffIntro_02,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1178,1315,0,
+ITL4,IffIntro_03,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1357,1311,1,
+ITL4,IffIntro_04,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1247,1402,1,
+ITL4,IffIntro_05,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1565,1748,1,
+ITL4,IffIntro_06,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1358,1433,1,
+ITL4,IffIntro_07,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1227,1470,1,
+ITL4,ImpIntro_01,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1365,1308,0,
+ITL4,ImpIntro_02,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1341,1372,0,
+ITL4,ImpIntro_03,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1381,1452,0,
+ITL4,ImpIntro_04,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1324,1321,1,
+ITL4,ImpIntro_05,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1254,1373,0,
+ITL4,ImpIntro_06,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1421,1321,1,
+ITL4,ImpIntro_07,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1263,1261,1,
+ITL4,ImpIntro_08,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1208,1361,1,
+ITL4,ImpIntro_09,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1265,1220,0,
+ITL4,NotIntro_01,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1319,1269,0,
+ITL4,NotIntro_02,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1222,1258,0,
+ITL4,NotIntro_03,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1205,1202,0,
+ITL4,NotIntro_04,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1264,1371,0,
+ITL4,NotIntro_05,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1473,1428,1,
+ITL4,NotIntro_06,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1266,1145,0,
+ITL4,NotIntro_07,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1207,1351,1,
+ITL4,NotIntro_08,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1274,1234,0,
+ITL4,NotIntro_09,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1268,1432,1,
+ITL4,NotIntro_10,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1271,1437,1,
+ITL4,NotIntro_11,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1218,1289,0,
+ITL4,NotIntro_12,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1308,1323,1,
+ITL4,OrIntro_01,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1195,1182,0,
+ITL4,OrIntro_02,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1163,1268,0,
+ITL4,OrIntro_03,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1287,1316,1,
+ITL4,OrIntro_04,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1142,1212,0,
+ITL4,OrIntro_05,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1262,1300,1,
+ITL4,OrIntro_06,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1242,1461,1,
+ITL4,OrIntro_07,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1303,1434,0,
+ITL4,OrIntro_08,BlasterBenchmarks/ITL4/ITL4.lean,20,44,passed,passed,1460,1363,1,
+MiniF2F,aime_1984_p7,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,timeout,timeout,20104,20108,0,
+MiniF2F,aime_1987_p5,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,timeout,7171,20110,0,
+MiniF2F,aime_1994_p3,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,failed,failed,10995,16484,0,❌ Falsified
+MiniF2F,algebra_ineq_nto1onlt2m1on,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,failed,failed,5471,5352,0,❌ Falsified
+MiniF2F,algebra_others_exirrpowirrrat,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,failed,failed,5375,5003,0,optimizeExpr: unexpected bound variable #0
+MiniF2F,amc12_2000_p1,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,passed,5065,17367,1,
+MiniF2F,amc12_2000_p12,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,timeout,7721,20115,1,
+MiniF2F,amc12_2000_p6,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,failed,failed,4583,5392,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `Irreducible [Lean.Level.zero]
+MiniF2F,amc12_2001_p21,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,failed,7059,7161,0,Tactic `blaster` failed: Z3 proof replay failed: translateRecFun: function body expected for Lean.Expr.const `Nat.factorial []
+MiniF2F,amc12_2001_p5,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,failed,failed,15236,14778,0,translateApp: unsupported application of Quot.lift:
+MiniF2F,amc12a_2002_p6,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,timeout,7269,20109,0,
+MiniF2F,amc12a_2003_p5,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,failed,11165,11325,0,Tactic `blaster` failed: Z3 proof replay failed: translateRecFun: function body expected for Lean.Expr.lam
+MiniF2F,amc12a_2020_p4,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,failed,failed,5102,4902,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `List.Mem [Lean.Level.zero]
+MiniF2F,amc12a_2021_p3,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,passed,4566,6087,1,
+MiniF2F,amc12a_2021_p8,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,timeout,timeout,20128,20109,0,
+MiniF2F,amc12b_2002_p2,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,passed,4470,4633,1,
+MiniF2F,amc12b_2002_p4,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,timeout,timeout,20118,20112,0,
+MiniF2F,amc12b_2002_p7,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,passed,7414,8488,1,
+MiniF2F,imo_1959_p1,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,failed,5168,6822,0,Tactic `blaster` failed: Z3 proof replay failed: no proof: [z3: maximum recursion depth has been reached
+MiniF2F,imo_1977_p6,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,timeout,timeout,20146,20135,0,
+MiniF2F,imo_1981_p6,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,timeout,timeout,20115,20117,0,
+MiniF2F,imo_1982_p1,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,timeout,timeout,20130,20174,0,
+MiniF2F,imo_1984_p6,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,timeout,timeout,20112,20107,0,
+MiniF2F,imo_1992_p1,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,timeout,5286,20143,0,
+MiniF2F,imo_1997_p5,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,timeout,timeout,20108,20096,0,
+MiniF2F,imo_2001_p6,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,failed,failed,5256,4857,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `Irreducible [Lean.Level.zero]
+MiniF2F,imo_2019_p1,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,timeout,timeout,20109,20121,0,
+MiniF2F,induction_11div10tonmn1ton,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,failed,failed,6147,5570,0,unsolved goals
+MiniF2F,induction_12dvd4expnp1p20,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,failed,failed,5242,4534,0,unsolved goals
+MiniF2F,induction_nfactltnexpnm1ngt3,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,failed,failed,4588,4471,0,❌ Falsified
+MiniF2F,induction_pprime_pdvdapowpma,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,failed,failed,5395,5603,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `Irreducible [Lean.Level.zero]
+MiniF2F,mathd_algebra_125,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,passed,6054,5438,1,
+MiniF2F,mathd_algebra_170,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,failed,failed,4796,4797,0,translateApp: unsupported application of Quot.lift:
+MiniF2F,mathd_algebra_289,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,failed,failed,4388,4514,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `Irreducible [Lean.Level.zero]
+MiniF2F,mathd_algebra_296,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,timeout,timeout,20115,20097,0,
+MiniF2F,mathd_algebra_304,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,passed,5353,5884,0,
+MiniF2F,mathd_algebra_314,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,timeout,timeout,20096,20089,0,
+MiniF2F,mathd_algebra_392,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,timeout,8247,20093,0,
+MiniF2F,mathd_algebra_459,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,timeout,timeout,20113,20105,0,
+MiniF2F,mathd_algebra_76,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,timeout,timeout,20111,20110,0,
+MiniF2F,mathd_numbertheory_100,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,failed,5906,5689,0,Tactic `blaster` failed: Z3 proof replay failed: translateApp (proj): FunEnvInfo expected for Lean.Name.mkNum `HDiv.mk 0
+MiniF2F,mathd_numbertheory_1124,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,passed,5371,6070,1,
+MiniF2F,mathd_numbertheory_12,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,failed,failed,4825,4797,0,translateApp: unsupported application of Quot.lift:
+MiniF2F,mathd_numbertheory_135,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,failed,failed,8496,8678,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `List.Pairwise [Lean.Level.zero]
+MiniF2F,mathd_numbertheory_150,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,failed,failed,3995,3909,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `Irreducible [Lean.Level.zero]
+MiniF2F,mathd_numbertheory_175,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,failed,failed,4824,4709,0,Tactic `blaster` failed: maximum recursion depth has been reached
+MiniF2F,mathd_numbertheory_185,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,passed,4293,4668,1,
+MiniF2F,mathd_numbertheory_207,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,passed,9909,12923,0,
+MiniF2F,mathd_numbertheory_212,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,passed,6198,6166,0,
+MiniF2F,mathd_numbertheory_222,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,failed,4713,4282,0,Tactic `blaster` failed: Z3 proof replay failed: translateApp (proj): FunEnvInfo expected for Lean.Name.mkNum `HDiv.mk 0
+MiniF2F,mathd_numbertheory_229,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,passed,5524,5634,0,
+MiniF2F,mathd_numbertheory_233,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,failed,failed,5826,5856,0,Inductive datatype with instance parameters not supported: `Fin
+MiniF2F,mathd_numbertheory_234,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,passed,4594,8018,1,
+MiniF2F,mathd_numbertheory_235,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,passed,4585,4415,0,
+MiniF2F,mathd_numbertheory_247,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,passed,7694,7989,1,
+MiniF2F,mathd_numbertheory_254,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,passed,4899,5316,0,
+MiniF2F,mathd_numbertheory_277,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,timeout,timeout,20115,20113,0,
+MiniF2F,mathd_numbertheory_293,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,passed,16371,18563,1,
+MiniF2F,mathd_numbertheory_296,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,timeout,4721,20107,0,
+MiniF2F,mathd_numbertheory_299,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,passed,5161,5519,0,
+MiniF2F,mathd_numbertheory_314,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,passed,7207,9200,1,
+MiniF2F,mathd_numbertheory_320,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,passed,5810,8176,1,
+MiniF2F,mathd_numbertheory_321,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,failed,failed,5280,5500,0,Inductive datatype with instance parameters not supported: `Fin
+MiniF2F,mathd_numbertheory_328,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,failed,failed,4521,4395,0,Tactic `blaster` failed: maximum recursion depth has been reached
+MiniF2F,mathd_numbertheory_34,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,passed,6984,5841,1,
+MiniF2F,mathd_numbertheory_341,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,failed,5392,5415,0,Tactic `blaster` failed: Z3 proof replay failed: translateNonOpaqueType: inductive info expected for LT.lt
+MiniF2F,mathd_numbertheory_342,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,passed,12392,11265,0,
+MiniF2F,mathd_numbertheory_345,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,passed,4564,4414,0,
+MiniF2F,mathd_numbertheory_430,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,passed,5173,6675,1,
+MiniF2F,mathd_numbertheory_435,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,timeout,timeout,20111,20100,0,
+MiniF2F,mathd_numbertheory_457,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,failed,failed,6829,6754,0,❌ Falsified
+MiniF2F,mathd_numbertheory_483,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,timeout,timeout,20128,20104,0,
+MiniF2F,mathd_numbertheory_495,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,timeout,timeout,20121,20109,0,
+MiniF2F,mathd_numbertheory_5,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,timeout,8298,20104,0,
+MiniF2F,mathd_numbertheory_517,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,passed,4362,4603,0,
+MiniF2F,mathd_numbertheory_521,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,passed,4812,5262,1,
+MiniF2F,mathd_numbertheory_541,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,timeout,4388,20107,0,
+MiniF2F,mathd_numbertheory_551,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,passed,5942,5321,0,
+MiniF2F,mathd_numbertheory_559,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,passed,4434,6170,1,
+MiniF2F,mathd_numbertheory_582,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,passed,4195,4975,1,
+MiniF2F,mathd_numbertheory_618,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,failed,failed,4999,5136,0,❌ Falsified
+MiniF2F,mathd_numbertheory_66,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,passed,4639,4745,0,
+MiniF2F,mathd_numbertheory_711,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,timeout,timeout,20119,20123,0,
+MiniF2F,mathd_numbertheory_728,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,passed,14023,13869,0,
+MiniF2F,mathd_numbertheory_765,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,passed,4663,5408,1,
+MiniF2F,mathd_numbertheory_769,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,passed,13862,8360,0,
+MiniF2F,mathd_numbertheory_85,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,passed,4998,4737,0,
+MiniF2F,mathd_numbertheory_99,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,passed,passed,5018,5920,1,
+MiniF2F,numbertheory_2pownm1prime_nprime,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,failed,failed,8387,8121,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `Irreducible [Lean.Level.zero]
+MiniF2F,numbertheory_3pow2pownm1mod2pownp3eq2pownp2,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,timeout,timeout,20108,20111,0,
+MiniF2F,numbertheory_4x3m7y3neq2003,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,timeout,timeout,20127,20113,0,
+MiniF2F,numbertheory_aoddbdiv4asqpbsqmod8eq1,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,timeout,timeout,20103,20091,0,
+MiniF2F,numbertheory_exk2powkeqapb2mulbpa2_aeq1,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,timeout,timeout,20097,20100,0,
+MiniF2F,numbertheory_fxeq4powxp6powxp9powx_f2powmdvdf2pown,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,timeout,timeout,20151,20110,0,
+MiniF2F,numbertheory_notEquiv2i2jasqbsqdiv8,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,timeout,timeout,20133,20110,0,
+MiniF2F,numbertheory_x5neqy2p4,BlasterBenchmarks/MiniF2F/MiniF2F.lean,20,96,timeout,timeout,20120,20122,0,
+NNG4,MyNat.eq_zero_or_eq_zero_of_mul_eq_zero,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1378,1559,1,
+NNG4,MyNat.mul_left_cancel,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1446,1349,0,
+NNG4,MyNat.mul_left_comm,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1316,1443,1,
+NNG4,NE,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1422,1523,1,
+NNG4,P_and_Q_implies_PANDQ,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1200,1242,0,
+NNG4,Q_implies_PORQ,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1288,1281,0,
+NNG4,add_algo1,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1236,1427,1,
+NNG4,add_algo2,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1310,1509,1,
+NNG4,add_algo3,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1217,1536,1,
+NNG4,add_assoc,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1446,1590,1,
+NNG4,add_comm,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1345,1381,0,
+NNG4,add_left_cancel,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1314,1431,0,
+NNG4,add_left_comm,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1352,1433,1,
+NNG4,add_left_eq_self,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1447,1685,1,
+NNG4,add_left_eq_zero,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1285,1789,1,
+NNG4,add_mul,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1323,1454,1,
+NNG4,add_right_cancel,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1509,1355,0,
+NNG4,add_right_comm,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1507,1603,1,
+NNG4,add_right_eq_self,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1289,1488,1,
+NNG4,add_right_eq_zero,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1186,1549,1,
+NNG4,add_sq,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1400,2704,1,
+NNG4,and_or_distrib_left,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1432,1481,1,
+NNG4,and_symm,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1182,1266,0,
+NNG4,and_trans,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1292,1482,0,
+NNG4,any_pow_one,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1440,1579,1,
+NNG4,apply,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1384,1425,0,
+NNG4,contra,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1308,1256,0,
+NNG4,decide,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1238,1502,0,
+NNG4,decide01,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1128,1263,0,
+NNG4,decide2,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1368,1265,0,
+NNG4,decode02,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1281,1635,0,
+NNG4,eq_succ_of_ne_zero,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1419,1877,1,
+NNG4,exact,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1246,1402,0,
+NNG4,exact2,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1407,1309,0,
+NNG4,iff_trans,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1441,1442,1,
+NNG4,implies_trad,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1321,1356,1,
+NNG4,intro,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1409,1352,0,
+NNG4,intro2,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1322,1455,0,
+NNG4,l11_accrfl,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1523,1703,1,
+NNG4,le_antisymm,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1423,1858,1,
+NNG4,le_implies_le_plus_one,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1439,1699,1,
+NNG4,le_mul_right,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1639,2196,1,
+NNG4,le_one,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1383,1666,1,
+NNG4,le_refl,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1453,1421,0,
+NNG4,le_succ_self,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1499,1549,0,
+NNG4,le_total,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1548,1799,1,
+NNG4,le_trans,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1592,1600,1,
+NNG4,le_two,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1715,1837,1,
+NNG4,le_zero,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1510,1437,0,
+NNG4,level01,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1167,1260,0,
+NNG4,level01rfl,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1181,1196,0,
+NNG4,level02,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1287,1172,0,
+NNG4,level02rw,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1132,1304,0,
+NNG4,level03,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1117,1214,0,
+NNG4,level03_two_eq_succ_succ_zero,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1162,1126,0,
+NNG4,level04,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1153,1261,0,
+NNG4,level04_rw_backwards,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1270,1127,0,
+NNG4,level05,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1269,1250,0,
+NNG4,level05_add_zero,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1519,1629,0,
+NNG4,level06,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1281,1271,1,
+NNG4,level06_add_zero2,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1313,1390,0,
+NNG4,level07,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1144,1415,1,
+NNG4,level08,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1471,1428,1,
+NNG4,level08_two_add_two,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1192,1191,0,
+NNG4,level09,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1314,1541,1,
+NNG4,level10,BlasterBenchmarks/NNG4/NNG4.lean,20,108,timeout,timeout,20052,20052,0,
+NNG4,mul_add,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1390,1600,1,
+NNG4,mul_assoc,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1260,1652,1,
+NNG4,mul_comm,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1392,1270,0,
+NNG4,mul_eq_zero,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1574,1678,1,
+NNG4,mul_le_mul_right,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1502,2286,1,
+NNG4,mul_left_cancel,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1390,1138,0,
+NNG4,mul_left_ne_zero,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1688,1668,1,
+NNG4,mul_ne_zero,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1369,1424,0,
+NNG4,mul_one,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1380,1352,0,
+NNG4,mul_pow,BlasterBenchmarks/NNG4/NNG4.lean,20,108,timeout,timeout,20073,20049,0,
+NNG4,mul_right_eq_one,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1549,1861,1,
+NNG4,mul_right_eq_self,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1319,1904,1,
+NNG4,one_add_le_self,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1434,1523,0,
+NNG4,one_le_of_ne_zero,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1459,1603,0,
+NNG4,one_mul,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1305,1416,0,
+NNG4,one_ne_zero,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1465,1480,0,
+NNG4,one_pow_any,BlasterBenchmarks/NNG4/NNG4.lean,20,108,timeout,timeout,20053,20039,0,
+NNG4,or_symm,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1449,1438,0,
+NNG4,or_trans,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1238,1366,0,
+NNG4,pow_add,BlasterBenchmarks/NNG4/NNG4.lean,20,108,timeout,timeout,20048,20046,0,
+NNG4,pow_pow,BlasterBenchmarks/NNG4/NNG4.lean,20,108,timeout,timeout,20066,20044,0,
+NNG4,pow_two,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1228,1894,1,
+NNG4,pred05,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1160,1275,0,
+NNG4,product_not_zero_of_not_zero,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1337,1290,0,
+NNG4,product_zero_iff_zero,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1469,1807,1,
+NNG4,refl,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1508,1481,0,
+NNG4,succ_add,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1791,1957,1,
+NNG4,succ_eq_add_one,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1251,1266,0,
+NNG4,succ_inj,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1511,1507,0,
+NNG4,succ_inj2,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1446,1424,0,
+NNG4,succ_le_succ,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1510,1473,0,
+NNG4,succ_mul,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1459,1674,1,
+NNG4,succ_ne_succ,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1248,1270,0,
+NNG4,succ_ne_zero,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1282,1274,0,
+NNG4,two_add_two_ne_five,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1460,1454,0,
+NNG4,two_mul,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1420,1360,1,
+NNG4,zero_add,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1734,1715,0,
+NNG4,zero_le,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1422,1429,0,
+NNG4,zero_mul,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1293,1307,0,
+NNG4,zero_ne_one,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1480,1545,0,
+NNG4,zero_pow_any,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1330,1786,1,
+NNG4,zero_pow_zero,BlasterBenchmarks/NNG4/NNG4.lean,20,108,passed,passed,1190,1197,0,
+STG4,Subset.refl,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1688,1526,1,
+STG4,Subset.trans,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1545,1743,1,
+STG4,and_thm,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1209,1322,1,
+STG4,common_elt,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,timeout,1519,20045,0,
+STG4,comp_inter,BlasterBenchmarks/STG4/STG4.lean,20,52,timeout,timeout,20040,20044,0,
+STG4,comp_sub_iff,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1800,3547,1,
+STG4,comp_union,BlasterBenchmarks/STG4/STG4.lean,20,52,timeout,timeout,20045,20048,0,
+STG4,compl_compl2,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1867,1823,1,
+STG4,compl_inter,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1748,1683,1,
+STG4,compl_subset_compl_of_subs,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1963,1970,1,
+STG4,compl_union,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,2004,1700,1,
+STG4,contra,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1595,1806,1,
+STG4,elt_inter_elt_right,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1334,1306,1,
+STG4,eltwise_inter,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,timeout,1652,20049,0,
+STG4,eltwise_union,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1411,1520,1,
+STG4,helloWorld,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1560,1849,1,
+STG4,inter_assoc,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1691,1696,1,
+STG4,inter_comm,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1407,1569,1,
+STG4,inter_distrib_left,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1650,1706,1,
+STG4,inter_pair,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1423,1487,1,
+STG4,inter_sub,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1467,1414,1,
+STG4,inter_sub_inter,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1255,1372,1,
+STG4,inter_sub_left,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1205,1258,1,
+STG4,inter_subset_swap,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1525,1470,1,
+STG4,inter_union,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1423,1643,1,
+STG4,mem_compl_iff,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1880,1851,1,
+STG4,prove_and,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1204,1303,1,
+STG4,prove_exists,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,failed,1717,1999,0,"Tactic `blaster` failed: Z3 proof replay failed: no proof: [z3: smt proof: could not replay step 41 (unit-resolution) concluding false; first failures: [step 0 (quant-inst): (or (not (forall (($2 (@@ArrowT2 @Instance_uniq.803 Bool))) (! (or (not (@isFun_uniq.807 $2)) (not (or (@apply_uniq.807 $1 ($3!1 $2)) (not (@apply_uniq.807 $2 ($3!1 $2))) (not (@isInstance_uniq.803 ($3!1 $2) @U_uniq.465))))) :pattern ((@isFun_uniq.807 $2)) :qid k!21))) (or (not (@isFun_uniq.807 $1)): smt proof: can't coerce «$2» : Blaster.Reconstruct.SmtProof.Poly.Univ → Prop to Type u_1,"
+STG4,singleton,BlasterBenchmarks/STG4/STG4.lean,20,52,failed,failed,4304,4336,0,❌ Falsified
+STG4,sub_hyp,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1741,1681,1,
+STG4,sub_int,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1308,1647,1,
+STG4,sub_inter,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,failed,1304,3440,0,"Tactic `blaster` failed: Z3 proof replay failed: no proof: [z3: smt proof: could not replay step 156 (unit-resolution) concluding false; first failures: [step 0 (quant-inst): (or (not (forall (($7 (@@ArrowT2 @Instance_uniq.1190 Bool)) ($8 @Instance_uniq.1190)) (! (or (@apply_uniq.1194 $7 $8) (not (@isFun_uniq.1194 $7)) (not (@apply_uniq.1194 $1 $8)) (not (@isInstance_uniq.1190 $8 @U_uniq.818)) (not (@apply_uniq.1203 $2 $7))) :pattern ((@apply_uniq.1194 $7 $8)) :qid k!29): smt proof: can't coerce «$7» : Blaster.Reconstruct.SmtProof.Poly.Univ → Prop to Type u_1,"
+STG4,sub_union,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1579,2013,1,
+STG4,sub_union_2,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1644,1641,1,
+STG4,subset_exact,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1625,1792,0,
+STG4,subset_have,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1577,1835,1,
+STG4,subset_imp,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1841,1800,1,
+STG4,three_fam,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1511,3562,1,
+STG4,union_assoc,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1696,1671,1,
+STG4,union_cases,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1764,1705,1,
+STG4,union_comm,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1524,1623,1,
+STG4,union_distrib_left,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1450,1886,1,
+STG4,union_int_comp_int,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,timeout,1690,20051,0,
+STG4,union_int_comp_union,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1585,2105,1,
+STG4,union_int_union,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,timeout,1429,20043,0,
+STG4,union_or,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1578,1753,1,
+STG4,union_pair,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1682,2302,1,
+STG4,union_sub,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,failed,1912,8237,0,"Tactic `blaster` failed: Z3 proof replay failed: no proof: [z3: smt proof: could not replay step 208 (unit-resolution) concluding false; first failures: [step 0 (quant-inst): (or (not (forall (($3 @Instance_uniq.1109) ($4 (@@ArrowT2 @Instance_uniq.1109 Bool))) (! (or (not (@isFun_uniq.1113 $4)) (not (@apply_uniq.1122 $2 $4)) (not (@apply_uniq.1113 $4 $3)) (@apply_uniq.1113 $1 $3) (not (@isInstance_uniq.1109 $3 @U_uniq.756))) :pattern ((@apply_uniq.1113 $4 $3)) :qid k!29): smt proof: can't coerce «$4» : Blaster.Reconstruct.SmtProof.Poly.Univ → Prop to Type u_1,"
+STG4,union_sub_inter_sub,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1808,1912,1,
+STG4,union_sub_union,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1850,2129,1,
+STG4,union_subset_swap,BlasterBenchmarks/STG4/STG4.lean,20,52,passed,passed,1584,1543,1,
+STG4,union_union,BlasterBenchmarks/STG4/STG4.lean,20,52,timeout,timeout,20042,20042,0,
+SmtHome,auto_l6,BlasterBenchmarks/Home/Smt/auto_l6.lean,20,1,passed,passed,876,831,0,
+SmtHome,bitvec_add_l5,BlasterBenchmarks/Home/Smt/bitvec_add_l5.lean,20,1,failed,failed,1047,1057,0,Inductive datatype with instance parameters not supported: `BitVec
+SmtHome,bitvec_bitwiseac_l7,BlasterBenchmarks/Home/Smt/bitvec_bitwiseac_l7.lean,20,1,failed,failed,1037,1036,0,Inductive datatype with instance parameters not supported: `BitVec
+SmtHome,bitvec_shift_l5,BlasterBenchmarks/Home/Smt/bitvec_shift_l5.lean,20,1,failed,failed,1058,1040,0,Inductive datatype with instance parameters not supported: `BitVec
+SmtHome,bitvec_xorcomm_l3,BlasterBenchmarks/Home/Smt/bitvec_xorcomm_l3.lean,20,1,failed,failed,1047,1055,0,Inductive datatype with instance parameters not supported: `BitVec
+SmtHome,bool_addition_l3,BlasterBenchmarks/Home/Smt/bool_addition_l3.lean,20,1,passed,passed,983,985,0,
+SmtHome,bool_assoc_l3,BlasterBenchmarks/Home/Smt/bool_assoc_l3.lean,20,1,failed,failed,1040,1030,0,❌ Falsified
+SmtHome,bool_comm_l3,BlasterBenchmarks/Home/Smt/bool_comm_l3.lean,20,1,failed,failed,995,985,0,❌ Falsified
+SmtHome,bool_cong_l3,BlasterBenchmarks/Home/Smt/bool_cong_l3.lean,20,1,passed,passed,1051,1108,1,
+SmtHome,bool_conjunction_l3,BlasterBenchmarks/Home/Smt/bool_conjunction_l3.lean,20,1,passed,passed,992,996,0,
+SmtHome,bool_disjunctivesyllogism_l3,BlasterBenchmarks/Home/Smt/bool_disjunctivesyllogism_l3.lean,20,1,passed,passed,1037,1085,1,
+SmtHome,bool_exists_l3,BlasterBenchmarks/Home/Smt/bool_exists_l3.lean,20,1,passed,passed,1153,1201,1,
+SmtHome,bool_falsum_l3,BlasterBenchmarks/Home/Smt/bool_falsum_l3.lean,20,1,passed,passed,1058,997,0,
+SmtHome,bool_hypotheticalsyllogism_l3,BlasterBenchmarks/Home/Smt/bool_hypotheticalsyllogism_l3.lean,20,1,passed,passed,998,1054,1,
+SmtHome,bool_modusponens_l3,BlasterBenchmarks/Home/Smt/bool_modusponens_l3.lean,20,1,passed,passed,997,941,0,
+SmtHome,bool_modusponens_l3_2,BlasterBenchmarks/Home/Smt/bool_modusponens_l3_2.lean,20,1,passed,passed,884,1003,0,
+SmtHome,bool_modustollens_l3,BlasterBenchmarks/Home/Smt/bool_modustollens_l3.lean,20,1,passed,passed,992,999,0,
+SmtHome,bool_propext_l3,BlasterBenchmarks/Home/Smt/bool_propext_l3.lean,20,1,passed,passed,943,1056,1,
+SmtHome,bool_refl_l3,BlasterBenchmarks/Home/Smt/bool_refl_l3.lean,20,1,passed,passed,999,1004,0,
+SmtHome,bool_resolution_l3,BlasterBenchmarks/Home/Smt/bool_resolution_l3.lean,20,1,passed,passed,949,1053,1,
+SmtHome,bool_simplification_l3,BlasterBenchmarks/Home/Smt/bool_simplification_l3.lean,20,1,passed,passed,1002,1059,1,
+SmtHome,bool_symm_l3,BlasterBenchmarks/Home/Smt/bool_symm_l3.lean,20,1,passed,passed,892,1004,0,
+SmtHome,bool_trans_l3,BlasterBenchmarks/Home/Smt/bool_trans_l3.lean,20,1,passed,passed,1059,1155,1,
+SmtHome,bool_triv_l3,BlasterBenchmarks/Home/Smt/bool_triv_l3.lean,20,1,passed,passed,1054,1112,0,
+SmtHome,bool_triv_l3_2,BlasterBenchmarks/Home/Smt/bool_triv_l3_2.lean,20,1,passed,passed,1172,1007,0,
+SmtHome,bool_triv_l3_3,BlasterBenchmarks/Home/Smt/bool_triv_l3_3.lean,20,1,passed,passed,946,942,0,
+SmtHome,bool_verum_l3,BlasterBenchmarks/Home/Smt/bool_verum_l3.lean,20,1,passed,passed,1008,1003,0,
+SmtHome,euf_example_l3,BlasterBenchmarks/Home/Smt/euf_example_l3.lean,20,1,failed,failed,1001,895,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `Nonempty [Lean.Level.param `u_1]
+SmtHome,euf_issue100_l3,BlasterBenchmarks/Home/Smt/euf_issue100_l3.lean,20,1,passed,passed,1051,1105,1,
+SmtHome,euf_issue97_l3,BlasterBenchmarks/Home/Smt/euf_issue97_l3.lean,20,1,passed,passed,950,831,0,
+SmtHome,int_arith_l3,BlasterBenchmarks/Home/Smt/int_arith_l3.lean,20,1,passed,passed,1059,1364,1,
+SmtHome,int_cong_l3,BlasterBenchmarks/Home/Smt/int_cong_l3.lean,20,1,passed,passed,1000,948,1,
+SmtHome,int_forallexists_l3,BlasterBenchmarks/Home/Smt/int_forallexists_l3.lean,20,1,passed,passed,995,1265,1,
+SmtHome,int_linarith_l6,BlasterBenchmarks/Home/Smt/int_linarith_l6.lean,20,1,passed,passed,956,941,0,
+SmtHome,int_neg_l3,BlasterBenchmarks/Home/Smt/int_neg_l3.lean,20,1,passed,passed,941,993,0,
+SmtHome,int_square_nonnegative,BlasterBenchmarks/Home/Smt/int_square_nonnegative.lean,20,1,passed,passed,1045,1208,1,
+SmtHome,issues_reconstructarithsumub_l3,BlasterBenchmarks/Home/Smt/issues_reconstructarithsumub_l3.lean,20,1,passed,passed,1109,1817,1,
+SmtHome,modus_tollens,BlasterBenchmarks/Home/Smt/modus_tollens.lean,20,1,passed,passed,894,889,0,
+SmtHome,nat_cong_l3,BlasterBenchmarks/Home/Smt/nat_cong_l3.lean,20,1,passed,passed,947,999,1,
+SmtHome,nat_exists_l3,BlasterBenchmarks/Home/Smt/nat_exists_l3.lean,20,1,passed,passed,898,1042,1,
+SmtHome,nat_exists_l3_2,BlasterBenchmarks/Home/Smt/nat_exists_l3_2.lean,20,1,passed,passed,1046,1105,1,
+SmtHome,nat_forall_l3,BlasterBenchmarks/Home/Smt/nat_forall_l3.lean,20,1,passed,passed,939,942,0,
+SmtHome,nat_neqzero_l3,BlasterBenchmarks/Home/Smt/nat_neqzero_l3.lean,20,1,failed,failed,1054,1047,0,❌ Falsified
+SmtHome,rat_linarith_l63,BlasterBenchmarks/Home/Smt/rat_linarith_l63.lean,20,1,timeout,timeout,20037,20032,0,
+SmtHome,resolution,BlasterBenchmarks/Home/Smt/resolution.lean,20,1,passed,passed,1001,1004,1,
+SmtHome,unit_embedding_l32,BlasterBenchmarks/Home/Smt/unit_embedding_l32.lean,20,1,passed,passed,950,892,0,
+SmtHome,unit_int_l19,BlasterBenchmarks/Home/Smt/unit_int_l19.lean,20,1,passed,passed,937,891,0,
+SmtHome,unit_normalize_l28,BlasterBenchmarks/Home/Smt/unit_normalize_l28.lean,20,1,passed,passed,951,948,0,
+SmtHome,unit_quant_l6,BlasterBenchmarks/Home/Smt/unit_quant_l6.lean,20,1,passed,failed,1002,1000,0,"Tactic `blaster` failed: blaster: an eliminated binder, could not prove that the type"
+SmtHome,unit_rat_l63,BlasterBenchmarks/Home/Smt/unit_rat_l63.lean,20,1,passed,passed,954,949,0,
+UPLCDepth,d_sum_1024,BlasterBenchmarks/UPLC/Depth/d_sum_1024.lean,90,1,passed,passed,3067,3802,0,
+UPLCDepth,d_sum_16,BlasterBenchmarks/UPLC/Depth/d_sum_16.lean,90,1,passed,passed,1114,1103,0,
+UPLCDepth,d_sum_16384,BlasterBenchmarks/UPLC/Depth/d_sum_16384.lean,90,1,failed,failed,13940,14204,0,"Tactic `blaster` failed: (deterministic) timeout at `whnf`, maximum number of heartbeats (200000) has been reached"
+UPLCDepth,d_sum_256,BlasterBenchmarks/UPLC/Depth/d_sum_256.lean,90,1,passed,passed,1477,1647,0,
+UPLCDepth,d_sum_4,BlasterBenchmarks/UPLC/Depth/d_sum_4.lean,90,1,passed,passed,1000,992,0,
+UPLCDepth,d_sum_4096,BlasterBenchmarks/UPLC/Depth/d_sum_4096.lean,90,1,crashed,crashed,4563,4731,0,Stack overflow detected
+UPLCDepth,d_sum_64,BlasterBenchmarks/UPLC/Depth/d_sum_64.lean,90,1,passed,passed,1276,1163,0,
+UPLCWidth,w1_add,BlasterBenchmarks/UPLC/Width/w1_add.lean,90,1,passed,passed,1061,1117,0,
+UPLCWidth,w2_mul_distr,BlasterBenchmarks/UPLC/Width/w2_mul_distr.lean,90,1,passed,passed,1110,1105,0,
+UPLCWidth,w3_mul_over_add,BlasterBenchmarks/UPLC/Width/w3_mul_over_add.lean,90,1,passed,passed,1102,1107,0,
+UPLCWidth,w4_linear,BlasterBenchmarks/UPLC/Width/w4_linear.lean,90,1,passed,failed,1109,1049,0,Tactic `blaster` failed: Z3 proof replay failed: translateRecFun: function body expected for Lean.Expr.const `Uplc.eval []
+UPLCWidth,w5_quadratic,BlasterBenchmarks/UPLC/Width/w5_quadratic.lean,90,1,passed,failed,1104,1152,0,Tactic `blaster` failed: Z3 proof replay failed: translateRecFun: function body expected for Lean.Expr.const `Uplc.eval []
+UPLCWidth,w6_sum6,BlasterBenchmarks/UPLC/Width/w6_sum6.lean,90,1,passed,failed,1210,1161,0,Tactic `blaster` failed: Z3 proof replay failed: translateRecFun: function body expected for Lean.Expr.const `Uplc.eval []
+Verina,verina_basic_1,BlasterBenchmarks/Verina/verina_basic_1.lean,20,1,passed,passed,4172,4535,1,
+Verina,verina_basic_10,BlasterBenchmarks/Verina/verina_basic_10.lean,20,1,failed,failed,943,994,0,translateNonOpaqueType: inductive info expected for LT.lt
+Verina,verina_basic_100,BlasterBenchmarks/Verina/verina_basic_100.lean,20,1,passed,passed,4194,5234,1,
+Verina,verina_basic_101,BlasterBenchmarks/Verina/verina_basic_101.lean,20,1,passed,passed,1119,1200,1,
+Verina,verina_basic_102,BlasterBenchmarks/Verina/verina_basic_102.lean,20,1,failed,failed,1444,1397,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `List.Pairwise [Lean.Level.zero]
+Verina,verina_basic_103,BlasterBenchmarks/Verina/verina_basic_103.lean,20,1,failed,failed,943,1137,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_104,BlasterBenchmarks/Verina/verina_basic_104.lean,20,1,failed,failed,1221,1182,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `List.Pairwise [Lean.Level.zero]
+Verina,verina_basic_105,BlasterBenchmarks/Verina/verina_basic_105.lean,20,1,failed,failed,1519,1546,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_106,BlasterBenchmarks/Verina/verina_basic_106.lean,20,1,failed,failed,1538,1515,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_107,BlasterBenchmarks/Verina/verina_basic_107.lean,20,1,passed,passed,945,1570,1,
+Verina,verina_basic_108,BlasterBenchmarks/Verina/verina_basic_108.lean,20,1,timeout,timeout,20077,20084,0,
+Verina,verina_basic_11,BlasterBenchmarks/Verina/verina_basic_11.lean,20,1,passed,passed,1000,1076,1,
+Verina,verina_basic_12,BlasterBenchmarks/Verina/verina_basic_12.lean,20,1,passed,passed,880,947,0,
+Verina,verina_basic_13,BlasterBenchmarks/Verina/verina_basic_13.lean,20,1,failed,failed,944,987,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_14,BlasterBenchmarks/Verina/verina_basic_14.lean,20,1,failed,failed,940,939,0,Inductive datatype with instance parameters not supported: `BitVec
+Verina,verina_basic_15,BlasterBenchmarks/Verina/verina_basic_15.lean,20,1,failed,failed,4129,4092,0,translateNonOpaqueType: inductive info expected for LT.lt
+Verina,verina_basic_16,BlasterBenchmarks/Verina/verina_basic_16.lean,20,1,failed,failed,880,1106,0,Inductive datatype with instance parameters not supported: `BitVec
+Verina,verina_basic_17,BlasterBenchmarks/Verina/verina_basic_17.lean,20,1,failed,failed,1102,1110,0,Inductive datatype with instance parameters not supported: `BitVec
+Verina,verina_basic_18,BlasterBenchmarks/Verina/verina_basic_18.lean,20,1,failed,failed,1141,1066,0,Inductive datatype with instance parameters not supported: `BitVec
+Verina,verina_basic_19,BlasterBenchmarks/Verina/verina_basic_19.lean,20,1,failed,failed,987,1020,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_2,BlasterBenchmarks/Verina/verina_basic_2.lean,20,1,failed,failed,952,947,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `List.Mem [Lean.Level.zero]
+Verina,verina_basic_20,BlasterBenchmarks/Verina/verina_basic_20.lean,20,1,failed,failed,1814,1730,0,Inductive datatype with instance parameters not supported: `Std.DHashMap
+Verina,verina_basic_21,BlasterBenchmarks/Verina/verina_basic_21.lean,20,1,timeout,timeout,20030,20033,0,
+Verina,verina_basic_22,BlasterBenchmarks/Verina/verina_basic_22.lean,20,1,failed,failed,2309,2274,0,translateNonOpaqueType: inductive info expected for LT.lt
+Verina,verina_basic_23,BlasterBenchmarks/Verina/verina_basic_23.lean,20,1,failed,failed,1476,1434,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_24,BlasterBenchmarks/Verina/verina_basic_24.lean,20,1,failed,failed,1407,1358,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `Array.Mem [Lean.Level.zero]
+Verina,verina_basic_25,BlasterBenchmarks/Verina/verina_basic_25.lean,20,1,failed,failed,1002,987,0,translateType: type expression expected but got Lean.Expr.proj `FloatSpec 0 (Lean.Expr.const `floatSpec [])
+Verina,verina_basic_26,BlasterBenchmarks/Verina/verina_basic_26.lean,20,1,passed,passed,938,898,0,
+Verina,verina_basic_27,BlasterBenchmarks/Verina/verina_basic_27.lean,20,1,failed,failed,1639,1623,0,Inductive datatype with instance parameters not supported: `BitVec
+Verina,verina_basic_28,BlasterBenchmarks/Verina/verina_basic_28.lean,20,1,timeout,timeout,20040,20035,0,
+Verina,verina_basic_29,BlasterBenchmarks/Verina/verina_basic_29.lean,20,1,failed,failed,935,956,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_3,BlasterBenchmarks/Verina/verina_basic_3.lean,20,1,passed,passed,3913,7684,1,
+Verina,verina_basic_30,BlasterBenchmarks/Verina/verina_basic_30.lean,20,1,failed,failed,930,853,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_31,BlasterBenchmarks/Verina/verina_basic_31.lean,20,1,failed,failed,928,999,0,Inductive datatype with instance parameters not supported: `BitVec
+Verina,verina_basic_32,BlasterBenchmarks/Verina/verina_basic_32.lean,20,1,failed,failed,5500,4891,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_33,BlasterBenchmarks/Verina/verina_basic_33.lean,20,1,failed,failed,1708,1677,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `List.Pairwise [Lean.Level.zero]
+Verina,verina_basic_34,BlasterBenchmarks/Verina/verina_basic_34.lean,20,1,failed,failed,1285,1215,0,translateNonOpaqueType: inductive info expected for LT.lt
+Verina,verina_basic_35,BlasterBenchmarks/Verina/verina_basic_35.lean,20,1,timeout,timeout,20034,20036,0,
+Verina,verina_basic_36,BlasterBenchmarks/Verina/verina_basic_36.lean,20,1,failed,failed,1198,1365,0,Inductive datatype with instance parameters not supported: `BitVec
+Verina,verina_basic_37,BlasterBenchmarks/Verina/verina_basic_37.lean,20,1,failed,failed,1188,1099,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `List.Pairwise [Lean.Level.zero]
+Verina,verina_basic_38,BlasterBenchmarks/Verina/verina_basic_38.lean,20,1,failed,failed,997,993,0,Inductive datatype with instance parameters not supported: `BitVec
+Verina,verina_basic_39,BlasterBenchmarks/Verina/verina_basic_39.lean,20,1,timeout,timeout,20034,20032,0,
+Verina,verina_basic_4,BlasterBenchmarks/Verina/verina_basic_4.lean,20,1,failed,failed,1029,1049,0,translateNonOpaqueType: inductive info expected for LT.lt
+Verina,verina_basic_40,BlasterBenchmarks/Verina/verina_basic_40.lean,20,1,failed,failed,1254,1201,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_41,BlasterBenchmarks/Verina/verina_basic_41.lean,20,1,failed,failed,1500,1493,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_42,BlasterBenchmarks/Verina/verina_basic_42.lean,20,1,passed,passed,1097,1049,0,
+Verina,verina_basic_43,BlasterBenchmarks/Verina/verina_basic_43.lean,20,1,timeout,timeout,20041,20031,0,
+Verina,verina_basic_44,BlasterBenchmarks/Verina/verina_basic_44.lean,20,1,failed,failed,1052,1055,0,translateNonOpaqueType: inductive info expected for LT.lt
+Verina,verina_basic_45,BlasterBenchmarks/Verina/verina_basic_45.lean,20,1,passed,failed,1036,998,0,Tactic `blaster` failed: Z3 proof replay failed: translateApp (proj): FunEnvInfo expected for Lean.Name.mkNum `Membership.mk 0
+Verina,verina_basic_46,BlasterBenchmarks/Verina/verina_basic_46.lean,20,1,failed,failed,1427,1418,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `List.Pairwise [Lean.Level.zero]
+Verina,verina_basic_47,BlasterBenchmarks/Verina/verina_basic_47.lean,20,2,passed,passed,1054,1111,1,
+Verina,verina_basic_48,BlasterBenchmarks/Verina/verina_basic_48.lean,20,3,timeout,timeout,20124,20121,0,
+Verina,verina_basic_49,BlasterBenchmarks/Verina/verina_basic_49.lean,20,1,failed,failed,932,895,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_5,BlasterBenchmarks/Verina/verina_basic_5.lean,20,1,passed,passed,838,892,0,
+Verina,verina_basic_50,BlasterBenchmarks/Verina/verina_basic_50.lean,20,1,passed,passed,3925,4045,1,
+Verina,verina_basic_51,BlasterBenchmarks/Verina/verina_basic_51.lean,20,1,failed,failed,1439,1429,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `List.Pairwise [Lean.Level.zero]
+Verina,verina_basic_52,BlasterBenchmarks/Verina/verina_basic_52.lean,20,1,failed,failed,1493,1378,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_53,BlasterBenchmarks/Verina/verina_basic_53.lean,20,1,timeout,timeout,20040,20040,0,
+Verina,verina_basic_54,BlasterBenchmarks/Verina/verina_basic_54.lean,20,1,failed,failed,1276,1169,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `List.Pairwise [Lean.Level.zero]
+Verina,verina_basic_55,BlasterBenchmarks/Verina/verina_basic_55.lean,20,1,passed,passed,887,938,1,
+Verina,verina_basic_56,BlasterBenchmarks/Verina/verina_basic_56.lean,20,1,failed,failed,938,939,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_57,BlasterBenchmarks/Verina/verina_basic_57.lean,20,1,failed,failed,1212,1223,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_58,BlasterBenchmarks/Verina/verina_basic_58.lean,20,1,failed,failed,1253,1265,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_59,BlasterBenchmarks/Verina/verina_basic_59.lean,20,1,passed,passed,839,847,0,
+Verina,verina_basic_6,BlasterBenchmarks/Verina/verina_basic_6.lean,20,1,passed,passed,4240,7727,1,
+Verina,verina_basic_60,BlasterBenchmarks/Verina/verina_basic_60.lean,20,1,failed,failed,1261,1275,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_61,BlasterBenchmarks/Verina/verina_basic_61.lean,20,1,timeout,timeout,20054,20046,0,
+Verina,verina_basic_62,BlasterBenchmarks/Verina/verina_basic_62.lean,20,1,failed,failed,1168,1166,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_63,BlasterBenchmarks/Verina/verina_basic_63.lean,20,1,failed,failed,1421,1380,0,translateType: type expression expected but got Lean.Expr.proj `FloatSpec 0 (Lean.Expr.const `floatSpec [])
+Verina,verina_basic_64,BlasterBenchmarks/Verina/verina_basic_64.lean,20,1,failed,failed,1165,1168,0,Inductive datatype with instance parameters not supported: `BitVec
+Verina,verina_basic_65,BlasterBenchmarks/Verina/verina_basic_65.lean,20,1,timeout,timeout,20040,20035,0,
+Verina,verina_basic_66,BlasterBenchmarks/Verina/verina_basic_66.lean,20,1,passed,passed,4018,6779,1,
+Verina,verina_basic_67,BlasterBenchmarks/Verina/verina_basic_67.lean,20,1,failed,failed,1154,1109,0,Inductive datatype with instance parameters not supported: `BitVec
+Verina,verina_basic_68,BlasterBenchmarks/Verina/verina_basic_68.lean,20,1,failed,failed,4288,4250,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_69,BlasterBenchmarks/Verina/verina_basic_69.lean,20,1,failed,failed,1279,1274,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_7,BlasterBenchmarks/Verina/verina_basic_7.lean,20,1,timeout,timeout,20036,20031,0,
+Verina,verina_basic_70,BlasterBenchmarks/Verina/verina_basic_70.lean,20,1,failed,failed,1209,1106,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_71,BlasterBenchmarks/Verina/verina_basic_71.lean,20,1,failed,failed,1213,1221,0,Inductive datatype with instance parameters not supported: `BitVec
+Verina,verina_basic_72,BlasterBenchmarks/Verina/verina_basic_72.lean,20,1,failed,failed,1210,1210,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_73,BlasterBenchmarks/Verina/verina_basic_73.lean,20,1,failed,failed,1115,1166,0,Inductive datatype with instance parameters not supported: `BitVec
+Verina,verina_basic_74,BlasterBenchmarks/Verina/verina_basic_74.lean,20,1,failed,failed,1212,1271,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_75,BlasterBenchmarks/Verina/verina_basic_75.lean,20,1,failed,failed,1205,1209,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_76,BlasterBenchmarks/Verina/verina_basic_76.lean,20,1,passed,passed,947,1423,1,
+Verina,verina_basic_77,BlasterBenchmarks/Verina/verina_basic_77.lean,20,1,timeout,timeout,20072,20074,0,
+Verina,verina_basic_78,BlasterBenchmarks/Verina/verina_basic_78.lean,20,1,passed,passed,902,1057,1,
+Verina,verina_basic_79,BlasterBenchmarks/Verina/verina_basic_79.lean,20,1,failed,failed,1426,1378,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_8,BlasterBenchmarks/Verina/verina_basic_8.lean,20,1,passed,passed,893,1543,1,
+Verina,verina_basic_80,BlasterBenchmarks/Verina/verina_basic_80.lean,20,1,failed,failed,1267,1549,0,translateNonOpaqueType: inductive info expected for LT.lt
+Verina,verina_basic_81,BlasterBenchmarks/Verina/verina_basic_81.lean,20,1,passed,timeout,4310,20099,0,
+Verina,verina_basic_82,BlasterBenchmarks/Verina/verina_basic_82.lean,20,1,failed,failed,1317,1272,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_83,BlasterBenchmarks/Verina/verina_basic_83.lean,20,1,failed,failed,1377,1423,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_84,BlasterBenchmarks/Verina/verina_basic_84.lean,20,1,failed,failed,1434,1503,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_85,BlasterBenchmarks/Verina/verina_basic_85.lean,20,1,failed,failed,1609,1615,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_86,BlasterBenchmarks/Verina/verina_basic_86.lean,20,1,failed,failed,1812,1820,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_87,BlasterBenchmarks/Verina/verina_basic_87.lean,20,1,failed,failed,993,954,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_88,BlasterBenchmarks/Verina/verina_basic_88.lean,20,1,failed,failed,953,996,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_89,BlasterBenchmarks/Verina/verina_basic_89.lean,20,1,failed,failed,948,939,0,translateApp: Inductive predicate not yet supported: Lean.Expr.const `List.Pairwise [Lean.Level.zero]
+Verina,verina_basic_9,BlasterBenchmarks/Verina/verina_basic_9.lean,20,1,failed,failed,948,927,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_90,BlasterBenchmarks/Verina/verina_basic_90.lean,20,1,timeout,timeout,20067,20068,0,
+Verina,verina_basic_91,BlasterBenchmarks/Verina/verina_basic_91.lean,20,1,passed,passed,890,841,0,
+Verina,verina_basic_92,BlasterBenchmarks/Verina/verina_basic_92.lean,20,1,passed,passed,884,1158,1,
+Verina,verina_basic_93,BlasterBenchmarks/Verina/verina_basic_93.lean,20,1,failed,failed,828,883,0,Inductive datatype with instance parameters not supported: `BitVec
+Verina,verina_basic_94,BlasterBenchmarks/Verina/verina_basic_94.lean,20,1,failed,failed,1152,1124,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_95,BlasterBenchmarks/Verina/verina_basic_95.lean,20,1,failed,failed,994,941,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_96,BlasterBenchmarks/Verina/verina_basic_96.lean,20,1,passed,passed,894,941,0,
+Verina,verina_basic_97,BlasterBenchmarks/Verina/verina_basic_97.lean,20,1,failed,failed,998,946,0,Inductive datatype with instance parameters not supported: `Fin
+Verina,verina_basic_98,BlasterBenchmarks/Verina/verina_basic_98.lean,20,1,passed,passed,897,990,0,
+Verina,verina_basic_99,BlasterBenchmarks/Verina/verina_basic_99.lean,20,1,passed,passed,4103,4449,1,

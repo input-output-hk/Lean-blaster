@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Fresh-process, bounded benchmarks of the actual strict Blaster tactic.
 
-Run `lake build Blaster` first. JSON contains raw repetitions, source revision,
+Run `lake build Blaster:shared` first. JSON contains raw repetitions, source revision,
 working-tree hash, environment, kernel-accepted proof sizes and replay methods.
 The process RSS includes Lean startup and the optional size-measurement traversal.
 """
@@ -50,11 +50,17 @@ def main():
     env.update(BLASTER_SMTPROOF_SEEDS="1", LEAN_NUM_THREADS="2", BLASTER_SMTPROOF_DEADLINE=str(args.limit))
     if args.backends != "auto":
         env["BLASTER_SMTPROOF_BACKENDS"] = args.backends
+    native = None
+    if args.execution == "native":
+        native = next(p for p in (ROOT / ".lake/build/lib").glob("libBlaster.*") if p.suffix in (".dylib", ".so"))
     metadata = dict(head=git("rev-parse", "HEAD").decode().strip(),
                     diff_sha256=hashlib.sha256(git("diff", "HEAD")).hexdigest(),
                     harness_sha256=hashlib.sha256(template.encode()).hexdigest(), cases=cases,
                     platform=platform.platform(), cpus=os.cpu_count(), load_average=os.getloadavg(),
                     solver_timeout_s=args.solver_timeout, execution=args.execution,
+                    z3=subprocess.check_output(["z3", "--version"], cwd=ROOT, text=True).strip(),
+                    toolchain=(ROOT / "lean-toolchain").read_text().strip(),
+                    native_sha256=hashlib.sha256(native.read_bytes()).hexdigest() if native else None,
                     process_limit_s=args.limit,
                     environment={k: v for k, v in env.items() if k.startswith(("BLASTER_", "LEAN_"))})
     (args.out / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
@@ -76,8 +82,7 @@ def main():
                 env.update(BLASTER_BENCH_OUTPUT=str(metrics), BLASTER_SMTPROOF_LOG=str(replay))
                 time_args = ["/usr/bin/time", "-l" if platform.system() == "Darwin" else "-v"]
                 cmd = time_args + ["lake", "env", "lean", f"--root={directory}", "-o", str(olean), str(lean)]
-                if args.execution == "native":
-                    native = next(p for p in (ROOT / ".lake/build/lib").glob("libBlaster.*") if p.suffix in (".dylib", ".so"))
+                if native is not None:
                     cmd.insert(len(time_args) + 3, f"--load-dynlib={native}")
                 start = time.monotonic()
                 load_average = os.getloadavg()

@@ -12,5 +12,15 @@
   {"name": "nat_mod_add_mul", "goal": "∀ (x y z : Nat), (x + y * z) % y = x % y"},
   {"name": "nat_mod_mul_factor", "goal": "∀ (x y z : Nat), (z * x) % (z * y) = z * (x % y)"},
   {"name": "poly_option", "goal": "∀ (α : Type) (x : Option α), x.isSome = true → x ≠ none"},
-  {"name": "string_assoc", "goal": "∀ (s t u : String), (s ++ t) ++ u = s ++ (t ++ u)"}
+  {"name": "string_assoc", "goal": "∀ (s t u : String), (s ++ t) ++ u = s ++ (t ++ u)"},
+  {
+    "name": "predicate_distributivity",
+    "definitions": "namespace BenchPred\nabbrev P (α : Type) := α → Prop\nclass Ops (α : Type) where\n  union : P α → P α → P α\n  inter : P α → P α → P α\ninstance (α : Type) : Ops α where\n  union a b := fun x => a x ∨ b x\n  inter a b := fun x => a x ∧ b x\nend BenchPred",
+    "goal": "∀ (α : Type) (a b c : BenchPred.P α), BenchPred.Ops.union a (BenchPred.Ops.inter b c) = BenchPred.Ops.inter (BenchPred.Ops.union a b) (BenchPred.Ops.union a c)"
+  },
+  {
+    "name": "predicate_equality_hypothesis",
+    "definitions": "namespace BenchPred\nabbrev P (α : Type) := α → Prop\nclass Ops (α : Type) where\n  union : P α → P α → P α\n  inter : P α → P α → P α\ninstance (α : Type) : Ops α where\n  union a b := fun x => a x ∨ b x\n  inter a b := fun x => a x ∧ b x\nend BenchPred",
+    "goal": "∀ (α : Type) (a b : BenchPred.P α), BenchPred.Ops.inter a b = a → BenchPred.Ops.union a b = b"
+  }
 ]

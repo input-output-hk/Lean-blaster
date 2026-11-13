@@ -1,5 +1,7 @@
 # Integration validation — 13 November 2026
 
+This is the historical integration validation. The later [native benchmark report](txpipe-z3-benchmarks.md) includes the completed 671-goal corpus comparison, current source-suite outcomes and measured proof sizes.
+
 Initial validated implementation commit: `58e9dafd3605efa9bec53e9d7e0a53859b010615`. The full source-suite follow-up below validates the later implementation at `6a13d2cbee99970ac40e2a7b5b3e1a65f60263a9`.
 
 Environment: Lean 4.24.0 on macOS arm64; Z3 5.4.0 (build `d6c9b4fbb31cb76e35cc325dd7e64b7c26c7d70f`). Proof tests selected `BLASTER_SMTPROOF_BACKENDS=z3` and one solver seed. Other Z3 variants are available but are not part of this focused validation.
@@ -32,7 +34,7 @@ The full-suite attempt also reported a `Tests/StateMachine/Counter06.lean:101` e
 - `Tests/Smt/SmtNat/SmtNatMod.lean`
 - `Tests/FixedIssues/Issue16.lean`
 
-Consequently **the full test suite is not claimed to pass**, and no full BlasterBenchmarking run has been performed for this branch.
+Consequently **the full test suite was not claimed to pass**, and no full BlasterBenchmarking run had been performed at that stage. The later benchmark report linked above records the completed corpus run; the full source suite still has failures.
 
 The branch intentionally retains the TxPipe feature-stack base. It is not a rebase of that stack onto current main. Source pins, attribution and usage are in [TxPipeZ3Integration.md](TxPipeZ3Integration.md) and [txpipe-z3-sources.json](txpipe-z3-sources.json). No PR was opened.
 

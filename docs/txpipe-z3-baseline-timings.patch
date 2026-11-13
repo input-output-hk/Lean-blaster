@@ -1,0 +1,28 @@
+diff --git a/Blaster/Reconstruct/Main.lean b/Blaster/Reconstruct/Main.lean
+index ddd94e6..53ffc20 100644
+--- a/Blaster/Reconstruct/Main.lean
++++ b/Blaster/Reconstruct/Main.lean
+@@ -72,11 +72,13 @@ def proveLeaf (g : MVarId) (sOpts : BlasterOptions) : TermElabM Unit := g.withCo
+   let closed ← lowerOperators original
+   unless ← withDefault <| isDefEq original closed do
+     throwError "SMT operator lowering changed the residual proposition"
++  let start ← IO.monoMsNow
+   let result ← SmtProof.proveBySmtProof closed sOpts
+   let r ← match result with
+     | .ok r => pure r
+     | .error msg => throwError "Z3 proof replay failed: {msg}"
+   try
++    let checkStart ← IO.monoMsNow
+     if let some msg ← SmtProof.awaitKernelChecks r.kernelChecks then throwError msg
+     let checked ← IO.mkRef r.sorryFree
+     let proof ← match ← checkedProof checked closed r.proof with
+@@ -89,7 +91,8 @@ def proveLeaf (g : MVarId) (sOpts : BlasterOptions) : TermElabM Unit := g.withCo
+       let line := ((← getRef).getPos?.map fun pos => (map.toPosition pos).line).getD 0
+       handle.putStrLn (Json.compress (Json.mkObj
+         [("kind", toJson "residual"), ("ok", toJson true), ("backend", toJson r.backend),
+-         ("steps", toJson r.steps), ("file", toJson (← getFileName)), ("line", toJson line)]))
++         ("steps", toJson r.steps), ("elapsed_ms", toJson ((← IO.monoMsNow) - start)),
++         ("check_ms", toJson ((← IO.monoMsNow) - checkStart)), ("file", toJson (← getFileName)), ("line", toJson line)]))
+     if sOpts.verbose > 0 then logInfo m!"Z3 proof replay: {r.backend}, {r.steps} steps"
+   catch ex =>
+     r.kernelChecks.cancel
