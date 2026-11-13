@@ -65,7 +65,7 @@ initialize blasterExt :
      - on a definition of type `Blaster.OptFn`, the target head constant must be specified,
        e.g., `@[blaster Nat.add]`;
      - on a theorem/axiom, an optimization function is generated (see `Blaster.ThmOptFn`);
-       - `(no-restart := true)` do not pass the returned term to the optimization process again.
+       - `(noRestart := true)` do not pass the returned term to the optimization process again.
        - `(register := false)` do not register the generated optimize function in Blaster database.
 -/
 declare_syntax_cat extensionOption
