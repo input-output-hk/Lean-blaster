@@ -15,7 +15,12 @@ namespace Blaster.Optimize
     - When `l := .succ l'`
         - return .succ (← normLevel l')
     - When `l := .max l1 l2`
-        - return .max (← normLevel l1) (← normLevel l2)
+        let r1 ← normLevel l1
+        let r2 ← normLevel l2
+        - When `r1 < r2`
+           - return .max r1 r2
+        - Otherwise
+           - return .max r2 r1
     - When `l := .imax l1 l2`
         - return .imax (← normLevel l1) (← normLevel l2)
     - Otherwise
@@ -33,7 +38,7 @@ partial def normLevel (l : Level) : TranslateEnvT Level := do
  | .max l1 l2 =>
       let r1 ← normLevel l1
       let r2 ← normLevel l2
-      if levelEq r1 l1 && levelEq r2 l2 then return l else return .max r1 r2
+      if r1.normLt r2 then return .max r1 r2 else return .max r2 r1
  | .imax l1 l2 =>
       let r1 ← normLevel l1
       let r2 ← normLevel l2

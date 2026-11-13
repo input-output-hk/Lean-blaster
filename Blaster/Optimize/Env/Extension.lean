@@ -65,11 +65,11 @@ initialize blasterExt :
      - on a definition of type `Blaster.OptFn`, the target head constant must be specified,
        e.g., `@[blaster Nat.add]`;
      - on a theorem/axiom, an optimization function is generated (see `Blaster.ThmOptFn`);
-       - `(restart := true)` requests the returned term to go through the optimization process again.
+       - `(no-restart := true)` do not pass the returned term to the optimization process again.
        - `(register := false)` do not register the generated optimize function in Blaster database.
 -/
 declare_syntax_cat extensionOption
-syntax (ppSpace "(" &"restart" " := " term ")") : extensionOption
+syntax (ppSpace "(" &"noRestart" " := " term ")") : extensionOption
 syntax (ppSpace "(" &"register" " := " term ")") : extensionOption
 
 syntax (name := blaster) "blaster" (ppSpace ident)? (extensionOption)* : attr
@@ -79,8 +79,8 @@ syntax (name := blaster) "blaster" (ppSpace ident)? (extensionOption)* : attr
 structure ExtensionOptions where
   /-- subject of annotation (if any) -/
   declName : Option Name := none
-  /-- When `true`,restart is triggered after rewriting is performed from the registered theorem. -/
-  restart : Bool := false
+  /-- When `true`, restart is NOT triggered after rewriting is performed from the registered theorem. -/
+  noRestart : Bool := false
   /-- When `false`, only the optimization function is generated for the annotated theorem. -/
   register : Bool := true
 
@@ -95,7 +95,7 @@ def parseBoolFlag (b : Term) (msg : String) : AttrM Bool := do
 
 /-- Parse one extension option and update `opts` accordingly (the last occurrence of an option wins). -/
 def parseExtensionOption (opts : ExtensionOptions) : TSyntax `extensionOption → AttrM ExtensionOptions
- | `(extensionOption| (restart := $b:term)) => return { opts with restart := ← parseBoolFlag b "restart" }
+ | `(extensionOption| (noRestart := $b:term)) => return { opts with noRestart := ← parseBoolFlag b "noRestart" }
  | `(extensionOption| (register := $b:term)) => return { opts with register := ← parseBoolFlag b "register" }
  | stx => throwErrorAt stx "@[blaster]: unexpected option"
 
@@ -117,9 +117,9 @@ def isTheoremAxiom? (info : ConstantInfo) (declName : Name) : MetaM (Option Expr
     (see `Blaster.ThmOptFn.generate`). The generated function is named `_blaster_opt_<declName>`.
 -/
 def generateThmOptimizationFun
-  (declName : Name) (thm : Expr) (restart : Bool := false) (headOverride? : Option Name := none)
+  (declName : Name) (thm : Expr) (noRestart : Bool := false) (headOverride? : Option Name := none)
   : MetaM (Option OLeanBlasterExtension) := do
-  let some res ← ThmOptFn.generate { thmName := declName, thmType := thm, restart, headOverride? } (mkConst ``OptFn)
+  let some res ← ThmOptFn.generate { thmName := declName, thmType := thm, noRestart, headOverride? } (mkConst ``OptFn)
     | return none
   trace[Optimize.extension] "optimization function generated for `{declName}` (target `{res.head}`):\ndef {res.declName} : OptFn :=\n{res.code}"
   return some { head := res.head, declName := res.declName }
@@ -145,7 +145,7 @@ initialize registerBuiltinAttribute {
     let opts ← parseAttrArgs stx
     let info ← getConstInfo declName
     if let some thm ← MetaM.run' (isTheoremAxiom? info declName) then
-      let some olean ← MetaM.run' (generateThmOptimizationFun declName thm opts.restart opts.declName)
+      let some olean ← MetaM.run' (generateThmOptimizationFun declName thm opts.noRestart opts.declName)
         | logInfo m!"@[blaster]: `{declName}` is already handled natively by the Blaster, no optimization function generated"
       let fn ← evalOptFn olean.declName
       unless !(opts.register) do -- add to database only when register flag is set to true.

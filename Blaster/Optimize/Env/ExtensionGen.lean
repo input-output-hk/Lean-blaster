@@ -41,8 +41,8 @@ structure Config where
   thmName : Name
   /-- Type of the theorem/axiom. -/
   thmType : Expr
-  /-- When `true`, `setRestart` is called before returning the rewritten term. -/
-  restart : Bool := false
+  /-- When `true`, `setRestart` is NOT called before returning the rewritten term. -/
+  noRestart : Bool := false
   /-- Head constant specified in the attribute (if any); it must be the head of the lhs. -/
   headOverride? : Option Name := none
 
@@ -94,6 +94,9 @@ structure GenState where
   used : NameSet := {}
   /-- Equality checks to perform for non-linear occurrences of pattern variables. -/
   eqChecks : Array (Ident × Ident) := #[]
+  /-- Level checks to perform for non-linear occurrences of universe level parameters:
+      level bound by the pattern ↦ expected level (built from the recovered parameters). -/
+  levelChecks : Array (Term × Level) := #[]
   /-- Constant-name checks: identifier bound by the pattern ↦ expected name.
       Names are not matched structurally (a `Name` literal in a pattern is compiled into a nested
       match on each of its components, which makes the generated C code exceed clang's nesting
@@ -140,6 +143,38 @@ def emitElem (e : TSyntax `doElem) : GenM Unit := do
 
 /-! ## Patterns (lhs) -/
 
+/-- Return `true` when `l` is of the form `u + k` with `u` a level parameter not recorded yet. -/
+def isUnrecordedLevelParam (l : Level) : GenM Bool := do
+  match l with
+  | .param u => return !(← get).levels.contains u
+  | .succ l => isUnrecordedLevelParam l
+  | _ => return false
+
+/-- Record the universe level parameter of `l` (if any), given the term `t` bound to the level matched
+    at runtime: `u` is recovered as `t` for `u`, and as the `k`-th predecessor of `t` for `u + k` (a check
+    that the matched level is a successor is emitted, e.g., `Type u` must not match `Prop`).
+    Levels of the form `max`/`imax` are not inverted. -/
+partial def recordLevelParam (t : Term) (l : Level) : GenM Unit := do
+  match l with
+  | .param u =>
+      unless (← get).levels.contains u do
+        modify fun st => { st with levels := st.levels.insert u t }
+  | .succ l =>
+      if ← isUnrecordedLevelParam l then
+        let d ← freshIdent `ld
+        emitElem (← `(doElem| let some $d := Level.dec $t | return none))
+        recordLevelParam d l
+  | _ => return ()
+
+/-- Given the term `t` bound to the level matched at runtime for the level `l` of the lhs: record the
+    level parameter of `l` when it is not recovered yet (see `recordLevelParam`), otherwise defer an
+    equivalence check between `t` and `l` (see `GenState.levelChecks`), e.g., the two occurrences of `u`
+    in `f (Type u) (Type u)` must be matched by the same level. -/
+def bindLevel (t : Term) (l : Level) : GenM Unit := do
+  if ← isUnrecordedLevelParam l then recordLevelParam t l
+  else if l.hasParam then
+    modify fun st => { st with levelChecks := st.levelChecks.push (t, l) }
+
 /-- Pattern for a universe level (level parameters/meta variables are matched by `_`). -/
 partial def mkLevelPat (l : Level) : GenM Term := do
   match l with
@@ -179,15 +214,18 @@ partial def mkPat (e : Expr) : GenM Term := do
         let lv ← freshIdent `lv
         let mut i := 0
         for l in ls do
-          if let .param u := l then
-            unless (← get).levels.contains u do
-              let t ← `($lv[$(quote i)]!)
-              modify fun st => { st with levels := st.levels.insert u t }
+          bindLevel (← `($lv[$(quote i)]!)) l
           i := i + 1
         `(Expr.const $c $lv)
       else `(Expr.const $c _)
   | .app f a => `(Expr.app $(← mkPat f) $(← mkPat a))
-  | .sort l => `(Expr.sort $(← mkLevelPat l))
+  | .sort l =>
+      if l.hasParam then
+        -- bind the level of `Sort u` / `Type u` so that `u` can be reused when building the rhs
+        let sl ← freshIdent `sl
+        bindLevel sl l
+        `(Expr.sort $sl)
+      else `(Expr.sort $(← mkLevelPat l))
   | .lam _ t b _ => `(Expr.lam _ $(← mkPat t) $(← mkPat b) _)
   | .forallE _ t b _ => `(Expr.forallE _ $(← mkPat t) $(← mkPat b) _)
   | .letE _ t v b _ => `(Expr.letE _ $(← mkPat t) $(← mkPat v) $(← mkPat b) _)
@@ -210,8 +248,21 @@ partial def mkLevelTerm (l : Level) : GenM Term := do
       | none => throwError "blaster: universe level parameter `{u}` cannot be recovered from the lhs"
   | .mvar .. => throwError "blaster: unexpected universe level meta variable"
 
+/-- Return `true` when `l` contains a `max` or an `imax`. -/
+partial def containsMaxOrIMax (l : Level) : Bool :=
+  match l with
+  | .max .. | .imax .. => true
+  | .succ l => containsMaxOrIMax l
+  | _ => false
+
+/-- Same as `mkLevelTerm`, but the built level is normalized when `l` contains a `max`/`imax`
+    (e.g., `max u v` instantiated with `u := 0` and `v := 0` must be `0`, as elaborated by Lean). -/
+def mkLevelTermNorm (l : Level) : GenM Term := do
+  let t ← mkLevelTerm l
+  if containsMaxOrIMax l then `(Level.normalize $t) else return t
+
 def mkLevelsTerm (ls : List Level) : GenM Term := do
-  let ts ← ls.toArray.mapM mkLevelTerm
+  let ts ← ls.toArray.mapM mkLevelTermNorm
   `([$ts,*])
 
 /-- Constants for which a dedicated (cached) builder exists, with the expected universe levels.
@@ -317,7 +368,7 @@ partial def mkBuild (e : Expr) : GenM Ident := do
     | .bvar i => emit `bv (← `(mkBVarExpr $(quote i)))
     | .sort l =>
         if l.isZero then emit `prop (← `(mkPropType))
-        else emit `sort (← `(mkSortExpr $(← mkLevelTerm l)))
+        else emit `sort (← `(mkSortExpr $(← mkLevelTermNorm l)))
     | .const n ls => emit `c (← mkConstTerm n ls)
     | .app .. => buildApp
     | .lam n t b bi =>
@@ -407,6 +458,7 @@ def generateCode (cfg : Config) : MetaM (Option (Name × Term)) := do
         throwError "blaster: proof variable `{← h.fvarId!.getUserName}` must not occur in the conclusion of `{cfg.thmName}`"
     let args := lhs.getAppArgs
     let argsId := mkIdent `args
+    let fId := mkIdent `_f
     let (body, _) ← (do
         modify fun st => { st with used := st.used.insert `args |>.insert `_f }
         -- patterns for the arguments of the lhs
@@ -424,6 +476,20 @@ def generateCode (cfg : Config) : MetaM (Option (Name × Term)) := do
             discrs := discrs.push discr
             pats := pats.push pat
           i := i + 1
+        -- universe level parameters not occurring in a constant or a sort of the arguments are
+        -- recovered from the head expression `_f` (e.g., `u` in `@box.{u} α x = @some.{u} α x`,
+        -- where `α : Type u` is a pattern variable)
+        let .const _ hls := lhs.getAppFn | unreachable!
+        if ← hls.anyM isUnrecordedLevelParam then
+          let flv ← freshIdent `flv
+          emitElem (← `(doElem| let Expr.const _ $flv := $fId | return none))
+          let mut j := 0
+          for l in hls do
+            bindLevel (← `($flv[$(quote j)]!)) l
+            j := j + 1
+        -- non-linear occurrences of universe level parameters
+        for (t, l) in (← get).levelChecks do
+          emitElem (← `(doElem| if !(Level.isEquiv $t $(← mkLevelTerm l)) then return none))
         -- constant names and literals of the patterns
         for (c, n) in (← get).nameChecks do
           emitElem (← `(doElem| if $c != $(quote n) then return none))
@@ -440,7 +506,7 @@ def generateCode (cfg : Config) : MetaM (Option (Name × Term)) := do
           generateHyp p
         -- rhs
         let r ← mkBuild rhs
-        if cfg.restart then emitElem (← `(doElem| setRestart))
+        if !cfg.noRestart then emitElem (← `(doElem| setRestart))
         emitElem (← `(doElem| return some $r))
         let items := (← get).items
         let inner : Array (TSyntax ``Lean.Parser.Term.doSeqItem) ←
@@ -454,7 +520,7 @@ def generateCode (cfg : Config) : MetaM (Option (Name × Term)) := do
             pure #[← `(doSeqItem| $m:term)]
         let sizeCheck ← `(doSeqItem| if ($argsId).size != $(quote args.size) then return none)
         let items := #[sizeCheck] ++ argLets ++ inner
-        `(fun (_f : Expr) ($argsId:ident : Array Expr) => do $items:doSeqItem*)
+        `(fun ($fId:ident : Expr) ($argsId:ident : Array Expr) => do $items:doSeqItem*)
       : GenM Term).run {}
     return (head, body)
 

@@ -8,7 +8,7 @@ namespace Test.Extension
 
 /-! ## Hand-written optimization function -/
 
-@[blaster String.contains]
+@[blaster String.contains (noRestart := true)]
 def optimizeStrContains (_f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
   if args.size != 2 then return none
   -- args[0] string argument
@@ -26,7 +26,7 @@ def optimizeStrContains (_f : Expr) (args : Array Expr) : TranslateEnvT (Option 
 /-! ## Optimization functions generated from theorems/axioms -/
 
 /-! Equality with a premise (checked in the hypothesis map) and restart flag. -/
-@[blaster (restart := true)]
+@[blaster]
 theorem tdiv_eq_ediv_of_gt_zero (a b : Int) (h : 0 < a) : Int.tdiv a b = Int.ediv a b := by
  cases a with
   | ofNat m =>
@@ -57,7 +57,7 @@ structure MyPt where
 axiom mkMyPt : Nat → Nat → MyPt
 axiom firstPt (p : MyPt) : Nat
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom first_pt_of_mk : ∀ (x y : Nat), firstPt (mkMyPt x y) = x
 
 -- NOTE: the unused binder `y` is removed by the optimizer
@@ -80,7 +80,7 @@ axiom g_succ : ∀ (n : Nat), g (Nat.add 1 n) = Nat.add 1 (g n)
 axiom p : Nat → Prop
 axiom q : Nat → Prop
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom p_g : ∀ (n : Nat), p (g n)
 
 @[blaster]
@@ -100,16 +100,16 @@ axiom gn : Nat → Nat
 axiom gz : Int → Int
 axiom pz : Int → Prop
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom gn_ne_zero : ∀ (n : Nat), gn n ≠ 0
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom gn_ne_five : ∀ (n : Nat), gn n ≠ 5
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom gz_ne_zero : ∀ (n : Int), gz n ≠ 0
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom gz_ne_five : ∀ (n : Int), gz n ≠ 5
 
 #testOptimize [ "ExtPredNe_1" ] ∀ (n : Nat), gn n ≠ 0 ===> True
@@ -137,7 +137,7 @@ axiom gz_ne_five : ∀ (n : Int), gz n ≠ 5
 
 axiom r : Nat → Prop
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom r_g_iff : ∀ (n : Nat), r (g n) ↔ p n
 
 #testOptimize [ "ExtIff_1" ] ∀ (n : Nat), r (g n) ===> ∀ (n : Nat), p n
@@ -146,7 +146,7 @@ axiom r_g_iff : ∀ (n : Nat), r (g n) ↔ p n
 
 axiom h2 : Nat → Nat → Nat
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom h2_same : ∀ (n : Nat), h2 n n = n
 
 #testOptimize [ "ExtNonLinear_1" ] ∀ (n m : Nat), h2 n n = m ===> ∀ (n m : Nat), n = m
@@ -161,7 +161,7 @@ axiom pl : {α : Type u} → List α → Nat
 @[blaster]
 axiom pl_cons : ∀ {α : Type u} (a : α) (xs : List α), pl (a :: xs) = Nat.add 1 (pl xs)
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom pl_nil : ∀ {α : Type u}, pl (@List.nil α) = 0
 
 -- NOTE: the unused binder `a` is removed by the optimizer
@@ -170,7 +170,7 @@ axiom pl_nil : ∀ {α : Type u}, pl (@List.nil α) = 0
 
 /-! Target head specified explicitly: must be the head of the lhs. -/
 
-@[blaster g]
+@[blaster g (noRestart := true)]
 axiom g_zero : g 0 = 0
 
 #testOptimize [ "ExtHead_1" ] (norm-result: 1) ∀ (m : Nat), g 0 = m ===> ∀ (m : Nat), 0 = m
@@ -178,7 +178,7 @@ axiom g_zero : g 0 = 0
 
 /-! Target head is a Ctor -/
 
-@[blaster (restart := true)]
+@[blaster]
 theorem dite_pull_on_cons (m n : Nat) (b : Bool) :
   Blaster.dite' b (fun _ => m) (fun _ => n) :: [] =
   Blaster.dite' b (fun _ => [m]) (fun _ => [n]) :=
@@ -186,12 +186,12 @@ theorem dite_pull_on_cons (m n : Nat) (b : Bool) :
      case false => simp
      case true => simp
 
-@[blaster (restart := true)]
+@[blaster]
 -- handling optimization not applied on arguments
 theorem ite_pull_on_cons (m n : Nat) (b : Bool) :
   (if b then m else n) :: [] = if b then [m] else [n] := by split <;> simp
 
-@[blaster (restart := true)]
+@[blaster]
 theorem ite_pull_on_some (m n : Nat) (b : Bool) :
   some (if b then m else n) = Blaster.dite' b (fun _ => some m) (fun _ => some n) :=
   by dsimp [Blaster.dite']; cases h : Blaster.decide' b
@@ -238,7 +238,7 @@ axiom nz_zero_add : ∀ (n : Nat), nz (Nat.add 0 n) = Nat.add n 0
 /-! Beta-redex in the lhs. -/
 axiom nb : Nat → Nat
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom nb_beta : ∀ (n : Nat), (fun x => nb x) (Nat.add 1 n) = n
 
 #testOptimize [ "ExtNormBeta_1" ] ∀ (n m : Nat), nb (1 + n) = m ===> ∀ (n m : Nat), n = m
@@ -247,7 +247,7 @@ axiom nb_beta : ∀ (n : Nat), (fun x => nb x) (Nat.add 1 n) = n
 /-! `let` in the lhs. -/
 axiom nl : Nat → Nat
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom nl_let : ∀ (n : Nat), (let k := Nat.add 2 n; nl k) = n
 
 #testOptimize [ "ExtNormLet_1" ] ∀ (n m : Nat), nl (2 + n) = m ===> ∀ (n m : Nat), n = m
@@ -273,7 +273,7 @@ axiom nf_false : ∀ (n : Nat), c2 n ∨ False → nf (if true then n else 0) = 
 /-! Double negation in a premise; operands of `Nat.add` are reordered (`Nat.add n 1` ↦ `Nat.add 1 n`). -/
 axiom nn : Nat → Nat
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom nn_notnot : ∀ (n : Nat), ¬ ¬ c2 n → nn (Nat.add n 1) = n
 
 #testOptimize [ "ExtNormNotNot_1" ] ∀ (n m : Nat), c2 n → nn (n + 1) = m ===> ∀ (n m : Nat), c2 n → n = m
@@ -288,7 +288,7 @@ axiom ntriv : Nat → Nat
 info: @[blaster]: `Test.Extension.ntriv_triv` is already handled natively by the Blaster, no optimization function generated
 -/
 #guard_msgs in
-@[blaster]
+@[blaster  (noRestart := true)]
 axiom ntriv_triv : ∀ (n : Nat), ntriv (Nat.add 0 n) = ntriv n
 
 #testOptimize [ "ExtNormTriv_1" ] ∀ (n m : Nat), ntriv (0 + n) = m ===> ∀ (n m : Nat), m = ntriv n
@@ -382,7 +382,7 @@ in the hypothesis map: each disjunct is checked separately.
 /-! Conjunction. -/
 axiom k1 : Nat → Nat → Nat
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom k1_conj : ∀ (n m : Nat), c1 n ∧ c2 m → k1 n m = n
 
 #testOptimize [ "ExtConj_1" ] ∀ (n m z : Nat), c1 n → c2 m → k1 n m = z ===> ∀ (n m z : Nat), c1 n → c2 m → n = z
@@ -394,7 +394,7 @@ axiom k1_conj : ∀ (n m : Nat), c1 n ∧ c2 m → k1 n m = n
 /-! Disjunction. -/
 axiom k2 : Nat → Nat → Nat
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom k2_disj : ∀ (n m : Nat), c1 n ∨ c2 m → k2 n m = m
 
 #testOptimize [ "ExtDisj_1" ] ∀ (n m z : Nat), c1 n → k2 n m = z ===> ∀ (n m z : Nat), c1 n → m = z
@@ -408,7 +408,7 @@ axiom k2_disj : ∀ (n m : Nat), c1 n ∨ c2 m → k2 n m = m
 /-! Disjunction of conjunctions. -/
 axiom k3 : Nat → Nat → Nat
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom k3_disj_conj : ∀ (n m : Nat), (c1 n ∧ c2 m) ∨ (c3 n ∧ c4 m) → k3 n m = n
 
 #testOptimize [ "ExtDisjConj_1" ] ∀ (n m z : Nat), c1 n → c2 m → k3 n m = z ===> ∀ (n m z : Nat), c1 n → c2 m → n = z
@@ -419,7 +419,7 @@ axiom k3_disj_conj : ∀ (n m : Nat), (c1 n ∧ c2 m) ∨ (c3 n ∧ c4 m) → k3
 /-! Conjunction of disjunctions. -/
 axiom k4 : Nat → Nat → Nat
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom k4_conj_disj : ∀ (n m : Nat), (c1 n ∨ c2 m) ∧ (c3 n ∨ c4 m) → k4 n m = m
 
 #testOptimize [ "ExtConjDisj_1" ] ∀ (n m z : Nat), c1 n → c3 n → k4 n m = z ===> ∀ (n m z : Nat), c1 n → c3 n → m = z
@@ -431,7 +431,7 @@ axiom k4_conj_disj : ∀ (n m : Nat), (c1 n ∨ c2 m) ∧ (c3 n ∨ c4 m) → k4
 /-! Deeper nesting. -/
 axiom k5 : Nat → Nat → Nat
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom k5_nested : ∀ (n m : Nat), c1 n ∨ (c2 m ∧ (c3 n ∨ c4 m)) → k5 n m = n
 
 -- NOTE: the unused binder `m` is removed by the optimizer
@@ -444,7 +444,7 @@ axiom k5_nested : ∀ (n m : Nat), c1 n ∨ (c2 m ∧ (c3 n ∨ c4 m)) → k5 n 
 /-! Specialized atomic checks (`0 < n`, `¬ 0 = m`) inside a disjunction. -/
 axiom k6 : Nat → Nat → Nat
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom k6_lit : ∀ (n m : Nat), 0 < n ∨ ¬ m = 0 → k6 n m = Nat.add n m
 
 #testOptimize [ "ExtDisjLit_1" ] (norm-result: 1) ∀ (n m z : Nat), 0 < n → k6 n m = z ===> ∀ (n m z : Nat), 0 < n → z = Nat.add n m
@@ -456,7 +456,7 @@ axiom k6_lit : ∀ (n m : Nat), 0 < n ∨ ¬ m = 0 → k6 n m = Nat.add n m
 /-! `≠` atoms inside a disjunction / conjunction (`m ≠ 0` is unfolded then normalized to `0 < m`). -/
 axiom k14 : Nat → Nat → Nat
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom k14_disj_ne : ∀ (n m : Nat), 0 < n ∨ m ≠ 0 → k14 n m = Nat.add n m
 
 #testOptimize [ "ExtDisjNe_1" ] (norm-result: 1) ∀ (n m z : Nat), m ≠ 0 → k14 n m = z ===> ∀ (n m z : Nat), 0 < m → z = Nat.add n m
@@ -470,7 +470,7 @@ axiom k14_disj_ne : ∀ (n m : Nat), 0 < n ∨ m ≠ 0 → k14 n m = Nat.add n m
 
 axiom k15 : Nat → Nat → Nat
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom k15_conj_ne : ∀ (n m : Nat), c1 n ∧ m ≠ 0 → k15 n m = n
 
 #testOptimize [ "ExtConjNe_1" ] (norm-result: 1) ∀ (n m z : Nat), c1 n → m ≠ 0 → k15 n m = z ===> ∀ (n m z : Nat), c1 n → 0 < m → n = z
@@ -499,7 +499,7 @@ axiom d1 : Int → Prop
 /-! `Nat`: `0 < a`. -/
 axiom k7 : Nat → Nat → Nat
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom k7_pos : ∀ (a z : Nat), 0 < a → k7 a z = z
 
 #testOptimize [ "ExtPosNat_1" ] (norm-result: 1) ∀ (z w : Nat), k7 5 z = w ===> ∀ (z w : Nat), z = w
@@ -515,7 +515,7 @@ axiom k7_pos : ∀ (a z : Nat), 0 < a → k7 a z = z
 /-! `Nat`: `¬ (a = 0)` (normalized to `0 < a`). -/
 axiom k8 : Nat → Nat → Nat
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom k8_nz : ∀ (a z : Nat), ¬ (a = 0) → k8 a z = z
 
 #testOptimize [ "ExtNzNat_1" ] (norm-result: 1) ∀ (z w : Nat), k8 5 z = w ===> ∀ (z w : Nat), z = w
@@ -529,7 +529,7 @@ axiom k8_nz : ∀ (a z : Nat), ¬ (a = 0) → k8 a z = z
 /-! `Nat`: `a ≠ 0` (unfolded to `¬ (a = 0)`, then normalized to `0 < a`). -/
 axiom k16 : Nat → Nat → Nat
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom k16_ne : ∀ (a z : Nat), a ≠ 0 → k16 a z = z
 
 #testOptimize [ "ExtNeNat_1" ] (norm-result: 1) ∀ (z w : Nat), k16 5 z = w ===> ∀ (z w : Nat), z = w
@@ -546,7 +546,7 @@ axiom k16_ne : ∀ (a z : Nat), a ≠ 0 → k16 a z = z
 /-! `Nat`: `a ≤ b` (normalized to `¬ (b < a)`). -/
 axiom k9 : Nat → Nat → Nat → Nat
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom k9_le : ∀ (a b z : Nat), a ≤ b → k9 a b z = z
 
 #testOptimize [ "ExtLeNat_1" ] (norm-result: 1) ∀ (z w : Nat), k9 3 5 z = w ===> ∀ (z w : Nat), z = w
@@ -564,7 +564,7 @@ axiom k9_le : ∀ (a b z : Nat), a ≤ b → k9 a b z = z
 /-! `Nat`: `a < b`. -/
 axiom k10 : Nat → Nat → Nat → Nat
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom k10_lt : ∀ (a b z : Nat), a < b → k10 a b z = z
 
 #testOptimize [ "ExtLtNat_1" ] (norm-result: 1) ∀ (z w : Nat), k10 3 5 z = w ===> ∀ (z w : Nat), z = w
@@ -582,7 +582,7 @@ axiom k10_lt : ∀ (a b z : Nat), a < b → k10 a b z = z
 /-! `Nat`: `a = b`. -/
 axiom k11 : Nat → Nat → Nat → Nat
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom k11_eq : ∀ (a b z : Nat), a = b → k11 a b z = z
 
 #testOptimize [ "ExtEqNat_1" ] (norm-result: 1) ∀ (z w : Nat), k11 5 5 z = w ===> ∀ (z w : Nat), z = w
@@ -598,7 +598,7 @@ axiom k11_eq : ∀ (a b z : Nat), a = b → k11 a b z = z
 /-! `Nat`: `a ≠ b` (unfolded to `¬ (a = b)`). -/
 axiom k17 : Nat → Nat → Nat → Nat
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom k17_ne : ∀ (a b z : Nat), a ≠ b → k17 a b z = z
 
 #testOptimize [ "ExtNeNat2_1" ] (norm-result: 1) ∀ (z w : Nat), k17 3 5 z = w ===> ∀ (z w : Nat), z = w
@@ -618,7 +618,7 @@ axiom k17_ne : ∀ (a b z : Nat), a ≠ b → k17 a b z = z
 /-! `Nat`: conjunction / disjunction with an evaluated conjunct / disjunct. -/
 axiom k12 : Nat → Nat → Nat → Nat
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom k12_conj : ∀ (a n z : Nat), 0 < a ∧ c1 n → k12 a n z = z
 
 #testOptimize [ "ExtConjNat_1" ] (norm-result: 1) ∀ (n z w : Nat), c1 n → k12 5 n z = w ===> ∀ (n z w : Nat), c1 n → z = w
@@ -629,7 +629,7 @@ axiom k12_conj : ∀ (a n z : Nat), 0 < a ∧ c1 n → k12 a n z = z
 
 axiom k13 : Nat → Nat → Nat → Nat
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom k13_disj : ∀ (a n z : Nat), 0 < a ∨ c1 n → k13 a n z = z
 
 -- `True ∨ <missing>`
@@ -642,7 +642,7 @@ axiom k13_disj : ∀ (a n z : Nat), 0 < a ∨ c1 n → k13 a n z = z
 /-! `Int`: `0 < a`. -/
 axiom j7 : Int → Int → Int
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom j7_pos : ∀ (a z : Int), 0 < a → j7 a z = z
 
 #testOptimize [ "ExtPosInt_1" ] (norm-result: 1) ∀ (z w : Int), j7 5 z = w ===> ∀ (z w : Int), z = w
@@ -662,7 +662,7 @@ axiom j7_pos : ∀ (a z : Int), 0 < a → j7 a z = z
 /-! `Int`: `a < 0`. -/
 axiom j14 : Int → Int → Int
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom j14_neg : ∀ (a z : Int), a < 0 → j14 a z = z
 
 #testOptimize [ "ExtNegInt_1" ] (norm-result: 1) ∀ (z w : Int), j14 (-5) z = w ===> ∀ (z w : Int), z = w
@@ -677,7 +677,7 @@ axiom j14_neg : ∀ (a z : Int), a < 0 → j14 a z = z
 /-! `Int`: `¬ (a = 0)` (normalized to `¬ (0 = a)`). -/
 axiom j8 : Int → Int → Int
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom j8_nz : ∀ (a z : Int), ¬ (a = 0) → j8 a z = z
 
 #testOptimize [ "ExtNzInt_1" ] (norm-result: 1) ∀ (z w : Int), j8 5 z = w ===> ∀ (z w : Int), z = w
@@ -694,7 +694,7 @@ axiom j8_nz : ∀ (a z : Int), ¬ (a = 0) → j8 a z = z
 /-! `Int`: `a ≠ 0` (unfolded to `¬ (a = 0)`, then normalized to `¬ (0 = a)`). -/
 axiom j15 : Int → Int → Int
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom j15_ne : ∀ (a z : Int), a ≠ 0 → j15 a z = z
 
 #testOptimize [ "ExtNeInt_1" ] (norm-result: 1) ∀ (z w : Int), j15 5 z = w ===> ∀ (z w : Int), z = w
@@ -712,7 +712,7 @@ axiom j15_ne : ∀ (a z : Int), a ≠ 0 → j15 a z = z
 /-! `Int`: `a ≤ b` (normalized to `¬ (b < a)`). -/
 axiom j9 : Int → Int → Int → Int
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom j9_le : ∀ (a b z : Int), a ≤ b → j9 a b z = z
 
 #testOptimize [ "ExtLeInt_1" ] (norm-result: 1) ∀ (z w : Int), j9 3 5 z = w ===> ∀ (z w : Int), z = w
@@ -731,7 +731,7 @@ axiom j9_le : ∀ (a b z : Int), a ≤ b → j9 a b z = z
 /-! `Int`: `a < b`. -/
 axiom j10 : Int → Int → Int → Int
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom j10_lt : ∀ (a b z : Int), a < b → j10 a b z = z
 
 #testOptimize [ "ExtLtInt_1" ] (norm-result: 1) ∀ (z w : Int), j10 (-3) 5 z = w ===> ∀ (z w : Int), z = w
@@ -749,7 +749,7 @@ axiom j10_lt : ∀ (a b z : Int), a < b → j10 a b z = z
 /-! `Int`: `a = b`. -/
 axiom j11 : Int → Int → Int → Int
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom j11_eq : ∀ (a b z : Int), a = b → j11 a b z = z
 
 #testOptimize [ "ExtEqInt_1" ] (norm-result: 1) ∀ (z w : Int), j11 (-5) (-5) z = w ===> ∀ (z w : Int), z = w
@@ -765,7 +765,7 @@ axiom j11_eq : ∀ (a b z : Int), a = b → j11 a b z = z
 /-! `Int`: `a ≠ b` (unfolded to `¬ (a = b)`). -/
 axiom j16 : Int → Int → Int → Int
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom j16_ne : ∀ (a b z : Int), a ≠ b → j16 a b z = z
 
 #testOptimize [ "ExtNeInt2_1" ] (norm-result: 1) ∀ (z w : Int), j16 (-3) 5 z = w ===> ∀ (z w : Int), z = w
@@ -785,7 +785,7 @@ axiom j16_ne : ∀ (a b z : Int), a ≠ b → j16 a b z = z
 /-! `Int`: conjunction / disjunction with an evaluated conjunct / disjunct. -/
 axiom j12 : Int → Int → Int → Int
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom j12_conj : ∀ (a n z : Int), 0 < a ∧ d1 n → j12 a n z = z
 
 #testOptimize [ "ExtConjInt_1" ] (norm-result: 1) ∀ (n z w : Int), d1 n → j12 5 n z = w ===> ∀ (n z w : Int), d1 n → z = w
@@ -796,7 +796,7 @@ axiom j12_conj : ∀ (a n z : Int), 0 < a ∧ d1 n → j12 a n z = z
 
 axiom j13 : Int → Int → Int → Int
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom j13_disj : ∀ (a n z : Int), 0 < a ∨ d1 n → j13 a n z = z
 
 -- `True ∨ <missing>`
@@ -809,7 +809,7 @@ axiom j13_disj : ∀ (a n z : Int), 0 < a ∨ d1 n → j13 a n z = z
 /-! `Int`: `≠` disjunct evaluated at application time. -/
 axiom j17 : Int → Int → Int → Int
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom j17_disj_ne : ∀ (a n z : Int), a ≠ 0 ∨ d1 n → j17 a n z = z
 
 -- `True ∨ <missing>`
@@ -838,7 +838,7 @@ axiom j17_disj_ne : ∀ (a n z : Int), a ≠ 0 ∨ d1 n → j17 a n z = z
 /-! Standard instance (control). -/
 axiom on0 : Nat → Nat
 
-@[blaster]
+@[blaster (noRestart := true)]
 axiom on0_rhs : ∀ (n : Nat), on0 n = 7
 
 #testOptimize [ "ExtOfNatStd_1" ] ∀ (n : Nat), on0 n = 7 ===> True
@@ -847,7 +847,7 @@ axiom on0_rhs : ∀ (n : Nat), on0 n = 7
 /-! Non-standard instance in the rhs (`Nat`). -/
 axiom on1 : Nat → Nat
 
-@[blaster (restart := true)]
+@[blaster]
 axiom on1_rhs : ∀ (n : Nat), on1 n = @OfNat.ofNat Nat 7 ⟨99⟩
 
 #testOptimize [ "ExtOfNatRhs_1" ] ∀ (n : Nat), on1 n = 99 ===> True
@@ -857,7 +857,7 @@ axiom on1_rhs : ∀ (n : Nat), on1 n = @OfNat.ofNat Nat 7 ⟨99⟩
 /-! Non-standard instance in the rhs (`Int`). -/
 axiom on2 : Int → Int
 
-@[blaster (restart := true)]
+@[blaster]
 axiom on2_rhs : ∀ (x : Int), on2 x = @OfNat.ofNat Int 7 ⟨99⟩
 
 #testOptimize [ "ExtOfNatRhsInt_1" ] ∀ (x : Int), on2 x = 99 ===> True
@@ -866,7 +866,7 @@ axiom on2_rhs : ∀ (x : Int), on2 x = @OfNat.ofNat Int 7 ⟨99⟩
 /-! Symbolic instance in the rhs: the payload is a pattern variable. -/
 axiom on3 : Nat → Nat
 
-@[blaster (restart := true)]
+@[blaster]
 axiom on3_rhs : ∀ (i : Nat), on3 i = @OfNat.ofNat Nat 7 ⟨i + 1⟩
 
 #testOptimize [ "ExtOfNatRhsSym_1" ] ∀ (i : Nat), on3 i = i + 1 ===> True
@@ -875,7 +875,7 @@ axiom on3_rhs : ∀ (i : Nat), on3 i = @OfNat.ofNat Nat 7 ⟨i + 1⟩
 /-! Non-standard instance in the lhs: the goal is unfolded before the rule is tried. -/
 axiom on4 : Nat → Nat
 
-@[blaster (restart := true)]
+@[blaster]
 axiom on4_lhs : ∀ (i : Nat), on4 (@OfNat.ofNat Nat 7 ⟨i⟩) = i
 
 #testOptimize [ "ExtOfNatLhs_1" ] ∀ (i : Nat), on4 (@OfNat.ofNat Nat 7 ⟨i⟩) = i ===> True
@@ -886,7 +886,7 @@ axiom on4_lhs : ∀ (i : Nat), on4 (@OfNat.ofNat Nat 7 ⟨i⟩) = i
     substitutes `n` in the conclusion and the rule is rejected). -/
 axiom on5 : Nat → Nat
 
-@[blaster (restart := true)]
+@[blaster]
 axiom on5_prem : ∀ (n : Nat), @OfNat.ofNat Nat 7 ⟨99⟩ < n → on5 n = 0
 
 #testOptimize [ "ExtOfNatPrem_1" ] ∀ (n : Nat), 99 < n → on5 n = 0 ===> True
@@ -897,7 +897,7 @@ axiom on5_prem : ∀ (n : Nat), @OfNat.ofNat Nat 7 ⟨99⟩ < n → on5 n = 0
 /-! Local instance in a rule: the instance is a pattern variable, the application must stay symbolic. -/
 axiom on6 : Nat → Nat → Nat
 
-@[blaster (restart := true)]
+@[blaster]
 axiom on6_inst : ∀ [inst : OfNat Nat (nat_lit 7)] (n : Nat), on6 (@OfNat.ofNat Nat (nat_lit 7) inst) n = n
 
 #testOptimize [ "ExtOfNatLocalInst_1" ] ∀ [inst : OfNat Nat (nat_lit 7)] (n : Nat), on6 (@OfNat.ofNat Nat (nat_lit 7) inst) n = n ===> True
@@ -916,21 +916,21 @@ axiom on6_inst : ∀ [inst : OfNat Nat (nat_lit 7)] (n : Nat), on6 (@OfNat.ofNat
     `BitVec.ofNat w n` and the lhs literal will match the goal. -/
 axiom onb1 : BitVec 8 → BitVec 8
 
-@[blaster (restart := true)]
+@[blaster]
 axiom onb1_rhs : ∀ (x : BitVec 8), onb1 x = 99
 
 #testOptimize [ "ExtOfNatBitVecRhs_1" ] ∀ (x : BitVec 8), onb1 x = 99 ===> True
 
 axiom onb2 : BitVec 8 → BitVec 8
 
-@[blaster (restart := true)]
+@[blaster]
 axiom onb2_rhs : ∀ (x : BitVec 8), onb2 x = @OfNat.ofNat (BitVec 8) 7 ⟨99⟩
 
 #testOptimize [ "ExtOfNatBitVecRhs_2" ] ∀ (x : BitVec 8), onb2 x = 99 ===> True
 
 axiom onb3 : BitVec 8 → BitVec 8 → BitVec 8
 
-@[blaster (restart := true)]
+@[blaster]
 axiom onb3_lhs : ∀ (x : BitVec 8), onb3 99 x = x
 
 -- TODO: to be handled when `BitVec.ofNat` is opacified (currently no rewriting is performed)
@@ -938,7 +938,7 @@ axiom onb3_lhs : ∀ (x : BitVec 8), onb3 99 x = x
 
 axiom onb4 : BitVec 8 → BitVec 8 → BitVec 8
 
-@[blaster (restart := true)]
+@[blaster]
 axiom onb4_lhs : ∀ (x : BitVec 8), onb4 (@OfNat.ofNat (BitVec 8) 7 ⟨99⟩) x = x
 
 -- TODO: to be handled when `BitVec.ofNat` is opacified (currently no rewriting is performed)
@@ -1004,7 +1004,7 @@ axiom foa1_lhs : ∀ (n : Nat), foa1 (n + 1) = n
 #testOptimize [ "ExtFoldNatAdd_4" ] (norm-result: 1) foa1 5 = 4 ===> 4 = foa1 5
 
 axiom foa2 : Nat → Nat
-@[blaster (restart := true)]
+@[blaster]
 axiom foa2_rhs : ∀ (n : Nat), foa2 n = n + 1
 
 #testOptimize [ "ExtFoldNatAdd_5" ] ∀ (n : Nat), foa2 n = n + 1 ===> True
@@ -1042,7 +1042,7 @@ axiom fos1_lhs : ∀ (n : Nat), fos1 (n - 1) = n
 #testOptimize [ "ExtFoldNatSub_2" ] ∀ (n : Nat), fos1 (Nat.sub n 1) = n ===> True
 
 axiom fos2 : Nat → Nat
-@[blaster (restart := true)]
+@[blaster]
 axiom fos2_rhs : ∀ (n : Nat), fos2 n = n - 1
 
 #testOptimize [ "ExtFoldNatSub_3" ] ∀ (n : Nat), fos2 n = n - 1 ===> True
@@ -1069,7 +1069,7 @@ axiom fom1_lhs : ∀ (n : Nat), fom1 (2 * n) = n
 #testOptimize [ "ExtFoldNatMul_2" ] ∀ (n : Nat), fom1 (Nat.mul 2 n) = n ===> True
 
 axiom fom2 : Nat → Nat
-@[blaster (restart := true)]
+@[blaster]
 axiom fom2_rhs : ∀ (n : Nat), fom2 n = 2 * n
 
 #testOptimize [ "ExtFoldNatMul_3" ] ∀ (n : Nat), fom2 n = 2 * n ===> True
@@ -1096,7 +1096,7 @@ axiom fod1_lhs : ∀ (n : Nat), fod1 (n / 2) = n
 #testOptimize [ "ExtFoldNatDiv_2" ] ∀ (n : Nat), fod1 (Nat.div n 2) = n ===> True
 
 axiom fod2 : Nat → Nat
-@[blaster (restart := true)]
+@[blaster]
 axiom fod2_rhs : ∀ (n : Nat), fod2 n = n / 2
 
 #testOptimize [ "ExtFoldNatDiv_3" ] ∀ (n : Nat), fod2 n = n / 2 ===> True
@@ -1123,7 +1123,7 @@ axiom foo1_lhs : ∀ (n : Nat), foo1 (n % 2) = n
 #testOptimize [ "ExtFoldNatMod_2" ] ∀ (n : Nat), foo1 (Nat.mod n 2) = n ===> True
 
 axiom foo2 : Nat → Nat
-@[blaster (restart := true)]
+@[blaster]
 axiom foo2_rhs : ∀ (n : Nat), foo2 n = n % 2
 
 #testOptimize [ "ExtFoldNatMod_3" ] ∀ (n : Nat), foo2 n = n % 2 ===> True
@@ -1151,7 +1151,7 @@ axiom fop1_lhs : ∀ (n : Nat), fop1 (n ^ 2) = n
 #testOptimize [ "ExtFoldNatPow_2" ] ∀ (n : Nat), fop1 (Nat.pow n 2) = n ===> True
 
 axiom fop2 : Nat → Nat
-@[blaster (restart := true)]
+@[blaster]
 axiom fop2_rhs : ∀ (n : Nat), fop2 n = n ^ 2
 
 #testOptimize [ "ExtFoldNatPow_3" ] ∀ (n : Nat), fop2 n = n ^ 2 ===> True
@@ -1186,7 +1186,7 @@ axiom fia1_lhs : ∀ (x : Int), fia1 (x + 1) = x
 #testOptimize [ "ExtFoldIntAdd_2" ] ∀ (x : Int), fia1 (Int.add x 1) = x ===> True
 
 axiom fia2 : Int → Int
-@[blaster (restart := true)]
+@[blaster]
 axiom fia2_rhs : ∀ (x : Int), fia2 x = x + 1
 
 #testOptimize [ "ExtFoldIntAdd_3" ] ∀ (x : Int), fia2 x = x + 1 ===> True
@@ -1206,7 +1206,7 @@ axiom fis1_lhs : ∀ (x : Int), fis1 (x - 1) = x
 #testOptimize [ "ExtFoldIntSub_1" ] ∀ (x : Int), fis1 (x - 1) = x ===> True
 
 axiom fis2 : Int → Int
-@[blaster (restart := true)]
+@[blaster]
 axiom fis2_rhs : ∀ (x : Int), fis2 x = x - 1
 
 #testOptimize [ "ExtFoldIntSub_2" ] ∀ (x : Int), fis2 x = x - 1 ===> True
@@ -1226,7 +1226,7 @@ axiom fim1_lhs : ∀ (x : Int), fim1 (2 * x) = x
 #testOptimize [ "ExtFoldIntMul_1" ] ∀ (x : Int), fim1 (2 * x) = x ===> True
 
 axiom fim2 : Int → Int
-@[blaster (restart := true)]
+@[blaster]
 axiom fim2_rhs : ∀ (x : Int), fim2 x = 2 * x
 
 #testOptimize [ "ExtFoldIntMul_2" ] ∀ (x : Int), fim2 x = 2 * x ===> True
@@ -1240,7 +1240,7 @@ axiom fid1_lhs : ∀ (x : Int), fid1 (x / 2) = x
 #testOptimize [ "ExtFoldIntDiv_1" ] ∀ (x : Int), fid1 (x / 2) = x ===> True
 
 axiom fid2 : Int → Int
-@[blaster (restart := true)]
+@[blaster]
 axiom fid2_rhs : ∀ (x : Int), fid2 x = x / 2
 
 #testOptimize [ "ExtFoldIntDiv_2" ] ∀ (x : Int), fid2 x = x / 2 ===> True
@@ -1259,7 +1259,7 @@ axiom fio1_lhs : ∀ (x : Int), fio1 (x % 2) = x
 #testOptimize [ "ExtFoldIntMod_1" ] ∀ (x : Int), fio1 (x % 2) = x ===> True
 
 axiom fio2 : Int → Int
-@[blaster (restart := true)]
+@[blaster]
 axiom fio2_rhs : ∀ (x : Int), fio2 x = x % 2
 
 #testOptimize [ "ExtFoldIntMod_2" ] ∀ (x : Int), fio2 x = x % 2 ===> True
@@ -1279,7 +1279,7 @@ axiom fip1_lhs : ∀ (x : Int), fip1 (x ^ 2) = x
 #testOptimize [ "ExtFoldIntPow_1" ] ∀ (x : Int), fip1 (x ^ 2) = x ===> True
 
 axiom fip2 : Int → Int
-@[blaster (restart := true)]
+@[blaster]
 axiom fip2_rhs : ∀ (x : Int), fip2 x = x ^ 2
 
 #testOptimize [ "ExtFoldIntPow_2" ] ∀ (x : Int), fip2 x = x ^ 2 ===> True
@@ -1293,7 +1293,7 @@ axiom fin1_lhs : ∀ (x : Int), fin1 (-x) = x
 #testOptimize [ "ExtFoldIntNeg_2" ] ∀ (x : Int), fin1 (Int.neg x) = x ===> True
 
 axiom fin2 : Int → Int
-@[blaster (restart := true)]
+@[blaster]
 axiom fin2_rhs : ∀ (x : Int), fin2 x = -x
 
 #testOptimize [ "ExtFoldIntNeg_3" ] ∀ (x : Int), fin2 x = -x ===> True
@@ -1320,7 +1320,7 @@ axiom fol1_lhs : ∀ (l : List Nat) (a : Nat), fol1 (l ++ [a]) = a
 #testOptimize [ "ExtFoldListApp_2" ] ∀ (l : List Nat) (a : Nat), fol1 (List.append l [a]) = a ===> True
 
 axiom fol2 : List Nat → List Nat
-@[blaster (restart := true)]
+@[blaster]
 axiom fol2_rhs : ∀ (l : List Nat), fol2 l = l ++ [0]
 
 #testOptimize [ "ExtFoldListApp_3" ] ∀ (l : List Nat), fol2 l = l ++ [0] ===> True
@@ -1345,7 +1345,7 @@ axiom fost1_lhs : ∀ (s : String), fost1 (s ++ "a") = 0
 #testOptimize [ "ExtFoldStrApp_1" ] ∀ (s : String), fost1 (s ++ "a") = 0 ===> True
 
 axiom fost2 : String → String
-@[blaster (restart := true)]
+@[blaster]
 axiom fost2_rhs : ∀ (s : String), fost2 s = s ++ "a"
 
 #testOptimize [ "ExtFoldStrApp_2" ] ∀ (s : String), fost2 s = s ++ "a" ===> True
@@ -1359,7 +1359,7 @@ axiom fog1_lhs : ∀ (l : List Nat) (i : Nat), fog1 l[i]? = i
 #testOptimize [ "ExtFoldGetElem_1" ] ∀ (l : List Nat) (i : Nat), fog1 l[i]? = i ===> True
 
 axiom fog2 : List Nat → Nat → Option Nat
-@[blaster (restart := true)]
+@[blaster]
 axiom fog2_rhs : ∀ (l : List Nat) (i : Nat), fog2 l i = l[i]?
 
 #testOptimize [ "ExtFoldGetElem_2" ] ∀ (l : List Nat) (i : Nat), fog2 l i = l[i]? ===> True
@@ -1382,7 +1382,7 @@ axiom fone1_lhs : ∀ (n : Nat), fone1 (n ≠ 0) = n
 #testOptimize [ "ExtFoldNe_3" ] ∀ (n : Nat), fone1 (0 < n) = n ===> True
 
 axiom fone2 : Nat → Prop
-@[blaster (restart := true)]
+@[blaster]
 axiom fone2_iff : ∀ (n : Nat), fone2 n ↔ n ≠ 0
 
 #testOptimize [ "ExtFoldNe_4" ] ∀ (n : Nat), fone2 n ↔ 0 < n ===> True
@@ -1399,14 +1399,14 @@ axiom fone3_iff : ∀ (x : Int), fone3 x ↔ x ≠ 0
     (`Nat.sub (OfNat.ofNat Nat 5 _) 1`, `0 < HAdd.hAdd … n 1`). With `restart := true` the rewritten term
     is normalized (`fonr1 5 = 4` and `fonr2 (n + 1)` reduce to `True`). -/
 axiom fonr1 : Nat → Nat
-@[blaster (restart := true)]
+@[blaster]
 axiom fonr1_rhs : ∀ (n : Nat), fonr1 n = n - 1
 
 #testOptimize [ "ExtFoldRestart_1" ] ∀ (n : Nat), fonr1 n = n - 1 ===> True
 #testOptimize [ "ExtFoldRestart_2" ] fonr1 5 = 4 ===> True
 
 axiom fonr2 : Nat → Prop
-@[blaster (restart := true)]
+@[blaster]
 axiom fonr2_iff : ∀ (n : Nat), fonr2 n ↔ n ≠ 0
 
 #testOptimize [ "ExtFoldRestart_3" ] ∀ (n : Nat), fonr2 n ↔ 0 < n ===> True
@@ -1423,10 +1423,176 @@ axiom fou1_lhs : ∀ (x : UInt8), fou1 (x + 1) = x
 -- #testOptimize [ "ExtFoldUInt8Add_1" ] ∀ (x : UInt8), fou1 (x + 1) = x ===> True
 
 axiom fou2 : UInt8 → UInt8
-@[blaster (restart := true)]
+@[blaster]
 axiom fou2_rhs : ∀ (x : UInt8), fou2 x = x + 1
 
 -- TODO: to be handled when `BitVec.ofNat` is opacified (currently no rewriting is performed)
 -- #testOptimize [ "ExtFoldUInt8Add_2" ] ∀ (x : UInt8), fou2 x = x + 1 ===> True
+
+/-! ## Universe level parameters of the rhs recovered from the lhs
+     A level parameter used in the rhs is recovered, in this order, from a constant of the lhs arguments
+     (`@List.cons.{u}`), from a sort of the lhs arguments (`Sort u`, `Type u`) or from the head expression
+     passed to the generated function (`@box.{u}`, when the pattern variable `α : Type u` is the only
+     argument carrying `u`). -/
+
+/-! `u` occurs in the head `@box.{u}` and in the rhs `@some.{u}` only. -/
+def box {α : Type u} (x : α) : Option α := some x
+
+@[blaster]
+theorem box_eq_some {α : Type u} (x : α) : box x = some x := rfl
+
+#testOptimize [ "ExtHeadLevel_1" ] ∀ (x : Nat), box x = some x ===> True
+#testOptimize [ "ExtHeadLevel_2" ] ∀ (x : List Nat), box x = some x ===> True
+#testOptimize [ "ExtHeadLevel_3" ] ∀ (x : Type), box x = some x ===> True
+#testOptimize [ "ExtHeadLevel_4" ] ∀ (x : Nat), box x = none ===> False
+-- the rule has no `restart`: the rewritten equality is not optimized further
+#testOptimize [ "ExtHeadLevel_5" ] ∀ (x y : Nat), box x = some y ===> ∀ (x y : Nat), some x = some y
+
+/-! `u` also occurs in a constant of the arguments (`@List.cons.{u}`): recovered from the arguments. -/
+def box2 {α : Type u} (xs : List α) : Option (List α) := some xs
+
+@[blaster]
+theorem box2_cons {α : Type u} (a : α) (xs : List α) : box2 (a :: xs) = some (a :: xs) := rfl
+
+#testOptimize [ "ExtHeadLevel_6" ] ∀ (a : Nat) (xs : List Nat), box2 (a :: xs) = some (a :: xs) ===> True
+#testOptimize [ "ExtHeadLevel_7" ] ∀ (a : Type) (xs : List Type), box2 (a :: xs) = some (a :: xs) ===> True
+-- the rule does not match: the definition is unfolded natively
+#testOptimize [ "ExtHeadLevel_8" ] ∀ (xs : List Nat), box2 xs = some xs ===> True
+
+/-! `u` occurs in a sort of the arguments (`Type u`, i.e. `Sort (u + 1)`) and in the head `@tyg.{u + 2}`:
+    recovered from the sort (`Level.dec` of the matched level). -/
+axiom tyg : Sort v → Nat
+axiom tyh : Sort v → Nat
+
+@[blaster]
+axiom tyg_type : tyg (Type u) = tyh (Type u)
+
+#testOptimize [ "ExtSortLevel_1" ] tyg (Type 1) = tyh (Type 1) ===> True
+#testOptimize [ "ExtSortLevel_2" ] tyg (Type 3) = tyh (Type 3) ===> True
+#testOptimize [ "ExtSortLevel_3" ] tyg (Type 1) = tyh (Type 2) ===> tyh (Type 1) = tyh (Type 2)
+-- no rewriting: `Type 1` matches `Type u` but `Prop` (`Sort 0`) does not
+#testOptimize [ "ExtSortLevel_4" ] tyg Prop = tyh Prop ===> tyg Prop = tyh Prop
+
+/-! `u + 1` occurs in a universe polymorphic constant of the arguments (`@PProd.{u + 1, u + 1}`):
+    recovered from the constant (`Level.dec` of the matched level). -/
+axiom tyk : Sort v → Nat
+
+@[blaster]
+axiom tyk_pprod : tyk (PProd.{u + 1, u + 1} (Sort u) (Sort u)) = tyh (Sort u)
+
+#testOptimize [ "ExtSortLevel_5" ] tyk (PProd.{3, 3} (Type 1) (Type 1)) = tyh (Type 1) ===> True
+#testOptimize [ "ExtSortLevel_6" ] tyk (PProd.{1, 1} Prop Prop) = tyh Prop ===> True
+
+/-! ## Several universe level parameters
+     Every level parameter of the rhs must be recovered (from the arguments or from the head); levels built
+     for the rhs are normalized (`max 0 0` ↦ `0`, as elaborated by Lean in the goal), and a level parameter
+     occurring several times in the lhs must be matched by equivalent levels. -/
+universe v w
+
+/-! Both levels from the head `@box3.{u, v}`; the rhs uses `@Prod.{u, v}` and `@some.{max u v}`. -/
+def box3 {α : Type u} {β : Type v} (a : α) (b : β) : Option (α × β) := some (a, b)
+
+@[blaster]
+theorem box3_eq {α : Type u} {β : Type v} (a : α) (b : β) : box3 a b = some (a, b) := rfl
+
+#testOptimize [ "ExtMultiLevel_1" ] ∀ (a : Nat) (b : List Nat), box3 a b = some (a, b) ===> True
+#testOptimize [ "ExtMultiLevel_2" ] ∀ (a : Type) (b : Nat), box3 a b = some (a, b) ===> True
+#testOptimize [ "ExtMultiLevel_3" ] ∀ (a : Nat) (b : Type 1), box3 a b = some (a, b) ===> True
+#testOptimize [ "ExtMultiLevel_4" ] ∀ (a : Type 2) (b : Type 1), box3 a b = some (a, b) ===> True
+#testOptimize [ "ExtMultiLevel_5" ] ∀ (a : Nat) (b : Nat), box3 a b = none ===> False
+
+/-! `u` from a constant of the arguments (`@List.cons.{u}`), `v` from the head. -/
+def box4 {α : Type u} {β : Type v} (xs : List α) (b : β) : Option (List α × β) := some (xs, b)
+
+@[blaster]
+theorem box4_cons {α : Type u} {β : Type v} (a : α) (xs : List α) (b : β) : box4 (a :: xs) b = some (a :: xs, b) := rfl
+
+#testOptimize [ "ExtMultiLevel_6" ] ∀ (a : Nat) (xs : List Nat) (b : Type), box4 (a :: xs) b = some (a :: xs, b) ===> True
+#testOptimize [ "ExtMultiLevel_7" ] ∀ (a : Type 1) (xs : List (Type 1)) (b : Nat), box4 (a :: xs) b = some (a :: xs, b) ===> True
+
+/-! Three levels, `@some.{max u (max v w)}` in the rhs. -/
+def box5 {α : Type u} {β : Type v} {γ : Type w} (a : α) (b : β) (c : γ) : Option (α × β × γ) := some (a, b, c)
+
+@[blaster]
+theorem box5_eq {α : Type u} {β : Type v} {γ : Type w} (a : α) (b : β) (c : γ) : box5 a b c = some (a, b, c) := rfl
+
+#testOptimize [ "ExtMultiLevel_8" ] ∀ (a : Nat) (b : Type) (c : Type 2), box5 a b c = some (a, b, c) ===> True
+#testOptimize [ "ExtMultiLevel_9" ] ∀ (a : Type 3) (b : Nat) (c : Nat), box5 a b c = some (a, b, c) ===> True
+
+/-! Both levels from sorts of the arguments, swapped in the rhs. -/
+axiom ty2 : Sort v → Sort w → Nat
+axiom ty2h : Sort v → Sort w → Nat
+
+@[blaster]
+axiom ty2_type : ty2 (Type u) (Type v) = ty2h (Type v) (Type u)
+
+#testOptimize [ "ExtMultiSort_1" ] ty2 (Type 1) (Type 2) = ty2h (Type 2) (Type 1) ===> True
+#testOptimize [ "ExtMultiSort_2" ] ty2 (Type 1) (Type 2) = ty2h (Type 1) (Type 2) ===> ty2h (Type 1) (Type 2) = ty2h (Type 2) (Type 1)
+-- no rewriting: `Prop` does not match `Type u`
+#testOptimize [ "ExtMultiSort_3" ] ty2 Prop (Type 2) = ty2h (Type 2) Prop ===> ty2 Prop (Type 2) = ty2h (Type 2) Prop
+
+/-! Non-linear occurrence of a level parameter in two sorts: the matched levels must be equivalent. -/
+axiom ty3 : Sort v → Sort w → Nat
+
+@[blaster]
+axiom ty3_type : ty3 (Type u) (Type u) = ty2h (Type u) (Type u)
+
+#testOptimize [ "ExtMultiSort_4" ] ty3 (Type 1) (Type 1) = ty2h (Type 1) (Type 1) ===> True
+-- no rewriting: `Type 1` and `Type 2` are not the same instance of `Type u`
+#testOptimize [ "ExtMultiSort_5" ] ty3 (Type 1) (Type 2) = ty2h (Type 1) (Type 1) ===> ty2h (Type 1) (Type 1) = ty3 (Type 1) (Type 2)
+
+/-! Non-linear occurrence of a level parameter in a sort and in a constant (`@PUnit.{u + 1}`). -/
+axiom ty4 : Sort v → Sort w → Nat
+
+@[blaster]
+axiom ty4_type : ty4 (Type u) (PUnit.{u + 1}) = ty2h (Type u) (Type u)
+
+#testOptimize [ "ExtMultiSort_6" ] ty4 (Type 1) (PUnit.{2}) = ty2h (Type 1) (Type 1) ===> True
+-- no rewriting: `PUnit.{3}` is not `PUnit.{u + 1}` for `u := 1`
+#testOptimize [ "ExtMultiSort_7" ] ty4 (Type 1) (PUnit.{3}) = ty2h (Type 1) (Type 1) ===> ty2h (Type 1) (Type 1) = ty4 (Type 1) (PUnit.{3})
+
+/-! A level parameter under `max` cannot be recovered from the lhs. -/
+axiom ty5 : Sort v → Nat
+
+/-- error: blaster: universe level parameter `u` cannot be recovered from the lhs -/
+#guard_msgs in
+@[blaster]
+axiom ty5_max : ty5 (Sort (max u v)) = ty2h (Sort u) (Sort v)
+
+/-! `max` in the rhs, with the parameters recovered from the arguments: the built level is normalized. -/
+axiom ty6 : Sort v → Sort w → Nat
+
+@[blaster]
+axiom ty6_max : ty6 (Type u) (Type v) = ty5 (Sort (max u v))
+
+#testOptimize [ "ExtMultiMax_1" ] ty6 (Type 1) (Type 2) = ty5 (Type 1) ===> True
+#testOptimize [ "ExtMultiMax_2" ] ty6 (Type 2) (Type 1) = ty5 (Type 1) ===> True
+#testOptimize [ "ExtMultiMax_3" ] ty6 (Type 2) (Type 2) = ty5 (Type 1) ===> True
+#testOptimize [ "ExtMultiMax_4" ] ty6 (Type 2) (Type 1) = ty5 (Type 2) ===> ty5 (Type 1) = ty5 (Type 2)
+
+/-! Universe polymorphic goals with `max` levels. The levels built for the rhs are normalized
+    (`Level.normalize`), and the levels of the goal are normalized by the optimizer (`normLevel`, which
+    orders the operands of `max` with `Level.normLt` as `Level.normalize` does): the order of the operands
+    of `max` as elaborated by Lean (`some.{max v u}` for `{α : Type u} {β : Type v}`) or as written in the
+    goal (`Sort (max v u)`, `Sort (max u 1)`) does not matter, both sides are hash-consed to the same term. -/
+
+-- the goal is elaborated with `some.{max v u}`, the rule builds `some.{max u v}`
+#testOptimize [ "ExtMultiMaxPoly_1" ] ∀ {α : Type u} {β : Type v} (a : α) (b : β), box3 a b = some (a, b) ===> True
+-- the goal is elaborated with `some.{max u v}`
+#testOptimize [ "ExtMultiMaxPoly_2" ] ∀ {α : Type v} {β : Type u} (a : α) (b : β), box3 a b = some (a, b) ===> True
+#testOptimize [ "ExtMultiMaxPoly_3" ] ∀ {α : Type u} {β : Type u} (a : α) (b : β), box3 a b = some (a, b) ===> True
+#testOptimize [ "ExtMultiMaxPoly_4" ] ∀ {α : Type u} (a : α) (b : Nat), box3 a b = some (a, b) ===> True
+#testOptimize [ "ExtMultiMaxPoly_5" ] ∀ {α : Type u} (a : Nat) (b : α), box3 a b = some (a, b) ===> True
+#testOptimize [ "ExtMultiMaxPoly_6" ] ∀ {α : Type u} (a : α) (b : Type u), box3 a b = some (a, b) ===> True
+
+#testOptimize [ "ExtMultiMaxPoly_7" ] ty6 (Type u) (Type v) = ty5 (Sort (max u v)) ===> True
+-- `Sort (max v u)` is written in the goal, the rule builds `Sort (max u v)`
+#testOptimize [ "ExtMultiMaxPoly_8" ] ty6 (Type v) (Type u) = ty5 (Sort (max v u)) ===> True
+-- `Sort (max u 1)` is written in the goal, the rule builds `Sort (max 1 u)`
+#testOptimize [ "ExtMultiMaxPoly_9" ] ty6 (Type u) (Type 1) = ty5 (Sort (max u 1)) ===> True
+#testOptimize [ "ExtMultiMaxPoly_10" ] ty6 (Type u) (Type u) = ty5 (Sort u) ===> True
+#testOptimize [ "ExtMultiMaxPoly_11" ] ty6 (Type u) (Type u) = ty5 (Sort (max u u)) ===> True
+#testOptimize [ "ExtMultiMaxPoly_12" ] ty6 (Type u) (Type 0) = ty5 (Sort u) ===> True
+#testOptimize [ "ExtMultiMaxPoly_13" ] ty6 (Type (u + 1)) (Type u) = ty5 (Sort (u + 1)) ===> True
 
 end Test.Extension
