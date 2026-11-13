@@ -59,11 +59,10 @@ def getValue (xs : Array Nat) (i : USize) (h : i.toNat < xs.size) (y : Nat) : Na
 
 -- ∀ (c : Prop) (x y : Nat), [Decidable c] → x > y → (if c ∨ ¬ c then Nat.add x else Nat.sub x) y > 0 ===>
 -- ∀ (x y : Nat), y < x → 0 < Nat.add x y
--- NOTE: Test case to validate that the extra arguments are considered properly when
--- condition is reduced to True/False.
+-- NOTE: Test case to validate that the extra arguments are considered properly when condition is reduced to True/False.
+-- NOTE: Test cases reduced to true due to relational simplification and hypothesis fact 0 < x deduced from y < x
 #testOptimize [ "NormChoiceAppIte_5" ] (norm-result: 1)
-  ∀ (c : Prop) (x y : Nat), [Decidable c] → x > y → (if c ∨ ¬ c then Nat.add x else Nat.sub x) y > 0 ===>
-  ∀ (x y : Nat), y < x → 0 < Nat.add x y
+  ∀ (c : Prop) (x y : Nat), [Decidable c] → x > y → (if c ∨ ¬ c then Nat.add x else Nat.sub x) y > 0 ===> True
 
 -- ∀ (c : Prop) (x y : Nat), [Decidable c] → x > y → (if c ∧ ¬ c then Nat.add x else Nat.sub x) y > 0 ===>
 -- ∀ (x y : Nat), y < x → 0 < Nat.sub x y
@@ -324,24 +323,26 @@ def listToNatTwo (x : List α) : Nat → Nat → Nat → Nat :=
 
 -- ∀ (α : Type) (xs : List α) (x y : Nat) (f : Nat → Nat), listToNatTwo xs x y = f ===>
 -- ∀ (α : Type) (xs : List α) (x y : Nat) (f : Nat → Nat),
---   f = listToNatOne.match_1 (fun ( _ : List α) => Nat → Nat) xs
---       (fun (_ : Unit) => λ _ => 0)
---       (fun (_ : α) => λ z => Nat.sub (Nat.add z (Nat.mul 2 x)) y)
---       (fun (_ : α) (_ : α) => λ z => Nat.mul y (Nat.add z (Nat.mul 3 x)))
---       (fun (_ : α) (_ : α) (_ : α) => λ z => Nat.mul z (Nat.mul y (Nat.mul 4 x)))
---       (fun (_ : List α) => λ z => Nat.mul z (Nat.mul y (Nat.mul x x)))
+-- f = fun a =>
+--       listToNatOne.match_1 (fun ( _ : List α) => Nat) xs
+--       (fun (_ : Unit) => 0)
+--       (fun (_ : α) => Nat.sub (Nat.add a (Nat.mul 2 x)) y)
+--       (fun (_ : α) (_ : α) => Nat.mul y (Nat.add a (Nat.mul 3 x)))
+--       (fun (_ : α) (_ : α) (_ : α) => Nat.mul a (Nat.mul y (Nat.mul 4 x)))
+--       (fun (_ : List α) => Nat.mul a (Nat.mul y (Nat.mul x x)))
 -- NOTE: listToNatTwo.match_1 is equivalent to listToNatOne.match_1 and therefore
 -- has been replaced by Lean at compilation time
 -- NOTE: Test case to validate partially applied function
 #testOptimize [ "NormChoiceAppMatch_4" ] (norm-result: 1)
   ∀ (α : Type) (xs : List α) (x y : Nat) (f : Nat → Nat), listToNatTwo xs x y = f ===>
   ∀ (α : Type) (xs : List α) (x y : Nat) (f : Nat → Nat),
-    f = listToNatOne.match_1 (fun ( _ : List α) => Nat → Nat) xs
-        (fun (_ : Unit) => λ _ => 0)
-        (fun (_ : α) => λ z => Nat.sub (Nat.add z (Nat.mul 2 x)) y)
-        (fun (_ : α) (_ : α) => λ z => Nat.mul y (Nat.add z (Nat.mul 3 x)))
-        (fun (_ : α) (_ : α) (_ : α) => λ z => Nat.mul z (Nat.mul y (Nat.mul 4 x)))
-        (fun (_ : List α) => λ z => Nat.mul z (Nat.mul y (Nat.mul x x)))
+    f = fun a =>
+          listToNatOne.match_1 (fun ( _ : List α) => Nat) xs
+          (fun (_ : Unit) => 0)
+          (fun (_ : α) => Nat.sub (Nat.add a (Nat.mul 2 x)) y)
+          (fun (_ : α) (_ : α) => Nat.mul y (Nat.add a (Nat.mul 3 x)))
+          (fun (_ : α) (_ : α) (_ : α) => Nat.mul a (Nat.mul y (Nat.mul 4 x)))
+          (fun (_ : List α) => Nat.mul a (Nat.mul y (Nat.mul x x)))
 
 
 def listMap (x : List α) (a : β) (b : β) : Nat → Nat → β :=
@@ -430,5 +431,77 @@ def fnOutF (n : Nat) (v : FnIdx n) : Nat → FnIdx n :=
     w = match k, w with
         | .(0), .z => FnIdx.z
         | .(1), .s => FnIdx.s
+
+/-! ## Universe level of the applied `Blaster.dite'`
+
+When a `dite'` of functions is applied to arguments, the sort of the resulting `dite'` is the
+return type of the functions, whose level may differ from the level of the function type: for
+`f g : Type → Nat` the original `dite'` is over `Type → Nat` (level `2`) and the applied one is
+over `Nat` (level `1`); for `Type 1 → Type` the levels are `3` and `2`. The constant must be
+rebuilt with the level of the new sort, otherwise the result is ill-typed. -/
+
+-- ∀ (c : Bool) (f g : Type → Nat) (x : Type), (if c then f else g) x = f x ===>
+-- ∀ (c : Bool) (f g : Type → Nat) (x : Type), f x = Blaster.dite'.{1} (true = c) (fun _ => f x) (fun _ => g x)
+#testOptimize [ "NormChoiceAppLevel_1" ]
+  ∀ (c : Bool) (f g : Type → Nat) (x : Type), (if c then f else g) x = f x ===>
+  ∀ (c : Bool) (f g : Type → Nat) (x : Type), f x = Blaster.dite' (true = c) (fun _ => f x) (fun _ => g x)
+
+-- ∀ (c : Prop) [Decidable c] (f g : Type → Nat) (x : Type), (if c then f else g) x = f x ===>
+-- ∀ (c : Prop) (f g : Type → Nat) (x : Type), f x = Blaster.dite'.{1} c (fun _ => f x) (fun _ => g x)
+#testOptimize [ "NormChoiceAppLevel_2" ]
+  ∀ (c : Prop) [Decidable c] (f g : Type → Nat) (x : Type), (if c then f else g) x = f x ===>
+  ∀ (c : Prop) (f g : Type → Nat) (x : Type), f x = Blaster.dite' c (fun _ => f x) (fun _ => g x)
+
+-- ∀ (c : Bool) (f g : Type 1 → Type) (x : Type 1), (if c then f else g) x = f x ===>
+-- ∀ (c : Bool) (f g : Type 1 → Type) (x : Type 1), f x = Blaster.dite'.{2} (true = c) (fun _ => f x) (fun _ => g x)
+#testOptimize [ "NormChoiceAppLevel_3" ]
+  ∀ (c : Bool) (f g : Type 1 → Type) (x : Type 1), (if c then f else g) x = f x ===>
+  ∀ (c : Bool) (f g : Type 1 → Type) (x : Type 1), f x = Blaster.dite' (true = c) (fun _ => f x) (fun _ => g x)
+
+-- ∀ (c : Bool) (f g : Type → Type → Nat) (x y : Type), (if c then f else g) x y = f x y ===>
+-- ∀ (c : Bool) (f g : Type → Type → Nat) (x y : Type), f x y = Blaster.dite'.{1} (true = c) (fun _ => f x y) (fun _ => g x y)
+#testOptimize [ "NormChoiceAppLevel_4" ]
+  ∀ (c : Bool) (f g : Type → Type → Nat) (x y : Type), (if c then f else g) x y = f x y ===>
+  ∀ (c : Bool) (f g : Type → Type → Nat) (x y : Type), f x y = Blaster.dite' (true = c) (fun _ => f x y) (fun _ => g x y)
+
+-- ∀ (c : Bool) (f g : Type → Type → Nat) (x y : Type), (if c then f x else g x) y = f x y ===>
+-- ∀ (c : Bool) (f g : Type → Type → Nat) (x y : Type), f x y = Blaster.dite'.{1} (true = c) (fun _ => f x y) (fun _ => g x y)
+#testOptimize [ "NormChoiceAppLevel_5" ]
+  ∀ (c : Bool) (f g : Type → Type → Nat) (x y : Type), (if c then f x else g x) y = f x y ===>
+  ∀ (c : Bool) (f g : Type → Type → Nat) (x y : Type), f x y = Blaster.dite' (true = c) (fun _ => f x y) (fun _ => g x y)
+
+-- ∀ (c : Bool) (f : c → Type → Nat) (g : Type → Nat) (x : Type), (if hc : c then f hc else g) x = g x ===>
+-- ∀ (c : Bool) (f : true = c → Type → Nat) (g : Type → Nat) (x : Type),
+--   g x = Blaster.dite'.{1} (true = c) (fun hc => f hc x) (fun _ => g x)
+#testOptimize [ "NormChoiceAppLevel_6" ]
+  ∀ (c : Bool) (f : c → Type → Nat) (g : Type → Nat) (x : Type), (if hc : c then f hc else g) x = g x ===>
+  ∀ (c : Bool) (f : true = c → Type → Nat) (g : Type → Nat) (x : Type),
+    g x = Blaster.dite' (true = c) (fun hc => f hc x) (fun _ => g x)
+
+-- ∀ (c : Prop) [Decidable c] (f : c → Type → Nat) (g : Type → Nat) (x : Type), (if hc : c then f hc else g) x = g x ===>
+-- ∀ (c : Prop) (f : c → Type → Nat) (g : Type → Nat) (x : Type), g x = Blaster.dite'.{1} c (fun hc => f hc x) (fun _ => g x)
+#testOptimize [ "NormChoiceAppLevel_7" ]
+  ∀ (c : Prop) [Decidable c] (f : c → Type → Nat) (g : Type → Nat) (x : Type), (if hc : c then f hc else g) x = g x ===>
+  ∀ (c : Prop) (f : c → Type → Nat) (g : Type → Nat) (x : Type), g x = Blaster.dite' c (fun hc => f hc x) (fun _ => g x)
+
+-- the match is first normalized to a `dite'` over `Type → Nat` (level 2), then applied (level 1):
+-- ∀ (c : Bool) (f g : Type → Nat) (x : Type), (match c with | true => f | false => g) x = f x ===>
+-- ∀ (c : Bool) (f g : Type → Nat) (x : Type), f x = Blaster.dite'.{1} (true = c) (fun _ => f x) (fun _ => g x)
+#testOptimize [ "NormChoiceAppLevel_8" ]
+  ∀ (c : Bool) (f g : Type → Nat) (x : Type), (match c with | true => f | false => g) x = f x ===>
+  ∀ (c : Bool) (f g : Type → Nat) (x : Type), f x = Blaster.dite' (true = c) (fun _ => f x) (fun _ => g x)
+
+-- same level before and after application (2 and 2):
+-- ∀ (c : Bool) (f g : Type → Type) (x : Type), (if c then f else g) x = f x ===>
+-- ∀ (c : Bool) (f g : Type → Type) (x : Type), f x = Blaster.dite'.{2} (true = c) (fun _ => f x) (fun _ => g x)
+#testOptimize [ "NormChoiceAppLevel_9" ]
+  ∀ (c : Bool) (f g : Type → Type) (x : Type), (if c then f else g) x = f x ===>
+  ∀ (c : Bool) (f g : Type → Type) (x : Type), f x = Blaster.dite' (true = c) (fun _ => f x) (fun _ => g x)
+
+-- level 1 control: ∀ (c : Bool) (f g : Nat → Nat) (x : Nat), (if c then f else g) x = f x ===>
+-- ∀ (c : Bool) (f g : Nat → Nat) (x : Nat), f x = Blaster.dite'.{1} (true = c) (fun _ => f x) (fun _ => g x)
+#testOptimize [ "NormChoiceAppLevel_10" ]
+  ∀ (c : Bool) (f g : Nat → Nat) (x : Nat), (if c then f else g) x = f x ===>
+  ∀ (c : Bool) (f g : Nat → Nat) (x : Nat), f x = Blaster.dite' (true = c) (fun _ => f x) (fun _ => g x)
 
 end Test.NormChoiceApp

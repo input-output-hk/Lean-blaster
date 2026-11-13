@@ -37,6 +37,19 @@ def notLTNumNorm? (ne : Expr) (restart := true) : TranslateEnvT (Option Expr) :=
     mkNatEqExpr e1 e2
   else return none
 
+/-- Given `ne` the operand for `Not`, apply the following normalization rule:
+    - When `ne := 0 = e` ∧ Type(a) = Nat:
+       - return `some (0 < e)`
+    - Otherwise:
+       - return `none`
+-/
+def notEqNumNorm? (ne : Expr) (restart := true) : TranslateEnvT (Option Expr) := do
+  let some (_t, e1, e2) := eq? ne | return none
+  if isZeroNat e1 then
+    if restart then setRestart
+    mkNatLtExpr e1 e2
+  else return none
+
 
 /-- Apply the following simplification/normalization rules on `Not` :
      - ¬ False ==> True
@@ -45,6 +58,7 @@ def notLTNumNorm? (ne : Expr) (restart := true) : TranslateEnvT (Option Expr) :=
      - ¬ (false = e) ==> true = e
      - ¬ (true = e) ==> false = e
      - ¬ (0 < e) ==> (0 = e) (if Type(e) = Nat)
+     - ¬ (0 = e) ==> (0 < e) (if Type(e) = Nat)
    Assume that f = Expr.const ``Not.
    An error is triggered if args.size ≠ 1 (i.e., only fully applied `Not` expected at this stage)
    TODO: consider additional simplification rules
@@ -57,6 +71,7 @@ def optimizeNot (f : Expr) (args : Array Expr) (restart := true) : TranslateEnvT
  if let some op := propNot? e then return op
  if let some (r, _) ← notEqSimp? e then return r
  if let some r ← notLTNumNorm? e restart then return r
+ if let some r ← notEqNumNorm? e restart then return r
  mkAppExpr f e
 
 

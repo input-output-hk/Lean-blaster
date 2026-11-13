@@ -40,4 +40,5 @@ import Tests.FixedIssues.Issue262
 import Tests.FixedIssues.Issue287
 import Tests.FixedIssues.Issue331
 import Tests.FixedIssues.Issue348
+import Tests.FixedIssues.Issue413
 import Tests.FixedIssues.Issue470

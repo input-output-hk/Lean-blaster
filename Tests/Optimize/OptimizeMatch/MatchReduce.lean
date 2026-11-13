@@ -802,10 +802,10 @@ def getOrIdx (l : List Nat) (i : Nat) : Nat := if h : i < l.length then l[i] els
     (fun _ => Blaster.dite' (w < Int.ofNat 3) (fun _ => 0) fun _ => Nat.mul 3 (Nat.sub (Int.toNat w) 3))
     fun _ => Nat.add 2 (Nat.sub (Int.toNat (Int.neg w)) 1)
 
--- mixedLit n (-7) ===> Blaster.dite' (0 = n) (fun _ => 0) fun _ => Nat.add 6 (Nat.sub n 1)
+-- mixedLit n (-7) ===> Blaster.dite' (0 < n) (fun _ => Nat.add 6 (Nat.sub n 1)) (fun _ => 0)
 -- NOTE: `-7 = Int.negSucc 6` unifies with `.negSucc m` (`m := 6`) and refutes `.negSucc 0` and `.ofNat _`
 #testOptimize [ "MatchReduceUnchanged_23" ] (norm-result: 1)
-  mixedLit n (-7) ===> Blaster.dite' (0 = n) (fun _ => 0) fun _ => Nat.add 6 (Nat.sub n 1)
+  mixedLit n (-7) ===> Blaster.dite' (0 < n) (fun _ => Nat.add 6 (Nat.sub n 1)) (fun _ => 0)
 
 -- mixedLit n 10 ===> Blaster.dite' (2 = n) (fun _ => 10) fun _ => Nat.mul 7 n
 -- NOTE: `10` unifies with `.ofNat m` (`m := 10`) and `.ofNat (m + 3)` (`m := 7`)
@@ -1027,10 +1027,10 @@ def namedNested (x : Nat) (y : Option Nat) : Nat :=
 #testOptimize [ "MatchReduceUnchanged_31" ] (norm-result: 1)
   mixedLit 0 (-(Int.ofNat (m + 1))) ===> Blaster.dite' (0 = m) (fun _ => 1) fun _ => 0
 
--- natOff (m + 1) ===> Blaster.dite' (0 = m) (fun _ => 7) fun _ => Nat.sub (Nat.add 1 m) 2
+-- natOff (m + 1) ===> Blaster.dite' (0 < m) (fun _ => Nat.sub (Nat.add 1 m) 2) (fun _ => 7)
 -- NOTE: `k + 2` vs `1 + m` leaves `k + 1` vs `m` (potential match, `k := (1 + m) - 2`), `0` is refuted
 #testOptimize [ "MatchReduceUnchanged_32" ] (norm-result: 1)
-  natOff (m + 1) ===> Blaster.dite' (0 = m) (fun _ => 7) fun _ => Nat.sub (Nat.add 1 m) 2
+  natOff (m + 1) ===> Blaster.dite' (0 < m) (fun _ => Nat.sub (Nat.add 1 m) 2) (fun _ => 7)
 
 
 --   strLitRed (some (String.mk ('c' :: cs))) = 3 ===>

@@ -47,13 +47,40 @@ protected theorem nat_not_lt_left_of_eq {a b : Nat} (h : a = b) : ¬ a < b := by
 protected theorem nat_not_eq_of_lt_left {a b : Nat} (h : a < b) : ¬ a = b := by
   unfold Not; intro h1; have h2 := Blaster.nat_not_lt_left_of_eq h1; contradiction
 
+protected theorem nat_not_eq_of_lt_left_sym {a b : Nat} (h : a < b) : ¬ b = a := by
+  unfold Not; intro h1; have h2 := Blaster.nat_not_lt_right_of_eq h1; contradiction
+
 protected theorem nat_not_eq_of_lt_right {a b : Nat} (h : b < a) : ¬ a = b := by
   unfold Not; intro h1; have h2 := Blaster.nat_not_lt_right_of_eq h1; contradiction
 
 protected theorem nat_not_zero_eq_of_zero_lt {a : Nat} (h : 0 < a) : ¬ 0 = a := by
   unfold Not; intro h1; rw [h1] at h; simp at *
 
-protected theorem nat_zero_lt_of_not_zero_eq {a : Nat} (h : ¬ 0 = a) : 0 < a := by grind
+protected theorem nat_zero_lt_of_not_zero_eq {a : Nat} (h : ¬ 0 = a) : 0 < a := by
+  exact Nat.pos_of_ne_zero (fun ha => h ha.symm)
+
+protected theorem nat_not_zero_eq_of_eq_neq {a b : Nat} (h1 : a = b) (h2 : ¬ (0 = a)) : ¬ 0 = b := by
+  unfold Not; intro h3; rw [← h3] at h1; rw [eq_comm] at h1; contradiction
+
+protected theorem nat_zero_lt_of_eq_neq {a b : Nat} (h1 : a = b) (h2 : ¬ (0 = a)) : 0 < b := by
+  rw [h1] at h2; apply Blaster.nat_zero_lt_of_not_zero_eq h2
+
+protected theorem nat_not_zero_eq_of_lt {a b : Nat} (h : a < b) : ¬ 0 = b := by
+  unfold Not; intro h2; rw [← h2] at h; contradiction
+
+protected theorem nat_zero_lt_of_lt {a b : Nat} (h : a < b) : 0 < b := by
+  have h2 := Blaster.nat_not_zero_eq_of_lt h
+  apply Blaster.nat_zero_lt_of_not_zero_eq h2
+
+protected theorem nat_zero_eq_of_not_zero_lt {a : Nat} (h : ¬ 0 < a) : 0 = a := by
+  cases a with
+  | zero => rfl
+  | succ n => exact absurd (Nat.succ_pos n) h
+
+protected theorem nat_zero_lt_of_not_lt_neq {a b : Nat} (h1 : ¬ a < b) (h2 : ¬ (0 = b)) : 0 < a := by
+  have hb : 0 < b := Nat.pos_of_ne_zero (fun hb => h2 hb.symm)
+  have hba : b ≤ a := Nat.not_lt.mp h1
+  exact Nat.lt_of_lt_of_le hb hba
 
 protected theorem sub_min_nat_of_eq (N1 N2 a b : Nat) (h : N1 + a = N2 + b) :
     N1 - Nat.min N1 N2 + a = N2 - Nat.min N1 N2 + b := by
@@ -71,6 +98,9 @@ def mkNat_not_lt_left_of_eq : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.na
 /-- Return `Blaster.nat_not_eq_of_lt_left` const expression and cache result. -/
 def mkNat_not_eq_of_lt_left : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.nat_not_eq_of_lt_left)
 
+/-- Return `Blaster.nat_not_eq_of_lt_left_sym` const expression and cache result. -/
+def mkNat_not_eq_of_lt_left_sym : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.nat_not_eq_of_lt_left_sym)
+
 /-- Return `Blaster.nat_not_eq_of_lt_right` const expression and cache result.-/
 def mkNat_not_eq_of_lt_right : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.nat_not_eq_of_lt_right)
 
@@ -79,6 +109,24 @@ def mkNat_not_zero_eq_of_zero_lt : TranslateEnvT Expr := mkExpr (mkConst ``Blast
 
 /-- Return `Blaster.nat_zero_lt_of_not_zero_eq` const expression and cache result. -/
 def mkNat_zero_lt_of_not_zero_eq : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.nat_zero_lt_of_not_zero_eq)
+
+/-- Return `Blaster.nat_not_zero_eq_of_eq_neq` const expression and cache result. -/
+def mkNat_not_zero_eq_of_eq_neq : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.nat_not_zero_eq_of_eq_neq)
+
+/-- Return `Blaster.nat_zero_lt_of_eq_neq` const expression and cache result. -/
+def mkNat_zero_lt_of_eq_neq : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.nat_zero_lt_of_eq_neq)
+
+/-- Return `Blaster.nat_not_zero_eq_of_lt` const expression and cache result. -/
+def mkNat_not_zero_eq_of_lt : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.nat_not_zero_eq_of_lt)
+
+/-- Return `Blaster.nat_zero_lt_of_lt` const expression and cache result. -/
+def mkNat_zero_lt_of_lt : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.nat_zero_lt_of_lt)
+
+/-- Return `Blaster.nat_zero_eq_of_not_zero_lt` const expression and cache result. -/
+def mkNat_zero_eq_of_not_zero_lt : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.nat_zero_eq_of_not_zero_lt)
+
+/-- Return `Blaster.nat_zero_lt_of_not_lt_neq` const expression and cache result. -/
+def mkNat_zero_lt_of_not_lt_neq : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.nat_zero_lt_of_not_lt_neq)
 
 /-- Return `Blaster.sub_min_nat_of_eq` const expression and cache result. -/
 def mkNat_sub_min_nat_of_eq : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.sub_min_nat_of_eq)

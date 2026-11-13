@@ -72,7 +72,9 @@ def isUnfoldListIdx? (f lsort slist idx : Expr) : TranslateEnvT (Option Expr) :=
       let thenExpr ← mkLambdaExpr hName BinderInfo.default iteCond (← mkOptionExpr lsort u (some a))
       visit as (n + 1) fun e' => do
           let elseExpr ← mkLambdaExpr hName BinderInfo.default notCond e'
-          k (← mkApp4Expr (← mkBlasterDIteOp) (← mkOptionType lsort u) iteCond thenExpr elseExpr)
+          let diteType ← mkOptionType lsort u
+          let diteLevel ← getLevelEnv diteType
+          k (← mkApp4Expr (← mkBlasterDIteOpLevel [diteLevel]) diteType iteCond thenExpr elseExpr)
   | _ => if n == 0 then return none
          else
           setRestart

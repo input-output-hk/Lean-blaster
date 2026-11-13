@@ -77,9 +77,10 @@ partial def kIndStrategy (sm : Expr) : TranslateEnvT Unit := do
       | none => -- depth 0
            withLocalDecl' (← nameAtDepth env.smName "state") BinderInfo.default env.stateType fun s => do
              let initState ← mkApp4Expr (← mkInit) env.inputType env.stateType smInst iVar
+             let u ← getLevelEnv env.stateType
              let initEq ←
                profileTask s!"Optimizing state at Depth {← getCurrentDepth}"
-                 (Optimize.mainAux (← mkApp3Expr (← mkEqOp) env.stateType s initState) (applyHashCons := false))
+                 (Optimize.mainAux (← mkApp3Expr (← mkEqOpLevel [u]) env.stateType s initState) (applyHashCons := false))
                  (verboseLevel := 2)
              let initSt ←
                 profileTask s!"Translate initialization constraint"

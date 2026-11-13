@@ -1005,4 +1005,87 @@ namespace Test.OptimizeITE
   ∀ (a b : Bool) (s t : String), s < Blaster.dite' (a = b) (λ _ => s) (λ _ => t)
 
 
+/-! ## Universe level of `Blaster.dite'`
+
+`@ite α c inst e1 e2` is translated to `@Blaster.dite' α c (fun _ => e1) (fun _ => e2)`. The constant
+`Blaster.dite'.{u}` expects `α : Sort u`, so the universe level must be the one of the original
+`ite.{u}` (the level of `α`), not always `1`: for `α := Type` the level is `2`, for `α : Type 1` it is
+`2`, for `α := Type 1` it is `3`. Otherwise the optimized term is ill-typed (`Meta.check` fails with an
+application type mismatch on `@Blaster.dite'.{1} α`). The expected terms below are elaborated by Lean
+with the correct level.
+-/
+
+-- ∀ (c : Bool) (x y : Type), (if c then x else y) = x ===>
+-- ∀ (c : Bool) (x y : Type), x = Blaster.dite'.{2} (true = c) (fun _ => x) (fun _ => y)
+#testOptimize [ "IteLevel_1" ]
+  ∀ (c : Bool) (x y : Type), (if c then x else y) = x ===>
+  ∀ (c : Bool) (x y : Type), x = Blaster.dite' (true = c) (fun _ => x) (fun _ => y)
+
+-- ∀ (c : Bool) (α : Type 1) (x y : α) (f : α → Nat), f (if c then x else y) = 0 ===>
+-- ∀ (c : Bool) (α : Type 1) (x y : α) (f : α → Nat), 0 = f (Blaster.dite'.{2} (true = c) (fun _ => x) (fun _ => y))
+#testOptimize [ "IteLevel_2" ] (norm-result: 1)
+  ∀ (c : Bool) (α : Type 1) (x y : α) (f : α → Nat), f (if c then x else y) = 0 ===>
+  ∀ (c : Bool) (α : Type 1) (x y : α) (f : α → Nat), 0 = f (Blaster.dite' (true = c) (fun _ => x) (fun _ => y))
+
+-- ∀ (c : Bool) (x y : Type 1), (if c then x else y) = x ===>
+-- ∀ (c : Bool) (x y : Type 1), x = Blaster.dite'.{3} (true = c) (fun _ => x) (fun _ => y)
+#testOptimize [ "IteLevel_3" ]
+  ∀ (c : Bool) (x y : Type 1), (if c then x else y) = x ===>
+  ∀ (c : Bool) (x y : Type 1), x = Blaster.dite' (true = c) (fun _ => x) (fun _ => y)
+
+-- ∀ (c : Prop) [Decidable c] (x y : Type), (if c then x else y) = x ===>
+-- ∀ (c : Prop) (x y : Type), x = Blaster.dite'.{2} c (fun _ => x) (fun _ => y)
+#testOptimize [ "IteLevel_4" ]
+  ∀ (c : Prop) [Decidable c] (x y : Type), (if c then x else y) = x ===>
+  ∀ (c : Prop) (x y : Type), x = Blaster.dite' c (fun _ => x) (fun _ => y)
+
+-- ∀ (c : Bool) (x y : Nat → Type), (if c then x else y) 0 = x 0 ===>
+-- ∀ (c : Bool) (x y : Nat → Type), x 0 = Blaster.dite'.{2} (true = c) (fun _ => x 0) (fun _ => y 0)
+#testOptimize [ "IteLevel_5" ] (norm-result: 1)
+  ∀ (c : Bool) (x y : Nat → Type), (if c then x else y) 0 = x 0 ===>
+  ∀ (c : Bool) (x y : Nat → Type), x 0 = Blaster.dite' (true = c) (fun _ => x 0) (fun _ => y 0)
+
+-- ∀ (c : Bool) (x y : Type → Type), (if c then x else y) Nat = x Nat ===>
+-- ∀ (c : Bool) (x y : Type → Type), x Nat = Blaster.dite'.{2} (true = c) (fun _ => x Nat) (fun _ => y Nat)
+#testOptimize [ "IteLevel_6" ]
+  ∀ (c : Bool) (x y : Type → Type), (if c then x else y) Nat = x Nat ===>
+  ∀ (c : Bool) (x y : Type → Type), x Nat = Blaster.dite' (true = c) (fun _ => x Nat) (fun _ => y Nat)
+
+-- ∀ (c d : Bool) (x y z : Type), (if c then (if d then x else y) else z) = x ===>
+-- ∀ (c d : Bool) (x y z : Type),
+--   x = Blaster.dite'.{2} (true = c) (fun _ => Blaster.dite'.{2} (true = d) (fun _ => x) (fun _ => y)) (fun _ => z)
+#testOptimize [ "IteLevel_7" ]
+  ∀ (c d : Bool) (x y z : Type), (if c then (if d then x else y) else z) = x ===>
+  ∀ (c d : Bool) (x y z : Type),
+    x = Blaster.dite' (true = c) (fun _ => Blaster.dite' (true = d) (fun _ => x) (fun _ => y)) (fun _ => z)
+
+-- ∀ (c : Bool) (x y : Type) (f : Type → Nat), f (if c then x else y) = 0 ===>
+-- ∀ (c : Bool) (x y : Type) (f : Type → Nat), 0 = f (Blaster.dite'.{2} (true = c) (fun _ => x) (fun _ => y))
+#testOptimize [ "IteLevel_8" ] (norm-result: 1)
+  ∀ (c : Bool) (x y : Type) (f : Type → Nat), f (if c then x else y) = 0 ===>
+  ∀ (c : Bool) (x y : Type) (f : Type → Nat), 0 = f (Blaster.dite' (true = c) (fun _ => x) (fun _ => y))
+
+-- ∀ (c : Bool) (x y : Type) (f : Option Type → Nat), f (some (if c then x else y)) = 0 ===>
+-- ∀ (c : Bool) (x y : Type) (f : Option Type → Nat), 0 = f (some (Blaster.dite'.{2} (true = c) (fun _ => x) (fun _ => y)))
+#testOptimize [ "IteLevel_9" ] (norm-result: 1)
+  ∀ (c : Bool) (x y : Type) (f : Option Type → Nat), f (some (if c then x else y)) = 0 ===>
+  ∀ (c : Bool) (x y : Type) (f : Option Type → Nat), 0 = f (some (Blaster.dite' (true = c) (fun _ => x) (fun _ => y)))
+
+-- level 1 (α := Prop): ∀ (c : Bool) (p q : Prop), (if c then p else q) = p ===>
+-- ∀ (c : Bool) (p q : Prop), p = Blaster.dite'.{1} (true = c) (fun _ => p) (fun _ => q)
+#testOptimize [ "IteLevel_10" ]
+  ∀ (c : Bool) (p q : Prop), (if c then p else q) = p ===>
+  ∀ (c : Bool) (p q : Prop), p = Blaster.dite' (true = c) (fun _ => p) (fun _ => q)
+
+-- level 0 (α : Prop): the `ite` on proofs is eliminated by proof irrelevance
+-- ∀ (c : Bool) (p : Prop) (h1 h2 : p) (f : p → Nat), f (if c then h1 else h2) = 0 ===>
+-- ∀ (p : Prop) (h2 : p) (f : p → Nat), 0 = f h2
+#testOptimize [ "IteLevel_11" ] (norm-result: 1)
+  ∀ (c : Bool) (p : Prop) (h1 h2 : p) (f : p → Nat), f (if c then h1 else h2) = 0 ===>
+  ∀ (p : Prop) (h2 : p) (f : p → Nat), 0 = f h2
+
+-- absorption does not depend on the level: ∀ (c : Bool) (x y : Type), (if c then x else x) = y ===> ∀ (x y : Type), x = y
+#testOptimize [ "IteLevel_12" ]
+  ∀ (c : Bool) (x y : Type), (if c then x else x) = y ===> ∀ (x y : Type), x = y
+
 end Test.OptimizeITE

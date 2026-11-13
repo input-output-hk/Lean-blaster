@@ -374,4 +374,63 @@ namespace Test.SmtEqArith
   | _   , _     => p
 ]
 
+
+/-! Non-zero operands derived indirectly from other hypotheses (e.g. `10 < x`, `x < -100`, `5 = x`). -/
+
+#blaster (only-optimize: 1) [∀ (x y : Nat), 10 < x → 5 < y → ¬ ((x * y) + 35 = 35)]
+#blaster (only-optimize: 1) [∀ (x y : Nat), y < x → 0 ≠ y → ¬ ((x * y) + 35 = 35)]
+#blaster (only-optimize: 1) [∀ (x y : Nat), 3 = x → 7 = y → ¬ ((x * y) + 35 = 35)]
+#blaster (only-optimize: 1) [∀ (x y : Nat), 10 < y → ¬ (x + y = x)]
+#blaster (only-optimize: 1) [∀ (x y : Nat), x < y → ¬ (x + y = x)]
+#blaster (only-optimize: 1) [∀ (x y : Nat), 7 = y → ¬ (x + y = x)]
+#blaster (only-optimize: 1) [∀ (x y : Nat), y = 7 → ¬ (x = x + y)]
+#blaster (only-optimize: 1) [∀ (y x : Nat), 10 < y → ¬ (y + x = x)]
+#blaster (only-optimize: 1) [∀ (x y : Nat), 10 < x → 0 ≠ x + y]
+#blaster (only-optimize: 1) [∀ (x y : Nat), y < x → 0 ≠ x + y]
+#blaster (only-optimize: 1) [∀ (x y z : Nat), z < x → x + y ≠ 0]
+#blaster (only-optimize: 1) [∀ (x y : Nat), 3 = x → 0 ≠ x + y]
+#blaster (only-optimize: 1) [∀ (x y : Nat), 10 < y → x + y ≠ 0]
+#blaster (only-optimize: 1) [∀ (x y : Nat) (p : Prop), p → if 10 < x then 0 ≠ x + y else p]
+#blaster (only-optimize: 1) [∀ (x y : Nat) (p : Prop), p → if y < x then 0 ≠ x + y else p]
+#blaster (only-optimize: 1) [∀ (x y : Nat) (p : Prop), p →
+  match decide (10 < y) with
+  | true  => x + y ≠ 0
+  | false => p
+]
+
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : Nat), x < 10 → 0 ≠ x + y]
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (x y z : Nat), 10 < z → 0 ≠ x + y]
+
+#blaster (only-optimize: 1) [∀ (x : Int), 10 < x → ¬ (x + 100 = 100)]
+#blaster (only-optimize: 1) [∀ (x : Int), x < -100 → ¬ (x + 100 = 100)]
+#blaster (only-optimize: 1) [∀ (x : Int), 5 = x → ¬ (x + 100 = 100)]
+#blaster (only-optimize: 1) [∀ (x : Int), -5 = x → ¬ (x + 100 = 100)]
+#blaster (only-optimize: 1) [∀ (x : Int), x = 5 → ¬ (x + 100 = 100)]
+#blaster (only-optimize: 1) [∀ (x : Int), x = -5 → ¬ (x + 100 = 100)]
+#blaster (only-optimize: 1) [∀ (x y : Int), 10 < y → ¬ (x + y = x)]
+#blaster (only-optimize: 1) [∀ (x y : Int), y < -100 → ¬ (x + y = x)]
+#blaster (only-optimize: 1) [∀ (x y : Int), y = -3 → ¬ (x = x + y)]
+#blaster (only-optimize: 1) [∀ (y x : Int), 3 = y → ¬ (y + x = x)]
+
+#blaster (only-optimize: 1) [∀ (x y : Int), 10 < x → y < -100 → 0 ≠ x * y]
+#blaster (only-optimize: 1) [∀ (x y : Int), x < -100 → 10 < y → 0 ≠ x * y]
+#blaster (only-optimize: 1) [∀ (x y : Int), 3 = x → y < -1 → 0 ≠ x * y]
+#blaster (only-optimize: 1) [∀ (x y : Int), x < -100 → 0 ≠ y → 0 ≠ x * y]
+#blaster (only-optimize: 1) [∀ (x y : Int), -3 = x → 0 ≠ y → 0 ≠ x * y]
+#blaster (only-optimize: 1) [∀ (x y : Int) (p : Prop), p → if 10 < x ∧ y < -100 then 0 ≠ x * y else p]
+#blaster (only-optimize: 1) [∀ (x y : Int) (p : Prop), p →
+  match decide (10 < x), decide (y < -100) with
+  | true, true => 0 ≠ x * y
+  | _   , _    => p
+]
+
+#blaster (only-optimize: 1) [∀ (x y : Int), 10 < x → 20 < y → 0 ≠ x + y]
+#blaster (only-optimize: 1) [∀ (x y : Int), x < -100 → y < -5 → 0 ≠ x + y]
+#blaster (only-optimize: 1) [∀ (x y : Int), 10 < x → 0 ≤ y → 0 < x + y]
+#blaster (only-optimize: 1) [∀ (x : Int), x < -100 → ¬ 0 ≤ x]
+
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (x : Int), -10 < x → ¬ (x + 100 = 100)]
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (x : Int), x < 100 → ¬ (x + 100 = 100)]
+#blaster (gen-cex: 0) (solve-result: 1) [∀ (x y : Int), 10 < x → y < -100 → 0 ≠ x + y]
+
 end Test.SmtEqArith

@@ -972,18 +972,18 @@ def translateApp
   if isForbiddenConstExpr e then throwEnvError "unexpected name expression {reprStr e}"
   Expr.withApp e fun f args => do
     match f with
-    | Expr.const n _ =>
+    | Expr.const n u =>
          if let some r ← translateFullyApplied? f n args then return r
          if let some r ← translateEq? f n args then return r
-         if let some r ← translateRelational? f n args then return r
+         if let some r ← translateRelational? f u n args then return r
          if let some r ← translateDITE? f n args then return r
          if let some r ← translateOfNat? n args then return r
          if let some r ← translateDecide? n args then return r
          if let some r ← translateMatch? f args termTranslator then return r
          if let some r ← translateExists? n args then return r
-         if let some r ← translateRecFun? f n args then return r
+         if let some r ← translateRecFun? f u n args then return r
          if let some r ← translateAppliedCtor? f n args then return r
-         if let some r ← translateAxiomOrUndeclFun? f n args then return r
+         if let some r ← translateAxiomOrUndeclFun? f u n args then return r
          if let some r ← translateTheorem n args then return r
          if let some r ← translateInductivePredicate? f n args then return r
          if let some r ← translateIndTypeExpr? e termTranslator then return r
@@ -1051,12 +1051,12 @@ def translateApp
             termTranslator args[0]!
        | _ => return none
 
-    translateRelational? (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
+    translateRelational? (f : Expr) (u : List Level) (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
       match n with
        | ``BEq.beq
        | ``LE.le
        | ``LT.lt =>
-            if (← isOpaqueRelational n args) then
+            if (← isOpaqueRelational n u args) then
               if args.size == 3 then
                 throwEnvError "translateRelational?: unexpected partially applied {n} got {reprStr args}"
               if args.size == 2 then return (← termTranslator (← Optimize.etaExpand e))
@@ -1086,8 +1086,8 @@ def translateApp
           genExistsTerm args[1]! |>.run' (initialQuantifierEnv false)
       | _ => return none
 
-    translateRecFun? (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
-      if (← isOpaqueFun n args) then return none
+    translateRecFun? (f : Expr) (u : List Level) (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
+      if (← isOpaqueFun n u args) then return none
       if !(← isRecursiveFun n) then return none
       let pInfo ← getFunEnvInfo f
       if pInfo.paramsInfo.size > args.size
@@ -1117,8 +1117,8 @@ def translateApp
       | none => isAxiomOrOpaque n
       | some fbody => isUndefinedClassFunApp (← betaLambdaShared fbody args)
 
-    translateAxiomOrUndeclFun? (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
-      if (← isOpaqueFun n args) then return none
+    translateAxiomOrUndeclFun? (f : Expr) (u : List Level) (n : Name) (args : Array Expr) : TranslateEnvT (Option SmtTerm) := do
+      if (← isOpaqueFun n u args) then return none
       if !(← isOpaqueAxiomOrUndeclFun f n args) then return none
       let pInfo ← getFunEnvInfo f
       if pInfo.paramsInfo.size > args.size then

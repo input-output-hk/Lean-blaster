@@ -69,23 +69,23 @@ def opaqueFuns : HashSet Name :=
     ``String.length
   ]
 
-
-/-- list of non-opaque rec operators on which normalization rules and constant propagation are applied.
--/
+/-- list of non-opaque rec operators on which normalization rules and constant propagation are applied. -/
 def optRecFuns : HashSet Name :=
   List.foldr (fun c s => s.insert c) HashSet.emptyWithCapacity
   [ -- List operators
+    ``List.append,
     ``List.get?Internal,
     ``List.length,
     ``List.reverseAux,
     ``List.take,
-    ``List.drop
+    ``List.drop,
+    ``List.replicate
   ]
 
 /-- list of types for which:
      - LT instance is guaranteed to be irrelexive, anti-symmetric and transitive.
      - LE instance is guaranteed to be reflexive, symmetric and transitive.
-TODO: add other basic lean types (e.g., Char, etc)
+    NOTE: add other basic lean types (e.g., Char, etc)
 -/
 def relationalCompatibleTypes : HashSet Name :=
   List.foldr (fun c s => s.insert c) HashSet.emptyWithCapacity
@@ -95,11 +95,35 @@ def relationalCompatibleTypes : HashSet Name :=
     ``String
   ]
 
-/-- Return `true` is `e` corresponds to a sort in `relationalCompatibletypes`.
--/
+/-- Return `true` if `e` corresponds to a type in `relationalCompatibletypes`. -/
 def isCompatibleRelationalType (e : Expr) : Bool :=
-  match e with
+  match e.getAppFn with
   | Expr.const n _ => relationalCompatibleTypes.contains n
   | _ => false
+
+/-- List of foldable functions in normalize mode. -/
+def foldableFuns : HashSet Name :=
+  List.foldr (fun c s => s.insert c) HashSet.emptyWithCapacity
+  [ ``Ne,
+    ``OfNat.ofNat,
+    ``HAdd.hAdd,
+    ``HSub.hSub,
+    ``HMul.hMul,
+    ``HDiv.hDiv,
+    ``HMod.hMod,
+    ``HPow.hPow,
+    ``Add.add,
+    ``Mul.mul,
+    ``Pow.pow,
+    ``Sub.sub,
+    ``Div.div,
+    ``Mod.mod,
+    ``Neg.neg,
+    ``NatPow.pow,
+    ``Append.append,
+    ``Int.sub,
+    ``HAppend.hAppend,
+    ``GetElem?.getElem?
+  ]
 
 end Blaster.Optimize

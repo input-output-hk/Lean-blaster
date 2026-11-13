@@ -1,5 +1,6 @@
 import Lean
 import Blaster.Optimize.Rewriting.OptimizeApp
+import Blaster.Optimize.Env.Extension
 
 open Lean Meta Elab
 
@@ -14,30 +15,39 @@ namespace Blaster.Optimize
     - When `l := .succ l'`
         - return .succ (← normLevel l')
     - When `l := .max l1 l2`
-        - return .max (← normLevel l1) (← normLevel l2)
+        let r1 ← normLevel l1
+        let r2 ← normLevel l2
+        - When `r1 < r2`
+           - return .max r1 r2
+        - Otherwise
+           - return .max r2 r1
     - When `l := .imax l1 l2`
         - return .imax (← normLevel l1) (← normLevel l2)
     - Otherwise
         - return `l`
 -/
-partial def normLevel (l : Level) : TranslateEnvT Level := do
+partial def normLevelAux (l : Level) : TranslateEnvT Level := do
  match l with
  | .mvar m =>
       let some l := getLevelMVarAssignmentExp (← getMCtx) m
         | throwEnvError "normLevel: level assignment expected for meta variables {reprStr m}"
-      normLevel l
+      normLevelAux l
  | .succ l' =>
-      let r ← normLevel l'
+      let r ← normLevelAux l'
       if levelEq r l' then return l else return .succ r
  | .max l1 l2 =>
-      let r1 ← normLevel l1
-      let r2 ← normLevel l2
-      if levelEq r1 l1 && levelEq r2 l2 then return l else return .max r1 r2
+      let r1 ← normLevelAux l1
+      let r2 ← normLevelAux l2
+      let m := if r1.normLt r2 then Level.max r1 r2 else Level.max r2 r1
+      return m
  | .imax l1 l2 =>
-      let r1 ← normLevel l1
-      let r2 ← normLevel l2
+      let r1 ← normLevelAux l1
+      let r2 ← normLevelAux l2
       if levelEq r1 l1 && levelEq r2 l2 then return l else return .imax r1 r2
  | _ => return l -- case for .param and .zero
+
+def normLevel (l : Level) : TranslateEnvT Level :=
+  return (← normLevelAux l).normalize
 
 /-- Normalize each level in `xs`, returning `xs` itself (no reallocation)
     when no level changes — the common case when no level mvars are present. -/
@@ -112,7 +122,7 @@ def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeCo
       | _ =>
         if (← isPartialDef n) then throwEnvError "normConst: partial function not supported {n} !!!"
         if (← isUnsafeDef n) then throwEnvError "normConst: unsafe definition not supported {n} !!!"
-        if let some r ← isToNormOpaqueFun n then return r
+        if let some r ← isToNormOpaqueFun n l then return r
         let e' ← normConstLevel n l
         if (← isCtorName n) then return ← stackContinuity stack e'
         if let some r ← isHOF n e' then return r
@@ -144,7 +154,7 @@ def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeCo
          - Decidable.decide ==> λ (p : Prop) [h : Decidable p] => Blaster.decide' p
     -/
     @[always_inline, inline]
-    isToNormOpaqueFun (n : Name) : TranslateEnvT (Option OptimizeContinuity) := do
+    isToNormOpaqueFun (n : Name) (u : List Level) : TranslateEnvT (Option OptimizeContinuity) := do
      match n with
      | ``Nat.pred =>
            let body ← mkApp2Expr (← mkNatSubOp) (← mkBVarExpr 0) (← mkNatLitExpr 1)
@@ -202,13 +212,13 @@ def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeCo
             let thenExpr ← mkLambdaExpr hName BinderInfo.default xs[1]! xs[3]!
             let notCond ← mkAppExpr (← mkPropNotOp) xs[1]!
             let elseExpr ← mkLambdaExpr hName BinderInfo.default notCond xs[4]!
-            let appExpr ← mkApp4Expr (← mkBlasterDIteOp) xs[0]! xs[1]! thenExpr elseExpr
+            let appExpr ← mkApp4Expr (← mkBlasterDIteOpLevel u) xs[0]! xs[1]! thenExpr elseExpr
             let lam ← mkLambdaFVarsExpr xs appExpr
             stackContinuity stack lam
 
      | ``dite =>
          forallTelescope (← inferTypeEnv e) fun xs _ => do
-           let appExpr ← mkApp4Expr (← mkBlasterDIteOp) xs[0]! xs[1]! xs[3]! xs[4]!
+           let appExpr ← mkApp4Expr (← mkBlasterDIteOpLevel u) xs[0]! xs[1]! xs[3]! xs[4]!
            let lam ← mkLambdaFVarsExpr xs appExpr
            stackContinuity stack lam
 
@@ -222,9 +232,11 @@ def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeCo
 
     @[always_inline, inline]
     isHOF (f : Name) (e : Expr) : TranslateEnvT (Option OptimizeContinuity) := do
+      if (← isNormalizeOnly) then return none
       if (← isNotFun e) then return none
       if (← hasImplicitArgs e) then return none
       if (← isInFunApp) then
+        if (← hasRegisteredOptFns f) then return none -- optimizations registered for non recursive functions
         if (← isNotFoldable e #[]) then return none
         if let some fbody ← getFunBody e then
           -- don't catch we may not optimize lambda body when e appear as an parameter afterwards
@@ -233,6 +245,7 @@ def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeCo
       else
         if (← isRecursiveFun f) then
           return (some $ ← normRecFun e #[] e stack)
+        if (← hasRegisteredOptFns f) then return none -- optimizations registered for non recursive functions
         if (← isNotFoldable e #[]) then return none
         -- non recursive function case
         if let some fbody ← getFunBody e then

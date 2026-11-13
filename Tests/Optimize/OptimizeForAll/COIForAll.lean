@@ -200,4 +200,61 @@ inductive NoInstance where
     let cond := ((!a || ((b || c) && !(c || b))) || a); (if cond then f x else y) = z ===>
   ∀ (α : Type) (β : Type) (f : α → β) (x : α) (z : β), z = f x
 
+/-! ## Universe level of the `Inhabited` constraint
+
+`Inhabited.{u}` takes `α : Sort u`, so the constraint built by `isSortOrInhabited` to look for an instance
+must use the level of the quantified type (level `2` for a type in `Type 1`), otherwise the instance
+cannot be inferred and the COI reduction is not applied. -/
+
+/-- Structure in `Type 1` without nullary constructor, with an `Inhabited` instance. -/
+structure W1 where
+  T : Type
+
+instance : Inhabited W1 := ⟨⟨Nat⟩⟩
+
+/-- Structure in `Type 2` without nullary constructor, with an `Inhabited` instance. -/
+structure W2 where
+  T : Type 1
+
+instance : Inhabited W2 := ⟨⟨Type⟩⟩
+
+/-- Structure in `Type` without nullary constructor, with an `Inhabited` instance (level 1 control). -/
+structure W0 where
+  n : Nat
+
+instance : Inhabited W0 := ⟨⟨0⟩⟩
+
+/-- Structure in `Type 1` without nullary constructor and without `Inhabited` instance. -/
+structure N1 where
+  T : Type
+
+/-- Polymorphic inductive type in `Type 1` with an `Inhabited` instance. -/
+inductive Wrap1 (α : Type 1) where
+  | mk : α → Wrap1 α
+
+instance [Inhabited α] : Inhabited (Wrap1 α) := ⟨⟨default⟩⟩
+
+-- level 1 control: ∀ (c : Prop), (∀ (_ : W0), c) = c ===> True
+#testOptimize [ "ForallCOILevel_1" ] ∀ (c : Prop), (∀ (_ : W0), c) = c ===> True
+
+-- ∀ (c : Prop), (∀ (_ : W1), c) = c ===> True
+#testOptimize [ "ForallCOILevel_2" ] ∀ (c : Prop), (∀ (_ : W1), c) = c ===> True
+
+-- ∀ (c : Prop), (∀ (_ : W2), c) = c ===> True
+#testOptimize [ "ForallCOILevel_3" ] ∀ (c : Prop), (∀ (_ : W2), c) = c ===> True
+
+-- ∀ (c : Prop), (∀ (_ : Wrap1 Type), c) = c ===> True
+-- Test case: COI reduction applies on polymorphic inductive type in `Type 1` having an Inhabited instance.
+#testOptimize [ "ForallCOILevel_4" ] ∀ (c : Prop), (∀ (_ : Wrap1 Type), c) = c ===> True
+
+-- ∀ (c : Prop), (∀ (_ : W1), c) → c ===> True
+#testOptimize [ "ForallCOILevel_5" ] ∀ (c : Prop), (∀ (_ : W1), c) → c ===> True
+
+-- ∀ (c : Prop), (∃ (_ : W1), c) = c ===> True
+#testOptimize [ "ForallCOILevel_6" ] ∀ (c : Prop), (∃ (_ : W1), c) = c ===> True
+
+-- ∀ (c : Prop), (∀ (_ : N1), c) = c ===> ∀ (c : Prop), c = ∀ (_ : N1), c
+-- Test case: COI reduction rules not applicable when the type in `Type 1` has no Inhabited instance.
+#testOptimize [ "ForallCOIUnchangedLevel_1" ] ∀ (c : Prop), (∀ (_ : N1), c) = c ===> ∀ (c : Prop), c = ∀ (_ : N1), c
+
 end Test.COIForAll

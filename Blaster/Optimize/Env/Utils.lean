@@ -110,10 +110,59 @@ def isInOptimizeCache? (a : Expr) (isGlobal : Bool) (env : TranslateEnv) : IO Ex
  else findLocalCache a env
 
 
+@[inline]
+def getLevelEnv (t : Expr) : TranslateEnvT Level := do
+  match ← inferTypeEnv t with
+  | Expr.sort u => return u
+  | _ => throwEnvError "getLevelEnv: sort expected for {reprStr t}"
+
+/-- Return `true` only when an instance for `[Inhabited n]` can be found.
+    Assume that `n` is a name expression for an inductive datatype.
+-/
+@[always_inline, inline]
+def hasInhabitedInstance (n : Expr) : TranslateEnvT Bool := do
+  let u ← getLevelEnv n
+  let inhCstr ← mkAppExpr (← mkInhabitedConstLevel [u]) n
+  return (← trySynthConstraintInstance? inhCstr).isSome
+
+/-- Return `true` only when an instance for `[Nonempty n]` can be found.
+    Assume that `n` is a name expression for an inductive datatype.
+-/
+@[always_inline, inline]
+def hasNonemptyInstance (n : Expr) : TranslateEnvT Bool := do
+  let instCstr ← mkAppExpr (← mkNonemptyConst) n
+  return (← trySynthConstraintInstance? instCstr).isSome
+
+/-- Return `true` only when an instance for `[LawfulBEq t beqInst]` can be found. -/
+@[always_inline, inline]
+def hasLawfulBEqInstance (u : List Level) (t : Expr) (beqInst : Expr) : TranslateEnvT Bool := do
+  let lawfulCstr ← mkApp2Expr (← mkLawfulBEqConstLevel u) t beqInst
+  return (← trySynthConstraintInstance? lawfulCstr).isSome
+
 /-- Return `true` if `f` is already in the recursive function cache. -/
 @[always_inline, inline] def isVisitedRecFun (f : Expr) : TranslateEnvT Bool :=
  return (← get).optEnv.recFunCache.contains f
 
+/-- Given `f x₁ ... xₙ`, return `true` only when one of the following conditions is satisfied:
+     - `f := BEq.beq` with sort parameter that has a `LawfulBEq` instance
+     - `f := LT.lt` with sort parameter in `relationalCompatibleTypes`
+     - `f : LE.le` with sort parameter in `relationalCompatibleTypes`
+
+In fact, we can't assume that `BEq.beq`, `LT.lt` and `LE.le` will properly be defined
+for any user-defined types or parametric inductive types (e.g., List, Option, etc).
+-/
+def isOpaqueRelational (f : Name) (u : List Level) (args : Array Expr) : TranslateEnvT Bool := do
+  match f with
+  | ``BEq.beq =>
+      if args.size < 2 then throwEnvError "isOpaqueRelational: implicit arguments expected"
+      hasLawfulBEqInstance u args[0]! args[1]!
+
+  | ``LT.lt
+  | ``LE.le =>
+      if args.size < 2 then throwEnvError "isOpaqueRelational: implicit arguments expected"
+      return (isCompatibleRelationalType args[0]!)
+
+  | _ => return false
 
 /-- Return `true` if `f` corresponds to a theorem name. -/
 @[always_inline, inline]
@@ -123,13 +172,13 @@ def isTheorem (f : Name) : TranslateEnvT Bool := do
   | _ => pure false
 
 /-- Return `true` if function name `f` is tagged as an opaque definition. -/
-def isOpaqueFun (f : Name) (args: Array Expr) : TranslateEnvT Bool :=
-  return (opaqueFuns.contains f || (← isOpaqueRelational f args))
+def isOpaqueFun (f : Name) (u : List Level) (args: Array Expr) : TranslateEnvT Bool :=
+  return (opaqueFuns.contains f || (← isOpaqueRelational f u args))
 
 /-- Given `f := Expr.const n _` return `true` only when `isOpaqueFun n`. -/
 def isOpaqueFunExpr (f : Expr) (args: Array Expr) : TranslateEnvT Bool :=
   match f with
-  | Expr.const n _ => isOpaqueFun n args
+  | Expr.const n u => isOpaqueFun n u args
   | _ => return false
 
 
@@ -401,7 +450,7 @@ inductive ResolveTypeStack where
 /-- Same as the default `isProp` but cache result. -/
 @[inline]
 def isPropEnv (e : Expr) : TranslateEnvT Bool := do
- let e ← if e.hasMVar then instantiateSharedMVars e else pure e
+ let e ← instantiateSharedMVars e
  match (← get).optEnv.memCache.isPropCache.get? e with
  | some b => return b
  | none =>
@@ -422,15 +471,9 @@ def isPropEnv (e : Expr) : TranslateEnvT Bool := do
              | _ => false
           return isPropType (← inferTypeEnv e)
 
-@[inline]
-def getLevelEnv (t : Expr) : TranslateEnvT Level := do
-  match ← inferTypeEnv t with
-  | Expr.sort u => return u
-  | _ => throwEnvError "getLevelEnv: sort expected for {reprStr t}"
-
 @[always_inline, inline]
 def reduceEnvProj? (e : Expr) : TranslateEnvT (Option Expr) := do
-  let e ← if e.hasMVar then instantiateSharedMVars e else pure e
+  let e ← instantiateSharedMVars e
   withLocalContext $ do reduceProj? e
 
 @[always_inline, inline]
@@ -585,7 +628,7 @@ def retrieveGenericFVars (params : ImplicitParameters) : TranslateEnvT (Array Ex
 
 /-- Given `f` a function name expression, `params` its implicit parameters info (see `getImplicitParameters`),
     and `fbody` corresponding the recursive definition for `f`, perform the following actions:
-      - let fbody' be `fbody` in which the recurisve call is annotated with `_solver.recursivecall`
+      - let fbody' be `fbody` in which the recurisve call is annotated with `__Blaster.recursivecall`
       - When ∀ i ∈ [0..params.size-1], ¬ params[i].isInstance:
           - return fbody'
       - Otherwise:
@@ -607,17 +650,17 @@ where
     else return none
 
 
-/-- Return `fₙ` if `body[mkAnnotation `_solver.recursivecall _'/_recFun α₁ ... αₖ x₁ ... xₙ] := fₙ` is already
+/-- Return `fₙ` if `body[mkAnnotation `__Blaster.recursivecall _'/_recFun α₁ ... αₖ x₁ ... xₙ] := fₙ` is already
     in the recursive function map.
     Otherwise,
-       - update recursive function map with `body[mkAnnotation `_solver.recursivecall _'/_recFun α₁ ... αₖ x₁ ... xₙ] := f`
+       - update recursive function map with `body[mkAnnotation `__Blaster.recursivecall _'/_recFun α₁ ... αₖ x₁ ... xₙ] := f`
        - return `f`.
      where:
        - α₁ ... αₖ` correspond to the implicit arguments of `f` that are still polymorphic (if any).
        - `x₁ ... xₙ` correspond to the effective parameters of the recursive call (excluding implicit arguments).
     NOTE:
       - `f` is also removed from the visiting cache.
-      - The polymorphic instance cache is updated with `f := body[mkAnnotation `_solver.recursivecall _'/_recFun α₁ ... αₖ x₁ ... xₙ]`
+      - The polymorphic instance cache is updated with `f := body[mkAnnotation `__Blaster.recursivecall _'/_recFun α₁ ... αₖ x₁ ... xₙ]`
         (if required) for all cases. This is essential to avoid performing structural equivalence check again on an
         already handled recursive function.
     Assumes that:
