@@ -26,24 +26,28 @@ namespace Blaster.Optimize
     - Otherwise
         - return `l`
 -/
-partial def normLevel (l : Level) : TranslateEnvT Level := do
+partial def normLevelAux (l : Level) : TranslateEnvT Level := do
  match l with
  | .mvar m =>
       let some l := getLevelMVarAssignmentExp (← getMCtx) m
         | throwEnvError "normLevel: level assignment expected for meta variables {reprStr m}"
-      normLevel l
+      normLevelAux l
  | .succ l' =>
-      let r ← normLevel l'
+      let r ← normLevelAux l'
       if levelEq r l' then return l else return .succ r
  | .max l1 l2 =>
-      let r1 ← normLevel l1
-      let r2 ← normLevel l2
-      if r1.normLt r2 then return .max r1 r2 else return .max r2 r1
+      let r1 ← normLevelAux l1
+      let r2 ← normLevelAux l2
+      let m := if r1.normLt r2 then Level.max r1 r2 else Level.max r2 r1
+      return m
  | .imax l1 l2 =>
-      let r1 ← normLevel l1
-      let r2 ← normLevel l2
+      let r1 ← normLevelAux l1
+      let r2 ← normLevelAux l2
       if levelEq r1 l1 && levelEq r2 l2 then return l else return .imax r1 r2
  | _ => return l -- case for .param and .zero
+
+def normLevel (l : Level) : TranslateEnvT Level :=
+  return (← normLevelAux l).normalize
 
 /-- Normalize each level in `xs`, returning `xs` itself (no reallocation)
     when no level changes — the common case when no level mvars are present. -/
