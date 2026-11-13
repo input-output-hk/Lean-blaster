@@ -164,22 +164,6 @@ def isOpaqueRelational (f : Name) (u : List Level) (args : Array Expr) : Transla
 
   | _ => return false
 
-/-- Given `f x₁ ... xₙ`, return `true` only when one of the following conditions is satisfied:
-     - `f := OfNat.ofNat` with sort parameter in `ofNatTypes`
-     - `f := BEq.beq` with sort parameter that has a `LawfulBEq` instance
-     - `f := LT.lt` with sort parameter in `relationalCompatibleTypes`
-     - `f : LE.le` with sort parameter in `relationalCompatibleTypes`
-In fact, we can't assume that `BEq.beq`, `LT.lt` and `LE.le` will properly be defined
-for any user-defined types or parametric inductive types (e.g., List, Option, etc).
--/
-def isUnfoldableFun (f : Name) (u : List Level) (args : Array Expr) : TranslateEnvT Bool := do
-  match f with
-  | ``OfNat.ofNat =>
-       if args.size < 1 then throwEnvError "isUnfoldableFun: implicit arguments expected"
-       return (isOfNatType args[0]!)
-
-  | _ => isOpaqueRelational f u args
-
 /-- Return `true` if `f` corresponds to a theorem name. -/
 @[always_inline, inline]
 def isTheorem (f : Name) : TranslateEnvT Bool := do
@@ -466,7 +450,7 @@ inductive ResolveTypeStack where
 /-- Same as the default `isProp` but cache result. -/
 @[inline]
 def isPropEnv (e : Expr) : TranslateEnvT Bool := do
- let e ← if e.hasMVar then instantiateSharedMVars e else pure e
+ let e ← instantiateSharedMVars e
  match (← get).optEnv.memCache.isPropCache.get? e with
  | some b => return b
  | none =>
@@ -489,7 +473,7 @@ def isPropEnv (e : Expr) : TranslateEnvT Bool := do
 
 @[always_inline, inline]
 def reduceEnvProj? (e : Expr) : TranslateEnvT (Option Expr) := do
-  let e ← if e.hasMVar then instantiateSharedMVars e else pure e
+  let e ← instantiateSharedMVars e
   withLocalContext $ do reduceProj? e
 
 @[always_inline, inline]

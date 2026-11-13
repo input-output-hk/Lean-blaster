@@ -323,24 +323,26 @@ def listToNatTwo (x : List α) : Nat → Nat → Nat → Nat :=
 
 -- ∀ (α : Type) (xs : List α) (x y : Nat) (f : Nat → Nat), listToNatTwo xs x y = f ===>
 -- ∀ (α : Type) (xs : List α) (x y : Nat) (f : Nat → Nat),
---   f = listToNatOne.match_1 (fun ( _ : List α) => Nat → Nat) xs
---       (fun (_ : Unit) => λ _ => 0)
---       (fun (_ : α) => λ z => Nat.sub (Nat.add z (Nat.mul 2 x)) y)
---       (fun (_ : α) (_ : α) => λ z => Nat.mul y (Nat.add z (Nat.mul 3 x)))
---       (fun (_ : α) (_ : α) (_ : α) => λ z => Nat.mul z (Nat.mul y (Nat.mul 4 x)))
---       (fun (_ : List α) => λ z => Nat.mul z (Nat.mul y (Nat.mul x x)))
+-- f = fun a =>
+--       listToNatOne.match_1 (fun ( _ : List α) => Nat) xs
+--       (fun (_ : Unit) => 0)
+--       (fun (_ : α) => Nat.sub (Nat.add a (Nat.mul 2 x)) y)
+--       (fun (_ : α) (_ : α) => Nat.mul y (Nat.add a (Nat.mul 3 x)))
+--       (fun (_ : α) (_ : α) (_ : α) => Nat.mul a (Nat.mul y (Nat.mul 4 x)))
+--       (fun (_ : List α) => Nat.mul a (Nat.mul y (Nat.mul x x)))
 -- NOTE: listToNatTwo.match_1 is equivalent to listToNatOne.match_1 and therefore
 -- has been replaced by Lean at compilation time
 -- NOTE: Test case to validate partially applied function
 #testOptimize [ "NormChoiceAppMatch_4" ] (norm-result: 1)
   ∀ (α : Type) (xs : List α) (x y : Nat) (f : Nat → Nat), listToNatTwo xs x y = f ===>
   ∀ (α : Type) (xs : List α) (x y : Nat) (f : Nat → Nat),
-    f = listToNatOne.match_1 (fun ( _ : List α) => Nat → Nat) xs
-        (fun (_ : Unit) => λ _ => 0)
-        (fun (_ : α) => λ z => Nat.sub (Nat.add z (Nat.mul 2 x)) y)
-        (fun (_ : α) (_ : α) => λ z => Nat.mul y (Nat.add z (Nat.mul 3 x)))
-        (fun (_ : α) (_ : α) (_ : α) => λ z => Nat.mul z (Nat.mul y (Nat.mul 4 x)))
-        (fun (_ : List α) => λ z => Nat.mul z (Nat.mul y (Nat.mul x x)))
+    f = fun a =>
+          listToNatOne.match_1 (fun ( _ : List α) => Nat) xs
+          (fun (_ : Unit) => 0)
+          (fun (_ : α) => Nat.sub (Nat.add a (Nat.mul 2 x)) y)
+          (fun (_ : α) (_ : α) => Nat.mul y (Nat.add a (Nat.mul 3 x)))
+          (fun (_ : α) (_ : α) (_ : α) => Nat.mul a (Nat.mul y (Nat.mul 4 x)))
+          (fun (_ : List α) => Nat.mul a (Nat.mul y (Nat.mul x x)))
 
 
 def listMap (x : List α) (a : β) (b : β) : Nat → Nat → β :=

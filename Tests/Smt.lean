@@ -6,6 +6,7 @@ import Tests.Smt.SmtList
 import Tests.Smt.SmtLtArith
 import Tests.Smt.SmtMatch
 import Tests.Smt.SmtNat
+import Tests.Smt.SmtOfNat
 import Tests.Smt.SmtPartialUnSafe
 import Tests.Smt.SmtPredQualifier
 import Tests.Smt.SmtRecFun

@@ -15,7 +15,6 @@ def opaqueFuns : HashSet Name :=
   [
     -- structural equality
     ``Eq,
-    ``Ne,
     -- decide predicate on proposition (normalized to Blaster.decide')
     ``Decidable.decide,
     -- Prop operators
@@ -102,29 +101,29 @@ def isCompatibleRelationalType (e : Expr) : Bool :=
   | Expr.const n _ => relationalCompatibleTypes.contains n
   | _ => false
 
-/-- list of types for OfNat.ofNat for which we have a normalization rule. -/
-def ofNatTypes : HashSet Name :=
+/-- List of foldable functions in normalize mode. -/
+def foldableFuns : HashSet Name :=
   List.foldr (fun c s => s.insert c) HashSet.emptyWithCapacity
-  [ ``Nat,
-    ``Int,
-    ``UInt8,
-    ``UInt16,
-    ``UInt32,
-    ``UInt64,
-    ``USize,
-    ``Int8,
-    ``Int16,
-    ``Int32,
-    ``Int64,
-    ``ISize,
-    ``Fin,
-    ``BitVec,
+  [ ``Ne,
+    ``OfNat.ofNat,
+    ``HAdd.hAdd,
+    ``HSub.hSub,
+    ``HMul.hMul,
+    ``HDiv.hDiv,
+    ``HMod.hMod,
+    ``HPow.hPow,
+    ``Add.add,
+    ``Mul.mul,
+    ``Pow.pow,
+    ``Sub.sub,
+    ``Div.div,
+    ``Mod.mod,
+    ``Neg.neg,
+    ``NatPow.pow,
+    ``Append.append,
+    ``Int.sub,
+    ``HAppend.hAppend,
+    ``GetElem?.getElem?
   ]
-
-/-- Return `true` if `e` corresponds to a type in `ofNatTypes`. -/
-def isOfNatType (e : Expr) : Bool :=
-  match e.getAppFn with
-  | Expr.const n _ => ofNatTypes.contains n
-  | _ => false
 
 end Blaster.Optimize

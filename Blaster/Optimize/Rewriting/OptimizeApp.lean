@@ -10,7 +10,6 @@ import Blaster.Optimize.Rewriting.OptimizeITE
 import Blaster.Optimize.Rewriting.OptimizeNat
 import Blaster.Optimize.Rewriting.OptimizeString
 import Blaster.Optimize.Rewriting.OptimizeList
-import Blaster.Optimize.Rewriting.OptimizeOfNat
 import Blaster.Optimize.OptimizeStack
 
 open Lean Meta
@@ -75,7 +74,6 @@ def optimizeAppAux (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
   if let some e ← optimizeRelational? f args then return e
   if let some e ← optimizeString? f args then return e
   if let some e ← optimizeList? f args then return e
-  if let some e ← optimizeOfNat? f args then return e
   mkAppNExpr f args
 
 /-- Same as `optimizeAppAux` but call optimizeAppAux iteratively until a fixed-point is reached

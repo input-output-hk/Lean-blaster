@@ -634,37 +634,12 @@ def optimizeDecideEq (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
           mkApp3Expr f (← mkPropType) e1 (← mkApp3Expr f (← mkBoolType) (← mkBoolTrue) op1)
      | _, _ => return none
 
-/-- Apply the following snormalization rule on `Ne`
-     - e1 ≠ e2 ==> ¬ (e1 = e2)
-    Assume that `args` and `u` are from `Ne application.
--/
-def optimizeNe (u : List Level) (args : Array Expr) : TranslateEnvT Expr := do
- if args.size == 3 then
-   -- args[0] is sort parameter
-   -- args[1] left operand
-   -- args[2] right operand
-   let neq_sort := args[0]!
-   let op1 := args[1]!
-   let op2 := args[2]!
-   setRestart
-   let eqExpr ← mkApp3Expr (← mkEqOpLevel u) neq_sort op1 op2
-   mkAppExpr (← mkPropNotOp) eqExpr
- else if args.size == 1 then
-   -- we need to return a lambda term here, i.e.,
-   -- λ e1 e2 => ¬ (e1 = e2)
-   let neq_sort := args[0]!
-   let body ← mkApp3Expr (← mkEqOpLevel u) neq_sort (← mkBVarExpr 1) (← mkBVarExpr 0)
-   let lam1 ← mkLambdaExpr `y BinderInfo.default neq_sort (← mkAppExpr (← mkPropNotOp) body)
-   mkLambdaExpr `x BinderInfo.default neq_sort lam1
- else throwEnvError "optimizeNe: at least 1 argument expected but got {reprStr args}"
-
 /-- Apply simplification and normalization rules on `Eq`, `Ne` and `BEq.beq`. -/
 def optimizeEquality? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
-  let Expr.const n u := f | return none
+  let Expr.const n _ := f | return none
   match n with
    | ``Eq => optimizeDecideEq f args
    | ``BEq.beq => optimizeBEq f args
-   | ``Ne => optimizeNe u args
    | _ => pure none
 
 end Blaster.Optimize

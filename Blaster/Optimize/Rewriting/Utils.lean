@@ -623,8 +623,9 @@ def getFunBody (f : Expr) : TranslateEnvT (Option Expr) := do
       - `Expr.proj c _ _` cannot be reduced.
 -/
 def isUndefinedClassFunApp (e : Expr) : TranslateEnvT Bool := do
-  match e.getAppFn' with
-  | p@(Expr.proj c _ _) => return ((← reduceEnvProj? p).isNone && (← isClassConstraint c))
+  let f := e.getAppFn'
+  match f with
+  | Expr.proj c _ _ => return (← reduceEnvProj? f).isNone && (← isClassConstraint c)
   | _ => return false
 
 /-- Return `true` only when `e := Expr.const n l` and one of the following condition is satisfied:
@@ -671,9 +672,12 @@ def isNotFoldable
   (e : Expr) (args : Array Expr) : TranslateEnvT Bool := do
   match e with
   | Expr.const n u =>
-      if opaqueFuns.contains n then return true
-      else if (← (pure (args.size != 0)) <&&> (isUnfoldableFun n u args)) then return true
-      else isRecursiveFun n <||> isAxiomOrOpaque n
+      if ← isNormalizeOnly then
+        return !foldableFuns.contains n
+      else
+        if opaqueFuns.contains n then return true
+        else if (← (pure (args.size != 0)) <&&> (isOpaqueRelational n u args)) then return true
+        else isRecursiveFun n <||> isAxiomOrOpaque n
   | _ => return false
 
 
@@ -686,7 +690,6 @@ def isNotFoldable
      - f is not a match application
 -/
 def getUnfoldFunDef? (f: Expr) (args: Array Expr) : TranslateEnvT (Option BetaLambdaResult) := do
- if (← isNormalizeOnly) then return none
  if (← isNotFoldable f args) then return none
  match ← getFunBody f with
  | some fbody =>

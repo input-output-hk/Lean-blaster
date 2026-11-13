@@ -190,16 +190,16 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
            match (← optimizeIfThenElse? f args xs) with
            | Sum.inr e' => return e'
            | Sum.inl stack' => optimizeExprAux stack'
+         -- normalizing partially apply function before unfolding non-opaque functions
+         else if let some pe ← normPartialFun? f args then
+           -- trace[Optimize.normPartial] "normalizing partial function {reprStr f} {reprStr args} => {reprStr pe}"
+           optimizeExprAux (.InitOptimizeExpr pe :: xs)
          -- unfold non-recursive and non-opaque functions
          -- NOTE: beta reduction performed by getUnfoldFunDef? when rf is a lambda term
          -- NOTE: we can only unfold once all parameters have been optimized.
          else if let some fdef ← getUnfoldFunDef? f args then
            -- trace[Optimize.unfoldDef] "unfolding function definition {reprStr f} {reprStr args} => {reprStr fdef}"
            optimizeExprAux (.InitOptimizeExpr fdef.betaReduced fdef.prevMVarIdDecls :: xs)
-         -- normalizing partially apply function after unfolding non-opaque functions
-         else if let some pe ← normPartialFun? f args then
-           -- trace[Optimize.normPartial] "normalizing partial function {reprStr f} {reprStr args} => {reprStr pe}"
-           optimizeExprAux (.InitOptimizeExpr pe :: xs)
          -- applying optimization on opaque rec function and app and proceed with fun propagation rules
          else
            match (← optimizeApp f args xs) with
