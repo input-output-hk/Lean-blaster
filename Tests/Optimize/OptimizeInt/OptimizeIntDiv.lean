@@ -173,4 +173,18 @@ elab "intDivCst_2" : term => return intDivCst_2
 
 #testOptimize ["IntTdivMulLit_5", proof] ∀ (n : Int), Int.tdiv (Int.tdiv (Int.tdiv n 2) 3) 5 = Int.tdiv n 30 ===> True
 
+-- ∀ (x y z : Int), (Int.ediv x 2 + y = y + x / 2) ∧ z - z = 0 ===> True
+#testOptimize[ "MixedEDivComm", proof]
+  ∀ (x y z : Int), (Int.ediv x 2 + y = y + x / 2) ∧ z - z = 0 ===> True
+
+-- ∀ (x : Int), x / 2 ≠ 0 → Int.ediv (x / 2) (x / 2) = 1 ===> True
+#testOptimize[ "MixedEDivSelf", proof] ∀ (x : Int), x / 2 ≠ 0 → Int.ediv (x / 2) (x / 2) = 1 ===> True
+
+-- ∀ (n : Int), ¬ (Int.ediv (4 * n) 6 = Int.ediv (2 * n) 3) ∨ n = n ===> True
+#testOptimize[ "RawEDivGcd_1", proof]
+  ∀ (n : Int), ¬ (Int.ediv (4 * n) 6 = Int.ediv (2 * n) 3) ∨ n = n ===> True
+
+-- ∀ (x : Int), Int.ediv (x * 6) 3 = 2 * x ===> True
+#testOptimize[ "RawEDivGcd_2", proof] ∀ (x : Int), Int.ediv (x * 6) 3 = 2 * x ===> True
+
 end Tests.OptimizeIntDiv

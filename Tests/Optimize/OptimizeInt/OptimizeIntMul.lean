@@ -67,4 +67,10 @@ variable (x : Int)
 -- reorder `n * 1 ==> 1 * n`, closed with `Int.mul_one`
 #testOptimize ["IntMulComm_3", proof] ∀ (n : Int), n * 1 = n ===> True
 
+/-! Test cases for the constant fold `N1 * N2 ==> N1 "*" N2` with a core `Int.ofNat` literal. -/
+
+-- ∀ (x y : Int), ((Int.ofNat 7 * 2 + x) = (x + 14)) ∧ y - y = 0 ===> True
+#testOptimize ["RawOfNatMulFold", proof]
+  ∀ (x y : Int), ((Int.ofNat 7 * 2 + x) = (x + 14)) ∧ y - y = 0 ===> True
+
 end Tests.OptimizeIntMul

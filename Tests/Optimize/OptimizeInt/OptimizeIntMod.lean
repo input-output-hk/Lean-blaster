@@ -117,4 +117,12 @@ elab "intModCst_2" : term => return intModCst_2
   ∀ (m n : Int), Int.fmod (n * m) m = 0 ===> True
 
 
+-- ∀ (x y z : Int), (x % 3 + y = y + Int.emod x 3) ∧ z - z = 0 ===> True
+#testOptimize ["MixedEModComm", proof]
+  ∀ (x y z : Int), (x % 3 + y = y + Int.emod x 3) ∧ z - z = 0 ===> True
+
+-- ∀ (x y : Int), Int.emod (x / 2) 3 + y = y + Int.emod (x / 2) 3 ===> True
+#testOptimize ["MixedEModNested", proof]
+  ∀ (x y : Int), Int.emod (x / 2) 3 + y = y + Int.emod (x / 2) 3 ===> True
+
 end Tests.OptimizeIntMod

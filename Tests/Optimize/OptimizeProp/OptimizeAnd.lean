@@ -295,7 +295,7 @@ namespace Test.OptimizeAnd
 /-! Test cases for the implicative reductions on `And`:
      - `e1 ∧ (e1 → e2) ==> e1 ∧ e2`
      - `e1 ∧ (e2 → e1) ==> e1`
-     - `(e1 → e2) ∧ (¬ e1 → e2) ==> e2`
+     - `(e1 → e2) ∧ (¬ e1 → e2) ==> e2`, also with `¬ e1` in normal form
 -/
 
 -- a ∧ (a → b) ===> a ∧ b
@@ -306,6 +306,18 @@ namespace Test.OptimizeAnd
 
 -- (a → b) ∧ (¬ a → b) ===> b
 #testOptimize [ "AndImplies_3", proof ] ∀ (a b : Prop), (a → b) ∧ (¬ a → b) ===> ∀ (b : Prop), b
+
+-- ((true = x → q) ∧ (false = x → q)) = q ===> True
+#testOptimize [ "AndImplies_4", proof ] ∀ (x : Bool) (q : Prop), (((true = x) → q) ∧ ((false = x) → q)) = q ===> True
+
+-- ((false = x → q) ∧ (true = x → q)) = q ===> True
+#testOptimize [ "AndImplies_5", proof ] ∀ (x : Bool) (q : Prop), (((false = x) → q) ∧ ((true = x) → q)) = q ===> True
+
+-- (true = x → q) ∧ (false = x → q) ===> q
+#testOptimize [ "AndImplies_6", proof ] ∀ (x : Bool) (q : Prop), ((true = x) → q) ∧ ((false = x) → q) ===> ∀ (q : Prop), q
+
+-- ((¬ (x < 5) → q) ∧ (x < 5 → q)) = q ===> True
+#testOptimize [ "AndImplies_7", proof ] ∀ (x : Nat) (q : Prop), ((¬ (x < 5) → q) ∧ (x < 5 → q)) = q ===> True
 
 
 /-! Test cases for the hypothesis-context reductions on `And`:
