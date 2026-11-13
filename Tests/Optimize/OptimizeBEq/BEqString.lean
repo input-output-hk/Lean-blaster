@@ -34,11 +34,10 @@ namespace Test.BEqString
 -- (s ++ t) == (s ++ t) ===> True (with Type(s) = String)
 #testOptimize [ "BEqStringReflexive_2", proof ] ∀ (s t : String), (s ++ t == s ++ t) ===> True
 
--- TODO: uncomment test case once normalization and simplifications rules on String are introduced.
 -- TODO: add other reflexive test cases
 
--- -- (s ++ "") == s ===> True
--- #testOptimize [ "BEqStringReflexive_3" ] ∀ (s : String), (s ++ "" == s) ===> True
+-- (s ++ "") == s ===> True
+#testOptimize [ "BEqStringReflexive_3", proof ] ∀ (s : String), (s ++ "" == s) ===> True
 
 
 /-! Test cases to ensure that simplification rules `e1 == e2 ==> true (if e1 =ₚₜᵣ e2)` is not applied wrongly. -/
@@ -80,7 +79,7 @@ elab "beqStringUnchanged_2" : term => return beqStringUnchanged_2
 #testOptimize [ "BEqStringCommut_3", proof ] ∀ (s t : String), (t == s) ===> ∀ (s t : String), s = t
 
 -- (s ++ t) == v = (v == (s ++ t)) ===> True
-#testOptimize [ "BEqStringCommut_4" ] ∀ (s t v : String), ((s ++ t) == v) = (v == (s ++ t)) ===> True
+#testOptimize [ "BEqStringCommut_4", proof ] ∀ (s t v : String), ((s ++ t) == v) = (v == (s ++ t)) ===> True
 
 
 /-! Test cases to ensure that `reduceApp` is properly called
