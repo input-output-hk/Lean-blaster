@@ -25,8 +25,10 @@ def isCstImplies? (h : Expr) (a : Expr) (b : Expr) : TranslateEnvT (Option Expr)
  if !(← isPropEnv b) then return none
  match a with
  | Expr.const ``True _ =>
-     if fVarInExpr h.fvarId! b
-     then return (← mkExpr $ Expr.replaceFVar b h (← mkTrueIntro))
+     if fVarInExpr h.fvarId! b then
+      pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.implies_eq_right_of_hyp_dep)
+       a (mkLambda `h .default a (b.abstract #[h])) (← mkTrueIntro)))
+      return (← mkExpr $ Expr.replaceFVar b h (← mkTrueIntro))
      else
       pushProofStep (.rewrite (mkApp (mkConst ``true_implies) b))
       return b
@@ -47,8 +49,16 @@ def isCstImplies? (h : Expr) (a : Expr) (b : Expr) : TranslateEnvT (Option Expr)
   match b with
   | Expr.const ``False _ =>
       setRestart
+      pushProofStep (.rewrite (mkApp (mkConst ``Blaster.implies_false_eq_neg) a))
       return mkApp (← mkPropNotOp) a
   | _ => return none
+
+
+/-- Given (p : ¬ b), push the step (a → b) = ¬ a,
+abstracting the implementation's binder n out of p
+-/
+def pushImpliesNegProofSteps (n a p b : Expr) : TranslateEnvT Unit :=
+   pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.implies_eq_neg_of_imp_not) a b (mkLambda `h .default a (p.abstract #[n]))))
 
  /-- Given `a → b`, apply the simplification rules:
      - When ∃ e := _ ∈ h, e = ¬ b
@@ -58,14 +68,16 @@ def isCstImplies? (h : Expr) (a : Expr) (b : Expr) : TranslateEnvT (Option Expr)
      - Otherwise:
         - return `none`
  -/
- def impliesToNeg? (a : Expr) (b : Expr) (h : HypothesisMap) : TranslateEnvT (Option Expr) := do
+ def impliesToNeg? (n : Expr) (a : Expr) (b : Expr) (h : HypothesisMap) : TranslateEnvT (Option Expr) := do
   let notOp ← mkPropNotOp
-  if (← notInHypMap b h).isSome then
+  if let some p := (← notInHypMap b h) then
     setRestart
+    pushImpliesNegProofSteps n a p b
     return mkApp notOp a
   let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
-  if (← notInHypMap b hyps).isSome then
+  if let some p := (← notInHypMap b hyps) then
     setRestart
+    pushImpliesNegProofSteps n a p b
     return mkApp notOp a
   return none
 
@@ -123,9 +135,12 @@ def hypReduction? (h : Expr) (a : Expr) (b : Expr) : TranslateEnvT (Option Expr)
  match (← inHypMap a hyps) with
  | none => return none
  | some p =>
-    if !fVarInExpr h.fvarId! b
-    then return b
-    else return (← mkExpr $ Expr.replaceFVar b h p)
+    if !fVarInExpr h.fvarId! b then
+      pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.implies_eq_right_of_hyp) a b p))
+      return b
+    else
+      pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.implies_eq_right_of_hyp_dep) a (mkLambda `h .default a (b.abstract #[h])) p))
+      return (← mkExpr $ Expr.replaceFVar b h p)
 
 /-- Apply the following simplification/normalized rules on `forallE`.
     Note that implication `a → b` is internally represented as `forallE _ a b bi`.
@@ -133,18 +148,18 @@ def hypReduction? (h : Expr) (a : Expr) (b : Expr) : TranslateEnvT (Option Expr)
       - ∀ (n : t), True | e → True ==> True                               [proof: implies_true]
       - False → e ==> True (if Type(e) = Prop)                            [proof: False.elim, false_implies]
       - h : True → e ==> e (if Type(e) = Prop ∧ ¬ fVarInExpr h.fvarId! e) [proof: true_implies]
-      - h : True → e ==> e[h/True.intro] (if Type(e) = Prop ∧ fVarInExpr h.fvarId! e)
+      - h : True → e ==> e[h/True.intro] (if Type(e) = Prop ∧ fVarInExpr h.fvarId! e) [proof: Blaster.implies_eq_right_of_hyp]
             TODO: replace True.intro with proper proof
-      - e → False ==> ¬ e
+      - e → False ==> ¬ e (if Type(e) = Prop)                                         [proof: Blaster.implies_false_eq_neg]
       - e1 → e2 ==> True (if e1 =ₚₜᵣ e2 ∧ Type(e1) = Prop)                 [proof: the premise, Blaster.implies_self_eq_true]
       - e1 → e2 ==> True (if ∃ e1 → e2 := _ ∈ hypothesisContext.hypothesisMap) [proof: the proof found applied to e1, eq_true]
-      - e1 → e2 ==> ¬ e1 (if ∃ e := _ ∈ h, e = ¬ e2)
-      - e1 → e2 ==> ¬ e1 (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = ¬ e2)
+      - e1 → e2 ==> ¬ e1 (if ∃ e := _ ∈ h, e = ¬ e2)                                [proof: Blaster.implies_eq_neg_of_imp_not]
+      - e1 → e2 ==> ¬ e1 (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = ¬ e2) [proof: Blaster.implies_eq_neg_of_imp_not]
       - e1 → e2 ==> True (if e2 := _ ∈ h)                                  [proof: the proof of e2 found, eq_true]
       - e1 → e2 ==> True (if e2 := _ ∈ hypothesisContext.hypothesisMap)  [proof: the proof of e2 found, eq_true]
       - e1 → e2 ==> True (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = ¬ e1 ∧ Type(e2) = Prop) [proof: absurd, eq_true]
-      - h : e1 → e2 ==> e2 (if e1 := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ fVarInExpr h.fvarId! e2 ∧ Type(e2) = Prop)
-      - h : e1 → e2 ==> e2[h/h'] (if e1 := h' ∈ hypothesisContext.hypothesisMap ∧ fVarInExpr h.fvarId! e2 ∧ Type(e2) = Prop )
+      - h : e1 → e2 ==> e2 (if e1 := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ fVarInExpr h.fvarId! e2 ∧ Type(e2) = Prop) [proof: Blaster.implies_eq_right_of_hyp]
+      - h : e1 → e2 ==> e2[h/h'] (if e1 := h' ∈ hypothesisContext.hypothesisMap ∧ fVarInExpr h.fvarId! e2 ∧ Type(e2) = Prop ) [proof: Blaster.implies_eq_right_of_hyp_dep]
       - ∀ (n : t), e ===> e (if isSortOrInhabited t ∧ Type(e) = Prop ∧ ¬ fVarInExpr n.fvarId! e) [proof: Blaster.forall_coi]
   Assume that `n` is a free variable expression. An error is triggered if this is not the case.
   Assume that `h` corresponds to the hypothesis map updated with hypotheses in `t`.
@@ -164,7 +179,7 @@ def optimizeForall (n : Expr) (t : Expr) (h : HypothesisMap) (b : Expr) : Transl
   if let some p ← impliesInHyp n b then
     pushImpliesTrueSteps n t b (mkApp p n)
     return (← mkPropTrue)
-  if let some r ← impliesToNeg? t b h then return r
+  if let some r ← impliesToNeg? n t b h then return r
   if let some r ← impliesToTrue? n t b h then return r
   if let some r ← hypReduction? n t b then return r
   if (← (isSortOrInhabited t) <&&> (isPropEnv b) <&&> (pure !fVarInExpr n.fvarId! b)) then

@@ -197,4 +197,36 @@ protected theorem forall_coi.{u} (α : Sort u) (b : Prop) [Nonempty α] : (α �
 protected theorem exists_coi.{u} (α : Sort u) (b : Prop) [Nonempty α] : (∃ _ : α, b) = b :=
   propext (exists_const α)
 
+/-! ## Lemmas validating the hypothesis-driven implication rules
+  - `h: True → e ==> e [h/True.intro] (if Type(e) = Prop ∧ fVarInExpr h.fvarId! e ∧ the input type of h is True)`
+  - `e → False ==> ¬ e`
+  - `e1 → e2 ==> ¬ e1 (if ∃ e := _ ∈ h, e = ¬ e2)`
+  - `e1 → e2 ==> ¬ e1 (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = ¬ e2)`
+  - `h : e1 → e2 ==> e2 (if e1 := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ fVarInExpr h.fvarId! e2 ∧ Type(e2) = Prop)`
+  - `h : e1 → e2 ==> e2[h/h'] (if e1 := h' ∈ hypothesisContext.hypothesisMap ∧ fVarInExpr h.fvarId! e2 ∧ Type(e2) = Prop)`
+-/
+protected theorem implies_eq_right_of_hyp_dep (a : Prop) (b : a → Prop) (p : a) :
+    (∀ h : a, b h) = b p := by
+  apply propext
+  constructor
+  · intro hab; exact hab p
+  · intro hp h
+    exact cast (congrArg b (Subsingleton.elim h p).symm) hp
+
+protected theorem implies_false_eq_neg (a : Prop) : (a → False) = ¬ a := by
+  apply propext
+  exact imp_false
+
+protected theorem implies_eq_neg_of_imp_not (a b : Prop) (h : a → ¬ b) : (a → b) = ¬ a := by
+  apply propext
+  constructor
+  · intro hab ha; exact h ha (hab ha)
+  · intro hna ha; exact absurd ha hna
+
+protected theorem implies_eq_right_of_hyp (a b : Prop) (h : a) : (a → b) = b := by
+  apply propext
+  constructor
+  · intro hab; exact hab h
+  · intro hb _; exact hb
+
 end Blaster
