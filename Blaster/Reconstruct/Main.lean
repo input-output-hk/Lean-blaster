@@ -1,6 +1,7 @@
 import Blaster.Reconstruct.OptimizeReplay
 import Blaster.Reconstruct.Checked
 import Blaster.Reconstruct.SmtProof.Driver
+import Blaster.Reconstruct.SmtProof.Normalize
 
 /-!
 Connect TxPipe's optimizer certificates to Seungheon Oh's Z3 proof replay.
@@ -56,14 +57,15 @@ def lowerOperators (e : Expr) : MetaM Expr :=
         if args.size == 2 then candidate ← mkAppM ``LE.le args
     | some ``Int.lt | some ``Nat.lt =>
         if args.size == 2 then candidate ← mkAppM ``LT.lt args
-    | _ =>
-        -- Type aliases (e.g. `abbrev ℕ := Nat`) also occur in instance
-        -- arguments. Normalize them before inspecting the enclosing operator.
-        if t.isConst then
-          if let some (.defnInfo info) := (← getEnv).find? t.constName! then
-            if info.type.isSort then
-              let u ← withReducible (whnf t)
-              if u.isConstOf ``Nat || u.isConstOf ``Int || u.isConstOf ``String then candidate := u
+    | _ => pure ()
+    -- Type aliases also occur in binders and instance arguments. In particular,
+    -- `Set α` must be seen as `α → Prop`, or an application can be mistaken for
+    -- a partially applied function whose SMT result is another function sort.
+    if candidate == t then
+      let kind ← inferType t
+      if kind.isSort && !kind.isProp then
+        let u ← withDefault (whnf t)
+        if u.isForall || u.isConstOf ``Nat || u.isConstOf ``Int || u.isConstOf ``String then candidate := u
     -- A concrete typeclass dictionary can expose an applied kernel projection
     -- during certificate replay. Reduce the projection itself, retaining the
     -- native operation instead of translating a field of `HMul.mk`/`LE.mk`.
@@ -86,8 +88,10 @@ def proveLeaf (g : MVarId) (sOpts : BlasterOptions) : TermElabM Unit := g.withCo
   let closed ← lowerOperators original
   unless ← withDefault <| isDefEq original closed do
     throwError "SMT operator lowering changed the residual proposition"
+  let (smtGoal, restore) ← SmtProof.normalizeResidual closed
+  let smtGoal ← lowerOperators smtGoal
   let start ← IO.monoMsNow
-  let result ← SmtProof.proveBySmtProof closed sOpts
+  let result ← SmtProof.proveBySmtProof smtGoal sOpts
   let r ← match result with
     | .ok r => pure r
     | .error msg => throwError "Z3 proof replay failed: {msg}"
@@ -95,7 +99,7 @@ def proveLeaf (g : MVarId) (sOpts : BlasterOptions) : TermElabM Unit := g.withCo
     let checkStart ← IO.monoMsNow
     if let some msg ← SmtProof.awaitKernelChecks r.kernelChecks then throwError msg
     let checked ← IO.mkRef r.sorryFree
-    let proof ← match ← checkedProof checked closed r.proof with
+    let proof ← match ← checkedProof checked closed (restore r.proof) with
       | .ok p => pure p
       | .error msg => throwError msg
     g.assign (mkAppN proof args)

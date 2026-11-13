@@ -66,6 +66,32 @@ theorem nat_alias_zero (x y : Natural) (h : x * y = 0) : x = 0 ∨ y = 0 := by
   blaster (gen-proof: 1) (timeout: 5)
 #standard_axioms nat_alias_zero
 
+-- Function type aliases and concrete class dictionaries, as used by Set.
+abbrev Predicate (α : Type) := α → Prop
+class PredicateOps (α : Type) where
+  union : Predicate α → Predicate α → Predicate α
+  inter : Predicate α → Predicate α → Predicate α
+instance (α : Type) : PredicateOps α where
+  union a b := fun x => a x ∨ b x
+  inter a b := fun x => a x ∧ b x
+
+theorem predicate_distributivity : ∀ (α : Type) (a b c : Predicate α),
+    PredicateOps.union a (PredicateOps.inter b c) =
+      PredicateOps.inter (PredicateOps.union a b) (PredicateOps.union a c) := by
+  blaster (gen-proof: 1) (timeout: 5)
+#standard_axioms predicate_distributivity
+
+def predicateSubset (a b : Predicate α) : Prop := ∀ x, a x → b x
+theorem predicate_subset : ∀ (α : Type) (a b c : Predicate α),
+    predicateSubset a (PredicateOps.inter b c) ↔ predicateSubset a b ∧ predicateSubset a c := by
+  blaster (gen-proof: 1) (timeout: 5)
+#standard_axioms predicate_subset
+
+theorem predicate_equality_hypothesis : ∀ (α : Type) (a b : Predicate α),
+    PredicateOps.inter a b = a → PredicateOps.union a b = b := by
+  blaster (gen-proof: 1) (timeout: 5)
+#standard_axioms predicate_equality_hypothesis
+
 theorem poly_option (α : Type) (x : Option α) : x.isSome = true → x ≠ none := by
   blaster (gen-proof: 1) (timeout: 5)
 #standard_axioms poly_option
@@ -87,6 +113,9 @@ example : True := by
   fail_if_success
     have unfinished (x : Int) : 0 ≤ x * x := by
       blaster (gen-proof: 1) (only-optimize: 1)
+  fail_if_success
+    have unequal_functions : (fun x : Bool => x) = (fun _ : Bool => false) := by
+      blaster (gen-proof: 1) (timeout: 5)
   trivial
 
 -- A cyclic SMT macro must become a failed replay, rather than an unbounded
