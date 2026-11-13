@@ -170,6 +170,14 @@ inductive Color where
   ∀ (α : Type), ∃ (x y : α), ∀ (xs : List α), [LT α] →
     xs = Blaster.dite' (x < y) (fun _ : x < y => [x, y]) (fun _ : ¬ x < y => [y, x])
 
+-- ∀ (a : Prop), (∃ (_n : Nat), a) = a ===> True
+-- Test case: COI reduction applies under `=` on an inductive type with a nullary constructor.
+#testOptimize [ "ExistsCOI_20", proof ] ∀ (a : Prop), (∃ (_n : Nat), a) = a ===> True
+
+-- ∀ (a : Prop), a ∧ (∃ (_b : Prop), a) ===> ∀ (a : Prop), a
+-- Test case: COI reduction applies under `∧` on Prop.
+#testOptimize [ "ExistsCOI_21", proof ] ∀ (a : Prop), a ∧ (∃ (_b : Prop), a) ===> ∀ (a : Prop), a
+
 /-! Test cases to ensure when the following COI reduction rule must not be applied:
      - `∃ (n : t), e ===> e (if isSortOrInhabited t ∧ ¬ e.hasLooseBVar e 0)`.
 -/
@@ -187,19 +195,19 @@ inductive Color where
 
 -- ∀ (α : Type) (β : Type), ∃ (f : α → β), ∃ (x y : α), x = y → f x = f y ===>
 -- ∀ (α : Type) (β : Type), ∃ (f : α → β), ∃ (x y : α), x = y → f x = f y
-#testOptimize [ "ExistsCOIUnchanged_3" ] ∀ (α : Type) (β : Type), ∃ (f : α → β), ∃ (x y : α), x = y → f x = f y ===>
+#testOptimize [ "ExistsCOIUnchanged_3", proof ] ∀ (α : Type) (β : Type), ∃ (f : α → β), ∃ (x y : α), x = y → f x = f y ===>
                                          ∀ (α : Type) (β : Type), ∃ (f : α → β), ∃ (x y : α), x = y → f x = f y
 
 
 
 -- ∀ (a : Prop), ∃ (b c : Prop), (a ∧ (b ∨ ¬ c)) ===> ∀ (a : Prop), ∃ (b c : Prop), (a ∧ (b ∨ ¬ c))
 -- Test case: COI reduction rules not applicable if all quantifiers are still referenced.
-#testOptimize [ "ExistsCOIUnchanged_4" ] ∀ (a : Prop), ∃ (b c : Prop), (a ∧ (b ∨ ¬ c)) ===>
+#testOptimize [ "ExistsCOIUnchanged_4", proof ] ∀ (a : Prop), ∃ (b c : Prop), (a ∧ (b ∨ ¬ c)) ===>
                                          ∀ (a : Prop), ∃ (b c : Prop), (a ∧ (b ∨ ¬ c))
 
 -- ∃ (b c : Prop), ∀ (a : Prop), (a ∧ (b ∨ ¬ c)) ===> ∃ (b c : Prop), ∀ (a : Prop), (a ∧ (b ∨ ¬ c))
 -- Test case: COI reduction rules not applicable if all quantifiers are still referenced.
-#testOptimize [ "ExistsCOIUnchanged_5" ] ∃ (b c : Prop), ∀ (a : Prop), (a ∧ (b ∨ ¬ c)) ===>
+#testOptimize [ "ExistsCOIUnchanged_5", proof ] ∃ (b c : Prop), ∀ (a : Prop), (a ∧ (b ∨ ¬ c)) ===>
                                          ∃ (b c : Prop), ∀ (a : Prop), (a ∧ (b ∨ ¬ c))
 
 -- ∀ (a : Bool), ∃ (b c : Bool), (a || (b && ! c)) ===> ∀ (a : Bool), ∃ (b c : Bool), true = (a || (b && ! c))
@@ -236,7 +244,7 @@ inductive ColorDegree (α : Type u) where
 --  (if cond then x else y) = z ===>
 --  ∀ (α : Type) (x z : ColorDegree α), ∃ (y : ColorDegree α), x = z
 -- Test case: COI reduction rules not applicable when inductive type does not have at least one nullary constructor.
-#testOptimize [ "ExistsCOIUnchanged_10" ] ∀ (α : Type) (a b c : Bool) (x z : ColorDegree α), ∃ (y : ColorDegree α),
+#testOptimize [ "ExistsCOIUnchanged_10", proof ] ∀ (α : Type) (a b c : Bool) (x z : ColorDegree α), ∃ (y : ColorDegree α),
                                             let cond := ((!a || ((b || c) && !(c || b))) || a) && (!(b && a) || (a && b));
                                             (if cond then x else y) = z ===>
                                           ∀ (α : Type) (x z : ColorDegree α), ∃ (_y : ColorDegree α), x = z
@@ -261,7 +269,7 @@ inductive NoInstance where
 -- ∀ (x y z : NoInstance), ∃ (y : NoInstance), x = z
 -- Test case: COI reduction rules not applicable when inductive type does not have at least one nullary constructor
 -- or an appropriate Inhabited instance.
-#testOptimize [ "ExistsCOIUnchanged_12" ] ∀ (a b c : Bool) (x z : NoInstance), ∃ (y : NoInstance),
+#testOptimize [ "ExistsCOIUnchanged_12", proof ] ∀ (a b c : Bool) (x z : NoInstance), ∃ (y : NoInstance),
                                            let cond := ((!a || ((b || c) && !(c || b))) || a) && (!(b && a) || (a && b));
                                            (if cond then x else y) = z ===>
                                          ∀ (x z : NoInstance), ∃ (_y : NoInstance), x = z

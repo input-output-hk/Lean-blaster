@@ -145,7 +145,7 @@ def hypReduction? (h : Expr) (a : Expr) (b : Expr) : TranslateEnvT (Option Expr)
       - e1 → e2 ==> True (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = ¬ e1 ∧ Type(e2) = Prop) [proof: absurd, eq_true]
       - h : e1 → e2 ==> e2 (if e1 := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ fVarInExpr h.fvarId! e2 ∧ Type(e2) = Prop)
       - h : e1 → e2 ==> e2[h/h'] (if e1 := h' ∈ hypothesisContext.hypothesisMap ∧ fVarInExpr h.fvarId! e2 ∧ Type(e2) = Prop )
-      - ∀ (n : t), e ===> e (if isSortOrInhabited t ∧ Type(e) = Prop ∧ ¬ fVarInExpr n.fvarId! e)
+      - ∀ (n : t), e ===> e (if isSortOrInhabited t ∧ Type(e) = Prop ∧ ¬ fVarInExpr n.fvarId! e) [proof: Blaster.forall_coi]
   Assume that `n` is a free variable expression. An error is triggered if this is not the case.
   Assume that `h` corresponds to the hypothesis map updated with hypotheses in `t`.
 -/
@@ -167,7 +167,12 @@ def optimizeForall (n : Expr) (t : Expr) (h : HypothesisMap) (b : Expr) : Transl
   if let some r ← impliesToNeg? t b h then return r
   if let some r ← impliesToTrue? n t b h then return r
   if let some r ← hypReduction? n t b then return r
-  if (← (isSortOrInhabited t) <&&> (isPropEnv b) <&&> (pure !fVarInExpr n.fvarId! b)) then return b
+  if (← (isSortOrInhabited t) <&&> (isPropEnv b) <&&> (pure !fVarInExpr n.fvarId! b)) then
+    let u ← getLevel t
+    -- when no instance is built here the replay synthesizes `Nonempty t`
+    let inst ← nullaryCtorNonempty? u t
+    pushProofStep (.rewrite (mkAppN (mkConst ``Blaster.forall_coi [u]) (#[t, b] ++ inst.toArray)))
+    return b
   mkForallFVar n b
 
 end Blaster.Optimize

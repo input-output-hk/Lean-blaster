@@ -52,6 +52,23 @@ def isNullaryCtor (c : Name) : TranslateEnvT Bool := do
       pure (info.numFields == 0 && !info.type.isProp)
   | _ => pure false
 
+/-- Given `t : Sort u` satisfying `isSortOrInhabited`, return `Nonempty.intro (c params)` when `t`
+    is an inductive type without indices, not a class, having a nullary constructor `c`.
+    Otherwise return `none`.
+-/
+def nullaryCtorNonempty? (u : Level) (t : Expr) : TranslateEnvT (Option Expr) := do
+  let Expr.const n us := t.getAppFn' | return none
+  -- same lookups as `isSortOrInhabited`, so only cached entries are read
+  if (← isClassConstraint n) then return none
+  let ConstantInfo.inductInfo indVal ← getConstEnvInfo n | return none
+  let params := t.getAppArgs
+  -- without indices the arguments of `t` are its parameters, so `c params : t`
+  if indVal.numIndices != 0 || params.size != indVal.numParams then return none
+  for c in indVal.ctors do
+    if (← isNullaryCtor c) then
+      return mkApp2 (mkConst ``Nonempty.intro [u]) t (mkAppN (mkConst c us) params)
+  return none
+
 /-- Return `true` if `t` is not a Prop and corresponds to one of the following:
     - is a sort type only when `existQuantifier` flag is not set.
     - is prop type when `existQuantifier` flag is set.
