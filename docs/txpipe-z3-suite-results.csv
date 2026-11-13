@@ -26,7 +26,7 @@ Tests/FixedIssues/Issue29.lean,passed,failed,0,0,Tactic `blaster` failed: Z3 pro
 Tests/FixedIssues/Issue3.lean,passed,failed,0,1,Z3 proof replay failed: translateApp (proj): FunEnvInfo expected for Lean.Name.mkNum `BEq.mk 0
 Tests/FixedIssues/Issue30.lean,passed,passed,0,0,
 Tests/FixedIssues/Issue31.lean,passed,passed,0,10,
-Tests/FixedIssues/Issue32.lean,passed,failed,0,0,Z3 proof replay failed: no proof: [z3: smt proof: could not replay step 59 (th-lemma) concluding false; first failures: [step 0 (quant-inst): (or (not (forall ((|@β_uniq.3195| @Type_uniq.2954) ($5 (@Tests.Issue32.Term (@List @Instance_uniq.2954))) ($6 (@@ArrowT2 (@Tests.Issue32.Term (@List @Instance_uniq.2954)) Int))) (! (or (not (@isFun_uniq.3191 
+Tests/FixedIssues/Issue32.lean,passed,failed,0,0,Z3 proof replay failed: no proof: [z3: smt proof: could not replay step 59 (th-lemma) concluding false; first failures: [step 0 (quant-inst): (or (not (forall ((|@β_uniq.3195| @Type_uniq.2954) ($5 (@Tests.Issue32.Term (@List @Instance_uniq.2954))) ($6 (@@ArrowT2 (@Tests.Issue32.Term (@List @Instance_uniq.2954)) Int))) (! (or (not (@isFun_uniq.3191
 Tests/FixedIssues/Issue33.lean,passed,passed,0,0,
 Tests/FixedIssues/Issue34.lean,passed,passed,0,4,
 Tests/FixedIssues/Issue4.lean,passed,failed,0,0,Z3 proof replay failed: translateApp (proj): FunEnvInfo expected for Lean.Name.mkNum `LT.mk 0
