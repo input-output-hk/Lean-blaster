@@ -124,7 +124,7 @@ jobs:
     permissions:
       contents: read
     env:
-      Z3_VERSION: "4.15.2"
+      Z3_VERSION: "5.4.0"
       GLIBC_Z3: "2.39"
     steps:
       - name: Free disk space
@@ -132,6 +132,13 @@ jobs:
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
                       /opt/hostedtoolcache/CodeQL /usr/local/share/boost || true
           df -h /
+
+      - name: Checkout benchmark support
+        uses: actions/checkout@v6
+        with:
+          path: workflow
+          sparse-checkout: scripts
+          persist-credentials: false
 
       - name: Checkout benchmarking harness
         uses: actions/checkout@v6
@@ -154,13 +161,17 @@ jobs:
           unzip -q "z3-${Z3_VERSION}-x64-glibc-${GLIBC_Z3}.zip"
           echo "$HOME/z3-${Z3_VERSION}-x64-glibc-${GLIBC_Z3}/bin" >> "$GITHUB_PATH"
 
+      - name: Verify selected solver version
+        id: solver
+        run: python3 workflow/scripts/verify_benchmark_solver.py "$Z3_VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Restore result cache
         uses: actions/cache@v4
         with:
           path: benchmarking/latest/results_cache
-          key: pr-benchmark-v5-${{ needs.prepare.outputs.sha }}-${{ matrix.shard }}-${{ github.run_id }}
+          key: pr-benchmark-v6-${{ needs.prepare.outputs.sha }}-${{ matrix.shard }}-${{ steps.solver.outputs.solver_id }}-${{ github.run_id }}
           restore-keys: |
-            pr-benchmark-v5-${{ needs.prepare.outputs.sha }}-${{ matrix.shard }}-
+            pr-benchmark-v6-${{ needs.prepare.outputs.sha }}-${{ matrix.shard }}-${{ steps.solver.outputs.solver_id }}-
 
       - name: Run Blaster from the PR head
         working-directory: benchmarking
@@ -168,6 +179,7 @@ jobs:
           BLASTER_REPO_URL: ${{ needs.prepare.outputs.repo_url }}
           BLASTER_REF: ${{ needs.prepare.outputs.sha }}
           BENCHMARK_SUITES: ${{ matrix.suites }}
+          BENCH_SOLVER_ID: ${{ steps.solver.outputs.solver_id }}
         run: bash latest/run_latest.sh blaster
 
       - name: Upload shard results
