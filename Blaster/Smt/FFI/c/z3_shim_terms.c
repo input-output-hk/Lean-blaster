@@ -198,8 +198,9 @@ LEAN_EXPORT lean_obj_res lean_z3_mk_fresh_const(b_lean_obj_arg c, b_lean_obj_arg
   lean_object *r=box_owned(Z3_mk_fresh_const(ctx, lean_string_cstr(prefix), (Z3_sort)unbox_owned(srt)));
   lean_dec(c); lean_dec(prefix); lean_dec(srt); return z3_io_ok(r);
 }
-/* mkQuantConst : Context → isForall(Bool) → weight(UInt32) → Array Ast(bound consts) → Array Ast(patterns) → Ast(body) → IO Ast */
+/* mkQuantConst : Context → isForall(Bool) → weight(UInt32) → qid(String) → Array Ast(bound consts) → Array Ast(patterns) → Ast(body) → IO Ast */
 LEAN_EXPORT lean_obj_res lean_z3_mk_quant_const(b_lean_obj_arg c, uint8_t isForall, uint32_t weight,
+    b_lean_obj_arg qid,
     b_lean_obj_arg bounds, b_lean_obj_arg pats, b_lean_obj_arg body, lean_obj_arg w) {
   (void)w; Z3_context ctx=(Z3_context)ctx_ptr(c);
   size_t nb=lean_array_size(bounds);
@@ -207,11 +208,28 @@ LEAN_EXPORT lean_obj_res lean_z3_mk_quant_const(b_lean_obj_arg c, uint8_t isFora
   for (size_t i=0;i<nb;i++) bs[i]=Z3_to_app(ctx,(Z3_ast)unbox_owned(lean_array_get_core(bounds,i)));
   size_t np=lean_array_size(pats);
   Z3_pattern *ps=(Z3_pattern*)malloc(sizeof(Z3_pattern)*(np?np:1));
-  for (size_t i=0;i<np;i++){ Z3_ast pt=(Z3_ast)unbox_owned(lean_array_get_core(pats,i)); ps[i]=Z3_mk_pattern(ctx,1,&pt); }
-  Z3_ast r=Z3_mk_quantifier_const(ctx, isForall?true:false, weight, (unsigned)nb, bs, (unsigned)np, ps, (Z3_ast)unbox_owned(body));
+  for (size_t i=0;i<np;i++){
+    Z3_ast pt=(Z3_ast)unbox_owned(lean_array_get_core(pats,i));
+    ps[i]=Z3_mk_pattern(ctx,1,&pt);
+    if (Z3_get_error_code(ctx) == Z3_INVALID_PATTERN) { np=0; break; }
+  }
+  const char *qidStr = lean_string_cstr(qid);
+  Z3_symbol qidSym = qidStr[0] ? Z3_mk_string_symbol(ctx, qidStr) : NULL;
+  Z3_ast r=Z3_mk_quantifier_const_ex(ctx, isForall?true:false, weight, qidSym, NULL,
+      (unsigned)nb, bs, (unsigned)np, ps, 0, NULL, (Z3_ast)unbox_owned(body));
+  Z3_error_code err = Z3_get_error_code(ctx);
+  if (err == Z3_INVALID_PATTERN) {
+    /* The SMT-LIB parser warns and discards a pattern that does not cover all
+     * quantified variables. Apply the same rule to the native constructor. */
+    r=Z3_mk_quantifier_const_ex(ctx, isForall?true:false, weight, qidSym, NULL,
+        (unsigned)nb, bs, 0, NULL, 0, NULL, (Z3_ast)unbox_owned(body));
+    err=Z3_get_error_code(ctx);
+  }
+  lean_object *msg = err == Z3_OK ? NULL : lean_mk_string(Z3_get_error_msg(ctx, err));
   free(bs); free(ps);
-  lean_object *res=box_owned(r);
-  lean_dec(c); lean_dec(bounds); lean_dec(pats); lean_dec(body);
+  lean_object *res = msg ? NULL : box_owned(r);
+  lean_dec(c); lean_dec(qid); lean_dec(bounds); lean_dec(pats); lean_dec(body);
+  if (msg) return lean_io_result_mk_error(lean_mk_io_user_error(msg));
   return z3_io_ok(res);
 }
 /* mkLambdaConst : Context → Array Ast(bound) → Ast(body) → IO Ast */
@@ -251,8 +269,12 @@ LEAN_EXPORT lean_obj_res lean_z3_add_rec_def(b_lean_obj_arg c, b_lean_obj_arg fd
   Z3_ast *as=(Z3_ast*)malloc(sizeof(Z3_ast)*(n?n:1));
   for (size_t i=0;i<n;i++) as[i]=(Z3_ast)unbox_owned(lean_array_get_core(args,i));
   Z3_add_rec_def(ctx, (Z3_func_decl)unbox_owned(fd), (unsigned)n, as, (Z3_ast)unbox_owned(body));
+  Z3_error_code err = Z3_get_error_code(ctx);
+  lean_object *msg = err == Z3_OK ? NULL : lean_mk_string(Z3_get_error_msg(ctx, err));
   free(as);
-  lean_dec(c); lean_dec(fd); lean_dec(args); lean_dec(body); return z3_io_unit();
+  lean_dec(c); lean_dec(fd); lean_dec(args); lean_dec(body);
+  if (msg) return lean_io_result_mk_error(lean_mk_io_user_error(msg));
+  return z3_io_unit();
 }
 
 /* Native model AST inspection. No SMT-LIB serialization is involved except

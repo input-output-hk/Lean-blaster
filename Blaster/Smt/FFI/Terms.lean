@@ -89,7 +89,7 @@ def Context.mkSmtStringLit (ctx : Context) (s : String) : IO Ast :=
 
 /- Task 10: quantifier + lambda constructors (fresh-const binders). -/
 @[extern "lean_z3_mk_fresh_const"]  opaque Context.mkFreshConst  : Context → String → Z3Sort → IO Ast
-@[extern "lean_z3_mk_quant_const"]  opaque Context.mkQuantConst  : Context → Bool → UInt32 → Array Ast → Array Ast → Ast → IO Ast
+@[extern "lean_z3_mk_quant_const"]  opaque Context.mkQuantConst  : Context → Bool → UInt32 → String → Array Ast → Array Ast → Ast → IO Ast
 @[extern "lean_z3_mk_lambda_const"] opaque Context.mkLambdaConst : Context → Array Ast → Ast → IO Ast
 
 /- Task 13: recursive define-fun (define-fun-rec / define-funs-rec). -/

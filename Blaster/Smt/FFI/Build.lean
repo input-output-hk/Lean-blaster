@@ -184,6 +184,9 @@ private def parseRadix? (base : Nat) (digits : List Char) : Option Nat :=
 private def patternsOf (annot : Array SmtAttribute) : Array SmtTerm :=
   annot.foldl (fun acc a => match a with | .Pattern ps => acc ++ ps | _ => acc) #[]
 
+private def qidOf (annot : Array SmtAttribute) : String :=
+  (annot.findSome? fun a => match a with | .Qid nm => some nm.toString | _ => none).getD ""
+
 mutual
 /-- Translate an `SmtTerm` directly to a Z3 AST. -/
 partial def buildTerm (t : SmtTerm) : BuildM Ast := do
@@ -212,8 +215,8 @@ partial def buildTerm (t : SmtTerm) : BuildM Ast := do
       (← get).ctx.mkLambdaConst consts b
   | .AnnotatedTerm t annot =>
       match t with
-      | .ForallTerm bs body => buildQuant true bs body (patternsOf annot)
-      | .ExistsTerm bs body => buildQuant false bs body (patternsOf annot)
+      | .ForallTerm bs body => buildQuant true bs body (patternsOf annot) (qidOf annot)
+      | .ExistsTerm bs body => buildQuant false bs body (patternsOf annot) (qidOf annot)
       | _ => buildTerm t
   | .LetTerm bs body => do
       -- SMT-LIB `let` binds SIMULTANEOUSLY: every RHS is evaluated in the OUTER
@@ -372,12 +375,18 @@ partial def withBound {α : Type} (bs : SortedVars) (k : BuildM α) : BuildM (α
   return (r, consts)
 
 partial def buildQuant (isForall : Bool) (bs : SortedVars) (body : SmtTerm)
-    (pats : Array SmtTerm := #[]) : BuildM Ast := do
+    (pats : Array SmtTerm := #[]) (qid : String := "") : BuildM Ast := do
+  -- The SMT-LIB emitter places :pattern on the quantifier body.
+  -- Z3_mk_quantifier_const_ex takes patterns and qid as separate arguments.
+  let (body, bodyPats, bodyQid) := match body with
+    | .AnnotatedTerm inner attrs => (inner, patternsOf attrs, qidOf attrs)
+    | inner => (inner, #[], "")
   let ((b, patAsts), consts) ← withBound bs (do
     let b ← buildTerm body
-    let patAsts ← pats.mapM buildTerm
+    let patAsts ← (pats ++ bodyPats).mapM buildTerm
     return (b, patAsts))
-  (← get).ctx.mkQuantConst isForall 0 consts patAsts b
+  -- SMT-LIB quantifiers without :weight receive Z3's default weight 1.
+  (← get).ctx.mkQuantConst isForall 1 (if bodyQid.isEmpty then qid else bodyQid) consts patAsts b
 end
 
 /-- Does `t` reference the symbol `nm` (i.e. is the definition self-recursive)?

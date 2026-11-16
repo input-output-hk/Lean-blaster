@@ -187,6 +187,46 @@ open Blaster.Smt in
   let rPat ← s6.checkSat #[] false
   IO.println s!"quant r1={showR r1} r2={showR r2} r3={showR r3} multi={showR rMulti} lam={showR rLam} pat={showR rPat}"
 
+-- mkForallTerm emits the pattern on the quantifier body, as SMT-LIB requires.
+-- Check the actual libz3 AST because satisfiability alone cannot detect a
+-- silently dropped e-matching pattern.
+open Blaster.Smt in
+/-- info: body-pattern-ok -/
+#guard_msgs in
+#eval do
+  let ctx ← mkContext
+  let ast ← BuildM.run ctx do
+    runCommand (.declareFun (.NormalSymbol "f") #[intSort] intSort)
+    let x : SmtTerm := .SmtIdent (.SimpleIdent (.NormalSymbol "x"))
+    let fx : SmtTerm := .AppTerm (.SimpleIdent (.NormalSymbol "f")) #[x]
+    buildTerm (mkForallTerm none #[(.NormalSymbol "x", intSort)]
+      (.AppTerm (.SimpleIdent (.ReservedSymbol "=")) #[fx, fx])
+      (some #[mkPattern #[fx]]))
+  let rendered ← ctx.astToString ast
+  if (rendered.splitOn ":pattern").length < 2 then
+    throw (IO.userError s!"native quantifier lost body pattern: {rendered}")
+  IO.println "body-pattern-ok"
+
+-- The SMT-LIB parser drops a pattern that omits one of the bound variables.
+-- The native constructor must do the same instead of silently losing the axiom.
+open Blaster.Smt in
+/-- info: invalid-pattern-dropped -/
+#guard_msgs in
+#eval do
+  let ctx ← mkContext
+  let ast ← BuildM.run ctx do
+    runCommand (.declareFun (.NormalSymbol "f") #[intSort] intSort)
+    let x : SmtTerm := .SmtIdent (.SimpleIdent (.NormalSymbol "x"))
+    let y : SmtTerm := .SmtIdent (.SimpleIdent (.NormalSymbol "y"))
+    let fx : SmtTerm := .AppTerm (.SimpleIdent (.NormalSymbol "f")) #[x]
+    buildTerm (mkForallTerm none #[(.NormalSymbol "x", intSort), (.NormalSymbol "y", intSort)]
+      (.AppTerm (.SimpleIdent (.ReservedSymbol "=")) #[x, y])
+      (some #[mkPattern #[fx]]))
+  let rendered ← ctx.astToString ast
+  if (rendered.splitOn ":pattern").length > 1 then
+    throw (IO.userError s!"invalid native pattern was retained: {rendered}")
+  IO.println "invalid-pattern-dropped"
+
 open Blaster.Smt in
 /-- info: let-ok -/
 #guard_msgs in
