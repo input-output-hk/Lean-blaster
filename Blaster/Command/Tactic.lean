@@ -19,6 +19,7 @@ Options:
   - `only-optimize`: only perform optimization on lean specification and do not translate to smt-lib (default: 0)
   - `dump-smt-lib`: display the smt lib query to stdout (default: 0)
   - `gen-cex`: generate counterexample for falsified theorems (default: 1)
+  - `replay`: evaluate a typed native counterexample in the original Lean goal (default: 0)
   - `unfold-depth`: specifying the number of unfolding to be performed on recursive functions (default: 100)
   - `random-seed`: seed for the random number generator (default: none)
   - `solve-result`: specify the expected result from the blaster tactic, i.e.,

@@ -18,8 +18,12 @@ Options:
   - `dump-smt-lib`: display the smt lib query to stdout (default: 0)
   - `random-seed`: seed for the random number generator (default: none)
   - `gen-cex`: generate counterexample for falsified theorems (default: 1)
+  - `replay`: instantiate the original Lean proposition with a typed libz3 model and evaluate it (default: 0)
   - `solve-result`: specify the expected result from the #blaster command, i.e.,
                     0 for 'Valid', 1 for 'Falsified' and 2 for 'Undetermined'. (default: 0)
+  - `backend`: backend solver used to discharge unsolved goals, i.e.,
+                    `smtlib` for the legacy z3 subprocess or `ffi` for the in-process
+                    Z3 FFI session. (default: ffi)
 
 Examples:
    - #blaster [∀ x y : Nat, x + y ≥ x]
@@ -35,9 +39,11 @@ syntax "(only-smt-lib:" num ")" : solveOption
 syntax "(only-optimize:" num ")" : solveOption
 syntax "(dump-smt-lib:" num ")" : solveOption
 syntax "(gen-cex:" num ")" : solveOption
+syntax "(replay:" num ")" : solveOption
 syntax "(solve-result:" num ")" : solveOption
 syntax "(max-depth:" num ")" : solveOption
 syntax "(random-seed:" num ")" : solveOption
+syntax "(backend:" ident ")" : solveOption
 
 -- NOTE: Limited to one term for the time being
 syntax solveTerm := "[" term "]"
@@ -95,6 +101,14 @@ def parseGenCex (sOpts : BlasterOptions) : TSyntax `solveOption → m BlasterOpt
       | _ => throwUnsupportedSyntax
   | _ => return sOpts
 
+def parseReplay (sOpts : BlasterOptions) : TSyntax `solveOption → m BlasterOptions
+  | `(solveOption| (replay: $n:num)) =>
+      match n.getNat with
+      | 0 => return { sOpts with replay := false }
+      | 1 => return { sOpts with replay := true }
+      | _ => throwUnsupportedSyntax
+  | _ => return sOpts
+
 def parseRandomSeed (sOpts : BlasterOptions) : TSyntax `solveOption → m BlasterOptions
   | `(solveOption| (random-seed: $n:num)) =>
       match n.getNat with
@@ -111,6 +125,14 @@ def parseSolveResult (sOpts : BlasterOptions) : TSyntax `solveOption → m Blast
       | _ => throwUnsupportedSyntax
   | _ => return sOpts
 
+def parseBackend (sOpts : BlasterOptions) : TSyntax `solveOption → m BlasterOptions
+  | `(solveOption| (backend: $b:ident)) =>
+      match b.getId.toString with
+      | "ffi" => return { sOpts with backend := .ffi }
+      | "smtlib" => return { sOpts with backend := .smtlib }
+      | _ => throwUnsupportedSyntax
+  | _ => return sOpts
+
 /-! ### Generic Parser for All Options -/
 def parseSolveOption (sOpts : BlasterOptions) (opt : TSyntax `solveOption) : m BlasterOptions := do
   let sOpts ← parseUnfoldDepth sOpts opt
@@ -120,9 +142,11 @@ def parseSolveOption (sOpts : BlasterOptions) (opt : TSyntax `solveOption) : m B
   let sOpts ← parseOptimize sOpts opt
   let sOpts ← parseDumpSmt sOpts opt
   let sOpts ← parseGenCex sOpts opt
+  let sOpts ← parseReplay sOpts opt
   let sOpts ← parseSolveResult sOpts opt
   let sOpts ← parseMaxDepth sOpts opt
   let sOpts ← parseRandomSeed sOpts opt
+  let sOpts ← parseBackend sOpts opt
   return sOpts
 
 /-! ### Process Multiple Options -/

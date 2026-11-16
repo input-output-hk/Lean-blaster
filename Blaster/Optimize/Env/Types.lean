@@ -5,6 +5,8 @@ import Blaster.Optimize.Expr
 import Blaster.Optimize.Env.ContextMap
 import Blaster.Optimize.MatchInfo
 import Blaster.Smt.Term
+import Blaster.Smt.Result
+import Blaster.Smt.FFI.Session
 import Blaster.Command.Options
 
 open Lean Meta Blaster.Smt Blaster.Options
@@ -681,7 +683,7 @@ instance : Inhabited TranslateOptions where
               axiomMap := .emptyWithCapacity
              }
 
-abbrev TopLevelVars := Array (List (SmtSymbol × Lean.Name))
+abbrev TopLevelVars := Array (List TopLevelVar)
 
 abbrev ConversionFunCache := HashMap (SortExpr × SortExpr) SmtSymbol
 abbrev AbstractTypeCache := HashMap PtrExpr SmtSymbol
@@ -696,6 +698,9 @@ structure SmtEnv where
 
   /-- Backend solver process. -/
   smtProc : Option (IO.Process.Child ⟨.piped, .piped, .piped⟩)
+
+  /-- In-process Z3 session, used by the native backend. -/
+  smtSession : Option Blaster.Smt.FFI.Z3Session
 
   /-- Cache keeping track of visited inductive datatype during translation. -/
   indTypeVisited : HashSet Lean.Name
@@ -795,6 +800,7 @@ instance : Inhabited SmtEnv where
    { translateCache := HashMap.emptyWithCapacity,
      smtCommands := Array.mkEmpty 1023,
      smtProc := default,
+     smtSession := none,
      indTypeVisited := HashSet.emptyWithCapacity,
      indTypeInstCache := HashMap.emptyWithCapacity,
      funInstCache := HashMap.emptyWithCapacity,

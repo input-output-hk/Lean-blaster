@@ -40,7 +40,11 @@ jobs:
           wget -q https://github.com/Z3Prover/z3/releases/download/z3-${{ env.Z3_VERSION }}/z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}.zip
           unzip -q z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}.zip
           chmod +x z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}.zip
-          echo "/home/runner/z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}/bin" >> $GITHUB_PATH
+          z3_root="/home/runner/z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}"
+          echo "$z3_root/bin" >> "$GITHUB_PATH"
+          echo "Z3_LIB_PATH=$z3_root/bin" >> "$GITHUB_ENV"
+          echo "Z3_INC_PATH=$z3_root/include" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=$z3_root/bin:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
 
       - name: Resolve Z3 master commit
         if: env.Z3_VERSION == 'master'
@@ -64,7 +68,7 @@ jobs:
           git clone --depth 1 --branch master https://github.com/Z3Prover/z3.git z3-src
           cmake -S z3-src -B z3-src/build \
             -DCMAKE_BUILD_TYPE=Release \
-            -DZ3_BUILD_LIBZ3_SHARED=OFF \
+            -DZ3_BUILD_LIBZ3_SHARED=ON \
             -DZ3_BUILD_PYTHON_BINDINGS=OFF \
             -DZ3_BUILD_TEST_EXECUTABLES=OFF \
             -DCMAKE_INSTALL_PREFIX=/home/runner/z3-master
@@ -80,7 +84,11 @@ jobs:
 
       - name: Add Z3 master to PATH
         if: env.Z3_VERSION == 'master'
-        run: echo "/home/runner/z3-master/bin" >> $GITHUB_PATH
+        run: |
+          echo "/home/runner/z3-master/bin" >> "$GITHUB_PATH"
+          echo "Z3_LIB_PATH=/home/runner/z3-master/lib" >> "$GITHUB_ENV"
+          echo "Z3_INC_PATH=/home/runner/z3-master/include" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=/home/runner/z3-master/lib:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
 
       - name: Tools version
         run: |

@@ -652,11 +652,22 @@ Then reload your shell and re-run `which z3`.
 
 ### 3. Make sure Lean 4 uses the right Z3
 
-Lean just calls `z3` as an external process (via `IO.Process` or tactics that use Z3).
+The default backend uses libz3 in process. The optional
+`(backend: smtlib)` backend calls `z3` as an external process. The native
+backend links the Z3 5.4.0 headers and `libz3` when Lake
+builds Blaster. Point both build and runtime at the same installation:
 
-It doesn’t have its own embedded Z3. So:
+```bash
+export Z3_INC_PATH=/usr/local/include
+export Z3_LIB_PATH=/usr/local/lib
+export LD_LIBRARY_PATH=/usr/local/lib:${LD_LIBRARY_PATH:-}
+lake build
+```
 
-**If the shell you run `lake` from sees `/usr/local/bin/z3` (5.4.0), then Lean will also use 5.4.0.**
+On macOS, use `DYLD_LIBRARY_PATH` in place of `LD_LIBRARY_PATH`; use the
+installation's `include` and library directories if they differ from
+`/usr/local`. For a typed counterexample and Lean-side replay, use
+`#blaster (backend: ffi) (replay: 1) [∀ (n : Nat), n = 0]`.
 
 Just to be sure, you can run the simple test we provide in this repository, as follows:
 

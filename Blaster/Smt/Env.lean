@@ -2,6 +2,8 @@ import Lean
 import Blaster.Command.Options
 import Blaster.Optimize.Env
 import Blaster.Smt.EmitCommand
+import Blaster.Smt.Result
+import Blaster.Smt.FFI.Model
 
 open Lean Meta Blaster.Optimize Blaster.Options
 
@@ -14,13 +16,6 @@ private def normalizeLine (s : String) : String :=
 
 /-- Minimal version of z3 we support -/
 private def minZ3Version : String := "5.4.0"
-
-/-- Result of an Smt query. -/
-inductive Result where
-  | Valid  : Result
-  | Falsified (cex : List String) : Result
-  | Undetermined : Result
-deriving Repr
 
 def toResult (e : Expr) : Result :=
  match e with
@@ -74,7 +69,7 @@ def logResult (r : Result) (isCTI := false) (indLabel := "") (cexLabel := "Count
       if (← get).optEnv.options.solverOptions.generateCex then
          f failure
          f s!"{cexLabel}:"
-         cex.forM (λ s => f s!" - {s.dropRight 1}")
+         cex.forM (λ s => f s!" - {s.trimRight}")
       else f failure
 
 /-- Tries to find if z3 is natively present in PATH, if not checks wsl z3 -/
@@ -212,14 +207,17 @@ def isSmtProcSet : TranslateEnvT Bool :=
 -/
 partial def trySubmitCommand! (c : SmtCommand) (checkSuccess := true) : TranslateEnvT Unit := do
   storeCommand c
-  if !(← isSmtProcSet) then return ()
-  c.emit
-  let h ← getProcStdOut
-  if !checkSuccess then return ()
-  let out := normalizeLine (← h.getLine)
-  match out with
-  | "success\n" => return ()
-  | err => throwEnvError s!"Unexpected smt error: {err} for {c}"
+  match (← get).smtEnv.smtSession with
+  | some sess => return (← sess.submit c)
+  | none =>
+      if !(← isSmtProcSet) then return ()
+      c.emit
+      let h ← getProcStdOut
+      if !checkSuccess then return ()
+      let out := normalizeLine (← h.getLine)
+      match out with
+      | "success\n" => return ()
+      | err => throwEnvError s!"Unexpected smt error: {err} for {c}"
 
 /-- Same as trySubmitCommand! but with flag `checkSuccess` set to `false`.
 -/
@@ -485,6 +483,9 @@ def defineInttoNat : TranslateEnvT Unit := do
 -/
 def evalTerm (t : SmtTerm) : TranslateEnvT String := do
   let env ← get
+  if let some sess := env.smtEnv.smtSession then
+    let term ← sess.run (Blaster.Smt.FFI.buildTerm t)
+    return ← sess.solver.evalStr term
   let some p := env.smtEnv.smtProc | return ""
   checkCancelTk?
   submitCommand (.evalTerm t)
@@ -517,11 +518,77 @@ def getModel : TranslateEnvT (List String) := do
     return cexArray.toList
 
   where
-    genCexAtStep (cex : Array String) (vars : List (SmtSymbol × Name)) : TranslateEnvT (Array String) := do
+    genCexAtStep (cex : Array String) (vars : List TopLevelVar) : TranslateEnvT (Array String) := do
       List.foldrM (λ v acc => return acc.push (← getVarValue v)) cex vars
 
-    getVarValue (v : SmtSymbol × Name) : TranslateEnvT String := do
-      return s!"{v.2}: {← evalTerm (smtSimpleVarId v.1)}"
+    getVarValue (v : TopLevelVar) : TranslateEnvT String := do
+      return s!"{v.userName}: {← evalTerm (smtSimpleVarId v.symbol)}"
+
+/-- Native model values are inspected as Z3 ASTs and rebuilt as Lean terms
+    against each variable's original type. A failed reconstruction is visibly
+    marked and retains the Z3 value for diagnosis. -/
+def getNativeModel (sess : Blaster.Smt.FFI.Z3Session) : TranslateEnvT (List String) := do
+  let env ← get
+  if !env.optEnv.options.solverOptions.generateCex then return []
+  if env.smtEnv.topLevelVars.isEmpty then
+    return [← sess.solver.modelStr]
+  let mut cex := #[]
+  for vars in env.smtEnv.topLevelVars do
+    for v in vars.reverse do
+      let term ← sess.run (Blaster.Smt.FFI.buildTerm (smtSimpleVarId v.symbol))
+      let ast ← sess.solver.evalAst term
+      let value ← sess.ctx.readModelValue ast
+      let raw ← sess.ctx.astToString ast
+      let decoded ← withLocalContext <| Blaster.CEX.decode? v.type value
+      let rendered ←
+        match decoded with
+        | some leanValue => do
+            let valueStr := toString (← ppExpr leanValue)
+            let typeStr := toString (← ppExpr v.type)
+            pure s!"({valueStr} : {typeStr})"
+        | none => pure s!"{raw} [raw Z3 value; typed reconstruction unavailable]"
+      cex := cex.push s!"{v.userName}: {rendered}"
+  return cex.toList
+
+/-- Instantiate the original proposition in binder order using values inspected
+    from the native model. Each value is decoded against the binder's Lean type,
+    including dependencies on binders already instantiated. -/
+private partial def instantiateNativeWitnesses (sess : Blaster.Smt.FFI.Z3Session)
+    (prop : Expr) (vars : List TopLevelVar) : TranslateEnvT (Option Expr) := do
+  match vars, prop with
+  | [], .forallE .. => return none
+  | [], _ => return some prop
+  | v :: rest, .forallE name binderType body _ =>
+      if name != v.userName then return none
+      let term ← sess.run (Blaster.Smt.FFI.buildTerm (smtSimpleVarId v.symbol))
+      let ast ← sess.solver.evalAst term
+      let value ← sess.ctx.readModelValue ast
+      let some leanValue ← Blaster.CEX.decode? binderType value | return none
+      instantiateNativeWitnesses sess (body.instantiate1 leanValue) rest
+  | _ :: _, _ => return none
+
+/-- Replay is a Lean-side check of a concrete instance, not a proof of the
+    quantified proposition. An unavailable `Decidable` instance or incomplete
+    model produces an explicit inconclusive diagnostic. -/
+def replayNativeCounterexample (source : Expr) : TranslateEnvT String := do
+  let some sess := (← get).smtEnv.smtSession
+    | return "⚠️ Replay unavailable: select (backend: ffi)"
+  try
+    let mut vars : List TopLevelVar := []
+    for group in (← get).smtEnv.topLevelVars do
+      vars := vars ++ group.reverse
+    let some instantiatedProp ← instantiateNativeWitnesses sess source vars
+      | return "⚠️ Replay inconclusive: the model does not cover the original Lean binders"
+    if instantiatedProp.hasFVar || instantiatedProp.hasMVar then
+      return "⚠️ Replay inconclusive: the instantiated proposition contains free variables"
+    let decision ← whnf (← mkDecide instantiatedProp)
+    if ← isDefEq decision (mkConst ``Bool.false) then
+      return "✅ Replay: the instantiated Lean proposition evaluates to false"
+    if ← isDefEq decision (mkConst ``Bool.true) then
+      return "❌ Replay mismatch: the instantiated Lean proposition evaluates to true"
+    return "⚠️ Replay inconclusive: Lean could not reduce the instantiated proposition"
+  catch _ =>
+    return "⚠️ Replay inconclusive: Lean could not evaluate this proposition"
 
 /-- Retrieve sat result from `h`.
     An error is triggered when an unexpected check-sat result is obtained.
@@ -551,9 +618,23 @@ partial def getSatResult (p : IO.Process.Child ⟨.piped, .piped, .piped⟩) : T
 -/
 def checkSat : TranslateEnvT Result := do
   let env ← get
-  let some p := env.smtEnv.smtProc | return .Undetermined
-  submitCommand (.checkSat)
-  getSatResult p
+  match env.smtEnv.smtSession with
+  | some sess =>
+      -- FFI has no process to kill, so `checkCancelTk?` (which needs `smtProc`) is a
+      -- no-op here. Pass the cancel token into the check so a running Z3 solver is
+      -- interrupted, then throw the interrupt exception ourselves on cancellation.
+      let tk? := (← readThe Core.Context).cancelTk?
+      let status ← sess.runCheckCancellable sess.solver.check tk?
+      if let some tk := tk? then
+        if ← tk.isSet then throwInterruptException
+      match status with
+      | 0 => return .Valid
+      | 2 => return .Falsified (← getNativeModel sess)
+      | _ => return .Undetermined
+  | none =>
+      let some p := env.smtEnv.smtProc | return .Undetermined
+      submitCommand (.checkSat)
+      getSatResult p
 
 /-- Check satisfiability of current Smt query by assuming the provided terms
     and return the result.
@@ -562,9 +643,23 @@ def checkSat : TranslateEnvT Result := do
 -/
 def checkSatAssuming (args : Array SmtTerm) : TranslateEnvT Result := do
   let env ← get
-  let some p := env.smtEnv.smtProc | return .Undetermined
-  submitCommand (.checkSatAssuming args)
-  getSatResult p
+  match env.smtEnv.smtSession with
+  | some sess =>
+      -- See `checkSat`: FFI has no process, so pass the token to interrupt a running
+      -- Z3 check, then throw the interrupt exception ourselves on cancellation.
+      let tk? := (← readThe Core.Context).cancelTk?
+      let asts ← args.mapM (fun t => sess.run (Blaster.Smt.FFI.buildTerm t))
+      let status ← sess.runCheckCancellable (sess.solver.checkAssuming asts) tk?
+      if let some tk := tk? then
+        if ← tk.isSet then throwInterruptException
+      match status with
+      | 0 => return .Valid
+      | 2 => return .Falsified (← getNativeModel sess)
+      | _ => return .Undetermined
+  | none =>
+      let some p := env.smtEnv.smtProc | return .Undetermined
+      submitCommand (.checkSatAssuming args)
+      getSatResult p
 
 
 /-- Try to retrieve the proof artifact when a `unsat` result is obtained and dump result to stdout.
@@ -586,10 +681,13 @@ def getProof : TranslateEnvT String := do
 -/
 def exitSmt : TranslateEnvT UInt32 := do
  let env ← get
- let some p := env.smtEnv.smtProc | return 0
- submitCommand (.exitSmt)
- let (_, p) ← p.takeStdin
- p.wait
+ match env.smtEnv.smtSession with
+ | some _ => set { env with smtEnv.smtSession := none }; return 0
+ | none =>
+   let some p := env.smtEnv.smtProc | return 0
+   submitCommand (.exitSmt)
+   let (_, p) ← p.takeStdin
+   p.wait
 
 
 /-- Set the Smt logic to `ALL`. -/
@@ -619,7 +717,8 @@ def setPrintSuccess (b : Bool) : TranslateEnvT Unit :=
 /-- Set Smt `smt.random-seed` option to `n` or none. -/
 def setRandomSeed (n : Option Nat) : TranslateEnvT Unit := do
   match n with
-  | some n => trySubmitCommand! (.setOption ":smt.random-seed" (toString n))
+  | some n =>
+      trySubmitCommand! (.setOption ":smt.random-seed" (toString n))
   | none => pure ()
 
 /-- Set Smt `auto_config` option to `b`. -/
@@ -647,7 +746,7 @@ def setMacroFinder (b : Bool) : TranslateEnvT Unit :=
 def setRelevancy (n : Nat) : TranslateEnvT Unit :=
   trySubmitCommand! (.setOption ":smt.relevancy" (toString n))
 
-/-- Set Smt `timeout` when option is specified. -/
+/-- Set Smt `timeout` when option is specified, in milliseconds. -/
 def setTimeout : TranslateEnvT Unit := do
   let sOpts := (← get).optEnv.options.solverOptions
   let some n := sOpts.timeout | return ()
@@ -709,8 +808,13 @@ def setBlasterProcess : TranslateEnvT Unit := do
   let env ← get
   let sOpts := env.optEnv.options.solverOptions
   unless sOpts.onlySmtLib do
-    let proc ← createBlasterProcess
-    set { env with smtEnv.smtProc := proc }
+    match sOpts.backend with
+    | .ffi =>
+        let sess ← Blaster.Smt.FFI.Z3Session.create
+        set { env with smtEnv.smtSession := some sess }
+    | .smtlib =>
+        let proc ← createBlasterProcess
+        set { env with smtEnv.smtProc := proc }
   setDefaultSmtOptions sOpts
 
 
