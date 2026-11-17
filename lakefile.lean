@@ -1,6 +1,18 @@
 import Lake
 open Lake DSL System
 
+private unsafe def gccArchive (name : String) : String :=
+  match unsafeIO do
+    let result ← IO.Process.output { cmd := "g++", args := #[s!"-print-file-name={name}"] }
+    if result.exitCode != 0 then
+      throw <| IO.userError s!"g++ could not locate {name}: {result.stderr}"
+    let path := result.stdout.trim
+    if path == name || !(← (FilePath.mk path).pathExists) then
+      throw <| IO.userError s!"Install the static GCC C++ runtime archive {name} to link Z3 on Linux"
+    pure path with
+  | .ok path => path
+  | .error e => panic! s!"{e}"
+
 private unsafe def z3LinkArgsImpl : Array String :=
   let libPath := match unsafeBaseIO (IO.getEnv "Z3_LIB_PATH") with
     | some p => p | none => if System.Platform.isOSX then "/opt/homebrew/lib" else "/usr/local/lib"
@@ -10,8 +22,8 @@ private unsafe def z3LinkArgsImpl : Array String :=
     -- Lean's Linux runtime exports part of LLVM's unwinder. A shared libz3 built
     -- against libstdc++ can therefore abort on an internally caught exception.
     -- Keep Z3, libstdc++, and libgcc's unwinder together inside libz3shim.so.
-    #[s!"{libPath}/libz3.a", "-Wl,-Bstatic", "-lstdc++", "-lgcc_eh",
-      "-Wl,-Bdynamic", "-Wl,--exclude-libs,libz3.a",
+    #[s!"{libPath}/libz3.a", gccArchive "libstdc++.a", gccArchive "libgcc_eh.a",
+      "-Wl,--exclude-libs,libz3.a",
       "-Wl,--exclude-libs,libstdc++.a", "-Wl,--exclude-libs,libgcc_eh.a"]
 @[implemented_by z3LinkArgsImpl]
 private opaque z3LinkArgs : Array String := #["-lz3"]
