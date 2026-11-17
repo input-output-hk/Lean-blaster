@@ -588,6 +588,17 @@ def nameTerm (t : SmtTerm) (nm : Option String) : SmtTerm :=
   | none => t
   | some nmThm => .AnnotatedTerm t #[.Named (mkNormalSymbol nmThm)]
 
+/-- Give every generated quantifier a stable identifier. Without an explicit
+    `:qid`, Z3's SMT-LIB parser uses the input line number while the C API uses
+    no identifier, so otherwise the two ASTs differ even for the same formula. -/
+private def withQuantifierId (vars : SortedVars) (body : SmtTerm)
+    (att : Option (Array SmtAttribute)) : Array SmtAttribute := Id.run do
+  let attrs := att.getD #[]
+  if attrs.any (fun a => match a with | .Qid _ => true | _ => false) then
+    return attrs
+  let id := hash s!"{vars}:{body}"
+  return attrs.push (.Qid (mkNormalSymbol s!"blaster_q_{id}"))
+
 /-! Create a forall Smt Term, with quantifiers `vars` and body `b`.
     An optional theorem name `nmThm` can be provided as well as
     specific patterns to facilitate e-matching and debugging
@@ -596,7 +607,7 @@ def nameTerm (t : SmtTerm) (nm : Option String) : SmtTerm :=
 def mkForallTerm
   (nmThm : Option String) (vars : SortedVars)
   (b : SmtTerm) (att : Option (Array SmtAttribute)) : SmtTerm :=
-  let bodyTerm := annotateTerm b att
+  let bodyTerm := .AnnotatedTerm b (withQuantifierId vars b att)
   let forallTerm := .ForallTerm vars bodyTerm
   nameTerm forallTerm nmThm
 
@@ -608,7 +619,7 @@ def mkForallTerm
 def mkExistsTerm
   (nmThm : Option String) (vars : SortedVars)
   (b : SmtTerm) (att : Option (Array SmtAttribute)) : SmtTerm :=
-  let bodyTerm := annotateTerm b att
+  let bodyTerm := .AnnotatedTerm b (withQuantifierId vars b att)
   let existsTerm := .ExistsTerm vars bodyTerm
   nameTerm existsTerm nmThm
 

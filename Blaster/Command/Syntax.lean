@@ -16,7 +16,7 @@ Options:
   - `only-smt-lib`: only translating unsolved goals to smt-lib without invoking the backend solver (default: 0)
   - `only-optimize`: only perform optimization on lean specification and do not translate to smt-lib (default: 0)
   - `dump-smt-lib`: display the smt lib query to stdout (default: 0)
-  - `random-seed`: seed for the random number generator (default: none)
+  - `random-seed`: seed for the random number generator (default: 1)
   - `gen-cex`: generate counterexample for falsified theorems (default: 1)
   - `replay`: instantiate the original Lean proposition with a typed libz3 model and evaluate it (default: 0)
   - `solve-result`: specify the expected result from the #blaster command, i.e.,
@@ -112,7 +112,7 @@ def parseReplay (sOpts : BlasterOptions) : TSyntax `solveOption → m BlasterOpt
 def parseRandomSeed (sOpts : BlasterOptions) : TSyntax `solveOption → m BlasterOptions
   | `(solveOption| (random-seed: $n:num)) =>
       match n.getNat with
-      | 0 => return { sOpts with randomSeed := none }
+      | 0 => return { sOpts with randomSeed := some 0 }
       | n => return { sOpts with randomSeed := some n }
   | _ => return sOpts
 

@@ -3,6 +3,42 @@
 #include <stdio.h>
 extern void *ctx_ptr(lean_object *o);
 
+/* Differential-test oracle only. The production backend builds every term
+ * with constructors below; SMT-LIB parsing is used solely to compare ASTs. */
+LEAN_EXPORT lean_obj_res lean_z3_parse_assert_for_test(b_lean_obj_arg c,
+    b_lean_obj_arg script, lean_obj_arg w) {
+  (void)w;
+  Z3_context ctx = (Z3_context)ctx_ptr(c);
+  Z3_ast_vector v = Z3_parse_smtlib2_string(ctx, lean_string_cstr(script),
+      0, NULL, NULL, 0, NULL, NULL);
+  Z3_error_code err = Z3_get_error_code(ctx);
+  if (err != Z3_OK || !v) {
+    lean_object *msg = lean_mk_string(Z3_get_error_msg(ctx, err));
+    lean_dec(c); lean_dec(script);
+    return lean_io_result_mk_error(lean_mk_io_user_error(msg));
+  }
+  Z3_ast_vector_inc_ref(ctx, v);
+  if (Z3_ast_vector_size(ctx, v) != 1) {
+    Z3_ast_vector_dec_ref(ctx, v);
+    lean_dec(c); lean_dec(script);
+    return lean_io_result_mk_error(lean_mk_io_user_error(
+        lean_mk_string("parity oracle expected exactly one assertion")));
+  }
+  lean_object *result = box_owned(Z3_ast_vector_get(ctx, v, 0));
+  Z3_ast_vector_dec_ref(ctx, v);
+  lean_dec(c); lean_dec(script);
+  return z3_io_ok(result);
+}
+
+LEAN_EXPORT lean_obj_res lean_z3_ast_eq_for_test(b_lean_obj_arg c,
+    b_lean_obj_arg a, b_lean_obj_arg b, lean_obj_arg w) {
+  (void)w;
+  uint8_t equal = Z3_is_eq_ast((Z3_context)ctx_ptr(c),
+      (Z3_ast)unbox_owned(a), (Z3_ast)unbox_owned(b));
+  lean_dec(c); lean_dec(a); lean_dec(b);
+  return z3_io_ok(lean_box(equal));
+}
+
 /* mkNumeral : Context → String(decimal) → Z3Sort → IO Ast */
 LEAN_EXPORT lean_obj_res lean_z3_mk_numeral(b_lean_obj_arg c, b_lean_obj_arg num, b_lean_obj_arg srt, lean_obj_arg w) {
   (void)w;
@@ -178,11 +214,10 @@ LEAN_EXPORT lean_obj_res lean_z3_mk_seq_replace_all(b_lean_obj_arg c, b_lean_obj
     (Z3_ast)unbox_owned(s),(Z3_ast)unbox_owned(src),(Z3_ast)unbox_owned(dst)));
   lean_dec(c); lean_dec(s); lean_dec(src); lean_dec(dst); return z3_io_ok(r);
 }
-/* int abs = ite(x>=0, x, -x) */
+/* Preserve SMT-LIB's native arithmetic abs node. */
 LEAN_EXPORT lean_obj_res lean_z3_mk_int_abs(b_lean_obj_arg c, b_lean_obj_arg a, lean_obj_arg w) {
   (void)w; Z3_context ctx=(Z3_context)ctx_ptr(c); Z3_ast x=(Z3_ast)unbox_owned(a);
-  Z3_sort is=Z3_mk_int_sort(ctx); Z3_ast zero=Z3_mk_int(ctx,0,is);
-  lean_object *r=box_owned(Z3_mk_ite(ctx, Z3_mk_ge(ctx,x,zero), x, Z3_mk_unary_minus(ctx,x)));
+  lean_object *r=box_owned(Z3_mk_abs(ctx,x));
   lean_dec(c); lean_dec(a); return z3_io_ok(r);
 }
 
@@ -198,12 +233,19 @@ LEAN_EXPORT lean_obj_res lean_z3_mk_fresh_const(b_lean_obj_arg c, b_lean_obj_arg
   lean_object *r=box_owned(Z3_mk_fresh_const(ctx, lean_string_cstr(prefix), (Z3_sort)unbox_owned(srt)));
   lean_dec(c); lean_dec(prefix); lean_dec(srt); return z3_io_ok(r);
 }
-/* mkQuantConst : Context → isForall(Bool) → weight(UInt32) → qid(String) → Array Ast(bound consts) → Array Ast(patterns) → Ast(body) → IO Ast */
+/* mkQuantConst : Context → isForall(Bool) → weight(UInt32) → qid(String)
+ *   → Array String(source binder names) → Array Ast(fresh bound consts)
+ *   → Array Ast(patterns) → Ast(body) → IO Ast */
 LEAN_EXPORT lean_obj_res lean_z3_mk_quant_const(b_lean_obj_arg c, uint8_t isForall, uint32_t weight,
-    b_lean_obj_arg qid,
+    b_lean_obj_arg qid, b_lean_obj_arg names,
     b_lean_obj_arg bounds, b_lean_obj_arg pats, b_lean_obj_arg body, lean_obj_arg w) {
   (void)w; Z3_context ctx=(Z3_context)ctx_ptr(c);
   size_t nb=lean_array_size(bounds);
+  if (lean_array_size(names) != nb) {
+    lean_dec(c); lean_dec(qid); lean_dec(names); lean_dec(bounds); lean_dec(pats); lean_dec(body);
+    return lean_io_result_mk_error(lean_mk_io_user_error(
+        lean_mk_string("quantifier binder names/terms length mismatch")));
+  }
   Z3_app *bs=(Z3_app*)malloc(sizeof(Z3_app)*(nb?nb:1));
   for (size_t i=0;i<nb;i++) bs[i]=Z3_to_app(ctx,(Z3_ast)unbox_owned(lean_array_get_core(bounds,i)));
   size_t np=lean_array_size(pats);
@@ -225,10 +267,31 @@ LEAN_EXPORT lean_obj_res lean_z3_mk_quant_const(b_lean_obj_arg c, uint8_t isFora
         (unsigned)nb, bs, 0, NULL, 0, NULL, (Z3_ast)unbox_owned(body));
     err=Z3_get_error_code(ctx);
   }
+  if (err == Z3_OK && r) {
+    /* Z3_mk_quantifier_const_ex abstracts the fresh constants safely, but
+     * copies their generated names (x!0) into the quantifier. Rebuild from
+     * that abstracted body and its abstracted patterns using the source names
+     * so the AST matches the SMT-LIB parser without capturing outer terms. */
+    Z3_sort *sorts=(Z3_sort*)malloc(sizeof(Z3_sort)*(nb?nb:1));
+    Z3_symbol *symbols=(Z3_symbol*)malloc(sizeof(Z3_symbol)*(nb?nb:1));
+    for (size_t i=0;i<nb;i++) {
+      sorts[i]=Z3_get_quantifier_bound_sort(ctx,r,(unsigned)i);
+      symbols[i]=Z3_mk_string_symbol(ctx,
+          lean_string_cstr(lean_array_get_core(names,i)));
+    }
+    unsigned nqp=Z3_get_quantifier_num_patterns(ctx,r);
+    Z3_pattern *qp=(Z3_pattern*)malloc(sizeof(Z3_pattern)*(nqp?nqp:1));
+    for (unsigned i=0;i<nqp;i++) qp[i]=Z3_get_quantifier_pattern_ast(ctx,r,i);
+    Z3_ast abstractBody=Z3_get_quantifier_body(ctx,r);
+    r=Z3_mk_quantifier_ex(ctx,isForall?true:false,weight,qidSym,NULL,
+        nqp,qp,0,NULL,(unsigned)nb,sorts,symbols,abstractBody);
+    err=Z3_get_error_code(ctx);
+    free(qp); free(sorts); free(symbols);
+  }
   lean_object *msg = err == Z3_OK ? NULL : lean_mk_string(Z3_get_error_msg(ctx, err));
   free(bs); free(ps);
   lean_object *res = msg ? NULL : box_owned(r);
-  lean_dec(c); lean_dec(qid); lean_dec(bounds); lean_dec(pats); lean_dec(body);
+  lean_dec(c); lean_dec(qid); lean_dec(names); lean_dec(bounds); lean_dec(pats); lean_dec(body);
   if (msg) return lean_io_result_mk_error(lean_mk_io_user_error(msg));
   return z3_io_ok(res);
 }

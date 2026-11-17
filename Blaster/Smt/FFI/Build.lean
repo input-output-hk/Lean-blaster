@@ -386,7 +386,8 @@ partial def buildQuant (isForall : Bool) (bs : SortedVars) (body : SmtTerm)
     let patAsts ← (pats ++ bodyPats).mapM buildTerm
     return (b, patAsts))
   -- SMT-LIB quantifiers without :weight receive Z3's default weight 1.
-  (← get).ctx.mkQuantConst isForall 1 (if bodyQid.isEmpty then qid else bodyQid) consts patAsts b
+  (← get).ctx.mkQuantConst isForall 1 (if bodyQid.isEmpty then qid else bodyQid)
+    (bs.map (·.1.toString)) consts patAsts b
 end
 
 /-- Does `t` reference the symbol `nm` (i.e. is the definition self-recursive)?

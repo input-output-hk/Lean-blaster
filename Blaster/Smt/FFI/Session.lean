@@ -40,9 +40,6 @@ def Z3Session.create : IO Z3Session := do
   globalParamSet "smt.arith.nl.grobner_exp_delay" "false"
   let ctx ← mkContext
   let solver ← ctx.mkSolver
-  -- A deterministic native seed avoids a pathological search on large
-  -- recursive Cardano queries; explicit random-seed options override it.
-  solver.setRandomSeed 1
   let st ← BuildState.mk ctx
   let ref ← IO.mkRef st
   return { ctx, solver, state := ref }
