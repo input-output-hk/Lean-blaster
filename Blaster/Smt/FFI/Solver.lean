@@ -1,0 +1,22 @@
+import Blaster.Smt.FFI.Types
+namespace Blaster.Smt.FFI
+
+@[extern "lean_z3_mk_solver"] opaque Context.mkSolver : Context → IO Solver
+
+@[extern "lean_z3_solver_assert"]   opaque Solver.assert  : Solver → Ast → IO Unit
+@[extern "lean_z3_solver_check"]    opaque Solver.check   : Solver → IO UInt32
+@[extern "lean_z3_solver_eval_str"] opaque Solver.evalStr : Solver → Ast → IO String
+@[extern "lean_z3_solver_eval_ast"] opaque Solver.evalAst : Solver → Ast → IO Ast
+@[extern "lean_z3_solver_model_str"] opaque Solver.modelStr : Solver → IO String
+@[extern "lean_z3_solver_check_assuming"] opaque Solver.checkAssuming : Solver → Array Ast → IO UInt32
+
+/-- Signal a running `Solver.check`/`checkAssuming` to stop (thread-safe: may be called
+    from another thread while a check is blocking; the check then returns `undef`/1). -/
+@[extern "lean_z3_solver_interrupt"] opaque Solver.interrupt : Solver → IO Unit
+
+/-- Install a wall-clock timeout (milliseconds) on the solver via `Z3_params`. -/
+@[extern "lean_z3_solver_set_timeout"] opaque Solver.setTimeout    : Solver → UInt32 → IO Unit
+/-- Install the random seed on the solver via `Z3_params`. -/
+@[extern "lean_z3_solver_set_seed"]    opaque Solver.setRandomSeed : Solver → UInt32 → IO Unit
+
+end Blaster.Smt.FFI

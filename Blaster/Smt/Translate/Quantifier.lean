@@ -148,14 +148,14 @@ def isTopLevelFVar (v : FVarId) : TranslateEnvT Bool := do
   | some b => return b
 
 
-private partial def updateTopLevelVars (step : Nat) (vars : TopLevelVars) (s : SmtSymbol) (uname : Name) : TopLevelVars :=
+private partial def updateTopLevelVars (step : Nat) (vars : TopLevelVars) (v : TopLevelVar) : TopLevelVars :=
  if h : step < vars.size
- then vars.set step ((s, uname) :: vars[step])
+ then vars.set step (v :: vars[step])
  else loop vars.size vars
 
  where
    loop (idx : Nat) (vars : TopLevelVars) : TopLevelVars :=
-     if idx == step then vars.push [(s, uname)]
+     if idx == step then vars.push [v]
      else loop (idx + 1) (vars.push [])
 
 /-- Perform the following:
@@ -174,7 +174,7 @@ def updateQuantifiedFVarsCache (v : FVarId) (topLevel : Bool) : TranslateEnvT Un
       then
         { env with
               smtEnv.quantifiedFVars := updatedVars,
-              smtEnv.topLevelVars := updateTopLevelVars idx env.smtEnv.topLevelVars s uname
+              smtEnv.topLevelVars := updateTopLevelVars idx env.smtEnv.topLevelVars ⟨s, uname, t⟩
         }
       else
         { env with smtEnv.quantifiedFVars := updatedVars }

@@ -26,11 +26,11 @@ error: ❌ Falsified
 ---
 error: Counterexample detected at Depth 3:
 ---
-error:  - «Test.Counter05.counter.input@3»: Test.Counter05.Request.Idle
+error:  - «Test.Counter05.counter.input@3»: (Request.Idle : Request)
 ---
-error:  - «Test.Counter05.counter.input@1»: Test.Counter05.Request.Idle
+error:  - «Test.Counter05.counter.input@1»: (Request.Idle : Request)
 ---
-error:  - «Test.Counter05.counter.input@2»: Test.Counter05.Request.Idle
+error:  - «Test.Counter05.counter.input@2»: (Request.Idle : Request)
 -/
 #guard_msgs in
 #bmc (max-depth: 6) [counter]
@@ -40,31 +40,31 @@ info: ⚠️ Induction failed at Depth 1
 ---
 info: Counterexample to Induction:
 ---
-info:  - «Test.Counter05.counter.state@0»: 2
+info:  - «Test.Counter05.counter.state@0»: (2 : Nat)
 ---
-info:  - «Test.Counter05.counter.input@1»: Test.Counter05.Request.Idle
+info:  - «Test.Counter05.counter.input@1»: (Request.Idle : Request)
 ---
 info: ⚠️ Induction failed at Depth 2
 ---
 info: Counterexample to Induction:
 ---
-info:  - «Test.Counter05.counter.state@0»: 1
+info:  - «Test.Counter05.counter.state@0»: (1 : Nat)
 ---
-info:  - «Test.Counter05.counter.input@1»: Test.Counter05.Request.Idle
+info:  - «Test.Counter05.counter.input@1»: (Request.Idle : Request)
 ---
-info:  - «Test.Counter05.counter.input@2»: Test.Counter05.Request.Idle
+info:  - «Test.Counter05.counter.input@2»: (Request.Idle : Request)
 ---
 error: ❌ Falsified
 ---
 error: Counterexample detected at Depth 3:
 ---
-error:  - «Test.Counter05.counter.state@0»: 0
+error:  - «Test.Counter05.counter.state@0»: (0 : Nat)
 ---
-error:  - «Test.Counter05.counter.input@1»: Test.Counter05.Request.Idle
+error:  - «Test.Counter05.counter.input@1»: (Request.Idle : Request)
 ---
-error:  - «Test.Counter05.counter.input@2»: Test.Counter05.Request.Idle
+error:  - «Test.Counter05.counter.input@2»: (Request.Idle : Request)
 ---
-error:  - «Test.Counter05.counter.input@3»: Test.Counter05.Request.Idle
+error:  - «Test.Counter05.counter.input@3»: (Request.Idle : Request)
 -/
 #guard_msgs in
 #kind (max-depth: 3) [counter]

@@ -40,7 +40,11 @@ jobs:
           wget -q https://github.com/Z3Prover/z3/releases/download/z3-${{ env.Z3_VERSION }}/z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}.zip
           unzip -q z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}.zip
           chmod +x z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}.zip
-          echo "/home/runner/z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}/bin" >> $GITHUB_PATH
+          z3_root="/home/runner/z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}"
+          echo "$z3_root/bin" >> "$GITHUB_PATH"
+          echo "Z3_LIB_PATH=$z3_root/bin" >> "$GITHUB_ENV"
+          echo "Z3_INC_PATH=$z3_root/include" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=$z3_root/bin:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
 
       - name: Resolve Z3 master commit
         if: env.Z3_VERSION == 'master'
@@ -64,7 +68,7 @@ jobs:
           git clone --depth 1 --branch master https://github.com/Z3Prover/z3.git z3-src
           cmake -S z3-src -B z3-src/build \
             -DCMAKE_BUILD_TYPE=Release \
-            -DZ3_BUILD_LIBZ3_SHARED=OFF \
+            -DBUILD_SHARED_LIBS=OFF \
             -DZ3_BUILD_PYTHON_BINDINGS=OFF \
             -DZ3_BUILD_TEST_EXECUTABLES=OFF \
             -DCMAKE_INSTALL_PREFIX=/home/runner/z3-master
@@ -80,7 +84,10 @@ jobs:
 
       - name: Add Z3 master to PATH
         if: env.Z3_VERSION == 'master'
-        run: echo "/home/runner/z3-master/bin" >> $GITHUB_PATH
+        run: |
+          echo "/home/runner/z3-master/bin" >> "$GITHUB_PATH"
+          echo "Z3_LIB_PATH=/home/runner/z3-master/lib" >> "$GITHUB_ENV"
+          echo "Z3_INC_PATH=/home/runner/z3-master/include" >> "$GITHUB_ENV"
 
       - name: Tools version
         run: |
@@ -92,8 +99,30 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Check Z3 C API before Lean build
+        run: |
+          cc -g -O0 -I"$Z3_INC_PATH" scripts/z3_native_smoke.c \
+            -L"$Z3_LIB_PATH" -lz3 -o /tmp/z3_native_smoke
+          /tmp/z3_native_smoke
+
       - name: Build and Validate Blaster
         run: make check_blaster
+
+      - name: Check self-contained Z3 shim
+        run: |
+          shim=.lake/build/lib/libz3shim.so
+          test -f "$shim"
+          if ldd "$shim" | grep -q 'libz3\.so'; then
+            echo 'Z3 was linked dynamically into the Lean shim' >&2
+            exit 1
+          fi
+          if nm -D --defined-only "$shim" | grep -Eq '(_Unwind_|__gxx_personality_v0)'; then
+            echo 'The Z3 C++ exception runtime leaked into the global symbol table' >&2
+            exit 1
+          fi
+
+      - name: Check native Lean solver and exception runtime
+        run: lake build Tests.StateMachine.Counter03
 
       - name: Upload Blaster build log
         if: failure()
@@ -103,7 +132,7 @@ jobs:
           path: ./Blaster/build.log
 
       - name: Execute and Validate Tests
-        run: LEAN_NUM_THREADS=5 ./scripts/check_lean_project_compilation.sh Tests
+        run: LEAN_NUM_THREADS=5 lake test 2>&1 | tee Tests/build.log
 
       - name: Upload Tests log
         if: failure()

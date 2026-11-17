@@ -22,6 +22,14 @@ def isExpectedUndetermined : ExpectedResult -> Bool
 | .ExpectedUndetermined => true
 | _ => false
 
+/-- Backend solver used to discharge unsolved goals.
+      - `.ffi`: the in-process Z3 session built via the C-API FFI (default).
+      - `.smtlib`: the legacy `z3` subprocess driven over an smt-lib pipe. -/
+inductive SolverBackend where
+  | ffi
+  | smtlib
+deriving Repr, BEq, Inhabited
+
 /-- Type introducing the options passed on to the solver. -/
 structure BlasterOptions where
   /-- The number of unfolding steps to be considered when
@@ -61,9 +69,13 @@ structure BlasterOptions where
   the backend SMT solver is invoked. -/
   generateCex : Bool := true
 
-  /-- Seed for the random number generator used in the solver.
-      It is set to `none` by default (i.e., no seed). -/
-   randomSeed : Option Nat := none
+  /-- Re-evaluate a typed native counterexample in the original Lean proposition. -/
+  replay : Bool := false
+
+  /-- Seed for the random number generator used in either solver backend.
+      Both backends use seed 1 by default; `(random-seed: 0)` selects Z3's
+      original seed 0. -/
+   randomSeed : Option Nat := some 1
 
   /-- When set to `true`, trigger an error if the #solve command does not return a Falsified status. -/
   solveResult : ExpectedResult := .ExpectedValid
@@ -71,6 +83,10 @@ structure BlasterOptions where
   /-- Maximum analysis depth to be considered when performing BMC and K-Induction.
       It is set to 10 by default. -/
   maxDepth : Nat := 10
+
+  /-- Backend solver used to discharge unsolved goals. It defaults to `.ffi`;
+      use `(backend: smtlib)` for the legacy subprocess. -/
+  backend : SolverBackend := .ffi
  deriving Repr
 
 instance : Inhabited BlasterOptions where
