@@ -207,8 +207,8 @@ def optimizeDITEChoice (f : Expr) (args : Array Expr) : TranslateEnvT (Option Ex
  if let Expr.const ``False _ := c then
    pushProofStep (.rewrite (mkConst ``Blaster.dite'_false [← getLevel iteType]))
    return applyExtraArgs (betaLambda e #[← mkNotFalse])
- if let some r ← diteReduce? c t then return applyExtraArgs r
- if let some r ← diteReduce? (← optimizeNot (← mkPropNotOp) #[c] (cacheResult := false)) e then
+ if let some r ← diteReduce? iteType c t e then return applyExtraArgs r
+ if let some r ← diteReduce? iteType (← optimizeNot (← mkPropNotOp) #[c] (cacheResult := false)) t e then
    return applyExtraArgs r
  if let some r ← diteToPropExpr? iteType c t e then return r
  isITESwap? f args
@@ -221,7 +221,7 @@ def optimizeDITEChoice (f : Expr) (args : Array Expr) : TranslateEnvT (Option Ex
        mkAppN e extra_args
      else e
 
-   /-- Given `cond` and `t` the condition and then/else expression for a Blaster.dite' expression,
+   /-- Given `cond`, `t` `e` the condition and then/else expressions for a Blaster.dite' expression,
        perform the following:
         - When `t := fun h : c => e ∧ c := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ e.hasLooseBVars`
             - return `some e`
@@ -232,21 +232,28 @@ def optimizeDITEChoice (f : Expr) (args : Array Expr) : TranslateEnvT (Option Ex
         - Otherwise
             - return `none`
    -/
-   diteReduce? (cond : Expr) (t : Expr) : TranslateEnvT (Option Expr) := do
-     let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
-     match t with
-     | Expr.lam _h _c b _bi =>
-         if let some p ← inHypMap cond hyps then
-            if !b.hasLooseBVars
-            then return b
-            else return (t.beta #[p])
-         else return none
+   reduceBranch (branch : Expr) (p : Expr) : TranslateEnvT Expr := do
+     match branch with
+     | Expr.lam _h _c b _bi => if !b.hasLooseBVars then return b else return branch.beta #[p]
      | _ =>
-        if !(← isQuantifiedFun t) then
-          throwEnvError "diteReduce?: lambda/quantified function expression expected but got {reprStr t}"
-        if let some p ← inHypMap cond hyps
-        then return (t.beta #[p])
-        else return none
+      if !(← isQuantifiedFun p) then
+        throwEnvError "extractDependentITEExpr : lambda/quantified function expected but got {reprStr p}"
+      else return branch.beta #[p]
+
+   diteReduce? (iteType : Expr) (c : Expr) (t : Expr) (e : Expr) : TranslateEnvT (Option Expr) := do
+    let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
+  -- then-branch: `c ∈ hyps`
+    if let some p ← inHypMap c hyps then
+      pushProofStep (.rewrite
+        (mkAppN (mkConst ``Blaster.dite'_reduce_pos [← getLevel iteType]) #[iteType, c, t, e, p]))
+      return some (← reduceBranch t p)
+  -- else-branch: `¬c ∈ hyps`
+    let notC ← optimizeNot (← mkPropNotOp) #[c] (cacheResult := false)
+    if let some p ← inHypMap notC hyps then
+      pushProofStep (.rewrite
+        (mkAppN (mkConst ``Blaster.dite'_reduce_neg [← getLevel iteType]) #[iteType, c, t, e, p]))
+      return some (← reduceBranch e p)
+    return none
 
 /-- Apply simplification/normalization rules on `Blaster.dite'` in the given order.
     Note that dependent ite is written with notation `if h : c then t else e`, which

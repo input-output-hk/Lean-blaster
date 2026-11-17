@@ -2400,4 +2400,20 @@ elab "dIteToPropExprUnchanged_7" : term => return dIteToPropExprUnchanged_7
   ∀ (c : Bool) (x y : Nat) (f : c → Nat → Nat),
     (if h : c then f h x else y) > x ===> diteFalseEqCondUnchanged_3
 
+/-! Test cases for simplfication rule
+  `dite c (fun h : c => e1) (fun h : _ => e2) x₁ … xₙ ==> e1 x₁ … xₙ (if c := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ e1.hasLooseBVars)`
+-/
+
+-- ∀ (c : Prop) [Decidable c] (x y : Nat), c → (if _h : c then x else y) = x ===> True
+#testOptimize [ "DiteReduceHypThen_1", proof ]
+  ∀ (c : Prop) [Decidable c] (x y : Nat), c → (if _h : c then x else y) = x ===> True
+
+/-! Test cases for simplification rule
+  `dite c (fun h : _ => e1) (fun h : ¬ c => e2) x₁ … xₙ ==> e2 x₁ … xₙ (if ∃ e := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ e2.hasLooseBVars ∧ e = ¬ c)`
+-/
+
+-- ∀ (c : Prop) [Decidable c] (x y : Nat), ¬ c → (if _h : c then x else y) = y ===> True
+#testOptimize [ "DiteReduceHypElse_1", proof ]
+  ∀ (c : Prop) [Decidable c] (x y : Nat), ¬ c → (if _h : c then x else y) = y ===> True
+
 end Test.OptimizeDITE
