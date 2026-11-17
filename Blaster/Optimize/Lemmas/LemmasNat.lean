@@ -167,6 +167,30 @@ protected theorem nat_lt_add_self_right_eq_true_of_zero_lt (a b : Nat) (h : 0 < 
 protected theorem nat_lt_false_of_not_pred_lt (n e : Nat) (h : ¬ (n - 1 < e)) :
     (n < e) = False := propext ⟨fun hlt => by omega, False.elim⟩
 
+
+/-! ## Lemmas for validating the hypothesis-context `OptimizeEq` reductions on `Nat`:
+  - `0 = x * y ==> False (if x ≠ 0 ∧ y ≠ 0)` -/
+
+protected theorem nat_mul_eq_false_of_ne (a b : Nat) (h1: ¬ (0 = a)) (h2 : ¬ (0 = b)) :
+  (0 = a * b) = False := by
+  apply propext
+  rw [iff_false, ← ne_eq]
+  have h1 : a ≠ 0 := Ne.symm h1
+  have h2 : b ≠ 0 := Ne.symm h2
+  exact (Nat.mul_ne_zero h1 h2).symm
+
+protected theorem nat_add_eq_false_of_ne_fst (a b : Nat) (h : ¬ (0 = a)) :
+  (0 = a + b) = False := by
+  apply propext
+  rw [iff_false, ← ne_eq]
+  omega
+
+protected theorem nat_add_eq_false_of_ne_snd (a b : Nat) (h : ¬ (0 = b)) :
+  (0 = a + b) = False := by
+  apply propext
+  rw [iff_false, ← ne_eq]
+  omega
+
 def mkNat_lt_asymm : TranslateEnvT Expr := mkExpr (mkConst ``Nat.lt_asymm)
 
 def mkNat_not_lt_right_of_eq : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.nat_not_lt_right_of_eq)
