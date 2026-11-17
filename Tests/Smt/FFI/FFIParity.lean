@@ -86,11 +86,13 @@ private def checkAst (ctx : Context) (name : String) (term : SmtTerm)
   let ctx ← mkContext
   let x : SmtTerm := .SmtIdent (.SimpleIdent (.NormalSymbol "x"))
   let q := mkForallTerm none #[(.NormalSymbol "x", intSort)]
-    (op "=" #[op "+" #[x, .NumTerm 0], x]) none
+    (op "=" #[op "+" #[x, .NumTerm 0], x])
+    (some #[mkQid (.NormalSymbol "q1")])
   checkAst ctx "quantifier" q s!"(assert {q})"
   let nested := mkForallTerm none #[(.NormalSymbol "x", intSort)]
     (mkExistsTerm none #[(.NormalSymbol "x", intSort)]
-      (op "=" #[x, .NumTerm 1]) none) none
+      (op "=" #[x, .NumTerm 1]) (some #[mkQid (.NormalSymbol "q2")]))
+    (some #[mkQid (.NormalSymbol "q3")])
   checkAst ctx "shadowed quantifiers" nested s!"(assert {nested})"
   IO.println "quantifier AST parity ok"
 
@@ -109,10 +111,10 @@ private def checkAst (ctx : Context) (name : String) (term : SmtTerm)
     unless ← ctx.astEqForTest native parsed do
       throw <| IO.userError s!"{name}: native {← ctx.astToString native} differs from SMT-LIB {← ctx.astToString parsed}"
   let good := mkForallTerm none #[(.NormalSymbol "x", intSort)]
-    (op "=" #[fx, fx]) (some #[mkPattern #[fx]])
+    (op "=" #[fx, fx]) (some #[mkPattern #[fx], mkQid (.NormalSymbol "q4")])
   checkPattern "valid pattern" good
   let bad := mkForallTerm none #[(.NormalSymbol "x", intSort), (.NormalSymbol "y", intSort)]
     (op "=" #[x, .SmtIdent (.SimpleIdent (.NormalSymbol "y"))])
-    (some #[mkPattern #[fx]])
+    (some #[mkPattern #[fx], mkQid (.NormalSymbol "q5")])
   checkPattern "discarded invalid pattern" bad
   IO.println "pattern AST parity ok"
