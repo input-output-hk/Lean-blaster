@@ -97,7 +97,7 @@ structure OptimizeOptions where
 
   /-- Ids on the current root→current ancestor path. An `ContextMap` entry tagged `c`
       is visible iff `c ∈ active`. Size = current nesting depth (small). -/
-  active : HashSet CtxId := HashSet.emptyWithCapacity 123
+  active : ActiveContexts := {}
 
   resetOptions : ResetOptions
 
@@ -920,11 +920,11 @@ def removeFromHashConsCache (a : SharedExpr) : TranslateEnvT Unit := do
 def updateEqualityMap (lhs : Expr) (rhs : Expr) (ctxId : CtxId) (restart := false) : TranslateEnvT Unit := do
   match (← get).optEnv.hypothesisContext.equalityMap.get? lhs with
   | none =>
-       let refEntry ← IO.mkRef [(ctxId, ⟨rhs, restart⟩)]
+       let refEntry ← IO.mkRef (ContextEntries.singleton ctxId ⟨rhs, restart⟩)
        modifyOptEnv
          fun ⟨o1, o2, o3, o4, o5, o6, o7, ⟨hypothesisMap, equalityMap⟩, o9, o10, o11, o12, o13, o14⟩ =>
              ⟨o1, o2, o3, o4, o5, o6, o7, ⟨hypothesisMap, equalityMap.insert lhs refEntry⟩, o9, o10, o11, o12, o13, o14⟩
-  | some refEntry => refEntry.modify (λ l => (ctxId, ⟨rhs, restart⟩) :: l)
+  | some refEntry => refEntry.modify (fun es => es.insert ctxId ⟨rhs, restart⟩)
 
 /-- Look up `lhs` in the context-aware equality map, returning the rhs of the
     newest entry visible in the current context (tag ∈ active). -/

@@ -551,21 +551,16 @@ private def addNotEqPatternInContext (nextCtxId : CtxId) (discr : Expr) (pattern
   match (← get).optEnv.matchInContext.get? discr with
   | none =>
        let pset ← IO.mkRef (HashSet.emptyWithCapacity.insert pattern : HashSet PtrExpr)
-       let refEntry ← IO.mkRef [(nextCtxId, pset)]
+       let refEntry ← IO.mkRef (ContextEntries.singleton nextCtxId pset)
        modifyOptEnv
          fun ⟨o1, o2, o3, o4, o5, o6, o7, o8, matchInContext, o10, o11, o12, o13, o14⟩ =>
           ⟨o1, o2, o3, o4, o5, o6, o7, o8, matchInContext.insert discr refEntry, o10, o11, o12, o13, o14⟩
   | some refEntry =>
-       let rec findAndUpdate (xs : List (ContextEntry (IO.Ref NotEqPatterns))) : TranslateEnvT Unit := do
-         match xs with
-         | [] =>
-              let pset ← IO.mkRef (HashSet.emptyWithCapacity.insert pattern : HashSet PtrExpr)
-              refEntry.modify (λ l => (nextCtxId, pset) :: l)
-         | (ctxId, refSet) :: xs' =>
-              if nextCtxId == ctxId then
-                refSet.modify (λ pset => pset.insert pattern)
-              else findAndUpdate xs'
-       findAndUpdate (← refEntry.get)
+       match (← refEntry.get).find? nextCtxId with
+       | none =>
+           let pset ← IO.mkRef (HashSet.emptyWithCapacity.insert pattern : HashSet PtrExpr)
+           refEntry.modify (fun es => es.insert nextCtxId pset)
+       | some refSet => refSet.modify (fun pset => pset.insert pattern)
 
 @[always_inline, inline]
 private def propagateNotEqPatternContext (discr : Expr) (nextCtxId : CtxId) : TranslateEnvT Unit := do
@@ -576,7 +571,7 @@ private def propagateNotEqPatternContext (discr : Expr) (nextCtxId : CtxId) : Tr
      match ← ContextMap.findRaw' matchInContext nextCtxId discr with
      | none => return ()
      | some pset =>
-        let refEntry ← IO.mkRef [(nextCtxId, pset)]
+        let refEntry ← IO.mkRef (ContextEntries.singleton nextCtxId pset)
         modifyOptEnv
           fun ⟨o1, o2, o3, o4, o5, o6, o7, o8, matchInContext, o10, o11, o12, o13, o14⟩ =>
               ⟨o1, o2, o3, o4, o5, o6, o7, o8, matchInContext.insert v.rhs refEntry, o10, o11, o12, o13, o14⟩
