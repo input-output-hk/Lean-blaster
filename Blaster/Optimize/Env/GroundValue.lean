@@ -65,8 +65,13 @@ private def finishGround (e : Expr) (args : Array Expr) : TranslateEnvT Expr := 
 partial def groundConstructorValue? (e : Expr) : TranslateEnvT (Option Expr) := do
   if e.hasFVar || e.hasMVar || e.hasLooseBVars then return none
   let key : GroundKey := (⟨e⟩, false)
-  let mut cache := (← get).optEnv.memCache.groundValueCache
-  if let some result := cache.get? key then return result
+  if let some result := (← get).optEnv.memCache.groundValueCache.get? key then return result
+  -- Move the table out of the state while extending it. Leaving the original
+  -- there aliases its backing arrays and makes each call copy the whole table.
+  -- Literal builders do not recursively call this recognizer.
+  let mut cache ← modifyGet fun env =>
+    (env.optEnv.memCache.groundValueCache,
+     { env with optEnv.memCache.groundValueCache := Blaster.Data.HashMap.HashMap.emptyWithCapacity 8 })
   let mut todo := [GroundTask.visit e false]
   while !todo.isEmpty do
     let task := todo.head!
