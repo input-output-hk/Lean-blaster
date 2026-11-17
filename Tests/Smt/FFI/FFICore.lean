@@ -413,15 +413,14 @@ open Blaster.Smt in
 /-- info: cancel-live r=falsified cex=x: 1 ec=0 -/
 #guard_msgs in
 #eval do
-  -- The case elaboration ACTUALLY hits: token PRESENT but NOT set ⇒ spawns a task, polls,
-  -- and completes normally. Exercises cross-thread check (Z3_solver_check on the task
-  -- thread) + cross-thread model extraction (getModel on the main thread). The errorCode
-  -- assert catches any silent Z3 error from the cross-thread access (no-op error handler).
+  -- A token that is present but not set starts a polling task. The check and model
+  -- extraction stay on the caller's thread; the task only calls the cross-thread-safe
+  -- interrupt API if the token is set. Check for silent Z3 errors as well.
   let s ← Z3Session.create
   s.runCommand (.declareConst (.NormalSymbol "x") intSort)
   let x : SmtTerm := .SmtIdent (.SimpleIdent (.NormalSymbol "x"))
   s.assert (.AppTerm (.SimpleIdent (.ReservedSymbol "=")) #[x, .NumTerm 1])
-  let tk ← IO.CancelToken.new       -- present but NOT set
+  let tk ← IO.CancelToken.new
   let topVars : Array (List TopLevelVar) := #[[⟨.NormalSymbol "x", `x, Lean.mkConst ``Int⟩]]
   let r ← s.checkSatCancel (some tk) topVars true
   let ec ← s.ctx.errorCode
@@ -433,14 +432,14 @@ open Blaster.Smt in
 /-- info: assume-cancel r1=valid r2=falsified -/
 #guard_msgs in
 #eval do
-  -- checkAssumingCancel through the LIVE task path (token present, not set): exercises the
-  -- assumption AST-build step (assumps.mapM buildTerm) + task+poll for the assuming variant.
+  -- checkAssumingCancel with a live polling task (token present, not set) exercises
+  -- assumption AST construction and the direct check on the caller's thread.
   -- Mirrors the "assume" test: r1 flag ⇒ ¬(x=x) unsat ⇒ Valid; r2 flag ⇒ x=1 sat ⇒ Falsified.
   let ecChk := fun (sess : Z3Session) (label : String) => do
     let ec ← sess.ctx.errorCode
     if ec != 0 then throw (IO.userError s!"{label}: z3 error {ec} ({← sess.ctx.errorMsg ec})")
   let s1 ← Z3Session.create        -- IO action first, so the do-block monad is IO
-  let tk ← IO.CancelToken.new       -- present but NOT set ⇒ routes through the task path
+  let tk ← IO.CancelToken.new
   s1.runCommand (.declareConst (.NormalSymbol "flag") boolSort)
   s1.runCommand (.declareConst (.NormalSymbol "x") intSort)
   let flag : SmtTerm := .SmtIdent (.SimpleIdent (.NormalSymbol "flag"))
@@ -460,20 +459,18 @@ open Blaster.Smt in
   IO.println s!"assume-cancel r1={showR r1} r2={showR r2}"
 
 open Blaster.Smt in
-/-- info: interrupt-path-ran -/
+/-- info: pre-cancel-path-ran -/
 #guard_msgs in
 #eval do
-  -- Smoke: token PRE-SET before the check forces the `some tk` branch of
-  -- `runCheckCancellable`. On a trivial/fast query either `hasFinished` or `isSet` may win
-  -- the race, so this proves the interrupt code path runs without crash/hang — not that the
-  -- interrupt necessarily fired.
+  -- A pre-set token returns unknown before the check begins, without touching the
+  -- Z3 context from another thread.
   let s ← Z3Session.create
   s.runCommand (.declareConst (.NormalSymbol "x") intSort)
   s.assert (.AppTerm (.SimpleIdent (.ReservedSymbol "=")) #[.SmtIdent (.SimpleIdent (.NormalSymbol "x")), .NumTerm 1])
   let tk ← IO.CancelToken.new
-  tk.set  -- pre-set: forces the interrupt branch
+  tk.set
   let _ ← s.checkSatCancel (some tk) #[] false
-  IO.println "interrupt-path-ran"
+  IO.println "pre-cancel-path-ran"
 
 open Blaster.Smt in
 /-- info: sticky-probe pre=falsified post-interrupt=falsified -/

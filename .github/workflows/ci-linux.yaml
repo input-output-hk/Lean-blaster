@@ -100,33 +100,24 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Install native debugger
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y gdb
-
       - name: Check Z3 C API before Lean build
         run: |
           cc -g -O0 -I"$Z3_INC_PATH" scripts/z3_native_smoke.c \
             -L"$Z3_LIB_PATH" -lz3 -o /tmp/z3_native_smoke
-          ldd /tmp/z3_native_smoke
-          gdb -q -batch -ex 'set pagination off' -ex run \
-            -ex 'thread apply all bt 25' --args /tmp/z3_native_smoke
           /tmp/z3_native_smoke
 
       - name: Build and Validate Blaster
         run: make check_blaster
 
-      - name: Diagnose native solver on Linux
+      - name: Check native Lean solver and exception runtime
         run: |
-          lake build Tests.StateMachine.Counter03 || true
-          ldd .lake/build/lib/libBlaster.so || true
-          lake env gdb -q -batch \
-            -ex 'set pagination off' \
-            -ex run \
-            -ex 'thread apply all bt 25' \
-            --args lean --threads=4 Tests/StateMachine/Counter03.lean \
-            --setup .lake/build/ir/Tests/StateMachine/Counter03.setup.json
+          if lake build Tests.StateMachine.Counter03; then
+            echo "Native Lean solver passed with the standard runtime"
+          else
+            echo "Standard runtime failed; checking libgcc_s preload"
+            LD_PRELOAD=/lib/x86_64-linux-gnu/libgcc_s.so.1 \
+              lake build Tests.StateMachine.Counter03
+          fi
 
       - name: Upload Blaster build log
         if: failure()

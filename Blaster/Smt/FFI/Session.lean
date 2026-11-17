@@ -94,33 +94,28 @@ def Z3Session.checkAssuming (sess : Z3Session) (assumps : Array SmtTerm)
   | 2 => return .Falsified (← sess.getModel topVars genCex)
   | _ => return .Undetermined
 
-/-- Run a check action (returns Z3 lbool code 2/0/1). If a cancel token is provided,
-    run on a task and poll: on cancellation, interrupt the solver and return the
-    interrupted result. With no token, call directly (no task overhead — preserves the
-    fast synchronous path). -/
+/-- Run a check action (returns Z3 lbool code 2/0/1). Keep every ordinary Z3
+    operation on the caller's thread: Z3 contexts cannot be accessed from two
+    threads, except that `Z3_solver_interrupt` may be called from another thread.
+    When cancellation is enabled, a helper task polls only the token and invokes
+    that permitted interrupt. -/
 partial def Z3Session.runCheckCancellable (sess : Z3Session) (check : IO UInt32)
     (cancelTk? : Option IO.CancelToken) : IO UInt32 := do
-  match cancelTk? with
-  | none => check
-  | some tk =>
-    let task ← IO.asTask check
-    loop sess tk task
+  let some tk := cancelTk? | check
+  if ← tk.isSet then return 1
+  let finished ← IO.CancelToken.new
+  let poll ← IO.asTask (pollCancel sess tk finished)
+  let result ← try check finally finished.set
+  discard <| IO.ofExcept poll.get
+  return result
 where
-  loop (sess : Z3Session) (tk : IO.CancelToken)
-      (task : Task (Except IO.Error UInt32)) : IO UInt32 := do
-    if ← IO.hasFinished task then
-      IO.ofExcept task.get
-    else if ← tk.isSet then
+  pollCancel (sess : Z3Session) (tk finished : IO.CancelToken) : IO Unit := do
+    if ← finished.isSet then return
+    if ← tk.isSet then
       sess.solver.interrupt
-      IO.ofExcept task.get      -- let the interrupted check finish; it returns undef(1)
     else
-      -- Poll interval. At Lean elaboration time `cancelTk?` is ALWAYS `some`, so every FFI
-      -- check routes through this task+poll loop; a small (1ms) interval bounds worst-case
-      -- poll latency for a fast check that loses the first `hasFinished` race. (On the
-      -- FFIEndToEnd workload 1ms vs 10ms was within measurement noise; 1ms is the safer
-      -- default for larger check-heavy workloads.)
       IO.sleep 1
-      loop sess tk task
+      pollCancel sess tk finished
 
 /-- Cancellable variant of `checkSat`: routes the blocking check through
     `runCheckCancellable` with the given token. Same `Result` mapping as `checkSat`. -/
