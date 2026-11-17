@@ -68,7 +68,7 @@ jobs:
           git clone --depth 1 --branch master https://github.com/Z3Prover/z3.git z3-src
           cmake -S z3-src -B z3-src/build \
             -DCMAKE_BUILD_TYPE=Release \
-            -DZ3_BUILD_LIBZ3_SHARED=ON \
+            -DBUILD_SHARED_LIBS=OFF \
             -DZ3_BUILD_PYTHON_BINDINGS=OFF \
             -DZ3_BUILD_TEST_EXECUTABLES=OFF \
             -DCMAKE_INSTALL_PREFIX=/home/runner/z3-master
@@ -88,7 +88,6 @@ jobs:
           echo "/home/runner/z3-master/bin" >> "$GITHUB_PATH"
           echo "Z3_LIB_PATH=/home/runner/z3-master/lib" >> "$GITHUB_ENV"
           echo "Z3_INC_PATH=/home/runner/z3-master/include" >> "$GITHUB_ENV"
-          echo "LD_LIBRARY_PATH=/home/runner/z3-master/lib:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
 
       - name: Tools version
         run: |
