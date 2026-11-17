@@ -3,8 +3,16 @@ open Lake DSL System
 
 private unsafe def z3LinkArgsImpl : Array String :=
   let libPath := match unsafeBaseIO (IO.getEnv "Z3_LIB_PATH") with
-    | some p => p | none => "/opt/homebrew/lib"
-  #[s!"-L{libPath}", "-lz3"]
+    | some p => p | none => if System.Platform.isOSX then "/opt/homebrew/lib" else "/usr/local/lib"
+  if System.Platform.isOSX || System.Platform.isWindows then
+    #[s!"-L{libPath}", "-lz3"]
+  else
+    -- Lean's Linux runtime exports part of LLVM's unwinder. A shared libz3 built
+    -- against libstdc++ can therefore abort on an internally caught exception.
+    -- Keep Z3, libstdc++, and libgcc's unwinder together inside libz3shim.so.
+    #[s!"{libPath}/libz3.a", "-Wl,-Bstatic", "-lstdc++", "-lgcc_eh",
+      "-Wl,-Bdynamic", "-Wl,--exclude-libs,libz3.a",
+      "-Wl,--exclude-libs,libstdc++.a", "-Wl,--exclude-libs,libgcc_eh.a"]
 @[implemented_by z3LinkArgsImpl]
 private opaque z3LinkArgs : Array String := #["-lz3"]
 

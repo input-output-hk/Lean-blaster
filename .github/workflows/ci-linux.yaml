@@ -109,15 +109,21 @@ jobs:
       - name: Build and Validate Blaster
         run: make check_blaster
 
-      - name: Check native Lean solver and exception runtime
+      - name: Check self-contained Z3 shim
         run: |
-          if lake build Tests.StateMachine.Counter03; then
-            echo "Native Lean solver passed with the standard runtime"
-          else
-            echo "Standard runtime failed; checking libgcc_s preload"
-            LD_PRELOAD=/lib/x86_64-linux-gnu/libgcc_s.so.1 \
-              lake build Tests.StateMachine.Counter03
+          shim=.lake/build/lib/libz3shim.so
+          test -f "$shim"
+          if ldd "$shim" | grep -q 'libz3\.so'; then
+            echo 'Z3 was linked dynamically into the Lean shim' >&2
+            exit 1
           fi
+          if nm -D --defined-only "$shim" | grep -Eq '(_Unwind_|__gxx_personality_v0)'; then
+            echo 'The Z3 C++ exception runtime leaked into the global symbol table' >&2
+            exit 1
+          fi
+
+      - name: Check native Lean solver and exception runtime
+        run: lake build Tests.StateMachine.Counter03
 
       - name: Upload Blaster build log
         if: failure()
@@ -127,7 +133,7 @@ jobs:
           path: ./Blaster/build.log
 
       - name: Execute and Validate Tests
-        run: LEAN_NUM_THREADS=5 ./scripts/check_lean_project_compilation.sh Tests
+        run: LEAN_NUM_THREADS=5 lake test 2>&1 | tee Tests/build.log
 
       - name: Upload Tests log
         if: failure()
