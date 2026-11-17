@@ -103,6 +103,18 @@ jobs:
       - name: Build and Validate Blaster
         run: make check_blaster
 
+      - name: Diagnose native solver on Linux
+        run: |
+          lake build Tests.StateMachine.Counter03 || true
+          if command -v gdb >/dev/null 2>&1; then
+            lake env gdb -q -batch \
+              -ex 'set pagination off' \
+              -ex run \
+              -ex 'thread apply all bt 25' \
+              --args lean --threads=4 Tests/StateMachine/Counter03.lean \
+              --setup .lake/build/ir/Tests/StateMachine/Counter03.setup.json
+          fi
+
       - name: Upload Blaster build log
         if: failure()
         uses: actions/upload-artifact@v6
