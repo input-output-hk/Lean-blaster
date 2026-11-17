@@ -2,6 +2,7 @@ import Lean
 import Blaster.Optimize.Rewriting.OptimizeITE
 import Blaster.Optimize.Rewriting.OptimizeProjection
 import Blaster.Optimize.Telescope
+import Blaster.Optimize.Env.GroundValue
 
 open Lean Meta Elab Blaster.Data.HashMap
 
@@ -393,8 +394,13 @@ def isInOptimizeEnvCache (a : Expr) (stack : List OptimizeStack) (mvarDecls : Op
   let useCache := !a.hasMVar
   if useCache then
     let cached := ← isInOptimizeCache? a isGlobal env
-    if !exprEq cached instCacheMiss then Sum.inr <$> stackContinuity stack cached
-    else return Sum.inl (.InitOptimizeReturn a isGlobal mvarDecls :: stack)
-  else return Sum.inl (.InitOptimizeReturn a isGlobal mvarDecls :: stack)
+    if !exprEq cached instCacheMiss then
+      return Sum.inr (← stackContinuity stack cached)
+  let continuation := .InitOptimizeReturn a isGlobal mvarDecls :: stack
+  if let some value ← groundConstructorValue? a then
+    -- Only context-free literal normalization was performed. Keep the return frame so that
+    -- current-context equality rewrites and metavariable restoration still run.
+    return Sum.inr (← stackContinuity continuation value)
+  return Sum.inl continuation
 
 end Blaster.Optimize
