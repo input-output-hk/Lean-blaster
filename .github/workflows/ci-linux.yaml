@@ -100,20 +100,33 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Install native debugger
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y gdb
+
+      - name: Check Z3 C API before Lean build
+        run: |
+          cc -g -O0 -I"$Z3_INC_PATH" scripts/z3_native_smoke.c \
+            -L"$Z3_LIB_PATH" -lz3 -o /tmp/z3_native_smoke
+          ldd /tmp/z3_native_smoke
+          gdb -q -batch -ex 'set pagination off' -ex run \
+            -ex 'thread apply all bt 25' --args /tmp/z3_native_smoke
+          /tmp/z3_native_smoke
+
       - name: Build and Validate Blaster
         run: make check_blaster
 
       - name: Diagnose native solver on Linux
         run: |
           lake build Tests.StateMachine.Counter03 || true
-          if command -v gdb >/dev/null 2>&1; then
-            lake env gdb -q -batch \
-              -ex 'set pagination off' \
-              -ex run \
-              -ex 'thread apply all bt 25' \
-              --args lean --threads=4 Tests/StateMachine/Counter03.lean \
-              --setup .lake/build/ir/Tests/StateMachine/Counter03.setup.json
-          fi
+          ldd .lake/build/lib/libBlaster.so || true
+          lake env gdb -q -batch \
+            -ex 'set pagination off' \
+            -ex run \
+            -ex 'thread apply all bt 25' \
+            --args lean --threads=4 Tests/StateMachine/Counter03.lean \
+            --setup .lake/build/ir/Tests/StateMachine/Counter03.setup.json
 
       - name: Upload Blaster build log
         if: failure()
