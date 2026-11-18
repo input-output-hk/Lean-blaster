@@ -1,4 +1,5 @@
 #include "lean_z3.h"
+#include <limits.h>
 #include <stdlib.h>
 #include <stdio.h>
 extern void *ctx_ptr(lean_object *o);
@@ -117,15 +118,30 @@ LEAN_EXPORT lean_obj_res lean_z3_mk_app(b_lean_obj_arg c, b_lean_obj_arg fd, b_l
  * elements. box_owned uses a no-op finalizer (ASTs are context-owned). */
 
 /* Collect a Z3_ast array from a Lean `Array Ast` (elements borrowed). */
+/*@ requires \valid_read(arr);
+    requires \valid(out_n);
+    requires \separated(out_n, arr);
+    requires arr->size == 0 || \valid_read(arr->items + (0 .. arr->size-1));
+    requires \forall size_t i; 0 <= i < arr->size ==> \valid_read(arr->items[i]);
+    assigns *out_n;
+    ensures *out_n == arr->size;
+    ensures \result == \null || \valid(\result + (0 .. arr->size-1)); */
 static Z3_ast *lz3_collect(lean_object *arr, size_t *out_n) {
   size_t n = lean_array_size(arr); *out_n = n;
+  if (n > SIZE_MAX / sizeof(Z3_ast) || n > UINT_MAX) return NULL;
   Z3_ast *as = (Z3_ast *)malloc(sizeof(Z3_ast) * (n ? n : 1));
+  if (!as) return NULL;
+  /*@ loop invariant 0 <= i <= n;
+      loop invariant \valid(as + (0 .. n-1));
+      loop assigns i, as[0 .. n-1];
+      loop variant n - i; */
   for (size_t i = 0; i < n; i++) as[i] = (Z3_ast)unbox_owned(lean_array_get_core(arr, i));
   return as;
 }
 #define LZ3_VARIADIC(fn, z3fn) \
   LEAN_EXPORT lean_obj_res fn(b_lean_obj_arg c, b_lean_obj_arg arr, lean_obj_arg w) { \
     (void)w; Z3_context ctx=(Z3_context)ctx_ptr(c); size_t n; Z3_ast *as=lz3_collect(arr,&n); \
+    if (!as) { lean_dec(c); lean_dec(arr); return lean_io_result_mk_error(lean_mk_io_user_error(lean_mk_string("out of memory collecting Z3 terms"))); } \
     lean_object *r=box_owned(z3fn(ctx,(unsigned)n,as)); free(as); \
     lean_dec(c); lean_dec(arr); return z3_io_ok(r); }
 #define LZ3_BINOP(fn, z3fn) \
@@ -391,7 +407,7 @@ LEAN_EXPORT lean_obj_res lean_z3_ast_get_decl_name(b_lean_obj_arg c, b_lean_obj_
     r = lean_mk_string(Z3_get_symbol_string(ctx, sym));
   else {
     char buf[32];
-    snprintf(buf, sizeof(buf), "%u", Z3_get_symbol_int(ctx, sym));
+    snprintf(buf, sizeof(buf), "%d", Z3_get_symbol_int(ctx, sym));
     r = lean_mk_string(buf);
   }
   lean_dec(c); lean_dec(a); return z3_io_ok(r);

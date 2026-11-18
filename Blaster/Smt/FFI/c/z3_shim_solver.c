@@ -48,6 +48,12 @@ LEAN_EXPORT lean_obj_res lean_z3_mk_solver(b_lean_obj_arg c, lean_obj_arg w) {
   Z3_simplifier_dec_ref(ctx, simp);
   Z3_solver_dec_ref(ctx, base);
   z3_solver_box *b = (z3_solver_box *)malloc(sizeof(z3_solver_box));
+  if (!b) {
+    Z3_solver_dec_ref(ctx, s);
+    lean_dec(c);
+    return lean_io_result_mk_error(lean_mk_io_user_error(
+        lean_mk_string("out of memory boxing Z3 solver")));
+  }
   /* Take ownership of the Context arg (do NOT dec it): the box holds it in
    * ctx_obj and releases it in solver_finalize, so the Z3_context outlives the
    * solver regardless of Lean's field-finalizer order. */
