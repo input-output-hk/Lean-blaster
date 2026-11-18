@@ -16,7 +16,7 @@ namespace Blaster.Optimize
         - return `
     NOTE: This function is to be used only by Blaster extension.
 -/
-@[always_inline, inline]
+@[noinline]
 def isTruePremise (e : Expr) : TranslateEnvT Bool :=
  match e with
  | Expr.const ``True _ => return true

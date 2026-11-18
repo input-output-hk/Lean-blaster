@@ -233,6 +233,35 @@ partial def mkPat (e : Expr) : GenM Term := do
   | .bvar i => `(Expr.bvar $(quote i))
   | .mvar .. => throwError "blaster: unexpected meta variable in theorem statement: {e}"
 
+/-! ## noinline wrappers to avoid lengthy compilation for generated optimize functions -/
+@[noinline]
+def Ext.expr (e : Expr) : TranslateEnvT Expr := mkExpr e
+
+@[noinline]
+def Ext.lambda (x : Name) (bi : BinderInfo) (t : Expr) (b : Expr) : TranslateEnvT Expr :=
+    mkLambdaExpr x bi t b
+
+@[noinline]
+def Ext.forallE (x : Name) (bi : BinderInfo) (t : Expr) (b : Expr) : TranslateEnvT Expr :=
+    mkForallExpr x bi t b
+
+@[noinline]
+def Ext.proj (n : Name) (i : Nat) (s : Expr) : TranslateEnvT Expr :=
+    mkProjExpr n i s
+
+@[noinline]
+def Ext.bvar (idx : Nat) : TranslateEnvT Expr := mkBVarExpr idx
+
+@[noinline]
+def Ext.sort (u : Level) : TranslateEnvT Expr := mkSortExpr u
+
+@[noinline]
+def Ext.natLit (n : Nat) : TranslateEnvT Expr := mkNatLitExpr n
+
+@[noinline]
+def Ext.strLit (s : String) : TranslateEnvT Expr := mkStrLitExpr s
+
+
 /-! ## Builders (premises and rhs) -/
 
 /-- Term for a universe level; level parameters must be recoverable from the lhs. -/
@@ -363,31 +392,27 @@ partial def mkBuild (e : Expr) : GenM Ident := do
         | none =>
             let decl ← id.getDecl
             throwError "blaster: variable `{decl.userName}` does not occur in the lhs of the theorem"
-    | .lit (.natVal n) => emit `n (← `(mkNatLitExpr $(quote n)))
-    | .lit (.strVal s) => emit `s (← `(mkStrLitExpr $(quote s)))
-    | .bvar i => emit `bv (← `(mkBVarExpr $(quote i)))
+    | .lit (.natVal n) => emit `n (← `(Ext.natLit $(quote n)))
+    | .lit (.strVal s) => emit `s (← `(Ext.strLit $(quote s)))
+    | .bvar i => emit `bv (← `(Ext.bvar $(quote i)))
     | .sort l =>
         if l.isZero then emit `prop (← `(mkPropType))
-        else emit `sort (← `(mkSortExpr $(← mkLevelTermNorm l)))
+        else emit `sort (← `(Ext.sort $(← mkLevelTermNorm l)))
     | .const n ls => emit `c (← mkConstTerm n ls)
     | .app .. => buildApp
     | .lam n t b bi =>
         let t ← mkBuild t
         let b ← mkBuild b
-        emit `lam (← `(mkLambdaExpr $(quote n) $(mkBinderInfoTerm bi) $t $b))
+        emit `lam (← `(Ext.lambda $(quote n) $(mkBinderInfoTerm bi) $t $b))
     | .forallE n t b bi =>
         let t ← mkBuild t
         let b ← mkBuild b
-        emit `pi (← `(mkForallExpr $(quote n) $(mkBinderInfoTerm bi) $t $b))
-    | .letE n t v b nd =>
-        let t ← mkBuild t
-        let v ← mkBuild v
-        let b ← mkBuild b
-        emit `lt (← `(mkLetExpr $(quote n) $t $v $b $(quote nd)))
+        emit `pi (← `(Ext.forallE $(quote n) $(mkBinderInfoTerm bi) $t $b))
     | .proj n i s =>
         let s ← mkBuild s
-        emit `proj (← `(mkProjExpr $(quote n) $(quote i) $s))
-    | .mvar .. => throwError "blaster: unexpected meta variable in theorem statement: {e}"
+        emit `proj (← `(Ext.proj $(quote n) $(quote i) $s))
+    | .letE .. => throwError "blaster: unexpected let expression in normalized theorem statement: {e}"
+    | .mvar .. => throwError "blaster: unexpected meta variable in normalized theorem statement: {e}"
 
   buildApp : GenM Ident := do
     let f := e.getAppFn

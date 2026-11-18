@@ -79,7 +79,7 @@ def optimizeAppAux (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 /-- Same as `optimizeAppAux` but call optimizeAppAux iteratively until a fixed-point is reached
     Indeed, this function is to be called only by Blaster extension
 -/
-@[always_inline, inline]
+@[noinline]
 def optimizeAppExt (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
   let mut r ← optimizeAppAux f args
   while (← isRestart) do
