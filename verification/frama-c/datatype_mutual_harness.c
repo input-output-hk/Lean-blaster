@@ -23,7 +23,7 @@ static lean_object *result_items[4][2], *pair_items[2];
 static char context_handle, symbol_handle, sort_handles[2];
 static char constructor_handles[2], list_handles[2], func_handle, class_handle;
 static int fail_at, alloc_calls, fail_constructor_at, fail_list_at;
-static int fail_datatypes, constructor_attempts, list_attempts;
+static int fail_datatypes, fail_query_at, query_failed, constructor_attempts, list_attempts;
 static int live_constructors, constructors_created, constructors_deleted;
 static int live_lists, lists_created, lists_deleted, query_calls;
 static int returned_error, array_allocations, decs[7];
@@ -124,15 +124,16 @@ void Z3_mk_datatypes(Z3_context c, unsigned n, Z3_symbol const names[],
   sorts[1] = (Z3_sort)&sort_handles[1];
 }
 Z3_error_code Z3_get_error_code(Z3_context c) {
-  return fail_datatypes ? Z3_INVALID_ARG : Z3_OK;
+  return fail_datatypes || query_failed ? Z3_INVALID_ARG : Z3_OK;
 }
 void Z3_query_constructor(Z3_context c, Z3_constructor con, unsigned n,
     Z3_func_decl *constructor, Z3_func_decl *tester,
     Z3_func_decl accessors[]) {
   /*@ assert n == 0 && live_constructors == 2 && live_lists == 2; */
+  ++query_calls;
+  if (query_calls == fail_query_at) { query_failed=1; return; }
   *constructor = (Z3_func_decl)&func_handle;
   *tester = (Z3_func_decl)&func_handle;
-  ++query_calls;
 }
 
 int main(void) {
@@ -167,10 +168,11 @@ int main(void) {
     field_sorts_per[s].items = field_sort_items[s];
     field_refs_per[s].items = field_ref_items[s];
   }
-  fail_at = Frama_C_interval(0, 12);
+  fail_at = Frama_C_interval(0, 13);
   fail_constructor_at = Frama_C_interval(0, 2);
   fail_list_at = Frama_C_interval(0, 2);
   fail_datatypes = Frama_C_interval(0, 1);
+  fail_query_at = Frama_C_interval(0, 2);
   lean_object *result = lean_z3_mk_datatypes(&context_obj, &sort_names,
       &ctor_names, &recog_names, &field_names, &field_sorts, &field_refs, NULL);
   /*@ assert live_constructors == 0 && live_lists == 0; */
@@ -179,7 +181,7 @@ int main(void) {
   /*@ assert decs[0] == 1 && decs[1] == 1 && decs[2] == 1; */
   /*@ assert decs[3] == 1 && decs[4] == 1 && decs[5] == 1 && decs[6] == 1; */
   if (returned_error) {
-    /*@ assert result == &error_obj && query_calls == 0; */
+    /*@ assert result == &error_obj && query_calls <= 2; */
   } else {
     /*@ assert result == &pair_obj && query_calls == 2; */
   }

@@ -1,5 +1,5 @@
 /* Bounded lifecycle check of the production single-datatype constructors.
- * The allocator can fail at each of its five C allocations. Lean and Z3 are
+ * The allocator can fail at each of its C allocations. Lean and Z3 are
  * modeled at their API boundary; this is not a model of their internals.
  * Build with LZ3_TEST_RECURSIVE or LZ3_TEST_POLY for the other entry points. */
 #include <stdlib.h>
@@ -22,7 +22,7 @@ static lean_object *outer_field_ref_items[1], *field_ref_items[1], *typevar_item
 static lean_object *result_items[3], *pair_items[2];
 static char context_handle, sort_handle, constructor_handle, symbol_handle;
 static char func_handle, class_handle;
-static int fail_at, alloc_calls, constructor_failure, datatype_failure;
+static int fail_at, alloc_calls, constructor_failure, datatype_failure, query_failure;
 static int live_constructors, constructors_created, constructors_deleted;
 static int query_calls, returned_error, decs[8];
 
@@ -113,14 +113,18 @@ Z3_sort Z3_mk_polymorphic_datatype(Z3_context c, Z3_symbol name,
   /*@ assert num_params == 1 && num_constructors == 1 && live_constructors == 1; */
   return datatype_failure ? NULL : (Z3_sort)&sort_handle;
 }
+Z3_error_code Z3_get_error_code(Z3_context c) {
+  return query_calls && query_failure ? Z3_INVALID_ARG : Z3_OK;
+}
 void Z3_query_constructor(Z3_context c, Z3_constructor con, unsigned n,
     Z3_func_decl *constructor, Z3_func_decl *tester,
     Z3_func_decl accessors[]) {
   /*@ assert live_constructors == 1; */
+  ++query_calls;
+  if (query_failure) return;
   *constructor = (Z3_func_decl)&func_handle;
   *tester = (Z3_func_decl)&func_handle;
   accessors[0] = (Z3_func_decl)&func_handle;
-  ++query_calls;
 }
 
 int main(void) {
@@ -153,9 +157,10 @@ int main(void) {
   field_sort_obj.external_data = &sort_handle;
   typevar_obj.external_data = &sort_handle;
 
-  fail_at = Frama_C_interval(0, 5);
+  fail_at = Frama_C_interval(0, 6);
   constructor_failure = Frama_C_interval(0, 1);
   datatype_failure = Frama_C_interval(0, 1);
+  query_failure = Frama_C_interval(0, 1);
   lean_object *result;
 #ifdef LZ3_TEST_POLY
   result = lean_z3_mk_poly_datatype(&context_obj, &sort_name_obj,
@@ -182,7 +187,7 @@ int main(void) {
 #endif
   if (returned_error) {
     /*@ assert result == &error_obj; */
-    /*@ assert query_calls == 0; */
+    /*@ assert query_calls <= 1; */
   } else {
 #ifdef LZ3_TEST_POLY
     /*@ assert result == &boxed_obj; */

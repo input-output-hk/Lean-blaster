@@ -130,14 +130,17 @@ LEAN_EXPORT lean_obj_res lean_z3_mk_datatype(b_lean_obj_arg c, b_lean_obj_arg so
   (void)w; Z3_context ctx=(Z3_context)ctx_ptr(c);
   unsigned nc = (unsigned)lean_array_size(ctorNames);
   size_t max_nf = lz3_max_fields(fieldNames);
+  unsigned total=0;
+  for (unsigned i=0;i<nc;i++) total += 2 + (unsigned)lean_array_size(lean_array_get_core(fieldNames,i));
   Z3_constructor *cons = (Z3_constructor*)lz3_alloc(nc, sizeof(*cons));
   Z3_symbol *fnames = (Z3_symbol*)lz3_alloc(max_nf, sizeof(*fnames));
   Z3_sort *fsorts = (Z3_sort*)lz3_alloc(max_nf, sizeof(*fsorts));
   unsigned *refs = (unsigned*)lz3_alloc(max_nf, sizeof(*refs));
   Z3_func_decl *accs = (Z3_func_decl*)lz3_alloc(max_nf, sizeof(*accs));
+  Z3_func_decl *decls = (Z3_func_decl*)lz3_alloc(total, sizeof(*decls));
   unsigned created = 0;
   const char *error = "out of memory building Z3 datatype";
-  if (!cons || !fnames || !fsorts || !refs || !accs) goto failure;
+  if (!cons || !fnames || !fsorts || !refs || !accs || !decls) goto failure;
   for (unsigned i=0;i<nc;i++){
     lean_object *fn = lean_array_get_core(fieldNames,i);
     lean_object *fs = lean_array_get_core(fieldSorts,i);
@@ -156,21 +159,28 @@ LEAN_EXPORT lean_obj_res lean_z3_mk_datatype(b_lean_obj_arg c, b_lean_obj_arg so
   Z3_symbol sn=Z3_mk_string_symbol(ctx, lean_string_cstr(sortName));
   Z3_sort dt=Z3_mk_datatype(ctx, sn, nc, cons);
   if (!dt) { error = "Z3 datatype creation failed"; goto failure; }
-  /* count total decls and flatten: per ctor, 2 (ctor+recog) + nfields accessors */
-  unsigned total=0;
-  for (unsigned i=0;i<nc;i++) total += 2 + (unsigned)lean_array_size(lean_array_get_core(fieldNames,i));
-  lean_object *arr = lean_alloc_array(total, total);
+  /* Query into C memory first: an error must not leave a partly initialized
+   * Lean array whose declared length includes unfilled elements. */
   unsigned k=0;
   for (unsigned i=0;i<nc;i++){
     unsigned nf=(unsigned)lean_array_size(lean_array_get_core(fieldNames,i));
-    Z3_func_decl cf, rf;
+    Z3_func_decl cf=NULL, rf=NULL;
+    for (unsigned j=0;j<nf;j++) accs[j]=NULL;
     Z3_query_constructor(ctx, cons[i], nf, &cf, &rf, accs);
-    lean_array_set_core(arr, k++, box_owned(cf));
-    lean_array_set_core(arr, k++, box_owned(rf));
-    for (unsigned j=0;j<nf;j++) lean_array_set_core(arr, k++, box_owned(accs[j]));
-    Z3_del_constructor(ctx, cons[i]);
+    if (Z3_get_error_code(ctx) != Z3_OK || !cf || !rf) {
+      error = "Z3 constructor query failed";
+      goto failure;
+    }
+    decls[k++]=cf; decls[k++]=rf;
+    for (unsigned j=0;j<nf;j++) {
+      if (!accs[j]) { error = "Z3 constructor accessor query failed"; goto failure; }
+      decls[k++]=accs[j];
+    }
   }
-  free(cons); free(fnames); free(fsorts); free(refs); free(accs);
+  for (unsigned i=0; i<created; ++i) Z3_del_constructor(ctx, cons[i]);
+  lean_object *arr = lean_alloc_array(total, total);
+  for (unsigned i=0; i<total; ++i) lean_array_set_core(arr, i, box_owned(decls[i]));
+  free(cons); free(fnames); free(fsorts); free(refs); free(accs); free(decls);
   lean_object *pair = lean_alloc_ctor(0, 2, 0);
   lean_ctor_set(pair, 0, box_owned(dt));
   lean_ctor_set(pair, 1, arr);
@@ -181,7 +191,7 @@ LEAN_EXPORT lean_obj_res lean_z3_mk_datatype(b_lean_obj_arg c, b_lean_obj_arg so
 
 failure:
   for (unsigned i=0; i<created; ++i) Z3_del_constructor(ctx, cons[i]);
-  free(cons); free(fnames); free(fsorts); free(refs); free(accs);
+  free(cons); free(fnames); free(fsorts); free(refs); free(accs); free(decls);
   lean_dec(c); lean_dec(sortName); lean_dec(ctorNames); lean_dec(recogNames);
   lean_dec(fieldNames); lean_dec(fieldSorts);
   return lean_io_result_mk_error(lean_mk_io_user_error(lean_mk_string(error)));
@@ -217,14 +227,17 @@ LEAN_EXPORT lean_obj_res lean_z3_mk_datatype_rec(b_lean_obj_arg c, b_lean_obj_ar
   (void)w; Z3_context ctx=(Z3_context)ctx_ptr(c);
   unsigned nc = (unsigned)lean_array_size(ctorNames);
   size_t max_nf = lz3_max_fields(fieldNames);
+  unsigned total=0;
+  for (unsigned i=0;i<nc;i++) total += 2 + (unsigned)lean_array_size(lean_array_get_core(fieldNames,i));
   Z3_constructor *cons = (Z3_constructor*)lz3_alloc(nc, sizeof(*cons));
   Z3_symbol *fnames = (Z3_symbol*)lz3_alloc(max_nf, sizeof(*fnames));
   Z3_sort *fsorts = (Z3_sort*)lz3_alloc(max_nf, sizeof(*fsorts));
   unsigned *refs = (unsigned*)lz3_alloc(max_nf, sizeof(*refs));
   Z3_func_decl *accs = (Z3_func_decl*)lz3_alloc(max_nf, sizeof(*accs));
+  Z3_func_decl *decls = (Z3_func_decl*)lz3_alloc(total, sizeof(*decls));
   unsigned created = 0;
   const char *error = "out of memory building Z3 recursive datatype";
-  if (!cons || !fnames || !fsorts || !refs || !accs) goto failure;
+  if (!cons || !fnames || !fsorts || !refs || !accs || !decls) goto failure;
   for (unsigned i=0;i<nc;i++){
     lean_object *fn = lean_array_get_core(fieldNames,i);
     lean_object *fs = lean_array_get_core(fieldSorts,i);
@@ -249,20 +262,26 @@ LEAN_EXPORT lean_obj_res lean_z3_mk_datatype_rec(b_lean_obj_arg c, b_lean_obj_ar
   Z3_symbol sn=Z3_mk_string_symbol(ctx, lean_string_cstr(sortName));
   Z3_sort dt=Z3_mk_datatype(ctx, sn, nc, cons);
   if (!dt) { error = "Z3 recursive datatype creation failed"; goto failure; }
-  unsigned total=0;
-  for (unsigned i=0;i<nc;i++) total += 2 + (unsigned)lean_array_size(lean_array_get_core(fieldNames,i));
-  lean_object *arr = lean_alloc_array(total, total);
   unsigned k=0;
   for (unsigned i=0;i<nc;i++){
     unsigned nf=(unsigned)lean_array_size(lean_array_get_core(fieldNames,i));
-    Z3_func_decl cf, rf;
+    Z3_func_decl cf=NULL, rf=NULL;
+    for (unsigned j=0;j<nf;j++) accs[j]=NULL;
     Z3_query_constructor(ctx, cons[i], nf, &cf, &rf, accs);
-    lean_array_set_core(arr, k++, box_owned(cf));
-    lean_array_set_core(arr, k++, box_owned(rf));
-    for (unsigned j=0;j<nf;j++) lean_array_set_core(arr, k++, box_owned(accs[j]));
-    Z3_del_constructor(ctx, cons[i]);
+    if (Z3_get_error_code(ctx) != Z3_OK || !cf || !rf) {
+      error = "Z3 recursive constructor query failed";
+      goto failure;
+    }
+    decls[k++]=cf; decls[k++]=rf;
+    for (unsigned j=0;j<nf;j++) {
+      if (!accs[j]) { error = "Z3 recursive constructor accessor query failed"; goto failure; }
+      decls[k++]=accs[j];
+    }
   }
-  free(cons); free(fnames); free(fsorts); free(refs); free(accs);
+  for (unsigned i=0; i<created; ++i) Z3_del_constructor(ctx, cons[i]);
+  lean_object *arr = lean_alloc_array(total, total);
+  for (unsigned i=0; i<total; ++i) lean_array_set_core(arr, i, box_owned(decls[i]));
+  free(cons); free(fnames); free(fsorts); free(refs); free(accs); free(decls);
   lean_object *pair = lean_alloc_ctor(0, 2, 0);
   lean_ctor_set(pair, 0, box_owned(dt));
   lean_ctor_set(pair, 1, arr);
@@ -272,7 +291,7 @@ LEAN_EXPORT lean_obj_res lean_z3_mk_datatype_rec(b_lean_obj_arg c, b_lean_obj_ar
 
 failure:
   for (unsigned i=0; i<created; ++i) Z3_del_constructor(ctx, cons[i]);
-  free(cons); free(fnames); free(fsorts); free(refs); free(accs);
+  free(cons); free(fnames); free(fsorts); free(refs); free(accs); free(decls);
   lean_dec(c); lean_dec(sortName); lean_dec(ctorNames); lean_dec(recogNames);
   lean_dec(fieldNames); lean_dec(fieldSorts); lean_dec(fieldRefs);
   return lean_io_result_mk_error(lean_mk_io_user_error(lean_mk_string(error)));
@@ -310,9 +329,21 @@ LEAN_EXPORT lean_obj_res lean_z3_mk_datatypes(b_lean_obj_arg c, b_lean_obj_arg s
   (void)w; Z3_context ctx=(Z3_context)ctx_ptr(c);
   unsigned ns = (unsigned)lean_array_size(sortNames);
   size_t max_nf = 0;
+  size_t total_decls = 0;
   for (unsigned s=0; s<ns; ++s) {
-    size_t n = lz3_max_fields(lean_array_get_core(fieldNames,s));
+    lean_object *fn_s = lean_array_get_core(fieldNames,s);
+    size_t n = lz3_max_fields(fn_s);
     if (n > max_nf) max_nf = n;
+    for (size_t i=0; i<lean_array_size(fn_s); ++i) {
+      size_t width = 2 + lean_array_size(lean_array_get_core(fn_s,i));
+      if (total_decls > SIZE_MAX - width) {
+        lean_dec(c); lean_dec(sortNames); lean_dec(ctorNames); lean_dec(recogNames);
+        lean_dec(fieldNames); lean_dec(fieldSorts); lean_dec(fieldRefs);
+        return lean_io_result_mk_error(lean_mk_io_user_error(
+            lean_mk_string("too many Z3 mutual datatype declarations")));
+      }
+      total_decls += width;
+    }
   }
   Z3_constructor **all_cons = (Z3_constructor**)lz3_alloc(ns, sizeof(*all_cons));
   unsigned *nc_per = (unsigned*)lz3_alloc(ns, sizeof(*nc_per));
@@ -324,10 +355,11 @@ LEAN_EXPORT lean_obj_res lean_z3_mk_datatypes(b_lean_obj_arg c, b_lean_obj_arg s
   Z3_sort *fsorts = (Z3_sort*)lz3_alloc(max_nf, sizeof(*fsorts));
   unsigned *refs = (unsigned*)lz3_alloc(max_nf, sizeof(*refs));
   Z3_func_decl *accs = (Z3_func_decl*)lz3_alloc(max_nf, sizeof(*accs));
+  Z3_func_decl *decls = (Z3_func_decl*)lz3_alloc(total_decls, sizeof(*decls));
   unsigned prepared = 0, lists_created = 0;
   const char *error = "out of memory building Z3 mutual datatypes";
   if (!all_cons || !nc_per || !created_per || !clists || !snames ||
-      !osorts || !fnames || !fsorts || !refs || !accs) goto allocation_failure;
+      !osorts || !fnames || !fsorts || !refs || !accs || !decls) goto allocation_failure;
   for (unsigned s=0; s<ns; ++s) {
     all_cons[s] = NULL;
     created_per[s] = 0;
@@ -376,31 +408,44 @@ LEAN_EXPORT lean_obj_res lean_z3_mk_datatypes(b_lean_obj_arg c, b_lean_obj_arg s
     error = "Z3 mutual datatype creation failed";
     goto failure;
   }
-  /* recover func_decls + sorts, THEN free constructor containers */
+  /* Query all constructors before allocating Lean result arrays. */
+  size_t k=0;
+  for (unsigned s=0;s<ns;s++) {
+    lean_object *fn_s = lean_array_get_core(fieldNames,s);
+    for (unsigned i=0;i<nc_per[s];i++) {
+      unsigned nf=(unsigned)lean_array_size(lean_array_get_core(fn_s,i));
+      Z3_func_decl cf=NULL, rf=NULL;
+      for (unsigned j=0;j<nf;j++) accs[j]=NULL;
+      Z3_query_constructor(ctx, all_cons[s][i], nf, &cf, &rf, accs);
+      if (Z3_get_error_code(ctx) != Z3_OK || !cf || !rf) {
+        error = "Z3 mutual constructor query failed";
+        goto failure;
+      }
+      decls[k++]=cf; decls[k++]=rf;
+      for (unsigned j=0;j<nf;j++) {
+        if (!accs[j]) { error = "Z3 mutual constructor accessor query failed"; goto failure; }
+        decls[k++]=accs[j];
+      }
+    }
+  }
+  /* Recover func_decls and sorts, then release constructor containers. */
   lean_object *outer    = lean_alloc_array(ns, ns);
   lean_object *sortsArr = lean_alloc_array(ns, ns);
+  k=0;
   for (unsigned s=0;s<ns;s++){
     lean_object *fn_s = lean_array_get_core(fieldNames,s);
     unsigned nc = nc_per[s];
     unsigned total=0;
     for (unsigned i=0;i<nc;i++) total += 2 + (unsigned)lean_array_size(lean_array_get_core(fn_s,i));
     lean_object *inner = lean_alloc_array(total, total);
-    unsigned k=0;
-    for (unsigned i=0;i<nc;i++){
-      unsigned nf=(unsigned)lean_array_size(lean_array_get_core(fn_s,i));
-      Z3_func_decl cf, rf;
-      Z3_query_constructor(ctx, all_cons[s][i], nf, &cf, &rf, accs);
-      lean_array_set_core(inner, k++, box_owned(cf));
-      lean_array_set_core(inner, k++, box_owned(rf));
-      for (unsigned j=0;j<nf;j++) lean_array_set_core(inner, k++, box_owned(accs[j]));
-    }
+    for (unsigned i=0;i<total;i++) lean_array_set_core(inner, i, box_owned(decls[k++]));
     lean_array_set_core(outer, s, inner);
     lean_array_set_core(sortsArr, s, box_owned(osorts[s]));
   }
   lz3_release_mutual_constructors(ctx, all_cons, created_per, prepared,
                                    clists, lists_created);
   free(all_cons); free(nc_per); free(created_per); free(clists);
-  free(snames); free(osorts); free(fnames); free(fsorts); free(refs); free(accs);
+  free(snames); free(osorts); free(fnames); free(fsorts); free(refs); free(accs); free(decls);
   lean_object *pair = lean_alloc_ctor(0, 2, 0);
   lean_ctor_set(pair, 0, sortsArr);
   lean_ctor_set(pair, 1, outer);
@@ -413,7 +458,7 @@ failure:
                                    clists, lists_created);
 allocation_failure:
   free(all_cons); free(nc_per); free(created_per); free(clists);
-  free(snames); free(osorts); free(fnames); free(fsorts); free(refs); free(accs);
+  free(snames); free(osorts); free(fnames); free(fsorts); free(refs); free(accs); free(decls);
   lean_dec(c); lean_dec(sortNames); lean_dec(ctorNames); lean_dec(recogNames);
   lean_dec(fieldNames); lean_dec(fieldSorts); lean_dec(fieldRefs);
   return lean_io_result_mk_error(lean_mk_io_user_error(lean_mk_string(error)));

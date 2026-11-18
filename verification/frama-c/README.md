@@ -3,8 +3,8 @@
 This is an incremental verification target for the **production C source** in
 `Blaster/Smt/FFI/c`. It currently checks the variadic AST collector, solver
 construction/finalization, solver assumption collection, datatype array
-preflight and constructor lifetimes, and parses all five shim translation units. It does
-**not** prove the whole FFI safe.
+preflight and constructor lifetimes, quantifier allocations, and parses all
+five shim translation units. It does **not** prove the whole FFI safe.
 
 ## Reproduce
 
@@ -14,6 +14,9 @@ headers through `Z3_INC_PATH`, `Z3_ROOT`, or `pkg-config z3`:
 ```sh
 Z3_INC_PATH=/path/to/z3/include bash verification/frama-c/check.sh
 ```
+
+The `ci-frama-c` workflow runs this command on pull requests with Frama-C 33.0,
+Alt-Ergo, and the same Z3 5.4.0 headers used by the Linux build.
 
 The check runs Eva on `lz3_collect` from the actual `z3_shim_terms.c`, with
 concrete Lean arrays of 0, 1, 2, and 3 elements. It explores both outcomes of
@@ -37,6 +40,13 @@ forwarded count and order; its Lean stubs check that the solver and assumption
 array are each released once on success and allocation failure. Eva reports
 18 valid assertions, 7 valid preconditions, and zero alarms.
 
+The quantifier harness runs the production `mkQuantConst` shim six times:
+success and a failure at each of five C allocations. It verifies that each
+allocated buffer is freed, all six owned Lean arguments are decremented, and
+the result is correct for the path. Eva reports zero alarms and no unknown
+properties in all six runs. The injected failure is the only source of
+allocation failure in this harness (`-eva-no-alloc-returns-null`).
+
 The datatype harness runs the production shape checks against matching arrays,
 an inner field-count mismatch, an out-of-group recursive reference, an outer
 sort-count mismatch, and an overflowing constructor count. Eva reports
@@ -46,13 +56,15 @@ the entry of all four datatype constructors before any indexed array access.
 IO errors with the actual runtime.
 
 Two lifecycle harnesses execute all four production datatype constructors with
-failed C allocations and failed Z3 creation calls. The single, recursive, and
-polymorphic modes each check all five allocation sites, constructor creation,
-and datatype creation. Eva reports respectively 13/64, 14/74, and 13/73 valid
-assertions/preconditions, with zero alarms. The mutual harness uses two sorts
-and checks each of twelve allocation sites, both constructor and
-constructor-list creation points, and datatype creation; Eva reports 16 valid
-assertions, 131 valid preconditions, and zero alarms. They check that every
+failed C allocations and failed Z3 creation or query calls. The single and
+recursive modes check six allocation sites each, constructor creation,
+datatype creation, and constructor-query failure. The polymorphic mode checks
+five allocation sites and both creation calls. Eva reports respectively 13/67,
+14/77, and 13/74 valid assertions/preconditions, with zero alarms. The mutual
+harness uses two sorts and checks thirteen allocation sites, both constructor
+and constructor-list creation points, datatype creation, and either query
+failure; Eva reports 16 valid assertions, 142 valid preconditions, and zero
+alarms. They check that every
 created constructor/list is deleted exactly once and every owned Lean argument
 is decremented once. The mutual analysis uses `-eva-mlevel 20` to keep the
 allocator's live blocks distinct.
@@ -63,7 +75,8 @@ array shape functions: those need explicit Lean array validity and framing
 contracts. A first attempt without those contracts generated 49 goals with
 unproved API preconditions, so it is not counted as a proof of the functions.
 WP also proves 3 of 3 goals for the allocation-size arithmetic in `lz3_alloc`,
-including its runtime-error guard. Frama-C's current `malloc` model leaves the
+and 3 of 3 for `lz3_term_alloc`, including their runtime-error guards.
+Frama-C's current `malloc` model leaves the
 returned block's validity and lifetime outside that result.
 
 The C parser cannot consume Lean 4.24.0's `_Atomic` runtime header directly.
@@ -81,6 +94,10 @@ datatype constructors reject mismatched nested arrays, invalid recursive
 references, and count overflow before passing them to Z3. They now allocate
 reusable field buffers before constructing Z3 objects and release all created
 constructors and constructor lists on creation failure.
+Constructor queries now fill temporary C buffers; an error is returned before
+creating any Lean result array. The term shims check all their temporary C
+allocations and reject counts that exceed Z3's `unsigned` API or overflow the
+allocation size.
 Separately, the format string for `Z3_get_symbol_int` now matches its `int`
 return type.
 
@@ -94,9 +111,9 @@ return type.
   Run this experiment with
   `bash verification/frama-c/run.sh -wp -wp-rte -wp-fct lz3_collect -wp-prover alt-ergo -wp-timeout 5 Blaster/Smt/FFI/c/z3_shim_terms.c`.
 - The datatype lifecycle harnesses exercise one-constructor single, recursive,
-  and polymorphic cases, plus a two-sort mutual case. Z3 query failures and
-  unbounded constructor counts need further contracts or harnesses. Other
-  term/sort shims still contain unchecked `malloc` calls.
+  and polymorphic cases, plus a two-sort mutual case. Arbitrary constructor
+  counts and full allocation lifetimes still need WP contracts or stronger
+  models. Other Z3 API calls can fail independently of the modeled scenarios.
 - Frama-C treats Lean and Z3 implementations as external. Their contracts must
   be justified against those libraries; this analysis cannot prove the
   libraries themselves.
