@@ -174,7 +174,7 @@ def updateQuantifiedFVarsCache (v : FVarId) (topLevel : Bool) : TranslateEnvT Un
       then
         { env with
               smtEnv.quantifiedFVars := updatedVars,
-              smtEnv.topLevelVars := updateTopLevelVars idx env.smtEnv.topLevelVars ⟨s, uname, t⟩
+              smtEnv.topLevelVars := updateTopLevelVars idx env.smtEnv.topLevelVars ⟨s, uname, t, v⟩
         }
       else
         { env with smtEnv.quantifiedFVars := updatedVars }

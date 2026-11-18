@@ -1,4 +1,5 @@
 import Lean
+import Blaster.Counterexample
 import Blaster.Smt.Syntax
 
 namespace Blaster.Smt
@@ -8,11 +9,12 @@ structure TopLevelVar where
   symbol : SmtSymbol
   userName : Lean.Name
   type : Lean.Expr
+  id : Lean.FVarId
 
 /-- Result of an Smt query. -/
 inductive Result where
   | Valid  : Result
-  | Falsified (cex : List String) : Result
+  | Falsified (cex : Counterexample.Model) : Result
   | Undetermined : Result
 deriving Repr
 

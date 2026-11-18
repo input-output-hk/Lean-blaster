@@ -16,7 +16,12 @@ private unsafe def gccArchive (name : String) : String :=
 private unsafe def z3LinkArgsImpl : Array String :=
   let libPath := match unsafeBaseIO (IO.getEnv "Z3_LIB_PATH") with
     | some p => p | none => if System.Platform.isOSX then "/opt/homebrew/lib" else "/usr/local/lib"
-  if System.Platform.isOSX || System.Platform.isWindows then
+  if System.Platform.isOSX then
+    let archive := s!"{libPath}/libz3.a"
+    if unsafeBaseIO (FilePath.pathExists (FilePath.mk archive)) then
+      #[archive, "-lc++"]
+    else #[s!"-L{libPath}", "-lz3"]
+  else if System.Platform.isWindows then
     #[s!"-L{libPath}", "-lz3"]
   else
     -- Lean's Linux runtime exports part of LLVM's unwinder. A shared libz3 built

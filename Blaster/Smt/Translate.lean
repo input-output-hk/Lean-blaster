@@ -48,7 +48,14 @@ partial def translateExpr (e : Expr) (topLevel := true) : TranslateEnvT SmtTerm 
      | Expr.sort _ => throwEnvError "translateExpr: unexpected sort type {reprStr e}" -- sort type are handled elsewhere
   visit e topLevel
 
+register_option blaster.useSmtlib : Bool := {
+  defValue := false
+  descr := "use the external SMT-LIB solver for this Blaster invocation"
+}
+
 def Translate.main (e : Expr) (logUndetermined := true) : TranslateEnvT (Result × Expr) := do
+  if blaster.useSmtlib.get (← getOptions) then
+    modify fun env => { env with optEnv.options.solverOptions.backend := .smtlib }
   -- set start local context
   updateLocalContext (← mkLocalContext)
   let source ← toPropExpr e
