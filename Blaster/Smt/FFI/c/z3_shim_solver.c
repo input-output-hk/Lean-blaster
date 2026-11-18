@@ -1,4 +1,6 @@
 #include "lean_z3.h"
+#include <limits.h>
+#include <stdint.h>
 #include <stdlib.h>
 extern void *ctx_ptr(lean_object *o);
 
@@ -48,6 +50,12 @@ LEAN_EXPORT lean_obj_res lean_z3_mk_solver(b_lean_obj_arg c, lean_obj_arg w) {
   Z3_simplifier_dec_ref(ctx, simp);
   Z3_solver_dec_ref(ctx, base);
   z3_solver_box *b = (z3_solver_box *)malloc(sizeof(z3_solver_box));
+  if (!b) {
+    Z3_solver_dec_ref(ctx, s);
+    lean_dec(c);
+    return lean_io_result_mk_error(lean_mk_io_user_error(
+        lean_mk_string("out of memory boxing Z3 solver")));
+  }
   /* Take ownership of the Context arg (do NOT dec it): the box holds it in
    * ctx_obj and releases it in solver_finalize, so the Z3_context outlives the
    * solver regardless of Lean's field-finalizer order. */
@@ -128,7 +136,17 @@ LEAN_EXPORT lean_obj_res lean_z3_solver_eval_ast(b_lean_obj_arg s, b_lean_obj_ar
 LEAN_EXPORT lean_obj_res lean_z3_solver_check_assuming(b_lean_obj_arg s, b_lean_obj_arg assumps, lean_obj_arg w) {
   (void)w; Z3_context ctx=sctx(s); Z3_solver sol=ssol(s);
   size_t n=lean_array_size(assumps);
+  if (n > UINT_MAX || n > SIZE_MAX / sizeof(Z3_ast)) {
+    lean_dec(s); lean_dec(assumps);
+    return lean_io_result_mk_error(lean_mk_io_user_error(
+        lean_mk_string("too many Z3 assumptions")));
+  }
   Z3_ast *as=(Z3_ast*)malloc(sizeof(Z3_ast)*(n?n:1));
+  if (!as) {
+    lean_dec(s); lean_dec(assumps);
+    return lean_io_result_mk_error(lean_mk_io_user_error(
+        lean_mk_string("out of memory collecting Z3 assumptions")));
+  }
   for (size_t i=0;i<n;i++) as[i]=(Z3_ast)unbox_owned(lean_array_get_core(assumps,i));
   Z3_lbool r=Z3_solver_check_assumptions(ctx, sol, (unsigned)n, as);
   free(as);
