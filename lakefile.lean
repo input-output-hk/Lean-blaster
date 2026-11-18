@@ -28,15 +28,13 @@ private unsafe def z3LinkArgsImpl : Array String :=
     -- against libstdc++ can therefore abort on an internally caught exception.
     -- Keep Z3, libstdc++, and libgcc's unwinder together inside libz3shim.so.
     #[s!"{libPath}/libz3.a", gccArchive "libstdc++.a", gccArchive "libgcc_eh.a",
-      "-Wl,--exclude-libs,libz3.a",
-      "-Wl,--exclude-libs,libstdc++.a", "-Wl,--exclude-libs,libgcc_eh.a"]
+      "-static-libgcc", "-Wl,--exclude-libs,ALL"]
 @[implemented_by z3LinkArgsImpl]
 private opaque z3LinkArgs : Array String := #["-lz3"]
 
 package «Blaster» where
   precompileModules := true
   moreLeancArgs := #["-O3"]
-  moreLinkArgs := z3LinkArgs
 
 def cWeakArgs : FetchM (Array String) := do
   let leanInc := (← getLeanIncludeDir).toString
@@ -84,16 +82,23 @@ target «z3_shim_datatypes.o» (pkg : NPackage _package.name) : FilePath := do
   let o := pkg.buildDir / "ffi" / "z3_shim_datatypes.o"
   buildO o (← «z3_shim_datatypes.c».fetch) (← cWeakArgs) #["-O2"]
 
-extern_lib «libz3shim» (pkg : NPackage _package.name) := do
+target z3ShimDynlib (pkg : NPackage _package.name) : Dynlib := do
   let oCtx ← «z3_shim_context.o».fetch
   let oSol ← «z3_shim_solver.o».fetch
   let oSorts ← «z3_shim_sorts.o».fetch
   let oTerms ← «z3_shim_terms.o».fetch
   let oDt ← «z3_shim_datatypes.o».fetch
-  buildStaticLib (pkg.staticLibDir / nameToStaticLib "z3shim") #[oCtx, oSol, oSorts, oTerms, oDt]
+  -- Resolve Lean's C API from the host and isolate the Z3 C++ runtime in the shim.
+  let platformArgs :=
+    if Platform.isOSX then
+      #["-Wl,-install_name,@rpath/libz3shim.dylib", "-Wl,-undefined,dynamic_lookup"]
+    else #["-Wl,-soname,libz3shim.so", "-lm"]
+  buildSharedLib "z3shim" (pkg.staticLibDir / nameToSharedLib "z3shim")
+    #[oCtx, oSol, oSorts, oTerms, oDt] #[] #[] (z3LinkArgs ++ platformArgs) "cc"
 
 @[default_target]
 lean_lib «Blaster» where
+  moreLinkLibs := #[z3ShimDynlib]
   precompileModules := true
   moreLeancArgs := #["-O3"]
 
