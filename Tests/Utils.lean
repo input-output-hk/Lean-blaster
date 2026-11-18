@@ -12,7 +12,10 @@ def parseTerm (stx : Syntax) : TermElabM Expr := elabTermAndSynthesize stx none
 def callOptimize (sOpts : BlasterOptions) (stx : Syntax) :
     TermElabM (Expr × Blaster.Optimize.TranslateEnv) :=
   withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0 }) $ do
-    Blaster.Optimize.command sOpts (← parseTerm stx)
+    let r ← Blaster.Optimize.command sOpts (← parseTerm stx)
+    -- `command` rewinds the name generator, the replay must not reuse the optimizer's names
+    setNGen { namePrefix := ← mkFreshId }
+    return r
 
 /-! ## Definition of #testOptimize command to write unit test for Blaster.optimize
     The #testOptimize usage is as follows:

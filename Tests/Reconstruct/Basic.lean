@@ -231,3 +231,46 @@ def recP : Nat → Prop
 -- the linter itself recurses too deep on `recP 600`, not blaster
 set_option linter.constructorNameAsVariable false in
 example : ∀ (_h : recP 600), recP 600 := by blaster
+
+-- Steps below binders the replay does not introduce, in the target
+example : ∀ (a : Prop), (∃ b : Prop, (b ∧ b) ∧ a) = (∃ b : Prop, b ∧ a) := by blaster
+example : ∀ (f : Nat → Nat), (fun x => 0 + f x) = (fun x => f x) := by blaster
+example : ∀ (a : Prop), ((∀ b : Prop, (b ∧ b) ∨ a) ∧ a) = (a ∧ ∀ b : Prop, a ∨ b) := by blaster
+example : ∀ (q : Prop) (f : Nat → Nat → Prop),
+    ((∀ x : Nat, f x 0 → (q ∧ f (0 + x) 1)) ∨ q) = ((∀ x : Nat, f x 0 → (f x 1 ∧ q)) ∨ q) := by blaster
+-- and in a hypothesis
+example : ∀ (a : Prop), (∃ b : Prop, (b ∧ b) ∧ a) → ∃ b : Prop, b ∧ a := by blaster
+example : ∀ (l : List Nat), l.map (fun x => 0 + x) = [] → l.map (fun x => x) = [] := by blaster
+example : ∀ (a : Prop), (∀ b : Prop, (b ∧ b) ∨ a) → ∀ b : Prop, a ∨ b := by blaster
+example : ∀ (q : Prop) (f : Nat → Nat → Prop),
+    ((∀ x : Nat, f x 0 → (q ∧ f (0 + x) 1)) ∨ q) → ((∀ x : Nat, f x 0 → (f x 1 ∧ q)) ∨ q) := by blaster
+-- below a binder whose type depends on a goal binder
+example : ∀ (n : Nat), (∃ i : Fin (n + 1), i.val ≥ n) = (∃ i : Fin (n + 1), ¬ i.val < n) := by blaster
+-- below a goal binder that is an operand of the equality, which the replay does not introduce
+example : ∀ (a : Prop), (∀ b : Prop, (b ∧ b) ∨ a) = (∀ b : Prop, b ∨ a) := by blaster
+example : ∀ (k : Nat) (Q : Nat → Prop),
+    (∀ b : Fin (k + 1), ∃ i : Fin (b.val + 1), Q i.val ∧ Q i.val) =
+    (∀ b : Fin (k + 1), ∃ i : Fin (b.val + 1), Q i.val) := by blaster
+-- below a binder of the right side, which the replay instantiates with the left side one
+example : (∀ (P : Nat → Prop), ∃ x : Nat, P x) = (∀ (P : Nat → Prop), ∃ x : Nat, P (0 + x)) := by
+  blaster
+-- in the domain of a binder, which the steps below it need first
+example : ∀ (P : Nat → Prop), (∃ m : Nat, ∀ i : Fin (0 + m), P i.val ∧ P i.val) =
+    (∃ m : Nat, ∀ i : Fin m, P i.val) := by blaster
+-- a binder in the domain of another one, in the target and in a hypothesis
+example : ∀ (P : Nat → Prop) (Q R : Prop),
+    (((∃ y : Nat, P y ∧ P y) → Q) ∧ R) = (((∃ y : Nat, P y) → Q) ∧ R) := by blaster
+example : ∀ (P : Nat → Prop) (Q : Prop), ((∃ y : Nat, P y ∧ P y) → Q) → (∃ y : Nat, P y) → Q := by
+  blaster
+-- and below that binder too, after its domain
+example : ∀ (P Q : Nat → Prop), (∀ _n : Nat, (∃ y : Nat, P y ∧ P y) → ∃ z : Nat, Q z ∧ Q z) =
+    (∀ _n : Nat, (∃ y : Nat, P y) → ∃ z : Nat, Q z) := by blaster
+-- closes without the pass too: a term whose type depends on the rewritten binder has no
+-- congruence at it, and the pass must leave it
+example : ∀ (l : List Nat),
+    (fun (n : Nat) => Fin.last (List.map (fun x => 0 + x) (n :: l)).length) =
+    (fun (n : Nat) => if True then Fin.last (List.map (fun x => 0 + x) (n :: l)).length
+      else Fin.last (List.map (fun x => 0 + x) (n :: l)).length) := by blaster
+-- a step below a binder that leaves the target reflexive, before the later ones rewrite it again
+example : ∀ (a : Prop), (∃ y : Nat, a ∧ 0 + y = y + 1 ∧ 0 + y = y + 2) =
+    (∃ y : Nat, a ∧ y = y + 1 ∧ y = y + 2) := by blaster

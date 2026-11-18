@@ -69,7 +69,7 @@ abbrev OptimizeContinuity := Sum (List OptimizeStack) Expr
 
 @[always_inline, inline]
 def mkHypStackContext (h : UpdatedHypContext) : TranslateEnvT HypsStackContext := do
-  let ⟨_, ⟨_, localRewriteCache, _, _, _, _, _, _, hypothesisContext, _, _, _, _, _, _, _, _⟩⟩ ← get
+  let ⟨_, ⟨_, localRewriteCache, _, _, _, _, _, _, hypothesisContext, _, _, _, _, _, _, _, _, _⟩⟩ ← get
   if h.1 then
     updateHypothesis h.2 Std.HashMap.emptyWithCapacity
     return {newHCtx := h, oldHCtx := some hypothesisContext, oldCache := some localRewriteCache}
@@ -84,7 +84,7 @@ def resetHypContext (h : HypsStackContext) : TranslateEnvT Unit := do
 
 @[always_inline, inline]
 def mkMatchStackContext (h : MatchContextMap) : TranslateEnvT MatchStackContext := do
-  let ⟨_, ⟨_, localRewriteCache, _, _, _, _, _, _, _, matchInContext, _, _, _, _, _, _, _⟩⟩ ← get
+  let ⟨_, ⟨_, localRewriteCache, _, _, _, _, _, _, _, matchInContext, _, _, _, _, _, _, _, _⟩⟩ ← get
   updateMatchContext h Std.HashMap.emptyWithCapacity
   return {oldMatchCtx := matchInContext, oldCache := localRewriteCache}
 
@@ -146,6 +146,7 @@ def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := 
          withLocalDecl' n bi optExpr fun x => do
            -- Record the binder only for goal-spine foralls.
            if isGoalSpineStack xs then pushOptBinder x.fvarId!
+           pushOpenBinder x optExpr
            let body' := instantiate1' body x
            let isNotPropBody := !(← isPropEnv body')
            let hyps ← addHypotheses optExpr x isNotPropBody
@@ -157,6 +158,7 @@ def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := 
        -- optExpr corresponds to optimized forall body
        -- continiuity with applying forall normalization rules
        resetHypContext hctx
+       popOpenBinder x
        let e ← withLocalContext $ do
                  optimizeForall x t hctx.newHCtx.2.1 optExpr
        resetLocalDeclContext lctx
@@ -241,6 +243,7 @@ def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := 
        -- optExpr corresponds to optimized lambda type
        withLocalContext $ do
          withLocalDecl' n bi optExpr fun x => do
+           pushOpenBinder x optExpr
            let bodyOpt := .InitOptimizeExpr (instantiate1' body x)
            let lctx ← mkLocalDeclStackContext (← mkLocalContext)
            if inDite then
@@ -253,6 +256,7 @@ def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := 
        -- optExpr corresponds to optimized lambda body
        -- continuity with optimizing next expression
        if let some h := hctx then resetHypContext h
+       popOpenBinder x
        let e ← withLocalContext $ do mkLambdaExpr x optExpr
        resetLocalDeclContext lctx
        stackContinuity xs e

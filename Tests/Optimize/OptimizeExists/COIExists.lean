@@ -11,25 +11,25 @@ namespace Test.COIExists
 -/
 
 -- ∀ (a : Prop), ∃ (b : Prop), (a ∧ (b ∨ ¬ b)) ===> ∀ (a : Prop), a
-#testOptimize [ "ExistsCOI_1" ] ∀ (a : Prop), ∃ (b : Prop), (a ∧ (b ∨ ¬ b)) ===> ∀ (a : Prop), a
+#testOptimize [ "ExistsCOI_1", proof ] ∀ (a : Prop), ∃ (b : Prop), (a ∧ (b ∨ ¬ b)) ===> ∀ (a : Prop), a
 
 -- ∀ (a : Bool), ∃ (b : Bool), (a || (b && ! b)) ===> ∀ (a : Bool), true = a
-#testOptimize [ "ExistsCOI_2" ] ∀ (a : Bool), ∃ (b : Bool), (a || (b && ! b)) ===> ∀ (a : Bool), true = a
+#testOptimize [ "ExistsCOI_2", proof ] ∀ (a : Bool), ∃ (b : Bool), (a || (b && ! b)) ===> ∀ (a : Bool), true = a
 
 -- ∀ (w y : Nat), ∃ (x z : Nat), (((100 - x) - 120) * z) + w < y ===> ∀ (w y : Nat), w < y
-#testOptimize [ "ExistsCOI_3" ] ∀ (w y : Nat), ∃ (x z : Nat),(((100 - x) - 120) * z) + w < y ===> ∀ (w y : Nat), w < y
+#testOptimize [ "ExistsCOI_3", proof ] ∀ (w y : Nat), ∃ (x z : Nat),(((100 - x) - 120) * z) + w < y ===> ∀ (w y : Nat), w < y
 
 
 -- ∀ (w y : Int), ∃ (x z : Int), ((((100 - x) - 100) + x) * z) + w < y ===> ∀ (w y : Int), w < y
-#testOptimize [ "ExistsCOI_4" ] ∀ (w y : Int), ∃ (x z : Int), ((((100 - x) - 100) + x) * z) + w < y ===> ∀ (w y : Int), w < y
+#testOptimize [ "ExistsCOI_4", proof ] ∀ (w y : Int), ∃ (x z : Int), ((((100 - x) - 100) + x) * z) + w < y ===> ∀ (w y : Int), w < y
 
 
 -- ∃ (x z : Nat), ∀ (w y : Nat), (((100 - x) - 120) * z) + w < y ===> ∀ (w y : Nat), w < y
-#testOptimize [ "ExistsCOI_5" ] ∃ (x z : Nat), ∀ (w y : Nat), (((100 - x) - 120) * z) + w < y ===> ∀ (w y : Nat), w < y
+#testOptimize [ "ExistsCOI_5", proof ] ∃ (x z : Nat), ∀ (w y : Nat), (((100 - x) - 120) * z) + w < y ===> ∀ (w y : Nat), w < y
 
 
 -- ∃ (x z : Int), ∀ (w y : Int), ((((100 - x) - 100) + x) * z) + w < y ===> ∀ (w y : Int), w < y
-#testOptimize [ "ExistsCOI_6" ] ∃ (x z : Int), ∀ (w y : Int), ((((100 - x) - 100) + x) * z) + w < y ===> ∀ (w y : Int), w < y
+#testOptimize [ "ExistsCOI_6", proof ] ∃ (x z : Int), ∀ (w y : Int), ((((100 - x) - 100) + x) * z) + w < y ===> ∀ (w y : Int), w < y
 
 
 inductive Color where
@@ -184,12 +184,12 @@ inductive Color where
 
 -- ∃ (x y : Nat), ∃ (a b : Prop), x > y → (a ∧ (b ∨ ¬ b)) ===> ∃ (x y : Nat), ∃ (a : Prop), y < x → a
 -- Test case: COI reduction rule not applicable on implication
-#testOptimize [ "ExistsCOIUnchanged_1" ] ∃ (x y : Nat), ∃ (a b : Prop), x > y → (a ∧ (b ∨ ¬ b)) ===>
+#testOptimize [ "ExistsCOIUnchanged_1", proof ] ∃ (x y : Nat), ∃ (a b : Prop), x > y → (a ∧ (b ∨ ¬ b)) ===>
                                          ∃ (x y : Nat), ∃ (a : Prop), y < x → a
 
 -- ∃ (x y : Nat), ∃ (a b : Prop), ∀ (h : x > y), (a ∧ (b ∨ ¬ b)) ===> ∃ (x y : Nat), ∃ (a : Prop), ∀ (h : y < x), a
 -- Test case: COI reduction rule not applicable on implication
-#testOptimize [ "ExistsCOIUnchanged_2" ] ∃ (x y : Nat), ∃ (a b : Prop), ∀ (_h : x > y), (a ∧ (b ∨ ¬ b)) ===>
+#testOptimize [ "ExistsCOIUnchanged_2", proof ] ∃ (x y : Nat), ∃ (a b : Prop), ∀ (_h : x > y), (a ∧ (b ∨ ¬ b)) ===>
                                          ∃ (x y : Nat), ∃ (a : Prop), ∀ (_h : y < x), a
 
 
@@ -212,24 +212,24 @@ inductive Color where
 
 -- ∀ (a : Bool), ∃ (b c : Bool), (a || (b && ! c)) ===> ∀ (a : Bool), ∃ (b c : Bool), true = (a || (b && ! c))
 -- Test case: COI reduction rules not applicable if all quantifiers are still referenced.
-#testOptimize [ "ExistsCOIUnchanged_6" ] ∀ (a : Bool), ∃ (b c : Bool), (a || (b && ! c)) ===>
+#testOptimize [ "ExistsCOIUnchanged_6", proof ] ∀ (a : Bool), ∃ (b c : Bool), (a || (b && ! c)) ===>
                                          ∀ (a : Bool), ∃ (b c : Bool), true = (a || (b && ! c))
 
 -- ∃ (b c : Bool), ∀ (a : Bool), (a || (b && ! c)) ===> ∃ (b c : Bool), ∀ (a : Bool), true = (a || (b && ! c))
 -- Test case: COI reduction rules not applicable if all quantifiers are still referenced.
-#testOptimize [ "ExistsCOIUnchanged_7" ] ∃ (b c : Bool), ∀ (a : Bool), (a || (b && ! c)) ===>
+#testOptimize [ "ExistsCOIUnchanged_7", proof ] ∃ (b c : Bool), ∀ (a : Bool), (a || (b && ! c)) ===>
                                          ∃ (b c : Bool), ∀ (a : Bool), true = (a || (b && ! c))
 
 -- ∀ (w y : Nat), ∃ (x z : Nat), (((100 - x) - 120) + x * z) + w < y ===>
 -- ∀ (w y : Nat), ∃ (x z : Nat), Nat.add w (Nat.mul x z) < y
 -- Test case: COI reduction rules not applicable if all quantifiers are still referenced.
-#testOptimize [ "ExistsCOIUnchanged_8" ] ∀ (w y : Nat), ∃ (x z : Nat), (((100 - x) - 120) + x * z) + w < y ===>
+#testOptimize [ "ExistsCOIUnchanged_8", proof ] ∀ (w y : Nat), ∃ (x z : Nat), (((100 - x) - 120) + x * z) + w < y ===>
                                          ∀ (w y : Nat), ∃ (x z : Nat), Nat.add w (Nat.mul x z) < y
 
 -- ∃ (x z : Nat), ∀ (w y : Nat), (((100 - x) - 120) + x * z) + w < y ===>
 -- ∃ (x z : Nat), ∀ (w y : Nat),  Nat.add w (Nat.mul x z) < y
 -- Test case: COI reduction rules not applicable if all quantifiers are still referenced.
-#testOptimize [ "ExistsCOIUnchanged_9" ] ∃ (x z : Nat), ∀ (w y : Nat), (((100 - x) - 120) + x * z) + w < y ===>
+#testOptimize [ "ExistsCOIUnchanged_9", proof ] ∃ (x z : Nat), ∀ (w y : Nat), (((100 - x) - 120) + x * z) + w < y ===>
                                          ∃ (x z : Nat), ∀ (w y : Nat), Nat.add w (Nat.mul x z) < y
 
 inductive ColorDegree (α : Type u) where
@@ -288,7 +288,7 @@ inductive NoInstance where
 -- ∃ (x : Empty) (a b c : Bool), !((!a || ((b || c) && !(c || b))) || a) && (!(b && a) || (a && b)) ===>
 -- ∃ (x : Empty), False
 -- Test case: COI reduction rules not applicable on Empty.
-#testOptimize [ "ExistsCOIUnchanged_14" ] ∃ (_x : Empty) (a b c : Bool), !((!a || ((b || c) && !(c || b))) || a) && (!(b && a) || (a && b)) ===>
+#testOptimize [ "ExistsCOIUnchanged_14", proof ] ∃ (_x : Empty) (a b c : Bool), !((!a || ((b || c) && !(c || b))) || a) && (!(b && a) || (a && b)) ===>
                                           ∃ (_x : Empty), False
 
 -- ∀ (α : Type) (β : Type), ∃ (f : α → β), ∃ (a b c : Bool), ∀ (x : α) (y z : β),

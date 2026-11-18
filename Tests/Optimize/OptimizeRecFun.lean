@@ -250,7 +250,7 @@ def divNat (x : Nat) (y : Nat) : Nat :=
 -- (∀ (x y : Nat), 0 < y → ¬ x < divNat x y) → (∀ (n m : Nat), 0 < m → ¬ n < Nat.div n m)
 -- NOTE: No more detected as equivalent as Nat.div definition has been modified and is
 -- not directly considered as a recursive function.
-#testOptimize [ "NormRecFun_24" ] (norm-result: 1)
+#testOptimize [ "NormRecFun_24", proof ] (norm-result: 1)
   (∀ (x y : Nat), y > 0 → divNat x y ≤ x) → (∀ (n m : Nat), m > 0 → n / m ≤ n) ===>
   (∀ (x y : Nat), 0 < y → ¬ x < divNat x y) → (∀ (n m : Nat), 0 < m → ¬ n < Nat.div n m)
 
@@ -467,7 +467,7 @@ def polyMul [Mul α] (x : α) (y : α) : α := x * y
 
 -- (∀ (xs ys : List Int), (List.beq xs ys)) → (∀ (β : Type) (xs ys : List β), [BEq β] → (listPolyBeq xs ys)) ===>
 -- (∀ (xs ys : List Int), true = (List.beq xs ys)) → (∀ (β : Type) (xs ys : List β), [BEq β] → true = (listPolyBeq xs ys))
-#testOptimize [ "NormRecUnchanged_9" ]
+#testOptimize [ "NormRecUnchanged_9", proof ]
   (∀ (xs ys : List Int), (List.beq xs ys)) →
     (∀ (β : Type) (xs ys : List β), [BEq β] → (listPolyBeq xs ys)) ===>
   (∀ (xs ys : List Int), true = (List.beq xs ys)) →
@@ -484,7 +484,7 @@ def polyMul [Mul α] (x : α) (y : α) : α := x * y
 --  [LE β] → [DecidableRel (@LE.le β _)] → true = (isWellFormedBetaNat xs ys xThreshold yThreshold))
 -- NOTE: test case to ensure that structural equivalence is not performed on
 -- partially instantiated polymorphic function with different types
-#testOptimize [ "NormRecUnchanged_10" ]
+#testOptimize [ "NormRecUnchanged_10", proof ]
   (∀ (α : Type) (xs : List α) (ys : List Int) (xThreshold : α) (yThreshold : Int),
     [LE α] → [DecidableRel (@LE.le α _)] → (isWellFormed xs ys xThreshold yThreshold)) →
   (∀ (β : Type) (xs : List β) (ys : List Nat) (xThreshold : β) (yThreshold : Nat),
@@ -507,7 +507,7 @@ def polyMul [Mul α] (x : α) (y : α) : α := x * y
 --  true = (isWellFormedAlphaNat xs ys xThreshold yThreshold))
 -- NOTE: test case to ensure that structural equivalence is not performed on
 -- partially instantiated polymorphic function with different types
-#testOptimize [ "NormRecUnchanged_11" ]
+#testOptimize [ "NormRecUnchanged_11", proof ]
   (∀ (α : Type) (xs : List α) (ys : List Nat) (xThreshold : α) (yThreshold : Nat),
     [LE α] → [DecidableRel (@LE.le α _)] → (isWellFormed xs ys xThreshold yThreshold)) →
   (∀ (β : Type) (xs : List Nat) (ys : List β) (xThreshold : Nat) (yThreshold : β),
@@ -522,7 +522,7 @@ def polyMul [Mul α] (x : α) (y : α) : α := x * y
 -- (∀ (β : Type) (xs ys : List β), [BEq β] → (listPolyBeq xs ys))
 -- NOTE: test case to ensure that structural equivalence is not performed on
 -- partially instantiated polymorphic function with different types
-#testOptimize [ "NormRecUnchanged_12" ]
+#testOptimize [ "NormRecUnchanged_12", proof ]
   (∀ (α : Type) (xs : List Int) (ys : List α) (xThreshold : Int) (yThreshold : α),
     [LE α] → [DecidableRel (@LE.le α _)] → (isWellFormed xs ys xThreshold yThreshold)) →
   (∀ (β : Type) (xs : List Nat) (ys : List β) (xThreshold : Nat) (yThreshold : β),
