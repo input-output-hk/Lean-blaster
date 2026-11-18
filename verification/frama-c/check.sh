@@ -176,7 +176,8 @@ fi
 echo 'Term allocation size arithmetic (WP/Alt-Ergo):'
 grep -A 4 'Proved goals:' "$log"
 
-bash "$here/run.sh" -wp -wp-rte -wp-cache none -wp-msg-key prover \
+bash "$here/run.sh" -wp -wp-rte -wp-cache none \
+  -wp-why3-config "$here/why3-alt-ergo-compat.conf" -wp-no-why3-detect \
   -wp-fct lz3_release_mutual_constructors,Z3_del_constructor,Z3_del_constructor_list,lz3_wp_free \
   -wp-prover alt-ergo -wp-timeout 10 \
   verification/frama-c/wp_mutual_lifecycle.c > "$log" 2>&1

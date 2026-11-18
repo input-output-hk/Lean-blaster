@@ -88,6 +88,10 @@ deletions equals `lists_created`, for arbitrary admitted counts. The model's
 Z3 destructor stubs increment audit counters and its `free` stub is a no-op.
 This verifies the shim's deletion control flow; it does not establish that
 every handle is distinct, was created successfully, or is actually freed by Z3.
+This target uses `why3-alt-ergo-compat.conf` to select Why3's bundled legacy
+Alt-Ergo driver. The default driver for Alt-Ergo 2.4.3 yielded unrecognized
+prover answers for these goals on Linux; the explicit driver proves them on
+both platforms. It changes only the proof toolchain, not Blaster's Z3 settings.
 
 The C parser cannot consume Lean 4.24.0's `_Atomic` runtime header directly.
 `model/lean/lean.h` therefore shadows it for analysis only. It models the
