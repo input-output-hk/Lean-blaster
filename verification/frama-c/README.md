@@ -79,6 +79,15 @@ and 3 of 3 for `lz3_term_alloc`, including their runtime-error guards.
 Frama-C's current `malloc` model leaves the
 returned block's validity and lifetime outside that result.
 
+WP also proves 54 of 54 goals for the production mutual-constructor cleanup
+under the event model in `wp_mutual_lifecycle.c`. Its preconditions cover the
+array bounds, and its loop invariants prove termination and that the number of
+constructor deletions equals the sum of `created_per`, while the number of list
+deletions equals `lists_created`, for arbitrary admitted counts. The model's
+Z3 destructor stubs increment audit counters and its `free` stub is a no-op.
+This verifies the shim's deletion control flow; it does not establish that
+every handle is distinct, was created successfully, or is actually freed by Z3.
+
 The C parser cannot consume Lean 4.24.0's `_Atomic` runtime header directly.
 `model/lean/lean.h` therefore shadows it for analysis only. It models the
 observable behavior of the three Lean APIs used by the collector: array size,
@@ -112,8 +121,10 @@ return type.
   `bash verification/frama-c/run.sh -wp -wp-rte -wp-fct lz3_collect -wp-prover alt-ergo -wp-timeout 5 Blaster/Smt/FFI/c/z3_shim_terms.c`.
 - The datatype lifecycle harnesses exercise one-constructor single, recursive,
   and polymorphic cases, plus a two-sort mutual case. Arbitrary constructor
-  counts and full allocation lifetimes still need WP contracts or stronger
-  models. Other Z3 API calls can fail independently of the modeled scenarios.
+  counts are covered by the mutual cleanup's deletion-count proof, but the
+  creation loops and per-handle uniqueness still need WP contracts and loop
+  invariants. Full allocation lifetimes need a heap model. Other Z3 API calls
+  can fail independently of the modeled scenarios.
 - Frama-C treats Lean and Z3 implementations as external. Their contracts must
   be justified against those libraries; this analysis cannot prove the
   libraries themselves.

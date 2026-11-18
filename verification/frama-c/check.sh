@@ -175,3 +175,15 @@ if ! grep -Eq 'Proved goals: +3 / 3' "$log"; then
 fi
 echo 'Term allocation size arithmetic (WP/Alt-Ergo):'
 grep -A 4 'Proved goals:' "$log"
+
+bash "$here/run.sh" -wp -wp-rte \
+  -wp-fct lz3_release_mutual_constructors,Z3_del_constructor,Z3_del_constructor_list,lz3_wp_free \
+  -wp-prover alt-ergo -wp-timeout 10 \
+  verification/frama-c/wp_mutual_lifecycle.c > "$log" 2>&1
+
+if ! grep -Eq 'Proved goals: +54 / 54' "$log"; then
+  cat "$log"
+  exit 1
+fi
+echo 'Mutual constructor/list deletion counts (WP/Alt-Ergo, audit model):'
+grep -A 5 'Proved goals:' "$log"
