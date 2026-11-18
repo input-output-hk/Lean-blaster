@@ -448,7 +448,7 @@ elab "diteAbsorptionUnchanged_8" : term => return diteAbsorptionUnchanged_8
 --   ∀ (f : ¬ y → Prop → Prop),
 --     (if h : y then b else f h c) = b ===> True
 -- Test case to validate expression caching after rewriting
-#testOptimize [ "DIteTrueCond_14" ]
+#testOptimize [ "DIteTrueCond_14", proof ]
    ∀ (a : Bool) (b c : Prop),
      let x := a || a; let y := ! a || x;
      ∀ (f : ¬ y → Prop → Prop),
@@ -560,7 +560,7 @@ elab "diteAbsorptionUnchanged_8" : term => return diteAbsorptionUnchanged_8
 --   let x := a && a; let y := ! a && x;
 --   ∀ (f : y → Prop → Prop),
 --      (if h : y then f h b else c) = c ===> True
-#testOptimize [ "DIteFalseCond_14" ]
+#testOptimize [ "DIteFalseCond_14", proof ]
   ∀ (a : Bool) (b c : Prop),
     let x := a && a; let y := ! a && x;
     ∀ (f : y → Prop → Prop),
