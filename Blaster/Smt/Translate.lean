@@ -53,6 +53,11 @@ register_option blaster.useSmtlib : Bool := {
   descr := "use the external SMT-LIB solver for this Blaster invocation"
 }
 
+register_option blaster.smtlibFallbackAfter : Nat := {
+  defValue := 0
+  descr := "cap the native solver check in seconds, then retry undetermined queries through SMT-LIB"
+}
+
 def Translate.main (e : Expr) (logUndetermined := true) : TranslateEnvT (Result × Expr) := do
   if blaster.useSmtlib.get (← getOptions) then
     modify fun env => { env with optEnv.options.solverOptions.backend := .smtlib }
@@ -68,24 +73,36 @@ def Translate.main (e : Expr) (logUndetermined := true) : TranslateEnvT (Result 
         if logUndetermined then logResult res
         return (res, optExpr)
       else
-        -- set backend solver
-        setBlasterProcess
-        let st ← profileTask "Translation" $ translateExpr optExpr
-        -- assert negation for check sat
-        profileTask "Submitting Smt Query" $ assertTerm (notSmt st)
-        -- dump smt commands submitted to backend solver when `dumpSmtLib` option is set.
-        logSmtQuery
-        let res ← profileTask "Solve" checkSat
-        if !isUndeterminedResult res || logUndetermined then logResult res
-        if (← get).optEnv.options.solverOptions.replay && isFalsifiedResult res then
-          logInfoAt (← getRef) (← replayNativeCounterexample source)
-        discard $ exitSmt
+        let initial ← get
+        let options := initial.optEnv.options.solverOptions
+        let nativeSeconds := blaster.smtlibFallbackAfter.get (← getOptions)
+        let fallback := nativeSeconds > 0 && options.backend == .ffi && !options.onlySmtLib
+        if fallback then
+          let limit := min nativeSeconds (options.timeout.getD nativeSeconds)
+          modify fun env => { env with optEnv.options.solverOptions.timeout := some limit }
+        let res ← solve source optExpr (logUndetermined && !fallback)
+        if fallback && isUndeterminedResult res then
+          logInfoAt (← getRef) "Native Z3 returned undetermined; retrying via SMT-LIB"
+          set { initial with optEnv.options.solverOptions.backend := .smtlib }
+          return ((← solve source optExpr logUndetermined), optExpr)
         return (res, optExpr)
   | res =>
      logResult res
      return (res, optExpr)
 
   where
+    solve (source optExpr : Expr) (logUndetermined : Bool) : TranslateEnvT Result := do
+      setBlasterProcess
+      let st ← profileTask "Translation" $ translateExpr optExpr
+      profileTask "Submitting Smt Query" $ assertTerm (notSmt st)
+      logSmtQuery
+      let res ← profileTask "Solve" checkSat
+      if !isUndeterminedResult res || logUndetermined then logResult res
+      if (← get).optEnv.options.solverOptions.replay && isFalsifiedResult res then
+        logInfoAt (← getRef) (← replayNativeCounterexample source)
+      discard $ exitSmt
+      return res
+
     isTheoremExpr (e : Expr) : TranslateEnvT (Option Expr) := do
       let Expr.const n _ := e.getAppFn' | return none
       let ConstantInfo.thmInfo info ← getConstEnvInfo n | return none
