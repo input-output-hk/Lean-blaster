@@ -1,6 +1,78 @@
 #include "lean_z3.h"
+#include <limits.h>
+#include <stdint.h>
 #include <stdlib.h>
 extern void *ctx_ptr(lean_object *o);
+
+/* Check the parallel constructor/field arrays before any indexed read or
+ * narrowing to Z3's unsigned counts. Also bound the flat Lean declaration
+ * array and the C temporary array sizes. `fieldRefs == NULL` means that all
+ * fields are non-recursive; otherwise refs must name a sort in this group. */
+/*@ requires elem_size > 0;
+    assigns \nothing;
+    ensures \result == (n <= UINT_MAX && n <= SIZE_MAX / elem_size);
+*/
+static bool lz3_count_fits(size_t n, size_t elem_size) {
+  return n <= UINT_MAX && n <= SIZE_MAX / elem_size;
+}
+
+static bool lz3_datatype_fields_valid(b_lean_obj_arg ctorNames,
+    b_lean_obj_arg recogNames, b_lean_obj_arg fieldNames,
+    b_lean_obj_arg fieldSorts, b_lean_obj_arg fieldRefs,
+    unsigned max_ref) {
+  size_t nc = lean_array_size(ctorNames);
+  if (!lz3_count_fits(nc, sizeof(Z3_constructor)) ||
+      lean_array_size(recogNames) != nc ||
+      lean_array_size(fieldNames) != nc ||
+      lean_array_size(fieldSorts) != nc ||
+      (fieldRefs && lean_array_size(fieldRefs) != nc)) return false;
+  size_t total = 0;
+  for (size_t i = 0; i < nc; ++i) {
+    lean_object *fn = lean_array_get_core(fieldNames, i);
+    lean_object *fs = lean_array_get_core(fieldSorts, i);
+    size_t nf = lean_array_size(fn);
+    if (lean_array_size(fs) != nf ||
+        !lz3_count_fits(nf, sizeof(Z3_symbol)) ||
+        !lz3_count_fits(nf, sizeof(Z3_sort)) ||
+        !lz3_count_fits(nf, sizeof(unsigned)) ||
+        !lz3_count_fits(nf, sizeof(Z3_func_decl)) ||
+        total > UINT_MAX - 2 || nf > UINT_MAX - 2 - total) return false;
+    total += 2 + nf;
+    if (fieldRefs) {
+      lean_object *fr = lean_array_get_core(fieldRefs, i);
+      if (lean_array_size(fr) != nf) return false;
+      for (size_t j = 0; j < nf; ++j)
+        if (lean_unbox_uint32(lean_array_get_core(fr, j)) > max_ref)
+          return false;
+    }
+  }
+  return true;
+}
+
+static bool lz3_mutual_datatypes_valid(b_lean_obj_arg sortNames,
+    b_lean_obj_arg ctorNames, b_lean_obj_arg recogNames,
+    b_lean_obj_arg fieldNames, b_lean_obj_arg fieldSorts,
+    b_lean_obj_arg fieldRefs) {
+  size_t ns = lean_array_size(sortNames);
+  if (!lz3_count_fits(ns, sizeof(Z3_constructor *)) ||
+      !lz3_count_fits(ns, sizeof(unsigned)) ||
+      !lz3_count_fits(ns, sizeof(Z3_constructor_list)) ||
+      !lz3_count_fits(ns, sizeof(Z3_symbol)) ||
+      !lz3_count_fits(ns, sizeof(Z3_sort)) ||
+      lean_array_size(ctorNames) != ns ||
+      lean_array_size(recogNames) != ns ||
+      lean_array_size(fieldNames) != ns ||
+      lean_array_size(fieldSorts) != ns ||
+      lean_array_size(fieldRefs) != ns) return false;
+  for (size_t s = 0; s < ns; ++s)
+    if (!lz3_datatype_fields_valid(
+            lean_array_get_core(ctorNames, s),
+            lean_array_get_core(recogNames, s),
+            lean_array_get_core(fieldNames, s),
+            lean_array_get_core(fieldSorts, s),
+            lean_array_get_core(fieldRefs, s), (unsigned)ns)) return false;
+  return true;
+}
 
 /* mkDatatype :
  *   Context → sortName:String → ctorNames:Array String → recogNames:Array String
@@ -22,6 +94,13 @@ extern void *ctx_ptr(lean_object *o);
 LEAN_EXPORT lean_obj_res lean_z3_mk_datatype(b_lean_obj_arg c, b_lean_obj_arg sortName,
     b_lean_obj_arg ctorNames, b_lean_obj_arg recogNames,
     b_lean_obj_arg fieldNames, b_lean_obj_arg fieldSorts, lean_obj_arg w) {
+  if (!lz3_datatype_fields_valid(ctorNames, recogNames, fieldNames,
+                                  fieldSorts, NULL, 0)) {
+    lean_dec(c); lean_dec(sortName); lean_dec(ctorNames); lean_dec(recogNames);
+    lean_dec(fieldNames); lean_dec(fieldSorts);
+    return lean_io_result_mk_error(lean_mk_io_user_error(
+        lean_mk_string("invalid Z3 datatype field arrays")));
+  }
   (void)w; Z3_context ctx=(Z3_context)ctx_ptr(c);
   unsigned nc = (unsigned)lean_array_size(ctorNames);
   Z3_constructor *cons = (Z3_constructor*)malloc(sizeof(Z3_constructor)*(nc?nc:1));
@@ -89,6 +168,13 @@ LEAN_EXPORT lean_obj_res lean_z3_mk_datatype_rec(b_lean_obj_arg c, b_lean_obj_ar
     b_lean_obj_arg ctorNames, b_lean_obj_arg recogNames,
     b_lean_obj_arg fieldNames, b_lean_obj_arg fieldSorts, b_lean_obj_arg fieldRefs,
     lean_obj_arg w) {
+  if (!lz3_datatype_fields_valid(ctorNames, recogNames, fieldNames,
+                                  fieldSorts, fieldRefs, 1)) {
+    lean_dec(c); lean_dec(sortName); lean_dec(ctorNames); lean_dec(recogNames);
+    lean_dec(fieldNames); lean_dec(fieldSorts); lean_dec(fieldRefs);
+    return lean_io_result_mk_error(lean_mk_io_user_error(
+        lean_mk_string("invalid Z3 recursive datatype field arrays")));
+  }
   (void)w; Z3_context ctx=(Z3_context)ctx_ptr(c);
   unsigned nc = (unsigned)lean_array_size(ctorNames);
   Z3_constructor *cons = (Z3_constructor*)malloc(sizeof(Z3_constructor)*(nc?nc:1));
@@ -162,6 +248,13 @@ LEAN_EXPORT lean_obj_res lean_z3_mk_datatypes(b_lean_obj_arg c, b_lean_obj_arg s
     b_lean_obj_arg ctorNames, b_lean_obj_arg recogNames,
     b_lean_obj_arg fieldNames, b_lean_obj_arg fieldSorts, b_lean_obj_arg fieldRefs,
     lean_obj_arg w) {
+  if (!lz3_mutual_datatypes_valid(sortNames, ctorNames, recogNames,
+                                   fieldNames, fieldSorts, fieldRefs)) {
+    lean_dec(c); lean_dec(sortNames); lean_dec(ctorNames); lean_dec(recogNames);
+    lean_dec(fieldNames); lean_dec(fieldSorts); lean_dec(fieldRefs);
+    return lean_io_result_mk_error(lean_mk_io_user_error(
+        lean_mk_string("invalid Z3 mutual datatype field arrays")));
+  }
   (void)w; Z3_context ctx=(Z3_context)ctx_ptr(c);
   unsigned ns = (unsigned)lean_array_size(sortNames);
   Z3_constructor **all_cons = (Z3_constructor**)malloc(sizeof(Z3_constructor*)*(ns?ns:1));
@@ -272,6 +365,15 @@ LEAN_EXPORT lean_obj_res lean_z3_mk_poly_datatype(b_lean_obj_arg c, b_lean_obj_a
     b_lean_obj_arg typevars, b_lean_obj_arg ctorNames, b_lean_obj_arg recogNames,
     b_lean_obj_arg fieldNames, b_lean_obj_arg fieldSorts, b_lean_obj_arg fieldRefs,
     lean_obj_arg w) {
+  if (!lz3_count_fits(lean_array_size(typevars), sizeof(Z3_sort)) ||
+      !lz3_datatype_fields_valid(ctorNames, recogNames, fieldNames,
+                                  fieldSorts, fieldRefs, 1)) {
+    lean_dec(c); lean_dec(sortName); lean_dec(typevars); lean_dec(ctorNames);
+    lean_dec(recogNames); lean_dec(fieldNames); lean_dec(fieldSorts);
+    lean_dec(fieldRefs);
+    return lean_io_result_mk_error(lean_mk_io_user_error(
+        lean_mk_string("invalid Z3 polymorphic datatype field arrays")));
+  }
   (void)w; Z3_context ctx=(Z3_context)ctx_ptr(c);
   unsigned np=(unsigned)lean_array_size(typevars);
   Z3_sort *params=(Z3_sort*)malloc(sizeof(Z3_sort)*(np?np:1));

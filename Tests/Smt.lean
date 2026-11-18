@@ -8,6 +8,7 @@ import Tests.Smt.FFI.FFIOptions
 import Tests.Smt.FFI.FFIParity
 import Tests.Smt.FFI.FFIParam
 import Tests.Smt.FFI.FFIParamMutual
+import Tests.Smt.FFI.FFIShapeGuards
 import Tests.Smt.FFI.FFISmoke
 import Tests.Smt.FFI.FFITypedCex
 import Tests.Smt.SmtEqArith

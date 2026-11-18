@@ -1,4 +1,6 @@
 #include "lean_z3.h"
+#include <limits.h>
+#include <stdint.h>
 #include <stdlib.h>
 extern void *ctx_ptr(lean_object *o);
 
@@ -134,7 +136,17 @@ LEAN_EXPORT lean_obj_res lean_z3_solver_eval_ast(b_lean_obj_arg s, b_lean_obj_ar
 LEAN_EXPORT lean_obj_res lean_z3_solver_check_assuming(b_lean_obj_arg s, b_lean_obj_arg assumps, lean_obj_arg w) {
   (void)w; Z3_context ctx=sctx(s); Z3_solver sol=ssol(s);
   size_t n=lean_array_size(assumps);
+  if (n > UINT_MAX || n > SIZE_MAX / sizeof(Z3_ast)) {
+    lean_dec(s); lean_dec(assumps);
+    return lean_io_result_mk_error(lean_mk_io_user_error(
+        lean_mk_string("too many Z3 assumptions")));
+  }
   Z3_ast *as=(Z3_ast*)malloc(sizeof(Z3_ast)*(n?n:1));
+  if (!as) {
+    lean_dec(s); lean_dec(assumps);
+    return lean_io_result_mk_error(lean_mk_io_user_error(
+        lean_mk_string("out of memory collecting Z3 assumptions")));
+  }
   for (size_t i=0;i<n;i++) as[i]=(Z3_ast)unbox_owned(lean_array_get_core(assumps,i));
   Z3_lbool r=Z3_solver_check_assumptions(ctx, sol, (unsigned)n, as);
   free(as);
