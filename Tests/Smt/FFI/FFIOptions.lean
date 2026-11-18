@@ -113,9 +113,9 @@ private def modelUnderSeed (seed : UInt32) : IO String := do
   let mut disj := #[]
   for k in [1:31] do disj := disj.push (app "=" #[xref, .NumTerm k])
   s.assert (app "or" disj)
-  let topVars : Array (List TopLevelVar) := #[[⟨.NormalSymbol "x", `x, Lean.mkConst ``Int⟩]]
+  let topVars : Array (List TopLevelVar) := #[[⟨.NormalSymbol "x", `x, Lean.mkConst ``Int, ⟨`x⟩⟩]]
   match ← s.checkSat topVars true with
-  | .Falsified cex => return String.intercalate "," cex
+  | .Falsified cex => return String.intercalate "," cex.messages
   | r => return showR r
 
 -- Distinct seeds do NOT all yield the same model ⇒ the seed reaches Z3's search.

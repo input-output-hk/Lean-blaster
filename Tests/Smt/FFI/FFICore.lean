@@ -119,10 +119,10 @@ open Blaster.Smt in
   let s2 ← Z3Session.create
   s2.runCommand (.declareConst (.NormalSymbol "x") intSort)
   s2.assert (.AppTerm (.SimpleIdent (.ReservedSymbol "=")) #[x, .NumTerm 1])
-  let topVars : Array (List TopLevelVar) := #[[⟨.NormalSymbol "x", `x, Lean.mkConst ``Int⟩]]
+  let topVars : Array (List TopLevelVar) := #[[⟨.NormalSymbol "x", `x, Lean.mkConst ``Int, ⟨`x⟩⟩]]
   let r2 ← s2.checkSat topVars true
   let showR := fun r => match r with | Result.Valid => "valid" | Result.Falsified _ => "falsified" | Result.Undetermined => "undet"
-  let cex := match r2 with | Result.Falsified c => c | _ => []
+  let cex := match r2 with | Result.Falsified c => c.messages | _ => []
   IO.println s!"r1={showR r1} r2={showR r2} cex={String.intercalate ", " cex}"
 
 open Blaster.Smt in
@@ -421,11 +421,11 @@ open Blaster.Smt in
   let x : SmtTerm := .SmtIdent (.SimpleIdent (.NormalSymbol "x"))
   s.assert (.AppTerm (.SimpleIdent (.ReservedSymbol "=")) #[x, .NumTerm 1])
   let tk ← IO.CancelToken.new
-  let topVars : Array (List TopLevelVar) := #[[⟨.NormalSymbol "x", `x, Lean.mkConst ``Int⟩]]
+  let topVars : Array (List TopLevelVar) := #[[⟨.NormalSymbol "x", `x, Lean.mkConst ``Int, ⟨`x⟩⟩]]
   let r ← s.checkSatCancel (some tk) topVars true
   let ec ← s.ctx.errorCode
   let showR := fun r => match r with | Result.Valid => "valid" | Result.Falsified _ => "falsified" | Result.Undetermined => "undet"
-  let cex := match r with | Result.Falsified c => c | _ => []
+  let cex := match r with | Result.Falsified c => c.messages | _ => []
   IO.println s!"cancel-live r={showR r} cex={String.intercalate ", " cex} ec={ec}"
 
 open Blaster.Smt in

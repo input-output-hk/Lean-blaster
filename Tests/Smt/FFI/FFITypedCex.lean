@@ -137,7 +137,7 @@ info: ✅ Replay: the instantiated Lean proposition evaluates to false
     .SmtIdent (.SimpleIdent (.NormalSymbol "hidden")), .NumTerm 1])
   let model ← s.checkSat #[] true
   match model with
-  | .Falsified [raw] =>
+  | .Falsified ⟨_, [raw]⟩ =>
       unless raw.contains 'h' do
         throw (IO.userError "native model fallback omitted the declared symbol")
   | _ => throw (IO.userError "native model fallback returned no model")
