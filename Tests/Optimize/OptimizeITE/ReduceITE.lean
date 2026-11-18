@@ -56,7 +56,7 @@ namespace Test.ReduceITE
 --   Blaster.dite' c
 --     (fun _ : c => Blaster.dite' d (fun _ : d => x) (fun _ : ¬ d => y))
 --     (fun _ : ¬ c => z) < x
-#testOptimize [ "ReduceThenITEUnchanged_1" ]
+#testOptimize [ "ReduceThenITEUnchanged_1", proof ]
   ∀ (c d : Prop) (x y z : Int), [Decidable c] → [Decidable d] →
     (if c then (if d then x else y) else z) < x ===>
   ∀ (c d : Prop) (x y z : Int),
@@ -73,7 +73,7 @@ namespace Test.ReduceITE
 --         (fun _ : d => Blaster.dite' e (fun _ : e => x) (fun _ : ¬ e => z))
 --         (fun _ : ¬ d => y))
 --     (fun _ : ¬ c => z) < x
-#testOptimize [ "ReduceThenITEUnchanged_2" ]
+#testOptimize [ "ReduceThenITEUnchanged_2", proof ]
   ∀ (c d e : Prop) (x y z : Int), [Decidable c] → [Decidable d] → [Decidable e] →
     (if c then (if d then (if e then x else z) else y) else z) < x ===>
   ∀ (c d e : Prop) (x y z : Int),
@@ -143,7 +143,7 @@ namespace Test.ReduceITE
 --      Blaster.dite' c
 --        (fun _ : c => x)
 --        (fun _ : ¬ c => Blaster.dite' d (fun _ : d => y) (fun _ : ¬ d => z)) < x
-#testOptimize [ "ReduceElseITEUnchanged_1" ]
+#testOptimize [ "ReduceElseITEUnchanged_1", proof ]
   ∀ (c d : Prop) (x y z : Int), [Decidable c] → [Decidable d] →
     (if c then x else (if d then y else z)) < x ===>
   ∀ (c d : Prop) (x y z : Int),
@@ -160,7 +160,7 @@ namespace Test.ReduceITE
 --        Blaster.dite' d
 --        (fun _ : d => Blaster.dite' e (fun _ : e => x) (fun _ : ¬ e => z))
 --        (fun _ : ¬ d => y)) < x
-#testOptimize [ "ReduceElseITEUnchanged_2" ]
+#testOptimize [ "ReduceElseITEUnchanged_2", proof ]
   ∀ (c d e : Prop) (x y z : Int), [Decidable c] → [Decidable d] → [Decidable e] →
       (if c then x else (if d then (if e then x else z) else y)) < x ===>
   ∀ (c d e : Prop) (x y z : Int),
@@ -180,7 +180,7 @@ namespace Test.ReduceITE
 --        Blaster.dite' d
 --          (fun _ : d => y)
 --          (fun _ : ¬ d => Blaster.dite' e (fun _ : e => x) (fun _ : ¬ e => z))) < x
-#testOptimize [ "ReduceElseITEUnchanged_3" ]
+#testOptimize [ "ReduceElseITEUnchanged_3", proof ]
   ∀ (c d e : Prop) (x y z : Int), [Decidable c] → [Decidable d] → [Decidable e] →
       (if c then x else (if d then y else (if e then x else z))) < x ===>
   ∀ (c d e : Prop) (x y z : Int),
