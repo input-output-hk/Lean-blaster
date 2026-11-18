@@ -78,7 +78,7 @@ def Z3Session.checkSat (sess : Z3Session)
     (topVars : Array (List TopLevelVar)) (genCex : Bool) : IO Result := do
   match ← sess.solver.check with
   | 0 => return .Valid
-  | 2 => return .Falsified (← sess.getModel topVars genCex)
+  | 2 => return .Falsified { messages := ← sess.getModel topVars genCex }
   | _ => return .Undetermined
 
 /-- Check satisfiability of the asserted formula under the given assumption
@@ -91,7 +91,7 @@ def Z3Session.checkAssuming (sess : Z3Session) (assumps : Array SmtTerm)
   let asts ← assumps.mapM (fun t => sess.run (buildTerm t))
   match ← sess.solver.checkAssuming asts with
   | 0 => return .Valid
-  | 2 => return .Falsified (← sess.getModel topVars genCex)
+  | 2 => return .Falsified { messages := ← sess.getModel topVars genCex }
   | _ => return .Undetermined
 
 /-- Run a check action (returns Z3 lbool code 2/0/1). Keep every ordinary Z3
@@ -123,7 +123,7 @@ def Z3Session.checkSatCancel (sess : Z3Session) (cancelTk? : Option IO.CancelTok
     (topVars : Array (List TopLevelVar)) (genCex : Bool) : IO Result := do
   match ← sess.runCheckCancellable sess.solver.check cancelTk? with
   | 0 => return .Valid
-  | 2 => return .Falsified (← sess.getModel topVars genCex)
+  | 2 => return .Falsified { messages := ← sess.getModel topVars genCex }
   | _ => return .Undetermined
 
 /-- Cancellable variant of `checkAssuming`: builds the assumption Asts against the
@@ -135,7 +135,7 @@ def Z3Session.checkAssumingCancel (sess : Z3Session) (assumps : Array SmtTerm)
   let asts ← assumps.mapM (fun t => sess.run (buildTerm t))
   match ← sess.runCheckCancellable (sess.solver.checkAssuming asts) cancelTk? with
   | 0 => return .Valid
-  | 2 => return .Falsified (← sess.getModel topVars genCex)
+  | 2 => return .Falsified { messages := ← sess.getModel topVars genCex }
   | _ => return .Undetermined
 
 /-- Route a declarative SmtCommand to the FFI session. Declarations go to the
