@@ -185,7 +185,7 @@ private def closeInductionSubgoal (sg : MVarId)
     for step in ufSteps do
       if ← g.isAssigned then return g
       match step with
-      | .rewrite proof _ =>
+      | .rewrite proof _ _ =>
         g ← tryRewriteStep g proof
       | .exact _ => pure ()
       | .unfold n => g ← g.deltaTarget (· == n)
@@ -197,7 +197,7 @@ private def closeInductionSubgoal (sg : MVarId)
     for step in rfSteps do
       if ← g.isAssigned then return g
       match step with
-      | .rewrite proof _ =>
+      | .rewrite proof _ _ =>
         g ← tryRewriteStep g proof
         if ← g.isAssigned then return g
         try

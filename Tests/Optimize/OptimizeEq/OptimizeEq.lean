@@ -8,10 +8,10 @@ namespace Test.OptimizeEq
 /-! ## Test objectives to validate normalization and simplification rules on ``Eq -/
 
 -- False = True ===> False
-#testOptimize [ "EqFalseTrue" ] False = True ===> False
+#testOptimize [ "EqFalseTrue", proof ] False = True ===> False
 
 -- True = False ===> False
-#testOptimize [ "EqTrueFalse" ] True = False ===> False
+#testOptimize [ "EqTrueFalse", proof ] True = False ===> False
 
 -- False = a ===> ¬ a
 #testOptimize [ "EqFalseLeft", proof ] ∀ (a : Prop), False = a ===> ∀ (a : Prop), ¬ a
@@ -183,8 +183,7 @@ inductive Color where
 
 -- ∀ (p : Nat → Prop) (_h : ∀ x, p x → p (x + 1)) (a b : Nat), [a, b] = [a, b, b] ===>
 --   ∀ (p : Nat → Prop), ¬ ∀ (x : Nat), p x → p (Nat.add 1 x)
--- NOTE: no proof flag, the hypothesis `_h` moves under a `¬`, where the replay cannot align it
-#testOptimize [ "EqConstructor_25" ] (norm-result: 1)
+#testOptimize [ "EqConstructor_25", proof ] (norm-result: 1)
                                      ∀ (p : Nat → Prop) (_h : ∀ x, p x → p (x + 1)) (a b : Nat),
                                        [a, b] = [a, b, b] ===>
                                      ∀ (p : Nat → Prop), ¬ ∀ (x : Nat), p x → p (Nat.add 1 x)

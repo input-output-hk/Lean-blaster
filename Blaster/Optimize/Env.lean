@@ -89,9 +89,16 @@ inductive MatchEntry where
   | NotEqPattern
  deriving Repr
 
+/-- A binder the optimizer had open when it pushed a rewrite step, where the replay applies it. -/
+structure OpenBinder where
+  fvar : FVarId
+  type : Expr
+deriving Inhabited, Repr
+
 /-- A single proof step recorded during expression optimization. -/
 inductive ProofStep where
-  | rewrite (proof : Expr) (symm : Bool := false)
+  /-- `binders` are the binders open when the step was pushed, innermost first. -/
+  | rewrite (proof : Expr) (symm : Bool := false) (binders : List OpenBinder := [])
   | exact (proof : Expr)
   /-- Unfolding of the non-recursive definition `n`, replayed by delta on every occurrence
       in the target and the hypotheses. -/
@@ -323,6 +330,9 @@ structure OptimizeEnv where
   /-- Forall binder FVarIds created during optimization, used to map
       optimizer-context variables to goal-context variables during proof replay. -/
   optBinders : Array FVarId := #[]
+
+  /-- The binders open, innermost first, recorded in every rewrite step. -/
+  openBinders : List OpenBinder := []
 
 instance : Inhabited OptimizeEnv where
   default :=
@@ -659,6 +669,9 @@ def isInFunApp : TranslateEnvT Bool :=
 @[always_inline, inline]
 def pushProofStep (step : ProofStep) : TranslateEnvT Unit :=
   modify fun env =>
+    let step := match step with
+      | .rewrite p symm _ => .rewrite p symm env.optEnv.openBinders
+      | s => s
     if env.optEnv.options.optimizeRecFunBody then
       { env with optEnv.localProofStack := env.optEnv.localProofStack.push step }
     else
@@ -729,6 +742,19 @@ def clearProofStack : TranslateEnvT Unit :=
 def pushOptBinder (id : FVarId) : TranslateEnvT Unit :=
   modify fun env => { env with optEnv.optBinders := env.optEnv.optBinders.push id }
 
+/-- Record a binder the optimizer opens. -/
+@[always_inline, inline]
+def pushOpenBinder (x type : Expr) : TranslateEnvT Unit :=
+  modify fun env =>
+    { env with optEnv.openBinders := { fvar := x.fvarId!, type } :: env.optEnv.openBinders }
+
+/-- Forget the binder `x` when the optimizer closes it, before the rules on the binder itself. -/
+@[always_inline, inline]
+def popOpenBinder (x : Expr) : TranslateEnvT Unit :=
+  modify fun env => match env.optEnv.openBinders with
+    | b :: bs => if x.fvarId! == b.fvar then { env with optEnv.openBinders := bs } else env
+    | [] => env
+
 /-- Clear all recorded binder FVarIds. -/
 @[always_inline, inline]
 def clearOptBinders : TranslateEnvT Unit :=
@@ -786,7 +812,7 @@ def mkExpr (a : Expr) (cacheResult := true) : TranslateEnvT Expr := do
 /-- Return `true` only when both hypothesisMap and matchInContext are empty and isRefHyp flag is not set -/
 @[always_inline, inline]
 def isGlobalContext : TranslateEnvT Bool := do
-  let ⟨_, ⟨_, _, _, _, _, _, _, _, hypothesisContext, matchInContext, _, _, _, _, _, _, _⟩⟩ ← get
+  let ⟨_, ⟨_, _, _, _, _, _, _, _, hypothesisContext, matchInContext, _, _, _, _, _, _, _, _⟩⟩ ← get
   return hypothesisContext.hypothesisMap.size == 0 && matchInContext.size == 0
 
 /-- Perform the following:
