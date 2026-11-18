@@ -49,7 +49,7 @@ def isCstImplies? (h : Expr) (a : Expr) (b : Expr) : TranslateEnvT (Option Expr)
   match b with
   | Expr.const ``False _ =>
       setRestart
-      pushProofStep (.rewrite (mkApp (mkConst ``Blaster.implies_false_eq_neg) a))
+      pushProofStep (.rewrite (mkApp (mkConst ``Lean.Grind.imp_false_eq) a))
       return mkApp (← mkPropNotOp) a
   | _ => return none
 
@@ -148,9 +148,9 @@ def hypReduction? (h : Expr) (a : Expr) (b : Expr) : TranslateEnvT (Option Expr)
       - ∀ (n : t), True | e → True ==> True                               [proof: implies_true]
       - False → e ==> True (if Type(e) = Prop)                            [proof: False.elim, false_implies]
       - h : True → e ==> e (if Type(e) = Prop ∧ ¬ fVarInExpr h.fvarId! e) [proof: true_implies]
-      - h : True → e ==> e[h/True.intro] (if Type(e) = Prop ∧ fVarInExpr h.fvarId! e) [proof: Blaster.implies_eq_right_of_hyp]
+      - h : True → e ==> e[h/True.intro] (if Type(e) = Prop ∧ fVarInExpr h.fvarId! e) [proof: Blaster.implies_eq_right_of_hyp_dep]
             TODO: replace True.intro with proper proof
-      - e → False ==> ¬ e (if Type(e) = Prop)                                         [proof: Blaster.implies_false_eq_neg]
+      - e → False ==> ¬ e (if Type(e) = Prop)                                         [proof: Lean.Grind.imp_false_eq]
       - e1 → e2 ==> True (if e1 =ₚₜᵣ e2 ∧ Type(e1) = Prop)                 [proof: the premise, Blaster.implies_self_eq_true]
       - e1 → e2 ==> True (if ∃ e1 → e2 := _ ∈ hypothesisContext.hypothesisMap) [proof: the proof found applied to e1, eq_true]
       - e1 → e2 ==> ¬ e1 (if ∃ e := _ ∈ h, e = ¬ e2)                                [proof: Blaster.implies_eq_neg_of_imp_not]

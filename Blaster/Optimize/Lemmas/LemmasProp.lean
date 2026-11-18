@@ -203,9 +203,6 @@ protected theorem implies_eq_right_of_hyp_dep (a : Prop) (b : a → Prop) (p : a
   · intro hp h
     exact cast (congrArg b (Subsingleton.elim h p).symm) hp
 
-protected theorem implies_false_eq_neg (a : Prop) : (a → False) = ¬ a := by
-  apply propext
-  exact imp_false
 
 protected theorem implies_eq_neg_of_imp_not (a b : Prop) (h : a → ¬ b) : (a → b) = ¬ a := by
   apply propext
