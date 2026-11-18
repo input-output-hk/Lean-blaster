@@ -79,10 +79,11 @@ and 3 of 3 for `lz3_term_alloc`, including their runtime-error guards.
 Frama-C's current `malloc` model leaves the
 returned block's validity and lifetime outside that result.
 
-WP also proves 54 of 54 goals for the production mutual-constructor cleanup
-under the event model in `wp_mutual_lifecycle.c`. Its preconditions cover the
-array bounds, and its loop invariants prove termination and that the number of
-constructor deletions equals the sum of `created_per`, while the number of list
+WP also proves 55 of 55 goals for the production mutual-constructor cleanup
+under the event model in `wp_mutual_lifecycle.c`, with the prover cache disabled.
+Its preconditions cover the array bounds, and its loop invariants prove
+termination and that the number of constructor deletions equals an audit
+expectation incremented by each `created_per[s]`, while the number of list
 deletions equals `lists_created`, for arbitrary admitted counts. The model's
 Z3 destructor stubs increment audit counters and its `free` stub is a no-op.
 This verifies the shim's deletion control flow; it does not establish that

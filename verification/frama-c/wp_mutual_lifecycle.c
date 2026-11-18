@@ -7,6 +7,7 @@
 
 unsigned long long z3_wp_ctor_deletes;
 unsigned long long z3_wp_list_deletes;
+unsigned long long z3_wp_expected_deletes;
 
 /*@ requires z3_wp_ctor_deletes < ULLONG_MAX;
     assigns z3_wp_ctor_deletes;
