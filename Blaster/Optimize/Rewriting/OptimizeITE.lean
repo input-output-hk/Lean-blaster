@@ -76,8 +76,7 @@ def isITESwap? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := d
     pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.dite'_not_swap [← getLevel iteType]) iteType ne))
     return mkAppN f ((args.set! 1 ne).swapIfInBounds 2 3)
  if let some c' ← (isITEBoolSwap? c) then
-    let some (_, _, b) := c'.eq? | return none
-    pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.dite'_bool_swap [← getLevel iteType]) iteType b))
+    pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.dite'_bool_swap [← getLevel iteType]) iteType c.appArg!))
     return mkAppN f ((args.set! 1 c').swapIfInBounds 2 3)
  return none
 

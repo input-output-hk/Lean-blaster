@@ -131,7 +131,7 @@ namespace Tests.ConstFunProp
 -- ∀ (a b c : Bool), false = if c then a else b ===>
 -- ∀ (a b c : Bool), (false = c → false = b) ∧ (true = c → false = a)
 -- NOTE: Test case to validate ite propagation on equality false
-#testOptimize [ "IteOverFun_9" ]
+#testOptimize [ "IteOverFun_9", proof ]
   ∀ (a b c : Bool), false = if c then a else b ===>
   ∀ (a b c : Bool), (false = c → false = b) ∧ (true = c → false = a)
 
@@ -445,7 +445,7 @@ namespace Tests.ConstFunProp
 --  (∀ (h : c), true = t h) ∧
 --  (∀ (h : ¬ c), true = e h)
 -- NOTE: Test cases to ensure that quantified functions passed to dite are properly handled.
-#testOptimize [ "DIteOverFun_11" ]
+#testOptimize [ "DIteOverFun_11", proof ]
   ∀ (c : Prop) (t : c → Bool) (e : ¬ c → Bool), [Decidable c] → true = (dite c t e) ===>
   ∀ (c : Prop) (t : c → Bool) (e : ¬ c → Bool),
     (∀ (h : c), true = t h) ∧
@@ -457,7 +457,7 @@ namespace Tests.ConstFunProp
 --  (∀ (h : c), true = t h x) ∧
 --  (∀ (h : ¬ c), true = e h x)
 -- NOTE: Test cases to ensure that quantified functions passed to dite are properly handled.
-#testOptimize [ "DIteOverFun_12" ]
+#testOptimize [ "DIteOverFun_12", proof ]
   ∀ (c : Prop) (x : Int) (t : c → Int → Bool) (e : ¬ c → Int → Bool),
     [Decidable c] → true = dite c t e x ===>
   ∀ (c : Prop) (x : Int) (t : c → Int → Bool) (e : ¬ c → Int → Bool),
