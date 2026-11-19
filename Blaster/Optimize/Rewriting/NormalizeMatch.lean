@@ -587,6 +587,39 @@ def specializeMatchExpr? (args : Array Expr) (mInfo : MatchInfo) : TranslateEnvT
   let matchType ← instantiateMatchType mInfo args
   emitMatchPlan (getLambdaBody matchType) alts.reverse
 
+/-- Named, numeric and dependent patterns keep the existing matcher path. -/
+private partial def isSimpleConstructorPattern (pattern : Expr) : TranslateEnvT Bool := do
+  if pattern.isBVar || pattern.isFVar then return true
+  let some (ctor, fields) ← isCtorPattern pattern | return false
+  if ctor == ``Nat.zero || ctor == ``Nat.succ || ctor == ``Int.ofNat || ctor == ``Int.negSucc then
+    return false
+  if !(← canDecomposeCtor ctor) then return false
+  fields.allM isSimpleConstructorPattern
+
+/-- A known outer constructor can contain an unknown nested constructor. Expose
+    the generated casesOn tree before optimizing impossible outer alternatives.
+    Definitional unfolding retains field bindings and leaves inner choices symbolic. -/
+private def unfoldNestedConstructorMatch? (args : Array Expr) (mInfo : MatchInfo) : TranslateEnvT (Option Expr) := do
+  if mInfo.isCasesOn || isDependentLambda args[mInfo.getFirstDiscrPos - 1]! ||
+      mInfo.discrInfos.any (fun d => d.hName?.isSome) then return none
+  let mut hasStructure := false
+  for discr in args[mInfo.getFirstDiscrPos:mInfo.getFirstAltPos] do
+    let some (ctor, fields) ← isCtorPattern discr | return none
+    if !(← canDecomposeCtor ctor) then return none
+    if !fields.isEmpty then hasStructure := true
+  if !hasStructure then return none
+  for alt in (← getMatchAlts args mInfo) do
+    for pattern in alt.getForallBody.getAppArgs do
+      if !(← isSimpleConstructorPattern pattern) then return none
+  let original ← instantiateSharedMVars (← mkAppNExpr mInfo.nameExpr args)
+  -- Smart unfolding requires the entire nested pattern to be known. Expose
+  -- casesOn instead, which the optimizer reduces one constructor at a time.
+  let reduced ← withLocalContext <| withOptions (fun o => smartUnfolding.set o false) <|
+    unfoldDefinition? original (ignoreTransparency := true)
+  let some reduced := reduced | return none
+  if reduced.getAppFn == original.getAppFn then return none
+  return some (← hashcons reduced)
+
 /-- Normalize a `match` expression to `if-then-else` only when each match pattern is either
       - an constructor application that does not contain any free variables (e.g., `Nat.zero`, `some Nat.zero`, `List.const 0 (List.nil)`); or
       - a `Nat`, `Int` or `String` literal; or
@@ -693,6 +726,7 @@ def specializeMatchExpr? (args : Array Expr) (mInfo : MatchInfo) : TranslateEnvT
 -/
 def normMatchExpr? (args : Array Expr) (mInfo : MatchInfo) : TranslateEnvT (Option Expr) := do
   if let some result ← specializeMatchExpr? args mInfo then return some result
+  if let some result ← unfoldNestedConstructorMatch? args mInfo then return some result
   match (← get).optEnv.memCache.isMatchToIte.get? mInfo.name with
   | some b => if b then matchExprRewriter mInfo args normMatchExprAux?
                    else return none

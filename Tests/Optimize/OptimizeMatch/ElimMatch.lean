@@ -637,24 +637,14 @@ axiom colorOf : Nat → Color
         | .red y => (match y with | .black => 0 | .transparent => 1 | .blue _ => 2 | .red _ => 3)
         | _ => 3
 
--- ∀ (x : Color) (r : Nat), r = match x with | .red (.blue _) => 1 | .red y => (match x with | .red (.red _) => 2 | _ => colorRank y) | _ => 3 ===>
--- ∀ (x : Color) (r : Nat),
---   r = match x with
---       | .red (.blue _) => 1
---       | .red y => (match Color.red y with
---                    | .red (.red _) => 2
---                    | _ => match y with | .black => 0 | .transparent => 1 | .blue _ => 2 | .red _ => 3)
---       | _ => 3
--- NOTE: no elimination as `.red (.red _)` is not recorded for `x` (nor propagated to `Color.red y`);
--- the inner discriminator `x` is rewritten to `Color.red y` through the equality map.
+-- The inner discriminator x rewrites to .red y. Exposing that known outer
+-- constructor leaves only the Color choice on y, including the .red case.
 #testOptimize [ "ElimMatch_32" ] (norm-result: 1)
   ∀ (x : Color) (r : Nat), r = match x with | .red (.blue _) => 1 | .red y => (match x with | .red (.red _) => 2 | _ => colorRank y) | _ => 3 ===>
   ∀ (x : Color) (r : Nat),
     r = match x with
         | .red (.blue _) => 1
-        | .red y => (match Color.red y with
-                     | .red (.red _) => 2
-                     | _ => match y with | .black => 0 | .transparent => 1 | .blue _ => 2 | .red _ => 3)
+        | .red y => Color.casesOn y (fun _ => 2) 1 (fun _ => 2) 0
         | _ => 3
 
 /-! Literal patterns: specialization honors context exclusions before emitting an ite. -/
