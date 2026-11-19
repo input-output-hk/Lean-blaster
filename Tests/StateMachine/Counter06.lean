@@ -46,44 +46,12 @@ instance counterStateMachine : StateMachine Request CounterState where
 
 #bmc (max-depth: 8) [counterStateMachine]
 
+-- Several counterexamples satisfy this query. Check the induction outcome, not
+-- the solver's arbitrary choice of witness.
 /--
-info: ⚠️ Induction failed at Depth 1
----
-info: Counterexample to Induction:
----
-info:  - «Test.Counter06.counterStateMachine.input@0»: (Request.Tr : Request)
----
-info:  - «Test.Counter06.counterStateMachine.state@0»: ({ state := State.Delay, timer := 2, prev_state := State.Ready, prev_req := Request.Tr, prev_timer := 3 } : CounterState)
----
-info: ⚠️ Induction failed at Depth 2
----
-info: Counterexample to Induction:
----
-info:  - «Test.Counter06.counterStateMachine.input@0»: (Request.Tr : Request)
----
-info:  - «Test.Counter06.counterStateMachine.state@0»: ({ state := State.Ready, timer := 2, prev_state := State.Ready, prev_req := Request.Tr, prev_timer := 3 } : CounterState)
----
-info:  - «Test.Counter06.counterStateMachine.input@1»: (Request.Tr : Request)
----
-info:  - «Test.Counter06.counterStateMachine.input@2»: (Request.Tr : Request)
----
-info: ⚠️ Induction failed at Depth 3
----
-info: Counterexample to Induction:
----
-info:  - «Test.Counter06.counterStateMachine.input@0»: (Request.Tr : Request)
----
-info:  - «Test.Counter06.counterStateMachine.state@0»: ({ state := State.Busy, timer := 2, prev_state := State.Delay, prev_req := Request.Tr, prev_timer := 3 } : CounterState)
----
-info:  - «Test.Counter06.counterStateMachine.input@1»: (Request.Fa : Request)
----
-info:  - «Test.Counter06.counterStateMachine.input@2»: (Request.Tr : Request)
----
-info:  - «Test.Counter06.counterStateMachine.input@3»: (Request.Tr : Request)
----
 warning: ⚠️ Failed to establish induction up to Depth 3
 -/
 #guard_msgs in
-#kind (max-depth: 3) [counterStateMachine]
+#kind (gen-cex: 0) (max-depth: 3) [counterStateMachine]
 
 end Test.Counter06

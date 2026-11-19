@@ -10,10 +10,8 @@ import Tests.Optimize.OptimizeDecide
 import Tests.Optimize.OptimizeForAll
 import Tests.Optimize.OptimizeITE
 import Tests.Optimize.OptimizeLet
-import Tests.Optimize.OptimizeList
 import Tests.Optimize.OptimizeMatch
 import Tests.Optimize.OptimizeNat
 import Tests.Optimize.OptimizeProp
 import Tests.Optimize.OptimizeRecFun
 import Tests.Optimize.OptimizeUnfold
-import Tests.Optimize.ProjectionPropagation

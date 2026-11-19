@@ -226,7 +226,7 @@ def translateIntFMod (n : Expr) : TranslateEnvT SmtQualifiedIdent := do
 def translateIntPow (f : Expr) : TranslateEnvT SmtQualifiedIdent := do
  match (← get).smtEnv.funInstCache.get? f with
  | none =>
-    discard $ translateNatSub (← mkNatSubOp)
+    discard $ translateNatSub (mkConst ``Nat.sub)
     defineIntPow
     let smtId ← updateFunInstCache f intPowSymbol
     return smtId
@@ -1030,8 +1030,8 @@ def translateApp
        | ``Blaster.dite' =>
             if args.size != 4 then
                throwEnvError "translateDITE?: unexpected partially applied dite' got {reprStr args}"
-            let args := args.set! 2 (← betaLambdaShared args[2]! #[← mkTrueIntro])
-            let args := args.set! 3 (← betaLambdaShared args[3]! #[← mkTrueIntro])
+            let args := args.set! 2 (← betaLambdaShared args[2]! #[← mkOfDecideEqProof args[1]! true])
+            let args := args.set! 3 (← betaLambdaShared args[3]! #[← mkOfDecideEqProof args[1]! false])
             createAppN f (← Sum.inl <$> translateOpaqueFun f n args) args termTranslator
        | _ => return none
 

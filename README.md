@@ -1,8 +1,7 @@
-
 # Blaster - An SMT Backend for Lean4
 
 [![Lean Version](https://img.shields.io/badge/Lean-v4.24.0-blue.svg)](https://github.com/leanprover/lean4)
-[![Z3 Version](https://img.shields.io/badge/Z3-v5.4.0-green.svg)](https://github.com/Z3Prover/z3)
+[![Z3 Capability](https://img.shields.io/badge/Z3-recfun--finder-green.svg)](https://github.com/RSoulatIOHK/z3)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
@@ -49,7 +48,7 @@ Blaster provides an SMT backend for Z3 proofs. Blaster works by first aggressive
 Blaster is built with the philosophy that fewer dependencies mean better maintainability and more optimization opportunities. That said, Blaster requires:
 
 - **Lean4** v4.24.0 (or compatible version)
-- **Z3** v5.4.0 (or compatible version).
+- **Z3** with the `recfun-finder` simplifier; use the pinned build below.
 
 ### Installing Lean4
 
@@ -61,11 +60,9 @@ Please follow the official installation guidelines from the [Lean4 GitHub reposi
 
 ### Installing Z3
 
-We do our best to stay updated with the latest release of Z3. However, regressions can occur and often require extensive research and resolution, so Blaster might be slightly behind the latest version.
-
-**Currently supported version:** Z3 master branch
-
-> **Note:** Blaster should work with later releases, though no guarantees are made.
+The tested assurance baseline reports Z3 5.1.0 and is pinned by source revision.
+A version number alone does not establish compatibility: `z3check` probes the
+required `recfun-finder` simplifier.
 
 The section on [Installing the Z3 Solver](#installing-the-z3-solver)
 below explains how to get the right version of Z3 installed and check that
@@ -98,7 +95,7 @@ require «Blaster» from git
   - `only-smt-lib`: only translating unsolved goals to smt-lib without invoking the backend solver (default: 0)
   - `only-optimize`: only perform optimization on lean specification and do not translate to smt-lib (default: 0)
   - `dump-smt-lib`: display the smt lib query to stdout (default: 0)
-  - `random-seed`: seed for the random number generator (default: 1; `0` selects Z3's seed 0)
+  - `random-seed`: seed for the random number generator (default: none)
   - `gen-cex`: generate counterexample for falsified theorems (default: 1)
   - `solve-result`: specify the expected result from the #blaster command, i.e.,
                     0 for 'Valid', 1 for 'Falsified' and 2 for 'Undetermined'. (default: 0)
@@ -282,11 +279,6 @@ Counterexample:
     (as List.nil (@List (@Test.SmtPredQualifier.Attribute @@Type))))))
 ```
 #### State-Machine Formalization
-A `StateMachine α β` instance is defined over an input type `α` and a state type `β`.
-Given a sequence of inputs `in₀, in₁, ...`, the corresponding states are `st₀ = init in₀` and `stᵢ₊₁ = next inᵢ₊₁ stᵢ`,
-i.e., the current state is derived from the current input and the previous state.
-Both `assumptions inᵢ stᵢ` and `invariants inᵢ stᵢ` are evaluated on the input and the state at the same step `i`.
-If the previous input is needed, it must be kept in the state (see `Tests/StateMachine/Counter06.lean`).
 ```lean
 instance counterStateMachine : StateMachine Request CounterState where
   init _ := { state := .Ready, timer := 0}
@@ -413,46 +405,6 @@ The `Tests/StateMachine` folder contains example on how to use the state machine
 Blaster has been benchmarked against a variety of well-known benchmarks to evaluate its performance and correctness.
 The evaluation can be found on this public repository: [Blaster-benchmarking](https://github.com/input-output-hk/Blaster-benchmarking)
 
-### Latest cross-tactic comparison
-
-Each tactic is benchmarked on **its own latest default branch and that branch's Lean toolchain** (tracked live), so the comparison is fair even when the tools target different Lean versions. Auto-updated weekly by the [`weekly-benchmark`](.github/workflows/benchmark.yml) workflow.
-
-Users with repository write access can comment `/benchmark` on an open PR to run both Blaster variants at that PR's exact head commit. The [PR benchmark workflow](.github/workflows/pr-benchmark.yml) compares matching goals with the latest snapshot committed by the weekly run and posts gains, regressions, and raw results back on the PR. It does not change the published weekly report.
-
-<!-- BENCH:START -->
-### Shared benchmarks
-
-| Tactic | Version | ITL4 | MiniF2F | NNG4 | STG4 | UPLCDepth | UPLCWidth | Verina | **Shared solved** |
-|:--|:--|--:|--:|--:|--:|--:|--:|--:|--:|
-| `hammer` | `v4.35.0` @ `4e2a7deda` | 44/44 | 42/96 | 104/108 | 47/52 | 6/7 | 6/6 | 5/108 | **254/421** |
-| `grind` | `v4.35.0` @ `(core)` | 44/44 | 35/96 | 93/108 | 41/52 | 0/7 | 0/6 | 1/108 | **214/421** |
-| `auto` | `v4.35.0` @ `af766b1ee` | 44/44 | 32/96 | 100/108 | 4/52 | 0/7 | 6/6 | 4/108 | **190/421** |
-| `aesop` | `v4.35.0` @ `(via mathlib)` | 44/44 | 23/96 | 67/108 | 35/52 | 7/7 | 6/6 | 2/108 | **184/421** |
-| `blaster` | `v4.24.0` @ `0df4a469c` | 26/44 | 22/96 | 59/108 | 14/52 | 6/7 | 6/6 | 11/108 | **144/421** |
-| `blaster (only-optimize: 1)` | `v4.24.0` @ `0df4a469c` | 26/44 | 22/96 | 59/108 | 14/52 | 6/7 | 6/6 | 11/108 | **144/421** |
-| `simp` | `v4.35.0` @ `(core)` | 5/44 | 17/96 | 37/108 | 15/52 | 0/7 | 0/6 | 0/108 | **74/421** |
-| `smt +model` | `v4.35.0` @ `cbec5bd22` | 6/44 | 9/96 | 17/108 | 0/52 | 0/7 | 0/6 | 1/108 | **33/421** |
-| `omega` | `v4.35.0` @ `(core)` | 1/44 | 30/96 | 7/108 | 1/52 | 0/7 | 0/6 | 1/108 | **40/421** |
-
-### Home turf · 50 goals per source
-
-| Tactic | Aesop | lean-auto | Blaster | LeanHammer + Duper | lean-smt | **Home solved** | **All solved** |
-|:--|--:|--:|--:|--:|--:|--:|--:|
-| `hammer` | 47/50 | 46/50 | 48/50 | 43/50 | 46/50 | **230/250** | **484/671** |
-| `grind` | 44/50 | 38/50 | 37/50 | 34/50 | 42/50 | **195/250** | **409/671** |
-| `auto` | 28/50 | 46/50 | 37/50 | 38/50 | 41/50 | **190/250** | **380/671** |
-| `aesop` | 40/50 | 40/50 | 38/50 | 36/50 | 39/50 | **193/250** | **377/671** |
-| `blaster` | 11/50 | 27/50 | 28/50 | 33/50 | 23/50 | **122/250** | **266/671** |
-| `blaster (only-optimize: 1)` | 11/50 | 27/50 | 28/50 | 33/50 | 23/50 | **122/250** | **266/671** |
-| `simp` | 13/50 | 25/50 | 25/50 | 10/50 | 17/50 | **90/250** | **164/671** |
-| `smt +model` | 5/50 | 14/50 | 17/50 | 5/50 | 40/50 | **81/250** | **114/671** |
-| `omega` | 6/50 | 12/50 | 17/50 | 0/50 | 5/50 | **40/250** | **80/671** |
-
-_Each tactic runs in an isolated Lake project on its **latest default branch** and that branch's own Lean toolchain (tracked live). Cells show theorems **solved / total**; cross-version numbers can shift with mathlib changes, not only tactic quality. Home turf goals come from the tactic repositories; Hammer's category includes Duper dependency tests. The report gives source links and per-goal results._
-
-**[Full interactive report →](https://input-output-hk.github.io/Lean-blaster/benchmark/)**
-<!-- BENCH:END -->
-
 <details>
 <summary><b>Lean Natural Number Game</b></summary>
   
@@ -574,118 +526,29 @@ Once an expression has been translated, Blaster interacts with an external SMT s
 
 ## Installing the Z3 Solver
 
-Blaster requires Z3 version 5.4.0.  To install that, you need to
+### Build a solver with the required capability
 
-1. **Check out** the 5.4.0 tagged branch of the Z3 repo;
-2. **Install** Z3 in a location that doesn't conflict with possible existing versions
-   on your machine (e.g., in `/usr/bin/z3`)
-3. **Ensure** Lean 4 is using the right version of Z3.
+This branch emits `(set-simplifier recfun-finder)`. A solver that prints a version
+successfully can still be incompatible. The reproducible assurance baseline is
+[RSoulatIOHK/z3 at ca39e58](https://github.com/RSoulatIOHK/z3/commit/ca39e58c525c5b03c2484f118ade2b92fae31215),
+which reports 5.1.0 and includes the required simplifier. This is a pinned fork,
+not a claim that every stock Z3 5.1.0 build supports it.
 
-Below are instructions for accomplishing these objectives.  (They are aimed at
-.deb-based Linux, but the same or similar steps should work on other platforms.)
-
-### 1. Build and install Z3 v5.4.0 from source
-
-Z3 releases are tagged on GitHub; the tag you want is `z3-5.4.0`.
-
-**1.1 Install build dependencies**
+With Git, CMake, Python 3 and a C++ toolchain installed:
 
 ```bash
-sudo apt update
-sudo apt install -y build-essential cmake python3 git
+bash scripts/build-assurance-z3.sh "$PWD/.tools/z3"
+PATH="$PWD/.tools/z3/bin:$PATH" lake exe z3check
 ```
 
-**1.2 Clone the 5.4.0 tag**
+The script installs only into the requested directory. Use that PATH for the
+subsequent `lake` commands; it does not replace the system solver. CI uses the
+same pinned source and probes the capability before running proofs.
 
-Do **not** clone the `master` branch; it will give you a newer version that we do not yet fully support. Instead:
-
-```bash
-# Shallow clone just the 5.4.0 tag, into a directory named z3-5.4.0
-git clone --branch z3-5.4.0 --depth 1 https://github.com/Z3Prover/z3.git z3-5.4.0
-cd z3-5.4.0
-
-# Sanity check: this should print something like "z3-5.4.0"
-git describe --tags
-```
-
-**1.3 Configure build with a safe prefix**
-
-Use CMake to install the static library required by Blaster on Linux into a
-prefix that does not conflict with the system Z3 package:
-
-```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF
-cmake --build build -j"$(nproc)"
-sudo cmake --install build
-```
-
-On macOS, use `-DBUILD_SHARED_LIBS=ON` because the native backend loads
-`libz3.dylib` there.
-
-This installs
-
-+  `z3` to `/usr/local/bin/z3`
-+  libraries to `/usr/local/lib`
-+  header files to `/usr/local/include`
-
-### 2. Make sure **5.4.0** comes first in your `PATH`
-
-Check which `z3` you’re actually picking up:
-
-```bash
-which z3
-z3 --version
-```
-
-Ideally you will see
-`/usr/local/bin/z3` and `Z3 version 5.4.0 - 64 bit`.
-
-If `which z3` shows something else, e.g., `/usr/bin/z3`, then `/usr/local/bin` isn’t ahead
-of `/usr/bin` in your `PATH`; fix this by either removing the version of `z3` that's
-in `/usr/bin` (use `sudo apt remove z3` if you installed the old version of Z3 with
-`apt`) or by adding the following to your shell config file (`~/.bashrc`, `~/.zshrc`, etc.):
-
-```bash
-export PATH=/usr/local/bin:$PATH
-```
-
-Then reload your shell and re-run `which z3`.
-
-### 3. Make sure Lean 4 uses the right Z3
-
-The default backend uses libz3 in process. The optional
-`(backend: smtlib)` backend calls `z3` as an external process. Point Lake at
-the Z3 5.4.0 headers and libraries from the same installation:
-
-```bash
-export Z3_INC_PATH=/usr/local/include
-export Z3_LIB_PATH=/usr/local/lib
-test -f "$Z3_LIB_PATH/libz3.a"  # required on Linux
-lake build
-```
-
-On Linux, install `g++` and its static runtime archives along with `libz3.a`.
-Lake links them into the native shim so Z3's internal C++ exceptions work with
-Lean's Linux runtime. The shared `libz3.so` alone is insufficient. On macOS,
-Lake uses the shared library; set `DYLD_LIBRARY_PATH` to its directory at
-runtime. Use the installation's `include` and library directories if they
-differ from `/usr/local`. For a typed counterexample and Lean-side replay, use
-`#blaster (backend: ffi) (replay: 1) [∀ (n : Nat), n = 0]`.
-
-Just to be sure, you can run the simple test we provide in this repository, as follows:
-
-```bash
-lake build z3check
-lake exe z3check
-```
-
-If Z3 is installed correctly, you should see the following output:
-
-```
-Successfully ran z3:
-Z3 version 5.4.0 - 64 bit
-```
+`z3check` exits nonzero if the solver is missing, rejects the simplifier, emits an
+error, or fails the satisfiability probe. Its success message includes the actual
+version and `recfun-finder available`. Reproducible verification should also
+record the executable digest, as the assurance environment capture does.
 
 ---
 

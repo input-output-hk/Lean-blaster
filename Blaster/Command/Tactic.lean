@@ -31,7 +31,7 @@ syntax (name := blasterTactic) "blaster" (solveOption)* : tactic
 
 /-- Custom sorry for Blaster to differentiate
     between SMT-verified goals and regular `sorry`.-/
-private axiom blasterProven : ∀ {α : Sort u}, α
+axiom blasterProven : ∀ {α : Sort u}, α
 
 private def blasterAdmit (mvarId : MVarId) : MetaM Unit :=
   mvarId.withContext do

@@ -561,23 +561,8 @@ def mkStringMk : TranslateEnvT Expr :=
 def mkStringType : TranslateEnvT Expr :=
   return (← get).optEnv.memCache.commonExpr.stringType
 
-/-- Return cached `Char.ofNat` expression. -/
-def mkCharOfNat : TranslateEnvT Expr :=
-  return (← get).optEnv.memCache.commonExpr.charOfNat
-
-/-- Return cached `Char.toNat` expression. -/
-def mkCharToNat : TranslateEnvT Expr :=
-  return (← get).optEnv.memCache.commonExpr.charToNat
-
-/-- Return `UInt32.toNat` const expression and cache result. -/
-def mkUInt32ToNat : TranslateEnvT Expr :=
-  mkExpr (mkConst ``UInt32.toNat)
-
-/-- Given `e` the operand for `UInt32.toNat` returns the normalized application
-    form for `Uint32.toNat e`.
--/
-def normUInt32ToNat (e : Expr) : TranslateEnvT Expr := do
-  mkProjExpr ``Fin 0 (← mkProjExpr ``BitVec 0 (← mkProjExpr ``UInt32 0 e))
+/-- Return `Char.ofNat` const expression and cache result. -/
+def mkCharOfNat : TranslateEnvT Expr := mkExpr (mkConst ``Char.ofNat)
 
 /-- Construct a Char expression from `c` and cache result. -/
 def mkCharExpr (c : Char) : TranslateEnvT Expr := do
@@ -586,19 +571,11 @@ def mkCharExpr (c : Char) : TranslateEnvT Expr := do
 /-- Return `Char` type expression and cache result. -/
 def mkCharType : TranslateEnvT Expr := mkExpr (mkConst ``Char)
 
-/-- Given `u` a list level and `lsort` the list type return `List.nil` expression and cache result -/
-def mkListNil (u : List Level) (lsort : Expr) : TranslateEnvT Expr := do
-  mkAppExpr (← mkExpr (mkConst ``List.nil u)) lsort
-
-/-- Given `u` a list level and `lsort` the list type return `List.cons` expression and cache result -/
-def mkListCons (u : List Level) (lsort : Expr) : TranslateEnvT Expr := do
-  mkAppExpr (← mkExpr (mkConst ``List.cons u)) lsort
-
 /-- Given `xs` a list of expression and `t` the list sort, generate the corresponding list expression. -/
 @[always_inline, inline]
 def listToExpr (xs : List Expr) (u : List Level) (t : Expr) : TranslateEnvT Expr := do
- let consExpr ← mkListCons u t
- let nilExpr ← mkListNil u t
+ let consExpr ← mkAppExpr (← mkExpr (mkConst ``List.cons u)) t
+ let nilExpr ← mkAppExpr (← mkExpr (mkConst ``List.nil u)) t
  let rec go (xs : List Expr) : TranslateEnvT Expr := do
    match xs with
    | [] => return nilExpr
@@ -607,21 +584,16 @@ def listToExpr (xs : List Expr) (u : List Level) (t : Expr) : TranslateEnvT Expr
 
 /-- Convert a string to a list of char expression. -/
 def stringToCtor (s : String) : TranslateEnvT Expr := do
-  let charType ← mkCharType
-  let consExpr ← mkListCons [levelZero] charType
-  let nilExpr ← mkListNil [levelZero] charType
+  let consExpr ← mkAppExpr (← mkExpr (mkConst ``List.cons [levelZero])) (← mkCharType)
+  let nilExpr ← mkAppExpr (← mkExpr (mkConst ``List.nil [levelZero])) (← mkCharType)
   let rec go (xs : List Char) : TranslateEnvT Expr := do
     match xs with
     | [] => return nilExpr
     | x :: xs' => mkApp2Expr consExpr (← mkCharExpr x) (← go xs')
   mkAppExpr (← mkStringMk) (← go s.toList)
 
-/-- Given `t` the option sort and `u` the list level return instantiated `Option t` expression type and cache result -/
-def mkOptionType (t : Expr) (u : List Level) : TranslateEnvT Expr := do
-  mkAppExpr (← mkExpr (mkConst ``Option u)) t
 
 /-- Given `m` an Option value and `t` the option sort return an Option expression. -/
-@[always_inline, inline]
 def mkOptionExpr (t : Expr) (u : List Level) (m : Option Expr) : TranslateEnvT Expr := do
   match m with
   | none => mkAppExpr (← mkExpr (mkConst ``Option.none u)) t
