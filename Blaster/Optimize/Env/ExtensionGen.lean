@@ -73,14 +73,21 @@ The optimizer modules sit above this module in the import graph, so the normaliz
 theorem components is delegated to hooks installed at initialization time (see `Blaster.Optimize.Basic`).
 -/
 
-abbrev TheoremNormalizer := Expr → MetaM Expr
+abbrev TheoremNormalizer := Expr → NormalizeMode → MetaM Expr
 
 initialize theoremNormalizerRef : IO.Ref (Option TheoremNormalizer) ← IO.mkRef none
 
+/-- Normalizer applied on tagged theorems or axioms. -/
 def normalizeTheorem (thmExpr : Expr) : MetaM Expr := do
   let thmExpr ← if thmExpr.hasMVar then instantiateMVars thmExpr else pure thmExpr
   match ← theoremNormalizerRef.get with
-  | some f => f thmExpr
+  | some f => f thmExpr .Restricted
+  | none => throwError "blaster: normalization hook not initialized"
+
+/-- Normalizer performing normalization and unfolding of non-rec functions. -/
+def normalizeAndUnfold (e : Expr) : MetaM Expr := do
+  match ← theoremNormalizerRef.get with
+  | some f => f e .Partial
   | none => throwError "blaster: normalization hook not initialized"
 
 /-! ## Code generation monad -/

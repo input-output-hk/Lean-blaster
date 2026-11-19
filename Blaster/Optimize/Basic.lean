@@ -114,7 +114,7 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
            -- (see isPatternMatch and unifyAndUpdateEqMap)
            optimizeExprAux (.InitOptimizeExpr args[2]! :: xs)
          -- try to apply registered optimization to avoid unecessary parameter optimization
-         else if let some r ← applyExtension? f args xs then
+         else if let some r ← applyExtension? f args xs (restart := true) then
            match r with
            | Sum.inr e' => return e'
            | Sum.inl stack' => optimizeExprAux stack'
@@ -135,7 +135,9 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
   | .AppOptimizeImplicitArgs f args idx startIdx stopIdx pInfo prevInApp :: xs =>
        if idx ≥ stopIdx then
          -- try to apply registered optimization to avoid unecessary parameter optimization
-         if let some r ← applyExtension? f args xs then
+         if let some r ← applyExtension? f args xs (restart := true) then
+           -- restore previous isAppArg flag
+           setIsAppArg prevInApp
            match r with
            | Sum.inr e' => return e'
            | Sum.inl stack' => optimizeExprAux stack'
@@ -247,11 +249,18 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
   where
 
     @[always_inline, inline]
-    applyExtension? (f : Expr) (args : Array Expr) (stack : List OptimizeStack) : TranslateEnvT (Option OptimizeContinuity) := do
+    applyExtension? (f : Expr) (args : Array Expr) (stack : List OptimizeStack) (restart := false) : TranslateEnvT (Option OptimizeContinuity) := do
       if ← isNormalizeOnly then return none
-      else if let some e ← applyRegisteredOptFns f args then
-        if e.hasMVar then setRestart
-        mkOptimizeContinuity e stack
+      if restart then if args.any (λ a => a.hasMVar) then return none
+      if let some e ← applyRegisteredOptFns f args then
+        if ← inCyclicCache e then
+           -- reset restart
+           resetRestart
+           if restart then logCyclicWarning e
+           return none
+        else
+          if restart then setRestart
+          mkOptimizeContinuity e stack
       else return none
 
     @[always_inline, inline]
@@ -367,8 +376,8 @@ def Optimize.main (e : Expr) (applyHashCons := true) : TranslateEnvT Expr := do
      - function, ite and match propagation rules are NOT applied
 -/
 @[always_inline, inline]
-def normalizeExpr (e : Expr) : TranslateEnvT Expr := do
-  setNormalizeOnly true
+def normalizeExpr (e : Expr) (m : NormalizeMode) : TranslateEnvT Expr := do
+  setNormalizeMode m
    -- set start local context
   updateLocalContext (← mkLocalContext)
   optimizeExpr (← hashcons e)
@@ -387,8 +396,8 @@ def command (sOpts: BlasterOptions) (e : Expr) : MetaM (Expr × TranslateEnv) :=
   return res
 
 /-- Normalize a theorem tagged with the `blaster` attribute -/
-def normalizeThm (thm : Expr) : MetaM Expr := do
-    let e ← (normalizeExpr thm).run' default
+def normalizeThm (thm : Expr) (m : NormalizeMode) : MetaM Expr := do
+    let e ← (normalizeExpr thm m).run' default
     return e
 
 initialize

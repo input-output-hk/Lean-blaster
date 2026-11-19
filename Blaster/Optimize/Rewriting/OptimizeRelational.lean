@@ -355,12 +355,15 @@ def optimizeLT (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
      let some (e3, e4) := natAdd? op2 | return none
      let some n1 := isNatValue? e1 | return none
      let some n2 := isNatValue? e3 | return none
+     let mkAdd (a : Nat) (b : Expr) := do
+       if a == 0 then return b
+       else mkApp2Expr (← mkNatAddOp) (← mkNatLitExpr a) b
      setRestart
      let minValue := min n1 n2
      let leftValue := n1 - minValue
      let rightValue := n2 - minValue
-     let op1' ← mkApp2Expr (← mkNatAddOp) (← mkNatLitExpr leftValue) e2
-     let op2' ← mkApp2Expr (← mkNatAddOp) (← mkNatLitExpr rightValue) e4
+     let op1' ← mkAdd leftValue e2
+     let op2' ← mkAdd rightValue e4
      mkApp4Expr f args[0]! args[1]! op1' op2'
 
    /-- Given `op1` and `op2` corresponding to the operands for `LT.lt` such that,
@@ -373,12 +376,15 @@ def optimizeLT (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
      let some (e3, e4) := intAdd? op2 | return none
      let some n1 := isIntValue? e1 | return none
      let some n2 := isIntValue? e3 | return none
+     let mkAdd (a : Int) (b : Expr) := do
+       if a == 0 then return b
+       else mkApp2Expr (← mkNatAddOp) (← mkIntLitExpr a) b
      setRestart
      let minValue := min n1 n2
      let leftValue := n1 - minValue
      let rightValue := n2 - minValue
-     let op1' ← mkApp2Expr (← mkIntAddOp) (← mkIntLitExpr leftValue) e2
-     let op2' ← mkApp2Expr (← mkIntAddOp) (← mkIntLitExpr rightValue) e4
+     let op1' ← mkAdd leftValue e2
+     let op2' ← mkAdd rightValue e4
      mkApp4Expr f args[0]! args[1]! op1' op2'
 
 

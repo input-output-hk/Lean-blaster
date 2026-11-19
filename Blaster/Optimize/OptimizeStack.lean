@@ -2,7 +2,6 @@ import Lean
 import Blaster.Optimize.Rewriting.OptimizeITE
 import Blaster.Optimize.Rewriting.OptimizeProjection
 import Blaster.Optimize.Telescope
-
 open Lean Meta Elab Blaster.Data.HashMap
 
 namespace Blaster.Optimize
@@ -67,8 +66,8 @@ def resetChoiceContext (h : HypsStackContext) (fvars : Array Expr) (lam : Expr) 
   | some scope =>
        updateContextReuseCache lam idx ⟨scope, fvars⟩
        modifyOptEnv
-         fun ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, ⟨s1, s2, s3, s4, _, s6, active, s7, s8, s9⟩, o12, o13, o14⟩ =>
-             ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, ⟨s1, s2, s3, s4, scope.parent, s6, active.erase scope.current, s7, s8, s9⟩, o12, o13, o14⟩
+         fun ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, ⟨s1, s2, s3, s4, _, s6, active, s7, s8, s9⟩, o12, o13, o14, o15⟩ =>
+             ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, ⟨s1, s2, s3, s4, scope.parent, s6, active.erase scope.current, s7, s8, s9⟩, o12, o13, o14, o15⟩
   | none => return ()
 
 def restoreMVarDecls (optDecls : Option MVarIdDecls) : TranslateEnvT Unit :=
@@ -84,9 +83,9 @@ def restoreMVarDecls (optDecls : Option MVarIdDecls) : TranslateEnvT Unit :=
           let mAssignments := mAssignments.insert d.mvar d.value
           updateAssignments (idx + 1) stop mdecls mAssignments
       modifyOptEnv
-        fun ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, mAssignments⟩ =>
+        fun ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, mAssignments, o15⟩ =>
           let mAssignments := updateAssignments 0 mdecls.size mdecls mAssignments
-          ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, mAssignments⟩
+          ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, mAssignments, o15⟩
 
 @[always_inline, inline]
 def isInEqualityMap (e : Expr) (isGlobal : Bool) : TranslateEnvT EqualityEntry := do
@@ -101,6 +100,7 @@ def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := 
   | [] => return Sum.inr optExpr
 
   | .InitOptimizeReturn e isGlobal mvarDecls :: xs =>
+       updateCyclicCache e (addEntry := false)
        let ⟨optExpr, restart⟩ ← isInEqualityMap optExpr isGlobal
        if restart then
          -- restart flag set in equality entry
@@ -400,7 +400,9 @@ def isInOptimizeEnvCache (a : Expr) (stack : List OptimizeStack) (mvarDecls : Op
   if useCache then
     let cached := ← isInOptimizeCache? a isGlobal env
     if !exprEq cached instCacheMiss then Sum.inr <$> stackContinuity stack cached
-    else return Sum.inl (.InitOptimizeReturn a isGlobal mvarDecls :: stack)
+    else
+      updateCyclicCache a
+      return Sum.inl (.InitOptimizeReturn a isGlobal mvarDecls :: stack)
   else return Sum.inl (.InitOptimizeReturn a isGlobal mvarDecls :: stack)
 
 end Blaster.Optimize

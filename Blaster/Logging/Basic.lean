@@ -28,6 +28,8 @@ def logSmtQuery : TranslateEnvT Unit := do
     (← get).smtEnv.smtCommands.forM (λ c => IO.println s!"{c}")
   else pure ()
 
+def logCyclicWarning (e : Expr) : MetaM Unit := do
+  logWarning m!"[blaster]: Cyclic rewriting detected on {← ppExpr e}.\nVerify tagged [@blaster] theorems/axioms for cyclic dependencies."
 
 /-- Profile Task `msg` when verbose is greater than verboseLevel by displaying
     the time taken by `msg`.

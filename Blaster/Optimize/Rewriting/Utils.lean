@@ -672,12 +672,12 @@ def isNotFoldable
   (e : Expr) (args : Array Expr) : TranslateEnvT Bool := do
   match e with
   | Expr.const n u =>
-      if ← isNormalizeOnly then
-        return !foldableFuns.contains n
-      else
-        if opaqueFuns.contains n then return true
-        else if (← (pure (args.size != 0)) <&&> (isOpaqueRelational n u args)) then return true
-        else isRecursiveFun n <||> isAxiomOrOpaque n
+      match (← get).optEnv.options.normalizeMode with
+      | .Restricted => return !foldableFuns.contains n
+      | _ =>
+          if opaqueFuns.contains n then return true
+          else if (← (pure (args.size != 0)) <&&> (isOpaqueRelational n u args)) then return true
+          else isRecursiveFun n <||> isAxiomOrOpaque n
   | _ => return false
 
 

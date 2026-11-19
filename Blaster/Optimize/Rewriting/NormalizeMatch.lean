@@ -101,8 +101,8 @@ partial def removeNamedPatternExpr (p : Expr) : TranslateEnvT Expr := do
      - When fv is a let free variable declaration only replace the let bind value with `v`
 -/
 def modifyFVarValue (fv : FVarId) (v : Expr) : TranslateEnvT Unit :=
-  modifyOptEnv fun ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, ⟨ctx, localInsts⟩, o14⟩ =>
-               ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, ⟨ctx.modifyLocalDecl fv declModifier, localInsts⟩, o14⟩
+  modifyOptEnv fun ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, ⟨ctx, localInsts⟩, o14, o15⟩ =>
+               ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, ⟨ctx.modifyLocalDecl fv declModifier, localInsts⟩, o14, o15⟩
 
  where
    declModifier (d : LocalDecl) : LocalDecl :=

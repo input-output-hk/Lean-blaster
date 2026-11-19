@@ -125,7 +125,9 @@ def foldableFuns : HashSet Name :=
     ``HAppend.hAppend,
     ``GetElem?.getElem?,
     ``GE.ge,
-    ``GT.gt
+    ``GT.gt,
+    ``List.reverse,
+    ``id
   ]
 
 end Blaster.Optimize

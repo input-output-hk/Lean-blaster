@@ -244,6 +244,8 @@ def normConst (e : Expr) (stack : List OptimizeStack) : TranslateEnvT OptimizeCo
         else return none
       else
         if (← isRecursiveFun f) then
+          -- remove from cyclic cache
+          updateCyclicCache e (addEntry := false)
           return (some $ ← normRecFun e #[] e stack)
         if (← hasRegisteredOptFns f) then return none -- optimizations registered for non recursive functions
         if (← isNotFoldable e #[]) then return none

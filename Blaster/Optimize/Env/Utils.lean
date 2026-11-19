@@ -143,6 +143,10 @@ def hasLawfulBEqInstance (u : List Level) (t : Expr) (beqInst : Expr) : Translat
 @[always_inline, inline] def isVisitedRecFun (f : Expr) : TranslateEnvT Bool :=
  return (← get).optEnv.recFunCache.contains f
 
+/-- Return `true` if `e` is already in the cyclic rewriting cache. -/
+@[always_inline, inline] def inCyclicCache (e : Expr) : TranslateEnvT Bool :=
+ return (← get).optEnv.cyclicCache.contains e
+
 /-- Given `f x₁ ... xₙ`, return `true` only when one of the following conditions is satisfied:
      - `f := BEq.beq` with sort parameter that has a `LawfulBEq` instance
      - `f := LT.lt` with sort parameter in `relationalCompatibleTypes`
@@ -413,9 +417,9 @@ partial def betaLambdaEnv (lam : Expr) (args : Array Expr) : TranslateEnvT BetaL
           updateAssignments mvars val mAssignments (idx + 1) stop
       let assignMVars' (mvars : Array Expr) (val : Array Expr) : TranslateEnvT Unit := do
         modifyOptEnv
-          fun ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, mAssignments⟩ =>
+          fun ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, mAssignments, o15⟩ =>
             let mAssignments := updateAssignments mvars val mAssignments 0 nbArgs
-            ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, mAssignments⟩
+            ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, mAssignments, o15⟩
 
       let assignMVars (mvars : Array Expr) (val : Array Expr) : TranslateEnvT MVarIdDecls := do
         let decls ← getMVarDecls mvars
@@ -614,16 +618,25 @@ def retrieveGenericFVars (params : ImplicitParameters) : TranslateEnvT (Array Ex
 
 
 /-- Given `params` an implicit parameters perform the following:
+      let instanceArgs := Array.filter (λ p => p.isInstance) params
       let genArgs ← retrieveGenericFVars
-      let P := #[ params[i].effectiveArgs | i ∈ [0..params.size-1] ∧ ¬ params[i].isInstance ]
+      let P := #[ params[i].effectiveArgs | i ∈ [0..params.size-1] ∧ ¬ params[i].isInstance ] if instanceArgs.size != params.size
+            := #[ params[i].effectiveArgs | i ∈ [0..params.size-1] ∧ ¬ params[i].effectiveArgs.isFVar ] otherwise
       return `genArgs ++ P`
 -/
 @[inline] def getEffectiveParams (params : ImplicitParameters) : TranslateEnvT (Array Expr) := do
+  let instanceArgs := Array.filter (λ p => p.isInstance) params
   let mut args ← retrieveGenericFVars params
-  for h : i in [:params.size] do
-    let e := params[i]
-    if !e.isInstance then
-      args := args.push e.effectiveArg
+  if instanceArgs.size != params.size then
+    for h : i in [:params.size] do
+      let e := params[i]
+      if !e.isInstance then
+        args := args.push e.effectiveArg
+  else
+    for h : i in [:params.size] do
+      let e := params[i]
+      if e.effectiveArg.isFVar then
+        args := args.push e.effectiveArg
   return args
 
 /-- Given `f` a function name expression, `params` its implicit parameters info (see `getImplicitParameters`),
@@ -708,7 +721,7 @@ where
     An error is triggered if no corresponding entry can be found in `recFunMap`.
 -/
 def hasRecFunInst? (instApp : Expr) : TranslateEnvT (Option Expr) := do
-  let ⟨_, ⟨_, _, _, _, recFunInstCache,_,recFunMap, _, _, _, _, _, _, _⟩⟩ ← get
+  let ⟨_, ⟨_, _, _, _, recFunInstCache,_,recFunMap, _, _, _, _, _, _, _, _⟩⟩ ← get
   match recFunInstCache.get? instApp with
   | some fbody =>
      -- retrieve function application from recFunMap

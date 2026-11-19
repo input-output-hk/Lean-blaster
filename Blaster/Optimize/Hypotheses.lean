@@ -144,8 +144,8 @@ def updateHypMap (e : Expr) (fv : Expr) (nextCtxId : CtxId) : TranslateEnvT Unit
  | none =>
     let refEntry ← IO.mkRef [(nextCtxId, fv)]
     modifyOptEnv
-      fun ⟨o1, o2, o3, o4, o5, o6, o7, ⟨hypothesisMap, equalityMap⟩, o9, o10, o11, o12, o13, o14⟩ =>
-          ⟨o1, o2, o3, o4, o5, o6, o7, ⟨hypothesisMap.insert e refEntry, equalityMap⟩, o9, o10, o11, o12, o13, o14⟩
+      fun ⟨o1, o2, o3, o4, o5, o6, o7, ⟨hypothesisMap, equalityMap⟩, o9, o10, o11, o12, o13, o14, o15⟩ =>
+          ⟨o1, o2, o3, o4, o5, o6, o7, ⟨hypothesisMap.insert e refEntry, equalityMap⟩, o9, o10, o11, o12, o13, o14, o15⟩
  | some refEntry => refEntry.modify (λ l => (nextCtxId, fv) :: l)
 
 /-- Given proposition `e` referenced by hypothesis `h`, perform the following:
@@ -598,7 +598,7 @@ partial def addHypotheses
             updateHypMap a proof1 nextCtxId
             updateHypMap b proof2 nextCtxId
             visit ((a, proof1) :: (b, proof2) :: xs) nextCtxId
-        if let some (a, b) := notPropOr? e then
+        else if let some (a, b) := notPropOr? e then
           let notOp ← mkPropNotOp
           let notA ← mkAppExpr notOp a
           let notB ← mkAppExpr notOp b

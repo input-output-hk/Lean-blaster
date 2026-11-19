@@ -85,7 +85,9 @@ def optimizeAppExt (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
   while (← isRestart) do
     resetRestart
     let (f, args) := getAppFnWithArgs r
-    r ← optimizeAppAux f args
+    let r' ← optimizeAppAux f args
+    if exprEq r' r then resetRestart
+    r := r'
   return r
 
  /-- Given `rf` a function application instance (see function `getInstApp`) and `params` its
@@ -177,39 +179,41 @@ def normRecFun (uf : Expr) (uargs : Array Expr) (appExpr : Expr) (xs : List Opti
    let params ← getImplicitParameters f args
    -- trace[Optimize.recFun] "implicit arguments for {n} ==> {reprStr params}"
    -- get instance application
-   let instApp ← getInstApp f params
-   if (← isVisitedRecFun instApp) then
+   let instCache ← getInstApp f params (cacheEntry := true)
+   if (← isVisitedRecFun instCache) then
      -- trace[Optimize.recFun] "rec function instance {instApp} is in visiting cache"
      finalizeRecApp uf f uargs params xs -- already cached
-   else if let some r ← hasRecFunInst? instApp then
-     -- trace[Optimize.recFun] "rec function instance {instApp} is already equivalent to {reprStr r}"
-     finalizeRecApp uf r uargs params xs
    else
-     cacheFunName instApp -- cache function name
-     let some fbody ← getFunBody f
-       | throwEnvError "normOpaqueAndRecFun: recursive function body expected for {reprStr f}"
-     -- instantiating polymorphic parameters in fun body
-     let fdef ← generalizeRecCall f params fbody
-     -- trace[Optimize.recFun] "generalizing rec body for {n} got {reprStr fdef}"
-     let subsInst ← opaqueInstApp uf uargs isOpaqueRec instApp
-     -- optimize recursive fun definition and store
-     -- NOTE: keeping track of next ctxId to generate for clean-up
-     let nextCtxId := (← get).optEnv.options.nextCtxId
-     return Sum.inl (.InitOptimizeExpr fdef :: .RecFunDefWaitForStorage uargs instApp subsInst params nextCtxId :: xs)
+     let instApp ← getInstApp f params
+     if let some r ← hasRecFunInst? instApp then
+       -- trace[Optimize.recFun] "rec function instance {instApp} is already equivalent to {reprStr r}"
+       finalizeRecApp uf r uargs params xs
+     else
+       cacheFunName instCache -- cache function name
+       let some fbody ← getFunBody f
+         | throwEnvError "normOpaqueAndRecFun: recursive function body expected for {reprStr f}"
+       -- instantiating polymorphic parameters in fun body
+       let fdef ← generalizeRecCall f params fbody
+       -- trace[Optimize.recFun] "generalizing rec body for {n} got {reprStr fdef}"
+       let subsInst ← opaqueInstApp uf uargs isOpaqueRec instApp
+       -- optimize recursive fun definition and store
+       -- NOTE: keeping track of next ctxId to generate for clean-up
+       let nextCtxId := (← get).optEnv.options.nextCtxId
+       return Sum.inl (.InitOptimizeExpr fdef :: .RecFunDefWaitForStorage uargs instCache subsInst params nextCtxId :: xs)
  else stackContinuity xs appExpr -- proceed with continuity
 
  where
 
-   /-- Given a function application f x₁ ... xₙ, flag `isOpaqueRec` and default instance application `instApp`
+   /-- Given a function application f x₁ ... xₙ, flag `isOpaqueRec` and the default instance application `instApp`
        perform the following:
          - When isOpaqueRec:
              - return `getInstApp (← getImplicitParameters f x₁ ... xₙ)`
          - Otherwise:
-             - return instApp
+             - return `instApp`
    -/
    opaqueInstApp (f : Expr) (args : Array Expr) (isOpaqueRec : Bool) (instApp : Expr) : TranslateEnvT Expr := do
-     if isOpaqueRec then
-        getInstApp f (← getImplicitParameters f args)
+     if isOpaqueRec
+     then getInstApp f (← getImplicitParameters f args)
      else return instApp
 
    /-- Given a function application f x₁ ... xₙ and flag `isOpaqueRec` perform the following:
