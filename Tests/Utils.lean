@@ -13,11 +13,14 @@ def optimizeExpr (sOpts : BlasterOptions) (e : Expr) :
     withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0 }) $ do
       Blaster.Optimize.command sOpts e
 
-/-- Parse a term syntax and call optimize, returning both the optimized expression
-    and the translation environment (which contains the proof stack). -/
+/-- Parse a term syntax and call optimize, returning the elaborated input, the optimized
+    expression, and the translation environment (which contains the proof stack). -/
 def callOptimize (sOpts : BlasterOptions) (stx : Syntax) :
-    TermElabM (Expr × Blaster.Optimize.TranslateEnv) := do
-    optimizeExpr sOpts (← parseTerm stx)
+    TermElabM (Expr × Expr × Blaster.Optimize.TranslateEnv) :=
+  withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0 }) $ do
+    let inputExpr ← parseTerm stx
+    let (optimized, env) ← Blaster.Optimize.command sOpts inputExpr
+    return (inputExpr, optimized, env)
 
 /-! ## Definition of #testOptimize command to write unit test for Blaster.optimize
     The #testOptimize usage is as follows:
@@ -229,8 +232,7 @@ def testOptimizeImp : CommandElab := fun stx => do
     -- create a local declaration name for the test case
     let m ← getMainModule
     withDeclName (m ++ name.toName) $ do
-      let inputExpr ← parseTerm t1
-      let (actual, env) ← optimizeExpr sOpts inputExpr
+      let (inputExpr, actual, env) ← callOptimize sOpts t1
       let expected' := removeAnnotations (← parseTerm t2)
       -- keep the current name generator and restore it afterwards
       let ngen ← getNGen
