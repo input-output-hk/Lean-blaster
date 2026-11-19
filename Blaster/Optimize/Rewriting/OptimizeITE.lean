@@ -159,16 +159,16 @@ def diteFactorize? (a : Expr) (t : Expr) (e : Expr) : TranslateEnvT (Option Expr
 
      - sif h : False then e1 else e2 ==> applyExtraArgs e2    [proof: Blaster.dite'_false]
 
-     - sif h : c then e1 else e2 ==> applyExtraArgs e1
+     - sif h : c then e1 else e2 ==> applyExtraArgs e1        [proof: Blaster.dite'_reduce_pos]
            (if c := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ e1.hasLooseBVars)
 
-     - sif h : c then e1 else e2 ==> applyExtraArgs e2
+     - sif h : c then e1 else e2 ==> applyExtraArgs e2        [proof: Blaster.dite'_reduce_neg]
            (if ∃ e := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ e2.hasLooseBVars ∧ e = ¬ c )
 
-     - sif h : c then e1 else e2 ==> applyExtraArgs e1[h/h']
+     - sif h : c then e1 else e2 ==> applyExtraArgs e1[h/h']  [proof: Blaster.dite'_reduce_pos]
            (if c := h' ∈ hypothesisContext.hypothesisMap ∧ e1.hasLooseBVars)
 
-     - sif h : c then e1 else e2 ==> applyExtraArgs e2[h/h']
+     - sif h : c then e1 else e2 ==> applyExtraArgs e2[h/h']  [proof: Blaster.dite'_reduce_neg]
           (if ∃ e := h' ∈ hypothesisContext.hypothesisMap ∧ e2.hasLooseBVars ∧ e = ¬ c)
 
      - sif h : c then e1 else e2 ==> (h : c → e1) ∧ (h : ¬ c → e2) (if Type(e1) = Prop)                           [proof: Blaster.dite'_prop_eq]
@@ -206,8 +206,8 @@ def optimizeDITEChoice (f : Expr) (args : Array Expr) : TranslateEnvT (Option Ex
  if let Expr.const ``False _ := c then
    pushProofStep (.rewrite (mkConst ``Blaster.dite'_false [← getLevel iteType]))
    return applyExtraArgs (betaLambda e #[← mkNotFalse])
- if let some r ← diteReduce? iteType c t e then return applyExtraArgs r
- if let some r ← diteReduce? iteType (← optimizeNot (← mkPropNotOp) #[c] (cacheResult := false)) t e then
+ if let some r ← diteReduce? ``Blaster.dite'_reduce_pos iteType c c t then return applyExtraArgs r
+ if let some r ← diteReduce? ``Blaster.dite'_reduce_neg iteType c (← optimizeNot (← mkPropNotOp) #[c] (cacheResult := false)) e then
    return applyExtraArgs r
  if let some r ← diteToPropExpr? iteType c t e then return r
  isITESwap? f args
@@ -231,28 +231,23 @@ def optimizeDITEChoice (f : Expr) (args : Array Expr) : TranslateEnvT (Option Ex
         - Otherwise
             - return `none`
    -/
-   reduceBranch (branch : Expr) (p : Expr) : TranslateEnvT Expr := do
-     match branch with
-     | Expr.lam _h _c b _bi => if !b.hasLooseBVars then return b else return branch.beta #[p]
+   diteReduce? (lemma : Name) (iteType: Expr) (c : Expr) (cond : Expr) (t : Expr) : TranslateEnvT (Option Expr) := do
+     let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
+     match t with
+     | Expr.lam _h _c b _bi =>
+         if let some p ← inHypMap cond hyps then
+            pushProofStep (.rewrite (mkApp3 (mkConst lemma [← getLevel iteType]) iteType c p))
+            if !b.hasLooseBVars
+            then return b
+            else return (t.beta #[p])
+         else return none
      | _ =>
-      if !(← isQuantifiedFun p) then
-        throwEnvError "extractDependentITEExpr : lambda/quantified function expected but got {reprStr p}"
-      else return branch.beta #[p]
-
-   diteReduce? (iteType : Expr) (c : Expr) (t : Expr) (e : Expr) : TranslateEnvT (Option Expr) := do
-    let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
-  -- then-branch: `c ∈ hyps`
-    if let some p ← inHypMap c hyps then
-      pushProofStep (.rewrite
-        (mkAppN (mkConst ``Blaster.dite'_reduce_pos [← getLevel iteType]) #[iteType, c, t, e, p]))
-      return some (← reduceBranch t p)
-  -- else-branch: `¬c ∈ hyps`
-    let notC ← optimizeNot (← mkPropNotOp) #[c] (cacheResult := false)
-    if let some p ← inHypMap notC hyps then
-      pushProofStep (.rewrite
-        (mkAppN (mkConst ``Blaster.dite'_reduce_neg [← getLevel iteType]) #[iteType, c, t, e, p]))
-      return some (← reduceBranch e p)
-    return none
+        if !(← isQuantifiedFun t) then
+          throwEnvError "diteReduce?: lambda/quantified function expression expected but got {reprStr t}"
+        if let some p ← inHypMap cond hyps then
+          pushProofStep (.rewrite (mkApp3 (mkConst lemma [← getLevel iteType]) iteType c p))
+          return (t.beta #[p])
+        else return none
 
 /-- Apply simplification/normalization rules on `Blaster.dite'` in the given order.
     Note that dependent ite is written with notation `if h : c then t else e`, which

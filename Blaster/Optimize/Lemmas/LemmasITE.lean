@@ -99,16 +99,18 @@ protected theorem apply_dite' {α : Sort u} {β : Sort v} (g : α → β) (c : P
   - `(sif h : c then e1 else e2) x₁ … xₙ ==> e1[h/h'] x₁ … xₙ (if c := h' ∈ hypothesisContext.hypothesisMap ∧ e1.hasLooseBVars)`
   - `(sif h : c then e1 else e2) x₁ … xₙ ==> e2[h/h'] x₁ … xₙ (if ∃ e := h' ∈ hypothesisContext.hypothesisMap ∧ e2.hasLooseBVars ∧ e = ¬ c)`
 -/
-protected theorem dite'_reduce_pos {α : Sort u} {c : Prop} (t : c → α) (e : ¬ c → α) (p : c) :
-    @Blaster.dite' α c t e = t p := by
+protected theorem dite'_reduce_pos {α : Sort u} {c : Prop} (p : c) :
+    @Blaster.dite' α c = (fun (t : c → α) (_ : ¬ c → α) => t p) := by
+  funext t e
   have h : Blaster.decide' c = true := (Blaster.decide'_true c).mpr p
   unfold Blaster.dite'
   split <;> rename_i h'
   · congr 1
   · rw [h] at h'; exact (Bool.false_ne_true h'.symm).elim
 
-protected theorem dite'_reduce_neg {α : Sort u} {c : Prop} (t : c → α) (e : ¬ c → α) (p : ¬ c) :
-    @Blaster.dite' α c t e = e p := by
+protected theorem dite'_reduce_neg {α : Sort u} {c : Prop} (p : ¬ c) :
+    @Blaster.dite' α c = (fun (_ : c → α) (e : ¬ c → α) => e p) := by
+  funext t e
   have h : Blaster.decide' c = false := (Blaster.decide'_false c).mpr p
   unfold Blaster.dite'
   split <;> rename_i h'
