@@ -88,7 +88,7 @@ def reachable : Value Nat → Nat
   ∀ (b : Bool), reachable (.pair b 3) = (if b then 3 else 0) ∧
     reachable (.other 7) = 2 ===> True
 
--- Unknown nested constructors require extraction: preserve the existing matcher.
+-- Unknown nested constructors retain only the inner constructor choice.
 def extract : Option (Option Nat) → Nat
   | some (some n) => n
   | some none => 0
@@ -96,10 +96,7 @@ def extract : Option (Option Nat) → Nat
 
 #testOptimize ["Specialize_unknown_fields_fallback"] (norm-result: 1)
   ∀ (x : Option Nat), extract (some x) = 2 ===>
-    ∀ (x : Option Nat), 2 = (match some x with
-      | some (some n) => n
-      | some none => 0
-      | none => 1)
+    ∀ (x : Option Nat), 2 = Option.casesOn x 0 (fun n => n)
 
 -- Dependent constructor fields and indexed families are outside this pass.
 def dependentFields : Sigma (fun b : Bool => if b then Nat else Bool) → Nat

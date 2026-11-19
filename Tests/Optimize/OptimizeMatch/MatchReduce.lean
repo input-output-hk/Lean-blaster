@@ -444,30 +444,19 @@ variable (sx : Option Color)
     | some (.red y) => some y
     | _ => none
 
--- isSomeRed (some x) ===>
---   match (some x) with
---   | some (.red y) => some y
---   | _ => none
-#testOptimize [ "MatchReduceUnchanged_8" ]
+-- Known outer constructors disappear; only the inner Color choice remains.
+#testOptimize [ "MatchReduceNested_8" ]
   isSomeRed (some x) ===>
-    match (some x) with
-    | some (.red y) => some y
-    | _ => none
+    Color.casesOn (motive := fun _ => Option Color) x (fun y => some y) none (fun _ => none) none
 
 def isSomeRedBlue (x : Option Color) (y : Color) : Prop :=
   match x, y with
   | some (.red _), .blue _ => True
   | _, _ => False
 
--- isSomeRedBlue (some x) (.blue x) ===>
---   match some x, (Color.blue x) with
---   | some (.red _), .blue _ => True
---   | _, _ => False
-#testOptimize [ "MatchReduceUnchanged_9" ]
+#testOptimize [ "MatchReduceNested_9" ]
   isSomeRedBlue (some x) (.blue x) ===>
-    match some x, (Color.blue x) with
-    | some (.red _), .blue _ => True
-    | _, _ => False
+    Color.casesOn (motive := fun _ => Prop) x (fun _ => True) False (fun _ => False) False
 
 
 def isSomeColorAndBlue (x : Option Color) (y : Color) : Prop :=
@@ -476,17 +465,15 @@ def isSomeColorAndBlue (x : Option Color) (y : Color) : Prop :=
   | some (_), .blue _ => True
   | _, _ => False
 
--- isSomeColorAndBlue (some x) (.blue x) ===>
---   match some x, (Color.blue x) with
---   | some (.red _), .blue _ => True
---   | some (_), .blue _ => True
---   | _, _ => False
-#testOptimize [ "MatchReduceUnchanged_10" ]
-  isSomeColorAndBlue (some x) (.blue x) ===>
-    match some x, (Color.blue x) with
-    | some (.red _), .blue _ => True
-    | some (_), .blue _ => True
-    | _, _ => False
+#testOptimize [ "MatchReduceNested_10" ]
+  isSomeColorAndBlue (some x) (.blue x) ===> True
+
+example (x : Color) : isSomeRed (some x) =
+    Color.casesOn (motive := fun _ => Option Color) x (fun y => some y) none (fun _ => none) none := by
+  cases x <;> rfl
+
+example (x : Color) : isSomeColorAndBlue (some x) (.blue x) := by
+  cases x <;> trivial
 
 def filterNat (x : Nat) : Nat :=
   match x with

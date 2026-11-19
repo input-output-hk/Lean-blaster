@@ -21,7 +21,7 @@ inductive MatchPatternPlan where
 /-- Constructor decomposition is restricted to non-indexed families with independent fields.
     Parameters may occur in field types; earlier fields may not. This avoids introducing
     transports when specializing dependent patterns. No reduction is performed here. -/
-private def canDecomposeCtor (n : Name) : TranslateEnvT Bool := do
+def canDecomposeCtor (n : Name) : TranslateEnvT Bool := do
   let .ctorInfo info ← getConstEnvInfo n | return false
   let .inductInfo family ← getConstEnvInfo info.induct | return false
   if family.numIndices != 0 then return false
