@@ -93,4 +93,28 @@ protected theorem apply_dite' {α : Sort u} {β : Sort v} (g : α → β) (c : P
       (congrFun (congrFun (congrFun (congrFun (congrFun Blaster.dite_equiv.{v} β) c)
         (Classical.propDecidable c)) _) _))
 
+/-! # Lemmas validating the dite reduce simplification rules:
+  - `(sif h : c then e1 else e2) x₁ … xₙ ==> e1 x₁ … xₙ (if c := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ e1.hasLooseBVars)`
+  - `(sif h : c then e1 else e2) x₁ … xₙ ==> e2 x₁ … xₙ (if ∃ e := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ e2.hasLooseBVars ∧ e = ¬ c)`
+  - `(sif h : c then e1 else e2) x₁ … xₙ ==> e1[h/h'] x₁ … xₙ (if c := h' ∈ hypothesisContext.hypothesisMap ∧ e1.hasLooseBVars)`
+  - `(sif h : c then e1 else e2) x₁ … xₙ ==> e2[h/h'] x₁ … xₙ (if ∃ e := h' ∈ hypothesisContext.hypothesisMap ∧ e2.hasLooseBVars ∧ e = ¬ c)`
+-/
+protected theorem dite'_reduce_pos {α : Sort u} {c : Prop} (p : c) :
+    @Blaster.dite' α c = (fun (t : c → α) (_ : ¬ c → α) => t p) := by
+  funext t e
+  have h : Blaster.decide' c = true := (Blaster.decide'_true c).mpr p
+  unfold Blaster.dite'
+  split <;> rename_i h'
+  · congr 1
+  · rw [h] at h'; exact (Bool.false_ne_true h'.symm).elim
+
+protected theorem dite'_reduce_neg {α : Sort u} {c : Prop} (p : ¬ c) :
+    @Blaster.dite' α c = (fun (_ : c → α) (e : ¬ c → α) => e p) := by
+  funext t e
+  have h : Blaster.decide' c = false := (Blaster.decide'_false c).mpr p
+  unfold Blaster.dite'
+  split <;> rename_i h'
+  · rw [h] at h'; exact (Bool.false_ne_true h').elim
+  · congr 1
+
 end Blaster

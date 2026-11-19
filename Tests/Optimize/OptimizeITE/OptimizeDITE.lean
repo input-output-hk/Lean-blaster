@@ -2400,4 +2400,40 @@ elab "dIteToPropExprUnchanged_7" : term => return dIteToPropExprUnchanged_7
   ∀ (c : Bool) (x y : Nat) (f : c → Nat → Nat),
     (if h : c then f h x else y) > x ===> diteFalseEqCondUnchanged_3
 
+/-! Test cases for simplfication rule
+  `dite c (fun h : c => e1) (fun h : _ => e2) x₁ … xₙ ==> e1 x₁ … xₙ (if c := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ e1.hasLooseBVars)`
+-/
+
+-- ∀ (c : Prop) [Decidable c] (x y : Nat), c → (if _h : c then x else y) = x ===> True
+#testOptimize [ "DiteReduceHypThen_1", proof ]
+  ∀ (c : Prop) [Decidable c] (x y : Nat), c → (if _h : c then x else y) = x ===> True
+
+/-! Test cases for simplification rule
+  `dite c (fun h : c => e1) (fun h : ¬ c => e2) x₁ … xₙ ==> e1[h/h'] x₁ … xₙ (if c := h' ∈ hypothesisContext.hypothesisMap ∧ e1.hasLooseBVars)`
+-/
+
+-- ∀ (c : Prop) [Decidable c] (f : c → Nat) (y : Nat) (h : c),
+--   (if h' : c then f h' else y) = f h ===> True
+#testOptimize [ "DiteReduceHypThenLooseBvars_1", proof ]
+  ∀ (c : Prop) [Decidable c] (f : c → Nat) (y : Nat) (h : c),
+    (if h' : c then f h' else y) = f h ===> True
+
+/-! Test cases for simplification rule
+  `dite c (fun h : _ => e1) (fun h : ¬ c => e2) x₁ … xₙ ==> e2 x₁ … xₙ (if ∃ e := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ e2.hasLooseBVars ∧ e = ¬ c)`
+-/
+
+-- ∀ (c : Prop) [Decidable c] (x y : Nat), ¬ c → (if _h : c then x else y) = y ===> True
+#testOptimize [ "DiteReduceHypElse_1", proof ]
+  ∀ (c : Prop) [Decidable c] (x y : Nat), ¬ c → (if _h : c then x else y) = y ===> True
+
+/-! Test cases for simplification rule
+  `dite c (fun h : c => e1) (fun h : ¬ c => e2) x₁ … xₙ ==> e2[h/h'] x₁ … xₙ (if ∃ e := h' ∈ hypothesisContext.hypothesisMap ∧ e2.hasLooseBVars ∧ e = ¬ c)`
+-/
+
+-- ∀ (c : Prop) [Decidable c] (f : ¬ c → Nat) (x : Nat) (h : ¬ c),
+--   (if h' : c then x else f h') = f h ===> True
+#testOptimize [ "DiteReduceHypElseLooseBvars_1", proof ]
+  ∀ (c : Prop) [Decidable c] (f : ¬ c → Nat) (x : Nat) (h : ¬ c),
+    (if h' : c then x else f h') = f h ===> True
+
 end Test.OptimizeDITE

@@ -159,16 +159,16 @@ def diteFactorize? (a : Expr) (t : Expr) (e : Expr) : TranslateEnvT (Option Expr
 
      - sif h : False then e1 else e2 ==> applyExtraArgs e2    [proof: Blaster.dite'_false]
 
-     - sif h : c then e1 else e2 ==> applyExtraArgs e1
+     - sif h : c then e1 else e2 ==> applyExtraArgs e1        [proof: Blaster.dite'_reduce_pos]
            (if c := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ e1.hasLooseBVars)
 
-     - sif h : c then e1 else e2 ==> applyExtraArgs e2
+     - sif h : c then e1 else e2 ==> applyExtraArgs e2        [proof: Blaster.dite'_reduce_neg]
            (if ∃ e := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ e2.hasLooseBVars ∧ e = ¬ c )
 
-     - sif h : c then e1 else e2 ==> applyExtraArgs e1[h/h']
+     - sif h : c then e1 else e2 ==> applyExtraArgs e1[h/h']  [proof: Blaster.dite'_reduce_pos]
            (if c := h' ∈ hypothesisContext.hypothesisMap ∧ e1.hasLooseBVars)
 
-     - sif h : c then e1 else e2 ==> applyExtraArgs e2[h/h']
+     - sif h : c then e1 else e2 ==> applyExtraArgs e2[h/h']  [proof: Blaster.dite'_reduce_neg]
           (if ∃ e := h' ∈ hypothesisContext.hypothesisMap ∧ e2.hasLooseBVars ∧ e = ¬ c)
 
      - sif h : c then e1 else e2 ==> (h : c → e1) ∧ (h : ¬ c → e2) (if Type(e1) = Prop)                           [proof: Blaster.dite'_prop_eq]
@@ -206,8 +206,8 @@ def optimizeDITEChoice (f : Expr) (args : Array Expr) : TranslateEnvT (Option Ex
  if let Expr.const ``False _ := c then
    pushProofStep (.rewrite (mkConst ``Blaster.dite'_false [← getLevel iteType]))
    return applyExtraArgs (betaLambda e #[← mkNotFalse])
- if let some r ← diteReduce? c t then return applyExtraArgs r
- if let some r ← diteReduce? (← optimizeNot (← mkPropNotOp) #[c] (cacheResult := false)) e then
+ if let some r ← diteReduce? ``Blaster.dite'_reduce_pos iteType c c t then return applyExtraArgs r
+ if let some r ← diteReduce? ``Blaster.dite'_reduce_neg iteType c (← optimizeNot (← mkPropNotOp) #[c] (cacheResult := false)) e then
    return applyExtraArgs r
  if let some r ← diteToPropExpr? iteType c t e then return r
  isITESwap? f args
@@ -220,7 +220,7 @@ def optimizeDITEChoice (f : Expr) (args : Array Expr) : TranslateEnvT (Option Ex
        mkAppN e extra_args
      else e
 
-   /-- Given `cond` and `t` the condition and then/else expression for a Blaster.dite' expression,
+   /-- Given `cond` and `t` the condition and then/else expressions for a Blaster.dite' expression,
        perform the following:
         - When `t := fun h : c => e ∧ c := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ e.hasLooseBVars`
             - return `some e`
@@ -231,11 +231,12 @@ def optimizeDITEChoice (f : Expr) (args : Array Expr) : TranslateEnvT (Option Ex
         - Otherwise
             - return `none`
    -/
-   diteReduce? (cond : Expr) (t : Expr) : TranslateEnvT (Option Expr) := do
+   diteReduce? (lemma : Name) (iteType: Expr) (c : Expr) (cond : Expr) (t : Expr) : TranslateEnvT (Option Expr) := do
      let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
      match t with
      | Expr.lam _h _c b _bi =>
          if let some p ← inHypMap cond hyps then
+            pushProofStep (.rewrite (mkApp3 (mkConst lemma [← getLevel iteType]) iteType c p))
             if !b.hasLooseBVars
             then return b
             else return (t.beta #[p])
@@ -243,8 +244,9 @@ def optimizeDITEChoice (f : Expr) (args : Array Expr) : TranslateEnvT (Option Ex
      | _ =>
         if !(← isQuantifiedFun t) then
           throwEnvError "diteReduce?: lambda/quantified function expression expected but got {reprStr t}"
-        if let some p ← inHypMap cond hyps
-        then return (t.beta #[p])
+        if let some p ← inHypMap cond hyps then
+          pushProofStep (.rewrite (mkApp3 (mkConst lemma [← getLevel iteType]) iteType c p))
+          return (t.beta #[p])
         else return none
 
 /-- Apply simplification/normalization rules on `Blaster.dite'` in the given order.
