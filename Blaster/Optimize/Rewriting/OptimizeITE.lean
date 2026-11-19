@@ -220,7 +220,7 @@ def optimizeDITEChoice (f : Expr) (args : Array Expr) : TranslateEnvT (Option Ex
        mkAppN e extra_args
      else e
 
-   /-- Given `cond`, `t` `e` the condition and then/else expressions for a Blaster.dite' expression,
+   /-- Given `cond` and `t` the condition and then/else expressions for a Blaster.dite' expression,
        perform the following:
         - When `t := fun h : c => e ∧ c := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ e.hasLooseBVars`
             - return `some e`
