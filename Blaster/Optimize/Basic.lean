@@ -6,6 +6,7 @@ import Blaster.Optimize.Rewriting.FunPropagation
 import Blaster.Optimize.Rewriting.OptimizeApp
 import Blaster.Optimize.Rewriting.OptimizeConst
 import Blaster.Optimize.Rewriting.OptimizeForAll
+import Blaster.Optimize.Rewriting.EarlyListSelector
 
 open Lean Elab Command Term Meta Blaster.Options
 
@@ -128,7 +129,10 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
        if idx ≥ stopIdx then
          -- normalizing ite/match function application first to
          -- avoid handling extra args in optimizeDITEChoice, matchReduction and funPropagation
-         if let some re ← normChoiceApplication? f args prevInApp then
+         if let some selected ← reduceListLookupBeforeArgs? f args then
+           setIsAppArg prevInApp
+           optimizeExprAux (.InitOptimizeExpr selected :: xs)
+         else if let some re ← normChoiceApplication? f args prevInApp then
            -- trace[Optimize.normChoiceApp] "normalizing choice application {reprStr f} {reprStr args} => {reprStr re}"
            optimizeExprAux (re :: xs)
          else if isBlasterDiteConst f && args.size ≥ 2 then

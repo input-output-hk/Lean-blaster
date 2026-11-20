@@ -110,14 +110,10 @@ variable (α : Type) (a b c : α) (xs : List α) (i n : Nat) (x y : Nat)
 #testOptimize [ "ListGetUnfold_6" ] (norm-result: 1) [x + 0][i]? ===>
   Blaster.dite' (0 = i) (fun _ => some x) (fun _ => (none : Option Nat))
 
--- [a, b][n + 1]? ===> sif 0 = 1 + n then some a else sif 1 = 1 + n then some b else none
--- NOTE: the index is normalized (but not a literal) before applying the rule.
--- NOTE: no restart is set when the list ends with `[]`, hence the result is not re-optimized. It could be reduced to
--- `sif 0 = n then some b else none` (`0 = Nat.add 1 n ===> False` and `1 = Nat.add 1 n ===> 0 = n`) by setting the
--- restart flag as done when the tail is not a constructor.
+-- The early lookup result is re-optimized even for a finite list: the
+-- impossible first branch disappears and 1 = n + 1 simplifies to 0 = n.
 #testOptimize [ "ListGetUnfold_7" ] (norm-result: 1) [a, b][n + 1]? ===>
-  Blaster.dite' (0 = Nat.add 1 n) (fun _ => some a)
-    (fun _ => Blaster.dite' (1 = Nat.add 1 n) (fun _ => some b) (fun _ => (none : Option α)))
+  Blaster.dite' (0 = n) (fun _ => some b) (fun _ => (none : Option α))
 
 -- (a :: xs)[n + 1]? ===> List.get?Internal xs n
 -- NOTE: the result is re-optimized (restart) when the tail is not a constructor: the shifted index
