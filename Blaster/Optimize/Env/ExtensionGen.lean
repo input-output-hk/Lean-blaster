@@ -1,5 +1,6 @@
 import Lean
 import Blaster.Optimize.Env.ExprBuilder
+import Blaster.Optimize.Env.ExtensionRules
 import Blaster.Optimize.Hypotheses
 import Blaster.Optimize.Rewriting.OptimizeApp
 
@@ -19,6 +20,10 @@ that, given the effective arguments of the head constant of `lhs`:
   - checks that every premise `Pᵢ` is in the hypothesis map (`hypMapContains`),
   - builds `rhs` with the `ExprBuilder` operators (so that the result is hash-consed),
   - optionally sets the `restart` flag.
+
+Before the generation, the rule is checked against the rules previously recorded for cyclic rewriting
+(see `Blaster.Optimize.Env.ExtensionRules`): a warning is logged and nothing is generated when the
+rule closes a cycle.
 
 The conclusion may also be:
   - `lhs ↔ rhs` (handled as `lhs = rhs`)
@@ -45,6 +50,8 @@ structure Config where
   noRestart : Bool := false
   /-- Head constant specified in the attribute (if any); it must be the head of the lhs. -/
   headOverride? : Option Name := none
+  /-- When `false`, the static cyclic rewriting check is skipped. -/
+  cyclicCheck : Bool := true
 
 /-- Result of the generation. -/
 structure Result where
@@ -54,6 +61,17 @@ structure Result where
   declName : Name
   /-- Generated source (for tracing purposes). -/
   code : Term
+  /-- Rule to record for the static cyclic rewriting check. -/
+  rule : Rule
+
+/-- Outcome of the generation. -/
+inductive Outcome where
+  /-- The optimization function has been generated and compiled. -/
+  | generated (res : Result)
+  /-- The theorem is already handled natively by the Blaster (it normalizes to `True`). -/
+  | native
+  /-- The rule closes a cycle with the recorded rules, nothing has been generated (a warning is logged). -/
+  | cyclic (cycle : Array Name)
 
 
 /-- Given a theorem (or a `Prop` axiom) of the form `∀ x₁ … xₙ, P₁ → … → Pₖ → lhs = rhs`,
@@ -84,10 +102,11 @@ def normalizeTheorem (thmExpr : Expr) : MetaM Expr := do
   | some f => f thmExpr .Restricted
   | none => throwError "blaster: normalization hook not initialized"
 
-/-- Normalizer performing normalization and unfolding of non-rec functions. -/
-def normalizeAndUnfold (e : Expr) : MetaM Expr := do
+/-- Normalizer performing normalization and unfolding of the non-recursive functions, except for `head`
+    and the heads of the recorded rules (see `NormalizeMode.Partial`). -/
+def normalizeAndUnfold (e : Expr) (head : Name) : MetaM Expr := do
   match ← theoremNormalizerRef.get with
-  | some f => f e .Partial
+  | some f => f e (.Partial head)
   | none => throwError "blaster: normalization hook not initialized"
 
 /-! ## Code generation monad -/
@@ -431,14 +450,6 @@ partial def mkBuild (e : Expr) : GenM Ident := do
 
 /-! ## Main generation -/
 
-/-- Split the conclusion of the theorem into `(lhs, rhs)` (see module documentation). -/
-def splitConclusion (concl : Expr) : MetaM (Expr × Expr) := do
-  match concl.getAppFn, concl.getAppArgs with
-  | .const ``Eq _, #[_, lhs, rhs] => return (lhs.consumeMData, rhs)
-  | .const ``Iff _, #[lhs, rhs] => return (lhs, rhs)
-  | .const ``Not _, #[p] => return (p, mkConst ``False)
-  | _, _ => return (concl, mkConst ``True)
-
 /-- Unique name for the optimization function generated from theorem `thm`. -/
 def mkOptFnName (thm : Name) : Name :=
  match thm with
@@ -477,7 +488,7 @@ def generateCode (cfg : Config) : MetaM (Option (Name × Term)) := do
     for x in xs do
       let t ← inferType x
       if ← isProp t then premises := premises.push (x, t)
-    let (lhs, rhs) ← splitConclusion concl
+    let (_, lhs, rhs) ← splitConclusion concl
     if exprEq lhs rhs then return none
     let .const head _ := lhs.getAppFn
       | throwError "blaster: the lhs of `{cfg.thmName}` must be an application of a constant, but got {lhs}"
@@ -556,23 +567,48 @@ def generateCode (cfg : Config) : MetaM (Option (Name × Term)) := do
       : GenM Term).run {}
     return (head, body)
 
+/-- Rule recorded for the static cyclic rewriting check of theorem `thmName` (see `Blaster.ThmOptFn.Rule`):
+    `stmt` is the normalized statement `thmType` the optimization function is generated from, `stmtUnfolded`
+    is the statement `∀ xs (l : τ), l = rhs` (with `τ` the type of the lhs and `l` tagged, see `tagRewriteLhs`)
+    normalized with unfolding of the non-recursive functions (`normalizeAndUnfold`): only the rhs is normalized,
+    the lhs is never unfolded, and neither are `head` and the heads of the recorded rules (at run time, the
+    rules of a head are tried on its normalized arguments before it is unfolded, e.g., `f (wrap n)` reaches
+    the matcher as `f (Nat.add 1 n)`). No statement is built when the rhs is `True`/`False` (nothing to unfold).
+-/
+def mkRule (thmName head : Name) (thmType : Expr) : MetaM Rule := do
+  let stmtUnfolded ← forallTelescope thmType fun xs concl => do
+    let (psort, _, rhs) ← splitConclusion concl
+    if isTrueExpr rhs || isFalseExpr rhs then return none
+    let u := match concl.getAppFn with
+      | .const ``Eq [u] => u
+      | _ => levelOne -- `Iff`: equality on `Prop`
+    let eqStmt ← withLocalDeclD `__blaster_lhs psort fun l =>
+      mkForallFVars (xs.push l) (mkApp3 (mkConst ``Eq [u]) psort (tagAsRewriteLhs l) rhs)
+    return some (← normalizeAndUnfold eqStmt head)
+  return { thmName, head, stmt := thmType, stmtUnfolded }
+
 /-- Generate and compile the optimization function for the given theorem.
     `optFnType` is the expected type of optimization functions (i.e., `Blaster.OptFn`).
-    Return `none` when the theorem is already handled natively by the Blaster, i.e., theorem normalizes to `True`
+    Return `.native` when the theorem is already handled natively by the Blaster, i.e., theorem normalizes to `True`,
+    `.cyclic` when the rule closes a cycle with the recorded rules (see `findCyclicRewriting`).
     Trigger an error when theorem normalizes to `False`.
 -/
-def generate (cfg : Config) (optFnType : Expr) : MetaM (Option Result) := do
+def generate (cfg : Config) (optFnType : Expr) : MetaM Outcome := do
   let thmType ← normalizeTheorem (← tagRewriteLhs cfg.thmType)
-  if isTrueExpr thmType then return none
+  if isTrueExpr thmType then return .native
   if isFalseExpr thmType then throwError "blaster: theorem {cfg.thmName} is unsound"
-  if let some (head, code) ← generateCode {cfg with thmType := thmType} then
-    let value ← Term.TermElabM.run' do
-      let v ← Term.withoutErrToSorry <| Term.elabTermAndSynthesize code (some optFnType)
-      instantiateMVars v
-    if value.hasFVar || value.hasMVar || value.hasLevelMVar then
-      throwError "blaster: failed to elaborate the optimization function generated for `{cfg.thmName}`:{indentD code}"
-    let declName := mkOptFnName cfg.thmName
-    addAndCompile (.defnDecl (← mkDefinitionValInferringUnsafe declName [] optFnType value .opaque))
-    return some { head, declName, code := ⟨eraseSyntaxMacroScopes code⟩ }
-  else return none
+  let some (head, code) ← generateCode {cfg with thmType := thmType} | return .native
+  let rule ← mkRule cfg.thmName head thmType
+  if cfg.cyclicCheck then
+    if let some cycle ← findCyclicRewriting rule then
+      logCyclicRules cycle
+      return .cyclic cycle
+  let value ← Term.TermElabM.run' do
+    let v ← Term.withoutErrToSorry <| Term.elabTermAndSynthesize code (some optFnType)
+    instantiateMVars v
+  if value.hasFVar || value.hasMVar || value.hasLevelMVar then
+    throwError "blaster: failed to elaborate the optimization function generated for `{cfg.thmName}`:{indentD code}"
+  let declName := mkOptFnName cfg.thmName
+  addAndCompile (.defnDecl (← mkDefinitionValInferringUnsafe declName [] optFnType value .opaque))
+  return .generated { head, declName, code := ⟨eraseSyntaxMacroScopes code⟩, rule }
 end Blaster.ThmOptFn

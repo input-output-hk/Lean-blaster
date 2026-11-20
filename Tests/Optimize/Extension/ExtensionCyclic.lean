@@ -23,6 +23,10 @@ when the rules are tried before the arguments are optimized (`InitNonFunOptimize
 once with a bound variable (`ExtCyclicVar_*`) or a raw literal (`ExtCyclicRawLit_*`), whose
 normal form is the elaborated term.
 
+NOTE: the rules closing a cycle are tagged with `(cyclicCheck := false)`: the static check performed
+when the optimization function is generated (see `ExtensionStatic.lean`) would otherwise report the
+cycle and generate nothing, leaving nothing for the run-time check to detect.
+
 NOTE: the expression is printed in the warning without its local context, a bound variable appears
 as `_fvar.N` with an unstable number. The warning is therefore only checked (`#guard_msgs (warning)`)
 on closed terms; the cases with bound variables only check the result of the optimization and drop
@@ -38,7 +42,7 @@ axiom g1 : Nat → Nat
 @[blaster]
 axiom f1_g1 : ∀ (n : Nat), f1 n = g1 n
 
-@[blaster]
+@[blaster (cyclicCheck := false)]
 axiom g1_f1 : ∀ (n : Nat), g1 n = f1 n
 
 /--
@@ -140,7 +144,7 @@ axiom g2 : Nat → Nat
 @[blaster (noRestart := true)]
 axiom f2_g2 : ∀ (n : Nat), f2 n = g2 n
 
-@[blaster (noRestart := true)]
+@[blaster (noRestart := true) (cyclicCheck := false)]
 axiom g2_f2 : ∀ (n : Nat), g2 n = f2 n
 
 /--
@@ -161,7 +165,7 @@ axiom f3_g3 : ∀ (n : Nat), f3 n = g3 n
 @[blaster]
 axiom g3_k3 : ∀ (n : Nat), g3 n = k3 n
 
-@[blaster]
+@[blaster (cyclicCheck := false)]
 axiom k3_f3 : ∀ (n : Nat), k3 n = f3 n
 
 /--
@@ -194,7 +198,7 @@ axiom g5 : Nat → Nat
 @[blaster]
 axiom f5_g5 : ∀ (n : Nat), c n → f5 n = g5 n
 
-@[blaster]
+@[blaster (cyclicCheck := false)]
 axiom g5_f5 : ∀ (n : Nat), g5 n = f5 n
 
 /--
@@ -217,7 +221,7 @@ axiom Q6 : Nat → Prop
 @[blaster]
 axiom P6_Q6 : ∀ (n : Nat), P6 n ↔ Q6 n
 
-@[blaster]
+@[blaster (cyclicCheck := false)]
 axiom Q6_P6 : ∀ (n : Nat), Q6 n ↔ P6 n
 
 /--
@@ -243,7 +247,7 @@ Verify tagged [@blaster] theorems/axioms for cyclic dependencies.
 /-! A single rule swapping its arguments cycles with itself. -/
 axiom f8 : Nat → Nat → Nat
 
-@[blaster]
+@[blaster (cyclicCheck := false)]
 axiom f8_swap : ∀ (n m : Nat), f8 n m = f8 m n
 
 /--
@@ -273,7 +277,7 @@ Verify tagged [@blaster] theorems/axioms for cyclic dependencies.
     at each level and `Nat.add 1 (Nat.add 1 (f10 5))` is folded to `Nat.add 2 (f10 5)`. -/
 axiom f10 : Nat → Nat
 
-@[blaster]
+@[blaster (cyclicCheck := false)]
 axiom f10_grow : ∀ (n : Nat), f10 n = Nat.add 1 (f10 n)
 
 /--

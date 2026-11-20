@@ -1,5 +1,6 @@
 import Lean
 import Blaster.Optimize.Telescope
+import Blaster.Optimize.Env.ExtensionRules
 
 open Lean Meta Declaration
 
@@ -674,7 +675,11 @@ def isNotFoldable
   | Expr.const n u =>
       match (← get).optEnv.options.normalizeMode with
       | .Restricted => return !foldableFuns.contains n
-      | _ =>
+      | m =>
+          if let .Partial head := m then
+            -- the rules of a head are tried on its normalized arguments before it is unfolded:
+            -- `head` and the heads of the recorded rules are kept folded (see `Blaster.ThmOptFn.mkRule`)
+            if n == head || (ThmOptFn.blasterRuleExt.getState (← getEnv)).contains n then return true
           if opaqueFuns.contains n then return true
           else if (← (pure (args.size != 0)) <&&> (isOpaqueRelational n u args)) then return true
           else isRecursiveFun n <||> isAxiomOrOpaque n

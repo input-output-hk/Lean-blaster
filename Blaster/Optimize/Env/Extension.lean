@@ -67,10 +67,14 @@ initialize blasterExt :
      - on a theorem/axiom, an optimization function is generated (see `Blaster.ThmOptFn`);
        - `(noRestart := true)` do not pass the returned term to the optimization process again.
        - `(register := false)` do not register the generated optimize function in Blaster database.
+       - `(cyclicCheck := false)` do not check the theorem for cyclic rewriting with the previously
+         tagged theorems/axioms (see `Blaster.Optimize.Env.ExtensionRules`); the theorem is still
+         recorded for the check of the subsequent ones.
 -/
 declare_syntax_cat extensionOption
 syntax (ppSpace "(" &"noRestart" " := " term ")") : extensionOption
 syntax (ppSpace "(" &"register" " := " term ")") : extensionOption
+syntax (ppSpace "(" &"cyclicCheck" " := " term ")") : extensionOption
 
 syntax (name := blaster) "blaster" (ppSpace ident)? (extensionOption)* : attr
 
@@ -83,6 +87,8 @@ structure ExtensionOptions where
   noRestart : Bool := false
   /-- When `false`, only the optimization function is generated for the annotated theorem. -/
   register : Bool := true
+  /-- When `false`, the static cyclic rewriting check is skipped for the annotated theorem. -/
+  cyclicCheck : Bool := true
 
 instance : Inhabited ExtensionOptions where
   default := {}
@@ -97,6 +103,7 @@ def parseBoolFlag (b : Term) (msg : String) : AttrM Bool := do
 def parseExtensionOption (opts : ExtensionOptions) : TSyntax `extensionOption → AttrM ExtensionOptions
  | `(extensionOption| (noRestart := $b:term)) => return { opts with noRestart := ← parseBoolFlag b "noRestart" }
  | `(extensionOption| (register := $b:term)) => return { opts with register := ← parseBoolFlag b "register" }
+ | `(extensionOption| (cyclicCheck := $b:term)) => return { opts with cyclicCheck := ← parseBoolFlag b "cyclicCheck" }
  | stx => throwErrorAt stx "@[blaster]: unexpected option"
 
 def parseExtensionOptions (args : TSyntaxArray `extensionOption) (opts : ExtensionOptions) : AttrM ExtensionOptions :=
@@ -115,14 +122,21 @@ def isTheoremAxiom? (info : ConstantInfo) (declName : Name) : MetaM (Option Expr
 
 /-- Generate and compile the optimization function for theorem/axiom `declName` of type `thm`
     (see `Blaster.ThmOptFn.generate`). The generated function is named `_blaster_opt_<declName>`.
+    Return the entry to register along with the rule to record for the static cyclic rewriting check,
+    `none` when nothing has been generated (theorem handled natively, or cyclic rewriting detected).
 -/
 def generateThmOptimizationFun
   (declName : Name) (thm : Expr) (noRestart : Bool := false) (headOverride? : Option Name := none)
-  : MetaM (Option OLeanBlasterExtension) := do
-  let some res ← ThmOptFn.generate { thmName := declName, thmType := thm, noRestart, headOverride? } (mkConst ``OptFn)
-    | return none
-  trace[Optimize.extension] "optimization function generated for `{declName}` (target `{res.head}`):\ndef {res.declName} : OptFn :=\n{res.code}"
-  return some { head := res.head, declName := res.declName }
+  (cyclicCheck : Bool := true)
+  : MetaM (Option (OLeanBlasterExtension × ThmOptFn.Rule)) := do
+  match ← ThmOptFn.generate { thmName := declName, thmType := thm, noRestart, headOverride?, cyclicCheck } (mkConst ``OptFn) with
+  | .generated res =>
+      trace[Optimize.extension] "optimization function generated for `{declName}` (target `{res.head}`):\ndef {res.declName} : OptFn :=\n{res.code}"
+      return some ({ head := res.head, declName := res.declName }, res.rule)
+  | .native =>
+      logInfo m!"@[blaster]: `{declName}` is already handled natively by the Blaster, no optimization function generated"
+      return none
+  | .cyclic _ => return none -- warning already logged
 
 /-- Parse the arguments of the `blaster` attribute: the optional target head constant
     followed by any number of options, e.g.,
@@ -145,9 +159,11 @@ initialize registerBuiltinAttribute {
     let opts ← parseAttrArgs stx
     let info ← getConstInfo declName
     if let some thm ← MetaM.run' (isTheoremAxiom? info declName) then
-      let some olean ← MetaM.run' (generateThmOptimizationFun declName thm opts.noRestart opts.declName)
-        | logInfo m!"@[blaster]: `{declName}` is already handled natively by the Blaster, no optimization function generated"
+      let some (olean, rule) ← MetaM.run' (generateThmOptimizationFun declName thm opts.noRestart opts.declName opts.cyclicCheck)
+        | return ()
       let fn ← evalOptFn olean.declName
+      -- record the rule for the static cyclic rewriting check of the subsequent theorems
+      ThmOptFn.blasterRuleExt.add rule attrKind
       unless !(opts.register) do -- add to database only when register flag is set to true.
         blasterExt.add { olean with fn} attrKind
     else

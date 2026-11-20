@@ -74,7 +74,8 @@ instance : Inhabited ResetOptions where
 
 inductive NormalizeMode where
   | Full -- full optimization applied
-  | Partial -- same as restricted but perform unfolding of non-recursive function
+  | Partial (head : Name) -- same as restricted but perform unfolding of non-recursive functions, except for
+                          -- `head` and the heads of the recorded rules (see `isNotFoldable`)
   | Restricted -- normalization for Blaster extension
 deriving Repr
 
