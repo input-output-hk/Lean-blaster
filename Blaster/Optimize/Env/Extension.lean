@@ -185,10 +185,11 @@ def hasRegisteredOptFns (f : Name) : CoreM Bool :=
 
 /-- Try every optimizations registered for `f`. -/
 def applyRegisteredOptFns (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
-  -- reorder operands for commutative operators
-  let args ← reorderOperands f args
   let Expr.const n _ := f | return none
   let optEntries ← liftM (getOptEntries n)
+  if optEntries.isEmpty then return none
+  -- reorder operands for commutative operators
+  let args ← reorderOperands f args
   for entry in optEntries do
     if let some e ← entry.fn f args then return some e
   return none
