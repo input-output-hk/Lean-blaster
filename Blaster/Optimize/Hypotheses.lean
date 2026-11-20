@@ -276,16 +276,16 @@ def addNotPropFacts (e : Expr) (h : Expr) (nextCtxId : CtxId) : TranslateEnvT Un
     if let some b := isBoolValue? op1 then
       let notOp ← mkPropNotOp
       if b then
-        -- case : e := true = e
+        -- case : e := true = c
         let notFact ← mkAppExpr notOp (← mkEqBool op2 false)
-        let not_proof ← mkApp2Expr (← mkBlaster_not_false_eq_of_true_eq) e h
-        -- add `¬ (false = e) := Blaster_not_false_eq_of_true_eq e h` to hypothesisMap
+        let not_proof ← mkApp2Expr (← mkBlaster_not_false_eq_of_true_eq) op2 h
+        -- add `¬ (false = c) := Blaster_not_false_eq_of_true_eq c h` to hypothesisMap
         updateHypMap notFact not_proof nextCtxId
       else
-        -- case : e := false = e
+        -- case : e := false = c
         let notFact ← mkAppExpr notOp (← mkEqBool op2 true)
-        let not_proof ← mkApp2Expr (← mkBlaster_not_true_eq_of_false_eq) e h
-        -- add `¬ (true = e) := Blaster.not_true_eq_of_false_eq e h` to hypothesisMap
+        let not_proof ← mkApp2Expr (← mkBlaster_not_true_eq_of_false_eq) op2 h
+        -- add `¬ (true = c) := Blaster.not_true_eq_of_false_eq c h` to hypothesisMap
         updateHypMap notFact not_proof nextCtxId
 
 /-- Given proposition `e` referenced by hypothesis `h`, perform the following:

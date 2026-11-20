@@ -66,6 +66,11 @@ conclusion is contradicted by the hypothesis).
      - `¬ (N < a)` with `N < 0` adds `a < 0`, `¬ (0 = a)` and `¬ (0 < a)` (with Type(a) = Int)
      Note that `a ≤ b` is normalized to `¬ (b < a)` and `a ≥ b` to `¬ (a < b)`, so the last three
      cases cover the sign information given by non-strict bounds (`5 ≤ a`, `a ≤ -5`, `a ≥ 5`).
+     Note also that a conclusion `¬ (false = x)` is normalized to `true = x` (and `¬ (true = x)` to
+     `false = x`) before being looked up, and that a `dite'`/`ite` on `false = x` is swapped to one on
+     `true = x`: the facts `¬ (false = x)` / `¬ (true = x)` derived from `true = x` / `false = x` are
+     therefore only observable through an occurrence of `false = x` / `true = x` in a disjunction, a
+     conjunction or the premise of an implication (`DerivedNot_51` to `DerivedNot_60`).
 -/
 
 -- ¬ (false = a) → c → true = a ===> True
@@ -230,6 +235,37 @@ conclusion is contradicted by the hypothesis).
 -- ¬ (5 < a) → c → a < 0 ===> ¬ (5 < a) → c → a < 0  (no derivation when N ≥ 0)
 #testOptimize [ "DerivedNot_50" ] (norm-result: 1)
   ∀ (a : Int) (c : Prop), ¬ (5 < a) → c → a < 0 ===> ∀ (a : Int) (c : Prop), ¬ (5 < a) → c → a < 0
+
+-- true = x → (false = x ∨ c) → c ===> True  (`¬ (false = x)` derived from `true = x`)
+#testOptimize [ "DerivedNot_51" ] ∀ (x : Bool) (c : Prop), true = x → (false = x ∨ c) → c ===> True
+
+-- true = x → ¬ (false = x ∧ c) ===> True
+#testOptimize [ "DerivedNot_52" ] ∀ (x : Bool) (c : Prop), true = x → ¬ (false = x ∧ c) ===> True
+
+-- true = x → (false = x → c) ===> True
+#testOptimize [ "DerivedNot_53" ] ∀ (x : Bool) (c : Prop), true = x → (false = x → c) ===> True
+
+-- x → (x = false ∨ c) → c ===> True  (with Type(x) = Bool)
+#testOptimize [ "DerivedNot_54" ] ∀ (x : Bool) (c : Prop), x → (x = false ∨ c) → c ===> True
+
+-- (d ∧ true = x) → (false = x ∨ c) → c ===> True  (the hypothesis comes from a conjunction)
+#testOptimize [ "DerivedNot_55" ] ∀ (x : Bool) (c d : Prop), (d ∧ true = x) → (false = x ∨ c) → c ===> True
+
+-- false = x → (true = x ∨ c) → c ===> True  (`¬ (true = x)` derived from `false = x`)
+#testOptimize [ "DerivedNot_56" ] ∀ (x : Bool) (c : Prop), false = x → (true = x ∨ c) → c ===> True
+
+-- false = x → ¬ (true = x ∧ c) ===> True
+#testOptimize [ "DerivedNot_57" ] ∀ (x : Bool) (c : Prop), false = x → ¬ (true = x ∧ c) ===> True
+
+-- false = x → (true = x → c) ===> True
+#testOptimize [ "DerivedNot_58" ] ∀ (x : Bool) (c : Prop), false = x → (true = x → c) ===> True
+
+-- (!x) → (x = true ∨ c) → c ===> True  (with Type(x) = Bool)
+#testOptimize [ "DerivedNot_59" ] ∀ (x : Bool) (c : Prop), (!x) → (x = true ∨ c) → c ===> True
+
+-- true = x → (false = y ∨ c) → c ===> true = x → c ∨ false = y → c  (nothing is known about `y`)
+#testOptimize [ "DerivedNot_60" ]
+  ∀ (x y : Bool) (c : Prop), true = x → (false = y ∨ c) → c ===> ∀ (x y : Bool) (c : Prop), true = x → c ∨ false = y → c
 
 
 /-! ### Int relational facts (`addRelIntFacts`): when `a < b` (with Type(a) = Int)
@@ -652,6 +688,32 @@ validated (an ill-typed proof would not match the type-checked expected term).
             (@of_decide_eq_true ((0 : Int) < 5) (Int.decLt 0 5)
               (@rfl Bool (@decide ((0 : Int) < 5) (Int.decLt 0 5)))))
 
+/-! Bool facts: the derived facts `¬ (false = x)` / `¬ (true = x)` are looked up when a proof of the
+    declared (non-normalized) type of a parameter is needed. -/
+
+axiom kb : (x : Bool) → ¬ (false = x) → Nat
+axiom kb' : (x : Bool) → ¬ (true = x) → Nat
+
+-- true = x → kb x h = 0 ===> 0 = kb x (not_false_eq_of_true_eq x h)
+#testOptimize [ "DerivedProofNot_16" ] (norm-result: 1)
+  ∀ (x : Bool) (h : ¬ (false = x)), true = x → kb x h = 0 ===>
+  ∀ (x : Bool) (h : true = x), 0 = kb x (@Blaster.not_false_eq_of_true_eq x h)
+
+-- false = x → kb' x h = 0 ===> 0 = kb' x (not_true_eq_of_false_eq x h)
+#testOptimize [ "DerivedProofNot_17" ] (norm-result: 1)
+  ∀ (x : Bool) (h : ¬ (true = x)), false = x → kb' x h = 0 ===>
+  ∀ (x : Bool) (h : false = x), 0 = kb' x (@Blaster.not_true_eq_of_false_eq x h)
+
+-- x → kb x h = 0 ===> 0 = kb x (not_false_eq_of_true_eq x h)  (with Type(x) = Bool)
+#testOptimize [ "DerivedProofNot_18" ] (norm-result: 1)
+  ∀ (x : Bool) (h : ¬ (false = x)), x → kb x h = 0 ===>
+  ∀ (x : Bool) (h : true = x), 0 = kb x (@Blaster.not_false_eq_of_true_eq x h)
+
+-- (c ∧ true = x) → kb x h = 0 ===> c → 0 = kb x (not_false_eq_of_true_eq x h)
+#testOptimize [ "DerivedProofNot_19" ] (norm-result: 1)
+  ∀ (x : Bool) (h : ¬ (false = x)) (c : Prop), (c ∧ true = x) → kb x h = 0 ===>
+  ∀ (x : Bool) (h : true = x) (c : Prop), c → 0 = kb x (@Blaster.not_false_eq_of_true_eq x h)
+
 /-! Nat relational / equality facts. -/
 
 -- a < b → (if h : 0 < b then f h else g) = g ===> g = f (nat_zero_lt_of_lt a b h)
@@ -823,5 +885,33 @@ validated (an ill-typed proof would not match the type-checked expected term).
     g = f (@Blaster.int_lt_zero_of_eq_lt_zero (Int.negSucc 4) a h
             (@of_decide_eq_true (Int.negSucc 4 < (0 : Int)) (Int.decLt (Int.negSucc 4) 0)
               (@rfl Bool (@decide (Int.negSucc 4 < (0 : Int)) (Int.decLt (Int.negSucc 4) 0)))))
+
+/-! Dependent if-then-else facts. -/
+
+axiom kd : (a b c : Prop) → (c → a) → Nat
+axiom kd' : (a b c : Prop) → (¬ c → b) → Nat
+axiom kd'' : (a b : Prop) → (x : Bool) → (false = x → b) → Nat
+
+-- (if c then a else b) → kd a b c h = 0 ===> 0 = kd a b c (And.left (c → a) (¬ c → b) (and_implies_from_dite c _ _ h))
+#testOptimize [ "DerivedProofDite_1" ] (norm-result: 1)
+  ∀ (a b c : Prop) [Decidable c] (h : c → a), (if c then a else b) → kd a b c h = 0 ===>
+  ∀ (a b c : Prop), (c → a) → ∀ (h : Blaster.dite' c (fun _ => a) (fun _ => b)),
+    0 = kd a b c (@And.left (c → a) (¬ c → b) (@Blaster.and_implies_from_dite c (fun _ => a) (fun _ => b) h))
+
+-- (if c then a else b) → kd' a b c h = 0 ===> 0 = kd' a b c (And.right (c → a) (¬ c → b) (and_implies_from_dite c _ _ h))
+#testOptimize [ "DerivedProofDite_2" ] (norm-result: 1)
+  ∀ (a b c : Prop) [Decidable c] (h : ¬ c → b), (if c then a else b) → kd' a b c h = 0 ===>
+  ∀ (a b c : Prop), (¬ c → b) → ∀ (h : Blaster.dite' c (fun _ => a) (fun _ => b)),
+    0 = kd' a b c (@And.right (c → a) (¬ c → b) (@Blaster.and_implies_from_dite c (fun _ => a) (fun _ => b) h))
+
+-- (if x then a else b) → kd'' a b x h = 0 ===>
+--   0 = kd'' a b x (false_eq_imp_of_not_true_imp x b (And.right _ _ (and_implies_from_dite (true = x) _ _ h)))
+#testOptimize [ "DerivedProofDite_3" ] (norm-result: 1)
+  ∀ (a b : Prop) (x : Bool) (h : false = x → b), (if x then a else b) → kd'' a b x h = 0 ===>
+  ∀ (a b : Prop) (x : Bool), (false = x → b) → ∀ (h : Blaster.dite' (true = x) (fun _ => a) (fun _ => b)),
+    0 = kd'' a b x
+          (@Blaster.false_eq_imp_of_not_true_imp x b
+            (@And.right (true = x → a) (¬ (true = x) → b)
+              (@Blaster.and_implies_from_dite (true = x) (fun _ => a) (fun _ => b) h)))
 
 end Tests.DerivedFacts
