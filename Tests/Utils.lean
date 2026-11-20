@@ -7,12 +7,6 @@ namespace Tests
 /-- Parse a term syntax. -/
 def parseTerm (stx : Syntax) : TermElabM Expr := elabTermAndSynthesize stx none
 
-/-- Run the optimizer on an elaborated expression -/
-def optimizeExpr (sOpts : BlasterOptions) (e : Expr) :
-  TermElabM (Expr × Blaster.Optimize.TranslateEnv) :=
-    withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0 }) $ do
-      Blaster.Optimize.command sOpts e
-
 /-- Parse a term syntax and call optimize, returning the elaborated input, the optimized
     expression, and the translation environment (which contains the proof stack). -/
 def callOptimize (sOpts : BlasterOptions) (stx : Syntax) :
