@@ -11,13 +11,13 @@ namespace Tests.UnfoldDITE
 
 -- ∀ (c : Bool) (p : Prop) (f : c → Prop → Prop), if h : c then (f h p) else True ===>
 -- ∀ (c : Bool) (p : Prop) (f : true = c → Prop → Prop), ∀ (h : true = c), f h p
-#testOptimize [ "UnfoldDIte_1" ]
+#testOptimize [ "UnfoldDIte_1", proof ]
   ∀ (c : Bool) (p : Prop) (f : c → Prop → Prop), if h : c then (f h p) else True ===>
   ∀ (c : Bool) (p : Prop) (f : true = c → Prop → Prop), ∀ (h : true = c), f h p
 
 -- ∀ (c : Bool) (x y : Int) (f : c → Int → Int), (if h : c then (f h x) * 0 else 0) < y ===>
 -- ∀ (y : Int), 0 < y
-#testOptimize [ "UnfoldDIte_2" ] (norm-result: 1)
+#testOptimize [ "UnfoldDIte_2", proof ] (norm-result: 1)
   ∀ (c : Bool) (x y : Int) (f : c → Int → Int), (if h : c then (f h x) * 0 else 0) < y ===>
   ∀ (y : Int), 0 < y
 
@@ -56,7 +56,7 @@ namespace Tests.UnfoldDITE
 -- ∀ (c : Bool) (p q : Prop) (f : c → Prop → Prop), if h : c then f h p else q ===>
 -- ∀ (c : Bool) (p q : Prop) (f : true = c → Prop → Prop),
 --   (false = c → q) ∧ (∀ (h : true = c), f h p)
-#testOptimize [ "UnfoldDIte_8" ]
+#testOptimize [ "UnfoldDIte_8", proof ]
   ∀ (c : Bool) (p q : Prop) (f : c → Prop → Prop), if h : c then f h p else q ===>
   ∀ (c : Bool) (p q : Prop) (f : true = c → Prop → Prop),
     (false = c → q) ∧ (∀ (h : true = c), f h p)

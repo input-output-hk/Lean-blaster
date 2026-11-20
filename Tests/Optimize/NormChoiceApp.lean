@@ -226,7 +226,8 @@ Lean.Expr.forallE `x
   (Lean.BinderInfo.default)
 elab "normChoiceAddDite_10" : term => return normChoiceAddDite_10
 
-#testOptimize [ "NormChoiceAppDite_10", proof ]
+-- NOTE: no proof flag, the optimized term applies `g : True → Nat → Nat` to a proof of `¬ False`, which does not type check
+#testOptimize [ "NormChoiceAppDite_10" ]
   ∀ (x : Nat) (f : False → Nat → Nat) (g : ¬ False → Nat → Nat),
     (if h : False then f h else g h) x > 0 ===> normChoiceAddDite_10
 

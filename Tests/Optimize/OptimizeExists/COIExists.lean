@@ -44,7 +44,7 @@ inductive Color where
 --  (if cond then x else y) = z ===>
 --  ∀ (x z : Color), x = z
 -- Test case: COI reduction applies when inductive type has at least one nullary constructor.
-#testOptimize [ "ExistsCOI_7" ] ∀ (a b c : Bool) (x z : Color), ∃ (y : Color),
+#testOptimize [ "ExistsCOI_7", proof ] ∀ (a b c : Bool) (x z : Color), ∃ (y : Color),
                                   let cond := ((!a || ((b || c) && !(c || b))) || a) && (!(b && a) || (a && b));
                                   (if cond then x else y) = z ===>
                                 ∀ (x z : Color), x = z
@@ -54,7 +54,7 @@ inductive Color where
 --  (if cond then x else y) = z ===>
 --  ∀ (x z : Color), x = z
 -- Test case: COI reduction applies when inductive type has at least one nullary constructor.
-#testOptimize [ "ExistsCOI_8" ] ∃ (y : Color), ∀ (a b c : Bool) (x z : Color),
+#testOptimize [ "ExistsCOI_8", proof ] ∃ (y : Color), ∀ (a b c : Bool) (x z : Color),
                                   let cond := ((!a || ((b || c) && !(c || b))) || a) && (!(b && a) || (a && b));
                                   (if cond then x else y) = z ===>
                                 ∀ (x z : Color), x = z
@@ -64,7 +64,7 @@ inductive Color where
 --  (if cond then x else y) = z ===>
 -- ∀ (y z : List Nat), y = z
 -- Test case: COI reduction applies on parametric inductive types.
-#testOptimize [ "ExistsCOI_9" ] ∀ (a b c : Bool) (y z : List Nat), ∃ (x : List Nat),
+#testOptimize [ "ExistsCOI_9", proof ] ∀ (a b c : Bool) (y z : List Nat), ∃ (x : List Nat),
                                   let cond := !((!a || ((b || c) && !(c || b))) || a);
                                   (if cond then x else y) = z ===>
                                 ∀ (y z : List Nat), y = z
@@ -74,7 +74,7 @@ inductive Color where
 --  (if cond then x else y) = z ===>
 -- ∀ (y z : List Nat), y = z
 -- Test case: COI reduction applies on parametric inductive types.
-#testOptimize [ "ExistsCOI_10" ] ∃ (x : List Nat), ∀ (a b c : Bool) (y z : List Nat),
+#testOptimize [ "ExistsCOI_10", proof ] ∃ (x : List Nat), ∀ (a b c : Bool) (y z : List Nat),
                                   let cond := !((!a || ((b || c) && !(c || b))) || a);
                                   (if cond then x else y) = z ===>
                                  ∀ (y z : List Nat), y = z
@@ -84,7 +84,7 @@ inductive Color where
 --  (if cond then x else y) = z ===>
 -- ∀ (α : Type) (y z : List α), y = z
 -- Test case: COI reduction applies on polymorphic inductive type having an Inhabited instance.
-#testOptimize [ "ExistsCOI_11" ] ∀ (α : Type) (a b c : Bool) (y z : List α), ∃ (x : List α),
+#testOptimize [ "ExistsCOI_11", proof ] ∀ (α : Type) (a b c : Bool) (y z : List α), ∃ (x : List α),
                                      let cond := !((!a || ((b || c) && !(c || b))) || a);
                                      (if cond then x else y) = z ===>
                                  ∀ (α : Type) (y z : List α), y = z
@@ -94,7 +94,7 @@ inductive Color where
 --  (if cond then x else y) = z ===>
 -- ∀ (α : Type) (y z : List α), y = z
 -- Test case: COI reduction applies on polymorphic inductive type having an Inhabited instance.
-#testOptimize [ "ExistsCOI_12" ] ∀ (α : Type), ∃ (x : List α), ∀ (a b c : Bool) (y z : List α),
+#testOptimize [ "ExistsCOI_12", proof ] ∀ (α : Type), ∃ (x : List α), ∀ (a b c : Bool) (y z : List α),
                                      let cond := !((!a || ((b || c) && !(c || b))) || a);
                                      (if cond then x else y) = z ===>
                                  ∀ (α : Type) (y z : List α), y = z
@@ -104,7 +104,7 @@ inductive Color where
 --  let cond := !((!a || ((b || c) && !(c || b))) || a);
 --  ¬ ((if cond then x else y) = y) ===> False
 -- Test case: COI reduction also applies on sort type.
-#testOptimize [ "ExistsCOI_13" ] ∀ (α : Type) (a b c : Bool), ∃ (x y : List α),
+#testOptimize [ "ExistsCOI_13", proof ] ∀ (α : Type) (a b c : Bool), ∃ (x y : List α),
                                   let cond := !((!a || ((b || c) && !(c || b))) || a); ¬ (if cond then x else y) = y ===> False
 
 
@@ -112,7 +112,7 @@ inductive Color where
 --  let cond := !((!a || ((b || c) && !(c || b))) || a);
 --  ¬ ((if cond then x else y) = y) ===> False
 -- Test case: COI reduction also applies on sort type.
-#testOptimize [ "ExistsCOI_14" ] ∀ (α : Type), ∃ (x y : List α), ∀ (a b c : Bool),
+#testOptimize [ "ExistsCOI_14", proof ] ∀ (α : Type), ∃ (x y : List α), ∀ (a b c : Bool),
                                   let cond := !((!a || ((b || c) && !(c || b))) || a); ¬ (if cond then x else y) = y ===> False
 
 
@@ -254,7 +254,7 @@ inductive ColorDegree (α : Type u) where
 --  (if cond then x else y) = z ===>
 --  ∀ (α : Type) ∃ (y : ColorDegree α), ∀ (x z : ColorDegree α), x = z
 -- Test case: COI reduction rules not applicable when inductive type does not have at least one nullary constructor.
-#testOptimize [ "ExistsCOIUnchanged_11" ] ∀ (α : Type), ∃ (y : ColorDegree α), ∀ (a b c : Bool) (x z : ColorDegree α),
+#testOptimize [ "ExistsCOIUnchanged_11", proof ] ∀ (α : Type), ∃ (y : ColorDegree α), ∀ (a b c : Bool) (x z : ColorDegree α),
                                             let cond := ((!a || ((b || c) && !(c || b))) || a) && (!(b && a) || (a && b));
                                             (if cond then x else y) = z ===>
                                           ∀ (α : Type), ∃ (_y : ColorDegree α), ∀ (x z : ColorDegree α), x = z
@@ -280,7 +280,7 @@ inductive NoInstance where
 -- ∃ (y : NoInstance), ∀ (x y z : NoInstance), x = z
 -- Test case: COI reduction rules not applicable when inductive type does not have at least one nullary constructor
 -- or an appropriate Inhabited instance.
-#testOptimize [ "ExistsCOIUnchanged_13" ] ∃ (y : NoInstance), ∀ (a b c : Bool) (x z : NoInstance),
+#testOptimize [ "ExistsCOIUnchanged_13", proof ] ∃ (y : NoInstance), ∀ (a b c : Bool) (x z : NoInstance),
                                            let cond := ((!a || ((b || c) && !(c || b))) || a) && (!(b && a) || (a && b));
                                            (if cond then x else y) = z ===>
                                          ∃ (_y : NoInstance), ∀ (x z : NoInstance), x = z

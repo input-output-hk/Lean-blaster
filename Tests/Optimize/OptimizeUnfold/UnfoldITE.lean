@@ -127,7 +127,7 @@ namespace Tests.UnfoldITE
 -- ∀ (α : Type) (x y : α), [LT α] → [DecidableLT α] → (if x < y then x else y) = y ===>
 -- ∀ (α : Type) (x y : α), [LT α] →
 --   y = Blaster.dite' (x < y) (fun _h : x < y => x) (fun _h : ¬ (x < y) => y)
-#testOptimize [ "IteNotUnfolded_10" ]
+#testOptimize [ "IteNotUnfolded_10", proof ]
  ∀ (α : Type) (x y : α), [LT α] → [DecidableLT α] → (if x < y then x else y) = y ===>
  ∀ (α : Type) (x y : α), [LT α] →
    y = Blaster.dite' (x < y) (fun _h : x < y => x) (fun _h : ¬ (x < y) => y)
@@ -140,7 +140,7 @@ namespace Tests.UnfoldITE
 --       (List.Lex (λ a b => LT.lt a b) x y)
 --       (fun _h : List.Lex (λ a b => LT.lt a b) x y => x)
 --       (fun _h : ¬ (List.Lex (λ a b => LT.lt a b) x y) => y))
-#testOptimize [ "IteNotUnfolded_11" ]
+#testOptimize [ "IteNotUnfolded_11", proof ]
  ∀ (α : Type) (x y : List α), [LT α] → [DecidableLT (List α)] → (if x < y then x else y) ≤ y ===>
  ∀ (α : Type) (x y : List α), [LT α] →
    ¬ List.Lex (λ a b => LT.lt a b) y

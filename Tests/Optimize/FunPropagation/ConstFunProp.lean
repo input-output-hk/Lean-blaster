@@ -408,7 +408,7 @@ namespace Tests.ConstFunProp
 -- ∀ (a b c : Bool) (f : true = c → Bool → Bool),
 --   (false = c → true = b) ∧ (∀ (h : true = c),  true = f h a)
 -- NOTE: Test case to validate dite propagation on equality true
-#testOptimize [ "DIteOverFun_8" ]
+#testOptimize [ "DIteOverFun_8", proof ]
   ∀ (a b c : Bool) (f : c → Bool → Bool), true = if h : c then f h a else b ===>
   ∀ (a b c : Bool) (f : true = c → Bool → Bool),
     (false = c → true = b) ∧ (∀ (h : true = c),  true = f h a)
@@ -417,7 +417,7 @@ namespace Tests.ConstFunProp
 -- ∀ (a b c : Bool) (f : true = c → Bool → Bool),
 --   (false = c → false = b) ∧ (∀ (h : true = c), false = f h a)
 -- NOTE: Test case to validate dite propagation on equality false
-#testOptimize [ "DIteOverFun_9" ]
+#testOptimize [ "DIteOverFun_9", proof ]
   ∀ (a b c : Bool) (f : c → Bool → Bool), false = if h : c then f h a else b ===>
   ∀ (a b c : Bool) (f : true = c → Bool → Bool),
     (false = c → false = b) ∧ (∀ (h : true = c), false = f h a)

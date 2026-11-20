@@ -93,4 +93,12 @@ protected theorem apply_dite' {α : Sort u} {β : Sort v} (g : α → β) (c : P
       (congrFun (congrFun (congrFun (congrFun (congrFun Blaster.dite_equiv.{v} β) c)
         (Classical.propDecidable c)) _) _))
 
+/-- Validates rewriting the condition of a `Blaster.dite'`, as core `forall_prop_congr_dom` for the
+    domain of a `∀`: each branch gets its hypothesis cast back to the old condition. -/
+protected theorem dite'_congr_cond {α : Sort u} {b c : Prop} (h : b = c) (x : b → α) (y : ¬ b → α) :
+    Blaster.dite' b x y =
+      Blaster.dite' c (fun h' => x (h.mpr_prop h')) (fun h' => y (h.mpr_not h')) := by
+  subst h
+  rfl
+
 end Blaster

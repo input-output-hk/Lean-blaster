@@ -49,7 +49,7 @@ namespace Test.OptimizeITE
 
 -- ∀ (c : Bool), if c then ∀ (x y : Int), x > y else ∀ (z y : Int), y < z ===>
 -- ∀ (x y : Int), y < x
-#testOptimize [ "IteAbsorption_9" ] ∀ (c : Bool), if c then ∀ (x y : Int), x > y else ∀ (z y : Int), y < z ===>
+#testOptimize [ "IteAbsorption_9", proof ] ∀ (c : Bool), if c then ∀ (x y : Int), x > y else ∀ (z y : Int), y < z ===>
                                     ∀ (x y : Int), y < x
 
 -- let x := if ¬ (p = q) then a else b in

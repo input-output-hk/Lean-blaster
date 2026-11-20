@@ -271,8 +271,8 @@ example : ∀ (P : Nat → Prop) (Q : Prop), ((∃ y : Nat, P y ∧ P y) → Q) 
 -- and below that binder too, after its domain
 example : ∀ (P Q : Nat → Prop), (∀ _n : Nat, (∃ y : Nat, P y ∧ P y) → ∃ z : Nat, Q z ∧ Q z) =
     (∀ _n : Nat, (∃ y : Nat, P y) → ∃ z : Nat, Q z) := by blaster
--- closes without the pass too: a term whose type depends on the rewritten binder has no
--- congruence at it, and the pass must leave it
+-- a term whose type depends on the rewritten binder has no congruence at it, and the pass must
+-- leave it
 example : ∀ (l : List Nat),
     (fun (n : Nat) => Fin.last (List.map (fun x => 0 + x) (n :: l)).length) =
     (fun (n : Nat) => if True then Fin.last (List.map (fun x => 0 + x) (n :: l)).length
@@ -280,3 +280,26 @@ example : ∀ (l : List Nat),
 -- a step below a binder that leaves the target reflexive, before the later ones rewrite it again
 example : ∀ (a : Prop), (∃ y : Nat, a ∧ 0 + y = y + 1 ∧ 0 + y = y + 2) =
     (∃ y : Nat, a ∧ y = y + 1 ∧ y = y + 2) := by blaster
+-- a step on the condition of a `dite'` whose branch uses its hypothesis, in the target and in a
+-- hypothesis
+example : ∀ (a b c : Bool) (f : ¬ c = true → Bool → Bool),
+    (if h : ¬ c = true then f h a else b) = if h : c = true then b else f h a := by blaster
+example : ∀ (c : Bool) (a b : Prop) (g : ¬ c → Prop → Prop),
+    (if h : c then a else g h b) → (true = c → a) ∧ ∀ (h : ¬ c), g h b := by blaster
+-- and of a `dite'` applied to one more argument
+example : ∀ (a c : Bool) (f : ¬ c = true → Bool → Bool) (g : Bool → Bool),
+    (if h : ¬ c = true then f h else g) a = (if h : c = true then g else f h) a := by blaster
+-- a hypothesis that closes the target before the condition is rewritten in either
+example : ∀ (c : Bool) (f : ¬ c = true → Bool) (a : Prop),
+    (a → (if h : ¬ c = true then f h else true) = true) → a →
+      (if h : ¬ c = true then f h else true) = true := by blaster
+-- a kept hypothesis rewritten in the domain of a `∀` its body depends on, in an equality of
+-- foralls whose body is reflexive before the rounds stall
+example : (∀ (n : Nat) (g : n > 0 ∧ True → Nat) (_h1 : ∀ (h : n > 0 ∧ True), g h = 1), n = n ∨ g = g) =
+    (∀ (n : Nat) (g : n > 0 ∧ True → Nat) (_h1 : ∀ (h : n > 0), g ⟨h, trivial⟩ = 1), n = n ∨ g = g) := by
+  blaster
+-- a step the replay cannot map is left to `rewrite`
+example : ∀ (x : Int) (c : Bool) (y : Nat),
+    (if c then Int.natAbs x else y) > 5 → (if c then Int.natAbs x else y) > 5 := by blaster
+-- a lemma stated on a partial application, below a binder
+example : ∀ (x z : Nat), (∃ y : Nat, (if True then x else y) = z) = (x = z) := by blaster

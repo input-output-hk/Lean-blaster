@@ -246,6 +246,22 @@ private def canonicalForm (cache : IO.Ref CanonCache) (e : Expr) : MetaM Expr :=
   cache.set { converted, noLet }
   return e
 
+/-- `f args` reduced at the head while it stays a redex, with the redexes that substituting a
+    lambda argument creates reduced one level deep. -/
+private def betaCreated (f : Expr) (args : Array Expr) : Expr := Id.run do
+  let mut f := f
+  let mut args := args
+  while f.isLambda && !args.isEmpty do
+    let mut b := f
+    let mut k := 0
+    while k < args.size do
+      let .lam _ _ body _ := b | break
+      b := body
+      k := k + 1
+    f := b.instantiateBetaRevRange 0 k args
+    args := args.extract k args.size
+  return mkAppN f args
+
 /-- Beta reduce the redexes headed by the term the rewrite `r` inserted, since the optimizer
     keeps applied lambdas reduced. Reducing one also reduces the redexes that substituting a
     lambda argument creates. -/
@@ -259,22 +275,6 @@ private def betaAfterLambdaStep (r : RewriteResult) : MetaM Expr := do
   -- a user redex is reduced only when its head is the inserted term itself
   Core.transform eNew (post := fun x =>
     return if x.getAppFn == rhs then .done (betaCreated rhs x.getAppArgs) else .continue)
-where
-  /-- `f args` reduced at the head while it stays a redex, with the redexes that substituting a
-      lambda argument creates reduced one level deep. -/
-  betaCreated (f : Expr) (args : Array Expr) : Expr := Id.run do
-    let mut f := f
-    let mut args := args
-    while f.isLambda && !args.isEmpty do
-      let mut b := f
-      let mut k := 0
-      while k < args.size do
-        let .lam _ _ body _ := b | break
-        b := body
-        k := k + 1
-      f := b.instantiateBetaRevRange 0 k args
-      args := args.extract k args.size
-    return mkAppN f args
 
 /-- Whether the kernel accepts a step proof with free variables, since a hypothesis left out of
     normal form by the replay makes a proof built on it ill-typed. A leftover metavariable also
@@ -290,26 +290,29 @@ private def checkHypStep (g : MVarId) (proof : Expr) : MetaM Unit := do
 /-- A rewrite step pushed below binders the replay does not introduce (of a `∃`, a `fun`, a nested
     `∀`), out of the reach of `kabstract`. `thm` is its proof closed over the binders it mentions,
     outermost first, and `depth` the position of each among the binders open at the step,
-    innermost first. -/
+    innermost first. A step out of binders, which `kabstract` applies, has none, and is
+    `outside`. -/
 private structure BinderStep where
   thm : Expr
   symm : Bool
   depth : Array Nat
+  outside : Bool := false
   deriving Inhabited
 
 /-- The step `p`, pushed below `bs` (innermost first), closed over those the replay does not
-    introduce. `none` when there are none, or when `p` is an instance free of them, which
-    `kabstract` finds anywhere. -/
+    introduce. `outside` when there are none, or when `p` is an instance free of them, which
+    `kabstract` finds anywhere. `none` when the replay cannot map an fvar of `p`. -/
 private def closeOverBinders (p : Expr) (symm : Bool) (bs : List Blaster.Optimize.OpenBinder) :
     MetaM (Option BinderStep) := do
   let lctx ← getLCtx
   let bs := bs.filter (!lctx.contains ·.fvar)
-  if bs.isEmpty then return none
-  -- a step with an fvar the replay cannot map, in neither its context nor `bs`, fails as before
+  -- an fvar in neither the context nor `bs`
   if p.hasAnyFVar (fun f => !lctx.contains f && !bs.any (·.fvar == f)) then return none
+  let outside : BinderStep := { thm := p, symm, depth := #[], outside := true }
+  if bs.isEmpty then return some outside
   -- a lemma left to unify is applied below binders
   unless p.hasAnyFVar (fun f => bs.any (·.fvar == f)) do
-    unless (← whnfR (← inferType p)).isForall do return none
+    unless (← whnfR (← inferType p)).isForall do return some outside
   -- the binders `p` mentions, and those their types mention, which are outer ones
   let mut need : Std.HashSet FVarId := (collectFVars {} p).fvarIds.foldl (·.insert ·) {}
   for b in bs do
@@ -322,34 +325,69 @@ private def closeOverBinders (p : Expr) (symm : Bool) (bs : List Blaster.Optimiz
   if thm.hasAnyFVar (!lctx.contains ·) then return none
   return some { thm, symm, depth := xs.toArray.map fun b => bs.findIdx (·.fvar == b.fvar) }
 
+/-- The key of a step below binders: the head and arity of the side it rewrites, `none` when one of
+    its binders heads it, and `none` outside when its type is not an equation. -/
+private abbrev BinderKey := Option (Option (HeadIndex × Nat))
+
 /-- The steps below binders by the head and arity of the side they rewrite, as `kabstract`
-    filters its instances, in `anyHead` those headed by one of their binders, and the type of each
-    step's `thm`. -/
+    filters its instances, in `anyHead` those headed by one of their binders, and the type and the
+    key of each step. -/
 private structure BinderIndex where
   byHead : Std.HashMap (HeadIndex × Nat) (Array Nat) := {}
   anyHead : Array Nat := #[]
   types : Array Expr := #[]
+  keys : Array BinderKey := #[]
+
+/-- The index of the steps with these keys and types. -/
+private def BinderIndex.ofKeys (keys : Array BinderKey) (types : Array Expr) : BinderIndex := Id.run do
+  let mut d : BinderIndex := { types, keys }
+  for h : i in [:keys.size] do
+    match keys[i] with
+    | some (some k) => d := { d with byHead := d.byHead.insert k ((d.byHead.getD k #[]).push i) }
+    | some none => d := { d with anyHead := d.anyHead.push i }
+    | none => pure ()
+  return d
 
 /-- The steps that may rewrite `e`, in stack order. -/
 private def BinderIndex.candidates (d : BinderIndex) (e : Expr) : Array Nat :=
   ((d.byHead.getD (e.toHeadIndex, e.headNumArgs) #[]) ++ d.anyHead).qsort (· < ·)
 
+/-- The steps that may rewrite `e` or the application of its head to its first `k` arguments,
+    paired with `k`, in stack order. `kabstract` finds a partial application too, e.g. the side
+    `dite' True` of a lemma stated by `funext`. -/
+private def BinderIndex.prefixCandidates (d : BinderIndex) (e : Expr) : Array (Nat × Nat) :=
+  let n := e.headNumArgs
+  let byPrefix := (List.range (n + 1)).foldl (init := #[]) fun a k =>
+    a ++ (d.byHead.getD (e.toHeadIndex, k) #[]).map (·, k)
+  (byPrefix ++ d.anyHead.map (·, n)).qsort (·.1 < ·.1)
+
+/-- The key and the type of the step `b`. -/
+private def binderStepKey (b : BinderStep) : MetaM (BinderKey × Expr) := do
+  let ty ← inferType b.thm
+  let key ← withNewMCtxDepth do
+    let (xs, _, ty) ← forallMetaTelescopeReducing ty
+    let some (_, l, r) := (← whnfR ty).eq? | return none
+    let l := if b.symm then r else l
+    return some <| if xs[:b.depth.size].toArray.contains l.getAppFn then none
+      else some (l.toHeadIndex, l.headNumArgs)
+  return (key, ty)
+
 private def indexBinderSteps (bs : Array BinderStep) : MetaM BinderIndex := do
-  let mut d : BinderIndex := {}
-  for i in [:bs.size] do
-    let ty ← inferType bs[i]!.thm
-    d := { d with types := d.types.push ty }
-    let key? ← withNewMCtxDepth do
-      let (xs, _, ty) ← forallMetaTelescopeReducing ty
-      let some (_, l, r) := (← whnfR ty).eq? | return none
-      let l := if bs[i]!.symm then r else l
-      return some <| if xs[:bs[i]!.depth.size].toArray.contains l.getAppFn then none
-        else some (l.toHeadIndex, l.headNumArgs)
-    match key? with
-    | some (some k) => d := { d with byHead := d.byHead.insert k ((d.byHead.getD k #[]).push i) }
-    | some none => d := { d with anyHead := d.anyHead.push i }
-    | none => pure ()
-  return d
+  let ks ← bs.mapM binderStepKey
+  return .ofKeys (ks.map (·.1)) (ks.map (·.2))
+
+/-- `d` once a replaced hypothesis renamed the fvars of the steps `old` into `new`: only the steps
+    whose proof changed are indexed again, and the map is built again only if a key changed. -/
+private def BinderIndex.reindex (d : BinderIndex) (old new : Array BinderStep) :
+    MetaM BinderIndex := do
+  let mut keys := d.keys
+  let mut types := d.types
+  for h : i in [:new.size] do
+    if new[i].thm != old[i]!.thm then
+      let (k, t) ← binderStepKey new[i]
+      keys := keys.set! i k
+      types := types.set! i t
+  return if keys == d.keys then { d with types } else .ofKeys keys types
 
 /-- The traversal of `rewriteBelowBinders`: no lemma or simproc of its own, and an arrow's
     premise is a local, for the premises of the steps. -/
@@ -359,17 +397,35 @@ private def binderPassConfig : Simp.Config :=
     dsimp := false, zetaUnused := false, zetaHave := false, letToHave := false,
     implicitDefEqProofs := false, index := false }
 
-/-- Rewrite `e` with the steps `bs` below binders, in one traversal. At a subterm the steps that
-    match apply in stack order, each once, as in a round of the replay. A binder of a step is the
-    one entered at its depth, a premise a hypothesis or an instance. Only steps `allowed` apply.
+/-- Rewrite `e` with the steps `bs`, in one traversal. At a subterm the steps that match apply
+    in stack order, each once, as in a round of the replay. A binder of a step is the one entered
+    at its depth, a premise a hypothesis or an instance. Only steps `allowed` apply. With
+    `dependent`, the traversal also rewrites the condition of a `dite'` (see `condition`).
     Returns `e'` and a proof of `e = e'`, `none` when no step applies. -/
 private def rewriteBelowBinders (e : Expr) (bs : Array BinderStep) (index : BinderIndex)
-    (allowed : Nat → Bool) : MetaM (Option (Expr × Expr)) := do
+    (allowed : Nat → Bool) (dependent := false) : MetaM (Option (Expr × Expr)) := do
   let lctx0 ← getLCtx
   let (r, _) ← Simp.main e (← Simp.mkContext binderPassConfig)
     (methods := { pre := pre lctx0, post := post lctx0 })
   return r.proof?.map (r.expr, ·)
 where
+  /-- The condition of the `dite'` that `e` applies, which the traversal leaves alone since the
+      branches bind a hypothesis on it, rewritten on its own. The branches cast their hypothesis
+      back to the old condition. -/
+  condition (e : Expr) : SimpM (Option Simp.Result) := do
+    let n := e.getAppNumArgs
+    unless dependent && e.isAppOf ``Blaster.dite' && n ≥ 4 do return none
+    let args := e.getAppArgs
+    let r ← Simp.simp args[1]!
+    let some h := r.proof? | return none
+    if r.expr == args[1]! then return none
+    let pf ← mkAppM ``Blaster.dite'_congr_cond #[h, args[2]!, args[3]!]
+    -- the old branches applied to the casts, which `inferType` beta reduces
+    let some (_, _, d) := (← inferType pf).eq? | return none
+    let extra := args.extract 4 n
+    let eNew := mkAppN d extra
+    let pf ← extra.foldlM (init := pf) fun p a => mkCongrFun p a
+    return some { expr := eNew, proof? := ← mkExpectedTypeHint pf (← mkEq e eNew) }
   /-- The binders the traversal entered, innermost first, with their types. -/
   entered (lctx0 : LocalContext) : MetaM (Array (Expr × Expr)) :=
     return ((← getLCtx).foldl (init := #[]) fun a d =>
@@ -378,6 +434,8 @@ where
       as `rewrite` does, since the steps below were pushed after it. A `∀` is rewritten whole, a
       `fun` with its application, as its own type changes with its domain. -/
   pre (lctx0 : LocalContext) (e : Expr) : SimpM Simp.Step := do
+    -- not visited again, so that steps undoing each other at the condition stop
+    if let some r ← condition e then return .continue r
     let ds ← match e with
       | .forallE _ d b _ => pure (if b.hasLooseBVars && !(← isProp d) then #[d] else #[])
       | .app .. => pure (e.getAppArgs.filterMap fun | .lam _ d _ _ => some d | _ => none)
@@ -390,20 +448,31 @@ where
       a ++ ((index.candidates x).filter allowed).map (·, x)
     if found.isEmpty then return .continue
     let entered ← entered lctx0
+    -- the motive depends on the instance only, not on the step
+    let mut motives : Std.HashMap Expr (Option (Expr × Expr)) := {}
     for (i, x) in found.qsort (·.1 < ·.1) do
       let some r ← apply entered i x | continue
       let some pf := r.proof? | continue
-      let eAbst ← kabstract e x
-      unless eAbst.hasLooseBVars do continue
-      let motive := mkLambda `x .default (← inferType x) eAbst
-      unless ← isTypeCorrect motive do continue
-      -- an equation between the two sides needs a type the instance does not change
-      unless !(← inferType motive).bindingBody!.hasLooseBVars do continue
+      let m ← match motives[x]? with
+        | some m => pure m
+        | none => motiveOf e x
+      motives := motives.insert x m
+      let some (eAbst, motive) := m | continue
       let eNew := eAbst.instantiate1 r.expr
       return .visit { expr := eNew, proof? := ← mkExpectedTypeHint (← mkCongrArg motive pf) (← mkEq e eNew) }
     return .continue
+  /-- `e` with the instances of `x` abstracted, and the motive that rewrites them, when it is type
+      correct and the type of `e` does not depend on `x`. -/
+  motiveOf (e x : Expr) : MetaM (Option (Expr × Expr)) := do
+    let eAbst ← kabstract e x
+    unless eAbst.hasLooseBVars do return none
+    let motive := mkLambda `x .default (← inferType x) eAbst
+    unless ← isTypeCorrect motive do return none
+    -- an equation between the two sides needs a type the instance does not change
+    if (← inferType motive).bindingBody!.hasLooseBVars then return none
+    return some (eAbst, motive)
   post (lctx0 : LocalContext) (e : Expr) : SimpM Simp.Step := do
-    if (index.candidates e).isEmpty then return .continue
+    unless (index.prefixCandidates e).any (allowed ·.1) do return .continue
     let entered ← entered lctx0
     let mut r : Simp.Result := { expr := e }
     let mut next := 0
@@ -412,11 +481,19 @@ where
       r ← r.mkEqTrans r'
       next := i + 1
     return if r.proof?.isSome then .visit r else .continue
-  /-- The first step from `next` on, in stack order, that rewrites `e`, and its result. -/
+  /-- The first step from `next` on, in stack order, that rewrites `e` or a prefix of its
+      application, and its result, with the redexes headed by the lambda it inserts reduced. -/
   firstStep (entered : Array (Expr × Expr)) (e : Expr) (next : Nat) :
       MetaM (Option (Nat × Simp.Result)) := do
-    for i in (index.candidates e).filter fun i => i ≥ next && allowed i do
-      if let some r ← apply entered i e then return some (i, r)
+    let n := e.headNumArgs
+    for (i, k) in (index.prefixCandidates e).filter fun (i, _) => i ≥ next && allowed i do
+      let some r ← apply entered i (e.getBoundedAppFn (n - k)) | continue
+      if k == n then return some (i, r)
+      let some pf := r.proof? | continue
+      let args := e.getAppArgs.extract k n
+      let eNew := betaCreated r.expr args
+      let pf ← args.foldlM (init := pf) mkCongrFun
+      return some (i, { expr := eNew, proof? := ← mkExpectedTypeHint pf (← mkEq e eNew) })
     return none
   apply (entered : Array (Expr × Expr)) (i : Nat) (e : Expr) : MetaM (Option Simp.Result) := do
     let s := bs[i]!
@@ -466,9 +543,20 @@ where
       x.mvarId!.assign v
     return true
 
+/-- Whether `e` may have a position the rest of the term depends on, where `kabstract` cannot
+    rewrite: the condition of a `dite'`, or the domain of a `∀` over a proof its body uses. -/
+private def hasDependentPosition (e : Expr) : MetaM Bool := do
+  let found ← IO.mkRef false
+  e.forEach fun s => do
+    unless ← found.get do
+      match s with
+      | .forallE _ d b _ => if b.hasLooseBVar 0 && (← isPropQuick d) != .false then found.set true
+      | _ => if s.isAppOfArity ``Blaster.dite' 4 then found.set true
+  found.get
+
 /-- How the replay left one intro'd binder. Its terms are in the context of the replayed goal. -/
 structure ReplayedBinder where
-  /-- The fvar of the binder when the replay reached it, and its type then. -/
+  /-- The fvar and type of the binder before the replay rewrote it, up to unfolding. -/
   fvar : FVarId
   type : Expr
   /-- The fvar and type the replay left it with. -/
@@ -480,28 +568,39 @@ structure ReplayedBinder where
   deriving Inhabited
 
 /-- Rewrite the intro'd Prop hypotheses with the recorded steps, so they reach the
-    optimizer normal form that hypothesis-driven steps expect.
-    Returns the new goal, the steps and those below binders with the replaced hypothesis fvars
-    renamed, and how each binder was left. -/
+    optimizer normal form that hypothesis-driven steps expect. `binders` records how each was
+    left so far. With `dependent`, the traversal of every rewrite step rewrites those with a
+    position `kabstract` cannot rewrite, as on the target once its rounds stall (see
+    `replaySteps`), and not `kabstract`.
+    Returns the new goal, the steps and the rewrite steps `all` with the replaced hypothesis fvars
+    renamed, how each binder was left, and whether one is left with a dependent position. -/
 private def rewriteHypotheses (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep)
-    (bsteps : Array BinderStep) (hyps : Array FVarId) (cache : IO.Ref CanonCache) :
-    MetaM (MVarId × Array Blaster.Optimize.ProofStep × Array BinderStep × Array ReplayedBinder) := do
+    (all : Array BinderStep) (binders : Array ReplayedBinder) (dependent : Bool)
+    (cache : IO.Ref CanonCache) :
+    MetaM (MVarId × Array Blaster.Optimize.ProofStep × Array BinderStep ×
+      Array ReplayedBinder × Bool) := do
   let mut g := goal
   let mut steps := steps
-  let mut bsteps := bsteps
-  let mut index ← g.withContext (indexBinderSteps bsteps)
-  let mut hs := hyps
-  let mut binders := #[]
-  for i in [:hs.size] do
+  let mut all := all
+  -- whether a step is below binders, which the traversal applies anywhere
+  let below := all.any (!·.outside)
+  -- the index of `all`, built when a traversal first runs
+  let mut index? : Option BinderIndex := none
+  let mut binders := binders
+  let mut hs := binders.map (·.final)
+  let mut pending := false
+  for i in [:binders.size] do
+    let b := binders[i]!
     let mut h := hs[i]!
     let mut ty ← g.withContext do instantiateMVars (← h.getType)
-    let start := (h, ty)
-    -- a replacement only renames the binder and the later ones, so this one keeps its record
-    let mut eq? : Option Expr := none
+    -- a binder not rewritten yet starts where the replay reaches it
+    let start := if b.eq?.isSome then (b.fvar, b.type) else (h, ty)
+    let mut eq? := b.eq?
     -- the type the steps below binders last left as it was, which they would leave again
     let mut idle : Option Expr := none
-    unless ← g.withContext (isProp ty) do
-      binders := binders.push { fvar := h, type := ty, final := h, finalType := ty, eq? }
+    -- with `dependent`, a hypothesis `kabstract` rewrites throughout is left as the rounds before
+    unless ← g.withContext (isProp ty <&&> (pure !dependent <||> hasDependentPosition ty)) do
+      binders := binders.set! i { fvar := start.1, type := start.2, final := h, finalType := ty, eq? }
       continue
     -- a round is a function of the type, so a type a round already started from means steps
     -- undoing each other, which would loop
@@ -512,7 +611,8 @@ private def rewriteHypotheses (goal : MVarId) (steps : Array Blaster.Optimize.Pr
       seen := seen.insert ty
       changed := false
       -- index into the current `steps`, whose proofs are renamed after each replacement, and
-      -- `steps.size` for the steps below binders, applied together
+      -- `steps.size` for the steps below binders, applied together, or every rewrite step
+      -- when `dependent`
       for j in [:steps.size + 1] do
         -- as on the target, so that a hypothesis and the target unfold alike
         if let some (.unfold n) := steps[j]? then
@@ -526,12 +626,17 @@ private def rewriteHypotheses (goal : MVarId) (steps : Array Blaster.Optimize.Pr
         -- a step built from this hypothesis or a later one cannot have normalized it
         let later (p : Expr) := p.hasAnyFVar (hs.extract i hs.size).contains
         let mut rw? : Option (Expr × Expr) := none
-        if j == steps.size && !bsteps.isEmpty && idle != some ty then
-          rw? ← g.withContext (rewriteBelowBinders ty bsteps index fun k => !later bsteps[k]!.thm)
+        if j == steps.size && (dependent || below && idle != some ty) then
+          let index ← match index? with
+            | some i => pure i
+            | none => g.withContext (indexBinderSteps all)
+          index? := some index
+          rw? ← g.withContext (rewriteBelowBinders ty all index
+            (fun k => (dependent || !all[k]!.outside) && !later all[k]!.thm) dependent)
           if rw?.isNone then idle := some ty
         try
           if let some (.rewrite heq symm _) := steps[j]? then
-            unless later heq do
+            unless dependent || later heq do
               let r ← g.rewrite ty heq symm
               checkHypStep g heq
               rw? := some (← betaAfterLambdaStep r, r.eqProof)
@@ -547,24 +652,45 @@ private def rewriteHypotheses (goal : MVarId) (steps : Array Blaster.Optimize.Pr
               | .rewrite proof symm _ => .rewrite (s.apply proof) symm
               | .exact proof => .exact (s.apply proof)
               | s@(.unfold _) => s
-            bsteps := bsteps.map fun b => { b with thm := s.apply b.thm }
-            index ← res.mvarId.withContext (indexBinderSteps bsteps)
+            let old := all
+            all := all.map fun b => { b with thm := s.apply b.thm }
+            index? ← res.mvarId.withContext (index?.mapM (·.reindex old all))
             hs := hs.map fun f => (s.get f).fvarId!
+            -- the records of the later binders already rewritten follow the renaming
+            binders := binders.mapIdx fun k b => if k ≤ i || b.eq?.isNone then b else { b with
+              fvar := (s.get b.fvar).fvarId!, type := s.apply b.type
+              final := (s.get b.final).fvarId!, finalType := s.apply b.finalType
+              eq? := b.eq?.map s.apply }
             g := res.mvarId
             h := res.fvarId
             ty := eNew
             changed := true
         catch _ => pure ()
-    binders := binders.push { fvar := start.1, type := start.2, final := h, finalType := ty, eq? }
-  return (g, steps, bsteps, binders)
+    binders := binders.set! i { fvar := start.1, type := start.2, final := h, finalType := ty, eq? }
+    if !pending then pending ← g.withContext (hasDependentPosition ty)
+  return (g, steps, all, binders, pending)
 
 /-- Rewrite the hypotheses, then apply the steps to the target until none applies, it is
     reflexive, or a round would start again from a target already seen, those below binders once
-    per round. Steps that don't match are skipped. -/
+    per round, together in one traversal of the rewrite steps `all` (in stack order, each as a
+    `BinderStep`). Steps that don't match are skipped. A round that changes nothing leaves the
+    target open, unless it or a hypothesis has a position `kabstract` cannot rewrite (see
+    `hasDependentPosition`). From then on the hypotheses with such a position and the target are
+    rewritten with the traversal of every rewrite step, which reaches that position, and no longer
+    with `kabstract`, until a round changes nothing. The hypotheses wait for that stall, so that a
+    step closing the target with one of them finds both alike. With `records`, a target left
+    reflexive before it, which the caller closes, still gets them rewritten, for their records. -/
 private def replaySteps (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep)
-    (bsteps : Array BinderStep) (hyps : Array FVarId) (cache : IO.Ref CanonCache) :
+    (all : Array BinderStep) (hyps : Array FVarId) (cache : IO.Ref CanonCache) (records : Bool) :
     MetaM (MVarId × Array ReplayedBinder) := do
-  let (goal, steps, bsteps, binders) ← rewriteHypotheses goal steps bsteps hyps cache
+  let binders ← goal.withContext <| hyps.mapM fun h => do
+    let ty ← instantiateMVars (← h.getType)
+    return { fvar := h, type := ty, final := h, finalType := ty, eq? := none }
+  -- whether a hypothesis waits for the stall, at a position `kabstract` cannot rewrite
+  let (goal, steps, all, binders, pending) ← rewriteHypotheses goal steps all binders false cache
+  let mut steps := steps
+  let mut all := all
+  let mut binders := binders
   /- trace[Optimize.expr] "proofStack ({steps.size} steps):" -/
   /- let mut idx : Nat := 0 -/
   /- for step in steps do -/
@@ -578,7 +704,10 @@ private def replaySteps (goal : MVarId) (steps : Array Blaster.Optimize.ProofSte
   /-   idx := idx + 1 -/
   let mut g := goal
   /- trace[Optimize.expr] "initial goal: {← g.getType}" -/
-  let index ← g.withContext (indexBinderSteps bsteps)
+  -- whether a step is below binders, which the traversal applies anywhere
+  let below := all.any (!·.outside)
+  -- the index of `all`, built when a traversal first runs
+  let mut index? : Option BinderIndex := none
   -- the target the steps below binders last left as it was, which they would leave again
   let mut idle : Option Expr := none
   -- a target a step left reflexive is closed by `refl`, before a later step rewrites it again
@@ -586,6 +715,8 @@ private def replaySteps (goal : MVarId) (steps : Array Blaster.Optimize.ProofSte
     return (← instantiateMVars (← g.getType)).eq?.any fun (_, l, r) => l == r
   -- as on the hypotheses, a target a round already started from means steps undoing each other
   let mut seen : Std.HashSet Expr := {}
+  -- whether the rounds stalled, so that the traversal rewrites, not `kabstract`
+  let mut stalled := false
   let mut changed := true
   while changed do
     let t ← g.getType
@@ -593,9 +724,10 @@ private def replaySteps (goal : MVarId) (steps : Array Blaster.Optimize.ProofSte
     seen := seen.insert t
     changed := false
     for step in steps do
-      if ← reflexive g then return (g, binders)
+      if ← reflexive g then break
       match step with
       | .rewrite heq symm _ =>
+        if stalled then continue
         try
           let t ← g.getType
           let r ← g.rewrite t heq symm
@@ -637,14 +769,45 @@ private def replaySteps (goal : MVarId) (steps : Array Blaster.Optimize.ProofSte
           -- the unfolded body is user code, put in the replay spelling
           g ← g.replaceTargetDefEq (← g.withContext (canonicalForm cache t'))
           changed := true
-    if ← reflexive g then return (g, binders)
+    if ← reflexive g then
+      -- the hypotheses waiting for the stall are rewritten all the same, for their records
+      if records && pending && !stalled then
+        let (g', _, _, binders', _) ← rewriteHypotheses g steps all binders true cache
+        return (g', binders')
+      return (g, binders)
     -- the steps below binders, together in one traversal of the target
-    unless bsteps.isEmpty do
+    let t ← g.getType
+    if !stalled && below && idle != some t then
+      let index ← match index? with
+        | some i => pure i
+        | none => g.withContext (indexBinderSteps all)
+      index? := some index
+      if let some (eNew, eqProof) ← g.withContext (rewriteBelowBinders t all index (!all[·]!.outside)) then
+        g ← g.replaceTargetEq eNew eqProof
+      if (← g.getType) != t then changed := true else idle := some t
+    unless changed do
+      unless stalled do
+        unless pending || (← g.withContext (hasDependentPosition (← g.getType))) do break
+        stalled := true
+        let (g', steps', all', binders', _) ← rewriteHypotheses g steps all binders true cache
+        index? ← g'.withContext (index?.mapM (·.reindex all all'))
+        if g' != g then
+          changed := true
+          -- the hypotheses changed, so a target already seen starts a round again
+          seen := {}
+        g := g'
+        steps := steps'
+        all := all'
+        binders := binders'
       let t ← g.getType
-      if idle != some t then
-        if let some (eNew, eqProof) ← g.withContext (rewriteBelowBinders t bsteps index fun _ => true) then
-          g ← g.replaceTargetEq eNew eqProof
-        if (← g.getType) != t then changed := true else idle := some t
+      let index ← match index? with
+        | some i => pure i
+        | none => g.withContext (indexBinderSteps all)
+      index? := some index
+      if let some (eNew, eqProof) ← g.withContext (rewriteBelowBinders t all index (fun _ => true) true) then
+        g ← g.replaceTargetEq eNew eqProof
+        if ← reflexive g then return (g, binders)
+        if (← g.getType) != t then changed := true
   /- trace[Optimize.expr] "final goal: {← g.getType}" -/
   -- the target may have been reduced to a hypothesis
   unless ← g.isAssigned do
@@ -661,9 +824,10 @@ private def closeTrivially (g : MVarId) : MetaM Bool := do
 
 /-- Apply recorded proof stack rewrites to a goal.
     `hyps` are the intro'd binders, rewritten first (see `rewriteHypotheses`).
-    Returns the goal left and how the replay left each of `hyps`. -/
+    Returns the goal left and how the replay left each of `hyps`, which a caller reading it asks
+    with `records` (see `replaySteps`). -/
 def applyProofStack (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep)
-    (hyps : Array FVarId := #[]) : MetaM (MVarId × Array ReplayedBinder) := do
+    (hyps : Array FVarId := #[]) (records := false) : MetaM (MVarId × Array ReplayedBinder) := do
   -- the hypotheses, the target and the steps are put once in one spelling
   let cache ← IO.mkRef {}
   let goal ← hyps.foldlM (init := goal) fun g h => g.withContext do
@@ -674,21 +838,23 @@ def applyProofStack (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep)
     let t ← instantiateMVars (← goal.getType)
     let t' ← canonicalForm cache t
     if t' != t then goal.replaceTargetDefEq t' else pure goal
-  let (steps, bsteps) ← goal.withContext do
+  let (steps, all) ← goal.withContext do
     let mut plain : Array Blaster.Optimize.ProofStep := #[]
-    let mut below := #[]
+    let mut all := #[]
     for s in steps do
       match s with
       | .rewrite proof symm bs =>
         let proof ← canonicalForm cache proof
         let bs ← bs.mapM fun b => return { b with type := ← canonicalForm cache b.type }
-        match ← closeOverBinders proof symm bs with
-        | some b => below := below.push b
-        | none => plain := plain.push (.rewrite proof symm)
+        let b? ← closeOverBinders proof symm bs
+        -- `kabstract` applies a step out of binders, and one the replay cannot map fails there
+        -- as before
+        unless b?.any (!·.outside) do plain := plain.push (.rewrite proof symm)
+        if let some b := b? then all := all.push b
       | .exact proof => plain := plain.push (.exact (← canonicalForm cache proof))
       | s => plain := plain.push s
-    return (plain, below)
-  replaySteps goal steps bsteps hyps cache
+    return (plain, all)
+  replaySteps goal steps all hyps cache records
 
 /-- Custom sorry for Blaster to differentiate between SMT-verified goals and regular `sorry`.-/
 axiom blasterProven : ∀ {α : Sort u}, α
@@ -703,15 +869,15 @@ private def blasterAdmit (mvarId : MVarId) : MetaM Unit :=
 /-- Prove a goal by introducing binders, applying the proof stack, then closing with refl.
     On failure, admit via `blasterProven`, or throw when `admit` is false.
     Warn only when `optimizerClosed`, since then the optimizer proved it by rewriting and
-    it should have reconstructed. -/
+    it should have reconstructed. `records` as in `applyProofStack`. -/
 private def proveByProofStack (goalType : Expr) (proofStack : Array Blaster.Optimize.ProofStep)
-    (optBinders : Array FVarId) (optimizerClosed : Bool) (admit := true) :
+    (optBinders : Array FVarId) (optimizerClosed : Bool) (admit := true) (records := false) :
     MetaM (Expr × Array ReplayedBinder) := do
   let proofMVar ← mkFreshExprMVar goalType
   let numBinders ← forallTelescope goalType fun fvars _ => pure fvars.size
   let (goalFVarIds, g) ← proofMVar.mvarId!.introNP numBinders
   let proofStack := substProofStackFVars proofStack optBinders goalFVarIds
-  let (g, binders) ← applyProofStack g proofStack goalFVarIds
+  let (g, binders) ← applyProofStack g proofStack goalFVarIds records
   let closed ← closeTrivially g
   unless closed do
     unless admit do throwError m!"blaster: reconstruction gap\n{.ofGoal g}"
@@ -795,7 +961,7 @@ private def proveForallEq (lhs rhs : Expr) (k : Nat) (idx : Array (Option Nat))
     let innerType ← mkForallFVars xs (← mkEq P (toX Q))
     -- out of the telescopes, or the replay could close it with one of their fvars
     let (inner, bs) ← withLCtx lctx localInsts do
-      proveByProofStack innerType steps optBinders false (admit := false)
+      proveByProofStack innerType steps optBinders false (admit := false) (records := true)
     -- the equations are only needed here, so their lemma arguments are instantiated here
     let bs ← bs.mapM fun b => return { b with eq? := ← b.eq?.mapM instantiateMVars }
     let rhsOf (i : Nat) := idx.findIdx? (· == some i)

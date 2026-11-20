@@ -66,7 +66,7 @@ namespace Test.ImpliesInHyp
 
 -- ∀ (c : Bool) (a b : Prop) (g : ¬ c → Prop → Prop),
 --   (if h : c then a else g h b) → (true = c → a) ∧ ∀ (h : ¬ c), g h b ===> True
-#testOptimize [ "ImpliesInHyp_13" ]
+#testOptimize [ "ImpliesInHyp_13", proof ]
  ∀ (c : Bool) (a b : Prop) (g : ¬ c → Prop → Prop),
    (if h : c then a else g h b) → (true = c → a) ∧ ∀ (h : ¬ c), g h b ===> True
 
@@ -113,15 +113,13 @@ namespace Test.ImpliesInHyp
 
 -- ∀ (c : Bool) (a b d : Prop), (if c then a else b) → (true = c → d) ===>
 -- ∀ (c : Bool) (a b d : Prop), (false = c → b) ∧ (true = c → a) → (true = c → d)
--- NOTE: no proof flag, the rewrite of the `if` hypothesis into a conjunction has no proof step
-#testOptimize [ "ImpliesInHypUnchanged_4" ]
+#testOptimize [ "ImpliesInHypUnchanged_4", proof ]
  ∀ (c : Bool) (a b d : Prop), (if c then a else b) → (true = c → d) ===>
  ∀ (c : Bool) (a b d : Prop), (false = c → b) ∧ (true = c → a) → (true = c → d)
 
 -- ∀ (c : Bool) (a b d : Prop), (if c then a else d) → (false = c → b) ===>
 -- ∀ (c : Bool) (a b d : Prop), (false = c → d) ∧ (true = c → a) → (false = c → b)
--- NOTE: no proof flag, the rewrite of the `if` hypothesis into a conjunction has no proof step
-#testOptimize [ "ImpliesInHypUnchanged_5" ]
+#testOptimize [ "ImpliesInHypUnchanged_5", proof ]
  ∀ (c : Bool) (a b d : Prop), (if c then a else d) → (false = c → b) ===>
  ∀ (c : Bool) (a b d : Prop), (false = c → d) ∧ (true = c → a) → (false = c → b)
 
@@ -136,8 +134,7 @@ namespace Test.ImpliesInHyp
 --   (if h : c then f h d else b) → ∀ (h : c), f h a ===>
 -- ∀ (c : Bool) (a b d : Prop) (f : true = c → Prop → Prop),
 --   ((false = c → b) ∧ ∀ (h : true = c), f h d) → ∀ (h : true = c), f h a
--- NOTE: no proof flag, the function binder `f` changes type, which the replay does not transport
-#testOptimize [ "ImpliesInHypUnchanged_7" ]
+#testOptimize [ "ImpliesInHypUnchanged_7", proof ]
  ∀ (c : Bool) (a b d : Prop) (f : c → Prop → Prop),
    (if h : c then f h d else b) → ∀ (h : c), f h a ===>
  ∀ (c : Bool) (a b d : Prop) (f : true = c → Prop → Prop),
