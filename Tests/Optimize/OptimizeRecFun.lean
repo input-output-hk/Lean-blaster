@@ -619,8 +619,7 @@ where
 --   (∀ (n m : Nat), 0 < m → Nat.mod n m < n)
 -- NOTE: Test case can result to `True` when implementing structural
 -- equivalence with opaque function.
--- NOTE: no proof flag, the rewrite of `if` into `Blaster.dite'` in the hypothesis has no proof step
-#testOptimize [ "NormRecUnchanged_15" ] (norm-result: 1)
+#testOptimize [ "NormRecUnchanged_15", proof ] (norm-result: 1)
   (∀ (x y : Nat), y > 0 → modNat x y < y) → (∀ (n m : Nat), m > 0 → n % m < n) ===>
   (∀ (x y : Nat), 0 < y → Blaster.dite' (0 = x) (fun _h : 0 = x => 0) (fun _h : ¬ 0 = x => modNat.modAux x y) < y) →
     (∀ (n m : Nat), 0 < m → Nat.mod n m < n)
