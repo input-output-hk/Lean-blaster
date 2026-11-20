@@ -398,4 +398,22 @@ No optimization function generated for `Test.ExtensionStatic.g25_sum25`.
 @[blaster]
 axiom g25_sum25 : ∀ (xs : List Nat), g25 xs = sum25 (List.reverseAux xs [])
 
+def g (x y : Nat) : Nat := x + y
+
+/--
+warning: [blaster]: Cyclic rewriting detected: `Test.ExtensionStatic.g_comm` ↦ `Test.ExtensionStatic.g_comm` (the rhs of each rule contains an instance of the lhs of the next one).
+No optimization function generated for `Test.ExtensionStatic.g_comm`.
+-/
+#guard_msgs (warning) in
+@[blaster]
+theorem g_comm (x y : Nat) : g x y = g y x := Nat.add_comm x y
+
+axiom myF : Nat → Nat → Nat
+/--
+warning: [blaster]: Cyclic rewriting detected: `Test.ExtensionStatic.myF_comm` ↦ `Test.ExtensionStatic.myF_comm` (the rhs of each rule contains an instance of the lhs of the next one).
+No optimization function generated for `Test.ExtensionStatic.myF_comm`.
+-/
+#guard_msgs (warning) in
+@[blaster] axiom myF_comm : ∀ x y, myF x y = myF y x
+
 end Test.ExtensionStatic

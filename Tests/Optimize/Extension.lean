@@ -11,3 +11,4 @@ import Tests.Optimize.Extension.ExtensionFoldableMisc
 import Tests.Optimize.Extension.ExtensionUniverse
 import Tests.Optimize.Extension.ExtensionCyclic
 import Tests.Optimize.Extension.ExtensionStatic
+import Tests.Optimize.Extension.ExtensionSameName

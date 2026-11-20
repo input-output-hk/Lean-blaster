@@ -450,11 +450,17 @@ partial def mkBuild (e : Expr) : GenM Ident := do
 
 /-! ## Main generation -/
 
-/-- Unique name for the optimization function generated from theorem `thm`. -/
-def mkOptFnName (thm : Name) : Name :=
+/-- Name of the optimization function generated from theorem `thm := <p>.<name>` when the `@[blaster]`
+    attribute is applied in namespace `ns`: the name an explicit `def <p'>.blaster_opt_<name>` would get
+    at that point, where `<p'>` is `<p>` relative to `ns`, i.e. `<p>.blaster_opt_<name>` when the theorem
+    is declared in the current namespace (or below), `<ns>.<p>.blaster_opt_<name>` otherwise. A private
+    theorem yields a private function (`mkPrivateName env (mkOptFnName ns (privateToUserName thm))`).
+    The same theorem can therefore be annotated (`attribute [blaster] ...`) from different namespaces,
+    annotating it twice from the same namespace fails as a duplicate definition would. -/
+def mkOptFnName (ns thm : Name) : Name :=
  match thm with
- | .str p s => Name.str p s!"blaster_opt_{s}"
- | _ => thm ++ `blaster_opt
+ | .str p s => Name.str (if ns.isPrefixOf p then p else ns ++ p) s!"blaster_opt_{s}"
+ | _ => (if ns.isPrefixOf thm then thm else ns ++ thm) ++ `blaster_opt
 
 /-- Remove macro scopes from identifiers (for readable traces). -/
 partial def eraseSyntaxMacroScopes : Syntax → Syntax
@@ -603,12 +609,16 @@ def generate (cfg : Config) (optFnType : Expr) : MetaM Outcome := do
     if let some cycle ← findCyclicRewriting rule then
       logCyclicRules cycle
       return .cyclic cycle
-  let value ← Term.TermElabM.run' do
+  let declName := mkOptFnName (← getCurrNamespace) (privateToUserName cfg.thmName)
+  let declName := ← if isPrivateName cfg.thmName then return mkPrivateName (← getEnv) declName else return declName
+  Elab.checkNotAlreadyDeclared declName
+  -- the auxiliary definitions created during elaboration (e.g. `match_<n>`) are named after `declName`
+  -- (and not after the theorem, as set by the `attribute` command) so that they are unique as well
+  let value ← Term.TermElabM.run' <| Term.withDeclName declName do
     let v ← Term.withoutErrToSorry <| Term.elabTermAndSynthesize code (some optFnType)
     instantiateMVars v
   if value.hasFVar || value.hasMVar || value.hasLevelMVar then
     throwError "blaster: failed to elaborate the optimization function generated for `{cfg.thmName}`:{indentD code}"
-  let declName := mkOptFnName cfg.thmName
   addAndCompile (.defnDecl (← mkDefinitionValInferringUnsafe declName [] optFnType value .opaque))
   return .generated { head, declName, code := ⟨eraseSyntaxMacroScopes code⟩, rule }
 end Blaster.ThmOptFn

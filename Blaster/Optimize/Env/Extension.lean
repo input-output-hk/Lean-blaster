@@ -121,7 +121,9 @@ def isTheoremAxiom? (info : ConstantInfo) (declName : Name) : MetaM (Option Expr
   | _ => return none
 
 /-- Generate and compile the optimization function for theorem/axiom `declName` of type `thm`
-    (see `Blaster.ThmOptFn.generate`). The generated function is named `_blaster_opt_<declName>`.
+    (see `Blaster.ThmOptFn.generate`). The generated function is named as an explicit
+    `def <p'>.blaster_opt_<name>` in the current namespace would be, for `declName := <p>.<name>` and
+    `<p'>` the namespace `<p>` relative to the current one (see `Blaster.ThmOptFn.mkOptFnName`).
     Return the entry to register along with the rule to record for the static cyclic rewriting check,
     `none` when nothing has been generated (theorem handled natively, or cyclic rewriting detected).
 -/
