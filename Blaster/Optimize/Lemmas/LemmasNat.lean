@@ -167,6 +167,17 @@ protected theorem nat_lt_add_self_right_eq_true_of_zero_lt (a b : Nat) (h : 0 < 
 protected theorem nat_lt_false_of_not_pred_lt (n e : Nat) (h : ¬ (n - 1 < e)) :
     (n < e) = False := propext ⟨fun hlt => by omega, False.elim⟩
 
+/-- Validates the definitional unfolding `Nat.blt x y ==> Nat.ble (Nat.succ x) y`. -/
+protected theorem nat_blt_eq_ble_succ (x y : Nat) : Nat.blt x y = Nat.ble (Nat.succ x) y := rfl
+
+/-- Validates the normalization `Nat.ble x y ==> Blaster.decide' (x ≤ y)`. -/
+protected theorem nat_ble_eq_decide' (x y : Nat) : Nat.ble x y = Blaster.decide' (x ≤ y) := by
+  cases h : Nat.ble x y
+  · have hn : ¬ (x ≤ y) := by rw [← Nat.ble_eq, h]; exact Bool.false_ne_true
+    exact ((Blaster.decide'_false (x ≤ y)).mpr hn).symm
+  · have hp : x ≤ y := by rw [← Nat.ble_eq]; exact h
+    exact ((Blaster.decide'_true (x ≤ y)).mpr hp).symm
+
 def mkNat_lt_asymm : TranslateEnvT Expr := mkExpr (mkConst ``Nat.lt_asymm)
 
 def mkNat_not_lt_right_of_eq : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.nat_not_lt_right_of_eq)

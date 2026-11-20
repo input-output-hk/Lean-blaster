@@ -7,12 +7,14 @@ namespace Tests
 /-- Parse a term syntax. -/
 def parseTerm (stx : Syntax) : TermElabM Expr := elabTermAndSynthesize stx none
 
-/-- Parse a term syntax and call optimize, returning both the optimized expression
-    and the translation environment (which contains the proof stack). -/
+/-- Parse a term syntax and call optimize, returning the elaborated input, the optimized
+    expression, and the translation environment (which contains the proof stack). -/
 def callOptimize (sOpts : BlasterOptions) (stx : Syntax) :
-    TermElabM (Expr × Blaster.Optimize.TranslateEnv) :=
+    TermElabM (Expr × Expr × Blaster.Optimize.TranslateEnv) :=
   withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0 }) $ do
-    Blaster.Optimize.command sOpts (← parseTerm stx)
+    let inputExpr ← parseTerm stx
+    let (optimized, env) ← Blaster.Optimize.command sOpts inputExpr
+    return (inputExpr, optimized, env)
 
 /-! ## Definition of #testOptimize command to write unit test for Blaster.optimize
     The #testOptimize usage is as follows:
@@ -224,7 +226,7 @@ def testOptimizeImp : CommandElab := fun stx => do
     -- create a local declaration name for the test case
     let m ← getMainModule
     withDeclName (m ++ name.toName) $ do
-      let (actual, env) ← callOptimize sOpts t1
+      let (inputExpr, actual, env) ← callOptimize sOpts t1
       let expected' := removeAnnotations (← parseTerm t2)
       -- keep the current name generator and restore it afterwards
       let ngen ← getNGen
@@ -233,8 +235,6 @@ def testOptimizeImp : CommandElab := fun stx => do
       setNGen ngen
       if actual == expected then
         if requireProof then
-          -- Re-elaborate to obtain the original (pre-optimization) expression
-          let inputExpr ← parseTerm t1
           let proofStack := env.optEnv.proofStack
           let optBinders := env.optEnv.optBinders
           let closed ← replayProofStack inputExpr actual proofStack optBinders

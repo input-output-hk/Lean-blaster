@@ -61,6 +61,7 @@ def optimizeAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
    return op1
  if let Expr.const ``True _ := op1 then
    pushProofStep (.rewrite (mkConst ``true_and))
+   if op2.isConstOf ``True then pushProofStep (.exact (mkConst ``True.intro))
    return op2
  if exprEq op1 op2 then
    pushProofStep (.rewrite (mkConst ``and_self))
@@ -183,6 +184,7 @@ def optimizeOr (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let op2 := args[1]!
  if let Expr.const ``False _ := op1 then
    pushProofStep (.rewrite (mkConst ``false_or))
+   if op2.isConstOf ``True then pushProofStep (.exact (mkConst ``True.intro))
    return op2
  if let Expr.const ``True _ := op1 then
    pushProofStep (.rewrite (mkConst ``true_or))
