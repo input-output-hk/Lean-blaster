@@ -98,21 +98,10 @@ protected theorem apply_dite' {α : Sort u} {β : Sort v} (g : α → β) (c : P
   - `sif h1 : a then (sif h2 : c then e1 else e2) else (sif h2 : c then e3 else e2) ==> sif h2 : c then (sif h1 : a then e1 else e3) else e2`
 -/
 
-protected theorem dite'_reduce_true {α : Sort u} {p : Prop} (t : p → α) (e : ¬ p → α)
-    (h : Blaster.decide' p = true) :
-    Blaster.dite' p t e = t ((Blaster.decide'_true p).mp h) := by
-  unfold Blaster.dite'
-  split <;> rename_i h'
-  · congr 1
-  · rw [h] at h'; exact (Bool.false_ne_true h'.symm).elim
-
-protected theorem dite'_reduce_false {α : Sort u} {p : Prop} (t : p → α) (e : ¬ p → α)
-    (h : Blaster.decide' p = false) :
-    Blaster.dite' p t e = e ((Blaster.decide'_false p).mp h) := by
-  unfold Blaster.dite'
-  split <;> rename_i h'
-  · rw [h] at h'; exact (Bool.false_ne_true h').elim
-  · congr 1
+protected theorem dite'_eq_dite {α : Sort u} (p : Prop) (t : p → α) (e : ¬ p → α) :
+    Blaster.dite' p t e = @dite α p (Classical.propDecidable p) t e :=
+  (congrFun (congrFun (congrFun (congrFun (congrFun Blaster.dite_equiv α) p)
+    (Classical.propDecidable p)) t) e).symm
 
 protected theorem dite'_factorize_thn {α : Sort u} {a c : Prop}
     (t : c → α) (f : a → ¬ c → α) (g : ¬ a → ¬ c → α) :
@@ -126,13 +115,13 @@ protected theorem dite'_factorize_thn {α : Sort u} {a c : Prop}
   · have hlam : (fun h2 : ¬c => @Blaster.dite' α a (fun h1 : a => f h1 h2) (fun h1 : ¬a => g h1 h2))
               = (fun h2 : ¬c => g ((Blaster.decide'_false a).mp h) h2) := by
       funext h2
-      rw [Blaster.dite'_reduce_false _ _ h]
-    rw [hlam, Blaster.dite'_reduce_false _ _ h]
+      rw [Blaster.dite'_eq_dite, dif_neg ((Blaster.decide'_false a).mp h)]
+    rw [hlam, Blaster.dite'_eq_dite, dif_neg ((Blaster.decide'_false a).mp h)]
   · have hlam : (fun h2 : ¬c => @Blaster.dite' α a (fun h1 : a => f h1 h2) (fun h1 : ¬a => g h1 h2))
               = (fun h2 : ¬c => f ((Blaster.decide'_true a).mp h) h2) := by
       funext h2
-      rw [Blaster.dite'_reduce_true _ _ h]
-    rw [hlam, Blaster.dite'_reduce_true _ _ h]
+      rw [Blaster.dite'_eq_dite, dif_pos ((Blaster.decide'_true a).mp h)]
+    rw [hlam, Blaster.dite'_eq_dite, dif_pos ((Blaster.decide'_true a).mp h)]
 
 protected theorem dite'_factorize_els {α : Sort u} {a c : Prop}
     (e : ¬ c → α) (f : a → c → α) (g : ¬ a → c → α) :
@@ -145,12 +134,11 @@ protected theorem dite'_factorize_els {α : Sort u} {a c : Prop}
   · have hlam : (fun h2 : c => @Blaster.dite' α a (fun h1 : a => f h1 h2) (fun h1 : ¬a => g h1 h2))
               = (fun h2 : c => g ((Blaster.decide'_false a).mp h) h2) := by
       funext h2
-      rw [Blaster.dite'_reduce_false _ _ h]
-    rw [hlam, Blaster.dite'_reduce_false _ _ h]
+      rw [Blaster.dite'_eq_dite, dif_neg ((Blaster.decide'_false a).mp h)]
+    rw [hlam, Blaster.dite'_eq_dite, dif_neg ((Blaster.decide'_false a).mp h)]
   · have hlam : (fun h2 : c => @Blaster.dite' α a (fun h1 : a => f h1 h2) (fun h1 : ¬a => g h1 h2))
               = (fun h2 : c => f ((Blaster.decide'_true a).mp h) h2) := by
       funext h2
-      rw [Blaster.dite'_reduce_true _ _ h]
-    rw [hlam, Blaster.dite'_reduce_true _ _ h]
-
+      rw [Blaster.dite'_eq_dite, dif_pos ((Blaster.decide'_true a).mp h)]
+    rw [hlam, Blaster.dite'_eq_dite, dif_pos ((Blaster.decide'_true a).mp h)]
 end Blaster

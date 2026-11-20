@@ -2415,6 +2415,21 @@ elab "dIteToPropExprUnchanged_7" : term => return dIteToPropExprUnchanged_7
     (if h1 : a then (if  h2 : c then g h2 x else y) else (if h2 : c then g h2 x else f h1 w)) =
     (if h2 : c then g h2 x else (if h1 : a then y else f h1 w)) ===> True
 
+-- ∀ (a c : Bool) (x y w : Nat) (f : ¬ a → Nat → Nat) (g : c → Nat → Nat),
+--     (if h1 : a then (if  h2 : c then g h2 x else y) else (if h2 : c then g h2 x else f h 1 w)) =
+--     (if h2 : c then g h2 x else (if h1 : a then y else f h1 w)) ===> True
+#testOptimize [ "DIteFactorizeThen_2", proof ]
+  ∀ (a c : Bool) (x y w : Nat) (f : ¬ a → Nat → Nat) (g : c → Nat → Nat),
+    (if h1 : a then (if h2 : c then g h2 x else y) else (if h2 : c then g h2 x else f h1 w)) =
+    (if h2 : c then g h2 x else (if h1 : a then y else f h1 w)) ===> True
+
+#testOptimize [ "DIteFactorizeThen_3", proof ]
+  ∀ (a c : Prop) [Decidable a] [Decidable c] (t' : c → Nat)
+      (f : a → ¬ c → Nat) (g : ¬ a → ¬ c → Nat),
+    (if h1 : a then (if h2 : c then t' h2 else f h1 h2)
+                 else (if h2 : c then t' h2 else g h1 h2)) =
+    (if h2 : c then t' h2 else (if h1 : a then f h1 h2 else g h1 h2)) ===> True
+
 /-! Test cases for the simplification rule
   `dite a (fun h1 : a => dite c (fun _ => e1) (fun h2 : ¬ c => e2)) (fun _ => dite c (fun _ => e3) (fun h2 : ¬ c => e2))` ==>
   `dite c (fun _ => dite a (fun h1 : a => e1) (fun _ => e3)) (fun h2 : ¬ c => e2)`
@@ -2427,5 +2442,79 @@ elab "dIteToPropExprUnchanged_7" : term => return dIteToPropExprUnchanged_7
   ∀ (a c : Prop) [Decidable a] [Decidable c] (x y w : Nat) (f : a → Nat → Nat) (g : ¬ c → Nat → Nat),
     (if h1 : a then (if h2 : c then f h1 x else g h2 y) else (if h2 : c then w else g h2 y)) =
     (if h2 : c then (if h1 : a then f h1 x else w) else g h2 y) ===> True
+
+-- ∀ (a c : Bool) (x y w : Nat) (f : a → Nat → Nat) (g : ¬ c → Nat → Nat),
+--   (if h1 : a then (if h2 : c then f h1 x else g h2 y) else (if h2 : c then w else g h2 y)) =
+--   (if h2 : c then (if h1 : a then f h1 x else w) else g h2 y) ===> True
+#testOptimize [ "DIteFactorizeElse_2", proof ]
+  ∀ (a c : Bool) (x y w : Nat) (f : a → Nat → Nat) (g : ¬ c → Nat → Nat),
+    (if h1 : a then (if h2 : c then f h1 x else g h2 y) else (if h2 : c then w else g h2 y)) =
+    (if h2 : c then (if h1 : a then f h1 x else w) else g h2 y) ===> True
+
+#testOptimize [ "DIteFactorizeElse_3", proof ]
+  ∀ (a c : Prop) [Decidable a] [Decidable c] (e' : ¬ c → Nat)
+      (f : a → c → Nat) (g : ¬ a → c → Nat),
+    (if h1 : a then (if h2 : c then f h1 h2 else e' h2)
+                 else (if h2 : c then g h1 h2 else e' h2)) =
+    (if h2 : c then (if h1 : a then f h1 h2 else g h1 h2) else e' h2) ===> True
+
+/-! Test cases for ensure that the factorization rules are not applied wrongly -/
+
+def dIteFactorizeUnchanged_1 : Expr :=
+Lean.Expr.forallE `a
+  (Lean.Expr.sort (Lean.Level.zero))
+  (Lean.Expr.forallE `c
+    (Lean.Expr.sort (Lean.Level.zero))
+    (Lean.Expr.forallE `x
+      (Lean.Expr.const `Nat [])
+      (Lean.Expr.forallE `y
+        (Lean.Expr.const `Nat [])
+        (Lean.Expr.forallE `w
+          (Lean.Expr.const `Nat [])
+          (Lean.Expr.app
+            (Lean.Expr.app
+              (Lean.Expr.app
+                (Lean.Expr.app (Lean.Expr.const `LT.lt [Lean.Level.zero]) (Lean.Expr.const `Nat []))
+                (Lean.Expr.const `instLTNat []))
+              (Lean.Expr.lit (Lean.Literal.natVal 0)))
+            (Lean.Expr.app
+              (Lean.Expr.app
+                (Lean.Expr.app
+                  (Lean.Expr.app
+                    (Lean.Expr.const `Blaster.dite' [Lean.Level.succ (Lean.Level.zero)])
+                    (Lean.Expr.const `Nat []))
+                  (Lean.Expr.bvar 4))
+                (Lean.Expr.lam
+                  `h1
+                  (Lean.Expr.bvar 4)
+                  (Lean.Expr.app
+                    (Lean.Expr.app
+                      (Lean.Expr.app
+                        (Lean.Expr.app
+                          (Lean.Expr.const `Blaster.dite' [Lean.Level.succ (Lean.Level.zero)])
+                          (Lean.Expr.const `Nat []))
+                        (Lean.Expr.bvar 4))
+                      (Lean.Expr.lam `h2 (Lean.Expr.bvar 4) (Lean.Expr.bvar 4) (Lean.BinderInfo.default)))
+                    (Lean.Expr.lam
+                      `h2
+                      (Lean.Expr.app (Lean.Expr.const `Not []) (Lean.Expr.bvar 4))
+                      (Lean.Expr.bvar 3)
+                      (Lean.BinderInfo.default)))
+                  (Lean.BinderInfo.default)))
+              (Lean.Expr.lam
+                `h1
+                (Lean.Expr.app (Lean.Expr.const `Not []) (Lean.Expr.bvar 4))
+                (Lean.Expr.bvar 1)
+                (Lean.BinderInfo.default))))
+          (Lean.BinderInfo.default))
+        (Lean.BinderInfo.default))
+      (Lean.BinderInfo.default))
+    (Lean.BinderInfo.default))
+  (Lean.BinderInfo.default)
+elab "dIteFactorizeUnchanged_1" : term => return dIteFactorizeUnchanged_1
+
+#testOptimize [ "DIteFactorizeUnchanged_1", proof ]
+  ∀ (a c : Prop) [Decidable a] [Decidable c] (x y w : Nat),
+    (if _ : a then (if _ : c then x else y) else w) > 0 ===> dIteFactorizeUnchanged_1
 
 end Test.OptimizeDITE
