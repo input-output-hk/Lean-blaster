@@ -14,7 +14,7 @@ namespace Test.NormChoiceApp
 -- ∀ (c : Prop) (x y : Nat), [Decidable c] → x > y → (if c then Nat.add x else Nat.sub x) y > 0 ===>
 -- ∀ (c : Prop) (x y : Nat), y < x →
 --   0 < Blaster.dite' c (fun _ : c =>  Nat.add x y) (fun _ : ¬ c => Nat.sub x y)
-#testOptimize [ "NormChoiceAppIte_1" ] (norm-result: 1)
+#testOptimize [ "NormChoiceAppIte_1", proof ] (norm-result: 1)
   ∀ (c : Prop) (x y : Nat), [Decidable c] → x > y → (if c then Nat.add x else Nat.sub x) y > 0 ===>
   ∀ (c : Prop) (x y : Nat), y < x →
     0 < Blaster.dite' c (fun _ => Nat.add x y) (fun _ => Nat.sub x y)
@@ -24,7 +24,7 @@ namespace Test.NormChoiceApp
 --   (if c then f x else g x) y > 0 ===>
 -- ∀ (α : Type) (c : Prop) (x y : α) (f : α → α → Nat) (g : α → α → Nat),
 --   0 < Blaster.dite' c (fun _ : c => f x y) (fun _ : ¬ c => g x y)
-#testOptimize [ "NormChoiceAppIte_2" ] (norm-result: 1)
+#testOptimize [ "NormChoiceAppIte_2", proof ] (norm-result: 1)
   ∀ (α : Type) (c : Prop) (x y : α) (f : α → α → Nat) (g : α → α → Nat), [Decidable c] →
     (if c then f x else g x) y > 0 ===>
   ∀ (α : Type) (c : Prop) (x y : α) (f : α → α → Nat) (g : α → α → Nat),
@@ -35,7 +35,7 @@ namespace Test.NormChoiceApp
 --   [Decidable c] → (if c then f w else g w) x y z > 0 ===>
 -- ∀ (α : Type) (c : Prop) (w x y z : α) (f : α → α → α → α → Nat) (g : α → α → α → α → Nat),
 --   0 < Blaster.dite' c (fun _ : c => f w x y z) (fun _ : ¬ c => g w x y z)
-#testOptimize [ "NormChoiceAppIte_3" ] (norm-result: 1)
+#testOptimize [ "NormChoiceAppIte_3", proof ] (norm-result: 1)
   ∀ (α : Type) (c : Prop) (w x y z : α) (f : α → α → α → α → Nat) (g : α → α → α → α → Nat),
     [Decidable c] → (if c then f w else g w) x y z > 0 ===>
   ∀ (α : Type) (c : Prop) (w x y z : α) (f : α → α → α → α → Nat) (g : α → α → α → α → Nat),
@@ -46,7 +46,7 @@ namespace Test.NormChoiceApp
 -- ∀ (α : Type) (c : Prop) (w y z : α) (f : α → α → α → α → Nat) (g : α → α → α → α → Nat) (h : α → Nat),
 --   h = Blaster.dite' c (fun _ : c => λ k => f w y z k) (fun _ : ¬ c => λ k => g w y z k)
 -- NOTE: Test case to validate partially applied function
-#testOptimize [ "NormChoiceAppIte_4" ]
+#testOptimize [ "NormChoiceAppIte_4", proof ]
   ∀ (α : Type) (c : Prop) (w y z : α) (f : α → α → α → α → Nat) (g : α → α → α → α → Nat) (h : α → Nat),
     [Decidable c] → (if c then f w else g w) y z = h ===>
   ∀ (α : Type) (c : Prop) (w y z : α) (f : α → α → α → α → Nat) (g : α → α → α → α → Nat) (h : α → Nat),
@@ -61,7 +61,7 @@ def getValue (xs : Array Nat) (i : USize) (h : i.toNat < xs.size) (y : Nat) : Na
 -- ∀ (x y : Nat), y < x → 0 < Nat.add x y
 -- NOTE: Test case to validate that the extra arguments are considered properly when
 -- condition is reduced to True/False.
-#testOptimize [ "NormChoiceAppIte_5" ] (norm-result: 1)
+#testOptimize [ "NormChoiceAppIte_5", proof ] (norm-result: 1)
   ∀ (c : Prop) (x y : Nat), [Decidable c] → x > y → (if c ∨ ¬ c then Nat.add x else Nat.sub x) y > 0 ===>
   ∀ (x y : Nat), y < x → 0 < Nat.add x y
 
@@ -69,9 +69,16 @@ def getValue (xs : Array Nat) (i : USize) (h : i.toNat < xs.size) (y : Nat) : Na
 -- ∀ (x y : Nat), y < x → 0 < Nat.sub x y
 -- NOTE: Test case to validate that the extra arguments are considered properly when
 -- condition is reduced to True/False.
-#testOptimize [ "NormChoiceAppIte_6" ] (norm-result: 1)
+#testOptimize [ "NormChoiceAppIte_6", proof ] (norm-result: 1)
   ∀ (c : Prop) (x y : Nat), [Decidable c] → x > y → (if c ∧ ¬ c then Nat.add x else Nat.sub x) y > 0 ===>
   ∀ (x y : Nat), y < x → 0 < Nat.sub x y
+
+-- ∀ (c : Prop) (f g : Type → Nat) (z : Nat), [Decidable c] → (if c then f else g) Nat = z ===>
+-- ∀ (c : Prop) (f g : Type → Nat) (z : Nat), z = Blaster.dite' c (fun _ => f Nat) (fun _ => g Nat)
+-- NOTE: Test case to validate the universe levels of the proof step for a function in `Type 1`.
+#testOptimize [ "NormChoiceAppIte_7", proof ] (norm-result: 1)
+  ∀ (c : Prop) (f g : Type → Nat) (z : Nat), [Decidable c] → (if c then f else g) Nat = z ===>
+  ∀ (c : Prop) (f g : Type → Nat) (z : Nat), z = Blaster.dite' c (fun _ => f Nat) (fun _ => g Nat)
 
 
 /-! Test cases to validate when normalization of function application on dite. -/
@@ -81,7 +88,7 @@ def getValue (xs : Array Nat) (i : USize) (h : i.toNat < xs.size) (y : Nat) : Na
 --   (0 < if h : x.toNat < xs.size then if xs.uget x h < y then xs.uget x h else y else f y) ===> True
 -- NOTE: We prefer to check for equivalence here, as opposed to verify the resulting optimized expression,
 -- mainly to avoid having to provide the unfolded definition for xs.uget.
-#testOptimize [ "NormChoiceAppDite_1" ] (norm-result: 1)
+#testOptimize [ "NormChoiceAppDite_1", proof ] (norm-result: 1)
   ∀ (x : USize) (xs : Array Nat) (y : Nat) (f : Nat → Nat),
     (if h : x.toNat < xs.size then getValue xs x h else f) y > 0 →
     (0 < if h : x.toNat < xs.size then if xs.uget x h < y then xs.uget x h else y else f y) ===> True
@@ -96,7 +103,7 @@ def getValuePolyOne [LT α] [DecidableLT α] (xs : Array α) (i : USize) (h : i.
 --   (y < if h : x.toNat < xs.size then if xs.uget x h < y then xs.uget x h else y else f y) ===> True
 -- NOTE: We prefer to check for equivalence here, as opposed to verify the resulting optimized expression,
 -- mainly to avoid having to provide the unfolded definition for xs.uget.
-#testOptimize [ "NormChoiceAppDite_2" ] (norm-result: 1)
+#testOptimize [ "NormChoiceAppDite_2", proof ] (norm-result: 1)
   ∀ (α : Type) (x : USize) (xs : Array α) (y : α) (f : α → α), [LT α] → [DecidableLT α] →
     (if h : x.toNat < xs.size then getValuePolyOne xs x h else f) y > y →
     (y < if h : x.toNat < xs.size then if xs.uget x h < y then xs.uget x h else y else f y) ===> True
@@ -113,7 +120,7 @@ def getValuePolyTwo
 --    (y < if h : x.toNat < xs.size then if xs.uget x h < y then xs.uget x h else f w y z else f w y z) ===> True
 -- NOTE: We prefer to check for equivalence here, as opposed to verify the resulting optimized expression,
 -- mainly to avoid having to provide the unfolded definition for xs.uget.
-#testOptimize [ "NormChoiceAppDite_3" ] (norm-result: 1)
+#testOptimize [ "NormChoiceAppDite_3", proof ] (norm-result: 1)
   ∀ (α : Type) (x : USize) (xs : Array α) (w y z : α) (f : α → α → α → α), [LT α] → [DecidableLT α] →
     (if h : x.toNat < xs.size then getValuePolyTwo xs x h f else f) w y z > y →
     (y < if h : x.toNat < xs.size then if xs.uget x h < y then xs.uget x h else f w y z else f w y z) ===> True
@@ -138,7 +145,7 @@ def getValuePolyTwo
 -- ∀ (c : Prop) (x : Nat) (f : c → Nat → Nat) (g : ¬ c → Nat → Nat),
 --   0 < Blaster.dite' c (fun h : c => f h x) (fun h : ¬ c => g h x)
 -- NOTE: Test case to validate quantified function in dite.
-#testOptimize [ "NormChoiceAppDite_5" ] (norm-result: 1)
+#testOptimize [ "NormChoiceAppDite_5", proof ] (norm-result: 1)
   ∀ (c : Prop) (x : Nat) (f : c → Nat → Nat) (g : ¬ c → Nat → Nat), [Decidable c] →
     (if h : c then f h else g h) x > 0 ===>
   ∀ (c : Prop) (x : Nat) (f : c → Nat → Nat) (g : ¬ c → Nat → Nat),
@@ -149,7 +156,7 @@ def getValuePolyTwo
 -- ∀ (c : Prop) (x : Nat) (f : c → Nat → Nat → Nat) (g : ¬ c → Nat → Nat),
 --   0 < Blaster.dite' c (fun h : c => f h x x) (fun h : ¬ c => g h x)
 -- NOTE: Test case to validate quantified function in dite.
-#testOptimize [ "NormChoiceAppDite_6" ] (norm-result: 1)
+#testOptimize [ "NormChoiceAppDite_6", proof ] (norm-result: 1)
   ∀ (c : Prop) (x : Nat) (f : c → Nat → Nat → Nat) (g : ¬ c → Nat → Nat), [Decidable c] →
     (if h : c then f h x else g h) x > 0 ===>
   ∀ (c : Prop) (x : Nat) (f : c → Nat → Nat → Nat) (g : ¬ c → Nat → Nat),
@@ -160,7 +167,7 @@ def getValuePolyTwo
 -- ∀ (α : Type) (c : Prop) (x : Nat) (w : α) (f : c → α → Nat → Nat) (g : ¬ c → α → Nat → Nat),
 --   0 < Blaster.dite' c (fun h : c => f h w x) (fun h : ¬ c => g h w x)
 -- NOTE: Test case to validate quantified function in dite.
-#testOptimize [ "NormChoiceAppDite_7" ] (norm-result: 1)
+#testOptimize [ "NormChoiceAppDite_7", proof ] (norm-result: 1)
   ∀ (α : Type) (c : Prop) (x : Nat) (w : α) (f : c → α → Nat → Nat) (g : ¬ c → α → Nat → Nat), [Decidable c] →
     (if h : c then f h else g h) w x > 0 ===>
   ∀ (α : Type) (c : Prop) (x : Nat) (w : α) (f : c → α → Nat → Nat) (g : ¬ c → α → Nat → Nat),
@@ -174,7 +181,7 @@ def getValuePolyTwo
 --   h = Blaster.dite' c (fun h : c => λ x => f h w x) (fun h : ¬ c => λ x => g h w x)
 -- NOTE: Test case to validate quantified function in dite.
 -- NOTE: Test case to validate partially applied function
-#testOptimize [ "NormChoiceAppDite_8" ] (norm-result: 1)
+#testOptimize [ "NormChoiceAppDite_8", proof ] (norm-result: 1)
   ∀ (α : Type) (c : Prop) (w : α) (f : c → α → Nat → Nat)
     (g : ¬ c → α → Nat → Nat) (h : Nat → Nat), [Decidable c] →
     (if h : c then f h else g h) w = h ===>
@@ -187,7 +194,7 @@ def getValuePolyTwo
 -- ∀ (x : Nat) (f : True → Nat → Nat), 0 < f True.intro x
 -- NOTE: Test case to validate that the extra arguments are considered properly when
 -- condition is reduced to True/False.
-#testOptimize [ "NormChoiceAppDite_9" ] (norm-result: 1)
+#testOptimize [ "NormChoiceAppDite_9", proof ] (norm-result: 1)
   ∀ (x : Nat) (f : True → Nat → Nat) (g : ¬ True → Nat → Nat),
     (if h : True then f h else g h) x > 0 ===>
   ∀ (x : Nat) (f : True → Nat → Nat), 0 < f True.intro x
@@ -219,9 +226,91 @@ Lean.Expr.forallE `x
   (Lean.BinderInfo.default)
 elab "normChoiceAddDite_10" : term => return normChoiceAddDite_10
 
-#testOptimize [ "NormChoiceAppDite_10" ]
+#testOptimize [ "NormChoiceAppDite_10", proof ]
   ∀ (x : Nat) (f : False → Nat → Nat) (g : ¬ False → Nat → Nat),
     (if h : False then f h else g h) x > 0 ===> normChoiceAddDite_10
+
+/-! Test cases to validate when normalization of projection on ite and dite. -/
+
+structure Point where
+  px : Nat
+  py : Int
+
+structure Box (α : Type) where
+  val : α
+  tag : Nat
+
+structure TBox where
+  T : Type
+  v : Nat
+
+structure NB (n : Nat) where
+  v : Nat
+
+structure DS where
+  n : Nat
+  w : NB n
+
+structure LL where
+  hd : Nat
+  tl : Option LL
+
+-- ∀ (c : Prop) (x y : Nat × Int) (z : Nat), [Decidable c] → (if c then x else y).1 = z ===>
+-- ∀ (c : Prop) (x y : Nat × Int) (z : Nat), z = Blaster.dite' c (fun _ => x.1) (fun _ => y.1)
+#testOptimize [ "NormChoiceProjIte_1", proof ] (norm-result: 1)
+  ∀ (c : Prop) (x y : Nat × Int) (z : Nat), [Decidable c] → (if c then x else y).1 = z ===>
+  ∀ (c : Prop) (x y : Nat × Int) (z : Nat), z = Blaster.dite' c (fun _ => x.1) (fun _ => y.1)
+
+-- ∀ (c : Prop) (x y : Point) (z : Int), [Decidable c] → (if c then x else y).py = z ===>
+-- ∀ (c : Prop) (x y : Point) (z : Int), z = Blaster.dite' c (fun _ => x.2) (fun _ => y.2)
+#testOptimize [ "NormChoiceProjIte_2", proof ] (norm-result: 1)
+  ∀ (c : Prop) (x y : Point) (z : Int), [Decidable c] → (if c then x else y).py = z ===>
+  ∀ (c : Prop) (x y : Point) (z : Int), z = Blaster.dite' c (fun _ => x.2) (fun _ => y.2)
+
+-- ∀ (c : Prop) (x y : Box Int) (z : Nat), [Decidable c] → (if c then x else y).tag = z ===>
+-- ∀ (c : Prop) (x y : Box Int) (z : Nat), z = Blaster.dite' c (fun _ => x.2) (fun _ => y.2)
+#testOptimize [ "NormChoiceProjIte_3", proof ] (norm-result: 1)
+  ∀ (c : Prop) (x y : Box Int) (z : Nat), [Decidable c] → (if c then x else y).tag = z ===>
+  ∀ (c : Prop) (x y : Box Int) (z : Nat), z = Blaster.dite' c (fun _ => x.2) (fun _ => y.2)
+
+-- ∀ (c : Prop) (a b z : Nat), [Decidable c] → (if c then (a, b) else (b, a)).1 = z ===>
+-- ∀ (c : Prop) (a b z : Nat), z = Blaster.dite' c (fun _ => a) (fun _ => b)
+-- NOTE: Test case to validate that the projection is reduced in each branch.
+#testOptimize [ "NormChoiceProjIte_4", proof ] (norm-result: 1)
+  ∀ (c : Prop) (a b z : Nat), [Decidable c] → (if c then (a, b) else (b, a)).1 = z ===>
+  ∀ (c : Prop) (a b z : Nat), z = Blaster.dite' c (fun _ => a) (fun _ => b)
+
+-- ∀ (c : Prop) (x y : TBox) (z : Nat), [Decidable c] → (if c then x else y).v = z ===>
+-- ∀ (c : Prop) (x y : TBox) (z : Nat), z = Blaster.dite' c (fun _ => x.2) (fun _ => y.2)
+-- NOTE: Test case to validate the universe levels of the proof step for a structure in `Type 1`.
+#testOptimize [ "NormChoiceProjIte_5", proof ] (norm-result: 1)
+  ∀ (c : Prop) (x y : TBox) (z : Nat), [Decidable c] → (if c then x else y).v = z ===>
+  ∀ (c : Prop) (x y : TBox) (z : Nat), z = Blaster.dite' c (fun _ => x.2) (fun _ => y.2)
+
+-- ∀ (c : Prop) (x y : DS), [Decidable c] → (if c then x else y).w = (if c then x else y).w ===> True
+-- NOTE: Test case to validate that no proof step is emitted when the type of the projected
+-- field depends on an earlier field.
+#testOptimize [ "NormChoiceProjIte_6", proof ]
+  ∀ (c : Prop) (x y : DS), [Decidable c] → (if c then x else y).w = (if c then x else y).w ===> True
+
+-- ∀ (c : Prop) (a b z : Nat) (t : Option LL), [Decidable c] →
+--   (if c then LL.mk a t else LL.mk b t).hd = z ===>
+-- ∀ (c : Prop) (a b z : Nat), z = Blaster.dite' c (fun _ => a) (fun _ => b)
+-- NOTE: Test case to validate the proof step on a recursive structure.
+#testOptimize [ "NormChoiceProjIte_7", proof ] (norm-result: 1)
+  ∀ (c : Prop) (a b z : Nat) (t : Option LL), [Decidable c] →
+    (if c then LL.mk a t else LL.mk b t).hd = z ===>
+  ∀ (c : Prop) (a b z : Nat), z = Blaster.dite' c (fun _ => a) (fun _ => b)
+
+-- ∀ (c : Prop) (t : c → Nat × Int) (y : Nat × Int) (z : Nat), [Decidable c] →
+--   (if h : c then t h else y).1 = z ===>
+-- ∀ (c : Prop) (t : c → Nat × Int) (y : Nat × Int) (z : Nat),
+--   z = Blaster.dite' c (fun h => (t h).1) (fun _ => y.1)
+#testOptimize [ "NormChoiceProjDite_1", proof ] (norm-result: 1)
+  ∀ (c : Prop) (t : c → Nat × Int) (y : Nat × Int) (z : Nat), [Decidable c] →
+    (if h : c then t h else y).1 = z ===>
+  ∀ (c : Prop) (t : c → Nat × Int) (y : Nat × Int) (z : Nat),
+    z = Blaster.dite' c (fun h => (t h).1) (fun _ => y.1)
 
 /-! Test cases to validate when normalization of function application on match. -/
 

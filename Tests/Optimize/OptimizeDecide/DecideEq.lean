@@ -615,27 +615,27 @@ inductive Color where
 
 -- ∀ (c : Prop) (a b d : Bool), [Decidable c] → d = if c then a else b ===>
 -- ∀ (c : Prop) (a b d : Bool), d = Blaster.dite' c (fun _ => a) (fun _ => b)
-#testOptimize [ "BoolEqIteUnchanged_1" ]
+#testOptimize [ "BoolEqIteUnchanged_1", proof ]
   ∀ (c : Prop) (a b d : Bool), [Decidable c] → d = if c then a else b ===>
   ∀ (c : Prop) (a b d : Bool), d = Blaster.dite' c (fun _ => a) (fun _ => b)
 
 -- ∀ (c : Prop) (a b d : Bool), [Decidable c] → (if c then a else b) = d ===>
 -- ∀ (c : Prop) (a b d : Bool), d = Blaster.dite' c (fun _ => a) (fun _ => b)
-#testOptimize [ "BoolEqIteUnchanged_2" ]
+#testOptimize [ "BoolEqIteUnchanged_2", proof ]
   ∀ (c : Prop) (a b d : Bool), [Decidable c] → (if c then a else b) = d ===>
   ∀ (c : Prop) (a b d : Bool), d = Blaster.dite' c (fun _ => a) (fun _ => b)
 
 -- ∀ (c : Prop) (a b : Bool), [Decidable c] → (if c then a else b) = (a && b) ===>
 -- ∀ (c : Prop) (a b : Bool),
 --   (a && b) = Blaster.dite' c (fun _ => a) (fun _ => b)
-#testOptimize [ "BoolEqIteUnchanged_3" ]
+#testOptimize [ "BoolEqIteUnchanged_3", proof ]
   ∀ (c : Prop) (a b : Bool), [Decidable c] → (if c then a else b) = (a && b) ===>
   ∀ (c : Prop) (a b : Bool),
     (a && b) = Blaster.dite' c (fun _ => a) (fun _ => b)
 
 -- ∀ (a : Prop) (b c : Bool), [Decidable a] → (if a then true else b) = (b || c) ===>
 -- ∀ (a : Prop) (b c : Bool), (b || c) = Blaster.dite' a (fun _ => true) (fun _ => b)
-#testOptimize [ "BoolEqIteUnchanged_4" ]
+#testOptimize [ "BoolEqIteUnchanged_4", proof ]
   ∀ (a : Prop) (b c : Bool), [Decidable a] → (if a then true else b) = (b || c) ===>
   ∀ (a : Prop) (b c : Bool), (b || c) = Blaster.dite' a (fun _ => true) (fun _ => b)
 
@@ -1460,14 +1460,14 @@ variable (z : Int)
 -- ∀ (x y z : Int) (a b c : Bool),
 --  (if (x ≤ y) && ((a || ((b || c) && !(c || b)))) then x else y) < z ===>
 -- ∀ (x y z : Int) (a : Bool), Blaster.dite' (¬ y < x ∧ true = a) (fun _ => x) (fun _ => y) < z
-#testOptimize [ "DecideEqTrue_15"]
+#testOptimize [ "DecideEqTrue_15", proof ]
   ∀ (x y z : Int) (a b c : Bool), (if (x ≤ y) && ((a || ((b || c) && !(c || b)))) then x else y) < z ===>
   ∀ (x y z : Int) (a : Bool), Blaster.dite' (¬ y < x ∧ true = a) (fun _ => x) (fun _ => y) < z
 
 -- ∀ (x y z : Int) (a b c : Bool),
 --  ((if (x ≤ y) && ((a || ((b || c) && !(c || b)))) then x else y) < z) =
 --  (z > (if (x ≤ y) ∧ a then x else y)) ===> True
-#testOptimize [ "DecideEqTrue_16"]
+#testOptimize [ "DecideEqTrue_16", proof ]
   ∀ (x y z : Int) (a b c : Bool),
     ((if (x ≤ y) && ((a || ((b || c) && !(c || b)))) then x else y) < z) =
     (z > (if (x ≤ y) ∧ a then x else y)) ===> True
