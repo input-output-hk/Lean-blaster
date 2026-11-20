@@ -32,6 +32,72 @@ protected theorem and_from_not_or_not {a b : Prop} (h : ¬ (¬ a ∨ ¬ b)) : a 
   exact ⟨Classical.byContradiction fun ha => h (Or.inl ha),
          Classical.byContradiction fun hb => h (Or.inr hb)⟩
 
+protected theorem not_and_from_or {a b : Prop} (h : a ∨ b) : ¬ (¬ a ∧ ¬ b) := by
+  intro hn
+  cases h with
+  | inl ha => exact hn.1 ha
+  | inr hb => exact hn.2 hb
+
+protected theorem not_and_from_or_comm {a b : Prop} (h : a ∨ b) : ¬ (¬ b ∧ ¬ a) := by
+  intro hn
+  cases h <;> cases hn <;> contradiction
+
+protected theorem not_and_from_or_not_right {a b : Prop} (h : a ∨ ¬ b) : ¬ (¬ a ∧ b) := by
+  intro hn
+  cases h <;> cases hn <;> contradiction
+
+protected theorem not_and_from_or_not_right_comm {a b : Prop} (h : a ∨ ¬ b) : ¬ (b ∧ ¬ a) := by
+  intro hn
+  cases h <;> cases hn <;> contradiction
+
+protected theorem not_and_from_or_not_left {a b : Prop} (h : ¬ a ∨ b) : ¬ (a ∧ ¬ b) := by
+  intro hn
+  cases h <;> cases hn <;> contradiction
+
+protected theorem not_and_from_or_not_left_comm {a b : Prop} (h : ¬ a ∨ b) : ¬ (¬ b ∧ a) := by
+  intro hn
+  cases h <;> cases hn <;> contradiction
+
+protected theorem not_and_from_or_not_not {a b : Prop} (h : ¬ a ∨ ¬ b) : ¬ (a ∧ b) := by
+  intro hn
+  cases h <;> cases hn <;> contradiction
+
+protected theorem not_and_from_or_not_not_comm {a b : Prop} (h : ¬ a ∨ ¬ b) : ¬ (b ∧ a) := by
+  intro hn
+  cases h <;> cases hn <;> contradiction
+
+protected theorem not_or_from_and {a b : Prop} (h : a ∧ b) : ¬ (¬ a ∨ ¬ b) := by
+  intro hn
+  cases h <;> cases hn <;> contradiction
+
+protected theorem not_or_from_and_comm {a b : Prop} (h : a ∧ b) : ¬ (¬ b ∨ ¬ a) := by
+  intro hn
+  cases h <;> cases hn <;> contradiction
+
+protected theorem not_or_from_and_not_right {a b : Prop} (h : a ∧ ¬ b) : ¬ (¬ a ∨ b) := by
+  intro hn
+  cases h <;> cases hn <;> contradiction
+
+protected theorem not_or_from_and_not_right_comm {a b : Prop} (h : a ∧ ¬ b) : ¬ (b ∨ ¬ a) := by
+  intro hn
+  cases h <;> cases hn <;> contradiction
+
+protected theorem not_or_from_and_not_left {a b : Prop} (h : ¬ a ∧ b) : ¬ (a ∨ ¬ b) := by
+  intro hn
+  cases h <;> cases hn <;> contradiction
+
+protected theorem not_or_from_and_not_left_comm {a b : Prop} (h : ¬ a ∧ b) : ¬ (¬ b ∨ a) := by
+  intro hn
+  cases h <;> cases hn <;> contradiction
+
+protected theorem not_or_from_and_not_not {a b : Prop} (h : ¬ a ∧ ¬ b) : ¬ (a ∨ b) := by
+  intro hn
+  cases h <;> cases hn <;> contradiction
+
+protected theorem not_or_from_and_not_not_comm {a b : Prop} (h : ¬ a ∧ ¬ b) : ¬ (b ∨ a) := by
+  intro hn
+  cases h <;> cases hn <;> contradiction
+
 protected theorem not_not_cancel {a : Prop} (h : ¬ (¬ a)) : a := by exact Classical.byContradiction h
 
 protected theorem false_eq_of_not_true_eq {c : Bool} (h : ¬ (true = c)) : false = c := by simp at h; rw [h]
@@ -89,6 +155,54 @@ def mkBlaster_or_from_not_and_not : TranslateEnvT Expr := mkExpr (mkConst ``Blas
 
 /-- Return `Blaster.and_from_not_or_not` const expression and cache result. -/
 def mkBlaster_and_from_not_or_not : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.and_from_not_or_not)
+
+/-- Return `Blaster.not_and_from_or` const expression and cache result. -/
+def mkBlaster_not_and_from_or : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.not_and_from_or)
+
+/-- Return `Blaster.not_and_from_or_comm` const expression and cache result. -/
+def mkBlaster_not_and_from_or_comm : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.not_and_from_or_comm)
+
+/-- Return `Blaster.not_and_from_or_not_right` const expression and cache result. -/
+def mkBlaster_not_and_from_or_not_right : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.not_and_from_or_not_right)
+
+/-- Return `Blaster.not_and_from_or_not_right_comm` const expression and cache result. -/
+def mkBlaster_not_and_from_or_not_right_comm : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.not_and_from_or_not_right_comm)
+
+/-- Return `Blaster.not_and_from_or_not_left` const expression and cache result. -/
+def mkBlaster_not_and_from_or_not_left : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.not_and_from_or_not_left)
+
+/-- Return `Blaster.not_and_from_or_not_left_comm` const expression and cache result. -/
+def mkBlaster_not_and_from_or_not_left_comm : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.not_and_from_or_not_left_comm)
+
+/-- Return `Blaster.not_and_from_or_not_not` const expression and cache result. -/
+def mkBlaster_not_and_from_or_not_not : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.not_and_from_or_not_not)
+
+/-- Return `Blaster.not_and_from_or_not_not_comm` const expression and cache result. -/
+def mkBlaster_not_and_from_or_not_not_comm : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.not_and_from_or_not_not_comm)
+
+/-- Return `Blaster.not_or_from_and` const expression and cache result. -/
+def mkBlaster_not_or_from_and : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.not_or_from_and)
+
+/-- Return `Blaster.not_or_from_and_comm` const expression and cache result. -/
+def mkBlaster_not_or_from_and_comm : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.not_or_from_and_comm)
+
+/-- Return `Blaster.not_or_from_and_not_right` const expression and cache result. -/
+def mkBlaster_not_or_from_and_not_right : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.not_or_from_and_not_right)
+
+/-- Return `Blaster.not_or_from_and_not_right_comm` const expression and cache result. -/
+def mkBlaster_not_or_from_and_not_right_comm : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.not_or_from_and_not_right_comm)
+
+/-- Return `Blaster.not_or_from_and_not_left` const expression and cache result. -/
+def mkBlaster_not_or_from_and_not_left : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.not_or_from_and_not_left)
+
+/-- Return `Blaster.not_or_from_and_not_left_comm` const expression and cache result. -/
+def mkBlaster_not_or_from_and_not_left_comm : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.not_or_from_and_not_left_comm)
+
+/-- Return `Blaster.not_or_from_and_not_not` const expression and cache result. -/
+def mkBlaster_not_or_from_and_not_not : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.not_or_from_and_not_not)
+
+/-- Return `Blaster.not_or_from_and_not_not_comm` const expression and cache result. -/
+def mkBlaster_not_or_from_and_not_not_comm : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.not_or_from_and_not_not_comm)
 
 /-- Return `Blaster.not_not_cancel` const expression and cache result. -/
 def mkBlaster_not_not_cancel : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.not_not_cancel)

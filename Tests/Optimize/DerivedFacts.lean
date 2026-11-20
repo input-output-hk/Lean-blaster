@@ -1,4 +1,5 @@
 import Lean
+import Blaster
 import Tests.Utils
 
 open Lean Elab Command Term
@@ -528,6 +529,135 @@ conclusion is contradicted by the hypothesis).
 #testOptimize [ "DerivedDite_5" ] ∀ (a b c : Prop) [Decidable c], (if c then a else b) → ¬ c → b ===> True
 
 
+axiom fp : Nat → Prop
+axiom gp : Nat → Prop
+
+/-! ### Negated conjunction facts from a disjunction (`addNotOrFacts`): when `a ∨ b` is a hypothesis
+      - `¬ a ∨ ¬ b` adds `¬ (a ∧ b)`;
+      - `a ∨ ¬ b` adds `¬ (¬ a ∧ b)`;
+      - `¬ a ∨ b` adds `¬ (a ∧ ¬ b)`;
+      - `a ∨ b` adds `¬ (¬ a ∧ ¬ b)`.
+    The operands of the hypothesis and of the derived fact are both ordered by the normalizer (the
+    `_comm` lemmas are used when the orders differ), so the derived fact is found whatever the order
+    in which the conjunction is written. -/
+
+-- (¬ a ∨ ¬ b) → ¬ (a ∧ b) ===> True
+#testOptimize [ "DerivedOrNotAnd_1" ] ∀ (a b : Prop), (¬ a ∨ ¬ b) → ¬ (a ∧ b) ===> True
+
+-- (¬ a ∨ ¬ b) → (a ∧ b) → c ===> True
+#testOptimize [ "DerivedOrNotAnd_2" ] ∀ (a b c : Prop), (¬ a ∨ ¬ b) → (a ∧ b) → c ===> True
+
+-- (¬ a ∨ ¬ b) → ((a ∧ b) ∨ c) → c ===> True
+#testOptimize [ "DerivedOrNotAnd_3" ] ∀ (a b c : Prop), (¬ a ∨ ¬ b) → ((a ∧ b) ∨ c) → c ===> True
+
+-- (¬ b ∨ ¬ a) → ((a ∧ b) ∨ c) → c ===> True
+#testOptimize [ "DerivedOrNotAnd_4" ] ∀ (a b c : Prop), (¬ b ∨ ¬ a) → ((a ∧ b) ∨ c) → c ===> True
+
+-- (¬ a ∨ ¬ b) → ((b ∧ a) ∨ c) → c ===> True
+#testOptimize [ "DerivedOrNotAnd_5" ] ∀ (a b c : Prop), (¬ a ∨ ¬ b) → ((b ∧ a) ∨ c) → c ===> True
+
+-- (¬ a ∨ ¬ b) → ¬ ((a ∧ b) ∧ c) ===> True
+#testOptimize [ "DerivedOrNotAnd_6" ] ∀ (a b c : Prop), (¬ a ∨ ¬ b) → ¬ ((a ∧ b) ∧ c) ===> True
+
+-- (¬ a ∨ ¬ b) → (if a ∧ b then t else e) = e ===> True
+#testOptimize [ "DerivedOrNotAnd_7" ]
+  ∀ (a b : Prop) [Decidable a] [Decidable b] (t e : Nat), (¬ a ∨ ¬ b) → (if a ∧ b then t else e) = e ===> True
+
+-- ((¬ a ∨ ¬ b) ∧ d) → ((a ∧ b) ∨ c) → c ===> True
+#testOptimize [ "DerivedOrNotAnd_8" ] ∀ (a b c d : Prop), ((¬ a ∨ ¬ b) ∧ d) → ((a ∧ b) ∨ c) → c ===> True
+
+-- (¬ fp x ∨ ¬ c) → ((fp x ∧ c) ∨ d) → d ===> True
+#testOptimize [ "DerivedOrNotAnd_9" ] ∀ (x : Nat) (c d : Prop), (¬ fp x ∨ ¬ c) → ((fp x ∧ c) ∨ d) → d ===> True
+
+-- (¬ fp x ∨ ¬ gp y) → ((gp y ∧ fp x) ∨ d) → d ===> True
+#testOptimize [ "DerivedOrNotAnd_10" ] ∀ (x y : Nat) (d : Prop), (¬ fp x ∨ ¬ gp y) → ((gp y ∧ fp x) ∨ d) → d ===> True
+
+-- (a ∨ ¬ b) → ¬ (b ∧ ¬ a) ===> True
+#testOptimize [ "DerivedOrNotAnd_11" ] ∀ (a b : Prop), (a ∨ ¬ b) → ¬ (b ∧ ¬ a) ===> True
+
+-- (a ∨ ¬ b) → ((b ∧ ¬ a) ∨ c) → c ===> True
+#testOptimize [ "DerivedOrNotAnd_12" ] ∀ (a b c : Prop), (a ∨ ¬ b) → ((b ∧ ¬ a) ∨ c) → c ===> True
+
+-- (¬ b ∨ a) → ((¬ a ∧ b) ∨ c) → c ===> True
+#testOptimize [ "DerivedOrNotAnd_13" ] ∀ (a b c : Prop), (¬ b ∨ a) → ((¬ a ∧ b) ∨ c) → c ===> True
+
+-- (a ∨ ¬ b) → (b ∧ ¬ a) → c ===> True
+#testOptimize [ "DerivedOrNotAnd_14" ] ∀ (a b c : Prop), (a ∨ ¬ b) → (b ∧ ¬ a) → c ===> True
+
+-- (a ∨ ¬ b) → ¬ ((b ∧ ¬ a) ∧ c) ===> True
+#testOptimize [ "DerivedOrNotAnd_15" ] ∀ (a b c : Prop), (a ∨ ¬ b) → ¬ ((b ∧ ¬ a) ∧ c) ===> True
+
+-- (a ∨ ¬ b) → (if b ∧ ¬ a then t else e) = e ===> True
+#testOptimize [ "DerivedOrNotAnd_16" ]
+  ∀ (a b : Prop) [Decidable a] [Decidable b] (t e : Nat), (a ∨ ¬ b) → (if b ∧ ¬ a then t else e) = e ===> True
+
+-- (a ∨ b) → ((¬ a ∧ ¬ b) ∨ c) → c ===> True
+#testOptimize [ "DerivedOrNotAnd_17" ] ∀ (a b c : Prop), (a ∨ b) → ((¬ a ∧ ¬ b) ∨ c) → c ===> True
+
+-- (a ∨ b) → ((¬ b ∧ ¬ a) ∨ c) → c ===> True
+#testOptimize [ "DerivedOrNotAnd_18" ] ∀ (a b c : Prop), (a ∨ b) → ((¬ b ∧ ¬ a) ∨ c) → c ===> True
+
+-- (a ∨ b) → (¬ a ∧ ¬ b) → c ===> True
+#testOptimize [ "DerivedOrNotAnd_19" ] ∀ (a b c : Prop), (a ∨ b) → (¬ a ∧ ¬ b) → c ===> True
+
+-- (a ∨ b) → ¬ ((¬ a ∧ ¬ b) ∧ c) ===> True
+#testOptimize [ "DerivedOrNotAnd_20" ] ∀ (a b c : Prop), (a ∨ b) → ¬ ((¬ a ∧ ¬ b) ∧ c) ===> True
+
+-- (a ∨ b) → (if ¬ a ∧ ¬ b then t else e) = e ===> True
+#testOptimize [ "DerivedOrNotAnd_21" ]
+  ∀ (a b : Prop) [Decidable a] [Decidable b] (t e : Nat), (a ∨ b) → (if ¬ a ∧ ¬ b then t else e) = e ===> True
+
+-- (fp x ∨ c) → ((¬ fp x ∧ ¬ c) ∨ d) → d ===> True
+#testOptimize [ "DerivedOrNotAnd_22" ] ∀ (x : Nat) (c d : Prop), (fp x ∨ c) → ((¬ fp x ∧ ¬ c) ∨ d) → d ===> True
+
+-- (fp x ∨ gp y) → ((¬ gp y ∧ ¬ fp x) ∨ d) → d ===> True
+#testOptimize [ "DerivedOrNotAnd_23" ] ∀ (x y : Nat) (d : Prop), (fp x ∨ gp y) → ((¬ gp y ∧ ¬ fp x) ∨ d) → d ===> True
+
+-- (¬ a ∨ ¬ b) → ((a ∧ c) ∨ c) → c ===> (¬ a ∨ ¬ b) → (c ∨ (a ∧ c)) → c
+#testOptimize [ "DerivedOrNotAnd_24" ]
+  ∀ (a b c : Prop), (¬ a ∨ ¬ b) → ((a ∧ c) ∨ c) → c ===> ∀ (a b c : Prop), (¬ a ∨ ¬ b) → (c ∨ (a ∧ c)) → c
+
+-- (a ∨ ¬ b) → ((a ∧ ¬ b) ∨ c) → c ===> (a ∨ ¬ b) → (c ∨ (a ∧ ¬ b)) → c
+#testOptimize [ "DerivedOrNotAnd_25" ]
+  ∀ (a b c : Prop), (a ∨ ¬ b) → ((a ∧ ¬ b) ∨ c) → c ===> ∀ (a b c : Prop), (a ∨ ¬ b) → (c ∨ (a ∧ ¬ b)) → c
+
+-- (a ∨ b) → ((¬ a ∧ b) ∨ c) → c ===> (a ∨ b) → (c ∨ (b ∧ ¬ a)) → c
+#testOptimize [ "DerivedOrNotAnd_26" ]
+  ∀ (a b c : Prop), (a ∨ b) → ((¬ a ∧ b) ∨ c) → c ===> ∀ (a b c : Prop), (a ∨ b) → (c ∨ (b ∧ ¬ a)) → c
+
+/-! The hypothesis `fp x ∨ ¬ c` is normalized to `¬ c ∨ fp x` (the negated operand comes first when
+    the other operand is an application whose head sorts after `Not`): the fact `¬ (c ∧ ¬ fp x)`
+    is derived by the `¬ a ∨ b` case. -/
+
+-- (fp x ∨ ¬ c) → ¬ (c ∧ ¬ fp x) ===> True
+#testOptimize [ "DerivedOrNotAnd_27" ] ∀ (x : Nat) (c : Prop), (fp x ∨ ¬ c) → ¬ (c ∧ ¬ fp x) ===> True
+
+-- (fp x ∨ ¬ c) → ((c ∧ ¬ fp x) ∨ d) → d ===> True
+#testOptimize [ "DerivedOrNotAnd_28" ] ∀ (x : Nat) (c d : Prop), (fp x ∨ ¬ c) → ((c ∧ ¬ fp x) ∨ d) → d ===> True
+
+-- (fp x ∨ ¬ c) → (if c ∧ ¬ fp x then t else e) = e ===> True
+#testOptimize [ "DerivedOrNotAnd_29" ]
+  ∀ (x : Nat) (c : Prop) [Decidable c] [Decidable (fp x)] (t e : Nat),
+    (fp x ∨ ¬ c) → (if c ∧ ¬ fp x then t else e) = e ===> True
+
+-- (fp x ∨ ¬ gp y) → ((gp y ∧ ¬ fp x) ∨ d) → d ===> True
+#testOptimize [ "DerivedOrNotAnd_30" ] ∀ (x y : Nat) (d : Prop), (fp x ∨ ¬ gp y) → ((gp y ∧ ¬ fp x) ∨ d) → d ===> True
+
+-- (¬ gp y ∨ fp x) → ((¬ fp x ∧ gp y) ∨ d) → d ===> True
+#testOptimize [ "DerivedOrNotAnd_31" ] ∀ (x y : Nat) (d : Prop), (¬ gp y ∨ fp x) → ((¬ fp x ∧ gp y) ∨ d) → d ===> True
+
+
+/-! ### Negated disjunction facts from a conjunction (`addNotAndFacts`): when `a ∧ b` is a hypothesis
+      - `¬ a ∧ ¬ b` adds `¬ (a ∨ b)`;
+      - `a ∧ ¬ b` adds `¬ (¬ a ∨ b)`;
+      - `¬ a ∧ b` adds `¬ (a ∨ ¬ b)`;
+      - `a ∧ b` adds `¬ (¬ a ∨ ¬ b)`.
+    These facts are not observable at the level of the facts: both operands of the conjunction are
+    added to the hypothesis map, so that the disjunction is already reduced to `False`. They are
+    observable through the proofs they carry (`DerivedProofAndNotOr_1` to `DerivedProofAndNotOr_13`),
+    including for a conjunction nested in a conjunction. -/
+
+
 /-! ### Derived proofs
 
 When a derived fact is used to reduce a dependent `if`, the proof of the derived fact is
@@ -913,5 +1043,189 @@ axiom kd'' : (a b : Prop) → (x : Bool) → (false = x → b) → Nat
           (@Blaster.false_eq_imp_of_not_true_imp x b
             (@And.right (true = x → a) (¬ (true = x) → b)
               (@Blaster.and_implies_from_dite (true = x) (fun _ => a) (fun _ => b) h)))
+
+
+/-! Negated conjunction facts from a disjunction (`addNotOrFacts`). -/
+
+-- (¬ p ∨ ¬ q) → (if h : p ∧ q then g else f h) = g ===> g = f (not_and_from_or_not_not h)
+#testOptimize [ "DerivedProofOrNotAnd_1" ]
+  ∀ (p q : Prop) [Decidable p] [Decidable q] (f : ¬ (p ∧ q) → Nat) (g : Nat),
+    (¬ p ∨ ¬ q) → (if h : p ∧ q then g else f h) = g ===>
+  ∀ (p q : Prop) (f : ¬ (p ∧ q) → Nat) (g : Nat) (h : ¬ p ∨ ¬ q), g = f (@Blaster.not_and_from_or_not_not p q h)
+
+-- (¬ p ∨ ¬ q) → (if h : q ∧ p then g else f h) = g ===> g = f (not_and_from_or_not_not h)
+#testOptimize [ "DerivedProofOrNotAnd_2" ]
+  ∀ (p q : Prop) [Decidable p] [Decidable q] (f : ¬ (q ∧ p) → Nat) (g : Nat),
+    (¬ p ∨ ¬ q) → (if h : q ∧ p then g else f h) = g ===>
+  ∀ (p q : Prop) (f : ¬ (p ∧ q) → Nat) (g : Nat) (h : ¬ p ∨ ¬ q), g = f (@Blaster.not_and_from_or_not_not p q h)
+
+-- (¬ fp x ∨ ¬ gp y) → (if h : fp x ∧ gp y then g else f h) = g ===> g = f (not_and_from_or_not_not h)
+#testOptimize [ "DerivedProofOrNotAnd_3" ]
+  ∀ (x y : Nat) [Decidable (fp x)] [Decidable (gp y)] (f : ¬ (fp x ∧ gp y) → Nat) (g : Nat),
+    (¬ fp x ∨ ¬ gp y) → (if h : fp x ∧ gp y then g else f h) = g ===>
+  ∀ (x y : Nat) (f : ¬ (fp x ∧ gp y) → Nat) (g : Nat) (h : ¬ fp x ∨ ¬ gp y),
+    g = f (@Blaster.not_and_from_or_not_not (fp x) (gp y) h)
+
+-- ((¬ p ∨ ¬ q) ∧ r) → (if h : p ∧ q then g else f h) = g ===> g = f (not_and_from_or_not_not (And.right h))
+#testOptimize [ "DerivedProofOrNotAnd_4" ]
+  ∀ (p q r : Prop) [Decidable p] [Decidable q] (f : ¬ (p ∧ q) → Nat) (g : Nat),
+    ((¬ p ∨ ¬ q) ∧ r) → (if h : p ∧ q then g else f h) = g ===>
+  ∀ (p q r : Prop) (f : ¬ (p ∧ q) → Nat) (g : Nat) (h : r ∧ (¬ p ∨ ¬ q)),
+    g = f (@Blaster.not_and_from_or_not_not p q (@And.right r (¬ p ∨ ¬ q) h))
+
+-- (p ∨ ¬ q) → (if h : q ∧ ¬ p then g else f h) = g ===> g = f (not_and_from_or_not_right h)
+#testOptimize [ "DerivedProofOrNotAnd_5" ]
+  ∀ (p q : Prop) [Decidable p] [Decidable q] (f : ¬ (q ∧ ¬ p) → Nat) (g : Nat),
+    (p ∨ ¬ q) → (if h : q ∧ ¬ p then g else f h) = g ===>
+  ∀ (p q : Prop) (f : ¬ (q ∧ ¬ p) → Nat) (g : Nat) (h : p ∨ ¬ q), g = f (@Blaster.not_and_from_or_not_right_comm p q h)
+
+-- (p ∨ ¬ fp x) → (if h : ¬ p ∧ fp x then g else f h) = g ===> g = f (not_and_from_or_not_right h)
+#testOptimize [ "DerivedProofOrNotAnd_6" ]
+  ∀ (x : Nat) (p : Prop) [Decidable p] [Decidable (fp x)] (f : ¬ (¬ p ∧ fp x) → Nat) (g : Nat),
+    (p ∨ ¬ fp x) → (if h : ¬ p ∧ fp x then g else f h) = g ===>
+  ∀ (x : Nat) (p : Prop) (f : ¬ (¬ p ∧ fp x) → Nat) (g : Nat) (h : p ∨ ¬ fp x),
+    g = f (@Blaster.not_and_from_or_not_right p (fp x) h)
+
+-- (¬ c ∨ fp x) → (if h : c ∧ ¬ fp x then g else f h) = g ===> g = f (not_and_from_or_not_left h)
+#testOptimize [ "DerivedProofOrNotAnd_7" ]
+  ∀ (x : Nat) (c : Prop) [Decidable c] [Decidable (fp x)] (f : ¬ (c ∧ ¬ fp x) → Nat) (g : Nat),
+    (¬ c ∨ fp x) → (if h : c ∧ ¬ fp x then g else f h) = g ===>
+  ∀ (x : Nat) (c : Prop) (f : ¬ (c ∧ ¬ fp x) → Nat) (g : Nat) (h : ¬ c ∨ fp x),
+    g = f (@Blaster.not_and_from_or_not_left c (fp x) h)
+
+-- (¬ gp y ∨ fp x) → (if h : ¬ fp x ∧ gp y then g else f h) = g ===> g = f (not_and_from_or_not_left_comm h)
+#testOptimize [ "DerivedProofOrNotAnd_8" ]
+  ∀ (x y : Nat) [Decidable (fp x)] [Decidable (gp y)] (f : ¬ (¬ fp x ∧ gp y) → Nat) (g : Nat),
+    (¬ gp y ∨ fp x) → (if h : ¬ fp x ∧ gp y then g else f h) = g ===>
+  ∀ (x y : Nat) (f : ¬ (¬ fp x ∧ gp y) → Nat) (g : Nat) (h : ¬ gp y ∨ fp x),
+    g = f (@Blaster.not_and_from_or_not_left_comm (gp y) (fp x) h)
+
+-- (r ∧ (s ∧ (¬ p ∨ ¬ q))) → (if h : p ∧ q then g else f h) = g ===> g = f (not_and_from_or_not_not (And.right (And.right h)))
+#testOptimize [ "DerivedProofOrNotAnd_9" ]
+  ∀ (p q r s : Prop) [Decidable p] [Decidable q] (f : ¬ (p ∧ q) → Nat) (g : Nat),
+    (r ∧ (s ∧ (¬ p ∨ ¬ q))) → (if h : p ∧ q then g else f h) = g ===>
+  ∀ (p q r s : Prop) (f : ¬ (p ∧ q) → Nat) (g : Nat) (h : r ∧ (s ∧ (¬ p ∨ ¬ q))),
+    g = f (@Blaster.not_and_from_or_not_not p q (@And.right s (¬ p ∨ ¬ q) (@And.right r (s ∧ (¬ p ∨ ¬ q)) h)))
+
+/-! The declared (non-normalized) type of a parameter is looked up in the hypothesis map: the
+    derived fact provides the proof (`kna`), even when the declared type normalizes to the hypothesis
+    itself (`¬ (¬ p ∧ ¬ q)` is normalized to `p ∨ q`). -/
+
+axiom kna : (a b : Prop) → ¬ (a ∧ b) → Nat
+axiom kno : (a b : Prop) → ¬ (a ∨ b) → Nat
+
+-- (¬ p ∨ ¬ q) → kna p q h = 0 ===> 0 = kna p q (not_and_from_or_not_not h)
+#testOptimize [ "DerivedProofOrNotAnd_10" ] (norm-result: 1)
+  ∀ (p q : Prop) (h : ¬ (p ∧ q)), (¬ p ∨ ¬ q) → kna p q h = 0 ===>
+  ∀ (p q : Prop), ¬ (p ∧ q) → ∀ (h : ¬ p ∨ ¬ q), 0 = kna p q (@Blaster.not_and_from_or_not_not p q h)
+
+-- (p ∨ ¬ q) → kna q (¬ p) h = 0 ===> 0 = kna q (¬ p) (not_and_from_or_not_right h)
+#testOptimize [ "DerivedProofOrNotAnd_11" ] (norm-result: 1)
+  ∀ (p q : Prop) (h : ¬ (q ∧ ¬ p)), (p ∨ ¬ q) → kna q (¬ p) h = 0 ===>
+  ∀ (p q : Prop), ¬ (q ∧ ¬ p) → ∀ (h : p ∨ ¬ q), 0 = kna q (¬ p) (@Blaster.not_and_from_or_not_right_comm p q h)
+
+-- (fp x ∨ ¬ c) → kna c (¬ fp x) h = 0 ===> 0 = kna c (¬ fp x) (not_and_from_or_not_left h)
+#testOptimize [ "DerivedProofOrNotAnd_12" ] (norm-result: 1)
+  ∀ (x : Nat) (c : Prop) (h : ¬ (c ∧ ¬ fp x)), (fp x ∨ ¬ c) → kna c (¬ fp x) h = 0 ===>
+  ∀ (x : Nat) (c : Prop), ¬ (c ∧ ¬ fp x) → ∀ (h : ¬ c ∨ fp x), 0 = kna c (¬ fp x) (@Blaster.not_and_from_or_not_left c (fp x) h)
+
+-- (p ∨ q) → kna (¬ p) (¬ q) h = 0 ===> 0 = kna (¬ p) (¬ q) (not_and_from_or h)
+#testOptimize [ "DerivedProofOrNotAnd_13" ] (norm-result: 1)
+  ∀ (p q : Prop) (h : ¬ (¬ p ∧ ¬ q)), (p ∨ q) → kna (¬ p) (¬ q) h = 0 ===>
+  ∀ (p q : Prop) (h : p ∨ q), 0 = kna (¬ p) (¬ q) (@Blaster.not_and_from_or p q h)
+
+-- (fp x ∨ gp y) → kna (¬ fp x) (¬ gp y) h = 0 ===> 0 = kna (¬ fp x) (¬ gp y) (not_and_from_or h)
+#testOptimize [ "DerivedProofOrNotAnd_14" ] (norm-result: 1)
+  ∀ (x y : Nat) (h : ¬ (¬ fp x ∧ ¬ gp y)), (fp x ∨ gp y) → kna (¬ fp x) (¬ gp y) h = 0 ===>
+  ∀ (x y : Nat) (h : fp x ∨ gp y), 0 = kna (¬ fp x) (¬ gp y) (@Blaster.not_and_from_or (fp x) (gp y) h)
+
+/-! Negated disjunction facts from a conjunction (`addNotAndFacts`). -/
+
+-- (¬ p ∧ ¬ q) → (if h : p ∨ q then g else f h) = g ===> g = f (not_or_from_and_not_not h)
+#testOptimize [ "DerivedProofAndNotOr_1" ]
+  ∀ (p q : Prop) [Decidable p] [Decidable q] (f : ¬ (p ∨ q) → Nat) (g : Nat),
+    (¬ p ∧ ¬ q) → (if h : p ∨ q then g else f h) = g ===>
+  ∀ (p q : Prop) (f : ¬ (p ∨ q) → Nat) (g : Nat) (h : ¬ p ∧ ¬ q), g = f (@Blaster.not_or_from_and_not_not p q h)
+
+-- (¬ p ∧ ¬ q) → (if h : q ∨ p then g else f h) = g ===> g = f (not_or_from_and_not_not h)
+#testOptimize [ "DerivedProofAndNotOr_2" ]
+  ∀ (p q : Prop) [Decidable p] [Decidable q] (f : ¬ (q ∨ p) → Nat) (g : Nat),
+    (¬ p ∧ ¬ q) → (if h : q ∨ p then g else f h) = g ===>
+  ∀ (p q : Prop) (f : ¬ (p ∨ q) → Nat) (g : Nat) (h : ¬ p ∧ ¬ q), g = f (@Blaster.not_or_from_and_not_not p q h)
+
+-- (¬ fp x ∧ ¬ gp y) → (if h : fp x ∨ gp y then g else f h) = g ===> g = f (not_or_from_and_not_not h)
+#testOptimize [ "DerivedProofAndNotOr_3" ]
+  ∀ (x y : Nat) [Decidable (fp x)] [Decidable (gp y)] (f : ¬ (fp x ∨ gp y) → Nat) (g : Nat),
+    (¬ fp x ∧ ¬ gp y) → (if h : fp x ∨ gp y then g else f h) = g ===>
+  ∀ (x y : Nat) (f : ¬ (fp x ∨ gp y) → Nat) (g : Nat) (h : ¬ fp x ∧ ¬ gp y),
+    g = f (@Blaster.not_or_from_and_not_not (fp x) (gp y) h)
+
+-- (p ∧ ¬ q) → (if h : q ∨ ¬ p then g else f h) = g ===> g = f (not_or_from_and_not_right h)
+#testOptimize [ "DerivedProofAndNotOr_4" ]
+  ∀ (p q : Prop) [Decidable p] [Decidable q] (f : ¬ (q ∨ ¬ p) → Nat) (g : Nat),
+    (p ∧ ¬ q) → (if h : q ∨ ¬ p then g else f h) = g ===>
+  ∀ (p q : Prop) (f : ¬ (q ∨ ¬ p) → Nat) (g : Nat) (h : p ∧ ¬ q), g = f (@Blaster.not_or_from_and_not_right_comm p q h)
+
+-- (p ∧ ¬ fp x) → (if h : ¬ p ∨ fp x then g else f h) = g ===> g = f (not_or_from_and_not_right h)
+#testOptimize [ "DerivedProofAndNotOr_5" ]
+  ∀ (x : Nat) (p : Prop) [Decidable p] [Decidable (fp x)] (f : ¬ (¬ p ∨ fp x) → Nat) (g : Nat),
+    (p ∧ ¬ fp x) → (if h : ¬ p ∨ fp x then g else f h) = g ===>
+  ∀ (x : Nat) (p : Prop) (f : ¬ (¬ p ∨ fp x) → Nat) (g : Nat) (h : p ∧ ¬ fp x),
+    g = f (@Blaster.not_or_from_and_not_right p (fp x) h)
+
+-- (fp x ∧ ¬ c) → (if h : c ∨ ¬ fp x then g else f h) = g ===> g = f (not_or_from_and_not_left h)
+#testOptimize [ "DerivedProofAndNotOr_6" ]
+  ∀ (x : Nat) (c : Prop) [Decidable c] [Decidable (fp x)] (f : ¬ (c ∨ ¬ fp x) → Nat) (g : Nat),
+    (fp x ∧ ¬ c) → (if h : c ∨ ¬ fp x then g else f h) = g ===>
+  ∀ (x : Nat) (c : Prop) (f : ¬ (c ∨ ¬ fp x) → Nat) (g : Nat) (h : ¬ c ∧ fp x),
+    g = f (@Blaster.not_or_from_and_not_left c (fp x) h)
+
+-- (¬ gp y ∧ fp x) → (if h : ¬ fp x ∨ gp y then g else f h) = g ===> g = f (not_or_from_and_not_left_comm h)
+#testOptimize [ "DerivedProofAndNotOr_7" ]
+  ∀ (x y : Nat) [Decidable (fp x)] [Decidable (gp y)] (f : ¬ (¬ fp x ∨ gp y) → Nat) (g : Nat),
+    (¬ gp y ∧ fp x) → (if h : ¬ fp x ∨ gp y then g else f h) = g ===>
+  ∀ (x y : Nat) (f : ¬ (¬ fp x ∨ gp y) → Nat) (g : Nat) (h : ¬ gp y ∧ fp x),
+    g = f (@Blaster.not_or_from_and_not_left_comm (gp y) (fp x) h)
+
+-- (p ∧ q) → kno (¬ p) (¬ q) h = 0 ===> 0 = kno (¬ p) (¬ q) (not_or_from_and h)
+#testOptimize [ "DerivedProofAndNotOr_8" ] (norm-result: 1)
+  ∀ (p q : Prop) (h : ¬ (¬ p ∨ ¬ q)), (p ∧ q) → kno (¬ p) (¬ q) h = 0 ===>
+  ∀ (p q : Prop) (h : p ∧ q), 0 = kno (¬ p) (¬ q) (@Blaster.not_or_from_and p q h)
+
+-- (fp x ∧ gp y) → kno (¬ fp x) (¬ gp y) h = 0 ===> 0 = kno (¬ fp x) (¬ gp y) (not_or_from_and h)
+#testOptimize [ "DerivedProofAndNotOr_9" ] (norm-result: 1)
+  ∀ (x y : Nat) (h : ¬ (¬ fp x ∨ ¬ gp y)), (fp x ∧ gp y) → kno (¬ fp x) (¬ gp y) h = 0 ===>
+  ∀ (x y : Nat) (h : fp x ∧ gp y), 0 = kno (¬ fp x) (¬ gp y) (@Blaster.not_or_from_and (fp x) (gp y) h)
+
+/-! Conjunction nested in a conjunction: `addNotAndFacts` is called on the inner conjunction, with
+    the projection of the outer hypothesis as proof. -/
+
+-- ((¬ p ∧ ¬ q) ∧ r) → (if h : p ∨ q then g else f h) = g ===> g = f (not_or_from_and_not_not (And.right h))
+#testOptimize [ "DerivedProofAndNotOr_10" ]
+  ∀ (p q r : Prop) [Decidable p] [Decidable q] (f : ¬ (p ∨ q) → Nat) (g : Nat),
+    ((¬ p ∧ ¬ q) ∧ r) → (if h : p ∨ q then g else f h) = g ===>
+  ∀ (p q r : Prop) (f : ¬ (p ∨ q) → Nat) (g : Nat) (h : r ∧ (¬ p ∧ ¬ q)),
+    g = f (@Blaster.not_or_from_and_not_not p q (@And.right r (¬ p ∧ ¬ q) h))
+
+-- (r ∧ (s ∧ (¬ p ∧ ¬ q))) → (if h : p ∨ q then g else f h) = g ===> g = f (not_or_from_and_not_not (And.right (And.right h)))
+#testOptimize [ "DerivedProofAndNotOr_11" ]
+  ∀ (p q r s : Prop) [Decidable p] [Decidable q] (f : ¬ (p ∨ q) → Nat) (g : Nat),
+    (r ∧ (s ∧ (¬ p ∧ ¬ q))) → (if h : p ∨ q then g else f h) = g ===>
+  ∀ (p q r s : Prop) (f : ¬ (p ∨ q) → Nat) (g : Nat) (h : r ∧ (s ∧ (¬ p ∧ ¬ q))),
+    g = f (@Blaster.not_or_from_and_not_not p q (@And.right s (¬ p ∧ ¬ q) (@And.right r (s ∧ (¬ p ∧ ¬ q)) h)))
+
+-- ((p ∧ ¬ q) ∧ r) → (if h : q ∨ ¬ p then g else f h) = g ===> g = f (not_or_from_and_not_right_comm (And.right h))
+#testOptimize [ "DerivedProofAndNotOr_12" ]
+  ∀ (p q r : Prop) [Decidable p] [Decidable q] (f : ¬ (q ∨ ¬ p) → Nat) (g : Nat),
+    ((p ∧ ¬ q) ∧ r) → (if h : q ∨ ¬ p then g else f h) = g ===>
+  ∀ (p q r : Prop) (f : ¬ (q ∨ ¬ p) → Nat) (g : Nat) (h : r ∧ (p ∧ ¬ q)),
+    g = f (@Blaster.not_or_from_and_not_right_comm p q (@And.right r (p ∧ ¬ q) h))
+
+-- ((¬ c ∧ fp x) ∧ r) → (if h : c ∨ ¬ fp x then g else f h) = g ===> g = f (not_or_from_and_not_left (And.right h))
+#testOptimize [ "DerivedProofAndNotOr_13" ]
+  ∀ (x : Nat) (c r : Prop) [Decidable c] [Decidable (fp x)] (f : ¬ (c ∨ ¬ fp x) → Nat) (g : Nat),
+    ((¬ c ∧ fp x) ∧ r) → (if h : c ∨ ¬ fp x then g else f h) = g ===>
+  ∀ (x : Nat) (c r : Prop) (f : ¬ (c ∨ ¬ fp x) → Nat) (g : Nat) (h : r ∧ (¬ c ∧ fp x)),
+    g = f (@Blaster.not_or_from_and_not_left c (fp x) (@And.right r (¬ c ∧ fp x) h))
 
 end Tests.DerivedFacts

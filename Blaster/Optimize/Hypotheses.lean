@@ -148,12 +148,8 @@ def updateHypMap (e : Expr) (fv : Expr) (nextCtxId : CtxId) : TranslateEnvT Unit
           ⟨o1, o2, o3, o4, o5, o6, o7, ⟨hypothesisMap.insert e refEntry, equalityMap⟩, o9, o10, o11, o12, o13, o14, o15⟩
  | some refEntry => refEntry.modify (λ l => (nextCtxId, fv) :: l)
 
-/-- Given proposition `e` referenced by hypothesis `h`, perform the following:
-     - When `e := ¬ false = e`
-        - add `true = c := Blaster.true_eq_of_not_false_eq e h` to hypothesisMap
-     - When `e := ¬ true = e`
-        - add `false = e := Blaster.false_eq_of_not_true_eq e h` to hypothesisMap
 
+/-- Given `ne` the operand for expression `¬ ne` referenced by hypothesis `h`, perform the following:
      - When `e := ¬ (0 < a) ∧ Type(a) = Nat`
          - add `0 = a := Blaster.nat_zero_eq_of_not_zero_lt a h` to hypothesisMap
 
@@ -164,7 +160,38 @@ def updateHypMap (e : Expr) (fv : Expr) (nextCtxId : CtxId) : TranslateEnvT Unit
 
      - When `e := ¬ (0 = a) ∧ Type(a) = Nat`
          - add `0 < a := Blaster.nat_zero_lt_of_not_zero_e a h` to hypothesisMap
+-/
+def addNotRelNatFacts (ne : Expr) (h : Expr) (nextCtxId : CtxId) : TranslateEnvT Unit:= do
+ if let some (Expr.const ``Nat _, _inst, op1, op2) := lt? ne then
+   if let some 0 := isNatValue? op1 then
+     -- case : e := ¬ (0 < a) ∧ Type(a) = Nat
+     let eqFact ← mkNatEqExpr op1 op2
+     let eq_proof ← mkApp2Expr (← mkNat_zero_eq_of_not_zero_lt) op2 h
+     updateHypMap eqFact eq_proof nextCtxId
+   if let some n := isNatValue? op2 then
+     unless n == 0 do
+       -- case : e := ¬ (a < N) ∧ Type(a) = Nat ∧ N ≠ 0
+       let zeroNat ← mkNatLitExpr 0
+       let ltFact ← mkNatLtExpr zeroNat op1
+       let notOp ← mkPropNotOp
+       let neqHyp ← mkAppExpr notOp (← mkNatEqExpr zeroNat op2)
+       let neqHyp_proof ← mkOfDecideEqProof neqHyp true
+       let lt_proof ← mkApp4Expr (← mkNat_zero_lt_of_not_lt_neq) op1 op2 h neqHyp_proof
+       -- add `0 < a := Blaster.nat_zero_lt_of_not_lt_neq a N h (← mkOfDecideEqProof (¬ (0 = N)) true)` to hypothesisMap
+       updateHypMap ltFact lt_proof nextCtxId
+       let neqFact ← mkAppExpr notOp (← mkNatEqExpr zeroNat op1)
+       let neq_proof ← mkApp2Expr (← mkNat_not_zero_eq_of_zero_lt) op1 lt_proof
+       -- add `¬ (0 = a) := Blaster.nat_not_zero_eq_of_zero_lt a ...` to hypothesisMap
+       updateHypMap neqFact neq_proof nextCtxId
 
+ if let some (Expr.const ``Nat _, op1, op2) := eq? ne then
+   if let some 0 := isNatValue? op1 then
+     -- case : e := ¬ (0 = a) ∧ Type(a) = Nat
+     let ltFact ← mkNatLtExpr op1 op2
+     let lt_proof ← mkApp2Expr (← mkNat_zero_lt_of_not_zero_eq) op2 h
+     updateHypMap ltFact lt_proof nextCtxId
+
+/-- Given `ne` the operand for expression `¬ ne` referenced by hypothesis `h`, perform the following:
      - When `e := ¬ (a < N) ∧ Type(a) = Int ∧ N > 0`
           - add `0 < a := Blaster.int_zero_lt_of_nlt_zero_lt a N h (← mkOfDecideEqProof (0 < N)) true)` to hypothesisMap
           - add `¬ (0 = a) := Blaster.int_not_zero_eq_of_zero_lt a
@@ -178,19 +205,86 @@ def updateHypMap (e : Expr) (fv : Expr) (nextCtxId : CtxId) : TranslateEnvT Unit
                               (Blaster.int_lt_zero_of_nlt_lt_zero a N h (← mkOfDecideEqProof (N < 0)) true))` to hypothesisMap
           - add `¬ (0 < a) := Blaster.int_not_lt_of_lt a 0
                               (Blaster.int_lt_zero_of_nlt_lt_zero a N h (← mkOfDecideEqProof (N < 0)) true))` to hypothesisMap
+-/
+def addNotRelIntFacts (ne : Expr) (h : Expr) (nextCtxId : CtxId) : TranslateEnvT Unit:= do
+ if let some (Expr.const ``Int _, _inst, op1, op2) := lt? ne then
+   if let some n := isIntValue? op2 then
+     unless n ≤ 0 do
+       -- case : e := ¬ (a < N) ∧ Type(a) = Int ∧ N > 0
+       let zeroInt ← mkIntLitExpr 0
+       let ltFact ← mkIntLtExpr zeroInt op1
+       let ltHyp ← mkIntLtExpr zeroInt op2
+       let ltHyp_proof ← mkOfDecideEqProof ltHyp true
+       let lt_proof ← mkApp4Expr (← mkInt_zero_lt_of_nlt_zero_lt) op1 op2 h ltHyp_proof
+       -- add `0 < a := Blaster.int_zero_lt_of_nlt_zero_lt a N h (← mkOfDecideEqProof (0 < N)) true)` to hypothesisMap
+       updateHypMap ltFact lt_proof nextCtxId
+       let notOp ← mkPropNotOp
+       let neqFact ← mkAppExpr notOp (← mkIntEqExpr zeroInt op1)
+       let neq_proof ← mkApp2Expr (← mkInt_not_zero_eq_of_zero_lt) op1 lt_proof
+       -- add `¬ (0 = a) := Blaster.int_not_zero_eq_of_zero_lt a ...` to hypothesisMap
+       updateHypMap neqFact neq_proof nextCtxId
+       let nltFact ← mkAppExpr notOp (← mkIntLtExpr op1 zeroInt)
+       let nlt_proof ← mkApp3Expr (← mkInt_not_lt_of_lt) zeroInt op1 lt_proof
+       -- add `¬ (a < 0) := Blaster.int_not_lt_of_lt 0 a ...` to hypothesisMap
+       updateHypMap nltFact nlt_proof nextCtxId
+   if let some n := isIntValue? op1 then
+     unless n ≥ 0 do
+       -- case : e := ¬ (N < a) ∧ Type(a) = Int ∧ N < 0
+       let zeroInt ← mkIntLitExpr 0
+       let ltFact ← mkIntLtExpr op2 zeroInt
+       let ltHyp ← mkIntLtExpr op1 zeroInt
+       let ltHyp_proof ← mkOfDecideEqProof ltHyp true
+       let lt_proof ← mkApp4Expr (← mkInt_lt_zero_of_nlt_lt_zero) op2 op1 h ltHyp_proof
+       -- add `a < 0 := Blaster.int_lt_zero_of_nlt_lt_zero a N h (← mkOfDecideEqProof (N < 0)) true)` to hypothesisMap
+       updateHypMap ltFact lt_proof nextCtxId
+       let notOp ← mkPropNotOp
+       let neqFact ← mkAppExpr notOp (← mkIntEqExpr zeroInt op2)
+       let neq_proof ← mkApp2Expr (← mkInt_not_zero_eq_of_lt_zero) op2 lt_proof
+       -- add `¬ (0 = a) := Blaster.int_not_zero_eq_of_lt_zero a ...` to hypothesisMap
+       updateHypMap neqFact neq_proof nextCtxId
+       let nltFact ← mkAppExpr notOp (← mkIntLtExpr zeroInt op2)
+       let nlt_proof ← mkApp3Expr (← mkInt_not_lt_of_lt) op2 zeroInt lt_proof
+       -- add `¬ (0 < a) := Blaster.int_not_lt_of_lt a 0 ...` to hypothesisMap
+       updateHypMap nltFact nlt_proof nextCtxId
+
+/-- Given proposition `e` referenced by hypothesis `h`, perform the following:
+     - When `e := true = c`
+         - add `¬ (false = c) := Blaster.not_false_eq_of_true_eq c h` to hypothesisMap
+
+     - When `e := false = c`
+         - add `¬ (true = c) := Blaster.not_true_eq_of_false_eq c h` to hypothesisMap
+-/
+def addNotEqBoolFacts (e : Expr) (h : Expr) (nextCtxId : CtxId) : TranslateEnvT Unit := do
+ if let some (Expr.const ``Bool _, op1, op2) := eq? e then
+   if let some b := isBoolValue? op1 then
+     let notOp ← mkPropNotOp
+     if b then
+       -- case : e := true = c
+       let notFact ← mkAppExpr notOp (← mkEqBool op2 false)
+       let not_proof ← mkApp2Expr (← mkBlaster_not_false_eq_of_true_eq) op2 h
+       -- add `¬ (false = c) := Blaster_not_false_eq_of_true_eq c h` to hypothesisMap
+       updateHypMap notFact not_proof nextCtxId
+     else
+       -- case : e := false = c
+       let notFact ← mkAppExpr notOp (← mkEqBool op2 true)
+       let not_proof ← mkApp2Expr (← mkBlaster_not_true_eq_of_false_eq) op2 h
+       -- add `¬ (true = c) := Blaster.not_true_eq_of_false_eq c h` to hypothesisMap
+       updateHypMap notFact not_proof nextCtxId
+
+/-- Given proposition `e` referenced by hypothesis `h`, perform the following:
+     - When `e := ¬ false = e`
+        - add `true = c := Blaster.true_eq_of_not_false_eq e h` to hypothesisMap
+     - When `e := ¬ true = e`
+        - add `false = e := Blaster.false_eq_of_not_true_eq e h` to hypothesisMap
 
      - When `e := ¬ (¬ a)`
          - add `a := Blaster.not_not_cancel a h` to hypothesisMap
 
-     - When `e := true = e`
-         - add `¬ (false = e) := Blaster.not_false_eq_of_true_eq e h` to hypothesisMap
-
-     - When `e := false = e`
-         - add `¬ (true = e) := Blaster.not_true_eq_of_false_eq e h` to hypothesisMap
+     - addNotRelNatFacts
+     - addNotRelIntFacts
 
      NOTE: This function need to be in sync with optimizeAdvancedNot
 -/
-@[always_inline, inline]
 def addNotPropFacts (e : Expr) (h : Expr) (nextCtxId : CtxId) : TranslateEnvT Unit := do
   if let some ne := propNot? e then
     if let some (r, op2, boolLit) ← notEqSimp? ne then
@@ -198,95 +292,201 @@ def addNotPropFacts (e : Expr) (h : Expr) (nextCtxId : CtxId) : TranslateEnvT Un
       let proof ← mkApp2Expr proofOp op2 h
       updateHypMap r proof nextCtxId
 
-    if let some (Expr.const ``Nat _, _inst, op1, op2) := lt? ne then
-      if let some 0 := isNatValue? op1 then
-        -- case : e := ¬ (0 < a) ∧ Type(a) = Nat
-        let eqFact ← mkNatEqExpr op1 op2
-        let eq_proof ← mkApp2Expr (← mkNat_zero_eq_of_not_zero_lt) op2 h
-        updateHypMap eqFact eq_proof nextCtxId
-      if let some n := isNatValue? op2 then
-        unless n == 0 do
-          -- case : e := ¬ (a < N) ∧ Type(a) = Nat ∧ N ≠ 0
-          let zeroNat ← mkNatLitExpr 0
-          let ltFact ← mkNatLtExpr zeroNat op1
-          let notOp ← mkPropNotOp
-          let neqHyp ← mkAppExpr notOp (← mkNatEqExpr zeroNat op2)
-          let neqHyp_proof ← mkOfDecideEqProof neqHyp true
-          let lt_proof ← mkApp4Expr (← mkNat_zero_lt_of_not_lt_neq) op1 op2 h neqHyp_proof
-          -- add `0 < a := Blaster.nat_zero_lt_of_not_lt_neq a N h (← mkOfDecideEqProof (¬ (0 = N)) true)` to hypothesisMap
-          updateHypMap ltFact lt_proof nextCtxId
-          let neqFact ← mkAppExpr notOp (← mkNatEqExpr zeroNat op1)
-          let neq_proof ← mkApp2Expr (← mkNat_not_zero_eq_of_zero_lt) op1 lt_proof
-          -- add `¬ (0 = a) := Blaster.nat_not_zero_eq_of_zero_lt a ...` to hypothesisMap
-          updateHypMap neqFact neq_proof nextCtxId
-
-    if let some (Expr.const ``Nat _, op1, op2) := eq? ne then
-      if let some 0 := isNatValue? op1 then
-        -- case : e := ¬ (0 = a) ∧ Type(a) = Nat
-        let ltFact ← mkNatLtExpr op1 op2
-        let lt_proof ← mkApp2Expr (← mkNat_zero_lt_of_not_zero_eq) op2 h
-        updateHypMap ltFact lt_proof nextCtxId
-
-    if let some (Expr.const ``Int _, _inst, op1, op2) := lt? ne then
-      if let some n := isIntValue? op2 then
-        unless n ≤ 0 do
-          -- case : e := ¬ (a < N) ∧ Type(a) = Int ∧ N > 0
-          let zeroInt ← mkIntLitExpr 0
-          let ltFact ← mkIntLtExpr zeroInt op1
-          let ltHyp ← mkIntLtExpr zeroInt op2
-          let ltHyp_proof ← mkOfDecideEqProof ltHyp true
-          let lt_proof ← mkApp4Expr (← mkInt_zero_lt_of_nlt_zero_lt) op1 op2 h ltHyp_proof
-          -- add `0 < a := Blaster.int_zero_lt_of_nlt_zero_lt a N h (← mkOfDecideEqProof (0 < N)) true)` to hypothesisMap
-          updateHypMap ltFact lt_proof nextCtxId
-          let notOp ← mkPropNotOp
-          let neqFact ← mkAppExpr notOp (← mkIntEqExpr zeroInt op1)
-          let neq_proof ← mkApp2Expr (← mkInt_not_zero_eq_of_zero_lt) op1 lt_proof
-          -- add `¬ (0 = a) := Blaster.int_not_zero_eq_of_zero_lt a ...` to hypothesisMap
-          updateHypMap neqFact neq_proof nextCtxId
-          let nltFact ← mkAppExpr notOp (← mkIntLtExpr op1 zeroInt)
-          let nlt_proof ← mkApp3Expr (← mkInt_not_lt_of_lt) zeroInt op1 lt_proof
-          -- add `¬ (a < 0) := Blaster.int_not_lt_of_lt 0 a ...` to hypothesisMap
-          updateHypMap nltFact nlt_proof nextCtxId
-      if let some n := isIntValue? op1 then
-        unless n ≥ 0 do
-          -- case : e := ¬ (N < a) ∧ Type(a) = Int ∧ N < 0
-          let zeroInt ← mkIntLitExpr 0
-          let ltFact ← mkIntLtExpr op2 zeroInt
-          let ltHyp ← mkIntLtExpr op1 zeroInt
-          let ltHyp_proof ← mkOfDecideEqProof ltHyp true
-          let lt_proof ← mkApp4Expr (← mkInt_lt_zero_of_nlt_lt_zero) op2 op1 h ltHyp_proof
-          -- add `a < 0 := Blaster.int_lt_zero_of_nlt_lt_zero a N h (← mkOfDecideEqProof (N < 0)) true)` to hypothesisMap
-          updateHypMap ltFact lt_proof nextCtxId
-          let notOp ← mkPropNotOp
-          let neqFact ← mkAppExpr notOp (← mkIntEqExpr zeroInt op2)
-          let neq_proof ← mkApp2Expr (← mkInt_not_zero_eq_of_lt_zero) op2 lt_proof
-          -- add `¬ (0 = a) := Blaster.int_not_zero_eq_of_lt_zero a ...` to hypothesisMap
-          updateHypMap neqFact neq_proof nextCtxId
-          let nltFact ← mkAppExpr notOp (← mkIntLtExpr zeroInt op2)
-          let nlt_proof ← mkApp3Expr (← mkInt_not_lt_of_lt) op2 zeroInt lt_proof
-          -- add `¬ (0 < a) := Blaster.int_not_lt_of_lt a 0 ...` to hypothesisMap
-          updateHypMap nltFact nlt_proof nextCtxId
-
     if let some ne' := propNot? ne then
        -- case : e := ¬ (¬ e)
        let not_proof ← mkApp2Expr (← mkBlaster_not_not_cancel) ne' h
        updateHypMap ne' not_proof nextCtxId
 
-  if let some (Expr.const ``Bool _, op1, op2) := eq? e then
-    if let some b := isBoolValue? op1 then
-      let notOp ← mkPropNotOp
-      if b then
-        -- case : e := true = c
-        let notFact ← mkAppExpr notOp (← mkEqBool op2 false)
-        let not_proof ← mkApp2Expr (← mkBlaster_not_false_eq_of_true_eq) op2 h
-        -- add `¬ (false = c) := Blaster_not_false_eq_of_true_eq c h` to hypothesisMap
-        updateHypMap notFact not_proof nextCtxId
-      else
-        -- case : e := false = c
-        let notFact ← mkAppExpr notOp (← mkEqBool op2 true)
-        let not_proof ← mkApp2Expr (← mkBlaster_not_true_eq_of_false_eq) op2 h
-        -- add `¬ (true = c) := Blaster.not_true_eq_of_false_eq c h` to hypothesisMap
-        updateHypMap notFact not_proof nextCtxId
+    addNotRelNatFacts ne h nextCtxId
+    addNotRelIntFacts ne h nextCtxId
+
+/-- Given proposition `e` referenced by hypothesis `h`, perform the following:
+     - When `e := ¬ a ∨ ¬ b
+        - When a <ₒ b
+            - add `¬ (a ∧ b) := Blaster.not_and_from_or_not_not a b h` to hypothesisMap
+        - Otherwise
+            - add `¬ (b ∧ a) := Blaster.not_and_from_or_not_not_comm a b h)` to hypothesisMap
+
+     - When `e := a ∨ ¬ b`
+         - When ¬ a <ₒ b
+            - add `¬ (¬ a ∧ b) := Blaster.not_and_from_or_not_right a b h` to hypothesisMap
+         - Otherwise
+            - add `¬ (b ∧ ¬ a) := Blaster.not_and_from_or_not_right_comm a b h` to hypothesisMap
+
+     - When `e := ¬ a ∨ b`
+         - When a <ₒ ¬ b
+            - add `¬ (a ∧ ¬ b) := Blaster.not_and_from_or_not_left a b h` to hypothesisMap
+         - Otherwise
+            - add `¬ (¬ b ∧ a) := Blaster.not_and_from_or_not_left_comm a b h` to hypothesisMap
+
+     - When `e := a ∨ b`
+        - When ¬ a <ₒ ¬ b
+            - add `¬ (¬ a ∧ ¬ b) := Blaster.not_and_from_or a b h` to hypothesisMap
+        - Otherwise
+            - add `¬ (¬ b ∧ ¬ a) := Blaster.not_and_from_or_comm a b h` to hypothesisMap
+
+-/
+def addNotOrFacts (e : Expr) (h : Expr) (nextCtxId : CtxId) : TranslateEnvT Unit := do
+ if let some (op1, op2) := propOr? e then
+   let notOp ← mkPropNotOp
+   match propNot? op1, propNot? op2 with
+   | some a, some b =>
+        -- case : e := ¬ a ∨ ¬ b
+        let (a', _) := reorderPropOp #[a, b]
+        if exprEq a a' then
+          -- case : a <ₒ b
+          let andExpr ← mkApp2Expr (← mkPropAndOp) a b
+          let not_and_proof ← mkApp3Expr (← mkBlaster_not_and_from_or_not_not) a b h
+          -- add `¬ (a ∧ b) := Blaster.not_and_from_or_not_not a b h` to hypothesisMap
+          updateHypMap (← mkAppExpr notOp andExpr) not_and_proof nextCtxId
+        else
+          let andExpr ← mkApp2Expr (← mkPropAndOp) b a
+          let not_and_proof ← mkApp3Expr (← mkBlaster_not_and_from_or_not_not_comm) a b h
+          -- add `¬ (b ∧ a) := Blaster.not_and_from_or_not_not_comm a b h` to hypothesisMap
+          updateHypMap (← mkAppExpr notOp andExpr) not_and_proof nextCtxId
+
+   | _, some b =>
+        -- case : e := a ∨ ¬ b
+        let a ← mkAppExpr notOp op1
+        let (a', _) := reorderPropOp #[a, b]
+        if exprEq a a' then
+          -- case: ¬ a <ₒ b
+          let andExpr ← mkApp2Expr (← mkPropAndOp) a b
+          let not_and_proof ← mkApp3Expr (← mkBlaster_not_and_from_or_not_right) op1 b h
+          -- add `¬ (¬ a ∧ b) := Blaster.not_and_from_or_not_right a b h` to hypothesisMap
+          updateHypMap (← mkAppExpr notOp andExpr) not_and_proof nextCtxId
+        else
+          let andExpr ← mkApp2Expr (← mkPropAndOp) b a
+          let not_and_proof ← mkApp3Expr (← mkBlaster_not_and_from_or_not_right_comm) op1 b h
+          -- add `¬ (b ∧ ¬ a) := Blaster.not_and_from_or_not_right_comm a b h` to hypothesisMap
+          updateHypMap (← mkAppExpr notOp andExpr) not_and_proof nextCtxId
+
+   | some a, _ =>
+        -- case : e := e := ¬ a ∨ b
+        let b ← mkAppExpr notOp op2
+        let (a', _) := reorderPropOp #[a, b]
+        if exprEq a a' then
+          -- case: a <ₒ ¬ b
+          let andExpr ← mkApp2Expr (← mkPropAndOp) a b
+          let not_and_proof ← mkApp3Expr (← mkBlaster_not_and_from_or_not_left) a op2 h
+          -- add `¬ (a ∧ ¬ b) := Blaster.not_and_from_or_not_left a b h` to hypothesisMap
+          updateHypMap (← mkAppExpr notOp andExpr) not_and_proof nextCtxId
+        else
+          let andExpr ← mkApp2Expr (← mkPropAndOp) b a
+          let not_and_proof ← mkApp3Expr (← mkBlaster_not_and_from_or_not_left_comm) a op2 h
+          -- add `¬ (¬ b ∧ a) := Blaster.not_and_from_or_not_left_comm a b h` to hypothesisMap
+          updateHypMap (← mkAppExpr notOp andExpr) not_and_proof nextCtxId
+
+   | _, _ =>
+     -- case e := a ∨ b
+     let a ← mkAppExpr notOp op1
+     let b ← mkAppExpr notOp op2
+     let (a', _) := reorderPropOp #[a, b]
+     if exprEq a a' then
+       -- case: ¬ a <ₒ ¬ b
+       let andExpr ← mkApp2Expr (← mkPropAndOp) a b
+       let not_and_proof ← mkApp3Expr (← mkBlaster_not_and_from_or) op1 op2 h
+       -- add `¬ (¬ a ∧ ¬ b) := Blaster.not_and_from_or a b h` to hypothesisMap
+       updateHypMap (← mkAppExpr notOp andExpr) not_and_proof nextCtxId
+     else
+       let andExpr ← mkApp2Expr (← mkPropAndOp) b a
+       let not_and_proof ← mkApp3Expr (← mkBlaster_not_and_from_or_comm) op1 op2 h
+       -- add `¬ (¬ b ∧ ¬ a) := Blaster.not_and_from_or_comm a b h` to hypothesisMap
+       updateHypMap (← mkAppExpr notOp andExpr) not_and_proof nextCtxId
+
+
+/-- Given proposition `e` referenced by hypothesis `h`, perform the following:
+     - When `e := ¬ a ∧ ¬ b
+        - When a <ₒ b
+            - add `¬ (a ∨ b) := Blaster.not_or_from_and_not_not a b h` to hypothesisMap
+        - Otherwise
+            - add `¬ (b ∨ a) := Blaster.not_or_from_and_not_not_comm a b h` to hypothesisMap
+
+     - When `e := a ∧ ¬ b`
+         - When ¬ a <ₒ b
+            - add `¬ (¬ a ∨ b) := Blaster.not_or_from_and_not_right a b h` to hypothesisMap
+         - Otherwise:
+            - add `¬ (b ∨ ¬ a) := Blaster.not_or_from_and_not_right_comm a b h` to hypothesisMap
+
+     - When `e := ¬ a ∧ b`
+         - When a <ₒ ¬ b
+            - add `¬ (a ∨ ¬ b) := Blaster.not_or_from_and_not_left a b h` to hypothesisMap
+         - Otherwise:
+            - add `¬ (¬ b ∨ a) := Blaster.not_or_from_and_not_left_comm a b h` to hypothesisMap
+
+     - When `e := a ∧ b`
+        - Shen ¬ a <ₒ ¬ b
+            - add `¬ (¬ a ∨ ¬ b) := Blaster.not_or_from_and a b h` to hypothesisMap
+        - Otherwise
+            - add `¬ (¬ b ∨ ¬ a) := Blaster.not_or_from_and_comm a b h` to hypothesisMap
+-/
+def addNotAndFacts (e : Expr) (h : Expr) (nextCtxId : CtxId) : TranslateEnvT Unit := do
+ if let some (op1, op2) := propAnd? e then
+   let notOp ← mkPropNotOp
+   match propNot? op1, propNot? op2 with
+   | some a, some b =>
+        -- case : e := ¬ a ∧ ¬ b
+        let (a', _) := reorderPropOp #[a, b]
+        if exprEq a a' then
+          -- case : a <ₒ b
+          let orExpr ← mkApp2Expr (← mkPropOrOp) a b
+          let not_or_proof ← mkApp3Expr (← mkBlaster_not_or_from_and_not_not) a b h
+          -- add `¬ (a ∨ b) := Blaster.not_or_from_and_not_not a b h` to hypothesisMap
+          updateHypMap (← mkAppExpr notOp orExpr) not_or_proof nextCtxId
+        else
+          let orExpr ← mkApp2Expr (← mkPropOrOp) b a
+          let not_or_proof ← mkApp3Expr (← mkBlaster_not_or_from_and_not_not_comm) a b h
+          -- add `¬ (b ∨ a) := Blaster.not_or_from_and_not_not_comm a b h` to hypothesisMap
+          updateHypMap (← mkAppExpr notOp orExpr) not_or_proof nextCtxId
+
+   | _, some b =>
+        -- case : e := a ∧ ¬ b
+        let a ← mkAppExpr notOp op1
+        let (a', _) := reorderPropOp #[a, b]
+        if exprEq a a' then
+          let orExpr ← mkApp2Expr (← mkPropOrOp) a b
+          let not_or_proof ← mkApp3Expr (← mkBlaster_not_or_from_and_not_right) op1 b h
+          -- add `¬ (¬ a ∨ b) := Blaster.not_or_from_and_not_right a b h` to hypothesisMap
+          updateHypMap (← mkAppExpr notOp orExpr) not_or_proof nextCtxId
+        else
+          let orExpr ← mkApp2Expr (← mkPropOrOp) b a
+          let not_or_proof ← mkApp3Expr (← mkBlaster_not_or_from_and_not_right_comm) op1 b h
+          -- add `¬ (b ∨ ¬ a) := Blaster.not_or_from_and_not_right_comm a b h` to hypothesisMap
+          updateHypMap (← mkAppExpr notOp orExpr) not_or_proof nextCtxId
+
+   | some a, _ =>
+        -- case : e := ¬ a ∧ b
+        let b ← mkAppExpr notOp op2
+        let (a', _) := reorderPropOp #[a, b]
+        if exprEq a a' then
+          let orExpr ← mkApp2Expr (← mkPropOrOp) a b
+          let not_or_proof ← mkApp3Expr (← mkBlaster_not_or_from_and_not_left) a op2 h
+          -- add `¬ (a ∨ ¬ b) := Blaster.not_or_from_and_not_left a b h` to hypothesisMap
+          updateHypMap (← mkAppExpr notOp orExpr) not_or_proof nextCtxId
+        else
+          let orExpr ← mkApp2Expr (← mkPropOrOp) b a
+          let not_or_proof ← mkApp3Expr (← mkBlaster_not_or_from_and_not_left_comm) a op2 h
+          -- add `¬ (¬ b ∨ a) := Blaster.not_or_from_and_not_left_comm a b h` to hypothesisMap
+          updateHypMap (← mkAppExpr notOp orExpr) not_or_proof nextCtxId
+
+   | _, _ =>
+     -- case: e := a ∧ b
+     -- NOTE that op1 cannot be a Not at this stage due to reordering of operands
+     let a ← mkAppExpr notOp op1
+     let b ← mkAppExpr notOp op2
+     let (a', _) := reorderPropOp #[a, b]
+     if exprEq a a' then
+       -- case: ¬ a <ₒ ¬ b
+       let orExpr ← mkApp2Expr (← mkPropOrOp) a b
+       let not_or_proof ← mkApp3Expr (← mkBlaster_not_or_from_and) op1 op2 h
+       -- add `¬ (¬ a ∨ ¬ b) := Blaster.not_or_from_and a b h` to hypothesisMap
+       updateHypMap (← mkAppExpr notOp orExpr) not_or_proof nextCtxId
+     else
+       let orExpr ← mkApp2Expr (← mkPropOrOp) b a
+       let not_or_proof ← mkApp3Expr (← mkBlaster_not_or_from_and_comm) op1 op2 h
+       -- add `¬ (¬ b ∨ ¬ a) := Blaster.not_or_from_and_comm a b h` to hypothesisMap
+       updateHypMap (← mkAppExpr notOp orExpr) not_or_proof nextCtxId
+
 
 /-- Given proposition `e` referenced by hypothesis `h`, perform the following:
      - When `e := a < b ∧ Type(a) = Int`
@@ -310,7 +510,6 @@ def addNotPropFacts (e : Expr) (h : Expr) (nextCtxId : CtxId) : TranslateEnvT Un
           - add `¬ (0 < a) := Blaster.int_not_lt_of_lt a 0 (Int.lt_trans a N 0 h (← mkOfDecideEqProof (N < 0) true))` to hypothesisMap
 
 -/
-@[always_inline, inline]
 def addRelIntFacts (e : Expr) (h : Expr) (nextCtxId : CtxId) : TranslateEnvT Unit := do
   if let some (Expr.const ``Int _, _inst, op1, op2) := lt? e then
     -- case : e := a < b ∧ Type(a) = Int
@@ -381,7 +580,6 @@ def addRelIntFacts (e : Expr) (h : Expr) (nextCtxId : CtxId) : TranslateEnvT Uni
          - Otherwise
              - add `a < 0 := Blaster.int_lt_zero_of_eq_lt_zero N a h (← mkOfDecideEqProof (N < 0) true)` to hypothesisMap
 -/
-@[always_inline, inline]
 def addEqIntFacts (e : Expr) (h : Expr) (nextCtxId : CtxId) : TranslateEnvT Unit := do
   if let some (Expr.const ``Int _, op1, op2) := eq? e then
     -- case : e := a = b ∧ Type(a) = Int
@@ -427,7 +625,6 @@ def addEqIntFacts (e : Expr) (h : Expr) (nextCtxId : CtxId) : TranslateEnvT Unit
         - Otherwise
             - add `¬ (b = a) := Blaster.nat_not_eq_of_lt_left_sym a b h` to hypothesisMap
 -/
-@[always_inline, inline]
 def addRelNatFacts (e : Expr) (h : Expr) (nextCtxId : CtxId) : TranslateEnvT Unit := do
   if let some (Expr.const ``Nat _, _inst, op1, op2) := lt? e then
     -- case : e := a < b ∧ Type(a) = Nat
@@ -466,7 +663,6 @@ def addRelNatFacts (e : Expr) (h : Expr) (nextCtxId : CtxId) : TranslateEnvT Uni
          - add `¬ (0 = a) := Blaster.nat_not_zero_eq_of_eq_neq N a h (← mkOfDecideEqProof (¬ (0 = N)) true)` to hypothesisMap
          - add `0 < a := Blaster.nat_zero_lt_of_eq_neq N a h (← mkOfDecideEqProof (¬ (0 = N)) true)` to hypothesisMap
 -/
-@[always_inline, inline]
 def addEqNatFacts (e : Expr) (h : Expr) (nextCtxId : CtxId) : TranslateEnvT Unit := do
   if let some (Expr.const ``Nat _, op1, op2) := eq? e then
     -- case : e := a = b ∧ Type(a) = Nat
@@ -579,6 +775,8 @@ partial def addHypotheses
     @[always_inline, inline]
     addFacts (e : Expr) (fv : Expr) (nextCtxId : CtxId) : TranslateEnvT Unit := do
       addNotPropFacts e fv nextCtxId
+      addNotEqBoolFacts e fv nextCtxId
+      addNotOrFacts e fv nextCtxId
       addDitePropFacts e fv nextCtxId
       addEqRewriteInMap e nextCtxId
       addRelIntFacts e fv nextCtxId
@@ -597,6 +795,7 @@ partial def addHypotheses
             -- add `b := And.right a b fv` to hypothesisMap
             updateHypMap a proof1 nextCtxId
             updateHypMap b proof2 nextCtxId
+            addNotAndFacts e fv nextCtxId
             visit ((a, proof1) :: (b, proof2) :: xs) nextCtxId
         else if let some (a, b) := notPropOr? e then
           let notOp ← mkPropNotOp
