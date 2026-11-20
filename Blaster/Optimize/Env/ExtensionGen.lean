@@ -320,78 +320,10 @@ def mkLevelsTerm (ls : List Level) : GenM Term := do
   let ts ← ls.toArray.mapM mkLevelTermNorm
   `([$ts,*])
 
-/-- Constants for which a dedicated (cached) builder exists, with the expected universe levels.
-    NOTE: This list needs to be in synch with CommonExpr and the mkXXX functions in `ExprBuilder`.
--/
-def constBuilders : List (Name × List Level × Name) :=
-  [ (``BEq.beq, [levelZero], ``mkBeqOp)
-  , (``Blaster.dite', [levelOne], ``mkBlasterDIteOp)
-  , (``Blaster.decide', [], ``mkBlasterDecideConst)
-  , (``Bool, [], ``mkBoolType)
-  , (``true, [], ``mkBoolTrue)
-  , (``false, [], ``mkBoolFalse)
-  , (``not, [], ``mkBoolNotOp)
-  , (``or, [], ``mkBoolOrOp)
-  , (``and, [], ``mkBoolAndOp)
-  , (``Decidable, [], ``mkDecidableConst)
-  , (``DecidableEq, [], ``mkDecidableEqConst)
-  , (``Eq, [levelOne], ``mkEqOp)
-  , (``Inhabited, [levelOne], ``mkInhabitedConst)
-  , (``instBEqOfDecidableEq, [levelZero], ``mkInstBEqOfDecEq)
-  , (``instDecidableEqNat, [], ``mkInstDecEqNat)
-  , (``Int.instLTInt, [], ``mkInstLTInt)
-  , (``instLTNat, [], ``mkInstLTNat)
-  , (``Int, [], ``mkIntType)
-  , (``Int.add, [], ``mkIntAddOp)
-  , (``Int.ediv, [], ``mkIntEDivOp)
-  , (``Int.emod, [], ``mkIntEModOp)
-  , (``Int.fdiv, [], ``mkIntFDivOp)
-  , (``Int.fmod, [], ``mkIntFModOp)
-  , (``Int.mul, [], ``mkIntMulOp)
-  , (``Int.neg, [], ``mkIntNegOp)
-  , (``Int.negSucc, [], ``mkIntNegSucc)
-  , (``Int.ofNat, [], ``mkIntOfNat)
-  , (``Int.pow, [], ``mkIntPowOp)
-  , (``Int.sub, [], ``mkIntSubOp)
-  , (``Int.tdiv, [], ``mkIntTDivOp)
-  , (``Int.tmod, [], ``mkIntTModOp)
-  , (``Int.toNat, [], ``mkIntToNatOp)
-  , (``LE.le, [levelZero], ``mkLeOp)
-  , (``LT.lt, [levelZero], ``mkLtOp)
-  , (``LT, [levelZero], ``mkLTConst)
-  , (``LawfulBEq, [levelZero], ``mkLawfulBEqConst)
-  , (``Nat.add, [], ``mkNatAddOp)
-  , (``Nat.beq, [], ``natBeq)
-  , (``Nat.ble, [], ``natBle)
-  , (``Nat.blt, [], ``mkNatBltOp)
-  , (``Nat.div, [], ``mkNatDivOp)
-  , (``Nat.mod, [], ``mkNatModOp)
-  , (``Nat.mul, [], ``mkNatMulOp)
-  , (``Nat.pow, [], ``mkNatPowOp)
-  , (``Nat.sub, [], ``mkNatSubOp)
-  , (``Nat, [], ``mkNatType)
-  , (``not_false, [], ``mkNotFalse)
-  , (``And, [], ``mkPropAndOp)
-  , (``False, [], ``mkPropFalse)
-  , (``Not, [], ``mkPropNotOp)
-  , (``Or, [], ``mkPropOrOp)
-  , (``True, [], ``mkPropTrue)
-  , (``String.mk, [], ``mkStringMk)
-  , (``String, [], ``mkStringType)
-  , (``True.intro, [], ``mkTrueIntro)
-  , (``Decidable.decide, [], ``Blaster.Optimize.mkDecide)
-  , (``of_decide_eq_true, [], ``mkOfDecideEqTrue)
-  , (``of_decide_eq_false, [], ``mkOfDecideEqFalse)
-  , (``Char.ofNat, [], ``mkCharOfNat)
-  , (``Char.toNat, [], ``mkCharToNat)
-  , (``Char, [], ``mkCharType)
-  ]
 
 /-- Builder call for the constant `n` with universe levels `ls`. -/
 def mkConstTerm (n : Name) (ls : List Level) : GenM Term := do
-  match constBuilders.find? (fun (c, ls', _) => c == n && ls' == ls) with
-  | some (_, _, builder) => return mkCIdent builder
-  | none => `(mkExpr (Expr.const $(quote n) $(← mkLevelsTerm ls)))
+  `(Ext.expr (Expr.const $(quote n) $(← mkLevelsTerm ls)))
 
 def mkBinderInfoTerm (bi : BinderInfo) : Term :=
   match bi with
