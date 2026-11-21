@@ -236,11 +236,15 @@ partial def mkPat (e : Expr) : GenM Term := do
       let c ← freshIdent `c
       modify fun st => { st with nameChecks := st.nameChecks.push (c, n) }
       if ls.any Level.hasParam then
-        -- bind the level list so that level parameters can be reused when building the rhs
+        -- bind the level list so that level parameters can be reused when building the rhs; the
+        -- name of the constant is only compared afterwards, so the matched constant may have fewer
+        -- levels than the pattern: the accesses are guarded (`lv[i]?`) rather than panicking (`lv[i]!`)
         let lv ← freshIdent `lv
         let mut i := 0
         for l in ls do
-          bindLevel (← `($lv[$(quote i)]!)) l
+          let lvi ← freshIdent `lv
+          emitElem (← `(doElem| let some $lvi := $lv[$(quote i)]? | return none))
+          bindLevel lvi l
           i := i + 1
         `(Expr.const $c $lv)
       else `(Expr.const $c _)
@@ -466,7 +470,9 @@ def generateCode (cfg : Config) : MetaM (Option (Name × Term)) := do
           emitElem (← `(doElem| let Expr.const _ $flv := $fId | return none))
           let mut j := 0
           for l in hls do
-            bindLevel (← `($flv[$(quote j)]!)) l
+            let flvj ← freshIdent `flv
+            emitElem (← `(doElem| let some $flvj := $flv[$(quote j)]? | return none))
+            bindLevel flvj l
             j := j + 1
         -- non-linear occurrences of universe level parameters
         for (t, l) in (← get).levelChecks do

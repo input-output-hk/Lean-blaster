@@ -188,4 +188,32 @@ axiom ty6_max : ty6 (Type u) (Type v) = ty5 (Sort (max u v))
 #testOptimize [ "ExtMultiMaxPoly_12" ] ty6 (Type u) (Type 0) = ty5 (Sort u) ===> True
 #testOptimize [ "ExtMultiMaxPoly_13" ] ty6 (Type (u + 1)) (Type u) = ty5 (Sort (u + 1)) ===> True
 
+/-! Universe levels of a constant of the lhs are read from the matched constant before its name is
+    compared (the levels are needed for the level checks and the `Level.dec` of `u + 1` levels): the
+    matched constant may have fewer levels than the pattern constant, and the accesses must not panic
+    (`lv[i]?` rather than `lv[i]!`). The rule is simply not applied. -/
+
+axiom pl2 : {α : Type u} → List α → List α → Nat
+
+-- `u` occurs in both `List.cons.{u}` of the lhs: a level check is generated
+@[blaster]
+axiom pl2_cons : ∀ {α : Type u} (a b : α) (xs ys : List α), pl2 (a :: xs) (b :: ys) = Nat.add 2 (pl2 xs ys)
+
+axiom mk3 : Nat → Nat → Nat → List Nat
+
+-- `mk3 x y z` has the shape of `List.cons α a xs` but `mk3` has no universe level
+#testOptimize [ "ExtLevelArity_1" ] (norm-result: 1)
+  ∀ (x y z : Nat) (xs : List Nat), pl2 (x :: xs) (mk3 x y z) = 0 ===>
+  ∀ (x y z : Nat) (xs : List Nat), 0 = pl2 (x :: xs) (mk3 x y z)
+
+#testOptimize [ "ExtLevelArity_2" ] (norm-result: 1)
+  ∀ (x y z : Nat) (xs : List Nat), pl2 (mk3 x y z) (x :: xs) = 0 ===>
+  ∀ (x y z : Nat) (xs : List Nat), 0 = pl2 (mk3 x y z) (x :: xs)
+
+#testOptimize [ "ExtLevelArity_3" ] (norm-result: 1)
+  ∀ (x y : Nat) (xs : List Nat), pl2 (x :: xs) (y :: xs) = 0 ===> False
+
+#testOptimize [ "ExtLevelArity_4" ]
+  ty4 (Type 1) Nat = ty2h (Type 1) (Type 1) ===> ty2h (Type 1) (Type 1) = ty4 (Type 1) Nat
+
 end Test.ExtensionUniverse
