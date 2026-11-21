@@ -216,4 +216,37 @@ axiom mk3 : Nat → Nat → Nat → List Nat
 #testOptimize [ "ExtLevelArity_4" ]
   ty4 (Type 1) Nat = ty2h (Type 1) (Type 1) ===> ty2h (Type 1) (Type 1) = ty4 (Type 1) Nat
 
+/-! Every universe level of a matched constant is checked, not only the level parameters: the head
+    `allEq.{0}` of the lhs must not match `allEq.{1} Nat` (`p : Prop` is matched by `Nat : Type`
+    otherwise, and `allEq Nat` is false), and a constant with concrete levels in the arguments must
+    not match the same constant at other levels. -/
+
+/-- Holds for every `p : Prop` (proof irrelevance), fails for `Nat : Type`. -/
+def allEq (α : Sort u) : Prop := ∀ a b : α, a = b
+
+@[blaster]
+theorem allEq_prop (p : Prop) : allEq.{0} p = True := eq_true (fun _ _ => rfl)
+
+#testOptimize [ "ExtLevelConcrete_1" ] ∀ (p : Prop), allEq p ===> True
+
+-- `allEq.{1} Nat` is not an instance of the lhs: `allEq` is simply unfolded
+#testOptimize [ "ExtLevelConcrete_2" ] allEq Nat ===> ∀ (a b : Nat), a = b
+
+#testOptimize [ "ExtLevelConcrete_3" ] ∀ (α : Type u), allEq α ===> ∀ (α : Type u) (a b : α), a = b
+
+#testOptimize [ "ExtLevelConcrete_4" ] ∀ (α : Sort u), allEq α ===> ∀ (α : Sort u) (a b : α), a = b
+
+axiom tyc : Sort v → Nat
+
+@[blaster]
+axiom tyc_punit : tyc PUnit.{2} = 1
+
+#testOptimize [ "ExtLevelConcrete_5" ] (norm-result: 1) tyc PUnit.{2} = 1 ===> True
+
+#testOptimize [ "ExtLevelConcrete_6" ] (norm-result: 1) tyc PUnit.{3} = 1 ===> 1 = tyc PUnit.{3}
+
+#testOptimize [ "ExtLevelConcrete_7" ] (norm-result: 1) tyc PUnit.{1} = 1 ===> 1 = tyc PUnit.{1}
+
+#testOptimize [ "ExtLevelConcrete_8" ] (norm-result: 1) tyc PUnit.{u} = 1 ===> 1 = tyc PUnit.{u}
+
 end Test.ExtensionUniverse

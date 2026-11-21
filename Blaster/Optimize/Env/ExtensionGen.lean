@@ -204,7 +204,9 @@ partial def recordLevelParam (t : Term) (l : Level) : GenM Unit := do
     in `f (Type u) (Type u)` must be matched by the same level. -/
 def bindLevel (t : Term) (l : Level) : GenM Unit := do
   if ← isUnrecordedLevelParam l then recordLevelParam t l
-  else if l.hasParam then
+  else
+    -- non-linear occurrence of a level parameter, or concrete level (e.g. `allEq.{0} p`): checked
+    -- after the structural match (`Level.isEquiv`)
     modify fun st => { st with levelChecks := st.levelChecks.push (t, l) }
 
 /-- Pattern for a universe level (level parameters/meta variables are matched by `_`). -/
@@ -243,10 +245,11 @@ partial def mkPat (e : Expr) : GenM Term := do
       -- bind the name and compare it afterwards (see `GenState.nameChecks`)
       let c ← freshIdent `c
       modify fun st => { st with nameChecks := st.nameChecks.push (c, n) }
-      if ls.any Level.hasParam then
-        -- bind the level list so that level parameters can be reused when building the rhs; the
-        -- name of the constant is only compared afterwards, so the matched constant may have fewer
-        -- levels than the pattern: the accesses are guarded (`lv[i]?`) rather than panicking (`lv[i]!`)
+      if !ls.isEmpty then
+        -- bind the level list so that every level is checked (level parameters are recorded to be
+        -- reused when building the rhs, the other levels are compared); the name of the constant is
+        -- only compared afterwards, so the matched constant may have fewer levels than the pattern:
+        -- the accesses are guarded (`lv[i]?`) rather than panicking (`lv[i]!`)
         let lv ← freshIdent `lv
         let mut i := 0
         for l in ls do
@@ -477,11 +480,12 @@ def generateCode (cfg : Config) : MetaM (Option (Name × Term)) := do
             discrs := discrs.push discr
             pats := pats.push pat
           i := i + 1
-        -- universe level parameters not occurring in a constant or a sort of the arguments are
-        -- recovered from the head expression `_f` (e.g., `u` in `@box.{u} α x = @some.{u} α x`,
-        -- where `α : Type u` is a pattern variable)
+        -- universe levels of the head expression `_f`: level parameters not occurring in a constant
+        -- or a sort of the arguments are recovered from them (e.g., `u` in `@box.{u} α x = @some.{u} α x`,
+        -- where `α : Type u` is a pattern variable), the other levels are checked (`allEq.{0} p`
+        -- must not match `allEq.{1} Nat`)
         let .const _ hls := lhs.getAppFn | unreachable!
-        if ← hls.anyM isUnrecordedLevelParam then
+        if !hls.isEmpty then
           let flv ← freshIdent `flv
           emitElem (← `(doElem| let Expr.const _ $flv := $fId | return none))
           let mut j := 0
