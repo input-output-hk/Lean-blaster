@@ -155,7 +155,7 @@ partial def normNatLitAndLambdaBeta (e : Expr) : MetaM Expr := do
 @[command_elab testOptimize]
 def testOptimizeImp : CommandElab := fun stx => do
  let name ← parseTestName ⟨stx[1]⟩
- let sOpts ← parseVerbose default ⟨stx[2]⟩
+ let sOpts ← parseSolveOptions stx[2].getArgs default
  let normNatFlag ← parseNormNatLitOption ⟨stx[3]⟩
  let (t1, t2) ← parseTermReducedTo ⟨stx[4]⟩
  withoutModifyingEnv $ runTermElabM fun _ => do
