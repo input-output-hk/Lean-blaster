@@ -468,10 +468,10 @@ def isNamedPatternExpr (e : Expr) : Bool :=
 /-- Determine if `e` is an boolean `==` expression and return its corresponding arguments.
     Otherwise return `none`.
 -/
-@[always_inline, inline] def beq? (e : Expr) : Option (Expr × Expr × Expr × Expr) :=
+@[always_inline, inline] def beq? (e : Expr) : Option (List Level × Expr × Expr × Expr × Expr) :=
   match e with
-  | Expr.app (Expr.app (Expr.app (Expr.app (Expr.const ``BEq.beq _) psort) pdecide) e1) e2 =>
-      some (psort, pdecide, e1, e2)
+  | Expr.app (Expr.app (Expr.app (Expr.app (Expr.const ``BEq.beq u) psort) pdecide) e1) e2 =>
+      some (u, psort, pdecide, e1, e2)
   | _ => none
 
 
@@ -801,10 +801,10 @@ def isIntPowExpr (e : Expr) : Bool :=
 /-- Determine if `e` is an `Blaster.dite'` expression and return its corresponding arguments.
     Otherwise return `none`.
 -/
-@[always_inline, inline] def dite'? (e : Expr) : Option (Expr × Expr × Expr × Expr) :=
+@[always_inline, inline] def dite'? (e : Expr) : Option (List Level × Expr × Expr × Expr × Expr) :=
   match e with
-  | Expr.app (Expr.app (Expr.app (Expr.app (Expr.const ``Blaster.dite' _) psort) pcond) e1) e2 =>
-      some (psort, pcond, e1, e2)
+  | Expr.app (Expr.app (Expr.app (Expr.app (Expr.const ``Blaster.dite' u) psort) pcond) e1) e2 =>
+      some (u, psort, pcond, e1, e2)
   | _ => none
 
 /-- Return `true` only when `e := Expr.const ``Blaster.dite' _`

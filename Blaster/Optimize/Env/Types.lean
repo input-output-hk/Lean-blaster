@@ -72,6 +72,14 @@ instance : Inhabited ResetOptions where
   default := {isAppArg := false, isCtorArg := false}
 
 
+inductive NormalizeMode where
+  | Full -- full optimization applied
+  | Partial (head : Name) -- same as restricted but perform unfolding of non-recursive functions, except for
+                          -- `head` and the heads of the recorded rules (see `isNotFoldable`)
+  | Restricted -- normalization for Blaster extension
+deriving Repr
+
+
 structure OptimizeOptions where
   /-- Flag to activate function normalization, e.g., `Nat.beq x y` to `BEq.beq Nat instBEqNat x y`.
       This flag is set to `false` when optimizing the recursive function body.
@@ -103,6 +111,13 @@ structure OptimizeOptions where
 
   /-- Flag set to `true` only when normalizing match pattern -/
   normalizeMatchInfo : Bool := false
+
+  /-- When set to `Restricted` only to perform expression's normalization for Blaster extension
+      When set to `Partial` perform normalization for Extension but unfold non-recursive function
+      When set to `Full` perform full optimization
+      (see function `normalizeExpr`)
+  -/
+  normalizeMode : NormalizeMode := .Full
 
 instance : Inhabited OptimizeOptions where
   default := { normalizeFunCall := true, inFunApp := false, mcDepth := 0, solverOptions := default, resetOptions := default }
@@ -168,7 +183,6 @@ structure HypothesisContext where
       Any occurrence of the key for a given context is replaced by the rhs value.
   -/
   equalityMap : ContextMap EqualityEntry
-
 
 instance : Inhabited HypothesisContext where
   default := { hypothesisMap := ContextMap.empty
@@ -255,17 +269,13 @@ structure CommonExpr where
   stringMk : Expr
   stringType : Expr
   trueIntro : Expr
-  listDrop : Expr
-  listGetInternal : Expr
-  listLength : Expr
-  listReverseAux : Expr
-  listTake : Expr
   decide : Expr
   ofDecideEqTrue : Expr
   ofDecideEqFalse : Expr
   nonEmpty : Expr
   charOfNat : Expr
   charToNat : Expr
+  charType : Expr
 
 
 /-- A saved optimization-context scope: the parent context id to restore on exit
@@ -444,17 +454,13 @@ private def mkCommonExpr : CommonExpr :=
   , stringMk := mkConst ``String.mk
   , stringType := mkConst ``String
   , trueIntro := mkConst ``True.intro
-  , listDrop := mkConst ``List.drop [levelZero]
-  , listGetInternal := mkConst ``List.get?Internal [levelZero]
-  , listLength := mkConst ``List.length [levelZero]
-  , listReverseAux := mkConst ``List.reverseAux [levelZero]
-  , listTake := mkConst ``List.take [levelZero]
   , decide := mkConst ``Decidable.decide
   , ofDecideEqTrue := mkConst ``of_decide_eq_true
   , ofDecideEqFalse := mkConst ``of_decide_eq_false
   , nonEmpty := mkConst ``Nonempty [levelOne]
   , charOfNat := mkConst ``Char.ofNat
   , charToNat := mkConst ``Char.toNat
+  , charType := mkConst ``Char
   }
 
 instance : Inhabited MemoizeEnv where
@@ -561,6 +567,9 @@ structure OptimizeEnv where
   /-- MVar assignment map using only during beta-reduction and unification. -/
   mAssignments : MVarAssignments
 
+  /-- Cache keeping track of expression being optimized to detect cyclic rewriting. -/
+  cyclicCache : HashSet PtrExpr
+
 
 instance : Inhabited OptimizeEnv where
   default :=
@@ -630,17 +639,13 @@ instance : Inhabited OptimizeEnv where
      , memCache.commonExpr.stringMk
      , memCache.commonExpr.stringType
      , memCache.commonExpr.trueIntro
-     , memCache.commonExpr.listDrop
-     , memCache.commonExpr.listGetInternal
-     , memCache.commonExpr.listLength
-     , memCache.commonExpr.listReverseAux
-     , memCache.commonExpr.listTake
      , memCache.commonExpr.decide
      , memCache.commonExpr.ofDecideEqTrue
      , memCache.commonExpr.ofDecideEqFalse
      , memCache.commonExpr.nonEmpty
      , memCache.commonExpr.charOfNat
      , memCache.commonExpr.charToNat
+     , memCache.commonExpr.charType
      ]
    { hashConsCache,
      rewriteCache := HashMap.emptyWithCapacity 1024
@@ -656,6 +661,7 @@ instance : Inhabited OptimizeEnv where
      restart := false,
      ctx := default,
      mAssignments := HashMap.emptyWithCapacity 1024
+     cyclicCache := HashSet.emptyWithCapacity 1024
    }
 
 
@@ -871,8 +877,8 @@ macro_rules
 
 /-- Update global rewrite cache with `a := b`. -/
 @[inline] def updateHashConsCache (a : SharedExpr) : TranslateEnvT Unit := do
-  modifyOptEnv fun ⟨hashConsCache, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14⟩ =>
-                   ⟨hashConsCache.insert a, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14⟩
+  modifyOptEnv fun ⟨hashConsCache, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14, o15⟩ =>
+                   ⟨hashConsCache.insert a, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14, o15⟩
 
 
 /-- Update rewrite cache at CtxId 0 with `a := b`. -/
@@ -882,34 +888,34 @@ def updateGlobalRewriteCache (a : Expr) (b : Expr) (insertIfNew := false) : Tran
   | none =>
       let refEntry ← IO.mkRef $ (HashMap.emptyWithCapacity 2048 : HashMap PtrExpr Expr).insert a b
       modifyOptEnv
-        fun ⟨o1, rewriteCache, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14⟩ =>
-            ⟨o1, rewriteCache.insert 0 refEntry, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14⟩
+        fun ⟨o1, rewriteCache, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14, o15⟩ =>
+            ⟨o1, rewriteCache.insert 0 refEntry, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14, o15⟩
   | some refEntry => refEntry.modify (λ h => if insertIfNew then h.insertIfNew a b else h.insert a b)
 
 
 /-- Update rewrite cache at curCtx with `a := b`. -/
 @[always_inline, inline]
 def updateLocalRewriteCache (a : Expr) (b : Expr) (insertIfNew := false) : TranslateEnvT Unit := do
-  let ⟨_, rewriteCache, _, _, _, _, _, _, _, _, ⟨_, _, _, _, curCtx, _, _, _, _⟩, _, _, _⟩ := (← get).optEnv
+  let ⟨_, rewriteCache, _, _, _, _, _, _, _, _, ⟨_, _, _, _, curCtx, _, _, _, _, _⟩, _, _, _, _⟩ := (← get).optEnv
   match rewriteCache.get? curCtx with
   | none =>
        let refEntry ← IO.mkRef $ (HashMap.emptyWithCapacity 256 : HashMap PtrExpr Expr).insert a b
        modifyOptEnv
-         fun ⟨o1, rewriteCache, o3, o4, o5, o6, o7, o8, o9, o10, options, o12, o13, o14⟩ =>
-             ⟨o1, rewriteCache.insert options.curCtx refEntry, o3, o4, o5, o6, o7, o8, o9, o10, options, o12, o13, o14⟩
+         fun ⟨o1, rewriteCache, o3, o4, o5, o6, o7, o8, o9, o10, options, o12, o13, o14, o15⟩ =>
+             ⟨o1, rewriteCache.insert options.curCtx refEntry, o3, o4, o5, o6, o7, o8, o9, o10, options, o12, o13, o14, o15⟩
   | some refEntry => refEntry.modify (λ h => if insertIfNew then h.insertIfNew a b else h.insert a b)
 
 /-- Update synthesize decidable instance cache with `a := b`. -/
 @[always_inline, inline]
 def updateSynthCache (a : Expr) (b : Option Expr) : TranslateEnvT Unit :=
-  modifyOptEnv fun ⟨o1, o2, synthInstanceCache, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14⟩ =>
-                   ⟨o1, o2, synthInstanceCache.insert a b, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14⟩
+  modifyOptEnv fun ⟨o1, o2, synthInstanceCache, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14, o15⟩ =>
+                   ⟨o1, o2, synthInstanceCache.insert a b, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14, o15⟩
 
 /-- remove `a` from hash cons cache. -/
 @[always_inline, inline]
 def removeFromHashConsCache (a : SharedExpr) : TranslateEnvT Unit := do
-  modifyOptEnv fun ⟨hashConsCache, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14⟩ =>
-                   ⟨hashConsCache.erase a, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14⟩
+  modifyOptEnv fun ⟨hashConsCache, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14, o15⟩ =>
+                   ⟨hashConsCache.erase a, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14, o15⟩
 
 @[always_inline, inline]
 def updateEqualityMap (lhs : Expr) (rhs : Expr) (ctxId : CtxId) (restart := false) : TranslateEnvT Unit := do
@@ -917,15 +923,15 @@ def updateEqualityMap (lhs : Expr) (rhs : Expr) (ctxId : CtxId) (restart := fals
   | none =>
        let refEntry ← IO.mkRef [(ctxId, ⟨rhs, restart⟩)]
        modifyOptEnv
-         fun ⟨o1, o2, o3, o4, o5, o6, o7, ⟨hypothesisMap, equalityMap⟩, o9, o10, o11, o12, o13, o14⟩ =>
-             ⟨o1, o2, o3, o4, o5, o6, o7, ⟨hypothesisMap, equalityMap.insert lhs refEntry⟩, o9, o10, o11, o12, o13, o14⟩
+         fun ⟨o1, o2, o3, o4, o5, o6, o7, ⟨hypothesisMap, equalityMap⟩, o9, o10, o11, o12, o13, o14, o15⟩ =>
+             ⟨o1, o2, o3, o4, o5, o6, o7, ⟨hypothesisMap, equalityMap.insert lhs refEntry⟩, o9, o10, o11, o12, o13, o14, o15⟩
   | some refEntry => refEntry.modify (λ l => (ctxId, ⟨rhs, restart⟩) :: l)
 
 /-- Look up `lhs` in the context-aware equality map, returning the rhs of the
     newest entry visible in the current context (tag ∈ active). -/
 @[always_inline, inline]
 def eqMapFind? (lhs : Expr) : TranslateEnvT (Option EqualityEntry) := do
-  let ⟨_, _, _, _, _, _, _, ⟨_, equalityMap⟩, _, _, ⟨_, _, _, _, _, _, active, _, _⟩, _, _, _⟩ := (← get).optEnv
+  let ⟨_, _, _, _, _, _, _, ⟨_, equalityMap⟩, _, _, ⟨_, _, _, _, _, _, active, _, _, _⟩, _, _, _, _⟩ := (← get).optEnv
   if equalityMap.size == 0
   then return none
   else ContextMap.findRaw equalityMap active lhs
@@ -935,7 +941,7 @@ def eqMapFind? (lhs : Expr) : TranslateEnvT (Option EqualityEntry) := do
     proof of the newest entry for `e` whose tag is active in the current context. -/
 @[always_inline, inline]
 def hypMapFind? (e : Expr) : TranslateEnvT (Option Expr) := do
-  let ⟨_, _, _, _, _, _, _, ⟨hypothesisMap, _⟩, _, _, ⟨_, _, _, _, _, _, active, _, _⟩, _, _, _⟩ := (← get).optEnv
+  let ⟨_, _, _, _, _, _, _, ⟨hypothesisMap, _⟩, _, _, ⟨_, _, _, _, _, _, active, _, _, _⟩, _, _, _, _⟩ := (← get).optEnv
   if hypothesisMap.size == 0
   then return none
   else ContextMap.findRaw hypothesisMap active e
@@ -965,9 +971,9 @@ def setAndCommitCtx (s : CtxScope) : TranslateEnvT Unit :=
 -/
 @[always_inline, inline]
 def endCtx (s : CtxScope) : TranslateEnvT Unit :=
-  modifyOptEnv fun ⟨o1, rewrite, o3, o4, o5, o6, o7, o8, o9, o10, ⟨s1, s2, s3, s4, _, s6, active, s7, s8⟩, o12, o13, o14⟩ =>
+  modifyOptEnv fun ⟨o1, rewrite, o3, o4, o5, o6, o7, o8, o9, o10, ⟨s1, s2, s3, s4, _, s6, active, s7, s8, s9⟩, o12, o13, o14, o15⟩ =>
                    ⟨o1, rewrite.erase s.current, o3, o4, o5, o6, o7, o8, o9, o10,
-                   ⟨s1, s2, s3, s4, s.parent, s6, active.erase s.current, s7, s8⟩, o12, o13, o14⟩
+                   ⟨s1, s2, s3, s4, s.parent, s6, active.erase s.current, s7, s8, s9⟩, o12, o13, o14, o15⟩
 
 
 
@@ -983,7 +989,7 @@ def ContextReuseMap.findRaw (m : ContextReuseMap) (e : Expr) (idx : USize) (curC
 
 @[always_inline, inline]
 def reuseContext? (e : Expr) (idx : USize) : TranslateEnvT (Option CtxReuseScope) := do
-  let ⟨_, _, _, _, _, _, _, _, _, memCache, ⟨_, _, _, _, curCtx, _, _, _, _⟩, _, _, _⟩ := (← get).optEnv
+  let ⟨_, _, _, _, _, _, _, _, _, memCache, ⟨_, _, _, _, curCtx, _, _, _, _, _⟩, _, _, _, _⟩ := (← get).optEnv
   memCache.contextReuseCache.findRaw e idx curCtx
 
 @[always_inline, inline]
@@ -995,41 +1001,49 @@ def withParentHyps (s : CtxScope) (k : TranslateEnvT α) : TranslateEnvT α := d
 
 @[always_inline, inline]
 def updateLocalContext (h : LocalDeclContext) : TranslateEnvT Unit :=
-  modifyOptEnv fun ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, _, o14⟩ =>
-                   ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, h, o14⟩
+  modifyOptEnv fun ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, _, o14, o15⟩ =>
+                   ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, h, o14, o15⟩
 
 @[always_inline, inline]
 def assignMVar (mvar : Expr) (val : Expr) : TranslateEnvT Unit :=
   modifyOptEnv fun optEnv => {optEnv with mAssignments := optEnv.mAssignments.insert mvar val}
 
 @[inline] def updateMatchCache (t : Expr) (res : Expr) : TranslateEnvT Unit :=
-  modifyOptEnv fun ⟨o1, o2, o3, matchCache, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14⟩ =>
-                   ⟨o1, o2, o3, matchCache.insert t res, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14⟩
+  modifyOptEnv fun ⟨o1, o2, o3, matchCache, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14, o15⟩ =>
+                   ⟨o1, o2, o3, matchCache.insert t res, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14, o15⟩
 
 /-- Add an instance recursive application (see function `getInstApp`) to
     the visited recursive function cache.
 -/
 @[inline] def cacheFunName (f : Expr) : TranslateEnvT Unit :=
- modifyOptEnv fun ⟨o1, o2, o3, o4, o5, recFunCache, o7, o8, o9, o10, o11, o12, o13, o14⟩ =>
-                  ⟨o1, o2, o3, o4, o5, recFunCache.insert f, o7, o8, o9, o10, o11, o12, o13, o14⟩
+ modifyOptEnv fun ⟨o1, o2, o3, o4, o5, recFunCache, o7, o8, o9, o10, o11, o12, o13, o14, o15⟩ =>
+                  ⟨o1, o2, o3, o4, o5, recFunCache.insert f, o7, o8, o9, o10, o11, o12, o13, o14, o15⟩
 
 /-- Remove an instance recursive application (see function `getInstApp`) from
     the visited recursive function cache.
 -/
 @[inline] def uncacheFunName (f : Expr) : TranslateEnvT Unit :=
- modifyOptEnv fun ⟨o1, o2, o3, o4, o5, recFunCache, o7, o8, o9, o10, o11, o12, o13, o14⟩ =>
-                  ⟨o1, o2, o3, o4, o5, recFunCache.erase f, o7, o8, o9, o10, o11, o12, o13, o14⟩
+ modifyOptEnv fun ⟨o1, o2, o3, o4, o5, recFunCache, o7, o8, o9, o10, o11, o12, o13, o14, o15⟩ =>
+                  ⟨o1, o2, o3, o4, o5, recFunCache.erase f, o7, o8, o9, o10, o11, o12, o13, o14, o15⟩
 
 /-- Given `f` which is either a function name expression or a fully/partially instantiated polymorphic function (see `getInstApp`),
     and `fbody` corresponding to `f`'s definition, update the recursive instance cache (i.e., `recFunInstCache`),
 -/
 @[inline] def updateRecFunInst (f : Expr) (fbody : Expr) : TranslateEnvT Unit :=
-  modifyOptEnv fun ⟨o1, o2, o3, o4, recFunInstCache, o6, o7, o8, o9, o10, o11, o12, o13, o14⟩ =>
-                   ⟨o1, o2, o3, o4, recFunInstCache.insert f fbody, o6, o7, o8, o9, o10, o11, o12, o13, o14⟩
+  modifyOptEnv fun ⟨o1, o2, o3, o4, recFunInstCache, o6, o7, o8, o9, o10, o11, o12, o13, o14, o15⟩ =>
+                   ⟨o1, o2, o3, o4, recFunInstCache.insert f fbody, o6, o7, o8, o9, o10, o11, o12, o13, o14, o15⟩
 
 @[inline] def updateRecFunMap (body : Expr) (f : Expr) : TranslateEnvT Unit :=
-  modifyOptEnv fun ⟨o1, o2, o3, o4, o5, o6, recFunMap, o8, o9, o10, o11, o12, o13, o14⟩ =>
-                   ⟨o1, o2, o3, o4, o5, o6, recFunMap.insert body f, o8, o9, o10, o11, o12, o13, o14⟩
+  modifyOptEnv fun ⟨o1, o2, o3, o4, o5, o6, recFunMap, o8, o9, o10, o11, o12, o13, o14, o15⟩ =>
+                   ⟨o1, o2, o3, o4, o5, o6, recFunMap.insert body f, o8, o9, o10, o11, o12, o13, o14, o15⟩
+
+@[inline] def updateCyclicCache (e : Expr) (addEntry := true) : TranslateEnvT Unit :=
+  if addEntry then
+    modifyOptEnv fun ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14, cyclicCache⟩ =>
+                     ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14, cyclicCache.insert e⟩
+  else
+    modifyOptEnv fun ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14, cyclicCache⟩ =>
+                     ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14, cyclicCache.erase e⟩
 
 /-- Return the current analysis Step -/
 @[always_inline, inline]
@@ -1099,6 +1113,19 @@ def setNormalizeMatchInfo (b : Bool) : TranslateEnvT Unit :=
 def isInNormalizeMatchInfo : TranslateEnvT Bool :=
   return (← get).optEnv.options.normalizeMatchInfo
 
+
+/-- set optimize option `normalizeMode` to `m`. -/
+@[always_inline, inline]
+def setNormalizeMode (m : NormalizeMode) : TranslateEnvT Unit :=
+  modify (fun env => { env with optEnv.options.normalizeMode := m })
+
+/-- Return `true` if optimize option `normalizeMode` is set to `Restricted` or `Partial`. -/
+@[always_inline, inline]
+def isNormalizeOnly : TranslateEnvT Bool := do
+  match (← get).optEnv.options.normalizeMode with
+  | .Full => return false
+  | _ => return true
+
 /-- set optimize option `resetOptions` to `r`. -/
 @[always_inline, inline]
 def setResetOptions (r : ResetOptions) : TranslateEnvT Unit :=
@@ -1145,8 +1172,8 @@ def withLocalContext (f : TranslateEnvT α) : TranslateEnvT α := do
   withLCtx ctx.ctx ctx.localInsts $ do f
 
 @[inline] def modifyMemCache (f : MemoizeEnv → MemoizeEnv) : TranslateEnvT Unit :=
-  modify fun ⟨s, ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14⟩⟩ =>
-             ⟨s, ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, f o10, o11, o12, o13, o14⟩⟩
+  modify fun ⟨s, ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14, o15⟩⟩ =>
+             ⟨s, ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, f o10, o11, o12, o13, o14, o15⟩⟩
 
 @[inline] def updateConstInfoCache (n : Name) (info : ConstantInfo) : TranslateEnvT Unit :=
   modifyMemCache fun ⟨m1, m2, m3, m4, getConstInfoCache, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, m22⟩ =>
@@ -1245,7 +1272,7 @@ def updateContextReuseCache (e : Expr) (idx : USize) (s : CtxReuseScope) : Trans
 
 
 @[inline] def propagateReuseContext (current : Expr) (next : Expr) (idx : USize) : TranslateEnvT Unit := do
-  let ⟨_, _, _, _, _, _, _, _, _, memCache, ⟨_, _, _, _, curCtx, _, _, _, _⟩, _, _, _⟩ := (← get).optEnv
+  let ⟨_, _, _, _, _, _, _, _, _, memCache, ⟨_, _, _, _, curCtx, _, _, _, _, _⟩, _, _, _, _⟩ := (← get).optEnv
   match ← memCache.contextReuseCache.findRaw current idx curCtx with
   | some reuse => updateContextReuseCache next idx reuse
   | none => return ()
@@ -1254,17 +1281,17 @@ def updateContextReuseCache (e : Expr) (idx : USize) (s : CtxReuseScope) : Trans
   let rec eraseUnusedCtx (idx : CtxId) (rewrite : RewriteCacheMap) : RewriteCacheMap :=
     if idx ≥ endCtxId then rewrite
     else eraseUnusedCtx (idx + 1) (rewrite.erase idx)
-  modifyOptEnv fun ⟨o1, rewrite, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14⟩ =>
+  modifyOptEnv fun ⟨o1, rewrite, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14, o15⟩ =>
                     let rewrite := eraseUnusedCtx startCtxId rewrite
-                    ⟨o1, rewrite, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14⟩
+                    ⟨o1, rewrite, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14, o15⟩
 
 @[inline] def freeRewriteCacheReuse (e : Expr) (idx : USize) : TranslateEnvT Unit := do
-  let ⟨_, _, _, _, _, _, _, _, _, memCache, ⟨_, _, _, _, curCtx, _, _, _, _⟩, _, _, _⟩ := (← get).optEnv
+  let ⟨_, _, _, _, _, _, _, _, _, memCache, ⟨_, _, _, _, curCtx, _, _, _, _, _⟩, _, _, _, _⟩ := (← get).optEnv
   match ← memCache.contextReuseCache.findRaw e idx curCtx with
   | some reuse =>
       modifyOptEnv
-        fun ⟨o1, rewrite, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14⟩ =>
-            ⟨o1, rewrite.erase reuse.scope.current, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14⟩
+        fun ⟨o1, rewrite, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14, o15⟩ =>
+            ⟨o1, rewrite.erase reuse.scope.current, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, o13, o14, o15⟩
 
   | none => return ()
 

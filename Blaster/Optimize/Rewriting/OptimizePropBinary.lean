@@ -154,11 +154,15 @@ def optimizeOr (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 /-- Normalize `p ↔ p` to `p → q ∧ p → q`
     An error is triggered when args.size ≠ 2 (i.e., only fully applied `↔` expected at this stage)
 -/
-def optimizeIff (args : Array Expr) : TranslateEnvT Expr := do
+def optimizeIff (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeIff: exactly two arguments expected"
  let op1 := args[0]!
  let op2 := args[1]!
- setRestart
- mkApp2Expr (← mkPropAndOp) (← mkImpliesExpr op1 op2) (← mkImpliesExpr op2 op1)
+ if ← isNormalizeOnly then
+   -- keep iff when normalize only flag is set
+   mkApp2Expr f op1 op2
+ else
+   setRestart
+   mkApp2Expr (← mkPropAndOp) (← mkImpliesExpr op1 op2) (← mkImpliesExpr op2 op1)
 
 end Blaster.Optimize

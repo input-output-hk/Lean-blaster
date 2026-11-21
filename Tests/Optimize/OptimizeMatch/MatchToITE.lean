@@ -543,4 +543,50 @@ def discrAbstract (x : List α) (y : Option α) : Bool :=
       (fun (_ : List α) => False)
       (fun (_ : List α) (_ : Option α) => True) )
 
+/-! ## Universe level of the `Blaster.dite'` produced by the match normalization
+
+The `dite'` must be built with the level of the match return type (`Type` gives level `2`,
+`Type 1` gives level `3`), not always `1`, otherwise the result is ill-typed. -/
+
+def pickT (c : Bool) (x y : Type) : Type :=
+  match c with
+  | true => x
+  | false => y
+
+-- ∀ (c : Bool) (x y : Type), cond c x y = x ===>
+-- ∀ (c : Bool) (x y : Type), x = Blaster.dite'.{2} (true = c) (fun _ => x) (fun _ => y)
+#testOptimize ["MatchToITELevel_1"]
+  ∀ (c : Bool) (x y : Type), cond c x y = x ===>
+  ∀ (c : Bool) (x y : Type), x = Blaster.dite' (true = c) (fun _ => x) (fun _ => y)
+
+-- ∀ (c : Bool) (x y : Type), (match c with | true => x | false => y) = x ===>
+-- ∀ (c : Bool) (x y : Type), x = Blaster.dite'.{2} (true = c) (fun _ => x) (fun _ => y)
+#testOptimize ["MatchToITELevel_2"]
+  ∀ (c : Bool) (x y : Type), (match c with | true => x | false => y) = x ===>
+  ∀ (c : Bool) (x y : Type), x = Blaster.dite' (true = c) (fun _ => x) (fun _ => y)
+
+-- ∀ (c : Bool) (x y : Type 1), cond c x y = x ===>
+-- ∀ (c : Bool) (x y : Type 1), x = Blaster.dite'.{3} (true = c) (fun _ => x) (fun _ => y)
+#testOptimize ["MatchToITELevel_3"]
+  ∀ (c : Bool) (x y : Type 1), cond c x y = x ===>
+  ∀ (c : Bool) (x y : Type 1), x = Blaster.dite' (true = c) (fun _ => x) (fun _ => y)
+
+-- ∀ (c : Bool) (x y : Type), pickT c x y = x ===>
+-- ∀ (c : Bool) (x y : Type), x = Blaster.dite'.{2} (true = c) (fun _ => x) (fun _ => y)
+#testOptimize ["MatchToITELevel_4"]
+  ∀ (c : Bool) (x y : Type), pickT c x y = x ===>
+  ∀ (c : Bool) (x y : Type), x = Blaster.dite' (true = c) (fun _ => x) (fun _ => y)
+
+-- ∀ (xs : List Nat) (x y : Type), (match xs with | [] => x | _ => y) = x ===>
+-- ∀ (xs : List Nat) (x y : Type), x = Blaster.dite'.{2} ([] = xs) (fun _ => x) (fun _ => y)
+#testOptimize ["MatchToITELevel_5"]
+  ∀ (xs : List Nat) (x y : Type), (match xs with | [] => x | _ => y) = x ===>
+  ∀ (xs : List Nat) (x y : Type), x = Blaster.dite' ([] = xs) (fun _ => x) (fun _ => y)
+
+-- level 1 control: ∀ (c : Bool) (x y : Nat), cond c x y = x ===>
+-- ∀ (c : Bool) (x y : Nat), x = Blaster.dite'.{1} (true = c) (fun _ => x) (fun _ => y)
+#testOptimize ["MatchToITELevel_6"]
+  ∀ (c : Bool) (x y : Nat), cond c x y = x ===>
+  ∀ (c : Bool) (x y : Nat), x = Blaster.dite' (true = c) (fun _ => x) (fun _ => y)
+
 end Tests.MatchToITE

@@ -90,8 +90,10 @@ private unsafe def instantiateSharedMVarsAux (cur : Expr) (isResult : Bool) (stk
 -/
 @[always_inline, inline]
 def instantiateSharedMVars (e : Expr) : TranslateEnvT Expr :=
-  unsafe instantiateSharedMVarsAux e false (Array.emptyWithCapacity e.approxDepth.toNat)
-         (HashMap.emptyWithCapacity 64)
+  if e.hasExprMVar then
+    unsafe instantiateSharedMVarsAux e false (Array.emptyWithCapacity e.approxDepth.toNat)
+           (HashMap.emptyWithCapacity 64)
+  else return e
 
 
 private unsafe def instantiateSharedMVarsAux' (cur : Expr) (isResult : Bool) (stk : Array HashConsStack) (cache : InstCache) (assign : MVarAssignments) : TranslateEnvT Expr := do

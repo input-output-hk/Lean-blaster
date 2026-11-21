@@ -1,0 +1,15 @@
+import Tests.Optimize.Extension.ExtensionBasic
+import Tests.Optimize.Extension.ExtensionConclusion
+import Tests.Optimize.Extension.ExtensionNormalize
+import Tests.Optimize.Extension.ExtensionConjDisjPremise
+import Tests.Optimize.Extension.ExtensionPremiseEvalNat
+import Tests.Optimize.Extension.ExtensionPremiseEvalInt
+import Tests.Optimize.Extension.ExtensionOfNat
+import Tests.Optimize.Extension.ExtensionFoldableNat
+import Tests.Optimize.Extension.ExtensionFoldableInt
+import Tests.Optimize.Extension.ExtensionFoldableMisc
+import Tests.Optimize.Extension.ExtensionUniverse
+import Tests.Optimize.Extension.ExtensionCyclic
+import Tests.Optimize.Extension.ExtensionStatic
+import Tests.Optimize.Extension.ExtensionSameName
+import Tests.Optimize.Extension.ExtensionBinder

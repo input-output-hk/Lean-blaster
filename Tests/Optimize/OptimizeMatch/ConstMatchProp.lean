@@ -675,7 +675,7 @@ def beqColorDegree : Color → Color → (Nat → Prop)
 --     (fun (_ : Unit) => False)
 --     (fun (_ : Unit) => False)
 --     (fun (_ : Unit) =>
---       ¬ 0 = y →
+--       0 < y →
 --           beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop) Color.black x
 --           (fun (x : Color) (y : Color) => x = y)
 --           (fun (x : Color) (y : Color) => x = y)
@@ -684,7 +684,7 @@ def beqColorDegree : Color → Color → (Nat → Prop)
 --           (fun (_ : Color) (_ : Color) => False))
 --     (fun (a : Nat) =>
 --         a < 10 ∧
---         (¬ 0 = y →
+--         (0 < y →
 --             beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop) Color.transparent x
 --             (fun (x : Color) (y : Color) => x = y)
 --             (fun (x : Color) (y : Color) => x = y)
@@ -701,7 +701,7 @@ def beqColorDegree : Color → Color → (Nat → Prop)
       (fun (_ : Unit) => False)
       (fun (_ : Unit) => False)
       (fun (_ : Unit) =>
-        ¬ 0 = y →
+         0 < y →
             beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop) Color.black x
             (fun (x : Color) (y : Color) => x = y)
             (fun (x : Color) (y : Color) => x = y)
@@ -710,7 +710,7 @@ def beqColorDegree : Color → Color → (Nat → Prop)
             (fun (_ : Color) (_ : Color) => False))
       (fun (a : Nat) =>
           a < 10 ∧
-          (¬ 0 = y →
+          ( 0 < y →
               beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop) Color.transparent x
               (fun (x : Color) (y : Color) => x = y)
               (fun (x : Color) (y : Color) => x = y)
@@ -920,5 +920,40 @@ def mkFnO : (o : Option Nat) → FnIdx (idxO o)
     y = match (generalizing := false) o with
         | none => FnIdx.z
         | some _ => FnIdx.s
+
+/-! ## Universe level of the pulled `Blaster.dite'`
+
+When a match is pushed in the branches of a `dite'` discriminant, the pulled `dite'` has the return
+type of the match as sort: for a match returning a `Type` the level must be `2` (`3` for `Type 1`),
+not always `1`. -/
+
+def colT : Color → Type
+  | .red _ => Nat
+  | .blue _ => Int
+  | _ => Bool
+
+-- ∀ (c : Bool) (x : Color), colT (if c then Color.red x else Color.blue x) = Nat ===>
+-- ∀ (c : Bool), Nat = Blaster.dite'.{2} (true = c) (fun _ => Nat) (fun _ => Int)
+#testOptimize [ "IteOverMatchLevel_1" ]
+  ∀ (c : Bool) (x : Color), colT (if c then Color.red x else Color.blue x) = Nat ===>
+  ∀ (c : Bool), Nat = Blaster.dite' (true = c) (fun _ => Nat) (fun _ => Int)
+
+-- ∀ (c : Bool) (x y : Type), (match (if c then some 1 else none) with | some _ => x | none => y) = x ===>
+-- ∀ (c : Bool) (x y : Type), x = Blaster.dite'.{2} (true = c) (fun _ => x) (fun _ => y)
+#testOptimize [ "IteOverMatchLevel_2" ]
+  ∀ (c : Bool) (x y : Type), (match (if c then some 1 else none) with | some _ => x | none => y) = x ===>
+  ∀ (c : Bool) (x y : Type), x = Blaster.dite' (true = c) (fun _ => x) (fun _ => y)
+
+-- ∀ (c : Bool) (x y : Type 1), (match (if c then some 1 else none) with | some _ => x | none => y) = x ===>
+-- ∀ (c : Bool) (x y : Type 1), x = Blaster.dite'.{3} (true = c) (fun _ => x) (fun _ => y)
+#testOptimize [ "IteOverMatchLevel_3" ]
+  ∀ (c : Bool) (x y : Type 1), (match (if c then some 1 else none) with | some _ => x | none => y) = x ===>
+  ∀ (c : Bool) (x y : Type 1), x = Blaster.dite' (true = c) (fun _ => x) (fun _ => y)
+
+-- ∀ (b : Bool) (x : Color), colT (match b with | true => Color.red x | false => Color.blue x) = Nat ===>
+-- ∀ (b : Bool), Nat = Blaster.dite'.{2} (true = b) (fun _ => Nat) (fun _ => Int)
+#testOptimize [ "MatchOverMatchLevel_1" ]
+  ∀ (b : Bool) (x : Color), colT (match b with | true => Color.red x | false => Color.blue x) = Nat ===>
+  ∀ (b : Bool), Nat = Blaster.dite' (true = b) (fun _ => Nat) (fun _ => Int)
 
 end Tests.ConstMatchProp

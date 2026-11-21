@@ -1,3 +1,4 @@
+
 import Lean
 
 namespace Blaster
@@ -51,5 +52,15 @@ theorem decide'_equiv : @decide = fun p _ => Blaster.decide' p := by
   cases h : Blaster.decide' p
   case false => simp; apply (Blaster.decide'_false _).mp h
   case true  => simp; apply (Blaster.decide'_true _).mp h
+
+@[simp] theorem dite'_false_eq_else {α : Sort u} (x y : α) : Blaster.dite' False (fun _ => x) (fun _ => y) = y := by
+  dsimp [Blaster.dite']; cases h0 : Blaster.decide' False
+  case false => simp
+  case true => simp; have h2 := (Blaster.decide'_true _).mp h0; contradiction
+
+@[simp] theorem dite'_true_eq_then {α : Sort u} (x y : α) : Blaster.dite' True (fun _ => x) (fun _ => y) = x := by
+  dsimp [Blaster.dite']; cases h0 : Blaster.decide' True
+  case false => simp; have h2 := (Blaster.decide'_false _).mp h0; contradiction
+  case true => simp
 
 end Blaster

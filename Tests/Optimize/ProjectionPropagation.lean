@@ -221,4 +221,61 @@ def fnD (n : Nat) (v : FnIdx n) : DPack :=
         | .(0), .z => FnIdx.z
         | .(1), .s => FnIdx.s
 
+/-! ## Universe level of the pulled `Blaster.dite'`
+
+The pushed projection gives the field type as sort of the pulled `dite'`; its level is the one of
+the field type (`2` for a `Type` field, `3` for a `Type 1` field), not always `1`. -/
+
+/-- Structure with a `Type` field. -/
+structure TPack where
+  T : Type
+  m : Nat
+
+/-- Structure with a `Type 1` field. -/
+structure T1Pack where
+  T : Type 1
+  m : Nat
+
+def mkT : Bool → TPack
+  | true => ⟨Nat, 1⟩
+  | false => ⟨Int, 2⟩
+
+-- ∀ (c : Prop) [Decidable c] (s t : TPack), (if c then s else t).T = s.T ===>
+-- ∀ (c : Prop) (s t : TPack), Blaster.dite'.{2} c (fun _ => s.T) (fun _ => t.T) = s.T
+#testOptimize [ "DIteProjLevel_1" ] (norm-result: 1)
+  ∀ (c : Prop) [Decidable c] (s t : TPack), (if c then s else t).T = s.T ===>
+  ∀ (c : Prop) (s t : TPack), Blaster.dite' c (fun _ => s.T) (fun _ => t.T) = s.T
+
+-- ∀ (c : Prop) [Decidable c] (x : Type), (if c then (⟨Nat, 1⟩ : TPack) else ⟨Int, 2⟩).T = x ===>
+-- ∀ (c : Prop) (x : Type), x = Blaster.dite'.{2} c (fun _ => Nat) (fun _ => Int)
+#testOptimize [ "DIteProjLevel_2" ]
+  ∀ (c : Prop) [Decidable c] (x : Type), (if c then (⟨Nat, 1⟩ : TPack) else ⟨Int, 2⟩).T = x ===>
+  ∀ (c : Prop) (x : Type), x = Blaster.dite' c (fun _ => Nat) (fun _ => Int)
+
+-- level 1 control on the `Nat` field:
+-- ∀ (c : Prop) [Decidable c] (x : Nat), (if c then (⟨Nat, 1⟩ : TPack) else ⟨Int, 2⟩).m = x ===>
+-- ∀ (c : Prop) (x : Nat), x = Blaster.dite'.{1} c (fun _ => 1) (fun _ => 2)
+#testOptimize [ "DIteProjLevel_3" ] (norm-result: 1)
+  ∀ (c : Prop) [Decidable c] (x : Nat), (if c then (⟨Nat, 1⟩ : TPack) else ⟨Int, 2⟩).m = x ===>
+  ∀ (c : Prop) (x : Nat), x = Blaster.dite' c (fun _ => 1) (fun _ => 2)
+
+-- ∀ (c : Prop) [Decidable c] (s t : T1Pack), (if c then s else t).T = s.T ===>
+-- ∀ (c : Prop) (s t : T1Pack), Blaster.dite'.{3} c (fun _ => s.T) (fun _ => t.T) = s.T
+#testOptimize [ "DIteProjLevel_4" ] (norm-result: 1)
+  ∀ (c : Prop) [Decidable c] (s t : T1Pack), (if c then s else t).T = s.T ===>
+  ∀ (c : Prop) (s t : T1Pack), Blaster.dite' c (fun _ => s.T) (fun _ => t.T) = s.T
+
+-- ∀ (b : Bool) (x : Type), (mkT b).T = x ===>
+-- ∀ (b : Bool) (x : Type), x = Blaster.dite'.{2} (true = b) (fun _ => Nat) (fun _ => Int)
+-- NOTE: `mkT b` is normalized to a `dite'` (match on `Bool`) before the projection is pushed.
+#testOptimize [ "DIteProjLevel_5" ]
+  ∀ (b : Bool) (x : Type), (mkT b).T = x ===>
+  ∀ (b : Bool) (x : Type), x = Blaster.dite' (true = b) (fun _ => Nat) (fun _ => Int)
+
+-- ∀ (c : Bool) (s t : TPack), (if c then s else t).T = s.T ===>
+-- ∀ (c : Bool) (s t : TPack), Blaster.dite'.{2} (true = c) (fun _ => s.T) (fun _ => t.T) = s.T
+#testOptimize [ "DIteProjLevel_6" ] (norm-result: 1)
+  ∀ (c : Bool) (s t : TPack), (if c then s else t).T = s.T ===>
+  ∀ (c : Bool) (s t : TPack), Blaster.dite' (true = c) (fun _ => s.T) (fun _ => t.T) = s.T
+
 end Tests.ProjectionPropagation
