@@ -17,3 +17,4 @@ import Tests.Optimize.OptimizeProp
 import Tests.Optimize.OptimizeRecFun
 import Tests.Optimize.OptimizeUnfold
 import Tests.Optimize.ProjectionPropagation
+import Tests.Optimize.SolverOptions
