@@ -1019,6 +1019,11 @@ def translateApp
          if args.size == 2 then
            throwEnvError "translateEq?: unexpected partially applied Eq got {reprStr args}"
          if args.size == 1 then return (← termTranslator (← Optimize.etaExpand e))
+         -- Type tags do not preserve the identity of Lean types.
+         -- Equality of propositions is supported by the Boolean encoding.
+         if let Expr.sort u := (← removeTypeAbbrev args[0]!) then
+           unless u == .zero do
+             throwEnvError "translateEq?: equality between types is not supported"
          match args[1]! with
           | Expr.const ``true _ => termTranslator args[2]!
           | Expr.const ``false _ => termTranslator (← mkAppExpr (← mkBoolNotOp) args[2]!)
