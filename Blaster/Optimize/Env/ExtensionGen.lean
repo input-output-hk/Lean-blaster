@@ -120,6 +120,12 @@ structure GenState where
   used : NameSet := {}
   /-- Equality checks to perform for non-linear occurrences of pattern variables. -/
   eqChecks : Array (Ident × Ident) := #[]
+  /-- Number of binders (`fun`, `∀`, `let`) of the lhs the pattern being generated is under. -/
+  binderDepth : Nat := 0
+  /-- Pattern variables bound under a binder of the lhs: the matched term must not contain loose
+      bound variables (a variable of the theorem cannot depend on a binder of its lhs), e.g.
+      `app (fun _ => x) n = x` must not rewrite `app (fun y => y) n` to the dangling `y`. -/
+  looseChecks : Array Ident := #[]
   /-- Level checks to perform for non-linear occurrences of universe level parameters:
       level bound by the pattern ↦ expected level (built from the recovered parameters). -/
   levelChecks : Array (Term × Level) := #[]
@@ -225,6 +231,8 @@ partial def mkPat (e : Expr) : GenM Term := do
           let decl ← id.getDecl
           let x ← freshIdent decl.userName
           modify fun st => { st with bound := st.bound.insert id x }
+          if (← get).binderDepth > 0 then
+            modify fun st => { st with looseChecks := st.looseChecks.push x }
           return x
   | .lit l =>
       -- bind the literal and compare it afterwards (see `GenState.litChecks`)
@@ -256,12 +264,20 @@ partial def mkPat (e : Expr) : GenM Term := do
         bindLevel sl l
         `(Expr.sort $sl)
       else `(Expr.sort $(← mkLevelPat l))
-  | .lam _ t b _ => `(Expr.lam _ $(← mkPat t) $(← mkPat b) _)
-  | .forallE _ t b _ => `(Expr.forallE _ $(← mkPat t) $(← mkPat b) _)
-  | .letE _ t v b _ => `(Expr.letE _ $(← mkPat t) $(← mkPat v) $(← mkPat b) _)
+  | .lam _ t b _ => `(Expr.lam _ $(← mkPat t) $(← mkBodyPat b) _)
+  | .forallE _ t b _ => `(Expr.forallE _ $(← mkPat t) $(← mkBodyPat b) _)
   | .proj n i s => `(Expr.proj $(quote n) $(quote i) $(← mkPat s))
   | .bvar i => `(Expr.bvar $(quote i))
-  | .mvar .. => throwError "blaster: unexpected meta variable in theorem statement: {e}"
+  | .letE .. => throwError "blaster: unexpected let expression in normalized theorem statement: {e}"
+  | .mvar .. => throwError "blaster: unexpected meta variable in normalized theorem statement: {e}"
+  where
+    /-- Pattern for the body of a binder (`binderDepth` is incremented while it is generated). -/
+    mkBodyPat (b : Expr) : GenM Term := do
+      modify fun st => { st with binderDepth := st.binderDepth + 1 }
+      let pat ← mkPat b
+      modify fun st => { st with binderDepth := st.binderDepth - 1 }
+      return pat
+
 
 /-! ## noinline wrappers to avoid lengthy compilation for generated optimize functions -/
 @[noinline]
@@ -486,6 +502,9 @@ def generateCode (cfg : Config) : MetaM (Option (Name × Term)) := do
             | .strVal s => `(Literal.strVal $(quote s))
           emitElem (← `(doElem| if $x != $lt then return none))
         -- non-linear occurrences
+        -- pattern variables bound under a binder must not capture a bound variable of the lhs
+        for x in (← get).looseChecks do
+          emitElem (← `(doElem| if Expr.hasLooseBVars $x then return none))
         for (x, x') in (← get).eqChecks do
           emitElem (← `(doElem| if !(exprEq $x $x' || Expr.eqv $x $x') then return none))
         -- premises
