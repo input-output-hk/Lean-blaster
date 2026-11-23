@@ -18,5 +18,6 @@ import Tests.Optimize.OptimizeNat
 import Tests.Optimize.OptimizeOfNat
 import Tests.Optimize.OptimizeProp
 import Tests.Optimize.OptimizeRecFun
+import Tests.Optimize.OptimizeRelational
 import Tests.Optimize.OptimizeUnfold
 import Tests.Optimize.ProjectionPropagation

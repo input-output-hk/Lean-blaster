@@ -378,7 +378,7 @@ def optimizeLT (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
      let some n2 := isIntValue? e3 | return none
      let mkAdd (a : Int) (b : Expr) := do
        if a == 0 then return b
-       else mkApp2Expr (← mkNatAddOp) (← mkIntLitExpr a) b
+       else mkApp2Expr (← mkIntAddOp) (← mkIntLitExpr a) b
      setRestart
      let minValue := min n1 n2
      let leftValue := n1 - minValue

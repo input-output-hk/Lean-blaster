@@ -1,4 +1,3 @@
-
 import Lean
 import Tests.Utils
 
