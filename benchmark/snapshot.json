@@ -1,8 +1,8 @@
 {
   "run": {
-    "id": "43844923759",
-    "time": "2026-11-16T11:45:00+00:00",
-    "url": "https://github.com/input-output-hk/Lean-blaster/actions/runs/43844923759"
+    "id": "45121856615",
+    "time": "2026-11-23T07:36:41+00:00",
+    "url": "https://github.com/input-output-hk/Lean-blaster/actions/runs/45121856615"
   },
   "schema_version": 1,
   "statements": {
@@ -1425,9 +1425,9 @@
         "smttranslation_string_l9": "OK",
         "test_regression_l35": "OK",
         "test_regression_l45": "OK",
-        "test_regression_l63": "FAIL",
-        "test_regression_l66": "FAIL",
-        "test_regression_l69": "FAIL",
+        "test_regression_l63": "OK",
+        "test_regression_l66": "OK",
+        "test_regression_l69": "OK",
         "test_regression_l72": "FAIL",
         "test_regression_l76": "FAIL",
         "test_regression_l79": "FAIL",
@@ -2370,8 +2370,8 @@
         "test_inhabitationreasoning_l33": "FAIL",
         "test_inhabitationreasoning_l37": "OK",
         "test_inhabitationreasoning_l54": "OK",
-        "test_inhabitationreasoning_l7": "FAIL",
-        "test_inhabitationreasoning_l9": "FAIL",
+        "test_inhabitationreasoning_l7": "OK",
+        "test_inhabitationreasoning_l9": "OK",
         "true_smoke": "OK"
       },
       "hammer": {
@@ -3333,7 +3333,7 @@
         "mathd_algebra_304": "OK",
         "mathd_algebra_314": "OK",
         "mathd_algebra_392": "FAIL",
-        "mathd_algebra_459": "TIMEOUT",
+        "mathd_algebra_459": "FAIL",
         "mathd_algebra_76": "FAIL",
         "mathd_numbertheory_100": "FAIL",
         "mathd_numbertheory_1124": "FAIL",
@@ -4885,7 +4885,7 @@
         "comp_sub_iff": "OK",
         "comp_union": "FAIL",
         "compl_compl2": "OK",
-        "compl_inter": "FAIL",
+        "compl_inter": "OK",
         "compl_subset_compl_of_subs": "OK",
         "compl_union": "OK",
         "contra": "FAIL",
@@ -5106,8 +5106,8 @@
         "compl_union": "OK",
         "contra": "OK",
         "elt_inter_elt_right": "OK",
-        "eltwise_inter": "FAIL",
-        "eltwise_union": "FAIL",
+        "eltwise_inter": "TIMEOUT",
+        "eltwise_union": "OK",
         "helloWorld": "OK",
         "inter_assoc": "OK",
         "inter_comm": "OK",
@@ -5263,7 +5263,7 @@
         "comp_sub_iff": "OK",
         "comp_union": "FAIL",
         "compl_compl2": "OK",
-        "compl_inter": "FAIL",
+        "compl_inter": "OK",
         "compl_subset_compl_of_subs": "OK",
         "compl_union": "OK",
         "contra": "FAIL",
@@ -5612,7 +5612,7 @@
         "issues_reconstructarithsumub_l3": "OK",
         "modus_tollens": "OK",
         "nat_cong_l3": "OK",
-        "nat_exists_l3": "FAIL",
+        "nat_exists_l3": "OK",
         "nat_exists_l3_2": "OK",
         "nat_forall_l3": "OK",
         "nat_neqzero_l3": "FAIL",
@@ -6990,11 +6990,11 @@
       "resolved_commit": "(via mathlib)",
       "tactic": "aesop",
       "tool": "aesop",
-      "toolchain": "leanprover/lean4:v4.35.0"
+      "toolchain": "leanprover/lean4:v4.36.0"
     },
     "auto": {
       "branch": "main",
-      "build_status": "OK",
+      "build_status": "CACHED",
       "resolved_commit": "af766b1ee",
       "tactic": "auto",
       "tool": "auto",
@@ -7003,7 +7003,7 @@
     "blaster": {
       "branch": "main",
       "build_status": "OK",
-      "resolved_commit": "fa8ec2b38",
+      "resolved_commit": "3b8ad9105",
       "tactic": "blaster",
       "tool": "blaster",
       "toolchain": "leanprover/lean4:v4.24.0"
@@ -7011,7 +7011,7 @@
     "blaster (only-optimize: 1)": {
       "branch": "main",
       "build_status": "OK",
-      "resolved_commit": "fa8ec2b38",
+      "resolved_commit": "3b8ad9105",
       "tactic": "blaster (only-optimize: 1)",
       "tool": "blaster",
       "toolchain": "leanprover/lean4:v4.24.0"
@@ -7022,11 +7022,11 @@
       "resolved_commit": "(core)",
       "tactic": "grind",
       "tool": "baselines",
-      "toolchain": "leanprover/lean4:v4.35.0"
+      "toolchain": "leanprover/lean4:v4.36.0"
     },
     "hammer": {
       "branch": "main",
-      "build_status": "OK",
+      "build_status": "CACHED",
       "resolved_commit": "4e2a7deda",
       "tactic": "hammer",
       "tool": "hammer",
@@ -7038,7 +7038,7 @@
       "resolved_commit": "(core)",
       "tactic": "omega",
       "tool": "baselines",
-      "toolchain": "leanprover/lean4:v4.35.0"
+      "toolchain": "leanprover/lean4:v4.36.0"
     },
     "simp": {
       "branch": "stable",
@@ -7046,11 +7046,11 @@
       "resolved_commit": "(core)",
       "tactic": "simp",
       "tool": "baselines",
-      "toolchain": "leanprover/lean4:v4.35.0"
+      "toolchain": "leanprover/lean4:v4.36.0"
     },
     "smt +model": {
       "branch": "main",
-      "build_status": "OK",
+      "build_status": "CACHED",
       "resolved_commit": "cbec5bd22",
       "tactic": "smt +model",
       "tool": "smt",
