@@ -125,6 +125,7 @@ def diteFactorize? (a : Expr) (t : Expr) (e : Expr) : TranslateEnvT (Option Expr
               match instantiate1' e1 n1', instantiate1' e2 n2' with
               | Expr.lam x1 tc1 e1' bi1', Expr.lam _x2 _tc2 e2' _bi2' =>
                   setRestart
+                  pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.dite'_factorize_thn [← getLevel sort1]) sort1 a c1))
                   withLocalDecl' x1 bi1' tc1 fun x1' => do
                     let lam1 ← mkLambdaFVar n1' (instantiate1' e1' x1')
                     let lam2 ← mkLambdaFVar n2' (instantiate1' e2' x1')
@@ -137,6 +138,7 @@ def diteFactorize? (a : Expr) (t : Expr) (e : Expr) : TranslateEnvT (Option Expr
               match instantiate1' t1 n1', instantiate1' t2 n2' with
               | Expr.lam x1 tc1 t1' bi1', Expr.lam _x2 _tc2 t2' _bi2' =>
                   setRestart
+                  pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.dite'_factorize_els [← getLevel sort1]) sort1 a c1))
                   withLocalDecl' x1 bi1' tc1 fun x1' => do
                     let lam1 ← mkLambdaFVar n1' (instantiate1' t1' x1')
                     let lam2 ← mkLambdaFVar n2' (instantiate1' t2' x1')
@@ -261,11 +263,11 @@ def optimizeDITEChoice (f : Expr) (args : Array Expr) : TranslateEnvT (Option Ex
         -- NOTE: rule is sound as h1, h2 and h3 can't be referenced in e1 and e2.
 
      - sif h1 : a then (sif h2 : c then e1 else e2) else (sif h2 : c then e1 else e3) ==>
-          sif h2 : c then e1 else (sif h1 : a then e2 else e3)
+          sif h2 : c then e1 else (sif h1 : a then e2 else e3)  [proof: Blaster.dite'_factorize_thn]
         -- NOTE: rule is sound as h1 can't be referenced in c and e1 but h1 and h2 can be referenced in e2 and e3.
 
      - sif h1 : a then (sif h2 : c then e1 else e2) else (sif h2 : c then e3 else e2) ==>
-          sif h2 : c then (sif h1 : a then e1 else e3) else e2
+          sif h2 : c then (sif h1 : a then e1 else e3) else e2  [proof: Blaster.dite'_factorize_els]
         -- NOTE: rule is sound as h1 can't be referenced in c and e2 but h1 and h2 can be referenced in e1 and e3.
 
      - sif h1 : a then (sif h2 : c then e1 else e2) else (if h2 : c then e2 else e1) ==>

@@ -1204,5 +1204,49 @@ elab "iteFalseEqCondUnchanged_9" : term => return iteFalseEqCondUnchanged_9
   ∀ (a b : Bool) (s t : String), (if a = b then s else t) > s ===>
   ∀ (a b : Bool) (s t : String), s < Blaster.dite' (a = b) (fun _ => s) (fun _ => t)
 
+/-! Test cases for the simplification rule
+  `if a then (if c then e1 else e2) else (if c then e1 else e3)` ==>
+  `if c then e1 else (if a then e2 else e3)`
+-/
+
+-- ∀ (a c : Prop) [Decidable a] [Decidable c] (x y w : Nat),
+--   (if a then (if c then x else y) else (if c then x else w)) = (if c then x else (if a then y else w)) ===> True
+#testOptimize [ "IteFactorizeThen_1", proof ]
+  ∀ (a c : Prop) [Decidable a] [Decidable c] (x y w : Nat),
+    (if a then (if c then x else y) else (if c then x else w)) =
+    (if c then x else (if a then y else w)) ===> True
+
+-- ∀ (a c : Bool) (x y w : Nat),
+--   (if a then (if c then x else y) else (if c then x else w)) = (if c then x else (if a then y else w)) ===> True
+#testOptimize [ "IteFactorizeThen_2", proof ]
+  ∀ (a c : Bool) (x y w : Nat),
+    (if a then (if c then x else y) else (if c then x else w)) =
+    (if c then x else (if a then y else w)) ===> True
+
+/-! Test cases for the simplification rule
+  `if a then (if c then e1 else e2) else (if c then e3 else e2)` ==>
+  `if c then (if a then e1 else e3) else e2`
+-/
+
+-- ∀ (a c : Prop) [Decidable a] [Decidable c] (x y w : Nat), →
+--   (if a then (if c then x else y) else (if c then w else y)) = (if c then (if a then x else w) else y) ===> True
+#testOptimize [ "IteFactorizeElse_1", proof ]
+  ∀ (a c : Prop) [Decidable a] [Decidable c] (x y w : Nat),
+    (if a then (if c then x else y) else (if c then w else y)) =
+    (if c then (if a then x else w) else y) ===> True
+
+-- ∀ (a c : Bool) (x y w : Nat), →
+--   (if a then (if c then x else y) else (if c then w else y)) = (if c then (if a then x else w) else y) ===> True
+#testOptimize [ "IteFactorizeElse_2", proof ]
+  ∀ (a c : Bool) (x y w : Nat),
+    (if a then (if c then x else y) else (if c then w else y)) =
+    (if c then (if a then x else w) else y) ===> True
+
+/-! Test cases for ensure that the factorization rules are not applied wrongly -/
+#testOptimize [ "IteFactorizeUnchanged_1", proof ]
+  ∀ (a c : Prop) [Decidable a] [Decidable c] (x y w z : Nat),
+    (if a then (if c then x else y) else w) < z ===>
+  ∀ (a c : Prop) (x y w z : Nat),
+    Blaster.dite' a (fun _ : a => Blaster.dite' c (fun _ : c => x) (fun _ : ¬ c => y)) (fun _ : ¬ a => w) < z
 
 end Test.OptimizeITE
