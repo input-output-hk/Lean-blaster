@@ -1235,6 +1235,14 @@ elab "iteFalseEqCondUnchanged_9" : term => return iteFalseEqCondUnchanged_9
     (if a then (if c then x else y) else (if c then w else y)) =
     (if c then (if a then x else w) else y) ===> True
 
+/-! Test cases for simplfication rule `(if c then e1 else e2) x₁ … xₙ ==> e1 x₁ … xₙ (if c := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ e1.hasLooseBVars)` -/
+#testOptimize [ "IteReduceHypThen_1", proof ]
+  ∀ (c : Prop) [Decidable c] (x y : Nat), c → (if c then x else y) = x ===> True
+
+/-! Test cases for simplification rule `(if c then e1 else e2) x₁ … xₙ ==> e2 x₁ … xₙ (if ∃ e := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ e2.hasLooseBVars ∧ e = ¬ c)`-/
+#testOptimize [ "IteReduceHypElse_1", proof ]
+  ∀ (c : Prop) [Decidable c] (x y : Nat), ¬ c → (if c then x else y) = y ===> True
+
 -- ∀ (a c : Bool) (x y w : Nat), →
 --   (if a then (if c then x else y) else (if c then w else y)) = (if c then (if a then x else w) else y) ===> True
 #testOptimize [ "IteFactorizeElse_2", proof ]
