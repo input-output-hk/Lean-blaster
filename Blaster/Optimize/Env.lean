@@ -242,6 +242,12 @@ structure LocalDeclContext where
   localInsts : LocalInstances
 deriving Inhabited
 
+/-- The goal binders the optimizer opens (see `goalSpineSide?`), in the order it opens them:
+    those of the right operand of an `Eq` that is the goal body in `rhs`, the others in `goal`. -/
+structure OptBinders where
+  goal : Array FVarId := #[]
+  rhs : Array FVarId := #[]
+
 /-- Type defining the environment used when optimizing a lean theorem. -/
 structure OptimizeEnv where
   /-- Cache memoizing the normalization and rewriting performed on the lean theorem according
@@ -329,7 +335,7 @@ structure OptimizeEnv where
 
   /-- Forall binder FVarIds created during optimization, used to map
       optimizer-context variables to goal-context variables during proof replay. -/
-  optBinders : Array FVarId := #[]
+  optBinders : OptBinders := {}
 
   /-- The binders open, innermost first, recorded in every rewrite step. -/
   openBinders : List OpenBinder := []
@@ -737,10 +743,12 @@ def getProofStack : TranslateEnvT (Array ProofStep) :=
 def clearProofStack : TranslateEnvT Unit :=
   modify fun env => { env with optEnv.proofStack := #[] }
 
-/-- Record a forall binder FVarId created during optimization. -/
+/-- Record a forall binder FVarId created during optimization, in `optBinders.rhs` when `rhs`. -/
 @[always_inline, inline]
-def pushOptBinder (id : FVarId) : TranslateEnvT Unit :=
-  modify fun env => { env with optEnv.optBinders := env.optEnv.optBinders.push id }
+def pushOptBinder (id : FVarId) (rhs : Bool) : TranslateEnvT Unit :=
+  modify fun env =>
+    if rhs then { env with optEnv.optBinders.rhs := env.optEnv.optBinders.rhs.push id }
+    else { env with optEnv.optBinders.goal := env.optEnv.optBinders.goal.push id }
 
 /-- Record a binder the optimizer opens. -/
 @[always_inline, inline]
@@ -758,7 +766,7 @@ def popOpenBinder (x : Expr) : TranslateEnvT Unit :=
 /-- Clear all recorded binder FVarIds. -/
 @[always_inline, inline]
 def clearOptBinders : TranslateEnvT Unit :=
-  modify fun env => { env with optEnv.optBinders := #[] }
+  modify fun env => { env with optEnv.optBinders := {} }
 
 @[always_inline, inline]
 def findGlobalCache (a : Expr) : TranslateEnvT (Option Expr) := do

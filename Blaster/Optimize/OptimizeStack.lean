@@ -111,18 +111,22 @@ def isGoalTopStack : List OptimizeStack → Bool
   | .ForallWaitForBody .. :: rest => isGoalTopStack rest
   | _ => false
 
-/-- Return `true` when the forall on top of `stack` is a goal binder (`∀ x₁ … xₙ, body` at the
-    outermost level), whose fvar must be recorded in `optBinders`. Below a goal binder there are
-    only `InitOptimizeReturn` cache frames and the `ForallWaitForBody` frames of the previous goal
-    binders. The forall may also be a direct operand of an `Eq` that is the goal body, as in
-    `(∀ xs, P) = (∀ xs, Q)` or `(∀ xs, P) = True`. Any other frame means the forall is nested
-    in a binder type (e.g. `f : α → α → α`) or in a sub-term. -/
-def isGoalSpineStack : List OptimizeStack → Bool
-  | [] => true
-  | .InitOptimizeReturn .. :: rest => isGoalSpineStack rest
-  | .ForallWaitForBody .. :: rest => isGoalSpineStack rest
-  | .AppOptimizeExplicitArgs (.const ``Eq _) .. :: rest => isGoalTopStack rest
-  | _ => false
+/-- When the forall on top of `stack` is a goal binder (`∀ x₁ … xₙ, body` at the outermost
+    level), whose fvar must be recorded, whether it is in the right operand of an `Eq` that is
+    the goal body, recorded in `optBinders.rhs`, else in `optBinders.goal`. Below a goal binder
+    there are only `InitOptimizeReturn` cache frames and the `ForallWaitForBody` frames of the
+    previous goal binders. The forall may also be a direct operand of an `Eq` that is the goal
+    body, as in `(∀ xs, P) = (∀ xs, Q)` or `(∀ xs, P) = True`, whose frame gives the operand.
+    Any other frame means the forall is nested in a binder type (e.g. `f : α → α → α`) or in a
+    sub-term, and the result is `none`. -/
+def goalSpineSide? : List OptimizeStack → Option Bool
+  | [] => some false
+  | .InitOptimizeReturn .. :: rest => goalSpineSide? rest
+  | .ForallWaitForBody .. :: rest => goalSpineSide? rest
+  -- the operand `idx` of `@Eq α lhs rhs`
+  | .AppOptimizeExplicitArgs (.const ``Eq _) _ idx .. :: rest =>
+      if isGoalTopStack rest then some (idx == 2) else none
+  | _ => none
 
 def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := false) : TranslateEnvT OptimizeContinuity := do
   match stack with
@@ -145,7 +149,7 @@ def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := 
        withLocalContext $ do
          withLocalDecl' n bi optExpr fun x => do
            -- Record the binder only for goal-spine foralls.
-           if isGoalSpineStack xs then pushOptBinder x.fvarId!
+           if let some rhs := goalSpineSide? xs then pushOptBinder x.fvarId! rhs
            pushOpenBinder x optExpr
            let body' := instantiate1' body x
            let isNotPropBody := !(← isPropEnv body')

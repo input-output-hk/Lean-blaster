@@ -130,6 +130,30 @@ inductive Box (α : Type u) (β : Type v) where
 -- Test case: COI reduction applies under `∧` on a parametric inductive type with a nullary constructor and no Inhabited instance.
 #testOptimize [ "ForallCOI_16", proof ] ∀ (α : Type) (a : Prop), a ∧ (∀ (_b : Box α Nat), a) ===> ∀ (a : Prop), a
 
+-- ∀ (a : Prop), a → ∀ (_c : Color), False ===> ∀ (a : Prop), ¬ a
+-- Test case: COI reduction applies after a hypothesis that `e → False ==> ¬ e` consumes, on an
+-- inductive type with a nullary constructor and no Inhabited instance, whose instance the COI step carries.
+#testOptimize [ "ForallCOI_17", proof ] ∀ (a : Prop), a → ∀ (_c : Color), False ===> ∀ (a : Prop), ¬ a
+
+-- ∀ (_c : Color) (P : Nat → Prop) (n : Nat), ¬ (n ≤ 0) → ¬ (n ≤ 1) → P n ===>
+-- ∀ (P : Nat → Prop) (n : Nat), ¬ (0 = n) → 1 < n → P n
+-- Test case: COI reduction applies on an inductive type with a nullary constructor, next to two
+-- anonymous hypotheses that are both kept with their types rewritten. The replay proves the
+-- equation of foralls with one replay of the bodies, with the binders of the expected term
+-- matched with those of the input after `_c`, and each hypothesis cast by the equation of its
+-- rewritten type. These binders are in the same order on both sides, so the test does not tell
+-- the pairing rules of `matchBinders` apart.
+#testOptimize [ "ForallCOI_18", proof ] (norm-result: 1)
+  ∀ (_c : Color) (P : Nat → Prop) (n : Nat), ¬ (n ≤ 0) → ¬ (n ≤ 1) → P n ===>
+  ∀ (P : Nat → Prop) (n : Nat), ¬ (0 = n) → 1 < n → P n
+
+-- (∀ (x : Nat), x > 5 → ∀ (_c : Color), False) = ∀ (x : Nat), x ≤ 5 ===> True
+-- Test case: COI reduction applies after a hypothesis that `e → False ==> ¬ e` consumes, in an
+-- equation of foralls that the optimizer closes. The steps on the right side are pushed below
+-- its binder `x`, which the replay maps to the binder `x` of the left side.
+#testOptimize [ "ForallCOI_19", proof ]
+  (∀ (x : Nat), x > 5 → ∀ (_c : Color), False) = ∀ (x : Nat), x ≤ 5 ===> True
+
 /-! Test cases to ensure when the following COI reduction rule must not be applied:
      - `∀ (n : t), e ===> e (if isSortOrInhabited t ∧ Type(e) = Prop ∧ ¬ fVarInExpr n.fvarId! e)`.
 -/

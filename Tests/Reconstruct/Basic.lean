@@ -308,3 +308,14 @@ example : ∀ (x : Int) (c : Bool) (y : Nat),
     (if c then Int.natAbs x else y) > 5 → (if c then Int.natAbs x else y) > 5 := by blaster
 -- a lemma stated on a partial application, below a binder
 example : ∀ (x z : Nat), (∃ y : Nat, (if True then x else y) = z) = (x = z) := by blaster
+
+-- Equalities of foralls with steps below the binders of the right side
+-- a binder of the right side matched with one of the left side, in the steps below it, after a
+-- hypothesis a rule on the whole implication consumes and an eliminated binder of a type without
+-- `Inhabited` instance
+example : (∀ (x : Nat), x > 5 → ∀ (_c : Color), False) = ∀ (x : Nat), x ≤ 5 := by blaster
+-- a definition unfolded to a forall on the left side, after its only head binder, whose binder
+-- the optimizer opens on that side and is not one of the right side
+opaque PP : Nat → Nat → Nat → Prop
+def unfoldsToForall (x : Nat) : Prop := ∀ y : Nat, PP x (0 + y) 0
+example : (∀ (x : Nat), unfoldsToForall x) = ∀ (x y : Nat), PP x y 0 := by blaster

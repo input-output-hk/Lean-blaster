@@ -925,4 +925,38 @@ variable (c : Nat)
 -- ∀ (p : Prop) (hp : p) (q : p → Prop), (∀ h : p, q h) = q hp ===> True
 #testOptimize [ "ForallImpHypRedDep_1", proof] ∀ (p : Prop) (hp : p) (q : p → Prop), (∀ h : p, q h) = q hp ===> True
 
+/-! Test cases for a forall that a rule exposes in the body of the goal binders. -/
+
+-- ∀ (P : Nat → Nat → Prop) (x : Nat), (if True then ∀ (y : Nat), P x (0 + y) else False) ===>
+-- ∀ (P : Nat → Nat → Prop) (x y : Nat), P x y
+-- Test case: the optimizer opens `y` as a goal binder after the `if` is reduced, so the binders it
+-- records outnumber the head binders of the input, and the extra one is not a binder of the
+-- expected term, which the replay must not take for one.
+#testOptimize [ "ForallExposed_1", proof ] ∀ (P : Nat → Nat → Prop) (x : Nat),
+  (if True then ∀ (y : Nat), P x (0 + y) else False) ===> ∀ (P : Nat → Nat → Prop) (x y : Nat), P x y
+
+opaque PP : Nat → Nat → Nat → Prop
+def unfoldsToForall (x : Nat) : Prop := ∀ y : Nat, PP x (0 + y) 0
+
+-- (∀ (x : Nat), unfoldsToForall x) = ∀ (x y : Nat), PP x y 0 ===> True
+-- Test case: in an equation of foralls that the optimizer closes, it opens `y` as a goal binder
+-- on the left side after unfolding `unfoldsToForall`, right after `x`, the only head binder of
+-- that side. The replay must take the binders the optimizer records on the right side for the
+-- binders of that side: those it records after the head binders of the left side would give `y`
+-- for the binder `x` of the right side, and take the step on `0 + y` for a step on that side.
+#testOptimize [ "ForallExposed_2", proof ]
+  (∀ (x : Nat), unfoldsToForall x) = ∀ (x y : Nat), PP x y 0 ===> True
+
+/-! Test cases for an equation of foralls in the body of the goal binders. -/
+
+-- ∀ (P Q : Nat → Nat → Prop), (∀ (x y : Nat), P x y) = (∀ (x y : Nat), Q (0 + x) y) ===>
+-- ∀ (P Q : Nat → Nat → Prop), (∀ (x y : Nat), P x y) = (∀ (x y : Nat), Q x y)
+-- Test case: the optimizer rewrites the right side of the equation without closing it, and
+-- records `x` and `y` of that side as binders of the right side of an `Eq`. The gate then proves
+-- `input = expected`, whose right side is the expected term, which the optimizer never opened, so
+-- these binders stand for none of its binders and must not be given to the replay.
+#testOptimize [ "ForallEqInBody_1", proof ]
+  ∀ (P Q : Nat → Nat → Prop), (∀ (x y : Nat), P x y) = (∀ (x y : Nat), Q (0 + x) y) ===>
+  ∀ (P Q : Nat → Nat → Prop), (∀ (x y : Nat), P x y) = (∀ (x y : Nat), Q x y)
+
 end Test.OptimizeForAll

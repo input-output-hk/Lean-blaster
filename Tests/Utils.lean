@@ -174,16 +174,23 @@ where
     of `inputExpr` with `proveGoalByProofStack`, the path of `blaster`, and `admit := false`.
     `expected` is the term the test writes, so the goal has the user binder names, as for
     `blaster` on `inputExpr = expected`.
+    `rhsBinders` are the binders the optimizer opened on the right side of the `Eq` that is the
+    body of `inputExpr`. They are binders of the right side of the goal only when the goal is
+    `inputExpr` and `inputExpr` is that `Eq` (for `∀ a, A = B` the replay on the whole goal
+    ignores them), so they are passed only when the goal is `inputExpr`: the right side of
+    `inputExpr = expected` is `expected`, which the optimizer never opened.
     The proof is accepted only if it is complete, sorry-free, has no fvar outside the context,
     passes `Meta.check` and has the goal type. Returns the failure reason, if any. -/
 private def checkReconstruction (inputExpr : Expr) (expected : Expr)
     (proofStack : Array Blaster.Optimize.ProofStep)
-    (optBinders : Array FVarId) : TermElabM (Option MessageData) := do
+    (optBinders rhsBinders : Array FVarId) : TermElabM (Option MessageData) := do
   let optimizerClosed := expected.isConstOf ``True
   let goalType ← if optimizerClosed then pure inputExpr else mkEq inputExpr expected
+  let rhsBinders := if optimizerClosed then rhsBinders else #[]
   try
     let pf ← instantiateMVars
-      (← proveGoalByProofStack goalType proofStack optBinders optimizerClosed (admit := false))
+      (← proveGoalByProofStack goalType proofStack optBinders rhsBinders optimizerClosed
+        (admit := false))
     if pf.hasMVar then return some m!"the proof term has unassigned metavariables"
     if containsSorry pf then return some m!"the proof term contains sorry"
     let lctx ← getLCtx
@@ -215,8 +222,9 @@ def testOptimizeImp : CommandElab := fun stx => do
       if actual == expected then
         if requireProof then
           let proofStack := env.optEnv.proofStack
-          let optBinders := env.optEnv.optBinders
-          match ← checkReconstruction inputExpr expected proofStack optBinders with
+          let optBinders := env.optEnv.optBinders.goal
+          match ← checkReconstruction inputExpr expected proofStack optBinders
+              env.optEnv.optBinders.rhs with
           | none => logInfo f!"{name} ✅ Success! [proof ✓]"
           | some msg => logError m!"{name} ❌ Failure! : proof reconstruction failed\n  {msg}"
         else
