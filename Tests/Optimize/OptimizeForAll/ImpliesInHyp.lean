@@ -35,15 +35,15 @@ namespace Test.ImpliesInHyp
   (∀ (c d : Prop), c → d) → ∀ (a b : Prop), a → b ===> True
 
 -- ∀ (c : Bool) (a b : Prop), (if c then a else b) → (true = c → a) ===> True
-#testOptimize [ "ImpliesInHyp_7" ]
+#testOptimize [ "ImpliesInHyp_7", proof ]
  ∀ (c : Bool) (a b : Prop), (if c then a else b) → (true = c → a) ===> True
 
 -- ∀ (c : Bool) (a b : Prop), (if c then a else b) → (false = c → b) ===> True
-#testOptimize [ "ImpliesInHyp_8" ]
+#testOptimize [ "ImpliesInHyp_8", proof ]
  ∀ (c : Bool) (a b : Prop), (if c then a else b) → (false = c → b) ===> True
 
 -- ∀ (c : Bool) (a b : Prop), (if c then a else b) → (true = c → a) ∧ (false = c → b) ===> True
-#testOptimize [ "ImpliesInHyp_9" ]
+#testOptimize [ "ImpliesInHyp_9", proof ]
  ∀ (c : Bool) (a b : Prop), (if c then a else b) → (true = c → a) ∧ (false = c → b) ===> True
 
  -- ∀ (c : Bool) (a b : Prop) (f : c → Prop → Prop),
@@ -100,8 +100,7 @@ namespace Test.ImpliesInHyp
 
 -- ∀ (a b c : Prop), (a → c) ∧ a → (a → b) ===>
 -- ∀ (a b c : Prop), (a ∧ c) → b
--- NOTE: no proof flag, the hypothesis `a` is consumed without a proof step
-#testOptimize [ "ImpliesInHypUnchanged_2" ]
+#testOptimize [ "ImpliesInHypUnchanged_2", proof ]
   ∀ (a b c : Prop), (a → c) ∧ a → (a → b) ===>
   ∀ (a b c : Prop), (a ∧ c) → b
 
@@ -125,7 +124,7 @@ namespace Test.ImpliesInHyp
 
 -- ∀ (c : Bool) (a b d : Prop), (if c then a else d) → (true = c → a) ∧ (false = c → b) ===>
 -- ∀ (c : Bool) (a b d : Prop), (false = c → d) ∧ (true = c → a) → (false = c → b)
-#testOptimize [ "ImpliesInHypUnchanged_6" ]
+#testOptimize [ "ImpliesInHypUnchanged_6", proof ]
  ∀ (c : Bool) (a b d : Prop), (if c then a else d) → (true = c → a) ∧ (false = c → b) ===>
  ∀ (c : Bool) (a b d : Prop), (false = c → d) ∧ (true = c → a) → (false = c → b)
 

@@ -99,7 +99,7 @@ namespace Tests.OptimizeNot
 #testOptimize [ "NotUnchanged_4", proof ] ∀ (a b : Prop), ¬ (a → b) ===> ∀ (a b : Prop), ¬ (a → b)
 
 -- ¬ (if c then a else b) ===> ¬ ((false = c → b) ∧ (true = c → a))
-#testOptimize [ "NotUnchanged_5" ] ∀ (c : Bool) (a b : Prop), ¬ (if c then a else b) ===>
+#testOptimize [ "NotUnchanged_5", proof ] ∀ (c : Bool) (a b : Prop), ¬ (if c then a else b) ===>
                                    ∀ (c : Bool) (a b : Prop), ¬ ((false = c → b) ∧ (true = c → a))
 
 -- ¬ ((¬ a) ∧ b) ===> ¬ ((¬ a) ∧ b)

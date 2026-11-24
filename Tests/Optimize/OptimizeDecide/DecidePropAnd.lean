@@ -132,7 +132,7 @@ variable (d : Bool)
 -- ∀ (x y : Int) (a b c d : Bool),
 --  (if ((x < y) ∧ (a ∧ (b ∧ c))) = d then x else y) =
 --  (if ((x < y) && (a && (b && c))) == d then x else y) ===> True
-#testOptimize [ "EqBoolAndEqBool_35"] ∀ (x y : Int) (a b c d : Bool),
+#testOptimize [ "EqBoolAndEqBool_35", proof ] ∀ (x y : Int) (a b c d : Bool),
                                        (if ((x < y) ∧ (a ∧ (b ∧ c))) = d then x else y) =
                                        (if ((x < y) && (a && (b && c))) == d then x else y) ===> True
 

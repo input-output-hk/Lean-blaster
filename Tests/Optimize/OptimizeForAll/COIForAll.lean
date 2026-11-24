@@ -67,7 +67,7 @@ inductive Color where
 --  let cond := !((!a || ((b || c) && !(c || b))) || a);
 --  ¬ ((if cond then x else y) = y) ===> False
 -- Test case: COI reduction also applies on sort type.
-#testOptimize [ "ForallCOI_8" ]
+#testOptimize [ "ForallCOI_8", proof ]
   ∀ (α : Type) (a b c : Bool) (x y : List α),
     let cond := !((!a || ((b || c) && !(c || b))) || a); ¬ (if cond then x else y) = y ===> False
 
@@ -99,7 +99,7 @@ inductive Color where
 --   (if cond then if x < y then [x, y] else [y, x] else ys) = xs ===>
 -- ∀ (α : Type) (x y : α) (xs : List α), [LT α] →
 --   xs = Blaster.dite' (x < y) (fun _ : x < y => [x, y]) (fun _ : ¬ (x < y) => [y, x])
-#testOptimize [ "ForallCOI_11" ]
+#testOptimize [ "ForallCOI_11", proof ]
   ∀ (α : Type) (a b c : Bool) (x y : α) (xs ys : List α), [LT α] → [Decidable (x < y)] →
     let cond := ((!a || ((b || c) && !(c || b))) || a);
     (if cond then if x < y then [x, y] else [y, x] else ys) = xs ===>
@@ -242,7 +242,7 @@ inductive NoInstance where
 --  (if cond then f x else y) = z ===>
 -- ∀ (α : Type) (β : Type) (f : α → β) (x : α) (z : β), z = f x
 -- Test case: COI reduction rules not removing still referenced quantified function.
-#testOptimize [ "ForallCOIUnchanged_10" ]
+#testOptimize [ "ForallCOIUnchanged_10", proof ]
   ∀ (α : Type) (β : Type) (f : α → β) (x : α) (y z : β) (a b c : Bool),
     let cond := ((!a || ((b || c) && !(c || b))) || a); (if cond then f x else y) = z ===>
   ∀ (α : Type) (β : Type) (f : α → β) (x : α) (z : β), z = f x

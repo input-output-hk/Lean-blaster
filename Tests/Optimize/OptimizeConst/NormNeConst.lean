@@ -59,22 +59,22 @@ abbrev NonZeroInt (x : Int) : Prop := x ≠ 0
 /-! Test cases to ensure that normalization is not wrongly applied on nominal `Eq` expressions. -/
 
 -- ∀ (x y : Int), x = y ==> ∀ (x y : Int), x = y
-#testOptimize [ "ConstEq_1" ] ∀ (x y : Int), x = y ===> ∀ (x y : Int), x = y
+#testOptimize [ "ConstEq_1", proof ] ∀ (x y : Int), x = y ===> ∀ (x y : Int), x = y
 
 -- ∀ (x y : Int), ¬ x = y ==> ∀ (x y : Int), ¬ x = y
-#testOptimize [ "ConstEq_2" ] ∀ (x y : Int), ¬ x = y ===> ∀ (x y : Int), ¬ x = y
+#testOptimize [ "ConstEq_2", proof ] ∀ (x y : Int), ¬ x = y ===> ∀ (x y : Int), ¬ x = y
 
 -- ∀ (α : Type) (x y : α), x = y ==> ∀ (α : Type) (x y : α), x = y
-#testOptimize [ "ConstEq_3" ] ∀ (α : Type) (x y : α), x = y ===> ∀ (α : Type) (x y : α), x = y
+#testOptimize [ "ConstEq_3", proof ] ∀ (α : Type) (x y : α), x = y ===> ∀ (α : Type) (x y : α), x = y
 
 -- ∀ (α : Type) (x y : α), ¬ x = y ==> ∀ (α : Type) (x y : α), ¬ x = y
-#testOptimize [ "ConstEq_4" ] ∀ (α : Type) (x y : α), ¬ x = y ===> ∀ (α : Type) (x y : α), ¬ x = y
+#testOptimize [ "ConstEq_4", proof ] ∀ (α : Type) (x y : α), ¬ x = y ===> ∀ (α : Type) (x y : α), ¬ x = y
 
 -- ∀ (α : Type) (x y : List α), x = y ==> ∀ (α : Type) (x y : List α), x = y
-#testOptimize [ "ConstEq_5" ] ∀ (α : Type) (x y : List α), x = y ===> ∀ (α : Type) (x y : List α), x = y
+#testOptimize [ "ConstEq_5", proof ] ∀ (α : Type) (x y : List α), x = y ===> ∀ (α : Type) (x y : List α), x = y
 
 -- ∀ (α : Type) (x y : List α), ¬ x = y ==> ∀ (α : Type) (x y : List α), ¬ x = y
-#testOptimize [ "ConstEq_6" ] ∀ (α : Type) (x y : List α), ¬ x = y ===> ∀ (α : Type) (x y : List α), ¬ x = y
+#testOptimize [ "ConstEq_6", proof ] ∀ (α : Type) (x y : List α), ¬ x = y ===> ∀ (α : Type) (x y : List α), ¬ x = y
 
 
 end Test.NormNeConst

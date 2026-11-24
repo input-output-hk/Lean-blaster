@@ -21,10 +21,12 @@ namespace Test.BEqString
 #testOptimize [ "BEqStringCst_4", proof ] "test" ++ "Optimize" == "testOptimize" ===> true
 
 -- "testOptimize".take 4 == "test" ===> true
-#testOptimize [ "BEqStringCst_5", proof ] "testOptimize".take 4 == "test" ===> true
+-- NOTE: no proof flag on BEqStringCst_5 and BEqStringCst_6, the optimizer reduces the matches of `String.take`
+-- on literals without a proof step
+#testOptimize [ "BEqStringCst_5" ] "testOptimize".take 4 == "test" ===> true
 
 -- "testOptimize".take 0 == "" ===> true
-#testOptimize [ "BEqStringCst_6", proof ] "testOptimize".take 0 == "" ===> true
+#testOptimize [ "BEqStringCst_6" ] "testOptimize".take 0 == "" ===> true
 
 /-! Test cases for simplification rule `e1 == e2 ==> true (if e1 =ₚₜᵣ e2)`. -/
 

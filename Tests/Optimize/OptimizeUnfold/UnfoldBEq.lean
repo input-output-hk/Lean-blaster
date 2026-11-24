@@ -179,12 +179,12 @@ instance instBEqColor : BEq Color where
 
 -- ∀ (α : Type) (x y : α), [BEq α] → x == y ===> ∀ (α : Type) (x y : α), [BEq α] → true = (x == y)
 -- NOTE : type class constraint case
-#testOptimize [ "BEqNotUnfolded_7" ] ∀ (α : Type) (x y : α), [BEq α] → x == y ===>
+#testOptimize [ "BEqNotUnfolded_7", proof ] ∀ (α : Type) (x y : α), [BEq α] → x == y ===>
                                      ∀ (α : Type) (x y : α), [BEq α] → true = (x == y)
 
 -- ∀ (α : Type) (x y : α), [BEq α] → x != y ===> ∀ (α : Type) (x y : α), [BEq α] → false = (x == y)
 -- NOTE : type class constraint case
-#testOptimize [ "BEqNotUnfolded_8" ] ∀ (α : Type) (x y : α), [BEq α] → x != y ===>
+#testOptimize [ "BEqNotUnfolded_8", proof ] ∀ (α : Type) (x y : α), [BEq α] → x != y ===>
                                      ∀ (α : Type) (x y : α), [BEq α] → false = (x == y)
 
 -- ∀ (s t : String), s == t ===> ∀ (s t : String), s = t

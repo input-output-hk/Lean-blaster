@@ -88,7 +88,7 @@ namespace Tests.ConstCtorProp
 --          (fun _ => Blaster.dite' b (fun _ => some x :: []) (fun _ =>  some x :: some y :: []))
 --          (fun _ => Blaster.dite' b (fun _ => some y :: []) (fun _ => some y :: some y :: [])))
 --       (fun _ => Blaster.dite' b (fun _ => some x :: []) (fun _ => none :: some y :: []))
-#testOptimize [ "IteOverCtor_5" ]
+#testOptimize [ "IteOverCtor_5", proof ]
 ∀ (b c d : Prop) (xs : List (Option Int)) (x y : Int),
   [Decidable b] → [Decidable c] → [Decidable d] →
   let op1 :=
@@ -111,7 +111,7 @@ namespace Tests.ConstCtorProp
 --        (fun _ => (λ n => some (Int.add x n)) :: [])
 --        (fun _ => (λ n => some (Int.add x (Int.neg n))) :: [])
 -- NOTE: Test cases to ensure that ite returning function are properly handled
-#testOptimize [ "IteOverCtor_6" ]
+#testOptimize [ "IteOverCtor_6", proof ]
   ∀ (c : Prop) (xs : List (Int → Option Int)) (x : Int), [Decidable c] →
     (if c then λ n => some (x + n) else λ n => some (x - n)) :: [] = xs ===>
   ∀ (c : Prop) (xs : List (Int → Option Int)) (x : Int),
@@ -206,7 +206,7 @@ namespace Tests.ConstCtorProp
 --          (fun _ => Blaster.dite' b (fun _ => p :: []) (fun _ => p :: p :: [])))
 --        (fun _ => Blaster.dite' b (fun _ => some x :: []) (fun _ => none :: p :: []))
 -- NOTE: Test cases to ensure that even non constant ite are propagated
-#testOptimize [ "IteOverCtor_11" ]
+#testOptimize [ "IteOverCtor_11", proof ]
 ∀ (b c d : Prop) (xs : List (Option Int)) (x : Int) (p : Option Int),
   [Decidable b] → [Decidable c] → [Decidable d] →
   let op1 :=
@@ -328,7 +328,7 @@ structure NB (n : Nat) where
 --   Blaster.dite' c
 --   (fun h1 : _ => Blaster.dite' d (fun _ => t h1 x :: []) (fun h2 : _ => f h2 y :: []))
 --   (fun _ => Blaster.dite' b (fun h3 : _ => g h3 x :: []) (fun _ => none :: []))
-#testOptimize [ "DIteOverCtor_4" ]
+#testOptimize [ "DIteOverCtor_4", proof ]
 ∀ (b c d : Prop) (xs : List (Option Int)) (x y : Int)
    (t : c → Int → Option Int) (f : ¬ d → Int → Option Int)
    (g : b → Int → Option Int), [Decidable b] → [Decidable c] → [Decidable d] →
@@ -365,7 +365,7 @@ structure NB (n : Nat) where
 --           Blaster.dite' b (fun h4 : _ => f h2 y :: g h4 y :: []) (fun _ => f h2 y :: [])))
 --       (fun _ =>
 --         Blaster.dite' b (fun h3 : _ => g h3 x :: g h3 y :: []) (fun _ => none :: []))
-#testOptimize [ "DIteOverCtor_5" ]
+#testOptimize [ "DIteOverCtor_5", proof ]
 ∀ (b c d : Prop) (xs : List (Option Int)) (x y : Int)
   (t : c → Int → Option Int) (f : ¬ d → Int → Option Int)
   (g : b → Int → Option Int), [Decidable b] → [Decidable c] → [Decidable d] →
@@ -396,7 +396,7 @@ structure NB (n : Nat) where
 --        (fun h : _ => (λ n => t h (Int.add x n)) :: [])
 --        (fun h : _ => (λ n => e h (Int.add x (Int.neg n))) :: [])
 -- NOTE: Test cases to ensure that dite returning function are properly handled
-#testOptimize [ "DIteOverCtor_6" ]
+#testOptimize [ "DIteOverCtor_6", proof ]
   ∀ (c : Prop) (xs : List (Int → Option Int)) (x : Int)
     (t : c → Int → Option Int) (e : ¬ c → Int → Option Int), [Decidable c] →
       (if h : c then λ n => t h (x + n) else λ n => e h (x - n)) :: [] = xs ===>
@@ -469,7 +469,7 @@ structure NB (n : Nat) where
 --         (fun h1 : _ => Blaster.dite' d (fun h2 : _ => some (t h2 x) :: []) (fun _ => (g h1 p) :: []))
 --         (fun _ => Blaster.dite' b (fun h3 : _ => some (f h3 x) :: []) (fun _ => none :: []))
 -- NOTE: Test cases to ensure that even non constant ite are propagated
-#testOptimize [ "DIteOverCtor_10" ]
+#testOptimize [ "DIteOverCtor_10", proof ]
 ∀ (b c d : Prop) (xs : List (Option Int)) (x : Int) (p : Int)
   (t : d → Int → Int) (f : b → Int → Int) (g : c → Int → Option Int),
   [Decidable b] → [Decidable c] → [Decidable d] →
@@ -508,7 +508,7 @@ structure NB (n : Nat) where
 --          Blaster.dite' b
 --          (fun h3 : _ => some (g h3 x) :: [])
 --          (fun h3 : _ => none :: (j h3 p) :: []))
-#testOptimize [ "DIteOverCtor_11" ]
+#testOptimize [ "DIteOverCtor_11", proof ]
 ∀ (b c d : Prop) (xs : List (Option Int)) (x : Int) (p : Int)
   (t : d → Int → Int) (f : c → Int → Option Int) (g : b → Int → Int)
   (j : ¬ b → Int → Option Int), [Decidable b] → [Decidable c] → [Decidable d] →

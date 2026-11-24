@@ -212,7 +212,7 @@ variable (q : Bool)
 -- ∀ (x y : Int) (a b c : Bool),
 -- (if c then (x ≤ y ∧ (a ∨ ((b ∨ c) ∧ ¬ (c ∨ b)))) else b =
 -- (if c then x ≤ y ∧ true = a else b) ===> True
-#testOptimize [ "DecideDecidableUpdate_4" ] ∀ (x y : Int) (a b c : Bool),
+#testOptimize [ "DecideDecidableUpdate_4", proof ] ∀ (x y : Int) (a b c : Bool),
                                               (if c then (x ≤ y ∧ (a ∨ ((b ∨ c) ∧ ¬ (c ∨ b)))) else b) =
                                               (if c then x ≤ y ∧ true = a else b) ===> True
 

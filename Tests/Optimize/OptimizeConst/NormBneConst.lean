@@ -31,7 +31,7 @@ namespace Test.NormBneConst
 
 -- ∀ (α : Type) (x y : α), [BEq α] → x != y ===>
 -- ∀ (α : Type) (x y : α), [BEq α] → false = (x == y)
-#testOptimize [ "ConstBne_5" ] ∀ (α : Type) (x y : α), [BEq α] → x != y ===>
+#testOptimize [ "ConstBne_5", proof ] ∀ (α : Type) (x y : α), [BEq α] → x != y ===>
                                ∀ (α : Type) (x y : α), [BEq α] → false = (x == y)
 
 
@@ -88,12 +88,12 @@ namespace Test.NormBneConst
 
 -- ∀ (α : Type) (x y : α), [BEq α] → x == y ===>
 -- ∀ (α : Type) (x y : α), [BEq α] → true = (x == y)
-#testOptimize [ "ConstBeq_9" ] ∀ (α : Type) (x y : α), [BEq α] → x == y ===>
+#testOptimize [ "ConstBeq_9", proof ] ∀ (α : Type) (x y : α), [BEq α] → x == y ===>
                                ∀ (α : Type) (x y : α), [BEq α] → true = (x == y)
 
 -- ∀ (α : Type) (x y : α), [BEq α] → !(x == y) ===>
 -- ∀ (α : Type) (x y : α), [BEq α] → false = (x == y)
-#testOptimize [ "ConstBeq_10" ] ∀ (α : Type) (x y : α), [BEq α] → !(x == y) ===>
+#testOptimize [ "ConstBeq_10", proof ] ∀ (α : Type) (x y : α), [BEq α] → !(x == y) ===>
                                 ∀ (α : Type) (x y : α), [BEq α] → false = (x == y)
 
 end Test.NormBneConst

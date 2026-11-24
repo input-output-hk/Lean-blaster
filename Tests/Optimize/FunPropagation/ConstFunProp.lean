@@ -16,7 +16,7 @@ namespace Tests.ConstFunProp
 -- ∀ (c : Bool) (x y : Int), some y = if c then some x else none ===>
 -- ∀ (c : Bool) (x y : Int), true = c ∧ some x = some y
 -- NOTE: Can be reduced to `true = c ∧ x = y` with additional simplification rules
-#testOptimize [ "IteOverFun_1" ]
+#testOptimize [ "IteOverFun_1", proof ]
   ∀ (c : Bool) (x y : Int), some y = if c then some x else none ===>
   ∀ (c : Bool) (x y : Int), true = c ∧ some x = some y
 
@@ -124,7 +124,7 @@ namespace Tests.ConstFunProp
 -- ∀ (a b c : Bool), true = if c then a else b ===>
 -- ∀ (a b c : Bool), (false = c → true = b) ∧ (true = c → true = a)
 -- NOTE: Test case to validate ite propagation on equality true
-#testOptimize [ "IteOverFun_8" ]
+#testOptimize [ "IteOverFun_8", proof ]
   ∀ (a b c : Bool), true = if c then a else b ===>
   ∀ (a b c : Bool), (false = c → true = b) ∧ (true = c → true = a)
 
@@ -266,7 +266,7 @@ namespace Tests.ConstFunProp
 --   true = c ∧ ∀ (h : true = c), some y = some (f h x)
 -- NOTE: Can be reduced to true = c ∧ ∀ (h : true = c), y = f h x
 -- with additional simplification rules
-#testOptimize [ "DIteOverFun_1" ]
+#testOptimize [ "DIteOverFun_1", proof ]
   ∀ (c : Bool) (x y : Int) (f : c → Int → Int),
     some y = if h : c then some (f h x) else none ===>
   ∀ (c : Bool) (x y : Int) (f : true = c → Int → Int),

@@ -226,7 +226,7 @@ def isWellFormedAlphaNat
   (∀ (x : Int) (n : Nat), powerN x n > x) → (∀ (y : Int) (m : Nat), Int.pow y m > y) ===> True
 
 -- (∀ (x y : Nat), addNat x y ≥ x) → (∀ (n m : Nat), n + m ≥ n) ===> True
-#testOptimize [ "NormRecFun_21" ] (∀ (x y : Nat), addNat x y ≥ x) → (∀ (n m : Nat), n + m ≥ n) ===> True
+#testOptimize [ "NormRecFun_21", proof ] (∀ (x y : Nat), addNat x y ≥ x) → (∀ (n m : Nat), n + m ≥ n) ===> True
 
 
 def subNat (a : Nat) (b : Nat) : Nat :=
@@ -388,7 +388,7 @@ def addNatBug (a : Nat) (b : Nat) : Nat :=
 
 -- ∀ (x y : Nat), addNatBug x y = x + y ===>
 -- ∀ (x y : Nat), Nat.add x y = addNatBug x y
-#testOptimize [ "NormRecUnchanged_2" ]
+#testOptimize [ "NormRecUnchanged_2", proof ]
   ∀ (x y : Nat), addNatBug x y = x + y ===> ∀ (x y : Nat), Nat.add x y = addNatBug x y
 
 
@@ -592,7 +592,7 @@ def listMapOption [Size α] (xs : List (Option α)) : List Nat :=
 -- NOTE: This test case can result to `True` when specializing rec function
 -- with fun or constant arguments. We should also check how to resolve
 -- the polymorphic instance on `listMapOption`.
-#testOptimize [ "NormRecUnchanged_14" ] (norm-result: 1)
+#testOptimize [ "NormRecUnchanged_14", proof ] (norm-result: 1)
   (∀ (α : Type) (xs : List (Option α)), [Size α] → List.foldr Nat.add 1 (List.map mapOption xs) > 0 ) →
     (∀ (β : Type) (xs : List (Option β)), [Size β] → List.foldr Nat.add 1 (listMapOption xs) > 0 ) ===>
   (∀ (α : Type) (xs : List (Option α)), [Size α] →
@@ -690,7 +690,7 @@ end
 -- ∀ (α : Type) (β : Type) (xs : List (Either α β)), listLengthOne xs = List.length xs ===>
 -- ∀ (α : Type) (β : Type) (xs : List (Either α β)), List.length xs = listLengthOne xs
 -- NOTE: We can't unify lhs type
-#testOptimize [ "NormRecUnchanged_20" ]
+#testOptimize [ "NormRecUnchanged_20", proof ]
 ∀ (α : Type) (β : Type) (xs : List (Either α β)), listLengthOne xs = List.length xs ===>
 ∀ (α : Type) (β : Type) (xs : List (Either α β)), List.length xs = listLengthOne xs
 

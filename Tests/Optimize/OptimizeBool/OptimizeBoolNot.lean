@@ -69,7 +69,7 @@ namespace Tests.OptimizeBoolNot
 #testOptimize [ "BoolNotUnchanged_4", proof ] ∀ (a b : Bool), ! (a && b) ===> ∀ (a b : Bool), false = (a && b)
 
 -- if c then !a else b ===> (false = c → true = b) ∧ (true = c → false = a)
-#testOptimize [ "BoolNotUnchanged_5" ]
+#testOptimize [ "BoolNotUnchanged_5", proof ]
   ∀ (c a b : Bool), true = (if c then !a else b) ===>
   ∀ (c a b : Bool), (false = c → true = b) ∧ (true = c → false = a)
 

@@ -88,7 +88,7 @@ namespace Test.DecideBoolNot
 
 -- ∀ (a b : Prop) (c : Bool), [Decidable a] → [Decidable b] → !(if (c || !c) then ¬ a else b) && c ===>
 -- ∀ (a : Prop), a ∧ true = c
-#testOptimize [ "NotDecide_18" ] ∀ (a b : Prop) (c : Bool), [Decidable a] → [Decidable b] →
+#testOptimize [ "NotDecide_18", proof ] ∀ (a b : Prop) (c : Bool), [Decidable a] → [Decidable b] →
                                    !(if (c || !c) then ¬ a else b) && c ===>
                                  ∀ (a : Prop) (c : Bool), a ∧ (true = c)
 

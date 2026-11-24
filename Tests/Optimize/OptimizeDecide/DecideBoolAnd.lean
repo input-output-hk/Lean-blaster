@@ -124,17 +124,17 @@ variable (b : Bool)
                                     ∀ (m n : Nat), m = n
 
 -- ∀ (x y m n : Nat), x < y && (m != n) ===> ∀ (x y m n : Nat), ¬ m = n ∧ x < y
-#testOptimize [ "DecideAndBool_6" ] ∀ (x y m n : Nat), x < y && (m != n) ===>
+#testOptimize [ "DecideAndBool_6", proof ] ∀ (x y m n : Nat), x < y && (m != n) ===>
                                     ∀ (x y m n : Nat), ¬ m = n ∧ x < y
 
 -- ∀ (m n : Nat), (m = n) && (m != n) ===> False
-#testOptimize [ "DecideAndBool_7" ] ∀ (m n : Nat), (m = n) && (m != n) ===> False
+#testOptimize [ "DecideAndBool_7", proof ] ∀ (m n : Nat), (m = n) && (m != n) ===> False
 
 -- ∀ (m n : Nat), (m ≠ n) && (m == n) ===> False
 #testOptimize [ "DecideAndBool_8", proof ] ∀ (m n : Nat), (m ≠ n) && (m == n) ===> False
 
 -- ∀ (m n : Nat), (m ≠ n) && (m != n) ===> ∀ (m n : Nat), ¬ m = n
-#testOptimize [ "DecideAndBool_9" ] ∀ (m n : Nat), (m ≠ n) && (m != n) ===>
+#testOptimize [ "DecideAndBool_9", proof ] ∀ (m n : Nat), (m ≠ n) && (m != n) ===>
                                     ∀ (m n : Nat), ¬ m = n
 
 -- ∀ (a b : Prop) (c : Bool), [Decidable a] → [Decidable b] → (((a ∧ b) ∧ (b ∨ ¬ b)) && c) ===>
@@ -149,7 +149,7 @@ variable (b : Bool)
 --   Blaster.dite' (¬ y < x ∧ true = a)
 --     (fun _ : ¬ y < x ∧ true = a => x)
 --     (fun _ : ¬ (¬ y < x ∧ true = a) => y) < z
-#testOptimize [ "DecideAndBool_11" ]
+#testOptimize [ "DecideAndBool_11", proof ]
   ∀ (x y z : Nat) (a b c : Bool),
     (if (x ≤ y ∧ y ≥ x) && ((a || ((b || c) && !(c || b)))) then x else y) < z ===>
   ∀ (x y z : Nat) (a : Bool),
@@ -159,25 +159,25 @@ variable (b : Bool)
 
 -- ∀ (x y z: Nat), x != y && x ≠ y && Nat.ble z y ===>
 -- ∀ (x y z : Nat), ¬ (x = y) ∧ ¬ y < z
-#testOptimize [ "DecideAndBool_12" ] ∀ (x y z : Nat), x != y && x ≠ y && Nat.ble z y ===>
+#testOptimize [ "DecideAndBool_12", proof ] ∀ (x y z : Nat), x != y && x ≠ y && Nat.ble z y ===>
                                      ∀ (x y z : Nat), ¬ (x = y) ∧ ¬ y < z
 
 
 -- ∀ (x y m n : Nat), (x != y && n ≥ m) && (x ≠ y && m ≤ n) ===>
 -- ∀ (x y m n : Nat), ¬ (x = y) ∧ ¬ n < m
-#testOptimize [ "DecideAndBool_13" ] ∀ (x y m n : Nat), (x != y && n ≥ m) && (x ≠ y && m ≤ n) ===>
+#testOptimize [ "DecideAndBool_13", proof ] ∀ (x y m n : Nat), (x != y && n ≥ m) && (x ≠ y && m ≤ n) ===>
                                      ∀ (x y m n : Nat), ¬ (x = y) ∧ ¬ n < m
 
 -- ∀ (x y z m n : Nat), (x != y && Nat.ble n m) && (x ≠ z && m == z) ===>
 -- ∀ (x y z m n : Nat), (¬ (x = y) ∧ ¬ m < n) ∧ (¬ (x = z) ∧ z = m)
-#testOptimize [ "DecideAndBool_14" ]
+#testOptimize [ "DecideAndBool_14", proof ]
   ∀ (x y z m n : Nat), (x != y && Nat.ble n m) && (x ≠ z && m == z) ===>
   ∀ (x y z m n : Nat), (¬ (x = y) ∧ ¬ m < n) ∧ (¬ (x = z) ∧ z = m)
 
 
 -- ∀ (x y z m n : Nat), ((x != y && m < n) && m == z) && x ≠ z ===>
 -- ∀ (x y z m n : Nat), ¬ (x = z) ∧ ((¬ (x = y) ∧ m < n) ∧ z = m)
-#testOptimize [ "DecideAndBool_15" ] ∀ (x y z m n : Nat), ((x != y && m < n) && m == z) && x ≠ z ===>
+#testOptimize [ "DecideAndBool_15", proof ] ∀ (x y z m n : Nat), ((x != y && m < n) && m == z) && x ≠ z ===>
                                      ∀ (x y z m n : Nat), ¬ (x = z) ∧ ((¬ (x = y) ∧ m < n) ∧ z = m)
 
 -- (x ≤ y && b) = decide (true = b ∧ y ≥ x) ===> True
@@ -193,10 +193,10 @@ variable (b : Bool)
 #testOptimize [ "DecideAndBool_19", proof ] ∀ (m n : Nat), ((m = n) && (n == m)) = (n = m) ===> True
 
 -- ∀ (x y m n : Nat), (x < y && (m != n)) = (n ≠ m ∧ y > x) ===> True
-#testOptimize [ "DecideAndBool_20" ] ∀ (x y m n : Nat), (x < y && (m != n)) = (n ≠ m ∧ y > x) ===> True
+#testOptimize [ "DecideAndBool_20", proof ] ∀ (x y m n : Nat), (x < y && (m != n)) = (n ≠ m ∧ y > x) ===> True
 
 -- ∀ (m n : Nat), ((n ≠ m) && (m != n)) = (m ≠ n) ===> True
-#testOptimize [ "DecideAndBool_21" ] ∀ (m n : Nat), ((n ≠ m) && (m != n)) = (m ≠ n) ===> True
+#testOptimize [ "DecideAndBool_21", proof ] ∀ (m n : Nat), ((n ≠ m) && (m != n)) = (m ≠ n) ===> True
 
 -- ∀ (a b : Prop) (c : Bool),
 --  [Decidable a] → [Decidable b] → (((a ∧ b) ∧ (b ∨ ¬ b)) && c) = (c ∧ (b ∧ a)) ===> True
@@ -206,29 +206,29 @@ variable (b : Bool)
 -- ∀ (x y : Nat) (a b c : Bool),
 --  (if (x ≤ y ∧ y ≥ x) && ((a || ((b || c) && !(c || b)))) then x else y) =
 --  (if a ∧ (x ≤ y) then x else y) ===> True
-#testOptimize [ "DecideAndBool_23" ] ∀ (x y : Nat) (a b c : Bool),
+#testOptimize [ "DecideAndBool_23", proof ] ∀ (x y : Nat) (a b c : Bool),
                                        (if (x ≤ y ∧ y ≥ x) && ((a || ((b || c) && !(c || b)))) then x else y) =
                                        (if a ∧ (x ≤ y) then x else y) ===> True
 
 -- ∀ (x y z: Nat), (x != y && x ≠ y && Nat.ble z y) = (Nat.ble z y ∧ (y ≠ x)) ===> True
-#testOptimize [ "DecideAndBool_24" ] ∀ (x y z : Nat),
+#testOptimize [ "DecideAndBool_24", proof ] ∀ (x y z : Nat),
                                        (x != y && x ≠ y && Nat.ble z y) = (Nat.ble z y ∧ (y ≠ x)) ===> True
 
 -- ∀ (x y m n : Nat), ((x != y && n ≥ m) && (x ≠ y && m ≤ n)) = (n ≥ m ∧ (x ≠ y)) ===> True
-#testOptimize [ "DecideAndBool_25" ] ∀ (x y m n : Nat),
+#testOptimize [ "DecideAndBool_25", proof ] ∀ (x y m n : Nat),
                                        ((x != y && n ≥ m) && (x ≠ y && m ≤ n)) = (n ≥ m ∧ (x ≠ y)) ===> True
 
 -- ∀ (x y z m n : Nat),
 --  ((x != y && Nat.ble n m) && (x ≠ z && m == z)) =
 --  (((z ≠ x) ∧ z = m) ∧ ((y != x) && Nat.ble n m)) ===> True
-#testOptimize [ "DecideAndBool_26" ] ∀ (x y z m n : Nat),
+#testOptimize [ "DecideAndBool_26", proof ] ∀ (x y z m n : Nat),
                                         ((x != y && Nat.ble n m) && (x ≠ z && m == z)) =
                                         (((z ≠ x) ∧ z = m) ∧ ((y != x) && Nat.ble n m)) ===> True
 
 -- ∀ (x y z m n : Nat),
 --  (((x != y && m < n) && m == z) && x ≠ z) =
 --  (z ≠ x ∧ ((y ≠ x) ∧ n > m) ∧ z = m) ===> True
-#testOptimize [ "DecideAndBool_27" ] ∀ (x y z m n : Nat),
+#testOptimize [ "DecideAndBool_27", proof ] ∀ (x y z m n : Nat),
                                        (((x != y && m < n) && m == z) && x ≠ z) =
                                        (z ≠ x ∧ ((y ≠ x) ∧ n > m) ∧ z = m) ===> True
 
