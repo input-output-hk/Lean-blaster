@@ -440,7 +440,7 @@ def getImplicitParameters (f : Expr) (args : Array Expr) : TranslateEnvT Implici
       - When instanceArgs.isEmpty
           - return `f`
       - Otherwise:
-          - When ¬ cacheEntry ∧ instanceArgs.size == params.size (i.e., only implicit arguments provided)
+          - When ¬ cacheEntry ∧ instanceArgs.size == params.size ∧ ¬ genFVars.isEmpty (i.e., only implicit arguments provided)
              - return `mkLambdaFVars genFVars f`
           - Otherwise:
              - return `mkLambdaFVars genFVars (specializeLambda (← etaExpand f) params)`
@@ -450,7 +450,7 @@ def getInstApp (f : Expr) (params : ImplicitParameters) (cacheEntry := false) : 
  if instanceArgs.isEmpty then return f
  else
   let genFVars ← retrieveGenericFVars params
-  if cacheEntry || instanceArgs.size != params.size
+  if cacheEntry || instanceArgs.size != params.size || genFVars.isEmpty
   then mkLambdaFVarsExpr genFVars (← specializeLambda (← etaExpand f) params)
   else mkLambdaFVarsExpr genFVars f
 

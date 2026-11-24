@@ -81,6 +81,7 @@ def optimizeAppAux (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 -/
 @[noinline]
 def optimizeAppExt (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
+  if args.any (·.hasLooseBVars) then return ← mkAppNExpr f args
   let mut r ← optimizeAppAux f args
   while (← isRestart) do
     resetRestart
@@ -121,7 +122,7 @@ def finalizeRecApp
        if rf.isConst then
          stackContinuity xs (← mkAppNExpr rf uargs)
        else -- polyomrphic case: we need to remove the generic parameters
-         let auxApp ← betaLambdaShared rf (← getEffectiveParams params)
+         let auxApp ← instantiateRecFun rf params
          stackContinuity xs auxApp
      else if rf.isConst then
          -- case when a polymorphic/non-polymorphic function is equivalent to another non-polymorphic one
@@ -129,7 +130,10 @@ def finalizeRecApp
          -- trace[Optimize.recFun.app] "non-polymorphic equivalent case {reprStr rf} {reprStr eargs}"
          isEquivOpaqueFun rf (← mkAppNExpr rf eargs) xs
      else
-       let auxApp ← betaLambdaShared rf (← getEffectiveParams params)
+       -- NOTE: We need to cover equivalence cases between:
+       --  - two polymorphic functions for which only implicit parameters are provided
+       --  - two polymorphic functions for which at least one has only implicit parameters
+       let auxApp ← instantiateRecFun rf params
        if auxApp.isLambda then
          -- case for partially applied functions, i.e., some explicit arguments not provided
          let appCall := getLambdaBody auxApp
@@ -140,6 +144,21 @@ def finalizeRecApp
          -- trace[Optimize.recFun.app] "polymorphic equivalent case {reprStr auxApp.getAppFn'} {reprStr auxApp.getAppArgs}"
          isEquivOpaqueFun auxApp.getAppFn auxApp xs
  where
+
+   instantiateRecFun (f : Expr) (params : ImplicitParameters) : TranslateEnvT Expr := do
+     let mut args ← retrieveGenericFVars params
+     if (getLambdaBody f).isApp then
+       for h : i in [:params.size] do
+         let e := params[i]
+         if !e.isInstance then
+           args := args.push e.effectiveArg
+       betaLambdaShared f args
+     else
+       for h : i in [:params.size] do
+         let e := params[i]
+         args := args.push e.effectiveArg
+       betaLambdaShared f args
+
    isEquivOpaqueFun (f : Expr) (e : Expr) (xs : List OptimizeStack) : TranslateEnvT OptimizeContinuity := do
      let isOpaqueRecFun (f : Expr) : Bool :=
        if exprEq uf f then false

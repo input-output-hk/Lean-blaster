@@ -616,29 +616,6 @@ def retrieveGenericFVars (params : ImplicitParameters) : TranslateEnvT (Array Ex
       (genericArgs, knownGenParams) ← updateGenericArgs e.effectiveArg genericArgs knownGenParams
   return genericArgs
 
-
-/-- Given `params` an implicit parameters perform the following:
-      let instanceArgs := Array.filter (λ p => p.isInstance) params
-      let genArgs ← retrieveGenericFVars
-      let P := #[ params[i].effectiveArgs | i ∈ [0..params.size-1] ∧ ¬ params[i].isInstance ] if instanceArgs.size != params.size
-            := #[ params[i].effectiveArgs | i ∈ [0..params.size-1] ∧ ¬ params[i].effectiveArgs.isFVar ] otherwise
-      return `genArgs ++ P`
--/
-@[inline] def getEffectiveParams (params : ImplicitParameters) : TranslateEnvT (Array Expr) := do
-  let instanceArgs := Array.filter (λ p => p.isInstance) params
-  let mut args ← retrieveGenericFVars params
-  if instanceArgs.size != params.size then
-    for h : i in [:params.size] do
-      let e := params[i]
-      if !e.isInstance then
-        args := args.push e.effectiveArg
-  else
-    for h : i in [:params.size] do
-      let e := params[i]
-      if e.effectiveArg.isFVar then
-        args := args.push e.effectiveArg
-  return args
-
 /-- Given `f` a function name expression, `params` its implicit parameters info (see `getImplicitParameters`),
     and `fbody` corresponding the recursive definition for `f`, perform the following actions:
       - let fbody' be `fbody` in which the recurisve call is annotated with `__Blaster.recursivecall`
