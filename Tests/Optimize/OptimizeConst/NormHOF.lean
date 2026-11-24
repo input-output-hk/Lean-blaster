@@ -464,7 +464,7 @@ def mapOptionDefault (x : Nat) (y : Option Nat) : Nat :=
     0 < Nat.sub x 1 → 0 < List.foldr Nat.add x (List.map (λ a => Nat.sub a 1) xs)
 
 -- ∀ (x : Nat) (xs : List Nat), List.any (BEq.beq x) xs = List.any xs (Nat.beq x)  ===> True
-#testOptimize [ "ConstNormOpaqueFunArg_3" ]
+#testOptimize [ "ConstNormOpaqueFunArg_3", proof ]
   ∀ (x : Nat) (xs : List Nat), List.any xs (BEq.beq x) = List.any xs (Nat.beq x) ===> True
 
 -- ∀ (x : Nat) (xs : List Nat), List.any (λ a => a == x) xs = List.any xs (Nat.beq x)  ===> True

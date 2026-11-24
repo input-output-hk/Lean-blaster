@@ -34,9 +34,9 @@ private inductive ElabTask where
   | bin (e : Expr) (op : Expr → Expr → Expr)
   deriving Inhabited
 
-/-- Convert core Nat/Int operators and the raw Int literals `Int.ofNat n`, `Int.negSucc n` to their
-    elaborated form, `HAdd.hAdd`, `HSub.hSub`, `HMul.hMul`, `HDiv.hDiv`, `HMod.hMod`, `Neg.neg`
-    and `OfNat.ofNat`,
+/-- Convert core Nat/Int operators, `String.append` and the raw Int literals `Int.ofNat n`,
+    `Int.negSucc n` to their elaborated form, `HAdd.hAdd`, `HSub.hSub`, `HMul.hMul`, `HDiv.hDiv`,
+    `HMod.hMod`, `HAppend.hAppend`, `Neg.neg` and `OfNat.ofNat`,
     so that proof term LHS patterns structurally match goal expressions.
     An operator is converted at any arity, so that `Nat.add x` and `fun y => Nat.add x y` stay
     eta-equal.
@@ -87,6 +87,9 @@ where
   | Expr.app (Expr.const ``Int.ofNat _) (Expr.lit (Literal.natVal n)) => .inl (mkIntLit n)
   -- `Int.negSucc n` denotes `-(n+1)`.
   | Expr.app (Expr.const ``Int.negSucc _) (Expr.lit (Literal.natVal n)) => .inl (mkIntLit (.negSucc n))
+  -- `++` on String elaborates to `HAppend.hAppend`, the optimizer works on `String.append`
+  | .const ``String.append _ => .inl (binOp ``HAppend.hAppend (mkConst ``String)
+      (mkApp2 (mkConst ``instHAppendOfAppend [0]) (mkConst ``String) (mkConst ``String.instAppend)))
   -- an unchanged application is kept, so that the result shares the subterms of `e`
   | Expr.app f a => .inr (bin e e.updateApp! f a)
   -- the conversion is syntactic, so it applies below binders too

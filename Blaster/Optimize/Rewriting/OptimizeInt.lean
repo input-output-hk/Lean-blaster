@@ -7,13 +7,11 @@ import Blaster.Optimize.Env
 open Lean Meta
 namespace Blaster.Optimize
 
-/-- Push the constant fold step `e = r`, where `e` is a ground Int operation and `r` its
-    literal value. The proof is `Eq.refl r` ascribed to `e = r` via `id`, so the kernel
-    checks the fold by evaluation and emission needs no lemma nor instance synthesis. -/
+/-- `pushFoldStep` on Int: push the constant fold step `e = r`, where `e` is a ground Int
+    operation and `r` its literal value. -/
 @[always_inline, inline]
 def pushIntFoldStep (e r : Expr) : TranslateEnvT Unit := do
-  pushProofStep (.rewrite (mkApp2 (mkConst ``id [levelZero])
-    (← mkIntEqExpr e r) (mkApp2 (← mkEqRefl) (← mkIntType) r)))
+  pushFoldStep (← mkIntType) e r
 
 /-- Apply the following simplification/normalization rules on `Int.neg` :
      - - (N) ==> "-" N    [proof: Eq.refl, see pushIntFoldStep, no step when N > 0]
@@ -581,13 +579,10 @@ def optimizeIntToNat (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let op := args[0]!
  if let some n := isIntValue? op then
    let r ← mkNatLitExpr (Int.toNat n)
-   pushProofStep (.rewrite (mkApp2 (mkConst ``id [levelZero])
-     (← mkNatEqExpr (mkApp f op) r) (mkApp2 (← mkEqRefl) (← mkNatType) r)))
+   pushFoldStep (← mkNatType) (mkApp f op) r
    return r
  if let some e := op.app1? ``Int.ofNat then
-   -- both sides are defeq, so the step is `Eq.refl e` ascribed to `Int.toNat op = e`
-   pushProofStep (.rewrite (mkApp2 (mkConst ``id [levelZero])
-     (← mkNatEqExpr (mkApp f op) e) (mkApp2 (← mkEqRefl) (← mkNatType) e)))
+   pushFoldStep (← mkNatType) (mkApp f op) e
    return e
  if let some e := intNegOfNat? op then
    pushProofStep (.rewrite (mkApp (mkConst ``Blaster.int_toNat_neg_ofNat) e))

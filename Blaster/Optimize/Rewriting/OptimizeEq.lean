@@ -784,13 +784,14 @@ def optimizeEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
       | _, _ => return none
 
 /-- Apply the following simplification/normalization rules on `BEq.beq` :
-     - false == e ==> not e
-     - true == e ==> e
-     - e == not e ==> false
-     - e1 == e2 ==> true (if e1 =ₚₜᵣ e2)
-     - e1 = e2 ==> false (if structEq? e1 e2 = some false) (NOTE: `some true` case already handled by =ₚₜᵣ)
-     - not e1 == not e2 ==> e1 == e2
-     - e1 == e2 ==> e2 == e1 (if e2 <ₒ e1)
+     - false == e ==> not e                       [proof: Bool.false_beq]
+     - true == e ==> e                            [proof: Bool.true_beq]
+     - e == not e ==> false                       [proof: Bool.beq_not_self]
+     - e1 == e2 ==> true (if e1 =ₚₜᵣ e2)            [proof: beq_self_eq_true]
+     - e1 == e2 ==> false (if structEq? e1 e2 = some false) (NOTE: `some true` case already handled by =ₚₜᵣ)
+                          [proof: Blaster.beq_eq_false_of_not_eq ∘ structNeProof?]
+     - not e1 == not e2 ==> e1 == e2              [proof: Blaster.not_beq_not]
+     - e1 == e2 ==> e2 == e1 (if e2 <ₒ e1)        [proof: Blaster.beq_comm]
 
    Assume that f = Expr.const ``BEq.beq.
    This function simply returns the function application when:
@@ -816,12 +817,24 @@ def optimizeBEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
  let op1 := args[2]!
  let op2 := args[3]!
  if let Expr.const ``false _ :=  op1 then
+   pushProofStep (.rewrite (mkApp (mkConst ``Bool.false_beq) op2))
    setRestart
    return mkApp (← mkBoolNotOp) op2
- if let Expr.const ``true _ := op1 then return op2
- if isBoolNotExprOf op2 op1 then return (←  mkBoolFalse)
- if exprEq op1 op2 then return (← mkBoolTrue)
- if let some false ← structEq? op1 op2 then return (← mkBoolFalse)
+ if let Expr.const ``true _ := op1 then
+   pushProofStep (.rewrite (mkApp (mkConst ``Bool.true_beq) op2))
+   return op2
+ if isBoolNotExprOf op2 op1 then
+   pushProofStep (.rewrite (mkApp (mkConst ``Bool.beq_not_self) op1))
+   return (←  mkBoolFalse)
+ if exprEq op1 op2 then
+   pushProofStep (.rewrite (mkConst ``beq_self_eq_true f.constLevels!))
+   return (← mkBoolTrue)
+ if let some false ← structEq? op1 op2 then
+   -- Only this operand order: `reorderOperands` already pushed `Blaster.beq_comm` when it flipped the sides.
+   if let some notEq ← structNeProof? op1 op2 then
+     pushProofStep (.rewrite
+       (mkApp4 (mkConst ``Blaster.beq_eq_false_of_not_eq f.constLevels!) args[0]! op1 op2 notEq))
+   return (← mkBoolFalse)
  if let some r ← boolNotEqReduce? op1 op2 then return r
  return (mkApp4 f args[0]! args[1]! op1 op2)
 
@@ -833,15 +846,17 @@ def optimizeBEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
    boolNotEqReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
      match boolNot? op1, boolNot? op2 with
      | some e1, some e2 =>
+          pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.not_beq_not) e1 e2))
           setRestart
           return mkApp4 f args[0]! args[1]! e1 e2
      | _, _ => return none
 
 /- Call `optimizeEq f args` and apply the following `decide'` simplification/normalization
    rules on the resulting `Eq` expression (if any):
-     - true = (a == b) ==> a = b (if hasLawFulBEqInstance (a == b))
-     - false = (a == b) ==> ¬ (a = b) (if hasLawFulBEqInstance (a == b))
+     - true = (a == b) ==> a = b (if hasLawFulBEqInstance (a == b))         [proof: Blaster.true_eq_beq]
+     - false = (a == b) ==> ¬ (a = b) (if hasLawFulBEqInstance (a == b))    [proof: Blaster.false_eq_beq]
      - c = (a == b) | (a == b) = c ==> (true = c) = (a = b) (if hasLawFulBEqInstance (a == b))
+                                                     [proof: Blaster.bool_eq_beq, Blaster.beq_eq_bool]
      - (B1 = a) = (B2 = b) ==> NOP(B1, a) = NOP(B2, b)
      - true = decide' e ==> e
      - false = decide' e ==> ¬ e
@@ -877,8 +892,9 @@ def optimizeDecideEq (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
          if (← hasLawfulBEqInstance beq_sort beq_inst) then return r else return none
      | _ => return none
 
-   mkBeqToEq (beq_sort : Expr) (beq_op1 : Expr) (beq_op2 : Expr) (c : Expr) : TranslateEnvT Expr := do
+   mkBeqToEq (beq_sort : Expr) (beq_op1 : Expr) (beq_op2 : Expr) (c : Expr) (proof : Expr) : TranslateEnvT Expr := do
       setRestart
+      pushProofStep (.rewrite (mkApp4 proof beq_sort beq_op1 beq_op2 c))
       let op1Expr := mkApp3 f (← mkBoolType) (← mkBoolTrue) c
       let op2Expr := mkApp3 f beq_sort beq_op1 beq_op2
       return mkApp3 f (← mkPropType) op1Expr op2Expr
@@ -898,6 +914,8 @@ def optimizeDecideEq (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
       | some (beq_sort, _, beq_op1, beq_op2) =>
           let eqExpr := mkApp3 f beq_sort beq_op1 beq_op2
           setRestart
+          let lemma := if bv then ``Blaster.true_eq_beq else ``Blaster.false_eq_beq
+          pushProofStep (.rewrite (mkApp3 (mkConst lemma op2.getAppFn.constLevels!) beq_sort beq_op1 beq_op2))
           if bv
           then return some eqExpr -- return when bv = true
           else return mkApp (← mkPropNotOp) eqExpr
@@ -906,8 +924,10 @@ def optimizeDecideEq (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
        match (← isBeqCompatibleType? op1), (← isBeqCompatibleType? op2) with
          | some (beq_sort, _, beq_op1, beq_op2), _ =>
              mkBeqToEq beq_sort beq_op1 beq_op2 op2
+               (mkConst ``Blaster.beq_eq_bool op1.getAppFn.constLevels!)
          | _, some (beq_sort, _, beq_op1, beq_op2) =>
              mkBeqToEq beq_sort beq_op1 beq_op2 op1
+               (mkConst ``Blaster.bool_eq_beq op2.getAppFn.constLevels!)
          | _, _ => return none
 
    /- Given `op1` and `op2` corresponding to the operands for `Eq`,

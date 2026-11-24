@@ -1,4 +1,5 @@
 import Blaster.Optimize.Decidable
+import Blaster.Optimize.Lemmas.LemmasBool
 
 namespace Blaster
 
@@ -74,6 +75,37 @@ protected theorem false_eq_nat_beq_iff_eq_eq : ∀ (x y : Nat), false = (x == y)
 protected theorem false_eq_int_beq_iff_eq_eq : ∀ (x y : Int), false = (x == y) ↔ ¬ (x = y) := by simp
 
 protected theorem false_eq_string_beq_iff_eq_eq : ∀ (s t : String), false = (s == t) ↔ ¬ (s = t) := by simp
+
+/-! Lemmas validating, on any `LawfulBEq` type, the simplification rules:
+     - `true = (a == b) ==> a = b`
+     - `false = (a == b) ==> ¬ (a = b)`
+     - `c = (a == b) | (a == b) = c ==> (true = c) = (a = b)`
+     - `a == b ==> false (if ¬ (a = b))`
+    The operands come before the instances, so that a step gives them and the replay
+    synthesizes the instances.
+-/
+
+universe u
+
+protected theorem true_eq_beq {α : Type u} (a b : α) [BEq α] [LawfulBEq α] :
+    (true = (a == b)) = (a = b) :=
+  propext ⟨fun h => eq_of_beq h.symm, fun h => (beq_iff_eq.mpr h).symm⟩
+
+protected theorem false_eq_beq {α : Type u} (a b : α) [BEq α] [LawfulBEq α] :
+    (false = (a == b)) = ¬ (a = b) :=
+  propext ⟨fun h => beq_eq_false_iff_ne.mp h.symm, fun h => (beq_eq_false_iff_ne.mpr h).symm⟩
+
+protected theorem bool_eq_beq {α : Type u} (a b : α) (c : Bool) [BEq α] [LawfulBEq α] :
+    (c = (a == b)) = ((true = c) = (a = b)) :=
+  (Blaster.bridge_eq_tt c (a == b)).symm.trans (congrArg ((true = c) = ·) (Blaster.true_eq_beq a b))
+
+protected theorem beq_eq_bool {α : Type u} (a b : α) (c : Bool) [BEq α] [LawfulBEq α] :
+    ((a == b) = c) = ((true = c) = (a = b)) :=
+  (propext eq_comm).trans (Blaster.bool_eq_beq a b c)
+
+protected theorem beq_eq_false_of_not_eq {α : Type u} (a b : α) (h : ¬ (a = b)) [BEq α] [LawfulBEq α] :
+    (a == b) = false :=
+  beq_false_of_ne h
 
 
 /-! Lemmas validating simplification rules
