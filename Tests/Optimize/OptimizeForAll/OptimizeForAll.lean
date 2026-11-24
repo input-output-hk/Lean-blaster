@@ -81,7 +81,7 @@ namespace Test.OptimizeForAll
 #testOptimize [ "ForallFalse_2", proof ] ∀ (_x : Int), False ===> False
 
 -- ∀ (α : Type) (x : List α), False ===> False
-#testOptimize [ "ForallFalse_3", proof ] ∀ (α : Type) (_x : List α), True ===> True
+#testOptimize [ "ForallFalse_3", proof ] ∀ (α : Type) (_x : List α), False ===> False
 
 -- ∀ (a : Bool), ! a && a ===> False
 #testOptimize [ "ForallFalse_4", proof ] ∀ (a : Bool), !a && a ===> False
@@ -180,6 +180,14 @@ namespace Test.OptimizeForAll
   ∀ (a : Prop), (True → a) = a ===> True
 
 
+-- ∀ (f: True → Prop), (∀ (h : True), f h) = (f True.intro) ===> True
+#testOptimize [ "ForallTrueImpEq_2", proof ]
+  ∀ (f : True → Prop), (∀ (h : True), f h) = (f True.intro) ===> True
+
+-- ∀ (f : True → Prop), (∀ (h : True), f h) ∧ True ===> (f True.intro)
+#testOptimize [ "ForallTrueImpDepAnd_1", proof ]
+  ∀ (f : True → Prop), (∀ (h : True), f h) ∧ True ===> ∀ (f : True → Prop), f True.intro
+
 -- ∀ (a : Prop), True → a ===> ∀ (a : Prop), a
 #testOptimize [ "ForallTrueImp_1", proof ] ∀ (a : Prop), True → a ===> ∀ (a : Prop), a
 
@@ -191,7 +199,7 @@ namespace Test.OptimizeForAll
                                     ∀ (b : Prop), b
 
 -- ∀ (a : Bool) (b p : Prop), (if a then b ∨ ¬ b else True) → p ===> ∀ (p : Prop), p
-#testOptimize [ "ForallTrueImp_4" ] ∀ (a : Bool) (b p : Prop), (if a then (b ∨ ¬ b) else True) → p ===>
+#testOptimize [ "ForallTrueImp_4", proof ] ∀ (a : Bool) (b p : Prop), (if a then (b ∨ ¬ b) else True) → p ===>
                                     ∀ (p : Prop), p
 
 -- ∀ (a b c : Bool) (p : Prop), (if (!c && c) then a else b) = b → p ===> ∀ (p : Prop), p
@@ -384,7 +392,7 @@ variable (c : Nat)
 
 
 -- ∀ (a b c : Prop), (a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∨ ((b ∧ a) ∧ ¬(a ∧ b))) ===> ∀ (a : Prop), a
-#testOptimize [ "ForallUnchanged_8", proof]
+#testOptimize [ "ForallUnchanged_8", proof ]
   ∀ (a b c : Prop), (a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∨ ((b ∧ a) ∧ ¬(a ∧ b)) ===>
   ∀ (a : Prop), a
 
@@ -416,7 +424,7 @@ variable (c : Nat)
 
 -- ∀ (a : Bool) (b p : Prop), (if a then b else False) → p ===>
 -- ∀ (a : Bool) (b p : Prop), (b ∧ true = a) → p
-#testOptimize [ "ForallUnchanged_15" ]
+#testOptimize [ "ForallUnchanged_15", proof ]
   ∀ (a : Bool) (b p : Prop), (if a then b else False) → p ===>
   ∀ (a : Bool) (b p : Prop), (b ∧ true = a) → p
 
@@ -428,7 +436,7 @@ variable (c : Nat)
 
 -- ∀ (a b c p : Prop), (a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ (b ∨ c) → p ===>
 -- ∀ (a b c p : Prop), a ∧ (b ∨ c) → p ===>
-#testOptimize [ "ForallUnchanged_17", proof] ∀ (a b c p : Prop), (a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ (b ∨ c) → p ===>
+#testOptimize [ "ForallUnchanged_17", proof ] ∀ (a b c p : Prop), (a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ (b ∨ c) → p ===>
                                       ∀ (a b c p : Prop), a ∧ (b ∨ c) → p
 -- let x := a && a in
 -- let y := ! a && x in
@@ -455,7 +463,7 @@ variable (c : Nat)
 
 -- ∀ (a b c : Prop), (a ∨ c) → ((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬ a ===>
 -- ∀ (a c : Prop), ¬ (a ∨ c)
-#testOptimize [ "ForallUnchanged_22", proof] ∀ (a b c : Prop), a ∨ c → ((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬ a) ===>
+#testOptimize [ "ForallUnchanged_22", proof ] ∀ (a b c : Prop), a ∨ c → ((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬ a) ===>
                                       ∀ (a c : Prop), ¬ (a ∨ c)
 
 
@@ -481,12 +489,15 @@ variable (c : Nat)
 -- ∀ (c a b : Bool), true = ( if c then a else b ) → ( (!c || a) && (c || b) ) ===>
 -- ∀ (c a b : Bool), ((false = c → true = b) ∧ (true = c → true = a)) → true = ( (c || b) && (a || !c) )
 -- NOTE: Can be reduced to True with additional simplification rules
-#testOptimize [ "ForallUnchanged_26" ]
+#testOptimize [ "ForallUnchanged_26", proof ]
   ∀ (c a b : Bool), true = (if c then a else b) → ( (!c || a) && (c || b) ) ===>
   ∀ (c a b : Bool), ((false = c → true = b) ∧ (true = c → true = a)) → true = ( (c || b) && (a || !c) )
 
 
 /-! Test cases for simplification rule `e → False ==> ¬ e`. -/
+
+-- ∀ (p : Prop), p → False = ¬ p ===> True
+#testOptimize [ "ForallNotDefEq_1", proof] ∀ (p : Prop), (p → False) = ¬ p ===> True
 
 -- ∀ (p : Prop), p → False ===> ∀ (p : Prop), ¬ p
 #testOptimize [ "ForallNotDef_1", proof ] ∀ (p : Prop), p → False ===> ∀ (p : Prop), ¬ p
@@ -516,7 +527,7 @@ variable (c : Nat)
 
 
 -- ∀ (p q : Prop) (a : Bool), ((p → !a && a) → ¬ q ∧ q) ∧ ¬ p ===> False
-#testOptimize [ "ForallNotDef_8" ]
+#testOptimize [ "ForallNotDef_8", proof ]
   ∀ (p q : Prop) (a : Bool), ((p → !a && a) → ¬ q ∧ q) ∧ ¬ p ===> False
 
 
@@ -553,35 +564,35 @@ variable (c : Nat)
 /-! Test cases for simplification rule `¬ e → e ==> e`. -/
 
 -- ∀ (p : Prop), ¬ p → p ===> ∀ (p : Prop), p
-#testOptimize [ "ForallNegPropImp_1" ] ∀ (p : Prop), ¬ p → p ===> ∀ (p : Prop), p
+#testOptimize [ "ForallNegPropImp_1", proof ] ∀ (p : Prop), ¬ p → p ===> ∀ (p : Prop), p
 
 -- ∀ (a b : Prop), ¬(a = b) → (¬ (¬ a)) = ¬ (¬ b) ===> a = b
-#testOptimize [ "ForallNegPropImp_2" ] ∀ (a b : Prop), ¬ (a = b) → (¬ (¬ a)) = ¬ (¬ b) ===> ∀ (a b : Prop), a = b
+#testOptimize [ "ForallNegPropImp_2", proof ] ∀ (a b : Prop), ¬ (a = b) → (¬ (¬ a)) = ¬ (¬ b) ===> ∀ (a b : Prop), a = b
 
 -- ∀ (x y : Nat), ¬ x < y → y > x ==> ∀ (x y : Nat), x < y
-#testOptimize [ "ForallNegPropImp_3" ] ∀ (x y : Nat), ¬ x < y → y > x ===> ∀ (x y : Nat), x < y
+#testOptimize [ "ForallNegPropImp_3", proof ] ∀ (x y : Nat), ¬ x < y → y > x ===> ∀ (x y : Nat), x < y
 
 -- ∀ (a b: Bool), ¬ ((a || (b && b)) && (b || a)) → (a || b) ===> ∀ (a b: Bool), true = (a || b)
-#testOptimize [ "ForallNegPropImp_4" ] ∀ (a b: Bool), ¬ ((a || (b && b)) && (b || a)) → (a || b) ===>
+#testOptimize [ "ForallNegPropImp_4", proof ] ∀ (a b: Bool), ¬ ((a || (b && b)) && (b || a)) → (a || b) ===>
                                        ∀ (a b : Bool), true = (a || b)
 
 -- ∀ (p : Prop), ¬ (¬ (¬ p)) → p ===> ∀ (p : Prop), p
-#testOptimize [ "ForallNegPropImp_5" ] ∀ (p : Prop), ¬ (¬ (¬ p)) → p ===> ∀ (p : Prop), p
+#testOptimize [ "ForallNegPropImp_5", proof ] ∀ (p : Prop), ¬ (¬ (¬ p)) → p ===> ∀ (p : Prop), p
 
 -- ∀ (a b : Prop), ¬ ((b ∧ ¬ b) ∨ a) → a ===> ∀ (a : Prop), a
-#testOptimize [ "ForallNegPropImp_6" ] ∀ (a b : Prop), ¬ ((b ∧ ¬ b) ∨ a) → a ===> ∀ (a : Prop), a
+#testOptimize [ "ForallNegPropImp_6", proof ] ∀ (a b : Prop), ¬ ((b ∧ ¬ b) ∨ a) → a ===> ∀ (a : Prop), a
 
 -- ¬ ((∀ (x y : Int), x > y)) → (∀ (x y : Int), y < x) ===> ∀ (x y : Int), y < x
-#testOptimize [ "ForallNegPropImp_7" ] ¬ ((∀ (x y : Int), x > y)) → (∀ (x y : Int), y < x) ===> ∀ (x y : Int), y < x
+#testOptimize [ "ForallNegPropImp_7", proof ] ¬ ((∀ (x y : Int), x > y)) → (∀ (x y : Int), y < x) ===> ∀ (x y : Int), y < x
 
 -- ¬ ((∀ (x y : Int), x > y)) → (∀ (x z : Int), z < x) ===> ∀ (x z : Int), z < x
 #testOptimize [ "ForallNegPropImp_8" ] ¬ ((∀ (x y : Int), x > y)) → (∀ (x z : Int), z < x) ===> ∀ (x z : Int), z < x
 
 -- ∀ (p : Prop) (h : ¬ (¬ (¬ p))), p ===> ∀ (p : Prop), p
-#testOptimize [ "ForallNegPropImp_9" ] ∀ (p : Prop) (_h :  ¬ (¬ (¬ p))), p ===> ∀ (p : Prop), p
+#testOptimize [ "ForallNegPropImp_9", proof ] ∀ (p : Prop) (_h :  ¬ (¬ (¬ p))), p ===> ∀ (p : Prop), p
 
 -- ∀ (a b : Bool) (h : ¬ (a = (b || ! b))), a ===> ∀ (a : Bool), true = a
-#testOptimize [ "ForallNegPropImp_10" ] ∀ (a b : Bool) (_h : ¬ (a = (b || !b))), a ===> ∀ (a : Bool), true = a
+#testOptimize [ "ForallNegPropImp_10", proof ] ∀ (a b : Bool) (_h : ¬ (a = (b || !b))), a ===> ∀ (a : Bool), true = a
 
 
 
@@ -633,6 +644,9 @@ variable (c : Nat)
 
 /-! Test cases for simplification rule `e → ¬ e ==> ¬ e`. -/
 
+-- ∀ (p : Prop), p → ¬ p = ¬ p ===> True
+#testOptimize [ "ForallPropImpNegEq_1", proof ] ∀ (p : Prop), (p → ¬ p) = ¬ p ===> True
+
 -- ∀ (p : Prop), p → ¬ p ===> ¬ p
 #testOptimize [ "ForallPropImpNeg_1" ] ∀ (p : Prop), p → ¬ p ===> ∀ (p : Prop), ¬ p
 
@@ -640,11 +654,11 @@ variable (c : Nat)
 #testOptimize [ "ForallPropImpNeg_2" ] ∀ (a b : Prop), (¬ (¬ (¬ a))) = ¬ (¬ (¬ b)) → ¬ (a = b) ===>
                                        ∀ (a b : Prop), ¬ (a = b)
 
--- ∀ (x y : Nat), y > x → ¬ x < y ==> ∀ (x y : Nat), ¬ x < y
+-- ∀ (x y : Nat), y > x → ¬ x < y ===> ∀ (x y : Nat), ¬ x < y
 #testOptimize [ "ForallPropImpNeg_3" ] ∀ (x y : Nat), y > x → ¬ x < y ===> ∀ (x y : Nat), ¬ x < y
 
 -- ∀ (a b : Bool), (a || b) → ¬ ((a || (b && b)) && (b || a)) ===> ∀ (a b: Bool), ¬ (a || b) (i.e., false = (a || b))
-#testOptimize [ "ForallPropImpNeg_4" ] ∀ (a b : Bool), (a || b) → ¬ ((a || (b && b)) && (b || a)) ===>
+#testOptimize [ "ForallPropImpNeg_4", proof ] ∀ (a b : Bool), (a || b) → ¬ ((a || (b && b)) && (b || a)) ===>
                                        ∀ (a b : Bool), false = (a || b)
 
 -- ∀ (p : Prop), p → ¬ (¬ (¬ p)) ===> ∀ (p : Prop), ¬ p
@@ -665,7 +679,7 @@ variable (c : Nat)
 #testOptimize [ "ForallPropImpNeg_9" ] ∀ (p : Prop) (_h :  ¬ (¬ p)), ¬ (¬ (¬ p)) ===> ∀ (p : Prop), ¬ p
 
 -- ∀ (a b : Bool) (h : a), ¬ (a = (b || ! b)) ===> ∀ (a : Bool), ¬ a (i.e., false = a)
-#testOptimize [ "ForallPropImpNeg_10" ] ∀ (a b : Bool) (_h : a), ¬ (a = (b || !b)) ===> ∀ (a : Bool), false = a
+#testOptimize [ "ForallPropImpNeg_10", proof ] ∀ (a b : Bool) (_h : a), ¬ (a = (b || !b)) ===> ∀ (a : Bool), false = a
 
 
 /-! Test cases to ensure that simplification rule `e → ¬ e ==> ¬ e` is not wrongly applied. -/
@@ -720,33 +734,33 @@ variable (c : Nat)
 /-! Test cases for simplification rule `true = c → false = c ==> false = c`. -/
 
 -- ∀ (a : Bool), true = a → false = a ===> ∀ (a : Bool), false = a
-#testOptimize [ "ForallBoolImpNeg_1" ] ∀ (a : Bool), true = a → false = a ===> ∀ (a : Bool), false = a
+#testOptimize [ "ForallBoolImpNeg_1", proof ] ∀ (a : Bool), true = a → false = a ===> ∀ (a : Bool), false = a
 
 -- ∀ (a : Bool), a → !a ===> ∀ (a : Bool), false = a
-#testOptimize [ "ForallBoolImpNeg_2" ] ∀ (a : Bool), a → !a ===> ∀ (a : Bool), false = a
+#testOptimize [ "ForallBoolImpNeg_2", proof ] ∀ (a : Bool), a → !a ===> ∀ (a : Bool), false = a
 
 -- ∀ (a : Bool), a → ! (! !a) ===> ∀ (a : Bool), false = a
-#testOptimize [ "ForallBoolImpNeg_3" ] ∀ (a : Bool), a → ! (! (!a)) ===> ∀ (a : Bool), false = a
+#testOptimize [ "ForallBoolImpNeg_3", proof ] ∀ (a : Bool), a → ! (! (!a)) ===> ∀ (a : Bool), false = a
 
 -- ∀ (a : Bool), ! (! a) → ! (! !a) ===> ∀ (a : Bool), false = a
-#testOptimize [ "ForallBoolImpNeg_4" ] ∀ (a : Bool), ! ! (a) → ! (! (!a)) ===> ∀ (a : Bool), false = a
+#testOptimize [ "ForallBoolImpNeg_4", proof ] ∀ (a : Bool), ! ! (a) → ! (! (!a)) ===> ∀ (a : Bool), false = a
 
 -- ∀ (a b : Bool), (a && b) → ¬ (a && (a || !a) && b) ===> ∀ (a b : Bool), false = (a && b)
-#testOptimize [ "ForallBoolImpNeg_5" ] ∀ (a b : Bool), (a && b) → ¬ (a && (a || !a) && b) ===>
+#testOptimize [ "ForallBoolImpNeg_5", proof ] ∀ (a b : Bool), (a && b) → ¬ (a && (a || !a) && b) ===>
                                        ∀ (a b : Bool), false = (a && b)
 
 -- ∀ (a b : Bool), (a && (a || !a) && b) → ¬ (a && b) ===> ∀ (a b : Bool), false = (a && b)
-#testOptimize [ "ForallBoolImpNeg_6" ] ∀ (a b : Bool), (a && (a || !a) && b) → ¬ (a && b) ===>
+#testOptimize [ "ForallBoolImpNeg_6", proof ] ∀ (a b : Bool), (a && (a || !a) && b) → ¬ (a && b) ===>
                                        ∀ (a b : Bool), false = (a && b)
 
 -- let x := a || a in
 -- let y := ! a || ! x in
 -- ∀ (a b : Bool), (¬ y) → !a ===> ∀ (a : Bool), false = a
-#testOptimize [ "ForallBoolImpNeg_7" ] ∀ (a : Bool), let x := a || a; let y := !a || !x; ¬ y → !a ===>
+#testOptimize [ "ForallBoolImpNeg_7", proof ] ∀ (a : Bool), let x := a || a; let y := !a || !x; ¬ y → !a ===>
                                        ∀ (a : Bool), false = a
 
 -- ∀ (a b : Bool) (h : a && (a || !a) && b), ¬ (a && b) ===> ∀ (a b : Bool), false = (a && b)
-#testOptimize [ "ForallBoolImpNeg_8" ] ∀ (a b : Bool) (_h : a && (a || !a) && b), ¬ (a && b) ===>
+#testOptimize [ "ForallBoolImpNeg_8", proof ] ∀ (a b : Bool) (_h : a && (a || !a) && b), ¬ (a && b) ===>
                                        ∀ (a b : Bool), false = (a && b)
 
 
@@ -780,7 +794,7 @@ variable (c : Nat)
 
 -- ∀ (a b c : Bool), (if a then c else true) = true → ¬ (! a || b) ===>
 -- ∀ (a b c : Bool), (true = a → true = c) → false = (b || !a)
-#testOptimize [ "ForallBoolImpNegUnchanged_7" ]
+#testOptimize [ "ForallBoolImpNegUnchanged_7", proof ]
   ∀ (a b c : Bool), (if a then c else true) = true → ¬ (! a || b) ===>
   ∀ (a b c : Bool), (true = a → true = c) → false = (b || !a)
 
@@ -798,7 +812,7 @@ variable (c : Nat)
 -- ∀ (a b : Bool), (if a then b else true) = true → ¬ (! a || b) ===>
 -- ∀ (a b : Bool), (true = a → true = b) → false = (b || !a)
 -- NOTE: can be reduced to false = (b || !a) with additional simplification rules
-#testOptimize [ "ForallBoolImpNegUnchanged_10" ]
+#testOptimize [ "ForallBoolImpNegUnchanged_10", proof ]
   ∀ (a b : Bool), (if a then b else true) = true → ¬ (! a || b) ===>
   ∀ (a b : Bool), (true = a → true = b) → false = (b || !a)
 
@@ -806,33 +820,33 @@ variable (c : Nat)
 /-! Test cases for simplification rule `false = c → true = c ==> true = c`. -/
 
 -- ∀ (a : Bool), false = a → true = a ===> ∀ (a : Bool), true = a
-#testOptimize [ "ForallBoolNegImp_1" ] ∀ (a : Bool), false = a → true = a ===> ∀ (a : Bool), true = a
+#testOptimize [ "ForallBoolNegImp_1", proof ] ∀ (a : Bool), false = a → true = a ===> ∀ (a : Bool), true = a
 
 -- ∀ (a : Bool), !a → a ===> ∀ (a : Bool), true = a
-#testOptimize [ "ForallBoolNegImp_2" ] ∀ (a : Bool), !a → a ===> ∀ (a : Bool), true = a
+#testOptimize [ "ForallBoolNegImp_2", proof ] ∀ (a : Bool), !a → a ===> ∀ (a : Bool), true = a
 
 -- ∀ (a : Bool), ! (! !a) → a ===> ∀ (a : Bool), true = a
-#testOptimize [ "ForallBoolNegImp_3" ] ∀ (a : Bool), ! (! (!a)) → a ===> ∀ (a : Bool), true = a
+#testOptimize [ "ForallBoolNegImp_3", proof ] ∀ (a : Bool), ! (! (!a)) → a ===> ∀ (a : Bool), true = a
 
 -- ∀ (a : Bool), ! (! !a) → ! (! a) ===> ∀ (a : Bool), true = a
-#testOptimize [ "ForallBoolNegImp_4" ] ∀ (a : Bool), ! (! (!a)) → ! ! (a) ===> ∀ (a : Bool), true = a
+#testOptimize [ "ForallBoolNegImp_4", proof ] ∀ (a : Bool), ! (! (!a)) → ! ! (a) ===> ∀ (a : Bool), true = a
 
 -- ∀ (a b : Bool), ¬ (a && b) → (a && (a || !a) && b) ===> ∀ (a b : Bool), true = (a && b)
-#testOptimize [ "ForallBoolNegImp_5" ] ∀ (a b : Bool), ¬ (a && b) → (a && (a || !a) && b) ===>
+#testOptimize [ "ForallBoolNegImp_5", proof ] ∀ (a b : Bool), ¬ (a && b) → (a && (a || !a) && b) ===>
                                        ∀ (a b : Bool), true = (a && b)
 
 -- ∀ (a b : Bool), ¬ (a && (a || !a) && b) → (a && b) ===> ∀ (a b : Bool), true = (a && b)
-#testOptimize [ "ForallBoolNegImp_6" ] ∀ (a b : Bool), ¬ (a && (a || !a) && b) → (a && b) ===>
+#testOptimize [ "ForallBoolNegImp_6", proof ] ∀ (a b : Bool), ¬ (a && (a || !a) && b) → (a && b) ===>
                                        ∀ (a b : Bool), true = (a && b)
 
 -- let x := a && a in
 -- let y := a || x in
 -- ∀ (a : Bool), ¬ y → a ===> ∀ (a : Bool), true = a
-#testOptimize [ "ForallBoolNegImp_7" ] ∀ (a : Bool), let x := a && a; let y := a || x; ¬ y → a ===>
+#testOptimize [ "ForallBoolNegImp_7", proof ] ∀ (a : Bool), let x := a && a; let y := a || x; ¬ y → a ===>
                                        ∀ (a : Bool), true = a
 
 -- ∀ (a b : Bool) (h : ¬ (a && (a || !a) && b)), (a && b) ===> ∀ (a b : Bool), true = (a && b)
-#testOptimize [ "ForallBoolNegImp_8" ] ∀ (a b : Bool) (_h : ¬ (a && (a || !a) && b)), (a && b) ===>
+#testOptimize [ "ForallBoolNegImp_8", proof ] ∀ (a b : Bool) (_h : ¬ (a && (a || !a) && b)), (a && b) ===>
                                        ∀ (a b: Bool), true = (a && b)
 
 
@@ -868,7 +882,7 @@ variable (c : Nat)
 -- ∀ (a b c : Bool), true = (a && !c) → true = (b || !a)
 -- NOTE: can be reduced to true = (a && !c) → true = b
 -- with additional simplification rules
-#testOptimize [ "ForallBoolNegImpUnchanged_7" ]
+#testOptimize [ "ForallBoolNegImpUnchanged_7", proof ]
   ∀ (a b c : Bool), (if a then c else true) = false → (! a || b) ===>
   ∀ (a b c : Bool), true = (a && !c) → true = (b || !a)
 
@@ -886,8 +900,16 @@ variable (c : Nat)
 -- ∀ (a b : Bool), (if a then b else true) = false → (! a || b) ===>
 -- ∀ (a b : Bool), true = (a && !b) → true = (b || !a)
 -- NOTE: can be reduced to False when normalizing decideable simplification rules
-#testOptimize [ "ForallBoolNegImpUnchanged_10" ]
+#testOptimize [ "ForallBoolNegImpUnchanged_10", proof ]
   ∀ (a b : Bool), (if a then b else true) = false → (! a || b) ===>
   ∀ (a b : Bool), true = (a && !b) → true = (b || !a)
+
+/-! Test cases for simplification rule  `h : e1 → e2 ==> e2` -/
+
+-- ∀ (p : Prop) (q : Prop), p → q = q ===> True
+#testOptimize [ "ForallImpHypRed_1", proof ] ∀ (p : Prop) (_ : p) (q : Prop), (p → q) = q ===> True
+
+-- ∀ (p : Prop) (hp : p) (q : p → Prop), (∀ h : p, q h) = q hp ===> True
+#testOptimize [ "ForallImpHypRedDep_1", proof] ∀ (p : Prop) (hp : p) (q : p → Prop), (∀ h : p, q h) = q hp ===> True
 
 end Test.OptimizeForAll
