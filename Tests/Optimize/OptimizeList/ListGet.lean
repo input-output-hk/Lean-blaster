@@ -17,10 +17,10 @@ variable (α : Type) (a b c : α) (xs : List α) (i n : Nat) (x y : Nat)
 /-! Test cases for rule `List.get?Internal [] i ===> none`. -/
 
 -- ([] : List α)[n]? ===> none
-#testOptimize [ "ListGetNil_1" ] ([] : List α)[n]? ===> (none : Option α)
+#testOptimize [ "ListGetNil_1", proof ] ([] : List α)[n]? ===> (none : Option α)
 
 -- ([] : List α)[2]? ===> none
-#testOptimize [ "ListGetNil_2" ] ([] : List α)[2]? ===> (none : Option α)
+#testOptimize [ "ListGetNil_2", proof ] ([] : List α)[2]? ===> (none : Option α)
 
 
 /-! Test cases for rules (`isListNCtor?`):
@@ -29,24 +29,24 @@ variable (α : Type) (a b c : α) (xs : List α) (i n : Nat) (x y : Nat)
 -/
 
 -- [a, b, c][0]? ===> some a
-#testOptimize [ "ListGetCst_1" ] [a, b, c][0]? ===> some a
+#testOptimize [ "ListGetCst_1", proof ] [a, b, c][0]? ===> some a
 
 -- [a, b, c][2]? ===> some c
-#testOptimize [ "ListGetCst_2" ] [a, b, c][2]? ===> some c
+#testOptimize [ "ListGetCst_2", proof ] [a, b, c][2]? ===> some c
 
 -- [a, b, c][3]? ===> none
-#testOptimize [ "ListGetCst_3" ] [a, b, c][3]? ===> (none : Option α)
+#testOptimize [ "ListGetCst_3", proof ] [a, b, c][3]? ===> (none : Option α)
 
 -- [a, b, c][1 + 1]? ===> some c
 -- NOTE: the index is optimized to a literal before applying the rule
-#testOptimize [ "ListGetCst_4" ] [a, b, c][1 + 1]? ===> some c
+#testOptimize [ "ListGetCst_4", proof ] [a, b, c][1 + 1]? ===> some c
 
 -- [x + 0, y][1]? ===> some y
 -- NOTE: the list elements are optimized before applying the rule
-#testOptimize [ "ListGetCst_5" ] [x + 0, y][1]? ===> some y
+#testOptimize [ "ListGetCst_5", proof ] [x + 0, y][1]? ===> some y
 
 -- [a][0]? ===> some a
-#testOptimize [ "ListGetCst_6" ] [a][0]? ===> some a
+#testOptimize [ "ListGetCst_6", proof ] [a][0]? ===> some a
 
 
 /-! Test cases for rules (`isListNCtor?`):
@@ -55,19 +55,19 @@ variable (α : Type) (a b c : α) (xs : List α) (i n : Nat) (x y : Nat)
 -/
 
 -- (a :: b :: xs)[0]? ===> some a
-#testOptimize [ "ListGetCons_1" ] (a :: b :: xs)[0]? ===> some a
+#testOptimize [ "ListGetCons_1", proof ] (a :: b :: xs)[0]? ===> some a
 
 -- (a :: b :: xs)[1]? ===> some b
-#testOptimize [ "ListGetCons_2" ] (a :: b :: xs)[1]? ===> some b
+#testOptimize [ "ListGetCons_2", proof ] (a :: b :: xs)[1]? ===> some b
 
 -- (a :: b :: xs)[2]? ===> List.get?Internal xs 0
-#testOptimize [ "ListGetCons_3" ] (norm-result: 1) (a :: b :: xs)[2]? ===> List.get?Internal xs 0
+#testOptimize [ "ListGetCons_3", proof ] (norm-result: 1) (a :: b :: xs)[2]? ===> List.get?Internal xs 0
 
 -- (a :: b :: xs)[5]? ===> List.get?Internal xs 3
-#testOptimize [ "ListGetCons_4" ] (norm-result: 1) (a :: b :: xs)[5]? ===> List.get?Internal xs 3
+#testOptimize [ "ListGetCons_4", proof ] (norm-result: 1) (a :: b :: xs)[5]? ===> List.get?Internal xs 3
 
 -- (a :: xs)[1 + 1]? ===> List.get?Internal xs 1
-#testOptimize [ "ListGetCons_5" ] (norm-result: 1) (a :: xs)[1 + 1]? ===> List.get?Internal xs 1
+#testOptimize [ "ListGetCons_5", proof ] (norm-result: 1) (a :: xs)[1 + 1]? ===> List.get?Internal xs 1
 
 
 /-! Test cases for rules (`isUnfoldListIdx?`), i.e., when the index is not a literal:
@@ -191,17 +191,17 @@ variable (α : Type) (a b c : α) (xs : List α) (i n : Nat) (x y : Nat)
 /-! Test cases to ensure that no rule is applied when the list is not a constructor. -/
 
 -- xs[i]? ===> List.get?Internal xs i
-#testOptimize [ "ListGetUnchanged_1" ] xs[i]? ===> List.get?Internal xs i
+#testOptimize [ "ListGetUnchanged_1", proof ] xs[i]? ===> List.get?Internal xs i
 
 -- xs[2]? ===> List.get?Internal xs 2
-#testOptimize [ "ListGetUnchanged_2" ] (norm-result: 1) xs[2]? ===> List.get?Internal xs 2
+#testOptimize [ "ListGetUnchanged_2", proof ] (norm-result: 1) xs[2]? ===> List.get?Internal xs 2
 
 -- (xs ++ [a, b])[0]? ===> List.get?Internal (List.append xs [a, b]) 0
-#testOptimize [ "ListGetUnchanged_3" ] (norm-result: 1) (xs ++ [a, b])[0]? ===>
+#testOptimize [ "ListGetUnchanged_3", proof ] (norm-result: 1) (xs ++ [a, b])[0]? ===>
   List.get?Internal (List.append xs [a, b]) 0
 
 -- (xs ++ [a])[i]? ===> List.get?Internal (List.append xs [a]) i
-#testOptimize [ "ListGetUnchanged_4" ] (xs ++ [a])[i]? ===> List.get?Internal (List.append xs [a]) i
+#testOptimize [ "ListGetUnchanged_4", proof ] (xs ++ [a])[i]? ===> List.get?Internal (List.append xs [a]) i
 
 
 /-! Test cases to validate that `List.get?Internal` as HOF is eta-expanded before applying the rules. -/
@@ -211,7 +211,7 @@ variable (α : Type) (a b c : α) (xs : List α) (i n : Nat) (x y : Nat)
   fun (i : Nat) => Blaster.dite' (0 = i) (fun _ => some a) (fun _ => (none : Option α))
 
 -- List.get?Internal xs ===> fun i => List.get?Internal xs i
-#testOptimize [ "ListGetHOF_2" ] List.get?Internal (α := α) xs ===> fun (i : Nat) => List.get?Internal xs i
+#testOptimize [ "ListGetHOF_2", proof ] List.get?Internal (α := α) xs ===> fun (i : Nat) => List.get?Internal xs i
 
 
 -- List.get?Internal (a :: xs) ===> fun i => sif 0 = i then some a else List.get?Internal xs (i - 1)
@@ -228,12 +228,12 @@ variable (α : Type) (a b c : α) (xs : List α) (i n : Nat) (x y : Nat)
 /-! Test cases to ensure that the rules are applied once the list argument is reduced by other rules. -/
 
 -- (List.reverse [a, b] ++ [c])[0]? ===> some b
-#testOptimize [ "ListGetReduce_1" ] (List.reverse [a, b] ++ [c])[0]? ===> some b
+#testOptimize [ "ListGetReduce_1", proof ] (List.reverse [a, b] ++ [c])[0]? ===> some b
 
 -- (List.replicate 2 a)[1]? ===> some a
-#testOptimize [ "ListGetReduce_2" ] (List.replicate 2 a)[1]? ===> some a
+#testOptimize [ "ListGetReduce_2", proof ] (List.replicate 2 a)[1]? ===> some a
 
 -- [a, b][1]? = some b ===> True
-#testOptimize [ "ListGetReduce_3" ] [a, b][1]? = some b ===> True
+#testOptimize [ "ListGetReduce_3", proof ] [a, b][1]? = some b ===> True
 
 end Test.ListGet

@@ -79,7 +79,7 @@ def fnD (n : Nat) (v : FnIdx n) : DPack :=
 -- ∀ (c : Prop) [Decidable c] (k : Nat) (w w' y : FnIdx k), (if c then (⟨w, 1⟩ : Pack k) else ⟨w', 2⟩).v = y ===>
 -- ∀ (c : Prop) (k : Nat) (w w' y : FnIdx k), y = Blaster.dite' c (fun _ => w) (fun _ => w')
 -- NOTE: the projected field has an indexed inductive type (`FnIdx k`), which becomes the sort of the `dite'`.
-#testOptimize [ "DIteProj_2" ]
+#testOptimize [ "DIteProj_2", proof ]
   ∀ (c : Prop) [Decidable c] (k : Nat) (w w' y : FnIdx k), (if c then (⟨w, 1⟩ : Pack k) else ⟨w', 2⟩).v = y ===>
   ∀ (c : Prop) (k : Nat) (w w' y : FnIdx k), y = Blaster.dite' c (fun _ => w) (fun _ => w')
 

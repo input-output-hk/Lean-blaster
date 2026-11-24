@@ -32,7 +32,7 @@ namespace Tests.UnfoldITE
 
 -- ∀ (a b c : Bool), (if c then a else b) = true ===>
 -- ∀ (a b c : Bool), Blaster.dite' (true = c) (λ _ => true = a) (λ _ => true = b)
-#testOptimize [ "UnfoldIte_7" ]
+#testOptimize [ "UnfoldIte_7", proof ]
   ∀ (a b c : Bool), (if c then a else b) = true ===>
   ∀ (a b c : Bool), Blaster.dite' (true = c) (λ _ => true = a) (λ _ => true = b)
 

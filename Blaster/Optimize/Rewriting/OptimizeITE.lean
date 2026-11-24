@@ -394,8 +394,9 @@ def constDITEPropagation? (f : Expr) (dargs : Array Expr) : TranslateEnvT (Optio
      - sif h : c then e1 else e2 ==> applyExtraArgs (mkApp e1 h')   [proof: Blaster.dite'_reduce_pos]
            (if c := h' ∈ hypothesisContext.hypothesisMap)
 
-     - sif h : c then e1 else e2 ==> applyExtraArgs (mkApp e2 h')   [proof: Blaster.dite'_reduce_neg]
-           (if ∃ e := h' ∈ hypothesisContext.hypothesisMap ∧ e = ¬ c)
+     - sif h : c then e1 else e2 ==> applyExtraArgs (mkApp e2 h')
+           (if ∃ e := h' ∈ hypothesisContext.hypothesisMap ∧ e = optimizeAdvancedNot (¬ c))
+           [proof: Blaster.dite'_reduce_neg, on the proof of `¬ c` obtained from `h'`, see `notNormProof`]
 
      - sif h : c then e1 else e2 ==> r (if some r ← iteSimp? c e1 e2)
 
@@ -430,8 +431,10 @@ def optimizeDITEChoice (f : Expr) (args : Array Expr) : TranslateEnvT (Option Ex
  let t := args[2]!
  let e := args[3]!
  if let some r ← condReduction? c t e then return r
- if let some r ← diteReduce? c t e ``Blaster.dite'_reduce_pos then return r
- if let some r ← diteReduce? (← optimizeAdvancedNot (← mkPropNotOp) #[c] (restart := false)) e t ``Blaster.dite'_reduce_neg then return r
+ if let some r ← diteReduce? c t e ``Blaster.dite'_reduce_pos id then return r
+ let notOp ← mkPropNotOp
+ let notC ← optimizeAdvancedNot notOp #[c] (restart := false)
+ if let some r ← diteReduce? notC e t ``Blaster.dite'_reduce_neg (notNormProof notOp c notC) then return r
  if let some r ← iteSimp? iteType c t e (inDiteChoice := true) then
     resetRestart
     return r
@@ -464,13 +467,15 @@ def optimizeDITEChoice (f : Expr) (args : Array Expr) : TranslateEnvT (Option Ex
         - Otherwise
             - return `none`
        `lemma` is the step's lemma (`Blaster.dite'_reduce_pos` or `Blaster.dite'_reduce_neg`),
-       applied to the branch type, the condition `args[1]!` and `h'`.
+       applied to the branch type, the condition `args[1]!` and `premise h'`, the proof of the
+       lemma's premise (`c` or `¬ c`) obtained from the proof `h'` of `cond`.
    -/
    @[always_inline, inline]
-   diteReduce? (cond : Expr) (t : Expr) (e : Expr) (lemma : Name) : TranslateEnvT (Option Expr) := do
+   diteReduce? (cond : Expr) (t : Expr) (e : Expr) (lemma : Name) (premise : Expr → Expr) :
+       TranslateEnvT (Option Expr) := do
      if let some p ← inHypMap cond
      then
-       pushProofStep (.rewrite (mkApp3 (mkConst lemma [← diteLevel args[0]!]) args[0]! args[1]! p))
+       pushProofStep (.rewrite (mkApp3 (mkConst lemma [← diteLevel args[0]!]) args[0]! args[1]! (premise p)))
        freeRewriteCacheReuse t 0
        freeRewriteCacheReuse e 0
        mkAppExpr t p

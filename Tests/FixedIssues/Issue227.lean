@@ -9,11 +9,11 @@ namespace Tests.Issue227
 --                to state the afore-mentioned assumptions.
 
 
-#testOptimize ["BetaUnderBinders"]
+#testOptimize ["BetaUnderBinders", proof]
   (fun x y : Nat => (fun a b : Nat => a + b) y x) ===>
   (fun x y : Nat => Nat.add x y)
 
-#testOptimize ["BetaPreservesOuterVariable"]
+#testOptimize [ "BetaPreservesOuterVariable", proof ]
   (fun x : Nat => (fun _y : Nat => fun _z : Nat => x) 10) ===>
   (fun x _z : Nat => x)
 

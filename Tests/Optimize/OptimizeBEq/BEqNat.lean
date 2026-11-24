@@ -34,7 +34,7 @@ variable (z : Nat)
 #testOptimize [ "BEqNatCst_7", proof ] List.nil == [x, y, z] ===> false
 
 -- ∀ (x y z : Nat), (List.nil == [x, y, z]) ===> False
-#testOptimize [ "BEqNatCst_8" ] ∀ (x y z : Nat), (List.nil == [x, y, z]) ===> False
+#testOptimize [ "BEqNatCst_8", proof ] ∀ (x y z : Nat), (List.nil == [x, y, z]) ===> False
 
 -- Nat.beq (10 : Nat) 10 ===> true
 #testOptimize [ "BEqNatCst_9", proof ] Nat.beq (10 : Nat) 10 ===> true
@@ -50,7 +50,7 @@ variable (z : Nat)
 
 -- [y, x, z] == [x, y] ===> false
 -- NOTE: Reduce to false via `reduceApp` rule, which is also applicable on recursive functions.
-#testOptimize [ "BEqNatCst_13" ] [y, x, z] == [x, y] ===> false
+#testOptimize [ "BEqNatCst_13", proof ] [y, x, z] == [x, y] ===> false
 
 -- [y, x, z] == [y, x, z] ===> true
 -- NOTE: Reduce to false via `reduceApp` rule, which is also applicable on recursive functions.

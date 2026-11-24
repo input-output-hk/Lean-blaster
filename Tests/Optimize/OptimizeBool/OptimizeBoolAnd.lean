@@ -260,10 +260,10 @@ variable (c : Bool)
 /-! Test cases for simplification rule `e1 && e2 ==> false (if false = e1 ∨ false = e2 ∈ hypothesisMap)`. -/
 
 -- false = b → (a && b) = false ===> True
-#testOptimize [ "BoolAndFalseHyp_1" ] ∀ (a b : Bool), false = b → ((a && b) = false) ===> True
+#testOptimize [ "BoolAndFalseHyp_1", proof ] ∀ (a b : Bool), false = b → ((a && b) = false) ===> True
 
 -- false = a → (a && b) = false ===> True
-#testOptimize [ "BoolAndFalseHyp_2" ] ∀ (a b : Bool), false = a → ((a && b) = false) ===> True
+#testOptimize [ "BoolAndFalseHyp_2", proof ] ∀ (a b : Bool), false = a → ((a && b) = false) ===> True
 
 
 end Test.OptimizeBoolAnd

@@ -21,7 +21,7 @@ namespace Test.OptimizeForAll
 #testOptimize [ "ForallTrue_4", proof ] ∀ (a : Bool), !a || a ===> True
 
 -- ∀ (a : Bool), (if a then true else !a) = true ===> True
-#testOptimize [ "ForallTrue_5" ] ∀ (a : Bool), (if a then true else !a) = true ===> True
+#testOptimize [ "ForallTrue_5", proof ] ∀ (a : Bool), (if a then true else !a) = true ===> True
 
 -- ∀ (a : Bool), if a then True else !a ===> True
 -- NOTE: In this case, the `then` and `else` expressions are of type `Prop`.
@@ -60,7 +60,7 @@ namespace Test.OptimizeForAll
 #testOptimize [ "ForallImpTrue_4", proof ] ∀ (a : Prop) (b : Bool), a → (b || !b) ===> True
 
 -- ∀ (a b : Prop) (c : Bool), a ∧ b → (if c then true else !c) = true ===> True
-#testOptimize [ "ForallImpTrue_5" ] ∀ (a b : Prop) (c : Bool), a ∧ b → (if c then true else !c) = true ===> True
+#testOptimize [ "ForallImpTrue_5", proof ] ∀ (a b : Prop) (c : Bool), a ∧ b → (if c then true else !c) = true ===> True
 
 -- ∀ (a b c : Prop), (a ∨ c) → ¬ ((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬a) ===> True
 #testOptimize [ "ForallImpTrue_6", proof] ∀ (a b c : Prop), a ∨ c → ¬ ((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬a) ===> True
@@ -90,7 +90,7 @@ namespace Test.OptimizeForAll
 #testOptimize [ "ForallFalse_4", proof ] ∀ (a : Bool), !a && a ===> False
 
 -- ∀ (a : Bool), (if a then !a else false) = true ===> False
-#testOptimize [ "ForallFalse_5" ] ∀ (a : Bool), (if a then !a else false) = true ===> False
+#testOptimize [ "ForallFalse_5", proof ] ∀ (a : Bool), (if a then !a else false) = true ===> False
 
 -- ∀ (a : Bool) (b : Prop), if a then b ∧ ¬ b else False ===> False
 #testOptimize [ "ForallFalse_6", proof ] ∀ (a : Bool) (b : Prop), if a then (b ∧ ¬ b) else False ===> False
@@ -416,12 +416,12 @@ variable (c : Nat)
                                       ∀ (a b : Bool), true = (a || b)
 
 -- ∀ (a b : Bool), if a then b else !a ===> ∀ (a b : Bool), true = a → true = b
-#testOptimize [ "ForallUnchanged_6" ] ∀ (a b : Bool), (if a then b else !a) = true ===>
+#testOptimize [ "ForallUnchanged_6", proof ] ∀ (a b : Bool), (if a then b else !a) = true ===>
                                       ∀ (a b : Bool), true = a → true = b
 
 -- ∀ (a b c : Bool), if a then b else !a ===>
 -- ∀ (a b c : Bool), Blaster.dite' (true = c) (λ _ => false = a) (λ _ => true = b)
-#testOptimize [ "ForallUnchanged_7" ]
+#testOptimize [ "ForallUnchanged_7", proof ]
   ∀ (a b c : Bool), (if c then !a else b) = true ===>
   ∀ (a b c : Bool), Blaster.dite' (true = c) (λ _ => false = a) (λ _ => true = b)
 
@@ -493,7 +493,7 @@ variable (c : Nat)
 
 -- ∀ (a b : Prop) (c : Bool), a ∧ b → (if c then !c else c) = true ===>
 -- ∀ (a b : Prop), ¬ (a ∧ b)
-#testOptimize [ "ForallUnchanged_21" ] ∀ (a b : Prop) (c : Bool), a ∧ b → (if c then !c else c) = true ===>
+#testOptimize [ "ForallUnchanged_21", proof ] ∀ (a b : Prop) (c : Bool), a ∧ b → (if c then !c else c) = true ===>
                                        ∀ (a b : Prop), ¬ (a ∧ b)
 
 -- ∀ (a b c : Prop), (a ∨ c) → ((a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∧ ¬ a ===>
@@ -530,7 +530,7 @@ variable (c : Nat)
 
 -- ∀ (a b : Bool), if a then !a else b ===>
 -- ∀ (a b : Bool), true = (b && !a)
-#testOptimize [ "ForallUnchanged_27" ]
+#testOptimize [ "ForallUnchanged_27", proof ]
   ∀ (a b : Bool), (if a then !a else b) = true ===>
   ∀ (a b : Bool), true = (b && !a)
 
@@ -558,11 +558,11 @@ variable (c : Nat)
 #testOptimize [ "ForallNotDef_5", proof ] ∀ (p : Prop), (p → False) → False ===> ∀ (p : Prop), p
 
 -- ∀ (p q : Prop) (a : Bool), (p → !a && a) → ¬ q ∧ q ===> ∀ (p : Prop), p
-#testOptimize [ "ForallNotDef_6" ]
+#testOptimize [ "ForallNotDef_6", proof ]
   ∀ (p q : Prop) (a : Bool), (p → !a && a) → ¬ q ∧ q ===> ∀ (p : Prop), p
 
 -- ∀ (p q : Prop) (a : Bool), ((p → !a && a) → ¬ q ∧ q) → ¬ p ===> ∀ (p : Prop), ¬ p
-#testOptimize [ "ForallNotDef_7" ]
+#testOptimize [ "ForallNotDef_7", proof ]
   ∀ (p q : Prop) (a : Bool), ((p → !a && a) → ¬ q ∧ q) → ¬ p ===> ∀ (p : Prop), ¬ p
 
 
@@ -834,9 +834,7 @@ variable (c : Nat)
 
 -- ∀ (a b c : Bool), (if a then c else true) = true → ¬ (! a || b) ===>
 -- ∀ (a b c : Bool), (true = a → true = c) → false = (b || !a)
--- NOTE: no proof flag, an intermediate `dite'` gets the else binder `false = a` where `¬ true = a` is expected,
--- which does not type check
-#testOptimize [ "ForallBoolImpNegUnchanged_7" ]
+#testOptimize [ "ForallBoolImpNegUnchanged_7", proof ]
   ∀ (a b c : Bool), (if a then c else true) = true → ¬ (! a || b) ===>
   ∀ (a b c : Bool), (true = a → true = c) → false = (b || !a)
 
@@ -854,9 +852,7 @@ variable (c : Nat)
 -- ∀ (a b : Bool), (if a then b else true) = true → ¬ (! a || b) ===>
 -- ∀ (a b : Bool), (true = a → true = b) → false = (b || !a)
 -- NOTE: can be reduced to false = (b || !a) with additional simplification rules
--- NOTE: no proof flag, an intermediate `dite'` gets the else binder `false = a` where `¬ true = a` is expected,
--- which does not type check
-#testOptimize [ "ForallBoolImpNegUnchanged_10" ]
+#testOptimize [ "ForallBoolImpNegUnchanged_10", proof ]
   ∀ (a b : Bool), (if a then b else true) = true → ¬ (! a || b) ===>
   ∀ (a b : Bool), (true = a → true = b) → false = (b || !a)
 
@@ -926,9 +922,7 @@ variable (c : Nat)
 -- ∀ (a b c : Bool), true = (a && !c) → true = (b || !a)
 -- NOTE: can be reduced to true = (a && !c) → true = b
 -- with additional simplification rules
--- NOTE: no proof flag, an intermediate `dite'` gets the else binder `false = a` where `¬ true = a` is expected,
--- which does not type check
-#testOptimize [ "ForallBoolNegImpUnchanged_7" ]
+#testOptimize [ "ForallBoolNegImpUnchanged_7", proof ]
   ∀ (a b c : Bool), (if a then c else true) = false → (! a || b) ===>
   ∀ (a b c : Bool), true = (a && !c) → true = (b || !a)
 
@@ -946,9 +940,7 @@ variable (c : Nat)
 -- ∀ (a b : Bool), (if a then b else true) = false → (! a || b) ===>
 -- ∀ (a b : Bool), true = (a && !b) → true = (b || !a)
 -- NOTE: can be reduced to False when normalizing decideable simplification rules
--- NOTE: no proof flag, an intermediate `dite'` gets the else binder `false = a` where `¬ true = a` is expected,
--- which does not type check
-#testOptimize [ "ForallBoolNegImpUnchanged_10" ]
+#testOptimize [ "ForallBoolNegImpUnchanged_10", proof ]
   ∀ (a b : Bool), (if a then b else true) = false → (! a || b) ===>
   ∀ (a b : Bool), true = (a && !b) → true = (b || !a)
 

@@ -48,7 +48,7 @@ namespace Tests.UnfoldDITE
 -- ∀ (a b c : Bool) (f : c → Bool → Bool), (if h : c then f h a else b) = true ===>
 -- ∀ (a b c : Bool) (f : true = c → Bool → Bool),
 --   Blaster.dite' (true = c) (λ h : _ => true = f h a) (λ _ => true = b)
-#testOptimize [ "UnfoldDIte_7" ]
+#testOptimize [ "UnfoldDIte_7", proof ]
   ∀ (a b c : Bool) (f : c → Bool → Bool), (if h : c then f h a else b) = true ===>
   ∀ (a b c : Bool) (f : true = c → Bool → Bool),
     Blaster.dite' (true = c) (λ h : _ => true = f h a) (λ _ => true = b)

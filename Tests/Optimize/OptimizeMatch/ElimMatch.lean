@@ -471,7 +471,7 @@ axiom colorOf : Nat → Color
 --       | .black => 0
 --       | .transparent => 0
 -- NOTE: no common rhs as the rhs of the first alternative depends on the pattern variable `y`.
-#testOptimize [ "ElimMatch_15" ] (norm-result: 1)
+#testOptimize [ "ElimMatch_15", proof ] (norm-result: 1)
   ∀ (x : Color) (r : Nat), r = match x with | .red y => colorRank y | .blue y => colorRank y | .black => 0 | .transparent => 0 ===>
   ∀ (x : Color) (r : Nat),
     r = match x with
@@ -499,14 +499,14 @@ axiom colorOf : Nat → Color
 -- ∀ (x : Color) (r : Nat), r = match x with | .red (.blue _) => 1 | _ => match x with | .red _ => 2 | _ => 3 ===>
 -- ∀ (x : Color) (r : Nat), r = match x with | .red (.blue _) => 1 | _ => match x with | .red _ => 2 | _ => 3
 -- NOTE: no elimination as the inner pattern `.red _` is more general than the recorded `.red (.blue _)`.
-#testOptimize [ "ElimMatch_18" ] (norm-result: 1)
+#testOptimize [ "ElimMatch_18", proof ] (norm-result: 1)
   ∀ (x : Color) (r : Nat), r = match x with | .red (.blue _) => 1 | _ => match x with | .red _ => 2 | _ => 3 ===>
   ∀ (x : Color) (r : Nat), r = match x with | .red (.blue _) => 1 | _ => match x with | .red _ => 2 | _ => 3
 
 -- ∀ (x : Color) (r : Nat), r = match x with | .red _ => 1 | _ => match x with | .red _ => 2 | .blue _ => 3 | _ => 4 ===>
 -- ∀ (x : Color) (r : Nat), r = match x with | .red _ => 1 | _ => match x with | .red _ => 2 | .blue _ => 3 | _ => 4
 -- NOTE: no elimination as `.blue _` is not recorded for `x`.
-#testOptimize [ "ElimMatch_19" ] (norm-result: 1)
+#testOptimize [ "ElimMatch_19", proof ] (norm-result: 1)
   ∀ (x : Color) (r : Nat), r = match x with | .red _ => 1 | _ => match x with | .red _ => 2 | .blue _ => 3 | _ => 4 ===>
   ∀ (x : Color) (r : Nat), r = match x with | .red _ => 1 | _ => match x with | .red _ => 2 | .blue _ => 3 | _ => 4
 
@@ -514,7 +514,7 @@ axiom colorOf : Nat → Color
 -- ∀ (x : Color) (r : Nat), r = match x with | .red _ => 1 | .blue _ => 2 | _ => match x with | .red _ => 3 | .blue _ => 4 | .black => 5 | .transparent => 6
 -- NOTE: no elimination as the last alternative of the inner match does not unify with `x`
 -- (`.transparent` is only a potential match for the variable `x`).
-#testOptimize [ "ElimMatch_20" ] (norm-result: 1)
+#testOptimize [ "ElimMatch_20", proof ] (norm-result: 1)
   ∀ (x : Color) (r : Nat), r = match x with | .red _ => 1 | .blue _ => 2 | _ => match x with | .red _ => 3 | .blue _ => 4 | .black => 5 | .transparent => 6 ===>
   ∀ (x : Color) (r : Nat), r = match x with | .red _ => 1 | .blue _ => 2 | _ => match x with | .red _ => 3 | .blue _ => 4 | .black => 5 | .transparent => 6
 
@@ -537,7 +537,7 @@ axiom colorOf : Nat → Color
 -- ∀ (x : Color) (n r : Nat), r = match x, n with | .red _, 0 => 1 | _, _ => match x with | .red _ => 2 | _ => 3 ===>
 -- ∀ (x : Color) (n r : Nat), r = match x, n with | .red _, 0 => 1 | _, _ => match x with | .red _ => 2 | _ => 3
 -- NOTE: no elimination as the first alternative has two constructor patterns (`x` may still be `.red _`).
-#testOptimize [ "ElimMatch_22" ] (norm-result: 1)
+#testOptimize [ "ElimMatch_22", proof ] (norm-result: 1)
   ∀ (x : Color) (n r : Nat), r = match x, n with | .red _, 0 => 1 | _, _ => match x with | .red _ => 2 | _ => 3 ===>
   ∀ (x : Color) (n r : Nat), r = match x, n with | .red _, 0 => 1 | _, _ => match x with | .red _ => 2 | _ => 3
 

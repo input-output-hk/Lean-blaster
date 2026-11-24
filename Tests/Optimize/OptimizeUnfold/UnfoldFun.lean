@@ -92,7 +92,7 @@ def natGe (x y : Nat) : Prop := x ≥ y
 --   [if a > 0 then a else -a, if b > 0 then b else -b, if c > 0 then c else -c] ===> True
 -- Test case to validate that unfolding properly considers fun params
 -- Test case: lambda term
-#testOptimize [ "UnfoldRecFun_8" ]
+#testOptimize [ "UnfoldRecFun_8", proof ]
   ∀ (a b c : Int),
     List.map (λ x => if x > 0 then x else -x) [a, b, c] =
     [if a > 0 then a else -a, if b > 0 then b else -b, if c > 0 then c else -c] ===> True

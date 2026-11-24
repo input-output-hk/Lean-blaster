@@ -13,25 +13,25 @@ variable (α : Type) (a : α) (xs : List α) (n m i : Nat) (x : Nat)
 /-! Test cases for rule `List.replicate N e ===> [e, ..., e]` (N copies). -/
 
 -- List.replicate 0 a ===> []
-#testOptimize [ "ListReplicateCst_1" ] List.replicate 0 a ===> ([] : List α)
+#testOptimize [ "ListReplicateCst_1", proof ] List.replicate 0 a ===> ([] : List α)
 
 -- List.replicate 1 a ===> [a]
-#testOptimize [ "ListReplicateCst_2" ] List.replicate 1 a ===> [a]
+#testOptimize [ "ListReplicateCst_2", proof ] List.replicate 1 a ===> [a]
 
 -- List.replicate 3 a ===> [a, a, a]
-#testOptimize [ "ListReplicateCst_3" ] List.replicate 3 a ===> [a, a, a]
+#testOptimize [ "ListReplicateCst_3", proof ] List.replicate 3 a ===> [a, a, a]
 
 -- List.replicate (1 + 2) a ===> [a, a, a]
 -- NOTE: the number of copies is optimized to a literal before applying the rule
-#testOptimize [ "ListReplicateCst_4" ] List.replicate (1 + 2) a ===> [a, a, a]
+#testOptimize [ "ListReplicateCst_4", proof ] List.replicate (1 + 2) a ===> [a, a, a]
 
 -- List.replicate 2 (x + 0) ===> [x, x]
 -- NOTE: the element is optimized before applying the rule
-#testOptimize [ "ListReplicateCst_5" ] List.replicate 2 (x + 0) ===> [x, x]
+#testOptimize [ "ListReplicateCst_5", proof ] List.replicate 2 (x + 0) ===> [x, x]
 
 -- List.replicate 2 (List.replicate 1 a) ===> [[a], [a]]
 -- NOTE: the element is optimized before applying the rule
-#testOptimize [ "ListReplicateCst_6" ] List.replicate 2 (List.replicate 1 a) ===> [[a], [a]]
+#testOptimize [ "ListReplicateCst_6", proof ] List.replicate 2 (List.replicate 1 a) ===> [[a], [a]]
 
 
 /-! Test cases for rule `List.replicate (N + e) a ===> a :: ... :: a :: List.replicate e a` (N copies),
@@ -87,27 +87,27 @@ variable (α : Type) (a : α) (xs : List α) (n m i : Nat) (x : Nat)
     nor a literal added to an expression. -/
 
 -- List.replicate n a ===> List.replicate n a
-#testOptimize [ "ListReplicateUnchanged_1" ] List.replicate n a ===> List.replicate n a
+#testOptimize [ "ListReplicateUnchanged_1", proof ] List.replicate n a ===> List.replicate n a
 
 -- List.replicate (n + 0) a ===> List.replicate n a
 -- NOTE: the number of copies is optimized to `n` before applying the rule
-#testOptimize [ "ListReplicateUnchanged_2" ] List.replicate (n + 0) a ===> List.replicate n a
+#testOptimize [ "ListReplicateUnchanged_2", proof ] List.replicate (n + 0) a ===> List.replicate n a
 
 -- List.replicate (n + m) a ===> List.replicate (n + m) a
-#testOptimize [ "ListReplicateUnchanged_3" ] List.replicate (n + m) a ===> List.replicate (Nat.add n m) a
+#testOptimize [ "ListReplicateUnchanged_3", proof ] List.replicate (n + m) a ===> List.replicate (Nat.add n m) a
 
 -- List.replicate (2 * n) a ===> List.replicate (2 * n) a
-#testOptimize [ "ListReplicateUnchanged_4" ] (norm-result: 1) List.replicate (2 * n) a ===>
+#testOptimize [ "ListReplicateUnchanged_4", proof ] (norm-result: 1) List.replicate (2 * n) a ===>
   List.replicate (Nat.mul 2 n) a
 
 
 /-! Test cases to validate that `List.replicate` as HOF is eta-expanded before applying the rule. -/
 
 -- List.replicate 2 ===> fun a => [a, a]
-#testOptimize [ "ListReplicateHOF_1" ] List.replicate (α := α) 2 ===> fun (a : α) => [a, a]
+#testOptimize [ "ListReplicateHOF_1", proof ] List.replicate (α := α) 2 ===> fun (a : α) => [a, a]
 
 -- List.replicate n ===> fun a => List.replicate n a
-#testOptimize [ "ListReplicateHOF_2" ] List.replicate (α := α) n ===> fun (a : α) => List.replicate n a
+#testOptimize [ "ListReplicateHOF_2", proof ] List.replicate (α := α) n ===> fun (a : α) => List.replicate n a
 
 -- List.replicate (n + 1) ===> fun a => a :: List.replicate n a
 #testOptimize [ "ListReplicateHOF_3" ] List.replicate (α := α) (n + 1) ===>
@@ -117,13 +117,13 @@ variable (α : Type) (a : α) (xs : List α) (n m i : Nat) (x : Nat)
 /-! Test cases to ensure that other rules are applied once `List.replicate` is reduced. -/
 
 -- List.length (List.replicate 3 a) ===> 3
-#testOptimize [ "ListReplicateReduce_1" ] (norm-result: 1) List.length (List.replicate 3 a) ===> 3
+#testOptimize [ "ListReplicateReduce_1", proof ] (norm-result: 1) List.length (List.replicate 3 a) ===> 3
 
 -- (List.replicate 2 a)[1]? ===> some a
-#testOptimize [ "ListReplicateReduce_2" ] (List.replicate 2 a)[1]? ===> some a
+#testOptimize [ "ListReplicateReduce_2", proof ] (List.replicate 2 a)[1]? ===> some a
 
 -- List.reverse (List.replicate 2 a) ===> [a, a]
-#testOptimize [ "ListReplicateReduce_3" ] List.reverse (List.replicate 2 a) ===> [a, a]
+#testOptimize [ "ListReplicateReduce_3", proof ] List.reverse (List.replicate 2 a) ===> [a, a]
 
 -- List.length (List.replicate (n + 2) a) ===> 2 + List.length (List.replicate n a)
 #testOptimize [ "ListReplicateReduce_4" ] (norm-result: 1) List.length (List.replicate (n + 2) a) ===>

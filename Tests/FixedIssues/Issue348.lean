@@ -61,7 +61,7 @@ def sibling_ctx_cex :=
     (f 0 = true → ((f 0 = true ∧ g 0 = true) ↔ g 0 = true)) ∧
     (g 0 = true → ((f 0 = true ∧ g 0 = true) ↔ g 0 = true))
 
-#testOptimize ["LocalRewriteNotInSibling"] (norm-result: 1)
+#testOptimize [ "LocalRewriteNotInSibling", proof ] (norm-result: 1)
   sibling_ctx_cex ===> (true = g 0 → true = f 0)
 
 -- Counterexample expected by Blaster
@@ -135,7 +135,7 @@ def child_ctx_overrides_cex :=
                   (f 0 = true → ((f 0 = true ∧ g 0 = true) ↔ g 0 = true)) ∧
                   ((f 0 = true ∧ g 0 = true) ↔ g 0 = true))
 
-#testOptimize ["ChildRewriteNotInParent"] (norm-result: 1)
+#testOptimize [ "ChildRewriteNotInParent", proof ] (norm-result: 1)
   child_ctx_overrides_cex ===> true = g 0 → true = f 0
 
 -- Counterexample expected by Blaster
@@ -170,7 +170,7 @@ def dite_then_else_ctx_cex :=
     then ((f 0 = true ∧ g 0 = true) ↔ g 0 = true)
     else ((f 0 = true ∧ g 0 = true) ↔ g 0 = true)
 
-#testOptimize ["DiteThenRewriteNotInElse"] (norm-result: 1)
+#testOptimize [ "DiteThenRewriteNotInElse", proof ] (norm-result: 1)
   dite_then_else_ctx_cex ===> (false = f 0 → false = g 0)
 
 -- Counterexample expected by Blaster

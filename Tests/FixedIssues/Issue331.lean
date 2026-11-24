@@ -19,10 +19,10 @@ set_option warn.sorry false
 
 def negOf (i : Int) : Nat := match i with | .ofNat m => m | .negSucc m => m
 
-#testOptimize ["NatAbsNegLit"] Int.natAbs (-7) = 7 ===> True
-#testOptimize ["NatAbsNegOne"] Int.natAbs (-1) = 1 ===> True
-#testOptimize ["NegSuccArgLit"] negOf (-7) = 6 ===> True
-#testOptimize ["NegSuccArgOne"] negOf (-1) = 0 ===> True
+#testOptimize [ "NatAbsNegLit", proof ] Int.natAbs (-7) = 7 ===> True
+#testOptimize [ "NatAbsNegOne", proof ] Int.natAbs (-1) = 1 ===> True
+#testOptimize [ "NegSuccArgLit", proof ] negOf (-7) = 6 ===> True
+#testOptimize [ "NegSuccArgOne", proof ] negOf (-1) = 0 ===> True
 #testOptimize ["NatAbsNegLitOffByOne"] Int.natAbs (-7) = 6 ===> False
 #testOptimize ["NegSuccArgLitOffByOne"] negOf (-7) = 5 ===> False
 
@@ -51,20 +51,20 @@ def negLit (i : Int) : Nat :=
   | .ofNat k => k
 
 -- `Int.negSucc` literal patterns
-#testOptimize ["NegLitZero"] negLit (-1) = 300 ===> True
-#testOptimize ["NegLitFour"] negLit (-5) = 304 ===> True
+#testOptimize [ "NegLitZero", proof ] negLit (-1) = 300 ===> True
+#testOptimize [ "NegLitFour", proof ] negLit (-5) = 304 ===> True
 -- `Int.negSucc (k + 2)` offset pattern with named patterns: `-7 = Int.negSucc 6`, so `m := 6`, `k := 4`
-#testOptimize ["NegLitNamedOffset"] negLit (-7) = 31 ===> True
-#testOptimize ["NegLitNamedOffsetMin"] negLit (-3) = 3 ===> True
+#testOptimize [ "NegLitNamedOffset", proof ] negLit (-7) = 31 ===> True
+#testOptimize [ "NegLitNamedOffsetMin", proof ] negLit (-3) = 3 ===> True
 -- `Int.negSucc 1` does not unify with `Int.negSucc (k + 2)` (literal < offset)
-#testOptimize ["NegLitVar"] negLit (-2) = 2 ===> True
+#testOptimize [ "NegLitVar", proof ] negLit (-2) = 2 ===> True
 -- `Int.ofNat` literal falls through all `Int.negSucc` patterns
-#testOptimize ["NegLitOfNat"] negLit 7 = 7 ===> True
-#testOptimize ["NegLitOfNatZero"] negLit 0 = 0 ===> True
+#testOptimize [ "NegLitOfNat", proof ] negLit 7 = 7 ===> True
+#testOptimize [ "NegLitOfNatZero", proof ] negLit 0 = 0 ===> True
 -- negative literal spelled with the constructor or obtained by constant folding
-#testOptimize ["NegLitCtor"] negLit (Int.negSucc 6) = 31 ===> True
-#testOptimize ["NegLitFolded"] negLit (0 - 7) = 31 ===> True
-#testOptimize ["NegLitNegZero"] negLit (-0) = 0 ===> True
+#testOptimize [ "NegLitCtor", proof ] negLit (Int.negSucc 6) = 31 ===> True
+#testOptimize [ "NegLitFolded", proof ] negLit (0 - 7) = 31 ===> True
+#testOptimize [ "NegLitNegZero", proof ] negLit (-0) = 0 ===> True
 -- off-by-one must be refuted
 #testOptimize ["NegLitZeroOffByOne"] negLit (-1) = 0 ===> False
 #testOptimize ["NegLitNamedOffsetOffByOne"] negLit (-7) = 21 ===> False

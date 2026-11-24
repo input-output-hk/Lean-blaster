@@ -163,22 +163,6 @@ partial def normNatLitAndLambdaBeta (e : Expr) : MetaM Expr := do
       let Expr.const n _ := e | return none
       getMatcherInfo? n
 
-/-- Return `true` if the expression contains `sorryAx` anywhere.
-    Tail recursive on a stack of pending subterms, so a deep `e` cannot overflow. -/
-private partial def containsSorry (e : Expr) : Bool :=
-  go [e]
-where
-  go : List Expr → Bool
-  | [] => false
-  | .const ``sorryAx _ :: _ => true
-  | .app f a :: es => go (f :: a :: es)
-  | .lam _ t b _ :: es => go (t :: b :: es)
-  | .forallE _ t b _ :: es => go (t :: b :: es)
-  | .letE _ t v b _ :: es => go (t :: v :: b :: es)
-  | .mdata _ e :: es => go (e :: es)
-  | .proj _ _ e :: es => go (e :: es)
-  | _ :: es => go es
-
 /-- Prove `inputExpr = expected`, or `inputExpr` when `expected` is `True`, from the proof stack
     of `inputExpr` with `proveGoalByProofStack`, the path of `blaster`, and `admit := false`.
     `expected` is the term the test writes, so the goal has the user binder names, as for
@@ -188,8 +172,9 @@ where
     `inputExpr` and `inputExpr` is that `Eq` (for `∀ a, A = B` the replay on the whole goal
     ignores them), so they are passed only when the goal is `inputExpr`: the right side of
     `inputExpr = expected` is `expected`, which the optimizer never opened.
-    The proof is accepted only if it is complete, sorry-free, has no fvar outside the context,
-    passes `Meta.check` and has the goal type. Returns the failure reason, if any. -/
+    The replay itself rejects a proof that depends on `sorryAx`, as it does for `blaster`.
+    The proof is accepted only if it is complete, has no fvar outside the context, passes
+    `Meta.check` and has the goal type. Returns the failure reason, if any. -/
 private def checkReconstruction (inputExpr : Expr) (expected : Expr)
     (proofStack : Array Blaster.Optimize.ProofStep)
     (optBinders rhsBinders : Array (Option FVarId)) : TermElabM (Option MessageData) := do
@@ -201,7 +186,6 @@ private def checkReconstruction (inputExpr : Expr) (expected : Expr)
       (← proveGoalByProofStack goalType proofStack optBinders rhsBinders optimizerClosed
         (admit := false))
     if pf.hasMVar then return some m!"the proof term has unassigned metavariables"
-    if containsSorry pf then return some m!"the proof term contains sorry"
     let lctx ← getLCtx
     if (collectFVars {} pf).fvarIds.any (fun f => !lctx.contains f) then
       return some m!"the proof term has loose free variables"

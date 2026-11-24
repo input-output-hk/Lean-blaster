@@ -594,7 +594,7 @@ def strLit (x : Value) (z : String) : Nat :=
 --   | _ => 0
 -- NOTE: string literal pattern vs `String.mk` discriminator is unified as a list of characters
 --       (`c1 := 'a'`, `c2 := 'b'`)
-#testOptimize [ "UnifyPattern_26" ] (norm-result: 1)
+#testOptimize [ "UnifyPattern_26", proof ] (norm-result: 1)
   strLit (.str (String.mk [c1, c2])) (String.mk [c1, c2]) ===>
     match Value.str (String.mk [c1, c2]) with
     | .str "ab" => Nat.add 100 (String.length (String.mk ['a', 'b']))
@@ -1268,7 +1268,7 @@ def nestedAliasHyp (g : Value → Nat) (x : Value) : Nat :=
 --   Nat.add (Nat.add (g (Value.nat (Nat.add 2 m))) (Nat.add 2 m)) (Nat.add 2 m)
 -- NOTE: the outer match is reduced to the named pattern alternative (`k := 2 + m`, `p := Value.nat (2 + m)`)
 --       and the nested match is then reduced as well (`j := 2 + m`).
-#testOptimize [ "UnifyPattern_58" ] (norm-result: 1)
+#testOptimize [ "UnifyPattern_58", proof ] (norm-result: 1)
   nestedAliasHyp g (.nat (m + 2)) ===>
     Nat.add (Nat.add (g (Value.nat (Nat.add 2 m))) (Nat.add 2 m)) (Nat.add 2 m)
 
@@ -1327,7 +1327,7 @@ def hypMatchH (q : ∀ {a b : Value}, a = b → Nat) (x : Value) : Nat :=
 -- hypMatchH q (.nat (m + 2)) ===>
 --   Nat.add (Nat.add (q (Eq.refl (Value.nat (Nat.add 2 m)))) (q (Eq.refl (Value.nat (Nat.add 2 m))))) (Nat.add 2 m)
 -- NOTE: match reduced: `match hx : x with` hypothesis and named pattern hypothesis are both instantiated with `Eq.refl`
-#testOptimize [ "UnifyPattern_62" ] (norm-result: 1)
+#testOptimize [ "UnifyPattern_62", proof ] (norm-result: 1)
   hypMatchH q (.nat (m + 2)) ===>
     Nat.add (Nat.add (q (Eq.refl (Value.nat (Nat.add 2 m)))) (q (Eq.refl (Value.nat (Nat.add 2 m))))) (Nat.add 2 m)
 
@@ -1971,13 +1971,13 @@ def strCharRed (x : Value) (z : String) : Nat :=
 
 -- strCharRed (.wrap (.str "bc") m) "bc" ===> 0
 -- NOTE: `'a'` vs `'b'` cannot match, the match is reduced to the last alternative
-#testOptimize [ "UnifyPattern_95" ] (norm-result: 1)
+#testOptimize [ "UnifyPattern_95", proof ] (norm-result: 1)
   strCharRed (.wrap (.str "bc") m) "bc" ===> 0
 
 -- strCharRed (.wrap (.str "ab") m) "ab" ===> Nat.add 3 m
 -- NOTE: `'a'` vs `'a'` matches, the match is reduced to the second alternative with `xs := ['b']`
 --       and `j := m`
-#testOptimize [ "UnifyPattern_96" ] (norm-result: 1)
+#testOptimize [ "UnifyPattern_96", proof ] (norm-result: 1)
   strCharRed (.wrap (.str "ab") m) "ab" ===> Nat.add 3 m
 
 -- strCharCons gl (.wrap (.str "bc") m) "bc" ===>
@@ -2067,7 +2067,7 @@ def intZeroRed (x : Value) : Nat :=
 --   | .wrap _ j => j
 --   | _ => 0
 -- NOTE: literal `0` vs `-(Int.ofNat (h n))` is a potential match (`h n = 0`), the match is kept
-#testOptimize [ "UnifyPattern_99" ] (norm-result: 1)
+#testOptimize [ "UnifyPattern_99", proof ] (norm-result: 1)
   intZeroRed (.int (-(Int.ofNat (h n)))) ===>
     match Value.int (Int.neg (Int.ofNat (h n))) with
     | .int 0 => 1
@@ -2310,7 +2310,7 @@ def charRed (x : Value) (c : Char) : Nat :=
 
 -- charRed (.wrap v m) 'b' ===> 0
 -- NOTE: `'a'` vs `'b'` cannot match, the match is reduced to the last alternative
-#testOptimize [ "UnifyPattern_112" ] (norm-result: 1)
+#testOptimize [ "UnifyPattern_112", proof ] (norm-result: 1)
   charRed (.wrap v m) 'b' ===> 0
 
 -- charRed (.wrap v m) c ===>
@@ -2399,7 +2399,7 @@ def charMkRed (x : Value) (c : Char) : Nat :=
 -- charMkRed (.wrap v m) 'a' ===> Nat.add 97 m
 -- NOTE: `Char.mk vv _` vs the character literal `'a'` (in constructor form) unifies value-wise with
 --       `vv := 97`, the match is reduced to the second alternative and `vv.toNat` folds to `97`
-#testOptimize [ "UnifyPattern_117" ] (norm-result: 1)
+#testOptimize [ "UnifyPattern_117", proof ] (norm-result: 1)
   charMkRed (.wrap v m) 'a' ===> Nat.add 97 m
 
 
@@ -2422,7 +2422,7 @@ variable (vv : UInt32) (hv : vv.isValidChar) (fc : Nat → Char)
 --   | _ => 0
 -- NOTE: `Char.ofNat 97` pattern vs `Char.mk vv hv` discriminator binds `Char.mk vv hv := 'a'`, then
 --       `c2 := 'b'`
-#testOptimize [ "UnifyPattern_120" ] (norm-result: 1)
+#testOptimize [ "UnifyPattern_120", proof ] (norm-result: 1)
   strLit (.str (String.mk [Char.mk vv hv, c2])) (String.mk [Char.mk vv hv, c2]) ===>
     match Value.str (String.mk [Char.mk vv hv, c2]) with
     | .str "ab" => Nat.add 100 (String.length (String.mk ['a', 'b']))
@@ -2435,7 +2435,7 @@ variable (vv : UInt32) (hv : vv.isValidChar) (fc : Nat → Char)
 --   | .str _ => String.length (String.mk [fc n, c2])
 --   | _ => 0
 -- NOTE: `Char.ofNat 97` pattern vs the function application `fc n` binds `fc n := 'a'`
-#testOptimize [ "UnifyPattern_121" ] (norm-result: 1)
+#testOptimize [ "UnifyPattern_121", proof ] (norm-result: 1)
   strLit (.str (String.mk [fc n, c2])) (String.mk [fc n, c2]) ===>
     match Value.str (String.mk [fc n, c2]) with
     | .str "ab" => Nat.add 100 (String.length (String.mk ['a', 'b']))
@@ -2451,11 +2451,11 @@ def strLitK (x : Value) : Nat :=
 -- strLitK (.str (String.mk ('x' :: cs))) ===> 2
 -- NOTE: `'a'` (`Char.ofNat 97`) vs the character literal `'x'` (`Char.mk` with a literal value) cannot
 --       match, the match is reduced to the second alternative
-#testOptimize [ "UnifyPattern_122" ] (norm-result: 1) strLitK (.str (String.mk ('x' :: cs))) ===> 2
+#testOptimize [ "UnifyPattern_122", proof ] (norm-result: 1) strLitK (.str (String.mk ('x' :: cs))) ===> 2
 
 -- strLitK (.str (String.mk ('a' :: 'c' :: cs))) ===> 2
 -- NOTE: `'a'` matches, `'b'` vs `'c'` cannot match, the match is reduced to the second alternative
-#testOptimize [ "UnifyPattern_123" ] (norm-result: 1) strLitK (.str (String.mk ('a' :: 'c' :: cs))) ===> 2
+#testOptimize [ "UnifyPattern_123", proof ] (norm-result: 1) strLitK (.str (String.mk ('a' :: 'c' :: cs))) ===> 2
 
 /-! ### Proof argument of a literal pattern followed by other pattern variables
 
@@ -2509,7 +2509,7 @@ def finPair (x : FV) : Nat :=
 
 -- finPair (.mk ⟨3, hf⟩ 7) = 8 ===> True
 -- NOTE: reduced match, the proof argument is skipped (`UnifyMatch`) and `j := 7`
-#testOptimize [ "UnifyPattern_126" ] finPair (.mk ⟨3, hf⟩ 7) = 8 ===> True
+#testOptimize [ "UnifyPattern_126", proof ] finPair (.mk ⟨3, hf⟩ 7) = 8 ===> True
 
 inductive CV where
   | mk : Char → Nat → CV

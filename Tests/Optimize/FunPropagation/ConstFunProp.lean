@@ -27,7 +27,7 @@ namespace Tests.ConstFunProp
 -- NOTE: Can be reduced to
 --  Blaster.dite' (true = c) (λ _ => true = b ∧ x = z) (λ _ => y = z)
 -- with additional simplification rules
-#testOptimize [ "IteOverFun_2" ]
+#testOptimize [ "IteOverFun_2", proof ]
   ∀ (b c : Bool) (x y z : Int),
     (if c then (if b then some x else none) else some y) = some z ===>
   ∀ (b c : Bool) (x y z : Int),
@@ -40,7 +40,7 @@ namespace Tests.ConstFunProp
 -- NOTE: Can be reduced to
 --   Blaster.dite' (true = c) (λ _ => x = z) (λ _ => true = b ∧ y = z)
 -- with additional simplification rules
-#testOptimize [ "IteOverFun_3" ]
+#testOptimize [ "IteOverFun_3", proof ]
   ∀ (b c : Bool) (x y z : Int),
      (if c then some x else (if b then some y else none)) = some z ===>
   ∀ (b c : Bool) (x y z : Int),
@@ -62,7 +62,7 @@ namespace Tests.ConstFunProp
 --   (λ _ => Blaster.dite' (true = d) (λ _ => x = z) (λ _ => y = z))
 --   (λ _ => true = b ∧ x = z)
 -- with additional simplification rules
-#testOptimize [ "IteOverFun_4" ]
+#testOptimize [ "IteOverFun_4", proof ]
 ∀ (b c d : Bool) (x y z : Int),
   let op1 :=
     if c
@@ -97,7 +97,7 @@ namespace Tests.ConstFunProp
 --     (λ _ => x = z))
 --   (λ _ => true = c ∧ (true = d → x = y))
 -- with additional simplification rules
-#testOptimize [ "IteOverFun_5" ]
+#testOptimize [ "IteOverFun_5", proof ]
 ∀ (b c d : Bool) (x y z : Int),
   let op1 :=
     if c then if d then some x else some y
@@ -151,7 +151,7 @@ namespace Tests.ConstFunProp
 --   (λ _ => y = Int.add x z)
 --   (λ _ => y = Int.add x (Int.neg z))
 -- with additional simplification rules
-#testOptimize [ "IteOverFun_10" ]
+#testOptimize [ "IteOverFun_10", proof ]
   ∀ (c : Bool) (x y z : Int),
     (if c then λ n => some (x + n) else λ n => some (x - n)) z = some y ===>
   ∀ (c : Bool) (x y z : Int),
@@ -311,7 +311,7 @@ namespace Tests.ConstFunProp
 --   (λ h1 : _ => z = f h1 x)
 --   (λ _ => true = b ∧ ∀ (h2 : true = b), z = g h2 y)
 -- with additional simplification rules
-#testOptimize [ "DIteOverFun_3" ]
+#testOptimize [ "DIteOverFun_3", proof ]
   ∀ (b c : Bool) (x y z : Int) (f : c → Int → Int) (g : b → Int → Int),
      (if h1 : c then some (f h1 x) else (if h2 : b then some (g h2 y) else none)) = some z ===>
   ∀ (b c : Bool) (x y z : Int) (f : true = c → Int → Int) (g : true = b → Int → Int),
@@ -342,7 +342,7 @@ namespace Tests.ConstFunProp
 --        (λ _ => z = f h1 y))
 --   (λ _ => true = b ∧ ∀ (h3 : true = b), z = t h3 x)
 -- with additional simplification rules
-#testOptimize [ "DIteOverFun_4" ]
+#testOptimize [ "DIteOverFun_4", proof ]
 ∀ (b c d : Bool) (x y z : Int)
   (f : c → Int → Int) (g : d → Int → Int) (t : b → Int → Int),
   let op1 :=
@@ -403,7 +403,7 @@ namespace Tests.ConstFunProp
 --        (λ h2 : _ => y = g h2 x)
 --        (λ _ => y = f h1 y))
 -- with additional simplification rule
-#testOptimize [ "DIteOverFun_5" ]
+#testOptimize [ "DIteOverFun_5", proof ]
 ∀ (b c d : Bool) (x y z : Int)
   (f : c → Int → Int) (g : d → Int → Int) (t : b → Int → Int),
   let op1 :=
@@ -477,7 +477,7 @@ namespace Tests.ConstFunProp
 --     (λ h : _ => y = Int.add z (f h x))
 --     (λ _ => y = Int.add x (Int.neg z))
 -- with additional simplification rules
-#testOptimize [ "DIteOverFun_10" ]
+#testOptimize [ "DIteOverFun_10", proof ]
   ∀ (c : Prop) (x y z : Int) (f : c → Int → Int), [Decidable c] →
     (if h : c then λ n => some ((f h x) + n) else λ n => some (x - n)) z = some y ===>
   ∀ (c : Prop) (x y z : Int) (f : c → Int → Int),
@@ -542,7 +542,7 @@ namespace Tests.ConstFunProp
 --      (λ _ => j < xs.1.length ∧ ∀ (h2 : j < xs.1.length), z = xs.1.get ⟨j, h2⟩)
 --      (λ _ => z = xs.1.get ⟨i, h1⟩))
 --   (λ _ => z = Int.ofNat 2)
-#testOptimize [ "DIteOverFun_14" ] (norm-result: 1)
+#testOptimize [ "DIteOverFun_14", proof ] (norm-result: 1)
   ∀ (xs : Array Int) (i j : Nat) (z : Int),
     some z = if h1 : i < xs.1.length
              then if i = j

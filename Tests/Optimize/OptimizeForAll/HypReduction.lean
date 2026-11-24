@@ -13,82 +13,82 @@ namespace Test.HypReduction
 
 -- ∀ (a b : Prop), a → (a → b) ===>
 -- ∀ (a b : Prop), a → b
-#testOptimize [ "HypReduction_1" ]
+#testOptimize [ "HypReduction_1", proof ]
   ∀ (a b : Prop), a → (a → b) ===>
   ∀ (a b : Prop), a → b
 
 -- ∀ (a b c : Prop), (a ∧ c) → (a → b) ===>
 -- ∀ (a b c : Prop), (a ∧ c) → b
-#testOptimize [ "HypReduction_2" ]
+#testOptimize [ "HypReduction_2", proof ]
   ∀ (a b c : Prop), (a ∧ c) → (a → b) ===>
   ∀ (a b c : Prop), (a ∧ c) → b
 
 -- ∀ (a b c d : Prop), (a ∧ c) → d → (a → b) ===>
 -- ∀ (a b c d : Prop), (a ∧ c) → d → b
-#testOptimize [ "HypReduction_3" ]
+#testOptimize [ "HypReduction_3", proof ]
   ∀ (a b c d : Prop), (a ∧ c) → d → (a → b) ===>
   ∀ (a b c d : Prop), (a ∧ c) → d → b
 
 -- ∀ (x y : Int) (b : Prop), x = y → (x ≤ y → b) ===>
 -- ∀ (x y : Int) (b : Prop), x = y → b
-#testOptimize [ "HypReduction_4" ]
+#testOptimize [ "HypReduction_4", proof ]
   ∀ (x y : Int) (b : Prop), x = y → (x ≤ y → b) ===>
   ∀ (x y : Int) (b : Prop), x = y → b
 
 -- ∀ (x y : Int) (b : Prop), x < y → (x ≤ y → b) ===>
 -- ∀ (x y : Int) (b : Prop), x < y → b
-#testOptimize [ "HypReduction_5" ]
+#testOptimize [ "HypReduction_5", proof ]
   ∀ (x y : Int) (b : Prop), x < y → (x ≤ y → b) ===>
   ∀ (x y : Int) (b : Prop), x < y → b
 
 -- ∀ (x y : Nat) (b : Prop), x = y → (x ≤ y → b) ===>
 -- ∀ (x y : Nat) (b : Prop), x = y → b
-#testOptimize [ "HypReduction_6" ]
+#testOptimize [ "HypReduction_6", proof ]
   ∀ (x y : Nat) (b : Prop), x = y → (x ≤ y → b) ===>
   ∀ (x y : Nat) (b : Prop), x = y → b
 
 -- ∀ (x y : Nat) (b : Prop), x < y → (x ≤ y → b) ===>
 -- ∀ (x y : Nat) (b : Prop), x < y → b
-#testOptimize [ "HypReduction_7" ]
+#testOptimize [ "HypReduction_7", proof ]
   ∀ (x y : Nat) (b : Prop), x < y → (x ≤ y → b) ===>
   ∀ (x y : Nat) (b : Prop), x < y → b
 
 
 -- ∀ (x y : Int) (a b c : Prop), (a ∧ x = y) → c → (x ≤ y → b) ===>
 -- ∀ (x y : Int) (a b c : Prop), (a ∧ x = y) → c → b
-#testOptimize [ "HypReduction_8" ]
+#testOptimize [ "HypReduction_8", proof ]
   ∀ (x y : Int) (a b c : Prop), (a ∧ x = y) → c → (x ≤ y → b) ===>
   ∀ (x y : Int) (a b c : Prop), (a ∧ x = y) → c → b
 
 -- ∀ (x y : Int) (a b c : Prop), (x < y ∧ a) → c → (x ≤ y → b) ===>
 -- ∀ (x y : Int) (a b c : Prop), (a ∧ x < y) → c → b
-#testOptimize [ "HypReduction_9" ]
+#testOptimize [ "HypReduction_9", proof ]
   ∀ (x y : Int) (a b c : Prop), (x < y ∧ a) → c → (x ≤ y → b) ===>
   ∀ (x y : Int) (a b c : Prop), (a ∧ x < y) → c → b
 
 -- ∀ (x y : Nat) (a b c : Prop), (a ∧ x = y) → c → (x ≤ y → b) ===>
 -- ∀ (x y : Nat) (a b c : Prop), (a ∧ x = y) → c → b
-#testOptimize [ "HypReduction_10" ]
+#testOptimize [ "HypReduction_10", proof ]
   ∀ (x y : Nat) (a b c : Prop), (a ∧ x = y) → c → (x ≤ y → b) ===>
   ∀ (x y : Nat) (a b c : Prop), (a ∧ x = y) → c → b
 
 -- ∀ (x y : Nat) (a b c : Prop), (a ∧ x < y) → c → (x ≤ y → b) ===>
 -- ∀ (x y : Nat) (a b c : Prop), (a ∧ x < y) → c → b
-#testOptimize [ "HypReduction_11" ]
+#testOptimize [ "HypReduction_11", proof ]
   ∀ (x y : Nat) (a b c : Prop), (a ∧ x < y) → c → (x ≤ y → b) ===>
   ∀ (x y : Nat) (a b c : Prop), (a ∧ x < y) → c → b
 
 -- ∀ (a b c : Prop), (a → b) ∧ (a → c ∧ (a → b)) ===>
 -- ∀ (a b c : Prop), (a → b) ∧ (a → b ∧ c)
 -- Test case to ensure that reduction is performed only in the right context.
-#testOptimize [ "HypReduction_12" ]
+#testOptimize [ "HypReduction_12", proof ]
   ∀ (a b c : Prop), (a → b) ∧ (a → c ∧ (a → b)) ===>
   ∀ (a b c : Prop), (a → b) ∧ (a → b ∧ c)
 
 -- ∀ (a b c d : Prop), ((a → b) ∧ (a → c ∧ (a → b))) → (a → b ∧ c) → d ===>
 -- ∀ (a b c d : Prop), ((a → b) ∧ (a → b ∧ c)) → d
 -- Test case to ensure that reduction is performed only in the right context.
-#testOptimize [ "HypReduction_13" ]
+#testOptimize [ "HypReduction_13", proof ]
   ∀ (a b c d : Prop), ((a → b) ∧ (a → c ∧ (a → b))) → (a → b ∧ c) → d ===>
   ∀ (a b c d : Prop), ((a → b) ∧ (a → b ∧ c)) → d
 
@@ -96,13 +96,13 @@ namespace Test.HypReduction
 -- ∀ (a b c d : Prop), ((a → b) ∧ (a → b ∧ c)) → d
 -- Test case to ensure that reduction is performed only in the right context.
 -- TODO INCREMENT NUMBER DOWNWARDS
-#testOptimize [ "HypReduction_13" ]
+#testOptimize [ "HypReduction_13", proof ]
   ∀ (a b c d e : Prop), d → ((a → b) ∧ (a → c ∧ (a → b))) → (a → b ∧ c) → e ===>
   ∀ (a b c d e : Prop), d → ((a → b) ∧ (a → b ∧ c)) → e
 
 -- ∀ (a b c d : Prop), (a → b) → c → (a → b) → d ===>
 -- ∀ (a b c d : Prop), (a → b) → c → d
-#testOptimize [ "HypReduction_14" ]
+#testOptimize [ "HypReduction_14", proof ]
   ∀ (a b c d : Prop), (a → b) → c → (a → b) → d ===>
   ∀ (a b c d : Prop), (a → b) → c → d
 
@@ -116,81 +116,81 @@ namespace Test.HypReduction
 
 -- ∀ (a b c d e f : Prop), (a ∧ e) → b → (c ∧ d) → (a ∧ b ∧ d) → f ===>
 -- ∀ (a b c d e f : Prop), (a ∧ e) → b → (c ∧ d) → f
-#testOptimize [ "HypReduction_16" ]
+#testOptimize [ "HypReduction_16", proof ]
   ∀ (a b c d e f : Prop), (a ∧ e) → b → (c ∧ d) → (a ∧ b ∧ d) → f ===>
   ∀ (a b c d e f : Prop), (a ∧ e) → b → (c ∧ d) → f
 
 
 -- ∀ (a : Prop) (f : a → Prop), a → ∀ (h : a), f h ===>
 -- ∀ (a : Prop) (f : a → Prop), ∀ (h : a), f h
-#testOptimize [ "HypReduction_17" ]
+#testOptimize [ "HypReduction_17", proof ]
   ∀ (a : Prop) (f : a → Prop), a → ∀ (h : a), f h ===>
   ∀ (a : Prop) (f : a → Prop), ∀ (h : a), f h
 
 -- ∀ (a c : Prop) (f : a → Prop), (a ∧ c) → ∀ (h : a), f h ===>
 -- ∀ (a c : Prop) (f : a → Prop) (h : a ∧ c), f (And.left h)
-#testOptimize [ "HypReduction_18" ]
+#testOptimize [ "HypReduction_18", proof ]
   ∀ (a c : Prop) (f : a → Prop), (a ∧ c) → ∀ (h : a), f h ===>
   ∀ (a c : Prop) (f : a → Prop) (h : a ∧ c), f (And.left h)
 
 -- ∀ (a c : Prop) (f : c → Prop), (a ∧ c) → ∀ (h : c), f h ===>
 -- ∀ (a c : Prop) (f : c → Prop) (h : a ∧ c), f (And.right h)
-#testOptimize [ "HypReduction_19" ]
+#testOptimize [ "HypReduction_19", proof ]
   ∀ (a c : Prop) (f : c → Prop), (a ∧ c) → ∀ (h : c), f h ===>
   ∀ (a c : Prop) (f : c → Prop) (h : a ∧ c), f (And.right h)
 
 -- ∀ (a b c : Prop) (f : c → Prop), (a ∧ b ∧ c) → ∀ (h : c), f h ===>
 -- ∀ (a b c : Prop) (f : c → Prop) (h : a ∧ b ∧ c), f (And.right (And.right h))
-#testOptimize [ "HypReduction_20" ]
+#testOptimize [ "HypReduction_20", proof ]
   ∀ (a b c : Prop) (f : c → Prop), (a ∧ b ∧ c) → ∀ (h : c), f h ===>
   ∀ (a b c : Prop) (f : c → Prop) (h : a ∧ b ∧ c), f (And.right (And.right h))
 
 -- ∀ (a b c : Prop) (f : a → Prop), (a ∧ c) → b → ∀ (h : a), f h ===>
 -- ∀ (a b c : Prop) (f : a → Prop) (h : a ∧ c) (_ : b), f (And.left h)
-#testOptimize [ "HypReduction_21" ]
+#testOptimize [ "HypReduction_21", proof ]
   ∀ (a b c : Prop) (f : a → Prop), (a ∧ c) → b → ∀ (h : a), f h ===>
   ∀ (a b c : Prop) (f : a → Prop) (h : a ∧ c) (_ : b), f (And.left h)
 
 -- ∀ (a b c : Prop) (f : c → Prop), (a ∧ c) → b → ∀ (h : c), f h ===>
 -- ∀ (a b c : Prop) (f : c → Prop) (h : a ∧ c) (_ : b), f (And.right h)
-#testOptimize [ "HypReduction_22" ]
+#testOptimize [ "HypReduction_22", proof ]
   ∀ (a b c : Prop) (f : c → Prop), (a ∧ c) → b →  ∀ (h : c), f h ===>
   ∀ (a b c : Prop) (f : c → Prop) (h : a ∧ c) (_ : b), f (And.right h)
 
 -- ∀ (a b c d : Prop) (f : c → Prop), (a ∧ b ∧ c) → d → ∀ (h : c), f h ===>
 -- ∀ (a b c d : Prop) (f : c → Prop) (h : a ∧ b ∧ c) (_ : d), f (And.right (And.right h))
-#testOptimize [ "HypReduction_23" ]
+#testOptimize [ "HypReduction_23", proof ]
   ∀ (a b c d : Prop) (f : c → Prop), (a ∧ b ∧ c) → d → ∀ (h : c), f h ===>
   ∀ (a b c d : Prop) (f : c → Prop) (h : a ∧ b ∧ c) (_ : d), f (And.right (And.right h))
 
 -- ∀ (x y : Int) (f : x ≤ y → Prop) (_ : x < y) (h2 : x ≤ y), f h2 ===>
 -- ∀ (x y : Int) (f : ¬ (y < x) → Prop) (h : x < y), f (Blaster.int_not_lt_of_lt h)
-#testOptimize [ "HypReduction_24" ]
+#testOptimize [ "HypReduction_24", proof ]
   ∀ (x y : Int) (f : x ≤ y → Prop) (_ : x < y) (h2 : x ≤ y), f h2 ===>
   ∀ (x y : Int) (f : ¬ (y < x) → Prop) (h : x < y), f (Blaster.int_not_lt_of_lt h)
 
 -- ∀ (x y : Int) (f : x ≤ y → Prop) (_ : x = y) (h2 : x ≤ y), f h2 ===>
 -- ∀ (x y : Int) (f : ¬ (y < x) → Prop) (h : x = y), f (Blaster.int_not_lt_right_of_eq h)
-#testOptimize [ "HypReduction_25" ]
+#testOptimize [ "HypReduction_25", proof ]
   ∀ (x y : Int) (f : x ≤ y → Prop) (_ : x = y) (h2 : x ≤ y), f h2 ===>
   ∀ (x y : Int) (f : ¬ (y < x) → Prop) (h : x = y), f (Blaster.int_not_lt_right_of_eq h)
 
 -- ∀ (x y : Nat) (f : x ≤ y → Prop) (_ : x < y) (h2 : x ≤ y), f h2 ===>
 -- ∀ (x y : Nat) (f : ¬ (y < x) → Prop) (h : x < y), f (Blaster.nat_not_lt_of_lt h)
-#testOptimize [ "HypReduction_26" ]
+#testOptimize [ "HypReduction_26", proof ]
   ∀ (x y : Nat) (f : x ≤ y → Prop) (_ : x < y) (h2 : x ≤ y), f h2 ===>
   ∀ (x y : Nat) (f : ¬ (y < x) → Prop) (h : x < y), f (Blaster.nat_not_lt_of_lt h)
 
 -- ∀ (x y : Nat) (f : x ≤ y → Prop) (_ : x = y) (h2 : x ≤ y), f h2 ===>
 -- ∀ (x y : Nat) (f : ¬ (y < x) → Prop) (h : x = y), f (Blaster.nat_not_lt_right_of_eq h)
-#testOptimize [ "HypReduction_27" ]
+#testOptimize [ "HypReduction_27", proof ]
   ∀ (x y : Nat) (f : x ≤ y → Prop) (_ : x = y) (h2 : x ≤ y), f h2 ===>
   ∀ (x y : Nat) (f : ¬ (y < x) → Prop) (h : x = y), f (Blaster.nat_not_lt_right_of_eq h)
 
 -- ∀ (x y : Int) (a c : Prop) (f : x ≤ y → Prop) (_ : a ∧ x = y) (_ : c) (h : x ≤ y), f h ===>
 -- ∀ (x y : Int) (a c : Prop) (f : ¬ y < x → Prop) (h : a ∧ x = y) (_ : c),
 --   f (Blaster.int_not_lt_right_of_eq (And.right h))
-#testOptimize [ "HypReduction_28" ]
+#testOptimize [ "HypReduction_28", proof ]
   ∀ (x y : Int) (a c : Prop) (f : x ≤ y → Prop) (_ : a ∧ x = y) (_ : c) (h : x ≤ y), f h ===>
   ∀ (x y : Int) (a c : Prop) (f : ¬ y < x → Prop) (h : a ∧ x = y) (_ : c),
     f (Blaster.int_not_lt_right_of_eq (And.right h))
@@ -198,7 +198,7 @@ namespace Test.HypReduction
 -- ∀ (x y : Int) (a c : Prop) (f : x ≤ y → Prop) (_ : x < y ∧ a) (_ : c) (h : x ≤ y), f h ===>
 -- ∀ (x y : Int) (a c : Prop) (f : ¬ y < x → Prop) (h : a ∧ x < y) (_ : c),
 --   f (Blaster.int_not_lt_of_lt (And.right h))
-#testOptimize [ "HypReduction_29" ]
+#testOptimize [ "HypReduction_29", proof ]
   ∀ (x y : Int) (a c : Prop) (f : x ≤ y → Prop) (_ : x < y ∧ a) (_ : c) (h : x ≤ y), f h ===>
   ∀ (x y : Int) (a c : Prop) (f : ¬ y < x → Prop) (h : a ∧ x < y) (_ : c),
     f (Blaster.int_not_lt_of_lt (And.right h))
@@ -206,7 +206,7 @@ namespace Test.HypReduction
 -- ∀ (x y : Nat) (a c : Prop) (f : x ≤ y → Prop) (_ : a ∧ x = y) (_ : c) (h : x ≤ y), f h ===>
 -- ∀ (x y : Nat) (a c : Prop) (f : ¬ y < x → Prop) (h : a ∧ x = y) (_ : c),
 --   f (Blaster.nat_not_lt_right_of_eq (And.right h))
-#testOptimize [ "HypReduction_30" ]
+#testOptimize [ "HypReduction_30", proof ]
   ∀ (x y : Nat) (a c : Prop) (f : x ≤ y → Prop) (_ : a ∧ x = y) (_ : c) (h : x ≤ y), f h ===>
   ∀ (x y : Nat) (a c : Prop) (f : ¬ y < x → Prop) (h : a ∧ x = y) (_ : c),
     f (Blaster.nat_not_lt_right_of_eq (And.right h))
@@ -214,7 +214,7 @@ namespace Test.HypReduction
 -- ∀ (x y : Nat) (a c : Prop) (f : x ≤ y → Prop) (_ : x < y ∧ a) (_ : c) (h : x ≤ y), f h ===>
 -- ∀ (x y : Nat) (a c : Prop) (f : ¬ y < x → Prop) (h : a ∧ x < y) (_ : c),
 --   f (Blaster.nat_not_lt_of_lt (And.right h))
-#testOptimize [ "HypReduction_31" ]
+#testOptimize [ "HypReduction_31", proof ]
   ∀ (x y : Nat) (a c : Prop) (f : x ≤ y → Prop) (_ : x < y ∧ a) (_ : c) (h : x ≤ y), f h ===>
   ∀ (x y : Nat) (a c : Prop) (f : ¬ y < x → Prop) (h : a ∧ x < y) (_ : c),
     f (Blaster.nat_not_lt_of_lt (And.right h))
@@ -222,7 +222,7 @@ namespace Test.HypReduction
 -- ∀ (a b c : Prop) (f : a → Prop), (a → b) ∧ (a → c ∧ (∀ (h : a), f h)) ===>
 -- ∀ (a b c : Prop) (f : a → Prop), (a → b) ∧ ∀ (h : a), c ∧ f h
 -- Test case to ensure that reduction is performed only in the right context.
-#testOptimize [ "HypReduction_32" ]
+#testOptimize [ "HypReduction_32", proof ]
   ∀ (a b c : Prop) (f : a → Prop), (a → b) ∧ (a → c ∧ (∀ (h : a), f h)) ===>
   ∀ (a b c : Prop) (f : a → Prop), (a → b) ∧ ∀ (h : a), c ∧ f h
 
@@ -231,7 +231,7 @@ namespace Test.HypReduction
 --   (a ∧ c) → b → (if h : c then f h x else y) > z ===>
 -- ∀ (a b c : Prop) (x z : Int) (f : c → Int → Int) (h : a ∧ c) (_ : b),
 --   z < f (And.right h) x
-#testOptimize [ "HypReduction_33" ]
+#testOptimize [ "HypReduction_33", proof ]
   ∀ (a b c : Prop) (x y z : Int) (f : c → Int → Int) [Decidable c],
     (a ∧ c) → b → (if h : c then f h x else y) > z ===>
   ∀ (a b c : Prop) (x z : Int) (f : c → Int → Int) (h : a ∧ c) (_ : b),
@@ -241,7 +241,7 @@ namespace Test.HypReduction
 --   (a ∧ c ∧ x < z) → b → (if h : z < x then x else f h y) > z ===>
 -- ∀ (a b c : Prop) (x y z : Int) (f : ¬ (z < x) → Int → Int) (h : a ∧ c ∧ x < z) (_ : b),
 --   z < f (Blaster.int_not_lt_of_lt (And.right (And.right h))) y
-#testOptimize [ "HypReduction_34" ]
+#testOptimize [ "HypReduction_34", proof ]
   ∀ (a b c : Prop) (x y z : Int) (f : ¬ (z < x) → Int → Int),
     (a ∧ c ∧ x < z) → b → (if h : z < x then x else f h y) > z ===>
   ∀ (a b c : Prop) (x y z : Int) (f : ¬ (z < x) → Int → Int) (h : a ∧ c ∧ x < z) (_ : b),
@@ -251,7 +251,7 @@ namespace Test.HypReduction
 --   (a ∧ c ∧ x = z) → b → (if h : z < x then x else f h y) > z ===>
 -- ∀ (a b c : Prop) (x y z : Int) (f : ¬ (z < x) → Int → Int) (h : a ∧ c ∧ x = z) (_ : b),
 --   z < f (Blaster.int_not_lt_right_of_eq (And.right (And.right h))) y
-#testOptimize [ "HypReduction_35" ]
+#testOptimize [ "HypReduction_35", proof ]
   ∀ (a b c : Prop) (x y z : Int) (f : ¬ (z < x) → Int → Int),
     (a ∧ c ∧ x = z) → b → (if h : z < x then x else f h y) > z ===>
   ∀ (a b c : Prop) (x y z : Int) (f : ¬ (z < x) → Int → Int) (h : a ∧ c ∧ x = z) (_ : b),
@@ -263,7 +263,7 @@ namespace Test.HypReduction
 --    (if h : a ∨ z < x then x else f (And.right (Blaster.and_not_from_not_or h)) y) > z ===>
 -- ∀ (a b c : Prop) (x y z : Int) (f : ¬ (z < x) → Int → Int) (h : a ∧ c ∧ x < z) ( _ : b),
 --   ¬ z < f (Blaster.int_not_lt_of_lt (And.right (And.right h))) y
-#testOptimize [ "HypReduction_36" ]
+#testOptimize [ "HypReduction_36", proof ]
   ∀ (a b c : Prop) (x y z : Int) (f : ¬ (z < x) → Int → Int) [Decidable a], (a ∧ c ∧ x < z) → b →
     (if h : z < x then x else f h y) > z →
     (if h : a ∨ z < x then x else f (And.right (Blaster.and_not_from_not_or h)) y) > z ===>
@@ -274,7 +274,7 @@ namespace Test.HypReduction
 -- ∀ (a b c : Prop) (f : a ∧ c → Prop) (h : a ∧ b ∧ c),
 --   f (And.intro (And.left h) (And.right (And.right h)))
 -- Test case considering proof reconstruction when referenced hyp resolves to True
-#testOptimize [ "HypReduction_37" ]
+#testOptimize [ "HypReduction_37", proof ]
   ∀ (a b c : Prop) (f : a ∧ c → Prop), (a ∧ b ∧ c) → ∀ (h : a ∧ c), f h ===>
   ∀ (a b c : Prop) (f : a ∧ c → Prop) (h : a ∧ b ∧ c),
     f (And.intro (And.left h) (And.right (And.right h)))
@@ -283,7 +283,7 @@ namespace Test.HypReduction
 -- ∀ (a b c : Prop) (f : a ∧ c → Prop) (h1 : a) (h2 : b ∧ c), f (And.intro h1 (And.right h2))
 -- Test cases considering proof reconstruction when referenced hyp resolves to True
 -- and proof depends on multiple premises.
-#testOptimize [ "HypReduction_38" ]
+#testOptimize [ "HypReduction_38", proof ]
   ∀ (a b c : Prop) (f : a ∧ c → Prop), a → (b ∧ c) → ∀ (h : a ∧ c), f h ===>
   ∀ (a b c : Prop) (f : a ∧ c → Prop) (h1 : a) (h2 : b ∧ c), f (And.intro h1 (And.right h2))
 
@@ -293,7 +293,7 @@ namespace Test.HypReduction
 --   (h1 : a ∧ e) (_ : b) (h2 : c ∧ d) (h3 : p ∧ q),
 --     f (And.intro (And.intro (And.left h1) (And.left h3)) (And.intro (And.right h2) (And.right h3)))
 -- Test cases considering proof reconstruction based on multiple premises.
-#testOptimize [ "HypReduction_39" ]
+#testOptimize [ "HypReduction_39", proof ]
   ∀ (a b c d e p q : Prop) (f : (a ∧ p) ∧ (q ∧ d) → Prop)
     (_ : a ∧ e) (_ : b) (_ : c ∧ d) (h : (a ∧ p) ∧ (q ∧ d)), f h ===>
   ∀ (a b c d e p q : Prop) (f : (a ∧ p) ∧ (d ∧ q) → Prop)
@@ -309,7 +309,7 @@ namespace Test.HypReduction
 --      (And.intro (And.left h1) (And.intro h2 (And.left h4)))
 --      (And.intro (And.right h3) (And.intro (And.left h3) (And.right h4))))
 -- Test cases considering proof reconstruction based on multiple premises.
-#testOptimize [ "HypReduction_40" ]
+#testOptimize [ "HypReduction_40", proof ]
   ∀ (a b c d e p q : Prop) (f : (a ∧ (p ∧ b)) ∧ ((q ∧ c) ∧ d) → Prop)
     (_ : a ∧ e) (_ : b) (_ : c ∧ d) (h : (a ∧ (p ∧ b)) ∧ ((q ∧ c) ∧ d)), f h ===>
   ∀ (a b c d e p q : Prop) (f : (a ∧ (b ∧ p)) ∧ (d ∧ (c ∧ q)) → Prop)
@@ -326,7 +326,7 @@ namespace Test.HypReduction
 --      (And.intro (And.left h1) (And.intro h2 (And.left h4)))
 --      (And.intro (And.right h3) (And.intro (And.left h3) (And.right h4))))
 -- Test cases considering proof reconstruction based on multiple premises.
-#testOptimize [ "HypReduction_41" ]
+#testOptimize [ "HypReduction_41", proof ]
   ∀ (a b c d e p q : Prop) (f : (a ∧ (p ∧ b)) ∧ ((q ∧ c) ∧ (d ∧ b)) → Prop)
     (_ : a ∧ e) (_ : b) (_ : c ∧ d) (h : (a ∧ (p ∧ b)) ∧ ((q ∧ c) ∧ (d ∧ b))), f h ===>
   ∀ (a b c d e p q : Prop) (f : (a ∧ (b ∧ p)) ∧ ((b ∧ d) ∧ (c ∧ q)) → Prop)
@@ -344,7 +344,7 @@ namespace Test.HypReduction
 --      (And.intro (And.left h1) (And.intro (And.left h4) (And.intro (And.left h3) (And.right h1))))
 --      (And.intro (And.intro h2 (And.right h3)) (And.intro (And.left h3) (And.right h4))))
 -- Test cases considering proof reconstruction based on multiple premises.
-#testOptimize [ "HypReduction_42" ]
+#testOptimize [ "HypReduction_42", proof ]
   ∀ (a b c d e p q : Prop) (f : (a ∧ (p ∧ (e ∧ c))) ∧ ((q ∧ c) ∧ (d ∧ b)) → Prop)
     (_ : a ∧ e) (_ : b) (_ : c ∧ d) (h : (a ∧ (p ∧ (e ∧ c))) ∧ ((q ∧ c) ∧ (d ∧ b))), f h ===>
   ∀ (a b c d e p q : Prop) (f : (a ∧ (p ∧ (c ∧ e))) ∧ ((b ∧ d) ∧ (c ∧ q)) → Prop)
@@ -364,7 +364,7 @@ namespace Test.HypReduction
 --       (And.intro (And.right h4) (And.intro (And.left h3) (And.intro (And.right h3) (And.right h1))))
 --       (And.intro (And.intro h2 (And.right h3)) (And.intro (And.left h3) (And.right h1)))))
 -- Test cases considering proof reconstruction based on multiple premises.
-#testOptimize [ "HypReduction_43" ]
+#testOptimize [ "HypReduction_43", proof ]
   ∀ (a b c d e p q : Prop) (f : (a ∧ p) ∧ ((q ∧ (c ∧ (e ∧ d))) ∧ ((d ∧ b) ∧ (e ∧ c))) → Prop)
     (_ : a ∧ e) (_ : b) (_ : c ∧ d) (h : (a ∧ p) ∧ ((q ∧ (c ∧ (e ∧ d))) ∧ ((d ∧ b) ∧ (e ∧ c)))), f h ===>
   ∀ (a b c d e p q : Prop) (f : (a ∧ p) ∧ ((q ∧ (c ∧ (d ∧ e))) ∧ ((b ∧ d) ∧ (c ∧ e))) → Prop)
@@ -384,7 +384,7 @@ namespace Test.HypReduction
 --      (And.intro (And.left (And.left h4)) (And.intro (And.right (And.left h4)) h3))
 --      (And.intro (And.right (And.right h4)) (And.intro (And.left h1) (And.intro (And.left (And.right h4)) (And.right h1)))))
 -- Test cases considering proof reconstruction based on multiple premises.
-#testOptimize [ "HypReduction_44" ]
+#testOptimize [ "HypReduction_44", proof ]
   ∀ (a b c d e p q : Prop) (f : (a ∧ (b ∧ (c ∧ d))) ∧ (p ∧ (e ∧ (b ∧ q))) → Prop)
     (_ : q ∧ e) (_ : c ∧ d) (h : (a ∧ (b ∧ (c ∧ d))) ∧ (p ∧ (e ∧ (b ∧ q)))), f h ===>
   ∀ (a b c d e p q : Prop) (f : (a ∧ (b ∧ (c ∧ d))) ∧ (p ∧ (e ∧ (b ∧ q))) → Prop)
@@ -400,7 +400,7 @@ namespace Test.HypReduction
 --   f (And.intro (And.left h4)
 --     (And.intro (And.right (And.right h4)) (And.intro (And.left (And.right h4)) (And.right h1))))
 -- Test cases considering proof reconstruction when True appears in original hypothesis
-#testOptimize [ "HypReduction_45" ]
+#testOptimize [ "HypReduction_45", proof ]
   ∀ (a b e p q : Prop) (f : (a ∧ (b ∧ True)) ∧ (p ∧ (True ∧ (b ∧ q))) → Prop)
     (_ : q ∧ e) (h : (a ∧ (b ∧ True)) ∧ (p ∧ (True ∧ (b ∧ q)))), f h ===>
   ∀ (a b e p q : Prop) (f : (a ∧ b) ∧ (p ∧ (b ∧ q)) → Prop)
@@ -447,7 +447,7 @@ namespace Test.HypReduction
 -- ∀ (a b c : Prop) (x y z : Int) (f : ¬ (z < x) → Int → Int) [Decidable a], (a ∧ c ∧ x < z) → b →
 --   (if h : z < x then x else f h y) > z →
 --   (if h : a ∧ ¬ z < x then f (And.right h) y else x) > z ===> True
-#testOptimize [ "HypReduction_49" ]
+#testOptimize [ "HypReduction_49", proof ]
   ∀ (a b c : Prop) (x y z : Int) (f : ¬ (z < x) → Int → Int) [Decidable a], (a ∧ c ∧ x < z) → b →
     (if h : z < x then x else f h y) > z →
     (if h : a ∧ ¬ z < x then f (And.right h) y else x) > z ===> True
@@ -455,7 +455,7 @@ namespace Test.HypReduction
 -- ∀ (a b c : Prop) (x y z : Int) (f : ¬ (z < x) → Int → Int) [Decidable c], (a ∧ c ∧ x < z) → b →
 --   (if h : z < x then x else f h y) > z →
 --   (if h : (¬ c) ∨ z < x then x else f (And.right (Blaster.and_not_from_not_or h)) y) > z ===> True
-#testOptimize [ "HypReduction_50" ]
+#testOptimize [ "HypReduction_50", proof ]
   ∀ (a b c : Prop) (x y z : Int) (f : ¬ (z < x) → Int → Int) [Decidable c], (a ∧ c ∧ x < z) → b →
     (if h : z < x then x else f h y) > z →
     (if h : (¬ c) ∨ z < x then x else f (And.right (Blaster.and_not_from_not_or h)) y) > z ===> True
@@ -463,20 +463,20 @@ namespace Test.HypReduction
 -- ∀ (a b c : Prop) (x y z : Int) (f : x < z → Int → Int) [Decidable c], (a ∧ c ∧ x < z) → b →
 --   (if h : x < z then f h y else x) > z →
 --   (if h : c ∧ x < z then f (And.right h) y else x) > z ===> True
-#testOptimize [ "HypReduction_51" ]
+#testOptimize [ "HypReduction_51", proof ]
   ∀ (a b c : Prop) (x y z : Int) (f : x < z → Int → Int) [Decidable c], (a ∧ c ∧ x < z) → b →
     (if h : x < z then f h y else x) > z →
     (if h : c ∧ x < z then f (And.right h) y else x) > z ===> True
 
 -- ∀ (a b c d : Prop), (a → b) → c → (a → b) → d ===>
 -- ∀ (a b c d : Prop), (a → b) → c → d
-#testOptimize [ "HypReduction_52" ]
+#testOptimize [ "HypReduction_52", proof ]
   ∀ (a b c d : Prop), (a → b) → c → (a → b) → d ===>
   ∀ (a b c d : Prop), (a → b) → c → d
 
 -- ∀ (a b c d e f : Prop), (a ∧ e) → b → (c ∧ d) → (a ∧ b ∧ d) → f ===>
 -- ∀ (a b c d e f : Prop), (a ∧ e) → b → (c ∧ d) → f
-#testOptimize [ "HypReduction_53" ]
+#testOptimize [ "HypReduction_53", proof ]
   ∀ (a b c d e f : Prop), (a ∧ e) → b → (c ∧ d) → (a ∧ b ∧ d) → f ===>
   ∀ (a b c d e f : Prop), (a ∧ e) → b → (c ∧ d) → f
 
@@ -528,7 +528,7 @@ namespace Test.HypReduction
 --      (And.intro (And.left h4) (And.intro (And.right h4) h3))
 --      (Or.inr (And.intro (And.left h1) (Or.inl (And.right h4)))))
 -- Test cases mixing proof reconstuction for conjunction and disjunction based on multiple premises.
-#testOptimize [ "HypReduction_56" ]
+#testOptimize [ "HypReduction_56", proof ]
   ∀ (a b c d e p q : Prop) (f : (a ∧ (b ∧ (c ∧ d))) ∧ (p ∨ (e ∧ (b ∨ q))) → Prop)
     (_ : q ∧ e) (_ : c ∧ d) (h : (a ∧ (b ∧ (c ∧ d))) ∧ (p ∨ (e ∧ (b ∨ q)))), f h ===>
   ∀ (a b c d e p q : Prop) (f : (a ∧ (b ∧ (c ∧ d))) ∧ (p ∨ (e ∧ (b ∨ q))) → Prop)
@@ -724,68 +724,68 @@ def elemStringSize (xs : List String) (x y : String) (h : x ≤ y) : Nat :=
 
 -- ∀ (a b c : Prop), a → (c → b) ===>
 -- ∀ (a b c : Prop), a → (c → b)
-#testOptimize [ "HypReductionUnchanged_1" ]
+#testOptimize [ "HypReductionUnchanged_1", proof ]
   ∀ (a b c : Prop), a → (c → b) ===>
   ∀ (a b c : Prop), a → (c → b)
 
 -- ∀ (a b c d : Prop), (a ∧ c) → (d → b) ===>
 -- ∀ (a b c d : Prop), (a ∧ c) → (d → b)
-#testOptimize [ "HypReductionUnchanged_2" ]
+#testOptimize [ "HypReductionUnchanged_2", proof ]
   ∀ (a b c d : Prop), (a ∧ c) → (d → b) ===>
   ∀ (a b c d : Prop), (a ∧ c) → (d → b)
 
 -- ∀ (x y z : Int) (b : Prop), x = z → (x ≤ y → b) ===>
 -- ∀ (x y z : Int) (b : Prop), x = z → (¬ (y < x) → b)
-#testOptimize [ "HypReductionUnchanged_3" ]
+#testOptimize [ "HypReductionUnchanged_3", proof ]
   ∀ (x y z : Int) (b : Prop), x = z → (x ≤ y → b) ===>
   ∀ (x y z : Int) (b : Prop), x = z → (¬ (y < x) → b)
 
 -- ∀ (x y z : Int) (b : Prop), x < z → (x ≤ y → b) ===>
 -- ∀ (x y z : Int) (b : Prop), x < z → (¬ (y < x) → b)
-#testOptimize [ "HypReductionUnchanged_4" ]
+#testOptimize [ "HypReductionUnchanged_4", proof ]
   ∀ (x y z : Int) (b : Prop), x < z → (x ≤ y → b) ===>
   ∀ (x y z : Int) (b : Prop), x < z → (¬ (y < x) → b)
 
 
 -- ∀ (x y z : Nat) (b : Prop), x = z → (x ≤ y → b) ===>
 -- ∀ (x y z : Nat) (b : Prop), x = z → (¬ (y < x) → b)
-#testOptimize [ "HypReductionUnchanged_5" ]
+#testOptimize [ "HypReductionUnchanged_5", proof ]
   ∀ (x y z : Nat) (b : Prop), x = z → (x ≤ y → b) ===>
   ∀ (x y z : Nat) (b : Prop), x = z → (¬ (y < x) → b)
 
 -- ∀ (x y z : Nat) (b : Prop), x < z → (x ≤ y → b) ===>
 -- ∀ (x y z : Nat) (b : Prop), x < z → (¬ (y < x) → b)
-#testOptimize [ "HypReductionUnchanged_6" ]
+#testOptimize [ "HypReductionUnchanged_6", proof ]
   ∀ (x y z : Nat) (b : Prop), x < z → (x ≤ y → b) ===>
   ∀ (x y z : Nat) (b : Prop), x < z → (¬ (y < x) → b)
 
 -- ∀ (x y z : Int) (a b c : Prop), (a ∧ x = z) → c → (x ≤ y → b) ===>
 -- ∀ (x y z : Int) (a b c : Prop), (a ∧ x = z) → c → (¬ (y < x) → b)
-#testOptimize [ "HypReductionUnchanged_7" ]
+#testOptimize [ "HypReductionUnchanged_7", proof ]
   ∀ (x y z : Int) (a b c : Prop), (a ∧ x = z) → c → (x ≤ y → b) ===>
   ∀ (x y z : Int) (a b c : Prop), (a ∧ x = z) → c → (¬ (y < x) → b)
 
 -- ∀ (x y z : Int) (a b c : Prop), (x < z ∧ a) → c → (x ≤ y → b) ===>
 -- ∀ (x y z : Int) (a b c : Prop), (a ∧ x < z) → c → (¬ (y < x) → b)
-#testOptimize [ "HypReductionUnchanged_8" ]
+#testOptimize [ "HypReductionUnchanged_8", proof ]
   ∀ (x y z : Int) (a b c : Prop), (x < z ∧ a) → c → (x ≤ y → b) ===>
   ∀ (x y z : Int) (a b c : Prop), (a ∧ x < z) → c → (¬ (y < x) → b)
 
 -- ∀ (x y z : Nat) (a b c : Prop), (a ∧ x = z) → c → (x ≤ y → b) ===>
 -- ∀ (x y z : Nat) (a b c : Prop), (a ∧ x = z) → c → (¬ (y < x) → b)
-#testOptimize [ "HypReductionUnchanged_9" ]
+#testOptimize [ "HypReductionUnchanged_9", proof ]
   ∀ (x y z : Nat) (a b c : Prop), (a ∧ x = z) → c → (x ≤ y → b) ===>
   ∀ (x y z : Nat) (a b c : Prop), (a ∧ x = z) → c → (¬ (y < x) → b)
 
 -- ∀ (x y z : Nat) (a b c : Prop), (x < z ∧ a) → c → (x ≤ y → b) ===>
 -- ∀ (x y z : Nat) (a b c : Prop), (a ∧ x < z) → c → (¬ (y < x) → b)
-#testOptimize [ "HypReductionUnchanged_10" ]
+#testOptimize [ "HypReductionUnchanged_10", proof ]
   ∀ (x y z : Nat) (a b c : Prop), (x < z ∧ a) → c → (x ≤ y → b) ===>
   ∀ (x y z : Nat) (a b c : Prop), (a ∧ x < z) → c → (¬ (y < x) → b)
 
 -- ∀ (a b c d : Prop), (a → b) → c → (b → d) → d ===>
 -- ∀ (a b c d : Prop), (a → b) → c → (b → d) → d
-#testOptimize [ "HypReductionUnchanged_11" ]
+#testOptimize [ "HypReductionUnchanged_11", proof ]
   ∀ (a b c d : Prop), (a → b) → c → (b → d) → d ===>
   ∀ (a b c d : Prop), (a → b) → c → (b → d) → d
 
@@ -793,7 +793,7 @@ def elemStringSize (xs : List String) (x y : String) (h : x ≤ y) : Nat :=
 --   (a ∧ c) → b → (if (d ∧ b) then x else y) > z ===>
 -- ∀ (a b c d : Prop) (x y z : Int), (a ∧ c) → b →
 --   z < Blaster.dite' d (fun _ => x) (fun _ => y)
-#testOptimize [ "HypReductionUnchanged_12" ]
+#testOptimize [ "HypReductionUnchanged_12", proof ]
   ∀ (a b c d : Prop) (x y z : Int) [Decidable d] [Decidable b],
     (a ∧ c) → b → (if (d ∧ b) then x else y) > z ===>
   ∀ (a b c d : Prop) (x y z : Int), (a ∧ c) → b →
@@ -801,61 +801,61 @@ def elemStringSize (xs : List String) (x y : String) (h : x ≤ y) : Nat :=
 
 -- ∀ (a b : Prop) (f : b → Prop) (_ : a) (h : b), f h ===>
 -- ∀ (a b : Prop) (f : b → Prop) (_ : a) (h : b), f h
-#testOptimize [ "HypReductionUnchanged_13" ]
+#testOptimize [ "HypReductionUnchanged_13", proof ]
   ∀ (a b : Prop) (f : b → Prop) (_ : a) (h : b), f h ===>
   ∀ (a b : Prop) (f : b → Prop) (_ : a) (h : b), f h
 
 -- ∀ (a c b : Prop) (f : b → Prop) (_ : a ∧ c) (h : b), f h ===>
 -- ∀ (a c b : Prop) (f : b → Prop) (_ : a ∧ c) (h : b), f h
-#testOptimize [ "HypReductionUnchanged_14" ]
+#testOptimize [ "HypReductionUnchanged_14", proof ]
   ∀ (a c b : Prop) (f : b → Prop) (_ : a ∧ c) (h : b), f h ===>
   ∀ (a c b : Prop) (f : b → Prop) (_ : a ∧ c) (h : b), f h
 
 -- ∀ (x y z : Int) (f : x ≤ y → Prop) (_ : x < z) (h : x ≤ y), f h ===>
 -- ∀ (x y z : Int) (f : ¬ (y < x) → Prop) (_ : x < z) (h : ¬ y < x), f h
-#testOptimize [ "HypReductionUnchanged_15" ]
+#testOptimize [ "HypReductionUnchanged_15", proof ]
   ∀ (x y z : Int) (f : x ≤ y → Prop) (_ : x < z) (h : x ≤ y), f h ===>
   ∀ (x y z : Int) (f : ¬ (y < x) → Prop) (_ : x < z) (h : ¬ y < x), f h
 
 -- ∀ (x y z : Int) (f : x ≤ y → Prop) (_ : x = z) (h : x ≤ y), f h ===>
 -- ∀ (x y z : Int) (f : ¬ (y < x) → Prop) (_ : x = z) (h : ¬ y < x), f h
-#testOptimize [ "HypReductionUnchanged_16" ]
+#testOptimize [ "HypReductionUnchanged_16", proof ]
   ∀ (x y z : Int) (f : x ≤ y → Prop) (_ : x = z) (h : x ≤ y), f h ===>
   ∀ (x y z : Int) (f : ¬ (y < x) → Prop) (_ : x = z) (h : ¬ y < x), f h
 
 -- ∀ (x y z : Nat) (f : x ≤ y → Prop) (_ : x < z) (h : x ≤ y), f h ===>
 -- ∀ (x y z : Nat) (f : ¬ (y < x) → Prop) (_ : x < z) (h : ¬ y < x), f h
-#testOptimize [ "HypReductionUnchanged_15" ]
+#testOptimize [ "HypReductionUnchanged_15", proof ]
   ∀ (x y z : Nat) (f : x ≤ y → Prop) (_ : x < z) (h : x ≤ y), f h ===>
   ∀ (x y z : Nat) (f : ¬ (y < x) → Prop) (_ : x < z) (h : ¬ y < x), f h
 
 -- ∀ (x y z : Nat) (f : x ≤ y → Prop) (_ : x = z) (h : x ≤ y), f h ===>
 -- ∀ (x y z : Nat) (f : ¬ (y < x) → Prop) (_ : x = z) (h : ¬ y < x), f h
-#testOptimize [ "HypReductionUnchanged_16" ]
+#testOptimize [ "HypReductionUnchanged_16", proof ]
   ∀ (x y z : Nat) (f : x ≤ y → Prop) (_ : x = z) (h : x ≤ y), f h ===>
   ∀ (x y z : Nat) (f : ¬ (y < x) → Prop) (_ : x = z) (h : ¬ y < x), f h
 
 -- ∀ (x y z : Int) (a c : Prop) (f : x ≤ y → Prop) (_ : a ∧ x = z) (_ : c) (h : x ≤ y), f h ===>
 -- ∀ (x y z : Int) (a c : Prop) (f : ¬ y < x → Prop) (_ : a ∧ x = z) (_ : c) (h : ¬ y < x), f h
-#testOptimize [ "HypReductionUnchanged_17" ]
+#testOptimize [ "HypReductionUnchanged_17", proof ]
   ∀ (x y z : Int) (a c : Prop) (f : x ≤ y → Prop) (_ : a ∧ x = z) (_ : c) (h : x ≤ y), f h ===>
   ∀ (x y z : Int) (a c : Prop) (f : ¬ y < x → Prop) (_ : a ∧ x = z) (_ : c) (h : ¬ y < x), f h
 
 -- ∀ (x y z : Int) (a c : Prop) (f : x ≤ y → Prop) (_ : x < z ∧ a) (_ : c) (h : x ≤ y), f h ===>
 -- ∀ (x y z : Int) (a c : Prop) (f : ¬ y < x → Prop) (_ : a ∧ x < z) (_ : c) (h : ¬ y < x), f h
-#testOptimize [ "HypReductionUnchanged_18" ]
+#testOptimize [ "HypReductionUnchanged_18", proof ]
   ∀ (x y z : Int) (a c : Prop) (f : x ≤ y → Prop) (_ : x < z ∧ a) (_ : c) (h : x ≤ y), f h ===>
   ∀ (x y z : Int) (a c : Prop) (f : ¬ y < x → Prop) (_ : a ∧ x < z) (_ : c) (h : ¬ y < x), f h
 
 -- ∀ (x y z : Nat) (a c : Prop) (f : x ≤ y → Prop) (_ : a ∧ x = z) (_ : c) (h : x ≤ y), f h ===>
 -- ∀ (x y z : Nat) (a c : Prop) (f : ¬ y < x → Prop) (_ : a ∧ x = z) (_ : c) (h : ¬ y < x), f h
-#testOptimize [ "HypReductionUnchanged_19" ]
+#testOptimize [ "HypReductionUnchanged_19", proof ]
   ∀ (x y z : Nat) (a c : Prop) (f : x ≤ y → Prop) (_ : a ∧ x = z) (_ : c) (h : x ≤ y), f h ===>
   ∀ (x y z : Nat) (a c : Prop) (f : ¬ y < x → Prop) (_ : a ∧ x = z) (_ : c) (h : ¬ y < x), f h
 
 -- ∀ (x y z : Nat) (a c : Prop) (f : x ≤ y → Prop) (_ : x < z ∧ a) (_ : c) (h : x ≤ y), f h ===>
 -- ∀ (x y z : Nat) (a c : Prop) (f : ¬ y < x → Prop) (_ : a ∧ x < z) (_ : c) (h : ¬ y < x), f h
-#testOptimize [ "HypReductionUnchanged_20" ]
+#testOptimize [ "HypReductionUnchanged_20", proof ]
   ∀ (x y z : Nat) (a c : Prop) (f : x ≤ y → Prop) (_ : x < z ∧ a) (_ : c) (h : x ≤ y), f h ===>
   ∀ (x y z : Nat) (a c : Prop) (f : ¬ y < x → Prop) (_ : a ∧ x < z) (_ : c) (h : ¬ y < x), f h
 
@@ -864,7 +864,7 @@ def elemStringSize (xs : List String) (x y : String) (h : x ≤ y) : Nat :=
 --   (a ∧ c) → b → (if h : d then f h x else y) > z ===>
 -- ∀ (a b c d : Prop) (x y z : Int) (f : d → Int → Int) (_ : a ∧ c) (_ : b),
 --   z < Blaster.dite' d (fun h => f h x) (fun _ => y)
-#testOptimize [ "HypReductionUnchanged_21" ]
+#testOptimize [ "HypReductionUnchanged_21", proof ]
   ∀ (a b c d : Prop) (x y z : Int) (f : d → Int → Int) [Decidable d],
     (a ∧ c) → b → (if h : d then f h x else y) > z ===>
   ∀ (a b c d : Prop) (x y z : Int) (f : d → Int → Int) (_ : a ∧ c) (_ : b),
@@ -874,7 +874,7 @@ def elemStringSize (xs : List String) (x y : String) (h : x ≤ y) : Nat :=
 --   (a ∧ c ∧ x < z) → b → (if h : z < y then x else f h y) > z ===>
 -- ∀ (a b c : Prop) (x y z : Int) (f : ¬ (z < y) → Int → Int) (_: a ∧ c ∧ x < z) (_ : b),
 --   z < Blaster.dite' (z < y) (fun _ => x) (fun h => f h y)
-#testOptimize [ "HypReductionUnchanged_22" ]
+#testOptimize [ "HypReductionUnchanged_22", proof ]
   ∀ (a b c : Prop) (x y z : Int) (f : ¬ (z < y) → Int → Int),
     (a ∧ c ∧ x < z) → b → (if h : z < y then x else f h y) > z ===>
   ∀ (a b c : Prop) (x y z : Int) (f : ¬ (z < y) → Int → Int) (_: a ∧ c ∧ x < z) (_ : b),
@@ -885,7 +885,7 @@ def elemStringSize (xs : List String) (x y : String) (h : x ≤ y) : Nat :=
 --   (a ∧ c ∧ x = z) → b → (if h : z < y then x else f h y) > z ===>
 -- ∀ (a b c : Prop) (x y z : Int) (f : ¬ (z < y) → Int → Int) (_ : a ∧ c ∧ x = z) (_ : b),
 --   z < Blaster.dite' (z < y) (fun _ => x) (fun h => f h y)
-#testOptimize [ "HypReductionUnchanged_23" ]
+#testOptimize [ "HypReductionUnchanged_23", proof ]
   ∀ (a b c : Prop) (x y z : Int) (f : ¬ (z < y) → Int → Int),
     (a ∧ c ∧ x = z) → b → (if h : z < y then x else f h y) > z ===>
   ∀ (a b c : Prop) (x y z : Int) (f : ¬ (z < y) → Int → Int) (_ : a ∧ c ∧ x = z) (_ : b),

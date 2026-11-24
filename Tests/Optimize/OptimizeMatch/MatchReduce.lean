@@ -121,7 +121,7 @@ def namedPatternList (x : List Int) (y : List Nat) : Nat :=
  | s, t => List.length s + List.length t + 8
 
 -- ∀ (x1 x2 x3 : Int) (y1 y2 y3 : Nat), namedPatternList [x1, x2, x3] [y1, y2, y3] = 6 ===> True
-#testOptimize [ "MatchReduce_11" ]
+#testOptimize [ "MatchReduce_11", proof ]
   ∀ (x1 x2 x3 x4 : Int) (y1 y2 y3 : Nat), namedPatternList [x1, x2, x3, x4] [y1, y2, y3] = y3 * 5 ===> True
 
 inductive Color where
@@ -161,7 +161,7 @@ def isSomeRed (x : Option Color) : Option Color :=
 
 variable (x : Color)
 -- isSomeRed (some (.red x)) ===> some x
-#testOptimize [ "MatchReduce_13" ] isSomeRed (some (.red x)) ===> some x
+#testOptimize [ "MatchReduce_13", proof ] isSomeRed (some (.red x)) ===> some x
 
 
 def isBlue (x : Color) : Prop :=
@@ -170,7 +170,7 @@ def isBlue (x : Color) : Prop :=
   | _  => False
 
 -- isBlue (.red x) ===> False
-#testOptimize [ "MatchReduce_14" ] isBlue (.red x) ===> False
+#testOptimize [ "MatchReduce_14", proof ] isBlue (.red x) ===> False
 
 
 def isRed (x : Color) : Prop :=
@@ -206,11 +206,11 @@ def filterStringTwo (s : String) : Nat :=
   | _ => 5
 
 -- filterStringTwo "abc" ===> 294
-#testOptimize [ "MatchReduce_17" ] (norm-result: 1)
+#testOptimize [ "MatchReduce_17", proof ] (norm-result: 1)
   filterStringTwo "abc" ===> 294
 
 -- filterStringTwo "abcd" ===> 394
-#testOptimize [ "MatchReduce_18" ] (norm-result: 1)
+#testOptimize [ "MatchReduce_18", proof ] (norm-result: 1)
   filterStringTwo "abcd" ===> 394
 
 def filterStringThree (s : String) : Nat :=
@@ -222,19 +222,19 @@ def filterStringThree (s : String) : Nat :=
        | _ => 200
 
 -- filterStringThree "" ===> 200
-#testOptimize [ "MatchReduce_19" ] (norm-result: 1)
+#testOptimize [ "MatchReduce_19", proof ] (norm-result: 1)
   filterStringThree "" ===> 200
 
 -- filterStringThree "a" ===> 97
-#testOptimize [ "MatchReduce_20" ] (norm-result: 1)
+#testOptimize [ "MatchReduce_20", proof ] (norm-result: 1)
   filterStringThree "a" ===> 97
 
 -- filterStringThree "abc" ===> 294
-#testOptimize [ "MatchReduce_21" ] (norm-result: 1)
+#testOptimize [ "MatchReduce_21", proof ] (norm-result: 1)
   filterStringThree "abc" ===> 294
 
 -- filterStringThree (String.mk [c1, c2, c3]) = Nat.add (Nat.add c1.toNat c2.toNat) c3.toNat ===> True
-#testOptimize [ "MatchReduce_22" ] (norm-result: 1)
+#testOptimize [ "MatchReduce_22", proof ] (norm-result: 1)
   filterStringThree (String.mk [c1, c2, c3]) = Nat.add (Nat.add c1.toNat c2.toNat) c3.toNat ===> True
 
 
@@ -435,7 +435,7 @@ variable (sx : Option Color)
 --   match sx with
 --   | some (.red y) => some y
 --   | _ => none
-#testOptimize [ "MatchReduceUnchanged_7" ]
+#testOptimize [ "MatchReduceUnchanged_7", proof ]
   isSomeRed sx ===>
     match sx with
     | some (.red y) => some y
@@ -445,7 +445,7 @@ variable (sx : Option Color)
 --   match (some x) with
 --   | some (.red y) => some y
 --   | _ => none
-#testOptimize [ "MatchReduceUnchanged_8" ]
+#testOptimize [ "MatchReduceUnchanged_8", proof ]
   isSomeRed (some x) ===>
     match (some x) with
     | some (.red y) => some y
@@ -460,7 +460,7 @@ def isSomeRedBlue (x : Option Color) (y : Color) : Prop :=
 --   match some x, (Color.blue x) with
 --   | some (.red _), .blue _ => True
 --   | _, _ => False
-#testOptimize [ "MatchReduceUnchanged_9" ]
+#testOptimize [ "MatchReduceUnchanged_9", proof ]
   isSomeRedBlue (some x) (.blue x) ===>
     match some x, (Color.blue x) with
     | some (.red _), .blue _ => True
@@ -478,7 +478,7 @@ def isSomeColorAndBlue (x : Option Color) (y : Color) : Prop :=
 --   | some (.red _), .blue _ => True
 --   | some (_), .blue _ => True
 --   | _, _ => False
-#testOptimize [ "MatchReduceUnchanged_10" ]
+#testOptimize [ "MatchReduceUnchanged_10", proof ]
   isSomeColorAndBlue (some x) (.blue x) ===>
     match some x, (Color.blue x) with
     | some (.red _), .blue _ => True
@@ -606,18 +606,18 @@ def natLit (x : Nat) : Nat :=
   | k + 2 => k
 
 -- literal pattern hit
-#testOptimize [ "MatchReduce_26" ] natLit 0 = 100 ===> True
-#testOptimize [ "MatchReduce_27" ] natLit 1 = 101 ===> True
-#testOptimize [ "MatchReduce_28" ] natLit 5 = 105 ===> True
+#testOptimize [ "MatchReduce_26", proof ] natLit 0 = 100 ===> True
+#testOptimize [ "MatchReduce_27", proof ] natLit 1 = 101 ===> True
+#testOptimize [ "MatchReduce_28", proof ] natLit 5 = 105 ===> True
 -- offset pattern `k + 2`: literal ≥ offset binds `k := lit - 2`
-#testOptimize [ "MatchReduce_29" ] natLit 2 = 0 ===> True
-#testOptimize [ "MatchReduce_30" ] natLit 7 = 5 ===> True
+#testOptimize [ "MatchReduce_29", proof ] natLit 2 = 0 ===> True
+#testOptimize [ "MatchReduce_30", proof ] natLit 7 = 5 ===> True
 -- `Nat.succ` / `Nat.zero` spelled discriminators normalize to literals
-#testOptimize [ "MatchReduce_31" ] natLit (Nat.succ (Nat.succ (Nat.succ Nat.zero))) = 1 ===> True
-#testOptimize [ "MatchReduce_32" ] natLit Nat.zero = 100 ===> True
+#testOptimize [ "MatchReduce_31", proof ] natLit (Nat.succ (Nat.succ (Nat.succ Nat.zero))) = 1 ===> True
+#testOptimize [ "MatchReduce_32", proof ] natLit Nat.zero = 100 ===> True
 -- off-by-one must be refuted
-#testOptimize [ "MatchReduce_33" ] natLit 7 = 6 ===> False
-#testOptimize [ "MatchReduce_34" ] natLit 5 = 3 ===> False
+#testOptimize [ "MatchReduce_33", proof ] natLit 7 = 6 ===> False
+#testOptimize [ "MatchReduce_34", proof ] natLit 5 = 3 ===> False
 
 -- named patterns on Nat: the alias must be bound to the normalized (literal) value
 def natNamed (x : Nat) : Nat :=
@@ -626,12 +626,12 @@ def natNamed (x : Nat) : Nat :=
   | m@(k + 3) => m * k
   | m@(k + 1) => m + k
 
-#testOptimize [ "MatchReduce_35" ] natNamed 0 = 50 ===> True
-#testOptimize [ "MatchReduce_36" ] natNamed 7 = 28 ===> True
-#testOptimize [ "MatchReduce_37" ] natNamed 3 = 0 ===> True
-#testOptimize [ "MatchReduce_38" ] natNamed 2 = 3 ===> True
-#testOptimize [ "MatchReduce_39" ] natNamed 1 = 1 ===> True
-#testOptimize [ "MatchReduce_40" ] natNamed 7 = 21 ===> False
+#testOptimize [ "MatchReduce_35", proof ] natNamed 0 = 50 ===> True
+#testOptimize [ "MatchReduce_36", proof ] natNamed 7 = 28 ===> True
+#testOptimize [ "MatchReduce_37", proof ] natNamed 3 = 0 ===> True
+#testOptimize [ "MatchReduce_38", proof ] natNamed 2 = 3 ===> True
+#testOptimize [ "MatchReduce_39", proof ] natNamed 1 = 1 ===> True
+#testOptimize [ "MatchReduce_40", proof ] natNamed 7 = 21 ===> False
 
 def intLit (x : Int) : Nat :=
   match x with
@@ -643,29 +643,29 @@ def intLit (x : Int) : Nat :=
   | .negSucc (k + 1) => 2 * k
 
 -- `Int.ofNat` literal patterns
-#testOptimize [ "MatchReduce_41" ] intLit 0 = 200 ===> True
-#testOptimize [ "MatchReduce_42" ] intLit 3 = 203 ===> True
-#testOptimize [ "MatchReduce_43" ] intLit (Int.ofNat 3) = 203 ===> True
+#testOptimize [ "MatchReduce_41", proof ] intLit 0 = 200 ===> True
+#testOptimize [ "MatchReduce_42", proof ] intLit 3 = 203 ===> True
+#testOptimize [ "MatchReduce_43", proof ] intLit (Int.ofNat 3) = 203 ===> True
 -- `Int.ofNat (k + 1)` offset pattern
-#testOptimize [ "MatchReduce_44" ] intLit 1 = 0 ===> True
-#testOptimize [ "MatchReduce_45" ] intLit 7 = 6 ===> True
-#testOptimize [ "MatchReduce_46" ] intLit (Int.ofNat 7) = 6 ===> True
+#testOptimize [ "MatchReduce_44", proof ] intLit 1 = 0 ===> True
+#testOptimize [ "MatchReduce_45", proof ] intLit 7 = 6 ===> True
+#testOptimize [ "MatchReduce_46", proof ] intLit (Int.ofNat 7) = 6 ===> True
 -- `Int.negSucc` literal patterns: `-1 = Int.negSucc 0`, `-5 = Int.negSucc 4`
-#testOptimize [ "MatchReduce_47" ] intLit (-1) = 300 ===> True
-#testOptimize [ "MatchReduce_48" ] intLit (-5) = 304 ===> True
-#testOptimize [ "MatchReduce_49" ] intLit (Int.negSucc 0) = 300 ===> True
-#testOptimize [ "MatchReduce_50" ] intLit (Int.negSucc 4) = 304 ===> True
+#testOptimize [ "MatchReduce_47", proof ] intLit (-1) = 300 ===> True
+#testOptimize [ "MatchReduce_48", proof ] intLit (-5) = 304 ===> True
+#testOptimize [ "MatchReduce_49", proof ] intLit (Int.negSucc 0) = 300 ===> True
+#testOptimize [ "MatchReduce_50", proof ] intLit (Int.negSucc 4) = 304 ===> True
 -- `Int.negSucc (k + 1)` offset pattern: `-7 = Int.negSucc 6`, so `k := 5`
-#testOptimize [ "MatchReduce_51" ] intLit (-2) = 0 ===> True
-#testOptimize [ "MatchReduce_52" ] intLit (-7) = 10 ===> True
-#testOptimize [ "MatchReduce_53" ] intLit (Int.negSucc 6) = 10 ===> True
+#testOptimize [ "MatchReduce_51", proof ] intLit (-2) = 0 ===> True
+#testOptimize [ "MatchReduce_52", proof ] intLit (-7) = 10 ===> True
+#testOptimize [ "MatchReduce_53", proof ] intLit (Int.negSucc 6) = 10 ===> True
 -- negative literal obtained through constant folding
-#testOptimize [ "MatchReduce_54" ] intLit (0 - 7) = 10 ===> True
-#testOptimize [ "MatchReduce_55" ] intLit (-0) = 200 ===> True
+#testOptimize [ "MatchReduce_54", proof ] intLit (0 - 7) = 10 ===> True
+#testOptimize [ "MatchReduce_55", proof ] intLit (-0) = 200 ===> True
 -- off-by-one must be refuted
 #testOptimize [ "MatchReduce_56" ] intLit (-7) = 8 ===> False
 #testOptimize [ "MatchReduce_57" ] intLit (-5) = 6 ===> False
-#testOptimize [ "MatchReduce_58" ] intLit 7 = 7 ===> False
+#testOptimize [ "MatchReduce_58", proof ] intLit 7 = 7 ===> False
 
 -- named patterns on Int, on the whole discriminator and on the constructor argument
 def intNamed (x : Int) : Nat :=
@@ -677,16 +677,16 @@ def intNamed (x : Int) : Nat :=
   | .negSucc m@(k + 2) => m * k
   | p@(.negSucc m) => p.natAbs + m
 
-#testOptimize [ "MatchReduce_59" ] intNamed 2 = 12 ===> True
-#testOptimize [ "MatchReduce_60" ] intNamed 7 = 28 ===> True
-#testOptimize [ "MatchReduce_61" ] intNamed 3 = 0 ===> True
-#testOptimize [ "MatchReduce_62" ] intNamed 1 = 2 ===> True
-#testOptimize [ "MatchReduce_63" ] intNamed 0 = 0 ===> True
-#testOptimize [ "MatchReduce_64" ] intNamed (-3) = 23 ===> True
-#testOptimize [ "MatchReduce_65" ] intNamed (-7) = 24 ===> True
-#testOptimize [ "MatchReduce_66" ] intNamed (-4) = 3 ===> True
-#testOptimize [ "MatchReduce_67" ] intNamed (-2) = 3 ===> True
-#testOptimize [ "MatchReduce_68" ] intNamed (-1) = 1 ===> True
+#testOptimize [ "MatchReduce_59", proof ] intNamed 2 = 12 ===> True
+#testOptimize [ "MatchReduce_60", proof ] intNamed 7 = 28 ===> True
+#testOptimize [ "MatchReduce_61", proof ] intNamed 3 = 0 ===> True
+#testOptimize [ "MatchReduce_62", proof ] intNamed 1 = 2 ===> True
+#testOptimize [ "MatchReduce_63", proof ] intNamed 0 = 0 ===> True
+#testOptimize [ "MatchReduce_64", proof ] intNamed (-3) = 23 ===> True
+#testOptimize [ "MatchReduce_65", proof ] intNamed (-7) = 24 ===> True
+#testOptimize [ "MatchReduce_66", proof ] intNamed (-4) = 3 ===> True
+#testOptimize [ "MatchReduce_67", proof ] intNamed (-2) = 3 ===> True
+#testOptimize [ "MatchReduce_68", proof ] intNamed (-1) = 1 ===> True
 #testOptimize [ "MatchReduce_69" ] intNamed (-7) = 30 ===> False
 #testOptimize [ "MatchReduce_70" ] intNamed (-2) = 2 ===> False
 
@@ -699,14 +699,14 @@ def mixedLit (x : Nat) (y : Int) : Nat :=
   | k, .ofNat (m + 3) => k * m
   | _, _ => 0
 
-#testOptimize [ "MatchReduce_71" ] mixedLit 0 (-1) = 1 ===> True
-#testOptimize [ "MatchReduce_72" ] mixedLit 3 (-7) = 8 ===> True
-#testOptimize [ "MatchReduce_73" ] mixedLit 2 5 = 5 ===> True
-#testOptimize [ "MatchReduce_74" ] mixedLit 4 10 = 28 ===> True
+#testOptimize [ "MatchReduce_71", proof ] mixedLit 0 (-1) = 1 ===> True
+#testOptimize [ "MatchReduce_72", proof ] mixedLit 3 (-7) = 8 ===> True
+#testOptimize [ "MatchReduce_73", proof ] mixedLit 2 5 = 5 ===> True
+#testOptimize [ "MatchReduce_74", proof ] mixedLit 4 10 = 28 ===> True
 -- `Int.ofNat 2` does not unify with `Int.ofNat (m + 3)` (literal < offset)
-#testOptimize [ "MatchReduce_75" ] mixedLit 1 2 = 0 ===> True
+#testOptimize [ "MatchReduce_75", proof ] mixedLit 1 2 = 0 ===> True
 -- `Int.negSucc 2` does not unify with `Int.negSucc 0` nor with `Int.ofNat _`
-#testOptimize [ "MatchReduce_76" ] mixedLit 0 (-3) = 0 ===> True
+#testOptimize [ "MatchReduce_76", proof ] mixedLit 0 (-3) = 0 ===> True
 #testOptimize [ "MatchReduce_77" ] mixedLit 3 (-7) = 9 ===> False
 
 -- named pattern `m@(k + 3)` unifies with the symbolic `Int.ofNat (3 + m)` (`m := 3 + m`, `k := m`)
@@ -830,7 +830,7 @@ variable (h : Nat → Nat) (hc : Color → Option Color) (cs : List Char) (c : C
 variable (P : Nat → Prop) (pn : P n) (pm : P m) (qP : ∀ {x : Nat}, P x → Nat)
 
 -- constructor application pattern vs a nullary constructor discriminator (`some (.red _)` vs `none`)
-#testOptimize [ "MatchReduce_83" ] isSomeRed none = none ===> True
+#testOptimize [ "MatchReduce_83", proof ] isSomeRed none = none ===> True
 
 def strLitRed (x : Option String) : Nat :=
   match x with
@@ -842,8 +842,8 @@ def strLitRed (x : Option String) : Nat :=
 
 -- string literal patterns nested in a constructor: literal discriminator, and a list of character
 -- literals (folded to the string literal `"bb"`)
-#testOptimize [ "MatchReduce_84" ] strLitRed (some "bb") = 2 ===> True
-#testOptimize [ "MatchReduce_85" ] strLitRed (some (String.mk ['b', 'b'])) = 2 ===> True
+#testOptimize [ "MatchReduce_84", proof ] strLitRed (some "bb") = 2 ===> True
+#testOptimize [ "MatchReduce_85", proof ] strLitRed (some (String.mk ['b', 'b'])) = 2 ===> True
 
 -- `UInt8` and `Fin` literal patterns: constructor chains ending with a proof argument
 def u8 (x : UInt8) : Nat :=
@@ -858,10 +858,10 @@ def fin5 (x : Fin 5) : Nat :=
   | 4 => 2
   | _ => 0
 
-#testOptimize [ "MatchReduce_86" ] u8 3 = 1 ===> True
-#testOptimize [ "MatchReduce_87" ] u8 9 = 0 ===> True
-#testOptimize [ "MatchReduce_88" ] fin5 4 = 2 ===> True
-#testOptimize [ "MatchReduce_89" ] fin5 1 = 0 ===> True
+#testOptimize [ "MatchReduce_86", proof ] u8 3 = 1 ===> True
+#testOptimize [ "MatchReduce_87", proof ] u8 9 = 0 ===> True
+#testOptimize [ "MatchReduce_88", proof ] fin5 4 = 2 ===> True
+#testOptimize [ "MatchReduce_89", proof ] fin5 1 = 0 ===> True
 
 -- character literal patterns nested in a constructor (`Char.mk` vs `Char.mk`, proof skipped)
 def charLitWrap (x : Option Char) : Nat :=
@@ -871,7 +871,7 @@ def charLitWrap (x : Option Char) : Nat :=
   | some _ => 3
   | none => 0
 
-#testOptimize [ "MatchReduce_90" ] charLitWrap (some 'b') = 2 ===> True
+#testOptimize [ "MatchReduce_90", proof ] charLitWrap (some 'b') = 2 ===> True
 #testOptimize [ "MatchReduce_91" ] charLitWrap (some 'z') = 3 ===> True
 
 -- lambda terms as discriminators: a variable pattern binds the lambda, which is then applied in the rhs
@@ -890,15 +890,15 @@ def applyF (f : Nat → Nat) : Nat :=
   | g => g 1
 
 #testOptimize [ "MatchReduce_92" ] lamField (.mk (fun x => x + m)) 3 = (m + 1) + (m + 3) ===> True
-#testOptimize [ "MatchReduce_93" ] lamField (.mk h) 0 = h 1 ===> True
-#testOptimize [ "MatchReduce_94" ] applyF (fun x => x + m) = m + 1 ===> True
+#testOptimize [ "MatchReduce_93", proof ] lamField (.mk h) 0 = h 1 ===> True
+#testOptimize [ "MatchReduce_94", proof ] applyF (fun x => x + m) = m + 1 ===> True
 
 -- proof discriminator (`And.intro`), the proof fields are bound to the pattern variables
 def andProof (P : Nat → Prop) (n m : Nat) (q : ∀ {x : Nat}, P x → Nat) (hpq : P n ∧ P m) : Nat :=
   match hpq with
   | ⟨a, b⟩ => q a + q b
 
-#testOptimize [ "MatchReduce_95" ] andProof P n m qP ⟨pn, pm⟩ = qP pn + qP pm ===> True
+#testOptimize [ "MatchReduce_95", proof ] andProof P n m qP ⟨pn, pm⟩ = qP pn + qP pm ===> True
 
 -- `Int.neg (Int.ofNat (c + m))` discriminators: refuted by the `Int.ofNat` and `Int.negSucc 0`
 -- patterns (`1 < 2`), and unified with `Int.negSucc m` (`m := 1 + m`)
@@ -937,7 +937,7 @@ def namedHyp (q : ∀ {a b : Nat}, a = b → Nat) (x : Nat) (y : Option Nat) : N
   | _, _ => 0
 
 -- `q hp = 7 + 7`, `q hr = 4 + 4`, `p = 7`, `k = 5`, `r = 4`, `j = 3`
-#testOptimize [ "MatchReduce_102" ] namedHyp (fun {a b} _ => a + b) 7 (some 4) = 41 ===> True
+#testOptimize [ "MatchReduce_102", proof ] namedHyp (fun {a b} _ => a + b) 7 (some 4) = 41 ===> True
 -- symbolic discriminators: `p := 5 + m`, `k := 3 + m`, `r := 3 + n`, `j := 2 + n`
 #testOptimize [ "MatchReduce_103" ]
   namedHyp (fun {a b} _ => a + b) (m + 5) (some (n + 3)) =
@@ -948,7 +948,7 @@ def aliasAlias (x : Nat) (y : Option Nat) : Nat :=
   | p@(q@(k + 1)), some _ => p + q + k
   | _, _ => 0
 
-#testOptimize [ "MatchReduce_104" ] aliasAlias 4 (some n) = 11 ===> True
+#testOptimize [ "MatchReduce_104", proof ] aliasAlias 4 (some n) = 11 ===> True
 #testOptimize [ "MatchReduce_105" ] aliasAlias (m + 2) (some n) = ((m + 2) + (m + 2)) + (m + 1) ===> True
 
 def namedNested (x : Nat) (y : Option Nat) : Nat :=
@@ -958,8 +958,8 @@ def namedNested (x : Nat) (y : Option Nat) : Nat :=
   | _, _ => 0
 
 -- the alias `p` and the pattern variable `k` are substituted in the nested matches, which reduce
-#testOptimize [ "MatchReduce_106" ] namedNested 5 (some n) = 13 ===> True
-#testOptimize [ "MatchReduce_107" ] namedNested 1 (some n) = 7 ===> True
+#testOptimize [ "MatchReduce_106", proof ] namedNested 5 (some n) = 13 ===> True
+#testOptimize [ "MatchReduce_107", proof ] namedNested 1 (some n) = 7 ===> True
 #testOptimize [ "MatchReduce_108" ] namedNested (m + 2) (some n) = ((m + 1) + (m + 1)) + (m + 2) ===> True
 
 /-! Choice reduction must NOT be applied: discriminators that are not normalized constructors, or
@@ -967,7 +967,7 @@ def namedNested (x : Nat) (y : Option Nat) : Nat :=
 
 -- isSomeRed (hc x) ===> match hc x with | some (.red y) => some y | _ => none
 -- NOTE: the discriminator is a function application, not a constructor
-#testOptimize [ "MatchReduceUnchanged_25" ]
+#testOptimize [ "MatchReduceUnchanged_25", proof ]
   isSomeRed (hc x) ===>
     match hc x with
     | some (.red y) => some y
@@ -975,7 +975,7 @@ def namedNested (x : Nat) (y : Option Nat) : Nat :=
 
 -- someLit (some (h n)) ===> match some (h n) with | some 5 => 1 | some _ => 2 | none => 3
 -- NOTE: `5` potentially matches the expression `h n`, the following alternative is not selected
-#testOptimize [ "MatchReduceUnchanged_26" ] (norm-result: 1)
+#testOptimize [ "MatchReduceUnchanged_26", proof ] (norm-result: 1)
   someLit (some (h n)) ===>
     match some (h n) with
     | some 5 => 1
@@ -984,7 +984,7 @@ def namedNested (x : Nat) (y : Option Nat) : Nat :=
 
 -- someLit (some (m + 2)) ===> match some (Nat.add 2 m) with | some 5 => 1 | some _ => 2 | none => 3
 -- NOTE: `5` potentially matches `2 + m` (`m := 3`)
-#testOptimize [ "MatchReduceUnchanged_27" ] (norm-result: 1)
+#testOptimize [ "MatchReduceUnchanged_27", proof ] (norm-result: 1)
   someLit (some (m + 2)) ===>
     match some (Nat.add 2 m) with
     | some 5 => 1
@@ -992,7 +992,7 @@ def namedNested (x : Nat) (y : Option Nat) : Nat :=
     | none => 3
 
 -- strLitRed (some s) ===> match some s with | some "a" => 1 | ... | some _ => 5 | none => 0
-#testOptimize [ "MatchReduceUnchanged_28" ] (norm-result: 1)
+#testOptimize [ "MatchReduceUnchanged_28", proof ] (norm-result: 1)
   strLitRed (some s) ===>
     match some s with
     | some "a" => 1
@@ -1003,7 +1003,7 @@ def namedNested (x : Nat) (y : Option Nat) : Nat :=
 
 -- strLitRed (some (String.mk [c])) ===> match some (String.mk [c]) with | some "a" => 1 | ...
 -- NOTE: `"a"` potentially matches `String.mk [c]` (`c := 'a'`), `"bb"` and `"ccc"` are refuted
-#testOptimize [ "MatchReduceUnchanged_29" ] (norm-result: 1)
+#testOptimize [ "MatchReduceUnchanged_29", proof ] (norm-result: 1)
   strLitRed (some (String.mk [c])) ===>
     match some (String.mk [c]) with
     | some "a" => 1
@@ -1013,7 +1013,7 @@ def namedNested (x : Nat) (y : Option Nat) : Nat :=
     | none => 0
 
 -- charLitWrap (some c) ===> match some c with | some 'a' => 1 | some 'b' => 2 | some _ => 3 | none => 0
-#testOptimize [ "MatchReduceUnchanged_30" ] (norm-result: 1)
+#testOptimize [ "MatchReduceUnchanged_30", proof ] (norm-result: 1)
   charLitWrap (some c) ===>
     match some c with
     | some 'a' => 1
@@ -1052,7 +1052,7 @@ def namedNested (x : Nat) (y : Option Nat) : Nat :=
 
 -- charLitWrap (some (Char.ofNat 98)) = 2 ===> True
 -- NOTE: `Char.ofNat 98` is normalized to `'b'` in constructor form and unifies with the literal pattern
-#testOptimize [ "MatchReduce_110" ] charLitWrap (some (Char.ofNat 98)) = 2 ===> True
+#testOptimize [ "MatchReduce_110", proof ] charLitWrap (some (Char.ofNat 98)) = 2 ===> True
 
 def charMkStr (z : String) (y : Nat) : Nat :=
   match z, y with
@@ -1064,7 +1064,7 @@ def charMkStr (z : String) (y : Nat) : Nat :=
 -- | ⟨[⟨_vv, _⟩]⟩, _ => Nat.add 97 m
 -- | _, _ => 0
 -- NOTE: Match reduction cannot occur as all arguments are not constructors
-#testOptimize [ "MatchReduceUnchanged_33" ] (norm-result: 1) charMkStr "a" m ===>
+#testOptimize [ "MatchReduceUnchanged_33", proof ] (norm-result: 1) charMkStr "a" m ===>
   match "a", m with
   | ⟨[⟨_vv, _⟩]⟩, _ => Nat.add 97 m
   | _, _ => 0
@@ -1100,10 +1100,10 @@ def fnVal2 (n : Nat) (v : FnIdx n) : Nat :=
   | .(1), .s => 2
   | _, _ => 7
 
-#testOptimize [ "MatchReduce_114" ] fnVal 0 .z = 1 ===> True
-#testOptimize [ "MatchReduce_115" ] fnVal 1 .s = 2 ===> True
-#testOptimize [ "MatchReduce_116" ] fnVal2 0 .z = 7 ===> True
-#testOptimize [ "MatchReduce_117" ] fnVal2 1 .s = 2 ===> True
+#testOptimize [ "MatchReduce_114", proof ] fnVal 0 .z = 1 ===> True
+#testOptimize [ "MatchReduce_115", proof ] fnVal 1 .s = 2 ===> True
+#testOptimize [ "MatchReduce_116", proof ] fnVal2 0 .z = 7 ===> True
+#testOptimize [ "MatchReduce_117", proof ] fnVal2 1 .s = 2 ===> True
 
 -- ∀ (k : Nat) (w : FnIdx k), fnVal k w ≤ 2 ===> True
 -- NOTE: normalized to `ite` on the index and the constructor, then reduced to True
@@ -1117,7 +1117,7 @@ variable (k : Nat) (fw : FnIdx k)
 --  | .(0), .z => 1
 --  | .(1), .s => 2
 -- NOTE: Test case to ensure that match on indexed datatype are not normalized to ite.
-#testOptimize [ "MatchReduceUnchanged_36" ] (norm-result: 1)
+#testOptimize [ "MatchReduceUnchanged_36", proof ] (norm-result: 1)
   fnVal k fw ===>
     match k, fw with
     | .(0), .z => 1
@@ -1128,7 +1128,7 @@ variable (k : Nat) (fw : FnIdx k)
 --  | .(1), .s => 2
 --  | _, _ => 7
 -- NOTE: Test case to ensure that match on indexed datatype are not normalized to ite.
-#testOptimize [ "MatchReduceUnchanged_37" ] (norm-result: 1)
+#testOptimize [ "MatchReduceUnchanged_37", proof ] (norm-result: 1)
   fnVal2 k fw ===>
     match k, fw with
     | .(1), .s => 2
@@ -1151,7 +1151,7 @@ def fxVal2 (f : Nat → Nat) (v : Fx f) : Nat :=
 -- NOTE: the lambda is an inaccessible pattern determined by the constructor pattern; a lambda pattern
 --       unifies only with a structurally equal discriminator (`fun x => x`) and otherwise answers
 --       `PotentialMatch`
-#testOptimize [ "MatchReduce_112" ] fxVal (fun x => x) .idf = 1 ===> True
-#testOptimize [ "MatchReduce_113" ] fxVal2 (fun x => x) .idf = 7 ===> True
+#testOptimize [ "MatchReduce_112", proof ] fxVal (fun x => x) .idf = 1 ===> True
+#testOptimize [ "MatchReduce_113", proof ] fxVal2 (fun x => x) .idf = 7 ===> True
 
 end Tests.MatchReduce

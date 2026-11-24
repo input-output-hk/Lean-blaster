@@ -78,7 +78,7 @@ namespace Test.OptimizeDITE
 -- ∀ (c : Bool) (f : c → Int → Int),
 --   if h : c then ∀ (x y : Int), x > (0 * (f h x)) + y else ∀ (z y : Int), y < z ===>
 -- ∀ (x y : Int), y < x
-#testOptimize [ "DIteAbsorption_9" ]
+#testOptimize [ "DIteAbsorption_9", proof ]
   ∀ (c : Bool) (f : c → Int → Int),
     if h : c then ∀ (x y : Int), x > (0 * (f h x)) + y else ∀ (z y : Int), y < z ===>
   ∀ (x y : Int), y < x
@@ -530,7 +530,7 @@ namespace Test.OptimizeDITE
 --   (if h : (b && !b) || a then f h c else d) = true ===>
 -- ∀ (a c d : Bool) (f : true = a → Bool → Bool),
 --  Blaster.dite' (true = a) (λ h : _ => true = f h c) (λ _ => true = d)
-#testOptimize [ "DIteCondUnchanged_2" ]
+#testOptimize [ "DIteCondUnchanged_2", proof ]
   ∀ (a b c d : Bool) (f : (b && !b) || a → Bool → Bool),
     (if h : (b && !b) || a then f h c else d) = true ===>
   ∀ (a c d : Bool) (f : true = a → Bool → Bool),
@@ -540,7 +540,7 @@ namespace Test.OptimizeDITE
 --   (if h : b && (a || !a) then (f h x + 40) - 40 else y) < z ===>
 -- ∀ (b : Bool) (x y z : Nat) (f : true = b → Nat → Nat),
 --   Blaster.dite' (true = b) (fun h : _ => f h x) (fun _ => y) < z
-#testOptimize [ "DIteCondUnchanged_3" ]
+#testOptimize [ "DIteCondUnchanged_3", proof ]
   ∀ (a b : Bool) (x y z : Nat) (f : b && (a || !a) → Nat → Nat),
     (if h : b && (a || !a) then (f h x + 40) - 40 else y) < z ===>
   ∀ (b : Bool) (x y z : Nat) (f : true = b → Nat → Nat),
@@ -549,7 +549,7 @@ namespace Test.OptimizeDITE
 -- ∀ (a b p q : Prop) (f : (¬ a ∨ a) ∧ b → Prop → Prop), [Decidable a] → [Decidable b] →
 --   if h : (¬ a ∨ a) ∧ b then f h p else q ===>
 -- ∀ (b p q : Prop) (f : b → Prop → Prop), Blaster.dite' b (λ h : _ => f h p) (λ _ => q)
-#testOptimize [ "DIteCondUnchanged_4" ]
+#testOptimize [ "DIteCondUnchanged_4", proof ]
   ∀ (a b p q : Prop) (f : (¬ a ∨ a) ∧ b → Prop → Prop), [Decidable a] → [Decidable b] →
     if h : (¬ a ∨ a) ∧ b then f h p else q ===>
   ∀ (b p q : Prop) (f : b → Prop → Prop),
@@ -559,7 +559,7 @@ namespace Test.OptimizeDITE
 --   [Decidable a] → [Decidable b] → (if h : (b ∧ ¬ b) ∨ a then f h c else d) = true ===>
 -- ∀ (a : Prop) (c d : Bool) (f : a → Bool → Bool),
 --   Blaster.dite' a (λ h : _ => true = f h c) (λ _ => true = d)
-#testOptimize [ "DIteCondUnchanged_5" ]
+#testOptimize [ "DIteCondUnchanged_5", proof ]
   ∀ (a b : Prop) (c d : Bool) (f : (b ∧ ¬ b) ∨ a → Bool → Bool),
     [Decidable a] → [Decidable b] → (if h : (b ∧ ¬ b) ∨ a then f h c else d) = true ===>
   ∀ (a : Prop) (c d : Bool) (f : a → Bool → Bool),
@@ -569,7 +569,7 @@ namespace Test.OptimizeDITE
 --   [Decidable a] → [Decidable b] → (if h : b ∧ (a ∨ ¬ a) then (f h x + 40) - 40 else y) < z ===>
 -- ∀ (b : Prop) (x y z : Nat) (f : b → Nat → Nat),
 --   Blaster.dite' b (fun h : _ => f h x) (fun _ => y) < z
-#testOptimize [ "DIteCondUnchanged_6" ]
+#testOptimize [ "DIteCondUnchanged_6", proof ]
   ∀ (a b : Prop) (x y z : Nat) (f : b ∧ (a ∨ ¬ a) → Nat → Nat),
     [Decidable a] → [Decidable b] → (if h : b ∧ (a ∨ ¬ a) then (f h x + 40) - 40 else y) < z ===>
   ∀ (b : Prop) (x y z : Nat) (f : b → Nat → Nat),
@@ -625,7 +625,7 @@ namespace Test.OptimizeDITE
 --   (if h : c = False then f h x else y) > x ===>
 -- ∀ (c : Prop) (x y : Int) (f : ¬ c → Int → Int),
 --   x < Blaster.dite' c (fun _ => y) (fun h : _ => f h x)
-#testOptimize [ "DIteNegCond_5" ]
+#testOptimize [ "DIteNegCond_5", proof ]
   ∀ (c : Prop) (x y : Int) (f : c = False → Int → Int), [Decidable c] →
     (if h : c = False then f h x else y) > x ===>
   ∀ (c : Prop) (x y : Int) (f : ¬ c → Int → Int),
@@ -645,7 +645,7 @@ namespace Test.OptimizeDITE
 --   (if h : ¬ (¬ (¬ c)) then f h x else y) < z ===>
 -- ∀ (c : Prop) (x y z : Nat) (f : ¬ c → Nat → Nat),
 --   Blaster.dite' c (fun _ => y) (fun h : _ => f h x) < z
-#testOptimize [ "DIteNegCond_7" ]
+#testOptimize [ "DIteNegCond_7", proof ]
   ∀ (c : Prop) (x y z : Nat) (f : ¬ (¬ (¬ c)) → Nat → Nat), [Decidable c] →
     (if h : ¬ (¬ (¬ c)) then f h x else y) < z ===>
   ∀ (c : Prop) (x y z : Nat) (f : ¬ c → Nat → Nat),
@@ -719,7 +719,7 @@ namespace Test.OptimizeDITE
 --  if h : ¬ (¬ c) then f h a else b ===>
 -- ∀ (a b c : Prop) (f : c → Prop → Prop),
 --  Blaster.dite' c (λ h : _ => f h a) (λ _ =>  b)
-#testOptimize [ "DIteNegCondUnchanged_1" ]
+#testOptimize [ "DIteNegCondUnchanged_1", proof ]
   ∀ (a b c : Prop) (f : ¬ (¬ c) → Prop → Prop), [Decidable c] →
       if h : ¬ (¬ c) then f h a else b ===>
   ∀ (a b c : Prop) (f : c → Prop → Prop),
@@ -729,7 +729,7 @@ namespace Test.OptimizeDITE
 --   (if h : ¬ (¬ c) then f h a else b) = true ===>
 -- ∀ (c : Prop) (a b : Bool) (f : c → Bool → Bool),
 --   Blaster.dite' c (λ h : _ => true = f h a) (λ _ => true = b)
-#testOptimize [ "DIteNegCondUnchanged_2" ]
+#testOptimize [ "DIteNegCondUnchanged_2", proof ]
   ∀ (c : Prop) (a b : Bool) (f : ¬ (¬ c) → Bool → Bool), [Decidable c] →
     (if h : ¬ (¬ c) then f h a else b) = true ===>
   ∀ (c : Prop) (a b : Bool) (f : c → Bool → Bool),
@@ -749,7 +749,7 @@ namespace Test.OptimizeDITE
 --   if h : ¬ (¬ c) then ∀ (x y : Int), f h x > y else ∀ (z y : Int), y > z ===>
 -- ∀ (c : Prop) (f : c → Int → Int),
 --   Blaster.dite' c (λ h : _ => ∀ (x y : Int), y < f h x) (λ _ => ∀ (z y : Int), z < y)
-#testOptimize [ "DIteNegCondUnchanged_4" ]
+#testOptimize [ "DIteNegCondUnchanged_4", proof ]
   ∀ (c : Prop) (f : ¬ (¬ c) → Int → Int), [Decidable c] →
     if h : ¬ (¬ c) then ∀ (x y : Int), f h x > y else ∀ (z y : Int), y > z ===>
   ∀ (c : Prop) (f : c → Int → Int),
@@ -770,7 +770,7 @@ namespace Test.OptimizeDITE
 --   (if h : ¬ (¬ (a = b)) then f h x else y) > x ===>
 -- ∀ (a b : Prop) (x y : Int) (f : a = b → Int → Int),
 --   x < Blaster.dite' (a = b) (fun h : _ => f h x) (fun _ => y)
-#testOptimize [ "DIteNegCondUnchanged_6" ]
+#testOptimize [ "DIteNegCondUnchanged_6", proof ]
   ∀ (a b : Prop) (x y : Int) (f : ¬ (¬ (a = b)) → Int → Int),
     [Decidable a] → [Decidable b] →
     (if h : ¬ (¬ (a = b)) then f h x else y) > x ===>
@@ -807,7 +807,7 @@ namespace Test.OptimizeDITE
 --   (if h : c = false then f h a else b) = true ===>
 -- ∀ (a b c : Bool) (f : false = c → Bool → Bool),
 --  Blaster.dite' (true = c) (λ _ => true = b) (λ h : _ => true = f (Blaster.false_eq_of_not_true_eq h) a)
-#testOptimize [ "DIteFalseEqCond_2" ]
+#testOptimize [ "DIteFalseEqCond_2", proof ]
   ∀ (a b c : Bool) (f : c = false → Bool → Bool),
     (if h : c = false then f h a else b) = true ===>
   ∀ (a b c : Bool) (f : false = c → Bool → Bool),
@@ -817,7 +817,7 @@ namespace Test.OptimizeDITE
 --   (if h : c = false then f h x else y) > x ===>
 -- ∀ (c : Bool) (x y : Nat) (f : false = c → Nat → Nat),
 --   x < Blaster.dite' (true = c) (fun _ => y) (fun h : _ => f (Blaster.false_eq_of_not_true_eq h) x)
-#testOptimize [ "DIteFalseEqCond_3" ]
+#testOptimize [ "DIteFalseEqCond_3", proof ]
   ∀ (c : Bool) (x y : Nat) (f : c = false → Nat → Nat),
     (if h : c = false then f h x else y) > x ===>
   ∀ (c : Bool) (x y : Nat) (f : false = c → Nat → Nat),
@@ -840,7 +840,7 @@ namespace Test.OptimizeDITE
 -- ∀ (c : Bool) (x y : Int) (f : !c → Int → Int), (if h : !c then f h x else y) > x ===>
 -- ∀ (c : Bool) (x y : Int) (f : false = c → Int → Int),
 --  x < Blaster.dite' (true = c) (fun _ => y) (fun h : _ => f (Blaster.false_eq_of_not_true_eq h) x)
-#testOptimize [ "DIteFalseEqCond_5" ]
+#testOptimize [ "DIteFalseEqCond_5", proof ]
   ∀ (c : Bool) (x y : Int) (f : !c → Int → Int), (if h : !c then f h x else y) > x ===>
   ∀ (c : Bool) (x y : Int) (f : false = c → Int → Int),
     x < Blaster.dite' (true = c) (fun _ => y) (fun h : _ => f (Blaster.false_eq_of_not_true_eq h) x)
@@ -849,7 +849,7 @@ namespace Test.OptimizeDITE
 --   (if h : c == false then f h x else y) > x ===>
 -- ∀ (c : Bool) (x y : Int) (f : false = c → Int → Int),
 --  x < Blaster.dite' (true = c) (fun _ => y) (fun h : _ => f (Blaster.false_eq_of_not_true_eq h) x)
-#testOptimize [ "DIteFalseEqCond_6" ]
+#testOptimize [ "DIteFalseEqCond_6", proof ]
   ∀ (c : Bool) (x y : Int) (f : c == false → Int → Int), (if h : c == false then f h x else y) > x ===>
   ∀ (c : Bool) (x y : Int) (f : false = c → Int → Int),
     x < Blaster.dite' (true = c) (fun _ => y) (fun h : _ => f (Blaster.false_eq_of_not_true_eq h) x)
@@ -858,7 +858,7 @@ namespace Test.OptimizeDITE
 --   (if h : ! (! (! c)) then f h x else y) > x ===>
 -- ∀ (c : Bool) (x y : Int) (f : false = c → Int → Int),
 --  x < Blaster.dite' (true = c) (fun _ => y) (fun h : _ => f (Blaster.false_eq_of_not_true_eq h) x)
-#testOptimize [ "DIteFalseEqCond_7" ]
+#testOptimize [ "DIteFalseEqCond_7", proof ]
   ∀ (c : Bool) (x y : Int) (f : ! (! (! c)) → Int → Int), (if h : ! (! (! c)) then f h x else y) > x ===>
   ∀ (c : Bool) (x y : Int) (f : false = c → Int → Int),
     x < Blaster.dite' (true = c) (fun _ => y) (fun h : _ => f (Blaster.false_eq_of_not_true_eq h) x)
@@ -867,7 +867,7 @@ namespace Test.OptimizeDITE
 --  (if h : a = (! b && b) then f h x else y) > x ===>
 -- ∀ (a : Bool) (x y : Int),
 --  x < Blaster.dite' (true = a) (fun _ => y) (fun h : _ => f (Blaster.false_eq_of_not_true_eq h) x)
-#testOptimize [ "DIteFalseEqCond_8" ]
+#testOptimize [ "DIteFalseEqCond_8", proof ]
   ∀ (a b : Bool) (x y : Int) (f : a = (! b && b) → Int → Int),
     (if h : a = (! b && b) then f h x else y) > x ===>
   ∀ (a : Bool) (x y : Int) (f : false = a → Int → Int),
@@ -880,7 +880,7 @@ namespace Test.OptimizeDITE
 --     (if h : y then f h m else n) > m ===>
 -- ∀ (a : Bool) (m n : Int) (f : false = a → Int → Int),
 --   m < Blaster.dite' (true = a) (fun _ => n) (fun h : _ => f (Blaster.false_eq_of_not_true_eq h) m)
-#testOptimize [ "DIteFalseEqCond_9" ]
+#testOptimize [ "DIteFalseEqCond_9", proof ]
   ∀ (a : Bool) (m n : Int),
     let x := a || a; let y := ! a || ! x;
     ∀ (f : y → Int → Int), (if h : y then f h m else n) > m ===>
@@ -890,7 +890,7 @@ namespace Test.OptimizeDITE
 -- ∀ (c : Bool) (p q : Prop) (f : ¬ c = true → Prop → Prop),
 --   (if h : ¬ c = true then f h p else q) = if h : c = true then q else f h p ===> True
 -- Test case to validate expression caching after rewriting
-#testOptimize [ "DIteFalseEqCond_10" ]
+#testOptimize [ "DIteFalseEqCond_10", proof ]
   ∀ (c : Bool) (p q : Prop) (f : ¬ c = true → Prop → Prop),
     (if h : ¬ c = true then f h p else q) = if h : c = true then q else f h p ===> True
 
@@ -912,7 +912,7 @@ namespace Test.OptimizeDITE
 --   (if h : ¬ c = true then ∀ (x y : Int), f h x > y else ∀ (z y : Int), y > z) =
 --   if h : c = true then ∀ (z y : Int), z < y else ∀ (x y : Int), y < f h x ===> True
 -- Test case to validate expression caching after rewriting
-#testOptimize [ "DIteFalseEqCond_13" ]
+#testOptimize [ "DIteFalseEqCond_13", proof ]
   ∀ (c : Bool) (f : ¬ c = true → Int → Int),
     (if h : ¬ c = true then ∀ (x y : Int), f h x > y else ∀ (z y : Int), y > z) =
     if h : c = true then ∀ (z y : Int), z < y else ∀ (x y : Int), y < f h x ===> True
@@ -982,7 +982,7 @@ namespace Test.OptimizeDITE
 --   (if h : c = true then f h a else b) = true ===>
 -- ∀ (a b c : Bool) (f : true = c → Bool → Bool),
 --  Blaster.dite' (true = c) (λ h : _ => true = f h a) (λ _ => true = b)
-#testOptimize [ "DIteFalseEqCondUnchanged_2" ]
+#testOptimize [ "DIteFalseEqCondUnchanged_2", proof ]
   ∀ (a b c : Bool) (f : c = true → Bool → Bool),
     (if h : c = true then f h a else b) = true ===>
   ∀ (a b c : Bool) (f : true = c → Bool → Bool),
@@ -992,7 +992,7 @@ namespace Test.OptimizeDITE
 --  (if h : c = true then f h x else y) > x ===>
 -- ∀ (c : Bool) (x y : Nat) (f : true = c → Nat → Nat),
 --  x < Blaster.dite' (true = c) (fun h : _ => f h x) (fun _ => y)
-#testOptimize [ "DIteFalseEqCondUnchanged_3" ]
+#testOptimize [ "DIteFalseEqCondUnchanged_3", proof ]
   ∀ (c : Bool) (x y : Nat) (f : c = true → Nat → Nat),
     (if h : c = true then f h x else y) > x ===>
   ∀ (c : Bool) (x y : Nat) (f : true = c → Nat → Nat),
@@ -1059,7 +1059,7 @@ namespace Test.OptimizeDITE
 -- ∀ (c : Bool) (x y : Int) (f : !(!c) → Int → Int), (if h : !(!c) then f h x else y) > x ===>
 -- ∀ (c : Bool) (x y : Int) (f : true = c → Int → Int),
 --  x < Blaster.dite' (true = c) (fun h : _ => f h x) (fun _ => y)
-#testOptimize [ "DIteFalseEqCondUnchanged_9" ]
+#testOptimize [ "DIteFalseEqCondUnchanged_9", proof ]
   ∀ (c : Bool) (x y : Int) (f : !(!c) → Int → Int),
     (if h : !(!c) then f h x else y) > x ===>
   ∀ (c : Bool) (x y : Int) (f : true = c → Int → Int),
@@ -1068,7 +1068,7 @@ namespace Test.OptimizeDITE
 -- ∀ (c : Bool) (x y : Int) (f : c == true → Int → Int), (if h : c == true then f h x else y) > x ===>
 -- ∀ (c : Bool) (x y : Int) (f : true = c → Int → Int),
 --   x < Blaster.dite' (true = c) (fun h : _ => f h x) (fun _ => y)
-#testOptimize [ "DIteFalseEqCondUnchanged_10" ]
+#testOptimize [ "DIteFalseEqCondUnchanged_10", proof ]
   ∀ (c : Bool) (x y : Int) (f : c == true → Int → Int),
     (if h : c == true then f h x else y) > x ===>
   ∀ (c : Bool) (x y : Int) (f : true = c → Int → Int),
@@ -1078,7 +1078,7 @@ namespace Test.OptimizeDITE
 --  (if h : !(!(! (! c))) then f h x else y) > x ===>
 -- ∀ (c : Bool) (x y : Int) (f : true = c → Int → Int),
 --   x < Blaster.dite' (true = c) (fun h : _ => f h x) (fun _ => y)
-#testOptimize [ "DIteFalseEqCondUnchanged_11" ]
+#testOptimize [ "DIteFalseEqCondUnchanged_11", proof ]
   ∀ (c : Bool) (x y : Int) (f : !(!(! (! c))) → Int → Int),
     (if h : !(! (! (! c))) then f h x else y) > x ===>
   ∀ (c : Bool) (x y : Int) (f : true = c → Int → Int),
@@ -1088,7 +1088,7 @@ namespace Test.OptimizeDITE
 --  (if h : a = (! b || b) then f h x else y) > x ===>
 -- ∀ (a : Bool) (x y : Int) (f : true = a → Int → Int),
 --  x < Blaster.dite' (true = a) (fun h : _ => f h x) (fun _ => y)
-#testOptimize [ "DIteFalseEqCondUnchanged_12" ]
+#testOptimize [ "DIteFalseEqCondUnchanged_12", proof ]
   ∀ (a b : Bool) (x y : Int) (f : a = (! b || b) → Int → Int),
     (if h : a = (! b || b) then f h x else y) > x ===>
   ∀ (a : Bool) (x y : Int) (f : true = a → Int → Int),
@@ -1100,7 +1100,7 @@ namespace Test.OptimizeDITE
 --     (if h : y then f h m else n) > m ===>
 -- ∀ (a : Bool) (m n : Int) (f : true = a → Int → Int),
 --  m < Blaster.dite' (true = a) (fun h : _ => f h m) (fun _ => n)
-#testOptimize [ "DIteFalseEqCondUnchanged_13" ]
+#testOptimize [ "DIteFalseEqCondUnchanged_13", proof ]
   ∀ (a : Bool) (m n : Int),
     let x := a && a; let y := a || x;
     ∀ (f : y → Int → Int), (if h : y then f h m else n) > m ===>
@@ -1128,7 +1128,7 @@ namespace Test.OptimizeDITE
 -- ∀ (c p : Prop) (f : ¬ c → Prop → Prop), [Decidable c] →
 --   if h : c then True else f h p ===>
 -- ∀ (c p : Prop) (f : ¬ c → Prop → Prop) (h : ¬ c), f h p
-#testOptimize [ "DIteToPropExpr_2" ]
+#testOptimize [ "DIteToPropExpr_2", proof ]
   ∀ (c p : Prop) (f : ¬ c → Prop → Prop), [Decidable c] →
     if h : c then True else f h p ===>
   ∀ (c p : Prop) (f : ¬ c → Prop → Prop) (h : ¬ c), f h p
@@ -1136,7 +1136,7 @@ namespace Test.OptimizeDITE
 -- ∀ (c p : Prop) (f : c → Prop → Prop), [Decidable c] →
 --   if h : c then f h p else True ===>
 -- ∀ (c p : Prop) (f : c → Prop → Prop) (h : c), f h p
-#testOptimize [ "DIteToPropExpr_3" ]
+#testOptimize [ "DIteToPropExpr_3", proof ]
   ∀ (c p : Prop) (f : c → Prop → Prop), [Decidable c] →
     if h : c then f h p else True ===>
   ∀ (c p : Prop) (f : c → Prop → Prop) (h : c), f h p
@@ -1161,7 +1161,7 @@ namespace Test.OptimizeDITE
 -- ∀ (c p : Prop) (f : ¬ c → Prop → Prop), [Decidable c] →
 --  if h : c then c else f h p ===>
 -- ∀ (c p : Prop) (f : ¬ c → Prop → Prop) (h : ¬ c), f h p
-#testOptimize [ "DIteToPropExpr_6" ]
+#testOptimize [ "DIteToPropExpr_6", proof ]
   ∀ (c p : Prop) (f : ¬ c → Prop → Prop), [Decidable c] →
    if h : c then c else f h p ===>
   ∀ (c p : Prop) (f : ¬ c → Prop → Prop) (h : ¬ c), f h p
@@ -1185,7 +1185,7 @@ namespace Test.OptimizeDITE
 -- ∀ (c p : Prop) (f : c → Prop → Prop), [Decidable c] →
 --   if h : c then f h p else ¬ c ===>
 -- ∀ (c p : Prop) (f : c → Prop → Prop) (h : c), f h p
-#testOptimize [ "DIteToPropExpr_9" ]
+#testOptimize [ "DIteToPropExpr_9", proof ]
   ∀ (c p : Prop) (f : c → Prop → Prop), [Decidable c] →
     if h : c then f h p else ¬ c ===>
   ∀ (c p : Prop) (f : c → Prop → Prop) (h : c), f h p
@@ -1397,7 +1397,7 @@ namespace Test.OptimizeDITE
 
 -- ∀ (c : Bool) (p : Prop) (f : c → Prop → Prop),
 --    (if h : c then f h p else False) = ((false = c → False) ∧ ∀ (h : c), f h p) ===> True
-#testOptimize [ "DIteToPropExpr_35" ]
+#testOptimize [ "DIteToPropExpr_35", proof ]
   ∀ (c : Bool) (p : Prop) (f : c → Prop → Prop),
      (if h : c then f h p else False) = ((false = c → False) ∧ ∀ (h : c), f h p) ===> True
 
@@ -1429,19 +1429,19 @@ namespace Test.OptimizeDITE
 -- ∀ (c : Bool) (p : Prop) (f : c → Prop → Prop),
 --      (if h : c then f h p else true = !c) = ∀ (h : c), f h p ===> True
 -- Test case to validate expression caching after rewriting
-#testOptimize [ "DIteToPropExpr_39" ]
+#testOptimize [ "DIteToPropExpr_39", proof ]
   ∀ (c : Bool) (p : Prop) (f : c → Prop → Prop),
        (if h : c then f h p else true = !c) = ∀ (h : c), f h p ===> True
 
 -- ∀ (c : Prop) (p q : Prop) (f : ¬ c → Prop → Prop) [Decidable c],
 --   (if h : ¬ c then f h p else q) → ((true = c → q) ∧ ∀ (h : ¬ c), f h p) ===> True
-#testOptimize [ "DIteToPropExpr_40" ]
+#testOptimize [ "DIteToPropExpr_40", proof ]
   ∀ (c : Prop) (p q : Prop) (f : ¬ c → Prop → Prop) [Decidable c],
     (if h : ¬ c then f h p else q) → ((true = c → q) ∧ ∀ (h : ¬ c), f h p) ===> True
 
 -- ∀ (c : Prop) (p q : Prop) (f : c → Prop → Prop) (g : ¬ c → Prop → Prop) [Decidable c],
 --   (if h : c then f h p else g h q) → (∀ (h : c), f h p) ∧ (∀ (h : ¬ c), g h q) ===> True
-#testOptimize [ "DIteToPropExpr_41" ]
+#testOptimize [ "DIteToPropExpr_41", proof ]
   ∀ (c : Prop) (p q : Prop) (f : c → Prop → Prop) (g : ¬ c → Prop → Prop) [Decidable c],
     (if h : c then f h p else g h q) → (∀ (h : c), f h p) ∧ (∀ (h : ¬ c), g h q) ===> True
 
@@ -1459,7 +1459,7 @@ namespace Test.OptimizeDITE
 
 -- ∀ (c p : Prop) (f : ¬ c → Prop → Prop) [Decidable c], (if h : c then c else f h p) ===>
 -- ∀ (c p : Prop) (f : ¬ c → Prop → Prop) (h : ¬ c), f h p
-#testOptimize [ "DIteToPropExpr_44" ]
+#testOptimize [ "DIteToPropExpr_44", proof ]
   ∀ (c p : Prop) (f : ¬ c → Prop → Prop) [Decidable c], (if h : c then c else f h p) ===>
   ∀ (c p : Prop) (f : ¬ c → Prop → Prop) (h : ¬ c), f h p
 
@@ -1471,7 +1471,7 @@ namespace Test.OptimizeDITE
 
 -- ∀ (c p : Prop) (f : c → Prop → Prop) [Decidable c], (if h : c then f h p else ¬ c) ===>
 -- ∀ (c p : Prop) (f : c → Prop → Prop) (h : c), f h p
-#testOptimize [ "DIteToPropExpr_46" ]
+#testOptimize [ "DIteToPropExpr_46", proof ]
   ∀ (c p : Prop) (f : c → Prop → Prop) [Decidable c], (if h : c then f h p else ¬ c) ===>
   ∀ (c p : Prop) (f : c → Prop → Prop) (h : c), f h p
 
@@ -1501,7 +1501,7 @@ namespace Test.OptimizeDITE
 --   (if h : c then f h x else y) < z ===>
 -- ∀ (c : Bool) (x y z : Nat) (f : true = c → Nat → Nat),
 --  Blaster.dite' (true = c) (fun h : _ => f h x) (fun _ => y) < z
-#testOptimize [ "DIteToPropExprUnchanged_2" ]
+#testOptimize [ "DIteToPropExprUnchanged_2", proof ]
   ∀ (c : Bool) (x y z : Nat) (f : c → Nat → Nat), (if h : c then f h x else y) < z ===>
   ∀ (c : Bool) (x y z : Nat) (f : true = c → Nat → Nat),
     Blaster.dite' (true = c) (fun h : _ => f h x) (fun _ => y) < z
@@ -1521,7 +1521,7 @@ namespace Test.OptimizeDITE
 --   (if h : !c then f h x else y) < z
 --  ∀ (c : Bool) (x y z : Nat) (f : false = c → Nat → Nat),
 --   Blaster.dite' (true = c) (fun _ => y) (fun h : _ => f (Blaster.false_eq_of_not_true_eq h) x) < z
-#testOptimize [ "DIteToPropExprUnchanged_4" ]
+#testOptimize [ "DIteToPropExprUnchanged_4", proof ]
   ∀ (c : Bool) (x y z : Nat) (f : !c → Nat → Nat), (if h : !c then f h x else y) < z ===>
   ∀ (c : Bool) (x y z : Nat) (f : false = c → Nat → Nat),
     Blaster.dite' (true = c) (fun _ => y) (fun h : _ => f (Blaster.false_eq_of_not_true_eq h) x) < z
@@ -1540,7 +1540,7 @@ namespace Test.OptimizeDITE
 --    (if h : c then f h p else q) > x ===>
 -- ∀ (c : Bool) (x y : Int) (f : true = c → Int → Int),
 --    x < Blaster.dite' (true = c) (fun h : _ => f h (x.add y)) (fun _ => x.add y.neg)
-#testOptimize [ "DIteToPropExprUnchanged_6" ]
+#testOptimize [ "DIteToPropExprUnchanged_6", proof ]
   ∀ (c : Bool) (x y : Int) (f : c → Int → Int),
      let p := x + y; let q := x - y;
      (if h : c then f h p else q) > x ===>
@@ -1551,7 +1551,7 @@ namespace Test.OptimizeDITE
 --  (if h : (! a) || b then f h x else y) > x ===>
 -- ∀ (a b : Bool) (x y : Int) (f : true = (b || !a) → Int → Int),
 --   x < Blaster.dite' (true = (b || !a)) (fun h : _ => f h x) (fun _ => y)
-#testOptimize [ "DIteToPropExprUnchanged_7" ]
+#testOptimize [ "DIteToPropExprUnchanged_7", proof ]
   ∀ (a b : Bool) (x y : Int) (f : (! a) || b → Int → Int),
      (if h : (! a) || b then f h x else y) > x ===>
   ∀ (a b : Bool) (x y : Int) (f : true = (b || !a) → Int → Int),
@@ -1561,7 +1561,7 @@ namespace Test.OptimizeDITE
 --   (if h : ¬ a ∨ b then f h x else y) > x ===>
 -- ∀ (a b : Prop) (x y : Int) (f : b ∨ ¬ a → Int → Int),
 --   x < Blaster.dite' (b ∨ ¬ a) (fun h : _=> f h x) (fun _ => y)
-#testOptimize [ "DIteToPropExprUnchanged_8" ]
+#testOptimize [ "DIteToPropExprUnchanged_8", proof ]
   ∀ (a b : Prop) (x y : Int) (f : ¬ a ∨ b → Int → Int), [Decidable a] → [Decidable b] →
     (if h : ¬ a ∨ b then f h x else y) > x ===>
   ∀ (a b : Prop) (x y : Int) (f : b ∨ ¬ a → Int → Int),
@@ -1577,7 +1577,7 @@ namespace Test.OptimizeDITE
 --   (if h : c then f h x else y) > x ===>
 -- ∀ (c : Bool) (x y : Nat) (f : true = c → Nat → Nat),
 --  x < Blaster.dite' (true = c) (fun h : _ => f h x) (fun _ => y)
-#testOptimize [ "DIteToBoolExprUnchanged_10" ]
+#testOptimize [ "DIteToBoolExprUnchanged_10", proof ]
   ∀ (c : Bool) (x y : Nat) (f : c → Nat → Nat),
     (if h : c then f h x else y) > x ===>
   ∀ (c : Bool) (x y : Nat) (f : true = c → Nat → Nat),
@@ -1644,15 +1644,35 @@ namespace Test.OptimizeDITE
     (if h' : c then f h' else y) = f h ===> True
 
 /-! Test cases for simplification rule
-  `dite c (fun h : _ => e1) (fun h : ¬ c => e2) x₁ … xₙ ==> e2 x₁ … xₙ (if ∃ e := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ e2.hasLooseBVars ∧ e = ¬ c)`
+  `dite c (fun h : _ => e1) (fun h : ¬ c => e2) x₁ … xₙ ==> e2 x₁ … xₙ (if ∃ e := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ e2.hasLooseBVars ∧ e = optimizeAdvancedNot (¬ c))`
 -/
 
 -- ∀ (c : Prop) [Decidable c] (x y : Nat), ¬ c → (if _h : c then x else y) = y ===> True
 #testOptimize [ "DiteReduceHypElse_1", proof ]
   ∀ (c : Prop) [Decidable c] (x y : Nat), ¬ c → (if _h : c then x else y) = y ===> True
 
+-- `¬ (true = b)` is normalized to `false = b`, the hypothesis
+-- ∀ (b : Bool) (x y : Nat), false = b → (if _h : true = b then x else y) = y ===> True
+#testOptimize [ "DiteReduceHypElse_2", proof ]
+  ∀ (b : Bool) (x y : Nat), false = b → (if _h : true = b then x else y) = y ===> True
+
+-- `¬ ¬ c` is normalized to `c`, the hypothesis
+-- ∀ (c : Prop) [Decidable c] (x y : Nat), c → (if _h : ¬ c then x else y) = y ===> True
+#testOptimize [ "DiteReduceHypElse_3", proof ]
+  ∀ (c : Prop) [Decidable c] (x y : Nat), c → (if _h : ¬ c then x else y) = y ===> True
+
+-- `¬ (¬ a ∧ ¬ b)` is normalized to `a ∨ b`, the hypothesis
+-- ∀ (a b : Prop) [Decidable a] [Decidable b] (x y : Nat), a ∨ b → (if _h : ¬ a ∧ ¬ b then x else y) = y ===> True
+#testOptimize [ "DiteReduceHypElse_4", proof ]
+  ∀ (a b : Prop) [Decidable a] [Decidable b] (x y : Nat), a ∨ b → (if _h : ¬ a ∧ ¬ b then x else y) = y ===> True
+
+-- `¬ (false = b)` is normalized to `true = b`, the hypothesis
+-- ∀ (b : Bool) (x y : Nat), true = b → (if _h : false = b then x else y) = y ===> True
+#testOptimize [ "DiteReduceHypElse_5", proof ]
+  ∀ (b : Bool) (x y : Nat), true = b → (if _h : false = b then x else y) = y ===> True
+
 /-! Test cases for simplification rule
-  `dite c (fun h : c => e1) (fun h : ¬ c => e2) x₁ … xₙ ==> e2[h/h'] x₁ … xₙ (if ∃ e := h' ∈ hypothesisContext.hypothesisMap ∧ e2.hasLooseBVars ∧ e = ¬ c)`
+  `dite c (fun h : c => e1) (fun h : ¬ c => e2) x₁ … xₙ ==> e2[h/h'] x₁ … xₙ (if ∃ e := h' ∈ hypothesisContext.hypothesisMap ∧ e2.hasLooseBVars ∧ e = optimizeAdvancedNot (¬ c))`
 -/
 
 -- ∀ (c : Prop) [Decidable c] (f : ¬ c → Nat) (x : Nat) (h : ¬ c),
@@ -1660,6 +1680,13 @@ namespace Test.OptimizeDITE
 #testOptimize [ "DiteReduceHypElseLooseBvars_1", proof ]
   ∀ (c : Prop) [Decidable c] (f : ¬ c → Nat) (x : Nat) (h : ¬ c),
     (if h' : c then x else f h') = f h ===> True
+
+-- `¬ (true = b)` is normalized to `false = b`, the hypothesis, and the else branch uses the proof of `¬ (true = b)`
+-- ∀ (b : Bool) (f : ¬ (true = b) → Nat) (x : Nat) (h : ¬ (true = b)),
+--   (if h' : true = b then x else f h') = f h ===> True
+#testOptimize [ "DiteReduceHypElseLooseBvars_2", proof ]
+  ∀ (b : Bool) (f : ¬ (true = b) → Nat) (x : Nat) (h : ¬ (true = b)),
+    (if h' : true = b then x else f h') = f h ===> True
 
 -- ∀ (a c : Bool) (x y w : Nat) (f : a → Nat → Nat) (g : ¬ c → Nat → Nat),
 --   (if h1 : a then (if h2 : c then f h1 x else g h2 y) else (if h2 : c then w else g h2 y)) =

@@ -433,7 +433,7 @@ elab "eqIntConstructor_6" : term => return eqIntConstructor_6
 /-! Int.ofNat e1 = Int.neg (Int.ofNat e2) ==> 0 = e1 ∧ 0 = e2. -/
 
 -- ∀ (m : Nat), Int.ofNat 3 = - Int.ofNat m ===> False
-#testOptimize [ "EqIntOfNatNegOfNat_1" ] ∀ (m : Nat), Int.ofNat 3 = - Int.ofNat m ===> False
+#testOptimize [ "EqIntOfNatNegOfNat_1", proof ] ∀ (m : Nat), Int.ofNat 3 = - Int.ofNat m ===> False
 
 -- ∀ (m : Nat), Int.ofNat m = - Int.ofNat (m + 1) ===> False
 #testOptimize [ "EqIntOfNatNegOfNat_2", proof ] ∀ (m : Nat), Int.ofNat m = - Int.ofNat (m + 1) ===> False
@@ -443,7 +443,7 @@ elab "eqIntConstructor_6" : term => return eqIntConstructor_6
 
 -- ∀ (m : Nat), Int.ofNat m = Int.negSucc 2 ===> False
 -- NOTE: `-3` is normalized to `Int.negSucc 2` (constructor mismatch)
-#testOptimize [ "EqIntOfNatNegOfNat_4" ] ∀ (m : Nat), Int.ofNat m = -3 ===> False
+#testOptimize [ "EqIntOfNatNegOfNat_4", proof ] ∀ (m : Nat), Int.ofNat m = -3 ===> False
 
 -- ∀ (m : Nat), Int.ofNat m = - Int.negSucc m ===> False
 -- NOTE: not an instance of the rule: `- Int.negSucc m` is positive, i.e., `Int.neg (Int.neg (Int.ofNat (1 + m)))`
@@ -452,7 +452,7 @@ elab "eqIntConstructor_6" : term => return eqIntConstructor_6
 
 -- ∀ (m : Nat), 0 = - Int.ofNat m ===> ∀ (m : Nat), 0 = m
 -- NOTE: no reduction to False: both operands can be zero
-#testOptimize [ "EqIntOfNatNegOfNat_6" ] (norm-result: 1)
+#testOptimize [ "EqIntOfNatNegOfNat_6", proof ] (norm-result: 1)
   ∀ (m : Nat), (0 : Int) = - Int.ofNat m ===> ∀ (m : Nat), 0 = m
 
 -- ∀ (m k : Nat), Int.ofNat k = - Int.ofNat m ===> ∀ (m k : Nat), 0 = m ∧ 0 = k
@@ -482,17 +482,45 @@ elab "eqIntConstructor_6" : term => return eqIntConstructor_6
 
 -- ∀ (m k : Nat), 0 = k → Int.ofNat k = - Int.ofNat m ===> ∀ (m k : Nat), 0 = k → 0 = m
 -- NOTE: `0 = k` holds by hypothesis, only `0 = m` remains
-#testOptimize [ "EqIntOfNatNegOfNat_12" ] (norm-result: 1)
+#testOptimize [ "EqIntOfNatNegOfNat_12", proof ] (norm-result: 1)
   ∀ (m k : Nat), 0 = k → Int.ofNat k = - Int.ofNat m ===> ∀ (m k : Nat), 0 = k → 0 = m
 
 -- ∀ (m k : Nat), Int.ofNat k = - Int.ofNat m → k + m = 0 ===> True
 -- NOTE: the conclusion follows from the hypotheses `0 = k` and `0 = m`
-#testOptimize [ "EqIntOfNatNegOfNat_13" ]
+#testOptimize [ "EqIntOfNatNegOfNat_13", proof ]
   ∀ (m k : Nat), Int.ofNat k = - Int.ofNat m → k + m = 0 ===> True
 
 -- ∀ (m k : Nat), ¬ (Int.ofNat k = - Int.ofNat m) ===> ∀ (m k : Nat), ¬ (0 = m ∧ 0 = k)
 #testOptimize [ "EqIntOfNatNegOfNat_14", proof ] (norm-result: 1)
   ∀ (m k : Nat), ¬ (Int.ofNat k = - Int.ofNat m) ===> ∀ (m k : Nat), ¬ (0 = m ∧ 0 = k)
+
+-- ∃ (m : Nat), Int.ofNat 3 = - Int.ofNat m ===> False
+-- NOTE: `EqIntOfNatNegOfNat_1` below the `∃` binder
+#testOptimize [ "EqIntOfNatNegOfNat_15", proof ] ∃ (m : Nat), Int.ofNat 3 = - Int.ofNat m ===> False
+
+-- ∀ (m : Nat), Int.ofNat 3 = - Int.ofNat m → m = 7 ===> True
+-- NOTE: `EqIntOfNatNegOfNat_1` on a hypothesis
+#testOptimize [ "EqIntOfNatNegOfNat_16", proof ]
+  ∀ (m : Nat), Int.ofNat 3 = - Int.ofNat m → m = 7 ===> True
+
+-- fun (m k : Nat) => 0 = k → Int.ofNat k = - Int.ofNat m ===> fun (m k : Nat) => 0 = k → 0 = m
+-- NOTE: `EqIntOfNatNegOfNat_12` below the `fun` binders
+#testOptimize [ "EqIntOfNatNegOfNat_17", proof ] (norm-result: 1)
+  (fun (m k : Nat) => 0 = k → Int.ofNat k = - Int.ofNat m) ===> fun (m k : Nat) => 0 = k → 0 = m
+
+-- ∀ (m k : Nat), 0 = k → Int.ofNat k = - Int.ofNat m → 0 = m ===> True
+-- NOTE: `EqIntOfNatNegOfNat_12` on a hypothesis, which `0 = k` leaves with `Int.ofNat 0`
+#testOptimize [ "EqIntOfNatNegOfNat_18", proof ]
+  ∀ (m k : Nat), 0 = k → Int.ofNat k = - Int.ofNat m → 0 = m ===> True
+
+/-! A Nat numeral substituted under `Int.ofNat` in the condition of a `dite`. -/
+
+-- ∀ (m k : Nat) (f : Int.ofNat k = Int.ofNat m + 1 → Nat), 0 = k →
+--   (if h : Int.ofNat k = Int.ofNat m + 1 then f h else m) = m ===> True
+-- NOTE: `0 = k` rewrites the condition to `Int.ofNat 0 = Int.ofNat m + 1`, which is `False`
+#testOptimize [ "EqIntOfNatDIteCond_1", proof ]
+  ∀ (m k : Nat) (f : Int.ofNat k = Int.ofNat m + 1 → Nat), 0 = k →
+    (if h : Int.ofNat k = Int.ofNat m + 1 then f h else m) = m ===> True
 
 /-! Int.negSucc N = Int.neg (Int.ofNat e) ==> (N "+" 1) = e
     Int.negSucc N = Int.neg e ==> Int.ofNat (N "+" 1) = e
@@ -505,7 +533,7 @@ elab "eqIntConstructor_6" : term => return eqIntConstructor_6
 
 -- ∀ (m : Nat), -3 = - Int.ofNat m ===> ∀ (m : Nat), 3 = m
 -- NOTE: `-3` is normalized to `Int.negSucc 2`
-#testOptimize [ "EqIntNegSuccNegOfNat_2" ] (norm-result: 1)
+#testOptimize [ "EqIntNegSuccNegOfNat_2", proof ] (norm-result: 1)
   ∀ (m : Nat), (-3 : Int) = - Int.ofNat m ===> ∀ (m : Nat), 3 = m
 
 -- ∀ (m : Nat), Int.negSucc 4 = - Int.ofNat (m + 1) ===> ∀ (m : Nat), 4 = m
@@ -530,7 +558,7 @@ elab "eqIntConstructor_6" : term => return eqIntConstructor_6
 #testOptimize [ "EqIntNegSuccNegOfNat_7", proof ] ∀ (m : Nat), Int.negSucc 2 = Int.negSucc (m + 3) ===> False
 
 -- ∀ (m : Nat), -7 = Int.negSucc (m + 3) ===> ∀ (m : Nat), 3 = m
-#testOptimize [ "EqIntNegSuccNegOfNat_8" ] (norm-result: 1)
+#testOptimize [ "EqIntNegSuccNegOfNat_8", proof ] (norm-result: 1)
   ∀ (m : Nat), (-7 : Int) = Int.negSucc (m + 3) ===> ∀ (m : Nat), 3 = m
 
 -- ∀ (x : Int), Int.negSucc 2 = - x ===> ∀ (x : Int), Int.ofNat 3 = x

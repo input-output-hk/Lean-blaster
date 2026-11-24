@@ -202,7 +202,7 @@ namespace Tests.ConstCtorProp
 -- NOTE: Can be reduced to
 --   Blaster.dite' (true = c) (λ _ => y = Int.add x z)) (λ _ => y = Int.add x (Int.neg z))
 -- with additional simplification rules.
-#testOptimize [ "IteOverCtor_12" ]
+#testOptimize [ "IteOverCtor_12", proof ]
   ∀ (c : Bool) (x y z : Int),
     some ((if c then λ n => x + n else λ n => x - n) z) = some y ===>
   ∀ (c : Bool) (x y z : Int),
@@ -221,7 +221,7 @@ namespace Tests.ConstCtorProp
 --     (fun _ => Blaster.dite' b (fun _ => some x) (fun _ => none))) ::
 --   Blaster.dite' b (fun _ => Blaster.dite' c (fun _ => []) (fun _ => [p])) (fun _ => [p]) = xs
 -- NOTE: Test cases to ensure that context reuse are properly handled
-#testOptimize [ "IteOverCtor_12" ]
+#testOptimize [ "IteOverCtor_12", proof ]
 ∀ (b c d : Prop) (xs : List (Option Int)) (x : Int) (p : Option Int),
   [Decidable b] → [Decidable c] → [Decidable d] →
   let op1 :=
@@ -248,7 +248,7 @@ namespace Tests.ConstCtorProp
 --     (fun _ => Blaster.dite' b (fun _ => some x) (fun _ => none))) ::
 --   Blaster.dite' b (fun _ => Blaster.dite' (c ∨ d) (fun _ => []) (fun _ => [p])) (fun _ => [p]) = xs
 -- NOTE: Test cases to ensure that context reuse are properly handled
-#testOptimize [ "IteOverCtor_13" ]
+#testOptimize [ "IteOverCtor_13", proof ]
 ∀ (b c d : Prop) (xs : List (Option Int)) (x : Int) (p : Option Int),
   [Decidable b] → [Decidable c] → [Decidable d] →
   let op1 :=
@@ -592,7 +592,7 @@ def toColorOne (x : Option Nat) : Color :=
 --      (fun (_ : Unit) => .red .transparent)
 --      (fun (_ : Unit) => .blue .black)
 --      (fun (_ : Nat) => .blue .transparent)] = xs
-#testOptimize [ "MatchOverCtor_1" ] (norm-result: 1)
+#testOptimize [ "MatchOverCtor_1", proof ] (norm-result: 1)
   ∀ (n : Option Nat) (xs : List Color), toColorOne n :: [] = xs ===>
   ∀ (n : Option Nat) (xs : List Color),
     [toColorOne.match_1 (fun (_ : Option Nat) => Color) n
@@ -613,7 +613,7 @@ def toColorTwo (x : Option α) : Color :=
 --      (fun (_ : Unit) => .black)
 --      (fun (_ : α) => .blue .transparent)] = xs
 -- NOTE: Test case to ensure that generic type are also properly handled
-#testOptimize [ "MatchOverCtor_2" ] (norm-result: 1)
+#testOptimize [ "MatchOverCtor_2", proof ] (norm-result: 1)
   ∀ (α : Type) (n : Option α) (xs : List Color), toColorTwo n :: [] = xs ===>
   ∀ (α : Type) (n : Option α) (xs : List Color),
     [toColorTwo.match_1 (fun (_ : Option α) => Color) n
@@ -644,7 +644,7 @@ def toColorThree (x : Option Nat) : Color :=
 -- NOTE: Lean4 already applied structural equivalence between toColorFour.match_1 and toColorOne.match_1
 -- NOTE: Test cases to ensure that the nested ite in the last alternative are normalized
 -- while the match is kept as argument of the list constructor
-#testOptimize [ "MatchOverCtor_3" ] (norm-result: 1)
+#testOptimize [ "MatchOverCtor_3", proof ] (norm-result: 1)
   ∀ (n : Option Nat) (xs : List Color), toColorThree n :: [] = xs ===>
   ∀ (n : Option Nat) (xs : List Color),
     [toColorOne.match_1 (fun (_ : Option Nat) => Color) n
@@ -683,7 +683,7 @@ def beqColorDegree : Color → Color → (Nat → Bool)
 --      (fun (_ : Color) (_ : Color) => λ _n => false)] = xs
 -- NOTE: Test cases to ensure that match returning function are properly handled (not propagated)
 -- NOTE: Lean4 already applied structural equivalence between beqColorDegree.match_1 and beqColor.match_1
-#testOptimize [ "MatchOverCtor_4" ] (norm-result: 1)
+#testOptimize [ "MatchOverCtor_4", proof ] (norm-result: 1)
   ∀ (x y : Color) (xs : List (Nat → Bool)), beqColorDegree x y :: [] = xs ===>
   ∀ (x y : Color) (xs : List (Nat → Bool)),
     [beqColor.match_1 (fun (_ : Color) (_ : Color) => Nat → Bool) x y
@@ -704,7 +704,7 @@ def beqColorDegree : Color → Color → (Nat → Bool)
 --      (fun (_ : α) => .blue .transparent)) ::
 --   Blaster.dite' c (fun _ => []) (fun _ => [.transparent]) = xs
 -- NOTE: Test case to ensure that generic type are also properly handled
-#testOptimize [ "MatchOverCtor_5" ] (norm-result: 1)
+#testOptimize [ "MatchOverCtor_5", proof ] (norm-result: 1)
   ∀ (α : Type) (n : Option α) (xs : List Color) (c : Prop), [Decidable c] →
     let op := if c then [] else .transparent :: [];
     toColorTwo n :: op = xs ===>
@@ -736,7 +736,7 @@ def beqColorDegree : Color → Color → (Nat → Bool)
 --            (fun _ => Blaster.dite' (a < 100) (fun _ => .red .black) (fun _ => .red .transparent)))] = xs
 -- NOTE: Lean4 already applied structural equivalence between toColorFour.match_1 and toColorOne.match_1
 -- NOTE: Test cases to ensure that context reuse are properly handled
-#testOptimize [ "MatchOverCtor_6" ] (norm-result: 1)
+#testOptimize [ "MatchOverCtor_6", proof ] (norm-result: 1)
   ∀ (n : Option Nat) (xs : List Color), toColorThree n :: toColorThree n :: [] = xs ===>
   ∀ (n : Option Nat) (xs : List Color),
     [toColorOne.match_1 (fun (_ : Option Nat) => Color) n
@@ -782,7 +782,7 @@ def fnOut (n : Nat) (v : FnIdx n) : FnIdx n :=
 --         | .(1), .s => 2) = x
 -- NOTE: Test case to validate that the match with a dependent binder (`v : FnIdx n`) in its match type
 -- is kept as argument of the constructor (the constructor is not pushed in the alternatives).
-#testOptimize [ "MatchOverCtor_7" ] (norm-result: 1)
+#testOptimize [ "MatchOverCtor_7", proof ] (norm-result: 1)
   ∀ (k : Nat) (w : FnIdx k) (x : Option Nat), some (fnVal k w) = x ===>
   ∀ (k : Nat) (w : FnIdx k) (x : Option Nat),
     some (match k, w with
@@ -797,7 +797,7 @@ def fnOut (n : Nat) (v : FnIdx n) : FnIdx n :=
 -- NOTE: Test case to validate that the match whose return type depends on a discriminator (`FnIdx n`)
 -- is kept as argument of the constructor with its original match type (the constructor is not pushed
 -- in the alternatives, hence no motive `Option (FnIdx n)` has to be computed).
-#testOptimize [ "MatchOverCtor_8" ] (norm-result: 1)
+#testOptimize [ "MatchOverCtor_8", proof ] (norm-result: 1)
   ∀ (k : Nat) (w : FnIdx k) (y : Option (FnIdx k)), some (fnOut k w) = y ===>
   ∀ (k : Nat) (w : FnIdx k) (y : Option (FnIdx k)),
     some (match (generalizing := false) k, w with

@@ -157,7 +157,7 @@ namespace Test.OptimizeITE
 
 -- ∀ (a b c : Bool), (if c then ! (!a) else b) = true ===>
 -- ∀ (a b c : Bool), Blaster.dite' (true = c) (λ _ => true = a) (λ _ => true = b)
-#testOptimize [ "IteAbsorptionUnchanged_6" ]
+#testOptimize [ "IteAbsorptionUnchanged_6", proof ]
   ∀ (a b c : Bool), (if c then !(! a) else b) = true ===>
   ∀ (a b c : Bool), Blaster.dite' (true = c) (λ _ => true = a) (λ _ => true = b)
 
@@ -322,7 +322,7 @@ namespace Test.OptimizeITE
 
 -- ∀ (a b c d : Bool), (if (b && !b) || a then c else d) = true ===>
 -- ∀ (a c d : Bool), Blaster.dite' (true = a) (λ _ => true = c) (λ _ => true = d)
-#testOptimize [ "IteCondUnchanged_2" ]
+#testOptimize [ "IteCondUnchanged_2", proof ]
   ∀ (a b c d : Bool), (if (b && !b) || a then c else d) = true ===>
   ∀ (a c d : Bool), Blaster.dite' (true = a) (λ _ => true = c) (λ _ => true = d)
 
@@ -504,13 +504,13 @@ namespace Test.OptimizeITE
 
 -- ∀ (a b c : Bool), (if c = false then a else b) = true ===>
 -- ∀ (a b c : Bool), Blaster.dite' (true = c) (λ _ => true = b) (λ _ => true = a)
-#testOptimize [ "IteFalseEqCond_2" ]
+#testOptimize [ "IteFalseEqCond_2", proof ]
   ∀ (a b c : Bool), (if c = false then a else b) = true ===>
   ∀ (a b c : Bool), Blaster.dite' (true = c) (λ _ => true = b) (λ _ => true = a)
 
 -- ∀ (c : Bool) (x y : Nat), (if c = false then x else y) > x ===>
 -- ∀ (c : Bool) (x y : Nat), x < Blaster.dite' (true = c) (λ _ => y) (λ _ => x)
-#testOptimize [ "IteFalseEqCond_3" ]
+#testOptimize [ "IteFalseEqCond_3", proof ]
   ∀ (c : Bool) (x y : Nat), (if c = false then x else y) > x ===>
   ∀ (c : Bool) (x y : Nat),
     x < Blaster.dite' (true = c) (λ _ => y) (λ _ => x)
@@ -525,26 +525,26 @@ namespace Test.OptimizeITE
 
 -- ∀ (c : Bool) (x y : Int), (if !c then x else y) > x ===>
 -- ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => y) (λ _ => x)
-#testOptimize [ "IteFalseEqCond_5" ]
+#testOptimize [ "IteFalseEqCond_5", proof ]
   ∀ (c : Bool) (x y : Int), (if !c then x else y) > x ===>
   ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => y) (λ _ => x)
 
 -- ∀ (c : Bool) (x y : Int), (if c == false then x else y) > x ===>
 -- ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => y) (λ _ => x)
-#testOptimize [ "IteFalseEqCond_6" ]
+#testOptimize [ "IteFalseEqCond_6", proof ]
   ∀ (c : Bool) (x y : Int), (if c == false then x else y) > x ===>
   ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => y) (λ _ => x)
 
 
 -- ∀ (c : Bool) (x y : Int), (if !(! (! c)) then x else y) > x ===>
 -- ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => y) (λ _ => x)
-#testOptimize [ "IteFalseEqCond_7" ]
+#testOptimize [ "IteFalseEqCond_7", proof ]
   ∀ (c : Bool) (x y : Int), (if ! (! (! c)) then x else y) > x ===>
   ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => y) (λ _ => x)
 
 -- ∀ (a b : Bool) (x y : Int), (if a = (! b && b ) then x else y) > x ===>
 -- ∀ (a : Bool) (x y : Int), x < Blaster.dite' (true = a) (λ _ => y) (λ _ => x)
-#testOptimize [ "IteFalseEqCond_8" ]
+#testOptimize [ "IteFalseEqCond_8", proof ]
   ∀ (a b : Bool) (x y : Int), (if a = (! b && b) then x else y) > x ===>
   ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => y) (λ _ => x)
 
@@ -552,7 +552,7 @@ namespace Test.OptimizeITE
 -- let y := ! a || ! x in
 -- ∀ (a : Bool) (m n : Int), (if y then m else n) > m ===>
 -- ∀ (a : Bool) (m n : Int), m < Blaster.dite' (true = a) (λ _ => n) (λ _ => m)
-#testOptimize [ "IteFalseEqCond_9" ]
+#testOptimize [ "IteFalseEqCond_9", proof ]
   ∀ (a : Bool) (m n : Int), let x := a || a; let y := ! a || ! x;
     (if y then m else n) > m ===>
   ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => y) (λ _ => x)
@@ -630,13 +630,13 @@ namespace Test.OptimizeITE
 
 -- ∀ (a b c : Bool), (if c = true then a else b) = true ===>
 -- ∀ (a b c : Bool), Blaster.dite' (true = c) (λ _ => true = a) (λ _ => true = b)
-#testOptimize [ "IteFalseEqCondUnchanged_2" ]
+#testOptimize [ "IteFalseEqCondUnchanged_2", proof ]
   ∀ (a b c : Bool), (if c = true then a else b) = true ===>
   ∀ (a b c : Bool), Blaster.dite' (true = c) (λ _ => true = a) (λ _ => true = b)
 
 -- ∀ (c : Bool) (x y : Nat), (if c = true then x else y) > x ===>
 -- ∀ (c : Bool) (x y : Nat), x < Blaster.dite' (true = c) (λ _ => x) (λ _ => y)
-#testOptimize [ "IteFalseEqCondUnchanged_3" ]
+#testOptimize [ "IteFalseEqCondUnchanged_3", proof ]
   ∀ (c : Bool) (x y : Nat), (if c = true then x else y) > x ===>
   ∀ (c : Bool) (x y : Nat), x < Blaster.dite' (true = c) (λ _ => x) (λ _ => y)
 
@@ -673,19 +673,19 @@ namespace Test.OptimizeITE
 
 -- ∀ (c : Bool) (x y : Int), (if !(!c) then x else y) > x ===>
 -- ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => x) (λ _ => y)
-#testOptimize [ "IteFalseEqCondUnchanged_9" ]
+#testOptimize [ "IteFalseEqCondUnchanged_9", proof ]
   ∀ (c : Bool) (x y : Int), (if !(!c) then x else y) > x ===>
   ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => x) (λ _ => y)
 
 -- ∀ (c : Bool) (x y : Int), (if c == true then x else y) > x ===>
 -- ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => x) (λ _ => y)
-#testOptimize [ "IteFalseEqCondUnchanged_10" ]
+#testOptimize [ "IteFalseEqCondUnchanged_10", proof ]
   ∀ (c : Bool) (x y : Int), (if c == true then x else y) > x ===>
   ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => x) (λ _ => y)
 
 -- ∀ (c : Bool) (x y : Int), (if !(!(! (! c))) then x else y) > x ===>
 -- ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => x) (λ _ => y)
-#testOptimize [ "IteFalseEqCondUnchanged_11" ]
+#testOptimize [ "IteFalseEqCondUnchanged_11", proof ]
   ∀ (c : Bool) (x y : Int), (if !(! (! (! c))) then x else y) > x ===>
   ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => x) (λ _ => y)
 
@@ -693,7 +693,7 @@ namespace Test.OptimizeITE
 -- ∀ (a b : Bool) (x y : Int), (if a = (! b || b ) then x else y) > x ===>
 -- ∀ (a : Bool) (x y : Int), x < Blaster.dite' (true = a) (λ _ => x) (λ _ => y)
 -- TODO: remove unused quantifiers when COI performed on forall
-#testOptimize [ "IteFalseEqCondUnchanged_12" ]
+#testOptimize [ "IteFalseEqCondUnchanged_12", proof ]
   ∀ (a b : Bool) (x y : Int), (if a = (! b || b) then x else y) > x ===>
   ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => x) (λ _ => y)
 
@@ -701,7 +701,7 @@ namespace Test.OptimizeITE
 -- let y := a || x in
 -- ∀ (a : Bool) (m n : Int), (if y then m else n) > m ===>
 -- ∀ (a : Bool) (m n : Int), m < Blaster.dite' (true = a) (λ _ => m) (λ _ => n)
-#testOptimize [ "IteFalseEqCondUnchanged_13" ]
+#testOptimize [ "IteFalseEqCondUnchanged_13", proof ]
   ∀ (a : Bool) (m n : Int), let x := a && a; let y := a || x;
       (if y then m else n) > m ===>
   ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => x) (λ _ => y)
@@ -720,12 +720,12 @@ namespace Test.OptimizeITE
   ∀ (c p q : Prop), Blaster.dite' c (λ _ => p) (λ _ => q)
 
 -- ∀ (c p : Prop), if c then True else p ===> ∀ (c p : Prop), ¬ c → p
-#testOptimize [ "IteToPropExpr_2" ]
+#testOptimize [ "IteToPropExpr_2", proof ]
   ∀ (c p : Prop), [Decidable c] → if c then True else p ===>
   ∀ (c p : Prop),  (¬ c) → p
 
 -- ∀ (c p : Prop), if c then p else True ===> ∀ (c p : Prop), c → p
-#testOptimize [ "IteToPropExpr_3" ] ∀ (c p : Prop), [Decidable c] → if c then p else True ===>
+#testOptimize [ "IteToPropExpr_3", proof ] ∀ (c p : Prop), [Decidable c] → if c then p else True ===>
                                     ∀ (c p : Prop),  c → p
 
 
@@ -741,7 +741,7 @@ namespace Test.OptimizeITE
 
 -- ∀ (c p : Prop), if c then c else p ===>
 -- ∀ (c p : Prop), ¬ c → p
-#testOptimize [ "IteToPropExpr_6" ] ∀ (c p : Prop), [Decidable c] → if c then c else p ===>
+#testOptimize [ "IteToPropExpr_6", proof ] ∀ (c p : Prop), [Decidable c] → if c then c else p ===>
                                     ∀ (c p : Prop), ¬ c → p
 
 -- ∀ (c p : Prop), if c then p else c ===>
@@ -756,7 +756,7 @@ namespace Test.OptimizeITE
 
 -- ∀ (c p : Prop), if c then p else ¬ c ===>
 -- ∀ (c p : Prop), c → p
-#testOptimize [ "IteToPropExpr_9" ] ∀ (c p : Prop), [Decidable c] → if c then p else ¬ c ===>
+#testOptimize [ "IteToPropExpr_9", proof ] ∀ (c p : Prop), [Decidable c] → if c then p else ¬ c ===>
                                     ∀ (c p : Prop), c → p
 
 -- ∀ (c p q : Prop), if ¬ c then p else q ===>
@@ -981,19 +981,19 @@ namespace Test.OptimizeITE
   ∀ (a b : Prop) (x y : Int), x < Blaster.dite' (b ∨ ¬ a) (λ _ => x) (λ _ => y)
 
 -- ∀ (a : Prop) (c b : Bool), [Decidable a] → (if c then a else b) = (if c then decide a else b) ===> True
-#testOptimize [ "IteToPropExprUnchanged_9" ]
+#testOptimize [ "IteToPropExprUnchanged_9", proof ]
   ∀ (a : Prop) (c b : Bool), [Decidable a] → (if c then a else b) = if c then decide a else b ===> True
 
 
 -- ∀ (c : Bool) (x y : Nat), (if c then x else y) > x ===>
 -- ∀ (c : Bool) (x y : Nat), x < Blaster.dite' (true = c) (λ _ => x) (λ _ => y)
-#testOptimize [ "IteToPropExprUnchanged_10" ]
+#testOptimize [ "IteToPropExprUnchanged_10", proof ]
   ∀ (c : Bool) (x y : Nat), (if c then x else y) > x ===>
   ∀ (c : Bool) (x y : Nat), x < Blaster.dite' (true = c) (λ _ => x) (λ _ => y)
 
 -- ∀ (c : Bool) (x y : Int), (if c then x else y) > x ===>
 -- ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => x) (λ _ => y)
-#testOptimize [ "IteToPropExprUnchanged_11" ]
+#testOptimize [ "IteToPropExprUnchanged_11", proof ]
   ∀ (c : Bool) (x y : Int), (if c then x else y) > x ===>
   ∀ (c : Bool) (x y : Int), x < Blaster.dite' (true = c) (λ _ => x) (λ _ => y)
 

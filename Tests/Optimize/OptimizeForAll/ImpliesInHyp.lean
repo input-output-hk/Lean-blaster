@@ -54,7 +54,7 @@ namespace Test.ImpliesInHyp
 
 -- ∀ (c : Bool) (a b : Prop) (g : ¬ c → Prop → Prop),
 --   (if h : c then a else g h b) → ∀ (h : ¬ c), g h b ===> True
-#testOptimize [ "ImpliesInHyp_11" ]
+#testOptimize [ "ImpliesInHyp_11", proof ]
  ∀ (c : Prop) (a b : Prop) (g : ¬ c → Prop → Prop) [Decidable c],
    (if h : c then a else g h b) → ∀ (h : ¬ c), g h b ===> True
 
@@ -72,7 +72,7 @@ namespace Test.ImpliesInHyp
 
 -- ∀ (c : Bool) (a b : Prop) (f : c → Prop → Prop) (g : ¬ c → Prop → Prop),
 --   (if h : c then f h a else g h b) → (∀ (h : c), f h a) ∧ ∀ (h : ¬ c), g h b ===> True
-#testOptimize [ "ImpliesInHyp_14" ]
+#testOptimize [ "ImpliesInHyp_14", proof ]
  ∀ (c : Prop) (a b : Prop) (f : c → Prop → Prop) (g : ¬ c → Prop → Prop) [Decidable c],
    (if h : c then f h a else g h b) → (∀ (h : c), f h a) ∧ ∀ (h : ¬ c), g h b ===> True
 
@@ -104,7 +104,7 @@ namespace Test.ImpliesInHyp
  ∀ (a b c : Prop) (g : ¬ c → Prop → Prop) (f : (c → a) → Prop)
    (ht : Blaster.dite' c (λ _ => a) (λ h : _ => g h b)), f (And.left (Blaster.and_implies_from_dite ht))
 
-#testOptimize [ "ImpliesInHyp_13" ]
+#testOptimize [ "ImpliesInHyp_13", proof ]
  ∀ (c : Prop) (a b : Prop) (g : ¬ c → Prop → Prop) [Decidable c],
    (if h : c then a else g h b) → (true = c → a) ∧ ∀ (h : ¬ c), g h b ===> True
 
