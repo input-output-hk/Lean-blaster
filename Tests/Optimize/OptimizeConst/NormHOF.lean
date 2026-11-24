@@ -452,7 +452,7 @@ def mapOptionDefault (x : Nat) (y : Option Nat) : Nat :=
 
 -- ∀ (x : Nat) (xs : List Nat), List.foldr Nat.add x (List.map Nat.pred xs) ≥ x ===>
 -- ∀ (x : Nat) (xs : List Nat), ¬ List.foldr Nat.add x (List.map (λ a => Nat.sub a 1) xs) < x
-#testOptimize [ "ConstNormOpaqueFunArg_1" ] (norm-result: 1)
+#testOptimize [ "ConstNormOpaqueFunArg_1", proof ] (norm-result: 1)
   ∀ (x : Nat) (xs : List Nat), List.foldr Nat.add x (List.map Nat.pred xs) ≥ x ===>
   ∀ (x : Nat) (xs : List Nat), ¬ List.foldr Nat.add x (List.map (λ a => Nat.sub a 1) xs) < x
 
@@ -480,7 +480,7 @@ def boolWapper (f : Nat → Nat → Bool) (x : Nat) (y : Nat) := f x y
   ∀ (x : Nat) (xs : List Nat), true = List.any xs (λ a => x == a) → true = List.elem x xs
 
 -- ∀ (x : Nat) (xs : List Nat), List.any (λ a => x ≤ a) xs = List.any xs (Nat.ble x)  ===> True
-#testOptimize [ "ConstNormOpaqueFunArg_6" ]
+#testOptimize [ "ConstNormOpaqueFunArg_6", proof ]
   ∀ (x : Nat) (xs : List Nat), List.any xs (λ a => x ≤ a) = List.any xs (Nat.ble x) ===> True
 
 -- ∀ (x : Nat) (xs : List Nat), List.any xs (beqWapper Nat.ble x) → List.contains xs x ===>
@@ -517,17 +517,27 @@ def boolWapper (f : Nat → Nat → Bool) (x : Nat) (y : Nat) := f x y
 #testOptimize [ "ConstNormOpaqueFunArg_15", proof ]
   ∀ (x : List Nat) (xs : List (List Nat)), List.any xs (. == x) = List.any xs (List.beq x) ===> True
 
+-- ∀ (c : Bool), (if c then Nat.le else LE.le) = LE.le ===> True
+#testOptimize [ "ConstNormOpaqueFunArg_16" ]
+  ∀ (c : Bool), (if c then Nat.le else LE.le) = LE.le ===> True
+
 -- ∀ (x y : Int), Int.le x y = (x ≤ y) ===> True
-#testOptimize [ "ConstNormOpaqueFunArg_16", proof ] ∀ (x y : Int), Int.le x y = (x ≤ y) ===> True
+#testOptimize [ "ConstNormOpaqueFunArg_17", proof ] ∀ (x y : Int), Int.le x y = (x ≤ y) ===> True
 
 -- ∀ (x y : Nat), Nat.le x y = (x ≤ y) ===> True
-#testOptimize [ "ConstNormOpaqueFunArg_16b", proof ] ∀ (x y : Nat), Nat.le x y = (x ≤ y) ===> True
+#testOptimize [ "ConstNormOpaqueFunArg_18", proof ] ∀ (x y : Nat), Nat.le x y = (x ≤ y) ===> True
 
 -- (LE.le : Int → Int → Prop) = (λ x y => ¬ (y < x)) ===> True
-#testOptimize [ "ConstNormOpaqueFunArg_17", proof ] (LE.le : Int → Int → Prop) = (fun x y => ¬ (y < x)) ===> True
+#testOptimize [ "ConstNormOpaqueFunArg_19", proof ] (LE.le : Int → Int → Prop) = (fun x y => ¬ (y < x)) ===> True
 
 -- ∀ (a : Int) (l : List Int), List.Pairwise LE.le l → 1 + a ≤ 2 + a ===> True
-#testOptimize [ "ConstNormOpaqueFunArg_18", proof ]
+#testOptimize [ "ConstNormOpaqueFunArg_20", proof ]
   ∀ (a : Int) (l : List Int), List.Pairwise LE.le l → 1 + a ≤ 2 + a ===> True
+
+-- ∀ (x y : Nat), Nat.le x y = ¬ (y < x) ===> True
+#testOptimize [ "ConstNormOpaqueFunArg_21", proof ] ∀ (x y : Nat), Nat.le x y = ¬ (y < x) ===> True
+
+-- ∀ (x y : Int), Int.le x y = ¬ (y < x) ===> True
+#testOptimize [ "ConstNormOpaqueFunArg_22", proof ] ∀ (x y : Int), Int.le x y = ¬ (y < x) ===> True
 
 end Test.NormHOF

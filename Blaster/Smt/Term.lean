@@ -37,6 +37,9 @@ def emptySymbol : SmtSymbol := mkReservedSymbol "Empty"
 /-! Smt PEmpty symbol. -/
 def pemptySymbol : SmtSymbol := mkReservedSymbol "PEmpty"
 
+/-! Smt BitVec symbol. -/
+def bitVecSymbol : SmtSymbol := mkReservedSymbol "BitVec"
+
 /-! ## Builtin Smt sorts. -/
 
 /-! Smt Int Sort. -/
@@ -80,6 +83,9 @@ def emptySort : SortExpr := .SymbolSort emptySymbol
     (see function `definePEmptySort`)
 -/
 def pemptySort : SortExpr := .SymbolSort pemptySymbol
+
+/-! Smt BitVec Sort of size n -/
+def bitVecSort (n : UInt32) : SortExpr := .IndexSort bitVecSymbol #[.NumeralIndex n]
 
 -- TODO: add other sort once supported, e.g., BitVec, Unicode (for char), Seq, etc
 
@@ -219,6 +225,106 @@ def strReplaceAllSymbol : SmtSymbol := mkReservedSymbol "str.replace_all"
 
 /-! length Smt symbol for String. -/
 def strLengthSymbol : SmtSymbol := mkReservedSymbol "str.len"
+
+/-! BitVec addition Smt symbol. -/
+def bvaddSymbol : SmtSymbol := mkReservedSymbol "bvadd"
+
+/-! BitVec subtraction Smt symbol. -/
+def bvsubSymbol : SmtSymbol := mkReservedSymbol "bvsub"
+
+/-! BitVec unary minus Smt symbol. -/
+def bvnegSymbol : SmtSymbol := mkReservedSymbol "bvneg"
+
+/-! BitVec multiplication Smt symbol. -/
+def bvmulSymbol : SmtSymbol := mkReservedSymbol "bvmul"
+
+/-! BitVec unsigned division Smt symbol. -/
+def bvudivSymbol : SmtSymbol := mkReservedSymbol "bvudiv"
+
+/-! BitVec signed division Smt symbol. -/
+def bvsdivSymbol : SmtSymbol := mkReservedSymbol "bvsdiv"
+
+/-! BitVec unsigned remainder Smt symbol. -/
+def bvuremSymbol : SmtSymbol := mkReservedSymbol "bvurem"
+
+/-! BitVec signed remainder Smt symbol. -/
+def bvsremSymbol : SmtSymbol := mkReservedSymbol "bvsrem"
+
+/-! BitVec signed modulo Smt symbol. -/
+def bvsmodSymbol : SmtSymbol := mkReservedSymbol "bvsmod"
+
+/-! BitVec shift left Smt symbol. -/
+def bvshlSymbol : SmtSymbol := mkReservedSymbol "bvshl"
+
+/-! BitVec unsigned (logical) shift right Smt symbol. -/
+def bvlshrSymbol : SmtSymbol := mkReservedSymbol "bvlshr"
+
+/-! BitVec signed (arithmetic) shift right Smt symbol. -/
+def bvashrSymbol : SmtSymbol := mkReservedSymbol "bvashr"
+
+/-! BitVec bitwise or Smt symbol. -/
+def bvorSymbol : SmtSymbol := mkReservedSymbol "bvor"
+
+/-! BitVec bitwise and Smt symbol. -/
+def bvandSymbol : SmtSymbol := mkReservedSymbol "bvand"
+
+/-! BitVec bitwise not Smt symbol. -/
+def bvnotSymbol : SmtSymbol := mkReservedSymbol "bvnot"
+
+/-! BitVec bitwise nand Smt symbol. -/
+def bvnandSymbol : SmtSymbol := mkReservedSymbol "bvnand"
+
+/-! BitVec bitwise nor Smt symbol. -/
+def bvnorSymbol : SmtSymbol := mkReservedSymbol "bvnor"
+
+/-! BitVec bitwise xnor Smt symbol. -/
+def bvxnorSymbol : SmtSymbol := mkReservedSymbol "bvxnor"
+
+/-! BitVec concat Smt symbol. -/
+def bvconcatSymbol : SmtSymbol := mkReservedSymbol "concat"
+
+/-! BitVec zero extend Smt symbol. -/
+def zeroExtendSymbol : SmtSymbol := mkReservedSymbol "zero_extend"
+
+/-! BitVec sign extend Smt symbol. -/
+def signExtendSymbol : SmtSymbol := mkReservedSymbol "sign_extend"
+
+/-! BitVec rotate left Smt symbol. -/
+def rotateLeftSymbol : SmtSymbol := mkReservedSymbol "rotate_left"
+
+/-! BitVec rotate right Smt symbol. -/
+def rotateRightSymbol : SmtSymbol := mkReservedSymbol "rotate_right"
+
+/-! BitVec repeat Smt symbol. -/
+def repeatSymbol : SmtSymbol := mkReservedSymbol "repeat"
+
+/-! BitVec unsigned less or equal Smt symbol. -/
+def bvuleSymbol : SmtSymbol := mkReservedSymbol "bvule"
+
+/-! BitVec unsigned less than Smt symbol. -/
+def bvultSymbol : SmtSymbol := mkReservedSymbol "bvult"
+
+/-! BitVec unsigned greater or equal Smt symbol. -/
+def bvugeSymbol : SmtSymbol := mkReservedSymbol "bvuge"
+
+/-! BitVec unsigned greater than Smt symbol. -/
+def bvugtSymbol : SmtSymbol := mkReservedSymbol "bvugt"
+
+/-! BitVec signed less or equal Smt symbol. -/
+def bvsleSymbol : SmtSymbol := mkReservedSymbol "bvsle"
+
+/-! BitVec signed less than Smt symbol. -/
+def bvsltSymbol : SmtSymbol := mkReservedSymbol "bvslt"
+
+/-! BitVec signed greater or equal Smt symbol. -/
+def bvsgeSymbol : SmtSymbol := mkReservedSymbol "bvsge"
+
+/-! BitVec signed greater than Smt symbol. -/
+def bvsgtSymbol : SmtSymbol := mkReservedSymbol "bvsgt"
+
+/-! Integer to BitVec Smt symbol. -/
+def int2bvSymbol : SmtSymbol := mkReservedSymbol "int2bv"
+
 
 /-! ## Builtin Smt functions. -/
 
@@ -399,8 +505,63 @@ def intLitSmt (n : Int) : SmtTerm :=
 /-! Convert an Nat literal to an Smt representation. -/
 def natLitSmt (n : Nat) : SmtTerm := .NumTerm n
 
-/-! Convert an String literal to an Smt representation. -/
-def strLitSmt (s : String) : SmtTerm := .StrTerm s!"\"{s}\""
+/-! Highest code point denotable in an Smt string.
+
+    The Smt-Lib Unicode Strings theory fixes the string alphabet to
+    "the set UC of all integers from 0x00000 to 0x2FFFF, representing the set of all code
+    points for Unicode characters in Planes 0-2".
+    Lean's `Char` ranges over the whole Unicode scalar range up to `0x10FFFF`, so not every
+    Lean string is denotable -- see `escapeSmtStringLit`. -/
+def maxSmtCodePoint : Nat := 0x2FFFF
+
+/-! Escape a Lean string into the body of an Smt string literal.
+
+    Two separate documents govern this, and only the first is the standard itself:
+
+    * SMT-LIB Standard v2.6, §3.1 (Lexicon). A string literal is "any sequence of characters
+      from ⟨printable_char⟩ or ⟨white_space_char⟩ delimited by the double quote character",
+      where a ⟨printable_char⟩ is "any character from 32dec to 126dec (US-ASCII) and from
+      128dec on". Its *only* escape sequence is `""`, denoting one `"`. The standard is
+      explicit that the base language has no backslash escapes: within a literal the
+      sequences `\n`, `\012`, `\x0A` and `\u0008` "are not escape sequences ... but regular
+      sequences denoting their individual characters".
+
+    * The Smt-Lib Unicode Strings theory (https://smt-lib.org/theories-UnicodeStrings.shtml,
+      Tinelli/Barrett/Fontaine, 2020-02-01), published alongside the standard rather than in
+      it, is what gives `\u{...}` its meaning. It recognises exactly `\ud₃d₂d₁d₀` and
+      `\u{d₀}`..`\u{d₄d₃d₂d₁d₀}`, the five-digit form being restricted to `d₄ ∈ {0,1,2}` by
+      the alphabet bound above. Every other backslash is taken literally.
+
+    So `"` is doubled, `0x20`-`0x7E` is emitted verbatim, and everything else uses `\u{...}`.
+
+    Characters from 128dec on would in fact be *lexically* legal verbatim, but §3.1 leaves the
+    source encoding unspecified -- it "should be a compatible 8-bit extension of the 7-bit
+    US-ASCII set, such as UTF-8" -- and z3 counts the raw UTF-8 bytes of such a character
+    individually, turning a one-character Lean string into a multi-character Smt string.
+    Escaping them removes the dependency on the encoding. Whitespace is likewise legal
+    verbatim and escaped only for uniformity.
+
+    The backslash is escaped as `\u{5c}` even though a lone backslash is legal, so that a Lean
+    string containing the *text* `\u{41}` can never be re-read by the solver as the escape for
+    `A`. Decoding is a single left-to-right pass with no rescanning, so `\u{5c}u{41}` denotes
+    the six characters `\u{41}` as intended.
+
+    Fails with the offending character when it is above `maxSmtCodePoint`: the theory has no
+    such character and no escape denotes one, so there is nothing correct to emit. -/
+private def escapeSmtStringLit (s : String) : Except Char String :=
+  s.data.foldlM (init := "") (λ acc c =>
+    let n := c.toNat
+         if c == '"'             then .ok (acc ++ "\"\"")
+    else if c == '\\'            then .ok (acc ++ "\\u{5c}")
+    else if n ≥ 0x20 && n ≤ 0x7e then .ok (acc.push c)
+    else if n ≤ maxSmtCodePoint  then .ok (acc ++ "\\u{" ++ (Nat.toDigits 16 n).asString ++ "}")
+    else .error c
+  )
+
+/-! Convert a String literal to an Smt representation.
+    Fails with the offending character when `s` holds one outside the Smt string alphabet. -/
+def strLitSmt (s : String) : Except Char SmtTerm :=
+  (escapeSmtStringLit s).map (λ body => .StrTerm s!"\"{body}\"")
 
 /-! Create an Smt variable identifier. -/
 def smtSimpleVarId (nm : SmtSymbol) : SmtTerm := .SmtIdent (.SimpleIdent nm)
@@ -512,6 +673,7 @@ def notSmt? (t : SmtTerm) : Option SmtTerm :=
 def isParamSort (t : SortExpr) (sName : SmtSymbol) : Bool :=
   match t with
   | .ParamSort nm _ => nm == sName
+  | .IndexSort ..
   | .SymbolSort _ => false
 
 /-! Return the smt symbol associated to the given Smt qualified identifier.

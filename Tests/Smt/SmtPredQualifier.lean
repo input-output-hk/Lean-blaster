@@ -119,7 +119,7 @@ def sizeOfTerm (t : Term α) : Nat :=
   | .App _ args => List.length args
   | .Annotated t' _ => 1 + sizeOfTerm t'
 
-#blaster (gen-cex:0) (solve-result: 1) (random-seed: 1) [ ∀ (α : Type) (x : Term α), sizeOfTerm x < 10 ]
+#blaster (gen-cex:0) (solve-result: 1) [∀ (α : Type) (x : Term α), sizeOfTerm x < 10 ]
 
 #blaster (gen-cex: 0) (solve-result: 1)
   [ ∀ (xs : List Nat), !(List.isEmpty xs) → List.head! (List.map Int.ofNat xs) ≥ 10 ]

@@ -39,6 +39,7 @@ check_tests: clean_tests
 # To maintain when you add new components
 .PHONY: build_all
 build_all: build_blaster build_tests
+
 .PHONY: clean_all
 clean_all: clean_blaster clean_tests
 

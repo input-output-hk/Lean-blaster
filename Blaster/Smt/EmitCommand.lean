@@ -35,10 +35,24 @@ def SmtSymbol.emit (s : SmtSymbol) : TranslateEnvT Unit := do
   let h ← getProcStdIn
   h.putStr (← withSymbolCache s)
 
+def SmtIndex.emit (si : SmtIndex) : TranslateEnvT Unit := do
+  let h ← getProcStdIn
+  match si with
+  | .NumeralIndex n => h.putStr s!"{n}"
+  | .SymbolIndex s => s.emit
+
 partial def SortExpr.emit (e : SortExpr) : TranslateEnvT Unit := do
   let h ← getProcStdIn
   match e with
   | .SymbolSort nm => nm.emit
+  | .IndexSort nm ps =>
+       h.putStr "(_"
+       nm.emit
+       Array.forM
+        (λ a => do
+         h.putStr " "
+         a.emit) ps
+       h.putStr ")"
   | .ParamSort nm ps =>
        h.putStr "("
        nm.emit
@@ -346,7 +360,11 @@ def SmtCommand.emit (c : SmtCommand) : TranslateEnvT Unit := do
           h.putStr "(set-option "
           h.putStr opt
           h.putStr " "
-          h.putStr s!"{v}"
+          h.putStr v
+          h.putStr ")\n"
+     | .setSimplifier s =>
+          h.putStr "(set-simplifier "
+          h.putStr s
           h.putStr ")\n"
 
 end Blaster.Smt

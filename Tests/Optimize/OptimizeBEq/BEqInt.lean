@@ -40,11 +40,11 @@ variable (z : Int)
 #testOptimize [ "BEqIntCst_9", proof ] List.nil == [x, y, z] ===> false
 
 -- ∀ (x y z : Int), (List.nil == [x, y, z]) ===> False
-#testOptimize [ "BEqIntCst_10" ] ∀ (x y z : Int), (List.nil == [x, y, z]) ===> False
+#testOptimize [ "BEqIntCst_10", proof ] ∀ (x y z : Int), (List.nil == [x, y, z]) ===> False
 
 -- [y, x, z] == [x, y] ===> List.beq [y, x, z] [x, y]
 -- NOTE: Reduce to false via `reduceApp` rule, which is also applicable on recursive functions.
-#testOptimize [ "BEqIntCst_11" ] [y, x, z] == [x, y] ===> false
+#testOptimize [ "BEqIntCst_11", proof ] [y, x, z] == [x, y] ===> false
 
 
 -- [y, x, z] == [y, x, z] ===> true

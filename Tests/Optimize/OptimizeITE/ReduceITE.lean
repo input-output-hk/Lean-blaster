@@ -112,7 +112,7 @@ namespace Test.ReduceITE
 -- ∀ (c : Bool) (x y z : Int),
 -- (if c then x else (if c then y else z)) = (if true = c then x else z) ===> True
 -- NOTE: Test case to validate structural equivalence after rewriting
-#testOptimize [ "ReduceElseITE_4" ]
+#testOptimize [ "ReduceElseITE_4", proof ]
   ∀ (c : Bool) (x y z : Int),
    (if c then x else (if c then y else z)) = (if true = c then x else z) ===> True
 
@@ -120,7 +120,7 @@ namespace Test.ReduceITE
 --  (if c then x else (if c then (if c then x else z) else y)) =
 --  (if true = c then x else z) ===> True
 -- NOTE: Test case to validate structural equivalence after rewriting
-#testOptimize [ "ReduceElseITE_5" ]
+#testOptimize [ "ReduceElseITE_5", proof ]
   ∀ (c : Bool) (x y z : Int),
     (if c then x else (if c then (if c then x else z) else y)) =
     (if c then x else y) ===> True
@@ -129,7 +129,7 @@ namespace Test.ReduceITE
 --  (if c then x else (if c then y else (if c then x else z))) =
 --  (if true = c then x else z) ===> True
 -- NOTE: Test case to validate structural equivalence after rewriting
-#testOptimize [ "ReduceElseITE_6" ]
+#testOptimize [ "ReduceElseITE_6", proof ]
   ∀ (c : Bool) (x y z : Int),
     (if c then x else (if c then y else (if c then x else z))) =
     (if true = c then x else z) ===> True

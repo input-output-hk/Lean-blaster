@@ -23,7 +23,7 @@ def optimizeDecideCore (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
     pushProofStep (.rewrite (mkConst ``Blaster.decide'_true_simp))
     return (← mkBoolTrue)
   if let some r ← decideBoolEq? p then return r
-  return mkApp f p
+  mkAppExpr f p
 
 where
   /-- Return `some p` if `e := true = p`
@@ -34,10 +34,10 @@ where
    match eq? e with
    | some (_, Expr.const ``true _, p) =>
     pushProofStep (.rewrite (mkConst ``Blaster.decide'_true_eq))
-    return (some p)
+    return p
    | some (_, Expr.const ``false _, p) =>
     pushProofStep (.rewrite (mkConst ``Blaster.decide'_false_eq))
-    return (mkApp (← mkBoolNotOp) p)
+    mkAppExpr (← mkBoolNotOp) p
    | _ => return none
 
 /-- Apply simplification/normalization rules on `Blaster.decide'`. -/

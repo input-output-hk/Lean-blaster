@@ -102,14 +102,19 @@ def removeAnnotations (e : Expr) : Expr :=
      - Normalize structure projection
 -/
 partial def normNatLitAndLambdaBeta (e : Expr) : MetaM Expr := do
-  let rec visit (e : Expr) : MetaM Expr := do
+  let rec visit (e : Expr) (skipLambdaType := false) : MetaM Expr := do
     match e with
     | Expr.const ``Nat.zero _ => return (mkRawNatLit 0)
     | Expr.app .. =>
        Expr.withApp e fun f args => do
         let mut margs := args
         for i in [:args.size] do
-          margs ← margs.modifyM i visit
+          if let some r ← getMatcherInfoExpr? f then
+             if i ≥ r.getFirstAltPos
+             then margs ← margs.modifyM i (λ m => visit m (skipLambdaType := true))
+             else margs ← margs.modifyM i visit
+          else
+            margs ← margs.modifyM i visit
         match f with
         | Expr.const n l =>
             match n with
@@ -131,15 +136,14 @@ partial def normNatLitAndLambdaBeta (e : Expr) : MetaM Expr := do
                   | _ => return mkAppN f margs
               | _ => return mkAppN f margs
 
-
         | _ =>
           if f.isLambda
           then return Expr.beta f args
           else return mkAppN f margs
     | Expr.lam n t b bi =>
-        let t' ← visit t
+        let t' ← if skipLambdaType then pure t else visit t
         withLocalDecl n bi t' fun x => do
-          mkLambdaFVars #[x] (← visit (b.instantiate1 x))
+          mkLambdaFVars #[x] (← visit (b.instantiate1 x) skipLambdaType)
     | Expr.forallE n t b bi =>
         withLocalDecl n bi (← visit t) fun x => do
           mkForallFVars #[x] (← visit (b.instantiate1 x))
@@ -154,21 +158,10 @@ partial def normNatLitAndLambdaBeta (e : Expr) : MetaM Expr := do
     | _ => return e
   visit e
 
-/-- Return `true` if the expression contains `sorryAx` anywhere.
-    Tail recursive on a stack of pending subterms, so a deep `e` cannot overflow. -/
-private partial def containsSorry (e : Expr) : Bool :=
-  go [e]
-where
-  go : List Expr → Bool
-  | [] => false
-  | .const ``sorryAx _ :: _ => true
-  | .app f a :: es => go (f :: a :: es)
-  | .lam _ t b _ :: es => go (t :: b :: es)
-  | .forallE _ t b _ :: es => go (t :: b :: es)
-  | .letE _ t v b _ :: es => go (t :: v :: b :: es)
-  | .mdata _ e :: es => go (e :: es)
-  | .proj _ _ e :: es => go (e :: es)
-  | _ :: es => go es
+  where
+    getMatcherInfoExpr? (e : Expr) : MetaM (Option MatcherInfo) := do
+      let Expr.const n _ := e | return none
+      getMatcherInfo? n
 
 /-- Prove `inputExpr = expected`, or `inputExpr` when `expected` is `True`, from the proof stack
     of `inputExpr` with `proveGoalByProofStack`, the path of `blaster`, and `admit := false`.
@@ -179,11 +172,12 @@ where
     `inputExpr` and `inputExpr` is that `Eq` (for `∀ a, A = B` the replay on the whole goal
     ignores them), so they are passed only when the goal is `inputExpr`: the right side of
     `inputExpr = expected` is `expected`, which the optimizer never opened.
-    The proof is accepted only if it is complete, sorry-free, has no fvar outside the context,
-    passes `Meta.check` and has the goal type. Returns the failure reason, if any. -/
+    The replay itself rejects a proof that depends on `sorryAx`, as it does for `blaster`.
+    The proof is accepted only if it is complete, has no fvar outside the context, passes
+    `Meta.check` and has the goal type. Returns the failure reason, if any. -/
 private def checkReconstruction (inputExpr : Expr) (expected : Expr)
     (proofStack : Array Blaster.Optimize.ProofStep)
-    (optBinders rhsBinders : Array FVarId) : TermElabM (Option MessageData) := do
+    (optBinders rhsBinders : Array (Option FVarId)) : TermElabM (Option MessageData) := do
   let optimizerClosed := expected.isConstOf ``True
   let goalType ← if optimizerClosed then pure inputExpr else mkEq inputExpr expected
   let rhsBinders := if optimizerClosed then rhsBinders else #[]
@@ -192,7 +186,6 @@ private def checkReconstruction (inputExpr : Expr) (expected : Expr)
       (← proveGoalByProofStack goalType proofStack optBinders rhsBinders optimizerClosed
         (admit := false))
     if pf.hasMVar then return some m!"the proof term has unassigned metavariables"
-    if containsSorry pf then return some m!"the proof term contains sorry"
     let lctx ← getLCtx
     if (collectFVars {} pf).fvarIds.any (fun f => !lctx.contains f) then
       return some m!"the proof term has loose free variables"
@@ -212,19 +205,21 @@ def testOptimizeImp : CommandElab := fun stx => do
     -- create a local declaration name for the test case
     let m ← getMainModule
     withDeclName (m ++ name.toName) $ do
-      let (inputExpr, actual, env) ← callOptimize sOpts t1
-      let expected' := removeAnnotations (← parseTerm t2)
       -- keep the current name generator and restore it afterwards
       let ngen ← getNGen
+      let (inputExpr, actual, env) ← callOptimize sOpts t1
+      let expected' := removeAnnotations (← parseTerm t2)
       let expected ← if normNatFlag then normNatLitAndLambdaBeta expected' else pure expected'
       -- restore name generator
       setNGen ngen
       if actual == expected then
         if requireProof then
-          let proofStack := env.optEnv.proofStack
-          let optBinders := env.optEnv.optBinders.goal
+          -- the restored name generator may produce the optimizer's names, the replay must not
+          setNGen { namePrefix := ← mkFreshId }
+          let proofStack := env.proofEnv.proofStack
+          let optBinders := env.proofEnv.optBinders.goal
           match ← checkReconstruction inputExpr expected proofStack optBinders
-              env.optEnv.optBinders.rhs with
+              env.proofEnv.optBinders.rhs with
           | none => logInfo f!"{name} ✅ Success! [proof ✓]"
           | some msg => logError m!"{name} ❌ Failure! : proof reconstruction failed\n  {msg}"
         else

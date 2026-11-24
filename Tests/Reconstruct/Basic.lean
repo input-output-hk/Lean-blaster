@@ -289,8 +289,8 @@ example : ∀ (a : Prop), (∃ y : Nat, a ∧ 0 + y = y + 1 ∧ 0 + y = y + 2) =
 -- hypothesis
 example : ∀ (a b c : Bool) (f : ¬ c = true → Bool → Bool),
     (if h : ¬ c = true then f h a else b) = if h : c = true then b else f h a := by blaster
-example : ∀ (c : Bool) (a b : Prop) (g : ¬ c → Prop → Prop),
-    (if h : c then a else g h b) → (true = c → a) ∧ ∀ (h : ¬ c), g h b := by blaster
+example : ∀ (a b c : Bool) (f : ¬ c = true → Bool → Bool),
+    (if h : ¬ c = true then f h a else b) = true → (if h : c = true then b else f h a) = true := by blaster
 -- and of a `dite'` applied to one more argument
 example : ∀ (a c : Bool) (f : ¬ c = true → Bool → Bool) (g : Bool → Bool),
     (if h : ¬ c = true then f h else g) a = (if h : c = true then g else f h) a := by blaster

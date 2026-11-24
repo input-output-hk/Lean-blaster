@@ -107,8 +107,7 @@ abbrev castA (n : Nat) : Int := (n : Int)
   ∀ (n : Nat), (fun (k : Nat) => (k : Int)) n - (n : Int) = 0 ===> True
 
 -- ∀ (n : Nat), Int.toNat (n : Int) + Nat.succ (Int.toNat (n : Int)) = Int.toNat (n : Int) + (1 + n) ===> True
--- NOTE: no proof yet, the `Nat.succ` step is built on the operand before its cast is rewritten
-#testOptimize ["IntCastSucc_1"]
+#testOptimize [ "IntCastSucc_1", proof ]
   ∀ (n : Nat), Int.toNat (n : Int) + Nat.succ (Int.toNat (n : Int)) = Int.toNat (n : Int) + (1 + n) ===> True
 
 -- ∀ (n : Nat), (n : Int) = (n : Int) ∧ Nat.succ (Int.toNat (n : Int)) = 1 + n ===> True

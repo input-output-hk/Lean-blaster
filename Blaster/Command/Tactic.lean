@@ -28,10 +28,11 @@ Example: `blaster (timeout: 10) (verbose: 1)`
 syntax (name := blasterTactic) "blaster" (solveOption)* : tactic
 
 /-- Work item of `toElabForm`: a subterm to visit, or how to combine the last results
-    into the conversion of `e`. -/
+    into the conversion of `e`, the last two or the last one. -/
 private inductive ElabTask where
   | visit (e : Expr)
   | bin (e : Expr) (op : Expr → Expr → Expr)
+  | un (e : Expr) (op : Expr → Expr)
   deriving Inhabited
 
 /-- Convert core Nat/Int operators, `String.append` and the raw Int literals `Int.ofNat n`,
@@ -41,8 +42,9 @@ private inductive ElabTask where
     An operator is converted at any arity, so that `Nat.add x` and `fun y => Nat.add x y` stay
     eta-equal.
     The operator fixes the instances, so the result is definitional whatever the operand type.
-    `cache` maps the subterms converted so far to their result and is returned extended,
-    so each subterm is converted once, also when shared (up to binder names).
+    `cache` maps the subterms converted so far to their result, and each result to itself, and
+    is returned extended, so each subterm is converted once, also when shared (up to binder
+    names), and a result is not converted again.
     Uses an explicit stack, so a deep `e` cannot overflow the native stack. -/
 def toElabForm (e : Expr) (cache : Std.HashMap Expr Expr) : Expr × Std.HashMap Expr Expr := Id.run do
   -- children are visited left to right, then combined, as a post-order recursion would
@@ -54,14 +56,21 @@ def toElabForm (e : Expr) (cache : Std.HashMap Expr Expr) : Expr × Std.HashMap 
     todo := todo.pop
     match t with
     | .visit e =>
-      if let some r := cache[e]? then done := done.push r
+      -- `e` itself when it converts to itself, so that the nodes above it are kept
+      if let some r := cache[e]? then done := done.push (if r == e then e else r)
       else match visit e with
         | .inl r => done := done.push r
         | .inr ts => todo := todo ++ ts
     | .bin e op =>
       let r := op done.pop.back! done.back!
       cache := cache.insert e r
+      if r != e then cache := cache.insert r r
       done := done.pop.pop.push r
+    | .un e op =>
+      let r := op done.back!
+      cache := cache.insert e r
+      if r != e then cache := cache.insert r r
+      done := done.pop.push r
   return (done.back!, cache)
 where
   /-- Tasks that convert `a` and `b`, then combine them with `op`, in reverse order since `todo`
@@ -90,14 +99,22 @@ where
   -- `++` on String elaborates to `HAppend.hAppend`, the optimizer works on `String.append`
   | .const ``String.append _ => .inl (binOp ``HAppend.hAppend (mkConst ``String)
       (mkApp2 (mkConst ``instHAppendOfAppend [0]) (mkConst ``String) (mkConst ``String.instAppend)))
-  -- an unchanged application is kept, so that the result shares the subterms of `e`
-  | Expr.app f a => .inr (bin e e.updateApp! f a)
+  -- an unchanged node is kept, so that the result shares the subterms of `e`; the children
+  -- are read off `e`, as the patterns above would rebuild the head of an application
+  | .app .. => .inr (bin e e.updateApp! e.appFn! e.appArg!)
   -- the conversion is syntactic, so it applies below binders too
-  | .lam _ t b _ => .inr (bin e e.updateLambdaE! t b)
-  | .forallE _ t b _ => .inr (bin e e.updateForallE! t b)
+  | .lam .. => .inr (bin e e.updateLambdaE! e.bindingDomain! e.bindingBody!)
+  | .forallE .. => .inr (bin e e.updateForallE! e.bindingDomain! e.bindingBody!)
+  | .mdata _ b => .inr #[.un e e.updateMData!, .visit b]
+  | .proj _ _ b => .inr #[.un e e.updateProj!, .visit b]
   | _ => .inl e
   /-- The homogeneous operator `op` on `α`, with its instance `inst`, before its operands. -/
   binOp (op : Name) (α inst : Expr) : Expr := mkApp4 (mkConst op [0, 0, 0]) α α α inst
+
+/-- The optimizer binders `optBinders` (see `Blaster.Optimize.OptBinders`) paired by position with
+    `xs`, without the positions of the binders dropped before they were opened. -/
+def pairBinders (optBinders : Array (Option FVarId)) (xs : Array α) : Array FVarId × Array α :=
+  ((optBinders.zip xs).filterMap fun (o, x) => o.map (·, x)).unzip
 
 /-- Replace optimizer-context FVarIds with goal-context FVarIds in the proof steps that `applies`
     accepts. The goal binders among those a step was pushed below are dropped, as the replay
@@ -143,8 +160,11 @@ private def coiEliminated (vs : Array Expr) (body : Expr) (others : Array Expr) 
         let out := if scope == vs.size then vs.extract i scope ++ others else vs.extract i scope
         let lctx := out.foldl (fun l x => l.erase x.fvarId!) lctx
         let localInsts := localInsts.filter fun l => !out.contains l.fvar
-        -- read only, so a fresh optimizer environment does
-        let e ← withLCtx lctx localInsts do (isSortOrInhabited t).run' default
+        -- read only, so a fresh optimizer environment does, given the local context as
+        -- `Optimize.main` gives it, since the optimizer infers types in that context
+        let e ← withLCtx lctx localInsts do
+          (do updateLocalContext (← mkLocalContext); isSortOrInhabited t : TranslateEnvT Bool).run'
+            default
         go i i lctx localInsts (if e then later else collectFVars later t) (elim.set! i e)
   go vs.size vs.size lctx (← getLocalInstances) {} (Array.replicate vs.size false)
 
@@ -229,9 +249,34 @@ where
     | .proj _ _ b => go ((b, false) :: (e, true) :: es) noLet
     | _ => go es noLet
 
+/-- `true` iff `e` contains `sorryAx` anywhere.
+    Tail recursive on a stack of pending subterms, so a deep `e` cannot overflow, as core's
+    `Expr.hasSorry` does. Each compound subterm is explored once, by pointer, also when shared,
+    and an atom is matched at each of its occurrences, so the cost is linear in the edges of
+    the DAG of `e`, not in the size of its tree. -/
+private partial def containsSorry (e : Expr) : Bool :=
+  go [e] {}
+where
+  go : List Expr → Std.HashSet PtrExpr → Bool
+  | [], _ => false
+  | e :: es, seen =>
+    match e with
+    | .const ``sorryAx _ => true
+    | .bvar .. | .fvar .. | .mvar .. | .sort .. | .const .. | .lit .. => go es seen
+    | _ =>
+      let (visited, seen) := seen.containsThenInsert ⟨e⟩
+      if visited then go es seen else
+      match e with
+      | .app f a => go (f :: a :: es) seen
+      | .lam _ t b _ | .forallE _ t b _ => go (t :: b :: es) seen
+      | .letE _ t v b _ => go (t :: v :: b :: es) seen
+      | .mdata _ b | .proj _ _ b => go (b :: es) seen
+      | _ => go es seen
+
 /-- Memo of `toElabForm` and `hasLet` over one replay, shared by every `canonicalForm` call. -/
 private structure CanonCache where
-  /-- `toElabForm` of the subterms converted so far. -/
+  /-- `toElabForm` of the subterms converted so far, each the result of the `Core.transform` of
+      `canonicalForm`, so the canonical form of each, and each result mapped to itself. -/
   converted : Std.HashMap Expr Expr := {}
   /-- The subterms known to have no `let`. -/
   noLet : Std.HashSet Expr := {}
@@ -243,55 +288,63 @@ private def zetaLets (e : Expr) : MetaM Expr :=
     | _ => return .continue)
 
 /-- The one spelling of the replay, so that the user and optimizer spellings of a term agree:
-    no `let`, `((n : Nat) : Int)` written `Int.ofNat n`, Nat numerals under `Int.ofNat` raw
-    literals, then `toElabForm`. -/
+    no `let`, no beta redex, `((n : Nat) : Int)` written `Int.ofNat n`, Nat numerals under
+    `Int.ofNat` and `Int.negSucc` raw literals, then `toElabForm`. Subterms in `cache` are not
+    visited again; the result is `e` itself when `e` is canonical. -/
 private def canonicalForm (cache : IO.Ref CanonCache) (e : Expr) : MetaM Expr := do
-  -- taken out of the ref, so that the maps are updated in place
+  -- taken out of the ref, so that the maps are updated in place; a throw below leaves the ref
+  -- empty, and nothing reads it again: the cache lives for one `applyProofStack` call, which
+  -- the exception leaves
   let { converted, noLet } ← cache.swap {}
   let (l, noLet) := hasLet e noLet
-  let e ← if l then zetaLets e else pure e
-  let ofNat (n : Expr) :=
+  -- `e` in place of an equal `c`, so that the result keeps the objects of the input
+  let same (c e : Expr) := if c == e then e else c
+  -- the raw literal of a Nat numeral
+  let raw? (n : Expr) :=
     if n.isAppOfArity ``OfNat.ofNat 3 && (n.getArg! 2).isAppOf ``instOfNatNat then
-      mkApp (mkConst ``Int.ofNat) (n.getArg! 1)
-    else mkApp (mkConst ``Int.ofNat) n
-  let (e, converted) := toElabForm (← Core.transform e (post := fun e => return .done <| match e with
-    | .app (.app (.app (.const ``Nat.cast _) _) (.const ``instNatCastInt _)) n => ofNat n
-    -- the spelling left by the unfold step of `Nat.cast`
-    | .app (.app (.app (.const ``NatCast.natCast _) _) (.const ``instNatCastInt _)) n => ofNat n
-    | .app (.const ``Int.ofNat _) n => ofNat n
-    | _ => e)) converted
+      some (n.getArg! 1)
+    else none
+  let ofNat (n : Expr) := mkApp (mkConst ``Int.ofNat) ((raw? n).getD n)
+  -- the nodes entered and not yet left, innermost last, since `post` gets a node rebuilt from the
+  -- results of its children
+  let entered ← IO.mkRef (#[] : Array Expr)
+  let e ← if l then zetaLets e else pure e
+  let e ← Core.transform e
+    (pre := fun e => do
+      if let some c := converted[e]? then return .done (same c e)
+      entered.modify (·.push e)
+      return .continue)
+    (post := fun e => do
+      let orig := (← entered.get).back!
+      entered.modify (·.pop)
+      -- the node entered, when its children are left as they were
+      let e := same e orig
+      return match e with
+      -- the optimizer keeps applied lambdas reduced, without a step; the result is visited
+      -- again for the redexes substituting the arguments creates
+      | .app .. => if e.getAppFn.isLambda then .visit e.headBeta else .done <| match e with
+        | .app (.app (.app (.const ``Nat.cast _) _) (.const ``instNatCastInt _)) n => ofNat n
+        -- the spelling left by the unfold step of `Nat.cast`
+        | .app (.app (.app (.const ``NatCast.natCast _) _) (.const ``instNatCastInt _)) n => ofNat n
+        | .app (.const ``Int.ofNat _) n => match raw? n with
+          | some r => mkApp (mkConst ``Int.ofNat) r
+          | none => e
+        | .app (.const ``Int.negSucc _) n => match raw? n with
+          | some r => mkApp (mkConst ``Int.negSucc) r
+          | none => e
+        | _ => e
+      | _ => .done e)
+  let (e, converted) := toElabForm e converted
   cache.set { converted, noLet }
   return e
 
-/-- `f args` reduced at the head while it stays a redex, with the redexes that substituting a
-    lambda argument creates reduced one level deep. -/
-private def betaCreated (f : Expr) (args : Array Expr) : Expr := Id.run do
-  let mut f := f
-  let mut args := args
-  while f.isLambda && !args.isEmpty do
-    let mut b := f
-    let mut k := 0
-    while k < args.size do
-      let .lam _ _ body _ := b | break
-      b := body
-      k := k + 1
-    f := b.instantiateBetaRevRange 0 k args
-    args := args.extract k args.size
-  return mkAppN f args
-
-/-- Beta reduce the redexes headed by the term the rewrite `r` inserted, since the optimizer
-    keeps applied lambdas reduced. Reducing one also reduces the redexes that substituting a
-    lambda argument creates. -/
-private def betaAfterLambdaStep (r : RewriteResult) : MetaM Expr := do
-  -- the rewrite proof is `congrArg α β lhs rhs motive heq`, and `rhs` is the inserted term
-  let_expr congrArg _ _ _ rhs _ _ := r.eqProof | return r.eNew
-  let rhs ← instantiateMVars rhs
-  unless rhs.isLambda do return r.eNew
-  -- `eNew` was built before the rewrite assigned the instance arguments
-  let eNew ← instantiateMVars r.eNew
-  -- a user redex is reduced only when its head is the inserted term itself
-  Core.transform eNew (post := fun x =>
-    return if x.getAppFn == rhs then .done (betaCreated rhs x.getAppArgs) else .continue)
+/-- The step proof `p` with its statement in the spelling of `canonicalForm`, as the goal is, since
+    a lemma applied to a literal states it in its own spelling, e.g. `Int.ofNat 3`. For `rewrite`,
+    which reads the statement off the proof's type. -/
+private def withCanonicalType (cache : IO.Ref CanonCache) (p : Expr) : MetaM Expr := do
+  let ty ← inferType p
+  let ty' ← canonicalForm cache ty
+  if ty' == ty then return p else mkExpectedTypeHint p ty'
 
 /-- Whether the kernel accepts a step proof with free variables, since a hypothesis left out of
     normal form by the replay makes a proof built on it ill-typed. A leftover metavariable also
@@ -379,8 +432,10 @@ private def BinderIndex.prefixCandidates (d : BinderIndex) (e : Expr) : Array (N
   (byPrefix ++ d.anyHead.map (·, n)).qsort (·.1 < ·.1)
 
 /-- The key and the type of the step `b`. -/
-private def binderStepKey (b : BinderStep) : MetaM (BinderKey × Expr) := do
-  let ty ← inferType b.thm
+private def binderStepKey (cache : IO.Ref CanonCache) (b : BinderStep) :
+    MetaM (BinderKey × Expr) := do
+  -- the statement in the spelling of the target, which the traversal matches
+  let ty ← canonicalForm cache (← inferType b.thm)
   let key ← withNewMCtxDepth do
     let (xs, _, ty) ← forallMetaTelescopeReducing ty
     let some (_, l, r) := (← whnfR ty).eq? | return none
@@ -389,19 +444,20 @@ private def binderStepKey (b : BinderStep) : MetaM (BinderKey × Expr) := do
       else some (l.toHeadIndex, l.headNumArgs)
   return (key, ty)
 
-private def indexBinderSteps (bs : Array BinderStep) : MetaM BinderIndex := do
-  let ks ← bs.mapM binderStepKey
+private def indexBinderSteps (cache : IO.Ref CanonCache) (bs : Array BinderStep) :
+    MetaM BinderIndex := do
+  let ks ← bs.mapM (binderStepKey cache)
   return .ofKeys (ks.map (·.1)) (ks.map (·.2))
 
 /-- `d` once a replaced hypothesis renamed the fvars of the steps `old` into `new`: only the steps
     whose proof changed are indexed again, and the map is built again only if a key changed. -/
-private def BinderIndex.reindex (d : BinderIndex) (old new : Array BinderStep) :
-    MetaM BinderIndex := do
+private def BinderIndex.reindex (d : BinderIndex) (cache : IO.Ref CanonCache)
+    (old new : Array BinderStep) : MetaM BinderIndex := do
   let mut keys := d.keys
   let mut types := d.types
   for h : i in [:new.size] do
     if new[i].thm != old[i]!.thm then
-      let (k, t) ← binderStepKey new[i]
+      let (k, t) ← binderStepKey cache new[i]
       keys := keys.set! i k
       types := types.set! i t
   return if keys == d.keys then { d with types } else .ofKeys keys types
@@ -518,7 +574,7 @@ where
       next := i + 1
     return if r.proof?.isSome then .visit r else .continue
   /-- The first step from `next` on, in stack order, that rewrites `e` or a prefix of its
-      application, and its result, with the redexes headed by the lambda it inserts reduced. -/
+      application, and its result. -/
   firstStep (entered : Array (Expr × Expr)) (e : Expr) (next : Nat) :
       MetaM (Option (Nat × Simp.Result)) := do
     let n := e.headNumArgs
@@ -527,9 +583,8 @@ where
       if k == n then return some (i, r)
       let some pf := r.proof? | continue
       let args := e.getAppArgs.extract k n
-      let eNew := betaCreated r.expr args
       let pf ← args.foldlM (init := pf) mkCongrFun
-      return some (i, { expr := eNew, proof? := ← mkExpectedTypeHint pf (← mkEq e eNew) })
+      return some (i, { expr := mkAppN r.expr args, proof? := pf })
     return none
   apply (entered : Array (Expr × Expr)) (i : Nat) (e : Expr) : MetaM (Option Simp.Result) := do
     let s := bs[i]!
@@ -665,7 +720,7 @@ private def rewriteHypotheses (goal : MVarId) (steps : Array Blaster.Optimize.Pr
         if j == steps.size && (dependent || below && idle != some ty) then
           let index ← match index? with
             | some i => pure i
-            | none => g.withContext (indexBinderSteps all)
+            | none => g.withContext (indexBinderSteps cache all)
           index? := some index
           rw? ← g.withContext (rewriteBelowBinders ty all index
             (fun k => (dependent || !all[k]!.outside) && !later all[k]!.thm) dependent)
@@ -673,12 +728,15 @@ private def rewriteHypotheses (goal : MVarId) (steps : Array Blaster.Optimize.Pr
         try
           if let some (.rewrite heq symm _) := steps[j]? then
             unless dependent || later heq do
-              let r ← g.rewrite ty heq symm
+              let r ← g.rewrite ty (← g.withContext (withCanonicalType cache heq)) symm
               checkHypStep g heq
-              rw? := some (← betaAfterLambdaStep r, r.eqProof)
+              rw? := some (r.eNew, r.eqProof)
           if let some (eNew, eqProof) := rw? then
+            -- in the replay spelling, which the term a step inserts may leave around it, e.g. a
+            -- Nat numeral substituted under `Int.ofNat`
+            let eNew ← g.withContext (canonicalForm cache eNew)
             let res ← g.replaceLocalDecl h eNew eqProof
-            -- `eqProof` proves `ty = eNew` up to the beta reduction of `eNew`
+            -- `eqProof` proves `ty = eNew` up to the spelling of `eNew`
             eq? := some <| match eq? with
               | none => eqProof
               | some e => mkApp6 (mkConst ``Eq.trans [1]) (mkSort 0) start.2 ty eNew e eqProof
@@ -690,7 +748,7 @@ private def rewriteHypotheses (goal : MVarId) (steps : Array Blaster.Optimize.Pr
               | s@(.unfold _) => s
             let old := all
             all := all.map fun b => { b with thm := s.apply b.thm }
-            index? ← res.mvarId.withContext (index?.mapM (·.reindex old all))
+            index? ← res.mvarId.withContext (index?.mapM (·.reindex cache old all))
             hs := hs.map fun f => (s.get f).fvarId!
             -- the records of the later binders already rewritten follow the renaming
             binders := binders.mapIdx fun k b => if k ≤ i || b.eq?.isNone then b else { b with
@@ -766,9 +824,10 @@ private def replaySteps (goal : MVarId) (steps : Array Blaster.Optimize.ProofSte
         if stalled then continue
         try
           let t ← g.getType
-          let r ← g.rewrite t heq symm
+          let r ← g.rewrite t (← g.withContext (withCanonicalType cache heq)) symm
           checkHypStep g heq
-          g ← g.replaceTargetEq (← betaAfterLambdaStep r) r.eqProof
+          -- in the replay spelling, as on the hypotheses
+          g ← g.replaceTargetEq (← g.withContext (canonicalForm cache r.eNew)) r.eqProof
           -- a rewrite between defeq spellings may leave the target as is and must not loop
           if (← g.getType) != t then changed := true
           /- trace[Optimize.expr] "  applied rewrite → {← g.getType}" -/
@@ -776,7 +835,9 @@ private def replaySteps (goal : MVarId) (steps : Array Blaster.Optimize.ProofSte
       | .exact proof =>
         let s ← saveState
         try
-          -- both sides are in the replay spelling, so a recursive target is not unfolded
+          -- the target is in the replay spelling and the statement is compared with it at
+          -- reducible-and-instances transparency, so a recursive target is not unfolded; the
+          -- `.exact` emitters give statements in that spelling up to this transparency
           -- the proof's extra binders are the ones the replay introduced, found by assumption
           let closed ← g.withContext do withReducibleAndInstances do
             let pt ← inferType proof
@@ -816,17 +877,17 @@ private def replaySteps (goal : MVarId) (steps : Array Blaster.Optimize.ProofSte
     if !stalled && below && idle != some t then
       let index ← match index? with
         | some i => pure i
-        | none => g.withContext (indexBinderSteps all)
+        | none => g.withContext (indexBinderSteps cache all)
       index? := some index
       if let some (eNew, eqProof) ← g.withContext (rewriteBelowBinders t all index (!all[·]!.outside)) then
-        g ← g.replaceTargetEq eNew eqProof
+        g ← g.replaceTargetEq (← g.withContext (canonicalForm cache eNew)) eqProof
       if (← g.getType) != t then changed := true else idle := some t
     unless changed do
       unless stalled do
         unless pending || (← g.withContext (hasDependentPosition (← g.getType))) do break
         stalled := true
         let (g', steps', all', binders', _) ← rewriteHypotheses g steps all binders true cache
-        index? ← g'.withContext (index?.mapM (·.reindex all all'))
+        index? ← g'.withContext (index?.mapM (·.reindex cache all all'))
         if g' != g then
           changed := true
           -- the hypotheses changed, so a target already seen starts a round again
@@ -838,10 +899,10 @@ private def replaySteps (goal : MVarId) (steps : Array Blaster.Optimize.ProofSte
       let t ← g.getType
       let index ← match index? with
         | some i => pure i
-        | none => g.withContext (indexBinderSteps all)
+        | none => g.withContext (indexBinderSteps cache all)
       index? := some index
       if let some (eNew, eqProof) ← g.withContext (rewriteBelowBinders t all index (fun _ => true) true) then
-        g ← g.replaceTargetEq eNew eqProof
+        g ← g.replaceTargetEq (← g.withContext (canonicalForm cache eNew)) eqProof
         if ← reflexive g then return (g, binders)
         if (← g.getType) != t then changed := true
   /- trace[Optimize.expr] "final goal: {← g.getType}" -/
@@ -892,8 +953,9 @@ def applyProofStack (goal : MVarId) (steps : Array Blaster.Optimize.ProofStep)
     return (plain, all)
   replaySteps goal steps all hyps cache records
 
-/-- Custom sorry for Blaster to differentiate between SMT-verified goals and regular `sorry`.-/
-axiom blasterProven : ∀ {α : Sort u}, α
+/-- Custom sorry for Blaster to differentiate
+    between SMT-verified goals and regular `sorry`.-/
+private axiom blasterProven : ∀ {α : Sort u}, α
 
 private def blasterAdmit (mvarId : MVarId) : MetaM Unit :=
   mvarId.withContext do
@@ -902,20 +964,29 @@ private def blasterAdmit (mvarId : MVarId) : MetaM Unit :=
     let u ← getLevel mvarType
     mvarId.assign (mkApp (mkConst ``blasterProven [u]) mvarType)
 
+/-- Warn that the proof uses `blasterProven`, unless `warn.sorry` is false, as for `sorry`:
+    with `gap` when `optimizerClosed`, since then the optimizer proved the goal by rewriting and
+    the replay should have reconstructed it, else with the text of an SMT-verified goal. -/
+private def warnBlasterProven (optimizerClosed : Bool) (gap : MessageData) : MetaM Unit := do
+  unless (← getOptions).getBool `warn.sorry true do return
+  if optimizerClosed then logWarning gap
+  else logWarning "declaration uses 'blasterProven' (SMT-verified, no proof term)"
+
 /-- Introduce the binders of `goalType` and apply the proof stack, with `records` as in
     `applyProofStack`. In the steps, the first optimizer binders `optBinders`, as many as the
-    introduced binders, are replaced by these in order, and in the steps `othersIn` accepts, each
-    of `others`, an optimizer binder paired with an index, by the introduced binder at that index.
+    introduced binders, are replaced by these in order (see `pairBinders`), and in the steps
+    `othersIn` accepts, each of `others`, an optimizer binder paired with an index, by the
+    introduced binder at that index.
     Returns the proof of `goalType`, the goal the replay left in it and how it left each binder. -/
 private def replayProofStack (goalType : Expr) (proofStack : Array Blaster.Optimize.ProofStep)
-    (optBinders : Array FVarId) (records := false) (others : Array (FVarId × Nat) := #[])
+    (optBinders : Array (Option FVarId)) (records := false) (others : Array (FVarId × Nat) := #[])
     (othersIn : Blaster.Optimize.ProofStep → Bool := fun _ => true) :
     MetaM (Expr × MVarId × Array ReplayedBinder) := do
   let proofMVar ← mkFreshExprMVar goalType
   let numBinders ← forallTelescope goalType fun fvars _ => pure fvars.size
   let (goalFVarIds, g) ← proofMVar.mvarId!.introNP numBinders
-  let n := min optBinders.size goalFVarIds.size
-  let proofStack := substProofStackFVars proofStack (optBinders.extract 0 n) (goalFVarIds.extract 0 n)
+  let (opt, goal) := pairBinders optBinders goalFVarIds
+  let proofStack := substProofStackFVars proofStack opt goal
   let proofStack := substProofStackFVars proofStack (others.map (·.1))
     (others.map (goalFVarIds[·.2]!)) othersIn
   let (g, binders) ← applyProofStack g proofStack goalFVarIds records
@@ -923,16 +994,15 @@ private def replayProofStack (goalType : Expr) (proofStack : Array Blaster.Optim
 
 /-- Close with refl the goal `g` that the replay of `numSteps` steps left in `proofMVar`, a proof
     of `goalType`.
-    On failure, admit via `blasterProven`, or throw when `admit` is false.
-    Warn only when `optimizerClosed`, since then the optimizer proved it by rewriting and
-    it should have reconstructed. -/
+    On failure, admit via `blasterProven` with one `warnBlasterProven`, or throw when `admit` is
+    false. -/
 private def closeReplay (goalType proofMVar : Expr) (g : MVarId) (numSteps : Nat)
     (optimizerClosed admit : Bool) : MetaM Expr := do
   let closed ← closeTrivially g
   unless closed do
     unless admit do throwError m!"blaster: reconstruction gap\n{.ofGoal g}"
-    if optimizerClosed then
-      logWarning m!"blaster: reconstruction gap ({numSteps} steps), admitted via `blasterProven`\n{.ofGoal g}"
+    warnBlasterProven optimizerClosed
+      m!"blaster: reconstruction gap ({numSteps} steps), admitted via `blasterProven`\n{.ofGoal g}"
     blasterAdmit g
   -- a step may carry an optimizer fvar the replay did not map, which the kernel would reject
   let pf ← instantiateMVars proofMVar
@@ -940,15 +1010,17 @@ private def closeReplay (goalType proofMVar : Expr) (g : MVarId) (numSteps : Nat
   unless pf.hasFVar && (collectFVars {} pf).fvarIds.any (!lctx.contains ·) do
     return proofMVar
   unless admit do throwError "blaster: reconstruction gap (unmapped free variable)"
-  if optimizerClosed && closed then
-    logWarning m!"blaster: reconstruction gap (unmapped free variable), admitted via `blasterProven`"
+  -- a goal the replay left has already warned
+  if closed then
+    warnBlasterProven optimizerClosed
+      m!"blaster: reconstruction gap (unmapped free variable), admitted via `blasterProven`"
   let m ← mkFreshExprMVar goalType
   blasterAdmit m.mvarId!
   return m
 
 /-- Prove a goal by `replayProofStack`, then `closeReplay`. -/
 private def proveByProofStack (goalType : Expr) (proofStack : Array Blaster.Optimize.ProofStep)
-    (optBinders : Array FVarId) (optimizerClosed : Bool) (admit := true) :
+    (optBinders : Array (Option FVarId)) (optimizerClosed : Bool) (admit := true) :
     MetaM (Expr × Array ReplayedBinder) := do
   let (proofMVar, g, binders) ← replayProofStack goalType proofStack optBinders
   return (← closeReplay goalType proofMVar g proofStack.size optimizerClosed admit, binders)
@@ -970,13 +1042,13 @@ private def stepInstances (steps : Array Blaster.Optimize.ProofStep) : MetaM (Ar
   return insts
 
 /-- The instances `insts` of the steps (see `stepInstances`) given the first lhs arguments
-    `args`, which the optimizer binders `optBinders` stand for, those the context holds. -/
-private def instancesAt (insts : Array Expr) (optBinders : Array FVarId) (args : Array Expr) :
-    MetaM (Array Expr) := do
-  let n := min args.size optBinders.size
-  let opt := (optBinders.extract 0 n).map mkFVar
+    `args`, which the optimizer binders `optBinders` stand for (see `pairBinders`), those the
+    context holds. -/
+private def instancesAt (insts : Array Expr) (optBinders : Array (Option FVarId))
+    (args : Array Expr) : MetaM (Array Expr) := do
+  let (opt, args) := pairBinders optBinders args
   let lctx ← getLCtx
-  return (insts.map (·.replaceFVars opt (args.extract 0 n))).filter fun a =>
+  return (insts.map (·.replaceFVars (opt.map mkFVar) args)).filter fun a =>
     !a.hasAnyFVar (!lctx.contains ·)
 
 /-- An inhabitant of the non-Prop type `t` by `mkInhabitantFor`, with `insts` as local instances
@@ -1024,7 +1096,7 @@ private def forallEqTransports (xs ys : Array Expr) (Q : Expr) (idx : Array (Opt
     instances `insts` the steps carry (see `stepInstances`). Without one, the goal is left as a
     gap. -/
 private def proveForallEq (lhs rhs : Expr) (p q : Nat) (idx : Array (Option Nat))
-    (steps : Array Blaster.Optimize.ProofStep) (optBinders rhsBinders : Array FVarId)
+    (steps : Array Blaster.Optimize.ProofStep) (optBinders rhsBinders : Array (Option FVarId))
     (insts : Array Expr) : MetaM Expr := do
   let lctx ← getLCtx
   let localInsts ← getLocalInstances
@@ -1032,20 +1104,15 @@ private def proveForallEq (lhs rhs : Expr) (p q : Nat) (idx : Array (Option Nat)
     let (f, t) := matchedPairs xs ys idx
     let toX (e : Expr) := e.replaceFVars f t
     let innerType ← mkForallFVars xs (← mkEq P (toX Q))
-    -- `rhsBinders` are the binders the optimizer opened on `rhs`, given only when the goal is
-    -- its input. It opens the head binders of `rhs` first and in order, so the first
-    -- `rhsBinders` are the opened `ys`, up to a cached forall it does not open again. Each one
-    -- with a match is, in the steps on `Q`, the binder of `lhs` it is matched with. These steps
-    -- are pushed below the last opened `y`, and an `exact` step, which records no binder, only
-    -- closes a goal. The other steps on `rhs`, on the types of the `ys` or on its foralls, are
-    -- not on the replayed equation, and mapped they would rewrite the binders of `lhs` too, as
-    -- the `eq_comm` on the type of `_h1` would in the equation of foralls of
-    -- `Tests/Reconstruct/Basic.lean` with a kept hypothesis rewritten in the domain of a `∀`.
+    -- `rhsBinders`, given only when the goal is the optimizer's input, records the head binders
+    -- of `rhs` in order, up to a cached forall or a `False` binder: the fvar of each opened `y`,
+    -- `none` for one dropped before it was opened. `others` maps each opened `y` that `idx`
+    -- matches to its binder of `lhs`, in the steps `onQ` accepts: the rewrites recorded below the
+    -- last opened `y`, and the steps that record no binder. Mapped, the other steps on `rhs`,
+    -- outside the replayed equation, would rewrite the binders of `lhs` too.
     let others := (List.range ys.size).toArray.filterMap fun j => do
-      return (← rhsBinders[j]?, ← idx[j]!)
-    let last := match ys.size with
-      | 0 => none
-      | n + 1 => rhsBinders[n]?
+      return (← rhsBinders[j]?.join, ← idx[j]!)
+    let last := ((rhsBinders.extract 0 ys.size).filterMap id).back?
     let onQ : Blaster.Optimize.ProofStep → Bool
       | .rewrite _ _ bs => bs.any (some ·.fvar == last)
       | _ => true
@@ -1142,10 +1209,10 @@ not{indentExpr ty}"
     when the body of `rhs` unfolds to a forall over one that is not a proof. The stack does not
     tell which binder a COI step eliminated, as the step names only the type and the body, so a
     goal out of these premises takes a route that leaves it as a gap.
-    A replay that fails is a gap, admitted via `blasterProven`, or an error when `admit` is
-    false, as in the `#testOptimize` gate. -/
+    A replay that fails, or whose proof depends on `sorryAx`, is a gap, admitted via
+    `blasterProven`, or an error when `admit` is false, as in the `#testOptimize` gate. -/
 def proveGoalByProofStack (goalType : Expr) (proofStack : Array Blaster.Optimize.ProofStep)
-    (optBinders rhsBinders : Array FVarId) (optimizerClosed : Bool) (admit := true) :
+    (optBinders rhsBinders : Array (Option FVarId)) (optimizerClosed : Bool) (admit := true) :
     MetaM Expr := do
   -- the optimizer sees the goal without its `let`s, so its binders are found below them
   let goalType ← if (hasLet goalType {}).1 then zetaLets goalType else pure goalType
@@ -1207,13 +1274,20 @@ def proveGoalByProofStack (goalType : Expr) (proofStack : Array Blaster.Optimize
     if let some (lhs, rhs, p, q, idx, insts) ← forallEq? then
       return ← proveForallEq lhs rhs p q idx proofStack optBinders rhsBinders insts
     return (← proveByProofStack goalType proofStack optBinders optimizerClosed admit).1
+  -- the proof may depend on `sorryAx`, through a term of the optimizer it embeds or a definition
+  -- the optimizer unfolds whose body has a `sorry`: it is then a gap, whatever the path
+  let proveSorryFree : MetaM Expr := do
+    let pf ← instantiateMVars (← prove)
+    if containsSorry pf then throwError "the proof depends on `sorryAx`"
+    return pf
   let s ← saveState
-  -- also a replay out of heartbeats, whose admission then needs a fresh count
-  tryCatchRuntimeEx prove fun e => do
+  -- also a replay out of heartbeats, whose admission then needs a fresh count. The restored
+  -- state drops the warning of a gap the replay admitted, so the admission warns once
+  tryCatchRuntimeEx proveSorryFree fun e => do
     s.restore
     unless admit do throw e
-    if optimizerClosed then
-      logWarning m!"blaster: reconstruction gap, admitted via `blasterProven`\n{e.toMessageData}"
+    warnBlasterProven optimizerClosed
+      m!"blaster: reconstruction gap, admitted via `blasterProven`\n{e.toMessageData}"
     withCurrHeartbeats do
       let m ← mkFreshExprMVar goalType
       blasterAdmit m.mvarId!
@@ -1231,9 +1305,9 @@ def blasterTacticImp : Tactic := fun stx =>
      withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0 }) $ do
        IO.setNumHeartbeats 0
        Translate.main (← goal.getType) (logUndetermined := false) |>.run env
-   let proofStack := finalEnv.optEnv.proofStack
-   let optBinders := finalEnv.optEnv.optBinders.goal
-   let rhsBinders := finalEnv.optEnv.optBinders.rhs
+   let proofStack := finalEnv.proofEnv.proofStack
+   let optBinders := finalEnv.proofEnv.optBinders.goal
+   let rhsBinders := finalEnv.proofEnv.optBinders.rhs
    match result with
    | .Valid =>
         -- `optExpr == True` ⟹ proved by rewriting (no SMT)

@@ -7,33 +7,20 @@ import Blaster.Optimize.Env
 open Lean Meta
 namespace Blaster.Optimize
 
-/-- Find an FVar proof of `0 < e` in the optimizer's local context.
-    If only `¬(0 = e)` is found, wraps it with `Blaster.nat_pos_of_ne_zero`.
-    Assumes `nonZeroNatInHyps e` has returned `true`. -/
-def findPosNatProof? (e : Expr) : TranslateEnvT (Option Expr) := withLocalContext $ do
-  let lctx ← getLCtx
-  -- First pass: look for 0 < e directly
-  for decl in lctx do
-    if decl.isImplementationDetail then continue
-    let ty := decl.type
-    if ty.isAppOfArity ``LT.lt 4 then
-      let args := ty.getAppArgs
-      if args[0]!.isConstOf ``Nat && isZeroNat args[2]! && exprEq args[3]! e then
-        return some (mkFVar decl.fvarId)
-  -- Second pass: look for ¬(0 = e) and wrap with Blaster.nat_pos_of_ne_zero
-  for decl in lctx do
-    if decl.isImplementationDetail then continue
-    let ty := decl.type
-    if let some inner := ty.not? then
-      if inner.isAppOfArity ``Eq 3 then
-        let args := inner.getAppArgs
-        if args[0]!.isConstOf ``Nat && isZeroNat args[1]! && exprEq args[2]! e then
-          return some (mkApp2 (mkConst ``Blaster.nat_pos_of_ne_zero) e (mkFVar decl.fvarId))
-  return none
+/-- Proof of `0 < e` from the hypothesis map, for `e` such that `nonZeroNatInHyps e` holds:
+    the proof of the hypothesis `0 < e`, or `Blaster.nat_pos_of_ne_zero` applied to the proof of
+    the hypothesis `¬ (0 = e)`. The keys are built as `nonZeroNatInHyps` builds them, so that they
+    are the hash-consed terms the hypothesis map is keyed on. -/
+def findPosNatProof? (e : Expr) : TranslateEnvT (Option Expr) := do
+  let zero_nat ← mkNatLitExpr 0
+  if let some p ← hypMapFind? (← mkNatLtExpr zero_nat e) then return some p
+  let zero_eq ← mkNatEqExpr zero_nat e
+  let some p ← hypMapFind? (← mkAppExpr (← mkPropNotOp) zero_eq) | return none
+  return some (mkApp2 (mkConst ``Blaster.nat_pos_of_ne_zero) e p)
 
 /-- Apply the following simplification/normalization rules on `Nat.add` :
      - 0 + n ==> n                          [proof: Nat.zero_add]
-     - N1 + N2 ===> N1 "+" N2
+     - N1 + N2 ==> N1 "+" N2
      - N1 + (N2 + n) ==> (N1 "+" N2) + n    [proof: ← Nat.add_assoc]
      - n1 + n2 ==> n2 + n1 (if n2 <ₒ n1)
    Assume that f = Expr.const ``Nat.add.
@@ -50,7 +37,7 @@ def optimizeNatAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  | some n1, some n2 => evalBinNatOp Nat.add n1 n2
  | nv1,  _ =>
     if let some r ← cstAddProp? nv1 op1 op2 then return r
-    return (mkApp2 f op1 op2)
+    mkApp2Expr f op1 op2
 
  where
    /- Given `mv1` and `op2`, return `some ((N1 "+" N2) + n)` when
@@ -62,7 +49,7 @@ def optimizeNatAdd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
     | some n1, (NatCstOpInfo.NatAddExpr n2 e2) =>
         let n2Expr := op2.appFn!.appArg!
         pushProofStep (.rewrite (mkApp3 (mkConst ``Nat.add_assoc) op1 n2Expr e2) (symm := true))
-        return (mkApp2 f (← evalBinNatOp Nat.add n1 n2) e2)
+        mkApp2Expr f (← evalBinNatOp Nat.add n1 n2) e2
     | _, _ => return none
 
 
@@ -96,7 +83,7 @@ def optimizeNatSub (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  | nv1, nv2 =>
    if let some r ← cstSubPropRight? nv1 op1 op2 then return r
    if let some r ← cstSubPropLeft? op1 op2 nv2 then return r
-   return (mkApp2 f op1 op2)
+   mkApp2Expr f op1 op2
 
  where
    /- Given `mv1` and `op2` return `some ((N1 "-" N2) - n)` when
@@ -108,7 +95,7 @@ def optimizeNatSub (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
         let n2Expr := op2.appFn!.appArg!
         pushProofStep (.rewrite (mkApp3 (mkConst ``Nat.sub_add_eq) op1 n2Expr e2))
         setRestart
-        return mkApp2 f (← evalBinNatOp Nat.sub n1 n2) e2
+        mkApp2Expr f (← evalBinNatOp Nat.sub n1 n2) e2
     | _, _ => return none
 
    /- Given `op1` and `mv2`,
@@ -125,21 +112,19 @@ def optimizeNatSub (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
               let n1Expr := op1.appFn!.appArg!
               pushProofStep (.rewrite (mkApp3 (mkConst ``Nat.sub_right_comm) n1Expr e1 op2))
               setRestart
-              return mkApp2 f (← evalBinNatOp Nat.sub n1 n2) e1
+              mkApp2Expr f (← evalBinNatOp Nat.sub n1 n2) e1
           | some (NatCstOpInfo.NatSubRightExpr e1 n1) =>
               let n1Expr := op1.appArg!
               pushProofStep (.rewrite (mkApp3 (mkConst ``Nat.sub_sub) e1 n1Expr op2))
               -- no need to restart here
-              return (mkApp2 f e1 (← evalBinNatOp Nat.add n1 n2))
+              mkApp2Expr f e1 (← evalBinNatOp Nat.add n1 n2)
           | some (NatCstOpInfo.NatAddExpr n1 e1) =>
               if Nat.ble n2 n1 then
                 let n1Expr := op1.appFn!.appArg!
-                let hProof :=
-                  mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Bool) (mkConst ``Bool.true)
                 pushProofStep
-                  (.rewrite (mkApp4 (mkConst ``Blaster.nat_add_sub_of_ble) op2 n1Expr e1 hProof))
+                  (.rewrite (mkApp4 (mkConst ``Blaster.nat_add_sub_of_ble) op2 n1Expr e1 boolTrueRefl))
                 setRestart
-                return mkApp2 (← mkNatAddOp) (← evalBinNatOp Nat.sub n1 n2) e1
+                mkApp2Expr (← mkNatAddOp) (← evalBinNatOp Nat.sub n1 n2) e1
               else return none
           | _ => return none
      | _ => return none
@@ -169,15 +154,15 @@ def optimizeNatPow (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
   pushProofStep (.rewrite (mkConst ``Nat.pow_zero))
   return (← mkNatLitExpr 1)
  | some n1, some n2 => evalBinNatOp Nat.pow n1 n2
- | _, _ => return (mkApp2 f op1 op2)
+ | _, _ => mkApp2Expr f op1 op2
 
 /-- Apply the following simplification/normalization rules on `Nat.mul` :
      - 0 * n ==> 0                          [proof: Nat.zero_mul]
      - 1 * n ==> n                          [proof: Nat.one_mul]
-     - N1 * N2 ==> N1 "*" N2
+     - N1 + N2 ==> N1 "*" N2
      - N1 * (N2 * n) ==> (N1 "*" N2) * n    [proof: ← Nat.mul_assoc]
+     - n * n^m ===> n ^ (m + 1)             [proof: Blaster.nat_mul_pow_eq]
      - n1 * n2 ==> n2 * n1 (if n2 <ₒ n1)
-     - n * n^m ===> n ^ (m + 1)
    Assume that f = Expr.const ``Nat.mul.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Nat.mul` expected at this stage)
 -/
@@ -196,7 +181,7 @@ def optimizeNatMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  | nv1, _ =>
    if let some r ← cstMulProp? nv1 op1 op2 then return r
    if let some r ← mulPowReduceExpr? op1 op2 then return r
-   return (mkApp2 f op1 op2)
+   mkApp2Expr f op1 op2
 
  where
    /- Given `mv1` and `op2`, return `some ((N1 "*" N2) * n)`
@@ -208,7 +193,7 @@ def optimizeNatMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      | some n1, some (NatCstOpInfo.NatMulExpr n2 e2) =>
          let n2Expr := op2.appFn!.appArg!
          pushProofStep (.rewrite (mkApp3 (mkConst ``Nat.mul_assoc) op1 n2Expr e2) (symm := true))
-         return (mkApp2 f (← evalBinNatOp Nat.mul n1 n2) e2)
+         mkApp2Expr f (← evalBinNatOp Nat.mul n1 n2) e2
      | _, _ => return none
 
    /-- Given `e1` and `e2` corresponding to the operands for `Nat.mul`,
@@ -218,10 +203,11 @@ def optimizeNatMul (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
     match natPow? e2 with
     | some (op1, op2) =>
        if exprEq e1 op1 then
+         pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.nat_mul_pow_eq) e1 op2))
          setRestart
-         let addExpr := mkApp2 (← mkNatAddOp) (← mkNatLitExpr 1) op2
-         return mkApp2 (← mkNatPowOp) e1 addExpr
-       return none
+         let addExpr ← mkApp2Expr (← mkNatAddOp) (← mkNatLitExpr 1) op2
+         mkApp2Expr (← mkNatPowOp) e1 addExpr
+       else return none
     | none => return none
 
 /-- Given `e1` and `e2` corresponding to the operands for `Nat.div` (i.e., `e1 / e2`),
@@ -299,7 +285,7 @@ def optimizeNatDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
      -- (m * n) / n ==> m  or  (n * m) / n ==> m
      emitMulDivProofStep op1 op2
      return r
-   return (mkApp2 f op1 op2)
+   mkApp2Expr f op1 op2
 
  where
    /-- Emit the proof step for (m * n) / n ==> m or (n * m) / n ==> m. -/
@@ -331,21 +317,19 @@ def optimizeNatDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
              pushProofStep (.rewrite
                (mkApp3 (mkConst ``Nat.div_div_eq_div_mul) e1 n1Expr outerOp2))
              -- no need to restart here
-             return (mkApp2 f e1 (← evalBinNatOp Nat.mul n1 n2))
+             mkApp2Expr f e1 (← evalBinNatOp Nat.mul n1 n2)
          | some (NatCstOpInfo.NatMulExpr n1 e1) =>
              -- (N1 * x) / N2  ==>  ((N1/g) * x) / (N2/g)
              let gcd := if n1 < n2 then Nat.gcd n1 n2 else Nat.gcd n2 n1
              if gcd == 1 then return none
              let n1Expr := op1.appFn!.appArg!
-             let gExpr ← mkNatLitExpr gcd
-             let boolRefl :=
-               mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Bool) (mkConst ``Bool.true)
+             let gExpr := mkRawNatLit gcd
              pushProofStep (.rewrite
                (mkAppN (mkConst ``Blaster.nat_mul_div_cancel_gcd)
-                  #[n1Expr, outerOp2, gExpr, e1, boolRefl, boolRefl, boolRefl]))
+                  #[n1Expr, outerOp2, gExpr, e1, boolTrueRefl, boolTrueRefl, boolTrueRefl]))
              setRestart
-             let mulExpr := mkApp2 (← mkNatMulOp) (← evalBinNatOp Nat.div n1 gcd) e1
-             return mkApp2 f mulExpr (← evalBinNatOp Nat.div n2 gcd)
+             let mulExpr ← mkApp2Expr (← mkNatMulOp) (← evalBinNatOp Nat.div n1 gcd) e1
+             mkApp2Expr f mulExpr (← evalBinNatOp Nat.div n2 gcd)
          | _ => return none
      | _ => return none
 
@@ -398,7 +382,7 @@ def optimizeNatMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
    if let some r ← natModToZeroExpr? op1 op2 then
      emitModToZeroProofStep op1 op2
      return r
-   return (mkApp2 f op1 op2)
+   mkApp2Expr f op1 op2
 
  where
    /-- Emit the proof step for n % n ==> 0, (n * m) % n ==> 0, or (m * n) % n ==> 0. -/
@@ -423,11 +407,9 @@ def optimizeNatMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
     | some (NatCstOpInfo.NatMulExpr n1 e1), some n2 =>
         if Nat.mod n1 n2 == 0 then
           let n1Expr := op1.appFn!.appArg!
-          let boolRefl :=
-            mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Bool) (mkConst ``Bool.true)
           pushProofStep (.rewrite
             (mkAppN (mkConst ``Blaster.nat_mul_mod_of_mod_eq_zero)
-               #[n1Expr, outerOp2, e1, boolRefl]))
+               #[n1Expr, outerOp2, e1, boolTrueRefl]))
           some <$> mkNatLitExpr 0
         else return none
     | _, _ => return none
@@ -439,21 +421,29 @@ def optimizeNatMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
     to properly handle the case where another rec function is equivalent to `Nat.beq`
 --/
 def optimizeNatBeq (f : Expr) (b_args : Array Expr) : TranslateEnvT Expr := do
-  if !(← isOptimizeRecCall) then return mkAppN f b_args
-  pushProofStep (.rewrite (mkConst ``Blaster.nat_beq_eq_beq))
-  setRestart
-  return mkAppN (← mkNatBEqOp) b_args
+  if ← isOptimizeRecCall then
+    pushProofStep (.rewrite (mkConst ``Blaster.nat_beq_eq_beq))
+    setRestart
+    mkAppNExpr (← mkNatBEqOp) b_args
+  else mkAppNExpr f b_args
 
-/-- Normalize `Nat.ble x y` to `decide' (x ≤ y)` only when option normalizeFunCall is set to `true`.
+
+/-- Normalize `Nat.ble x y` to `decide' (¬ y < x)` only when option normalizeFunCall is set to `true`.
+    [proof: Blaster.nat_ble_eq_decide', then Blaster.nat_le_eq_not_lt]
     Assume that f = Expr.const ``Nat.ble
     NOTE: This normalization rule is still required here mainly
     to properly handle the case where another rec function is equivalent to `Nat.beq`
 -/
 def optimizeNatble (f : Expr) (b_args : Array Expr) : TranslateEnvT Expr := do
-  if !(← isOptimizeRecCall) then return mkAppN f b_args
-  setRestart
-  let leExpr := mkAppN (← mkNatLeOp) b_args
-  return mkApp (← mkBlasterDecideConst) leExpr
+  if ← isOptimizeRecCall then
+    if b_args.size == 2 then
+      pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.nat_ble_eq_decide') b_args[0]! b_args[1]!))
+      pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.nat_le_eq_not_lt) b_args[0]! b_args[1]!))
+    setRestart
+    let leExpr ← mkAppExpr (← mkPropNotOp) (← mkApp2Expr (← mkNatLtOp) b_args[1]! b_args[0]!)
+    mkAppExpr (← mkBlasterDecideConst) leExpr
+  else mkAppNExpr f b_args
+
 
 /-- Apply simplification/normalization rules on `Nat` operators. -/
 @[always_inline, inline]

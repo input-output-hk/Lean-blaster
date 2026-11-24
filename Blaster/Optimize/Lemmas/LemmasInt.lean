@@ -8,6 +8,9 @@ namespace Blaster
 
 /-! ## Lemmas validating the normalization and simplifications on `Int` -/
 
+protected theorem int_not_lt_of_lt {a b : Int} (h : a < b) : ¬ b < a := by
+  apply (Int.lt_asymm h)
+
 protected theorem int_not_lt_right_of_eq {a b : Int} (h : a = b) : ¬ b < a := by
   apply (Int.not_lt_of_ge (Int.le_of_eq h))
 
@@ -114,6 +117,10 @@ protected theorem int_negSucc_eq (n : Nat) : Int.negSucc n = -(Int.ofNat (1 + n)
 /-! Lemma to validate simplification rule `N1 + -(N2 + n) ==> (N1 "-" N2) + -n`. -/
 protected theorem int_add_neg_add (a b c : Int) : a + -(b + c) = (a - b) + -c := by omega
 
+/-! Lemma to validate simplification rule `n * n^m ===> n ^ (m + 1)`. -/
+protected theorem int_mul_pow_eq (a : Int) (m : Nat) : a * a ^ m = a ^ (1 + m) := by
+  rw [Nat.add_comm]; exact (Int.pow_succ' a m).symm
+
 /-! ## Lemmas validating the `optimizeLT` simplification and normalization rules on `Int` -/
 
 /-! Lemma to validate simplification rule `e < e ==> False`. -/
@@ -179,6 +186,14 @@ protected theorem int_add_both_lt (a b n1 n2 m1 m2 : Int)
 /-! Lemma to validate normalization rule `a < 1 + b ==> ¬ (b < a)`. -/
 protected theorem int_lt_one_add_eq_not_lt (a b : Int) : (a < 1 + b) = (¬ (b < a)) :=
   propext (by omega)
+
+/-! Lemma to validate simplification rule `Int.neg e1 < Int.neg e2 ==> e2 < e1`. -/
+protected theorem int_neg_lt_neg (a b : Int) : (-a < -b) = (b < a) :=
+  propext Int.neg_lt_neg_iff
+
+/-! Lemma to validate simplification rule `Int.ofNat e1 < Int.ofNat e2 ==> e1 < e2`. -/
+protected theorem int_ofNat_lt_ofNat (a b : Nat) : (Int.ofNat a < Int.ofNat b) = (a < b) :=
+  propext Int.ofNat_lt
 
 /-! ## Lemmas validating the hypothesis-context `optimizeLT` reductions on `Int`.
     Bridges converting the three stored hypothesis forms (`0 < b`, `0 = b`, `¬ (b < 0)`)
@@ -276,6 +291,25 @@ protected theorem zero_eq_int (e : Int) : (0 = -e) = (0 = e) := by
 protected theorem int_neg_eq (a b : Int) : (-a = -b) = (a = b) := by
   apply propext
   exact Int.neg_inj
+
+/-! Lemmas to validate the simplification rules on `Int` constructors of `optimizeEq`
+    (`Int.ofNat e1 = Int.ofNat e2 ==> e1 = e2` is the core `Int.ofNat.injEq`):
+  - `Int.ofNat e1 = Int.neg (Int.ofNat e2) ==> 0 = e1 ∧ 0 = e2`
+  - `Int.negSucc N = Int.neg (Int.ofNat e) ==> (N "+" 1) = e`
+  - `Int.negSucc N = Int.neg e ==> Int.ofNat (N "+" 1) = e`
+  `m` is the (already reduced) constant `N "+" 1`, so the reconstructed goal matches the optimizer
+  output literally. -/
+protected theorem int_ofNat_eq_neg_ofNat (a b : Nat) :
+    (Int.ofNat a = -Int.ofNat b) = (0 = a ∧ 0 = b) := by
+  rw [Int.ofNat_eq_coe, Int.ofNat_eq_coe]; exact propext (by omega)
+
+protected theorem int_negSucc_eq_neg_ofNat (n m a : Nat) (h : n + 1 = m) :
+    (Int.negSucc n = -Int.ofNat a) = (m = a) := by
+  subst h; rw [Int.negSucc_eq, Int.ofNat_eq_coe]; exact propext (by omega)
+
+protected theorem int_negSucc_eq_neg (n m : Nat) (a : Int) (h : n + 1 = m) :
+    (Int.negSucc n = -a) = (Int.ofNat m = a) := by
+  subst h; rw [Int.negSucc_eq, Int.ofNat_eq_coe]; exact propext (by omega)
 
 protected theorem int_mul_eq_false_of_ne (a b : Int) (h1 : ¬ (0 = a)) (h2 : ¬ (0 = b)) :
   (0 = a * b) = False := by
@@ -426,7 +460,8 @@ protected theorem int_mul_lft_eq_mul (x y z : Int) (h : ¬ (0 = x)) : (y * x = x
   have h : x ≠ 0 := Ne.symm h
   exact Int.mul_eq_mul_left_iff h
 
-def mkInt_lt_asymm : TranslateEnvT Expr := mkExpr (mkConst ``Int.lt_asymm)
+/-- Return `Blaster.int_not_lt_of_lt` const expression and cache result. -/
+def mkInt_not_lt_of_lt : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.int_not_lt_of_lt)
 
 def mkInt_not_lt_right_of_eq : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.int_not_lt_right_of_eq)
 

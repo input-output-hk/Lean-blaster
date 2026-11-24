@@ -73,13 +73,13 @@ def getValue (xs : Array Nat) (i : USize) (h : i.toNat < xs.size) (y : Nat) : Na
   ∀ (c : Prop) (x y : Nat), [Decidable c] → x > y → (if c ∧ ¬ c then Nat.add x else Nat.sub x) y > 0 ===>
   ∀ (x y : Nat), y < x → 0 < Nat.sub x y
 
+
 -- ∀ (c : Prop) (f g : Type → Nat) (z : Nat), [Decidable c] → (if c then f else g) Nat = z ===>
 -- ∀ (c : Prop) (f g : Type → Nat) (z : Nat), z = Blaster.dite' c (fun _ => f Nat) (fun _ => g Nat)
 -- NOTE: Test case to validate the universe levels of the proof step for a function in `Type 1`.
 #testOptimize [ "NormChoiceAppIte_7", proof ] (norm-result: 1)
   ∀ (c : Prop) (f g : Type → Nat) (z : Nat), [Decidable c] → (if c then f else g) Nat = z ===>
   ∀ (c : Prop) (f g : Type → Nat) (z : Nat), z = Blaster.dite' c (fun _ => f Nat) (fun _ => g Nat)
-
 
 /-! Test cases to validate when normalization of function application on dite. -/
 
@@ -133,7 +133,7 @@ def getValuePolyTwo
 -- NOTE: We prefer to check for equivalence here, as opposed to verify the resulting optimized expression,
 -- mainly to avoid having to provide the unfolded definition for xs.uget.
 -- NOTE: Test case to validate partially applied function
-#testOptimize [ "NormChoiceAppDite_4" ] (norm-result: 1)
+#testOptimize [ "NormChoiceAppDite_4", proof ] (norm-result: 1)
   ∀ (α : Type) (x : USize) (xs : Array α) (w y : α) (f : α → α → α → α) (h : α → α), [LT α] → [DecidableLT α] →
     (if hs : x.toNat < xs.size then getValuePolyTwo xs x hs f else f) w y = h →
     h = if hs : x.toNat < xs.size
@@ -204,32 +204,10 @@ def getValuePolyTwo
 -- ∀ (x : Nat) (g : True → Nat → Nat), 0 < g not_false x
 -- NOTE: Test case to validate that the extra arguments are considered properly when
 -- condition is reduced to True/False.
-def normChoiceAddDite_10 : Lean.Expr :=
-Lean.Expr.forallE `x
-  (Lean.Expr.const `Nat [])
-  (Lean.Expr.forallE `g
-    (Lean.Expr.forallE `h1
-      (Lean.Expr.const `True [])
-      (Lean.Expr.forallE `h2
-        (Lean.Expr.const `Nat [])
-        (Lean.Expr.const `Nat [])
-        (Lean.BinderInfo.default))
-      (Lean.BinderInfo.default))
-    (Lean.Expr.app
-      (Lean.Expr.app
-        (Lean.Expr.app
-          (Lean.Expr.app (Lean.Expr.const `LT.lt [Lean.Level.zero]) (Lean.Expr.const `Nat []))
-          (Lean.Expr.const `instLTNat []))
-        (Lean.Expr.lit (Lean.Literal.natVal 0)))
-      (Lean.Expr.app (Lean.Expr.app (Lean.Expr.bvar 0) (Lean.Expr.const `not_false [])) (Lean.Expr.bvar 1)))
-    (Lean.BinderInfo.default))
-  (Lean.BinderInfo.default)
-elab "normChoiceAddDite_10" : term => return normChoiceAddDite_10
-
--- NOTE: no proof flag, the optimized term applies `g : True → Nat → Nat` to a proof of `¬ False`, which does not type check
-#testOptimize [ "NormChoiceAppDite_10" ]
+#testOptimize [ "NormChoiceAppDite_10" ] (norm-result: 1)
   ∀ (x : Nat) (f : False → Nat → Nat) (g : ¬ False → Nat → Nat),
-    (if h : False then f h else g h) x > 0 ===> normChoiceAddDite_10
+    (if h : False then f h else g h) x > 0 ===>
+  ∀ (x : Nat) (g : True → Nat → Nat), 0 < g True.intro x
 
 /-! Test cases to validate when normalization of projection on ite and dite. -/
 
@@ -337,39 +315,41 @@ def toNat (x : Color) : Nat → Nat :=
 
 -- ∀ (c : Color) (factor : Nat), factor > 0 → toNat c factor > factor ===>
 -- ∀ (c : Color) (factor : Nat), 0 < factor  →
---   factor < toWeight.match_1 (fun ( _ : Color) => Nat) c
---            (fun (x : Color) =>
---               toWeight.match_1 (fun ( _ : Color) => Nat) x
---               (fun (_ : Color) => Nat.mul 10 factor)
---               (fun (_ : Unit) => 1)
---               (fun (_ : Color) => Nat.mul 12 factor)
---               (fun (_ : Unit) => 0))
---            (fun (_ : Unit) => Nat.mul 5 factor)
---            (fun (x : Color) =>
---               toWeight.match_1 (fun ( _ : Color) => Nat) x
---               (fun (_ : Color) => Nat.mul 10 factor)
---               (fun (_ : Unit) => 1)
---               (fun (_ : Color) => Nat.mul 12 factor)
---               (fun (_ : Unit) => 0))
---            (fun (_ : Unit) => Nat.add 1 factor)
+-- factor <
+--   ( match c with
+--     | .red x =>
+--         match x with
+--         | .red _ => Nat.mul 10 factor
+--         | .transparent => 1
+--         | .blue _ => Nat.mul 12 factor
+--         | .black => 0
+--     | .transparent => Nat.mul 5 factor
+--     | .blue x =>
+--          match x with
+--          | .red _ => Nat.mul 10 factor
+--          | .transparent => 1
+--          | .blue _ => Nat.mul 12 factor
+--          | .black => 0
+--     | .black => Nat.add 1 factor )
 #testOptimize [ "NormChoiceAppMatch_1" ] (norm-result: 1)
   ∀ (c : Color) (factor : Nat), factor > 0 → toNat c factor > factor ===>
   ∀ (c : Color) (factor : Nat), 0 < factor  →
-    factor < toWeight.match_1 (fun ( _ : Color) => Nat) c
-             (fun (x : Color) =>
-                toWeight.match_1 (fun ( _ : Color) => Nat) x
-                (fun (_ : Color) => Nat.mul 10 factor)
-                (fun (_ : Unit) => 1)
-                (fun (_ : Color) => Nat.mul 12 factor)
-                (fun (_ : Unit) => 0))
-             (fun (_ : Unit) => Nat.mul 5 factor)
-             (fun (x : Color) =>
-                toWeight.match_1 (fun ( _ : Color) => Nat) x
-                (fun (_ : Color) => Nat.mul 10 factor)
-                (fun (_ : Unit) => 1)
-                (fun (_ : Color) => Nat.mul 12 factor)
-                (fun (_ : Unit) => 0))
-             (fun (_ : Unit) => Nat.add 1 factor)
+    factor <
+      ( match c with
+        | .red x =>
+            match x with
+            | .red _ => Nat.mul 10 factor
+            | .transparent => 1
+            | .blue _ => Nat.mul 12 factor
+            | .black => 0
+        | .transparent => Nat.mul 5 factor
+        | .blue x =>
+             match x with
+             | .red _ => Nat.mul 10 factor
+             | .transparent => 1
+             | .blue _ => Nat.mul 12 factor
+             | .black => 0
+        | .black => Nat.add 1 factor )
 
 def listToNatOne (x : List α) : Nat → Nat :=
  match x with
@@ -489,5 +469,55 @@ def listMap (x : List α) (a : β) (b : β) : Nat → Nat → β :=
              Blaster.dite' (Nat.mul 4 x < y) (fun _ => a) (fun _ => b))
            (fun (_ : List α) =>
              Blaster.dite' (Nat.mul x x < y) (fun _ => a) (fun _ => b))
+
+/-! Test cases to validate normalization of a match application when the match type is a dependent
+    lambda (indexed inductive datatype in the discriminators and/or in the return type). The pushed
+    match must keep the binder types of the original motive (`v : FnIdx n`) and, when the return type
+    depends on a discriminator (`Nat → FnIdx n`), the new return type must refer to the motive's own
+    binder. -/
+
+inductive FnIdx : Nat → Type where
+  | z : FnIdx 0
+  | s : FnIdx 1
+
+def fnFun (n : Nat) (v : FnIdx n) : Nat → Nat :=
+  match n, v with
+  | .(0), .z => fun x => x + 1
+  | .(1), .s => fun x => x * 2
+
+def fnOutF (n : Nat) (v : FnIdx n) : Nat → FnIdx n :=
+  match n, v with
+  | .(0), .z => fun _ => .z
+  | .(1), .s => fun _ => .s
+
+-- ∀ (k : Nat) (w : FnIdx k) (m : Nat), fnFun k w m = m ===>
+-- ∀ (k : Nat) (w : FnIdx k) (m : Nat),
+--   m = fnFun.match_1 (fun (n : Nat) (_ : FnIdx n) => Nat) k w
+--       (fun (_ : Unit) => Nat.add 1 m)
+--       (fun (_ : Unit) => Nat.mul 2 m)
+-- NOTE: Test case to validate that the match type with a dependent binder (`v : FnIdx n`) is kept
+-- when the extra argument is pushed in the alternatives (the return type `Nat → Nat` is closed).
+#testOptimize [ "NormChoiceAppMatch_6" ] (norm-result: 1)
+  ∀ (k : Nat) (w : FnIdx k) (m : Nat), fnFun k w m = m ===>
+  ∀ (k : Nat) (w : FnIdx k) (m : Nat),
+    m = match k, w with
+        | .(0), .z => Nat.add 1 m
+        | .(1), .s => Nat.mul 2 m
+
+-- ∀ (k : Nat) (w : FnIdx k) (m : Nat), fnOutF k w m = w ===>
+-- ∀ (k : Nat) (w : FnIdx k) (m : Nat),
+--   w = fnFun.match_1 (fun (n : Nat) (_ : FnIdx n) => FnIdx n) k w
+--       (fun (_ : Unit) => FnIdx.z)
+--       (fun (_ : Unit) => FnIdx.s)
+-- NOTE: Test case to validate that the return type of the match (`Nat → FnIdx n`, which depends on
+-- the first discriminator) is properly updated to `FnIdx n` when the extra argument is pushed in the
+-- alternatives: the discriminator `k` instantiating the index is abstracted again by the motive's
+-- own binder `n` (as done by Lean's `match` elaborator with `kabstract`).
+#testOptimize [ "NormChoiceAppMatch_7" ]
+  ∀ (k : Nat) (w : FnIdx k) (m : Nat), fnOutF k w m = w ===>
+  ∀ (k : Nat) (w : FnIdx k),
+    w = match k, w with
+        | .(0), .z => FnIdx.z
+        | .(1), .s => FnIdx.s
 
 end Test.NormChoiceApp

@@ -15,6 +15,9 @@ protected theorem nat_add_sub_assoc : ∀ (x y z : Nat), x ≥ z → (x + y) - z
  rw [h2]
  rw [Nat.add_comm (x - z) y]
 
+protected theorem nat_not_lt_of_lt {a b : Nat} (h : a < b) : ¬ b < a := by
+  apply (Nat.lt_asymm h)
+
 protected theorem nat_not_lt_right_of_eq {a b : Nat} (h : a = b) : ¬ b < a := by
   apply (Nat.not_lt_of_le (Nat.le_of_eq h))
 
@@ -54,9 +57,8 @@ protected theorem nat_not_zero_lt_eq_zero_eq (a : Nat) : (¬ (0 < a)) = (0 = a) 
 
 /-! Lemma to validate simplification rule `(N1 + n) - N2 ==> (N1 "-" N2) + n (if N1 ≥ N2)`. -/
 protected theorem nat_add_sub_of_ble {c a : Nat} (b : Nat) (h : Nat.ble c a = true) :
-    (a + b) - c = (a - c) + b := by
-  have h : c ≤ a := by simpa [Nat.ble] using h
-  simpa [Nat.add_comm, Nat.add_left_comm, Nat.add_assoc] using Nat.add_sub_assoc h b
+    (a + b) - c = (a - c) + b :=
+  Nat.sub_add_comm (Nat.le_of_ble_eq_true h)
 
 /-! Lemma to validate simplification rule
     `(N1 * n) / N2 ==> ((N1 / g) * n) / (N2 / g)` (with `g = gcd N1 N2`). -/
@@ -65,9 +67,9 @@ protected theorem nat_mul_div_cancel_gcd {a b g : Nat} (x : Nat)
     (ha : Nat.beq (a % g) 0 = true)
     (hb : Nat.beq (b % g) 0 = true) :
     (a * x) / b = ((a / g) * x) / (b / g) := by
-  have hg' : 0 < g := by simp [Nat.ble_eq] at hg; omega
-  have ha' : a % g = 0 := by simp [Nat.beq_eq] at ha; exact ha
-  have hb' : b % g = 0 := by simp [Nat.beq_eq] at hb; exact hb
+  have hg' : 0 < g := Nat.le_of_ble_eq_true hg
+  have ha' : a % g = 0 := Nat.eq_of_beq_eq_true ha
+  have hb' : b % g = 0 := Nat.eq_of_beq_eq_true hb
   have hag : a = a / g * g := (Nat.div_mul_cancel (Nat.dvd_of_mod_eq_zero ha')).symm
   have hbg : b = b / g * g := (Nat.div_mul_cancel (Nat.dvd_of_mod_eq_zero hb')).symm
   have key : a / g * g * x / (b / g * g) = a / g * x / (b / g) := by
@@ -76,13 +78,17 @@ protected theorem nat_mul_div_cancel_gcd {a b g : Nat} (x : Nat)
   rw [← hag, ← hbg] at key
   exact key
 
+/-! Lemma to validate simplification rule `n * n^m ===> n ^ (m + 1)`. -/
+protected theorem nat_mul_pow_eq (a m : Nat) : a * a ^ m = a ^ (1 + m) := by
+  rw [Nat.add_comm]; exact Nat.pow_succ'.symm
+
 /-! Helper turning `¬ (0 = n)` into `0 < n`. -/
 protected theorem nat_pos_of_ne_zero {n : Nat} (h : ¬ (0 = n)) : 0 < n := by omega
 
 /-! Lemma to validate simplification rule `(a * n) % b ==> 0 (if a % b = 0)`. -/
 protected theorem nat_mul_mod_of_mod_eq_zero {a b : Nat} (x : Nat)
     (h : Nat.beq (a % b) 0 = true) : (a * x) % b = 0 := by
-  have h' : a % b = 0 := by simp [Nat.beq_eq] at h; exact h
+  have h' : a % b = 0 := Nat.eq_of_beq_eq_true h
   rw [Nat.mul_mod, h', Nat.zero_mul, Nat.zero_mod]
 
 /-! ## Lemmas validating the `optimizeLT` simplification and normalization rules on `Nat` -/
@@ -152,6 +158,13 @@ protected theorem nat_add_both_lt (a b n1 n2 m1 m2 : Nat)
 protected theorem nat_lt_one_add_eq_not_lt (a b : Nat) : (a < 1 + b) = (¬ (b < a)) :=
   propext (by omega)
 
+/-! Lemmas to validate simplification rule `0 < x + y ==> True (if x ≠ 0 ∨ y ≠ 0)`. -/
+protected theorem nat_zero_lt_add_of_ne_fst (a b : Nat) (h : ¬ (0 = a)) :
+    (0 < a + b) = True := eq_true (by omega)
+
+protected theorem nat_zero_lt_add_of_ne_snd (a b : Nat) (h : ¬ (0 = b)) :
+    (0 < a + b) = True := eq_true (by omega)
+
 /-! ## Lemmas validating the hypothesis-context `optimizeLT` reductions on `Nat`. -/
 
 /-! Lemma to validate simplification rule `a < a + b ==> False (if 0 = b)`. -/
@@ -181,6 +194,18 @@ protected theorem nat_ble_eq_decide' (x y : Nat) : Nat.ble x y = Blaster.decide'
     exact ((Blaster.decide'_false (x ≤ y)).mpr hn).symm
   · have hp : x ≤ y := by rw [← Nat.ble_eq]; exact h
     exact ((Blaster.decide'_true (x ≤ y)).mpr hp).symm
+
+/-! Point-free forms of the normalizations `Nat.succ x ==> 1 + x`, `Nat.pred x ==> x - 1` and
+  `Nat.ble x y ==> Blaster.decide' (¬ y < x)`, whose step rewrites the head whatever its operands
+  are or become (see `pushOpaqueFunProofStep`). -/
+
+protected theorem nat_succ_equiv : Nat.succ = fun n => 1 + n := funext Nat.succ_eq_one_add
+
+protected theorem nat_pred_equiv : Nat.pred = fun n => n - 1 := funext fun _ => Nat.pred_eq_sub_one
+
+protected theorem nat_ble_equiv : Nat.ble = fun x y => Blaster.decide' (¬ y < x) :=
+  funext fun x => funext fun y =>
+    (Blaster.nat_ble_eq_decide' x y).trans (congrArg Blaster.decide' (Blaster.nat_le_eq_not_lt x y))
 
 /-! ## Lemmas for validating the hypothesis-context `OptimizeEq` reductions on `Nat`:
   - `0 = x * y ==> False (if x ≠ 0 ∧ y ≠ 0)` -/
@@ -282,7 +307,8 @@ protected theorem nat_mul_lft_eq_mul_lft (x y z : Nat) (h : ¬ (0 = x)) : (y * x
   have h : x ≠ 0 := Ne.symm h
   rw [Nat.mul_left_inj h]
 
-def mkNat_lt_asymm : TranslateEnvT Expr := mkExpr (mkConst ``Nat.lt_asymm)
+/-- Return `Blaster.nat_not_lt_of_lt` const expression and cache result. -/
+def mkNat_not_lt_of_lt : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.nat_not_lt_of_lt)
 
 def mkNat_not_lt_right_of_eq : TranslateEnvT Expr := mkExpr (mkConst ``Blaster.nat_not_lt_right_of_eq)
 
