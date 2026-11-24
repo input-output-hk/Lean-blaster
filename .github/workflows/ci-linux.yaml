@@ -112,6 +112,17 @@ jobs:
         run: |
           shim=.lake/build/lib/libz3shim.so
           test -f "$shim"
+          for unit in context solver sorts terms datatypes; do
+            trace=".lake/build/ffi/z3_shim_${unit}.o.trace"
+            if ! grep -Fq -- ' -fPIC' "$trace"; then
+              echo "Z3 shim object was not compiled with -fPIC: $trace" >&2
+              exit 1
+            fi
+          done
+          if readelf -rW .lake/build/ffi/z3_shim_*.o | grep -Eq 'R_X86_64_(32|32S)[[:space:]]'; then
+            echo 'A Z3 shim object contains a non-PIC x86_64 relocation' >&2
+            exit 1
+          fi
           if ldd "$shim" | grep -q 'libz3\.so'; then
             echo 'Z3 was linked dynamically into the Lean shim' >&2
             exit 1
