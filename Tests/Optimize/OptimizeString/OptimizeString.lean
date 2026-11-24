@@ -17,8 +17,8 @@ namespace Tests.OptimizeString
 -- ∀ (e : String), e ++ "" = e ===> True
 #testOptimize [ "StringAppend_2", proof ] ∀ (e : String), e ++ "" = e ===> True
 
--- ∀ (t s : String), t = "" ++ s ===> ∀ (t s : String), t = s
-#testOptimize [ "StringAppend_3", proof ] ∀ (t s : String), t = "" ++ s ===> ∀ (t s : String), t = s
+-- ∀ (s t : String), t = "" ++ s ===> ∀ (s t : String), s = t
+#testOptimize [ "StringAppend_3", proof ] ∀ (s t : String), t = "" ++ s ===> ∀ (s t : String), s = t
 
 -- ∀ (t s : String), t = s ++ "" ===> ∀ (t s : String), t = s
 #testOptimize [ "StringAppend_4", proof ] ∀ (t s : String), t = s ++ "" ===> ∀ (t s : String), t = s
