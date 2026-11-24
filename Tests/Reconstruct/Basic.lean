@@ -185,3 +185,18 @@ example : ∀ (a b : Bool) (f : ¬ a → Bool → Bool) (h : ¬ a), f h b = true
 
 -- Steps whose hypothesis proof types only after evaluation are kept
 example : ∀ (y : Nat) (c : Prop), (List.replicate 300 0).length < y → ((300 < y) ∧ c) = c := by blaster
+
+-- An implication made `True` by its own premises
+example : ∀ (a : Prop), False → a := by blaster
+example : ∀ (a b : Prop), ¬ a → a → b := by blaster
+example : ∀ (a b : Prop), (a → b) → a → b := by blaster
+example : ∀ (a b c : Prop), c ∧ (a → b) → a → b := by blaster
+example : (∀ (x : Int), x > 10) → (∀ (z : Int), z > 10) := by blaster
+
+-- A recursive conclusion closed by its premise is not unfolded
+def recP : Nat → Prop
+  | 0 => True
+  | n+1 => recP n
+-- the linter itself recurses too deep on `recP 600`, not blaster
+set_option linter.constructorNameAsVariable false in
+example : ∀ (_h : recP 600), recP 600 := by blaster
