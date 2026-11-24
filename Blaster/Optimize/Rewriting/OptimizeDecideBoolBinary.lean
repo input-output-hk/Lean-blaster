@@ -23,7 +23,7 @@ inductive BoolBinOpKind where
 -/
 def decideOpDecide?
   (op1 : Expr) (op2 : Expr)
-  (mkOpExpr : Expr → Expr → Expr) (k : BoolBinOpKind) : TranslateEnvT (Option Expr) := do
+  (mkOpExpr : Expr → Expr → TranslateEnvT Expr) (k : BoolBinOpKind) : TranslateEnvT (Option Expr) := do
   match decide'? op1, decide'? op2 with
   | some e1, some e2 =>
       -- `(decide' e1 <op> decide' e2) = decide' (e1 <∧/∨> e2)`
@@ -32,7 +32,7 @@ def decideOpDecide?
         | BoolBinOpKind.or  => ``Blaster.decide'_or_decide'
       pushProofStep (.rewrite (mkApp2 (mkConst lemma) e1 e2))
       setRestart
-      return mkApp (← mkBlasterDecideConst) (mkOpExpr e1 e2)
+      mkAppExpr (← mkBlasterDecideConst) (← mkOpExpr e1 e2)
   | some e1, _ =>
       -- `(decide' e1 <op> op2) = decide' (e1 <∧/∨> (true = op2))`
       let lemma := match k with
@@ -40,7 +40,7 @@ def decideOpDecide?
         | BoolBinOpKind.or  => ``Blaster.decide'_or_bool
       pushProofStep (.rewrite (mkApp2 (mkConst lemma) e1 op2))
       setRestart
-      return mkApp (← mkBlasterDecideConst) (mkOpExpr e1 (mkApp3 (← mkEqOp) (← mkBoolType) (← mkBoolTrue) op2))
+      mkAppExpr (← mkBlasterDecideConst) (← mkOpExpr e1 (← mkApp3Expr (← mkEqOp) (← mkBoolType) (← mkBoolTrue) op2))
   | _, some e1 =>
       -- `(op1 <op> decide' e1) = decide' (e1 <∧/∨> (true = op1))`
       let lemma := match k with
@@ -48,7 +48,7 @@ def decideOpDecide?
         | BoolBinOpKind.or  => ``Blaster.bool_or_decide'
       pushProofStep (.rewrite (mkApp2 (mkConst lemma) e1 op1))
       setRestart
-      return mkApp (← mkBlasterDecideConst) (mkOpExpr e1 (mkApp3 (← mkEqOp) (← mkBoolType) (← mkBoolTrue) op1))
+      mkAppExpr (← mkBlasterDecideConst) (← mkOpExpr e1 (← mkApp3Expr (← mkEqOp) (← mkBoolType) (← mkBoolTrue) op1))
   | _, _ => return none
 
 
@@ -66,7 +66,7 @@ def decideOpDecide?
 def optimizeDecideBoolAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let e ← optimizeBoolAnd f args
  let some (op1, op2) := boolAnd? e | return e
- if let some r ← decideOpDecide? op1 op2 (mkApp2 (← mkPropAndOp)) BoolBinOpKind.and then return r
+ if let some r ← decideOpDecide? op1 op2 (mkApp2Expr (← mkPropAndOp)) BoolBinOpKind.and then return r
  return e
 
 /-- Call `optimizeBoolOr f args` and apply the following `decide` simplification/normalization
@@ -85,7 +85,7 @@ def optimizeDecideBoolAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr :=
 def optimizeDecideBoolOr (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let e ← optimizeBoolOr f args
  let some (op1, op2) := boolOr? e | return e
- if let some r ← decideOpDecide? op1 op2 (mkApp2 (← mkPropOrOp)) BoolBinOpKind.or then return r
+ if let some r ← decideOpDecide? op1 op2 (mkApp2Expr (← mkPropOrOp)) BoolBinOpKind.or then return r
  return e
 
 

@@ -162,7 +162,7 @@ inductive Color where
 --  (if cond then if x < y then [x, y] else [y, x] else ys) = xs ===>
 -- ∀ (α : Type), ∃ (x y : α), ∀ (xs : List α), [LT α] →
 --   xs = Blaster.dite' (x < y) (fun _ : x < y => [x, y]) (fun _ : ¬ x < y => [y, x])
-#testOptimize [ "ExistsCOI_19", proof ]
+#testOptimize [ "ExistsCOI_19" ]
   ∀ (α : Type), ∃ (x y : α), ∃ (ys : List α),
   ∀ (a b c : Bool) (xs : List α), [LT α] → [Decidable (x < y)] →
     let cond := ((!a || ((b || c) && !(c || b))) || a);

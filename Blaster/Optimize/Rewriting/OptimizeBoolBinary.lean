@@ -3,24 +3,17 @@ import Blaster.Optimize.Rewriting.Utils
 import Blaster.Optimize.Env
 import Blaster.Optimize.Lemmas.LemmasBool
 
+
 open Lean Meta
 namespace Blaster.Optimize
 
-/-- Proof-returning companion to looking for `mkEqBool b true` in the hypothesis context
-  for a non literal `e`: when `true = e` is a hypothesis in the context,
-  return its proof; otherwise `none`.
+/-- Push the step `lemma a b p`, with `p` the proof of the hypothesis `h` that `hypMapContains h`
+    has just found in the hypothesis context.
 -/
-def trueEqProof? (e : Expr) : TranslateEnvT (Option Expr) := do
-  let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
-  return hyps.get? (← mkEqBool e true)
-
-/-- Proof-returning companion to looking for `mkEqBool b false` in the hypothesis context
-  for a non literal `e`: when `false = e` is a hypothesis in the context,
-  return its proof; otherwise `none`.
--/
-def falseEqProof? (e: Expr) : TranslateEnvT (Option Expr) := do
-  let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
-  return hyps.get? (← mkEqBool e false)
+@[always_inline, inline]
+def pushBoolHypStep (lemma : Name) (a b h : Expr) : TranslateEnvT Unit := do
+  if let some p ← hypMapFind? h then
+    pushProofStep (.rewrite (mkApp3 (mkConst lemma) a b p))
 
  /-- Given `a` and `b` the operands for `and`, apply the simplification rules:
      - When true = a := _ ∈ hypothesisContext.hypothesisMap,
@@ -35,17 +28,21 @@ def falseEqProof? (e: Expr) : TranslateEnvT (Option Expr) := do
         - return `none`
  -/
  def andBoolReduction? (a : Expr) (b : Expr) : TranslateEnvT (Option Expr) := do
-  if let some p ← trueEqProof? a then
-    pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.true_and_with_hyp) a b p))
+  let ha ← mkEqBool a true
+  if (← hypMapContains ha) then
+    pushBoolHypStep ``Blaster.true_and_with_hyp a b ha
     return b
-  if let some p ← trueEqProof? b then
-    pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.and_true_with_hyp) a b p))
+  let hb ← mkEqBool b true
+  if (← hypMapContains hb) then
+    pushBoolHypStep ``Blaster.and_true_with_hyp a b hb
     return a
-  if let some p ← falseEqProof? a then
-    pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.false_and_with_hyp) a b p))
+  let ha ← mkEqBool a false
+  if (← hypMapContains ha) then
+    pushBoolHypStep ``Blaster.false_and_with_hyp a b ha
     return (← mkBoolFalse)
-  if let some p ← falseEqProof? b then
-    pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.and_false_with_hyp) a b p))
+  let hb ← mkEqBool b false
+  if (← hypMapContains hb) then
+    pushBoolHypStep ``Blaster.and_false_with_hyp a b hb
     return (← mkBoolFalse)
   return none
 
@@ -85,7 +82,7 @@ def optimizeBoolAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
    return (← mkBoolFalse)
  if let some r ← andBoolReduction? op1 op2 then return r
  -- no caching at this level as optimizeBoolAnd is called by optimizeDecideBoolAnd
- return mkApp2 f op1 op2
+ mkApp2Expr f op1 op2
 
  /-- Given `a` and `b` the operands for `or`, apply the simplification rules:
      - When true = a := _ ∈ hypothesisContext.hypothesisMap,
@@ -100,17 +97,21 @@ def optimizeBoolAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
         - return `none`
  -/
  def orBoolReduction? (a : Expr) (b : Expr) : TranslateEnvT (Option Expr) := do
-  if let some p ← trueEqProof? a then
-    pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.true_or_with_hyp) a b p))
+  let ha ← mkEqBool a true
+  if (← hypMapContains ha) then
+    pushBoolHypStep ``Blaster.true_or_with_hyp a b ha
     return (← mkBoolTrue)
-  if let some p ← trueEqProof? b then
-    pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.or_true_with_hyp) a b p))
+  let hb ← mkEqBool b true
+  if (← hypMapContains hb) then
+    pushBoolHypStep ``Blaster.or_true_with_hyp a b hb
     return (← mkBoolTrue)
-  if let some p ← falseEqProof? a then
-    pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.false_or_with_hyp) a b p))
+  let ha ← mkEqBool a false
+  if (← hypMapContains ha) then
+    pushBoolHypStep ``Blaster.false_or_with_hyp a b ha
     return b
-  if let some p ← falseEqProof? b then
-    pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.or_false_with_hyp) a b p))
+  let hb ← mkEqBool b false
+  if (← hypMapContains hb) then
+    pushBoolHypStep ``Blaster.or_false_with_hyp a b hb
     return a
   return none
 
@@ -150,6 +151,6 @@ def optimizeBoolOr (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
    return (← mkBoolTrue)
  if let some r ← orBoolReduction? op1 op2 then return r
  -- no caching at this level as optimizeBoolAnd is called by optimizeDecideBoolOr
- return mkApp2 f op1 op2
+ mkApp2Expr f op1 op2
 
 end Blaster.Optimize

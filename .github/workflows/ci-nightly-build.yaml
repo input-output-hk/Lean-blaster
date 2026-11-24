@@ -11,7 +11,7 @@ permissions:
   issues: write
 
 env:
-  Z3_VERSION: "4.15.2"
+  Z3_VERSION: "5.4.0"
   GLIBC_Z3: "2.39"
 
 jobs:
@@ -48,6 +48,9 @@ jobs:
           chmod +x z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}.zip
           echo "/home/runner/z3-${{ env.Z3_VERSION }}-x64-glibc-${{ env.GLIBC_Z3 }}/bin" >> $GITHUB_PATH
       
+      - name: Verify selected solver version
+        run: python3 scripts/verify_benchmark_solver.py "$Z3_VERSION"
+
       - name: Build Blaster
         id: build
         continue-on-error: true

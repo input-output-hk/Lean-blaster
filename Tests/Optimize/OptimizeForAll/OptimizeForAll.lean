@@ -236,6 +236,28 @@ namespace Test.OptimizeForAll
 #testOptimize [ "ForallTrueImp_10", proof ]
   ∀ (x : Nat), (True → ∀ (y : Nat), x + y < 10) = (∀ (y : Nat), x + y < 10) ===> True
 
+-- ∀ (a : Prop) (_h : True) (b : Prop), a → (a ∧ b) = b ===> True
+-- Test case: the goal binder `_h` is dropped before it is opened, between goal binders that the
+-- steps after it mention, so the replay must keep the position of `_h` to map `b` and the
+-- hypothesis on `a` to their goal binders.
+#testOptimize [ "ForallTrueImp_11", proof ] ∀ (a : Prop) (_h : True) (b : Prop), a → (a ∧ b) = b ===> True
+
+-- (∀ (a b : Prop), a → True → b) = ∀ (a b : Prop), a → True → (a ∧ b) ===> True
+-- Test case: the last binder of the right side, `True`, is dropped before it is opened, so the
+-- steps on the body of the right side are pushed below the hypothesis on `a`, the last binder
+-- of that side the optimizer opened, and the replay of the equation must take them as such.
+#testOptimize [ "ForallTrueImp_12", proof ]
+  (∀ (a b : Prop), a → True → b) = ∀ (a b : Prop), a → True → (a ∧ b) ===> True
+
+-- (∀ (a : Prop) (_h : True) (b : Prop), a → (a ∧ b)) =
+-- ∀ (a : Prop) (_h : True) (b : Prop), a → (b ∧ a) ===> True
+-- Test case: the binder `_h` is dropped before it is opened on both sides of an equation of
+-- foralls, so the record of the right side must keep its position to map `b` and the
+-- hypothesis on `a` of that side to their binders.
+#testOptimize [ "ForallTrueImp_13", proof ]
+  (∀ (a : Prop) (_h : True) (b : Prop), a → (a ∧ b)) =
+  ∀ (a : Prop) (_h : True) (b : Prop), a → (b ∧ a) ===> True
+
 
 /-! Test cases for simplification rule `e1 → e2 ==> True (if p1 =ₚₜᵣ p2 ∧ Type(e1) = Prop)`. -/
 
@@ -398,10 +420,10 @@ variable (c : Nat)
                                       ∀ (a b : Bool), true = a → true = b
 
 -- ∀ (a b c : Bool), if a then b else !a ===>
--- ∀ (a b c : Bool), (false = c → true = b) ∧ (true = c → false = a)
+-- ∀ (a b c : Bool), Blaster.dite' (true = c) (λ _ => false = a) (λ _ => true = b)
 #testOptimize [ "ForallUnchanged_7" ]
   ∀ (a b c : Bool), (if c then !a else b) = true ===>
-  ∀ (a b c : Bool), (false = c → true = b) ∧ (true = c → false = a)
+  ∀ (a b c : Bool), Blaster.dite' (true = c) (λ _ => false = a) (λ _ => true = b)
 
 
 -- ∀ (a b c : Prop), (a ∨ ((b ∨ c) ∧ ¬(c ∨ b))) ∨ ((b ∧ a) ∧ ¬(a ∧ b))) ===> ∀ (a : Prop), a
@@ -500,12 +522,17 @@ variable (c : Nat)
 
 
 -- ∀ (c a b : Bool), true = ( if c then a else b ) → ( (!c || a) && (c || b) ) ===>
--- ∀ (c a b : Bool), ((false = c → true = b) ∧ (true = c → true = a)) → true = ( (c || b) && (a || !c) )
+-- ∀ (c a b : Bool), Blaster.dite' (true = c) (λ _ => true = a) (λ _ => true = b) → true = ( (c || b) && (a || !c) )
 -- NOTE: Can be reduced to True with additional simplification rules
 #testOptimize [ "ForallUnchanged_26", proof ]
   ∀ (c a b : Bool), true = (if c then a else b) → ( (!c || a) && (c || b) ) ===>
-  ∀ (c a b : Bool), ((false = c → true = b) ∧ (true = c → true = a)) → true = ( (c || b) && (a || !c) )
+  ∀ (c a b : Bool), Blaster.dite' (true = c) (λ _ => true = a) (λ _ => true = b) → true = ( (c || b) && (a || !c) )
 
+-- ∀ (a b : Bool), if a then !a else b ===>
+-- ∀ (a b : Bool), true = (b && !a)
+#testOptimize [ "ForallUnchanged_27" ]
+  ∀ (a b : Bool), (if a then !a else b) = true ===>
+  ∀ (a b : Bool), true = (b && !a)
 
 /-! Test cases for simplification rule `e → False ==> ¬ e`. -/
 
@@ -531,11 +558,11 @@ variable (c : Nat)
 #testOptimize [ "ForallNotDef_5", proof ] ∀ (p : Prop), (p → False) → False ===> ∀ (p : Prop), p
 
 -- ∀ (p q : Prop) (a : Bool), (p → !a && a) → ¬ q ∧ q ===> ∀ (p : Prop), p
-#testOptimize [ "ForallNotDef_6", proof ]
+#testOptimize [ "ForallNotDef_6" ]
   ∀ (p q : Prop) (a : Bool), (p → !a && a) → ¬ q ∧ q ===> ∀ (p : Prop), p
 
 -- ∀ (p q : Prop) (a : Bool), ((p → !a && a) → ¬ q ∧ q) → ¬ p ===> ∀ (p : Prop), ¬ p
-#testOptimize [ "ForallNotDef_7", proof ]
+#testOptimize [ "ForallNotDef_7" ]
   ∀ (p q : Prop) (a : Bool), ((p → !a && a) → ¬ q ∧ q) → ¬ p ===> ∀ (p : Prop), ¬ p
 
 

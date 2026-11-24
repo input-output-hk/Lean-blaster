@@ -16,7 +16,7 @@ def notDecideProp? (op : Expr) : TranslateEnvT (Option Expr) := do
  let some e := decide'? op | return none
  setRestart
  pushProofStep (.rewrite (mkApp (mkConst ``Blaster.not_decide') e))
- return mkApp op.getAppFn (mkApp (← mkPropNotOp) e)
+ mkAppExpr op.getAppFn (← mkAppExpr (← mkPropNotOp) e)
 
 /-- Apply the following simplification/normalization rules on `not` :
      - ! true ==> false                 [proof: Bool.not_true]
@@ -42,7 +42,7 @@ def optimizeBoolNot (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
       pushProofStep (.rewrite (mkConst ``Bool.not_not))
       return e
     if let some r ← notDecideProp? op then return r
-    return (mkApp f op)
+    mkAppExpr f op
 
 /-- Apply simplification/normalization rules on Boolean `not` operator.
 -/

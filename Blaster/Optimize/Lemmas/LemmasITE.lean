@@ -44,6 +44,59 @@ protected theorem dite'_prop_eq {c : Prop} :
   funext t e
   exact propext (Blaster.dite'_prop_iff t e)
 
+/-! ## Lemmas validating the `Prop` simplification rules of `iteSimp?`, all derived from `dite'_prop_iff`:
+  - `sif h : c then True else False ===> c`
+  - `sif h : c then False else True ===> ¬ c`
+  - `sif h : c then q else p ===> h : ¬ c → p` (when `c → q`)
+  - `sif h : c then q else p ===> ¬ c ∧ (h : ¬ c → p)`, or `¬ c ∧ p` when `p` does not use `h` (when `c → ¬ q`)
+  - `sif h : c then p else q ===> h : c → p` (when `¬ c → q`)
+  - `sif h : c then p else q ===> c ∧ (h : c → p)`, or `c ∧ p` when `p` does not use `h` (when `¬ c → ¬ q`)
+  The absorbed branch `q` does not use `h`; the hypothesis on it is the case of the rule: `True`
+  (resp. `False`), a hypothesis, `c` or `¬ c` itself, or the negated `Bool` equation of `c`.
+  The other branch is implicit, so that the replay takes it from the goal.
+-/
+protected theorem dite'_true_false (c : Prop) :
+    @Blaster.dite' Prop c (fun _ => True) (fun _ => False) = c :=
+  propext ⟨fun d => Classical.byContradiction fun nc => ((Blaster.dite'_prop_iff _ _).mp d).2 nc,
+           fun hc => (Blaster.dite'_prop_iff _ _).mpr ⟨fun _ => trivial, fun nc => absurd hc nc⟩⟩
+
+protected theorem dite'_false_true (c : Prop) :
+    @Blaster.dite' Prop c (fun _ => False) (fun _ => True) = ¬ c :=
+  propext ⟨fun d hc => ((Blaster.dite'_prop_iff _ _).mp d).1 hc,
+           fun nc => (Blaster.dite'_prop_iff _ _).mpr ⟨fun hc => absurd hc nc, fun _ => trivial⟩⟩
+
+protected theorem dite'_then_true (c q : Prop) (hq : c → q) {e : ¬ c → Prop} :
+    @Blaster.dite' Prop c (fun _ => q) e = ∀ h : ¬ c, e h :=
+  propext ⟨fun d => ((Blaster.dite'_prop_iff _ e).mp d).2,
+           fun he => (Blaster.dite'_prop_iff _ e).mpr ⟨hq, he⟩⟩
+
+protected theorem dite'_then_false (c q : Prop) (hq : c → ¬ q) {e : ¬ c → Prop} :
+    @Blaster.dite' Prop c (fun _ => q) e = (¬ c ∧ ∀ h : ¬ c, e h) :=
+  propext ⟨fun d => ⟨fun hc => hq hc (((Blaster.dite'_prop_iff _ e).mp d).1 hc),
+                     ((Blaster.dite'_prop_iff _ e).mp d).2⟩,
+           fun ⟨nc, he⟩ => (Blaster.dite'_prop_iff _ e).mpr ⟨fun hc => absurd hc nc, he⟩⟩
+
+protected theorem dite'_then_false_const (c q : Prop) (hq : c → ¬ q) {p : Prop} :
+    @Blaster.dite' Prop c (fun _ => q) (fun _ => p) = (¬ c ∧ p) :=
+  (Blaster.dite'_then_false c q hq).trans
+    (propext ⟨fun ⟨nc, hp⟩ => ⟨nc, hp nc⟩, fun ⟨nc, hp⟩ => ⟨nc, fun _ => hp⟩⟩)
+
+protected theorem dite'_else_true (c q : Prop) (hq : ¬ c → q) {t : c → Prop} :
+    @Blaster.dite' Prop c t (fun _ => q) = ∀ h : c, t h :=
+  propext ⟨fun d => ((Blaster.dite'_prop_iff t _).mp d).1,
+           fun ht => (Blaster.dite'_prop_iff t _).mpr ⟨ht, hq⟩⟩
+
+protected theorem dite'_else_false (c q : Prop) (hq : ¬ c → ¬ q) {t : c → Prop} :
+    @Blaster.dite' Prop c t (fun _ => q) = (c ∧ ∀ h : c, t h) :=
+  propext ⟨fun d => ⟨Classical.byContradiction fun nc => hq nc (((Blaster.dite'_prop_iff t _).mp d).2 nc),
+                     ((Blaster.dite'_prop_iff t _).mp d).1⟩,
+           fun ⟨hc, ht⟩ => (Blaster.dite'_prop_iff t _).mpr ⟨ht, fun nc => absurd hc nc⟩⟩
+
+protected theorem dite'_else_false_const (c q : Prop) (hq : ¬ c → ¬ q) {p : Prop} :
+    @Blaster.dite' Prop c (fun _ => p) (fun _ => q) = (c ∧ p) :=
+  (Blaster.dite'_else_false c q hq).trans
+    (propext ⟨fun ⟨hc, hp⟩ => ⟨hc, hp hc⟩, fun ⟨hc, hp⟩ => ⟨hc, fun _ => hp⟩⟩)
+
 protected theorem dite'_not_swap {α : Sort u} {c : Prop} :
     @Blaster.dite' α (¬ c) =
       (fun (t : ¬ c → α) (e : ¬ ¬ c → α) =>

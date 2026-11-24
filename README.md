@@ -1,7 +1,8 @@
+
 # Blaster - An SMT Backend for Lean4
 
 [![Lean Version](https://img.shields.io/badge/Lean-v4.24.0-blue.svg)](https://github.com/leanprover/lean4)
-[![Z3 Version](https://img.shields.io/badge/Z3-v4.15.2-green.svg)](https://github.com/Z3Prover/z3)
+[![Z3 Version](https://img.shields.io/badge/Z3-v5.4.0-green.svg)](https://github.com/Z3Prover/z3)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
@@ -48,7 +49,7 @@ Blaster provides an SMT backend for Z3 proofs. Blaster works by first aggressive
 Blaster is built with the philosophy that fewer dependencies mean better maintainability and more optimization opportunities. That said, Blaster requires:
 
 - **Lean4** v4.24.0 (or compatible version)
-- **Z3** v4.15.2 (or compatible version)
+- **Z3** v5.4.0 (or compatible version).
 
 ### Installing Lean4
 
@@ -62,7 +63,7 @@ Please follow the official installation guidelines from the [Lean4 GitHub reposi
 
 We do our best to stay updated with the latest release of Z3. However, regressions can occur and often require extensive research and resolution, so Blaster might be slightly behind the latest version.
 
-**Currently tested version:** Z3 v4.15.2
+**Currently supported version:** Z3 master branch
 
 > **Note:** Blaster should work with later releases, though no guarantees are made.
 
@@ -281,6 +282,11 @@ Counterexample:
     (as List.nil (@List (@Test.SmtPredQualifier.Attribute @@Type))))))
 ```
 #### State-Machine Formalization
+A `StateMachine α β` instance is defined over an input type `α` and a state type `β`.
+Given a sequence of inputs `in₀, in₁, ...`, the corresponding states are `st₀ = init in₀` and `stᵢ₊₁ = next inᵢ₊₁ stᵢ`,
+i.e., the current state is derived from the current input and the previous state.
+Both `assumptions inᵢ stᵢ` and `invariants inᵢ stᵢ` are evaluated on the input and the state at the same step `i`.
+If the previous input is needed, it must be kept in the state (see `Tests/StateMachine/Counter06.lean`).
 ```lean
 instance counterStateMachine : StateMachine Request CounterState where
   init _ := { state := .Ready, timer := 0}
@@ -407,6 +413,46 @@ The `Tests/StateMachine` folder contains example on how to use the state machine
 Blaster has been benchmarked against a variety of well-known benchmarks to evaluate its performance and correctness.
 The evaluation can be found on this public repository: [Blaster-benchmarking](https://github.com/input-output-hk/Blaster-benchmarking)
 
+### Latest cross-tactic comparison
+
+Each tactic is benchmarked on **its own latest default branch and that branch's Lean toolchain** (tracked live), so the comparison is fair even when the tools target different Lean versions. Auto-updated weekly by the [`weekly-benchmark`](.github/workflows/benchmark.yml) workflow.
+
+Users with repository write access can comment `/benchmark` on an open PR to run both Blaster variants at that PR's exact head commit. The [PR benchmark workflow](.github/workflows/pr-benchmark.yml) compares matching goals with the latest snapshot committed by the weekly run and posts gains, regressions, and raw results back on the PR. It does not change the published weekly report.
+
+<!-- BENCH:START -->
+### Shared benchmarks
+
+| Tactic | Version | ITL4 | MiniF2F | NNG4 | STG4 | UPLCDepth | UPLCWidth | Verina | **Shared solved** |
+|:--|:--|--:|--:|--:|--:|--:|--:|--:|--:|
+| `blaster` | `v4.24.0` @ `fa8ec2b38` | 44/44 | 55/96 | 103/108 | 48/52 | 6/7 | 6/6 | 26/108 | **288/421** |
+| `hammer` | `v4.35.0` @ `4e2a7deda` | 43/44 | 41/96 | 106/108 | 47/52 | 5/7 | 6/6 | 5/108 | **253/421** |
+| `grind` | `v4.35.0` @ `(core)` | 44/44 | 35/96 | 93/108 | 41/52 | 0/7 | 0/6 | 1/108 | **214/421** |
+| `auto` | `v4.35.0` @ `af766b1ee` | 44/44 | 32/96 | 100/108 | 4/52 | 0/7 | 6/6 | 4/108 | **190/421** |
+| `aesop` | `v4.35.0` @ `(via mathlib)` | 44/44 | 23/96 | 67/108 | 35/52 | 7/7 | 6/6 | 2/108 | **184/421** |
+| `blaster (only-optimize: 1)` | `v4.24.0` @ `fa8ec2b38` | 26/44 | 22/96 | 59/108 | 14/52 | 6/7 | 6/6 | 11/108 | **144/421** |
+| `simp` | `v4.35.0` @ `(core)` | 5/44 | 17/96 | 37/108 | 15/52 | 0/7 | 0/6 | 0/108 | **74/421** |
+| `smt +model` | `v4.35.0` @ `cbec5bd22` | 6/44 | 9/96 | 17/108 | 0/52 | 0/7 | 0/6 | 1/108 | **33/421** |
+| `omega` | `v4.35.0` @ `(core)` | 1/44 | 30/96 | 7/108 | 1/52 | 0/7 | 0/6 | 1/108 | **40/421** |
+
+### Home turf · 50 goals per source
+
+| Tactic | Aesop | lean-auto | Blaster | LeanHammer + Duper | lean-smt | **Home solved** | **All solved** |
+|:--|--:|--:|--:|--:|--:|--:|--:|
+| `blaster` | 30/50 | 39/50 | 47/50 | 37/50 | 42/50 | **195/250** | **483/671** |
+| `hammer` | 47/50 | 46/50 | 47/50 | 43/50 | 47/50 | **230/250** | **483/671** |
+| `grind` | 44/50 | 38/50 | 37/50 | 34/50 | 42/50 | **195/250** | **409/671** |
+| `auto` | 28/50 | 46/50 | 37/50 | 38/50 | 41/50 | **190/250** | **380/671** |
+| `aesop` | 40/50 | 40/50 | 38/50 | 36/50 | 39/50 | **193/250** | **377/671** |
+| `blaster (only-optimize: 1)` | 11/50 | 27/50 | 28/50 | 33/50 | 23/50 | **122/250** | **266/671** |
+| `simp` | 13/50 | 25/50 | 25/50 | 10/50 | 17/50 | **90/250** | **164/671** |
+| `smt +model` | 5/50 | 14/50 | 17/50 | 5/50 | 40/50 | **81/250** | **114/671** |
+| `omega` | 6/50 | 12/50 | 17/50 | 0/50 | 5/50 | **40/250** | **80/671** |
+
+_Each tactic runs in an isolated Lake project on its **latest default branch** and that branch's own Lean toolchain (tracked live). Cells show theorems **solved / total**; cross-version numbers can shift with mathlib changes, not only tactic quality. Home turf goals come from the tactic repositories; Hammer's category includes Duper dependency tests. The report gives source links and per-goal results._
+
+**[Full interactive report →](https://input-output-hk.github.io/Lean-blaster/benchmark/)**
+<!-- BENCH:END -->
+
 <details>
 <summary><b>Lean Natural Number Game</b></summary>
   
@@ -528,9 +574,9 @@ Once an expression has been translated, Blaster interacts with an external SMT s
 
 ## Installing the Z3 Solver
 
-Blaster requires Z3 version 4.15.2.  To install that, you need to
+Blaster requires Z3 version 5.4.0.  To install that, you need to
 
-1. **Check out** the 4.15.2 tagged branch of the Z3 repo;
+1. **Check out** the 5.4.0 tagged branch of the Z3 repo;
 2. **Install** Z3 in a location that doesn't conflict with possible existing versions
    on your machine (e.g., in `/usr/bin/z3`)
 3. **Ensure** Lean 4 is using the right version of Z3.
@@ -538,9 +584,9 @@ Blaster requires Z3 version 4.15.2.  To install that, you need to
 Below are instructions for accomplishing these objectives.  (They are aimed at
 .deb-based Linux, but the same or similar steps should work on other platforms.)
 
-### 1. Build and install Z3 v4.15.2 from source
+### 1. Build and install Z3 v5.4.0 from source
 
-Z3 releases are tagged on GitHub; the tag you want is `z3-4.15.2`.
+Z3 releases are tagged on GitHub; the tag you want is `z3-5.4.0`.
 
 **1.1 Install build dependencies**
 
@@ -549,16 +595,16 @@ sudo apt update
 sudo apt install -y build-essential python3 git
 ```
 
-**1.2 Clone the 4.15.2 tag**
+**1.2 Clone the 5.4.0 tag**
 
-Do **not** clone the `master` branch; it will give you a newer version (e.g., 4.15.4) that we do not yet fully support. Instead:
+Do **not** clone the `master` branch; it will give you a newer version that we do not yet fully support. Instead:
 
 ```bash
-# Shallow clone just the 4.15.2 tag, into a directory named z3-4.15.2
-git clone --branch z3-4.15.2 --depth 1 https://github.com/Z3Prover/z3.git z3-4.15.2
-cd z3-4.15.2
+# Shallow clone just the 5.4.0 tag, into a directory named z3-5.4.0
+git clone --branch z3-5.4.0 --depth 1 https://github.com/Z3Prover/z3.git z3-5.4.0
+cd z3-5.4.0
 
-# Sanity check: this should print something like "z3-4.15.2"
+# Sanity check: this should print something like "z3-5.4.0"
 git describe --tags
 ```
 
@@ -581,7 +627,7 @@ This installs
 +  libraries to `/usr/local/lib`
 +  header files to `/usr/local/include`
 
-### 2. Make sure **4.15.2** comes first in your `PATH`
+### 2. Make sure **5.4.0** comes first in your `PATH`
 
 Check which `z3` you’re actually picking up:
 
@@ -591,7 +637,7 @@ z3 --version
 ```
 
 Ideally you will see
-`/usr/local/bin/z3` and `Z3 version 4.15.2 - 64 bit`.
+`/usr/local/bin/z3` and `Z3 version 5.4.0 - 64 bit`.
 
 If `which z3` shows something else, e.g., `/usr/bin/z3`, then `/usr/local/bin` isn’t ahead
 of `/usr/bin` in your `PATH`; fix this by either removing the version of `z3` that's
@@ -610,7 +656,7 @@ Lean just calls `z3` as an external process (via `IO.Process` or tactics that us
 
 It doesn’t have its own embedded Z3. So:
 
-**If the shell you run `lake` from sees `/usr/local/bin/z3` (4.15.2), then Lean will also use 4.15.2.**
+**If the shell you run `lake` from sees `/usr/local/bin/z3` (5.4.0), then Lean will also use 5.4.0.**
 
 Just to be sure, you can run the simple test we provide in this repository, as follows:
 
@@ -623,7 +669,7 @@ If Z3 is installed correctly, you should see the following output:
 
 ```
 Successfully ran z3:
-Z3 version 4.15.2 - 64 bit
+Z3 version 5.4.0 - 64 bit
 ```
 
 ---

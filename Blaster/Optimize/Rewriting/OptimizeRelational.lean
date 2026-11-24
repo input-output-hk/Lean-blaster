@@ -22,45 +22,59 @@ def isOneNat (e : Expr) : Bool :=
 
 /-- Proof-returning companion to `geqZeroIntInHyps` for a non-literal `e`: when a hypothesis
     entailing `0 ≤ e` is in context (stored as `0 < e`, `0 = e`, or `¬ (e < 0)`), return a proof
-    of the canonical `0 ≤ e`; otherwise `none`. -/
+    of the canonical `0 ≤ e`; otherwise `none`.
+    The keys are built as `geqZeroIntInHyps` builds them (hash-consed, as the hypothesis map is
+    keyed). -/
 def geqZeroIntProof? (e : Expr) : TranslateEnvT (Option Expr) := do
- let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
  let zero ← mkIntLitExpr (Int.ofNat 0)
- if let some p := hyps.get? (← mkIntLtExpr zero e) then
+ if let some p ← hypMapFind? (← mkIntLtExpr zero e) then
    return mkApp2 (mkConst ``Blaster.int_le_of_zero_lt) e p
- if let some p := hyps.get? (← mkIntEqExpr zero e) then
+ if let some p ← hypMapFind? (← mkIntEqExpr zero e) then
    return mkApp2 (mkConst ``Blaster.int_le_of_zero_eq) e p
- if let some p := hyps.get? (mkApp (← mkPropNotOp) (← mkIntLtExpr e zero)) then
+ if let some p ← hypMapFind? (← mkAppExpr (← mkPropNotOp) (← mkIntLtExpr e zero)) then
    return mkApp2 (mkConst ``Blaster.int_le_of_not_lt_zero) e p
  return none
 
 /-- Proof-returning companion to `leqZeroIntInHyps` for a non-literal `e`: when a hypothesis
     entailing `e ≤ 0` is in context (stored as `e < 0`, `0 = e`, or `¬ (0 < e)`), return a proof
-    of the canonical `e ≤ 0`; otherwise `none`. -/
+    of the canonical `e ≤ 0`; otherwise `none`.
+    The keys are built as `leqZeroIntInHyps` builds them (hash-consed, as the hypothesis map is
+    keyed). -/
 def leqZeroIntProof? (e : Expr) : TranslateEnvT (Option Expr) := do
- let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
  let zero ← mkIntLitExpr (Int.ofNat 0)
- if let some p := hyps.get? (← mkIntLtExpr e zero) then
+ if let some p ← hypMapFind? (← mkIntLtExpr e zero) then
    return mkApp2 (mkConst ``Blaster.int_le_zero_of_lt_zero) e p
- if let some p := hyps.get? (← mkIntEqExpr zero e) then
+ if let some p ← hypMapFind? (← mkIntEqExpr zero e) then
    return mkApp2 (mkConst ``Blaster.int_le_zero_of_zero_eq) e p
- if let some p := hyps.get? (mkApp (← mkPropNotOp) (← mkIntLtExpr zero e)) then
+ if let some p ← hypMapFind? (← mkAppExpr (← mkPropNotOp) (← mkIntLtExpr zero e)) then
    return mkApp2 (mkConst ``Blaster.int_le_zero_of_not_zero_lt) e p
  return none
 
 /-- Proof-returning companion to `eqZeroNatInHyps` for a non-literal `e`: when `0 = e` is a
     hypothesis in context, return its proof; otherwise `none`. -/
 def eqZeroNatProof? (e : Expr) : TranslateEnvT (Option Expr) := do
- let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
  let zero ← mkNatLitExpr 0
- return hyps.get? (← mkNatEqExpr zero e)
+ hypMapFind? (← mkNatEqExpr zero e)
 
 /-- Proof-returning companion to `gtZeroNatInHyps` for a non-literal `e`: when `0 < e` is a
     hypothesis in context, return its proof; otherwise `none`. -/
 def gtZeroNatProof? (e : Expr) : TranslateEnvT (Option Expr) := do
- let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
  let zero ← mkNatLitExpr 0
- return hyps.get? (← mkNatLtExpr zero e)
+ hypMapFind? (← mkNatLtExpr zero e)
+
+/-- Push `lemma a b p`, with `p` the proof given by `find b` (one of the proof-returning
+    companions above). -/
+def pushHypStep (find : Expr → TranslateEnvT (Option Expr)) (lemma : Name) (a b : Expr) :
+    TranslateEnvT Unit := do
+  if let some p ← find b then
+    pushProofStep (.rewrite (mkApp3 (mkConst lemma) a b p))
+
+/-- Push `lemma x y p1 p2`, with `p1` the proof given by `find1 x` and `p2` by `find2 y`. -/
+def pushHypStep2 (find1 find2 : Expr → TranslateEnvT (Option Expr)) (lemma : Name) (x y : Expr) :
+    TranslateEnvT Unit := do
+  if let some p1 ← find1 x then
+    if let some p2 ← find2 y then
+      pushProofStep (.rewrite (mkApp4 (mkConst lemma) x y p1 p2))
 
 /-- Given `op1` and `op2` corresponding to the operands for `LT.lt`:
       - return `some False` when `op1 := N + e ∧ op2 := e ∧ N > 0 ∧ Type(N) = Int`
@@ -87,22 +101,18 @@ def intRelLeftReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :=
       return ← mkPropTrue
  | none =>
      if exprEq e1 op2 then
-       if let some p ← geqZeroIntProof? e2 then
-         pushProofStep
-           (.rewrite (mkApp3 (mkConst ``Blaster.int_add_lt_self_eq_false_of_nonneg) op2 e2 p))
+       if ← geqZeroIntInHyps e2 then
+         pushHypStep geqZeroIntProof? ``Blaster.int_add_lt_self_eq_false_of_nonneg op2 e2
          return ← mkPropFalse
-       if let some p ← ltZeroIntInHypsProof e2 then
-         pushProofStep
-           (.rewrite (mkApp3 (mkConst ``Blaster.int_add_lt_self_eq_true_of_neg) op2 e2 p))
+       if ← ltZeroIntInHyps e2 then
+         pushHypStep ltZeroIntInHypsProof ``Blaster.int_add_lt_self_eq_true_of_neg op2 e2
          return ← mkPropTrue
      if exprEq e2 op2 then
-       if let some p ← geqZeroIntProof? e1 then
-         pushProofStep
-           (.rewrite (mkApp3 (mkConst ``Blaster.int_add_lt_self_right_eq_false_of_nonneg) op2 e1 p))
+       if ← geqZeroIntInHyps e1 then
+         pushHypStep geqZeroIntProof? ``Blaster.int_add_lt_self_right_eq_false_of_nonneg op2 e1
          return ← mkPropFalse
-       if let some p ← ltZeroIntInHypsProof e1 then
-         pushProofStep
-           (.rewrite (mkApp3 (mkConst ``Blaster.int_add_lt_self_right_eq_true_of_neg) op2 e1 p))
+       if ← ltZeroIntInHyps e1 then
+         pushHypStep ltZeroIntInHypsProof ``Blaster.int_add_lt_self_right_eq_true_of_neg op2 e1
          return ← mkPropTrue
      return none
 
@@ -131,22 +141,18 @@ def intRelRightReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :
         return ← mkPropFalse
  | none =>
       if exprEq e1 op1 then
-        if let some p ← leqZeroIntProof? e2 then
-          pushProofStep
-            (.rewrite (mkApp3 (mkConst ``Blaster.int_lt_add_self_eq_false_of_nonpos) op1 e2 p))
+        if ← leqZeroIntInHyps e2 then
+          pushHypStep leqZeroIntProof? ``Blaster.int_lt_add_self_eq_false_of_nonpos op1 e2
           return ← mkPropFalse
-        if let some p ← gtZeroIntInHypsProof e2 then
-          pushProofStep
-            (.rewrite (mkApp3 (mkConst ``Blaster.int_lt_add_self_eq_true_of_pos) op1 e2 p))
+        if ← gtZeroIntInHyps e2 then
+          pushHypStep gtZeroIntInHypsProof ``Blaster.int_lt_add_self_eq_true_of_pos op1 e2
           return ← mkPropTrue
       if exprEq e2 op1 then
-        if let some p ← leqZeroIntProof? e1 then
-          pushProofStep
-            (.rewrite (mkApp3 (mkConst ``Blaster.int_lt_add_self_right_eq_false_of_nonpos) op1 e1 p))
+        if ← leqZeroIntInHyps e1 then
+          pushHypStep leqZeroIntProof? ``Blaster.int_lt_add_self_right_eq_false_of_nonpos op1 e1
           return ← mkPropFalse
-        if let some p ← gtZeroIntInHypsProof e1 then
-          pushProofStep
-            (.rewrite (mkApp3 (mkConst ``Blaster.int_lt_add_self_right_eq_true_of_pos) op1 e1 p))
+        if ← gtZeroIntInHyps e1 then
+          pushHypStep gtZeroIntInHypsProof ``Blaster.int_lt_add_self_right_eq_true_of_pos op1 e1
           return ← mkPropTrue
       return none
 
@@ -185,22 +191,18 @@ def natRelRightReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :
       return none
  | none =>
       if (exprEq e1 op1) then
-        if let some p ← eqZeroNatProof? e2 then
-          pushProofStep
-            (.rewrite (mkApp3 (mkConst ``Blaster.nat_lt_add_self_eq_false_of_zero_eq) op1 e2 p))
+        if ← eqZeroNatInHyps e2 then
+          pushHypStep eqZeroNatProof? ``Blaster.nat_lt_add_self_eq_false_of_zero_eq op1 e2
           return ← mkPropFalse
-        if let some p ← gtZeroNatProof? e2 then
-          pushProofStep
-            (.rewrite (mkApp3 (mkConst ``Blaster.nat_lt_add_self_eq_true_of_zero_lt) op1 e2 p))
+        if ← gtZeroNatInHyps e2 then
+          pushHypStep gtZeroNatProof? ``Blaster.nat_lt_add_self_eq_true_of_zero_lt op1 e2
           return ← mkPropTrue
       if (exprEq e2 op1) then
-        if let some p ← eqZeroNatProof? e1 then
-          pushProofStep
-            (.rewrite (mkApp3 (mkConst ``Blaster.nat_lt_add_self_right_eq_false_of_zero_eq) op1 e1 p))
+        if ← eqZeroNatInHyps e1 then
+          pushHypStep eqZeroNatProof? ``Blaster.nat_lt_add_self_right_eq_false_of_zero_eq op1 e1
           return ← mkPropFalse
-        if let some p ← gtZeroNatProof? e1 then
-          pushProofStep
-            (.rewrite (mkApp3 (mkConst ``Blaster.nat_lt_add_self_right_eq_true_of_zero_lt) op1 e1 p))
+        if ← gtZeroNatInHyps e1 then
+          pushHypStep gtZeroNatProof? ``Blaster.nat_lt_add_self_right_eq_true_of_zero_lt op1 e1
           return ← mkPropTrue
       return none
 
@@ -212,25 +214,19 @@ def natRelRightReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :
     Otheriwse `none`.
 -/
 def cstLTProp? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
- match op1, op2 with
- | Expr.lit (Literal.natVal n1), Expr.lit (Literal.natVal n2) =>
-   if Nat.blt n1 n2
-   then pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.nat_lt_eq_true) op1 op2 boolTrueRefl))
-   else pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.nat_lt_eq_false) op1 op2 boolFalseRefl))
-   mkPropLit (Nat.blt n1 n2)
- | Expr.lit (Literal.strVal s1), Expr.lit (Literal.strVal s2) =>
-   if s1 < s2
-   then pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.string_lt_eq_true) op1 op2 boolTrueRefl))
-   else pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.string_lt_eq_false) op1 op2 boolFalseRefl))
-   mkPropLit (s1 < s2)
- | _, _ =>
-   match isIntValue? op1, isIntValue? op2 with
-   | some n1, some n2 =>
-     if n1 < n2
-     then pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.int_lt_eq_true) op1 op2 boolTrueRefl))
-     else pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.int_lt_eq_false) op1 op2 boolFalseRefl))
-     mkPropLit (n1 < n2)
-   | _, _ => return none
+  if let some b := cstLT? op1 op2
+  then
+    -- the literal kind that `cstLT?` matched selects the lemma
+    let lemma := match op1, b with
+      | Expr.lit (Literal.natVal _), true => ``Blaster.nat_lt_eq_true
+      | Expr.lit (Literal.natVal _), false => ``Blaster.nat_lt_eq_false
+      | Expr.lit (Literal.strVal _), true => ``Blaster.string_lt_eq_true
+      | Expr.lit (Literal.strVal _), false => ``Blaster.string_lt_eq_false
+      | _, true => ``Blaster.int_lt_eq_true
+      | _, false => ``Blaster.int_lt_eq_false
+    pushProofStep (.rewrite (mkApp3 (mkConst lemma) op1 op2 (if b then boolTrueRefl else boolFalseRefl)))
+    mkPropLit b
+  else return none
 
 /-- Given `op1` and `op2` corresponding to the operands for `LT.lt`:
       - return `some ¬ (b < op1)` when `op2 := 1 + b ∧ Type(op1) = Int`
@@ -241,7 +237,7 @@ def intLtNorm? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
  let some 1 := isIntValue? e1 | return none
  pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.int_lt_one_add_eq_not_lt) op1 e2))
  setRestart
- return mkApp (← mkPropNotOp) (← mkIntLtExpr e2 op1)
+ mkAppExpr (← mkPropNotOp) (← mkIntLtExpr e2 op1)
 
 /-- Given `op1` and `op2` corresponding to the operands for `LT.lt`:
       - return `some b < 0` when `op1 := 0` ∧ op2 := -b ∧ Type(op1) = Int`
@@ -270,48 +266,32 @@ def intZeroLtNorm? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
 def intZeroLtSum? (op1 op2 : Expr) : TranslateEnvT (Option Expr) := do
   match isIntValue? op1, isIntValue? op2, intAdd? op1, intAdd? op2 with
   | some 0, _, _, some (e1, e2) =>
-      if let some p1 ← geqZeroIntProof? e1 then
-        if let some p2 ← gtZeroIntInHypsProof e2 then
-          pushProofStep
-            (.rewrite (mkApp4 (mkConst ``Blaster.int_zero_lt_add_eq_true_of_nonneg_pos) e1 e2 p1 p2))
-          return (← mkPropTrue)
-      if let some p1 ← gtZeroIntInHypsProof e1 then
-        if let some p2 ← geqZeroIntProof? e2 then
-          pushProofStep
-            (.rewrite (mkApp4 (mkConst ``Blaster.int_zero_lt_add_eq_true_of_pos_nonneg) e1 e2 p1 p2))
-          return (← mkPropTrue)
-      if let some p1 ← leqZeroIntProof? e1 then
-        if let some p2 ← ltZeroIntInHypsProof e2 then
-          pushProofStep
-            (.rewrite (mkApp4 (mkConst ``Blaster.int_zero_lt_add_eq_false_of_nonpos_neg) e1 e2 p1 p2))
-          return (← mkPropFalse)
-      if let some p1 ← ltZeroIntInHypsProof e1 then
-        if let some p2 ← leqZeroIntProof? e2 then
-          pushProofStep
-            (.rewrite (mkApp4 (mkConst ``Blaster.int_zero_lt_add_eq_false_of_neg_nonpos) e1 e2 p1 p2))
-          return (← mkPropFalse)
+      if (← geqZeroIntInHyps e1 <&&> gtZeroIntInHyps e2) then
+        pushHypStep2 geqZeroIntProof? gtZeroIntInHypsProof ``Blaster.int_zero_lt_add_eq_true_of_nonneg_pos e1 e2
+        return (← mkPropTrue)
+      if (← gtZeroIntInHyps e1 <&&> geqZeroIntInHyps e2) then
+        pushHypStep2 gtZeroIntInHypsProof geqZeroIntProof? ``Blaster.int_zero_lt_add_eq_true_of_pos_nonneg e1 e2
+        return (← mkPropTrue)
+      if (← leqZeroIntInHyps e1 <&&> ltZeroIntInHyps e2) then
+        pushHypStep2 leqZeroIntProof? ltZeroIntInHypsProof ``Blaster.int_zero_lt_add_eq_false_of_nonpos_neg e1 e2
+        return (← mkPropFalse)
+      if (← ltZeroIntInHyps e1 <&&> leqZeroIntInHyps e2) then
+        pushHypStep2 ltZeroIntInHypsProof leqZeroIntProof? ``Blaster.int_zero_lt_add_eq_false_of_neg_nonpos e1 e2
+        return (← mkPropFalse)
       return none
   | _, some 0, some (e1, e2), _ =>
-      if let some p1 ← geqZeroIntProof? e1 then
-        if let some p2 ← gtZeroIntInHypsProof e2 then
-          pushProofStep
-            (.rewrite (mkApp4 (mkConst ``Blaster.int_add_lt_zero_eq_false_of_nonneg_pos) e1 e2 p1 p2))
-          return (← mkPropFalse)
-      if let some p1 ← gtZeroIntInHypsProof e1 then
-        if let some p2 ← geqZeroIntProof? e2 then
-          pushProofStep
-            (.rewrite (mkApp4 (mkConst ``Blaster.int_add_lt_zero_eq_false_of_pos_nonneg) e1 e2 p1 p2))
-          return (← mkPropFalse)
-      if let some p1 ← leqZeroIntProof? e1 then
-        if let some p2 ← ltZeroIntInHypsProof e2 then
-          pushProofStep
-            (.rewrite (mkApp4 (mkConst ``Blaster.int_add_lt_zero_eq_true_of_nonpos_neg) e1 e2 p1 p2))
-          return (← mkPropTrue)
-      if let some p1 ← ltZeroIntInHypsProof e1 then
-        if let some p2 ← leqZeroIntProof? e2 then
-          pushProofStep
-            (.rewrite (mkApp4 (mkConst ``Blaster.int_add_lt_zero_eq_true_of_neg_nonpos) e1 e2 p1 p2))
-          return (← mkPropTrue)
+      if (← geqZeroIntInHyps e1 <&&> gtZeroIntInHyps e2) then
+        pushHypStep2 geqZeroIntProof? gtZeroIntInHypsProof ``Blaster.int_add_lt_zero_eq_false_of_nonneg_pos e1 e2
+        return (← mkPropFalse)
+      if (← gtZeroIntInHyps e1 <&&> geqZeroIntInHyps e2) then
+        pushHypStep2 gtZeroIntInHypsProof geqZeroIntProof? ``Blaster.int_add_lt_zero_eq_false_of_pos_nonneg e1 e2
+        return (← mkPropFalse)
+      if (← leqZeroIntInHyps e1 <&&> ltZeroIntInHyps e2) then
+        pushHypStep2 leqZeroIntProof? ltZeroIntInHypsProof ``Blaster.int_add_lt_zero_eq_true_of_nonpos_neg e1 e2
+        return (← mkPropTrue)
+      if (← ltZeroIntInHyps e1 <&&> leqZeroIntInHyps e2) then
+        pushHypStep2 ltZeroIntInHypsProof leqZeroIntProof? ``Blaster.int_add_lt_zero_eq_true_of_neg_nonpos e1 e2
+        return (← mkPropTrue)
       return none
   | _, _, _, _ => return none
 
@@ -324,7 +304,7 @@ def natLtNorm? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
  let some 1 := isNatValue? e1 | return none
  pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.nat_lt_one_add_eq_not_lt) op1 e2))
  setRestart
- return (mkApp (← mkPropNotOp) (← mkNatLtExpr e2 op1))
+ mkAppExpr (← mkPropNotOp) (← mkNatLtExpr e2 op1)
 
 
 /-- Given `op1` and `op2` corresponding to the operands for `LT.lt` such that,
@@ -405,30 +385,55 @@ def addIntRightLtReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr)
       - Type(op2) ∈ [Nat, Int]
 -/
 def predCstLTInHyp (op1 : Expr) (op2 : Expr) : TranslateEnvT Bool := do
- let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
  match isNatValue? op1 with
  | some n =>
       let pred_n ← evalBinNatOp Nat.sub n 1
-      if let some p := hyps.get? (mkApp (← mkPropNotOp) (← mkNatLtExpr pred_n op2)) then
-        pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.nat_lt_false_of_not_pred_lt) op1 op2 p))
+      let notLt ← mkAppExpr (← mkPropNotOp) (← mkNatLtExpr pred_n op2)
+      if ← hypMapContains notLt then
+        if let some p ← hypMapFind? notLt then
+          pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.nat_lt_false_of_not_pred_lt) op1 op2 p))
         return true
       return false
  | none =>
     let some n := isIntValue? op1 | return false
     let pred_n ← evalBinIntOp Int.sub n 1
-    if let some p := hyps.get? (mkApp (← mkPropNotOp) (← mkIntLtExpr pred_n op2)) then
-      pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.int_lt_false_of_not_pred_lt) op1 op2 p))
+    let notLt ← mkAppExpr (← mkPropNotOp) (← mkIntLtExpr pred_n op2)
+    if ← hypMapContains notLt then
+      if let some p ← hypMapFind? notLt then
+        pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.int_lt_false_of_not_pred_lt) op1 op2 p))
       return true
     return false
+
+/-- Given `op1` and `op2` corresponding to the operands for `LT.lt`
+      - return `some True` when `op1 := 0` ∧ op2 := x + y ∧ nonZeroNatInHyps x ∨ nonZeroNatInHyps y`
+        [proof: Blaster.nat_zero_lt_add_of_ne_{fst,snd}, with the proof of `findNeZeroNatProof?`]
+    Otherwise `none`.
+-/
+def natZeroLtSumReduce? (op1 op2 : Expr) : TranslateEnvT (Option Expr) := do
+  let some (e1, e2) := natAdd? op2 | return none
+  match isNatValue? op1 with
+  | some 0 =>
+      if ← nonZeroNatInHyps e1 then
+        if let some p ← findNeZeroNatProof? e1 then
+          pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.nat_zero_lt_add_of_ne_fst) e1 e2 p))
+        return ← mkPropTrue
+      if ← nonZeroNatInHyps e2 then
+        if let some p ← findNeZeroNatProof? e2 then
+          pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.nat_zero_lt_add_of_ne_snd) e1 e2 p))
+        return ← mkPropTrue
+      return none
+  | _ => return none
 
 /-- Apply the following simplification/normalization rules on `LT.lt` :
      - e1 < e2 ==> False (if e1 =ₚₜᵣ e2)    [proof: Blaster.{nat,int,string}_lt_self_eq_false]
      - e < 0 ==> False (if Type(e) = Nat)   [proof: Blaster.nat_lt_zero_eq_false]
-     - 0 < -e ==> e < 0 (if Type(e) = Int   [proof: Blaster.int_zero_lt_neg_eq_lt_zero]
+     - 0 < -e ==> e < 0 (if Type(e) = Int)  [proof: Blaster.int_zero_lt_neg_eq_lt_zero]
      - N1 < N2 ==> N1 "<" N2    [proof: Blaster.{nat,int}_lt_eq_{true,false}]
      - S1 < S2 ==> S1 "<" S2    [proof: Blaster.string_lt_eq_{true,false}]
      - N < e ==> False (if ¬ (N - 1 < e) := _ ∈ hypothesisContext.hypothesisMap ∧ Type(e) ∈ [Nat, Int])    [proof: Blaster.{nat,int}_lt_false_of_not_pred_lt]
      - e < 1 ==> 0 = e (if Type(e) = Nat)    [proof: Blaster.nat_lt_one_eq_zero_eq]
+     - Int.neg e1 < Int.neg e2 ==> e2 < e1    [proof: Blaster.int_neg_lt_neg]
+     - Int.ofNat e1 < Int.ofNat e2 ==> e1 < e2    [proof: Blaster.int_ofNat_lt_ofNat]
      - a + b < a | b + a < a ==> False (if Type(a) = Nat)    [proof: Blaster.nat_add_lt_self{,_right}_eq_false]
      - N + e < e ==> False (if N > 0 ∧ Type(e) = Int)        [proof: Blaster.int_add_pos_lt_self_eq_false]
      - N + e < e ==> True (if N < 0 ∧ Type(e) = Int)         [proof: Blaster.int_add_neg_lt_self_eq_true]
@@ -456,13 +461,19 @@ def predCstLTInHyp (op1 : Expr) (op2 : Expr) : TranslateEnvT Bool := do
      - x + y < 0 ==> False (if Type (x) = Int ∧ gtZeroIntInHyps x ∧ geqZeroIntInHyps y)    [proof: Blaster.int_add_lt_zero_eq_false_of_pos_nonneg]
      - x + y < 0 ==> True (if Type (x) = Int ∧ leqZeroIntInHyps x ∧ ltZeroIntInHyps y)    [proof: Blaster.int_add_lt_zero_eq_true_of_nonpos_neg]
      - x + y < 0 ==> True (if Type (x) = Int ∧ ltZeroIntInHyps x ∧ leqZeroIntInHyps y)    [proof: Blaster.int_add_lt_zero_eq_true_of_neg_nonpos]
+     - 0 < x + y ==> True (if Type (x) ∈ Nat ∧ (nonZeroNatInHyps x ∨ nonZeroNatInHyps y))    [proof: Blaster.nat_zero_lt_add_of_ne_{fst,snd}]
+
    The simplifications are only applied when isOpaqueRelational predicate is satisfied
+   NOTE: `LT.lt` is expected to be unfolded if isOpaqueRelational predicate is not satisfied.
+   However, unfolding will not be performed for class constraint [LT α] that does not have a defined instance
+   (see `getUnfoldFunDef?`).
+
    Assume that f = Expr.const ``LT.lt.
    Do nothing if operator is partially applied (i.e., args.size < 4)
 -/
 def optimizeLT (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
- if !(← isOpaqueRelational f.constName args) then return (mkAppN f args)
- if args.size != 4 then return (mkAppN f args)
+ if !(← isOpaqueRelational f.constName args) then return ← mkAppNExpr f args
+ if args.size != 4 then return ← mkAppNExpr f args
  -- args[0] is sort parameter
  -- args[1] LT instance
  -- args[2] left operand
@@ -487,6 +498,7 @@ def optimizeLT (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
  if (isOneNat op2) then
    pushProofStep (.rewrite (mkApp (mkConst ``Blaster.nat_lt_one_eq_zero_eq) op1))
    return (← mkNatEqExpr (← mkNatLitExpr 0) op1)
+ if let some r ← intCtorLTReduce? op1 op2 then return r
  if let some r ← intRelLeftReduce? op1 op2 then return r
  if let some r ← intRelRightReduce? op1 op2 then return r
  if let some r ← natRelLeftReduce? op1 op2 then return r
@@ -500,9 +512,29 @@ def optimizeLT (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
  if let some r ← intLtNorm? op1 op2 then return r
  if let some r ← natLtNorm? op1 op2 then return r
  if let some r ← intZeroLtSum? op1 op2 then return r
- return mkAppN f args
+ if let some r ← natZeroLtSumReduce? op1 op2 then return r
+ mkAppNExpr f args
 
  where
+   /- Given `op1` and `op2` corresponding to the operands for `LT.lt`,
+       - When `op1 := Int.neg x` ∧ `op2 := Int.neg y`:
+          - return `y < x`
+      - When `op1 := Int.ofNat x` ∧ `op2 := Int.ofNat y`:
+          - return `x < y`
+      - Otherwise `none`.
+   -/
+   intCtorLTReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
+     match op1, op2 with
+     | Expr.app (Expr.const ``Int.neg _) e1, Expr.app (Expr.const ``Int.neg _) e2 =>
+         pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.int_neg_lt_neg) e1 e2))
+         setRestart
+         mkApp2Expr (← mkIntLtOp) e2 e1
+     | Expr.app (Expr.const ``Int.ofNat _) e1, Expr.app (Expr.const ``Int.ofNat _) e2 =>
+          pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.int_ofNat_lt_ofNat) e1 e2))
+          setRestart
+          mkApp2Expr (← mkNatLtOp) e1 e2
+     | _, _ => return none
+
    /-- Given `op1` and `op2` corresponding to the operands for `LT.lt` such that,
      `op1 := N1 + a`, `op2 := N2 + b` and Type(a) = Nat`:
        - return `some N1 "-" min(N1, N2) + a < N2 "-" min(N1, N2) + b`
@@ -519,13 +551,13 @@ def optimizeLT (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
      let rightValue := n2 - minValue
      let leftLit ← mkNatLitExpr leftValue
      let rightLit ← mkNatLitExpr rightValue
-     let op1' := mkApp2 (← mkNatAddOp) leftLit e2
-     let op2' := mkApp2 (← mkNatAddOp) rightLit e4
+     let op1' ← mkApp2Expr (← mkNatAddOp) leftLit e2
+     let op2' ← mkApp2Expr (← mkNatAddOp) rightLit e4
      let hLeft := mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Nat) leftLit
      let hRight := mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Nat) rightLit
      pushProofStep
        (.rewrite (mkAppN (mkConst ``Blaster.nat_add_both_lt) #[e2, e4, e1, e3, leftLit, rightLit, hLeft, hRight]))
-     return mkApp4 f args[0]! args[1]! op1' op2'
+     mkApp4Expr f args[0]! args[1]! op1' op2'
 
    /-- Given `op1` and `op2` corresponding to the operands for `LT.lt` such that,
      `op1 := N1 + a`, `op2 := N2 + b` and Type(a) = Int`:
@@ -543,13 +575,13 @@ def optimizeLT (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
      let rightValue := n2 - minValue
      let leftLit ← mkIntLitExpr leftValue
      let rightLit ← mkIntLitExpr rightValue
-     let op1' := mkApp2 (← mkIntAddOp) leftLit e2
-     let op2' := mkApp2 (← mkIntAddOp) rightLit e4
+     let op1' ← mkApp2Expr (← mkIntAddOp) leftLit e2
+     let op2' ← mkApp2Expr (← mkIntAddOp) rightLit e4
      let hLeft := mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Int) leftLit
      let hRight := mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Int) rightLit
      pushProofStep
        (.rewrite (mkAppN (mkConst ``Blaster.int_add_both_lt) #[e2, e4, e1, e3, leftLit, rightLit, hLeft, hRight]))
-     return mkApp4 f args[0]! args[1]! op1' op2'
+     mkApp4Expr f args[0]! args[1]! op1' op2'
 
 
 /-- Apply the following normalization rule on `LE.le` :
@@ -560,10 +592,15 @@ def optimizeLT (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
      - LE.le ==> λ x y => ¬ (y < x) (if Type(x) = String)   [proof: Blaster.string_le_fun_eq]
 
    This normalization rule is applied only when isOpaqueRelational predicate is satisfied
+
+   NOTE: `LE.le` is expected to be unfolded if isOpaqueRelational predicate is not satisfied.
+   However, unfolding will not be performed for class constraint [LE α] that does not have a defined instance
+   (see `getUnfoldFunDef?`).
+
    Assume that f = Expr.const ``LE.le.
 -/
 def optimizeLE (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
- if !(← isOpaqueRelational f.constName args) then return (mkAppN f args)
+ if !(← isOpaqueRelational f.constName args) then return ← mkAppNExpr f args
  if args.size == 4 then
    -- args[0] is sort parameter
    -- args[1] Le instance
@@ -581,7 +618,6 @@ def optimizeLE (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
    setRestart
    mkNotLtExpr le_type op2 op1
  else if args.size == 2 then
-   setRestart
    -- we need to return a lambda term here, i.e.,
    -- λ e1 e2 => ¬ (e2 < e1)
    let le_type := args[0]!
@@ -589,19 +625,19 @@ def optimizeLE (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
      pushProofStep (.rewrite (mkConst ``Blaster.int_le_fun_eq))
    else if le_type.isConstOf ``String then
      pushProofStep (.rewrite (mkConst ``Blaster.string_le_fun_eq))
-   let body ← mkNotLtExpr le_type (mkBVar 0) (mkBVar 1)
-   let lam1 := mkLambda `y BinderInfo.default le_type body
-   return mkLambda `x BinderInfo.default le_type lam1
+   let body ← mkNotLtExpr le_type (← mkBVarExpr 0) (← mkBVarExpr 1)
+   let lam1 ← mkLambdaExpr `y BinderInfo.default le_type body
+   mkLambdaExpr `x BinderInfo.default le_type lam1
  else throwEnvError "optimizeLE: at least 2 arguments expected but got {reprStr args}"
 
  where
    mkNotLtExpr (t : Expr) (op1 : Expr) (op2 : Expr) : TranslateEnvT Expr := do
      let ltInst ← findLtInstance t
-     let ltExpr := mkApp4 (← mkLtOp) t ltInst op1 op2
-     return mkApp (← mkPropNotOp) ltExpr
+     let ltExpr ← mkApp4Expr (← mkLtOp) t ltInst op1 op2
+     mkAppExpr (← mkPropNotOp) ltExpr
 
    findLtInstance (t : Expr) : TranslateEnvT Expr := do
-     let some ltInst ← trySynthConstraintInstance? (mkApp (← mkLTConst) t)
+     let some ltInst ← trySynthConstraintInstance? (← mkAppExpr (← mkLTConst) t)
        | throwEnvError "optimizeLE: synthesize instance for [LT {reprStr t} cannot be found"
      return ltInst
 

@@ -22,7 +22,7 @@ def coiExists (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
           let inst ← nullaryCtorNonempty? u t
           pushProofStep (.rewrite (mkAppN (mkConst ``Blaster.exists_coi [u]) (#[t, e] ++ inst.toArray)))
         return e
-      return mkAppN f args
+      mkAppNExpr f args
   | _ => throwEnvError "coiExists: lambda expression expected but got {reprStr args[1]!}"
 
 

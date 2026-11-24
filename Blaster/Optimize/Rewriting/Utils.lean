@@ -14,6 +14,7 @@ def isUnsafeDef (n : Name) : TranslateEnvT Bool :=
 
 /-- Return `true` if e corresponds to an enumerator constructor (i.e., constructor without any parameters).
 -/
+@[always_inline, inline]
 def isEnumConst (e : Expr) : TranslateEnvT Bool := do
   match e with
   | Expr.const n _ =>
@@ -23,6 +24,7 @@ def isEnumConst (e : Expr) : TranslateEnvT Bool := do
 
 /-- Return `true` if e corresponds to a nullary constructor or a fully applied parametric constructor.
 -/
+@[always_inline, inline]
 def isFullyAppliedConst (e : Expr) : TranslateEnvT Bool := do
  match e.getAppFn' with
  | Expr.const n _ =>
@@ -39,10 +41,133 @@ def isConstructor (e : Expr) : TranslateEnvT Bool :=
   if e.isLit then return true
   else isEnumConst e <||> isFullyAppliedConst e
 
+@[always_inline, inline]
+def isNormNatConstr (e : Expr) : Bool :=
+  match e with
+  | Expr.app (Expr.app (Expr.const ``Nat.add _) (Expr.lit _)) _ => true
+  | _ => false
+
+@[always_inline, inline]
+def isNormIntConstr (e : Expr) : Bool :=
+  match e with
+  | Expr.app (Expr.const ``Int.neg _)
+    (Expr.app (Expr.const ``Int.ofNat _)
+    (Expr.app (Expr.app (Expr.const ``Nat.add _) (Expr.lit _)) _)) => true
+  | _ => false
+
+/-- Return `true` if the given type expression `t` (e.g., obtained via `inferType`)
+    satisfy the following:
+      - `t :=  α₁ → ... → αₙ`
+    Assumes that `t` is not a Prop.
+-/
+def isFunType' (t : Expr) : Bool :=
+  if t.isForall then true
+  else match autoParam? t with  -- considering case where function is wrapped in an autoParam arg
+       | some (t', _tactic) => t'.isForall
+       | _ => false
+
+/-- Return `true` if the given type expression `t` (e.g., obtained via `inferType`)
+    satisfy the following:
+      - ¬ isProp t
+      - `t :=  α₁ → ... → αₙ`
+-/
+def isFunType (t : Expr) : TranslateEnvT Bool := do
+  if (← isPropEnv t) then return false
+  else return isFunType' t
+
+/-- Quick function determining if a given expression `e` is a function. -/
+@[always_inline, inline]
+def isFunExpr (e : Expr) : TranslateEnvT Bool := do
+ match e with
+ | Expr.lam .. => return true
+ | Expr.fvar fv => return isFunType' (← fv.getEnvType)
+ | Expr.const n _ =>
+      let cInfo ← getConstEnvInfo n
+      return isFunType' cInfo.type
+ | Expr.app .. =>
+     let (f', args') := getAppFnWithArgs e
+     let fInfo ← getFunEnvInfo f'
+     return isFunType' (← inferAppType fInfo.type args')
+ | Expr.proj .. =>
+     if e.hasMVar
+     then return false
+     else return isFunType' (← inferTypeEnv e)
+ | _ => return false
+
+/-- Return `true` if e corresponds to a structure ctor (e.g. String.mk) -/
+@[always_inline, inline]
+def isStructureCtorExpr (e : Expr) : TranslateEnvT Bool := do
+  match e.getAppFn' with
+  | Expr.const n _ => isStructureCtorEnv n
+  | _ => return false
+
+/-- Return `true` if e corresponds to a fully applied structure
+    with each argument aᵢ satisfying one of the following conditions:
+      - isStructureCtorExpr aᵢ ∧ isFullyAppliedStructureAux aᵢ
+      - ¬ isStructureCtorExpr aᵢ ∧ (isNormConstructorBase aᵢ ∨ isProp aᵢ ∨ isFunExpr aᵢ)
+    Assumes that `e` satisfies `isStructureCtorExpr e ∧ isFullyAppliedConst e`.
+-/
+@[always_inline, inline]
+partial def isFullyAppliedStructure (e : Expr) : TranslateEnvT Bool := do
+  let pInfo ← getFunEnvInfo e.getAppFn'
+  let rec go (xs : List (Expr × ParamInfo)) : TranslateEnvT Bool := do
+    match xs with
+    | [] => return true
+    | (cur, p) :: xs' =>
+      if (← isStructureCtorExpr cur <&&> isFullyAppliedConst e) then
+        let pInfo' ← getFunEnvInfo cur.getAppFn'
+        go (getArgs cur (pInfo'.paramsInfo.size - 1) pInfo'.paramsInfo xs')
+      else if ← isNormConstructorBase cur <||> pure p.isProp <||> isFunExpr cur then go xs'
+      else return false
+  go (getArgs e (pInfo.paramsInfo.size - 1) pInfo.paramsInfo [])
+
+where
+  getArgs (e : Expr) (idx : Nat) (paramsInfo : Array ParamInfo) (acc : List (Expr × ParamInfo)) : List (Expr × ParamInfo) :=
+    match e with
+    | Expr.app f a => getArgs f (idx - 1) paramsInfo ((a, paramsInfo[idx]!) :: acc)
+    | _ => acc
+
+  @[always_inline, inline]
+  isNormConstructorBase (e : Expr)  : TranslateEnvT Bool := do
+   if ← isConstructor e then return true
+   else return isNormNatConstr e || isNormIntConstr e || isPropCtor e
+
+@[always_inline, inline]
+def isNormConstructor (e : Expr) (patternMatch := false) : TranslateEnvT Bool := do
+  if ← isPatternConstructor e then return true
+  else return isNormNatConstr e || isNormIntConstr e || isPropCtor e
+
+ where
+   isPatternConstructor (e : Expr) : TranslateEnvT Bool := do
+     if ← isConstructor e then
+       if patternMatch || !(← isStructureCtorExpr e) then return true
+       else isFullyAppliedStructure e
+     else return false
+
 /-- Return `true` if e corresponds to a constructor applied to only constant values (e.g., no free or bounded variables). -/
 @[always_inline, inline]
 def isConstant (e : Expr) : TranslateEnvT Bool :=
   isConstructor e <&&> (pure !(hasVars e))
+
+structure CstIteMatch where
+  /-- Result of isCstIteMatch, which is set to `true` when `e` is either a normalized constructor or a ctor ite/match. -/
+  res : Bool
+  /-- Set to `true` only when `e` is a normalized constructor -/
+  isConstructor : Bool
+
+/-- Return `true` only e is either a normalized ctor or is present in the isCtorMatchPropCache. -/
+@[always_inline, inline]
+def isCstIteMatch (e : Expr) : TranslateEnvT CstIteMatch := do
+  if (← isNormConstructor e) then return ⟨true, true⟩
+  else return ⟨(← get).optEnv.memCache.isCtorMatchPropCache.contains e, false⟩
+
+/-- Return `true` only when e is either a normalized Blaster.dite/match expression. -/
+@[always_inline, inline]
+def isIteOrMatch (e : Expr) : TranslateEnvT Bool :=
+  if (dite'? e).isSome then return true
+  else match e with
+       | Expr.app f (.lam ..) => return (← isMatcher? f.getAppFn).isSome
+       | _ => return false
 
 
 /-- Return `true` if `c` corresponds to a nullary constructor. -/
@@ -78,31 +203,33 @@ def nullaryCtorNonempty? (u : Level) (t : Expr) : TranslateEnvT (Option Expr) :=
  TODO: extends check to also consider parametric constructor for which each parameter type satisfy `isSortOrInhabited`.
 -/
 def isSortOrInhabited (t : Expr) (existsQuantifier := false) : TranslateEnvT Bool := do
- if (← isPropEnv t) then return false
- else
-   match t.getAppFn' with
-   | Expr.const n _ =>
-       if (← isClassConstraint n) then return true -- break if class constraint
-       else match (← getConstEnvInfo n) with
-            | ConstantInfo.inductInfo indVal =>
-                for ctorName in indVal.ctors do
-                  -- inductive type has at least one nullary constructor
-                  if (← isNullaryCtor ctorName) then return true
-                -- check if InHabited instance exists for t
-                hasInhabitedInstance t
-            | _ => isSortType t
-   | _ => isSortType t
+ match ← inferTypeEnv t with
+ | Expr.sort u =>
+      if u.isAlwaysZero then return false
+      match t.getAppFn' with
+      | Expr.const n _ =>
+          if (← isClassConstraint n) then return true -- break if class constraint
+          else match (← getConstEnvInfo n) with
+               | ConstantInfo.inductInfo indVal =>
+                   for ctorName in indVal.ctors do
+                     -- inductive type has at least one nullary constructor
+                     if (← isNullaryCtor ctorName) then return true
+                   -- check if InHabited instance exists for t
+                   hasInhabitedInstance t
+               | _ => isSortType t
+      | _ => isSortType t
+ | _ => return false
 
  where
    isSortType (t : Expr) : TranslateEnvT Bool :=
      if existsQuantifier then return t.isProp
-     else isTypeEnv t
+     else return true
 
 /-- Return `! e` when `b = false`. Otherwise return `e`. -/
 def toBoolNotExpr (b : Bool) (e : Expr) : TranslateEnvT Expr := do
   if b
   then return e
-  else return mkApp (← mkBoolNotOp) e
+  else mkAppExpr (← mkBoolNotOp) e
 
 
 /-- Inductive type used to characterize Nat binary operators when
@@ -380,6 +507,7 @@ def reorderNatOp (args: Array Expr) : (Expr × Expr) :=
     - #[fvar id1, fvar id2] ===> #[fvar id2, fvar id1] (if id2.name < id1.name)
     - #[fvar _, _] ===> args
     - #[e, fvar _] ===> #[fvar _, e]
+    - #[(Int.pow x y), e] ===> #[e, Int.pow x y] if ¬ (isIntPowExpr e)
     - #[Int.neg x, x] ===> #[x, Int.neg x]
     - #[e1, e2] ===> #[e2, e1] (if isTaggedRecursiveCall e1 ∧ ¬ (isTaggedRecursiveCall e2))
     - #[e1, e2] ===> #[e2, e1] (if e2 < e1)
@@ -400,7 +528,9 @@ def reorderIntOp (args: Array Expr) : (Expr × Expr) :=
     | _, Expr.fvar _ => (e2, e1)
     | _, _ =>
       let (e1', e2') := reorderCommon e1 e2
-      if isIntNegExprOf e1' e2' then (e2', e1') else (e1', e2')
+      if (isIntPowExpr e1' && !isIntPowExpr e2') then (e2', e1')
+      else if isIntNegExprOf e1' e2' then (e2', e1')
+      else (e1', e2')
 
 /-- Reorder operands for commutative operators.
     The following proof steps are emitted during reordering:
@@ -457,8 +587,10 @@ def reorderOperands (f : Expr) (args : Array Expr) : TranslateEnvT (Array Expr) 
        if args.size != 3 then return args
        let (op1, op2) ← reorderEq #[args[1]!, args[2]!]
        if !exprEq op1 args[1]! then
-         let iff ← mkAppOptM ``eq_comm #[args[0]!, args[1]!, args[2]!]
-         pushProofStep (.rewrite (← mkAppM ``propext #[iff]))
+         -- `us` is the level of `Eq`, hence of `eq_comm`
+         let iff := mkApp3 (mkConst ``eq_comm us) args[0]! args[1]! args[2]!
+         pushProofStep (.rewrite (mkApp3 (mkConst ``propext)
+           (mkApp3 f args[0]! args[1]! args[2]!) (mkApp3 f args[0]! args[2]! args[1]!) iff))
        return (args.set! 1 op1).set! 2 op2
 
   | ``BEq.beq =>
@@ -485,7 +617,8 @@ def reorderOperands (f : Expr) (args : Array Expr) : TranslateEnvT (Array Expr) 
        if !exprEq op1 args[0]! then
          let commLemma := if n == ``And then ``and_comm else ``or_comm
          let iff := mkApp2 (mkConst commLemma) args[0]! args[1]!
-         pushProofStep (.rewrite (← mkAppM ``propext #[iff]))
+         pushProofStep (.rewrite (mkApp3 (mkConst ``propext)
+           (mkApp2 f args[0]! args[1]!) (mkApp2 f args[1]! args[0]!) iff))
        return #[op1, op2]
 
   | _ => return args
@@ -497,6 +630,7 @@ def isCasesOnRec (e : Expr) : TranslateEnvT Bool := do
   | _ => return false
 
 /-- Return `true` if `e` corresponds to a match or casesOn function. -/
+@[always_inline, inline]
 def isMatchExpr (e : Expr) : TranslateEnvT Bool := do
   match e with
   | Expr.const n l => Option.isSome <$> getMatcherRecInfo? n l
@@ -519,39 +653,23 @@ def getFunBodyAux? (f : Expr) : TranslateEnvT (Option Expr) := do
       then
         let some eqThm ← getUnfoldEqnFor? n
           | throwEnvError "getFunBody: equation theorem expected for {n}"
-        forallTelescope ((← getConstEnvInfo eqThm).type) fun xs eqn => do
+        Meta.forallTelescope ((← getConstEnvInfo eqThm).type) fun xs eqn => do
           let some (_, _, fbody) := eq? eqn
             | throwEnvError "getFunBody: equation expected but got {reprStr eqn}"
           let auxApp ← mkLambdaFVars xs fbody
           let cinfo ← getConstEnvInfo n
-          return auxApp.instantiateLevelParams cinfo.levelParams l
+          hashcons (auxApp.instantiateLevelParams cinfo.levelParams l)
       else
         if let cInfo@(ConstantInfo.defnInfo _) ← getConstEnvInfo n
-        then instantiateValueLevelParams cInfo l
+        then hashcons (← instantiateValueLevelParams cInfo l)
         else return none
 
-  | Expr.proj .. => reduceProj? f  -- case when f is a function defined in a class instance
+  | Expr.proj .. =>
+       -- case when f is a function defined in a class instance
+       let some e ← reduceEnvProj? f | return none
+       hashcons e
+
   | _ => return none
-
-/-- Return `true` if the given type expression `t` (e.g., obtained via `inferType`)
-    satisfy the following:
-      - `t :=  α₁ → ... → αₙ`
-    Assumes that `t` is not a Prop.
--/
-def isFunType' (t : Expr) : Bool :=
-  if t.isForall then true
-  else match autoParam? t with  -- considering case where function is wrapped in an autoParam arg
-       | some (t', _tactic) => t'.isForall
-       | _ => false
-
-/-- Return `true` if the given type expression `t` (e.g., obtained via `inferType`)
-    satisfy the following:
-      - ¬ isProp t
-      - `t :=  α₁ → ... → αₙ`
--/
-def isFunType (t : Expr) : TranslateEnvT Bool := do
-  if (← isPropEnv t) then return false
-  else return isFunType' t
 
 
 /-- Same as getFunBodyAux? but cache result -/
@@ -561,11 +679,8 @@ def getFunBody (f : Expr) : TranslateEnvT (Option Expr) := do
   | some m => return m
   | none =>
        let body ← getFunBodyAux? f
-       modify (fun env => { env with
-                                optEnv.memCache.getFunBodyCache :=
-                                env.optEnv.memCache.getFunBodyCache.insert f body })
+       updateFunBodyCache f body
        return body
-
 
 /-- Return `true` if `e` corresponds to an undefined type class function application, s.t.:
       - `e := app (Expr.proj c _ _) ...`; and
@@ -574,7 +689,7 @@ def getFunBody (f : Expr) : TranslateEnvT (Option Expr) := do
 -/
 def isUndefinedClassFunApp (e : Expr) : TranslateEnvT Bool := do
   match e.getAppFn' with
-  | p@(Expr.proj c _ _) => return ((← reduceProj? p).isNone && (← isClassConstraint c))
+  | p@(Expr.proj c _ _) => return ((← reduceEnvProj? p).isNone && (← isClassConstraint c))
   | _ => return false
 
 /-- Return `true` only when `e := Expr.const n l` and one of the following condition is satisfied:
@@ -582,36 +697,40 @@ def isUndefinedClassFunApp (e : Expr) : TranslateEnvT Bool := do
      - `n` is a class instance; or
      - `n` is a match expression; or
      - `n` is a class constraint; or
-     - `n` is an inductive datatype ∧ n ∉ opaqueFuns;
+     - `n` is an opaque/axiom that does not have a function type; or
+     - `n` is an inductive datatype ∧ n ∉ opaqueFuns; or
+     - `n` is a theorem; or
+     - `n` is a ctor; or
 -/
 def isNotFunAux (e : Expr) : TranslateEnvT Bool := do
- let Expr.const n l := e | return false
+ let Expr.const n _ := e | return false
  if n == ``namedPattern then return true
- if (← isInstanceClass n) then return true
- if (← isMatchExpr e) then return true
- if (← isClassConstraint n) then return true
  if opaqueFuns.contains n then return false -- consider Eq/And/Or case
- isInductiveType n l
+ match (← getConstEnvInfo n) with
+ | .defnInfo _ =>
+        if (← isInstanceClass n) then return true
+        if (← isMatchExpr e) then return true
+        isClassConstraint n
+ | .opaqueInfo _
+ | .axiomInfo _ => return !(← inferTypeEnv e).isForall
+ | _ => return true
 
 /-- Same as isNotFunAux but caches the result. -/
+@[always_inline, inline]
 def isNotFun (e : Expr) : TranslateEnvT Bool := do
  match (← get).optEnv.memCache.isNotFunCache.get? e with
  | some b => return b
  | none =>
       let b ← isNotFunAux e
-      modify (fun env => { env with optEnv.memCache.isNotFunCache :=
-                                    env.optEnv.memCache.isNotFunCache.insert e b })
+      updateIsNotFunCache e b
       return b
 
 
 /-- Return `true` only when `e := Expr.const n l` and one of the following condition is satisfied:
-     - `n` is not tagged as an opaque definition when flag `opaqueCheck` is set to true;
-     - `n` is not a recursive function when flag `recFunCheck` is set to `true`;
-     - `n` is a class instance;
-     - `n` is an inductive datatype;
-     - `n := namedPattern`;
-     - `n` is not a match expression; or
-     - `n` is not a class constraint.
+     - `n` is not tagged as an opaque definition;
+     - `n` is not a recursive function;
+     - `n` is not an axiom/opaque definition;
+    Assumes that `e` does not satisfy predicate isNotFun
 -/
 def isNotFoldable
   (e : Expr) (args : Array Expr) : TranslateEnvT Bool := do
@@ -619,8 +738,7 @@ def isNotFoldable
   | Expr.const n _ =>
       if opaqueFuns.contains n then return true
       else if (← (pure (args.size != 0)) <&&> (isOpaqueRelational n args)) then return true
-      else if (← isRecursiveFun n) then return true
-      else isNotFun e
+      else isRecursiveFun n <||> isAxiomOrOpaque n
   | _ => return false
 
 
@@ -637,8 +755,11 @@ def pushUnfoldProofStep (f : Expr) : TranslateEnvT Unit := do
     (see `Blaster.apply_dite'`). `α` and `β` must be closed types.
 -/
 def pushApplyDIteStep (α β g c : Expr) : TranslateEnvT Unit := do
-  -- the level of an optimizer `dite'` is always one, the step needs the ones of `α` and `β`
-  pushProofStep (.rewrite (mkApp4 (mkConst ``Blaster.apply_dite' [← getLevel α, ← getLevel β]) α β g c))
+  -- the level of an optimizer `dite'` is always one, the step needs the ones of `α` and `β`:
+  -- the optimizer's cached inference, in its local context, as the sorts may mention its fvars
+  let Expr.sort u ← inferTypeEnv α | return ()
+  let Expr.sort v ← inferTypeEnv β | return ()
+  pushProofStep (.rewrite (mkApp4 (mkConst ``Blaster.apply_dite' [u, v]) α β g c))
 
 /-- `true` iff the type `t` mentions the bound variable `i`, up to type annotations
     (e.g., an `optParam` default) and a head redex.
@@ -663,28 +784,30 @@ def telescopeHasLooseBVar (t : Expr) (i : Nat) : Bool :=
      - f is not a match application
     [proof: unfold step, see `pushUnfoldProofStep`, none for an instance class function]
 -/
-def getUnfoldFunDef? (f: Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := withLocalContext $ do
+def getUnfoldFunDef? (f: Expr) (args: Array Expr) : TranslateEnvT (Option BetaLambdaResult) := do
  if (← isNotFoldable f args) then return none
  match ← getFunBody f with
  | some fbody =>
-    let reduced := betaLambda fbody args
+    let betaRes ← betaLambdaEnv fbody args
+    let reduced := betaRes.betaReduced
     if (← isUndefinedClassFunApp reduced)
     then return none
     else
       -- check if reduced application is an instance class function
       let f' := reduced.getAppFn'
       if Expr.isProj f' then
-        match ← getFunBody f' with
-        | some fbody' => return betaLambda fbody' reduced.getAppArgs
+        match ← getFunBody (← instantiateSharedMVars f') with
+        | some fbody' =>
+           let betaRes' ← betaLambdaEnv fbody' reduced.getAppArgs
+           return some { betaRes' with prevMVarIdDecls := betaRes.prevMVarIdDecls ++ betaRes'.prevMVarIdDecls}
         | none =>
             -- structure projection case, a class one is excluded by `isUndefinedClassFunApp`
             pushUnfoldProofStep f
-            return reduced
+            return betaRes
       else
         pushUnfoldProofStep f
-        return reduced
+        return betaRes
  | none => return none
-
 
 /-- Unfold an opaque relation function up to its base definition
     Assume that `f` corresponds to an opaque relation function on first call.
@@ -693,7 +816,7 @@ partial def unfoldOpaqueFunDef (f : Expr) (args : Array Expr) : TranslateEnvT (O
   match ← getFunBody f with
   | none => return none -- case when class function is undefined but has the expected constraints (e.g., LawfulBEq)
   | some fbody =>
-     let reduced := betaLambda fbody args
+     let reduced ← betaLambdaShared fbody args
      let f' := reduced.getAppFn'
      let args' := reduced.getAppArgs
      if (← isFoldable f' args')
@@ -703,7 +826,9 @@ partial def unfoldOpaqueFunDef (f : Expr) (args : Array Expr) : TranslateEnvT (O
   where
     isFoldable (f : Expr) (args : Array Expr) : TranslateEnvT Bool := do
       match f with
-      | Expr.const .. => return !(← isNotFoldable f args)
+      | Expr.const .. =>
+           if ← isNotFun f then return false
+           else return !(← isNotFoldable f args)
       | Expr.lam ..
       | Expr.proj .. => return true
       | _ => return false
@@ -742,7 +867,12 @@ partial def hasSorryTheorem (e : Expr) (msg : MessageData) : TranslateEnvT Unit 
 /-- Given `pType := λ α₁ → .. → λ αₙ → t` returns `λ α₁ → .. → λ αₙ → eType`
     This function is expected to be used only when updating a match return type
 -/
-def updateMatchReturnType (eType : Expr) (pType : Expr) : TranslateEnvT Expr := do
-  lambdaTelescope pType fun params _body => mkLambdaFVars' params eType
+def updateMatchReturnType (mInfo : MatchInfo) (margs : Array Expr) (eType : Expr) (pType : Expr) : TranslateEnvT Expr := do
+    lambdaTelescope pType fun params _body => do
+       let eType ← replaceShared eType fun a => do
+         for i in [mInfo.getFirstDiscrPos:mInfo.getFirstAltPos] do
+           if exprEq a margs[i]! then return some params[i - mInfo.getFirstDiscrPos]!
+         return none
+       mkLambdaFVarsExpr params eType
 
 end Blaster.Optimize

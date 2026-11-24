@@ -4,7 +4,6 @@ import Blaster.Optimize.Rewriting.OptimizeForAll
 open Lean Meta
 namespace Blaster.Optimize
 
-
  /-- Given `a` and `b` the operands for `And`, apply the simplification rules:
      - When a := _ ∈ hypothesisContext.hypothesisMap,
         - return `some b`
@@ -18,17 +17,16 @@ namespace Blaster.Optimize
         - return `none`
  -/
  def andPropReduction? (a : Expr) (b : Expr) : TranslateEnvT (Option Expr) := do
-  let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
-  if let some p ← inHypMap a hyps then
+  if let some p ← inHypMap a then
     pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.and_left_hyp_eq_right) a b p))
     return b
-  if let some p ← inHypMap b hyps then
+  if let some p ← inHypMap b then
     pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.and_right_hyp_eq_left) a b p))
     return a
-  if let some p ← notInHypMap a hyps then
+  if let some p ← notInHypMap a then
     pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.and_left_neg_hyp_eq_false) a b p))
     return (← mkPropFalse)
-  if let some p ← notInHypMap b hyps then
+  if let some p ← notInHypMap b then
     pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.and_right_neg_hyp_eq_false) a b p))
     return (← mkPropFalse)
   return none
@@ -40,8 +38,8 @@ namespace Blaster.Optimize
      - e1 ∧ e2 ==> e1 (if e1 =ₚₜᵣ e2)                        [proof: and_self]
      - e ∧ ¬ e ==> False                                    [proof: Blaster.and_not_self_is_false]
      - true = e ∧ false = e ==> False                       [proof: Blaster.true_and_false_is_false]
-     - e1 ∧ (e1 → e2) ==> e1 ∧ e2 (if ¬ e2.hasLooseBVars)
-     - e1 ∧ (e2 → e1) ==> e1
+     - e1 ∧ (e1 → e2) ==> e1 ∧ e2 (if ¬ e2.hasLooseBVars)   [proof: Blaster.and_imp_self_eq_and]
+     - e1 ∧ (e2 → e1) ==> e1                                [proof: Blaster.and_imp_right_eq_left]
      - (e1 → e2) ∧ (¬ e1 → e2) ==> e2                       [proof: Blaster.and_imp_not_imp_eq, Blaster.and_imp_not_norm_imp_eq]
      - e1 ∧ e2 ==> e2 (if e1 := _ ∈ hypothesisContext.hypothesisMap)                  [proof: Blaster.and_left_hyp_eq_right]
      - e1 ∧ e2 ==> e1 (if e2 := _ ∈ hypothesisContext.hypothesisMap)                  [proof: Blaster.and_right_hyp_eq_left]
@@ -75,7 +73,7 @@ def optimizeAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if let some r ← andImpliesReduce? op1 op2 then return r
  if let some r ← andPropReduction? op1 op2 then return r
  -- no caching at this level as optimizeAnd is called by optimizeBoolPropAnd
- return mkApp2 f op1 op2
+ mkApp2Expr f op1 op2
 
  where
    /-- Given `a` and `b` the operands for `And`, apply the simplification rules:
@@ -94,15 +92,15 @@ def optimizeAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
          if exprEq t1 a && !(c1.hasLooseBVars) then
            pushProofStep (.rewrite (mkConst ``Blaster.and_imp_self_eq_and))
            setRestart
-           return mkApp2 f a c1
+           return ← mkApp2Expr f a c1
          if exprEq c1 a then
            pushProofStep (.rewrite (mkConst ``Blaster.and_imp_right_eq_left))
            return a -- no need to restart here
          match a with
          | Expr.forallE _ t2 c2 _ =>
             if !(exprEq c1 c2) then return none
-            let not_t2 ← optimizeNot (← mkPropNotOp) (cacheResult := false) #[t2]
-            if t1 == not_t2 then
+            let not_t2 ← optimizeAdvancedNot (← mkPropNotOp) (restart := false) #[t2]
+            if exprEq t1 not_t2 then
               -- `not_t2` may be the normal form of `¬ t2`, e.g., `false = x` for `¬ (true = x)`
               match notInHypMap.notNormEq? t2 with
               | some heq =>
@@ -126,19 +124,18 @@ def optimizeAnd (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
         - return `none`
  -/
  def orPropReduction? (a : Expr) (b : Expr) : TranslateEnvT (Option Expr) := do
-  let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
-  if let some p ← inHypMap a hyps then
+  if let some p ← inHypMap a then
     pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.or_left_hyp_eq_true) a b p))
     pushProofStep (.exact (mkConst ``True.intro))
     return (← mkPropTrue)
-  if let some p ← inHypMap b hyps then
+  if let some p ← inHypMap b then
     pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.or_right_hyp_eq_true) a b p))
     pushProofStep (.exact (mkConst ``True.intro))
     return (← mkPropTrue)
-  if let some p ← notInHypMap a hyps then
+  if let some p ← notInHypMap a then
     pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.or_left_neg_hyp_eq_right) a b p))
     return b
-  if let some p ← notInHypMap b hyps then
+  if let some p ← notInHypMap b then
     pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.or_right_neg_hyp_eq_left) a b p))
     return a
   return none
@@ -171,8 +168,8 @@ def orImpliesReduce? (a : Expr) (b : Expr) : TranslateEnvT (Option Expr) := do
      - e1 ∨ e2 ==> e1 (if e1 =ₚₜᵣ e2)   [proof: or_self]
      - e ∨ ¬ e ==> True (classical)    [proof: Blaster.or_not_self_is_true]
      - true = e ∨ false = e ==> True   [proof: Blaster.true_or_false_is_true]
-     - e1 ∨ (e1 → e2) ==> True
-     - e1 ∨ (e2 → e1) ==> (e2 → e1)
+     - e1 ∨ (e1 → e2) ==> True         [proof: Blaster.or_imp_self_eq_true]
+     - e1 ∨ (e2 → e1) ==> (e2 → e1)    [proof: Blaster.or_imp_right_eq_imp]
      - e1 ∨ e2 ==> True (if e1 := _ ∈ hypothesisContext.hypothesisMap)                [proof: Blaster.or_left_hyp_eq_true]
      - e1 ∨ e2 ==> True (if e2 := _ ∈ hypothesisContext.hypothesisMap)                [proof: Blaster.or_right_hyp_eq_true]
      - e1 ∨ e2 ==> e2 (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = ¬ e1)       [proof: Blaster.or_left_neg_hyp_eq_right]
@@ -208,10 +205,10 @@ def optimizeOr (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if let some r ← orImpliesReduce? op1 op2 then return r
  if let some r ← orPropReduction? op1 op2 then return r
  -- no caching at this level as optimizeOr is called by optimizeBoolPropOr
- return mkApp2 f op1 op2
+ mkApp2Expr f op1 op2
 
 
-/-- Normalize `p ↔ q` to `(p → q) ∧ (q → p)`   [proof: Blaster.iff_eq_implies_and_implies]
+/-- Normalize `p ↔ p` to `p → q ∧ p → q`   [proof: Blaster.iff_eq_implies_and_implies]
     An error is triggered when args.size ≠ 2 (i.e., only fully applied `↔` expected at this stage)
 -/
 def optimizeIff (args : Array Expr) : TranslateEnvT Expr := do
@@ -220,6 +217,6 @@ def optimizeIff (args : Array Expr) : TranslateEnvT Expr := do
  let op2 := args[1]!
  pushProofStep (.rewrite (mkConst ``Blaster.iff_eq_implies_and_implies))
  setRestart
- return mkApp2 (← mkPropAndOp) (← mkImpliesExpr op1 op2) (← mkImpliesExpr op2 op1)
+ mkApp2Expr (← mkPropAndOp) (← mkImpliesExpr op1 op2) (← mkImpliesExpr op2 op1)
 
 end Blaster.Optimize

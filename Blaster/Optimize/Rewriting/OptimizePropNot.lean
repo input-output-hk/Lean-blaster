@@ -6,31 +6,23 @@ import Blaster.Optimize.Lemmas.LemmasNat
 open Lean Meta
 namespace Blaster.Optimize
 
-/-- Return `true` when `e` corresponds to the zero nat literal. -/
-@[always_inline, inline]
-def isZeroNat (e : Expr) : Bool :=
-  match isNatValue? e with
-  | some 0 => true
-  | _ => false
-
 /-- Given `ne` the operand for `Not` apply the following normalization rules:
      - When `ne := false = e`
-        - return `some (true = e)`
+        - return `some (true = e, e, false)`
      - When `ne := true = e`
-        - return `some (false = e)`
+        - return `some (false = e, e, true)`
      - Otherwise:
         - return `none`.
 -/
-def notEqSimp? (ne : Expr) : TranslateEnvT (Option Expr) := do
+@[always_inline, inline]
+def notEqSimp? (ne : Expr) : TranslateEnvT (Option (Expr × Expr × Bool)) := do
   match eq? ne with
   | some (eq_sort, op1, op2) =>
      match op1 with
      | Expr.const ``false _ =>
-         pushProofStep (.rewrite (mkConst ``Blaster.not_false_is_true))
-         return (mkApp3 ne.getAppFn eq_sort (← mkBoolTrue) op2)
+         return (← mkApp3Expr ne.getAppFn eq_sort (← mkBoolTrue) op2, op2, false)
      | Expr.const ``true _ =>
-         pushProofStep (.rewrite (mkConst ``Blaster.not_true_is_false))
-         return (mkApp3 ne.getAppFn eq_sort (← mkBoolFalse) op2)
+         return (← mkApp3Expr ne.getAppFn eq_sort (← mkBoolFalse) op2, op2, true)
      | _ => return none
   | none => return none
 
@@ -43,8 +35,9 @@ def notEqSimp? (ne : Expr) : TranslateEnvT (Option Expr) := do
 def notLTNumNorm? (ne : Expr) (restart := true) : TranslateEnvT (Option Expr) := do
   let some (_t, _i, e1, e2) := lt? ne | return none
   if isZeroNat e1 then
-    pushProofStep (.rewrite (mkConst ``Blaster.nat_not_zero_lt_eq_zero_eq))
-    if restart then setRestart
+    if restart then
+      pushProofStep (.rewrite (mkConst ``Blaster.nat_not_zero_lt_eq_zero_eq))
+      setRestart
     mkNatEqExpr e1 e2
   else return none
 
@@ -58,24 +51,30 @@ def notLTNumNorm? (ne : Expr) (restart := true) : TranslateEnvT (Option Expr) :=
      - ¬ (0 < e) ==> (0 = e) (if Type(e) = Nat)   [proof: Blaster.nat_not_zero_lt_eq_zero_eq]
    Assume that f = Expr.const ``Not.
    An error is triggered if args.size ≠ 1 (i.e., only fully applied `Not` expected at this stage)
+   With `restart := false` the call is a query (the result does not replace `¬ e`), hence no proof step is pushed.
    TODO: consider additional simplification rules
 -/
-def optimizeNot (f : Expr) (args : Array Expr) (cacheResult := true) : TranslateEnvT Expr := do
+def optimizeNot (f : Expr) (args : Array Expr) (restart := true) : TranslateEnvT Expr := do
  if args.size != 1 then throwEnvError "optimizeNot: exactly one argument expected"
  let e := args[0]!
  if let Expr.const ``False _ := e then
-  pushProofStep (.rewrite (mkConst ``not_false_eq_true))
-  pushProofStep (.exact (mkConst ``True.intro))
+  if restart then
+    pushProofStep (.rewrite (mkConst ``not_false_eq_true))
+    pushProofStep (.exact (mkConst ``True.intro))
   return (← mkPropTrue)
  if let Expr.const ``True _ := e then
-  pushProofStep (.rewrite (mkConst ``not_true_eq_false))
+  if restart then pushProofStep (.rewrite (mkConst ``not_true_eq_false))
   return (← mkPropFalse)
  if let some op := propNot? e then
-  pushProofStep (.rewrite (mkConst ``Blaster.double_not_classical))
+  if restart then pushProofStep (.rewrite (mkConst ``Blaster.double_not_classical))
   return op
- if let some r ← notEqSimp? e then return r
- if let some r ← notLTNumNorm? e cacheResult then return r
- return (mkApp f e)
+ if let some (r, _, boolLit) ← notEqSimp? e then
+  -- here and not in `notEqSimp?`, which also derives hypotheses (see `addNotPropFacts`)
+  if restart then
+    pushProofStep (.rewrite (mkConst (if boolLit then ``Blaster.not_true_is_false else ``Blaster.not_false_is_true)))
+  return r
+ if let some r ← notLTNumNorm? e restart then return r
+ mkAppExpr f e
 
 
 /-- Given `ne` the operand for `Not` apply the following normalization rules:
@@ -86,23 +85,25 @@ def optimizeNot (f : Expr) (args : Array Expr) (cacheResult := true) : Translate
      - Otherwise:
         - return `none`.
 -/
-def notLogicalSimp? (ne : Expr) : TranslateEnvT (Option Expr) := do
+def notLogicalSimp? (ne : Expr) (restart := true) : TranslateEnvT (Option Expr) := do
   match propAnd? ne with
-  | some (ne1, ne2) => notPropagation? ne1 ne2 (← mkPropOrOp) ``Blaster.not_and_not_eq_or
+  | some (ne1, ne2) => notPropagation? ne1 ne2 (← mkPropOrOp)
   | _ =>
     match propOr? ne with
-    | some (ne1, ne2) => notPropagation? ne1 ne2 (← mkPropAndOp) ``Blaster.not_or_not_eq_and
+    | some (ne1, ne2) => notPropagation? ne1 ne2 (← mkPropAndOp)
     | _ => return none
 
  where
-   notPropagation? (ne1 : Expr) (ne2 : Expr) (op : Expr) (lemma : Name) :
-       TranslateEnvT (Option Expr) := do
+   notPropagation? (ne1 : Expr) (ne2 : Expr) (op : Expr) : TranslateEnvT (Option Expr) := do
      match propNot? ne1, propNot? ne2 with
      | some e1, some e2 =>
-           -- applied to the operands, so that replay rewrites this site and not an enclosing match
-           pushProofStep (.rewrite (mkApp2 (mkConst lemma) e1 e2))
-           setRestart
-           return mkApp2 op e1 e2
+           if restart then
+             -- `op` is `Or` for `¬ (¬ e1 ∧ ¬ e2)` and `And` for `¬ (¬ e1 ∨ ¬ e2)`
+             let lemma := if op.isConstOf ``Or then ``Blaster.not_and_not_eq_or else ``Blaster.not_or_not_eq_and
+             -- applied to the operands, so that replay rewrites this site and not an enclosing match
+             pushProofStep (.rewrite (mkApp2 (mkConst lemma) e1 e2))
+             setRestart
+           mkApp2Expr op e1 e2
      | _, _ => return none
 
 /-- Call `optimizeNot f args` and apply the following simplification/normalization rules on `Not` :
@@ -110,11 +111,12 @@ def notLogicalSimp? (ne : Expr) : TranslateEnvT (Option Expr) := do
      - ¬ (¬ e1 ∨ ¬ e2) ==> (e1 ∧ e2)   [proof: Blaster.not_or_not_eq_and]
    Assume that f = Expr.const ``Not.
    An error is triggered if args.size ≠ 1 (i.e., only fully applied `Not` expected at this stage)
+   With `restart := false` the call is a query (the result does not replace `¬ e`), hence no proof step is pushed.
 -/
-def optimizeAdvancedNot (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
-  let e ← optimizeNot f args
+def optimizeAdvancedNot (f : Expr) (args : Array Expr) (restart := true) : TranslateEnvT Expr := do
+  let e ← optimizeNot f args restart
   let some ne := propNot? e | return e
-  if let some r ← notLogicalSimp? ne  then return r
+  if let some r ← notLogicalSimp? ne restart then return r
   return e
 
 
