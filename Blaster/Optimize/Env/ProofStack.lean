@@ -51,8 +51,9 @@ def pushFoldStep (t e r : Expr) : TranslateEnvT Unit :=
     (mkApp3 (mkConst ``Eq [levelOne]) t e r) (mkApp2 (mkConst ``Eq.refl [levelOne]) t r)))
 
 /-- Start the optimization of a recursive function body: the steps pushed until the matching
-    `storeRecFunProof` go to a fresh `localProofStack`. The enclosing body's local stack, if any
-    (mutually recursive case), is saved in `recFunBodyCtx`. -/
+    `exitRecFunBody` go to a fresh `localProofStack`, so that they stay out of the goal's
+    `proofStack`. The enclosing body's local stack, if any (mutually recursive case), is saved in
+    `recFunBodyCtx`. -/
 @[always_inline, inline]
 def enterRecFunBody : TranslateEnvT Unit :=
   modifyProofEnv fun p =>
@@ -60,25 +61,18 @@ def enterRecFunBody : TranslateEnvT Unit :=
              localProofStack := #[],
              optimizeRecFunBody := true }
 
-/-- End the optimization of the recursive function body entered by `enterRecFunBody`: record its
-    local proof stack in `recFunProofCache` at `f` (the key `storeRecFunDef` gives
-    `recFunInstCache`), and restore the enclosing context. Without a matching `enterRecFunBody`
-    there is no context to restore and the stack recorded is the current local one. -/
+/-- End the optimization of the recursive function body entered by `enterRecFunBody`: drop the
+    body's local proof stack and restore the enclosing context saved in `recFunBodyCtx`, i.e., the
+    enclosing body's `localProofStack`, or the goal's `proofStack` as target of `pushProofStep`.
+    Without a matching `enterRecFunBody` there is no context to restore. -/
 @[always_inline, inline]
-def storeRecFunProof (f : Expr) : TranslateEnvT Unit :=
+def exitRecFunBody : TranslateEnvT Unit :=
   modifyProofEnv fun p =>
-    let p := { p with recFunProofCache := p.recFunProofCache.insert f p.localProofStack }
     match p.recFunBodyCtx with
     | (l, b) :: ctx => { p with localProofStack := l, optimizeRecFunBody := b, recFunBodyCtx := ctx }
     | [] => p
 
-/-- Return the local proof stack recorded by `storeRecFunProof` at `f`, if any. -/
-@[always_inline, inline]
-def findRecFunProof? (f : Expr) : TranslateEnvT (Option (Array ProofStep)) :=
-  return (← get).proofEnv.recFunProofCache.get? f
-
-/-- Discard the proof steps and the binders recorded so far (e.g., during cache initialization),
-    keeping `recFunProofCache`. -/
+/-- Discard the proof steps and the binders recorded so far (e.g., during cache initialization). -/
 @[always_inline, inline]
 def clearProofStacks : TranslateEnvT Unit :=
   modifyProofEnv fun p => { p with proofStack := #[], localProofStack := #[], optBinders := {} }

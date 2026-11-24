@@ -837,7 +837,9 @@ structure ProofEnv where
   /-- Proof steps accumulated during optimization, replayed for proof reconstruction. -/
   proofStack : Array ProofStep
 
-  /-- Proof steps accumulated during the optimization of the body of a recursive function. -/
+  /-- Proof steps emitted during the optimization of the body of a recursive function. They stay
+      out of `proofStack` and are dropped when the body is left (see `exitRecFunBody`); only their
+      number is read (`getProofStackSize`). -/
   localProofStack : Array ProofStep
 
   /-- Flag set to `true` when optimizing a recursive function body.
@@ -845,12 +847,8 @@ structure ProofEnv where
   optimizeRecFunBody : Bool
 
   /-- The `localProofStack` and `optimizeRecFunBody` of the enclosing recursive function
-      bodies, innermost first (see `enterRecFunBody` and `storeRecFunProof`). -/
+      bodies, innermost first (see `enterRecFunBody` and `exitRecFunBody`). -/
   recFunBodyCtx : List (Array ProofStep × Bool)
-
-  /-- The proof steps of the optimization of each recursive function body, with the same keys
-      as `recFunInstCache`. -/
-  recFunProofCache : HashMap PtrExpr (Array ProofStep)
 
   /-- The goal binders the optimizer opens or drops (see `OptBinders`), used to map
       optimizer-context variables to goal-context variables during proof replay. -/
@@ -870,7 +868,6 @@ instance : Inhabited ProofEnv where
       localProofStack := #[],
       optimizeRecFunBody := false,
       recFunBodyCtx := [],
-      recFunProofCache := HashMap.emptyWithCapacity,
       optBinders := {},
       openBinders := [],
       eqProofMap := ContextMap.empty

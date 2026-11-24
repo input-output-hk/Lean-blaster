@@ -75,198 +75,6 @@ def optimizeAppAux (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
   if let some e ← optimizeList? f args then return e
   mkAppNExpr f args
 
-/-- Try to rewrite a goal with a single expression.
-    Returns the new goal if the rewrite succeeded, or the original goal unchanged. -/
-private def tryRewriteStep (g : MVarId) (proof : Expr) : MetaM MVarId := do
-  if ← g.isAssigned then return g
-  try
-    let r ← g.rewrite (← g.getType) proof
-    let g' ← g.replaceTargetEq r.eNew r.eqProof
-    try g'.refl; return g' catch _ => pure ()
-    return g'
-  catch _ => return g
-
-/-- Close an induction subgoal for recursive function equivalence.
-    Leaves the goal unassigned if unable to close. -/
-private def closeInductionSubgoal (sg : MVarId)
-    (ufSteps rfSteps : Array ProofStep) : MetaM Unit := do
-  if ← sg.isAssigned then return
-  try sg.refl; return catch _ => pure ()
-  -- Iteratively unfold head definitions on both sides
-  let g ← sg.withContext do
-    let mut g := sg
-    let mut progress := true
-    while progress do
-      progress := false
-      if ← g.isAssigned then return g
-      try
-        let ty ← g.getType
-        match ty.eq? with
-        | some (_, lhs, rhs) =>
-          let lhsU ← unfoldDefinition? lhs
-          let rhsU ← unfoldDefinition? rhs
-          let lhs' := lhsU.getD lhs
-          let rhs' := rhsU.getD rhs
-          if lhs' != lhs || rhs' != rhs then
-            let newTy ← mkEq lhs' rhs'
-            g ← g.change newTy
-            try g.refl; return g catch _ => pure ()
-            progress := true
-        | none => pure ()
-      catch _ => pure ()
-    return g
-  if ← g.isAssigned then return
-  -- uf local steps
-  let g ← g.withContext do
-    let mut g := g
-    for step in ufSteps do
-      if ← g.isAssigned then return g
-      match step with
-      | .rewrite proof _ _ =>
-        g ← tryRewriteStep g proof
-      | .exact _ => pure ()
-      | .unfold n => g ← g.deltaTarget (· == n)
-    return g
-  if ← g.isAssigned then return
-  -- rf local steps (both directions)
-  let g ← g.withContext do
-    let mut g := g
-    for step in rfSteps do
-      if ← g.isAssigned then return g
-      match step with
-      | .rewrite proof _ _ =>
-        g ← tryRewriteStep g proof
-        if ← g.isAssigned then return g
-        try
-          let r ← g.rewrite (← g.getType) proof (symm := true)
-          let g' ← g.replaceTargetEq r.eNew r.eqProof
-          try g'.refl; return g' catch _ => pure ()
-          g := g'
-        catch _ => pure ()
-      | .exact _ => pure ()
-      | .unfold n => g ← g.deltaTarget (· == n)
-    return g
-  if ← g.isAssigned then return
-  try g.refl; return catch _ => pure ()
-  -- Rewrite with hypotheses
-  let g ← g.withContext do
-    let lctx ← getLCtx
-    let decls := lctx.foldl (init := #[]) fun acc decl =>
-      if decl.isImplementationDetail then acc else acc.push decl
-    let mut g : MVarId := g
-    for decl in decls do
-      if ← g.isAssigned then return g
-      if !(← isProp decl.type) then continue
-      g ← tryRewriteStep g decl.toExpr
-      if ← g.isAssigned then return g
-    return g
-  if ← g.isAssigned then return
-  -- Commutativity lemmas
-  let g ← g.withContext do
-    let mut g : MVarId := g
-    for commName in #[``Int.mul_comm, ``Nat.mul_comm, ``Int.add_comm, ``Nat.add_comm] do
-      if ← g.isAssigned then return g
-      g ← tryRewriteStep g (mkConst commName)
-      if ← g.isAssigned then return g
-    return g
-  if ← g.isAssigned then return
-  -- Retry hypotheses after commutativity
-  g.withContext do
-    let lctx ← getLCtx
-    let decls := lctx.foldl (init := #[]) fun acc decl =>
-      if decl.isImplementationDetail then acc else acc.push decl
-    let mut g : MVarId := g
-    for decl in decls do
-      if ← g.isAssigned then return
-      if !(← isProp decl.type) then continue
-      g ← tryRewriteStep g decl.toExpr
-      if ← g.isAssigned then return
-
-/-- Prove `uf = rf` by structural induction, universally quantified over free variables.
-    Returns the forall-quantified proof so that `rewrite` can unify with any instantiation.
-    Falls back to `admit` for subgoals that cannot be closed. -/
-private def proveRecFunEquiv (ufApp rfApp : Expr)
-    (ufSteps rfSteps : Array ProofStep := #[]) : MetaM Expr := do
-  let eq ← mkEq ufApp rfApp
-  let fvarIds ← do
-    let s := collectFVars {} eq
-    sortFVarIds s.fvarSet.toArray
-  let allFvars := fvarIds.map mkFVar
-  if allFvars.isEmpty then
-    let proof ← mkFreshExprMVar eq
-    try proof.mvarId!.refl catch _ => proof.mvarId!.admit
-    return proof
-  let mut inductIdx? : Option Nat := none
-  for h : i in [:allFvars.size] do
-    let fvarId := allFvars[i].fvarId!
-    try
-      let ty ← fvarId.getType
-      if let .const tyName _ := ty.getAppFn then
-        if let some (.inductInfo _) := (← getEnv).find? tyName then
-          inductIdx? := some i
-    catch _ => continue
-  let forallType ← mkForallFVars allFvars eq
-  let proof ← mkFreshExprMVar forallType
-  let goalId := proof.mvarId!
-  let (introFVarIds, goalId) ← goalId.introNP allFvars.size
-  match inductIdx? with
-  | none =>
-    unless ← goalId.isAssigned do goalId.admit
-  | some idx =>
-    try
-      goalId.withContext do
-        let inductFVarId := introFVarIds[idx]!
-        let ty ← inductFVarId.getType
-        let .const tyName _ := ty.getAppFn
-          | goalId.admit; return
-        let results ← goalId.induction inductFVarId (Name.mkStr tyName "rec")
-        for result in results do
-          closeInductionSubgoal result.mvarId ufSteps rfSteps
-        for result in results do
-          unless ← result.mvarId.isAssigned do result.mvarId.admit
-    catch _ =>
-      unless ← goalId.isAssigned do goalId.admit
-  return proof
-
-/-- `true` iff `e` contains `sorryAx` anywhere.
-    Tail recursive on a stack of pending subterms, so a deep `e` cannot overflow. -/
-private partial def containsSorry (e : Expr) : Bool :=
-  go [e]
-where
-  go : List Expr → Bool
-  | [] => false
-  | .const ``sorryAx _ :: _ => true
-  | .app f a :: es => go (f :: a :: es)
-  | .lam _ t b _ :: es => go (t :: b :: es)
-  | .forallE _ t b _ :: es => go (t :: b :: es)
-  | .letE _ t v b _ :: es => go (t :: v :: b :: es)
-  | .mdata _ e :: es => go (e :: es)
-  | .proj _ _ e :: es => go (e :: es)
-  | _ :: es => go es
-
-/-- Emit a rewrite proof step for recursive function equivalence.
-    Retrieves the local proof stacks recorded for `uf` and `rf` (see `storeRecFunProof`)
-    and uses them to close induction subgoals.
-    The goal is stated and proved under the optimizer local context, since `uf`, `rf` and `uargs`
-    may mention optimizer-local fvars. -/
-private def emitRecFunEquivStep
-    (uf rf : Expr) (uargs : Array Expr)
-    : TranslateEnvT Unit := withLocalContext do
-  let ufApp := mkAppN uf uargs
-  let rfApp := mkAppN rf uargs
-  try if ← isDefEq ufApp rfApp then return catch _ => pure ()
-  let ufSteps := (← findRecFunProof? uf).getD #[]
-  let rfSteps := (← findRecFunProof? rf).getD #[]
-  try
-    let ufTy ← inferType ufApp
-    let rfTy ← inferType rfApp
-    if ← isDefEq ufTy rfTy then
-      let proof ← proveRecFunEquiv ufApp rfApp ufSteps rfSteps
-      let proof ← instantiateMVars proof
-      unless containsSorry proof do
-        pushProofStep (.rewrite proof)
-  catch _ => pure ()
-
  /-- Given `rf` a function application instance (see function `getInstApp`) and `params` its
        implicit parameter inffo (see function `getImplicitParameters`), perform the following:
          let instanceArgs := [ params[i] | ∀ i ∈ [0..params.size-1] ∧ params[i].isInstance ]
@@ -304,7 +112,6 @@ def finalizeRecApp
          -- case when a polymorphic/non-polymorphic function is equivalent to another non-polymorphic one
          let eargs := Array.filterMap (λ p => if !p.isInstance then some p.effectiveArg else none) params
          -- trace[Optimize.recFun.app] "non-polymorphic equivalent case {reprStr rf} {reprStr eargs}"
-         emitRecFunEquivStep uf rf uargs
          isEquivOpaqueFun rf (← mkAppNExpr rf eargs) xs
      else
        let auxApp ← betaLambdaShared rf (← getEffectiveParams params)
@@ -313,11 +120,9 @@ def finalizeRecApp
          let appCall := getLambdaBody auxApp
          let (f, largs) := getAppFnWithArgs appCall
          -- trace[Optimize.recFun.app] "partially applied case {reprStr appCall.getAppFn'} {reprStr largs[0:largs.size-auxApp.getNumHeadLambdas]}"
-         emitRecFunEquivStep uf rf uargs
          isEquivOpaqueFun f (← mkAppNExpr f (largs.take (largs.size-auxApp.getNumHeadLambdas))) xs
        else
          -- trace[Optimize.recFun.app] "polymorphic equivalent case {reprStr auxApp.getAppFn'} {reprStr auxApp.getAppArgs}"
-         emitRecFunEquivStep uf rf uargs
          isEquivOpaqueFun auxApp.getAppFn auxApp xs
  where
    isEquivOpaqueFun (f : Expr) (e : Expr) (xs : List OptimizeStack) : TranslateEnvT OptimizeContinuity := do
@@ -377,7 +182,7 @@ def normRecFun (uf : Expr) (uargs : Array Expr) (appExpr : Expr) (xs : List Opti
      -- optimize recursive fun definition and store
      -- NOTE: keeping track of next ctxId to generate for clean-up
      let nextCtxId := (← get).optEnv.options.nextCtxId
-     -- the steps of the body go to its own local proof stack, recorded by `storeRecFunProof`
+     -- the steps of the body go to its own local proof stack, until `exitRecFunBody`
      enterRecFunBody
      return Sum.inl (.InitOptimizeExpr fdef :: .RecFunDefWaitForStorage uargs instApp subsInst params nextCtxId :: xs)
  else stackContinuity xs appExpr -- proceed with continuity

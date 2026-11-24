@@ -121,10 +121,8 @@ def optimizeNatSub (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
           | some (NatCstOpInfo.NatAddExpr n1 e1) =>
               if Nat.ble n2 n1 then
                 let n1Expr := op1.appFn!.appArg!
-                let hProof :=
-                  mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Bool) (mkConst ``Bool.true)
                 pushProofStep
-                  (.rewrite (mkApp4 (mkConst ``Blaster.nat_add_sub_of_ble) op2 n1Expr e1 hProof))
+                  (.rewrite (mkApp4 (mkConst ``Blaster.nat_add_sub_of_ble) op2 n1Expr e1 boolTrueRefl))
                 setRestart
                 mkApp2Expr (← mkNatAddOp) (← evalBinNatOp Nat.sub n1 n2) e1
               else return none
@@ -326,11 +324,9 @@ def optimizeNatDiv (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
              if gcd == 1 then return none
              let n1Expr := op1.appFn!.appArg!
              let gExpr := mkRawNatLit gcd
-             let boolRefl :=
-               mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Bool) (mkConst ``Bool.true)
              pushProofStep (.rewrite
                (mkAppN (mkConst ``Blaster.nat_mul_div_cancel_gcd)
-                  #[n1Expr, outerOp2, gExpr, e1, boolRefl, boolRefl, boolRefl]))
+                  #[n1Expr, outerOp2, gExpr, e1, boolTrueRefl, boolTrueRefl, boolTrueRefl]))
              setRestart
              let mulExpr ← mkApp2Expr (← mkNatMulOp) (← evalBinNatOp Nat.div n1 gcd) e1
              mkApp2Expr f mulExpr (← evalBinNatOp Nat.div n2 gcd)
@@ -411,11 +407,9 @@ def optimizeNatMod (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
     | some (NatCstOpInfo.NatMulExpr n1 e1), some n2 =>
         if Nat.mod n1 n2 == 0 then
           let n1Expr := op1.appFn!.appArg!
-          let boolRefl :=
-            mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Bool) (mkConst ``Bool.true)
           pushProofStep (.rewrite
             (mkAppN (mkConst ``Blaster.nat_mul_mod_of_mod_eq_zero)
-               #[n1Expr, outerOp2, e1, boolRefl]))
+               #[n1Expr, outerOp2, e1, boolTrueRefl]))
           some <$> mkNatLitExpr 0
         else return none
     | _, _ => return none

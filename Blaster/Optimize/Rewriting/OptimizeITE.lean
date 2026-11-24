@@ -5,10 +5,10 @@ import Blaster.Optimize.Lemmas.LemmasITE
 open Lean Meta Elab
 namespace Blaster.Optimize
 
-/-- The universe level of the branch type `iteType` of a `Blaster.dite'`, for its proof steps:
-    the optimizer's `dite'` constant is always at level one (see `mkBlasterDIteOp`), the step needs
-    the one of `iteType`. Run in the optimizer's local context, as `iteType` may mention its binders;
-    writes no optimizer state.
+/-- The universe level of the branch type `iteType` of a `Blaster.dite'`, which its proof steps need
+    (the optimizer's `dite'` is always at level one). Not `getLevelEnv`, which writes the optimizer's
+    `inferTypeCache` and throws when the type of `iteType` is not syntactically a `Sort`: emission may
+    do neither.
 -/
 @[inline] private def diteLevel (iteType : Expr) : TranslateEnvT Level :=
   withLocalContext $ do getLevel iteType
@@ -501,6 +501,7 @@ def optimizeDITEChoice (f : Expr) (args : Array Expr) : TranslateEnvT (Option Ex
      - sif h : c then ¬ c else p ===> ¬ c ∧ (h : ¬ c → p) (restart)  [proof: Blaster.dite'_then_false]
        (see `iteSimp?` for all its cases and their proofs)
      - sif h : c then e1 else e2 ==> (h : c → e1) ∧ (h : ¬ c → e2) (if Type(e1) = Prop)
+           [proof: Blaster.dite'_prop_eq, pushed by `diteToPropExpr?` in `optimizeDITEChoice`; nothing here]
          -- TO BE REMOVED: when performing normalization at the implication level
      - sif h1 : a then (sif h2 : c1 then e1 else e2) else (sif h3 : c2 then e1 else e2) ==>
           sif h1 : (a ∧ c1) ∨ (¬ a ∧ c2) then e1 else e2 (if ¬ c1.hasLooseBVars ∧ ¬ c2.hasLooseBVars)

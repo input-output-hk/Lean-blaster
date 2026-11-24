@@ -5,14 +5,24 @@ import Blaster.Optimize.Lemmas.LemmasDecide
 open Lean Meta
 namespace Blaster.Optimize
 
+/-- `@Eq.refl Bool true`, used as a defeq proof of a decidable condition `b = true`
+    (e.g. `Nat.ble n1 n2 = true` or `decide (0 < n) = true`) when `b` reduces to `true`.
+    Defined here, next to `mkGroundDecideProof`, because every rule file emitting it imports
+    this one. -/
+def boolTrueRefl : Expr :=
+  mkApp2 (mkConst ``Eq.refl [levelOne]) (mkConst ``Bool) (mkConst ``Bool.true)
+
+/-- `@Eq.refl Bool false`, the `false` counterpart of `boolTrueRefl`. -/
+def boolFalseRefl : Expr :=
+  mkApp2 (mkConst ``Eq.refl [levelOne]) (mkConst ``Bool) (mkConst ``Bool.false)
+
 /-- Proof of the ground decidable proposition `p` from its `Decidable` instance `inst`:
     `of_decide_eq_true p inst rfl` when `b` (a proof of `p`), `of_decide_eq_false p inst rfl`
     otherwise (a proof of `¬ p`). Built raw, so that the optimizer caches stay untouched; the
     kernel evaluates `decide p` at replay. -/
 def mkGroundDecideProof (p inst : Expr) (b : Bool) : Expr :=
-  let bv := mkConst (if b then ``Bool.true else ``Bool.false)
   mkApp3 (mkConst (if b then ``of_decide_eq_true else ``of_decide_eq_false)) p inst
-    (mkApp2 (mkConst ``Eq.refl [levelOne]) (mkConst ``Bool) bv)
+    (if b then boolTrueRefl else boolFalseRefl)
 
 /-- Push the step `(a = b) = (b = a)` (`propext eq_comm`) for `a b : ty`, with `ty : Type`. -/
 def pushEqCommStep (ty a b : Expr) : TranslateEnvT Unit := do
@@ -568,48 +578,73 @@ def arithEq? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
   return none
 
 /-- Try to prove `op1 = op2 → False`, assuming `structEq? op1 op2 = some false`.
-    Descend through constructor fields towards a mismatch that `noConfusion` can carry, in a loop
-    so that deep terms do not exhaust the stack. Return `none` when the descent finds no such
-    mismatch. It runs `MetaM` inference on the optimizer's terms, so call it under
-    `withLocalContext`. -/
+    Descend, in `structEq?`'s order, to the first mismatch that `noConfusion` can carry: distinct
+    literals or constructors, not under a parameter or a proof. The descent uses an explicit stack,
+    so deep terms do not overflow, and expands each pair of subterms at most once. On the
+    optimizer's normal forms it walks the prefix `structEq?` walked to decide `false`, and at most
+    the terms when that mismatch is one `noConfusion` cannot carry. Return `none` when there is no
+    such mismatch or `fieldNe` cannot lift it (an `HEq` whose types differ). It runs `MetaM`
+    inference on the optimizer's terms, so call it under `withLocalContext`. -/
 def structNeProof? (op1 op2 : Expr) : TranslateEnvT (Option Expr) := do
-  let mut a := op1
-  let mut b := op2
-  -- Constructor applications crossed by the descent, with their mismatching fields.
-  let mut frames : Array (Expr × Expr × Expr × Expr) := #[]
-  repeat
-    if exprEq a b then return none
+  -- Pairs met by the descent, each with the index of the pair of which it is a field.
+  let mut pairs : Array (Expr × Expr × Option Nat) := #[(op1, op2, none)]
+  let mut todo : Array Nat := #[0]
+  let mut visited : Blaster.Data.HashSet.HashSet (PtrExpr × PtrExpr) :=
+    Blaster.Data.HashSet.HashSet.emptyWithCapacity
+  while !todo.isEmpty do
+    let k := todo.back!
+    todo := todo.pop
+    let (a, b, _) := pairs[k]!
+    if exprEq a b || visited.contains (a, b) then continue
+    visited := visited.insert (a, b)
     match a, b with
     | .lit (.natVal n1), .lit (.natVal n2) =>
-        if n1 == n2 then return none
-        return ← fold frames (litNe (mkConst ``Nat) (mkConst ``instDecidableEqNat) a b)
+        if n1 != n2 then
+          return ← fold (path pairs k) (litNe (mkConst ``Nat) (mkConst ``instDecidableEqNat) a b)
     | .lit (.strVal s1), .lit (.strVal s2) =>
-        if s1 == s2 then return none
-        return ← fold frames (litNe (mkConst ``String) (mkConst ``instDecidableEqString) a b)
+        if s1 != s2 then
+          return ← fold (path pairs k)
+            (litNe (mkConst ``String) (mkConst ``instDecidableEqString) a b)
     | _, _ =>
-      let some (c1, as1) ← ctorApp? a | return none
-      let some (c2, as2) ← ctorApp? b | return none
-      if c1.name != c2.name then return ← fold frames (← ctorNe a b)
-      if as1.size == c1.numParams then return none
-      -- Take the first mismatching field that is not a proof, since `noConfusion` omits proofs.
-      -- Otherwise take the last field, which keeps lists linear but may not be a mismatch.
-      let mut i := as1.size - 1
-      for j in [c1.numParams:as1.size - 1] do
-        if (← structEq? as1[j]! as2[j]!) == some false then
-          unless ← isProp (← inferType as1[j]!) do
-            i := j
-            break
-      frames := frames.push (a, b, as1[i]!, as2[i]!)
-      a := as1[i]!
-      b := as2[i]!
+      let some (c1, as1) ← constructorApp? a | continue
+      let some (c2, as2) ← constructorApp? b | continue
+      -- Inductives in `Prop` have no `noConfusion`, so `mkNoConfusion` would build a term the
+      -- kernel rejects. Tested once per pair when both sides are of the same inductive.
+      unless ← hasNoConfusion c1.induct do continue
+      if c2.induct != c1.induct then
+        unless ← hasNoConfusion c2.induct do continue
+      if c1.name != c2.name then return ← fold (path pairs k) (← ctorNe a b)
+      -- Proof fields are told once per constructor node by the `FunInfo` of the constructor at
+      -- its own universe parameters (cached by `MetaM`): the fields whose type is always a
+      -- proposition, which are those `noConfusion` (universe polymorphic too) omits.
+      let info ← getFunInfoNArgs (mkConst c1.name (c1.levelParams.map mkLevelParam)) as1.size
+      -- Fields pushed from the last, so that the first is visited first.
+      let mut j := as1.size
+      while j > c1.numParams do
+        j := j - 1
+        let isProof := (info.paramInfo[j]?.map (·.isProp)).getD false
+        unless exprEq as1[j]! as2[j]! || isProof do
+          todo := todo.push pairs.size
+          pairs := pairs.push (as1[j]!, as2[j]!, some k)
   return none
  where
-   /-- Inductives in `Prop` have no `noConfusion`, so `mkNoConfusion` would build a term the
-       kernel rejects. -/
-   ctorApp? (e : Expr) : MetaM (Option (ConstructorVal × Array Expr)) := do
-     let some (ci, as) ← constructorApp? e | return none
-     unless (← getEnv).contains (ci.induct.str "noConfusion") do return none
-     return some (ci, as)
+   /-- The constructor applications crossed from the root to the pair `k`, each with its field
+       on the way to `k`, from the innermost outwards. -/
+   path (pairs : Array (Expr × Expr × Option Nat)) (k : Nat) : Array (Expr × Expr × Expr × Expr) :=
+     Id.run do
+       let mut frames := #[]
+       let mut i := k
+       while true do
+         let (fa, fb, parent) := pairs[i]!
+         let some p := parent | break
+         let (a, b, _) := pairs[p]!
+         frames := frames.push (a, b, fa, fb)
+         i := p
+       return frames
+
+   /-- Whether the inductive `ind` has a `noConfusion`. -/
+   hasNoConfusion (ind : Name) : MetaM Bool :=
+     return (← getEnv).contains (ind.str "noConfusion")
 
    /-- Proof of `¬ a = b` for distinct literals. Built raw so that the optimizer caches stay
        untouched. -/
@@ -622,34 +657,52 @@ def structNeProof? (op1 op2 : Expr) : TranslateEnvT (Option Expr) := do
        mkLambdaFVars #[h] (← mkNoConfusion (mkConst ``False) h)
 
    /-- `fun q h => nc (fun premises => q e)` lifting `q : fa = fb → False` to `a = b → False`,
-       with `fa`, `fb` fields of `a`, `b`. -/
+       with `fa`, `fb` fields of `a`, `b`. The binders are built as de Bruijn indices rather than
+       abstracted with `mkLambdaFVars`, which would traverse `a` and `b` (when they hold free
+       variables) at every frame and make the descent quadratic. -/
    fieldNe (a b fa fb : Expr) : MetaM (Option Expr) := do
-     withLocalDeclD `q (← mkArrow (← mkEq fa fb) (mkConst ``False)) fun q => do
-       withLocalDeclD `h (← mkEq a b) fun h => do
-         let nc ← mkNoConfusion (mkConst ``False) h
-         -- `nc : (premises → False) → False`. Premises are found by type since `noConfusion`
-         -- omits `Prop` fields.
-         let .forallE _ k _ _ ← whnf (← inferType nc) | return none
-         let pk? ← forallTelescopeReducing k fun es _ => do
-           for e in es do
-             let ty ← inferType e
-             if let some (_, x, y) := ty.eq? then
-               if x == fa && y == fb then
-                 return some (← mkLambdaFVars es (mkApp q e))
-             if let some (α, x, β, y) := ty.heq? then
-               if α == β && x == fa && y == fb then
-                 let e' := mkApp4 (mkConst ``eq_of_heq ty.getAppFn.constLevels!) α x y e
-                 return some (← mkLambdaFVars es (mkApp q e'))
-           return none
-         let some pk := pk? | return none
-         return some (← mkLambdaFVars #[q, h] (mkApp nc pk))
+     let qTy := mkForall `e .default (← mkEq fa fb) (mkConst ``False)
+     let hTy ← mkEq a b
+     withLocalDeclD `h hTy fun h => do
+       let nc ← mkNoConfusion (mkConst ``False) h
+       -- Contract check on `mkNoConfusion`'s output: for a constructor with fields, every branch
+       -- applies `noConfusion` to `h` last (Lean v4.24), and the binder `h` is put in its place.
+       -- A toolchain that changed that shape would make this `none`, and the sweeps show it.
+       let .app ncF h' := nc | return none
+       unless h' == h do return none
+       -- `nc : (premises → False) → False`. Premises are found by type since `noConfusion`
+       -- omits `Prop` fields; `pk` takes the same binders.
+       let .forallE _ k _ _ ← whnf (← inferType nc) | return none
+       let mut ds : Array Expr := #[]
+       let mut pick : Option (Nat × Option (Expr × Expr × Expr × List Level)) := none
+       let mut t := k
+       repeat
+         let .forallE _ d body _ := t | break
+         if pick.isNone && !d.hasLooseBVars then
+           if let some (_, x, y) := d.eq? then
+             if x == fa && y == fb then pick := some (ds.size, none)
+           if let some (α, x, β, y) := d.heq? then
+             if α == β && x == fa && y == fb then
+               pick := some (ds.size, some (α, x, y, d.getAppFn.constLevels!))
+         ds := ds.push d
+         t := body
+       let some (j, heq?) := pick | return none
+       -- Under the binders of `pk`, the premise `j` is `#(n-1-j)`, `h` is `#n` and `q` is `#(n+1)`.
+       let n := ds.size
+       let e := match heq? with
+         | some (α, x, y, us) => mkApp4 (mkConst ``eq_of_heq us) α x y (mkBVar (n - 1 - j))
+         | none => mkBVar (n - 1 - j)
+       let mut pk := mkApp (mkBVar (n + 1)) e
+       for d in ds.reverse do
+         pk := mkLambda `e .default d pk
+       return some (mkLambda `q .default qTy (mkLambda `h .default hTy (mkApp (mkApp ncF (mkBVar 0)) pk)))
 
-   /-- Fold the frames from the innermost outwards. Each frame is applied to the inner proof
-       without beta reduction, so that the inner proof is neither traversed again nor nested
+   /-- Fold the frames, given from the innermost outwards. Each frame is applied to the inner
+       proof without beta reduction, so that the inner proof is neither traversed again nor nested
        under the binders of the frame, which keeps the proof size linear. -/
    fold (frames : Array (Expr × Expr × Expr × Expr)) (leaf : Expr) : MetaM (Option Expr) := do
      let mut p := leaf
-     for (a, b, fa, fb) in frames.reverse do
+     for (a, b, fa, fb) in frames do
        let some f ← fieldNe a b fa fb | return none
        p := mkApp f p
      return some p
@@ -714,8 +767,7 @@ def optimizeEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
     pushProofStep (.rewrite (mkConst ``Blaster.eq_not_is_false))
   return ← mkPropFalse
  if exprEq op1 op2 then
-  let lvl ← mkFreshLevelMVar
-  pushProofStep (.rewrite (mkConst ``eq_self [lvl]))
+  pushProofStep (.rewrite (mkConst ``eq_self f.constLevels!))
   pushProofStep (.exact (mkConst ``True.intro))
   return ← mkPropTrue
  if let some false ← structEq? op1 op2 then

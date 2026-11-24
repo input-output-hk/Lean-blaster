@@ -5,15 +5,6 @@ import Blaster.Optimize.Rewriting.OptimizeEq
 open Lean Meta
 namespace Blaster.Optimize
 
-/-- `@Eq.refl Bool true`, used as a defeq proof of a decidable condition `b = true`
-    (e.g. `Nat.ble n1 n2 = true` or `decide (0 < n) = true`) when `b` reduces to `true`. -/
-private def boolTrueRefl : Expr :=
-  mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Bool) (mkConst ``Bool.true)
-
-/-- `@Eq.refl Bool false`, the `false` counterpart of `boolTrueRefl`. -/
-private def boolFalseRefl : Expr :=
-  mkApp2 (mkConst ``Eq.refl [.succ .zero]) (mkConst ``Bool) (mkConst ``Bool.false)
-
 /-- Return `true` when `e` corresponds to the one nat literal. -/
 def isOneNat (e : Expr) : Bool :=
   match isNatValue? e with

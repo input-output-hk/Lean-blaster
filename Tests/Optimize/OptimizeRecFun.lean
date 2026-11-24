@@ -15,8 +15,8 @@ def powerN (a : Int) (n : Nat) : Int :=
   | Nat.zero => 1
   | Nat.succ n' => a * powerN a n'
 
--- NOTE: no proof flag on NormRecFun_1 and NormRecFun_2, the recursive function
--- equivalence step leaves an unassigned metavariable
+-- NOTE: no proof flag on NormRecFun_1 and NormRecFun_2, the equivalence of the two recursive
+-- functions has no proof step (Milestone 3)
 -- ∀ (x : Int) (n : Nat), powerN x n = Int.pow x n ===> True
 -- NOTE: Equivalence detection with opaque function
 #testOptimize [ "NormRecFun_1" ] ∀ (x : Int) (n : Nat), powerN x n = Int.pow x n ===> True
@@ -33,11 +33,13 @@ def addNat (a : Nat) (b : Nat) : Nat :=
 
 -- ∀ (x y : Nat), addNat x y = x + y ===> True
 -- NOTE: Equivalence detection with opaque function
-#testOptimize [ "NormRecFun_3", proof ] ∀ (x y : Nat), addNat x y = x + y ===> True
+-- NOTE: no proof flag, the equivalence of the two recursive functions has no proof step (Milestone 3)
+#testOptimize [ "NormRecFun_3" ] ∀ (x y : Nat), addNat x y = x + y ===> True
 
 -- ∀ (x y : Nat), x + y = addNat x y = ===> True
 -- NOTE: Equivalence detection with opaque function
-#testOptimize [ "NormRecFun_4", proof ] ∀ (x y : Nat), x + y = addNat x y ===> True
+-- NOTE: no proof flag, the equivalence of the two recursive functions has no proof step (Milestone 3)
+#testOptimize [ "NormRecFun_4" ] ∀ (x y : Nat), x + y = addNat x y ===> True
 
 
 def listNatBeq (xs : List Nat) (ys : List Nat) : Bool :=
@@ -101,8 +103,8 @@ def powerNat (a : Nat) (n : Nat) : Nat :=
   | Nat.succ n' => mulAlias a (powerNat a n') -- commutativity detected when mulNat is replaced with Nat.mul
 
 
--- NOTE: no proof flag on NormRecFun_11 to NormRecFun_13, the recursive function
--- equivalence step leaves an unassigned metavariable
+-- NOTE: no proof flag on NormRecFun_11 to NormRecFun_13, the equivalence of the two recursive
+-- functions has no proof step (Milestone 3)
 -- ∀ (x y : Nat), powerNat x y = Nat.pow x y ===> True
 -- NOTE: Equivalence detection between nested opaque functions (i.e., here 3 nested level)
 -- NOTE: Also ensures that non-recursive function are inlined.

@@ -103,7 +103,7 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
         freeRewriteCacheRange startCtxId (← get).optEnv.options.nextCtxId
         -- trace[Optimize.recFun] "optimized rec body for {reprStr subsInst} got {reprStr optDef}"
         let fn' ← storeRecFunDef subsInst params optDef
-        storeRecFunProof subsInst
+        exitRecFunBody
         -- trace[Optimize.recFun] "rec function instance {reprStr subsInst} is equivalent to {reprStr fn'}"
         match (← finalizeRecApp subsInst fn' uargs params xs) with
         | Sum.inr e => return e

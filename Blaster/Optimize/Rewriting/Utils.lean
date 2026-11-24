@@ -544,9 +544,15 @@ def reorderIntOp (args: Array Expr) : (Expr × Expr) :=
      - Int.mul: n1 * n2 ==> n2 * n1          [proof: Int.mul_comm]
      - Int.mul: n * 0 ==> 0 * n              [proof: Int.mul_zero]
      - Int.mul: n * 1 ==> 1 * n              [proof: Int.mul_one]
-     - And: e1 ∧ e2 ==> e2 ∧ e1              [proof: and_comm]
-     - Or:  e1 ∨ e2 ==> e2 ∨ e1              [proof: or_comm]
+     - Eq: e1 = e2 ==> e2 = e1               [proof: propext eq_comm]
      - BEq.beq: e1 == e2 ==> e2 == e1        [proof: Blaster.beq_comm]
+     - and: e1 && e2 ==> e2 && e1            [proof: Bool.and_comm]
+     - or: e1 || e2 ==> e2 || e1             [proof: Bool.or_comm]
+     - And: e1 ∧ e2 ==> e2 ∧ e1              [proof: propext and_comm]
+     - Or:  e1 ∨ e2 ==> e2 ∨ e1              [proof: propext or_comm]
+    For a neutral or absorbing constant (`0` of `+` and `*`, `1` of `*`) the step is not the
+    commutation but the lemma that folds the original order, e.g. `Nat.add_zero : n + 0 = n`: it
+    proves the result the optimizer reaches next from the reordered term (`0 + n ==> n`).
 -/
 def reorderOperands (f : Expr) (args : Array Expr) : TranslateEnvT (Array Expr) := do
   let Expr.const n us := f | return args
