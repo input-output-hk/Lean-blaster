@@ -39,6 +39,11 @@ def cWeakArgs : FetchM (Array String) := do
   if let some inc ← IO.getEnv "Z3_INC_PATH" then args := args.push s!"-I{inc}"
   return args
 
+/-- The shim archive is linked into a shared library by Lake. Keep PIC in the
+    traced arguments so changing this flag rebuilds cached object files. -/
+private def z3ShimOArgs : Array String :=
+  if System.Platform.isWindows then #["-O2"] else #["-O2", "-fPIC"]
+
 input_file «z3_shim_context.c» where
   path := "Blaster/Smt/FFI/c/z3_shim_context.c"
   text := true
@@ -61,23 +66,23 @@ input_file «z3_shim_datatypes.c» where
 
 target «z3_shim_context.o» (pkg : NPackage _package.name) : FilePath := do
   let o := pkg.buildDir / "ffi" / "z3_shim_context.o"
-  buildO o (← «z3_shim_context.c».fetch) (← cWeakArgs) #["-O2"]
+  buildO o (← «z3_shim_context.c».fetch) (← cWeakArgs) z3ShimOArgs
 
 target «z3_shim_solver.o» (pkg : NPackage _package.name) : FilePath := do
   let o := pkg.buildDir / "ffi" / "z3_shim_solver.o"
-  buildO o (← «z3_shim_solver.c».fetch) (← cWeakArgs) #["-O2"]
+  buildO o (← «z3_shim_solver.c».fetch) (← cWeakArgs) z3ShimOArgs
 
 target «z3_shim_sorts.o» (pkg : NPackage _package.name) : FilePath := do
   let o := pkg.buildDir / "ffi" / "z3_shim_sorts.o"
-  buildO o (← «z3_shim_sorts.c».fetch) (← cWeakArgs) #["-O2"]
+  buildO o (← «z3_shim_sorts.c».fetch) (← cWeakArgs) z3ShimOArgs
 
 target «z3_shim_terms.o» (pkg : NPackage _package.name) : FilePath := do
   let o := pkg.buildDir / "ffi" / "z3_shim_terms.o"
-  buildO o (← «z3_shim_terms.c».fetch) (← cWeakArgs) #["-O2"]
+  buildO o (← «z3_shim_terms.c».fetch) (← cWeakArgs) z3ShimOArgs
 
 target «z3_shim_datatypes.o» (pkg : NPackage _package.name) : FilePath := do
   let o := pkg.buildDir / "ffi" / "z3_shim_datatypes.o"
-  buildO o (← «z3_shim_datatypes.c».fetch) (← cWeakArgs) #["-O2"]
+  buildO o (← «z3_shim_datatypes.c».fetch) (← cWeakArgs) z3ShimOArgs
 
 extern_lib «libz3shim» (pkg : NPackage _package.name) := do
   let oCtx ← «z3_shim_context.o».fetch
