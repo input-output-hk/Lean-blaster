@@ -11,17 +11,17 @@ namespace Test.COIForAll
 -/
 
 -- ∀ (a b : Prop), (a ∧ (b ∨ ¬ b)) ===> ∀ (a : Prop), a
-#testOptimize [ "ForallCOI_1" ] ∀ (a b : Prop), (a ∧ (b ∨ ¬ b)) ===> ∀ (a : Prop), a
+#testOptimize [ "ForallCOI_1", proof ] ∀ (a b : Prop), (a ∧ (b ∨ ¬ b)) ===> ∀ (a : Prop), a
 
 -- ∀ (a b : Bool), (a || (b && ! b)) ===> ∀ (a : Bool), true = a
-#testOptimize [ "ForallCOI_2" ] ∀ (a b : Bool), (a || (b && ! b)) ===> ∀ (a : Bool), true = a
+#testOptimize [ "ForallCOI_2", proof ] ∀ (a b : Bool), (a || (b && ! b)) ===> ∀ (a : Bool), true = a
 
 -- ∀ (w x y z : Nat), (((100 - x) - 120) * z) + w < y ===> ∀ (w y : Nat), w < y
-#testOptimize [ "ForallCOI_3" ] ∀ (w x y z : Nat), (((100 - x) - 120) * z) + w < y ===> ∀ (w y : Nat), w < y
+#testOptimize [ "ForallCOI_3", proof ] ∀ (w x y z : Nat), (((100 - x) - 120) * z) + w < y ===> ∀ (w y : Nat), w < y
 
 
 -- ∀ (w x y z : Int), ((((100 - x) - 100) + x) * z) + w < y ===> ∀ (w y : Int), w < y
-#testOptimize [ "ForallCOI_4" ]
+#testOptimize [ "ForallCOI_4", proof ]
   ∀ (w x y z : Int), ((((100 - x) - 100) + x) * z) + w < y ===> ∀ (w y : Int), w < y
 
 inductive Color where
@@ -36,7 +36,7 @@ inductive Color where
 --  (if cond then x else y) = z ===>
 --  ∀ (x z : Color), x = z
 -- Test case: COI reduction applies when inductive type has at least one nullary constructor.
-#testOptimize [ "ForallCOI_5" ]
+#testOptimize [ "ForallCOI_5", proof ]
   ∀ (a b c : Bool) (x y z : Color),
     let cond := ((!a || ((b || c) && !(c || b))) || a) && (!(b && a) || (a && b));
     (if cond then x else y) = z ===>
@@ -47,7 +47,7 @@ inductive Color where
 --  (if cond then x else y) = z ===>
 -- ∀ (y z : List Nat), y = z
 -- Test case: COI reduction applies on parametric inductive types.
-#testOptimize [ "ForallCOI_6" ] ∀ (a b c : Bool) (x y z : List Nat),
+#testOptimize [ "ForallCOI_6", proof ] ∀ (a b c : Bool) (x y z : List Nat),
                                   let cond := !((!a || ((b || c) && !(c || b))) || a);
                                   (if cond then x else y) = z ===>
                                 ∀ (y z : List Nat), y = z
@@ -57,7 +57,7 @@ inductive Color where
 --  (if cond then x else y) = z ===>
 -- ∀ (α : Type) (y z : List α), y = z
 -- Test case: COI reduction applies on polymorphic inductive type having an Inhabited instance.
-#testOptimize [ "ForallCOI_7" ] ∀ (α : Type) (a b c : Bool) (x y z : List α),
+#testOptimize [ "ForallCOI_7", proof ] ∀ (α : Type) (a b c : Bool) (x y z : List α),
                                      let cond := !((!a || ((b || c) && !(c || b))) || a);
                                      (if cond then x else y) = z ===>
                                 ∀ (α : Type) (y z : List α), y = z
@@ -67,7 +67,7 @@ inductive Color where
 --  let cond := !((!a || ((b || c) && !(c || b))) || a);
 --  ¬ ((if cond then x else y) = y) ===> False
 -- Test case: COI reduction also applies on sort type.
-#testOptimize [ "ForallCOI_8" ]
+#testOptimize [ "ForallCOI_8", proof ]
   ∀ (α : Type) (a b c : Bool) (x y : List α),
     let cond := !((!a || ((b || c) && !(c || b))) || a); ¬ (if cond then x else y) = y ===> False
 
@@ -88,7 +88,7 @@ inductive Color where
 --  (if cond then f x else y) = z ===>
 -- ∀ (β : Type) (y z : β), y = z
 -- Test case: COI reduction rules removes unused quantified functions.
-#testOptimize [ "ForallCOI_10" ]
+#testOptimize [ "ForallCOI_10", proof ]
   ∀ (α : Type) (β : Type) (f : α → β) (x : α) (y z : β) (a b c : Bool),
     let cond := !((!a || ((b || c) && !(c || b))) || a); (if cond then f x else y) = z ===>
   ∀ (β : Type) (y z : β), y = z
@@ -99,13 +99,60 @@ inductive Color where
 --   (if cond then if x < y then [x, y] else [y, x] else ys) = xs ===>
 -- ∀ (α : Type) (x y : α) (xs : List α), [LT α] →
 --   xs = Blaster.dite' (x < y) (fun _ : x < y => [x, y]) (fun _ : ¬ (x < y) => [y, x])
-#testOptimize [ "ForallCOI_11" ]
+#testOptimize [ "ForallCOI_11", proof ]
   ∀ (α : Type) (a b c : Bool) (x y : α) (xs ys : List α), [LT α] → [Decidable (x < y)] →
     let cond := ((!a || ((b || c) && !(c || b))) || a);
     (if cond then if x < y then [x, y] else [y, x] else ys) = xs ===>
   ∀ (α : Type) (x y : α) (xs : List α), [LT α] →
     xs = Blaster.dite' (x < y) (fun _ : x < y => [x, y]) (fun _ : ¬ (x < y) => [y, x])
 
+-- ∀ (a : Prop), a ∧ (∀ (_x : Int), a) ===> ∀ (a : Prop), a
+-- Test case: COI reduction applies under `∧` on a type with an Inhabited instance.
+#testOptimize [ "ForallCOI_12", proof ] ∀ (a : Prop), a ∧ (∀ (_x : Int), a) ===> ∀ (a : Prop), a
+
+-- ∀ (a : Prop), (∀ (_α : Type), a) = a ===> True
+-- Test case: COI reduction applies under `=` on sort type.
+#testOptimize [ "ForallCOI_13", proof ] ∀ (a : Prop), (∀ (_α : Type), a) = a ===> True
+
+-- ∀ (a : Prop), a ∧ (∀ (_c : Color), a) ===> ∀ (a : Prop), a
+-- Test case: COI reduction applies under `∧` on an inductive type with a nullary constructor and no Inhabited instance.
+#testOptimize [ "ForallCOI_14", proof ] ∀ (a : Prop), a ∧ (∀ (_c : Color), a) ===> ∀ (a : Prop), a
+
+-- ∀ (a p : Prop), (∀ (_d : Decidable p), a) = a ===> True
+-- Test case: COI reduction applies under `=` on a class constraint with a `Nonempty` instance.
+#testOptimize [ "ForallCOI_15", proof ] ∀ (a p : Prop), (∀ (_d : Decidable p), a) = a ===> True
+
+inductive Box (α : Type u) (β : Type v) where
+  | empty : Box α β
+  | full : α → β → Box α β
+
+-- ∀ (α : Type) (a : Prop), a ∧ (∀ (_b : Box α Nat), a) ===> ∀ (a : Prop), a
+-- Test case: COI reduction applies under `∧` on a parametric inductive type with a nullary constructor and no Inhabited instance.
+#testOptimize [ "ForallCOI_16", proof ] ∀ (α : Type) (a : Prop), a ∧ (∀ (_b : Box α Nat), a) ===> ∀ (a : Prop), a
+
+-- ∀ (a : Prop), a → ∀ (_c : Color), False ===> ∀ (a : Prop), ¬ a
+-- Test case: COI reduction applies after a hypothesis that `e → False ==> ¬ e` consumes, on an
+-- inductive type with a nullary constructor and no Inhabited instance, whose instance the COI step carries.
+#testOptimize [ "ForallCOI_17", proof ] ∀ (a : Prop), a → ∀ (_c : Color), False ===> ∀ (a : Prop), ¬ a
+
+-- ∀ (_c : Color) (P : Nat → Prop) (n : Nat), ¬ (n ≤ 0) → ¬ (n ≤ 1) → P n ===>
+-- ∀ (P : Nat → Prop) (n : Nat), ¬ (0 = n) → 1 < n → P n
+-- Test case: COI reduction applies on an inductive type with a nullary constructor, next to two
+-- anonymous hypotheses that are both kept with their types rewritten. The replay proves the
+-- equation of foralls with one replay of the bodies, with the binders of the expected term
+-- matched with those of the input after `_c`, and each hypothesis cast by the equation of its
+-- rewritten type. These binders are in the same order on both sides, so the test does not tell
+-- the pairing rules of `matchBinders` apart.
+#testOptimize [ "ForallCOI_18", proof ] (norm-result: 1)
+  ∀ (_c : Color) (P : Nat → Prop) (n : Nat), ¬ (n ≤ 0) → ¬ (n ≤ 1) → P n ===>
+  ∀ (P : Nat → Prop) (n : Nat), ¬ (0 = n) → 1 < n → P n
+
+-- (∀ (x : Nat), x > 5 → ∀ (_c : Color), False) = ∀ (x : Nat), x ≤ 5 ===> True
+-- Test case: COI reduction applies after a hypothesis that `e → False ==> ¬ e` consumes, in an
+-- equation of foralls that the optimizer closes. The steps on the right side are pushed below
+-- its binder `x`, which the replay maps to the binder `x` of the left side.
+#testOptimize [ "ForallCOI_19", proof ]
+  (∀ (x : Nat), x > 5 → ∀ (_c : Color), False) = ∀ (x : Nat), x ≤ 5 ===> True
 
 /-! Test cases to ensure when the following COI reduction rule must not be applied:
      - `∀ (n : t), e ===> e (if isSortOrInhabited t ∧ Type(e) = Prop ∧ ¬ fVarInExpr n.fvarId! e)`.
@@ -113,13 +160,13 @@ inductive Color where
 
 -- ∀ (x y : Nat) (a b : Prop), x > y → (a ∧ (b ∨ ¬ b)) ===> ∀ (x y : Nat) (a : Prop), y < x → a
 -- Test case: COI reduction rule not applicable on implication
-#testOptimize [ "ForallCOIUnchanged_1" ]
+#testOptimize [ "ForallCOIUnchanged_1", proof ]
   ∀ (x y : Nat) (a b : Prop), x > y → (a ∧ (b ∨ ¬ b)) ===>
   ∀ (x y : Nat) (a : Prop), y < x → a
 
 -- ∀ (x y : Nat) (a b : Prop) (h : x > y), (a ∧ (b ∨ ¬ b)) ===> ∀ (x y : Nat) (a : Prop) (h : y < x), a
 -- Test case: COI reduction rule not applicable on implication
-#testOptimize [ "ForallCOIUnchanged_2" ]
+#testOptimize [ "ForallCOIUnchanged_2", proof ]
   ∀ (x y : Nat) (a b : Prop) (_h : x > y), (a ∧ (b ∨ ¬ b)) ===>
   ∀ (x y : Nat) (a : Prop) (_h : y < x), a
 
@@ -127,25 +174,25 @@ inductive Color where
 -- ∀ (α : Type) (β : Type) (f : α → β) (x y : α), x = y → f x = f y ===>
 -- ∀ (α : Type) (β : Type) (f : α → β) (x y : α), x = y → f x = f y
 -- Test case: COI reduction rules not applicable on arrow types.
-#testOptimize [ "ForallCOIUnchanged_3" ]
+#testOptimize [ "ForallCOIUnchanged_3", proof ]
   ∀ (α : Type) (β : Type) (f : α → β) (x y : α), x = y → f x = f y ===>
   ∀ (α : Type) (β : Type) (f : α → β) (x y : α), x = y → f x = f y
 
 
 -- ∀ (a b c : Prop), (a ∧ (b ∨ ¬ c)) ===> ∀ (a b c : Prop), (a ∧ (b ∨ ¬ c))
 -- Test case: COI reduction rules not applicable if all quantifiers are still referenced.
-#testOptimize [ "ForallCOIUnchanged_4" ]
+#testOptimize [ "ForallCOIUnchanged_4", proof ]
   ∀ (a b c : Prop), (a ∧ (b ∨ ¬ c)) ===> ∀ (a b c : Prop), (a ∧ (b ∨ ¬ c))
 
 -- ∀ (a b c : Bool), (a || (b && ! c)) ===> ∀ (a b c : Bool), true = (a || (b && !c))
 -- Test case: COI reduction rules not applicable if all quantifiers are still referenced.
-#testOptimize [ "ForallCOIUnchanged_5" ]
+#testOptimize [ "ForallCOIUnchanged_5", proof ]
   ∀ (a b c : Bool), (a || (b && ! c)) ===> ∀ (a b c : Bool), true = (a || (b && !c))
 
 -- ∀ (w x y z : Nat), (((100 - x) - 120) + x * z) + w < y ===>
 -- ∀ (w x y z : Nat), Nat.add w (Nat.mul x z) < y
 -- Test case: COI reduction rules not applicable if all quantifiers are still referenced.
-#testOptimize [ "ForallCOIUnchanged_6" ]
+#testOptimize [ "ForallCOIUnchanged_6", proof ]
   ∀ (w x y z : Nat), ((((100 - x) - 120) + x) * z) + w < y ===>
   ∀ (w x y z : Nat), Nat.add w (Nat.mul x z) < y
 
@@ -161,7 +208,7 @@ inductive ColorDegree (α : Type u) where
 --  (if cond then x else y) = z ===>
 -- ∀ (α : Type) (x y z : ColorDegree α), x = z
 -- Test case: COI reduction rules not applicable when inductive type does not have at least one nullary constructor.
-#testOptimize [ "ForallCOIUnchanged_7" ]
+#testOptimize [ "ForallCOIUnchanged_7", proof ]
   ∀ (α : Type) (a b c : Bool) (x y z : ColorDegree α),
     let cond := ((!a || ((b || c) && !(c || b))) || a) && (!(b && a) || (a && b));
     (if cond then x else y) = z ===>
@@ -177,7 +224,7 @@ inductive NoInstance where
 -- ∀ (x y z : NoInstance), x = z
 -- Test case: COI reduction rules not applicable when inductive type does not have at least one nullary constructor
 -- or an appropriate Inhabited instance.
-#testOptimize [ "ForallCOIUnchanged_8" ]
+#testOptimize [ "ForallCOIUnchanged_8", proof ]
   ∀ (a b c : Bool) (x y z : NoInstance),
     let cond := ((!a || ((b || c) && !(c || b))) || a) && (!(b && a) || (a && b));
     (if cond then x else y) = z ===>
@@ -186,7 +233,7 @@ inductive NoInstance where
 -- ∀ (x : Empty) (a b c : Bool), !((!a || ((b || c) && !(c || b))) || a) && (!(b && a) || (a && b)) ===>
 -- ∀ (x : Empty), False
 -- Test case: COI reduction rules not applicable on Empty.
-#testOptimize [ "ForallCOIUnchanged_9" ]
+#testOptimize [ "ForallCOIUnchanged_9", proof ]
   ∀ (_x : Empty) (a b c : Bool), !((!a || ((b || c) && !(c || b))) || a) && (!(b && a) || (a && b)) ===>
   ∀ (_x : Empty), False
 
@@ -195,7 +242,7 @@ inductive NoInstance where
 --  (if cond then f x else y) = z ===>
 -- ∀ (α : Type) (β : Type) (f : α → β) (x : α) (z : β), z = f x
 -- Test case: COI reduction rules not removing still referenced quantified function.
-#testOptimize [ "ForallCOIUnchanged_10" ]
+#testOptimize [ "ForallCOIUnchanged_10", proof ]
   ∀ (α : Type) (β : Type) (f : α → β) (x : α) (y z : β) (a b c : Bool),
     let cond := ((!a || ((b || c) && !(c || b))) || a); (if cond then f x else y) = z ===>
   ∀ (α : Type) (β : Type) (f : α → β) (x : α) (z : β), z = f x

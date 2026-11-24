@@ -1,5 +1,7 @@
 import Lean
+import Blaster.Optimize.Lemmas.LemmasITE
 import Blaster.Optimize.Telescope
+import Blaster.Optimize.Lemmas.LemmasBool
 
 open Lean Meta Declaration
 
@@ -50,6 +52,23 @@ def isNullaryCtor (c : Name) : TranslateEnvT Bool := do
       -- numFields corresponds to the constructor parameters
       pure (info.numFields == 0 && !info.type.isProp)
   | _ => pure false
+
+/-- Given `t : Sort u` satisfying `isSortOrInhabited`, return `Nonempty.intro (c params)` when `t`
+    is an inductive type without indices, not a class, having a nullary constructor `c`.
+    Otherwise return `none`.
+-/
+def nullaryCtorNonempty? (u : Level) (t : Expr) : TranslateEnvT (Option Expr) := do
+  let Expr.const n us := t.getAppFn' | return none
+  -- same lookups as `isSortOrInhabited`, so only cached entries are read
+  if (← isClassConstraint n) then return none
+  let ConstantInfo.inductInfo indVal ← getConstEnvInfo n | return none
+  let params := t.getAppArgs
+  -- without indices the arguments of `t` are its parameters, so `c params : t`
+  if indVal.numIndices != 0 || params.size != indVal.numParams then return none
+  for c in indVal.ctors do
+    if (← isNullaryCtor c) then
+      return mkApp2 (mkConst ``Nonempty.intro [u]) t (mkAppN (mkConst c us) params)
+  return none
 
 /-- Return `true` if `t` is not a Prop and corresponds to one of the following:
     - is a sort type only when `existQuantifier` flag is not set.
@@ -397,9 +416,10 @@ def reorderIntOp (args: Array Expr) : (Expr × Expr) :=
      - Int.mul: n * 1 ==> 1 * n              [proof: Int.mul_one]
      - And: e1 ∧ e2 ==> e2 ∧ e1              [proof: and_comm]
      - Or:  e1 ∨ e2 ==> e2 ∨ e1              [proof: or_comm]
+     - BEq.beq: e1 == e2 ==> e2 == e1        [proof: Blaster.beq_comm]
 -/
 def reorderOperands (f : Expr) (args : Array Expr) : TranslateEnvT (Array Expr) := do
-  let Expr.const n _ := f | return args
+  let Expr.const n us := f | return args
   match n with
   | ``Nat.add
   | ``Nat.mul =>
@@ -445,6 +465,8 @@ def reorderOperands (f : Expr) (args : Array Expr) : TranslateEnvT (Array Expr) 
       if !(← isOpaqueRelational n args) then return args
       if args.size != 4 then return args
       let (op1, op2) := reorderBoolOp #[args[2]!, args[3]!]
+      if !exprEq op1 args[2]! then
+        pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.beq_comm us) args[0]! args[2]! args[3]!))
       return (args.set! 2 op1).set! 3 op2
 
   | ``and
@@ -602,6 +624,36 @@ def isNotFoldable
   | _ => return false
 
 
+/-- Push the proof step of unfolding the constant `f`. Skipped for `Int.sub`,
+    which has its own step (see `pushOpaqueFunProofStep`).
+-/
+@[always_inline, inline]
+def pushUnfoldProofStep (f : Expr) : TranslateEnvT Unit := do
+  let Expr.const n _ := f | return ()
+  if n == ``Int.sub then return ()
+  pushProofStep (.unfold n)
+
+/-- Push the step moving the context `g : α → β` into the branches of a `Blaster.dite'` on `c`
+    (see `Blaster.apply_dite'`). `α` and `β` must be closed types.
+-/
+def pushApplyDIteStep (α β g c : Expr) : TranslateEnvT Unit := do
+  -- the level of an optimizer `dite'` is always one, the step needs the ones of `α` and `β`
+  pushProofStep (.rewrite (mkApp4 (mkConst ``Blaster.apply_dite' [← getLevel α, ← getLevel β]) α β g c))
+
+/-- `true` iff the type `t` mentions the bound variable `i`, up to type annotations
+    (e.g., an `optParam` default) and a head redex.
+-/
+def typeHasLooseBVar (t : Expr) (i : Nat) : Bool :=
+  t.cleanupAnnotations.headBeta.hasLooseBVar i
+
+/-- `true` iff the forall telescope `t` mentions the bound variable `i`,
+    in a binder type or in its body (see `typeHasLooseBVar`).
+-/
+def telescopeHasLooseBVar (t : Expr) (i : Nat) : Bool :=
+  match t with
+  | .forallE _ d b _ => typeHasLooseBVar d i || telescopeHasLooseBVar b (i + 1)
+  | _ => typeHasLooseBVar t i
+
 /-- Unfold fuction `f` w.r.t. the effective parameters `args` only when:
      - f is not a constructor
      - f is not tagged as an opaque definition
@@ -609,6 +661,7 @@ def isNotFoldable
      - f is not a class constraint
      - f is not an undefined type class function
      - f is not a match application
+    [proof: unfold step, see `pushUnfoldProofStep`, none for an instance class function]
 -/
 def getUnfoldFunDef? (f: Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := withLocalContext $ do
  if (← isNotFoldable f args) then return none
@@ -623,8 +676,13 @@ def getUnfoldFunDef? (f: Expr) (args: Array Expr) : TranslateEnvT (Option Expr) 
       if Expr.isProj f' then
         match ← getFunBody f' with
         | some fbody' => return betaLambda fbody' reduced.getAppArgs
-        | none => return reduced -- structure projection case
-      else return reduced
+        | none =>
+            -- structure projection case, a class one is excluded by `isUndefinedClassFunApp`
+            pushUnfoldProofStep f
+            return reduced
+      else
+        pushUnfoldProofStep f
+        return reduced
  | none => return none
 
 

@@ -185,9 +185,10 @@ private def closeInductionSubgoal (sg : MVarId)
     for step in ufSteps do
       if ← g.isAssigned then return g
       match step with
-      | .rewrite proof _ =>
+      | .rewrite proof _ _ =>
         g ← tryRewriteStep g proof
       | .exact _ => pure ()
+      | .unfold n => g ← g.deltaTarget (· == n)
     return g
   if ← g.isAssigned then return
   -- rf local steps (both directions)
@@ -196,7 +197,7 @@ private def closeInductionSubgoal (sg : MVarId)
     for step in rfSteps do
       if ← g.isAssigned then return g
       match step with
-      | .rewrite proof _ =>
+      | .rewrite proof _ _ =>
         g ← tryRewriteStep g proof
         if ← g.isAssigned then return g
         try
@@ -206,6 +207,7 @@ private def closeInductionSubgoal (sg : MVarId)
           g := g'
         catch _ => pure ()
       | .exact _ => pure ()
+      | .unfold n => g ← g.deltaTarget (· == n)
     return g
   if ← g.isAssigned then return
   try g.refl; return catch _ => pure ()
@@ -305,6 +307,22 @@ private def getRecFunLocalProofStack (f : Expr) (args : Array Expr)
       | none => return #[]
   catch _ => return #[]
 
+/-- `true` iff `e` contains `sorryAx` anywhere.
+    Tail recursive on a stack of pending subterms, so a deep `e` cannot overflow. -/
+private partial def containsSorry (e : Expr) : Bool :=
+  go [e]
+where
+  go : List Expr → Bool
+  | [] => false
+  | .const ``sorryAx _ :: _ => true
+  | .app f a :: es => go (f :: a :: es)
+  | .lam _ t b _ :: es => go (t :: b :: es)
+  | .forallE _ t b _ :: es => go (t :: b :: es)
+  | .letE _ t v b _ :: es => go (t :: v :: b :: es)
+  | .mdata _ e :: es => go (e :: es)
+  | .proj _ _ e :: es => go (e :: es)
+  | _ :: es => go es
+
 /-- Emit a rewrite proof step for recursive function equivalence.
     Retrieves local proof stacks from recFunInstCache and uses them
     to close induction subgoals. -/
@@ -325,16 +343,6 @@ private def emitRecFunEquivStep
       unless containsSorry proof do
         pushProofStep (.rewrite proof)
   catch _ => pure ()
-where
-  containsSorry : Expr → Bool
-    | .const ``sorryAx _ => true
-    | .app f a => containsSorry f || containsSorry a
-    | .lam _ t b _ => containsSorry t || containsSorry b
-    | .forallE _ t b _ => containsSorry t || containsSorry b
-    | .letE _ t v b _ => containsSorry t || containsSorry v || containsSorry b
-    | .mdata _ e => containsSorry e
-    | .proj _ _ e => containsSorry e
-    | _ => false
 
 /-- Given application `f x₁ ... xₙ` perform the following:
     - when `f` corresponds to a recursive definition `λ p₁ ... pₙ → body` the following actions are performed:

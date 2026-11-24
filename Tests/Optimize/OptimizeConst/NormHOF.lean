@@ -15,28 +15,28 @@ def f1 (a: Nat) (b : Nat) : Nat := a + b
 -- ∀ (x : Nat) (xs : List Nat), List.foldr f1 x xs ≥ x ===>
 -- ∀ (x : Nat) (xs : List Nat),
 --  ¬ List.foldr (λ (a : Nat) (b : Nat) => Nat.add a b) x xs < x
-#testOptimize [ "ConstNonRecFunArg_1" ]
+#testOptimize [ "ConstNonRecFunArg_1", proof ]
   ∀ (x : Nat) (xs : List Nat), List.foldr f1 x xs ≥ x ===>
   ∀ (x : Nat) (xs : List Nat), ¬ List.foldr (λ (a : Nat) (b : Nat) => Nat.add a b) x xs < x
 
 def g1 (a: Nat) (b : Nat) : Nat := b + a
 
 -- ∀ (x : Nat) (xs : List Nat), List.foldr f1 x xs = List.foldr g1 x xs ===> True
-#testOptimize [ "ConstNonRecFunArg_2" ]
+#testOptimize [ "ConstNonRecFunArg_2", proof ]
   ∀ (x : Nat) (xs : List Nat), List.foldr f1 x xs = List.foldr g1 x xs ===> True
 
 def f2 (a : Nat) (b : Nat) (c : Nat) := c + g1 a b
 
 -- ∀ (x : Nat) (xs : List Nat), List.foldr (f2 x) x xs ≥ x ===>
 -- ∀ (x : Nat) (xs : List Nat), ¬ List.foldr (λ (b : Nat) (c : Nat) => Nat.add c (Nat.add x b)) x xs < x
-#testOptimize [ "ConstNonRecFunArg_3" ]
+#testOptimize [ "ConstNonRecFunArg_3", proof ]
   ∀ (x : Nat) (xs : List Nat), List.foldr (f2 x) x xs ≥ x ===>
   ∀ (x : Nat) (xs : List Nat), ¬ List.foldr (λ (b : Nat) (c : Nat) => Nat.add c (Nat.add x b)) x xs < x
 
 def g2 (a : Nat) (b : Nat) (c : Nat) := f1 a b + c
 
 -- ∀ (x : Nat) (xs : List Nat), List.foldr (f2 x) x xs = List.foldr (g2 x) x xs ===> True
-#testOptimize [ "ConstNonRecFunArg_4" ]
+#testOptimize [ "ConstNonRecFunArg_4", proof ]
   ∀ (x : Nat) (xs : List Nat), List.foldr (f2 x) x xs = List.foldr (g2 x) x xs ===> True
 
 def f3 := f1
@@ -45,19 +45,19 @@ def g3 := g1
 -- ∀ (x : Nat) (xs : List Nat), List.foldr f3 x xs ≥ x ===>
 -- ∀ (x : Nat) (xs : List Nat),
 --  ¬ List.foldr (λ (a : Nat) (b : Nat) => Nat.add a b) x xs < x
-#testOptimize [ "ConstNonRecFunArg_5" ]
+#testOptimize [ "ConstNonRecFunArg_5", proof ]
   ∀ (x : Nat) (xs : List Nat), List.foldr f3 x xs ≥ x ===>
   ∀ (x : Nat) (xs : List Nat), ¬ List.foldr (λ (a : Nat) (b : Nat) => Nat.add a b) x xs < x
 
 -- ∀ (x : Nat) (xs : List Nat), List.foldr f3 x xs = List.foldr g3 x xs ===> True
-#testOptimize [ "ConstNonRecFunArg_6" ]
+#testOptimize [ "ConstNonRecFunArg_6", proof ]
   ∀ (x : Nat) (xs : List Nat), List.foldr f3 x xs = List.foldr g3 x xs ===> True
 
 -- ∀ (x : Nat) (xs : List Nat), f1 x x > x → List.foldr f1 x xs > x ===>
 -- ∀ (x : Nat) (xs : List Nat),
 --   x < Nat.add x x →
 --   x < List.foldr (λ (a : Nat) (b : Nat) => Nat.add a b) x xs
-#testOptimize [ "ConstNonRecFunArg_7" ]
+#testOptimize [ "ConstNonRecFunArg_7", proof ]
   ∀ (x : Nat) (xs : List Nat), f1 x x > x → List.foldr f1 x xs > x ===>
   ∀ (x : Nat) (xs : List Nat), x < Nat.add x x → x < List.foldr (λ (a : Nat) (b : Nat) => Nat.add a b) x xs
 
@@ -65,7 +65,7 @@ def g3 := g1
 -- ∀ (x : Nat) (xs : List Nat), f2 x x x > x → List.foldr (f2 x) x xs > x ===>
 -- ∀ (x : Nat) (xs : List Nat),
 --  x < Nat.add x (Nat.add x x) → x < List.foldr (λ (b : Nat) (c : Nat) => Nat.add c (Nat.add x b)) x xs
-#testOptimize [ "ConstNonRecFunArg_8" ]
+#testOptimize [ "ConstNonRecFunArg_8", proof ]
   ∀ (x : Nat) (xs : List Nat), f2 x x x > x → List.foldr (f2 x) x xs > x ===>
   ∀ (x : Nat) (xs : List Nat),
     x < Nat.add x (Nat.add x x) → x < List.foldr (λ (b : Nat) (c : Nat) => Nat.add c (Nat.add x b)) x xs
@@ -73,7 +73,7 @@ def g3 := g1
 -- ∀ (x : Nat) (xs : List Nat), f3 x x > x → List.foldr f3 x xs > x ===>
 -- ∀ (x : Nat) (xs : List Nat),
 --  x < f3 x x → x < List.foldr (λ (a : Nat) (b : Nat) => Nat.add a b) x xs
-#testOptimize [ "ConstNonRecFunArg_9" ]
+#testOptimize [ "ConstNonRecFunArg_9", proof ]
   ∀ (x : Nat) (xs : List Nat), f3 x x > x → List.foldr f3 x xs > x ===>
   ∀ (x : Nat) (xs : List Nat),
     x < Nat.add x x → x < List.foldr (λ (a : Nat) (b : Nat) => Nat.add a b) x xs
@@ -144,21 +144,21 @@ def mulAlias := mulNat
 -- ∀ (x : Int) (xs : List Int), List.foldr Int.add x xs ≥ x ===>
 -- ∀ (x : Int) (xs : List Int), ¬ List.foldr Int.add x xs < x
 -- NOTE: Int.add is not a recursive function.
-#testOptimize [ "ConstNonRecOpaqueFunArg_1" ]
+#testOptimize [ "ConstNonRecOpaqueFunArg_1", proof ]
   ∀ (x : Int) (xs : List Int), List.foldr Int.add x xs ≥ x ===>
   ∀ (x : Int) (xs : List Int), ¬ List.foldr Int.add x xs < x
 
 -- ∀ (x : Int) (xs : List Int), List.foldr Int.mul x xs ≥ x ===>
 -- ∀ (x : Int) (xs : List Int), x ≤ List.foldr Int.mul x xs
 -- NOTE: Int.mul is not a recursive function.
-#testOptimize [ "ConstNonRecOpaqueFunArg_2" ]
+#testOptimize [ "ConstNonRecOpaqueFunArg_2", proof ]
   ∀ (x : Int) (xs : List Int), List.foldr Int.mul x xs ≥ x ===>
   ∀ (x : Int) (xs : List Int), ¬ List.foldr Int.mul x xs < x
 
 -- ∀ (x : Int) (xs : List Int), List.foldr Int.add x (List.map Int.neg xs) ≤ x ===>
 -- ∀ (x : Int) (xs : List Int), ¬ x < List.foldr Int.add x (List.map Int.neg xs)
 -- NOTE: Int.neg is not a recursive function.
-#testOptimize [ "ConstNonRecOpaqueFunArg_3" ]
+#testOptimize [ "ConstNonRecOpaqueFunArg_3", proof ]
   ∀ (x : Int) (xs : List Int), List.foldr Int.add x (List.map Int.neg xs) ≤ x ===>
   ∀ (x : Int) (xs : List Int), ¬ x < List.foldr Int.add x (List.map Int.neg xs)
 
@@ -166,27 +166,27 @@ def mulAlias := mulNat
 -- ∀ (x : Int) (xs : List Int), List.foldr Nat.add (Int.toNat x) (List.map Int.toNat xs) ≤ (Int.toNat x) ===>
 -- ∀ (x : Int) (xs : List Int), ¬ Int.toNat x < List.foldr Nat.add (Int.toNat x) (List.map Int.toNat xs)
 -- NOTE: Int.toNat is not a recursive function.
-#testOptimize [ "ConstNonRecOpaqueFunArg_4" ]
+#testOptimize [ "ConstNonRecOpaqueFunArg_4", proof ]
   ∀ (x : Int) (xs : List Int), List.foldr Nat.add (Int.toNat x) (List.map Int.toNat xs) ≤ (Int.toNat x) ===>
   ∀ (x : Int) (xs : List Int), ¬ Int.toNat x < List.foldr Nat.add (Int.toNat x) (List.map Int.toNat xs)
 
 -- ∀ (xs : List Bool), List.foldr and true xs = List.all xs id ===>
 -- ∀ (xs : List Bool), List.all xs (λ x => x) = List.foldr and true xs
 -- NOTE: May be resolved to true when specializing recursive function with fun arguments
-#testOptimize [ "ConstNonRecOpaqueFunArg_5" ]
+#testOptimize [ "ConstNonRecOpaqueFunArg_5", proof ]
   ∀ (xs : List Bool), List.foldr and true xs = List.all xs id ===>
   ∀ (xs : List Bool), List.all xs (λ x => x) = List.foldr and true xs
 
 -- ∀ (xs : List Bool), List.foldr or true xs = List.any xs id ===>
 -- ∀ (xs : List Bool), List.any xs (λ x => x) = List.foldr or true xs
 -- NOTE: May be resolved to true when specializing recursive function with fun arguments
-#testOptimize [ "ConstNonRecOpaqueFunArg_6" ]
+#testOptimize [ "ConstNonRecOpaqueFunArg_6", proof ]
   ∀ (xs : List Bool), List.foldr or true xs = List.any xs id ===>
   ∀ (xs : List Bool), List.any xs (λ x => x) = List.foldr or true xs
 
 -- ∀ (xs : List Bool), List.any xs id = !(List.any (List.map not xs) id) ===>
 -- ∀ (xs : List Bool), (!(List.any (List.map not xs) (λ x => x))) = List.any xs (λ x => x)
-#testOptimize [ "ConstNonRecOpaqueFunArg_7" ]
+#testOptimize [ "ConstNonRecOpaqueFunArg_7", proof ]
   ∀ (xs : List Bool), List.any xs id = !(List.any (List.map not xs) id) ===>
   ∀ (xs : List Bool), (!(List.any (List.map not xs) (λ x => x))) = List.any xs (λ x => x)
 
@@ -198,7 +198,7 @@ def mulAlias := mulNat
 -- ∀ (f : Int → Int) (x : Int) (xs : List Int),
 --  List.foldr Int.add x (List.map f xs) = List.foldr (λ a acc => Int.add acc (f a)) x xs
 -- NOTE: Test case for quantified functions
-#testOptimize [ "ConstUndeclaredFunArg_1" ]
+#testOptimize [ "ConstUndeclaredFunArg_1", proof ]
   ∀ (f : Int → Int) (x : Int) (xs : List Int),
        List.foldr (λ a acc => Int.add (f a) acc) x xs = List.foldr Int.add x (List.map f xs) ===>
   ∀ (f : Int → Int) (x : Int) (xs : List Int),
@@ -211,7 +211,7 @@ variable (fg : Int → Int)
 -- ∀ (x : Int) (xs : List Int),
 --  List.foldr Int.add x (List.map fg xs) = List.foldr (λ a acc => Int.add acc (fg a)) x xs
 -- NOTE: Test case for global free variable
-#testOptimize [ "ConstUndeclaredFunArg_2" ]
+#testOptimize [ "ConstUndeclaredFunArg_2", proof ]
   ∀ (x : Int) (xs : List Int),
        List.foldr (λ a acc => Int.add (fg a) acc) x xs = List.foldr Int.add x (List.map fg xs) ===>
   ∀ (x : Int) (xs : List Int),
@@ -232,7 +232,7 @@ class IntClass where
 -- NOTE: Test case for undeclared non polymorphic type class.
 -- NOTE: normConst rule is not triggered in this case as `IntClass.map` is
 -- implicitly applied to the class instance
-#testOptimize [ "ConstUndeclaredFunArg_3" ]
+#testOptimize [ "ConstUndeclaredFunArg_3", proof ]
   ∀ (x : Nat) (xs : List Int), [IntClass] →
        List.foldr (λ a acc => Nat.add (IntClass.map a) acc) x xs =
        List.foldr Nat.add x (List.map IntClass.map xs) ===>
@@ -247,7 +247,7 @@ class IntClass where
 --  List.foldr (λ a acc => f (m a) acc) x xs =
 --  List.foldr f x (List.map m xs)
 -- NOTE: Test case for undeclared polymorphic function
-#testOptimize [ "ConstUndeclaredFunArg_4" ]
+#testOptimize [ "ConstUndeclaredFunArg_4", proof ]
   ∀ (α : Type) (β : Type) (f : β → β → β) (m : α → β) (x : β) (xs : List α),
        List.foldr (λ a acc => f (m a) acc) x xs = List.foldr f x (List.map m xs) ===>
   ∀ (α : Type) (β : Type) (f : β → β → β) (m : α → β) (x : β) (xs : List α),
@@ -259,7 +259,7 @@ opaque fo : Int → Int
 --      List.foldr (λ a acc => Int.add (fo a) acc) x xs = List.foldr Int.add x (List.map fo xs) ===>
 -- ∀ (x : Int) (xs : List Int),
 --    List.foldr Int.add x (List.map fo xs) = List.foldr (λ a acc => Int.add acc (fo a)) x xs
-#testOptimize [ "ConstUndeclaredFunArg_5" ]
+#testOptimize [ "ConstUndeclaredFunArg_5", proof ]
   ∀ (x : Int) (xs : List Int),
        List.foldr (λ a acc => Int.add (fo a) acc) x xs = List.foldr Int.add x (List.map fo xs) ===>
   ∀ (x : Int) (xs : List Int),
@@ -290,7 +290,7 @@ def mapOption [Size α] (x : Option α) : Nat :=
 --          ) xs ) ) < x
 -- NOTE: Test case to ensure that polymorphic non-recursive functions passed
 -- as argument are function applications and therefore cannot trigger normConst rule.
-#testOptimize [ "ConstPolyFunArg_1" ] (norm-result: 1)
+#testOptimize [ "ConstPolyFunArg_1", proof ] (norm-result: 1)
   ∀ (α : Type) (x : Nat) (xs : List (Option α)), [Size α] →
        List.foldr Nat.add x (List.map mapOption xs) ≥ x ===>
   ∀ (α : Type) (x : Nat) (xs : List (Option α)), [Size α] →
@@ -309,7 +309,7 @@ abbrev mapAlias [Size α] (x : Option α) := mapOption x
 --  List.foldr Nat.add x (List.map mapAlias xs) ===> True
 -- NOTE: Test case to ensure that polymorphic non-recursive functions passed
 -- as arguments are function applications and therefore cannot trigger normConst rule.
-#testOptimize [ "ConstPolyFunArg_2" ]
+#testOptimize [ "ConstPolyFunArg_2", proof ]
   ∀ (α : Type) (x : Nat) (xs : List (Option α)), [Size α] →
     List.foldr Nat.add x (List.map mapOption xs) = List.foldr Nat.add x (List.map mapAlias xs) ===> True
 
@@ -319,7 +319,7 @@ abbrev mapAlias [Size α] (x : Option α) := mapOption x
 -- ¬ List.foldr Nat.add x (List.map List.length xs) < x
 -- NOTE: Test case to ensure that polymorphic recursive functions passed
 -- as argument are function applications and therefore cannot trigger normConst rule.
-#testOptimize [ "ConstPolyFunArg_3" ]
+#testOptimize [ "ConstPolyFunArg_3", proof ]
   ∀ (α : Type) (x : Nat) (xs : List (List α)), List.foldr Nat.add x (List.map List.length xs) ≥ x ===>
   ∀ (α : Type) (x : Nat) (xs : List (List α)), ¬ List.foldr Nat.add x (List.map List.length xs) < x
 
@@ -338,7 +338,7 @@ class IntClass2 extends IntClass where
 
 def intMapper [IntClass] (x : Int) : Nat := IntClass.map x
 
-#testOptimize [ "ConstClassCstrArg_1" ]
+#testOptimize [ "ConstClassCstrArg_1", proof ]
   ∀ (x : Nat) (xs : List Int), [IntClass2] → List.foldr Nat.add x (List.map intMapper xs) ≥ x ===>
   ∀ (x : Nat) (xs : List Int), [IntClass2] → ¬ List.foldr Nat.add x (List.map (λ x => IntClass.map x) xs) < x
 
@@ -347,7 +347,7 @@ def intMapper [IntClass] (x : Int) : Nat := IntClass.map x
 
 -- ∀ (x : Int) (xs : List Nat), List.foldr Int.add x (List.map Int.ofNat xs) ≥ x ===>
 -- ∀ (x : Int) (xs : List Nat), ¬ List.foldr Int.add x (List.map Int.ofNat xs) < x
-#testOptimize [ "ConstClassCtorArg_1" ]
+#testOptimize [ "ConstClassCtorArg_1", proof ]
   ∀ (x : Int) (xs : List Nat), List.foldr Int.add x (List.map Int.ofNat xs) ≥ x ===>
   ∀ (x : Int) (xs : List Nat), ¬ List.foldr Int.add x (List.map Int.ofNat xs) < x
 
@@ -394,7 +394,7 @@ def mapOptionDefault (x : Nat) (y : Option Nat) : Nat :=
 --                      (λ (_ : Unit) => x)
 --                      (λ (a : Nat) => a)
 --                   ) (List.map Option.some xs)
-#testOptimize [ "ConstClassCtorArg_3" ]
+#testOptimize [ "ConstClassCtorArg_3", proof ]
   ∀ (x : Nat) (xs : List Nat), List.map (mapOptionDefault x) (List.map Option.some xs) = xs ===>
   ∀ (x : Nat) (xs : List Nat), xs = List.map (λ (y : Option Nat) =>
                                                 mapOptionDefault.match_1
@@ -422,7 +422,7 @@ def mapOptionDefault (x : Nat) (y : Option Nat) : Nat :=
 --    List.foldr Nat.add 0 (List.map (Nat.add x) xs) ≥ List.length xs * x ===>
 -- ∀ (x : Nat) (xs : List Nat),
 --  ¬ List.foldr Nat.add 0 (List.map (λ y => Nat.add x y) xs) < Nat.mul x (List.length xs)
-#testOptimize [ "ConstPartialFunArg_2" ] (norm-result: 1)
+#testOptimize [ "ConstPartialFunArg_2", proof ] (norm-result: 1)
     ∀ (x : Nat) (xs : List Nat), List.foldr Nat.add 0 (List.map (Nat.add x) xs) ≥ List.length xs * x ===>
     ∀ (x : Nat) (xs : List Nat), ¬ List.foldr Nat.add 0 (List.map (λ y => Nat.add x y) xs) < Nat.mul x (List.length xs)
 
@@ -431,7 +431,7 @@ def mapOptionDefault (x : Nat) (y : Option Nat) : Nat :=
 -- ∀ (c : Prop) (a : Bool) (xs : List Bool),
 --   true = List.all xs (λ b => b) → true = a →
 --   true = List.all (List.map (λ b => Blaster.dite' c (fun _ => a) (fun _ => b)) xs) (λ b => b)
-#testOptimize [ "ConstPartialFunArg_3" ]
+#testOptimize [ "ConstPartialFunArg_3", proof ]
   ∀ (c : Prop) (a : Bool) (xs : List Bool), [Decidable c] →
     List.all xs id → a → List.all (List.map (ite c a) xs) id ===>
   ∀ (c : Prop) (a : Bool) (xs : List Bool),
@@ -458,24 +458,24 @@ def mapOptionDefault (x : Nat) (y : Option Nat) : Nat :=
 
 -- ∀ (x : Nat) (xs : List Nat), Nat.pred x > 0 → List.foldr Nat.add x (List.map Nat.pred xs) > 0 ===>
 -- ∀ (x : Nat) (xs : List Nat), Nat.sub x 1 > 0 → List.foldr Nat.add x (List.map (λ a => Nat.sub a 1) > 0
-#testOptimize [ "ConstNormOpaqueFunArg_2" ] (norm-result: 1)
+#testOptimize [ "ConstNormOpaqueFunArg_2", proof ] (norm-result: 1)
   ∀ (x : Nat) (xs : List Nat), Nat.pred x > 0 → List.foldr Nat.add x (List.map Nat.pred xs) > 0 ===>
   ∀ (x : Nat) (xs : List Nat),
     0 < Nat.sub x 1 → 0 < List.foldr Nat.add x (List.map (λ a => Nat.sub a 1) xs)
 
 -- ∀ (x : Nat) (xs : List Nat), List.any (BEq.beq x) xs = List.any xs (Nat.beq x)  ===> True
-#testOptimize [ "ConstNormOpaqueFunArg_3" ]
+#testOptimize [ "ConstNormOpaqueFunArg_3", proof ]
   ∀ (x : Nat) (xs : List Nat), List.any xs (BEq.beq x) = List.any xs (Nat.beq x) ===> True
 
 -- ∀ (x : Nat) (xs : List Nat), List.any (λ a => a == x) xs = List.any xs (Nat.beq x)  ===> True
-#testOptimize [ "ConstNormOpaqueFunArg_4" ]
+#testOptimize [ "ConstNormOpaqueFunArg_4", proof ]
   ∀ (x : Nat) (xs : List Nat), List.any xs (λ a => a == x) = List.any xs (Nat.beq x) ===> True
 
 def boolWapper (f : Nat → Nat → Bool) (x : Nat) (y : Nat) := f x y
 
 -- ∀ (x : Nat) (xs : List Nat), List.any xs (beqWapper Nat.beq x) → List.contains xs x ===>
 -- ∀ (x : Nat) (xs : List Nat), true = List.any xs (λ a => x == a) → true = List.elem x xs
-#testOptimize [ "ConstNormOpaqueFunArg_5" ]
+#testOptimize [ "ConstNormOpaqueFunArg_5", proof ]
   ∀ (x : Nat) (xs : List Nat), List.any xs (boolWapper Nat.beq x) → List.contains xs x ===>
   ∀ (x : Nat) (xs : List Nat), true = List.any xs (λ a => x == a) → true = List.elem x xs
 
@@ -485,36 +485,49 @@ def boolWapper (f : Nat → Nat → Bool) (x : Nat) (y : Nat) := f x y
 
 -- ∀ (x : Nat) (xs : List Nat), List.any xs (beqWapper Nat.ble x) → List.contains xs x ===>
 -- ∀ (x : Nat) (xs : List Nat), true = List.any xs (λ a => Blaster.decide' ¬ a < x) → true = List.elem x xs
-#testOptimize [ "ConstNormOpaqueFunArg_7" ]
+#testOptimize [ "ConstNormOpaqueFunArg_7", proof ]
   ∀ (x : Nat) (xs : List Nat), List.any xs (boolWapper Nat.ble x) → List.contains xs x ===>
   ∀ (x : Nat) (xs : List Nat), true = List.any xs (λ a => Blaster.decide' ¬ a < x) → true = List.elem x xs
 
 -- Nat.le = LE.le ===> True
-#testOptimize [ "ConstNormOpaqueFunArg_8" ] Nat.le = LE.le ===> True
+#testOptimize [ "ConstNormOpaqueFunArg_8", proof ] Nat.le = LE.le ===> True
 
 -- Int.le = LE.le ===> True
-#testOptimize [ "ConstNormOpaqueFunArg_9" ] Int.le = LE.le ===> True
+#testOptimize [ "ConstNormOpaqueFunArg_9", proof ] Int.le = LE.le ===> True
 
 -- Nat.lt = (λ x y => (Nat.add 1 x) ≤ y) ===> True
-#testOptimize [ "ConstNormOpaqueFunArg_10" ] Nat.lt = (λ x y => (Nat.add 1 x) ≤ y) ===> True
+#testOptimize [ "ConstNormOpaqueFunArg_10", proof ] Nat.lt = (λ x y => (Nat.add 1 x) ≤ y) ===> True
 
 -- Int.lt = (λ x y => (Int.add 1 x) ≤ y) ===> True
-#testOptimize [ "ConstNormOpaqueFunArg_11" ] Int.lt = (λ x y => (Int.add 1 x) ≤ y) ===> True
+#testOptimize [ "ConstNormOpaqueFunArg_11", proof ] Int.lt = (λ x y => (Int.add 1 x) ≤ y) ===> True
 
 -- ∀ (x : Nat) (xs : List Nat), List.any (λ a => a == x) xs = List.any xs (. == x)  ===> True
-#testOptimize [ "ConstNormOpaqueFunArg_12" ]
+#testOptimize [ "ConstNormOpaqueFunArg_12", proof ]
   ∀ (x : Nat) (xs : List Nat), List.any xs (λ a => a == x) = List.any xs (. == x) ===> True
 
 -- ∀ (x : Nat) (xs : List Nat), List.any (λ a => a ≤ x) xs = List.any xs (. ≤ x ) ===> True
-#testOptimize [ "ConstNormOpaqueFunArg_13" ]
+#testOptimize [ "ConstNormOpaqueFunArg_13", proof ]
   ∀ (x : Nat) (xs : List Nat), List.any xs (λ a => a ≤ x) = List.any xs (. ≤ x ) ===> True
 
 -- ∀ (x : List Nat) (xs : List (List Nat)), List.any (λ a => a == x) xs = List.any xs (. List.beq x)  ===> True
-#testOptimize [ "ConstNormOpaqueFunArg_14" ]
+#testOptimize [ "ConstNormOpaqueFunArg_14", proof ]
   ∀ (x : List Nat) (xs : List (List Nat)), List.any xs (λ a => a == x) = List.any xs (. == x) ===> True
 
 -- ∀ (x : List Nat) (xs : List (List Nat)), List.any (λ a => a == x) xs = List.any xs (. List.beq x)  ===> True
-#testOptimize [ "ConstNormOpaqueFunArg_15" ]
+#testOptimize [ "ConstNormOpaqueFunArg_15", proof ]
   ∀ (x : List Nat) (xs : List (List Nat)), List.any xs (. == x) = List.any xs (List.beq x) ===> True
+
+-- ∀ (x y : Int), Int.le x y = (x ≤ y) ===> True
+#testOptimize [ "ConstNormOpaqueFunArg_16", proof ] ∀ (x y : Int), Int.le x y = (x ≤ y) ===> True
+
+-- ∀ (x y : Nat), Nat.le x y = (x ≤ y) ===> True
+#testOptimize [ "ConstNormOpaqueFunArg_16b", proof ] ∀ (x y : Nat), Nat.le x y = (x ≤ y) ===> True
+
+-- (LE.le : Int → Int → Prop) = (λ x y => ¬ (y < x)) ===> True
+#testOptimize [ "ConstNormOpaqueFunArg_17", proof ] (LE.le : Int → Int → Prop) = (fun x y => ¬ (y < x)) ===> True
+
+-- ∀ (a : Int) (l : List Int), List.Pairwise LE.le l → 1 + a ≤ 2 + a ===> True
+#testOptimize [ "ConstNormOpaqueFunArg_18", proof ]
+  ∀ (a : Int) (l : List Int), List.Pairwise LE.le l → 1 + a ≤ 2 + a ===> True
 
 end Test.NormHOF

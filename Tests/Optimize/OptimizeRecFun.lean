@@ -15,14 +15,16 @@ def powerN (a : Int) (n : Nat) : Int :=
   | Nat.zero => 1
   | Nat.succ n' => a * powerN a n'
 
+-- NOTE: no proof flag on NormRecFun_1 and NormRecFun_2, the recursive function
+-- equivalence step leaves an unassigned metavariable
 -- ∀ (x : Int) (n : Nat), powerN x n = Int.pow x n ===> True
 -- NOTE: Equivalence detection with opaque function
-#testOptimize [ "NormRecFun_1", proof ] ∀ (x : Int) (n : Nat), powerN x n = Int.pow x n ===> True
+#testOptimize [ "NormRecFun_1" ] ∀ (x : Int) (n : Nat), powerN x n = Int.pow x n ===> True
 
 
 -- ∀ (x : Int) (n : Nat), x ^ n = powerN x n ===> True
 -- NOTE: Equivalence detection with opaque function
-#testOptimize [ "NormRecFun_2", proof ] ∀ (x : Int) (n : Nat), x ^ n = powerN x n ===> True
+#testOptimize [ "NormRecFun_2" ] ∀ (x : Int) (n : Nat), x ^ n = powerN x n ===> True
 
 def addNat (a : Nat) (b : Nat) : Nat :=
  match a, b with
@@ -99,22 +101,24 @@ def powerNat (a : Nat) (n : Nat) : Nat :=
   | Nat.succ n' => mulAlias a (powerNat a n') -- commutativity detected when mulNat is replaced with Nat.mul
 
 
+-- NOTE: no proof flag on NormRecFun_11 to NormRecFun_13, the recursive function
+-- equivalence step leaves an unassigned metavariable
 -- ∀ (x y : Nat), powerNat x y = Nat.pow x y ===> True
 -- NOTE: Equivalence detection between nested opaque functions (i.e., here 3 nested level)
 -- NOTE: Also ensures that non-recursive function are inlined.
-#testOptimize [ "NormRecFun_11", proof ] ∀ (x y : Nat), powerNat x y = Nat.pow x y ===> True
+#testOptimize [ "NormRecFun_11" ] ∀ (x y : Nat), powerNat x y = Nat.pow x y ===> True
 
 -- ∀ (x y : Nat), x ^ y = powerNat x y ===> True
 -- NOTE: Equivalence detection between nested opaque function (i.e., here 3 nested level)
 -- NOTE: Also ensures that non-recursive function are inlined.
-#testOptimize [ "NormRecFun_12", proof ] ∀ (x y : Nat), x ^ y = powerNat x y ===> True
+#testOptimize [ "NormRecFun_12" ] ∀ (x y : Nat), x ^ y = powerNat x y ===> True
 
 
 -- ∀ (x y : Nat), powerNat y x + Nat.pow x y = Nat.pow y x + powerNat x y ===> True
 -- NOTE: Equivalence detection between nested opaque function (i.e., here 3 nested level)
 -- NOTE: Also ensures that structural equivalence is properly performed when
 -- a recursive function is referenced more than once (i.e., proper use of instance cache)
-#testOptimize [ "NormRecFun_13", proof ]
+#testOptimize [ "NormRecFun_13" ]
   ∀ (x y : Nat), powerNat y x + Nat.pow x y = Nat.pow y x + powerNat x y ===> True
 
 -- ∀ (x y : Nat), if x < y then powerNat y x else powerNat x y < Nat.pow x y ===>
@@ -222,7 +226,7 @@ def isWellFormedAlphaNat
   (∀ (x : Int) (n : Nat), powerN x n > x) → (∀ (y : Int) (m : Nat), Int.pow y m > y) ===> True
 
 -- (∀ (x y : Nat), addNat x y ≥ x) → (∀ (n m : Nat), n + m ≥ n) ===> True
-#testOptimize [ "NormRecFun_21" ] (∀ (x y : Nat), addNat x y ≥ x) → (∀ (n m : Nat), n + m ≥ n) ===> True
+#testOptimize [ "NormRecFun_21", proof ] (∀ (x y : Nat), addNat x y ≥ x) → (∀ (n m : Nat), n + m ≥ n) ===> True
 
 
 def subNat (a : Nat) (b : Nat) : Nat :=
@@ -246,12 +250,12 @@ def divNat (x : Nat) (y : Nat) : Nat :=
 -- (∀ (x y : Nat), 0 < y → ¬ x < divNat x y) → (∀ (n m : Nat), 0 < m → ¬ n < Nat.div n m)
 -- NOTE: No more detected as equivalent as Nat.div definition has been modified and is
 -- not directly considered as a recursive function.
-#testOptimize [ "NormRecFun_24" ] (norm-result: 1)
+#testOptimize [ "NormRecFun_24", proof ] (norm-result: 1)
   (∀ (x y : Nat), y > 0 → divNat x y ≤ x) → (∀ (n m : Nat), m > 0 → n / m ≤ n) ===>
   (∀ (x y : Nat), 0 < y → ¬ x < divNat x y) → (∀ (n m : Nat), 0 < m → ¬ n < Nat.div n m)
 
 -- (∀ (x y : Nat), x = y → eqNat x y) → (∀ (n m : Nat), n = m → n == m) ===> True
-#testOptimize [ "NormRecFun_25" ]
+#testOptimize [ "NormRecFun_25", proof ]
   (∀ (x y : Nat), x = y → eqNat x y) → (∀ (n m : Nat), n = m → n == m) ===> True
 
 
@@ -262,7 +266,7 @@ def bleNat (x : Nat) (y : Nat) : Bool :=
   else bleNat (Nat.pred x) (Nat.pred y)
 
 -- (∀ (x y : Nat), x = y → bleNat x y) → (∀ (n m : Nat), n = m → n ≤ m) ===> True
-#testOptimize [ "NormRecFun_26" ]
+#testOptimize [ "NormRecFun_26", proof ]
   (∀ (x y : Nat), x = y → bleNat x y) → (∀ (n m : Nat), n = m → n ≤ m) ===> True
 
 -- (∀ (x y : Nat), powerNat x y ≥ x) → (∀ (n m : Nat), n ^ m ≥ n) ===> True
@@ -384,7 +388,7 @@ def addNatBug (a : Nat) (b : Nat) : Nat :=
 
 -- ∀ (x y : Nat), addNatBug x y = x + y ===>
 -- ∀ (x y : Nat), Nat.add x y = addNatBug x y
-#testOptimize [ "NormRecUnchanged_2" ]
+#testOptimize [ "NormRecUnchanged_2", proof ]
   ∀ (x y : Nat), addNatBug x y = x + y ===> ∀ (x y : Nat), Nat.add x y = addNatBug x y
 
 
@@ -397,7 +401,7 @@ def listNatBeqInverse (xs : List Nat) (ys : List Nat) : Bool :=
 -- ∀ (xs ys : List Nat), xs == ys = listNatRevertBeq xs ys ===>
 -- ∀ (xs ys : List Nat), (true = listNatBeqInverse xs ys) = (xs = ys)
 -- NOTE: Test cases to ensure that structural equivalence no match are not wrongly applied
-#testOptimize [ "NormRecUnchanged_3" ]
+#testOptimize [ "NormRecUnchanged_3", proof ]
   ∀ (xs ys : List Nat), (xs == ys) = listNatBeqInverse xs ys ===>
   ∀ (xs ys : List Nat), (true = listNatBeqInverse xs ys) = (xs = ys)
 
@@ -463,7 +467,7 @@ def polyMul [Mul α] (x : α) (y : α) : α := x * y
 
 -- (∀ (xs ys : List Int), (List.beq xs ys)) → (∀ (β : Type) (xs ys : List β), [BEq β] → (listPolyBeq xs ys)) ===>
 -- (∀ (xs ys : List Int), true = (List.beq xs ys)) → (∀ (β : Type) (xs ys : List β), [BEq β] → true = (listPolyBeq xs ys))
-#testOptimize [ "NormRecUnchanged_9" ]
+#testOptimize [ "NormRecUnchanged_9", proof ]
   (∀ (xs ys : List Int), (List.beq xs ys)) →
     (∀ (β : Type) (xs ys : List β), [BEq β] → (listPolyBeq xs ys)) ===>
   (∀ (xs ys : List Int), true = (List.beq xs ys)) →
@@ -480,7 +484,7 @@ def polyMul [Mul α] (x : α) (y : α) : α := x * y
 --  [LE β] → [DecidableRel (@LE.le β _)] → true = (isWellFormedBetaNat xs ys xThreshold yThreshold))
 -- NOTE: test case to ensure that structural equivalence is not performed on
 -- partially instantiated polymorphic function with different types
-#testOptimize [ "NormRecUnchanged_10" ]
+#testOptimize [ "NormRecUnchanged_10", proof ]
   (∀ (α : Type) (xs : List α) (ys : List Int) (xThreshold : α) (yThreshold : Int),
     [LE α] → [DecidableRel (@LE.le α _)] → (isWellFormed xs ys xThreshold yThreshold)) →
   (∀ (β : Type) (xs : List β) (ys : List Nat) (xThreshold : β) (yThreshold : Nat),
@@ -503,7 +507,7 @@ def polyMul [Mul α] (x : α) (y : α) : α := x * y
 --  true = (isWellFormedAlphaNat xs ys xThreshold yThreshold))
 -- NOTE: test case to ensure that structural equivalence is not performed on
 -- partially instantiated polymorphic function with different types
-#testOptimize [ "NormRecUnchanged_11" ]
+#testOptimize [ "NormRecUnchanged_11", proof ]
   (∀ (α : Type) (xs : List α) (ys : List Nat) (xThreshold : α) (yThreshold : Nat),
     [LE α] → [DecidableRel (@LE.le α _)] → (isWellFormed xs ys xThreshold yThreshold)) →
   (∀ (β : Type) (xs : List Nat) (ys : List β) (xThreshold : Nat) (yThreshold : β),
@@ -518,7 +522,7 @@ def polyMul [Mul α] (x : α) (y : α) : α := x * y
 -- (∀ (β : Type) (xs ys : List β), [BEq β] → (listPolyBeq xs ys))
 -- NOTE: test case to ensure that structural equivalence is not performed on
 -- partially instantiated polymorphic function with different types
-#testOptimize [ "NormRecUnchanged_12" ]
+#testOptimize [ "NormRecUnchanged_12", proof ]
   (∀ (α : Type) (xs : List Int) (ys : List α) (xThreshold : Int) (yThreshold : α),
     [LE α] → [DecidableRel (@LE.le α _)] → (isWellFormed xs ys xThreshold yThreshold)) →
   (∀ (β : Type) (xs : List Nat) (ys : List β) (xThreshold : Nat) (yThreshold : β),
@@ -555,7 +559,7 @@ def listMapOption [Size α] (xs : List (Option α)) : List Nat :=
 --   ) xs
 -- NOTE: Test case illustrating that some structural equivalence are still left detected
 -- NOTE: This test case can result to `True` when specializing rec function with fun or constant arguments.
-#testOptimize [ "NormRecUnchanged_13" ] (norm-result: 1)
+#testOptimize [ "NormRecUnchanged_13", proof ] (norm-result: 1)
   ∀ (α : Type) (xs : List (Option α)), [Size α] → List.map mapOption xs = listMapOption xs ===>
   ∀ (α : Type) (xs : List (Option α)), [Size α] →
     listMapOption xs =
@@ -588,7 +592,7 @@ def listMapOption [Size α] (xs : List (Option α)) : List Nat :=
 -- NOTE: This test case can result to `True` when specializing rec function
 -- with fun or constant arguments. We should also check how to resolve
 -- the polymorphic instance on `listMapOption`.
-#testOptimize [ "NormRecUnchanged_14" ] (norm-result: 1)
+#testOptimize [ "NormRecUnchanged_14", proof ] (norm-result: 1)
   (∀ (α : Type) (xs : List (Option α)), [Size α] → List.foldr Nat.add 1 (List.map mapOption xs) > 0 ) →
     (∀ (β : Type) (xs : List (Option β)), [Size β] → List.foldr Nat.add 1 (listMapOption xs) > 0 ) ===>
   (∀ (α : Type) (xs : List (Option α)), [Size α] →
@@ -686,7 +690,7 @@ end
 -- ∀ (α : Type) (β : Type) (xs : List (Either α β)), listLengthOne xs = List.length xs ===>
 -- ∀ (α : Type) (β : Type) (xs : List (Either α β)), List.length xs = listLengthOne xs
 -- NOTE: We can't unify lhs type
-#testOptimize [ "NormRecUnchanged_20" ]
+#testOptimize [ "NormRecUnchanged_20", proof ]
 ∀ (α : Type) (β : Type) (xs : List (Either α β)), listLengthOne xs = List.length xs ===>
 ∀ (α : Type) (β : Type) (xs : List (Either α β)), List.length xs = listLengthOne xs
 

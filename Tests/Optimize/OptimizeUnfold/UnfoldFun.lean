@@ -12,43 +12,64 @@ namespace Tests.UnfoldFun
 
 def f (a: Nat) (b : Nat) : Nat := a + b
 -- f x y ===> Nat.add x y
-#testOptimize [ "UnfoldNonRecFun_1" ] ∀ (x y z : Nat), f x y > z ===> ∀ (x y z : Nat), z < Nat.add x y
+#testOptimize [ "UnfoldNonRecFun_1", proof ] ∀ (x y z : Nat), f x y > z ===> ∀ (x y z : Nat), z < Nat.add x y
 
 
 def g (a : Nat) (b : Nat) : Nat := b + a
 -- f x y = g y x ===> True
-#testOptimize [ "UnfoldNonRecFun_2" ] ∀ (x y : Nat), f x y = g x y ===> True
+#testOptimize [ "UnfoldNonRecFun_2", proof ] ∀ (x y : Nat), f x y = g x y ===> True
 
 
 def h (a : Nat) (b : Nat) (c : Nat) := c * g a b
 -- h x y z ===> Nat.mul z * Nat.add x y
-#testOptimize [ "UnfoldNonRecFun_3" ] ∀ (x y z n : Nat), h x y z < n ===>
+#testOptimize [ "UnfoldNonRecFun_3", proof ] ∀ (x y z n : Nat), h x y z < n ===>
                                       ∀ (x y z n : Nat), Nat.mul z (Nat.add x y) < n
 
 def predNotAnd (a : Bool) (b : Bool) : Bool := ! (a && b)
 def predAnd (a : Bool) (b : Bool) (c : Bool) := a && b && predNotAnd b a && c
 -- predAnd a b c ===> False
-#testOptimize [ "UnfoldNonRecFun_4" ] ∀ (a b c : Bool), predAnd a b c ===> False
+#testOptimize [ "UnfoldNonRecFun_4", proof ] ∀ (a b c : Bool), predAnd a b c ===> False
 
 
 def arith (a: Int) (b : Int) : Int := if a > 0 then a + b else a - b
 -- arith x y = if x > 0 then x + y else x - y ===> True
-#testOptimize [ "UnfoldNonRecFun_5" ] ∀ (x y : Int), (arith x y > x) → (if x > 0 then x + y else x - y) > x ===> True
+#testOptimize [ "UnfoldNonRecFun_5", proof ] ∀ (x y : Int), (arith x y > x) → (if x > 0 then x + y else x - y) > x ===> True
+
+
+/-! Test cases to validate unfolding of non-recursive functions in hypotheses. -/
+
+-- f x y = 4 → f x y = 4 ===> True
+#testOptimize [ "UnfoldNonRecFunHyp_1", proof ] ∀ (x y : Nat), f x y = 4 → f x y = 4 ===> True
+
+-- h x y z < 10 → h x y z < 10 ===> True
+#testOptimize [ "UnfoldNonRecFunHyp_2", proof ] ∀ (x y z : Nat), h x y z < 10 → h x y z < 10 ===> True
+
+-- predNotAnd a b = true → predNotAnd a b = true ===> True
+#testOptimize [ "UnfoldNonRecFunHyp_3", proof ]
+  ∀ (a b : Bool), predNotAnd a b = true → predNotAnd a b = true ===> True
+
+def sqGeOne (x : Int) : Prop := x * x ≥ 1
+-- sqGeOne x → x * x ≥ 1 ===> True
+#testOptimize [ "UnfoldNonRecFunHyp_4", proof ] ∀ (x : Int), sqGeOne x → x * x ≥ 1 ===> True
+
+def natGe (x y : Nat) : Prop := x ≥ y
+-- natGe x y → x ≥ y ===> True
+#testOptimize [ "UnfoldNonRecFunHyp_5", proof ] ∀ (x y : Nat), natGe x y → x ≥ y ===> True
 
 
 /-! Test cases to validate unfolding of recursive functions only when reduced to a constant value. -/
 
 -- List.length List.nil ===> 0
-#testOptimize [ "UnfoldRecFun_1" ] ∀ (α : Type), (List.length (List.nil : List α)) = 0 ===> True
+#testOptimize [ "UnfoldRecFun_1", proof ] ∀ (α : Type), (List.length (List.nil : List α)) = 0 ===> True
 
 -- ∀ (a b c : Nat), List.drop 1 [a, b, c] = [b, c] ===> True
-#testOptimize [ "UnfoldRecFun_2" ] ∀ (a b c : Nat), List.drop 1 [a, b, c] = [b, c] ===> True
+#testOptimize [ "UnfoldRecFun_2", proof ] ∀ (a b c : Nat), List.drop 1 [a, b, c] = [b, c] ===> True
 
 -- ∀ (a b c : Nat), List.drop 3 [a, b, c] = List.nil ===> True
-#testOptimize [ "UnfoldRecFun_3" ] ∀ (a b c : Nat), List.drop 3 [a, b, c] = List.nil ===> True
+#testOptimize [ "UnfoldRecFun_3", proof ] ∀ (a b c : Nat), List.drop 3 [a, b, c] = List.nil ===> True
 
 -- ∀ (a b c : Nat), List.drop 10 [a, b, c] = List.nil ===> True
-#testOptimize [ "UnfoldRecFun_4" ] ∀ (a b c : Nat), List.drop 10 [a, b, c] = List.nil ===> True
+#testOptimize [ "UnfoldRecFun_4", proof ] ∀ (a b c : Nat), List.drop 10 [a, b, c] = List.nil ===> True
 
 -- ∀ (x : List Nat) (n : Nat), List.length (n :: x) = List.length x + 1 ===> True
 #testOptimize [ "UnfoldRecFun_5" ] ∀ (x : List Nat) (n : Nat), List.length (n :: x) = (List.length x + 1) ===> True
@@ -57,7 +78,7 @@ def arith (a: Int) (b : Int) : Int := if a > 0 then a + b else a - b
 -- ∀ (a b c : Int), List.map Int.neg [a, b, c] = [Int.neg a, Int.neg b, Int.neg c] ===> True
 -- Test case to validate that unfolding properly considers fun params
 -- Test case: opaque function
-#testOptimize [ "UnfoldRecFun_6" ]
+#testOptimize [ "UnfoldRecFun_6", proof ]
   ∀ (a b c : Int), List.map Int.neg [a, b, c] = [Int.neg a, Int.neg b, Int.neg c] ===> True
 
 -- ∀ (a b c d : Int), List.map (Int.add d) [a, b, c] = [Int.add a d, Int.add b d, Int.add c d] ===> True
@@ -84,7 +105,7 @@ structure FunRel α where
 --  ∀ (a b c : Int) (rel : FunRel Int), List.map rel.f [a, b, c] = [rel.f a, rel.f b, rel.f c] ===> True
 -- Test case to validate that unfolding properly considers fun params
 -- Test case: function in ctor
-#testOptimize [ "UnfoldRecFun_9" ]
+#testOptimize [ "UnfoldRecFun_9", proof ]
   ∀ (a b c : Int) (rel : FunRel Int), List.map rel.f [a, b, c] = [rel.f a, rel.f b, rel.f c] ===> True
 
 class FunRelTwo (α : Type) [LT α] where
@@ -95,14 +116,14 @@ class FunRelTwo (α : Type) [LT α] where
 --   List.map FunRelTwo.f [a, b, c] = [FunRelTwo.f a, FunRelTwo.f b, FunRelTwo.f c] ===> True
 -- Test case to validate that unfolding properly considers fun params
 -- Test case: undefined class function
-#testOptimize [ "UnfoldRecFun_10" ]
+#testOptimize [ "UnfoldRecFun_10", proof ]
   ∀ (a b c : Int), [FunRelTwo Int] →
     List.map FunRelTwo.f [a, b, c] = [FunRelTwo.f a, FunRelTwo.f b, FunRelTwo.f c] ===> True
 
 -- ∀ (a b c : Nat), List.map Int.ofNat [a, b, c] = [Int.ofNat a, Int.ofNat b, Int.ofNat c] ===> True
 -- Test case to validate that unfolding properly considers fun params
 -- Test case: a ctor expecting one or more arguments
-#testOptimize [ "UnfoldRecFun_11" ]
+#testOptimize [ "UnfoldRecFun_11", proof ]
   ∀ (a b c : Nat), List.map Int.ofNat [a, b, c] = [Int.ofNat a, Int.ofNat b, Int.ofNat c] ===> True
 
 def findPositive (xs : List Int) (d : β) (r : β) : β :=
@@ -133,7 +154,7 @@ def findPositive (xs : List Int) (d : β) (r : β) : β :=
 -- ∀ (a b c : Nat) (f : Nat → Nat), List.map f [a, b, c] = [f a, f b, f c] ===> True
 -- Test case to validate that unfolding properly considers fun params
 -- Test case: quantified function
-#testOptimize [ "UnfoldRecFun_13" ]
+#testOptimize [ "UnfoldRecFun_13", proof ]
   ∀ (a b c : Nat) (f : Nat → Nat), List.map f [a, b, c] = [f a, f b, f c] ===> True
 
 
@@ -145,12 +166,12 @@ def add_n_times (n : Nat) (a : Int) : Int :=
   | Nat.succ n' => a + add_n_times n' a
 
 -- add_n_times x y ≥ z ===> ¬ add_n_times x y < z
-#testOptimize [ "RecFunNotUnfolded_1"  ] ∀ (x : Nat) (y z : Int), add_n_times x y ≥ z ===>
+#testOptimize [ "RecFunNotUnfolded_1", proof ] ∀ (x : Nat) (y z : Int), add_n_times x y ≥ z ===>
                                          ∀ (x : Nat) (y z : Int), ¬ add_n_times x y < z
 
 -- ∀ (x : List Nat) (n : Nat), List.length x > n → List.drop n x ≠ List.nil ===>
 -- ∀ (x : List Nat) (n : Nat), List.length x < List.length (a : x)
-#testOptimize [ "RecFunNotUnfolded_2"  ]
+#testOptimize [ "RecFunNotUnfolded_2", proof ]
   ∀ (x : List Nat) (n : Nat), List.length x > n → List.drop n x ≠ List.nil ===>
   ∀ (x : List Nat) (n : Nat), n < List.length x → ¬ (List.nil = List.drop n x)
 

@@ -69,7 +69,7 @@ abbrev OptimizeContinuity := Sum (List OptimizeStack) Expr
 
 @[always_inline, inline]
 def mkHypStackContext (h : UpdatedHypContext) : TranslateEnvT HypsStackContext := do
-  let ⟨_, ⟨_, localRewriteCache, _, _, _, _, _, _, hypothesisContext, _, _, _, _, _, _, _, _⟩⟩ ← get
+  let ⟨_, ⟨_, localRewriteCache, _, _, _, _, _, _, hypothesisContext, _, _, _, _, _, _, _, _, _⟩⟩ ← get
   if h.1 then
     updateHypothesis h.2 Std.HashMap.emptyWithCapacity
     return {newHCtx := h, oldHCtx := some hypothesisContext, oldCache := some localRewriteCache}
@@ -84,7 +84,7 @@ def resetHypContext (h : HypsStackContext) : TranslateEnvT Unit := do
 
 @[always_inline, inline]
 def mkMatchStackContext (h : MatchContextMap) : TranslateEnvT MatchStackContext := do
-  let ⟨_, ⟨_, localRewriteCache, _, _, _, _, _, _, _, matchInContext, _, _, _, _, _, _, _⟩⟩ ← get
+  let ⟨_, ⟨_, localRewriteCache, _, _, _, _, _, _, _, matchInContext, _, _, _, _, _, _, _, _⟩⟩ ← get
   updateMatchContext h Std.HashMap.emptyWithCapacity
   return {oldMatchCtx := matchInContext, oldCache := localRewriteCache}
 
@@ -101,6 +101,32 @@ def mkLocalDeclStackContext (newCtx : LocalDeclContext) : TranslateEnvT LocalDec
 @[always_inline, inline]
 def resetLocalDeclContext (oldCtx : LocalDeclContext) : TranslateEnvT Unit :=
   updateLocalContext oldCtx
+
+/-- Return `true` when only `InitOptimizeReturn` cache frames and `ForallWaitForBody` frames
+    remain (the frame above `stack` is the goal body, below the goal binders and the local
+    axioms that `Translate.main` prepends). -/
+def isGoalTopStack : List OptimizeStack → Bool
+  | [] => true
+  | .InitOptimizeReturn .. :: rest => isGoalTopStack rest
+  | .ForallWaitForBody .. :: rest => isGoalTopStack rest
+  | _ => false
+
+/-- When the forall on top of `stack` is a goal binder (`∀ x₁ … xₙ, body` at the outermost
+    level), whose fvar must be recorded, whether it is in the right operand of an `Eq` that is
+    the goal body, recorded in `optBinders.rhs`, else in `optBinders.goal`. Below a goal binder
+    there are only `InitOptimizeReturn` cache frames and the `ForallWaitForBody` frames of the
+    previous goal binders. The forall may also be a direct operand of an `Eq` that is the goal
+    body, as in `(∀ xs, P) = (∀ xs, Q)` or `(∀ xs, P) = True`, whose frame gives the operand.
+    Any other frame means the forall is nested in a binder type (e.g. `f : α → α → α`) or in a
+    sub-term, and the result is `none`. -/
+def goalSpineSide? : List OptimizeStack → Option Bool
+  | [] => some false
+  | .InitOptimizeReturn .. :: rest => goalSpineSide? rest
+  | .ForallWaitForBody .. :: rest => goalSpineSide? rest
+  -- the operand `idx` of `@Eq α lhs rhs`
+  | .AppOptimizeExplicitArgs (.const ``Eq _) _ idx .. :: rest =>
+      if isGoalTopStack rest then some (idx == 2) else none
+  | _ => none
 
 def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := false) : TranslateEnvT OptimizeContinuity := do
   match stack with
@@ -122,11 +148,9 @@ def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := 
        -- continuity with optimizing forall body
        withLocalContext $ do
          withLocalDecl' n bi optExpr fun x => do
-           -- Record binder only for top-level foralls (not nested inside another forall's type).
-           -- A nested forall has another ForallWaitForType directly below on the stack.
-           match xs with
-           | .ForallWaitForType .. :: _ => pure ()
-           | _ => pushOptBinder x.fvarId!
+           -- Record the binder only for goal-spine foralls.
+           if let some rhs := goalSpineSide? xs then pushOptBinder x.fvarId! rhs
+           pushOpenBinder x optExpr
            let body' := instantiate1' body x
            let isNotPropBody := !(← isPropEnv body')
            let hyps ← addHypotheses optExpr x isNotPropBody
@@ -138,6 +162,7 @@ def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := 
        -- optExpr corresponds to optimized forall body
        -- continiuity with applying forall normalization rules
        resetHypContext hctx
+       popOpenBinder x
        let e ← withLocalContext $ do
                  optimizeForall x t hctx.newHCtx.2.1 optExpr
        resetLocalDeclContext lctx
@@ -222,6 +247,7 @@ def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := 
        -- optExpr corresponds to optimized lambda type
        withLocalContext $ do
          withLocalDecl' n bi optExpr fun x => do
+           pushOpenBinder x optExpr
            let bodyOpt := .InitOptimizeExpr (instantiate1' body x)
            let lctx ← mkLocalDeclStackContext (← mkLocalContext)
            if inDite then
@@ -234,6 +260,7 @@ def stackContinuity (stack : List OptimizeStack) (optExpr : Expr) (skipCache := 
        -- optExpr corresponds to optimized lambda body
        -- continuity with optimizing next expression
        if let some h := hctx then resetHypContext h
+       popOpenBinder x
        let e ← withLocalContext $ do mkLambdaExpr x optExpr
        resetLocalDeclContext lctx
        stackContinuity xs e

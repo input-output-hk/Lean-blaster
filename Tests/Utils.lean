@@ -7,12 +7,16 @@ namespace Tests
 /-- Parse a term syntax. -/
 def parseTerm (stx : Syntax) : TermElabM Expr := elabTermAndSynthesize stx none
 
-/-- Parse a term syntax and call optimize, returning both the optimized expression
-    and the translation environment (which contains the proof stack). -/
+/-- Parse a term syntax and call optimize, returning the elaborated input, the optimized
+    expression, and the translation environment (which contains the proof stack). -/
 def callOptimize (sOpts : BlasterOptions) (stx : Syntax) :
-    TermElabM (Expr × Blaster.Optimize.TranslateEnv) :=
+    TermElabM (Expr × Expr × Blaster.Optimize.TranslateEnv) :=
   withTheReader Core.Context (fun ctx => { ctx with maxHeartbeats := 0 }) $ do
-    Blaster.Optimize.command sOpts (← parseTerm stx)
+    let inputExpr ← parseTerm stx
+    let (optimized, env) ← Blaster.Optimize.command sOpts inputExpr
+    -- `command` rewinds the name generator, the replay must not reuse the optimizer's names
+    setNGen { namePrefix := ← mkFreshId }
+    return (inputExpr, optimized, env)
 
 /-! ## Definition of #testOptimize command to write unit test for Blaster.optimize
     The #testOptimize usage is as follows:
@@ -150,69 +154,53 @@ partial def normNatLitAndLambdaBeta (e : Expr) : MetaM Expr := do
     | _ => return e
   visit e
 
-/-- Build the goal type and apply the proof stack. Returns the (possibly assigned) goal. -/
-private def buildAndApplyProofStack (inputExpr : Expr) (optimized : Expr)
-    (proofStack : Array Blaster.Optimize.ProofStep)
-    (optBinders : Array FVarId) : TermElabM MVarId := do
-  let isPropInput ← isProp inputExpr
-  let isOptTrue := optimized.isConstOf ``True
-  let (goalType, numBinders) ←
-    if isPropInput && isOptTrue then
-      let n ← forallTelescope inputExpr fun fvars _ => pure fvars.size
-      pure (inputExpr, n)
-    else if isPropInput then
-      let n ← forallTelescope inputExpr fun fvars _ => pure fvars.size
-      let gt ← forallTelescope inputExpr fun inputFvars inputBody => do
-        let optBody ←
-          forallBoundedTelescope optimized (some inputFvars.size) fun optFvars optBody =>
-          mapOptBodyToInputFVars optBody optFvars inputFvars
-        let eq ← mkEq inputBody optBody
-        mkForallFVars inputFvars eq
-      pure (gt, n)
-    else
-      let gt ← mkEq inputExpr optimized
-      let n ← forallTelescope gt fun fvars _ => pure fvars.size
-      pure (gt, n)
-  let goal ← mkFreshExprMVar goalType
-  let goalId := goal.mvarId!
-  let (goalFVarIds, g) ← goalId.introNP numBinders
-  let proofStack := substProofStackFVars proofStack optBinders goalFVarIds
-  applyProofStack g proofStack
-
-/-- Return `true` if the expression contains `sorryAx` anywhere. -/
+/-- Return `true` if the expression contains `sorryAx` anywhere.
+    Tail recursive on a stack of pending subterms, so a deep `e` cannot overflow. -/
 private partial def containsSorry (e : Expr) : Bool :=
-  match e with
-  | .const ``sorryAx _ => true
-  | .app f a => containsSorry f || containsSorry a
-  | .lam _ t b _ => containsSorry t || containsSorry b
-  | .forallE _ t b _ => containsSorry t || containsSorry b
-  | .letE _ t v b _ => containsSorry t || containsSorry v || containsSorry b
-  | .mdata _ e => containsSorry e
-  | .proj _ _ e => containsSorry e
-  | _ => false
+  go [e]
+where
+  go : List Expr → Bool
+  | [] => false
+  | .const ``sorryAx _ :: _ => true
+  | .app f a :: es => go (f :: a :: es)
+  | .lam _ t b _ :: es => go (t :: b :: es)
+  | .forallE _ t b _ :: es => go (t :: b :: es)
+  | .letE _ t v b _ :: es => go (t :: v :: b :: es)
+  | .mdata _ e :: es => go (e :: es)
+  | .proj _ _ e :: es => go (e :: es)
+  | _ :: es => go es
 
-private def replayProofStack (inputExpr : Expr) (optimized : Expr)
+/-- Prove `inputExpr = expected`, or `inputExpr` when `expected` is `True`, from the proof stack
+    of `inputExpr` with `proveGoalByProofStack`, the path of `blaster`, and `admit := false`.
+    `expected` is the term the test writes, so the goal has the user binder names, as for
+    `blaster` on `inputExpr = expected`.
+    `rhsBinders` are the binders the optimizer opened on the right side of the `Eq` that is the
+    body of `inputExpr`. They are binders of the right side of the goal only when the goal is
+    `inputExpr` and `inputExpr` is that `Eq` (for `∀ a, A = B` the replay on the whole goal
+    ignores them), so they are passed only when the goal is `inputExpr`: the right side of
+    `inputExpr = expected` is `expected`, which the optimizer never opened.
+    The proof is accepted only if it is complete, sorry-free, has no fvar outside the context,
+    passes `Meta.check` and has the goal type. Returns the failure reason, if any. -/
+private def checkReconstruction (inputExpr : Expr) (expected : Expr)
     (proofStack : Array Blaster.Optimize.ProofStep)
-    (optBinders : Array FVarId) : TermElabM Bool := do
-  let g ← buildAndApplyProofStack inputExpr optimized proofStack optBinders
-  if ← g.isAssigned then
-    -- Check that no proof step contains sorry
-    for step in proofStack do
-      let p := match step with
-        | .rewrite e _ => e
-        | .exact e => e
-      let p ← instantiateMVars p
-      if containsSorry p then return false
-    return true
-  try g.refl; return true
-  catch _ => return false
-
-private def showRemainingGoal (inputExpr : Expr) (optimized : Expr)
-    (proofStack : Array Blaster.Optimize.ProofStep)
-    (optBinders : Array FVarId) : TermElabM MessageData := do
-  let g ← buildAndApplyProofStack inputExpr optimized proofStack optBinders
-  if ← g.isAssigned then return "goal closed by proof stack"
-  g.withContext (ppExpr (← g.getType))
+    (optBinders rhsBinders : Array FVarId) : TermElabM (Option MessageData) := do
+  let optimizerClosed := expected.isConstOf ``True
+  let goalType ← if optimizerClosed then pure inputExpr else mkEq inputExpr expected
+  let rhsBinders := if optimizerClosed then rhsBinders else #[]
+  try
+    let pf ← instantiateMVars
+      (← proveGoalByProofStack goalType proofStack optBinders rhsBinders optimizerClosed
+        (admit := false))
+    if pf.hasMVar then return some m!"the proof term has unassigned metavariables"
+    if containsSorry pf then return some m!"the proof term contains sorry"
+    let lctx ← getLCtx
+    if (collectFVars {} pf).fvarIds.any (fun f => !lctx.contains f) then
+      return some m!"the proof term has loose free variables"
+    check pf
+    unless ← isDefEq (← inferType pf) goalType do
+      return some m!"type {← inferType pf} does not match the goal {goalType}"
+    return none
+  catch ex => return some ex.toMessageData
 
 @[command_elab testOptimize]
 def testOptimizeImp : CommandElab := fun stx => do
@@ -224,7 +212,7 @@ def testOptimizeImp : CommandElab := fun stx => do
     -- create a local declaration name for the test case
     let m ← getMainModule
     withDeclName (m ++ name.toName) $ do
-      let (actual, env) ← callOptimize sOpts t1
+      let (inputExpr, actual, env) ← callOptimize sOpts t1
       let expected' := removeAnnotations (← parseTerm t2)
       -- keep the current name generator and restore it afterwards
       let ngen ← getNGen
@@ -233,16 +221,12 @@ def testOptimizeImp : CommandElab := fun stx => do
       setNGen ngen
       if actual == expected then
         if requireProof then
-          -- Re-elaborate to obtain the original (pre-optimization) expression
-          let inputExpr ← parseTerm t1
           let proofStack := env.optEnv.proofStack
-          let optBinders := env.optEnv.optBinders
-          let closed ← replayProofStack inputExpr actual proofStack optBinders
-          if closed then
-            logInfo f!"{name} ✅ Success! [proof ✓]"
-          else
-            let remainingGoal ← showRemainingGoal inputExpr actual proofStack optBinders
-            logError m!"{name} ❌ Failure! : proof reconstruction failed\n  remaining goal: {remainingGoal}"
+          let optBinders := env.optEnv.optBinders.goal
+          match ← checkReconstruction inputExpr expected proofStack optBinders
+              env.optEnv.optBinders.rhs with
+          | none => logInfo f!"{name} ✅ Success! [proof ✓]"
+          | some msg => logError m!"{name} ❌ Failure! : proof reconstruction failed\n  {msg}"
         else
           logInfo f!"{name} ✅ Success!"
       else

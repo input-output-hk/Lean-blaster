@@ -49,6 +49,17 @@ elab "natAddCst_3" : term => return natAddCst_3
 #testOptimize [ "NatAddZero_6", proof ] ∀ (x y : Nat), x + (10 - 123) ≤ y ===> ∀ (x y : Nat), ¬ y < x
 
 
+/-! Test cases to ensure that the proof replay terminates when the `x + 0 ===> x` step
+    leaves the target unchanged.
+-/
+
+-- ([] : List Int).length + 5 + (x + 0) = 5 + x ===> True
+#testOptimize [ "NatAddZeroReplay_1", proof ] ∀ (x : Nat), ([] : List Int).length + 5 + (x + 0) = 5 + x ===> True
+
+-- (if y = [4, 5, 6] then ([] : List Int).length + 5 else x + 0) = (if y = [4, 5, 6] then 5 else x) ===> True
+#testOptimize [ "NatAddZeroReplay_2", proof ] ∀ (y : List Nat) (x : Nat), (if y = [4, 5, 6] then ([] : List Int).length + 5 else x + 0) = (if y = [4, 5, 6] then 5 else x) ===> True
+
+
 /-! Test cases to ensure that simplification rules `0 + n ===> n` is not wrongly applied. -/
 
 -- 1 + x ===> 1 + x
@@ -357,5 +368,11 @@ elab "natAddReduce_2" : term => return natAddReduce_2
 -- (100 + ((180 - (x + 40)) - 150)) + (((20 - y) - 50) + 24) ===> 124
 #testOptimize [ "NatAddReduce_2", proof ]
   (100 + ((180 - (x + 40)) - 150)) + (((20 - y) - 50) + 24)  ===> natAddReduce_2
+
+-- `Nat.add` over a synonym of `Nat`, in the hypothesis that proves the conclusion
+def NatSyn := Nat
+
+#testOptimize [ "NatAddSynonym_1", proof ]
+  ∀ (a b c : NatSyn), @Nat.add a b = c → @Nat.add b a = c ===> True
 
 end Test.OptimizeNatAdd

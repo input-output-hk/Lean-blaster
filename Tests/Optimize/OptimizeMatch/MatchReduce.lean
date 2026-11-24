@@ -17,16 +17,16 @@ def discrAbstractOne (x : List α) (y : Option α) : Bool :=
 /-! Test cases to validate when choice reduction must be applied on match expression. -/
 
 -- ∀ (α : Type), discrAbstractOne ([] : List α) none = true ===> True
-#testOptimize [ "MatchReduce_1" ] ∀ (α : Type), discrAbstractOne ([] : List α) none = true ===> True
+#testOptimize [ "MatchReduce_1", proof ] ∀ (α : Type), discrAbstractOne ([] : List α) none = true ===> True
 
 -- ∀ (α : Type) (y : α), discrAbstractOne ([] : List α) (some y) = false ===> True
-#testOptimize [ "MatchReduce_2" ] ∀ (α : Type) (y : α), discrAbstractOne ([] : List α) (some y) = false ===> True
+#testOptimize [ "MatchReduce_2", proof ] ∀ (α : Type) (y : α), discrAbstractOne ([] : List α) (some y) = false ===> True
 
 -- ∀ (α : Type) (x y z : α), discrAbstractOne [x, y , z] none = false ===> True
-#testOptimize [ "MatchReduce_3" ] ∀ (α : Type) (x y z : α), discrAbstractOne [x, y , z] none = false ===> True
+#testOptimize [ "MatchReduce_3", proof ] ∀ (α : Type) (x y z : α), discrAbstractOne [x, y , z] none = false ===> True
 
 -- ∀ (α : Type) (x y z : α), discrAbstractOne [x, y , z] (some z) = true ===> True
-#testOptimize [ "MatchReduce_4" ] ∀ (α : Type) (x y z : α), discrAbstractOne [x, y , z] (some z) = true ===> True
+#testOptimize [ "MatchReduce_4", proof ] ∀ (α : Type) (x y z : α), discrAbstractOne [x, y , z] (some z) = true ===> True
 
 
 /-! Test cases to validate when choice reduction must NOT be applied on match expression. -/

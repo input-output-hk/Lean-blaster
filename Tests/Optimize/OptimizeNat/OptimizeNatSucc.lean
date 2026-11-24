@@ -109,6 +109,9 @@ elab "natSuccNorm_3" : term => return natSuccNorm_3
 #testOptimize [ "NatSuccNorm_10", proof ]
   ∀ (x : Nat), Nat.succ (Nat.pred (Nat.succ x)) = 1 + x ===> True
 
+-- Nat.add (Nat.succ x) 1 = x + 2 ===> True
+#testOptimize [ "NatSuccNorm_11", proof ] ∀ (x : Nat), Nat.add (Nat.succ x) 1 = x + 2 ===> True
+
 
 /-! Test cases to ensure that `reduceApp` is properly called
     when `Nat.succ` operand is reduced to constant value via optimization. -/

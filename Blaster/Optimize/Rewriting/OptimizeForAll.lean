@@ -25,10 +25,17 @@ def isCstImplies? (h : Expr) (a : Expr) (b : Expr) : TranslateEnvT (Option Expr)
  if !(← isPropEnv b) then return none
  match a with
  | Expr.const ``True _ =>
-     if fVarInExpr h.fvarId! b
-     then return (← mkExpr $ Expr.replaceFVar b h (← mkTrueIntro))
-     else return b
- | Expr.const ``False _ => return (← mkPropTrue)
+     if fVarInExpr h.fvarId! b then
+      pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.implies_eq_right_of_hyp_dep)
+       a (mkLambda `h .default a (b.abstract #[h])) (← mkTrueIntro)))
+      return (← mkExpr $ Expr.replaceFVar b h (← mkTrueIntro))
+     else
+      pushProofStep (.rewrite (mkConst ``true_implies))
+      return b
+ | Expr.const ``False _ =>
+   pushProofStep (.exact (mkApp2 (mkConst ``False.elim [levelZero]) b h))
+   pushProofStep (.rewrite (mkConst ``forall_false))
+   return (← mkPropTrue)
  | _ => return none
 
  /-- Given `a → b`, apply the following normalization rule:
@@ -42,8 +49,16 @@ def isCstImplies? (h : Expr) (a : Expr) (b : Expr) : TranslateEnvT (Option Expr)
   match b with
   | Expr.const ``False _ =>
       setRestart
+      pushProofStep (.rewrite (mkApp (mkConst ``Lean.Grind.imp_false_eq) a))
       return mkApp (← mkPropNotOp) a
   | _ => return none
+
+
+/-- Given (p : ¬ b), push the step (a → b) = ¬ a,
+abstracting the implementation's binder n out of p
+-/
+def pushImpliesNegProofSteps (n a p b : Expr) : TranslateEnvT Unit :=
+   pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.implies_eq_neg_of_imp_not) a b (mkLambda `h .default a (p.abstract #[n]))))
 
  /-- Given `a → b`, apply the simplification rules:
      - When ∃ e := _ ∈ h, e = ¬ b
@@ -53,18 +68,27 @@ def isCstImplies? (h : Expr) (a : Expr) (b : Expr) : TranslateEnvT (Option Expr)
      - Otherwise:
         - return `none`
  -/
- def impliesToNeg? (a : Expr) (b : Expr) (h : HypothesisMap) : TranslateEnvT (Option Expr) := do
+ def impliesToNeg? (n : Expr) (a : Expr) (b : Expr) (h : HypothesisMap) : TranslateEnvT (Option Expr) := do
   let notOp ← mkPropNotOp
-  if (← notInHypMap b h).isSome then
+  if let some p := (← notInHypMap b h) then
     setRestart
+    pushImpliesNegProofSteps n a p b
     return mkApp notOp a
   let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
-  if (← notInHypMap b hyps).isSome then
+  if let some p := (← notInHypMap b hyps) then
     setRestart
+    pushImpliesNegProofSteps n a p b
     return mkApp notOp a
   return none
 
- /-- Given `a → b`, apply the simplification rules:
+ /-- Given `p : b` and `n : a`, push the steps closing `a → b`: `p` itself when the replay
+     introduced `n`, and `(a → b) = True` when the implication is left in a sub-term. -/
+ def pushImpliesTrueSteps (n a b p : Expr) : TranslateEnvT Unit := do
+  pushProofStep (.exact p)
+  let imp := mkForall `h .default a (b.abstract #[n])
+  pushProofStep (.rewrite (mkApp2 (mkConst ``eq_true) imp (mkLambda `h .default a (p.abstract #[n]))))
+
+ /-- Given `n : a` and `a → b`, apply the simplification rules:
      - When ∃ e := _ ∈ h, e = b
         - return `some True`
      - When ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = b
@@ -74,21 +98,27 @@ def isCstImplies? (h : Expr) (a : Expr) (b : Expr) : TranslateEnvT (Option Expr)
      - Otherwise:
         - return `none`
  -/
- def impliesToTrue? (a : Expr) (b : Expr) (h : HypothesisMap) : TranslateEnvT (Option Expr) := do
-  if (← inHypMap b h).isSome then return ← mkPropTrue
+ def impliesToTrue? (n : Expr) (a : Expr) (b : Expr) (h : HypothesisMap) : TranslateEnvT (Option Expr) := do
+  if let some p ← inHypMap b h then
+    pushImpliesTrueSteps n a b p
+    return ← mkPropTrue
   let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
-  if (← inHypMap b hyps).isSome then return ← mkPropTrue
+  if let some p ← inHypMap b hyps then
+    pushImpliesTrueSteps n a b p
+    return ← mkPropTrue
   if !(← isPropEnv b) then return none
-  if (← notInHypMap a hyps).isSome then return ← mkPropTrue
+  if let some q ← notInHypMap a hyps then
+    pushImpliesTrueSteps n a b (mkApp4 (mkConst ``absurd [levelZero]) a b n q)
+    return ← mkPropTrue
   return none
 
 
-/-- Given `h : a → b` returns `true` only when the following condition is satisfied:
-     - ∃ h : a → b := _ ∈ hypothesisContext.hypothesisMap,
+/-- Given `h : a → b` returns `some p` only when the following condition is satisfied:
+     - ∃ h : a → b := p ∈ hypothesisContext.hypothesisMap,
 -/
-def impliesInHyp (h : Expr) (b : Expr) : TranslateEnvT Bool := do
+def impliesInHyp (h : Expr) (b : Expr) : TranslateEnvT (Option Expr) := do
   let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
-  return hyps.contains (← mkForallFVar h b)
+  return hyps.get? (← mkForallFVar h b)
 
 /-- Given `h : a → b`, apply the simplification rules:
     - When a := p ∈ hypothesisContext.hypothesisMap ∧ Type(b) = Prop
@@ -105,42 +135,59 @@ def hypReduction? (h : Expr) (a : Expr) (b : Expr) : TranslateEnvT (Option Expr)
  match (← inHypMap a hyps) with
  | none => return none
  | some p =>
-    if !fVarInExpr h.fvarId! b
-    then return b
-    else return (← mkExpr $ Expr.replaceFVar b h p)
+    if !fVarInExpr h.fvarId! b then
+      pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.implies_eq_right_of_hyp) a b p))
+      return b
+    else
+      pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.implies_eq_right_of_hyp_dep) a (mkLambda `h .default a (b.abstract #[h])) p))
+      return (← mkExpr $ Expr.replaceFVar b h p)
 
 /-- Apply the following simplification/normalized rules on `forallE`.
     Note that implication `a → b` is internally represented as `forallE _ a b bi`.
     The simplification/normalization rules applied are:
-      - ∀ (n : t), True | e → True ==> True
-      - False → e ==> True (if Type(e) = Prop)
-      - h : True → e ==> e (if Type(e) = Prop ∧ ¬ fVarInExpr h.fvarId! e)
-      - h : True → e ==> e[h/True.intro] (if Type(e) = Prop ∧ fVarInExpr h.fvarId! e)
+      - ∀ (n : t), True | e → True ==> True                               [proof: implies_true]
+      - False → e ==> True (if Type(e) = Prop)                            [proof: False.elim, forall_false]
+      - h : True → e ==> e (if Type(e) = Prop ∧ ¬ fVarInExpr h.fvarId! e) [proof: true_implies]
+      - h : True → e ==> e[h/True.intro] (if Type(e) = Prop ∧ fVarInExpr h.fvarId! e) [proof: Blaster.implies_eq_right_of_hyp_dep]
             TODO: replace True.intro with proper proof
-      - e → False ==> ¬ e
-      - e1 → e2 ==> True (if e1 =ₚₜᵣ e2 ∧ Type(e1) = Prop)
-      - e1 → e2 ==> True (if ∃ e1 → e2 := _ ∈ hypothesisContext.hypothesisMap)
-      - e1 → e2 ==> ¬ e1 (if ∃ e := _ ∈ h, e = ¬ e2)
-      - e1 → e2 ==> ¬ e1 (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = ¬ e2)
-      - e1 → e2 ==> True (if e2 := _ ∈ h)
-      - e1 → e2 ==> True (if e2 := _ ∈ hypothesisContext.hypothesisMap)
-      - e1 → e2 ==> True (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = ¬ e1 ∧ Type(e2) = Prop)
-      - h : e1 → e2 ==> e2 (if e1 := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ fVarInExpr h.fvarId! e2 ∧ Type(e2) = Prop)
-      - h : e1 → e2 ==> e2[h/h'] (if e1 := h' ∈ hypothesisContext.hypothesisMap ∧ fVarInExpr h.fvarId! e2 ∧ Type(e2) = Prop )
-      - ∀ (n : t), e ===> e (if isSortOrInhabited t ∧ Type(e) = Prop ∧ ¬ fVarInExpr n.fvarId! e)
+      - e → False ==> ¬ e (if Type(e) = Prop)                                         [proof: Lean.Grind.imp_false_eq]
+      - e1 → e2 ==> True (if e1 =ₚₜᵣ e2 ∧ Type(e1) = Prop)                 [proof: the premise, Blaster.implies_self_eq_true]
+      - e1 → e2 ==> True (if ∃ e1 → e2 := _ ∈ hypothesisContext.hypothesisMap) [proof: the proof found applied to e1, eq_true]
+      - e1 → e2 ==> ¬ e1 (if ∃ e := _ ∈ h, e = ¬ e2)                                [proof: Blaster.implies_eq_neg_of_imp_not]
+      - e1 → e2 ==> ¬ e1 (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = ¬ e2) [proof: Blaster.implies_eq_neg_of_imp_not]
+      - e1 → e2 ==> True (if e2 := _ ∈ h)                                  [proof: the proof of e2 found, eq_true]
+      - e1 → e2 ==> True (if e2 := _ ∈ hypothesisContext.hypothesisMap)  [proof: the proof of e2 found, eq_true]
+      - e1 → e2 ==> True (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = ¬ e1 ∧ Type(e2) = Prop) [proof: absurd, eq_true]
+      - h : e1 → e2 ==> e2 (if e1 := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ fVarInExpr h.fvarId! e2 ∧ Type(e2) = Prop) [proof: Blaster.implies_eq_right_of_hyp]
+      - h : e1 → e2 ==> e2[h/h'] (if e1 := h' ∈ hypothesisContext.hypothesisMap ∧ fVarInExpr h.fvarId! e2 ∧ Type(e2) = Prop ) [proof: Blaster.implies_eq_right_of_hyp_dep]
+      - ∀ (n : t), e ===> e (if isSortOrInhabited t ∧ Type(e) = Prop ∧ ¬ fVarInExpr n.fvarId! e) [proof: Blaster.forall_coi]
   Assume that `n` is a free variable expression. An error is triggered if this is not the case.
   Assume that `h` corresponds to the hypothesis map updated with hypotheses in `t`.
 -/
 def optimizeForall (n : Expr) (t : Expr) (h : HypothesisMap) (b : Expr) : TranslateEnvT Expr := do
-  if let Expr.const ``True _ := b then return b
+  if let Expr.const ``True _ := b then
+   pushProofStep (.rewrite (mkConst ``implies_true [← getLevel t]))
+   pushProofStep (.exact (mkConst ``True.intro))
+   return b
   if let some r ← isCstImplies? n t b then return r
   if let some r ← isNotDef? t b then return r
-  if exprEq t b then if ← isPropEnv t then return (← mkPropTrue)
-  if (← impliesInHyp n b) then return (← mkPropTrue)
-  if let some r ← impliesToNeg? t b h then return r
-  if let some r ← impliesToTrue? t b h then return r
+  if exprEq t b then
+   if ← isPropEnv t then
+      pushProofStep (.exact n)
+      pushProofStep (.rewrite (mkConst ``Blaster.implies_self_eq_true))
+      return (← mkPropTrue)
+  if let some p ← impliesInHyp n b then
+    pushImpliesTrueSteps n t b (mkApp p n)
+    return (← mkPropTrue)
+  if let some r ← impliesToNeg? n t b h then return r
+  if let some r ← impliesToTrue? n t b h then return r
   if let some r ← hypReduction? n t b then return r
-  if (← (isSortOrInhabited t) <&&> (isPropEnv b) <&&> (pure !fVarInExpr n.fvarId! b)) then return b
+  if (← (isSortOrInhabited t) <&&> (isPropEnv b) <&&> (pure !fVarInExpr n.fvarId! b)) then
+    let u ← getLevel t
+    -- when no instance is built here the replay synthesizes `Nonempty t`
+    let inst ← nullaryCtorNonempty? u t
+    pushProofStep (.rewrite (mkAppN (mkConst ``Blaster.forall_coi [u]) (#[t, b] ++ inst.toArray)))
+    return b
   mkForallFVar n b
 
 end Blaster.Optimize

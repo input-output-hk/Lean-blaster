@@ -1,6 +1,8 @@
 
 import Blaster.Optimize.Lemmas.LemmasDecide
+import Blaster.Optimize.Lemmas.LemmasITE
 import Blaster.Optimize.Lemmas.LemmasInt
 import Blaster.Optimize.Lemmas.LemmasNat
 import Blaster.Optimize.Lemmas.LemmasProp
 import Blaster.Optimize.Lemmas.LemmasBool
+import Blaster.Optimize.Lemmas.LemmasString

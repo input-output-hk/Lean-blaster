@@ -11,22 +11,22 @@ namespace Test.NormNatZero
 def constNatZero_1 : Expr := Lean.Expr.lit (Lean.Literal.natVal 0)
 elab "constNatZero_1" : term => return constNatZero_1
 
-#testOptimize [ "ConstNatZero_1" ] Nat.zero ===> constNatZero_1
+#testOptimize [ "ConstNatZero_1", proof ] Nat.zero ===> constNatZero_1
 
 -- (0 : Nat) ===> Expr.lit (Literal.natVal 0)
-#testOptimize [ "ConstNatZero_2" ] (0 : Nat) ===> constNatZero_1
+#testOptimize [ "ConstNatZero_2", proof ] (0 : Nat) ===> constNatZero_1
 
 -- Nat.zero = 0 ===> True
-#testOptimize [ "ConstNatZero_3" ] Nat.zero = 0 ===> True
+#testOptimize [ "ConstNatZero_3", proof ] Nat.zero = 0 ===> True
 
 -- Nat.succ Nat.zero ===> Expr.lit (Literal.natVal 1)
 def constNatZero_4 : Expr := Lean.Expr.lit (Lean.Literal.natVal 1)
 elab "constNatZero_4" : term => return constNatZero_4
 
-#testOptimize [ "ConstNatZero_4" ] Nat.succ Nat.zero ===> constNatZero_4
+#testOptimize [ "ConstNatZero_4", proof ] Nat.succ Nat.zero ===> constNatZero_4
 
 -- Nat.succ 0 ===> Expr.lit (Literal.natVal 1)
-#testOptimize [ "ConstNatZero_5" ] Nat.succ 0 ===> constNatZero_4
+#testOptimize [ "ConstNatZero_5", proof ] Nat.succ 0 ===> constNatZero_4
 
 -- x = Nat.zero ===> x = Expr.lit (Literal.natVal 0)
 def constNatZero_6 : Expr :=
@@ -40,7 +40,7 @@ Lean.Expr.forallE `x
  (Lean.BinderInfo.default)
 elab "constNatZero_6" : term => return constNatZero_6
 
-#testOptimize [ "ConstNatZero_6" ] ∀ (x : Nat), x = Nat.zero ===> constNatZero_6
+#testOptimize [ "ConstNatZero_6", proof ] ∀ (x : Nat), x = Nat.zero ===> constNatZero_6
 
 -- [Nat.zero, Nat.zero] ===> [Expr.lit (Literal.natVal 0), Expr.lit (Literal.natVal 0)]
 def constNatZero_7 : Expr :=
@@ -56,7 +56,7 @@ Lean.Expr.app
 
 elab "constNatZero_7" : term => return constNatZero_7
 
-#testOptimize [ "ConstNatZero_7" ] [Nat.zero, Nat.zero] ===> constNatZero_7
+#testOptimize [ "ConstNatZero_7", proof ] [Nat.zero, Nat.zero] ===> constNatZero_7
 
 
 end Test.NormNatZero

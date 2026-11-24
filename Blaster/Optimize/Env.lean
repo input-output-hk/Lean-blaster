@@ -89,10 +89,20 @@ inductive MatchEntry where
   | NotEqPattern
  deriving Repr
 
+/-- A binder the optimizer had open when it pushed a rewrite step, where the replay applies it. -/
+structure OpenBinder where
+  fvar : FVarId
+  type : Expr
+deriving Inhabited, Repr
+
 /-- A single proof step recorded during expression optimization. -/
 inductive ProofStep where
-  | rewrite (proof : Expr) (symm : Bool := false)
+  /-- `binders` are the binders open when the step was pushed, innermost first. -/
+  | rewrite (proof : Expr) (symm : Bool := false) (binders : List OpenBinder := [])
   | exact (proof : Expr)
+  /-- Unfolding of the non-recursive definition `n`, replayed by delta on every occurrence
+      in the target and the hypotheses. -/
+  | unfold (n : Name)
 deriving Repr
 
 /-- Result of optimizing a recursive function body, storing both the
@@ -232,6 +242,12 @@ structure LocalDeclContext where
   localInsts : LocalInstances
 deriving Inhabited
 
+/-- The goal binders the optimizer opens (see `goalSpineSide?`), in the order it opens them:
+    those of the right operand of an `Eq` that is the goal body in `rhs`, the others in `goal`. -/
+structure OptBinders where
+  goal : Array FVarId := #[]
+  rhs : Array FVarId := #[]
+
 /-- Type defining the environment used when optimizing a lean theorem. -/
 structure OptimizeEnv where
   /-- Cache memoizing the normalization and rewriting performed on the lean theorem according
@@ -319,7 +335,10 @@ structure OptimizeEnv where
 
   /-- Forall binder FVarIds created during optimization, used to map
       optimizer-context variables to goal-context variables during proof replay. -/
-  optBinders : Array FVarId := #[]
+  optBinders : OptBinders := {}
+
+  /-- The binders open, innermost first, recorded in every rewrite step. -/
+  openBinders : List OpenBinder := []
 
 instance : Inhabited OptimizeEnv where
   default :=
@@ -656,10 +675,30 @@ def isInFunApp : TranslateEnvT Bool :=
 @[always_inline, inline]
 def pushProofStep (step : ProofStep) : TranslateEnvT Unit :=
   modify fun env =>
+    let step := match step with
+      | .rewrite p symm _ => .rewrite p symm env.optEnv.openBinders
+      | s => s
     if env.optEnv.options.optimizeRecFunBody then
       { env with optEnv.localProofStack := env.optEnv.localProofStack.push step }
     else
       { env with optEnv.proofStack := env.optEnv.proofStack.push step }
+
+/-- Return the size of the proof stack targeted by `pushProofStep`. -/
+@[always_inline, inline]
+def getProofStackSize : TranslateEnvT Nat := do
+  let env ← get
+  if env.optEnv.options.optimizeRecFunBody
+  then return env.optEnv.localProofStack.size
+  else return env.optEnv.proofStack.size
+
+/-- Drop the steps pushed after the proof stack targeted by `pushProofStep` had size `n`. -/
+@[always_inline, inline]
+def shrinkProofStack (n : Nat) : TranslateEnvT Unit :=
+  modify fun env =>
+    if env.optEnv.options.optimizeRecFunBody then
+      { env with optEnv.localProofStack := env.optEnv.localProofStack.shrink n }
+    else
+      { env with optEnv.proofStack := env.optEnv.proofStack.shrink n }
 
 /-- Set the `optimizeRecFunBody` flag. -/
 @[always_inline, inline]
@@ -704,15 +743,30 @@ def getProofStack : TranslateEnvT (Array ProofStep) :=
 def clearProofStack : TranslateEnvT Unit :=
   modify fun env => { env with optEnv.proofStack := #[] }
 
-/-- Record a forall binder FVarId created during optimization. -/
+/-- Record a forall binder FVarId created during optimization, in `optBinders.rhs` when `rhs`. -/
 @[always_inline, inline]
-def pushOptBinder (id : FVarId) : TranslateEnvT Unit :=
-  modify fun env => { env with optEnv.optBinders := env.optEnv.optBinders.push id }
+def pushOptBinder (id : FVarId) (rhs : Bool) : TranslateEnvT Unit :=
+  modify fun env =>
+    if rhs then { env with optEnv.optBinders.rhs := env.optEnv.optBinders.rhs.push id }
+    else { env with optEnv.optBinders.goal := env.optEnv.optBinders.goal.push id }
+
+/-- Record a binder the optimizer opens. -/
+@[always_inline, inline]
+def pushOpenBinder (x type : Expr) : TranslateEnvT Unit :=
+  modify fun env =>
+    { env with optEnv.openBinders := { fvar := x.fvarId!, type } :: env.optEnv.openBinders }
+
+/-- Forget the binder `x` when the optimizer closes it, before the rules on the binder itself. -/
+@[always_inline, inline]
+def popOpenBinder (x : Expr) : TranslateEnvT Unit :=
+  modify fun env => match env.optEnv.openBinders with
+    | b :: bs => if x.fvarId! == b.fvar then { env with optEnv.openBinders := bs } else env
+    | [] => env
 
 /-- Clear all recorded binder FVarIds. -/
 @[always_inline, inline]
 def clearOptBinders : TranslateEnvT Unit :=
-  modify fun env => { env with optEnv.optBinders := #[] }
+  modify fun env => { env with optEnv.optBinders := {} }
 
 @[always_inline, inline]
 def findGlobalCache (a : Expr) : TranslateEnvT (Option Expr) := do
@@ -766,7 +820,7 @@ def mkExpr (a : Expr) (cacheResult := true) : TranslateEnvT Expr := do
 /-- Return `true` only when both hypothesisMap and matchInContext are empty and isRefHyp flag is not set -/
 @[always_inline, inline]
 def isGlobalContext : TranslateEnvT Bool := do
-  let ⟨_, ⟨_, _, _, _, _, _, _, _, hypothesisContext, matchInContext, _, _, _, _, _, _, _⟩⟩ ← get
+  let ⟨_, ⟨_, _, _, _, _, _, _, _, hypothesisContext, matchInContext, _, _, _, _, _, _, _, _⟩⟩ ← get
   return hypothesisContext.hypothesisMap.size == 0 && matchInContext.size == 0
 
 /-- Perform the following:
@@ -966,6 +1020,14 @@ def mkOfDecideEqFalse : TranslateEnvT Expr := mkExpr (mkConst ``of_decide_eq_fal
 
 /-- Return `Eq.refl` const expression and cache result. -/
 def mkEqRefl : TranslateEnvT Expr := mkExpr (mkConst ``Eq.refl [levelOne])
+
+/-- Push the step `e = r` of type `t` when both sides are defeq, as in a constant fold where `r`
+    is the literal value of the ground operation `e`. The proof is `Eq.refl r` ascribed to `e = r`
+    via `id`, so the kernel checks it by evaluation and emission needs no lemma nor instance synthesis. -/
+@[always_inline, inline]
+def pushFoldStep (t e r : Expr) : TranslateEnvT Unit := do
+  pushProofStep (.rewrite (mkApp2 (mkConst ``id [levelZero])
+    (mkApp3 (← mkEqOp) t e r) (mkApp2 (← mkEqRefl) t r)))
 
 /-- Return `Nat` Type and cache result. -/
 def mkNatType : TranslateEnvT Expr := mkExpr (mkConst ``Nat)

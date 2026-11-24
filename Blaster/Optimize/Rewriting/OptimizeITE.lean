@@ -1,5 +1,6 @@
 import Lean
 import Blaster.Optimize.Rewriting.OptimizeForAll
+import Blaster.Optimize.Lemmas.LemmasITE
 
 open Lean Meta Elab
 namespace Blaster.Optimize
@@ -17,6 +18,7 @@ namespace Blaster.Optimize
 -/
 def diteToPropExpr? (iteType: Expr) (cond : Expr) (thn : Expr) (els : Expr) : TranslateEnvT (Option Expr) := do
   if !iteType.isProp then return none
+  pushProofStep (.rewrite (mkApp (mkConst ``Blaster.dite'_prop_eq) cond))
   let leftAnd ← toImpliesExpr thn cond
   let rightAnd ← toImpliesExpr els (mkApp (← mkPropNotOp) cond)
   return mkApp2 (← mkPropAndOp) leftAnd rightAnd
@@ -68,10 +70,13 @@ def extractDependentITEExpr (e : Expr) : TranslateEnvT Expr := do
 
 -/
 def isITESwap? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
+ let iteType := args[0]!
  let c := args[1]!
  if let Expr.app (Expr.const ``Not _) ne := c then
+    pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.dite'_not_swap [← getLevel iteType]) iteType ne))
     return mkAppN f ((args.set! 1 ne).swapIfInBounds 2 3)
  if let some c' ← (isITEBoolSwap? c) then
+    pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.dite'_bool_swap [← getLevel iteType]) iteType c.appArg!))
     return mkAppN f ((args.set! 1 c').swapIfInBounds 2 3)
  return none
 
@@ -120,6 +125,7 @@ def diteFactorize? (a : Expr) (t : Expr) (e : Expr) : TranslateEnvT (Option Expr
               match instantiate1' e1 n1', instantiate1' e2 n2' with
               | Expr.lam x1 tc1 e1' bi1', Expr.lam _x2 _tc2 e2' _bi2' =>
                   setRestart
+                  pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.dite'_factorize_thn [← getLevel sort1]) sort1 a c1))
                   withLocalDecl' x1 bi1' tc1 fun x1' => do
                     let lam1 ← mkLambdaFVar n1' (instantiate1' e1' x1')
                     let lam2 ← mkLambdaFVar n2' (instantiate1' e2' x1')
@@ -132,6 +138,7 @@ def diteFactorize? (a : Expr) (t : Expr) (e : Expr) : TranslateEnvT (Option Expr
               match instantiate1' t1 n1', instantiate1' t2 n2' with
               | Expr.lam x1 tc1 t1' bi1', Expr.lam _x2 _tc2 t2' _bi2' =>
                   setRestart
+                  pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.dite'_factorize_els [← getLevel sort1]) sort1 a c1))
                   withLocalDecl' x1 bi1' tc1 fun x1' => do
                     let lam1 ← mkLambdaFVar n1' (instantiate1' t1' x1')
                     let lam2 ← mkLambdaFVar n2' (instantiate1' t2' x1')
@@ -150,28 +157,28 @@ def diteFactorize? (a : Expr) (t : Expr) (e : Expr) : TranslateEnvT (Option Expr
   | _, _ => return none
 
 /-- Apply the following simplification/normalization rules on `Solve.dite'` in the given order only when args.size ≥ 4:
-     - sif h : True then e1 else e2 ==> applyExtraArgs e1 -- TODO: consider proof reconstruction
+     - sif h : True then e1 else e2 ==> applyExtraArgs e1    [proof: Blaster.dite'_true]
 
-     - sif h : False then e1 else e2 ==> applyExtraArgs e2 -- TODO: consider proof reconstruction
+     - sif h : False then e1 else e2 ==> applyExtraArgs e2    [proof: Blaster.dite'_false]
 
-     - sif h : c then e1 else e2 ==> applyExtraArgs e1
+     - sif h : c then e1 else e2 ==> applyExtraArgs e1        [proof: Blaster.dite'_reduce_pos]
            (if c := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ e1.hasLooseBVars)
 
-     - sif h : c then e1 else e2 ==> applyExtraArgs e2
+     - sif h : c then e1 else e2 ==> applyExtraArgs e2        [proof: Blaster.dite'_reduce_neg]
            (if ∃ e := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ e2.hasLooseBVars ∧ e = ¬ c )
 
-     - sif h : c then e1 else e2 ==> applyExtraArgs e1[h/h']
+     - sif h : c then e1 else e2 ==> applyExtraArgs e1[h/h']  [proof: Blaster.dite'_reduce_pos]
            (if c := h' ∈ hypothesisContext.hypothesisMap ∧ e1.hasLooseBVars)
 
-     - sif h : c then e1 else e2 ==> applyExtraArgs e2[h/h']
+     - sif h : c then e1 else e2 ==> applyExtraArgs e2[h/h']  [proof: Blaster.dite'_reduce_neg]
           (if ∃ e := h' ∈ hypothesisContext.hypothesisMap ∧ e2.hasLooseBVars ∧ e = ¬ c)
 
-     - sif h : c then e1 else e2 ==> (h : c → e1) ∧ (h : ¬ c → e2) (if Type(e1) = Prop)
+     - sif h : c then e1 else e2 ==> (h : c → e1) ∧ (h : ¬ c → e2) (if Type(e1) = Prop)                           [proof: Blaster.dite'_prop_eq]
          -- TO BE REMOVED: when performing normalization at the implication level
 
-     - (sif h : c then e1 else e2) x₁ ... xₙ  ==> (sif h : c' then e2 else e1) x₁ ... xₙ (if c = ¬ c')
+     - (sif h : c then e1 else e2) x₁ ... xₙ  ==> (sif h : c' then e2 else e1) x₁ ... xₙ (if c = ¬ c')              [proof: Blaster.dite'_not_swap]
 
-     - (sif h : c then e1 else e2) x₁ ... xₙ ==> (sif h : true = c' then e2 else e1) x₁ ... xₙ (if c := false = c')
+     - (sif h : c then e1 else e2) x₁ ... xₙ ==> (sif h : true = c' then e2 else e1) x₁ ... xₙ (if c := false = c') [proof: Blaster.dite'_bool_swap]
 
     with
       applyExtraArgs e :=
@@ -194,10 +201,15 @@ def optimizeDITEChoice (f : Expr) (args : Array Expr) : TranslateEnvT (Option Ex
  let c := args[1]!
  let t := args[2]!
  let e := args[3]!
- if let Expr.const ``True _ := c then return applyExtraArgs (betaLambda t #[← mkTrueIntro])
- if let Expr.const ``False _ := c then return applyExtraArgs (betaLambda e #[← mkNotFalse])
- if let some r ← diteReduce? c t then return applyExtraArgs r
- if let some r ← diteReduce? (← optimizeNot (← mkPropNotOp) #[c] (cacheResult := false)) e then
+ -- the level of `f` is always one, the step needs the one of the branch type
+ if let Expr.const ``True _ := c then
+   pushProofStep (.rewrite (mkConst ``Blaster.dite'_true [← getLevel iteType]))
+   return applyExtraArgs (betaLambda t #[← mkTrueIntro])
+ if let Expr.const ``False _ := c then
+   pushProofStep (.rewrite (mkConst ``Blaster.dite'_false [← getLevel iteType]))
+   return applyExtraArgs (betaLambda e #[← mkNotFalse])
+ if let some r ← diteReduce? ``Blaster.dite'_reduce_pos iteType c c t then return applyExtraArgs r
+ if let some r ← diteReduce? ``Blaster.dite'_reduce_neg iteType c (← optimizeNot (← mkPropNotOp) #[c] (cacheResult := false)) e then
    return applyExtraArgs r
  if let some r ← diteToPropExpr? iteType c t e then return r
  isITESwap? f args
@@ -210,7 +222,7 @@ def optimizeDITEChoice (f : Expr) (args : Array Expr) : TranslateEnvT (Option Ex
        mkAppN e extra_args
      else e
 
-   /-- Given `cond` and `t` the condition and then/else expression for a Blaster.dite' expression,
+   /-- Given `cond` and `t` the condition and then/else expressions for a Blaster.dite' expression,
        perform the following:
         - When `t := fun h : c => e ∧ c := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ e.hasLooseBVars`
             - return `some e`
@@ -221,11 +233,12 @@ def optimizeDITEChoice (f : Expr) (args : Array Expr) : TranslateEnvT (Option Ex
         - Otherwise
             - return `none`
    -/
-   diteReduce? (cond : Expr) (t : Expr) : TranslateEnvT (Option Expr) := do
+   diteReduce? (lemma : Name) (iteType: Expr) (c : Expr) (cond : Expr) (t : Expr) : TranslateEnvT (Option Expr) := do
      let hyps := (← get).optEnv.hypothesisContext.hypothesisMap
      match t with
      | Expr.lam _h _c b _bi =>
          if let some p ← inHypMap cond hyps then
+            pushProofStep (.rewrite (mkApp3 (mkConst lemma [← getLevel iteType]) iteType c p))
             if !b.hasLooseBVars
             then return b
             else return (t.beta #[p])
@@ -233,8 +246,9 @@ def optimizeDITEChoice (f : Expr) (args : Array Expr) : TranslateEnvT (Option Ex
      | _ =>
         if !(← isQuantifiedFun t) then
           throwEnvError "diteReduce?: lambda/quantified function expression expected but got {reprStr t}"
-        if let some p ← inHypMap cond hyps
-        then return (t.beta #[p])
+        if let some p ← inHypMap cond hyps then
+          pushProofStep (.rewrite (mkApp3 (mkConst lemma [← getLevel iteType]) iteType c p))
+          return (t.beta #[p])
         else return none
 
 /-- Apply simplification/normalization rules on `Blaster.dite'` in the given order.
@@ -244,18 +258,18 @@ def optimizeDITEChoice (f : Expr) (args : Array Expr) : TranslateEnvT (Option Ex
     is annotated as `sif h : c then th else eh` to facilitate comprehension.
 
     The simplifcation/normalization rules applied are:
-     - sif h : c then e1 else e2 ==> e1  (if e1 =ₚₜᵣ e2)
+     - sif h : c then e1 else e2 ==> e1  (if e1 =ₚₜᵣ e2)  [proof: Blaster.dite'_abs]
 
      - sif h1 : a then (sif h2 : c1 then e1 else e2) else (sif h3 : c2 then e1 else e2) ==>
           sif h1 : (a ∧ c1) ∨ (¬ a ∧ c2) then e1 else e2 (if ¬ c1.hasLooseBVars ∧ ¬ c2.hasLooseBVars)
         -- NOTE: rule is sound as h1, h2 and h3 can't be referenced in e1 and e2.
 
      - sif h1 : a then (sif h2 : c then e1 else e2) else (sif h2 : c then e1 else e3) ==>
-          sif h2 : c then e1 else (sif h1 : a then e2 else e3)
+          sif h2 : c then e1 else (sif h1 : a then e2 else e3)  [proof: Blaster.dite'_factorize_thn]
         -- NOTE: rule is sound as h1 can't be referenced in c and e1 but h1 and h2 can be referenced in e2 and e3.
 
      - sif h1 : a then (sif h2 : c then e1 else e2) else (sif h2 : c then e3 else e2) ==>
-          sif h2 : c then (sif h1 : a then e1 else e3) else e2
+          sif h2 : c then (sif h1 : a then e1 else e3) else e2  [proof: Blaster.dite'_factorize_els]
         -- NOTE: rule is sound as h1 can't be referenced in c and e2 but h1 and h2 can be referenced in e1 and e3.
 
      - sif h1 : a then (sif h2 : c then e1 else e2) else (if h2 : c then e2 else e1) ==>
@@ -277,7 +291,9 @@ def optimizeDITE (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  let e := args[3]!
  let thenExpr ← extractDependentITEExpr t
  let elseExpr ← extractDependentITEExpr e
- if exprEq thenExpr elseExpr then return betaLambda t #[← mkOfDecideEqProof c true]
+ if exprEq thenExpr elseExpr then
+  pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.dite'_abs [← getLevel iteType]) iteType c thenExpr))
+  return betaLambda t #[← mkOfDecideEqProof c true]
  if let some r ← diteFactorize? c t e then return r
  return mkApp4 f iteType c t e
 

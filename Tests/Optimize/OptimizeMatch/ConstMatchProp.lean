@@ -96,7 +96,7 @@ def beqColor : Color → Color → Prop
 --  (fun (_ : Unit) => True)
 --  (fun (_ : Unit) => True)
 --  (fun (_ : Color) (_ : Color) => False)
-#testOptimize [ "IteOverMatchUnchanged_1" ]
+#testOptimize [ "IteOverMatchUnchanged_1", proof ]
   ∀ (c : Prop) (x y : Color), [Decidable c] →
        beqColor (if c then Color.red x else y) (Color.blue x) ===>
   ∀ (c : Prop) (x y : Color),
@@ -121,7 +121,7 @@ def beqColor : Color → Color → Prop
 --   (fun (_ : Unit) => True)
 --   (fun (_ : Unit) => True)
 --   (fun (_ : Color) (_ : Color) => False)
-#testOptimize [ "IteOverMatchUnchanged_2" ]
+#testOptimize [ "IteOverMatchUnchanged_2", proof ]
   ∀ (b c : Prop) (x y : Color), [Decidable b] → [Decidable c] →
     beqColor (if c then (if b then Color.red x else y) else Color.blue x) (Color.blue x) ===>
   ∀ (b c : Prop) (x y : Color),
@@ -149,7 +149,7 @@ def beqColor : Color → Color → Prop
 --   (fun (_ : Unit) => True)
 --   (fun (_ : Unit) => True)
 --   (fun (_ : Color) (_ : Color) => False)
-#testOptimize [ "IteOverMatchUnchanged_3" ]
+#testOptimize [ "IteOverMatchUnchanged_3", proof ]
   ∀ (b c : Prop) (x y : Color), [Decidable b] → [Decidable c] →
     beqColor (if c then Color.blue x else (if b then Color.red x else y)) (Color.blue x) ===>
   ∀ (b c : Prop) (x y : Color),
@@ -184,7 +184,7 @@ def beqColor : Color → Color → Prop
 --   (fun (_ : Unit) => True)
 --   (fun (_ : Unit) => True)
 --   (fun (_ : Color) (_ : Color) => False)
-#testOptimize [ "IteOverMatchUnchanged_4" ]
+#testOptimize [ "IteOverMatchUnchanged_4", proof ]
   ∀ (b c d: Prop) (x y : Color), [Decidable b] → [Decidable c] → [Decidable d] →
     let op1 :=
       if c
@@ -223,7 +223,7 @@ def beqColor : Color → Color → Prop
 --   (fun (_ : Unit) => True)
 --   (fun (_ : Unit) => True)
 --   (fun (_ : Color) (_ : Color) => False)
-#testOptimize [ "IteOverMatchUnchanged_5" ]
+#testOptimize [ "IteOverMatchUnchanged_5", proof ]
   ∀ (b c d: Prop) (x y : Color), [Decidable b] → [Decidable c] → [Decidable d] →
     let op1 :=
       if c
@@ -347,7 +347,7 @@ def beqColor : Color → Color → Prop
 --    (fun (_ : Unit) => True)
 --    (fun (_ : Unit) => True)
 --    (fun (_ : Color) (_ : Color) => False)
-#testOptimize [ "DIteOverMatchUnchanged_1" ]
+#testOptimize [ "DIteOverMatchUnchanged_1", proof ]
   ∀ (c : Prop) (x y : Color) (f : c → Color → Color), [Decidable c] →
     beqColor (if h : c then Color.red (f h x) else y) (Color.blue x) ===>
   ∀ (c : Prop) (x y : Color) (f : c → Color → Color),
@@ -376,7 +376,7 @@ def beqColor : Color → Color → Prop
 --    (fun (_ : Unit) => True)
 --    (fun (_ : Unit) => True)
 --    (fun (_ : Color) (_ : Color) => False)
-#testOptimize [ "DIteOverMatchUnchanged_2" ]
+#testOptimize [ "DIteOverMatchUnchanged_2", proof ]
   ∀ (b c : Prop) (x y : Color) (f : ¬ c → Color → Color) (g : b → Color → Color),
     [Decidable b] → [Decidable c] →
       beqColor (if h1 : c
@@ -410,7 +410,7 @@ def beqColor : Color → Color → Prop
 --    (fun (_ : Unit) => True)
 --    (fun (_ : Unit) => True)
 --    (fun (_ : Color) (_ : Color) => False)
-#testOptimize [ "DIteOverMatchUnchanged_3" ]
+#testOptimize [ "DIteOverMatchUnchanged_3", proof ]
   ∀ (b c : Prop) (x y : Color) (f : c → Color → Color) (g : b → Color → Color),
     [Decidable b] → [Decidable c] →
       beqColor (if h1 : c
@@ -455,7 +455,7 @@ def beqColor : Color → Color → Prop
 --    (fun (_ : Unit) => True)
 --    (fun (_ : Unit) => True)
 --    (fun (_ : Color) (_ : Color) => False)
-#testOptimize [ "DIteOverMatchUnchanged_4" ]
+#testOptimize [ "DIteOverMatchUnchanged_4", proof ]
   ∀ (b c d: Prop) (x y : Color)
     (f : ¬ c → Color → Color) (g : ¬ d → Color → Color) (t : b → Color → Color),
     [Decidable b] → [Decidable c] → [Decidable d] →
@@ -511,7 +511,7 @@ def beqColor : Color → Color → Prop
 --    (fun (_ : Unit) => True)
 --    (fun (_ : Unit) => True)
 --    (fun (_ : Color) (_ : Color) => False)
-#testOptimize [ "DIteOverMatchUnchanged_5" ]
+#testOptimize [ "DIteOverMatchUnchanged_5", proof ]
   ∀ (b c d: Prop) (x y : Color)
     (f : ¬ c → Color → Color) (g : ¬ d → Color → Color) (t : b → Color → Color),
     [Decidable b] → [Decidable c] → [Decidable d] →
@@ -745,7 +745,7 @@ def beqColorDegree : Color → Color → (Nat → Prop)
 --  (fun (_ : Unit) => True)
 --  (fun (_ : Unit) => True)
 --  (fun (_ : Color) (_ : Color) => False)
-#testOptimize [ "MatchOverMatchUnchanged_1" ]
+#testOptimize [ "MatchOverMatchUnchanged_1", proof ]
   ∀ (n : Option Nat) (x : Color), beqColor (toColorOne n) x ===>
   ∀ (n : Option Nat) (x : Color),
        beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
@@ -773,7 +773,7 @@ def beqColorDegree : Color → Color → (Nat → Prop)
 --   (fun (_ : Unit) => True)
 --   (fun (_ : Unit) => True)
 --   (fun (_ : Color) (_ : Color) => False)
-#testOptimize [ "MatchOverMatchUnchanged_2" ]
+#testOptimize [ "MatchOverMatchUnchanged_2", proof ]
   ∀ (α : Type) (n : Option α) (x : Color), beqColor (toColorTwo n) x ===>
   ∀ (α : Type) (n : Option α) (x : Color),
     beqColor.match_1 (fun ( _ : Color) (_ : Color) => Prop)
@@ -794,7 +794,7 @@ def beqColorDegree : Color → Color → (Nat → Prop)
 --        (fun (_ : Unit) => .white)
 --        (fun (a : α) => .blue (.transparent a) ) ) x
 -- NOTE: Lean4 already applied structural equivalence between toColorThree.match_1 and toColorTwo.match_1
-#testOptimize [ "MatchOverMatchUnchanged_3" ]
+#testOptimize [ "MatchOverMatchUnchanged_3", proof ]
   ∀ (α : Type) (n : Option α) (x : ColorPrim α), [BEq α] → beqColorPrim (toColorThree n) x ===>
   ∀ (α : Type) (n : Option α) (x : ColorPrim α), [BEq α] →
        true =
@@ -825,7 +825,7 @@ def beqColorDegree : Color → Color → (Nat → Prop)
 --   (fun (_ : Unit) => True)
 --   (fun (_ : Color) (_ : Color) => False)
 -- NOTE: Lean4 already applied structural equivalence between toColorFour.match_1 and toColorOne.match_1
-#testOptimize [ "MatchOverMatchUnchanged_4" ] (norm-result: 1)
+#testOptimize [ "MatchOverMatchUnchanged_4", proof ] (norm-result: 1)
   ∀ (n : Option Nat) (x : Color),
     beqColor (toColorFour n) x ===>
   ∀ (n : Option Nat) (x : Color),

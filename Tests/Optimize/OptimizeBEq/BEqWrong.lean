@@ -28,34 +28,34 @@ instance instBEqColor : BEq Color where
   beq a b := color_beq a b
 
 -- Color.red Color.transparent == Color.red Color.transparent ===> false
-#testOptimize [ "BEqWrongCst_1" ] Color.red Color.transparent == Color.red Color.transparent ===> true
+#testOptimize [ "BEqWrongCst_1", proof ] Color.red Color.transparent == Color.red Color.transparent ===> true
 
 -- Color.red Color.transparent == Color.blue Color.transparent ===> false
-#testOptimize [ "BEqWrongCst_2" ] Color.red Color.transparent == Color.blue Color.transparent ===> false
+#testOptimize [ "BEqWrongCst_2", proof ] Color.red Color.transparent == Color.blue Color.transparent ===> false
 
 -- Color.blue Color.transparent == Color.blue Color.transparent ===> false
-#testOptimize [ "BEqWrongCst_3" ] Color.blue Color.transparent == Color.blue Color.transparent ===> false
+#testOptimize [ "BEqWrongCst_3", proof ] Color.blue Color.transparent == Color.blue Color.transparent ===> false
 
 -- Color.yellow Color.transparent == Color.yellow Color.transparent ===> false
-#testOptimize [ "BEqWrongCst_4" ] Color.yellow Color.transparent == Color.yellow Color.transparent ===> false
+#testOptimize [ "BEqWrongCst_4", proof ] Color.yellow Color.transparent == Color.yellow Color.transparent ===> false
 
 -- Color.red Color.transparent == Color.yellow Color.transparent ===> false
-#testOptimize [ "BEqWrongCst_5" ] Color.red Color.transparent == Color.yellow Color.transparent ===> false
+#testOptimize [ "BEqWrongCst_5", proof ] Color.red Color.transparent == Color.yellow Color.transparent ===> false
 
 -- Color.yellow Color.transparent == Color.blue Color.transparent ===> false
-#testOptimize [ "BEqWrongCst_6" ] Color.yellow Color.transparent == Color.blue Color.transparent ===> false
+#testOptimize [ "BEqWrongCst_6", proof ] Color.yellow Color.transparent == Color.blue Color.transparent ===> false
 
 -- Color.red (Color.blue Color.transparent) == Color.red Color.transparent ===> false
-#testOptimize [ "BEqWrongCst_7" ] Color.red (Color.blue Color.transparent) == Color.red Color.transparent ===> false
+#testOptimize [ "BEqWrongCst_7", proof ] Color.red (Color.blue Color.transparent) == Color.red Color.transparent ===> false
 
 -- Color.red (Color.yellow Color.transparent) == Color.red Color.transparent ===> false
-#testOptimize [ "BEqWrongCst_8" ] Color.red (Color.yellow Color.transparent) == Color.red Color.transparent ===> false
+#testOptimize [ "BEqWrongCst_8", proof ] Color.red (Color.yellow Color.transparent) == Color.red Color.transparent ===> false
 
 -- Color.red (Color.yellow Color.transparent) == Color.red (Color.yellow Color.transparent) ===> false
-#testOptimize [ "BEqWrongCst_9" ] Color.red (Color.yellow Color.transparent) == Color.red (Color.yellow Color.transparent) ===> false
+#testOptimize [ "BEqWrongCst_9", proof ] Color.red (Color.yellow Color.transparent) == Color.red (Color.yellow Color.transparent) ===> false
 
 -- Color.red (Color.blue Color.transparent) == Color.red (Color.yellow Color.transparent) ===> false
-#testOptimize [ "BEqWrongCst_10" ] Color.red (Color.blue Color.transparent) == Color.red (Color.yellow Color.transparent) ===> false
+#testOptimize [ "BEqWrongCst_10", proof ] Color.red (Color.blue Color.transparent) == Color.red (Color.yellow Color.transparent) ===> false
 
 
 /-! Test cases to ensure that the following simplification rules must not be applied on

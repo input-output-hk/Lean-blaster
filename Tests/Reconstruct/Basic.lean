@@ -1,5 +1,8 @@
 import Blaster
 
+-- a reconstruction gap is a warning, so it fails the build
+set_option warningAsError true
+
 /-! ## Tests that `blaster` closes goals with valid proof certificates (no sorry). -/
 
 -- Eliminative rewrites
@@ -73,6 +76,37 @@ example : ∀ (n : Nat),
 -- Propositional equality: (∀ xs, P xs) = (∀ xs, Q xs)
 example : (∀ (n : Nat), 0 + n = n) = (∀ (n : Nat), n = n) := by blaster
 example : (∀ (m n : Nat), m + n = n + m) = (∀ (m n : Nat), n + m = n + m) := by blaster
+-- eliminated binders, one of them a `Decidable` instance
+example : (∀ (a : Prop) [Decidable a], false = decide a) = ∀ (a : Prop), ¬ a := by blaster
+example : (∀ (a : Prop) (_n : Nat), ¬ a) = ∀ (a : Prop), ¬ a := by blaster
+-- a kept binder whose type is rewritten
+example : (∀ (a b : Bool), a → !b) = (∀ (a b : Bool), true = a → false = b) := by blaster
+-- a hypothesis rewritten to `True`
+example : (∀ (a b : Prop), (¬ (¬ a)) = a → b) = (∀ (b : Prop), b) := by blaster
+example : (∀ (a : Bool) (b : Prop), (!a || a) → b) = (∀ (b : Prop), b) := by blaster
+-- eliminated binders of a type without `Inhabited` instance, or of a sort
+inductive Color where
+  | red : Color
+  | blue : Color
+example : (∀ (x : Color), [x, Color.red] = [x, Color.blue]) = False := by blaster
+example : (∀ (α : Type) (x y z : α), ([] : List α) = [x, y, z]) = False := by blaster
+-- renamed binders next to an eliminated one
+example : (∀ (x y _z : Nat), 0 + x < y) = (∀ (a b : Nat), a < b) := by blaster
+example : (∀ (α : Type) (a : Bool) (x y z : List α), (if a && !a then x else y) = z) =
+  (∀ (α : Type) (_x _y z : List α), _y = z) := by blaster
+-- an anonymous instance binder on both sides
+example : (∀ (α : Type) [Inhabited α] (x : α), x = x ∧ x = default) =
+  (∀ (α : Type) [Inhabited α] (x : α), x = default) := by blaster
+-- the same unused binder on both sides, which the optimizer eliminates on each,
+-- through the pointwise path
+example : (∀ (_x : Nat) (n : Nat), 0 + n < 3) = (∀ (_x : Nat) (n : Nat), n < 3) := by blaster
+example : (∀ (α : Type) [Inhabited α] (x y : α), x = y ∧ True) =
+  (∀ (α : Type) [Inhabited α] (x y : α), x = y) := by blaster
+-- an unused binder whose type only a later instance binder inhabits, so it is kept
+structure Foo where
+  n : Nat
+example : (∀ (_x : Foo) [Inhabited Foo] (n : Nat), 0 + n < (default : Foo).n) =
+  (∀ (_x : Foo) [Inhabited Foo] (n : Nat), n < (default : Foo).n) := by blaster
 
 -- Optimized side is a top-level implication
 example : (∀ (a b : Prop), a ∨ (b → a)) = (∀ (a b : Prop), b → a) := by blaster
@@ -82,7 +116,206 @@ example : (∀ (x : Nat), 0 * x = 0) = True := by blaster
 example : (∀ (m n : Nat), m + n = n + m) = True := by blaster
 example : (0 + 0 = 0) = True := by blaster
 
+-- Propositional equality whose forall has a function-typed binder
+example : (∀ (f : Nat → Nat → Nat) (x y : Nat), f x y + x = x + f x y) =
+          (∀ (f : Nat → Nat → Nat) (x y : Nat), x + f x y = x + f x y) := by blaster
+
 -- Hypothesis-dependent rewrites
 example : ∀ (n : Nat), 0 < n → n / n = 1 := by blaster
 example : ∀ (x y : Nat), 0 < y → (x * y) / y = x := by blaster
 example : ∀ (x y : Nat), 0 < x → (x * y) / x = y := by blaster
+
+-- Hypotheses not in optimizer normal form (rewritten on replay)
+example : ∀ (a b : Bool), a = true → (a && b) = b := by blaster
+example : ∀ (a b : Bool), ¬ (false = a) → (a && b) = b := by blaster
+example : ∀ (a b : Bool), a → (a && b) = b := by blaster
+example : ∀ (a b : Bool), a = true → b = true → (a && b) = true := by blaster
+example : ∀ (a : Bool), a = true → ∀ (b : Bool), (a && b) = b := by blaster
+example : ∀ (n : Nat), n ≠ 0 → n / n = 1 := by blaster
+example : ∀ (n : Nat), n ≠ 0 → n / n + n / n = 2 := by blaster
+example : ∀ (m n : Nat), m ≤ n → ¬ n < m := by blaster
+example : ∀ (x y : Int), x ≠ 0 → (x * y) / x = y := by blaster
+example : ∀ (x y : Int), x ≤ y → ¬ y < x := by blaster
+example : ∀ (x y : Int), x ≥ y → ¬ x < y := by blaster
+example : ∀ (a b : Prop), (True ∧ a) → (a ∧ b) = b := by blaster
+example : ∀ (p q : Prop), ¬¬p → (p ∧ q) = q := by blaster
+
+-- Steps built from a hypothesis are not replayed on it
+example : ∀ (a c : Prop), (a ∧ (a ∨ c)) → (a ∨ c) := by blaster
+example : ∀ (a b c d : Prop), (a ∧ (b ∨ c)) → b → (a ∧ d) = d ∧ (b ∨ c) := by blaster
+example : ∀ (x y : Nat), (x + 0 < y ∧ y < 10) → (x < y ∧ y < 10) = (y < 10) := by blaster
+
+-- Int literal folds and normalizations
+example : ∀ (x : Int), (x * 6) / 3 = x * 2 := by blaster
+example : ∀ (n : Int), ¬ ((4 * n) / 6 = (2 * n) / 3) ∨ n = n := by blaster
+example : ∀ (n : Nat), Int.toNat (-(Int.ofNat n)) = 0 := by blaster
+example : ∀ (n : Nat), Int.negSucc n = -(Int.ofNat (1 + n)) := by blaster
+example : ∀ (n : Nat), Int.toNat (Int.ofNat n) - n = 0 := by blaster
+example : ∀ (x y : Int), ((3 + x < 5) = (x < 2)) ∧ y - y = 0 := by blaster
+example : ∀ (x y : Int), Int.le x y = (x ≤ y) := by blaster
+
+-- Negated hypotheses
+example : ∀ (a b : Prop), a → ((¬ a ∨ b) = b) := by blaster
+
+-- `≠` in the goal
+example : ∀ (x y : Int), x ≠ 0 → y ≠ 0 → x * y ≠ 0 := by blaster
+example : ∀ (a : Nat), a + 1 ≠ 0 := by blaster
+
+-- `ite` and `dite` with a condition reduced to `True` or `False`
+example : ∀ (c : Prop) [Decidable c] (x y : Nat), (if c ∨ ¬ c then x else y) = x := by blaster
+example : ∀ (c : Prop) [Decidable c] (x y : Nat), (if c ∧ ¬ c then x else y) = y := by blaster
+example : ∀ (c : Prop) [Decidable c] (x y : Nat), (if _h : c ∨ ¬ c then x else y) = x := by blaster
+example : ∀ (c : Prop) [Decidable c] (x y : Nat), (if _h : c ∧ ¬ c then x else y) = y := by blaster
+
+-- Constructor equalities whose operands still simplify
+example : ∀ (x y : Nat), ([x + 0, y] = [x, y, y]) = False := by blaster
+example : ∀ (a b c : Nat), ([b + a, c] = [a + c, c, b]) = False := by blaster
+
+-- `Nat.le` normalization
+example : ∀ (x y : Nat), Nat.le x y = (x ≤ y) := by blaster
+example : ∀ (x y : Nat), Nat.le x y → ¬ (y < x) := by blaster
+
+-- Binders below a leading `let` or `have`
+example : let x := (2 : Int); ∀ (y : Int), x + y = y + 2 := by blaster
+example : let x := (2 : Nat); ∀ (y : Nat), x + y = y + 2 := by blaster
+example : let b := true; ∀ (a : Bool), (a && b) = a := by blaster
+example : let p := True; ∀ (a : Prop), (a ∧ p) = a := by blaster
+example : (let x := (2 : Int); ∀ (y : Int), x + y = y + 2) = True := by blaster
+example : let x := (2 : Int); (∀ (y : Int), x + y = y + 2) = True := by blaster
+example : have x := (2 : Int); ∀ (y : Int), x + y = y + 2 := by blaster
+
+-- Nested De Morgan, or next to a hypothesis it must leave alone
+example : ∀ (a b c : Prop), (¬ (¬ (¬ a ∧ ¬ b) ∧ ¬ c)) = (¬ (¬ c ∧ (a ∨ b))) := by blaster
+example : ∀ (a b c : Prop), (¬ (¬ (¬ a ∨ ¬ b) ∨ ¬ c)) = (¬ (¬ c ∨ (a ∧ b))) := by blaster
+example : ∀ (a b c : Prop), ¬ (¬ a ∧ ¬ b) → (¬ (¬ c ∧ ¬ c)) → (a ∨ b) ∧ c := by blaster
+
+-- Core function, cast and `Int.ofNat` literal spellings
+example : ∀ (n : Nat), Int.toNat (-(n : Int)) = 0 := by blaster
+example : ∀ (n : Nat), Int.toNat (n : Int) - n = 0 := by blaster
+example : ∀ (x y z : Int), (Int.ediv x 2 + y = y + x / 2) ∧ z - z = 0 := by blaster
+example : ∀ (x y z : Int), (x % 3 + y = y + Int.emod x 3) ∧ z - z = 0 := by blaster
+example : ∀ (x : Int), x / 2 ≠ 0 → Int.ediv (x / 2) (x / 2) = 1 := by blaster
+example : ∀ (x y : Int), Int.emod (x / 2) 3 + y = y + Int.emod (x / 2) 3 := by blaster
+example : ∀ (n : Int), ¬ (Int.ediv (4 * n) 6 = Int.ediv (2 * n) 3) ∨ n = n := by blaster
+example : ∀ (x : Int), Int.ediv (x * 6) 3 = 2 * x := by blaster
+example : ∀ (x y : Int), ((Int.ofNat 7 * 2 + x) = (x + 14)) ∧ y - y = 0 := by blaster
+
+-- String `++` and core `String.append` spellings
+example : ∀ (s t u v : String), ((s ++ t ++ u) == v) = (v == (s ++ t ++ u)) := by blaster
+example : ∀ (s t v : String), ((s ++ t) = v) = (v = (s ++ t)) := by blaster
+example : ∀ (s : String), String.append s "" = s := by blaster
+
+-- Core `Nat.add` spelling
+example : ∀ (x : Nat), Nat.add (Nat.succ x) 1 = x + 2 := by blaster
+
+-- A conclusion found in the hypotheses
+example : ∀ (x : Nat), x > 0 → x ≠ 0 := by blaster
+example : ∀ (x y : Int), x > y → x ≠ y := by blaster
+example : ∀ (x y : Int), x = y → ¬ (x < y) := by blaster
+example : ∀ (x : Nat), x ≠ 0 → 0 < x := by blaster
+example : ∀ (a b : Prop), a ∧ b → b := by blaster
+example : ∀ (x : Nat), (x > 0 → x ≠ 0) = True := by blaster
+example : ∀ (a b : Prop), (a ∧ b → b) ∧ (a ∧ b → a) := by blaster
+example : ∀ (a b c : Prop), a ∧ b → ((c → b) ∧ (c → a)) := by blaster
+
+-- `(p → q) ∧ (¬ p → q)` with `¬ p` in normal form
+example : ∀ (x : Bool) (q : Prop), (((true = x) → q) ∧ ((false = x) → q)) = q := by blaster
+example : ∀ (x : Bool) (q : Prop), (((false = x) → q) ∧ ((true = x) → q)) = q := by blaster
+
+-- Steps whose hypothesis proof the replay cannot type are skipped
+example : ∀ (a b : Bool) (f : ¬ a → Bool → Bool) (h : ¬ a), f h b = true → f h b = true := by blaster
+
+-- Steps whose hypothesis proof types only after evaluation are kept
+example : ∀ (y : Nat) (c : Prop), (List.replicate 300 0).length < y → ((300 < y) ∧ c) = c := by blaster
+
+-- An implication made `True` by its own premises
+example : ∀ (a : Prop), False → a := by blaster
+example : ∀ (a b : Prop), ¬ a → a → b := by blaster
+example : ∀ (a b : Prop), (a → b) → a → b := by blaster
+example : ∀ (a b c : Prop), c ∧ (a → b) → a → b := by blaster
+example : (∀ (x : Int), x > 10) → (∀ (z : Int), z > 10) := by blaster
+
+-- A recursive conclusion closed by its premise is not unfolded
+def recP : Nat → Prop
+  | 0 => True
+  | n+1 => recP n
+-- the linter itself recurses too deep on `recP 600`, not blaster
+set_option linter.constructorNameAsVariable false in
+example : ∀ (_h : recP 600), recP 600 := by blaster
+
+-- Steps below binders the replay does not introduce, in the target
+example : ∀ (a : Prop), (∃ b : Prop, (b ∧ b) ∧ a) = (∃ b : Prop, b ∧ a) := by blaster
+example : ∀ (f : Nat → Nat), (fun x => 0 + f x) = (fun x => f x) := by blaster
+example : ∀ (a : Prop), ((∀ b : Prop, (b ∧ b) ∨ a) ∧ a) = (a ∧ ∀ b : Prop, a ∨ b) := by blaster
+example : ∀ (q : Prop) (f : Nat → Nat → Prop),
+    ((∀ x : Nat, f x 0 → (q ∧ f (0 + x) 1)) ∨ q) = ((∀ x : Nat, f x 0 → (f x 1 ∧ q)) ∨ q) := by blaster
+-- and in a hypothesis
+example : ∀ (a : Prop), (∃ b : Prop, (b ∧ b) ∧ a) → ∃ b : Prop, b ∧ a := by blaster
+example : ∀ (l : List Nat), l.map (fun x => 0 + x) = [] → l.map (fun x => x) = [] := by blaster
+example : ∀ (a : Prop), (∀ b : Prop, (b ∧ b) ∨ a) → ∀ b : Prop, a ∨ b := by blaster
+example : ∀ (q : Prop) (f : Nat → Nat → Prop),
+    ((∀ x : Nat, f x 0 → (q ∧ f (0 + x) 1)) ∨ q) → ((∀ x : Nat, f x 0 → (f x 1 ∧ q)) ∨ q) := by blaster
+-- below a binder whose type depends on a goal binder
+example : ∀ (n : Nat), (∃ i : Fin (n + 1), i.val ≥ n) = (∃ i : Fin (n + 1), ¬ i.val < n) := by blaster
+-- below a goal binder that is an operand of the equality, which the replay does not introduce
+example : ∀ (a : Prop), (∀ b : Prop, (b ∧ b) ∨ a) = (∀ b : Prop, b ∨ a) := by blaster
+example : ∀ (k : Nat) (Q : Nat → Prop),
+    (∀ b : Fin (k + 1), ∃ i : Fin (b.val + 1), Q i.val ∧ Q i.val) =
+    (∀ b : Fin (k + 1), ∃ i : Fin (b.val + 1), Q i.val) := by blaster
+-- below a binder of the right side, which the replay instantiates with the left side one
+example : (∀ (P : Nat → Prop), ∃ x : Nat, P x) = (∀ (P : Nat → Prop), ∃ x : Nat, P (0 + x)) := by
+  blaster
+-- in the domain of a binder, which the steps below it need first
+example : ∀ (P : Nat → Prop), (∃ m : Nat, ∀ i : Fin (0 + m), P i.val ∧ P i.val) =
+    (∃ m : Nat, ∀ i : Fin m, P i.val) := by blaster
+-- a binder in the domain of another one, in the target and in a hypothesis
+example : ∀ (P : Nat → Prop) (Q R : Prop),
+    (((∃ y : Nat, P y ∧ P y) → Q) ∧ R) = (((∃ y : Nat, P y) → Q) ∧ R) := by blaster
+example : ∀ (P : Nat → Prop) (Q : Prop), ((∃ y : Nat, P y ∧ P y) → Q) → (∃ y : Nat, P y) → Q := by
+  blaster
+-- and below that binder too, after its domain
+example : ∀ (P Q : Nat → Prop), (∀ _n : Nat, (∃ y : Nat, P y ∧ P y) → ∃ z : Nat, Q z ∧ Q z) =
+    (∀ _n : Nat, (∃ y : Nat, P y) → ∃ z : Nat, Q z) := by blaster
+-- a term whose type depends on the rewritten binder has no congruence at it, and the pass must
+-- leave it
+example : ∀ (l : List Nat),
+    (fun (n : Nat) => Fin.last (List.map (fun x => 0 + x) (n :: l)).length) =
+    (fun (n : Nat) => if True then Fin.last (List.map (fun x => 0 + x) (n :: l)).length
+      else Fin.last (List.map (fun x => 0 + x) (n :: l)).length) := by blaster
+-- a step below a binder that leaves the target reflexive, before the later ones rewrite it again
+example : ∀ (a : Prop), (∃ y : Nat, a ∧ 0 + y = y + 1 ∧ 0 + y = y + 2) =
+    (∃ y : Nat, a ∧ y = y + 1 ∧ y = y + 2) := by blaster
+-- a step on the condition of a `dite'` whose branch uses its hypothesis, in the target and in a
+-- hypothesis
+example : ∀ (a b c : Bool) (f : ¬ c = true → Bool → Bool),
+    (if h : ¬ c = true then f h a else b) = if h : c = true then b else f h a := by blaster
+example : ∀ (c : Bool) (a b : Prop) (g : ¬ c → Prop → Prop),
+    (if h : c then a else g h b) → (true = c → a) ∧ ∀ (h : ¬ c), g h b := by blaster
+-- and of a `dite'` applied to one more argument
+example : ∀ (a c : Bool) (f : ¬ c = true → Bool → Bool) (g : Bool → Bool),
+    (if h : ¬ c = true then f h else g) a = (if h : c = true then g else f h) a := by blaster
+-- a hypothesis that closes the target before the condition is rewritten in either
+example : ∀ (c : Bool) (f : ¬ c = true → Bool) (a : Prop),
+    (a → (if h : ¬ c = true then f h else true) = true) → a →
+      (if h : ¬ c = true then f h else true) = true := by blaster
+-- a kept hypothesis rewritten in the domain of a `∀` its body depends on, in an equality of
+-- foralls whose body is reflexive before the rounds stall
+example : (∀ (n : Nat) (g : n > 0 ∧ True → Nat) (_h1 : ∀ (h : n > 0 ∧ True), g h = 1), n = n ∨ g = g) =
+    (∀ (n : Nat) (g : n > 0 ∧ True → Nat) (_h1 : ∀ (h : n > 0), g ⟨h, trivial⟩ = 1), n = n ∨ g = g) := by
+  blaster
+-- a step the replay cannot map is left to `rewrite`
+example : ∀ (x : Int) (c : Bool) (y : Nat),
+    (if c then Int.natAbs x else y) > 5 → (if c then Int.natAbs x else y) > 5 := by blaster
+-- a lemma stated on a partial application, below a binder
+example : ∀ (x z : Nat), (∃ y : Nat, (if True then x else y) = z) = (x = z) := by blaster
+
+-- Equalities of foralls with steps below the binders of the right side
+-- a binder of the right side matched with one of the left side, in the steps below it, after a
+-- hypothesis a rule on the whole implication consumes and an eliminated binder of a type without
+-- `Inhabited` instance
+example : (∀ (x : Nat), x > 5 → ∀ (_c : Color), False) = ∀ (x : Nat), x ≤ 5 := by blaster
+-- a definition unfolded to a forall on the left side, after its only head binder, whose binder
+-- the optimizer opens on that side and is not one of the right side
+opaque PP : Nat → Nat → Nat → Prop
+def unfoldsToForall (x : Nat) : Prop := ∀ y : Nat, PP x (0 + y) 0
+example : (∀ (x : Nat), unfoldsToForall x) = ∀ (x y : Nat), PP x y 0 := by blaster

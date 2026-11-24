@@ -1,4 +1,5 @@
 import Blaster.Optimize.Decidable
+import Blaster.Optimize.Lemmas.LemmasBool
 
 namespace Blaster
 
@@ -74,6 +75,37 @@ protected theorem false_eq_nat_beq_iff_eq_eq : ∀ (x y : Nat), false = (x == y)
 protected theorem false_eq_int_beq_iff_eq_eq : ∀ (x y : Int), false = (x == y) ↔ ¬ (x = y) := by simp
 
 protected theorem false_eq_string_beq_iff_eq_eq : ∀ (s t : String), false = (s == t) ↔ ¬ (s = t) := by simp
+
+/-! Lemmas validating, on any `LawfulBEq` type, the simplification rules:
+     - `true = (a == b) ==> a = b`
+     - `false = (a == b) ==> ¬ (a = b)`
+     - `c = (a == b) | (a == b) = c ==> (true = c) = (a = b)`
+     - `a == b ==> false (if ¬ (a = b))`
+    The operands come before the instances, so that a step gives them and the replay
+    synthesizes the instances.
+-/
+
+universe u
+
+protected theorem true_eq_beq {α : Type u} (a b : α) [BEq α] [LawfulBEq α] :
+    (true = (a == b)) = (a = b) :=
+  propext ⟨fun h => eq_of_beq h.symm, fun h => (beq_iff_eq.mpr h).symm⟩
+
+protected theorem false_eq_beq {α : Type u} (a b : α) [BEq α] [LawfulBEq α] :
+    (false = (a == b)) = ¬ (a = b) :=
+  propext ⟨fun h => beq_eq_false_iff_ne.mp h.symm, fun h => (beq_eq_false_iff_ne.mpr h).symm⟩
+
+protected theorem bool_eq_beq {α : Type u} (a b : α) (c : Bool) [BEq α] [LawfulBEq α] :
+    (c = (a == b)) = ((true = c) = (a = b)) :=
+  (Blaster.bridge_eq_tt c (a == b)).symm.trans (congrArg ((true = c) = ·) (Blaster.true_eq_beq a b))
+
+protected theorem beq_eq_bool {α : Type u} (a b : α) (c : Bool) [BEq α] [LawfulBEq α] :
+    ((a == b) = c) = ((true = c) = (a = b)) :=
+  (propext eq_comm).trans (Blaster.bool_eq_beq a b c)
+
+protected theorem beq_eq_false_of_not_eq {α : Type u} (a b : α) (h : ¬ (a = b)) [BEq α] [LawfulBEq α] :
+    (a == b) = false :=
+  beq_false_of_ne h
 
 
 /-! Lemmas validating simplification rules
@@ -170,5 +202,71 @@ protected theorem decide'_false_eq (p : Bool) : Blaster.decide' (false = p) = ! 
   apply Blaster.bool_eq_of_iff;
   rw [Blaster.decide'_true, Bool.false_eq];
   exact Bool.coe_false_iff_true.mpr rfl
+
+/-! ## Lemmas validating the `Eq`-context `decide'` normalization rules:
+    - `true = decide' p        ==> p`
+    - `false = decide' p       ==> ¬ p`
+    - `decide' p = decide' q   ==> p = q`
+    - `decide' p = b           ==> p = (true = b)`
+    - `b = decide' p           ==> p = (true = b)`
+-/
+
+protected theorem true_eq_decide' (p : Prop) : (true = Blaster.decide' p) = p := by
+  apply propext
+  constructor
+  · intro h; exact (Blaster.decide'_true p).mp h.symm
+  · intro h; exact ((Blaster.decide'_true p).mpr h).symm
+
+protected theorem false_eq_decide' (p : Prop) : (false = Blaster.decide' p) = ¬ p := by
+  apply propext
+  constructor
+  · intro h; exact (Blaster.decide'_false p).mp h.symm
+  · intro h; exact ((Blaster.decide'_false p).mpr h).symm
+
+protected theorem decide'_eq_decide' (p q : Prop) :
+    (Blaster.decide' p = Blaster.decide' q) = (p = q) := by
+  apply propext
+  constructor
+  · intro h
+    apply propext
+    rw [← Blaster.decide'_true p, ← Blaster.decide'_true q, h]
+  · intro h; rw [h]
+
+protected theorem decide'_eq_bool (p : Prop) (b : Bool) :
+    (Blaster.decide' p = b) = (p = (true = b)) := by
+  apply propext
+  constructor
+  · intro h
+    apply propext
+    constructor
+    · intro hp; rw [← h]; exact ((Blaster.decide'_true p).mpr hp).symm
+    · intro hb; exact (Blaster.decide'_true p).mp (by rw [h]; exact hb.symm)
+  · intro h
+    rw [h]
+    cases b with
+    | true => exact (Blaster.decide'_true (true = true)).mpr rfl
+    | false => exact (Blaster.decide'_false (true = false)).mpr (by decide)
+
+protected theorem bool_eq_decide' (p : Prop) (b : Bool) :
+    (b = Blaster.decide' p) = (p = (true = b)) := by
+  have h : (b = Blaster.decide' p) = (Blaster.decide' p = b) := propext eq_comm
+  rw [h, Blaster.decide'_eq_bool]
+
+/-! ## Lemma validating the Bool-not-over-`decide'` bridge:
+    - `!(decide' p) ==> decide' (¬ p)`
+-/
+
+protected theorem not_decide' (p : Prop) : (!(Blaster.decide' p)) = Blaster.decide' (¬ p) := by
+  apply Blaster.bool_eq_of_iff
+  cases h : Blaster.decide' p with
+  | true =>
+    simp only [Bool.not_true]
+    constructor
+    · intro hc; simp at hc
+    · intro hnp
+      exact absurd ((Blaster.decide'_true p).mp h) ((Blaster.decide'_true (¬ p)).mp hnp)
+  | false =>
+    simp only [Bool.not_false]
+    exact iff_of_true trivial ((Blaster.decide'_true (¬ p)).mpr ((Blaster.decide'_false p).mp h))
 
 end Blaster

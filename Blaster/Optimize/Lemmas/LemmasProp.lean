@@ -41,6 +41,8 @@ protected theorem true_or_false_is_true (a : Bool) :
   - `¬ (¬ e) ==> e`
   - `¬ (false = e) ==> true = e`
   - `¬ (true = e) ==> false = e`
+  - `¬ (¬ a ∧ ¬ b) ==> a ∨ b`
+  - `¬ (¬ a ∨ ¬ b) ==> a ∧ b`
 -/
 protected theorem double_not_classical (p : Prop) : (¬ (¬ p)) = p := by
   apply propext;
@@ -57,11 +59,23 @@ protected theorem not_true_is_false (e : Bool):
   apply propext;
   rw [Bool.true_eq, Bool.not_eq_true, Bool.false_eq]
 
+protected theorem not_and_not_eq_or (a b : Prop) :
+  (¬ (¬ a ∧ ¬ b)) = (a ∨ b) :=
+  propext ⟨fun h => Classical.byContradiction fun hn =>
+             h ⟨fun ha => hn (Or.inl ha), fun hb => hn (Or.inr hb)⟩,
+           fun h hn => h.elim hn.1 hn.2⟩
+
+protected theorem not_or_not_eq_and (a b : Prop) :
+  (¬ (¬ a ∨ ¬ b)) = (a ∧ b) :=
+  propext ⟨fun h => ⟨Classical.byContradiction fun ha => h (Or.inl ha),
+                     Classical.byContradiction fun hb => h (Or.inr hb)⟩,
+           fun h hn => hn.elim (fun ha => ha h.1) (fun hb => hb h.2)⟩
+
 /-! ## Lemmas validating the `Iff` expansion and the And/Or implicative reductions:
     - `p ↔ q ==> (p → q) ∧ (q → p)`
     - `e1 ∧ (e1 → e2) ==> e1 ∧ e2`
     - `e1 ∧ (e2 → e1) ==> e1`
-    - `(e1 → e2) ∧ (¬ e1 → e2) ==> e2`
+    - `(e1 → e2) ∧ (¬ e1 → e2) ==> e2`, also with `¬ e1` in normal form
     - `e1 ∨ (e1 → e2) ==> True`
     - `e1 ∨ (e2 → e1) ==> (e2 → e1)`
 -/
@@ -80,6 +94,10 @@ protected theorem and_imp_right_eq_left (p q : Prop) :
 protected theorem and_imp_not_imp_eq (p q : Prop) :
   ((p → q) ∧ (¬ p → q)) = q :=
   propext (imp_and_neg_imp_iff p)
+
+protected theorem and_imp_not_norm_imp_eq (p np : Prop) (h : (¬ p) = np) (q : Prop) :
+  ((p → q) ∧ (np → q)) = q :=
+  h ▸ Blaster.and_imp_not_imp_eq p q
 
 protected theorem or_imp_self_eq_true (p q : Prop) :
   (p ∨ (p → q)) = True :=
@@ -161,5 +179,51 @@ protected theorem or_left_neg_hyp_eq_right (a b : Prop) (h : ¬ a) :
 protected theorem or_right_neg_hyp_eq_left (a b : Prop) (h : ¬ b) :
   (a ∨ b) = a :=
   propext ⟨fun hab => hab.elim id (fun hb => absurd hb h), Or.inl⟩
+
+/-! ## Lemma validating the hypothesis-free `ForallE` reductions:
+  - `e1 → e2 ==> True (if e1 =ₚₜᵣ e2 ∧ Type(e1) = Prop)`
+-/
+protected theorem implies_self_eq_true (a : Prop) : (a → a) = True := by
+  apply propext
+  exact imp_self
+
+/-! ## Lemmas validating the COI reductions on quantifiers:
+  - `∀ (n : t), e ==> e (if isSortOrInhabited t ∧ Type(e) = Prop ∧ ¬ fVarInExpr n.fvarId! e)`
+  - `∃ (n : t), e ==> e (if isSortOrInhabited t ∧ ¬ e.hasLooseBVar 0)`
+-/
+protected theorem forall_coi.{u} (α : Sort u) (b : Prop) [Nonempty α] : (α → b) = b :=
+  propext (forall_const α)
+
+protected theorem exists_coi.{u} (α : Sort u) (b : Prop) [Nonempty α] : (∃ _ : α, b) = b :=
+  propext (exists_const α)
+
+/-! ## Lemmas validating the hypothesis-driven implication rules
+  - `h: True → e ==> e [h/True.intro] (if Type(e) = Prop ∧ fVarInExpr h.fvarId! e ∧ the input type of h is True)`
+  - `e → False ==> ¬ e`
+  - `e1 → e2 ==> ¬ e1 (if ∃ e := _ ∈ h, e = ¬ e2)`
+  - `e1 → e2 ==> ¬ e1 (if ∃ e := _ ∈ hypothesisContext.hypothesisMap, e = ¬ e2)`
+  - `h : e1 → e2 ==> e2 (if e1 := _ ∈ hypothesisContext.hypothesisMap ∧ ¬ fVarInExpr h.fvarId! e2 ∧ Type(e2) = Prop)`
+  - `h : e1 → e2 ==> e2[h/h'] (if e1 := h' ∈ hypothesisContext.hypothesisMap ∧ fVarInExpr h.fvarId! e2 ∧ Type(e2) = Prop)`
+-/
+protected theorem implies_eq_right_of_hyp_dep (a : Prop) (b : a → Prop) (p : a) :
+    (∀ h : a, b h) = b p := by
+  apply propext
+  constructor
+  · intro hab; exact hab p
+  · intro hp h
+    exact cast (congrArg b (Subsingleton.elim h p).symm) hp
+
+
+protected theorem implies_eq_neg_of_imp_not (a b : Prop) (h : a → ¬ b) : (a → b) = ¬ a := by
+  apply propext
+  constructor
+  · intro hab ha; exact h ha (hab ha)
+  · intro hna ha; exact absurd ha hna
+
+protected theorem implies_eq_right_of_hyp (a b : Prop) (h : a) : (a → b) = b := by
+  apply propext
+  constructor
+  · intro hab; exact hab h
+  · intro hb _; exact hb
 
 end Blaster
