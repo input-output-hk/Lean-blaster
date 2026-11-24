@@ -241,59 +241,40 @@ def optimizeIntDivCommon (d: DivKind) (op1 : Expr) (op2 : Expr) : TranslateEnvT 
   return r
  | _, _ =>
    if let some r ← intDivSelfReduce? op1 op2 then
-     if let DivKind.ediv := d then emitEDivSelfProofStep op1
-     else if let DivKind.fdiv := d then emitFdivSelfProofStep op1
-     else emitTdivSelfProofStep op1
+     emitDivSelfProofStep d op1
      return r
    if let some r ← mulIntDivReduceExpr? op1 op2 then
-     if let DivKind.ediv := d then emitMulEDivProofStep op1 op2
-     else if let DivKind.fdiv := d then emitMulFdivProofStep op1 op2
-     else emitMulTdivProofStep op1 op2
+     emitMulDivProofStep d op1 op2
      return r
    return none
 
  where
+
    /-- Emit the proof step for n / n ==> 1 (requires n ≠ 0). -/
-   emitEDivSelfProofStep (n : Expr) : TranslateEnvT Unit := do
-     if let some h ← findNeZeroIntProof? n then
-       pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.int_ediv_self) n h))
-
-   /-- Emit the proof step for Int.fdiv n n ==> 1 (requires n ≠ 0) -/
-   emitFdivSelfProofStep (n : Expr) : TranslateEnvT Unit := do
+   emitDivSelfProofStep (dk : DivKind) (n : Expr) : TranslateEnvT Unit := do
     if let some h ← findNeZeroIntProof? n then
-       pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.int_fdiv_self) n h))
-
-   /-- Emit the proof step for Int.tdiv n n ==> 1 (requires n ≠ 0) -/
-   emitTdivSelfProofStep (n : Expr) : TranslateEnvT Unit := do
-    if let some h ← findNeZeroIntProof? n then
-       pushProofStep (.rewrite (mkApp2 (mkConst ``Blaster.int_tdiv_self) n h))
+      let lemma := match dk with
+        | DivKind.ediv => ``Blaster.int_ediv_self
+        | DivKind.tdiv => ``Blaster.int_tdiv_self
+        | DivKind.fdiv => ``Blaster.int_fdiv_self
+      pushProofStep (.rewrite (mkApp2 (mkConst lemma) n h))
 
    /-- Emit the proof step for (m * n) / n ==> m or (n * m) / n ==> m (requires n ≠ 0). -/
-   emitMulEDivProofStep (op1 op2 : Expr) : TranslateEnvT Unit := do
+   emitMulDivProofStep (dk : DivKind) (op1 op2 : Expr) : TranslateEnvT Unit := do
      let some (a, b) := intMul? op1 | return ()
      let some h ← findNeZeroIntProof? op2 | return ()
      if exprEq b op2 then
-       pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.int_mul_ediv_cancel) a op2 h))
+       let lemma := match dk with
+         | DivKind.ediv => ``Blaster.int_mul_ediv_cancel
+         | DivKind.tdiv => ``Blaster.int_mul_tdiv_cancel
+         | DivKind.fdiv => ``Blaster.int_mul_fdiv_cancel
+       pushProofStep (.rewrite (mkApp3 (mkConst lemma) a op2 h))
      else if exprEq a op2 then
-       pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.int_mul_ediv_cancel_left) op2 b h))
-
-   /-- Emit the proof step for Int.fdiv (m * n) / n or (n * m) / n ==> m (requires n ≠ 0). -/
-   emitMulFdivProofStep (op1 op2 : Expr) : TranslateEnvT Unit := do
-     let some (a, b) := intMul? op1 | return ()
-     let some h ← findNeZeroIntProof? op2 | return ()
-     if exprEq b op2 then
-       pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.int_mul_fdiv_cancel) a op2 h))
-     else if exprEq a op2 then
-       pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.int_mul_fdiv_cancel_left) op2 b h))
-
-   /-- Emit the proof step for Int.tdiv (m * n) / n or (n * m) / n ==> m (requires n ≠ 0). -/
-   emitMulTdivProofStep (op1 op2 : Expr) : TranslateEnvT Unit := do
-     let some (a, b) := intMul? op1 | return ()
-     let some h ← findNeZeroIntProof? op2 | return ()
-     if exprEq b op2 then
-       pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.int_mul_tdiv_cancel) a op2 h))
-     else if exprEq a op2 then
-       pushProofStep (.rewrite (mkApp3 (mkConst ``Blaster.int_mul_tdiv_cancel_left) op2 b h))
+       let lemma := match dk with
+         | DivKind.ediv => ``Blaster.int_mul_ediv_cancel_left
+         | DivKind.tdiv => ``Blaster.int_mul_tdiv_cancel_left
+         | DivKind.fdiv => ``Blaster.int_mul_fdiv_cancel_left
+       pushProofStep (.rewrite (mkApp3 (mkConst lemma) op2 b h))
 
 /- Given `op1` and `op2` corresponding to the operands for `Int.ediv`, `Int.tdiv` and `Int.fdiv`,
    and `dk` the corresponding `DivKind` (yielding the divisor operator `f_div`),
@@ -423,45 +404,30 @@ def optimizeIntModCommon (m : ModKind) (op1 : Expr) (op2 : Expr) : TranslateEnvT
      emitModGcdZeroProofStep m op1 op2
      return r
    if let some r ← intModToZeroExpr? op1 op2 then
-     if let ModKind.emod := m then emitEModToZeroProofStep op1 op2
-     else if let ModKind.tmod := m then emitTModToZeroProofStep op1 op2
-     else emitFmodToZeroProofStep op1 op2
+     emitModToZeroProofStep m op1 op2
      return r
    return none
 
  where
    /-- Emit the proof step for n % n ==> 0, (m * n) % m ==> 0, or (n * m) % m ==> 0. -/
-   emitEModToZeroProofStep (op1 op2 : Expr) : TranslateEnvT Unit := do
-     if exprEq op1 op2 then
-       pushProofStep (.rewrite (mkConst ``Int.emod_self))
-     else
-       let some (a, b) := intMul? op1 | return ()
-       if exprEq a op2 then
-         pushProofStep (.rewrite (mkConst ``Int.mul_emod_right))
-       else if exprEq b op2 then
-         pushProofStep (.rewrite (mkConst ``Int.mul_emod_left))
-
-   /-- Emit the proof step for Int.tmod n n ==> 0, Int.tmod (m * n) m ==> 0, or Int.tmod (n * m) m ==> 0. -/
-   emitTModToZeroProofStep (op1 op2 : Expr) : TranslateEnvT Unit := do
-     if exprEq op1 op2 then
-      pushProofStep (.rewrite (mkConst ``Int.tmod_self))
-     else
-       let some (a, b) := intMul? op1 | return ()
-       if exprEq a op2 then
-         pushProofStep (.rewrite (mkConst ``Int.mul_tmod_right))
-       else if exprEq b op2 then
-         pushProofStep (.rewrite (mkConst ``Int.mul_tmod_left))
-
-   /-- Emit the proof step for Int.fmod n n ==> 0, Int.fmod (m * n) m ==> 0, or Int.fmod (n * m) m ==> 0. -/
-   emitFmodToZeroProofStep (op1 op2 : Expr) : TranslateEnvT Unit := do
-     if exprEq op1 op2 then
-       pushProofStep (.rewrite (mkConst ``Int.fmod_self))
-     else
-       let some (a, b) := intMul? op1 | return ()
-       if exprEq a op2 then
-         pushProofStep (.rewrite (mkConst ``Int.mul_fmod_right))
-       else if exprEq b op2 then
-         pushProofStep (.rewrite (mkConst ``Int.mul_fmod_left))
+   emitModToZeroProofStep (m : ModKind) (op1 op2 : Expr) : TranslateEnvT Unit := do
+    if exprEq op1 op2 then
+      match m with
+      | ModKind.emod => pushProofStep (.rewrite (mkConst ``Int.emod_self))
+      | ModKind.tmod => pushProofStep (.rewrite (mkConst ``Int.tmod_self))
+      | ModKind.fmod => pushProofStep (.rewrite (mkConst ``Int.fmod_self))
+    else
+      let some (a, b) := intMul? op1 | return ()
+      if exprEq a op2 then
+        match m with
+        | ModKind.emod => pushProofStep (.rewrite (mkConst ``Int.mul_emod_right))
+        | ModKind.tmod => pushProofStep (.rewrite (mkConst ``Int.mul_tmod_right))
+        | ModKind.fmod => pushProofStep (.rewrite (mkConst ``Int.mul_fmod_right))
+      else if exprEq b op2 then
+        match m with
+        | ModKind.emod => pushProofStep (.rewrite (mkConst ``Int.mul_emod_left))
+        | ModKind.tmod => pushProofStep (.rewrite (mkConst ``Int.mul_tmod_left))
+        | ModKind.fmod => pushProofStep (.rewrite (mkConst ``Int.mul_fmod_left))
 
    /-- Emit the proof step for (N1 * n) % N2 ==> 0 (when N1 % N2 = 0). The `N1 % N2 = 0`
        hypothesis holds by reflexivity on the constant operands. -/
