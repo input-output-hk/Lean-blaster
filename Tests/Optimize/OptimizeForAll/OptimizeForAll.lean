@@ -71,6 +71,9 @@ namespace Test.OptimizeForAll
 -- ∀ (a b c : Prop), a → b → c → True ===> True
 #testOptimize [ "ForallImpTrue_8", proof ] ∀ (a b c : Prop), a → b → c → True ===> True
 
+-- ∀ (x y : String), (x ++ y = y → True) = True ===> True
+#testOptimize [ "ForallImpTrue_9", proof ] ∀ (x y : String), (x ++ y = y → True) = True ===> True
+
 
 /-! Test cases to ensure that `∀ (n : t), False` will not be simplified to `False`. -/
 
@@ -171,6 +174,9 @@ namespace Test.OptimizeForAll
 -- ∀ (a : Bool) (h : false), a ===> True
 #testOptimize [ "ForallFalseImp_14", proof ]  ∀ (a : Bool) (_h : false), a ===> True
 
+-- ∀ (p : False → Prop), (∀ (h : False), p h) = True ===> True
+#testOptimize [ "ForallFalseImp_15", proof ] ∀ (p : False → Prop), (∀ (h : False), p h) = True ===> True
+
 
 
 /-! Test cases for simplification rule `True → e ==> e (if Type(e) = Prop)`. -/
@@ -217,6 +223,10 @@ namespace Test.OptimizeForAll
 -- ∀ (a : Bool) (b : Prop), (b ∨ ¬ b) → (!a || a) → b ===> ∀ (b : Prop), b
 #testOptimize [ "ForallTrueImp_9", proof ] ∀ (a : Bool) (b : Prop), (b ∨ ¬ b) → (!a || a) → b ===>
                                     ∀ (b : Prop), b
+
+-- ∀ (x : Nat), (True → ∀ (y : Nat), x + y < 10) = (∀ (y : Nat), x + y < 10) ===> True
+#testOptimize [ "ForallTrueImp_10", proof ]
+  ∀ (x : Nat), (True → ∀ (y : Nat), x + y < 10) = (∀ (y : Nat), x + y < 10) ===> True
 
 
 /-! Test cases for simplification rule `e1 → e2 ==> True (if p1 =ₚₜᵣ p2 ∧ Type(e1) = Prop)`. -/
@@ -343,6 +353,9 @@ variable (c : Nat)
 
 -- ∀ (x y : Int), x ≤ y → ¬ y < x ===> True
 #testOptimize [ "ForallExact_31", proof ] ∀ (x y : Int), x ≤ y → ¬ y < x ===> True
+
+-- ∀ (x y : String), (x ++ y = y → x ++ y = y) = True ===> True
+#testOptimize [ "ForallExact_32", proof ] ∀ (x y : String), (x ++ y = y → x ++ y = y) = True ===> True
 
 
 /-! Test cases to ensure that the following simplification rules are not wrongly applied:

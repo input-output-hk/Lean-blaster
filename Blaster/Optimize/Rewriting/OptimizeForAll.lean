@@ -28,11 +28,11 @@ def isCstImplies? (h : Expr) (a : Expr) (b : Expr) : TranslateEnvT (Option Expr)
      if fVarInExpr h.fvarId! b
      then return (← mkExpr $ Expr.replaceFVar b h (← mkTrueIntro))
      else
-      pushProofStep (.rewrite (mkApp (mkConst ``true_implies) b))
+      pushProofStep (.rewrite (mkConst ``true_implies))
       return b
  | Expr.const ``False _ =>
    pushProofStep (.exact (mkApp2 (mkConst ``False.elim [levelZero]) b h))
-   pushProofStep (.rewrite (mkApp (mkConst ``false_implies) b))
+   pushProofStep (.rewrite (mkConst ``forall_false))
    return (← mkPropTrue)
  | _ => return none
 
@@ -131,7 +131,7 @@ def hypReduction? (h : Expr) (a : Expr) (b : Expr) : TranslateEnvT (Option Expr)
     Note that implication `a → b` is internally represented as `forallE _ a b bi`.
     The simplification/normalization rules applied are:
       - ∀ (n : t), True | e → True ==> True                               [proof: implies_true]
-      - False → e ==> True (if Type(e) = Prop)                            [proof: False.elim, false_implies]
+      - False → e ==> True (if Type(e) = Prop)                            [proof: False.elim, forall_false]
       - h : True → e ==> e (if Type(e) = Prop ∧ ¬ fVarInExpr h.fvarId! e) [proof: true_implies]
       - h : True → e ==> e[h/True.intro] (if Type(e) = Prop ∧ fVarInExpr h.fvarId! e)
             TODO: replace True.intro with proper proof
@@ -151,7 +151,7 @@ def hypReduction? (h : Expr) (a : Expr) (b : Expr) : TranslateEnvT (Option Expr)
 -/
 def optimizeForall (n : Expr) (t : Expr) (h : HypothesisMap) (b : Expr) : TranslateEnvT Expr := do
   if let Expr.const ``True _ := b then
-   pushProofStep (.rewrite (mkApp (mkConst ``implies_true [← getLevel t]) t))
+   pushProofStep (.rewrite (mkConst ``implies_true [← getLevel t]))
    pushProofStep (.exact (mkConst ``True.intro))
    return b
   if let some r ← isCstImplies? n t b then return r
@@ -159,7 +159,7 @@ def optimizeForall (n : Expr) (t : Expr) (h : HypothesisMap) (b : Expr) : Transl
   if exprEq t b then
    if ← isPropEnv t then
       pushProofStep (.exact n)
-      pushProofStep (.rewrite (mkApp (mkConst ``Blaster.implies_self_eq_true) t))
+      pushProofStep (.rewrite (mkConst ``Blaster.implies_self_eq_true))
       return (← mkPropTrue)
   if let some p ← impliesInHyp n b then
     pushImpliesTrueSteps n t b (mkApp p n)
