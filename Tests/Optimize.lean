@@ -18,3 +18,4 @@ import Tests.Optimize.OptimizeRecFun
 import Tests.Optimize.OptimizeUnfold
 import Tests.Optimize.ProjectionPropagation
 import Tests.Optimize.GroundValue
+import Tests.Optimize.ContextMap
