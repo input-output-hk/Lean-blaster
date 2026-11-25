@@ -39,18 +39,18 @@ def indNameToSmtSymbol (indName : Name) : SmtSymbol :=
   mkNormalSymbol s!"@{indName.toString}"
 
 
-/-- Return `some b` if `e := mkAnnotation `__solver.ctorSelector b'`. -/
+/-- Return `some b` if `e := mkAnnotation `___Blaster.ctorSelector b'`. -/
 def toTaggedCtorSelector? (e : Expr) : Option Expr :=
  match e with
  | Expr.mdata d b =>
-      if d.size == 1 && d.getBool `_solver.ctorSelector false
+      if d.size == 1 && d.getBool `__Blaster.ctorSelector false
       then some b else none
  | _ => none
 
-/-- Return `true` if `e := mkAnnotation `_solver.ctorSelector b'`. -/
+/-- Return `true` if `e := mkAnnotation `__Blaster.ctorSelector b'`. -/
 def isTaggedCtorSelector (e : Expr) : Bool :=
  match e with
- | Expr.mdata d _ => d.size == 1 && d.getBool `_solver.ctorSelector
+ | Expr.mdata d _ => d.size == 1 && d.getBool `__Blaster.ctorSelector
  | _ => false
 
 /-- Given `ctor` a constructor name and `idx` corresponding to
@@ -78,7 +78,7 @@ def mkCtorSelectorExpr (ctor : Name) (idx : Nat) (arg : Expr) (type : Expr) : Tr
   let selectorSym := mkCtorSelectorSymbol ctor idx
   let appExpr ← mkAppExpr (← mkExpr (mkConst sctor)) (← mkExpr (mkConst "x".toName))
   let smtTerm := mkSimpleSmtAppN selectorSym #[smtSimpleVarId (mkReservedSymbol "@x")]
-  return (← mkExpr (mkAnnotation `_solver.ctorSelector appExpr), smtTerm)
+  return (← mkExpr (mkAnnotation `__Blaster.ctorSelector appExpr), smtTerm)
 
 /-- Given `ctor` a constructor name and an smt term `s`,
     create the smt term application `is-ctor s`.

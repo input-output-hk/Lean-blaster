@@ -481,7 +481,8 @@ def optimizeEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
    TODO: consider additional simplification rules
 -/
 def optimizeBEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
- if !(← isOpaqueRelational f.constName args) then return ← mkAppNExpr f args
+ let Expr.const n u := f | throwEnvError "optimizeBeq: named expression expected !!!"
+ if !(← isOpaqueRelational n u args) then return ← mkAppNExpr f args
  if args.size != 4 then return mkAppN f args
  -- args[0] is sort parameter
  -- args[1] decidable instance parameter
@@ -545,16 +546,17 @@ def optimizeDecideEq (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  return e
 
  where
-   isBeqCompatibleType? (e : Expr) : TranslateEnvT (Option (Expr × Expr × Expr × Expr)) := do
+   isBeqCompatibleType? (e : Expr) : TranslateEnvT (Option (List Level × Expr × Expr × Expr × Expr)) := do
      match beq? e with
-     | r@(some (beq_sort, beq_inst, _, _)) =>
-         if (← hasLawfulBEqInstance beq_sort beq_inst) then return r else return none
+     | r@(some (u, beq_sort, beq_inst, _, _)) =>
+         if (← hasLawfulBEqInstance u beq_sort beq_inst) then return r else return none
      | _ => return none
 
    mkBeqToEq (beq_sort : Expr) (beq_op1 : Expr) (beq_op2 : Expr) (c : Expr) : TranslateEnvT Expr := do
       setRestart
       let op1Expr ← mkApp3Expr f (← mkBoolType) (← mkBoolTrue) c
-      let op2Expr ← mkApp3Expr f beq_sort beq_op1 beq_op2
+      let u ← getLevelEnv beq_sort
+      let op2Expr ← mkApp3Expr (← mkEqOpLevel [u]) beq_sort beq_op1 beq_op2
       mkApp3Expr f (← mkPropType) op1Expr op2Expr
 
 
@@ -569,8 +571,9 @@ def optimizeDecideEq (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
     match isBoolValue? op1 with
     | some bv =>
       match (← isBeqCompatibleType? op2) with
-      | some (beq_sort, _, beq_op1, beq_op2) =>
-          let eqExpr ← mkApp3Expr f beq_sort beq_op1 beq_op2
+      | some (_u, beq_sort, _, beq_op1, beq_op2) =>
+          let u ← getLevelEnv beq_sort
+          let eqExpr ← mkApp3Expr (← mkEqOpLevel [u]) beq_sort beq_op1 beq_op2
           setRestart
           if bv
           then return eqExpr -- return when bv = true
@@ -578,9 +581,9 @@ def optimizeDecideEq (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
       | _ => return none
     | none =>
        match (← isBeqCompatibleType? op1), (← isBeqCompatibleType? op2) with
-         | some (beq_sort, _, beq_op1, beq_op2), _ =>
+         | some (_u, beq_sort, _, beq_op1, beq_op2), _ =>
              mkBeqToEq beq_sort beq_op1 beq_op2 op2
-         | _, some (beq_sort, _, beq_op1, beq_op2) =>
+         | _, some (_u, beq_sort, _, beq_op1, beq_op2) =>
              mkBeqToEq beq_sort beq_op1 beq_op2 op1
          | _, _ => return none
 
@@ -631,9 +634,7 @@ def optimizeDecideEq (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
           mkApp3Expr f (← mkPropType) e1 (← mkApp3Expr f (← mkBoolType) (← mkBoolTrue) op1)
      | _, _ => return none
 
-
-/-- Apply simplification and normalization rules on `Eq` and `BEq.beq` :
--/
+/-- Apply simplification and normalization rules on `Eq`, `Ne` and `BEq.beq`. -/
 def optimizeEquality? (f : Expr) (args: Array Expr) : TranslateEnvT (Option Expr) := do
   let Expr.const n _ := f | return none
   match n with

@@ -102,7 +102,7 @@ def optimizePropBinary? (f: Expr) (args : Array Expr) : TranslateEnvT (Option Ex
   match n with
   | ``And => optimizeBoolPropAnd f args
   | ``Or => optimizeBoolPropOr f args
-  | `Iff => optimizeIff args
+  | `Iff => optimizeIff f args
   | _ => return none
 
 end Blaster.Optimize

@@ -25,27 +25,37 @@ def mkExpr (e : Expr) : TranslateEnvT Expr := do
 def internalRecFunExpr : TranslateEnvT Expr :=
   return (← get).optEnv.memCache.commonExpr.internalRecFun
 
+/-- Tag expression as rewriteLhs. This metadata is used by Blaster extension to avoid
+    perform reordering on Eq term in theorem body.
+-/
+def tagAsRewriteLhs (e : Expr) : Expr := mkAnnotation `__Blaster.rewriteLhs e
+
+/-- Return `true` if `e := mkAnnotation `__Blaster.rewriteLhs b'`. -/
+def isTaggedRewriteLhs (e : Expr) : Bool :=
+ match e with
+ | Expr.mdata d _ => d.size == 1 && d.getBool `__Blaster.rewriteLhs
+ | _ => false
+
 /-- Tag expression as recursive call. This metadata is used when
     replacing a recursive call function with `internalRecfun`.
 -/
 @[always_inline, inline]
 def tagAsRecursiveCall (e : Expr) : TranslateEnvT Expr :=
- mkExpr (mkAnnotation `_solver.recursivecall e)
+ mkExpr (mkAnnotation `__Blaster.recursivecall e)
 
-/-- Return `some b` if `e := mkAnnotation `_solver.recursivecall b'`. -/
+/-- Return `some b` if `e := mkAnnotation `__Blaster.recursivecall b'`. -/
 def toTaggedRecursiveCall? (e : Expr) : Option Expr :=
  match e with
  | Expr.mdata d b =>
-      if d.size == 1 && d.getBool `_solver.recursivecall false
+      if d.size == 1 && d.getBool `__Blaster.recursivecall false
       then some b else none
  | _ => none
 
-/-- Return `true` if `e := mkAnnotation `_solver.recursivecall b'`. -/
+/-- Return `true` if `e := mkAnnotation `__Blaster.recursivecall b'`. -/
 def isTaggedRecursiveCall (e : Expr) : Bool :=
  match e with
- | Expr.mdata d _ => d.size == 1 && d.getBool `_solver.recursivecall
+ | Expr.mdata d _ => d.size == 1 && d.getBool `__Blaster.recursivecall
  | _ => false
-
 
 /-- Return cached `Bool` type. -/
 def mkBoolType : TranslateEnvT Expr :=
@@ -108,18 +118,25 @@ def mkPropAndOp : TranslateEnvT Expr :=
   return (← get).optEnv.memCache.commonExpr.propAnd
 
 
-/-- Return `BEq.beq` operator and cache result. -/
+/-- Return `BEq.beq` operator with level `[levelZero]` and cache result. -/
 def mkBeqOp : TranslateEnvT Expr :=
   return (← get).optEnv.memCache.commonExpr.beq
 
-/-- Return `Eq` operator and cache result. -/
+/-- Return `Eq` operator with level `[levelOne]` and cache result. -/
 def mkEqOp : TranslateEnvT Expr :=
   return (← get).optEnv.memCache.commonExpr.eq
 
-/-- Return `Blaster.dite'` operator and cache result. -/
+/-- Return `Eq` operator with level `u` and cache result. -/
+def mkEqOpLevel (u : List Level) : TranslateEnvT Expr :=
+   mkExpr (mkConst ``Eq u)
+
+/-- Return `Blaster.dite'` operator with level `[levelOne]` and cache result. -/
 def mkBlasterDIteOp : TranslateEnvT Expr :=
   return (← get).optEnv.memCache.commonExpr.blasterDite
 
+/-- Return `Blaster.dite'` operator with level `u` and cache result. -/
+def mkBlasterDIteOpLevel (u : List Level) : TranslateEnvT Expr :=
+  mkExpr (mkConst ``Blaster.dite' u)
 
 /-- Return `LE.le` operator and cache result. -/
 def mkLeOp : TranslateEnvT Expr :=
@@ -144,13 +161,21 @@ def mkDecidableEqConst : TranslateEnvT Expr := mkExpr (mkConst ``DecidableEq)
 def mkBlasterDecideConst : TranslateEnvT Expr :=
   return (← get).optEnv.memCache.commonExpr.blasterDecide
 
-/-- Return `Inhabited` const expression and cache result. -/
+/-- Return `Inhabited` const expression with level `[levelOne]` and cache result. -/
 def mkInhabitedConst : TranslateEnvT Expr :=
     return (← get).optEnv.memCache.commonExpr.inhabited
 
-/-- Return `LawfulBEq` const expression and cache result. -/
+/-- Return `Inhabited` const expression with level `u` and cache result. -/
+def mkInhabitedConstLevel (u : List Level) : TranslateEnvT Expr :=
+    mkExpr (mkConst ``Inhabited u)
+
+/-- Return `LawfulBEq` const expression with level `[levelZero]` and cache result. -/
 def mkLawfulBEqConst : TranslateEnvT Expr :=
     return (← get).optEnv.memCache.commonExpr.lawfulBEq
+
+/-- Return `LawfulBEq` const expression with level `u` and cache result. -/
+def mkLawfulBEqConstLevel (u : List Level) : TranslateEnvT Expr :=
+   mkExpr (mkConst ``LawfulBEq u)
 
 /-- Return `True.intro` const expression and cache result. -/
 def mkTrueIntro : TranslateEnvT Expr :=
@@ -171,6 +196,58 @@ def mkOfDecideEqTrue : TranslateEnvT Expr :=
 /-- Return `of_decide_eq_false` const expression and cache result. -/
 def mkOfDecideEqFalse : TranslateEnvT Expr :=
     return (← get).optEnv.memCache.commonExpr.ofDecideEqFalse
+
+/-- Return `instBEqOfDecidableEq` expression with level `[levelZero]` and cache result. -/
+def mkInstBEqOfDecEq : TranslateEnvT Expr :=
+    return (← get).optEnv.memCache.commonExpr.instBEqOfDecEq
+
+/-- Return `instDecidableEqNat` expression and cache result. -/
+def mkInstDecEqNatOp : TranslateEnvT Expr :=
+    return (← get).optEnv.memCache.commonExpr.instDecEqNat
+
+/-- Return `Nat.decLt` expression and cache result. -/
+def mkNatDecLtOp : TranslateEnvT Expr :=
+    return (← get).optEnv.memCache.commonExpr.natDecLt
+
+/-- Return `Nat.decLe` expression and cache result. -/
+def mkNatDecLeOp : TranslateEnvT Expr :=
+    return (← get).optEnv.memCache.commonExpr.natDecLe
+
+/-- Return `instDecidableNot` expression and cache result. -/
+def mkInstDecNotOp : TranslateEnvT Expr :=
+    return (← get).optEnv.memCache.commonExpr.instDecNot
+
+/-- Return `Int.instLTInt` expression and cache result. -/
+def mkInstLTInt : TranslateEnvT Expr :=
+    return (← get).optEnv.memCache.commonExpr.instLTInt
+
+/-- Return `instLTNat` expression and cache result. -/
+def mkInstLTNat : TranslateEnvT Expr :=
+    return (← get).optEnv.memCache.commonExpr.instLTNat
+
+/-- Return `Int.decLt` expression and cache result. -/
+def mkIntDecLtOp : TranslateEnvT Expr :=
+    return (← get).optEnv.memCache.commonExpr.intDecLt
+
+/-- Return `Int.instDecidableEq` expression and cache result. -/
+def mkIntDecEqOp : TranslateEnvT Expr :=
+    return (← get).optEnv.memCache.commonExpr.intDecEq
+
+/-- Return `Int.decLe` expression and cache result. -/
+def mkIntDecLeOp : TranslateEnvT Expr :=
+    return (← get).optEnv.memCache.commonExpr.intDecLe
+
+/-- Return `String.decidableLt` expression and cache result. -/
+def mkStrDecLtOp : TranslateEnvT Expr :=
+    return (← get).optEnv.memCache.commonExpr.strDecLt
+
+/-- Return `instDecidableEqString` expression and cache result. -/
+def mkStrDecEqOp : TranslateEnvT Expr :=
+    return (← get).optEnv.memCache.commonExpr.strDecEq
+
+/-- Return `String.decLE` expression and cache result. -/
+def mkStrDecLeOp : TranslateEnvT Expr :=
+    return (← get).optEnv.memCache.commonExpr.strDecLe
 
 /-- Return `Eq.refl` const expression and cache result. -/
 def mkEqRefl (u : List Level) : TranslateEnvT Expr := mkExpr (mkConst ``Eq.refl u)
@@ -230,10 +307,13 @@ def mkIntAddOp : TranslateEnvT Expr :=
 def mkIntMulOp : TranslateEnvT Expr :=
  return (← get).optEnv.memCache.commonExpr.intMul
 
-
 /-- Create an `Int.pow` operator expression and cache result. -/
 def mkIntPowOp : TranslateEnvT Expr :=
  return (← get).optEnv.memCache.commonExpr.intPow
+
+/-- Create an `Int.sub` operator expression and cache result. -/
+def mkIntSubOp : TranslateEnvT Expr :=
+ return (← get).optEnv.memCache.commonExpr.intSub
 
 
 /-- Create an `Int.ediv` operator expression and cache result. -/
@@ -288,29 +368,17 @@ def mkNatLtOp : TranslateEnvT Expr :=
 def mkIntLtOp : TranslateEnvT Expr :=
   return (← get).optEnv.memCache.commonExpr.intLt
 
-/-- Return the `List.get?Internal` operator and cache result. -/
-def mkListGetInternal : TranslateEnvT Expr :=
-  return (← get).optEnv.memCache.commonExpr.listGetInternal
+/-- Return the `List.reverseAux u` operator and cache result. -/
+def mkListReverseAux (u : List Level) : TranslateEnvT Expr :=
+  mkExpr (mkConst ``List.reverseAux u)
 
-/-- Return the `List.reverseAux` operator and cache result. -/
-def mkListReverseAux : TranslateEnvT Expr :=
-  return (← get).optEnv.memCache.commonExpr.listReverseAux
-
-/-- Return the `List.take` operator and cache result. -/
-def mkListTake : TranslateEnvT Expr :=
-  return (← get).optEnv.memCache.commonExpr.listTake
-
-/-- Return the `List.drop` operator and cache result. -/
-def mkListDrop : TranslateEnvT Expr :=
-  return (← get).optEnv.memCache.commonExpr.listDrop
-
-/-- Return the `List.length` operator and cache result. -/
-def mkListLength : TranslateEnvT Expr :=
-  return (← get).optEnv.memCache.commonExpr.listLength
-
-/-- Return the `Nonempty` const expression  and cache result. -/
+/-- Return the `Nonempty` const expression with level `[levelOne]` and cache result. -/
 def mkNonemptyConst : TranslateEnvT Expr :=
   return (← get).optEnv.memCache.commonExpr.nonEmpty
+
+/-- Return the `Nonempty` const expression with level `u` and cache result. -/
+def mkNonemptyConstLevel (u : List Level) : TranslateEnvT Expr :=
+  mkExpr (mkConst ``Nonempty u)
 
 def assertShared (e : Expr) : TranslateEnvT Bool := do
   match (← get).optEnv.hashConsCache.get? e with
@@ -502,6 +570,18 @@ def mkNatEqExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do
 def mkNatLtExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do
   mkApp2Expr (← mkNatLtOp) a b
 
+/-- Return `Nat.decLt a b`. -/
+def mkNatDecLtExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do
+  mkApp2Expr (← mkNatDecLtOp) a b
+
+/-- Return `Nat.decLe a b`. -/
+def mkNatDecLeExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do
+  mkApp2Expr (← mkNatDecLeOp) a b
+
+/-- Return `instDecidableEqNat a b`. -/
+def mkNatDecEqExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do
+  mkApp2Expr (← mkInstDecEqNatOp) a b
+
 /-- `evalBinNatOp f n1 n2 perform the following:
       -  let r := f n1 n2
       - construct nat literal for `r`
@@ -525,6 +605,50 @@ def mkIntEqExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do
 /-- Returns Int `a < b`. -/
 def mkIntLtExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do
   mkApp2Expr (← mkIntLtOp) a b
+
+/-- Return `Int.decLt a b`. -/
+def mkIntDecLtExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do
+  mkApp2Expr (← mkIntDecLtOp) a b
+
+/-- Return `Int.instDecidableEq a b`. -/
+def mkIntDecEqExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do
+  mkApp2Expr (← mkIntDecEqOp) a b
+
+/-- Return `Int.decLe a b`. -/
+def mkIntDecLeExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do
+  mkApp2Expr (← mkIntDecLeOp) a b
+
+
+/-- Given `a`, `b` and `eqExpr := a = b`, return `Int` decidable instance for `¬ a = b``. -/
+def mkIntNotDecEqExprAux (a b eqExpr : Expr) : TranslateEnvT Expr := do
+  mkApp2Expr (← mkInstDecNotOp) eqExpr (← mkIntDecEqExpr a b)
+
+/-- Return `Int` decidable instance for `¬ a = b``. -/
+def mkIntNotDecEqExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do
+  let eqExpr ← mkIntEqExpr a b
+  mkIntNotDecEqExprAux a b eqExpr
+
+
+/-- Given `a`, `b` and `eqExpr := a = b`, return `Nat` decidable instance for `¬ a = b``. -/
+def mkNatNotDecEqExprAux (a b eqExpr : Expr) : TranslateEnvT Expr := do
+  mkApp2Expr (← mkInstDecNotOp) eqExpr (← mkNatDecEqExpr a b)
+
+/-- Return `Nat` decidable instance for `¬ a = b``. -/
+def mkNatNotDecEqExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do
+  let eqExpr ← mkNatEqExpr a b
+  mkNatNotDecEqExprAux a b eqExpr
+
+/-- Return `String.decidableLT a b`. -/
+def mkStrDecLtExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do
+  mkApp2Expr (← mkStrDecLtOp) a b
+
+/-- Return `Str.decLE a b`. -/
+def mkStrDecLeExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do
+  mkApp2Expr (← mkStrDecLeOp) a b
+
+/-- Return `instDecidableEqString a b`. -/
+def mkStrDecEqExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do
+  mkApp2Expr (← mkStrDecEqOp) a b
 
 /-- `mkNatNegExpr n` constructs and cache the negation of a Nat literal expression, i.e.,
      Int.negSucc (Expr.lit (Literal.natVal (n - 1))`.
@@ -573,6 +697,55 @@ def mkCharToNat : TranslateEnvT Expr :=
 def mkUInt32ToNat : TranslateEnvT Expr :=
   mkExpr (mkConst ``UInt32.toNat)
 
+/-- Return `UInt8.ofNat` const expression and cache result. -/
+def mkUInt8OfNat : TranslateEnvT Expr :=
+  mkExpr (mkConst ``UInt8.ofNat)
+
+/-- Return `UInt16.ofNat` const expression and cache result. -/
+def mkUInt16OfNat : TranslateEnvT Expr :=
+  mkExpr (mkConst ``UInt16.ofNat)
+
+/-- Return `UInt32.ofNat` const expression and cache result. -/
+def mkUInt32OfNat : TranslateEnvT Expr :=
+  mkExpr (mkConst ``UInt32.ofNat)
+
+/-- Return `UInt64.ofNat` const expression and cache result. -/
+def mkUInt64OfNat : TranslateEnvT Expr :=
+  mkExpr (mkConst ``UInt64.ofNat)
+
+/-- Return `USize.ofNat` const expression and cache result. -/
+def mkUSizeOfNat : TranslateEnvT Expr :=
+  mkExpr (mkConst ``USize.ofNat)
+
+/-- Return `Int8.ofNat` const expression and cache result. -/
+def mkInt8OfNat : TranslateEnvT Expr :=
+  mkExpr (mkConst ``Int8.ofNat)
+
+/-- Return `Int16.ofNat` const expression and cache result. -/
+def mkInt16OfNat : TranslateEnvT Expr :=
+  mkExpr (mkConst ``Int16.ofNat)
+
+/-- Return `Int32.ofNat` const expression and cache result. -/
+def mkInt32OfNat : TranslateEnvT Expr :=
+  mkExpr (mkConst ``Int32.ofNat)
+
+/-- Return `Int64.ofNat` const expression and cache result. -/
+def mkInt64OfNat : TranslateEnvT Expr :=
+  mkExpr (mkConst ``Int64.ofNat)
+
+/-- Return `ISize.ofNat` const expression and cache result. -/
+def mkISizeOfNat : TranslateEnvT Expr :=
+  mkExpr (mkConst ``ISize.ofNat)
+
+/-- Return `BitVec.ofNat` const expression and cache result. -/
+def mkBitVecOfNat : TranslateEnvT Expr :=
+  mkExpr (mkConst ``BitVec.ofNat)
+
+/-- Return `Fin.ofNat` const expression and cache result. -/
+def mkFinOfNat : TranslateEnvT Expr :=
+  mkExpr (mkConst ``Fin.ofNat)
+
+
 /-- Given `e` the operand for `UInt32.toNat` returns the normalized application
     form for `Uint32.toNat e`.
 -/
@@ -584,7 +757,8 @@ def mkCharExpr (c : Char) : TranslateEnvT Expr := do
   mkAppExpr (← mkCharOfNat) (← mkNatLitExpr c.toNat)
 
 /-- Return `Char` type expression and cache result. -/
-def mkCharType : TranslateEnvT Expr := mkExpr (mkConst ``Char)
+def mkCharType : TranslateEnvT Expr :=
+  return (← get).optEnv.memCache.commonExpr.charType
 
 /-- Given `u` a list level and `lsort` the list type return `List.nil` expression and cache result -/
 def mkListNil (u : List Level) (lsort : Expr) : TranslateEnvT Expr := do

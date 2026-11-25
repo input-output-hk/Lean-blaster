@@ -103,6 +103,30 @@ def natRelRightReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :
     NOTE: This function need to be updated each time we are opacifying other Lean inductive types.
     Otheriwse `none`.
 -/
+def cstLT? (op1 : Expr) (op2 : Expr) : Option Bool :=
+ match op1 with
+ | Expr.lit (Literal.natVal n1) =>
+    if let Expr.lit (Literal.natVal n2) := op2
+    then some $ Nat.blt n1 n2
+    else none
+ | Expr.lit (Literal.strVal s1) =>
+    if let Expr.lit (Literal.strVal s2) := op2
+    then some $ s1 < s2
+    else none
+ | _ =>
+   if let some n1 := isIntValue? op1 then
+     if let some n2 := isIntValue? op2
+     then some $ n1 < n2
+     else none
+   else none
+
+/-- Given `op1` and `op2` corresponding to the operands for `LT.lt`:
+      - return `some (N1 "<" N2)` when `op1 := N1 ∧ op2 := N2 ∧ Type(op1) = Nat`
+      - return `some (N1 "<" N2)` when `op1 := N1 ∧ op2 := N2 ∧ Type(op1) = Int`
+      - return `some (S1 "<" S2)` when `op1 := S1 ∧ op2 := S2 ∧ Type(op1) = String`
+    NOTE: This function need to be updated each time we are opacifying other Lean inductive types.
+    Otheriwse `none`.
+-/
 def cstLTProp? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :=
   if let some b := cstLT? op1 op2
   then mkPropLit b
@@ -295,7 +319,8 @@ def natZeroLtSumReduce? (op1 op2 : Expr) : TranslateEnvT (Option Expr) := do
    Do nothing if operator is partially applied (i.e., args.size < 4)
 -/
 def optimizeLT (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
- if !(← isOpaqueRelational f.constName args) then return ← mkAppNExpr f args
+ let Expr.const n u := f | throwEnvError "optimizeLT: named expression expected !!!"
+ if !(← isOpaqueRelational n u args) then return ← mkAppNExpr f args
  if args.size != 4 then return ← mkAppNExpr f args
  -- args[0] is sort parameter
  -- args[1] LT instance
@@ -354,12 +379,15 @@ def optimizeLT (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
      let some (e3, e4) := natAdd? op2 | return none
      let some n1 := isNatValue? e1 | return none
      let some n2 := isNatValue? e3 | return none
+     let mkAdd (a : Nat) (b : Expr) := do
+       if a == 0 then return b
+       else mkApp2Expr (← mkNatAddOp) (← mkNatLitExpr a) b
      setRestart
      let minValue := min n1 n2
      let leftValue := n1 - minValue
      let rightValue := n2 - minValue
-     let op1' ← mkApp2Expr (← mkNatAddOp) (← mkNatLitExpr leftValue) e2
-     let op2' ← mkApp2Expr (← mkNatAddOp) (← mkNatLitExpr rightValue) e4
+     let op1' ← mkAdd leftValue e2
+     let op2' ← mkAdd rightValue e4
      mkApp4Expr f args[0]! args[1]! op1' op2'
 
    /-- Given `op1` and `op2` corresponding to the operands for `LT.lt` such that,
@@ -372,12 +400,15 @@ def optimizeLT (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
      let some (e3, e4) := intAdd? op2 | return none
      let some n1 := isIntValue? e1 | return none
      let some n2 := isIntValue? e3 | return none
+     let mkAdd (a : Int) (b : Expr) := do
+       if a == 0 then return b
+       else mkApp2Expr (← mkIntAddOp) (← mkIntLitExpr a) b
      setRestart
      let minValue := min n1 n2
      let leftValue := n1 - minValue
      let rightValue := n2 - minValue
-     let op1' ← mkApp2Expr (← mkIntAddOp) (← mkIntLitExpr leftValue) e2
-     let op2' ← mkApp2Expr (← mkIntAddOp) (← mkIntLitExpr rightValue) e4
+     let op1' ← mkAdd leftValue e2
+     let op2' ← mkAdd rightValue e4
      mkApp4Expr f args[0]! args[1]! op1' op2'
 
 
@@ -393,7 +424,8 @@ def optimizeLT (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
    Assume that f = Expr.const ``LE.le.
 -/
 def optimizeLE (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
- if !(← isOpaqueRelational f.constName args) then return ← mkAppNExpr f args
+ let Expr.const n u := f | throwEnvError "optimizeLE: named expression expected !!!"
+ if !(← isOpaqueRelational n u args) then return ← mkAppNExpr f args
  if args.size == 4 then
    -- args[0] is sort parameter
    -- args[1] Le instance

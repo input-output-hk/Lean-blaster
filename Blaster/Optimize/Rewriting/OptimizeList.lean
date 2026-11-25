@@ -72,7 +72,9 @@ def isUnfoldListIdx? (f lsort slist idx : Expr) : TranslateEnvT (Option Expr) :=
       let thenExpr ← mkLambdaExpr hName BinderInfo.default iteCond (← mkOptionExpr lsort u (some a))
       visit as (n + 1) fun e' => do
           let elseExpr ← mkLambdaExpr hName BinderInfo.default notCond e'
-          k (← mkApp4Expr (← mkBlasterDIteOp) (← mkOptionType lsort u) iteCond thenExpr elseExpr)
+          let diteType ← mkOptionType lsort u
+          let diteLevel ← getLevelEnv diteType
+          k (← mkApp4Expr (← mkBlasterDIteOpLevel [diteLevel]) diteType iteCond thenExpr elseExpr)
   | _ => if n == 0 then return none
          else
           setRestart
@@ -178,7 +180,7 @@ def cstListReverse? (f lsort slist alist : Expr): TranslateEnvT (Option Expr) :=
      - List.reverseAux [] l ===> l
      - List.reverseAux [e₀, e₁, ..., eₖ] l ==> eₖ :: ... :: e₁ :: e₀ :: l
      - List.reverseAux (e₀ :: e₁ :: ... :: eₖ :: x) l ==> List.reverseAux x (eₖ :: ... :: e₁ :: e₀ :: l)
-
+     - List.reverseAux (List.reverseAux l []) [] ===> l
    Assume that f = Expr.const ``List.reverseAux.
    Optimization are not applied when args.size ≠ 3 (e.g., List.reverse as HOF)
 -/
@@ -192,8 +194,18 @@ def optimizeListReverseAux (f : Expr) (args : Array Expr) : TranslateEnvT Expr :
  let op3 := args[2]!
  if isNilList op2 then return op3
  if let some r ← cstListReverse? f op1 op2 op3 then return r
+ if let some r := idListReverse? op2 op3 then return r
  mkApp3Expr f op1 op2 op3
 
+ where
+   /-- Return `some l` only when `op1 := List.reverseAux l [] ∧ op2 := []` -/
+   idListReverse? (op1 op2 : Expr) : Option Expr :=
+     if isNilList op2 then
+       match op1 with
+       | Expr.app (Expr.app (Expr.app (Expr.const ``List.reverseAux _) _sort) op1') op2' =>
+           if isNilList op2' then op1' else none
+       | _ => none
+     else none
 
 /-- Given `f := Expr.const ``List.length`, `lsort` the corresponding list sort, `slist` the list argument,
     perform the following:

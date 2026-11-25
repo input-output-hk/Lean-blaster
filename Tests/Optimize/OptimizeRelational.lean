@@ -1,0 +1,6 @@
+import Tests.Optimize.OptimizeRelational.OptimizeLE
+import Tests.Optimize.OptimizeRelational.OptimizeLTBasic
+import Tests.Optimize.OptimizeRelational.OptimizeLTInt
+import Tests.Optimize.OptimizeRelational.OptimizeLTAddSelf
+import Tests.Optimize.OptimizeRelational.OptimizeLTAddCst
+import Tests.Optimize.OptimizeRelational.OptimizeLTHyps

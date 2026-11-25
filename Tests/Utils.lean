@@ -141,9 +141,9 @@ partial def normNatLitAndLambdaBeta (e : Expr) : MetaM Expr := do
          mkLetFVars #[x] (← visit (b.instantiate1 x))
     | Expr.mdata _ e => return e
     | Expr.proj `OfNat _ _ =>
-       let some re ← reduceProj? e
-         | throwError "normNatLit: ofNat projection expected to be reduced !!!"
-       return re
+           if let some re ← reduceProj? e
+           then return re
+           else return e -- case when OfNat is partially applied
     | _ => return e
   visit e
 

@@ -34,6 +34,7 @@ namespace Blaster.Optimize
          - return none
 -/
 def reduceApp? (f : Expr) (args : Array Expr) : TranslateEnvT (Option BetaLambdaResult) := do
+ if ← isNormalizeOnly then return none
  if let some r ← isOpaqueRecReduction? f args then return r
  if (← isOpaqueFunExpr f args) then return none
  if let some r ← isFunRecReduction? f args then return r
@@ -75,6 +76,21 @@ def optimizeAppAux (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
   if let some e ← optimizeList? f args then return e
   mkAppNExpr f args
 
+/-- Same as `optimizeAppAux` but call optimizeAppAux iteratively until a fixed-point is reached
+    Indeed, this function is to be called only by Blaster extension
+-/
+@[noinline]
+def optimizeAppExt (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
+  if args.any (·.hasLooseBVars) then return ← mkAppNExpr f args
+  let mut r ← optimizeAppAux f args
+  while (← isRestart) do
+    resetRestart
+    let (f, args) := getAppFnWithArgs r
+    let r' ← optimizeAppAux f args
+    if exprEq r' r then resetRestart
+    r := r'
+  return r
+
  /-- Given `rf` a function application instance (see function `getInstApp`) and `params` its
        implicit parameter inffo (see function `getImplicitParameters`), perform the following:
          let instanceArgs := [ params[i] | ∀ i ∈ [0..params.size-1] ∧ params[i].isInstance ]
@@ -106,7 +122,7 @@ def finalizeRecApp
        if rf.isConst then
          stackContinuity xs (← mkAppNExpr rf uargs)
        else -- polyomrphic case: we need to remove the generic parameters
-         let auxApp ← betaLambdaShared rf (← getEffectiveParams params)
+         let auxApp ← instantiateRecFun rf params
          stackContinuity xs auxApp
      else if rf.isConst then
          -- case when a polymorphic/non-polymorphic function is equivalent to another non-polymorphic one
@@ -114,7 +130,10 @@ def finalizeRecApp
          -- trace[Optimize.recFun.app] "non-polymorphic equivalent case {reprStr rf} {reprStr eargs}"
          isEquivOpaqueFun rf (← mkAppNExpr rf eargs) xs
      else
-       let auxApp ← betaLambdaShared rf (← getEffectiveParams params)
+       -- NOTE: We need to cover equivalence cases between:
+       --  - two polymorphic functions for which only implicit parameters are provided
+       --  - two polymorphic functions for which at least one has only implicit parameters
+       let auxApp ← instantiateRecFun rf params
        if auxApp.isLambda then
          -- case for partially applied functions, i.e., some explicit arguments not provided
          let appCall := getLambdaBody auxApp
@@ -125,6 +144,21 @@ def finalizeRecApp
          -- trace[Optimize.recFun.app] "polymorphic equivalent case {reprStr auxApp.getAppFn'} {reprStr auxApp.getAppArgs}"
          isEquivOpaqueFun auxApp.getAppFn auxApp xs
  where
+
+   instantiateRecFun (f : Expr) (params : ImplicitParameters) : TranslateEnvT Expr := do
+     let mut args ← retrieveGenericFVars params
+     if (getLambdaBody f).isApp then
+       for h : i in [:params.size] do
+         let e := params[i]
+         if !e.isInstance then
+           args := args.push e.effectiveArg
+       betaLambdaShared f args
+     else
+       for h : i in [:params.size] do
+         let e := params[i]
+         args := args.push e.effectiveArg
+       betaLambdaShared f args
+
    isEquivOpaqueFun (f : Expr) (e : Expr) (xs : List OptimizeStack) : TranslateEnvT OptimizeContinuity := do
      let isOpaqueRecFun (f : Expr) : Bool :=
        if exprEq uf f then false
@@ -155,7 +189,7 @@ def finalizeRecApp
 def normRecFun (uf : Expr) (uargs : Array Expr) (appExpr : Expr) (xs : List OptimizeStack) : TranslateEnvT OptimizeContinuity := do
  let Expr.const n _ := uf | return (← stackContinuity xs appExpr)
  let isOpaqueRec ← isOpaqueRecFun uf uargs
- if (← isRecursiveFun n) || isOpaqueRec
+ if !(← isNormalizeOnly) && ((← isRecursiveFun n) || isOpaqueRec)
  then
    -- trace[Optimize.recFun] "normalizing rec function {n}"
    let (f, args) ← resolveOpaque uf uargs isOpaqueRec
@@ -164,39 +198,41 @@ def normRecFun (uf : Expr) (uargs : Array Expr) (appExpr : Expr) (xs : List Opti
    let params ← getImplicitParameters f args
    -- trace[Optimize.recFun] "implicit arguments for {n} ==> {reprStr params}"
    -- get instance application
-   let instApp ← getInstApp f params
-   if (← isVisitedRecFun instApp) then
+   let instCache ← getInstApp f params (cacheEntry := true)
+   if (← isVisitedRecFun instCache) then
      -- trace[Optimize.recFun] "rec function instance {instApp} is in visiting cache"
      finalizeRecApp uf f uargs params xs -- already cached
-   else if let some r ← hasRecFunInst? instApp then
-     -- trace[Optimize.recFun] "rec function instance {instApp} is already equivalent to {reprStr r}"
-     finalizeRecApp uf r uargs params xs
    else
-     cacheFunName instApp -- cache function name
-     let some fbody ← getFunBody f
-       | throwEnvError "normOpaqueAndRecFun: recursive function body expected for {reprStr f}"
-     -- instantiating polymorphic parameters in fun body
-     let fdef ← generalizeRecCall f params fbody
-     -- trace[Optimize.recFun] "generalizing rec body for {n} got {reprStr fdef}"
-     let subsInst ← opaqueInstApp uf uargs isOpaqueRec instApp
-     -- optimize recursive fun definition and store
-     -- NOTE: keeping track of next ctxId to generate for clean-up
-     let nextCtxId := (← get).optEnv.options.nextCtxId
-     return Sum.inl (.InitOptimizeExpr fdef :: .RecFunDefWaitForStorage uargs instApp subsInst params nextCtxId :: xs)
+     let instApp ← getInstApp f params
+     if let some r ← hasRecFunInst? instApp then
+       -- trace[Optimize.recFun] "rec function instance {instApp} is already equivalent to {reprStr r}"
+       finalizeRecApp uf r uargs params xs
+     else
+       cacheFunName instCache -- cache function name
+       let some fbody ← getFunBody f
+         | throwEnvError "normOpaqueAndRecFun: recursive function body expected for {reprStr f}"
+       -- instantiating polymorphic parameters in fun body
+       let fdef ← generalizeRecCall f params fbody
+       -- trace[Optimize.recFun] "generalizing rec body for {n} got {reprStr fdef}"
+       let subsInst ← opaqueInstApp uf uargs isOpaqueRec instApp
+       -- optimize recursive fun definition and store
+       -- NOTE: keeping track of next ctxId to generate for clean-up
+       let nextCtxId := (← get).optEnv.options.nextCtxId
+       return Sum.inl (.InitOptimizeExpr fdef :: .RecFunDefWaitForStorage uargs instCache subsInst params nextCtxId :: xs)
  else stackContinuity xs appExpr -- proceed with continuity
 
  where
 
-   /-- Given a function application f x₁ ... xₙ, flag `isOpaqueRec` and default instance application `instApp`
+   /-- Given a function application f x₁ ... xₙ, flag `isOpaqueRec` and the default instance application `instApp`
        perform the following:
          - When isOpaqueRec:
              - return `getInstApp (← getImplicitParameters f x₁ ... xₙ)`
          - Otherwise:
-             - return instApp
+             - return `instApp`
    -/
    opaqueInstApp (f : Expr) (args : Array Expr) (isOpaqueRec : Bool) (instApp : Expr) : TranslateEnvT Expr := do
-     if isOpaqueRec then
-        getInstApp f (← getImplicitParameters f args)
+     if isOpaqueRec
+     then getInstApp f (← getImplicitParameters f args)
      else return instApp
 
    /-- Given a function application f x₁ ... xₙ and flag `isOpaqueRec` perform the following:
@@ -251,14 +287,6 @@ def optimizeApp
        normRecFun f' args' e stack
     else stackContinuity stack e -- proceed with continuity
 
-  where
-    @[always_inline, inline]
-    isFunPropagation? (e : Expr) : TranslateEnvT (Option OptimizeStack) := do
-      if e.isApp then
-        let (f', args') := getAppFnWithArgs e
-        funPropagation? f' args' (← isAppArg)
-      else return none
-
 /-- Given application `f x₁ ... xₙ`,
      - When `isFunITE f` (i.e., f is a Blaster.dite' that return a function)
          - return none
@@ -274,11 +302,16 @@ def normPartialFun? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr)
  if isFunITE f then return none
  let pInfo ← getFunEnvInfo f
  if pInfo.paramsInfo.size <= args.size then return none
- let nbImplicits := pInfo.paramsInfo.foldl (fun acc p => if !p.isExplicit then acc + 1 else acc) 0
- if nbImplicits == args.size then return none
- etaExpand (← mkAppNExpr f args)
+ if hasAtLeastOneExplicit pInfo
+ then etaExpand (← mkAppNExpr f args)
+ else return none
 
  where
+   hasAtLeastOneExplicit (pInfo : FunEnvInfo) : Bool := Id.run $ do
+     for i in [:args.size] do
+       if pInfo.paramsInfo[i]!.isExplicit then return true
+     return false
+
    isFunITE (e : Expr) : Bool :=
      match e with
      | Expr.const ``Blaster.dite' _ => args.size > 4

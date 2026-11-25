@@ -236,4 +236,23 @@ variable (α : Type) (a b c : α) (xs : List α) (i n : Nat) (x y : Nat)
 -- [a, b][1]? = some b ===> True
 #testOptimize [ "ListGetReduce_3" ] [a, b][1]? = some b ===> True
 
+/-! Universe level of the `Blaster.dite'` produced by `isUnfoldListIdx?`: its sort is `Option α`, whose
+    level is the one of `α` (level `2` for `α := Type`, `3` for `α := Type 1`), not always `1`. -/
+
+-- [x, y][i]? ===> sif 0 = i then some x else sif 1 = i then some y else none  (with x y : Type)
+#testOptimize [ "ListGetLevel_1" ] (norm-result: 1) ∀ (i : Nat) (x y : Type), [x, y][i]? = some x ===>
+  ∀ (i : Nat) (x y : Type),
+    some x = Blaster.dite' (0 = i) (fun _ => some x)
+              (fun _ => Blaster.dite' (1 = i) (fun _ => some y) (fun _ => (none : Option Type)))
+
+-- (x :: xs)[i]? ===> sif 0 = i then some x else List.get?Internal xs (i - 1)  (with xs : List Type)
+#testOptimize [ "ListGetLevel_2" ] (norm-result: 1) ∀ (i : Nat) (x : Type) (xs : List Type), (x :: xs)[i]? = some x ===>
+  ∀ (i : Nat) (x : Type) (xs : List Type),
+    some x = Blaster.dite' (0 = i) (fun _ => some x) (fun _ => List.get?Internal xs (Nat.sub i 1))
+
+-- [x][i]? ===> sif 0 = i then some x else none  (with x y : Type 1)
+#testOptimize [ "ListGetLevel_3" ] (norm-result: 1) ∀ (i : Nat) (x y : Type 1), [x][i]? = some y ===>
+  ∀ (i : Nat) (x y : Type 1),
+    some y = Blaster.dite' (0 = i) (fun _ => some x) (fun _ => (none : Option (Type 1)))
+
 end Test.ListGet

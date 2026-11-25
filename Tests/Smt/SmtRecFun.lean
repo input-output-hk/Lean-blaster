@@ -72,4 +72,20 @@ theorem A_self_size (a : A) : (A.self a).sizeA = a.sizeA + 1 := by blaster
 
 #blaster (gen-cex: 0) (solve-result: 1) [ ∀ (n : Nat), isEven (n+2) → ¬ isEven n ]
 
+def mylen {α : Type} : List α → Nat
+  | [] => 0
+  | _ :: xs => 1 + mylen xs
+
+#blaster [∀ (α : Type) (g : (List α → Nat) → Nat), g (fun l => mylen l) = g (@mylen α)]
+
+#blaster [∀ (α : Type) (g : (List α → Nat) → Nat) (l : List α), mylen l = 0 → g (@mylen α) = g (fun x => mylen x)]
+
+#blaster [∀ (α : Type) (g : (List α → Nat) → Nat), g (@mylen α) = g (fun l => mylen l)]
+
+def mysum {α : Type} [Add α] [OfNat α 0] : List α → α
+  | [] => 0
+  | x :: xs => x + mysum xs
+
+#blaster [∀ (g : (List Nat → Nat) → Nat), g (@mysum Nat _ _) = g (fun l => mysum l)]
+
 end Test.SmtRecFun

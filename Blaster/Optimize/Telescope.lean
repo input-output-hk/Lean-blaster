@@ -49,16 +49,16 @@ structure TelescopeEnv where
 def mkLocalDecl (fvar : Expr) (userName : Name) (type : Expr) (bi : BinderInfo := BinderInfo.default) (kind : LocalDeclKind := .default) : TranslateEnvT Unit := do
   let optClass ← isClassConstraintExpr? type
   modifyOptEnv
-   fun ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, ⟨⟨fvarIdToDecl, decls, auxDecl⟩, localInsts⟩, o14⟩ =>
+   fun ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, ⟨⟨fvarIdToDecl, decls, auxDecl⟩, localInsts⟩, o14, o15⟩ =>
       let decl := LocalDecl.cdecl decls.size fvar.fvarId! userName type bi kind
       let fvarIdToDecl := fvarIdToDecl.insert fvar.fvarId! decl
       let decls := decls.push decl
       match optClass with
-      | none => ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, ⟨⟨fvarIdToDecl, decls, auxDecl⟩, localInsts⟩, o14⟩
+      | none => ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, ⟨⟨fvarIdToDecl, decls, auxDecl⟩, localInsts⟩, o14, o15⟩
       | some c =>
           if decl.isImplementationDetail then
-            ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, ⟨⟨fvarIdToDecl, decls, auxDecl⟩, localInsts⟩, o14⟩
-          else ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, ⟨⟨fvarIdToDecl, decls, auxDecl⟩, localInsts.push ⟨c, fvar⟩⟩, o14⟩
+            ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, ⟨⟨fvarIdToDecl, decls, auxDecl⟩, localInsts⟩, o14, o15⟩
+          else ⟨o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11, o12, ⟨⟨fvarIdToDecl, decls, auxDecl⟩, localInsts.push ⟨c, fvar⟩⟩, o14, o15⟩
 
 
 @[always_inline, inline]
@@ -440,19 +440,18 @@ def getImplicitParameters (f : Expr) (args : Array Expr) : TranslateEnvT Implici
       - When instanceArgs.isEmpty
           - return `f`
       - Otherwise:
-          - When instanceArgs.size == params.size (i.e., only implicit arguments provided)
+          - When ¬ cacheEntry ∧ instanceArgs.size == params.size ∧ ¬ genFVars.isEmpty (i.e., only implicit arguments provided)
              - return `mkLambdaFVars genFVars f`
           - Otherwise:
              - return `mkLambdaFVars genFVars (specializeLambda (← etaExpand f) params)`
 -/
-def getInstApp (f : Expr) (params : ImplicitParameters) : TranslateEnvT Expr := do
+def getInstApp (f : Expr) (params : ImplicitParameters) (cacheEntry := false) : TranslateEnvT Expr := do
  let instanceArgs := Array.filter (λ p => p.isInstance) params
  if instanceArgs.isEmpty then return f
  else
   let genFVars ← retrieveGenericFVars params
-  if instanceArgs.size == params.size
-  then mkLambdaFVarsExpr genFVars f -- only implicit arguments provided
-  else mkLambdaFVarsExpr genFVars (← specializeLambda (← etaExpand f) params)
-
+  if cacheEntry || instanceArgs.size != params.size || genFVars.isEmpty
+  then mkLambdaFVarsExpr genFVars (← specializeLambda (← etaExpand f) params)
+  else mkLambdaFVarsExpr genFVars f
 
 end Blaster.Optimize

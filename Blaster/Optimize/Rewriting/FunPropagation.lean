@@ -35,7 +35,7 @@ def getAppliedMatchType (t : Expr) (nbArgs : Nat) : Expr :=
 def normChoiceApplication?
   (f : Expr) (args : Array Expr) (prevInApp : Bool) : TranslateEnvT (Option OptimizeStack) := do
     if let some r ← normDIteApp? f args then return r
-    normMatchApp? f args
+    else normMatchApp? f args
 
   where
     mkAppInDIteExpr (args : Array Expr) (ite_cond : Expr) (ite_e : Expr) : TranslateEnvT Expr := do
@@ -61,8 +61,11 @@ def normChoiceApplication?
       -- update dite sort type
       -- NOTE: We expect that the ite sort is of form ∀ α₀ → ... → αₙ to avoid type inference,
       -- which is costly.
-      let dite_args := dite_args.set! 0 (args[0]!.getForallBodyMaxDepth (args.size - 4))
-      return some (.AppOptimizeImplicitArgs f dite_args 4 0 4 (← getFunEnvInfo f) prevInApp)
+      let diteType := args[0]!.getForallBodyMaxDepth (args.size - 4)
+      let dite_args := dite_args.set! 0 diteType
+      let diteLevel ← getLevelEnv diteType
+      let diteOp ← mkBlasterDIteOpLevel [diteLevel]
+      return some (.AppOptimizeImplicitArgs diteOp dite_args 4 0 4 (← getFunEnvInfo f) prevInApp)
 
     mkAppInRhs (args : Array Expr) (beginIdx endIdx : Nat) (nbParams : Nat) (rhs : Expr) : TranslateEnvT Expr := do
       applyOnLambdaBoundedBody rhs nbParams (fun body => mkAppRangeExpr body beginIdx endIdx args)
@@ -126,6 +129,7 @@ def normChoiceApplication?
 def funPropagation?
   (cf : Expr) (cargs : Array Expr) (prevInApp : Bool)
   (reorderArgs := false) (resolveArgs := false) : TranslateEnvT (Option OptimizeStack) := do
+  if ← isNormalizeOnly then return none
   match cf with
   | Expr.const n _ =>
       if n == ``Blaster.dite' then return none
@@ -187,7 +191,7 @@ def funPropagation?
     @[always_inline, inline]
     diteCstProp? (f : Expr) (args : Array Expr) (idxArg : Nat) : TranslateEnvT (Option OptimizeStack) := do
       -- NOTE: can't be an applied dite' function (e.g., applied to more than 4 arguments)
-      if let some (_psort, pcond, e1, e2) := dite'? args[idxArg]! then
+      if let some (_u, _psort, pcond, e1, e2) := dite'? args[idxArg]! then
         let pInfo ← getFunEnvInfo f
         -- NOTE: We here prefer to instantiate the generic type kept in FunEnvInfo instead
         -- of calling inferTypeEnv as the latter is costly.
@@ -199,8 +203,9 @@ def funPropagation?
         propagateReuseContext e1 e1' 0
         propagateReuseContext e2 e2' 0
         -- NOTE: we also need to set the sort type for the pulled dite' to meet the function's return type
+        let diteLevel ← getLevelEnv retType
         let dite_args := #[retType, pcond, e1', e2']
-        let dite_op ← mkBlasterDIteOp
+        let dite_op ← mkBlasterDIteOpLevel [diteLevel]
         let fInfo ← getFunEnvInfo dite_op
         setIsAppArg prevInApp
         if resolveArgs then

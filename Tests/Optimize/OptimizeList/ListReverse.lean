@@ -78,10 +78,86 @@ variable (α : Type) (a b c : α) (xs ys : List α) (x y : Nat)
 -- List.reverseAux xs [a] ===> List.reverseAux xs [a]
 #testOptimize [ "ListReverseUnchanged_3" ] List.reverseAux xs [a] ===> List.reverseAux xs [a]
 
--- List.reverse (List.reverse xs) ===> List.reverseAux (List.reverseAux xs []) []
--- NOTE: Can be reduced to `xs` with an additional simplification rule.
-#testOptimize [ "ListReverseUnchanged_4" ] List.reverse (List.reverse xs) ===>
-  List.reverseAux (List.reverseAux xs []) []
+
+
+/-! Test cases for rule `List.reverseAux (List.reverseAux l []) [] ===> l` (`idListReverse?`). -/
+
+-- List.reverse (List.reverse xs) ===> xs
+#testOptimize [ "ListReverseInv_1" ] List.reverse (List.reverse xs) ===> xs
+
+-- List.reverseAux (List.reverseAux xs []) [] ===> xs
+#testOptimize [ "ListReverseInv_2" ] List.reverseAux (List.reverseAux xs []) [] ===> xs
+
+-- List.reverse (List.reverse (List.reverse xs)) ===> List.reverseAux xs []
+-- NOTE: the inner pair is reduced first, the remaining reversal is kept
+#testOptimize [ "ListReverseInv_3" ] List.reverse (List.reverse (List.reverse xs)) ===> List.reverseAux xs []
+
+-- List.reverse (List.reverse (List.reverse (List.reverse xs))) ===> xs
+#testOptimize [ "ListReverseInv_4" ] List.reverse (List.reverse (List.reverse (List.reverse xs))) ===> xs
+
+-- List.reverse (List.reverse (xs ++ [])) ===> xs
+-- NOTE: the list argument is optimized before applying the rule
+#testOptimize [ "ListReverseInv_5" ] List.reverse (List.reverse (xs ++ [])) ===> xs
+
+-- (List.reverse (List.reverse xs)) ++ ys ===> List.append xs ys
+#testOptimize [ "ListReverseInv_6" ] List.reverse (List.reverse xs) ++ ys ===> List.append xs ys
+
+-- ∀ xs, List.reverse (List.reverse xs) = xs ===> True
+#testOptimize [ "ListReverseInv_7" ] ∀ (xs : List α), List.reverse (List.reverse xs) = xs ===> True
+
+-- ∀ xs ys, List.reverse (List.reverse xs) = ys ===> ∀ xs ys, xs = ys
+#testOptimize [ "ListReverseInv_8" ] ∀ (xs ys : List α), List.reverse (List.reverse xs) = ys ===>
+  ∀ (xs ys : List α), xs = ys
+
+-- List.reverse (List.reverse (a :: b :: xs)) ===> List.reverseAux (List.reverseAux xs [b, a]) []
+-- NOTE: the inner reversal is normalized first (`List.reverseAux xs [b, a]`): its accumulator is no
+-- longer `[]`, the rule does not apply (the constant prefix is reversed by the `cstListReverse?` rule
+-- on the outer application only once `xs` is a constructor)
+#testOptimize [ "ListReverseInv_9" ] List.reverse (List.reverse (a :: b :: xs)) ===>
+  List.reverseAux (List.reverseAux xs [b, a]) []
+
+
+/-! Test cases to ensure that rule `List.reverseAux (List.reverseAux l []) [] ===> l` is not applied
+    when one of the accumulators is not `[]` or when the inner list is not a `List.reverseAux`. -/
+
+-- List.reverseAux (List.reverseAux xs []) ys ===> List.reverseAux (List.reverseAux xs []) ys
+#testOptimize [ "ListReverseInvUnchanged_1" ] List.reverseAux (List.reverseAux xs []) ys ===>
+  List.reverseAux (List.reverseAux xs []) ys
+
+-- List.reverseAux (List.reverseAux xs []) [a] ===> List.reverseAux (List.reverseAux xs []) [a]
+#testOptimize [ "ListReverseInvUnchanged_2" ] List.reverseAux (List.reverseAux xs []) [a] ===>
+  List.reverseAux (List.reverseAux xs []) [a]
+
+-- List.reverseAux (List.reverseAux xs ys) [] ===> List.reverseAux (List.reverseAux xs ys) []
+#testOptimize [ "ListReverseInvUnchanged_3" ] List.reverseAux (List.reverseAux xs ys) [] ===>
+  List.reverseAux (List.reverseAux xs ys) []
+
+-- List.reverseAux (List.reverseAux xs [a]) [] ===> List.reverseAux (List.reverseAux xs [a]) []
+#testOptimize [ "ListReverseInvUnchanged_4" ] List.reverseAux (List.reverseAux xs [a]) [] ===>
+  List.reverseAux (List.reverseAux xs [a]) []
+
+-- List.reverseAux (List.reverseAux xs ys) zs ===> List.reverseAux (List.reverseAux xs ys) zs
+#testOptimize [ "ListReverseInvUnchanged_5" ] ∀ (zs : List α), List.reverseAux (List.reverseAux xs ys) zs = zs ===>
+  ∀ (zs : List α), zs = List.reverseAux (List.reverseAux xs ys) zs
+
+-- List.reverse (xs ++ ys) ===> List.reverseAux (List.append xs ys) []
+-- NOTE: the inner list is not a `List.reverseAux` application
+#testOptimize [ "ListReverseInvUnchanged_6" ] List.reverse (xs ++ ys) ===> List.reverseAux (List.append xs ys) []
+
+-- List.reverse (List.reverse xs ++ ys) ===> List.reverseAux (List.append (List.reverseAux xs []) ys) []
+-- NOTE: the inner `List.reverseAux` is below an append, the rule does not apply
+#testOptimize [ "ListReverseInvUnchanged_7" ] List.reverse (List.reverse xs ++ ys) ===>
+  List.reverseAux (List.append (List.reverseAux xs []) ys) []
+
+-- List.reverseAux (List.reverseAux xs []) ===> fun ys => List.reverseAux (List.reverseAux xs []) ys
+-- NOTE: as HOF the outer accumulator is a bound variable, the rule does not apply
+#testOptimize [ "ListReverseInvUnchanged_8" ] List.reverseAux (List.reverseAux xs []) ===>
+  fun (ys : List α) => List.reverseAux (List.reverseAux xs []) ys
+
+-- ∀ xs ys, List.reverse (List.reverse xs) = List.reverse ys ===> ∀ xs ys, xs = List.reverseAux ys []
+-- NOTE: only the double reversal is reduced
+#testOptimize [ "ListReverseInvUnchanged_9" ] ∀ (xs ys : List α), List.reverse (List.reverse xs) = List.reverse ys ===>
+  ∀ (xs ys : List α), xs = List.reverseAux ys []
 
 
 /-! Test cases to validate that `List.reverseAux`/`List.reverse` as HOF are not reduced. -/

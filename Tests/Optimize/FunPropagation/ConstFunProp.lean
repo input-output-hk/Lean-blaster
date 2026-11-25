@@ -760,8 +760,8 @@ def beqColorDegree : Color → Color → (Nat → Bool)
 -- ∀ (y : Nat) (x z : Color), beqColorDegree z (Color.blue x) y ===>
 -- ∀ (y : Nat) (x z : Color),
 --  match z, (Color.blue x) with
---  | .red c1, .red c2 => ¬ 0 = y → true = beqColor c1 c2
---  | .blue c1, .blue _ => ¬ 0 = y → true = beqColor c1 x
+--  | .red c1, .red c2 => 0 < y → true = beqColor c1 c2
+--  | .blue c1, .blue _ => 0 < y → true = beqColor c1 x
 --  | .transparent, .transparent => True
 --  | .black, .black => True
 --  | _, _ => False
@@ -770,8 +770,8 @@ def beqColorDegree : Color → Color → (Nat → Bool)
   ∀ (y : Nat) (x z : Color), beqColorDegree z (Color.blue x) y ===>
   ∀ (y : Nat) (x z : Color),
     match z, (Color.blue x) with
-    | .red c1, .red c2 => ¬ 0 = y → true = beqColor c1 c2
-    | .blue c1, .blue _ => ¬ 0 = y → true = beqColor c1 x
+    | .red c1, .red c2 => 0 < y → true = beqColor c1 c2
+    | .blue c1, .blue _ => 0 < y → true = beqColor c1 x
     | .transparent, .transparent => True
     | .black, .black => True
     | _, _ => False
@@ -901,5 +901,62 @@ axiom dupFn {n : Nat} (x : FnIdx n) : FnIdx n
     w = match (generalizing := false) k, w with
         | .(0), .z => dupFn FnIdx.z
         | .(1), .s => dupFn FnIdx.s
+
+/-! ## Universe level of the pulled `Blaster.dite'`
+
+When a function is pushed in the branches of a `dite'`, the pulled `dite'` has the return type of
+the function as sort, whose level may differ from the level of the original `dite'`: here the
+branches are `Option Type` (level `2`) or `Option (Type 1)` (level `3`) and the pushed function is
+`Eq`, so the pulled `dite'` is over `Prop` and must have level `1`. -/
+
+-- ∀ (c : Bool) (x z : Type), (if c then some x else none) = some z ===>
+-- ∀ (c : Bool) (x z : Type), true = c ∧ some x = some z
+#testOptimize [ "IteOverFunLevel_1" ]
+  ∀ (c : Bool) (x z : Type), (if c then some x else none) = some z ===>
+  ∀ (c : Bool) (x z : Type), true = c ∧ some x = some z
+
+-- ∀ (c : Bool) (x y z : Type), (if c then some x else some y) = some z ===>
+-- ∀ (c : Bool) (x y z : Type), Blaster.dite'.{1} (true = c) (λ _ => some x = some z) (λ _ => some y = some z)
+#testOptimize [ "IteOverFunLevel_2" ]
+  ∀ (c : Bool) (x y z : Type), (if c then some x else some y) = some z ===>
+  ∀ (c : Bool) (x y z : Type), Blaster.dite' (true = c) (λ _ => some x = some z) (λ _ => some y = some z)
+
+-- ∀ (c : Bool) (x y z : Type 1), (if c then some x else some y) = some z ===>
+-- ∀ (c : Bool) (x y z : Type 1), Blaster.dite'.{1} (true = c) (λ _ => some x = some z) (λ _ => some y = some z)
+#testOptimize [ "IteOverFunLevel_3" ]
+  ∀ (c : Bool) (x y z : Type 1), (if c then some x else some y) = some z ===>
+  ∀ (c : Bool) (x y z : Type 1), Blaster.dite' (true = c) (λ _ => some x = some z) (λ _ => some y = some z)
+
+-- ∀ (c : Prop) [Decidable c] (x y z : Type), (if c then some x else some y) = some z ===>
+-- ∀ (c : Prop) (x y z : Type), Blaster.dite'.{1} c (λ _ => some x = some z) (λ _ => some y = some z)
+#testOptimize [ "IteOverFunLevel_4" ]
+  ∀ (c : Prop) [Decidable c] (x y z : Type), (if c then some x else some y) = some z ===>
+  ∀ (c : Prop) (x y z : Type), Blaster.dite' c (λ _ => some x = some z) (λ _ => some y = some z)
+
+-- ∀ (c : Bool) (x y z : Type) (xs : List Type), (if c then x :: xs else y :: xs) = z :: xs ===>
+-- ∀ (c : Bool) (x y z : Type) (xs : List Type), Blaster.dite'.{1} (true = c) (λ _ => x :: xs = z :: xs) (λ _ => y :: xs = z :: xs)
+#testOptimize [ "IteOverFunLevel_5" ]
+  ∀ (c : Bool) (x y z : Type) (xs : List Type), (if c then x :: xs else y :: xs) = z :: xs ===>
+  ∀ (c : Bool) (x y z : Type) (xs : List Type), Blaster.dite' (true = c) (λ _ => x :: xs = z :: xs) (λ _ => y :: xs = z :: xs)
+
+-- ∀ (b c : Bool) (x y z : Type), (if c then (if b then some x else none) else some y) = some z ===>
+-- ∀ (b c : Bool) (x y z : Type), Blaster.dite'.{1} (true = c) (λ _ => true = b ∧ some x = some z) (λ _ => some y = some z)
+#testOptimize [ "IteOverFunLevel_6" ]
+  ∀ (b c : Bool) (x y z : Type), (if c then (if b then some x else none) else some y) = some z ===>
+  ∀ (b c : Bool) (x y z : Type), Blaster.dite' (true = c) (λ _ => true = b ∧ some x = some z) (λ _ => some y = some z)
+
+-- ∀ (c : Bool) (z : Type) (h : c → Type) (w : Type), (if hc : c then some (h hc) else some z) = some w ===>
+-- ∀ (c : Bool) (z : Type) (h : true = c → Type) (w : Type),
+--   Blaster.dite'.{1} (true = c) (fun hc => some w = some (h hc)) (fun _ => some z = some w)
+#testOptimize [ "DIteOverFunLevel_1" ]
+  ∀ (c : Bool) (z : Type) (h : c → Type) (w : Type), (if hc : c then some (h hc) else some z) = some w ===>
+  ∀ (c : Bool) (z : Type) (h : true = c → Type) (w : Type),
+    Blaster.dite' (true = c) (fun hc => some w = some (h hc)) (fun _ => some z = some w)
+
+-- ∀ (c : Bool) (x y z : Type), (match c with | true => some x | false => some y) = some z ===>
+-- ∀ (c : Bool) (x y z : Type), Blaster.dite'.{1} (true = c) (λ _ => some x = some z) (λ _ => some y = some z)
+#testOptimize [ "MatchOverFunLevel_1" ]
+  ∀ (c : Bool) (x y z : Type), (match c with | true => some x | false => some y) = some z ===>
+  ∀ (c : Bool) (x y z : Type), Blaster.dite' (true = c) (λ _ => some x = some z) (λ _ => some y = some z)
 
 end Tests.ConstFunProp
