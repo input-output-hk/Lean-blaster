@@ -9,4 +9,5 @@ import Tests.Smt.SmtNat
 import Tests.Smt.SmtPartialUnSafe
 import Tests.Smt.SmtPredQualifier
 import Tests.Smt.SmtRecFun
+import Tests.Smt.SmtResponse
 
