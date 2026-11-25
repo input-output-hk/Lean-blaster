@@ -1,7 +1,20 @@
 #include "lean_z3.h"
+#include <limits.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 extern void *ctx_ptr(lean_object *o);
+
+/* Every array passed to Z3 has an unsigned element count. Keep the count and
+ * allocation arithmetic checked before reading any Lean array element. */
+static void *lz3_term_alloc(size_t n, size_t elem_size) {
+  if (!elem_size || n > UINT_MAX || n > SIZE_MAX / elem_size) return NULL;
+  return malloc((n ? n : 1) * elem_size);
+}
+
+static lean_obj_res lz3_term_error(const char *message) {
+  return lean_io_result_mk_error(lean_mk_io_user_error(lean_mk_string(message)));
+}
 
 /* Differential-test oracle only. The production backend builds every term
  * with constructors below; SMT-LIB parsing is used solely to compare ASTs. */
@@ -65,7 +78,11 @@ LEAN_EXPORT lean_obj_res lean_z3_mk_u32_string(b_lean_obj_arg c, b_lean_obj_arg 
   (void)w;
   Z3_context ctx = (Z3_context)ctx_ptr(c);
   size_t n = lean_array_size(chars);
-  unsigned *codepoints = (unsigned *)malloc(sizeof(unsigned) * (n ? n : 1));
+  unsigned *codepoints = (unsigned *)lz3_term_alloc(n, sizeof(*codepoints));
+  if (!codepoints) {
+    lean_dec(c); lean_dec(chars);
+    return lz3_term_error("too many Z3 string codepoints or out of memory");
+  }
   for (size_t i = 0; i < n; ++i)
     codepoints[i] = lean_unbox_uint32(lean_array_get_core(chars, i));
   lean_object *r = box_owned(Z3_mk_u32string(ctx, (unsigned)n, codepoints));
@@ -87,7 +104,11 @@ LEAN_EXPORT lean_obj_res lean_z3_mk_func_decl(b_lean_obj_arg c, b_lean_obj_arg n
   (void)w;
   Z3_context ctx = (Z3_context)ctx_ptr(c);
   size_t n = lean_array_size(dom);
-  Z3_sort *ds = (Z3_sort *)malloc(sizeof(Z3_sort) * (n ? n : 1));
+  Z3_sort *ds = (Z3_sort *)lz3_term_alloc(n, sizeof(*ds));
+  if (!ds) {
+    lean_dec(c); lean_dec(name); lean_dec(dom); lean_dec(rng);
+    return lz3_term_error("too many Z3 function arguments or out of memory");
+  }
   for (size_t i = 0; i < n; i++) ds[i] = (Z3_sort)unbox_owned(lean_array_get_core(dom, i));
   Z3_symbol sym = Z3_mk_string_symbol(ctx, lean_string_cstr(name));
   Z3_func_decl fd = Z3_mk_func_decl(ctx, sym, (unsigned)n, ds, (Z3_sort)unbox_owned(rng));
@@ -101,7 +122,11 @@ LEAN_EXPORT lean_obj_res lean_z3_mk_app(b_lean_obj_arg c, b_lean_obj_arg fd, b_l
   (void)w;
   Z3_context ctx = (Z3_context)ctx_ptr(c);
   size_t n = lean_array_size(args);
-  Z3_ast *as = (Z3_ast *)malloc(sizeof(Z3_ast) * (n ? n : 1));
+  Z3_ast *as = (Z3_ast *)lz3_term_alloc(n, sizeof(*as));
+  if (!as) {
+    lean_dec(c); lean_dec(fd); lean_dec(args);
+    return lz3_term_error("too many Z3 application arguments or out of memory");
+  }
   for (size_t i = 0; i < n; i++) as[i] = (Z3_ast)unbox_owned(lean_array_get_core(args, i));
   Z3_ast res = Z3_mk_app(ctx, (Z3_func_decl)unbox_owned(fd), (unsigned)n, as);
   free(as);
@@ -119,13 +144,16 @@ LEAN_EXPORT lean_obj_res lean_z3_mk_app(b_lean_obj_arg c, b_lean_obj_arg fd, b_l
 /* Collect a Z3_ast array from a Lean `Array Ast` (elements borrowed). */
 static Z3_ast *lz3_collect(lean_object *arr, size_t *out_n) {
   size_t n = lean_array_size(arr); *out_n = n;
+  if (n > SIZE_MAX / sizeof(Z3_ast) || n > UINT_MAX) return NULL;
   Z3_ast *as = (Z3_ast *)malloc(sizeof(Z3_ast) * (n ? n : 1));
+  if (!as) return NULL;
   for (size_t i = 0; i < n; i++) as[i] = (Z3_ast)unbox_owned(lean_array_get_core(arr, i));
   return as;
 }
 #define LZ3_VARIADIC(fn, z3fn) \
   LEAN_EXPORT lean_obj_res fn(b_lean_obj_arg c, b_lean_obj_arg arr, lean_obj_arg w) { \
     (void)w; Z3_context ctx=(Z3_context)ctx_ptr(c); size_t n; Z3_ast *as=lz3_collect(arr,&n); \
+    if (!as) { lean_dec(c); lean_dec(arr); return lean_io_result_mk_error(lean_mk_io_user_error(lean_mk_string("out of memory collecting Z3 terms"))); } \
     lean_object *r=box_owned(z3fn(ctx,(unsigned)n,as)); free(as); \
     lean_dec(c); lean_dec(arr); return z3_io_ok(r); }
 #define LZ3_BINOP(fn, z3fn) \
@@ -246,10 +274,19 @@ LEAN_EXPORT lean_obj_res lean_z3_mk_quant_const(b_lean_obj_arg c, uint8_t isFora
     return lean_io_result_mk_error(lean_mk_io_user_error(
         lean_mk_string("quantifier binder names/terms length mismatch")));
   }
-  Z3_app *bs=(Z3_app*)malloc(sizeof(Z3_app)*(nb?nb:1));
-  for (size_t i=0;i<nb;i++) bs[i]=Z3_to_app(ctx,(Z3_ast)unbox_owned(lean_array_get_core(bounds,i)));
   size_t np=lean_array_size(pats);
-  Z3_pattern *ps=(Z3_pattern*)malloc(sizeof(Z3_pattern)*(np?np:1));
+  Z3_app *bs=(Z3_app*)lz3_term_alloc(nb, sizeof(*bs));
+  Z3_pattern *ps=(Z3_pattern*)lz3_term_alloc(np, sizeof(*ps));
+  Z3_sort *sorts=(Z3_sort*)lz3_term_alloc(nb, sizeof(*sorts));
+  Z3_symbol *symbols=(Z3_symbol*)lz3_term_alloc(nb, sizeof(*symbols));
+  Z3_pattern *qp=NULL;
+  const char *allocation_error=NULL;
+  if (!bs || !ps || !sorts || !symbols) {
+    free(bs); free(ps); free(sorts); free(symbols);
+    lean_dec(c); lean_dec(qid); lean_dec(names); lean_dec(bounds); lean_dec(pats); lean_dec(body);
+    return lz3_term_error("too many Z3 quantifier binders/patterns or out of memory");
+  }
+  for (size_t i=0;i<nb;i++) bs[i]=Z3_to_app(ctx,(Z3_ast)unbox_owned(lean_array_get_core(bounds,i)));
   for (size_t i=0;i<np;i++){
     Z3_ast pt=(Z3_ast)unbox_owned(lean_array_get_core(pats,i));
     ps[i]=Z3_mk_pattern(ctx,1,&pt);
@@ -272,24 +309,28 @@ LEAN_EXPORT lean_obj_res lean_z3_mk_quant_const(b_lean_obj_arg c, uint8_t isFora
      * copies their generated names (x!0) into the quantifier. Rebuild from
      * that abstracted body and its abstracted patterns using the source names
      * so the AST matches the SMT-LIB parser without capturing outer terms. */
-    Z3_sort *sorts=(Z3_sort*)malloc(sizeof(Z3_sort)*(nb?nb:1));
-    Z3_symbol *symbols=(Z3_symbol*)malloc(sizeof(Z3_symbol)*(nb?nb:1));
     for (size_t i=0;i<nb;i++) {
       sorts[i]=Z3_get_quantifier_bound_sort(ctx,r,(unsigned)i);
       symbols[i]=Z3_mk_string_symbol(ctx,
           lean_string_cstr(lean_array_get_core(names,i)));
     }
     unsigned nqp=Z3_get_quantifier_num_patterns(ctx,r);
-    Z3_pattern *qp=(Z3_pattern*)malloc(sizeof(Z3_pattern)*(nqp?nqp:1));
+    qp=(Z3_pattern*)lz3_term_alloc(nqp, sizeof(*qp));
+    if (!qp) {
+      allocation_error="out of memory collecting Z3 quantifier patterns";
+      goto quantifier_cleanup;
+    }
     for (unsigned i=0;i<nqp;i++) qp[i]=Z3_get_quantifier_pattern_ast(ctx,r,i);
     Z3_ast abstractBody=Z3_get_quantifier_body(ctx,r);
     r=Z3_mk_quantifier_ex(ctx,isForall?true:false,weight,qidSym,NULL,
         nqp,qp,0,NULL,(unsigned)nb,sorts,symbols,abstractBody);
     err=Z3_get_error_code(ctx);
-    free(qp); free(sorts); free(symbols);
   }
+quantifier_cleanup:
+  ;
   lean_object *msg = err == Z3_OK ? NULL : lean_mk_string(Z3_get_error_msg(ctx, err));
-  free(bs); free(ps);
+  if (allocation_error) msg=lean_mk_string(allocation_error);
+  free(qp); free(bs); free(ps); free(sorts); free(symbols);
   lean_object *res = msg ? NULL : box_owned(r);
   lean_dec(c); lean_dec(qid); lean_dec(names); lean_dec(bounds); lean_dec(pats); lean_dec(body);
   if (msg) return lean_io_result_mk_error(lean_mk_io_user_error(msg));
@@ -299,7 +340,11 @@ LEAN_EXPORT lean_obj_res lean_z3_mk_quant_const(b_lean_obj_arg c, uint8_t isFora
 LEAN_EXPORT lean_obj_res lean_z3_mk_lambda_const(b_lean_obj_arg c, b_lean_obj_arg bounds, b_lean_obj_arg body, lean_obj_arg w) {
   (void)w; Z3_context ctx=(Z3_context)ctx_ptr(c);
   size_t nb=lean_array_size(bounds);
-  Z3_app *bs=(Z3_app*)malloc(sizeof(Z3_app)*(nb?nb:1));
+  Z3_app *bs=(Z3_app*)lz3_term_alloc(nb, sizeof(*bs));
+  if (!bs) {
+    lean_dec(c); lean_dec(bounds); lean_dec(body);
+    return lz3_term_error("too many Z3 lambda binders or out of memory");
+  }
   for (size_t i=0;i<nb;i++) bs[i]=Z3_to_app(ctx,(Z3_ast)unbox_owned(lean_array_get_core(bounds,i)));
   Z3_ast r=Z3_mk_lambda_const(ctx,(unsigned)nb,bs,(Z3_ast)unbox_owned(body));
   free(bs);
@@ -316,7 +361,11 @@ LEAN_EXPORT lean_obj_res lean_z3_mk_rec_func_decl(b_lean_obj_arg c, b_lean_obj_a
     b_lean_obj_arg dom, b_lean_obj_arg rng, lean_obj_arg w) {
   (void)w; Z3_context ctx=(Z3_context)ctx_ptr(c);
   size_t n=lean_array_size(dom);
-  Z3_sort *ds=(Z3_sort*)malloc(sizeof(Z3_sort)*(n?n:1));
+  Z3_sort *ds=(Z3_sort*)lz3_term_alloc(n, sizeof(*ds));
+  if (!ds) {
+    lean_dec(c); lean_dec(name); lean_dec(dom); lean_dec(rng);
+    return lz3_term_error("too many Z3 recursive function arguments or out of memory");
+  }
   for (size_t i=0;i<n;i++) ds[i]=(Z3_sort)unbox_owned(lean_array_get_core(dom,i));
   Z3_symbol sym=Z3_mk_string_symbol(ctx, lean_string_cstr(name));
   Z3_func_decl fd=Z3_mk_rec_func_decl(ctx, sym, (unsigned)n, ds, (Z3_sort)unbox_owned(rng));
@@ -329,7 +378,11 @@ LEAN_EXPORT lean_obj_res lean_z3_add_rec_def(b_lean_obj_arg c, b_lean_obj_arg fd
     b_lean_obj_arg args, b_lean_obj_arg body, lean_obj_arg w) {
   (void)w; Z3_context ctx=(Z3_context)ctx_ptr(c);
   size_t n=lean_array_size(args);
-  Z3_ast *as=(Z3_ast*)malloc(sizeof(Z3_ast)*(n?n:1));
+  Z3_ast *as=(Z3_ast*)lz3_term_alloc(n, sizeof(*as));
+  if (!as) {
+    lean_dec(c); lean_dec(fd); lean_dec(args); lean_dec(body);
+    return lz3_term_error("too many Z3 recursive arguments or out of memory");
+  }
   for (size_t i=0;i<n;i++) as[i]=(Z3_ast)unbox_owned(lean_array_get_core(args,i));
   Z3_add_rec_def(ctx, (Z3_func_decl)unbox_owned(fd), (unsigned)n, as, (Z3_ast)unbox_owned(body));
   Z3_error_code err = Z3_get_error_code(ctx);
@@ -358,7 +411,11 @@ LEAN_EXPORT lean_obj_res lean_z3_ast_get_string_codepoints(b_lean_obj_arg c, b_l
   Z3_context ctx = (Z3_context)ctx_ptr(c);
   Z3_ast ast = (Z3_ast)unbox_owned(a);
   unsigned n = Z3_get_string_length(ctx, ast);
-  unsigned *contents = (unsigned *)malloc(sizeof(unsigned) * (n ? n : 1));
+  unsigned *contents = (unsigned *)lz3_term_alloc(n, sizeof(*contents));
+  if (!contents) {
+    lean_dec(c); lean_dec(a);
+    return lz3_term_error("too many Z3 string codepoints or out of memory");
+  }
   Z3_get_string_contents(ctx, ast, n, contents);
   lean_object *arr = lean_alloc_array(0, n);
   for (unsigned i = 0; i < n; ++i) arr = lean_array_push(arr, lean_box_uint32(contents[i]));
@@ -391,7 +448,7 @@ LEAN_EXPORT lean_obj_res lean_z3_ast_get_decl_name(b_lean_obj_arg c, b_lean_obj_
     r = lean_mk_string(Z3_get_symbol_string(ctx, sym));
   else {
     char buf[32];
-    snprintf(buf, sizeof(buf), "%u", Z3_get_symbol_int(ctx, sym));
+    snprintf(buf, sizeof(buf), "%d", Z3_get_symbol_int(ctx, sym));
     r = lean_mk_string(buf);
   }
   lean_dec(c); lean_dec(a); return z3_io_ok(r);
