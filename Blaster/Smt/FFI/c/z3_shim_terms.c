@@ -142,11 +142,23 @@ LEAN_EXPORT lean_obj_res lean_z3_mk_app(b_lean_obj_arg c, b_lean_obj_arg fd, b_l
  * elements. box_owned uses a no-op finalizer (ASTs are context-owned). */
 
 /* Collect a Z3_ast array from a Lean `Array Ast` (elements borrowed). */
+/*@ requires \valid_read(arr);
+    requires \valid(out_n);
+    requires \separated(out_n, arr);
+    requires arr->size == 0 || \valid_read(arr->items + (0 .. arr->size-1));
+    requires \forall size_t i; 0 <= i < arr->size ==> \valid_read(arr->items[i]);
+    assigns *out_n;
+    ensures *out_n == arr->size;
+    ensures \result == \null || \valid(\result + (0 .. arr->size-1)); */
 static Z3_ast *lz3_collect(lean_object *arr, size_t *out_n) {
   size_t n = lean_array_size(arr); *out_n = n;
   if (n > SIZE_MAX / sizeof(Z3_ast) || n > UINT_MAX) return NULL;
   Z3_ast *as = (Z3_ast *)malloc(sizeof(Z3_ast) * (n ? n : 1));
   if (!as) return NULL;
+  /*@ loop invariant 0 <= i <= n;
+      loop invariant \valid(as + (0 .. n-1));
+      loop assigns i, as[0 .. n-1];
+      loop variant n - i; */
   for (size_t i = 0; i < n; i++) as[i] = (Z3_ast)unbox_owned(lean_array_get_core(arr, i));
   return as;
 }

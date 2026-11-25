@@ -8,6 +8,10 @@ extern void *ctx_ptr(lean_object *o);
  * narrowing to Z3's unsigned counts. Also bound the flat Lean declaration
  * array and the C temporary array sizes. `fieldRefs == NULL` means that all
  * fields are non-recursive; otherwise refs must name a sort in this group. */
+/*@ requires elem_size > 0;
+    assigns \nothing;
+    ensures \result == (n <= UINT_MAX && n <= SIZE_MAX / elem_size);
+*/
 static bool lz3_count_fits(size_t n, size_t elem_size) {
   return n <= UINT_MAX && n <= SIZE_MAX / elem_size;
 }
@@ -86,12 +90,59 @@ static bool lz3_mutual_datatypes_valid(b_lean_obj_arg sortNames,
 
 /* Constructor lists hold constructor handles but do not own them. Delete the
  * lists first, then exactly the handles successfully created for each sort. */
+#ifdef LZ3_WP_DELETE_COUNTS
+/*@ requires lists_created <= prepared;
+    requires \valid_read(clists + (0 .. lists_created-1));
+    requires \valid_read(all_cons + (0 .. prepared-1));
+    requires \valid_read(created_per + (0 .. prepared-1));
+    requires \forall integer s; 0 <= s < prepared ==>
+      \valid_read(all_cons[s] + (0 .. created_per[s]-1));
+    requires \separated(all_cons + (0 .. prepared-1),
+      &z3_wp_ctor_deletes, &z3_wp_list_deletes, &z3_wp_expected_deletes);
+    requires \separated(created_per + (0 .. prepared-1),
+      &z3_wp_ctor_deletes, &z3_wp_list_deletes, &z3_wp_expected_deletes);
+    requires \separated(clists + (0 .. lists_created-1),
+      &z3_wp_ctor_deletes, &z3_wp_list_deletes, &z3_wp_expected_deletes);
+    requires z3_wp_ctor_deletes == 0 && z3_wp_list_deletes == 0 &&
+      z3_wp_expected_deletes == 0;
+    assigns z3_wp_ctor_deletes, z3_wp_list_deletes, z3_wp_expected_deletes;
+    ensures z3_wp_list_deletes == lists_created;
+    ensures z3_wp_ctor_deletes == z3_wp_expected_deletes;
+*/
+#endif
 static void lz3_release_mutual_constructors(Z3_context ctx,
     Z3_constructor **all_cons, const unsigned *created_per, unsigned prepared,
     const Z3_constructor_list *clists, unsigned lists_created) {
+#ifdef LZ3_WP_DELETE_COUNTS
+  /*@ loop invariant 0 <= s <= lists_created;
+      loop invariant z3_wp_list_deletes == s;
+      loop assigns s, z3_wp_list_deletes;
+      loop variant lists_created - s;
+  */
+#endif
   for (unsigned s=0; s<lists_created; ++s) Z3_del_constructor_list(ctx, clists[s]);
+#ifdef LZ3_WP_DELETE_COUNTS
+  /*@ loop invariant 0 <= s <= prepared;
+      loop invariant z3_wp_ctor_deletes == z3_wp_expected_deletes;
+      loop invariant z3_wp_expected_deletes <= s * UINT_MAX;
+      loop assigns s, z3_wp_ctor_deletes, z3_wp_expected_deletes;
+      loop variant prepared - s;
+  */
+#endif
   for (unsigned s=0; s<prepared; ++s) {
+#ifdef LZ3_WP_DELETE_COUNTS
+    /*@ loop invariant 0 <= i <= created_per[s];
+        loop invariant z3_wp_ctor_deletes ==
+          z3_wp_expected_deletes + i;
+        loop invariant z3_wp_ctor_deletes <= s * UINT_MAX + i;
+        loop assigns i, z3_wp_ctor_deletes;
+        loop variant created_per[s] - i;
+    */
+#endif
     for (unsigned i=0; i<created_per[s]; ++i) Z3_del_constructor(ctx, all_cons[s][i]);
+#ifdef LZ3_WP_DELETE_COUNTS
+    z3_wp_expected_deletes += created_per[s];
+#endif
     free(all_cons[s]);
   }
 }

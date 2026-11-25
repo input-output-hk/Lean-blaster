@@ -1,0 +1,50 @@
+name: ci-frama-c
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+  push:
+    branches: [staging, main]
+
+concurrency:
+  group: frama-c-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-shims:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install opam and C dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y opam build-essential m4 pkg-config libgmp-dev graphviz
+
+      - name: Cache Frama-C toolchain
+        id: opam-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.opam
+          key: frama-c-33.0-ocaml-5.3.0-${{ runner.os }}-v1
+
+      - name: Install Frama-C and Alt-Ergo
+        if: steps.opam-cache.outputs.cache-hit != 'true'
+        run: |
+          opam init --disable-sandboxing --bare -y
+          opam switch create 5.3.0 ocaml-base-compiler.5.3.0 -y
+          opam install frama-c.33.0 alt-ergo-free.2.4.3 -y
+
+      - name: Select cached or newly installed toolchain
+        run: opam switch set 5.3.0
+
+      - name: Install Z3 5.4.0 headers
+        run: |
+          wget -q https://github.com/Z3Prover/z3/releases/download/z3-5.4.0/z3-5.4.0-x64-glibc-2.39.zip
+          unzip -q z3-5.4.0-x64-glibc-2.39.zip
+          echo "Z3_INC_PATH=$GITHUB_WORKSPACE/z3-5.4.0-x64-glibc-2.39/include" >> "$GITHUB_ENV"
+
+      - name: Check C shims with Eva and WP
+        run: bash verification/frama-c/check.sh
