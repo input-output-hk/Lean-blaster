@@ -103,6 +103,30 @@ def natRelRightReduce? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :
     NOTE: This function need to be updated each time we are opacifying other Lean inductive types.
     Otheriwse `none`.
 -/
+def cstLT? (op1 : Expr) (op2 : Expr) : Option Bool :=
+ match op1 with
+ | Expr.lit (Literal.natVal n1) =>
+    if let Expr.lit (Literal.natVal n2) := op2
+    then some $ Nat.blt n1 n2
+    else none
+ | Expr.lit (Literal.strVal s1) =>
+    if let Expr.lit (Literal.strVal s2) := op2
+    then some $ s1 < s2
+    else none
+ | _ =>
+   if let some n1 := isIntValue? op1 then
+     if let some n2 := isIntValue? op2
+     then some $ n1 < n2
+     else none
+   else none
+
+/-- Given `op1` and `op2` corresponding to the operands for `LT.lt`:
+      - return `some (N1 "<" N2)` when `op1 := N1 ∧ op2 := N2 ∧ Type(op1) = Nat`
+      - return `some (N1 "<" N2)` when `op1 := N1 ∧ op2 := N2 ∧ Type(op1) = Int`
+      - return `some (S1 "<" S2)` when `op1 := S1 ∧ op2 := S2 ∧ Type(op1) = String`
+    NOTE: This function need to be updated each time we are opacifying other Lean inductive types.
+    Otheriwse `none`.
+-/
 def cstLTProp? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :=
   if let some b := cstLT? op1 op2
   then mkPropLit b

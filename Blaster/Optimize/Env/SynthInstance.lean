@@ -95,6 +95,18 @@ def mkOfDecideEqProof? (c : Expr) (b : Bool) : TranslateEnvT (Option Expr) := do
     then mkApp3Expr (← mkOfDecideEqTrue) c d rflInst
     else mkApp3Expr (← mkOfDecideEqFalse) c d rflInst
 
+/-- Given an expression `c` and decidable instance `d` and a boolean value `b`, perform the following:
+      - When b is `true`:
+         - return `some $ of_decide_eq_true c d (rfl (Decidable.decide c d))`
+      - Otherwise:
+         - return `some $ of_decide_eq_false c d (rfl (Decidable.decide c d))`
+-/
+def mkOfDecideEqProofAux (c d : Expr) (b : Bool) : TranslateEnvT Expr := do
+ let rflInst ← mkApp2Expr (← mkRfl [levelOne]) (← mkBoolType) (← mkApp2Expr (← mkDecide) c d)
+ if b
+ then mkApp3Expr (← mkOfDecideEqTrue) c d rflInst
+ else mkApp3Expr (← mkOfDecideEqFalse) c d rflInst
+
 /-- Given an expression `c` and a boolean value `b`, perform the following:
      let d ← synthDecidableWithNotFound! c
       - When b is `true`:
@@ -104,10 +116,7 @@ def mkOfDecideEqProof? (c : Expr) (b : Bool) : TranslateEnvT (Option Expr) := do
 -/
 def mkOfDecideEqProof (c : Expr) (b : Bool) : TranslateEnvT Expr := do
  let d ← synthDecidableWithNotFound! c
- let rflInst ← mkApp2Expr (← mkRfl [levelOne]) (← mkBoolType) (← mkApp2Expr (← mkDecide) c d)
- if b
- then mkApp3Expr (← mkOfDecideEqTrue) c d rflInst
- else mkApp3Expr (← mkOfDecideEqFalse) c d rflInst
+ mkOfDecideEqProofAux c d b
 
 
 end Blaster.Optimize

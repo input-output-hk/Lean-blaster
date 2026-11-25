@@ -174,8 +174,9 @@ def addNotRelNatFacts (ne : Expr) (h : Expr) (nextCtxId : CtxId) : TranslateEnvT
        let zeroNat ← mkNatLitExpr 0
        let ltFact ← mkNatLtExpr zeroNat op1
        let notOp ← mkPropNotOp
-       let neqHyp ← mkAppExpr notOp (← mkNatEqExpr zeroNat op2)
-       let neqHyp_proof ← mkOfDecideEqProof neqHyp true
+       let eqNatExpr ← mkNatEqExpr zeroNat op2
+       let neqHyp ← mkAppExpr notOp eqNatExpr
+       let neqHyp_proof ← mkOfDecideEqProofAux neqHyp (← mkNatNotDecEqExprAux zeroNat op2 eqNatExpr) true
        let lt_proof ← mkApp4Expr (← mkNat_zero_lt_of_not_lt_neq) op1 op2 h neqHyp_proof
        -- add `0 < a := Blaster.nat_zero_lt_of_not_lt_neq a N h (← mkOfDecideEqProof (¬ (0 = N)) true)` to hypothesisMap
        updateHypMap ltFact lt_proof nextCtxId
@@ -214,7 +215,7 @@ def addNotRelIntFacts (ne : Expr) (h : Expr) (nextCtxId : CtxId) : TranslateEnvT
        let zeroInt ← mkIntLitExpr 0
        let ltFact ← mkIntLtExpr zeroInt op1
        let ltHyp ← mkIntLtExpr zeroInt op2
-       let ltHyp_proof ← mkOfDecideEqProof ltHyp true
+       let ltHyp_proof ← mkOfDecideEqProofAux ltHyp (← mkIntDecLtExpr zeroInt op2) true
        let lt_proof ← mkApp4Expr (← mkInt_zero_lt_of_nlt_zero_lt) op1 op2 h ltHyp_proof
        -- add `0 < a := Blaster.int_zero_lt_of_nlt_zero_lt a N h (← mkOfDecideEqProof (0 < N)) true)` to hypothesisMap
        updateHypMap ltFact lt_proof nextCtxId
@@ -233,7 +234,7 @@ def addNotRelIntFacts (ne : Expr) (h : Expr) (nextCtxId : CtxId) : TranslateEnvT
        let zeroInt ← mkIntLitExpr 0
        let ltFact ← mkIntLtExpr op2 zeroInt
        let ltHyp ← mkIntLtExpr op1 zeroInt
-       let ltHyp_proof ← mkOfDecideEqProof ltHyp true
+       let ltHyp_proof ← mkOfDecideEqProofAux ltHyp (← mkIntDecLtExpr op1 zeroInt) true
        let lt_proof ← mkApp4Expr (← mkInt_lt_zero_of_nlt_lt_zero) op2 op1 h ltHyp_proof
        -- add `a < 0 := Blaster.int_lt_zero_of_nlt_lt_zero a N h (← mkOfDecideEqProof (N < 0)) true)` to hypothesisMap
        updateHypMap ltFact lt_proof nextCtxId
@@ -535,7 +536,7 @@ def addRelIntFacts (e : Expr) (h : Expr) (nextCtxId : CtxId) : TranslateEnvT Uni
        let zeroInt ← mkIntLitExpr 0
        let ltHyp ← mkIntLtExpr zeroInt op1
        let neqFact ← mkAppExpr notOp (← mkIntEqExpr zeroInt op2)
-       let ltHyp_proof ← mkOfDecideEqProof ltHyp true
+       let ltHyp_proof ← mkOfDecideEqProofAux ltHyp (← mkIntDecLtExpr zeroInt op1) true
        let neq_proof ← mkApp4Expr (← mkInt_not_zero_eq_of_lt_zero_lt) op1 op2 h ltHyp_proof
        -- add `¬ (0 = a) := Blaster.int_not_zero_eq_of_lt_zero_lt N a h (← mkOfDecideEqProof (0 < N) true)` to hypothesisMap
        updateHypMap neqFact neq_proof nextCtxId
@@ -552,7 +553,7 @@ def addRelIntFacts (e : Expr) (h : Expr) (nextCtxId : CtxId) : TranslateEnvT Uni
         -- case : e := a < N ∧ Type(a) = Int ∧ N < 0
         let zeroInt ← mkIntLitExpr 0
         let ltHyp ← mkIntLtExpr op2 zeroInt
-        let ltHyp_proof ← mkOfDecideEqProof ltHyp true
+        let ltHyp_proof ← mkOfDecideEqProofAux ltHyp (← mkIntDecLtExpr op2 zeroInt) true
         let neqFact ← mkAppExpr notOp (← mkIntEqExpr zeroInt op1)
         let neq_proof ← mkApp4Expr (← mkInt_not_zero_eq_of_lt_lt_zero) op1 op2 h ltHyp_proof
         -- add `¬ (0 = a) := Blaster.int_not_zero_eq_of_lt_lt_zero a N h (← mkOfDecideEqProof (N < 0) true)` to hypothesisMap
@@ -596,21 +597,25 @@ def addEqIntFacts (e : Expr) (h : Expr) (nextCtxId : CtxId) : TranslateEnvT Unit
      -- case : e := N = a ∧ Type(a) = Int ∧ N ≠ 0`
      unless n == 0 do
       let zeroInt ← mkIntLitExpr 0
-      let neqZero ← mkAppExpr notOp (← mkIntEqExpr zeroInt op1)
-      let neq_proof ← mkApp4Expr (← mkInt_not_zero_eq_of_eq_neq) op1 op2 h (← mkOfDecideEqProof neqZero true)
+      let eqZero ← mkIntEqExpr zeroInt op1
+      let neqZero ← mkAppExpr notOp eqZero
+      let neqHyp_proof ← mkOfDecideEqProofAux neqZero (← mkIntNotDecEqExprAux zeroInt op1 eqZero) true
+      let neq_proof ← mkApp4Expr (← mkInt_not_zero_eq_of_eq_neq) op1 op2 h neqHyp_proof
       let eqExpr ← mkIntEqExpr zeroInt op2
       -- add `¬ (0 = a) := Blaster.int_not_zero_eq_of_eq_neq N a h (← mkOfDecideEqProof (¬ (0 = N)) true)` to hypothesisMap
       updateHypMap (← mkAppExpr notOp eqExpr) neq_proof nextCtxId
       if n > 0 then
         let ltHyp ← mkIntLtExpr zeroInt op1
         let ltFact ← mkIntLtExpr zeroInt op2
-        let lt_proof ← mkApp4Expr (← mkInt_zero_lt_of_eq_zero_lt) op1 op2 h (← mkOfDecideEqProof ltHyp true)
+        let ltHyp_proof ← mkOfDecideEqProofAux ltHyp (← mkIntDecLtExpr zeroInt op1) true
+        let lt_proof ← mkApp4Expr (← mkInt_zero_lt_of_eq_zero_lt) op1 op2 h ltHyp_proof
         -- add `0 < a := Blaster.int_zero_lt_of_eq_zero_lt N a h (← mkOfDecideEqProof (0 < N) true)` to hypothesisMap
         updateHypMap ltFact lt_proof nextCtxId
       else
         let ltHyp ← mkIntLtExpr op1 zeroInt
         let ltFact ← mkIntLtExpr op2 zeroInt
-        let lt_proof ← mkApp4Expr (← mkInt_lt_zero_of_eq_lt_zero) op1 op2 h (← mkOfDecideEqProof ltHyp true)
+        let ltHyp_proof ← mkOfDecideEqProofAux ltHyp (← mkIntDecLtExpr op1 zeroInt) true
+        let lt_proof ← mkApp4Expr (← mkInt_lt_zero_of_eq_lt_zero) op1 op2 h ltHyp_proof
         -- add `a < 0 := Blaster.int_lt_zero_of_eq_lt_zero N a h (← mkOfDecideEqProof (N < 0) true)` to hypothesisMap
         updateHypMap ltFact lt_proof nextCtxId
 
@@ -679,8 +684,9 @@ def addEqNatFacts (e : Expr) (h : Expr) (nextCtxId : CtxId) : TranslateEnvT Unit
       unless n == 0 do
         -- case : e := N = a ∧ Type(a) = Nat ∧ N ≠ 0
         let zeroNat ← mkNatLitExpr 0
-        let neqHyp ← mkAppExpr notOp (← mkNatEqExpr zeroNat op1)
-        let neqHyp_proof ← mkOfDecideEqProof neqHyp true
+        let eqNatExpr ← mkNatEqExpr zeroNat op1
+        let neqHyp ← mkAppExpr notOp eqNatExpr
+        let neqHyp_proof ← mkOfDecideEqProofAux neqHyp (← mkNatNotDecEqExprAux zeroNat op1 eqNatExpr) true
         let neq_proof ← mkApp4Expr (← mkNat_not_zero_eq_of_eq_neq) op1 op2 h neqHyp_proof
         let neqFact ← mkAppExpr notOp (← mkNatEqExpr zeroNat op2)
         -- add `¬ (0 = a) := Blaster.nat_not_zero_eq_of_eq_neq N a h (← mkOfDecideEqProof (¬ (0 = N)) true)` to hypothesisMap
@@ -843,53 +849,58 @@ def notInHypMap (e : Expr) : TranslateEnvT (Option Expr) := do
 
 
 /-- Given `op1` and `op2` corresponding to the operands for `LT.lt`:
-      - return `some (N1 "<" N2)` when `op1 := N1 ∧ op2 := N2 ∧ Type(op1) = Nat`
-      - return `some (N1 "<" N2)` when `op1 := N1 ∧ op2 := N2 ∧ Type(op1) = Int`
-      - return `some (S1 "<" S2)` when `op1 := S1 ∧ op2 := S2 ∧ Type(op1) = String`
+      - return `some (Nat.decLt N1 N2)` when `op1 := N1 ∧ op2 := N2 ∧ Type(op1) = Nat ∧ N1 "<" N2`
+      - return `some (Int.decLt N1 N2)` when `op1 := N1 ∧ op2 := N2 ∧ Type(op1) = Int ∧ N1 "<" N2`
+      - return `some (String.decidableLT S1 S2)` when `op1 := S1 ∧ op2 := S2 ∧ Type(op1) = String ∧ S1 "<" S2`
     NOTE: This function need to be updated each time we are opacifying other Lean inductive types.
     Otheriwse `none`.
 -/
-def cstLT? (op1 : Expr) (op2 : Expr) : Option Bool :=
+def cstLTHyp? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :=
  match op1 with
  | Expr.lit (Literal.natVal n1) =>
     if let Expr.lit (Literal.natVal n2) := op2
-    then some $ Nat.blt n1 n2
-    else none
+    then if n1 < n2 then mkNatDecLtExpr op1 op2
+         else return none
+    else return none
  | Expr.lit (Literal.strVal s1) =>
     if let Expr.lit (Literal.strVal s2) := op2
-    then some $ s1 < s2
-    else none
+    then if s1 < s2 then mkStrDecLtExpr op1 op2
+         else return none
+    else return none
  | _ =>
    if let some n1 := isIntValue? op1 then
      if let some n2 := isIntValue? op2
-     then some $ n1 < n2
-     else none
-   else none
-
+     then if n1 < n2 then mkIntDecLtExpr op1 op2
+          else return none
+     else return none
+   else return none
 
 /-- Given `op1` and `op2` corresponding to the operands for `LT.le`:
-      - return `some (N1 "≤" N2)` when `op1 := N1 ∧ op2 := N2 ∧ Type(op1) = Nat`
-      - return `some (N1 "≤" N2)` when `op1 := N1 ∧ op2 := N2 ∧ Type(op1) = Int`
-      - return `some (S1 "≤" S2)` when `op1 := S1 ∧ op2 := S2 ∧ Type(op1) = String`
+      - return `some (Nat.declLe N1 N2)` when `op1 := N1 ∧ op2 := N2 ∧ Type(op1) = Nat ∧ N1 "≤" N2`
+      - return `some (Int.decLe N1 N2)` when `op1 := N1 ∧ op2 := N2 ∧ Type(op1) = Int ∧ N1 "≤" N2`
+      - return `some (Str.decLE S1 S2)` when `op1 := S1 ∧ op2 := S2 ∧ Type(op1) = String ∧ S1 "≤" S2`
     NOTE: This function need to be updated each time we are opacifying other Lean inductive types.
     Otheriwse `none`.
 -/
-def cstLE? (op1 : Expr) (op2 : Expr) : Option Bool :=
+def cstLEHyp? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) :=
  match op1 with
  | Expr.lit (Literal.natVal n1) =>
     if let Expr.lit (Literal.natVal n2) := op2
-    then some $ Nat.ble n1 n2
-    else none
+    then if n1 ≤ n2 then mkNatDecLeExpr op1 op2
+         else return none
+    else return none
  | Expr.lit (Literal.strVal s1) =>
     if let Expr.lit (Literal.strVal s2) := op2
-    then some $ s1 ≤ s2
-    else none
+    then if s1 ≤ s2 then mkStrDecLeExpr op1 op2
+         else return none
+    else return none
  | _ =>
    if let some n1 := isIntValue? op1 then
      if let some n2 := isIntValue? op2
-     then some $ n1 ≤ n2
-     else none
-   else none
+     then if n1 ≤ n2 then mkIntDecLeExpr op1 op2
+          else return none
+     else return none
+   else return none
 
 inductive BackProofStack where
   | WaitAndLeft (e a b : Expr)
@@ -979,8 +990,8 @@ private unsafe def backwardProofAux (expectedProof : Expr) : TranslateEnvT (Opti
    @[always_inline, inline]
    isDecidableLt? (p : Expr) : TranslateEnvT (Option Expr) := do
     if let some (_psort, _pinst, e1, e2) := lt? p then
-      if let some true := cstLT? e1 e2
-      then mkOfDecideEqProof? p true
+      if let some ltInst ← cstLTHyp? e1 e2
+      then mkOfDecideEqProofAux p ltInst true
       else return none
     else return none
 
@@ -991,8 +1002,8 @@ private unsafe def backwardProofAux (expectedProof : Expr) : TranslateEnvT (Opti
    @[always_inline, inline]
    isDecidableLe? (p : Expr) : TranslateEnvT (Option Expr) := do
     if let some (_psort, _pinst, e1, e2) := le? p then
-      if let some true := cstLE? e1 e2
-      then mkOfDecideEqProof? p true
+      if let some leInst ← cstLEHyp? e1 e2
+      then mkOfDecideEqProofAux p leInst true
       else return none
     else return none
 

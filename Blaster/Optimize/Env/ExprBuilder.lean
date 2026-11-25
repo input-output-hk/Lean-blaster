@@ -202,8 +202,20 @@ def mkInstBEqOfDecEq : TranslateEnvT Expr :=
     return (← get).optEnv.memCache.commonExpr.instBEqOfDecEq
 
 /-- Return `instDecidableEqNat` expression and cache result. -/
-def mkInstDecEqNat : TranslateEnvT Expr :=
+def mkInstDecEqNatOp : TranslateEnvT Expr :=
     return (← get).optEnv.memCache.commonExpr.instDecEqNat
+
+/-- Return `Nat.decLt` expression and cache result. -/
+def mkNatDecLtOp : TranslateEnvT Expr :=
+    return (← get).optEnv.memCache.commonExpr.natDecLt
+
+/-- Return `Nat.decLe` expression and cache result. -/
+def mkNatDecLeOp : TranslateEnvT Expr :=
+    return (← get).optEnv.memCache.commonExpr.natDecLe
+
+/-- Return `instDecidableNot` expression and cache result. -/
+def mkInstDecNotOp : TranslateEnvT Expr :=
+    return (← get).optEnv.memCache.commonExpr.instDecNot
 
 /-- Return `Int.instLTInt` expression and cache result. -/
 def mkInstLTInt : TranslateEnvT Expr :=
@@ -212,6 +224,30 @@ def mkInstLTInt : TranslateEnvT Expr :=
 /-- Return `instLTNat` expression and cache result. -/
 def mkInstLTNat : TranslateEnvT Expr :=
     return (← get).optEnv.memCache.commonExpr.instLTNat
+
+/-- Return `Int.decLt` expression and cache result. -/
+def mkIntDecLtOp : TranslateEnvT Expr :=
+    return (← get).optEnv.memCache.commonExpr.intDecLt
+
+/-- Return `Int.instDecidableEq` expression and cache result. -/
+def mkIntDecEqOp : TranslateEnvT Expr :=
+    return (← get).optEnv.memCache.commonExpr.intDecEq
+
+/-- Return `Int.decLe` expression and cache result. -/
+def mkIntDecLeOp : TranslateEnvT Expr :=
+    return (← get).optEnv.memCache.commonExpr.intDecLe
+
+/-- Return `String.decidableLt` expression and cache result. -/
+def mkStrDecLtOp : TranslateEnvT Expr :=
+    return (← get).optEnv.memCache.commonExpr.strDecLt
+
+/-- Return `instDecidableEqString` expression and cache result. -/
+def mkStrDecEqOp : TranslateEnvT Expr :=
+    return (← get).optEnv.memCache.commonExpr.strDecEq
+
+/-- Return `String.decLE` expression and cache result. -/
+def mkStrDecLeOp : TranslateEnvT Expr :=
+    return (← get).optEnv.memCache.commonExpr.strDecLe
 
 /-- Return `Eq.refl` const expression and cache result. -/
 def mkEqRefl (u : List Level) : TranslateEnvT Expr := mkExpr (mkConst ``Eq.refl u)
@@ -534,6 +570,18 @@ def mkNatEqExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do
 def mkNatLtExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do
   mkApp2Expr (← mkNatLtOp) a b
 
+/-- Return `Nat.decLt a b`. -/
+def mkNatDecLtExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do
+  mkApp2Expr (← mkNatDecLtOp) a b
+
+/-- Return `Nat.decLe a b`. -/
+def mkNatDecLeExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do
+  mkApp2Expr (← mkNatDecLeOp) a b
+
+/-- Return `instDecidableEqNat a b`. -/
+def mkNatDecEqExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do
+  mkApp2Expr (← mkInstDecEqNatOp) a b
+
 /-- `evalBinNatOp f n1 n2 perform the following:
       -  let r := f n1 n2
       - construct nat literal for `r`
@@ -557,6 +605,50 @@ def mkIntEqExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do
 /-- Returns Int `a < b`. -/
 def mkIntLtExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do
   mkApp2Expr (← mkIntLtOp) a b
+
+/-- Return `Int.decLt a b`. -/
+def mkIntDecLtExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do
+  mkApp2Expr (← mkIntDecLtOp) a b
+
+/-- Return `Int.instDecidableEq a b`. -/
+def mkIntDecEqExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do
+  mkApp2Expr (← mkIntDecEqOp) a b
+
+/-- Return `Int.decLe a b`. -/
+def mkIntDecLeExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do
+  mkApp2Expr (← mkIntDecLeOp) a b
+
+
+/-- Given `a`, `b` and `eqExpr := a = b`, return `Int` decidable instance for `¬ a = b``. -/
+def mkIntNotDecEqExprAux (a b eqExpr : Expr) : TranslateEnvT Expr := do
+  mkApp2Expr (← mkInstDecNotOp) eqExpr (← mkIntDecEqExpr a b)
+
+/-- Return `Int` decidable instance for `¬ a = b``. -/
+def mkIntNotDecEqExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do
+  let eqExpr ← mkIntEqExpr a b
+  mkIntNotDecEqExprAux a b eqExpr
+
+
+/-- Given `a`, `b` and `eqExpr := a = b`, return `Nat` decidable instance for `¬ a = b``. -/
+def mkNatNotDecEqExprAux (a b eqExpr : Expr) : TranslateEnvT Expr := do
+  mkApp2Expr (← mkInstDecNotOp) eqExpr (← mkNatDecEqExpr a b)
+
+/-- Return `Nat` decidable instance for `¬ a = b``. -/
+def mkNatNotDecEqExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do
+  let eqExpr ← mkNatEqExpr a b
+  mkNatNotDecEqExprAux a b eqExpr
+
+/-- Return `String.decidableLT a b`. -/
+def mkStrDecLtExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do
+  mkApp2Expr (← mkStrDecLtOp) a b
+
+/-- Return `Str.decLE a b`. -/
+def mkStrDecLeExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do
+  mkApp2Expr (← mkStrDecLeOp) a b
+
+/-- Return `instDecidableEqString a b`. -/
+def mkStrDecEqExpr (a : Expr) (b : Expr) : TranslateEnvT Expr := do
+  mkApp2Expr (← mkStrDecEqOp) a b
 
 /-- `mkNatNegExpr n` constructs and cache the negation of a Nat literal expression, i.e.,
      Int.negSucc (Expr.lit (Literal.natVal (n - 1))`.

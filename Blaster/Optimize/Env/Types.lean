@@ -276,6 +276,15 @@ structure CommonExpr where
   charOfNat : Expr
   charToNat : Expr
   charType : Expr
+  intDecLt : Expr
+  intDecEq : Expr
+  intDecLe : Expr
+  instDecNot : Expr
+  natDecLt : Expr
+  natDecLe : Expr
+  strDecLt : Expr
+  strDecEq : Expr
+  strDecLe : Expr
 
 
 /-- A saved optimization-context scope: the parent context id to restore on exit
@@ -461,6 +470,15 @@ private def mkCommonExpr : CommonExpr :=
   , charOfNat := mkConst ``Char.ofNat
   , charToNat := mkConst ``Char.toNat
   , charType := mkConst ``Char
+  , intDecLt := mkConst ``Int.decLt
+  , intDecEq := mkConst ``Int.instDecidableEq
+  , intDecLe := mkConst ``Int.decLe
+  , instDecNot := mkConst ``instDecidableNot
+  , natDecLt := mkConst ``Nat.decLt
+  , natDecLe := mkConst ``Nat.decLe
+  , strDecLt := mkConst ``String.decidableLT
+  , strDecEq := mkConst ``instDecidableEqString
+  , strDecLe := mkConst ``String.decLE
   }
 
 instance : Inhabited MemoizeEnv where
@@ -646,6 +664,15 @@ instance : Inhabited OptimizeEnv where
      , memCache.commonExpr.charOfNat
      , memCache.commonExpr.charToNat
      , memCache.commonExpr.charType
+     , memCache.commonExpr.intDecLt
+     , memCache.commonExpr.intDecEq
+     , memCache.commonExpr.intDecLe
+     , memCache.commonExpr.instDecNot
+     , memCache.commonExpr.natDecLt
+     , memCache.commonExpr.natDecLe
+     , memCache.commonExpr.strDecLt
+     , memCache.commonExpr.strDecEq
+     , memCache.commonExpr.strDecLe
      ]
    { hashConsCache,
      rewriteCache := HashMap.emptyWithCapacity 1024

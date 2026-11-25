@@ -250,6 +250,7 @@ partial def optimizeExprAux (stack : List OptimizeStack) : TranslateEnvT Expr :=
 
     @[always_inline, inline]
     applyExtension? (f : Expr) (args : Array Expr) (stack : List OptimizeStack) (restart := false) : TranslateEnvT (Option OptimizeContinuity) := do
+      if (blasterExt.getState (← getEnv)).isEmpty then return none
       if ← isNormalizeOnly then return none
       if restart then if args.any (λ a => a.hasMVar) then return none
       if let some e ← applyRegisteredOptFns f args then
