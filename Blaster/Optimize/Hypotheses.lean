@@ -191,20 +191,29 @@ def addNotRelNatFacts (ne : Expr) (h : Expr) (nextCtxId : CtxId) : TranslateEnvT
      let lt_proof ← mkApp2Expr (← mkNat_zero_lt_of_not_zero_eq) op2 h
      updateHypMap ltFact lt_proof nextCtxId
 
+/-- Build the proof of a true comparison between two known Int literals.
+The caller checks the comparison while inspecting the literals. -/
+private def mkLiteralIntLtProof (lhs rhs : Expr) : TranslateEnvT Expr := do
+  let proposition ← mkIntLtExpr lhs rhs
+  let decision ← mkApp2Expr (← mkExpr (mkConst ``Int.decLt)) lhs rhs
+  let reflected ← mkApp2Expr (← mkDecide) proposition decision
+  let proof ← mkApp2Expr (← mkRfl [levelOne]) (← mkBoolType) reflected
+  mkApp3Expr (← mkOfDecideEqTrue) proposition decision proof
+
 /-- Given `ne` the operand for expression `¬ ne` referenced by hypothesis `h`, perform the following:
      - When `e := ¬ (a < N) ∧ Type(a) = Int ∧ N > 0`
-          - add `0 < a := Blaster.int_zero_lt_of_nlt_zero_lt a N h (← mkOfDecideEqProof (0 < N)) true)` to hypothesisMap
+          - add `0 < a := Blaster.int_zero_lt_of_nlt_zero_lt a N h (← mkLiteralIntLtProof 0 N)` to hypothesisMap
           - add `¬ (0 = a) := Blaster.int_not_zero_eq_of_zero_lt a
-                              (Blaster.int_zero_lt_of_nlt_zero_lt a N h (← mkOfDecideEqProof (0 < N)) true))` to hypothesisMap
+                              (Blaster.int_zero_lt_of_nlt_zero_lt a N h (← mkLiteralIntLtProof 0 N))` to hypothesisMap
           - add `¬ (a < 0) := Blaster.int_not_lt_of_lt 0 a
-                              (Blaster.int_zero_lt_of_nlt_zero_lt a N h (← mkOfDecideEqProof (0 < N)) true))` to hypothesisMap
+                              (Blaster.int_zero_lt_of_nlt_zero_lt a N h (← mkLiteralIntLtProof 0 N))` to hypothesisMap
 
      - When `e := ¬ (N < a) ∧ Type(a) = Int ∧ N < 0`
-          - add `a < 0 := Blaster.int_lt_zero_of_nlt_lt_zero a N h (← mkOfDecideEqProof (N < 0)) true)` to hypothesisMap
+          - add `a < 0 := Blaster.int_lt_zero_of_nlt_lt_zero a N h (← mkLiteralIntLtProof N 0)` to hypothesisMap
           - add `¬ (0 = a) := Blaster.int_not_zero_eq_of_lt_zero a
-                              (Blaster.int_lt_zero_of_nlt_lt_zero a N h (← mkOfDecideEqProof (N < 0)) true))` to hypothesisMap
+                              (Blaster.int_lt_zero_of_nlt_lt_zero a N h (← mkLiteralIntLtProof N 0))` to hypothesisMap
           - add `¬ (0 < a) := Blaster.int_not_lt_of_lt a 0
-                              (Blaster.int_lt_zero_of_nlt_lt_zero a N h (← mkOfDecideEqProof (N < 0)) true))` to hypothesisMap
+                              (Blaster.int_lt_zero_of_nlt_lt_zero a N h (← mkLiteralIntLtProof N 0))` to hypothesisMap
 -/
 def addNotRelIntFacts (ne : Expr) (h : Expr) (nextCtxId : CtxId) : TranslateEnvT Unit:= do
  if let some (Expr.const ``Int _, _inst, op1, op2) := lt? ne then
@@ -213,10 +222,9 @@ def addNotRelIntFacts (ne : Expr) (h : Expr) (nextCtxId : CtxId) : TranslateEnvT
        -- case : e := ¬ (a < N) ∧ Type(a) = Int ∧ N > 0
        let zeroInt ← mkIntLitExpr 0
        let ltFact ← mkIntLtExpr zeroInt op1
-       let ltHyp ← mkIntLtExpr zeroInt op2
-       let ltHyp_proof ← mkOfDecideEqProof ltHyp true
+       let ltHyp_proof ← mkLiteralIntLtProof zeroInt op2
        let lt_proof ← mkApp4Expr (← mkInt_zero_lt_of_nlt_zero_lt) op1 op2 h ltHyp_proof
-       -- add `0 < a := Blaster.int_zero_lt_of_nlt_zero_lt a N h (← mkOfDecideEqProof (0 < N)) true)` to hypothesisMap
+       -- add `0 < a := Blaster.int_zero_lt_of_nlt_zero_lt a N h (← mkLiteralIntLtProof 0 N)` to hypothesisMap
        updateHypMap ltFact lt_proof nextCtxId
        let notOp ← mkPropNotOp
        let neqFact ← mkAppExpr notOp (← mkIntEqExpr zeroInt op1)
@@ -232,10 +240,9 @@ def addNotRelIntFacts (ne : Expr) (h : Expr) (nextCtxId : CtxId) : TranslateEnvT
        -- case : e := ¬ (N < a) ∧ Type(a) = Int ∧ N < 0
        let zeroInt ← mkIntLitExpr 0
        let ltFact ← mkIntLtExpr op2 zeroInt
-       let ltHyp ← mkIntLtExpr op1 zeroInt
-       let ltHyp_proof ← mkOfDecideEqProof ltHyp true
+       let ltHyp_proof ← mkLiteralIntLtProof op1 zeroInt
        let lt_proof ← mkApp4Expr (← mkInt_lt_zero_of_nlt_lt_zero) op2 op1 h ltHyp_proof
-       -- add `a < 0 := Blaster.int_lt_zero_of_nlt_lt_zero a N h (← mkOfDecideEqProof (N < 0)) true)` to hypothesisMap
+       -- add `a < 0 := Blaster.int_lt_zero_of_nlt_lt_zero a N h (← mkLiteralIntLtProof N 0)` to hypothesisMap
        updateHypMap ltFact lt_proof nextCtxId
        let notOp ← mkPropNotOp
        let neqFact ← mkAppExpr notOp (← mkIntEqExpr zeroInt op2)
@@ -500,14 +507,14 @@ def addNotAndFacts (e : Expr) (h : Expr) (nextCtxId : CtxId) : TranslateEnvT Uni
             - add `¬ (b = a) := Blaster.int_not_eq_of_lt_left_sym a b h` to hypothesisMap
 
      - When `e := N < a ∧ Type(a) = Int ∧ N > 0`
-          - add `¬ (0 = a) := Blaster.int_not_zero_eq_of_lt_zero_lt N a h (← mkOfDecideEqProof (0 < N) true)` to hypothesisMap
-          - add `0 < a := Int.lt_trans 0 N a (← mkOfDecideEqProof (0 < N) true) h` to hypothesisMap
-          - add `¬ (a < 0) := Blaster.int_not_lt_of_lt 0 a (Int.lt_trans 0 N a (← mkOfDecideEqProof (0 < N) true) h)` to hypothesisMap
+          - add `¬ (0 = a) := Blaster.int_not_zero_eq_of_lt_zero_lt N a h (← mkLiteralIntLtProof 0 N)` to hypothesisMap
+          - add `0 < a := Int.lt_trans 0 N a (← mkLiteralIntLtProof 0 N) h` to hypothesisMap
+          - add `¬ (a < 0) := Blaster.int_not_lt_of_lt 0 a (Int.lt_trans 0 N a (← mkLiteralIntLtProof 0 N) h)` to hypothesisMap
 
      - When `e := a < N ∧ Type(a) = Int ∧ N < 0`
-          - add `¬ (0 = a) := Blaster.int_not_zero_eq_of_lt_lt_zero a N h (← mkOfDecideEqProof (N < 0) true)` to hypothesisMap
-          - add `a < 0 := Int.lt_trans a N 0 h (← mkOfDecideEqProof (N < 0) true)` to hypothesisMap
-          - add `¬ (0 < a) := Blaster.int_not_lt_of_lt a 0 (Int.lt_trans a N 0 h (← mkOfDecideEqProof (N < 0) true))` to hypothesisMap
+          - add `¬ (0 = a) := Blaster.int_not_zero_eq_of_lt_lt_zero a N h (← mkLiteralIntLtProof N 0)` to hypothesisMap
+          - add `a < 0 := Int.lt_trans a N 0 h (← mkLiteralIntLtProof N 0)` to hypothesisMap
+          - add `¬ (0 < a) := Blaster.int_not_lt_of_lt a 0 (Int.lt_trans a N 0 h (← mkLiteralIntLtProof N 0))` to hypothesisMap
 
 -/
 def addRelIntFacts (e : Expr) (h : Expr) (nextCtxId : CtxId) : TranslateEnvT Unit := do
@@ -533,37 +540,35 @@ def addRelIntFacts (e : Expr) (h : Expr) (nextCtxId : CtxId) : TranslateEnvT Uni
       unless n1 ≤ 0 do
        -- case : e := N < a ∧ Type(a) = Int ∧ N > 0
        let zeroInt ← mkIntLitExpr 0
-       let ltHyp ← mkIntLtExpr zeroInt op1
        let neqFact ← mkAppExpr notOp (← mkIntEqExpr zeroInt op2)
-       let ltHyp_proof ← mkOfDecideEqProof ltHyp true
+       let ltHyp_proof ← mkLiteralIntLtProof zeroInt op1
        let neq_proof ← mkApp4Expr (← mkInt_not_zero_eq_of_lt_zero_lt) op1 op2 h ltHyp_proof
-       -- add `¬ (0 = a) := Blaster.int_not_zero_eq_of_lt_zero_lt N a h (← mkOfDecideEqProof (0 < N) true)` to hypothesisMap
+       -- add `¬ (0 = a) := Blaster.int_not_zero_eq_of_lt_zero_lt N a h (← mkLiteralIntLtProof 0 N)` to hypothesisMap
        updateHypMap neqFact neq_proof nextCtxId
        let ltFact ← mkIntLtExpr zeroInt op2
        let lt_proof ← mkApp5Expr (← mkInt_lt_trans) zeroInt op1 op2 ltHyp_proof h
-       -- add `0 < a := Int.lt_trans 0 N a (← mkOfDecideEqProof (0 < N) true) h` to hypothesisMap
+       -- add `0 < a := Int.lt_trans 0 N a (← mkLiteralIntLtProof 0 N) h` to hypothesisMap
        updateHypMap ltFact lt_proof nextCtxId
        let nlt_proof ← mkApp3Expr (← mkInt_not_lt_of_lt) zeroInt op2 lt_proof
        let nltFact ← mkAppExpr notOp (← mkIntLtExpr op2 zeroInt)
-       -- add `¬ (a < 0) := Blaster.int_not_lt_of_lt 0 a (Int.lt_trans 0 N a (← mkOfDecideEqProof (0 < N) true) h)` to hypothesisMap
+       -- add `¬ (a < 0) := Blaster.int_not_lt_of_lt 0 a (Int.lt_trans 0 N a (← mkLiteralIntLtProof 0 N) h)` to hypothesisMap
        updateHypMap nltFact nlt_proof nextCtxId
     if let some n2 := isIntValue? op2 then
       unless n2 ≥ 0 do
         -- case : e := a < N ∧ Type(a) = Int ∧ N < 0
         let zeroInt ← mkIntLitExpr 0
-        let ltHyp ← mkIntLtExpr op2 zeroInt
-        let ltHyp_proof ← mkOfDecideEqProof ltHyp true
+        let ltHyp_proof ← mkLiteralIntLtProof op2 zeroInt
         let neqFact ← mkAppExpr notOp (← mkIntEqExpr zeroInt op1)
         let neq_proof ← mkApp4Expr (← mkInt_not_zero_eq_of_lt_lt_zero) op1 op2 h ltHyp_proof
-        -- add `¬ (0 = a) := Blaster.int_not_zero_eq_of_lt_lt_zero a N h (← mkOfDecideEqProof (N < 0) true)` to hypothesisMap
+        -- add `¬ (0 = a) := Blaster.int_not_zero_eq_of_lt_lt_zero a N h (← mkLiteralIntLtProof N 0)` to hypothesisMap
         updateHypMap neqFact neq_proof nextCtxId
         let ltFact ← mkIntLtExpr op1 zeroInt
         let lt_proof ← mkApp5Expr (← mkInt_lt_trans) op1 op2 zeroInt h ltHyp_proof
-        -- add `a < 0 := Int.lt_trans a N 0 h (← mkOfDecideEqProof (N < 0) true)` to hypothesisMap
+        -- add `a < 0 := Int.lt_trans a N 0 h (← mkLiteralIntLtProof N 0)` to hypothesisMap
         updateHypMap ltFact lt_proof nextCtxId
         let nlt_proof ← mkApp3Expr (← mkInt_not_lt_of_lt) op1 zeroInt lt_proof
         let nltFact ← mkAppExpr notOp (← mkIntLtExpr zeroInt op1)
-        -- add `¬ (0 < a) := Blaster.int_not_lt_of_lt a 0 (Int.lt_trans a N 0 h (← mkOfDecideEqProof (N < 0) true))` to hypothesisMap
+        -- add `¬ (0 < a) := Blaster.int_not_lt_of_lt a 0 (Int.lt_trans a N 0 h (← mkLiteralIntLtProof N 0))` to hypothesisMap
         updateHypMap nltFact nlt_proof nextCtxId
 
 /-- Given proposition `e` referenced by hypothesis `h`, perform the following:
@@ -575,10 +580,10 @@ def addRelIntFacts (e : Expr) (h : Expr) (nextCtxId : CtxId) : TranslateEnvT Uni
          - add `¬ (0 = a) := Blaster.int_not_zero_eq_of_eq_neq N a h (← mkOfDecideEqProof (¬ (0 = N)) true)` to hypothesisMap
 
          - When `N > 0`
-             - add `0 < a := Blaster.int_zero_lt_of_eq_zero_lt N a h (← mkOfDecideEqProof (0 < N) true)` to hypothesisMap
+             - add `0 < a := Blaster.int_zero_lt_of_eq_zero_lt N a h (← mkLiteralIntLtProof 0 N)` to hypothesisMap
 
          - Otherwise
-             - add `a < 0 := Blaster.int_lt_zero_of_eq_lt_zero N a h (← mkOfDecideEqProof (N < 0) true)` to hypothesisMap
+             - add `a < 0 := Blaster.int_lt_zero_of_eq_lt_zero N a h (← mkLiteralIntLtProof N 0)` to hypothesisMap
 -/
 def addEqIntFacts (e : Expr) (h : Expr) (nextCtxId : CtxId) : TranslateEnvT Unit := do
   if let some (Expr.const ``Int _, op1, op2) := eq? e then
@@ -602,16 +607,14 @@ def addEqIntFacts (e : Expr) (h : Expr) (nextCtxId : CtxId) : TranslateEnvT Unit
       -- add `¬ (0 = a) := Blaster.int_not_zero_eq_of_eq_neq N a h (← mkOfDecideEqProof (¬ (0 = N)) true)` to hypothesisMap
       updateHypMap (← mkAppExpr notOp eqExpr) neq_proof nextCtxId
       if n > 0 then
-        let ltHyp ← mkIntLtExpr zeroInt op1
         let ltFact ← mkIntLtExpr zeroInt op2
-        let lt_proof ← mkApp4Expr (← mkInt_zero_lt_of_eq_zero_lt) op1 op2 h (← mkOfDecideEqProof ltHyp true)
-        -- add `0 < a := Blaster.int_zero_lt_of_eq_zero_lt N a h (← mkOfDecideEqProof (0 < N) true)` to hypothesisMap
+        let lt_proof ← mkApp4Expr (← mkInt_zero_lt_of_eq_zero_lt) op1 op2 h (← mkLiteralIntLtProof zeroInt op1)
+        -- add `0 < a := Blaster.int_zero_lt_of_eq_zero_lt N a h (← mkLiteralIntLtProof 0 N)` to hypothesisMap
         updateHypMap ltFact lt_proof nextCtxId
       else
-        let ltHyp ← mkIntLtExpr op1 zeroInt
         let ltFact ← mkIntLtExpr op2 zeroInt
-        let lt_proof ← mkApp4Expr (← mkInt_lt_zero_of_eq_lt_zero) op1 op2 h (← mkOfDecideEqProof ltHyp true)
-        -- add `a < 0 := Blaster.int_lt_zero_of_eq_lt_zero N a h (← mkOfDecideEqProof (N < 0) true)` to hypothesisMap
+        let lt_proof ← mkApp4Expr (← mkInt_lt_zero_of_eq_lt_zero) op1 op2 h (← mkLiteralIntLtProof op1 zeroInt)
+        -- add `a < 0 := Blaster.int_lt_zero_of_eq_lt_zero N a h (← mkLiteralIntLtProof N 0)` to hypothesisMap
         updateHypMap ltFact lt_proof nextCtxId
 
 /-- Given proposition `e` referenced by hypothesis `h`, perform the following:
