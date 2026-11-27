@@ -791,6 +791,12 @@ deriving Inhabited
 def optionsForInductiveType : TypeOptions :=
   { inTypeDefinition := true}
 
+structure InductivePolyParams where
+  /-- Polymorphic types for inductive datatypes -/
+  polyArgs : Array Expr
+  /-- Corresponding parameters for Smt datatypes -/
+  smtArgs : Array SmtSymbol
+
 /-- TODO: UPDATE SPEC
 
 Given `indValStart` an inductive value info for an inductive datatype,
@@ -904,11 +910,17 @@ def translateInductiveType
     let ConstantInfo.recInfo recVal ← getConstInfo (mkRecName indName)
       | throwEnvError "translateInductiveType: {mkRecName indName} not a recinfo"
     let params ← genIndParams indVal
-    let ctors ← createCtorDecls recVal indVal.ctors
-    let arity := if let some pars := params then pars.size else 0
-    let sortDecl := {name := indNameToSmtSymbol indName, arity}
-    sortDecls := sortDecls.push sortDecl
-    dataTypeDecls := dataTypeDecls.push {params, ctors}
+    let ctors ← createCtorDecls recVal indVal.ctors params
+    match params with
+    | some indParams =>
+         let sortDecl := {name := indNameToSmtSymbol indName, arity := indParams.smtArgs.size}
+         sortDecls := sortDecls.push sortDecl
+         dataTypeDecls := dataTypeDecls.push {params := some indParams.smtArgs, ctors}
+    | none =>
+         let sortDecl := {name := indNameToSmtSymbol indName, arity := 0}
+         sortDecls := sortDecls.push sortDecl
+         dataTypeDecls := dataTypeDecls.push {params := none, ctors}
+
   defineDataType sortDecls dataTypeDecls
 
  where
@@ -923,12 +935,14 @@ def translateInductiveType
       else declareDataType sortDecl.name ctorDecls
     else declareMutualDataTypes sortDecls typeDecls
 
-  genIndParams (indVal : InductiveVal) : TranslateEnvT (Option (Array SmtSymbol)) := do
+  genIndParams (indVal : InductiveVal) : TranslateEnvT (Option InductivePolyParams) := do
    let params ←
      Optimize.forallTelescope (← hashcons indVal.type) fun fvars _ => do
         let mut polyParams := #[]
+        let mut polyArgs := #[]
         for h : i in [: fvars.size] do
           let arg := fvars[i]
+          polyArgs := polyArgs.push arg
           let ftype ← inferTypeEnv arg
           if !(← isClassConstraintExpr ftype) then -- ignore class constraints
             let Expr.fvar v := arg
@@ -939,13 +953,21 @@ def translateInductiveType
             if isTypeUniverse argType' then
               polyParams := polyParams.push (← typeParamNameToSmtSymbol v false)
             else throwEnvError "Inductive datatype with instance parameters not supported: {reprStr indVal.name}"
-        return polyParams
-   if params.isEmpty then return none else return (some params)
+        return ⟨polyArgs, polyParams⟩
+   if params.polyArgs.isEmpty then return none else return some params
 
-  createCtorDeclaration (recVal : RecursorVal) (recRule : RecursorRule) : TranslateEnvT SmtConstructorDecl := do
+  createCtorDeclaration
+    (recVal : RecursorVal) (indParams : Option InductivePolyParams)
+    (recRule : RecursorRule) : TranslateEnvT SmtConstructorDecl := do
     let ctorSym := nameToSmtSymbol recRule.ctor
-    let firstCtorFieldIdx := recVal.numParams + recVal.numMotives + recVal.numMinors
-    Optimize.forallTelescope (← inferTypeEnv (← hashcons recRule.rhs)) fun fvars _ => do
+    let rhs :=
+      match indParams with
+      | some params => recRule.rhs.beta params.polyArgs
+      | none => recRule.rhs
+    -- NOTE: recVal.numParams is ignored as we are now instantiating the datatype
+    -- params with the generic ones
+    let firstCtorFieldIdx := recVal.numMotives + recVal.numMinors
+    Optimize.forallTelescope (← inferTypeEnv (← hashcons rhs)) fun fvars _ => do
       if recRule.nfields == 0 then return (ctorSym, none) -- nullary constructor
       let mut selectors := #[]
       for h : i in [firstCtorFieldIdx : fvars.size] do
@@ -961,10 +983,12 @@ def translateInductiveType
           selectors := selectors.push (selSym, ← typeTranslator argType')
       return (ctorSym, some selectors)
 
-  createCtorDecls (recVal : RecursorVal) (ctors : List Name) : TranslateEnvT (Array SmtConstructorDecl) := do
+  createCtorDecls
+    (recVal : RecursorVal) (ctors : List Name)
+    (indParams : Option InductivePolyParams) : TranslateEnvT (Array SmtConstructorDecl) := do
    let mut ctorDecls := (#[] : Array SmtConstructorDecl)
    for c in ctors do
-     let ctorDecl ← createCtorDeclaration recVal (← getRecRuleFor recVal c)
+     let ctorDecl ← createCtorDeclaration recVal indParams (← getRecRuleFor recVal c)
      ctorDecls := ctorDecls.push ctorDecl
    return ctorDecls
 
@@ -1039,7 +1063,7 @@ where
     (indName : Name) (us : List Level) (decl : IndTypeDeclaration)
     (args : Array Expr) (mutualRec := false) : TranslateEnvT Unit := do
    let ConstantInfo.inductInfo indVal ← getConstInfo indName
-       | throwEnvError "generatePredicates: inductive info expected for {indName}"
+     | throwEnvError "generatePredicates: inductive info expected for {indName}"
    let ConstantInfo.recInfo recVal ← getConstInfo (mkRecName indName)
      | throwEnvError "generatePredicates: {mkRecName indName} not a recinfo"
    let mut funBody := trueSmt
