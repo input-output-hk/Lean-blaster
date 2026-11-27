@@ -41,6 +41,7 @@ def fullyAppliedConst : HashSet Name :=
     ``Nat.div,
     ``Nat.mod,
     ``Nat.pow,
+    ``Nat.log2,
     ``String.append,
     ``String.length,
     ``String.replace
@@ -252,6 +253,27 @@ def translateNatPow (f : Expr) : TranslateEnvT SmtQualifiedIdent := do
 
 
 /-- Perform the following actions:
+     - Return `SimpleIdent "@Nat.log2` when entry `f := SimpleIdent "@Nat.log2"` exists in `funInstCache`
+     - Otherwise:
+        - define Nat sort (if necessary)
+        - define Int.ediv function (if necessary)
+        - define @Nat.log2 Smt function (i.e., see `defineNatLog2`)
+        - add entry `f := SimpleIdent "@Nat.log2"` to `funInstCache`
+        - return `SimpleIdent "@Nat.log2"`
+  Assume that `f := `Expr.const ``Nat.log2 []`
+-/
+def translateNatLog2 (f : Expr) : TranslateEnvT SmtQualifiedIdent := do
+ match (← get).smtEnv.funInstCache.get? f with
+ | none =>
+    discard $ translateNatType (← mkNatType)
+    discard $ translateIntEDiv (← mkIntEDivOp)
+    defineNatLog2
+    let smtId ← updateFunInstCache f natLog2Symbol
+    return smtId
+ | some smtId => return smtId
+
+
+/-- Perform the following actions:
      - Return `SimpleIdent "@Int.toNat"` when entry `n := SimpleIdent "@Int.toNat"` exists in `funInstCache`
      - Otherwise:
         - define Nat sort (if necessary)
@@ -329,6 +351,7 @@ def translateOpaqueFun (f : Expr) (n : Name) (args : Array Expr) : TranslateEnvT
   | ``Nat.mod => translateIntEMod f
   | ``Int.pow => translateIntPow f
   | ``Nat.pow => translateNatPow f
+  | ``Nat.log2 => translateNatLog2 f
   | ``LE.le
   | ``Nat.ble => getOpaqueSmtEquivFun f leqSymbol
   | ``LT.lt =>

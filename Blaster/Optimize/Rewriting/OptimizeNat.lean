@@ -109,6 +109,8 @@ def optimizeNatSub (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
 
 /-- Apply the following simplification/normalization rules on `Nat.pow` :
      - n ^ 0 ==> 1
+     - 0 ^ n ==> 0 (if nonZeroNatInHyps n)
+     - 1 ^ n ==> 1
      - N1 ^ N2 ==> N1 "^" N2
    Assume that f = Expr.const ``Nat.pow.
    An error is triggered when args.size ≠ 2 (i.e., only fully applied `Nat.pow` expected at this stage)
@@ -118,10 +120,24 @@ def optimizeNatPow (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
  if args.size != 2 then throwEnvError "optimizeNatPow: exactly two arguments expected"
  let op1 := args[0]!
  let op2 := args[1]!
- match isNatValue? op1, isNatValue? op2 with
- | _, some 0 => return (← mkNatLitExpr 1)
- | some n1, some n2 => evalBinNatOp Nat.pow n1 n2
- | _, _ => mkApp2Expr f op1 op2
+ if let some r ← isCstPow? op1 op2 then return r
+ if let some r ← isZeroOnePow? op1 op2 then return r
+ mkApp2Expr f op1 op2
+
+ where
+   isCstPow? (op1 op2) : TranslateEnvT (Option Expr) := do
+     if let some n2 := isNatValue? op2 then
+        if n2 == 0 then return ← mkNatLitExpr 1
+        if let some n1 := isNatValue? op1 then
+           return ← evalBinNatOp Nat.pow n1 n2
+     return none
+
+   isZeroOnePow? (op1 op2) : TranslateEnvT (Option Expr) := do
+     if let some n := isNatValue? op1 then
+       if 0 == n then
+         if ← nonZeroNatInHyps op2 then return ← mkNatLitExpr 0
+       if 1 == n then return ← mkNatLitExpr 1
+     return none
 
 /-- Apply the following simplification/normalization rules on `Nat.mul` :
      - 0 * n ==> 0
@@ -334,6 +350,119 @@ def optimizeNatble (f : Expr) (b_args : Array Expr) : TranslateEnvT Expr := do
   else mkAppNExpr f b_args
 
 
+/-- Given `e` corresponding to the operand for `Nat.log2`, perform the following:
+     - When `e := (2 ^ n).log2`:
+        - return `some n`
+     - When `e := (N ^ n).log2 ∧ N = 2 ^ (log2 N)`
+        - return `some "Nat.log2 N" * n`
+     - Otherwise:
+        - return `none`
+-/
+def natPowLog2Reduce? (e : Expr) : TranslateEnvT (Option Expr) := do
+  if let some (op1, op2) := natPow? e then
+    match isNatValue? op1 with
+    | some 2 => return op2
+    | some n =>
+       let nlog2 := Nat.log2 n
+       if n = Nat.pow 2 nlog2 then
+         setRestart
+         mkApp2Expr (← mkNatMulOp) (← mkNatLitExpr nlog2) op2
+       else return none
+    | _ => return none
+  else return none
+
+/-- Given `f := Expr.const ``Nat.log2` and `e` corresponding to the operand for `Nat.log2`, perform the following:
+     - When `e := (2 * n).log2 ∧ nonZeroNatInHyps n`
+        - return `some 1 + n.log2`
+     - When `e := (N * n).log2 ∧ nonZeroNatInHyps n ∧ N = 2 ^ (log2 N)`
+        - return `some ""Nat.log2 N" + n.log2`
+     - Otherwise:
+        - return `none`
+-/
+def natMulLog2Reduce? (f e : Expr) : TranslateEnvT (Option Expr) := do
+  if let some (op1, op2) := natMul? e then
+    match isNatValue? op1 with
+    | some 2 =>
+        if ← nonZeroNatInHyps op2 then
+          setRestart
+          mkApp2Expr (← mkNatAddOp) (← mkNatLitExpr 1) (← mkAppExpr f op2)
+        else return none
+    | some n =>
+       let nlog2 := Nat.log2 n
+       if n = Nat.pow 2 nlog2 then
+         if ← nonZeroNatInHyps op2 then
+           setRestart
+           return ← mkApp2Expr (← mkNatAddOp) (← mkNatLitExpr nlog2) (← mkAppExpr f op2)
+       return none
+    | _ => return none
+  else return none
+
+/-- Given `f := Expr.const ``Nat.log2` and `e` corresponding to the operand for `Nat.log2`, perform the following:
+     - When `e := (2^n * m).log2 ∧ nonZeroNatInHyps m`
+        - return `some n + m.log2`
+     - When `e := (m * 2^n).log2 ∧ nonZeroNatInHyps m`
+        - return `some n + m.log2`
+     - When `e := (N^n * m).log2 ∧ nonZeroNatInHyps m ∧ N = 2 ^ (log2 N)`
+        - return `some ("Nat.log2 N" * n) + m.log2`
+     - When `e := (m * N^n).log2 ∧ nonZeroNatInHyps m ∧ N = 2 ^ (log2 N)`
+        - return `some ("Nat.log2 N" * n) + m.log2`
+     - Otherwise:
+        - return `none`
+-/
+def natMulPowLog2Reduce? (f e : Expr) : TranslateEnvT (Option Expr) := do
+  if let some (op1, op2) := natMul? e then
+    if let some r ← mulPowReduce? op1 op2 then return r
+    mulPowReduce? op2 op1
+  else return none
+
+  where
+    mulPowReduce? (op1 op2 : Expr) : TranslateEnvT (Option Expr) := do
+      if let some (a, b) := natPow? op1 then
+        match isNatValue? a with
+        | some 2 =>
+             if ← nonZeroNatInHyps op2 then
+               setRestart
+               mkApp2Expr (← mkNatAddOp) b (← mkAppExpr f op2)
+             else return none
+        | some n =>
+            let nlog2 := Nat.log2 n
+            if n = Nat.pow 2 nlog2 then
+              if ← nonZeroNatInHyps op2 then
+                setRestart
+                let mulExpr ← mkApp2Expr (← mkNatMulOp) (← mkNatLitExpr nlog2) b
+                return ← mkApp2Expr (← mkNatAddOp) mulExpr (← mkAppExpr f op2)
+            return none
+        | _ => return none
+      else return none
+
+
+/-- Apply the following simplification/normalization rules on `Nat.log2` :
+     - Nat.log2 N ==> "Nat.log2 N"
+     - (2 ^ n).log2 ==> n
+     - (N ^ n).log2 ==> "Nat.log2 N" * n (if N = 2^(log2 N))
+     - (2 * n).log2 ==> 1 + n.log2 (if nonZeroNatInHyps n)
+     - (N * n).log2 ==> "Nat.log2 N" + n.log2 (if nonZeroNatInHyps n ∧ N = 2 ^ (log2 N))
+     - (2 ^ n * m).log2 | (m * 2 ^ n).log2 ==> n + m.log2 (if nonZeroNatInHyps m)
+     - (N ^ n * m).log2 | (m * N ^ n).log2 ==> ("Nat.log2 N" * n) + m.log2 (if nonZeroNatInHyps m ∧ N = 2 ^ (log2 N))
+   Assume that f = Expr.const ``Nat.log2.
+   An error is triggered when args.size ≠ 2 (i.e., only fully applied `Nat.pow` expected at this stage)
+
+-/
+def optimizeNatLog2 (f : Expr) (args : Array Expr) : TranslateEnvT Expr := do
+ if args.size != 1 then throwEnvError "optimizeNatLog2: exactly one argument expected"
+ let op := args[0]!
+ if let some r ← cstNatLog2? op then return r
+ if let some r ← natPowLog2Reduce? op then return r
+ if let some r ← natMulLog2Reduce? f op then return r
+ if let some r ← natMulPowLog2Reduce? f op then return r
+ mkAppExpr f op
+
+ where
+   cstNatLog2? (op : Expr) : TranslateEnvT (Option Expr) := do
+     match isNatValue? op with
+     | some n =>  mkNatLitExpr (Nat.log2 n)
+     | _ => return none
+
 /-- Apply simplification/normalization rules on `Nat` operators. -/
 @[always_inline, inline]
 def optimizeNat? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) := do
@@ -347,6 +476,7 @@ def optimizeNat? (f : Expr) (args : Array Expr) : TranslateEnvT (Option Expr) :=
   | ``Nat.beq => optimizeNatBeq f args
   | ``Nat.ble => optimizeNatble f args
   | ``Nat.pow => optimizeNatPow f args
+  | ``Nat.log2 => optimizeNatLog2 f args
   | _=> return none
 
 end Blaster.Optimize

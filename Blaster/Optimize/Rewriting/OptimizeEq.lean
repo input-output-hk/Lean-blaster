@@ -319,6 +319,29 @@ def arithEq? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
   if let some r ← addIntEqReduce? op1 op2 then return r
   return none
 
+/-- Given `op1` and `op2` corresponding to the operands for `Eq`, perform the following:
+     - When `op1 := N ∧ op2 := n.log2`
+         - return `some `¬ (n < 2 ^ N) ∧ n < 2 ^ (N + 1)`
+     - Otherwise:
+         - return `none`
+-/
+def natLogEqRel? (op1 op2 : Expr) : TranslateEnvT (Option Expr) := do
+  if let some n := natLog2? op2 then
+    match isNatValue? op1 with
+    | some 0 =>
+        setRestart
+        mkNatLtExpr n (← mkNatLitExpr 2)
+    | some m =>
+        setRestart
+        let pow1 ← mkNatLitExpr (Nat.pow 2 m)
+        let pow2 ← mkNatLitExpr (Nat.pow 2 (m + 1))
+        let ltExpr1 ← mkNatLtExpr n pow1
+        let ltExpr2 ← mkNatLtExpr n pow2
+        let nLtExpr ← mkAppExpr (← mkPropNotOp) ltExpr1
+        mkApp2Expr (← mkPropAndOp) nLtExpr ltExpr2
+    | none => return none
+  else return none
+
 
 /-- Apply the following simplification/normalization rules on `Eq` :
      - False = e ==> ¬ e
@@ -344,6 +367,7 @@ def arithEq? (op1 : Expr) (op2 : Expr) : TranslateEnvT (Option Expr) := do
      - e1 = e2 ==> r (if some r ← arithEq? e1 e2)
      - x + y = x + z | y + x = x + z | x + y = z + x | y + x = z + x ==> y = z (if Type(x) ∈ [Nat, Int]]
      - x * y = x * z | y * x = x * z | x * y = z * x | y * x = z * x ==> y = z (if Type(x) ∈ [Nat, Int] ∧ nonZeroInHyps x]
+     - N = n.log2 ===> ¬ (n < 2^N) ∧ n < 2^(N + 1) (if Type(n) = Nat)
      - e1 = e2 ==> e2 = e1 (if e2 <ₒ e1)
      with:
        nonZeroInHyps x := nonZeroNatInHyps x If Type(x) = Nat
@@ -382,6 +406,7 @@ def optimizeEq (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
  if let some (e1, e2) ← intAddEqReduce? op1 op2 then return ← mkApp3Expr f eqType e1 e2
  if let some (e1, e2) ← natMulEqReduce? op1 op2 then return ← mkApp3Expr f eqType e1 e2
  if let some (e1, e2) ← intMulEqReduce? op1 op2 then return ← mkApp3Expr f eqType e1 e2
+ if let some r ← natLogEqRel? op1 op2 then return r
  -- no caching at this level as optimizeEq is called by optimizeDecideEq
  mkApp3Expr f eqType op1 op2
 
