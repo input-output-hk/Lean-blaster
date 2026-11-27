@@ -36,6 +36,9 @@ def eqZeroNatInHyps (e : Expr) : TranslateEnvT Bool := do
 
 /-- Return `true` only when one of the following conditions is satisfied:
       - e := N ∧ N ≠ 0
+      - e := N + a ∧ N ≠ 0
+      - e := N ^ a ∧ N ≠ 0
+      - e := N1 * x ∧ (x := N2 + a ∨ x := N2 ^ a) ∧ N1 ≠ 0 ∧ N2 ≠ 0
       - 0 < e := _ ∈ hypothesisContext.hypothesisMap; or
       - ¬ (0 = e) := _ ∈ hypothesisContext.hypothesisMap
 -/
@@ -45,12 +48,36 @@ def nonZeroNatInHyps (e : Expr) : TranslateEnvT Bool := do
  | .some 0 => return false
  | .some _ => return true
  | .none   =>
+     if isNatAddCst e || isNatPowCst e || isNatMulCst e then return true
      let zero_nat ← mkNatLitExpr 0
      let zero_lt ← mkNatLtExpr zero_nat e
      if ← hypMapContains zero_lt then return true
      let zero_eq ← mkNatEqExpr zero_nat e
      let not_eq_zero ← mkAppExpr (← mkPropNotOp) zero_eq
      hypMapContains not_eq_zero
+
+ where
+  isNatAddCst (e : Expr) : Bool :=
+    if let some (op1, _op2) := natAdd? e then
+      match isNatValue? op1 with
+      | some n => n != 0
+      | _ => false
+    else false
+
+  isNatPowCst (e : Expr) : Bool :=
+    if let some (op1, _op2) := natPow? e then
+      match isNatValue? op1 with
+      | some n => n != 0
+      | _ => false
+    else false
+
+  isNatMulCst (e : Expr) : Bool :=
+   let isCstOp (a : Expr) := isNatAddCst a || isNatPowCst a
+   if let some (op1, op2) := natMul? e then
+     match isNatValue? op1 with
+     | some n => n != 0 && isCstOp op2
+     | _ => isCstOp op1 && isCstOp op2
+   else false
 
 /-- Return `true` only when one of the following conditions is satisfied:
       - e := N ∧ N < 0

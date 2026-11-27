@@ -243,6 +243,7 @@ structure CommonExpr where
   natMod : Expr
   natMul : Expr
   natPow : Expr
+  natLog2 : Expr
   natSub : Expr
   natType : Expr
   notFalse : Expr
@@ -432,6 +433,7 @@ private def mkCommonExpr : CommonExpr :=
   , natMod := mkConst ``Nat.mod
   , natMul := mkConst ``Nat.mul
   , natPow := mkConst ``Nat.pow
+  , natLog2 := mkConst ``Nat.log2
   , natSub := mkConst ``Nat.sub
   , natType
   , notFalse := mkConst ``not_false
@@ -618,6 +620,7 @@ instance : Inhabited OptimizeEnv where
      , memCache.commonExpr.natMod
      , memCache.commonExpr.natMul
      , memCache.commonExpr.natPow
+     , memCache.commonExpr.natLog2
      , memCache.commonExpr.natSub
      , memCache.commonExpr.natType
      , memCache.commonExpr.notFalse

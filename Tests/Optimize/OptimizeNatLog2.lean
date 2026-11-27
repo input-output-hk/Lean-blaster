@@ -1,0 +1,7 @@
+import Tests.Optimize.OptimizeNatLog2.OptimizeNatLog2Cst
+import Tests.Optimize.OptimizeNatLog2.OptimizeNatLog2Pow
+import Tests.Optimize.OptimizeNatLog2.OptimizeNatLog2Mul
+import Tests.Optimize.OptimizeNatLog2.OptimizeNatLog2MulPow
+import Tests.Optimize.OptimizeNatLog2.OptimizeNatLog2Eq
+import Tests.Optimize.OptimizeNatLog2.OptimizeNatLog2LT
+import Tests.Optimize.OptimizeNatLog2.OptimizeNatLog2PowLT

@@ -206,6 +206,10 @@ def mkNatModOp : TranslateEnvT Expr :=
 def mkNatPowOp : TranslateEnvT Expr :=
   return (← get).optEnv.memCache.commonExpr.natPow
 
+/-- Create a `Nat.log2` operator expression and cache result. -/
+def mkNatLog2Op : TranslateEnvT Expr :=
+  return (← get).optEnv.memCache.commonExpr.natLog2
+
 /-- Return cached `Nat.beq` operator -/
 def natBeq : TranslateEnvT Expr :=
   return (← get).optEnv.memCache.commonExpr.natBeq

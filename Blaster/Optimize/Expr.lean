@@ -714,6 +714,14 @@ def isNatPowExpr (e : Expr) : Bool :=
   | Expr.app (Expr.app (Expr.const ``Nat.pow _) op1) op2 => some (op1, op2)
   | _ => none
 
+/-- Determine if `e` is a `Nat.log2` expression and return its corresponding argument.
+    Otherwise return `none`.
+-/
+@[always_inline, inline] def natLog2? (e: Expr) : Option Expr :=
+  match e with
+  | Expr.app (Expr.const ``Nat.log2 _) op => some op
+  | _ => none
+
 
 /-- Return `some (f, op1, op2)` when `e` is a binary operator. Otherwise `none`. -/
 @[always_inline, inline] def binOp? (e : Expr) : Option (Expr × Expr × Expr) :=

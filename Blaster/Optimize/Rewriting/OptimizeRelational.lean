@@ -252,6 +252,82 @@ def natZeroLtSumReduce? (op1 op2 : Expr) : TranslateEnvT (Option Expr) := do
       return none
   | _ => return none
 
+/-- Given `op1` and `op2` corresponding to the operands for `LT.lt`, perform the following:
+     - When `op1 := n.log2 ∧ op2 := n`
+          - return `some ¬ (n = 0)`
+     - When `op1 := n.log2 ∧ op2 := N ∧ N ≠ 0`
+        - return `some n < "2 ^ N"`
+     - When `op1 := n.log2 ∧ (nonZeroNatInHyps n ∨ nonZeroNatInHyps op2)`
+         - return `some n < 2 ^ op2`
+     - When `op1 := n ∧ op2 := n.log2`
+          - return `some False`
+     - When `op1 := k ∧ op2 := n.log2`
+          - return `some ¬ (n < 2 ^ (1 + k))`
+
+-/
+def natLogLtReduce? (op1 op2 : Expr) : TranslateEnvT (Option Expr) := do
+  if let some n := natLog2? op1 then
+    if exprEq n op2 then
+      setRestart
+      return ← mkAppExpr (← mkPropNotOp) (← mkNatEqExpr (← mkNatLitExpr 0) n)
+    if let some x := isNatValue? op2
+    then
+      if x != 0 then
+        setRestart
+        return ← mkNatLtExpr n (← mkNatLitExpr (Nat.pow 2 x))
+    if ← nonZeroNatInHyps n <||> nonZeroNatInHyps op2 then
+      setRestart
+      return ← mkNatLtExpr n (← mkApp2Expr (← mkNatPowOp) (← mkNatLitExpr 2) op2)
+
+  if let some n := natLog2? op2 then
+    if exprEq n op1 then
+       return ← mkPropFalse
+    else
+      setRestart
+      let addExpr ← mkApp2Expr (← mkNatAddOp) (← mkNatLitExpr 1) op1
+      let powExpr ← mkApp2Expr (← mkNatPowOp) (← mkNatLitExpr 2) addExpr
+      let ltExpr ← mkNatLtExpr n powExpr
+      return ← mkAppExpr (← mkPropNotOp) ltExpr
+
+  return none
+
+/-- Given `op1` and `op2` corresponding to the operands for `LT.lt`, perform the following:
+     - When `op1 := n ∧ op2 := 2 ^ (N + n.log2) ∧ N ≠ 0`
+          - return `some True`
+     - When `op1 := n ∧ op2 := 2 ^ n.log2 ∧ nonZeroNatInHyps op1`
+         - return `some False`
+-/
+def natPowLogLtReduce? (op1 op2 : Expr) : TranslateEnvT (Option Expr) := do
+  if let some (a, b) := natPow? op2 then
+    match isNatValue? a with
+    | some 2 =>
+       if let some n := natLog2? b then
+         if exprEq n op1 then
+           if ← nonZeroNatInHyps op1 then
+             return ← mkPropFalse
+       if let some (x, y) := natAdd? b then
+         if let some nx := isNatValue? x then
+           if let some n := natLog2? y then
+             if exprEq n op1 && nx != 0 then
+               return ← mkPropTrue
+       return none
+    | _ => return none
+  else return none
+
+/-- Given `op1` and `op2` corresponding to the operands for `LT.lt`, perform the following:
+     - When `op1 := n ∧ op2 := N ^ n ∧ N ≠ 0`
+          - return `some True`
+     - Otherwise:
+          - return `none`
+    NOTE: We can extend rule afterwards to consider x ^ n and 1 < x is in HypothesisMap
+-/
+def natPowLtReduce? (op1 op2 : Expr) : TranslateEnvT (Option Expr) := do
+  if let some (a, b) := natPow? op2 then
+    if exprEq b op1 then
+      if let some n := isNatValue? a then
+        if n != 0 then return some (← mkPropTrue)
+  return none
+
 /-- Apply the following simplification/normalization rules on `LT.lt` :
      - e1 < e2 ==> False (if e1 =ₚₜᵣ e2)
      - e < 0 ==> False (if Type(e) = Nat)
@@ -284,7 +360,15 @@ def natZeroLtSumReduce? (op1 op2 : Expr) : TranslateEnvT (Option Expr) := do
      - 0 < x + y ==> True (if Type (x) ∈ Int ∧ gtZeroIntInHyps x ∧ geqZeroIntInHyps y)
      - 0 < x + y ==> False (if Type (x) = Int ∧ ltZeroIntInHyps x ∧ leqZeroIntInHyps y)
      - 0 < x + y ==> False (if Type (x) = Int ∧ leqZeroIntInHyps x ∧ ltZeroIntInHyps y)
-     - 0 < x + y ==> True (if Type (x) ∈ Nat ∧ (nonZeroNatInHyps x ∨ nonZeroNatInHyps y))
+     - 0 < x + y ==> True (if Type (x) = Nat ∧ (nonZeroNatInHyps x ∨ nonZeroNatInHyps y))
+     - n.log2 < N ==> n < 2 ^ N (if Type (n) = Nat ∧ N ≠ 0)
+     - n.log2 < n ==> ¬ (n = 0) (if Type (n) = Nat)
+     - n.log2 < k ==> n < 2 ^ k (if Type (n) = Nat ∧ (nonZeroNatInHyps n ∨ nonZeroNatInHyps k)
+     - n < n.log2 ==> False (if Type (n) = Nat)
+     - k < n.log2 ==> ¬ (n < 2 ^ (1 + k))
+     - n < 2 ^ n.log2 ===> False (if Type (n) = Nat ∧ nonZeroNatInHyps n)
+     - n < 2 ^ (N + n.log2) ===> True (if Type (n) = Nat ∧ N ≠ 0)
+     - n < N ^ n ==> True (if Type(n) = Nat ∧ N ≠ 0)
 
    The simplifications are only applied when isOpaqueRelational predicate is satisfied
    NOTE: `LT.lt` is expected to be unfolded if isOpaqueRelational predicate is not satisfied.
@@ -308,7 +392,7 @@ def optimizeLT (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
  if let some r ← intZeroLtNorm? op1 op2 then return r
  if let some r ← cstLTProp? op1 op2 then return r
  if ← predCstLTInHyp op1 op2 then return (← mkPropFalse)
- if (isOneNat op2) then return (← mkNatEqExpr (← mkNatLitExpr 0) op1)
+ if (isOneNat op2) then setRestart; return (← mkNatEqExpr (← mkNatLitExpr 0) op1)
  if let some r ← intCtorLTReduce? op1 op2 then return r
  if let some r ← intRelLeftReduce? op1 op2 then return r
  if let some r ← intRelRightReduce? op1 op2 then return r
@@ -324,6 +408,9 @@ def optimizeLT (f : Expr) (args: Array Expr) : TranslateEnvT Expr := do
  if let some r ← natLtNorm? op1 op2 then return r
  if let some r ← intZeroLtSum? op1 op2 then return r
  if let some r ← natZeroLtSumReduce? op1 op2 then return r
+ if let some r ← natLogLtReduce? op1 op2 then return r
+ if let some r ← natPowLogLtReduce? op1 op2 then return r
+ if let some r ← natPowLtReduce? op1 op2 then return r
  mkAppNExpr f args
 
  where

@@ -178,6 +178,11 @@ def intPowSymbol : SmtSymbol := mkReservedSymbol "@Int.pow"
 -/
 def natPowSymbol : SmtSymbol := mkReservedSymbol "@Nat.pow"
 
+/-! Nat log2 Smt symbol.
+    NOTE: This function is defined during translation whenever required.
+-/
+def natLog2Symbol : SmtSymbol := mkReservedSymbol "@Nat.log2"
+
 /-! Nat subtraction Smt symbol.
     NOTE: This function is defined during translation whenever required.
 -/
@@ -436,6 +441,10 @@ def natModSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
 /-! Create an Nat power Smt application. -/
 def natPowSmt (op1 : SmtTerm) (op2 : SmtTerm) : SmtTerm :=
   mkSimpleSmtAppN natPowSymbol #[op1, op2]
+
+/-! Create an Nat log2 Smt application. -/
+def natLog2Smt (op : SmtTerm) : SmtTerm :=
+  mkSimpleSmtAppN natLog2Symbol #[op]
 
 /-! Create an Integer absolute Smt application. -/
 def absSmt (op : SmtTerm) : SmtTerm :=

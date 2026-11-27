@@ -60,6 +60,7 @@ def opaqueFuns : HashSet Name :=
     ``Nat.beq,
     ``Nat.pow,
     ``Nat.le, -- defining LE.le for Nat, Nat.lt is defined with Nat.le
+    ``Nat.log2,
     ``Blaster.decide', -- decide predicate that ignores decidable instance
     ``Blaster.dite', -- dependent ite that ignores decidable instance
     -- Note: ite is normalized to Blaster.dite'
@@ -68,7 +69,6 @@ def opaqueFuns : HashSet Name :=
     ``String.replace,
     ``String.length
   ]
-
 
 /-- list of non-opaque rec operators on which normalization rules and constant propagation are applied.
 -/
