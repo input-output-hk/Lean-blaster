@@ -1,0 +1,24 @@
+name: Fix a small issue
+
+on:
+  issues:
+    types: [labeled]
+
+permissions: {}
+# No cache token from this run may save into the default branch's cache scope.
+cache-mode: none
+
+jobs:
+  fix:
+    if: ${{ !github.event.issue.pull_request && github.event.label.name == 'agent:fix' }}
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    uses: ./.github/workflows/agent-fix-run.yml
+    with:
+      issue-number: ${{ format('{0}', github.event.issue.number) }}
+      automation-ref: ${{ github.sha }}
+      model: ${{ vars.AGENT_FIX_MODEL || '' }}
+    secrets:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
