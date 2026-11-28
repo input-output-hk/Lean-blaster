@@ -51,7 +51,8 @@ partial def translateExpr (e : Expr) (topLevel := true) : TranslateEnvT SmtTerm 
 def Translate.main (e : Expr) (logUndetermined := true) : TranslateEnvT (Result × Expr) := do
   -- set start local context
   updateLocalContext (← mkLocalContext)
-  let e ← addAxioms (← toPropExpr e) (← findLocalAxioms)
+  let source ← toPropExpr e
+  let e ← addAxioms source (← findLocalAxioms)
   let optExpr ← profileTask "Optimization" $ Optimize.mainAux e (applyHashCons := false)
   trace[Translate.optExpr] "optimized expression: {← ppExpr optExpr}"
   match (toResult optExpr) with
@@ -69,6 +70,8 @@ def Translate.main (e : Expr) (logUndetermined := true) : TranslateEnvT (Result 
         logSmtQuery
         let res ← profileTask "Solve" checkSat
         if !isUndeterminedResult res || logUndetermined then logResult res
+        if (← get).optEnv.options.solverOptions.replay && isFalsifiedResult res then
+          logInfoAt (← getRef) (← replayNativeCounterexample source)
         discard $ exitSmt
         return (res, optExpr)
   | res =>

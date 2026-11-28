@@ -98,7 +98,7 @@ require «Blaster» from git
   - `only-smt-lib`: only translating unsolved goals to smt-lib without invoking the backend solver (default: 0)
   - `only-optimize`: only perform optimization on lean specification and do not translate to smt-lib (default: 0)
   - `dump-smt-lib`: display the smt lib query to stdout (default: 0)
-  - `random-seed`: seed for the random number generator (default: none)
+  - `random-seed`: seed for the random number generator (default: 1; `0` selects Z3's seed 0)
   - `gen-cex`: generate counterexample for falsified theorems (default: 1)
   - `solve-result`: specify the expected result from the #blaster command, i.e.,
                     0 for 'Valid', 1 for 'Falsified' and 2 for 'Undetermined'. (default: 0)
@@ -592,7 +592,7 @@ Z3 releases are tagged on GitHub; the tag you want is `z3-5.4.0`.
 
 ```bash
 sudo apt update
-sudo apt install -y build-essential python3 git
+sudo apt install -y build-essential cmake python3 git
 ```
 
 **1.2 Clone the 5.4.0 tag**
@@ -610,16 +610,18 @@ git describe --tags
 
 **1.3 Configure build with a safe prefix**
 
-By default, `mk_make.py` uses a prefix like `/usr`, which can clash with files installed by
-package managers (e.g., `apt`).  The Z3 README documentation recommends using
-`--prefix` to choose a custom install directory, typically `/usr/local`, as follows:
+Use CMake to install the static library required by Blaster on Linux into a
+prefix that does not conflict with the system Z3 package:
 
 ```bash
-python3 scripts/mk_make.py --prefix=/usr/local
-cd build
-make -j"$(nproc)"
-sudo make install
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=OFF
+cmake --build build -j"$(nproc)"
+sudo cmake --install build
 ```
+
+On macOS, use `-DBUILD_SHARED_LIBS=ON` because the native backend loads
+`libz3.dylib` there.
 
 This installs
 
@@ -652,11 +654,24 @@ Then reload your shell and re-run `which z3`.
 
 ### 3. Make sure Lean 4 uses the right Z3
 
-Lean just calls `z3` as an external process (via `IO.Process` or tactics that use Z3).
+The default backend uses libz3 in process. The optional
+`(backend: smtlib)` backend calls `z3` as an external process. Point Lake at
+the Z3 5.4.0 headers and libraries from the same installation:
 
-It doesn’t have its own embedded Z3. So:
+```bash
+export Z3_INC_PATH=/usr/local/include
+export Z3_LIB_PATH=/usr/local/lib
+test -f "$Z3_LIB_PATH/libz3.a"  # required on Linux
+lake build
+```
 
-**If the shell you run `lake` from sees `/usr/local/bin/z3` (5.4.0), then Lean will also use 5.4.0.**
+On Linux, install `g++` and its static runtime archives along with `libz3.a`.
+Lake links them into the native shim so Z3's internal C++ exceptions work with
+Lean's Linux runtime. The shared `libz3.so` alone is insufficient. On macOS,
+Lake uses the shared library; set `DYLD_LIBRARY_PATH` to its directory at
+runtime. Use the installation's `include` and library directories if they
+differ from `/usr/local`. For a typed counterexample and Lean-side replay, use
+`#blaster (backend: ffi) (replay: 1) [∀ (n : Nat), n = 0]`.
 
 Just to be sure, you can run the simple test we provide in this repository, as follows:
 

@@ -92,7 +92,12 @@ jobs:
             "https://github.com/Z3Prover/z3/releases/download/z3-${Z3_VERSION}/${archive}" \
             -o "$archive"
           unzip -q "$archive"
-          echo "$HOME/z3-${Z3_VERSION}-x64-glibc-${GLIBC_Z3}/bin" >> "$GITHUB_PATH"
+          z3_root="$HOME/z3-${Z3_VERSION}-x64-glibc-${GLIBC_Z3}"
+          echo "$z3_root/bin" >> "$GITHUB_PATH"
+          if [[ "${{ matrix.tool }}" == blaster ]]; then
+            echo "Z3_LIB_PATH=$z3_root/bin" >> "$GITHUB_ENV"
+            echo "Z3_INC_PATH=$z3_root/include" >> "$GITHUB_ENV"
+          fi
 
       - name: Verify selected solver version
         id: solver
