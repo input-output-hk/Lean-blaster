@@ -144,6 +144,11 @@ def checkCancelTk? : TranslateEnvT Unit := do
       discard $ p.wait
       throwInterruptException
 
+private def readResponseLine (h : IO.FS.Handle) : IO String := do
+  let line ← h.getLine
+  if line.isEmpty then throw (IO.userError "Unexpected EOF while reading SMT response")
+  return normalizeLine line
+
 /-- Retrieve model output from `h` when a counterexample is generated.
     NOTE: A model output starts with "(" and ends with ")\n".
     Line endings are normalized to handle both Unix (LF) and Windows (CRLF).
@@ -151,7 +156,7 @@ def checkCancelTk? : TranslateEnvT Unit := do
 partial def getOutputModel (h : IO.FS.Handle) (proof := false) : TranslateEnvT String := do
   let rec loop (acc : String) : TranslateEnvT String := do
     checkCancelTk?
-    let line := normalizeLine (← h.getLine)
+    let line ← readResponseLine h
     if (line == ")\n" && !proof) || (line == "\n" && proof) then
       return acc
     else loop (acc ++ line)
@@ -169,29 +174,15 @@ def getOutputProof := λ h => getOutputModel h true
 -/
 partial def getErrorMsg (h : IO.FS.Handle) : IO String := normalizeLine <$> h.getLine
 
-/-- Retrieve an `eval` output from `h` after execution `(eval t)`
-    NOTE: An eval output may either correspond to a scalar value
-    or to an inductive datatype one. In the latter case it's provided
-    within parenthesis. The number of opening and closing parenthesis
-    should tally to stop reading from `h`.
--/
-partial def getOutputEval (h : IO.FS.Handle) : IO String := do
-  let line := normalizeLine (← h.getLine)
-  if line.get! 0 != '(' then return line
-  getIndValue line (tallyParenthesis line 0)
-
- where
-  tallyParenthesis (s : String) (tally : Int) : Int :=
-   s.foldr (λ c acc =>
-              match c with
-              | '(' => acc + 1
-              | ')' => acc - 1
-              | _ => acc) tally
-  getIndValue (acc : String) (tally : Int) : IO String := do
-    if tally == 0 then return acc
-    else
-      let line := normalizeLine (← h.getLine)
-      getIndValue (acc ++ line) (tallyParenthesis line tally)
+/-- Read a solver response up to the line printed by a following `echo` command. -/
+def readResponseUntil (h : IO.FS.Handle) (marker : String) : IO String := do
+  let endLine := marker ++ "\n"
+  let mut response := ""
+  repeat
+    let line ← readResponseLine h
+    if line == endLine then break
+    response := response ++ line
+  return response
 
 /-- Push smt command `c` in the translation environment only when sOpts.dumpSmtLib is set -/
 def storeCommand (c : SmtCommand) : TranslateEnvT Unit := do
@@ -502,8 +493,12 @@ def evalTerm (t : SmtTerm) : TranslateEnvT String := do
   let env ← get
   let some p := env.smtEnv.smtProc | return ""
   checkCancelTk?
+  let nonce ← IO.getRandomBytes 16
+  let marker := "blaster-end-" ++ String.intercalate "-" (nonce.toList.map toString)
   submitCommand (.evalTerm t)
-  getOutputEval p.stdout
+  p.stdin.putStrLn s!"(echo \"{marker}\")"
+  p.stdin.flush
+  readResponseUntil p.stdout marker
 
 /-- Try to retrieve the model when a `sat` result is obtained and dump result to stdout.
     Do nothing when:
